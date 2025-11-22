@@ -72573,70 +72573,70 @@ def main(stage_num, new_boss_mode=False):
                 power_smashing_direction = 0   # 직선
                 # 직선이므로 포물선 효과 없음
                 power_smashing_arc_strength = 0.0
-                    smasher_pending_contact_offset = BALL.centerx - PLAYER.centerx
-                    # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
-                    if not mega_smashing_active:
-                        special_active = True
-                    special_ready = False
-                    special_gauge = max(0, special_gauge - 350)
-                    # 고스트샷 보너스: +50 게이지
+                smasher_pending_contact_offset = BALL.centerx - PLAYER.centerx
+                # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
+                if not mega_smashing_active:
+                    special_active = True
+                special_ready = False
+                special_gauge = max(0, special_gauge - 350)
+                # 고스트샷 보너스: +50 게이지
+                if mega_smashing_active:
+                    special_gauge += _apply_blacksmith_berserk_gauge_bonus(50)
+                    current_max = get_max_gauge()
+                    if special_gauge > current_max:
+                        special_gauge = current_max  # 파워스매시 게이지 소모: 350
+                #  파워스매싱 발동 효과음 재생
+                play_sound_with_volume(SOUND_POWER_SMASH)
+                print("!")
+                #  파워스매싱 성공 기록
+                record_skill_usage(success=True)
+                #  고스트샷일 때는 파워스매싱 정지 시간 사용하지 않음
+                if not mega_smashing_active:
+                    # 파워스매싱 정지 시간 시작
+                    power_smashing_freeze_start_time = pygame.time.get_ticks()
+                    power_smashing_freeze_active = True
+                    print(f"    ! (1)")
+                    print(f"[DEBUG] 파워스매싱 프리즈 활성화!")
+                    print(f"  - 상모돌리기 활성 상태: {whip_active}")
+                    print(f"  - 현재 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
+                else:
+                    # 고스트샷은 정지 없이 바로 시작
+                    power_smashing_freeze_active = False
+                    power_smashing_parabola_active = False  # 고스트샷은 파워스매싱 포물선 사용 안함
+                    power_smashing_start_time = pygame.time.get_ticks()  # 고스트샷 시작 시간 설정
+                    print(f"     !")
+                #  파워스매싱 발동 시 강제 충돌 처리 (범위 차이 문제 해결)
+                # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
+                power_player_rect = PLAYER.copy()
+                if acceleration_active and acceleration_height_bonus > 0:
+                    power_player_rect.inflate_ip(0, acceleration_height_bonus)
+                
+                if not BALL.colliderect(power_player_rect) and ball_to_paddle_distance <= 30 and ball_vel[1] > 0:
+                    # 공을 패들 근처로 강제 이동시켜 충돌 발생시키기
+                    BALL.centery = PLAYER.top - BALL_RADIUS
+                    print(f"    !   : Y={BALL.centery}")
+                    # 강제 충돌 처리 실행
+                    drive_activated = calculate_bounce(PLAYER)
+                    # 기존 play_paddle_sound() 제거 - 파워스매싱 전용 효과음 사용
+                    # 메가드라이브일 때는 공을 위로 보내도록 y 속도를 음수로 설정
                     if mega_smashing_active:
-                        special_gauge += _apply_blacksmith_berserk_gauge_bonus(50)
-                        current_max = get_max_gauge()
-                        if special_gauge > current_max:
-                            special_gauge = current_max  # 파워스매시 게이지 소모: 350
-                    #  파워스매싱 발동 효과음 재생
-                    play_sound_with_volume(SOUND_POWER_SMASH)
-                    print("!")
-                    #  파워스매싱 성공 기록
-                    record_skill_usage(success=True)
-                    #  고스트샷일 때는 파워스매싱 정지 시간 사용하지 않음
-                    if not mega_smashing_active:
-                        # 파워스매싱 정지 시간 시작
-                        power_smashing_freeze_start_time = pygame.time.get_ticks()
-                        power_smashing_freeze_active = True
-                        print(f"    ! (1)")
-                        print(f"[DEBUG] 파워스매싱 프리즈 활성화!")
-                        print(f"  - 상모돌리기 활성 상태: {whip_active}")
-                        print(f"  - 현재 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
-                    else:
-                        # 고스트샷은 정지 없이 바로 시작
-                        power_smashing_freeze_active = False
-                        power_smashing_parabola_active = False  # 고스트샷은 파워스매싱 포물선 사용 안함
-                        power_smashing_start_time = pygame.time.get_ticks()  # 고스트샷 시작 시간 설정
-                        print(f"     !")
-                    #  파워스매싱 발동 시 강제 충돌 처리 (범위 차이 문제 해결)
-                    # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
-                    power_player_rect = PLAYER.copy()
-                    if acceleration_active and acceleration_height_bonus > 0:
-                        power_player_rect.inflate_ip(0, acceleration_height_bonus)
-                    
-                    if not BALL.colliderect(power_player_rect) and ball_to_paddle_distance <= 30 and ball_vel[1] > 0:
-                        # 공을 패들 근처로 강제 이동시켜 충돌 발생시키기
-                        BALL.centery = PLAYER.top - BALL_RADIUS
-                        print(f"    !   : Y={BALL.centery}")
-                        # 강제 충돌 처리 실행
-                        drive_activated = calculate_bounce(PLAYER)
-                        # 기존 play_paddle_sound() 제거 - 파워스매싱 전용 효과음 사용
-                        # 메가드라이브일 때는 공을 위로 보내도록 y 속도를 음수로 설정
-                        if mega_smashing_active:
-                            ball_vel[1] = -abs(ball_vel[1])  # 공을 위로(보스 방향으로) 보냄
-                            print(f"  -    : Y={ball_vel[1]}")
-                        # 타격 이펙트 생성
-                        create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
-                        # 충돌 애니메이션
-                        if not (
-                            selected_character_type == "blacksmith"
-                            and blacksmith_umbrella_open
-                            and not blacksmith_umbrella_retracting
-                        ):
-                            hit_animation_active = True
-                            hit_animation_timer = HIT_ANIMATION_DURATION
-                    if not power_smashing_freeze_active and smasher_pending_contact_offset is not None:
-                        trigger_smasher_contact_animation(smasher_pending_contact_offset)
-                    perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
-                    drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
-                    perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
+                        ball_vel[1] = -abs(ball_vel[1])  # 공을 위로(보스 방향으로) 보냄
+                        print(f"  -    : Y={ball_vel[1]}")
+                    # 타격 이펙트 생성
+                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
+                    # 충돌 애니메이션
+                    if not (
+                        selected_character_type == "blacksmith"
+                        and blacksmith_umbrella_open
+                        and not blacksmith_umbrella_retracting
+                    ):
+                        hit_animation_active = True
+                        hit_animation_timer = HIT_ANIMATION_DURATION
+                if not power_smashing_freeze_active and smasher_pending_contact_offset is not None:
+                    trigger_smasher_contact_animation(smasher_pending_contact_offset)
+                perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
+                drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
+                perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
                     #  파워스매싱 - 속도 대폭 증가
                     ball_current_speed = math.hypot(ball_vel[0], ball_vel[1])
                     power_smashing_original_speed = ball_current_speed  #  원래 속도 저장 (보스 반격 시 감속용)
