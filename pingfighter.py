@@ -29861,18 +29861,8 @@ def handle_player(keys):
         # 하프대쉬 성공 체크
         if recent_half_dash_time > 0 and (current_time - recent_half_dash_time) <= recent_dash_success_window:
             is_dash_success = True
-            
-            # 킥차져 효과 체크 - 하프대쉬로 공을 맞췄을 때 이펙트만 트리거 (충전은 별도 처리)
-            try:
-                from item_effects.knee_pads import get_knee_pads_instance
-                knee_pads = get_knee_pads_instance()
-                if knee_pads and knee_pads.active:
-                    # 이펙트 트리거만 호출 (실제 충전은 아래 다른 곳에서 처리됨)
-                    ball_center = (ball_x, ball_y)
-                    knee_pads.on_half_dash_hit(ball_center)
-                    print(f"킥차져 이펙트 트리거 (충전은 line 27899에서 처리)")
-            except Exception as e:
-                print(f"킥차져 효과 처리 중 오류: {e}")
+            # 킥차져 시각 이펙트/게이지 충전은 handle_ball() 내의
+            # 하프대쉬 충돌 처리 블록에서만 수행한다.
         
         if is_dash_success:
             # 대쉬 후 성공적으로 공을 쳤으므로 성공으로 업데이트
