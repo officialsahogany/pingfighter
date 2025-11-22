@@ -128,6 +128,11 @@ class FontStyle:
     def gauge():
         """게이지용 폰트 (16pt)"""
         return get_font(16, style="regular")
+
+    @staticmethod
+    def body_small():
+        """본문 소형 폰트 (16pt, UI 라벨용)"""
+        return get_font(16, style="regular")
     
     @staticmethod
     def item_name():
