@@ -2069,6 +2069,7 @@ SOUND_BIRDKILL = sound_effects['BIRDKILL']
 SOUND_THROW = sound_effects['THROW']
 SOUND_SHURIKEN_SHOOT = sound_effects['SHURIKEN_SHOOT']
 SOUND_SHURIKEN_HIT = sound_effects['SHURIKEN_HIT']
+SOUND_NINJA_CLOUD = sound_effects['NINJA_CLOUD']
 SOUND_NINJA_SHIELD = sound_effects['NINJA_SHIELD']
 SOUND_DIVINE_SHIELD = sound_effects['DIVINE_SHIELD']
 SOUND_DIVINE_UPGRADE = sound_effects['DIVINE_UPGRADE']
@@ -37524,6 +37525,10 @@ def update_stage8_cloud(now: int | None = None) -> None:
                 if progress >= 1.0:
                     # 구름 터뜨림
                     stage8_cloud_spawn_pos = (BOSS.centerx, BOSS.centery)
+                    try:
+                        play_sound_with_volume(SOUND_NINJA_CLOUD)
+                    except Exception:
+                        pass
                     _finish_stage8_cloud(now)
                     stage8_cloud_dash_phase = "up"
                     stage8_cloud_dash_start_ms = now
