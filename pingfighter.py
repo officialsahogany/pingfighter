@@ -36574,12 +36574,160 @@ def reset_stage8_wind_effects() -> None:
     global stage8_wind_aura_active, stage8_wind_aura_particles
     global stage8_wind_burst_active, stage8_wind_burst_particles
     global stage8_afterimage_ghosts
+    global stage8_wind_aura_hit_count, stage8_wind_aura_depleted
+    global stage8_wind_aura_recharge_start_ms, stage8_wind_aura_ripple_active
+    global stage8_wind_aura_hit_cooldown_ms
 
     stage8_wind_aura_active = False
     stage8_wind_aura_particles = []
     stage8_wind_burst_active = False
     stage8_wind_burst_particles = []
     stage8_afterimage_ghosts = []
+    stage8_wind_aura_hit_count = 0
+    stage8_wind_aura_depleted = False
+    stage8_wind_aura_recharge_start_ms = 0
+    stage8_wind_aura_ripple_active = False
+    stage8_wind_aura_hit_cooldown_ms = 0
+
+
+def check_wind_aura_ball_collision(ball_rect: pygame.Rect) -> bool:
+    """공과 바람 오오라의 충돌 감지 및 처리.
+
+    Returns:
+        bool: 충돌이 발생하고 공이 튕겨나가야 하면 True
+    """
+    global stage8_wind_aura_hit_count, stage8_wind_aura_depleted
+    global stage8_wind_aura_ripple_active, stage8_wind_aura_ripple_start_ms
+    global stage8_wind_aura_hit_cooldown_ms, stage8_wind_aura_active
+    global stage8_wind_aura_recharge_start_ms
+
+    # 바람 오오라가 비활성이거나 소진된 상태면 처리하지 않음
+    if not stage8_wind_aura_active or stage8_wind_aura_depleted:
+        return False
+
+    # 초각성 상태가 아니면 처리하지 않음
+    if not stage8_awakened:
+        return False
+
+    now_ms = pygame.time.get_ticks()
+
+    # 쿨다운 중이면 충돌 무시 (연속 타격 방지)
+    if now_ms < stage8_wind_aura_hit_cooldown_ms:
+        return False
+
+    # 보스 중심과 공 중심 사이의 거리 계산
+    boss_cx = BOSS.centerx
+    boss_cy = BOSS.centery
+    ball_cx = ball_rect.centerx
+    ball_cy = ball_rect.centery
+
+    dist = math.sqrt((ball_cx - boss_cx) ** 2 + (ball_cy - boss_cy) ** 2)
+
+    # 바람 오오라 범위 내에 공이 있는지 확인
+    if dist <= STAGE8_WIND_AURA_RADIUS:
+        # 타격 카운트 증가
+        stage8_wind_aura_hit_count += 1
+
+        # 출렁임 애니메이션 시작
+        stage8_wind_aura_ripple_active = True
+        stage8_wind_aura_ripple_start_ms = now_ms
+
+        # 쿨다운 설정 (0.3초)
+        stage8_wind_aura_hit_cooldown_ms = now_ms + 300
+
+        # 5회 타격 시 오오라 소진
+        if stage8_wind_aura_hit_count >= stage8_wind_aura_max_hits:
+            stage8_wind_aura_depleted = True
+            stage8_wind_aura_recharge_start_ms = now_ms
+            # 소진 시 파티클 효과 (흩어지는 효과)
+            _create_wind_aura_disperse_effect()
+
+        return True
+
+    return False
+
+
+def _create_wind_aura_disperse_effect() -> None:
+    """바람 오오라가 소진될 때 흩어지는 이펙트 생성."""
+    global stage8_wind_burst_particles, stage8_wind_burst_active, stage8_wind_burst_start_ms
+
+    stage8_wind_burst_active = True
+    stage8_wind_burst_start_ms = pygame.time.get_ticks()
+    stage8_wind_burst_particles = []
+
+    boss_cx = BOSS.centerx
+    boss_cy = BOSS.centery
+
+    # 흩어지는 파티클 생성 (소진 효과)
+    for i in range(32):
+        angle = random.uniform(0, math.tau)
+        speed = random.uniform(5, 15)
+        size = random.randint(2, 6)
+        color_choice = random.choice([
+            (100, 220, 255),
+            (150, 255, 200),
+            (200, 240, 255),
+        ])
+        stage8_wind_burst_particles.append({
+            "x": boss_cx + math.cos(angle) * random.uniform(30, STAGE8_WIND_AURA_RADIUS),
+            "y": boss_cy + math.sin(angle) * random.uniform(30, STAGE8_WIND_AURA_RADIUS),
+            "vx": math.cos(angle) * speed,
+            "vy": math.sin(angle) * speed,
+            "alpha": 180,
+            "size": size,
+            "color": color_choice,
+            "rotation": random.uniform(0, 360),
+            "rot_speed": random.uniform(-10, 10),
+        })
+
+
+def update_wind_aura_recharge() -> None:
+    """바람 오오라 재충전 로직 업데이트."""
+    global stage8_wind_aura_depleted, stage8_wind_aura_hit_count
+    global stage8_wind_aura_active, stage8_wind_aura_recharge_start_ms
+    global stage8_wind_aura_ripple_active
+
+    if not stage8_wind_aura_depleted:
+        return
+
+    now_ms = pygame.time.get_ticks()
+
+    # 10초 후 재충전 완료
+    if now_ms >= stage8_wind_aura_recharge_start_ms + STAGE8_WIND_AURA_RECHARGE_MS:
+        stage8_wind_aura_depleted = False
+        stage8_wind_aura_hit_count = 0
+        stage8_wind_aura_ripple_active = False
+        # 파티클 재초기화
+        _init_stage8_wind_aura_particles()
+
+
+def get_wind_aura_strength() -> float:
+    """현재 바람 오오라 강도 (0.0 ~ 1.0).
+
+    타격 횟수에 따라 점점 약해짐.
+    """
+    if stage8_wind_aura_depleted:
+        return 0.0
+
+    # 5회 중 남은 횟수에 비례
+    remaining = stage8_wind_aura_max_hits - stage8_wind_aura_hit_count
+    return remaining / stage8_wind_aura_max_hits
+
+
+def get_wind_aura_ripple_intensity() -> float:
+    """출렁임 애니메이션 강도 (0.0 ~ 1.0)."""
+    if not stage8_wind_aura_ripple_active:
+        return 0.0
+
+    now_ms = pygame.time.get_ticks()
+    elapsed = now_ms - stage8_wind_aura_ripple_start_ms
+
+    if elapsed >= STAGE8_WIND_AURA_RIPPLE_DURATION_MS:
+        return 0.0
+
+    # 빠르게 시작해서 서서히 감소
+    progress = elapsed / STAGE8_WIND_AURA_RIPPLE_DURATION_MS
+    return math.sin(progress * math.pi) * (1 - progress * 0.5)
 
 
 def spawn_stage8_afterimage_ghosts() -> None:
