@@ -36377,13 +36377,15 @@ def _try_stage8_stun_escape(now: int) -> bool:
 
 
 def _start_stage8_stun_escape(now: int) -> None:
-    """스턴 해제용 잔영 탈출 시작 (0.5초 측면 대시)."""
+    """스턴 해제용 잔영 탈출 시작 (0.5초 측면 대시) - 5개 잔상이 겹치며 빠져나옴."""
     global stage8_stun_escape_active, stage8_stun_escape_start_ms, stage8_stun_escape_start_x
     global stage8_stun_escape_target_x, stage8_stun_escape_ready_ms, stage8_stun_escape_attempted
     global stage8_stun_escape_dx, boss_stunned_timer, boss_knockback_vel, boss_special_gauge
     global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
+    global stage8_stun_escape_ghosts
 
     start_x = BOSS.centerx
+    start_y = BOSS.centery
     # 기본적으로 공이 있는 반대 방향으로 빠지기
     dir_sign = -1 if BALL.centerx >= start_x else 1
 
@@ -36418,6 +36420,34 @@ def _start_stage8_stun_escape(now: int) -> None:
     boss_stunned_timer = 0
     boss_knockback_vel = 0
     boss_special_gauge = max(0, boss_special_gauge - STAGE8_STUN_ESCAPE_COST)
+
+    # 5개의 겹치는 잔상 생성 - 각각 다른 딜레이로 천천히 빠져나옴
+    stage8_stun_escape_ghosts = []
+    try:
+        ghost_img = pygame.transform.scale(BOSS_IMG_STAGE8, (BOSS.width, BOSS.height))
+    except Exception:
+        ghost_img = None
+
+    if ghost_img is not None:
+        num_ghosts = 5
+        for i in range(num_ghosts):
+            # 각 잔상은 시간차를 두고 출발 (0ms, 60ms, 120ms, 180ms, 240ms)
+            delay_ms = i * 60
+            # 투명도: 뒤에 있는 잔상일수록 더 투명 (255, 200, 160, 120, 80)
+            alpha = 255 - i * 40
+            stage8_stun_escape_ghosts.append({
+                "start_x": start_x,
+                "start_y": start_y,
+                "x": start_x,
+                "y": start_y,
+                "alpha": alpha,
+                "base_alpha": alpha,
+                "delay_ms": delay_ms,
+                "image": ghost_img.copy(),
+                "started": False,  # 아직 이동 시작 안함
+                "finished": False  # 이동 완료 여부
+            })
+
     try:
         show_speech("영체탈주!", duration=60)
     except Exception:
