@@ -36428,6 +36428,7 @@ def _end_stage8_superspeed() -> None:
     global stage8_superspeed_cooldown_end_ms
     global boss_dash_cooldown_until_ms
     stage8_superspeed_active = False
+    stage8_superspeed_cooldown_end_ms = pygame.time.get_ticks() + STAGE8_SUPERSPEED_COOLDOWN_MS
     stage8_superspeed_end_ms = 0
     stage8_superspeed_text_end_ms = 0
     stage8_superspeed_freeze_end_ms = 0
