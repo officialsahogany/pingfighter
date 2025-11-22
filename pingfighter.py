@@ -37928,6 +37928,16 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     smoke_width = int(cloud_w * 0.85)
     smoke_height = int(cloud_h * 0.65)
 
+    # 먼저 중앙 영역을 완전히 채우는 불투명 배경 (보스 패들 완전 가림)
+    fill_color = (45, 38, 70)  # 기본 연막 배경색
+    ellipse_rect = pygame.Rect(
+        center_x - smoke_width // 2,
+        center_y - smoke_height // 2,
+        smoke_width,
+        smoke_height
+    )
+    pygame.draw.ellipse(cloud_surface, fill_color, ellipse_rect)
+
     # 배경 안개 레이어들 (소용돌이치며 떠다님)
     cloud_seed = int(stage8_cloud_start_ms) % 10000
     random.seed(cloud_seed)
@@ -37975,7 +37985,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                     puff_color = base_color  # 투명도 없음
                     pygame.draw.circle(cloud_surface, puff_color, (int(puff_x), int(puff_y)), puff_size)
 
-    # 신비로운 빛 입자들 (차크라 느낌)
+    # 신비로운 빛 입자들 (차크라 느낌) - 완전 불투명
     num_sparkles = 25
     for i in range(num_sparkles):
         sparkle_angle = (i / num_sparkles) * math.pi * 2 + time_offset * 0.8
@@ -37986,13 +37996,12 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
         # 반짝임 효과 (깜빡임)
         sparkle_pulse = 0.5 + 0.5 * math.sin(time_offset * 3 + i * 0.5)
         sparkle_size = int(3 + sparkle_pulse * 4)
-        sparkle_alpha = int(100 + sparkle_pulse * 100)
 
-        # 보라색/청색 빛
-        sparkle_color = (180, 140, 255, sparkle_alpha)
+        # 보라색/청색 빛 - 완전 불투명
+        sparkle_color = (180, 140, 255)
         pygame.draw.circle(cloud_surface, sparkle_color, (int(sparkle_x), int(sparkle_y)), sparkle_size)
-        # 글로우
-        glow_color = (150, 100, 220, int(sparkle_alpha * 0.3))
+        # 글로우 - 완전 불투명
+        glow_color = (150, 100, 220)
         pygame.draw.circle(cloud_surface, glow_color, (int(sparkle_x), int(sparkle_y)), sparkle_size + 4)
 
     # 떠다니는 연막 덩어리들 (좌우 드리프트)
@@ -38019,15 +38028,14 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
         float_x = base_x + drift_x + sway_x * 0.8
         float_y = base_y + float_y_offset + sway_y * 0.6
 
-        # 뭉글뭉글 연막 덩어리
+        # 뭉글뭉글 연막 덩어리 - 완전 불투명
         base_color = smoke_colors[int(phase) % len(smoke_colors)]
-        main_alpha = 140
-        main_color = (base_color[0], base_color[1], base_color[2], main_alpha)
+        main_color = base_color  # 투명도 없음
 
         # 중앙 원
         pygame.draw.circle(cloud_surface, main_color, (int(float_x), int(float_y)), size)
 
-        # 뭉글뭉글 봉우리들
+        # 뭉글뭉글 봉우리들 - 완전 불투명
         puff_configs = [
             (-size * 0.5, -size * 0.4, size * 0.75),
             (size * 0.45, -size * 0.35, size * 0.7),
@@ -38036,12 +38044,11 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
             (0, -size * 0.55, size * 0.8),
         ]
         for pox, poy, pr in puff_configs:
-            puff_alpha = int(main_alpha * 0.7)
-            puff_color = (base_color[0], base_color[1], base_color[2], puff_alpha)
+            puff_color = base_color  # 투명도 없음
             pygame.draw.circle(cloud_surface, puff_color, (int(float_x + pox), int(float_y + poy)), int(pr))
 
-        # 하이라이트 (위쪽에 밝은 부분)
-        highlight_color = (min(255, base_color[0] + 40), min(255, base_color[1] + 35), min(255, base_color[2] + 50), 80)
+        # 하이라이트 (위쪽에 밝은 부분) - 완전 불투명
+        highlight_color = (min(255, base_color[0] + 40), min(255, base_color[1] + 35), min(255, base_color[2] + 50))
         pygame.draw.circle(cloud_surface, highlight_color, (int(float_x), int(float_y - size * 0.3)), int(size * 0.4))
 
     random.seed()
