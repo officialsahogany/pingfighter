@@ -68010,6 +68010,7 @@ def handle_boss():
     global stage8_stun_escape_active, stage8_stun_escape_ready_ms, stage8_stun_escape_attempted
     global stage8_stun_escape_start_ms, stage8_stun_escape_start_x, stage8_stun_escape_target_x, stage8_stun_escape_dx
     global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
+    global stage8_stun_escape_ghosts
 
     now_ms = pygame.time.get_ticks()
 
@@ -68019,6 +68020,7 @@ def handle_boss():
         stage8_stun_escape_ready_ms = 0
         stage8_stun_escape_attempted = False
         stage8_stun_escape_dx = 0.0
+        stage8_stun_escape_ghosts = []
         stage8_stun_hologram_active = False
         stage8_stun_hologram_rect = None
         stage8_stun_hologram_end_ms = 0
