@@ -300,6 +300,7 @@ def start_gacha_spin(auto_started=False):
     gacha_spinning = auto_started
     play_gacha_start_sound()
 
+
 def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
     """사이버펑크 홀로그램 뽑기통"""
     # 뽑기통 위치 계산
