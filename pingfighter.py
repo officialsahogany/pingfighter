@@ -38002,8 +38002,8 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
             px = center_x + math.cos(particle_angle) * particle_dist + wobble_x + sway_x
             py = center_y + math.sin(particle_angle) * particle_dist * 0.5 + wobble_y + sway_y
 
-            # 뭉글뭉글 파티클
-            base_size = 22 + random.randint(0, 30)
+            # 뭉글뭉글 파티클 (15% 증가)
+            base_size = 25 + random.randint(0, 35)
             particle_size = int(base_size * (1.15 - layer * 0.05))
 
             if particle_size > 5:
@@ -38031,7 +38031,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
         # 반짝임 효과 (깜빡임)
         sparkle_pulse = 0.5 + 0.5 * math.sin(time_offset * 3 + i * 0.5)
-        sparkle_size = int(3 + sparkle_pulse * 4)
+        sparkle_size = int(3 + sparkle_pulse * 5)  # 15% 증가
         sparkle_alpha = int(100 + sparkle_pulse * 100)
 
         # 보라색/청색 빛
@@ -38039,7 +38039,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
         pygame.draw.circle(cloud_surface, sparkle_color, (int(sparkle_x), int(sparkle_y)), sparkle_size)
         # 글로우
         glow_color = (150, 100, 220, int(sparkle_alpha * 0.3))
-        pygame.draw.circle(cloud_surface, glow_color, (int(sparkle_x), int(sparkle_y)), sparkle_size + 4)
+        pygame.draw.circle(cloud_surface, glow_color, (int(sparkle_x), int(sparkle_y)), sparkle_size + 5)  # 15% 증가
 
     # 떠다니는 연막 덩어리들 (좌우 드리프트)
     floating_smokes = [
@@ -61513,13 +61513,13 @@ def calculate_bounce(paddle):
             print(f"   : {original_speed:.2f} → {speed:.2f} (: {drive_speed_increase:.2f})")
             #  패들 위치에 따른 드라이브 각도 조정 (균형잡힌 각도)
             if perfect_direction == -1:  # 왼쪽 드라이브
-                # 위(0,-1) 벡터를 반시계방향으로 돌려 좌측(-X)으로 보냄
-                base_angle = math.pi / 8.0  # +22.5도 (CCW → 좌측)
+                # 위(0,-1) 벡터를 시계방향으로 돌려 좌측(-X)으로 보냄
+                base_angle = -math.pi / 8.0  # -22.5도
                 position_factor = rel_x * 0.3  # 위치에 따른 조정 (-0.3 ~ +0.3)
                 angle = base_angle + position_factor
             else:  # 오른쪽 드라이브
-                # 위(0,-1) 벡터를 시계방향으로 돌려 우측(+X)으로 보냄
-                base_angle = -math.pi / 8.0   # -22.5도 (CW → 우측)
+                # 위(0,-1) 벡터를 반시계방향으로 돌려 우측(+X)으로 보냄
+                base_angle = math.pi / 8.0   # +22.5도
                 position_factor = rel_x * 0.3  # 위치에 따른 조정 (-0.3 ~ +0.3)
                 angle = base_angle + position_factor
             _drive_dbg(f"drive vector dir={perfect_direction} angle={angle:.3f} base={base_angle:.3f} "
