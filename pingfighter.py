@@ -2075,6 +2075,7 @@ SOUND_STAGE1_DOOR = sound_effects['STAGE1_DOOR']
 SOUND_STAGE1_MACHINE = sound_effects['STAGE1_MACHINE']
 SOUND_BIRDKILL = sound_effects['BIRDKILL']
 SOUND_THROW = sound_effects['THROW']
+SOUND_SHURIKEN_SHOOT = sound_effects['SHURIKEN_SHOOT']
 SOUND_ITEM_GET = sound_effects['ITEM_GET']
 SOUND_NOTIFICATION = sound_effects['NOTIFICATION']
 SOUND_HONGRYUN_CHARGE = sound_effects['HONGRYUN_CHARGE']
@@ -36949,6 +36950,10 @@ def _spawn_stage8_shuriken(now: int) -> None:
     stage8_shurikens.append(
         {"rect": rect, "vx": vx, "vy": vy, "spawn_ms": now}
     )
+    try:
+        play_sound_with_volume(SOUND_SHURIKEN_SHOOT)
+    except Exception:
+        pass
     stage8_shuriken_casting = False
     stage8_shuriken_next_ready_ms = now + random.randint(
         STAGE8_SHURIKEN_MIN_COOLDOWN_MS, STAGE8_SHURIKEN_MAX_COOLDOWN_MS
