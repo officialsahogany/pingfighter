@@ -14845,6 +14845,7 @@ stage8_shadow_freeze_posx: int = 0
 stage8_shadow_freeze_posy: int = 0
 stage8_shadow_anchor_x: int = 0
 stage8_shadow_anchor_y: int = 0
+stage8_awakened: bool = False  # 초각성 상태 (플레이어 점수 3점 이상)
 STAGE8_SHADOW_CAST_MS = 500
 STAGE8_SHADOW_DURATION_MS = 10000
 STAGE8_SHADOW_EMERGE_MS = 600
@@ -36270,12 +36271,14 @@ def draw_stage8_boss_gauge_bar():
 
 
 def _spawn_stage8_shadows(now: int) -> None:
-    """탁닌자 그림자분신 2개 생성."""
-    global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms
+    """탁닌자 그림자분신 생성 (일반 2개, 초각성 시 4개)."""
+    global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms, stage8_awakened
     base_x = stage8_shadow_freeze_posx or BOSS.centerx
     base_y = (stage8_shadow_freeze_posy or BOSS.centery) + STAGE8_SHADOW_Y_OFFSET
     stage8_shadow_clones = []
-    for direction in (-1, 1):
+    offsets = [-120, -60, 60, 120] if stage8_awakened else [-90, 90]
+    for offset in offsets:
+        direction = -1 if offset < 0 else 1
         # 실제 보스8 이미지 크기와 동일하게 설정
         rect = pygame.Rect(0, 0, BOSS_IMG_STAGE8_WIDTH, BOSS_IMG_STAGE8_HEIGHT)
         rect.center = (base_x, base_y)
@@ -36286,7 +36289,7 @@ def _spawn_stage8_shadows(now: int) -> None:
                 "base_x": base_x,
                 "base_y": base_y,
                 "direction": direction,
-                "offset_x": direction * 90,
+                "offset_x": offset,
                 "offset_y": 0,
                 "vx": random.uniform(7.5, 12.0) * direction,
                 "vy": 0.0,
