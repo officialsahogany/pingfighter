@@ -2077,6 +2077,7 @@ SOUND_BIRDKILL = sound_effects['BIRDKILL']
 SOUND_THROW = sound_effects['THROW']
 SOUND_SHURIKEN_SHOOT = sound_effects['SHURIKEN_SHOOT']
 SOUND_SHURIKEN_HIT = sound_effects['SHURIKEN_HIT']
+SOUND_NINJA_SHIELD = sound_effects['NINJA_SHIELD']
 SOUND_ITEM_GET = sound_effects['ITEM_GET']
 SOUND_NOTIFICATION = sound_effects['NOTIFICATION']
 SOUND_HONGRYUN_CHARGE = sound_effects['HONGRYUN_CHARGE']
@@ -36682,6 +36683,12 @@ def check_wind_aura_ball_collision(ball_rect: pygame.Rect) -> bool:
         # 출렁임 애니메이션 시작
         stage8_wind_aura_ripple_active = True
         stage8_wind_aura_ripple_start_ms = now_ms
+
+        # 오오라가 공을 막을 때 사운드 재생
+        try:
+            play_sound_with_volume(SOUND_NINJA_SHIELD)
+        except Exception:
+            pass
 
         # 쿨다운 설정 (0.3초)
         stage8_wind_aura_hit_cooldown_ms = now_ms + 300
