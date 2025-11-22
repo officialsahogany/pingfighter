@@ -37037,6 +37037,77 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                                cloud_width, cloud_height, cloud_fill, cloud_outline, outline_width,
                                sway=(sway_x, sway_y))
 
+    # 떠다니는 작은 구름들 추가
+    def draw_small_floating_cloud(surf, cx, cy, size, fill_color, outline_color, outline_w):
+        """작은 떠다니는 일본식 구름"""
+        width = int(size * 1.5)
+        height = int(size * 0.8)
+        cloud_rect = pygame.Rect(int(cx - width//2), int(cy - height//2), width, height)
+
+        # 본체
+        pygame.draw.ellipse(surf, fill_color, cloud_rect)
+
+        # 작은 컬 (좌우 1개씩)
+        curl_size = height * 0.5
+        # 왼쪽 컬
+        left_curl_x, left_curl_y = cx - width * 0.4, cy
+        points_left = []
+        for i in range(15):
+            t = i / 14
+            angle = math.pi * 0.5 + t * math.pi * 1.5
+            radius = curl_size * (1 - t * 0.6)
+            px = left_curl_x + math.cos(angle) * radius * 0.5
+            py = left_curl_y + math.sin(angle) * radius * 0.4
+            points_left.append((int(px), int(py)))
+        if len(points_left) > 2:
+            fill_pts = points_left + [(int(left_curl_x), int(left_curl_y))]
+            pygame.draw.polygon(surf, fill_color, fill_pts)
+
+        # 오른쪽 컬
+        right_curl_x, right_curl_y = cx + width * 0.4, cy
+        points_right = []
+        for i in range(15):
+            t = i / 14
+            angle = math.pi * 1.5 + t * math.pi * 1.5
+            radius = curl_size * (1 - t * 0.6)
+            px = right_curl_x + math.cos(angle) * radius * 0.5
+            py = right_curl_y + math.sin(angle) * radius * 0.4
+            points_right.append((int(px), int(py)))
+        if len(points_right) > 2:
+            fill_pts = points_right + [(int(right_curl_x), int(right_curl_y))]
+            pygame.draw.polygon(surf, fill_color, fill_pts)
+
+        # 내부 채우기 (불투명)
+        inner_rect = pygame.Rect(int(cx - width * 0.35), int(cy - height * 0.3),
+                                int(width * 0.7), int(height * 0.6))
+        pygame.draw.ellipse(surf, fill_color, inner_rect)
+
+        # 테두리
+        pygame.draw.ellipse(surf, outline_color, cloud_rect, outline_w)
+        if len(points_left) > 1:
+            pygame.draw.lines(surf, outline_color, False, points_left, outline_w)
+        if len(points_right) > 1:
+            pygame.draw.lines(surf, outline_color, False, points_right, outline_w)
+
+    # 떠다니는 구름 위치들 (시간에 따라 움직임)
+    floating_clouds = [
+        # (기준x, 기준y, 크기, 속도x, 속도y, 위상)
+        (center_x - cloud_width * 0.5, center_y - cloud_height * 0.6, 35, 0.3, 0.5, 0),
+        (center_x + cloud_width * 0.5, center_y - cloud_height * 0.5, 30, -0.25, 0.4, 1.5),
+        (center_x - cloud_width * 0.4, center_y + cloud_height * 0.5, 28, 0.35, -0.3, 3.0),
+        (center_x + cloud_width * 0.45, center_y + cloud_height * 0.55, 32, -0.3, -0.35, 4.5),
+        (center_x, center_y - cloud_height * 0.7, 25, 0.2, 0.6, 2.0),
+        (center_x - cloud_width * 0.6, center_y, 22, 0.4, 0.2, 5.0),
+        (center_x + cloud_width * 0.6, center_y + cloud_height * 0.2, 24, -0.35, 0.25, 1.0),
+    ]
+
+    for base_x, base_y, size, speed_x, speed_y, phase in floating_clouds:
+        # 부드러운 떠다니는 움직임
+        float_x = base_x + math.sin(time_offset * speed_x + phase) * 15 + sway_x * 1.5
+        float_y = base_y + math.cos(time_offset * speed_y + phase) * 10 + sway_y * 1.2
+        draw_small_floating_cloud(cloud_surface, float_x, float_y, size,
+                                 cloud_fill, cloud_outline, max(2, outline_width - 1))
+
     # 페이드 아웃 시에만 투명도 적용
     if base_alpha < 255:
         cloud_surface.set_alpha(base_alpha)
