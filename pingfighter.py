@@ -36705,15 +36705,41 @@ def _stage8_superspeed_dash(now: int) -> None:
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
     global boss_dash_cooldown_until_ms
+    ball_vx = float(ball_vel[0]) if "ball_vel" in globals() else 0.0
+    ball_vy = float(ball_vel[1]) if "ball_vel" in globals() else 0.0
 
-    direction = 1 if BALL.centerx > BOSS.centerx else -1
-    raw_distance = abs(BALL.centerx - BOSS.centerx)
-    dash_distance = max(60, raw_distance)
+    def _predict_x_with_walls(x: float, vx: float, frames: float) -> float:
+        if abs(vx) < 1e-3 or frames <= 0:
+            return x
+        remaining = frames
+        x_min = 0.0
+        x_max = float(WIDTH)
+        for _ in range(4):  # 최대 4번 반사만 고려
+            if remaining <= 0:
+                break
+            t_wall = (x_max - x) / vx if vx > 0 else (x_min - x) / vx if vx < 0 else float("inf")
+            if t_wall <= 0 or t_wall >= remaining:
+                x += vx * remaining
+                remaining = 0
+                break
+            x += vx * t_wall
+            remaining -= t_wall
+            vx = -vx
+        return max(x_min, min(x_max, x))
 
-    target_centerx = BOSS.centerx + dash_distance * direction
-    target_centerx = int(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_centerx)))
+    # 보스 라인까지 예상 시간 (프레임) 계산
+    dy = float(BALL.centery - BOSS.centery)
+    time_to_boss = abs(dy) / max(1.0, abs(ball_vy)) if abs(ball_vy) > 0 else 0.0
+    predicted_x = _predict_x_with_walls(float(BALL.centerx), ball_vx, time_to_boss)
+
+    direction = 1 if predicted_x > BOSS.centerx else -1
+    raw_distance = abs(predicted_x - BOSS.centerx)
+    dash_distance = max(60.0, raw_distance)  # 초신가속: 거리 제한 없음
+
+    target_centerx = predicted_x
+    target_centerx = float(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_centerx)))
     dash_distance = abs(target_centerx - BOSS.centerx)
-    if dash_distance < 20:
+    if dash_distance < 12:
         return
 
     boss_dash_direction = direction
@@ -36737,15 +36763,40 @@ def _stage8_superspeed_dash(now: int) -> None:
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
     global boss_dash_cooldown_until_ms
+    ball_vx = float(ball_vel[0]) if "ball_vel" in globals() else 0.0
+    ball_vy = float(ball_vel[1]) if "ball_vel" in globals() else 0.0
 
-    direction = 1 if BALL.centerx > BOSS.centerx else -1
-    raw_distance = abs(BALL.centerx - BOSS.centerx)
-    dash_distance = max(60, raw_distance)
+    def _predict_x_with_walls(x: float, vx: float, frames: float) -> float:
+        if abs(vx) < 1e-3 or frames <= 0:
+            return x
+        remaining = frames
+        x_min = 0.0
+        x_max = float(WIDTH)
+        for _ in range(4):
+            if remaining <= 0:
+                break
+            t_wall = (x_max - x) / vx if vx > 0 else (x_min - x) / vx if vx < 0 else float("inf")
+            if t_wall <= 0 or t_wall >= remaining:
+                x += vx * remaining
+                remaining = 0
+                break
+            x += vx * t_wall
+            remaining -= t_wall
+            vx = -vx
+        return max(x_min, min(x_max, x))
 
-    target_centerx = BOSS.centerx + dash_distance * direction
-    target_centerx = int(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_centerx)))
+    dy = float(BALL.centery - BOSS.centery)
+    time_to_boss = abs(dy) / max(1.0, abs(ball_vy)) if abs(ball_vy) > 0 else 0.0
+    predicted_x = _predict_x_with_walls(float(BALL.centerx), ball_vx, time_to_boss)
+
+    direction = 1 if predicted_x > BOSS.centerx else -1
+    raw_distance = abs(predicted_x - BOSS.centerx)
+    dash_distance = max(60.0, raw_distance)
+
+    target_centerx = predicted_x
+    target_centerx = float(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_centerx)))
     dash_distance = abs(target_centerx - BOSS.centerx)
-    if dash_distance < 20:
+    if dash_distance < 12:
         return
 
     boss_dash_direction = direction
