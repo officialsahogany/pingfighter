@@ -55714,10 +55714,8 @@ def show_item_manager_menu():
         pygame.draw.rect(SCREEN, button_fill, skill_tree_button_rect, border_radius=12)
         pygame.draw.rect(SCREEN, button_border, skill_tree_button_rect, 3, border_radius=12)
 
-        btn_title = font_small.render("스킬트리 (테스트)", True, WHITE)
-        btn_sub = font_small.render("★ 무제한 투자", True, (255, 240, 180))
-        SCREEN.blit(btn_title, btn_title.get_rect(center=(skill_tree_button_rect.centerx, skill_tree_button_rect.centery - 10)))
-        SCREEN.blit(btn_sub, btn_sub.get_rect(center=(skill_tree_button_rect.centerx, skill_tree_button_rect.centery + 14)))
+        btn_title = font_small.render("스킬트리", True, WHITE)
+        SCREEN.blit(btn_title, btn_title.get_rect(center=skill_tree_button_rect.center))
 
         if quantity_selection_mode and quantity_target_item:
             dim_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
