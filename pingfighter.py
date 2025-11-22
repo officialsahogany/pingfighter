@@ -72622,45 +72622,45 @@ def main(stage_num, new_boss_mode=False):
                                 'color': (200, 230, 255),
                                 'type': 'spark'
                             })
-            # 드라이브 입력: 방향키(←/→, ㅁ/ㅇ 포함) + 스페이스(또는 마우스 좌클릭) 동시 입력
-            else:
-                # 현재 방향 입력 상태: 입력 헬퍼를 그대로 사용해 IME/스냅샷까지 반영
-                dir_left = is_move_left_pressed(keys) or MOVE_EVENT_LEFT
-                dir_right = is_move_right_pressed(keys) or MOVE_EVENT_RIGHT
-                if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID:
-                    dir_left = dir_left or bool(SNAP_left_state)
-                    dir_right = dir_right or bool(SNAP_right_state)
+                # 드라이브 입력: 방향키(←/→, ㅁ/ㅇ 포함) + 스페이스(또는 마우스 좌클릭) 동시 입력
+                else:
+                    # 현재 방향 입력 상태: 입력 헬퍼를 그대로 사용해 IME/스냅샷까지 반영
+                    dir_left = is_move_left_pressed(keys) or MOVE_EVENT_LEFT
+                    dir_right = is_move_right_pressed(keys) or MOVE_EVENT_RIGHT
+                    if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID:
+                        dir_left = dir_left or bool(SNAP_left_state)
+                        dir_right = dir_right or bool(SNAP_right_state)
 
-                # 드라이브 버튼: 스페이스 또는 마우스 좌클릭 (한 프레임 에지)
-                drive_button_just = bool(space_just_pressed or mb_left_just_pressed)
+                    # 드라이브 버튼: 스페이스 또는 마우스 좌클릭 (한 프레임 에지)
+                    drive_button_just = bool(space_just_pressed or mb_left_just_pressed)
 
-                # 디버그: 드라이브 입력 상태
-                try:
-                    debug_frame = globals().get("frame_counter", -1)
-                    print(
-                        f"[DRIVE_DEBUG] frame={debug_frame} "
-                        f"dirL={dir_left} dirR={dir_right} "
-                        f"space_just={space_just_pressed} mb_left_just={mb_left_just_pressed} "
-                        f"btn={drive_button_just}"
-                    )
-                except Exception:
-                    pass
+                    # 디버그: 드라이브 입력 상태
+                    try:
+                        debug_frame = globals().get("frame_counter", -1)
+                        print(
+                            f"[DRIVE_DEBUG] frame={debug_frame} "
+                            f"dirL={dir_left} dirR={dir_right} "
+                            f"space_just={space_just_pressed} mb_left_just={mb_left_just_pressed} "
+                            f"btn={drive_button_just}"
+                        )
+                    except Exception:
+                        pass
 
-                # 왼쪽/오른쪽 중 하나만 눌린 상태에서 드라이브 버튼이 막 눌린 경우
-                if drive_button_just and selected_character_type == "smasher" and (dir_left ^ dir_right):
-                    perfect_direction = -1 if dir_left else 1
-                    perfect_timing_cooldown = perfect_timing_cooldown_frames
-                    drive_global_cooldown = drive_global_cooldown_frames
-                    perfect_timing_input_used = True
-                    frame_gap = 0
-                    input_age = 0
-                    print(f"  ! ({'←' if dir_left else '→'} +   )")
-                #  드라이브 버튼만 누르거나 방향키만 누른 경우
-                elif drive_button_just or left_just_pressed or right_just_pressed:
-                    perfect_timing_input_used = True  # 입력은 사용됨으로 표시 (연타 방지)
-                    print("! (←/→)   !")
-                    #  스킬 실패 기록
-                    record_skill_usage(success=False)
+                    # 왼쪽/오른쪽 중 하나만 눌린 상태에서 드라이브 버튼이 막 눌린 경우
+                    if drive_button_just and selected_character_type == "smasher" and (dir_left ^ dir_right):
+                        perfect_direction = -1 if dir_left else 1
+                        perfect_timing_cooldown = perfect_timing_cooldown_frames
+                        drive_global_cooldown = drive_global_cooldown_frames
+                        perfect_timing_input_used = True
+                        frame_gap = 0
+                        input_age = 0
+                        print(f"  ! ({'←' if dir_left else '→'} +   )")
+                    #  드라이브 버튼만 누르거나 방향키만 누른 경우
+                    elif drive_button_just or left_just_pressed or right_just_pressed:
+                        perfect_timing_input_used = True  # 입력은 사용됨으로 표시 (연타 방지)
+                        print("! (←/→)   !")
+                        #  스킬 실패 기록
+                        record_skill_usage(success=False)
         #  파워스매싱은 이제 동일한 타이밍 윈도우에서 우선순위로 처리됨
         elif space_just_pressed and drive_global_cooldown > 0:
             # 전역 쿨다운 중일 때 스페이스바를 누른 경우 (가장 우선적으로 체크)
