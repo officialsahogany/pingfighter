@@ -36347,6 +36347,29 @@ def _finish_stage8_cloud(now: int) -> None:
     stage8_cloud_rect.center = (cx, cy)
 
 
+def _try_stage8_stun_escape(now: int) -> bool:
+    """스턴 중 영체탈주 발동 시도. 성공 시 True."""
+    global stage8_stun_escape_ready_ms, stage8_stun_escape_attempted
+    if current_stage != 8 or boss_stunned_timer <= 0:
+        return False
+
+    if stage8_stun_escape_ready_ms == 0:
+        stage8_stun_escape_ready_ms = now + STAGE8_STUN_ESCAPE_DELAY_MS
+        stage8_stun_escape_attempted = False
+
+    if (
+        not stage8_stun_escape_active
+        and not stage8_stun_escape_attempted
+        and now >= stage8_stun_escape_ready_ms
+        and boss_special_gauge >= STAGE8_STUN_ESCAPE_COST
+    ):
+        stage8_stun_escape_attempted = True
+        if random.random() < 0.5:
+            _start_stage8_stun_escape(now)
+            return True
+    return False
+
+
 def _start_stage8_stun_escape(now: int) -> None:
     """스턴 해제용 잔영 탈출 시작 (0.5초 측면 대시)."""
     global stage8_stun_escape_active, stage8_stun_escape_start_ms, stage8_stun_escape_start_x
@@ -67948,6 +67971,10 @@ def handle_boss():
 
     #  수평 넉백 처리 (라그나로크 해머 + 코만도 총알)
     if boss_knockback_timer > 0:
+        # Stage 8: 스턴 중이면 넉백 구간에서도 영체탈주 발동 시도
+        if _try_stage8_stun_escape(now_ms):
+            return
+
         boss_knockback_timer -= 1
 
         if head_shot_active and head_shot_timer > 0:
@@ -68231,20 +68258,8 @@ def handle_boss():
                 BOSS.y = min(BOSS_Y, BOSS.y)
     #  보스 스턴 상태 처리 (화염병 효과) - AI 비활성화 상태에서도 작동
     if boss_stunned_timer > 0:
-        if current_stage == 8:
-            if stage8_stun_escape_ready_ms == 0:
-                stage8_stun_escape_ready_ms = now_ms + STAGE8_STUN_ESCAPE_DELAY_MS
-                stage8_stun_escape_attempted = False
-            if (
-                not stage8_stun_escape_active
-                and not stage8_stun_escape_attempted
-                and now_ms >= stage8_stun_escape_ready_ms
-                and boss_special_gauge >= STAGE8_STUN_ESCAPE_COST
-            ):
-                stage8_stun_escape_attempted = True
-                if random.random() < 0.5:
-                    _start_stage8_stun_escape(now_ms)
-                    return
+        if current_stage == 8 and _try_stage8_stun_escape(now_ms):
+            return
 
         boss_stunned_timer -= 1
         # 넉백 적용
