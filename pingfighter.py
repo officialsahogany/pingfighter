@@ -36310,6 +36310,228 @@ def draw_stage8_boss_gauge_bar():
     SCREEN.blit(gauge_surface, gauge_rect)
 
 
+# === 스테이지 8 초각성 바람 오오라 시스템 함수 ===
+def start_stage8_wind_burst() -> None:
+    """초각성 돌입 시 바람 오오라 폭발 애니메이션 시작."""
+    global stage8_wind_burst_active, stage8_wind_burst_start_ms, stage8_wind_burst_particles
+    global stage8_wind_aura_active, stage8_wind_aura_particles
+
+    stage8_wind_burst_active = True
+    stage8_wind_burst_start_ms = pygame.time.get_ticks()
+    stage8_wind_burst_particles = []
+
+    # 보스 중심에서 폭발하는 파티클 생성
+    boss_cx = BOSS.centerx
+    boss_cy = BOSS.centery
+
+    for i in range(STAGE8_WIND_BURST_PARTICLE_COUNT):
+        angle = random.uniform(0, math.tau)
+        speed = random.uniform(8, 25)
+        size = random.randint(4, 12)
+        # 청록색/하늘색 계열 바람 색상
+        color_choice = random.choice([
+            (100, 220, 255),  # 하늘색
+            (150, 255, 200),  # 민트색
+            (200, 240, 255),  # 흰 하늘
+            (80, 200, 230),   # 청록
+            (120, 180, 255),  # 파랑
+        ])
+        stage8_wind_burst_particles.append({
+            "x": boss_cx,
+            "y": boss_cy,
+            "vx": math.cos(angle) * speed,
+            "vy": math.sin(angle) * speed,
+            "alpha": 255,
+            "size": size,
+            "color": color_choice,
+            "rotation": random.uniform(0, 360),
+            "rot_speed": random.uniform(-15, 15),
+        })
+
+    # 지속적인 오오라도 활성화
+    stage8_wind_aura_active = True
+    _init_stage8_wind_aura_particles()
+
+
+def _init_stage8_wind_aura_particles() -> None:
+    """바람 오오라 파티클 초기화."""
+    global stage8_wind_aura_particles
+    stage8_wind_aura_particles = []
+
+    for i in range(STAGE8_WIND_AURA_PARTICLE_COUNT):
+        angle = (i / STAGE8_WIND_AURA_PARTICLE_COUNT) * math.tau
+        radius = random.uniform(50, 80)
+        size = random.randint(3, 8)
+        speed = random.uniform(0.02, 0.05)  # 회전 속도
+        color_choice = random.choice([
+            (100, 220, 255, 150),
+            (150, 255, 200, 130),
+            (200, 240, 255, 140),
+            (80, 200, 230, 160),
+        ])
+        stage8_wind_aura_particles.append({
+            "angle": angle,
+            "radius": radius,
+            "base_radius": radius,
+            "size": size,
+            "speed": speed,
+            "color": color_choice,
+            "phase": random.uniform(0, math.tau),
+        })
+
+
+def update_stage8_wind_effects() -> None:
+    """바람 오오라 효과 업데이트."""
+    global stage8_wind_burst_active, stage8_wind_burst_particles
+    global stage8_wind_aura_particles, stage8_wind_aura_active
+
+    now_ms = pygame.time.get_ticks()
+
+    # 폭발 파티클 업데이트
+    if stage8_wind_burst_active:
+        elapsed = now_ms - stage8_wind_burst_start_ms
+        if elapsed > STAGE8_WIND_BURST_DURATION_MS:
+            stage8_wind_burst_active = False
+            stage8_wind_burst_particles = []
+        else:
+            progress = elapsed / STAGE8_WIND_BURST_DURATION_MS
+            new_particles = []
+            for p in stage8_wind_burst_particles:
+                # 속도 감속
+                p["vx"] *= 0.94
+                p["vy"] *= 0.94
+                p["x"] += p["vx"]
+                p["y"] += p["vy"]
+                p["rotation"] += p["rot_speed"]
+                # 알파 페이드아웃
+                p["alpha"] = int(255 * (1 - progress))
+                p["size"] = max(1, p["size"] * 0.98)
+                if p["alpha"] > 10:
+                    new_particles.append(p)
+            stage8_wind_burst_particles = new_particles
+
+    # 지속 오오라 파티클 업데이트
+    if stage8_wind_aura_active and stage8_awakened:
+        for p in stage8_wind_aura_particles:
+            p["angle"] += p["speed"]
+            # 반경 펄싱
+            p["radius"] = p["base_radius"] + math.sin(now_ms * 0.003 + p["phase"]) * 10
+
+
+def draw_stage8_wind_burst(surface: pygame.Surface) -> None:
+    """초각성 폭발 파티클 렌더링."""
+    if not stage8_wind_burst_active:
+        return
+
+    for p in stage8_wind_burst_particles:
+        if p["alpha"] <= 0:
+            continue
+
+        size = int(p["size"])
+        if size < 1:
+            continue
+
+        # 바람 파티클 (회전하는 마름모/별 형태)
+        particle_surf = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
+        cx, cy = size * 1.5, size * 1.5
+
+        # 마름모 형태의 바람 입자
+        r, g, b = p["color"]
+        alpha = min(255, p["alpha"])
+
+        # 회전된 마름모
+        angle_rad = math.radians(p["rotation"])
+        points = []
+        for i in range(4):
+            a = angle_rad + i * math.pi / 2
+            dist = size if i % 2 == 0 else size * 0.4
+            points.append((cx + math.cos(a) * dist, cy + math.sin(a) * dist))
+
+        pygame.draw.polygon(particle_surf, (r, g, b, alpha), points)
+        pygame.draw.polygon(particle_surf, (255, 255, 255, alpha // 2), points, 1)
+
+        surface.blit(particle_surf, (int(p["x"] - cx), int(p["y"] - cy)))
+
+
+def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
+    """초각성 지속 바람 오오라 렌더링 (보스 패들 주변)."""
+    global stage8_wind_aura_particles
+
+    if not stage8_wind_aura_active or not stage8_awakened:
+        return
+
+    boss_cx = BOSS.centerx
+    boss_cy = BOSS.centery
+    now_ms = pygame.time.get_ticks()
+
+    # 바람 회오리 기본 원형 오오라
+    aura_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+    # 1. 내부 글로우 (보스 주변 빛나는 효과)
+    glow_radius = 70 + int(math.sin(now_ms * 0.005) * 8)
+    for r in range(glow_radius, glow_radius - 30, -5):
+        alpha = int(40 * (1 - (glow_radius - r) / 30))
+        pygame.draw.circle(aura_surface, (100, 220, 255, alpha), (boss_cx, boss_cy), r, 2)
+
+    # 2. 회전하는 바람 스트림 라인
+    num_streams = 6
+    stream_length = 60
+    for i in range(num_streams):
+        base_angle = (i / num_streams) * math.tau + now_ms * 0.003
+        for j in range(8):
+            seg_angle = base_angle + j * 0.12
+            seg_radius = 45 + j * 8
+            x1 = boss_cx + math.cos(seg_angle) * seg_radius
+            y1 = boss_cy + math.sin(seg_angle) * seg_radius
+            x2 = boss_cx + math.cos(seg_angle + 0.1) * (seg_radius + 6)
+            y2 = boss_cy + math.sin(seg_angle + 0.1) * (seg_radius + 6)
+            alpha = int(120 * (1 - j / 8))
+            color = (150, 240, 255, alpha)
+            pygame.draw.line(aura_surface, color, (x1, y1), (x2, y2), 2)
+
+    # 3. 회전하는 파티클들
+    for p in stage8_wind_aura_particles:
+        px = boss_cx + math.cos(p["angle"]) * p["radius"]
+        py = boss_cy + math.sin(p["angle"]) * p["radius"]
+
+        size = p["size"]
+        r, g, b, a = p["color"]
+
+        # 꼬리 효과
+        tail_len = 3
+        for t in range(tail_len):
+            tail_angle = p["angle"] - p["speed"] * (t + 1) * 3
+            tail_radius = p["radius"] - t * 2
+            tx = boss_cx + math.cos(tail_angle) * tail_radius
+            ty = boss_cy + math.sin(tail_angle) * tail_radius
+            tail_alpha = int(a * (1 - t / tail_len) * 0.5)
+            tail_size = max(1, size - t)
+            pygame.draw.circle(aura_surface, (r, g, b, tail_alpha), (int(tx), int(ty)), tail_size)
+
+        # 메인 파티클
+        pygame.draw.circle(aura_surface, (r, g, b, a), (int(px), int(py)), size)
+        pygame.draw.circle(aura_surface, (255, 255, 255, a // 2), (int(px), int(py)), size, 1)
+
+    # 4. 외곽 펄싱 링
+    outer_ring_radius = 90 + int(math.sin(now_ms * 0.004) * 5)
+    ring_alpha = int(60 + 30 * math.sin(now_ms * 0.006))
+    pygame.draw.circle(aura_surface, (100, 220, 255, ring_alpha), (boss_cx, boss_cy), outer_ring_radius, 2)
+    pygame.draw.circle(aura_surface, (150, 255, 200, ring_alpha // 2), (boss_cx, boss_cy), outer_ring_radius + 5, 1)
+
+    surface.blit(aura_surface, (0, 0))
+
+
+def reset_stage8_wind_effects() -> None:
+    """바람 오오라 효과 초기화 (스테이지 전환/게임 오버 시)."""
+    global stage8_wind_aura_active, stage8_wind_aura_particles
+    global stage8_wind_burst_active, stage8_wind_burst_particles
+
+    stage8_wind_aura_active = False
+    stage8_wind_aura_particles = []
+    stage8_wind_burst_active = False
+    stage8_wind_burst_particles = []
+
+
 def _spawn_stage8_shadows(now: int) -> None:
     """탁닌자 그림자분신 생성 (일반 2개, 초각성 시 4개)."""
     global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms, stage8_awakened
