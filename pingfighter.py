@@ -72472,12 +72472,29 @@ def main(stage_num, new_boss_mode=False):
             perfect_timing_frame_count += 1
             #  퍼펙트 타이밍 입력 체크 (방향키 + 스페이스 동시 입력 필요)
             #  드라이브와 파워스매싱을 동일한 타이밍 윈도우에서 처리
-            if (perfect_timing_frame_count <= perfect_timing_window and 
-                perfect_timing_cooldown == 0 and not perfect_timing_input_used and 
-                drive_global_cooldown == 0):
+                if (perfect_timing_frame_count <= perfect_timing_window and 
+                    perfect_timing_cooldown == 0 and not perfect_timing_input_used and 
+                    drive_global_cooldown == 0):
                 #  개선된 동시 입력 감지 (2프레임 허용 범위) - 선입력 방지
                 max_frame_gap = 3  # 최대 3프레임(0.05초) 차이까지 동시 입력으로 인정 (조금 더 관대하게)
                 max_input_age = 12  # 최대 12프레임(약 0.2초) 전까지의 입력만 유효
+                # 드라이브 방향 입력 유효성 사전 계산 (좌/우 모두 고려)
+                left_valid = (
+                    left_press_frame >= 0
+                    and space_press_frame >= 0
+                    and abs(left_press_frame - space_press_frame) <= max_frame_gap
+                    and (frame_counter - left_press_frame) <= max_input_age  # 왼쪽 키가 최근에 눌렸는지
+                    and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
+                    and selected_character_type == "smasher"
+                )
+                right_valid = (
+                    right_press_frame >= 0
+                    and space_press_frame >= 0
+                    and abs(right_press_frame - space_press_frame) <= max_frame_gap
+                    and (frame_counter - right_press_frame) <= max_input_age  # 오른쪽 키가 최근에 눌렸는지
+                    and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
+                    and selected_character_type == "smasher"
+                )
                                     #  파워스매싱/고스트샷 발동: 게이지가 준비되었고 스페이스를 홀드하고 있다면
                 if (
                     special_gauge >= 350
