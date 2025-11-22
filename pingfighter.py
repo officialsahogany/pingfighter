@@ -27567,17 +27567,14 @@ def handle_player(keys):
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
                 # 좌/우는 컨트롤 스킴/IME 여부와 무관하게 인식 (스냅샷+이벤트+스캔코드)
+                # 방향키가 눌려 있고 ↓의 프레임이 기록되어 있으면 "방향+↓ 조합"으로 인정한다.
                 left_before_down = (
                     (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
-                    and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame <= down_press_frame  # 동시 입력(ㅁ+ㄴ)도 허용
                 )
                 right_before_down = (
                     (is_move_right_pressed(keys) or MOVE_EVENT_RIGHT)
-                    and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame <= down_press_frame  # 동시 입력(ㅇ+ㄴ)도 허용
                 )
                 current_charges = get_roll("rolling_charges")
 
