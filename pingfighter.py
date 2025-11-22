@@ -65995,12 +65995,13 @@ def _boss_try_emergency_dash() -> bool:
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
     global boss_dash_cooldown_until_ms
+    global stage8_superspeed_active
     global ai_mode, ai_enabled
 
     now_ms = pygame.time.get_ticks()
 
     # 쿨타임 중이면 대쉬 불가
-    if boss_dash_cooldown_until_ms and now_ms < boss_dash_cooldown_until_ms:
+    if not stage8_superspeed_active and boss_dash_cooldown_until_ms and now_ms < boss_dash_cooldown_until_ms:
         return False
 
     # 공이 위쪽(보스 방향)으로 향하지 않으면 사용하지 않음
@@ -66008,7 +66009,7 @@ def _boss_try_emergency_dash() -> bool:
         return False
 
     # 보스 특수 게이지 부족 시 사용 불가
-    if boss_special_gauge < BOSS_DASH_GAUGE_COST:
+    if not stage8_superspeed_active and boss_special_gauge < BOSS_DASH_GAUGE_COST:
         return False
 
     # 공이 보스 라인 아래 특정 Y 구간에 있을 때만 대쉬 고려
@@ -66090,7 +66091,10 @@ def _boss_try_emergency_dash() -> bool:
         max_dash_distance = 9999.0
 
     raw_distance = abs(predicted_x - BOSS.centerx)
-    dash_distance = min(raw_distance, max_dash_distance)
+    if stage8_superspeed_active:
+        dash_distance = min(raw_distance, 500)
+    else:
+        dash_distance = min(raw_distance, max_dash_distance)
 
     if direction > 0:
         target_centerx = BOSS.centerx + dash_distance
@@ -66151,7 +66155,8 @@ def _boss_try_emergency_dash() -> bool:
         pass
 
     # 게이지 소모
-    boss_special_gauge = max(0, boss_special_gauge - BOSS_DASH_GAUGE_COST)
+    if not stage8_superspeed_active:
+        boss_special_gauge = max(0, boss_special_gauge - BOSS_DASH_GAUGE_COST)
 
     # 스테이지별 대쉬 쿨타임 설정 (초 단위 → ms)
     try:
@@ -66171,7 +66176,10 @@ def _boss_try_emergency_dash() -> bool:
     if max_ms < min_ms:
         max_ms = min_ms
 
-    boss_dash_cooldown_until_ms = now_ms + random.randint(min_ms, max_ms)
+    if stage8_superspeed_active:
+        boss_dash_cooldown_until_ms = 0
+    else:
+        boss_dash_cooldown_until_ms = now_ms + random.randint(min_ms, max_ms)
 
     print(
         f"[BossDash] Stage {current_stage} emergency dash start → target={boss_dash_target_x:.1f} "
@@ -68144,6 +68152,10 @@ def handle_boss():
         stage8_stun_hologram_rect = None
         stage8_stun_hologram_end_ms = 0
         stage8_awakened = False
+        stage8_superspeed_active = False
+        stage8_superspeed_end_ms = 0
+        stage8_superspeed_text_end_ms = 0
+        stage8_superspeed_freeze_end_ms = 0
 
     # 스테이지 8: 그물 포획/스턴 시 영체탈주 우선 시도
     if current_stage == 8:
@@ -68153,6 +68165,17 @@ def handle_boss():
                 show_speech("초각성!", duration=90)
         except Exception:
             pass
+        # 초신가속 종료 타이밍 체크
+        if stage8_superspeed_active and stage8_superspeed_end_ms and now_ms >= stage8_superspeed_end_ms:
+            _end_stage8_superspeed()
+        # 초신가속 발동 조건 체크 (게이지 300)
+        if (
+            stage8_awakened
+            and not stage8_superspeed_active
+            and boss_special_gauge >= STAGE8_SUPERSPEED_COST
+            and not stage8_stun_escape_active
+        ):
+            _start_stage8_superspeed(now_ms)
         net_trapped = _is_stage8_net_trapped()
         if net_trapped and not stage8_stun_escape_active:
             if _try_stage8_stun_escape(now_ms):
@@ -68209,7 +68232,10 @@ def handle_boss():
                 stun_seconds = float(stage_cfg.get("dash_stun_duration", 0.5))
             except Exception:
                 stun_seconds = 0.5
-            boss_dash_stun_timer = max(1, int(stun_seconds * FPS))
+            if stage8_superspeed_active and current_stage == 8:
+                boss_dash_stun_timer = STAGE8_SUPERSPEED_DASH_STUN_FRAMES
+            else:
+                boss_dash_stun_timer = max(1, int(stun_seconds * FPS))
 
         # 대쉬 중에는 다른 AI 처리 건너뜀
         return
