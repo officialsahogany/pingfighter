@@ -14864,6 +14864,7 @@ stage8_shuriken_cast_start_ms: int = 0
 stage8_shuriken_next_ready_ms: int = 0
 stage8_shurikens: list[dict] = []  # {'rect','vx','vy','spawn_ms'}
 stage8_shuriken_pending: list[int] = []  # 추가 발사 예정 시간(ms)
+stage8_shuriken_from_pending: bool = False
 STAGE8_SHURIKEN_CAST_MS = 300  # 0.3초 캐스팅
 STAGE8_SHURIKEN_MIN_COOLDOWN_MS = 8000
 STAGE8_SHURIKEN_MAX_COOLDOWN_MS = 25000
@@ -36313,7 +36314,7 @@ def _spawn_stage8_shadows(now: int) -> None:
 def _spawn_stage8_shuriken(now: int) -> None:
     """표창 1개를 플레이어 방향으로 발사."""
     global stage8_shurikens, stage8_shuriken_casting, stage8_shuriken_next_ready_ms
-    global stage8_shuriken_pending, stage8_awakened
+    global stage8_shuriken_pending, stage8_awakened, stage8_shuriken_from_pending
     target_x = PLAYER.centerx
     target_y = PLAYER.centery
     dx = target_x - BOSS.centerx
@@ -36330,8 +36331,8 @@ def _spawn_stage8_shuriken(now: int) -> None:
     stage8_shuriken_next_ready_ms = now + random.randint(
         STAGE8_SHURIKEN_MIN_COOLDOWN_MS, STAGE8_SHURIKEN_MAX_COOLDOWN_MS
     )
-    # 초각성 시 0.2초 후 추가 발사 1회 예약
-    if stage8_awakened:
+    # 초각성 시 0.2초 후 추가 발사 1회 예약 (본 발사 시에만)
+    if stage8_awakened and not stage8_shuriken_from_pending:
         stage8_shuriken_pending.append(now + 200)
 
 
@@ -65876,7 +65877,9 @@ def handle_ball():
         ready = [t for t in stage8_shuriken_pending if now_ms >= t]
         if ready:
             for _ in ready:
+                stage8_shuriken_from_pending = True
                 _spawn_stage8_shuriken(now_ms)
+                stage8_shuriken_from_pending = False
             stage8_shuriken_pending = [t for t in stage8_shuriken_pending if now_ms < t]
 
     # 그림자 상태 갱신만 수행 (트리거는 보스 패들 히트 시 처리)
