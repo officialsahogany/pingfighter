@@ -36919,6 +36919,9 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                 burst_color_light = (180, 100, 100, int(burst_alpha * 0.7))  # 밝은 빨강
                 burst_color_white = (255, 255, 255, int(burst_alpha * 0.5))  # 흰색 하이라이트
 
+                # 현재 구름 너비 (애니메이션 진행에 따라)
+                current_width = cloud_width
+
                 # 중앙에서 방사형으로 뿜어져 나가는 파티클들
                 num_bursts = int(20 * burst_intensity) + 5
                 for i in range(num_bursts):
