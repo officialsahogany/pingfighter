@@ -28283,6 +28283,8 @@ def handle_player(keys):
                     and down_press_frame >= 0
                     and right_press_frame <= down_press_frame  # 동시 입력 허용(ㅇ+ㄴ)
                 )
+                if globals().get('dash_down_first_lock', False) and (left_before_down or right_before_down):
+                    dash_down_first_lock = False
                 if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge:
                     # 아래키 + 왼쪽 - 대쉬 실행
                     rolling_active = True
