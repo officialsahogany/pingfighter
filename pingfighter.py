@@ -26744,7 +26744,9 @@ def handle_player(keys):
     if MOVE_EVENT_RIGHT and not is_move_right_pressed(keys):
         MOVE_EVENT_RIGHT = False
     # 한글 IME 환경에서는 get_pressed()가 ↓ 입력을 놓치는 경우가 있어
-    # KEYUP 이벤트에서만 MOVE_EVENT_DOWN을 해제한다.
+    # 이벤트 플래그로 보정하지만, 키 스냅샷과 불일치가 지속되면 드리프트를 막기 위해 해제한다.
+    if MOVE_EVENT_DOWN and not is_move_down_pressed(keys):
+        MOVE_EVENT_DOWN = False
     if MOVE_EVENT_UP and not is_move_up_pressed(keys):
         MOVE_EVENT_UP = False
     # 무기 HUD(↑ 홀드) 활성화 중에는 코만도 Space(좌클릭 병합 포함)를 무시해
