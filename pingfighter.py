@@ -36435,6 +36435,9 @@ def _end_stage8_superspeed() -> None:
     stage8_superspeed_text_end_ms = 0
     stage8_superspeed_freeze_end_ms = 0
     boss_dash_cooldown_until_ms = 0
+    # 초신가속 종료 시 즉시 대쉬를 막기 위해 대쉬 상태도 초기화
+    globals()["boss_dashing"] = False
+    globals()["boss_dash_timer"] = 0
 
 
 def _start_stage8_superspeed(now: int) -> None:
@@ -68371,6 +68374,13 @@ def handle_boss():
             and not stage8_stun_escape_active
         ):
             _start_stage8_superspeed(now_ms)
+        # 초신가속 중에는 모든 이동을 대쉬로 처리 (쿨타임 0)
+        if stage8_superspeed_active:
+            boss_dash_cooldown_until_ms = 0
+            if not boss_dashing and boss_dash_stun_timer <= 0 and now_ms >= stage8_superspeed_freeze_end_ms:
+                _stage8_superspeed_dash(now_ms)
+            # 초신가속 동안 일반 이동/AI는 건너뜀
+            return
         # 초신가속 중 이동은 대쉬만 사용 (쿨타임 없음)
         if stage8_superspeed_active:
             boss_dash_cooldown_until_ms = 0
