@@ -61655,6 +61655,8 @@ def calculate_bounce(paddle):
                 base_angle = -math.pi / 8.0   # 기본 -22.5도 (CW → 우측)
                 position_factor = rel_x * 0.3  # 위치에 따른 조정 (-0.3 ~ +0.3)
                 angle = base_angle + position_factor
+            _drive_dbg(f"drive vector dir={perfect_direction} angle={angle:.3f} base={base_angle:.3f} "
+                       f"rel_x={rel_x:.3f} vx={ball_vel[0]:.3f} vy={ball_vel[1]:.3f} speed={speed:.3f}")
         else:
             print(f"    ! (: {special_gauge}, : 150)")
         # 퍼펙트 타이밍 상태 리셋
@@ -72803,6 +72805,9 @@ def main(stage_num, new_boss_mode=False):
                     drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
                     perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
                     print(f"  ! ({'←' if chosen_dir == -1 else '→'}+   ,  : {frame_gap},  : {input_age})")
+                    _drive_dbg(f"perfect dir chosen={perfect_direction} gap={frame_gap} age={input_age} "
+                               f"Lf={left_press_frame} Rf={right_press_frame} Sf={space_press_frame} "
+                               f"frame={frame_counter} left_valid={left_valid} right_valid={right_valid}")
                     # 사용된 프레임 초기화
                     left_press_frame = -1
                     right_press_frame = -1
