@@ -36687,7 +36687,7 @@ def _release_stage8_net_trap() -> int:
 
 
 def _end_stage8_superspeed() -> None:
-"""극정호신(구 초신가속) 종료 및 상태 초기화."""
+    """극정호신(구 초신가속) 종료 및 상태 초기화."""
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
     global stage8_superspeed_cooldown_end_ms
     global boss_dash_cooldown_until_ms
@@ -36703,7 +36703,7 @@ def _end_stage8_superspeed() -> None:
 
 
 def _start_stage8_superspeed(now: int) -> None:
-"""극정호신 발동: 10초간 무제한 대쉬(무료, 확장거리) 상태."""
+    """극정호신 발동: 10초간 무제한 대쉬(무료, 확장거리) 상태."""
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
     global boss_special_gauge, boss_dash_cooldown_until_ms, stage8_superspeed_cooldown_end_ms
     global stage8_shadow_casting, stage8_shuriken_casting, stage8_cloud_dash_active, stage8_cloud_active, stage8_cloud_rect
@@ -65731,7 +65731,7 @@ def handle_ball():
         elif current_stage in (3, 4, 5, 6, 8):
             if current_stage == 8:
                 if stage8_superspeed_active:
-                    gain = 20  # 초신가속 중 게이지 수급 감소 유지
+                    gain = 20  # 극정호신 중 게이지 수급 감소 유지
                 elif stage8_awakened:
                     gain = 90  # 초각성 시 충전량 증가
                 else:
@@ -66597,7 +66597,7 @@ def _boss_try_emergency_dash() -> bool:
 
     raw_distance = abs(predicted_x - BOSS.centerx)
     if stage8_superspeed_active:
-        dash_distance = raw_distance  # 초신가속: 거리 제한 해제
+        dash_distance = raw_distance  # 극정호신: 거리 제한 해제
     else:
         dash_distance = min(raw_distance, max_dash_distance)
 
@@ -68681,7 +68681,7 @@ def handle_boss():
                 stage8_awakened = True
         except Exception:
             pass
-        # 초신가속 종료 타이밍 체크
+        # 극정호신 종료 타이밍 체크
         if stage8_superspeed_active and stage8_superspeed_end_ms and now_ms >= stage8_superspeed_end_ms:
             _end_stage8_superspeed()
         # 초각성 연출 완료 시점 체크
@@ -68695,7 +68695,7 @@ def handle_boss():
                 start_stage8_wind_burst()
             except Exception:
                 pass
-        # 초신가속 발동 조건 체크 (게이지 250)
+        # 극정호신 발동 조건 체크 (게이지 250)
         if (
             stage8_awakened
             and not stage8_superspeed_active
@@ -68706,7 +68706,7 @@ def handle_boss():
             _start_stage8_superspeed(now_ms)
         stage8_in_superspeed = stage8_superspeed_active
 
-        # 초신가속 중에는 모든 이동을 대쉬로 처리 (쿨타임 0)
+        # 극정호신 중에는 모든 이동을 대쉬로 처리 (쿨타임 0)
         if stage8_superspeed_active:
             boss_dash_cooldown_until_ms = 0
             if not boss_dashing and boss_dash_stun_timer <= 0 and now_ms >= stage8_superspeed_freeze_end_ms:
@@ -68783,7 +68783,7 @@ def handle_boss():
         boss_current_speed = 0
         return
 
-    # 초신가속 상태에서는 대쉬/경직 처리 이후 추가 AI를 건너뛴다.
+    # 극정호신 상태에서는 대쉬/경직 처리 이후 추가 AI를 건너뛴다.
     if stage8_in_superspeed:
         return
 
@@ -73717,7 +73717,7 @@ def main(stage_num, new_boss_mode=False):
                     INPUT_SNAPSHOT_VALID = False
                     keys_now = pygame.key.get_pressed()
 
-            # 초각성/초신가속 연출 중이면 입력/로직을 잠시 정지
+            # 초각성/극정호신 연출 중이면 입력/로직을 잠시 정지
             now_tick = pygame.time.get_ticks()
             freeze_awaken = current_stage == 8 and stage8_awaken_intro_pending and now_tick < stage8_awaken_freeze_end_ms
             freeze_superspeed = current_stage == 8 and stage8_superspeed_active and now_tick < stage8_superspeed_freeze_end_ms
