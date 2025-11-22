@@ -37795,22 +37795,13 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
     remaining = stage8_cloud_end_ms - now
 
-    # 투명도 제어
-    CLOUD_SOLID_MS = 3000
-    CLOUD_FADE_TO_SEMI_MS = 2000
-    elapsed = now - stage8_cloud_start_ms
-
-    if elapsed < CLOUD_SOLID_MS:
-        base_alpha = 255
-    elif elapsed < CLOUD_SOLID_MS + CLOUD_FADE_TO_SEMI_MS:
-        fade_progress = (elapsed - CLOUD_SOLID_MS) / CLOUD_FADE_TO_SEMI_MS
-        base_alpha = int(255 - (255 - 100) * fade_progress)
-    else:
-        base_alpha = 100
-
+    # 투명도 제어 - 완전 불투명하게 보스 패들 가리기
+    # 마지막 페이드아웃만 적용
     if remaining < stage8_cloud_fade_ms:
         fade_ratio = remaining / max(1, stage8_cloud_fade_ms)
-        base_alpha = int(base_alpha * fade_ratio)
+        base_alpha = int(255 * fade_ratio)
+    else:
+        base_alpha = 255  # 항상 완전 불투명
 
     # 닌자 연막 영역 설정
     expand = 220
@@ -37851,16 +37842,15 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
             cloud_seed = int(stage8_cloud_start_ms) % 10000
             random.seed(cloud_seed)
 
-            # 닌자 연막 - 여러 층의 소용돌이치는 안개
+            # 닌자 연막 - 여러 층의 소용돌이치는 안개 (완전 불투명)
             num_layers = 5
             for layer in range(num_layers):
                 layer_progress = min(1.0, expand_progress * (1 + layer * 0.15))
-                layer_alpha = int(180 * layer_progress * (1 - layer * 0.12))
                 layer_scale = 0.6 + layer * 0.12
 
                 color_idx = layer % len(smoke_colors)
                 base_color = smoke_colors[color_idx]
-                layer_color = (base_color[0], base_color[1], base_color[2], layer_alpha)
+                layer_color = base_color  # 투명도 없이 완전 불투명
 
                 # 각 레이어에 소용돌이 파티클들
                 num_particles = 25 + layer * 8
