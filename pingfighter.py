@@ -36475,19 +36475,33 @@ def draw_stage8_wind_burst(surface: pygame.Surface) -> None:
 
 def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
     """초각성 지속 바람 오오라 렌더링 (보스 패들 주변)."""
-    global stage8_wind_aura_particles
+    global stage8_wind_aura_particles, stage8_wind_aura_ripple_active
 
     if not stage8_wind_aura_active or not stage8_awakened:
+        return
+
+    # 오오라가 소진된 상태면 그리지 않음
+    if stage8_wind_aura_depleted:
         return
 
     boss_cx = BOSS.centerx
     boss_cy = BOSS.centery
     now_ms = pygame.time.get_ticks()
 
+    # 바람 오오라 강도 (타격 횟수에 따라 약해짐)
+    aura_strength = get_wind_aura_strength()
+    ripple_intensity = get_wind_aura_ripple_intensity()
+
+    # 출렁임 애니메이션 종료 체크
+    if stage8_wind_aura_ripple_active:
+        elapsed = now_ms - stage8_wind_aura_ripple_start_ms
+        if elapsed >= STAGE8_WIND_AURA_RIPPLE_DURATION_MS:
+            stage8_wind_aura_ripple_active = False
+
     # 바람 회오리 기본 원형 오오라
     aura_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
-# 극정호신(구 초신가속) 상태에 따른 색상 설정
+    # 극정호신(구 초신가속) 상태에 따른 색상 설정
     if stage8_superspeed_active:
         # 주황빛 색상 (극정호신)
         glow_color = (255, 150, 50)  # 주황 글로우
@@ -36501,34 +36515,52 @@ def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
         ring_color_main = (100, 220, 255)  # 시안 링
         ring_color_sub = (150, 255, 200)  # 민트 링
 
-    # 1. 내부 글로우 (보스 주변 빛나는 효과)
-    glow_radius = 70 + int(math.sin(now_ms * 0.005) * 8)
+    # 출렁임 효과: 반경 확장/수축
+    ripple_offset = int(ripple_intensity * 20 * math.sin(now_ms * 0.02))
+
+    # 1. 내부 글로우 (보스 주변 빛나는 효과) - 강도에 따라 약해짐
+    glow_radius = 70 + int(math.sin(now_ms * 0.005) * 8) + ripple_offset
+    glow_alpha_mult = aura_strength  # 강도에 따라 투명도 조절
     for r in range(glow_radius, glow_radius - 30, -5):
-        alpha = int(40 * (1 - (glow_radius - r) / 30))
+        alpha = int(40 * (1 - (glow_radius - r) / 30) * glow_alpha_mult)
         pygame.draw.circle(aura_surface, (*glow_color, alpha), (boss_cx, boss_cy), r, 2)
 
-    # 2. 회전하는 바람 스트림 라인
-    num_streams = 6
+    # 2. 회전하는 바람 스트림 라인 - 강도에 따라 스트림 수 감소
+    num_streams = max(2, int(6 * aura_strength))  # 최소 2개
     stream_length = 60
     for i in range(num_streams):
         base_angle = (i / num_streams) * math.tau + now_ms * 0.003
+        # 출렁임 효과: 각도 흔들림
+        if ripple_intensity > 0:
+            base_angle += math.sin(now_ms * 0.015 + i) * ripple_intensity * 0.3
         for j in range(8):
             seg_angle = base_angle + j * 0.12
-            seg_radius = 45 + j * 8
+            seg_radius = 45 + j * 8 + ripple_offset * 0.5
             x1 = boss_cx + math.cos(seg_angle) * seg_radius
             y1 = boss_cy + math.sin(seg_angle) * seg_radius
             x2 = boss_cx + math.cos(seg_angle + 0.1) * (seg_radius + 6)
             y2 = boss_cy + math.sin(seg_angle + 0.1) * (seg_radius + 6)
-            alpha = int(120 * (1 - j / 8))
+            alpha = int(120 * (1 - j / 8) * aura_strength)
             color = (*stream_color_base, alpha)
             pygame.draw.line(aura_surface, color, (x1, y1), (x2, y2), 2)
 
-    # 3. 회전하는 파티클들
-    for p in stage8_wind_aura_particles:
-        px = boss_cx + math.cos(p["angle"]) * p["radius"]
-        py = boss_cy + math.sin(p["angle"]) * p["radius"]
+    # 3. 회전하는 파티클들 - 강도에 따라 파티클 표시 개수 조절
+    visible_particles = int(len(stage8_wind_aura_particles) * aura_strength)
+    for idx, p in enumerate(stage8_wind_aura_particles):
+        # 강도에 따라 일부 파티클만 표시
+        if idx >= visible_particles:
+            continue
 
-        size = p["size"]
+        # 출렁임 효과: 반경 변동
+        particle_radius = p["radius"]
+        if ripple_intensity > 0:
+            particle_radius += math.sin(now_ms * 0.02 + p["phase"]) * ripple_intensity * 15
+
+        px = boss_cx + math.cos(p["angle"]) * particle_radius
+        py = boss_cy + math.sin(p["angle"]) * particle_radius
+
+        # 강도에 따라 파티클 크기 감소
+        size = max(1, int(p["size"] * aura_strength))
 
         # 극정호신 상태에서 파티클 색상도 주황빛으로 변경
         if stage8_superspeed_active:
@@ -36539,17 +36571,18 @@ def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
                 (255, 200, 120),  # 연한 주황
                 (255, 160, 80),   # 중간 주황
             ]
-            idx = hash((p["angle"], p["base_radius"])) % len(particle_colors)
-            r, g, b = particle_colors[idx]
-            a = p["color"][3]  # 원래 알파값 유지
+            color_idx = hash((p["angle"], p["base_radius"])) % len(particle_colors)
+            r, g, b = particle_colors[color_idx]
+            a = int(p["color"][3] * aura_strength)  # 강도에 따라 알파값 조절
         else:
-            r, g, b, a = p["color"]
+            r, g, b, base_a = p["color"]
+            a = int(base_a * aura_strength)
 
         # 꼬리 효과
-        tail_len = 3
+        tail_len = max(1, int(3 * aura_strength))
         for t in range(tail_len):
             tail_angle = p["angle"] - p["speed"] * (t + 1) * 3
-            tail_radius = p["radius"] - t * 2
+            tail_radius = particle_radius - t * 2
             tx = boss_cx + math.cos(tail_angle) * tail_radius
             ty = boss_cy + math.sin(tail_angle) * tail_radius
             tail_alpha = int(a * (1 - t / tail_len) * 0.5)
@@ -36558,13 +36591,21 @@ def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
 
         # 메인 파티클
         pygame.draw.circle(aura_surface, (r, g, b, a), (int(px), int(py)), size)
-        pygame.draw.circle(aura_surface, (255, 255, 255, a // 2), (int(px), int(py)), size, 1)
+        if size > 1:
+            pygame.draw.circle(aura_surface, (255, 255, 255, a // 2), (int(px), int(py)), size, 1)
 
-    # 4. 외곽 펄싱 링
-    outer_ring_radius = 90 + int(math.sin(now_ms * 0.004) * 5)
-    ring_alpha = int(60 + 30 * math.sin(now_ms * 0.006))
-    pygame.draw.circle(aura_surface, (*ring_color_main, ring_alpha), (boss_cx, boss_cy), outer_ring_radius, 2)
-    pygame.draw.circle(aura_surface, (*ring_color_sub, ring_alpha // 2), (boss_cx, boss_cy), outer_ring_radius + 5, 1)
+    # 4. 외곽 펄싱 링 - 강도에 따라 투명도 및 크기 조절
+    outer_ring_radius = int((90 + int(math.sin(now_ms * 0.004) * 5) + ripple_offset) * (0.7 + 0.3 * aura_strength))
+    ring_alpha = int((60 + 30 * math.sin(now_ms * 0.006)) * aura_strength)
+    if ring_alpha > 5:
+        pygame.draw.circle(aura_surface, (*ring_color_main, ring_alpha), (boss_cx, boss_cy), outer_ring_radius, 2)
+        pygame.draw.circle(aura_surface, (*ring_color_sub, ring_alpha // 2), (boss_cx, boss_cy), outer_ring_radius + 5, 1)
+
+    # 출렁임 시 추가 이펙트: 충격파 링
+    if ripple_intensity > 0.1:
+        shock_radius = int(STAGE8_WIND_AURA_RADIUS * (1 + ripple_intensity * 0.5))
+        shock_alpha = int(100 * ripple_intensity)
+        pygame.draw.circle(aura_surface, (255, 255, 255, shock_alpha), (boss_cx, boss_cy), shock_radius, 3)
 
     surface.blit(aura_surface, (0, 0))
 
