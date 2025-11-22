@@ -28282,6 +28282,18 @@ def handle_player(keys):
                 if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge:
                     # 아래키 + 왼쪽 - 대쉬 실행
                     rolling_active = True
+                    # 디버그: 정규 대쉬(왼쪽) 발동 경로 기록
+                    try:
+                        debug_frame = globals().get("frame_counter", -1)
+                        print(
+                            f"[DASH_TRIGGER] type=full_left frame={debug_frame} "
+                            f"tokens={rolling_charges} "
+                            f"down_pressed={down_pressed} "
+                            f"required_gauge={required_gauge} "
+                            f"special_gauge={special_gauge}"
+                        )
+                    except Exception:
+                        pass
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                         tutorial_dash_already_counted = False
@@ -28443,6 +28455,18 @@ def handle_player(keys):
                 elif right_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge:
                     # 아래키 + 오른쪽 - 대쉬 실행
                     rolling_active = True
+                    # 디버그: 정규 대쉬(오른쪽) 발동 경로 기록
+                    try:
+                        debug_frame = globals().get("frame_counter", -1)
+                        print(
+                            f"[DASH_TRIGGER] type=full_right frame={debug_frame} "
+                            f"tokens={rolling_charges} "
+                            f"down_pressed={down_pressed} "
+                            f"required_gauge={required_gauge} "
+                            f"special_gauge={special_gauge}"
+                        )
+                    except Exception:
+                        pass
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                         tutorial_dash_already_counted = False
