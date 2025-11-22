@@ -19987,6 +19987,8 @@ def go_to_next_round():
         globals()["stage8_awaken_intro_pending"] = False
         globals()["stage8_awaken_intro_done"] = False
         globals()["stage8_awaken_freeze_end_ms"] = 0
+        # 바람 오오라 효과도 리셋
+        reset_stage8_wind_effects()
     # Stage 8: 플레이어가 3점 이상이면 다음 라운드에 한 번만 연출 예약
     if current_stage == 8 and round_wins >= 3:
         if not globals().get("stage8_awaken_intro_done", False) and not globals().get("stage8_awaken_intro_pending", False):
@@ -36952,6 +36954,8 @@ def update_stage8_shadow_clones() -> None:
         stage8_shadow_clones.clear()
         stage8_shadow_dying.clear()
         stage8_shadow_casting = False
+        # 바람 오오라 효과도 리셋
+        reset_stage8_wind_effects()
         return
 
     now = pygame.time.get_ticks()
