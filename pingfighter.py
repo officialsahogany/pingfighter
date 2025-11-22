@@ -36448,11 +36448,11 @@ def _start_stage8_superspeed(now: int) -> None:
     stage8_superspeed_active = True
     stage8_superspeed_end_ms = now + STAGE8_SUPERSPEED_DURATION_MS
     stage8_superspeed_text_end_ms = now + STAGE8_SUPERSPEED_TEXT_MS
-        stage8_superspeed_freeze_end_ms = now + STAGE8_SUPERSPEED_FREEZE_MS
-        boss_dash_cooldown_until_ms = 0
-        stage8_superspeed_cooldown_end_ms = 0
+    stage8_superspeed_freeze_end_ms = now + STAGE8_SUPERSPEED_FREEZE_MS
+    boss_dash_cooldown_until_ms = 0
+    stage8_superspeed_cooldown_end_ms = 0
 
-        # 다른 스킬 중단
+    # 다른 스킬 중단
     stage8_shadow_casting = False
     stage8_shuriken_casting = False
     stage8_shuriken_cast_start_ms = 0
