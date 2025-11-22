@@ -36916,7 +36916,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
         surface.blit(cloud_surface, (cloud_x, cloud_y))
         return
 
-    # 퍼짐 완료 후: 기존 전체 구름 그리기
+    # 퍼짐 완료 후: 나루토/아카츠키 스타일 구름 그리기
     cloud_w = full_cloud_w
     cloud_h = full_cloud_h
     cloud_x = stage8_cloud_rect.x - expand
@@ -36924,98 +36924,113 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
     cloud_surface = pygame.Surface((cloud_w, cloud_h), pygame.SRCALPHA)
 
-    # 시드 기반 랜덤으로 구름 형태 고정 (깜빡임 방지)
-    cloud_seed = int(stage8_cloud_start_ms) % 10000
-    random.seed(cloud_seed)
-
     center_x, center_y = cloud_w // 2, (cloud_h + expand_top) // 2  # 상단 여백 고려
-
-    # 사각형 베이스 제거 - 구름 모양으로만 테두리 구성
-
-    # 레이어 0: 중앙 코어 구름 (불투명, 밀집된 원형 배치) - 30% 축소
-    core_color = (90, 100, 120, 255)
-    # 중앙 영역을 원형 구름으로 채움 (사각형 티가 나지 않게)
-    for _ in range(50):
-        # 타원형 분포로 중앙에 집중
-        angle = random.uniform(0, math.pi * 2)
-        dist = random.gauss(0, cloud_w * 0.24)
-        cx = int(center_x + math.cos(angle) * dist * 0.9)
-        cy = int(center_y + math.sin(angle) * dist * 0.75)
-        r = random.randint(21, 63)  # 30% 축소 (30->21, 90->63)
-        pygame.draw.circle(cloud_surface, core_color, (cx, cy), r)
-
-    # 레이어 1: 기본 구름층 - 완전 불투명, 타원형 분포 - 30% 축소
-    base_clouds = []
-    for _ in range(38):
-        angle = random.uniform(0, math.pi * 2)
-        dist = random.gauss(0, cloud_w * 0.36)
-        cx = int(center_x + math.cos(angle) * dist * 0.95)
-        cy = int(center_y + math.sin(angle) * dist * 0.75)
-        r = random.randint(17, 55)  # 30% 축소 (24->17, 78->55)
-        base_clouds.append((cx, cy, r))
-
-    # 레이어 2: 구름 테두리 - 자연스러운 구름 모양 경계 - 30% 축소
-    edge_clouds = []
-    for _ in range(31):
-        angle = random.uniform(0, math.pi * 2)
-        # 가장자리에 불규칙하게 배치
-        base_dist = cloud_w * 0.45
-        variation = random.gauss(0, cloud_w * 0.15)
-        dist = base_dist + variation
-        # 타원형으로 x는 넓게, y는 좁게
-        cx = int(center_x + math.cos(angle) * dist * 0.95)
-        cy = int(center_y + math.sin(angle) * dist * 0.75)
-        r = random.randint(13, 44)  # 30% 축소 (18->13, 63->44)
-        edge_clouds.append((cx, cy, r))
-
-    # 레이어 3: 디테일 층 - 중앙에서 멀어질수록 확률 감소 (타원형) - 30% 축소
-    detail_clouds = []
-    for _ in range(45):
-        angle = random.uniform(0, math.pi * 2)
-        max_dist_x = cloud_w * 0.40
-        max_dist_y = cloud_h * 0.35
-        dist_factor = random.uniform(0, 1) ** 0.7  # 중앙에 더 집중
-        cx = int(center_x + math.cos(angle) * max_dist_x * dist_factor)
-        cy = int(center_y + math.sin(angle) * max_dist_y * dist_factor)
-        r = random.randint(11, 32)  # 30% 축소 (15->11, 45->32)
-        detail_clouds.append((cx, cy, r))
-
-    random.seed()
 
     # 애니메이션 효과 (부드럽게 흔들림)
     time_offset = now * 0.001
-    sway_x = math.sin(time_offset * 0.5) * 2
-    sway_y = math.cos(time_offset * 0.3) * 1.5
+    sway_x = math.sin(time_offset * 0.5) * 3
+    sway_y = math.cos(time_offset * 0.3) * 2
 
-    # 레이어 1 그리기: 기본 구름층 (완전 불투명)
-    for cx, cy, r in base_clouds:
-        anim_cx = int(cx + sway_x * (r / 60))
-        anim_cy = int(cy + sway_y * (r / 60))
-        pygame.draw.circle(cloud_surface, (95, 105, 125, 255), (anim_cx, anim_cy), r)
-        pygame.draw.circle(cloud_surface, (130, 140, 155, 255), (anim_cx, anim_cy), int(r * 0.7))
-        highlight_x = anim_cx - int(r * 0.2)
-        highlight_y = anim_cy - int(r * 0.2)
-        pygame.draw.circle(cloud_surface, (160, 165, 175, 255), (highlight_x, highlight_y), int(r * 0.35))
+    # 구름 색상 (닌자 스타일 - 어두운 보라/회색)
+    cloud_fill = (75, 65, 90, 255)  # 어두운 보라색 채우기
+    cloud_outline = (220, 220, 235, 255)  # 밝은 흰색 테두리
+    outline_width = 4
 
-    # 레이어 2 그리기: 테두리 구름층 (완전 불투명)
-    for cx, cy, r in edge_clouds:
-        anim_cx = int(cx + sway_x * 1.3)
-        anim_cy = int(cy + sway_y * 1.0)
-        pygame.draw.circle(cloud_surface, (100, 110, 130, 255), (anim_cx, anim_cy), r)
-        pygame.draw.circle(cloud_surface, (120, 130, 150, 255), (anim_cx, anim_cy), int(r * 0.75))
+    # 나루토 스타일 구름 그리기 함수 (소용돌이 패턴)
+    def draw_naruto_cloud_complete(surf, cx, cy, width, height, fill_color, outline_color, outline_w, sway=(0, 0)):
+        """완성된 나루토/아카츠키 스타일 구름을 그림"""
+        sx, sy = sway
 
-    # 레이어 3 그리기: 디테일 층 (완전 불투명)
-    for cx, cy, r in detail_clouds:
-        anim_cx = int(cx + sway_x * 1.5)
-        anim_cy = int(cy + sway_y * 1.2)
-        pygame.draw.circle(cloud_surface, (140, 150, 165, 255), (anim_cx, anim_cy), r)
+        # 구름 본체 (가로로 긴 타원형 기반)
+        cloud_rect = pygame.Rect(int(cx - width//2 + sx), int(cy - height//2 + sy), width, height)
 
-    # 레이어 4: 움직이는 안개 효과 (완전 불투명)
-    for i in range(15):
-        mist_x = int(center_x + math.sin(time_offset + i * 0.5) * cloud_w * 0.25)
-        mist_y = int(center_y + math.cos(time_offset * 0.6 + i * 0.4) * cloud_h * 0.2)
-        mist_r = 65 + (i % 5) * 12
-        pygame.draw.circle(cloud_surface, (110, 120, 140, 255), (mist_x, mist_y), mist_r)
+        # 메인 구름 본체 그리기 (타원)
+        pygame.draw.ellipse(surf, fill_color, cloud_rect)
+
+        # 왼쪽 소용돌이 컬 (3개)
+        curl_positions_left = [
+            (cx - width * 0.42 + sx, cy - height * 0.1 + sy, height * 0.55, -1),
+            (cx - width * 0.38 + sx, cy + height * 0.25 + sy, height * 0.45, -1),
+            (cx - width * 0.48 + sx, cy + height * 0.05 + sy, height * 0.35, -1),
+        ]
+
+        # 오른쪽 소용돌이 컬 (3개)
+        curl_positions_right = [
+            (cx + width * 0.42 + sx, cy - height * 0.1 + sy, height * 0.55, 1),
+            (cx + width * 0.38 + sx, cy + height * 0.25 + sy, height * 0.45, 1),
+            (cx + width * 0.48 + sx, cy + height * 0.05 + sy, height * 0.35, 1),
+        ]
+
+        # 상단 소용돌이 컬 (2개)
+        curl_positions_top = [
+            (cx - width * 0.15 + sx, cy - height * 0.35 + sy, height * 0.5, 0),
+            (cx + width * 0.15 + sx, cy - height * 0.35 + sy, height * 0.5, 0),
+        ]
+
+        all_curls = curl_positions_left + curl_positions_right + curl_positions_top
+
+        # 각 소용돌이 컬 그리기
+        for curl_x, curl_y, curl_size, direction in all_curls:
+            if direction == -1:  # 왼쪽
+                start_angle = math.pi * 0.5
+            elif direction == 1:  # 오른쪽
+                start_angle = math.pi * 1.5
+            else:  # 상단
+                start_angle = math.pi
+
+            # 소용돌이 스파이럴 그리기
+            points = []
+            num_points = 25
+            for i in range(num_points):
+                t = i / (num_points - 1)
+                angle = start_angle + t * math.pi * 1.8
+                radius = curl_size * (1 - t * 0.7)
+                px = curl_x + math.cos(angle) * radius * 0.6
+                py = curl_y + math.sin(angle) * radius * 0.5
+                points.append((int(px), int(py)))
+
+            # 소용돌이 채우기
+            if len(points) > 2:
+                fill_points = points + [(int(curl_x), int(curl_y))]
+                pygame.draw.polygon(surf, fill_color, fill_points)
+
+        # 테두리 그리기 (메인 타원)
+        pygame.draw.ellipse(surf, outline_color, cloud_rect, outline_w)
+
+        # 각 소용돌이 컬 테두리 그리기
+        for curl_x, curl_y, curl_size, direction in all_curls:
+            if direction == -1:
+                start_angle = math.pi * 0.5
+            elif direction == 1:
+                start_angle = math.pi * 1.5
+            else:
+                start_angle = math.pi
+
+            points = []
+            num_points = 25
+            for i in range(num_points):
+                t = i / (num_points - 1)
+                angle = start_angle + t * math.pi * 1.8
+                radius = curl_size * (1 - t * 0.7)
+                px = curl_x + math.cos(angle) * radius * 0.6
+                py = curl_y + math.sin(angle) * radius * 0.5
+                points.append((int(px), int(py)))
+
+            if len(points) > 1:
+                pygame.draw.lines(surf, outline_color, False, points, outline_w)
+
+        # 내부 디테일 (은은한 그라데이션 효과)
+        inner_rect = pygame.Rect(int(cx - width * 0.35 + sx), int(cy - height * 0.3 + sy),
+                                int(width * 0.7), int(height * 0.6))
+        inner_color = (95, 85, 110, 200)
+        pygame.draw.ellipse(surf, inner_color, inner_rect)
+
+    # 전체 크기 구름 그리기
+    cloud_width = int(cloud_w * 0.75)
+    cloud_height = int(cloud_h * 0.55)
+    draw_naruto_cloud_complete(cloud_surface, center_x, center_y,
+                               cloud_width, cloud_height, cloud_fill, cloud_outline, outline_width,
+                               sway=(sway_x, sway_y))
 
     # 페이드 아웃 시에만 투명도 적용
     if base_alpha < 255:
