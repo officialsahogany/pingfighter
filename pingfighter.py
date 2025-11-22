@@ -14886,6 +14886,14 @@ stage8_cloud_precast_ms: int = 0
 stage8_cloud_spawn_pos: tuple[int, int] = (0, 0)
 stage8_cloud_burst_center: tuple[int, int] = (0, 0)
 stage8_cloud_invuln_end_ms: int = 0  # 대시 종료 후 잠시 추가 무적 제공
+# Stage 8 스턴 회피 탈출
+stage8_stun_escape_active: bool = False
+stage8_stun_escape_start_ms: int = 0
+stage8_stun_escape_start_x: int = 0
+stage8_stun_escape_target_x: int = 0
+stage8_stun_escape_ready_ms: int = 0
+stage8_stun_escape_attempted: bool = False
+stage8_stun_escape_dx: float = 0.0
 STAGE8_CLOUD_VISIBLE_MS = 5000
 STAGE8_CLOUD_MIN_COOLDOWN_MS = 10000
 STAGE8_CLOUD_MAX_COOLDOWN_MS = 20000
@@ -14894,6 +14902,9 @@ STAGE8_CLOUD_DASH_MS = 220  # 내려가기/올라가기 각각
 STAGE8_CLOUD_PRECAST_MS = 400  # 발동 전 정지/오로라 연출
 STAGE8_CLOUD_EXPAND_MS = 280  # 구름 퍼짐 애니메이션 시간 (폭발적 분출)
 stage8_cloud_spawn_x: int = 0  # 구름 생성 위치 (보스 착지 위치)
+STAGE8_STUN_ESCAPE_DELAY_MS = 300
+STAGE8_STUN_ESCAPE_DURATION_MS = 500
+STAGE8_STUN_ESCAPE_COST = 100
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
 blacksmith_umbrella_swing_sound_timer = 0
