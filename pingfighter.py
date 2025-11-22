@@ -28010,17 +28010,15 @@ def handle_player(keys):
                     pass
 
             if HALF_DASH_ENABLED and down_pressed and not globals().get('dash_down_first_lock', False) and can_use_half_dash and not rolling_active:
+                # 방향키가 눌려 있고 ↓ 타임스탬프가 기록되어 있으면
+                # "방향+↓ 하프대쉬" 시도로 간주한다.
                 left_before_down_half = (
                     (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
-                    and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame <= down_press_frame  # 동시 입력(ㅁ+ㄴ)도 허용
                 )
                 right_before_down_half = (
                     (is_move_right_pressed(keys) or MOVE_EVENT_RIGHT)
-                    and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame <= down_press_frame  # 동시 입력(ㅇ+ㄴ)도 허용
                 )
                 if (left_before_down_half or right_before_down_half) and not globals().get('dash_down_first_lock', False):
                     # 게이지 계산
@@ -28252,17 +28250,14 @@ def handle_player(keys):
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
                 # A/D도 왼/오 입력으로 인정 (마우스+키보드 스킴 포함)
+                # 순수하게 "현재 방향키가 눌려 있고 ↓ 타임스탬프가 있으면" 조합으로 인정한다.
                 left_before_down = (
                     (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
-                    and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame <= down_press_frame  # 동시 입력(ㅁ+ㄴ)도 허용
                 )
                 right_before_down = (
                     (is_move_right_pressed(keys) or MOVE_EVENT_RIGHT)
-                    and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame <= down_press_frame  # 동시 입력(ㅇ+ㄴ)도 허용
                 )
                 if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge:
                     # 아래키 + 왼쪽 - 대쉬 실행
