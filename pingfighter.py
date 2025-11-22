@@ -36349,7 +36349,7 @@ def _finish_stage8_cloud(now: int) -> None:
 
 def _try_stage8_stun_escape(now: int) -> bool:
     """스턴 중 영체탈주 발동 시도. 성공 시 True."""
-    global stage8_stun_escape_ready_ms, stage8_stun_escape_attempted
+    global stage8_stun_escape_ready_ms, stage8_stun_escape_attempted, boss_special_gauge
     if current_stage != 8 or boss_stunned_timer <= 0:
         return False
 
