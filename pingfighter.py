@@ -36684,6 +36684,18 @@ def check_wind_aura_ball_collision(ball_rect: pygame.Rect) -> bool:
         except Exception:
             pass
 
+        # 30% 확률로 즉시 스킬 트리거 (쿨·게이지 무시)
+        try:
+            if random.random() < 0.30 and not stage8_cloud_dash_active and not stage8_cloud_active:
+                _start_stage8_cloud(now_ms)
+            if random.random() < 0.30 and not stage8_shadow_casting and not stage8_shadow_clones:
+                stage8_shadow_casting = True
+                stage8_shadow_cast_start_ms = now_ms
+                stage8_shadow_freeze_posx = BOSS.centerx
+                stage8_shadow_freeze_posy = BOSS.centery
+        except Exception:
+            pass
+
         # 5회 타격 시 오오라 소진
         if stage8_wind_aura_hit_count >= stage8_wind_aura_max_hits:
             stage8_wind_aura_depleted = True
