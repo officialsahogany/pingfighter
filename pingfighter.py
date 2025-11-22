@@ -66773,6 +66773,13 @@ def _boss_try_emergency_dash() -> bool:
     except Exception:
         pass
 
+    # 극정호신 상태에서 환영 분신 생성
+    if stage8_superspeed_active:
+        try:
+            spawn_stage8_afterimage_ghosts()
+        except Exception:
+            pass
+
     # 게이지 소모
     if not stage8_superspeed_active:
         boss_special_gauge = max(0, boss_special_gauge - BOSS_DASH_GAUGE_COST)
