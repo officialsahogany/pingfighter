@@ -36399,6 +36399,46 @@ def _release_stage8_net_trap() -> int:
     return removed
 
 
+def _end_stage8_superspeed() -> None:
+    """초신가속 종료 및 상태 초기화."""
+    global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
+    global boss_dash_cooldown_until_ms
+    stage8_superspeed_active = False
+    stage8_superspeed_end_ms = 0
+    stage8_superspeed_text_end_ms = 0
+    stage8_superspeed_freeze_end_ms = 0
+    boss_dash_cooldown_until_ms = 0
+
+
+def _start_stage8_superspeed(now: int) -> None:
+    """초신가속 발동: 5초간 무제한 대쉬(무료, 확장거리) 상태."""
+    global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
+    global boss_special_gauge, boss_dash_cooldown_until_ms
+    global stage8_shadow_casting, stage8_shuriken_casting, stage8_cloud_dash_active, stage8_cloud_active, stage8_cloud_rect
+    global stage8_shuriken_cast_start_ms
+
+    boss_special_gauge = max(0, boss_special_gauge - STAGE8_SUPERSPEED_COST)
+    stage8_superspeed_active = True
+    stage8_superspeed_end_ms = now + STAGE8_SUPERSPEED_DURATION_MS
+    stage8_superspeed_text_end_ms = now + STAGE8_SUPERSPEED_TEXT_MS
+    stage8_superspeed_freeze_end_ms = now + STAGE8_SUPERSPEED_FREEZE_MS
+    boss_dash_cooldown_until_ms = 0
+
+    # 다른 스킬 중단
+    stage8_shadow_casting = False
+    stage8_shuriken_casting = False
+    stage8_shuriken_cast_start_ms = 0
+    stage8_cloud_dash_active = False
+    stage8_cloud_active = False
+    stage8_cloud_rect = None
+
+    try:
+        show_flash_text("초신가속!", duration=STAGE8_SUPERSPEED_TEXT_MS)
+    except Exception:
+        # fallback: 말풍선 대신 로그
+        print("초신가속!")
+
+
 def _try_stage8_stun_escape(now: int) -> bool:
     """스턴 중 영체탈주 발동 시도. 성공 시 True."""
     global stage8_stun_escape_ready_ms, stage8_stun_escape_attempted, boss_special_gauge
@@ -36432,6 +36472,7 @@ def _start_stage8_stun_escape(now: int) -> None:
     global stage8_stun_escape_dx, boss_stunned_timer, boss_knockback_vel, boss_special_gauge
     global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
     global stage8_stun_escape_ghosts
+    global stage8_superspeed_active, stage8_superspeed_end_ms
 
     start_x = BOSS.centerx
     start_y = BOSS.centery
@@ -36470,6 +36511,10 @@ def _start_stage8_stun_escape(now: int) -> None:
     boss_knockback_vel = 0
     boss_special_gauge = max(0, boss_special_gauge - STAGE8_STUN_ESCAPE_COST)
     _release_stage8_net_trap()
+    # 영체탈주 시 초신가속 강제 종료
+    if stage8_superspeed_active:
+        stage8_superspeed_active = False
+        stage8_superspeed_end_ms = 0
 
     # 5개의 겹치는 잔상 생성 - 각각 다른 딜레이로 천천히 빠져나옴
     stage8_stun_escape_ghosts = []
