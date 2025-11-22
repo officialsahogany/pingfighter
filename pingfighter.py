@@ -41651,7 +41651,7 @@ def draw_objects():
         time_now = pygame.time.get_ticks()
         if (time_now // 250) % 2 == 0:
             apply_white_glow(rotated_boss, intensity=60)
-# === Stage 8 극정호신 오버레이 ===
+# === Stage 8 극정호신 오버레이 + 타이머 게이지 ===
     if current_stage == 8 and (stage8_superspeed_active or (stage8_superspeed_text_end_ms and pygame.time.get_ticks() < stage8_superspeed_text_end_ms)):
         text_font = FontStyle.title()
         text_surface = text_font.render("극정호신!", True, (255, 230, 80))
@@ -41669,6 +41669,29 @@ def draw_objects():
             freeze_tint = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             freeze_tint.fill((0, 0, 0, 120))
             SCREEN.blit(freeze_tint, (0, 0))
+        # 상단 우측 타이머 게이지
+        if stage8_superspeed_active:
+            now_ms = pygame.time.get_ticks()
+            remaining = max(0, stage8_superspeed_end_ms - now_ms)
+            ratio = remaining / float(STAGE8_SUPERSPEED_DURATION_MS) if STAGE8_SUPERSPEED_DURATION_MS > 0 else 0.0
+            bar_w = 220
+            bar_h = 14
+            margin = 16
+            x = WIDTH - bar_w - margin
+            y = margin
+            # 배경
+            bg = pygame.Rect(x - 4, y - 4, bar_w + 8, bar_h + 8)
+            pygame.draw.rect(SCREEN, (15, 15, 25), bg, border_radius=6)
+            pygame.draw.rect(SCREEN, (70, 70, 90), bg, width=2, border_radius=6)
+            # 게이지 바
+            fill_w = int(bar_w * ratio)
+            fill_rect = pygame.Rect(x, y, fill_w, bar_h)
+            pygame.draw.rect(SCREEN, (255, 200, 60), fill_rect, border_radius=4)
+            pygame.draw.rect(SCREEN, (60, 40, 0), pygame.Rect(x, y, bar_w, bar_h), width=2, border_radius=4)
+            # 라벨
+            label_font = FontStyle.body_small()
+            label = label_font.render("극정호신", True, (255, 230, 80))
+            SCREEN.blit(label, (x - label.get_width() - 8, y - 2))
     # === Stage 8 영체탈주 겹치는 잔상들 (5개가 시간차로 빠져나옴) ===
     if current_stage == 8 and stage8_stun_escape_active and stage8_stun_escape_ghosts:
         # 뒤에서부터 그려서 앞에 있는 잔상이 위에 오도록
