@@ -74005,6 +74005,9 @@ def main(stage_num, new_boss_mode=False):
                 update_stage8_wind_effects()
                 draw_stage8_wind_aura(SCREEN)
                 draw_stage8_wind_burst(SCREEN)
+                # 극정호신 환영 분신 효과
+                update_stage8_afterimage_ghosts()
+                draw_stage8_afterimage_ghosts(SCREEN)
             if current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms:
                 overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
                 overlay.fill((0, 0, 0, 150))
@@ -74098,6 +74101,9 @@ def main(stage_num, new_boss_mode=False):
                 update_stage8_wind_effects()
                 draw_stage8_wind_aura(SCREEN)
                 draw_stage8_wind_burst(SCREEN)
+                # 극정호신 환영 분신 효과
+                update_stage8_afterimage_ghosts()
+                draw_stage8_afterimage_ghosts(SCREEN)
             if current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms:
                 overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
                 overlay.fill((0, 0, 0, 150))
