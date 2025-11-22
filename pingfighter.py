@@ -14859,6 +14859,18 @@ stage8_wind_burst_particles: list = []  # 폭발 파티클들
 STAGE8_WIND_BURST_DURATION_MS = 800  # 폭발 애니메이션 지속 시간
 STAGE8_WIND_AURA_PARTICLE_COUNT = 24  # 오오라 파티클 수
 STAGE8_WIND_BURST_PARTICLE_COUNT = 48  # 폭발 파티클 수
+
+# === 바람 오오라 타격 범위 시스템 ===
+stage8_wind_aura_hit_count: int = 0  # 공에 맞은 횟수 (최대 5회)
+stage8_wind_aura_max_hits: int = 5  # 최대 타격 횟수
+stage8_wind_aura_depleted: bool = False  # 오오라가 소진된 상태
+stage8_wind_aura_recharge_start_ms: int = 0  # 재충전 시작 시간
+STAGE8_WIND_AURA_RECHARGE_MS: int = 10000  # 재충전 시간 (10초)
+STAGE8_WIND_AURA_RADIUS: int = 90  # 바람 오오라 타격 범위 반경
+stage8_wind_aura_ripple_active: bool = False  # 출렁임 애니메이션 활성
+stage8_wind_aura_ripple_start_ms: int = 0  # 출렁임 시작 시간
+STAGE8_WIND_AURA_RIPPLE_DURATION_MS: int = 300  # 출렁임 지속 시간
+stage8_wind_aura_hit_cooldown_ms: int = 0  # 타격 쿨다운 (연속 타격 방지)
 stage8_superspeed_active: bool = False
 stage8_superspeed_end_ms: int = 0
 stage8_superspeed_text_end_ms: int = 0
