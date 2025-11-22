@@ -36444,6 +36444,8 @@ def update_stage8_shurikens() -> None:
             player_slow_factor = STAGE8_SHURIKEN_SLOW_FACTOR
             stage8_shuriken_gauge_ticks_left = 4  # 0.5초 간격 4회(총 2초)
             stage8_shuriken_gauge_tick_timer = STAGE8_SHURIKEN_GAUGE_TICK_FRAMES
+            # 피 튀기는 파티클 효과 생성
+            create_blood_particles(rect.centerx, rect.centery, sh["vx"], sh["vy"])
             continue
         new_list.append(sh)
     stage8_shurikens = new_list
