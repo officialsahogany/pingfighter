@@ -84,8 +84,10 @@ class PlayableBossPong:
         
         # 플레이어 상태
         self.player_speed = 8
-        self.dash_cooldown = 0
-        self.dash_speed = 20
+        self.dash_cooldown = 0      # 쿨다운(프레임 단위)
+        self.dash_speed = 20        # 대쉬 시 이동 속도
+        self.dash_timer = 0         # 대쉬 지속 시간(프레임)
+        self.dash_duration = 12     # 한 번 발동 시 유지될 프레임 수 (≈0.2초)
         
         # 점수
         self.player_score = 0
@@ -208,9 +210,19 @@ class PlayableBossPong:
         
         # 플레이어 이동
         move_speed = self.player_speed
-        if keys[pygame.K_LSHIFT] and self.dash_cooldown <= 0:
+
+        # 대쉬 입력 처리(좌/우 쉬프트 모두 허용)
+        dash_input = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
+
+        # 대쉬 트리거: 쿨다운과 현재 대쉬가 모두 비활성일 때만 시작
+        if dash_input and self.dash_cooldown <= 0 and self.dash_timer <= 0:
+            self.dash_timer = self.dash_duration
+            self.dash_cooldown = 60  # 1초 쿨다운 시작
+
+        # 대쉬가 활성화되어 있으면 빠른 속도 유지
+        if self.dash_timer > 0:
             move_speed = self.dash_speed
-            self.dash_cooldown = 60  # 1초 쿨다운
+            self.dash_timer -= 1
             
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.player.x = max(0, self.player.x - move_speed)
