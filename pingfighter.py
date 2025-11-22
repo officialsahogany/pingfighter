@@ -72376,9 +72376,9 @@ def main(stage_num, new_boss_mode=False):
             if (perfect_timing_frame_count <= perfect_timing_window and 
                 perfect_timing_cooldown == 0 and not perfect_timing_input_used and 
                 drive_global_cooldown == 0):
-                #  개선된 동시 입력 감지 (2프레임 허용 범위) - 선입력 방지
-                max_frame_gap = 2  # 최대 2프레임(0.033초) 차이까지 동시 입력으로 인정
-                max_input_age = 8   # 최대 8프레임(약 0.13초) 전까지의 입력만 유효
+                #  개선된 동시 입력 감지 (여유 있게 4프레임 허용) - 선입력 방지 완화
+                max_frame_gap = 4   # 최대 4프레임(약 0.07초) 차이까지 동시 입력으로 인정
+                max_input_age = 16  # 최대 16프레임(약 0.27초) 전까지의 입력만 유효
                                     #  파워스매싱/고스트샷 발동: 게이지가 준비되었고 스페이스를 홀드하고 있다면
                 if (
                     special_gauge >= 350
