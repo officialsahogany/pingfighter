@@ -27592,13 +27592,13 @@ def handle_player(keys):
                     left_active_for_dash
                     and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame < down_press_frame
+                    and left_press_frame <= down_press_frame  # 동일 프레임 동시 입력(예: ㅁ+ㄴ)도 허용
                 )
                 right_before_down = (
                     right_active_for_dash
                     and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame < down_press_frame
+                    and right_press_frame <= down_press_frame  # 동일 프레임 동시 입력(예: ㅇ+ㄴ)도 허용
                 )
                 current_charges = get_roll("rolling_charges")
 
