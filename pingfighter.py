@@ -70854,6 +70854,15 @@ def main(stage_num, new_boss_mode=False):
         if profiler:
             profiler.begin_frame()
         dt_ms = clock.tick(FPS)
+        now_ms = pygame.time.get_ticks()
+        if current_stage == 8 and stage8_awaken_intro_pending and now_ms >= stage8_awaken_freeze_end_ms:
+            stage8_awaken_intro_pending = False
+            stage8_awaken_intro_done = True
+            stage8_awakened = True
+            try:
+                show_speech("초각성!", duration=90)
+            except Exception:
+                pass
         genie_assistant.update(dt_ms)
         # 프로파일러 입력 처리 섹션
         if profiler:
