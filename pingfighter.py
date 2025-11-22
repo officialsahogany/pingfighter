@@ -36562,6 +36562,7 @@ def _start_stage8_stun_escape(now: int) -> None:
     global stage8_stun_escape_dx, boss_stunned_timer, boss_knockback_vel, boss_special_gauge
     global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
     global stage8_stun_escape_ghosts
+    global stage8_awakened
     global stage8_superspeed_active, stage8_superspeed_end_ms
 
     start_x = BOSS.centerx
