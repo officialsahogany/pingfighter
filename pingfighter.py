@@ -61639,13 +61639,13 @@ def calculate_bounce(paddle):
             print(f"   : {original_speed:.2f} → {speed:.2f} (: {drive_speed_increase:.2f})")
             #  패들 위치에 따른 드라이브 각도 조정 (균형잡힌 각도)
             if perfect_direction == -1:  # 왼쪽 드라이브
-                # 패들 위치가 왼쪽일수록 각도 완화, 오른쪽일수록 각도 증가
-                base_angle = -math.pi / 8.0  # 기본 22.5도
+                # 화면 좌측(왼쪽)으로 보내기 위해 양수 각도로 CCW 회전
+                base_angle = math.pi / 8.0  # 기본 22.5도 (CCW → 좌측)
                 position_factor = rel_x * 0.3  # 위치에 따른 조정 (-0.3 ~ +0.3)
                 angle = base_angle + position_factor
             else:  # 오른쪽 드라이브
-                # 패들 위치가 오른쪽일수록 각도 완화, 왼쪽일수록 각도 증가
-                base_angle = math.pi / 8.0   # 기본 22.5도
+                # 화면 우측(오른쪽)으로 보내기 위해 음수 각도로 CW 회전
+                base_angle = -math.pi / 8.0   # 기본 -22.5도 (CW → 우측)
                 position_factor = rel_x * 0.3  # 위치에 따른 조정 (-0.3 ~ +0.3)
                 angle = base_angle + position_factor
         else:
