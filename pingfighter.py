@@ -73416,94 +73416,94 @@ def main(stage_num, new_boss_mode=False):
             if not freeze_now:
                 # 코만도 총알 시스템 업데이트
                 if selected_character_type == "soldier":
-                        update_soldier_gun_animation()  # 총 발사 애니메이션 업데이트
-                        update_soldier_bullets()
-                        update_blood_particles()  # 피 파티클 업데이트
-                        
-                        # 바주카포 시스템 업데이트
-                        from item_effects.bazooka import get_bazooka_instance
-                        bazooka = get_bazooka_instance()
-                        # 무기 교체(unequip) 중에도 이미 발사된 로켓은 계속 비행하도록 업데이트 유지
-                        if bazooka.equipped or (getattr(bazooka, "projectiles", None)):
-                            bazooka.update(0.016)  # 60fps 기준
+                    update_soldier_gun_animation()  # 총 발사 애니메이션 업데이트
+                    update_soldier_bullets()
+                    update_blood_particles()  # 피 파티클 업데이트
+                    
+                    # 바주카포 시스템 업데이트
+                    from item_effects.bazooka import get_bazooka_instance
+                    bazooka = get_bazooka_instance()
+                    # 무기 교체(unequip) 중에도 이미 발사된 로켓은 계속 비행하도록 업데이트 유지
+                    if bazooka.equipped or (getattr(bazooka, "projectiles", None)):
+                        bazooka.update(0.016)  # 60fps 기준
 
-                        # AK-47 시스템 업데이트
-                        ak47 = get_ak47_instance()
-                        if ak47.active:
-                            boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
+                    # AK-47 시스템 업데이트
+                    ak47 = get_ak47_instance()
+                    if ak47.active:
+                        boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
 
-                            # AK-47 지속시간은 실제 발사 입력이 유지될 때만 소모되도록 조정
-                            tick_timer = ak47.is_firing
+                        # AK-47 지속시간은 실제 발사 입력이 유지될 때만 소모되도록 조정
+                        tick_timer = ak47.is_firing
 
-                            hit_events = ak47.update(boss_rect, tick_timer=tick_timer)
-                            for event in hit_events:
-                                if event.get("type") == "boss_hit":
-                                    apply_ak47_boss_hit_effect(event)
+                        hit_events = ak47.update(boss_rect, tick_timer=tick_timer)
+                        for event in hit_events:
+                            if event.get("type") == "boss_hit":
+                                apply_ak47_boss_hit_effect(event)
 
-                            # 스테이지7 테트로미노와 AK-47 탄환 충돌 처리(단일 블록 증발)
-                            try:
-                                _handle_ak47_tetro_collisions()
-                            except Exception:
-                                pass
+                        # 스테이지7 테트로미노와 AK-47 탄환 충돌 처리(단일 블록 증발)
+                        try:
+                            _handle_ak47_tetro_collisions()
+                        except Exception:
+                            pass
 
-                        # 그물덫총 시스템 업데이트
-                        # 버그 수정: 비장착 상태에서 쿨다운/락 타이머가 멈춰 다음 장착 시 발사가 막히는 문제
-                        # → 장착 여부와 무관하게 매프레임 업데이트하여 타이머가 정상 소모되도록 함
-                        net_gun = get_net_gun_instance()
-                        net_gun.update(PLAYER, BOSS, player_is_dashing=rolling_active)
-                        fire_support_weapon = get_fire_support_instance()
-                        fire_support_weapon.update(
-                            boss_rect=pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height),
-                            ball_rect=pygame.Rect(BALL.x, BALL.y, BALL.width, BALL.height),
-                            last_hit_by=last_hit_by,
-                            create_explosion=lambda ex, ey: trigger_grenade_style_explosion(
-                                ex,
-                                ey,
-                                apply_commando_bonus=True,
-                                source="fire_support",
-                                radius_scale=0.8,
-                            ),
-                        )
-                        if fire_support_weapon.radio_active:
-                            if fire_support_weapon.is_calling():
-                                supply_runtime.hold_active = True
-                            elif not supply_drop_state.active:
-                                supply_runtime.hold_active = False
-                        elif fire_support_radio_loop_active:
-                            if not supply_drop_state.active:
-                                stop_supply_radio_loop(force=True)
-                            fire_support_radio_loop_active = False
-                        if fire_support_weapon.finished and fire_support_weapon.ammo_count <= 0:
-                            fire_support_weapon.clear_finished_flag()
-                        check_weapon_degradation()
-                        # 쿨다운 감소
-                        if soldier_gun_cooldown > 0:
-                            soldier_gun_cooldown -= 1
-                        # 재장전 업데이트
-                        update_soldier_reload()
-                        # 휘두르기 애니메이션 타이머 감소
-                        if soldier_swing_timer > 0:
-                            soldier_swing_timer -= 1
-                            if soldier_swing_timer <= 0:
-                                soldier_swing_active = False
-                        if soldier_right_hook_timer > 0:
-                            soldier_right_hook_timer -= 1
-                            print(f"[DEBUG] Soldier hook ticking: timer={soldier_right_hook_timer}")
-                            if soldier_right_hook_timer <= 0:
-                                soldier_right_hook_active = False
-                                soldier_right_hook_phase = 0.0
-                                print("[DEBUG] Soldier hook end")
-                        
-                        # 레그샷 효과 타이머 업데이트
-                        if leg_shot_active and leg_shot_timer > 0:
-                            leg_shot_timer -= 1
-                            if leg_shot_timer <= 0:
-                                leg_shot_active = False
-                                print("레그샷 효과 종료 - 보스 이동속도 정상화")
+                    # 그물덫총 시스템 업데이트
+                    # 버그 수정: 비장착 상태에서 쿨다운/락 타이머가 멈춰 다음 장착 시 발사가 막히는 문제
+                    # → 장착 여부와 무관하게 매프레임 업데이트하여 타이머가 정상 소모되도록 함
+                    net_gun = get_net_gun_instance()
+                    net_gun.update(PLAYER, BOSS, player_is_dashing=rolling_active)
+                    fire_support_weapon = get_fire_support_instance()
+                    fire_support_weapon.update(
+                        boss_rect=pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height),
+                        ball_rect=pygame.Rect(BALL.x, BALL.y, BALL.width, BALL.height),
+                        last_hit_by=last_hit_by,
+                        create_explosion=lambda ex, ey: trigger_grenade_style_explosion(
+                            ex,
+                            ey,
+                            apply_commando_bonus=True,
+                            source="fire_support",
+                            radius_scale=0.8,
+                        ),
+                    )
+                    if fire_support_weapon.radio_active:
+                        if fire_support_weapon.is_calling():
+                            supply_runtime.hold_active = True
+                        elif not supply_drop_state.active:
+                            supply_runtime.hold_active = False
+                    elif fire_support_radio_loop_active:
+                        if not supply_drop_state.active:
+                            stop_supply_radio_loop(force=True)
+                        fire_support_radio_loop_active = False
+                    if fire_support_weapon.finished and fire_support_weapon.ammo_count <= 0:
+                        fire_support_weapon.clear_finished_flag()
+                    check_weapon_degradation()
+                    # 쿨다운 감소
+                    if soldier_gun_cooldown > 0:
+                        soldier_gun_cooldown -= 1
+                    # 재장전 업데이트
+                    update_soldier_reload()
+                    # 휘두르기 애니메이션 타이머 감소
+                    if soldier_swing_timer > 0:
+                        soldier_swing_timer -= 1
+                        if soldier_swing_timer <= 0:
+                            soldier_swing_active = False
+                    if soldier_right_hook_timer > 0:
+                        soldier_right_hook_timer -= 1
+                        print(f"[DEBUG] Soldier hook ticking: timer={soldier_right_hook_timer}")
+                        if soldier_right_hook_timer <= 0:
+                            soldier_right_hook_active = False
+                            soldier_right_hook_phase = 0.0
+                            print("[DEBUG] Soldier hook end")
+
+                    # 레그샷 효과 타이머 업데이트
+                    if leg_shot_active and leg_shot_timer > 0:
+                        leg_shot_timer -= 1
+                        if leg_shot_timer <= 0:
+                            leg_shot_active = False
+                            print("레그샷 효과 종료 - 보스 이동속도 정상화")
                     # 레그샷 텍스트 타이머 업데이트
                     if leg_shot_text_timer > 0:
                         leg_shot_text_timer -= 1
-                    
+
                     # 헤드샷 텍스트 타이머 업데이트
                     if head_shot_text_timer > 0:
                         head_shot_text_timer -= 1
