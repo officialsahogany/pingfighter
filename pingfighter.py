@@ -36432,11 +36432,7 @@ def _start_stage8_superspeed(now: int) -> None:
     stage8_cloud_active = False
     stage8_cloud_rect = None
 
-    try:
-        show_flash_text("초신가속!", duration=STAGE8_SUPERSPEED_TEXT_MS)
-    except Exception:
-        # fallback: 말풍선 대신 로그
-        print("초신가속!")
+    # 메시지는 draw_objects에서 오버레이로 표시
 
 
 def _try_stage8_stun_escape(now: int) -> bool:
@@ -40633,6 +40629,7 @@ def draw_objects():
     global frame_count  # 프레임 카운터 추가
     global player_missile_stunned_timer  # 미사일 스턴 타이머 추가
     global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
+    global stage8_superspeed_active, stage8_superspeed_text_end_ms
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, blacksmith_turret_projectiles
@@ -41140,6 +41137,19 @@ def draw_objects():
         time_now = pygame.time.get_ticks()
         if (time_now // 250) % 2 == 0:
             apply_white_glow(rotated_boss, intensity=60)
+    # === Stage 8 초신가속 오버레이 ===
+    if current_stage == 8 and (stage8_superspeed_active or (stage8_superspeed_text_end_ms and pygame.time.get_ticks() < stage8_superspeed_text_end_ms)):
+        text_font = FontStyle.title()
+        text_surface = text_font.render("초신가속!", True, (255, 230, 80))
+        shadow = text_font.render("초신가속!", True, (20, 10, 0))
+        cx = WIDTH // 2
+        cy = HEIGHT // 2 - 40
+        SCREEN.blit(shadow, text_surface.get_rect(center=(cx + 4, cy + 4)))
+        SCREEN.blit(text_surface, text_surface.get_rect(center=(cx, cy)))
+        # 약간의 화면 어둡게
+        tint = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        tint.fill((10, 10, 20, 70))
+        SCREEN.blit(tint, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
     # === Stage 8 영체탈주 겹치는 잔상들 (5개가 시간차로 빠져나옴) ===
     if current_stage == 8 and stage8_stun_escape_active and stage8_stun_escape_ghosts:
         # 뒤에서부터 그려서 앞에 있는 잔상이 위에 오도록
