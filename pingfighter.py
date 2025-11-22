@@ -2071,6 +2071,7 @@ SOUND_SHURIKEN_SHOOT = sound_effects['SHURIKEN_SHOOT']
 SOUND_SHURIKEN_HIT = sound_effects['SHURIKEN_HIT']
 SOUND_NINJA_SHIELD = sound_effects['NINJA_SHIELD']
 SOUND_DIVINE_SHIELD = sound_effects['DIVINE_SHIELD']
+SOUND_DIVINE_UPGRADE = sound_effects['DIVINE_UPGRADE']
 SOUND_ITEM_GET = sound_effects['ITEM_GET']
 SOUND_NOTIFICATION = sound_effects['NOTIFICATION']
 SOUND_HONGRYUN_CHARGE = sound_effects['HONGRYUN_CHARGE']
@@ -6843,7 +6844,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                                 count=8,
                                 spread=20,
                             )
-                            play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
+                            play_sound_with_volume(SOUND_DIVINE_UPGRADE)
                         except Exception:
                             pass
 
