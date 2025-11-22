@@ -56197,7 +56197,7 @@ def show_item_manager_menu():
                         selected_category = idx
                         selected_item_index = 0
                         break
-                # 아이템 클릭 처리
+                # 아이템 클릭/드래그 처리
                 if selected_category == 0:
                     current_items = active_items
                 elif selected_category == 1:
@@ -56216,22 +56216,25 @@ def show_item_manager_menu():
                         item_name = item["name"]
                         if selected_category == 0:
                             enter_quantity_mode(item_name)
-                        elif selected_category == 1:
-                            if item_name in selected_passive_items:
-                                selected_passive_items.remove(item_name)
-                            else:
-                                selected_passive_items.append(item_name)
-                        elif selected_category == 2:
-                            # 화기류 탭: 마우스 클릭으로 선택/해제 토글
-                            if item_name in selected_firearm_items:
-                                selected_firearm_items.remove(item_name)
-                            else:
-                                selected_firearm_items.append(item_name)
-                        else:  # 전설 탭
-                            if item_name in selected_legendary_items:
-                                selected_legendary_items.remove(item_name)
-                            else:
-                                selected_legendary_items.append(item_name)
+                        elif event.button == 1:  # 좌클릭: 카테고리 1~3 토글 (드래그 첫 클릭 포함)
+                            drag_key = f"{selected_category}:{item_name}"
+                            if drag_key not in drag_toggled_items:
+                                if selected_category == 1:
+                                    if item_name in selected_passive_items:
+                                        selected_passive_items.remove(item_name)
+                                    else:
+                                        selected_passive_items.append(item_name)
+                                elif selected_category == 2:
+                                    if item_name in selected_firearm_items:
+                                        selected_firearm_items.remove(item_name)
+                                    else:
+                                        selected_firearm_items.append(item_name)
+                                else:  # 전설 탭
+                                    if item_name in selected_legendary_items:
+                                        selected_legendary_items.remove(item_name)
+                                    else:
+                                        selected_legendary_items.append(item_name)
+                                drag_toggled_items.add(drag_key)
 def apply_selected_items(
     selected_active_items,
     selected_passive_items,
