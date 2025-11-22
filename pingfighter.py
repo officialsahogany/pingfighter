@@ -2061,6 +2061,7 @@ SOUND_FLAME = sound_effects['FLAME']
 SOUND_SMOKEBOMB = sound_effects['SMOKEBOMB']
 SOUND_FLASHBOMB = sound_effects['FLASHBOMB']
 SOUND_TIMEWATCH = sound_effects['TIMEWATCH']
+SOUND_DRONE = sound_effects['DRONE']
 SOUND_PANDORA = sound_effects['PANDORA']
 SOUND_DRINK = sound_effects['DRINK']
 SOUND_STAGE1_DOOR = sound_effects['STAGE1_DOOR']
@@ -18544,6 +18545,7 @@ SUICIDE_DRONE_ACCEL = 1.2
 SUICIDE_DRONE_MAX_SPEED = 14.0
 suicide_drone_rotor_angle = 0.0
 suicide_drone_rotor_speed = 22.0
+suicide_drone_sound_channel = None
 
 # === 코만도 총 발사 애니메이션 관련 변수 ===
 soldier_gun_animation_active = False  # 총 발사 애니메이션 진행 중인지
@@ -19187,6 +19189,14 @@ def _reset_suicide_drone_state() -> None:
     globals()['suicide_drone_grace_timer'] = 0
     globals()['suicide_drone_vel'] = [0.0, 0.0]
     globals()['suicide_drone_rotor_angle'] = 0.0
+    # 드론 비활성화 시 사운드 즉시 정지
+    try:
+        global suicide_drone_sound_channel
+        if suicide_drone_sound_channel:
+            suicide_drone_sound_channel.stop()
+        suicide_drone_sound_channel = None
+    except Exception:
+        pass
 
 
 def _launch_suicide_drone() -> bool:
@@ -19208,6 +19218,14 @@ def _launch_suicide_drone() -> bool:
     globals()['suicide_drone_grace_timer'] = SUICIDE_DRONE_GRACE_FRAMES
     suicide_drone_vel = [0.0, 0.0]
     suicide_drone_rotor_angle = 0.0
+    # 드론 비행음 루프로 재생 (폭발 전까지 유지)
+    try:
+        global suicide_drone_sound_channel
+        if SOUND_DRONE:
+            SOUND_DRONE.set_volume(sfx_volume)
+            suicide_drone_sound_channel = SOUND_DRONE.play(loops=-1)
+    except Exception:
+        suicide_drone_sound_channel = None
     return True
 
 

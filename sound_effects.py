@@ -60,6 +60,7 @@ SOUND_PATHS = {
     "SMOKEBOMB": "sounds/smokebomb.wav",
     "FLASHBOMB": "sounds/flashbomb.wav",
     "TIMEWATCH": "sounds/timewatch.wav",
+    "DRONE": "sounds/drone.wav",
     "PANDORA": "sounds/pandora.wav",
     "DRINK": "sounds/drink.wav",
     "STAGE1_DOOR": "sounds/stage1door.wav",
