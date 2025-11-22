@@ -14894,6 +14894,7 @@ stage8_stun_escape_target_x: int = 0
 stage8_stun_escape_ready_ms: int = 0
 stage8_stun_escape_attempted: bool = False
 stage8_stun_escape_dx: float = 0.0
+stage8_stun_escape_ghosts: list = []  # 영체탈주 겹치는 잔상들 [{x, y, alpha, delay_ms, image}]
 stage8_stun_hologram_active: bool = False
 stage8_stun_hologram_rect: pygame.Rect | None = None
 stage8_stun_hologram_end_ms: int = 0
