@@ -38041,17 +38041,17 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
         glow_color = (150, 100, 220, int(sparkle_alpha * 0.3))
         pygame.draw.circle(cloud_surface, glow_color, (int(sparkle_x), int(sparkle_y)), sparkle_size + 5)  # 15% 증가
 
-    # 떠다니는 연막 덩어리들 (좌우 드리프트)
+    # 떠다니는 연막 덩어리들 (좌우 드리프트) - 크기 15% 증가
     floating_smokes = [
-        (center_x - smoke_width * 0.4, center_y - smoke_height * 0.35, 45, 1, 0.02, 0.35, 0),
-        (center_x + smoke_width * 0.35, center_y - smoke_height * 0.3, 40, -1, 0.025, 0.4, 1.5),
-        (center_x - smoke_width * 0.3, center_y + smoke_height * 0.3, 38, 1, 0.018, 0.45, 3.0),
-        (center_x + smoke_width * 0.4, center_y + smoke_height * 0.35, 42, -1, 0.022, 0.38, 4.5),
-        (center_x, center_y - smoke_height * 0.45, 35, 1, 0.028, 0.42, 2.0),
-        (center_x - smoke_width * 0.45, center_y, 32, -1, 0.015, 0.5, 5.0),
-        (center_x + smoke_width * 0.45, center_y + smoke_height * 0.1, 36, 1, 0.03, 0.32, 1.0),
-        (center_x - smoke_width * 0.15, center_y - smoke_height * 0.2, 28, -1, 0.035, 0.48, 2.5),
-        (center_x + smoke_width * 0.2, center_y + smoke_height * 0.15, 30, 1, 0.012, 0.52, 3.5),
+        (center_x - smoke_width * 0.4, center_y - smoke_height * 0.35, 52, 1, 0.02, 0.35, 0),
+        (center_x + smoke_width * 0.35, center_y - smoke_height * 0.3, 46, -1, 0.025, 0.4, 1.5),
+        (center_x - smoke_width * 0.3, center_y + smoke_height * 0.3, 44, 1, 0.018, 0.45, 3.0),
+        (center_x + smoke_width * 0.4, center_y + smoke_height * 0.35, 48, -1, 0.022, 0.38, 4.5),
+        (center_x, center_y - smoke_height * 0.45, 40, 1, 0.028, 0.42, 2.0),
+        (center_x - smoke_width * 0.45, center_y, 37, -1, 0.015, 0.5, 5.0),
+        (center_x + smoke_width * 0.45, center_y + smoke_height * 0.1, 41, 1, 0.03, 0.32, 1.0),
+        (center_x - smoke_width * 0.15, center_y - smoke_height * 0.2, 32, -1, 0.035, 0.48, 2.5),
+        (center_x + smoke_width * 0.2, center_y + smoke_height * 0.15, 35, 1, 0.012, 0.52, 3.5),
     ]
 
     drift_range = smoke_width * 0.25
