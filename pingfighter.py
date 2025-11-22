@@ -72666,22 +72666,22 @@ def main(stage_num, new_boss_mode=False):
                     dir_sign = -1 if power_smashing_direction == -1 else 1
                     ball_vel[0] = dir_sign * abs(ball_vel[0]) * 1.2805  # 좌우 방향 고정 (28.05% 부스트)
 
-                        # 패들 중앙에 가까워도 최소 각도 이상으로 꺾이도록 보정
-                        y_abs = abs(ball_vel[1])
-                        x_abs = abs(ball_vel[0])
-                        if y_abs < 1e-4:
-                            y_abs = 1e-4
-                        if x_abs < y_abs * POWER_SMASH_MIN_TURN_RATIO:
-                            speed = math.hypot(ball_vel[0], ball_vel[1])
-                            if speed == 0:
-                                speed = BALL_BASE_SPEED if BALL_BASE_SPEED else 1.0
-                            target_x = speed * math.sin(POWER_SMASH_MIN_TURN_ANGLE_RAD)
-                            target_y = speed * math.cos(POWER_SMASH_MIN_TURN_ANGLE_RAD)
-                            ball_vel[0] = dir_sign * target_x
-                            y_sign = -1 if ball_vel[1] < 0 else 1
-                            if ball_vel[1] == 0:
-                                y_sign = -1  # 기본적으로 위쪽(보스 방향)으로 발사
-                            ball_vel[1] = y_sign * target_y
+                    # 패들 중앙에 가까워도 최소 각도 이상으로 꺾이도록 보정
+                    y_abs = abs(ball_vel[1])
+                    x_abs = abs(ball_vel[0])
+                    if y_abs < 1e-4:
+                        y_abs = 1e-4
+                    if x_abs < y_abs * POWER_SMASH_MIN_TURN_RATIO:
+                        speed = math.hypot(ball_vel[0], ball_vel[1])
+                        if speed == 0:
+                            speed = BALL_BASE_SPEED if BALL_BASE_SPEED else 1.0
+                        target_x = speed * math.sin(POWER_SMASH_MIN_TURN_ANGLE_RAD)
+                        target_y = speed * math.cos(POWER_SMASH_MIN_TURN_ANGLE_RAD)
+                        ball_vel[0] = dir_sign * target_x
+                        y_sign = -1 if ball_vel[1] < 0 else 1
+                        if ball_vel[1] == 0:
+                            y_sign = -1  # 기본적으로 위쪽(보스 방향)으로 발사
+                        ball_vel[1] = y_sign * target_y
                     else:  # 직선 파워스매싱
                         # 중앙 파워스매싱 - 패들 중심에서 공의 위치에 따라 방향 결정
                         x_diff = BALL.centerx - PLAYER.centerx
