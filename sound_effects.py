@@ -69,6 +69,7 @@ SOUND_PATHS = {
     "SHURIKEN_SHOOT": "sounds/pyochangshoot.wav",
     "SHURIKEN_HIT": "sounds/pyochanghit.wav",
     "NINJA_SHIELD": "sounds/ninjashield.wav",
+    "DIVINE_SHIELD": "sounds/divineshield.wav",
     "ITEM_GET": "sounds/itemget.wav",
     "NOTIFICATION": "sounds/item_pickup.wav",
     "STAR_POINT_STACK": "sounds/starpointstack.wav",

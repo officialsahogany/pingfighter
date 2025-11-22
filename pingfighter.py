@@ -2070,6 +2070,7 @@ SOUND_THROW = sound_effects['THROW']
 SOUND_SHURIKEN_SHOOT = sound_effects['SHURIKEN_SHOOT']
 SOUND_SHURIKEN_HIT = sound_effects['SHURIKEN_HIT']
 SOUND_NINJA_SHIELD = sound_effects['NINJA_SHIELD']
+SOUND_DIVINE_SHIELD = sound_effects['DIVINE_SHIELD']
 SOUND_ITEM_GET = sound_effects['ITEM_GET']
 SOUND_NOTIFICATION = sound_effects['NOTIFICATION']
 SOUND_HONGRYUN_CHARGE = sound_effects['HONGRYUN_CHARGE']
@@ -15498,6 +15499,12 @@ def check_divine_shield_ball_collision():
             # 보호막 피격 카운터 증가
             shield_hits = divine_state.get("shield_hits", 0) + 1
             divine_state["shield_hits"] = shield_hits
+
+            # 디바인쉴드 피격 사운드
+            try:
+                play_sound_with_volume(SOUND_DIVINE_SHIELD)
+            except Exception:
+                pass
 
             # 파장 출렁임 이펙트 추가
             ripple_effects = divine_state.get("shield_ripple_effects", [])
