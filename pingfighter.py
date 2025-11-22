@@ -68211,6 +68211,15 @@ def handle_boss():
         # 초신가속 종료 타이밍 체크
         if stage8_superspeed_active and stage8_superspeed_end_ms and now_ms >= stage8_superspeed_end_ms:
             _end_stage8_superspeed()
+        # 초각성 연출 완료 시점 체크
+        if stage8_awaken_intro_pending and now_ms >= stage8_awaken_freeze_end_ms:
+            stage8_awaken_intro_pending = False
+            stage8_awaken_intro_done = True
+            stage8_awakened = True
+            try:
+                show_speech("초각성!", duration=90)
+            except Exception:
+                pass
         # 초신가속 발동 조건 체크 (게이지 300)
         if (
             stage8_awakened
@@ -69618,6 +69627,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_dialogue_shown, tutorial_practice_mode, tutorial_serve_instruction_shown, tutorial_boss_returned
     global tutorial_boss_return_dialogue_shown, tutorial_pause_for_dialogue, tutorial_saved_ball_vel
     global tutorial_serve_helper_shown, tutorial_serve_reminder_active
+    global stage8_awaken_intro_pending, stage8_awaken_intro_done, stage8_awaken_freeze_end_ms, stage8_awakened
     global tutorial_wait_for_first_serve
     global tutorial_needs_dash_practice, tutorial_dash_practice_shown
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown
