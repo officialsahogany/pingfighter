@@ -36882,6 +36882,11 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                     if len(points) > 1:
                         pygame.draw.lines(surf, outline_color, False, points, outline_w)
 
+                # 내부를 완전 불투명하게 채우기
+                inner_rect = pygame.Rect(int(cx - width * 0.4), int(cy - height * 0.35),
+                                        int(width * 0.8), int(height * 0.7))
+                pygame.draw.ellipse(surf, fill_color, inner_rect)
+
             # 현재 크기에 맞춰 구름 그리기
             cloud_width = int(current_width * 0.85)
             cloud_height = int(full_cloud_h * 0.55)
@@ -37019,10 +37024,10 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
             if len(points) > 1:
                 pygame.draw.lines(surf, outline_color, False, points, outline_w)
 
-        # 내부 디테일 (은은한 그라데이션 효과)
-        inner_rect = pygame.Rect(int(cx - width * 0.35 + sx), int(cy - height * 0.3 + sy),
-                                int(width * 0.7), int(height * 0.6))
-        inner_color = (95, 85, 110, 200)
+        # 내부를 완전 불투명하게 채우기
+        inner_rect = pygame.Rect(int(cx - width * 0.4 + sx), int(cy - height * 0.35 + sy),
+                                int(width * 0.8), int(height * 0.7))
+        inner_color = (75, 65, 90, 255)  # 완전 불투명
         pygame.draw.ellipse(surf, inner_color, inner_rect)
 
     # 전체 크기 구름 그리기
