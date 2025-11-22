@@ -2076,6 +2076,7 @@ SOUND_STAGE1_MACHINE = sound_effects['STAGE1_MACHINE']
 SOUND_BIRDKILL = sound_effects['BIRDKILL']
 SOUND_THROW = sound_effects['THROW']
 SOUND_SHURIKEN_SHOOT = sound_effects['SHURIKEN_SHOOT']
+SOUND_SHURIKEN_HIT = sound_effects['SHURIKEN_HIT']
 SOUND_ITEM_GET = sound_effects['ITEM_GET']
 SOUND_NOTIFICATION = sound_effects['NOTIFICATION']
 SOUND_HONGRYUN_CHARGE = sound_effects['HONGRYUN_CHARGE']
@@ -37479,6 +37480,10 @@ def update_stage8_shurikens() -> None:
             if is_player_in_smoke():
                 # 연막이 표창을 흡수하므로 사라지게 처리
                 continue
+            try:
+                play_sound_with_volume(SOUND_SHURIKEN_HIT)
+            except Exception:
+                pass
             player_slow_timer = STAGE8_SHURIKEN_SLOW_FRAMES
             player_slow_timer_max = STAGE8_SHURIKEN_SLOW_FRAMES
             player_slow_factor = STAGE8_SHURIKEN_SLOW_FACTOR

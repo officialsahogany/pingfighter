@@ -67,6 +67,7 @@ SOUND_PATHS = {
     "BIRDKILL": "sounds/birdkill.wav",
     "THROW": "sounds/throw.wav",
     "SHURIKEN_SHOOT": "sounds/pyochangshoot.wav",
+    "SHURIKEN_HIT": "sounds/pyochanghit.wav",
     "ITEM_GET": "sounds/itemget.wav",
     "NOTIFICATION": "sounds/item_pickup.wav",
     "STAR_POINT_STACK": "sounds/starpointstack.wav",
