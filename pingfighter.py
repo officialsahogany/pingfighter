@@ -36381,7 +36381,7 @@ def _start_stage8_stun_escape(now: int) -> None:
     boss_knockback_vel = 0
     boss_special_gauge = max(0, boss_special_gauge - STAGE8_STUN_ESCAPE_COST)
     try:
-        show_speech("잔영탈출!", duration=60)
+        show_speech("영체탈주!", duration=60)
     except Exception:
         pass
 
