@@ -27605,7 +27605,10 @@ def handle_player(keys):
                     dash_down_first_lock = False
                 current_charges = get_roll("rolling_charges")
 
-                if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge and current_charges > 0:
+                # ↓ 먼저 입력된 경우라도 방향키가 선입력돼 있으면 락을 해제한다.
+                if globals().get('dash_down_first_lock', False) and (left_before_down or right_before_down):
+                    dash_down_first_lock = False
+                if left_before_down and down_pressed and special_gauge >= required_gauge and current_charges > 0 and not globals().get('dash_down_first_lock', False):
                     # 통제불능 상태에서 왼쪽 대쉬 실행 (아래키 + 왼쪽키 필요)
                     _start_dash(-1)
                     is_half_dash_active = False  # 일반 대쉬이므로 하프대쉬 플래그 해제
@@ -28000,7 +28003,7 @@ def handle_player(keys):
                 if serve_wait_time >= 6000:  # 6초 이상 대기
                     can_use_half_dash = True
             
-            if HALF_DASH_ENABLED and down_pressed and not globals().get('dash_down_first_lock', False) and can_use_half_dash and not rolling_active:
+            if HALF_DASH_ENABLED and down_pressed and can_use_half_dash and not rolling_active:
                 left_active_for_dash = (
                     is_move_left_pressed(keys)
                     or MOVE_EVENT_LEFT
@@ -28033,6 +28036,7 @@ def handle_player(keys):
                     and down_press_frame >= 0
                     and right_press_frame <= down_press_frame  # 동시 입력(ㅇ+ㄴ)도 허용
                 )
+                # ↓가 먼저 눌려 락이 걸린 상태라도 방향키가 선입력된 경우 즉시 해제
                 if globals().get('dash_down_first_lock', False) and (left_before_down_half or right_before_down_half):
                     dash_down_first_lock = False
                 if (left_before_down_half or right_before_down_half) and not globals().get('dash_down_first_lock', False):
