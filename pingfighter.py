@@ -37758,52 +37758,56 @@ def draw_stage8_shurikens(surface: pygame.Surface) -> None:
 
 
 def draw_stage8_cloud(surface: pygame.Surface) -> None:
-    """스테이지8 닌자 구름장막 스킬 - 보스 착지 위치에서 양쪽으로 퍼지는 구름 이펙트"""
+    """스테이지8 닌자 구름장막 스킬 - 닌자 연막/안개 스타일의 신비로운 이펙트"""
     if current_stage != 8:
         return
     now = pygame.time.get_ticks()
 
-    # 프리/대시 단계 오로라
+    # 프리/대시 단계 차크라 집중 이펙트
     if stage8_cloud_dash_active and stage8_cloud_dash_phase in ("pre", "down", "up"):
-        pulse = 0.6 + 0.4 * math.sin(now * 0.02)
-        radius = int(30 * pulse)
-        aura = pygame.Surface((radius * 2 + 2, radius * 2 + 2), pygame.SRCALPHA)
-        pygame.draw.circle(aura, (180, 210, 255, 70), (radius + 1, radius + 1), radius)
-        pygame.draw.circle(aura, (120, 170, 240, 140), (radius + 1, radius + 1), max(1, radius - 6), 2)
-        surface.blit(aura, (BOSS.centerx - radius - 1, BOSS.centery - radius - 50))
+        pulse = 0.6 + 0.4 * math.sin(now * 0.025)
+        radius = int(35 * pulse)
+        # 닌자 차크라 색상 (보라색/청색)
+        aura = pygame.Surface((radius * 2 + 4, radius * 2 + 4), pygame.SRCALPHA)
+        # 외곽 글로우
+        pygame.draw.circle(aura, (100, 60, 180, 50), (radius + 2, radius + 2), radius + 2)
+        pygame.draw.circle(aura, (140, 100, 200, 80), (radius + 2, radius + 2), radius)
+        # 내부 코어
+        pygame.draw.circle(aura, (180, 150, 255, 120), (radius + 2, radius + 2), max(1, radius - 8))
+        # 회전하는 문양
+        for i in range(3):
+            angle = now * 0.005 + i * math.pi * 2 / 3
+            sx = radius + 2 + math.cos(angle) * (radius - 5)
+            sy = radius + 2 + math.sin(angle) * (radius - 5)
+            pygame.draw.circle(aura, (255, 255, 255, 150), (int(sx), int(sy)), 3)
+        surface.blit(aura, (BOSS.centerx - radius - 2, BOSS.centery - radius - 50))
 
     if not stage8_cloud_active or stage8_cloud_rect is None:
         return
     if now >= stage8_cloud_end_ms:
         return
 
-    # 퍼짐 애니메이션 진행률 계산 - 폭발적 분출 효과
+    # 퍼짐 애니메이션 진행률 계산 - 연막 확산 효과
     elapsed = now - stage8_cloud_start_ms
     expand_progress = min(1.0, elapsed / STAGE8_CLOUD_EXPAND_MS)
-    # 급격한 폭발 효과: 처음에 빠르게 퍼지고 끝에서 감속
-    # ease-out-expo 커브로 폭발적인 느낌
-    expand_progress = 1 - (1 - expand_progress) ** 4  # 더 강한 지수 효과
+    # 연막이 퍼지는 느낌: 처음 빠르게, 끝에서 자연스럽게
+    expand_progress = 1 - (1 - expand_progress) ** 3
 
     remaining = stage8_cloud_end_ms - now
 
-    # 3초(3000ms) 후부터 점진적으로 투명해지기 시작
-    CLOUD_SOLID_MS = 3000  # 완전 불투명 유지 시간
-    CLOUD_FADE_TO_SEMI_MS = 2000  # 반투명까지 전환 시간
-
+    # 투명도 제어
+    CLOUD_SOLID_MS = 3000
+    CLOUD_FADE_TO_SEMI_MS = 2000
     elapsed = now - stage8_cloud_start_ms
 
     if elapsed < CLOUD_SOLID_MS:
-        # 처음 3초: 완전 불투명
         base_alpha = 255
     elif elapsed < CLOUD_SOLID_MS + CLOUD_FADE_TO_SEMI_MS:
-        # 3초~5초: 255에서 120으로 점진적 감소 (플레이어 패들 보이기 시작)
         fade_progress = (elapsed - CLOUD_SOLID_MS) / CLOUD_FADE_TO_SEMI_MS
-        base_alpha = int(255 - (255 - 120) * fade_progress)
+        base_alpha = int(255 - (255 - 100) * fade_progress)
     else:
-        # 5초 이후: 반투명 상태 유지
-        base_alpha = 120
+        base_alpha = 100
 
-    # 완전 사라지기 직전 페이드아웃
     if remaining < stage8_cloud_fade_ms:
         fade_ratio = remaining / max(1, stage8_cloud_fade_ms)
         base_alpha = int(base_alpha * fade_ratio)
