@@ -67854,7 +67854,7 @@ def handle_boss():
     global BOSS_ACCELERATION, BOSS_DECELERATION, BOSS_MAX_SPEED, BOSS_INSTANT_STOP_DECELERATION
     global waiting_start_time, wait_delay
     global boss_throwing, boss_throw_timer  #  Stage 5 화염탄 관련 변수
-    global ball_vel
+    global ball_vel, boss_special_gauge
     global ragnarok_shock_playing  #  라그나로크 전기 감전 사운드 상태
     global boss_stunned_timer, boss_knockback_vel  #  화염병 스턴 관련 변수
     global stopwatch_active, stopwatch_timer  # ️ 스탑워치 관련 변수
@@ -67873,6 +67873,11 @@ def handle_boss():
 
     now_ms = pygame.time.get_ticks()
 
+
+    # 스테이지8 스턴 탈출 모션 진행 중이면 우선 처리
+    if current_stage == 8 and stage8_stun_escape_active:
+        _update_stage8_stun_escape(now_ms)
+        return
 
     #  보스 대쉬 모션 처리 (플레이어 대쉬와 유사: 초반 고속, 이후 감속)
     #  스테이지8 그림자분신 주문 중에는 패들을 고정
@@ -68213,12 +68218,32 @@ def handle_boss():
                 BOSS.y = min(BOSS_Y, BOSS.y)
     #  보스 스턴 상태 처리 (화염병 효과) - AI 비활성화 상태에서도 작동
     if boss_stunned_timer > 0:
+        if current_stage == 8:
+            if stage8_stun_escape_ready_ms == 0:
+                stage8_stun_escape_ready_ms = now_ms + STAGE8_STUN_ESCAPE_DELAY_MS
+                stage8_stun_escape_attempted = False
+            if (
+                not stage8_stun_escape_active
+                and not stage8_stun_escape_attempted
+                and now_ms >= stage8_stun_escape_ready_ms
+                and boss_special_gauge >= STAGE8_STUN_ESCAPE_COST
+            ):
+                stage8_stun_escape_attempted = True
+                if random.random() < 0.5:
+                    _start_stage8_stun_escape(now_ms)
+                    return
+
         boss_stunned_timer -= 1
         # 넉백 적용
         BOSS.x += boss_knockback_vel
         BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
         # 감속
         boss_knockback_vel *= 0.85
+
+        # 스턴 종료 후 준비 상태 초기화
+        if current_stage == 8 and boss_stunned_timer <= 0 and not stage8_stun_escape_active:
+            stage8_stun_escape_ready_ms = 0
+            stage8_stun_escape_attempted = False
         return  # 스턴 중에는 AI 비활성화
     # Stage 50 (튜토리얼) - 매우 쉬운 AI
     if current_stage == 50:
