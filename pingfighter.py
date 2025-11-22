@@ -55496,6 +55496,25 @@ def show_item_manager_menu():
         quantity_current_value = 0
         quantity_original_value = 0
         quantity_max_value = 0
+
+    # 아이템 관리자 → 스킬트리(테스트) 버튼 사각형 및 핸들러
+    skill_tree_button_rect = pygame.Rect(WIDTH - 240, HEIGHT - 96, 200, 64)
+
+    def open_skill_tree_test_mode() -> None:
+        """스킬 포인트 소모 없이 테스트용 스킬트리 진입."""
+        import academy
+        global selected_character_type
+
+        skill_system = academy.skill_system
+        original_points = skill_system.skill_points
+
+        # 충분한 포인트를 채워 소모 검증을 우회 (별 포인트 영향 없음)
+        skill_system.skill_points = max(skill_system.skill_points, 99999)
+        try:
+            academy.show_academy_menu(SCREEN, WIDTH, HEIGHT, selected_character_type)
+        finally:
+            # 테스트 경로는 실제 포인트를 차감하지 않도록 복구
+            skill_system.skill_points = original_points
     
     while True:
         arrow_up_rect_screen = None
@@ -55685,6 +55704,20 @@ def show_item_manager_menu():
             controls_message = "방향키: 아이템 선택, 마우스 클릭: 선택/해제, TAB: 탭 전환, ENTER/SPACE: 스테이지 선택"
         controls_text = font_small.render(controls_message, True, (150, 150, 150))
         SCREEN.blit(controls_text, (LARGE_SIZE, HEIGHT - LARGE_SIZE))
+
+        # 스킬트리(테스트) 버튼 - 우측 하단
+        mouse_pos = pygame.mouse.get_pos()
+        button_hovered = skill_tree_button_rect.collidepoint(mouse_pos)
+        button_fill = (55, 90, 150) if button_hovered else (40, 70, 120)
+        button_border = (255, 220, 120) if button_hovered else (200, 200, 200)
+
+        pygame.draw.rect(SCREEN, button_fill, skill_tree_button_rect, border_radius=12)
+        pygame.draw.rect(SCREEN, button_border, skill_tree_button_rect, 3, border_radius=12)
+
+        btn_title = font_small.render("스킬트리 (테스트)", True, WHITE)
+        btn_sub = font_small.render("★ 무제한 투자", True, (255, 240, 180))
+        SCREEN.blit(btn_title, btn_title.get_rect(center=(skill_tree_button_rect.centerx, skill_tree_button_rect.centery - 10)))
+        SCREEN.blit(btn_sub, btn_sub.get_rect(center=(skill_tree_button_rect.centerx, skill_tree_button_rect.centery + 14)))
 
         if quantity_selection_mode and quantity_target_item:
             dim_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
