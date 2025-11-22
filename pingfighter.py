@@ -36561,11 +36561,119 @@ def reset_stage8_wind_effects() -> None:
     """바람 오오라 효과 초기화 (스테이지 전환/게임 오버 시)."""
     global stage8_wind_aura_active, stage8_wind_aura_particles
     global stage8_wind_burst_active, stage8_wind_burst_particles
+    global stage8_afterimage_ghosts
 
     stage8_wind_aura_active = False
     stage8_wind_aura_particles = []
     stage8_wind_burst_active = False
     stage8_wind_burst_particles = []
+    stage8_afterimage_ghosts = []
+
+
+def spawn_stage8_afterimage_ghosts() -> None:
+    """극정호신 대쉬 시 환영 분신 생성."""
+    global stage8_afterimage_ghosts
+
+    if not stage8_superspeed_active:
+        return
+
+    now_ms = pygame.time.get_ticks()
+    boss_x = BOSS.centerx
+    boss_y = BOSS.centery
+
+    # 여러 겹의 환영 생성 (시간차로 따라오도록)
+    for i in range(STAGE8_AFTERIMAGE_COUNT):
+        stage8_afterimage_ghosts.append({
+            "x": boss_x,
+            "y": boss_y,
+            "target_x": boss_x,
+            "target_y": boss_y,
+            "spawn_ms": now_ms + i * STAGE8_AFTERIMAGE_DELAY_MS,
+            "alpha": 180 - i * 25,  # 뒤로 갈수록 점점 투명
+            "index": i,
+        })
+
+
+def update_stage8_afterimage_ghosts() -> None:
+    """극정호신 환영 분신 업데이트 (천천히 보스를 따라다님)."""
+    global stage8_afterimage_ghosts
+
+    if not stage8_afterimage_ghosts:
+        return
+
+    now_ms = pygame.time.get_ticks()
+    boss_x = BOSS.centerx
+    boss_y = BOSS.centery
+
+    new_ghosts = []
+    for ghost in stage8_afterimage_ghosts:
+        # 아직 스폰 시간이 안 됐으면 그대로 유지
+        if now_ms < ghost["spawn_ms"]:
+            new_ghosts.append(ghost)
+            continue
+
+        elapsed = now_ms - ghost["spawn_ms"]
+
+        # 페이드아웃 시간이 지나면 제거
+        if elapsed > STAGE8_AFTERIMAGE_FADE_MS:
+            continue
+
+        # 환영이 보스를 천천히 따라감 (인덱스가 클수록 더 느리게)
+        follow_speed = 0.08 - ghost["index"] * 0.012
+        follow_speed = max(0.02, follow_speed)
+
+        ghost["x"] += (boss_x - ghost["x"]) * follow_speed
+        ghost["y"] += (boss_y - ghost["y"]) * follow_speed
+
+        # 알파값 페이드아웃
+        fade_progress = elapsed / STAGE8_AFTERIMAGE_FADE_MS
+        ghost["alpha"] = int((180 - ghost["index"] * 25) * (1 - fade_progress))
+
+        if ghost["alpha"] > 5:
+            new_ghosts.append(ghost)
+
+    stage8_afterimage_ghosts = new_ghosts
+
+
+def draw_stage8_afterimage_ghosts(surface: pygame.Surface) -> None:
+    """극정호신 환영 분신 렌더링."""
+    global stage8_afterimage_ghosts
+
+    if not stage8_afterimage_ghosts:
+        return
+
+    now_ms = pygame.time.get_ticks()
+
+    # 보스 이미지 가져오기
+    try:
+        boss_img = BOSS_IMG_STAGE8
+    except Exception:
+        return
+
+    if boss_img is None:
+        return
+
+    for ghost in stage8_afterimage_ghosts:
+        # 아직 스폰 시간이 안 됐으면 건너뜀
+        if now_ms < ghost["spawn_ms"]:
+            continue
+
+        alpha = ghost["alpha"]
+        if alpha <= 0:
+            continue
+
+        # 환영 이미지 생성 (주황빛 틴트 + 반투명)
+        ghost_surf = boss_img.copy()
+        ghost_surf.set_alpha(alpha)
+
+        # 주황빛 오버레이 추가
+        overlay = pygame.Surface(ghost_surf.get_size(), pygame.SRCALPHA)
+        overlay.fill((255, 120, 30, min(80, alpha // 2)))
+        ghost_surf.blit(overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+        # 위치 계산
+        rect = ghost_surf.get_rect(center=(int(ghost["x"]), int(ghost["y"])))
+        surface.blit(ghost_surf, rect)
 
 
 def _spawn_stage8_shadows(now: int) -> None:
