@@ -37947,9 +37947,9 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
         # 확장 단계에서도 플레이어 패들 가림
         exp_cloud_left = cloud_x
-        exp_cloud_right = cloud_x + cloud_w
+        exp_cloud_right = cloud_x + full_cloud_w
         exp_cloud_top = cloud_y
-        exp_cloud_bottom = cloud_y + cloud_h
+        exp_cloud_bottom = cloud_y + full_cloud_h
 
         if (PLAYER.right > exp_cloud_left and PLAYER.left < exp_cloud_right and
             PLAYER.bottom > exp_cloud_top and PLAYER.top < exp_cloud_bottom):
