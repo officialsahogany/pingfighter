@@ -19968,11 +19968,12 @@ def go_to_next_round():
         if animated_bg_stage4 is not None and not animated_bg_stage4.temple_destroyed:
             animated_bg_stage4.start_destruction_animation()
             print("Stage 4: Temple destruction animation started at round start!")
-    # Stage 8: 플레이어가 3점 이상 획득하면 다음 라운드 시작 시 초각성 연출 예약
+    # Stage 8: 플레이어가 3점 이상이면 다음 라운드에 한 번만 연출 예약
     if current_stage == 8 and round_wins >= 3:
-        globals()["stage8_awaken_intro_pending"] = True
-        globals()["stage8_awaken_intro_done"] = False
-        globals()["stage8_awaken_freeze_end_ms"] = pygame.time.get_ticks() + 3000
+        if not globals().get("stage8_awaken_intro_done", False) and not globals().get("stage8_awaken_intro_pending", False):
+            globals()["stage8_awaken_intro_pending"] = True
+            globals()["stage8_awaken_intro_done"] = False
+            globals()["stage8_awaken_freeze_end_ms"] = pygame.time.get_ticks() + 3000
     
     # Stage 3 쿠로미 신비로운 궤적 효과 초기화
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
@@ -68193,7 +68194,6 @@ def handle_boss():
         stage8_stun_hologram_active = False
         stage8_stun_hologram_rect = None
         stage8_stun_hologram_end_ms = 0
-        stage8_awakened = False
         # 초각성은 지속 상태를 유지해야 하므로 상태를 초기화하지 않는다.
         # 단, 라운드 재시작 시 진행 중 연출은 취소
         if stage8_awaken_intro_pending:
