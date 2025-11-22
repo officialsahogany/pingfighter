@@ -66515,7 +66515,7 @@ def _boss_try_emergency_dash() -> bool:
 
     raw_distance = abs(predicted_x - BOSS.centerx)
     if stage8_superspeed_active:
-        dash_distance = min(raw_distance, 500)
+        dash_distance = raw_distance  # 초신가속: 거리 제한 해제
     else:
         dash_distance = min(raw_distance, max_dash_distance)
 
