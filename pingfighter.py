@@ -28022,13 +28022,13 @@ def handle_player(keys):
                     left_active_for_dash
                     and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame < down_press_frame
+                    and left_press_frame <= down_press_frame  # 동시 입력(ㅁ+ㄴ)도 허용
                 )
                 right_before_down_half = (
                     right_active_for_dash
                     and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame < down_press_frame
+                    and right_press_frame <= down_press_frame  # 동시 입력(ㅇ+ㄴ)도 허용
                 )
                 if (left_before_down_half or right_before_down_half) and not globals().get('dash_down_first_lock', False):
                     # 게이지 계산
@@ -28270,13 +28270,13 @@ def handle_player(keys):
                     left_active_for_dash
                     and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame < down_press_frame
+                    and left_press_frame <= down_press_frame  # 동시 입력 허용(ㅁ+ㄴ)
                 )
                 right_before_down = (
                     right_active_for_dash
                     and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame < down_press_frame
+                    and right_press_frame <= down_press_frame  # 동시 입력 허용(ㅇ+ㄴ)
                 )
                 if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge:
                     # 아래키 + 왼쪽 - 대쉬 실행
