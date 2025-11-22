@@ -55529,6 +55529,9 @@ def show_item_manager_menu():
         arrow_down_rect_screen = None
         # 델타 타임 계산
         dt_seconds = clock.tick(60) / 1000.0  # 60 FPS 기준 델타(초)
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_buttons = pygame.mouse.get_pressed()
+        is_drag_select = mouse_buttons[0] and not quantity_selection_mode
 
         # 전설 아이템 애니메이션 업데이트
         for item in legendary_items:
@@ -55593,6 +55596,18 @@ def show_item_manager_menu():
             y = grid_start_y + row * (item_size + item_spacing)
             # 아이템 배경
             item_rect = pygame.Rect(x, y, item_size, item_size)
+            # 드래그 선택: 패시브/화기류/전설에서 마우스 드래그 시 선택 상태로 추가
+            if is_drag_select and selected_category in (1, 2, 3) and item_rect.collidepoint(mouse_pos):
+                item_name = item["name"]
+                if selected_category == 1:
+                    if item_name not in selected_passive_items:
+                        selected_passive_items.append(item_name)
+                elif selected_category == 2:
+                    if item_name not in selected_firearm_items:
+                        selected_firearm_items.append(item_name)
+                else:
+                    if item_name not in selected_legendary_items:
+                        selected_legendary_items.append(item_name)
             # 선택된 아이템인지 확인
             is_selected = False
             if selected_category == 0:
@@ -73356,16 +73371,19 @@ def main(stage_num, new_boss_mode=False):
                     SNAP_space_pressed = space_state2
                     SNAP_space_just = space_state2 and (not SNAP_last_space)
                     SNAP_last_space = space_state2
-                    INPUT_SNAPSHOT_VALID = True
-                except Exception:
-                    INPUT_SNAPSHOT_VALID = False
+                INPUT_SNAPSHOT_VALID = True
+            except Exception:
+                INPUT_SNAPSHOT_VALID = False
 
-                # 초각성 연출 중이면 입력/로직을 잠시 정지
-                freeze_now = current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms
-                if not freeze_now:
-                    handle_player(keys_now)
-                update_blacksmith_hammer_shock(keys)
-                update_blacksmith_turret()
+            # 초각성/초신가속 연출 중이면 입력/로직을 잠시 정지
+            now_tick = pygame.time.get_ticks()
+            freeze_awaken = current_stage == 8 and stage8_awaken_intro_pending and now_tick < stage8_awaken_freeze_end_ms
+            freeze_superspeed = current_stage == 8 and stage8_superspeed_active and now_tick < stage8_superspeed_freeze_end_ms
+            freeze_now = freeze_awaken or freeze_superspeed
+            if not freeze_now:
+                handle_player(keys_now)
+            update_blacksmith_hammer_shock(keys)
+            update_blacksmith_turret()
 
                 # 디바인쉴드 보호막 공 반사 체크 및 부스트 효과 업데이트
                 try:
@@ -73381,12 +73399,12 @@ def main(stage_num, new_boss_mode=False):
                     damage_manager.clear_building("divine_stone")
                 damage_manager.update()
                 
-                if not freeze_now:
-                    handle_ball()
+            if not freeze_now:
+                handle_ball()
 
-                if not freeze_now:
-                    # 코만도 총알 시스템 업데이트
-                    if selected_character_type == "soldier":
+            if not freeze_now:
+                # 코만도 총알 시스템 업데이트
+                if selected_character_type == "soldier":
                         update_soldier_gun_animation()  # 총 발사 애니메이션 업데이트
                         update_soldier_bullets()
                         update_blood_particles()  # 피 파티클 업데이트
