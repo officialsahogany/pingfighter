@@ -73381,9 +73381,10 @@ def main(stage_num, new_boss_mode=False):
                     SNAP_space_pressed = space_state2
                     SNAP_space_just = space_state2 and (not SNAP_last_space)
                     SNAP_last_space = space_state2
-                INPUT_SNAPSHOT_VALID = True
-            except Exception:
-                INPUT_SNAPSHOT_VALID = False
+                    INPUT_SNAPSHOT_VALID = True
+                except Exception:
+                    INPUT_SNAPSHOT_VALID = False
+                    keys_now = pygame.key.get_pressed()
 
             # 초각성/초신가속 연출 중이면 입력/로직을 잠시 정지
             now_tick = pygame.time.get_ticks()
