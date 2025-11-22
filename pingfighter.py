@@ -37826,9 +37826,9 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
         fade_ratio = remaining / max(1, stage8_cloud_fade_ms)
         base_alpha = int(base_alpha * fade_ratio)
 
-    # 닌자 연막 영역 설정
-    expand = 220
-    expand_top = 120
+    # 닌자 연막 영역 설정 (15% 확대)
+    expand = 253
+    expand_top = 138
     full_cloud_w = stage8_cloud_rect.width + expand * 2
     full_cloud_h = stage8_cloud_rect.height + expand * 2 + expand_top
 
