@@ -36679,7 +36679,7 @@ def check_wind_aura_ball_collision(ball_rect: pygame.Rect) -> bool:
 
         # 초각성 오오라로 공을 막으면 보스 게이지 획득
         try:
-            boss_special_gauge = min(500, boss_special_gauge + 25)
+            boss_special_gauge = min(500, boss_special_gauge + 90)
             boss_special_ready = boss_special_gauge >= STAGE8_SUPERSPEED_COST
         except Exception:
             pass
