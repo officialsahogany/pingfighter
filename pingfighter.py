@@ -19968,6 +19968,11 @@ def go_to_next_round():
         if animated_bg_stage4 is not None and not animated_bg_stage4.temple_destroyed:
             animated_bg_stage4.start_destruction_animation()
             print("Stage 4: Temple destruction animation started at round start!")
+    # Stage 8: 플레이어가 3점 이상 획득하면 다음 라운드 시작 시 초각성 연출 예약
+    if current_stage == 8 and round_wins >= 3:
+        globals()["stage8_awaken_intro_pending"] = True
+        globals()["stage8_awaken_intro_done"] = False
+        globals()["stage8_awaken_freeze_end_ms"] = pygame.time.get_ticks() + 3000
     
     # Stage 3 쿠로미 신비로운 궤적 효과 초기화
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
@@ -68172,7 +68177,7 @@ def handle_boss():
     global stage8_stun_escape_start_ms, stage8_stun_escape_start_x, stage8_stun_escape_target_x, stage8_stun_escape_dx
     global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
     global stage8_stun_escape_ghosts
-    global stage8_awakened, player_score
+    global stage8_awakened, player_score, round_wins
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
     global stage8_awaken_intro_pending, stage8_awaken_intro_done, stage8_awaken_freeze_end_ms
 
@@ -68200,7 +68205,8 @@ def handle_boss():
     # 스테이지 8: 그물 포획/스턴 시 영체탈주 우선 시도
     if current_stage == 8:
         try:
-            if not stage8_awaken_intro_done and player_score >= 3:
+            score_reached = (round_wins >= 3) or (player_score >= 3)
+            if not stage8_awaken_intro_done and score_reached:
                 if not stage8_awaken_intro_pending:
                     stage8_awaken_intro_pending = True
                     stage8_awaken_freeze_end_ms = now_ms + 3000
