@@ -36778,36 +36778,44 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     cloud_rect_center_x = stage8_cloud_rect.centerx
     spawn_relative_x = stage8_cloud_spawn_x - cloud_rect_center_x  # 착지점과 구름 중심의 차이
 
-    # 퍼짐 애니메이션: 착지 위치에서 양쪽으로 확장
+    # 퍼짐 애니메이션: 착지 위치에서 스케일업되며 분출
     if expand_progress < 1.0:
-        # 애니메이션 중: 좌우로 나눠서 그리기
+        # 애니메이션 중: 중심에서 구름 형태 그대로 확장
         cloud_surface = pygame.Surface((full_cloud_w, full_cloud_h), pygame.SRCALPHA)
         center_x, center_y = full_cloud_w // 2, (full_cloud_h + expand_top) // 2  # 상단 여백 고려
         spawn_x_in_surface = center_x + spawn_relative_x  # 서피스 내 착지 위치
 
-        # 현재 퍼진 범위 계산
-        left_expand = spawn_x_in_surface * expand_progress  # 왼쪽으로 퍼진 거리
-        right_expand = (full_cloud_w - spawn_x_in_surface) * expand_progress  # 오른쪽으로 퍼진 거리
+        # 아카츠키 스타일 구름 색상 (빨간색 + 흰색 테두리)
+        cloud_fill = (139, 69, 69, 255)  # 어두운 빨간색 (아카츠키 빨강)
+        cloud_outline = (255, 255, 255, 255)  # 순백색 테두리
+        outline_width = 5
 
-        current_left = int(spawn_x_in_surface - left_expand)
-        current_right = int(spawn_x_in_surface + right_expand)
-        current_width = current_right - current_left
+        # 최종 구름 크기
+        final_cloud_width = int(full_cloud_w * 0.75)
+        final_cloud_height = int(full_cloud_h * 0.55)
 
-        if current_width > 20:
-            # 나루토/아카츠키 스타일 일본식 구름 그리기 (애니메이션 중)
+        # 현재 스케일 (0.15 -> 1.0으로 점점 커짐)
+        current_scale = 0.15 + expand_progress * 0.85
+
+        # 현재 구름 크기
+        cloud_width = int(final_cloud_width * current_scale)
+        cloud_height = int(final_cloud_height * current_scale)
+
+        # 구름 중심 위치 (착지점에서 최종 중심으로 이동)
+        # 초반에는 착지점에 가깝고, 나중에는 화면 중앙으로
+        cloud_cx = int(spawn_x_in_surface + (center_x - spawn_x_in_surface) * expand_progress)
+        cloud_cy = center_y
+
+        if cloud_width > 30:
             cloud_seed = int(stage8_cloud_start_ms) % 10000
             random.seed(cloud_seed)
 
-            temp_center_x = current_left + current_width // 2
+            # 아카츠키 스타일 구름 그리기 함수 (스케일 애니메이션용)
+            def draw_akatsuki_cloud_scaling(surf, cx, cy, width, height, fill_color, outline_color, outline_w, scale_progress):
+                """스케일 애니메이션용 아카츠키 스타일 구름"""
+                # 소용돌이 컬 회전 애니메이션 (스케일에 따라 회전)
+                curl_rotation = (1.0 - scale_progress) * math.pi * 0.5  # 초반에 더 회전
 
-            # 아카츠키 스타일 구름 색상 (빨간색 + 흰색 테두리)
-            cloud_fill = (139, 69, 69, 255)  # 어두운 빨간색 (아카츠키 빨강)
-            cloud_outline = (255, 255, 255, 255)  # 순백색 테두리
-            outline_width = 5
-
-            # 아카츠키 스타일 구름 그리기 함수 (애니메이션용)
-            def draw_akatsuki_cloud_anim(surf, cx, cy, width, height, fill_color, outline_color, outline_w):
-                """아카츠키 스타일 구름 - 평평한 바닥에 소용돌이 컬"""
                 # 구름 형태를 위한 포인트들 생성
                 cloud_points = []
 
@@ -36832,27 +36840,27 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                     pygame.draw.polygon(surf, outline_color, cloud_points, outline_w)
 
                 # 소용돌이 컬 그리기 함수
-                def draw_spiral_curl_anim(surf, cx, cy, size, direction, fill_col, outline_col, line_w):
-                    """더 뚜렷한 아카츠키 스타일 소용돌이 컬"""
+                def draw_spiral_curl_scaling(surf, curl_cx, curl_cy, size, direction, fill_col, outline_col, line_w, rotation_offset):
+                    """회전 애니메이션이 적용된 소용돌이 컬"""
                     points = []
                     num_points = 30
 
                     if direction == -1:  # 왼쪽
-                        start_angle = math.pi * 0.5
+                        start_angle = math.pi * 0.5 + rotation_offset
                     elif direction == 1:  # 오른쪽
-                        start_angle = math.pi * 1.5
+                        start_angle = math.pi * 1.5 - rotation_offset
                     else:  # 상단
-                        start_angle = math.pi
+                        start_angle = math.pi + rotation_offset * 0.5
 
                     for i in range(num_points):
                         t = i / (num_points - 1)
-                        angle = start_angle + t * math.pi * 2.5  # 더 많은 회전
-                        radius = size * (1 - t * 0.75)  # 안쪽으로 갈수록 작아짐
-                        px = cx + math.cos(angle) * radius * 0.55
-                        py = cy + math.sin(angle) * radius * 0.45
+                        angle = start_angle + t * math.pi * 2.5
+                        radius = size * (1 - t * 0.75)
+                        px = curl_cx + math.cos(angle) * radius * 0.55
+                        py = curl_cy + math.sin(angle) * radius * 0.45
                         points.append((int(px), int(py)))
 
-                    # 채우기 (두꺼운 소용돌이)
+                    # 채우기
                     if len(points) > 2:
                         thick = max(2, int(size * 0.25))
                         thick_points = []
@@ -36867,32 +36875,36 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                         if len(thick_points) > 2:
                             pygame.draw.polygon(surf, fill_col, thick_points)
 
-                    # 테두리 라인
                     if len(points) > 1:
                         pygame.draw.lines(surf, outline_col, False, points, line_w)
 
-                # 왼쪽 소용돌이들
-                draw_spiral_curl_anim(surf, cx - width * 0.45, cy - height * 0.05, height * 0.4, -1, fill_color, outline_color, outline_w)
-                draw_spiral_curl_anim(surf, cx - width * 0.38, cy + height * 0.15, height * 0.3, -1, fill_color, outline_color, outline_w)
+                # 소용돌이들 (스케일에 따라 점점 나타남)
+                curl_alpha = min(1.0, scale_progress * 1.5)  # 빠르게 나타남
 
-                # 오른쪽 소용돌이들
-                draw_spiral_curl_anim(surf, cx + width * 0.45, cy - height * 0.05, height * 0.4, 1, fill_color, outline_color, outline_w)
-                draw_spiral_curl_anim(surf, cx + width * 0.38, cy + height * 0.15, height * 0.3, 1, fill_color, outline_color, outline_w)
+                if curl_alpha > 0.3:
+                    # 왼쪽 소용돌이들
+                    draw_spiral_curl_scaling(surf, cx - width * 0.45, cy - height * 0.05, height * 0.4 * curl_alpha, -1, fill_color, outline_color, outline_w, curl_rotation)
+                    if curl_alpha > 0.5:
+                        draw_spiral_curl_scaling(surf, cx - width * 0.38, cy + height * 0.15, height * 0.3 * curl_alpha, -1, fill_color, outline_color, outline_w, curl_rotation)
 
-                # 상단 소용돌이들
-                draw_spiral_curl_anim(surf, cx - width * 0.12, cy - height * 0.32, height * 0.35, 0, fill_color, outline_color, outline_w)
-                draw_spiral_curl_anim(surf, cx + width * 0.12, cy - height * 0.32, height * 0.35, 0, fill_color, outline_color, outline_w)
+                    # 오른쪽 소용돌이들
+                    draw_spiral_curl_scaling(surf, cx + width * 0.45, cy - height * 0.05, height * 0.4 * curl_alpha, 1, fill_color, outline_color, outline_w, curl_rotation)
+                    if curl_alpha > 0.5:
+                        draw_spiral_curl_scaling(surf, cx + width * 0.38, cy + height * 0.15, height * 0.3 * curl_alpha, 1, fill_color, outline_color, outline_w, curl_rotation)
 
-                # 내부 채우기 (본체 가리기)
+                    # 상단 소용돌이들
+                    if curl_alpha > 0.6:
+                        draw_spiral_curl_scaling(surf, cx - width * 0.12, cy - height * 0.32, height * 0.35 * curl_alpha, 0, fill_color, outline_color, outline_w, curl_rotation)
+                        draw_spiral_curl_scaling(surf, cx + width * 0.12, cy - height * 0.32, height * 0.35 * curl_alpha, 0, fill_color, outline_color, outline_w, curl_rotation)
+
+                # 내부 채우기
                 inner_rect = pygame.Rect(int(cx - width * 0.35), int(cy - height * 0.25),
                                         int(width * 0.7), int(height * 0.5))
                 pygame.draw.ellipse(surf, fill_color, inner_rect)
 
-            # 현재 크기에 맞춰 구름 그리기
-            cloud_width = int(current_width * 0.85)
-            cloud_height = int(full_cloud_h * 0.55)
-            draw_akatsuki_cloud_anim(cloud_surface, temp_center_x, center_y,
-                                     cloud_width, cloud_height, cloud_fill, cloud_outline, outline_width)
+            # 구름 그리기
+            draw_akatsuki_cloud_scaling(cloud_surface, cloud_cx, cloud_cy,
+                                        cloud_width, cloud_height, cloud_fill, cloud_outline, outline_width, expand_progress)
 
             # 폭발적 분출 이펙트 - 낙하지점에서 뿜어져 나오는 느낌
             burst_intensity = 1.0 - expand_progress
