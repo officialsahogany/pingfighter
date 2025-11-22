@@ -72555,24 +72555,24 @@ def main(stage_num, new_boss_mode=False):
                         _dir_right = False
                     else:
                         _dir_left = _dir_right = False  # 애매하면 중앙 발사
-                    if _dir_left:
-                        power_smashing_direction = -1  # 왼쪽
-                        # 수직에 가까운 곡선 효과 적용
-                        base_strength = -0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
-                        rng = power_smashing_rng or random
-                        random_variation = rng.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
-                        power_smashing_arc_strength = base_strength + random_variation  # 왼쪽 방향으로 수직에 가까운 곡선
-                    elif _dir_right:
-                        power_smashing_direction = 1   # 오른쪽
-                        # 수직에 가까운 곡선 효과 적용
-                        base_strength = 0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
-                        rng = power_smashing_rng or random
-                        random_variation = rng.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
-                        power_smashing_arc_strength = base_strength + random_variation  # 오른쪽 방향으로 수직에 가까운 곡선
-                    else:
-                        power_smashing_direction = 0   # 직선
-                        # 직선이므로 포물선 효과 없음
-                        power_smashing_arc_strength = 0.0
+            if _dir_left:
+                power_smashing_direction = -1  # 왼쪽
+                # 수직에 가까운 곡선 효과 적용
+                base_strength = -0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
+                rng = power_smashing_rng or random
+                random_variation = rng.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
+                power_smashing_arc_strength = base_strength + random_variation  # 왼쪽 방향으로 수직에 가까운 곡선
+            elif _dir_right:
+                power_smashing_direction = 1   # 오른쪽
+                # 수직에 가까운 곡선 효과 적용
+                base_strength = 0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
+                rng = power_smashing_rng or random
+                random_variation = rng.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
+                power_smashing_arc_strength = base_strength + random_variation  # 오른쪽 방향으로 수직에 가까운 곡선
+            else:
+                power_smashing_direction = 0   # 직선
+                # 직선이므로 포물선 효과 없음
+                power_smashing_arc_strength = 0.0
                     smasher_pending_contact_offset = BALL.centerx - PLAYER.centerx
                     # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
                     if not mega_smashing_active:
