@@ -72351,7 +72351,7 @@ def main(stage_num, new_boss_mode=False):
                     refresh_perfect_timing_indicator()
                     x_distance = abs(BALL.centerx - PLAYER.centerx)
                     print(f"    ! (Y: {ball_to_paddle_distance:.1f}, X: {x_distance:.1f})")
-            # 퍼펙트 타이밍 윈도우 관리
+        # 퍼펙트 타이밍 윈도우 관리
         if perfect_timing_active and selected_character_type == "smasher":
             perfect_timing_frame_count += 1
             #  퍼펙트 타이밍 입력 체크 (방향키 + 스페이스 동시 입력 필요)
@@ -72449,7 +72449,7 @@ def main(stage_num, new_boss_mode=False):
                     power_player_rect = PLAYER.copy()
                     if acceleration_active and acceleration_height_bonus > 0:
                         power_player_rect.inflate_ip(0, acceleration_height_bonus)
-                
+                    
                     if not BALL.colliderect(power_player_rect) and ball_to_paddle_distance <= 30 and ball_vel[1] > 0:
                         # 공을 패들 근처로 강제 이동시켜 충돌 발생시키기
                         BALL.centery = PLAYER.top - BALL_RADIUS
@@ -72504,7 +72504,7 @@ def main(stage_num, new_boss_mode=False):
                     if power_smashing_direction in (-1, 1):  # 좌/우 파워스매싱
                         dir_sign = -1 if power_smashing_direction == -1 else 1
                         ball_vel[0] = dir_sign * abs(ball_vel[0]) * 1.2805  # 좌우 방향 고정 (28.05% 부스트)
-    
+
                         # 패들 중앙에 가까워도 최소 각도 이상으로 꺾이도록 보정
                         y_abs = abs(ball_vel[1])
                         x_abs = abs(ball_vel[0])
@@ -72634,112 +72634,112 @@ def main(stage_num, new_boss_mode=False):
                                 'color': (200, 230, 255),
                                 'type': 'spark'
                             })
-                # 왼쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
-                # 추가 조건: 키 입력이 최근(8프레임 이내)에 이루어졌어야 함
-                elif (
-                    left_press_frame >= 0
-                    and space_press_frame >= 0
-                    and abs(left_press_frame - space_press_frame) <= max_frame_gap
-                    and (frame_counter - left_press_frame) <= max_input_age  # 왼쪽 키가 최근에 눌렸는지
-                    and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
-                    and selected_character_type == "smasher"
-                ):   # 스매셔 전용 드라이브
-                    perfect_direction = -1  # 왼쪽 드라이브
-                    perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
-                    drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
-                    perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
-                    frame_gap = abs(left_press_frame - space_press_frame)
-                    input_age = max(frame_counter - left_press_frame, frame_counter - space_press_frame)
-                    print(f"  ! (←+   ,  : {frame_gap},  : {input_age})")
-                    # 사용된 프레임 초기화
-                    left_press_frame = -1
-                    space_press_frame = -1
-                # 오른쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
-                elif (
-                    right_press_frame >= 0
-                    and space_press_frame >= 0
-                    and abs(right_press_frame - space_press_frame) <= max_frame_gap
-                    and (frame_counter - right_press_frame) <= max_input_age  # 오른쪽 키가 최근에 눌렸는지
-                    and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
-                    and selected_character_type == "smasher"
-                ):    # 스매셔 전용 드라이브
-                    perfect_direction = 1   # 오른쪽 드라이브
-                    perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
-                    drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
-                    perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
-                    frame_gap = abs(right_press_frame - space_press_frame)
-                    input_age = max(frame_counter - right_press_frame, frame_counter - space_press_frame)
-                    print(f"  ! (→+   ,  : {frame_gap},  : {input_age})")
-                    # 사용된 프레임 초기화
-                    right_press_frame = -1
-                    space_press_frame = -1
-                # 한쪽 방향키를 미리 누른 상태에서 스페이스를 누른 경우도 허용 (연타 방지 조건 유지)
-                elif (
-                    space_just_pressed
-                    and selected_character_type == "smasher"
-                    and ((keys[pygame.K_LEFT] and drive_global_cooldown == 0)
-                         or (keys[pygame.K_RIGHT] and drive_global_cooldown == 0))
-                ):
-                    perfect_direction = -1 if keys[pygame.K_LEFT] else 1
-                    perfect_timing_cooldown = perfect_timing_cooldown_frames
-                    drive_global_cooldown = drive_global_cooldown_frames
-                    perfect_timing_input_used = True
-                    frame_gap = 0
-                    input_age = 0
-                    print(f"  ! ({'←' if keys[pygame.K_LEFT] else '→'} 홀드 +   ,   )")
-                    if keys[pygame.K_LEFT]:
-                        left_press_frame = frame_counter
-                    else:
-                        right_press_frame = frame_counter
-                    space_press_frame = frame_counter
-                #  스페이스바만 누르거나 방향키만 누른 경우
-                elif space_just_pressed or left_just_pressed or right_just_pressed:
-                    perfect_timing_input_used = True  # 입력은 사용됨으로 표시 (연타 방지)
-                    print("! (←/→)   !")
-                    #  스킬 실패 기록
-                    record_skill_usage(success=False)
-            #  파워스매싱은 이제 동일한 타이밍 윈도우에서 우선순위로 처리됨
-            elif space_just_pressed and drive_global_cooldown > 0:
-                # 전역 쿨다운 중일 때 스페이스바를 누른 경우 (가장 우선적으로 체크)
-                print(f"    ! ({drive_global_cooldown}  ) -  !")
-            elif space_just_pressed and perfect_timing_input_used:
-                # 이미 이 윈도우에서 입력을 사용한 경우
-                print("! ( )")
-            elif space_just_pressed and perfect_timing_cooldown > 0:
-                # 쿨다운 중일 때 스페이스바를 누른 경우
-                print(f"    ! ({perfect_timing_cooldown}  )")
-            # 윈도우 시간 초과 시 리셋
-            if perfect_timing_frame_count > perfect_timing_window:
-                perfect_timing_active = False
-                perfect_timing_frame_count = 0
-                perfect_direction = None
-                perfect_timing_input_used = False  #  플래그 리셋
-                refresh_perfect_timing_indicator()
-                # 오래된 키 입력 기록 초기화 (선입력 방지)
+            # 왼쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
+            # 추가 조건: 키 입력이 최근(8프레임 이내)에 이루어졌어야 함
+            elif (
+                left_press_frame >= 0
+                and space_press_frame >= 0
+                and abs(left_press_frame - space_press_frame) <= max_frame_gap
+                and (frame_counter - left_press_frame) <= max_input_age  # 왼쪽 키가 최근에 눌렸는지
+                and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
+                and selected_character_type == "smasher"
+            ):   # 스매셔 전용 드라이브
+                perfect_direction = -1  # 왼쪽 드라이브
+                perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
+                drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
+                perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
+                frame_gap = abs(left_press_frame - space_press_frame)
+                input_age = max(frame_counter - left_press_frame, frame_counter - space_press_frame)
+                print(f"  ! (←+   ,  : {frame_gap},  : {input_age})")
+                # 사용된 프레임 초기화
                 left_press_frame = -1
+                space_press_frame = -1
+            # 오른쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
+            elif (
+                right_press_frame >= 0
+                and space_press_frame >= 0
+                and abs(right_press_frame - space_press_frame) <= max_frame_gap
+                and (frame_counter - right_press_frame) <= max_input_age  # 오른쪽 키가 최근에 눌렸는지
+                and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
+                and selected_character_type == "smasher"
+            ):    # 스매셔 전용 드라이브
+                perfect_direction = 1   # 오른쪽 드라이브
+                perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
+                drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
+                perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
+                frame_gap = abs(right_press_frame - space_press_frame)
+                input_age = max(frame_counter - right_press_frame, frame_counter - space_press_frame)
+                print(f"  ! (→+   ,  : {frame_gap},  : {input_age})")
+                # 사용된 프레임 초기화
                 right_press_frame = -1
                 space_press_frame = -1
-                down_press_frame = -1
-                print("")
-            #  개선된 윈도우 비활성화 조건: X축 범위도 체크
-            ball_x_out_of_range = abs(BALL.centerx - PLAYER.centerx) > (PADDLE_WIDTH / 2 + BALL_RADIUS + 30)
-            if (ball_to_paddle_distance > 100 or 
-                ball_vel[1] <= 0 or 
-                ball_to_paddle_distance < 0 or 
-                ball_x_out_of_range):  #  X축 범위 벗어남도 체크
-                perfect_timing_active = False
-                perfect_timing_frame_count = 0
-                if ball_x_out_of_range:
-                    x_distance = abs(BALL.centerx - PLAYER.centerx)
-                    print(f"    :     (X: {x_distance:.1f})")
-                perfect_direction = None
-                perfect_timing_input_used = False  #  플래그 리셋
-                refresh_perfect_timing_indicator()
-                # 오래된 키 입력 기록 초기화 (선입력 방지)
-                left_press_frame = -1
-                right_press_frame = -1
-                space_press_frame = -1
-                down_press_frame = -1
+            # 한쪽 방향키를 미리 누른 상태에서 스페이스를 누른 경우도 허용 (연타 방지 조건 유지)
+            elif (
+                space_just_pressed
+                and selected_character_type == "smasher"
+                and ((keys[pygame.K_LEFT] and drive_global_cooldown == 0)
+                     or (keys[pygame.K_RIGHT] and drive_global_cooldown == 0))
+            ):
+                perfect_direction = -1 if keys[pygame.K_LEFT] else 1
+                perfect_timing_cooldown = perfect_timing_cooldown_frames
+                drive_global_cooldown = drive_global_cooldown_frames
+                perfect_timing_input_used = True
+                frame_gap = 0
+                input_age = 0
+                print(f"  ! ({'←' if keys[pygame.K_LEFT] else '→'} 홀드 +   ,   )")
+                if keys[pygame.K_LEFT]:
+                    left_press_frame = frame_counter
+                else:
+                    right_press_frame = frame_counter
+                space_press_frame = frame_counter
+            #  스페이스바만 누르거나 방향키만 누른 경우
+            elif space_just_pressed or left_just_pressed or right_just_pressed:
+                perfect_timing_input_used = True  # 입력은 사용됨으로 표시 (연타 방지)
+                print("! (←/→)   !")
+                #  스킬 실패 기록
+                record_skill_usage(success=False)
+        #  파워스매싱은 이제 동일한 타이밍 윈도우에서 우선순위로 처리됨
+        elif space_just_pressed and drive_global_cooldown > 0:
+            # 전역 쿨다운 중일 때 스페이스바를 누른 경우 (가장 우선적으로 체크)
+            print(f"    ! ({drive_global_cooldown}  ) -  !")
+        elif space_just_pressed and perfect_timing_input_used:
+            # 이미 이 윈도우에서 입력을 사용한 경우
+            print("! ( )")
+        elif space_just_pressed and perfect_timing_cooldown > 0:
+            # 쿨다운 중일 때 스페이스바를 누른 경우
+            print(f"    ! ({perfect_timing_cooldown}  )")
+        # 윈도우 시간 초과 시 리셋
+        if perfect_timing_frame_count > perfect_timing_window:
+            perfect_timing_active = False
+            perfect_timing_frame_count = 0
+            perfect_direction = None
+            perfect_timing_input_used = False  #  플래그 리셋
+            refresh_perfect_timing_indicator()
+            # 오래된 키 입력 기록 초기화 (선입력 방지)
+            left_press_frame = -1
+            right_press_frame = -1
+            space_press_frame = -1
+            down_press_frame = -1
+            print("")
+        #  개선된 윈도우 비활성화 조건: X축 범위도 체크
+        ball_x_out_of_range = abs(BALL.centerx - PLAYER.centerx) > (PADDLE_WIDTH / 2 + BALL_RADIUS + 30)
+        if (ball_to_paddle_distance > 100 or 
+            ball_vel[1] <= 0 or 
+            ball_to_paddle_distance < 0 or 
+            ball_x_out_of_range):  #  X축 범위 벗어남도 체크
+            perfect_timing_active = False
+            perfect_timing_frame_count = 0
+            if ball_x_out_of_range:
+                x_distance = abs(BALL.centerx - PLAYER.centerx)
+                print(f"    :     (X: {x_distance:.1f})")
+            perfect_direction = None
+            perfect_timing_input_used = False  #  플래그 리셋
+            refresh_perfect_timing_indicator()
+            # 오래된 키 입력 기록 초기화 (선입력 방지)
+            left_press_frame = -1
+            right_press_frame = -1
+            space_press_frame = -1
+            down_press_frame = -1
             print(f"     (: {ball_to_paddle_distance:.1f}, vel_y: {ball_vel[1]:.1f})")
             # 나쁜 타이밍 감지 - 기회를 놓쳤거나 부정확한 타이밍
             if ball_to_paddle_distance > 50 and abs(ball_vel[1]) > 8:  # 거리가 멀고 빠른 공 놓침
