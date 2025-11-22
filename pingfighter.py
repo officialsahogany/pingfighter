@@ -65255,18 +65255,29 @@ def handle_ball():
         # 스테이지 3~6, 8 공통: 대쉬/필살기 겸용 게이지 충전 (중간값 60 사용)
         # 스테이지 7은 초인테트리서 전용 게이지 체계가 별도로 동작하므로 충전 없음
         elif current_stage in (3, 4, 5, 6, 8):
-            boss_special_gauge = min(boss_special_gauge + 80, 500)
-            print(f"스테이지{current_stage} 보스 게이지 충전: +80 (현재: {boss_special_gauge}/500)")
-            # 스테이지 8: 패들 피격 시 25% 확률 그림자분신 / 40% 확률 구름장막 (조건 만족 시)
+            gain = 20 if (current_stage == 8 and stage8_superspeed_active) else 80
+            boss_special_gauge = min(boss_special_gauge + gain, 500)
+            print(f"스테이지{current_stage} 보스 게이지 충전: +{gain} (현재: {boss_special_gauge}/500)")
+            # 스테이지 8: 패들 피격 시 25% 확률 그림자분신 / 35% 확률 구름장막 (조건 만족 시)
             if current_stage == 8:
-                if boss_special_gauge >= 100 and not stage8_shadow_casting and not stage8_shadow_clones:
+                if (
+                    boss_special_gauge >= 100
+                    and not stage8_shadow_casting
+                    and not stage8_shadow_clones
+                    and not stage8_superspeed_active
+                ):
                     if random.random() <= 0.25:
                         stage8_shadow_casting = True
                         stage8_shadow_cast_start_ms = pygame.time.get_ticks()
                         stage8_shadow_freeze_posx = BOSS.centerx
                         stage8_shadow_freeze_posy = BOSS.centery
                         show_speech("그림자분신!", duration=90)
-                if boss_special_gauge >= STAGE8_CLOUD_COST and not stage8_cloud_dash_active and not stage8_cloud_active:
+                if (
+                    boss_special_gauge >= STAGE8_CLOUD_COST
+                    and not stage8_cloud_dash_active
+                    and not stage8_cloud_active
+                    and not stage8_superspeed_active
+                ):
                     if pygame.time.get_ticks() >= stage8_cloud_next_ready_ms and random.random() <= 0.35:
                         _start_stage8_cloud(pygame.time.get_ticks())
                         boss_special_gauge = max(0, boss_special_gauge - STAGE8_CLOUD_COST)
@@ -68138,6 +68149,7 @@ def handle_boss():
     global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
     global stage8_stun_escape_ghosts
     global stage8_awakened, player_score
+    global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
 
     now_ms = pygame.time.get_ticks()
 
