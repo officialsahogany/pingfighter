@@ -40714,6 +40714,7 @@ def draw_objects():
     global player_missile_stunned_timer  # 미사일 스턴 타이머 추가
     global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
     global stage8_superspeed_active, stage8_superspeed_text_end_ms
+    global stage8_superspeed_freeze_end_ms
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, blacksmith_turret_projectiles
@@ -41234,6 +41235,11 @@ def draw_objects():
         tint = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         tint.fill((10, 10, 20, 70))
         SCREEN.blit(tint, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+        # 발동 직후 정지 연출 시 화면 더 어둡게
+        if stage8_superspeed_active and pygame.time.get_ticks() < stage8_superspeed_freeze_end_ms:
+            freeze_tint = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            freeze_tint.fill((0, 0, 0, 120))
+            SCREEN.blit(freeze_tint, (0, 0))
     # === Stage 8 영체탈주 겹치는 잔상들 (5개가 시간차로 빠져나옴) ===
     if current_stage == 8 and stage8_stun_escape_active and stage8_stun_escape_ghosts:
         # 뒤에서부터 그려서 앞에 있는 잔상이 위에 오도록
