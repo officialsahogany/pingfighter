@@ -36605,10 +36605,7 @@ def _start_stage8_stun_escape(now: int) -> None:
     boss_knockback_vel = 0
     boss_special_gauge = max(0, boss_special_gauge - STAGE8_STUN_ESCAPE_COST)
     _release_stage8_net_trap()
-    # 영체탈주 시 초신가속 강제 종료
-    if stage8_superspeed_active:
-        stage8_superspeed_active = False
-        stage8_superspeed_end_ms = 0
+    # 영체탈주 시에도 초신가속은 종료하지 않음 (지속)
 
     # 5개의 겹치는 잔상 생성 - 각각 다른 딜레이로 천천히 빠져나옴
     stage8_stun_escape_ghosts = []
