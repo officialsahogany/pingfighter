@@ -68604,6 +68604,8 @@ def handle_boss():
             stage8_awakened = True
             try:
                 show_speech("초각성!", duration=90)
+                # 바람 오오라 폭발 애니메이션 시작
+                start_stage8_wind_burst()
             except Exception:
                 pass
         # 초신가속 발동 조건 체크 (게이지 250)
@@ -71262,6 +71264,8 @@ def main(stage_num, new_boss_mode=False):
             stage8_awakened = True
             try:
                 show_speech("초각성!", duration=90)
+                # 바람 오오라 폭발 애니메이션 시작
+                start_stage8_wind_burst()
             except Exception:
                 pass
         genie_assistant.update(dt_ms)
