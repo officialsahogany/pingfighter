@@ -73393,22 +73393,22 @@ def main(stage_num, new_boss_mode=False):
             freeze_now = freeze_awaken or freeze_superspeed
             if not freeze_now:
                 handle_player(keys_now)
-            update_blacksmith_hammer_shock(keys)
+            update_blacksmith_hammer_shock(keys_now)
             update_blacksmith_turret()
 
-                # 디바인쉴드 보호막 공 반사 체크 및 부스트 효과 업데이트
-                try:
-                    check_divine_shield_ball_collision()
-                    update_divine_shield_boost()
-                    update_divine_shield_dark_aura()
-                except Exception:
-                    pass
+            # 디바인쉴드 보호막 공 반사 체크 및 부스트 효과 업데이트
+            try:
+                check_divine_shield_ball_collision()
+                update_divine_shield_boost()
+                update_divine_shield_dark_aura()
+            except Exception:
+                pass
 
-                # 손상 효과 업데이트 (모든 스테이지에서)
-                damage_manager = get_damage_manager()
-                if not is_blacksmith_divine_stone_active():
-                    damage_manager.clear_building("divine_stone")
-                damage_manager.update()
+            # 손상 효과 업데이트 (모든 스테이지에서)
+            damage_manager = get_damage_manager()
+            if not is_blacksmith_divine_stone_active():
+                damage_manager.clear_building("divine_stone")
+            damage_manager.update()
                 
             if not freeze_now:
                 handle_ball()
