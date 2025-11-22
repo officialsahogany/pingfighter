@@ -69160,8 +69160,8 @@ def handle_boss():
         boss_current_speed = 0
         return
 
-    # 극정호신 상태에서는 대쉬/경직 처리 이후 추가 AI를 건너뛴다.
-    if stage8_in_superspeed:
+    # 극정호신 상태에서는 일반 AI를 건너뛰되, 서브 대기 중이면 서브 로직은 그대로 진행
+    if stage8_in_superspeed and not is_waiting_for_serve:
         return
 
     #  수평 넉백 처리 (라그나로크 해머 + 코만도 총알)
