@@ -27571,13 +27571,13 @@ def handle_player(keys):
                     (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
                     and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame < down_press_frame
+                    and left_press_frame <= down_press_frame  # 동시 입력(ㅁ+ㄴ)도 허용
                 )
                 right_before_down = (
                     (is_move_right_pressed(keys) or MOVE_EVENT_RIGHT)
                     and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame < down_press_frame
+                    and right_press_frame <= down_press_frame  # 동시 입력(ㅇ+ㄴ)도 허용
                 )
                 current_charges = get_roll("rolling_charges")
 
@@ -27981,13 +27981,13 @@ def handle_player(keys):
                     (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
                     and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame < down_press_frame
+                    and left_press_frame <= down_press_frame  # 동시 입력(ㅁ+ㄴ)도 허용
                 )
                 right_before_down_half = (
                     (is_move_right_pressed(keys) or MOVE_EVENT_RIGHT)
                     and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame < down_press_frame
+                    and right_press_frame <= down_press_frame  # 동시 입력(ㅇ+ㄴ)도 허용
                 )
                 if (left_before_down_half or right_before_down_half) and not globals().get('dash_down_first_lock', False):
                     # 게이지 계산
@@ -28208,13 +28208,13 @@ def handle_player(keys):
                     (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
                     and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame < down_press_frame
+                    and left_press_frame <= down_press_frame  # 동시 입력(ㅁ+ㄴ)도 허용
                 )
                 right_before_down = (
                     (is_move_right_pressed(keys) or MOVE_EVENT_RIGHT)
                     and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame < down_press_frame
+                    and right_press_frame <= down_press_frame  # 동시 입력(ㅇ+ㄴ)도 허용
                 )
                 if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge:
                     # 아래키 + 왼쪽 - 대쉬 실행

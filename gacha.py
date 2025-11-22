@@ -4,6 +4,7 @@ import math
 import sys
 import os
 import academy
+from game_state.audio import get_sfx_volume
 
 # 리소스 경로 헬퍼 (PyInstaller 호환)
 def resource_path(relative_path):
@@ -26,6 +27,8 @@ gacha_animation = 0
 gacha_items = []
 gacha_available_items_template = []
 gacha_legendary_bonus = 0.0  # 추가 전설 등장 확률 (0.05 = +5%)
+gacha_start_sound = None
+gacha_start_sound_loaded = False
 
 # 가챠 추가 실행 알림
 EXTRA_GACHA_NOTICE_DURATION = 90  # 약 1.5초간 표시
@@ -48,6 +51,43 @@ def update_extra_gacha_notice():
         extra_gacha_notice["timer"] -= 1
         if extra_gacha_notice["timer"] <= 0:
             extra_gacha_notice = None
+
+
+def load_gacha_start_sound():
+    """가챠 시작 사운드를 한 번만 로드."""
+
+    global gacha_start_sound, gacha_start_sound_loaded
+    if gacha_start_sound_loaded:
+        return gacha_start_sound
+
+    gacha_start_sound_loaded = True
+    try:
+        gacha_start_sound = pygame.mixer.Sound(resource_path("sounds/gatchastart.wav"))
+    except Exception:
+        gacha_start_sound = None
+    return gacha_start_sound
+
+
+def play_gacha_start_sound():
+    """설정된 효과음 볼륨에 맞춰 가챠 시작 사운드 재생."""
+
+    sound = load_gacha_start_sound()
+    if not sound:
+        return
+
+    try:
+        volume = get_sfx_volume()
+    except Exception:
+        volume = 1.0
+
+    try:
+        sound.set_volume(volume)
+        sound.play()
+    except Exception:
+        try:
+            sound.play()
+        except Exception:
+            pass
 
 
 # 캡슐 애니메이션 변수
@@ -247,6 +287,18 @@ def update_gacha():
     # 애니메이션 업데이트
     if gacha_phase == 3:
         gacha_animation += 1
+
+
+def start_gacha_spin(auto_started=False):
+    """가챠를 시작하며 스타트 사운드를 재생."""
+
+    global gacha_phase, gacha_spin_timer, gacha_start_time, gacha_spinning
+
+    gacha_phase = 1
+    gacha_spin_timer = 0
+    gacha_start_time = pygame.time.get_ticks()
+    gacha_spinning = auto_started
+    play_gacha_start_sound()
 
 def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
     """사이버펑크 홀로그램 뽑기통"""
@@ -902,10 +954,7 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
         gacha_start_time = 0  # 초기화
 
         if auto_start_flag:
-            gacha_phase = 1
-            gacha_spin_timer = 0
-            gacha_start_time = pygame.time.get_ticks()
-            gacha_spinning = True
+            start_gacha_spin(auto_started=True)
             auto_start_flag = False
 
         while running:
@@ -919,9 +968,7 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
                 if event.type == pygame.KEYDOWN:
                     if event.key in (pygame.K_SPACE, pygame.K_RETURN):
                         if gacha_phase == 0:  # 시작
-                            gacha_phase = 1
-                            gacha_spin_timer = 0
-                            gacha_start_time = pygame.time.get_ticks()  # 가속 시작 시간 기록
+                            start_gacha_spin()
                         elif gacha_phase == 3:  # 결과 - 결과 페이지로 이동
                             gacha_active = False
                             running = False
@@ -929,9 +976,7 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
                 # 마우스 클릭으로도 시작/종료 지원
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if gacha_phase == 0:
-                        gacha_phase = 1
-                        gacha_spin_timer = 0
-                        gacha_start_time = pygame.time.get_ticks()
+                        start_gacha_spin()
                     elif gacha_phase == 3:
                         gacha_active = False
                         running = False
