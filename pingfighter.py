@@ -14854,6 +14854,7 @@ stage8_superspeed_end_ms: int = 0
 stage8_superspeed_text_end_ms: int = 0
 stage8_superspeed_freeze_end_ms: int = 0
 stage8_superspeed_cooldown_end_ms: int = 0
+STAGE8_SUPERSPEED_COOLDOWN_MS = 25000
 STAGE8_SHADOW_CAST_MS = 500
 STAGE8_SHADOW_DURATION_MS = 10000
 STAGE8_SHADOW_EMERGE_MS = 600
@@ -36439,7 +36440,7 @@ def _end_stage8_superspeed() -> None:
 def _start_stage8_superspeed(now: int) -> None:
     """초신가속 발동: 5초간 무제한 대쉬(무료, 확장거리) 상태."""
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
-    global boss_special_gauge, boss_dash_cooldown_until_ms
+    global boss_special_gauge, boss_dash_cooldown_until_ms, stage8_superspeed_cooldown_end_ms
     global stage8_shadow_casting, stage8_shuriken_casting, stage8_cloud_dash_active, stage8_cloud_active, stage8_cloud_rect
     global stage8_shuriken_cast_start_ms
 
@@ -36449,6 +36450,7 @@ def _start_stage8_superspeed(now: int) -> None:
     stage8_superspeed_text_end_ms = now + STAGE8_SUPERSPEED_TEXT_MS
     stage8_superspeed_freeze_end_ms = now + STAGE8_SUPERSPEED_FREEZE_MS
     boss_dash_cooldown_until_ms = 0
+    stage8_superspeed_cooldown_end_ms = 0
 
     # 다른 스킬 중단
     stage8_shadow_casting = False
