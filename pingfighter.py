@@ -36369,7 +36369,7 @@ def _try_stage8_stun_escape(now: int) -> bool:
         and boss_special_gauge >= STAGE8_STUN_ESCAPE_COST
     ):
         stage8_stun_escape_attempted = True
-        if random.random() < 0.5:
+        if random.random() < 0.9:
             _start_stage8_stun_escape(now)
             return True
     return False
