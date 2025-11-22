@@ -37455,7 +37455,7 @@ def update_stage8_shurikens() -> None:
     """표창 이동/충돌 처리."""
     global stage8_shurikens, player_slow_timer, player_slow_timer_max, player_slow_factor
     global stage8_shuriken_gauge_ticks_left, stage8_shuriken_gauge_tick_timer
-    global special_gauge, special_ready, special_gauge_max
+    global special_gauge, special_ready, special_gauge_max, current_speed
     if current_stage != 8:
         stage8_shurikens = []
         return
@@ -37473,6 +37473,11 @@ def update_stage8_shurikens() -> None:
             player_slow_timer = STAGE8_SHURIKEN_SLOW_FRAMES
             player_slow_timer_max = STAGE8_SHURIKEN_SLOW_FRAMES
             player_slow_factor = STAGE8_SHURIKEN_SLOW_FACTOR
+            # 이미 이동 중이었다면 현재 속도에도 즉시 감속을 반영해 체감 지연을 없앤다.
+            try:
+                current_speed *= STAGE8_SHURIKEN_SLOW_FACTOR
+            except Exception:
+                pass
             stage8_shuriken_gauge_ticks_left = 4  # 0.5초 간격 4회(총 2초)
             stage8_shuriken_gauge_tick_timer = STAGE8_SHURIKEN_GAUGE_TICK_FRAMES
             # 피 튀기는 파티클 효과 생성
