@@ -31,6 +31,7 @@ gacha_start_sound = None
 gacha_start_sound_loaded = False
 gacha_result_sound = None
 gacha_result_sound_loaded = False
+GACHA_RESULT_AUTO_DELAY_FRAMES = 45  # 결과 화면 자동 전환 대기(약 0.75초 @60fps)
 
 # 가챠 추가 실행 알림
 EXTRA_GACHA_NOTICE_DURATION = 90  # 약 1.5초간 표시
@@ -1029,6 +1030,15 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
             # 애니메이션 카운터 증가 (아이템들이 계속 움직이도록)
             global gacha_animation
             gacha_animation += 1
+
+            # 결과 페이지 자동 전환 (추가 클릭 불필요)
+            if (
+                gacha_phase == 3
+                and gacha_result is not None
+                and gacha_animation >= GACHA_RESULT_AUTO_DELAY_FRAMES
+            ):
+                gacha_active = False
+                running = False
 
             # 뽑기 그리기
             draw_gacha(screen, width, height, get_item_name_korean, get_item_description, legendary_bonus)
