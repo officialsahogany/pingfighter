@@ -37470,6 +37470,10 @@ def update_stage8_shurikens() -> None:
             continue
         # 플레이어 패들과 충돌 시 슬로우 적용
         if rect.colliderect(PLAYER):
+            # 연막탄/테크니컬조끼 연막 안에서는 표창 면역
+            if is_player_in_smoke():
+                # 연막이 표창을 흡수하므로 사라지게 처리
+                continue
             player_slow_timer = STAGE8_SHURIKEN_SLOW_FRAMES
             player_slow_timer_max = STAGE8_SHURIKEN_SLOW_FRAMES
             player_slow_factor = STAGE8_SHURIKEN_SLOW_FACTOR
