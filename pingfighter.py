@@ -38155,94 +38155,96 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                         cloud_width, cloud_height, cloud_fill, cloud_outline, outline_width,
                         sway=(sway_x, sway_y))
 
-    # 떠다니는 작은 아카츠키 스타일 구름들 추가
-    def draw_small_floating_cloud(surf, cx, cy, size, fill_color, outline_color, outline_w):
-        """작은 떠다니는 아카츠키 스타일 구름"""
-        width = int(size * 1.6)
-        height = int(size * 0.9)
+    # 떠다니는 뭉글뭉글한 구름들 추가 (드리프트 애니메이션 포함)
+    def draw_fluffy_floating_cloud(surf, cx, cy, size, fill_color, outline_color, outline_w, puff_seed=0):
+        """뭉글뭉글한 떠다니는 구름 - 여러 원들이 겹쳐진 부드러운 형태"""
+        random.seed(int(puff_seed))
 
-        # 구름 형태 포인트 (평평한 바닥)
-        cloud_points = []
-        top_y = cy - height * 0.3
-        for i in range(12):
-            t = i / 11
-            x = cx - width * 0.4 + width * 0.8 * t
-            bump = math.sin(t * math.pi) * height * 0.12
-            y = top_y - bump
-            cloud_points.append((int(x), int(y)))
-        cloud_points.append((int(cx + width * 0.4), int(cy + height * 0.15)))
-        cloud_points.append((int(cx - width * 0.4), int(cy + height * 0.15)))
+        # 기본 크기
+        base_radius = size * 0.5
 
-        # 본체 그리기
-        if len(cloud_points) > 2:
-            pygame.draw.polygon(surf, fill_color, cloud_points)
-            pygame.draw.polygon(surf, outline_color, cloud_points, outline_w)
+        # 뭉글뭉글한 느낌을 위해 여러 원들로 구성
+        puff_positions = []
 
-        # 작은 소용돌이 컬 (좌우 1개씩)
-        curl_size = height * 0.5
+        # 중앙 원 (가장 큼)
+        puff_positions.append((0, 0, base_radius * 1.2))
 
-        def draw_mini_curl(cx, cy, size, direction):
-            points = []
-            num_points = 18
-            if direction == -1:  # 왼쪽
-                start_angle = math.pi * 0.5
-            else:  # 오른쪽
-                start_angle = math.pi * 1.5
+        # 위쪽 봉우리들 (3개)
+        puff_positions.append((-base_radius * 0.6, -base_radius * 0.4, base_radius * 0.9))
+        puff_positions.append((0, -base_radius * 0.6, base_radius * 1.0))
+        puff_positions.append((base_radius * 0.55, -base_radius * 0.35, base_radius * 0.85))
 
-            for i in range(num_points):
-                t = i / (num_points - 1)
-                angle = start_angle + t * math.pi * 2.0
-                radius = size * (1 - t * 0.7)
-                px = cx + math.cos(angle) * radius * 0.5
-                py = cy + math.sin(angle) * radius * 0.4
-                points.append((int(px), int(py)))
+        # 좌우 봉우리들
+        puff_positions.append((-base_radius * 0.9, base_radius * 0.1, base_radius * 0.7))
+        puff_positions.append((base_radius * 0.85, base_radius * 0.05, base_radius * 0.75))
 
-            if len(points) > 2:
-                # 두꺼운 채우기
-                thick = max(1, int(size * 0.2))
-                thick_points = []
-                for i, (px, py) in enumerate(points):
-                    if i > 0:
-                        dx = px - points[i-1][0]
-                        dy = py - points[i-1][1]
-                        length = math.sqrt(dx*dx + dy*dy)
-                        if length > 0:
-                            nx, ny = -dy / length, dx / length
-                            thick_points.append((int(px + nx * thick), int(py + ny * thick)))
-                if len(thick_points) > 2:
-                    pygame.draw.polygon(surf, fill_color, thick_points)
+        # 하단 봉우리들 (살짝 작게)
+        puff_positions.append((-base_radius * 0.4, base_radius * 0.35, base_radius * 0.6))
+        puff_positions.append((base_radius * 0.35, base_radius * 0.3, base_radius * 0.55))
 
-            if len(points) > 1:
-                pygame.draw.lines(surf, outline_color, False, points, outline_w)
+        # 추가 작은 봉우리들 (더 뭉글뭉글하게)
+        for i in range(4):
+            angle = random.uniform(0, math.pi * 2)
+            dist = base_radius * random.uniform(0.5, 0.8)
+            r = base_radius * random.uniform(0.4, 0.65)
+            puff_positions.append((math.cos(angle) * dist, math.sin(angle) * dist * 0.6, r))
 
-        # 왼쪽 컬
-        draw_mini_curl(cx - width * 0.42, cy - height * 0.05, curl_size, -1)
-        # 오른쪽 컬
-        draw_mini_curl(cx + width * 0.42, cy - height * 0.05, curl_size, 1)
+        # 그림자/외곽선 먼저 (더 어두운 색)
+        shadow_color = (max(0, fill_color[0] - 40), max(0, fill_color[1] - 30), max(0, fill_color[2] - 30), fill_color[3] if len(fill_color) > 3 else 255)
+        for ox, oy, r in puff_positions:
+            pygame.draw.circle(surf, shadow_color, (int(cx + ox), int(cy + oy + 3)), int(r))
 
-        # 내부 채우기 (불투명)
-        inner_rect = pygame.Rect(int(cx - width * 0.32), int(cy - height * 0.25),
-                                int(width * 0.64), int(height * 0.5))
-        pygame.draw.ellipse(surf, fill_color, inner_rect)
+        # 메인 구름 채우기
+        for ox, oy, r in puff_positions:
+            pygame.draw.circle(surf, fill_color, (int(cx + ox), int(cy + oy)), int(r))
 
-    # 떠다니는 구름 위치들 (시간에 따라 움직임)
+        # 하이라이트 (위쪽에 밝은 부분)
+        highlight_color = (min(255, fill_color[0] + 50), min(255, fill_color[1] + 50), min(255, fill_color[2] + 50), 180)
+        for ox, oy, r in puff_positions[:5]:  # 상단 몇 개만
+            pygame.draw.circle(surf, highlight_color, (int(cx + ox), int(cy + oy - r * 0.3)), int(r * 0.5))
+
+        # 외곽선 (부분적으로)
+        for ox, oy, r in puff_positions[:6]:
+            pygame.draw.circle(surf, outline_color, (int(cx + ox), int(cy + oy)), int(r), outline_w)
+
+        random.seed()  # 랜덤 시드 리셋
+
+    # 떠다니는 구름 위치들 (드리프트 애니메이션 포함)
+    # (기준x, 기준y, 크기, 드리프트방향, 드리프트속도, 수직진동속도, 위상, 시드)
+    # 드리프트방향: 1=왼쪽에서 오른쪽, -1=오른쪽에서 왼쪽
     floating_clouds = [
-        # (기준x, 기준y, 크기, 속도x, 속도y, 위상)
-        (center_x - cloud_width * 0.5, center_y - cloud_height * 0.6, 35, 0.3, 0.5, 0),
-        (center_x + cloud_width * 0.5, center_y - cloud_height * 0.5, 30, -0.25, 0.4, 1.5),
-        (center_x - cloud_width * 0.4, center_y + cloud_height * 0.5, 28, 0.35, -0.3, 3.0),
-        (center_x + cloud_width * 0.45, center_y + cloud_height * 0.55, 32, -0.3, -0.35, 4.5),
-        (center_x, center_y - cloud_height * 0.7, 25, 0.2, 0.6, 2.0),
-        (center_x - cloud_width * 0.6, center_y, 22, 0.4, 0.2, 5.0),
-        (center_x + cloud_width * 0.6, center_y + cloud_height * 0.2, 24, -0.35, 0.25, 1.0),
+        (center_x - cloud_width * 0.5, center_y - cloud_height * 0.55, 38, 1, 0.018, 0.4, 0, 1001),
+        (center_x + cloud_width * 0.5, center_y - cloud_height * 0.45, 32, -1, 0.022, 0.35, 1.5, 1002),
+        (center_x - cloud_width * 0.35, center_y + cloud_height * 0.45, 30, 1, 0.015, 0.5, 3.0, 1003),
+        (center_x + cloud_width * 0.4, center_y + cloud_height * 0.5, 35, -1, 0.020, 0.3, 4.5, 1004),
+        (center_x, center_y - cloud_height * 0.65, 28, 1, 0.025, 0.45, 2.0, 1005),
+        (center_x - cloud_width * 0.55, center_y + cloud_height * 0.1, 25, -1, 0.012, 0.55, 5.0, 1006),
+        (center_x + cloud_width * 0.55, center_y + cloud_height * 0.15, 27, 1, 0.028, 0.38, 1.0, 1007),
+        # 추가 뭉글뭉글 구름들 (더 다양한 크기와 속도)
+        (center_x - cloud_width * 0.2, center_y - cloud_height * 0.3, 22, -1, 0.032, 0.42, 2.5, 1008),
+        (center_x + cloud_width * 0.25, center_y + cloud_height * 0.25, 24, 1, 0.014, 0.48, 3.5, 1009),
+        (center_x, center_y + cloud_height * 0.35, 20, -1, 0.026, 0.52, 4.0, 1010),
     ]
 
-    for base_x, base_y, size, speed_x, speed_y, phase in floating_clouds:
-        # 부드러운 떠다니는 움직임
-        float_x = base_x + math.sin(time_offset * speed_x + phase) * 15 + sway_x * 1.5
-        float_y = base_y + math.cos(time_offset * speed_y + phase) * 10 + sway_y * 1.2
-        draw_small_floating_cloud(cloud_surface, float_x, float_y, size,
-                                 cloud_fill, cloud_outline, max(2, outline_width - 1))
+    # 드리프트 범위 (구름이 좌우로 이동하는 최대 거리)
+    drift_range = cloud_width * 0.3
+
+    for base_x, base_y, size, drift_dir, drift_speed, vert_speed, phase, seed in floating_clouds:
+        # 드리프트 애니메이션 (좌우 이동) - 각 구름마다 다른 속도
+        # time_offset을 사용하여 연속적인 좌우 이동
+        drift_cycle = (time_offset * drift_speed + phase) % (math.pi * 2)
+        drift_x = math.sin(drift_cycle) * drift_range * drift_dir
+
+        # 수직 진동 (부드러운 상하 움직임)
+        float_y_offset = math.cos(time_offset * vert_speed + phase) * 12
+
+        # 최종 위치 계산
+        float_x = base_x + drift_x + sway_x * 1.2
+        float_y = base_y + float_y_offset + sway_y * 1.0
+
+        # 뭉글뭉글한 구름 그리기
+        draw_fluffy_floating_cloud(cloud_surface, float_x, float_y, size,
+                                   cloud_fill, cloud_outline, max(2, outline_width - 1), seed + time_offset * 0.001)
 
     # 페이드 아웃 시에만 투명도 적용
     if base_alpha < 255:
