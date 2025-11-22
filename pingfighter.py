@@ -74986,6 +74986,9 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
                 update_stage8_wind_effects()
                 draw_stage8_wind_aura(SCREEN)
                 draw_stage8_wind_burst(SCREEN)
+                # 극정호신 환영 분신 효과
+                update_stage8_afterimage_ghosts()
+                draw_stage8_afterimage_ghosts(SCREEN)
             draw_water_trail()
             draw_item_obtained_effect()
             draw_dash_spirit_lasers(SCREEN, PLAYER, dash_spirit_lasers)
