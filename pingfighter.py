@@ -36699,12 +36699,14 @@ def update_stage8_cloud(now: int | None = None) -> None:
     global stage8_cloud_origin, stage8_cloud_target_y, stage8_cloud_active
     global stage8_cloud_start_ms, stage8_cloud_end_ms, stage8_cloud_rect, stage8_cloud_spawn_pos
     global stage8_cloud_invuln_end_ms
+    global stage8_cloud_midstay_end_ms
     if current_stage != 8:
         stage8_cloud_dash_active = False
         stage8_cloud_active = False
         stage8_cloud_rect = None
         stage8_cloud_spawn_pos = (0, 0)
         stage8_cloud_invuln_end_ms = 0
+        stage8_cloud_midstay_end_ms = 0
         return
     if now is None:
         now = pygame.time.get_ticks()
@@ -36728,14 +36730,25 @@ def update_stage8_cloud(now: int | None = None) -> None:
                     # 구름 터뜨림
                     stage8_cloud_spawn_pos = (BOSS.centerx, BOSS.centery)
                     _finish_stage8_cloud(now)
-                    stage8_cloud_dash_phase = "up"
-                    stage8_cloud_dash_start_ms = now
+                    if stage8_awakened:
+                        stage8_cloud_dash_phase = "stay"
+                        stage8_cloud_midstay_end_ms = now + 3000
+                    else:
+                        stage8_cloud_dash_phase = "up"
+                        stage8_cloud_dash_start_ms = now
             elif stage8_cloud_dash_phase == "up":
                 BOSS.centerx = WIDTH // 2
                 BOSS.centery = int(stage8_cloud_target_y + (stage8_cloud_origin[1] - stage8_cloud_target_y) * progress)
                 if progress >= 1.0:
                     stage8_cloud_dash_active = False
                     stage8_cloud_dash_phase = None
+            elif stage8_cloud_dash_phase == "stay":
+                # 초각성: 3초간 중간 Y라인에서 체류
+                BOSS.centerx = WIDTH // 2
+                BOSS.centery = stage8_cloud_target_y
+                if now >= stage8_cloud_midstay_end_ms:
+                    stage8_cloud_dash_phase = "up"
+                    stage8_cloud_dash_start_ms = now
                     # 상승 완료 후 0.18초 동안 추가 무적 버퍼를 주어 겹침 반사 방지
                     stage8_cloud_invuln_end_ms = now + 180
 
