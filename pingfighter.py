@@ -68194,9 +68194,11 @@ def handle_boss():
         stage8_stun_hologram_rect = None
         stage8_stun_hologram_end_ms = 0
         stage8_awakened = False
-        stage8_awaken_intro_pending = False
-        stage8_awaken_intro_done = False
-        stage8_awaken_freeze_end_ms = 0
+        # 초각성은 지속 상태를 유지해야 하므로 상태를 초기화하지 않는다.
+        # 단, 라운드 재시작 시 진행 중 연출은 취소
+        if stage8_awaken_intro_pending:
+            stage8_awaken_intro_pending = False
+            stage8_awaken_freeze_end_ms = 0
         stage8_superspeed_active = False
         stage8_superspeed_end_ms = 0
         stage8_superspeed_text_end_ms = 0
