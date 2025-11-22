@@ -36469,9 +36469,9 @@ def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
     # 바람 회오리 기본 원형 오오라
     aura_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
-    # 초신가속 상태에 따른 색상 설정
+# 극정호신(구 초신가속) 상태에 따른 색상 설정
     if stage8_superspeed_active:
-        # 주황빛 색상 (초신가속)
+        # 주황빛 색상 (극정호신)
         glow_color = (255, 150, 50)  # 주황 글로우
         stream_color_base = (255, 180, 80)  # 주황 스트림
         ring_color_main = (255, 150, 50)  # 주황 링
@@ -36512,7 +36512,7 @@ def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
 
         size = p["size"]
 
-        # 초신가속 상태에서 파티클 색상도 주황빛으로 변경
+        # 극정호신 상태에서 파티클 색상도 주황빛으로 변경
         if stage8_superspeed_active:
             # 주황빛 파티클 색상
             particle_colors = [
@@ -36687,7 +36687,7 @@ def _release_stage8_net_trap() -> int:
 
 
 def _end_stage8_superspeed() -> None:
-    """초신가속 종료 및 상태 초기화."""
+"""극정호신(구 초신가속) 종료 및 상태 초기화."""
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
     global stage8_superspeed_cooldown_end_ms
     global boss_dash_cooldown_until_ms
@@ -36697,13 +36697,13 @@ def _end_stage8_superspeed() -> None:
     stage8_superspeed_text_end_ms = 0
     stage8_superspeed_freeze_end_ms = 0
     boss_dash_cooldown_until_ms = 0
-    # 초신가속 종료 시 즉시 대쉬를 막기 위해 대쉬 상태도 초기화
+    # 극정호신 종료 시 즉시 대쉬를 막기 위해 대쉬 상태도 초기화
     globals()["boss_dashing"] = False
     globals()["boss_dash_timer"] = 0
 
 
 def _start_stage8_superspeed(now: int) -> None:
-    """초신가속 발동: 5초간 무제한 대쉬(무료, 확장거리) 상태."""
+"""극정호신 발동: 10초간 무제한 대쉬(무료, 확장거리) 상태."""
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
     global boss_special_gauge, boss_dash_cooldown_until_ms, stage8_superspeed_cooldown_end_ms
     global stage8_shadow_casting, stage8_shuriken_casting, stage8_cloud_dash_active, stage8_cloud_active, stage8_cloud_rect
@@ -36729,7 +36729,7 @@ def _start_stage8_superspeed(now: int) -> None:
 
 
 def _stage8_superspeed_dash(now: int) -> None:
-    """초신가속 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
+"""극정호신 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
     global boss_dash_cooldown_until_ms
@@ -36762,7 +36762,7 @@ def _stage8_superspeed_dash(now: int) -> None:
 
     direction = 1 if predicted_x > BOSS.centerx else -1
     raw_distance = abs(predicted_x - BOSS.centerx)
-    dash_distance = max(60.0, raw_distance)  # 초신가속: 거리 제한 없음
+    dash_distance = max(60.0, raw_distance)  # 극정호신: 거리 제한 없음
 
     target_centerx = predicted_x
     target_centerx = float(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_centerx)))
@@ -36787,7 +36787,7 @@ def _stage8_superspeed_dash(now: int) -> None:
     boss_dash_cooldown_until_ms = 0
     # 대쉬 후 경직은 STAGE8_SUPERSPEED_DASH_STUN_FRAMES로 상단에서 처리
 def _stage8_superspeed_dash(now: int) -> None:
-    """초신가속 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
+"""극정호신 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
     global boss_dash_cooldown_until_ms
@@ -36918,7 +36918,7 @@ def _start_stage8_stun_escape(now: int) -> None:
     boss_knockback_vel = 0
     boss_special_gauge = max(0, boss_special_gauge - STAGE8_STUN_ESCAPE_COST)
     _release_stage8_net_trap()
-    # 영체탈주 시에도 초신가속은 종료하지 않음 (지속)
+    # 영체탈주 시에도 극정호신은 종료하지 않음 (지속)
 
     # 5개의 겹치는 잔상 생성 - 각각 다른 딜레이로 천천히 빠져나옴
     stage8_stun_escape_ghosts = []
@@ -41537,11 +41537,11 @@ def draw_objects():
         time_now = pygame.time.get_ticks()
         if (time_now // 250) % 2 == 0:
             apply_white_glow(rotated_boss, intensity=60)
-    # === Stage 8 초신가속 오버레이 ===
+# === Stage 8 극정호신 오버레이 ===
     if current_stage == 8 and (stage8_superspeed_active or (stage8_superspeed_text_end_ms and pygame.time.get_ticks() < stage8_superspeed_text_end_ms)):
         text_font = FontStyle.title()
-        text_surface = text_font.render("초신가속!", True, (255, 230, 80))
-        shadow = text_font.render("초신가속!", True, (20, 10, 0))
+        text_surface = text_font.render("극정호신!", True, (255, 230, 80))
+        shadow = text_font.render("극정호신!", True, (20, 10, 0))
         cx = WIDTH // 2
         cy = HEIGHT // 2 - 40
         SCREEN.blit(shadow, text_surface.get_rect(center=(cx + 4, cy + 4)))
