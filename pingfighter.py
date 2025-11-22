@@ -37871,16 +37871,16 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                     particle_size = int(base_size * layer_progress * (1.2 - layer * 0.08))
 
                     if particle_size > 4:
-                        # 메인 파티클 (뭉글뭉글)
+                        # 메인 파티클 (뭉글뭉글) - 완전 불투명
                         pygame.draw.circle(cloud_surface, layer_color, (int(px), int(py)), particle_size)
-                        # 겹치는 작은 원들
+                        # 겹치는 작은 원들 - 완전 불투명
                         for puff in range(3):
                             puff_angle = random.uniform(0, math.pi * 2)
                             puff_dist = particle_size * 0.4
                             puff_x = px + math.cos(puff_angle) * puff_dist
                             puff_y = py + math.sin(puff_angle) * puff_dist * 0.6
                             puff_size = int(particle_size * random.uniform(0.5, 0.8))
-                            puff_color = (base_color[0], base_color[1], base_color[2], int(layer_alpha * 0.7))
+                            puff_color = base_color  # 투명도 없음
                             pygame.draw.circle(cloud_surface, puff_color, (int(puff_x), int(puff_y)), puff_size)
 
             # 차크라 빛 효과 (중앙에서 방사)
@@ -37934,12 +37934,11 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
     num_layers = 6
     for layer in range(num_layers):
-        layer_alpha = int(160 * (1 - layer * 0.1))
         layer_scale = 0.65 + layer * 0.08
 
         color_idx = layer % len(smoke_colors)
         base_color = smoke_colors[color_idx]
-        layer_color = (base_color[0], base_color[1], base_color[2], layer_alpha)
+        layer_color = base_color  # 완전 불투명
 
         # 각 레이어별 소용돌이 파티클
         num_particles = 35 + layer * 10
@@ -37963,18 +37962,17 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
             particle_size = int(base_size * (1.15 - layer * 0.05))
 
             if particle_size > 5:
-                # 메인 파티클
+                # 메인 파티클 - 완전 불투명
                 pygame.draw.circle(cloud_surface, layer_color, (int(px), int(py)), particle_size)
 
-                # 뭉글뭉글 효과 - 겹치는 원들
+                # 뭉글뭉글 효과 - 겹치는 원들 (완전 불투명)
                 for puff_idx in range(4):
                     puff_angle = (puff_idx / 4) * math.pi * 2 + time_offset * 0.2
                     puff_dist = particle_size * 0.45
                     puff_x = px + math.cos(puff_angle) * puff_dist
                     puff_y = py + math.sin(puff_angle) * puff_dist * 0.6
                     puff_size = int(particle_size * random.uniform(0.45, 0.75))
-                    puff_alpha = int(layer_alpha * 0.65)
-                    puff_color = (base_color[0], base_color[1], base_color[2], puff_alpha)
+                    puff_color = base_color  # 투명도 없음
                     pygame.draw.circle(cloud_surface, puff_color, (int(puff_x), int(puff_y)), puff_size)
 
     # 신비로운 빛 입자들 (차크라 느낌)
