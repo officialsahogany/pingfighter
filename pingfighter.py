@@ -2992,6 +2992,7 @@ dashholder_obtained = False  # 대쉬홀더 아이템 획득 여부
 danger_sensor_obtained = False  # 위험감지센서 아이템 획득 여부
 danger_sensor_enabled = True  # 위험감지센서 활성화 상태 (ON/OFF)
 danger_sensor_auto_dash_cooldown = 0  # 자동 대쉬 쿨타임
+danger_sensor_auto_dash_enabled = False  # 자동 대쉬 기능 (기본 비활성화 – 수동 대쉬만 허용)
 sensor_obtained = False  # 센서 아이템 획득 여부 (호환성)
 sensor_enabled = True  # 센서 활성화 상태 (호환성)
 danger_sensor_last_auto_dash_time = 0  # 마지막 자동 대쉬 시간
