@@ -74230,6 +74230,13 @@ def main(stage_num, new_boss_mode=False):
             # 스테이지 8 초각성 바람 오오라 효과
             if current_stage == 8:
                 update_stage8_wind_effects()
+                update_wind_aura_recharge()  # 바람 오오라 재충전 업데이트
+                # 바람 오오라와 공 충돌 체크
+                if check_wind_aura_ball_collision(BALL):
+                    # 공이 바람 오오라에 맞으면 반사 (아래로 밀어냄)
+                    if ball_vel[1] < 0:  # 공이 보스 방향으로 이동 중이면
+                        ball_vel[1] = abs(ball_vel[1]) * 1.1  # 반대 방향으로 반사하며 약간 가속
+                        ball_vel[0] += random.uniform(-2, 2)  # 약간의 랜덤 수평 변화
                 draw_stage8_wind_aura(SCREEN)
                 draw_stage8_wind_burst(SCREEN)
                 # 극정호신 환영 분신 효과
