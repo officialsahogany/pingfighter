@@ -28094,6 +28094,17 @@ def handle_player(keys):
                         if half_dash_activated:
                         # 하프 대쉬 발동
                             rolling_active = True
+                            # 디버그: 하프대쉬 발동 경로 기록
+                            try:
+                                debug_frame = globals().get("frame_counter", -1)
+                                print(
+                                    f"[DASH_TRIGGER] type=half frame={debug_frame} "
+                                    f"direction={half_dash_direction} "
+                                    f"tokens={rolling_charges} "
+                                    f"down_pressed={down_pressed}"
+                                )
+                            except Exception:
+                                pass
                             is_half_dash_active = True  # 하프대쉬 플래그 설정
                             half_dash_effect_timer = 20  # 하프대쉬 효과 지속 시간 (약 0.33초)
                             print(f"[DEBUG 킥차져] 하프대쉬 발동! is_half_dash_active = True, timer = {half_dash_effect_timer}")
@@ -63313,11 +63324,19 @@ def handle_ball():
     )
     # 디버깅: 센서 상태 확인
     if danger_sensor_obtained:
-        print(f"  - obtained: {danger_sensor_obtained}, enabled: {danger_sensor_enabled}, ball_vel[1]: {ball_vel[1]:.2f}, BALL.centery: {BALL.centery:.1f}, HEIGHT*0.75: {HEIGHT * 0.75:.1f}")
+        print(
+            f"  - obtained: {danger_sensor_obtained}, "
+            f"enabled: {danger_sensor_enabled}, "
+            f"auto_dash_enabled: {danger_sensor_auto_dash_enabled}, "
+            f"ball_vel[1]: {ball_vel[1]:.2f}, "
+            f"BALL.centery: {BALL.centery:.1f}, "
+            f"HEIGHT*0.75: {HEIGHT * 0.75:.1f}"
+        )
     # 공이 화면의 절반 이하(플레이어와 중간지점의 가운데)로 내려왔을 때만 탐지
     if (
         danger_sensor_obtained
         and danger_sensor_enabled
+        and danger_sensor_auto_dash_enabled  # 자동 대쉬 옵션이 켜져 있을 때만 작동
         and not umbrella_blocks_sensor
         and ball_vel[1] > 0
         and BALL.centery > HEIGHT * 0.75
@@ -63347,6 +63366,17 @@ def handle_ball():
                     global is_danger_sensor_dash
                     rolling_active = True
                     is_danger_sensor_dash = True  # 위험감지센서 대쉬 플래그 설정
+                    # 디버그: 어떤 경로로 대쉬가 발동했는지 기록
+                    try:
+                        debug_frame = globals().get("frame_counter", -1)
+                        print(
+                            f"[DASH_TRIGGER] type=sensor frame={debug_frame} "
+                            f"dash_direction={dash_direction} "
+                            f"distance_to_predicted={distance_to_predicted:.1f} "
+                            f"player_max_distance={player_max_distance:.1f}"
+                        )
+                    except Exception:
+                        pass
                     
                     # 포세이돈의 삼지창 물결 효과 발동 (위험감지센서 자동 대쉬)
                     try:
