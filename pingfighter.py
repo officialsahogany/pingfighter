@@ -72347,11 +72347,11 @@ def main(stage_num, new_boss_mode=False):
         if ball_will_hit_paddle and selected_character_type == "smasher":
             if not perfect_timing_active:
                 perfect_timing_active = True
-                    perfect_timing_frame_count = 0
-                    perfect_timing_input_used = False  #  새로운 윈도우 시작 시 플래그 초기화
-                    refresh_perfect_timing_indicator()
-                    x_distance = abs(BALL.centerx - PLAYER.centerx)
-                    print(f"    ! (Y: {ball_to_paddle_distance:.1f}, X: {x_distance:.1f})")
+                perfect_timing_frame_count = 0
+                perfect_timing_input_used = False  #  새로운 윈도우 시작 시 플래그 초기화
+                refresh_perfect_timing_indicator()
+                x_distance = abs(BALL.centerx - PLAYER.centerx)
+                print(f"    ! (Y: {ball_to_paddle_distance:.1f}, X: {x_distance:.1f})")
         # 퍼펙트 타이밍 윈도우 관리
         if perfect_timing_active and selected_character_type == "smasher":
             perfect_timing_frame_count += 1
