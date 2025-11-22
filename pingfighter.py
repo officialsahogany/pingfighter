@@ -72191,6 +72191,19 @@ def main(stage_num, new_boss_mode=False):
                     dash_down_first_lock = False
             except Exception:
                 pass
+            # 대쉬 입력 상태 디버그 (프레임/상태/락)
+            try:
+                debug_frame = globals().get("frame_counter", -1)
+                print(
+                    f"[DASH_DEBUG_STATE] frame={debug_frame} "
+                    f"cur_down={current_down_state} "
+                    f"last_down={last_down_state} "
+                    f"down_just={down_just_pressed} "
+                    f"SNAP_down={globals().get('SNAP_down_state', False)} "
+                    f"MOVE_EVENT_DOWN={globals().get('MOVE_EVENT_DOWN', False)}"
+                )
+            except Exception:
+                pass
             if selected_character_type == "blacksmith":
                 can_open_build_menu = blacksmith_has_available_buildings()
 
