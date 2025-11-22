@@ -14910,7 +14910,7 @@ stage8_cloud_spawn_x: int = 0  # 구름 생성 위치 (보스 착지 위치)
 STAGE8_STUN_ESCAPE_DELAY_MS = 0
 STAGE8_STUN_ESCAPE_DURATION_MS = 500
 STAGE8_STUN_ESCAPE_COST = 50
-STAGE8_NET_ESCAPE_DELAY_MS = 500
+STAGE8_NET_ESCAPE_DELAY_MS = 300
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
 blacksmith_umbrella_swing_sound_timer = 0
