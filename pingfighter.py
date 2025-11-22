@@ -28234,7 +28234,7 @@ def handle_player(keys):
                 if 'half_dash_executed' not in locals() or not half_dash_executed:
                     pass  # 일반 대쉬 처리 계속
             
-            if down_pressed and not globals().get('dash_down_first_lock', False) and can_use_rolling and rolling_charges > 0 and not rolling_active:
+            if down_pressed and can_use_rolling and rolling_charges > 0 and not rolling_active:
                 #  연속 대쉬 할인을 고려한 실제 게이지 요구량 계산  
                 base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                 
@@ -28284,9 +28284,6 @@ def handle_player(keys):
                     and down_press_frame >= 0
                     and right_press_frame <= down_press_frame  # 동시 입력 허용(ㅇ+ㄴ)
                 )
-                if globals().get('dash_down_first_lock', False) and (left_before_down or right_before_down):
-                    dash_down_first_lock = False
-                # ↓ 먼저 눌려 락이 걸려 있어도 방향키가 선입력된 상태면 락 해제
                 if globals().get('dash_down_first_lock', False) and (left_before_down or right_before_down):
                     dash_down_first_lock = False
                 if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge:
