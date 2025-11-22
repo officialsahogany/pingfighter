@@ -36347,6 +36347,80 @@ def _finish_stage8_cloud(now: int) -> None:
     stage8_cloud_rect.center = (cx, cy)
 
 
+def _start_stage8_stun_escape(now: int) -> None:
+    """스턴 해제용 잔영 탈출 시작 (0.5초 측면 대시)."""
+    global stage8_stun_escape_active, stage8_stun_escape_start_ms, stage8_stun_escape_start_x
+    global stage8_stun_escape_target_x, stage8_stun_escape_ready_ms, stage8_stun_escape_attempted
+    global stage8_stun_escape_dx, boss_stunned_timer, boss_knockback_vel, boss_special_gauge
+
+    start_x = BOSS.centerx
+    # 기본적으로 공이 있는 반대 방향으로 빠지기
+    dir_sign = -1 if BALL.centerx >= start_x else 1
+
+    left_space = start_x - BOSS.width // 2
+    right_space = WIDTH - (start_x + BOSS.width // 2)
+    # 여유 공간이 좁으면 더 넓은 쪽으로 변경
+    if (dir_sign < 0 and left_space < 80) or (dir_sign > 0 and right_space < 80):
+        dir_sign = 1 if right_space >= left_space else -1
+
+    max_space = right_space if dir_sign > 0 else left_space
+    move_dist = min(260, max_space - 20) if max_space > 40 else max_space
+    if move_dist < 80:
+        move_dist = max(50, max_space * 0.7)
+
+    target_x = start_x + dir_sign * move_dist
+    target_x = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, int(target_x)))
+
+    stage8_stun_escape_active = True
+    stage8_stun_escape_start_ms = now
+    stage8_stun_escape_start_x = start_x
+    stage8_stun_escape_target_x = target_x
+    stage8_stun_escape_dx = stage8_stun_escape_target_x - stage8_stun_escape_start_x
+    stage8_stun_escape_ready_ms = 0
+    boss_stunned_timer = 0
+    boss_knockback_vel = 0
+    boss_special_gauge = max(0, boss_special_gauge - STAGE8_STUN_ESCAPE_COST)
+    try:
+        show_speech("잔영탈출!", duration=60)
+    except Exception:
+        pass
+
+
+def _update_stage8_stun_escape(now: int) -> None:
+    """잔영 탈출 진행 및 잔상 생성."""
+    global stage8_stun_escape_active, stage8_stun_escape_attempted, stage8_stun_escape_ready_ms
+    global stage8_stun_escape_dx
+    global boss_dash_afterimages, boss_current_speed
+    if not stage8_stun_escape_active:
+        return
+
+    duration = STAGE8_STUN_ESCAPE_DURATION_MS
+    elapsed = now - stage8_stun_escape_start_ms
+    t = min(1.0, max(0.0, elapsed / duration)) if duration > 0 else 1.0
+
+    new_x = stage8_stun_escape_start_x + stage8_stun_escape_dx * t
+    BOSS.centerx = int(new_x)
+    BOSS.centerx = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, BOSS.centerx))
+    boss_current_speed = 0  # 이동은 스크립트로 처리
+
+    # 잔상 추가 (보스 이미지 기반)
+    try:
+        img = pygame.transform.scale(BOSS_IMG_STAGE8, (BOSS.width, BOSS.height))
+    except Exception:
+        img = None
+    if img is not None:
+        boss_dash_afterimages.append(
+            {"x": BOSS.centerx, "y": BOSS.centery, "alpha": 160, "life": 10, "image": img.copy()}
+        )
+        if len(boss_dash_afterimages) > 8:
+            boss_dash_afterimages.pop(0)
+
+    if elapsed >= duration:
+        stage8_stun_escape_active = False
+        stage8_stun_escape_attempted = False
+        stage8_stun_escape_ready_ms = 0
+        stage8_stun_escape_dx = 0.0
+
 def update_stage8_shadow_clones() -> None:
     """그림자분신 이동/수명/충돌 갱신."""
     global stage8_shadow_clones, stage8_shadow_dying, stage8_shadow_casting, boss_special_gauge
