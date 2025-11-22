@@ -37962,8 +37962,8 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                 # 현재 구름 너비 (애니메이션 진행에 따라)
                 current_width = cloud_width
 
-                # 중앙에서 방사형으로 뿜어져 나가는 파티클들
-                num_bursts = int(20 * burst_intensity) + 5
+                # 중앙에서 방사형으로 뿜어져 나가는 뭉글뭉글 파티클들
+                num_bursts = int(25 * burst_intensity) + 8
                 for i in range(num_bursts):
                     # 방사형 각도 (중앙에서 좌우로)
                     angle = math.pi * (0.3 + random.random() * 0.4)  # 주로 좌우 방향
@@ -37979,15 +37979,25 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                     py = burst_center_y + math.sin(angle) * dist * 0.4 + random.randint(-30, 30)
 
                     # 파티클 크기 (멀어질수록 작아짐)
-                    particle_size = int((15 + random.randint(0, 20)) * burst_intensity)
+                    particle_size = int((18 + random.randint(0, 25)) * burst_intensity)
 
-                    if particle_size > 2:
-                        # 아카츠키 구름 스타일 파티클 (소용돌이 힌트)
-                        if random.random() > 0.6:
-                            pygame.draw.circle(cloud_surface, burst_color_main, (int(px), int(py)), particle_size)
-                            pygame.draw.circle(cloud_surface, burst_color_white, (int(px), int(py)), max(1, particle_size - 3), 2)
-                        else:
-                            pygame.draw.circle(cloud_surface, burst_color_light, (int(px), int(py)), particle_size)
+                    if particle_size > 3:
+                        # 뭉글뭉글 구름 스타일 파티클 (여러 원이 겹친 형태)
+                        # 메인 원
+                        pygame.draw.circle(cloud_surface, burst_color_main, (int(px), int(py)), particle_size)
+                        # 겹치는 작은 원들 (뭉글뭉글 효과)
+                        puff_offsets = [
+                            (-particle_size * 0.4, -particle_size * 0.3, particle_size * 0.7),
+                            (particle_size * 0.35, -particle_size * 0.25, particle_size * 0.6),
+                            (-particle_size * 0.3, particle_size * 0.25, particle_size * 0.55),
+                            (particle_size * 0.25, particle_size * 0.2, particle_size * 0.5),
+                        ]
+                        for pox, poy, pr in puff_offsets:
+                            pygame.draw.circle(cloud_surface, burst_color_main, (int(px + pox), int(py + poy)), int(pr))
+                        # 하이라이트 (위쪽)
+                        pygame.draw.circle(cloud_surface, burst_color_white, (int(px), int(py - particle_size * 0.3)), max(2, int(particle_size * 0.4)))
+                        # 외곽선
+                        pygame.draw.circle(cloud_surface, burst_color_light, (int(px), int(py)), particle_size, 2)
 
                 # 가장자리 선도 효과 (빠르게 뻗어나가는 선)
                 if burst_intensity > 0.3:
