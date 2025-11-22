@@ -36463,6 +36463,40 @@ def _start_stage8_superspeed(now: int) -> None:
     # 메시지는 draw_objects에서 오버레이로 표시
 
 
+def _stage8_superspeed_dash(now: int) -> None:
+    """초신가속 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
+    global boss_dashing, boss_dash_timer, boss_dash_duration_frames
+    global boss_dash_speed, boss_dash_target_x, boss_dash_direction
+    global boss_dash_cooldown_until_ms
+
+    direction = 1 if BALL.centerx > BOSS.centerx else -1
+    raw_distance = abs(BALL.centerx - BOSS.centerx)
+    dash_distance = min(500, max(60, raw_distance))
+
+    target_centerx = BOSS.centerx + dash_distance * direction
+    target_centerx = int(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_centerx)))
+    dash_distance = abs(target_centerx - BOSS.centerx)
+    if dash_distance < 20:
+        return
+
+    boss_dash_direction = direction
+    boss_dash_duration_frames = int(max(10.0, min(24.0, dash_distance / 20.0)))
+    boss_dash_timer = boss_dash_duration_frames
+    boss_dash_target_x = float(target_centerx)
+
+    high_phase_frames = min(20, boss_dash_duration_frames)
+    pattern_sum = 0.0
+    for i in range(boss_dash_duration_frames):
+        t = boss_dash_duration_frames - (i + 1)
+        factor = 1.0 if t > high_phase_frames else max(0.0, t / float(high_phase_frames))
+        pattern_sum += factor
+    boss_dash_speed = (dash_distance / pattern_sum) * 1.1 if pattern_sum > 0 else dash_distance
+
+    boss_dashing = True
+    boss_dash_cooldown_until_ms = 0
+    # 대쉬 후 경직은 STAGE8_SUPERSPEED_DASH_STUN_FRAMES로 상단에서 처리
+
+
 def _try_stage8_stun_escape(now: int) -> bool:
     """스턴 중 영체탈주 발동 시도. 성공 시 True."""
     global stage8_stun_escape_ready_ms, stage8_stun_escape_attempted, boss_special_gauge
