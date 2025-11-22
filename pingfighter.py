@@ -73216,10 +73216,8 @@ def main(stage_num, new_boss_mode=False):
                     INPUT_SNAPSHOT_VALID = False
 
                 # 초각성 연출 중이면 입력/로직을 잠시 정지
-                if current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms:
-                    # 화면 업데이트 전까지 논리 업데이트 건너뜀
-                    pass
-                else:
+                freeze_now = current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms
+                if not freeze_now:
                     handle_player(keys_now)
                 update_blacksmith_hammer_shock(keys)
                 update_blacksmith_turret()
@@ -73238,10 +73236,10 @@ def main(stage_num, new_boss_mode=False):
                     damage_manager.clear_building("divine_stone")
                 damage_manager.update()
                 
-                if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
+                if not freeze_now:
                     handle_ball()
-                
-                if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
+
+                if not freeze_now:
                     # 코만도 총알 시스템 업데이트
                     if selected_character_type == "soldier":
                         update_soldier_gun_animation()  # 총 발사 애니메이션 업데이트
