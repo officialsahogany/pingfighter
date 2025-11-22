@@ -72617,26 +72617,29 @@ def main(stage_num, new_boss_mode=False):
                                 'color': (200, 230, 255),
                                 'type': 'spark'
                             })
-            # 드라이브 입력: 방향키(←/→) + 스페이스(또는 마우스 좌클릭) 동시 입력
+            # 드라이브 입력: 방향키(←/→, ㅁ/ㅇ 포함) + 스페이스(또는 마우스 좌클릭) 동시 입력
             else:
-                try:
-                    _sm_scheme = get_settings_manager().get_setting('controls', 'control_scheme', 'keyboard')
-                except Exception:
-                    _sm_scheme = 'keyboard'
-
-                # 현재 방향 입력 상태 (스냅샷/스킴/IME까지 반영)
-                dir_left = keys[pygame.K_LEFT]
-                dir_right = keys[pygame.K_RIGHT]
+                # 현재 방향 입력 상태: 입력 헬퍼를 그대로 사용해 IME/스냅샷까지 반영
+                dir_left = is_move_left_pressed(keys) or MOVE_EVENT_LEFT
+                dir_right = is_move_right_pressed(keys) or MOVE_EVENT_RIGHT
                 if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID:
                     dir_left = dir_left or bool(SNAP_left_state)
                     dir_right = dir_right or bool(SNAP_right_state)
-                else:
-                    if _sm_scheme == 'mouse_keyboard':
-                        dir_left = dir_left or keys[pygame.K_a]
-                        dir_right = dir_right or keys[pygame.K_d]
 
-                # 드라이브 버튼: 스페이스 또는 마우스 좌클릭
-                drive_button_just = space_just_pressed or mb_left_just_pressed
+                # 드라이브 버튼: 스페이스 또는 마우스 좌클릭 (한 프레임 에지)
+                drive_button_just = bool(space_just_pressed or mb_left_just_pressed)
+
+                # 디버그: 드라이브 입력 상태
+                try:
+                    debug_frame = globals().get("frame_counter", -1)
+                    print(
+                        f"[DRIVE_DEBUG] frame={debug_frame} "
+                        f"dirL={dir_left} dirR={dir_right} "
+                        f"space_just={space_just_pressed} mb_left_just={mb_left_just_pressed} "
+                        f"btn={drive_button_just}"
+                    )
+                except Exception:
+                    pass
 
                 # 왼쪽/오른쪽 중 하나만 눌린 상태에서 드라이브 버튼이 막 눌린 경우
                 if drive_button_just and selected_character_type == "smasher" and (dir_left ^ dir_right):
@@ -72647,7 +72650,7 @@ def main(stage_num, new_boss_mode=False):
                     frame_gap = 0
                     input_age = 0
                     print(f"  ! ({'←' if dir_left else '→'} +   )")
-                #  스페이스(또는 좌클릭)만 누르거나 방향키만 누른 경우
+                #  드라이브 버튼만 누르거나 방향키만 누른 경우
                 elif drive_button_just or left_just_pressed or right_just_pressed:
                     perfect_timing_input_used = True  # 입력은 사용됨으로 표시 (연타 방지)
                     print("! (←/→)   !")
