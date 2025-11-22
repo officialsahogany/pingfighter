@@ -64846,6 +64846,8 @@ def handle_ball():
             stage8_shadow_intangible = True
         if stage8_cloud_dash_active and stage8_cloud_dash_phase in ("pre", "down", "up"):
             stage8_cloud_dash_intangible = True
+            # 충돌 판정 자체를 제거해 확실히 통과시키기
+            boss_hitbox_expanded = pygame.Rect(-9999, -9999, 0, 0)
 
     if (
         boss_hitbox_expanded.colliderect(BALL)
