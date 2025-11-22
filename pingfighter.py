@@ -14863,6 +14863,7 @@ stage8_shuriken_casting: bool = False
 stage8_shuriken_cast_start_ms: int = 0
 stage8_shuriken_next_ready_ms: int = 0
 stage8_shurikens: list[dict] = []  # {'rect','vx','vy','spawn_ms'}
+stage8_shuriken_pending: list[int] = []  # 추가 발사 예정 시간(ms)
 STAGE8_SHURIKEN_CAST_MS = 300  # 0.3초 캐스팅
 STAGE8_SHURIKEN_MIN_COOLDOWN_MS = 8000
 STAGE8_SHURIKEN_MAX_COOLDOWN_MS = 25000
@@ -36312,6 +36313,7 @@ def _spawn_stage8_shadows(now: int) -> None:
 def _spawn_stage8_shuriken(now: int) -> None:
     """표창 1개를 플레이어 방향으로 발사."""
     global stage8_shurikens, stage8_shuriken_casting, stage8_shuriken_next_ready_ms
+    global stage8_shuriken_pending, stage8_awakened
     target_x = PLAYER.centerx
     target_y = PLAYER.centery
     dx = target_x - BOSS.centerx
@@ -36328,6 +36330,9 @@ def _spawn_stage8_shuriken(now: int) -> None:
     stage8_shuriken_next_ready_ms = now + random.randint(
         STAGE8_SHURIKEN_MIN_COOLDOWN_MS, STAGE8_SHURIKEN_MAX_COOLDOWN_MS
     )
+    # 초각성 시 0.2초 후 추가 발사 1회 예약
+    if stage8_awakened:
+        stage8_shuriken_pending.append(now + 200)
 
 
 def _start_stage8_cloud(now: int) -> None:
@@ -65862,11 +65867,20 @@ def handle_ball():
             show_speech("표창!!", duration=60)
 
         # 표창 캐스팅 완료 시 발사
-        if stage8_shuriken_casting and pygame.time.get_ticks() - stage8_shuriken_cast_start_ms >= STAGE8_SHURIKEN_CAST_MS:
-            _spawn_stage8_shuriken(pygame.time.get_ticks())
+    if stage8_shuriken_casting and pygame.time.get_ticks() - stage8_shuriken_cast_start_ms >= STAGE8_SHURIKEN_CAST_MS:
+        _spawn_stage8_shuriken(pygame.time.get_ticks())
 
-        # 그림자 상태 갱신만 수행 (트리거는 보스 패들 히트 시 처리)
-        update_stage8_shadow_clones()
+    # 초각성 추가 표창 대기분 처리 (0.2초 간격)
+    if stage8_shuriken_pending:
+        now_ms = pygame.time.get_ticks()
+        ready = [t for t in stage8_shuriken_pending if now_ms >= t]
+        if ready:
+            for _ in ready:
+                _spawn_stage8_shuriken(now_ms)
+            stage8_shuriken_pending = [t for t in stage8_shuriken_pending if now_ms < t]
+
+    # 그림자 상태 갱신만 수행 (트리거는 보스 패들 히트 시 처리)
+    update_stage8_shadow_clones()
 def predict_ball_position(frames=20):
     predict_x = BALL.centerx + ball_vel[0] * frames
     predict_x = max(0, min(WIDTH, predict_x))  # 벽 충돌 예외처리
