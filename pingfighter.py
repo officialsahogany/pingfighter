@@ -68565,6 +68565,7 @@ def handle_boss():
     global stage8_awaken_intro_pending, stage8_awaken_intro_done, stage8_awaken_freeze_end_ms
 
     now_ms = pygame.time.get_ticks()
+    stage8_in_superspeed = False
 
     # 스테이지 8 전용 스턴 탈출 상태 정리 (다른 스테이지 전환 시 초기화)
     if current_stage != 8:
@@ -68621,27 +68622,22 @@ def handle_boss():
             and not stage8_stun_escape_active
         ):
             _start_stage8_superspeed(now_ms)
+        stage8_in_superspeed = stage8_superspeed_active
+
         # 초신가속 중에는 모든 이동을 대쉬로 처리 (쿨타임 0)
         if stage8_superspeed_active:
             boss_dash_cooldown_until_ms = 0
             if not boss_dashing and boss_dash_stun_timer <= 0 and now_ms >= stage8_superspeed_freeze_end_ms:
                 _stage8_superspeed_dash(now_ms)
-            # 초신가속 동안 일반 이동/AI는 건너뜀
-            return
-        # 초신가속 중 이동은 대쉬만 사용 (쿨타임 없음)
-        if stage8_superspeed_active:
-            boss_dash_cooldown_until_ms = 0
-            if not boss_dashing and boss_dash_stun_timer <= 0 and now_ms >= stage8_superspeed_freeze_end_ms:
-                _stage8_superspeed_dash(now_ms)
-            # 초신가속 중에는 이하 일반 이동/AI 로직을 건너뜀
-            return
-        net_trapped = _is_stage8_net_trapped()
-        if net_trapped and not stage8_stun_escape_active:
-            if _try_stage8_stun_escape(now_ms):
-                return
-        if boss_stunned_timer <= 0 and not net_trapped and not stage8_stun_escape_active:
-            stage8_stun_escape_ready_ms = 0
-            stage8_stun_escape_attempted = False
+
+        if not stage8_in_superspeed:
+            net_trapped = _is_stage8_net_trapped()
+            if net_trapped and not stage8_stun_escape_active:
+                if _try_stage8_stun_escape(now_ms):
+                    return
+            if boss_stunned_timer <= 0 and not net_trapped and not stage8_stun_escape_active:
+                stage8_stun_escape_ready_ms = 0
+                stage8_stun_escape_attempted = False
 
     # 스테이지8 스턴 탈출 모션 진행 중이면 우선 처리
     if current_stage == 8 and stage8_stun_escape_active:
@@ -68703,6 +68699,10 @@ def handle_boss():
     if boss_dash_stun_timer > 0:
         boss_dash_stun_timer -= 1
         boss_current_speed = 0
+        return
+
+    # 초신가속 상태에서는 대쉬/경직 처리 이후 추가 AI를 건너뛴다.
+    if stage8_in_superspeed:
         return
 
     #  수평 넉백 처리 (라그나로크 해머 + 코만도 총알)
