@@ -14927,6 +14927,7 @@ STAGE8_SUPERSPEED_DURATION_MS = 5000
 STAGE8_SUPERSPEED_FREEZE_MS = 350
 STAGE8_SUPERSPEED_TEXT_MS = 1200
 STAGE8_SUPERSPEED_DASH_STUN_FRAMES = max(1, int(0.1 * FPS))
+STAGE8_SUPERSPEED_COOLDOWN_MS = 25000
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
 blacksmith_umbrella_swing_sound_timer = 0
@@ -36423,6 +36424,7 @@ def _release_stage8_net_trap() -> int:
 def _end_stage8_superspeed() -> None:
     """초신가속 종료 및 상태 초기화."""
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
+    global stage8_superspeed_cooldown_end_ms
     global boss_dash_cooldown_until_ms
     stage8_superspeed_active = False
     stage8_superspeed_end_ms = 0
