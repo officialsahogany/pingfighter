@@ -68792,6 +68792,9 @@ def handle_boss():
 
     now_ms = pygame.time.get_ticks()
     stage8_in_superspeed = False
+    # 라운드 시작 시 극정호신 텍스트는 1회만; 다음 라운드엔 숨김
+    if is_waiting_for_serve:
+        stage8_superspeed_text_end_ms = 0
 
     # 스테이지 8 전용 스턴 탈출 상태 정리 (다른 스테이지 전환 시 초기화)
     if current_stage != 8:
