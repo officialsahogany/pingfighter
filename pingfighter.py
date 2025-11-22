@@ -55498,7 +55498,8 @@ def show_item_manager_menu():
         quantity_max_value = 0
 
     # 아이템 관리자 → 스킬트리(테스트) 버튼 사각형 및 핸들러
-    skill_tree_button_rect = pygame.Rect(WIDTH - 240, HEIGHT - 96, 200, 64)
+    # 우측 하단 기준: 기존보다 100px 위, 크기 30% 축소
+    skill_tree_button_rect = pygame.Rect(WIDTH - 180, HEIGHT - 196, 140, 45)
 
     def open_skill_tree_test_mode() -> None:
         """스킬 포인트 소모 없이 테스트용 스킬트리 진입."""
