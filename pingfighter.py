@@ -14921,7 +14921,7 @@ stage8_shuriken_gauge_tick_timer: int = 0
 stage8_cloud_active: bool = False
 stage8_cloud_start_ms: int = 0
 stage8_cloud_end_ms: int = 0
-stage8_cloud_fade_ms: int = 1500
+stage8_cloud_fade_ms: int = 3000  # 3초에 걸쳐 천천히 페이드아웃
 stage8_cloud_rect: pygame.Rect | None = None
 stage8_cloud_dash_active: bool = False
 stage8_cloud_dash_phase: str | None = None  # 'down' or 'up'
@@ -38082,24 +38082,20 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
     random.seed()
 
-    # 보스 패들 완전 가림 - 메인 surface에 불투명 타원 먼저 그리기
+    # 보스 패들 완전 가림 - 메인 surface에 타원 그리기 (페이드아웃 적용)
     # 구름의 실제 화면 좌표 계산
     boss_hide_x = cloud_x + center_x
     boss_hide_y = cloud_y + center_y
     boss_hide_w = int(smoke_width * 0.7)  # 보스 패들 크기에 맞춤
     boss_hide_h = int(smoke_height * 0.6)
 
-    # 불투명 마스크 그리기 (보스 패들 가림용)
-    boss_mask_color = (45, 38, 70)  # 구름 배경색과 동일
-    boss_mask_rect = pygame.Rect(
-        boss_hide_x - boss_hide_w // 2,
-        boss_hide_y - boss_hide_h // 2,
-        boss_hide_w,
-        boss_hide_h
-    )
-    # 페이드아웃 적용
-    if base_alpha >= 200:  # 거의 불투명일 때만 완전 가림
-        pygame.draw.ellipse(surface, boss_mask_color, boss_mask_rect)
+    # 불투명 마스크 그리기 (보스 패들 가림용) - 페이드아웃 적용
+    if base_alpha >= 50:  # 너무 희미해지기 전까지 그리기
+        boss_mask_surface = pygame.Surface((boss_hide_w, boss_hide_h), pygame.SRCALPHA)
+        boss_mask_color = (45, 38, 70)  # 구름 배경색과 동일
+        pygame.draw.ellipse(boss_mask_surface, boss_mask_color, (0, 0, boss_hide_w, boss_hide_h))
+        boss_mask_surface.set_alpha(base_alpha)  # 페이드아웃 적용
+        surface.blit(boss_mask_surface, (boss_hide_x - boss_hide_w // 2, boss_hide_y - boss_hide_h // 2))
 
     # 페이드 아웃
     if base_alpha < 255:
