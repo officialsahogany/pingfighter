@@ -14901,7 +14901,7 @@ STAGE8_STUN_HOLOGRAM_FADE_MS = 400
 STAGE8_CLOUD_VISIBLE_MS = 5000
 STAGE8_CLOUD_MIN_COOLDOWN_MS = 10000
 STAGE8_CLOUD_MAX_COOLDOWN_MS = 20000
-STAGE8_CLOUD_COST = 200
+STAGE8_CLOUD_COST = 150
 STAGE8_CLOUD_DASH_MS = 220  # 내려가기/올라가기 각각
 STAGE8_CLOUD_PRECAST_MS = 400  # 발동 전 정지/오로라 연출
 STAGE8_CLOUD_EXPAND_MS = 280  # 구름 퍼짐 애니메이션 시간 (폭발적 분출)
@@ -65070,7 +65070,7 @@ def handle_ball():
                         stage8_shadow_freeze_posy = BOSS.centery
                         show_speech("그림자분신!", duration=90)
                 if boss_special_gauge >= STAGE8_CLOUD_COST and not stage8_cloud_dash_active and not stage8_cloud_active:
-                    if pygame.time.get_ticks() >= stage8_cloud_next_ready_ms and random.random() <= 0.40:
+                    if pygame.time.get_ticks() >= stage8_cloud_next_ready_ms and random.random() <= 0.25:
                         _start_stage8_cloud(pygame.time.get_ticks())
                         boss_special_gauge = max(0, boss_special_gauge - STAGE8_CLOUD_COST)
                         show_speech("구름장막!", duration=80)
