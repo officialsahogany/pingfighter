@@ -55453,6 +55453,7 @@ def show_item_manager_menu():
     quantity_max_value = 0
     arrow_up_rect_screen = None
     arrow_down_rect_screen = None
+    drag_toggled_items: set[str] = set()
 
     def update_quantity_bounds(item_name: str) -> int:
         other_total = sum(count for name, count in selected_active_counts.items() if name != item_name)
@@ -55535,6 +55536,8 @@ def show_item_manager_menu():
         mouse_pos = pygame.mouse.get_pos()
         mouse_buttons = pygame.mouse.get_pressed()
         is_drag_select = mouse_buttons[0] and not quantity_selection_mode
+        if not mouse_buttons[0]:
+            drag_toggled_items.clear()
 
         # 전설 아이템 애니메이션 업데이트
         for item in legendary_items:
@@ -55602,15 +55605,24 @@ def show_item_manager_menu():
             # 드래그 선택: 패시브/화기류/전설에서 마우스 드래그 시 선택 상태로 추가
             if is_drag_select and selected_category in (1, 2, 3) and item_rect.collidepoint(mouse_pos):
                 item_name = item["name"]
-                if selected_category == 1:
-                    if item_name not in selected_passive_items:
-                        selected_passive_items.append(item_name)
-                elif selected_category == 2:
-                    if item_name not in selected_firearm_items:
-                        selected_firearm_items.append(item_name)
-                else:
-                    if item_name not in selected_legendary_items:
-                        selected_legendary_items.append(item_name)
+                drag_key = f"{selected_category}:{item_name}"
+                if drag_key not in drag_toggled_items:
+                    if selected_category == 1:
+                        if item_name in selected_passive_items:
+                            selected_passive_items.remove(item_name)
+                        else:
+                            selected_passive_items.append(item_name)
+                    elif selected_category == 2:
+                        if item_name in selected_firearm_items:
+                            selected_firearm_items.remove(item_name)
+                        else:
+                            selected_firearm_items.append(item_name)
+                    else:
+                        if item_name in selected_legendary_items:
+                            selected_legendary_items.remove(item_name)
+                        else:
+                            selected_legendary_items.append(item_name)
+                    drag_toggled_items.add(drag_key)
             # 선택된 아이템인지 확인
             is_selected = False
             if selected_category == 0:
