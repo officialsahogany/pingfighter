@@ -61651,13 +61651,13 @@ def calculate_bounce(paddle):
             print(f"   : {original_speed:.2f} → {speed:.2f} (: {drive_speed_increase:.2f})")
             #  패들 위치에 따른 드라이브 각도 조정 (균형잡힌 각도)
             if perfect_direction == -1:  # 왼쪽 드라이브
-                # 위(0,-1) 벡터를 시계방향으로 돌려 왼쪽(-X)으로 보내기
-                base_angle = -math.pi / 8.0  # -22.5도 (CW → 좌측)
+                # 위(0,-1) 벡터를 반시계방향으로 돌려 좌측(-X)으로 보냄
+                base_angle = math.pi / 8.0  # +22.5도 (CCW → 좌측)
                 position_factor = rel_x * 0.3  # 위치에 따른 조정 (-0.3 ~ +0.3)
                 angle = base_angle + position_factor
             else:  # 오른쪽 드라이브
-                # 위(0,-1) 벡터를 반시계방향으로 돌려 오른쪽(+X)으로 보내기
-                base_angle = math.pi / 8.0   # +22.5도 (CCW → 우측)
+                # 위(0,-1) 벡터를 시계방향으로 돌려 우측(+X)으로 보냄
+                base_angle = -math.pi / 8.0   # -22.5도 (CW → 우측)
                 position_factor = rel_x * 0.3  # 위치에 따른 조정 (-0.3 ~ +0.3)
                 angle = base_angle + position_factor
             _drive_dbg(f"drive vector dir={perfect_direction} angle={angle:.3f} base={base_angle:.3f} "
@@ -72541,13 +72541,20 @@ def main(stage_num, new_boss_mode=False):
                         _dir_left = _dir_left or bool(keys[pygame.K_a])
                         _dir_right = _dir_right or bool(keys[pygame.K_d])
                     # 좌우가 동시에 잡히는 IME 노이즈를 최근 입력으로 정리
-                    if _dir_left and _dir_right:
-                        if right_press_frame > left_press_frame:
-                            _dir_left = False
-                        elif left_press_frame > right_press_frame:
-                            _dir_right = False
-                        else:
-                            _dir_left = _dir_right = False  # 애매하면 중앙 발사
+            if _dir_left and _dir_right:
+                if right_press_frame > left_press_frame:
+                    _dir_left = False
+                elif left_press_frame > right_press_frame:
+                    _dir_right = False
+                else:
+                    _drive_dbg(f"both dirs high with same frame ({left_press_frame}); using current states to pick right-pref")
+                    # 둘 다 같은 프레임이면 현재 눌린 상태를 우선순위로 오른쪽 → 왼쪽 → 중립
+                    if current_right_state and not current_left_state:
+                        _dir_left = False
+                    elif current_left_state and not current_right_state:
+                        _dir_right = False
+                    else:
+                        _dir_left = _dir_right = False  # 애매하면 중앙 발사
                     if _dir_left:
                         power_smashing_direction = -1  # 왼쪽
                         # 수직에 가까운 곡선 효과 적용
