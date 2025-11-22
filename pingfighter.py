@@ -72755,45 +72755,54 @@ def main(stage_num, new_boss_mode=False):
                                 'type': 'spark'
                             })
                     # 홀드 방식이므로 프레임 초기화 불필요
-                # 왼쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
+                # 왼쪽/오른쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
                 # 추가 조건: 키 입력이 최근(8프레임 이내)에 이루어졌어야 함
-                elif (
-                    left_press_frame >= 0
-                    and space_press_frame >= 0
-                    and abs(left_press_frame - space_press_frame) <= max_frame_gap
-                    and (frame_counter - left_press_frame) <= max_input_age  # 왼쪽 키가 최근에 눌렸는지
-                    and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
-                    and selected_character_type == "smasher"
-                ):   # 스매셔 전용 드라이브
-                    perfect_direction = -1  # 왼쪽 드라이브
-                    perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
-                    drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
-                    perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
-                    frame_gap = abs(left_press_frame - space_press_frame)
-                    input_age = max(frame_counter - left_press_frame, frame_counter - space_press_frame)
-                    print(f"  ! (←+   ,  : {frame_gap},  : {input_age})")
-                    # 사용된 프레임 초기화
-                    left_press_frame = -1
-                    space_press_frame = -1
-                # 오른쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
-                elif (
-                    right_press_frame >= 0
-                    and space_press_frame >= 0
-                    and abs(right_press_frame - space_press_frame) <= max_frame_gap
-                    and (frame_counter - right_press_frame) <= max_input_age  # 오른쪽 키가 최근에 눌렸는지
-                    and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
-                    and selected_character_type == "smasher"
-                ):    # 스매셔 전용 드라이브
-                    perfect_direction = 1   # 오른쪽 드라이브
-                    perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
-                    drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
-                    perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
-                    frame_gap = abs(right_press_frame - space_press_frame)
-                    input_age = max(frame_counter - right_press_frame, frame_counter - space_press_frame)
-                    print(f"  ! (→+   ,  : {frame_gap},  : {input_age})")
-                    # 사용된 프레임 초기화
-                    right_press_frame = -1
-                    space_press_frame = -1
+                elif True:
+                    left_valid = (
+                        left_press_frame >= 0
+                        and space_press_frame >= 0
+                        and abs(left_press_frame - space_press_frame) <= max_frame_gap
+                        and (frame_counter - left_press_frame) <= max_input_age  # 왼쪽 키가 최근에 눌렸는지
+                        and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
+                        and selected_character_type == "smasher"
+                    )
+                    right_valid = (
+                        right_press_frame >= 0
+                        and space_press_frame >= 0
+                        and abs(right_press_frame - space_press_frame) <= max_frame_gap
+                        and (frame_counter - right_press_frame) <= max_input_age  # 오른쪽 키가 최근에 눌렸는지
+                        and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
+                        and selected_character_type == "smasher"
+                    )
+                    chosen_dir = None
+                    if left_valid or right_valid:
+                        if left_valid and right_valid:
+                            use_right = right_press_frame > left_press_frame
+                            chosen_dir = 1 if use_right else -1
+                            dir_frame = right_press_frame if use_right else left_press_frame
+                        elif left_valid:
+                            chosen_dir = -1
+                            dir_frame = left_press_frame
+                        else:
+                            chosen_dir = 1
+                            dir_frame = right_press_frame
+
+                        frame_gap = abs(dir_frame - space_press_frame)
+                        input_age = max(frame_counter - dir_frame, frame_counter - space_press_frame)
+                        perfect_direction = chosen_dir
+                        perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
+                        drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
+                        perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
+                        print(f"  ! ({'←' if chosen_dir == -1 else '→'}+   ,  : {frame_gap},  : {input_age})")
+                        # 사용된 프레임 초기화
+                        left_press_frame = -1
+                        right_press_frame = -1
+                        space_press_frame = -1
+                        # 방향이 결정된 경우 추가 분기 실행을 방지
+                        pass
+                    else:
+                        # 조건 미충족 시 이후 분기로 넘어간다
+                        pass
                 # 한쪽 방향키를 미리 누른 상태에서 스페이스를 누른 경우도 허용 (연타 방지 조건 유지)
                 elif (
                     space_just_pressed
