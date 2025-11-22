@@ -37839,6 +37839,16 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
         smoke_cy = center_y
 
         if smoke_width > 40:
+            # 먼저 중앙 영역을 완전히 채우는 불투명 배경 (보스 패들 완전 가림)
+            fill_color = (45, 38, 70)  # 기본 연막 배경색
+            ellipse_rect = pygame.Rect(
+                smoke_cx - smoke_width // 2,
+                smoke_cy - smoke_height // 2,
+                smoke_width,
+                smoke_height
+            )
+            pygame.draw.ellipse(cloud_surface, fill_color, ellipse_rect)
+
             cloud_seed = int(stage8_cloud_start_ms) % 10000
             random.seed(cloud_seed)
 
