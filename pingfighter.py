@@ -106,6 +106,7 @@ _orig_pygame_event_get = pygame.event.get
 
 # 입력 추적(디버그) 플래그 – 기본 켜둠(사용자 요청), PINGF_INPUT_TRACE=0 으로 끌 수 있음
 INPUT_TRACE = os.environ.get("PINGF_INPUT_TRACE", "1").lower() not in ("0", "false", "off")
+DRIVE_DEBUG = os.environ.get("PINGF_DRIVE_DEBUG", "0").lower() in ("1", "true", "yes", "on")
 _input_log_prev_left = False
 _input_log_prev_right = False
 _input_log_last_frame = -9999
@@ -152,6 +153,12 @@ def _log_input_trace(frame: int,
         f" speed={speed:.3f}"
         f" focus={pygame.key.get_focused()}"
     )
+
+
+def _drive_dbg(message: str) -> None:
+    """Lightweight drive debug printing (off by default)."""
+    if DRIVE_DEBUG:
+        print(f"[DRIVE_DEBUG] {message}")
 
 def _adapt_input_events(events):
     """입력 어댑터(안전 모드)
