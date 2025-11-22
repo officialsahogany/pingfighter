@@ -73793,6 +73793,11 @@ def main(stage_num, new_boss_mode=False):
             draw_stage8_shadow_clones(SCREEN)
             draw_stage8_shurikens(SCREEN)
             draw_stage8_cloud(SCREEN)
+            # 스테이지 8 초각성 바람 오오라 효과
+            if current_stage == 8:
+                update_stage8_wind_effects()
+                draw_stage8_wind_aura(SCREEN)
+                draw_stage8_wind_burst(SCREEN)
             if current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms:
                 overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
                 overlay.fill((0, 0, 0, 150))
