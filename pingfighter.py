@@ -14906,7 +14906,7 @@ STAGE8_CLOUD_DASH_MS = 220  # 내려가기/올라가기 각각
 STAGE8_CLOUD_PRECAST_MS = 400  # 발동 전 정지/오로라 연출
 STAGE8_CLOUD_EXPAND_MS = 280  # 구름 퍼짐 애니메이션 시간 (폭발적 분출)
 stage8_cloud_spawn_x: int = 0  # 구름 생성 위치 (보스 착지 위치)
-STAGE8_STUN_ESCAPE_DELAY_MS = 300
+STAGE8_STUN_ESCAPE_DELAY_MS = 0
 STAGE8_STUN_ESCAPE_DURATION_MS = 500
 STAGE8_STUN_ESCAPE_COST = 50
 blacksmith_umbrella_swing_recover_main = 0.0
@@ -40458,6 +40458,7 @@ def draw_objects():
     global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
     global frame_count  # 프레임 카운터 추가
     global player_missile_stunned_timer  # 미사일 스턴 타이머 추가
+    global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, blacksmith_turret_projectiles
@@ -40965,6 +40966,22 @@ def draw_objects():
         time_now = pygame.time.get_ticks()
         if (time_now // 250) % 2 == 0:
             apply_white_glow(rotated_boss, intensity=60)
+    # === Stage 8 영체탈주 허수아비(스턴 잔상) ===
+    if current_stage == 8 and stage8_stun_hologram_active and stage8_stun_hologram_rect:
+        now = pygame.time.get_ticks()
+        remaining = stage8_stun_hologram_end_ms - now
+        if remaining <= 0:
+            stage8_stun_hologram_active = False
+            stage8_stun_hologram_rect = None
+        else:
+            alpha = 180
+            if remaining < STAGE8_STUN_HOLOGRAM_FADE_MS:
+                alpha = int(alpha * max(0, remaining) / STAGE8_STUN_HOLOGRAM_FADE_MS)
+            holo_img = pygame.transform.scale(
+                BOSS_IMG_STAGE8, (stage8_stun_hologram_rect.width, stage8_stun_hologram_rect.height)
+            )
+            holo_img.set_alpha(alpha)
+            SCREEN.blit(holo_img, stage8_stun_hologram_rect.topleft)
     #  보스 대쉬 잔상 효과 (보스 실제 이미지 기반)
     global boss_dash_afterimages, boss_dashing
     if boss_dashing:
