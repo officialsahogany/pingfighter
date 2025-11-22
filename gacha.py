@@ -29,6 +29,8 @@ gacha_available_items_template = []
 gacha_legendary_bonus = 0.0  # 추가 전설 등장 확률 (0.05 = +5%)
 gacha_start_sound = None
 gacha_start_sound_loaded = False
+gacha_result_sound = None
+gacha_result_sound_loaded = False
 
 # 가챠 추가 실행 알림
 EXTRA_GACHA_NOTICE_DURATION = 90  # 약 1.5초간 표시
@@ -72,6 +74,43 @@ def play_gacha_start_sound():
     """설정된 효과음 볼륨에 맞춰 가챠 시작 사운드 재생."""
 
     sound = load_gacha_start_sound()
+    if not sound:
+        return
+
+    try:
+        volume = get_sfx_volume()
+    except Exception:
+        volume = 1.0
+
+    try:
+        sound.set_volume(volume)
+        sound.play()
+    except Exception:
+        try:
+            sound.play()
+        except Exception:
+            pass
+
+
+def load_gacha_result_sound():
+    """가챠 결과 사운드를 한 번만 로드."""
+
+    global gacha_result_sound, gacha_result_sound_loaded
+    if gacha_result_sound_loaded:
+        return gacha_result_sound
+
+    gacha_result_sound_loaded = True
+    try:
+        gacha_result_sound = pygame.mixer.Sound(resource_path("sounds/gatcharesult.wav"))
+    except Exception:
+        gacha_result_sound = None
+    return gacha_result_sound
+
+
+def play_gacha_result_sound():
+    """가챠 결과 공개 시 사운드 재생."""
+
+    sound = load_gacha_result_sound()
     if not sound:
         return
 
@@ -282,6 +321,7 @@ def update_gacha():
         if capsule_bounce_count >= 3:
             gacha_phase = 3
             gacha_animation = 0
+            play_gacha_result_sound()
             return
     
     # 애니메이션 업데이트

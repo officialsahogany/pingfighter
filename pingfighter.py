@@ -27960,7 +27960,28 @@ def handle_player(keys):
             # 디버깅: 대쉬 조건 확인
             # 디버깅: 아래키(또는 우클릭) 입력 감지
             if down_pressed:
-                print(f"  -  : charges={rolling_charges}, stun_timer={rolling_stun_timer}, waiting_serve={is_waiting_for_serve}, player_serve={is_player_serve}, serve_completed_timer={serve_completed_timer}, can_use={can_use_rolling}")
+                # 기존 요약 로그
+                print(
+                    f"  -  : charges={rolling_charges}, "
+                    f"stun_timer={rolling_stun_timer}, "
+                    f"waiting_serve={is_waiting_for_serve}, "
+                    f"player_serve={is_player_serve}, "
+                    f"serve_completed_timer={serve_completed_timer}, "
+                    f"can_use={can_use_rolling}"
+                )
+                # 대쉬/하프대쉬 입력 디버그용 상세 로그
+                try:
+                    debug_frame = globals().get("frame_counter", -1)
+                    print(
+                        f"[DASH_DEBUG_INPUT] frame={debug_frame} "
+                        f"down_pressed={down_pressed} "
+                        f"dash_down_first_lock={globals().get('dash_down_first_lock', False)} "
+                        f"left_press_frame={globals().get('left_press_frame', -1)} "
+                        f"right_press_frame={globals().get('right_press_frame', -1)} "
+                        f"down_press_frame={globals().get('down_press_frame', -1)}"
+                    )
+                except Exception:
+                    pass
                 if is_player_serve and is_waiting_for_serve:
                     serve_wait_time = pygame.time.get_ticks() - waiting_start_time
                     print(f"  : {serve_wait_time}ms")
@@ -27976,6 +27997,21 @@ def handle_player(keys):
                 if serve_wait_time >= 6000:  # 6초 이상 대기
                     can_use_half_dash = True
             
+            # 하프 대쉬 조건 디버그
+            if HALF_DASH_ENABLED and down_pressed and can_use_half_dash and not rolling_active:
+                try:
+                    debug_frame = globals().get("frame_counter", -1)
+                    print(
+                        f"[DASH_DEBUG_HALF] frame={debug_frame} "
+                        f"down_pressed={down_pressed} "
+                        f"dash_down_first_lock={globals().get('dash_down_first_lock', False)} "
+                        f"rolling_active={rolling_active} "
+                        f"rolling_charges={rolling_charges} "
+                        f"stun_timer={rolling_stun_timer}"
+                    )
+                except Exception:
+                    pass
+
             if HALF_DASH_ENABLED and down_pressed and not globals().get('dash_down_first_lock', False) and can_use_half_dash and not rolling_active:
                 left_before_down_half = (
                     (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
@@ -28185,6 +28221,21 @@ def handle_player(keys):
                 if 'half_dash_executed' not in locals() or not half_dash_executed:
                     pass  # 일반 대쉬 처리 계속
             
+            # 일반 대쉬 조건 디버그
+            if down_pressed and can_use_rolling and rolling_charges > 0 and not rolling_active:
+                try:
+                    debug_frame = globals().get("frame_counter", -1)
+                    print(
+                        f"[DASH_DEBUG_FULL] frame={debug_frame} "
+                        f"down_pressed={down_pressed} "
+                        f"dash_down_first_lock={globals().get('dash_down_first_lock', False)} "
+                        f"rolling_active={rolling_active} "
+                        f"rolling_charges={rolling_charges} "
+                        f"stun_timer={rolling_stun_timer}"
+                    )
+                except Exception:
+                    pass
+
             if down_pressed and not globals().get('dash_down_first_lock', False) and can_use_rolling and rolling_charges > 0 and not rolling_active:
                 #  연속 대쉬 할인을 고려한 실제 게이지 요구량 계산  
                 base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
