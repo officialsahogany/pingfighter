@@ -14894,6 +14894,10 @@ stage8_stun_escape_target_x: int = 0
 stage8_stun_escape_ready_ms: int = 0
 stage8_stun_escape_attempted: bool = False
 stage8_stun_escape_dx: float = 0.0
+stage8_stun_hologram_active: bool = False
+stage8_stun_hologram_rect: pygame.Rect | None = None
+stage8_stun_hologram_end_ms: int = 0
+STAGE8_STUN_HOLOGRAM_FADE_MS = 400
 STAGE8_CLOUD_VISIBLE_MS = 5000
 STAGE8_CLOUD_MIN_COOLDOWN_MS = 10000
 STAGE8_CLOUD_MAX_COOLDOWN_MS = 20000
@@ -14904,7 +14908,7 @@ STAGE8_CLOUD_EXPAND_MS = 280  # 구름 퍼짐 애니메이션 시간 (폭발적 
 stage8_cloud_spawn_x: int = 0  # 구름 생성 위치 (보스 착지 위치)
 STAGE8_STUN_ESCAPE_DELAY_MS = 300
 STAGE8_STUN_ESCAPE_DURATION_MS = 500
-STAGE8_STUN_ESCAPE_COST = 100
+STAGE8_STUN_ESCAPE_COST = 50
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
 blacksmith_umbrella_swing_sound_timer = 0
@@ -36353,8 +36357,9 @@ def _try_stage8_stun_escape(now: int) -> bool:
     if current_stage != 8 or boss_stunned_timer <= 0:
         return False
 
+    # 스턴 즉시 시도 (지연 없음)
     if stage8_stun_escape_ready_ms == 0:
-        stage8_stun_escape_ready_ms = now + STAGE8_STUN_ESCAPE_DELAY_MS
+        stage8_stun_escape_ready_ms = now  # 즉시 가능
         stage8_stun_escape_attempted = False
 
     if (
@@ -36375,6 +36380,7 @@ def _start_stage8_stun_escape(now: int) -> None:
     global stage8_stun_escape_active, stage8_stun_escape_start_ms, stage8_stun_escape_start_x
     global stage8_stun_escape_target_x, stage8_stun_escape_ready_ms, stage8_stun_escape_attempted
     global stage8_stun_escape_dx, boss_stunned_timer, boss_knockback_vel, boss_special_gauge
+    global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
 
     start_x = BOSS.centerx
     # 기본적으로 공이 있는 반대 방향으로 빠지기
@@ -36393,6 +36399,14 @@ def _start_stage8_stun_escape(now: int) -> None:
 
     target_x = start_x + dir_sign * move_dist
     target_x = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, int(target_x)))
+
+    # 스턴 상태의 기존 육체(허수아비) 보존 정보 저장
+    remaining_ms = 0
+    if boss_stunned_timer > 0:
+        remaining_ms = int((boss_stunned_timer / FPS) * 1000)
+    stage8_stun_hologram_active = True
+    stage8_stun_hologram_rect = BOSS.copy()
+    stage8_stun_hologram_end_ms = now + remaining_ms + STAGE8_STUN_HOLOGRAM_FADE_MS
 
     stage8_stun_escape_active = True
     stage8_stun_escape_start_ms = now
