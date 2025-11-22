@@ -36613,7 +36613,7 @@ def check_wind_aura_ball_collision(ball_rect: pygame.Rect) -> bool:
     global stage8_wind_aura_ripple_active, stage8_wind_aura_ripple_start_ms
     global stage8_wind_aura_hit_cooldown_ms, stage8_wind_aura_active
     global stage8_wind_aura_recharge_start_ms
-    global boss_special_gauge, boss_special_ready
+    global boss_special_gauge, boss_special_ready, last_hit_by
 
     # 바람 오오라가 비활성이거나 소진된 상태면 처리하지 않음
     if not stage8_wind_aura_active or stage8_wind_aura_depleted:
@@ -36624,6 +36624,11 @@ def check_wind_aura_ball_collision(ball_rect: pygame.Rect) -> bool:
         return False
 
     now_ms = pygame.time.get_ticks()
+
+    # 보스가 마지막으로 친 공(혹은 보스 서브 공)은 오오라에 맞지 않도록 제외
+    ball_owner = getattr(game_vars.ball, "last_hit_by", last_hit_by)
+    if ball_owner == "boss":
+        return False
 
     # 쿨다운 중이면 충돌 무시 (연속 타격 방지)
     if now_ms < stage8_wind_aura_hit_cooldown_ms:
