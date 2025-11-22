@@ -72354,261 +72354,261 @@ def main(stage_num, new_boss_mode=False):
                         _dir_left = _dir_left or bool(keys[pygame.K_a])
                         _dir_right = _dir_right or bool(keys[pygame.K_d])
                     # 좌우가 동시에 잡히는 IME 노이즈를 최근 입력으로 정리
-            if _dir_left and _dir_right:
-                if right_press_frame > left_press_frame:
-                    _dir_left = False
-                elif left_press_frame > right_press_frame:
-                    _dir_right = False
-                else:
-                    _drive_dbg(f"both dirs high with same frame ({left_press_frame}); using current states to pick right-pref")
-                    # 둘 다 같은 프레임이면 현재 눌린 상태를 우선순위로 오른쪽 → 왼쪽 → 중립
-                    if current_right_state and not current_left_state:
+                if _dir_left and _dir_right:
+                    if right_press_frame > left_press_frame:
                         _dir_left = False
-                    elif current_left_state and not current_right_state:
+                    elif left_press_frame > right_press_frame:
                         _dir_right = False
                     else:
-                        _dir_left = _dir_right = False  # 애매하면 중앙 발사
-            if _dir_left:
-                power_smashing_direction = -1  # 왼쪽
-                # 수직에 가까운 곡선 효과 적용
-                base_strength = -0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
-                rng = power_smashing_rng or random
-                random_variation = rng.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
-                power_smashing_arc_strength = base_strength + random_variation  # 왼쪽 방향으로 수직에 가까운 곡선
-            elif _dir_right:
-                power_smashing_direction = 1   # 오른쪽
-                # 수직에 가까운 곡선 효과 적용
-                base_strength = 0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
-                rng = power_smashing_rng or random
-                random_variation = rng.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
-                power_smashing_arc_strength = base_strength + random_variation  # 오른쪽 방향으로 수직에 가까운 곡선
-            else:
-                power_smashing_direction = 0   # 직선
-                # 직선이므로 포물선 효과 없음
-                power_smashing_arc_strength = 0.0
-                smasher_pending_contact_offset = BALL.centerx - PLAYER.centerx
-                # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
-                if not mega_smashing_active:
-                    special_active = True
-                special_ready = False
-                special_gauge = max(0, special_gauge - 350)
-                # 고스트샷 보너스: +50 게이지
-                if mega_smashing_active:
-                    special_gauge += _apply_blacksmith_berserk_gauge_bonus(50)
-                    current_max = get_max_gauge()
-                    if special_gauge > current_max:
-                        special_gauge = current_max  # 파워스매시 게이지 소모: 350
-                #  파워스매싱 발동 효과음 재생
-                play_sound_with_volume(SOUND_POWER_SMASH)
-                print("!")
-                #  파워스매싱 성공 기록
-                record_skill_usage(success=True)
-                #  고스트샷일 때는 파워스매싱 정지 시간 사용하지 않음
-                if not mega_smashing_active:
-                    # 파워스매싱 정지 시간 시작
-                    power_smashing_freeze_start_time = pygame.time.get_ticks()
-                    power_smashing_freeze_active = True
-                    print(f"    ! (1)")
-                    print(f"[DEBUG] 파워스매싱 프리즈 활성화!")
-                    print(f"  - 상모돌리기 활성 상태: {whip_active}")
-                    print(f"  - 현재 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
+                        _drive_dbg(f"both dirs high with same frame ({left_press_frame}); using current states to pick right-pref")
+                        # 둘 다 같은 프레임이면 현재 눌린 상태를 우선순위로 오른쪽 → 왼쪽 → 중립
+                        if current_right_state and not current_left_state:
+                            _dir_left = False
+                        elif current_left_state and not current_right_state:
+                            _dir_right = False
+                        else:
+                            _dir_left = _dir_right = False  # 애매하면 중앙 발사
+                if _dir_left:
+                    power_smashing_direction = -1  # 왼쪽
+                    # 수직에 가까운 곡선 효과 적용
+                    base_strength = -0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
+                    rng = power_smashing_rng or random
+                    random_variation = rng.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
+                    power_smashing_arc_strength = base_strength + random_variation  # 왼쪽 방향으로 수직에 가까운 곡선
+                elif _dir_right:
+                    power_smashing_direction = 1   # 오른쪽
+                    # 수직에 가까운 곡선 효과 적용
+                    base_strength = 0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
+                    rng = power_smashing_rng or random
+                    random_variation = rng.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
+                    power_smashing_arc_strength = base_strength + random_variation  # 오른쪽 방향으로 수직에 가까운 곡선
                 else:
-                    # 고스트샷은 정지 없이 바로 시작
-                    power_smashing_freeze_active = False
-                    power_smashing_parabola_active = False  # 고스트샷은 파워스매싱 포물선 사용 안함
-                    power_smashing_start_time = pygame.time.get_ticks()  # 고스트샷 시작 시간 설정
-                    print(f"     !")
-                #  파워스매싱 발동 시 강제 충돌 처리 (범위 차이 문제 해결)
-                # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
-                power_player_rect = PLAYER.copy()
-                if acceleration_active and acceleration_height_bonus > 0:
-                    power_player_rect.inflate_ip(0, acceleration_height_bonus)
-                
-                if not BALL.colliderect(power_player_rect) and ball_to_paddle_distance <= 30 and ball_vel[1] > 0:
-                    # 공을 패들 근처로 강제 이동시켜 충돌 발생시키기
-                    BALL.centery = PLAYER.top - BALL_RADIUS
-                    print(f"    !   : Y={BALL.centery}")
-                    # 강제 충돌 처리 실행
-                    drive_activated = calculate_bounce(PLAYER)
-                    # 기존 play_paddle_sound() 제거 - 파워스매싱 전용 효과음 사용
-                    # 메가드라이브일 때는 공을 위로 보내도록 y 속도를 음수로 설정
+                    power_smashing_direction = 0   # 직선
+                    # 직선이므로 포물선 효과 없음
+                    power_smashing_arc_strength = 0.0
+                    smasher_pending_contact_offset = BALL.centerx - PLAYER.centerx
+                    # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
+                    if not mega_smashing_active:
+                        special_active = True
+                    special_ready = False
+                    special_gauge = max(0, special_gauge - 350)
+                    # 고스트샷 보너스: +50 게이지
                     if mega_smashing_active:
-                        ball_vel[1] = -abs(ball_vel[1])  # 공을 위로(보스 방향으로) 보냄
-                        print(f"  -    : Y={ball_vel[1]}")
-                    # 타격 이펙트 생성
-                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
-                    # 충돌 애니메이션
-                    if not (
-                        selected_character_type == "blacksmith"
-                        and blacksmith_umbrella_open
-                        and not blacksmith_umbrella_retracting
-                    ):
-                        hit_animation_active = True
-                        hit_animation_timer = HIT_ANIMATION_DURATION
-                if not power_smashing_freeze_active and smasher_pending_contact_offset is not None:
-                    trigger_smasher_contact_animation(smasher_pending_contact_offset)
-                perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
-                drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
-                perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
-                #  파워스매싱 - 속도 대폭 증가
-                ball_current_speed = math.hypot(ball_vel[0], ball_vel[1])
-                power_smashing_original_speed = ball_current_speed  #  원래 속도 저장 (보스 반격 시 감속용)
-                # 고스트샷은 초기에 느리게 시작 (용의 움직임을 위해)
-                if mega_smashing_active:
-                    # 고스트샷은 천천히 시작
-                    new_speed = BALL_BASE_SPEED * 0.5  # 기본 속도의 50%로 시작
-                    mega_smashing_original_speed = ball_current_speed  # 원래 속도 저장
-                    actual_boost = new_speed - ball_current_speed  # 고스트샷도 actual_boost 계산
-                else:
-                    # 파워스매싱은 기존대로 빠르게
-                    min_boost = BALL_BASE_SPEED * 0.75  # 최소 증가량 (75%)
-                    actual_boost = max(ball_current_speed * 0.64, min_boost)  # 64% 증가 (164% 속도) 또는 최소값
-                    new_speed = ball_current_speed + actual_boost
-                # 속도 비율 적용으로 방향 유지하면서 속도 증가
-                if ball_current_speed > 0:
-                    speed_ratio = new_speed / ball_current_speed
-                    ball_vel[0] *= speed_ratio
-                    ball_vel[1] *= speed_ratio
-                else:
-                    # 정지 상태에서는 기본 속도로 설정
-                    ball_vel[0] = BALL_BASE_SPEED * 0.8
-                    ball_vel[1] = BALL_BASE_SPEED * 0.8
-                # 파워스매싱 방향에 따른 X축 속도 조정 (고스트샷도 동일하게 처리)
-                # 1.64배에 추가로 약 28.05% 부스트하여 총 2.1배 효과
-                if power_smashing_direction in (-1, 1):  # 좌/우 파워스매싱
-                    dir_sign = -1 if power_smashing_direction == -1 else 1
-                    ball_vel[0] = dir_sign * abs(ball_vel[0]) * 1.2805  # 좌우 방향 고정 (28.05% 부스트)
+                        special_gauge += _apply_blacksmith_berserk_gauge_bonus(50)
+                        current_max = get_max_gauge()
+                        if special_gauge > current_max:
+                            special_gauge = current_max  # 파워스매시 게이지 소모: 350
+                    #  파워스매싱 발동 효과음 재생
+                    play_sound_with_volume(SOUND_POWER_SMASH)
+                    print("!")
+                    #  파워스매싱 성공 기록
+                    record_skill_usage(success=True)
+                    #  고스트샷일 때는 파워스매싱 정지 시간 사용하지 않음
+                    if not mega_smashing_active:
+                        # 파워스매싱 정지 시간 시작
+                        power_smashing_freeze_start_time = pygame.time.get_ticks()
+                        power_smashing_freeze_active = True
+                        print(f"    ! (1)")
+                        print(f"[DEBUG] 파워스매싱 프리즈 활성화!")
+                        print(f"  - 상모돌리기 활성 상태: {whip_active}")
+                        print(f"  - 현재 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
+                    else:
+                        # 고스트샷은 정지 없이 바로 시작
+                        power_smashing_freeze_active = False
+                        power_smashing_parabola_active = False  # 고스트샷은 파워스매싱 포물선 사용 안함
+                        power_smashing_start_time = pygame.time.get_ticks()  # 고스트샷 시작 시간 설정
+                        print(f"     !")
+                    #  파워스매싱 발동 시 강제 충돌 처리 (범위 차이 문제 해결)
+                    # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
+                    power_player_rect = PLAYER.copy()
+                    if acceleration_active and acceleration_height_bonus > 0:
+                        power_player_rect.inflate_ip(0, acceleration_height_bonus)
+                
+                    if not BALL.colliderect(power_player_rect) and ball_to_paddle_distance <= 30 and ball_vel[1] > 0:
+                        # 공을 패들 근처로 강제 이동시켜 충돌 발생시키기
+                        BALL.centery = PLAYER.top - BALL_RADIUS
+                        print(f"    !   : Y={BALL.centery}")
+                        # 강제 충돌 처리 실행
+                        drive_activated = calculate_bounce(PLAYER)
+                        # 기존 play_paddle_sound() 제거 - 파워스매싱 전용 효과음 사용
+                        # 메가드라이브일 때는 공을 위로 보내도록 y 속도를 음수로 설정
+                        if mega_smashing_active:
+                            ball_vel[1] = -abs(ball_vel[1])  # 공을 위로(보스 방향으로) 보냄
+                            print(f"  -    : Y={ball_vel[1]}")
+                        # 타격 이펙트 생성
+                        create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
+                        # 충돌 애니메이션
+                        if not (
+                            selected_character_type == "blacksmith"
+                            and blacksmith_umbrella_open
+                            and not blacksmith_umbrella_retracting
+                        ):
+                            hit_animation_active = True
+                            hit_animation_timer = HIT_ANIMATION_DURATION
+                    if not power_smashing_freeze_active and smasher_pending_contact_offset is not None:
+                        trigger_smasher_contact_animation(smasher_pending_contact_offset)
+                    perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
+                    drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
+                    perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
+                    #  파워스매싱 - 속도 대폭 증가
+                    ball_current_speed = math.hypot(ball_vel[0], ball_vel[1])
+                    power_smashing_original_speed = ball_current_speed  #  원래 속도 저장 (보스 반격 시 감속용)
+                    # 고스트샷은 초기에 느리게 시작 (용의 움직임을 위해)
+                    if mega_smashing_active:
+                        # 고스트샷은 천천히 시작
+                        new_speed = BALL_BASE_SPEED * 0.5  # 기본 속도의 50%로 시작
+                        mega_smashing_original_speed = ball_current_speed  # 원래 속도 저장
+                        actual_boost = new_speed - ball_current_speed  # 고스트샷도 actual_boost 계산
+                    else:
+                        # 파워스매싱은 기존대로 빠르게
+                        min_boost = BALL_BASE_SPEED * 0.75  # 최소 증가량 (75%)
+                        actual_boost = max(ball_current_speed * 0.64, min_boost)  # 64% 증가 (164% 속도) 또는 최소값
+                        new_speed = ball_current_speed + actual_boost
+                    # 속도 비율 적용으로 방향 유지하면서 속도 증가
+                    if ball_current_speed > 0:
+                        speed_ratio = new_speed / ball_current_speed
+                        ball_vel[0] *= speed_ratio
+                        ball_vel[1] *= speed_ratio
+                    else:
+                        # 정지 상태에서는 기본 속도로 설정
+                        ball_vel[0] = BALL_BASE_SPEED * 0.8
+                        ball_vel[1] = BALL_BASE_SPEED * 0.8
+                    # 파워스매싱 방향에 따른 X축 속도 조정 (고스트샷도 동일하게 처리)
+                    # 1.64배에 추가로 약 28.05% 부스트하여 총 2.1배 효과
+                    if power_smashing_direction in (-1, 1):  # 좌/우 파워스매싱
+                        dir_sign = -1 if power_smashing_direction == -1 else 1
+                        ball_vel[0] = dir_sign * abs(ball_vel[0]) * 1.2805  # 좌우 방향 고정 (28.05% 부스트)
 
-                    # 패들 중앙에 가까워도 최소 각도 이상으로 꺾이도록 보정
-                    y_abs = abs(ball_vel[1])
-                    x_abs = abs(ball_vel[0])
-                    if y_abs < 1e-4:
-                        y_abs = 1e-4
-                    if x_abs < y_abs * POWER_SMASH_MIN_TURN_RATIO:
-                        speed = math.hypot(ball_vel[0], ball_vel[1])
-                        if speed == 0:
-                            speed = BALL_BASE_SPEED if BALL_BASE_SPEED else 1.0
-                        target_x = speed * math.sin(POWER_SMASH_MIN_TURN_ANGLE_RAD)
-                        target_y = speed * math.cos(POWER_SMASH_MIN_TURN_ANGLE_RAD)
-                        ball_vel[0] = dir_sign * target_x
-                        y_sign = -1 if ball_vel[1] < 0 else 1
-                        if ball_vel[1] == 0:
-                            y_sign = -1  # 기본적으로 위쪽(보스 방향)으로 발사
-                        ball_vel[1] = y_sign * target_y
-                    else:  # 직선 파워스매싱
-                        # 중앙 파워스매싱 - 패들 중심에서 공의 위치에 따라 방향 결정
-                        x_diff = BALL.centerx - PLAYER.centerx
+                        # 패들 중앙에 가까워도 최소 각도 이상으로 꺾이도록 보정
+                        y_abs = abs(ball_vel[1])
+                        x_abs = abs(ball_vel[0])
+                        if y_abs < 1e-4:
+                            y_abs = 1e-4
+                        if x_abs < y_abs * POWER_SMASH_MIN_TURN_RATIO:
+                            speed = math.hypot(ball_vel[0], ball_vel[1])
+                            if speed == 0:
+                                speed = BALL_BASE_SPEED if BALL_BASE_SPEED else 1.0
+                            target_x = speed * math.sin(POWER_SMASH_MIN_TURN_ANGLE_RAD)
+                            target_y = speed * math.cos(POWER_SMASH_MIN_TURN_ANGLE_RAD)
+                            ball_vel[0] = dir_sign * target_x
+                            y_sign = -1 if ball_vel[1] < 0 else 1
+                            if ball_vel[1] == 0:
+                                y_sign = -1  # 기본적으로 위쪽(보스 방향)으로 발사
+                            ball_vel[1] = y_sign * target_y
+                        else:  # 직선 파워스매싱
+                            # 중앙 파워스매싱 - 패들 중심에서 공의 위치에 따라 방향 결정
+                            x_diff = BALL.centerx - PLAYER.centerx
                         
-                        # X축 속도가 너무 작거나 방향키를 누른 경우 강제로 방향 설정
-                        if abs(ball_vel[0]) < BALL_BASE_SPEED * 0.3 or keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]:
-                            # 방향키가 눌렸으면 해당 방향으로, 아니면 공의 위치에 따라
-                            if keys[pygame.K_LEFT]:
-                                # 왼쪽 방향키 누르면 왼쪽으로
-                                ball_vel[0] = -abs(BALL_BASE_SPEED * 0.7)
-                            elif keys[pygame.K_RIGHT]:
-                                # 오른쪽 방향키 누르면 오른쪽으로
-                                ball_vel[0] = abs(BALL_BASE_SPEED * 0.7)
-                            elif abs(x_diff) > 3:  # 중앙에서 약간이라도 벗어났으면
-                                # 공이 패들 중심보다 오른쪽에 있으면 오른쪽으로, 왼쪽에 있으면 왼쪽으로
-                                ball_vel[0] = BALL_BASE_SPEED * 0.6 * (1 if x_diff > 0 else -1)
-                            else:
-                                # 정말 중앙에 가까운 경우에만 수직으로
-                                ball_vel[0] *= 0.3  # X축 속도를 크게 줄임
+                            # X축 속도가 너무 작거나 방향키를 누른 경우 강제로 방향 설정
+                            if abs(ball_vel[0]) < BALL_BASE_SPEED * 0.3 or keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]:
+                                # 방향키가 눌렸으면 해당 방향으로, 아니면 공의 위치에 따라
+                                if keys[pygame.K_LEFT]:
+                                    # 왼쪽 방향키 누르면 왼쪽으로
+                                    ball_vel[0] = -abs(BALL_BASE_SPEED * 0.7)
+                                elif keys[pygame.K_RIGHT]:
+                                    # 오른쪽 방향키 누르면 오른쪽으로
+                                    ball_vel[0] = abs(BALL_BASE_SPEED * 0.7)
+                                elif abs(x_diff) > 3:  # 중앙에서 약간이라도 벗어났으면
+                                    # 공이 패들 중심보다 오른쪽에 있으면 오른쪽으로, 왼쪽에 있으면 왼쪽으로
+                                    ball_vel[0] = BALL_BASE_SPEED * 0.6 * (1 if x_diff > 0 else -1)
+                                else:
+                                    # 정말 중앙에 가까운 경우에만 수직으로
+                                    ball_vel[0] *= 0.3  # X축 속도를 크게 줄임
                         
-                        ball_vel[0] *= 1.2805  # X축 28.05% 부스트
-                        ball_vel[1] *= 1.2805  # Y축 28.05% 부스트
-                    final_speed = math.hypot(ball_vel[0], ball_vel[1])
-                    
-                    # 파워스매싱 초기 부스트 적용 (방향에 따라 차별화)
-                    global power_smashing_initial_boost, power_smashing_target_speed
-                    power_smashing_target_speed = final_speed  # 현재 속도를 목표 속도로 저장
-                    
-                    # 방향에 따른 초기 부스트 차별화
-                    if power_smashing_direction == 0:  # 직선(중앙) 파워스매싱
-                        initial_boost_multiplier = 1.8  # 280% 추가 = 3.6배
-                    else:  # 좌/우 파워스매싱
-                        initial_boost_multiplier = 2.0  # 300% 추가 = 4.0배
-                    
-                    # 초기 부스트 속도 적용
-                    if final_speed > 0:
-                        boost_ratio = initial_boost_multiplier
-                        ball_vel[0] *= boost_ratio
-                        ball_vel[1] *= boost_ratio
-                        power_smashing_initial_boost = True
-                        boost_percent = int((initial_boost_multiplier - 1) * 100 + 100)
-                        print(f"🚀 파워스매싱 초기 부스트 적용! 방향: {'직선' if power_smashing_direction == 0 else '좌/우'}, 부스트: {boost_percent}%, 목표속도: {power_smashing_target_speed:.1f}, 부스트속도: {final_speed * initial_boost_multiplier:.1f}")
+                            ball_vel[0] *= 1.2805  # X축 28.05% 부스트
+                            ball_vel[1] *= 1.2805  # Y축 28.05% 부스트
                         final_speed = math.hypot(ball_vel[0], ball_vel[1])
-                    if short_shot_counter_window > 0:
-                        prev_speed = math.hypot(ball_vel[0], ball_vel[1])
-                        power_multiplier = SHORT_SHOT_POWER_SPEED_MULTIPLIER
-                        ball_vel[0] *= power_multiplier
-                        ball_vel[1] *= power_multiplier
-                        boosted_speed = math.hypot(ball_vel[0], ball_vel[1])
-                        short_shot_counter_window = 0
-                        refresh_perfect_timing_indicator()
-                        power_gain = boosted_speed - prev_speed
-                        print(f"⚡ 쇼트 카운터 파워스매싱 보너스! 속도 {prev_speed:.2f} → {boosted_speed:.2f} (+{power_gain:.2f})")
-                        final_speed = boosted_speed
-                        effects_manager.spawn_short_shot_flash(BALL.centerx, BALL.centery)
-                        effects_manager.spawn_short_shot_flash(PLAYER.centerx, PLAYER.centery)
                     
-                    # Chapter 4 튜토리얼: 파워스매싱 방향별 카운트 증가
-                    if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_power_counter_active:
-                        
-                        if power_smashing_direction == -1 and not tutorial_power_left_done:
-                            tutorial_power_left_done = True
-                            print("튜토리얼: 왼쪽 파워스매싱 성공!")
-                        elif power_smashing_direction == 0 and not tutorial_power_center_done:
-                            tutorial_power_center_done = True
-                            print("튜토리얼: 중앙 파워스매싱 성공!")
-                        elif power_smashing_direction == 1 and not tutorial_power_right_done:
-                            tutorial_power_right_done = True
-                            print("튜토리얼: 오른쪽 파워스매싱 성공!")
-                        
-                        # 전체 카운트 업데이트
-                        completed_count = sum([tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done])
-                        if completed_count > tutorial_power_count:
-                            tutorial_power_count = completed_count
-                            print(f"튜토리얼: 파워스매싱 진행 {tutorial_power_count}/3")
-                            # 모든 미션 완료 체크
-                            check_tutorial_special_missions_complete()
+                        # 파워스매싱 초기 부스트 적용 (방향에 따라 차별화)
+                        global power_smashing_initial_boost, power_smashing_target_speed
+                        power_smashing_target_speed = final_speed  # 현재 속도를 목표 속도로 저장
                     
-                    # 고스트샷이 아닐 때만 POWER SMASHING 표시
-                    if not mega_smashing_active:
-                        show_fade_text("POWER SMASHING")
-                    #  이펙트 초기화 - 고스트샷일 때는 아무 이펙트도 생성하지 않음
-                    if not mega_smashing_active:
-                        # 파워스매싱일 때만 이펙트 생성
-                        global power_smashing_trails, power_smashing_particles
-                        power_smashing_trails.clear()
-                        power_smashing_particles.clear()
-                        # 파워스매싱 파티클 생성
-                        for i in range(20):
-                            angle = (i / 20) * 2 * math.pi
-                            speed = random.uniform(4, 6)
-                            power_smashing_particles.append({
-                                'x': BALL.centerx,
-                                'y': BALL.centery,
-                                'vx': math.cos(angle) * speed,
-                                'vy': math.sin(angle) * speed,
-                                'life': 40,
-                                'color': (150, 200, 255),
-                                'type': 'energy'
-                            })
-                        # 전기 스파크
-                        for _ in range(15):
-                            angle = random.uniform(0, 2 * math.pi)
-                            speed = random.uniform(5, 10)
-                            power_smashing_particles.append({
-                                'x': BALL.centerx,
-                                'y': BALL.centery,
-                                'vx': math.cos(angle) * speed,
-                                'vy': math.sin(angle) * speed,
-                                'life': 30,
-                                'color': (200, 230, 255),
-                                'type': 'spark'
-                            })
-                    # 홀드 방식이므로 프레임 초기화 불필요
+                        # 방향에 따른 초기 부스트 차별화
+                        if power_smashing_direction == 0:  # 직선(중앙) 파워스매싱
+                            initial_boost_multiplier = 1.8  # 280% 추가 = 3.6배
+                        else:  # 좌/우 파워스매싱
+                            initial_boost_multiplier = 2.0  # 300% 추가 = 4.0배
+                    
+                        # 초기 부스트 속도 적용
+                        if final_speed > 0:
+                            boost_ratio = initial_boost_multiplier
+                            ball_vel[0] *= boost_ratio
+                            ball_vel[1] *= boost_ratio
+                            power_smashing_initial_boost = True
+                            boost_percent = int((initial_boost_multiplier - 1) * 100 + 100)
+                            print(f"🚀 파워스매싱 초기 부스트 적용! 방향: {'직선' if power_smashing_direction == 0 else '좌/우'}, 부스트: {boost_percent}%, 목표속도: {power_smashing_target_speed:.1f}, 부스트속도: {final_speed * initial_boost_multiplier:.1f}")
+                            final_speed = math.hypot(ball_vel[0], ball_vel[1])
+                        if short_shot_counter_window > 0:
+                            prev_speed = math.hypot(ball_vel[0], ball_vel[1])
+                            power_multiplier = SHORT_SHOT_POWER_SPEED_MULTIPLIER
+                            ball_vel[0] *= power_multiplier
+                            ball_vel[1] *= power_multiplier
+                            boosted_speed = math.hypot(ball_vel[0], ball_vel[1])
+                            short_shot_counter_window = 0
+                            refresh_perfect_timing_indicator()
+                            power_gain = boosted_speed - prev_speed
+                            print(f"⚡ 쇼트 카운터 파워스매싱 보너스! 속도 {prev_speed:.2f} → {boosted_speed:.2f} (+{power_gain:.2f})")
+                            final_speed = boosted_speed
+                            effects_manager.spawn_short_shot_flash(BALL.centerx, BALL.centery)
+                            effects_manager.spawn_short_shot_flash(PLAYER.centerx, PLAYER.centery)
+                    
+                        # Chapter 4 튜토리얼: 파워스매싱 방향별 카운트 증가
+                        if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_power_counter_active:
+                        
+                            if power_smashing_direction == -1 and not tutorial_power_left_done:
+                                tutorial_power_left_done = True
+                                print("튜토리얼: 왼쪽 파워스매싱 성공!")
+                            elif power_smashing_direction == 0 and not tutorial_power_center_done:
+                                tutorial_power_center_done = True
+                                print("튜토리얼: 중앙 파워스매싱 성공!")
+                            elif power_smashing_direction == 1 and not tutorial_power_right_done:
+                                tutorial_power_right_done = True
+                                print("튜토리얼: 오른쪽 파워스매싱 성공!")
+                        
+                            # 전체 카운트 업데이트
+                            completed_count = sum([tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done])
+                            if completed_count > tutorial_power_count:
+                                tutorial_power_count = completed_count
+                                print(f"튜토리얼: 파워스매싱 진행 {tutorial_power_count}/3")
+                                # 모든 미션 완료 체크
+                                check_tutorial_special_missions_complete()
+                    
+                        # 고스트샷이 아닐 때만 POWER SMASHING 표시
+                        if not mega_smashing_active:
+                            show_fade_text("POWER SMASHING")
+                        #  이펙트 초기화 - 고스트샷일 때는 아무 이펙트도 생성하지 않음
+                        if not mega_smashing_active:
+                            # 파워스매싱일 때만 이펙트 생성
+                            global power_smashing_trails, power_smashing_particles
+                            power_smashing_trails.clear()
+                            power_smashing_particles.clear()
+                            # 파워스매싱 파티클 생성
+                            for i in range(20):
+                                angle = (i / 20) * 2 * math.pi
+                                speed = random.uniform(4, 6)
+                                power_smashing_particles.append({
+                                    'x': BALL.centerx,
+                                    'y': BALL.centery,
+                                    'vx': math.cos(angle) * speed,
+                                    'vy': math.sin(angle) * speed,
+                                    'life': 40,
+                                    'color': (150, 200, 255),
+                                    'type': 'energy'
+                                })
+                            # 전기 스파크
+                            for _ in range(15):
+                                angle = random.uniform(0, 2 * math.pi)
+                                speed = random.uniform(5, 10)
+                                power_smashing_particles.append({
+                                    'x': BALL.centerx,
+                                    'y': BALL.centery,
+                                    'vx': math.cos(angle) * speed,
+                                    'vy': math.sin(angle) * speed,
+                                    'life': 30,
+                                    'color': (200, 230, 255),
+                                    'type': 'spark'
+                                })
+                        # 홀드 방식이므로 프레임 초기화 불필요
                 # 왼쪽/오른쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
                 # 추가 조건: 키 입력이 최근(8프레임 이내)에 이루어졌어야 함
                 elif left_valid or right_valid:
