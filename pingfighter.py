@@ -36729,7 +36729,7 @@ def _start_stage8_superspeed(now: int) -> None:
 
 
 def _stage8_superspeed_dash(now: int) -> None:
-"""극정호신 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
+    """극정호신 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
     global boss_dash_cooldown_until_ms
@@ -36787,7 +36787,7 @@ def _stage8_superspeed_dash(now: int) -> None:
     boss_dash_cooldown_until_ms = 0
     # 대쉬 후 경직은 STAGE8_SUPERSPEED_DASH_STUN_FRAMES로 상단에서 처리
 def _stage8_superspeed_dash(now: int) -> None:
-"""극정호신 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
+    """극정호신 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
     global boss_dash_cooldown_until_ms
