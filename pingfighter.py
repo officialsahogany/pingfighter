@@ -36794,45 +36794,43 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
             temp_center_x = current_left + current_width // 2
 
-            # 구름 색상 (닌자 스타일 - 어두운 보라/회색)
-            cloud_fill = (75, 65, 90, 255)  # 어두운 보라색 채우기
-            cloud_outline = (220, 220, 235, 255)  # 밝은 흰색 테두리
-            outline_width = 4
+            # 아카츠키 스타일 구름 색상 (빨간색 + 흰색 테두리)
+            cloud_fill = (139, 69, 69, 255)  # 어두운 빨간색 (아카츠키 빨강)
+            cloud_outline = (255, 255, 255, 255)  # 순백색 테두리
+            outline_width = 5
 
-            # 나루토 스타일 구름 그리기 함수 (소용돌이 패턴)
-            def draw_naruto_cloud_shape(surf, cx, cy, width, height, fill_color, outline_color, outline_w):
-                """소용돌이 패턴의 일본식 구름을 그림"""
-                # 구름 본체 (가로로 긴 타원형 기반)
-                cloud_rect = pygame.Rect(cx - width//2, cy - height//2, width, height)
+            # 아카츠키 스타일 구름 그리기 함수 (애니메이션용)
+            def draw_akatsuki_cloud_anim(surf, cx, cy, width, height, fill_color, outline_color, outline_w):
+                """아카츠키 스타일 구름 - 평평한 바닥에 소용돌이 컬"""
+                # 구름 형태를 위한 포인트들 생성
+                cloud_points = []
 
-                # 메인 구름 본체 그리기 (둥근 사각형)
-                pygame.draw.ellipse(surf, fill_color, cloud_rect)
+                # 상단 곡선 (부드러운 언덕 형태)
+                top_y = cy - height * 0.35
+                for i in range(20):
+                    t = i / 19
+                    x = cx - width * 0.4 + width * 0.8 * t
+                    bump = math.sin(t * math.pi) * height * 0.15
+                    y = top_y - bump
+                    cloud_points.append((int(x), int(y)))
 
-                # 왼쪽 소용돌이 컬 (3개)
-                curl_positions_left = [
-                    (cx - width * 0.42, cy - height * 0.1, height * 0.55, -1),  # 상단
-                    (cx - width * 0.38, cy + height * 0.25, height * 0.45, -1),  # 중단
-                    (cx - width * 0.48, cy + height * 0.05, height * 0.35, -1),  # 작은 컬
-                ]
+                # 오른쪽 하단 (평평하게)
+                cloud_points.append((int(cx + width * 0.4), int(cy + height * 0.2)))
 
-                # 오른쪽 소용돌이 컬 (3개)
-                curl_positions_right = [
-                    (cx + width * 0.42, cy - height * 0.1, height * 0.55, 1),  # 상단
-                    (cx + width * 0.38, cy + height * 0.25, height * 0.45, 1),  # 중단
-                    (cx + width * 0.48, cy + height * 0.05, height * 0.35, 1),  # 작은 컬
-                ]
+                # 하단 평평한 라인
+                cloud_points.append((int(cx - width * 0.4), int(cy + height * 0.2)))
 
-                # 상단 소용돌이 컬 (2개)
-                curl_positions_top = [
-                    (cx - width * 0.15, cy - height * 0.35, height * 0.5, 0),
-                    (cx + width * 0.15, cy - height * 0.35, height * 0.5, 0),
-                ]
+                # 본체 그리기
+                if len(cloud_points) > 2:
+                    pygame.draw.polygon(surf, fill_color, cloud_points)
+                    pygame.draw.polygon(surf, outline_color, cloud_points, outline_w)
 
-                all_curls = curl_positions_left + curl_positions_right + curl_positions_top
+                # 소용돌이 컬 그리기 함수
+                def draw_spiral_curl_anim(surf, cx, cy, size, direction, fill_col, outline_col, line_w):
+                    """더 뚜렷한 아카츠키 스타일 소용돌이 컬"""
+                    points = []
+                    num_points = 30
 
-                # 각 소용돌이 컬 그리기
-                for curl_x, curl_y, curl_size, direction in all_curls:
-                    # 소용돌이 시작 각도 설정
                     if direction == -1:  # 왼쪽
                         start_angle = math.pi * 0.5
                     elif direction == 1:  # 오른쪽
@@ -36840,58 +36838,55 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                     else:  # 상단
                         start_angle = math.pi
 
-                    # 소용돌이 스파이럴 그리기
-                    points = []
-                    num_points = 25
                     for i in range(num_points):
                         t = i / (num_points - 1)
-                        angle = start_angle + t * math.pi * 1.8  # 소용돌이 회전
-                        radius = curl_size * (1 - t * 0.7)  # 안쪽으로 갈수록 작아짐
-                        px = curl_x + math.cos(angle) * radius * 0.6
-                        py = curl_y + math.sin(angle) * radius * 0.5
+                        angle = start_angle + t * math.pi * 2.5  # 더 많은 회전
+                        radius = size * (1 - t * 0.75)  # 안쪽으로 갈수록 작아짐
+                        px = cx + math.cos(angle) * radius * 0.55
+                        py = cy + math.sin(angle) * radius * 0.45
                         points.append((int(px), int(py)))
 
-                    # 소용돌이 채우기 (폴리곤으로 닫힌 영역)
+                    # 채우기 (두꺼운 소용돌이)
                     if len(points) > 2:
-                        # 채우기용 폴리곤 (중심까지 연결)
-                        fill_points = points + [(int(curl_x), int(curl_y))]
-                        pygame.draw.polygon(surf, fill_color, fill_points)
+                        thick = max(2, int(size * 0.25))
+                        thick_points = []
+                        for i, (px, py) in enumerate(points):
+                            if i > 0:
+                                dx = px - points[i-1][0]
+                                dy = py - points[i-1][1]
+                                length = math.sqrt(dx*dx + dy*dy)
+                                if length > 0:
+                                    nx, ny = -dy / length, dx / length
+                                    thick_points.append((int(px + nx * thick), int(py + ny * thick)))
+                        if len(thick_points) > 2:
+                            pygame.draw.polygon(surf, fill_col, thick_points)
 
-                # 테두리 그리기 (메인 타원)
-                pygame.draw.ellipse(surf, outline_color, cloud_rect, outline_w)
-
-                # 각 소용돌이 컬 테두리 그리기
-                for curl_x, curl_y, curl_size, direction in all_curls:
-                    if direction == -1:
-                        start_angle = math.pi * 0.5
-                    elif direction == 1:
-                        start_angle = math.pi * 1.5
-                    else:
-                        start_angle = math.pi
-
-                    points = []
-                    num_points = 25
-                    for i in range(num_points):
-                        t = i / (num_points - 1)
-                        angle = start_angle + t * math.pi * 1.8
-                        radius = curl_size * (1 - t * 0.7)
-                        px = curl_x + math.cos(angle) * radius * 0.6
-                        py = curl_y + math.sin(angle) * radius * 0.5
-                        points.append((int(px), int(py)))
-
+                    # 테두리 라인
                     if len(points) > 1:
-                        pygame.draw.lines(surf, outline_color, False, points, outline_w)
+                        pygame.draw.lines(surf, outline_col, False, points, line_w)
 
-                # 내부를 완전 불투명하게 채우기
-                inner_rect = pygame.Rect(int(cx - width * 0.4), int(cy - height * 0.35),
-                                        int(width * 0.8), int(height * 0.7))
+                # 왼쪽 소용돌이들
+                draw_spiral_curl_anim(surf, cx - width * 0.45, cy - height * 0.05, height * 0.4, -1, fill_color, outline_color, outline_w)
+                draw_spiral_curl_anim(surf, cx - width * 0.38, cy + height * 0.15, height * 0.3, -1, fill_color, outline_color, outline_w)
+
+                # 오른쪽 소용돌이들
+                draw_spiral_curl_anim(surf, cx + width * 0.45, cy - height * 0.05, height * 0.4, 1, fill_color, outline_color, outline_w)
+                draw_spiral_curl_anim(surf, cx + width * 0.38, cy + height * 0.15, height * 0.3, 1, fill_color, outline_color, outline_w)
+
+                # 상단 소용돌이들
+                draw_spiral_curl_anim(surf, cx - width * 0.12, cy - height * 0.32, height * 0.35, 0, fill_color, outline_color, outline_w)
+                draw_spiral_curl_anim(surf, cx + width * 0.12, cy - height * 0.32, height * 0.35, 0, fill_color, outline_color, outline_w)
+
+                # 내부 채우기 (본체 가리기)
+                inner_rect = pygame.Rect(int(cx - width * 0.35), int(cy - height * 0.25),
+                                        int(width * 0.7), int(height * 0.5))
                 pygame.draw.ellipse(surf, fill_color, inner_rect)
 
             # 현재 크기에 맞춰 구름 그리기
             cloud_width = int(current_width * 0.85)
             cloud_height = int(full_cloud_h * 0.55)
-            draw_naruto_cloud_shape(cloud_surface, temp_center_x, center_y,
-                                   cloud_width, cloud_height, cloud_fill, cloud_outline, outline_width)
+            draw_akatsuki_cloud_anim(cloud_surface, temp_center_x, center_y,
+                                     cloud_width, cloud_height, cloud_fill, cloud_outline, outline_width)
 
             # 가장자리 퍼지는 이펙트 (연기처럼)
             edge_intensity = 1.0 - expand_progress
@@ -37059,57 +37054,75 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                         cloud_width, cloud_height, cloud_fill, cloud_outline, outline_width,
                         sway=(sway_x, sway_y))
 
-    # 떠다니는 작은 구름들 추가
+    # 떠다니는 작은 아카츠키 스타일 구름들 추가
     def draw_small_floating_cloud(surf, cx, cy, size, fill_color, outline_color, outline_w):
-        """작은 떠다니는 일본식 구름"""
-        width = int(size * 1.5)
-        height = int(size * 0.8)
-        cloud_rect = pygame.Rect(int(cx - width//2), int(cy - height//2), width, height)
+        """작은 떠다니는 아카츠키 스타일 구름"""
+        width = int(size * 1.6)
+        height = int(size * 0.9)
 
-        # 본체
-        pygame.draw.ellipse(surf, fill_color, cloud_rect)
+        # 구름 형태 포인트 (평평한 바닥)
+        cloud_points = []
+        top_y = cy - height * 0.3
+        for i in range(12):
+            t = i / 11
+            x = cx - width * 0.4 + width * 0.8 * t
+            bump = math.sin(t * math.pi) * height * 0.12
+            y = top_y - bump
+            cloud_points.append((int(x), int(y)))
+        cloud_points.append((int(cx + width * 0.4), int(cy + height * 0.15)))
+        cloud_points.append((int(cx - width * 0.4), int(cy + height * 0.15)))
 
-        # 작은 컬 (좌우 1개씩)
+        # 본체 그리기
+        if len(cloud_points) > 2:
+            pygame.draw.polygon(surf, fill_color, cloud_points)
+            pygame.draw.polygon(surf, outline_color, cloud_points, outline_w)
+
+        # 작은 소용돌이 컬 (좌우 1개씩)
         curl_size = height * 0.5
-        # 왼쪽 컬
-        left_curl_x, left_curl_y = cx - width * 0.4, cy
-        points_left = []
-        for i in range(15):
-            t = i / 14
-            angle = math.pi * 0.5 + t * math.pi * 1.5
-            radius = curl_size * (1 - t * 0.6)
-            px = left_curl_x + math.cos(angle) * radius * 0.5
-            py = left_curl_y + math.sin(angle) * radius * 0.4
-            points_left.append((int(px), int(py)))
-        if len(points_left) > 2:
-            fill_pts = points_left + [(int(left_curl_x), int(left_curl_y))]
-            pygame.draw.polygon(surf, fill_color, fill_pts)
 
+        def draw_mini_curl(cx, cy, size, direction):
+            points = []
+            num_points = 18
+            if direction == -1:  # 왼쪽
+                start_angle = math.pi * 0.5
+            else:  # 오른쪽
+                start_angle = math.pi * 1.5
+
+            for i in range(num_points):
+                t = i / (num_points - 1)
+                angle = start_angle + t * math.pi * 2.0
+                radius = size * (1 - t * 0.7)
+                px = cx + math.cos(angle) * radius * 0.5
+                py = cy + math.sin(angle) * radius * 0.4
+                points.append((int(px), int(py)))
+
+            if len(points) > 2:
+                # 두꺼운 채우기
+                thick = max(1, int(size * 0.2))
+                thick_points = []
+                for i, (px, py) in enumerate(points):
+                    if i > 0:
+                        dx = px - points[i-1][0]
+                        dy = py - points[i-1][1]
+                        length = math.sqrt(dx*dx + dy*dy)
+                        if length > 0:
+                            nx, ny = -dy / length, dx / length
+                            thick_points.append((int(px + nx * thick), int(py + ny * thick)))
+                if len(thick_points) > 2:
+                    pygame.draw.polygon(surf, fill_color, thick_points)
+
+            if len(points) > 1:
+                pygame.draw.lines(surf, outline_color, False, points, outline_w)
+
+        # 왼쪽 컬
+        draw_mini_curl(cx - width * 0.42, cy - height * 0.05, curl_size, -1)
         # 오른쪽 컬
-        right_curl_x, right_curl_y = cx + width * 0.4, cy
-        points_right = []
-        for i in range(15):
-            t = i / 14
-            angle = math.pi * 1.5 + t * math.pi * 1.5
-            radius = curl_size * (1 - t * 0.6)
-            px = right_curl_x + math.cos(angle) * radius * 0.5
-            py = right_curl_y + math.sin(angle) * radius * 0.4
-            points_right.append((int(px), int(py)))
-        if len(points_right) > 2:
-            fill_pts = points_right + [(int(right_curl_x), int(right_curl_y))]
-            pygame.draw.polygon(surf, fill_color, fill_pts)
+        draw_mini_curl(cx + width * 0.42, cy - height * 0.05, curl_size, 1)
 
         # 내부 채우기 (불투명)
-        inner_rect = pygame.Rect(int(cx - width * 0.35), int(cy - height * 0.3),
-                                int(width * 0.7), int(height * 0.6))
+        inner_rect = pygame.Rect(int(cx - width * 0.32), int(cy - height * 0.25),
+                                int(width * 0.64), int(height * 0.5))
         pygame.draw.ellipse(surf, fill_color, inner_rect)
-
-        # 테두리
-        pygame.draw.ellipse(surf, outline_color, cloud_rect, outline_w)
-        if len(points_left) > 1:
-            pygame.draw.lines(surf, outline_color, False, points_left, outline_w)
-        if len(points_right) > 1:
-            pygame.draw.lines(surf, outline_color, False, points_right, outline_w)
 
     # 떠다니는 구름 위치들 (시간에 따라 움직임)
     floating_clouds = [
