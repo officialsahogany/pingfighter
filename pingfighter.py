@@ -1648,7 +1648,6 @@ def apply_serve_result(serve_result):
     """serve_ball() 결과를 전역 상태에 반영한다."""
     global ball_vel, ball_impact_boost
     global player_collision_cooldown, boss_collision_cooldown, is_player_serve
-    global serve_power_smash_lockout, selected_character_type
 
     new_velocity = serve_result.get('ball_vel', [0.0, 0.0])
     if len(new_velocity) < 2:
@@ -1681,13 +1680,6 @@ def apply_serve_result(serve_result):
             player_collision_cooldown = max(player_collision_cooldown, half_cooldown)
     except Exception:
         # 테스트 환경처럼 쿨다운 변수가 없는 경우를 대비한 가드
-        pass
-
-    # 스매셔가 서브를 시작할 때 파워스매싱이 즉시 발동되지 않도록 짧은 잠금 적용
-    try:
-        if is_player_serve and selected_character_type == "smasher":
-            serve_power_smash_lockout = POWER_SMASH_SERVE_LOCKOUT_FRAMES
-    except Exception:
         pass
 
 def play_wall_sound():
