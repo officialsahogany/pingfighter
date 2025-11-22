@@ -36641,6 +36641,7 @@ def check_wind_aura_ball_collision(ball_rect: pygame.Rect) -> bool:
     global stage8_wind_aura_ripple_active, stage8_wind_aura_ripple_start_ms
     global stage8_wind_aura_hit_cooldown_ms, stage8_wind_aura_active
     global stage8_wind_aura_recharge_start_ms
+    global boss_special_gauge, boss_special_ready
 
     # 바람 오오라가 비활성이거나 소진된 상태면 처리하지 않음
     if not stage8_wind_aura_active or stage8_wind_aura_depleted:
@@ -36675,6 +36676,13 @@ def check_wind_aura_ball_collision(ball_rect: pygame.Rect) -> bool:
 
         # 쿨다운 설정 (0.3초)
         stage8_wind_aura_hit_cooldown_ms = now_ms + 300
+
+        # 초각성 오오라로 공을 막으면 보스 게이지 획득
+        try:
+            boss_special_gauge = min(500, boss_special_gauge + 25)
+            boss_special_ready = boss_special_gauge >= STAGE8_SUPERSPEED_COST
+        except Exception:
+            pass
 
         # 5회 타격 시 오오라 소진
         if stage8_wind_aura_hit_count >= stage8_wind_aura_max_hits:
