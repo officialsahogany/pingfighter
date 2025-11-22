@@ -474,9 +474,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-        # Stage7 디버그 HUD 환경변수 토글 (개발 편의)
-        try:
-            if os.getenv('BP_STAGE7_HUD') == '1':
-                self.stage_features.set_stage7_debug(hud=True)
-        except Exception:
-            pass
