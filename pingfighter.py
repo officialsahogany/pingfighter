@@ -28185,7 +28185,7 @@ def handle_player(keys):
                 if 'half_dash_executed' not in locals() or not half_dash_executed:
                     pass  # 일반 대쉬 처리 계속
             
-            if down_pressed and can_use_rolling and rolling_charges > 0 and not rolling_active:
+            if down_pressed and not globals().get('dash_down_first_lock', False) and can_use_rolling and rolling_charges > 0 and not rolling_active:
                 #  연속 대쉬 할인을 고려한 실제 게이지 요구량 계산  
                 base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                 
@@ -28203,40 +28203,19 @@ def handle_player(keys):
                     discounted_cost = int(discounted_cost * 0.8)  # 대쉬기어 20% 할인
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
-                # A/D/화살표/IME 변형 모두 왼/오 입력으로 인정 (스냅샷+이벤트 포함)
-                left_active_for_dash = (
-                    is_move_left_pressed(keys)
-                    or MOVE_EVENT_LEFT
-                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_left_state))
-                )
-                right_active_for_dash = (
-                    is_move_right_pressed(keys)
-                    or MOVE_EVENT_RIGHT
-                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_right_state))
-                )
-                # 한글 IME에서 좌/우가 동시에 눌렸다고 감지되는 경우 가장 최근 입력만 인정
-                if left_active_for_dash and right_active_for_dash:
-                    if right_press_frame > left_press_frame:
-                        left_active_for_dash = False
-                    elif left_press_frame > right_press_frame:
-                        right_active_for_dash = False
-                    else:
-                        left_active_for_dash = False
-                        right_active_for_dash = False
+                # A/D도 왼/오 입력으로 인정 (마우스+키보드 스킴 포함)
                 left_before_down = (
-                    left_active_for_dash
+                    (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
                     and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame <= down_press_frame  # 동시 입력 허용(ㅁ+ㄴ)
+                    and left_press_frame < down_press_frame
                 )
                 right_before_down = (
-                    right_active_for_dash
+                    (is_move_right_pressed(keys) or MOVE_EVENT_RIGHT)
                     and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame <= down_press_frame  # 동시 입력 허용(ㅇ+ㄴ)
+                    and right_press_frame < down_press_frame
                 )
-                if globals().get('dash_down_first_lock', False) and (left_before_down or right_before_down):
-                    dash_down_first_lock = False
                 if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge:
                     # 아래키 + 왼쪽 - 대쉬 실행
                     rolling_active = True
