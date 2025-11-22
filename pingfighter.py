@@ -14865,6 +14865,12 @@ stage8_superspeed_text_end_ms: int = 0
 stage8_superspeed_freeze_end_ms: int = 0
 stage8_superspeed_cooldown_end_ms: int = 0
 STAGE8_SUPERSPEED_COOLDOWN_MS = 25000
+
+# === 극정호신 환영 분신 시스템 ===
+stage8_afterimage_ghosts: list = []  # 환영 분신 리스트 [{x, y, alpha, spawn_ms, target_x, target_y}]
+STAGE8_AFTERIMAGE_COUNT = 5  # 대쉬당 생성되는 환영 수
+STAGE8_AFTERIMAGE_FADE_MS = 800  # 환영 페이드아웃 시간
+STAGE8_AFTERIMAGE_DELAY_MS = 60  # 각 환영 간 딜레이
 STAGE8_SHADOW_CAST_MS = 500
 STAGE8_SHADOW_DURATION_MS = 10000
 STAGE8_SHADOW_EMERGE_MS = 600
