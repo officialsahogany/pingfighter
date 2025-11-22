@@ -36455,39 +36455,74 @@ def _start_stage8_stun_escape(now: int) -> None:
 
 
 def _update_stage8_stun_escape(now: int) -> None:
-    """잔영 탈출 진행 및 잔상 생성."""
+    """잔영 탈출 진행 - 5개 잔상이 겹치며 천천히 빠져나옴."""
     global stage8_stun_escape_active, stage8_stun_escape_attempted, stage8_stun_escape_ready_ms
-    global stage8_stun_escape_dx
+    global stage8_stun_escape_dx, stage8_stun_escape_ghosts
     global boss_dash_afterimages, boss_current_speed
     if not stage8_stun_escape_active:
         return
 
     duration = STAGE8_STUN_ESCAPE_DURATION_MS
     elapsed = now - stage8_stun_escape_start_ms
-    t = min(1.0, max(0.0, elapsed / duration)) if duration > 0 else 1.0
 
-    new_x = stage8_stun_escape_start_x + stage8_stun_escape_dx * t
+    # 메인 보스(첫 번째 잔상)의 이동 진행률
+    t = min(1.0, max(0.0, elapsed / duration)) if duration > 0 else 1.0
+    # ease-out 효과로 처음에 빠르고 끝에서 감속
+    eased_t = 1.0 - (1.0 - t) ** 2
+
+    new_x = stage8_stun_escape_start_x + stage8_stun_escape_dx * eased_t
     BOSS.centerx = int(new_x)
     BOSS.centerx = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, BOSS.centerx))
     boss_current_speed = 0  # 이동은 스크립트로 처리
 
-    # 잔상 추가 (보스 이미지 기반)
-    try:
-        img = pygame.transform.scale(BOSS_IMG_STAGE8, (BOSS.width, BOSS.height))
-    except Exception:
-        img = None
-    if img is not None:
-        boss_dash_afterimages.append(
-            {"x": BOSS.centerx, "y": BOSS.centery, "alpha": 160, "life": 10, "image": img.copy()}
-        )
-        if len(boss_dash_afterimages) > 8:
-            boss_dash_afterimages.pop(0)
+    # 각 잔상 업데이트 - 시간차를 두고 빠져나옴
+    for ghost in stage8_stun_escape_ghosts:
+        if ghost["finished"]:
+            continue
 
-    if elapsed >= duration:
+        # 딜레이 후 이동 시작
+        ghost_elapsed = elapsed - ghost["delay_ms"]
+        if ghost_elapsed < 0:
+            # 아직 딜레이 중 - 시작 위치에 머무름
+            ghost["x"] = ghost["start_x"]
+            ghost["y"] = ghost["start_y"]
+            continue
+
+        ghost["started"] = True
+
+        # 각 잔상의 이동 진행률 (딜레이 이후 시간 기준)
+        ghost_duration = duration - ghost["delay_ms"]
+        if ghost_duration <= 0:
+            ghost_t = 1.0
+        else:
+            ghost_t = min(1.0, ghost_elapsed / ghost_duration)
+
+        # ease-out 효과
+        ghost_eased_t = 1.0 - (1.0 - ghost_t) ** 2
+
+        # 잔상 위치 업데이트
+        ghost["x"] = ghost["start_x"] + stage8_stun_escape_dx * ghost_eased_t
+        ghost["y"] = ghost["start_y"]
+
+        # 이동 완료 시 페이드아웃
+        if ghost_t >= 1.0:
+            ghost["finished"] = True
+            ghost["alpha"] = 0
+        else:
+            # 이동 중에는 점점 투명해짐 (마지막 30%에서 페이드아웃)
+            if ghost_t > 0.7:
+                fade_progress = (ghost_t - 0.7) / 0.3
+                ghost["alpha"] = int(ghost["base_alpha"] * (1.0 - fade_progress))
+
+    # 모든 잔상이 완료되었는지 확인
+    all_finished = all(g["finished"] for g in stage8_stun_escape_ghosts) if stage8_stun_escape_ghosts else True
+
+    if elapsed >= duration and all_finished:
         stage8_stun_escape_active = False
         stage8_stun_escape_attempted = False
         stage8_stun_escape_ready_ms = 0
         stage8_stun_escape_dx = 0.0
+        stage8_stun_escape_ghosts = []
 
 def update_stage8_shadow_clones() -> None:
     """그림자분신 이동/수명/충돌 갱신."""
@@ -40997,6 +41032,19 @@ def draw_objects():
         time_now = pygame.time.get_ticks()
         if (time_now // 250) % 2 == 0:
             apply_white_glow(rotated_boss, intensity=60)
+    # === Stage 8 영체탈주 겹치는 잔상들 (5개가 시간차로 빠져나옴) ===
+    if current_stage == 8 and stage8_stun_escape_active and stage8_stun_escape_ghosts:
+        # 뒤에서부터 그려서 앞에 있는 잔상이 위에 오도록
+        for ghost in reversed(stage8_stun_escape_ghosts):
+            if ghost["alpha"] <= 0:
+                continue
+            ghost_img = ghost["image"]
+            if ghost_img is not None:
+                ghost_surf = ghost_img.copy()
+                ghost_surf.set_alpha(ghost["alpha"])
+                ghost_rect = ghost_surf.get_rect(center=(int(ghost["x"]), int(ghost["y"])))
+                SCREEN.blit(ghost_surf, ghost_rect.topleft)
+
     # === Stage 8 영체탈주 허수아비(스턴 잔상) ===
     if current_stage == 8 and stage8_stun_hologram_active and stage8_stun_hologram_rect:
         now = pygame.time.get_ticks()
