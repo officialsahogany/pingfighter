@@ -36708,7 +36708,7 @@ def _stage8_superspeed_dash(now: int) -> None:
 
     direction = 1 if BALL.centerx > BOSS.centerx else -1
     raw_distance = abs(BALL.centerx - BOSS.centerx)
-    dash_distance = min(500, max(60, raw_distance))
+    dash_distance = max(60, raw_distance)
 
     target_centerx = BOSS.centerx + dash_distance * direction
     target_centerx = int(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_centerx)))
@@ -36740,7 +36740,7 @@ def _stage8_superspeed_dash(now: int) -> None:
 
     direction = 1 if BALL.centerx > BOSS.centerx else -1
     raw_distance = abs(BALL.centerx - BOSS.centerx)
-    dash_distance = min(500, max(60, raw_distance))
+    dash_distance = max(60, raw_distance)
 
     target_centerx = BOSS.centerx + dash_distance * direction
     target_centerx = int(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_centerx)))
