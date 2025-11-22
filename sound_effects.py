@@ -66,6 +66,7 @@ SOUND_PATHS = {
     "STAGE1_MACHINE": "sounds/stage1muchine.wav",
     "BIRDKILL": "sounds/birdkill.wav",
     "THROW": "sounds/throw.wav",
+    "SHURIKEN_SHOOT": "sounds/pyochangshoot.wav",
     "ITEM_GET": "sounds/itemget.wav",
     "NOTIFICATION": "sounds/item_pickup.wav",
     "STAR_POINT_STACK": "sounds/starpointstack.wav",
