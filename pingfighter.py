@@ -61401,6 +61401,8 @@ def handle_ball():
     # 스테이지8 그림자분신
     global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
     global stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
+    # 스테이지8 표창 추가발사 상태
+    global stage8_shuriken_pending, stage8_shuriken_from_pending
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
     # 공 물리 & 움직임
