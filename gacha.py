@@ -322,7 +322,6 @@ def update_gacha():
         if capsule_bounce_count >= 3:
             gacha_phase = 3
             gacha_animation = 0
-            play_gacha_result_sound()
             return
     
     # 애니메이션 업데이트
@@ -1047,6 +1046,7 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
 
         # 뽑기 완료 후 결과 페이지 표시
         if gacha_result:
+            play_gacha_result_sound()
             show_gacha_result_page(
                 screen,
                 width,
