@@ -27600,6 +27600,9 @@ def handle_player(keys):
                     and down_press_frame >= 0
                     and right_press_frame <= down_press_frame  # 동일 프레임 동시 입력(예: ㅇ+ㄴ)도 허용
                 )
+                # ↓ 우선 입력 락이 남아 있더라도 방향키가 선입력된 상태라면 해제하여 대쉬/하프대쉬를 허용
+                if globals().get('dash_down_first_lock', False) and (left_before_down or right_before_down):
+                    dash_down_first_lock = False
                 current_charges = get_roll("rolling_charges")
 
                 if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge and current_charges > 0:
@@ -28030,6 +28033,8 @@ def handle_player(keys):
                     and down_press_frame >= 0
                     and right_press_frame <= down_press_frame  # 동시 입력(ㅇ+ㄴ)도 허용
                 )
+                if globals().get('dash_down_first_lock', False) and (left_before_down_half or right_before_down_half):
+                    dash_down_first_lock = False
                 if (left_before_down_half or right_before_down_half) and not globals().get('dash_down_first_lock', False):
                     # 게이지 계산
                     base_gauge_cost = 140
