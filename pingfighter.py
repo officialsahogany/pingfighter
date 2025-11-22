@@ -14849,6 +14849,16 @@ stage8_awakened: bool = False  # 초각성 상태 (플레이어 점수 3점 이�
 stage8_awaken_intro_pending: bool = False  # 3점 달성 후 연출 진행 여부
 stage8_awaken_intro_done: bool = False     # 연출 완료 여부
 stage8_awaken_freeze_end_ms: int = 0
+
+# === 스테이지 8 초각성 바람 오오라 시스템 ===
+stage8_wind_aura_active: bool = False  # 바람 오오라 활성 상태
+stage8_wind_aura_particles: list = []  # 바람 오오라 파티클들 [{x, y, vx, vy, alpha, size, color}]
+stage8_wind_burst_active: bool = False  # 폭발 애니메이션 활성
+stage8_wind_burst_start_ms: int = 0  # 폭발 시작 시간
+stage8_wind_burst_particles: list = []  # 폭발 파티클들
+STAGE8_WIND_BURST_DURATION_MS = 800  # 폭발 애니메이션 지속 시간
+STAGE8_WIND_AURA_PARTICLE_COUNT = 24  # 오오라 파티클 수
+STAGE8_WIND_BURST_PARTICLE_COUNT = 48  # 폭발 파티클 수
 stage8_superspeed_active: bool = False
 stage8_superspeed_end_ms: int = 0
 stage8_superspeed_text_end_ms: int = 0
