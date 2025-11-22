@@ -36469,11 +36469,25 @@ def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
     # 바람 회오리 기본 원형 오오라
     aura_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
+    # 초신가속 상태에 따른 색상 설정
+    if stage8_superspeed_active:
+        # 주황빛 색상 (초신가속)
+        glow_color = (255, 150, 50)  # 주황 글로우
+        stream_color_base = (255, 180, 80)  # 주황 스트림
+        ring_color_main = (255, 150, 50)  # 주황 링
+        ring_color_sub = (255, 200, 100)  # 밝은 주황 링
+    else:
+        # 기본 시안/청록 색상
+        glow_color = (100, 220, 255)  # 시안 글로우
+        stream_color_base = (150, 240, 255)  # 시안 스트림
+        ring_color_main = (100, 220, 255)  # 시안 링
+        ring_color_sub = (150, 255, 200)  # 민트 링
+
     # 1. 내부 글로우 (보스 주변 빛나는 효과)
     glow_radius = 70 + int(math.sin(now_ms * 0.005) * 8)
     for r in range(glow_radius, glow_radius - 30, -5):
         alpha = int(40 * (1 - (glow_radius - r) / 30))
-        pygame.draw.circle(aura_surface, (100, 220, 255, alpha), (boss_cx, boss_cy), r, 2)
+        pygame.draw.circle(aura_surface, (*glow_color, alpha), (boss_cx, boss_cy), r, 2)
 
     # 2. 회전하는 바람 스트림 라인
     num_streams = 6
@@ -36488,7 +36502,7 @@ def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
             x2 = boss_cx + math.cos(seg_angle + 0.1) * (seg_radius + 6)
             y2 = boss_cy + math.sin(seg_angle + 0.1) * (seg_radius + 6)
             alpha = int(120 * (1 - j / 8))
-            color = (150, 240, 255, alpha)
+            color = (*stream_color_base, alpha)
             pygame.draw.line(aura_surface, color, (x1, y1), (x2, y2), 2)
 
     # 3. 회전하는 파티클들
@@ -36497,7 +36511,21 @@ def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
         py = boss_cy + math.sin(p["angle"]) * p["radius"]
 
         size = p["size"]
-        r, g, b, a = p["color"]
+
+        # 초신가속 상태에서 파티클 색상도 주황빛으로 변경
+        if stage8_superspeed_active:
+            # 주황빛 파티클 색상
+            particle_colors = [
+                (255, 180, 100),  # 밝은 주황
+                (255, 140, 60),   # 주황
+                (255, 200, 120),  # 연한 주황
+                (255, 160, 80),   # 중간 주황
+            ]
+            idx = hash((p["angle"], p["base_radius"])) % len(particle_colors)
+            r, g, b = particle_colors[idx]
+            a = p["color"][3]  # 원래 알파값 유지
+        else:
+            r, g, b, a = p["color"]
 
         # 꼬리 효과
         tail_len = 3
@@ -36517,8 +36545,8 @@ def draw_stage8_wind_aura(surface: pygame.Surface) -> None:
     # 4. 외곽 펄싱 링
     outer_ring_radius = 90 + int(math.sin(now_ms * 0.004) * 5)
     ring_alpha = int(60 + 30 * math.sin(now_ms * 0.006))
-    pygame.draw.circle(aura_surface, (100, 220, 255, ring_alpha), (boss_cx, boss_cy), outer_ring_radius, 2)
-    pygame.draw.circle(aura_surface, (150, 255, 200, ring_alpha // 2), (boss_cx, boss_cy), outer_ring_radius + 5, 1)
+    pygame.draw.circle(aura_surface, (*ring_color_main, ring_alpha), (boss_cx, boss_cy), outer_ring_radius, 2)
+    pygame.draw.circle(aura_surface, (*ring_color_sub, ring_alpha // 2), (boss_cx, boss_cy), outer_ring_radius + 5, 1)
 
     surface.blit(aura_surface, (0, 0))
 
