@@ -72152,11 +72152,13 @@ def main(stage_num, new_boss_mode=False):
             if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID:
                 current_left_state = bool(SNAP_left_state)
                 current_right_state = bool(SNAP_right_state)
-                current_down_state = bool(SNAP_down_state)
+                # 한글 IME 환경에서 ↓는 get_pressed()에 안 잡히는 경우가 있어
+                # 이벤트 기반 MOVE_EVENT_DOWN도 함께 반영한다.
+                current_down_state = bool(SNAP_down_state) or bool(MOVE_EVENT_DOWN)
             else:
                 current_left_state = is_move_left_pressed(keys)
                 current_right_state = is_move_right_pressed(keys)
-                current_down_state = is_move_down_pressed(keys)
+                current_down_state = is_move_down_pressed(keys) or bool(MOVE_EVENT_DOWN)
             # 마우스+키보드 스킴에서는 A/D/S와 우클릭까지 병합
             try:
                 _sm_dir_scheme = get_settings_manager().get_setting('controls', 'control_scheme', 'keyboard')
