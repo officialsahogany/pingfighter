@@ -36352,13 +36352,47 @@ def _finish_stage8_cloud(now: int) -> None:
     stage8_cloud_rect.center = (cx, cy)
 
 
+def _is_stage8_net_trapped() -> bool:
+    """코만도 그물덫총에 보스가 포획되어 있는지 여부."""
+    try:
+        from item_effects.net_gun import get_net_gun_instance
+
+        net_gun = get_net_gun_instance()
+        return bool(net_gun and net_gun.boss_is_trapped())
+    except Exception:
+        return False
+
+
+def _release_stage8_net_trap() -> int:
+    """그물덫총 포획 상태 해제; 제거된 그물 수를 반환."""
+    removed = 0
+    try:
+        from item_effects.net_gun import get_net_gun_instance
+
+        net_gun = get_net_gun_instance()
+        if net_gun and getattr(net_gun, "nets", None) is not None:
+            new_nets = []
+            for net in net_gun.nets:
+                if net.get("boss_trapped"):
+                    removed += 1
+                    continue
+                new_nets.append(net)
+            net_gun.nets = new_nets
+        if removed and "net_capture_animation_start_time" in globals():
+            globals()["net_capture_animation_start_time"] = None
+    except Exception:
+        pass
+    return removed
+
+
 def _try_stage8_stun_escape(now: int) -> bool:
     """스턴 중 영체탈주 발동 시도. 성공 시 True."""
     global stage8_stun_escape_ready_ms, stage8_stun_escape_attempted, boss_special_gauge
-    if current_stage != 8 or boss_stunned_timer <= 0:
+    trapped_by_net = _is_stage8_net_trapped()
+    if current_stage != 8 or (boss_stunned_timer <= 0 and not trapped_by_net):
         return False
 
-    # 스턴 즉시 시도 (지연 없음)
+    # 스턴/포획 즉시 시도 (지연 없음)
     if stage8_stun_escape_ready_ms == 0:
         stage8_stun_escape_ready_ms = now  # 즉시 가능
         stage8_stun_escape_attempted = False
@@ -36420,6 +36454,7 @@ def _start_stage8_stun_escape(now: int) -> None:
     boss_stunned_timer = 0
     boss_knockback_vel = 0
     boss_special_gauge = max(0, boss_special_gauge - STAGE8_STUN_ESCAPE_COST)
+    _release_stage8_net_trap()
 
     # 5개의 겹치는 잔상 생성 - 각각 다른 딜레이로 천천히 빠져나옴
     stage8_stun_escape_ghosts = []
