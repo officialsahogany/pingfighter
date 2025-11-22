@@ -37900,8 +37900,8 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                     px = smoke_cx + math.cos(particle_angle) * particle_dist + wobble
                     py = smoke_cy + math.sin(particle_angle) * particle_dist * 0.5 + wobble * 0.5
 
-                    # 뭉글뭉글한 파티클 크기
-                    base_size = 18 + random.randint(0, 25)
+                    # 뭉글뭉글한 파티클 크기 (15% 증가)
+                    base_size = 21 + random.randint(0, 29)
                     particle_size = int(base_size * layer_progress * (1.2 - layer * 0.08))
 
                     if particle_size > 4:
