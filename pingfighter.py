@@ -64944,6 +64944,8 @@ def handle_ball():
     stage8_shadow_intangible = False
     # 스테이지8 구름장막 대시(준비/하강/상승) 중에는 패들 판정 제거
     stage8_cloud_dash_intangible = False
+    # 스테이지8 스턴 탈출 잔영 대시 중에도 판정 제거
+    stage8_stun_escape_intangible = False
     if current_stage == 8:
         now_ms = pygame.time.get_ticks()
         invuln_end_ms = 0
@@ -64957,6 +64959,9 @@ def handle_ball():
             stage8_cloud_dash_intangible = True
             # 충돌 판정 자체를 제거해 확실히 통과시키기
             boss_hitbox_expanded = pygame.Rect(-9999, -9999, 0, 0)
+        if stage8_stun_escape_active:
+            stage8_stun_escape_intangible = True
+            boss_hitbox_expanded = pygame.Rect(-9999, -9999, 0, 0)
 
     if (
         boss_hitbox_expanded.colliderect(BALL)
@@ -64964,6 +64969,7 @@ def handle_ball():
         and not is_waiting_for_serve
         and not stage8_shadow_intangible
         and not stage8_cloud_dash_intangible
+        and not stage8_stun_escape_intangible
     ):
         # 자폭드론 부스트 상태면 보스 맞는 순간 바로 복원 처리 (우선 적용)
         try:
@@ -67872,6 +67878,13 @@ def handle_boss():
     global stage8_stun_escape_start_ms, stage8_stun_escape_start_x, stage8_stun_escape_target_x, stage8_stun_escape_dx
 
     now_ms = pygame.time.get_ticks()
+
+    # 스테이지 8 전용 스턴 탈출 상태 정리 (다른 스테이지 전환 시 초기화)
+    if current_stage != 8:
+        stage8_stun_escape_active = False
+        stage8_stun_escape_ready_ms = 0
+        stage8_stun_escape_attempted = False
+        stage8_stun_escape_dx = 0.0
 
 
     # 스테이지8 스턴 탈출 모션 진행 중이면 우선 처리
