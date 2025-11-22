@@ -36732,11 +36732,12 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     if now >= stage8_cloud_end_ms:
         return
 
-    # 퍼짐 애니메이션 진행률 계산
+    # 퍼짐 애니메이션 진행률 계산 - 폭발적 분출 효과
     elapsed = now - stage8_cloud_start_ms
     expand_progress = min(1.0, elapsed / STAGE8_CLOUD_EXPAND_MS)
-    # ease-out 효과로 부드럽게 퍼지기
-    expand_progress = 1 - (1 - expand_progress) ** 3
+    # 급격한 폭발 효과: 처음에 빠르게 퍼지고 끝에서 감속
+    # ease-out-expo 커브로 폭발적인 느낌
+    expand_progress = 1 - (1 - expand_progress) ** 4  # 더 강한 지수 효과
 
     remaining = stage8_cloud_end_ms - now
 
