@@ -19968,6 +19968,12 @@ def go_to_next_round():
         if animated_bg_stage4 is not None and not animated_bg_stage4.temple_destroyed:
             animated_bg_stage4.start_destruction_animation()
             print("Stage 4: Temple destruction animation started at round start!")
+    # Stage 8: 경기 시작(0-0) 시 초각성 상태/연출 플래그 리셋
+    if current_stage == 8 and round_wins == 0 and round_losses == 0:
+        globals()["stage8_awakened"] = False
+        globals()["stage8_awaken_intro_pending"] = False
+        globals()["stage8_awaken_intro_done"] = False
+        globals()["stage8_awaken_freeze_end_ms"] = 0
     # Stage 8: 플레이어가 3점 이상이면 다음 라운드에 한 번만 연출 예약
     if current_stage == 8 and round_wins >= 3:
         if not globals().get("stage8_awaken_intro_done", False) and not globals().get("stage8_awaken_intro_pending", False):
