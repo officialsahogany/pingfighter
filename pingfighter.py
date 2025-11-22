@@ -14891,7 +14891,7 @@ STAGE8_CLOUD_MAX_COOLDOWN_MS = 20000
 STAGE8_CLOUD_COST = 200
 STAGE8_CLOUD_DASH_MS = 220  # 내려가기/올라가기 각각
 STAGE8_CLOUD_PRECAST_MS = 400  # 발동 전 정지/오로라 연출
-STAGE8_CLOUD_EXPAND_MS = 400  # 구름 퍼짐 애니메이션 시간
+STAGE8_CLOUD_EXPAND_MS = 280  # 구름 퍼짐 애니메이션 시간 (폭발적 분출)
 stage8_cloud_spawn_x: int = 0  # 구름 생성 위치 (보스 착지 위치)
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
@@ -36889,23 +36889,63 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
             draw_akatsuki_cloud_anim(cloud_surface, temp_center_x, center_y,
                                      cloud_width, cloud_height, cloud_fill, cloud_outline, outline_width)
 
-            # 가장자리 퍼지는 이펙트 (연기처럼)
-            edge_intensity = 1.0 - expand_progress
-            if edge_intensity > 0.1:
-                edge_alpha = int(180 * edge_intensity)
-                edge_color = (100, 90, 115, edge_alpha)
-                # 왼쪽 연기
-                for i in range(8):
-                    ex = current_left - random.randint(10, 40)
-                    ey = center_y + random.randint(-40, 40)
-                    er = int((20 + random.randint(0, 25)) * edge_intensity)
-                    pygame.draw.circle(cloud_surface, edge_color, (ex, ey), er)
-                # 오른쪽 연기
-                for i in range(8):
-                    ex = current_right + random.randint(10, 40)
-                    ey = center_y + random.randint(-40, 40)
-                    er = int((20 + random.randint(0, 25)) * edge_intensity)
-                    pygame.draw.circle(cloud_surface, edge_color, (ex, ey), er)
+            # 폭발적 분출 이펙트 - 낙하지점에서 뿜어져 나오는 느낌
+            burst_intensity = 1.0 - expand_progress
+            if burst_intensity > 0.05:
+                # 분출 중심점 (보스 낙하 위치)
+                burst_center_x = spawn_x_in_surface
+                burst_center_y = center_y
+
+                # 아카츠키 스타일 분출 색상
+                burst_alpha = int(220 * burst_intensity)
+                burst_color_main = (139, 69, 69, burst_alpha)  # 아카츠키 빨강
+                burst_color_light = (180, 100, 100, int(burst_alpha * 0.7))  # 밝은 빨강
+                burst_color_white = (255, 255, 255, int(burst_alpha * 0.5))  # 흰색 하이라이트
+
+                # 중앙에서 방사형으로 뿜어져 나가는 파티클들
+                num_bursts = int(20 * burst_intensity) + 5
+                for i in range(num_bursts):
+                    # 방사형 각도 (중앙에서 좌우로)
+                    angle = math.pi * (0.3 + random.random() * 0.4)  # 주로 좌우 방향
+                    if random.random() > 0.5:
+                        angle = math.pi - angle  # 왼쪽도 포함
+
+                    # 거리는 현재 퍼진 정도에 따라
+                    dist = current_width * 0.3 + random.random() * current_width * 0.3
+                    # 속도감을 위한 스트레치 효과
+                    stretch = 1.5 + burst_intensity * 2.0
+
+                    px = burst_center_x + math.cos(angle) * dist * stretch
+                    py = burst_center_y + math.sin(angle) * dist * 0.4 + random.randint(-30, 30)
+
+                    # 파티클 크기 (멀어질수록 작아짐)
+                    particle_size = int((15 + random.randint(0, 20)) * burst_intensity)
+
+                    if particle_size > 2:
+                        # 아카츠키 구름 스타일 파티클 (소용돌이 힌트)
+                        if random.random() > 0.6:
+                            pygame.draw.circle(cloud_surface, burst_color_main, (int(px), int(py)), particle_size)
+                            pygame.draw.circle(cloud_surface, burst_color_white, (int(px), int(py)), max(1, particle_size - 3), 2)
+                        else:
+                            pygame.draw.circle(cloud_surface, burst_color_light, (int(px), int(py)), particle_size)
+
+                # 가장자리 선도 효과 (빠르게 뻗어나가는 선)
+                if burst_intensity > 0.3:
+                    num_lines = int(8 * burst_intensity)
+                    for i in range(num_lines):
+                        angle = math.pi * (0.2 + (i / max(1, num_lines - 1)) * 0.6)
+                        if i % 2 == 0:
+                            angle = math.pi - angle
+
+                        line_length = current_width * 0.4 * (1 + burst_intensity)
+                        start_x = burst_center_x + math.cos(angle) * 20
+                        start_y = burst_center_y + math.sin(angle) * 10
+                        end_x = burst_center_x + math.cos(angle) * line_length
+                        end_y = burst_center_y + math.sin(angle) * line_length * 0.3
+
+                        line_alpha = int(150 * burst_intensity)
+                        pygame.draw.line(cloud_surface, (255, 255, 255, line_alpha),
+                                        (int(start_x), int(start_y)), (int(end_x), int(end_y)), 3)
 
             random.seed()
 
