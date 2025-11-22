@@ -14846,6 +14846,9 @@ stage8_shadow_freeze_posy: int = 0
 stage8_shadow_anchor_x: int = 0
 stage8_shadow_anchor_y: int = 0
 stage8_awakened: bool = False  # 초각성 상태 (플레이어 점수 3점 이상)
+stage8_awaken_intro_pending: bool = False  # 3점 달성 후 연출 진행 여부
+stage8_awaken_intro_done: bool = False     # 연출 완료 여부
+stage8_awaken_freeze_end_ms: int = 0
 stage8_superspeed_active: bool = False
 stage8_superspeed_end_ms: int = 0
 stage8_superspeed_text_end_ms: int = 0
@@ -68171,6 +68174,7 @@ def handle_boss():
     global stage8_stun_escape_ghosts
     global stage8_awakened, player_score
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
+    global stage8_awaken_intro_pending, stage8_awaken_intro_done, stage8_awaken_freeze_end_ms
 
     now_ms = pygame.time.get_ticks()
 
@@ -68185,6 +68189,9 @@ def handle_boss():
         stage8_stun_hologram_rect = None
         stage8_stun_hologram_end_ms = 0
         stage8_awakened = False
+        stage8_awaken_intro_pending = False
+        stage8_awaken_intro_done = False
+        stage8_awaken_freeze_end_ms = 0
         stage8_superspeed_active = False
         stage8_superspeed_end_ms = 0
         stage8_superspeed_text_end_ms = 0
@@ -68193,9 +68200,12 @@ def handle_boss():
     # 스테이지 8: 그물 포획/스턴 시 영체탈주 우선 시도
     if current_stage == 8:
         try:
-            if not stage8_awakened and player_score >= 3:
+            if not stage8_awaken_intro_done and player_score >= 3:
+                if not stage8_awaken_intro_pending:
+                    stage8_awaken_intro_pending = True
+                    stage8_awaken_freeze_end_ms = now_ms + 3000
+            elif stage8_awaken_intro_done and not stage8_awakened:
                 stage8_awakened = True
-                show_speech("초각성!", duration=90)
         except Exception:
             pass
         # 초신가속 종료 타이밍 체크
