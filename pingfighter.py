@@ -68051,6 +68051,7 @@ def handle_boss():
     global stage8_stun_escape_start_ms, stage8_stun_escape_start_x, stage8_stun_escape_target_x, stage8_stun_escape_dx
     global stage8_stun_hologram_active, stage8_stun_hologram_rect, stage8_stun_hologram_end_ms
     global stage8_stun_escape_ghosts
+    global stage8_awakened, player_score
 
     now_ms = pygame.time.get_ticks()
 
@@ -68064,9 +68065,16 @@ def handle_boss():
         stage8_stun_hologram_active = False
         stage8_stun_hologram_rect = None
         stage8_stun_hologram_end_ms = 0
+        stage8_awakened = False
 
     # 스테이지 8: 그물 포획/스턴 시 영체탈주 우선 시도
     if current_stage == 8:
+        try:
+            if not stage8_awakened and player_score >= 3:
+                stage8_awakened = True
+                show_speech("초각성!", duration=90)
+        except Exception:
+            pass
         net_trapped = _is_stage8_net_trapped()
         if net_trapped and not stage8_stun_escape_active:
             if _try_stage8_stun_escape(now_ms):
