@@ -27567,45 +27567,21 @@ def handle_player(keys):
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
                 # 좌/우는 컨트롤 스킴/IME 여부와 무관하게 인식 (스냅샷+이벤트+스캔코드)
-                left_active_for_dash = (
-                    is_move_left_pressed(keys)
-                    or MOVE_EVENT_LEFT
-                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_left_state))
-                )
-                right_active_for_dash = (
-                    is_move_right_pressed(keys)
-                    or MOVE_EVENT_RIGHT
-                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_right_state))
-                )
-                # IME/한글 배열에서 좌우가 동시에 눌린 것으로 보고되는 사례 방지:
-                # 양쪽 모두 활성으로 감지되면 더 최근에 눌린 방향만 남기고 나머지는 해제한다.
-                if left_active_for_dash and right_active_for_dash:
-                    if right_press_frame > left_press_frame:
-                        left_active_for_dash = False
-                    elif left_press_frame > right_press_frame:
-                        right_active_for_dash = False
-                    else:
-                        # 동일 프레임이면 대쉬 오동작을 막기 위해 둘 다 해제
-                        left_active_for_dash = False
-                        right_active_for_dash = False
                 left_before_down = (
-                    left_active_for_dash
+                    (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
                     and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame <= down_press_frame  # 동일 프레임 동시 입력(예: ㅁ+ㄴ)도 허용
+                    and left_press_frame < down_press_frame
                 )
                 right_before_down = (
-                    right_active_for_dash
+                    (is_move_right_pressed(keys) or MOVE_EVENT_RIGHT)
                     and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame <= down_press_frame  # 동일 프레임 동시 입력(예: ㅇ+ㄴ)도 허용
+                    and right_press_frame < down_press_frame
                 )
                 current_charges = get_roll("rolling_charges")
 
-                # ↓ 먼저 입력된 경우라도 방향키가 선입력돼 있으면 락을 해제한다.
-                if globals().get('dash_down_first_lock', False) and (left_before_down or right_before_down):
-                    dash_down_first_lock = False
-                if left_before_down and down_pressed and special_gauge >= required_gauge and current_charges > 0 and not globals().get('dash_down_first_lock', False):
+                if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge and current_charges > 0:
                     # 통제불능 상태에서 왼쪽 대쉬 실행 (아래키 + 왼쪽키 필요)
                     _start_dash(-1)
                     is_half_dash_active = False  # 일반 대쉬이므로 하프대쉬 플래그 해제
@@ -28000,42 +27976,19 @@ def handle_player(keys):
                 if serve_wait_time >= 6000:  # 6초 이상 대기
                     can_use_half_dash = True
             
-            if HALF_DASH_ENABLED and down_pressed and can_use_half_dash and not rolling_active:
-                left_active_for_dash = (
-                    is_move_left_pressed(keys)
-                    or MOVE_EVENT_LEFT
-                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_left_state))
-                )
-                right_active_for_dash = (
-                    is_move_right_pressed(keys)
-                    or MOVE_EVENT_RIGHT
-                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_right_state))
-                )
-                # 한글 IME 환경에서 좌우가 동시에 눌렸다고 잡히는 경우가 있어
-                # 더 최근에 눌린 방향만 남기고 반대쪽 플래그는 해제한다.
-                if left_active_for_dash and right_active_for_dash:
-                    if right_press_frame > left_press_frame:
-                        left_active_for_dash = False
-                    elif left_press_frame > right_press_frame:
-                        right_active_for_dash = False
-                    else:
-                        left_active_for_dash = False
-                        right_active_for_dash = False
+            if HALF_DASH_ENABLED and down_pressed and not globals().get('dash_down_first_lock', False) and can_use_half_dash and not rolling_active:
                 left_before_down_half = (
-                    left_active_for_dash
+                    (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
                     and left_press_frame >= 0
                     and down_press_frame >= 0
-                    and left_press_frame <= down_press_frame  # 동시 입력(ㅁ+ㄴ)도 허용
+                    and left_press_frame < down_press_frame
                 )
                 right_before_down_half = (
-                    right_active_for_dash
+                    (is_move_right_pressed(keys) or MOVE_EVENT_RIGHT)
                     and right_press_frame >= 0
                     and down_press_frame >= 0
-                    and right_press_frame <= down_press_frame  # 동시 입력(ㅇ+ㄴ)도 허용
+                    and right_press_frame < down_press_frame
                 )
-                # ↓가 먼저 눌려 락이 걸린 상태라도 방향키가 선입력된 경우 즉시 해제
-                if globals().get('dash_down_first_lock', False) and (left_before_down_half or right_before_down_half):
-                    dash_down_first_lock = False
                 if (left_before_down_half or right_before_down_half) and not globals().get('dash_down_first_lock', False):
                     # 게이지 계산
                     base_gauge_cost = 140
@@ -28084,10 +28037,8 @@ def handle_player(keys):
                             'down_pressed': down_pressed,
                             'keys': keys,
                             # A/D 보조 키 플래그 (하프대쉬 방향 판단 보조)
-                            'left_key_alt': left_active_for_dash,
-                            'right_key_alt': right_active_for_dash,
-                            'left_press_frame': left_press_frame,
-                            'right_press_frame': right_press_frame,
+                            'left_key_alt': bool(keys[pygame.K_a]) or MOVE_EVENT_LEFT or is_move_left_pressed(keys),
+                            'right_key_alt': bool(keys[pygame.K_d]) or MOVE_EVENT_RIGHT or is_move_right_pressed(keys),
                             'jump_bonus': jump_bonus,  # 도약 스킬 보너스 전달
                             'dashgear_obtained': dashgear_obtained  # 대쉬기어 상태 전달
                         }
