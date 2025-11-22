@@ -19264,6 +19264,14 @@ def _detonate_suicide_drone(reason: str = "manual") -> None:
     global suicide_drone_ball_speed_backup, suicide_drone_ball_boost_active
     if not suicide_drone_active or suicide_drone_rect is None:
         return
+    # 폭발 시 드론 비행음 중지
+    try:
+        global suicide_drone_sound_channel
+        if suicide_drone_sound_channel:
+            suicide_drone_sound_channel.stop()
+        suicide_drone_sound_channel = None
+    except Exception:
+        pass
     cx, cy = suicide_drone_rect.center
     try:
         trigger_grenade_style_explosion(cx, cy, apply_commando_bonus=False, source="suicide_drone", radius_scale=1.0)
