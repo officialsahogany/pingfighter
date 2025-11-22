@@ -68060,6 +68060,15 @@ def handle_boss():
         stage8_stun_hologram_rect = None
         stage8_stun_hologram_end_ms = 0
 
+    # 스테이지 8: 그물 포획/스턴 시 영체탈주 우선 시도
+    if current_stage == 8:
+        net_trapped = _is_stage8_net_trapped()
+        if net_trapped and not stage8_stun_escape_active:
+            if _try_stage8_stun_escape(now_ms):
+                return
+        if boss_stunned_timer <= 0 and not net_trapped and not stage8_stun_escape_active:
+            stage8_stun_escape_ready_ms = 0
+            stage8_stun_escape_attempted = False
 
     # 스테이지8 스턴 탈출 모션 진행 중이면 우선 처리
     if current_stage == 8 and stage8_stun_escape_active:
