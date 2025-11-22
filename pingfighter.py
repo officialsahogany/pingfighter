@@ -65850,6 +65850,7 @@ def handle_ball():
         if (
             not stage8_shadow_casting
             and not stage8_shuriken_casting
+            and not stage8_superspeed_active
             and boss_special_gauge >= STAGE8_SHURIKEN_COST
             and now >= stage8_shuriken_next_ready_ms
         ):
