@@ -14887,6 +14887,7 @@ stage8_cloud_precast_ms: int = 0
 stage8_cloud_spawn_pos: tuple[int, int] = (0, 0)
 stage8_cloud_burst_center: tuple[int, int] = (0, 0)
 stage8_cloud_invuln_end_ms: int = 0  # 대시 종료 후 잠시 추가 무적 제공
+stage8_cloud_midstay_end_ms: int = 0  # 초각성 상태: 착지 후 머무르는 종료 시각
 # Stage 8 스턴 회피 탈출
 stage8_stun_escape_active: bool = False
 stage8_stun_escape_start_ms: int = 0
