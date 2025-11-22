@@ -14885,6 +14885,7 @@ stage8_cloud_next_ready_ms: int = 0
 stage8_cloud_precast_ms: int = 0
 stage8_cloud_spawn_pos: tuple[int, int] = (0, 0)
 stage8_cloud_burst_center: tuple[int, int] = (0, 0)
+stage8_cloud_invuln_end_ms: int = 0  # 대시 종료 후 잠시 추가 무적 제공
 STAGE8_CLOUD_VISIBLE_MS = 5000
 STAGE8_CLOUD_MIN_COOLDOWN_MS = 10000
 STAGE8_CLOUD_MAX_COOLDOWN_MS = 20000
@@ -36466,11 +36467,13 @@ def update_stage8_cloud(now: int | None = None) -> None:
     global stage8_cloud_dash_active, stage8_cloud_dash_phase, stage8_cloud_dash_start_ms
     global stage8_cloud_origin, stage8_cloud_target_y, stage8_cloud_active
     global stage8_cloud_start_ms, stage8_cloud_end_ms, stage8_cloud_rect, stage8_cloud_spawn_pos
+    global stage8_cloud_invuln_end_ms
     if current_stage != 8:
         stage8_cloud_dash_active = False
         stage8_cloud_active = False
         stage8_cloud_rect = None
         stage8_cloud_spawn_pos = (0, 0)
+        stage8_cloud_invuln_end_ms = 0
         return
     if now is None:
         now = pygame.time.get_ticks()
@@ -36502,6 +36505,8 @@ def update_stage8_cloud(now: int | None = None) -> None:
                 if progress >= 1.0:
                     stage8_cloud_dash_active = False
                     stage8_cloud_dash_phase = None
+                    # 상승 완료 후 0.18초 동안 추가 무적 버퍼를 주어 겹침 반사 방지
+                    stage8_cloud_invuln_end_ms = now + 180
 
     # 지속 시간 관리
     if stage8_cloud_active and stage8_cloud_end_ms <= now:
@@ -64844,7 +64849,9 @@ def handle_ball():
             invuln_end_ms = stage8_shadow_cast_start_ms + STAGE8_SHADOW_CAST_MS + STAGE8_SHADOW_INVULN_BUFFER_MS
         if stage8_shadow_casting or (invuln_end_ms and now_ms < invuln_end_ms):
             stage8_shadow_intangible = True
-        if stage8_cloud_dash_active and stage8_cloud_dash_phase in ("pre", "down", "up"):
+        if (stage8_cloud_dash_active and stage8_cloud_dash_phase in ("pre", "down", "up")) or (
+            stage8_cloud_invuln_end_ms and now_ms < stage8_cloud_invuln_end_ms
+        ):
             stage8_cloud_dash_intangible = True
             # 충돌 판정 자체를 제거해 확실히 통과시키기
             boss_hitbox_expanded = pygame.Rect(-9999, -9999, 0, 0)
