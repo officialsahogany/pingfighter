@@ -72862,7 +72862,7 @@ def main(stage_num, new_boss_mode=False):
                     #  스킬 실패 기록
                     record_skill_usage(success=False)
             #  파워스매싱은 이제 동일한 타이밍 윈도우에서 우선순위로 처리됨
-            elif space_just_pressed and drive_global_cooldown > 0:
+            if space_just_pressed and drive_global_cooldown > 0:
                 # 전역 쿨다운 중일 때 스페이스바를 누른 경우 (가장 우선적으로 체크)
                 print(f"    ! ({drive_global_cooldown}  ) -  !")
             elif space_just_pressed and perfect_timing_input_used:
