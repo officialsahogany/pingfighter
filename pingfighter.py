@@ -64835,6 +64835,8 @@ def handle_ball():
         boss_hitbox_expanded = BOSS
     # 스테이지8 그림자분신 연출(하강/상승) 중에는 공 충돌 무시
     stage8_shadow_intangible = False
+    # 스테이지8 구름장막 하강(및 준비) 중에는 패들 판정 제거
+    stage8_cloud_dash_intangible = False
     if current_stage == 8:
         now_ms = pygame.time.get_ticks()
         invuln_end_ms = 0
@@ -64842,8 +64844,16 @@ def handle_ball():
             invuln_end_ms = stage8_shadow_cast_start_ms + STAGE8_SHADOW_CAST_MS + STAGE8_SHADOW_INVULN_BUFFER_MS
         if stage8_shadow_casting or (invuln_end_ms and now_ms < invuln_end_ms):
             stage8_shadow_intangible = True
+        if stage8_cloud_dash_active and stage8_cloud_dash_phase in ("pre", "down"):
+            stage8_cloud_dash_intangible = True
 
-    if boss_hitbox_expanded.colliderect(BALL) and boss_collision_cooldown <= 0 and not is_waiting_for_serve and not stage8_shadow_intangible:
+    if (
+        boss_hitbox_expanded.colliderect(BALL)
+        and boss_collision_cooldown <= 0
+        and not is_waiting_for_serve
+        and not stage8_shadow_intangible
+        and not stage8_cloud_dash_intangible
+    ):
         # 자폭드론 부스트 상태면 보스 맞는 순간 바로 복원 처리 (우선 적용)
         try:
             if suicide_drone_ball_boost_active and suicide_drone_ball_speed_backup > 0:
