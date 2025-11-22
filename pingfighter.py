@@ -37055,9 +37055,9 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     # 전체 크기 구름 그리기
     cloud_width = int(cloud_w * 0.75)
     cloud_height = int(cloud_h * 0.55)
-    draw_naruto_cloud_complete(cloud_surface, center_x, center_y,
-                               cloud_width, cloud_height, cloud_fill, cloud_outline, outline_width,
-                               sway=(sway_x, sway_y))
+    draw_akatsuki_cloud(cloud_surface, center_x, center_y,
+                        cloud_width, cloud_height, cloud_fill, cloud_outline, outline_width,
+                        sway=(sway_x, sway_y))
 
     # 떠다니는 작은 구름들 추가
     def draw_small_floating_cloud(surf, cx, cy, size, fill_color, outline_color, outline_w):
