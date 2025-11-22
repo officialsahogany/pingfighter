@@ -65186,7 +65186,7 @@ def handle_ball():
                         stage8_shadow_freeze_posy = BOSS.centery
                         show_speech("그림자분신!", duration=90)
                 if boss_special_gauge >= STAGE8_CLOUD_COST and not stage8_cloud_dash_active and not stage8_cloud_active:
-                    if pygame.time.get_ticks() >= stage8_cloud_next_ready_ms and random.random() <= 0.25:
+                    if pygame.time.get_ticks() >= stage8_cloud_next_ready_ms and random.random() <= 0.35:
                         _start_stage8_cloud(pygame.time.get_ticks())
                         boss_special_gauge = max(0, boss_special_gauge - STAGE8_CLOUD_COST)
                         show_speech("구름장막!", duration=80)
