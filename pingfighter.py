@@ -36580,8 +36580,8 @@ def update_stage8_shadow_clones() -> None:
 
     # 주문 완료 후 분신 생성
     if stage8_shadow_casting and now - stage8_shadow_cast_start_ms >= STAGE8_SHADOW_CAST_MS:
-        if boss_special_gauge >= 200:
-            boss_special_gauge = max(0, boss_special_gauge - 200)
+        if boss_special_gauge >= 100:
+            boss_special_gauge = max(0, boss_special_gauge - 100)
         _spawn_stage8_shadows(now)
 
     # 소멸 중인 분신 업데이트 (0.7초 후 완전 삭제)
@@ -65176,10 +65176,10 @@ def handle_ball():
         elif current_stage in (3, 4, 5, 6, 8):
             boss_special_gauge = min(boss_special_gauge + 80, 500)
             print(f"스테이지{current_stage} 보스 게이지 충전: +80 (현재: {boss_special_gauge}/500)")
-            # 스테이지 8: 패들 피격 시 15% 확률 그림자분신 / 40% 확률 구름장막 (조건 만족 시)
+            # 스테이지 8: 패들 피격 시 25% 확률 그림자분신 / 40% 확률 구름장막 (조건 만족 시)
             if current_stage == 8:
-                if boss_special_gauge >= 200 and not stage8_shadow_casting and not stage8_shadow_clones:
-                    if random.random() <= 0.15:
+                if boss_special_gauge >= 100 and not stage8_shadow_casting and not stage8_shadow_clones:
+                    if random.random() <= 0.25:
                         stage8_shadow_casting = True
                         stage8_shadow_cast_start_ms = pygame.time.get_ticks()
                         stage8_shadow_freeze_posx = BOSS.centerx
