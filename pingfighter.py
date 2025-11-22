@@ -14853,6 +14853,7 @@ stage8_superspeed_active: bool = False
 stage8_superspeed_end_ms: int = 0
 stage8_superspeed_text_end_ms: int = 0
 stage8_superspeed_freeze_end_ms: int = 0
+stage8_superspeed_cooldown_end_ms: int = 0
 STAGE8_SHADOW_CAST_MS = 500
 STAGE8_SHADOW_DURATION_MS = 10000
 STAGE8_SHADOW_EMERGE_MS = 600
@@ -68236,10 +68237,11 @@ def handle_boss():
                 show_speech("초각성!", duration=90)
             except Exception:
                 pass
-        # 초신가속 발동 조건 체크 (게이지 300)
+        # 초신가속 발동 조건 체크 (게이지 250)
         if (
             stage8_awakened
             and not stage8_superspeed_active
+            and now_ms >= stage8_superspeed_cooldown_end_ms
             and boss_special_gauge >= STAGE8_SUPERSPEED_COST
             and not stage8_stun_escape_active
         ):
