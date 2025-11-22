@@ -37945,23 +37945,6 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
             cloud_surface.set_alpha(base_alpha)
         surface.blit(cloud_surface, (cloud_x, cloud_y))
 
-        # 확장 단계에서도 플레이어 패들 가림
-        exp_cloud_left = cloud_x
-        exp_cloud_right = cloud_x + full_cloud_w
-        exp_cloud_top = cloud_y
-        exp_cloud_bottom = cloud_y + full_cloud_h
-
-        if (PLAYER.right > exp_cloud_left and PLAYER.left < exp_cloud_right and
-            PLAYER.bottom > exp_cloud_top and PLAYER.top < exp_cloud_bottom):
-            exp_mask_w = int(PLAYER.width * 1.8)
-            exp_mask_h = int(PLAYER.height * 2.5)
-
-            if base_alpha >= 30:
-                exp_mask_surface = pygame.Surface((exp_mask_w, exp_mask_h), pygame.SRCALPHA)
-                exp_mask_color = (50, 42, 75)
-                pygame.draw.ellipse(exp_mask_surface, exp_mask_color, (0, 0, exp_mask_w, exp_mask_h))
-                exp_mask_surface.set_alpha(base_alpha)
-                surface.blit(exp_mask_surface, (PLAYER.centerx - exp_mask_w // 2, PLAYER.centery - exp_mask_h // 2))
         return
 
     # 퍼짐 완료 후: 닌자 연막 지속 상태
@@ -38131,26 +38114,6 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
     surface.blit(cloud_surface, (cloud_x, cloud_y))
 
-    # 플레이어 패들 완전 가림 - 구름 영역 내에 있으면 마스크 그리기
-    # 구름 영역 계산
-    cloud_left = cloud_x
-    cloud_right = cloud_x + cloud_w
-    cloud_top = cloud_y
-    cloud_bottom = cloud_y + cloud_h
-
-    # 플레이어 패들이 구름 영역 내에 있는지 체크
-    if (PLAYER.right > cloud_left and PLAYER.left < cloud_right and
-        PLAYER.bottom > cloud_top and PLAYER.top < cloud_bottom):
-        # 플레이어 패들 가림용 마스크
-        player_mask_w = int(PLAYER.width * 1.8)
-        player_mask_h = int(PLAYER.height * 2.5)
-
-        if base_alpha >= 30:
-            player_mask_surface = pygame.Surface((player_mask_w, player_mask_h), pygame.SRCALPHA)
-            player_mask_color = (50, 42, 75)  # 구름 배경색과 유사
-            pygame.draw.ellipse(player_mask_surface, player_mask_color, (0, 0, player_mask_w, player_mask_h))
-            player_mask_surface.set_alpha(base_alpha)
-            surface.blit(player_mask_surface, (PLAYER.centerx - player_mask_w // 2, PLAYER.centery - player_mask_h // 2))
 
 
 
