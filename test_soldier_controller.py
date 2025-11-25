@@ -16,8 +16,9 @@ class SoldierWeaponControllerTest(unittest.TestCase):
 
     def test_register_reload_marks_degraded(self) -> None:
         self.controller.add_weapon("ak47")
-        for _ in range(2):
-            self.controller.register_reload("ak47")
+        # 테스트 안정성을 위해 임계치를 고정
+        self.controller.degradation_thresholds["ak47"] = 1
+        self.controller.register_reload("ak47")
         self.assertIn("ak47", self.controller.degraded)
 
     def test_remove_weapon_falls_back_to_pistol(self) -> None:

@@ -3075,7 +3075,7 @@ class LegendaryItemManager:
         else:
             self._debug_counter = 0
             
-        if self._debug_counter == 1:
+        if self._debug_counter == 1 and os.environ.get("PINGF_DEBUG_LEGENDARY", "0") == "1":
             print(f"🔍 LegendaryManager.update: active_items={self.active_items}, ui_mode={ui_mode}")
             
         for name in self.active_items:

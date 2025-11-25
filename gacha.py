@@ -37,6 +37,12 @@ GACHA_RESULT_AUTO_DELAY_FRAMES = 45  # 결과 화면 자동 전환 대기(약 0.
 EXTRA_GACHA_NOTICE_DURATION = 90  # 약 1.5초간 표시
 extra_gacha_notice = None  # {'timer': int, 'duration': int}
 
+# Cached surfaces (사이즈별)
+_bg_cache: dict[tuple[int, int], pygame.Surface] = {}
+_container_cache: dict[tuple[str, int, int], dict] = {}
+_particle_glow_cache: dict[tuple[int, tuple[int, int, int], int], pygame.Surface] = {}
+_result_bg_cache: dict[tuple[str, int, int], pygame.Surface] = {}
+
 def trigger_extra_gacha_notice():
     global extra_gacha_notice
     extra_gacha_notice = {
@@ -54,6 +60,42 @@ def update_extra_gacha_notice():
         extra_gacha_notice["timer"] -= 1
         if extra_gacha_notice["timer"] <= 0:
             extra_gacha_notice = None
+
+
+def _get_bg_surface(width: int, height: int, *, cache_key: str = "main", grid_step: int = 30, grid_alpha: int = 20) -> pygame.Surface:
+    """Return a cached gradient+grid background for the given size."""
+    cache_id = (cache_key, width, height, grid_step, grid_alpha)
+    if cache_id in _bg_cache:
+        return _bg_cache[cache_id]
+
+    surf = pygame.Surface((width, height), pygame.SRCALPHA)
+    for y in range(height):
+        ratio = y / height
+        r = int(10 + ratio * 20)
+        g = int(20 + ratio * 30)
+        b = int(30 + ratio * 50)
+        pygame.draw.line(surf, (r, g, b), (0, y), (width, y))
+
+    grid_color = (0, 255, 255, grid_alpha)
+    for x in range(0, width, grid_step):
+        pygame.draw.line(surf, grid_color, (x, 0), (x, height))
+    for y in range(0, height, grid_step):
+        pygame.draw.line(surf, grid_color, (0, y), (width, y))
+
+    _bg_cache[cache_id] = surf
+    return surf
+
+
+def _get_particle_glow_surface(size: int, color: tuple[int, int, int], alpha: int) -> pygame.Surface:
+    """Cache small glow circles to avoid per-frame surface allocation."""
+    alpha_clamped = max(0, min(255, int(alpha)))
+    key = (size, color, alpha_clamped)
+    surf = _particle_glow_cache.get(key)
+    if surf is None:
+        surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        pygame.draw.circle(surf, (*color, alpha_clamped), (size // 2, size // 2), size // 2)
+        _particle_glow_cache[key] = surf
+    return surf
 
 
 def load_gacha_start_sound():
@@ -186,60 +228,8 @@ def init_gacha(available_items, legendary_bonus=0.0):
         # 이미 획득한 패시브 아이템은 제외
         should_skip = False
         
-        # 각 패시브 아이템 체크
-        if item_name == "slot_add" and getattr(items, 'slot_add_obtained', 0) >= 2:
-            should_skip = True
-        elif item_name == "speedboots" and getattr(items, 'speedboots_obtained', False):
-            should_skip = True
-        elif item_name == "speedgear" and getattr(items, 'speedgear_obtained', False):
-            should_skip = True
-        elif item_name == "battery" and getattr(items, 'battery_obtained', False):
-            should_skip = True
-        elif item_name == "revival" and (getattr(items, 'revival_obtained', False) or getattr(items, 'revival_used', False)):
-            should_skip = True
-        elif item_name == "master" and getattr(items, 'master_obtained', False):
-            should_skip = True
-        elif item_name == "cooltime" and getattr(items, 'cooltime_obtained', False):
-            should_skip = True
-        elif item_name == "spikeboots" and getattr(items, 'spikeboots_obtained', False):
-            should_skip = True
-        elif item_name == "dashgear" and getattr(items, 'dashgear_obtained', False):
-            should_skip = True
-        elif item_name == "bulkup" and getattr(items, 'bulkup_obtained', False):
-            should_skip = True
-        elif item_name == "dashholder" and getattr(items, 'dashholder_obtained', False):
-            should_skip = True
-        elif item_name == "gravitybelt" and getattr(items, 'gravitybelt_obtained', False):
-            should_skip = True
-        elif item_name == "sensor" and getattr(items, 'sensor_obtained', False):
-            should_skip = True
-        elif item_name == "dowsing_pendulum" and getattr(items, 'dowsing_pendulum_obtained', False):
-            should_skip = True
-        elif item_name == "commando_arm" and getattr(items, 'commando_arm_obtained', False):
-            should_skip = True
-        elif item_name == "technical_vest" and getattr(items, 'technical_vest_obtained', False):
-            should_skip = True
-        elif item_name == "fuel_pouch" and getattr(items, 'fuel_pouch_obtained', False):
-            should_skip = True
-        elif item_name == "bluetooth_ring" and getattr(items, 'bluetooth_ring_obtained', False):
-            should_skip = True
-        elif item_name == "foul_whistle" and getattr(items, 'foul_whistle_obtained', False):
-            should_skip = True
-        elif item_name == "star_detector" and getattr(items, 'star_detector_obtained', False):
-            should_skip = True
-        elif item_name == "smartphone" and getattr(items, 'smartphone_obtained', False):
-            should_skip = True
-        elif item_name == "knee_pads" and getattr(items, 'knee_pads_obtained', False):
-            should_skip = True
-        elif item_name == "ragnarok_hammer" and getattr(items, 'ragnarok_hammer_obtained', False):
-            should_skip = True  # 라그나로크 해머도 중복 방지
-        elif item_name == "hermes_shoes" and getattr(items, 'hermes_shoes_obtained', False):
-            should_skip = True  # 헤르메스의 신발도 중복 방지
-        elif item_name == "poseidon_trident" and getattr(items, 'poseidon_trident_obtained', False):
-            should_skip = True  # 포세이돈의 삼지창도 중복 방지
-        
-        if not should_skip:
-            filtered_items.append(item)
+        # 패시브 아이템 중복 획득 허용: 필터링 없이 모두 포함
+        filtered_items.append(item)
     
     # 필터링된 아이템이 없으면 원본 사용
     if not filtered_items:
@@ -346,6 +336,84 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
     # 뽑기통 위치 계산
     machine_x = center_x - GACHA_MACHINE_WIDTH // 2
     machine_y = center_y - GACHA_MACHINE_HEIGHT // 2
+
+    # 정적 파츠 캐시
+    cache = getattr(draw_cyberpunk_gacha_machine, "_cache", None)
+    if cache is None:
+        # 베이스 글로우
+        base_glows = []
+        for i in range(3):
+            glow_surf = pygame.Surface((GACHA_MACHINE_WIDTH - 90 + i * 10, GACHA_BASE_HEIGHT + i * 10), pygame.SRCALPHA)
+            pygame.draw.rect(
+                glow_surf,
+                (0, 255, 255, 50 - i * 15),
+                (0, 0, GACHA_MACHINE_WIDTH - 90 + i * 10, GACHA_BASE_HEIGHT + i * 10),
+                border_radius=10,
+            )
+            base_glows.append((glow_surf, -i * 5, -i * 5))
+
+        # 슬롯/폰트
+        try:
+            coin_font = pygame.font.Font(resource_path("NanumSquare.ttf"), 10)
+        except Exception:
+            coin_font = pygame.font.Font(None, 10)
+        slot_surf = pygame.Surface((50, 20), pygame.SRCALPHA)
+        pygame.draw.rect(slot_surf, (0, 50, 100, 150), (0, 0, 50, 20))
+        pygame.draw.rect(slot_surf, (0, 255, 255), (0, 0, 50, 20), 2)
+
+        # 핸들 글로우
+        handle_glows = []
+        handle_glow_radius = 15
+        for i in range(2):
+            glow_surf = pygame.Surface((handle_glow_radius * 2 + i * 10, handle_glow_radius * 2 + i * 10), pygame.SRCALPHA)
+            pygame.draw.circle(
+                glow_surf,
+                (255, 0, 255, 80 - i * 30),
+                (handle_glow_radius + i * 5, handle_glow_radius + i * 5),
+                handle_glow_radius + i * 5,
+            )
+            handle_glows.append(glow_surf)
+
+        # 배출구 / 슬롯 주변
+        chute_surf = pygame.Surface((80, 25), pygame.SRCALPHA)
+        pygame.draw.rect(chute_surf, (0, 30, 60, 150), (0, 0, 80, 25))
+        pygame.draw.rect(chute_surf, (0, 255, 255), (0, 0, 80, 25), 2)
+        outlet_glow = pygame.Surface((90, 35), pygame.SRCALPHA)
+        pygame.draw.rect(outlet_glow, (0, 255, 0, 50), (0, 0, 90, 35), border_radius=5)
+
+        # 구체 글로우/본체
+        globe_glows = {}
+        for i in range(3):
+            glow_radius = GACHA_GLOBE_RADIUS + i * 10
+            glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (0, 255, 255, 30 - i * 10), (glow_radius, glow_radius), glow_radius)
+            globe_glows[glow_radius] = glow_surf
+
+        globe_surface = pygame.Surface((GACHA_GLOBE_RADIUS * 2, GACHA_GLOBE_RADIUS * 2), pygame.SRCALPHA)
+        pygame.draw.circle(globe_surface, (0, 100, 150, 50), (GACHA_GLOBE_RADIUS, GACHA_GLOBE_RADIUS), GACHA_GLOBE_RADIUS)
+        for angle in range(0, 360, 30):
+            x = GACHA_GLOBE_RADIUS + int(GACHA_GLOBE_RADIUS * 0.7 * math.cos(math.radians(angle)))
+            y = GACHA_GLOBE_RADIUS + int(GACHA_GLOBE_RADIUS * 0.7 * math.sin(math.radians(angle)))
+            pygame.draw.circle(globe_surface, (255, 255, 255, 20), (x, y), 5)
+
+        # 커버
+        cover_surf = pygame.Surface((120, 30), pygame.SRCALPHA)
+        for y in range(30):
+            ratio = y / 30
+            alpha = int(200 - ratio * 100)
+            pygame.draw.line(cover_surf, (150, 150, 200, alpha), (0, y), (120, y))
+
+        draw_cyberpunk_gacha_machine._cache = cache = {
+            "base_glows": base_glows,
+            "coin_font": coin_font,
+            "slot_surf": slot_surf,
+            "handle_glows": handle_glows,
+            "chute_surf": chute_surf,
+            "outlet_glow": outlet_glow,
+            "globe_glows": globe_glows,
+            "globe_surface": globe_surface,
+            "cover_surf": cover_surf,
+        }
     
     # 펄스 효과
     pulse = abs(math.sin(pygame.time.get_ticks() * 0.003)) * 0.3 + 0.7
@@ -356,12 +424,8 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
                            GACHA_MACHINE_WIDTH - 100, GACHA_BASE_HEIGHT)
     
     # 베이스 네온 글로우
-    for i in range(3):
-        glow_surf = pygame.Surface((GACHA_MACHINE_WIDTH - 90 + i*10, GACHA_BASE_HEIGHT + i*10), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (0, 255, 255, 50 - i*15), 
-                        (0, 0, GACHA_MACHINE_WIDTH - 90 + i*10, GACHA_BASE_HEIGHT + i*10),
-                        border_radius=10)
-        screen.blit(glow_surf, (machine_x + 45 - i*5, machine_y + GACHA_MACHINE_HEIGHT - GACHA_BASE_HEIGHT - i*5))
+    for glow_surf, off_x, off_y in cache["base_glows"]:
+        screen.blit(glow_surf, (machine_x + 45 + off_x, machine_y + GACHA_MACHINE_HEIGHT - GACHA_BASE_HEIGHT + off_y))
     
     # 베이스 본체 (홀로그램 그라데이션)
     base_surf = pygame.Surface((GACHA_MACHINE_WIDTH - 100, GACHA_BASE_HEIGHT), pygame.SRCALPHA)
@@ -400,11 +464,7 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
     pygame.draw.circle(screen, led_color, (machine_x + 95, machine_y + GACHA_MACHINE_HEIGHT - GACHA_BASE_HEIGHT + 10), 3)
     
     # 동전 투입 텍스트
-    try:
-        coin_font = pygame.font.Font(resource_path("NanumSquare.ttf"), 10)
-    except:
-        coin_font = pygame.font.Font(None, 10)
-    coin_text = coin_font.render("INSERT", True, (0, 200, 200))
+    coin_text = cache["coin_font"].render("INSERT", True, (0, 200, 200))
     screen.blit(coin_text, (coin_slot_rect.x + 5, coin_slot_rect.y - 12))
     
     # 3. 핸들 (회전하는 레버) - 사이버펑크 스타일
@@ -437,11 +497,8 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
     
     # 핸들 손잡이 (홀로그램 구체)
     handle_glow_radius = 15
-    for i in range(2):
-        glow_surf = pygame.Surface((handle_glow_radius * 2 + i*10, handle_glow_radius * 2 + i*10), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (255, 0, 255, 80 - i*30), 
-                         (handle_glow_radius + i*5, handle_glow_radius + i*5), handle_glow_radius + i*5)
-        screen.blit(glow_surf, (handle_end_x - handle_glow_radius - i*5, handle_end_y - handle_glow_radius - i*5))
+    for i, glow_surf in enumerate(cache["handle_glows"]):
+        screen.blit(glow_surf, (handle_end_x - handle_glow_radius - i * 5, handle_end_y - handle_glow_radius - i * 5))
     
     pygame.draw.circle(screen, (255, 0, 255), (int(handle_end_x), int(handle_end_y)), 12)
     pygame.draw.circle(screen, (255, 255, 255), (int(handle_end_x), int(handle_end_y)), 12, 2)
@@ -459,16 +516,11 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
     # 4. 캡슐 배출구 (홀로그램 스타일)
     chute_rect = pygame.Rect(machine_x + 110, machine_y + GACHA_MACHINE_HEIGHT - GACHA_BASE_HEIGHT + 50, 
                             80, 25)
-    chute_surf = pygame.Surface((80, 25), pygame.SRCALPHA)
-    pygame.draw.rect(chute_surf, (0, 30, 60, 150), (0, 0, 80, 25))
-    pygame.draw.rect(chute_surf, (0, 255, 255), (0, 0, 80, 25), 2)
-    screen.blit(chute_surf, (chute_rect.x, chute_rect.y))
+    screen.blit(cache["chute_surf"], (chute_rect.x, chute_rect.y))
     
     # 배출구 네온 효과
     if gacha_phase == 2:
-        outlet_glow = pygame.Surface((90, 35), pygame.SRCALPHA)
-        pygame.draw.rect(outlet_glow, (0, 255, 0, 50), (0, 0, 90, 35), border_radius=5)
-        screen.blit(outlet_glow, (chute_rect.x - 5, chute_rect.y - 5))
+        screen.blit(cache["outlet_glow"], (chute_rect.x - 5, chute_rect.y - 5))
     
     # 5. 투명한 구체 (캡슐들이 들어있는 부분) - 홀로그램 스타일
     globe_center_x = machine_x + GACHA_MACHINE_WIDTH // 2
@@ -477,23 +529,11 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
     # 구체 글로우 효과
     for i in range(3):
         glow_radius = GACHA_GLOBE_RADIUS + i * 10
-        glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (0, 255, 255, 30 - i*10), 
-                         (glow_radius, glow_radius), glow_radius)
+        glow_surf = cache["globe_glows"][glow_radius]
         screen.blit(glow_surf, (globe_center_x - glow_radius, globe_center_y - glow_radius))
     
     # 구체 본체 (홀로그램 유리)
-    globe_surface = pygame.Surface((GACHA_GLOBE_RADIUS * 2, GACHA_GLOBE_RADIUS * 2), pygame.SRCALPHA)
-    pygame.draw.circle(globe_surface, (0, 100, 150, 50), 
-                      (GACHA_GLOBE_RADIUS, GACHA_GLOBE_RADIUS), GACHA_GLOBE_RADIUS)
-    
-    # 홀로그램 반사 효과
-    for angle in range(0, 360, 30):
-        x = GACHA_GLOBE_RADIUS + int(GACHA_GLOBE_RADIUS * 0.7 * math.cos(math.radians(angle)))
-        y = GACHA_GLOBE_RADIUS + int(GACHA_GLOBE_RADIUS * 0.7 * math.sin(math.radians(angle)))
-        pygame.draw.circle(globe_surface, (255, 255, 255, 20), (x, y), 5)
-    
-    screen.blit(globe_surface, (globe_center_x - GACHA_GLOBE_RADIUS, globe_center_y - GACHA_GLOBE_RADIUS))
+    screen.blit(cache["globe_surface"], (globe_center_x - GACHA_GLOBE_RADIUS, globe_center_y - GACHA_GLOBE_RADIUS))
     
     # 구체 테두리 (네온)
     pygame.draw.circle(screen, (0, 255, 255), (globe_center_x, globe_center_y), GACHA_GLOBE_RADIUS, 3)
@@ -502,13 +542,7 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
     cover_y = globe_center_y - GACHA_GLOBE_RADIUS - 20
     cover_rect = pygame.Rect(globe_center_x - 60, cover_y, 120, 30)
     
-    # 커버 그라데이션
-    cover_surf = pygame.Surface((120, 30), pygame.SRCALPHA)
-    for y in range(30):
-        ratio = y / 30
-        alpha = int(200 - ratio * 100)
-        pygame.draw.line(cover_surf, (150, 150, 200, alpha), (0, y), (120, y))
-    screen.blit(cover_surf, (cover_rect.x, cover_rect.y))
+    screen.blit(cache["cover_surf"], (cover_rect.x, cover_rect.y))
     
     pygame.draw.rect(screen, (0, 255, 255), cover_rect, 2, border_radius=10)
     pygame.draw.ellipse(screen, (100, 100, 150), 
@@ -596,12 +630,12 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
         status_text = "COMPLETE!"
         status_color = (0, 255, 0)
     
-    try:
-        status_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 16)
-    except:
-        status_font = pygame.font.Font(None, 16)
-    
-    text_surf = status_font.render(status_text, True, status_color)
+    if "status_font" not in cache:
+        try:
+            cache["status_font"] = pygame.font.Font(resource_path("NanumSquareB.ttf"), 16)
+        except Exception:
+            cache["status_font"] = pygame.font.Font(None, 16)
+    text_surf = cache["status_font"].render(status_text, True, status_color)
     text_rect = text_surf.get_rect(center=(display_rect.x + display_rect.width//2, 
                                            display_rect.y + display_rect.height//2))
     
@@ -631,10 +665,8 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
         # 홀로그램 글로우 효과
         for i in range(3):
             glow_radius = 20 + i * 5
-            glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
             glow_alpha = 80 - i * 20
-            pygame.draw.circle(glow_surf, (*falling_capsule["color"], glow_alpha), 
-                             (glow_radius, glow_radius), glow_radius)
+            glow_surf = _get_particle_glow_surface(glow_radius * 2, falling_capsule["color"], glow_alpha)
             screen.blit(glow_surf, (fall_x - glow_radius, fall_y - glow_radius))
         
         # 떨어지는 캡슐
@@ -684,27 +716,13 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     if not gacha_active:
         return
     
-    # 사이버펑크 그라데이션 배경
-    for y in range(height):
-        ratio = y / height
-        r = int(10 + ratio * 20)
-        g = int(20 + ratio * 30)
-        b = int(30 + ratio * 50)
-        pygame.draw.line(screen, (r, g, b), (0, y), (width, y))
-    
-    # 홀로그램 격자 패턴
-    grid_surf = pygame.Surface((width, height), pygame.SRCALPHA)
-    grid_color = (0, 255, 255, 20)
-    for x in range(0, width, 30):
-        pygame.draw.line(grid_surf, grid_color, (x, 0), (x, height))
-    for y in range(0, height, 30):
-        pygame.draw.line(grid_surf, grid_color, (0, y), (width, y))
-    screen.blit(grid_surf, (0, 0))
+    # 사이버펑크 그라데이션 + 격자 배경 (캐시)
+    screen.blit(_get_bg_surface(width, height, cache_key="main", grid_step=30, grid_alpha=20), (0, 0))
     
     # 네온 파티클 효과
     if not hasattr(draw_gacha, 'neon_particles'):
         draw_gacha.neon_particles = []
-        for _ in range(30):
+        for _ in range(24):
             draw_gacha.neon_particles.append({
                 'x': random.randint(0, width),
                 'y': random.randint(0, height),
@@ -722,14 +740,15 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
             particle['x'] = random.randint(0, width)
         
         alpha = int(particle['alpha'] * (0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.005)))
-        size = particle['size']
-        
+        size = particle['size'] * 3
+
         for i in range(2):
-            glow_surf = pygame.Surface((size * (3-i), size * (3-i)), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*particle['color'], alpha // (i+1)), 
-                             (size * (3-i) // 2, size * (3-i) // 2), size * (3-i) // 2)
-            screen.blit(glow_surf, (particle['x'] - size * (3-i) // 2, 
-                                   particle['y'] - size * (3-i) // 2))
+            glow_size = max(2, size - i * 2)
+            glow_surf = _get_particle_glow_surface(glow_size, particle['color'], alpha // (i + 1))
+            screen.blit(
+                glow_surf,
+                (int(particle['x'] - glow_size // 2), int(particle['y'] - glow_size // 2)),
+            )
     
     # 메인 컨테이너 (홀로그램 스타일)
     container_width = 800
@@ -737,26 +756,37 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     container_x = (width - container_width) // 2
     container_y = (height - container_height) // 2 - 30
     
-    # 홀로그램 글로우 효과
-    for i in range(5):
-        glow_alpha = 60 - i * 10
-        glow_surf = pygame.Surface((container_width + i*10, container_height + i*10), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (0, 255, 255, glow_alpha), 
-                        (0, 0, container_width + i*10, container_height + i*10), 
-                        3, border_radius=20)
-        screen.blit(glow_surf, (container_x - i*5, container_y - i*5))
-    
-    # 메인 컨테이너 배경
+    # 컨테이너 글로우/배경 캐시
+    container_key = ("main", container_width, container_height)
+    cached_container = _container_cache.get(container_key)
+    if cached_container is None:
+        glows = []
+        for i in range(5):
+            glow_alpha = 60 - i * 10
+            glow_surf = pygame.Surface((container_width + i * 10, container_height + i * 10), pygame.SRCALPHA)
+            pygame.draw.rect(
+                glow_surf,
+                (0, 255, 255, glow_alpha),
+                (0, 0, container_width + i * 10, container_height + i * 10),
+                3,
+                border_radius=20,
+            )
+            glows.append((glow_surf, (-i * 5, -i * 5)))
+
+        container_surf = pygame.Surface((container_width, container_height), pygame.SRCALPHA)
+        for y in range(container_height):
+            ratio = y / container_height
+            alpha = int(200 - ratio * 100)
+            pygame.draw.line(container_surf, (0, 30, 60, alpha), (0, y), (container_width, y))
+
+        cached_container = {"glows": glows, "surface": container_surf}
+        _container_cache[container_key] = cached_container
+
+    for glow_surf, offset in cached_container["glows"]:
+        screen.blit(glow_surf, (container_x + offset[0], container_y + offset[1]))
+
     main_container = pygame.Rect(container_x, container_y, container_width, container_height)
-    container_surf = pygame.Surface((container_width, container_height), pygame.SRCALPHA)
-    
-    # 홀로그램 배경 그라데이션
-    for y in range(container_height):
-        ratio = y / container_height
-        alpha = int(200 - ratio * 100)
-        pygame.draw.line(container_surf, (0, 30, 60, alpha), (0, y), (container_width, y))
-    
-    screen.blit(container_surf, (container_x, container_y))
+    screen.blit(cached_container["surface"], (container_x, container_y))
     
     # 네온 테두리
     pygame.draw.rect(screen, (0, 255, 255), main_container, 3, border_radius=15)
@@ -777,8 +807,13 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
                             [(cx, cy), (cx + corner_size, cy), (cx + corner_size, cy + corner_size)], 3)
     
     
-    # 사이버펑크 스타일 타이틀
-    title_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 56)
+    # 사이버펑크 스타일 타이틀 (폰트 캐시)
+    if not hasattr(draw_gacha, "_title_font"):
+        draw_gacha._title_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 56)
+        draw_gacha._guide_font_large = pygame.font.Font(resource_path("NanumSquareB.ttf"), 32)
+        draw_gacha._guide_font_mid = pygame.font.Font(resource_path("NanumSquareB.ttf"), 28)
+        draw_gacha._bonus_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 24)
+    title_font = draw_gacha._title_font
     title_text = "◈ CYBER GATHA ◈"
     
     # 타이틀 네온 글로우 효과
@@ -796,7 +831,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     
     # 전설 아이템 확률 보너스 표시
     if legendary_bonus > 0:
-        bonus_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 24)
+        bonus_font = draw_gacha._bonus_font
         bonus_percent = int(legendary_bonus * 100)
         bonus_text = bonus_font.render(f"전설 아이템 확률 +{bonus_percent}%", True, (120, 240, 255))
         bonus_rect = bonus_text.get_rect(center=(container_x + container_width // 2, container_y + 115))
@@ -870,7 +905,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     
     # 안내 텍스트 (더 크고 깔끔하게)
     if gacha_phase == 0:
-        guide_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 32)
+        guide_font = draw_gacha._guide_font_large
         guide_text = "클릭 또는 SPACE로 뽑기 시작!"
         text = guide_font.render(guide_text, True, (255, 255, 255))
         # 텍스트 그림자
@@ -883,7 +918,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
         screen.blit(text, text_rect)
     
     elif gacha_phase == 1:
-        guide_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 28)
+        guide_font = draw_gacha._guide_font_mid
         guide_text = "동전을 투입하고 있습니다..."
         text = guide_font.render(guide_text, True, (255, 255, 255))
         shadow_text = guide_font.render(guide_text, True, (80, 80, 80))
@@ -895,7 +930,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
         screen.blit(text, text_rect)
     
     elif gacha_phase == 2:
-        guide_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 28)
+        guide_font = draw_gacha._guide_font_mid
         guide_text = "아이템이 나오고 있습니다..."
         text = guide_font.render(guide_text, True, (255, 255, 255))
         shadow_text = guide_font.render(guide_text, True, (80, 80, 80))
@@ -976,12 +1011,26 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     
 
 
-def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, store_active_item, get_item_description, get_star_count=None, spend_stars=None, auto_start=False, legendary_bonus=None):
+def run_gacha(
+    screen,
+    width,
+    height,
+    get_item_name_korean,
+    store_passive_item,
+    store_active_item,
+    get_item_description,
+    get_star_count=None,
+    spend_stars=None,
+    auto_start=False,
+    legendary_bonus=None,
+    auto_claim=False,
+):
     """뽑기 시스템 실행 함수"""
     global gacha_phase, gacha_spinning, gacha_result, gacha_start_time, gacha_active, gacha_spin_timer
 
     clear_extra_gacha_notice()
     auto_start_flag = auto_start
+    auto_claim_flag = auto_claim
 
     if legendary_bonus is None:
         legendary_bonus = gacha_legendary_bonus
@@ -1058,6 +1107,7 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
                 store_active_item,
                 get_star_count,
                 legendary_bonus=legendary_bonus,
+                auto_claim=auto_claim_flag,
             )
 
         if (
@@ -1073,21 +1123,53 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
                 break
             init_gacha([item.copy() for item in template], legendary_bonus=legendary_bonus)
             auto_start_flag = True
+            # auto_claim_flag 유지: 자동 플레이 시 추가 가챠도 자동 확정
             gacha_result = None
             continue
 
         clear_extra_gacha_notice()
         break
 
-def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_korean, get_item_description, store_passive_item, store_active_item, get_star_count=None, legendary_bonus=0.0):
+def show_gacha_result_page(
+    screen,
+    width,
+    height,
+    gacha_result,
+    get_item_name_korean,
+    get_item_description,
+    store_passive_item,
+    store_active_item,
+    get_star_count=None,
+    legendary_bonus=0.0,
+    auto_claim=False,
+):
     """뽑기 결과 전용 페이지 - 화려한 축하 화면"""
     clock = pygame.time.Clock()
     running = True
     animation_timer = 0
 
-    # 메뉴/확인용 폰트 및 별 아이콘 준비
-    menu_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 36)
-    star_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 28)
+    # 메뉴/확인용 폰트 및 별 아이콘 준비 (캐시)
+    if not hasattr(show_gacha_result_page, "_fonts"):
+        fonts = {}
+        fonts["menu"] = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 36)
+        fonts["star"] = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 28)
+        fonts["congrats"] = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 56)
+        fonts["bonus"] = pygame.font.Font(resource_path("NanumSquareB.ttf"), 24)
+        fonts["name"] = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 42)
+        fonts["desc"] = pygame.font.Font(resource_path("NanumSquareR.ttf"), 20)
+        show_gacha_result_page._fonts = fonts
+    fonts = show_gacha_result_page._fonts
+    menu_font = fonts["menu"]
+    star_font = fonts["star"]
+
+    # 패시브 아이템은 결과 화면에서 즉시 롤/수식어를 적용해 이름과 색상이 반영되도록 보정
+    try:
+        from pingfighter import ensure_passive_rolls, apply_roll_bonuses_from_item
+        if gacha_result.get("type") == "passive":
+            ensure_passive_rolls(gacha_result)
+            apply_roll_bonuses_from_item(gacha_result)
+    except Exception:
+        pass
 
     def create_star_surface(size):
         surf = pygame.Surface((size, size), pygame.SRCALPHA)
@@ -1107,37 +1189,136 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
 
     star_icon_small = create_star_surface(30)
 
-    # 색종이 파티클 리스트 (대폭 강화!)
+    # 색종이 파티클 리스트 (개수 축소 + 기본 서피스 캐시)
+    shape_cache = getattr(show_gacha_result_page, "_shape_cache", {})
     confetti_particles = []
-    for i in range(200):  # 200개로 증가
+
+    def build_confetti_surface(shape: str, size: int, color: tuple[int, int, int]) -> pygame.Surface:
+        key = (shape, size, tuple(color))
+        surf = shape_cache.get(key)
+        if surf is not None:
+            return surf
+        surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        if shape == "rect":
+            pygame.draw.rect(surf, color, (0, 0, size, size // 2))
+            pygame.draw.rect(surf, (255, 255, 255), (0, 0, size, size // 2), 2)
+        elif shape == "circle":
+            pygame.draw.circle(surf, color, (size // 2, size // 2), size // 2)
+            pygame.draw.circle(surf, (255, 255, 255), (size // 2, size // 2), size // 2, 2)
+        elif shape == "triangle":
+            points = [(size // 2, 0), (0, size), (size, size)]
+            pygame.draw.polygon(surf, color, points)
+            pygame.draw.polygon(surf, (255, 255, 255), points, 2)
+        else:
+            points = [(size // 2, 0), (size, size // 2), (size // 2, size), (0, size // 2)]
+            pygame.draw.polygon(surf, color, points)
+            pygame.draw.polygon(surf, (255, 255, 255), points, 2)
+        shape_cache[key] = surf
+        return surf
+
+    for i in range(140):
+        size = random.randint(20, 40)
+        color = random.choice([
+            (255, 0, 0),      # 진한 빨강
+            (0, 255, 0),      # 진한 초록
+            (0, 0, 255),      # 진한 파랑
+            (255, 255, 0),    # 진한 노랑
+            (255, 0, 255),    # 진한 마젠타
+            (0, 255, 255),    # 진한 시안
+            (255, 128, 0),    # 진한 주황
+            (128, 0, 255),    # 진한 보라
+            (255, 255, 255),  # 흰색
+            (255, 215, 0),    # 골드
+            (255, 100, 100),  # 연한 빨강
+            (100, 255, 100),  # 연한 초록
+            (100, 100, 255),  # 연한 파랑
+            (255, 255, 100),  # 연한 노랑
+        ])
+        shape = random.choice(["rect", "circle", "star", "triangle"])
+        base_surface = build_confetti_surface(shape, size, color)
         confetti_particles.append({
             "x": random.randint(0, width),
-            "y": random.randint(-300, -100),  # 더 위에서 시작
-            "vx": random.uniform(-6, 6),  # 더 빠른 가로 속도
-            "vy": random.uniform(4, 12),  # 더 빠른 세로 속도
-            "color": random.choice([
-                (255, 0, 0),      # 진한 빨강
-                (0, 255, 0),      # 진한 초록
-                (0, 0, 255),      # 진한 파랑
-                (255, 255, 0),    # 진한 노랑
-                (255, 0, 255),    # 진한 마젠타
-                (0, 255, 255),    # 진한 시안
-                (255, 128, 0),    # 진한 주황
-                (128, 0, 255),    # 진한 보라
-                (255, 255, 255),  # 흰색
-                (255, 215, 0),    # 골드
-                (255, 100, 100),  # 연한 빨강
-                (100, 255, 100),  # 연한 초록
-                (100, 100, 255),  # 연한 파랑
-                (255, 255, 100),  # 연한 노랑
-            ]),
-            "size": random.randint(20, 40),  # 훨씬 더 크게
+            "y": random.randint(-300, -100),
+            "vx": random.uniform(-6, 6),
+            "vy": random.uniform(4, 12),
+            "color": color,
+            "size": size,
             "rotation": random.uniform(0, 360),
-            "rotation_speed": random.uniform(-12, 12),  # 더 빠른 회전
-            "shape": random.choice(["rect", "circle", "star", "triangle"])  # 삼각형 추가
+            "rotation_speed": random.uniform(-12, 12),
+            "shape": shape,
+            "base_surface": base_surface,
         })
+
+    show_gacha_result_page._shape_cache = shape_cache
+
+    # 컨테이너/배경 캐시
+    container_width = 900
+    container_height = 650
+    container_key = ("result", container_width, container_height)
+    cached_container = _container_cache.get(container_key)
+    if cached_container is None:
+        glows = []
+        for i in range(5):
+            glow_alpha = 100 - i * 18
+            glow_surf = pygame.Surface((container_width + i * 30, container_height + i * 30), pygame.SRCALPHA)
+            pygame.draw.rect(
+                glow_surf,
+                (0, 255, 255, glow_alpha),
+                (0, 0, container_width + i * 30, container_height + i * 30),
+                3,
+                border_radius=20,
+            )
+            glows.append((glow_surf, (-i * 15, -i * 15)))
+
+        container_surf = pygame.Surface((container_width, container_height), pygame.SRCALPHA)
+        for y in range(container_height):
+            ratio = y / container_height
+            alpha = int(230 - ratio * 130)
+            color = (int(0 + ratio * 30), int(40 + ratio * 40), int(80 + ratio * 50), alpha)
+            pygame.draw.line(container_surf, color, (0, y), (container_width, y))
+
+        cached_container = {"glows": glows, "surface": container_surf}
+        _container_cache[container_key] = cached_container
+
+    scan_key = ("scan", width, height)
+    if scan_key not in _result_bg_cache:
+        scan_surf = pygame.Surface((width, 3), pygame.SRCALPHA)
+        scan_surf.fill((0, 255, 255, 40))
+        _result_bg_cache[scan_key] = scan_surf
+    scan_line_surf = _result_bg_cache[scan_key]
     
     legendary_manager = None
+
+    def _claim_and_store():
+        nonlocal running
+        print(f"  : {gacha_result['name']} (: {gacha_result['type']})")
+        if gacha_result["type"] == "passive":
+            item_data = {
+                "name": gacha_result["name"],
+                "color": gacha_result["color"],
+                "effect": gacha_result["name"],
+                "icon": gacha_result.get("icon"),
+                "type": "passive",
+                "x": width // 2,
+                "y": height // 2,
+            }
+            # 롤 옵션 및 수식어/등급을 그대로 전달하여 재롤 방지
+            for key in ("rolled_options", "name_prefix", "quality_tier", "quality_color", "icon_animation_frames", "icon_animation_speed"):
+                if key in gacha_result:
+                    item_data[key] = gacha_result[key]
+            store_passive_item(item_data)
+        else:
+            item_data = {
+                "name": gacha_result["name"],
+                "color": gacha_result["color"],
+                "effect": gacha_result["name"],
+                "icon": gacha_result.get("icon"),
+                "x": width // 2,
+                "y": height // 2,
+                "allow_overflow": True,
+            }
+            store_active_item(item_data)
+        running = False
 
     while running:
         clock.tick(60)
@@ -1151,55 +1332,21 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
 
             # 스페이스/엔터 또는 마우스 클릭으로 결과 확정
             if (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)) or (event.type == pygame.MOUSEBUTTONDOWN):
-                print(f"  : {gacha_result['name']} (: {gacha_result['type']})")
-                if gacha_result["type"] == "passive":
-                    item_data = {
-                        "name": gacha_result["name"],
-                        "color": gacha_result["color"],
-                        "effect": gacha_result["name"],
-                        "icon": gacha_result.get("icon"),
-                        "x": width // 2,
-                        "y": height // 2
-                    }
-                    store_passive_item(item_data)
-                else:
-                    item_data = {
-                        "name": gacha_result["name"],
-                        "color": gacha_result["color"],
-                        "effect": gacha_result["name"],
-                        "icon": gacha_result.get("icon"),
-                        "x": width // 2,
-                        "y": height // 2,
-                        "allow_overflow": True
-                    }
-                    store_active_item(item_data)
+                _claim_and_store()
 
-                running = False
-        
-        # 사이버펑크 그라데이션 배경
-        for y in range(height):
-            ratio = y / height
-            r = int(10 + ratio * 20)
-            g = int(20 + ratio * 30)
-            b = int(30 + ratio * 50)
-            pygame.draw.line(screen, (r, g, b), (0, y), (width, y))
-        
-        # 홀로그램 격자 패턴
-        grid_surf = pygame.Surface((width, height), pygame.SRCALPHA)
-        grid_color = (0, 255, 255, 15)
-        for x in range(0, width, 40):
-            pygame.draw.line(grid_surf, grid_color, (x, 0), (x, height))
-        for y in range(0, height, 40):
-            pygame.draw.line(grid_surf, grid_color, (0, y), (width, y))
-        screen.blit(grid_surf, (0, 0))
+        # 자동 플레이(AI)일 때 결과 화면도 자동으로 확정
+        if auto_claim and animation_timer >= 90 and running:
+            _claim_and_store()
+            continue
+
+        # 사이버펑크 그라데이션 배경 (캐시)
+        screen.blit(_get_bg_surface(width, height, cache_key="result", grid_step=40, grid_alpha=15), (0, 0))
         
         # 홀로그램 스캔라인 효과
         scan_offset = (animation_timer * 3) % height
         for i in range(3):
             scan_y = (scan_offset + i * 20) % height
-            scan_surf = pygame.Surface((width, 3), pygame.SRCALPHA)
-            scan_surf.fill((0, 255, 255, 40))
-            screen.blit(scan_surf, (0, scan_y))
+            screen.blit(scan_line_surf, (0, scan_y))
         
         # 색종이 애니메이션 업데이트 및 그리기 (대폭 강화!)
         for particle in confetti_particles:
@@ -1221,84 +1368,19 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
             # 색종이 그리기 (더 밝고 선명하게)
             if particle["y"] > -150:  # 화면에 보일 때만 그리기
                 size = particle["size"]
-                color = particle["color"]
                 rotation = particle["rotation"]
-                shape = particle["shape"]
-                
-                # 모양에 따른 그리기
-                if shape == "rect":
-                    # 직사각형 색종이 (더 선명하게)
-                    rect_surface = pygame.Surface((size, size//2), pygame.SRCALPHA)
-                    pygame.draw.rect(rect_surface, color, (0, 0, size, size//2))
-                    # 테두리 추가로 더 선명하게
-                    pygame.draw.rect(rect_surface, (255, 255, 255), (0, 0, size, size//2), 2)
-                    rotated_surface = pygame.transform.rotate(rect_surface, rotation)
-                    
-                elif shape == "circle":
-                    # 원형 색종이 (더 선명하게)
-                    circle_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-                    pygame.draw.circle(circle_surface, color, (size//2, size//2), size//2)
-                    # 테두리 추가
-                    pygame.draw.circle(circle_surface, (255, 255, 255), (size//2, size//2), size//2, 2)
-                    rotated_surface = pygame.transform.rotate(circle_surface, rotation)
-                    
-                elif shape == "triangle":
-                    # 삼각형 색종이 (새로 추가)
-                    triangle_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-                    points = [
-                        (size//2, 0),           # 상단
-                        (0, size),              # 좌하단
-                        (size, size)            # 우하단
-                    ]
-                    pygame.draw.polygon(triangle_surface, color, points)
-                    # 테두리 추가
-                    pygame.draw.polygon(triangle_surface, (255, 255, 255), points, 2)
-                    rotated_surface = pygame.transform.rotate(triangle_surface, rotation)
-                    
-                else:  # star
-                    # 별 모양 색종이 (다이아몬드, 더 선명하게)
-                    star_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-                    points = [
-                        (size//2, 0),           # 상단
-                        (size, size//2),        # 우측
-                        (size//2, size),        # 하단
-                        (0, size//2)            # 좌측
-                    ]
-                    pygame.draw.polygon(star_surface, color, points)
-                    # 테두리 추가
-                    pygame.draw.polygon(star_surface, (255, 255, 255), points, 2)
-                    rotated_surface = pygame.transform.rotate(star_surface, rotation)
-                
-                # 화면에 그리기 (더 선명하게)
-                screen.blit(rotated_surface, (particle["x"] - rotated_surface.get_width()//2, 
-                                            particle["y"] - rotated_surface.get_height()//2))
+                rotated_surface = pygame.transform.rotate(particle["base_surface"], rotation)
+                screen.blit(rotated_surface, (particle["x"] - rotated_surface.get_width() // 2,
+                                            particle["y"] - rotated_surface.get_height() // 2))
         
         # 홀로그램 컨테이너 (사이버펑크 스타일)
-        container_width = 900
-        container_height = 650
         container_x = (width - container_width) // 2
         container_y = (height - container_height) // 2 - 20
         
-        # 홀로그램 글로우 효과 (여러 레이어)
-        for i in range(5):
-            glow_alpha = 100 - i * 18
-            glow_surf = pygame.Surface((container_width + i*30, container_height + i*30), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surf, (0, 255, 255, glow_alpha), 
-                           (0, 0, container_width + i*30, container_height + i*30), 
-                           3, border_radius=20)
-            screen.blit(glow_surf, (container_x - i*15, container_y - i*15))
-        
-        # 메인 컨테이너 배경
-        container_surf = pygame.Surface((container_width, container_height), pygame.SRCALPHA)
-        
-        # 홀로그램 그라데이션 배경
-        for y in range(container_height):
-            ratio = y / container_height
-            alpha = int(230 - ratio * 130)
-            color = (int(0 + ratio * 30), int(40 + ratio * 40), int(80 + ratio * 50), alpha)
-            pygame.draw.line(container_surf, color, (0, y), (container_width, y))
-        
-        screen.blit(container_surf, (container_x, container_y))
+        for glow_surf, offset in cached_container["glows"]:
+            screen.blit(glow_surf, (container_x + offset[0], container_y + offset[1]))
+
+        screen.blit(cached_container["surface"], (container_x, container_y))
         
         # 네온 테두리
         main_container = pygame.Rect(container_x, container_y, container_width, container_height)
@@ -1318,7 +1400,7 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
         pygame.draw.rect(screen, (0, 255, 255), title_area, 2)
         
         # 축하 메시지 (사이버펑크 스타일)
-        congrats_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 56)
+        congrats_font = fonts["congrats"]
         congrats_text = "◆ 축하합니다! ◆"
         
         # 홀로그램 아이콘 (양쪽에)
@@ -1355,7 +1437,7 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
         screen.blit(main_congrats, main_rect)
 
         if legendary_bonus > 0:
-            bonus_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 24)
+            bonus_font = fonts["bonus"]
             bonus_percent = int(legendary_bonus * 100)
             bonus_text = bonus_font.render(f"전설 아이템 확률 +{bonus_percent}%", True, (120, 240, 255))
             bonus_rect = bonus_text.get_rect(center=(width // 2, container_y + 130))
@@ -1376,24 +1458,21 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
             for i in range(20):
                 glow_alpha = 100 - i * 5
                 glow_radius = int(60 * pulse_scale + i * 2)
-                glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surface, (*item_color, glow_alpha), (glow_radius, glow_radius), glow_radius)
+                glow_surface = _get_particle_glow_surface(glow_radius * 2, item_color, glow_alpha)
                 screen.blit(glow_surface, (icon_center_x - glow_radius, icon_center_y - glow_radius))
             
             # 2. 네온 글로우 (사이안)
             for i in range(15):
                 glow_alpha = 120 - i * 8
                 glow_radius = 48 + i * 2
-                glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surface, (0, 255, 255, glow_alpha), (glow_radius, glow_radius), glow_radius)
+                glow_surface = _get_particle_glow_surface(glow_radius * 2, (0, 255, 255), glow_alpha)
                 screen.blit(glow_surface, (icon_center_x - glow_radius, icon_center_y - glow_radius))
             
             # 3. 코어 글로우 (흰색)
             for i in range(10):
                 glow_alpha = 150 - i * 15
                 glow_radius = 42 + i * 1
-                glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surface, (255, 255, 255, glow_alpha), (glow_radius, glow_radius), glow_radius)
+                glow_surface = _get_particle_glow_surface(glow_radius * 2, (255, 255, 255), glow_alpha)
                 screen.blit(glow_surface, (icon_center_x - glow_radius, icon_center_y - glow_radius))
             
             # 4. 메인 아이콘 (60% 크기로 줄임)
@@ -1412,30 +1491,19 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
             pygame.draw.circle(ring_surf, (0, 255, 255, ring_alpha), (int(ring_radius), int(ring_radius)), int(ring_radius), 2)
             screen.blit(ring_surf, (icon_center_x - ring_radius, icon_center_y - ring_radius))
         
-        # 아이템 이름 영역 (홀로그램 패널)
-        name_area = pygame.Rect(container_x + 60, container_y + 350, container_width - 120, 80)
+        # 아이템 이름 영역 (홀로그램 패널) - 설명 패널 제거
+        name_area = pygame.Rect(container_x + 60, container_y + 350, container_width - 120, 120)
         
-        # 홀로그램 패널 배경
-        panel_surf = pygame.Surface((container_width - 120, 80), pygame.SRCALPHA)
-        pygame.draw.rect(panel_surf, (0, 30, 60, 180), (0, 0, container_width - 120, 80))
+        panel_surf = pygame.Surface((container_width - 120, 120), pygame.SRCALPHA)
+        pygame.draw.rect(panel_surf, (0, 30, 60, 180), (0, 0, container_width - 120, 120))
         screen.blit(panel_surf, (name_area.x, name_area.y))
-        
         pygame.draw.rect(screen, (0, 255, 255), name_area, 2)
-        
-        # 아이템 설명 영역 (홀로그램 패널)
-        desc_area = pygame.Rect(container_x + 60, container_y + 450, container_width - 120, 100)
-        
-        # 홀로그램 패널 배경
-        desc_panel_surf = pygame.Surface((container_width - 120, 100), pygame.SRCALPHA)
-        pygame.draw.rect(desc_panel_surf, (0, 30, 60, 180), (0, 0, container_width - 120, 100))
-        screen.blit(desc_panel_surf, (desc_area.x, desc_area.y))
-        
-        pygame.draw.rect(screen, (0, 255, 255), desc_area, 2)
         
         # 아이템 이름과 아이콘 (더 크고 깔끔하게)
         item_name = get_item_name_korean(gacha_result['name'])
-        name_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 42)
-        name_text = item_name
+        name_font = fonts["name"]
+        prefix = gacha_result.get("name_prefix", "")
+        name_text = f"{prefix} {item_name}".strip()
         
         # 시너지 효과일 때 보라색으로 표시
         if gacha_result['name'] == "gravitybelt":
@@ -1449,11 +1517,24 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
             except:
                 name_color = (255, 255, 255)  # 기본값
         else:
-            name_color = (255, 255, 255)  # 흰색
+            # 품질 색상(있으면) 우선, 없으면 흰색
+            qc = None
+            try:
+                from pingfighter import get_item_quality_color  # 지연 import
+                qc = get_item_quality_color(gacha_result)
+            except Exception:
+                qc = None
+            name_color = qc or (255, 255, 255)
         
-        # 아이템 원래 크기 아이콘 (이름 영역 왼쪽에 배치)
-        icon_x = width // 2 - 200
-        icon_y = container_y + 390 - 32
+        # 아이템 이름/아이콘 가로 중앙 정렬 그룹 계산
+        temp_main = name_font.render(name_text, True, name_color)
+        icon_w = 64
+        padding = 16
+        group_width = icon_w + padding + temp_main.get_width()
+        group_start_x = (width - group_width) // 2
+        # 아이템 원래 크기 아이콘 (이름 영역 높이에 맞춰 세로 정렬)
+        icon_x = group_start_x
+        icon_y = name_area.y + (name_area.height // 2) - 32
         icon_surface = None
         drew_legendary_icon = False
 
@@ -1492,94 +1573,28 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
                 pygame.draw.circle(screen, (255, 255, 255), (icon_x + 32, icon_y + 32), 36, 2)
             screen.blit(original_icon, (icon_x, icon_y))
 
-        # 메인 이름 (그림자 효과) - 이름 영역 중앙에 배치
+        # 메인 이름 (그림자 효과) - 수식어+이름만 표시, 아이콘 오른쪽 정렬 후 중앙 배치
+        text_start_x = icon_x + icon_w + padding
         shadow_name = name_font.render(name_text, True, (50, 50, 50))
         main_name = name_font.render(name_text, True, name_color)
-        main_name_rect = main_name.get_rect(center=(width // 2, container_y + 390))  # 이름 영역 중앙
+        main_name_rect = main_name.get_rect(midleft=(text_start_x, icon_y + 32))
         shadow_name_rect = main_name_rect.copy()
         shadow_name_rect.x += 3
         shadow_name_rect.y += 3
         screen.blit(shadow_name, shadow_name_rect)
         screen.blit(main_name, main_name_rect)
-        
-        # 텍스트 줄바꿈 함수
-        def wrap_text(text, font, max_width):
-            """텍스트를 지정된 너비에 맞게 균형잡힌 줄바꿈하는 함수"""
-            words = text.split(' ')
-            
-            # 전체 텍스트가 한 줄에 들어가는지 확인
-            full_text_width = font.size(text)[0]
-            if full_text_width <= max_width:
-                return [text]
-            
-            # 두 줄로 나누기 시도 (균형잡힌 분할)
-            if len(words) >= 2:
-                best_split = 1
-                best_difference = float('inf')
-                
-                for split_point in range(1, len(words)):
-                    line1 = " ".join(words[:split_point])
-                    line2 = " ".join(words[split_point:])
-                    
-                    line1_width = font.size(line1)[0]
-                    line2_width = font.size(line2)[0]
-                    
-                    # 두 줄 모두 최대 너비를 넘지 않는지 확인
-                    if line1_width <= max_width and line2_width <= max_width:
-                        # 두 줄의 길이 차이 계산 (균형도 측정)
-                        difference = abs(line1_width - line2_width)
-                        if difference < best_difference:
-                            best_difference = difference
-                            best_split = split_point
-                
-                # 최적의 분할점으로 나누기
-                if best_difference != float('inf'):
-                    line1 = " ".join(words[:best_split])
-                    line2 = " ".join(words[best_split:])
-                    return [line1, line2]
-            
-            # 균형잡힌 분할이 불가능하면 일반적인 줄바꿈 사용
-            lines = []
-            current_line = ""
-            
-            for word in words:
-                test_line = current_line + (" " if current_line else "") + word
-                test_width = font.size(test_line)[0]
-                
-                if test_width <= max_width:
-                    current_line = test_line
-                else:
-                    if current_line:
-                        lines.append(current_line)
-                        current_line = word
-                    else:
-                        lines.append(word)
-                        current_line = ""
-            
-            if current_line:
-                lines.append(current_line)
-            
-            return lines
-        
-        # 아이템 설명 (줄바꿈 적용) - 설명 영역 내부에 배치
-        item_description = get_item_description(gacha_result['name'])
-        desc_font = pygame.font.Font(resource_path("NanumSquareR.ttf"), 20)  # 설명 가독성을 위해 폰트 크기 축소
-        
-        # 설명 텍스트 최대 너비 (설명 영역 너비에서 여백 제외)
-        max_desc_width = container_width - 180  # 양쪽 여백 90px씩
-        
-        # 텍스트 줄바꿈
-        desc_lines = wrap_text(item_description, desc_font, max_desc_width)
-        
-        # 줄바꿈된 텍스트 그리기 - 설명 영역 중앙에 배치
-        line_height = 24  # 폰트 축소에 맞춰 줄 간격 보정
-        desc_area_center_y = container_y + 500  # 설명 영역의 중앙 Y 좌표
-        start_y = desc_area_center_y - (len(desc_lines) - 1) * line_height // 2
-        
-        for i, line in enumerate(desc_lines):
-            desc_text = desc_font.render(line, True, (220, 220, 220))
-            desc_rect = desc_text.get_rect(center=(width // 2, start_y + i * line_height))
-            screen.blit(desc_text, desc_rect)
+
+        # 롤 옵션을 이름 아래에 표시 (패시브 롤 가시화)
+        rolled_opts = gacha_result.get("rolled_options") or []
+        if rolled_opts:
+            desc_font = fonts["desc"]
+            start_y = main_name_rect.bottom + 12
+            for idx, opt in enumerate(rolled_opts):
+                opt_text = opt.get("text", "")
+                opt_color = opt.get("color", (200, 210, 230))
+                surf = desc_font.render(opt_text, True, opt_color)
+                rect = surf.get_rect(center=(width // 2, start_y + idx * 22))
+                screen.blit(surf, rect)
         
         continue_area = pygame.Rect(container_x + 150, container_y + 560, container_width - 300, 70)
         # 버튼을 홀로그램 네온 톤으로 맞춰 전체 UI 컨셉과 통일

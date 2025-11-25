@@ -107,6 +107,11 @@ def handle_legendary_space_press() -> bool:
     effect = get_legendary_effect()
     return effect.handle_space_press()
 
+def skip_legendary_animation() -> bool:
+    """전설 아이템 획득 연출을 즉시 종료 (AI 자동 플레이용)."""
+    effect = get_legendary_effect()
+    return effect.force_skip()
+
 def reset_legendary_effect():
     """전설 아이템 획득 효과 리셋"""
     global _legendary_effect

@@ -63,9 +63,22 @@ class BGMManager:
         
     def initialize(self):
         """pygame mixer 초기화"""
+        if self.is_initialized:
+            return
         if not pygame.mixer.get_init():
-            pygame.mixer.init()
+            try:
+                pygame.mixer.init()
+            except Exception as e:
+                # 오디오 장치가 없는 환경에서도 실행 가능하도록 dummy 드라이버로 재시도
+                try:
+                    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+                    pygame.mixer.init()
+                    print(f"⚠️ 오디오 장치 미탑재 감지, dummy 드라이버 사용 ({e})")
+                except Exception as e2:
+                    print(f"⚠️ BGM 초기화 실패: {e2}")
+                    return
         self.is_initialized = True
+        pygame.mixer.music.set_volume(self.volume)
         print("BGM Manager 초기화 완료")
         
     def _resolve_bgm_path(self, bgm_name: str) -> str | None:

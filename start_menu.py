@@ -20,10 +20,12 @@ from start_menu_config import (
     IDLE_CINEMATIC_DELAY_MS,
 )
 
-BASE_MENU_OPTIONS = ["경기장 입장", "테스트메뉴", "메달샵", "크레딧"]
+BASE_MENU_OPTIONS = ["경기장 입장", "개발테스트", "메달샵", "크레딧"]
 MENU_ICONS = {
     "경기장 입장": "▶",
+    "AI 플레이": "🤖",
     "테스트메뉴": "★",
+    "개발테스트": "🧪",
     "메달샵": "◆",
     "크레딧": "●",
     "개발자": "⚙",
@@ -212,15 +214,19 @@ def _render_menu(
         display_text = option
         if option == "경기장 입장":
             display_text = "경기장"
+        elif option == "AI 플레이":
+            display_text = "AI플레이"
         elif option == "테스트메뉴":
             display_text = "테스트"
+        elif option == "개발테스트":
+            display_text = "개발테스트"
         text_surface = font_menu.render(display_text, True, (255, 255, 255))
         text_rect = text_surface.get_rect(center=(x + menu_item_width // 2, menu_y + 38))
         screen.blit(text_surface, text_rect)
 
-        if idx == state.selected and option == "테스트메뉴":
+        if idx == state.selected and option == "개발테스트":
             font_desc = ctx.FontStyle.tiny()
-            desc = font_desc.render("게임 테스트 및 디버깅 모드", True, (200, 200, 255))
+            desc = font_desc.render("개발용 AI/테스트 모드", True, (200, 200, 255))
             desc_rect = desc.get_rect(center=(width // 2, menu_y + 75))
             screen.blit(desc, desc_rect)
 
@@ -260,6 +266,155 @@ def _render_menu(
     screen.blit(resolution_surface, resolution_rect)
 
 
+def _run_ai_play_flow(ctx: MenuContext) -> bool:
+    """AI 플레이 캐릭터 선택 후 게임 시작."""
+    ai_chars = [
+        ("smasher", "스매셔"),
+        ("soldier", "코만도"),
+        ("blacksmith", "발토르"),
+    ]
+    selected = 0
+    clock = pygame.time.Clock()
+    font_title = ctx.FontStyle.body()
+    font_item = ctx.FontStyle.body()
+    running = True
+    while running:
+        clock.tick(60)
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+            if ev.type == pygame.KEYDOWN:
+                if ev.key in (pygame.K_RIGHT, pygame.K_d):
+                    selected = (selected + 1) % len(ai_chars)
+                elif ev.key in (pygame.K_LEFT, pygame.K_a):
+                    selected = (selected - 1) % len(ai_chars)
+                elif ev.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    running = False
+                elif ev.key == pygame.K_ESCAPE:
+                    return False
+            if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+                mx, my = pygame.mouse.get_pos()
+                width, height = ctx.get_dimensions()
+                menu_y = height // 2
+                item_w = 180
+                spacing = 30
+                total_w = len(ai_chars) * item_w + (len(ai_chars) - 1) * spacing
+                start_x = (width - total_w) // 2
+                for idx, (_cid, label) in enumerate(ai_chars):
+                    rect = pygame.Rect(start_x + idx * (item_w + spacing), menu_y - 40, item_w, 80)
+                    if rect.collidepoint(mx, my):
+                        selected = idx
+                        running = False
+                        break
+
+        # 렌더링
+        screen = ctx.get_screen()
+        width, height = ctx.get_dimensions()
+        screen.fill((10, 20, 30))
+        title = font_title.render("AI 플레이 캐릭터 선택", True, (200, 230, 255))
+        screen.blit(title, title.get_rect(center=(width // 2, height // 2 - 100)))
+        item_w = 180
+        spacing = 30
+        total_w = len(ai_chars) * item_w + (len(ai_chars) - 1) * spacing
+        start_x = (width - total_w) // 2
+        for idx, (_cid, label) in enumerate(ai_chars):
+            x = start_x + idx * (item_w + spacing)
+            rect = pygame.Rect(x, height // 2 - 40, item_w, 80)
+            is_sel = idx == selected
+            color = (60, 120, 200) if is_sel else (40, 60, 90)
+            pygame.draw.rect(screen, color, rect, border_radius=10)
+            pygame.draw.rect(screen, (160, 200, 255), rect, 2 if is_sel else 1, border_radius=10)
+            label_surface = font_item.render(label, True, (255, 255, 255))
+            screen.blit(label_surface, label_surface.get_rect(center=rect.center))
+        pygame.display.flip()
+
+    char_id, _ = ai_chars[selected]
+    ctx.start_ai_play(character=char_id)
+    return True
+
+
+def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
+    """메인 메뉴 하위 개발/테스트 묶음."""
+    options = ["AI 플레이", "테스트메뉴", "뒤로"]
+    selected = 0
+    clock = pygame.time.Clock()
+    while True:
+        dt = clock.tick(60) / 1000.0
+        state.animation_timer += dt
+        screen = ctx.get_screen()
+        width, height = ctx.get_dimensions()
+        _update_background_layers(ctx, state, dt, screen, width, height)
+
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+            if ev.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION):
+                state.idle_start_time = pygame.time.get_ticks()
+            if ev.type == pygame.KEYDOWN:
+                if ev.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_DOWN, pygame.K_s):
+                    selected = (selected + 1) % len(options)
+                elif ev.key in (pygame.K_LEFT, pygame.K_a, pygame.K_UP, pygame.K_w):
+                    selected = (selected - 1) % len(options)
+                elif ev.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    choice = options[selected]
+                    if choice == "AI 플레이":
+                        return _run_ai_play_flow(ctx)
+                    if choice == "테스트메뉴":
+                        ctx.start_test_mode()
+                        return True
+                    return False
+                elif ev.key == pygame.K_ESCAPE:
+                    return False
+            if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+                mx, my = ev.pos
+                menu_y = height // 2
+                item_w = 220
+                spacing = 24
+                total_w = len(options) * item_w + (len(options) - 1) * spacing
+                start_x = (width - total_w) // 2
+                for idx, opt in enumerate(options):
+                    rect = pygame.Rect(start_x + idx * (item_w + spacing), menu_y - 40, item_w, 90)
+                    if rect.collidepoint(mx, my):
+                        selected = idx
+                        if opt == "AI 플레이":
+                            return _run_ai_play_flow(ctx)
+                        if opt == "테스트메뉴":
+                            ctx.start_test_mode()
+                            return True
+                        return False
+
+        font_title = ctx.FontStyle.title()
+        font_item = ctx.FontStyle.body()
+        overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 120))
+        screen.blit(overlay, (0, 0))
+
+        title = font_title.render("개발 테스트", True, (200, 230, 255))
+        screen.blit(title, title.get_rect(center=(width // 2, height // 2 - 130)))
+
+        item_w = 220
+        spacing = 24
+        total_w = len(options) * item_w + (len(options) - 1) * spacing
+        start_x = (width - total_w) // 2
+        for idx, opt in enumerate(options):
+            x = start_x + idx * (item_w + spacing)
+            rect = pygame.Rect(x, height // 2 - 40, item_w, 90)
+            is_sel = idx == selected
+            bg_color = (50, 90, 140) if is_sel else (30, 40, 60)
+            pygame.draw.rect(screen, bg_color, rect, border_radius=12)
+            pygame.draw.rect(screen, (140, 200, 255), rect, 2 if is_sel else 1, border_radius=12)
+            label_surface = font_item.render(opt, True, (255, 255, 255))
+            screen.blit(label_surface, label_surface.get_rect(center=rect.center))
+            if is_sel and opt in ("AI 플레이", "테스트메뉴"):
+                hint = "AI 대전 시작" if opt == "AI 플레이" else "테스트/디버그 메뉴"
+                hint_surf = ctx.FontStyle.tiny().render(hint, True, (210, 220, 255))
+                screen.blit(hint_surf, hint_surf.get_rect(center=(rect.centerx, rect.bottom + 24)))
+
+        pygame.display.flip()
+
+
 def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bool:
     if choice == "경기장 입장":
         if ctx.show_tutorial_dialog():
@@ -271,9 +426,13 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
                 if difficulty is not None:
                     ctx.start_game_with_difficulty(character, difficulty)
         return True
+    if choice == "AI 플레이":
+        return _run_ai_play_flow(ctx)
     if choice == "테스트메뉴":
         ctx.start_test_mode()
         return True
+    if choice == "개발테스트":
+        return _show_dev_test_menu(ctx, state)
     if choice == "메달샵":
         state.locked_message_timer = ctx.two_seconds_frames
         return False
@@ -430,6 +589,7 @@ class MenuContext:
     show_difficulty_selection: Callable[[], Optional[str]]
     start_game_with_difficulty: Callable[[str, str], None]
     start_tutorial_game: Callable[[], None]
+    start_ai_play: Callable[[], None]
     start_test_mode: Callable[[], None]
     show_item_manager_menu: Callable[[], None]
     show_developer_stage_select: Callable[[], None]

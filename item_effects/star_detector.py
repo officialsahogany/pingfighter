@@ -45,6 +45,12 @@ def roll_star_bonus() -> int:
     return 0
 
 
+def set_star_bonus_chance(chance: float) -> None:
+    """추가 별 등장 확률을 0~1 범위로 설정."""
+    global _bonus_chance
+    _bonus_chance = max(0.0, min(1.0, chance))
+
+
 def record_trigger(position: Tuple[float, float]) -> None:
     """최근 발동 위치를 기록한다. (디버그 용도)"""
     global _last_triggered

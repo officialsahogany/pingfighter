@@ -2113,3 +2113,36 @@ class LegendaryAcquisitionEffect:
                 return True
             return False
         return False
+
+    def force_skip(self) -> bool:
+        """애니메이션을 즉시 종료 (AI 자동 플레이 등 사용자가 입력할 수 없을 때 사용)."""
+        if not self.active:
+            return False
+
+        # 진행 중인 사운드는 짧게 페이드아웃해 잔향을 최소화
+        try:
+            for sound in (self.legendafter_sound, self.legendspacebar_sound, self.legendending_sound):
+                if sound:
+                    sound.fadeout(150)
+        except Exception:
+            pass
+
+        self.active = False
+        self.animation_complete = True
+        self.phase = 0
+        self.phase_timer = 0
+        self.black_hole_phase = 0
+        self.black_hole_timer = 0
+        self.screen_flash = 0
+        self.paddle_glow_intensity = 0
+
+        # 화면/파티클 상태도 정리
+        self.light_beams.clear()
+        self.light_particles.clear()
+        self.explosion_particles.clear()
+        self.magic_particles.clear()
+        self.ambient_particles.clear()
+        self.energy_rings.clear()
+        self.lightning_bolts.clear()
+        self.symbol_positions.clear()
+        return True

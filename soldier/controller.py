@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from collections import UserList
 from typing import Callable, Iterable
 
@@ -39,6 +40,7 @@ class SoldierWeaponController:
         self.current_index: int = 0
         self.switch_cooldown: int = 0
         self.reload_counts: dict[str, int] = {}
+        self.degradation_thresholds: dict[str, int] = {}
         self.degraded: set[str] = set()
         self.ui_highlight_timer: int = 0
 
@@ -51,13 +53,20 @@ class SoldierWeaponController:
         if weapon_name == "pistol":
             return
         self.reload_counts[weapon_name] = 0
+        # 화기 획득 시 노후화 임계치를 0~2로 랜덤 부여
+        threshold = random.randint(0, 2)
+        self.degradation_thresholds[weapon_name] = threshold
         self.degraded.discard(weapon_name)
+        # 임계치가 0이면 획득 즉시 노후화 처리
+        if threshold == 0:
+            self.degraded.add(weapon_name)
 
     def reset(self) -> None:
         self.weapons[:] = ["pistol"]
         self.current_index = 0
         self.switch_cooldown = 0
         self.reload_counts.clear()
+        self.degradation_thresholds.clear()
         self.degraded.clear()
         self.ui_highlight_timer = 0
 
@@ -76,6 +85,7 @@ class SoldierWeaponController:
             return
         self.weapons.remove(weapon_name)
         self.reload_counts.pop(weapon_name, None)
+        self.degradation_thresholds.pop(weapon_name, None)
         self.degraded.discard(weapon_name)
         if not self.weapons:
             self.weapons.append("pistol")
@@ -86,14 +96,7 @@ class SoldierWeaponController:
             return False
         count = self.reload_counts.get(weapon_name, 0) + 1
         self.reload_counts[weapon_name] = count
-        degradation_thresholds = {
-            "fire_support": 2,
-            "bazooka": 2,
-            "ak47": 2,
-            "net_gun": 2,
-            "suicide_drone": 2,
-        }
-        degradation_threshold = degradation_thresholds.get(weapon_name, 2)
+        degradation_threshold = self.degradation_thresholds.get(weapon_name, 1)
         if count >= degradation_threshold and weapon_name not in self.degraded:
             self.degraded.add(weapon_name)
             return True

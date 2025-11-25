@@ -28,7 +28,7 @@ SKILL_TREES = {
             {
                 "id": "dash_lightweight",
                 "name": "경량화",
-                "description": "대쉬토큰 충전시간 7% 감소",
+                "description": "대쉬 쿨타임 7% 감소",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (100, 150, 255),
@@ -39,7 +39,7 @@ SKILL_TREES = {
             {
                 "id": "dash_module_control", 
                 "name": "모듈제어",
-                "description": "통제불능시간 10% 감소",
+                "description": "대쉬후딜시간 10% 감소",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (100, 150, 255),
@@ -3673,7 +3673,7 @@ def get_skill_bonus(skill_id):
     bonuses = {
         # 새로운 대시 스킬 ID들 (사용자 요구사항에 맞게 수정)
         "dash_lightweight": level * 0.07,    # 경량화: 충전시간 7% 감소
-        "dash_module_control": level * 0.10, # 모듈제어: 통제불능시간 10% 감소
+        "dash_module_control": level * 0.10, # 모듈제어: 대쉬후딜시간 10% 감소
         "dash_jump": level * 0.04,           # 도약: 대쉬거리 4% 증가
         "dash_battery_pack": level * 0.08,   # 배터리팩: 게이지 소모량 8% 감소
         "dash_acceleration": level * 0.6,    # 버스트업: 대쉬 중 패들 세로 사이즈 60% 증가

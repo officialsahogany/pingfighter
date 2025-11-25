@@ -886,6 +886,7 @@ sensor_obtained = False  # 감지센서 아이템 획득 여부
 gravitybelt_obtained = False  # 무중력벨트 아이템 획득 여부
 dashholder_obtained = False  # 대쉬홀더 아이템 획득 여부
 commando_arm_obtained = False  # 코만도암 아이템 획득 여부
+commando_arm_count = 0         # 코만도암 획득 개수 (스택용)
 dowsing_pendulum_obtained = False  # 다우징팬들럼 아이템 획득 여부
 technical_vest_obtained = False  # 테크니컬조끼 아이템 획득 여부
 
@@ -958,6 +959,19 @@ unlocked_items = {
 # 현재 떠 있는 아이템 리스트
 item_list = []
 
+# 패시브 아이템은 중복 스폰을 허용하여 롤 옵션 파밍을 지원한다.
+PASSIVE_DUPLICATE_ALLOWED = {
+    "slot_add", "speedboots", "speedgear", "battery", "revival", "master", "cooltime",
+    "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
+    "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest",
+    "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle",
+    "smartphone", "knee_pads"
+}
+
+
+def _allow_duplicate_passive(name: str) -> bool:
+    return name in PASSIVE_DUPLICATE_ALLOWED
+
 # 필드 아이템만 초기화하는 함수 (스테이지 전환용)
 def clear_field_items():
     """필드에 스폰된 아이템만 제거 (물음표 아이콘 아이템들)"""
@@ -1005,9 +1019,10 @@ def reset_items():
     dashholder_obtained = False  # dashholder 획득 상태 초기화
     sensor_obtained = False  # sensor 획득 상태 초기화
     
-    global dowsing_pendulum_obtained, commando_arm_obtained, technical_vest_obtained
+    global dowsing_pendulum_obtained, commando_arm_obtained, commando_arm_count, technical_vest_obtained
     dowsing_pendulum_obtained = False  # dowsing_pendulum 획득 상태 초기화
     commando_arm_obtained = False  # commando_arm 획득 상태 초기화
+    commando_arm_count = 0         # commando_arm 스택 초기화
     technical_vest_obtained = False  # technical_vest 획득 상태 초기화
     
     # 전설 아이템 획득 상태는 게임 세션 동안 유지되므로 초기화하지 않음
@@ -1040,8 +1055,10 @@ def spawn_random_item():
     # 전역 변수 참조
     global ragnarok_hammer_obtained, poseidon_trident_obtained, foul_whistle_obtained
     
-    # 디버그: 포세이돈 플래그 상태 출력
-    print(f"[DEBUG spawn_random_item] poseidon_trident_obtained = {poseidon_trident_obtained}")
+    debug_spawn = os.environ.get("PINGF_DEBUG_ITEMS", "0").lower() in ("1", "true", "yes", "on")
+    if debug_spawn:
+        # 디버그: 포세이돈 플래그 상태 출력
+        print(f"[DEBUG spawn_random_item] poseidon_trident_obtained = {poseidon_trident_obtained}")
     
     # passive_item_list를 가져와서 이미 보유한 패시브 아이템 확인
     selected_character = None
@@ -1049,15 +1066,17 @@ def spawn_random_item():
         import pingfighter
         current_passive_items = [item["name"] for item in pingfighter.passive_item_list]
         selected_character = getattr(pingfighter, "selected_character_type", None)
-        print(f"[DEBUG spawn_random_item] selected_character_type: {selected_character}")
-        print(f"[DEBUG] Current passive items in inventory: {current_passive_items}")
+        if debug_spawn:
+            print(f"[DEBUG spawn_random_item] selected_character_type: {selected_character}")
+            print(f"[DEBUG] Current passive items in inventory: {current_passive_items}")
     except Exception:
         current_passive_items = []
         selected_character = None
     
     # 현재 필드에 떠 있는 아이템들의 이름 목록 생성 (중복 방지)
     items_in_field = [item["type"]["name"] for item in item_list]
-    print(f"[DEBUG] Items currently in field: {items_in_field}")
+    if debug_spawn:
+        print(f"[DEBUG] Items currently in field: {items_in_field}")
     
     # 스폰 가능한 아이템 목록 생성
     available_items = []
@@ -1072,96 +1091,77 @@ def spawn_random_item():
         if item["name"] == "berserk_potion" and selected_character != "blacksmith":
             continue
 
-        # slot_add 아이템은 2개 이상 먹었으면 스폰 안함
-        if item["name"] == "slot_add" and slot_add_obtained >= 2:
+        # slot_add는 패시브 파밍 허용 (장착 슬롯 상한은 별도 로직으로 제한)
+        if item["name"] == "slot_add" and slot_add_obtained >= 2 and not _allow_duplicate_passive("slot_add"):
             continue
 
-        # speedboots 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "speedboots" and speedboots_obtained:
+        # speedboots 아이템은 한 번 획득해도 추가 스폰 허용(파밍용)
+        if item["name"] == "speedboots" and speedboots_obtained and not _allow_duplicate_passive("speedboots"):
             continue
 
-        # speedgear 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "speedgear" and speedgear_obtained:
+        if item["name"] == "speedgear" and speedgear_obtained and not _allow_duplicate_passive("speedgear"):
             continue
 
-        # battery 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "battery" and battery_obtained:
+        if item["name"] == "battery" and battery_obtained and not _allow_duplicate_passive("battery"):
             continue
 
-        # revival 아이템은 한 번 획득하거나 사용했으면 더 이상 스폰 안함
-        if item["name"] == "revival" and (revival_obtained or revival_used):
+        if item["name"] == "revival" and (revival_obtained or revival_used) and not _allow_duplicate_passive("revival"):
             continue
 
-        # master 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "master" and master_obtained:
+        if item["name"] == "master" and master_obtained and not _allow_duplicate_passive("master"):
             continue
 
-        # cooltime 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "cooltime" and cooltime_obtained:
+        if item["name"] == "cooltime" and cooltime_obtained and not _allow_duplicate_passive("cooltime"):
             continue
 
-        # chargebag 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "chargebag" and chargebag_obtained:
+        if item["name"] == "chargebag" and chargebag_obtained and not _allow_duplicate_passive("chargebag"):
             continue
 
-        # spikeboots 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "spikeboots" and spikeboots_obtained:
+        if item["name"] == "spikeboots" and spikeboots_obtained and not _allow_duplicate_passive("spikeboots"):
             continue
 
-        # dashgear 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "dashgear" and dashgear_obtained:
+        if item["name"] == "dashgear" and dashgear_obtained and not _allow_duplicate_passive("dashgear"):
             continue
 
-        # bulkup 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "bulkup" and bulkup_obtained:
+        if item["name"] == "bulkup" and bulkup_obtained and not _allow_duplicate_passive("bulkup"):
             continue
 
-        # dashholder 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "dashholder" and dashholder_obtained:
+        if item["name"] == "dashholder" and dashholder_obtained and not _allow_duplicate_passive("dashholder"):
             continue
 
-        # gravitybelt 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "gravitybelt" and gravitybelt_obtained:
+        if item["name"] == "gravitybelt" and gravitybelt_obtained and not _allow_duplicate_passive("gravitybelt"):
             continue
 
-        # sensor 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "sensor" and sensor_obtained:
+        if item["name"] == "sensor" and sensor_obtained and not _allow_duplicate_passive("sensor"):
             continue
 
-        # dowsing_pendulum 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "dowsing_pendulum" and dowsing_pendulum_obtained:
+        if item["name"] == "dowsing_pendulum" and dowsing_pendulum_obtained and not _allow_duplicate_passive("dowsing_pendulum"):
             continue
         
-        # commando_arm 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "commando_arm" and commando_arm_obtained:
+        # commando_arm 중복 스폰 허용 (장착 스택 제한은 별도 처리)
+        
+        if item["name"] == "technical_vest" and technical_vest_obtained and not _allow_duplicate_passive("technical_vest"):
             continue
         
-        # technical_vest 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "technical_vest" and technical_vest_obtained:
+        if item["name"] == "fuel_pouch" and fuel_pouch_obtained and not _allow_duplicate_passive("fuel_pouch"):
             continue
         
-        # fuel_pouch 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "fuel_pouch" and fuel_pouch_obtained:
-            continue
-        
-        # bluetooth_ring 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "bluetooth_ring" and bluetooth_ring_obtained:
+        if item["name"] == "bluetooth_ring" and bluetooth_ring_obtained and not _allow_duplicate_passive("bluetooth_ring"):
             continue
 
-        # star_detector 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "star_detector" and star_detector_obtained:
+        if item["name"] == "star_detector" and star_detector_obtained and not _allow_duplicate_passive("star_detector"):
             continue
 
         # 화력지원은 물자보급 전용이므로 필드에서는 절대 스폰하지 않음
         if item["name"] == "fire_support":
             continue
 
-        # foul_whistle 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "foul_whistle" and foul_whistle_obtained:
+        # foul_whistle 아이템은 한 번 획득해도 추가 스폰 허용(파밍용)
+        if item["name"] == "foul_whistle" and foul_whistle_obtained and not _allow_duplicate_passive("foul_whistle"):
             continue
 
-        # knee_pads 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "knee_pads" and knee_pads_obtained:
+        # knee_pads 아이템 중복 허용
+        if item["name"] == "knee_pads" and knee_pads_obtained and not _allow_duplicate_passive("knee_pads"):
             continue
         
         # 라그나로크 해머는 한 번 획득하면 더 이상 스폰 안함
@@ -1181,18 +1181,9 @@ def spawn_random_item():
             else:
                 print(f"[DEBUG] poseidon_trident can spawn (not obtained yet)")
         
-        # 🚫 패시브 아이템 중복 방지 (chargebag 제외)
-        # 이미 소지한 패시브 아이템은 더 이상 스폰하지 않음
-        # chargebag은 중복 가능하므로 제외하고 체크
-        
-        # 이미 인벤토리에 있는 패시브 아이템인지 확인
-        if item["name"] in current_passive_items and item["name"] != "chargebag":
-            print(f"[DEBUG] Skipping {item['name']} - already in passive inventory")
-            continue
-        
-        # 현재 필드에 떠 있는 아이템과 중복되는지 확인 (판도라의 상자 중복 방지)
+        # 패시브 아이템 중복 스폰 허용(파밍). 단, 동일 아이템이 필드에 이미 있을 때는 혼잡 방지를 위해 1개만 유지.
         if item["name"] in items_in_field and item["name"] != "chargebag":
-            print(f"[DEBUG] Skipping {item['name']} - already spawned in field")
+            print(f"[DEBUG] Skipping {item['name']} - already spawned in field (limit 1 concurrently)")
             continue
 
         # 스폰 가능한 아이템을 목록에 추가 (확률 포함)
@@ -1495,7 +1486,7 @@ def draw_cooldown_overlay(screen, x, y, size, last_use_time, cooldown_ms):
 
 
 def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cooldown_ms=10000, round_start_time=None, alchemy_notices=None):
-    """엑티브 아이템 슬롯 + 쿨타임 표시 통합"""
+    """엑티브 아이템 슬롯 + 쿨타임 표시 + 툴팁."""
     if not active_item_slot:
         return
 
@@ -1517,6 +1508,9 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
 
     # 리스트 형태(다중 슬롯)
     notice_font = get_alchemy_font() if alchemy_notices else None
+
+    mouse_pos = pygame.mouse.get_pos()
+    tooltip = None
 
     if isinstance(active_item_slot, list):
         for i, item in enumerate(active_item_slot):
@@ -1684,6 +1678,11 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                          (x - border_margin, y - border_margin,
                           SLOT_W + border_margin * 2, SLOT_H + border_margin * 2), 3)
 
+        # 단일 슬롯 툴팁 대상 기록
+        slot_rect = pygame.Rect(x, y, SLOT_W, SLOT_H)
+        if slot_rect.collidepoint(mouse_pos) and active_item_slot.get("name"):
+            tooltip = active_item_slot.get("name")
+
         if alchemy_notices and notice_font:
             for notice in alchemy_notices:
                 if notice.get("slot_index") != 0:
@@ -1714,3 +1713,21 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                 screen.blit(shadow, (text_rect.x + 2, text_rect.y + 2))
                 screen.blit(text_surface, text_rect)
                 break
+
+    # 툴팁 렌더링 (마우스 오버된 마지막 슬롯 기준)
+    if tooltip:
+        try:
+            font = pygame.font.Font("NanumSquareB.ttf", 14)
+        except Exception:
+            font = pygame.font.Font(None, 16)
+        text = tooltip
+        text_surf = font.render(text, True, (255, 255, 255))
+        text_rect = text_surf.get_rect()
+        padding = 6
+        bg_surf = pygame.Surface((text_rect.width + padding * 2, text_rect.height + padding * 2), pygame.SRCALPHA)
+        bg_surf.fill((20, 24, 32, 230))
+        pygame.draw.rect(bg_surf, (90, 130, 200), bg_surf.get_rect(), 1)
+        text_rect.center = bg_surf.get_rect().center
+        bg_surf.blit(text_surf, text_rect)
+        mx, my = mouse_pos
+        screen.blit(bg_surf, (mx + 12, my + 12))

@@ -185,7 +185,7 @@ class AcademyMode:
                     {
                         "id": "dash_module_control",
                         "name": "모듈제어",
-                        "description": "통제불능시간 5% 감소",
+                        "description": "대쉬후딜시간 5% 감소",
                         "max_level": 5,
                         "cost": 1,
                         "icon_color": (100, 150, 255),

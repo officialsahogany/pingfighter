@@ -91,6 +91,8 @@ BOSS_CONFIGS = {
         "special_skill": "chaos_ball",  # 카오스볼
         # 스테이지 5: 고난이도 구간, 쿨타임 추가 단축
         "dash_cooldown_range": (32.0, 46.0),
+        # Genesis(항공모함) 콘셉트: 무거움 강조, 대쉬 비활성화
+        "dash_enabled": False,
         "dash_max_distance": 280,
     },
     6: {

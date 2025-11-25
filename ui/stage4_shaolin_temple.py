@@ -134,6 +134,9 @@ class ShaolinTempleBackground:
         # Background surface for static elements (with transparency support)
         self.static_surface = pygame.Surface((width, height), pygame.SRCALPHA)
         self._draw_static_background()
+        # Reusable working surfaces to avoid per-frame allocations
+        self._temp_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        self._red_overlay_surface = pygame.Surface((width, height), pygame.SRCALPHA)
         
     def _create_lanterns(self) -> List[Dict[str, Any]]:
         """Create hanging lanterns"""
@@ -2416,7 +2419,11 @@ class ShaolinTempleBackground:
             shake_y = random.randint(-self.screen_shake_intensity, self.screen_shake_intensity)
         
         # Create temporary surface for shaking effect
-        temp_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        temp_surface = getattr(self, "_temp_surface", None)
+        if temp_surface is None or temp_surface.get_size() != (self.width, self.height):
+            temp_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            self._temp_surface = temp_surface
+        temp_surface.fill((0, 0, 0, 0))
         
         # Draw static background
         if self.static_surface is None:
@@ -2516,7 +2523,10 @@ class ShaolinTempleBackground:
         
         # Draw red light overlay (after shaking)
         if self.red_light_alpha > 0:
-            red_overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            red_overlay = getattr(self, "_red_overlay_surface", None)
+            if red_overlay is None or red_overlay.get_size() != (self.width, self.height):
+                red_overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+                self._red_overlay_surface = red_overlay
             red_overlay.fill((255, 50, 50, self.red_light_alpha))
             surface.blit(red_overlay, (0, 0))
         
@@ -4409,6 +4419,8 @@ class ShaolinTempleBackground:
         # Force recreation of static surface
         self.static_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self._draw_static_background()
+        self._temp_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self._red_overlay_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         
         print("Stage 4: Shaolin Temple background reset to initial state")
     

@@ -4,6 +4,7 @@
 연막은 플레이어 패들을 따라다니며 3초간 분사 후 페이드아웃
 """
 
+import os
 import pygame
 import random
 import math
@@ -12,10 +13,13 @@ class TechnicalVest:
     def __init__(self):
         self.active = False
         self.smoke_instances = []  # 활성 연막 인스턴스들
-        self.trigger_chance = 0.2  # 20% 확률
+        self.trigger_chance = 0.2  # 20% 확률 (롤 옵션으로 덮어씀)
+        self.smoke_duration_frames = 480  # 8초 (롤 옵션으로 덮어씀)
+        self.emission_duration_frames = 180  # 3초 연막 분사
         self.player_paddle_rect = None  # 플레이어 패들 위치 추적용
         self.duration = 3600  # 60초 (60 FPS)
         self.timer = 0  # 활성화 시간 추적
+        self.debug = os.environ.get("DEBUG_TECH_VEST", "0") == "1"
         
     def activate(self, game_state, current_stage):
         """테크니컬조끼 아이템 활성화"""
@@ -32,7 +36,7 @@ class TechnicalVest:
         if not self.active:
             return
             
-        # 20% 확률로 연막 생성
+        # 20% 확률(롤 옵션 반영)로 연막 생성
         if random.random() < self.trigger_chance:
             # 플레이어 패들 위치에 연막 생성
             smoke = {
@@ -40,14 +44,16 @@ class TechnicalVest:
                 'start_y': player_paddle_rect.centery,
                 'radius': 0,
                 'max_radius': 120,  # 최대 반경
-                'duration': 480,  # 8초 (60 FPS)
-                'emission_duration': 180,  # 3초간 분사
+                'duration': self.smoke_duration_frames,  # 롤 옵션 적용
+                'emission_duration': self.emission_duration_frames,  # 3초간 분사
                 'timer': 0,
                 'particles': [],
                 'trail_particles': []  # 패들 이동 경로에 남는 파티클
             }
             
             self.smoke_instances.append(smoke)
+            if self.debug:
+                print(f"[TECH_VEST] smoke spawned chance={self.trigger_chance*100:.1f}% duration={self.smoke_duration_frames/60:.1f}s emission={self.emission_duration_frames/60:.1f}s")
             
     def update(self, player_paddle_rect=None):
         """연막 상태 업데이트"""
@@ -218,6 +224,16 @@ class TechnicalVest:
                 })
         return areas
 
+    def get_remaining_time(self):
+        """남은 연막 지속 시간을 초 단위로 반환 (가장 오래 남은 인스턴스 기준)."""
+        if not self.active or not self.smoke_instances:
+            return 0.0
+        remaining_frames = max(
+            max(0, smoke.get('duration', 0) - smoke.get('timer', 0))
+            for smoke in self.smoke_instances
+        )
+        return remaining_frames / 60.0
+
 # 싱글톤 인스턴스
 technical_vest_instance = None
 
@@ -231,6 +247,8 @@ def activate_technical_vest(game_state, current_stage):
     """테크니컬조끼 활성화"""
     vest = get_technical_vest_instance()
     vest.activate(game_state, current_stage)
+    if vest.debug:
+        print(f"[TECH_VEST] activate chance={vest.trigger_chance*100:.1f}% duration={vest.smoke_duration_frames/60:.1f}s emission={vest.emission_duration_frames/60:.1f}s")
 
 def deactivate_technical_vest():
     """테크니컬조끼 비활성화"""
@@ -261,3 +279,30 @@ def get_technical_vest_smoke_areas():
     """연막 영역 정보 반환"""
     vest = get_technical_vest_instance()
     return vest.get_smoke_areas()
+
+
+def get_technical_vest_remaining_time():
+    """연막이 활성화되어 있다면 남은 시간을 초 단위로 반환."""
+    vest = get_technical_vest_instance()
+    return vest.get_remaining_time()
+
+
+def configure_technical_vest(chance_pct=None, duration_sec=None, emission_sec=None):
+    """
+    롤 옵션/밸런스 값을 테크니컬조끼 인스턴스에 반영.
+    Args:
+        chance_pct: 연막 생성 확률(%) – 0~100
+        duration_sec: 연막 지속 시간(초)
+        emission_sec: 연막 분사 시간(초) – 지정 시 덮어씀
+    """
+    vest = get_technical_vest_instance()
+    if chance_pct is not None:
+        vest.trigger_chance = max(0.0, min(1.0, chance_pct / 100.0))
+    if duration_sec is not None:
+        vest.smoke_duration_frames = max(1, int(duration_sec * 60))
+        # 시인성 확보를 위해 분사 시간도 전체 지속 시간으로 확장
+        vest.emission_duration_frames = vest.smoke_duration_frames
+    if emission_sec is not None:
+        vest.emission_duration_frames = max(1, int(emission_sec * 60))
+    if vest.debug:
+        print(f"[TECH_VEST] configure chance={vest.trigger_chance*100:.1f}% duration={vest.smoke_duration_frames/60:.1f}s emission={vest.emission_duration_frames/60:.1f}s")

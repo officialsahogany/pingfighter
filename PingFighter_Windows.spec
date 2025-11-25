@@ -1,10 +1,63 @@
 # -*- mode: python ; coding: utf-8 -*-
 # PingFighter Windows 실행 파일 빌드 설정
 
+import glob
+import os
+import imageio_ffmpeg
+import imageio
+import moviepy
+from PyInstaller.utils.hooks import collect_submodules
+
+bgm_files = []
+for _pattern in ("bgm/*.ogg", "bgm/*.mp3", "bgm/*.wav"):
+    for _path in glob.glob(_pattern):
+        bgm_files.append((_path, 'bgm'))
+
+stage_videos = []
+for _pattern in ("stagevideo/*.mov", "stagevideo/*.mp4", "stagevideo/*.avi"):
+    for _path in glob.glob(_pattern):
+        stage_videos.append((_path, 'stagevideo'))
+
+# package metadata (.dist-info) 포함 - importlib.metadata 사용 에러 방지
+dist_info_datas = []
+for _mod, _pattern in (
+    (imageio, "imageio*.dist-info"),
+    (imageio_ffmpeg, "imageio_ffmpeg*.dist-info"),
+    (moviepy, "moviepy*.dist-info"),
+):
+    try:
+        _pkg_dir = os.path.dirname(os.path.abspath(_mod.__file__))
+        _site_dir = os.path.dirname(_pkg_dir)  # dist-info는 패키지와 같은 상위 경로에 위치
+        for _dist in glob.glob(os.path.join(_site_dir, _pattern)):
+            dist_info_datas.append((_dist, os.path.basename(_dist)))
+    except Exception:
+        pass
+
+ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+ffmpeg_binaries = []
+if ffmpeg_exe and os.path.isfile(ffmpeg_exe):
+    ffmpeg_binaries.append((ffmpeg_exe, 'ffmpeg.exe'))
+    # 번들 시 이름을 ffmpeg.exe로 고정해 런타임 경로를 단순화
+    ffmpeg_binaries.append((ffmpeg_exe, 'ffmpeg.exe'))
+
+# Stage intro 오디오 추출에 필요한 moviepy 하위 모듈을 통째로 포함
+try:
+    # collect_submodules가 editor.py를 누락하므로 수동으로 추가한다.
+    moviepy_hiddenimports = ["moviepy.editor"] + collect_submodules("moviepy")
+except Exception:
+    moviepy_hiddenimports = [
+        "moviepy",
+        "moviepy.editor",
+        "moviepy.audio.io.readers",
+        "moviepy.audio.io.ffmpeg_audiowriter",
+        "moviepy.video.io.ffmpeg_reader",
+        "moviepy.video.io.ffmpeg_writer",
+    ]
+
 a = Analysis(
     ['pingfighter.py'],
     pathex=[],
-    binaries=[],
+    binaries=ffmpeg_binaries,
     datas=[
         # 폰트 파일 - 개별 파일 명시적 포함
         ('NanumSquareEB.ttf', '.'),
@@ -17,28 +70,27 @@ a = Analysis(
         ('NanumSquare_acL.ttf', '.'),
         ('PFStardust.ttf', '.'),
         ('PFSartdust.ttf', '.'),
-        ('PF스타더스트 3.0.ttf', '.'),
+        ('PF\uC2A4\uD0C0\uB354\uC2A4\uD2B8 3.0.ttf', '.'),
         ('Pretendard-Bold.ttf', '.'),
         ('Pretendard-Medium.ttf', '.'),
         ('Pretendard-Regular.ttf', '.'),
         ('NeoDGM.ttf', '.'),
         ('NeoDunggeunmoPro.ttf', '.'),
-        ('네오둥근모.ttf', '.'),
+        ('\uB124\uC624\uB465\uADFC\uBAA8.ttf', '.'),
         # 폰트 서브디렉토리
         ('fonts/pixel/*.ttf', 'fonts/pixel'),
-        ('fonts/프리텐다드/public/static/alternative/*.ttf', 'fonts/프리텐다드/public/static/alternative'),
-        ('fonts/프리텐다드/public/variable/*.ttf', 'fonts/프리텐다드/public/variable'),
+        ('fonts/\uD504\uB9AC\uD150\uB2E4\uB4DC/public/static/alternative/*.ttf', 'fonts/\uD504\uB9AC\uD150\uB2E4\uB4DC/public/static/alternative'),
+        ('fonts/\uD504\uB9AC\uD150\uB2E4\uB4DC/public/variable/*.ttf', 'fonts/\uD504\uB9AC\uD150\uB2E4\uB4DC/public/variable'),
         
         # 이미지 파일
         ('*.png', '.'),
-        ('다운로드.jpeg', '.'),
+        ('\uB2E4\uC6B4\uB85C\uB4DC.jpeg', '.'),
         ('items/*.png', 'items'),
         ('items/legendary/*.png', 'items/legendary'),
         ('backgrounds/*.png', 'backgrounds'),
         # 스테이지 배경 이미지
         ('stage*.png', '.'),
         ('boss_stage*.png', '.'),
-        
         # 사운드 파일
         ('sounds/*.wav', 'sounds'),
         
@@ -60,7 +112,7 @@ a = Analysis(
         ('managers', 'managers'),
         ('rendering', 'rendering'),
         ('utils', 'utils'),
-    ],
+    ] + bgm_files + stage_videos + dist_info_datas,
     hiddenimports=[
         # 기본 모듈
         'pygame',
@@ -119,15 +171,22 @@ a = Analysis(
         'item_effects.technical_vest',
         'item_effects.fuel_pouch',
         'item_effects.bluetooth_ring',
-    ],
+        'cv2',
+        'moviepy',
+        'moviepy.editor',
+        'moviepy.audio.io.ffmpeg_audioreader',
+        'moviepy.audio.io.ffmpeg_audiowriter',
+        'moviepy.video.io.ffmpeg_reader',
+        'moviepy.video.io.ffmpeg_writer',
+        'imageio_ffmpeg',
+    ] + moviepy_hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['hooks/rth_imageio_nometa.py'],
     excludes=[
         'tensorflow',  # TensorFlow는 옵션이므로 제외
         'tkinter',     # GUI 라이브러리 제외
         'matplotlib',  # 플로팅 라이브러리 제외
-        'numpy',       # 필요없으면 제외
         'pandas',      # 필요없으면 제외
     ],
     noarchive=False,
@@ -149,7 +208,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # Windows에서 콘솔 창 숨기기
+    console=True,  # 디버그용 콘솔 창 표시
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

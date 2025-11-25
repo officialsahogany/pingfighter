@@ -15,6 +15,9 @@ import game_logic.stage2_effects as stage2_effects
 
 CHARGBAG_WALL_COOLDOWN_FRAMES = 1
 DEFAULT_CHARGEBAG_BASE_GAIN = 80
+DANGER_SENSOR_COOLDOWN_MIN_MS = 13000  # 위험감지센서 자동 대쉬 최소 쿨타임
+DANGER_SENSOR_COOLDOWN_MAX_MS = 20000  # 위험감지센서 자동 대쉬 최대 쿨타임
+danger_sensor_cooldown_ms = 15000  # 패시브 롤 옵션 기반 기본값(ms)
 
 def handle_ball():
     # 게임 상태 변수들
@@ -553,12 +556,13 @@ def handle_ball():
     if danger_sensor_obtained and danger_sensor_enabled and ball_vel[1] > 0 and BALL.centery > HEIGHT * 0.75:  # 공이 아래로 내려오고 화면 3/4 지점 이하
         current_time = pygame.time.get_ticks()
         
-        # 쿨타임 체크 (10초)
+        # 쿨타임 체크 (패시브 롤 옵션 기반 13~20초)
         if not hasattr(handle_ball, 'danger_sensor_last_activation_time'):
             handle_ball.danger_sensor_last_activation_time = 0
+        cooldown_ms = globals().get("danger_sensor_cooldown_ms", 15000)
         
         # 쿨타임 중이면 위험감지센서만 비활성화하고 공 이동은 계속
-        sensor_can_activate = current_time - handle_ball.danger_sensor_last_activation_time >= 10000
+        sensor_can_activate = current_time - handle_ball.danger_sensor_last_activation_time >= cooldown_ms
         
         # 공의 예상 위치 계산
         time_to_reach_player = (PLAYER.centery - BALL.centery) / ball_vel[1] if ball_vel[1] > 0 else 0
