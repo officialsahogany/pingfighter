@@ -17,6 +17,7 @@ from downtown.map_generator import DowntownMap
 from downtown.player import DowntownPlayer
 from downtown.renderer import DowntownRenderer
 from downtown.buildings import BuildingManager
+from downtown.action_points import ActionPointSystem
 
 def test_mouse_click():
     """마우스 클릭 테스트"""
@@ -187,37 +188,29 @@ def test_mouse_click():
             title_y = dialog_y + 30
             screen.blit(title_surface, (title_x, title_y))
 
-            # AP 소모 안내 (열쇠 아이콘으로 표시)
-            # 열쇠 아이콘 그리기
+            # AP 소모 안내 (실제 광장의 열쇠 아이콘 사용)
+            # 앤틱 열쇠 아이콘 크기 및 위치
             key_size = 20
-            key_x = dialog_x + (dialog_width - key_size - 40) // 2  # 아이콘 + 숫자 공간
-            key_y = title_y + 35
+            key_center_y = title_y + 45  # 제목 아래 중앙
 
-            # 열쇠 몸통
-            key_body = pygame.Rect(key_x, key_y + 3, 8, 10)
-            pygame.draw.rect(screen, Colors.UI_DANGER, key_body, border_radius=2)
+            # AP 개수만큼 열쇠 표시 (가로로 배치)
+            num_keys = ap_cost
+            total_width = num_keys * 24  # 각 열쇠 간격 24px
+            start_x = dialog_x + (dialog_width - total_width) // 2
 
-            # 열쇠 고리
-            pygame.draw.circle(screen, Colors.UI_DANGER, (key_x + 4, key_y + 5), 5, 2)
+            # ActionPointSystem의 _draw_antique_key 메서드 사용
+            # 임시 AP 시스템 인스턴스 생성 (열쇠 그리기용)
+            temp_ap_system = ActionPointSystem()
 
-            # 열쇠 이빨
-            teeth_points = [
-                (key_x + 8, key_y + 10),
-                (key_x + 11, key_y + 10),
-                (key_x + 11, key_y + 13),
-                (key_x + 13, key_y + 13),
-                (key_x + 13, key_y + 10),
-                (key_x + 16, key_y + 10),
-                (key_x + 16, key_y + 14),
-                (key_x + 8, key_y + 14)
-            ]
-            pygame.draw.polygon(screen, Colors.UI_DANGER, teeth_points)
+            for i in range(num_keys):
+                key_x = start_x + i * 24 + 12  # 중심점
+                temp_ap_system._draw_antique_key(screen, key_x, key_center_y, key_size, active=True)
 
-            # 소모 개수 표시
+            # 소모 안내 텍스트 (열쇠 아래)
             ap_text = f"{ap_cost} 소모"
             ap_surface, ap_rect = small_font.render(ap_text, Colors.UI_DANGER)
-            ap_text_x = key_x + key_size + 5
-            ap_text_y = key_y
+            ap_text_x = dialog_x + (dialog_width - ap_rect.width) // 2
+            ap_text_y = key_center_y + 25  # 열쇠 아래
             screen.blit(ap_surface, (ap_text_x, ap_text_y))
 
             # 버튼 설정
