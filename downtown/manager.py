@@ -359,7 +359,7 @@ class DowntownManager:
     def _run_building_event(self, building_type):
         """건물 이벤트 실행 (각 건물별로 구현)"""
         # 임시 - 나중에 각 건물별 모듈로 분리
-        if building_type == BuildingType.SHOP:
+        if building_type == BuildingType.MAGIC_STORE:
             self._show_shop()
         elif building_type == BuildingType.BLACKSMITH:
             self._show_blacksmith()

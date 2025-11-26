@@ -221,7 +221,7 @@ class DowntownMap:
         self._place_bank_near_spawn()
 
         # 필수 건물 (항상 등장 - 은행은 이미 배치됨)
-        required_buildings = [BuildingType.SHOP, BuildingType.BLACKSMITH]
+        required_buildings = [BuildingType.MAGIC_STORE, BuildingType.BLACKSMITH]
 
         # 스테이지에 따른 추가 필수 건물
         if self.stage_number >= 2:

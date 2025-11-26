@@ -7,7 +7,6 @@
 import sys
 import os
 import pygame
-import math
 
 # 프로젝트 루트를 path에 추가
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -39,7 +38,6 @@ def test_mouse_click():
 
     # 렌더러 및 건물 매니저
     renderer = DowntownRenderer()
-    renderer.set_player(player)
     buildings = BuildingManager()
 
     # 건물 배치

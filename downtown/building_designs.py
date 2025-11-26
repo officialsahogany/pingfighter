@@ -199,8 +199,8 @@ class BuildingDesigner:
             self._draw_colosseum(screen, building, draw_x, draw_y, building_id)
         elif building.type == BuildingType.BLACKSMITH:
             self._draw_blacksmith(screen, building, draw_x, draw_y, building_id)
-        elif building.type == BuildingType.SHOP:
-            self._draw_shop(screen, building, draw_x, draw_y, building_id)
+        elif building.type == BuildingType.MAGIC_STORE:
+            self._draw_magic_store(screen, building, draw_x, draw_y, building_id)
         elif building.type == BuildingType.PET_SHOP:
             self._draw_pet_shop(screen, building, draw_x, draw_y, building_id)
         elif building.type == BuildingType.ELDER:
@@ -1056,8 +1056,8 @@ class BuildingDesigner:
     # =========================================================================
     # 🛒 아이템 상점 - 고품질 마법 에너지 스타일
     # =========================================================================
-    def _draw_shop(self, screen, building, x, y, building_id):
-        """아이템 상점 - 고품질 마법 상점"""
+    def _draw_magic_store(self, screen, building, x, y, building_id):
+        """마법 성소 - 달의 힘이 깃든 신비한 sanctuary"""
         w, h = building.width, building.height
 
         # 1. 고급 3D 그림자
@@ -1129,15 +1129,15 @@ class BuildingDesigner:
             star_alpha = int(100 + 100 * abs(math.sin(self.animation_timer * 4 + i)))
             self._draw_magic_star_small(screen, star_px, int(star_py), star_size, (200, 180, 255, star_alpha))
 
-        # 5. 지붕 꼭대기 별 장식 (대형)
-        star_x = x + w // 2
-        star_y = y - 32
+        # 5. 지붕 꼭대기 달 장식 (대형 - 초승달)
+        moon_x = x + w // 2
+        moon_y = y - 32
 
-        # 별 글로우
-        star_glow = self._create_soft_glow(25, Colors.UI_ACCENT, pulse)
-        screen.blit(star_glow, (star_x - 25, star_y - 25))
+        # 달 글로우 (은은한 청백색)
+        moon_glow = self._create_soft_glow(28, (180, 200, 255), pulse)
+        screen.blit(moon_glow, (moon_x - 28, moon_y - 28))
 
-        self._draw_magic_star_hq(screen, star_x, star_y, 14, Colors.UI_ACCENT)
+        self._draw_crescent_moon(screen, moon_x, moon_y, 16, pulse)
 
         # 6. 마법 룬 문양 (회전 + 글로우)
         rune_y = y + h // 2 - 5
@@ -1245,14 +1245,15 @@ class BuildingDesigner:
             pygame.draw.rect(screen, (170, 120, 255, border_alpha),
                             (sign_x - i, sign_y - i, sign_w + i * 2, sign_h + i * 2), 2, border_radius=6)
 
-        # 간판 텍스트 (깜빡임)
-        font = pygame.font.Font(None, 17)
-        text = "MAGIC SHOP"
+        # 간판 텍스트 (깜빡임 - 마법 성소)
+        font = pygame.font.Font(None, 16)
+        text = "SANCTUARY"
         for i, char in enumerate(text):
             char_pulse = 0.7 + 0.3 * abs(math.sin(self.animation_timer * 5 + i * 0.3))
-            char_color = tuple(int(c * char_pulse) for c in Colors.TEXT_WHITE)
+            # 은은한 청백색 글로우
+            char_color = (int(180 * char_pulse), int(200 * char_pulse), int(255 * char_pulse))
             char_surf = font.render(char, True, char_color)
-            screen.blit(char_surf, (sign_x + 8 + i * 8, sign_y + 8))
+            screen.blit(char_surf, (sign_x + 6 + i * 9, sign_y + 8))
 
         # 11. 마법 파티클 (다양한 효과)
         if random.random() < 0.2:
@@ -1358,6 +1359,36 @@ class BuildingDesigner:
         bright = tuple(min(255, c + 100) for c in color)
         if len(rotated_points) >= 2:
             pygame.draw.line(screen, bright, rotated_points[0], rotated_points[1], 1)
+
+    def _draw_crescent_moon(self, screen, x, y, size, pulse):
+        """초승달 그리기 (애니메이션 포함)"""
+        # 전체 원 (달)
+        moon_color = (220, 230, 255)
+        pygame.draw.circle(screen, moon_color, (int(x), int(y)), size)
+
+        # 그림자 원 (오른쪽에서 가리기) - 초승달 효과
+        shadow_offset = int(size * 0.5)  # 초승달 두께 조절
+        shadow_x = int(x + shadow_offset)
+        shadow_y = int(y)
+        shadow_color = (10, 10, 20)  # 어두운 배경색
+        pygame.draw.circle(screen, shadow_color, (shadow_x, shadow_y), size)
+
+        # 달 표면 디테일 (크레이터 3개)
+        crater_alpha = int(80 * pulse)
+        crater_color = (180, 190, 220, crater_alpha)
+
+        # 작은 크레이터들
+        if size > 10:
+            pygame.draw.circle(screen, crater_color, (int(x - size * 0.3), int(y - size * 0.2)), max(2, size // 8))
+            pygame.draw.circle(screen, crater_color, (int(x - size * 0.1), int(y + size * 0.3)), max(1, size // 10))
+            pygame.draw.circle(screen, crater_color, (int(x - size * 0.5), int(y + size * 0.1)), max(2, size // 9))
+
+        # 달빛 반짝임 (가장자리)
+        sparkle_alpha = int(150 + 105 * pulse)
+        sparkle_color = (255, 255, 255, sparkle_alpha)
+        if size > 8:
+            # 왼쪽 가장자리 반짝임
+            pygame.draw.circle(screen, sparkle_color, (int(x - size * 0.7), int(y)), max(2, size // 6))
 
     def _draw_magic_star(self, screen, x, y, size, color):
         """마법 별 그리기"""

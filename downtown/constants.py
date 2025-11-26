@@ -49,7 +49,7 @@ class BuildingType:
     CASINO = "casino"               # 도박장
     COLOSSEUM = "colosseum"         # 콜로세움
     BLACKSMITH = "blacksmith"       # 대장장이
-    SHOP = "shop"                   # 아이템 상인
+    MAGIC_STORE = "magic_store"     # 마법 성소
     PET_SHOP = "pet_shop"           # 펫 상점
     ELDER = "elder"                 # 버프 노인
     MINIGAME = "minigame"           # 미니게임
@@ -97,17 +97,17 @@ BUILDING_INFO = {
         "rarity": 0.9,
         "style": "volcanic",
     },
-    BuildingType.SHOP: {
-        "name": "마법 상점",
-        "name_en": "Magic Emporium",
-        "icon": "✨",
-        "color": (150, 100, 255),    # 마법 보라
+    BuildingType.MAGIC_STORE: {
+        "name": "마법 성소",
+        "name_en": "Mystic Sanctuary",
+        "icon": "🌙",
+        "color": (120, 80, 200),     # 깊은 보라
         "ap_cost": 1,
-        "size": (2, 2),              # 뾰족한 지붕의 마법사 상점
+        "size": (2, 2),              # 신비한 마법 성소
         "pixel_size": (75, 88),      # (축소)
-        "description": "신비로운 마법 아이템이 가득한 상점",
+        "description": "달의 힘이 깃든 신비로운 마법 성소",
         "rarity": 1.0,
-        "style": "magical",
+        "style": "sanctuary",
     },
     BuildingType.PET_SHOP: {
         "name": "숲의 펫샵",
