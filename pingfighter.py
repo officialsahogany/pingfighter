@@ -50,6 +50,7 @@ from show_credits import show_credits_screen
 import ui_manager
 import effects_manager
 import bgm_manager
+from downtown import DowntownManager
 from game_logic.characters.blacksmith import BlacksmithController, blacksmith_state
 from game_logic.characters.blacksmith.state import BlacksmithTurretRuntime
 from effects_manager import spawn_drive_particles, update_drive_particles, draw_drive_particles, has_drive_particles
@@ -2957,6 +2958,8 @@ ITEM_SLOT_BASE_MAP = {
     "dashgear": "knee",
     "dashholder": "accessory",
     "slot_add": "가방",
+    "bulletproof_hat": "head",
+    "spiked_helmet": "head",
     "chargebag": "가방",
     "battery": "accessory",
     "fuel_pouch": "accessory",
@@ -3000,6 +3003,12 @@ PASSIVE_OPTION_RANGES = {
         {"label": "벽돌 길이", "min": 20, "max": 40, "unit": "%", "prefix": "+", "key": "wall_length_pct"},
         {"label": "아이템 쿨타임", "min": 4, "max": 10, "unit": "%", "prefix": "-", "key": "item_cooldown_pct"},
     ],
+    "bulletproof_hat": [
+        {"label": "스턴 저항력", "min": 10, "max": 20, "unit": "%", "prefix": "+", "key": "stun_resist_pct"},
+    ],
+    "spiked_helmet": [
+        {"label": "넉백 저항력", "min": 10, "max": 20, "unit": "%", "prefix": "+", "key": "knockback_resist_pct"},
+    ],
     "foul_whistle": [
         {"label": "라운드 패배 시 무효화 확률", "min": 4, "max": 10, "unit": "%", "prefix": "+", "key": "negate_chance_pct"},
     ],
@@ -3033,8 +3042,8 @@ PASSIVE_OPTION_RANGES = {
         {"label": "자동대쉬 쿨타임", "min": 13, "max": 20, "unit": "초", "prefix": "", "key": "sensor_cooldown_sec", "reverse": True},
     ],
     "technical_vest": [
-        {"label": "연막 생성확률", "min": 10, "max": 25, "unit": "%", "prefix": "+", "key": "smoke_trigger_pct"},
-        {"label": "연막 지속시간", "min": 6, "max": 10, "unit": "초", "prefix": "", "key": "smoke_duration_sec"},
+        {"label": "연막 생성확률", "min": 10, "max": 20, "unit": "%", "prefix": "+", "key": "smoke_trigger_pct"},
+        {"label": "연막 지속시간", "min": 3, "max": 6, "unit": "초", "prefix": "", "key": "smoke_duration_sec"},
     ],
 }
 
@@ -3212,13 +3221,95 @@ def _reset_roll_bonuses_to_default():
     globals()["fuel_pouch_bonus"] = 0
     globals()["bulkup_body_size_pct"] = 10
     globals()["chargebag_bonus_pct"] = 20
+    globals()["bulletproof_hat_resist_pct"] = 0
+    globals()["spiked_helmet_knockback_resist_pct"] = 0
     globals()["dashholder_count"] = 0
     # 테크니컬조끼 기본 롤 값(연막)
     try:
         from item_effects.technical_vest import configure_technical_vest
-        configure_technical_vest(chance_pct=20, duration_sec=8)
+        configure_technical_vest(chance_pct=15, duration_sec=5)
     except Exception:
         pass
+
+
+def get_player_stun_resist_pct() -> float:
+    """방탄모자 등으로 누적된 스턴 저항(0~100)을 반환."""
+    try:
+        return max(0.0, min(100.0, float(globals().get("bulletproof_hat_resist_pct", 0))))
+    except Exception:
+        return 0.0
+
+
+def get_player_knockback_resist_pct() -> float:
+    """가시투구 등으로 누적된 넉백 저항(0~100)을 반환."""
+    try:
+        return max(0.0, min(100.0, float(globals().get("spiked_helmet_knockback_resist_pct", 0))))
+    except Exception:
+        return 0.0
+
+# 넉백 디버그 토글 (환경변수 PINGF_DEBUG_KNOCKBACK=1)
+_KB_DEBUG = os.environ.get("PINGF_DEBUG_KNOCKBACK", "0").lower() in ("1", "true", "yes", "on", "debug")
+
+def _kb_debug(msg: str) -> None:
+    if _KB_DEBUG:
+        try:
+            print(f"[KBDBG] {msg}")
+        except Exception:
+            pass
+
+def _get_knockback_resist_scale() -> float:
+    """넉백 저항을 거리/시간에 곱할 스케일 값(0~1)로 변환."""
+    try:
+        return max(0.0, 1.0 - get_player_knockback_resist_pct() / 100.0)
+    except Exception:
+        return 1.0
+
+
+def apply_knockback_resist(value: float) -> float:
+    """플레이어 넉백 속도/거리 값을 저항만큼 줄여 반환."""
+    scale = _get_knockback_resist_scale()
+    out = value * scale
+    _kb_debug(f"apply_knockback_resist: in={value:.2f}, scale={scale:.3f}, out={out:.2f}")
+    return out
+
+
+def clear_player_knockback_if_immune() -> None:
+    """넉백 저항 100%일 때 남아있는 넉백 속도/오프셋을 즉시 제거."""
+    scale = _get_knockback_resist_scale()
+    if scale <= 0.0:
+        global player_knockback_vel, player_missile_knockback_vel
+        global player_flame_zone_knockback_vel, player_knockback_y
+        global smasher_power_recoil_timer, smasher_power_recoil_vel
+        _kb_debug(f"immune: clearing velocities vk={player_knockback_vel:.2f}, vm={player_missile_knockback_vel:.2f}, vf={player_flame_zone_knockback_vel:.2f}, vy={player_knockback_y:.2f}")
+        player_knockback_vel = 0
+        player_missile_knockback_vel = 0
+        player_flame_zone_knockback_vel = 0
+        player_knockback_y = 0
+        smasher_power_recoil_timer = 0
+        smasher_power_recoil_vel = 0.0
+        smasher_power_recoil_pending_dir = 0
+        smasher_power_recoil_stun_pending = False
+
+
+def try_apply_player_stun(stun_seconds: float, *, source: str = "", knockback_scaled: bool = False) -> float:
+    """스턴/넉백 상황에서 스턴 지속시간을 줄인 뒤 적용한다.
+
+    Returns:
+        적용된 스턴 지속시간(초). 0이면 스턴 미적용.
+    """
+    global player_stunned_timer
+    resist_pct = get_player_stun_resist_pct()
+    final_seconds = max(0.0, stun_seconds * (1.0 - resist_pct / 100.0))
+    if knockback_scaled:
+        final_seconds *= _get_knockback_resist_scale()
+    if final_seconds <= 0:
+        if source:
+            print(f"[STUN-RESIST] {source} 무시 (지속시간 0, 저항 {resist_pct:.1f}%)")
+        return 0.0
+    player_stunned_timer = max(player_stunned_timer, int(final_seconds * FPS))
+    if source:
+        print(f"[STUN] {source} 적용: {stun_seconds:.2f}s → {final_seconds:.2f}s (저항 {resist_pct:.1f}%)")
+    return final_seconds
 
 
 def _get_roll_value(item: dict, key: str) -> int | None:
@@ -3387,8 +3478,8 @@ def apply_roll_bonuses_from_equipped():
             try:
                 from item_effects.technical_vest import configure_technical_vest
                 configure_technical_vest(
-                    chance_pct=trigger_pct if trigger_pct is not None else 20,
-                    duration_sec=duration_sec if duration_sec is not None else 8,
+                    chance_pct=trigger_pct if trigger_pct is not None else 15,
+                    duration_sec=duration_sec if duration_sec is not None else 5,
                 )
             except Exception:
                 pass
@@ -3411,6 +3502,21 @@ def apply_roll_bonuses_from_equipped():
             if val is None:
                 val = 100
             fuel_pouch_total_bonus += val
+        elif name == "bulletproof_hat":
+            val = _get_roll_value(item, "stun_resist_pct")
+            if val is None:
+                val = 50
+            globals()["bulletproof_hat_resist_pct"] = max(globals().get("bulletproof_hat_resist_pct", 0), val)
+        elif name == "spiked_helmet":
+            val = _get_roll_value(item, "knockback_resist_pct")
+            if val is None:
+                try:
+                    rng = PASSIVE_OPTION_RANGES.get("spiked_helmet", [{}])[0]
+                    val = rng.get("max", 100)
+                except Exception:
+                    val = 100
+            globals()["spiked_helmet_knockback_resist_pct"] = max(globals().get("spiked_helmet_knockback_resist_pct", 0), val)
+            _kb_debug(f"equip calc spiked_helmet -> {globals().get('spiked_helmet_knockback_resist_pct')}")
         elif name == "bulkup":
             val = _get_roll_value(item, "body_size_pct")
             if val is not None:
@@ -3502,6 +3608,25 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         val = _get_roll_value(item, "chargebag_pct")
         if val is not None:
             globals()["chargebag_bonus_pct"] = val
+    elif name == "bulletproof_hat":
+        val = _get_roll_value(item, "stun_resist_pct")
+        if val is not None:
+            globals()["bulletproof_hat_resist_pct"] = max(globals().get("bulletproof_hat_resist_pct", 0), val)
+    elif name == "spiked_helmet":
+        val = _get_roll_value(item, "knockback_resist_pct")
+        # 롤 정보가 비어있다면 최소/최대값을 기본으로 채워 넣어 버그 상황에서도 저항이 적용되도록 한다.
+        if val is None:
+            try:
+                rng = PASSIVE_OPTION_RANGES.get("spiked_helmet", [{}])[0]
+                val = rng.get("max", 100)
+            except Exception:
+                val = 100
+        globals()["spiked_helmet_knockback_resist_pct"] = max(globals().get("spiked_helmet_knockback_resist_pct", 0), val)
+        _kb_debug(f"roll apply spiked_helmet -> {globals().get('spiked_helmet_knockback_resist_pct')}")
+    elif name == "spiked_helmet":
+        val = _get_roll_value(item, "knockback_resist_pct")
+        if val is not None:
+            globals()["spiked_helmet_knockback_resist_pct"] = max(globals().get("spiked_helmet_knockback_resist_pct", 0), val)
     elif name == "bluetooth_ring":
         val = _get_roll_value(item, "gauge_gain_pct")
         if val is not None:
@@ -4045,41 +4170,82 @@ except:
     pygame.draw.circle(dashgear_icon, WHITE, (16, 16), 8)  # 흰색 내부
     pygame.draw.circle(dashgear_icon, (100, 100, 255), (16, 16), 4)   # 파란색 중심
 def _create_bulkup_suit_icon():
-    """벌크업슈트 아이콘을 은색 사이버 갑옷 느낌으로 렌더링."""
+    """벌크업슈트 아이콘을 티타늄 사이버갑옷 느낌으로 렌더링."""
     surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
-    body = pygame.Rect(4, 6, ICON_SIZE - 8, ICON_SIZE - 10)
 
-    # 금속 그라디언트
-    for i in range(body.height):
-        t = i / max(1, body.height - 1)
-        # 메탈 느낌: 상단 밝게, 하단 어둡게
-        r = int(200 + 30 * (1 - t))
-        g = int(205 + 35 * (1 - t))
-        b = int(215 + 40 * (1 - t))
-        pygame.draw.line(surf, (r, g, b), (body.x, body.y + i), (body.x + body.width, body.y + i))
+    # 색상 정의 (티타늄/사이버 색상)
+    titanium_main = (140, 155, 170)      # 티타늄 메인
+    titanium_dark = (80, 95, 115)        # 티타늄 어두운 부분
+    titanium_light = (200, 215, 230)     # 티타늄 밝은 부분
+    titanium_edge = (60, 75, 95)         # 엣지/테두리
+    cyber_blue = (0, 180, 255)           # 사이버 블루 (발광)
+    cyber_blue_dim = (0, 120, 180)       # 어두운 사이버 블루
+    energy_core = (100, 220, 255)        # 에너지 코어
+    white_glow = (220, 240, 255)         # 흰색 글로우
 
-    # 외곽선
-    pygame.draw.rect(surf, (120, 140, 160), body, 2, border_radius=6)
+    cx, cy = ICON_SIZE // 2, ICON_SIZE // 2  # 중앙점
 
-    # 어깨 패드
-    shoulder_rect = body.inflate(6, -body.height * 0.35)
-    pygame.draw.rect(surf, (170, 190, 210), shoulder_rect, border_radius=8)
-    pygame.draw.rect(surf, (120, 140, 160), shoulder_rect, 2, border_radius=8)
+    # 갑옷 몸통 (흉갑) - 육각형 기반 미래형
+    chest_points = [
+        (cx, 2),        # 상단 중앙
+        (cx + 10, 6),   # 우상단
+        (cx + 12, cy),  # 우측
+        (cx + 8, cy + 10),  # 우하단
+        (cx, cy + 13),  # 하단 중앙
+        (cx - 8, cy + 10),  # 좌하단
+        (cx - 12, cy),  # 좌측
+        (cx - 10, 6),   # 좌상단
+    ]
+    pygame.draw.polygon(surf, titanium_main, chest_points)
+    pygame.draw.polygon(surf, titanium_edge, chest_points, 2)
 
-    # 흉부 플레이트
-    chest = pygame.Rect(body.x + 4, body.y + 8, body.width - 8, int(body.height * 0.45))
-    pygame.draw.rect(surf, (190, 205, 220), chest, border_radius=6)
-    pygame.draw.rect(surf, (110, 125, 140), chest, 2, border_radius=6)
+    # 갑옷 상단 하이라이트
+    highlight_points = [
+        (cx, 4),
+        (cx + 8, 7),
+        (cx + 9, 14),
+        (cx, 12),
+        (cx - 9, 14),
+        (cx - 8, 7),
+    ]
+    pygame.draw.polygon(surf, titanium_light, highlight_points)
 
-    # 중앙 에너지 코어
-    core_center = (ICON_SIZE // 2, chest.bottom - 6)
-    pygame.draw.circle(surf, (120, 220, 255), core_center, 4)
-    pygame.draw.circle(surf, (60, 140, 180), core_center, 4, 2)
+    # 중앙 에너지 코어 (원형 발광)
+    pygame.draw.circle(surf, cyber_blue_dim, (cx, cy), 6)
+    pygame.draw.circle(surf, cyber_blue, (cx, cy), 4)
+    pygame.draw.circle(surf, energy_core, (cx, cy), 2)
+    pygame.draw.circle(surf, white_glow, (cx, cy - 1), 1)
 
-    # 광택 하이라이트
-    highlight = pygame.Surface((body.width, body.height), pygame.SRCALPHA)
-    pygame.draw.ellipse(highlight, (255, 255, 255, 70), (0, 0, body.width, body.height // 2))
-    surf.blit(highlight, (body.x, body.y))
+    # 갑옷 패널 라인 (기계적 느낌)
+    pygame.draw.line(surf, titanium_dark, (cx, 4), (cx, 10), 1)   # 상단 중앙 라인
+    pygame.draw.line(surf, titanium_dark, (cx, 22), (cx, 28), 1)  # 하단 중앙 라인
+    pygame.draw.line(surf, titanium_dark, (6, cy), (10, cy), 1)   # 좌측 라인
+    pygame.draw.line(surf, titanium_dark, (22, cy), (26, cy), 1)  # 우측 라인
+
+    # 어깨 장갑 (좌우)
+    left_shoulder = [(2, 8), (8, 5), (10, 10), (6, 14), (2, 12)]
+    pygame.draw.polygon(surf, titanium_dark, left_shoulder)
+    pygame.draw.polygon(surf, titanium_edge, left_shoulder, 1)
+
+    right_shoulder = [(30, 8), (24, 5), (22, 10), (26, 14), (30, 12)]
+    pygame.draw.polygon(surf, titanium_dark, right_shoulder)
+    pygame.draw.polygon(surf, titanium_edge, right_shoulder, 1)
+
+    # 사이버 회로 라인 (발광 효과)
+    pygame.draw.line(surf, cyber_blue, (10, cy), (12, cy), 1)
+    pygame.draw.line(surf, cyber_blue, (20, cy), (22, cy), 1)
+    pygame.draw.line(surf, cyber_blue, (cx, 10), (cx, 12), 1)
+    pygame.draw.line(surf, cyber_blue, (cx, 20), (cx, 22), 1)
+
+    # 갑옷 하단 복부 패널
+    pygame.draw.line(surf, titanium_dark, (10, 22), (22, 22), 1)
+    pygame.draw.line(surf, titanium_dark, (12, 25), (20, 25), 1)
+
+    # 추가 디테일 - 볼트/리벳
+    pygame.draw.circle(surf, titanium_edge, (8, 8), 1)
+    pygame.draw.circle(surf, titanium_edge, (24, 8), 1)
+    pygame.draw.circle(surf, titanium_edge, (8, 24), 1)
+    pygame.draw.circle(surf, titanium_edge, (24, 24), 1)
 
     return surf
 
@@ -19490,21 +19656,24 @@ class SupplyAircraft:
             # 100픽셀 반경 내에 있으면 스턴과 넉백 적용
             if distance <= 100:
                 # 0.3초 스턴 효과 (스테이지5 화염탄과 동일)
-                player_missile_stunned_timer = int(0.3 * FPS)  # 0.3초 = 18프레임
+                stun_applied = try_apply_player_stun(0.3, source="missile_explosion", knockback_scaled=True)
+                if stun_applied > 0:
+                    player_missile_stunned_timer = int(stun_applied * FPS)  # 0.3초 = 18프레임
                 
-                # 스테이지5 홍련의 화염탄 수준의 넉백 (기본 9, 방향에 따라)
-                if player_center_x < explosion_center_x:
-                    # 플레이어가 폭발 왼쪽에 있으면 왼쪽으로 넉백
-                    player_missile_knockback_vel = _scale_knockback(-12)  # 화염탄(9)보다 약간 강하게
-                else:
-                    # 플레이어가 폭발 오른쪽에 있으면 오른쪽으로 넉백
-                    player_missile_knockback_vel = _scale_knockback(12)
-                
-                # 거리에 따른 넉백 강도 조정 (가까울수록 강함)
-                knockback_multiplier = 1.0 - (distance / 100)  # 0~1 사이 값
-                player_missile_knockback_vel *= (0.5 + 0.5 * knockback_multiplier)  # 최소 50% ~ 최대 100%
-                
-                print(f"💥 플레이어 폭발 피해! 거리: {distance:.1f}px, 넉백: {player_missile_knockback_vel:.1f}")
+                    # 스테이지5 홍련의 화염탄 수준의 넉백 (기본 9, 방향에 따라)
+                    if player_center_x < explosion_center_x:
+                        # 플레이어가 폭발 왼쪽에 있으면 왼쪽으로 넉백
+                        player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(-12))  # 화염탄(9)보다 약간 강하게
+                    else:
+                        # 플레이어가 폭발 오른쪽에 있으면 오른쪽으로 넉백
+                        player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(12))
+                    
+                    # 거리에 따른 넉백 강도 조정 (가까울수록 강함)
+                    knockback_multiplier = 1.0 - (distance / 100)  # 0~1 사이 값
+                    player_missile_knockback_vel *= (0.5 + 0.5 * knockback_multiplier)  # 최소 50% ~ 최대 100%
+                    _kb_debug(f"missile explosion: dist={distance:.1f}, vel={player_missile_knockback_vel:.2f}")
+                    
+                    print(f"💥 플레이어 폭발 피해! 거리: {distance:.1f}px, 넉백: {player_missile_knockback_vel:.1f}")
         
         # 🔥 화염 파티클 - 적당한 강도로 조정
         for _ in range(25):  # 50 → 25개로 줄임
@@ -20059,6 +20228,18 @@ def check_weapon_degradation() -> None:
 bazooka_recoil_timer = 0  # 반동 시각 효과 타이머
 bazooka_recoil_direction = 0  # 반동 방향 (-1: 왼쪽, 1: 오른쪽)
 bazooka_recoil_strength = 0  # 반동 강도
+
+# === 스매셔 파워스매싱 반동 ===
+# 발사 직후 즉시 튕기고, 아주 짧게 감쇠
+SMASHER_POWER_RECOIL_FRAMES = 22           # 반동 적용 프레임 수 (~0.37초 @60fps)
+SMASHER_POWER_RECOIL_SPEED = 34.0          # 초기 반동 속도(픽셀/프레임) – 약간 상향
+SMASHER_POWER_RECOIL_DECAY = 0.70          # 매 프레임 감쇠 계수 (조금 완화)
+SMASHER_POWER_RECOIL_STOP_THRESHOLD = 0.6  # 이 속도 미만이면 즉시 정지
+smasher_power_recoil_timer = 0
+smasher_power_recoil_vel = 0.0
+smasher_power_recoil_pending_dir = 0       # 프리즈 종료 시 적용할 대기 반동 방향
+smasher_power_recoil_stun_pending = False  # 넉백 종료 후 스턴 예약 플래그
+
 SOLDIER_BULLET_SIZE = 5  # 총알 크기
 SOLDIER_BULLET_COLOR = (255, 215, 0)  # 황금색 총알
 SOLDIER_DOPING_BULLET_COLOR = (255, 120, 60)  # 도핑 중: 붉은 계열 주황색
@@ -22327,7 +22508,7 @@ def apply_effect(effect_name):
         print(f"   : x{multipliers['skill_gauge']:.1f}")
         print(f"   : x{multipliers['item_spawn']:.1f}")
         print(f"아이템 쿨타임: x{multipliers['item_cooldown']:.1f}")
-        print(f"  / : x{multipliers['skill_dash_cost']:.1f}")
+        print(f"  / : x{multipliers['dash_cost']:.1f}")
         print(f"   : x{multipliers['dash_cooldown']:.1f}")
     elif effect_name == "ammo_box":  # 📦 탄약상자 아이템 활성화
         ammo_box = get_ammo_box_instance()
@@ -24214,7 +24395,7 @@ def activate_quake(animated_bg=None):
     # Stage 2에서 서브 유예 기간 중에는 정글지진 발동 방지 (난이도 하향)
     if current_stage == 2 and serve_grace_period > 0:
         print(f"정글지진 발동 방지 - 서브 유예 기간 중 (남은 시간: {serve_grace_period/60:.1f}초)")
-        return
+        return False
     
     print(f" activate_quake ! quake_duration={quake_duration}, animated_bg={animated_bg is not None}")
     quake_active = True
@@ -24255,6 +24436,7 @@ def activate_quake(animated_bg=None):
         eq_duration=getattr(animated_bg_stage2, "earthquake_duration", "n/a") if animated_bg_stage2 is not None else "n/a",
         eq_active=getattr(animated_bg_stage2, "earthquake_active", False) if animated_bg_stage2 is not None else False,
     )
+    return True
 # 정글지진 효과음 멈추기
 def stop_quake_sound():
     SOUND_QUAKE.stop()
@@ -27125,6 +27307,21 @@ def update_soldier_bullets():
             if not bullet["active"]:
                 continue
 
+            # Stage 1: 코만도 권총 탄환이 풍선 이벤트의 풍선을 맞추면 터뜨린다
+            if (
+                bullet["active"]
+                and current_stage == 1
+                and BALLOON_EVENT_AVAILABLE
+                and stage1_events
+            ):
+                popped = stage1_events.pop_balloon_with_projectile(
+                    bullet["x"], bullet["y"], SOLDIER_BULLET_SIZE,
+                    effects_manager, SOUND_BALLOON_BOOM, trade_point_system
+                )
+                if popped:
+                    bullet["active"] = False
+                    continue
+
             if bullet_rect.colliderect(BOSS):
                 bullet["active"] = False
                 global boss_stunned_timer, leg_shot_active, leg_shot_timer, leg_shot_text_timer
@@ -27799,9 +27996,14 @@ def handle_player(keys):
     global player_stunned_timer, player_knockback_vel  #  스턴 전역
     global player_stun_immunity_timer  # ️ 스턴 면역 타이머
     global bazooka_recoil_timer, bazooka_recoil_direction, bazooka_recoil_strength  # 바주카포 반동
+    global smasher_power_recoil_timer, smasher_power_recoil_vel  # 스매셔 파워스매싱 반동
+    global smasher_power_recoil_pending_dir, smasher_power_recoil_stun_pending
     global round_start_time
     # 이벤트 기반 이동 플래그(포커스 상실 대비)
     global MOVE_EVENT_LEFT, MOVE_EVENT_RIGHT, MOVE_EVENT_DOWN, MOVE_EVENT_UP
+
+    # 넉백 저항 100%일 때 잔여 넉백 이동/오프셋을 즉시 제거
+    clear_player_knockback_if_immune()
 
     apply_fire_support_slot_restore()
 
@@ -28124,7 +28326,7 @@ def handle_player(keys):
 
         if is_devil_dice_active():
             multipliers = get_devil_dice_multipliers()
-            base_gauge_cost = int(base_gauge_cost * multipliers.get("skill_dash_cost", 1.0))
+            base_gauge_cost = int(base_gauge_cost * multipliers.get("dash_cost", 1.0))
 
         next_consecutive = get_roll("rolling_consecutive_count") + 1
         consecutive_discount = 0.5 ** max(0, next_consecutive - 1)
@@ -28927,7 +29129,7 @@ def handle_player(keys):
         PLAYER.x += player_knockback_vel
         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
         # 감속
-        player_knockback_vel *= 0.85
+        player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
         if fire_support_slot_restore_pending:
             apply_fire_support_slot_restore()
         if soldier_control_lock_timer > 0:
@@ -28943,7 +29145,7 @@ def handle_player(keys):
         PLAYER.x += player_missile_knockback_vel
         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
         # 감속 (화염탄과 동일한 0.85)
-        player_missile_knockback_vel *= 0.85
+        player_missile_knockback_vel *= 0.85 * _get_knockback_resist_scale()
         PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 스턴 중에도 거대화포션 효과 적용
         return  # 넉백 중에는 조작 불가
     #  벽돌 설치 중에는 움직이지 못함
@@ -29230,11 +29432,11 @@ def handle_player(keys):
                 #  연속 대쉬 할인을 고려한 실제 게이지 요구량 계산
                 base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                 
-                #  악마의 주사위 스킬/대쉬 비용 배율 적용
+                #  악마의 주사위 대쉬 비용 배율 적용
                 from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
                 if is_devil_dice_active():
                     multipliers = get_devil_dice_multipliers()
-                    base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
+                    base_gauge_cost = int(base_gauge_cost * multipliers['dash_cost'])
                 
                 # 대시 실행 시 rolling_consecutive_count가 1 증가하므로 미리 계산
                 current_consecutive = get_roll("rolling_consecutive_count")
@@ -29379,11 +29581,11 @@ def handle_player(keys):
                     # 기본 게이지 소모량
                     base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                     
-                    #  악마의 주사위 스킬/대쉬 비용 배율 적용
+                    #  악마의 주사위 대쉬 비용 배율 적용
                     from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
                     if is_devil_dice_active():
                         multipliers = get_devil_dice_multipliers()
-                        base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
+                        base_gauge_cost = int(base_gauge_cost * multipliers['dash_cost'])
                     
                     # 연속 대쉬 할인 계산 (첫 번째: 160, 두 번째: 80, 세 번째: 40...)
                     consecutive_discount = 0.5 ** (get_roll("rolling_consecutive_count") - 1)
@@ -29523,11 +29725,11 @@ def handle_player(keys):
                     # 기본 게이지 소모량
                     base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                     
-                    #  악마의 주사위 스킬/대쉬 비용 배율 적용
+                    #  악마의 주사위 대쉬 비용 배율 적용
                     from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
                     if is_devil_dice_active():
                         multipliers = get_devil_dice_multipliers()
-                        base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
+                        base_gauge_cost = int(base_gauge_cost * multipliers['dash_cost'])
                     
                     # 연속 대쉬 할인 계산 (첫 번째: 140, 두 번째: 70, 세 번째: 35...)
                     consecutive_discount = 0.5 ** (rolling_consecutive_count - 1)  # 0.5^0=1, 0.5^1=0.5, 0.5^2=0.25...
@@ -29681,11 +29883,11 @@ def handle_player(keys):
                     # 게이지 계산
                     base_gauge_cost = 140
 
-                    #  악마의 주사위 스킬/대쉬 비용 배율 적용
+                    #  악마의 주사위 대쉬 비용 배율 적용
                     from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
                     if is_devil_dice_active():
                         multipliers = get_devil_dice_multipliers()
-                        base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
+                        base_gauge_cost = int(base_gauge_cost * multipliers['dash_cost'])
 
                     next_consecutive_count = rolling_consecutive_count + 1
                     consecutive_discount = 0.5 ** (next_consecutive_count - 1)
@@ -29903,11 +30105,11 @@ def handle_player(keys):
                 #  연속 대쉬 할인을 고려한 실제 게이지 요구량 계산  
                 base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                 
-                #  악마의 주사위 스킬/대쉬 비용 배율 적용
+                #  악마의 주사위 대쉬 비용 배율 적용
                 from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
                 if is_devil_dice_active():
                     multipliers = get_devil_dice_multipliers()
-                    base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
+                    base_gauge_cost = int(base_gauge_cost * multipliers['dash_cost'])
                 
                 # 대시 실행 시 rolling_consecutive_count가 1 증가하므로 미리 계산
                 next_consecutive_count = rolling_consecutive_count + 1
@@ -30059,11 +30261,11 @@ def handle_player(keys):
                     # 기본 게이지 소모량
                     base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                     
-                    #  악마의 주사위 스킬/대쉬 비용 배율 적용
+                    #  악마의 주사위 대쉬 비용 배율 적용
                     from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
                     if is_devil_dice_active():
                         multipliers = get_devil_dice_multipliers()
-                        base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
+                        base_gauge_cost = int(base_gauge_cost * multipliers['dash_cost'])
                     
                     # 연속 대쉬 할인 계산 (첫 번째: 160, 두 번째: 80, 세 번째: 40...)
                     consecutive_discount = 0.5 ** (rolling_consecutive_count - 1)  # 0.5^0=1, 0.5^1=0.5, 0.5^2=0.25...
@@ -30229,11 +30431,11 @@ def handle_player(keys):
                     # 기본 게이지 소모량
                     base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                     
-                    #  악마의 주사위 스킬/대쉬 비용 배율 적용
+                    #  악마의 주사위 대쉬 비용 배율 적용
                     from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
                     if is_devil_dice_active():
                         multipliers = get_devil_dice_multipliers()
-                        base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
+                        base_gauge_cost = int(base_gauge_cost * multipliers['dash_cost'])
                     
                     # 연속 대쉬 할인 계산 (첫 번째: 160, 두 번째: 80, 세 번째: 40...)
                     consecutive_discount = 0.5 ** (rolling_consecutive_count - 1)  # 0.5^0=1, 0.5^1=0.5, 0.5^2=0.25...
@@ -30483,27 +30685,48 @@ def handle_player(keys):
     if player_stun_immunity_timer > 0:
         player_stun_immunity_timer -= 1
     
-    #  Stage 5 화염 지대 충돌 체크 (대쉬 중에는 화염 소멸, 연막탄 연기는 넉백 면역)
-    if current_stage == 5 and stage5_events:
+    #  Stage 5/6 화염 지대 충돌 체크 (대쉬 중에는 화염 소멸, 연막탄 연기는 넉백 면역)
+    if current_stage in (5, 6):
         # 연막탄 연기 안에 있는지 확인
         in_smoke_grenade = is_player_in_smoke()
-        # 플레이어 충돌 체크 (대쉬 여부와 연막탄 상태 전달)
-        is_in_fire, push_direction = stage5_events.check_fire_zone_collision(PLAYER, is_rolling=rolling_active, in_smoke_grenade=in_smoke_grenade)
-        
+
+        # Stage 5: 기존 이벤트 기반 판정 사용
+        if current_stage == 5 and stage5_events:
+            is_in_fire, push_direction = stage5_events.check_fire_zone_collision(
+                PLAYER, is_rolling=rolling_active, in_smoke_grenade=in_smoke_grenade
+            )
+        else:
+            # Stage 6: fire_zones 리스트를 직접 판정
+            is_in_fire = False
+            push_direction = 0
+            for fire_zone in fire_zones:
+                rect = pygame.Rect(
+                    fire_zone["x"] - fire_zone["width"] / 2,
+                    fire_zone["y"] - fire_zone["height"] / 2,
+                    fire_zone["width"],
+                    fire_zone["height"],
+                )
+                if rect.colliderect(PLAYER):
+                    is_in_fire = True
+                    push_direction = -1 if PLAYER.centerx < fire_zone["x"] else 1
+                    break
+
         if is_in_fire and not rolling_active:  # 대쉬 중이 아니고 화염에 닿았을 때
-            print(f" DEBUG:   ! push_direction={push_direction}, ={player_flame_zone_knockback_cooldown}")
+            print(f"[FIRE_ZONE] stage={current_stage} dir={push_direction}, cd={player_flame_zone_knockback_cooldown}")
             # 화염 지대 진입 감지 및 넉백 쿨다운 체크
             if not player_in_flame_zone or player_flame_zone_knockback_cooldown <= 0:
-                # 즉시 강한 넉백 속도 적용 (화염탄과 유사한 강도)
-                player_flame_zone_knockback_vel = _scale_knockback(push_direction * 25)  # 강한 초기 넉백 (증가: 20->25)
+                # 즉시 강한 넉백 속도 적용 (화염탄과 유사한 강도) - 넉백 저항 반영
+                raw_push = _scale_knockback(push_direction * 25)
+                player_flame_zone_knockback_vel = apply_knockback_resist(raw_push)
+                _kb_debug(f"fire_zone hit: dir={push_direction}, raw={raw_push:.2f}, final={player_flame_zone_knockback_vel:.2f}")
                 player_flame_zone_knockback_cooldown = 30  # 0.5초 쿨다운 (재진입 시 다시 넉백)
                 
                 # 넉백 받으면 0.4초간 스턴 면역
                 if player_stun_immunity_timer <= 0:
                     player_stun_immunity_timer = 24  # 0.4초 = 24프레임 (60fps 기준)
-                    print(f" Stage 5:   ! ={push_direction}, ={player_flame_zone_knockback_vel:.1f}, 0.4")
+                    print(f" Stage {current_stage}: 화염 넉백 {player_flame_zone_knockback_vel:.1f}, 0.4s 면역")
                 else:
-                    print(f" Stage 5:  ! : {player_flame_zone_knockback_vel:.1f} (   )")
+                    print(f" Stage {current_stage}: 화염 넉백 {player_flame_zone_knockback_vel:.1f} (면역 유지)")
             
             player_in_flame_zone = True
         else:
@@ -30518,7 +30741,8 @@ def handle_player(keys):
     
     # 화염 지대 넉백 속도 감속 (매 프레임)
     if player_flame_zone_knockback_vel != 0:
-        player_flame_zone_knockback_vel *= 0.9  # 부드러운 감속
+        # 넉백 저항이 높을수록 더 빨리 감속하여 체감 거리를 줄인다.
+        player_flame_zone_knockback_vel *= 0.9 * _get_knockback_resist_scale()  # 부드러운 감속
         # 속도가 충분히 작아지면 0으로 설정
         if abs(player_flame_zone_knockback_vel) < 0.5:
             player_flame_zone_knockback_vel = 0
@@ -30781,9 +31005,28 @@ def handle_player(keys):
         # 바주카포 반동 타이머 업데이트
         if bazooka_recoil_timer > 0:
             bazooka_recoil_timer -= 1
+
+    # 스매셔 파워스매싱 반동 적용 (모든 캐릭터 공통)
+    if smasher_power_recoil_timer > 0:
+        PLAYER.x += smasher_power_recoil_vel
+        smasher_power_recoil_vel *= SMASHER_POWER_RECOIL_DECAY * _get_knockback_resist_scale()
+        smasher_power_recoil_timer -= 1
+        if abs(smasher_power_recoil_vel) < SMASHER_POWER_RECOIL_STOP_THRESHOLD:
+            smasher_power_recoil_vel = 0.0
+            smasher_power_recoil_timer = 0
+        _kb_debug(f"[SMASHER_RECOIL_TICK] pos={PLAYER.x:.1f}, vel={smasher_power_recoil_vel:.2f}, timer={smasher_power_recoil_timer}")
+        if smasher_power_recoil_timer == 0 and smasher_power_recoil_stun_pending:
+            stun_seconds = 0.5
+            if try_apply_player_stun(stun_seconds, source="smasher_power_recoil", knockback_scaled=False) == 0:
+                player_stunned_timer = max(player_stunned_timer, int(stun_seconds * FPS))
+            smasher_power_recoil_stun_pending = False
+    # 반동으로 이동한 후 화면 경계 재클램프
+    if smasher_power_recoil_timer > 0 or smasher_power_recoil_vel != 0:
+        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
     
     # 화염 지대 넉백은 감전/스턴 상태와 무관하게 항상 적용
     PLAYER.x += player_flame_zone_knockback_vel
+    PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
     
     # === 코만도 캐릭터 걷기 애니메이션 처리 ===
     if selected_character_type == "soldier":
@@ -32041,7 +32284,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -32353,6 +32596,22 @@ def store_passive_item(item_data):
 
         ensure_passive_rolls(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    elif item_data["name"] == "bulletproof_hat":
+        # 방탄모자 아이템 획득 (패시브)
+        import items
+        items.bulletproof_hat_obtained = True
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+        print("🪖 방탄모자 획득! 스턴 저항이 적용되었습니다.")
+    elif item_data["name"] == "spiked_helmet":
+        # 가시투구 아이템 획득 (패시브)
+        import items
+        items.spiked_helmet_obtained = True
+        ensure_passive_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+        print("⛑️ 가시투구 획득! 넉백 저항이 적용되었습니다.")
     elif item_data["name"] == "smartphone":
         # 스마트폰 아이템 획득 (패시브)
         import items
@@ -37187,21 +37446,22 @@ def stage7_tetromino_explode(mino: dict, *, now: int | None = None) -> None:
             # 초인 모드일 때 넉백 2배
             super_active = bool(globals().get('stage7_super_active', False) or mino.get('super'))
             knock_scale = 2.0 if super_active else 1.0
-            knock = (STAGE7_TETRO_EXPLOSION_KNOCKBACK * knock_scale) * direction
+            knock = apply_knockback_resist((STAGE7_TETRO_EXPLOSION_KNOCKBACK * knock_scale) * direction)
             # 스턴: 기본 0.5초, 초인 시 1.0초
             stun_seconds = STAGE7_TETRO_SUPER_STUN_S if super_active else STAGE7_TETRO_EXPLOSION_STUN_S
-            global player_stunned_timer, player_knockback_vel
-            player_stunned_timer = max(player_stunned_timer, int(stun_seconds * FPS))
-            player_knockback_vel = knock
-            # 초인 테트로 폭발 스턴 동안 STUN 텍스트 숨김
-            try:
-                global player_stun_text_hidden_until_ms, player_stun_text_suppress
-                player_stun_text_hidden_until_ms = now + int(stun_seconds * 1000)
-                # 요청: 초인 폭발 스턴 동안 플레이어 머리 위 STUN 텍스트 비표시
-                if knock_scale > 1.0:
-                    player_stun_text_suppress = True
-            except Exception:
-                pass
+            global player_knockback_vel
+            if try_apply_player_stun(stun_seconds, source="stage7_tetro_explosion", knockback_scaled=True) > 0:
+                player_knockback_vel = knock
+                _kb_debug(f"tetro explosion: dir={direction}, super={super_active}, vel={player_knockback_vel:.2f}")
+                # 초인 테트로 폭발 스턴 동안 STUN 텍스트 숨김
+                try:
+                    global player_stun_text_hidden_until_ms, player_stun_text_suppress
+                    player_stun_text_hidden_until_ms = now + int(stun_seconds * 1000)
+                    # 요청: 초인 폭발 스턴 동안 플레이어 머리 위 STUN 텍스트 비표시
+                    if knock_scale > 1.0:
+                        player_stun_text_suppress = True
+                except Exception:
+                    pass
     except Exception:
         pass
     # 블럭 제거
@@ -46393,8 +46653,10 @@ def draw_objects():
                     if missile_speed > 0:
                         # 미사일 진행 방향으로 넉백 (화염탄의 25% 강도)
                         knockback_direction = missile['vx'] / abs(missile['vx']) if missile['vx'] != 0 else random.choice([-1, 1])
-                        player_missile_knockback_vel = _scale_knockback(knockback_direction * 9)  # 화염탄의 25% 강도 (36 -> 18 -> 9)
-                        player_missile_stunned_timer = int(0.3 * FPS)  # 화염탄과 동일한 스턴 시간 (0.3초)
+                        player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_direction * 9))  # 화염탄의 25% 강도 (36 -> 18 -> 9)
+                        stun_applied = try_apply_player_stun(0.3, source="stage6_missile", knockback_scaled=True)
+                        if stun_applied > 0:
+                            player_missile_stunned_timer = int(stun_applied * FPS)  # 실제 적용 시간 반영
                     # 충돌 효과 표시
                     effects_manager.create_impact_effect(missile['x'], missile['y'], 10, is_player=False)
                     # 화면 흔들림 효과 추가
@@ -47328,11 +47590,47 @@ def calculate_total_earned_medals(up_to_stage):
     for stage in range(1, up_to_stage + 1):
         total += stage_medal_rewards.get(stage, 0)
     return total
+
+
+def run_downtown_hub(next_stage_display: int) -> None:
+    """스코어 화면 이후 광장으로 이동시키는 헬퍼.
+
+    - 기존 SCREEN을 그대로 사용해 창 전환 없이 진입.
+    - 간단한 플레이어 데이터만 전달 (추가 자원 연동은 이후 확장).
+    """
+    try:
+        screen = pygame.display.get_surface() or SCREEN
+        # 이전 화면에서 남은 QUIT/KEY 이벤트가 바로 종료시키지 않도록 큐 비움
+        pygame.event.get()
+        player_data = {
+            "gold": trade_point_collected if "trade_point_collected" in globals() else 0,
+            "items": [],
+            "buffs": [],
+            "character_type": selected_character_type if "selected_character_type" in globals() else "smasher",
+        }
+        manager = DowntownManager(screen)
+        manager.initialize(stage_number=next_stage_display, player_data=player_data)
+        # 광장 진입 시 전용 BGM 재생
+        try:
+            bgm_manager.play_downtown_bgm()
+        except Exception:
+            pass
+        # BGM 정지는 직전 점수 화면에서 수행; 여기서는 바로 광장 실행
+        manager.run()
+        pygame.event.get()  # 남은 이벤트 정리
+    except Exception as err:  # 방어적: 광장 모듈 문제 시 다음 스테이지로 바로 이동
+        print(f"[WARN] downtown hub skipped: {err}")
 def show_victory_screen(stage_cleared, reward):
     global trade_point_collected, trade_point_system
     global stage3_hearts_collected, stage4_crows_collected
     global final_round_wins, final_round_losses
     global gacha_reroll_stage, gacha_reroll_streak
+
+    # 점수 화면 진입 시 현재 스테이지 BGM 정지
+    try:
+        bgm_manager.stop_bgm()
+    except Exception:
+        pass
 
     logic_stage_cleared = stage_cleared
     display_stage_cleared = stage_logic_to_display(logic_stage_cleared)
@@ -47496,9 +47794,8 @@ def show_victory_screen(stage_cleared, reward):
     button_height = 70
     # 전체를 중앙으로 이동 (y 좌표 조정) - 패널 높이 증가로 버튼 위치 추가 조정
     next_stage_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 440, button_width, button_height)
-    skill_tree_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 520, button_width, button_height)
-    reroll_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 600, button_width, button_height)
-    rest_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 680, button_width, button_height)
+    skill_tree_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 540, button_width, button_height)
+    rest_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 640, button_width, button_height)
 
     # 정적인 UI 요소는 미리 만들어서 프레임 부하를 줄인다.
     title_text = f"Stage {display_stage_cleared} 클리어!"
@@ -47535,7 +47832,7 @@ def show_victory_screen(stage_cleared, reward):
         color = (intensity // 4, intensity // 8, intensity)
         pygame.draw.line(victory_background, color, (0, y), (WIDTH, y))
 
-    selected = 0  # 0: 다음 스테이지, 1: 스킬 트리, 2: 또 뽑기, 3: 복귀
+    selected = 0  # 0: 광장, 1: 아카데미, 2: 복귀
     # 화면 전환 전에 이벤트 큐 비우기
     pygame.event.get()
     # 애니메이션용 변수
@@ -47543,8 +47840,6 @@ def show_victory_screen(stage_cleared, reward):
     glow_intensity = 0
     clock = pygame.time.Clock()
     
-    reroll_warning_timer = 0
-    reroll_warning_text = ""
     ai_victory_done = False
 
     def show_reroll_confirmation_dialog(bonus_percent: int) -> bool:
@@ -47628,6 +47923,7 @@ def show_victory_screen(stage_cleared, reward):
         'stage_target': None,
         'return_to_start': False,
         'executed': False,
+        'mode': 'stage',
     }
     transition_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
     transition_overlay.fill((0, 0, 0))
@@ -48068,53 +48364,6 @@ def show_victory_screen(stage_cleared, reward):
                 except Exception:
                     pass
 
-                # 별이 2개 이상이고 추가 뽑기 가능하면 1회 또 뽑기 실행
-                if (
-                    gacha_reroll_streak < GACHA_REROLL_LIMIT_PER_STAGE
-                    and get_trade_point_star_count() >= 2
-                ):
-                    template = getattr(gacha, "gacha_available_items_template", None)
-                    if template:
-                        if spend_trade_point_stars(2):
-                            gacha_reroll_streak += 1
-                            legendary_bonus_ratio = min(gacha_reroll_streak * 0.05, 0.20)
-                            skill_legendary_bonus = 0.0
-                            if 'academy' in globals():
-                                try:
-                                    skill_legendary_bonus = academy.get_treasure_map_gacha_bonus()
-                                except Exception:
-                                    skill_legendary_bonus = 0.0
-                            total_legendary_bonus = min(0.45, legendary_bonus_ratio + skill_legendary_bonus)
-                            pygame.event.get()
-                            bgm_manager.stop_bgm()
-                            gacha.init_gacha(template, legendary_bonus=total_legendary_bonus)
-                            gacha.run_gacha(
-                                SCREEN,
-                                WIDTH,
-                                HEIGHT,
-                                get_item_name_korean,
-                                store_passive_item,
-                                store_active_item,
-                                get_item_description,
-                                get_trade_point_star_count,
-                                spend_trade_point_stars,
-                                auto_start=True,
-                                legendary_bonus=total_legendary_bonus,
-                                auto_claim=True,
-                            )
-                            pygame.event.get()
-                            final_star_points = get_trade_point_star_count(include_stage_pending=False)
-                            star_points_target = final_star_points
-                            star_points_display = final_star_points
-                            star_gain_total = 0
-                            star_animation_index = 0
-                            star_animation_state = 'done'
-                            star_animation_finished = True
-                            star_animation_star = None
-                            star_trail_particles.clear()
-                            star_badge_glow_timer = star_badge_glow_duration
-                            animation_complete = True
-
                 if animation_complete and not ai_victory_done:
                     # 다음 스테이지로 자동 진입
                     final_stage_reached = display_stage_cleared >= TOTAL_STAGES
@@ -48123,17 +48372,15 @@ def show_victory_screen(stage_cleared, reward):
                     transition_state['stage_target'] = None if final_stage_reached else display_stage_cleared + 1
                     transition_state['return_to_start'] = final_stage_reached
                     transition_state['executed'] = False
+                    transition_state['mode'] = 'start' if final_stage_reached else 'downtown'
                     selected = 0
                     ai_victory_done = True
         
         # 버튼들 (더 현대적인 스타일) - 애니메이션 완료 후에만 표시
-        remaining_rerolls = max(0, GACHA_REROLL_LIMIT_PER_STAGE - gacha_reroll_streak)
-        reroll_label = f"또 뽑기 ({remaining_rerolls}/{GACHA_REROLL_LIMIT_PER_STAGE})"
         buttons = [
-            (next_stage_rect, "다음 스테이지로", 0),
+            (next_stage_rect, "광장으로 이동", 0),
             (skill_tree_rect, "아카데미", 1),
-            (reroll_rect, reroll_label, 2),
-            (rest_rect, "복귀", 3)
+            (rest_rect, "복귀", 2)
         ]
         
         # 애니메이션 완료 여부에 따라 버튼 표시 방식 변경
@@ -48200,12 +48447,6 @@ def show_victory_screen(stage_cleared, reward):
                 text_rect = button_text.get_rect(center=rect.center)
                 SCREEN.blit(button_text, text_rect)
 
-        if reroll_warning_timer > 0:
-            warning_color = (255, 120, 120) if "부족" in reroll_warning_text else (200, 240, 255)
-            warning_surface = font_info.render(reroll_warning_text, True, warning_color)
-            warning_rect = warning_surface.get_rect(center=(WIDTH // 2, reroll_rect.bottom + 40))
-            SCREEN.blit(warning_surface, warning_rect)
-            reroll_warning_timer -= 1
         # 이벤트 처리를 먼저 수행
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -48239,6 +48480,7 @@ def show_victory_screen(stage_cleared, reward):
                                 transition_state['stage_target'] = None if final_stage_reached else display_stage_cleared + 1
                                 transition_state['return_to_start'] = final_stage_reached
                                 transition_state['executed'] = False
+                                transition_state['mode'] = 'start' if final_stage_reached else 'downtown'
                                 selected = 0
                             continue
                         elif selected == 1:
@@ -48250,78 +48492,6 @@ def show_victory_screen(stage_cleared, reward):
                                 pygame.quit()
                                 sys.exit()
                         elif selected == 2:
-                            if gacha_reroll_streak >= GACHA_REROLL_LIMIT_PER_STAGE:
-                                reroll_warning_text = "이번 스테이지에서는 더 이상 또 뽑을 수 없습니다"
-                                reroll_warning_timer = 150
-                                continue
-
-                            available_stars = get_trade_point_star_count()
-                            if available_stars < 2:
-                                reroll_warning_text = "별이 부족합니다!"
-                                reroll_warning_timer = 120
-                                continue
-
-                            template = getattr(gacha, "gacha_available_items_template", None)
-                            if not template:
-                                reroll_warning_text = "가챠 데이터를 찾을 수 없습니다"
-                                reroll_warning_timer = 120
-                                continue
-
-                            bonus_percent = min((gacha_reroll_streak + 1) * 5, 20)
-                            confirmation_surface = SCREEN.copy()
-                            if not show_reroll_confirmation_dialog(bonus_percent):
-                                SCREEN.blit(confirmation_surface, (0, 0))
-                                pygame.display.flip()
-                                pygame.event.get()
-                                continue
-
-                            if not spend_trade_point_stars(2):
-                                reroll_warning_text = "별이 부족합니다!"
-                                reroll_warning_timer = 120
-                                continue
-
-                            gacha_reroll_streak += 1
-                            if gacha_reroll_streak >= GACHA_REROLL_LIMIT_PER_STAGE:
-                                gacha_reroll_streak = GACHA_REROLL_LIMIT_PER_STAGE
-                            legendary_bonus_ratio = min(gacha_reroll_streak * 0.05, 0.20)
-                            skill_legendary_bonus = 0.0
-                            if 'academy' in globals():
-                                try:
-                                    skill_legendary_bonus = academy.get_treasure_map_gacha_bonus()
-                                except Exception:
-                                    skill_legendary_bonus = 0.0
-                            total_legendary_bonus = min(0.45, legendary_bonus_ratio + skill_legendary_bonus)
-
-                            reroll_warning_text = ""
-                            reroll_warning_timer = 0
-                            pygame.event.get()
-                            bgm_manager.stop_bgm()
-                            gacha.init_gacha(template, legendary_bonus=total_legendary_bonus)
-                            gacha.run_gacha(
-                                SCREEN,
-                                WIDTH,
-                                HEIGHT,
-                                get_item_name_korean,
-                                store_passive_item,
-                                store_active_item,
-                                get_item_description,
-                                get_trade_point_star_count,
-                                spend_trade_point_stars,
-                                auto_start=True,
-                                legendary_bonus=total_legendary_bonus,
-                            )
-                            pygame.event.get()
-                            final_star_points = get_trade_point_star_count(include_stage_pending=False)
-                            star_points_target = final_star_points
-                            star_points_display = final_star_points
-                            star_gain_total = 0
-                            star_animation_index = 0
-                            star_animation_state = 'done'
-                            star_animation_finished = True
-                            star_animation_star = None
-                            star_trail_particles.clear()
-                            star_badge_glow_timer = star_badge_glow_duration
-                        elif selected == 3:
                             confirm_rest(stage_cleared, reward)
                             return
             elif event.type == pygame.MOUSEMOTION and animation_complete:
@@ -48351,6 +48521,7 @@ def show_victory_screen(stage_cleared, reward):
                             transition_state['stage_target'] = None if final_stage_reached else display_stage_cleared + 1
                             transition_state['return_to_start'] = final_stage_reached
                             transition_state['executed'] = False
+                            transition_state['mode'] = 'start' if final_stage_reached else 'downtown'
                             selected = 0
                         continue
                     elif clicked == 1:
@@ -48362,70 +48533,6 @@ def show_victory_screen(stage_cleared, reward):
                             pygame.quit()
                             sys.exit()
                     elif clicked == 2:
-                        if gacha_reroll_streak >= GACHA_REROLL_LIMIT_PER_STAGE:
-                            reroll_warning_text = "이번 스테이지에서는 더 이상 또 뽑을 수 없습니다"
-                            reroll_warning_timer = 150
-                            continue
-                        available_stars = get_trade_point_star_count()
-                        if available_stars < 2:
-                            reroll_warning_text = "별이 부족합니다!"
-                            reroll_warning_timer = 120
-                            continue
-                        template = getattr(gacha, "gacha_available_items_template", None)
-                        if not template:
-                            reroll_warning_text = "가챠 데이터를 찾을 수 없습니다"
-                            reroll_warning_timer = 120
-                            continue
-                        bonus_percent = min((gacha_reroll_streak + 1) * 5, 20)
-                        confirmation_surface = SCREEN.copy()
-                        if not show_reroll_confirmation_dialog(bonus_percent):
-                            SCREEN.blit(confirmation_surface, (0, 0))
-                            pygame.display.flip()
-                            pygame.event.get()
-                            continue
-                        if not spend_trade_point_stars(2):
-                            reroll_warning_text = "별이 부족합니다!"
-                            reroll_warning_timer = 120
-                            continue
-                        gacha_reroll_streak += 1
-                        if gacha_reroll_streak >= GACHA_REROLL_LIMIT_PER_STAGE:
-                            gacha_reroll_streak = GACHA_REROLL_LIMIT_PER_STAGE
-                        skill_legendary_bonus = 0.0
-                        if 'academy' in globals():
-                            try:
-                                skill_legendary_bonus = academy.get_treasure_map_gacha_bonus()
-                            except Exception:
-                                skill_legendary_bonus = 0.0
-                        legendary_bonus_ratio = min(gacha_reroll_streak * 0.05, 0.20)
-                        total_legendary_bonus = min(0.45, legendary_bonus_ratio + skill_legendary_bonus)
-                        pygame.event.get()
-                        bgm_manager.stop_bgm()
-                        gacha.init_gacha(template, legendary_bonus=total_legendary_bonus)
-                        gacha.run_gacha(
-                            SCREEN,
-                            WIDTH,
-                            HEIGHT,
-                            get_item_name_korean,
-                            store_passive_item,
-                            store_active_item,
-                            get_item_description,
-                            get_trade_point_star_count,
-                            spend_trade_point_stars,
-                            auto_start=True,
-                            legendary_bonus=total_legendary_bonus,
-                        )
-                        pygame.event.get()
-                        final_star_points = get_trade_point_star_count(include_stage_pending=False)
-                        star_points_target = final_star_points
-                        star_points_display = final_star_points
-                        star_gain_total = 0
-                        star_animation_index = 0
-                        star_animation_state = 'done'
-                        star_animation_finished = True
-                        star_animation_star = None
-                        star_trail_particles.clear()
-                        star_badge_glow_timer = star_badge_glow_duration
-                    elif clicked == 3:
                         confirm_rest(stage_cleared, reward)
                         return
         
@@ -48446,7 +48553,10 @@ def show_victory_screen(stage_cleared, reward):
                 if transition_state['return_to_start']:
                     pending_transition = ('start', None)
                 else:
-                    pending_transition = ('stage', transition_state['stage_target'])
+                    pending_transition = (
+                        transition_state.get('mode', 'stage'),
+                        transition_state['stage_target'],
+                    )
 
         if genie_assistant.is_active():
             genie_assistant.draw(SCREEN)
@@ -48463,6 +48573,8 @@ def show_victory_screen(stage_cleared, reward):
                 print("!  !")
                 show_start_screen()
             else:
+                if mode == 'downtown':
+                    run_downtown_hub(target_stage)
                 next_stage_display = target_stage
 
                 items.clear_field_items()
@@ -48711,6 +48823,26 @@ def show_start_screen():
             pass
         return main(1)
 
+    # 개발자용 광장 직접 입장 함수
+    def enter_downtown_dev():
+        """개발자용: 메인메뉴에서 0번 키로 광장 직접 입장"""
+        global selected_character_type
+        # 기본 캐릭터로 스매셔 선택
+        char_type = selected_character_type if "selected_character_type" in globals() and selected_character_type else "smasher"
+        player_data = {
+            "gold": 5000,  # 테스트용 골드
+            "items": [],
+            "buffs": [],
+            "character_type": char_type,
+        }
+        manager = DowntownManager(SCREEN)
+        manager.initialize(stage_number=1, player_data=player_data)
+        try:
+            bgm_manager.play_downtown_bgm()
+        except Exception:
+            pass
+        manager.run()
+
     ctx = MenuContext(
         get_screen=lambda: SCREEN,
         get_dimensions=lambda: (WIDTH, HEIGHT),
@@ -48744,6 +48876,8 @@ def show_start_screen():
         two_seconds_frames=TWO_SECONDS_FRAMES,
         idle_cinematic=lambda screen, w, h: cinematic.show_cinematic_scenes(screen, w, h),
     )
+    # 개발자용 광장 입장 콜백 추가
+    ctx.enter_downtown_dev = enter_downtown_dev
 
     show_start_menu(ctx)
 def show_tutorial_dialog():
@@ -57725,6 +57859,26 @@ def show_item_manager_menu():
             pygame.draw.circle(drone_icon, (255, 200, 80), (22, 16), 2)
             return drone_icon
 
+        if item_name == "spiked_helmet":
+            helm = pygame.Surface((32, 32), pygame.SRCALPHA)
+            base = (70, 90, 120)
+            trim = (30, 40, 60)
+            spikes = (200, 215, 230)
+            pygame.draw.ellipse(helm, base, (4, 8, 24, 16))
+            pygame.draw.ellipse(helm, trim, (4, 8, 24, 16), 2)
+            # spikes
+            spike_pos = [(10, 6), (16, 4), (22, 6)]
+            for x, y in spike_pos:
+                pygame.draw.polygon(helm, spikes, [(x, y), (x+2, y-6), (x+4, y)])
+                pygame.draw.line(helm, trim, (x, y), (x+2, y-6), 1)
+                pygame.draw.line(helm, trim, (x+4, y), (x+2, y-6), 1)
+            # strap
+            pygame.draw.rect(helm, trim, (8, 20, 16, 4), 2)
+            # badge
+            pygame.draw.circle(helm, (235, 200, 80), (24, 12), 4)
+            pygame.draw.circle(helm, trim, (24, 12), 4, 1)
+            return helm
+
         if item_name == "knee_pads":
             return create_knee_pads_icon(32)
 
@@ -57786,7 +57940,9 @@ def show_item_manager_menu():
         {"name": "foul_whistle", "type": "passive", "icon": get_icon_safe("foul_whistle_icon", "foul_whistle")},
         {"name": "star_detector", "type": "passive", "icon": get_icon_safe("star_detector_icon", "star_detector")},
         {"name": "smartphone", "type": "passive", "icon": get_icon_safe("smartphone_icon", "smartphone")},
-        {"name": "knee_pads", "type": "passive", "icon": get_icon_safe("knee_pads_icon", "knee_pads")}
+        {"name": "knee_pads", "type": "passive", "icon": get_icon_safe("knee_pads_icon", "knee_pads")},
+        {"name": "bulletproof_hat", "type": "passive", "icon": get_icon_safe("bulletproof_hat_icon", "bulletproof_hat")},
+        {"name": "spiked_helmet", "type": "passive", "icon": get_icon_safe("spiked_helmet_icon", "spiked_helmet")}
     ]
     
     # 전설 아이템 추가
@@ -58673,6 +58829,11 @@ def apply_selected_items(
         ensure_passive_rolls(item_data)
         assign_item_prefix(item_data, force=True)
         apply_roll_bonuses_from_item(item_data)
+        if item_name == "spiked_helmet":
+            _kb_debug(f"apply_selected_items: helmet roll={item_data.get('rolled_options')}, resist={globals().get('spiked_helmet_knockback_resist_pct')}")
+            # 가시투구는 즉시 장착 처리(장비 슬롯 반영) 후 다음 아이템으로
+            store_passive_item(item_data)
+            continue
         # 전설 아이템(포세이돈 삼지창, 라그나로크 해머, 헤르메스 신발)은 store_passive_item에서 추가하므로 여기서는 추가하지 않음
         if item_name not in ["poseidon_trident", "ragnarok_hammer", "hermes_shoes"]:
             item_state_adapter.append_passive_item(item_data)
@@ -58955,6 +59116,27 @@ try:
     icon_cache["bulkup"] = bulkup_icon
 except Exception:
     pass
+
+
+def _center_icon_surface(icon: pygame.Surface, size: int = ICON_SIZE, padding: int = 2) -> pygame.Surface:
+    """투명 여백이 많은 아이콘을 잘라내고 중앙 정렬해 소형 렌더링에서도 잘 보이도록 스케일."""
+    try:
+        mask = pygame.mask.from_surface(icon)
+        bbox = mask.get_bounding_rect()
+        if bbox.width == 0 or bbox.height == 0:
+            return pygame.transform.smoothscale(icon, (size, size))
+        cropped = icon.subsurface(bbox)
+        target = max(1, size - padding * 2)
+        scale = target / max(cropped.get_width(), cropped.get_height())
+        new_w = max(1, min(size, int(cropped.get_width() * scale)))
+        new_h = max(1, min(size, int(cropped.get_height() * scale)))
+        scaled = pygame.transform.smoothscale(cropped, (new_w, new_h))
+        canvas = pygame.Surface((size, size), pygame.SRCALPHA)
+        canvas.blit(scaled, ((size - new_w) // 2, (size - new_h) // 2))
+        return canvas
+    except Exception:
+        return pygame.transform.smoothscale(icon, (size, size))
+
 
 def create_knee_pads_icon(size: int = ICON_SIZE) -> pygame.Surface:
     """새로운 킥차져 아이콘 Surface 생성"""
@@ -59296,7 +59478,10 @@ def get_item_icon(item_name):
                         loaded_icon = loaded_icon.convert_alpha()
                     except Exception:
                         pass
-                icon = pygame.transform.scale(loaded_icon, (ICON_SIZE, ICON_SIZE))
+                if item_name == "spiked_helmet":
+                    icon = _center_icon_surface(loaded_icon, ICON_SIZE, padding=2)
+                else:
+                    icon = pygame.transform.scale(loaded_icon, (ICON_SIZE, ICON_SIZE))
                 icon_cache[item_name] = icon
                 return icon
             # else:
@@ -62331,6 +62516,7 @@ def reset_round():
     global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
     global blacksmith_blocking_skill_timer, blacksmith_blocking_bonus_pending
     global ai_mode
+    global smasher_power_recoil_timer, smasher_power_recoil_vel
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
@@ -62556,6 +62742,8 @@ def reset_round():
     player_stun_text_suppress = False
     player_burn_timer = 0
     player_burn_effect = False
+    smasher_power_recoil_timer = 0
+    smasher_power_recoil_vel = 0.0
     
     # 대시 움직임도 완전 초기화 (중요!)
     rolling_active = False
@@ -62634,6 +62822,8 @@ def reset_round():
     power_smashing_freeze_start_time = 0
     power_smashing_freeze_active = False
     smasher_pending_contact_offset = None
+    smasher_power_recoil_pending_dir = 0
+    smasher_power_recoil_stun_pending = False
     mega_smashing_meteor_trail.clear()  # 고스트샷 유성 효과 리셋
     mega_smashing_active = False  # 고스트샷 비활성화
     mega_smashing_start_time = 0  # 고스트샷 시작 시간 리셋
@@ -65055,37 +65245,38 @@ def handle_ball():
             BALL.centerx = BOSS.centerx
             BALL.top = BOSS.bottom + 5
         return
-    # === Stage 5 화염탄 ===
-    if current_stage == 5:
+    # === Stage 5/6 화염탄 ===
+    if current_stage == 5 or (current_stage == 6 and fireballs):
         now = pygame.time.get_ticks()
-        #  라운드 시작 2.5초 후부터 화염탄 발사 가능
-        if (now - fireball_last_cast > fireball_cooldown and 
-            now - round_start_time >= 2500):
-            fireball_last_cast = now
-            fireball_cooldown = random.randint(3500, 5000)
-            num_fireballs = random.randint(2, 3) if random.random() < 0.4 else 1
-            #  화염탄 발사 효과음 재생
-            play_sound_with_volume(SOUND_FIREBALL)
-            for i in range(num_fireballs):
-                pos = [BOSS.centerx, BOSS.bottom]
-                offset_angle = random.uniform(-20, 20)
-                dir_vec = pygame.math.Vector2(
-                    PLAYER.centerx - BOSS.centerx,
-                    PLAYER.centery - BOSS.centery
-                ).normalize().rotate(offset_angle)
-                vel = [dir_vec.x * fireball_speed, dir_vec.y * fireball_speed]
-                fireballs.append([pos, vel])
-            
-            # Stage 5 나선 폭발 효과 트리거
-            if animated_bg_stage5 is not None and hasattr(animated_bg_stage5, 'trigger_spiral_burst'):
-                animated_bg_stage5.trigger_spiral_burst(inferno=flame_trail_active)
-            
-            boss_throwing = True
-            boss_throw_timer = 25      
-        if boss_throwing:
-            boss_throw_timer -= 1
-            if boss_throw_timer <= 0:
-                boss_throwing = False
+        if current_stage == 5:
+            #  라운드 시작 2.5초 후부터 화염탄 발사 가능 (스테이지 5 전용)
+            if (now - fireball_last_cast > fireball_cooldown and 
+                now - round_start_time >= 2500):
+                fireball_last_cast = now
+                fireball_cooldown = random.randint(3500, 5000)
+                num_fireballs = random.randint(2, 3) if random.random() < 0.4 else 1
+                #  화염탄 발사 효과음 재생
+                play_sound_with_volume(SOUND_FIREBALL)
+                for i in range(num_fireballs):
+                    pos = [BOSS.centerx, BOSS.bottom]
+                    offset_angle = random.uniform(-20, 20)
+                    dir_vec = pygame.math.Vector2(
+                        PLAYER.centerx - BOSS.centerx,
+                        PLAYER.centery - BOSS.centery
+                    ).normalize().rotate(offset_angle)
+                    vel = [dir_vec.x * fireball_speed, dir_vec.y * fireball_speed]
+                    fireballs.append([pos, vel])
+                
+                # Stage 5 나선 폭발 효과 트리거
+                if animated_bg_stage5 is not None and hasattr(animated_bg_stage5, 'trigger_spiral_burst'):
+                    animated_bg_stage5.trigger_spiral_burst(inferno=flame_trail_active)
+                
+                boss_throwing = True
+                boss_throw_timer = 25      
+            if boss_throwing:
+                boss_throw_timer -= 1
+                if boss_throw_timer <= 0:
+                    boss_throwing = False
         new_fireballs = []
         for pos, vel in fireballs:
             # 스탑워치 활성화 시 화염탄 이동 중지
@@ -65106,8 +65297,8 @@ def handle_ball():
                 else:
                     # 연막 밖이면 정상 피해 (스턴 면역 체크)
                     if player_stun_immunity_timer <= 0:
-                        player_stunned_timer = int(0.3 * FPS)
-                        player_knockback_vel = _scale_knockback(random.choice([-12, 12]))
+                        if try_apply_player_stun(0.3, source="stage5_fireball", knockback_scaled=True) > 0:
+                            player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
                     else:
                         print("!")
                     #  화염탄 폭발 이펙트 생성
@@ -65211,8 +65402,8 @@ def handle_ball():
                 animated_bg_stage5.set_inferno_mode(False)
             # 스턴 면역 체크
             if player_stun_immunity_timer <= 0:
-                player_stunned_timer = int(0.3 * FPS)
-                player_knockback_vel = _scale_knockback(random.choice([-24, 24]))
+                if try_apply_player_stun(0.3, source="flame_trail", knockback_scaled=True) > 0:
+                    player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-24, 24])))
             else:
                 print("!")
             #  대규모 화염 폭발 이벤트
@@ -65328,11 +65519,11 @@ def handle_ball():
             boost_progress = elapsed_time / (power_smashing_boost_duration / 1000.0)
             
             # 초기 부스트 속도에서 목표 속도로 부드럽게 감속 (선형 보간)
-            # 방향에 따라 초기 부스트 속도 계산
+            # 방향에 따라 초기 부스트 속도 계산 (증가율 10% 하향)
             if power_smashing_direction == 0:  # 직선
-                initial_boosted_speed = power_smashing_target_speed * 1.8  # 3.6배 (280% 추가)
+                initial_boosted_speed = power_smashing_target_speed * 1.72  # 기존 1.8 → 1.72
             else:  # 좌/우
-                initial_boosted_speed = power_smashing_target_speed * 2.0  # 4.0배 (300% 추가)
+                initial_boosted_speed = power_smashing_target_speed * 1.90  # 기존 2.0 → 1.90
             interpolated_speed = initial_boosted_speed - (initial_boosted_speed - power_smashing_target_speed) * boost_progress
             
             # 속도 조정
@@ -66873,7 +67064,7 @@ def handle_ball():
                     player_burn_effect = True
                     
                     # 넉백 효과 - 부드러운 넉백을 위한 오프셋 설정
-                    player_knockback_y = _scale_knockback(-20)  # 20픽셀 위로 넉백
+                    player_knockback_y = apply_knockback_resist(_scale_knockback(-20))  # 20픽셀 위로 넉백
                     
                     # 게이지 감소 (붉은 달 파편: 50 -> 20로 완화)
                     special_gauge = max(0, special_gauge - 20)
@@ -67733,12 +67924,13 @@ def handle_ball():
     player_collision_rect = PLAYER.copy()
     if acceleration_active and acceleration_height_bonus > 0:
         player_collision_rect.inflate_ip(0, acceleration_height_bonus)
-    
+
     if tear_shower_active and BALL.colliderect(player_collision_rect):
         # 스턴 면역 체크
         if player_stun_immunity_timer <= 0:
-            player_stunned_timer = int(0.3 * FPS)
-            player_knockback_vel = _scale_knockback(random.choice([-12, 12]))
+            if try_apply_player_stun(0.3, source="tear_shower", knockback_scaled=True) > 0:
+                player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
+                _kb_debug(f"tear_shower knockback set to {player_knockback_vel:.2f}")
         else:
             print("!")
         #  성능 최적화: 파티클 개수를 절반으로 줄임 (12 → 6)
@@ -68731,9 +68923,9 @@ def handle_ball():
         elif not new_boss_mode_active and current_stage == 2:
             time_now = pygame.time.get_ticks()
             if (time_now - quake_last_used_time >= QUAKE_COOLDOWN) and random.random() <= 0.15:
-                activate_quake(animated_bg_stage2)
-                show_speech("정글지진!", duration=quake_duration)
-                quake_last_used_time = time_now
+                if activate_quake(animated_bg_stage2):
+                    show_speech("정글지진!", duration=quake_duration)
+                    quake_last_used_time = time_now
         elif not new_boss_mode_active and current_stage == 3:
             # 패들 충돌 시 충전된 게이지가 500 이상이 되었을 때만 필살기 준비 상태로 전환
             if not boss_special_ready and boss_special_gauge >= 500:
@@ -72246,29 +72438,11 @@ def show_result(won):
         # 아이템이 없으면 기본 아이템 추가
         if not available_items:
             available_items = [{"name": "long_boost", "color": (100, 200, 255), "type": "active", "icon": long_boost_icon}]
-        # 가차 화면 전환 시 BGM 정지
-        bgm_manager.stop_bgm()
-        skill_legendary_bonus = 0.0
-        if 'academy' in globals():
-            try:
-                skill_legendary_bonus = academy.get_treasure_map_gacha_bonus()
-            except Exception:
-                skill_legendary_bonus = 0.0
-        gacha.init_gacha(available_items, legendary_bonus=skill_legendary_bonus)
-        gacha.run_gacha(
-            SCREEN,
-            WIDTH,
-            HEIGHT,
-            get_item_name_korean,
-            store_passive_item,
-            store_active_item,
-            get_item_description,
-            get_trade_point_star_count,
-            spend_trade_point_stars,
-            legendary_bonus=skill_legendary_bonus,
-            auto_start=player_ai_enabled,
-            auto_claim=player_ai_enabled,
-        )
+        # 가챠는 이제 광장 건물에서만 진행: 템플릿만 저장하고 바로 점수 화면으로 이동
+        try:
+            gacha.gacha_available_items_template = [item.copy() for item in available_items]
+        except Exception:
+            gacha.gacha_available_items_template = available_items
         # 캡처 순서 중요: 스테이지 클리어 직후, 정리(cleanup) 전에 스냅샷을 저장해야
         # 디바인스톤의 이전 X 좌표가 유실되지 않는다.
         if BLACKSMITH_PERSIST_STRUCTURES and globals().get("blacksmith_persist_structures") is None:
@@ -72550,12 +72724,26 @@ def main(stage_num, new_boss_mode=False):
     #  실시간 평가 시스템으로 변경됨
     # 메인 메뉴 BGM 정지
     bgm_manager.stop_bgm()
-    
+
     # BGM 볼륨 초기화
     global bgm_volume
     global fire_support_radio_loop_active
     bgm_manager.set_bgm_volume(bgm_volume)
     _reset_active_item_hover_state()
+
+    # 파워 스매싱 빛의 파편 이벤트 리스너 등록
+    def handle_light_shards_explosion(event_data):
+        """빛의 파편 폭발 이벤트 핸들러"""
+        x = event_data.get('x', 0)
+        y = event_data.get('y', 0)
+        intensity = event_data.get('intensity', 20)
+        color = event_data.get('color', (255, 255, 200))
+        speed_range = event_data.get('speed_range', (3, 8))
+
+        effects_manager.spawn_light_shards_explosion(x, y, intensity, color, speed_range)
+
+    # 이벤트 구독
+    event_manager.subscribe(EventType.CREATE_LIGHT_SHARDS_EXPLOSION, handle_light_shards_explosion)
     
     # 관리자 단축키 변수 초기화
     global nine_just_pressed, last_nine_state
@@ -72584,6 +72772,7 @@ def main(stage_num, new_boss_mode=False):
     global stage8_awaken_intro_pending, stage8_awaken_intro_done, stage8_awaken_freeze_end_ms, stage8_awakened
     global tutorial_wait_for_first_serve
     global tutorial_needs_dash_practice, tutorial_dash_practice_shown
+    global smasher_power_recoil_timer, smasher_power_recoil_vel, smasher_power_recoil_pending_dir
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown
     global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown, tutorial_displayed_hit_count
@@ -74720,6 +74909,17 @@ def main(stage_num, new_boss_mode=False):
                             f"vx={ball_vel[0]:.2f} vy={ball_vel[1]:.2f} gauge={special_gauge}"
                         )
                     smasher_pending_contact_offset = BALL.centerx - PLAYER.centerx
+                    # 반동 방향만 기록, 실제 적용은 프리즈 종료 후(발사 시점) 수행
+                    if selected_character_type == "smasher":
+                        if smasher_pending_contact_offset == 0:
+                            smasher_power_recoil_pending_dir = (
+                                -1 if power_smashing_direction == 1 else 1 if power_smashing_direction == -1 else random.choice([-1, 1])
+                            )
+                        else:
+                            smasher_power_recoil_pending_dir = 1 if smasher_pending_contact_offset < 0 else -1
+                        power_smashing_freeze_duration = 0  # 스매셔는 프리즈 없이 즉시 발사/반동
+                    else:
+                        power_smashing_freeze_duration = 1000
                     # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
                     if not mega_smashing_active:
                         special_active = True
@@ -74798,8 +74998,8 @@ def main(stage_num, new_boss_mode=False):
                         actual_boost = new_speed - ball_current_speed  # 고스트샷도 actual_boost 계산
                     else:
                         # 파워스매싱은 기존대로 빠르게
-                        min_boost = BALL_BASE_SPEED * 0.75  # 최소 증가량 (75%)
-                        actual_boost = max(ball_current_speed * 0.64, min_boost)  # 64% 증가 (164% 속도) 또는 최소값
+                        min_boost = BALL_BASE_SPEED * 0.675  # 최소 증가량 67.5% (기존 75% → 10% 하향)
+                        actual_boost = max(ball_current_speed * 0.576, min_boost)  # 57.6% 증가(기존 64% → 10% 하향)
                         new_speed = ball_current_speed + actual_boost
                     # 속도 비율 적용으로 방향 유지하면서 속도 증가
                     if ball_current_speed > 0:
@@ -74811,10 +75011,10 @@ def main(stage_num, new_boss_mode=False):
                         ball_vel[0] = BALL_BASE_SPEED * 0.8
                         ball_vel[1] = BALL_BASE_SPEED * 0.8
                     # 파워스매싱 방향에 따른 X축 속도 조정 (고스트샷도 동일하게 처리)
-                    # 1.64배에 추가로 약 28.05% 부스트하여 총 2.1배 효과
+                    # 1.576배(초기 가속) 이후 약 25.2% 추가 부스트로 총 ~1.98배 효과
                     if power_smashing_direction in (-1, 1):  # 좌/우 파워스매싱
                         dir_sign = -1 if power_smashing_direction == -1 else 1
-                        ball_vel[0] = dir_sign * abs(ball_vel[0]) * 1.2805  # 좌우 방향 고정 (28.05% 부스트)
+                        ball_vel[0] = dir_sign * abs(ball_vel[0]) * 1.25245  # 좌우 방향 고정 (25.245% 부스트)
 
                         # 패들 중앙에 가까워도 최소 각도 이상으로 꺾이도록 보정
                         y_abs = abs(ball_vel[1])
@@ -74852,8 +75052,8 @@ def main(stage_num, new_boss_mode=False):
                                 # 정말 중앙에 가까운 경우에만 수직으로
                                 ball_vel[0] *= 0.3  # X축 속도를 크게 줄임
                         
-                        ball_vel[0] *= 1.2805  # X축 28.05% 부스트
-                        ball_vel[1] *= 1.2805  # Y축 28.05% 부스트
+                        ball_vel[0] *= 1.25245  # X축 25.245% 부스트 (10% 하향)
+                        ball_vel[1] *= 1.25245  # Y축 25.245% 부스트 (10% 하향)
                     final_speed = math.hypot(ball_vel[0], ball_vel[1])
                     
                     # 파워스매싱 초기 부스트 적용 (방향에 따라 차별화)
@@ -74862,9 +75062,9 @@ def main(stage_num, new_boss_mode=False):
                     
                     # 방향에 따른 초기 부스트 차별화
                     if power_smashing_direction == 0:  # 직선(중앙) 파워스매싱
-                        initial_boost_multiplier = 1.8  # 280% 추가 = 3.6배
+                        initial_boost_multiplier = 1.72  # 기존 1.8 → 10% 하향(72% 추가)
                     else:  # 좌/우 파워스매싱
-                        initial_boost_multiplier = 2.0  # 300% 추가 = 4.0배
+                        initial_boost_multiplier = 1.90  # 기존 2.0 → 10% 하향(90% 추가)
                     
                     # 초기 부스트 속도 적용
                     if final_speed > 0:
@@ -76028,6 +76228,27 @@ def main(stage_num, new_boss_mode=False):
                     power_smashing_start_time = current_time
                     # 파워스매시 발사 후 special_active를 False로 설정하여 게이지 충전 허용
                     special_active = False
+                    # 스매셔 반동 적용 (발사 시점) - 화염 넉백과 유사한 강도
+                    if selected_character_type == "smasher":
+                        # 발사 시점에서 반동 적용 (대기 방향 우선, 없으면 접촉 오프셋/방향키 기준)
+                        if smasher_power_recoil_pending_dir != 0:
+                            recoil_dir = smasher_power_recoil_pending_dir
+                        else:
+                            contact_offset = smasher_pending_contact_offset if smasher_pending_contact_offset is not None else BALL.centerx - PLAYER.centerx
+                            if contact_offset == 0:
+                                recoil_dir = -1 if power_smashing_direction == 1 else 1 if power_smashing_direction == -1 else random.choice([-1, 1])
+                            else:
+                                recoil_dir = 1 if contact_offset < 0 else -1
+                        smasher_power_recoil_pending_dir = 0
+                        smasher_power_recoil_vel = apply_knockback_resist(
+                            _scale_knockback(SMASHER_POWER_RECOIL_SPEED * recoil_dir)
+                        )
+                        smasher_power_recoil_timer = SMASHER_POWER_RECOIL_FRAMES
+                        PLAYER.x += smasher_power_recoil_vel  # 즉시 한 번 튕김
+                        current_speed = 0  # 같은 프레임 이동 입력 무력화
+                        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+                        _kb_debug(f"[SMASHER_RECOIL_APPLY] dir={recoil_dir}, vel={smasher_power_recoil_vel:.2f}, frames={smasher_power_recoil_timer}, x={PLAYER.x}")
+                        smasher_power_recoil_stun_pending = True
                     if smasher_pending_contact_offset is not None:
                         trigger_smasher_contact_animation(smasher_pending_contact_offset)
                     #  파워스매싱 공 발사 효과음 재생
@@ -77677,7 +77898,6 @@ def show_pause_menu():
     menu_items = [
         ("계속", None),
         ("캐릭터정보", show_character_info),
-        ("인벤토리", show_game_info),
         ("옵션", show_pause_options),
         ("나가기", None),
     ]
@@ -78280,7 +78500,13 @@ def show_character_info():
         """스킬트리 뷰어로 진입 (실패 시 조용히 무시)."""
         try:
             import academy
-            academy.show_academy_menu(SCREEN, WIDTH, HEIGHT, globals().get("selected_character_type", "smasher"))
+            academy.show_academy_menu(
+                SCREEN,
+                WIDTH,
+                HEIGHT,
+                globals().get("selected_character_type", "smasher"),
+                read_only=True,  # 캐릭터정보 경로에서는 보기 전용
+            )
         except Exception as exc:
             print(f"[WARN] 스킬트리 진입 실패: {exc}")
 
@@ -78798,7 +79024,7 @@ def show_character_info():
 
                 if is_devil_dice_active():
                     multipliers = get_devil_dice_multipliers()
-                    current_cost = int(current_cost * multipliers.get("skill_dash_cost", 1.0))
+                    current_cost = int(current_cost * multipliers.get("dash_cost", 1.0))
             except Exception:
                 pass
 
@@ -78876,14 +79102,6 @@ def show_character_info():
                 "higher_is_better": False,
             },
             {
-                "label": "아이템쿨타임",
-                "base": cooldown_base_s,
-                "current": cooldown_now_s,
-                "max_hint": 12.0,
-                "unit": "초",
-                "higher_is_better": False,
-            },
-            {
                 "label": "대쉬쿨타임",
                 "base": dash_cd_base_s,
                 "current": dash_cd_now_s,
@@ -78897,6 +79115,14 @@ def show_character_info():
                 "current": dash_cost_now,
                 "max_hint": 200.0,
                 "unit": "pt",
+            },
+            {
+                "label": "아이템쿨타임",
+                "base": cooldown_base_s,
+                "current": cooldown_now_s,
+                "max_hint": 12.0,
+                "unit": "초",
+                "higher_is_better": False,
             },
         ]
         return stats
@@ -78952,8 +79178,11 @@ def show_character_info():
         """획득한 패시브 아이템 아이콘을 영역 내에서 자동 줄바꿈하여 표시."""
         icons = []
         for item in passive_item_list:
-            icon = item.get("icon")
+            # 아이콘이 비어 있으면 즉시 로드해 표시 누락을 방지
+            icon = item.get("icon") or get_item_icon(item.get("name"))
             if icon:
+                # 캐싱된 아이콘을 아이템 객체에도 저장해 이후 호출에서 재사용
+                item["icon"] = icon
                 icons.append((icon, item))
         if not icons:
             text = font_small.render("획득한 패시브 아이템이 없습니다.", True, (200, 200, 200))
@@ -79082,7 +79311,8 @@ def show_character_info():
             line_y += 24
 
         # 인벤토리 영역
-        bag_area = pygame.Rect(panel_rect.x + 24, panel_rect.bottom - 150, panel_rect.width - 48, 120)
+        # 인벤토리 박스를 화면 하단 쪽으로 20px 더 내려 여백을 줄임
+        bag_area = pygame.Rect(panel_rect.x + 24, panel_rect.bottom - 130, panel_rect.width - 48, 120)
         bag_rects, bag_hover = draw_bag_grid(bag_items, bag_area, mouse_pos, drag_item=dragging_item)
 
         # 드래그 프리뷰
@@ -79770,6 +80000,8 @@ def get_item_name_korean(item_name):
         "bluetooth_ring": "블루투스링",
         "foul_whistle": "반칙호루라기",
         "star_detector": "별탐지기",
+        "bulletproof_hat": "방탄모자",
+        "spiked_helmet": "가시투구",
         "smartphone": "스마트폰",
         "knee_pads": "킥차져",
         "doping_potion": "도핑물약",
@@ -79860,11 +80092,13 @@ def get_item_description(item_name):
         "stopwatch": "스탑워치: 시간을 왜곡시켜 공의 움직임을 일정시간 정지시킵니다 .",
         "repair_kit": "수리키트: 발토르의 포탑과 디바인스톤, 설치된 벽돌을 즉시 완전 수리하고 과열을 제거합니다.",
         "devil_dice": "악마의 주사위: 모든 능력치를 랜덤하게 변화시키는 주사위. 결과는 하늘의 뜻에 달려있습니다",
-        "technical_vest": "테크니컬조끼: 공 타격 시 연막 생성 확률 10~25%(롤), 연막 지속 6~10초(롤). 연막은 보스 스킬을 막아줍니다.",
+        "technical_vest": "테크니컬조끼: 공 타격 시 연막 생성 확률 10~20%(롤), 연막 지속 3~6초(롤). 연막은 보스 스킬을 막아줍니다.",
         "fuel_pouch": "연료파우치: 장신구 슬롯에 착용, 최대 게이지가 영구적으로 60~120 증가합니다.",
         "bluetooth_ring": "블루투스링: 플레이어가 공을 칠 때 게이지 획득량이 15~30% 증가합니다.",
         "foul_whistle": "반칙호루라기: 라운드 패배 시 4~10% 확률로 심판이 호루라기를 불어 라운드를 무효로 만들고 즉시 재경기를 시작합니다.",
         "star_detector": "별탐지기: 스타포인트 드랍 시 15~30% 확률로 추가 별이 등장합니다.",
+        "bulletproof_hat": "방탄모자: 스턴 저항력이 10~20% 증가해 스턴 지속시간을 줄여줍니다.",
+        "spiked_helmet": "가시투구: 넉백 저항력이 10~20% 증가해 넉백 거리와 지속을 줄여줍니다.",
         "smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
         "knee_pads": "킥차져: 하프대쉬로 공을 맞출 때 게이지가 30~60% 충전됩니다. 성공 시 황금빛 킥 부스터가 번쩍입니다.",
         "doping_potion": "도핑물약: 8초 동안 권총 헤드샷/레그샷 확률 2배, 권총 사격 쿨타임 0.5초(컨트롤락 0.15초, 나머지 0.35초)로 단축.",
@@ -81316,3 +81550,4 @@ if __name__ == "__main__":
     # 무조건 오프닝 애니메이션 표시
     opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
     game_loop()            
+    

@@ -225,6 +225,13 @@ def init_gacha(available_items, legendary_bonus=0.0):
         if item_name == "chargebag" and getattr(items, 'chargebag_obtained', False):
             continue
 
+        # 방탄모자는 중복 획득 방지 (이미 보유하면 제외)
+        if item_name == "bulletproof_hat" and getattr(items, 'bulletproof_hat_obtained', False):
+            continue
+        # 가시투구 중복 획득 방지
+        if item_name == "spiked_helmet" and getattr(items, 'spiked_helmet_obtained', False):
+            continue
+
         # 이미 획득한 패시브 아이템은 제외
         should_skip = False
         
@@ -240,10 +247,10 @@ def init_gacha(available_items, legendary_bonus=0.0):
     legendary_items = [item for item in filtered_items if item.get("name", "") in legendary_pool]
     normal_items = [item for item in filtered_items if item.get("name", "") not in legendary_pool]
     
-    # 캡슐 40개 생성 (전설 아이템은 낮은 확률로)
+    # 캡슐 40개 생성 (전설 아이템 기본 확률 3%로 설정)
     for i in range(40):
-        # 기본 5% + 추가 보너스로 전설 아이템 등장 확률 상승
-        legendary_chance = min(0.45, 0.05 + gacha_legendary_bonus)
+        # 기존 5% → 3%, 보너스 포함치도 60%로 축소 적용
+        legendary_chance = min(0.45, 0.05 + gacha_legendary_bonus) * 0.6
         if random.random() < legendary_chance and legendary_items:
             item = random.choice(legendary_items).copy()
         elif normal_items:
@@ -1006,6 +1013,14 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     draw_pokeball_icon(container_x + 150, text_center_y, 28, 0, speed)
     # 오른쪽 캡슐 (적당한 거리)
     draw_pokeball_icon(container_x + container_width - 150, text_center_y, 28, 180, speed)
+
+    # 추가 HUD 오버레이 (예: 광장 키/골드 표시)
+    extra_overlay = getattr(draw_gacha, "extra_overlay", None)
+    if callable(extra_overlay):
+        try:
+            extra_overlay(screen, width, height)
+        except Exception:
+            pass
     
 
     

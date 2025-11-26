@@ -139,7 +139,7 @@ def main():
                 f"Skill Gauge: x{multipliers['skill_gauge']:.1f}",
                 f"Item Spawn: x{multipliers['item_spawn']:.1f}",
                 f"아이템 쿨타임: x{multipliers['item_cooldown']:.1f}",
-                f"Skill/Dash Cost: x{multipliers['skill_dash_cost']:.1f}",
+                f"Dash Cost: x{multipliers['dash_cost']:.1f}",
                 f"Dash CD: x{multipliers['dash_cooldown']:.1f}"
             ]
             

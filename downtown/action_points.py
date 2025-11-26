@@ -83,64 +83,177 @@ class ActionPointSystem:
                 self.ap_change_animation = 0
 
     def draw(self, screen, x, y, font=None):
-        """AP UI 그리기"""
-        # 배경 패널
-        panel_width = 200
-        panel_height = 60
-        panel_rect = pygame.Rect(x, y, panel_width, panel_height)
+        """AP UI 그리기 - 열쇠만 표시 (배경/텍스트 없음)"""
+        # 현재 열쇠 개수 (최대 5개로 제한)
+        display_count = min(int(self.display_ap), 5)
 
-        # 배경
-        pygame.draw.rect(screen, (20, 20, 40), panel_rect, border_radius=10)
-        pygame.draw.rect(screen, Colors.NEON_CYAN, panel_rect, 2, border_radius=10)
-
-        # AP 아이콘들 (별 모양)
-        icon_start_x = x + 15
-        icon_y = y + 20
-        icon_size = 20
+        # AP 아이콘들 (현재 보유한 열쇠만 표시, 최대 5개)
+        icon_size = 16   # 20에서 20% 감소
         icon_spacing = 22
 
-        for i in range(self.max_ap):
-            icon_x = icon_start_x + i * icon_spacing
+        for i in range(display_count):
+            icon_x = x + i * icon_spacing
+            self._draw_antique_key(screen, icon_x, y, icon_size, active=True)
 
-            if i < int(self.display_ap):
-                # 활성화된 AP
-                color = Colors.NEON_CYAN
-                self._draw_star(screen, icon_x, icon_y, icon_size // 2, color, filled=True)
-            elif i < self.display_ap:
-                # 부분적으로 활성화 (애니메이션)
-                color = Colors.NEON_CYAN
-                alpha = (self.display_ap - int(self.display_ap))
-                self._draw_star(screen, icon_x, icon_y, icon_size // 2, color, filled=True, alpha=alpha)
-            else:
-                # 비활성화된 AP
-                color = (60, 60, 80)
-                self._draw_star(screen, icon_x, icon_y, icon_size // 2, color, filled=False)
+    def _draw_antique_key(self, screen, x, y, size, active=True, alpha=1.0):
+        """클래식 앤틱 열쇠 - 8자형 고리 + 긴 막대 + F자 이빨"""
+        # 열쇠 서피스 생성 (세로로 긴 클래식 비율)
+        key_w = int(size * 1.0)
+        key_h = int(size * 2.2)  # 세로로 긴 비율
+        key_surf = pygame.Surface((key_w, key_h), pygame.SRCALPHA)
 
-        # AP 텍스트
-        if font:
-            ap_text = f"AP: {self.current_ap}/{self.max_ap}"
-            text_surface = font.render(ap_text, True, Colors.TEXT_WHITE)
-            screen.blit(text_surface, (x + 15, y + 40))
+        # 색상 설정
+        if active:
+            # 활성화 - 앤틱 브론즈/골드
+            bronze_main = (175, 140, 85)       # 메인 앤틱 골드
+            bronze_dark = (110, 85, 45)        # 어두운 부분
+            bronze_light = (210, 180, 120)     # 하이라이트
+            bronze_edge = (90, 65, 30)         # 외곽선
+        else:
+            # 비활성화 - 어두운 앤틱
+            bronze_main = (85, 80, 70)
+            bronze_dark = (55, 50, 40)
+            bronze_light = (105, 100, 90)
+            bronze_edge = (45, 40, 30)
 
-        # 변경 애니메이션 (+ 또는 - 표시)
-        if self.ap_change_animation > 0:
-            alpha = int(255 * self.ap_change_animation)
-            offset_y = int((1 - self.ap_change_animation) * 20)
+        cx = key_w // 2
 
-            if self.last_change_amount > 0:
-                change_text = f"+{self.last_change_amount}"
-                change_color = Colors.NEON_GREEN
-            else:
-                change_text = str(self.last_change_amount)
-                change_color = Colors.UI_DANGER
+        # === 상단 8자형 고리 (두 개의 원형 루프) ===
+        loop_r = int(key_w * 0.32)  # 고리 반지름
+        loop_thickness = max(2, int(size * 0.12))  # 고리 두께
+        loop_y = loop_r + 2  # 고리 중심 Y
 
-            if font:
-                change_surface = font.render(change_text, True, change_color)
-                change_surface.set_alpha(alpha)
-                screen.blit(change_surface, (x + panel_width - 50, y + 10 - offset_y))
+        # 왼쪽 고리 (원형)
+        left_loop_x = cx - int(loop_r * 0.55)
+        # 외곽선
+        pygame.draw.circle(key_surf, bronze_edge, (left_loop_x, loop_y), loop_r + 1, loop_thickness + 2)
+        # 메인 고리
+        pygame.draw.circle(key_surf, bronze_main, (left_loop_x, loop_y), loop_r, loop_thickness)
+        # 내부 하이라이트
+        pygame.draw.arc(key_surf, bronze_light,
+                       (left_loop_x - loop_r + 2, loop_y - loop_r + 2, (loop_r - 2) * 2, (loop_r - 2) * 2),
+                       math.pi * 0.8, math.pi * 1.5, max(1, loop_thickness // 2))
+
+        # 오른쪽 고리 (원형)
+        right_loop_x = cx + int(loop_r * 0.55)
+        # 외곽선
+        pygame.draw.circle(key_surf, bronze_edge, (right_loop_x, loop_y), loop_r + 1, loop_thickness + 2)
+        # 메인 고리
+        pygame.draw.circle(key_surf, bronze_main, (right_loop_x, loop_y), loop_r, loop_thickness)
+        # 내부 하이라이트
+        pygame.draw.arc(key_surf, bronze_light,
+                       (right_loop_x - loop_r + 2, loop_y - loop_r + 2, (loop_r - 2) * 2, (loop_r - 2) * 2),
+                       math.pi * 0.8, math.pi * 1.5, max(1, loop_thickness // 2))
+
+        # === 고리 연결부 (중앙 상단) ===
+        connect_y = loop_y + loop_r - 2
+        connect_w = int(key_w * 0.25)
+        connect_h = int(key_h * 0.08)
+
+        # 연결부 외곽
+        pygame.draw.ellipse(key_surf, bronze_edge,
+                           (cx - connect_w // 2 - 1, connect_y - 1, connect_w + 2, connect_h + 2))
+        # 연결부 메인
+        pygame.draw.ellipse(key_surf, bronze_main,
+                           (cx - connect_w // 2, connect_y, connect_w, connect_h))
+        # 하이라이트
+        pygame.draw.ellipse(key_surf, bronze_light,
+                           (cx - connect_w // 4, connect_y + 1, connect_w // 2, connect_h // 2))
+
+        # === 상단 장식 (고리 위 작은 돌출) ===
+        top_dec_y = 1
+        top_dec_w = int(key_w * 0.18)
+        top_dec_h = int(key_h * 0.04)
+        pygame.draw.ellipse(key_surf, bronze_dark,
+                           (cx - top_dec_w // 2, top_dec_y, top_dec_w, top_dec_h))
+        pygame.draw.ellipse(key_surf, bronze_main,
+                           (cx - top_dec_w // 2 + 1, top_dec_y, top_dec_w - 2, top_dec_h - 1))
+
+        # === 열쇠 몸통 (세로 막대) ===
+        shaft_w = int(key_w * 0.22)
+        shaft_top = connect_y + connect_h - 2
+        shaft_bottom = int(key_h * 0.78)
+        shaft_x = cx - shaft_w // 2
+
+        # 몸통 외곽선
+        pygame.draw.rect(key_surf, bronze_edge,
+                        (shaft_x - 1, shaft_top, shaft_w + 2, shaft_bottom - shaft_top + 2))
+        # 몸통 메인
+        pygame.draw.rect(key_surf, bronze_main,
+                        (shaft_x, shaft_top, shaft_w, shaft_bottom - shaft_top))
+
+        # 몸통 하이라이트 (왼쪽 면)
+        pygame.draw.line(key_surf, bronze_light,
+                        (shaft_x + 1, shaft_top + 2),
+                        (shaft_x + 1, shaft_bottom - 2), 1)
+
+        # 몸통 그림자 (오른쪽 면)
+        pygame.draw.line(key_surf, bronze_dark,
+                        (shaft_x + shaft_w - 1, shaft_top + 2),
+                        (shaft_x + shaft_w - 1, shaft_bottom - 2), 1)
+
+        # === 몸통 마디 장식 ===
+        shaft_length = shaft_bottom - shaft_top
+        # 상단 마디
+        node_y1 = shaft_top + int(shaft_length * 0.15)
+        pygame.draw.rect(key_surf, bronze_light, (shaft_x - 2, node_y1, shaft_w + 4, 3))
+        pygame.draw.rect(key_surf, bronze_edge, (shaft_x - 2, node_y1, shaft_w + 4, 3), 1)
+
+        # 중간 마디
+        node_y2 = shaft_top + int(shaft_length * 0.5)
+        pygame.draw.rect(key_surf, bronze_light, (shaft_x - 1, node_y2, shaft_w + 2, 2))
+        pygame.draw.rect(key_surf, bronze_edge, (shaft_x - 1, node_y2, shaft_w + 2, 2), 1)
+
+        # === 열쇠 이빨 (F자 모양) ===
+        teeth_y = shaft_bottom
+        teeth_w = int(key_w * 0.38)
+        teeth_h = int(key_h * 0.20)
+
+        # 막대 연장 (이빨까지)
+        pygame.draw.rect(key_surf, bronze_edge,
+                        (shaft_x - 1, teeth_y, shaft_w + 2, teeth_h + 2))
+        pygame.draw.rect(key_surf, bronze_main,
+                        (shaft_x, teeth_y, shaft_w, teeth_h))
+
+        # 상단 이빨 (긴 이빨)
+        tooth1_y = teeth_y + int(teeth_h * 0.15)
+        tooth1_h = int(teeth_h * 0.25)
+        pygame.draw.rect(key_surf, bronze_edge,
+                        (shaft_x + shaft_w - 1, tooth1_y, teeth_w + 2, tooth1_h + 1))
+        pygame.draw.rect(key_surf, bronze_main,
+                        (shaft_x + shaft_w, tooth1_y, teeth_w, tooth1_h))
+        # 이빨 하이라이트
+        pygame.draw.line(key_surf, bronze_light,
+                        (shaft_x + shaft_w + 1, tooth1_y + 1),
+                        (shaft_x + shaft_w + teeth_w - 2, tooth1_y + 1), 1)
+
+        # 하단 이빨 (더 긴 이빨)
+        tooth2_y = teeth_y + int(teeth_h * 0.60)
+        tooth2_h = int(teeth_h * 0.35)
+        tooth2_w = int(teeth_w * 1.1)  # 약간 더 길게
+        pygame.draw.rect(key_surf, bronze_edge,
+                        (shaft_x + shaft_w - 1, tooth2_y, tooth2_w + 2, tooth2_h + 1))
+        pygame.draw.rect(key_surf, bronze_main,
+                        (shaft_x + shaft_w, tooth2_y, tooth2_w, tooth2_h))
+        # 이빨 하이라이트
+        pygame.draw.line(key_surf, bronze_light,
+                        (shaft_x + shaft_w + 1, tooth2_y + 1),
+                        (shaft_x + shaft_w + tooth2_w - 2, tooth2_y + 1), 1)
+
+        # 막대 끝 하이라이트
+        pygame.draw.line(key_surf, bronze_light,
+                        (shaft_x + 1, teeth_y + 1),
+                        (shaft_x + 1, teeth_y + teeth_h - 1), 1)
+
+        # 반투명 처리
+        if alpha < 1.0:
+            key_surf.set_alpha(int(255 * alpha))
+
+        # 화면에 그리기 (세로 중심 맞춤)
+        screen.blit(key_surf, (x - key_w // 2, y - key_h // 2))
 
     def _draw_star(self, screen, x, y, radius, color, filled=True, alpha=1.0):
-        """별 모양 그리기"""
+        """별 모양 그리기 (하위 호환성)"""
         points = []
         for i in range(10):
             angle = math.pi / 2 + i * math.pi / 5
@@ -162,12 +275,11 @@ class ActionPointSystem:
             pygame.draw.polygon(screen, color, points, 2)
 
     def draw_minimal(self, screen, x, y):
-        """최소화된 AP 표시 (게임 HUD용)"""
+        """최소화된 AP 표시 (게임 HUD용) - 작은 열쇠"""
         # 작은 AP 표시
         for i in range(self.current_ap):
-            star_x = x + i * 15
-            color = Colors.NEON_CYAN
-            self._draw_star(screen, star_x, y, 6, color, filled=True)
+            key_x = x + i * 18
+            self._draw_antique_key(screen, key_x, y, 16, active=True)
 
 
 class ActionPointEvent:

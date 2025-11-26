@@ -2,8 +2,10 @@
 # 번화가 시스템 메인 매니저
 
 import pygame
+import pygame.freetype
 import os
 import sys
+import math
 
 from .constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE,
@@ -15,6 +17,7 @@ from .player import DowntownPlayer
 from .buildings import BuildingManager
 from .action_points import ActionPointSystem, ActionPointEvent
 from .renderer import DowntownRenderer
+from .npc import NPCManager
 
 class DowntownState:
     """번화가 상태"""
@@ -45,6 +48,7 @@ class DowntownManager:
         self.buildings = BuildingManager()
         self.ap_system = ActionPointSystem()
         self.renderer = DowntownRenderer()
+        self.npc_manager = NPCManager()
 
         # 상태
         self.state = DowntownState.ENTERING
@@ -54,6 +58,11 @@ class DowntownManager:
         # 현재 상호작용
         self.current_building = None
         self.interaction_result = None
+
+        # 건물 입장 확인 다이얼로그
+        self.building_confirmation_dialog = None  # {'building_type': ..., 'building_name': ...}
+        self.dialog_yes_rect = None
+        self.dialog_no_rect = None
 
         # 전환 효과
         self.transition_alpha = 255
@@ -77,7 +86,36 @@ class DowntownManager:
         }
 
     def _init_fonts(self):
-        """폰트 초기화"""
+        """폰트 초기화 (pygame.freetype 사용 - 한글 지원)"""
+        self._freetype_fonts = {}
+
+        # freetype 폰트 로드 시도
+        font = None
+        try:
+            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+            if os.path.exists(font_path):
+                font = font_path
+        except:
+            pass
+
+        # 시스템 폰트 fallback
+        if font is None:
+            if os.path.exists("/System/Library/Fonts/AppleSDGothicNeo.ttc"):
+                font = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
+            elif os.path.exists("C:/Windows/Fonts/malgun.ttf"):
+                font = "C:/Windows/Fonts/malgun.ttf"
+
+        # freetype 폰트 생성
+        try:
+            self._freetype_fonts['large'] = pygame.freetype.Font(font, 32)
+            self._freetype_fonts['medium'] = pygame.freetype.Font(font, 24)
+            self._freetype_fonts['small'] = pygame.freetype.Font(font, 16)
+        except:
+            self._freetype_fonts['large'] = pygame.freetype.SysFont(None, 32)
+            self._freetype_fonts['medium'] = pygame.freetype.SysFont(None, 24)
+            self._freetype_fonts['small'] = pygame.freetype.SysFont(None, 16)
+
+        # 기존 pygame.font도 유지 (호환성)
         try:
             font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
             self.font_large = pygame.font.Font(font_path, 32)
@@ -115,6 +153,9 @@ class DowntownManager:
         # 렌더러 테마 설정
         theme = self.downtown_map.theme
         self.renderer.set_theme(self.downtown_map.theme_data)
+
+        # NPC 초기화
+        self.npc_manager.initialize(self.downtown_map, stage_number)
 
         # 결과 초기화
         self.result_data = {
@@ -160,17 +201,44 @@ class DowntownManager:
             return
 
         if event.type == pygame.KEYDOWN:
+            # 이동키 입력 처리 (한글/영문 레이아웃 모두 동일 동작)
+            if self.player:
+                self.player.handle_movement_key_event(
+                    True,
+                    scancode=getattr(event, "scancode", None),
+                    keycode=event.key,
+                    unicode_char=getattr(event, "unicode", None)
+                )
+
             if event.key == pygame.K_ESCAPE:
                 # ESC 메뉴
                 self._show_pause_menu()
 
-            elif event.key == pygame.K_z:
-                # 상호작용
-                self._handle_interaction()
+            elif event.key == pygame.K_SPACE:
+                # 상호작용 (건물/출구) 또는 NPC 대화
+                self._handle_interaction_or_talk()
 
             elif event.key == pygame.K_TAB:
                 # 인벤토리
                 self._show_inventory()
+
+        elif event.type == pygame.KEYUP:
+            if self.player:
+                self.player.handle_movement_key_event(
+                    False,
+                    scancode=getattr(event, "scancode", None),
+                    keycode=event.key,
+                    unicode_char=getattr(event, "unicode", None)
+                )
+
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # 왼쪽 마우스 버튼
+                # 다이얼로그가 열려있으면 버튼 클릭 처리
+                if self.building_confirmation_dialog:
+                    self._handle_dialog_click(event.pos)
+                else:
+                    # 건물 클릭 체크
+                    self._handle_mouse_click(event.pos)
 
     def _handle_building_event(self, event):
         """건물 내부 이벤트 처리"""
@@ -178,16 +246,87 @@ class DowntownManager:
             if event.key == pygame.K_ESCAPE:
                 self._exit_building()
 
-    def _handle_interaction(self):
-        """상호작용 처리"""
+    def _handle_npc_talk(self):
+        """NPC 대화 처리"""
+        if self.state != DowntownState.EXPLORING:
+            return
+
+        # NPC에게 말 걸기 시도
+        dialogue = self.npc_manager.try_talk_to_npc(
+            self.player.x, self.player.y, radius=70
+        )
+
+        if dialogue:
+            # 대화 성공 - NPC가 알아서 말풍선을 표시함
+            pass
+        # 대화 실패 시 아무것도 하지 않음 (자연스럽게)
+
+    def _handle_interaction_or_talk(self):
+        """상호작용 또는 NPC 대화 처리 (Space/마우스 클릭용)"""
+        if self.state != DowntownState.EXPLORING:
+            return
+
+        # 1. 먼저 건물/출구 상호작용 체크
         if self.player.interaction_target:
             target = self.player.interaction_target
 
             if target['type'] == 'building':
-                self._enter_building(target['building_type'])
+                # 건물 입장 확인 다이얼로그 표시
+                self._show_building_confirmation_dialog(target['building_type'])
+                return
 
             elif target['type'] == 'exit':
                 self._try_exit()
+                return
+
+        # 2. 상호작용 대상이 없으면 NPC 대화 시도
+        self._handle_npc_talk()
+
+    def _handle_mouse_click(self, mouse_pos):
+        """마우스 클릭으로 건물 상호작용"""
+        if self.state != DowntownState.EXPLORING:
+            return
+
+        # 카메라 오프셋 가져오기
+        camera_offset = self.renderer.get_camera_offset()
+
+        # 플레이어에게 클릭한 건물 확인 요청
+        clicked_building = self.player.check_building_click(
+            mouse_pos, camera_offset, self.downtown_map
+        )
+
+        if clicked_building and clicked_building['type'] == 'building':
+            building_type = clicked_building['building_type']
+
+            # 확인 다이얼로그 표시
+            self._show_building_confirmation_dialog(building_type)
+
+    def _show_building_confirmation_dialog(self, building_type):
+        """건물 입장 확인 다이얼로그 표시"""
+        building_info = BUILDING_INFO[building_type]
+        building_name = building_info['name']
+        ap_cost = building_info['ap_cost']
+
+        self.building_confirmation_dialog = {
+            'building_type': building_type,
+            'building_name': building_name,
+            'ap_cost': ap_cost
+        }
+
+    def _handle_dialog_click(self, mouse_pos):
+        """다이얼로그 버튼 클릭 처리"""
+        if not self.building_confirmation_dialog:
+            return
+
+        # 예/아니오 버튼 영역 체크
+        if self.dialog_yes_rect and self.dialog_yes_rect.collidepoint(mouse_pos):
+            # 예 클릭 - 건물 입장
+            building_type = self.building_confirmation_dialog['building_type']
+            self.building_confirmation_dialog = None
+            self._enter_building(building_type)
+        elif self.dialog_no_rect and self.dialog_no_rect.collidepoint(mouse_pos):
+            # 아니오 클릭 - 다이얼로그 닫기
+            self.building_confirmation_dialog = None
 
     def _enter_building(self, building_type):
         """건물 입장"""
@@ -296,6 +435,12 @@ class DowntownManager:
         # 건물 업데이트
         self.buildings.update(dt)
 
+        # NPC 업데이트
+        self.npc_manager.update(dt, self.downtown_map)
+
+        # NPC가 플레이어에 반응
+        self.npc_manager.trigger_reactions(self.player.x, self.player.y, 60)
+
         # 하이라이트 업데이트
         if self.player.interaction_target:
             if self.player.interaction_target['type'] == 'building':
@@ -353,9 +498,15 @@ class DowntownManager:
         # 건물
         self.buildings.draw(self.screen, camera_offset)
 
+        # NPC (건물과 플레이어 사이에 Y 정렬되어 그려짐)
+        self.npc_manager.draw(self.screen, camera_offset)
+
         # 플레이어
         if self.state != DowntownState.IN_BUILDING:
             self.player.draw(self.screen, camera_offset)
+
+        # 스폰/출구 오오라 (모든 것 위에 - 잘 보이도록)
+        self.renderer.draw_spawn_exit_auras(self.screen, self.downtown_map)
 
         # UI
         self._draw_ui()
@@ -373,8 +524,8 @@ class DowntownManager:
 
     def _draw_ui(self):
         """UI 그리기"""
-        # AP 표시
-        self.ap_system.draw(self.screen, 20, 20, self.font_medium)
+        # AP 표시 (모퉁이에서 살짝 안쪽으로)
+        self.ap_system.draw(self.screen, 35, 30, self.font_medium)
 
         # 미니맵
         self.renderer.draw_minimap(
@@ -403,6 +554,103 @@ class DowntownManager:
         # 골드 표시
         self._draw_gold()
 
+        # 건물 입장 확인 다이얼로그
+        if self.building_confirmation_dialog:
+            self._draw_confirmation_dialog()
+
+    def _draw_confirmation_dialog(self):
+        """건물 입장 확인 다이얼로그 그리기"""
+        dialog = self.building_confirmation_dialog
+        building_name = dialog['building_name']
+        ap_cost = dialog['ap_cost']
+
+        # 다이얼로그 크기 및 위치
+        dialog_width = 400
+        dialog_height = 180
+        dialog_x = (SCREEN_WIDTH - dialog_width) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_height) // 2
+
+        # 반투명 배경 오버레이
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        self.screen.blit(overlay, (0, 0))
+
+        # 다이얼로그 배경
+        dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_width, dialog_height)
+        pygame.draw.rect(self.screen, (30, 30, 40), dialog_rect, border_radius=15)
+        pygame.draw.rect(self.screen, Colors.UI_PRIMARY, dialog_rect, 3, border_radius=15)
+
+        # 제목 텍스트 (freetype 사용 - 한글 지원)
+        title_text = f"{building_name}에 입장하시겠습니까?"
+        title_surface, title_rect = self._freetype_fonts['medium'].render(title_text, Colors.TEXT_WHITE)
+        title_x = dialog_x + (dialog_width - title_rect.width) // 2
+        title_y = dialog_y + 30
+        self.screen.blit(title_surface, (title_x, title_y))
+
+        # AP 소모 안내 (열쇠 아이콘으로 표시)
+        # 열쇠 아이콘 그리기
+        key_size = 20
+        key_x = dialog_x + (dialog_width - key_size - 40) // 2  # 아이콘 + 숫자 공간
+        key_y = title_y + 35
+
+        # 열쇠 몸통
+        key_body = pygame.Rect(key_x, key_y + 3, 8, 10)
+        pygame.draw.rect(self.screen, Colors.UI_DANGER, key_body, border_radius=2)
+
+        # 열쇠 고리
+        pygame.draw.circle(self.screen, Colors.UI_DANGER, (key_x + 4, key_y + 5), 5, 2)
+
+        # 열쇠 이빨
+        teeth_points = [
+            (key_x + 8, key_y + 10),
+            (key_x + 11, key_y + 10),
+            (key_x + 11, key_y + 13),
+            (key_x + 13, key_y + 13),
+            (key_x + 13, key_y + 10),
+            (key_x + 16, key_y + 10),
+            (key_x + 16, key_y + 14),
+            (key_x + 8, key_y + 14)
+        ]
+        pygame.draw.polygon(self.screen, Colors.UI_DANGER, teeth_points)
+
+        # 소모 개수 표시
+        ap_text = f"{ap_cost} 소모"
+        ap_surface, ap_rect = self._freetype_fonts['small'].render(ap_text, Colors.UI_DANGER)
+        ap_text_x = key_x + key_size + 5
+        ap_text_y = key_y
+        self.screen.blit(ap_surface, (ap_text_x, ap_text_y))
+
+        # 버튼 설정
+        button_width = 140
+        button_height = 50
+        button_spacing = 20
+        buttons_y = dialog_y + dialog_height - button_height - 25
+
+        yes_button_x = dialog_x + (dialog_width // 2) - button_width - (button_spacing // 2)
+        no_button_x = dialog_x + (dialog_width // 2) + (button_spacing // 2)
+
+        # 예 버튼
+        self.dialog_yes_rect = pygame.Rect(yes_button_x, buttons_y, button_width, button_height)
+        pygame.draw.rect(self.screen, Colors.UI_SUCCESS, self.dialog_yes_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (100, 255, 100), self.dialog_yes_rect, 2, border_radius=10)
+
+        yes_text = "예"
+        yes_surface, yes_rect = self._freetype_fonts['medium'].render(yes_text, Colors.TEXT_WHITE)
+        yes_text_x = yes_button_x + (button_width - yes_rect.width) // 2
+        yes_text_y = buttons_y + (button_height - yes_rect.height) // 2
+        self.screen.blit(yes_surface, (yes_text_x, yes_text_y))
+
+        # 아니오 버튼
+        self.dialog_no_rect = pygame.Rect(no_button_x, buttons_y, button_width, button_height)
+        pygame.draw.rect(self.screen, Colors.UI_DANGER, self.dialog_no_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (255, 100, 100), self.dialog_no_rect, 2, border_radius=10)
+
+        no_text = "아니오"
+        no_surface, no_rect = self._freetype_fonts['medium'].render(no_text, Colors.TEXT_WHITE)
+        no_text_x = no_button_x + (button_width - no_rect.width) // 2
+        no_text_y = buttons_y + (button_height - no_rect.height) // 2
+        self.screen.blit(no_surface, (no_text_x, no_text_y))
+
     def _draw_stage_info(self):
         """스테이지 정보 표시"""
         # 행성 이름
@@ -414,15 +662,78 @@ class DowntownManager:
         self.screen.blit(text_surface, (text_x, 10))
 
     def _draw_gold(self):
-        """골드 표시"""
+        """골드 표시 - 금화 아이콘 직접 그리기"""
         gold = self.player_data.get('gold', 0)
-        gold_text = f"💰 {gold:,}"
 
+        # 금화 아이콘 그리기 (20x20 크기)
+        coin_x, coin_y = 35, 75
+        coin_size = 18
+        self._draw_gold_coin(self.screen, coin_x, coin_y, coin_size)
+
+        # 골드 숫자
+        gold_text = f"{gold:,}"
         text_surface = self.font_medium.render(gold_text, True, Colors.UI_ACCENT)
-        self.screen.blit(text_surface, (20, 90))
+        self.screen.blit(text_surface, (coin_x + coin_size + 8, coin_y - 4))
+
+    def _draw_gold_coin(self, screen, x, y, size):
+        """금화 아이콘 그리기 - 입체감 있는 동전"""
+        # 금화 서피스 생성
+        coin_surf = pygame.Surface((size + 4, size + 4), pygame.SRCALPHA)
+
+        cx, cy = size // 2 + 2, size // 2 + 2
+        radius = size // 2
+
+        # 색상 정의
+        gold_dark = (180, 130, 20)      # 어두운 금색 (테두리/그림자)
+        gold_main = (255, 200, 50)       # 메인 금색
+        gold_light = (255, 235, 120)     # 밝은 금색 (하이라이트)
+        gold_shine = (255, 250, 200)     # 반짝임
+
+        # 그림자 (약간 아래 오른쪽)
+        pygame.draw.circle(coin_surf, (0, 0, 0, 80), (cx + 2, cy + 2), radius)
+
+        # 외곽 테두리 (어두운 금색)
+        pygame.draw.circle(coin_surf, gold_dark, (cx, cy), radius)
+
+        # 메인 금화
+        pygame.draw.circle(coin_surf, gold_main, (cx, cy), radius - 2)
+
+        # 내부 테두리 (입체감)
+        pygame.draw.circle(coin_surf, gold_dark, (cx, cy), radius - 3, 1)
+
+        # 상단 하이라이트 (반원)
+        highlight_rect = (cx - radius + 4, cy - radius + 3, (radius - 4) * 2, radius - 2)
+        pygame.draw.arc(coin_surf, gold_light, highlight_rect, 0.5, 2.6, 2)
+
+        # 중앙에 별 무늬
+        star_size = radius // 2
+        star_points = []
+        for i in range(5):
+            # 바깥 점
+            angle = math.pi / 2 + i * 2 * math.pi / 5
+            px = cx + int(star_size * math.cos(angle))
+            py = cy - int(star_size * math.sin(angle))
+            star_points.append((px, py))
+            # 안쪽 점
+            angle += math.pi / 5
+            px = cx + int(star_size * 0.4 * math.cos(angle))
+            py = cy - int(star_size * 0.4 * math.sin(angle))
+            star_points.append((px, py))
+
+        if len(star_points) >= 3:
+            pygame.draw.polygon(coin_surf, gold_dark, star_points)
+            # 별 하이라이트
+            inner_star = [(int(cx + (p[0] - cx) * 0.7), int(cy + (p[1] - cy) * 0.7)) for p in star_points]
+            if len(inner_star) >= 3:
+                pygame.draw.polygon(coin_surf, gold_light, inner_star)
+
+        # 반짝임 효과 (우상단)
+        pygame.draw.circle(coin_surf, gold_shine, (cx + radius // 3, cy - radius // 3), 2)
+
+        screen.blit(coin_surf, (x - size // 2, y - size // 2))
 
     def _draw_building_interior(self):
-        """건물 내부 화면"""
+        """건물 내부 화면 (한글 폰트 지원)"""
         # 어두운 오버레이
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 200))
@@ -445,23 +756,31 @@ class DowntownManager:
                            (panel_x, panel_y, panel_width, panel_height),
                            3, border_radius=20)
 
+            # freetype 폰트 사용
+            font_large = self._freetype_fonts.get('large')
+            font_medium = self._freetype_fonts.get('medium')
+            font_small = self._freetype_fonts.get('small')
+
             # 제목
-            title_text = self.font_large.render(info['name'], True, Colors.TEXT_WHITE)
-            self.screen.blit(title_text,
-                           (panel_x + panel_width // 2 - title_text.get_width() // 2,
-                            panel_y + 20))
+            if font_large:
+                title_surf, title_rect = font_large.render(info['name'], Colors.TEXT_WHITE)
+                self.screen.blit(title_surf,
+                               (panel_x + panel_width // 2 - title_rect.width // 2,
+                                panel_y + 20))
 
             # "개발 중" 메시지
-            dev_text = self.font_medium.render("🚧 컨텐츠 개발 중...", True, Colors.TEXT_GRAY)
-            self.screen.blit(dev_text,
-                           (panel_x + panel_width // 2 - dev_text.get_width() // 2,
-                            panel_y + panel_height // 2))
+            if font_medium:
+                dev_surf, dev_rect = font_medium.render("🚧 컨텐츠 개발 중...", Colors.TEXT_GRAY)
+                self.screen.blit(dev_surf,
+                               (panel_x + panel_width // 2 - dev_rect.width // 2,
+                                panel_y + panel_height // 2))
 
             # 나가기 힌트
-            exit_text = self.font_small.render("[ESC] 나가기", True, Colors.TEXT_GRAY)
-            self.screen.blit(exit_text,
-                           (panel_x + panel_width // 2 - exit_text.get_width() // 2,
-                            panel_y + panel_height - 40))
+            if font_small:
+                exit_surf, exit_rect = font_small.render("[ESC] 나가기", Colors.TEXT_GRAY)
+                self.screen.blit(exit_surf,
+                               (panel_x + panel_width // 2 - exit_rect.width // 2,
+                                panel_y + panel_height - 40))
 
     # ==========================================================================
     # 건물별 플레이스홀더 (나중에 구현)
@@ -512,14 +831,20 @@ class DowntownManager:
         pass
 
     def _show_message(self, message, color=Colors.TEXT_WHITE):
-        """메시지 표시"""
+        """메시지 표시 (한글 지원)"""
         # 간단한 메시지 오버레이
         overlay = pygame.Surface((SCREEN_WIDTH, 80), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 200))
 
-        text = self.font_medium.render(message, True, color)
-        text_x = SCREEN_WIDTH // 2 - text.get_width() // 2
-        overlay.blit(text, (text_x, 25))
+        font_medium = self._freetype_fonts.get('medium')
+        if font_medium:
+            text_surf, text_rect = font_medium.render(message, color)
+            text_x = SCREEN_WIDTH // 2 - text_rect.width // 2
+            overlay.blit(text_surf, (text_x, 25))
+        else:
+            text = self.font_medium.render(message, True, color)
+            text_x = SCREEN_WIDTH // 2 - text.get_width() // 2
+            overlay.blit(text, (text_x, 25))
 
         self.screen.blit(overlay, (0, SCREEN_HEIGHT // 2 - 40))
         pygame.display.flip()

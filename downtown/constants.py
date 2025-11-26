@@ -21,12 +21,12 @@ SCREEN_HEIGHT = 750
 TILE_SIZE = 40  # 타일 크기 (픽셀) - 세로형 맵에 맞게 조정
 
 # =============================================================================
-# 맵 설정 (세로형 - 아래에서 위로 또는 위에서 아래로 이동)
+# 맵 설정 (세로형 - 위에서 아래로 탐험하며 스크롤)
 # =============================================================================
 MAP_WIDTH = 15   # 타일 개수 (가로) - 600 / 40 = 15
-MAP_HEIGHT = 18  # 타일 개수 (세로) - 750에서 약간 여유 (18 * 40 = 720)
+MAP_HEIGHT = 50  # 타일 개수 (세로) - 긴 탐험형 맵 (50 * 40 = 2000px)
 MAP_PIXEL_WIDTH = MAP_WIDTH * TILE_SIZE   # 600
-MAP_PIXEL_HEIGHT = MAP_HEIGHT * TILE_SIZE # 720
+MAP_PIXEL_HEIGHT = MAP_HEIGHT * TILE_SIZE # 2000
 
 # =============================================================================
 # 타일 타입
@@ -35,8 +35,8 @@ class TileType:
     EMPTY = 0           # 빈 공간 (이동 불가)
     GROUND = 1          # 일반 바닥 (이동 가능)
     ROAD = 2            # 도로 (이동 가능, 빠른 이동)
-    BUILDING = 3        # 건물 (이동 불가, 상호작용 가능)
-    DECORATION = 4      # 장식물 (이동 불가)
+    BUILDING = 3        # 건물 (픽셀 충돌로 판단)
+    DECORATION = 4      # 장식물 (이동 가능 - 꽃밭, 화단 등)
     SPAWN = 5           # 플레이어 스폰 지점
     EXIT = 6            # 출구 (다음 스테이지로)
     WATER = 7           # 물 (이동 불가)
@@ -57,6 +57,7 @@ class BuildingType:
     BANK = "bank"                   # 은행 (재화 저장)
     MYSTERY = "mystery"             # 미스터리 이벤트
     GACHA = "gacha"                 # 가챠샵
+    ACADEMY = "academy"             # 스킬 학원
 
 # 건물 정보 (각 건물별 고유 디자인 및 크기 - 세로형 화면에 맞게 축소)
 BUILDING_INFO = {
@@ -157,16 +158,16 @@ BUILDING_INFO = {
         "style": "medieval",
     },
     BuildingType.BANK: {
-        "name": "신전 금고",
-        "name_en": "Temple Vault",
-        "icon": "🏛️",
-        "color": (240, 235, 230),    # 대리석 흰색
+        "name": "스타뱅크",
+        "name_en": "StarBank",
+        "icon": "⭐",
+        "color": (255, 215, 0),      # 황금색
         "ap_cost": 0,
-        "size": (2, 2),              # 그리스 신전 스타일
+        "size": (2, 2),              # 별빛 환전소
         "pixel_size": (85, 80),      # (축소)
-        "description": "그리스 신전 양식의 신성한 금고",
+        "description": "스타 포인트를 골드로 환전할 수 있는 화려한 은행",
         "rarity": 0.5,
-        "style": "greek",
+        "style": "star_luxury",
     },
     BuildingType.MYSTERY: {
         "name": "???",
@@ -191,6 +192,18 @@ BUILDING_INFO = {
         "description": "별빛 가챠로 희귀 아이템을 뽑아보세요!",
         "rarity": 0.85,
         "style": "gacha",
+    },
+    BuildingType.ACADEMY: {
+        "name": "마법 학원",
+        "name_en": "Magic Academy",
+        "icon": "📚",
+        "color": (150, 100, 255),    # 마법의 보라색
+        "ap_cost": 1,
+        "size": (3, 2),              # 3개의 탑이 있는 넓은 성
+        "pixel_size": (110, 95),     # 3개 탑 포함 크기
+        "description": "고대의 지식과 마법을 배우는 신비로운 학원",
+        "rarity": 0.9,
+        "style": "magic_school",
     },
 }
 

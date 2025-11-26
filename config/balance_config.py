@@ -394,7 +394,7 @@ class ItemBalance:
             'common': 1.0,
             'rare': 0.5,
             'epic': 0.2,
-            'legendary': 0.05
+            'legendary': 0.025  # 기본 50% 감소
         }
         
         return weights.get(rarity, 1.0)

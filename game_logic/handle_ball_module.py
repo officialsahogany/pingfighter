@@ -1673,9 +1673,9 @@ def handle_ball():
         elif not new_boss_mode_active and current_stage == 2:
             time_now = pygame.time.get_ticks()
             if (time_now - quake_last_used_time >= QUAKE_COOLDOWN) and random.random() <= 0.15:
-                activate_quake()
-                show_speech("정글지진!", duration=quake_duration)
-                quake_last_used_time = time_now
+                if activate_quake():
+                    show_speech("정글지진!", duration=quake_duration)
+                    quake_last_used_time = time_now
         elif not new_boss_mode_active and current_stage == 3:
             if not boss_special_ready:
                 boss_special_gauge += 60

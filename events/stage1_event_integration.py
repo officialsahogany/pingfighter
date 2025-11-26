@@ -200,6 +200,15 @@ class Stage1EventManager:
         return self.balloon_machine.check_balloon_collisions(
             ball_rect, ball_radius, ball_vel, effects_manager, sound_balloon, whip_active, trade_point_system
         )
+
+    def pop_balloon_with_projectile(self, x: float, y: float, radius: float = 0.0,
+                                     effects_manager=None, sound_balloon=None, trade_point_system=None) -> bool:
+        """
+        외부 투사체(예: 코만도 권총 탄환)가 풍선을 맞췄는지 확인하고 처리한다.
+        """
+        return self.balloon_machine.pop_balloon_at_point(
+            x, y, radius, effects_manager, sound_balloon, trade_point_system
+        )
     
     def reset(self):
         """모든 이벤트 리셋 (새 게임 시작 시)"""

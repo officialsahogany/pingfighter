@@ -83,6 +83,7 @@ class EventType(Enum):
     SCREEN_SHAKE = "screen_shake"
     PARTICLE_SPAWN = "particle_spawn"
     EXPLOSION = "explosion"
+    CREATE_LIGHT_SHARDS_EXPLOSION = "create_light_shards_explosion"
     
     # 에러 이벤트
     ERROR_OCCURRED = "error_occurred"

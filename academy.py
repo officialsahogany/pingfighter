@@ -396,7 +396,7 @@ class SkillSystem:
         return None
 
 class AcademyUI:
-    def __init__(self, screen, width, height, selected_character="smasher"):  # 테스트를 위해 기본값을 "smasher"로 변경
+    def __init__(self, screen, width, height, selected_character="smasher", read_only: bool = False):  # 테스트를 위해 기본값을 "smasher"로 변경
         self.screen = screen
         self.width = width
         self.height = height
@@ -404,6 +404,7 @@ class AcademyUI:
         self.selected_tree = self._determine_default_tree(selected_character)
         self.selected_skill_index = 0  # 현재 선택된 스킬 인덱스
         self.tab_selection_mode = False  # 탭 선택 모드 여부
+        self.read_only = read_only  # 보기 전용 모드 여부 (캐릭터정보 경로 등)
         
         # 강제로 스매셔 캐릭터로 설정 (테스트)
         self.selected_character = "smasher"
@@ -1637,8 +1638,9 @@ class AcademyUI:
                         return "back"
                     elif event.key == pygame.K_8:
                         # 디버그 기능: 스킬포인트 99개 생성 (누적 투자는 실제 투자할 때만 증가)
-                        self.skill_system.skill_points = 99
-                        print(":  99 ! (  TP    )")
+                        if not self.read_only:
+                            self.skill_system.skill_points = 99
+                            print(":  99 ! (  TP    )")
                     elif event.key == pygame.K_TAB and not self.is_animating:
                         # Tab 키로 오른쪽 탭으로 순환 (Shift+Tab은 왼쪽)
                         mods = pygame.key.get_mods()
@@ -1753,6 +1755,8 @@ class AcademyUI:
                                             # 탭 선택 모드로 전환
                                             self.tab_selection_mode = True
                     elif event.key in [pygame.K_SPACE, pygame.K_RETURN] and not self.is_animating:
+                        if self.read_only:
+                            continue
                         # 탭 선택 모드가 아닐 때만 스킬 업그레이드
                         if not self.tab_selection_mode:
                             # 스매셔 스킬트리 처리
@@ -1840,6 +1844,10 @@ class AcademyUI:
             if hasattr(self, 'smasher_skills'):
                 clicked_skill = self.smasher_skills.handle_click(pos, 50, 110, self.skill_system.skill_points)
                 if clicked_skill:
+                    # 보기 전용일 땐 선택만 유지하고 투자하지 않는다
+                    self.set_selected_skill_by_id(clicked_skill)
+                    if self.read_only:
+                        return None
                     # 스킬 업그레이드
                     cost = self.smasher_skills.upgrade_skill(clicked_skill)
                     if cost > 0:
@@ -1869,10 +1877,11 @@ class AcademyUI:
                     break
 
             if clicked_skill_id is not None:
+                # 보기 전용 모드에서는 선택만 업데이트하고 리턴
+                self.set_selected_skill_by_id(clicked_skill_id)
+                if self.read_only:
+                    return None
                 if self.skill_system.can_upgrade_skill(clicked_skill_id):
-                    # 선택 상태도 클릭된 스킬로 동기화
-                    self.set_selected_skill_by_id(clicked_skill_id)
-
                     old_level = self.skill_system.get_skill_level(clicked_skill_id)
                     self.skill_system.upgrade_skill(clicked_skill_id)
                     new_level = self.skill_system.get_skill_level(clicked_skill_id)
@@ -2013,9 +2022,17 @@ class AcademyUI:
         tree_sp_text = self.font_small.render(f"{tree_label} 누적 ★{tree_tp_total}", True, (150, 200, 255))
         tree_sp_rect = tree_sp_text.get_rect(topright=(self.width - 20, total_sp_rect.bottom + 5))
         self.screen.blit(tree_sp_text, tree_sp_rect)
+        if self.read_only:
+            ro_text = self.font_small.render("캐릭터정보 경로: 보기 전용", True, (255, 200, 140))
+            ro_rect = ro_text.get_rect(topright=(self.width - 20, tree_sp_rect.bottom + 5))
+            self.screen.blit(ro_text, ro_rect)
         
         # 조작 안내
-        control_text = self.font_small.render("←→: 탭 전환 | ↑↓: 스킬 선택 | Space: 업그레이드 | ESC: 닫기", True, (150, 150, 150))
+        if self.read_only:
+            control_msg = "보기 전용: 업그레이드 불가 | ESC: 닫기"
+        else:
+            control_msg = "←→: 탭 전환 | ↑↓: 스킬 선택 | Space: 업그레이드 | ESC: 닫기"
+        control_text = self.font_small.render(control_msg, True, (150, 150, 150))
         control_rect = control_text.get_rect(center=(self.width // 2, self.height - 20))
         self.screen.blit(control_text, control_rect)
         
@@ -3846,9 +3863,9 @@ def debug_max_dash_skills():
     
     print("DEBUG:      !")
 
-def show_academy_menu(screen, width, height, selected_character="smasher"):  # 테스트를 위해 기본값을 "smasher"로 변경
+def show_academy_menu(screen, width, height, selected_character="smasher", read_only: bool = False):  # 테스트를 위해 기본값을 "smasher"로 변경
     """아카데미 메뉴 표시"""
-    academy_ui = AcademyUI(screen, width, height, selected_character)
+    academy_ui = AcademyUI(screen, width, height, selected_character, read_only=read_only)
     result = academy_ui.show_academy()
     global ACADEMY_LAST_SELECTED_TREE
     ACADEMY_LAST_SELECTED_TREE = academy_ui.selected_tree

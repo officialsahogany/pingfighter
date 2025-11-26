@@ -736,6 +736,62 @@ class BalloonMachineEvent:
                 break
         
         return collision_occurred
+
+    def pop_balloon_at_point(self, x: float, y: float, radius: float = 0.0,
+                             effects_manager: Any = None, sound_balloon: Any = None,
+                             trade_point_system: Any = None) -> bool:
+        """
+        특정 좌표에서 풍선을 터뜨린다.
+
+        코만도 권총 탄환처럼 작은 투사체가 풍선과 충돌할 때 사용한다.
+
+        Args:
+            x, y: 충돌 지점 좌표
+            radius: 투사체의 반지름(픽셀)
+            effects_manager: 팝 이펙트 생성에 사용
+            sound_balloon: 풍선 터지는 효과음 (미지정 시 activate 때 전달된 사운드 사용)
+            trade_point_system: 특별 풍선 보상 처리를 위한 시스템
+        Returns:
+            풍선을 터뜨렸다면 True, 아니면 False
+        """
+        if not self.balloons:
+            return False
+
+        hit_balloon = None
+        for balloon in self.balloons:
+            dx = x - balloon["x"]
+            dy = y - balloon["y"]
+            distance = math.sqrt(dx * dx + dy * dy)
+            if distance <= balloon["radius"] + radius:
+                hit_balloon = balloon
+                break
+
+        if not hit_balloon:
+            return False
+
+        is_special = hit_balloon.get("is_special", False)
+
+        # 효과음: 우선 전달받은 사운드, 없으면 활성화 때 등록된 사운드 사용
+        play_sound = sound_balloon or self.sound_balloon
+        if play_sound:
+            play_sound.play()
+
+        # 팝 이펙트
+        if effects_manager:
+            effects_manager.create_balloon_pop_effect(
+                hit_balloon["x"], hit_balloon["y"], hit_balloon["color"]
+            )
+
+        # 특별 풍선 보상 처리
+        if is_special and trade_point_system:
+            trade_point_system.spawn_star(hit_balloon["x"], hit_balloon["y"], "balloon")
+
+        try:
+            self.balloons.remove(hit_balloon)
+        except ValueError:
+            pass
+
+        return True
     
     def _ease_out_cubic(self, t: float) -> float:
         """Ease-out cubic 애니메이션 커브"""

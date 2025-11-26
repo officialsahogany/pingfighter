@@ -502,6 +502,12 @@ def _handle_menu_events(
                 ctx.play_click_sound()
                 ctx.show_item_manager_menu()
                 return False
+            # 개발자용: 0번 키로 광장 직접 입장
+            if event.key == pygame.K_0:
+                ctx.play_click_sound()
+                if hasattr(ctx, 'enter_downtown_dev') and ctx.enter_downtown_dev:
+                    ctx.enter_downtown_dev()
+                    return False
             if pygame.K_0 <= event.key <= pygame.K_9:
                 num = event.key - pygame.K_0
                 state.input_buffer.append(num)

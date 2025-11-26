@@ -48,6 +48,11 @@ class BGMManager:
                 os.path.join("bgm", "stage2bgm.mp3"),
                 os.path.join("bgm", "stage2bgm.wav"),
             ],
+            'downtown': [
+                os.path.join("bgm", "tutorialmainbgm.mp3"),
+                os.path.join("bgm", "tutorialmainbgm.ogg"),
+                os.path.join("bgm", "tutorialmainbgm.wav"),
+            ],
             'tutorial': [
                 os.path.join("bgm", "tutorialmainbgm.ogg"),
                 os.path.join("bgm", "tutorialmainbgm.mp3"),
@@ -141,7 +146,11 @@ class BGMManager:
             pygame.mixer.music.set_volume(self.volume)
             pygame.mixer.music.play(loop)
             self.current_bgm = bgm_name
-            print(f"{bgm_name} BGM 재생 시작: {os.path.basename(bgm_path)}")
+            try:
+                file_size = os.path.getsize(bgm_path)
+            except Exception:
+                file_size = "?"
+            print(f"{bgm_name} BGM 재생 시작: {os.path.basename(bgm_path)} ({bgm_path}, size={file_size}) busy={pygame.mixer.music.get_busy()}")
         except Exception as e:
             print(f"BGM 로드 실패 ({bgm_name}): {e}")
             
@@ -149,7 +158,9 @@ class BGMManager:
         """현재 재생 중인 BGM 정지"""
         if pygame.mixer.music.get_busy():
             pygame.mixer.music.stop()
-            print(f"{self.current_bgm} BGM 정지")
+            import traceback
+            caller = traceback.format_stack(limit=3)[0].strip()
+            print(f"{self.current_bgm} BGM 정지 (caller: {caller})")
             self.current_bgm = None
             
     def pause_bgm(self):
@@ -231,6 +242,10 @@ def play_menu_bgm():
 def play_stage_bgm(stage_num):
     """스테이지 BGM 재생"""
     bgm_manager.play_stage_bgm(stage_num)
+    
+def play_downtown_bgm():
+    """번화가 BGM 재생"""
+    bgm_manager.play_bgm('downtown')
     
 def stop_bgm():
     """BGM 정지"""

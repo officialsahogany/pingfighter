@@ -30,6 +30,10 @@ except ImportError:
         return None
 
 ACTIVE_COOLDOWN_MS = 8000  # 8초 쿨타임
+# 필드 드랍 풀에서 엑티브/패시브 비중을 강제로 맞추기 위한 목표 비율
+# (available_items를 구성한 뒤 가중치를 재조정해 엑티브 ≈ 75%, 패시브 ≈ 25%가 되도록 스케일한다)
+TARGET_ACTIVE_DROP_SHARE = 0.75
+TARGET_PASSIVE_DROP_SHARE = 0.25
 
 WIDTH, HEIGHT = 600, 750  # 화면 크기
 
@@ -65,6 +69,26 @@ ITEM_ICONS = {}
 ITEM_ICON_ANIMATIONS = {}
 _ICON_ANIMATION_SCALE_CACHE = {}
 _LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}
+
+
+def _center_icon_surface(icon: pygame.Surface, size: int = 32, padding: int = 2) -> pygame.Surface:
+    """투명 여백이 큰 아이콘을 잘라내고 중앙 정렬해 작은 해상도에서도 선명하게 보이도록 스케일."""
+    try:
+        mask = pygame.mask.from_surface(icon)
+        bbox = mask.get_bounding_rect()
+        if bbox.width == 0 or bbox.height == 0:
+            return pygame.transform.smoothscale(icon, (size, size))
+        cropped = icon.subsurface(bbox)
+        target = max(1, size - padding * 2)
+        scale = target / max(cropped.get_width(), cropped.get_height())
+        new_w = max(1, min(size, int(cropped.get_width() * scale)))
+        new_h = max(1, min(size, int(cropped.get_height() * scale)))
+        scaled = pygame.transform.smoothscale(cropped, (new_w, new_h))
+        canvas = pygame.Surface((size, size), pygame.SRCALPHA)
+        canvas.blit(scaled, ((size - new_w) // 2, (size - new_h) // 2))
+        return canvas
+    except Exception:
+        return pygame.transform.smoothscale(icon, (size, size))
 
 def _draw_vitamin_bottle_icon_flat(size: int = 32) -> pygame.Surface:
     """깔끔한 '갈색병 + 파란 라벨' 평면 아이콘(정적). 오라/엠블럼/애니 없음."""
@@ -318,6 +342,8 @@ def load_item_icons():
         "dashgear": "dashgear.png",
         "dashholder": "dashholder.png",
         "spikeboots": "spikeboots.png",
+        "bulletproof_hat": "bulletproof_hat.png",
+        "spiked_helmet": "spiked_helmet.png",
         "dowsing_pendulum": "dowsing_pendulum.png",
         "fireball": "fireball.png",
         "coolingball": "coolingball.png",
@@ -402,7 +428,11 @@ def load_item_icons():
         try:
             icon_path = resource_path(os.path.join("items", icon_file))
             icon = pygame.image.load(icon_path)
-            icon = pygame.transform.scale(icon, (32, 32))  # 표준 크기로 조정
+            # 여백이 많은 아이콘은 잘라 중앙 정렬 후 스케일링
+            if item_name == "spiked_helmet":
+                icon = _center_icon_surface(icon, 32, padding=2)
+            else:
+                icon = pygame.transform.scale(icon, (32, 32))  # 표준 크기로 조정
             ITEM_ICONS[item_name] = icon
             
             # LONG_BOOST_ICON도 설정
@@ -458,7 +488,7 @@ ITEM_TYPES = [
         "color": (255, 180, 80),
         "effect": "slot_add",
         "icon": None,
-        "chance": 0.010,  # 확률 1.0%로 상향 (기존: 0.3%)
+        "chance": 0.008,  # 확률 1.0%로 상향 (기존: 0.3%)
         "duration": 600,
         "unlock_condition": None
     },
@@ -729,7 +759,7 @@ ITEM_TYPES = [
         "color": (70, 130, 180),  # 스틸 블루 (조끼 색상)
         "effect": "technical_vest",
         "icon": None,
-        "chance": 0.012,  # 확률 1.2%
+        "chance": 0.005,  # 확률 1.2%
         "duration": 600,
         "unlock_condition": None
     },
@@ -747,7 +777,7 @@ ITEM_TYPES = [
         "color": (100, 150, 255),  # 블루투스 블루 색상
         "effect": "bluetooth_ring",
         "icon": None,
-        "chance": 0.03,  # 확률 1%
+        "chance": 0.006,  # 확률 1%
         "duration": 600,
         "unlock_condition": None
     },
@@ -769,13 +799,31 @@ ITEM_TYPES = [
         "duration": 600,
         "unlock_condition": None
     },
+    {
+        "name": "bulletproof_hat",  # 방탄모자 패시브 아이템
+        "color": (80, 110, 150),  # 진한 네이비 톤
+        "effect": "bulletproof_hat",
+        "icon": None,
+        "chance": 0.006,  # 희귀 패시브 기본 확률
+        "duration": 600,
+        "unlock_condition": None
+    },
+    {
+        "name": "spiked_helmet",  # 가시투구 패시브 아이템
+        "color": (100, 120, 140),  # 짙은 강철색
+        "effect": "spiked_helmet",
+        "icon": None,
+        "chance": 0.006,  # 희귀 패시브 기본 확률
+        "duration": 600,
+        "unlock_condition": None
+    },
     # 전설 아이템 (필드 스폰 가능)
     {
         "name": "ragnarok_hammer",  # 라그나로크 해머 전설 아이템
         "color": (255, 50, 50),  # 붉은색 (전설 색상)
         "effect": "ragnarok_hammer",
         "icon": None,
-        "chance": 0.0008,  # 전설 아이템 1% 확률
+        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -784,7 +832,7 @@ ITEM_TYPES = [
         "color": (100, 200, 255),  # 하늘색 (전설 색상)
         "effect": "hermes_shoes",
         "icon": None,
-        "chance": 0.0008,  # 전설 아이템 1% 확률
+        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -793,7 +841,7 @@ ITEM_TYPES = [
         "color": (50, 150, 255),  # 바다색 (전설 색상)
         "effect": "poseidon_trident",
         "icon": None,
-        "chance": 0.0008,  # 테스트용 99% 확률
+        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -879,6 +927,8 @@ fuel_pouch_obtained = False  # 연료파우치 아이템 획득 여부
 bluetooth_ring_obtained = False  # 블루투스링 아이템 획득 여부
 star_detector_obtained = False  # 별탐지기 아이템 획득 여부
 foul_whistle_obtained = False  # 반칙호루라기 아이템 획득 여부
+bulletproof_hat_obtained = False  # 방탄모자 아이템 획득 여부
+spiked_helmet_obtained = False  # 가시투구 아이템 획득 여부
 spikeboots_obtained = False  # 스파이크부츠 아이템 획득 여부
 dashgear_obtained = False  # 대쉬기어 아이템 획득 여부
 bulkup_obtained = False  # 벌크업 아이템 획득 여부
@@ -939,6 +989,8 @@ unlocked_items = {
     "bluetooth_ring": True,
     "star_detector": True,
     "foul_whistle": True,
+    "bulletproof_hat": True,
+    "spiked_helmet": True,
     "smartphone": True,
     "ammo_box": True,
     "fire_support": True,
@@ -1010,6 +1062,8 @@ def reset_items():
     bluetooth_ring_obtained = False  # bluetooth_ring 획득 상태 초기화
     star_detector_obtained = False  # star_detector 획득 상태 초기화
     foul_whistle_obtained = False  # foul_whistle 획득 상태 초기화
+    bulletproof_hat_obtained = False  # 방탄모자 획득 상태 초기화
+    spiked_helmet_obtained = False  # 가시투구 획득 상태 초기화
     spikeboots_obtained = False  # spikeboots 획득 상태 초기화
     dashgear_obtained = False  # dashgear 획득 상태 초기화
     
@@ -1172,6 +1226,13 @@ def spawn_random_item():
         if item["name"] == "hermes_shoes" and hermes_shoes_obtained:
             continue
         
+        # 방탄모자는 한 번 획득하면 더 이상 스폰하지 않음
+        if item["name"] == "bulletproof_hat" and bulletproof_hat_obtained:
+            continue
+        # 가시투구는 한 번 획득하면 더 이상 스폰하지 않음
+        if item["name"] == "spiked_helmet" and spiked_helmet_obtained:
+            continue
+        
         # 포세이돈의 삼지창은 한 번 획득하면 더 이상 스폰 안함
         if item["name"] == "poseidon_trident":
             print(f"[DEBUG] Checking poseidon_trident: obtained = {poseidon_trident_obtained}")
@@ -1204,22 +1265,61 @@ def spawn_random_item():
     except Exception:
         legendary_multiplier = 1.0
 
-    total_chance = 0.0
+    # 1) 기본 가중치 계산 (스킬/전설 배수 적용)
+    base_weights: list[tuple[dict, float]] = []
+    active_sum = passive_sum = 0.0
+    passive_names = {
+        "speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime",
+        "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt",
+        "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
+        "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
+        "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet"
+    }
+
     for item in available_items:
-        adjusted_chance = item["chance"] * skill_spawn_boost
+        w = item["chance"] * skill_spawn_boost
         if item["name"] in legendary_names:
-            adjusted_chance *= legendary_multiplier
-        total_chance += adjusted_chance
+            w *= legendary_multiplier
+        base_weights.append((item, w))
+        if item["name"] in passive_names:
+            passive_sum += w
+        else:
+            active_sum += w
+
+    # 2) 목표 비율(75/25)에 맞춰 그룹별 스케일링
+    scaled_weights: list[tuple[dict, float]] = []
+    target_a = TARGET_ACTIVE_DROP_SHARE
+    target_p = TARGET_PASSIVE_DROP_SHARE
+
+    if active_sum > 0 and passive_sum > 0:
+        active_scale = target_a / active_sum
+        passive_scale = target_p / passive_sum
+    elif active_sum > 0:
+        active_scale = 1.0
+        passive_scale = 0.0
+    elif passive_sum > 0:
+        active_scale = 0.0
+        passive_scale = 1.0
+    else:
+        return  # 방어적: 가중치가 모두 0이면 스폰하지 않음
+
+    for item, w in base_weights:
+        if item["name"] in passive_names:
+            scaled_w = w * passive_scale
+        else:
+            scaled_w = w * active_scale
+        scaled_weights.append((item, scaled_w))
+
+    total_chance = sum(w for _, w in scaled_weights)
+    if total_chance <= 0:
+        return
+
     random_value = random.random() * total_chance
 
-    current_chance = 0
+    current_chance = 0.0
     selected_item = None
-
-    for item in available_items:
-        adjusted_chance = item["chance"] * skill_spawn_boost
-        if item["name"] in legendary_names:
-            adjusted_chance *= legendary_multiplier
-        current_chance += adjusted_chance  # 스킬 부스트 적용 수정
+    for item, w in scaled_weights:
+        current_chance += w
         if random_value <= current_chance:
             selected_item = item
             break
@@ -1326,7 +1426,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             item_name = item["type"]["name"]
             print(f"🔍 DEBUG: 아이템 획득 감지: {item_name}")
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet"]:
                 # 패시브 아이템 처리
                 print(f"🔍 DEBUG: {item_name}을(를) 패시브 아이템으로 처리 중...")
                 if store_passive_func:

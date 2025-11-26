@@ -178,44 +178,59 @@ class PowerSmashingManager:
         
     def activate_smash(self, smash_type: SmashType):
         """스매시 발동
-        
+
         Args:
             smash_type: 스매시 타입
         """
         self.active_smash = smash_type
         self.smash_duration = 0.5  # 0.5초간 효과 지속
-        
+
         effect = self.smash_effects[smash_type]
-        
+
+        # 공 위치 가져오기
+        ball_rect = self.global_manager.get('BALL')
+        if ball_rect:
+            ball_x = ball_rect.centerx
+            ball_y = ball_rect.centery
+
+            # 빛의 파편 폭발 이펙트 생성 (넉백 시작과 동시에)
+            emit_event(EventType.CREATE_LIGHT_SHARDS_EXPLOSION, {
+                'x': ball_x,
+                'y': ball_y,
+                'intensity': int(effect.power_multiplier * 5),  # 파워에 비례한 파티클 수
+                'color': effect.trail_color,
+                'speed_range': (3, 8)
+            })
+
         # 공 속도 변경
         ball_dx = self.global_manager.get('ball_dx', 0)
         ball_dy = self.global_manager.get('ball_dy', 5)
-        
+
         self.global_manager.set('ball_dx', ball_dx * effect.speed_multiplier)
         self.global_manager.set('ball_dy', -abs(ball_dy) * effect.speed_multiplier)
-        
+
         # 화면 효과
         emit_event(EventType.SCREEN_SHAKE, {
             'intensity': effect.screen_shake,
             'duration': 30
         })
-        
+
         # 사운드 재생
         emit_event(EventType.PLAY_SOUND, {'sound': effect.sound_name})
-        
+
         # 이벤트 발생
         emit_event(EventType.SPECIAL_ACTIVATED, {
             'type': 'power_smash',
             'smash_type': smash_type.value,
             'power': effect.power_multiplier
         })
-        
+
         # 통계 업데이트
         self.update_stats(smash_type)
-        
+
         # 콤보 추가
         self.add_combo()
-        
+
         # 특수 조건 체크
         self.check_special_conditions()
         

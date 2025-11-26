@@ -28,6 +28,7 @@ short_shot_flash_effects = []
 drive_particles = []  # 드라이브 별빛가루 파티클
 dash_smoke_particles = []  # 하프대시 연기 파티클
 construction_smoke_particles = []  # 포탑 건설 연기 파티클
+light_shard_particles = []  # 빛의 파편 파티클 (파워 스매싱용)
 
 # 색상 정의
 WHITE = (255, 255, 255)
@@ -744,6 +745,181 @@ def draw_construction_smoke(surface=None):
 
         screen.blit(smoke_surface, (particle['x'] - size, particle['y'] - size))
 
+
+# ================================================================================
+# ✨ LIGHT SHARD PARTICLES (빛의 파편 파티클 - 파워 스매싱용)
+# ================================================================================
+
+def spawn_light_shards_explosion(x, y, intensity=20, color=(255, 255, 200), speed_range=(3, 8)):
+    """빛의 파편 폭발 이펙트 생성 (파워 스매싱 넉백 시작 시)
+
+    Args:
+        x, y: 폭발 중심 위치
+        intensity: 파티클 수 (파워에 비례)
+        color: 파편 색상
+        speed_range: 속도 범위 (min, max)
+    """
+    global light_shard_particles
+
+    # 메인 파편들 (튀기는 효과)
+    for _ in range(intensity):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(speed_range[0], speed_range[1])
+        size = random.randint(2, 6)
+
+        particle = {
+            'x': x + random.randint(-3, 3),
+            'y': y + random.randint(-3, 3),
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': random.randint(15, 30),
+            'max_life': 30,
+            'color': color,
+            'type': 'shard',
+            'size': size,
+            'alpha': 255,
+            'rotation': random.uniform(0, 2 * math.pi),
+            'rotation_speed': random.uniform(-0.3, 0.3),
+            'gravity': 0.15,
+            'brightness': 1.0
+        }
+        light_shard_particles.append(particle)
+
+    # 추가 글로우 파티클 (폭발감 강화)
+    for _ in range(intensity // 2):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(speed_range[0] * 0.5, speed_range[1] * 0.5)
+
+        glow_color = (
+            min(255, color[0] + 30),
+            min(255, color[1] + 30),
+            min(255, color[2] + 50)
+        )
+
+        particle = {
+            'x': x,
+            'y': y,
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': random.randint(10, 20),
+            'max_life': 20,
+            'color': glow_color,
+            'type': 'glow',
+            'size': random.randint(4, 8),
+            'alpha': 200,
+            'pulse': random.uniform(0, 2 * math.pi)
+        }
+        light_shard_particles.append(particle)
+
+
+def update_light_shard_particles():
+    """빛의 파편 파티클 업데이트"""
+    global light_shard_particles
+    new_particles = []
+
+    for particle in light_shard_particles:
+        # 위치 업데이트
+        particle['x'] += particle['vx']
+        particle['y'] += particle['vy']
+
+        # 수명 감소
+        particle['life'] -= 1
+
+        # 알파값 업데이트
+        if particle.get('max_life', 0) > 0:
+            particle['alpha'] = int(255 * (particle['life'] / particle['max_life']))
+
+        # 타입별 특수 효과
+        if particle.get('type') == 'shard':
+            # 회전 및 중력
+            particle['rotation'] += particle.get('rotation_speed', 0)
+            particle['vy'] += particle.get('gravity', 0.15)
+            particle['brightness'] *= 0.97  # 밝기 서서히 감소
+
+        elif particle.get('type') == 'glow':
+            # 글로우 펄스 효과
+            particle['pulse'] = (particle.get('pulse', 0) + 0.3) % (2 * math.pi)
+            pulse_factor = 0.5 + 0.5 * math.sin(particle['pulse'])
+            base_size = particle.get('size', 4)
+            particle['current_size'] = int(base_size * (0.8 + 0.4 * pulse_factor))
+
+        # 살아있는 파티클만 유지
+        if particle['life'] > 0:
+            new_particles.append(particle)
+
+    light_shard_particles = new_particles
+
+
+def draw_light_shard_particles(surface=None):
+    """빛의 파편 파티클 렌더링"""
+    screen = surface if surface else SCREEN
+
+    if not screen:
+        return
+
+    for particle in light_shard_particles:
+        x = int(particle['x'])
+        y = int(particle['y'])
+        size = particle.get('size', 3)
+        alpha = max(0, min(255, particle.get('alpha', 255)))
+        color = particle['color']
+
+        if alpha <= 0:
+            continue
+
+        particle_type = particle.get('type', 'shard')
+
+        if particle_type == 'shard':
+            # 빛의 파편 효과 (회전하는 다이아몬드 모양)
+            brightness = particle.get('brightness', 1.0)
+            rotation = particle.get('rotation', 0)
+
+            # 밝기에 따라 색상 조정
+            bright_color = tuple(min(255, int(c * brightness)) for c in color[:3])
+
+            # 다이아몬드 모양 그리기
+            points = []
+            num_points = 4
+            for i in range(num_points):
+                angle = rotation + i * (2 * math.pi / num_points)
+                px = x + size * math.cos(angle)
+                py = y + size * math.sin(angle)
+                points.append((px, py))
+
+            if len(points) >= 3:
+                # 글로우 효과
+                for glow_size in range(3, 0, -1):
+                    glow_alpha = alpha // (glow_size + 1)
+                    temp_surface = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+                    glow_points = []
+                    for i in range(num_points):
+                        angle = rotation + i * (2 * math.pi / num_points)
+                        px = size * 2 + (size + glow_size) * math.cos(angle)
+                        py = size * 2 + (size + glow_size) * math.sin(angle)
+                        glow_points.append((px, py))
+                    glow_color = (*bright_color[:3], glow_alpha)
+                    pygame.draw.polygon(temp_surface, glow_color, glow_points)
+                    screen.blit(temp_surface, (x - size * 2, y - size * 2), special_flags=pygame.BLEND_ADD)
+
+                # 메인 파편
+                temp_surface = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+                shifted_points = [(p[0] - x + size * 2, p[1] - y + size * 2) for p in points]
+                color_with_alpha = (*bright_color[:3], alpha)
+                pygame.draw.polygon(temp_surface, color_with_alpha, shifted_points)
+                screen.blit(temp_surface, (x - size * 2, y - size * 2))
+
+        elif particle_type == 'glow':
+            # 빛나는 글로우 효과 (ADD 블렌딩)
+            pulse_size = particle.get('current_size', size)
+            for i in range(2, 0, -1):
+                glow_alpha = alpha // (i * 2)
+                glow_size = pulse_size + i * 2
+                temp_surface = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                glow_color = (*color[:3], glow_alpha)
+                pygame.draw.circle(temp_surface, glow_color, (glow_size, glow_size), glow_size)
+                screen.blit(temp_surface, (x - glow_size, y - glow_size), special_flags=pygame.BLEND_ADD)
+
+
 # ================================================================================
 # 💫 EXPLOSION EFFECTS (폭발 효과)
 # ================================================================================
@@ -817,6 +993,7 @@ def update_all_effects():
     update_impact_particles()
     update_construction_smoke()
     update_short_shot_flash_effects()
+    update_light_shard_particles()  # 빛의 파편 업데이트
 
 
 def draw_all_effects(surface):
@@ -828,19 +1005,22 @@ def draw_all_effects(surface):
     draw_impact_particles()
     draw_construction_smoke(surface)
     draw_short_shot_flash_effects(surface)
+    draw_light_shard_particles(surface)  # 빛의 파편 그리기
 
 
 def clear_all_effects():
     """모든 이펙트 초기화"""
     global flame_particles, star_particles, balloon_pop_effects
     global item_obtained_effects, impact_particles, construction_smoke_particles
-    
+    global light_shard_particles
+
     flame_particles = []
     star_particles = []
     balloon_pop_effects = []
     item_obtained_effects = []
     impact_particles = []
     construction_smoke_particles = []
+    light_shard_particles = []  # 빛의 파편 초기화
 
 
 def has_drive_particles():

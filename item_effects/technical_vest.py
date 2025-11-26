@@ -1,7 +1,7 @@
 """
 테크니컬조끼 아이템 효과
-플레이어 패들에 공이 닿았을 때 20% 확률로 8초간 연막 생성
-연막은 플레이어 패들을 따라다니며 3초간 분사 후 페이드아웃
+플레이어 패들에 공이 닿았을 때 10~20% 확률로 3~6초간 연막 생성
+연막은 플레이어 패들을 따라다니며 최소 3초 이상 분사 후 페이드아웃
 """
 
 import os
@@ -13,8 +13,8 @@ class TechnicalVest:
     def __init__(self):
         self.active = False
         self.smoke_instances = []  # 활성 연막 인스턴스들
-        self.trigger_chance = 0.2  # 20% 확률 (롤 옵션으로 덮어씀)
-        self.smoke_duration_frames = 480  # 8초 (롤 옵션으로 덮어씀)
+        self.trigger_chance = 0.15  # 15% 확률 (롤 옵션으로 덮어씀)
+        self.smoke_duration_frames = 300  # 5초 (롤 옵션으로 덮어씀)
         self.emission_duration_frames = 180  # 3초 연막 분사
         self.player_paddle_rect = None  # 플레이어 패들 위치 추적용
         self.duration = 3600  # 60초 (60 FPS)
