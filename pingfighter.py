@@ -21750,6 +21750,7 @@ def go_to_next_round():
     global selected_character_type
     global serve_power_smash_lockout
     global doping_potion_active, doping_potion_timer, doping_potion_use_count, doping_potion_toast_timer
+    global hongryun_hit_count, hongryun_ready, HONGRYUN_MAX_HITS
 
     preserved_doping_state = None
     # 라운드 시작 카운트 기록
@@ -21786,6 +21787,14 @@ def go_to_next_round():
             globals()["stage8_awaken_intro_pending"] = True
             globals()["stage8_awaken_intro_done"] = False
             globals()["stage8_awaken_freeze_end_ms"] = pygame.time.get_ticks() + 3000
+
+    # Stage 5 (displayed as Stage 6): 라운드 이월 시 홍련 용 구슬 1개 감소
+    if current_stage == 5 and hongryun_hit_count > 0:
+        prev_orbs = hongryun_hit_count
+        hongryun_hit_count = max(0, hongryun_hit_count - 1)
+        if hongryun_hit_count < HONGRYUN_MAX_HITS:
+            hongryun_ready = False
+        print(f"[Hongryun] Dragon orb gauge decay on round transition: {prev_orbs} → {hongryun_hit_count}")
     
     # Stage 3 쿠로미 신비로운 궤적 효과 초기화
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase

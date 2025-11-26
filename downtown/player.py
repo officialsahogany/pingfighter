@@ -596,8 +596,9 @@ class DowntownPlayer:
             건물 정보 딕셔너리 또는 None
         """
         # 화면 좌표를 월드 좌표로 변환
-        world_x = mouse_pos[0] - camera_offset[0]
-        world_y = mouse_pos[1] - camera_offset[1]
+        # camera_offset은 카메라의 월드 좌표이므로 더해야 함
+        world_x = mouse_pos[0] + camera_offset[0]
+        world_y = mouse_pos[1] + camera_offset[1]
 
         # 클릭한 위치에 건물이 있는지 확인
         building_type, building_rect = downtown_map.get_building_at(world_x, world_y)

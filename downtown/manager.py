@@ -554,6 +554,9 @@ class DowntownManager:
         # 골드 표시
         self._draw_gold()
 
+        # 스타 포인트 표시 (우측 상단)
+        self._draw_star_points()
+
         # 건물 입장 확인 다이얼로그
         if self.building_confirmation_dialog:
             self._draw_confirmation_dialog()
@@ -564,9 +567,9 @@ class DowntownManager:
         building_name = dialog['building_name']
         ap_cost = dialog['ap_cost']
 
-        # 다이얼로그 크기 및 위치
-        dialog_width = 400
-        dialog_height = 180
+        # 다이얼로그 크기 및 위치 (10% 확대)
+        dialog_width = 440  # 400 * 1.1
+        dialog_height = 198  # 180 * 1.1
         dialog_x = (SCREEN_WIDTH - dialog_width) // 2
         dialog_y = (SCREEN_HEIGHT - dialog_height) // 2
 
@@ -588,36 +591,144 @@ class DowntownManager:
         self.screen.blit(title_surface, (title_x, title_y))
 
         # AP 소모 안내 (열쇠 아이콘으로 표시)
-        # 열쇠 아이콘 그리기
-        key_size = 20
-        key_x = dialog_x + (dialog_width - key_size - 40) // 2  # 아이콘 + 숫자 공간
-        key_y = title_y + 35
+        # 세로 열쇠 아이콘 그리기 - 입체감 있는 디자인
+        key_width = 20
+        key_height = 36
+        key_x = dialog_x + (dialog_width - 100) // 2  # 아이콘 + 텍스트 중앙 정렬
+        key_y = title_y + 38
 
-        # 열쇠 몸통
-        key_body = pygame.Rect(key_x, key_y + 3, 8, 10)
-        pygame.draw.rect(self.screen, Colors.UI_DANGER, key_body, border_radius=2)
+        # 열쇠 그림을 그릴 임시 서피스 (투명 배경)
+        key_surface = pygame.Surface((key_width + 6, key_height + 6), pygame.SRCALPHA)
 
-        # 열쇠 고리
-        pygame.draw.circle(self.screen, Colors.UI_DANGER, (key_x + 4, key_y + 5), 5, 2)
+        # 색상 정의
+        key_gold = (255, 215, 0)        # 황금색
+        key_dark = (204, 172, 0)        # 어두운 금색 (그림자/윤곽)
+        key_light = (255, 245, 150)     # 밝은 금색 (하이라이트)
+        key_shine = (255, 255, 220)     # 반짝임
 
-        # 열쇠 이빨
+        # 그림자 효과 (약간 아래 오른쪽)
+        shadow_offset = 2
+
+        # === 세로 열쇠 그리기 (위에서 아래로) ===
+
+        # 1. 열쇠 고리 (원형 - 맨 위)
+        ring_center_x = key_width // 2 + 3
+        ring_center_y = 8
+        ring_outer_radius = 7
+        ring_inner_radius = 4
+
+        # 고리 그림자
+        pygame.draw.circle(key_surface, (0, 0, 0, 80),
+                         (ring_center_x + shadow_offset, ring_center_y + shadow_offset),
+                         ring_outer_radius)
+
+        # 고리 외곽 (어두운 금색)
+        pygame.draw.circle(key_surface, key_dark, (ring_center_x, ring_center_y), ring_outer_radius)
+
+        # 고리 메인 (황금색)
+        pygame.draw.circle(key_surface, key_gold, (ring_center_x, ring_center_y), ring_outer_radius - 1)
+
+        # 고리 안쪽 구멍 (어두운 배경)
+        pygame.draw.circle(key_surface, (40, 40, 40), (ring_center_x, ring_center_y), ring_inner_radius)
+
+        # 고리 내부 윤곽
+        pygame.draw.circle(key_surface, key_dark, (ring_center_x, ring_center_y), ring_inner_radius + 1, 1)
+
+        # 고리 하이라이트 (왼쪽 위 호)
+        pygame.draw.arc(key_surface, key_light,
+                       (ring_center_x - ring_outer_radius,
+                        ring_center_y - ring_outer_radius,
+                        ring_outer_radius * 2, ring_outer_radius * 2),
+                       2.4, 4.0, 2)
+
+        # 2. 열쇠 몸통 (세로 막대 - 고리 아래)
+        shaft_top = ring_center_y + ring_outer_radius
+        shaft_x = ring_center_x - 2
+        shaft_width = 4
+        shaft_height = 16
+
+        shaft_rect = pygame.Rect(shaft_x, shaft_top, shaft_width, shaft_height)
+
+        # 몸통 그림자
+        shadow_rect = shaft_rect.copy()
+        shadow_rect.x += shadow_offset
+        shadow_rect.y += shadow_offset
+        pygame.draw.rect(key_surface, (0, 0, 0, 80), shadow_rect, border_radius=2)
+
+        # 몸통 외곽
+        pygame.draw.rect(key_surface, key_dark, shaft_rect, border_radius=2)
+
+        # 몸통 메인
+        inner_shaft = pygame.Rect(shaft_x + 1, shaft_top + 1, shaft_width - 2, shaft_height - 2)
+        pygame.draw.rect(key_surface, key_gold, inner_shaft, border_radius=1)
+
+        # 몸통 하이라이트 (왼쪽)
+        highlight_line_x = shaft_x + 1
+        pygame.draw.line(key_surface, key_light,
+                        (highlight_line_x, shaft_top + 2),
+                        (highlight_line_x, shaft_top + shaft_height - 2), 1)
+
+        # 3. 열쇠 이빨 (아래쪽 톱니)
+        teeth_top = shaft_top + shaft_height
+        teeth_center_x = ring_center_x
+
+        # 이빨 폴리곤 (더 세밀하게)
         teeth_points = [
-            (key_x + 8, key_y + 10),
-            (key_x + 11, key_y + 10),
-            (key_x + 11, key_y + 13),
-            (key_x + 13, key_y + 13),
-            (key_x + 13, key_y + 10),
-            (key_x + 16, key_y + 10),
-            (key_x + 16, key_y + 14),
-            (key_x + 8, key_y + 14)
+            # 왼쪽 상단
+            (teeth_center_x - 5, teeth_top),
+            # 왼쪽 첫 번째 톱니
+            (teeth_center_x - 5, teeth_top + 3),
+            (teeth_center_x - 7, teeth_top + 3),
+            (teeth_center_x - 7, teeth_top + 5),
+            # 왼쪽 두 번째 톱니
+            (teeth_center_x - 5, teeth_top + 5),
+            (teeth_center_x - 5, teeth_top + 8),
+            (teeth_center_x - 7, teeth_top + 8),
+            (teeth_center_x - 7, teeth_top + 10),
+            # 아래
+            (teeth_center_x - 5, teeth_top + 10),
+            (teeth_center_x + 5, teeth_top + 10),
+            # 오른쪽 두 번째 톱니
+            (teeth_center_x + 5, teeth_top + 8),
+            (teeth_center_x + 7, teeth_top + 8),
+            (teeth_center_x + 7, teeth_top + 5),
+            # 오른쪽 첫 번째 톱니
+            (teeth_center_x + 5, teeth_top + 5),
+            (teeth_center_x + 5, teeth_top + 3),
+            (teeth_center_x + 7, teeth_top + 3),
+            (teeth_center_x + 7, teeth_top),
+            # 오른쪽 상단 (닫기)
+            (teeth_center_x + 5, teeth_top),
         ]
-        pygame.draw.polygon(self.screen, Colors.UI_DANGER, teeth_points)
+
+        # 이빨 그림자
+        shadow_teeth = [(x + shadow_offset, y + shadow_offset) for x, y in teeth_points]
+        pygame.draw.polygon(key_surface, (0, 0, 0, 80), shadow_teeth)
+
+        # 이빨 외곽 (어두운 금색)
+        pygame.draw.polygon(key_surface, key_dark, teeth_points)
+
+        # 이빨 메인 (황금색 - 약간 작게)
+        inner_teeth = [(x + (1 if x < teeth_center_x else -1), y + 1) for x, y in teeth_points]
+        pygame.draw.polygon(key_surface, key_gold, inner_teeth)
+
+        # 이빨 하이라이트 (중앙 세로선)
+        pygame.draw.line(key_surface, key_light,
+                        (teeth_center_x, teeth_top + 1),
+                        (teeth_center_x, teeth_top + 9), 1)
+
+        # 4. 반짝임 효과 (고리 좌상단)
+        pygame.draw.circle(key_surface, key_shine, (ring_center_x - 2, ring_center_y - 2), 2)
+        pygame.draw.circle(key_surface, key_shine, (ring_center_x - 1, ring_center_y - 1), 1)
+
+        # 열쇠 서피스를 화면에 그리기
+        self.screen.blit(key_surface, (key_x, key_y))
 
         # 소모 개수 표시
         ap_text = f"{ap_cost} 소모"
-        ap_surface, ap_rect = self._freetype_fonts['small'].render(ap_text, Colors.UI_DANGER)
-        ap_text_x = key_x + key_size + 5
-        ap_text_y = key_y
+        ap_surface, ap_rect = self._freetype_fonts['small'].render(ap_text, key_gold)
+        ap_text_x = key_x + key_width + 15
+        ap_text_y = key_y + (key_height - ap_rect.height) // 2
         self.screen.blit(ap_surface, (ap_text_x, ap_text_y))
 
         # 버튼 설정
@@ -674,6 +785,89 @@ class DowntownManager:
         gold_text = f"{gold:,}"
         text_surface = self.font_medium.render(gold_text, True, Colors.UI_ACCENT)
         self.screen.blit(text_surface, (coin_x + coin_size + 8, coin_y - 4))
+
+    def _draw_star_points(self):
+        """스타 포인트 표시 - 우측 상단"""
+        star_points = self.player_data.get('star_points', 0)
+
+        # 우측 상단 위치
+        star_x = SCREEN_WIDTH - 150
+        star_y = 30
+
+        # 별 아이콘 그리기
+        star_size = 16
+        self._draw_star_icon(self.screen, star_x, star_y, star_size)
+
+        # 스타 포인트 숫자
+        star_text = f"{star_points}"
+        text_surface = self.font_medium.render(star_text, True, (255, 220, 100))
+        self.screen.blit(text_surface, (star_x + star_size + 10, star_y - 6))
+
+    def _draw_star_icon(self, screen, cx, cy, size):
+        """5각 별 아이콘 그리기"""
+        import math
+
+        # 별 서피스 생성
+        star_surf = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+        center = size + 2
+
+        # 색상 정의
+        star_yellow = (255, 220, 100)     # 노란색
+        star_gold = (255, 200, 50)         # 진한 금색
+        star_light = (255, 245, 200)       # 밝은 노란색
+        star_dark = (200, 150, 30)         # 어두운 금색
+
+        # 5각 별 포인트 계산
+        points = []
+        for i in range(10):
+            angle = -math.pi / 2 + (i * math.pi / 5)  # 위쪽부터 시작
+            if i % 2 == 0:
+                # 외부 꼭지점
+                radius = size
+            else:
+                # 내부 꼭지점
+                radius = size * 0.4
+            x = center + radius * math.cos(angle)
+            y = center + radius * math.sin(angle)
+            points.append((x, y))
+
+        # 그림자 (약간 아래 오른쪽)
+        shadow_points = [(x + 2, y + 2) for x, y in points]
+        pygame.draw.polygon(star_surf, (0, 0, 0, 100), shadow_points)
+
+        # 별 외곽 (어두운 금색)
+        pygame.draw.polygon(star_surf, star_dark, points)
+
+        # 별 메인 (노란색 - 약간 작게)
+        inner_points = []
+        for i in range(10):
+            angle = -math.pi / 2 + (i * math.pi / 5)
+            if i % 2 == 0:
+                radius = size - 1
+            else:
+                radius = size * 0.4 - 1
+            x = center + radius * math.cos(angle)
+            y = center + radius * math.sin(angle)
+            inner_points.append((x, y))
+        pygame.draw.polygon(star_surf, star_yellow, inner_points)
+
+        # 하이라이트 (상단 왼쪽)
+        highlight_points = []
+        for i in range(5):  # 상단 절반만
+            angle = -math.pi / 2 + (i * 2 * math.pi / 5)
+            radius = size * 0.6
+            x = center + radius * math.cos(angle)
+            y = center + radius * math.sin(angle)
+            highlight_points.append((x, y))
+        if len(highlight_points) >= 3:
+            pygame.draw.polygon(star_surf, star_light, highlight_points)
+
+        # 중앙 반짝임
+        pygame.draw.circle(star_surf, star_light, (center, center), size // 4)
+        pygame.draw.circle(star_surf, (255, 255, 255), (center - 2, center - 2), 2)
+
+        # 화면에 그리기
+        screen.blit(star_surf, (cx - size - 2, cy - size - 2))
 
     def _draw_gold_coin(self, screen, x, y, size):
         """금화 아이콘 그리기 - 입체감 있는 동전"""
