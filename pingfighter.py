@@ -5382,6 +5382,30 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
     pygame.draw.polygon(surface, palette["body"], torso)
     pygame.draw.polygon(surface, palette["line"], torso, 4)  # 2→4
 
+    # [디테일 추가] 가슴 패널 라인
+    for panel_side in (-1, 1):
+        panel_x = cx + panel_side * 50
+        pygame.draw.line(surface, palette["helmet"],
+                        (panel_x, shoulder_y + 16), (panel_x - panel_side * 20, hip_y), 3)
+        # 패널 LED 스트립
+        for led_i in range(3):
+            led_y = shoulder_y + 24 + led_i * 16
+            led_x = panel_x - panel_side * (4 + led_i * 4)
+            pygame.draw.circle(surface, palette["accent"], (led_x, led_y), 3)
+            pygame.draw.circle(surface, palette["visor_highlight"], (led_x, led_y), 2)
+
+    # [디테일 추가] 허리 벨트
+    belt_y = hip_y - 4
+    belt_rect = pygame.Rect(cx - 56, belt_y, 112, 12)
+    pygame.draw.rect(surface, palette["grip"], belt_rect, border_radius=4)
+    pygame.draw.rect(surface, palette["grip_line"], belt_rect.inflate(-4, -4), 1, border_radius=3)
+    # 벨트 버클 (중앙)
+    buckle_rect = pygame.Rect(cx - 14, belt_y - 2, 28, 16)
+    pygame.draw.rect(surface, palette["hex_base"], buckle_rect, border_radius=4)
+    pygame.draw.rect(surface, palette["accent"], buckle_rect, 2, border_radius=4)
+    pygame.draw.circle(surface, palette["hex_core"], (cx, belt_y + 6), 5)
+    pygame.draw.circle(surface, palette["visor_highlight"], (cx, belt_y + 6), 3)
+
     # 네온 V 라인(테슬라 시그니처) - 고해상도
     v_points = [
         (cx - 44, shoulder_y + 12),  # 22→44, 6→12
@@ -5389,6 +5413,11 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
         (cx + 44, shoulder_y + 12),
     ]
     pygame.draw.lines(surface, palette["accent"], False, v_points, 8)  # 4→8
+
+    # [디테일 추가] V라인 교차점 발광
+    v_glow = pygame.Surface((40, 40), pygame.SRCALPHA)
+    pygame.draw.circle(v_glow, (*palette["accent"], 50), (20, 20), 20)
+    surface.blit(v_glow, (cx - 20, hip_y - 16))
 
     # 중앙 에너지 코어 - 고해상도 + 디테일 추가
     core_rect = pygame.Rect(cx - 18, shoulder_y + 20, 36, 52)  # 9→18, 10→20, 18→36, 26→52
@@ -5560,7 +5589,36 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
         pygame.draw.line(surface, palette["body"], elbow, wrist, 20)      # 10→20
         pygame.draw.line(surface, palette["arm_line"], shoulder, elbow, 6)  # 3→6
         pygame.draw.line(surface, palette["arm_line"], elbow, wrist, 6)     # 3→6
-        pygame.draw.circle(surface, palette["hand"], (int(wrist[0]), int(wrist[1])), 12)  # 6→12
+
+        # [디테일 추가] 팔꿈치 관절 LED
+        elbow_int = (int(elbow[0]), int(elbow[1]))
+        pygame.draw.circle(surface, palette["hex_base"], elbow_int, 10)
+        pygame.draw.circle(surface, palette["accent"], elbow_int, 6, 2)
+        pygame.draw.circle(surface, palette["hex_core"], elbow_int, 4)
+
+        # [디테일 추가] 팔 중간 아머 플레이트
+        mid_arm = ((int(shoulder[0]) + elbow_int[0]) // 2, (int(shoulder[1]) + elbow_int[1]) // 2)
+        pygame.draw.circle(surface, palette["helmet"], mid_arm, 8)
+        pygame.draw.circle(surface, palette["accent"], mid_arm, 5, 2)
+
+        # 손 그리기
+        wrist_int = (int(wrist[0]), int(wrist[1]))
+        pygame.draw.circle(surface, palette["hand"], wrist_int, 12)  # 6→12
+
+        # [디테일 추가] 손가락 (오른손만 - 왼손은 무기를 들고 있음)
+        if side > 0:
+            for finger_idx in range(4):
+                finger_angle = math.radians(-30 + finger_idx * 20)
+                finger_len = 10 + (1 if finger_idx in (1, 2) else 0) * 2
+                fx = wrist_int[0] + int(math.cos(finger_angle) * finger_len) + side * 8
+                fy = wrist_int[1] + int(math.sin(finger_angle) * finger_len) + 6
+                pygame.draw.line(surface, palette["hand"], wrist_int, (fx, fy), 4)
+                pygame.draw.circle(surface, palette["hand"], (fx, fy), 3)
+            # 엄지
+            thumb_x = wrist_int[0] + side * 6
+            thumb_y = wrist_int[1] - 6
+            pygame.draw.line(surface, palette["hand"], wrist_int, (thumb_x, thumb_y), 4)
+            pygame.draw.circle(surface, palette["hand"], (thumb_x, thumb_y), 3)
 
         # 왼팔 플라즈마 블레이드 - 고해상도
         if side < 0:

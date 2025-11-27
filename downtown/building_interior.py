@@ -1345,6 +1345,10 @@ class BuildingInterior:
         self.exchange_rate_variance = random.uniform(-0.15, 0.15)  # -15% ~ +15%
         self.current_exchange_rate = int(self.base_exchange_rate * (1 + self.exchange_rate_variance))
 
+        # 예금 이자율 시스템 (STARBANK 전용)
+        # 일일 이자율: 5% ~ 20% 랜덤
+        self.deposit_interest_rate = random.uniform(0.05, 0.20)  # 5% ~ 20%
+
         # 나가기 상태
         self.exit_requested = False
         self.exit_timer = 0
@@ -1740,16 +1744,16 @@ class BuildingInterior:
         robot2_x = counter_x + counter_w * 2 // 3
         self._draw_desk_robot_angular(screen, robot2_x, robot_y, self.animation_timer, 1)
 
-        # 7. 사이드 패널 (좌우 벽)
+        # 7. 사이드 전광판 (좌우 벽)
         # 왼쪽: 환율 전광판
         exchange_x = -cam_x + 15
-        exchange_y = -cam_y + 40
+        exchange_y = -cam_y + 25
         self._draw_exchange_rate_board(screen, exchange_x, exchange_y, self.animation_timer)
 
-        # 오른쪽: 모니터
-        mon_x2 = self.pixel_width - cam_x - 85
-        mon_y = -cam_y + 50
-        self._draw_wall_monitor(screen, mon_x2, mon_y, GOLD, self.animation_timer + 1)
+        # 오른쪽: 예금 이자율 전광판
+        interest_x = self.pixel_width - cam_x - 115
+        interest_y = -cam_y + 25
+        self._draw_interest_rate_board(screen, interest_x, interest_y, self.animation_timer)
 
         # 8. 바닥 가이드 라인 (미니멀)
         line_y = self.pixel_height - cam_y - 80
@@ -1965,6 +1969,82 @@ class BuildingInterior:
         pygame.draw.circle(screen, tuple(max(0, c - 50) for c in color), (cx, cy), size, 1)
         # 중앙 심볼 ($)
         pygame.draw.line(screen, tuple(max(0, c - 80) for c in color), (cx, cy - size // 2), (cx, cy + size // 2), 1)
+
+    def _draw_interest_rate_board(self, screen, x, y, anim_timer):
+        """예금 이자율 전광판 그리기 - 5%~20% 일일 랜덤"""
+        import math
+
+        # 전광판 크기
+        board_w, board_h = 100, 70
+
+        # 색상
+        FRAME_COLOR = (35, 45, 60)
+        FRAME_BORDER = (60, 80, 110)
+        SCREEN_BG = (10, 15, 25)
+        GOLD_COLOR = (255, 210, 80)
+        CYAN_COLOR = (80, 200, 255)
+        WHITE = (240, 245, 250)
+
+        # 이자율에 따른 색상 (높을수록 초록)
+        rate_pct = self.deposit_interest_rate * 100
+        if rate_pct >= 15:
+            rate_color = (80, 255, 140)  # 높은 이자율 - 초록
+        elif rate_pct >= 10:
+            rate_color = (200, 230, 100)  # 중간 - 연두
+        else:
+            rate_color = (255, 200, 100)  # 낮은 이자율 - 노랑
+
+        # 프레임
+        pygame.draw.rect(screen, FRAME_COLOR, (x, y, board_w, board_h), border_radius=5)
+        pygame.draw.rect(screen, FRAME_BORDER, (x, y, board_w, board_h), 2, border_radius=5)
+
+        # 스크린 배경
+        pygame.draw.rect(screen, SCREEN_BG, (x + 4, y + 4, board_w - 8, board_h - 8), border_radius=3)
+
+        # 상단 타이틀 바
+        pygame.draw.rect(screen, (25, 35, 50), (x + 4, y + 4, board_w - 8, 14), border_radius=3)
+
+        # 타이틀 텍스트 "INTEREST"
+        font_small = self.fonts.get('small')
+        if font_small:
+            title_surf, title_rect = font_small.render("INTEREST", GOLD_COLOR)
+            screen.blit(title_surf, (x + board_w // 2 - title_rect.width // 2, y + 5))
+
+        # LED 글로우 효과
+        glow_intensity = int(25 + 15 * math.sin(anim_timer * 2.5))
+        glow_surf = pygame.Surface((board_w - 8, board_h - 22), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*GOLD_COLOR[:3], glow_intensity), (0, 0, board_w - 8, board_h - 22), border_radius=3)
+        screen.blit(glow_surf, (x + 4, y + 18))
+
+        # 이자율 표시 영역
+        rate_y = y + 28
+
+        # "예금" 텍스트
+        if font_small:
+            label_surf, label_rect = font_small.render("예금", WHITE)
+            screen.blit(label_surf, (x + 12, rate_y))
+
+        # 이자율 숫자 (큰 글씨 효과)
+        rate_text = f"{rate_pct:.1f}%"
+        if font_small:
+            rate_surf, rate_rect = font_small.render(rate_text, rate_color)
+            screen.blit(rate_surf, (x + board_w // 2 - rate_rect.width // 2 + 5, rate_y + 18))
+
+        # 상태 표시 바 (이자율 게이지)
+        gauge_y = y + board_h - 14
+        gauge_w = board_w - 20
+        gauge_h = 4
+        # 배경
+        pygame.draw.rect(screen, (30, 40, 55), (x + 10, gauge_y, gauge_w, gauge_h), border_radius=2)
+        # 채움 (5%~20% -> 0~100%)
+        fill_ratio = (self.deposit_interest_rate - 0.05) / 0.15  # 0.0 ~ 1.0
+        fill_w = int(gauge_w * fill_ratio)
+        pygame.draw.rect(screen, rate_color, (x + 10, gauge_y, fill_w, gauge_h), border_radius=2)
+
+        # 상태 LED (점멸)
+        led_on = int(anim_timer * 1.5) % 2 == 0
+        led_color = GOLD_COLOR if led_on else (80, 70, 30)
+        pygame.draw.circle(screen, led_color, (x + board_w - 10, y + 10), 3)
 
     def _draw_floor(self, screen):
         """바닥 타일 그리기"""
