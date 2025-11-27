@@ -5687,6 +5687,83 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
             # 탁구채 블릿
             surface.blit(rotated_paddle, (paddle_blit_x, paddle_blit_y))
 
+        # 오른팔 강철 전기 주먹
+        if side > 0:
+            fist_cx, fist_cy = wrist_int[0] + 8, wrist_int[1] + 4
+
+            # 강철 주먹 외곽 (다크 메탈)
+            fist_w, fist_h = 36, 40
+            fist_rect = pygame.Rect(fist_cx - fist_w // 2, fist_cy - fist_h // 2, fist_w, fist_h)
+
+            # 주먹 글로우 효과 (전기 느낌)
+            fist_glow = pygame.Surface((fist_w + 30, fist_h + 30), pygame.SRCALPHA)
+            glow_alpha = int(40 + 30 * math.sin(phase * math.tau * 3))
+            pygame.draw.ellipse(fist_glow, (100, 200, 255, glow_alpha), (0, 0, fist_w + 30, fist_h + 30))
+            surface.blit(fist_glow, (fist_rect.left - 15, fist_rect.top - 15))
+
+            # 강철 주먹 베이스 (진한 메탈)
+            pygame.draw.ellipse(surface, palette["hex_base"], fist_rect)
+            pygame.draw.ellipse(surface, (60, 70, 85), fist_rect.inflate(-6, -6))
+
+            # 너클 플레이트 (4개)
+            knuckle_y = fist_cy - 10
+            for ki, kx_off in enumerate([-10, -3, 4, 11]):
+                knuckle_rect = pygame.Rect(fist_cx + kx_off - 5, knuckle_y - 6, 10, 14)
+                pygame.draw.rect(surface, palette["shoulder"], knuckle_rect, border_radius=3)
+                pygame.draw.rect(surface, palette["accent"], knuckle_rect, 1, border_radius=3)
+                # 너클 LED
+                led_pulse = int(180 + 75 * math.sin(phase * math.tau * 4 + ki * 0.5))
+                pygame.draw.circle(surface, (led_pulse, led_pulse, 255), (fist_cx + kx_off, knuckle_y - 2), 2)
+
+            # 전기 아크 효과 (주먹 주변)
+            arc_color = (150, 220, 255)
+            for arc_i in range(3):
+                arc_phase = phase * math.tau * 5 + arc_i * 2.1
+                arc_len = 12 + 6 * math.sin(arc_phase)
+                arc_angle = math.radians(-60 + arc_i * 40 + math.sin(phase * 10) * 15)
+                arc_start = (fist_cx + int(math.cos(arc_angle) * 18), fist_cy - 8 + int(math.sin(arc_angle) * 12))
+                arc_end = (arc_start[0] + int(math.cos(arc_angle + 0.3) * arc_len),
+                          arc_start[1] + int(math.sin(arc_angle + 0.3) * arc_len))
+                # 지그재그 전기 아크
+                mid1 = ((arc_start[0] + arc_end[0]) // 2 + int(math.sin(phase * 20 + arc_i) * 4),
+                       (arc_start[1] + arc_end[1]) // 2 + int(math.cos(phase * 20 + arc_i) * 3))
+                pygame.draw.line(surface, arc_color, arc_start, mid1, 2)
+                pygame.draw.line(surface, arc_color, mid1, arc_end, 2)
+                # 아크 끝 글로우
+                pygame.draw.circle(surface, (200, 240, 255), arc_end, 3)
+
+            # 손등 에너지 코어
+            core_x, core_y = fist_cx, fist_cy + 6
+            pygame.draw.circle(surface, palette["hex_base"], (core_x, core_y), 10)
+            core_pulse = int(200 + 55 * math.sin(phase * math.tau * 2))
+            pygame.draw.circle(surface, (core_pulse, core_pulse, 255), (core_x, core_y), 8)
+            pygame.draw.circle(surface, (255, 255, 255), (core_x, core_y), 4)
+
+            # 손가락 관절 (주먹 쥔 상태)
+            for fi in range(4):
+                finger_x = fist_cx - 10 + fi * 7
+                finger_y = fist_cy - 18
+                pygame.draw.circle(surface, palette["hand"], (finger_x, finger_y), 5)
+                pygame.draw.circle(surface, palette["shoulder"], (finger_x, finger_y), 4)
+
+            # 엄지 (주먹 옆)
+            thumb_pts = [(fist_cx + 20, fist_cy - 4), (fist_cx + 26, fist_cy + 2), (fist_cx + 24, fist_cy + 10)]
+            pygame.draw.polygon(surface, palette["hand"], thumb_pts)
+            pygame.draw.polygon(surface, palette["shoulder"], thumb_pts, 2)
+
+            # 주먹 외곽 LED 링
+            pygame.draw.ellipse(surface, palette["accent"], fist_rect, 2)
+
+            # 스파크 파티클 (랜덤 위치)
+            for sp_i in range(4):
+                sp_phase = phase * 8 + sp_i * 1.5
+                sp_x = fist_cx + int(math.cos(sp_phase) * (20 + sp_i * 3))
+                sp_y = fist_cy - 6 + int(math.sin(sp_phase * 1.3) * (15 + sp_i * 2))
+                sp_alpha = int(150 + 100 * math.sin(sp_phase * 2))
+                spark_surf = pygame.Surface((6, 6), pygame.SRCALPHA)
+                pygame.draw.circle(spark_surf, (255, 255, 255, sp_alpha), (3, 3), 2)
+                surface.blit(spark_surf, (sp_x - 3, sp_y - 3))
+
     draw_arm(-1, arm_swing_left, left_swing_ratio)
     draw_arm(1, arm_swing_right, right_swing_ratio)
 
