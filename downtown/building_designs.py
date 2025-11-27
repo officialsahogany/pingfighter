@@ -217,6 +217,8 @@ class BuildingDesigner:
             self._draw_gacha(screen, building, draw_x, draw_y, building_id)
         elif building.type == BuildingType.ACADEMY:
             self._draw_academy(screen, building, draw_x, draw_y, building_id)
+        elif building.type == BuildingType.ITEM_SHOP:
+            self._draw_item_shop(screen, building, draw_x, draw_y, building_id)
         else:
             self._draw_default(screen, building, draw_x, draw_y)
 
@@ -3581,6 +3583,156 @@ class BuildingDesigner:
                     offset_points = [(pt[0] - px + size * 1.5, pt[1] - py + size * 1.5) for pt in gacha_points]
                     pygame.draw.polygon(surf, (*gacha_color, alpha), offset_points)
                     screen.blit(surf, (px - size * 1.5, py - size * 1.5))
+
+    # =========================================================================
+    # 🛒 아이템 상점 - 선택된 디자인에 따라 다른 스타일
+    # =========================================================================
+    def _draw_item_shop(self, screen, building, x, y, building_id):
+        """아이템 상점 - 5가지 디자인 중 선택된 스타일 적용"""
+        from .constants import BUILDING_INFO, SHOP_DESIGNS, SELECTED_SHOP_DESIGN
+
+        w, h = building.width, building.height
+        selected_design = SHOP_DESIGNS[SELECTED_SHOP_DESIGN]
+        style = selected_design["style"]
+
+        # 애니메이션
+        pulse = 0.8 + 0.2 * abs(math.sin(self.animation_timer * 2))
+        glow = abs(math.sin(self.animation_timer * 1.5))
+
+        # 스타일별 건물 그리기
+        if style == "cyberpunk":
+            # 네온 마켓
+            self._draw_cyberpunk_shop(screen, x, y, w, h, selected_design, pulse, glow)
+        elif style == "fantasy":
+            # 마법 상점
+            self._draw_fantasy_shop(screen, x, y, w, h, selected_design, pulse, glow)
+        elif style == "steampunk":
+            # 기어 상회
+            self._draw_steampunk_shop(screen, x, y, w, h, selected_design, pulse, glow)
+        elif style == "nature":
+            # 숲속 교역소
+            self._draw_nature_shop(screen, x, y, w, h, selected_design, pulse, glow)
+        elif style == "luxury":
+            # 황금 갤러리
+            self._draw_luxury_shop(screen, x, y, w, h, selected_design, pulse, glow)
+
+    def _draw_cyberpunk_shop(self, screen, x, y, w, h, design, pulse, glow):
+        """사이버펑크 스타일 상점"""
+        color = design["color"]
+        secondary = design["secondary_color"]
+
+        # 네온 글로우
+        glow_alpha = int(100 * glow)
+        for i in range(4):
+            glow_size = 15 - i * 3
+            glow_surf = pygame.Surface((w + glow_size * 2, h + glow_size * 2), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*color, glow_alpha // (i + 1)),
+                           (0, 0, w + glow_size * 2, h + glow_size * 2), border_radius=10)
+            screen.blit(glow_surf, (x - glow_size, y - glow_size))
+
+        # 메인 박스
+        pygame.draw.rect(screen, (40, 40, 60), (x, y, w, h), border_radius=8)
+        pygame.draw.rect(screen, color, (x, y, w, h), 3, border_radius=8)
+
+        # 네온 라인
+        for i in range(3):
+            line_y = y + 20 + i * 15
+            alpha = int(200 * pulse)
+            pygame.draw.line(screen, (*secondary, alpha), (x + 10, line_y), (x + w - 10, line_y), 2)
+
+    def _draw_fantasy_shop(self, screen, x, y, w, h, design, pulse, glow):
+        """판타지 스타일 상점"""
+        color = design["color"]
+        secondary = design["secondary_color"]
+
+        # 마법 오라
+        aura_alpha = int(80 * pulse)
+        aura_surf = pygame.Surface((w + 20, h + 20), pygame.SRCALPHA)
+        pygame.draw.ellipse(aura_surf, (*color, aura_alpha), (0, 0, w + 20, h + 20))
+        screen.blit(aura_surf, (x - 10, y - 10))
+
+        # 건물 본체
+        pygame.draw.rect(screen, (60, 40, 100), (x, y + 10, w, h - 15), border_radius=5)
+        pygame.draw.rect(screen, color, (x, y + 10, w, h - 15), 2, border_radius=5)
+
+        # 지붕
+        roof_points = [(x, y + 10), (x + w // 2, y - 5), (x + w, y + 10)]
+        pygame.draw.polygon(screen, secondary, roof_points)
+
+        # 마법진
+        cx = x + w // 2
+        cy = y + h // 2
+        pygame.draw.circle(screen, (*secondary, int(150 * glow)), (cx, cy), 12, 2)
+
+    def _draw_steampunk_shop(self, screen, x, y, w, h, design, pulse, glow):
+        """스팀펑크 스타일 상점"""
+        color = design["color"]
+        secondary = design["secondary_color"]
+
+        # 기계식 박스
+        pygame.draw.rect(screen, (80, 60, 40), (x, y, w, h), border_radius=5)
+        pygame.draw.rect(screen, color, (x, y, w, h), 2, border_radius=5)
+
+        # 리벳
+        for row in range(3):
+            for col in range(4):
+                rivet_x = x + 10 + col * 15
+                rivet_y = y + 15 + row * 20
+                pygame.draw.circle(screen, secondary, (rivet_x, rivet_y), 2)
+
+        # 기어
+        cx = x + w // 2
+        cy = y + h // 2
+        pygame.draw.circle(screen, secondary, (cx, cy), 15, 3)
+        pygame.draw.circle(screen, color, (cx, cy), 8, 2)
+
+    def _draw_nature_shop(self, screen, x, y, w, h, design, pulse, glow):
+        """자연 스타일 상점"""
+        color = design["color"]
+        secondary = design["secondary_color"]
+
+        # 목조 건물
+        pygame.draw.rect(screen, (139, 90, 43), (x, y + 15, w, h - 20), border_radius=8)
+        pygame.draw.rect(screen, color, (x, y + 15, w, h - 20), 2, border_radius=8)
+
+        # 지붕
+        roof_points = [(x, y + 15), (x + w // 2, y), (x + w, y + 15)]
+        pygame.draw.polygon(screen, secondary, roof_points)
+
+        # 나뭇잎
+        leaf_x = x + 10
+        leaf_y = y + 10
+        pygame.draw.circle(screen, color, (leaf_x, leaf_y), 5)
+        pygame.draw.circle(screen, color, (leaf_x + 10, leaf_y - 3), 4)
+
+    def _draw_luxury_shop(self, screen, x, y, w, h, design, pulse, glow):
+        """고급 스타일 상점"""
+        color = design["color"]
+        secondary = design["secondary_color"]
+
+        # 황금 글로우
+        glow_alpha = int(120 * pulse)
+        glow_surf = pygame.Surface((w + 20, h + 20), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*color, glow_alpha), (0, 0, w + 20, h + 20), border_radius=12)
+        screen.blit(glow_surf, (x - 10, y - 10))
+
+        # 고급 박스
+        pygame.draw.rect(screen, (50, 45, 40), (x, y, w, h), border_radius=10)
+        pygame.draw.rect(screen, color, (x, y, w, h), 3, border_radius=10)
+
+        # 은색 테두리
+        pygame.draw.rect(screen, secondary, (x + 5, y + 5, w - 10, h - 10), 2, border_radius=8)
+
+        # 다이아몬드
+        cx = x + w // 2
+        cy = y + h // 2
+        diamond_points = [
+            (cx, cy - 10),
+            (cx - 8, cy),
+            (cx, cy + 10),
+            (cx + 8, cy)
+        ]
+        pygame.draw.polygon(screen, secondary, diamond_points, 2)
 
 
 # 싱글톤 인스턴스

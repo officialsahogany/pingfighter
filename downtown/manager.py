@@ -416,9 +416,11 @@ class DowntownManager:
 
     def _run_building_event(self, building_type):
         """건물 이벤트 실행 (각 건물별로 구현)"""
-        # 상점만 구현됨 - 나머지는 플레이스홀더
+        # 상점 2개 구현됨 - 나머지는 플레이스홀더
         if building_type == BuildingType.MAGIC_STORE:
             self._show_shop()
+        elif building_type == BuildingType.ITEM_SHOP:
+            self._show_item_shop()
         elif building_type == BuildingType.BLACKSMITH:
             self._show_placeholder(building_type)
         elif building_type == BuildingType.CASINO:
@@ -491,8 +493,8 @@ class DowntownManager:
                 building_type = self.key_animation['building_type']
                 self.key_animation = None
 
-                # 상점은 IN_BUILDING 상태로 전환, 나머지는 플레이스홀더
-                if building_type == BuildingType.MAGIC_STORE:
+                # 상점 건물들은 IN_BUILDING 상태로 전환, 나머지는 플레이스홀더
+                if building_type in [BuildingType.MAGIC_STORE, BuildingType.ITEM_SHOP]:
                     self.state = DowntownState.IN_BUILDING
                     self.current_building = building_type
 
@@ -1166,9 +1168,32 @@ class DowntownManager:
     # ==========================================================================
 
     def _show_shop(self):
-        """아이템 상점"""
+        """아이템 상점 (MAGIC_STORE)"""
         # 상점 인스턴스 생성 (cyberpunk 테마 기본값)
         shop = Shop(self.screen, theme="cyberpunk", freetype_fonts=self._freetype_fonts)
+
+        # 플레이어 골드 전달
+        shop.set_player_gold(self.player_data.get('gold', 0))
+
+        # 상점 열기
+        purchased_items, remaining_gold = shop.open(self.player_data.get('gold', 0))
+
+        # 결과 처리
+        if purchased_items:
+            self.player_data['gold'] = remaining_gold
+            self.result_data['gold_spent'] += (self.player_data.get('gold', 0) - remaining_gold)
+            self.result_data['items_obtained'].extend([item.name for item in purchased_items])
+
+    def _show_item_shop(self):
+        """새로운 아이템 상점 (ITEM_SHOP) - 선택한 테마 적용"""
+        from .constants import BUILDING_INFO
+
+        # 선택된 상점 디자인의 테마 가져오기
+        shop_info = BUILDING_INFO[BuildingType.ITEM_SHOP]
+        shop_theme = shop_info.get("shop_theme", "cyberpunk")
+
+        # 상점 인스턴스 생성
+        shop = Shop(self.screen, theme=shop_theme, freetype_fonts=self._freetype_fonts)
 
         # 플레이어 골드 전달
         shop.set_player_gold(self.player_data.get('gold', 0))

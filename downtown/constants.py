@@ -58,6 +58,7 @@ class BuildingType:
     MYSTERY = "mystery"             # 미스터리 이벤트
     GACHA = "gacha"                 # 가챠샵
     ACADEMY = "academy"             # 스킬 학원
+    ITEM_SHOP = "item_shop"         # 아이템 상점 (새로 추가!)
 
 # 건물 정보 (각 건물별 고유 디자인 및 크기 - 세로형 화면에 맞게 축소)
 BUILDING_INFO = {
@@ -153,7 +154,7 @@ BUILDING_INFO = {
         "ap_cost": 1,
         "size": (2, 2),              # 2층 목조 건물
         "pixel_size": (95, 88),      # (축소)
-        "description": "모험가들이 모이는 따뜻한 선술집",
+        "description": "새로운 퀘스트에 도전해보세요",
         "rarity": 0.7,
         "style": "medieval",
     },
@@ -206,6 +207,89 @@ BUILDING_INFO = {
         "style": "magic_school",
     },
 }
+
+# =============================================================================
+# 상점 건물 디자인 옵션 (5가지 - 사용자가 선택)
+# =============================================================================
+SHOP_DESIGNS = {
+    "cyberpunk_shop": {
+        "name": "네온 마켓",
+        "name_en": "Neon Market",
+        "icon": "🛒",
+        "color": (255, 20, 147),     # 네온 핑크
+        "secondary_color": (0, 255, 255),  # 사이버 시안
+        "ap_cost": 1,
+        "size": (2, 2),
+        "pixel_size": (85, 80),
+        "description": "사이버펑크 스타일의 첨단 상점",
+        "rarity": 1.0,
+        "style": "cyberpunk",
+        "shop_theme": "cyberpunk",
+    },
+    "fantasy_shop": {
+        "name": "마법 상점",
+        "name_en": "Magic Emporium",
+        "icon": "🔮",
+        "color": (138, 43, 226),     # 보라색
+        "secondary_color": (255, 215, 0),  # 금색
+        "ap_cost": 1,
+        "size": (2, 2),
+        "pixel_size": (85, 85),
+        "description": "신비로운 마법 아이템 판매점",
+        "rarity": 1.0,
+        "style": "fantasy",
+        "shop_theme": "fantasy",
+    },
+    "steampunk_shop": {
+        "name": "기어 상회",
+        "name_en": "Gear Emporium",
+        "icon": "⚙️",
+        "color": (184, 134, 11),     # 황동색
+        "secondary_color": (139, 69, 19),  # 녹슨 철
+        "ap_cost": 1,
+        "size": (2, 2),
+        "pixel_size": (90, 85),
+        "description": "증기기관 시대의 기계 상점",
+        "rarity": 1.0,
+        "style": "steampunk",
+        "shop_theme": "steampunk",
+    },
+    "nature_shop": {
+        "name": "숲속 교역소",
+        "name_en": "Forest Trading Post",
+        "icon": "🌳",
+        "color": (34, 139, 34),      # 숲 녹색
+        "secondary_color": (210, 180, 140),  # 나무색
+        "ap_cost": 1,
+        "size": (2, 2),
+        "pixel_size": (80, 85),
+        "description": "자연과 조화로운 전통 상점",
+        "rarity": 1.0,
+        "style": "nature",
+        "shop_theme": "nature",
+    },
+    "luxury_shop": {
+        "name": "황금 갤러리",
+        "name_en": "Golden Gallery",
+        "icon": "💎",
+        "color": (255, 215, 0),      # 금색
+        "secondary_color": (192, 192, 192),  # 은색
+        "ap_cost": 1,
+        "size": (2, 2),
+        "pixel_size": (85, 90),
+        "description": "최고급 프리미엄 아이템 전문점",
+        "rarity": 1.0,
+        "style": "luxury",
+        "shop_theme": "luxury",
+    },
+}
+
+# 선택된 상점 디자인 (기본값: cyberpunk_shop)
+# 사용자가 선택한 디자인을 여기에 설정하세요
+SELECTED_SHOP_DESIGN = "cyberpunk_shop"  # 5가지 중 선택: cyberpunk_shop, fantasy_shop, steampunk_shop, nature_shop, luxury_shop
+
+# BUILDING_INFO에 선택된 상점 추가
+BUILDING_INFO[BuildingType.ITEM_SHOP] = SHOP_DESIGNS[SELECTED_SHOP_DESIGN]
 
 # =============================================================================
 # 행동 포인트 설정
