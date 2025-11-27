@@ -2848,6 +2848,20 @@ class AngelBlessing(LegendaryItem):
         dice_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
         surf_cx, surf_cy = surf_size // 2, surf_size // 2
 
+        # 회전 행렬
+        sin_x, cos_x = math.sin(math.radians(rot_x)), math.cos(math.radians(rot_x))
+        sin_y, cos_y = math.sin(math.radians(rot_y)), math.cos(math.radians(rot_y))
+
+        def rotate_point(px, py, pz):
+            """3D 점을 회전하여 2D 좌표와 깊이 반환"""
+            # Y축 회전
+            x1 = px * cos_y - pz * sin_y
+            z1 = px * sin_y + pz * cos_y
+            # X축 회전
+            y1 = py * cos_x - z1 * sin_x
+            z2 = py * sin_x + z1 * cos_x
+            return surf_cx + int(x1), surf_cy + int(y1), z2
+
         # 3D 큐브 꼭짓점 계산
         half = dice_size // 2
         vertices_3d = [
@@ -2857,36 +2871,27 @@ class AngelBlessing(LegendaryItem):
             (half, half, half), (-half, half, half),
         ]
 
-        # 회전 행렬 적용
-        sin_x, cos_x = math.sin(math.radians(rot_x)), math.cos(math.radians(rot_x))
-        sin_y, cos_y = math.sin(math.radians(rot_y)), math.cos(math.radians(rot_y))
-
         vertices_2d = []
         vertices_depth = []
         for vx, vy, vz in vertices_3d:
-            # Y축 회전
-            x1 = vx * cos_y - vz * sin_y
-            z1 = vx * sin_y + vz * cos_y
-            # X축 회전
-            y1 = vy * cos_x - z1 * sin_x
-            z2 = vy * sin_x + z1 * cos_x
+            rx, ry, rz = rotate_point(vx, vy, vz)
+            vertices_2d.append((rx, ry))
+            vertices_depth.append(rz)
 
-            vertices_2d.append((surf_cx + int(x1), surf_cy + int(y1)))
-            vertices_depth.append(z2)
-
-        # 면 정의: (정점 인덱스, 면 번호)
+        # 면 정의: (정점 인덱스, 면 번호, 면 중심 3D 좌표, 면의 로컬 축)
+        # 각 면의 로컬 U, V 축 방향 정의 (눈 배치용)
         faces = [
-            ([0, 1, 2, 3], 1),  # 전면
-            ([4, 5, 6, 7], 6),  # 후면
-            ([0, 1, 5, 4], 2),  # 상단
-            ([2, 3, 7, 6], 5),  # 하단
-            ([0, 3, 7, 4], 3),  # 왼쪽
-            ([1, 2, 6, 5], 4),  # 오른쪽
+            ([0, 1, 2, 3], 1, (0, 0, -half), (1, 0, 0), (0, 1, 0)),   # 전면 (Z-)
+            ([5, 4, 7, 6], 6, (0, 0, half), (-1, 0, 0), (0, 1, 0)),   # 후면 (Z+)
+            ([4, 5, 1, 0], 2, (0, -half, 0), (1, 0, 0), (0, 0, 1)),   # 상단 (Y-)
+            ([3, 2, 6, 7], 5, (0, half, 0), (1, 0, 0), (0, 0, -1)),   # 하단 (Y+)
+            ([4, 0, 3, 7], 3, (-half, 0, 0), (0, 0, -1), (0, 1, 0)),  # 왼쪽 (X-)
+            ([1, 5, 6, 2], 4, (half, 0, 0), (0, 0, 1), (0, 1, 0)),    # 오른쪽 (X+)
         ]
 
         # 면 깊이 정렬 (페인터 알고리즘)
         def get_face_depth(face_data):
-            indices, _ = face_data
+            indices = face_data[0]
             return sum(vertices_depth[i] for i in indices) / 4
 
         faces_sorted = sorted(faces, key=get_face_depth, reverse=True)
@@ -2898,11 +2903,25 @@ class AngelBlessing(LegendaryItem):
         edge_color = (200, 210, 230)
         pip_color = (100, 130, 200)  # 눈 색상 (파란빛)
 
-        # 보이는 면만 그리기
-        for indices, face_num in faces_sorted[:3]:
+        # 눈 위치 정의 (로컬 좌표계, -1 ~ 1 범위)
+        pip_positions_local = {
+            1: [(0, 0)],
+            2: [(-0.4, -0.4), (0.4, 0.4)],
+            3: [(-0.4, -0.4), (0, 0), (0.4, 0.4)],
+            4: [(-0.4, -0.4), (0.4, -0.4), (-0.4, 0.4), (0.4, 0.4)],
+            5: [(-0.4, -0.4), (0.4, -0.4), (0, 0), (-0.4, 0.4), (0.4, 0.4)],
+            6: [(-0.4, -0.4), (0.4, -0.4), (-0.4, 0), (0.4, 0), (-0.4, 0.4), (0.4, 0.4)],
+        }
+
+        pip_size = max(2, int(half * 0.18))
+        pip_scale = half * 0.75  # 눈 위치 스케일
+
+        # 보이는 면만 그리기 (앞쪽 3개)
+        for face_data in faces_sorted[:3]:
+            indices, face_num, center_3d, u_axis, v_axis = face_data
             points = [vertices_2d[i] for i in indices]
 
-            # 면 밝기 계산
+            # 면 깊이로 밝기 계산
             avg_depth = sum(vertices_depth[i] for i in indices) / 4
             brightness = 0.7 + 0.3 * (avg_depth / half + 1) / 2
             brightness = min(1.0, max(0.6, brightness))
@@ -2925,30 +2944,16 @@ class AngelBlessing(LegendaryItem):
             pygame.draw.polygon(dice_surf, adj_color, points)
             pygame.draw.polygon(dice_surf, edge_color, points, 1)
 
-            # 면 중심 계산
-            fcx = sum(p[0] for p in points) // 4
-            fcy = sum(p[1] for p in points) // 4
+            # 주사위 눈 그리기 (3D 회전 적용)
+            for pu, pv in pip_positions_local.get(face_num, []):
+                # 로컬 좌표를 3D 월드 좌표로 변환
+                pip_3d_x = center_3d[0] + u_axis[0] * pu * pip_scale + v_axis[0] * pv * pip_scale
+                pip_3d_y = center_3d[1] + u_axis[1] * pu * pip_scale + v_axis[1] * pv * pip_scale
+                pip_3d_z = center_3d[2] + u_axis[2] * pu * pip_scale + v_axis[2] * pv * pip_scale
 
-            # 주사위 눈 그리기
-            pip_offset = int(half * 0.38)
-            pip_size = max(2, int(half * 0.16))
+                # 3D 회전 적용
+                pip_x, pip_y, _ = rotate_point(pip_3d_x, pip_3d_y, pip_3d_z)
 
-            pip_positions = {
-                1: [(0, 0)],
-                2: [(-pip_offset, -pip_offset), (pip_offset, pip_offset)],
-                3: [(-pip_offset, -pip_offset), (0, 0), (pip_offset, pip_offset)],
-                4: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset),
-                    (-pip_offset, pip_offset), (pip_offset, pip_offset)],
-                5: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset), (0, 0),
-                    (-pip_offset, pip_offset), (pip_offset, pip_offset)],
-                6: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset),
-                    (-pip_offset, 0), (pip_offset, 0),
-                    (-pip_offset, pip_offset), (pip_offset, pip_offset)],
-            }
-
-            for px, py in pip_positions.get(face_num, []):
-                pip_x = fcx + px
-                pip_y = fcy + py
                 pygame.draw.circle(dice_surf, pip_color, (pip_x, pip_y), pip_size)
                 # 하이라이트
                 pygame.draw.circle(dice_surf, (255, 255, 255),

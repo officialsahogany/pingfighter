@@ -5027,7 +5027,7 @@ OPTIMUS_HITBOX_SCALE = 0.575                     # 히트박스는 15%만 축소
 OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCALE)  # 250px → 250px(50%)
 OPTIMUS_PADDLE_TARGET_WIDTH = int(280 * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCALE)                 # 280px → 280px(50%)
 OPTIMUS_PADDLE_BASE_HEIGHT = int(MECHA_SPRITE_SIZE[1] * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCALE)  # 120→120
-OPTIMUS_BASE_MAX_SPEED = 2                       # 기본 이동 속도(캐릭터 능력치 기준)
+OPTIMUS_BASE_MAX_SPEED = 5                       # 기본 이동 속도(캐릭터 능력치 기준)
 OPTIMUS_DECELERATION_MULT = 0.5                  # 감속을 절반으로(2배 느리게)
 OPTIMUS_FLOOR_ADJUST = 12                        # 렌더링 시 발 위치 하향 보정
 
@@ -5078,9 +5078,10 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
         """사이언 LED로 강조된 다리 관절 애니메이션"""
         hip = (cx + side * 18, hip_y)
         foot_x = cx + side * 22 + int(leg_stride * 6)
-        foot_y = foot_base_y - int(max(0.0, leg_stride) * 9) + int(torso_bob * 0.3)
+        # 발바닥은 지면에 고정(미세한 상하만 허용)해 떠 보이지 않게 한다.
+        foot_y = foot_base_y + int(torso_bob * 0.15)
         knee_x = int((hip[0] * 0.55 + foot_x * 0.45) + side * 4 - leg_stride * 3)
-        knee_y = int((hip[1] * 0.55 + foot_y * 0.45) - max(0.0, leg_stride) * 3 + 2)
+        knee_y = int((hip[1] * 0.55 + foot_y * 0.45) + 2)
         knee = (knee_x, knee_y)
         foot = (foot_x, foot_y)
 
@@ -55859,7 +55860,7 @@ def show_character_selection():
             "name": "옵티머스",
             "description": "테슬라 모듈이 전기 충격 부여.\n네온 드라이브로 궤적을 가속.",
             "image": "optimus.png",
-            "stats": {"속도": 2, "파워": 7, "방어": 5},
+            "stats": {"속도": 5, "파워": 7, "방어": 5},
             "special": " 스매셔 계열 전용 장비",
             "unlocked": True,
             "card_color": (120, 200, 255),

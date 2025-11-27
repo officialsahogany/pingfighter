@@ -317,8 +317,13 @@ class DowntownManager:
             target = self.player.interaction_target
 
             if target['type'] == 'building':
+                building_type = target['building_type']
+                # 이미 방문한 건물이면 다이얼로그 표시 안 함
+                if building_type in self.visited_buildings_this_session:
+                    self._show_message("이미 방문한 건물입니다!", Colors.UI_DANGER)
+                    return
                 # 건물 입장 확인 다이얼로그 표시
-                self._show_building_confirmation_dialog(target['building_type'])
+                self._show_building_confirmation_dialog(building_type)
                 return
 
             elif target['type'] == 'exit':
