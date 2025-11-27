@@ -920,9 +920,10 @@ class DowntownManager:
             align_progress = (progress - 0.45) / 0.1
             eased_align = self._ease_in_out_cubic(align_progress)
 
-            # 왼쪽에서 시작해서 구멍 위치로 이동
+            # 왼쪽에서 시작해서 구멍보다 오른쪽 위치로 이동
             horizontal_offset = -60  # 왼쪽 시작점
-            key_x = lock_x + horizontal_offset * (1 - eased_align)
+            key_offset_x = 25  # 구멍보다 오른쪽으로 25px
+            key_x = lock_x + key_offset_x + horizontal_offset * (1 - eased_align)
             key_y = lock_y
             key_rotation = 90  # 회전된 상태 유지
             key_insert_offset = 0  # 아직 삽입 안 함
@@ -932,14 +933,15 @@ class DowntownManager:
                 glow_alpha = int(100 * (align_progress - 0.5) * 2)
                 glow_surf = pygame.Surface((60, 60), pygame.SRCALPHA)
                 pygame.draw.circle(glow_surf, (255, 215, 100, glow_alpha), (30, 30), 25)
-                self.screen.blit(glow_surf, (lock_x - 30, lock_y - 30))
+                self.screen.blit(glow_surf, (lock_x + key_offset_x - 30, lock_y - 30))
 
         # 3.5단계: 열쇠를 끝부분부터 서서히 밀어 넣기 (0.55~0.70)
         elif progress < 0.70:
             insert_progress = (progress - 0.55) / 0.15
             eased_insert = self._ease_in_out_cubic(insert_progress)
 
-            key_x = lock_x
+            key_offset_x = 25  # 구멍보다 오른쪽으로 25px
+            key_x = lock_x + key_offset_x
             key_y = lock_y
             key_rotation = 90  # 회전된 상태 유지
             # 열쇠를 점점 깊게 밀어넣음 (기둥 70%까지)
@@ -949,14 +951,15 @@ class DowntownManager:
             glow_alpha = int(180 * insert_progress)
             glow_surf = pygame.Surface((70, 70), pygame.SRCALPHA)
             pygame.draw.circle(glow_surf, (255, 215, 100, glow_alpha), (35, 35), 30)
-            self.screen.blit(glow_surf, (lock_x - 35, lock_y - 35))
+            self.screen.blit(glow_surf, (lock_x + key_offset_x - 35, lock_y - 35))
 
         # 4단계: 열쇠를 시계방향으로 90도 더 회전 (잠금 해제) (0.70~0.85)
         elif progress < 0.85:
             turn_progress = (progress - 0.70) / 0.15
             eased_turn = self._ease_in_out_cubic(turn_progress)
 
-            key_x = lock_x
+            key_offset_x = 25  # 구멍보다 오른쪽으로 25px
+            key_x = lock_x + key_offset_x
             key_y = lock_y
             # 90도에서 180도로 추가 회전 (시계방향)
             key_rotation = 90 + eased_turn * 90
@@ -966,7 +969,7 @@ class DowntownManager:
             rotation_glow = int(50 + turn_progress * 150)
             rotation_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
             pygame.draw.circle(rotation_surf, (255, 215, 100, rotation_glow), (40, 40), 35, 3)
-            self.screen.blit(rotation_surf, (lock_x - 40, lock_y - 40))
+            self.screen.blit(rotation_surf, (lock_x + key_offset_x - 40, lock_y - 40))
 
             # 회전 중 스파크 효과
             if turn_progress > 0.4:
@@ -974,7 +977,7 @@ class DowntownManager:
                 for i in range(spark_count):
                     angle = (i / spark_count) * math.pi * 2 + turn_progress * math.pi * 2
                     spark_dist = 20 + turn_progress * 10
-                    spark_x = lock_x + math.cos(angle) * spark_dist
+                    spark_x = lock_x + key_offset_x + math.cos(angle) * spark_dist
                     spark_y = lock_y + math.sin(angle) * spark_dist
                     spark_alpha = int(200 * (1 - turn_progress))
                     pygame.draw.circle(self.screen, (255, 235, 150, spark_alpha),
@@ -982,7 +985,8 @@ class DowntownManager:
 
         # 5단계: 문 열림 (0.85~1.0)
         else:
-            key_x = lock_x
+            key_offset_x = 25  # 구멍보다 오른쪽으로 25px
+            key_x = lock_x + key_offset_x
             key_y = lock_y
             key_rotation = 180
             key_insert_offset = 30
