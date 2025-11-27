@@ -220,8 +220,8 @@ class InteriorPlayer:
         self.velocity_y = 0
         self.is_moving = False
 
-        # 방향 (0: 하, 1: 좌, 2: 우, 3: 상)
-        self.direction = 0
+        # 방향 (0: 하, 1: 좌, 2: 우, 3: 상) - 입장 시 위쪽을 바라봄
+        self.direction = 3
 
         # 애니메이션
         self.animation_frame = 0
@@ -709,9 +709,9 @@ class BuildingInterior:
             self.pixel_height - self.TILE_SIZE * 3  # 위아래 벽 제외
         )
 
-        # 플레이어 (문 앞에서 시작)
+        # 플레이어 (문에서 조금 떨어진 곳에서 시작)
         spawn_x = self.pixel_width // 2
-        spawn_y = self.pixel_height - self.TILE_SIZE * 2
+        spawn_y = self.pixel_height - self.TILE_SIZE * 4  # 문에서 더 멀리 시작
         self.player = InteriorPlayer(spawn_x, spawn_y, player_sprite)
 
         # 카메라 오프셋 (화면 중앙 정렬)
@@ -727,6 +727,7 @@ class BuildingInterior:
         # 나가기 상태
         self.exit_requested = False
         self.exit_timer = 0
+        self.entry_cooldown = 1.0  # 입장 후 1초간 나가기 방지
 
     def _create_npcs(self):
         """NPC들 생성"""
@@ -897,6 +898,10 @@ class BuildingInterior:
         """업데이트"""
         self.animation_timer += dt
 
+        # 입장 쿨다운 감소
+        if self.entry_cooldown > 0:
+            self.entry_cooldown -= dt
+
         # 플레이어 업데이트
         keys = pygame.key.get_pressed()
         self.player.handle_input(keys, dt)
@@ -909,20 +914,21 @@ class BuildingInterior:
         for npc in self.npcs:
             npc.update(dt)
 
-        # 문 근처에서 나가기 체크
-        player_rect = pygame.Rect(
-            self.player.x - 20, self.player.y - 20, 40, 40
-        )
-        if self.door_rect.colliderect(player_rect):
-            # 문 근처 + 아래쪽 방향
-            if self.player.direction == 0:  # 아래쪽
-                self.exit_timer += dt
-                if self.exit_timer >= 0.5:  # 0.5초 후 나가기
-                    self.exit_requested = True
+        # 문 근처에서 나가기 체크 (입장 쿨다운 후에만)
+        if self.entry_cooldown <= 0:
+            player_rect = pygame.Rect(
+                self.player.x - 20, self.player.y - 20, 40, 40
+            )
+            if self.door_rect.colliderect(player_rect):
+                # 문 근처 + 아래쪽 방향
+                if self.player.direction == 0:  # 아래쪽
+                    self.exit_timer += dt
+                    if self.exit_timer >= 0.5:  # 0.5초 후 나가기
+                        self.exit_requested = True
+                else:
+                    self.exit_timer = 0
             else:
                 self.exit_timer = 0
-        else:
-            self.exit_timer = 0
 
     def handle_click(self, pos):
         """클릭 처리"""
