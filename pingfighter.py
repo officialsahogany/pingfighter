@@ -5018,9 +5018,10 @@ MARINE_COLORS = {
 }
 
 # 옵티머스(optimus ID) – 테슬라 사이버 로봇 스타일
-MECHA_SPRITE_SIZE = (250, 120)
-MECHA_CENTER_X = 125
-MECHA_CENTER_Y = 60
+# 캔버스를 넓혀 발/팔 끝이 잘리지 않도록 여유 높이 확보
+MECHA_SPRITE_SIZE = (260, 160)
+MECHA_CENTER_X = 130
+MECHA_CENTER_Y = 70
 OPTIMUS_SCALE_MULT = 2.0                         # 시각·패들 크기 2배 확대
 OPTIMUS_HITBOX_SCALE = 0.575                     # 히트박스는 15%만 축소(0.5 → 0.575)
 # 옵티머스 기본 스펙
@@ -5029,7 +5030,7 @@ OPTIMUS_PADDLE_TARGET_WIDTH = int(280 * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCAL
 OPTIMUS_PADDLE_BASE_HEIGHT = int(MECHA_SPRITE_SIZE[1] * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCALE)  # 120→120
 OPTIMUS_BASE_MAX_SPEED = 5                       # 기본 이동 속도(캐릭터 능력치 기준)
 OPTIMUS_DECELERATION_MULT = 0.5                  # 감속을 절반으로(2배 느리게)
-OPTIMUS_FLOOR_ADJUST = 12                        # 렌더링 시 발 위치 하향 보정
+OPTIMUS_FLOOR_ADJUST = 36                        # 렌더링 시 발 위치 하향 보정 (떠보임 보완)
 
 OPTIMUS_MECHA_PALETTE = {
     # 실버+네온 청록 기반 테슬라 사이버 로봇 컬러링
@@ -5072,7 +5073,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
     hip_y = base_cy + 16 + torso_bob
     shoulder_y = base_cy - 6 + torso_bob
     head_y = base_cy - 32 + torso_bob
-    foot_base_y = base_cy + 58  # 캔버스 하단 가까이로 내려 좌우 이동 시 뜨지 않게 고정
+    foot_base_y = base_cy + 60  # 캔버스 여유가 늘어난 만큼 조금 더 아래로 고정
 
     def draw_leg(side: int, leg_stride: float) -> tuple[int, int]:
         """사이언 LED로 강조된 다리 관절 애니메이션"""
@@ -5094,7 +5095,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
             pygame.draw.circle(surface, palette["hex_base"], joint, 7)
             pygame.draw.circle(surface, palette["accent"], joint, 4)
 
-        foot_rect = pygame.Rect(0, 0, 24, 10)
+        foot_rect = pygame.Rect(0, 0, 26, 12)
         foot_rect.center = (foot_x, foot_y + 6)  # 살짝만 아래로 내려 접지감 유지
         pygame.draw.rect(surface, palette["grip"], foot_rect, border_radius=4)
         pygame.draw.rect(surface, palette["grip_line"], foot_rect.inflate(-6, -2), 1, border_radius=3)

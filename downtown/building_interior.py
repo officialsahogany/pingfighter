@@ -1058,26 +1058,25 @@ INTERIOR_CONFIGS = {
     BuildingType.BANK: {
         "name": "STARBANK",
         "map_size": (14, 10),
-        "bg_color": (30, 45, 65),  # 진한 파란색 배경
-        "floor_color": (50, 65, 85),  # 파란색 타일 바닥
+        "bg_color": (20, 30, 45),  # 어두운 네이비
+        "floor_color": (35, 50, 70),  # 청회색 바닥
         "floor_pattern": "bank_tile",  # 은행 전용 타일 패턴
-        "wall_color": (40, 55, 75),
-        "accent_color": (100, 200, 255),  # 시안 네온
-        "secondary_color": (70, 90, 120),  # 금속 회색
-        "decorations": ["bank_counter", "bank_vault", "bank_monitor", "bank_safe"],
+        "wall_color": (25, 38, 55),
+        "accent_color": (80, 180, 255),  # 시안 네온
+        "secondary_color": (60, 80, 110),  # 금속 회색
+        "decorations": [],  # 커스텀 인테리어 사용
         "main_npc": {
-            "name": "Bank-Bot #001",
-            "color": (150, 160, 170),  # 로봇 회색
-            "position": (0.5, 0.28),
+            "name": "Bank-Bot",
+            "color": (140, 155, 175),  # 로봇 회색
+            "position": (0.5, 0.32),  # 카운터 뒤
             "dialogue": [
                 "STARBANK에 오신 것을 환영합니다.",
-                "[SYSTEM] 어떤 업무를 도와드릴까요?",
-                "[PROCESSING] 시스템 점검 중입니다.",
-                "[READY] 서비스를 이용하실 수 있습니다."
+                "무엇을 도와드릴까요?",
+                "안전한 거래를 약속드립니다."
             ]
         },
-        "customer_range": (0, 0),  # 로봇 직원만 있음
-        "staff_count": 3,  # 로봇 3대
+        "customer_range": (0, 0),  # 고객 없음
+        "staff_count": 1,  # 로봇 1대 (데스크 뒤에 추가 로봇은 장식으로)
         "special_interior": "bank",  # 특수 인테리어 플래그
     },
     BuildingType.GACHA: {
@@ -1328,6 +1327,9 @@ class BuildingInterior:
         # 장식물 생성
         self.decorations = self._create_decorations()
 
+        # 은행 카운터 충돌 영역 (BANK에서만 사용, draw에서 설정됨)
+        self.bank_counter_rect = None
+
         # 나가기 상태
         self.exit_requested = False
         self.exit_timer = 0
@@ -1498,6 +1500,11 @@ class BuildingInterior:
             if player_rect.colliderect(deco_rect):
                 return False
 
+        # 은행 카운터 충돌 체크 (BANK 전용)
+        if hasattr(self, 'bank_counter_rect') and self.bank_counter_rect:
+            if player_rect.colliderect(self.bank_counter_rect):
+                return False
+
         return True
 
     def _update_camera(self):
@@ -1623,195 +1630,216 @@ class BuildingInterior:
         self._draw_ui(screen)
 
     def _draw_bank_interior(self, screen):
-        """스타뱅크 전용 인테리어 - SF 은행 스타일"""
+        """스타뱅크 전용 인테리어 - 깔끔한 SF 은행 스타일"""
         import math
 
-        # 색상 정의
-        BG_DARK = (25, 40, 60)
-        BG_MID = (35, 55, 80)
-        FLOOR_DARK = (45, 60, 85)
-        FLOOR_LIGHT = (55, 75, 100)
-        WALL_COLOR = (30, 45, 65)
-        ACCENT_CYAN = (100, 200, 255)
-        ACCENT_GOLD = (255, 200, 80)
-        METAL_GRAY = (120, 130, 145)
-        METAL_DARK = (70, 80, 95)
-        METAL_LIGHT = (160, 170, 185)
+        # 색상 팔레트 (미니멀 & 프로페셔널)
+        BG_DARK = (18, 25, 38)
+        FLOOR_A = (30, 42, 58)
+        FLOOR_B = (38, 52, 72)
+        WALL_COLOR = (22, 32, 48)
+        ACCENT_CYAN = (70, 180, 255)
+        ACCENT_CYAN_DIM = (50, 120, 180)
+        GOLD = (255, 200, 100)
+        WHITE = (240, 245, 250)
+        GRAY_LIGHT = (180, 190, 205)
+        GRAY_MID = (120, 135, 155)
+        GRAY_DARK = (70, 85, 105)
 
         cam_x, cam_y = self.camera_offset
+        cx = self.pixel_width // 2  # 중앙 X
 
         # 1. 배경
         screen.fill(BG_DARK)
 
-        # 2. 바닥 타일 (청색 격자)
+        # 2. 바닥 타일 (깔끔한 격자)
         for ty in range(self.map_height):
             for tx in range(self.map_width):
                 tile_x = tx * TILE_SIZE - cam_x
                 tile_y = ty * TILE_SIZE - cam_y
-
-                if (tx + ty) % 2 == 0:
-                    color = FLOOR_LIGHT
-                else:
-                    color = FLOOR_DARK
-
+                color = FLOOR_A if (tx + ty) % 2 == 0 else FLOOR_B
                 pygame.draw.rect(screen, color, (tile_x, tile_y, TILE_SIZE, TILE_SIZE))
-                pygame.draw.rect(screen, (40, 55, 75), (tile_x, tile_y, TILE_SIZE, TILE_SIZE), 1)
 
-        # 3. 상단 벽 영역 (선반 + 모니터 + 금고)
-        wall_h = int(TILE_SIZE * 2.5)
-        wall_rect = pygame.Rect(-cam_x, -cam_y, self.pixel_width, wall_h)
-        pygame.draw.rect(screen, WALL_COLOR, wall_rect)
+        # 3. 상단 벽 (깔끔한 패널)
+        wall_h = int(TILE_SIZE * 2.8)
+        pygame.draw.rect(screen, WALL_COLOR, (-cam_x, -cam_y, self.pixel_width, wall_h))
 
-        # 3-1. 상단 선반 (물건들 진열)
-        shelf_y = -cam_y + 20
-        shelf_h = 50
-        # 왼쪽 선반
-        pygame.draw.rect(screen, METAL_DARK, (-cam_x + 20, shelf_y, 120, shelf_h))
-        pygame.draw.rect(screen, METAL_GRAY, (-cam_x + 20, shelf_y, 120, shelf_h), 2)
-        # 선반 위 아이템들 (박스/서류)
-        for i in range(3):
-            box_x = -cam_x + 30 + i * 35
-            pygame.draw.rect(screen, (60, 70, 90), (box_x, shelf_y + 15, 25, 30))
-            pygame.draw.rect(screen, ACCENT_CYAN, (box_x, shelf_y + 15, 25, 30), 1)
+        # 벽 하단 라인 (시안 액센트)
+        pygame.draw.rect(screen, ACCENT_CYAN_DIM, (-cam_x, -cam_y + wall_h - 3, self.pixel_width, 3))
 
-        # 오른쪽 선반
-        pygame.draw.rect(screen, METAL_DARK, (self.pixel_width - cam_x - 140, shelf_y, 120, shelf_h))
-        pygame.draw.rect(screen, METAL_GRAY, (self.pixel_width - cam_x - 140, shelf_y, 120, shelf_h), 2)
-        # 금고 아이콘
-        safe_x = self.pixel_width - cam_x - 100
-        pygame.draw.rect(screen, (50, 55, 65), (safe_x, shelf_y + 10, 40, 35), border_radius=3)
-        pygame.draw.rect(screen, METAL_LIGHT, (safe_x, shelf_y + 10, 40, 35), 2, border_radius=3)
-        pygame.draw.circle(screen, ACCENT_GOLD, (safe_x + 20, shelf_y + 27), 8)
+        # 4. STARBANK 로고 (상단 중앙)
+        sign_y = -cam_y + 25
+        sign_x = cx - cam_x
 
-        # 3-2. 유로(€) 심볼 (왼쪽 상단)
-        euro_x = -cam_x + 180
-        euro_y = -cam_y + 35
+        # 로고 배경 패널
+        panel_w, panel_h = 160, 36
+        pygame.draw.rect(screen, (15, 22, 35), (sign_x - panel_w//2, sign_y - 5, panel_w, panel_h), border_radius=6)
+        pygame.draw.rect(screen, ACCENT_CYAN, (sign_x - panel_w//2, sign_y - 5, panel_w, panel_h), 2, border_radius=6)
+
+        # 로고 글로우
+        glow_intensity = int(40 + 20 * math.sin(self.animation_timer * 2))
+        glow_surf = pygame.Surface((panel_w + 20, panel_h + 20), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*ACCENT_CYAN, glow_intensity), (0, 0, panel_w + 20, panel_h + 20), border_radius=10)
+        screen.blit(glow_surf, (sign_x - panel_w//2 - 10, sign_y - 15))
+
+        # 로고 텍스트
         font_large = self.fonts.get('large')
         if font_large:
-            euro_surf, _ = font_large.render("€", ACCENT_CYAN)
-            screen.blit(euro_surf, (euro_x, euro_y))
+            text_surf, text_rect = font_large.render("STARBANK", ACCENT_CYAN)
+            screen.blit(text_surf, (sign_x - text_rect.width // 2, sign_y + 2))
 
-        # 3-3. STARBANK 네온 간판 (상단 중앙)
-        sign_text = "STARBANK"
-        sign_x = self.pixel_width // 2 - cam_x
-        sign_y = -cam_y + 25
+        # 5. 은행 카운터 (메인 - 플레이어 통과 불가)
+        counter_w = self.pixel_width - 100
+        counter_h = 40
+        counter_x = -cam_x + 50
+        counter_y = -cam_y + wall_h + 15
 
-        # 네온 글로우 효과
-        glow_alpha = int(180 + 50 * math.sin(self.animation_timer * 2))
-        for i in range(3):
-            glow_surf = pygame.Surface((200 + i*20, 50 + i*10), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surf, (*ACCENT_CYAN, glow_alpha // (i+2)),
-                           (0, 0, 200 + i*20, 50 + i*10), border_radius=10)
-            screen.blit(glow_surf, (sign_x - 100 - i*10, sign_y - 10 - i*5))
+        # 카운터 저장 (충돌 체크용)
+        self.bank_counter_rect = pygame.Rect(50, wall_h + 15, counter_w, counter_h)
 
-        # 간판 배경
-        sign_bg = pygame.Rect(sign_x - 90, sign_y - 5, 180, 40)
-        pygame.draw.rect(screen, (20, 30, 45), sign_bg, border_radius=8)
-        pygame.draw.rect(screen, ACCENT_CYAN, sign_bg, 3, border_radius=8)
+        # 카운터 그림자
+        shadow_surf = pygame.Surface((counter_w + 10, 8), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 0, counter_w + 10, 8))
+        screen.blit(shadow_surf, (counter_x - 5, counter_y + counter_h))
 
-        # 간판 텍스트
-        if font_large:
-            sign_surf, sign_rect = font_large.render(sign_text, ACCENT_CYAN)
-            screen.blit(sign_surf, (sign_x - sign_rect.width // 2, sign_y))
+        # 카운터 본체
+        pygame.draw.rect(screen, WHITE, (counter_x, counter_y, counter_w, counter_h), border_radius=4)
+        pygame.draw.rect(screen, GRAY_LIGHT, (counter_x, counter_y, counter_w, counter_h), 2, border_radius=4)
 
-        # 4. 은행 카운터 (중앙 하단)
-        counter_w = self.pixel_width - 80
-        counter_h = 45
-        counter_x = -cam_x + 40
-        counter_y = -cam_y + wall_h + 30
+        # 카운터 상단 LED 라인
+        pygame.draw.rect(screen, ACCENT_CYAN, (counter_x + 2, counter_y + 2, counter_w - 4, 4), border_radius=2)
 
-        # 카운터 본체 (흰색/회색)
-        pygame.draw.rect(screen, (220, 225, 230), (counter_x, counter_y, counter_w, counter_h))
-        pygame.draw.rect(screen, (180, 185, 195), (counter_x, counter_y, counter_w, counter_h), 3)
+        # 카운터 중앙 심볼 (별)
+        star_cx = counter_x + counter_w // 2
+        star_cy = counter_y + counter_h // 2 + 3
+        self._draw_star_symbol(screen, star_cx, star_cy, 10, GOLD)
 
-        # 카운터 상단 라인 (시안 네온)
-        pygame.draw.rect(screen, ACCENT_CYAN, (counter_x, counter_y, counter_w, 5))
+        # 6. 데스크 뒤 로봇 2대 (장식용 - 다른 스타일)
+        robot_y = counter_y - 5  # 카운터 바로 위
 
-        # 카운터 하단 (어두운 부분)
-        pygame.draw.rect(screen, (100, 120, 150), (counter_x, counter_y + counter_h - 15, counter_w, 15))
+        # 왼쪽 로봇 (둥근 타입)
+        robot1_x = counter_x + counter_w // 3
+        self._draw_desk_robot_round(screen, robot1_x, robot_y, self.animation_timer, 0)
 
-        # 비트코인 심볼 (카운터 중앙)
-        btc_x = counter_x + counter_w // 2
-        btc_y = counter_y + counter_h // 2
-        pygame.draw.circle(screen, (50, 80, 120), (btc_x, btc_y), 15)
-        font_medium = self.fonts.get('medium')
-        if font_medium:
-            btc_surf, _ = font_medium.render("₿", ACCENT_GOLD)
-            screen.blit(btc_surf, (btc_x - 8, btc_y - 10))
+        # 오른쪽 로봇 (각진 타입)
+        robot2_x = counter_x + counter_w * 2 // 3
+        self._draw_desk_robot_angular(screen, robot2_x, robot_y, self.animation_timer, 1)
 
-        # 5. 좌우 벽 장식
-        # 왼쪽 - 소 두개골 (장식)
-        skull_x = -cam_x + 15
-        skull_y = -cam_y + 30
-        pygame.draw.ellipse(screen, METAL_LIGHT, (skull_x, skull_y, 30, 25))
-        pygame.draw.ellipse(screen, METAL_GRAY, (skull_x, skull_y, 30, 25), 2)
-        # 뿔
-        pygame.draw.polygon(screen, METAL_GRAY, [(skull_x + 5, skull_y + 5), (skull_x - 10, skull_y - 15), (skull_x + 10, skull_y + 2)])
-        pygame.draw.polygon(screen, METAL_GRAY, [(skull_x + 25, skull_y + 5), (skull_x + 40, skull_y - 15), (skull_x + 20, skull_y + 2)])
+        # 7. 사이드 모니터 패널 (좌우 벽)
+        # 왼쪽 모니터
+        mon_x = -cam_x + 25
+        mon_y = -cam_y + 50
+        self._draw_wall_monitor(screen, mon_x, mon_y, ACCENT_CYAN, self.animation_timer)
 
-        # 오른쪽 상단 - 열쇠 아이콘 (금색)
-        key_x = self.pixel_width - cam_x - 60
-        key_y = -cam_y + 60
-        # 열쇠 머리
-        pygame.draw.circle(screen, ACCENT_GOLD, (key_x, key_y), 12)
-        pygame.draw.circle(screen, (200, 160, 60), (key_x, key_y), 8)
-        # 열쇠 몸통
-        pygame.draw.rect(screen, ACCENT_GOLD, (key_x - 3, key_y + 10, 6, 30))
-        # 열쇠 이빨
-        pygame.draw.rect(screen, ACCENT_GOLD, (key_x + 3, key_y + 30, 8, 4))
-        pygame.draw.rect(screen, ACCENT_GOLD, (key_x + 3, key_y + 36, 5, 4))
+        # 오른쪽 모니터
+        mon_x2 = self.pixel_width - cam_x - 85
+        self._draw_wall_monitor(screen, mon_x2, mon_y, GOLD, self.animation_timer + 1)
 
-        # 6. 양쪽 의자/벤치
-        bench_color = (60, 80, 110)
-        # 왼쪽 벤치들
-        for i in range(2):
-            bx = -cam_x + 50
-            by = self.pixel_height - cam_y - 120 - i * 60
-            pygame.draw.rect(screen, bench_color, (bx, by, 60, 25), border_radius=5)
-            pygame.draw.rect(screen, METAL_GRAY, (bx, by, 60, 25), 2, border_radius=5)
+        # 8. 바닥 가이드 라인 (미니멀)
+        line_y = self.pixel_height - cam_y - 80
+        pygame.draw.line(screen, ACCENT_CYAN_DIM, (-cam_x + 60, line_y), (self.pixel_width - cam_x - 60, line_y), 1)
 
-        # 오른쪽 벤치들
-        for i in range(2):
-            bx = self.pixel_width - cam_x - 110
-            by = self.pixel_height - cam_y - 120 - i * 60
-            pygame.draw.rect(screen, bench_color, (bx, by, 60, 25), border_radius=5)
-            pygame.draw.rect(screen, METAL_GRAY, (bx, by, 60, 25), 2, border_radius=5)
-
-        # 7. 바닥 러그/카펫 (중앙)
-        rug_w = 180
-        rug_h = 120
-        rug_x = self.pixel_width // 2 - cam_x - rug_w // 2
-        rug_y = self.pixel_height - cam_y - 180
-
-        # 러그 배경
-        rug_color = (80, 90, 110)
-        pygame.draw.rect(screen, rug_color, (rug_x, rug_y, rug_w, rug_h), border_radius=5)
-        pygame.draw.rect(screen, (100, 110, 130), (rug_x, rug_y, rug_w, rug_h), 2, border_radius=5)
-
-        # 러그 패턴 (눈 모양)
-        eye_cx = rug_x + rug_w // 2
-        eye_cy = rug_y + rug_h // 2
-        # 외곽 타원
-        pygame.draw.ellipse(screen, (100, 110, 130), (eye_cx - 50, eye_cy - 25, 100, 50), 3)
-        # 내부 원
-        pygame.draw.circle(screen, (90, 100, 120), (eye_cx, eye_cy), 20)
-        pygame.draw.circle(screen, (110, 120, 140), (eye_cx, eye_cy), 10)
-
-        # 8. 문 그리기
+        # 9. 문 그리기
         self._draw_door(screen)
 
-        # 9. 별 아이콘 (우측 하단)
-        star_x = self.pixel_width - cam_x - 40
-        star_y = self.pixel_height - cam_y - 50
-        star_size = 12
-        star_points = []
+    def _draw_star_symbol(self, screen, cx, cy, size, color):
+        """별 심볼 그리기"""
+        points = []
         for i in range(10):
             angle = -math.pi / 2 + (i * math.pi / 5)
-            radius = star_size if i % 2 == 0 else star_size * 0.5
-            px = star_x + radius * math.cos(angle)
-            py = star_y + radius * math.sin(angle)
-            star_points.append((px, py))
-        pygame.draw.polygon(screen, ACCENT_GOLD, star_points)
+            r = size if i % 2 == 0 else size * 0.4
+            points.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
+        pygame.draw.polygon(screen, color, points)
+
+    def _draw_desk_robot_round(self, screen, x, y, anim_timer, robot_id):
+        """둥근 타입 로봇 (데스크 뒤)"""
+        # 색상
+        BODY = (160, 175, 195)
+        BODY_DARK = (120, 135, 155)
+        BODY_LIGHT = (200, 210, 225)
+        LED = (100, 220, 180)  # 초록 계열
+
+        hover = int(1.5 * math.sin(anim_timer * 2.5 + robot_id))
+
+        # 몸통 (둥근)
+        pygame.draw.ellipse(screen, BODY, (x - 12, y - 28 + hover, 24, 22))
+        pygame.draw.ellipse(screen, BODY_LIGHT, (x - 12, y - 28 + hover, 24, 22), 2)
+
+        # 가슴 LED
+        led_glow = int(200 + 55 * math.sin(anim_timer * 4))
+        pygame.draw.circle(screen, LED, (x, y - 18 + hover), 4)
+
+        # 머리 (구형)
+        head_y = y - 38 + hover
+        pygame.draw.circle(screen, BODY, (x, head_y), 10)
+        pygame.draw.circle(screen, BODY_LIGHT, (x, head_y), 10, 2)
+
+        # 눈 (바이저)
+        pygame.draw.rect(screen, (20, 30, 40), (x - 7, head_y - 2, 14, 5), border_radius=2)
+        eye_off = int(2 * math.sin(anim_timer * 1.5))
+        pygame.draw.circle(screen, LED, (x - 3 + eye_off, head_y), 2)
+        pygame.draw.circle(screen, LED, (x + 3 + eye_off, head_y), 2)
+
+        # 안테나
+        pygame.draw.line(screen, BODY_DARK, (x, head_y - 10), (x, head_y - 16), 2)
+        pygame.draw.circle(screen, LED, (x, head_y - 17), 3)
+
+    def _draw_desk_robot_angular(self, screen, x, y, anim_timer, robot_id):
+        """각진 타입 로봇 (데스크 뒤)"""
+        # 색상
+        BODY = (140, 150, 170)
+        BODY_DARK = (100, 110, 130)
+        BODY_LIGHT = (180, 190, 210)
+        LED = (255, 180, 80)  # 오렌지 계열
+
+        hover = int(1.5 * math.sin(anim_timer * 2.5 + robot_id + 1))
+
+        # 몸통 (각진 박스)
+        pygame.draw.rect(screen, BODY, (x - 10, y - 28 + hover, 20, 20), border_radius=3)
+        pygame.draw.rect(screen, BODY_LIGHT, (x - 10, y - 28 + hover, 20, 20), 2, border_radius=3)
+
+        # 가슴 패널
+        pygame.draw.rect(screen, BODY_DARK, (x - 6, y - 24 + hover, 12, 8), border_radius=2)
+        # LED 바
+        for i in range(3):
+            blink = (int(anim_timer * 5) + i) % 3
+            c = LED if blink == 0 else (60, 70, 80)
+            pygame.draw.rect(screen, c, (x - 4 + i * 4, y - 22 + hover, 3, 4))
+
+        # 머리 (직사각형)
+        head_y = y - 40 + hover
+        pygame.draw.rect(screen, BODY, (x - 8, head_y, 16, 12), border_radius=2)
+        pygame.draw.rect(screen, BODY_LIGHT, (x - 8, head_y, 16, 12), 2, border_radius=2)
+
+        # 눈 (단일 바이저)
+        pygame.draw.rect(screen, (15, 20, 30), (x - 6, head_y + 3, 12, 4), border_radius=1)
+        scan_x = int(4 * math.sin(anim_timer * 2))
+        pygame.draw.rect(screen, LED, (x - 2 + scan_x, head_y + 4, 4, 2))
+
+        # 안테나 (2개)
+        pygame.draw.line(screen, BODY_DARK, (x - 4, head_y), (x - 6, head_y - 6), 2)
+        pygame.draw.line(screen, BODY_DARK, (x + 4, head_y), (x + 6, head_y - 6), 2)
+        pygame.draw.circle(screen, LED, (x - 6, head_y - 7), 2)
+        pygame.draw.circle(screen, LED, (x + 6, head_y - 7), 2)
+
+    def _draw_wall_monitor(self, screen, x, y, accent_color, anim_timer):
+        """벽면 모니터 패널"""
+        w, h = 60, 45
+        # 프레임
+        pygame.draw.rect(screen, (40, 50, 65), (x, y, w, h), border_radius=4)
+        pygame.draw.rect(screen, (80, 95, 115), (x, y, w, h), 2, border_radius=4)
+
+        # 스크린
+        pygame.draw.rect(screen, (15, 20, 30), (x + 4, y + 4, w - 8, h - 8), border_radius=2)
+
+        # 그래프 라인 (애니메이션)
+        for i in range(5):
+            lx = x + 8 + i * 10
+            ly = y + h - 12 - int(8 * math.sin(anim_timer * 2 + i * 0.8))
+            pygame.draw.line(screen, accent_color, (lx, y + h - 10), (lx, ly), 2)
+
+        # 상태 LED
+        pygame.draw.circle(screen, accent_color, (x + w - 10, y + 10), 3)
 
     def _draw_floor(self, screen):
         """바닥 타일 그리기"""
