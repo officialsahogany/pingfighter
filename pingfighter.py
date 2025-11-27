@@ -1714,6 +1714,7 @@ optimus_charge_active = False
 optimus_charge_hold_ms = 0
 optimus_charge_last_update_ms = 0
 optimus_charge_anim_tick_ms = 0
+optimus_charge_lock_until_ms = 0  # 충전 종료 후 통제불능 종료 시각
 PLAYER_PADDLE_SCALE_BY_MODE: dict[str, float] = {
     "junior": 1.2,
     "주니어": 1.2,
@@ -5130,6 +5131,7 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     optimus_charge_hold_ms = 0
     optimus_charge_last_update_ms = 0
     optimus_charge_anim_tick_ms = 0
+    optimus_charge_lock_until_ms = 0
     optimus_last_round_marker = round_start_time if "round_start_time" in globals() else optimus_last_round_marker
     _recalculate_optimus_gauge_scale()
     apply_equipment_paddle_modifiers()
@@ -28763,6 +28765,7 @@ def handle_player(keys):
     # 이벤트 기반 이동 플래그(포커스 상실 대비)
     global MOVE_EVENT_LEFT, MOVE_EVENT_RIGHT, MOVE_EVENT_DOWN, MOVE_EVENT_UP
     global optimus_charge_active, optimus_charge_hold_ms, optimus_charge_last_update_ms, optimus_charge_anim_tick_ms
+    global optimus_charge_lock_until_ms
 
     # 넉백 저항 100%일 때 잔여 넉백 이동/오프셋을 즉시 제거
     clear_player_knockback_if_immune()
@@ -28783,6 +28786,7 @@ def handle_player(keys):
         global special_gauge, special_ready  # 실제 게이지를 수정하려면 전역 참조가 필요
         if selected_character_type != "optimus":
             return
+        prev_charge_active = optimus_charge_active
         # 충전 불가 조건
         if (
             globals().get("optimus_drained", False)
@@ -28846,6 +28850,9 @@ def handle_player(keys):
 
             optimus_charge_last_update_ms = now_ms
         else:
+            # 충전 종료: 0.5초 통제불능 (입력 차단용 타임스탬프)
+            if prev_charge_active:
+                optimus_charge_lock_until_ms = now_ms + 500
             optimus_charge_active = False
             optimus_charge_hold_ms = 0
             optimus_charge_last_update_ms = now_ms
@@ -31385,7 +31392,25 @@ def handle_player(keys):
                 # left_pressed_raw/right_pressed_raw에 반영한다. 여기서는 그 병합 결과를 사용한다.
                 left_pressed = left_pressed_raw
                 right_pressed = right_pressed_raw
-                
+
+                # 옵티머스 충전 중/방금 해제 후에는 좌우 이동 입력을 완전히 차단
+                if selected_character_type == "optimus":
+                    now_ms_local = pygame.time.get_ticks()
+                    lock_until = globals().get("optimus_charge_lock_until_ms", 0)
+                    # 통제불능 시간 경과 시 타임스탬프 정리
+                    if lock_until and now_ms_local >= lock_until:
+                        optimus_charge_lock_until_ms = 0
+                        lock_until = 0
+                    optimus_movement_locked = (
+                        globals().get("optimus_charge_active", False)
+                        or (lock_until and now_ms_local < lock_until)
+                    )
+                    if optimus_movement_locked:
+                        left_pressed = False
+                        right_pressed = False
+                        MOVE_EVENT_LEFT = False
+                        MOVE_EVENT_RIGHT = False
+
                 # 튜토리얼 드라이브 알림창 화살표 키로 비활성화 (임시 비활성화 - 디버깅용)
                 # TODO: 드라이브 알림창이 제대로 표시되는지 확인 후 다시 활성화
                 # if current_stage == 50 and 'tutorial_drive_reminder_active' in globals():

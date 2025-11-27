@@ -1356,8 +1356,8 @@ class BuildingInterior:
 
         # 은행 메뉴 상태 (STARBANK 전용)
         self.bank_menu_open = False
-        self.bank_menu_selection = 0  # 0: 환전, 1: 예금, 2: 나가기
-        self.bank_menu_items = ["환전", "예금", "나가기"]
+        self.bank_menu_selection = 0  # 0: 환전, 1: 예금/출금, 2: 나가기
+        self.bank_menu_items = ["환전", "예금/출금", "나가기"]
 
         # 환전 창 상태
         self.exchange_menu_open = False
@@ -1899,7 +1899,7 @@ class BuildingInterior:
             self.exchange_amount = 1
             self.exchange_direction = 0
             return ("bank_exchange", None)
-        elif selected == "예금":
+        elif selected == "예금/출금":
             self.bank_menu_open = False
             self.deposit_menu_open = True
             self.deposit_tab = 0  # 기본: 예금 탭
@@ -2639,8 +2639,8 @@ class BuildingInterior:
                         (icon_x + 16, icon_y), (icon_x + 10, icon_y - 4), (icon_x + 10, icon_y + 4)
                     ])
                     pygame.draw.rect(screen, TEXT_GOLD, (icon_x + 4, icon_y - 1, 8, 2))
-                elif item == "예금":
-                    # 예금 아이콘: 동전 (●)
+                elif item == "예금/출금":
+                    # 예금/출금 아이콘: 동전 (●)
                     pygame.draw.circle(screen, TEXT_GOLD, (icon_x + 8, icon_y), 7)
                     pygame.draw.circle(screen, (180, 140, 50), (icon_x + 8, icon_y), 7, 1)
                     pygame.draw.line(screen, (180, 140, 50), (icon_x + 8, icon_y - 4), (icon_x + 8, icon_y + 4), 1)
