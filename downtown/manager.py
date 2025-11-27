@@ -804,70 +804,40 @@ class DowntownManager:
         self.screen.blit(text_surface, (star_x + star_size + 10, star_y - 6))
 
     def _draw_star_icon(self, screen, cx, cy, size):
-        """5각 별 아이콘 그리기"""
+        """5각 별 아이콘 그리기 - 아카데미 스타일"""
         import math
 
-        # 별 서피스 생성
-        star_surf = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
-        center = size + 2
-
-        # 색상 정의
-        star_yellow = (255, 220, 100)     # 노란색
-        star_gold = (255, 200, 50)         # 진한 금색
-        star_light = (255, 245, 200)       # 밝은 노란색
-        star_dark = (200, 150, 30)         # 어두운 금색
-
-        # 5각 별 포인트 계산
-        points = []
+        # 메인 별 포인트 계산
+        star_points = []
         for i in range(10):
             angle = -math.pi / 2 + (i * math.pi / 5)  # 위쪽부터 시작
-            if i % 2 == 0:
-                # 외부 꼭지점
-                radius = size
-            else:
-                # 내부 꼭지점
-                radius = size * 0.4
-            x = center + radius * math.cos(angle)
-            y = center + radius * math.sin(angle)
-            points.append((x, y))
+            radius = size if i % 2 == 0 else size * 0.5
+            px = cx + radius * math.cos(angle)
+            py = cy + radius * math.sin(angle)
+            star_points.append((px, py))
 
-        # 그림자 (약간 아래 오른쪽)
-        shadow_points = [(x + 2, y + 2) for x, y in points]
-        pygame.draw.polygon(star_surf, (0, 0, 0, 100), shadow_points)
+        # 메인 별 그리기 (노란색)
+        pygame.draw.polygon(screen, (255, 255, 100), star_points)
 
-        # 별 외곽 (어두운 금색)
-        pygame.draw.polygon(star_surf, star_dark, points)
+        # 외곽선 그리기 (금색)
+        pygame.draw.polygon(screen, (255, 215, 0), star_points, 2)
 
-        # 별 메인 (노란색 - 약간 작게)
-        inner_points = []
+        # 광택 효과 (작은 별)
+        gloss_points = []
         for i in range(10):
             angle = -math.pi / 2 + (i * math.pi / 5)
-            if i % 2 == 0:
-                radius = size - 1
-            else:
-                radius = size * 0.4 - 1
-            x = center + radius * math.cos(angle)
-            y = center + radius * math.sin(angle)
-            inner_points.append((x, y))
-        pygame.draw.polygon(star_surf, star_yellow, inner_points)
+            radius = size * 0.3 if i % 2 == 0 else size * 0.15
+            px = cx + radius * math.cos(angle)
+            py = cy - 2 + radius * math.sin(angle)  # 약간 위로
+            gloss_points.append((px, py))
 
-        # 하이라이트 (상단 왼쪽)
-        highlight_points = []
-        for i in range(5):  # 상단 절반만
-            angle = -math.pi / 2 + (i * 2 * math.pi / 5)
-            radius = size * 0.6
-            x = center + radius * math.cos(angle)
-            y = center + radius * math.sin(angle)
-            highlight_points.append((x, y))
-        if len(highlight_points) >= 3:
-            pygame.draw.polygon(star_surf, star_light, highlight_points)
-
-        # 중앙 반짝임
-        pygame.draw.circle(star_surf, star_light, (center, center), size // 4)
-        pygame.draw.circle(star_surf, (255, 255, 255), (center - 2, center - 2), 2)
-
-        # 화면에 그리기
-        screen.blit(star_surf, (cx - size - 2, cy - size - 2))
+        # 광택 별 그리기 (밝은 노란색, 반투명)
+        gloss_surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+        gloss_offset_x = size * 2 - cx
+        gloss_offset_y = size * 2 - cy
+        adjusted_gloss_points = [(px + gloss_offset_x, py + gloss_offset_y) for px, py in gloss_points]
+        pygame.draw.polygon(gloss_surf, (255, 255, 200, 180), adjusted_gloss_points)
+        screen.blit(gloss_surf, (cx - size * 2, cy - size * 2))
 
     def _draw_gold_coin(self, screen, x, y, size):
         """금화 아이콘 그리기 - 입체감 있는 동전"""
