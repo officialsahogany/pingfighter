@@ -5049,7 +5049,7 @@ OPTIMUS_MAX_GAUGE = 500                          # 시작/최대 배터리 용�
 OPTIMUS_GAUGE_DRAIN_PER_SEC = 10                 # 초당 배터리 소모량
 OPTIMUS_MIN_PADDLE_WIDTH = 50                    # 방전 시 패들 최소 너비
 OPTIMUS_CHARGE_HOLD_MS = 500                     # 충전 시작까지 누르고 있을 시간
-OPTIMUS_CHARGE_RATE_PER_SEC = 15                 # 충전 중 초당 게이지 회복량
+OPTIMUS_CHARGE_RATE_PER_SEC = 20                 # 충전 중 초당 게이지 회복량 (요청: 초당 20)
 
 OPTIMUS_MECHA_PALETTE = {
     # 실버+네온 청록 기반 테슬라 사이버 로봇 컬러링
@@ -5709,7 +5709,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
             knuckle_y = fist_cy - 10
             for ki, kx_off in enumerate([-10, -3, 4, 11]):
                 knuckle_rect = pygame.Rect(fist_cx + kx_off - 5, knuckle_y - 6, 10, 14)
-                pygame.draw.rect(surface, palette["shoulder"], knuckle_rect, border_radius=3)
+                pygame.draw.rect(surface, palette["body"], knuckle_rect, border_radius=3)
                 pygame.draw.rect(surface, palette["accent"], knuckle_rect, 1, border_radius=3)
                 # 너클 LED
                 led_pulse = int(180 + 75 * math.sin(phase * math.tau * 4 + ki * 0.5))
@@ -5744,12 +5744,12 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                 finger_x = fist_cx - 10 + fi * 7
                 finger_y = fist_cy - 18
                 pygame.draw.circle(surface, palette["hand"], (finger_x, finger_y), 5)
-                pygame.draw.circle(surface, palette["shoulder"], (finger_x, finger_y), 4)
+                pygame.draw.circle(surface, palette["body"], (finger_x, finger_y), 4)
 
             # 엄지 (주먹 옆)
             thumb_pts = [(fist_cx + 20, fist_cy - 4), (fist_cx + 26, fist_cy + 2), (fist_cx + 24, fist_cy + 10)]
             pygame.draw.polygon(surface, palette["hand"], thumb_pts)
-            pygame.draw.polygon(surface, palette["shoulder"], thumb_pts, 2)
+            pygame.draw.polygon(surface, palette["body"], thumb_pts, 2)
 
             # 주먹 외곽 LED 링
             pygame.draw.ellipse(surface, palette["accent"], fist_rect, 2)
@@ -28741,8 +28741,6 @@ def handle_player(keys):
             or rolling_active
             or rolling_stun_timer > 0
             or player_stunned
-            or is_waiting_for_serve
-            or is_player_serve
             or half_dash_used_flag
             or long_boost_active  # 거대화포션 중에는 강제 이동 방지를 위해 충전 비활성화
         ):
@@ -28756,6 +28754,7 @@ def handle_player(keys):
             delta = now_ms - optimus_charge_last_update_ms
             optimus_charge_hold_ms += delta
             optimus_charge_last_update_ms = now_ms
+            optimus_charge_anim_tick_ms = now_ms  # 전기 효과 타이밍 초기화
             # 준비 시간 충족 시 충전 시작
             if (not optimus_charge_active) and optimus_charge_hold_ms >= OPTIMUS_CHARGE_HOLD_MS:
                 optimus_charge_active = True
@@ -28764,6 +28763,7 @@ def handle_player(keys):
             optimus_charge_active = False
             optimus_charge_hold_ms = 0
             optimus_charge_last_update_ms = now_ms
+            optimus_charge_anim_tick_ms = 0
 
         if optimus_charge_active and down_held:
             elapsed = now_ms - optimus_charge_last_update_ms
@@ -28787,8 +28787,19 @@ def handle_player(keys):
                     effects_manager.spawn_star_particles(
                         PLAYER.centerx,
                         PLAYER.centery,
-                        count=8,
+                        count=14,
                         color=(120, 235, 255),
+                        spread=90,
+                        speed_range=(4, 9),
+                    )
+                    # 전기 스파크 라인 추가로 더 명확한 피드백
+                    effects_manager.spawn_lightning_arc(
+                        start_pos=(PLAYER.centerx, PLAYER.centery - 20),
+                        end_pos=(PLAYER.centerx + random.randint(-40, 40), PLAYER.centery + random.randint(-10, 10)),
+                        color=(150, 240, 255),
+                        thickness=2,
+                        jaggedness=6,
+                        lifetime_ms=80,
                     )
                 except Exception:
                     pass
