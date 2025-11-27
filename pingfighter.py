@@ -5049,7 +5049,7 @@ OPTIMUS_MAX_GAUGE = 500                          # 시작/최대 배터리 용�
 OPTIMUS_GAUGE_DRAIN_PER_SEC = 10                 # 초당 배터리 소모량
 OPTIMUS_MIN_PADDLE_WIDTH = 50                    # 방전 시 패들 최소 너비
 OPTIMUS_CHARGE_HOLD_MS = 500                     # 충전 시작까지 누르고 있을 시간
-OPTIMUS_CHARGE_RATE_PER_SEC = 20                 # 충전 중 초당 게이지 회복량 (요청: 초당 20)
+OPTIMUS_CHARGE_RATE_PER_SEC = 40                 # 충전 중 초당 게이지 회복량 (요청: 초당 40)
 
 OPTIMUS_MECHA_PALETTE = {
     # 실버+네온 청록 기반 테슬라 사이버 로봇 컬러링
@@ -6362,6 +6362,49 @@ def create_optimus_paddle_walking() -> pygame.Surface:
         return create_optimus_paddle_surface()
     phase = (optimus_walking_timer % OPTIMUS_WALKING_CYCLE) / OPTIMUS_WALKING_CYCLE
     return create_optimus_paddle_surface(phase)
+
+
+def apply_optimus_charge_overlay(surface: pygame.Surface, time_now: int) -> pygame.Surface:
+    """옵티머스 수동 충전 시 온몸을 타고 흐르는 전기 오버레이를 입힌다."""
+    width, height = surface.get_size()
+    overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+
+    rng = random.Random(int(time_now // 45))  # 프레임마다 일관된 패턴을 유지
+
+    # 상하로 이동하는 에너지 스캔 라인
+    sweep_h = max(8, height // 12)
+    sweep_y = int((time_now * 0.22) % (height + sweep_h)) - sweep_h
+    pygame.draw.rect(overlay, (120, 235, 255, 70), (0, sweep_y, width, sweep_h))
+    pygame.draw.rect(overlay, (80, 200, 255, 50), (0, max(0, sweep_y - sweep_h // 2), width, sweep_h // 2))
+
+    # 몸 전체를 관통하는 번개 아크들
+    arc_count = 6
+    segments = 6
+    for _ in range(arc_count):
+        base_x = rng.randint(int(width * 0.2), int(width * 0.8))
+        y = -rng.randint(0, height // 8)
+        points: list[tuple[int, int]] = []
+        for _step in range(segments):
+            jitter_x = rng.randint(-18, 18)
+            jitter_y = rng.randint(-10, 10)
+            y += height // segments
+            points.append((int(base_x + jitter_x), int(y + jitter_y)))
+
+        main_color = (150, 245, 255, rng.randint(170, 230))
+        glow_color = (110, 220, 255, 150)
+        pygame.draw.lines(overlay, main_color, False, points, 3)
+        pygame.draw.lines(overlay, (255, 255, 255, 200), False, points, 1)
+        for px, py in points:
+            pygame.draw.circle(overlay, glow_color, (int(px), int(py)), 5)
+
+    # 실루엣 글로우로 전류가 몸통 전체를 감싸는 느낌 강화
+    edge = pygame.Surface((width, height), pygame.SRCALPHA)
+    pygame.draw.rect(edge, (100, 210, 255, 70), edge.get_rect(), width=4)
+    overlay.blit(edge, (0, 0), special_flags=pygame.BLEND_ADD)
+
+    charged = surface.copy()
+    charged.blit(overlay, (0, 0), special_flags=pygame.BLEND_ADD)
+    return charged
 
 
 SMASHER_PADDLE_IMG = create_smasher_paddle_surface()
@@ -28751,29 +28794,22 @@ def handle_player(keys):
         ):
             optimus_charge_active = False
             optimus_charge_hold_ms = 0
+            optimus_charge_last_update_ms = now_ms
+            optimus_charge_anim_tick_ms = 0
             return
 
         if down_held:
             if optimus_charge_last_update_ms == 0:
                 optimus_charge_last_update_ms = now_ms
-            delta = now_ms - optimus_charge_last_update_ms
-            optimus_charge_hold_ms += delta
-            optimus_charge_last_update_ms = now_ms
-            optimus_charge_anim_tick_ms = now_ms  # 전기 효과 타이밍 초기화
-            # 준비 시간 충족 시 충전 시작
+            delta_ms = max(0, now_ms - optimus_charge_last_update_ms)
+            optimus_charge_hold_ms += delta_ms
+
             if (not optimus_charge_active) and optimus_charge_hold_ms >= OPTIMUS_CHARGE_HOLD_MS:
                 optimus_charge_active = True
-                optimus_charge_anim_tick_ms = now_ms
-        else:
-            optimus_charge_active = False
-            optimus_charge_hold_ms = 0
-            optimus_charge_last_update_ms = now_ms
-            optimus_charge_anim_tick_ms = 0
+                optimus_charge_anim_tick_ms = now_ms  # 시작 즉시 첫 스파크 표시
 
-        if optimus_charge_active and down_held:
-            elapsed = now_ms - optimus_charge_last_update_ms
-            if elapsed > 0:
-                charge_gain = OPTIMUS_CHARGE_RATE_PER_SEC * (elapsed / 1000.0)
+            if optimus_charge_active and delta_ms > 0:
+                charge_gain = OPTIMUS_CHARGE_RATE_PER_SEC * (delta_ms / 1000.0)
                 current_max = get_max_gauge()
                 new_gauge = min(current_max, special_gauge + charge_gain)
                 if new_gauge != special_gauge:
@@ -28784,10 +28820,8 @@ def handle_player(keys):
                         game_state.special_ready = special_ready
                     except Exception:
                         pass
-                optimus_charge_last_update_ms = now_ms
 
-            # 간단한 전기 이펙트
-            if now_ms - optimus_charge_anim_tick_ms >= 120:
+            if optimus_charge_active and now_ms - optimus_charge_anim_tick_ms >= 120:
                 try:
                     effects_manager.spawn_star_particles(
                         PLAYER.centerx,
@@ -28809,6 +28843,13 @@ def handle_player(keys):
                 except Exception:
                     pass
                 optimus_charge_anim_tick_ms = now_ms
+
+            optimus_charge_last_update_ms = now_ms
+        else:
+            optimus_charge_active = False
+            optimus_charge_hold_ms = 0
+            optimus_charge_last_update_ms = now_ms
+            optimus_charge_anim_tick_ms = 0
         # 디버그: 충전 입력 및 차단 사유 로깅 (환경변수 PINGF_CHARGE_DEBUG=1)
         if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off"):
             print(
@@ -32936,6 +32977,10 @@ trade_point_stars = []  # 모든 스테이지의 트레이드 포인트 별 리�
 trade_point_particles = []  # 형광가루 파티클 효과 리스트
 trade_point_collected = 0  # 현재 스테이지에서 수집한 트레이드 포인트
 trade_point_texts = []  # 트레이드 포인트 획득 시 표시할 텍스트 효과
+
+# 은행 예금 시스템 (스테이지 간 유지)
+deposit_balance = 0  # 예금 잔액
+deposit_interest_rate = 0.0  # 현재 적용될 이자율 (다음 스테이지에 적용)
 
 # 승리 화면 가챠 연속 사용 보너스 추적
 GACHA_REROLL_LIMIT_PER_STAGE = 5  # 스테이지당 허용되는 최대 추가 가챠 횟수
@@ -46070,6 +46115,13 @@ def draw_objects():
                     flame_rect.midleft = attach_point
                 draw_with_shake(flame_surface, flame_rect.topleft)
 
+    # 옵티머스 수동 충전 시 전신을 타고 흐르는 전기 오버레이 적용
+    if (
+        selected_character_type == "optimus"
+        and globals().get("optimus_charge_active", False)
+    ):
+        rotated_player = apply_optimus_charge_overlay(rotated_player, time_now)
+
     # UFO 이미지 그리기 (화면 흔들림 효과 적용 - 최적화 버전)
     if special_ready:
         if (time_now // 250) % 2 == 0:
@@ -48600,6 +48652,8 @@ def run_downtown_hub(next_stage_display: int) -> None:
     - 기존 SCREEN을 그대로 사용해 창 전환 없이 진입.
     - 간단한 플레이어 데이터만 전달 (추가 자원 연동은 이후 확장).
     """
+    global deposit_balance, deposit_interest_rate
+
     try:
         screen = pygame.display.get_surface() or SCREEN
         # 이전 화면에서 남은 QUIT/KEY 이벤트가 바로 종료시키지 않도록 큐 비움
@@ -48609,6 +48663,9 @@ def run_downtown_hub(next_stage_display: int) -> None:
             "items": [],
             "buffs": [],
             "character_type": selected_character_type if "selected_character_type" in globals() else "smasher",
+            # 은행 예금 데이터 (스테이지 간 유지)
+            "deposit_balance": deposit_balance,
+            "last_interest_rate": deposit_interest_rate,
         }
         manager = DowntownManager(screen, academy=academy)
         manager.initialize(stage_number=next_stage_display, player_data=player_data)
@@ -48619,6 +48676,11 @@ def run_downtown_hub(next_stage_display: int) -> None:
             pass
         # BGM 정지는 직전 점수 화면에서 수행; 여기서는 바로 광장 실행
         manager.run()
+
+        # 광장에서 돌아온 후 예금 데이터 동기화
+        deposit_balance = manager.player_data.get('deposit_balance', 0)
+        deposit_interest_rate = manager.player_data.get('last_interest_rate', 0.0)
+
         pygame.event.get()  # 남은 이벤트 정리
     except Exception as err:  # 방어적: 광장 모듈 문제 시 다음 스테이지로 바로 이동
         print(f"[WARN] downtown hub skipped: {err}")
@@ -49828,7 +49890,7 @@ def show_start_screen():
     # 개발자용 광장 직접 입장 함수
     def enter_downtown_dev():
         """개발자용: 메인메뉴에서 0번 키로 광장 직접 입장"""
-        global selected_character_type
+        global selected_character_type, deposit_balance, deposit_interest_rate
         # 기본 캐릭터로 스매셔 선택
         char_type = selected_character_type if "selected_character_type" in globals() and selected_character_type else "smasher"
         player_data = {
@@ -49836,6 +49898,9 @@ def show_start_screen():
             "items": [],
             "buffs": [],
             "character_type": char_type,
+            # 은행 예금 데이터 (스테이지 간 유지)
+            "deposit_balance": deposit_balance,
+            "last_interest_rate": deposit_interest_rate,
         }
         manager = DowntownManager(SCREEN, academy=academy)
         manager.initialize(stage_number=1, player_data=player_data)
@@ -49844,6 +49909,9 @@ def show_start_screen():
         except Exception:
             pass
         manager.run()
+        # 광장에서 돌아온 후 예금 데이터 동기화
+        deposit_balance = manager.player_data.get('deposit_balance', 0)
+        deposit_interest_rate = manager.player_data.get('last_interest_rate', 0.0)
 
     ctx = MenuContext(
         get_screen=lambda: SCREEN,

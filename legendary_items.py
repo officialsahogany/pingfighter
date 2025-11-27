@@ -2598,12 +2598,11 @@ class EmptyLegendary(LegendaryItem):
         self.active = False
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 라그나로크 해머와 동일 (PNG 프레임에 이미 글로우 포함)"""
-        # 흔들림 오프셋만 계산 (PNG에 이미 글로우가 포함되어 있으므로 공통 프레임의 글로우는 사용 안 함)
-        frame_offset = int(math.sin(self.animation_time * 2.5) * 2)
-        frame_y = y + frame_offset
+        """애니메이션 아이콘 그리기 - 천사의 가호와 동일 (주사위 없음)"""
+        # 공통 배경 프레임 연출 (천사의 가호와 동일)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
-        # 애니메이션 프레임 그리기 (PNG에 글로우+테두리 포함)
+        # 애니메이션 프레임 그리기 (중앙 망치 제거된 프레임 = 테두리만)
         if self.animation_frames and len(self.animation_frames) > 0:
             self.frame_counter += 1
             if self.frame_counter >= self.animation_speed:
@@ -2615,23 +2614,7 @@ class EmptyLegendary(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
 
-        # 외곽 테두리
-        border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
-        pygame.draw.rect(screen, COMMON_LEGENDARY_BORDER_COLOR, border_rect, 2)
-
-        # 코너 장식
-        corner_size = 8
-        pygame.draw.lines(screen, COMMON_LEGENDARY_CORNER_COLOR, False,
-                          [(x - 2, frame_y + corner_size), (x - 2, frame_y - 2), (x + corner_size, frame_y - 2)], 2)
-        pygame.draw.lines(screen, COMMON_LEGENDARY_CORNER_COLOR, False,
-                          [(x + size - corner_size + 2, frame_y - 2), (x + size + 2, frame_y - 2), (x + size + 2, frame_y + corner_size)], 2)
-        pygame.draw.lines(screen, COMMON_LEGENDARY_CORNER_COLOR, False,
-                          [(x - 2, frame_y + size - corner_size + 2), (x - 2, frame_y + size + 2), (x + corner_size, frame_y + size + 2)], 2)
-        pygame.draw.lines(screen, COMMON_LEGENDARY_CORNER_COLOR, False,
-                          [(x + size - corner_size + 2, frame_y + size + 2), (x + size + 2, frame_y + size + 2), (x + size + 2, frame_y + size - corner_size + 2)], 2)
-
-        for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
-            pygame.draw.circle(screen, COMMON_LEGENDARY_CORNER_COLOR, (cx, cy), 2)
+            # 중앙 주사위 없음 - 빈 슬롯
 
 
 class AngelBlessing(LegendaryItem):
