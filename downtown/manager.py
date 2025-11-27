@@ -1276,9 +1276,10 @@ class DowntownManager:
         pass
 
     def _show_placeholder(self, building_type):
-        """건물 내부 표시 (인테리어, NPC, 나가기)"""
-        # 건물 내부 인스턴스 생성
-        interior = BuildingInterior(building_type, self._freetype_fonts)
+        """건물 내부 표시 (광장 스타일 확장 - 플레이어 이동, 문 출입)"""
+        # 플레이어 스프라이트 전달하여 건물 내부 인스턴스 생성
+        player_sprite = getattr(self.player, 'sprite', None)
+        interior = BuildingInterior(building_type, self._freetype_fonts, player_sprite)
 
         clock = pygame.time.Clock()
         running = True
@@ -1300,15 +1301,16 @@ class DowntownManager:
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # 왼쪽 클릭
                         result = interior.handle_click(event.pos)
-                        if result == "exit":
-                            running = False
-                        elif result and result[0] == "talk":
-                            # NPC 대화 (간단한 메시지)
-                            npc = result[1]
-                            self._show_npc_dialogue(npc)
+                        if result and isinstance(result, tuple) and result[0] == "talk":
+                            # NPC 대화 - 말풍선은 InteriorNPC에서 처리
+                            pass
 
-            # 업데이트
+            # 업데이트 (플레이어 이동, NPC 애니메이션, 문 나가기 체크)
             interior.update(dt)
+
+            # 문을 통한 나가기 요청 확인
+            if interior.exit_requested:
+                running = False
 
             # 그리기
             interior.draw(self.screen)
