@@ -790,8 +790,8 @@ class DowntownManager:
         """스타 포인트 표시 - 우측 상단"""
         star_points = self.player_data.get('star_points', 0)
 
-        # 우측 상단 위치
-        star_x = SCREEN_WIDTH - 150
+        # 우측 상단 위치 (더 우측으로 이동)
+        star_x = SCREEN_WIDTH - 100
         star_y = 30
 
         # 별 아이콘 그리기
