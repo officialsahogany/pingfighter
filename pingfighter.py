@@ -45397,7 +45397,11 @@ def draw_objects():
                                                       PLAYER.centery + screen_shake_offset_y + player_knockback_y))
         # 옵티머스는 다리 기준이 바닥에 닿도록 하단을 정렬해 잘림을 방지한다.
         if selected_character_type == "optimus":
-            target_bottom = int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y + OPTIMUS_FLOOR_ADJUST))
+            # 스케일 변화(게이지 소모로 패들 크기 축소)에도 발이 바닥에 붙도록 오프셋을 스케일에 따라 조정
+            sprite_height = rotated_player.get_height()
+            scale_y = sprite_height / MECHA_SPRITE_SIZE[1]
+            floor_adjust = int(round(OPTIMUS_FLOOR_ADJUST * scale_y))
+            target_bottom = int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y + floor_adjust))
             rotated_bounds = rotated_player.get_bounding_rect(min_alpha=1)
             content_bottom = player_rect.y + rotated_bounds.bottom
             delta_y = target_bottom - content_bottom

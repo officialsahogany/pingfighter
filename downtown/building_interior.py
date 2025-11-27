@@ -1359,6 +1359,11 @@ class BuildingInterior:
         self.bank_menu_selection = 0  # 0: 환전, 1: 예금, 2: 나가기
         self.bank_menu_items = ["환전", "예금", "나가기"]
 
+        # 환전 창 상태
+        self.exchange_menu_open = False
+        self.exchange_direction = 0  # 0: 스타포인트→골드, 1: 골드→스타포인트
+        self.exchange_amount = 1  # 환전할 양
+
     def _create_npcs(self):
         """NPC들 생성"""
         npcs = []
@@ -1560,8 +1565,8 @@ class BuildingInterior:
         if self.entry_cooldown > 0:
             self.entry_cooldown -= dt
 
-        # 은행 메뉴가 열려있으면 플레이어 입력 차단
-        if self.bank_menu_open:
+        # 은행 메뉴 또는 환전 메뉴가 열려있으면 플레이어 입력 차단
+        if self.bank_menu_open or self.exchange_menu_open:
             return
 
         # 플레이어 업데이트
@@ -1594,6 +1599,10 @@ class BuildingInterior:
 
     def handle_click(self, pos):
         """클릭 처리"""
+        # 환전 메뉴가 열려있으면 환전 메뉴 클릭 처리
+        if self.exchange_menu_open:
+            return self._handle_exchange_menu_click(pos)
+
         # 은행 메뉴가 열려있으면 메뉴 클릭 처리
         if self.bank_menu_open:
             return self._handle_bank_menu_click(pos)
@@ -1623,6 +1632,31 @@ class BuildingInterior:
         if event.type != pygame.KEYDOWN:
             return None
 
+        # 환전 메뉴가 열려있을 때
+        if self.exchange_menu_open:
+            if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                # 방향 전환: 골드→스타포인트
+                self.exchange_direction = 1
+                self.exchange_amount = 1
+                return ("exchange_direction", None)
+            elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                # 방향 전환: 스타포인트→골드
+                self.exchange_direction = 0
+                self.exchange_amount = 1
+                return ("exchange_direction", None)
+            elif event.key == pygame.K_UP or event.key == pygame.K_w:
+                self._adjust_exchange_amount(1)
+                return ("exchange_amount", None)
+            elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                self._adjust_exchange_amount(-1)
+                return ("exchange_amount", None)
+            elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                return self._execute_exchange()
+            elif event.key == pygame.K_ESCAPE:
+                self.exchange_menu_open = False
+                return ("menu_close", None)
+            return None
+
         # 은행 메뉴가 열려있을 때
         if self.bank_menu_open:
             if event.key == pygame.K_UP or event.key == pygame.K_w:
@@ -1641,6 +1675,58 @@ class BuildingInterior:
         # 메뉴가 닫혀있을 때 - Space로 NPC 상호작용
         if event.key == pygame.K_SPACE:
             return self._try_interact_with_npc()
+
+        return None
+
+    def handle_scroll(self, event):
+        """마우스 휠 스크롤 처리"""
+        if not self.exchange_menu_open:
+            return None
+
+        if event.type == pygame.MOUSEWHEEL:
+            self._adjust_exchange_amount(event.y * 10)
+            return ("exchange_amount", None)
+
+        return None
+
+    def _adjust_exchange_amount(self, delta):
+        """환전 양 조절"""
+        self.exchange_amount = max(1, self.exchange_amount + delta)
+
+        # 최대값 제한 (보유량 기준)
+        if self.exchange_direction == 0:
+            # 스타포인트 → 골드
+            max_amount = self.player_data.get('star_points', 0)
+        else:
+            # 골드 → 스타포인트
+            max_amount = self.player_data.get('gold', 0) // self.current_exchange_rate
+
+        self.exchange_amount = min(self.exchange_amount, max(1, max_amount))
+
+    def _execute_exchange(self):
+        """환전 실행"""
+        if self.exchange_direction == 0:
+            # 스타포인트 → 골드
+            star_points = self.player_data.get('star_points', 0)
+            if star_points >= self.exchange_amount:
+                gold_gained = self.exchange_amount * self.current_exchange_rate
+                self.player_data['star_points'] = star_points - self.exchange_amount
+                self.player_data['gold'] = self.player_data.get('gold', 0) + gold_gained
+                self.exchange_menu_open = False
+                return ("exchange_success", {"type": "star_to_gold", "amount": self.exchange_amount, "gold": gold_gained})
+            else:
+                return ("exchange_fail", "스타포인트가 부족합니다")
+        else:
+            # 골드 → 스타포인트
+            gold = self.player_data.get('gold', 0)
+            gold_needed = self.exchange_amount * self.current_exchange_rate
+            if gold >= gold_needed:
+                self.player_data['gold'] = gold - gold_needed
+                self.player_data['star_points'] = self.player_data.get('star_points', 0) + self.exchange_amount
+                self.exchange_menu_open = False
+                return ("exchange_success", {"type": "gold_to_star", "amount": self.exchange_amount, "gold": gold_needed})
+            else:
+                return ("exchange_fail", "골드가 부족합니다")
 
         return None
 
@@ -1696,6 +1782,9 @@ class BuildingInterior:
 
         if selected == "환전":
             self.bank_menu_open = False
+            self.exchange_menu_open = True
+            self.exchange_amount = 1
+            self.exchange_direction = 0
             return ("bank_exchange", None)
         elif selected == "예금":
             self.bank_menu_open = False
@@ -1705,6 +1794,237 @@ class BuildingInterior:
             return ("menu_close", None)
 
         return None
+
+    def _handle_exchange_menu_click(self, pos):
+        """환전 메뉴 클릭 처리"""
+        # 메뉴 영역 계산 (화면 중앙)
+        menu_w, menu_h = 320, 280
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        # 방향 전환 버튼 영역
+        dir_btn_y = menu_y + 80
+        left_btn = pygame.Rect(menu_x + 30, dir_btn_y, 120, 40)
+        right_btn = pygame.Rect(menu_x + 170, dir_btn_y, 120, 40)
+
+        if left_btn.collidepoint(pos):
+            self.exchange_direction = 0  # 스타포인트 → 골드
+            self.exchange_amount = 1
+            return ("exchange_direction", None)
+        elif right_btn.collidepoint(pos):
+            self.exchange_direction = 1  # 골드 → 스타포인트
+            self.exchange_amount = 1
+            return ("exchange_direction", None)
+
+        # 양 조절 버튼 영역
+        amount_y = menu_y + 145
+        minus_btn = pygame.Rect(menu_x + 30, amount_y, 50, 36)
+        plus_btn = pygame.Rect(menu_x + 240, amount_y, 50, 36)
+        minus10_btn = pygame.Rect(menu_x + 85, amount_y, 40, 36)
+        plus10_btn = pygame.Rect(menu_x + 195, amount_y, 40, 36)
+
+        if minus_btn.collidepoint(pos):
+            self._adjust_exchange_amount(-1)
+            return ("exchange_amount", None)
+        elif plus_btn.collidepoint(pos):
+            self._adjust_exchange_amount(1)
+            return ("exchange_amount", None)
+        elif minus10_btn.collidepoint(pos):
+            self._adjust_exchange_amount(-10)
+            return ("exchange_amount", None)
+        elif plus10_btn.collidepoint(pos):
+            self._adjust_exchange_amount(10)
+            return ("exchange_amount", None)
+
+        # 환전 실행 버튼
+        confirm_btn = pygame.Rect(menu_x + 30, menu_y + 220, 260, 40)
+        if confirm_btn.collidepoint(pos):
+            return self._execute_exchange()
+
+        # 닫기 버튼 (우상단)
+        close_btn = pygame.Rect(menu_x + menu_w - 35, menu_y + 5, 30, 30)
+        if close_btn.collidepoint(pos):
+            self.exchange_menu_open = False
+            return ("menu_close", None)
+
+        # 메뉴 바깥 클릭시 닫기
+        menu_rect = pygame.Rect(menu_x, menu_y, menu_w, menu_h)
+        if not menu_rect.collidepoint(pos):
+            self.exchange_menu_open = False
+            return ("menu_close", None)
+
+        return None
+
+    def _draw_exchange_menu(self, screen):
+        """환전 메뉴창 그리기 - SF 스타일"""
+        import math
+
+        # 메뉴 크기 및 위치 (화면 중앙)
+        menu_w, menu_h = 320, 280
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        # 색상
+        BG_DARK = (15, 22, 35)
+        BORDER_CYAN = (70, 180, 255)
+        BORDER_GLOW = (50, 120, 180)
+        HIGHLIGHT = (40, 60, 90)
+        TEXT_WHITE = (240, 245, 255)
+        TEXT_CYAN = (100, 200, 255)
+        TEXT_GOLD = (255, 210, 100)
+        TEXT_GREEN = (100, 255, 150)
+        TEXT_RED = (255, 100, 100)
+        BTN_BG = (30, 45, 65)
+
+        # 배경 어둡게 (반투명 오버레이)
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 170))
+        screen.blit(overlay, (0, 0))
+
+        # 글로우 효과
+        glow_intensity = int(25 + 12 * math.sin(self.animation_timer * 3))
+        glow_surf = pygame.Surface((menu_w + 20, menu_h + 20), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*BORDER_CYAN, glow_intensity), (0, 0, menu_w + 20, menu_h + 20), border_radius=12)
+        screen.blit(glow_surf, (menu_x - 10, menu_y - 10))
+
+        # 메뉴 배경
+        pygame.draw.rect(screen, BG_DARK, (menu_x, menu_y, menu_w, menu_h), border_radius=8)
+        pygame.draw.rect(screen, BORDER_CYAN, (menu_x, menu_y, menu_w, menu_h), 2, border_radius=8)
+
+        # 상단 바
+        pygame.draw.rect(screen, (25, 35, 55), (menu_x + 2, menu_y + 2, menu_w - 4, 40), border_radius=6)
+        pygame.draw.line(screen, BORDER_GLOW, (menu_x + 10, menu_y + 44), (menu_x + menu_w - 10, menu_y + 44), 1)
+
+        font_small = self.fonts.get('small')
+        font_medium = self.fonts.get('medium')
+
+        # 타이틀
+        if font_medium:
+            title_surf, title_rect = font_medium.render("환전", TEXT_WHITE)
+            screen.blit(title_surf, (menu_x + menu_w // 2 - title_rect.width // 2, menu_y + 12))
+
+        # 닫기 버튼 (X)
+        close_btn = pygame.Rect(menu_x + menu_w - 35, menu_y + 8, 26, 26)
+        pygame.draw.rect(screen, (60, 40, 40), close_btn, border_radius=4)
+        pygame.draw.rect(screen, TEXT_RED, close_btn, 1, border_radius=4)
+        pygame.draw.line(screen, TEXT_RED, (close_btn.x + 7, close_btn.y + 7), (close_btn.x + 19, close_btn.y + 19), 2)
+        pygame.draw.line(screen, TEXT_RED, (close_btn.x + 19, close_btn.y + 7), (close_btn.x + 7, close_btn.y + 19), 2)
+
+        # 현재 보유량 표시
+        star_points = self.player_data.get('star_points', 0)
+        gold = self.player_data.get('gold', 0)
+
+        if font_small:
+            # 스타포인트 보유량
+            star_surf, _ = font_small.render(f"스타포인트: {star_points:,}", TEXT_CYAN)
+            screen.blit(star_surf, (menu_x + 25, menu_y + 55))
+            # 골드 보유량
+            gold_surf, _ = font_small.render(f"골드: {gold:,}", TEXT_GOLD)
+            screen.blit(gold_surf, (menu_x + 180, menu_y + 55))
+
+        # 방향 전환 버튼
+        dir_btn_y = menu_y + 80
+        left_btn = pygame.Rect(menu_x + 30, dir_btn_y, 120, 40)
+        right_btn = pygame.Rect(menu_x + 170, dir_btn_y, 120, 40)
+
+        # 왼쪽 버튼 (스타포인트 → 골드)
+        btn_color = HIGHLIGHT if self.exchange_direction == 0 else BTN_BG
+        border_color = TEXT_CYAN if self.exchange_direction == 0 else BORDER_GLOW
+        pygame.draw.rect(screen, btn_color, left_btn, border_radius=6)
+        pygame.draw.rect(screen, border_color, left_btn, 2, border_radius=6)
+        if font_small:
+            txt_surf, txt_rect = font_small.render("★ → G", TEXT_CYAN if self.exchange_direction == 0 else TEXT_WHITE)
+            screen.blit(txt_surf, (left_btn.centerx - txt_rect.width // 2, left_btn.centery - txt_rect.height // 2))
+
+        # 오른쪽 버튼 (골드 → 스타포인트)
+        btn_color = HIGHLIGHT if self.exchange_direction == 1 else BTN_BG
+        border_color = TEXT_GOLD if self.exchange_direction == 1 else BORDER_GLOW
+        pygame.draw.rect(screen, btn_color, right_btn, border_radius=6)
+        pygame.draw.rect(screen, border_color, right_btn, 2, border_radius=6)
+        if font_small:
+            txt_surf, txt_rect = font_small.render("G → ★", TEXT_GOLD if self.exchange_direction == 1 else TEXT_WHITE)
+            screen.blit(txt_surf, (right_btn.centerx - txt_rect.width // 2, right_btn.centery - txt_rect.height // 2))
+
+        # 양 조절 섹션
+        amount_y = menu_y + 145
+
+        # -1 버튼
+        minus_btn = pygame.Rect(menu_x + 30, amount_y, 50, 36)
+        pygame.draw.rect(screen, BTN_BG, minus_btn, border_radius=6)
+        pygame.draw.rect(screen, BORDER_GLOW, minus_btn, 1, border_radius=6)
+        if font_small:
+            txt_surf, txt_rect = font_small.render("-1", TEXT_WHITE)
+            screen.blit(txt_surf, (minus_btn.centerx - txt_rect.width // 2, minus_btn.centery - txt_rect.height // 2))
+
+        # -10 버튼
+        minus10_btn = pygame.Rect(menu_x + 85, amount_y, 40, 36)
+        pygame.draw.rect(screen, BTN_BG, minus10_btn, border_radius=6)
+        pygame.draw.rect(screen, BORDER_GLOW, minus10_btn, 1, border_radius=6)
+        if font_small:
+            txt_surf, txt_rect = font_small.render("-10", TEXT_WHITE)
+            screen.blit(txt_surf, (minus10_btn.centerx - txt_rect.width // 2, minus10_btn.centery - txt_rect.height // 2))
+
+        # 양 표시 (가운데)
+        amount_display = pygame.Rect(menu_x + 130, amount_y, 60, 36)
+        pygame.draw.rect(screen, (20, 30, 45), amount_display, border_radius=4)
+        pygame.draw.rect(screen, TEXT_CYAN, amount_display, 1, border_radius=4)
+        if font_medium:
+            amt_surf, amt_rect = font_medium.render(str(self.exchange_amount), TEXT_WHITE)
+            screen.blit(amt_surf, (amount_display.centerx - amt_rect.width // 2, amount_display.centery - amt_rect.height // 2))
+
+        # +10 버튼
+        plus10_btn = pygame.Rect(menu_x + 195, amount_y, 40, 36)
+        pygame.draw.rect(screen, BTN_BG, plus10_btn, border_radius=6)
+        pygame.draw.rect(screen, BORDER_GLOW, plus10_btn, 1, border_radius=6)
+        if font_small:
+            txt_surf, txt_rect = font_small.render("+10", TEXT_WHITE)
+            screen.blit(txt_surf, (plus10_btn.centerx - txt_rect.width // 2, plus10_btn.centery - txt_rect.height // 2))
+
+        # +1 버튼
+        plus_btn = pygame.Rect(menu_x + 240, amount_y, 50, 36)
+        pygame.draw.rect(screen, BTN_BG, plus_btn, border_radius=6)
+        pygame.draw.rect(screen, BORDER_GLOW, plus_btn, 1, border_radius=6)
+        if font_small:
+            txt_surf, txt_rect = font_small.render("+1", TEXT_WHITE)
+            screen.blit(txt_surf, (plus_btn.centerx - txt_rect.width // 2, plus_btn.centery - txt_rect.height // 2))
+
+        # 환전 결과 미리보기
+        preview_y = menu_y + 190
+        if self.exchange_direction == 0:
+            # 스타포인트 → 골드
+            result_gold = self.exchange_amount * self.current_exchange_rate
+            if font_small:
+                preview_text = f"★ {self.exchange_amount} → G {result_gold:,}"
+                preview_surf, preview_rect = font_small.render(preview_text, TEXT_GREEN)
+                screen.blit(preview_surf, (menu_x + menu_w // 2 - preview_rect.width // 2, preview_y))
+        else:
+            # 골드 → 스타포인트
+            cost_gold = self.exchange_amount * self.current_exchange_rate
+            if font_small:
+                preview_text = f"G {cost_gold:,} → ★ {self.exchange_amount}"
+                preview_surf, preview_rect = font_small.render(preview_text, TEXT_GREEN)
+                screen.blit(preview_surf, (menu_x + menu_w // 2 - preview_rect.width // 2, preview_y))
+
+        # 환율 정보
+        rate_y = menu_y + 210
+        if font_small:
+            rate_text = f"현재 환율: 1 ★ = {self.current_exchange_rate} G"
+            rate_surf, rate_rect = font_small.render(rate_text, (150, 160, 180))
+            screen.blit(rate_surf, (menu_x + menu_w // 2 - rate_rect.width // 2, rate_y))
+
+        # 환전 실행 버튼
+        confirm_btn = pygame.Rect(menu_x + 30, menu_y + 235, 260, 36)
+        pygame.draw.rect(screen, (40, 80, 60), confirm_btn, border_radius=6)
+        pygame.draw.rect(screen, TEXT_GREEN, confirm_btn, 2, border_radius=6)
+        if font_medium:
+            btn_surf, btn_rect = font_medium.render("환전하기", TEXT_GREEN)
+            screen.blit(btn_surf, (confirm_btn.centerx - btn_rect.width // 2, confirm_btn.centery - btn_rect.height // 2))
+
+        # 휠 힌트
+        hint_y = menu_y + menu_h - 18
+        if font_small:
+            hint_surf, _ = font_small.render("마우스 휠로 양 조절", (100, 110, 130))
+            screen.blit(hint_surf, (menu_x + 20, hint_y))
 
     def draw(self, screen):
         """건물 내부 그리기"""
@@ -1758,6 +2078,10 @@ class BuildingInterior:
         # 은행 메뉴 (맨 위에)
         if self.bank_menu_open:
             self._draw_bank_menu(screen)
+
+        # 환전 메뉴 (맨 위에)
+        if self.exchange_menu_open:
+            self._draw_exchange_menu(screen)
 
     def _draw_bank_menu(self, screen):
         """은행 메뉴창 그리기 - SF 스타일"""

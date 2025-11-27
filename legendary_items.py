@@ -2958,31 +2958,22 @@ class AngelBlessing(LegendaryItem):
             self._generate_dice_frames()
 
     def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
-        """프레임에서 중앙 망치/번개/손잡이 콘텐츠 모두 제거하고 테두리/배경 효과만 유지"""
+        """프레임에서 중앙 망치/번개/손잡이/그림자 모두 제거하고 테두리만 유지"""
         result = frame.copy()
         width, height = frame.get_size()
         cx, cy = width // 2, height // 2
 
-        # 중앙 영역 반경 (테두리 제외한 내부 콘텐츠 영역)
-        inner_radius = min(width, height) * 0.42
+        # 중앙 영역 반경 - 더 넓게 설정
+        inner_radius = min(width, height) * 0.45
 
         for py in range(height):
             for px in range(width):
                 # 중앙으로부터의 거리 계산
                 dist = math.sqrt((px - cx) ** 2 + (py - cy) ** 2)
 
-                # 중앙 영역 내부는 파란색 배경 빼고 전부 제거
+                # 중앙 영역 내부는 전부 투명하게 제거 (파란원 배경도 제거)
                 if dist < inner_radius:
-                    color = frame.get_at((px, py))
-                    if color.a == 0:
-                        continue
-
-                    # 파란색 원 배경만 유지 (순수 파란색 계열만)
-                    is_pure_blue = (color.b > 120 and color.b > color.r * 1.5 and color.b > color.g)
-
-                    # 파란색 배경이 아니면 전부 제거
-                    if not is_pure_blue:
-                        result.set_at((px, py), (0, 0, 0, 0))
+                    result.set_at((px, py), (0, 0, 0, 0))
 
         return result
 
@@ -3165,21 +3156,6 @@ class AngelBlessing(LegendaryItem):
             rot_x = math.sin(self.current_frame * 0.8) * 15
             self._draw_angel_dice(dice_surf, size, rot_x, rot_y)
             screen.blit(dice_surf, (x, icon_y))
-
-            # 번개 효과 (라그나로크 해머와 동일)
-            if self.current_frame in [0, 4]:
-                bolt_color = (255, 255, 150)
-                pygame.draw.line(screen, bolt_color,
-                                 (x + size // 4, y + frame_offset - 5),
-                                 (x + size // 3, y + frame_offset + size // 4), 2)
-                pygame.draw.line(screen, bolt_color,
-                                 (x + size * 3 // 4, y + frame_offset - 5),
-                                 (x + size * 2 // 3, y + frame_offset + size // 4), 2)
-
-        # 파티클 효과 (라그나로크 해머와 동일)
-        if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
-            self.particle_timer = 0
 
     def _draw_angel_dice(self, surf: pygame.Surface, size: int, rot_x: float, rot_y: float):
         """중앙에 천사의 주사위 그리기 (천사 날개 + 3D 주사위)"""
