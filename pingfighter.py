@@ -79328,7 +79328,13 @@ def show_character_info():
     def gather_stats():
         """현재 능력치 및 기준값을 수집."""
         char_type = globals().get("selected_character_type", "normal")
-        base_max_speed = 3.0 if char_type == "blacksmith" else float(globals().get("MAX_SPEED", 5.0))
+        # 캐릭터별 기본 이동속도: 안드로이드는 자체 상수(OPTIMUS_BASE_MAX_SPEED) 사용
+        if char_type == "blacksmith":
+            base_max_speed = 3.0
+        elif char_type == "optimus":
+            base_max_speed = float(globals().get("OPTIMUS_BASE_MAX_SPEED", 2.0))
+        else:
+            base_max_speed = float(globals().get("MAX_SPEED", 5.0))
         speed_multiplier = 1.0
         # 스피드부츠/헤르메스/비타민/그물 멀티 적용
         try:

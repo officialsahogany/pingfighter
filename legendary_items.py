@@ -2968,11 +2968,94 @@ class AngelBlessing(LegendaryItem):
             shadow_y = y + size - 8
             screen.blit(shadow_surf, (shadow_x, shadow_y))
 
-        # 천사 날개 파티클 효과
+        # ========== 천사 날개 그리기 (주사위 뒤에) ==========
+        wing_center_x = x + size // 2
+        wing_center_y = y + size // 2 + int(self.animation_offset) - int(bounce)
+
+        # 날개 펄럭임 애니메이션
+        wing_flap = math.sin(t * 4) * 0.15  # 날개 펄럭이는 각도
+        wing_scale = 1.0 + math.sin(t * 3) * 0.05  # 미세한 크기 변화
+
+        # 날개 색상 (신성한 흰색/금색 계열)
+        wing_color_base = (255, 255, 255, 200)
+        wing_color_inner = (255, 250, 230, 180)
+        wing_color_glow = (255, 255, 220, 100)
+        wing_feather_color = (240, 245, 255, 160)
+
+        # 날개 크기
+        wing_width = int(size * 0.45 * wing_scale)
+        wing_height = int(size * 0.35 * wing_scale)
+
+        # 왼쪽 날개
+        left_wing_surf = pygame.Surface((wing_width + 10, wing_height + 10), pygame.SRCALPHA)
+
+        # 날개 깃털 레이어 (뒤쪽부터)
+        for layer in range(3):
+            layer_offset = layer * 3
+            layer_alpha = 200 - layer * 40
+            feather_color = (*wing_color_base[:3], layer_alpha)
+
+            # 깃털 포인트 계산 (곡선형 날개)
+            feather_points = []
+            num_feathers = 5
+            for i in range(num_feathers):
+                angle = math.pi * 0.3 + (math.pi * 0.4 * i / (num_feathers - 1))
+                # 펄럭임 효과 적용
+                flap_offset = wing_flap * (1 - i / num_feathers)
+                r = wing_width - layer_offset - i * 2
+                fx = 5 + wing_width - int(math.cos(angle + flap_offset) * r)
+                fy = 5 + wing_height // 2 + int(math.sin(angle + flap_offset) * (wing_height // 2 - layer_offset))
+                feather_points.append((fx, fy))
+
+            # 날개 몸체
+            if len(feather_points) >= 3:
+                # 날개 베이스 (둥근 부분)
+                base_points = [(5 + wing_width, 5 + wing_height // 2 - 5),
+                              (5 + wing_width, 5 + wing_height // 2 + 5)]
+                full_points = base_points + feather_points
+                pygame.draw.polygon(left_wing_surf, feather_color, full_points)
+
+                # 깃털 선 (디테일)
+                for i, (fx, fy) in enumerate(feather_points):
+                    start_x = 5 + wing_width
+                    start_y = 5 + wing_height // 2
+                    line_alpha = 120 - layer * 30
+                    pygame.draw.line(left_wing_surf, (*wing_feather_color[:3], line_alpha),
+                                    (start_x, start_y), (fx, fy), 1)
+
+        # 날개 발광 효과
+        glow_surf = pygame.Surface((wing_width + 10, wing_height + 10), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow_surf, wing_color_glow,
+                          (5, 5, wing_width // 2, wing_height))
+        left_wing_surf.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+        # 오른쪽 날개 (왼쪽 날개 좌우 반전)
+        right_wing_surf = pygame.transform.flip(left_wing_surf, True, False)
+
+        # 날개 위치 계산
+        left_wing_x = wing_center_x - wing_width - size // 6
+        left_wing_y = wing_center_y - wing_height // 2
+        right_wing_x = wing_center_x + size // 6
+        right_wing_y = wing_center_y - wing_height // 2
+
+        # 날개 블릿 (주사위 뒤에)
+        screen.blit(left_wing_surf, (left_wing_x, left_wing_y))
+        screen.blit(right_wing_surf, (right_wing_x, right_wing_y))
+
+        # 날개 끝 반짝임 파티클
+        if random.random() < 0.2:
+            for wing_x in [left_wing_x, right_wing_x + wing_width]:
+                sparkle_x = wing_x + random.randint(-5, 5)
+                sparkle_y = wing_center_y + random.randint(-10, 10)
+                sparkle_color = (255, 255, 200, random.randint(100, 200))
+                sparkle_size = random.randint(1, 2)
+                pygame.draw.circle(screen, sparkle_color, (sparkle_x, sparkle_y), sparkle_size)
+
+        # ========== 천사 파티클 효과 ==========
         if random.random() < 0.15:
             for _ in range(2):
-                px = x + size // 2 + random.randint(-15, 15)
-                py = y + size // 2 + random.randint(-15, 15)
+                px = x + size // 2 + random.randint(-20, 20)
+                py = y + size // 2 + random.randint(-20, 20)
                 particle_color = (255, 255, 255, random.randint(80, 150))
                 particle_size = random.randint(1, 3)
                 pygame.draw.circle(screen, particle_color, (px, py), particle_size)

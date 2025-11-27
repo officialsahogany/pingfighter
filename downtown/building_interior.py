@@ -227,20 +227,21 @@ class InteriorNPC:
         eye_sizes = ["normal", "big", "small"]
         eye_size = eye_sizes[(npc_id // 11) % len(eye_sizes)]
 
-        # 걷기/정지 애니메이션 (더 자연스럽게)
+        # 걷기/정지 애니메이션 (단순하고 자연스러운 걸음걸이)
         if self.is_walking:
-            walk_phase = animation_timer * 8 + self.animation_offset
-            walk_cycle = math.sin(walk_phase)
-            walk_cycle_alt = math.cos(walk_phase * 0.5)
+            # 연속적인 걸음 사이클
+            walk_phase = animation_timer * 6 + self.animation_offset
 
-            # 상하 움직임 (더 부드럽게)
-            bob_offset = int(2.0 * abs(math.sin(walk_phase * 2)))
-            # 다리 흔들림 (앞뒤로 더 자연스럽게)
-            leg_swing = walk_cycle * 5
-            # 몸통 기울기
-            body_lean = walk_cycle_alt * 1.5
+            # 핵심: 다리 스윙 (왼발 앞 = 오른발 뒤)
+            leg_swing = math.sin(walk_phase) * 2.5
+
+            # 상하 움직임
+            bob_offset = int(abs(math.sin(walk_phase * 2)) * 1.0)
+
+            # 몸통 살짝 기울기
+            body_lean = math.sin(walk_phase) * 0.5
         else:
-            bob_offset = int(1 * math.sin(animation_timer * 1.5 + self.animation_offset))
+            bob_offset = int(0.5 * math.sin(animation_timer * 1.2 + self.animation_offset))
             leg_swing = 0
             body_lean = 0
 
@@ -269,36 +270,44 @@ class InteriorNPC:
         pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 0, shadow_w, shadow_h))
         screen.blit(shadow_surf, (center_x - shadow_w // 2, feet_y - 3))
 
-        # === 신발/발 (더 자연스러운 발 움직임) ===
+        # === 신발/발 (자연스러운 걸음걸이) ===
         shoe_colors = [(40, 30, 25), (60, 50, 40), (30, 30, 35), (80, 40, 20)]
         shoe_color = shoe_colors[npc_id % len(shoe_colors)]
         shoe_w, shoe_h = 8, 5
 
-        # 걸을 때 발이 지면에서 떨어지는 효과
-        walk_anim_frame = animation_timer * 4 + self.animation_offset
-        left_foot_lift = max(0, int(3 * math.sin(walk_anim_frame * math.pi))) if self.is_walking else 0
-        right_foot_lift = max(0, int(3 * -math.sin(walk_anim_frame * math.pi))) if self.is_walking else 0
+        # 걷기 애니메이션: 왼발이 앞으로 가면 오른발은 뒤로
+        if self.is_walking:
+            left_foot_forward = int(leg_swing)
+            right_foot_forward = -int(leg_swing)
+            left_lift = int(max(0, leg_swing) * 0.8)
+            right_lift = int(max(0, -leg_swing) * 0.8)
+        else:
+            left_foot_forward = 0
+            right_foot_forward = 0
+            left_lift = 0
+            right_lift = 0
 
         # 왼발
-        left_foot_x = center_x - 6 + int(leg_swing)
-        pygame.draw.ellipse(screen, shoe_color, (left_foot_x - shoe_w // 2, feet_y - shoe_h - left_foot_lift, shoe_w, shoe_h))
-        # 오른발
-        right_foot_x = center_x + 6 - int(leg_swing)
-        pygame.draw.ellipse(screen, shoe_color, (right_foot_x - shoe_w // 2, feet_y - shoe_h - right_foot_lift, shoe_w, shoe_h))
+        left_foot_x = center_x - 3 + left_foot_forward
+        left_foot_y = feet_y - shoe_h - left_lift
+        pygame.draw.ellipse(screen, shoe_color, (left_foot_x - shoe_w // 2, left_foot_y, shoe_w, shoe_h))
 
-        # === 다리 (바지) - 무릎 굽힘 효과 ===
+        # 오른발
+        right_foot_x = center_x + 3 + right_foot_forward
+        right_foot_y = feet_y - shoe_h - right_lift
+        pygame.draw.ellipse(screen, shoe_color, (right_foot_x - shoe_w // 2, right_foot_y, shoe_w, shoe_h))
+
+        # === 다리 (바지) ===
         leg_w, leg_h = 6, 14
         pants_color = body_dark if self.role != "staff" else (50, 50, 60)
 
-        # 왼쪽 다리 (무릎 굽힘)
-        left_knee_bend = int(2 * max(0, math.sin(walk_anim_frame * math.pi))) if self.is_walking else 0
-        left_leg_y = feet_y - shoe_h - leg_h + int(leg_swing * 0.3) - left_foot_lift
-        pygame.draw.rect(screen, pants_color, (left_foot_x - leg_w // 2 - left_knee_bend, left_leg_y, leg_w, leg_h), border_radius=2)
+        # 왼쪽 다리
+        left_leg_y = feet_y - shoe_h - leg_h - left_lift
+        pygame.draw.rect(screen, pants_color, (left_foot_x - leg_w // 2, left_leg_y, leg_w, leg_h), border_radius=2)
 
-        # 오른쪽 다리 (무릎 굽힘)
-        right_knee_bend = int(2 * max(0, -math.sin(walk_anim_frame * math.pi))) if self.is_walking else 0
-        right_leg_y = feet_y - shoe_h - leg_h - int(leg_swing * 0.3) - right_foot_lift
-        pygame.draw.rect(screen, pants_color, (right_foot_x - leg_w // 2 + right_knee_bend, right_leg_y, leg_w, leg_h), border_radius=2)
+        # 오른쪽 다리
+        right_leg_y = feet_y - shoe_h - leg_h - right_lift
+        pygame.draw.rect(screen, pants_color, (right_foot_x - leg_w // 2, right_leg_y, leg_w, leg_h), border_radius=2)
 
         # === 상체/몸통 ===
         torso_w, torso_h = self.width - 4, 16
@@ -309,21 +318,25 @@ class InteriorNPC:
         pygame.draw.rect(screen, body_color, (torso_x, torso_y, torso_w, torso_h), border_radius=4)
         pygame.draw.rect(screen, body_light, (torso_x + 1, torso_y + 2, 3, torso_h - 4), border_radius=1)
 
-        # === 팔 (걸을 때 반대로 흔들림 - 더 자연스럽게) ===
+        # === 팔 (걸을 때 다리와 반대로 흔들림) ===
         arm_w, arm_h = 5, 12
         arm_y = torso_y + 2
 
-        # 왼팔 (다리와 반대 방향으로 흔들림)
-        left_arm_swing = int(-leg_swing * 0.7) if self.is_walking else int(2 * math.sin(animation_timer * 1.2))
-        left_arm_bend = int(abs(left_arm_swing) * 0.3)
-        pygame.draw.rect(screen, body_dark, (torso_x - arm_w + 1 + left_arm_bend, arm_y + left_arm_swing, arm_w, arm_h - 2), border_radius=2)
-        pygame.draw.ellipse(screen, skin_color, (torso_x - arm_w + 2 + left_arm_bend, arm_y + arm_h - 4 + left_arm_swing, 4, 4))
+        if self.is_walking:
+            # 팔은 다리와 반대로
+            left_arm_swing = int(leg_swing * 0.6)
+            right_arm_swing = int(-leg_swing * 0.6)
+        else:
+            left_arm_swing = int(1.5 * math.sin(animation_timer * 1.0))
+            right_arm_swing = int(1.5 * math.sin(animation_timer * 1.0 + 0.8))
+
+        # 왼팔
+        pygame.draw.rect(screen, body_dark, (torso_x - arm_w + 1, arm_y + left_arm_swing, arm_w, arm_h - 2), border_radius=2)
+        pygame.draw.ellipse(screen, skin_color, (torso_x - arm_w + 2, arm_y + arm_h - 4 + left_arm_swing, 4, 4))
 
         # 오른팔
-        right_arm_swing = int(leg_swing * 0.7) if self.is_walking else int(2 * math.sin(animation_timer * 1.2 + 1))
-        right_arm_bend = int(abs(right_arm_swing) * 0.3)
-        pygame.draw.rect(screen, body_color, (torso_x + torso_w - 2 - right_arm_bend, arm_y + right_arm_swing, arm_w, arm_h - 2), border_radius=2)
-        pygame.draw.ellipse(screen, skin_color, (torso_x + torso_w - 1 - right_arm_bend, arm_y + arm_h - 4 + right_arm_swing, 4, 4))
+        pygame.draw.rect(screen, body_color, (torso_x + torso_w - 2, arm_y + right_arm_swing, arm_w, arm_h - 2), border_radius=2)
+        pygame.draw.ellipse(screen, skin_color, (torso_x + torso_w - 1, arm_y + arm_h - 4 + right_arm_swing, 4, 4))
 
         # === 목 ===
         neck_w, neck_h = 6, 4
