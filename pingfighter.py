@@ -5154,11 +5154,16 @@ def update_optimus_energy() -> None:
     elapsed_ms = max(0, now - optimus_last_gauge_tick_ms)
     optimus_last_gauge_tick_ms = now
 
-    optimus_gauge_drain_buffer += (OPTIMUS_GAUGE_DRAIN_PER_SEC * elapsed_ms) / 1000.0
-    if optimus_gauge_drain_buffer >= 1.0:
-        drain_units = int(optimus_gauge_drain_buffer)
-        optimus_gauge_drain_buffer -= drain_units
-        special_gauge = max(0, special_gauge - drain_units)
+    # 충전 중에는 기본 배터리 소모를 일시 정지
+    if not globals().get("optimus_charge_active", False):
+        optimus_gauge_drain_buffer += (OPTIMUS_GAUGE_DRAIN_PER_SEC * elapsed_ms) / 1000.0
+        if optimus_gauge_drain_buffer >= 1.0:
+            drain_units = int(optimus_gauge_drain_buffer)
+            optimus_gauge_drain_buffer -= drain_units
+            special_gauge = max(0, special_gauge - drain_units)
+    else:
+        # 소모 버퍼를 초기화해 충전 종료 후 바로 감소가 시작되지 않도록 방지
+        optimus_gauge_drain_buffer = 0.0
 
     special_gauge_max = OPTIMUS_MAX_GAUGE
     if special_gauge > OPTIMUS_MAX_GAUGE:

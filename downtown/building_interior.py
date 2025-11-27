@@ -1862,12 +1862,6 @@ class BuildingInterior:
                 item_surf, _ = font_small.render(item, text_color)
                 screen.blit(item_surf, (item_rect.x + 40, item_rect.y + 8))
 
-        # 하단 조작 힌트
-        hint_y = menu_y + menu_h - 25
-        if font_small:
-            hint_surf, _ = font_small.render("↑↓ 이동  Space/Enter 선택  ESC 닫기", (100, 120, 150))
-            screen.blit(hint_surf, (menu_x + menu_w // 2 - 95, hint_y))
-
     def _draw_bank_interior(self, screen):
         """스타뱅크 전용 인테리어 - 깔끔한 SF 은행 스타일"""
         import math
