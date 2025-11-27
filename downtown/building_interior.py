@@ -1074,7 +1074,7 @@ INTERIOR_CONFIGS = {
         "secondary_color": (60, 80, 110),  # 금속 회색
         "decorations": [],  # 커스텀 인테리어 사용
         "main_npc": {
-            "name": "Bank-Bot",
+            "name": "로봇지점장",
             "color": (140, 155, 175),  # 로봇 회색
             "position": (0.5, 0.32),  # 카운터 뒤
             "dialogue": [
