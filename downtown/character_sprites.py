@@ -26,6 +26,7 @@ CHARACTER_SPRITE_FILES = {
     "smasher": None,                          # 코드로 생성
     "soldier": None,                          # 코드로 생성
     "blacksmith": "blacksmith_base.png",      # 발토르 (PNG 파일)
+    "optimus": None,                          # 옵티머스 (코드로 생성)
     "normal": None,                           # 스매셔와 동일 (코드로 생성)
 }
 
@@ -78,13 +79,15 @@ def load_character_sprite(character_type):
 
     sprite = None
 
-    # 스매셔/코만도는 pingfighter의 캐릭터 생성 함수 사용
+    # 스매셔/코만도/옵티머스는 pingfighter의 캐릭터 생성 함수 사용
     if character_type in ("smasher", "normal"):
         sprite = _create_smasher_sprite()
     elif character_type == "soldier":
         sprite = _create_soldier_sprite()
     elif character_type == "blacksmith":
         sprite = _load_blacksmith_sprite()
+    elif character_type == "optimus":
+        sprite = _create_optimus_sprite()
 
     # 실패 시 폴백
     if sprite is None:
@@ -116,6 +119,18 @@ def _create_soldier_sprite():
             return _scale_sprite(original)
         except Exception as e:
             print(f"코만도 스프라이트 생성 실패: {e}")
+    return None
+
+
+def _create_optimus_sprite():
+    """옵티머스 스프라이트 생성 (pingfighter의 create_optimus_paddle_surface 활용)"""
+    pf = _get_pingfighter_module()
+    if pf and hasattr(pf, 'create_optimus_paddle_surface'):
+        try:
+            original = pf.create_optimus_paddle_surface(0.0)
+            return _scale_sprite(original)
+        except Exception as e:
+            print(f"옵티머스 스프라이트 생성 실패: {e}")
     return None
 
 
@@ -166,6 +181,7 @@ def _create_fallback_sprite(character_type):
         "smasher": (70, 102, 162),        # 파란색 메카 (스매셔)
         "soldier": (60, 80, 50),           # 밀리터리 그린 (코만도)
         "blacksmith": (139, 90, 43),       # 갈색 (대장장이 발토르)
+        "optimus": (255, 165, 0),          # 오렌지색 (옵티머스)
         "normal": (70, 102, 162),          # 파란색 (스매셔와 동일)
     }
 
@@ -231,6 +247,7 @@ def get_character_display_name(character_type):
         "smasher": "스매셔",
         "soldier": "코만도",
         "blacksmith": "발토르",
+        "optimus": "옵티머스",
         "normal": "플레이어",
     }
     return names.get(character_type, "플레이어")

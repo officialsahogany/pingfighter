@@ -2579,7 +2579,7 @@ class EmptyLegendary(LegendaryItem):
         print(f"빈전설 프레임 {frames_loaded}/8개 로드")
 
     def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
-        """프레임에서 중앙 콘텐츠 + 파란색 글로우 모두 제거하고 빨간 테두리만 유지"""
+        """프레임에서 중앙 콘텐츠 + 파란색 글로우 제거, 빨간 테두리 + 은색 모서리 유지"""
         result = frame.copy()
         width, height = frame.get_size()
         cx, cy = width // 2, height // 2
@@ -2592,11 +2592,14 @@ class EmptyLegendary(LegendaryItem):
                 if a == 0:
                     continue
 
-                # 빨간색 테두리만 유지 (R이 높고 G, B가 낮은 색상)
+                # 빨간색 테두리 유지 (R이 높고 G, B가 낮은 색상)
                 is_red_border = r > 100 and r > g + 30 and r > b + 30
 
-                # 빨간색이 아니면 제거
-                if not is_red_border:
+                # 은색/회색 모서리 유지 (R, G, B가 비슷하고 밝은 색상)
+                is_silver_corner = (abs(r - g) < 40 and abs(g - b) < 40 and abs(r - b) < 40 and r > 80)
+
+                # 빨간색 또는 은색이 아니면 제거
+                if not is_red_border and not is_silver_corner:
                     result.set_at((px, py), (0, 0, 0, 0))
 
         return result
