@@ -5072,7 +5072,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
     hip_y = base_cy + 16 + torso_bob
     shoulder_y = base_cy - 6 + torso_bob
     head_y = base_cy - 32 + torso_bob
-    foot_base_y = base_cy + 44  # 살짝 내려 발이 지면에 닿도록 기준선 조정
+    foot_base_y = base_cy + 58  # 캔버스 하단 가까이로 내려 좌우 이동 시 뜨지 않게 고정
 
     def draw_leg(side: int, leg_stride: float) -> tuple[int, int]:
         """사이언 LED로 강조된 다리 관절 애니메이션"""
@@ -5095,7 +5095,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
             pygame.draw.circle(surface, palette["accent"], joint, 4)
 
         foot_rect = pygame.Rect(0, 0, 24, 10)
-        foot_rect.center = (foot_x, foot_y + 8)  # 발바닥이 더 아래로 닿도록
+        foot_rect.center = (foot_x, foot_y + 6)  # 살짝만 아래로 내려 접지감 유지
         pygame.draw.rect(surface, palette["grip"], foot_rect, border_radius=4)
         pygame.draw.rect(surface, palette["grip_line"], foot_rect.inflate(-6, -2), 1, border_radius=3)
         return hip
@@ -5109,7 +5109,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
     pygame.draw.ellipse(
         leg_glow,
         (*palette["glow"], 55),
-        (cx - 70, foot_base_y - 22, 140, 20),  # 하단이 foot_base_y에 맞도록
+        (cx - 70, foot_base_y - 30, 140, 18),  # 광택이 발보다 내려가지 않도록 상향
         2,
     )
     surface.blit(leg_glow, (0, 0))
@@ -45177,108 +45177,110 @@ def draw_objects():
     if (not new_boss_mode_active
             and selected_character_type not in ("soldier", "blacksmith")
             and isinstance(current_speed, (int, float))):
-        abs_speed = abs(current_speed)
-        speed_threshold = 0.25
-        if abs_speed >= speed_threshold:
-            max_speed_value = max(1.0, float(MAX_SPEED))
-            speed_ratio = min(1.0, abs_speed / max_speed_value)
-            pulse = 0.55 + 0.45 * math.sin(pygame.time.get_ticks() * 0.03)
-            intensity = max(0.2, speed_ratio) * pulse
+        # 스매셔 전용 측면 추진불꽃: 옵티머스는 비활성화
+        if selected_character_type == "smasher":
+            abs_speed = abs(current_speed)
+            speed_threshold = 0.25
+            if abs_speed >= speed_threshold:
+                max_speed_value = max(1.0, float(MAX_SPEED))
+                speed_ratio = min(1.0, abs_speed / max_speed_value)
+                pulse = 0.55 + 0.45 * math.sin(pygame.time.get_ticks() * 0.03)
+                intensity = max(0.2, speed_ratio) * pulse
 
-            flame_length = max(12, int(player_rect.width * (0.12 + speed_ratio * 0.22)))
-            flame_height = max(5, int(player_rect.height * (0.12 + speed_ratio * 0.12)))
-            flame_surface = pygame.Surface((flame_length, flame_height), pygame.SRCALPHA)
+                flame_length = max(12, int(player_rect.width * (0.12 + speed_ratio * 0.22)))
+                flame_height = max(5, int(player_rect.height * (0.12 + speed_ratio * 0.12)))
+                flame_surface = pygame.Surface((flame_length, flame_height), pygame.SRCALPHA)
 
-            nozzle_width = max(4, flame_height // 2)
-            nozzle_height = max(4, int(flame_height * 0.7))
-            nozzle_rect = pygame.Rect(
-                flame_length - nozzle_width - 2,
-                (flame_height - nozzle_height) // 2,
-                nozzle_width,
-                nozzle_height,
-            )
-            pygame.draw.ellipse(
-                flame_surface,
-                (120, 205, 255, int(140 * intensity)),
-                nozzle_rect,
-            )
-            inner_nozzle = nozzle_rect.inflate(-max(2, nozzle_width // 3), -max(2, nozzle_height // 3))
-            pygame.draw.ellipse(
-                flame_surface,
-                (215, 240, 255, int(150 * intensity)),
-                inner_nozzle,
-            )
-
-            base_x = flame_length - nozzle_width
-            for layer in range(3):
-                layer_ratio = layer / 2
-                tail_length = max(4, int(flame_length * (0.6 + speed_ratio * 0.25) * (1 - layer_ratio * 0.5)))
-                tail_height = max(3, int(flame_height * (0.75 - layer_ratio * 0.3)))
-                tip_x = max(2, base_x - tail_length)
-                top_y = max(0, flame_height // 2 - tail_height // 2)
-                bottom_y = min(flame_height, top_y + tail_height)
-                layer_alpha = int(110 * intensity * (1 - layer_ratio * 0.45))
-                if layer_alpha <= 0:
-                    continue
-                color = (
-                    int(80 + (1 - layer_ratio) * 70),
-                    int(160 + (1 - layer_ratio) * 60),
-                    255,
-                    layer_alpha,
+                nozzle_width = max(4, flame_height // 2)
+                nozzle_height = max(4, int(flame_height * 0.7))
+                nozzle_rect = pygame.Rect(
+                    flame_length - nozzle_width - 2,
+                    (flame_height - nozzle_height) // 2,
+                    nozzle_width,
+                    nozzle_height,
                 )
-                tail_points = [
-                    (base_x, top_y),
-                    (base_x, bottom_y),
-                    (tip_x, flame_height // 2 + int(math.sin(pygame.time.get_ticks() * 0.04 + layer * 1.2) * 2)),
-                ]
-                pygame.draw.polygon(flame_surface, color, tail_points)
-
-            core_tail_length = max(3, int(flame_length * (0.35 + speed_ratio * 0.3)))
-            core_tip_x = max(1, base_x - core_tail_length)
-            core_half_height = max(1, max(2, flame_height // 4))
-            core_points = [
-                (base_x + 1, flame_height // 2 - core_half_height),
-                (base_x + 1, flame_height // 2 + core_half_height),
-                (core_tip_x, flame_height // 2),
-            ]
-            pygame.draw.polygon(
-                flame_surface,
-                (255, 240, 220, int(130 * intensity)),
-                core_points,
-            )
-
-            spark_count = 1 + int(speed_ratio * 2)
-            for _ in range(spark_count):
-                spark_x = random.randint(core_tip_x, base_x - 1)
-                spark_y = flame_height // 2 + random.randint(-flame_height // 3, flame_height // 3)
-                spark_alpha = int(120 * intensity * random.uniform(0.4, 1.0))
-                pygame.draw.circle(
+                pygame.draw.ellipse(
                     flame_surface,
-                    (220, 245, 255, spark_alpha),
-                    (spark_x, spark_y),
-                    1,
+                    (120, 205, 255, int(140 * intensity)),
+                    nozzle_rect,
+                )
+                inner_nozzle = nozzle_rect.inflate(-max(2, nozzle_width // 3), -max(2, nozzle_height // 3))
+                pygame.draw.ellipse(
+                    flame_surface,
+                    (215, 240, 255, int(150 * intensity)),
+                    inner_nozzle,
                 )
 
-            thruster_side = -1 if current_speed > 0 else 1
-            if thruster_side == 1:
-                flame_surface = pygame.transform.flip(flame_surface, True, False)
+                base_x = flame_length - nozzle_width
+                for layer in range(3):
+                    layer_ratio = layer / 2
+                    tail_length = max(4, int(flame_length * (0.6 + speed_ratio * 0.25) * (1 - layer_ratio * 0.5)))
+                    tail_height = max(3, int(flame_height * (0.75 - layer_ratio * 0.3)))
+                    tip_x = max(2, base_x - tail_length)
+                    top_y = max(0, flame_height // 2 - tail_height // 2)
+                    bottom_y = min(flame_height, top_y + tail_height)
+                    layer_alpha = int(110 * intensity * (1 - layer_ratio * 0.45))
+                    if layer_alpha <= 0:
+                        continue
+                    color = (
+                        int(80 + (1 - layer_ratio) * 70),
+                        int(160 + (1 - layer_ratio) * 60),
+                        255,
+                        layer_alpha,
+                    )
+                    tail_points = [
+                        (base_x, top_y),
+                        (base_x, bottom_y),
+                        (tip_x, flame_height // 2 + int(math.sin(pygame.time.get_ticks() * 0.04 + layer * 1.2) * 2)),
+                    ]
+                    pygame.draw.polygon(flame_surface, color, tail_points)
 
-            if abs(tilt_angle) > 0.01:
-                flame_surface = pygame.transform.rotate(flame_surface, tilt_angle * 0.5)
+                core_tail_length = max(3, int(flame_length * (0.35 + speed_ratio * 0.3)))
+                core_tip_x = max(1, base_x - core_tail_length)
+                core_half_height = max(1, max(2, flame_height // 4))
+                core_points = [
+                    (base_x + 1, flame_height // 2 - core_half_height),
+                    (base_x + 1, flame_height // 2 + core_half_height),
+                    (core_tip_x, flame_height // 2),
+                ]
+                pygame.draw.polygon(
+                    flame_surface,
+                    (255, 240, 220, int(130 * intensity)),
+                    core_points,
+                )
 
-            offset_x = player_rect.width * 0.3
-            offset_y = player_rect.height * 0.22
-            bobbing = math.sin(pygame.time.get_ticks() * 0.028) * (player_rect.height * 0.02) * speed_ratio
-            attach_point = (
-                int(player_rect.centerx + thruster_side * offset_x),
-                int(player_rect.centery + offset_y + bobbing),
-            )
-            flame_rect = flame_surface.get_rect()
-            if thruster_side == -1:
-                flame_rect.midright = attach_point
-            else:
-                flame_rect.midleft = attach_point
-            draw_with_shake(flame_surface, flame_rect.topleft)
+                spark_count = 1 + int(speed_ratio * 2)
+                for _ in range(spark_count):
+                    spark_x = random.randint(core_tip_x, base_x - 1)
+                    spark_y = flame_height // 2 + random.randint(-flame_height // 3, flame_height // 3)
+                    spark_alpha = int(120 * intensity * random.uniform(0.4, 1.0))
+                    pygame.draw.circle(
+                        flame_surface,
+                        (220, 245, 255, spark_alpha),
+                        (spark_x, spark_y),
+                        1,
+                    )
+
+                thruster_side = -1 if current_speed > 0 else 1
+                if thruster_side == 1:
+                    flame_surface = pygame.transform.flip(flame_surface, True, False)
+
+                if abs(tilt_angle) > 0.01:
+                    flame_surface = pygame.transform.rotate(flame_surface, tilt_angle * 0.5)
+
+                offset_x = player_rect.width * 0.3
+                offset_y = player_rect.height * 0.22
+                bobbing = math.sin(pygame.time.get_ticks() * 0.028) * (player_rect.height * 0.02) * speed_ratio
+                attach_point = (
+                    int(player_rect.centerx + thruster_side * offset_x),
+                    int(player_rect.centery + offset_y + bobbing),
+                )
+                flame_rect = flame_surface.get_rect()
+                if thruster_side == -1:
+                    flame_rect.midright = attach_point
+                else:
+                    flame_rect.midleft = attach_point
+                draw_with_shake(flame_surface, flame_rect.topleft)
 
     # UFO 이미지 그리기 (화면 흔들림 효과 적용 - 최적화 버전)
     if special_ready:

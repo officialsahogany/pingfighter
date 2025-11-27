@@ -201,6 +201,11 @@ class InteriorNPC:
         draw_x = self.x - camera_offset[0]
         draw_y = self.y - camera_offset[1]
 
+        # 은행 로봇 NPC인 경우 로봇 스타일로 그리기
+        if self.building_type == BuildingType.BANK:
+            self._draw_robot(screen, draw_x, draw_y, animation_timer)
+            return
+
         # NPC 고유 ID로 외모 특성 결정
         npc_id = hash(self.name)
 
@@ -508,6 +513,174 @@ class InteriorNPC:
             pygame.draw.circle(screen, (255, 255, 255), (bubble_x + 4, bubble_y + 8), 3)
             pygame.draw.circle(screen, (255, 255, 255), (bubble_x + 8, bubble_y + 2), 5)
             pygame.draw.circle(screen, (230, 230, 230), (bubble_x + 8, bubble_y + 2), 5, 1)
+
+    def _draw_robot(self, screen, draw_x, draw_y, animation_timer):
+        """은행 로봇 NPC 그리기 - sci-fi 스타일 로봇"""
+        npc_id = hash(self.name)
+
+        # 로봇 색상 팔레트
+        METAL_GRAY = (140, 150, 165)
+        METAL_DARK = (90, 100, 115)
+        METAL_LIGHT = (180, 190, 205)
+        ACCENT_CYAN = (100, 200, 255)
+        ACCENT_GLOW = (150, 220, 255)
+        LED_GREEN = (100, 255, 150)
+        LED_BLUE = (100, 180, 255)
+        LED_RED = (255, 100, 100)
+
+        # 로봇마다 다른 LED 색상
+        led_colors = [LED_GREEN, LED_BLUE, ACCENT_CYAN]
+        led_color = led_colors[npc_id % len(led_colors)]
+
+        # 애니메이션 (살짝 위아래 움직임)
+        hover_offset = int(2 * math.sin(animation_timer * 2 + npc_id))
+
+        # 위치 계산 (발 위치 기준)
+        center_x = int(draw_x)
+        feet_y = int(draw_y) + hover_offset
+
+        # === 그림자 (타원형, 반투명) ===
+        shadow_w = self.width + 10
+        shadow_h = 6
+        shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), (0, 0, shadow_w, shadow_h))
+        screen.blit(shadow_surf, (center_x - shadow_w // 2, feet_y - 3 - hover_offset))
+
+        # === 로봇 발/바퀴 ===
+        wheel_w, wheel_h = 16, 8
+        pygame.draw.ellipse(screen, METAL_DARK, (center_x - wheel_w // 2, feet_y - wheel_h, wheel_w, wheel_h))
+        pygame.draw.ellipse(screen, METAL_GRAY, (center_x - wheel_w // 2, feet_y - wheel_h, wheel_w, wheel_h), 2)
+        # LED 라인
+        pygame.draw.ellipse(screen, led_color, (center_x - wheel_w // 2 + 2, feet_y - wheel_h + 2, wheel_w - 4, wheel_h - 4), 1)
+
+        # === 로봇 다리 (기둥) ===
+        leg_w, leg_h = 8, 16
+        leg_y = feet_y - wheel_h - leg_h
+        pygame.draw.rect(screen, METAL_DARK, (center_x - leg_w // 2, leg_y, leg_w, leg_h), border_radius=2)
+        pygame.draw.rect(screen, METAL_GRAY, (center_x - leg_w // 2, leg_y, leg_w, leg_h), 1, border_radius=2)
+        # 관절 라인
+        pygame.draw.line(screen, led_color, (center_x - leg_w // 2 + 1, leg_y + leg_h // 2), (center_x + leg_w // 2 - 1, leg_y + leg_h // 2), 1)
+
+        # === 로봇 몸통 ===
+        torso_w, torso_h = self.width + 4, 22
+        torso_y = leg_y - torso_h + 2
+        torso_x = center_x - torso_w // 2
+
+        # 몸통 배경 (둥근 사각형)
+        pygame.draw.rect(screen, METAL_GRAY, (torso_x, torso_y, torso_w, torso_h), border_radius=5)
+        pygame.draw.rect(screen, METAL_LIGHT, (torso_x, torso_y, torso_w, torso_h), 2, border_radius=5)
+
+        # 가슴 패널 (LED 디스플레이)
+        panel_w, panel_h = torso_w - 8, 10
+        panel_x = torso_x + 4
+        panel_y = torso_y + 5
+        pygame.draw.rect(screen, METAL_DARK, (panel_x, panel_y, panel_w, panel_h), border_radius=2)
+
+        # LED 라이트 (깜빡임 효과)
+        led_blink = int(animation_timer * 3) % 3
+        for i in range(3):
+            led_x = panel_x + 3 + i * 6
+            if i == led_blink:
+                pygame.draw.circle(screen, led_color, (led_x + 2, panel_y + panel_h // 2), 3)
+            else:
+                pygame.draw.circle(screen, (50, 60, 70), (led_x + 2, panel_y + panel_h // 2), 2)
+
+        # === 로봇 팔 ===
+        arm_w, arm_h = 6, 14
+        arm_y = torso_y + 4
+
+        # 팔 흔들림
+        arm_swing = int(2 * math.sin(animation_timer * 1.5 + npc_id))
+
+        # 왼팔
+        pygame.draw.rect(screen, METAL_DARK, (torso_x - arm_w + 2, arm_y + arm_swing, arm_w, arm_h), border_radius=2)
+        pygame.draw.rect(screen, METAL_GRAY, (torso_x - arm_w + 2, arm_y + arm_swing, arm_w, arm_h), 1, border_radius=2)
+        # 손 (그리퍼)
+        pygame.draw.ellipse(screen, METAL_LIGHT, (torso_x - arm_w + 3, arm_y + arm_h - 2 + arm_swing, 4, 4))
+
+        # 오른팔
+        pygame.draw.rect(screen, METAL_DARK, (torso_x + torso_w - 2, arm_y - arm_swing, arm_w, arm_h), border_radius=2)
+        pygame.draw.rect(screen, METAL_GRAY, (torso_x + torso_w - 2, arm_y - arm_swing, arm_w, arm_h), 1, border_radius=2)
+        pygame.draw.ellipse(screen, METAL_LIGHT, (torso_x + torso_w - 1, arm_y + arm_h - 2 - arm_swing, 4, 4))
+
+        # === 로봇 목 ===
+        neck_w, neck_h = 6, 5
+        neck_y = torso_y - neck_h + 2
+        pygame.draw.rect(screen, METAL_DARK, (center_x - neck_w // 2, neck_y, neck_w, neck_h + 2))
+        pygame.draw.rect(screen, METAL_GRAY, (center_x - neck_w // 2, neck_y, neck_w, neck_h + 2), 1)
+
+        # === 로봇 머리 ===
+        head_w, head_h = 18, 16
+        head_y = neck_y - head_h + 4
+        head_x = center_x - head_w // 2
+
+        # 머리 본체 (둥근 박스)
+        pygame.draw.rect(screen, METAL_GRAY, (head_x, head_y, head_w, head_h), border_radius=4)
+        pygame.draw.rect(screen, METAL_LIGHT, (head_x, head_y, head_w, head_h), 2, border_radius=4)
+
+        # 안테나 (머리 위)
+        antenna_x = center_x
+        antenna_y = head_y - 6
+        pygame.draw.line(screen, METAL_DARK, (antenna_x, head_y), (antenna_x, antenna_y), 2)
+        # 안테나 끝 (빛나는 구)
+        glow_pulse = int(180 + 75 * math.sin(animation_timer * 4 + npc_id))
+        pygame.draw.circle(screen, led_color, (antenna_x, antenna_y), 4)
+        glow_surf = pygame.Surface((12, 12), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (*led_color, glow_pulse // 2), (6, 6), 6)
+        screen.blit(glow_surf, (antenna_x - 6, antenna_y - 6))
+
+        # === 로봇 눈 (LED 바이저) ===
+        visor_y = head_y + 5
+        visor_w, visor_h = head_w - 4, 6
+        visor_x = head_x + 2
+
+        # 바이저 배경 (어두운 유리)
+        pygame.draw.rect(screen, (20, 30, 40), (visor_x, visor_y, visor_w, visor_h), border_radius=2)
+        pygame.draw.rect(screen, METAL_DARK, (visor_x, visor_y, visor_w, visor_h), 1, border_radius=2)
+
+        # LED 눈 (좌우 이동 애니메이션)
+        eye_offset = int(2 * math.sin(animation_timer * 2))
+        eye_y = visor_y + visor_h // 2
+
+        # 왼쪽 눈
+        pygame.draw.circle(screen, led_color, (visor_x + 4 + eye_offset, eye_y), 2)
+        # 오른쪽 눈
+        pygame.draw.circle(screen, led_color, (visor_x + visor_w - 4 + eye_offset, eye_y), 2)
+
+        # 눈 글로우 효과
+        glow_size = 4 + int(math.sin(animation_timer * 3) * 1)
+        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (*led_color, 80), (glow_size, glow_size), glow_size)
+        screen.blit(glow_surf, (visor_x + 4 + eye_offset - glow_size, eye_y - glow_size))
+        screen.blit(glow_surf, (visor_x + visor_w - 4 + eye_offset - glow_size, eye_y - glow_size))
+
+        # === 입 (LED 바) ===
+        mouth_y = head_y + head_h - 5
+        mouth_w = 8
+        mouth_x = center_x - mouth_w // 2
+        # 말하는 중이면 입 애니메이션
+        if self.is_talking:
+            mouth_h = 2 + int(abs(math.sin(animation_timer * 8)) * 2)
+            pygame.draw.rect(screen, led_color, (mouth_x, mouth_y, mouth_w, mouth_h), border_radius=1)
+        else:
+            pygame.draw.rect(screen, METAL_DARK, (mouth_x, mouth_y, mouth_w, 2), border_radius=1)
+            pygame.draw.line(screen, led_color, (mouth_x + 1, mouth_y + 1), (mouth_x + mouth_w - 1, mouth_y + 1), 1)
+
+        # === 메인 NPC 표시 (역할 강조) ===
+        if self.role == "main":
+            # 머리 위에 별 아이콘
+            star_x = center_x
+            star_y = head_y - 16
+            pygame.draw.polygon(screen, ACCENT_GLOW, [
+                (star_x, star_y - 5),
+                (star_x + 2, star_y - 1),
+                (star_x + 5, star_y),
+                (star_x + 2, star_y + 1),
+                (star_x, star_y + 5),
+                (star_x - 2, star_y + 1),
+                (star_x - 5, star_y),
+                (star_x - 2, star_y - 1),
+            ])
 
     def draw_speech_bubble(self, screen, camera_offset, fonts):
         """말풍선 그리기"""
@@ -883,28 +1056,29 @@ INTERIOR_CONFIGS = {
         "staff_count": 1,
     },
     BuildingType.BANK: {
-        "name": "스타뱅크",
-        "map_size": (12, 10),
-        "bg_color": (25, 30, 45),
-        "floor_color": (45, 50, 70),
-        "floor_pattern": "marble",
-        "wall_color": (35, 40, 55),
-        "accent_color": (255, 215, 0),
-        "secondary_color": (192, 192, 192),
-        "decorations": ["vault_door", "counter", "safe_box", "gold_display"],
+        "name": "STARBANK",
+        "map_size": (14, 10),
+        "bg_color": (30, 45, 65),  # 진한 파란색 배경
+        "floor_color": (50, 65, 85),  # 파란색 타일 바닥
+        "floor_pattern": "bank_tile",  # 은행 전용 타일 패턴
+        "wall_color": (40, 55, 75),
+        "accent_color": (100, 200, 255),  # 시안 네온
+        "secondary_color": (70, 90, 120),  # 금속 회색
+        "decorations": ["bank_counter", "bank_vault", "bank_monitor", "bank_safe"],
         "main_npc": {
-            "name": "은행장 골드맨",
-            "color": (255, 215, 0),
-            "position": (0.5, 0.3),
+            "name": "Bank-Bot #001",
+            "color": (150, 160, 170),  # 로봇 회색
+            "position": (0.5, 0.28),
             "dialogue": [
-                "스타뱅크에 오신 것을 환영합니다.",
-                "어떤 업무를 도와드릴까요?",
-                "현재 시스템 점검 중입니다.",
-                "곧 서비스를 이용하실 수 있습니다."
+                "STARBANK에 오신 것을 환영합니다.",
+                "[SYSTEM] 어떤 업무를 도와드릴까요?",
+                "[PROCESSING] 시스템 점검 중입니다.",
+                "[READY] 서비스를 이용하실 수 있습니다."
             ]
         },
-        "customer_range": (2, 4),
-        "staff_count": 2,
+        "customer_range": (0, 0),  # 로봇 직원만 있음
+        "staff_count": 3,  # 로봇 3대
+        "special_interior": "bank",  # 특수 인테리어 플래그
     },
     BuildingType.GACHA: {
         "name": "스타 가챠샵",
@@ -1401,20 +1575,28 @@ class BuildingInterior:
 
     def draw(self, screen):
         """건물 내부 그리기"""
-        # 배경
-        screen.fill(self.config["bg_color"])
+        # 특수 인테리어 체크
+        special_interior = self.config.get("special_interior")
 
-        # 바닥 타일
-        self._draw_floor(screen)
+        if special_interior == "bank":
+            # 은행 전용 인테리어
+            self._draw_bank_interior(screen)
+        else:
+            # 기본 인테리어
+            # 배경
+            screen.fill(self.config["bg_color"])
 
-        # 벽
-        self._draw_walls(screen)
+            # 바닥 타일
+            self._draw_floor(screen)
 
-        # 장식물
-        self._draw_decorations(screen)
+            # 벽
+            self._draw_walls(screen)
 
-        # 문
-        self._draw_door(screen)
+            # 장식물
+            self._draw_decorations(screen)
+
+            # 문
+            self._draw_door(screen)
 
         # NPC들 (Y 정렬)
         all_entities = [(npc.y, "npc", npc) for npc in self.npcs]
@@ -1439,6 +1621,197 @@ class BuildingInterior:
 
         # UI
         self._draw_ui(screen)
+
+    def _draw_bank_interior(self, screen):
+        """스타뱅크 전용 인테리어 - SF 은행 스타일"""
+        import math
+
+        # 색상 정의
+        BG_DARK = (25, 40, 60)
+        BG_MID = (35, 55, 80)
+        FLOOR_DARK = (45, 60, 85)
+        FLOOR_LIGHT = (55, 75, 100)
+        WALL_COLOR = (30, 45, 65)
+        ACCENT_CYAN = (100, 200, 255)
+        ACCENT_GOLD = (255, 200, 80)
+        METAL_GRAY = (120, 130, 145)
+        METAL_DARK = (70, 80, 95)
+        METAL_LIGHT = (160, 170, 185)
+
+        cam_x, cam_y = self.camera_offset
+
+        # 1. 배경
+        screen.fill(BG_DARK)
+
+        # 2. 바닥 타일 (청색 격자)
+        for ty in range(self.map_height):
+            for tx in range(self.map_width):
+                tile_x = tx * TILE_SIZE - cam_x
+                tile_y = ty * TILE_SIZE - cam_y
+
+                if (tx + ty) % 2 == 0:
+                    color = FLOOR_LIGHT
+                else:
+                    color = FLOOR_DARK
+
+                pygame.draw.rect(screen, color, (tile_x, tile_y, TILE_SIZE, TILE_SIZE))
+                pygame.draw.rect(screen, (40, 55, 75), (tile_x, tile_y, TILE_SIZE, TILE_SIZE), 1)
+
+        # 3. 상단 벽 영역 (선반 + 모니터 + 금고)
+        wall_h = int(TILE_SIZE * 2.5)
+        wall_rect = pygame.Rect(-cam_x, -cam_y, self.pixel_width, wall_h)
+        pygame.draw.rect(screen, WALL_COLOR, wall_rect)
+
+        # 3-1. 상단 선반 (물건들 진열)
+        shelf_y = -cam_y + 20
+        shelf_h = 50
+        # 왼쪽 선반
+        pygame.draw.rect(screen, METAL_DARK, (-cam_x + 20, shelf_y, 120, shelf_h))
+        pygame.draw.rect(screen, METAL_GRAY, (-cam_x + 20, shelf_y, 120, shelf_h), 2)
+        # 선반 위 아이템들 (박스/서류)
+        for i in range(3):
+            box_x = -cam_x + 30 + i * 35
+            pygame.draw.rect(screen, (60, 70, 90), (box_x, shelf_y + 15, 25, 30))
+            pygame.draw.rect(screen, ACCENT_CYAN, (box_x, shelf_y + 15, 25, 30), 1)
+
+        # 오른쪽 선반
+        pygame.draw.rect(screen, METAL_DARK, (self.pixel_width - cam_x - 140, shelf_y, 120, shelf_h))
+        pygame.draw.rect(screen, METAL_GRAY, (self.pixel_width - cam_x - 140, shelf_y, 120, shelf_h), 2)
+        # 금고 아이콘
+        safe_x = self.pixel_width - cam_x - 100
+        pygame.draw.rect(screen, (50, 55, 65), (safe_x, shelf_y + 10, 40, 35), border_radius=3)
+        pygame.draw.rect(screen, METAL_LIGHT, (safe_x, shelf_y + 10, 40, 35), 2, border_radius=3)
+        pygame.draw.circle(screen, ACCENT_GOLD, (safe_x + 20, shelf_y + 27), 8)
+
+        # 3-2. 유로(€) 심볼 (왼쪽 상단)
+        euro_x = -cam_x + 180
+        euro_y = -cam_y + 35
+        font_large = self.fonts.get('large')
+        if font_large:
+            euro_surf, _ = font_large.render("€", ACCENT_CYAN)
+            screen.blit(euro_surf, (euro_x, euro_y))
+
+        # 3-3. STARBANK 네온 간판 (상단 중앙)
+        sign_text = "STARBANK"
+        sign_x = self.pixel_width // 2 - cam_x
+        sign_y = -cam_y + 25
+
+        # 네온 글로우 효과
+        glow_alpha = int(180 + 50 * math.sin(self.animation_timer * 2))
+        for i in range(3):
+            glow_surf = pygame.Surface((200 + i*20, 50 + i*10), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*ACCENT_CYAN, glow_alpha // (i+2)),
+                           (0, 0, 200 + i*20, 50 + i*10), border_radius=10)
+            screen.blit(glow_surf, (sign_x - 100 - i*10, sign_y - 10 - i*5))
+
+        # 간판 배경
+        sign_bg = pygame.Rect(sign_x - 90, sign_y - 5, 180, 40)
+        pygame.draw.rect(screen, (20, 30, 45), sign_bg, border_radius=8)
+        pygame.draw.rect(screen, ACCENT_CYAN, sign_bg, 3, border_radius=8)
+
+        # 간판 텍스트
+        if font_large:
+            sign_surf, sign_rect = font_large.render(sign_text, ACCENT_CYAN)
+            screen.blit(sign_surf, (sign_x - sign_rect.width // 2, sign_y))
+
+        # 4. 은행 카운터 (중앙 하단)
+        counter_w = self.pixel_width - 80
+        counter_h = 45
+        counter_x = -cam_x + 40
+        counter_y = -cam_y + wall_h + 30
+
+        # 카운터 본체 (흰색/회색)
+        pygame.draw.rect(screen, (220, 225, 230), (counter_x, counter_y, counter_w, counter_h))
+        pygame.draw.rect(screen, (180, 185, 195), (counter_x, counter_y, counter_w, counter_h), 3)
+
+        # 카운터 상단 라인 (시안 네온)
+        pygame.draw.rect(screen, ACCENT_CYAN, (counter_x, counter_y, counter_w, 5))
+
+        # 카운터 하단 (어두운 부분)
+        pygame.draw.rect(screen, (100, 120, 150), (counter_x, counter_y + counter_h - 15, counter_w, 15))
+
+        # 비트코인 심볼 (카운터 중앙)
+        btc_x = counter_x + counter_w // 2
+        btc_y = counter_y + counter_h // 2
+        pygame.draw.circle(screen, (50, 80, 120), (btc_x, btc_y), 15)
+        font_medium = self.fonts.get('medium')
+        if font_medium:
+            btc_surf, _ = font_medium.render("₿", ACCENT_GOLD)
+            screen.blit(btc_surf, (btc_x - 8, btc_y - 10))
+
+        # 5. 좌우 벽 장식
+        # 왼쪽 - 소 두개골 (장식)
+        skull_x = -cam_x + 15
+        skull_y = -cam_y + 30
+        pygame.draw.ellipse(screen, METAL_LIGHT, (skull_x, skull_y, 30, 25))
+        pygame.draw.ellipse(screen, METAL_GRAY, (skull_x, skull_y, 30, 25), 2)
+        # 뿔
+        pygame.draw.polygon(screen, METAL_GRAY, [(skull_x + 5, skull_y + 5), (skull_x - 10, skull_y - 15), (skull_x + 10, skull_y + 2)])
+        pygame.draw.polygon(screen, METAL_GRAY, [(skull_x + 25, skull_y + 5), (skull_x + 40, skull_y - 15), (skull_x + 20, skull_y + 2)])
+
+        # 오른쪽 상단 - 열쇠 아이콘 (금색)
+        key_x = self.pixel_width - cam_x - 60
+        key_y = -cam_y + 60
+        # 열쇠 머리
+        pygame.draw.circle(screen, ACCENT_GOLD, (key_x, key_y), 12)
+        pygame.draw.circle(screen, (200, 160, 60), (key_x, key_y), 8)
+        # 열쇠 몸통
+        pygame.draw.rect(screen, ACCENT_GOLD, (key_x - 3, key_y + 10, 6, 30))
+        # 열쇠 이빨
+        pygame.draw.rect(screen, ACCENT_GOLD, (key_x + 3, key_y + 30, 8, 4))
+        pygame.draw.rect(screen, ACCENT_GOLD, (key_x + 3, key_y + 36, 5, 4))
+
+        # 6. 양쪽 의자/벤치
+        bench_color = (60, 80, 110)
+        # 왼쪽 벤치들
+        for i in range(2):
+            bx = -cam_x + 50
+            by = self.pixel_height - cam_y - 120 - i * 60
+            pygame.draw.rect(screen, bench_color, (bx, by, 60, 25), border_radius=5)
+            pygame.draw.rect(screen, METAL_GRAY, (bx, by, 60, 25), 2, border_radius=5)
+
+        # 오른쪽 벤치들
+        for i in range(2):
+            bx = self.pixel_width - cam_x - 110
+            by = self.pixel_height - cam_y - 120 - i * 60
+            pygame.draw.rect(screen, bench_color, (bx, by, 60, 25), border_radius=5)
+            pygame.draw.rect(screen, METAL_GRAY, (bx, by, 60, 25), 2, border_radius=5)
+
+        # 7. 바닥 러그/카펫 (중앙)
+        rug_w = 180
+        rug_h = 120
+        rug_x = self.pixel_width // 2 - cam_x - rug_w // 2
+        rug_y = self.pixel_height - cam_y - 180
+
+        # 러그 배경
+        rug_color = (80, 90, 110)
+        pygame.draw.rect(screen, rug_color, (rug_x, rug_y, rug_w, rug_h), border_radius=5)
+        pygame.draw.rect(screen, (100, 110, 130), (rug_x, rug_y, rug_w, rug_h), 2, border_radius=5)
+
+        # 러그 패턴 (눈 모양)
+        eye_cx = rug_x + rug_w // 2
+        eye_cy = rug_y + rug_h // 2
+        # 외곽 타원
+        pygame.draw.ellipse(screen, (100, 110, 130), (eye_cx - 50, eye_cy - 25, 100, 50), 3)
+        # 내부 원
+        pygame.draw.circle(screen, (90, 100, 120), (eye_cx, eye_cy), 20)
+        pygame.draw.circle(screen, (110, 120, 140), (eye_cx, eye_cy), 10)
+
+        # 8. 문 그리기
+        self._draw_door(screen)
+
+        # 9. 별 아이콘 (우측 하단)
+        star_x = self.pixel_width - cam_x - 40
+        star_y = self.pixel_height - cam_y - 50
+        star_size = 12
+        star_points = []
+        for i in range(10):
+            angle = -math.pi / 2 + (i * math.pi / 5)
+            radius = star_size if i % 2 == 0 else star_size * 0.5
+            px = star_x + radius * math.cos(angle)
+            py = star_y + radius * math.sin(angle)
+            star_points.append((px, py))
+        pygame.draw.polygon(screen, ACCENT_GOLD, star_points)
 
     def _draw_floor(self, screen):
         """바닥 타일 그리기"""
@@ -1488,6 +1861,12 @@ class BuildingInterior:
                         color = tuple(max(0, c - 15) for c in floor_color)
                     else:
                         color = floor_color
+                elif pattern == "bank_tile":
+                    # 은행 타일 (청색 계열 격자)
+                    if (tx + ty) % 2 == 0:
+                        color = tuple(min(255, c + 10) for c in floor_color)
+                    else:
+                        color = tuple(max(0, c - 5) for c in floor_color)
                 else:
                     # 체크 패턴 (기본)
                     if (tx + ty) % 2 == 0:
