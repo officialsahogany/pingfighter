@@ -590,145 +590,23 @@ class DowntownManager:
         title_y = dialog_y + 30
         self.screen.blit(title_surface, (title_x, title_y))
 
-        # AP 소모 안내 (열쇠 아이콘으로 표시)
-        # 세로 열쇠 아이콘 그리기 - 입체감 있는 디자인
-        key_width = 20
-        key_height = 36
+        # AP 소모 안내 (열쇠 아이콘으로 표시 - 광장과 동일한 앤틱 디자인)
+        key_size = 20  # 아이콘 크기
         key_x = dialog_x + (dialog_width - 100) // 2  # 아이콘 + 텍스트 중앙 정렬
-        key_y = title_y + 38
+        key_y = title_y + 48
 
-        # 열쇠 그림을 그릴 임시 서피스 (투명 배경)
-        key_surface = pygame.Surface((key_width + 6, key_height + 6), pygame.SRCALPHA)
-
-        # 색상 정의
-        key_gold = (255, 215, 0)        # 황금색
-        key_dark = (204, 172, 0)        # 어두운 금색 (그림자/윤곽)
-        key_light = (255, 245, 150)     # 밝은 금색 (하이라이트)
-        key_shine = (255, 255, 220)     # 반짝임
-
-        # 그림자 효과 (약간 아래 오른쪽)
-        shadow_offset = 2
-
-        # === 세로 열쇠 그리기 (위에서 아래로) ===
-
-        # 1. 열쇠 고리 (원형 - 맨 위)
-        ring_center_x = key_width // 2 + 3
-        ring_center_y = 8
-        ring_outer_radius = 7
-        ring_inner_radius = 4
-
-        # 고리 그림자
-        pygame.draw.circle(key_surface, (0, 0, 0, 80),
-                         (ring_center_x + shadow_offset, ring_center_y + shadow_offset),
-                         ring_outer_radius)
-
-        # 고리 외곽 (어두운 금색)
-        pygame.draw.circle(key_surface, key_dark, (ring_center_x, ring_center_y), ring_outer_radius)
-
-        # 고리 메인 (황금색)
-        pygame.draw.circle(key_surface, key_gold, (ring_center_x, ring_center_y), ring_outer_radius - 1)
-
-        # 고리 안쪽 구멍 (어두운 배경)
-        pygame.draw.circle(key_surface, (40, 40, 40), (ring_center_x, ring_center_y), ring_inner_radius)
-
-        # 고리 내부 윤곽
-        pygame.draw.circle(key_surface, key_dark, (ring_center_x, ring_center_y), ring_inner_radius + 1, 1)
-
-        # 고리 하이라이트 (왼쪽 위 호)
-        pygame.draw.arc(key_surface, key_light,
-                       (ring_center_x - ring_outer_radius,
-                        ring_center_y - ring_outer_radius,
-                        ring_outer_radius * 2, ring_outer_radius * 2),
-                       2.4, 4.0, 2)
-
-        # 2. 열쇠 몸통 (세로 막대 - 고리 아래)
-        shaft_top = ring_center_y + ring_outer_radius
-        shaft_x = ring_center_x - 2
-        shaft_width = 4
-        shaft_height = 16
-
-        shaft_rect = pygame.Rect(shaft_x, shaft_top, shaft_width, shaft_height)
-
-        # 몸통 그림자
-        shadow_rect = shaft_rect.copy()
-        shadow_rect.x += shadow_offset
-        shadow_rect.y += shadow_offset
-        pygame.draw.rect(key_surface, (0, 0, 0, 80), shadow_rect, border_radius=2)
-
-        # 몸통 외곽
-        pygame.draw.rect(key_surface, key_dark, shaft_rect, border_radius=2)
-
-        # 몸통 메인
-        inner_shaft = pygame.Rect(shaft_x + 1, shaft_top + 1, shaft_width - 2, shaft_height - 2)
-        pygame.draw.rect(key_surface, key_gold, inner_shaft, border_radius=1)
-
-        # 몸통 하이라이트 (왼쪽)
-        highlight_line_x = shaft_x + 1
-        pygame.draw.line(key_surface, key_light,
-                        (highlight_line_x, shaft_top + 2),
-                        (highlight_line_x, shaft_top + shaft_height - 2), 1)
-
-        # 3. 열쇠 이빨 (아래쪽 톱니)
-        teeth_top = shaft_top + shaft_height
-        teeth_center_x = ring_center_x
-
-        # 이빨 폴리곤 (더 세밀하게)
-        teeth_points = [
-            # 왼쪽 상단
-            (teeth_center_x - 5, teeth_top),
-            # 왼쪽 첫 번째 톱니
-            (teeth_center_x - 5, teeth_top + 3),
-            (teeth_center_x - 7, teeth_top + 3),
-            (teeth_center_x - 7, teeth_top + 5),
-            # 왼쪽 두 번째 톱니
-            (teeth_center_x - 5, teeth_top + 5),
-            (teeth_center_x - 5, teeth_top + 8),
-            (teeth_center_x - 7, teeth_top + 8),
-            (teeth_center_x - 7, teeth_top + 10),
-            # 아래
-            (teeth_center_x - 5, teeth_top + 10),
-            (teeth_center_x + 5, teeth_top + 10),
-            # 오른쪽 두 번째 톱니
-            (teeth_center_x + 5, teeth_top + 8),
-            (teeth_center_x + 7, teeth_top + 8),
-            (teeth_center_x + 7, teeth_top + 5),
-            # 오른쪽 첫 번째 톱니
-            (teeth_center_x + 5, teeth_top + 5),
-            (teeth_center_x + 5, teeth_top + 3),
-            (teeth_center_x + 7, teeth_top + 3),
-            (teeth_center_x + 7, teeth_top),
-            # 오른쪽 상단 (닫기)
-            (teeth_center_x + 5, teeth_top),
-        ]
-
-        # 이빨 그림자
-        shadow_teeth = [(x + shadow_offset, y + shadow_offset) for x, y in teeth_points]
-        pygame.draw.polygon(key_surface, (0, 0, 0, 80), shadow_teeth)
-
-        # 이빨 외곽 (어두운 금색)
-        pygame.draw.polygon(key_surface, key_dark, teeth_points)
-
-        # 이빨 메인 (황금색 - 약간 작게)
-        inner_teeth = [(x + (1 if x < teeth_center_x else -1), y + 1) for x, y in teeth_points]
-        pygame.draw.polygon(key_surface, key_gold, inner_teeth)
-
-        # 이빨 하이라이트 (중앙 세로선)
-        pygame.draw.line(key_surface, key_light,
-                        (teeth_center_x, teeth_top + 1),
-                        (teeth_center_x, teeth_top + 9), 1)
-
-        # 4. 반짝임 효과 (고리 좌상단)
-        pygame.draw.circle(key_surface, key_shine, (ring_center_x - 2, ring_center_y - 2), 2)
-        pygame.draw.circle(key_surface, key_shine, (ring_center_x - 1, ring_center_y - 1), 1)
-
-        # 열쇠 서피스를 화면에 그리기
-        self.screen.blit(key_surface, (key_x, key_y))
+        # 광장 좌측 상단과 동일한 앤틱 열쇠 그리기
+        self.ap_system._draw_antique_key(self.screen, key_x, key_y, key_size, active=True)
 
         # 소모 개수 표시
+        key_gold = (175, 140, 85)  # 앤틱 골드 색상 (광장 열쇠와 동일)
         ap_text = f"{ap_cost} 소모"
         ap_surface, ap_rect = self._freetype_fonts['small'].render(ap_text, key_gold)
-        ap_text_x = key_x + key_width + 15
-        ap_text_y = key_y + (key_height - ap_rect.height) // 2
+        # 열쇠 크기 계산 (앤틱 열쇠는 세로로 긴 비율 - 1.0 x 2.2)
+        key_display_width = int(key_size * 1.0)
+        key_display_height = int(key_size * 2.2)
+        ap_text_x = key_x + key_display_width + 15
+        ap_text_y = key_y - ap_rect.height // 2
         self.screen.blit(ap_surface, (ap_text_x, ap_text_y))
 
         # 버튼 설정
