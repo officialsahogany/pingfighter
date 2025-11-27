@@ -2933,7 +2933,7 @@ class AngelBlessing(LegendaryItem):
             self._roll_blessing(current_stage)
 
     def _load_animation_frames(self):
-        """애니메이션 프레임 로드 - 라그나로크 해머와 동일한 프레임 사용"""
+        """애니메이션 프레임 로드 - 라그나로크 해머 프레임에서 중앙 망치/번개만 제거"""
         self.animation_frames.clear()
 
         frames_loaded = 0
@@ -2943,17 +2943,52 @@ class AngelBlessing(LegendaryItem):
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
                 cleaned_frame = _strip_legendary_red_ring(frame)
-                self.animation_frames.append(cleaned_frame)
+                # 중앙 망치와 번개만 제거 (테두리/배경 효과 유지)
+                center_cleared = self._clear_center_content(cleaned_frame)
+                self.animation_frames.append(center_cleared)
                 frames_loaded += 1
-                print(f"✓ 천사의 가호 프레임 {i} 로드 성공 (해머 프레임 사용): {frame_path}")
+                print(f"✓ 천사의 가호 프레임 {i} 로드 성공 (중앙 제거): {frame_path}")
             except Exception as e:
                 print(f"[INFO] 천사의 가호 프레임 {i} 로드 실패: {e}")
 
-        print(f"천사의 가호 프레임 {frames_loaded}/8개 로드 (해머 프레임 사용)")
+        print(f"천사의 가호 프레임 {frames_loaded}/8개 로드 (중앙 제거)")
 
         # PNG 프레임이 없으면 동적으로 주사위 프레임 생성
         if not self.animation_frames:
             self._generate_dice_frames()
+
+    def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
+        """프레임에서 중앙 망치/번개 콘텐츠만 제거하고 테두리/배경 효과 유지"""
+        result = frame.copy()
+        width, height = frame.get_size()
+        cx, cy = width // 2, height // 2
+
+        # 중앙 영역 반경 (테두리 제외한 내부 콘텐츠 영역)
+        # 60x60 기준으로 테두리가 약 8-10px 정도이므로 중앙 약 35px 반경 내부 제거
+        inner_radius = min(width, height) * 0.42  # 중앙 콘텐츠 영역
+
+        for py in range(height):
+            for px in range(width):
+                # 중앙으로부터의 거리 계산
+                dist = math.sqrt((px - cx) ** 2 + (py - cy) ** 2)
+
+                # 중앙 영역 내부만 제거 (테두리 바깥은 유지)
+                if dist < inner_radius:
+                    color = frame.get_at((px, py))
+                    if color.a == 0:
+                        continue
+
+                    # 파란색 원 배경은 유지 (파란색 계열)
+                    is_blue_bg = (color.b > 100 and color.b > color.r and color.b > color.g * 0.8)
+
+                    # 어두운 배경도 유지
+                    is_dark_bg = (color.r < 60 and color.g < 60 and color.b < 80)
+
+                    # 파란색 배경이나 어두운 배경이 아니면 제거 (망치/번개)
+                    if not is_blue_bg and not is_dark_bg:
+                        result.set_at((px, py), (0, 0, 0, 0))
+
+        return result
 
     def _generate_dice_frames(self):
         """PNG가 없을 경우 주사위 애니메이션 프레임 동적 생성"""
@@ -3112,11 +3147,11 @@ class AngelBlessing(LegendaryItem):
                                   (pip_x - 1, pip_y - 1), max(1, pip_size // 3))
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 라그나로크 해머와 동일한 구조"""
+        """애니메이션 아이콘 그리기 - 테두리/배경만 유지, 중앙 콘텐츠 비움"""
         # 공통 배경 프레임 연출 (라그나로크 해머와 동일)
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
-        # 애니메이션 프레임 그리기 (라그나로크 해머와 동일)
+        # 애니메이션 프레임 그리기 (중앙 망치/번개 제거된 프레임)
         if self.animation_frames and len(self.animation_frames) > 0:
             self.frame_counter += 1
             if self.frame_counter >= self.animation_speed:
@@ -3128,20 +3163,9 @@ class AngelBlessing(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
 
-            # 특정 프레임에서 빛나는 효과 (라그나로크 해머와 동일)
-            if self.current_frame in [0, 4]:
-                bolt_color = (255, 255, 150)  # 라그나로크 해머와 동일한 색상
-                pygame.draw.line(screen, bolt_color,
-                                 (x + size // 4, y + frame_offset - 5),
-                                 (x + size // 3, y + frame_offset + size // 4), 2)
-                pygame.draw.line(screen, bolt_color,
-                                 (x + size * 3 // 4, y + frame_offset - 5),
-                                 (x + size * 2 // 3, y + frame_offset + size // 4), 2)
+            # 번개 효과 제거 - 새 그림을 채울 준비
 
-        # 파티클 효과 (라그나로크 해머와 동일)
-        if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
-            self.particle_timer = 0
+        # 파티클 효과도 제거 - 새 그림용 빈 슬롯
 
     def _spawn_particle(self, screen, cx, cy):
         """파티클 생성 - 라그나로크 해머와 동일"""

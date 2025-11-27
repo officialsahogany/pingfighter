@@ -5038,13 +5038,13 @@ MECHA_CENTER_X = 260            # 중앙 X (520/2)
 MECHA_CENTER_Y = 140            # 중앙 Y (기존 70의 2배)
 OPTIMUS_SCALE_MULT = 1.0        # 이미 고해상도이므로 스케일링 불필요
 OPTIMUS_HITBOX_SCALE = 0.575                     # 히트박스는 15%만 축소(0.5 → 0.575)
-# 옵티머스 기본 스펙
-OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCALE)  # 250px → 250px(50%)
-OPTIMUS_PADDLE_TARGET_WIDTH = int(280 * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCALE)                 # 280px → 280px(50%)
-OPTIMUS_PADDLE_BASE_HEIGHT = int(MECHA_SPRITE_SIZE[1] * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCALE)  # 120→120
+# 옵티머스 기본 스펙 - 고해상도 캔버스(520x320)에 맞게 조정
+OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_HITBOX_SCALE)   # 520 * 0.575 ≈ 299px
+OPTIMUS_PADDLE_TARGET_WIDTH = int(560 * OPTIMUS_HITBOX_SCALE)                   # 560 * 0.575 ≈ 322px (기존 280*2)
+OPTIMUS_PADDLE_BASE_HEIGHT = int(MECHA_SPRITE_SIZE[1] * OPTIMUS_HITBOX_SCALE)  # 320 * 0.575 ≈ 184px
 OPTIMUS_BASE_MAX_SPEED = 5                       # 기본 이동 속도(캐릭터 능력치 기준)
 OPTIMUS_DECELERATION_MULT = 0.5                  # 감속을 절반으로(2배 느리게)
-OPTIMUS_FLOOR_ADJUST = 36                        # 렌더링 시 발 위치 하향 보정 (떠보임 보완)
+OPTIMUS_FLOOR_ADJUST = 72                        # 렌더링 시 발 위치 하향 보정 (36→72, 고해상도)
 OPTIMUS_MAX_GAUGE = 500                          # 시작/최대 배터리 용량
 OPTIMUS_GAUGE_DRAIN_PER_SEC = 10                 # 초당 배터리 소모량
 OPTIMUS_MIN_PADDLE_WIDTH = 50                    # 방전 시 패들 최소 너비
@@ -5312,7 +5312,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
     foot_base_y = base_cy + 120            # 60→120
 
     def draw_leg(side: int, leg_stride: float) -> tuple[int, int]:
-        """사이언 LED로 강조된 다리 관절 애니메이션 (고해상도)"""
+        """사이언 LED로 강조된 다리 관절 애니메이션 (고해상도) + 디테일"""
         hip = (cx + side * 36, hip_y)       # 18→36
         foot_x = cx + side * 44 + int(leg_stride * 12)  # 22→44, 6→12
         foot_y = foot_base_y
@@ -5326,14 +5326,37 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
         pygame.draw.line(surface, palette["line"], hip, knee, 6)    # 3→6
         pygame.draw.line(surface, palette["line"], knee, foot, 6)   # 3→6
 
+        # [디테일 추가] 다리 아머 플레이트
+        mid_upper = ((hip[0] + knee[0]) // 2, (hip[1] + knee[1]) // 2)
+        mid_lower = ((knee[0] + foot[0]) // 2, (knee[1] + foot[1]) // 2)
+        pygame.draw.circle(surface, palette["helmet"], mid_upper, 10)
+        pygame.draw.circle(surface, palette["accent"], mid_upper, 6, 2)
+        pygame.draw.circle(surface, palette["helmet"], mid_lower, 8)
+        pygame.draw.circle(surface, palette["accent"], mid_lower, 5, 2)
+
         for joint in (hip, knee, foot):
             pygame.draw.circle(surface, palette["hex_base"], joint, 14)  # 7→14
             pygame.draw.circle(surface, palette["accent"], joint, 8)     # 4→8
+            # [디테일 추가] 관절 내부 LED 발광
+            pygame.draw.circle(surface, palette["hex_core"], joint, 5)
+            pygame.draw.circle(surface, palette["visor_highlight"], joint, 3)
 
         foot_rect = pygame.Rect(0, 0, 52, 24)  # 26→52, 12→24
         foot_rect.center = (foot_x, foot_y + 12)  # 6→12
         pygame.draw.rect(surface, palette["grip"], foot_rect, border_radius=8)   # 4→8
         pygame.draw.rect(surface, palette["grip_line"], foot_rect.inflate(-12, -4), 2, border_radius=6)  # 6→12, 2→4, 1→2, 3→6
+
+        # [디테일 추가] 발바닥 추진기 노즐
+        nozzle_x = foot_x
+        nozzle_y = foot_y + 20
+        pygame.draw.ellipse(surface, palette["hex_base"], (nozzle_x - 12, nozzle_y, 24, 8))
+        pygame.draw.ellipse(surface, palette["accent"], (nozzle_x - 8, nozzle_y + 2, 16, 4))
+        # 추진기 발광
+        thruster_glow = pygame.Surface((32, 16), pygame.SRCALPHA)
+        glow_alpha = int(40 + 30 * math.sin(phase * math.tau * 2 + side))
+        pygame.draw.ellipse(thruster_glow, (*palette["accent"], glow_alpha), (0, 0, 32, 16))
+        surface.blit(thruster_glow, (nozzle_x - 16, nozzle_y + 4))
+
         return hip
 
     left_hip = draw_leg(-1, stride)
@@ -5367,18 +5390,46 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
     ]
     pygame.draw.lines(surface, palette["accent"], False, v_points, 8)  # 4→8
 
-    # 중앙 에너지 코어 - 고해상도
+    # 중앙 에너지 코어 - 고해상도 + 디테일 추가
     core_rect = pygame.Rect(cx - 18, shoulder_y + 20, 36, 52)  # 9→18, 10→20, 18→36, 26→52
     pygame.draw.rect(surface, palette["hex_base"], core_rect, border_radius=8)  # 4→8
     pygame.draw.rect(surface, palette["hex_border"], core_rect.inflate(8, 8), 4, border_radius=12)  # 4→8, 2→4, 6→12
     pygame.draw.rect(surface, palette["hex_core"], core_rect.inflate(-8, -12), border_radius=6)  # 4→8, 6→12, 3→6
 
-    # 어깨 패드 - 고해상도
+    # [디테일 추가] 테슬라 T 로고 (에너지 코어 중앙)
+    t_color = palette["hex_base"]
+    t_cx, t_cy = core_rect.centerx, core_rect.centery
+    pygame.draw.line(surface, t_color, (t_cx - 8, t_cy - 10), (t_cx + 8, t_cy - 10), 4)  # T 가로
+    pygame.draw.line(surface, t_color, (t_cx, t_cy - 10), (t_cx, t_cy + 12), 4)  # T 세로
+
+    # [디테일 추가] 코어 에너지 펄스 효과
+    pulse_alpha = int(80 + 40 * math.sin(phase * math.tau * 3))
+    core_pulse_surf = pygame.Surface((50, 66), pygame.SRCALPHA)
+    pygame.draw.rect(core_pulse_surf, (*palette["hex_core"], pulse_alpha), (0, 0, 50, 66), border_radius=10)
+    surface.blit(core_pulse_surf, (core_rect.left - 7, core_rect.top - 7), special_flags=pygame.BLEND_RGBA_ADD)
+
+    # [디테일 추가] 코어 상하 배기구
+    for vent_y in (core_rect.top - 6, core_rect.bottom + 2):
+        pygame.draw.rect(surface, palette["grip"], (cx - 12, vent_y, 24, 4), border_radius=2)
+        for vx in range(-8, 10, 6):
+            pygame.draw.line(surface, palette["accent"], (cx + vx, vent_y), (cx + vx, vent_y + 4), 1)
+
+    # 어깨 패드 - 고해상도 + 디테일 추가
     for side in (-1, 1):
         pad_rect = pygame.Rect(0, 0, 52, 28)  # 26→52, 14→28
         pad_rect.center = (cx + side * 60, shoulder_y)  # 30→60
         pygame.draw.rect(surface, palette["helmet"], pad_rect, border_radius=12)  # 6→12
         pygame.draw.rect(surface, palette["accent"], pad_rect, 4, border_radius=12)  # 2→4
+        # [디테일 추가] 어깨 패드 내부 라인
+        inner_pad = pad_rect.inflate(-16, -10)
+        pygame.draw.rect(surface, palette["hex_base"], inner_pad, border_radius=6)
+        pygame.draw.line(surface, palette["accent"],
+                        (inner_pad.left + 4, inner_pad.centery),
+                        (inner_pad.right - 4, inner_pad.centery), 2)
+        # [디테일 추가] 어깨 LED 인디케이터
+        led_x = pad_rect.centerx + side * 12
+        pygame.draw.circle(surface, palette["hex_core"], (led_x, pad_rect.centery), 4)
+        pygame.draw.circle(surface, palette["visor_highlight"], (led_x, pad_rect.centery), 2)
 
     # 머리(사이버 바이저) - 고해상도
     helmet_rect = pygame.Rect(cx - 44, head_y - 16, 88, 68)  # 22→44, 8→16, 44→88, 34→68
@@ -5388,10 +5439,30 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
     pygame.draw.rect(surface, palette["visor"], visor_rect, border_radius=16)  # 8→16
     pygame.draw.line(surface, palette["visor_highlight"], visor_rect.midleft, (visor_rect.centerx, visor_rect.top + 8), 4)  # 4→8, 2→4
     pygame.draw.line(surface, palette["visor_highlight"], (visor_rect.centerx, visor_rect.bottom - 8), visor_rect.midright, 4)  # 4→8, 2→4
+
+    # [디테일 추가] 바이저 스캔라인 효과
+    for scan_y in range(visor_rect.top + 6, visor_rect.bottom - 6, 8):
+        scan_alpha = 40 + int(20 * math.sin(phase * math.tau + scan_y * 0.1))
+        pygame.draw.line(surface, (*palette["visor_highlight"], scan_alpha),
+                        (visor_rect.left + 8, scan_y), (visor_rect.right - 8, scan_y), 1)
+
+    # [디테일 추가] 헬멧 상단 안테나/센서
+    antenna_base = (cx, helmet_rect.top + 4)
+    pygame.draw.rect(surface, palette["grip"], (cx - 6, helmet_rect.top - 12, 12, 16), border_radius=3)
+    pygame.draw.circle(surface, palette["accent"], (cx, helmet_rect.top - 14), 5)
+    pygame.draw.circle(surface, palette["visor_highlight"], (cx, helmet_rect.top - 14), 3)
+    # 안테나 발광
+    antenna_glow = pygame.Surface((20, 20), pygame.SRCALPHA)
+    pygame.draw.circle(antenna_glow, (*palette["accent"], 60), (10, 10), 10)
+    surface.blit(antenna_glow, (cx - 10, helmet_rect.top - 24))
+
     for side in (-1, 1):
         ear_center = (helmet_rect.centerx + side * 40, helmet_rect.centery + 4)  # 20→40, 2→4
         pygame.draw.circle(surface, palette["helmet"], ear_center, 14)  # 7→14
         pygame.draw.circle(surface, palette["ear_inner"], ear_center, 10)  # 5→10
+        # [디테일 추가] 귀 센서 LED 링
+        pygame.draw.circle(surface, palette["accent"], ear_center, 7, 2)
+        pygame.draw.circle(surface, palette["visor_highlight"], ear_center, 4)
 
     # 팔 스윙 + 패들(플라즈마 블레이드)
     left_swing_ratio = right_swing_ratio = 0.0
@@ -29001,18 +29072,21 @@ def handle_player(keys):
     mouse_controls = {}
     # if input_manager.get_control_mode() == "마우스":
     #     mouse_controls = input_manager.handle_mouse_controls(selected_item_index, active_item_slot)
+    # 공용 다운 입력 헬퍼: IME 한글 'ㄴ'(S 위치)까지 포함해 안전하게 판정
+    def _is_down_pressed_any(keys_seq) -> bool:
+        try:
+            if is_move_down_pressed(keys_seq):
+                return True
+            for code in (0x3134, 0x1102):  # ㄴ, 초성 ㄴ
+                if code < len(keys_seq) and keys_seq[code]:
+                    return True
+        except Exception:
+            pass
+        return False
+
     # 키 입력 변수 초기화 (기본: 현재 스냅샷 keys)
     space_pressed_raw = keys[pygame.K_SPACE]
-    down_pressed_raw = is_move_down_pressed(keys)
-    # IME 한글 모드에서 'ㄴ'(S 키 위치) 키코드가 get_pressed에 직접 노출될 때도 충전이 동작하도록 보조 체크
-    try:
-        hangul_down_codes = (0x3134, 0x1102)  # ㄴ, 초성 ㄴ
-        for code in hangul_down_codes:
-            if code < len(keys) and keys[code]:
-                down_pressed_raw = True
-                break
-    except Exception:
-        pass
+    down_pressed_raw = _is_down_pressed_any(keys)
     up_pressed_raw = is_move_up_pressed(keys)
     # 마우스 클릭을 스페이스/다운 상태로 항상 병합해 검출 (패키징 기본 스킴에서도 동작)
     try:
@@ -29046,6 +29120,10 @@ def handle_player(keys):
     except Exception:
         # 스냅샷 전역이 아직 초기화되지 않은 극초기 프레임 등은 조용히 기본값 사용
         pass
+
+    # 스냅샷으로 덮였더라도 한글 'ㄴ' 키가 눌려 있으면 내려가기 입력으로 인정
+    if not down_pressed_raw:
+        down_pressed_raw = _is_down_pressed_any(keys)
 
     # 입력 추적 로그 (간헐적 먹통 조사용)
     _log_input_trace(
@@ -29101,7 +29179,7 @@ def handle_player(keys):
         MOVE_EVENT_RIGHT = False
     # 한글 IME 환경에서는 get_pressed()가 ↓ 입력을 놓치는 경우가 있어
     # 이벤트 플래그로 보정하지만, 키 스냅샷과 불일치가 지속되면 드리프트를 막기 위해 해제한다.
-    if MOVE_EVENT_DOWN and not is_move_down_pressed(keys):
+    if MOVE_EVENT_DOWN and not _is_down_pressed_any(keys):
         MOVE_EVENT_DOWN = False
     if MOVE_EVENT_UP and not is_move_up_pressed(keys):
         MOVE_EVENT_UP = False
@@ -74124,6 +74202,17 @@ def main(stage_num, new_boss_mode=False):
     round_start_time = pygame.time.get_ticks()
     
     reset_round()
+    # 전설 아이템(특히 천사의 가호) 스테이지 진입 직후에도 즉시 갱신되도록 한 번 업데이트
+    try:
+        legendary_manager = get_legendary_manager()
+        if legendary_manager and "angel_blessing" in getattr(legendary_manager, "active_items", []):
+            angel_blessing = legendary_manager.get_item("angel_blessing")
+            if angel_blessing:
+                # 현재 스테이지 번호가 이미 설정된 상태에서 update를 호출해
+                # 주사위 롤 이벤트가 서브 전에 바로 실행되도록 보장한다.
+                angel_blessing.update(0.0, ui_mode=False)
+    except Exception as exc:
+        print(f"[WARN] AngelBlessing stage-start sync failed: {exc}")
     if stage_num != 7:
         reset_stage7_guard_state()
         reset_stage7_tetromino_state()

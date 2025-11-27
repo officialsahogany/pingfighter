@@ -1338,6 +1338,13 @@ class BuildingInterior:
         # 은행 카운터 충돌 영역 (BANK에서만 사용, draw에서 설정됨)
         self.bank_counter_rect = None
 
+        # 환율 시스템 (STARBANK 전용)
+        # 기본 환율: 1 스타포인트 = 500 골드
+        # 일일 변동: -15% ~ +15%
+        self.base_exchange_rate = 500
+        self.exchange_rate_variance = random.uniform(-0.15, 0.15)  # -15% ~ +15%
+        self.current_exchange_rate = int(self.base_exchange_rate * (1 + self.exchange_rate_variance))
+
         # 나가기 상태
         self.exit_requested = False
         self.exit_timer = 0
@@ -1733,14 +1740,15 @@ class BuildingInterior:
         robot2_x = counter_x + counter_w * 2 // 3
         self._draw_desk_robot_angular(screen, robot2_x, robot_y, self.animation_timer, 1)
 
-        # 7. 사이드 모니터 패널 (좌우 벽)
-        # 왼쪽 모니터
-        mon_x = -cam_x + 25
-        mon_y = -cam_y + 50
-        self._draw_wall_monitor(screen, mon_x, mon_y, ACCENT_CYAN, self.animation_timer)
+        # 7. 사이드 패널 (좌우 벽)
+        # 왼쪽: 환율 전광판
+        exchange_x = -cam_x + 15
+        exchange_y = -cam_y + 40
+        self._draw_exchange_rate_board(screen, exchange_x, exchange_y, self.animation_timer)
 
-        # 오른쪽 모니터
+        # 오른쪽: 모니터
         mon_x2 = self.pixel_width - cam_x - 85
+        mon_y = -cam_y + 50
         self._draw_wall_monitor(screen, mon_x2, mon_y, GOLD, self.animation_timer + 1)
 
         # 8. 바닥 가이드 라인 (미니멀)
@@ -1848,6 +1856,115 @@ class BuildingInterior:
 
         # 상태 LED
         pygame.draw.circle(screen, accent_color, (x + w - 10, y + 10), 3)
+
+    def _draw_exchange_rate_board(self, screen, x, y, anim_timer):
+        """환율 전광판 그리기 - 1 스타포인트 = N 골드 (±15% 일일 변동)"""
+        import math
+
+        # 전광판 크기
+        board_w, board_h = 120, 70
+
+        # 색상
+        FRAME_COLOR = (35, 45, 60)
+        FRAME_BORDER = (60, 80, 110)
+        SCREEN_BG = (10, 15, 25)
+        LED_GREEN = (80, 255, 140)
+        LED_RED = (255, 100, 100)
+        GOLD_COLOR = (255, 210, 80)
+        CYAN_COLOR = (80, 200, 255)
+        WHITE = (240, 245, 250)
+
+        # 환율 변동 색상 결정
+        if self.exchange_rate_variance >= 0:
+            rate_color = LED_GREEN
+            arrow = "▲" if self.exchange_rate_variance > 0.05 else ""
+        else:
+            rate_color = LED_RED
+            arrow = "▼" if self.exchange_rate_variance < -0.05 else ""
+
+        # 프레임
+        pygame.draw.rect(screen, FRAME_COLOR, (x, y, board_w, board_h), border_radius=5)
+        pygame.draw.rect(screen, FRAME_BORDER, (x, y, board_w, board_h), 2, border_radius=5)
+
+        # 스크린 배경
+        pygame.draw.rect(screen, SCREEN_BG, (x + 4, y + 4, board_w - 8, board_h - 8), border_radius=3)
+
+        # 상단 타이틀 바
+        pygame.draw.rect(screen, (25, 35, 50), (x + 4, y + 4, board_w - 8, 14), border_radius=3)
+
+        # 타이틀 텍스트 "EXCHANGE"
+        font_small = self.fonts.get('small')
+        if font_small:
+            title_surf, title_rect = font_small.render("EXCHANGE", CYAN_COLOR)
+            screen.blit(title_surf, (x + board_w // 2 - title_rect.width // 2, y + 5))
+
+        # LED 글로우 효과
+        glow_intensity = int(30 + 15 * math.sin(anim_timer * 3))
+        glow_surf = pygame.Surface((board_w - 8, board_h - 22), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*CYAN_COLOR[:3], glow_intensity), (0, 0, board_w - 8, board_h - 22), border_radius=3)
+        screen.blit(glow_surf, (x + 4, y + 18))
+
+        # 환율 표시 영역
+        rate_y = y + 24
+
+        # 스타포인트 아이콘 (별)
+        star_x = x + 18
+        star_y = rate_y + 12
+        self._draw_star_icon_small(screen, star_x, star_y, 8, CYAN_COLOR)
+
+        # "1" 숫자
+        if font_small:
+            one_surf, one_rect = font_small.render("1", WHITE)
+            screen.blit(one_surf, (star_x + 12, rate_y + 6))
+
+        # "=" 기호
+        eq_x = x + 45
+        pygame.draw.rect(screen, WHITE, (eq_x, rate_y + 10, 8, 2))
+        pygame.draw.rect(screen, WHITE, (eq_x, rate_y + 15, 8, 2))
+
+        # 골드 아이콘 (동전)
+        gold_x = x + 62
+        gold_y = rate_y + 12
+        self._draw_gold_icon_small(screen, gold_x, gold_y, 7, GOLD_COLOR)
+
+        # 환율 숫자
+        if font_small:
+            rate_text = str(self.current_exchange_rate)
+            rate_surf, rate_rect = font_small.render(rate_text, rate_color)
+            screen.blit(rate_surf, (gold_x + 14, rate_y + 6))
+
+        # 변동률 표시 (하단)
+        variance_y = y + board_h - 18
+        variance_pct = f"{self.exchange_rate_variance * 100:+.1f}%"
+        if font_small:
+            var_surf, var_rect = font_small.render(variance_pct, rate_color)
+            screen.blit(var_surf, (x + board_w // 2 - var_rect.width // 2, variance_y))
+
+        # 상태 LED (점멸)
+        led_on = int(anim_timer * 2) % 2 == 0
+        led_color = LED_GREEN if led_on else (30, 80, 50)
+        pygame.draw.circle(screen, led_color, (x + board_w - 10, y + 10), 3)
+
+    def _draw_star_icon_small(self, screen, cx, cy, size, color):
+        """작은 스타포인트 아이콘 (별)"""
+        import math
+        points = []
+        for i in range(10):
+            angle = -math.pi / 2 + (i * math.pi / 5)
+            r = size if i % 2 == 0 else size * 0.4
+            points.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
+        pygame.draw.polygon(screen, color, points)
+        # 하이라이트
+        pygame.draw.polygon(screen, tuple(min(255, c + 50) for c in color), points, 1)
+
+    def _draw_gold_icon_small(self, screen, cx, cy, size, color):
+        """작은 골드 아이콘 (동전)"""
+        # 동전 본체
+        pygame.draw.circle(screen, color, (cx, cy), size)
+        # 테두리
+        pygame.draw.circle(screen, tuple(max(0, c - 50) for c in color), (cx, cy), size, 1)
+        # 중앙 심볼 ($)
+        pygame.draw.line(screen, tuple(max(0, c - 80) for c in color), (cx, cy - size // 2), (cx, cy + size // 2), 1)
 
     def _draw_floor(self, screen):
         """바닥 타일 그리기"""
