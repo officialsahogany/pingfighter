@@ -3600,7 +3600,10 @@ class BuildingDesigner:
         glow = abs(math.sin(self.animation_timer * 1.5))
 
         # 스타일별 건물 그리기
-        if style == "cyberpunk":
+        if style == "hero_armory":
+            # 용사의 무기점 (RPG 스타일)
+            self._draw_hero_armory_shop(screen, x, y, w, h, selected_design, pulse, glow)
+        elif style == "cyberpunk":
             # 네온 마켓
             self._draw_cyberpunk_shop(screen, x, y, w, h, selected_design, pulse, glow)
         elif style == "fantasy":
@@ -3615,6 +3618,234 @@ class BuildingDesigner:
         elif style == "luxury":
             # 황금 갤러리
             self._draw_luxury_shop(screen, x, y, w, h, selected_design, pulse, glow)
+
+    def _draw_hero_armory_shop(self, screen, x, y, w, h, design, pulse, glow):
+        """용사의 무기점 - RPG 스타일 무기/방어구 상점"""
+        color = design["color"]  # 진한 갈색 (목재)
+        secondary = design["secondary_color"]  # 골든로드 (황금 장식)
+        accent = design.get("accent_color", (192, 192, 192))  # 은색 (금속)
+        glow_color = design.get("glow_color", (255, 215, 0))  # 금빛 글로우
+
+        swing = math.sin(self.animation_timer * 1.5) * 3
+
+        # === 배경 글로우 ===
+        glow_surf = pygame.Surface((w + 40, h + 40), pygame.SRCALPHA)
+        glow_alpha = int(60 * pulse)
+        pygame.draw.rect(glow_surf, (*glow_color, glow_alpha), (0, 0, w + 40, h + 40), border_radius=15)
+        screen.blit(glow_surf, (x - 20, y - 20))
+
+        # === 메인 건물 (목조 건물) ===
+        # 목재 패턴
+        for i in range(h - 20):
+            wood_shade = max(0, min(255, color[0] + int(10 * math.sin(i * 0.3))))
+            wood_color = (wood_shade, max(0, color[1] - 10), max(0, color[2] - 5))
+            pygame.draw.line(screen, wood_color, (x, y + 20 + i), (x + w, y + 20 + i))
+
+        # 건물 테두리 (금속 프레임)
+        pygame.draw.rect(screen, accent, (x, y + 20, w, h - 20), 3, border_radius=3)
+
+        # === 삼각형 지붕 (기와) ===
+        roof_points = [
+            (x - 15, y + 25),
+            (x + w // 2, y - 25),
+            (x + w + 15, y + 25)
+        ]
+
+        # 지붕 그라데이션
+        for i in range(5):
+            roof_color = (
+                max(0, 100 - i * 15),
+                max(0, 60 - i * 10),
+                max(0, 40 - i * 8)
+            )
+            offset_points = [
+                (roof_points[0][0] + i * 3, roof_points[0][1] - i * 2),
+                (roof_points[1][0], roof_points[1][1] + i * 5),
+                (roof_points[2][0] - i * 3, roof_points[2][1] - i * 2)
+            ]
+            pygame.draw.polygon(screen, roof_color, offset_points)
+
+        # 지붕 테두리
+        pygame.draw.polygon(screen, secondary, roof_points, 3)
+
+        # === 교차 검 장식 (지붕 위) ===
+        sword_x = x + w // 2
+        sword_y = y - 15
+        sword_len = 25
+
+        # 검 1 (왼쪽으로 기울어짐)
+        s1_start = (sword_x - 12, sword_y - sword_len)
+        s1_end = (sword_x + 8, sword_y + sword_len // 2)
+        pygame.draw.line(screen, accent, s1_start, s1_end, 4)
+        pygame.draw.circle(screen, secondary, s1_start, 5)  # 검 손잡이
+
+        # 검 2 (오른쪽으로 기울어짐)
+        s2_start = (sword_x + 12, sword_y - sword_len)
+        s2_end = (sword_x - 8, sword_y + sword_len // 2)
+        pygame.draw.line(screen, accent, s2_start, s2_end, 4)
+        pygame.draw.circle(screen, secondary, s2_start, 5)
+
+        # 검 빛남 효과
+        sword_glow_alpha = int(150 * pulse)
+        for s_pos in [s1_start, s2_start]:
+            glow_s = pygame.Surface((20, 20), pygame.SRCALPHA)
+            pygame.draw.circle(glow_s, (*glow_color, sword_glow_alpha), (10, 10), 8)
+            screen.blit(glow_s, (s_pos[0] - 10, s_pos[1] - 10))
+
+        # === 방패 디스플레이 (좌우) ===
+        for side in [-1, 1]:
+            shield_x = x + (w // 4 if side == -1 else w * 3 // 4)
+            shield_y = y + h // 3
+            shield_w, shield_h = 25, 30
+
+            # 방패 모양
+            shield_points = [
+                (shield_x, shield_y - shield_h // 2),
+                (shield_x - shield_w // 2, shield_y - shield_h // 4),
+                (shield_x - shield_w // 2, shield_y + shield_h // 4),
+                (shield_x, shield_y + shield_h // 2),
+                (shield_x + shield_w // 2, shield_y + shield_h // 4),
+                (shield_x + shield_w // 2, shield_y - shield_h // 4),
+            ]
+            pygame.draw.polygon(screen, accent, shield_points)
+            pygame.draw.polygon(screen, secondary, shield_points, 2)
+
+            # 방패 문양 (십자)
+            pygame.draw.line(screen, secondary,
+                           (shield_x, shield_y - shield_h // 3),
+                           (shield_x, shield_y + shield_h // 3), 3)
+            pygame.draw.line(screen, secondary,
+                           (shield_x - shield_w // 3, shield_y),
+                           (shield_x + shield_w // 3, shield_y), 3)
+
+        # === 창문 (진열창) ===
+        window_w, window_h = w // 3, h // 4
+        window_x = x + (w - window_w) // 2
+        window_y = y + h // 3
+
+        # 창문 배경 (어두운 내부)
+        pygame.draw.rect(screen, (30, 25, 20),
+                        (window_x, window_y, window_w, window_h), border_radius=3)
+
+        # 창문 안 무기 실루엣
+        silhouette_color = (60, 50, 40)
+        # 도끼
+        pygame.draw.rect(screen, silhouette_color,
+                        (window_x + 8, window_y + 5, 6, window_h - 15))
+        pygame.draw.polygon(screen, silhouette_color, [
+            (window_x + 5, window_y + 5),
+            (window_x + 18, window_y + 10),
+            (window_x + 18, window_y + 25),
+            (window_x + 5, window_y + 20)
+        ])
+        # 검
+        pygame.draw.rect(screen, silhouette_color,
+                        (window_x + window_w // 2 - 2, window_y + 3, 4, window_h - 10))
+        # 창
+        pygame.draw.rect(screen, silhouette_color,
+                        (window_x + window_w - 15, window_y + 2, 3, window_h - 8))
+        pygame.draw.polygon(screen, silhouette_color, [
+            (window_x + window_w - 18, window_y + 2),
+            (window_x + window_w - 8, window_y + 2),
+            (window_x + window_w - 13, window_y + 12)
+        ])
+
+        # 창문 프레임
+        pygame.draw.rect(screen, secondary, (window_x, window_y, window_w, window_h), 2, border_radius=3)
+        pygame.draw.line(screen, secondary,
+                        (window_x + window_w // 2, window_y),
+                        (window_x + window_w // 2, window_y + window_h), 2)
+
+        # === 문 ===
+        door_w, door_h = w // 3, int(h // 2.5)
+        door_x = x + (w - door_w) // 2
+        door_y = y + h - door_h
+
+        # 문 (진한 나무)
+        door_color = (80, 50, 30)
+        pygame.draw.rect(screen, door_color, (door_x, door_y, door_w, door_h), border_radius=3)
+
+        # 문 패널
+        panel_margin = 4
+        panel_color = (60, 35, 20)
+        pygame.draw.rect(screen, panel_color,
+                        (door_x + panel_margin, door_y + panel_margin,
+                         door_w - panel_margin * 2, door_h // 2 - panel_margin), border_radius=2)
+        pygame.draw.rect(screen, panel_color,
+                        (door_x + panel_margin, door_y + door_h // 2 + 2,
+                         door_w - panel_margin * 2, door_h // 2 - panel_margin - 2), border_radius=2)
+
+        # 문 손잡이
+        pygame.draw.circle(screen, secondary,
+                          (door_x + door_w - 10, door_y + door_h // 2), 4)
+
+        # 문 프레임
+        pygame.draw.rect(screen, secondary, (door_x, door_y, door_w, door_h), 2, border_radius=3)
+
+        # === STORE 간판 ===
+        sign_w, sign_h = w - 20, 28
+        sign_x = x + 10
+        sign_y = y + 25
+
+        # 간판 배경 (나무)
+        pygame.draw.rect(screen, (60, 40, 25), (sign_x, sign_y, sign_w, sign_h), border_radius=5)
+        pygame.draw.rect(screen, secondary, (sign_x, sign_y, sign_w, sign_h), 2, border_radius=5)
+
+        # "STORE" 픽셀 텍스트
+        self._draw_pixel_shop_text(screen, "STORE", sign_x + sign_w // 2, sign_y + sign_h // 2, secondary)
+
+        # === 횃불 애니메이션 (좌우) ===
+        for side in [-1, 1]:
+            torch_x = x + (10 if side == -1 else w - 10)
+            torch_y = y + h // 2
+
+            # 횃불 막대
+            pygame.draw.rect(screen, (80, 50, 30), (torch_x - 3, torch_y, 6, 30))
+
+            # 불꽃
+            flame_offset = int(swing)
+            flame_colors = [(255, 200, 50), (255, 150, 30), (255, 100, 20)]
+            for i, fc in enumerate(flame_colors):
+                flame_h = 15 - i * 3
+                pygame.draw.ellipse(screen, fc,
+                                   (torch_x - 6 + i + int(flame_offset * (i * 0.3)),
+                                    torch_y - flame_h - 5 + i * 2,
+                                    12 - i * 2, flame_h))
+
+            # 불꽃 글로우
+            flame_glow_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
+            pygame.draw.circle(flame_glow_surf, (255, 150, 50, int(80 * pulse)), (15, 15), 12)
+            screen.blit(flame_glow_surf, (torch_x - 15, torch_y - 25))
+
+            # 랜덤 불꽃 스파크 (정적 파티클 대신 즉시 그리기)
+            if random.random() < 0.15:
+                spark_x = torch_x + random.randint(-8, 8)
+                spark_y = torch_y - 15 + random.randint(-10, 5)
+                spark_color = random.choice([(255, 200, 50), (255, 150, 30), (255, 100, 20)])
+                pygame.draw.circle(screen, spark_color, (spark_x, spark_y), random.randint(1, 2))
+
+    def _draw_pixel_shop_text(self, screen, text, center_x, center_y, color):
+        """STORE 픽셀 텍스트 그리기 (간판용)"""
+        # 간단한 픽셀 문자 정의 (5x5)
+        chars = {
+            'S': [(0,0),(1,0),(2,0),(0,1),(0,2),(1,2),(2,2),(2,3),(0,4),(1,4),(2,4)],
+            'T': [(0,0),(1,0),(2,0),(1,1),(1,2),(1,3),(1,4)],
+            'O': [(0,0),(1,0),(2,0),(0,1),(2,1),(0,2),(2,2),(0,3),(2,3),(0,4),(1,4),(2,4)],
+            'R': [(0,0),(1,0),(2,0),(0,1),(2,1),(0,2),(1,2),(2,2),(0,3),(2,3),(0,4),(2,4)],
+            'E': [(0,0),(1,0),(2,0),(0,1),(0,2),(1,2),(0,3),(0,4),(1,4),(2,4)],
+        }
+
+        scale = 2
+        char_width = 4 * scale
+        total_width = len(text) * char_width
+        start_x = center_x - total_width // 2
+
+        for i, char in enumerate(text):
+            if char in chars:
+                for px, py in chars[char]:
+                    rect_x = start_x + i * char_width + px * scale
+                    rect_y = center_y - 2 * scale + py * scale
+                    pygame.draw.rect(screen, color, (rect_x, rect_y, scale, scale))
 
     def _draw_cyberpunk_shop(self, screen, x, y, w, h, design, pulse, glow):
         """사이버펑크 네온 마켓 - 완전히 새로운 실제 상점 디자인"""

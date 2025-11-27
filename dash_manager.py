@@ -40,6 +40,10 @@ class DashManager:
         
         # 효과음 함수 (외부에서 주입)
         self.play_dash_sound = None
+
+        # 외부 배율 (전설/버프 적용)
+        self.external_cost_multiplier = 1.0
+        self.external_cooldown_multiplier = 1.0
     
     def init_references(self, get_skill_bonus_func, get_gauge_func, consume_gauge_func, play_sound_func):
         """외부 참조 함수들 초기화"""
@@ -120,6 +124,7 @@ class DashManager:
             battery_bonus = self.get_skill_bonus("dash_battery_pack")
         
         final_cost = max(10, int(discounted_cost * (1 - battery_bonus)))
+        final_cost = int(final_cost * self.external_cost_multiplier)
         return final_cost
     
     def execute_dash(self, direction: int, ignore_stun: bool = False) -> bool:
@@ -187,19 +192,30 @@ class DashManager:
         if self.has_holder:
             # 대쉬홀더: 차등 쿨다운
             if self.current_tokens >= 1:  # 첫 번째 대쉬 후
-                self.cooldown_timer = max(6, 60 - cooldown_reduction)    # 1초
-                self.charge_timer = max(6, 60 - cooldown_reduction)      # 1초 후 충전
+                self.cooldown_timer = max(6, int((60 - cooldown_reduction) * self.external_cooldown_multiplier))    # 1초
+                self.charge_timer = max(6, int((60 - cooldown_reduction) * self.external_cooldown_multiplier))      # 1초 후 충전
             else:  # 두 번째 대쉬 후
-                self.cooldown_timer = max(6, 90 - cooldown_reduction)    # 1.5초
-                self.charge_timer = max(6, 90 - cooldown_reduction)      # 1.5초 후 충전
+                self.cooldown_timer = max(6, int((90 - cooldown_reduction) * self.external_cooldown_multiplier))    # 1.5초
+                self.charge_timer = max(6, int((90 - cooldown_reduction) * self.external_cooldown_multiplier))      # 1.5초 후 충전
         else:
             # 일반: 기본 쿨다운
             base_cooldown = 90  # 1.5초
             if self.has_spikeboots:
                 base_cooldown -= 30  # 0.5초 감소
             
-            self.cooldown_timer = max(6, base_cooldown - cooldown_reduction)
-            self.charge_timer = max(6, base_cooldown - cooldown_reduction)
+            self.cooldown_timer = max(6, int((base_cooldown - cooldown_reduction) * self.external_cooldown_multiplier))
+            self.charge_timer = max(6, int((base_cooldown - cooldown_reduction) * self.external_cooldown_multiplier))
+
+    def set_external_multipliers(self, cost_mul=None, cooldown_mul=None):
+        """외부 배율 설정(예: 전설/버프)"""
+        if cost_mul is not None:
+            self.external_cost_multiplier = max(0.1, cost_mul)
+        if cooldown_mul is not None:
+            self.external_cooldown_multiplier = max(0.1, cooldown_mul)
+
+    def reset_external_multipliers(self):
+        self.external_cost_multiplier = 1.0
+        self.external_cooldown_multiplier = 1.0
     
     def update(self):
         """매 프레임 업데이트"""
@@ -337,6 +353,7 @@ class DashManager:
 
 # 전역 대쉬 매니저 인스턴스
 _dash_manager = None
+_GLOBAL_DASH_INST = None  # 외부 배율 조정을 위한 전역 참조
 
 def get_dash_manager() -> DashManager:
     """대쉬 매니저 싱글톤 인스턴스 반환"""
@@ -347,8 +364,10 @@ def get_dash_manager() -> DashManager:
 
 def init_dash_manager(get_skill_bonus_func, get_gauge_func, consume_gauge_func, play_sound_func):
     """대쉬 매니저 초기화"""
+    global _GLOBAL_DASH_INST
     manager = get_dash_manager()
     manager.init_references(get_skill_bonus_func, get_gauge_func, consume_gauge_func, play_sound_func)
+    _GLOBAL_DASH_INST = manager
     return manager
 
 # 테스트 코드

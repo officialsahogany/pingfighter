@@ -1572,6 +1572,11 @@ except:
 # ===============================
 # 게이지 시스템 (GameState와 동기화)
 # ===============================
+# 전설/버프 전역 배율
+ANGEL_GAUGE_MULT = 1.0
+ANGEL_PADDLE_SCALE = 1.0
+ANGEL_SPEED_MULT = 1.0
+
 #  동적 최대 게이지 계산 함수
 def get_max_gauge():
     """
@@ -1623,7 +1628,7 @@ def get_max_gauge():
         multipliers = get_devil_dice_multipliers()
         base_max = int(base_max * multipliers['skill_gauge'])
     
-    return base_max
+    return int(base_max * ANGEL_GAUGE_MULT)
 # GameState와 동기화되는 변수들 (점진적 마이그레이션)
 special_gauge = game_state.special_gauge
 special_ready = game_state.special_ready
@@ -1666,6 +1671,9 @@ effects_manager.init_effects_manager(SCREEN, WIDTH, HEIGHT)
 # 패들 설정
 PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT = 155, 50
 PADDLE_WIDTH, PADDLE_HEIGHT = PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT
+# 기본 패들 크기(복원용)
+DEFAULT_PADDLE_BASE_WIDTH = PADDLE_BASE_WIDTH
+DEFAULT_PADDLE_BASE_HEIGHT = PADDLE_BASE_HEIGHT
 PLAYER_FLOOR_OFFSET = 40
 PLAYER_FLOOR_BONUS_BY_MODE: dict[str, int] = {
     "junior": 18,
@@ -1750,7 +1758,7 @@ def apply_equipment_paddle_modifiers() -> None:
     global CURRENT_PADDLE_EFFECTIVE_SCALE, PADDLE_WIDTH, PADDLE_HEIGHT
 
     equipment_scale = _get_bulkup_scale()
-    effective_scale = CURRENT_PADDLE_SIZE_SCALE * equipment_scale
+    effective_scale = CURRENT_PADDLE_SIZE_SCALE * equipment_scale * ANGEL_PADDLE_SCALE
     CURRENT_PADDLE_EFFECTIVE_SCALE = effective_scale
 
     prev_centerx = PLAYER.centerx
@@ -1780,7 +1788,7 @@ def apply_player_paddle_scale(league_mode: str):
     new_floor_bonus = PLAYER_FLOOR_BONUS_BY_MODE.get(normalized_mode, 0)
     global CURRENT_PADDLE_FLOOR_BONUS
     equipment_scale = _get_bulkup_scale()
-    effective_scale = scale * equipment_scale
+    effective_scale = scale * equipment_scale * ANGEL_PADDLE_SCALE
     if (
         abs(scale - CURRENT_PADDLE_SIZE_SCALE) < 1e-3
         and new_floor_bonus == CURRENT_PADDLE_FLOOR_BONUS
@@ -5009,30 +5017,36 @@ MARINE_COLORS = {
     "highlight": (110, 140, 210),
 }
 
-# 옵티머스 – 테슬라 기어 감성 메카닉 스타일
+# 안드로이드(optimus ID) – 테슬라 사이버 로봇 스타일
 MECHA_SPRITE_SIZE = (250, 120)
 MECHA_CENTER_X = 125
 MECHA_CENTER_Y = 60
+# 안드로이드 기본 스펙
+OPTIMUS_PADDLE_BASE_WIDTH = MECHA_SPRITE_SIZE[0]  # 250px 기본 폭
+OPTIMUS_PADDLE_TARGET_WIDTH = 280                # 요구 패들 크기
+OPTIMUS_BASE_MAX_SPEED = 2                       # 기본 이동 속도(캐릭터 능력치 기준)
+OPTIMUS_DECELERATION_MULT = 0.5                  # 감속을 절반으로(2배 느리게)
 
 OPTIMUS_MECHA_PALETTE = {
-    "body": (180, 195, 230),
-    "accent": (255, 180, 120),
-    "helmet": (72, 86, 142),
-    "helmet_inner": (44, 60, 108),
-    "visor": (255, 190, 130),
-    "visor_highlight": (255, 230, 190),
-    "ear_inner": (110, 120, 175),
-    "line": (255, 190, 130),
-    "grip": (90, 70, 120),
-    "grip_line": (255, 200, 140),
-    "hex_base": (60, 60, 110),
-    "hex_border": (255, 190, 140),
-    "hex_core": (255, 200, 150),
-    "hex_core_inner": (255, 235, 200),
-    "arm_line": (255, 190, 140),
-    "hand": (210, 205, 220),
-    "glow": (255, 190, 140),
-    "at_field": (200, 150, 255),
+    # 실버+네온 청록 기반 테슬라 사이버 로봇 컬러링
+    "body": (205, 215, 228),
+    "accent": (120, 235, 255),
+    "helmet": (46, 58, 78),
+    "helmet_inner": (26, 34, 48),
+    "visor": (110, 235, 255),
+    "visor_highlight": (210, 255, 255),
+    "ear_inner": (90, 150, 190),
+    "line": (120, 235, 255),
+    "grip": (50, 64, 82),
+    "grip_line": (140, 230, 255),
+    "hex_base": (36, 46, 64),
+    "hex_border": (120, 235, 255),
+    "hex_core": (200, 245, 255),
+    "hex_core_inner": (120, 235, 255),
+    "arm_line": (120, 235, 255),
+    "hand": (225, 235, 240),
+    "glow": (120, 235, 255),
+    "at_field": (100, 200, 255),
 }
 
 
@@ -5043,87 +5057,232 @@ def _resolve_mecha_phase(step_phase: float | None) -> float:
 
 def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pygame.Surface:
     surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
-    center_x = MECHA_CENTER_X
-    base_center_y = MECHA_CENTER_Y
+    cx = MECHA_CENTER_X
+    base_cy = MECHA_CENTER_Y
 
     phase = _resolve_mecha_phase(step_phase)
-    wave = math.sin(phase * math.tau)
-    torso_bob = int(math.sin(phase * math.tau) * 2)
-    left_leg_lift = -int(max(0.0, wave) * 4)
-    right_leg_lift = -int(max(0.0, -wave) * 4)
-    arm_swing = int(wave * 4)
+    stride = math.sin(phase * math.tau)
+    torso_bob = int(math.sin(phase * math.tau * 2.0) * 3)
+    sway = math.sin(phase * math.tau * 0.5) * 2
 
-    center_y = base_center_y + torso_bob
+    hip_y = base_cy + 16 + torso_bob
+    shoulder_y = base_cy - 6 + torso_bob
+    head_y = base_cy - 32 + torso_bob
+    foot_base_y = base_cy + 42
 
-    pygame.draw.ellipse(surface, palette["body"], (center_x - 35, center_y - 25, 70, 50))
-    pygame.draw.line(surface, palette["accent"], (center_x, center_y - 20), (center_x, center_y + 15), 3)
-    for offset in (-15, 15):
-        pygame.draw.arc(surface, palette["accent"], (center_x + offset - 10, center_y - 15, 20, 30),
-                        math.radians(60), math.radians(120), 2)
+    def draw_leg(side: int, leg_stride: float) -> tuple[int, int]:
+        """사이언 LED로 강조된 다리 관절 애니메이션"""
+        hip = (cx + side * 18, hip_y)
+        foot_x = cx + side * 22 + int(leg_stride * 6)
+        foot_y = foot_base_y - int(max(0.0, leg_stride) * 9) + int(torso_bob * 0.3)
+        knee_x = int((hip[0] * 0.55 + foot_x * 0.45) + side * 4 - leg_stride * 3)
+        knee_y = int((hip[1] * 0.55 + foot_y * 0.45) - max(0.0, leg_stride) * 3 + 2)
+        knee = (knee_x, knee_y)
+        foot = (foot_x, foot_y)
 
-    helmet_rect = pygame.Rect(center_x - 20, center_y - 18, 40, 36)
-    pygame.draw.ellipse(surface, palette["helmet"], helmet_rect)
-    pygame.draw.ellipse(surface, palette["helmet_inner"], helmet_rect.inflate(-10, -10))
-    visor_rect = helmet_rect.inflate(-8, -6)
-    pygame.draw.ellipse(surface, palette["visor"], visor_rect)
-    pygame.draw.arc(surface, palette["visor_highlight"], visor_rect.inflate(-4, -4), math.radians(200), math.radians(340), 2)
+        pygame.draw.line(surface, palette["body"], hip, knee, 12)
+        pygame.draw.line(surface, palette["body"], knee, foot, 12)
+        pygame.draw.line(surface, palette["line"], hip, knee, 3)
+        pygame.draw.line(surface, palette["line"], knee, foot, 3)
+
+        for joint in (hip, knee, foot):
+            pygame.draw.circle(surface, palette["hex_base"], joint, 7)
+            pygame.draw.circle(surface, palette["accent"], joint, 4)
+
+        foot_rect = pygame.Rect(0, 0, 24, 10)
+        foot_rect.center = (foot_x, foot_y + 6)
+        pygame.draw.rect(surface, palette["grip"], foot_rect, border_radius=4)
+        pygame.draw.rect(surface, palette["grip_line"], foot_rect.inflate(-6, -2), 1, border_radius=3)
+        return hip
+
+    left_hip = draw_leg(-1, stride)
+    right_hip = draw_leg(1, -stride)
+
+    # 하체 외곽 광택
+    leg_glow = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
+    pygame.draw.ellipse(
+        leg_glow,
+        (*palette["glow"], 55),
+        (cx - 70, foot_base_y - 14, 140, 38),
+        2,
+    )
+    surface.blit(leg_glow, (0, 0))
+
+    # 상체(바디+코어)
+    torso = [
+        (cx - 40, shoulder_y + 4),
+        (cx + 40, shoulder_y + 4),
+        (cx + 32, hip_y + 4),
+        (cx - 32, hip_y + 4),
+    ]
+    pygame.draw.polygon(surface, palette["body"], torso)
+    pygame.draw.polygon(surface, palette["line"], torso, 2)
+
+    # 네온 V 라인(테슬라 시그니처)
+    v_points = [
+        (cx - 22, shoulder_y + 6),
+        (cx, hip_y + 2),
+        (cx + 22, shoulder_y + 6),
+    ]
+    pygame.draw.lines(surface, palette["accent"], False, v_points, 4)
+
+    # 중앙 에너지 코어
+    core_rect = pygame.Rect(cx - 9, shoulder_y + 10, 18, 26)
+    pygame.draw.rect(surface, palette["hex_base"], core_rect, border_radius=4)
+    pygame.draw.rect(surface, palette["hex_border"], core_rect.inflate(4, 4), 2, border_radius=6)
+    pygame.draw.rect(surface, palette["hex_core"], core_rect.inflate(-4, -6), border_radius=3)
+
+    # 어깨 패드
     for side in (-1, 1):
-        ear_center = (center_x + side * 18, center_y)
-        pygame.draw.circle(surface, palette["helmet"], ear_center, 8)
-        pygame.draw.circle(surface, palette["ear_inner"], ear_center, 6)
+        pad_rect = pygame.Rect(0, 0, 26, 14)
+        pad_rect.center = (cx + side * 30, shoulder_y)
+        pygame.draw.rect(surface, palette["helmet"], pad_rect, border_radius=6)
+        pygame.draw.rect(surface, palette["accent"], pad_rect, 2, border_radius=6)
 
-    left_shoulder = (center_x - 30, center_y + 5)
-    left_elbow = (center_x - 45 - arm_swing // 2, center_y + 20 + arm_swing)
-    left_wrist = (center_x - 50 - arm_swing, center_y + 40 + left_leg_lift)
-    pygame.draw.line(surface, palette["body"], left_shoulder, left_elbow, 12)
-    pygame.draw.line(surface, palette["body"], left_elbow, left_wrist, 10)
-    pygame.draw.line(surface, palette["line"], left_shoulder, left_elbow, 2)
-    pygame.draw.line(surface, palette["line"], left_elbow, left_wrist, 2)
+    # 머리(사이버 바이저)
+    helmet_rect = pygame.Rect(cx - 22, head_y - 8, 44, 34)
+    pygame.draw.rect(surface, palette["helmet"], helmet_rect, border_radius=10)
+    pygame.draw.rect(surface, palette["helmet_inner"], helmet_rect.inflate(-10, -10), border_radius=8)
+    visor_rect = helmet_rect.inflate(-8, -6)
+    pygame.draw.rect(surface, palette["visor"], visor_rect, border_radius=8)
+    pygame.draw.line(surface, palette["visor_highlight"], visor_rect.midleft, (visor_rect.centerx, visor_rect.top + 4), 2)
+    pygame.draw.line(surface, palette["visor_highlight"], (visor_rect.centerx, visor_rect.bottom - 4), visor_rect.midright, 2)
+    for side in (-1, 1):
+        ear_center = (helmet_rect.centerx + side * 20, helmet_rect.centery + 2)
+        pygame.draw.circle(surface, palette["helmet"], ear_center, 7)
+        pygame.draw.circle(surface, palette["ear_inner"], ear_center, 5)
 
-    paddle_x = left_wrist[0] - 5
-    paddle_y = left_wrist[1] + 10
-    pygame.draw.rect(surface, palette["grip"], (paddle_x - 2, paddle_y - 10, 8, 20))
-    pygame.draw.line(surface, palette["grip_line"], (paddle_x, paddle_y - 10), (paddle_x, paddle_y + 8), 1)
-    paddle_head_x = paddle_x + 2
-    paddle_head_y = paddle_y + 12
-    hex_points = []
-    for i in range(6):
-        angle = math.radians(i * 60 + 30)
-        hex_points.append((paddle_head_x + int(math.cos(angle) * 18), paddle_head_y + int(math.sin(angle) * 18)))
-    pygame.draw.polygon(surface, palette["hex_base"], hex_points)
-    pygame.draw.polygon(surface, palette["hex_border"], hex_points, 3)
-    pygame.draw.circle(surface, palette["hex_core"], (paddle_head_x, paddle_head_y), 8)
-    pygame.draw.circle(surface, palette["hex_core_inner"], (paddle_head_x, paddle_head_y), 5)
+    # 팔 스윙 + 패들(플라즈마 블레이드)
+    left_swing_ratio = right_swing_ratio = 0.0
+    try:
+        left_timer = globals().get("optimus_arm_swing_left_timer", 0)
+        right_timer = globals().get("optimus_arm_swing_right_timer", 0)
+        duration = globals().get("OPTIMUS_ARM_SWING_DURATION", 32) or 1
+        # 진행형 스윙: 0→1까지만 증가, 끝에서 다시 앞으로 튀지 않도록 0으로 즉시 리셋
+        left_swing_ratio = 1.0 - (left_timer / duration) if left_timer > 0 else 0.0
+        right_swing_ratio = 1.0 - (right_timer / duration) if right_timer > 0 else 0.0
+        left_swing_ratio = max(0.0, min(1.0, left_swing_ratio))
+        right_swing_ratio = max(0.0, min(1.0, right_swing_ratio))
+    except Exception:
+        pass
 
-    right_shoulder = (center_x + 30, center_y + 5)
-    right_elbow = (center_x + 40 - arm_swing // 2, center_y + 25 - arm_swing)
-    right_wrist = (center_x + 35 - arm_swing, center_y + 45 + right_leg_lift)
-    pygame.draw.line(surface, palette["body"], right_shoulder, right_elbow, 12)
-    pygame.draw.line(surface, palette["body"], right_elbow, right_wrist, 10)
-    pygame.draw.line(surface, palette["arm_line"], right_shoulder, right_elbow, 2)
-    pygame.draw.line(surface, palette["arm_line"], right_elbow, right_wrist, 2)
+    arm_swing = int(stride * 6)
+    arm_swing_left = int(arm_swing)
+    arm_swing_right = int(-arm_swing // 2)
 
-    pygame.draw.circle(surface, palette["hand"], left_wrist, 6)
-    pygame.draw.circle(surface, palette["hand"], right_wrist, 6)
+    def _ease_out_cubic(t: float) -> float:
+        t = max(0.0, min(1.0, t))
+        return 1 - (1 - t) ** 3
 
-    for i in range(3):
-        radius = 38 + i * 3
-        alpha = max(0, 80 - i * 20)
-        edge_surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
-        pygame.draw.ellipse(edge_surface, (*palette["glow"], alpha),
-                            (center_x - radius, center_y - radius / 1.4, radius * 2, radius * 1.4), 2)
-        surface.blit(edge_surface, (0, 0))
+    def _lerp_angle_deg(start_deg: float, end_deg: float, t: float) -> float:
+        """start→end를 시계 방향으로 120° 이상 크게 스윙"""
+        start = math.radians(start_deg % 360)
+        end = math.radians(end_deg % 360)
+        # 단방향(큰 호) 진행: 되감기 시 다시 앞으로 솟는 문제 방지
+        if end < start:
+            end += math.tau  # 큰 호(>180°)로 이동
+        return start + (end - start) * t
 
+    def draw_arm(side: int, walk_swing: int, swing_ratio: float) -> None:
+        """포물선 휘두름 후 자연스럽게 원위치"""
+        shoulder = (cx + side * 30, shoulder_y + 2)
+        base_upper_len = 32
+        base_fore_len = 30
+
+        # 기본(걷기) 포즈
+        idle_elbow = (
+            shoulder[0] + side * 12,
+            shoulder[1] + 18 + walk_swing * 0.5,
+        )
+        idle_wrist = (
+            idle_elbow[0] + side * 12,
+            idle_elbow[1] + 24 + walk_swing,
+        )
+
+        if swing_ratio > 0:
+            # 왕복 곡선: 0→0.5 전진, 0.5→1 복귀
+            forward_phase = min(1.0, swing_ratio * 2.0)
+            return_phase = max(0.0, swing_ratio * 2.0 - 1.0)
+            ease_fwd = _ease_out_cubic(forward_phase)
+            ease_ret = _ease_out_cubic(return_phase)
+
+            arc_height = 18 * math.sin(math.pi * forward_phase)
+            arc_forward = 12 * math.sin(math.pi * forward_phase)
+
+            # 반대(정면) 방향으로 더 꺾인 피크 각도
+            peak_angle_deg = 20 if side < 0 else 160
+            angle = math.radians(peak_angle_deg)
+
+            swing_lift = 10 + 16 * forward_phase
+            inward_pull = 14 + 12 * forward_phase
+            upper_len = base_upper_len + 6 * forward_phase
+            fore_len = base_fore_len + 10 * forward_phase
+
+            peak_elbow = (
+                shoulder[0] + math.cos(angle) * upper_len * 0.5 + (-side) * (inward_pull + arc_forward),
+                shoulder[1] + math.sin(angle) * upper_len * 0.5 - swing_lift - arc_height,
+            )
+            peak_wrist = (
+                peak_elbow[0] + math.cos(angle) * fore_len + (-side) * (inward_pull * 0.6 + arc_forward * 0.7),
+                peak_elbow[1] + math.sin(angle) * fore_len - swing_lift * 0.7 - arc_height * 0.5,
+            )
+
+            # 중앙선 넘지 않도록 클램프
+            if side < 0:
+                peak_elbow = (min(peak_elbow[0], cx - 12), peak_elbow[1])
+                peak_wrist = (min(peak_wrist[0], cx - 16), peak_wrist[1])
+            else:
+                peak_elbow = (max(peak_elbow[0], cx + 12), peak_elbow[1])
+                peak_wrist = (max(peak_wrist[0], cx + 16), peak_wrist[1])
+
+            def lerp_point(a, b, t):
+                return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+
+            # 전진·복귀를 한 번에 처리
+            elbow = lerp_point(idle_elbow, peak_elbow, ease_fwd)
+            wrist = lerp_point(idle_wrist, peak_wrist, ease_fwd)
+            elbow = lerp_point(elbow, idle_elbow, ease_ret)
+            wrist = lerp_point(wrist, idle_wrist, ease_ret)
+        else:
+            elbow = idle_elbow
+            wrist = idle_wrist
+
+        pygame.draw.line(surface, palette["body"], shoulder, elbow, 12)
+        pygame.draw.line(surface, palette["body"], elbow, wrist, 10)
+        pygame.draw.line(surface, palette["arm_line"], shoulder, elbow, 3)
+        pygame.draw.line(surface, palette["arm_line"], elbow, wrist, 3)
+        pygame.draw.circle(surface, palette["hand"], wrist, 6)
+
+        if side < 0:
+            grip_x, grip_y = wrist[0] - 4, wrist[1] + 8
+            pygame.draw.rect(surface, palette["grip"], (grip_x - 3, grip_y - 10, 10, 24), border_radius=4)
+            pygame.draw.rect(surface, palette["grip_line"], (grip_x - 1, grip_y - 8, 6, 20), 1, border_radius=3)
+            blade_height = 46
+            blade_surface = pygame.Surface((8, blade_height), pygame.SRCALPHA)
+            pygame.draw.rect(blade_surface, (*palette["accent"], 160), (0, 0, 8, blade_height), border_radius=3)
+            pygame.draw.rect(blade_surface, (*palette["visor_highlight"], 200), (2, 2, 4, blade_height - 4), border_radius=2)
+            surface.blit(blade_surface, (grip_x + 2, grip_y + 10))
+
+    draw_arm(-1, arm_swing_left, left_swing_ratio)
+    draw_arm(1, arm_swing_right, right_swing_ratio)  # 오른팔은 살짝 뒤로
+
+    # 상체/머리 글로우
+    glow_surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
+    pygame.draw.ellipse(glow_surface, (*palette["glow"], 50), (cx - 65, base_cy - 32 + torso_bob, 130, 90), 2)
+    pygame.draw.ellipse(glow_surface, (*palette["glow"], 70), (cx - 34, head_y - 6, 68, 42), 1)
+    surface.blit(glow_surface, (0, 0))
+
+    # 육각 실드(얇은)
     for i in range(2):
-        at_field_radius = 55 + i * 10
-        at_alpha = max(0, 30 - i * 10)
-        at_points = []
+        at_field_radius = 56 + i * 10
+        at_alpha = max(0, 28 - i * 10)
+        points = []
         for j in range(6):
-            angle = math.radians(j * 60)
-            at_points.append((center_x + int(math.cos(angle) * at_field_radius),
-                              center_y + int(math.sin(angle) * at_field_radius * 0.7)))
+            angle = math.radians(j * 60 + 30)
+            points.append((cx + int(math.cos(angle) * at_field_radius),
+                           base_cy + int(math.sin(angle) * at_field_radius * 0.75) + torso_bob))
         at_surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
-        pygame.draw.polygon(at_surface, (*palette["at_field"], at_alpha), at_points, 1)
+        pygame.draw.polygon(at_surface, (*palette["at_field"], at_alpha), points, 1)
         surface.blit(at_surface, (0, 0))
 
     return surface
@@ -16951,7 +17110,7 @@ BLACKSMITH_UMBRELLA_CRACK_SEGMENTS: list[list[tuple[tuple[float, float], tuple[f
     [((-0.22, 0.04), (-0.36, -0.20)), ((0.22, 0.04), (0.38, -0.22)), ((0.0, 0.26), (-0.12, 0.44)), ((0.0, 0.26), (0.14, 0.46))],
 ]
 
-# === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
+# === 스매셔 / 안드로이드(optimus ID) 걷기 애니메이션 변수 ===
 smasher_walking_active = False
 smasher_walking_timer = 0
 SMASHER_WALKING_CYCLE = 30
@@ -16994,6 +17153,9 @@ def trigger_smasher_contact_animation(offset_x: float) -> None:
 optimus_walking_active = False
 optimus_walking_timer = 0
 OPTIMUS_WALKING_CYCLE = 30
+OPTIMUS_ARM_SWING_DURATION = 32
+optimus_arm_swing_left_timer = 0
+optimus_arm_swing_right_timer = 0
 
 # === 발토르 방패 스윙 애니메이션 변수 ===
 blacksmith_shield_swing_active = False
@@ -28120,7 +28282,7 @@ def handle_player(keys):
     global soldier_walking_active, soldier_walking_timer  # 코만도 걷기 애니메이션 변수
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction  # 발토르 걷기 애니메이션 변수
     global smasher_walking_active, smasher_walking_timer  # 스매셔 걷기 애니메이션 변수
-    global optimus_walking_active, optimus_walking_timer  # 옵티머스 걷기 애니메이션 변수
+    global optimus_walking_active, optimus_walking_timer  # 안드로이드(optimus) 걷기 애니메이션 변수
     global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge  # 챕터별 게이지 오버라이드
     global tutorial_drive_completion_dialogue_shown, tutorial_drive_count  # Chapter 3 완료 체크
@@ -30489,9 +30651,13 @@ def handle_player(keys):
 
             # 스킬 효과 적용: 패들 속도 증가
             skill_speed_boost = skill.apply_paddle_speed_boost(0)
-            # 발토르(blacksmith)는 기본 최대속도를 3으로 제한
-            # (기존 전역 MAX_SPEED는 유지하고 캐릭터 분기에서만 적용)
-            base_max_speed = 3 if selected_character_type == "blacksmith" else MAX_SPEED
+            # 캐릭터별 기본 최대 속도 분기
+            if selected_character_type == "blacksmith":
+                base_max_speed = 3
+            elif selected_character_type == "optimus":
+                base_max_speed = OPTIMUS_BASE_MAX_SPEED
+            else:
+                base_max_speed = MAX_SPEED
             effective_max_speed = (base_max_speed + skill_speed_boost) * speed_multiplier
             # 일반 이동 키 처리 (키보드 + 마우스 조작 통합)
             # 후딜 상태에서는 일반 이동 불가 (더블대쉬 아이템 소지 시에도)
@@ -30617,6 +30783,8 @@ def handle_player(keys):
                             combined_speed_multiplier = devil_dice_speed_multiplier * ak47_speed_multiplier * net_speed_multiplier
                             adjusted_acceleration = ACCELERATION * combined_speed_multiplier
                             adjusted_deceleration = DECELERATION * combined_speed_multiplier
+                            if selected_character_type == "optimus":
+                                adjusted_deceleration *= OPTIMUS_DECELERATION_MULT  # 감속을 2배 느리게
                             adjusted_max_speed = effective_max_speed * speed_factor * combined_speed_multiplier
                             
                             if left_pressed:
@@ -43210,9 +43378,11 @@ def draw_objects():
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, blacksmith_turret_projectiles
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
+    global optimus_arm_swing_left_timer, optimus_arm_swing_right_timer
     global smasher_left_raise_timer
     global smasher_hit_pose_timer, smasher_shield_raise_timer
     global smasher_pending_contact_offset
+    global optimus_arm_swing_left_timer, optimus_arm_swing_right_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_hammer_charge_position, blacksmith_hammer_head_surface_point, blacksmith_hammer_idle_position
@@ -44179,29 +44349,22 @@ def draw_objects():
         SCREEN.blit(magnetic_surface, (BOSS.centerx - 130, BOSS.centery - 130))
     # === 롱부스트 애니메이션 처리 (레거시 코드 - 새로운 점진적 크기 변화로 대체됨) ===
     # === 플레이어 이미지 (새로운 보스 모드 고려) ===
+    base_ufo_img = PLAYER_IMG  # 기본값 보장
     if new_boss_mode_active:
         #  새로운 보스 모드에서는 하단 보스 이미지 사용
         try:
             if selected_bottom_boss == 1:
-                # 파이어 나이트 이미지 (임시로 stage1 이미지 사용, 나중에 별도 이미지 추가 가능)
                 boss_img = pygame.image.load(resource_path("boss_stage1.png")).convert_alpha()
-                # 화염 속성 느낌으로 빨간색 틴트 적용
                 base_ufo_img = pygame.transform.scale(boss_img, (250, 100))
             elif selected_bottom_boss == 2:
-                # 윈드 스피릿 이미지 (임시로 stage2 이미지 사용, 나중에 별도 이미지 추가 가능)
                 boss_img = pygame.image.load(resource_path("boss_stage2.png")).convert_alpha()
-                # 바람 속성 느낌으로 사용
                 base_ufo_img = pygame.transform.scale(boss_img, (250, 100))
-            else:
-                base_ufo_img = PLAYER_IMG
-        except:
-            # 이미지 로드 실패 시 기본 플레이어 이미지 사용
+        except Exception:
             base_ufo_img = PLAYER_IMG
     else:
         # 일반 모드에서는 캐릭터 타입에 따라 다른 이미지 사용
         blacksmith_hammer_charge_position = None
         if selected_character_type == "soldier":
-            # 코만도 캐릭터 애니메이션 처리 (우선순위: 휘두르기 > 걷기 > 기본)
             include_right_arm = not soldier_gun_animation_active
             right_hook_strength = get_soldier_right_hook_strength() if include_right_arm else 0.0
             if soldier_swing_active:
@@ -44243,8 +44406,23 @@ def draw_objects():
                 else:
                     base_ufo_img = BLACKSMITH_PADDLE_NO_HAMMER_IMG
                     blacksmith_hammer_head_surface_point = None
+        elif selected_character_type == "optimus":
+            global optimus_walking_active, optimus_walking_timer
+            swing_active = (optimus_arm_swing_left_timer > 0) or (optimus_arm_swing_right_timer > 0)
+            if abs(current_speed) > 1.0:
+                if not optimus_walking_active:
+                    optimus_walking_active = True
+                    optimus_walking_timer = 0
+                optimus_walking_timer += 1
+                base_ufo_img = create_optimus_paddle_walking()
+            else:
+                optimus_walking_active = False
+                optimus_walking_timer = 0
+                if swing_active:
+                    base_ufo_img = create_optimus_paddle_surface()
+                else:
+                    base_ufo_img = OPTIMUS_PADDLE_IMG
         elif selected_character_type == "smasher":
-            # 스매셔 캐릭터는 에반게리온 스타일 패들 사용
             if smasher_walking_active:
                 base_ufo_img = create_smasher_paddle_walking()
             elif smasher_hit_pose_timer > 0:
@@ -44252,9 +44430,8 @@ def draw_objects():
             else:
                 base_ufo_img = SMASHER_PADDLE_IMG
         else:
-            # 기본 UFO 플레이어 이미지 사용
             base_ufo_img = PLAYER_IMG
-        # print(f"🎮 일반 모드: base_ufo_img 크기 = {base_ufo_img.get_size()}")
+    # print(f"🎮 일반 모드: base_ufo_img 크기 = {base_ufo_img.get_size()}")
     # 스킬 효과 적용: 패들 크기 증가
     skill_boosted_width = skill.apply_paddle_size_boost(PADDLE_WIDTH)
     scale_ratio = skill_boosted_width / PADDLE_BASE_WIDTH
@@ -44323,11 +44500,18 @@ def draw_objects():
             smasher_shield_raise_timer -= 1
         if smasher_left_raise_timer > 0:
             smasher_left_raise_timer -= 1
+    elif selected_character_type == "optimus":
+        if optimus_arm_swing_left_timer > 0:
+            optimus_arm_swing_left_timer -= 1
+        if optimus_arm_swing_right_timer > 0:
+            optimus_arm_swing_right_timer -= 1
     else:
         smasher_hit_pose_timer = 0
         smasher_shield_raise_timer = 0
         smasher_left_raise_timer = 0
         smasher_pending_contact_offset = None
+        optimus_arm_swing_left_timer = 0
+        optimus_arm_swing_right_timer = 0
     #  투척 모션 중일 때 특별한 회전 각도 적용
     if molotov_throwing or grenade_throwing or flare_throwing:
         throw_progress = 0
@@ -55650,10 +55834,10 @@ def show_character_selection():
         },
         {
             "id": "optimus",
-            "name": "옵티머스",
+            "name": "안드로이드",
             "description": "테슬라 모듈이 전기 충격 부여.\n네온 드라이브로 궤적을 가속.",
             "image": "optimus.png",
-            "stats": {"속도": 5, "파워": 7, "방어": 5},
+            "stats": {"속도": 2, "파워": 7, "방어": 5},
             "special": " 스매셔 계열 전용 장비",
             "unlocked": True,
             "card_color": (120, 200, 255),
@@ -56410,7 +56594,17 @@ def show_character_selection():
                 else:
                     blit_scaled_surface(source_img, scale_mult=2.0)
             elif character["id"] == "optimus":
-                blit_scaled_surface(OPTIMUS_PADDLE_IMG, scale_mult=2.0)
+                if play_active:
+                    try:
+                        cycle_ms = 900.0
+                        t = pygame.time.get_ticks() % cycle_ms
+                        phase = t / cycle_ms
+                        frame = create_optimus_paddle_surface(step_phase=phase)
+                        blit_scaled_surface(frame, scale_mult=2.0)
+                    except Exception:
+                        blit_scaled_surface(OPTIMUS_PADDLE_IMG, scale_mult=2.0)
+                else:
+                    blit_scaled_surface(OPTIMUS_PADDLE_IMG, scale_mult=2.0)
             else:
                 try:
                     char_image = pygame.image.load(resource_path(character["image"]))
@@ -56915,6 +57109,66 @@ def show_character_selection():
                     point_x = emblem_x + math.cos(point_angle) * point_radius
                     point_y = emblem_y + math.sin(point_angle) * point_radius
                     pygame.draw.circle(SCREEN, (100, 255, 100), (int(point_x), int(point_y)), 1)
+
+            # 안드로이드(optimus) 캐릭터 전용 엠블럼
+            elif current_char["id"] == "optimus":
+                emblem_x = detail_x + detail_card_width//2 + name_rect.width//2 + 40
+                emblem_y = name_y
+
+                time_now = pygame.time.get_ticks()
+                pulse_scale = 1.0 + math.sin(time_now * 0.0035) * 0.12
+                rotation_angle = time_now * 0.0012
+                glow_intensity = abs(math.sin(time_now * 0.0024))
+                emblem_radius = 15
+
+                body_color = OPTIMUS_MECHA_PALETTE["body"]
+                accent = OPTIMUS_MECHA_PALETTE["accent"]
+                core = OPTIMUS_MECHA_PALETTE["hex_core"]
+                core_inner = OPTIMUS_MECHA_PALETTE["hex_core_inner"]
+                outline = OPTIMUS_MECHA_PALETTE["hex_border"]
+
+                # 사이언 글로우 링
+                for i in range(3):
+                    glow_radius = emblem_radius + (i + 1) * 2
+                    alpha = int(50 - i * 12) * glow_intensity
+                    glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+                    pygame.draw.circle(
+                        glow_surface,
+                        (*accent, max(0, alpha)),
+                        (glow_radius + 2, glow_radius + 2),
+                        int(glow_radius * pulse_scale),
+                        2,
+                    )
+                    SCREEN.blit(glow_surface, (emblem_x - glow_radius - 2, emblem_y - glow_radius - 2))
+
+                # 육각 실드 베이스
+                hex_points = []
+                for i in range(6):
+                    ang = rotation_angle + i * math.pi / 3
+                    hx = emblem_x + math.cos(ang) * emblem_radius * 1.05 * pulse_scale
+                    hy = emblem_y + math.sin(ang) * emblem_radius * 0.95 * pulse_scale
+                    hex_points.append((hx, hy))
+                pygame.draw.polygon(SCREEN, body_color, hex_points)
+                pygame.draw.polygon(SCREEN, outline, hex_points, 2)
+
+                # 코어 에너지
+                pygame.draw.circle(SCREEN, core, (emblem_x, emblem_y), int(6 * pulse_scale))
+                pygame.draw.circle(SCREEN, core_inner, (emblem_x, emblem_y), int(3 * pulse_scale))
+
+                # 테슬라 아크 스파크
+                spark_count = 3
+                for i in range(spark_count):
+                    ang = rotation_angle * 1.7 + i * 2.094
+                    start_r = 4
+                    end_r = emblem_radius + 6
+                    sx = emblem_x + math.cos(ang) * start_r
+                    sy = emblem_y + math.sin(ang) * start_r
+                    mx = emblem_x + math.cos(ang) * ((start_r + end_r) / 2) + random.randint(-2, 2)
+                    my = emblem_y + math.sin(ang) * ((start_r + end_r) / 2) + random.randint(-2, 2)
+                    ex = emblem_x + math.cos(ang) * end_r
+                    ey = emblem_y + math.sin(ang) * end_r
+                    pygame.draw.lines(SCREEN, accent, False, [(sx, sy), (mx, my), (ex, ey)], 2)
+                    pygame.draw.circle(SCREEN, accent, (int(ex), int(ey)), 2)
                     
             # 캐릭터 설명 (홀로그램 스타일) - 패널 중앙 배치
             desc_y = detail_y + detail_card_height//2  # 패널 중앙
@@ -59098,8 +59352,19 @@ def apply_selected_items(
         activated_legendary_items = []
 
         # 선택된 전설 아이템 활성화 및 패시브 아이템 리스트에 추가
+        placeholder_legendary_names = (
+            "empty",
+            "empty1",
+            "empty2",
+            "empty_legendary",
+            "empty_legendary2",
+            "empty_legendary3",
+            "empty_legendary4",
+            "empty_legendary5",
+            "empty_legendary6",
+        )
         for item_name in selected_legendary_items:
-            if item_name in ("empty", "empty1", "empty2", "empty_legendary"):
+            if item_name in placeholder_legendary_names:
                 continue
 
             # 전설 아이템 획득 플래그 설정 (중복 스폰 방지)
@@ -59303,8 +59568,23 @@ def get_item_icon(item_name):
         icon_cache[item_name] = icon_surface
         return icon_surface
     
-    if item_name == "empty_legendary":
+    if item_name.startswith("empty_legendary"):
         icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
+    if item_name == "angel_blessing":
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        pygame.draw.rect(icon_surface, (235, 245, 255), (2, 2, ICON_SIZE - 4, ICON_SIZE - 4), border_radius=6)
+        pygame.draw.rect(icon_surface, (120, 170, 220), (2, 2, ICON_SIZE - 4, ICON_SIZE - 4), 2, border_radius=6)
+        # 간단한 주사위 눈 3개 배치
+        pip_positions = [
+            (ICON_SIZE // 2, ICON_SIZE // 2),
+            (ICON_SIZE // 4, ICON_SIZE // 4),
+            (ICON_SIZE * 3 // 4, ICON_SIZE * 3 // 4),
+        ]
+        for px, py in pip_positions:
+            pygame.draw.circle(icon_surface, (90, 130, 200), (px, py), 3)
         icon_cache[item_name] = icon_surface
         return icon_surface
 
@@ -63421,6 +63701,15 @@ def calculate_bounce(paddle):
     
     # 패들 타입 확인 (플레이어 vs 보스)
     is_player_paddle = (paddle == PLAYER)
+    if is_player_paddle and selected_character_type == "optimus":
+        global optimus_arm_swing_left_timer, optimus_arm_swing_right_timer
+        hit_offset = BALL.centerx - PLAYER.centerx
+        if hit_offset < 0:
+            optimus_arm_swing_left_timer = OPTIMUS_ARM_SWING_DURATION
+            optimus_arm_swing_right_timer = 0
+        else:
+            optimus_arm_swing_right_timer = OPTIMUS_ARM_SWING_DURATION
+            optimus_arm_swing_left_timer = 0
     # Stage 2 정글지진: 플레이어 패들에 공이 닿으면 지진 효과를 강제 종료
     if is_player_paddle and current_stage == 2 and quake_active:
         force_end_quake_on_player_hit()
@@ -79997,41 +80286,57 @@ def show_game_info():
             title_text = font_large.render("게임 정보", True, WHITE)
             title_rect = title_text.get_rect(center=(info_panel_x + info_panel_width // 2, info_panel_y + 25))
             SCREEN.blit(title_text, title_rect)
-            # 기본 정보
-            info_y = info_panel_y + 60
-            info_spacing = 28
-            # 보스 vs 보스 모드 확인
-            character_info = "새로운 보스 (하단)" if new_boss_mode_active else "UFO 플레이어"
-            mode_info = " NEW BOSS BATTLE" if new_boss_mode_active else "일반 모드"
-            info_items = [
-                f"게임 모드: {mode_info}",
-                f"현재 스테이지: {current_stage}",
-                f"라운드 점수: {round_wins} : {round_losses}",
-                f"획득한 메달: {session_medal_earned}",
-                f"총 메달: {medal_score}",
-                f"캐릭터: {character_info}",
-                f"이동속도: {PLAYER_SPEED}",
-                f"방향전환속도: {PLAYER_SPEED * (1.5 if speedgear_obtained else 1.0):.1f}",
-                "",
-                "조작법:" if not new_boss_mode_active else "AI 조작 (NEW BOSS BATTLE):",
-                "방향키: 이동" if not new_boss_mode_active else "새로운 보스 AI가 자동 조작",
-                "스페이스바: 서브" if not new_boss_mode_active else "서브는 자동으로 처리",
-                "S: 아이템 사용" if not new_boss_mode_active else "아이템/스킬은 사용 안함",
-                "1~6: 아이템 직접 사용" if not new_boss_mode_active else "새로운 보스들의 순수한 대결!",
-                "A/D: 아이템 선택" if not new_boss_mode_active else "",
-                "ESC: 일시정지"
-            ]
-            for i, info in enumerate(info_items):
-                if info == "":
-                    info_y += 15
-                    continue
-                if i < 7:  # 게임 정보
-                    text_surface = font_medium.render(info, True, WHITE)
-                else:  # 조작법
-                    text_surface = font_small.render(info, True, (200, 200, 200))
-                text_rect = text_surface.get_rect(left=info_panel_x + 40, top=info_y)
-                SCREEN.blit(text_surface, text_rect)
-                info_y += info_spacing
+        # 기본 정보
+        info_y = info_panel_y + 60
+        info_spacing = 28
+        # 캐릭터/모드 정보
+        if new_boss_mode_active:
+            character_info = "새로운 보스 (하단)"
+        else:
+            try:
+                character_info = get_character_name(selected_character_type)
+            except Exception:
+                character_info = "UFO 플레이어"
+        mode_info = " NEW BOSS BATTLE" if new_boss_mode_active else "일반 모드"
+        # 캐릭터별 기본 속도/패들폭 정보
+        if selected_character_type == "optimus":
+            base_speed_info = OPTIMUS_BASE_MAX_SPEED
+        elif selected_character_type == "blacksmith":
+            base_speed_info = 3
+        else:
+            base_speed_info = MAX_SPEED
+        turn_speed_info = base_speed_info * (1.5 if speedgear_obtained else 1.0)
+        paddle_width_info = PADDLE_WIDTH
+        info_items = [
+            f"게임 모드: {mode_info}",
+            f"현재 스테이지: {current_stage}",
+            f"라운드 점수: {round_wins} : {round_losses}",
+            f"획득한 메달: {session_medal_earned}",
+            f"총 메달: {medal_score}",
+            f"캐릭터: {character_info}",
+            f"기본 이동속도: {base_speed_info}",
+            f"방향전환속도: {turn_speed_info:.1f}",
+            f"패들 폭: {paddle_width_info}",
+            "",
+            ("조작법:" if not new_boss_mode_active else "AI 조작 (NEW BOSS BATTLE):"),
+            ("방향키: 이동" if not new_boss_mode_active else "새로운 보스 AI가 자동 조작"),
+            ("스페이스바: 서브" if not new_boss_mode_active else "서브는 자동으로 처리"),
+            ("S: 아이템 사용" if not new_boss_mode_active else "아이템/스킬은 사용 안함"),
+            ("1~6: 아이템 직접 사용" if not new_boss_mode_active else "새로운 보스들의 순수한 대결!"),
+            ("A/D: 아이템 선택" if not new_boss_mode_active else ""),
+            "ESC: 일시정지",
+        ]
+        for i, info in enumerate(info_items):
+            if info == "":
+                info_y += 15
+                continue
+            if i < 7:  # 게임 정보
+                text_surface = font_medium.render(info, True, WHITE)
+            else:  # 조작법
+                text_surface = font_small.render(info, True, (200, 200, 200))
+            text_rect = text_surface.get_rect(left=info_panel_x + 40, top=info_y)
+            SCREEN.blit(text_surface, text_rect)
+            info_y += info_spacing
             # 페이지 전환 버튼
             next_button_rect = pygame.Rect(info_panel_x + info_panel_width - 130, info_panel_y + info_panel_height - LARGE_SIZE, 100, 35)
             draw.rect((100, 150, 255), next_button_rect)
@@ -80527,9 +80832,15 @@ def get_item_name_korean(item_name):
         "ragnarok_hammer": "라그나로크 해머",
         "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창",
+        "angel_blessing": "천사의 가호",
         # 전설탭 전용: baby (헤르메스 아이콘과 동일)
         "baby": "베이비",
         "empty_legendary": "빈전설",
+        "empty_legendary2": "빈전설2",
+        "empty_legendary3": "빈전설3",
+        "empty_legendary4": "빈전설4",
+        "empty_legendary5": "빈전설5",
+        "empty_legendary6": "빈전설6",
         "empty2": "빈 전설 슬롯",
     }
     return korean_names.get(item_name, item_name)
@@ -80623,8 +80934,14 @@ def get_item_description(item_name):
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
+        "angel_blessing": "천사의 가호: 스테이지 시작 시 천사의 주사위를 굴려 1~3개의 축복을 랜덤으로 받습니다.",
         "baby": "베이비: 아이템관리자 전설탭 표시용. 헤르메스의 신발과 동일한 아이콘/연출을 사용합니다.",
         "empty_legendary": "빈전설: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
+        "empty_legendary2": "빈전설2: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
+        "empty_legendary3": "빈전설3: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
+        "empty_legendary4": "빈전설4: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
+        "empty_legendary5": "빈전설5: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
+        "empty_legendary6": "빈전설6: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
         "empty2": "빈 전설 슬롯: 미개방된 전설 아이템 슬롯입니다. 전설의 테두리 효과만 표시됩니다.",
     }
     return descriptions.get(item_name, "설명이 없습니다.")
@@ -81764,6 +82081,8 @@ def _get_character_base_surface(character_id: str) -> pygame.Surface:
         return SOLDIER_PADDLE_IMG
     if character_id == "blacksmith" and 'BLACKSMITH_PADDLE_IMG' in globals():
         return BLACKSMITH_PADDLE_IMG
+    if character_id == "optimus" and 'OPTIMUS_PADDLE_IMG' in globals():
+        return OPTIMUS_PADDLE_IMG
     return PLAYER_IMG
 
 
@@ -82035,13 +82354,23 @@ def show_quick_character_selection():
     
 def apply_character_selection(character_id):
     """선택된 캐릭터 ID를 전역 상태에 반영"""
-    global selected_character_type
+    global selected_character_type, PADDLE_BASE_WIDTH, PADDLE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_HEIGHT
     if character_id == "ufo_player":
         selected_character_type = "smasher"
     elif character_id in ("smasher", "soldier", "normal", "blacksmith", "optimus"):
         selected_character_type = character_id
     else:
         selected_character_type = "normal"
+    # 캐릭터별 기본 패들 크기 적용
+    if selected_character_type == "optimus":
+        PADDLE_BASE_WIDTH = OPTIMUS_PADDLE_BASE_WIDTH
+        PADDLE_WIDTH = OPTIMUS_PADDLE_TARGET_WIDTH
+    else:
+        PADDLE_BASE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
+        PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
+    # 높이는 공통 유지
+    PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
+    PADDLE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
     return selected_character_type
 
 
@@ -82053,7 +82382,7 @@ def get_character_name(character_id):
         "smasher": "스매셔",
         "soldier": "코만도",
         "blacksmith": "발토르",
-        "optimus": "옵티머스"
+        "optimus": "안드로이드"
     }
     return char_names.get(character_id, "알 수 없음")
 

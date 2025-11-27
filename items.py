@@ -68,7 +68,9 @@ ITEM_ICONS = {}
 # 전설 아이콘 애니메이션 프레임 캐시
 ITEM_ICON_ANIMATIONS = {}
 _ICON_ANIMATION_SCALE_CACHE = {}
-_LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}
+_LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing"}
+# 전설 버프용 아이템 스폰 배율
+LEGENDARY_ITEM_SPAWN_MULT = 1.0
 
 
 def _center_icon_surface(icon: pygame.Surface, size: int = 32, padding: int = 2) -> pygame.Surface:
@@ -846,6 +848,15 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
+        "name": "angel_blessing",  # 천사의 가호 전설 아이템
+        "color": (220, 240, 255),  # 옅은 하늘색
+        "effect": "angel_blessing",
+        "icon": None,
+        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "duration": 600,
+        "unlock_condition": None
+    },
+    {
         "name": "knee_pads",  # 킥차져 패시브 아이템
         "color": (80, 80, 100),  # 어두운 회색-파란색
         "effect": "knee_pads",
@@ -1258,8 +1269,12 @@ def spawn_random_item():
     # 스킬 효과 적용: 아이템 스폰 확률 증가
     import skill
     skill_spawn_boost = skill.apply_item_spawn_boost(1.0)  # 기본 확률 1.0에 스킬 효과 적용
+    try:
+        skill_spawn_boost *= LEGENDARY_ITEM_SPAWN_MULT
+    except Exception:
+        pass
 
-    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}
+    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing"}
     try:
         legendary_multiplier = academy.get_treasure_map_field_multiplier()
     except Exception:
@@ -1273,7 +1288,7 @@ def spawn_random_item():
         "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt",
         "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
-        "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet"
+        "hermes_shoes", "poseidon_trident", "angel_blessing", "bulletproof_hat", "spiked_helmet"
     }
 
     for item in available_items:

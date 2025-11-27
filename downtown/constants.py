@@ -212,6 +212,22 @@ BUILDING_INFO = {
 # 상점 건물 디자인 옵션 (5가지 - 사용자가 선택)
 # =============================================================================
 SHOP_DESIGNS = {
+    "hero_armory": {
+        "name": "용사의 무기점",
+        "name_en": "Hero's Armory",
+        "icon": "⚔️",
+        "color": (139, 69, 19),      # 진한 갈색 (목재)
+        "secondary_color": (218, 165, 32),  # 골든로드 (황금 장식)
+        "accent_color": (192, 192, 192),    # 은색 (금속)
+        "glow_color": (255, 215, 0),        # 금빛 글로우
+        "ap_cost": 1,
+        "size": (2, 2),
+        "pixel_size": (85, 90),
+        "description": "전설의 무기들이 전시된 영웅의 무기점",
+        "rarity": 1.0,
+        "style": "hero_armory",
+        "shop_theme": "rpg",
+    },
     "cyberpunk_shop": {
         "name": "네온 마켓",
         "name_en": "Neon Market",
@@ -284,9 +300,9 @@ SHOP_DESIGNS = {
     },
 }
 
-# 선택된 상점 디자인 (기본값: cyberpunk_shop)
+# 선택된 상점 디자인 (기본값: hero_armory - 용사의 무기점)
 # 사용자가 선택한 디자인을 여기에 설정하세요
-SELECTED_SHOP_DESIGN = "cyberpunk_shop"  # 5가지 중 선택: cyberpunk_shop, fantasy_shop, steampunk_shop, nature_shop, luxury_shop
+SELECTED_SHOP_DESIGN = "hero_armory"  # 6가지 중 선택: hero_armory, cyberpunk_shop, fantasy_shop, steampunk_shop, nature_shop, luxury_shop
 
 # BUILDING_INFO에 선택된 상점 추가
 BUILDING_INFO[BuildingType.ITEM_SHOP] = SHOP_DESIGNS[SELECTED_SHOP_DESIGN]

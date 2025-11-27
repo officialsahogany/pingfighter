@@ -95,7 +95,17 @@ class InteriorNPC:
         self.idle_timer = random.random() * 3
         self.idle_action = None  # "look_around", "think", None
 
-    def update(self, dt):
+        # 걸어다니기 상태 (고객 NPC만)
+        self.is_walking = False
+        self.walk_timer = random.uniform(5, 15)  # 5~15초마다 걷기
+        self.walk_target_x = None
+        self.walk_target_y = None
+        self.walk_speed = 30  # 느린 걸음
+        self.original_x = x
+        self.original_y = y
+        self.walk_range = 60  # 원래 위치에서 최대 60픽셀 범위
+
+    def update(self, dt, walkable_rect=None):
         """NPC 업데이트"""
         # 말풍선 타이머
         if self.is_talking:
@@ -113,6 +123,60 @@ class InteriorNPC:
         if self.idle_timer <= 0:
             self.idle_timer = random.uniform(2, 5)
             self.idle_action = random.choice([None, None, "look_around", "think"])
+
+        # 고객 NPC만 걸어다니기 (메인, 스태프 제외)
+        if self.role == "customer" and walkable_rect:
+            self._update_walking(dt, walkable_rect)
+
+    def _update_walking(self, dt, walkable_rect):
+        """걸어다니기 업데이트 (드물게, 몇 걸음씩)"""
+        # 대화 중이면 걷지 않음
+        if self.is_talking:
+            self.is_walking = False
+            self.walk_target_x = None
+            self.walk_target_y = None
+            return
+
+        # 걷고 있는 중
+        if self.is_walking and self.walk_target_x is not None:
+            # 목표 지점으로 이동
+            dx = self.walk_target_x - self.x
+            dy = self.walk_target_y - self.y
+            dist = math.sqrt(dx * dx + dy * dy)
+
+            if dist < 5:  # 목표 도달
+                self.is_walking = False
+                self.walk_target_x = None
+                self.walk_target_y = None
+                self.walk_timer = random.uniform(8, 20)  # 다음 걷기까지 8~20초 대기
+            else:
+                # 이동
+                move_dist = self.walk_speed * dt
+                if move_dist > dist:
+                    move_dist = dist
+                self.x += (dx / dist) * move_dist
+                self.y += (dy / dist) * move_dist
+
+                # 방향 업데이트
+                if abs(dx) > abs(dy):
+                    self.direction = 2 if dx > 0 else 1  # 좌우
+                else:
+                    self.direction = 0 if dy > 0 else 3  # 상하
+        else:
+            # 걷기 타이머 감소
+            self.walk_timer -= dt
+            if self.walk_timer <= 0:
+                # 새로운 목표 지점 설정 (원래 위치 근처, 몇 걸음)
+                target_x = self.original_x + random.uniform(-self.walk_range, self.walk_range)
+                target_y = self.original_y + random.uniform(-self.walk_range, self.walk_range)
+
+                # walkable 영역 내로 제한
+                target_x = max(walkable_rect.left + 20, min(walkable_rect.right - 20, target_x))
+                target_y = max(walkable_rect.top + 20, min(walkable_rect.bottom - 60, target_y))
+
+                self.walk_target_x = target_x
+                self.walk_target_y = target_y
+                self.is_walking = True
 
     def start_dialogue(self):
         """대화 시작"""
@@ -133,86 +197,304 @@ class InteriorNPC:
         )
 
     def draw(self, screen, camera_offset, animation_timer):
-        """NPC 그리기 (광장 NPC와 동일한 스타일 - 사람 형태)"""
+        """NPC 그리기 (고퀄리티 - 다양한 얼굴/자연스러운 걸음걸이)"""
         draw_x = self.x - camera_offset[0]
         draw_y = self.y - camera_offset[1]
 
-        # 애니메이션 오프셋
-        bob_offset = int(2 * math.sin(animation_timer * 2 + self.animation_offset))
+        # NPC 고유 ID로 외모 특성 결정
+        npc_id = hash(self.name)
+
+        # === 다양한 피부톤 (6가지) ===
+        skin_tones = [
+            (255, 224, 189),  # 밝은 피부
+            (255, 205, 148),  # 중간 밝은 피부
+            (234, 192, 134),  # 올리브
+            (198, 134, 66),   # 중간 어두운 피부
+            (141, 85, 36),    # 어두운 피부
+            (255, 219, 172),  # 복숭아빛
+        ]
+        skin_color = self.colors.get("skin", skin_tones[npc_id % len(skin_tones)])
+
+        # === 다양한 얼굴형 (4가지) ===
+        face_types = ["round", "oval", "square", "long"]
+        face_type = face_types[(npc_id // 3) % len(face_types)]
+
+        # === 다양한 표정 (5가지) ===
+        expressions = ["neutral", "happy", "serious", "shy", "cheerful"]
+        expression = expressions[(npc_id // 7) % len(expressions)]
+
+        # === 다양한 눈 크기/모양 ===
+        eye_sizes = ["normal", "big", "small"]
+        eye_size = eye_sizes[(npc_id // 11) % len(eye_sizes)]
+
+        # 걷기/정지 애니메이션 (더 자연스럽게)
+        if self.is_walking:
+            walk_phase = animation_timer * 8 + self.animation_offset
+            walk_cycle = math.sin(walk_phase)
+            walk_cycle_alt = math.cos(walk_phase * 0.5)
+
+            # 상하 움직임 (더 부드럽게)
+            bob_offset = int(2.0 * abs(math.sin(walk_phase * 2)))
+            # 다리 흔들림 (앞뒤로 더 자연스럽게)
+            leg_swing = walk_cycle * 5
+            # 몸통 기울기
+            body_lean = walk_cycle_alt * 1.5
+        else:
+            bob_offset = int(1 * math.sin(animation_timer * 1.5 + self.animation_offset))
+            leg_swing = 0
+            body_lean = 0
 
         # 색상
         body_color = self.colors.get("body", (100, 100, 100))
-        skin_color = self.colors.get("skin", (255, 210, 170))
         hair_color = self.colors.get("hair", (60, 40, 20))
 
         # 메인 NPC는 강조색 사용
         if self.role == "main":
             body_color = self.accent_color
 
-        # 위치 계산 (발 위치 기준으로 그리기)
-        center_x = int(draw_x)
+        # 어두운/밝은 색상 계산
+        body_dark = tuple(max(0, c - 30) for c in body_color)
+        body_light = tuple(min(255, c + 30) for c in body_color)
+        skin_dark = tuple(max(0, c - 25) for c in skin_color)
+        skin_light = tuple(min(255, c + 15) for c in skin_color)
+
+        # 위치 계산 (발 위치 기준)
+        center_x = int(draw_x + body_lean)
         feet_y = int(draw_y)
-        body_top = feet_y - self.height
 
-        # 그림자
-        shadow_surf = pygame.Surface((self.width + 8, 8), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), (0, 0, self.width + 8, 8))
-        screen.blit(shadow_surf, (center_x - self.width // 2 - 4, feet_y - 2))
+        # === 그림자 (타원형, 반투명) ===
+        shadow_w = self.width + 10
+        shadow_h = 6
+        shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 0, shadow_w, shadow_h))
+        screen.blit(shadow_surf, (center_x - shadow_w // 2, feet_y - 3))
 
-        # 다리 (두 개의 타원)
-        leg_width = self.width // 4
-        leg_height = self.height // 4
-        leg_y = feet_y - leg_height
-        pygame.draw.ellipse(screen, body_color,
-                           (center_x - self.width // 3 - leg_width // 2, leg_y,
-                            leg_width, leg_height))
-        pygame.draw.ellipse(screen, body_color,
-                           (center_x + self.width // 3 - leg_width // 2, leg_y,
-                            leg_width, leg_height))
+        # === 신발/발 (더 자연스러운 발 움직임) ===
+        shoe_colors = [(40, 30, 25), (60, 50, 40), (30, 30, 35), (80, 40, 20)]
+        shoe_color = shoe_colors[npc_id % len(shoe_colors)]
+        shoe_w, shoe_h = 8, 5
 
-        # 몸통
-        body_height = self.height * 2 // 5
-        body_y = body_top + self.height // 4 + bob_offset
-        pygame.draw.ellipse(screen, body_color,
-                           (center_x - self.width // 2, body_y,
-                            self.width, body_height))
+        # 걸을 때 발이 지면에서 떨어지는 효과
+        walk_anim_frame = animation_timer * 4 + self.animation_offset
+        left_foot_lift = max(0, int(3 * math.sin(walk_anim_frame * math.pi))) if self.is_walking else 0
+        right_foot_lift = max(0, int(3 * -math.sin(walk_anim_frame * math.pi))) if self.is_walking else 0
 
-        # 머리
-        head_size = self.width * 3 // 4
-        head_y = body_top + bob_offset
-        pygame.draw.circle(screen, skin_color, (center_x, head_y + head_size // 2), head_size // 2)
+        # 왼발
+        left_foot_x = center_x - 6 + int(leg_swing)
+        pygame.draw.ellipse(screen, shoe_color, (left_foot_x - shoe_w // 2, feet_y - shoe_h - left_foot_lift, shoe_w, shoe_h))
+        # 오른발
+        right_foot_x = center_x + 6 - int(leg_swing)
+        pygame.draw.ellipse(screen, shoe_color, (right_foot_x - shoe_w // 2, feet_y - shoe_h - right_foot_lift, shoe_w, shoe_h))
 
-        # 머리카락
-        hair_rect = pygame.Rect(center_x - head_size // 2, head_y, head_size, head_size // 2)
-        pygame.draw.ellipse(screen, hair_color, hair_rect)
+        # === 다리 (바지) - 무릎 굽힘 효과 ===
+        leg_w, leg_h = 6, 14
+        pants_color = body_dark if self.role != "staff" else (50, 50, 60)
 
-        # 눈 (방향에 따라)
-        eye_y = head_y + head_size // 2
-        eye_offset = 3 if self.direction == 2 else (-3 if self.direction == 1 else 0)
-        pygame.draw.circle(screen, (30, 30, 30), (center_x - 4 + eye_offset, eye_y), 2)
-        pygame.draw.circle(screen, (30, 30, 30), (center_x + 4 + eye_offset, eye_y), 2)
+        # 왼쪽 다리 (무릎 굽힘)
+        left_knee_bend = int(2 * max(0, math.sin(walk_anim_frame * math.pi))) if self.is_walking else 0
+        left_leg_y = feet_y - shoe_h - leg_h + int(leg_swing * 0.3) - left_foot_lift
+        pygame.draw.rect(screen, pants_color, (left_foot_x - leg_w // 2 - left_knee_bend, left_leg_y, leg_w, leg_h), border_radius=2)
 
-        # 메인 NPC는 왕관/모자 표시
+        # 오른쪽 다리 (무릎 굽힘)
+        right_knee_bend = int(2 * max(0, -math.sin(walk_anim_frame * math.pi))) if self.is_walking else 0
+        right_leg_y = feet_y - shoe_h - leg_h - int(leg_swing * 0.3) - right_foot_lift
+        pygame.draw.rect(screen, pants_color, (right_foot_x - leg_w // 2 + right_knee_bend, right_leg_y, leg_w, leg_h), border_radius=2)
+
+        # === 상체/몸통 ===
+        torso_w, torso_h = self.width - 4, 16
+        torso_y = feet_y - shoe_h - leg_h - torso_h + bob_offset + 2
+        torso_x = center_x - torso_w // 2
+
+        # 몸통 배경
+        pygame.draw.rect(screen, body_color, (torso_x, torso_y, torso_w, torso_h), border_radius=4)
+        pygame.draw.rect(screen, body_light, (torso_x + 1, torso_y + 2, 3, torso_h - 4), border_radius=1)
+
+        # === 팔 (걸을 때 반대로 흔들림 - 더 자연스럽게) ===
+        arm_w, arm_h = 5, 12
+        arm_y = torso_y + 2
+
+        # 왼팔 (다리와 반대 방향으로 흔들림)
+        left_arm_swing = int(-leg_swing * 0.7) if self.is_walking else int(2 * math.sin(animation_timer * 1.2))
+        left_arm_bend = int(abs(left_arm_swing) * 0.3)
+        pygame.draw.rect(screen, body_dark, (torso_x - arm_w + 1 + left_arm_bend, arm_y + left_arm_swing, arm_w, arm_h - 2), border_radius=2)
+        pygame.draw.ellipse(screen, skin_color, (torso_x - arm_w + 2 + left_arm_bend, arm_y + arm_h - 4 + left_arm_swing, 4, 4))
+
+        # 오른팔
+        right_arm_swing = int(leg_swing * 0.7) if self.is_walking else int(2 * math.sin(animation_timer * 1.2 + 1))
+        right_arm_bend = int(abs(right_arm_swing) * 0.3)
+        pygame.draw.rect(screen, body_color, (torso_x + torso_w - 2 - right_arm_bend, arm_y + right_arm_swing, arm_w, arm_h - 2), border_radius=2)
+        pygame.draw.ellipse(screen, skin_color, (torso_x + torso_w - 1 - right_arm_bend, arm_y + arm_h - 4 + right_arm_swing, 4, 4))
+
+        # === 목 ===
+        neck_w, neck_h = 6, 4
+        neck_y = torso_y - neck_h + 2
+        pygame.draw.rect(screen, skin_color, (center_x - neck_w // 2, neck_y, neck_w, neck_h + 2))
+
+        # === 머리 (얼굴형에 따라 다름) ===
+        if face_type == "round":
+            head_w, head_h = 15, 15
+        elif face_type == "oval":
+            head_w, head_h = 13, 17
+        elif face_type == "square":
+            head_w, head_h = 14, 14
+        else:  # long
+            head_w, head_h = 12, 18
+
+        head_y = neck_y - head_h + 4 + bob_offset
+        head_x = center_x - head_w // 2
+
+        # 얼굴 그리기
+        pygame.draw.ellipse(screen, skin_color, (head_x, head_y, head_w, head_h))
+
+        # 볼 터치 (표정에 따라 다름)
+        if expression in ["happy", "cheerful", "shy"]:
+            cheek_color = (255, 180, 180) if expression == "shy" else (255, 200, 190)
+            cheek_size = 3 if expression == "shy" else 2
+            pygame.draw.circle(screen, cheek_color, (head_x + 3, head_y + head_h // 2 + 2), cheek_size)
+            pygame.draw.circle(screen, cheek_color, (head_x + head_w - 3, head_y + head_h // 2 + 2), cheek_size)
+
+        # === 머리카락 (5가지 스타일) ===
+        hair_styles = ["short", "medium", "long", "spiky", "curly"]
+        hair_style = hair_styles[npc_id % len(hair_styles)]
+
+        if hair_style == "short":
+            pygame.draw.ellipse(screen, hair_color, (head_x - 1, head_y - 2, head_w + 2, head_h // 2 + 4))
+            pygame.draw.rect(screen, hair_color, (head_x, head_y, head_w, 6), border_radius=3)
+        elif hair_style == "medium":
+            pygame.draw.ellipse(screen, hair_color, (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 5))
+            pygame.draw.ellipse(screen, hair_color, (head_x - 3, head_y + 2, 5, 10))
+            pygame.draw.ellipse(screen, hair_color, (head_x + head_w - 2, head_y + 2, 5, 10))
+        elif hair_style == "long":
+            pygame.draw.ellipse(screen, hair_color, (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 5))
+            pygame.draw.ellipse(screen, hair_color, (head_x - 4, head_y + 2, 6, 16))
+            pygame.draw.ellipse(screen, hair_color, (head_x + head_w - 2, head_y + 2, 6, 16))
+        elif hair_style == "spiky":
+            pygame.draw.ellipse(screen, hair_color, (head_x - 1, head_y - 1, head_w + 2, head_h // 2 + 3))
+            for i in range(5):
+                spike_x = head_x + 2 + i * 3
+                pygame.draw.polygon(screen, hair_color, [
+                    (spike_x, head_y + 2), (spike_x + 2, head_y - 4 - i % 2 * 2), (spike_x + 4, head_y + 2)
+                ])
+        else:  # curly
+            pygame.draw.ellipse(screen, hair_color, (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 6))
+            for i in range(4):
+                curl_x = head_x - 1 + i * 4
+                pygame.draw.circle(screen, hair_color, (curl_x + 2, head_y + 1), 3)
+
+        # === 눈 (크기/모양에 따라 다름) ===
+        eye_y_pos = head_y + head_h // 2 - 1
+        eye_offset = 2 if self.direction == 2 else (-2 if self.direction == 1 else 0)
+        eye_spacing = 4
+
+        if eye_size == "big":
+            eye_w, eye_h = 6, 5
+        elif eye_size == "small":
+            eye_w, eye_h = 4, 3
+        else:
+            eye_w, eye_h = 5, 4
+
+        # 눈 흰자
+        pygame.draw.ellipse(screen, (255, 255, 255), (center_x - eye_spacing - eye_w // 2 + eye_offset, eye_y_pos - eye_h // 2, eye_w, eye_h))
+        pygame.draw.ellipse(screen, (255, 255, 255), (center_x + eye_spacing - eye_w // 2 + eye_offset, eye_y_pos - eye_h // 2, eye_w, eye_h))
+
+        # 눈동자 색상 (다양화)
+        pupil_colors = [(40, 30, 20), (60, 40, 30), (30, 50, 70), (50, 30, 20)]
+        pupil_color = pupil_colors[npc_id % len(pupil_colors)]
+        pupil_offset_x = 1 if self.direction == 2 else (-1 if self.direction == 1 else 0)
+
+        # 표정에 따른 눈 모양
+        if expression == "happy" or expression == "cheerful":
+            # 웃는 눈 (반달 모양)
+            pygame.draw.arc(screen, pupil_color, (center_x - eye_spacing - 2 + eye_offset, eye_y_pos - 2, 4, 4), 0, 3.14, 2)
+            pygame.draw.arc(screen, pupil_color, (center_x + eye_spacing - 2 + eye_offset, eye_y_pos - 2, 4, 4), 0, 3.14, 2)
+        elif expression == "shy":
+            # 아래를 보는 눈
+            pygame.draw.circle(screen, pupil_color, (center_x - eye_spacing + eye_offset, eye_y_pos + 1), 2)
+            pygame.draw.circle(screen, pupil_color, (center_x + eye_spacing + eye_offset, eye_y_pos + 1), 2)
+        else:
+            # 일반 눈동자
+            pygame.draw.circle(screen, pupil_color, (center_x - eye_spacing + eye_offset + pupil_offset_x, eye_y_pos), 2)
+            pygame.draw.circle(screen, pupil_color, (center_x + eye_spacing + eye_offset + pupil_offset_x, eye_y_pos), 2)
+            # 눈 하이라이트
+            pygame.draw.circle(screen, (255, 255, 255), (center_x - eye_spacing + eye_offset + pupil_offset_x, eye_y_pos - 1), 1)
+            pygame.draw.circle(screen, (255, 255, 255), (center_x + eye_spacing + 1 + eye_offset + pupil_offset_x, eye_y_pos - 1), 1)
+
+        # === 눈썹 (표정에 따라 다름) ===
+        brow_y = eye_y_pos - 4
+        brow_color = tuple(max(0, c - 20) for c in hair_color)
+
+        if expression == "serious":
+            pygame.draw.line(screen, brow_color, (center_x - eye_spacing - 2 + eye_offset, brow_y + 1), (center_x - eye_spacing + 2 + eye_offset, brow_y - 1), 1)
+            pygame.draw.line(screen, brow_color, (center_x + eye_spacing - 1 + eye_offset, brow_y - 1), (center_x + eye_spacing + 3 + eye_offset, brow_y + 1), 1)
+        elif expression == "happy" or expression == "cheerful":
+            pygame.draw.line(screen, brow_color, (center_x - eye_spacing - 2 + eye_offset, brow_y), (center_x - eye_spacing + 2 + eye_offset, brow_y - 2), 1)
+            pygame.draw.line(screen, brow_color, (center_x + eye_spacing - 1 + eye_offset, brow_y - 2), (center_x + eye_spacing + 3 + eye_offset, brow_y), 1)
+        else:
+            pygame.draw.line(screen, brow_color, (center_x - eye_spacing - 2 + eye_offset, brow_y), (center_x - eye_spacing + 2 + eye_offset, brow_y - 1), 1)
+            pygame.draw.line(screen, brow_color, (center_x + eye_spacing - 1 + eye_offset, brow_y - 1), (center_x + eye_spacing + 3 + eye_offset, brow_y), 1)
+
+        # === 코 (다양한 모양) ===
+        nose_types = ["small", "normal", "pointed"]
+        nose_type = nose_types[(npc_id // 5) % len(nose_types)]
+        nose_y = eye_y_pos + 3
+
+        if nose_type == "small":
+            pygame.draw.circle(screen, skin_dark, (center_x, nose_y + 1), 1)
+        elif nose_type == "pointed":
+            pygame.draw.polygon(screen, skin_dark, [(center_x, nose_y - 1), (center_x - 2, nose_y + 3), (center_x + 2, nose_y + 3)])
+        else:
+            pygame.draw.line(screen, skin_dark, (center_x, nose_y), (center_x, nose_y + 2), 1)
+
+        # === 입 (표정에 따라 다름) ===
+        mouth_y = head_y + head_h - 4
+
+        if self.is_talking:
+            mouth_open = int(2 * abs(math.sin(animation_timer * 6)))
+            pygame.draw.ellipse(screen, (180, 80, 80), (center_x - 2, mouth_y, 4, 2 + mouth_open))
+        elif expression == "happy" or expression == "cheerful":
+            pygame.draw.arc(screen, (180, 80, 80), (center_x - 4, mouth_y - 2, 8, 5), 3.14, 0, 2)
+        elif expression == "serious":
+            pygame.draw.line(screen, (150, 80, 80), (center_x - 3, mouth_y), (center_x + 3, mouth_y), 1)
+        elif expression == "shy":
+            pygame.draw.arc(screen, (180, 100, 100), (center_x - 2, mouth_y - 1, 4, 3), 3.14, 0, 1)
+        else:
+            pygame.draw.arc(screen, (180, 100, 100), (center_x - 3, mouth_y - 2, 6, 4), 3.14, 0, 1)
+
+        # === 메인 NPC 왕관/모자 ===
         if self.role == "main":
+            crown_y = head_y - 6
+            pygame.draw.rect(screen, (255, 215, 0), (center_x - 7, crown_y + 4, 14, 4), border_radius=1)
             crown_points = [
-                (center_x, head_y - 8),
-                (center_x - 8, head_y),
-                (center_x - 4, head_y - 4),
-                (center_x, head_y),
-                (center_x + 4, head_y - 4),
-                (center_x + 8, head_y),
+                (center_x - 7, crown_y + 4), (center_x - 5, crown_y), (center_x - 2, crown_y + 3),
+                (center_x, crown_y - 2), (center_x + 2, crown_y + 3), (center_x + 5, crown_y), (center_x + 7, crown_y + 4),
             ]
             pygame.draw.polygon(screen, (255, 215, 0), crown_points)
             pygame.draw.polygon(screen, (200, 160, 0), crown_points, 1)
+            pygame.draw.circle(screen, (255, 50, 50), (center_x, crown_y + 2), 2)
+            pygame.draw.circle(screen, (50, 150, 255), (center_x - 4, crown_y + 3), 1)
+            pygame.draw.circle(screen, (50, 150, 255), (center_x + 4, crown_y + 3), 1)
 
-        # 아이들 동작 표시
+        # === 스태프 앞치마/유니폼 표시 ===
+        if self.role == "staff":
+            apron_color = (240, 240, 230)
+            pygame.draw.rect(screen, apron_color, (torso_x + 2, torso_y + 4, torso_w - 4, torso_h - 2), border_radius=2)
+            pygame.draw.rect(screen, (200, 200, 190), (torso_x + 2, torso_y + 4, torso_w - 4, torso_h - 2), 1, border_radius=2)
+
+        # === 아이들 동작 이펙트 ===
         if self.idle_action == "look_around":
-            pygame.draw.circle(screen, (255, 255, 100),
-                             (center_x + self.width // 2 + 8, head_y), 6)
+            mark_x = center_x + head_w // 2 + 5
+            mark_y = head_y - 5
+            pygame.draw.circle(screen, (255, 255, 200), (mark_x, mark_y + 5), 7)
+            pygame.draw.circle(screen, (255, 220, 100), (mark_x, mark_y + 5), 5)
+            pygame.draw.rect(screen, (80, 60, 40), (mark_x - 1, mark_y + 2, 2, 4))
+            pygame.draw.circle(screen, (80, 60, 40), (mark_x, mark_y + 8), 1)
         elif self.idle_action == "think":
-            for i in range(3):
-                pygame.draw.circle(screen, (200, 200, 200),
-                                 (center_x + self.width // 2 + 5 + i * 6, head_y - 5 - i * 3), 3 - i)
+            bubble_x = center_x + head_w // 2 + 3
+            bubble_y = head_y - 8
+            pygame.draw.circle(screen, (255, 255, 255), (bubble_x, bubble_y + 12), 2)
+            pygame.draw.circle(screen, (255, 255, 255), (bubble_x + 4, bubble_y + 8), 3)
+            pygame.draw.circle(screen, (255, 255, 255), (bubble_x + 8, bubble_y + 2), 5)
+            pygame.draw.circle(screen, (230, 230, 230), (bubble_x + 8, bubble_y + 2), 5, 1)
 
     def draw_speech_bubble(self, screen, camera_offset, fonts):
         """말풍선 그리기"""
@@ -240,7 +522,7 @@ class InteriorNPC:
         # 말풍선 그리기
         bubble_rect = pygame.Rect(bubble_x, bubble_y, bubble_w, bubble_h)
         pygame.draw.rect(screen, (40, 40, 50), bubble_rect, border_radius=8)
-        pygame.draw.rect(screen, self.color, bubble_rect, 2, border_radius=8)
+        pygame.draw.rect(screen, self.accent_color, bubble_rect, 2, border_radius=8)
 
         # 말풍선 꼬리
         tail_points = [
@@ -249,14 +531,14 @@ class InteriorNPC:
             (draw_x, bubble_y + bubble_h + 10)
         ]
         pygame.draw.polygon(screen, (40, 40, 50), tail_points)
-        pygame.draw.line(screen, self.color, tail_points[0], tail_points[2], 2)
-        pygame.draw.line(screen, self.color, tail_points[1], tail_points[2], 2)
+        pygame.draw.line(screen, self.accent_color, tail_points[0], tail_points[2], 2)
+        pygame.draw.line(screen, self.accent_color, tail_points[1], tail_points[2], 2)
 
         # 텍스트
         screen.blit(text_surf, (bubble_x + 10, bubble_y + 8))
 
         # 이름 (작게)
-        name_surf, name_rect = font.render(self.name, self.color)
+        name_surf, name_rect = font.render(self.name, self.accent_color)
         name_x = bubble_x + bubble_w - name_rect.width - 5
         name_y = bubble_y - name_rect.height - 2
 
@@ -304,13 +586,23 @@ class InteriorPlayer:
         self.pressed_keys = set()
         self._scancode_map = {}
 
-        # 이동키 매핑
-        self._movement_keys = {pygame.K_a, pygame.K_s, pygame.K_d, pygame.K_w}
+        # 이동키 매핑 (WASD + 화살표)
+        self._movement_keys = {
+            pygame.K_a, pygame.K_s, pygame.K_d, pygame.K_w,
+            pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN
+        }
         self._unicode_movement_map = {
             'ㅁ': pygame.K_a,  # A 키 위치
             'ㄴ': pygame.K_s,  # S 키 위치
             'ㅇ': pygame.K_d,  # D 키 위치
             'ㅈ': pygame.K_w   # W 키 위치
+        }
+        # 화살표 키 → WASD 매핑
+        self._arrow_to_wasd = {
+            pygame.K_LEFT: pygame.K_a,
+            pygame.K_RIGHT: pygame.K_d,
+            pygame.K_UP: pygame.K_w,
+            pygame.K_DOWN: pygame.K_s
         }
         self._movement_scancode_map = self._build_movement_scancode_map()
 
@@ -338,12 +630,16 @@ class InteriorPlayer:
         if scancode is not None and scancode in self._movement_scancode_map:
             target_key = self._movement_scancode_map[scancode]
 
-        # 2) 유니코드 문자 매핑
+        # 2) 유니코드 문자 매핑 (한글)
         if target_key is None and unicode_char:
             target_key = self._unicode_movement_map.get(unicode_char)
 
-        # 3) 키코드 매핑
-        if target_key is None and keycode in self._movement_keys:
+        # 3) 화살표 키 → WASD 변환
+        if target_key is None and keycode in self._arrow_to_wasd:
+            target_key = self._arrow_to_wasd[keycode]
+
+        # 4) WASD 키코드 직접 매핑
+        if target_key is None and keycode in {pygame.K_a, pygame.K_s, pygame.K_d, pygame.K_w}:
             target_key = keycode
 
         if target_key is None:
@@ -824,16 +1120,16 @@ class BuildingInterior:
             self.pixel_height - TILE_SIZE * 3  # 위아래 벽 제외
         )
 
-        # 플레이어 (문에서 조금 떨어진 곳에서 시작)
-        spawn_x = self.pixel_width // 2
-        spawn_y = self.pixel_height - TILE_SIZE * 4  # 문에서 더 멀리 시작
-        self.player = InteriorPlayer(spawn_x, spawn_y, player_sprite)
+        # 플레이어 시작 위치 (문 바로 앞, 안전 구역)
+        self.spawn_x = self.pixel_width // 2
+        self.spawn_y = self.pixel_height - TILE_SIZE * 2  # 문 근처 (나중에 이동 가능)
+        self.player = InteriorPlayer(self.spawn_x, self.spawn_y, player_sprite)
 
         # 카메라 오프셋 (화면 중앙 정렬)
         self.camera_offset = (0, 0)
         self._update_camera()
 
-        # NPC들 생성
+        # NPC들 생성 (플레이어 위치 피해서)
         self.npcs = self._create_npcs()
 
         # 장식물 생성
@@ -863,9 +1159,9 @@ class BuildingInterior:
         )
         npcs.append(main_npc)
 
-        # 랜덤 고객 NPC
-        customer_min, customer_max = self.config.get("customer_range", (2, 4))
-        customer_count = random.randint(customer_min, customer_max)
+        # 랜덤 고객 NPC (1~2명으로 제한 - 건물 내부가 붐비지 않게)
+        # 기존 config의 customer_range 무시하고 1~2명으로 고정
+        customer_count = random.randint(1, 2)
 
         customer_colors = [
             (100, 150, 200), (200, 150, 100), (150, 200, 100),
@@ -874,20 +1170,23 @@ class BuildingInterior:
         ]
 
         for i in range(customer_count):
-            # 랜덤 위치 (walkable 영역 내)
+            # 랜덤 위치 (walkable 영역 내, 하단 1/3 제외 - 플레이어 안전 구역)
             x = random.randint(
                 self.walkable_rect.left + 30,
                 self.walkable_rect.right - 30
             )
+            # 하단 영역을 피해서 배치 (플레이어 시작 위치 근처 피함)
             y = random.randint(
                 self.walkable_rect.top + 30,
-                self.walkable_rect.bottom - 50
+                self.walkable_rect.top + (self.walkable_rect.height * 2 // 3)  # 상위 2/3 영역만
             )
 
             # 메인 NPC와 너무 가까우면 재배치
-            while abs(x - main_x) < 60 and abs(y - main_y) < 60:
+            attempts = 0
+            while (abs(x - main_x) < 60 and abs(y - main_y) < 60) and attempts < 10:
                 x = random.randint(self.walkable_rect.left + 30, self.walkable_rect.right - 30)
-                y = random.randint(self.walkable_rect.top + 30, self.walkable_rect.bottom - 50)
+                y = random.randint(self.walkable_rect.top + 30, self.walkable_rect.top + (self.walkable_rect.height * 2 // 3))
+                attempts += 1
 
             # 랜덤 이름과 대화
             name = random.choice(InteriorNPC.NPC_NAMES["customer"])
@@ -955,28 +1254,48 @@ class BuildingInterior:
 
     def can_move_to(self, x, y):
         """이동 가능 여부 체크"""
-        # 플레이어 충돌 박스
-        half_w = self.player.width // 3
-        half_h = self.player.height // 3
+        # 플레이어 발 위치 기준 충돌 박스 (더 작게)
+        half_w = 15
+        half_h = 10
 
         player_rect = pygame.Rect(
             x - half_w, y - half_h,
             half_w * 2, half_h * 2
         )
 
-        # 이동 가능 영역 체크
-        if not self.walkable_rect.contains(player_rect):
+        # 이동 가능 영역 체크 (colliderect 사용 - contains보다 관대함)
+        # 맵 경계 내에 있는지만 확인
+        map_bounds = pygame.Rect(
+            TILE_SIZE,  # 왼쪽 벽
+            TILE_SIZE,  # 위쪽 (더 관대하게)
+            self.pixel_width - TILE_SIZE * 2,
+            self.pixel_height - TILE_SIZE  # 아래쪽도 관대하게
+        )
+
+        if not map_bounds.colliderect(player_rect):
             # 문 영역 예외 (나갈 수 있음)
             if self.door_rect.colliderect(player_rect):
                 return True
             return False
 
-        # NPC와 충돌 체크
+        # NPC와 충돌 체크 (작은 충돌 박스 사용)
+        # 현재 위치에서 이미 NPC와 겹쳐있으면 빠져나가기 허용
+        current_rect = pygame.Rect(
+            self.player.x - half_w, self.player.y - half_h,
+            half_w * 2, half_h * 2
+        )
+
         for npc in self.npcs:
+            # NPC 충돌 박스를 작게 (중심 10픽셀만)
             npc_rect = pygame.Rect(
-                npc.x - npc.size, npc.y - npc.size,
-                npc.size * 2, npc.size * 2
+                npc.x - 10, npc.y - 10,
+                20, 20
             )
+
+            # 현재 이미 겹쳐있으면 이동 허용 (빠져나갈 수 있도록)
+            if current_rect.colliderect(npc_rect):
+                continue
+
             if player_rect.colliderect(npc_rect):
                 return False
 
@@ -1025,9 +1344,9 @@ class BuildingInterior:
         # 카메라 업데이트
         self._update_camera()
 
-        # NPC 업데이트
+        # NPC 업데이트 (걸어다니기용 walkable_rect 전달)
         for npc in self.npcs:
-            npc.update(dt)
+            npc.update(dt, self.walkable_rect)
 
         # 문 근처에서 나가기 체크 (입장 쿨다운 후에만)
         if self.entry_cooldown <= 0:

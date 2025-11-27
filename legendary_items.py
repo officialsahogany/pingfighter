@@ -31,6 +31,30 @@ COMMON_LEGENDARY_BORDER_COLOR = (180, 200, 255)
 COMMON_LEGENDARY_CORNER_COLOR = (255, 215, 0)
 _COMMON_LEGENDARY_BG_CACHE: Dict[Tuple[int, int], pygame.Surface] = {}
 
+# 전설 플레이스홀더 이름 목록(아이콘만 표시용)
+PLACEHOLDER_LEGENDARY_NAMES = (
+    "empty",
+    "empty1",
+    "empty2",
+    "empty_legendary",
+    "empty_legendary2",
+    "empty_legendary3",
+    "empty_legendary4",
+    "empty_legendary5",
+    "empty_legendary6",
+)
+
+# 천사의 가호 옵션 키
+ANGEL_BLESSING_OPTIONS = (
+    "paddle_size",
+    "gauge_max",
+    "item_spawn",
+    "item_cooldown",
+    "dash_cost",
+    "dash_cooldown",
+    "move_speed",
+)
+
 
 class KnockbackProfile(NamedTuple):
     base_power: float
@@ -2519,11 +2543,11 @@ class RagnarokHammer(LegendaryItem):
 class EmptyLegendary(LegendaryItem):
     """아이템 관리자 전용 전설 프리뷰 슬롯."""
 
-    def __init__(self):
+    def __init__(self, name: str = "empty_legendary", korean_name: str = "빈전설"):
         super().__init__(
-            name="empty_legendary",
-            korean_name="빈전설",
-            description="추후 전설 효과를 위한 빈 슬롯",
+            name=name,
+            korean_name=korean_name,
+            description=f"{korean_name}: 추후 전설 효과를 위한 빈 슬롯",
             unlock_condition="아이템 관리자 미리보기",
         )
         self.unlocked = True
@@ -2658,6 +2682,305 @@ class EmptyLegendary(LegendaryItem):
             self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
             self.particle_timer = 0
 
+
+class AngelBlessing(LegendaryItem):
+    """천사의 가호 - 스테이지 시작 시 천사의 주사위로 버프 선택."""
+
+    def __init__(self):
+        super().__init__(
+            name="angel_blessing",
+            korean_name="천사의 가호",
+            description="스테이지 시작 시 천사의 주사위를 굴려 1~3개의 랜덤 축복을 받습니다.",
+            unlock_condition="전설 아이템 수집가 업적",
+            icon_path=None,  # 직접 렌더링
+        )
+        self.unlocked = True
+        self.applied_stage: Optional[int] = None
+        self.active_buffs: List[str] = []
+        self.roll_timer = 0.0
+        self.roll_face = 1
+        self.roll_anim_active = False
+        self.roll_anim_duration = 1.1
+        self._frame_cache: Dict[int, pygame.Surface] = {}
+        # 내부 프레임 재사용(빈전설 스타일)
+        self._inner_placeholder = EmptyLegendary(name="angel_placeholder", korean_name="천사의 프레임")
+        # 8프레임 애니메이션용 기본 값 (빈전설 스타일과 동일한 인터페이스)
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 4
+
+    def _set_global_multiplier(self, key: str, value: float):
+        """글로벌 배율 세터 (존재하지 않아도 안전하게)"""
+        globals()[key] = value
+
+    def _reset_globals(self):
+        """적용된 버프에 따른 전역 배율 복구"""
+        import items
+        import academy
+        if hasattr(items, "LEGENDARY_ITEM_SPAWN_MULT"):
+            items.LEGENDARY_ITEM_SPAWN_MULT = 1.0
+        if hasattr(academy, "ANGEL_ITEM_COOLDOWN_MULTIPLIER"):
+            academy.ANGEL_ITEM_COOLDOWN_MULTIPLIER = 1.0
+        self._set_global_multiplier("ANGEL_PADDLE_SCALE", 1.0)
+        self._set_global_multiplier("ANGEL_GAUGE_MULT", 1.0)
+        prev_speed_mult = globals().get("ANGEL_SPEED_MULT", 1.0)
+        self._set_global_multiplier("ANGEL_SPEED_MULT", 1.0)
+        try:
+            import dash_manager
+            if hasattr(dash_manager, "_GLOBAL_DASH_INST"):
+                dash_manager._GLOBAL_DASH_INST.set_external_multipliers(1.0, 1.0)
+        except Exception:
+            pass
+        # 이동 속도 복구
+        if "PLAYER_SPEED" in globals() and prev_speed_mult != 0:
+            globals()["PLAYER_SPEED"] = globals().get("PLAYER_SPEED", 1.0) / prev_speed_mult
+        # 게이지 재계산
+        try:
+            if "get_max_gauge" in globals():
+                globals()["special_gauge_max"] = get_max_gauge()
+                globals()["special_gauge"] = min(globals().get("special_gauge", 0), globals()["special_gauge_max"])
+        except Exception:
+            pass
+        # 패들 스케일 재적용
+        try:
+            if "set_paddle_scale" in globals() and "CURRENT_PADDLE_EFFECTIVE_SCALE" in globals():
+                set_paddle_scale(globals()["CURRENT_PADDLE_EFFECTIVE_SCALE"])
+        except Exception:
+            pass
+
+    def _apply_buff(self, buff: str):
+        """선택된 버프 적용"""
+        import items
+        import academy
+        if buff == "paddle_size":
+            self._set_global_multiplier("ANGEL_PADDLE_SCALE", 1.5)
+            if "set_paddle_scale" in globals() and "CURRENT_PADDLE_EFFECTIVE_SCALE" in globals():
+                set_paddle_scale(globals()["CURRENT_PADDLE_EFFECTIVE_SCALE"])
+        elif buff == "gauge_max":
+            self._set_global_multiplier("ANGEL_GAUGE_MULT", 1.5)
+            if "get_max_gauge" in globals():
+                globals()["special_gauge_max"] = get_max_gauge()
+                globals()["special_gauge"] = min(globals().get("special_gauge", 0), globals()["special_gauge_max"])
+        elif buff == "item_spawn":
+            if hasattr(items, "LEGENDARY_ITEM_SPAWN_MULT"):
+                items.LEGENDARY_ITEM_SPAWN_MULT = 1.5
+        elif buff == "item_cooldown":
+            academy.ANGEL_ITEM_COOLDOWN_MULTIPLIER = 0.5
+        elif buff == "dash_cost":
+            try:
+                import dash_manager
+                if hasattr(dash_manager, "_GLOBAL_DASH_INST"):
+                    dash_manager._GLOBAL_DASH_INST.set_external_multipliers(cost_mul=0.5)
+            except Exception:
+                pass
+        elif buff == "dash_cooldown":
+            try:
+                import dash_manager
+                if hasattr(dash_manager, "_GLOBAL_DASH_INST"):
+                    dash_manager._GLOBAL_DASH_INST.set_external_multipliers(cooldown_mul=0.5)
+            except Exception:
+                pass
+        elif buff == "move_speed":
+            if "PLAYER_SPEED" in globals():
+                base = globals().get("PLAYER_SPEED", 1.0)
+                # 적용 전 기존 배율을 별도 변수에 두지 않고 단순 곱 (단계별 재적용 방지 위해 ANGEL_SPEED_MULT 사용)
+                self._set_global_multiplier("ANGEL_SPEED_MULT", 1.5)
+                globals()["PLAYER_SPEED"] = base * 1.5
+
+    def deactivate(self):
+        super().deactivate()
+        self._reset_globals()
+        self.applied_stage = None
+        self.active_buffs.clear()
+
+    def _roll_blessing(self, current_stage: int):
+        """주사위 굴림 및 버프 적용"""
+        import random
+        self._reset_globals()
+        dice_face = random.choice([1, 2, 3])
+        # 옵션 중 복원 없는 랜덤 샘플
+        selected = random.sample(list(ANGEL_BLESSING_OPTIONS), k=dice_face)
+        self.active_buffs = selected
+        self.applied_stage = current_stage
+        self.roll_face = dice_face
+        self.roll_anim_active = True
+        self.roll_timer = 0.0
+        # 버프 적용
+        for buff in selected:
+            self._apply_buff(buff)
+        print(f"[AngelBlessing] Stage {current_stage} 주사위 {dice_face} → {selected}")
+
+    def update(self, dt: float, ui_mode: bool = False):
+        super().update(dt, ui_mode)
+        # 주사위 애니메이션 타이머
+        if self.roll_anim_active:
+            self.roll_timer += dt if dt < 5 else dt / 1000.0
+            if self.roll_timer >= self.roll_anim_duration:
+                self.roll_anim_active = False
+        # 스테이지 변경 감지 (게임 로직용)
+        current_stage = globals().get("current_stage", None)
+        if not ui_mode and current_stage is not None and current_stage != self.applied_stage:
+            self._roll_blessing(current_stage)
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """빈전설 프레임 위에 천사의 주사위 오버레이 - 3D 구르는 효과."""
+        # 공통 프레임(빈전설과 동일)
+        self._inner_placeholder.animation_time = self.animation_time
+        self._inner_placeholder.current_frame = getattr(self._inner_placeholder, "current_frame", 0)
+        self._inner_placeholder.draw_icon(screen, x, y, size)
+
+        # 3D 주사위 구르기 애니메이션
+        t = self.animation_time
+
+        # 지속적인 부드러운 회전 (항상 구르는 느낌)
+        roll_speed = 2.5  # 회전 속도
+        bounce_speed = 3.0  # 바운스 속도
+
+        # X, Y, Z 축 회전 각도 (3D 효과를 위한 다중 축 회전)
+        rot_x = math.sin(t * roll_speed) * 25  # X축 기울기 (-25 ~ 25도)
+        rot_y = math.cos(t * roll_speed * 0.7) * 20  # Y축 기울기
+        rot_z = t * 60 % 360  # Z축 지속 회전
+
+        # 바운스 효과 (구르는 주사위가 살짝 튀는 느낌)
+        bounce = abs(math.sin(t * bounce_speed)) * 4
+
+        # 주사위 크기 (3D 원근감)
+        dice_size = int(size * 0.65)
+        perspective_scale = 1.0 + math.sin(t * roll_speed) * 0.08
+
+        # 주사위 서피스 생성
+        dice_surface = pygame.Surface((dice_size * 2, dice_size * 2), pygame.SRCALPHA)
+
+        # 3D 주사위 면 색상
+        face_light = (252, 253, 255)  # 밝은 면
+        face_mid = (230, 235, 245)    # 중간 면
+        face_dark = (200, 210, 230)   # 어두운 면
+        edge_color = (100, 140, 200)  # 엣지 색상
+        pip_color = (50, 80, 180)     # 눈 색상
+        pip_glow = (150, 180, 255, 180)  # 눈 발광
+
+        # 3D 투영 계산
+        cx, cy = dice_size, dice_size
+        half = int(dice_size * 0.4 * perspective_scale)
+
+        # 3D 큐브 꼭짓점 계산 (간단한 등각 투영)
+        sin_x = math.sin(math.radians(rot_x))
+        cos_x = math.cos(math.radians(rot_x))
+        sin_y = math.sin(math.radians(rot_y))
+        cos_y = math.cos(math.radians(rot_y))
+
+        # 큐브 정점 (중심 기준)
+        vertices_3d = [
+            (-half, -half, -half), (half, -half, -half),
+            (half, half, -half), (-half, half, -half),
+            (-half, -half, half), (half, -half, half),
+            (half, half, half), (-half, half, half),
+        ]
+
+        # 3D 회전 및 2D 투영
+        vertices_2d = []
+        for vx, vy, vz in vertices_3d:
+            # Y축 회전
+            x1 = vx * cos_y - vz * sin_y
+            z1 = vx * sin_y + vz * cos_y
+            # X축 회전
+            y1 = vy * cos_x - z1 * sin_x
+            z2 = vy * sin_x + z1 * cos_x
+            # 2D 투영 (원근감 적용)
+            scale_factor = 1.0 + z2 * 0.003
+            vertices_2d.append((cx + int(x1 * scale_factor), cy + int(y1 * scale_factor)))
+
+        # 면 정의 (정점 인덱스)
+        faces = [
+            ([0, 1, 2, 3], face_light, 1),   # 전면
+            ([4, 5, 6, 7], face_dark, 6),    # 후면
+            ([0, 1, 5, 4], face_mid, 2),     # 상단
+            ([2, 3, 7, 6], face_mid, 5),     # 하단
+            ([0, 3, 7, 4], face_dark, 3),    # 왼쪽
+            ([1, 2, 6, 5], face_light, 4),   # 오른쪽
+        ]
+
+        # 면 깊이 정렬 (페인터 알고리즘)
+        def face_depth(face_data):
+            indices, _, _ = face_data
+            return sum(vertices_3d[i][2] for i in indices) / 4
+
+        faces_sorted = sorted(faces, key=face_depth, reverse=True)
+
+        # 애니메이션 중이면 면이 빠르게 바뀌는 효과
+        anim_face = self.roll_face
+        display_face = int(t * 8 % 6) + 1  # 빠르게 변하는 면 번호
+
+        # 면 그리기
+        for indices, color, face_num in faces_sorted[:3]:  # 보이는 면만 (최대 3개)
+            points = [vertices_2d[i] for i in indices]
+
+            # 면 색상 (회전에 따른 밝기 변화)
+            brightness = 0.8 + 0.2 * math.sin(t * 2 + face_num)
+            adj_color = tuple(int(c * brightness) for c in color)
+
+            pygame.draw.polygon(dice_surface, adj_color, points)
+            pygame.draw.polygon(dice_surface, edge_color, points, 2)
+
+            # 면 중심 계산
+            fcx = sum(p[0] for p in points) // 4
+            fcy = sum(p[1] for p in points) // 4
+
+            # 주사위 눈 그리기 (보이는 면에만)
+            pip_offset = int(half * 0.35)
+            pip_size = max(2, int(half * 0.15))
+
+            # 현재 애니메이션 면에 해당하는 눈 표시
+            if face_num == display_face or (not self.roll_anim_active and face_num == anim_face):
+                pip_positions = {
+                    1: [(0, 0)],
+                    2: [(-pip_offset, -pip_offset), (pip_offset, pip_offset)],
+                    3: [(-pip_offset, -pip_offset), (0, 0), (pip_offset, pip_offset)],
+                    4: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset),
+                        (-pip_offset, pip_offset), (pip_offset, pip_offset)],
+                    5: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset), (0, 0),
+                        (-pip_offset, pip_offset), (pip_offset, pip_offset)],
+                    6: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset),
+                        (-pip_offset, 0), (pip_offset, 0),
+                        (-pip_offset, pip_offset), (pip_offset, pip_offset)],
+                }
+
+                current_pips = pip_positions.get(display_face if self.roll_anim_active else anim_face, [(0, 0)])
+                for px, py in current_pips:
+                    pip_x = fcx + px
+                    pip_y = fcy + py
+                    # 발광 효과
+                    pygame.draw.circle(dice_surface, pip_glow, (pip_x, pip_y), pip_size + 2)
+                    pygame.draw.circle(dice_surface, pip_color, (pip_x, pip_y), pip_size)
+                    # 하이라이트
+                    pygame.draw.circle(dice_surface, (255, 255, 255, 100),
+                                      (pip_x - 1, pip_y - 1), max(1, pip_size // 2))
+
+        # Z축 회전 적용
+        rotated_dice = pygame.transform.rotozoom(dice_surface, rot_z, 1.0)
+
+        # 그림자 효과
+        shadow_surf = pygame.Surface((rotated_dice.get_width(), 10), pygame.SRCALPHA)
+        shadow_alpha = int(80 - bounce * 8)
+        if shadow_alpha > 0:
+            pygame.draw.ellipse(shadow_surf, (0, 0, 0, shadow_alpha), shadow_surf.get_rect())
+            shadow_x = x + (size - rotated_dice.get_width()) // 2
+            shadow_y = y + size - 8
+            screen.blit(shadow_surf, (shadow_x, shadow_y))
+
+        # 천사 날개 파티클 효과
+        if random.random() < 0.15:
+            for _ in range(2):
+                px = x + size // 2 + random.randint(-15, 15)
+                py = y + size // 2 + random.randint(-15, 15)
+                particle_color = (255, 255, 255, random.randint(80, 150))
+                particle_size = random.randint(1, 3)
+                pygame.draw.circle(screen, particle_color, (px, py), particle_size)
+
+        # 주사위 블릿
+        dice_x = x + (size - rotated_dice.get_width()) // 2
+        dice_y = y + (size - rotated_dice.get_height()) // 2 - int(bounce)
+        screen.blit(rotated_dice, (dice_x, dice_y + int(self.animation_offset)))
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
 
@@ -2976,7 +3299,20 @@ class LegendaryItemManager:
         self.items["hermes_shoes"] = HermesShoes()
         poseidon_item = PoseidonTrident()
         self.items["poseidon_trident"] = poseidon_item
-        self.items["empty_legendary"] = EmptyLegendary()
+        self.items["angel_blessing"] = AngelBlessing()
+
+        placeholder_defs = [
+            ("empty_legendary", "빈전설"),
+            ("empty_legendary2", "빈전설2"),
+            ("empty_legendary3", "빈전설3"),
+            ("empty_legendary4", "빈전설4"),
+            ("empty_legendary5", "빈전설5"),
+            ("empty_legendary6", "빈전설6"),
+        ]
+        for name, label in placeholder_defs:
+            placeholder = EmptyLegendary(name=name, korean_name=label)
+            placeholder.unlocked = True
+            self.items[name] = placeholder
 
         # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
@@ -2992,9 +3328,13 @@ class LegendaryItemManager:
         if "poseidon_trident" not in self.unlocked_items:
             self.unlocked_items.append("poseidon_trident")
 
-        self.items["empty_legendary"].unlocked = True
-        if "empty_legendary" not in self.unlocked_items:
-            self.unlocked_items.append("empty_legendary")
+        self.items["angel_blessing"].unlocked = True
+        if "angel_blessing" not in self.unlocked_items:
+            self.unlocked_items.append("angel_blessing")
+
+        for name, _ in placeholder_defs:
+            if name not in self.unlocked_items:
+                self.unlocked_items.append(name)
 
         # 디바인스톤(건설형으로 전환): 전설 탭에는 노출하지 않음
 
@@ -3014,6 +3354,8 @@ class LegendaryItemManager:
         # 포세이돈의 삼지창 초기화
         if "poseidon_trident" not in self.items:
             self.items["poseidon_trident"] = PoseidonTrident()
+        if "angel_blessing" not in self.items:
+            self.items["angel_blessing"] = AngelBlessing()
         # empty/empty1/empty2 보정 생성하지 않음
         
     def check_unlocks(self, game_stats: Dict):
@@ -3034,7 +3376,7 @@ class LegendaryItemManager:
         
     def activate_item(self, name: str, game_state: Dict):
         """아이템 활성화"""
-        if name in ["empty", "empty1", "empty2", "empty_legendary"]:
+        if name in PLACEHOLDER_LEGENDARY_NAMES:
             return
         print(f"🎮 activate_item 호출: name={name}")
         print(f"   - items에 있음: {name in self.items}")

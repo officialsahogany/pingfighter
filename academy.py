@@ -3748,6 +3748,9 @@ def compute_item_gauge_bonus(level: int) -> int:
         bonus += 7
     return bonus
 
+# 전설/버프용 전역 배율
+ANGEL_ITEM_COOLDOWN_MULTIPLIER = 1.0
+
 
 def get_item_spawn_delay_multiplier():
     """행운 스킬에 따른 아이템 스폰 대기시간 배율"""
@@ -3758,7 +3761,7 @@ def get_item_spawn_delay_multiplier():
 def get_active_item_cooldown_multiplier():
     """숙련 스킬에 따른 엑티브 아이템 쿨타임 배율"""
     level = get_skill_level("item_cooldown_mastery")
-    return compute_item_cooldown_multiplier(level)
+    return compute_item_cooldown_multiplier(level) * ANGEL_ITEM_COOLDOWN_MULTIPLIER
 
 
 def get_active_item_gauge_bonus():

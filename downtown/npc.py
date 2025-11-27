@@ -621,6 +621,12 @@ class NPC:
         self.animation_timer = 0
         self.animation_speed = 0.15
 
+        # 자연스러운 걸음걸이를 위한 연속 변수
+        self.walk_progress = 0.0  # 0.0 ~ 2π 사이의 연속 값 (걸음 사이클)
+        self.walk_speed_variation = random.uniform(0.85, 1.15)  # 개인별 걸음 속도 차이
+        self.stride_length = random.uniform(0.9, 1.1)  # 보폭 차이
+        self.walk_style = random.choice(["normal", "bouncy", "smooth", "heavy"])  # 걸음 스타일
+
         # 경로
         self.target_x = None
         self.target_y = None
@@ -687,12 +693,28 @@ class NPC:
         else:
             self._update_walking(dt, downtown_map)
 
-        # 애니메이션 업데이트
+        # 애니메이션 업데이트 (자연스러운 걸음걸이)
         if self.vx != 0 or self.vy != 0:
+            # 이동 속도에 비례하여 걸음 사이클 진행
+            speed = math.sqrt(self.vx * self.vx + self.vy * self.vy)
+            # 기본 걸음 속도 + 개인별 변화 + 속도 기반 조절
+            walk_rate = 6.0 * self.walk_speed_variation * (speed / 60.0 + 0.5)
+            self.walk_progress += dt * walk_rate
+
+            # 2π를 넘으면 다시 0으로 (한 걸음 사이클 완료)
+            if self.walk_progress >= 2 * math.pi:
+                self.walk_progress -= 2 * math.pi
+
+            # 레거시 호환을 위한 animation_frame 업데이트
             if self.animation_timer >= self.animation_speed:
                 self.animation_timer = 0
                 self.animation_frame = (self.animation_frame + 1) % 4
         else:
+            # 정지 시 부드럽게 중립 자세로 복귀
+            if self.walk_progress > 0.1:
+                self.walk_progress *= 0.85  # 부드럽게 감소
+            else:
+                self.walk_progress = 0
             self.animation_frame = 0
 
     def _update_walking(self, dt, downtown_map):
@@ -851,80 +873,338 @@ class NPC:
         screen.blit(shadow_surf, (x - shadow_w // 2, y + self.height // 3))
 
     def _draw_human(self, screen, x, y):
-        """사람형 NPC 그리기"""
+        """사람형 NPC 그리기 (고퀄리티 - 다양한 얼굴/자연스러운 걸음걸이)"""
         colors = self.colors
-        bounce = 0
 
-        if self.vx != 0 or self.vy != 0:
-            bounce = math.sin(self.animation_frame * math.pi / 2) * 2
+        # NPC 고유 ID로 외모 특성 결정
+        npc_id = id(self) if not hasattr(self, 'name') else hash(str(getattr(self, 'name', id(self))))
 
-        # 몸통
-        body_rect = pygame.Rect(
-            x - self.width // 2,
-            y - self.height // 2 + 12 - bounce,
-            self.width,
-            self.height - 12
-        )
-        pygame.draw.ellipse(screen, colors["body"], body_rect)
-        pygame.draw.ellipse(screen, tuple(max(0, c - 30) for c in colors["body"]), body_rect, 2)
+        # === 다양한 피부톤 (6가지) ===
+        skin_tones = [
+            (255, 224, 189),  # 밝은 피부
+            (255, 205, 148),  # 중간 밝은 피부
+            (234, 192, 134),  # 올리브
+            (198, 134, 66),   # 중간 어두운 피부
+            (141, 85, 36),    # 어두운 피부
+            (255, 219, 172),  # 복숭아빛
+        ]
+        skin_color = colors.get("skin", skin_tones[npc_id % len(skin_tones)])
 
-        # 머리
-        head_size = int(self.width * 0.8)
-        head_rect = pygame.Rect(
-            x - head_size // 2,
-            y - self.height // 2 - bounce,
-            head_size,
-            head_size
-        )
-        pygame.draw.ellipse(screen, colors["skin"], head_rect)
-        pygame.draw.ellipse(screen, tuple(max(0, c - 30) for c in colors["skin"]), head_rect, 1)
+        # === 다양한 얼굴형 (4가지) ===
+        face_types = ["round", "oval", "square", "long"]
+        face_type = face_types[(npc_id // 3) % len(face_types)]
 
-        # 머리카락 (hair 키가 없으면 기본 색상 사용)
+        # === 다양한 표정 (5가지) ===
+        expressions = ["neutral", "happy", "serious", "shy", "cheerful"]
+        expression = expressions[(npc_id // 7) % len(expressions)]
+
+        # === 다양한 눈 크기/모양 ===
+        eye_sizes = ["normal", "big", "small"]
+        eye_size = eye_sizes[(npc_id // 11) % len(eye_sizes)]
+
+        # 걷기/정지 애니메이션 (단순하고 자연스러운 걸음걸이)
+        is_walking = self.vx != 0 or self.vy != 0
+        if is_walking:
+            # 연속적인 걸음 사이클 사용 (0 ~ 2π)
+            wp = self.walk_progress
+            stride = self.stride_length
+
+            # 핵심: 다리 스윙 (왼발 앞 = 오른발 뒤)
+            # sin(wp)가 양수면 왼발 앞, 음수면 오른발 앞
+            leg_swing = math.sin(wp) * 2.5 * stride
+
+            # 상하 움직임 (걸을 때 살짝 위아래로)
+            bob_offset = int(abs(math.sin(wp * 2)) * 1.0)
+
+            # 몸통 살짝 기울기
+            body_lean = math.sin(wp) * 0.5
+
+        else:
+            # 정지 상태: 미세한 호흡 움직임
+            bob_offset = int(0.5 * math.sin(self.effect_timer * 1.2))
+            leg_swing = 0
+            body_lean = 0
+
+        # 색상 설정
+        body_color = colors.get("body", (100, 100, 100))
         hair_color = colors.get("hair", (60, 40, 20))
-        hair_rect = pygame.Rect(
-            x - head_size // 2,
-            y - self.height // 2 - bounce,
-            head_size,
-            head_size // 2
-        )
-        pygame.draw.ellipse(screen, hair_color, hair_rect)
 
-        # 눈
-        eye_offset = 0
-        if self.direction == 1:
-            eye_offset = -3
-        elif self.direction == 2:
-            eye_offset = 3
+        # 어두운/밝은 색상 계산
+        body_dark = tuple(max(0, c - 30) for c in body_color)
+        body_light = tuple(min(255, c + 30) for c in body_color)
+        skin_dark = tuple(max(0, c - 25) for c in skin_color)
+        skin_light = tuple(min(255, c + 15) for c in skin_color)
 
-        if self.direction != 3:  # 위쪽 아닐 때
-            eye_y = y - self.height // 2 + head_size // 2 - bounce
-            pygame.draw.circle(screen, (40, 40, 40), (int(x - 4 + eye_offset), int(eye_y)), 2)
-            pygame.draw.circle(screen, (40, 40, 40), (int(x + 4 + eye_offset), int(eye_y)), 2)
+        # 위치 계산 (중심 기준)
+        center_x = int(x + body_lean)
+        feet_y = int(y + self.height // 3)
 
-        # 노인 지팡이
-        if self.config.get("has_cane"):
-            cane_x = x + self.width // 2 + 3
-            pygame.draw.line(screen, (100, 70, 40),
-                           (cane_x, y - 5), (cane_x, y + self.height // 3), 3)
-            pygame.draw.circle(screen, (80, 50, 30), (int(cane_x), int(y - 5)), 4)
+        # === 신발/발 (자연스러운 인간 걸음걸이) ===
+        shoe_colors = [(40, 30, 25), (60, 50, 40), (30, 30, 35), (80, 40, 20)]
+        shoe_color = shoe_colors[npc_id % len(shoe_colors)]
+        shoe_w, shoe_h = 8, 5
+
+        # 걷기 애니메이션: 왼발이 앞으로 가면 오른발은 뒤로
+        # leg_swing 하나로 양발의 앞뒤 움직임 제어
+        if is_walking:
+            # 왼발: +leg_swing (앞으로), 오른발: -leg_swing (뒤로)
+            left_foot_forward = int(leg_swing)  # leg_swing이 양수면 왼발 앞
+            right_foot_forward = -int(leg_swing)  # 오른발은 반대
+
+            # 발 들어올림: 앞으로 나가는 발만 살짝 들림
+            left_lift = int(max(0, leg_swing) * 0.8)  # 왼발이 앞으로 갈 때 들림
+            right_lift = int(max(0, -leg_swing) * 0.8)  # 오른발이 앞으로 갈 때 들림
+        else:
+            left_foot_forward = 0
+            right_foot_forward = 0
+            left_lift = 0
+            right_lift = 0
+
+        # 왼발 위치 (중심에서 왼쪽으로 3픽셀)
+        left_foot_x = center_x - 3 + left_foot_forward
+        left_foot_y = feet_y - shoe_h - left_lift
+        pygame.draw.ellipse(screen, shoe_color,
+                          (left_foot_x - shoe_w // 2, left_foot_y, shoe_w, shoe_h))
+
+        # 오른발 위치 (중심에서 오른쪽으로 3픽셀)
+        right_foot_x = center_x + 3 + right_foot_forward
+        right_foot_y = feet_y - shoe_h - right_lift
+        pygame.draw.ellipse(screen, shoe_color,
+                          (right_foot_x - shoe_w // 2, right_foot_y, shoe_w, shoe_h))
+
+        # === 다리 (바지) ===
+        leg_w, leg_h = 6, 14
+        pants_color = body_dark
+
+        # 왼쪽 다리
+        left_leg_y = feet_y - shoe_h - leg_h - left_lift
+        pygame.draw.rect(screen, pants_color,
+                        (left_foot_x - leg_w // 2, left_leg_y, leg_w, leg_h), border_radius=2)
+
+        # 오른쪽 다리
+        right_leg_y = feet_y - shoe_h - leg_h - right_lift
+        pygame.draw.rect(screen, pants_color,
+                        (right_foot_x - leg_w // 2, right_leg_y, leg_w, leg_h), border_radius=2)
+
+        # === 상체/몸통 ===
+        torso_w, torso_h = self.width - 4, 16
+        torso_y = feet_y - shoe_h - leg_h - torso_h + bob_offset + 2
+        torso_x = center_x - torso_w // 2
 
         # 상인 앞치마
         if self.config.get("stationary") and "apron" in colors:
-            apron_rect = pygame.Rect(
-                x - self.width // 2 + 3,
-                y - self.height // 4,
-                self.width - 6,
-                self.height // 2
-            )
-            pygame.draw.rect(screen, colors["apron"], apron_rect)
+            apron_rect = pygame.Rect(torso_x + 2, torso_y + torso_h // 3, torso_w - 4, torso_h)
+            pygame.draw.rect(screen, colors["apron"], apron_rect, border_radius=2)
+
+        # 몸통 배경
+        pygame.draw.rect(screen, body_color, (torso_x, torso_y, torso_w, torso_h), border_radius=4)
+        pygame.draw.rect(screen, body_light, (torso_x + 1, torso_y + 2, 3, torso_h - 4), border_radius=1)
+
+        # === 팔 (걸을 때 반대 다리와 함께 자연스럽게 흔들림) ===
+        arm_w, arm_h = 5, 12
+        arm_y = torso_y + 2
+
+        if is_walking:
+            # 왼팔은 오른다리와 함께 (반대 위상)
+            # 자연스러운 팔 흔들림: 팔은 다리보다 약간 지연됨
+            # 팔은 다리와 반대로 흔들림 (왼팔-오른다리, 오른팔-왼다리)
+            # leg_swing이 양수(왼발 앞)면 오른팔이 앞으로
+            left_arm_swing = int(leg_swing * 0.6)   # 왼팔은 leg_swing과 같은 방향
+            right_arm_swing = int(-leg_swing * 0.6)  # 오른팔은 반대 방향
+
+            left_arm_bend = 0
+            right_arm_bend = 0
+        else:
+            # 정지 시 미세한 움직임
+            left_arm_swing = int(1.5 * math.sin(self.effect_timer * 1.0))
+            right_arm_swing = int(1.5 * math.sin(self.effect_timer * 1.0 + 0.8))
+            left_arm_bend = 0
+            right_arm_bend = 0
+
+        # 왼팔 그리기
+        pygame.draw.rect(screen, body_dark,
+                        (torso_x - arm_w + 1 + left_arm_bend,
+                         arm_y + left_arm_swing, arm_w, arm_h - 2), border_radius=2)
+        pygame.draw.ellipse(screen, skin_color,
+                           (torso_x - arm_w + 2 + left_arm_bend,
+                            arm_y + arm_h - 4 + left_arm_swing, 4, 4))
+
+        # 오른팔 그리기
+        pygame.draw.rect(screen, body_color,
+                        (torso_x + torso_w - 2 - right_arm_bend,
+                         arm_y + right_arm_swing, arm_w, arm_h - 2), border_radius=2)
+        pygame.draw.ellipse(screen, skin_color,
+                           (torso_x + torso_w - 1 - right_arm_bend,
+                            arm_y + arm_h - 4 + right_arm_swing, 4, 4))
+
+        # === 목 ===
+        neck_w, neck_h = 6, 4
+        neck_y = torso_y - neck_h + 2
+        pygame.draw.rect(screen, skin_color, (center_x - neck_w // 2, neck_y, neck_w, neck_h + 2))
+
+        # === 머리 (얼굴형에 따라 다름) ===
+        if face_type == "round":
+            head_w, head_h = 15, 15
+        elif face_type == "oval":
+            head_w, head_h = 13, 17
+        elif face_type == "square":
+            head_w, head_h = 14, 14
+        else:  # long
+            head_w, head_h = 12, 18
+
+        # 걸을 때 머리가 살짝 좌우로 흔들림 (자연스러운 움직임)
+        if is_walking:
+            head_sway = int(math.sin(self.walk_progress * 2) * 0.8)
+        else:
+            head_sway = 0
+
+        head_y = neck_y - head_h + 4 + bob_offset
+        head_x = center_x - head_w // 2 + head_sway
+
+        # 얼굴 그리기
+        pygame.draw.ellipse(screen, skin_color, (head_x, head_y, head_w, head_h))
+
+        # 볼 터치 (표정에 따라 다름)
+        if expression in ["happy", "cheerful", "shy"]:
+            cheek_color = (255, 180, 180) if expression == "shy" else (255, 200, 190)
+            cheek_size = 3 if expression == "shy" else 2
+            pygame.draw.circle(screen, cheek_color, (head_x + 3, head_y + head_h // 2 + 2), cheek_size)
+            pygame.draw.circle(screen, cheek_color, (head_x + head_w - 3, head_y + head_h // 2 + 2), cheek_size)
+
+        # === 머리카락 (5가지 스타일) ===
+        hair_styles = ["short", "medium", "long", "spiky", "curly"]
+        hair_style = hair_styles[npc_id % len(hair_styles)]
+
+        if hair_style == "short":
+            pygame.draw.ellipse(screen, hair_color, (head_x - 1, head_y - 2, head_w + 2, head_h // 2 + 4))
+            pygame.draw.rect(screen, hair_color, (head_x, head_y, head_w, 6), border_radius=3)
+        elif hair_style == "medium":
+            pygame.draw.ellipse(screen, hair_color, (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 5))
+            pygame.draw.ellipse(screen, hair_color, (head_x - 3, head_y + 2, 5, 10))
+            pygame.draw.ellipse(screen, hair_color, (head_x + head_w - 2, head_y + 2, 5, 10))
+        elif hair_style == "long":
+            pygame.draw.ellipse(screen, hair_color, (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 5))
+            pygame.draw.ellipse(screen, hair_color, (head_x - 4, head_y + 2, 6, 16))
+            pygame.draw.ellipse(screen, hair_color, (head_x + head_w - 2, head_y + 2, 6, 16))
+        elif hair_style == "spiky":
+            pygame.draw.ellipse(screen, hair_color, (head_x - 1, head_y - 1, head_w + 2, head_h // 2 + 3))
+            for i in range(5):
+                spike_x = head_x + 2 + i * 3
+                pygame.draw.polygon(screen, hair_color, [
+                    (spike_x, head_y + 2), (spike_x + 2, head_y - 4 - i % 2 * 2), (spike_x + 4, head_y + 2)
+                ])
+        else:  # curly
+            pygame.draw.ellipse(screen, hair_color, (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 6))
+            for i in range(4):
+                curl_x = head_x - 1 + i * 4
+                pygame.draw.circle(screen, hair_color, (curl_x + 2, head_y + 1), 3)
+
+        # === 눈 (크기/모양에 따라 다름) ===
+        eye_y_pos = head_y + head_h // 2 - 1
+        eye_offset = 2 if self.direction == 2 else (-2 if self.direction == 1 else 0)
+        eye_spacing = 4
+
+        if eye_size == "big":
+            eye_w, eye_h = 6, 5
+        elif eye_size == "small":
+            eye_w, eye_h = 4, 3
+        else:
+            eye_w, eye_h = 5, 4
+
+        if self.direction != 3:
+            # 눈 흰자
+            pygame.draw.ellipse(screen, (255, 255, 255), (center_x - eye_spacing - eye_w // 2 + eye_offset, eye_y_pos - eye_h // 2, eye_w, eye_h))
+            pygame.draw.ellipse(screen, (255, 255, 255), (center_x + eye_spacing - eye_w // 2 + eye_offset, eye_y_pos - eye_h // 2, eye_w, eye_h))
+
+            # 눈동자 색상 (다양화)
+            pupil_colors = [(40, 30, 20), (60, 40, 30), (30, 50, 70), (50, 30, 20)]
+            pupil_color = pupil_colors[npc_id % len(pupil_colors)]
+            pupil_offset_x = 1 if self.direction == 2 else (-1 if self.direction == 1 else 0)
+
+            # 표정에 따른 눈 모양
+            if expression == "happy" or expression == "cheerful":
+                # 웃는 눈 (반달 모양)
+                pygame.draw.arc(screen, pupil_color, (center_x - eye_spacing - 2 + eye_offset, eye_y_pos - 2, 4, 4), 0, 3.14, 2)
+                pygame.draw.arc(screen, pupil_color, (center_x + eye_spacing - 2 + eye_offset, eye_y_pos - 2, 4, 4), 0, 3.14, 2)
+            elif expression == "shy":
+                # 아래를 보는 눈
+                pygame.draw.circle(screen, pupil_color, (center_x - eye_spacing + eye_offset, eye_y_pos + 1), 2)
+                pygame.draw.circle(screen, pupil_color, (center_x + eye_spacing + eye_offset, eye_y_pos + 1), 2)
+            else:
+                # 일반 눈동자
+                pygame.draw.circle(screen, pupil_color, (center_x - eye_spacing + eye_offset + pupil_offset_x, eye_y_pos), 2)
+                pygame.draw.circle(screen, pupil_color, (center_x + eye_spacing + eye_offset + pupil_offset_x, eye_y_pos), 2)
+                # 눈 하이라이트
+                pygame.draw.circle(screen, (255, 255, 255), (center_x - eye_spacing + eye_offset + pupil_offset_x, eye_y_pos - 1), 1)
+                pygame.draw.circle(screen, (255, 255, 255), (center_x + eye_spacing + 1 + eye_offset + pupil_offset_x, eye_y_pos - 1), 1)
+
+            # === 눈썹 (표정에 따라 다름) ===
+            brow_y = eye_y_pos - 4
+            brow_color = tuple(max(0, c - 20) for c in hair_color)
+
+            if expression == "serious":
+                # 찌푸린 눈썹
+                pygame.draw.line(screen, brow_color, (center_x - eye_spacing - 2 + eye_offset, brow_y + 1), (center_x - eye_spacing + 2 + eye_offset, brow_y - 1), 1)
+                pygame.draw.line(screen, brow_color, (center_x + eye_spacing - 1 + eye_offset, brow_y - 1), (center_x + eye_spacing + 3 + eye_offset, brow_y + 1), 1)
+            elif expression == "happy" or expression == "cheerful":
+                # 올라간 눈썹
+                pygame.draw.line(screen, brow_color, (center_x - eye_spacing - 2 + eye_offset, brow_y), (center_x - eye_spacing + 2 + eye_offset, brow_y - 2), 1)
+                pygame.draw.line(screen, brow_color, (center_x + eye_spacing - 1 + eye_offset, brow_y - 2), (center_x + eye_spacing + 3 + eye_offset, brow_y), 1)
+            else:
+                # 일반 눈썹
+                pygame.draw.line(screen, brow_color, (center_x - eye_spacing - 2 + eye_offset, brow_y), (center_x - eye_spacing + 2 + eye_offset, brow_y - 1), 1)
+                pygame.draw.line(screen, brow_color, (center_x + eye_spacing - 1 + eye_offset, brow_y - 1), (center_x + eye_spacing + 3 + eye_offset, brow_y), 1)
+
+        # === 코 (다양한 모양) ===
+        nose_types = ["small", "normal", "pointed"]
+        nose_type = nose_types[(npc_id // 5) % len(nose_types)]
+        nose_y = eye_y_pos + 3
+
+        if nose_type == "small":
+            pygame.draw.circle(screen, skin_dark, (center_x, nose_y + 1), 1)
+        elif nose_type == "pointed":
+            pygame.draw.polygon(screen, skin_dark, [(center_x, nose_y - 1), (center_x - 2, nose_y + 3), (center_x + 2, nose_y + 3)])
+        else:
+            pygame.draw.line(screen, skin_dark, (center_x, nose_y), (center_x, nose_y + 2), 1)
+
+        # === 입 (표정에 따라 다름) ===
+        mouth_y = head_y + head_h - 4
+
+        if self.speech_bubble:
+            # 말하는 중 - 입 열림
+            mouth_open = int(2 * abs(math.sin(self.effect_timer * 6)))
+            pygame.draw.ellipse(screen, (180, 80, 80), (center_x - 2, mouth_y, 4, 2 + mouth_open))
+        elif expression == "happy" or expression == "cheerful":
+            # 활짝 웃는 입
+            pygame.draw.arc(screen, (180, 80, 80), (center_x - 4, mouth_y - 2, 8, 5), 3.14, 0, 2)
+        elif expression == "serious":
+            # 일자 입
+            pygame.draw.line(screen, (150, 80, 80), (center_x - 3, mouth_y), (center_x + 3, mouth_y), 1)
+        elif expression == "shy":
+            # 작은 입
+            pygame.draw.arc(screen, (180, 100, 100), (center_x - 2, mouth_y - 1, 4, 3), 3.14, 0, 1)
+        else:
+            # 기본 미소
+            pygame.draw.arc(screen, (180, 80, 80), (center_x - 3, mouth_y - 1, 6, 4), 3.14, 0, 1)
+
+        # 노인 지팡이
+        if self.config.get("has_cane"):
+            cane_x = center_x + self.width // 2 + 5
+            pygame.draw.line(screen, (100, 70, 40), (cane_x, torso_y + 5), (cane_x, feet_y + 5), 3)
+            pygame.draw.circle(screen, (80, 50, 30), (int(cane_x), int(torso_y + 5)), 4)
 
     def _draw_dog(self, screen, x, y):
         """강아지 그리기"""
         colors = self.colors
-        bounce = 0
+        is_moving = self.vx != 0 or self.vy != 0
 
-        if self.vx != 0 or self.vy != 0:
-            bounce = math.sin(self.animation_frame * math.pi / 2) * 2
+        # 개의 자연스러운 4족 보행 (trot gait - 대각선 다리가 함께 움직임)
+        if is_moving:
+            wp = self.walk_progress
+            # 개는 트롯 보행: 대각선 다리쌍이 교차로 움직임
+            bounce = abs(math.sin(wp * 2)) * 2.5  # 더 빠른 상하 움직임
+        else:
+            bounce = abs(math.sin(self.effect_timer * 1.5)) * 0.5  # 호흡
 
         # 몸통
         body_w = self.width
@@ -977,26 +1257,62 @@ class NPC:
                        y - body_h // 2 + wag - bounce)
             pygame.draw.line(screen, colors["body"], tail_base, tail_end, 4)
 
-        # 다리 애니메이션
+        # 다리 애니메이션 (4족 보행 - trot gait)
         leg_y = y + body_h // 4 - bounce
-        leg_offset = math.sin(self.animation_frame * math.pi / 2) * 3 if (self.vx != 0 or self.vy != 0) else 0
-        for i, lx in enumerate([x - 8, x + 8]):
-            offset = leg_offset if i % 2 == 0 else -leg_offset
-            pygame.draw.line(screen, colors["body"],
-                           (lx, leg_y), (lx + offset, leg_y + 8), 4)
+
+        if is_moving:
+            wp = self.walk_progress
+            # 트롯 보행: 대각선 다리쌍이 함께 움직임
+            # 앞왼발 + 뒤오른발 (위상 0), 앞오른발 + 뒤왼발 (위상 π)
+            front_left_offset = math.sin(wp) * 4
+            front_right_offset = math.sin(wp + math.pi) * 4
+            back_left_offset = math.sin(wp + math.pi) * 3  # 뒷다리는 약간 작게
+            back_right_offset = math.sin(wp) * 3
+
+            # 발 들어올림 효과
+            front_left_lift = max(0, math.sin(wp + math.pi * 0.3)) * 2
+            front_right_lift = max(0, math.sin(wp + math.pi * 1.3)) * 2
+            back_left_lift = max(0, math.sin(wp + math.pi * 1.3)) * 1.5
+            back_right_lift = max(0, math.sin(wp + math.pi * 0.3)) * 1.5
+        else:
+            front_left_offset = front_right_offset = 0
+            back_left_offset = back_right_offset = 0
+            front_left_lift = front_right_lift = 0
+            back_left_lift = back_right_lift = 0
+
+        # 앞다리
+        pygame.draw.line(screen, colors["body"],
+                        (x - 6, leg_y - int(front_left_lift)),
+                        (x - 6 + int(front_left_offset), leg_y + 8), 4)
+        pygame.draw.line(screen, colors["body"],
+                        (x + 6, leg_y - int(front_right_lift)),
+                        (x + 6 + int(front_right_offset), leg_y + 8), 4)
+
+        # 뒷다리 (약간 뒤쪽)
+        pygame.draw.line(screen, colors["body"],
+                        (x - 10, leg_y + 2 - int(back_left_lift)),
+                        (x - 10 + int(back_left_offset), leg_y + 10), 3)
+        pygame.draw.line(screen, colors["body"],
+                        (x + 10, leg_y + 2 - int(back_right_lift)),
+                        (x + 10 + int(back_right_offset), leg_y + 10), 3)
 
     def _draw_cat(self, screen, x, y):
         """고양이 그리기"""
         colors = self.colors
-        bounce = 0
+        is_moving = self.vx != 0 or self.vy != 0
 
         if self.state == "sitting":
             # 앉은 자세
             self._draw_sitting_cat(screen, x, y, colors)
             return
 
-        if self.vx != 0 or self.vy != 0:
-            bounce = math.sin(self.animation_frame * math.pi / 2) * 2
+        # 고양이의 우아한 걸음걸이 (살금살금)
+        if is_moving:
+            wp = self.walk_progress
+            # 고양이는 부드럽고 우아한 움직임
+            bounce = abs(math.sin(wp * 2)) * 1.8  # 개보다 낮은 바운스
+        else:
+            bounce = abs(math.sin(self.effect_timer * 1.2)) * 0.3
 
         # 몸통
         body_w = self.width
@@ -1096,13 +1412,37 @@ class NPC:
         if len(points) >= 2:
             pygame.draw.lines(screen, colors["body"], False, points, 4)
 
-        # 다리
+        # 다리 (고양이 특유의 우아한 걸음걸이)
         leg_y = y + body_h // 4 - bounce
-        leg_offset = math.sin(self.animation_frame * math.pi / 2) * 2 if (self.vx != 0 or self.vy != 0) else 0
-        for i, lx in enumerate([x - 6, x + 6]):
-            offset = leg_offset if i % 2 == 0 else -leg_offset
-            pygame.draw.line(screen, colors["body"],
-                           (lx, leg_y), (lx + offset, leg_y + 6), 3)
+
+        if is_moving:
+            wp = self.walk_progress
+            # 고양이는 살금살금 걷기: 부드럽고 조용한 움직임
+            front_left = math.sin(wp) * 2.5
+            front_right = math.sin(wp + math.pi) * 2.5
+            back_left = math.sin(wp + math.pi * 0.5) * 2
+            back_right = math.sin(wp + math.pi * 1.5) * 2
+
+            # 발 들어올림 (고양이는 발을 높이 들지 않음)
+            fl_lift = max(0, math.sin(wp + math.pi * 0.3)) * 1.5
+            fr_lift = max(0, math.sin(wp + math.pi * 1.3)) * 1.5
+        else:
+            front_left = front_right = back_left = back_right = 0
+            fl_lift = fr_lift = 0
+
+        # 앞다리
+        pygame.draw.line(screen, colors["body"],
+                        (x - 5, leg_y - int(fl_lift)),
+                        (x - 5 + int(front_left), leg_y + 6), 3)
+        pygame.draw.line(screen, colors["body"],
+                        (x + 5, leg_y - int(fr_lift)),
+                        (x + 5 + int(front_right), leg_y + 6), 3)
+
+        # 뒷다리
+        pygame.draw.line(screen, colors["body"],
+                        (x - 8, leg_y + 2), (x - 8 + int(back_left), leg_y + 8), 2)
+        pygame.draw.line(screen, colors["body"],
+                        (x + 8, leg_y + 2), (x + 8 + int(back_right), leg_y + 8), 2)
 
     def _draw_sitting_cat(self, screen, x, y, colors):
         """앉은 고양이 그리기"""

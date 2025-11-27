@@ -448,11 +448,11 @@ class DowntownManager:
 
     def _run_building_event(self, building_type):
         """건물 이벤트 실행 (각 건물별로 구현)"""
-        # 상점 2개 구현됨 - 나머지는 플레이스홀더
+        # 모든 건물은 건물 내부 시스템 사용
         if building_type == BuildingType.MAGIC_STORE:
-            self._show_shop()
+            self._show_placeholder(building_type)  # 건물 내부로 변경
         elif building_type == BuildingType.ITEM_SHOP:
-            self._show_item_shop()
+            self._show_placeholder(building_type)  # 건물 내부로 변경
         elif building_type == BuildingType.BLACKSMITH:
             self._show_placeholder(building_type)
         elif building_type == BuildingType.CASINO:
@@ -478,7 +478,8 @@ class DowntownManager:
         """건물 나가기"""
         self.state = DowntownState.EXPLORING
         self.current_building = None
-        self.player.end_interaction()
+        if self.player and hasattr(self.player, 'end_interaction'):
+            self.player.end_interaction()
 
     def _try_exit(self):
         """번화가 나가기 시도"""
@@ -1313,7 +1314,7 @@ class DowntownManager:
                             show_character_info()
 
                     else:
-                        # 한글 키보드 지원 (WASD)
+                        # 한글 키보드 및 이동 키 지원 (WASD, 화살표)
                         scancode = getattr(event, 'scancode', None)
                         unicode_char = getattr(event, 'unicode', '')
                         interior.player.handle_movement_key_event(
@@ -1321,10 +1322,11 @@ class DowntownManager:
                         )
 
                 elif event.type == pygame.KEYUP:
-                    # 키 릴리즈 처리 (한글 키보드 지원)
+                    # 키 릴리즈 처리 (한글 키보드 및 이동 키)
                     scancode = getattr(event, 'scancode', None)
+                    unicode_char = getattr(event, 'unicode', '')
                     interior.player.handle_movement_key_event(
-                        False, scancode=scancode, keycode=event.key
+                        False, scancode=scancode, keycode=event.key, unicode_char=unicode_char
                     )
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -1345,6 +1347,9 @@ class DowntownManager:
             interior.draw(self.screen)
 
             pygame.display.flip()
+
+        # 건물 내부에서 나왔으므로 상태를 EXPLORING으로 복원
+        self._exit_building()
 
     def _show_npc_dialogue(self, npc):
         """NPC 대화창"""
