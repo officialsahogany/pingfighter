@@ -5072,14 +5072,14 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
     hip_y = base_cy + 16 + torso_bob
     shoulder_y = base_cy - 6 + torso_bob
     head_y = base_cy - 32 + torso_bob
-    foot_base_y = base_cy + 42
+    foot_base_y = base_cy + 44  # 살짝 내려 발이 지면에 닿도록 기준선 조정
 
     def draw_leg(side: int, leg_stride: float) -> tuple[int, int]:
         """사이언 LED로 강조된 다리 관절 애니메이션"""
         hip = (cx + side * 18, hip_y)
         foot_x = cx + side * 22 + int(leg_stride * 6)
-        # 발바닥은 지면에 고정(미세한 상하만 허용)해 떠 보이지 않게 한다.
-        foot_y = foot_base_y + int(torso_bob * 0.15)
+        # 발바닥을 지면에 고정해 떠 보이지 않도록 한다.
+        foot_y = foot_base_y
         knee_x = int((hip[0] * 0.55 + foot_x * 0.45) + side * 4 - leg_stride * 3)
         knee_y = int((hip[1] * 0.55 + foot_y * 0.45) + 2)
         knee = (knee_x, knee_y)
@@ -5095,7 +5095,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
             pygame.draw.circle(surface, palette["accent"], joint, 4)
 
         foot_rect = pygame.Rect(0, 0, 24, 10)
-        foot_rect.center = (foot_x, foot_y + 6)
+        foot_rect.center = (foot_x, foot_y + 8)  # 발바닥이 더 아래로 닿도록
         pygame.draw.rect(surface, palette["grip"], foot_rect, border_radius=4)
         pygame.draw.rect(surface, palette["grip_line"], foot_rect.inflate(-6, -2), 1, border_radius=3)
         return hip
@@ -5105,10 +5105,11 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
 
     # 하체 외곽 광택
     leg_glow = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
+    # 광택이 발 아래로 내려가지 않도록 높이를 줄이고 위로 올림
     pygame.draw.ellipse(
         leg_glow,
         (*palette["glow"], 55),
-        (cx - 70, foot_base_y - 14, 140, 38),
+        (cx - 70, foot_base_y - 22, 140, 20),  # 하단이 foot_base_y에 맞도록
         2,
     )
     surface.blit(leg_glow, (0, 0))
