@@ -517,20 +517,26 @@ class InteriorNPC:
     def _draw_robot(self, screen, draw_x, draw_y, animation_timer):
         """은행 로봇 NPC 그리기 - sci-fi 스타일 로봇"""
         npc_id = hash(self.name)
+        is_main = self.role == "main"
+
+        # 메인 NPC는 더 크고 특별한 색상
+        scale = 1.2 if is_main else 1.0
 
         # 로봇 색상 팔레트
-        METAL_GRAY = (140, 150, 165)
-        METAL_DARK = (90, 100, 115)
-        METAL_LIGHT = (180, 190, 205)
-        ACCENT_CYAN = (100, 200, 255)
-        ACCENT_GLOW = (150, 220, 255)
-        LED_GREEN = (100, 255, 150)
-        LED_BLUE = (100, 180, 255)
-        LED_RED = (255, 100, 100)
-
-        # 로봇마다 다른 LED 색상
-        led_colors = [LED_GREEN, LED_BLUE, ACCENT_CYAN]
-        led_color = led_colors[npc_id % len(led_colors)]
+        if is_main:
+            # 메인 NPC: 프리미엄 골드/화이트 색상
+            METAL_GRAY = (200, 205, 215)
+            METAL_DARK = (150, 160, 175)
+            METAL_LIGHT = (235, 240, 250)
+            led_color = (255, 200, 80)  # 골드 LED
+            ACCENT_COLOR = (80, 180, 255)  # 시안 액센트
+        else:
+            METAL_GRAY = (140, 150, 165)
+            METAL_DARK = (90, 100, 115)
+            METAL_LIGHT = (180, 190, 205)
+            led_colors = [(100, 255, 150), (100, 180, 255), (100, 200, 255)]
+            led_color = led_colors[npc_id % len(led_colors)]
+            ACCENT_COLOR = led_color
 
         # 애니메이션 (살짝 위아래 움직임)
         hover_offset = int(2 * math.sin(animation_timer * 2 + npc_id))
@@ -540,125 +546,132 @@ class InteriorNPC:
         feet_y = int(draw_y) + hover_offset
 
         # === 그림자 (타원형, 반투명) ===
-        shadow_w = self.width + 10
-        shadow_h = 6
+        shadow_w = int((self.width + 10) * scale)
+        shadow_h = int(6 * scale)
         shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
         pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), (0, 0, shadow_w, shadow_h))
         screen.blit(shadow_surf, (center_x - shadow_w // 2, feet_y - 3 - hover_offset))
 
         # === 로봇 발/바퀴 ===
-        wheel_w, wheel_h = 16, 8
+        wheel_w, wheel_h = int(16 * scale), int(8 * scale)
         pygame.draw.ellipse(screen, METAL_DARK, (center_x - wheel_w // 2, feet_y - wheel_h, wheel_w, wheel_h))
         pygame.draw.ellipse(screen, METAL_GRAY, (center_x - wheel_w // 2, feet_y - wheel_h, wheel_w, wheel_h), 2)
-        # LED 라인
         pygame.draw.ellipse(screen, led_color, (center_x - wheel_w // 2 + 2, feet_y - wheel_h + 2, wheel_w - 4, wheel_h - 4), 1)
 
         # === 로봇 다리 (기둥) ===
-        leg_w, leg_h = 8, 16
+        leg_w, leg_h = int(8 * scale), int(16 * scale)
         leg_y = feet_y - wheel_h - leg_h
         pygame.draw.rect(screen, METAL_DARK, (center_x - leg_w // 2, leg_y, leg_w, leg_h), border_radius=2)
         pygame.draw.rect(screen, METAL_GRAY, (center_x - leg_w // 2, leg_y, leg_w, leg_h), 1, border_radius=2)
-        # 관절 라인
         pygame.draw.line(screen, led_color, (center_x - leg_w // 2 + 1, leg_y + leg_h // 2), (center_x + leg_w // 2 - 1, leg_y + leg_h // 2), 1)
 
         # === 로봇 몸통 ===
-        torso_w, torso_h = self.width + 4, 22
+        torso_w, torso_h = int((self.width + 4) * scale), int(22 * scale)
         torso_y = leg_y - torso_h + 2
         torso_x = center_x - torso_w // 2
 
-        # 몸통 배경 (둥근 사각형)
         pygame.draw.rect(screen, METAL_GRAY, (torso_x, torso_y, torso_w, torso_h), border_radius=5)
         pygame.draw.rect(screen, METAL_LIGHT, (torso_x, torso_y, torso_w, torso_h), 2, border_radius=5)
 
-        # 가슴 패널 (LED 디스플레이)
-        panel_w, panel_h = torso_w - 8, 10
-        panel_x = torso_x + 4
-        panel_y = torso_y + 5
-        pygame.draw.rect(screen, METAL_DARK, (panel_x, panel_y, panel_w, panel_h), border_radius=2)
-
-        # LED 라이트 (깜빡임 효과)
-        led_blink = int(animation_timer * 3) % 3
-        for i in range(3):
-            led_x = panel_x + 3 + i * 6
-            if i == led_blink:
-                pygame.draw.circle(screen, led_color, (led_x + 2, panel_y + panel_h // 2), 3)
-            else:
-                pygame.draw.circle(screen, (50, 60, 70), (led_x + 2, panel_y + panel_h // 2), 2)
+        # 메인 NPC: 가슴에 뱃지/엠블럼
+        if is_main:
+            badge_x = center_x
+            badge_y = torso_y + torso_h // 2
+            # 별 모양 뱃지
+            pygame.draw.circle(screen, (40, 60, 90), (badge_x, badge_y), 8)
+            pygame.draw.circle(screen, led_color, (badge_x, badge_y), 6)
+            # 작은 별
+            for i in range(5):
+                angle = -math.pi / 2 + (i * 2 * math.pi / 5)
+                px = badge_x + int(4 * math.cos(angle))
+                py = badge_y + int(4 * math.sin(angle))
+                pygame.draw.circle(screen, (255, 255, 255), (px, py), 1)
+        else:
+            # 일반 로봇: LED 패널
+            panel_w, panel_h = torso_w - 8, 10
+            panel_x = torso_x + 4
+            panel_y = torso_y + 5
+            pygame.draw.rect(screen, METAL_DARK, (panel_x, panel_y, panel_w, panel_h), border_radius=2)
+            led_blink = int(animation_timer * 3) % 3
+            for i in range(3):
+                led_x = panel_x + 3 + i * 6
+                if i == led_blink:
+                    pygame.draw.circle(screen, led_color, (led_x + 2, panel_y + panel_h // 2), 3)
+                else:
+                    pygame.draw.circle(screen, (50, 60, 70), (led_x + 2, panel_y + panel_h // 2), 2)
 
         # === 로봇 팔 ===
-        arm_w, arm_h = 6, 14
+        arm_w, arm_h = int(6 * scale), int(14 * scale)
         arm_y = torso_y + 4
-
-        # 팔 흔들림
         arm_swing = int(2 * math.sin(animation_timer * 1.5 + npc_id))
 
-        # 왼팔
         pygame.draw.rect(screen, METAL_DARK, (torso_x - arm_w + 2, arm_y + arm_swing, arm_w, arm_h), border_radius=2)
         pygame.draw.rect(screen, METAL_GRAY, (torso_x - arm_w + 2, arm_y + arm_swing, arm_w, arm_h), 1, border_radius=2)
-        # 손 (그리퍼)
         pygame.draw.ellipse(screen, METAL_LIGHT, (torso_x - arm_w + 3, arm_y + arm_h - 2 + arm_swing, 4, 4))
 
-        # 오른팔
         pygame.draw.rect(screen, METAL_DARK, (torso_x + torso_w - 2, arm_y - arm_swing, arm_w, arm_h), border_radius=2)
         pygame.draw.rect(screen, METAL_GRAY, (torso_x + torso_w - 2, arm_y - arm_swing, arm_w, arm_h), 1, border_radius=2)
         pygame.draw.ellipse(screen, METAL_LIGHT, (torso_x + torso_w - 1, arm_y + arm_h - 2 - arm_swing, 4, 4))
 
         # === 로봇 목 ===
-        neck_w, neck_h = 6, 5
+        neck_w, neck_h = int(6 * scale), int(5 * scale)
         neck_y = torso_y - neck_h + 2
         pygame.draw.rect(screen, METAL_DARK, (center_x - neck_w // 2, neck_y, neck_w, neck_h + 2))
         pygame.draw.rect(screen, METAL_GRAY, (center_x - neck_w // 2, neck_y, neck_w, neck_h + 2), 1)
 
         # === 로봇 머리 ===
-        head_w, head_h = 18, 16
+        head_w, head_h = int(18 * scale), int(16 * scale)
         head_y = neck_y - head_h + 4
         head_x = center_x - head_w // 2
 
-        # 머리 본체 (둥근 박스)
         pygame.draw.rect(screen, METAL_GRAY, (head_x, head_y, head_w, head_h), border_radius=4)
         pygame.draw.rect(screen, METAL_LIGHT, (head_x, head_y, head_w, head_h), 2, border_radius=4)
 
-        # 안테나 (머리 위)
+        # 메인 NPC: 이마에 심볼
+        if is_main:
+            pygame.draw.rect(screen, led_color, (center_x - 4, head_y + 2, 8, 3), border_radius=1)
+
+        # === 안테나 ===
         antenna_x = center_x
-        antenna_y = head_y - 6
+        antenna_y = head_y - int(6 * scale)
         pygame.draw.line(screen, METAL_DARK, (antenna_x, head_y), (antenna_x, antenna_y), 2)
-        # 안테나 끝 (빛나는 구)
+
+        # 메인 NPC: 더 큰 안테나 글로우
         glow_pulse = int(180 + 75 * math.sin(animation_timer * 4 + npc_id))
-        pygame.draw.circle(screen, led_color, (antenna_x, antenna_y), 4)
-        glow_surf = pygame.Surface((12, 12), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (*led_color, glow_pulse // 2), (6, 6), 6)
-        screen.blit(glow_surf, (antenna_x - 6, antenna_y - 6))
+        ant_size = 5 if is_main else 4
+        pygame.draw.circle(screen, led_color, (antenna_x, antenna_y), ant_size)
+        glow_r = 8 if is_main else 6
+        glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (*led_color, glow_pulse // 2), (glow_r, glow_r), glow_r)
+        screen.blit(glow_surf, (antenna_x - glow_r, antenna_y - glow_r))
 
         # === 로봇 눈 (LED 바이저) ===
-        visor_y = head_y + 5
-        visor_w, visor_h = head_w - 4, 6
+        visor_y = head_y + int(5 * scale)
+        visor_w, visor_h = head_w - 4, int(6 * scale)
         visor_x = head_x + 2
 
-        # 바이저 배경 (어두운 유리)
         pygame.draw.rect(screen, (20, 30, 40), (visor_x, visor_y, visor_w, visor_h), border_radius=2)
         pygame.draw.rect(screen, METAL_DARK, (visor_x, visor_y, visor_w, visor_h), 1, border_radius=2)
 
-        # LED 눈 (좌우 이동 애니메이션)
         eye_offset = int(2 * math.sin(animation_timer * 2))
         eye_y = visor_y + visor_h // 2
+        eye_size = 3 if is_main else 2
 
-        # 왼쪽 눈
-        pygame.draw.circle(screen, led_color, (visor_x + 4 + eye_offset, eye_y), 2)
-        # 오른쪽 눈
-        pygame.draw.circle(screen, led_color, (visor_x + visor_w - 4 + eye_offset, eye_y), 2)
+        pygame.draw.circle(screen, led_color, (visor_x + 4 + eye_offset, eye_y), eye_size)
+        pygame.draw.circle(screen, led_color, (visor_x + visor_w - 4 + eye_offset, eye_y), eye_size)
 
         # 눈 글로우 효과
-        glow_size = 4 + int(math.sin(animation_timer * 3) * 1)
+        glow_size = (5 if is_main else 4) + int(math.sin(animation_timer * 3) * 1)
         glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
         pygame.draw.circle(glow_surf, (*led_color, 80), (glow_size, glow_size), glow_size)
         screen.blit(glow_surf, (visor_x + 4 + eye_offset - glow_size, eye_y - glow_size))
         screen.blit(glow_surf, (visor_x + visor_w - 4 + eye_offset - glow_size, eye_y - glow_size))
 
         # === 입 (LED 바) ===
-        mouth_y = head_y + head_h - 5
-        mouth_w = 8
+        mouth_y = head_y + head_h - int(5 * scale)
+        mouth_w = int(8 * scale)
         mouth_x = center_x - mouth_w // 2
-        # 말하는 중이면 입 애니메이션
+
         if self.is_talking:
             mouth_h = 2 + int(abs(math.sin(animation_timer * 8)) * 2)
             pygame.draw.rect(screen, led_color, (mouth_x, mouth_y, mouth_w, mouth_h), border_radius=1)
@@ -666,21 +679,16 @@ class InteriorNPC:
             pygame.draw.rect(screen, METAL_DARK, (mouth_x, mouth_y, mouth_w, 2), border_radius=1)
             pygame.draw.line(screen, led_color, (mouth_x + 1, mouth_y + 1), (mouth_x + mouth_w - 1, mouth_y + 1), 1)
 
-        # === 메인 NPC 표시 (역할 강조) ===
-        if self.role == "main":
-            # 머리 위에 별 아이콘
-            star_x = center_x
-            star_y = head_y - 16
-            pygame.draw.polygon(screen, ACCENT_GLOW, [
-                (star_x, star_y - 5),
-                (star_x + 2, star_y - 1),
-                (star_x + 5, star_y),
-                (star_x + 2, star_y + 1),
-                (star_x, star_y + 5),
-                (star_x - 2, star_y + 1),
-                (star_x - 5, star_y),
-                (star_x - 2, star_y - 1),
+        # === 메인 NPC 표시: 머리 위 타이틀 마커 ===
+        if is_main:
+            marker_y = antenna_y - 12
+            # 아래쪽 화살표 + 글로우
+            glow_alpha = int(150 + 80 * math.sin(animation_timer * 3))
+            marker_surf = pygame.Surface((20, 12), pygame.SRCALPHA)
+            pygame.draw.polygon(marker_surf, (*led_color, glow_alpha), [
+                (10, 10), (4, 2), (16, 2)
             ])
+            screen.blit(marker_surf, (center_x - 10, marker_y))
 
     def draw_speech_bubble(self, screen, camera_offset, fonts):
         """말풍선 그리기"""

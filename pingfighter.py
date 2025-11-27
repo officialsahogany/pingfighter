@@ -44504,6 +44504,9 @@ def draw_objects():
             tilt_angle = 10
         elif right_tilt and not left_tilt:
             tilt_angle = -10
+    # 옵티머스는 몸체만 기울더라도 발은 평행하게 두기 위해 틸트를 제거
+    if selected_character_type == "optimus":
+        tilt_angle = 0
 
     if selected_character_type == "smasher":
         if smasher_hit_pose_timer > 0:

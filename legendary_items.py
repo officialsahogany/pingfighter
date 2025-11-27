@@ -2824,22 +2824,23 @@ class AngelBlessing(LegendaryItem):
             self._roll_blessing(current_stage)
 
     def _load_animation_frames(self):
-        """애니메이션 프레임 로드 - 라그나로크 해머와 동일한 구조"""
+        """애니메이션 프레임 로드 - 라그나로크 해머와 동일한 프레임 사용"""
         self.animation_frames.clear()
 
         frames_loaded = 0
         for i in range(8):
-            frame_path = resource_path(f"items/legendary/angel_blessing_frame_{i}.png")
+            # 라그나로크 해머 프레임 사용
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
                 cleaned_frame = _strip_legendary_red_ring(frame)
                 self.animation_frames.append(cleaned_frame)
                 frames_loaded += 1
-                print(f"✓ 천사의 가호 프레임 {i} 로드 성공: {frame_path}")
+                print(f"✓ 천사의 가호 프레임 {i} 로드 성공 (해머 프레임 사용): {frame_path}")
             except Exception as e:
-                print(f"[INFO] 천사의 가호 프레임 {i} 없음, 동적 생성: {e}")
+                print(f"[INFO] 천사의 가호 프레임 {i} 로드 실패: {e}")
 
-        print(f"천사의 가호 프레임 {frames_loaded}/8개 로드")
+        print(f"천사의 가호 프레임 {frames_loaded}/8개 로드 (해머 프레임 사용)")
 
         # PNG 프레임이 없으면 동적으로 주사위 프레임 생성
         if not self.animation_frames:
@@ -3020,7 +3021,7 @@ class AngelBlessing(LegendaryItem):
 
             # 특정 프레임에서 빛나는 효과 (라그나로크 해머와 동일)
             if self.current_frame in [0, 4]:
-                bolt_color = (255, 255, 200)
+                bolt_color = (255, 255, 150)  # 라그나로크 해머와 동일한 색상
                 pygame.draw.line(screen, bolt_color,
                                  (x + size // 4, y + frame_offset - 5),
                                  (x + size // 3, y + frame_offset + size // 4), 2)
