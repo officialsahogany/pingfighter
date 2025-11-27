@@ -1705,6 +1705,15 @@ BOSS_Y = game_vars.boss.y_position
 BOSS = game_vars.boss.rect
 CURRENT_PADDLE_SIZE_SCALE = 1.0
 CURRENT_PADDLE_EFFECTIVE_SCALE = 1.0  # 장비 효과(벌크업 등)까지 포함한 실제 스케일
+optimus_gauge_scale = 1.0  # 옵티머스 전용 게이지 기반 패들 스케일
+optimus_gauge_drain_buffer = 0.0  # 프레임 누적 배터리 소모량
+optimus_last_gauge_tick_ms = 0  # 마지막 배터리 소모 계산 시각
+optimus_last_round_marker = None  # 라운드 변경 감지용 마커
+optimus_drained = False  # 배터리 완전 방전 상태 플래그
+optimus_charge_active = False
+optimus_charge_hold_ms = 0
+optimus_charge_last_update_ms = 0
+optimus_charge_anim_tick_ms = 0
 PLAYER_PADDLE_SCALE_BY_MODE: dict[str, float] = {
     "junior": 1.2,
     "주니어": 1.2,
@@ -1758,7 +1767,10 @@ def apply_equipment_paddle_modifiers() -> None:
     global CURRENT_PADDLE_EFFECTIVE_SCALE, PADDLE_WIDTH, PADDLE_HEIGHT
 
     equipment_scale = _get_bulkup_scale()
-    effective_scale = CURRENT_PADDLE_SIZE_SCALE * equipment_scale * ANGEL_PADDLE_SCALE
+    gauge_scale = 1.0
+    if globals().get("selected_character_type") == "optimus":
+        gauge_scale = globals().get("optimus_gauge_scale", 1.0)
+    effective_scale = CURRENT_PADDLE_SIZE_SCALE * equipment_scale * ANGEL_PADDLE_SCALE * gauge_scale
     CURRENT_PADDLE_EFFECTIVE_SCALE = effective_scale
 
     prev_centerx = PLAYER.centerx
@@ -2983,6 +2995,7 @@ ITEM_SLOT_BASE_MAP = {
     "speedboots": "shoes",
     "spikeboots": "shoes",
     "hermes_shoes": "shoes",
+    "angel_blessing": "accessory",
     "bluetooth_ring": "accessory",
     "foul_whistle": "accessory",
     "smartphone": "accessory",
@@ -3885,7 +3898,8 @@ def sync_equipped_passive_effects():
         legendary_manager = None
     if legendary_manager:
         gs = {"current_stage": globals().get("current_stage", 1)}
-        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident"):
+        # 장비 슬롯에 존재하면 전설 효과 활성화
+        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing"):
             if legend_name in equipped_names:
                 legendary_manager.activate_item(legend_name, gs)
             else:
@@ -5018,11 +5032,11 @@ MARINE_COLORS = {
 }
 
 # 옵티머스(optimus ID) – 테슬라 사이버 로봇 스타일
-# 캔버스를 넓혀 발/팔 끝이 잘리지 않도록 여유 높이 확보
-MECHA_SPRITE_SIZE = (260, 160)
-MECHA_CENTER_X = 130
-MECHA_CENTER_Y = 70
-OPTIMUS_SCALE_MULT = 2.0                         # 시각·패들 크기 2배 확대
+# 고해상도 렌더링을 위해 처음부터 2배 캔버스에서 그림 (스케일링 없이 원본 품질 유지)
+MECHA_SPRITE_SIZE = (520, 320)  # 기존 260x160의 2배 (고해상도)
+MECHA_CENTER_X = 260            # 중앙 X (520/2)
+MECHA_CENTER_Y = 140            # 중앙 Y (기존 70의 2배)
+OPTIMUS_SCALE_MULT = 1.0        # 이미 고해상도이므로 스케일링 불필요
 OPTIMUS_HITBOX_SCALE = 0.575                     # 히트박스는 15%만 축소(0.5 → 0.575)
 # 옵티머스 기본 스펙
 OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCALE)  # 250px → 250px(50%)
@@ -5031,6 +5045,11 @@ OPTIMUS_PADDLE_BASE_HEIGHT = int(MECHA_SPRITE_SIZE[1] * OPTIMUS_SCALE_MULT * OPT
 OPTIMUS_BASE_MAX_SPEED = 5                       # 기본 이동 속도(캐릭터 능력치 기준)
 OPTIMUS_DECELERATION_MULT = 0.5                  # 감속을 절반으로(2배 느리게)
 OPTIMUS_FLOOR_ADJUST = 36                        # 렌더링 시 발 위치 하향 보정 (떠보임 보완)
+OPTIMUS_MAX_GAUGE = 500                          # 시작/최대 배터리 용량
+OPTIMUS_GAUGE_DRAIN_PER_SEC = 10                 # 초당 배터리 소모량
+OPTIMUS_MIN_PADDLE_WIDTH = 50                    # 방전 시 패들 최소 너비
+OPTIMUS_CHARGE_HOLD_MS = 500                     # 충전 시작까지 누르고 있을 시간
+OPTIMUS_CHARGE_RATE_PER_SEC = 15                 # 충전 중 초당 게이지 회복량
 
 OPTIMUS_MECHA_PALETTE = {
     # 실버+네온 청록 기반 테슬라 사이버 로봇 컬러링
@@ -5054,6 +5073,222 @@ OPTIMUS_MECHA_PALETTE = {
     "at_field": (100, 200, 255),
 }
 
+OPTIMUS_EMBLEM_RADIUS = 11  # 추가 -20% 축소 (이전 14 → 11, 원본 17 대비 약 -35%)
+
+
+def _compute_optimus_base_width() -> int:
+    """게이지 스케일을 제외한 현재 기준 패들 너비(장비/리그 배율 반영)를 반환."""
+    angel_scale = globals().get("ANGEL_PADDLE_SCALE", 1.0)
+    base_scale = CURRENT_PADDLE_SIZE_SCALE * _get_bulkup_scale() * angel_scale
+    return max(1, int(round(PADDLE_BASE_WIDTH * base_scale)))
+
+
+def get_optimus_gauge_ratio() -> float:
+    """옵티머스 배터리 잔량(0~1). 다른 캐릭터는 1.0을 반환."""
+    if globals().get("selected_character_type") != "optimus":
+        return 1.0
+    return max(0.0, min(1.0, special_gauge / OPTIMUS_MAX_GAUGE))
+
+
+def _recalculate_optimus_gauge_scale() -> None:
+    """게이지 잔량에 따라 옵티머스 패들 스케일을 갱신한다."""
+    global optimus_gauge_scale, optimus_drained
+    if globals().get("selected_character_type") != "optimus":
+        optimus_gauge_scale = 1.0
+        optimus_drained = False
+        return
+
+    base_width = _compute_optimus_base_width()
+    min_scale = min(1.0, OPTIMUS_MIN_PADDLE_WIDTH / base_width)
+    ratio = get_optimus_gauge_ratio()
+    optimus_gauge_scale = min_scale + (1.0 - min_scale) * ratio
+    optimus_drained = special_gauge <= 0
+
+
+def reset_optimus_energy(full_gauge: bool = True) -> None:
+    """옵티머스 배터리/스케일 초기화."""
+    global special_gauge, special_gauge_max, displayed_gauge, special_ready
+    global optimus_gauge_drain_buffer, optimus_last_gauge_tick_ms, optimus_last_round_marker
+    if globals().get("selected_character_type") != "optimus":
+        return
+
+    special_gauge_max = OPTIMUS_MAX_GAUGE
+    if full_gauge:
+        special_gauge = OPTIMUS_MAX_GAUGE
+        displayed_gauge = OPTIMUS_MAX_GAUGE
+        special_ready = True
+        try:
+            game_state.special_gauge = special_gauge
+            game_state.displayed_gauge = displayed_gauge
+            game_state.special_ready = special_ready
+            game_state.special_gauge_max = special_gauge_max
+        except Exception:
+            pass
+    optimus_gauge_drain_buffer = 0.0
+    optimus_last_gauge_tick_ms = pygame.time.get_ticks()
+    optimus_charge_active = False
+    optimus_charge_hold_ms = 0
+    optimus_charge_last_update_ms = 0
+    optimus_charge_anim_tick_ms = 0
+    optimus_last_round_marker = round_start_time if "round_start_time" in globals() else optimus_last_round_marker
+    _recalculate_optimus_gauge_scale()
+    apply_equipment_paddle_modifiers()
+
+
+def update_optimus_energy() -> None:
+    """옵티머스 배터리 소모 및 패들/이동 스케일 반영."""
+    global special_gauge, special_gauge_max, special_ready
+    global optimus_last_gauge_tick_ms, optimus_gauge_drain_buffer, optimus_last_round_marker
+    global PADDLE_WIDTH, PADDLE_HEIGHT, PLAYER
+
+    if globals().get("selected_character_type") != "optimus":
+        return
+
+    current_round_marker = round_start_time if "round_start_time" in globals() else None
+    if current_round_marker is not None and current_round_marker != optimus_last_round_marker:
+        optimus_last_round_marker = current_round_marker
+
+    now = pygame.time.get_ticks()
+    if optimus_last_gauge_tick_ms == 0:
+        optimus_last_gauge_tick_ms = now
+    elapsed_ms = max(0, now - optimus_last_gauge_tick_ms)
+    optimus_last_gauge_tick_ms = now
+
+    optimus_gauge_drain_buffer += (OPTIMUS_GAUGE_DRAIN_PER_SEC * elapsed_ms) / 1000.0
+    if optimus_gauge_drain_buffer >= 1.0:
+        drain_units = int(optimus_gauge_drain_buffer)
+        optimus_gauge_drain_buffer -= drain_units
+        special_gauge = max(0, special_gauge - drain_units)
+
+    special_gauge_max = OPTIMUS_MAX_GAUGE
+    if special_gauge > OPTIMUS_MAX_GAUGE:
+        special_gauge = OPTIMUS_MAX_GAUGE
+    special_ready = special_gauge >= 350
+    # 외부 패들 크기 변형(롱패들 등)을 보존하기 위해 현재 게이지 스케일 기준 기대 크기 대비 배율을 계산
+    angel_scale = globals().get("ANGEL_PADDLE_SCALE", 1.0)
+    base_scale = CURRENT_PADDLE_SIZE_SCALE * _get_bulkup_scale() * angel_scale
+    expected_width = max(1, int(round(PADDLE_BASE_WIDTH * base_scale * optimus_gauge_scale)))
+    expected_height = max(1, int(round(PADDLE_BASE_HEIGHT * base_scale * optimus_gauge_scale)))
+    width_factor = PADDLE_WIDTH / expected_width if expected_width else 1.0
+    height_factor = PADDLE_HEIGHT / expected_height if expected_height else 1.0
+
+    _recalculate_optimus_gauge_scale()
+    apply_equipment_paddle_modifiers()
+
+    if width_factor != 1.0 or height_factor != 1.0:
+        prev_centerx = PLAYER.centerx
+        prev_bottom = PLAYER.bottom
+        PADDLE_WIDTH = max(1, int(round(PADDLE_WIDTH * width_factor)))
+        PADDLE_HEIGHT = max(1, int(round(PADDLE_HEIGHT * height_factor)))
+        PLAYER.size = (PADDLE_WIDTH, PADDLE_HEIGHT)
+        PLAYER.centerx = prev_centerx
+        PLAYER.bottom = prev_bottom
+        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+
+
+def draw_optimus_emblem(surface, emblem_x: int, emblem_y: int, emblem_radius: int,
+                        time_now: int, pulse_scale: float, rotation_angle: float,
+                        glow_intensity: float) -> None:
+    """옵티머스 전용 엠블럼: 플라즈마 코어 + 핵융합 원자 궤도."""
+    accent = OPTIMUS_MECHA_PALETTE["accent"]
+    core_color = OPTIMUS_MECHA_PALETTE["hex_core"]
+    core_inner = OPTIMUS_MECHA_PALETTE["hex_core_inner"]
+    outline = OPTIMUS_MECHA_PALETTE["hex_border"]
+    deep_bg = (8, 12, 20)
+    chamber_bg = (22, 32, 46)
+
+    # 호흡하듯 커지는 기본 링(다른 캐릭터와 동일한 크기/맥동)
+    breathing = 1.0 + math.sin(time_now * 0.004) * 0.12
+    base_radius = max(6, int(emblem_radius * pulse_scale))
+    outer_radius = max(base_radius + 4, int(emblem_radius * breathing))
+
+    halo_surface = pygame.Surface((outer_radius * 2 + 6, outer_radius * 2 + 6), pygame.SRCALPHA)
+    halo_center = outer_radius + 3
+    for i in range(2):
+        halo_alpha = max(30, int(80 + glow_intensity * 110) - i * 25)
+        pygame.draw.circle(
+            halo_surface,
+            (*accent, halo_alpha),
+            (halo_center, halo_center),
+            outer_radius + i * 2,
+            2,
+        )
+    surface.blit(halo_surface, (emblem_x - halo_center, emblem_y - halo_center))
+
+    # 메인 디스크(테슬라 플라즈마 챔버)
+    disc_surface = pygame.Surface((base_radius * 2 + 8, base_radius * 2 + 8), pygame.SRCALPHA)
+    disc_center = base_radius + 4
+    pygame.draw.circle(disc_surface, (*deep_bg, 200), (disc_center, disc_center), base_radius + 3)
+    pygame.draw.circle(disc_surface, (*chamber_bg, 235), (disc_center, disc_center), base_radius)
+    pygame.draw.circle(disc_surface, outline, (disc_center, disc_center), base_radius, 2)
+    inner_ring_r = max(2, int(base_radius * 0.65))
+    pygame.draw.circle(disc_surface, (*accent, 90), (disc_center, disc_center), inner_ring_r, 2)
+    surface.blit(disc_surface, (emblem_x - disc_center, emblem_y - disc_center))
+
+    # 핵융합 코어
+    core_pulse = 1.0 + math.sin(time_now * 0.009) * 0.25
+    core_r = max(3, int(emblem_radius * 0.35 * core_pulse))
+    glow_r = int(core_r * 1.9)
+    glow_surface = pygame.Surface((glow_r * 2 + 4, glow_r * 2 + 4), pygame.SRCALPHA)
+    glow_center = glow_r + 2
+    pygame.draw.circle(glow_surface, (*accent, 80), (glow_center, glow_center), glow_r)
+    surface.blit(glow_surface, (emblem_x - glow_center, emblem_y - glow_center))
+    pygame.draw.circle(surface, core_color, (emblem_x, emblem_y), core_r + 1)
+    pygame.draw.circle(surface, core_inner, (emblem_x, emblem_y), max(2, core_r - 1))
+    pygame.draw.circle(surface, (255, 255, 255), (emblem_x, emblem_y), max(1, core_r - 2), 1)
+
+    # 코어에서 뻗는 플라즈마 필라멘트
+    for k in range(6):
+        arc_angle = rotation_angle * 1.3 + k * (math.tau / 6)
+        arc_len = inner_ring_r + 4
+        end_x = emblem_x + math.cos(arc_angle) * arc_len
+        end_y = emblem_y + math.sin(arc_angle) * arc_len
+        mid_x = (emblem_x + end_x) / 2 + math.cos(arc_angle + math.pi / 2) * 2
+        mid_y = (emblem_y + end_y) / 2 + math.sin(arc_angle + math.pi / 2) * 2
+        pygame.draw.lines(
+            surface,
+            accent,
+            False,
+            [(emblem_x, emblem_y), (mid_x, mid_y), (end_x, end_y)],
+            1,
+        )
+
+    # 원자 궤도 + 알갱이(핵융합 입자 공전 느낌)
+    orbit_configs = [
+        (base_radius + 3, math.radians(10), 1.1, 3, (120, 235, 255)),
+        (base_radius + 7, math.radians(-22), 1.35, 4, (0, 255, 210)),
+        (base_radius + 11, math.radians(28), 0.95, 5, (180, 255, 255)),
+    ]
+    for idx, (orbit_r, tilt, speed, bead_count, orbit_color) in enumerate(orbit_configs):
+        scaled_r = orbit_r * (0.92 + 0.08 * pulse_scale)
+        orbit_angle = rotation_angle * speed + idx * 0.5
+        cos_t = math.cos(tilt)
+        sin_t = math.sin(tilt)
+        points = []
+        steps = 44
+        for i in range(steps):
+            a = orbit_angle + math.tau * i / steps
+            wobble = math.sin(a * 3 + time_now * 0.01) * 0.6
+            r_mod = scaled_r + wobble
+            x = r_mod * math.cos(a)
+            y = r_mod * math.sin(a) * cos_t
+            z = r_mod * math.sin(a) * sin_t
+            points.append((emblem_x + x, emblem_y + y + z * 0.2))
+        pygame.draw.aalines(surface, orbit_color, True, points)
+
+        bead_angle = orbit_angle + time_now * 0.0025
+        for j in range(bead_count):
+            pa = bead_angle + j * (math.tau / bead_count)
+            px = scaled_r * math.cos(pa)
+            py = scaled_r * math.sin(pa) * cos_t
+            pz = scaled_r * math.sin(pa) * sin_t
+            bx = emblem_x + px
+            by = emblem_y + py + pz * 0.2
+            bead_size = 3 if idx == 0 else 2
+            pygame.draw.circle(surface, orbit_color, (int(bx), int(by)), bead_size + 1)
+            pygame.draw.circle(surface, (255, 255, 255), (int(bx), int(by)), max(1, bead_size - 1))
+
+
 
 def _resolve_mecha_phase(step_phase: float | None) -> float:
     phase = 0.0 if step_phase is None else float(step_phase)
@@ -5061,103 +5296,102 @@ def _resolve_mecha_phase(step_phase: float | None) -> float:
 
 
 def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pygame.Surface:
+    """고해상도 메카 캐릭터 렌더링 (2배 스케일 - 모든 수치 2배)"""
     surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
     cx = MECHA_CENTER_X
     base_cy = MECHA_CENTER_Y
 
     phase = _resolve_mecha_phase(step_phase)
     stride = math.sin(phase * math.tau)
-    torso_bob = int(math.sin(phase * math.tau * 2.0) * 3)
-    sway = math.sin(phase * math.tau * 0.5) * 2
+    torso_bob = int(math.sin(phase * math.tau * 2.0) * 6)  # 3→6
+    sway = math.sin(phase * math.tau * 0.5) * 4  # 2→4
 
-    hip_y = base_cy + 16 + torso_bob
-    shoulder_y = base_cy - 6 + torso_bob
-    head_y = base_cy - 32 + torso_bob
-    foot_base_y = base_cy + 60  # 캔버스 여유가 늘어난 만큼 조금 더 아래로 고정
+    hip_y = base_cy + 32 + torso_bob      # 16→32
+    shoulder_y = base_cy - 12 + torso_bob  # 6→12
+    head_y = base_cy - 64 + torso_bob      # 32→64
+    foot_base_y = base_cy + 120            # 60→120
 
     def draw_leg(side: int, leg_stride: float) -> tuple[int, int]:
-        """사이언 LED로 강조된 다리 관절 애니메이션"""
-        hip = (cx + side * 18, hip_y)
-        foot_x = cx + side * 22 + int(leg_stride * 6)
-        # 발바닥을 지면에 고정해 떠 보이지 않도록 한다.
+        """사이언 LED로 강조된 다리 관절 애니메이션 (고해상도)"""
+        hip = (cx + side * 36, hip_y)       # 18→36
+        foot_x = cx + side * 44 + int(leg_stride * 12)  # 22→44, 6→12
         foot_y = foot_base_y
-        knee_x = int((hip[0] * 0.55 + foot_x * 0.45) + side * 4 - leg_stride * 3)
-        knee_y = int((hip[1] * 0.55 + foot_y * 0.45) + 2)
+        knee_x = int((hip[0] * 0.55 + foot_x * 0.45) + side * 8 - leg_stride * 6)  # 4→8, 3→6
+        knee_y = int((hip[1] * 0.55 + foot_y * 0.45) + 4)  # 2→4
         knee = (knee_x, knee_y)
         foot = (foot_x, foot_y)
 
-        pygame.draw.line(surface, palette["body"], hip, knee, 12)
-        pygame.draw.line(surface, palette["body"], knee, foot, 12)
-        pygame.draw.line(surface, palette["line"], hip, knee, 3)
-        pygame.draw.line(surface, palette["line"], knee, foot, 3)
+        pygame.draw.line(surface, palette["body"], hip, knee, 24)   # 12→24
+        pygame.draw.line(surface, palette["body"], knee, foot, 24)  # 12→24
+        pygame.draw.line(surface, palette["line"], hip, knee, 6)    # 3→6
+        pygame.draw.line(surface, palette["line"], knee, foot, 6)   # 3→6
 
         for joint in (hip, knee, foot):
-            pygame.draw.circle(surface, palette["hex_base"], joint, 7)
-            pygame.draw.circle(surface, palette["accent"], joint, 4)
+            pygame.draw.circle(surface, palette["hex_base"], joint, 14)  # 7→14
+            pygame.draw.circle(surface, palette["accent"], joint, 8)     # 4→8
 
-        foot_rect = pygame.Rect(0, 0, 26, 12)
-        foot_rect.center = (foot_x, foot_y + 6)  # 살짝만 아래로 내려 접지감 유지
-        pygame.draw.rect(surface, palette["grip"], foot_rect, border_radius=4)
-        pygame.draw.rect(surface, palette["grip_line"], foot_rect.inflate(-6, -2), 1, border_radius=3)
+        foot_rect = pygame.Rect(0, 0, 52, 24)  # 26→52, 12→24
+        foot_rect.center = (foot_x, foot_y + 12)  # 6→12
+        pygame.draw.rect(surface, palette["grip"], foot_rect, border_radius=8)   # 4→8
+        pygame.draw.rect(surface, palette["grip_line"], foot_rect.inflate(-12, -4), 2, border_radius=6)  # 6→12, 2→4, 1→2, 3→6
         return hip
 
     left_hip = draw_leg(-1, stride)
     right_hip = draw_leg(1, -stride)
 
-    # 하체 외곽 광택
+    # 하체 외곽 광택 (고해상도)
     leg_glow = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
-    # 광택이 발 아래로 내려가지 않도록 높이를 줄이고 위로 올림
     pygame.draw.ellipse(
         leg_glow,
         (*palette["glow"], 55),
-        (cx - 70, foot_base_y - 30, 140, 18),  # 광택이 발보다 내려가지 않도록 상향
-        2,
+        (cx - 140, foot_base_y - 60, 280, 36),  # 70→140, 30→60, 140→280, 18→36
+        4,  # 2→4
     )
     surface.blit(leg_glow, (0, 0))
 
-    # 상체(바디+코어)
+    # 상체(바디+코어) - 고해상도
     torso = [
-        (cx - 40, shoulder_y + 4),
-        (cx + 40, shoulder_y + 4),
-        (cx + 32, hip_y + 4),
-        (cx - 32, hip_y + 4),
+        (cx - 80, shoulder_y + 8),   # 40→80, 4→8
+        (cx + 80, shoulder_y + 8),
+        (cx + 64, hip_y + 8),        # 32→64
+        (cx - 64, hip_y + 8),
     ]
     pygame.draw.polygon(surface, palette["body"], torso)
-    pygame.draw.polygon(surface, palette["line"], torso, 2)
+    pygame.draw.polygon(surface, palette["line"], torso, 4)  # 2→4
 
-    # 네온 V 라인(테슬라 시그니처)
+    # 네온 V 라인(테슬라 시그니처) - 고해상도
     v_points = [
-        (cx - 22, shoulder_y + 6),
-        (cx, hip_y + 2),
-        (cx + 22, shoulder_y + 6),
+        (cx - 44, shoulder_y + 12),  # 22→44, 6→12
+        (cx, hip_y + 4),             # 2→4
+        (cx + 44, shoulder_y + 12),
     ]
-    pygame.draw.lines(surface, palette["accent"], False, v_points, 4)
+    pygame.draw.lines(surface, palette["accent"], False, v_points, 8)  # 4→8
 
-    # 중앙 에너지 코어
-    core_rect = pygame.Rect(cx - 9, shoulder_y + 10, 18, 26)
-    pygame.draw.rect(surface, palette["hex_base"], core_rect, border_radius=4)
-    pygame.draw.rect(surface, palette["hex_border"], core_rect.inflate(4, 4), 2, border_radius=6)
-    pygame.draw.rect(surface, palette["hex_core"], core_rect.inflate(-4, -6), border_radius=3)
+    # 중앙 에너지 코어 - 고해상도
+    core_rect = pygame.Rect(cx - 18, shoulder_y + 20, 36, 52)  # 9→18, 10→20, 18→36, 26→52
+    pygame.draw.rect(surface, palette["hex_base"], core_rect, border_radius=8)  # 4→8
+    pygame.draw.rect(surface, palette["hex_border"], core_rect.inflate(8, 8), 4, border_radius=12)  # 4→8, 2→4, 6→12
+    pygame.draw.rect(surface, palette["hex_core"], core_rect.inflate(-8, -12), border_radius=6)  # 4→8, 6→12, 3→6
 
-    # 어깨 패드
+    # 어깨 패드 - 고해상도
     for side in (-1, 1):
-        pad_rect = pygame.Rect(0, 0, 26, 14)
-        pad_rect.center = (cx + side * 30, shoulder_y)
-        pygame.draw.rect(surface, palette["helmet"], pad_rect, border_radius=6)
-        pygame.draw.rect(surface, palette["accent"], pad_rect, 2, border_radius=6)
+        pad_rect = pygame.Rect(0, 0, 52, 28)  # 26→52, 14→28
+        pad_rect.center = (cx + side * 60, shoulder_y)  # 30→60
+        pygame.draw.rect(surface, palette["helmet"], pad_rect, border_radius=12)  # 6→12
+        pygame.draw.rect(surface, palette["accent"], pad_rect, 4, border_radius=12)  # 2→4
 
-    # 머리(사이버 바이저)
-    helmet_rect = pygame.Rect(cx - 22, head_y - 8, 44, 34)
-    pygame.draw.rect(surface, palette["helmet"], helmet_rect, border_radius=10)
-    pygame.draw.rect(surface, palette["helmet_inner"], helmet_rect.inflate(-10, -10), border_radius=8)
-    visor_rect = helmet_rect.inflate(-8, -6)
-    pygame.draw.rect(surface, palette["visor"], visor_rect, border_radius=8)
-    pygame.draw.line(surface, palette["visor_highlight"], visor_rect.midleft, (visor_rect.centerx, visor_rect.top + 4), 2)
-    pygame.draw.line(surface, palette["visor_highlight"], (visor_rect.centerx, visor_rect.bottom - 4), visor_rect.midright, 2)
+    # 머리(사이버 바이저) - 고해상도
+    helmet_rect = pygame.Rect(cx - 44, head_y - 16, 88, 68)  # 22→44, 8→16, 44→88, 34→68
+    pygame.draw.rect(surface, palette["helmet"], helmet_rect, border_radius=20)  # 10→20
+    pygame.draw.rect(surface, palette["helmet_inner"], helmet_rect.inflate(-20, -20), border_radius=16)  # 10→20, 8→16
+    visor_rect = helmet_rect.inflate(-16, -12)  # 8→16, 6→12
+    pygame.draw.rect(surface, palette["visor"], visor_rect, border_radius=16)  # 8→16
+    pygame.draw.line(surface, palette["visor_highlight"], visor_rect.midleft, (visor_rect.centerx, visor_rect.top + 8), 4)  # 4→8, 2→4
+    pygame.draw.line(surface, palette["visor_highlight"], (visor_rect.centerx, visor_rect.bottom - 8), visor_rect.midright, 4)  # 4→8, 2→4
     for side in (-1, 1):
-        ear_center = (helmet_rect.centerx + side * 20, helmet_rect.centery + 2)
-        pygame.draw.circle(surface, palette["helmet"], ear_center, 7)
-        pygame.draw.circle(surface, palette["ear_inner"], ear_center, 5)
+        ear_center = (helmet_rect.centerx + side * 40, helmet_rect.centery + 4)  # 20→40, 2→4
+        pygame.draw.circle(surface, palette["helmet"], ear_center, 14)  # 7→14
+        pygame.draw.circle(surface, palette["ear_inner"], ear_center, 10)  # 5→10
 
     # 팔 스윙 + 패들(플라즈마 블레이드)
     left_swing_ratio = right_swing_ratio = 0.0
@@ -5173,7 +5407,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
     except Exception:
         pass
 
-    arm_swing = int(stride * 6)
+    arm_swing = int(stride * 12)      # 6→12 (고해상도)
     arm_swing_left = int(arm_swing)
     arm_swing_right = int(-arm_swing // 2)
 
@@ -5185,45 +5419,42 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
         """start→end를 시계 방향으로 120° 이상 크게 스윙"""
         start = math.radians(start_deg % 360)
         end = math.radians(end_deg % 360)
-        # 단방향(큰 호) 진행: 되감기 시 다시 앞으로 솟는 문제 방지
         if end < start:
-            end += math.tau  # 큰 호(>180°)로 이동
+            end += math.tau
         return start + (end - start) * t
 
     def draw_arm(side: int, walk_swing: int, swing_ratio: float) -> None:
-        """포물선 휘두름 후 자연스럽게 원위치"""
-        shoulder = (cx + side * 30, shoulder_y + 2)
-        base_upper_len = 32
-        base_fore_len = 30
+        """포물선 휘두름 후 자연스럽게 원위치 (고해상도)"""
+        shoulder = (cx + side * 60, shoulder_y + 4)  # 30→60, 2→4
+        base_upper_len = 64   # 32→64
+        base_fore_len = 60    # 30→60
 
-        # 기본(걷기) 포즈
+        # 기본(걷기) 포즈 - 고해상도
         idle_elbow = (
-            shoulder[0] + side * 12,
-            shoulder[1] + 18 + walk_swing * 0.5,
+            shoulder[0] + side * 24,       # 12→24
+            shoulder[1] + 36 + walk_swing * 0.5,  # 18→36
         )
         idle_wrist = (
-            idle_elbow[0] + side * 12,
-            idle_elbow[1] + 24 + walk_swing,
+            idle_elbow[0] + side * 24,     # 12→24
+            idle_elbow[1] + 48 + walk_swing,  # 24→48
         )
 
         if swing_ratio > 0:
-            # 왕복 곡선: 0→0.5 전진, 0.5→1 복귀
             forward_phase = min(1.0, swing_ratio * 2.0)
             return_phase = max(0.0, swing_ratio * 2.0 - 1.0)
             ease_fwd = _ease_out_cubic(forward_phase)
             ease_ret = _ease_out_cubic(return_phase)
 
-            arc_height = 18 * math.sin(math.pi * forward_phase)
-            arc_forward = 12 * math.sin(math.pi * forward_phase)
+            arc_height = 36 * math.sin(math.pi * forward_phase)   # 18→36
+            arc_forward = 24 * math.sin(math.pi * forward_phase)  # 12→24
 
-            # 반대(정면) 방향으로 더 꺾인 피크 각도
             peak_angle_deg = 20 if side < 0 else 160
             angle = math.radians(peak_angle_deg)
 
-            swing_lift = 10 + 16 * forward_phase
-            inward_pull = 14 + 12 * forward_phase
-            upper_len = base_upper_len + 6 * forward_phase
-            fore_len = base_fore_len + 10 * forward_phase
+            swing_lift = 20 + 32 * forward_phase   # 10→20, 16→32
+            inward_pull = 28 + 24 * forward_phase  # 14→28, 12→24
+            upper_len = base_upper_len + 12 * forward_phase  # 6→12
+            fore_len = base_fore_len + 20 * forward_phase    # 10→20
 
             peak_elbow = (
                 shoulder[0] + math.cos(angle) * upper_len * 0.5 + (-side) * (inward_pull + arc_forward),
@@ -5234,18 +5465,17 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                 peak_elbow[1] + math.sin(angle) * fore_len - swing_lift * 0.7 - arc_height * 0.5,
             )
 
-            # 중앙선 넘지 않도록 클램프
+            # 중앙선 넘지 않도록 클램프 - 고해상도
             if side < 0:
-                peak_elbow = (min(peak_elbow[0], cx - 12), peak_elbow[1])
-                peak_wrist = (min(peak_wrist[0], cx - 16), peak_wrist[1])
+                peak_elbow = (min(peak_elbow[0], cx - 24), peak_elbow[1])  # 12→24
+                peak_wrist = (min(peak_wrist[0], cx - 32), peak_wrist[1])  # 16→32
             else:
-                peak_elbow = (max(peak_elbow[0], cx + 12), peak_elbow[1])
-                peak_wrist = (max(peak_wrist[0], cx + 16), peak_wrist[1])
+                peak_elbow = (max(peak_elbow[0], cx + 24), peak_elbow[1])
+                peak_wrist = (max(peak_wrist[0], cx + 32), peak_wrist[1])
 
             def lerp_point(a, b, t):
                 return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
 
-            # 전진·복귀를 한 번에 처리
             elbow = lerp_point(idle_elbow, peak_elbow, ease_fwd)
             wrist = lerp_point(idle_wrist, peak_wrist, ease_fwd)
             elbow = lerp_point(elbow, idle_elbow, ease_ret)
@@ -5254,34 +5484,36 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
             elbow = idle_elbow
             wrist = idle_wrist
 
-        pygame.draw.line(surface, palette["body"], shoulder, elbow, 12)
-        pygame.draw.line(surface, palette["body"], elbow, wrist, 10)
-        pygame.draw.line(surface, palette["arm_line"], shoulder, elbow, 3)
-        pygame.draw.line(surface, palette["arm_line"], elbow, wrist, 3)
-        pygame.draw.circle(surface, palette["hand"], wrist, 6)
+        # 팔 그리기 - 고해상도
+        pygame.draw.line(surface, palette["body"], shoulder, elbow, 24)   # 12→24
+        pygame.draw.line(surface, palette["body"], elbow, wrist, 20)      # 10→20
+        pygame.draw.line(surface, palette["arm_line"], shoulder, elbow, 6)  # 3→6
+        pygame.draw.line(surface, palette["arm_line"], elbow, wrist, 6)     # 3→6
+        pygame.draw.circle(surface, palette["hand"], (int(wrist[0]), int(wrist[1])), 12)  # 6→12
 
+        # 왼팔 플라즈마 블레이드 - 고해상도
         if side < 0:
-            grip_x, grip_y = wrist[0] - 4, wrist[1] + 8
-            pygame.draw.rect(surface, palette["grip"], (grip_x - 3, grip_y - 10, 10, 24), border_radius=4)
-            pygame.draw.rect(surface, palette["grip_line"], (grip_x - 1, grip_y - 8, 6, 20), 1, border_radius=3)
-            blade_height = 46
-            blade_surface = pygame.Surface((8, blade_height), pygame.SRCALPHA)
-            pygame.draw.rect(blade_surface, (*palette["accent"], 160), (0, 0, 8, blade_height), border_radius=3)
-            pygame.draw.rect(blade_surface, (*palette["visor_highlight"], 200), (2, 2, 4, blade_height - 4), border_radius=2)
-            surface.blit(blade_surface, (grip_x + 2, grip_y + 10))
+            grip_x, grip_y = wrist[0] - 8, wrist[1] + 16  # 4→8, 8→16
+            pygame.draw.rect(surface, palette["grip"], (int(grip_x - 6), int(grip_y - 20), 20, 48), border_radius=8)  # 3→6, 10→20, 10→20, 24→48, 4→8
+            pygame.draw.rect(surface, palette["grip_line"], (int(grip_x - 2), int(grip_y - 16), 12, 40), 2, border_radius=6)  # 1→2, 8→16, 6→12, 20→40, 1→2, 3→6
+            blade_height = 92  # 46→92
+            blade_surface = pygame.Surface((16, blade_height), pygame.SRCALPHA)  # 8→16
+            pygame.draw.rect(blade_surface, (*palette["accent"], 160), (0, 0, 16, blade_height), border_radius=6)  # 8→16, 3→6
+            pygame.draw.rect(blade_surface, (*palette["visor_highlight"], 200), (4, 4, 8, blade_height - 8), border_radius=4)  # 2→4, 4→8, 4→8, 2→4
+            surface.blit(blade_surface, (int(grip_x + 4), int(grip_y + 20)))  # 2→4, 10→20
 
     draw_arm(-1, arm_swing_left, left_swing_ratio)
-    draw_arm(1, arm_swing_right, right_swing_ratio)  # 오른팔은 살짝 뒤로
+    draw_arm(1, arm_swing_right, right_swing_ratio)
 
-    # 상체/머리 글로우
+    # 상체/머리 글로우 - 고해상도
     glow_surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
-    pygame.draw.ellipse(glow_surface, (*palette["glow"], 50), (cx - 65, base_cy - 32 + torso_bob, 130, 90), 2)
-    pygame.draw.ellipse(glow_surface, (*palette["glow"], 70), (cx - 34, head_y - 6, 68, 42), 1)
+    pygame.draw.ellipse(glow_surface, (*palette["glow"], 50), (cx - 130, base_cy - 64 + torso_bob, 260, 180), 4)  # 65→130, 32→64, 130→260, 90→180, 2→4
+    pygame.draw.ellipse(glow_surface, (*palette["glow"], 70), (cx - 68, head_y - 12, 136, 84), 2)  # 34→68, 6→12, 68→136, 42→84, 1→2
     surface.blit(glow_surface, (0, 0))
 
-    # 육각 실드(얇은)
+    # 육각 실드(얇은) - 고해상도
     for i in range(2):
-        at_field_radius = 56 + i * 10
+        at_field_radius = 112 + i * 20  # 56→112, 10→20
         at_alpha = max(0, 28 - i * 10)
         points = []
         for j in range(6):
@@ -5289,7 +5521,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
             points.append((cx + int(math.cos(angle) * at_field_radius),
                            base_cy + int(math.sin(angle) * at_field_radius * 0.75) + torso_bob))
         at_surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
-        pygame.draw.polygon(at_surface, (*palette["at_field"], at_alpha), points, 1)
+        pygame.draw.polygon(at_surface, (*palette["at_field"], at_alpha), points, 2)  # 1→2
         surface.blit(at_surface, (0, 0))
 
     return surface
@@ -28166,6 +28398,42 @@ def handle_player(keys):
     # 코만도 무기 HUD/선택 상태는 이 함수 전반에서 사용되므로 최상단에서 전역 선언
     global soldier_weapon_menu_active, soldier_weapon_hold_frames, soldier_weapon_number_prev
     global soldier_weapon_menu_close_suppress_frames, soldier_weapon_switch_suppress_frames
+    # 이동/대쉬/굴러가기/포세이돈 등 전역 상태
+    global rolling_active, rolling_timer, rolling_direction, rolling_speed
+    global rolling_stun_timer, rolling_dash_available_timer, rolling_cooldown, rolling_charges, rolling_charge_timer
+    global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y
+    global gravitybelt_obtained, dashholder_obtained  #  무중력벨트 및 대쉬홀더 변수
+    global is_half_dash_active, half_dash_effect_timer  # 하프대쉬 효과 관련 변수
+    global legendary_manager  # 전설 아이템 매니저
+    global player_missile_stunned_timer, player_missile_knockback_vel, current_stage  # 스테이지 6 미사일 넉백
+    global is_danger_sensor_dash  # 위험감지센서 대쉬 플래그
+    global token_states  #  토큰 상태 리스트
+    global molotov_throwing, molotov_throw_timer  # 화염병 투척 모션
+    global grenade_throwing, grenade_throw_timer  # 수류탄 투척 모션
+    global flare_throwing, flare_throw_timer  # 조명탄 투척 모션
+    global stopwatch_active, stopwatch_recovery_timer, stopwatch_original_ball_vel  # 스탑워치 관련 변수
+    global tutorial_current_chapter  # 튜토리얼 현재 챕터 - Chapter 4 전환을 위해 필요
+    global soldier_walking_active, soldier_walking_timer  # 코만도 걷기 애니메이션 변수
+    global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction  # 발토르 걷기 애니메이션 변수
+    global smasher_walking_active, smasher_walking_timer  # 스매셔 걷기 애니메이션 변수
+    global optimus_walking_active, optimus_walking_timer  # 옵티머스(optimus) 걷기 애니메이션 변수
+    global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
+    global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge  # 챕터별 게이지 오버라이드
+    global tutorial_drive_completion_dialogue_shown, tutorial_drive_count  # Chapter 3 완료 체크
+    global chapter4_dialogue_completed, chapter4_serve_reminder_active, chapter4_serve_reminder_timer  # Chapter 4 대화 및 서브 알림 변수
+    global chapter4_first_hit_after_dialogue, chapter4_power_helper_shown, chapter4_power_helper_timer  # Chapter 4 추가 변수
+    global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
+    # 튜토리얼 관련 변수 추가
+    global tutorial_practice_mode, tutorial_boss_returned, tutorial_gauge_tutorial_shown
+    global tutorial_player_hit_count, tutorial_speed_dialogue_shown
+    global tutorial_saved_ball_vel, tutorial_pause_for_dialogue, ball_vel
+    global tutorial_drive_reminder_active, tutorial_current_chapter, tutorial_drive_reminder_timer
+    global tutorial_serve_reminder_active  # 서브/파워스매싱 알림창용
+    # Chapter 3 드라이브 관련 변수 추가 (160 게이지 도우미 대화를 위해 필수)
+    global tutorial_needs_drive_practice, tutorial_drive_practice_shown
+    global soldier_control_lock_timer, soldier_gun_cooldown, soldier_gun_drawn  # 코만도 총알 시스템 변수
+    global selected_character_type  # 선택된 캐릭터 타입
+    global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
 
     # HUD 닫힘 직후 한두 프레임 동안 Space 입력(좌클릭 병합 포함) 억제 타이머 감쇠
     if 'soldier_weapon_menu_close_suppress_frames' in globals() and soldier_weapon_menu_close_suppress_frames > 0:
@@ -28184,6 +28452,7 @@ def handle_player(keys):
     global round_start_time
     # 이벤트 기반 이동 플래그(포커스 상실 대비)
     global MOVE_EVENT_LEFT, MOVE_EVENT_RIGHT, MOVE_EVENT_DOWN, MOVE_EVENT_UP
+    global optimus_charge_active, optimus_charge_hold_ms, optimus_charge_last_update_ms, optimus_charge_anim_tick_ms
 
     # 넉백 저항 100%일 때 잔여 넉백 이동/오프셋을 즉시 제거
     clear_player_knockback_if_immune()
@@ -28195,6 +28464,72 @@ def handle_player(keys):
     ball_centery = BALL.centery
     ball_x = ball_centerx
     ball_y = ball_centery
+
+    # 옵티머스 수동 충전 (↓ 키 길게 누름)
+    def _handle_optimus_manual_charge(now_ms: int) -> None:
+        """옵티머스 전용: ↓키 홀드로 게이지 충전."""
+        global optimus_charge_active, optimus_charge_hold_ms
+        global optimus_charge_last_update_ms, optimus_charge_anim_tick_ms
+        if selected_character_type != "optimus":
+            return
+        # 충전 불가 조건
+        if (
+            globals().get("optimus_drained", False)
+            or rolling_active
+            or rolling_stun_timer > 0
+            or player_stunned
+            or is_waiting_for_serve
+            or is_player_serve
+            or half_dash_used_flag
+            or long_boost_active  # 거대화포션 중에는 강제 이동 방지를 위해 충전 비활성화
+        ):
+            optimus_charge_active = False
+            optimus_charge_hold_ms = 0
+            return
+
+        if down_pressed:
+            if optimus_charge_last_update_ms == 0:
+                optimus_charge_last_update_ms = now_ms
+            delta = now_ms - optimus_charge_last_update_ms
+            optimus_charge_hold_ms += delta
+            optimus_charge_last_update_ms = now_ms
+            # 준비 시간 충족 시 충전 시작
+            if (not optimus_charge_active) and optimus_charge_hold_ms >= OPTIMUS_CHARGE_HOLD_MS:
+                optimus_charge_active = True
+                optimus_charge_anim_tick_ms = now_ms
+        else:
+            optimus_charge_active = False
+            optimus_charge_hold_ms = 0
+            optimus_charge_last_update_ms = now_ms
+
+        if optimus_charge_active and down_pressed:
+            elapsed = now_ms - optimus_charge_last_update_ms
+            if elapsed > 0:
+                charge_gain = OPTIMUS_CHARGE_RATE_PER_SEC * (elapsed / 1000.0)
+                current_max = get_max_gauge()
+                new_gauge = min(current_max, special_gauge + charge_gain)
+                if new_gauge != special_gauge:
+                    special_gauge = new_gauge
+                    special_ready = special_gauge >= 350
+                    try:
+                        game_state.special_gauge = special_gauge
+                        game_state.special_ready = special_ready
+                    except Exception:
+                        pass
+                optimus_charge_last_update_ms = now_ms
+
+            # 간단한 전기 이펙트
+            if now_ms - optimus_charge_anim_tick_ms >= 120:
+                try:
+                    effects_manager.spawn_star_particles(
+                        PLAYER.centerx,
+                        PLAYER.centery,
+                        count=8,
+                        color=(120, 235, 255),
+                    )
+                except Exception:
+                    pass
+                optimus_charge_anim_tick_ms = now_ms
 
     # 화기 교체 쿨다운 감소
     if soldier_controller.switch_cooldown > 0:
@@ -28277,41 +28612,6 @@ def handle_player(keys):
 
         if play_sound and SOUND_BLACKSMITH_UMBRELLA_CLOSE:
             play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_CLOSE)
-    global gravitybelt_obtained, dashholder_obtained  #  무중력벨트 및 대쉬홀더 변수 추가
-    global rolling_active, rolling_timer, rolling_direction, rolling_speed
-    global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y  # 포세이돈 삼지창 대시 플래그
-    global rolling_stun_timer, rolling_dash_available_timer, rolling_cooldown, rolling_charges, rolling_charge_timer
-    global is_half_dash_active, half_dash_effect_timer  # 하프대쉬 효과 관련 변수
-    global legendary_manager  # 전설 아이템 매니저
-    global player_missile_stunned_timer, player_missile_knockback_vel, current_stage  # 스테이지 6 미사일 넉백
-    global is_danger_sensor_dash  # 위험감지센서 대쉬 플래그
-    global token_states  #  토큰 상태 리스트
-    global molotov_throwing, molotov_throw_timer  # 화염병 투척 모션
-    global grenade_throwing, grenade_throw_timer  # 수류탄 투척 모션
-    global flare_throwing, flare_throw_timer  # 조명탄 투척 모션
-    global stopwatch_active, stopwatch_recovery_timer, stopwatch_original_ball_vel  # 스탑워치 관련 변수
-    global tutorial_current_chapter  # 튜토리얼 현재 챕터 - Chapter 4 전환을 위해 필요
-    global soldier_walking_active, soldier_walking_timer  # 코만도 걷기 애니메이션 변수
-    global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction  # 발토르 걷기 애니메이션 변수
-    global smasher_walking_active, smasher_walking_timer  # 스매셔 걷기 애니메이션 변수
-    global optimus_walking_active, optimus_walking_timer  # 옵티머스(optimus) 걷기 애니메이션 변수
-    global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
-    global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge  # 챕터별 게이지 오버라이드
-    global tutorial_drive_completion_dialogue_shown, tutorial_drive_count  # Chapter 3 완료 체크
-    global chapter4_dialogue_completed, chapter4_serve_reminder_active, chapter4_serve_reminder_timer  # Chapter 4 대화 및 서브 알림 변수
-    global chapter4_first_hit_after_dialogue, chapter4_power_helper_shown, chapter4_power_helper_timer  # Chapter 4 추가 변수
-    global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
-    # 튜토리얼 관련 변수 추가
-    global tutorial_practice_mode, tutorial_boss_returned, tutorial_gauge_tutorial_shown
-    global tutorial_player_hit_count, tutorial_speed_dialogue_shown
-    global tutorial_saved_ball_vel, tutorial_pause_for_dialogue, ball_vel
-    global tutorial_drive_reminder_active, tutorial_current_chapter, tutorial_drive_reminder_timer
-    global tutorial_serve_reminder_active  # 서브/파워스매싱 알림창용
-    # Chapter 3 드라이브 관련 변수 추가 (160 게이지 도우미 대화를 위해 필수)
-    global tutorial_needs_drive_practice, tutorial_drive_practice_shown
-    global soldier_control_lock_timer, soldier_gun_cooldown, soldier_gun_drawn  # 코만도 총알 시스템 변수
-    global selected_character_type  # 선택된 캐릭터 타입
-    global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
     global tutorial_drive_count, tutorial_displayed_drive_count
     global tutorial_left_drive_count, tutorial_right_drive_count
     global tutorial_displayed_left_drive_count, tutorial_displayed_right_drive_count
@@ -28360,6 +28660,15 @@ def handle_player(keys):
 
     get_roll = _rolling_get
     set_roll = _rolling_set
+
+    update_optimus_energy()
+    optimus_drain_locked = globals().get("optimus_drained", False)
+    if optimus_drain_locked:
+        current_speed = 0
+        rolling_active = False
+        rolling_timer = 0
+        rolling_speed = 0
+        rolling_direction = 0
 
     # 플레이어 자동조종 AI: 키 입력을 가로채어 AI가 만든 입력으로 대체
     if player_ai_enabled:
@@ -28515,6 +28824,8 @@ def handle_player(keys):
         consecutive_discount = 0.5 ** max(0, next_consecutive - 1)
         discounted_cost = int(base_gauge_cost * consecutive_discount)
         discounted_cost = apply_dashgear_gauge_discount(discounted_cost)
+        if globals().get("selected_character_type") == "optimus":
+            discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
         battery_bonus = academy.get_skill_bonus("dash_battery_pack")
         required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))
         if special_gauge < required_gauge:
@@ -28693,6 +29004,15 @@ def handle_player(keys):
     # 키 입력 변수 초기화 (기본: 현재 스냅샷 keys)
     space_pressed_raw = keys[pygame.K_SPACE]
     down_pressed_raw = is_move_down_pressed(keys)
+    # IME 한글 모드에서 'ㄴ'(S 키 위치) 키코드가 get_pressed에 직접 노출될 때도 충전이 동작하도록 보조 체크
+    try:
+        hangul_down_codes = (0x3134, 0x1102)  # ㄴ, 초성 ㄴ
+        for code in hangul_down_codes:
+            if code < len(keys) and keys[code]:
+                down_pressed_raw = True
+                break
+    except Exception:
+        pass
     up_pressed_raw = is_move_up_pressed(keys)
     # 마우스 클릭을 스페이스/다운 상태로 항상 병합해 검출 (패키징 기본 스킴에서도 동작)
     try:
@@ -28785,6 +29105,10 @@ def handle_player(keys):
         MOVE_EVENT_DOWN = False
     if MOVE_EVENT_UP and not is_move_up_pressed(keys):
         MOVE_EVENT_UP = False
+    if optimus_drain_locked:
+        left_pressed_raw = False
+        right_pressed_raw = False
+        MOVE_EVENT_LEFT = MOVE_EVENT_RIGHT = False
     # 무기 HUD(↑ 홀드) 활성화 중에는 코만도 Space(좌클릭 병합 포함)를 무시해
     # HUD 클릭 선택 시 발사가 나가지 않도록 가드
     # (닫힘 억제 프레임은 연사(ak47) 홀드에 영향 주지 않도록 여기서는 고려하지 않음)
@@ -28798,6 +29122,7 @@ def handle_player(keys):
             f"sup={(soldier_weapon_menu_close_suppress_frames if 'soldier_weapon_menu_close_suppress_frames' in globals() else 0)}",
         )
     down_pressed = down_pressed_raw
+    _handle_optimus_manual_charge(pygame.time.get_ticks())
     
     # 물자보급 스킬 처리 (코만도 캐릭터 전용)
     
@@ -29295,7 +29620,9 @@ def handle_player(keys):
         player_burn_timer -= 1
         if player_burn_timer <= 0:
             player_burn_effect = False
+        _prev_center = PLAYER.centerx
         PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 화상 중에도 거대화포션 효과 적용
+        PLAYER.centerx = _prev_center  # 크기 변경 시에도 중심 유지해 강제 이동 방지
         return  # 화상 중에는 조작 불가
     
     # 넉백 Y 위치 복구 (화상이 아닐 때도 계속 적용)
@@ -29317,7 +29644,9 @@ def handle_player(keys):
             apply_fire_support_slot_restore()
         if soldier_control_lock_timer > 0:
             soldier_control_lock_timer = max(0, soldier_control_lock_timer - 1)
+        _prev_center = PLAYER.centerx
         PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 스턴 중에도 거대화포션 효과 적용
+        PLAYER.centerx = _prev_center
         return  #  스턴 중에는 조작 불가
     
     # serve_completed_timer는 프레임 초기에 감소 처리됨
@@ -29329,7 +29658,9 @@ def handle_player(keys):
         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
         # 감속 (화염탄과 동일한 0.85)
         player_missile_knockback_vel *= 0.85 * _get_knockback_resist_scale()
+        _prev_center = PLAYER.centerx
         PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 스턴 중에도 거대화포션 효과 적용
+        PLAYER.centerx = _prev_center
         return  # 넉백 중에는 조작 불가
     #  벽돌 설치 중에는 움직이지 못함
     if wall_installing:
@@ -29627,6 +29958,8 @@ def handle_player(keys):
                 consecutive_discount = 0.5 ** (next_consecutive_count - 1)  # 실제 대시에서 사용할 할인율
                 discounted_cost = int(base_gauge_cost * consecutive_discount)
                 discounted_cost = apply_dashgear_gauge_discount(discounted_cost)
+                if selected_character_type == "optimus":
+                    discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
                 # 좌/우는 컨트롤 스킴/IME 여부와 무관하게 인식 (스냅샷+이벤트+스캔코드)
@@ -30077,6 +30410,8 @@ def handle_player(keys):
                     discounted_cost = int(base_gauge_cost * consecutive_discount)
                     if dashgear_obtained:
                         discounted_cost = int(discounted_cost * 0.8)
+                    if selected_character_type == "optimus":
+                        discounted_cost = int(discounted_cost * 0.2)
                     battery_bonus = academy.get_skill_bonus("dash_battery_pack") if 'academy' in globals() else 0
                     required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))
 
@@ -30101,22 +30436,28 @@ def handle_player(keys):
                         #  아카데미 스킬 효과 계산: 도약 스킬 보너스
                         jump_bonus = academy.get_skill_bonus("dash_jump") if 'academy' in globals() else 0
 
-                        half_dash_state = {
-                            'special_gauge': special_gauge,
-                            'required_gauge': required_gauge,
-                            'rolling_charges': rolling_charges,
-                            'rolling_active': rolling_active,
-                            'rolling_stun_timer': rolling_stun_timer,
-                            'down_pressed': down_pressed,
-                            'keys': keys,
-                            # A/D 보조 키 플래그 (하프대쉬 방향 판단 보조)
-                            'left_key_alt': bool(keys[pygame.K_a]) or MOVE_EVENT_LEFT or is_move_left_pressed(keys),
-                            'right_key_alt': bool(keys[pygame.K_d]) or MOVE_EVENT_RIGHT or is_move_right_pressed(keys),
-                            'jump_bonus': jump_bonus,  # 도약 스킬 보너스 전달
-                            'dashgear_obtained': dashgear_obtained  # 대쉬기어 상태 전달
-                        }
+                        if optimus_drain_locked:
+                            half_dash_activated = False
+                            half_dash_direction = 0
+                            half_dash_timer = 0
+                            half_dash_token_cost = 0
+                        else:
+                            half_dash_state = {
+                                'special_gauge': special_gauge,
+                                'required_gauge': required_gauge,
+                                'rolling_charges': rolling_charges,
+                                'rolling_active': rolling_active,
+                                'rolling_stun_timer': rolling_stun_timer,
+                                'down_pressed': down_pressed,
+                                'keys': keys,
+                                # A/D 보조 키 플래그 (하프대쉬 방향 판단 보조)
+                                'left_key_alt': bool(keys[pygame.K_a]) or MOVE_EVENT_LEFT or is_move_left_pressed(keys),
+                                'right_key_alt': bool(keys[pygame.K_d]) or MOVE_EVENT_RIGHT or is_move_right_pressed(keys),
+                                'jump_bonus': jump_bonus,  # 도약 스킬 보너스 전달
+                                'dashgear_obtained': dashgear_obtained  # 대쉬기어 상태 전달
+                            }
 
-                        half_dash_activated, half_dash_direction, half_dash_timer, half_dash_token_cost = check_and_activate_half_dash(half_dash_state)
+                            half_dash_activated, half_dash_direction, half_dash_timer, half_dash_token_cost = check_and_activate_half_dash(half_dash_state)
 
                         if half_dash_activated:
                         # 하프 대쉬 발동
@@ -30299,13 +30640,15 @@ def handle_player(keys):
                 consecutive_discount = 0.5 ** (next_consecutive_count - 1)  # 실제 대시에서 사용할 할인율
                 discounted_cost = int(base_gauge_cost * consecutive_discount)
                 discounted_cost = apply_dashgear_gauge_discount(discounted_cost)
+                if selected_character_type == "optimus":
+                    discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
                 # A/D도 왼/오 입력으로 인정 (마우스+키보드 스킴 포함)
                 # 현재 방향키가 눌려 있고 ↓가 눌려 있으면 조합으로 인정한다.
                 left_before_down = (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
                 right_before_down = (is_move_right_pressed(keys) or MOVE_EVENT_RIGHT)
-                if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge:
+                if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge and not optimus_drain_locked:
                     # 아래키 + 왼쪽 - 대쉬 실행
                     rolling_active = True
                     # 디버그: 정규 대쉬(왼쪽) 발동 경로 기록
@@ -30456,6 +30799,8 @@ def handle_player(keys):
                     # 대쉬기어 효과: 게이지 소모 20% 감소
                     if dashgear_obtained:
                         discounted_cost = int(discounted_cost * 0.8)  # 20% 추가 할인
+                    if selected_character_type == "optimus":
+                        discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
                     # 아카데미 스킬 효과 적용: 게이지 소모 감소 (배터리팩)
                     battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                     final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))  # 최소 10은 소모
@@ -30475,7 +30820,7 @@ def handle_player(keys):
                         _rolling_get("rolling_charge_timer"),
                         _rolling_get("rolling_consecutive_count"),
                     )
-                elif right_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge:
+                elif right_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge and not optimus_drain_locked:
                     # 아래키 + 오른쪽 - 대쉬 실행
                     rolling_active = True
                     # 디버그: 정규 대쉬(오른쪽) 발동 경로 기록
@@ -30626,6 +30971,8 @@ def handle_player(keys):
                     # 대쉬기어 효과: 게이지 소모 20% 감소
                     if dashgear_obtained:
                         discounted_cost = int(discounted_cost * 0.8)  # 20% 추가 할인
+                    if selected_character_type == "optimus":
+                        discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
                     # 아카데미 스킬 효과 적용: 게이지 소모 감소 (배터리팩)
                     battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                     final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))  # 최소 10은 소모
@@ -30671,6 +31018,8 @@ def handle_player(keys):
             else:
                 base_max_speed = MAX_SPEED
             effective_max_speed = (base_max_speed + skill_speed_boost) * speed_multiplier
+            if selected_character_type == "optimus":
+                effective_max_speed *= get_optimus_gauge_ratio()
             # 일반 이동 키 처리 (키보드 + 마우스 조작 통합)
             # 후딜 상태에서는 일반 이동 불가 (더블대쉬 아이템 소지 시에도)
             # Stage 4 사원 파괴 애니메이션 중에도 이동 불가
@@ -31294,9 +31643,10 @@ def handle_player(keys):
     # 패들 크기 변화를 고려한 X 좌표 제한
     # 악마의 주사위 배율도 포함
     actual_paddle_width = int(PADDLE_WIDTH * long_boost_scale * devil_dice_paddle_multiplier)
+    _prev_center = PLAYER.centerx
+    PLAYER.width = actual_paddle_width  # 거대화포션 + 악마의 주사위 효과 적용
+    PLAYER.centerx = _prev_center  # 스케일 변화 시 좌우 중심 유지
     PLAYER.x = max(0, min(WIDTH - actual_paddle_width, PLAYER.x))
-    
-    PLAYER.width = int(PADDLE_WIDTH * long_boost_scale * devil_dice_paddle_multiplier)  # 거대화포션 + 악마의 주사위 효과 적용
     # (퍼펙트 타이밍 윈도우 감지 로직은 메인 루프로 이동)
     # 공 충돌 처리 - Aipill 활성화 시에는 모든 방향에서 감지, 비활성화 시에는 측면 충돌도 감지
     # 패들 끝부분 충돌을 위해 Y속도 조건 완화 - 공이 매우 빠르게 위로 가지 않는 한 모두 감지
@@ -32178,16 +32528,20 @@ def handle_player(keys):
 
             if DEBUG_HANDLE_PLAYER_VERBOSE:
                 print(f" DEBUG:  handle_player   ({total_gauge_gain})")
-            total_gauge_gain = _apply_blacksmith_berserk_gauge_bonus(total_gauge_gain)
-            old_gauge = special_gauge  # 이전 게이지 저장
-            special_gauge += total_gauge_gain
-            #  동적 최대치 제한 적용
-            current_max = get_max_gauge()
-            if special_gauge > current_max:
-                special_gauge = current_max
-            #  필살기 준비 상태 업데이트 (400 이상일 때)
-            if special_gauge >= 350:  # 파워스매시 발동 조건
-                special_ready = True
+            if selected_character_type == "optimus":
+                if DEBUG_HANDLE_PLAYER_VERBOSE:
+                    print(" DEBUG:  handle_player   (optimus - no gauge charge)")
+            else:
+                total_gauge_gain = _apply_blacksmith_berserk_gauge_bonus(total_gauge_gain)
+                old_gauge = special_gauge  # 이전 게이지 저장
+                special_gauge += total_gauge_gain
+                #  동적 최대치 제한 적용
+                current_max = get_max_gauge()
+                if special_gauge > current_max:
+                    special_gauge = current_max
+                #  필살기 준비 상태 업데이트 (400 이상일 때)
+                if special_gauge >= 350:  # 파워스매시 발동 조건
+                    special_ready = True
 
             # 충돌 쿨다운 설정하여 중복 충전 방지
             player_collision_cooldown = 15
@@ -40261,8 +40615,12 @@ def draw_player_gauge():
     # 필살기 게이지바 위치와 크기 - 엣지있는 주인공 스타일
     gauge_x = WIDTH - 40  # 오른쪽에서 40px
     gauge_y = HEIGHT - 200  # 하단에서 200px 위 (살짝 조정)
-    gauge_width = 14  # 더 얇게
+    gauge_width = 14  # 기본 두께
     gauge_height = 100  # 높이
+    if selected_character_type == "optimus":
+        gauge_width = 14  # 슬림하게
+        gauge_height = 118
+        gauge_x = WIDTH - 44
     # 플레이어 기본 게이지 좌표/크기 백업 (아이템 전용 게이지가 추가돼도 기준 위치 고정)
     player_gauge_x = gauge_x
     player_gauge_y = gauge_y
@@ -40327,6 +40685,41 @@ def draw_player_gauge():
 
         emblem_x = gauge_x + gauge_width // 2
         emblem_y = gauge_y - 38
+    elif selected_character_type == "optimus":
+        # 옵티머스 전용 프레임: 슬림 테슬라 플라즈마 셀
+        frame_outer = pygame.Rect(gauge_x - 6, gauge_y - 10, gauge_width + 12, gauge_height + 18)
+        draw.rect((8, 12, 20), frame_outer, border_radius=7)
+        # 이중 네온 링 (얇게)
+        draw.rect((60, 200, 255), frame_outer, 2, border_radius=7)
+        draw.rect((0, 255, 210), frame_outer.inflate(-3, -3), 1, border_radius=6)
+
+        # 내부 유리 챔버
+        chamber = pygame.Rect(gauge_x - 1, gauge_y - 1, gauge_width + 2, gauge_height + 2)
+        draw.rect((6, 10, 18), chamber, border_radius=6)
+        glass = pygame.Surface((chamber.width, chamber.height), pygame.SRCALPHA)
+        pygame.draw.rect(glass, (140, 240, 255, 35), (0, 0, chamber.width, chamber.height), border_radius=6)
+        pygame.draw.rect(glass, (90, 210, 255, 75), (2, 2, chamber.width - 4, chamber.height - 4), border_radius=5)
+        SCREEN.blit(glass, chamber.topleft)
+
+        # 상·하단 플라즈마 캐패시터 (슬림)
+        cap_h = 8
+        top_cap = pygame.Rect(gauge_x - 4, gauge_y - cap_h - 2, gauge_width + 8, cap_h)
+        bottom_cap = pygame.Rect(gauge_x - 4, gauge_y + gauge_height + 4, gauge_width + 8, cap_h)
+        for cap in (top_cap, bottom_cap):
+            draw.rect((12, 24, 36), cap, border_radius=3)
+            draw.rect((120, 235, 255), cap, 2, border_radius=3)
+
+        # 좌우 버스바 + 회로 패턴 (더 얇게)
+        bus_color = (110, 235, 255)
+        draw.rect(bus_color, (gauge_x - 5, gauge_y, 2, gauge_height), border_radius=2)
+        draw.rect(bus_color, (gauge_x + gauge_width + 3, gauge_y, 2, gauge_height), border_radius=2)
+        for i in range(5):
+            y = gauge_y + 10 + i * 22
+            draw.line(bus_color, (gauge_x - 7, y), (gauge_x - 2, y), 1)
+            draw.line(bus_color, (gauge_x + gauge_width + 2, y), (gauge_x + gauge_width + 7, y), 1)
+
+        emblem_x = gauge_x + gauge_width // 2
+        emblem_y = gauge_y - 34
     else:
         hex_top = [
             (gauge_x + gauge_width // 2, gauge_y - 10),
@@ -40432,6 +40825,10 @@ def draw_player_gauge():
             gauge_max=current_max_gauge,
             show_gauge_fx=True,
         )
+    elif selected_character_type == "optimus":
+        emblem_radius = OPTIMUS_EMBLEM_RADIUS
+        draw_optimus_emblem(SCREEN, emblem_x, emblem_y, emblem_radius,
+                            time_now, pulse_scale, rotation_angle, glow_intensity)
 
     else:
         # === 기존 스매셔 엠블럼 디자인 ===
@@ -40584,6 +40981,22 @@ def draw_player_gauge():
         for bx, by in bolt_positions:
             pygame.draw.circle(SCREEN, bolt_shadow, (bx, by), 3)
             pygame.draw.circle(SCREEN, bolt_color, (bx, by), 2)
+    elif selected_character_type == "optimus":
+        # 옵티머스 전용 프레임 하단 (네온 에너지 바)
+        base_rect = pygame.Rect(gauge_x - 3, gauge_y + gauge_height - 10, gauge_width + 6, 14)
+        draw.rect((14, 20, 32), base_rect, border_radius=5)
+        draw.rect((80, 200, 255), base_rect, 2, border_radius=5)
+        main_rect = pygame.Rect(gauge_x - 2, gauge_y, gauge_width + 4, gauge_height)
+        draw.rect((12, 18, 28), main_rect)
+        inner_rect = pygame.Rect(gauge_x, gauge_y + 2, gauge_width, gauge_height - 4)
+        draw.rect((8, 14, 24), inner_rect)
+        # 좌우 전기 회로 패턴
+        for i in range(4):
+            y = gauge_y + 12 + i * 20
+            draw.line((120, 235, 255), (gauge_x - 4, y), (gauge_x - 1, y), 1)
+            draw.line((120, 235, 255), (gauge_x + gauge_width + 1, y), (gauge_x + gauge_width + 4, y), 1)
+        center_x = gauge_x + gauge_width // 2
+        draw.line((60, 170, 255), (center_x, gauge_y + 6), (center_x, gauge_y + gauge_height - 6), 1)
     else:
         # 기존 스매셔 프레임 하단
         hex_bottom = [
@@ -40670,6 +41083,18 @@ def draw_player_gauge():
                     int(70 + pulse * 20)
                 )
                 energy_color = (255, 205, 130)
+        elif selected_character_type == "optimus":
+            # === 옵티머스 전용 게이지 색상 (네온 전기 계열) ===
+            if displayed_gauge < 150:
+                base_color = (40, 140, 200)
+                energy_color = (80, 210, 255)
+            elif displayed_gauge < 300:
+                base_color = (0, 190, 255)
+                energy_color = (120, 240, 255)
+            else:
+                pulse = abs(math.sin(time_now * 0.006))
+                base_color = (int(0 + pulse * 80), int(200 + pulse * 55), 255)
+                energy_color = (200, 255, 255)
         else:
             # === 기존 스매셔 게이지 색상 (전기/플라즈마 계열) ===
             if displayed_gauge < 150:
@@ -40710,24 +41135,64 @@ def draw_player_gauge():
             )
         # 메인 에너지 채우기
         fill_y = gauge_y + gauge_height - fill_height - 2
-        # 3층 레이어 구조
-        for layer in range(3):
-            layer_alpha = 255 - layer * 50
-            layer_width = gauge_width - 4 - layer * 2
-            if layer_width > 0:
-                for i in range(fill_height):
-                    # 펄스 효과
-                    pulse_offset = abs(math.sin((time_now * 0.003) + (i * 0.1)))
-                    if layer == 0:  # 코어 레이어
-                        color = energy_color
-                    elif layer == 1:  # 미들 레이어
-                        color = base_color
-                    else:  # 외곽 레이어
-                        color = tuple(int(c * 0.7) for c in base_color)
-                    # 색상에 펄스 적용
-                    final_color = tuple(min(255, int(c + pulse_offset * 20)) for c in color)
-                    draw.line(final_color, (gauge_x + 2 + layer, fill_y + i),
-                                   (gauge_x + 2 + layer_width, fill_y + i))
+
+        if selected_character_type == "optimus":
+            # 옵티머스 전용: 플라즈마 셀 내부 채움
+            tube_width = max(7, gauge_width - 3)
+            tube_x = gauge_x + (gauge_width - tube_width) // 2
+            plasma_surf = pygame.Surface((tube_width, fill_height), pygame.SRCALPHA)
+            for i in range(fill_height):
+                y = fill_height - 1 - i
+                wave = math.sin((time_now * 0.01) + y * 0.12) * 25
+                glow = max(0, min(80, 40 + wave))
+                c = (
+                    min(255, energy_color[0] + int(wave)),
+                    min(255, energy_color[1] + int(glow * 0.8)),
+                    energy_color[2]
+                )
+                pygame.draw.line(plasma_surf, c, (0, y), (tube_width, y))
+                if y % 12 == 0:
+                    pygame.draw.line(plasma_surf, (200, 255, 255, 120), (0, y), (tube_width, y), 1)
+            # 떠다니는 플라즈마 입자
+            particle_count = 6
+            for _ in range(particle_count):
+                py = random.randint(0, max(1, fill_height - 1))
+                px = random.randint(1, tube_width - 2)
+                alpha = 180 if displayed_gauge > current_max_gauge * 0.7 else 110
+                pygame.draw.circle(plasma_surf, (180, 255, 255, alpha), (px, py), 1)
+            SCREEN.blit(plasma_surf, (tube_x, fill_y))
+            # 사이드 버스바 및 전류 펄스
+            bus_color = (120, 235, 255)
+            draw.rect((20, 30, 45), (gauge_x - 5, gauge_y, 4, gauge_height), border_radius=2)
+            draw.rect((20, 30, 45), (gauge_x + gauge_width + 1, gauge_y, 4, gauge_height), border_radius=2)
+            draw.rect(bus_color, (gauge_x - 5, fill_y, 4, fill_height), border_radius=2)
+            draw.rect(bus_color, (gauge_x + gauge_width + 1, fill_y, 4, fill_height), border_radius=2)
+            pulse_y = fill_y + int((time_now * 0.15) % max(1, fill_height))
+            pygame.draw.line(SCREEN, (200, 255, 255), (gauge_x - 8, pulse_y), (gauge_x + gauge_width + 8, pulse_y), 2)
+            # 자기 코일 링
+            ring_spacing = 18
+            ring_color = (0, 255, 200, 90)
+            for r in range(0, fill_height, ring_spacing):
+                pygame.draw.rect(SCREEN, ring_color, (tube_x - 2, fill_y + r, tube_width + 4, 3), border_radius=2)
+        else:
+            # 기존 3층 레이어 구조
+            for layer in range(3):
+                layer_alpha = 255 - layer * 50
+                layer_width = gauge_width - 4 - layer * 2
+                if layer_width > 0:
+                    for i in range(fill_height):
+                        # 펄스 효과
+                        pulse_offset = abs(math.sin((time_now * 0.003) + (i * 0.1)))
+                        if layer == 0:  # 코어 레이어
+                            color = energy_color
+                        elif layer == 1:  # 미들 레이어
+                            color = base_color
+                        else:  # 외곽 레이어
+                            color = tuple(int(c * 0.7) for c in base_color)
+                        # 색상에 펄스 적용
+                        final_color = tuple(min(255, int(c + pulse_offset * 20)) for c in color)
+                        draw.line(final_color, (gauge_x + 2 + layer, fill_y + i),
+                                       (gauge_x + 2 + layer_width, fill_y + i))
         # 캐릭터별 발광 효과 (350 이상일 때)
         if displayed_gauge >= 350:
             if selected_character_type == "blacksmith":
@@ -40742,6 +41207,13 @@ def draw_player_gauge():
                         pygame.draw.line(SCREEN, (255, 160, 80),
                                          (ember_x, ember_y),
                                          (ember_x, max(gauge_y + 2, ember_y - trail_height)))
+            elif selected_character_type == "optimus":
+                spark_count = 3 if displayed_gauge < special_gauge_max else 6
+                for _ in range(spark_count):
+                    spark_y = fill_y + random.randint(0, max(1, fill_height) - 1)
+                    spark_x = gauge_x + random.randint(2, gauge_width - 2)
+                    jitter = random.randint(-3, 3)
+                    pygame.draw.line(SCREEN, (120, 235, 255), (spark_x, spark_y), (spark_x + jitter, spark_y - 5), 1)
             else:
                 spark_count = 2 if displayed_gauge < special_gauge_max else 4
                 spark_color = (220, 200, 120) if selected_character_type == "soldier" else WHITE
@@ -45372,11 +45844,6 @@ def draw_objects():
             pass
         
         draw_with_shake(player_to_draw, player_rect.topleft)
-
-    # 옵티머스 패들 히트박스 시각화
-    if selected_character_type == "optimus":
-        hitbox_color = (80, 255, 180)  # 네온 그린
-        draw_rect_with_shake(hitbox_color, PLAYER, width=2)
 
     if (
         DEBUG_DRAW_UMBRELLA_HITBOX
@@ -57149,56 +57616,10 @@ def show_character_selection():
                 pulse_scale = 1.0 + math.sin(time_now * 0.0035) * 0.12
                 rotation_angle = time_now * 0.0012
                 glow_intensity = abs(math.sin(time_now * 0.0024))
-                emblem_radius = 15
+                emblem_radius = OPTIMUS_EMBLEM_RADIUS
 
-                body_color = OPTIMUS_MECHA_PALETTE["body"]
-                accent = OPTIMUS_MECHA_PALETTE["accent"]
-                core = OPTIMUS_MECHA_PALETTE["hex_core"]
-                core_inner = OPTIMUS_MECHA_PALETTE["hex_core_inner"]
-                outline = OPTIMUS_MECHA_PALETTE["hex_border"]
-
-                # 사이언 글로우 링
-                for i in range(3):
-                    glow_radius = emblem_radius + (i + 1) * 2
-                    alpha = int(50 - i * 12) * glow_intensity
-                    glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
-                    pygame.draw.circle(
-                        glow_surface,
-                        (*accent, max(0, alpha)),
-                        (glow_radius + 2, glow_radius + 2),
-                        int(glow_radius * pulse_scale),
-                        2,
-                    )
-                    SCREEN.blit(glow_surface, (emblem_x - glow_radius - 2, emblem_y - glow_radius - 2))
-
-                # 육각 실드 베이스
-                hex_points = []
-                for i in range(6):
-                    ang = rotation_angle + i * math.pi / 3
-                    hx = emblem_x + math.cos(ang) * emblem_radius * 1.05 * pulse_scale
-                    hy = emblem_y + math.sin(ang) * emblem_radius * 0.95 * pulse_scale
-                    hex_points.append((hx, hy))
-                pygame.draw.polygon(SCREEN, body_color, hex_points)
-                pygame.draw.polygon(SCREEN, outline, hex_points, 2)
-
-                # 코어 에너지
-                pygame.draw.circle(SCREEN, core, (emblem_x, emblem_y), int(6 * pulse_scale))
-                pygame.draw.circle(SCREEN, core_inner, (emblem_x, emblem_y), int(3 * pulse_scale))
-
-                # 테슬라 아크 스파크
-                spark_count = 3
-                for i in range(spark_count):
-                    ang = rotation_angle * 1.7 + i * 2.094
-                    start_r = 4
-                    end_r = emblem_radius + 6
-                    sx = emblem_x + math.cos(ang) * start_r
-                    sy = emblem_y + math.sin(ang) * start_r
-                    mx = emblem_x + math.cos(ang) * ((start_r + end_r) / 2) + random.randint(-2, 2)
-                    my = emblem_y + math.sin(ang) * ((start_r + end_r) / 2) + random.randint(-2, 2)
-                    ex = emblem_x + math.cos(ang) * end_r
-                    ey = emblem_y + math.sin(ang) * end_r
-                    pygame.draw.lines(SCREEN, accent, False, [(sx, sy), (mx, my), (ex, ey)], 2)
-                    pygame.draw.circle(SCREEN, accent, (int(ex), int(ey)), 2)
+                draw_optimus_emblem(SCREEN, emblem_x, emblem_y, emblem_radius,
+                                    time_now, pulse_scale, rotation_angle, glow_intensity)
                     
             # 캐릭터 설명 (홀로그램 스타일) - 패널 중앙 배치
             desc_y = detail_y + detail_card_height//2  # 패널 중앙
@@ -57932,6 +58353,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         PADDLE_HEIGHT = OPTIMUS_PADDLE_BASE_HEIGHT
         apply_equipment_paddle_modifiers()
         align_player_to_floor()
+        reset_optimus_energy(full_gauge=True)
     else:
         selected_character_type = "normal"
 
@@ -68593,15 +69015,19 @@ def handle_ball():
                 whip_angle = 0
                 print("상모돌리기 종료 - 플레이어 패들 충돌")
             
-            total_gauge_gain = _apply_blacksmith_berserk_gauge_bonus(total_gauge_gain)
-            special_gauge += total_gauge_gain
-            #  동적 최대치 제한 적용
-            current_max = get_max_gauge()
-            if special_gauge > current_max:
-                special_gauge = current_max
-            #  필살기 준비 상태 업데이트 (400 이상일 때)
-            if special_gauge >= 350:  # 파워스매시 발동 조건
-                special_ready = True
+            if selected_character_type == "optimus":
+                if DEBUG_HANDLE_BALL_VERBOSE:
+                    print(" DEBUG:  handle_ball    (optimus - no gauge charge)")
+            else:
+                total_gauge_gain = _apply_blacksmith_berserk_gauge_bonus(total_gauge_gain)
+                special_gauge += total_gauge_gain
+                #  동적 최대치 제한 적용
+                current_max = get_max_gauge()
+                if special_gauge > current_max:
+                    special_gauge = current_max
+                #  필살기 준비 상태 업데이트 (400 이상일 때)
+                if special_gauge >= 350:  # 파워스매시 발동 조건
+                    special_ready = True
             # 충돌 쿨다운 설정
             player_collision_cooldown = 15
         else:
@@ -78838,6 +79264,9 @@ def show_character_info():
     font_body = FontStyle.body()  # 24pt
     font_small = FontStyle.small()  # 20pt
     font_tiny = FontStyle.tiny()  # 16pt
+    # 능력치 전용 폰트: 항목이 늘어나더라도 겹치지 않도록 10% 축소
+    stats_font = get_font(max(8, int(font_small.get_height() * 0.9)), style="regular")
+    stats_tiny_font = get_font(max(6, int(font_tiny.get_height() * 0.9)), style="regular")
     # 액티브/패시브 전용 축소 폰트 (-30%)
     item_font_small = get_font(max(10, int(18 * 0.7)), style="regular")
     item_font_tiny = get_font(max(8, int(12 * 0.7)), style="regular")
@@ -79399,6 +79828,8 @@ def show_character_info():
         except Exception:
             skill_speed_boost = 0.0
         move_speed = (base_max_speed + skill_speed_boost) * speed_multiplier
+        if char_type == "optimus":
+            move_speed *= get_optimus_gauge_ratio()
 
         def estimate_dash_distance(base_timer: float) -> float:
             """대쉬 타이머(프레임)로 예상 이동거리를 근사한다."""
@@ -79579,6 +80010,8 @@ def show_character_info():
             consecutive_discount = 0.5 ** max(0, consecutive_count)
             current_cost = int(current_cost * consecutive_discount)
             current_cost = apply_dashgear_gauge_discount(current_cost)
+            if char_type == "optimus":
+                current_cost = int(current_cost * 0.2)  # 80% 할인 적용
             try:
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
             except Exception:
@@ -79607,6 +80040,7 @@ def show_character_info():
             fps_value = float(globals().get("FPS", 60) or 60)
             return base_frames / fps_value, current_frames / fps_value
         dash_cd_base_s, dash_cd_now_s = compute_dash_cooldown_seconds()
+        dash_cost_ratio = dash_cost_now / dash_cost_base if dash_cost_base else 1.0
 
         stats = [
             {
@@ -79651,6 +80085,14 @@ def show_character_info():
                 "current": dash_cd_now_s,
                 "max_hint": 2.5,
                 "unit": "초",
+                "higher_is_better": False,
+            },
+            {
+                "label": "대쉬비용",
+                "base": 1.0,
+                "current": dash_cost_ratio,
+                "max_hint": 2.0,
+                "unit": "x",
                 "higher_is_better": False,
             },
             {
@@ -79707,7 +80149,7 @@ def show_character_info():
             pygame.draw.line(SCREEN, (90, 110, 150), (center_x, center_y), (ax, ay), 1)
             # 라벨
             label = stat["label"]
-            label_surface = font_tiny.render(label, True, WHITE)
+            label_surface = stats_tiny_font.render(label, True, WHITE)
             label_rect = label_surface.get_rect(center=(center_x + math.cos(angle) * (radius + 18),
                                                         center_y + math.sin(angle) * (radius + 18)))
             SCREEN.blit(label_surface, label_rect)
@@ -79899,11 +80341,12 @@ def show_character_info():
 
         draw.rect((28, 32, 52), stats_area, 0, 10)
         draw.rect((90, 130, 200), stats_area, 2, 10)
-        stats_title = font_small.render("능력치", True, WHITE)
+        stats_title = stats_font.render("능력치", True, WHITE)
         SCREEN.blit(stats_title, (stats_area.x + 12, stats_area.y + 8))
         line_y = stats_area.y + 30
+        line_gap = max(18, int(24 * 0.9))
         for stat in stats_list:
-            label_surface = font_small.render(stat["label"], True, (200, 210, 230))
+            label_surface = stats_font.render(stat["label"], True, (200, 210, 230))
             base = stat["base"]
             current = stat["current"]
             higher_better = stat.get("higher_is_better", True)
@@ -79924,10 +80367,10 @@ def show_character_info():
                 else:
                     inc_text = f"{delta:+.0f}" if unit else f"{delta:+.0f}"
                 value_text += f" ({inc_text})"
-            value_surface = font_small.render(value_text, True, value_color)
+            value_surface = stats_font.render(value_text, True, value_color)
             SCREEN.blit(label_surface, (stats_area.x + 14, line_y))
             SCREEN.blit(value_surface, (stats_area.right - value_surface.get_width() - 14, line_y))
-            line_y += 24
+            line_y += line_gap
 
         # 인벤토리 영역 (상단 액티브 1줄 + 패시브 2줄 스크롤)
         active_hover, active_rects = draw_active_row(
@@ -82189,6 +82632,13 @@ def show_quick_character_selection():
             "color": (150, 110, 60),
             "stats": "속도 5 | 파워 7 | 방어 5",
         },
+        {
+            "id": "optimus",
+            "name": "옵티머스",
+            "desc": "테슬라 전기 충격과 네온 드라이브",
+            "color": (120, 235, 255),
+            "stats": "속도 5 | 파워 7 | 방어 5",
+        },
     ]
 
     selected_index = 0
@@ -82197,37 +82647,65 @@ def show_quick_character_selection():
     font_small = get_font(18)
     clock = pygame.time.Clock()
 
-    layout_margin = 80
-    min_card_width = 150
+    # 레이아웃을 화면 크기에 맞게 자동 조정 (여러 줄 그리드 지원)
+    layout_margin_x = 50
+    layout_margin_top = 140
+    layout_margin_bottom = 110
+    min_card_width = 120
     max_card_width = 210
-    desired_card_spacing = 48
-    min_card_spacing = 24
+    aspect_ratio = 1.05
+    min_spacing_x = 16
+    max_spacing_x = 32
+    min_spacing_y = 18
+    max_spacing_y = 32
 
     card_count = len(characters)
-    card_width = max_card_width
-    card_spacing = desired_card_spacing if card_count > 1 else 0
+    max_cols = min(card_count, 4)
+    available_width = WIDTH - layout_margin_x * 2
+    available_height = HEIGHT - layout_margin_top - layout_margin_bottom
 
-    available_width = WIDTH - layout_margin * 2
-    total_width = card_count * card_width + (card_count - 1) * card_spacing
+    best_layout = None
+    for cols in range(max_cols, 0, -1):
+        rows = math.ceil(card_count / cols)
+        # 최소 간격 기준으로 우선 폭을 할당해 본다.
+        card_width = min(
+            max_card_width,
+            int((available_width - (cols - 1) * min_spacing_x) // cols),
+        )
+        card_width = max(min_card_width, card_width)
+        spacing_x = 0 if cols == 1 else max(
+            min_spacing_x,
+            min(
+                max_spacing_x,
+                (available_width - card_width * cols) // (cols - 1),
+            ),
+        )
+        total_width = card_width * cols + spacing_x * (cols - 1)
+        card_height = int(card_width * aspect_ratio)
+        spacing_y = max(min_spacing_y, min(max_spacing_y, int(card_height * 0.12)))
+        total_height = card_height * rows + spacing_y * (rows - 1)
+        if total_width <= available_width and total_height <= available_height:
+            best_layout = (cols, rows, card_width, card_height, spacing_x, spacing_y)
+            break
 
-    while total_width > available_width and (card_width > min_card_width or (card_spacing > min_card_spacing and card_count > 1)):
-        if card_width > min_card_width:
-            card_width -= 5
-        elif card_count > 1 and card_spacing > min_card_spacing:
-            card_spacing -= 2
-        total_width = card_count * card_width + (card_count - 1) * card_spacing
-
-    if card_count > 1:
-        remaining_width = available_width - (card_count * card_width)
-        if remaining_width > 0:
-            card_spacing = max(min_card_spacing, min(desired_card_spacing, remaining_width // (card_count - 1)))
+    if best_layout is None:
+        # 최악의 경우라도 카드가 영역을 벗어나지 않도록 최소폭으로 2열 배치
+        cols = min(card_count, 2)
+        rows = math.ceil(card_count / cols)
+        card_width = max(
+            min_card_width,
+            int((available_width - (cols - 1) * min_spacing_x) // cols),
+        )
+        spacing_x = 0 if cols == 1 else min_spacing_x
+        card_height = int(card_width * aspect_ratio)
+        spacing_y = min_spacing_y
     else:
-        card_spacing = 0
+        cols, rows, card_width, card_height, spacing_x, spacing_y = best_layout
 
-    total_width = card_count * card_width + (card_count - 1) * card_spacing
-    start_x = max(layout_margin, (WIDTH - total_width) // 2)
-    card_height = max(220, int(card_width * 1.05))
-    card_y = 170
+    grid_width = card_width * cols + spacing_x * (cols - 1)
+    grid_height = card_height * rows + spacing_y * (rows - 1)
+    start_x = (WIDTH - grid_width) // 2
+    grid_top = layout_margin_top + max(0, (available_height - grid_height) // 2)
 
     while True:
         clock.tick(60)
@@ -82239,7 +82717,13 @@ def show_quick_character_selection():
         SCREEN.blit(title_surface, title_rect)
 
         for idx, char in enumerate(characters):
-            card_x = start_x + idx * (card_width + card_spacing)
+            row = idx // cols
+            col = idx % cols
+            items_in_row = cols if row < rows - 1 else max(1, card_count - row * cols)
+            row_width = card_width * items_in_row + spacing_x * (items_in_row - 1)
+            row_start_x = (WIDTH - row_width) // 2
+            card_x = row_start_x + col * (card_width + spacing_x)
+            card_y = grid_top + row * (card_height + spacing_y)
             card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
             is_selected = idx == selected_index
 
@@ -82259,6 +82743,7 @@ def show_quick_character_selection():
             pygame.draw.rect(SCREEN, border_color, card_rect, width=3 if is_selected else 1, border_radius=14)
 
             # 캐릭터 프리뷰 이미지 (인게임 크기 기준)
+            preview_top = card_rect.y + max(12, int(card_height * 0.08))
             preview_img = build_character_preview_surface(
                 char["id"],
                 scale=1.0,
@@ -82266,35 +82751,46 @@ def show_quick_character_selection():
                 max_height=int(card_height * 0.42),
             )
             if preview_img.get_width() > 0:
-                preview_rect = preview_img.get_rect(midtop=(card_rect.centerx, card_rect.y + 24))
+                preview_rect = preview_img.get_rect(midtop=(card_rect.centerx, preview_top))
                 SCREEN.blit(preview_img, preview_rect)
             else:
-                preview_rect = pygame.Rect(card_rect.centerx, card_rect.y + 24, 0, 0)
+                preview_rect = pygame.Rect(card_rect.centerx, preview_top, 0, 0)
 
             # 이름
             name_surface = font_body.render(char["name"], True, WHITE)
-            name_rect = name_surface.get_rect(center=(card_rect.centerx, preview_rect.bottom + 20))
+            name_gap = max(10, int(card_height * 0.06))
+            name_rect = name_surface.get_rect(center=(card_rect.centerx, preview_rect.bottom + name_gap))
             SCREEN.blit(name_surface, name_rect)
 
             # 설명 (두 줄 처리)
             desc_lines = char["desc"].split('\n')
-            desc_start_y = name_rect.bottom + 16
+            desc_start_y = name_rect.bottom + max(8, int(card_height * 0.05))
+            max_desc_bottom = card_rect.bottom - max(30, int(card_height * 0.14))
+            desc_line_spacing = max(18, int(card_height * 0.08))
             for line_idx, line in enumerate(desc_lines):
+                line_y = desc_start_y + line_idx * desc_line_spacing
+                if line_y > max_desc_bottom:
+                    break
                 desc_surface = font_small.render(line, True, (220, 220, 220))
-                desc_rect = desc_surface.get_rect(center=(card_rect.centerx, desc_start_y + line_idx * 22))
+                desc_rect = desc_surface.get_rect(center=(card_rect.centerx, line_y))
                 SCREEN.blit(desc_surface, desc_rect)
 
             # 능력치 요약
             stat_surface = font_small.render(char["stats"], True, (200, 200, 200))
-            stat_rect = stat_surface.get_rect(center=(card_rect.centerx, card_rect.bottom - 32))
+            stat_rect = stat_surface.get_rect(
+                center=(
+                    card_rect.centerx,
+                    card_rect.bottom - max(20, int(card_height * 0.12)),
+                )
+            )
             SCREEN.blit(stat_surface, stat_rect)
 
         # 방향키 안내 아이콘
         pygame.event.pump()
         keys = pygame.key.get_pressed()
-        arrow_y = card_y + card_height // 2
-        left_center_x = max(70, start_x - 60)
-        right_center_x = min(WIDTH - 70, start_x + total_width + 60)
+        arrow_y = grid_top + grid_height // 2
+        left_center_x = max(70, start_x - 50)
+        right_center_x = min(WIDTH - 70, start_x + grid_width + 50)
 
         def draw_direction_indicator(center_x: int, direction: str, *, enabled: bool, pressed: bool) -> None:
             center = (center_x, arrow_y)
@@ -82389,7 +82885,13 @@ def show_quick_character_selection():
                 elif event.button == 1:
                     mx, my = pygame.mouse.get_pos()
                     for idx in range(len(characters)):
-                        card_x = start_x + idx * (card_width + card_spacing)
+                        row = idx // cols
+                        col = idx % cols
+                        items_in_row = cols if row < rows - 1 else max(1, card_count - row * cols)
+                        row_width = card_width * items_in_row + spacing_x * (items_in_row - 1)
+                        row_start_x = (WIDTH - row_width) // 2
+                        card_x = row_start_x + col * (card_width + spacing_x)
+                        card_y = grid_top + row * (card_height + spacing_y)
                         card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
                         if card_rect.collidepoint(mx, my):
                             selected_index = idx
@@ -82419,6 +82921,8 @@ def apply_character_selection(character_id):
     # 패들 크기 변경 시 실제 히트박스에 반영
     apply_equipment_paddle_modifiers()
     align_player_to_floor()
+    if selected_character_type == "optimus":
+        reset_optimus_energy(full_gauge=True)
     return selected_character_type
 
 

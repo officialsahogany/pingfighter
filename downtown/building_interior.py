@@ -1084,7 +1084,7 @@ INTERIOR_CONFIGS = {
             ]
         },
         "customer_range": (0, 0),  # 고객 없음
-        "staff_count": 1,  # 로봇 1대 (데스크 뒤에 추가 로봇은 장식으로)
+        "staff_count": 0,  # 메인 NPC만 (로봇지점장)
         "special_interior": "bank",  # 특수 인테리어 플래그
     },
     BuildingType.GACHA: {

@@ -2710,9 +2710,43 @@ class AngelBlessing(LegendaryItem):
         self.animation_speed = 8  # 라그나로크 해머와 동일
         self._load_animation_frames()
 
+    def activate(self, game_state: Dict):
+        """장착/획득 시 즉시 현재 스테이지에 맞춰 주사위 굴림."""
+        super().activate(game_state)
+        stage = None
+        try:
+            stage = int(game_state.get("current_stage")) if isinstance(game_state, dict) else None
+        except Exception:
+            stage = game_state.get("current_stage") if isinstance(game_state, dict) else None
+        if stage is None:
+            stage = self._get_current_stage()
+        if stage is not None and stage != self.applied_stage:
+            self._roll_blessing(stage)
+
+    # ------------------------------------------------------------------ #
+    # Helpers
+    # ------------------------------------------------------------------ #
+    def _get_current_stage(self) -> Optional[int]:
+        """pingfighter 전역(current_stage) 우선 조회 후, 로컬 globals fallback."""
+        import sys
+        pf = sys.modules.get("pingfighter")
+        if pf is not None and hasattr(pf, "current_stage"):
+            try:
+                return int(getattr(pf, "current_stage"))
+            except Exception:
+                return getattr(pf, "current_stage", None)
+        return globals().get("current_stage", None)
+
     def _set_global_multiplier(self, key: str, value: float):
-        """글로벌 배율 세터 (존재하지 않아도 안전하게)"""
+        """글로벌 배율 세터 (핑파이터 전역까지 동기화)"""
         globals()[key] = value
+        try:
+            import sys
+            pf = sys.modules.get("pingfighter")
+            if pf is not None:
+                setattr(pf, key, value)
+        except Exception:
+            pass
 
     def _reset_globals(self):
         """적용된 버프에 따른 전역 배율 복구"""
@@ -2724,7 +2758,14 @@ class AngelBlessing(LegendaryItem):
             academy.ANGEL_ITEM_COOLDOWN_MULTIPLIER = 1.0
         self._set_global_multiplier("ANGEL_PADDLE_SCALE", 1.0)
         self._set_global_multiplier("ANGEL_GAUGE_MULT", 1.0)
-        prev_speed_mult = globals().get("ANGEL_SPEED_MULT", 1.0)
+        import sys
+        pf = sys.modules.get("pingfighter")
+        prev_speed_mult = (
+            getattr(pf, "ANGEL_SPEED_MULT", None)
+            if pf is not None else None
+        )
+        if prev_speed_mult is None:
+            prev_speed_mult = globals().get("ANGEL_SPEED_MULT", 1.0)
         self._set_global_multiplier("ANGEL_SPEED_MULT", 1.0)
         try:
             import dash_manager
@@ -2733,19 +2774,41 @@ class AngelBlessing(LegendaryItem):
         except Exception:
             pass
         # 이동 속도 복구
-        if "PLAYER_SPEED" in globals() and prev_speed_mult != 0:
-            globals()["PLAYER_SPEED"] = globals().get("PLAYER_SPEED", 1.0) / prev_speed_mult
+        if prev_speed_mult not in (0, None):
+            if pf is not None and hasattr(pf, "PLAYER_SPEED"):
+                pf.PLAYER_SPEED = getattr(pf, "PLAYER_SPEED", 1.0) / prev_speed_mult
+            elif "PLAYER_SPEED" in globals():
+                globals()["PLAYER_SPEED"] = globals().get("PLAYER_SPEED", 1.0) / prev_speed_mult
         # 게이지 재계산
         try:
-            if "get_max_gauge" in globals():
-                globals()["special_gauge_max"] = get_max_gauge()
-                globals()["special_gauge"] = min(globals().get("special_gauge", 0), globals()["special_gauge_max"])
+            calc_max = None
+            if pf is not None and hasattr(pf, "get_max_gauge"):
+                calc_max = pf.get_max_gauge
+            elif "get_max_gauge" in globals():
+                calc_max = get_max_gauge  # type: ignore[name-defined]
+            if calc_max:
+                max_g = calc_max()
+                if pf is not None:
+                    pf.special_gauge_max = max_g
+                    pf.special_gauge = min(getattr(pf, "special_gauge", 0), max_g)
+                else:
+                    globals()["special_gauge_max"] = max_g
+                    globals()["special_gauge"] = min(globals().get("special_gauge", 0), max_g)
         except Exception:
             pass
         # 패들 스케일 재적용
         try:
-            if "set_paddle_scale" in globals() and "CURRENT_PADDLE_EFFECTIVE_SCALE" in globals():
-                set_paddle_scale(globals()["CURRENT_PADDLE_EFFECTIVE_SCALE"])
+            current_scale = None
+            if pf is not None and hasattr(pf, "CURRENT_PADDLE_EFFECTIVE_SCALE"):
+                current_scale = getattr(pf, "CURRENT_PADDLE_EFFECTIVE_SCALE", None)
+            elif "CURRENT_PADDLE_EFFECTIVE_SCALE" in globals():
+                current_scale = globals()["CURRENT_PADDLE_EFFECTIVE_SCALE"]
+
+            if current_scale is not None:
+                if pf is not None and hasattr(pf, "set_paddle_scale"):
+                    pf.set_paddle_scale(current_scale)
+                elif "set_paddle_scale" in globals():
+                    set_paddle_scale(current_scale)  # type: ignore[name-defined]
         except Exception:
             pass
 
@@ -2753,15 +2816,46 @@ class AngelBlessing(LegendaryItem):
         """선택된 버프 적용"""
         import items
         import academy
+        import sys
+        pf = sys.modules.get("pingfighter")
         if buff == "paddle_size":
             self._set_global_multiplier("ANGEL_PADDLE_SCALE", 1.5)
-            if "set_paddle_scale" in globals() and "CURRENT_PADDLE_EFFECTIVE_SCALE" in globals():
-                set_paddle_scale(globals()["CURRENT_PADDLE_EFFECTIVE_SCALE"])
+            try:
+                current_scale = None
+                if pf is not None and hasattr(pf, "CURRENT_PADDLE_EFFECTIVE_SCALE"):
+                    current_scale = getattr(pf, "CURRENT_PADDLE_EFFECTIVE_SCALE", None)
+                elif "CURRENT_PADDLE_EFFECTIVE_SCALE" in globals():
+                    current_scale = globals()["CURRENT_PADDLE_EFFECTIVE_SCALE"]
+                if current_scale is not None:
+                    if pf is not None and hasattr(pf, "set_paddle_scale"):
+                        pf.set_paddle_scale(current_scale)
+                    elif "set_paddle_scale" in globals():
+                        set_paddle_scale(current_scale)  # type: ignore[name-defined]
+                # 패들 배율 변경 후 즉시 재계산
+                if pf is not None and hasattr(pf, "apply_equipment_paddle_modifiers"):
+                    pf.apply_equipment_paddle_modifiers()
+                elif "apply_equipment_paddle_modifiers" in globals():
+                    apply_equipment_paddle_modifiers()  # type: ignore[name-defined]
+            except Exception:
+                pass
         elif buff == "gauge_max":
             self._set_global_multiplier("ANGEL_GAUGE_MULT", 1.5)
-            if "get_max_gauge" in globals():
-                globals()["special_gauge_max"] = get_max_gauge()
-                globals()["special_gauge"] = min(globals().get("special_gauge", 0), globals()["special_gauge_max"])
+            try:
+                calc_max = None
+                if pf is not None and hasattr(pf, "get_max_gauge"):
+                    calc_max = pf.get_max_gauge
+                elif "get_max_gauge" in globals():
+                    calc_max = get_max_gauge  # type: ignore[name-defined]
+                if calc_max:
+                    max_g = calc_max()
+                    if pf is not None:
+                        pf.special_gauge_max = max_g
+                        pf.special_gauge = min(getattr(pf, "special_gauge", 0), max_g)
+                    else:
+                        globals()["special_gauge_max"] = max_g
+                        globals()["special_gauge"] = min(globals().get("special_gauge", 0), max_g)
+            except Exception:
+                pass
         elif buff == "item_spawn":
             if hasattr(items, "LEGENDARY_ITEM_SPAWN_MULT"):
                 items.LEGENDARY_ITEM_SPAWN_MULT = 1.5
@@ -2782,11 +2876,18 @@ class AngelBlessing(LegendaryItem):
             except Exception:
                 pass
         elif buff == "move_speed":
-            if "PLAYER_SPEED" in globals():
-                base = globals().get("PLAYER_SPEED", 1.0)
-                # 적용 전 기존 배율을 별도 변수에 두지 않고 단순 곱 (단계별 재적용 방지 위해 ANGEL_SPEED_MULT 사용)
+            base_speed = None
+            if pf is not None and hasattr(pf, "PLAYER_SPEED"):
+                base_speed = getattr(pf, "PLAYER_SPEED", 1.0)
+            elif "PLAYER_SPEED" in globals():
+                base_speed = globals().get("PLAYER_SPEED", 1.0)
+
+            if base_speed is not None:
                 self._set_global_multiplier("ANGEL_SPEED_MULT", 1.5)
-                globals()["PLAYER_SPEED"] = base * 1.5
+                if pf is not None and hasattr(pf, "PLAYER_SPEED"):
+                    pf.PLAYER_SPEED = base_speed * 1.5
+                else:
+                    globals()["PLAYER_SPEED"] = base_speed * 1.5
 
     def deactivate(self):
         super().deactivate()
@@ -2797,6 +2898,11 @@ class AngelBlessing(LegendaryItem):
     def _roll_blessing(self, current_stage: int):
         """주사위 굴림 및 버프 적용"""
         import random
+        if self.applied_stage == current_stage:
+            return
+        debug = os.environ.get("PINGF_DEBUG_ANGEL", "0") == "1"
+        if debug:
+            print(f"[AngelBlessing][DEBUG] roll start (stage={current_stage})")
         self._reset_globals()
         dice_face = random.choice([1, 2, 3])
         # 옵션 중 복원 없는 랜덤 샘플
@@ -2809,7 +2915,10 @@ class AngelBlessing(LegendaryItem):
         # 버프 적용
         for buff in selected:
             self._apply_buff(buff)
-        print(f"[AngelBlessing] Stage {current_stage} 주사위 {dice_face} → {selected}")
+        if debug:
+            print(f"[AngelBlessing][DEBUG] Stage {current_stage} 주사위 {dice_face} → {selected}")
+        else:
+            print(f"[AngelBlessing] Stage {current_stage} 주사위 {dice_face} → {selected}")
 
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
@@ -2819,7 +2928,7 @@ class AngelBlessing(LegendaryItem):
             if self.roll_timer >= self.roll_anim_duration:
                 self.roll_anim_active = False
         # 스테이지 변경 감지 (게임 로직용)
-        current_stage = globals().get("current_stage", None)
+        current_stage = self._get_current_stage()
         if not ui_mode and current_stage is not None and current_stage != self.applied_stage:
             self._roll_blessing(current_stage)
 
@@ -3052,6 +3161,13 @@ class AngelBlessing(LegendaryItem):
             self.current_frame = (self.current_frame + 1) % 8
 
         self.particle_timer = 0
+
+        # 스테이지 변경 시 자동 주사위 굴림(게임 진행 모드에서만)
+        current_stage = self._get_current_stage()
+        if not ui_mode and current_stage is not None and current_stage != self.applied_stage:
+            if os.environ.get("PINGF_DEBUG_ANGEL", "0") == "1":
+                print(f"[AngelBlessing][DEBUG] stage change detected: prev={self.applied_stage}, now={current_stage}")
+            self._roll_blessing(current_stage)
 
 
 class EmptyLegendarySlot(LegendaryItem):
@@ -3439,17 +3555,27 @@ class LegendaryItemManager:
         """아이템 활성화"""
         if name in PLACEHOLDER_LEGENDARY_NAMES:
             return
-        print(f"🎮 activate_item 호출: name={name}")
-        print(f"   - items에 있음: {name in self.items}")
-        print(f"   - unlocked_items에 있음: {name in self.unlocked_items}")
-        print(f"   - unlocked_items: {self.unlocked_items}")
-        
         if name in self.items:
             # 아이템이 해금되지 않았으면 자동으로 해금
             if name not in self.unlocked_items:
                 print(f"   ⚠️ {name}이 unlocked_items에 없음! 자동 추가")
                 self.unlocked_items.append(name)
                 self.items[name].unlocked = True
+
+            # 이미 활성 상태이면 재활성화 스킵 (force 플래그로 무시 가능)
+            force = False
+            try:
+                force = bool(game_state.get("_force_reactivate", False))
+            except Exception:
+                force = False
+            if name in self.active_items and not force:
+                return
+
+            # 디버그 출력은 실제 활성화 시점에만
+            print(f"🎮 activate_item 호출: name={name}")
+            print(f"   - items에 있음: {name in self.items}")
+            print(f"   - unlocked_items에 있음: {name in self.unlocked_items}")
+            print(f"   - unlocked_items: {self.unlocked_items}")
             
             item = self.items[name]
             item.activate(game_state)
