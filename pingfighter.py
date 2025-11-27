@@ -28595,8 +28595,8 @@ def handle_player(keys):
     ball_y = ball_centery
 
     # 옵티머스 수동 충전 (↓ 키 길게 누름)
-    def _handle_optimus_manual_charge(now_ms: int) -> None:
-        """옵티머스 전용: ↓키 홀드로 게이지 충전."""
+    def _handle_optimus_manual_charge(now_ms: int, down_held: bool) -> None:
+        """옵티머스 전용: ↓키(또는 한글 'ㄴ') 홀드로 게이지 충전."""
         global optimus_charge_active, optimus_charge_hold_ms
         global optimus_charge_last_update_ms, optimus_charge_anim_tick_ms
         if selected_character_type != "optimus":
@@ -28616,7 +28616,7 @@ def handle_player(keys):
             optimus_charge_hold_ms = 0
             return
 
-        if down_pressed:
+        if down_held:
             if optimus_charge_last_update_ms == 0:
                 optimus_charge_last_update_ms = now_ms
             delta = now_ms - optimus_charge_last_update_ms
@@ -28631,7 +28631,7 @@ def handle_player(keys):
             optimus_charge_hold_ms = 0
             optimus_charge_last_update_ms = now_ms
 
-        if optimus_charge_active and down_pressed:
+        if optimus_charge_active and down_held:
             elapsed = now_ms - optimus_charge_last_update_ms
             if elapsed > 0:
                 charge_gain = OPTIMUS_CHARGE_RATE_PER_SEC * (elapsed / 1000.0)
@@ -28659,6 +28659,20 @@ def handle_player(keys):
                 except Exception:
                     pass
                 optimus_charge_anim_tick_ms = now_ms
+        # 디버그: 충전 입력 및 차단 사유 로깅 (환경변수 PINGF_CHARGE_DEBUG=1)
+        if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off"):
+            print(
+                "[OPT_CHARGE_DEBUG]"
+                f" down={down_held}"
+                f" active={optimus_charge_active}"
+                f" drained={globals().get('optimus_drained', False)}"
+                f" rolling={rolling_active}"
+                f" stun={rolling_stun_timer>0 or player_stunned}"
+                f" serve_wait={is_waiting_for_serve}"
+                f" long_boost={long_boost_active}"
+                f" gauge={special_gauge:.1f}/{get_max_gauge():.1f}"
+                f" hold_ms={optimus_charge_hold_ms}"
+            )
 
     # 화기 교체 쿨다운 감소
     if soldier_controller.switch_cooldown > 0:
@@ -29258,7 +29272,7 @@ def handle_player(keys):
             f"sup={(soldier_weapon_menu_close_suppress_frames if 'soldier_weapon_menu_close_suppress_frames' in globals() else 0)}",
         )
     down_pressed = down_pressed_raw
-    _handle_optimus_manual_charge(pygame.time.get_ticks())
+    _handle_optimus_manual_charge(pygame.time.get_ticks(), down_pressed)
     
     # 물자보급 스킬 처리 (코만도 캐릭터 전용)
     

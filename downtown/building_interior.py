@@ -2004,10 +2004,10 @@ class BuildingInterior:
         # 상단 타이틀 바
         pygame.draw.rect(screen, (25, 35, 50), (x + 4, y + 4, board_w - 8, 14), border_radius=3)
 
-        # 타이틀 텍스트 "INTEREST"
+        # 타이틀 텍스트 "이자율"
         font_small = self.fonts.get('small')
         if font_small:
-            title_surf, title_rect = font_small.render("INTEREST", GOLD_COLOR)
+            title_surf, title_rect = font_small.render("이자율", GOLD_COLOR)
             screen.blit(title_surf, (x + board_w // 2 - title_rect.width // 2, y + 5))
 
         # LED 글로우 효과

@@ -2958,14 +2958,13 @@ class AngelBlessing(LegendaryItem):
             self._generate_dice_frames()
 
     def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
-        """프레임에서 중앙 망치/번개 콘텐츠만 제거하고 테두리/배경 효과 유지"""
+        """프레임에서 중앙 망치/번개/손잡이 콘텐츠 모두 제거하고 테두리/배경 효과만 유지"""
         result = frame.copy()
         width, height = frame.get_size()
         cx, cy = width // 2, height // 2
 
         # 중앙 영역 반경 (테두리 제외한 내부 콘텐츠 영역)
-        # 60x60 기준으로 테두리가 약 8-10px 정도이므로 중앙 약 35px 반경 내부 제거
-        inner_radius = min(width, height) * 0.42  # 중앙 콘텐츠 영역
+        inner_radius = min(width, height) * 0.42
 
         for py in range(height):
             for px in range(width):
@@ -2984,8 +2983,16 @@ class AngelBlessing(LegendaryItem):
                     # 어두운 배경도 유지
                     is_dark_bg = (color.r < 60 and color.g < 60 and color.b < 80)
 
-                    # 파란색 배경이나 어두운 배경이 아니면 제거 (망치/번개)
+                    # 갈색 손잡이도 제거 (갈색 계열 감지)
+                    is_brown_handle = (color.r > 80 and color.r < 200 and
+                                       color.g > 40 and color.g < 140 and
+                                       color.b < 100)
+
+                    # 파란색 배경이나 어두운 배경이 아니면 모두 제거 (망치/번개/손잡이)
                     if not is_blue_bg and not is_dark_bg:
+                        result.set_at((px, py), (0, 0, 0, 0))
+                    # 갈색 손잡이는 명시적으로 제거
+                    elif is_brown_handle:
                         result.set_at((px, py), (0, 0, 0, 0))
 
         return result
@@ -3147,11 +3154,11 @@ class AngelBlessing(LegendaryItem):
                                   (pip_x - 1, pip_y - 1), max(1, pip_size // 3))
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 테두리/배경만 유지, 중앙 콘텐츠 비움"""
+        """애니메이션 아이콘 그리기 - 라그나로크 해머 테두리 + 중앙 천사의 주사위"""
         # 공통 배경 프레임 연출 (라그나로크 해머와 동일)
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
-        # 애니메이션 프레임 그리기 (중앙 망치/번개 제거된 프레임)
+        # 애니메이션 프레임 그리기 (중앙 망치 제거된 프레임 = 테두리만)
         if self.animation_frames and len(self.animation_frames) > 0:
             self.frame_counter += 1
             if self.frame_counter >= self.animation_speed:
@@ -3163,9 +3170,169 @@ class AngelBlessing(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
 
-            # 번개 효과 제거 - 새 그림을 채울 준비
+            # 중앙에 천사의 주사위 그리기
+            dice_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            rot_y = self.current_frame * 45  # 8프레임으로 360도 회전
+            rot_x = math.sin(self.current_frame * 0.8) * 15
+            self._draw_angel_dice(dice_surf, size, rot_x, rot_y)
+            screen.blit(dice_surf, (x, icon_y))
 
-        # 파티클 효과도 제거 - 새 그림용 빈 슬롯
+            # 번개 효과 (라그나로크 해머와 동일)
+            if self.current_frame in [0, 4]:
+                bolt_color = (255, 255, 150)
+                pygame.draw.line(screen, bolt_color,
+                                 (x + size // 4, y + frame_offset - 5),
+                                 (x + size // 3, y + frame_offset + size // 4), 2)
+                pygame.draw.line(screen, bolt_color,
+                                 (x + size * 3 // 4, y + frame_offset - 5),
+                                 (x + size * 2 // 3, y + frame_offset + size // 4), 2)
+
+        # 파티클 효과 (라그나로크 해머와 동일)
+        if self.particle_timer > 1.0:
+            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
+            self.particle_timer = 0
+
+    def _draw_angel_dice(self, surf: pygame.Surface, size: int, rot_x: float, rot_y: float):
+        """중앙에 천사의 주사위 그리기 (천사 날개 + 3D 주사위)"""
+        dice_size = int(size * 0.35)  # 주사위 크기
+        cx, cy = size // 2, size // 2
+
+        # 천사 날개 그리기 (주사위 뒤에)
+        wing_color = (255, 255, 255, 200)
+        wing_glow = (220, 230, 255, 120)
+        wing_width = int(size * 0.32)
+        wing_height = int(size * 0.22)
+
+        # 날개 펄럭임 효과
+        wing_flap = math.sin(rot_y * 0.1) * 3
+
+        # 왼쪽 날개
+        left_wing_points = [
+            (cx - 3, cy - 2),
+            (cx - wing_width, cy - wing_height + wing_flap),
+            (cx - wing_width - 3, cy + wing_flap),
+            (cx - wing_width + 5, cy + wing_height//2 + wing_flap),
+            (cx - 3, cy + 3),
+        ]
+
+        # 오른쪽 날개
+        right_wing_points = [
+            (cx + 3, cy - 2),
+            (cx + wing_width, cy - wing_height + wing_flap),
+            (cx + wing_width + 3, cy + wing_flap),
+            (cx + wing_width - 5, cy + wing_height//2 + wing_flap),
+            (cx + 3, cy + 3),
+        ]
+
+        # 날개 글로우 효과
+        pygame.draw.polygon(surf, wing_glow, left_wing_points)
+        pygame.draw.polygon(surf, wing_glow, right_wing_points)
+
+        # 날개 본체
+        pygame.draw.polygon(surf, wing_color, left_wing_points)
+        pygame.draw.polygon(surf, wing_color, right_wing_points)
+
+        # 날개 깃털 라인
+        feather_color = (230, 240, 255, 180)
+        for i in range(3):
+            offset = (i + 1) * wing_width // 4
+            pygame.draw.line(surf, feather_color,
+                           (cx - 5, cy),
+                           (cx - offset - 5, cy - wing_height//2 + i*3 + wing_flap), 1)
+            pygame.draw.line(surf, feather_color,
+                           (cx + 5, cy),
+                           (cx + offset + 5, cy - wing_height//2 + i*3 + wing_flap), 1)
+
+        # 3D 주사위 그리기
+        sin_x, cos_x = math.sin(math.radians(rot_x)), math.cos(math.radians(rot_x))
+        sin_y, cos_y = math.sin(math.radians(rot_y)), math.cos(math.radians(rot_y))
+
+        def rotate_point(px, py, pz):
+            x1 = px * cos_y - pz * sin_y
+            z1 = px * sin_y + pz * cos_y
+            y1 = py * cos_x - z1 * sin_x
+            z2 = py * sin_x + z1 * cos_x
+            return cx + int(x1), cy + int(y1), z2
+
+        half = dice_size // 2
+        vertices_3d = [
+            (-half, -half, -half), (half, -half, -half),
+            (half, half, -half), (-half, half, -half),
+            (-half, -half, half), (half, -half, half),
+            (half, half, half), (-half, half, half),
+        ]
+
+        vertices_2d = []
+        vertices_depth = []
+        for vx, vy, vz in vertices_3d:
+            rx, ry, rz = rotate_point(vx, vy, vz)
+            vertices_2d.append((rx, ry))
+            vertices_depth.append(rz)
+
+        faces = [
+            ([0, 1, 2, 3], 1, (0, 0, -half), (1, 0, 0), (0, 1, 0)),
+            ([5, 4, 7, 6], 6, (0, 0, half), (-1, 0, 0), (0, 1, 0)),
+            ([4, 5, 1, 0], 2, (0, -half, 0), (1, 0, 0), (0, 0, 1)),
+            ([3, 2, 6, 7], 5, (0, half, 0), (1, 0, 0), (0, 0, -1)),
+            ([4, 0, 3, 7], 3, (-half, 0, 0), (0, 0, -1), (0, 1, 0)),
+            ([1, 5, 6, 2], 4, (half, 0, 0), (0, 0, 1), (0, 1, 0)),
+        ]
+
+        def get_face_depth(face_data):
+            return sum(vertices_depth[i] for i in face_data[0]) / 4
+
+        faces_sorted = sorted(faces, key=get_face_depth, reverse=True)
+
+        # 주사위 색상 (흰색 기반 + 골드 하이라이트)
+        white_light = (255, 255, 255)
+        white_mid = (245, 248, 255)
+        white_dark = (230, 235, 245)
+        edge_color = (200, 180, 140)  # 골드 테두리
+        pip_color = (100, 80, 180)  # 보라색 점
+
+        pip_positions_local = {
+            1: [(0, 0)],
+            2: [(-0.4, -0.4), (0.4, 0.4)],
+            3: [(-0.4, -0.4), (0, 0), (0.4, 0.4)],
+            4: [(-0.4, -0.4), (0.4, -0.4), (-0.4, 0.4), (0.4, 0.4)],
+            5: [(-0.4, -0.4), (0.4, -0.4), (0, 0), (-0.4, 0.4), (0.4, 0.4)],
+            6: [(-0.4, -0.4), (0.4, -0.4), (-0.4, 0), (0.4, 0), (-0.4, 0.4), (0.4, 0.4)],
+        }
+
+        pip_size = max(2, int(half * 0.18))
+        pip_scale = half * 0.65
+
+        for face_data in faces_sorted[:3]:
+            indices, face_num, center_3d, u_axis, v_axis = face_data
+            points = [vertices_2d[i] for i in indices]
+
+            avg_depth = sum(vertices_depth[i] for i in indices) / 4
+            brightness = 0.75 + 0.25 * (avg_depth / half + 1) / 2
+            brightness = min(1.0, max(0.65, brightness))
+
+            if brightness > 0.88:
+                base_color = white_light
+            elif brightness > 0.78:
+                base_color = white_mid
+            else:
+                base_color = white_dark
+
+            adj_color = tuple(min(255, int(c * brightness)) for c in base_color)
+
+            pygame.draw.polygon(surf, adj_color, points)
+            pygame.draw.polygon(surf, edge_color, points, 1)
+
+            for pu, pv in pip_positions_local.get(face_num, []):
+                pip_3d_x = center_3d[0] + u_axis[0] * pu * pip_scale + v_axis[0] * pv * pip_scale
+                pip_3d_y = center_3d[1] + u_axis[1] * pu * pip_scale + v_axis[1] * pv * pip_scale
+                pip_3d_z = center_3d[2] + u_axis[2] * pu * pip_scale + v_axis[2] * pv * pip_scale
+                pip_x, pip_y, _ = rotate_point(pip_3d_x, pip_3d_y, pip_3d_z)
+
+                pygame.draw.circle(surf, (pip_color[0]//2, pip_color[1]//2, pip_color[2]//2),
+                                  (pip_x + 1, pip_y + 1), pip_size)
+                pygame.draw.circle(surf, pip_color, (pip_x, pip_y), pip_size)
+                pygame.draw.circle(surf, (240, 240, 255),
+                                  (pip_x - 1, pip_y - 1), max(1, pip_size // 3))
 
     def _spawn_particle(self, screen, cx, cy):
         """파티클 생성 - 라그나로크 해머와 동일"""
