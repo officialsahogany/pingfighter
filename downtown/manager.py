@@ -1027,20 +1027,21 @@ class DowntownManager:
             # 회전 적용
             rotated_surf = pygame.transform.rotate(temp_surf, -key_rotation)
 
-            # 클리핑 적용
+            # 클리핑 적용 - 열쇠가 90도 회전되어 있으므로 오른쪽(끝부분)부터 잘림
             if clip_ratio > 0:
-                visible_height = int(rotated_surf.get_height() * (1 - clip_ratio))
-                visible_height = max(1, visible_height)  # 최소 1픽셀
+                # 90도 회전된 상태에서는 가로 방향으로 클리핑 (오른쪽부터)
+                visible_width = int(rotated_surf.get_width() * (1 - clip_ratio))
+                visible_width = max(1, visible_width)  # 최소 1픽셀
 
-                # 클리핑 영역 생성 (위에서부터 visible_height만큼만 보이도록)
-                clipped_surf = pygame.Surface((rotated_surf.get_width(), visible_height), pygame.SRCALPHA)
+                # 클리핑 영역 생성 (왼쪽부터 visible_width만큼만 보이도록)
+                clipped_surf = pygame.Surface((visible_width, rotated_surf.get_height()), pygame.SRCALPHA)
                 clipped_surf.blit(rotated_surf, (0, 0))
 
-                # 화면에 그리기 (중앙 정렬, 위쪽 기준)
+                # 화면에 그리기 (왼쪽 정렬 - 고리 부분은 그대로, 끝부분만 잘림)
                 rotated_rect = rotated_surf.get_rect(center=(int(key_x), int(key_y_adjusted)))
                 clip_rect = clipped_surf.get_rect()
-                clip_rect.centerx = rotated_rect.centerx
-                clip_rect.top = rotated_rect.top
+                clip_rect.left = rotated_rect.left
+                clip_rect.centery = rotated_rect.centery
 
                 self.screen.blit(clipped_surf, clip_rect)
             else:
@@ -1048,7 +1049,7 @@ class DowntownManager:
                 rotated_rect = rotated_surf.get_rect(center=(int(key_x), int(key_y_adjusted)))
                 self.screen.blit(rotated_surf, rotated_rect)
         else:
-            # 수평 상태 열쇠 그리기
+            # 수평 상태 열쇠 그리기 (회전 0도)
             if clip_ratio > 0:
                 # 임시 서피스에 그린 후 클리핑
                 temp_size = int(key_scale * 3)
@@ -1063,13 +1064,20 @@ class DowntownManager:
                     alpha=1.0
                 )
 
+                # 수평 상태(0도)에서는 아래쪽(끝부분)부터 잘림
                 visible_height = int(temp_surf.get_height() * (1 - clip_ratio))
                 visible_height = max(1, visible_height)
 
+                # 위에서부터 visible_height만큼만 보이도록 (아래가 잘림)
                 clipped_surf = pygame.Surface((temp_surf.get_width(), visible_height), pygame.SRCALPHA)
                 clipped_surf.blit(temp_surf, (0, 0))
 
-                clip_rect = clipped_surf.get_rect(center=(int(key_x), int(key_y_adjusted)))
+                # 위쪽 정렬 - 고리 부분은 그대로, 아래 끝부분만 잘림
+                temp_rect = temp_surf.get_rect(center=(int(key_x), int(key_y_adjusted)))
+                clip_rect = clipped_surf.get_rect()
+                clip_rect.centerx = temp_rect.centerx
+                clip_rect.top = temp_rect.top
+
                 self.screen.blit(clipped_surf, clip_rect)
             else:
                 # 클리핑 없이 직접 그리기
