@@ -81,7 +81,7 @@ BUILDING_INFO = {
         "ap_cost": 2,
         "size": (3, 3),              # 크고 웅장한 고대 신전
         "pixel_size": (120, 110),    # (축소)
-        "description": "전설의 보스들이 격돌하는 웅장한 투기장",
+        "description": "영웅들이 격돌하는 웅장한 투기장",
         "rarity": 0.5,
         "style": "ancient_rome",
     },
@@ -93,7 +93,7 @@ BUILDING_INFO = {
         "ap_cost": 1,
         "size": (2, 2),              # 굴뚝이 있는 정사각형
         "pixel_size": (80, 95),      # 세로로 굴뚝 포함 (축소)
-        "description": "불타는 용광로에서 전설의 무기를 단련하세요",
+        "description": "불타는 용광로에서 무기를 단련하세요",
         "rarity": 0.9,
         "style": "volcanic",
     },
@@ -165,7 +165,7 @@ BUILDING_INFO = {
         "ap_cost": 0,
         "size": (2, 2),              # 별빛 환전소
         "pixel_size": (85, 80),      # (축소)
-        "description": "스타 포인트를 골드로 환전할 수 있는 화려한 은행",
+        "description": "환전,예금 등 은행업무를 합니다",
         "rarity": 0.5,
         "style": "star_luxury",
     },
@@ -189,19 +189,19 @@ BUILDING_INFO = {
         "ap_cost": 1,
         "size": (2, 2),              # 화려한 가챠 머신
         "pixel_size": (85, 90),      # (축소)
-        "description": "별빛 가챠로 희귀 아이템을 뽑아보세요!",
+        "description": "가챠로 희귀 아이템을 뽑아보세요!",
         "rarity": 0.85,
         "style": "gacha",
     },
     BuildingType.ACADEMY: {
-        "name": "마법 학원",
+        "name": "대학교",
         "name_en": "Magic Academy",
         "icon": "📚",
         "color": (150, 100, 255),    # 마법의 보라색
         "ap_cost": 1,
         "size": (3, 2),              # 3개의 탑이 있는 넓은 성
         "pixel_size": (110, 95),     # 3개 탑 포함 크기
-        "description": "고대의 지식과 마법을 배우는 신비로운 학원",
+        "description": "스킬을 배울 수 있는 학교",
         "rarity": 0.9,
         "style": "magic_school",
     },

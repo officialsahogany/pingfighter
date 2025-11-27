@@ -78563,6 +78563,40 @@ def show_character_info():
             lines.append(current)
         return lines
 
+    def is_name_line(text: str, *names: str) -> bool:
+        """툴팁 본문에서 이름 중복을 제거하기 위한 간단 비교."""
+        if not text:
+            return False
+        t = text.strip(" :").lower()
+        for name in names:
+            if not name:
+                continue
+            if t == name.strip(" :").lower():
+                return True
+        return False
+
+    def strip_name_prefix(text: str, *names: str) -> str:
+        """설명 시작 부분에 '이름: ' 형태가 붙은 경우 제거."""
+        if not text:
+            return text
+        import re
+
+        cleaned = text
+        for name in names:
+            if not name:
+                continue
+            pattern = r"^\s*" + re.escape(name) + r"\s*[:\-–—]\s*"
+            cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
+        return cleaned
+
+    def clean_description(text: str, *names: str) -> str:
+        """이름을 앞에 붙여 놓은 설명을 정리."""
+        stripped = strip_name_prefix(text, *names)
+        # 이름만 단독으로 남으면 제거
+        if is_name_line(stripped, *names):
+            return ""
+        return stripped
+
     def format_item_display_name(item) -> str:
         """아이템 표시 이름을 한글 + 품질 수식어로 반환."""
         try:
@@ -78778,6 +78812,7 @@ def show_character_info():
                 hover_info = {
                     "rect": cell_rect,
                     "name": format_item_display_name(item),
+                    "raw_name": item.get("name", ""),
                     "desc": get_item_description(item.get("name", "")),
                     "lines": build_tooltip_lines(item, 300),
                     "options": opt_lines,
@@ -78859,6 +78894,7 @@ def show_character_info():
                 hover_info = {
                     "rect": icon_rect,
                     "name": format_item_display_name(item),
+                    "raw_name": item.get("name", ""),
                     "desc": get_item_description(item.get("name", "")),
                     "lines": build_tooltip_lines(item, 300),
                     "slot_label": "엑티브",
@@ -78978,6 +79014,7 @@ def show_character_info():
                 hover_info = {
                     "rect": cell_rect,
                     "name": format_item_display_name(item),
+                    "raw_name": item.get("name", ""),
                     "desc": get_item_description(item.get("name", "")),
                     "lines": build_tooltip_lines(item, 300),
                     "slot_label": get_item_slot_label(item.get("name", "")),
@@ -79608,7 +79645,12 @@ def show_character_info():
             if options_entries and hover_info.get("desc"):
                 # 설명 박스를 더 좁게, 텍스트를 더 많이 줄바꿈해 세로 길이를 확보
                 wrap_width = 200
-                desc_lines = desc_lines_cached or wrap_text(hover_info.get("desc", ""), local_font_tiny, wrap_width)
+                name_for_compare = hover_info.get("name", "")
+                raw_name = hover_info.get("raw_name", "")
+                desc_text = clean_description(hover_info.get("desc", ""), name_for_compare, raw_name)
+                desc_lines = desc_lines_cached or wrap_text(desc_text, local_font_tiny, wrap_width)
+                desc_lines = [strip_name_prefix(ln, name_for_compare, raw_name) for ln in desc_lines]
+                desc_lines = [ln for ln in desc_lines if ln and not is_name_line(ln, name_for_compare, raw_name)]
                 desc_entries = [{"text": t, "color": (200, 210, 230)} for t in desc_lines]
                 option_entries = []
                 for opt in options_entries:
@@ -79721,7 +79763,22 @@ def show_character_info():
                 top_row_height = max(name_surface.get_height(), slot_surface.get_height() if slot_surface else 0)
                 desc_entries = hover_info.get("lines")
                 if not desc_entries:
-                    desc_entries = [{"text": t, "color": (200, 210, 230)} for t in wrap_text(hover_info["desc"], local_font_tiny, tooltip_width - 20)]
+                    name_for_compare = hover_info.get("name", "")
+                    raw_name = hover_info.get("raw_name", "")
+                    desc_text = clean_description(hover_info["desc"], name_for_compare, raw_name)
+                    desc_entries = [{"text": t, "color": (200, 210, 230)} for t in wrap_text(desc_text, local_font_tiny, tooltip_width - 20)]
+                # 이름이 이미 상단에 그려지므로 본문 라인에서는 제거 및 접두사 정리
+                cleaned_entries = []
+                name_for_compare = hover_info.get("name", "")
+                raw_name = hover_info.get("raw_name", "")
+                for entry in desc_entries:
+                    txt = strip_name_prefix(entry.get("text", ""), name_for_compare, raw_name)
+                    if not txt or is_name_line(txt, name_for_compare, raw_name):
+                        continue
+                    new_entry = dict(entry)
+                    new_entry["text"] = txt
+                    cleaned_entries.append(new_entry)
+                desc_entries = cleaned_entries
                 line_height = local_font_tiny.get_height() + 2
                 tooltip_height = 16 + top_row_height + 4 + len(desc_entries) * line_height
                 tooltip_x = min(WIDTH - tooltip_width - 10, hover_info["rect"].x + 10)

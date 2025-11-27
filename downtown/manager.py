@@ -18,6 +18,7 @@ from .buildings import BuildingManager
 from .action_points import ActionPointSystem, ActionPointEvent
 from .renderer import DowntownRenderer
 from .npc import NPCManager
+from .shop import Shop
 
 class DowntownState:
     """번화가 상태"""
@@ -415,10 +416,9 @@ class DowntownManager:
 
     def _run_building_event(self, building_type):
         """건물 이벤트 실행 (각 건물별로 구현)"""
-        # 모든 건물은 현재 컨텐츠 없음 - 플레이스홀더 처리
-        # 나중에 각 건물별 모듈로 분리 예정
+        # 상점만 구현됨 - 나머지는 플레이스홀더
         if building_type == BuildingType.MAGIC_STORE:
-            self._show_placeholder(building_type)
+            self._show_shop()
         elif building_type == BuildingType.BLACKSMITH:
             self._show_placeholder(building_type)
         elif building_type == BuildingType.CASINO:
@@ -491,8 +491,11 @@ class DowntownManager:
                 building_type = self.key_animation['building_type']
                 self.key_animation = None
 
-                # 모든 건물은 현재 컨텐츠 없음 - 플레이스홀더 처리
-                # 상태 변경 없이 바로 이벤트 실행 (즉시 종료됨)
+                # 상점은 IN_BUILDING 상태로 전환, 나머지는 플레이스홀더
+                if building_type == BuildingType.MAGIC_STORE:
+                    self.state = DowntownState.IN_BUILDING
+                    self.current_building = building_type
+
                 self._run_building_event(building_type)
                 return
 
@@ -1164,7 +1167,20 @@ class DowntownManager:
 
     def _show_shop(self):
         """아이템 상점"""
-        pass
+        # 상점 인스턴스 생성 (cyberpunk 테마 기본값)
+        shop = Shop(self.screen, theme="cyberpunk", freetype_fonts=self._freetype_fonts)
+
+        # 플레이어 골드 전달
+        shop.set_player_gold(self.player_data.get('gold', 0))
+
+        # 상점 열기
+        purchased_items, remaining_gold = shop.open(self.player_data.get('gold', 0))
+
+        # 결과 처리
+        if purchased_items:
+            self.player_data['gold'] = remaining_gold
+            self.result_data['gold_spent'] += (self.player_data.get('gold', 0) - remaining_gold)
+            self.result_data['items_obtained'].extend([item.name for item in purchased_items])
 
     def _show_blacksmith(self):
         """대장장이"""
