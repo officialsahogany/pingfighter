@@ -2705,6 +2705,8 @@ selected_passive_item = -1           # 패시브 아이템 선택 인덱스 (어
 active_item_icon_size = (28, 28)     # 화면에 표시할 크기
 last_item_use_time = 0               # 마지막 아이템 사용 시간 (전역 쿨타임용)
 foul_whistle_pending_round_reset = False  # 반칙호루라기 발동 후 라운드 리셋 대기 플래그
+# 기본 액티브 쿨타임(ms) 초기값 – 캐릭터정보 화면 등에서 참조할 때 NameError 방지
+active_item_cooldown_ms = 8000
 
 # 연금술 텍스트 이펙트
 
@@ -2993,7 +2995,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "대쉬 소모 게이지", "min": 10, "max": 30, "unit": "%", "prefix": "-", "key": "dash_gauge_pct"},
     ],
     "spikeboots": [
-        {"label": "대쉬 후 후딜 시간", "min": 10, "max": 30, "unit": "%", "prefix": "-", "key": "dash_afterdelay_pct"},
+        {"label": "대쉬 후딜 시간", "min": 10, "max": 30, "unit": "%", "prefix": "-", "key": "dash_afterdelay_pct"},
         {"label": "대쉬 쿨타임", "min": 10, "max": 25, "unit": "%", "prefix": "-", "key": "dash_cooldown_pct"},
     ],
     "speedboots": [
@@ -3016,7 +3018,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "스타포인트 드랍율", "min": 15, "max": 30, "unit": "%", "prefix": "+", "key": "star_bonus_pct"},
     ],
     "cooltime": [
-        {"label": "엑티브 쿨타임", "min": 10, "max": 20, "unit": "%", "prefix": "-", "key": "active_cooldown_pct"},
+        {"label": "아이템 쿨타임", "min": 10, "max": 20, "unit": "%", "prefix": "-", "key": "active_cooldown_pct"},
     ],
     "bluetooth_ring": [
         {"label": "게이지 획득량", "min": 10, "max": 20, "unit": "%", "prefix": "+", "key": "gauge_gain_pct"},
@@ -27327,9 +27329,7 @@ def update_soldier_bullets():
                     bullet["x"], bullet["y"], SOLDIER_BULLET_SIZE,
                     effects_manager, SOUND_BALLOON_BOOM, trade_point_system
                 )
-                if popped:
-                    bullet["active"] = False
-                    continue
+                # 풍선을 터뜨려도 총알은 관통해 계속 진행
 
             if bullet_rect.colliderect(BOSS):
                 bullet["active"] = False
@@ -47617,7 +47617,7 @@ def run_downtown_hub(next_stage_display: int) -> None:
             "buffs": [],
             "character_type": selected_character_type if "selected_character_type" in globals() else "smasher",
         }
-        manager = DowntownManager(screen)
+        manager = DowntownManager(screen, academy=academy)
         manager.initialize(stage_number=next_stage_display, player_data=player_data)
         # 광장 진입 시 전용 BGM 재생
         try:
@@ -48844,7 +48844,7 @@ def show_start_screen():
             "buffs": [],
             "character_type": char_type,
         }
-        manager = DowntownManager(SCREEN)
+        manager = DowntownManager(SCREEN, academy=academy)
         manager.initialize(stage_number=1, player_data=player_data)
         try:
             bgm_manager.play_downtown_bgm()
@@ -57998,6 +57998,25 @@ def show_item_manager_menu():
         other_total = sum(count for name, count in selected_active_counts.items() if name != item_name)
         return max(0, ITEM_MANAGER_ACTIVE_LIMIT - other_total)
 
+    def get_active_count(item_name: str) -> int:
+        return selected_active_counts.get(item_name, 0)
+
+    def set_active_count(item_name: str, new_count: int) -> None:
+        if new_count > 0:
+            selected_active_counts[item_name] = new_count
+            if item_name not in selected_active_order:
+                selected_active_order.append(item_name)
+        else:
+            selected_active_counts.pop(item_name, None)
+            if item_name in selected_active_order:
+                selected_active_order.remove(item_name)
+
+    def adjust_active_count(item_name: str, delta: int) -> None:
+        current = get_active_count(item_name)
+        max_allowed = update_quantity_bounds(item_name)
+        new_count = max(0, min(max_allowed, current + delta))
+        set_active_count(item_name, new_count)
+
     def flatten_active_selection() -> list[str]:
         result: list[str] = []
         for name in selected_active_order:
@@ -58207,12 +58226,14 @@ def show_item_manager_menu():
             y = grid_start_y + row * (item_size + item_spacing)
             # 아이템 배경
             item_rect = pygame.Rect(x, y, item_size, item_size)
-            # 드래그 선택: 패시브/화기류/전설에서 마우스 드래그 시 선택 상태로 추가
-            if is_drag_select and selected_category in (1, 2, 3) and item_rect.collidepoint(mouse_pos):
+            # 드래그 선택: 액티브/패시브/화기류/전설에서 마우스 드래그 시 선택/증가
+            if is_drag_select and selected_category in (0, 1, 2, 3) and item_rect.collidepoint(mouse_pos):
                 item_name = item["name"]
                 drag_key = f"{selected_category}:{item_name}"
                 if drag_key not in drag_toggled_items:
-                    if selected_category == 1:
+                    if selected_category == 0:
+                        adjust_active_count(item_name, 1)
+                    elif selected_category == 1:
                         if item_name in selected_passive_items:
                             selected_passive_items.remove(item_name)
                         else:
@@ -58602,9 +58623,9 @@ def show_item_manager_menu():
                         quantity_current_value = max(0, quantity_current_value - 1)
                 continue
             if event.type == pygame.MOUSEWHEEL:
-                if selected_category == 1:
-                    # 패시브 탭 수량 조절
-                    current_items = passive_items
+                if selected_category in (0, 1):
+                    # 액티브/패시브 탭 수량 조절 (휠)
+                    current_items = active_items if selected_category == 0 else passive_items
                     hovered_idx = None
                     for i, item in enumerate(current_items):
                         row = i // grid_cols
@@ -58619,7 +58640,10 @@ def show_item_manager_menu():
                         hovered_idx = selected_item_index if 0 <= selected_item_index < len(current_items) else None
                     if hovered_idx is not None and hovered_idx < len(current_items):
                         item_name = current_items[hovered_idx]["name"]
-                        adjust_passive_count(item_name, event.y)
+                        if selected_category == 0:
+                            adjust_active_count(item_name, event.y)
+                        else:
+                            adjust_passive_count(item_name, event.y)
                 continue
             if event.type == pygame.KEYDOWN:
                 #  일시정지 토글 (P키) / 입력 디버그 토글 (')
@@ -78487,8 +78511,12 @@ def show_character_info():
     font_body = FontStyle.body()  # 24pt
     font_small = FontStyle.small()  # 20pt
     font_tiny = FontStyle.tiny()  # 16pt
+    # 액티브/패시브 전용 축소 폰트 (-30%)
+    item_font_small = get_font(max(10, int(18 * 0.7)), style="regular")
+    item_font_tiny = get_font(max(8, int(12 * 0.7)), style="regular")
     panel_width = min(940, WIDTH - 80)
-    panel_height = min(620, HEIGHT - 80)
+    # 기존보다 세로 여백을 넉넉히 확보해 인벤토리 섹션을 확장
+    panel_height = min(720, HEIGHT - 40)
     panel_x = (WIDTH - panel_width) // 2
     panel_y = (HEIGHT - panel_height) // 2
     clock = pygame.time.Clock()
@@ -78660,24 +78688,43 @@ def show_character_info():
             sync_equipped_passive_effects()
         return item
 
-    def draw_bag_grid(items, area_rect, mouse_pos, drag_item=None):
-        """인벤토리(가방) 영역 그리기."""
+    def draw_bag_grid(items, area_rect, mouse_pos, drag_item=None, *, max_rows=None, start_row=0, title="인벤토리", label_font=None, tiny_font=None):
+        """인벤토리(가방) 영역 그리기 + 스크롤 지원."""
+        label_font = label_font or font_small
+        tiny_font = tiny_font or font_tiny
         pygame.draw.rect(SCREEN, (22, 26, 40), area_rect, border_radius=10)
         pygame.draw.rect(SCREEN, (90, 130, 200), area_rect, 2, border_radius=10)
-        title = font_small.render("인벤토리", True, WHITE)
-        SCREEN.blit(title, (area_rect.x + 10, area_rect.y + 6))
+        title_surface = label_font.render(title, True, WHITE)
+        SCREEN.blit(title_surface, (area_rect.x + 10, area_rect.y + 6))
 
         grid_x = area_rect.x + 12
         grid_y = area_rect.y + 32
         cell_size = 38  # 25% 축소
         gap = 6
         cols = max(5, min(10, (area_rect.width - 24 + gap) // (cell_size + gap)))
+        rows = math.ceil(len(items) / cols) if items else 0
+        if max_rows is None or max_rows <= 0:
+            visible_rows = rows
+        else:
+            visible_rows = min(rows, max_rows)
+        max_scroll = max(0, rows - visible_rows)
+        start_row = max(0, min(start_row, max_scroll))
+        visible_height = max(0, visible_rows * (cell_size + gap) - (gap if visible_rows else 0))
+
         rect_map = {}
         hover_info = None
+
         if not items:
-            empty_text = font_small.render("인벤토리가 비어 있습니다.", True, (180, 180, 190))
+            empty_text = label_font.render("인벤토리가 비어 있습니다.", True, (180, 180, 190))
             SCREEN.blit(empty_text, empty_text.get_rect(center=area_rect.center))
-            return rect_map, hover_info
+            return rect_map, hover_info, {
+                "rows": rows,
+                "visible_rows": visible_rows,
+                "start_row": start_row,
+                "max_scroll": max_scroll,
+                "track_rect": None,
+                "thumb_rect": None,
+            }
 
         try:
             legendary_manager = get_legendary_manager()
@@ -78686,10 +78733,13 @@ def show_character_info():
 
         for idx, item in enumerate(items):
             row = idx // cols
+            if row < start_row or row >= start_row + visible_rows:
+                continue
             col = idx % cols
+            row_offset = row - start_row
             cell_rect = pygame.Rect(
                 grid_x + col * (cell_size + gap),
-                grid_y + row * (cell_size + gap),
+                grid_y + row_offset * (cell_size + gap),
                 cell_size,
                 cell_size,
             )
@@ -78712,17 +78762,113 @@ def show_character_info():
                     SCREEN.blit(pygame.transform.scale(icon, (cell_size - 8, cell_size - 8)), (cell_rect.x + 4, cell_rect.y + 4))
             elif icon:
                 SCREEN.blit(pygame.transform.scale(icon, (cell_size - 8, cell_size - 8)), (cell_rect.x + 4, cell_rect.y + 4))
+            if item.get("_equipped_slot"):
+                badge_rect = pygame.Rect(cell_rect.right - 18, cell_rect.bottom - 14, 16, 12)
+                pygame.draw.rect(SCREEN, (70, 160, 255), badge_rect, border_radius=3)
+                badge_txt = tiny_font.render("E", True, WHITE)
+                SCREEN.blit(badge_txt, badge_txt.get_rect(center=badge_rect.center))
             if mouse_pos and cell_rect.collidepoint(mouse_pos):
+                desc_lines = wrap_text(get_item_description(item.get("name", "")), tiny_font, 300)
+                opt_lines = []
+                rolled = item.get("rolled_options") or []
+                if rolled:
+                    for opt in rolled:
+                        opt_text = opt.get("text") or ""
+                        opt_lines.append({"text": opt_text, "color": opt.get("color", (200, 210, 230))})
                 hover_info = {
                     "rect": cell_rect,
                     "name": format_item_display_name(item),
                     "desc": get_item_description(item.get("name", "")),
                     "lines": build_tooltip_lines(item, 300),
+                    "options": opt_lines,
+                    "desc_lines": desc_lines,
                     "slot_label": get_item_slot_label(item.get("name", "")),
                     "color": get_item_quality_color(item),
+                    "font_small": label_font,
+                    "font_tiny": tiny_font,
                 }
                 pygame.draw.rect(SCREEN, (150, 200, 255), cell_rect, 2, border_radius=8)
-        return rect_map, hover_info
+
+        track_rect = None
+        thumb_rect = None
+        if rows > visible_rows and visible_height > 0:
+            track_rect = pygame.Rect(area_rect.right - 12, grid_y, 8, visible_height)
+            thumb_height = max(18, int(track_rect.height * (visible_rows / rows)))
+            scrollable = rows - visible_rows
+            thumb_y = track_rect.y if scrollable == 0 else track_rect.y + int((start_row / scrollable) * (track_rect.height - thumb_height))
+            thumb_rect = pygame.Rect(track_rect.x, thumb_y, track_rect.width, thumb_height)
+            pygame.draw.rect(SCREEN, (50, 60, 90), track_rect, border_radius=3)
+            pygame.draw.rect(SCREEN, (140, 200, 255), thumb_rect, border_radius=3)
+
+        return rect_map, hover_info, {
+            "rows": rows,
+            "visible_rows": visible_rows,
+            "start_row": start_row,
+            "max_scroll": max_scroll,
+            "track_rect": track_rect,
+            "thumb_rect": thumb_rect,
+        }
+
+    def draw_active_row(items, area_rect, mouse_pos=None, label_font=None, tiny_font=None):
+        """획득한 액티브 아이템 1줄 표시. 클릭 처리를 위해 rect 맵도 반환."""
+        label_font = label_font or font_small
+        tiny_font = tiny_font or font_tiny
+        pygame.draw.rect(SCREEN, (24, 28, 46), area_rect, border_radius=10)
+        pygame.draw.rect(SCREEN, (120, 170, 255), area_rect, 2, border_radius=10)
+        label = label_font.render("액티브 아이템", True, WHITE)
+        SCREEN.blit(label, (area_rect.x + 10, area_rect.y + 6))
+
+        hover_info = None
+        rect_map = {}
+        if not items:
+            empty_text = label_font.render("액티브 아이템이 없습니다.", True, (180, 180, 190))
+            SCREEN.blit(empty_text, empty_text.get_rect(left=area_rect.x + 14, centery=area_rect.centery))
+            return hover_info, rect_map
+
+        # 액티브 슬롯 아이콘 크기를 패시브 슬롯(38px)과 동일하게 유지
+        icon_size = 38
+        gap = 6  # 패시브 슬롯과 동일 간격
+        start_x = area_rect.x + 14
+        y = area_rect.y + (area_rect.height - icon_size) // 2
+
+        try:
+            legendary_manager = get_legendary_manager()
+        except Exception:
+            legendary_manager = None
+
+        for idx, item in enumerate(items):
+            icon_rect = pygame.Rect(start_x + idx * (icon_size + gap), y, icon_size, icon_size)
+            rect_map[idx] = icon_rect
+            pygame.draw.rect(SCREEN, (30, 36, 54), icon_rect, border_radius=8)
+            pygame.draw.rect(SCREEN, (100, 140, 200), icon_rect, 1, border_radius=8)
+            icon = item.get("icon") or get_item_icon(item.get("name"))
+            if item.get("type") == "legendary" and legendary_manager:
+                try:
+                    legendary_item = legendary_manager.get_item(item.get("name", ""))
+                except Exception:
+                    legendary_item = None
+                if legendary_item:
+                    legendary_item.update(0, ui_mode=True)
+                    legendary_item.draw_icon(SCREEN, icon_rect.x, icon_rect.y, icon_size)
+                elif icon:
+                    SCREEN.blit(pygame.transform.scale(icon, (icon_size, icon_size)), icon_rect.topleft)
+            elif icon:
+                    SCREEN.blit(pygame.transform.scale(icon, (icon_size, icon_size)), icon_rect.topleft)
+
+            if mouse_pos and icon_rect.collidepoint(mouse_pos):
+                hover_info = {
+                    "rect": icon_rect,
+                    "name": format_item_display_name(item),
+                    "desc": get_item_description(item.get("name", "")),
+                    "lines": build_tooltip_lines(item, 300),
+                    "slot_label": "엑티브",
+                    "color": get_item_quality_color(item),
+                    "font_small": label_font,
+                    "font_tiny": tiny_font,
+                }
+                pygame.draw.rect(SCREEN, (150, 200, 255), icon_rect, 2, border_radius=8)
+
+        return hover_info, rect_map
 
     def draw_equipment_slots(area_rect, slot_state, mouse_pos=None):
         """인체형 배치 장비 슬롯 렌더링 (디아블로3 스타일)."""
@@ -78824,6 +78970,11 @@ def show_character_info():
             SCREEN.blit(label_surface, label_rect)
 
             if mouse_pos and cell_rect.collidepoint(mouse_pos) and item:
+                rolled = item.get("rolled_options") or []
+                opt_lines = []
+                for opt in rolled:
+                    opt_lines.append({"text": opt.get("text", ""), "color": opt.get("color", (200, 210, 230))})
+                desc_lines = wrap_text(get_item_description(item.get("name", "")), font_tiny, 300)
                 hover_info = {
                     "rect": cell_rect,
                     "name": format_item_display_name(item),
@@ -78831,6 +78982,8 @@ def show_character_info():
                     "lines": build_tooltip_lines(item, 300),
                     "slot_label": get_item_slot_label(item.get("name", "")),
                     "color": get_item_quality_color(item),
+                    "options": opt_lines,
+                    "desc_lines": desc_lines,
                 }
         return slot_rects, hover_info
 
@@ -79249,11 +79402,71 @@ def show_character_info():
 
     # 스킬트리 버튼: 상단 우측 정렬 (제목과 같은 y 라인)
     skill_button_rect = pygame.Rect(panel_x + panel_width - 160, panel_y + 12, 130, 46)
+    PASSIVE_VISIBLE_ROWS = 2  # 패시브 영역은 최대 2줄만 보여주고 나머지는 스크롤
+    passive_scroll_row = 0
+    active_dragging = None  # {"index": int, "item": dict}
+
+    def try_use_active_item_from_info(idx: int) -> bool:
+        """캐릭터정보 화면에서 액티브 아이템을 즉시 사용 (쿨타임/재활용 반영)."""
+        global selected_item_index, last_item_use_time, special_gauge, special_ready, active_item_cooldown_ms, special_gauge_max
+        if idx < 0 or idx >= len(active_item_slot):
+            return False
+        item = active_item_slot[idx]
+        if not item:
+            return False
+        now_ms = pygame.time.get_ticks()
+        individual_ok = "last_use" not in item or now_ms - item["last_use"] >= active_item_cooldown_ms
+        global_ok = now_ms - last_item_use_time >= active_item_cooldown_ms
+        if not (individual_ok and global_ok):
+            return False
+
+        effect_result = apply_effect(item.get("effect"))
+        if effect_result is False:
+            return False
+
+        recycle_triggered = False
+        recycle_chance = 0.0
+        gauge_bonus = 0
+        try:
+            recycle_chance = academy.get_item_recycle_chance()
+            gauge_bonus = academy.get_active_item_gauge_bonus()
+        except Exception:
+            recycle_chance = 0.0
+            gauge_bonus = 0
+
+        if recycle_chance > 0 and random.random() < recycle_chance:
+            recycle_triggered = True
+            create_alchemy_notice(idx)
+
+        if gauge_bonus:
+            try:
+                current_max = get_max_gauge()
+            except Exception:
+                current_max = special_gauge_max
+            special_gauge = min(current_max, special_gauge + gauge_bonus)
+            if special_gauge >= 350:
+                special_ready = True
+
+        if not recycle_triggered:
+            del active_item_slot[idx]
+            if selected_item_index >= len(active_item_slot):
+                selected_item_index = max(0, len(active_item_slot) - 1)
+            elif idx <= selected_item_index and selected_item_index > 0:
+                selected_item_index -= 1
+        else:
+            active_item_slot[idx]["last_use"] = now_ms
+
+        last_item_use_time = now_ms
+        for other in active_item_slot:
+            other["last_use"] = now_ms
+        return True
+
     dragging_item = None
     while True:
         dt = clock.tick(60)
         slot_state = get_equipment_state()
-        bag_items = [item for item in passive_item_list if item.get("_equipped_slot") is None]
+        # 보유한 모든 패시브 아이템을 보여주되, 장착 여부는 아이콘 상태로 구분
+        bag_items = list(passive_item_list)
         mouse_pos = pygame.mouse.get_pos()
         draw_field()
         draw_shaking_screen()
@@ -79270,8 +79483,23 @@ def show_character_info():
         SCREEN.blit(title_surface, title_rect)
 
         # 레이아웃 영역
-        left_area = pygame.Rect(panel_rect.x + 24, panel_rect.y + 70, panel_rect.width // 2 - 32, panel_rect.height - 160)
-        right_area = pygame.Rect(panel_rect.x + panel_rect.width // 2 + 8, panel_rect.y + 70, panel_rect.width // 2 - 32, panel_rect.height - 160)
+        bottom_area_height = 220
+        bottom_area = pygame.Rect(panel_rect.x + 20, panel_rect.bottom - bottom_area_height - 12, panel_rect.width - 40, bottom_area_height)
+        content_top = panel_rect.y + 70
+        content_bottom = bottom_area.y - 12
+        content_height = max(120, content_bottom - content_top)
+        left_area = pygame.Rect(panel_rect.x + 24, content_top, panel_rect.width // 2 - 32, content_height)
+        right_area = pygame.Rect(panel_rect.x + panel_rect.width // 2 + 8, content_top, panel_rect.width // 2 - 32, content_height)
+        # 하단 인벤토리 영역(액티브 1줄 + 패시브 2줄 스크롤)
+        pygame.draw.rect(SCREEN, (16, 18, 30), bottom_area, border_radius=12)
+        pygame.draw.rect(SCREEN, (80, 120, 180), bottom_area, 2, border_radius=12)
+        active_area_height = min(74, bottom_area.height // 3 + 10)
+        # 액티브 영역을 살짝 내려 텍스트와 겹치게 유지
+        active_area = pygame.Rect(bottom_area.x + 12, bottom_area.y + 24, bottom_area.width - 24, active_area_height)
+        # 패시브 영역을 더 위로 올려(기준선 12px 감소) 스크롤/그리드 위치를 높인다.
+        passive_area_y = active_area.bottom + 6 - 12
+        passive_area_height = max(60, bottom_area.bottom - passive_area_y - 10)
+        passive_area = pygame.Rect(bottom_area.x + 12, passive_area_y, bottom_area.width - 24, passive_area_height)
 
         # 좌측: 인체형 장비 슬롯 (캐릭터 미리보기 제거, 전체 영역 사용)
         equipment_area = pygame.Rect(left_area.x, left_area.y, left_area.width, left_area.height)
@@ -79319,12 +79547,36 @@ def show_character_info():
             SCREEN.blit(value_surface, (stats_area.right - value_surface.get_width() - 14, line_y))
             line_y += 24
 
-        # 인벤토리 영역
-        # 인벤토리 박스를 화면 하단 쪽으로 20px 더 내려 여백을 줄임
-        bag_area = pygame.Rect(panel_rect.x + 24, panel_rect.bottom - 130, panel_rect.width - 48, 120)
-        bag_rects, bag_hover = draw_bag_grid(bag_items, bag_area, mouse_pos, drag_item=dragging_item)
+        # 인벤토리 영역 (상단 액티브 1줄 + 패시브 2줄 스크롤)
+        active_hover, active_rects = draw_active_row(
+            active_item_slot, active_area, mouse_pos,
+            label_font=item_font_small, tiny_font=item_font_tiny
+        )
+        bag_rects, bag_hover, bag_scroll = draw_bag_grid(
+            bag_items,
+            passive_area,
+            mouse_pos,
+            drag_item=dragging_item,
+            max_rows=PASSIVE_VISIBLE_ROWS,
+            start_row=passive_scroll_row,
+            title="패시브 아이템",
+            label_font=item_font_small,
+            tiny_font=item_font_tiny,
+        )
+        passive_scroll_row = bag_scroll.get("start_row", passive_scroll_row)
+        passive_scroll_max = bag_scroll.get("max_scroll", 0)
+        scroll_track = bag_scroll.get("track_rect")
+        scroll_thumb = bag_scroll.get("thumb_rect")
 
-        # 드래그 프리뷰
+        # 드래그 프리뷰 (액티브)
+        if active_dragging:
+            icon = active_dragging["item"].get("icon") or get_item_icon(active_dragging["item"].get("name"))
+            if icon:
+                preview_icon = pygame.transform.scale(icon, (54, 54))
+                SCREEN.blit(preview_icon, (mouse_pos[0] - 27, mouse_pos[1] - 27))
+                pygame.draw.rect(SCREEN, (180, 200, 255), (mouse_pos[0] - 27, mouse_pos[1] - 27, 54, 54), 1)
+
+        # 드래그 프리뷰 (패시브)
         if dragging_item:
             icon = dragging_item["item"].get("icon") or get_item_icon(dragging_item["item"].get("name"))
             if icon:
@@ -79332,40 +79584,7 @@ def show_character_info():
                 SCREEN.blit(preview_icon, (mouse_pos[0] - 27, mouse_pos[1] - 27))
                 pygame.draw.rect(SCREEN, (200, 200, 200), (mouse_pos[0] - 27, mouse_pos[1] - 27, 54, 54), 1)
 
-        # 툴팁
-        hover_info = slot_hover or bag_hover
-        if hover_info:
-            tooltip_width = 320
-            tooltip_x = min(WIDTH - tooltip_width - 10, hover_info["rect"].x + 10)
-            tooltip_y = hover_info["rect"].bottom + 12
-            name_color = hover_info.get("color") or WHITE
-            name_surface = font_small.render(hover_info["name"], True, name_color)
-            slot_label = hover_info.get("slot_label")
-            slot_surface = None
-            if slot_label:
-                slot_surface = font_small.render(slot_label, True, (255, 220, 160))
-            top_row_height = max(name_surface.get_height(), slot_surface.get_height() if slot_surface else 0)
-            desc_entries = hover_info.get("lines")
-            if not desc_entries:
-                desc_entries = [{"text": t, "color": (200, 210, 230)} for t in wrap_text(hover_info["desc"], font_tiny, tooltip_width - 20)]
-            line_height = font_tiny.get_height() + 2
-            tooltip_height = 16 + top_row_height + 4 + len(desc_entries) * line_height
-            tooltip_rect = pygame.Rect(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
-            pygame.draw.rect(SCREEN, (18, 22, 40, 235), tooltip_rect, border_radius=8)
-            pygame.draw.rect(SCREEN, (120, 180, 255), tooltip_rect, 2, border_radius=8)
-            name_y = tooltip_rect.y + 10 + (top_row_height - name_surface.get_height()) // 2
-            SCREEN.blit(name_surface, name_surface.get_rect(left=tooltip_rect.x + 10, top=name_y))
-            if slot_surface:
-                slot_y = tooltip_rect.y + 10 + (top_row_height - slot_surface.get_height()) // 2
-                slot_x = tooltip_rect.right - slot_surface.get_width() - 10
-                SCREEN.blit(slot_surface, (slot_x, slot_y))
-            text_y = tooltip_rect.y + 10 + top_row_height + 4
-            for entry in desc_entries:
-                line_surface = font_tiny.render(entry.get("text", ""), True, entry.get("color", (200, 210, 230)))
-                SCREEN.blit(line_surface, (tooltip_rect.x + 10, text_y))
-                text_y += line_height
-
-        # 스킬트리 버튼
+        # 스킬트리 버튼 (툴팁보다 먼저 그려 레이어 문제 예방)
         hovered = skill_button_rect.collidepoint(mouse_pos)
         btn_fill = (55, 90, 150) if hovered else (40, 70, 120)
         btn_border = (255, 220, 120) if hovered else (200, 200, 200)
@@ -79373,6 +79592,164 @@ def show_character_info():
         pygame.draw.rect(SCREEN, btn_border, skill_button_rect, 3, border_radius=12)
         btn_title = font_small.render("스킬트리", True, WHITE)
         SCREEN.blit(btn_title, btn_title.get_rect(center=skill_button_rect.center))
+
+        # 툴팁
+        hover_info = slot_hover or active_hover or bag_hover
+        if hover_info:
+            tooltip_width = 320
+            # 툴팁 폰트는 원본 크기 유지
+            local_font_small = font_small
+            local_font_tiny = font_tiny
+            name_color = hover_info.get("color") or WHITE
+            options_entries = hover_info.get("options") or []
+            desc_lines_cached = hover_info.get("desc_lines")
+            # 패시브 아이템 롤 옵션이 있으면 설명/능력치를 양쪽 박스로 분리
+            dual_rendered = False
+            if options_entries and hover_info.get("desc"):
+                # 설명 박스를 더 좁게, 텍스트를 더 많이 줄바꿈해 세로 길이를 확보
+                wrap_width = 200
+                desc_lines = desc_lines_cached or wrap_text(hover_info.get("desc", ""), local_font_tiny, wrap_width)
+                desc_entries = [{"text": t, "color": (200, 210, 230)} for t in desc_lines]
+                option_entries = []
+                for opt in options_entries:
+                    text = opt.get("text", "")
+                    if text:
+                        option_entries.append({"text": text, "color": opt.get("color", (200, 210, 230))})
+                if desc_entries and option_entries:
+                    name_surface = local_font_small.render(hover_info["name"], True, name_color)
+                    slot_label = hover_info.get("slot_label")
+                    slot_surface = local_font_small.render(slot_label, True, (255, 220, 160)) if slot_label else None
+                    line_height = local_font_tiny.get_height() + 2
+                    def _calc_width(entries):
+                        return max((local_font_tiny.size(e.get("text", ""))[0] for e in entries), default=0)
+                    def _break_lines(entries, max_width):
+                        broken = []
+                        for entry in entries:
+                            text = entry.get("text", "")
+                            color = entry.get("color", (200, 210, 230))
+                            if not text:
+                                continue
+                            # greedy wrap with word fallback to per-character when needed
+                            words = text.split(" ")
+                            line = ""
+                            for word in words:
+                                candidate = word if not line else line + " " + word
+                                if local_font_tiny.size(candidate)[0] <= max_width:
+                                    line = candidate
+                                else:
+                                    if line:
+                                        broken.append({"text": line, "color": color})
+                                    # if single word too long, break by characters
+                                    if local_font_tiny.size(word)[0] <= max_width:
+                                        line = word
+                                    else:
+                                        chunk = ""
+                                        for ch in word:
+                                            if local_font_tiny.size(chunk + ch)[0] <= max_width:
+                                                chunk += ch
+                                            else:
+                                                if chunk:
+                                                    broken.append({"text": chunk, "color": color})
+                                                chunk = ch
+                                        line = chunk
+                            if line:
+                                broken.append({"text": line, "color": color})
+                        return broken
+
+                    # Left (description) box: name + slot in same row, then description lines
+                    top_row_height = max(name_surface.get_height(), slot_surface.get_height() if slot_surface else 0)
+                    name_slot_width = name_surface.get_width() + (slot_surface.get_width() + 14 if slot_surface else 0)
+                    content_width = max(_calc_width(desc_entries), name_slot_width)
+                    # 강제로 폭을 더 줄여 세로 공간을 확보 (wrap_width + padding 우선)
+                    desc_width = min(240, max(180, min(content_width + 20, wrap_width + 20)))
+                    desc_render_entries = _break_lines(desc_entries, desc_width - 20)
+                    desc_height = 20 + top_row_height + 8 + len(desc_render_entries) * line_height
+
+                    # Right (options) box: options only
+                    roll_content_w = _calc_width(option_entries)
+                    roll_width = min(260, max(180, roll_content_w + 20))
+                    roll_render_entries = _break_lines(option_entries, roll_width - 20)
+                    roll_height = 16 + len(roll_render_entries) * line_height
+
+                    gap = 12
+                    total_width = desc_width + gap + roll_width
+                    max_height = max(desc_height, roll_height)
+                    tooltip_x = max(8, min(WIDTH - total_width - 8, hover_info["rect"].x + 10))
+                    tooltip_y = hover_info["rect"].top - max_height - 12
+                    if tooltip_y < 8:
+                        tooltip_y = hover_info["rect"].bottom + 12
+                    if tooltip_y + max_height + 4 > HEIGHT:
+                        tooltip_y = max(8, HEIGHT - max_height - 4)
+                    desc_rect = pygame.Rect(tooltip_x, tooltip_y, desc_width, desc_height)
+                    roll_rect = pygame.Rect(tooltip_x + desc_width + gap, tooltip_y, roll_width, roll_height)
+                    if desc_rect.colliderect(skill_button_rect) or roll_rect.colliderect(skill_button_rect):
+                        tooltip_y = max(8, skill_button_rect.top - max_height - 8)
+                        desc_rect.y = tooltip_y
+                        roll_rect.y = tooltip_y
+
+                    # Left box
+                    pygame.draw.rect(SCREEN, (16, 20, 34, 235), desc_rect, border_radius=8)
+                    pygame.draw.rect(SCREEN, (120, 180, 255), desc_rect, 2, border_radius=8)
+                    name_y = desc_rect.y + 10 + (top_row_height - name_surface.get_height()) // 2
+                    SCREEN.blit(name_surface, name_surface.get_rect(left=desc_rect.x + 10, top=name_y))
+                    if slot_surface:
+                        slot_y = desc_rect.y + 10 + (top_row_height - slot_surface.get_height()) // 2
+                        slot_x = desc_rect.right - slot_surface.get_width() - 10
+                        SCREEN.blit(slot_surface, (slot_x, slot_y))
+                    desc_text_y = desc_rect.y + 10 + top_row_height + 6
+                    for entry in desc_render_entries:
+                        line_surface = local_font_tiny.render(entry.get("text", ""), True, entry.get("color", (200, 210, 230)))
+                        SCREEN.blit(line_surface, (desc_rect.x + 10, desc_text_y))
+                        desc_text_y += line_height
+
+                    # Right box (options only)
+                    pygame.draw.rect(SCREEN, (18, 22, 40, 235), roll_rect, border_radius=8)
+                    pygame.draw.rect(SCREEN, (120, 180, 255), roll_rect, 2, border_radius=8)
+                    roll_text_y = roll_rect.y + 10
+                    for entry in roll_render_entries:
+                        line_surface = local_font_tiny.render(entry.get("text", ""), True, entry.get("color", (200, 210, 230)))
+                        SCREEN.blit(line_surface, (roll_rect.x + 10, roll_text_y))
+                        roll_text_y += line_height
+                    dual_rendered = True
+
+            if not dual_rendered:
+                name_surface = local_font_small.render(hover_info["name"], True, name_color)
+                slot_label = hover_info.get("slot_label")
+                slot_surface = None
+                if slot_label:
+                    slot_surface = local_font_small.render(slot_label, True, (255, 220, 160))
+                top_row_height = max(name_surface.get_height(), slot_surface.get_height() if slot_surface else 0)
+                desc_entries = hover_info.get("lines")
+                if not desc_entries:
+                    desc_entries = [{"text": t, "color": (200, 210, 230)} for t in wrap_text(hover_info["desc"], local_font_tiny, tooltip_width - 20)]
+                line_height = local_font_tiny.get_height() + 2
+                tooltip_height = 16 + top_row_height + 4 + len(desc_entries) * line_height
+                tooltip_x = min(WIDTH - tooltip_width - 10, hover_info["rect"].x + 10)
+                # 기본적으로 커서 위쪽에 배치해 하단 잘림을 방지
+                tooltip_y = hover_info["rect"].top - tooltip_height - 12
+                if tooltip_y < 8:
+                    # 위에 공간이 부족하면 아래쪽으로 폴백
+                    tooltip_y = hover_info["rect"].bottom + 12
+                tooltip_rect = pygame.Rect(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
+                # 스킬트리 버튼과 겹치면 버튼 위로 올려 가림 방지
+                if tooltip_rect.colliderect(skill_button_rect):
+                    tooltip_rect.y = max(8, skill_button_rect.top - tooltip_height - 8)
+                # 화면 밖 보정
+                if tooltip_rect.bottom > HEIGHT - 4:
+                    tooltip_rect.y = max(8, HEIGHT - tooltip_height - 4)
+                pygame.draw.rect(SCREEN, (18, 22, 40, 235), tooltip_rect, border_radius=8)
+                pygame.draw.rect(SCREEN, (120, 180, 255), tooltip_rect, 2, border_radius=8)
+                name_y = tooltip_rect.y + 10 + (top_row_height - name_surface.get_height()) // 2
+                SCREEN.blit(name_surface, name_surface.get_rect(left=tooltip_rect.x + 10, top=name_y))
+                if slot_surface:
+                    slot_y = tooltip_rect.y + 10 + (top_row_height - slot_surface.get_height()) // 2
+                    slot_x = tooltip_rect.right - slot_surface.get_width() - 10
+                    SCREEN.blit(slot_surface, (slot_x, slot_y))
+                text_y = tooltip_rect.y + 10 + top_row_height + 4
+                for entry in desc_entries:
+                    line_surface = local_font_tiny.render(entry.get("text", ""), True, entry.get("color", (200, 210, 230)))
+                    SCREEN.blit(line_surface, (tooltip_rect.x + 10, text_y))
+                    text_y += line_height
 
         pygame.display.flip()
         for event in pygame.event.get():
@@ -79384,11 +79761,34 @@ def show_character_info():
                     return
                 if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
                     return
+                if event.key in (pygame.K_DOWN, pygame.K_PAGEDOWN):
+                    passive_scroll_row = min(passive_scroll_row + 1, passive_scroll_max)
+                if event.key in (pygame.K_UP, pygame.K_PAGEUP):
+                    passive_scroll_row = max(0, passive_scroll_row - 1)
+            if event.type == pygame.MOUSEWHEEL:
+                passive_scroll_row = max(0, min(passive_scroll_row - event.y, passive_scroll_max))
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = event.pos
                 if skill_button_rect.collidepoint(mx, my):
                     try_skill_tree()
                 else:
+                    if event.button == 3:  # 오른쪽 클릭: 액티브 아이템 사용
+                        for idx, rect in active_rects.items():
+                            if rect.collidepoint(event.pos):
+                                try_use_active_item_from_info(idx)
+                                break
+                    if event.button == 1:
+                        # 액티브 아이템 드래그 시작 (슬롯 스왑)
+                        for idx, rect in active_rects.items():
+                            if rect.collidepoint(event.pos) and idx < len(active_item_slot):
+                                active_dragging = {"index": idx, "item": active_item_slot[idx]}
+                                break
+                    if event.button == 1 and scroll_track and scroll_track.collidepoint(event.pos):
+                        if scroll_thumb and scroll_track.height > scroll_thumb.height:
+                            relative = max(0, min(scroll_track.height - scroll_thumb.height, event.pos[1] - scroll_track.y - scroll_thumb.height // 2))
+                            ratio = relative / (scroll_track.height - scroll_thumb.height)
+                            passive_scroll_row = min(passive_scroll_max, max(0, int(round(ratio * passive_scroll_max))))
+                        continue
                     if event.button == 1:
                         # 인벤토리 클릭 → 드래그 시작
                         for idx, rect in bag_rects.items():
@@ -79415,30 +79815,44 @@ def show_character_info():
                                     if target_slot:
                                         equip_item_to_slot(bag_items[idx], target_slot, slot_state)
                                     break
-            if event.type == pygame.MOUSEBUTTONUP and event.button == 1 and dragging_item:
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 pos = event.pos
-                dropped = False
-                for key, rect in slot_rects.items():
-                    if rect.collidepoint(pos) and is_slot_compatible(key, dragging_item["item"]):
-                        target_item = slot_state.get(key)
-                        source_slot = dragging_item.get("slot")
-                        # 같은 부류 슬롯끼리이면 스왑 허용
-                        if target_item and source_slot:
-                            if is_slot_compatible(source_slot, target_item):
-                                slot_state[source_slot] = target_item
-                                target_item["_equipped_slot"] = source_slot
-                                slot_state[key] = dragging_item["item"]
-                                dragging_item["item"]["_equipped_slot"] = key
-                                sync_equipped_passive_effects()
-                                dropped = True
-                                break
-                        equip_item_to_slot(dragging_item["item"], key, slot_state)
+                # 액티브 드래그 종료 → 위치 스왑
+                if active_dragging:
+                    target_idx = None
+                    for idx, rect in active_rects.items():
+                        if rect.collidepoint(pos):
+                            target_idx = idx
+                            break
+                    if target_idx is not None and target_idx < len(active_item_slot):
+                        src_idx = active_dragging["index"]
+                        if src_idx != target_idx:
+                            active_item_slot[src_idx], active_item_slot[target_idx] = active_item_slot[target_idx], active_item_slot[src_idx]
+                    active_dragging = None
+                # 패시브 드래그 종료
+                if dragging_item:
+                    dropped = False
+                    for key, rect in slot_rects.items():
+                        if rect.collidepoint(pos) and is_slot_compatible(key, dragging_item["item"]):
+                            target_item = slot_state.get(key)
+                            source_slot = dragging_item.get("slot")
+                            # 같은 부류 슬롯끼리이면 스왑 허용
+                            if target_item and source_slot:
+                                if is_slot_compatible(source_slot, target_item):
+                                    slot_state[source_slot] = target_item
+                                    target_item["_equipped_slot"] = source_slot
+                                    slot_state[key] = dragging_item["item"]
+                                    dragging_item["item"]["_equipped_slot"] = key
+                                    sync_equipped_passive_effects()
+                                    dropped = True
+                                    break
+                            equip_item_to_slot(dragging_item["item"], key, slot_state)
+                            dropped = True
+                            break
+                    if not dropped and passive_area.collidepoint(pos) and dragging_item.get("source") == "slot":
+                        unequip_slot(dragging_item.get("slot"), slot_state)
                         dropped = True
-                        break
-                if not dropped and bag_area.collidepoint(pos) and dragging_item.get("source") == "slot":
-                    unequip_slot(dragging_item.get("slot"), slot_state)
-                    dropped = True
-                dragging_item = None
+                    dragging_item = None
 
 def show_game_info():
     """게임 정보 화면 (기본: 캐릭터/기본정보 페이지)."""
@@ -80071,54 +80485,54 @@ def get_item_description(item_name):
     """아이템 설명 반환"""
     # 무중력벨트 + 스피드기어 시너지 효과 확인
     descriptions = {
-        "long_boost": "거대화포션: 8초 동안 플레이어의 몸집이 1.5배로 커집니다.",
+        "long_boost": "거대화포션: 8초 동안 플레이어의 몸집이 매우 커집니다.",
         "gauge_charge": "에너지드링크: 게이지를 220만큼 충전합니다.",
         "life_elixir": "생명수: 게이지를 500만큼 충전합니다. 무지개빛 신비한 물약입니다.",  #  생명수 추가
         "aipill": "AI 알약: 이 알약을 먹으면 신체가 로봇이 되어 거의 모든 공격을 가드하지만 가드할때마다 게이지가 감소하는 부작용이 있습니다. 게이지가 바닥나면 종료됩니다",
         "wall": "벽돌: 공을 막아주는 방어용 벽돌을 바닥에 설치합니다. ",
-        "speedboots": "스피드부츠: 이동 속도 4~10% 증가(롤링), 영구 적용.",
+        "speedboots": "스피드부츠: 플레이어의 이동 속도를 증가시켜줍니다.",
         "gravitybelt": "무중력벨트: 이동 시 즉각적인 방향 전환이 가능한 첨단벨트",
-        "speedgear": "스피드기어: 영구적으로 방향 전환 속도가 증가합니다.",
+        "speedgear": "스피드기어: 좌,우 방향 전환 속도가 증가합니다.",
         "battery": "배터리: 다음 스테이지로 넘어가도 게이지가 유지됩니다.",
-        "slot_add": "배낭: 엑티브 아이템 슬롯이 영구적으로 1개 증가합니다.",
-        "revival": "부활: 패배 시 한 번 기회를 제공합니다. 한 게임 당 한번만 스폰되는 귀중한 아이템",
-        "master": "토르의 망치: 벽돌 아이템 길이 20~40% 증가, 설치 시간은 유지, 아이템 쿨타임 4~10% 감소.",
-        "cooltime": "쿨링볼: 아이템 재사용 쿨타임이 30% 감소합니다.",
-        "chargebag": "충전가방: 공이 벽에 닿을 때마다 기본 게이지 충전량의 10~25%를 추가로 얻습니다.",
-        "spikeboots": "스파이크부츠: 대쉬 후 후딜 시간이 30% 감소하고 대쉬토큰 쿨타임이 15% 감소합니다.",
-        "dashgear": "대쉬기어: 대쉬 거리가 10% 증가하고 게이지 소모가 20% 감소합니다.",
-        "bulkup": "벌크업슈트: 플레이어의 몸집이 영구적으로 10% 증가합니다.",
-        "sensor": "위험감지센서: 때때로 위험한 상황에 직면하면 자동으로 대쉬를 시전합니다.",
-        "dashholder": "대쉬홀더: 대쉬토큰 1개를 추가로 얻습니다.",
-        "dowsing_pendulum": "다우징팬들럼: 플레이어 주위에 아이템을 끌어당깁니다.",
+        "slot_add": "배낭: 엑티브아이템 슬롯을 1칸 추가합니다",
+        "revival": "부활: 패배 시 한 번의 재경기 기회를 제공합니다. 발동시 해당 아이템은 소모되며 한 게임 당 한번만 스폰되는 귀중한 아이템입니다",
+        "master": "토르의 망치: 벽돌 액티브 아이템 사용시 벽돌의 길이를 늘려주며, 아이템 쿨타임도 조금 줄여주는 고마운 망치.",
+        "cooltime": "쿨링볼: 아이템 재사용 쿨타임을 감소시켜줍니다.",
+        "chargebag": "충전가방: 공이 벽에 닿을 때마다 기본 게이지충전량의 일부를 추가로 얻습니다.",
+        "spikeboots": "스파이크부츠: 대쉬를 조금더 능숙하게 사용할 수 있게 도와주는 하이테크 장비.",
+        "dashgear": "대쉬기어: 대쉬의 효율성을 극대화 시켜줍니다.",
+        "bulkup": "벌크업슈트: 티타늄으로 제작된 슈트 , 플레이어의 몸집이 영구적으로 증가합니다.",
+        "sensor": "위험감지센서: 때때로 위험한 상황에 직면하면 자동으로 대쉬를 시전합니다. 자동대쉬는 게이지를 소모하지 않으며 보라색 전용대쉬토큰이 추가됩니다",
+        "dashholder": "대쉬홀더: 대쉬토큰을 추가로 얻습니다.",
+        "dowsing_pendulum": "다우징팬들럼: 강력한 자기장을 발산하여 플레이어 주위에 아이템을 끌어당깁니다.",
         "molotov": "화염병: 상대방의 이동경로를 차단하는 화염병을 던집니다.",
-        "grenade": "수류탄: 명중 시 상대방을 밀어내고 일정기간 스턴 시킵니다.",
-        "spider_mine": "스파이더지뢰: 플레이어 위치 기준 좌·우 바닥과 벽을 타고 보스 진영 모서리에 매설됩니다. 보스가 밟으면 폭발하여 넉백시키고 3초 동안 이동속도가 30% 감소합니다.",
-        "flare": "조명탄: 투척 후 1.5초 뒤 폭발하며 명중 시 일정기간 상대방을 혼란 상태로 만듭니다.",
+        "grenade": "수류탄: 명중 시 폭발 범위내에 상대방이 튕겨나가고 일정기간 스턴 시킵니다.",
+        "spider_mine": "스파이더지뢰: 플레이어 위치 기준 좌·우 바닥과 벽을 타고 보스 진영 모서리에 매설됩니다. 보스가 밟으면 폭발과 동시에 둔화에 걸리게 됩니다.",
+        "flare": "조명탄: 투척 후 잠시 후 해당 위치에 조명이 폭발하며 폭발 범위 내에 명중 시 일정기간 상대방을 혼란 상태로 만듭니다.",
         "smoke_grenade": "연막탄: 플레이어 근처에 연막을 생성합니다. 연막은 빠른 공의 속도를 감소시켜주며, 각종 보스들의 스킬 공격을 방어해줍니다",
         "pandora_box": "판도라의 상자: 무지개 블랙홀을 발생시켜 아이템이 쏟아집니다!",
-        "commando_arm": "코만도암: 숙련된 코만도의 유품, 투척류 아이템 사용시 준비동작이 사라지며 투척 속도 30% 증가, 폭발 범위 10% 증가, 연막탄 지속시간 50%가 증가합니다",
+        "commando_arm": "코만도암: 숙련된 코만도의 유품, 수류탄,화염병 등의 투척류 무기뿐만아니라 연막탄같은 방어 아이템도 좀더 신속하고 능숙하게 다룰 수 있게 해줍니다",
         "stopwatch": "스탑워치: 시간을 왜곡시켜 공의 움직임을 일정시간 정지시킵니다 .",
         "repair_kit": "수리키트: 발토르의 포탑과 디바인스톤, 설치된 벽돌을 즉시 완전 수리하고 과열을 제거합니다.",
         "devil_dice": "악마의 주사위: 모든 능력치를 랜덤하게 변화시키는 주사위. 결과는 하늘의 뜻에 달려있습니다",
-        "technical_vest": "테크니컬조끼: 공 타격 시 연막 생성 확률 10~20%(롤), 연막 지속 3~6초(롤). 연막은 보스 스킬을 막아줍니다.",
-        "fuel_pouch": "연료파우치: 장신구 슬롯에 착용, 최대 게이지가 영구적으로 60~120 증가합니다.",
-        "bluetooth_ring": "블루투스링: 플레이어가 공을 칠 때 게이지 획득량이 15~30% 증가합니다.",
-        "foul_whistle": "반칙호루라기: 라운드 패배 시 4~10% 확률로 심판이 호루라기를 불어 라운드를 무효로 만들고 즉시 재경기를 시작합니다.",
-        "star_detector": "별탐지기: 스타포인트 드랍 시 15~30% 확률로 추가 별이 등장합니다.",
-        "bulletproof_hat": "방탄모자: 스턴 저항력이 10~20% 증가해 스턴 지속시간을 줄여줍니다.",
-        "spiked_helmet": "가시투구: 넉백 저항력이 10~20% 증가해 넉백 거리와 지속을 줄여줍니다.",
+        "technical_vest": "테크니컬조끼: 일정확률로 공에 닿을 시 조끼 내부의 연막이 분출됩니다. 연막은 보스의 각종 스킬을 막아줍니다.",
+        "fuel_pouch": "연료파우치: 플레이어의 게이지 최대치가 증가합니다.",
+        "bluetooth_ring": "블루투스링: 플레이어가 공을 칠 때 게이지 획득량이 증가합니다.",
+        "foul_whistle": "반칙호루라기: 라운드 패배시 확률로 심판이 호루라기를 불어 라운드를 무효로 만들고 즉시 재경기를 시작합니다.",
+        "star_detector": "별탐지기: 스타포인트 드랍 시 일정 확률로 추가 별이 등장합니다.",
+        "bulletproof_hat": "방탄모자: 스턴 저항력이 증가해 스턴 지속시간을 줄여줍니다.",
+        "spiked_helmet": "가시투구: 넉백 저항력이 증가해 넉백 거리와 지속시간을 줄여줍니다.",
         "smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
-        "knee_pads": "킥차져: 하프대쉬로 공을 맞출 때 게이지가 30~60% 충전됩니다. 성공 시 황금빛 킥 부스터가 번쩍입니다.",
-        "doping_potion": "도핑물약: 8초 동안 권총 헤드샷/레그샷 확률 2배, 권총 사격 쿨타임 0.5초(컨트롤락 0.15초, 나머지 0.35초)로 단축.",
-        "vitamin_pill": "비타민약: 10초 동안 이동속도가 50% 증가합니다. 지속시간은 우측 하단의 파란 전용 게이지로 표시되며, 게이지 위 신발 엠블럼이 경쾌하게 움직입니다.",
-        "berserk_potion": "광폭물약: 발토르 전용 강화 물약. 15초 동안 건설·업그레이드 속도가 3배로 증가하고 포탑 수동 발사 쿨다운이 400% 단축돼 구조물 운영에 집중할 수 있습니다.",
-        "ammo_box": "탄약상자: 권총을 포함한 모든 보유 화기류의 탄창을 완전히 재장전합니다. 권총, 바주카포, AK-47 등 모든 화기류에 사용 가능합니다.",
-        "fire_support": "화력지원: 무전으로 폭격기를 호출해 2~3초 후 보스 진영에 수류탄과 동일한 폭격을 5~7회 투하합니다. 폭격기는 공에 맞으면 격추됩니다.",
-        "net_gun": "그물덫총: 작살을 던져 상대 진영에 폭 350px의 그물을 펼칩니다. 전개 순간 범위 안의 보스는 4초 동안 그물 밖으로 이동할 수 없습니다. 장력을 유지하는 동안 군인의 이동 속도는 30% 감소하니 위치를 선점해두세요.",
+        "knee_pads": "킥차져: 하프대쉬로 공을 맞출 때 기본 게이지 획득량을 기준으로 일정부분이 충전됩니다. 성공 시 황금빛 킥 부스터가 번쩍입니다.",
+        "doping_potion": "도핑물약: 8초 동안 권총 헤드샷/레그샷 확률 2배증가하며 권총 사격의 연사가 비약적으로 빨라집니다.",
+        "vitamin_pill": "비타민약: 10초 동안 이동속도가 대폭 증가합니다.",
+        "berserk_potion": "광폭물약: 발토르 전용 강화 물약. 15초 동안 건설·업그레이드 속도가 3배 빨라지고 기본 게이지 획득량이 대폭 늘어납니다",
+        "ammo_box": "탄약상자: 노후화된 화기류를 제외한 모든 보유 화기류의 탄창을 완전히 재장전합니다.",
+        "fire_support": "화력지원: 무전으로 폭격기를 호출한 뒤 적 진영에 폭격을 5~7회 투하합니다.",
+        "net_gun": "그물덫총: 그물 작살을 발사합니다, 포획에 성공할 시 보스가 그물에 갇혀버리며 좌,우 키를 빠르게 연타하면 그물을 조일 수 있습니다",
         "ak47": "AK-47: 강력한 자동소총. 90발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
         "suicide_drone": "자폭드론: 보급요청 스킬을 통해 투입되는 코만도 전용 드론 슬롯. 추후 성능이 정의되기 전까지는 장비 슬롯 표시 및 전환만 지원합니다.",
-        "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 1.5배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
+        "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
         "baby": "베이비: 아이템관리자 전설탭 표시용. 헤르메스의 신발과 동일한 아이콘/연출을 사용합니다.",
