@@ -810,9 +810,9 @@ class DowntownManager:
         shackle_h = int(lock_size * 0.45)
         shackle_thickness = 14
 
-        # 문 열림 애니메이션 (0.85~1.0)
-        if progress >= 0.85:
-            door_progress = (progress - 0.85) / 0.15
+        # 문 열림 애니메이션 (0.80~1.0) - 타이밍 조정
+        if progress >= 0.80:
+            door_progress = (progress - 0.80) / 0.20
             shackle_rotation = self._ease_out_cubic(door_progress) * 90  # 90도 회전
         else:
             shackle_rotation = 0
@@ -914,52 +914,60 @@ class DowntownManager:
                 pygame.draw.circle(trail_surf, (255, 215, 100, trail_alpha), (30, 30), 25)
                 self.screen.blit(trail_surf, (int(key_x) - 30, int(key_y) - 30))
 
-        # 3단계: 열쇠 회전 (0.45~0.65) - 구멍에 넣기 전에 먼저 회전
-        elif progress < 0.65:
-            turn_progress = (progress - 0.45) / 0.2
+        # 3단계: 열쇠를 구멍에 수평으로 꽂기 (0.45~0.60)
+        elif progress < 0.60:
+            insert_progress = (progress - 0.45) / 0.15
+            eased_insert = self._ease_in_out_cubic(insert_progress)
+
+            # 열쇠를 구멍 앞에 수평으로 위치
+            key_x = lock_x
+            key_y = lock_y
+            key_rotation = 0  # 수평 상태
+            # 구멍 앞에서 살짝 들어가기 시작
+            key_insert_offset = eased_insert * 15
+
+            # 삽입 시작 빛 효과
+            if insert_progress > 0.5:
+                glow_alpha = int(100 * (insert_progress - 0.5) * 2)
+                glow_surf = pygame.Surface((60, 60), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (255, 215, 100, glow_alpha), (30, 30), 25)
+                self.screen.blit(glow_surf, (lock_x - 30, lock_y - 30))
+
+        # 4단계: 열쇠를 밀어 넣으면서 90도 회전 (0.60~0.80)
+        elif progress < 0.80:
+            turn_progress = (progress - 0.60) / 0.2
             eased_turn = self._ease_in_out_cubic(turn_progress)
 
             key_x = lock_x
             key_y = lock_y
-            # 90도 회전
+            # 밀어 넣으면서 동시에 90도 회전
             key_rotation = eased_turn * 90
-            key_insert_offset = 0
+            key_insert_offset = 15 + eased_turn * 25  # 15에서 40까지 깊게 들어감
 
             # 회전 중 원형 빛 효과
-            rotation_glow = int(50 + turn_progress * 100)
+            rotation_glow = int(50 + turn_progress * 150)
             rotation_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
             pygame.draw.circle(rotation_surf, (255, 215, 100, rotation_glow), (40, 40), 35, 3)
             self.screen.blit(rotation_surf, (lock_x - 40, lock_y - 40))
 
-        # 4단계: 열쇠 삽입 (0.65~0.85) - 회전된 상태로 구멍에 삽입
-        elif progress < 0.85:
-            insert_progress = (progress - 0.65) / 0.2
-            eased_insert = self._ease_in_out_cubic(insert_progress)
-
-            key_x = lock_x
-            key_y = lock_y
-            key_rotation = 90  # 회전된 상태 유지
-            # 자물쇠 안으로 삽입 (더 깊게)
-            key_insert_offset = eased_insert * 20
-
-            # 삽입 중 스파크 효과
-            if insert_progress > 0.3:
+            # 회전 중 스파크 효과
+            if turn_progress > 0.4:
                 spark_count = 5
                 for i in range(spark_count):
-                    angle = (i / spark_count) * math.pi * 2
-                    spark_dist = 15 + insert_progress * 10
+                    angle = (i / spark_count) * math.pi * 2 + turn_progress * math.pi * 2
+                    spark_dist = 20 + turn_progress * 10
                     spark_x = lock_x + math.cos(angle) * spark_dist
                     spark_y = lock_y + math.sin(angle) * spark_dist
-                    spark_alpha = int(255 * (1 - insert_progress))
+                    spark_alpha = int(200 * (1 - turn_progress))
                     pygame.draw.circle(self.screen, (255, 235, 150, spark_alpha),
-                                     (int(spark_x), int(spark_y)), 2)
+                                     (int(spark_x), int(spark_y)), 3)
 
-        # 5단계: 문 열림 (0.85~1.0)
+        # 5단계: 문 열림 (0.80~1.0)
         else:
             key_x = lock_x
             key_y = lock_y
             key_rotation = 90
-            key_insert_offset = 20
+            key_insert_offset = 40
 
         # 열쇠 그리기 (광장 좌측 상단과 동일한 앤틱 스타일)
         key_y_adjusted = key_y + key_insert_offset
@@ -970,6 +978,21 @@ class DowntownManager:
             key_scale = 16 + (key_size - 16) * scale_progress
         else:
             key_scale = key_size
+
+        # 열쇠가 삽입되는 동안 (3~5단계) 점점 가려지도록 클리핑
+        clip_ratio = 0.0
+        if progress >= 0.45:  # 3단계부터 클리핑 시작
+            if progress < 0.60:
+                # 3단계: 수평 꽂기 (0~30% 가려짐)
+                insert_progress = (progress - 0.45) / 0.15
+                clip_ratio = insert_progress * 0.3
+            elif progress < 0.80:
+                # 4단계: 회전하며 밀기 (30~70% 가려짐)
+                turn_progress = (progress - 0.60) / 0.2
+                clip_ratio = 0.3 + turn_progress * 0.4
+            else:
+                # 5단계: 완전 삽입 (70% 가려짐 유지)
+                clip_ratio = 0.7
 
         # 회전이 필요한 경우 임시 서피스에 그린 후 회전
         if key_rotation > 0:
@@ -990,12 +1013,10 @@ class DowntownManager:
             # 회전 적용
             rotated_surf = pygame.transform.rotate(temp_surf, -key_rotation)
 
-            # 삽입 단계에서는 열쇠가 점점 가려지도록 클리핑
-            if progress >= 0.65 and progress < 0.85:
-                insert_progress = (progress - 0.65) / 0.2
-
-                # 열쇠가 삽입되면서 보이는 부분만 그리기
-                visible_height = int(rotated_surf.get_height() * (1 - insert_progress * 0.7))
+            # 클리핑 적용
+            if clip_ratio > 0:
+                visible_height = int(rotated_surf.get_height() * (1 - clip_ratio))
+                visible_height = max(1, visible_height)  # 최소 1픽셀
 
                 # 클리핑 영역 생성 (위에서부터 visible_height만큼만 보이도록)
                 clipped_surf = pygame.Surface((rotated_surf.get_width(), visible_height), pygame.SRCALPHA)
@@ -1009,24 +1030,48 @@ class DowntownManager:
 
                 self.screen.blit(clipped_surf, clip_rect)
             else:
-                # 화면에 그리기 (중앙 정렬)
+                # 클리핑 없이 전체 그리기
                 rotated_rect = rotated_surf.get_rect(center=(int(key_x), int(key_y_adjusted)))
                 self.screen.blit(rotated_surf, rotated_rect)
         else:
-            # 회전 없으면 직접 그리기
-            self.ap_system._draw_antique_key(
-                self.screen,
-                int(key_x),
-                int(key_y_adjusted),
-                int(key_scale),
-                active=True,
-                alpha=1.0
-            )
+            # 수평 상태 열쇠 그리기
+            if clip_ratio > 0:
+                # 임시 서피스에 그린 후 클리핑
+                temp_size = int(key_scale * 3)
+                temp_surf = pygame.Surface((temp_size, temp_size), pygame.SRCALPHA)
+
+                self.ap_system._draw_antique_key(
+                    temp_surf,
+                    temp_size // 2,
+                    temp_size // 2,
+                    int(key_scale),
+                    active=True,
+                    alpha=1.0
+                )
+
+                visible_height = int(temp_surf.get_height() * (1 - clip_ratio))
+                visible_height = max(1, visible_height)
+
+                clipped_surf = pygame.Surface((temp_surf.get_width(), visible_height), pygame.SRCALPHA)
+                clipped_surf.blit(temp_surf, (0, 0))
+
+                clip_rect = clipped_surf.get_rect(center=(int(key_x), int(key_y_adjusted)))
+                self.screen.blit(clipped_surf, clip_rect)
+            else:
+                # 클리핑 없이 직접 그리기
+                self.ap_system._draw_antique_key(
+                    self.screen,
+                    int(key_x),
+                    int(key_y_adjusted),
+                    int(key_scale),
+                    active=True,
+                    alpha=1.0
+                )
 
         # === 문 열림 빛 효과 ===
-        if progress >= 0.85:
-            # 문 열릴 때 강렬한 빛 효과
-            door_glow_progress = (progress - 0.85) / 0.15
+        if progress >= 0.80:
+            # 문 열릴 때 강렬한 빛 효과 (타이밍 조정)
+            door_glow_progress = (progress - 0.80) / 0.20
             glow_alpha = int(255 * door_glow_progress)
             glow_radius = int(200 * door_glow_progress)
 
@@ -1045,10 +1090,10 @@ class DowntownManager:
             status_text = "열쇠를 준비하는 중..."
         elif progress < 0.45:
             status_text = "열쇠를 가져오는 중..."
-        elif progress < 0.65:
+        elif progress < 0.60:
+            status_text = "열쇠를 꽂는 중..."
+        elif progress < 0.80:
             status_text = "열쇠를 돌리는 중..."
-        elif progress < 0.85:
-            status_text = "열쇠를 넣는 중..."
         else:
             status_text = "문이 열리는 중..."
 
