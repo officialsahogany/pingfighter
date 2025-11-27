@@ -1744,15 +1744,15 @@ class BuildingInterior:
         robot2_x = counter_x + counter_w * 2 // 3
         self._draw_desk_robot_angular(screen, robot2_x, robot_y, self.animation_timer, 1)
 
-        # 7. 사이드 전광판 (좌우 벽)
+        # 7. 사이드 전광판 (좌우 벽) - 주식 전광판 스타일
         # 왼쪽: 환율 전광판
-        exchange_x = -cam_x + 15
-        exchange_y = -cam_y + 25
+        exchange_x = -cam_x + 8
+        exchange_y = -cam_y + 15
         self._draw_exchange_rate_board(screen, exchange_x, exchange_y, self.animation_timer)
 
         # 오른쪽: 예금 이자율 전광판
-        interest_x = self.pixel_width - cam_x - 115
-        interest_y = -cam_y + 25
+        interest_x = self.pixel_width - cam_x - 120
+        interest_y = -cam_y + 15
         self._draw_interest_rate_board(screen, interest_x, interest_y, self.animation_timer)
 
         # 8. 바닥 가이드 라인 (미니멀)
@@ -1862,92 +1862,140 @@ class BuildingInterior:
         pygame.draw.circle(screen, accent_color, (x + w - 10, y + 10), 3)
 
     def _draw_exchange_rate_board(self, screen, x, y, anim_timer):
-        """환율 전광판 그리기 - 1 스타포인트 = N 골드 (±15% 일일 변동)"""
+        """환율 전광판 - 주식 전광판 스타일 (LED 도트 매트릭스)"""
         import math
 
         # 전광판 크기
-        board_w, board_h = 120, 70
+        board_w, board_h = 130, 85
 
-        # 색상
-        FRAME_COLOR = (35, 45, 60)
-        FRAME_BORDER = (60, 80, 110)
-        SCREEN_BG = (10, 15, 25)
-        LED_GREEN = (80, 255, 140)
-        LED_RED = (255, 100, 100)
-        GOLD_COLOR = (255, 210, 80)
-        CYAN_COLOR = (80, 200, 255)
-        WHITE = (240, 245, 250)
+        # 색상 (어두운 배경 + 밝은 LED)
+        BG_BLACK = (5, 8, 12)
+        FRAME_DARK = (20, 25, 35)
+        GRID_DIM = (15, 20, 30)
+        LED_GREEN = (50, 255, 120)
+        LED_RED = (255, 70, 70)
+        LED_YELLOW = (255, 220, 50)
+        LED_CYAN = (60, 200, 255)
+        LED_DIM_GREEN = (15, 60, 35)
+        LED_DIM_RED = (60, 20, 20)
 
         # 환율 변동 색상 결정
         if self.exchange_rate_variance >= 0:
             rate_color = LED_GREEN
-            arrow = "▲" if self.exchange_rate_variance > 0.05 else ""
+            dim_color = LED_DIM_GREEN
+            arrow_char = "▲"
         else:
             rate_color = LED_RED
-            arrow = "▼" if self.exchange_rate_variance < -0.05 else ""
+            dim_color = LED_DIM_RED
+            arrow_char = "▼"
 
-        # 프레임
-        pygame.draw.rect(screen, FRAME_COLOR, (x, y, board_w, board_h), border_radius=5)
-        pygame.draw.rect(screen, FRAME_BORDER, (x, y, board_w, board_h), 2, border_radius=5)
+        # 외부 프레임 (두꺼운 금속 느낌)
+        pygame.draw.rect(screen, FRAME_DARK, (x - 2, y - 2, board_w + 4, board_h + 4))
+        pygame.draw.rect(screen, (40, 50, 65), (x - 2, y - 2, board_w + 4, board_h + 4), 2)
 
-        # 스크린 배경
-        pygame.draw.rect(screen, SCREEN_BG, (x + 4, y + 4, board_w - 8, board_h - 8), border_radius=3)
+        # 메인 스크린 배경 (완전 검정)
+        pygame.draw.rect(screen, BG_BLACK, (x, y, board_w, board_h))
 
-        # 상단 타이틀 바
-        pygame.draw.rect(screen, (25, 35, 50), (x + 4, y + 4, board_w - 8, 14), border_radius=3)
+        # 그리드 라인 (주식 전광판 특유의 격자)
+        for gx in range(0, board_w, 8):
+            pygame.draw.line(screen, GRID_DIM, (x + gx, y), (x + gx, y + board_h), 1)
+        for gy in range(0, board_h, 8):
+            pygame.draw.line(screen, GRID_DIM, (x, y + gy), (x + board_w, y + gy), 1)
 
-        # 타이틀 텍스트 "EXCHANGE"
+        # 스캔라인 효과 (움직이는 밝은 라인)
+        scan_y = int((anim_timer * 30) % board_h)
+        scan_surf = pygame.Surface((board_w, 2), pygame.SRCALPHA)
+        pygame.draw.rect(scan_surf, (100, 120, 150, 30), (0, 0, board_w, 2))
+        screen.blit(scan_surf, (x, y + scan_y))
+
+        # 상단 타이틀 바 (빨간색 배경)
+        pygame.draw.rect(screen, (80, 15, 15), (x + 2, y + 2, board_w - 4, 16))
+
         font_small = self.fonts.get('small')
         if font_small:
-            title_surf, title_rect = font_small.render("EXCHANGE", CYAN_COLOR)
-            screen.blit(title_surf, (x + board_w // 2 - title_rect.width // 2, y + 5))
+            # 타이틀: "환율" (노란색 LED)
+            title_surf, title_rect = font_small.render("환율", LED_YELLOW)
+            screen.blit(title_surf, (x + 8, y + 4))
 
-        # LED 글로우 효과
-        glow_intensity = int(30 + 15 * math.sin(anim_timer * 3))
-        glow_surf = pygame.Surface((board_w - 8, board_h - 22), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (*CYAN_COLOR[:3], glow_intensity), (0, 0, board_w - 8, board_h - 22), border_radius=3)
-        screen.blit(glow_surf, (x + 4, y + 18))
+            # 오른쪽에 "RATE"
+            rate_label, _ = font_small.render("RATE", LED_YELLOW)
+            screen.blit(rate_label, (x + board_w - 40, y + 4))
 
-        # 환율 표시 영역
-        rate_y = y + 24
+        # 메인 환율 표시 영역
+        main_y = y + 22
 
-        # 스타포인트 아이콘 (별)
-        star_x = x + 18
-        star_y = rate_y + 12
-        self._draw_star_icon_small(screen, star_x, star_y, 8, CYAN_COLOR)
-
-        # "1" 숫자
+        # 스타포인트 심볼 (★) - 시안색
         if font_small:
-            one_surf, one_rect = font_small.render("1", WHITE)
-            screen.blit(one_surf, (star_x + 12, rate_y + 6))
+            star_surf, _ = font_small.render("★", LED_CYAN)
+            screen.blit(star_surf, (x + 8, main_y + 2))
 
-        # "=" 기호
-        eq_x = x + 45
-        pygame.draw.rect(screen, WHITE, (eq_x, rate_y + 10, 8, 2))
-        pygame.draw.rect(screen, WHITE, (eq_x, rate_y + 15, 8, 2))
+            # "1"
+            one_surf, _ = font_small.render("1", LED_CYAN)
+            screen.blit(one_surf, (x + 22, main_y + 2))
 
-        # 골드 아이콘 (동전)
-        gold_x = x + 62
-        gold_y = rate_y + 12
-        self._draw_gold_icon_small(screen, gold_x, gold_y, 7, GOLD_COLOR)
+        # 화살표 (→)
+        arrow_x = x + 38
+        pygame.draw.polygon(screen, LED_YELLOW, [
+            (arrow_x, main_y + 10),
+            (arrow_x + 12, main_y + 10),
+            (arrow_x + 12, main_y + 6),
+            (arrow_x + 18, main_y + 12),
+            (arrow_x + 12, main_y + 18),
+            (arrow_x + 12, main_y + 14),
+            (arrow_x, main_y + 14)
+        ])
 
-        # 환율 숫자
+        # 골드 아이콘 (●) - 노란색
         if font_small:
-            rate_text = str(self.current_exchange_rate)
+            gold_surf, _ = font_small.render("●", LED_YELLOW)
+            screen.blit(gold_surf, (x + 62, main_y + 2))
+
+        # 환율 숫자 (큰 LED 숫자 느낌)
+        rate_text = str(self.current_exchange_rate)
+        if font_small:
             rate_surf, rate_rect = font_small.render(rate_text, rate_color)
-            screen.blit(rate_surf, (gold_x + 14, rate_y + 6))
+            screen.blit(rate_surf, (x + 78, main_y + 2))
 
-        # 변동률 표시 (하단)
-        variance_y = y + board_h - 18
+        # 하단 변동률 표시
+        bottom_y = y + 45
+
+        # 구분선
+        pygame.draw.line(screen, GRID_DIM, (x + 4, bottom_y - 2), (x + board_w - 4, bottom_y - 2), 1)
+
+        # 변동률
         variance_pct = f"{self.exchange_rate_variance * 100:+.1f}%"
         if font_small:
-            var_surf, var_rect = font_small.render(variance_pct, rate_color)
-            screen.blit(var_surf, (x + board_w // 2 - var_rect.width // 2, variance_y))
+            # 화살표
+            arrow_surf, _ = font_small.render(arrow_char, rate_color)
+            screen.blit(arrow_surf, (x + 10, bottom_y + 2))
 
-        # 상태 LED (점멸)
-        led_on = int(anim_timer * 2) % 2 == 0
-        led_color = LED_GREEN if led_on else (30, 80, 50)
-        pygame.draw.circle(screen, led_color, (x + board_w - 10, y + 10), 3)
+            # 퍼센트
+            var_surf, _ = font_small.render(variance_pct, rate_color)
+            screen.blit(var_surf, (x + 28, bottom_y + 2))
+
+        # 미니 그래프 (오른쪽 하단) - 주식 차트 느낌
+        graph_x = x + 75
+        graph_y = bottom_y
+        graph_w = 50
+        graph_h = 25
+
+        # 그래프 배경
+        pygame.draw.rect(screen, (10, 15, 25), (graph_x, graph_y, graph_w, graph_h))
+        pygame.draw.rect(screen, GRID_DIM, (graph_x, graph_y, graph_w, graph_h), 1)
+
+        # 그래프 라인 (랜덤하게 움직이는 느낌)
+        prev_py = graph_y + graph_h // 2
+        for i in range(graph_w // 4):
+            px = graph_x + i * 4
+            py = graph_y + graph_h // 2 + int(8 * math.sin(anim_timer * 2 + i * 0.7))
+            if i > 0:
+                pygame.draw.line(screen, rate_color, (px - 4, prev_py), (px, py), 1)
+            prev_py = py
+
+        # 우측 하단 상태 LED
+        led_blink = int(anim_timer * 3) % 2 == 0
+        led_c = LED_GREEN if led_blink else LED_DIM_GREEN
+        pygame.draw.circle(screen, led_c, (x + board_w - 8, y + board_h - 8), 3)
 
     def _draw_star_icon_small(self, screen, cx, cy, size, color):
         """작은 스타포인트 아이콘 (별)"""
@@ -1971,80 +2019,128 @@ class BuildingInterior:
         pygame.draw.line(screen, tuple(max(0, c - 80) for c in color), (cx, cy - size // 2), (cx, cy + size // 2), 1)
 
     def _draw_interest_rate_board(self, screen, x, y, anim_timer):
-        """예금 이자율 전광판 그리기 - 5%~20% 일일 랜덤"""
+        """예금 이자율 전광판 - 주식 전광판 스타일 (LED 도트 매트릭스)"""
         import math
 
         # 전광판 크기
-        board_w, board_h = 100, 70
+        board_w, board_h = 110, 85
 
-        # 색상
-        FRAME_COLOR = (35, 45, 60)
-        FRAME_BORDER = (60, 80, 110)
-        SCREEN_BG = (10, 15, 25)
-        GOLD_COLOR = (255, 210, 80)
-        CYAN_COLOR = (80, 200, 255)
-        WHITE = (240, 245, 250)
+        # 색상 (어두운 배경 + 밝은 LED)
+        BG_BLACK = (5, 8, 12)
+        FRAME_DARK = (20, 25, 35)
+        GRID_DIM = (15, 20, 30)
+        LED_GREEN = (50, 255, 120)
+        LED_YELLOW = (255, 220, 50)
+        LED_ORANGE = (255, 160, 50)
+        LED_CYAN = (60, 200, 255)
+        LED_DIM = (15, 60, 35)
 
         # 이자율에 따른 색상 (높을수록 초록)
         rate_pct = self.deposit_interest_rate * 100
         if rate_pct >= 15:
-            rate_color = (80, 255, 140)  # 높은 이자율 - 초록
+            rate_color = LED_GREEN
+            rating = "HOT"
         elif rate_pct >= 10:
-            rate_color = (200, 230, 100)  # 중간 - 연두
+            rate_color = LED_YELLOW
+            rating = "MID"
         else:
-            rate_color = (255, 200, 100)  # 낮은 이자율 - 노랑
+            rate_color = LED_ORANGE
+            rating = "LOW"
 
-        # 프레임
-        pygame.draw.rect(screen, FRAME_COLOR, (x, y, board_w, board_h), border_radius=5)
-        pygame.draw.rect(screen, FRAME_BORDER, (x, y, board_w, board_h), 2, border_radius=5)
+        # 외부 프레임 (두꺼운 금속 느낌)
+        pygame.draw.rect(screen, FRAME_DARK, (x - 2, y - 2, board_w + 4, board_h + 4))
+        pygame.draw.rect(screen, (40, 50, 65), (x - 2, y - 2, board_w + 4, board_h + 4), 2)
 
-        # 스크린 배경
-        pygame.draw.rect(screen, SCREEN_BG, (x + 4, y + 4, board_w - 8, board_h - 8), border_radius=3)
+        # 메인 스크린 배경 (완전 검정)
+        pygame.draw.rect(screen, BG_BLACK, (x, y, board_w, board_h))
 
-        # 상단 타이틀 바
-        pygame.draw.rect(screen, (25, 35, 50), (x + 4, y + 4, board_w - 8, 14), border_radius=3)
+        # 그리드 라인 (주식 전광판 특유의 격자)
+        for gx in range(0, board_w, 8):
+            pygame.draw.line(screen, GRID_DIM, (x + gx, y), (x + gx, y + board_h), 1)
+        for gy in range(0, board_h, 8):
+            pygame.draw.line(screen, GRID_DIM, (x, y + gy), (x + board_w, y + gy), 1)
 
-        # 타이틀 텍스트 "이자율"
+        # 스캔라인 효과 (움직이는 밝은 라인)
+        scan_y = int((anim_timer * 25) % board_h)
+        scan_surf = pygame.Surface((board_w, 2), pygame.SRCALPHA)
+        pygame.draw.rect(scan_surf, (100, 120, 150, 25), (0, 0, board_w, 2))
+        screen.blit(scan_surf, (x, y + scan_y))
+
+        # 상단 타이틀 바 (진한 파랑 배경)
+        pygame.draw.rect(screen, (15, 40, 80), (x + 2, y + 2, board_w - 4, 16))
+
         font_small = self.fonts.get('small')
         if font_small:
-            title_surf, title_rect = font_small.render("이자율", GOLD_COLOR)
-            screen.blit(title_surf, (x + board_w // 2 - title_rect.width // 2, y + 5))
+            # 타이틀: "이자율" (노란색 LED)
+            title_surf, _ = font_small.render("이자율", LED_YELLOW)
+            screen.blit(title_surf, (x + 8, y + 4))
 
-        # LED 글로우 효과
-        glow_intensity = int(25 + 15 * math.sin(anim_timer * 2.5))
-        glow_surf = pygame.Surface((board_w - 8, board_h - 22), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (*GOLD_COLOR[:3], glow_intensity), (0, 0, board_w - 8, board_h - 22), border_radius=3)
-        screen.blit(glow_surf, (x + 4, y + 18))
+            # 오른쪽에 등급 표시
+            rating_surf, _ = font_small.render(rating, rate_color)
+            screen.blit(rating_surf, (x + board_w - 35, y + 4))
 
-        # 이자율 표시 영역
-        rate_y = y + 28
+        # 메인 이자율 표시
+        main_y = y + 24
 
-        # "예금" 텍스트
+        # "예금" 라벨
         if font_small:
-            label_surf, label_rect = font_small.render("예금", WHITE)
-            screen.blit(label_surf, (x + 12, rate_y))
+            label_surf, _ = font_small.render("예금", LED_CYAN)
+            screen.blit(label_surf, (x + 8, main_y))
 
-        # 이자율 숫자 (큰 글씨 효과)
+        # 큰 이자율 숫자
         rate_text = f"{rate_pct:.1f}%"
         if font_small:
             rate_surf, rate_rect = font_small.render(rate_text, rate_color)
-            screen.blit(rate_surf, (x + board_w // 2 - rate_rect.width // 2 + 5, rate_y + 18))
+            screen.blit(rate_surf, (x + board_w // 2 - rate_rect.width // 2 + 10, main_y + 18))
 
-        # 상태 표시 바 (이자율 게이지)
-        gauge_y = y + board_h - 14
-        gauge_w = board_w - 20
-        gauge_h = 4
-        # 배경
-        pygame.draw.rect(screen, (30, 40, 55), (x + 10, gauge_y, gauge_w, gauge_h), border_radius=2)
-        # 채움 (5%~20% -> 0~100%)
-        fill_ratio = (self.deposit_interest_rate - 0.05) / 0.15  # 0.0 ~ 1.0
-        fill_w = int(gauge_w * fill_ratio)
-        pygame.draw.rect(screen, rate_color, (x + 10, gauge_y, fill_w, gauge_h), border_radius=2)
+        # 하단 영역 - 바 그래프
+        bar_y = y + 58
 
-        # 상태 LED (점멸)
-        led_on = int(anim_timer * 1.5) % 2 == 0
-        led_color = GOLD_COLOR if led_on else (80, 70, 30)
-        pygame.draw.circle(screen, led_color, (x + board_w - 10, y + 10), 3)
+        # 구분선
+        pygame.draw.line(screen, GRID_DIM, (x + 4, bar_y - 4), (x + board_w - 4, bar_y - 4), 1)
+
+        # 이자율 바 그래프 (5%~20%)
+        bar_x = x + 8
+        bar_w = board_w - 16
+        bar_h = 10
+
+        # 바 배경
+        pygame.draw.rect(screen, (20, 25, 35), (bar_x, bar_y, bar_w, bar_h))
+        pygame.draw.rect(screen, GRID_DIM, (bar_x, bar_y, bar_w, bar_h), 1)
+
+        # 세그먼트 바 (LED 스타일)
+        fill_ratio = (self.deposit_interest_rate - 0.05) / 0.15
+        num_segments = 15
+        active_segments = int(num_segments * fill_ratio)
+        seg_w = (bar_w - 4) // num_segments
+
+        for i in range(num_segments):
+            seg_x = bar_x + 2 + i * seg_w
+            if i < active_segments:
+                # 그라데이션 색상 (낮음:주황 → 높음:초록)
+                if i < 5:
+                    seg_color = LED_ORANGE
+                elif i < 10:
+                    seg_color = LED_YELLOW
+                else:
+                    seg_color = LED_GREEN
+            else:
+                seg_color = (25, 30, 40)  # 비활성 세그먼트
+
+            pygame.draw.rect(screen, seg_color, (seg_x, bar_y + 2, seg_w - 1, bar_h - 4))
+
+        # 최소/최대 라벨
+        if font_small:
+            min_surf, _ = font_small.render("5%", (80, 90, 110))
+            screen.blit(min_surf, (bar_x, bar_y + 12))
+
+            max_surf, _ = font_small.render("20%", (80, 90, 110))
+            screen.blit(max_surf, (bar_x + bar_w - 22, bar_y + 12))
+
+        # 우측 하단 상태 LED
+        led_blink = int(anim_timer * 2.5) % 2 == 0
+        led_c = rate_color if led_blink else LED_DIM
+        pygame.draw.circle(screen, led_c, (x + board_w - 8, y + board_h - 8), 3)
 
     def _draw_floor(self, screen):
         """바닥 타일 그리기"""

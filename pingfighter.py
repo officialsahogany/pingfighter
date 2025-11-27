@@ -29148,10 +29148,21 @@ def handle_player(keys):
     def _is_down_pressed_any(keys_seq) -> bool:
         try:
             if is_move_down_pressed(keys_seq):
+                if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and globals().get("selected_character_type") == "optimus":
+                    print("[OPT_CHARGE_DEBUG] down_detect=move_down_pressed true")
                 return True
-            for code in (0x3134, 0x1102):  # ㄴ, 초성 ㄴ
-                if code < len(keys_seq) and keys_seq[code]:
+            # 한글 자모 키코드도 런타임 조회해 포함 (pygame.key.key_code가 0~len(keys_seq) 범위 값을 줄 때만)
+            for sym in ("ㄴ", "ᄂ"):
+                try:
+                    code = pygame.key.key_code(sym)
+                except Exception:
+                    code = None
+                if code is not None and code >= 0 and code < len(keys_seq) and keys_seq[code]:
+                    if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and globals().get("selected_character_type") == "optimus":
+                        print(f"[OPT_CHARGE_DEBUG] down_detect=hangul sym={sym} code={code}")
                     return True
+            if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and globals().get("selected_character_type") == "optimus":
+                print(f"[OPT_CHARGE_DEBUG] down_detect=false len={len(keys_seq)} code_candidates={[pygame.key.key_code(s) for s in ('ㄴ','ᄂ') if hasattr(pygame.key,'key_code')]}")
         except Exception:
             pass
         return False
