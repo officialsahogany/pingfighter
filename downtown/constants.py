@@ -70,7 +70,7 @@ BUILDING_INFO = {
         "ap_cost": 1,
         "size": (3, 2),              # 넓고 낮은 사이버펑크 스타일
         "pixel_size": (110, 75),     # 픽셀 단위 크기 (축소)
-        "description": "화려한 네온 불빛 아래서 행운을 시험하세요",
+        "description": "네온 불빛 아래서 행운을 시험하세요",
         "rarity": 0.8,
         "style": "cyberpunk",
     },
@@ -118,7 +118,7 @@ BUILDING_INFO = {
         "ap_cost": 1,
         "size": (2, 2),              # 자연친화적 목조 건물
         "pixel_size": (75, 70),      # (축소)
-        "description": "모험을 함께할 신비로운 동반자를 만나세요",
+        "description": "모험을 함께할 동반자를 만나보세요",
         "rarity": 0.6,
         "style": "nature",
     },
@@ -166,7 +166,7 @@ BUILDING_INFO = {
         "ap_cost": 0,
         "size": (2, 2),              # 별빛 환전소
         "pixel_size": (85, 80),      # (축소)
-        "description": "환전,예금 등 은행업무를 합니다",
+        "description": "환전,예금 등 은행업무를 담당해요",
         "rarity": 0.5,
         "style": "star_luxury",
     },

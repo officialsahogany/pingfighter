@@ -20,6 +20,36 @@ from .renderer import DowntownRenderer
 from .npc import NPCManager
 from .shop import Shop
 
+# 인게임 메뉴 함수 import
+try:
+    # pingfighter.py에서 직접 import
+    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+
+    # 지연 import (순환 참조 방지)
+    _show_character_info = None
+    _show_pause_options = None
+
+    def _import_ingame_functions():
+        """인게임 함수 지연 import"""
+        global _show_character_info, _show_pause_options
+        if _show_character_info is None:
+            try:
+                import pingfighter
+                _show_character_info = pingfighter.show_character_info
+                _show_pause_options = pingfighter.show_pause_options
+            except (ImportError, AttributeError) as e:
+                print(f"Warning: Could not import ingame functions: {e}")
+                _show_character_info = lambda: None
+                _show_pause_options = lambda: None
+        return _show_character_info, _show_pause_options
+
+except Exception as e:
+    print(f"Warning: Could not setup ingame function import: {e}")
+    def _import_ingame_functions():
+        return lambda: None, lambda: None
+
 class DowntownState:
     """번화가 상태"""
     ENTERING = "entering"       # 진입 애니메이션
@@ -1272,8 +1302,113 @@ class DowntownManager:
         return True
 
     def _show_pause_menu(self):
-        """일시정지 메뉴"""
-        pass
+        """일시정지 메뉴 (캐릭터 정보, 옵션, 나가기) - 인게임과 동일"""
+        # 인게임 함수 import
+        show_character_info_fn, show_pause_options_fn = _import_ingame_functions()
+
+        # 간단한 메뉴 구현 (PauseMenu 스타일)
+        menu_options = [
+            ("캐릭터 정보", "character"),
+            ("옵션", "options"),
+            ("나가기", "quit")
+        ]
+
+        selected = 0
+        running = True
+
+        while running:
+            # 배경 + 오버레이
+            self._draw()
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            self.screen.blit(overlay, (0, 0))
+
+            # 메뉴 박스
+            box_width = 400
+            box_height = 300
+            box_x = (SCREEN_WIDTH - box_width) // 2
+            box_y = (SCREEN_HEIGHT - box_height) // 2
+            box_rect = pygame.Rect(box_x, box_y, box_width, box_height)
+
+            pygame.draw.rect(self.screen, (25, 25, 35), box_rect, border_radius=12)
+            pygame.draw.rect(self.screen, (0, 255, 255), box_rect, 3, border_radius=12)
+
+            # 제목
+            font_large = self._freetype_fonts.get('large')
+            if font_large:
+                title_surf, title_rect = font_large.render("일시정지", (255, 255, 255))
+                self.screen.blit(title_surf, (SCREEN_WIDTH // 2 - title_rect.width // 2, box_y + 40))
+
+            # 옵션들
+            font_medium = self._freetype_fonts.get('medium')
+            for idx, (label, action) in enumerate(menu_options):
+                option_y = box_y + 110 + idx * 50
+                is_selected = (idx == selected)
+
+                if is_selected:
+                    # 하이라이트
+                    highlight_rect = pygame.Rect(box_x + 50, option_y - 5, box_width - 100, 40)
+                    highlight_surf = pygame.Surface(highlight_rect.size, pygame.SRCALPHA)
+                    highlight_surf.fill((0, 255, 255, 60))
+                    self.screen.blit(highlight_surf, highlight_rect.topleft)
+                    pygame.draw.rect(self.screen, (0, 255, 255), highlight_rect, 2, border_radius=10)
+
+                # 텍스트
+                if font_medium:
+                    text_color = (0, 255, 255) if is_selected else (255, 255, 255)
+                    text_surf, text_rect = font_medium.render(label, text_color)
+                    self.screen.blit(text_surf, (SCREEN_WIDTH // 2 - text_rect.width // 2, option_y))
+
+            # 안내
+            font_small = self._freetype_fonts.get('small')
+            if font_small:
+                hint_surf, hint_rect = font_small.render("↑↓ 선택 · Enter 확인 · ESC 취소", (170, 170, 180))
+                self.screen.blit(hint_surf, (SCREEN_WIDTH // 2 - hint_rect.width // 2, box_y + box_height - 40))
+
+            pygame.display.flip()
+
+            # 이벤트 처리
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+                    elif event.key in (pygame.K_UP, pygame.K_w):
+                        selected = (selected - 1) % len(menu_options)
+                    elif event.key in (pygame.K_DOWN, pygame.K_s):
+                        selected = (selected + 1) % len(menu_options)
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        action = menu_options[selected][1]
+                        if action == "character":
+                            # 인게임 캐릭터 정보 화면 호출
+                            show_character_info_fn()
+                        elif action == "options":
+                            # 인게임 옵션 메뉴 호출
+                            show_pause_options_fn()
+                        elif action == "quit":
+                            # 번화가 종료
+                            self.state = DowntownState.EXITING
+                            running = False
+
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:  # 왼쪽 클릭
+                        # 옵션 클릭 체크
+                        for idx, (label, action) in enumerate(menu_options):
+                            option_y = box_y + 110 + idx * 50
+                            option_rect = pygame.Rect(box_x + 50, option_y - 5, box_width - 100, 40)
+                            if option_rect.collidepoint(event.pos):
+                                if action == "character":
+                                    # 인게임 캐릭터 정보 화면 호출
+                                    show_character_info_fn()
+                                elif action == "options":
+                                    # 인게임 옵션 메뉴 호출
+                                    show_pause_options_fn()
+                                elif action == "quit":
+                                    self.state = DowntownState.EXITING
+                                    running = False
+                                break
 
     def _show_inventory(self):
         """인벤토리"""

@@ -3617,80 +3617,133 @@ class BuildingDesigner:
             self._draw_luxury_shop(screen, x, y, w, h, selected_design, pulse, glow)
 
     def _draw_cyberpunk_shop(self, screen, x, y, w, h, design, pulse, glow):
-        """사이버펑크 네온 마켓 - 완전히 새로운 실제 상점 디자인"""
+        """사이버펑크 스타일 상점 - UHD 초고퀄리티"""
         color = design["color"]
         secondary = design["secondary_color"]
 
-        # === 건물 기본 구조 (금속 벽) ===
-        for i in range(h - 15):
-            metal_shade = 30 + int(10 * math.sin(i * 0.1 + self.animation_timer))
-            pygame.draw.line(screen, (metal_shade, metal_shade, metal_shade + 10),
-                           (x, y + 15 + i), (x + w, y + 15 + i))
-        pygame.draw.rect(screen, (50, 50, 60), (x, y + 15, w, h - 15), 2, border_radius=5)
+        # 다층 네온 글로우 (8레이어)
+        for i in range(8):
+            glow_size = 30 - i * 3
+            glow_alpha = int(150 * glow / (i + 1))
+            glow_surf = pygame.Surface((w + glow_size * 2, h + glow_size * 2), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*color, glow_alpha),
+                           (0, 0, w + glow_size * 2, h + glow_size * 2), border_radius=15)
+            screen.blit(glow_surf, (x - glow_size, y - glow_size))
 
-        # === 대형 쇼윈도우 (유리창) ===
-        window_w, window_h = w - 16, h // 2
-        window_x, window_y = x + 8, y + h - window_h - 8
+        # 외곽 네온 프레임 (3중)
+        for offset in range(3):
+            frame_alpha = int(220 - offset * 60)
+            pygame.draw.rect(screen, (*secondary, frame_alpha),
+                           (x - offset * 2, y - offset * 2, w + offset * 4, h + offset * 4),
+                           3, border_radius=12 + offset * 2)
 
-        glass_surf = pygame.Surface((window_w, window_h), pygame.SRCALPHA)
-        for i in range(window_h):
-            glass_alpha = int(120 + 60 * math.sin(i * 0.05 + self.animation_timer * 0.5))
-            pygame.draw.line(glass_surf, (80, 150, 200, glass_alpha), (0, i), (window_w, i))
-        screen.blit(glass_surf, (window_x, window_y))
-        pygame.draw.rect(screen, (80, 80, 90), (window_x, window_y, window_w, window_h), 3, border_radius=3)
+        # 그라데이션 배경
+        for i in range(h):
+            gradient_alpha = int(80 + 40 * (i / h) * pulse)
+            gradient_color = (
+                int(40 + 20 * math.sin(self.animation_timer + i * 0.05)),
+                int(40 + 20 * math.cos(self.animation_timer + i * 0.05)),
+                int(60 + 30 * math.sin(self.animation_timer * 1.5 + i * 0.05))
+            )
+            pygame.draw.line(screen, gradient_color, (x, y + i), (x + w, y + i))
 
-        # 창문 내부 홀로그램 디스플레이
+        # 메인 박스 테두리
+        pygame.draw.rect(screen, color, (x, y, w, h), 4, border_radius=12)
+
+        # 홀로그램 네온 라인 (애니메이션)
+        for i in range(6):
+            line_y = y + 15 + i * 12
+            line_offset = int(10 * math.sin(self.animation_timer * 2 + i * 0.5))
+            alpha = int(255 * pulse * abs(math.sin(self.animation_timer * 1.5 + i * 0.3)))
+
+            # 글로우 효과
+            for j in range(3):
+                glow_width = 6 - j * 2
+                glow_alpha = alpha // (j + 1)
+                pygame.draw.line(screen, (*secondary, glow_alpha),
+                               (x + 15 + line_offset, line_y),
+                               (x + w - 15 + line_offset, line_y), glow_width)
+
+            # 메인 라인
+            pygame.draw.line(screen, secondary,
+                           (x + 15 + line_offset, line_y),
+                           (x + w - 15 + line_offset, line_y), 2)
+
+        # 회로 패턴
+        circuit_color = (*color, int(180 * glow))
+        for i in range(4):
+            for j in range(3):
+                cx = x + 10 + i * 18
+                cy = y + 10 + j * 20
+                pygame.draw.circle(screen, circuit_color, (cx, cy), 2)
+                if i < 3:
+                    pygame.draw.line(screen, circuit_color, (cx, cy), (cx + 18, cy), 1)
+
+        # 디지털 입자 효과
+        for i in range(15):
+            particle_x = x + (i * 7 + int(self.animation_timer * 50)) % w
+            particle_y = y + h // 2 + int(10 * math.sin(self.animation_timer * 3 + i))
+            particle_alpha = int(200 * abs(math.sin(self.animation_timer * 2 + i * 0.5)))
+            pygame.draw.circle(screen, (*secondary, particle_alpha), (particle_x, particle_y), 2)
+
+        # 네온 "SHOP" 간판 (상단)
+        sign_y = y + 5
+        sign_height = 15
+        sign_width = w - 20
+
+        # 간판 배경
+        sign_bg = pygame.Rect(x + 10, sign_y, sign_width, sign_height)
+        pygame.draw.rect(screen, (20, 20, 40), sign_bg, border_radius=3)
+
+        # 네온 간판 글로우
         for i in range(3):
-            item_x, item_y = window_x + 15 + i * 25, window_y + window_h // 2
-            item_alpha = int(200 * abs(math.sin(self.animation_timer * 2 + i)))
-            pygame.draw.circle(screen, (*secondary, item_alpha), (item_x, item_y), 6)
-            pygame.draw.circle(screen, (*color, item_alpha // 2), (item_x, item_y), 8)
-
-        # === 네온 간판 "SHOP" (상단, 매우 크게) ===
-        sign_h, sign_w = 20, w - 10
-        sign_x, sign_y = x + 5, y + 3
-        pygame.draw.rect(screen, (15, 15, 25), (sign_x, sign_y, sign_w, sign_h), border_radius=4)
-
-        # 네온 글로우 (5레이어)
-        for glow_i in range(5):
-            glow_alpha = int(180 * pulse / (glow_i + 1))
+            glow_alpha = int(200 * pulse / (i + 1))
             pygame.draw.rect(screen, (*color, glow_alpha),
-                           (sign_x - glow_i, sign_y - glow_i, sign_w + glow_i * 2, sign_h + glow_i * 2),
-                           1, border_radius=4)
+                           (x + 10 - i, sign_y - i, sign_width + i * 2, sign_height + i * 2),
+                           1, border_radius=3)
 
-        # "SHOP" 네온 텍스트 (5x7 픽셀)
-        neon_letters = [
-            [(0,0),(1,0),(2,0),(3,0),(4,0),(0,1),(0,2),(1,3),(2,3),(3,3),(4,3),(4,4),(4,5),(0,6),(1,6),(2,6),(3,6),(4,6)],  # S
-            [(0,0),(0,1),(0,2),(0,3),(0,4),(0,5),(0,6),(1,3),(2,3),(3,3),(4,0),(4,1),(4,2),(4,3),(4,4),(4,5),(4,6)],  # H
-            [(0,0),(1,0),(2,0),(3,0),(4,0),(0,1),(0,2),(0,3),(0,4),(0,5),(4,1),(4,2),(4,3),(4,4),(4,5),(0,6),(1,6),(2,6),(3,6),(4,6)],  # O
-            [(0,0),(0,1),(0,2),(0,3),(0,4),(0,5),(0,6),(1,0),(2,0),(3,0),(4,0),(4,1),(4,2),(1,3),(2,3),(3,3),(4,3)]  # P
+        # "SHOP" 텍스트 (픽셀 스타일)
+        shop_text = [
+            # S
+            [(0,0),(1,0),(2,0),(0,1),(0,2),(1,2),(2,2),(2,3),(2,4),(0,4),(1,4),(2,4)],
+            # H
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,2),(2,0),(2,1),(2,2),(2,3),(2,4)],
+            # O
+            [(0,0),(1,0),(2,0),(0,1),(2,1),(0,2),(2,2),(0,3),(2,3),(0,4),(1,4),(2,4)],
+            # P
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(2,1),(1,2),(2,2)]
         ]
 
-        letter_start_x, letter_y = sign_x + 8, sign_y + 6
-        for letter_idx, letter in enumerate(neon_letters):
-            letter_x = letter_start_x + letter_idx * 13
-            for px, py in letter:
-                neon_alpha = int(255 * pulse)
-                for glow_size in range(3, 0, -1):
-                    glow_alpha = neon_alpha // glow_size
-                    pygame.draw.circle(screen, (*secondary, glow_alpha), (letter_x + px, letter_y + py), glow_size)
-                pygame.draw.rect(screen, secondary, (letter_x + px, letter_y + py, 1, 1))
+        text_start_x = x + w // 2 - 22
+        text_y = sign_y + 3
+        letter_spacing = 12
 
-        # === 자동문 (슬라이딩 효과) ===
-        door_w, door_h = w // 3, (h - 15) // 3
-        door_x, door_y = x + (w - door_w) // 2, y + h - door_h - 5
-        pygame.draw.rect(screen, (60, 60, 70), (door_x, door_y, door_w, door_h), border_radius=2)
+        for letter_idx, letter_pixels in enumerate(shop_text):
+            letter_x = text_start_x + letter_idx * letter_spacing
+            for px, py in letter_pixels:
+                pixel_alpha = int(255 * pulse)
+                # 픽셀 글로우
+                pygame.draw.rect(screen, (*secondary, pixel_alpha // 2),
+                               (letter_x + px * 2 - 1, text_y + py * 2 - 1, 4, 4))
+                # 픽셀 코어
+                pygame.draw.rect(screen, secondary,
+                               (letter_x + px * 2, text_y + py * 2, 2, 2))
 
-        slide_offset = int(5 * abs(math.sin(self.animation_timer * 0.5)))
-        left_door = pygame.Rect(door_x, door_y, door_w // 2 - slide_offset, door_h)
-        right_door = pygame.Rect(door_x + door_w // 2 + slide_offset, door_y, door_w // 2 - slide_offset, door_h)
-        pygame.draw.rect(screen, (40, 40, 50), left_door)
-        pygame.draw.rect(screen, (40, 40, 50), right_door)
-        pygame.draw.rect(screen, color, left_door, 2)
-        pygame.draw.rect(screen, color, right_door, 2)
+        # 문 (하단 중앙)
+        door_w = w // 3
+        door_h = h // 4
+        door_x = x + (w - door_w) // 2
+        door_y = y + h - door_h - 5
 
-        sensor_alpha = int(255 * abs(math.sin(self.animation_timer * 3)))
-        pygame.draw.circle(screen, (*secondary, sensor_alpha), (door_x + door_w // 2, door_y + 3), 3)
+        # 문 프레임
+        pygame.draw.rect(screen, (30, 30, 50), (door_x, door_y, door_w, door_h), border_radius=3)
+        pygame.draw.rect(screen, color, (door_x, door_y, door_w, door_h), 2, border_radius=3)
+
+        # 문 손잡이
+        handle_x = door_x + door_w - 8
+        handle_y = door_y + door_h // 2
+        pygame.draw.circle(screen, secondary, (handle_x, handle_y), 3)
+        pygame.draw.circle(screen, color, (handle_x, handle_y), 2)
 
     def _draw_fantasy_shop(self, screen, x, y, w, h, design, pulse, glow):
         """판타지 스타일 상점 - UHD 초고퀄리티"""

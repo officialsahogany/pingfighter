@@ -78548,19 +78548,31 @@ def show_character_info():
             print(f"[WARN] 스킬트리 진입 실패: {exc}")
 
     def wrap_text(text: str, font, max_width: int) -> list[str]:
-        words = text.split()
+        """폰트 폭 기반 단어 단위 줄바꿈 + 긴 단어 강제 분리."""
         lines: list[str] = []
-        current = ""
-        for word in words:
-            trial = word if not current else current + " " + word
-            if font.size(trial)[0] <= max_width:
-                current = trial
-            else:
+        for paragraph in text.split("\n"):
+            words = paragraph.split()
+            current = ""
+            for word in words:
+                trial = word if not current else current + " " + word
+                if font.size(trial)[0] <= max_width:
+                    current = trial
+                    continue
                 if current:
                     lines.append(current)
-                current = word
-        if current:
-            lines.append(current)
+                    current = ""
+                # 단일 단어가 폭을 초과할 때는 글자 단위로 쪼개기
+                chunk = ""
+                for ch in word:
+                    if font.size(chunk + ch)[0] <= max_width:
+                        chunk += ch
+                    else:
+                        if chunk:
+                            lines.append(chunk)
+                        chunk = ch
+                current = chunk
+            if current:
+                lines.append(current)
         return lines
 
     def is_name_line(text: str, *names: str) -> bool:
@@ -79639,20 +79651,19 @@ def show_character_info():
             local_font_tiny = font_tiny
             name_color = hover_info.get("color") or WHITE
             options_entries = hover_info.get("options") or []
-            desc_lines_cached = hover_info.get("desc_lines")
             # 패시브 아이템 롤 옵션이 있으면 설명/능력치를 양쪽 박스로 분리
             dual_rendered = False
             if options_entries and hover_info.get("desc"):
                 # 설명 박스를 더 좁게, 텍스트를 더 많이 줄바꿈해 세로 길이를 확보
-                wrap_width = 200
+                wrap_width = 240
                 name_for_compare = hover_info.get("name", "")
                 raw_name = hover_info.get("raw_name", "")
                 base_name = get_item_name_korean(raw_name) if raw_name else ""
                 desc_text = clean_description(hover_info.get("desc", ""), name_for_compare, base_name, raw_name)
-                desc_lines = desc_lines_cached or wrap_text(desc_text, local_font_tiny, wrap_width)
-                desc_lines = [strip_name_prefix(ln, name_for_compare, base_name, raw_name) for ln in desc_lines]
-                desc_lines = [ln for ln in desc_lines if ln and not is_name_line(ln, name_for_compare, base_name, raw_name)]
-                desc_entries = [{"text": t, "color": (200, 210, 230)} for t in desc_lines]
+                desc_text = strip_name_prefix(desc_text, name_for_compare, base_name, raw_name)
+                desc_entries = []
+                if desc_text and not is_name_line(desc_text, name_for_compare, base_name, raw_name):
+                    desc_entries.append({"text": desc_text.strip(), "color": (200, 210, 230)})
                 option_entries = []
                 for opt in options_entries:
                     text = opt.get("text", "")
@@ -79700,13 +79711,18 @@ def show_character_info():
                         return broken
 
                     # Left (description) box: name + slot in same row, then description lines
-                    top_row_height = max(name_surface.get_height(), slot_surface.get_height() if slot_surface else 0)
+                    name_height = name_surface.get_height()
+                    slot_height = slot_surface.get_height() if slot_surface else 0
                     name_slot_width = name_surface.get_width() + (slot_surface.get_width() + 14 if slot_surface else 0)
                     content_width = max(_calc_width(desc_entries), name_slot_width)
                     # 강제로 폭을 더 줄여 세로 공간을 확보 (wrap_width + padding 우선)
                     desc_width = min(240, max(180, min(content_width + 20, wrap_width + 20)))
+                    # 이름+슬롯 폭이 박스보다 크면 슬롯을 다음 줄로 내려 겹침 방지
+                    slot_below = slot_surface and (name_surface.get_width() + slot_surface.get_width() + 24 > desc_width - 12)
+                    top_row_height = name_height if slot_below else max(name_height, slot_height)
                     desc_render_entries = _break_lines(desc_entries, desc_width - 20)
-                    desc_height = 20 + top_row_height + 8 + len(desc_render_entries) * line_height
+                    extra_slot = slot_height + 4 if slot_below else 0
+                    desc_height = 20 + top_row_height + extra_slot + 8 + len(desc_render_entries) * line_height
 
                     # Right (options) box: options only
                     roll_content_w = _calc_width(option_entries)
@@ -79736,10 +79752,14 @@ def show_character_info():
                     name_y = desc_rect.y + 10 + (top_row_height - name_surface.get_height()) // 2
                     SCREEN.blit(name_surface, name_surface.get_rect(left=desc_rect.x + 10, top=name_y))
                     if slot_surface:
-                        slot_y = desc_rect.y + 10 + (top_row_height - slot_surface.get_height()) // 2
-                        slot_x = desc_rect.right - slot_surface.get_width() - 10
+                        if slot_below:
+                            slot_y = name_y + name_height + 2
+                            slot_x = desc_rect.x + 10
+                        else:
+                            slot_y = desc_rect.y + 10 + (top_row_height - slot_surface.get_height()) // 2
+                            slot_x = desc_rect.right - slot_surface.get_width() - 10
                         SCREEN.blit(slot_surface, (slot_x, slot_y))
-                    desc_text_y = desc_rect.y + 10 + top_row_height + 6
+                    desc_text_y = desc_rect.y + 10 + top_row_height + (slot_height + 4 if slot_below else 0) + 6
                     for entry in desc_render_entries:
                         line_surface = local_font_tiny.render(entry.get("text", ""), True, entry.get("color", (200, 210, 230)))
                         SCREEN.blit(line_surface, (desc_rect.x + 10, desc_text_y))
@@ -79761,7 +79781,10 @@ def show_character_info():
                 slot_surface = None
                 if slot_label:
                     slot_surface = local_font_small.render(slot_label, True, (255, 220, 160))
-                top_row_height = max(name_surface.get_height(), slot_surface.get_height() if slot_surface else 0)
+                name_height = name_surface.get_height()
+                slot_height = slot_surface.get_height() if slot_surface else 0
+                slot_below = slot_surface and (name_surface.get_width() + slot_surface.get_width() + 24 > tooltip_width - 12)
+                top_row_height = name_height if slot_below else max(name_height, slot_height)
                 desc_entries = hover_info.get("lines")
                 if not desc_entries:
                     name_for_compare = hover_info.get("name", "")
@@ -79783,7 +79806,8 @@ def show_character_info():
                     cleaned_entries.append(new_entry)
                 desc_entries = cleaned_entries
                 line_height = local_font_tiny.get_height() + 2
-                tooltip_height = 16 + top_row_height + 4 + len(desc_entries) * line_height
+                extra_slot = slot_height + 4 if slot_below else 0
+                tooltip_height = 16 + top_row_height + extra_slot + 4 + len(desc_entries) * line_height
                 tooltip_x = min(WIDTH - tooltip_width - 10, hover_info["rect"].x + 10)
                 # 기본적으로 커서 위쪽에 배치해 하단 잘림을 방지
                 tooltip_y = hover_info["rect"].top - tooltip_height - 12
@@ -79802,10 +79826,14 @@ def show_character_info():
                 name_y = tooltip_rect.y + 10 + (top_row_height - name_surface.get_height()) // 2
                 SCREEN.blit(name_surface, name_surface.get_rect(left=tooltip_rect.x + 10, top=name_y))
                 if slot_surface:
-                    slot_y = tooltip_rect.y + 10 + (top_row_height - slot_surface.get_height()) // 2
-                    slot_x = tooltip_rect.right - slot_surface.get_width() - 10
+                    if slot_below:
+                        slot_y = name_y + name_height + 2
+                        slot_x = tooltip_rect.x + 10
+                    else:
+                        slot_y = tooltip_rect.y + 10 + (top_row_height - slot_surface.get_height()) // 2
+                        slot_x = tooltip_rect.right - slot_surface.get_width() - 10
                     SCREEN.blit(slot_surface, (slot_x, slot_y))
-                text_y = tooltip_rect.y + 10 + top_row_height + 4
+                text_y = tooltip_rect.y + 10 + top_row_height + (slot_height + 4 if slot_below else 0) + 4
                 for entry in desc_entries:
                     line_surface = local_font_tiny.render(entry.get("text", ""), True, entry.get("color", (200, 210, 230)))
                     SCREEN.blit(line_surface, (tooltip_rect.x + 10, text_y))
