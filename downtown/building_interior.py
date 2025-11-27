@@ -1354,6 +1354,11 @@ class BuildingInterior:
         self.exit_timer = 0
         self.entry_cooldown = 1.0  # 입장 후 1초간 나가기 방지
 
+        # 은행 메뉴 상태 (STARBANK 전용)
+        self.bank_menu_open = False
+        self.bank_menu_selection = 0  # 0: 환전, 1: 예금, 2: 나가기
+        self.bank_menu_items = ["환전", "예금", "나가기"]
+
     def _create_npcs(self):
         """NPC들 생성"""
         npcs = []
@@ -1554,6 +1559,10 @@ class BuildingInterior:
         # 입장 쿨다운 감소
         if self.entry_cooldown > 0:
             self.entry_cooldown -= dt
+
+        # 은행 메뉴가 열려있으면 플레이어 입력 차단
+        if self.bank_menu_open:
+            return
 
         # 플레이어 업데이트
         keys = pygame.key.get_pressed()
