@@ -914,14 +914,31 @@ class DowntownManager:
                 pygame.draw.circle(trail_surf, (255, 215, 100, trail_alpha), (30, 30), 25)
                 self.screen.blit(trail_surf, (int(key_x) - 30, int(key_y) - 30))
 
-        # 3단계: 열쇠 삽입 (0.45~0.65)
+        # 3단계: 열쇠 회전 (0.45~0.65) - 구멍에 넣기 전에 먼저 회전
         elif progress < 0.65:
-            insert_progress = (progress - 0.45) / 0.2
+            turn_progress = (progress - 0.45) / 0.2
+            eased_turn = self._ease_in_out_cubic(turn_progress)
+
+            key_x = lock_x
+            key_y = lock_y
+            # 90도 회전
+            key_rotation = eased_turn * 90
+            key_insert_offset = 0
+
+            # 회전 중 원형 빛 효과
+            rotation_glow = int(50 + turn_progress * 100)
+            rotation_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
+            pygame.draw.circle(rotation_surf, (255, 215, 100, rotation_glow), (40, 40), 35, 3)
+            self.screen.blit(rotation_surf, (lock_x - 40, lock_y - 40))
+
+        # 4단계: 열쇠 삽입 (0.65~0.85) - 회전된 상태로 구멍에 삽입
+        elif progress < 0.85:
+            insert_progress = (progress - 0.65) / 0.2
             eased_insert = self._ease_in_out_cubic(insert_progress)
 
             key_x = lock_x
             key_y = lock_y
-            key_rotation = 0
+            key_rotation = 90  # 회전된 상태 유지
             # 자물쇠 안으로 삽입 (더 깊게)
             key_insert_offset = eased_insert * 20
 
@@ -936,23 +953,6 @@ class DowntownManager:
                     spark_alpha = int(255 * (1 - insert_progress))
                     pygame.draw.circle(self.screen, (255, 235, 150, spark_alpha),
                                      (int(spark_x), int(spark_y)), 2)
-
-        # 4단계: 열쇠 회전 (0.65~0.85)
-        elif progress < 0.85:
-            turn_progress = (progress - 0.65) / 0.2
-            eased_turn = self._ease_in_out_cubic(turn_progress)
-
-            key_x = lock_x
-            key_y = lock_y
-            # 90도 회전
-            key_rotation = eased_turn * 90
-            key_insert_offset = 20
-
-            # 회전 중 원형 빛 효과
-            rotation_glow = int(50 + turn_progress * 100)
-            rotation_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
-            pygame.draw.circle(rotation_surf, (255, 215, 100, rotation_glow), (40, 40), 35, 3)
-            self.screen.blit(rotation_surf, (lock_x - 40, lock_y - 40))
 
         # 5단계: 문 열림 (0.85~1.0)
         else:
@@ -971,14 +971,38 @@ class DowntownManager:
         else:
             key_scale = key_size
 
-        self.ap_system._draw_antique_key(
-            self.screen,
-            int(key_x),
-            int(key_y_adjusted),
-            int(key_scale),
-            active=True,
-            alpha=1.0
-        )
+        # 회전이 필요한 경우 임시 서피스에 그린 후 회전
+        if key_rotation > 0:
+            # 임시 서피스 생성 (충분히 크게)
+            temp_size = int(key_scale * 3)
+            temp_surf = pygame.Surface((temp_size, temp_size), pygame.SRCALPHA)
+
+            # 임시 서피스 중앙에 열쇠 그리기
+            self.ap_system._draw_antique_key(
+                temp_surf,
+                temp_size // 2,
+                temp_size // 2,
+                int(key_scale),
+                active=True,
+                alpha=1.0
+            )
+
+            # 회전 적용
+            rotated_surf = pygame.transform.rotate(temp_surf, -key_rotation)
+
+            # 화면에 그리기 (중앙 정렬)
+            rotated_rect = rotated_surf.get_rect(center=(int(key_x), int(key_y_adjusted)))
+            self.screen.blit(rotated_surf, rotated_rect)
+        else:
+            # 회전 없으면 직접 그리기
+            self.ap_system._draw_antique_key(
+                self.screen,
+                int(key_x),
+                int(key_y_adjusted),
+                int(key_scale),
+                active=True,
+                alpha=1.0
+            )
 
         # === 문 열림 빛 효과 ===
         if progress >= 0.85:
@@ -1003,9 +1027,9 @@ class DowntownManager:
         elif progress < 0.45:
             status_text = "열쇠를 가져오는 중..."
         elif progress < 0.65:
-            status_text = "열쇠를 넣는 중..."
-        elif progress < 0.85:
             status_text = "열쇠를 돌리는 중..."
+        elif progress < 0.85:
+            status_text = "열쇠를 넣는 중..."
         else:
             status_text = "문이 열리는 중..."
 
