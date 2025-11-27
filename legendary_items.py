@@ -2541,7 +2541,7 @@ class RagnarokHammer(LegendaryItem):
 
 
 class EmptyLegendary(LegendaryItem):
-    """아이템 관리자 전용 전설 프리뷰 슬롯."""
+    """아이템 관리자 전용 전설 프리뷰 슬롯 - 천사의 가호 스타일 (주사위 없음)."""
 
     def __init__(self, name: str = "empty_legendary", korean_name: str = "빈전설"):
         super().__init__(
@@ -2551,136 +2551,70 @@ class EmptyLegendary(LegendaryItem):
             unlock_condition="아이템 관리자 미리보기",
         )
         self.unlocked = True
-        self._cached_icon: Optional[pygame.Surface] = None
-        self._cached_size: int | None = None
 
-        # 8프레임 애니메이션을 위한 변수 추가
+        # 천사의 가호와 동일한 애니메이션 프레임 구조
+        self.animation_frames = []
         self.current_frame = 0
         self.frame_counter = 0
-        self.animation_speed = 4  # 헤르메스의 신발과 동일한 속도 (더 빠른 애니메이션)
+        self.animation_speed = 8  # 천사의 가호와 동일
+        self._load_animation_frames()
+
+    def _load_animation_frames(self):
+        """애니메이션 프레임 로드 - 천사의 가호와 동일 (라그나로크 해머 프레임에서 중앙 제거)"""
+        self.animation_frames.clear()
+
+        frames_loaded = 0
+        for i in range(8):
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            try:
+                frame = pygame.image.load(frame_path).convert_alpha()
+                cleaned_frame = _strip_legendary_red_ring(frame)
+                # 중앙 제거 (천사의 가호와 동일)
+                center_cleared = self._clear_center_content(cleaned_frame)
+                self.animation_frames.append(center_cleared)
+                frames_loaded += 1
+            except Exception as e:
+                print(f"[INFO] 빈전설 프레임 {i} 로드 실패: {e}")
+
+        print(f"빈전설 프레임 {frames_loaded}/8개 로드")
+
+    def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
+        """프레임에서 중앙 콘텐츠 모두 제거하고 테두리만 유지 - 천사의 가호와 동일"""
+        result = frame.copy()
+        width, height = frame.get_size()
+        cx, cy = width // 2, height // 2
+        inner_radius = min(width, height) * 0.45
+
+        for py in range(height):
+            for px in range(width):
+                dist = math.sqrt((px - cx) ** 2 + (py - cy) ** 2)
+                if dist < inner_radius:
+                    result.set_at((px, py), (0, 0, 0, 0))
+
+        return result
 
     def activate(self, game_state: Dict):
         """실제 게임 효과는 존재하지 않는다."""
         self.active = False
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        import pygame
-        import math
+        """애니메이션 아이콘 그리기 - 천사의 가호와 동일 (주사위 없음)"""
+        # 공통 배경 프레임 연출 (천사의 가호와 동일)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
-        # 헤르메스 스타일: 공통 배경 프레임 (내부 펄스는 비활성화하고 8프레임 애니메이션으로 대체)
-        frame_offset = _draw_common_legendary_frame(
-            screen,
-            x,
-            y,
-            size,
-            self.animation_time,
-            border_color=COMMON_LEGENDARY_BORDER_COLOR,
-            corner_color=COMMON_LEGENDARY_CORNER_COLOR,
-            draw_inner_pulse=False,  # 내부 펄스 대신 8프레임 애니메이션 사용
-        )
+        # 애니메이션 프레임 그리기 (테두리만)
+        if self.animation_frames and len(self.animation_frames) > 0:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
 
-        frame_y = y + frame_offset
+            icon_y = y + frame_offset + int(self.animation_offset)
+            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled_icon = pygame.transform.scale(current_icon, (size, size))
+            screen.blit(scaled_icon, (x, icon_y))
 
-        # 헤르메스 스타일 8프레임 빨간색 그라데이션 내부 테두리
-        # 더 부드러운 그라데이션 변화
-        red_gradients = [
-            (180, 20, 20),    # 프레임 0: 어두운 빨강
-            (200, 30, 30),    # 프레임 1
-            (220, 40, 40),    # 프레임 2
-            (240, 50, 50),    # 프레임 3: 중간 빨강
-            (255, 60, 60),    # 프레임 4: 밝은 빨강
-            (240, 50, 50),    # 프레임 5
-            (220, 40, 40),    # 프레임 6
-            (200, 30, 30),    # 프레임 7
-        ]
-
-        # 현재 프레임의 테두리 색상
-        border_color = red_gradients[self.current_frame]
-
-        # 헤르메스 스타일 단일 내부 테두리
-        # 내부 테두리 (헤르메스처럼 x+2, y+2 위치, 두께 4픽셀 - 7% 추가 증가)
-        inner_rect = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
-        pygame.draw.rect(screen, border_color, inner_rect, 4)
-
-        # 헤르메스 스타일 모서리 점 - 8프레임 흰색~연한 파랑색 그라데이션 (더 뚜렷한 변화)
-        corner_gradients = [
-            (255, 255, 255),  # 프레임 0: 순수 흰색
-            (235, 240, 255),  # 프레임 1: 거의 흰색에 아주 약간 파란 빛
-            (215, 225, 255),  # 프레임 2: 연한 흰 파랑
-            (195, 210, 255),  # 프레임 3: 밝은 하늘색
-            (175, 195, 255),  # 프레임 4: 연한 파랑색
-            (185, 205, 255),  # 프레임 5: 밝은 하늘색으로 돌아가기
-            (205, 220, 255),  # 프레임 6: 연한 흰 파랑으로 돌아가기
-            (230, 240, 255),  # 프레임 7: 거의 흰색으로 돌아가기
-        ]
-
-        corner_color = corner_gradients[self.current_frame]
-
-        # 헤르메스 스타일의 모서리 장식 (20% 감소: 8px → 6px)
-        corner_size = 6  # 8 * 0.8 = 6.4 ≈ 6
-
-        # 빨간색 테두리에 가깝게 모서리 점 배치
-        # 빨간색 테두리가 pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)이고 두께가 3픽셀이므로
-        # 테두리에 가깝게 배치하기 위해 +3 오프셋 적용 (바깥쪽으로 미세 이동)
-        corners = [
-            (x + 3, frame_y + 3),  # 좌상단 모서리 (테두리 가까이)
-            (x + size - 3, frame_y + 3),  # 우상단 모서리 (테두리 가까이)
-            (x + 3, frame_y + size - 3),  # 좌하단 모서리 (테두리 가까이)
-            (x + size - 3, frame_y + size - 3),  # 우하단 모서리 (테두리 가까이)
-        ]
-
-        for corner_x, corner_y in corners:
-            # 사각형에 가까운 원형 (둥근 사각형) 그리기
-            rect_size = corner_size
-
-            # 외곽 둥근 사각형
-            outer_rect = pygame.Rect(
-                corner_x - rect_size // 2,
-                corner_y - rect_size // 2,
-                rect_size,
-                rect_size
-            )
-            pygame.draw.rect(screen, corner_color, outer_rect, border_radius=rect_size // 3)
-
-            # 내부 밝은 둥근 사각형
-            inner_size = rect_size - 2
-            inner_rect = pygame.Rect(
-                corner_x - inner_size // 2,
-                corner_y - inner_size // 2,
-                inner_size,
-                inner_size
-            )
-            lighter_color = (
-                min(255, corner_color[0] + 30),
-                min(255, corner_color[1] + 30),
-                min(255, corner_color[2] + 20)
-            )
-            pygame.draw.rect(screen, lighter_color, inner_rect, border_radius=inner_size // 3)
-
-            # 중심 하이라이트 점
-            pygame.draw.circle(screen, (255, 255, 255), (corner_x, corner_y), 1)
-
-        # 빈 내부 (투명) - 아이콘 부분만 비움
-        if self._cached_icon is None or self._cached_size != size:
-            icon_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-            icon_surface.fill((0, 0, 0, 0))
-            self._cached_icon = icon_surface
-            self._cached_size = size
-
-        icon_y = y + frame_offset + int(self.animation_offset)
-        if self._cached_icon:
-            screen.blit(self._cached_icon, (x, icon_y))
-
-        # 프레임 카운터 업데이트 (8프레임 애니메이션)
-        self.frame_counter += 1
-        if self.frame_counter >= self.animation_speed:
-            self.frame_counter = 0
-            self.current_frame = (self.current_frame + 1) % 8
-
-        # 파티클 효과 (라그나로크 해머와 동일)
-        if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
-            self.particle_timer = 0
+            # 중앙 주사위 없음 - 빈 슬롯
 
 
 class AngelBlessing(LegendaryItem):

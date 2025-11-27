@@ -1353,8 +1353,9 @@ class DowntownManager:
                             pass
 
                 elif event.type == pygame.MOUSEWHEEL:
-                    # 마우스 휠 처리 (환전 양 조절)
-                    interior.handle_scroll(event)
+                    # 마우스 휠 처리 (환전 양 조절 - 슬라이더 위에서만)
+                    mouse_pos = pygame.mouse.get_pos()
+                    interior.handle_scroll(event, mouse_pos)
 
             # 업데이트 (플레이어 이동, NPC 애니메이션, 문 나가기 체크)
             interior.update(dt)
