@@ -990,9 +990,28 @@ class DowntownManager:
             # 회전 적용
             rotated_surf = pygame.transform.rotate(temp_surf, -key_rotation)
 
-            # 화면에 그리기 (중앙 정렬)
-            rotated_rect = rotated_surf.get_rect(center=(int(key_x), int(key_y_adjusted)))
-            self.screen.blit(rotated_surf, rotated_rect)
+            # 삽입 단계에서는 열쇠가 점점 가려지도록 클리핑
+            if progress >= 0.65 and progress < 0.85:
+                insert_progress = (progress - 0.65) / 0.2
+
+                # 열쇠가 삽입되면서 보이는 부분만 그리기
+                visible_height = int(rotated_surf.get_height() * (1 - insert_progress * 0.7))
+
+                # 클리핑 영역 생성 (위에서부터 visible_height만큼만 보이도록)
+                clipped_surf = pygame.Surface((rotated_surf.get_width(), visible_height), pygame.SRCALPHA)
+                clipped_surf.blit(rotated_surf, (0, 0))
+
+                # 화면에 그리기 (중앙 정렬, 위쪽 기준)
+                rotated_rect = rotated_surf.get_rect(center=(int(key_x), int(key_y_adjusted)))
+                clip_rect = clipped_surf.get_rect()
+                clip_rect.centerx = rotated_rect.centerx
+                clip_rect.top = rotated_rect.top
+
+                self.screen.blit(clipped_surf, clip_rect)
+            else:
+                # 화면에 그리기 (중앙 정렬)
+                rotated_rect = rotated_surf.get_rect(center=(int(key_x), int(key_y_adjusted)))
+                self.screen.blit(rotated_surf, rotated_rect)
         else:
             # 회전 없으면 직접 그리기
             self.ap_system._draw_antique_key(
