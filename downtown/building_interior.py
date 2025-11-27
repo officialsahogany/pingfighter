@@ -17,7 +17,7 @@ from .constants import (
 # 건물 내부 NPC
 # =============================================================================
 class InteriorNPC:
-    """건물 내부 NPC - 클릭으로 대화 가능"""
+    """건물 내부 NPC - 클릭으로 대화 가능 (광장 NPC와 동일한 스타일)"""
 
     NPC_NAMES = {
         "customer": [
@@ -44,24 +44,47 @@ class InteriorNPC:
         ["이쪽으로 오세요.", "도움이 필요하시면 불러주세요."],
     ]
 
+    # NPC 색상 프리셋 (광장 NPC와 동일한 스타일)
+    NPC_COLORS = [
+        {"body": (70, 130, 180), "skin": (255, 220, 180), "hair": (60, 40, 20)},
+        {"body": (100, 100, 100), "skin": (255, 200, 160), "hair": (30, 30, 30)},
+        {"body": (180, 100, 100), "skin": (240, 200, 170), "hair": (80, 50, 30)},
+        {"body": (60, 120, 60), "skin": (255, 210, 170), "hair": (150, 100, 50)},
+        {"body": (255, 150, 180), "skin": (255, 220, 190), "hair": (80, 40, 20)},
+        {"body": (150, 100, 200), "skin": (255, 210, 180), "hair": (30, 30, 30)},
+        {"body": (100, 180, 180), "skin": (240, 200, 170), "hair": (200, 150, 100)},
+        {"body": (255, 200, 100), "skin": (255, 200, 160), "hair": (150, 80, 50)},
+    ]
+
     def __init__(self, x, y, name, role, color, dialogue=None, building_type=None):
         self.x = x
         self.y = y
         self.name = name
         self.role = role  # "customer", "staff", "main"
-        self.color = color
+        self.accent_color = color  # 강조색
         self.dialogue = dialogue or []
         self.building_type = building_type
 
-        # 크기 설정 (메인 NPC는 더 큼)
+        # 광장 NPC와 동일한 크기 (24x40 기준)
         if role == "main":
-            self.size = 30
+            self.width = 26
+            self.height = 42
         elif role == "staff":
-            self.size = 22
+            self.width = 24
+            self.height = 40
         else:
-            self.size = 18
+            self.width = 22
+            self.height = 38
+
+        # 호환성을 위한 size 속성
+        self.size = self.width
+
+        # NPC 색상 (랜덤 선택)
+        self.colors = random.choice(self.NPC_COLORS)
 
         self.animation_offset = random.random() * math.pi * 2
+        self.animation_frame = 0
+        self.direction = random.randint(0, 3)  # 0:하, 1:좌, 2:우, 3:상
 
         # 말풍선 상태
         self.is_talking = False
@@ -110,46 +133,86 @@ class InteriorNPC:
         )
 
     def draw(self, screen, camera_offset, animation_timer):
-        """NPC 그리기"""
+        """NPC 그리기 (광장 NPC와 동일한 스타일 - 사람 형태)"""
         draw_x = self.x - camera_offset[0]
         draw_y = self.y - camera_offset[1]
 
-        # 간단한 원형 NPC
+        # 애니메이션 오프셋
         bob_offset = int(2 * math.sin(animation_timer * 2 + self.animation_offset))
 
+        # 색상
+        body_color = self.colors.get("body", (100, 100, 100))
+        skin_color = self.colors.get("skin", (255, 210, 170))
+        hair_color = self.colors.get("hair", (60, 40, 20))
+
+        # 메인 NPC는 강조색 사용
+        if self.role == "main":
+            body_color = self.accent_color
+
+        # 위치 계산 (발 위치 기준으로 그리기)
+        center_x = int(draw_x)
+        feet_y = int(draw_y)
+        body_top = feet_y - self.height
+
         # 그림자
-        shadow_surf = pygame.Surface((self.size + 10, 8), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 60), (0, 0, self.size + 10, 8))
-        screen.blit(shadow_surf, (draw_x - (self.size + 10) // 2, draw_y + self.size // 2))
+        shadow_surf = pygame.Surface((self.width + 8, 8), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), (0, 0, self.width + 8, 8))
+        screen.blit(shadow_surf, (center_x - self.width // 2 - 4, feet_y - 2))
 
-        # NPC 몸체
-        pygame.draw.circle(screen, self.color, (int(draw_x), int(draw_y + bob_offset)), self.size)
-        pygame.draw.circle(screen, (255, 255, 255), (int(draw_x), int(draw_y + bob_offset)), self.size, 2)
+        # 다리 (두 개의 타원)
+        leg_width = self.width // 4
+        leg_height = self.height // 4
+        leg_y = feet_y - leg_height
+        pygame.draw.ellipse(screen, body_color,
+                           (center_x - self.width // 3 - leg_width // 2, leg_y,
+                            leg_width, leg_height))
+        pygame.draw.ellipse(screen, body_color,
+                           (center_x + self.width // 3 - leg_width // 2, leg_y,
+                            leg_width, leg_height))
 
-        # 메인 NPC는 왕관 표시
+        # 몸통
+        body_height = self.height * 2 // 5
+        body_y = body_top + self.height // 4 + bob_offset
+        pygame.draw.ellipse(screen, body_color,
+                           (center_x - self.width // 2, body_y,
+                            self.width, body_height))
+
+        # 머리
+        head_size = self.width * 3 // 4
+        head_y = body_top + bob_offset
+        pygame.draw.circle(screen, skin_color, (center_x, head_y + head_size // 2), head_size // 2)
+
+        # 머리카락
+        hair_rect = pygame.Rect(center_x - head_size // 2, head_y, head_size, head_size // 2)
+        pygame.draw.ellipse(screen, hair_color, hair_rect)
+
+        # 눈 (방향에 따라)
+        eye_y = head_y + head_size // 2
+        eye_offset = 3 if self.direction == 2 else (-3 if self.direction == 1 else 0)
+        pygame.draw.circle(screen, (30, 30, 30), (center_x - 4 + eye_offset, eye_y), 2)
+        pygame.draw.circle(screen, (30, 30, 30), (center_x + 4 + eye_offset, eye_y), 2)
+
+        # 메인 NPC는 왕관/모자 표시
         if self.role == "main":
             crown_points = [
-                (draw_x, draw_y + bob_offset - self.size - 8),
-                (draw_x - 10, draw_y + bob_offset - self.size),
-                (draw_x - 5, draw_y + bob_offset - self.size - 4),
-                (draw_x, draw_y + bob_offset - self.size),
-                (draw_x + 5, draw_y + bob_offset - self.size - 4),
-                (draw_x + 10, draw_y + bob_offset - self.size),
+                (center_x, head_y - 8),
+                (center_x - 8, head_y),
+                (center_x - 4, head_y - 4),
+                (center_x, head_y),
+                (center_x + 4, head_y - 4),
+                (center_x + 8, head_y),
             ]
             pygame.draw.polygon(screen, (255, 215, 0), crown_points)
-            pygame.draw.polygon(screen, (200, 180, 0), crown_points, 2)
+            pygame.draw.polygon(screen, (200, 160, 0), crown_points, 1)
 
         # 아이들 동작 표시
         if self.idle_action == "look_around":
-            # 물음표 표시
             pygame.draw.circle(screen, (255, 255, 100),
-                             (int(draw_x + self.size), int(draw_y + bob_offset - self.size)), 6)
+                             (center_x + self.width // 2 + 8, head_y), 6)
         elif self.idle_action == "think":
-            # 생각 표시 (점 3개)
             for i in range(3):
                 pygame.draw.circle(screen, (200, 200, 200),
-                                 (int(draw_x + self.size + 5 + i * 8),
-                                  int(draw_y + bob_offset - self.size - 5)), 3 - i)
+                                 (center_x + self.width // 2 + 5 + i * 6, head_y - 5 - i * 3), 3 - i)
 
     def draw_speech_bubble(self, screen, camera_offset, fonts):
         """말풍선 그리기"""
@@ -204,17 +267,17 @@ class InteriorNPC:
 
 
 # =============================================================================
-# 건물 내부 인테리어 플레이어 (광장 플레이어와 유사)
+# 건물 내부 인테리어 플레이어 (광장 플레이어와 동일한 스타일)
 # =============================================================================
 class InteriorPlayer:
-    """건물 내부에서 이동하는 플레이어"""
+    """건물 내부에서 이동하는 플레이어 (광장과 동일한 크기/스프라이트)"""
 
     def __init__(self, x, y, sprite=None):
         self.x = float(x)
         self.y = float(y)
-        self.width = 40  # 내부용 크기 (작게)
-        self.height = 50
-        self.speed = PLAYER_SPEED * 0.8  # 내부는 조금 느리게
+        self.width = PLAYER_SIZE  # 광장과 동일한 크기
+        self.height = PLAYER_SIZE
+        self.speed = PLAYER_SPEED  # 광장과 동일한 속도
 
         self.velocity_x = 0
         self.velocity_y = 0
@@ -227,32 +290,84 @@ class InteriorPlayer:
         self.animation_frame = 0
         self.animation_timer = 0
 
-        # 스프라이트 (광장에서 사용하던 것 공유)
+        # 스프라이트 (광장에서 사용하던 것 그대로 사용 - 스케일 안 함)
         self.sprite = sprite
         self.sprite_flipped = None
         if self.sprite:
-            # 스프라이트를 내부용 크기로 스케일
-            scale_factor = 0.3
-            new_w = int(self.sprite.get_width() * scale_factor)
-            new_h = int(self.sprite.get_height() * scale_factor)
-            self.sprite = pygame.transform.smoothscale(self.sprite, (new_w, new_h))
+            # 스프라이트를 복사해서 사용 (원본 손상 방지)
+            self.sprite = self.sprite.copy()
             self.sprite_flipped = pygame.transform.flip(self.sprite, True, False)
-            self.width = new_w
-            self.height = new_h
+            self.width = self.sprite.get_width()
+            self.height = self.sprite.get_height()
 
-        # 키 입력 상태
+        # 한글 키보드 지원 (광장 플레이어와 동일)
         self.pressed_keys = set()
+        self._scancode_map = {}
+
+        # 이동키 매핑
+        self._movement_keys = {pygame.K_a, pygame.K_s, pygame.K_d, pygame.K_w}
+        self._unicode_movement_map = {
+            'ㅁ': pygame.K_a,  # A 키 위치
+            'ㄴ': pygame.K_s,  # S 키 위치
+            'ㅇ': pygame.K_d,  # D 키 위치
+            'ㅈ': pygame.K_w   # W 키 위치
+        }
+        self._movement_scancode_map = self._build_movement_scancode_map()
+
+    def _build_movement_scancode_map(self):
+        """키보드 레이아웃과 무관한 물리 스캔코드 → pygame 키 매핑"""
+        fallback_scancodes = {
+            'SCANCODE_A': 4, 'SCANCODE_S': 22,
+            'SCANCODE_D': 7, 'SCANCODE_W': 26,
+        }
+        scancode_map = {}
+        for attr, keycode in [
+            ("SCANCODE_A", pygame.K_a), ("SCANCODE_S", pygame.K_s),
+            ("SCANCODE_D", pygame.K_d), ("SCANCODE_W", pygame.K_w),
+        ]:
+            sc_value = getattr(pygame, attr, fallback_scancodes.get(attr))
+            if sc_value:
+                scancode_map[sc_value] = keycode
+        return scancode_map
+
+    def handle_movement_key_event(self, pressed, scancode=None, keycode=None, unicode_char=None):
+        """레이아웃 상관없이 이동키 입력을 처리 (광장 플레이어와 동일)"""
+        target_key = None
+
+        # 1) 물리 스캔코드 우선
+        if scancode is not None and scancode in self._movement_scancode_map:
+            target_key = self._movement_scancode_map[scancode]
+
+        # 2) 유니코드 문자 매핑
+        if target_key is None and unicode_char:
+            target_key = self._unicode_movement_map.get(unicode_char)
+
+        # 3) 키코드 매핑
+        if target_key is None and keycode in self._movement_keys:
+            target_key = keycode
+
+        if target_key is None:
+            return
+
+        if pressed:
+            self.pressed_keys.add(target_key)
+            if scancode is not None:
+                self._scancode_map[scancode] = target_key
+        else:
+            self.pressed_keys.discard(target_key)
+            if scancode is not None:
+                self._scancode_map.pop(scancode, None)
 
     def handle_input(self, keys, dt):
-        """입력 처리"""
+        """입력 처리 (광장 플레이어와 동일한 방식)"""
         self.velocity_x = 0
         self.velocity_y = 0
 
-        # WASD 및 화살표 키
-        is_left = keys[pygame.K_LEFT] or keys[pygame.K_a] or pygame.K_a in self.pressed_keys
-        is_right = keys[pygame.K_RIGHT] or keys[pygame.K_d] or pygame.K_d in self.pressed_keys
-        is_up = keys[pygame.K_UP] or keys[pygame.K_w] or pygame.K_w in self.pressed_keys
-        is_down = keys[pygame.K_DOWN] or keys[pygame.K_s] or pygame.K_s in self.pressed_keys
+        # WASD 및 화살표 키 + 한글 키보드
+        is_left = keys[pygame.K_LEFT] or keys[pygame.K_a] or (pygame.K_a in self.pressed_keys)
+        is_right = keys[pygame.K_RIGHT] or keys[pygame.K_d] or (pygame.K_d in self.pressed_keys)
+        is_up = keys[pygame.K_UP] or keys[pygame.K_w] or (pygame.K_w in self.pressed_keys)
+        is_down = keys[pygame.K_DOWN] or keys[pygame.K_s] or (pygame.K_s in self.pressed_keys)
 
         if is_left:
             self.velocity_x = -self.speed
@@ -677,9 +792,9 @@ DEFAULT_INTERIOR_CONFIG = {
 # 건물 내부 메인 클래스
 # =============================================================================
 class BuildingInterior:
-    """건물 내부 - 광장 확장 스타일"""
+    """건물 내부 - 광장 확장 스타일 (광장과 동일한 타일/스프라이트 크기)"""
 
-    TILE_SIZE = 32  # 내부 타일 크기
+    # 광장과 동일한 타일 크기 사용 (constants.py의 TILE_SIZE = 40)
 
     def __init__(self, building_type, freetype_fonts, player_sprite=None):
         self.building_type = building_type
@@ -691,8 +806,8 @@ class BuildingInterior:
 
         # 맵 크기
         self.map_width, self.map_height = self.config["map_size"]
-        self.pixel_width = self.map_width * self.TILE_SIZE
-        self.pixel_height = self.map_height * self.TILE_SIZE
+        self.pixel_width = self.map_width * TILE_SIZE
+        self.pixel_height = self.map_height * TILE_SIZE
 
         # 문 위치 (맵 하단 중앙)
         self.door_rect = pygame.Rect(
@@ -703,15 +818,15 @@ class BuildingInterior:
 
         # 내부 영역 (벽 제외한 이동 가능 구역)
         self.walkable_rect = pygame.Rect(
-            self.TILE_SIZE,  # 왼쪽 벽
-            self.TILE_SIZE * 2,  # 위쪽 벽 (이름/카운터 공간)
-            self.pixel_width - self.TILE_SIZE * 2,  # 양쪽 벽 제외
-            self.pixel_height - self.TILE_SIZE * 3  # 위아래 벽 제외
+            TILE_SIZE,  # 왼쪽 벽
+            TILE_SIZE * 2,  # 위쪽 벽 (이름/카운터 공간)
+            self.pixel_width - TILE_SIZE * 2,  # 양쪽 벽 제외
+            self.pixel_height - TILE_SIZE * 3  # 위아래 벽 제외
         )
 
         # 플레이어 (문에서 조금 떨어진 곳에서 시작)
         spawn_x = self.pixel_width // 2
-        spawn_y = self.pixel_height - self.TILE_SIZE * 4  # 문에서 더 멀리 시작
+        spawn_y = self.pixel_height - TILE_SIZE * 4  # 문에서 더 멀리 시작
         self.player = InteriorPlayer(spawn_x, spawn_y, player_sprite)
 
         # 카메라 오프셋 (화면 중앙 정렬)
@@ -993,15 +1108,15 @@ class BuildingInterior:
         pattern = self.config.get("floor_pattern", "plain")
 
         # 화면에 보이는 타일만 그리기
-        start_x = max(0, int(self.camera_offset[0] // self.TILE_SIZE))
-        start_y = max(0, int(self.camera_offset[1] // self.TILE_SIZE))
-        end_x = min(self.map_width, start_x + SCREEN_WIDTH // self.TILE_SIZE + 2)
-        end_y = min(self.map_height, start_y + SCREEN_HEIGHT // self.TILE_SIZE + 2)
+        start_x = max(0, int(self.camera_offset[0] // TILE_SIZE))
+        start_y = max(0, int(self.camera_offset[1] // TILE_SIZE))
+        end_x = min(self.map_width, start_x + SCREEN_WIDTH // TILE_SIZE + 2)
+        end_y = min(self.map_height, start_y + SCREEN_HEIGHT // TILE_SIZE + 2)
 
         for ty in range(start_y, end_y):
             for tx in range(start_x, end_x):
-                tile_x = tx * self.TILE_SIZE - self.camera_offset[0]
-                tile_y = ty * self.TILE_SIZE - self.camera_offset[1]
+                tile_x = tx * TILE_SIZE - self.camera_offset[0]
+                tile_y = ty * TILE_SIZE - self.camera_offset[1]
 
                 # 패턴별 색상 변화
                 if pattern == "mystic_circle":
@@ -1043,9 +1158,9 @@ class BuildingInterior:
                         color = tuple(max(0, c - 8) for c in floor_color)
 
                 pygame.draw.rect(screen, color,
-                               (tile_x, tile_y, self.TILE_SIZE, self.TILE_SIZE))
+                               (tile_x, tile_y, TILE_SIZE, TILE_SIZE))
                 pygame.draw.rect(screen, tuple(max(0, c - 15) for c in floor_color),
-                               (tile_x, tile_y, self.TILE_SIZE, self.TILE_SIZE), 1)
+                               (tile_x, tile_y, TILE_SIZE, TILE_SIZE), 1)
 
     def _draw_walls(self, screen):
         """벽 그리기"""
@@ -1053,7 +1168,7 @@ class BuildingInterior:
         accent = self.config["accent_color"]
 
         # 상단 벽 (카운터/이름 영역)
-        wall_h = self.TILE_SIZE * 2
+        wall_h = TILE_SIZE * 2
         wall_y = -self.camera_offset[1]
 
         wall_rect = pygame.Rect(
@@ -1071,7 +1186,7 @@ class BuildingInterior:
             screen.blit(line_surf, (-self.camera_offset[0], line_y))
 
         # 좌우 벽
-        side_wall_w = self.TILE_SIZE
+        side_wall_w = TILE_SIZE
 
         # 왼쪽 벽
         left_wall = pygame.Rect(

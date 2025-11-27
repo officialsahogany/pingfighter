@@ -1276,7 +1276,7 @@ class DowntownManager:
         pass
 
     def _show_placeholder(self, building_type):
-        """건물 내부 표시 (광장 스타일 확장 - 플레이어 이동, 문 출입)"""
+        """건물 내부 표시 (광장 스타일 확장 - 플레이어 이동, 문 출입, 광장과 동일한 키 조작)"""
         # 플레이어 스프라이트 전달하여 건물 내부 인스턴스 생성
         player_sprite = getattr(self.player, 'sprite', None)
         interior = BuildingInterior(building_type, self._freetype_fonts, player_sprite)
@@ -1287,7 +1287,7 @@ class DowntownManager:
         while running:
             dt = clock.tick(60) / 1000.0  # 60 FPS
 
-            # 이벤트 처리
+            # 이벤트 처리 (광장과 동일한 방식)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -1295,8 +1295,37 @@ class DowntownManager:
 
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        # ESC로 나가기
-                        running = False
+                        # ESC 메뉴 호출 (광장과 동일)
+                        show_character_info, show_pause_options = _import_ingame_functions()
+                        if show_pause_options:
+                            result = show_pause_options()
+                            if result == "main_menu":
+                                running = False
+                                self.should_exit = True
+                                return
+                        else:
+                            running = False
+
+                    elif event.key == pygame.K_TAB:
+                        # TAB으로 캐릭터 정보창 (광장과 동일)
+                        show_character_info, _ = _import_ingame_functions()
+                        if show_character_info:
+                            show_character_info()
+
+                    else:
+                        # 한글 키보드 지원 (WASD)
+                        scancode = getattr(event, 'scancode', None)
+                        unicode_char = getattr(event, 'unicode', '')
+                        interior.player.handle_movement_key_event(
+                            True, scancode=scancode, keycode=event.key, unicode_char=unicode_char
+                        )
+
+                elif event.type == pygame.KEYUP:
+                    # 키 릴리즈 처리 (한글 키보드 지원)
+                    scancode = getattr(event, 'scancode', None)
+                    interior.player.handle_movement_key_event(
+                        False, scancode=scancode, keycode=event.key
+                    )
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # 왼쪽 클릭
