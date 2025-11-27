@@ -1002,15 +1002,17 @@ class DowntownManager:
             key_scale = key_size
 
         # 열쇠가 삽입되는 동안 끝부분부터 점점 가려지도록 클리핑
+        # 손잡이 부분(30%)은 항상 남기고, 날 부분(50%)만 들어가도록
         clip_ratio = 0.0
         if progress >= 0.55:  # 3.5단계부터 클리핑 시작 (밀어넣기 시작)
             if progress < 0.70:
-                # 3.5단계: 끝부분부터 서서히 밀어넣기 (0~70% 가려짐)
+                # 3.5단계: 끝부분(날)부터 서서히 밀어넣기 (0~50% 가려짐)
+                # 손잡이 30%는 항상 보이도록, 날 부분 50%만 삽입
                 insert_progress = (progress - 0.55) / 0.15
-                clip_ratio = insert_progress * 0.7
+                clip_ratio = insert_progress * 0.5
             else:
-                # 4~5단계: 70% 가려진 상태 유지
-                clip_ratio = 0.7
+                # 4~5단계: 50% 가려진 상태 유지 (손잡이 30% + 목 20% = 50% 보임)
+                clip_ratio = 0.5
 
         # 회전이 필요한 경우 임시 서피스에 그린 후 회전
         if key_rotation > 0:
