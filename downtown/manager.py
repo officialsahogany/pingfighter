@@ -64,6 +64,10 @@ class DowntownManager:
         self.dialog_yes_rect = None
         self.dialog_no_rect = None
 
+        # 열쇠 애니메이션 (건물 입장 시)
+        self.key_animation = None  # {'start_time': ..., 'building_type': ...}
+        self.key_anim_duration = 2000  # 2초 (밀리초)
+
         # 전환 효과
         self.transition_alpha = 255
         self.transition_speed = 300
@@ -329,7 +333,7 @@ class DowntownManager:
             self.building_confirmation_dialog = None
 
     def _enter_building(self, building_type):
-        """건물 입장"""
+        """건물 입장 (열쇠 애니메이션 시작)"""
         info = BUILDING_INFO[building_type]
         ap_cost = info['ap_cost']
 
@@ -341,20 +345,19 @@ class DowntownManager:
         # AP 소모
         self.ap_system.use_ap(ap_cost)
 
-        # 상태 변경
-        self.state = DowntownState.IN_BUILDING
-        self.current_building = building_type
+        # 열쇠 애니메이션 시작
+        self.key_animation = {
+            'start_time': pygame.time.get_ticks(),
+            'building_type': building_type
+        }
 
-        # 건물 방문 처리
+        # 건물 방문 처리 (애니메이션 후 실제 입장은 나중에)
         building = self.buildings.get_nearest_building(
             self.player.x, self.player.y, TILE_SIZE * 3
         )
         if building:
             self.buildings.mark_visited(building)
             self.result_data['visited_buildings'].append(building_type)
-
-        # 건물별 이벤트 실행
-        self._run_building_event(building_type)
 
     def _run_building_event(self, building_type):
         """건물 이벤트 실행 (각 건물별로 구현)"""
@@ -425,12 +428,29 @@ class DowntownManager:
 
     def _update_exploring(self, dt):
         """탐험 모드 업데이트"""
-        # 입력 처리
-        keys = pygame.key.get_pressed()
-        self.player.handle_input(keys, dt)
+        # 열쇠 애니메이션 업데이트
+        if self.key_animation:
+            elapsed = pygame.time.get_ticks() - self.key_animation['start_time']
+            if elapsed >= self.key_anim_duration:
+                # 애니메이션 완료 - 실제 건물 입장
+                building_type = self.key_animation['building_type']
+                self.key_animation = None
 
-        # 플레이어 업데이트
-        self.player.update(dt, self.downtown_map)
+                # 상태 변경
+                self.state = DowntownState.IN_BUILDING
+                self.current_building = building_type
+
+                # 건물별 이벤트 실행
+                self._run_building_event(building_type)
+                return
+
+        # 입력 처리 (애니메이션 중에는 입력 무시)
+        if not self.key_animation:
+            keys = pygame.key.get_pressed()
+            self.player.handle_input(keys, dt)
+
+            # 플레이어 업데이트
+            self.player.update(dt, self.downtown_map)
 
         # 건물 업데이트
         self.buildings.update(dt)
@@ -560,6 +580,10 @@ class DowntownManager:
         # 건물 입장 확인 다이얼로그
         if self.building_confirmation_dialog:
             self._draw_confirmation_dialog()
+
+        # 열쇠 애니메이션 (건물 입장 시)
+        if self.key_animation:
+            self._draw_key_animation()
 
     def _draw_confirmation_dialog(self):
         """건물 입장 확인 다이얼로그 그리기"""
@@ -716,6 +740,215 @@ class DowntownManager:
         adjusted_gloss_points = [(px + gloss_offset_x, py + gloss_offset_y) for px, py in gloss_points]
         pygame.draw.polygon(gloss_surf, (255, 255, 200, 180), adjusted_gloss_points)
         screen.blit(gloss_surf, (cx - size * 2, cy - size * 2))
+
+    def _draw_key_animation(self):
+        """고퀄리티 열쇠 애니메이션 - 열쇠를 넣고 돌려서 문 여는 2초 애니메이션"""
+        if not self.key_animation:
+            return
+
+        elapsed = pygame.time.get_ticks() - self.key_animation['start_time']
+        progress = min(1.0, elapsed / self.key_anim_duration)
+
+        # 화면 중앙
+        cx = SCREEN_WIDTH // 2
+        cy = SCREEN_HEIGHT // 2
+
+        # 반투명 배경
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        self.screen.blit(overlay, (0, 0))
+
+        # === 애니메이션 단계 ===
+        # 0.0 ~ 0.3: 열쇠가 자물쇠로 이동 (30%)
+        # 0.3 ~ 0.6: 열쇠를 자물쇠에 삽입 (30%)
+        # 0.6 ~ 0.85: 열쇠를 돌림 (25%)
+        # 0.85 ~ 1.0: 문이 열림 (15%)
+
+        # === 자물쇠 그리기 (중앙) ===
+        lock_size = 80
+        lock_x = cx
+        lock_y = cy
+
+        # 자물쇠 본체 (사각형)
+        lock_rect_w = lock_size
+        lock_rect_h = int(lock_size * 0.8)
+        lock_rect = pygame.Rect(
+            lock_x - lock_rect_w // 2,
+            lock_y - lock_rect_h // 2 + 15,
+            lock_rect_w,
+            lock_rect_h
+        )
+
+        # 자물쇠 그림자
+        shadow_rect = lock_rect.copy()
+        shadow_rect.x += 4
+        shadow_rect.y += 4
+        pygame.draw.rect(self.screen, (0, 0, 0, 150), shadow_rect, border_radius=10)
+
+        # 자물쇠 본체 (어두운 금속)
+        pygame.draw.rect(self.screen, (60, 60, 70), lock_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (90, 90, 100), lock_rect, 3, border_radius=10)
+
+        # 자물쇠 고리 (상단)
+        shackle_w = int(lock_size * 0.5)
+        shackle_h = int(lock_size * 0.4)
+        shackle_thickness = 12
+
+        # 문 열림 애니메이션 (0.85~1.0)
+        if progress >= 0.85:
+            door_progress = (progress - 0.85) / 0.15
+            shackle_rotation = door_progress * 90  # 90도 회전
+        else:
+            shackle_rotation = 0
+
+        # 고리 그리기 (회전)
+        shackle_surf = pygame.Surface((shackle_w + 20, shackle_h + 20), pygame.SRCALPHA)
+        shackle_center_x = (shackle_w + 20) // 2
+        shackle_center_y = (shackle_h + 20) // 2
+
+        # 고리 외곽
+        pygame.draw.arc(shackle_surf, (90, 90, 100),
+                       (10, 10, shackle_w, shackle_h * 2),
+                       0, math.pi, shackle_thickness + 2)
+
+        # 고리 메인
+        pygame.draw.arc(shackle_surf, (120, 120, 130),
+                       (11, 11, shackle_w - 2, shackle_h * 2 - 2),
+                       0, math.pi, shackle_thickness)
+
+        # 회전 적용
+        if shackle_rotation > 0:
+            shackle_surf = pygame.transform.rotate(shackle_surf, -shackle_rotation)
+
+        # 화면에 그리기
+        self.screen.blit(shackle_surf,
+                        (lock_x - shackle_surf.get_width() // 2,
+                         lock_y - shackle_h - 20))
+
+        # 자물쇠 구멍
+        keyhole_w = 8
+        keyhole_h = 25
+        keyhole_x = lock_x - keyhole_w // 2
+        keyhole_y = lock_y - 5
+
+        # 구멍 외곽 (어두움)
+        pygame.draw.rect(self.screen, (20, 20, 25),
+                        (keyhole_x - 1, keyhole_y - 1, keyhole_w + 2, keyhole_h + 2),
+                        border_radius=3)
+
+        # 구멍 메인
+        pygame.draw.rect(self.screen, (30, 30, 35),
+                        (keyhole_x, keyhole_y, keyhole_w, keyhole_h),
+                        border_radius=3)
+
+        # === 열쇠 그리기 ===
+        key_size = 35
+
+        # 1단계: 열쇠 이동 (0.0~0.3)
+        if progress < 0.3:
+            move_progress = progress / 0.3
+            # 화면 왼쪽에서 시작
+            key_start_x = cx - 300
+            key_start_y = cy - 150
+            key_x = key_start_x + (lock_x - key_start_x) * self._ease_out_cubic(move_progress)
+            key_y = key_start_y + (lock_y - key_start_y) * self._ease_out_cubic(move_progress)
+            key_rotation = 0
+            key_insert_offset = 0
+
+        # 2단계: 열쇠 삽입 (0.3~0.6)
+        elif progress < 0.6:
+            insert_progress = (progress - 0.3) / 0.3
+            key_x = lock_x
+            key_y = lock_y
+            key_rotation = 0
+            # 자물쇠 안으로 삽입
+            key_insert_offset = insert_progress * 15
+
+        # 3단계: 열쇠 회전 (0.6~0.85)
+        elif progress < 0.85:
+            turn_progress = (progress - 0.6) / 0.25
+            key_x = lock_x
+            key_y = lock_y
+            # 90도 회전
+            key_rotation = self._ease_in_out_cubic(turn_progress) * 90
+            key_insert_offset = 15
+
+        # 4단계: 문 열림 (0.85~1.0)
+        else:
+            key_x = lock_x
+            key_y = lock_y
+            key_rotation = 90
+            key_insert_offset = 15
+
+        # 열쇠 그리기 (광장 좌측 상단과 동일한 앤틱 스타일)
+        key_y_adjusted = key_y + key_insert_offset
+        self.ap_system._draw_antique_key(
+            self.screen,
+            int(key_x),
+            int(key_y_adjusted),
+            key_size,
+            active=True,
+            alpha=1.0
+        )
+
+        # 회전 효과 (자물쇠 구멍 안에서)
+        if key_rotation > 0:
+            # 회전된 열쇠 표시를 위한 작은 원
+            rotation_indicator_radius = 3
+            indicator_color = (255, 215, 100, 200)
+            pygame.draw.circle(self.screen, indicator_color,
+                             (int(key_x), int(key_y_adjusted)),
+                             rotation_indicator_radius)
+
+        # === 빛 효과 ===
+        if progress >= 0.85:
+            # 문 열릴 때 빛 효과
+            glow_progress = (progress - 0.85) / 0.15
+            glow_alpha = int(255 * glow_progress)
+            glow_radius = int(150 * glow_progress)
+
+            glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+            for i in range(3, 0, -1):
+                alpha = glow_alpha // (4 - i)
+                radius = glow_radius - i * 20
+                if radius > 0:
+                    pygame.draw.circle(glow_surf, (255, 255, 200, alpha),
+                                     (glow_radius, glow_radius), radius)
+
+            self.screen.blit(glow_surf, (cx - glow_radius, cy - glow_radius))
+
+        # === 진행 상황 텍스트 ===
+        if progress < 0.3:
+            status_text = "열쇠를 가져오는 중..."
+        elif progress < 0.6:
+            status_text = "열쇠를 넣는 중..."
+        elif progress < 0.85:
+            status_text = "열쇠를 돌리는 중..."
+        else:
+            status_text = "문이 열리는 중..."
+
+        # 텍스트 렌더링
+        text_surface, text_rect = self._freetype_fonts['medium'].render(
+            status_text, (255, 255, 255)
+        )
+        text_x = cx - text_rect.width // 2
+        text_y = cy + lock_size + 50
+
+        # 텍스트 그림자
+        shadow_surf, _ = self._freetype_fonts['medium'].render(status_text, (0, 0, 0))
+        self.screen.blit(shadow_surf, (text_x + 2, text_y + 2))
+        self.screen.blit(text_surface, (text_x, text_y))
+
+    def _ease_out_cubic(self, t):
+        """Ease-out cubic 함수"""
+        return 1 - pow(1 - t, 3)
+
+    def _ease_in_out_cubic(self, t):
+        """Ease-in-out cubic 함수"""
+        if t < 0.5:
+            return 4 * t * t * t
+        else:
+            return 1 - pow(-2 * t + 2, 3) / 2
 
     def _draw_gold_coin(self, screen, x, y, size):
         """금화 아이콘 그리기 - 입체감 있는 동전"""
