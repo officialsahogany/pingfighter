@@ -1705,7 +1705,7 @@ class BuildingInterior:
 
     def _get_max_exchange_amount(self):
         """환전 가능한 최대량 계산"""
-        star_points = self.player_data.get('star_points', 0)
+        star_points = self._get_current_star_points()
         gold = self.player_data.get('gold', 0)
 
         if self.exchange_direction == 0:
@@ -1725,10 +1725,11 @@ class BuildingInterior:
         """환전 실행"""
         if self.exchange_direction == 0:
             # 스타포인트 → 골드
-            star_points = self.player_data.get('star_points', 0)
+            star_points = self._get_current_star_points()
             if star_points >= self.exchange_amount:
                 gold_gained = self.exchange_amount * self.current_exchange_rate
-                self.player_data['star_points'] = star_points - self.exchange_amount
+                new_star_points = star_points - self.exchange_amount
+                self._set_star_points(new_star_points)
                 self.player_data['gold'] = self.player_data.get('gold', 0) + gold_gained
                 self.exchange_menu_open = False
                 return ("exchange_success", {"type": "star_to_gold", "amount": self.exchange_amount, "gold": gold_gained})
@@ -1740,13 +1741,26 @@ class BuildingInterior:
             gold_needed = self.exchange_amount * self.current_exchange_rate
             if gold >= gold_needed:
                 self.player_data['gold'] = gold - gold_needed
-                self.player_data['star_points'] = self.player_data.get('star_points', 0) + self.exchange_amount
+                current_star = self._get_current_star_points()
+                self._set_star_points(current_star + self.exchange_amount)
                 self.exchange_menu_open = False
                 return ("exchange_success", {"type": "gold_to_star", "amount": self.exchange_amount, "gold": gold_needed})
             else:
                 return ("exchange_fail", "골드가 부족합니다")
 
         return None
+
+    def _get_current_star_points(self):
+        """현재 스타포인트 가져오기 (academy 우선)"""
+        if self.academy and hasattr(self.academy, 'skill_system'):
+            return self.academy.skill_system.skill_points
+        return self.player_data.get('star_points', 0)
+
+    def _set_star_points(self, value):
+        """스타포인트 설정 (academy와 player_data 모두 동기화)"""
+        self.player_data['star_points'] = value
+        if self.academy and hasattr(self.academy, 'skill_system'):
+            self.academy.skill_system.skill_points = value
 
     def _try_interact_with_npc(self):
         """플레이어 근처 NPC와 상호작용 시도"""

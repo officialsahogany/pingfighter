@@ -2599,8 +2599,40 @@ class EmptyLegendary(LegendaryItem):
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         """애니메이션 아이콘 그리기 - 천사의 가호와 동일 (주사위 없음)"""
-        # 공통 배경 프레임 연출 (천사의 가호와 동일)
-        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        # 흔들림 오프셋 계산
+        frame_offset = int(math.sin(self.animation_time * 2.5) * 2)
+        frame_y = y + frame_offset
+
+        # 파란색 원형 글로우 - 정확히 중앙에 배치
+        pulse = (math.sin(self.animation_time * 4.0) + 1) / 2
+        base_radius = int(size * 0.38)
+        glow_radius = int(base_radius + size * 0.04 * pulse)
+
+        # 글로우 서피스 생성 (정확히 중앙 정렬)
+        glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        center = (size // 2, size // 2)
+        pygame.draw.circle(glow_surface, (30, 90, 170, 80), center, glow_radius)
+        pygame.draw.circle(glow_surface, (70, 140, 200, 150), center, int(glow_radius * 0.85))
+        pygame.draw.circle(glow_surface, (140, 190, 220, 190), center, int(glow_radius * 0.6))
+        screen.blit(glow_surface, (x, frame_y))
+
+        # 외곽 테두리
+        border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
+        pygame.draw.rect(screen, COMMON_LEGENDARY_BORDER_COLOR, border_rect, 2)
+
+        # 코너 장식
+        corner_size = 8
+        pygame.draw.lines(screen, COMMON_LEGENDARY_CORNER_COLOR, False,
+                          [(x - 2, frame_y + corner_size), (x - 2, frame_y - 2), (x + corner_size, frame_y - 2)], 2)
+        pygame.draw.lines(screen, COMMON_LEGENDARY_CORNER_COLOR, False,
+                          [(x + size - corner_size + 2, frame_y - 2), (x + size + 2, frame_y - 2), (x + size + 2, frame_y + corner_size)], 2)
+        pygame.draw.lines(screen, COMMON_LEGENDARY_CORNER_COLOR, False,
+                          [(x - 2, frame_y + size - corner_size + 2), (x - 2, frame_y + size + 2), (x + corner_size, frame_y + size + 2)], 2)
+        pygame.draw.lines(screen, COMMON_LEGENDARY_CORNER_COLOR, False,
+                          [(x + size - corner_size + 2, frame_y + size + 2), (x + size + 2, frame_y + size + 2), (x + size + 2, frame_y + size - corner_size + 2)], 2)
+
+        for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
+            pygame.draw.circle(screen, COMMON_LEGENDARY_CORNER_COLOR, (cx, cy), 2)
 
         # 애니메이션 프레임 그리기 (테두리만)
         if self.animation_frames and len(self.animation_frames) > 0:
