@@ -897,14 +897,15 @@ class DowntownManager:
 
             self.screen.blit(glow_surf, (key_x - glow_radius, key_y - glow_radius))
 
-        # 2단계: 열쇠 이동 (0.15~0.45)
+        # 2단계: 열쇠 이동하면서 90도 회전 (0.15~0.45)
         elif progress < 0.45:
             move_progress = (progress - 0.15) / 0.3
             eased_progress = self._ease_in_out_cubic(move_progress)
 
             key_x = key_origin_x + (lock_x - key_origin_x) * eased_progress
             key_y = key_origin_y + (lock_y - key_origin_y) * eased_progress
-            key_rotation = 0
+            # 이동하면서 90도 회전
+            key_rotation = eased_progress * 90
             key_insert_offset = 0
 
             # 이동 중 빛 효과 (점점 약해짐)
@@ -914,35 +915,36 @@ class DowntownManager:
                 pygame.draw.circle(trail_surf, (255, 215, 100, trail_alpha), (30, 30), 25)
                 self.screen.blit(trail_surf, (int(key_x) - 30, int(key_y) - 30))
 
-        # 3단계: 열쇠를 구멍에 수평으로 꽂기 (0.45~0.60)
-        elif progress < 0.60:
-            insert_progress = (progress - 0.45) / 0.15
+        # 3단계: 열쇠를 왼쪽에서 오른쪽으로 수평 이동하며 구멍에 삽입 (0.45~0.65)
+        elif progress < 0.65:
+            insert_progress = (progress - 0.45) / 0.2
             eased_insert = self._ease_in_out_cubic(insert_progress)
 
-            # 열쇠를 구멍 앞에 수평으로 위치
-            key_x = lock_x
+            # 왼쪽에서 시작해서 오른쪽(구멍)으로 이동
+            horizontal_offset = -60  # 왼쪽 시작점
+            key_x = lock_x + horizontal_offset * (1 - eased_insert)
             key_y = lock_y
-            key_rotation = 0  # 수평 상태
-            # 구멍 앞에서 살짝 들어가기 시작
-            key_insert_offset = eased_insert * 15
+            key_rotation = 90  # 회전된 상태 유지
+            # 구멍으로 들어가면서 깊이 증가
+            key_insert_offset = eased_insert * 20
 
-            # 삽입 시작 빛 효과
-            if insert_progress > 0.5:
-                glow_alpha = int(100 * (insert_progress - 0.5) * 2)
+            # 삽입 중 빛 효과
+            if insert_progress > 0.3:
+                glow_alpha = int(150 * insert_progress)
                 glow_surf = pygame.Surface((60, 60), pygame.SRCALPHA)
                 pygame.draw.circle(glow_surf, (255, 215, 100, glow_alpha), (30, 30), 25)
                 self.screen.blit(glow_surf, (lock_x - 30, lock_y - 30))
 
-        # 4단계: 열쇠를 밀어 넣으면서 90도 회전 (0.60~0.80)
+        # 4단계: 열쇠를 시계방향으로 90도 더 회전 (잠금 해제) (0.65~0.80)
         elif progress < 0.80:
-            turn_progress = (progress - 0.60) / 0.2
+            turn_progress = (progress - 0.65) / 0.15
             eased_turn = self._ease_in_out_cubic(turn_progress)
 
             key_x = lock_x
             key_y = lock_y
-            # 밀어 넣으면서 동시에 90도 회전
-            key_rotation = eased_turn * 90
-            key_insert_offset = 15 + eased_turn * 25  # 15에서 40까지 깊게 들어감
+            # 90도에서 180도로 추가 회전 (시계방향)
+            key_rotation = 90 + eased_turn * 90
+            key_insert_offset = 20  # 삽입 깊이 유지
 
             # 회전 중 원형 빛 효과
             rotation_glow = int(50 + turn_progress * 150)
@@ -966,7 +968,7 @@ class DowntownManager:
         else:
             key_x = lock_x
             key_y = lock_y
-            key_rotation = 90
+            key_rotation = 180
             key_insert_offset = 40
 
         # 열쇠 그리기 (광장 좌측 상단과 동일한 앤틱 스타일)
@@ -982,14 +984,14 @@ class DowntownManager:
         # 열쇠가 삽입되는 동안 (3~5단계) 점점 가려지도록 클리핑
         clip_ratio = 0.0
         if progress >= 0.45:  # 3단계부터 클리핑 시작
-            if progress < 0.60:
-                # 3단계: 수평 꽂기 (0~30% 가려짐)
-                insert_progress = (progress - 0.45) / 0.15
-                clip_ratio = insert_progress * 0.3
+            if progress < 0.65:
+                # 3단계: 왼쪽에서 오른쪽으로 이동하며 삽입 (0~50% 가려짐)
+                insert_progress = (progress - 0.45) / 0.2
+                clip_ratio = insert_progress * 0.5
             elif progress < 0.80:
-                # 4단계: 회전하며 밀기 (30~70% 가려짐)
-                turn_progress = (progress - 0.60) / 0.2
-                clip_ratio = 0.3 + turn_progress * 0.4
+                # 4단계: 회전 (50~70% 가려짐)
+                turn_progress = (progress - 0.65) / 0.15
+                clip_ratio = 0.5 + turn_progress * 0.2
             else:
                 # 5단계: 완전 삽입 (70% 가려짐 유지)
                 clip_ratio = 0.7
@@ -1090,8 +1092,8 @@ class DowntownManager:
             status_text = "열쇠를 준비하는 중..."
         elif progress < 0.45:
             status_text = "열쇠를 가져오는 중..."
-        elif progress < 0.60:
-            status_text = "열쇠를 꽂는 중..."
+        elif progress < 0.65:
+            status_text = "열쇠를 넣는 중..."
         elif progress < 0.80:
             status_text = "열쇠를 돌리는 중..."
         else:
