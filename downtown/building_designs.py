@@ -3686,6 +3686,65 @@ class BuildingDesigner:
             particle_alpha = int(200 * abs(math.sin(self.animation_timer * 2 + i * 0.5)))
             pygame.draw.circle(screen, (*secondary, particle_alpha), (particle_x, particle_y), 2)
 
+        # 네온 "SHOP" 간판 (상단)
+        sign_y = y + 5
+        sign_height = 15
+        sign_width = w - 20
+
+        # 간판 배경
+        sign_bg = pygame.Rect(x + 10, sign_y, sign_width, sign_height)
+        pygame.draw.rect(screen, (20, 20, 40), sign_bg, border_radius=3)
+
+        # 네온 간판 글로우
+        for i in range(3):
+            glow_alpha = int(200 * pulse / (i + 1))
+            pygame.draw.rect(screen, (*color, glow_alpha),
+                           (x + 10 - i, sign_y - i, sign_width + i * 2, sign_height + i * 2),
+                           1, border_radius=3)
+
+        # "SHOP" 텍스트 (픽셀 스타일)
+        shop_text = [
+            # S
+            [(0,0),(1,0),(2,0),(0,1),(0,2),(1,2),(2,2),(2,3),(2,4),(0,4),(1,4),(2,4)],
+            # H
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,2),(2,0),(2,1),(2,2),(2,3),(2,4)],
+            # O
+            [(0,0),(1,0),(2,0),(0,1),(2,1),(0,2),(2,2),(0,3),(2,3),(0,4),(1,4),(2,4)],
+            # P
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(2,1),(1,2),(2,2)]
+        ]
+
+        text_start_x = x + w // 2 - 22
+        text_y = sign_y + 3
+        letter_spacing = 12
+
+        for letter_idx, letter_pixels in enumerate(shop_text):
+            letter_x = text_start_x + letter_idx * letter_spacing
+            for px, py in letter_pixels:
+                pixel_alpha = int(255 * pulse)
+                # 픽셀 글로우
+                pygame.draw.rect(screen, (*secondary, pixel_alpha // 2),
+                               (letter_x + px * 2 - 1, text_y + py * 2 - 1, 4, 4))
+                # 픽셀 코어
+                pygame.draw.rect(screen, secondary,
+                               (letter_x + px * 2, text_y + py * 2, 2, 2))
+
+        # 문 (하단 중앙)
+        door_w = w // 3
+        door_h = h // 4
+        door_x = x + (w - door_w) // 2
+        door_y = y + h - door_h - 5
+
+        # 문 프레임
+        pygame.draw.rect(screen, (30, 30, 50), (door_x, door_y, door_w, door_h), border_radius=3)
+        pygame.draw.rect(screen, color, (door_x, door_y, door_w, door_h), 2, border_radius=3)
+
+        # 문 손잡이
+        handle_x = door_x + door_w - 8
+        handle_y = door_y + door_h // 2
+        pygame.draw.circle(screen, secondary, (handle_x, handle_y), 3)
+        pygame.draw.circle(screen, color, (handle_x, handle_y), 2)
+
     def _draw_fantasy_shop(self, screen, x, y, w, h, design, pulse, glow):
         """판타지 스타일 상점 - UHD 초고퀄리티"""
         color = design["color"]
@@ -3771,6 +3830,70 @@ class BuildingDesigner:
             ey = cy + int(beam_length * math.sin(angle))
             beam_alpha = int(180 * pulse)
             pygame.draw.line(screen, (*secondary, beam_alpha), (cx, cy), (ex, ey), 2)
+
+        # 마법 "SHOP" 간판 (나무 현판 스타일)
+        sign_y = y - 8
+        sign_w = w - 15
+        sign_h = 18
+
+        # 현판 배경 (나무)
+        sign_bg = pygame.Rect(x + 7, sign_y, sign_w, sign_h)
+        pygame.draw.rect(screen, (80, 60, 40), sign_bg, border_radius=4)
+        pygame.draw.rect(screen, secondary, sign_bg, 2, border_radius=4)
+
+        # 현판 장식 (모서리)
+        for corner_x in [x + 7, x + 7 + sign_w - 5]:
+            for corner_y in [sign_y, sign_y + sign_h - 5]:
+                pygame.draw.rect(screen, color, (corner_x, corner_y, 5, 5))
+
+        # "SHOP" 마법 룬 문자
+        rune_start_x = x + w // 2 - 20
+        rune_y = sign_y + 5
+        rune_spacing = 11
+
+        # 룬 문자 패턴 (단순화된 마법 기호)
+        rune_patterns = [
+            [(1,0),(0,1),(1,1),(2,1),(1,2)],  # S
+            [(0,0),(0,1),(0,2),(1,1),(2,0),(2,1),(2,2)],  # H
+            [(0,0),(1,0),(2,0),(0,1),(2,1),(0,2),(1,2),(2,2)],  # O
+            [(0,0),(1,0),(2,0),(0,1),(2,1),(0,2),(1,2)]  # P
+        ]
+
+        for idx, pattern in enumerate(rune_patterns):
+            rune_x = rune_start_x + idx * rune_spacing
+            for px, py in pattern:
+                rune_alpha = int(200 * pulse)
+                # 룬 글로우
+                pygame.draw.circle(screen, (*secondary, rune_alpha // 2),
+                                 (rune_x + px * 2, rune_y + py * 2), 2)
+                # 룬 코어
+                pygame.draw.circle(screen, secondary,
+                                 (rune_x + px * 2, rune_y + py * 2), 1)
+
+        # 아치형 문 (하단)
+        door_w = w // 3
+        door_h = h // 3
+        door_x = x + (w - door_w) // 2
+        door_y = y + h - door_h - 3
+
+        # 문 프레임 (석조)
+        pygame.draw.rect(screen, (70, 60, 80), (door_x, door_y, door_w, door_h), border_radius=5)
+        pygame.draw.rect(screen, color, (door_x, door_y, door_w, door_h), 2, border_radius=5)
+
+        # 아치 상단
+        arch_points = [
+            (door_x, door_y + 5),
+            (door_x + door_w // 2, door_y - 5),
+            (door_x + door_w, door_y + 5)
+        ]
+        pygame.draw.polygon(screen, color, arch_points, 2)
+
+        # 문 손잡이 (마법 보석)
+        handle_x = door_x + door_w // 2
+        handle_y = door_y + door_h // 2
+        handle_alpha = int(255 * pulse)
+        pygame.draw.circle(screen, (*secondary, handle_alpha), (handle_x, handle_y), 4)
+        pygame.draw.circle(screen, secondary, (handle_x, handle_y), 2)
 
     def _draw_steampunk_shop(self, screen, x, y, w, h, design, pulse, glow):
         """스팀펑크 스타일 상점 - UHD 초고퀄리티"""
@@ -3864,6 +3987,74 @@ class BuildingDesigner:
         pressure = abs(math.sin(self.animation_timer * 2)) * gauge_w
         pressure_color = (int(255 * pressure / gauge_w), int(255 * (1 - pressure / gauge_w)), 0)
         pygame.draw.rect(screen, pressure_color, (gauge_x, gauge_y, int(pressure), gauge_h), border_radius=2)
+
+        # 황동 명판 "SHOP" 간판 (상단, 리벳과 기계식 테두리)
+        sign_y = y + 5
+        sign_h = 15
+        sign_w = w - 20
+        sign_x = x + 10
+
+        # 명판 배경 (황동 질감)
+        sign_bg = pygame.Rect(sign_x, sign_y, sign_w, sign_h)
+        pygame.draw.rect(screen, (184, 134, 11), sign_bg, border_radius=2)
+        pygame.draw.rect(screen, secondary, sign_bg, 2, border_radius=2)
+
+        # 리벳 장식 (4개 모서리)
+        for rivet_pos in [(sign_x + 2, sign_y + 2), (sign_x + sign_w - 2, sign_y + 2),
+                         (sign_x + 2, sign_y + sign_h - 2), (sign_x + sign_w - 2, sign_y + sign_h - 2)]:
+            pygame.draw.circle(screen, (100, 80, 60), rivet_pos, 2)
+            pygame.draw.circle(screen, (150, 120, 90), (rivet_pos[0] - 1, rivet_pos[1] - 1), 1)
+
+        # "SHOP" 텍스트 (기계식 각인 스타일)
+        letter_x = sign_x + 8
+        letter_y = sign_y + 4
+        pixel_size = 1
+
+        shop_letters = [
+            # S
+            [(0,0),(1,0),(2,0),(3,0),(0,1),(0,2),(1,2),(2,2),(3,2),(3,3),(3,4),(0,4),(1,4),(2,4),(3,4)],
+            # H
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,2),(2,2),(3,2),(3,0),(3,1),(3,3),(3,4)],
+            # O
+            [(0,0),(1,0),(2,0),(3,0),(0,1),(0,2),(0,3),(0,4),(1,4),(2,4),(3,4),(3,1),(3,2),(3,3)],
+            # P
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(3,0),(3,1),(3,2),(1,2),(2,2)]
+        ]
+
+        for i, letter in enumerate(shop_letters):
+            for px, py in letter:
+                draw_x = letter_x + i * 6 + px * pixel_size
+                draw_y = letter_y + py * pixel_size
+                pygame.draw.rect(screen, (60, 50, 30), (draw_x, draw_y, pixel_size, pixel_size))
+                # 각인 효과 (그림자)
+                pygame.draw.rect(screen, (40, 30, 20), (draw_x + 1, draw_y + 1, pixel_size, pixel_size))
+
+        # 산업용 문 (하단 중앙, 리벳과 철판)
+        door_w = w // 3
+        door_h = h // 4
+        door_x = x + (w - door_w) // 2
+        door_y = y + h - door_h - 5
+
+        # 문 배경 (철판)
+        door_rect = pygame.Rect(door_x, door_y, door_w, door_h)
+        pygame.draw.rect(screen, (40, 40, 40), door_rect, border_radius=2)
+        pygame.draw.rect(screen, secondary, door_rect, 2, border_radius=2)
+
+        # 문 리벳 (6개)
+        for row in range(2):
+            for col in range(3):
+                rivet_x = door_x + 5 + col * (door_w - 10) // 2
+                rivet_y = door_y + 3 + row * (door_h - 6)
+                pygame.draw.circle(screen, (100, 80, 60), (rivet_x, rivet_y), 2)
+                pygame.draw.circle(screen, (150, 120, 90), (rivet_x - 1, rivet_y - 1), 1)
+
+        # 기계식 손잡이 (중앙)
+        handle_x = door_x + door_w // 2
+        handle_y = door_y + door_h // 2
+        handle_alpha = int(255 * abs(math.sin(self.animation_timer * 2)))
+        pygame.draw.circle(screen, (80, 70, 50), (handle_x, handle_y), 4)
+        pygame.draw.circle(screen, (*secondary, handle_alpha), (handle_x, handle_y), 3)
+        pygame.draw.circle(screen, (150, 130, 100), (handle_x - 1, handle_y - 1), 2)
 
     def _draw_nature_shop(self, screen, x, y, w, h, design, pulse, glow):
         """자연 스타일 상점 - UHD 초고퀄리티"""
@@ -3974,6 +4165,85 @@ class BuildingDesigner:
 
             # 꽃 중심
             pygame.draw.circle(screen, (255, 200, 50), (flower_x, flower_y), 2)
+
+        # 나무 조각 "SHOP" 간판 (상단, 자연스러운 나무 질감)
+        sign_y = y + 20
+        sign_h = 16
+        sign_w = w - 20
+        sign_x = x + 10
+
+        # 나무 판자 배경
+        sign_bg = pygame.Rect(sign_x, sign_y, sign_w, sign_h)
+        pygame.draw.rect(screen, (139, 90, 43), sign_bg, border_radius=4)
+        pygame.draw.rect(screen, (100, 70, 30), sign_bg, 2, border_radius=4)
+
+        # 나무 질감 선 (2개)
+        for line_offset in [sign_h // 3, 2 * sign_h // 3]:
+            pygame.draw.line(screen, (120, 80, 40),
+                           (sign_x + 2, sign_y + line_offset),
+                           (sign_x + sign_w - 2, sign_y + line_offset), 1)
+
+        # 잎 장식 (좌우)
+        for side_x in [sign_x + 2, sign_x + sign_w - 5]:
+            pygame.draw.circle(screen, (*color, 180), (side_x, sign_y + sign_h // 2), 3)
+            pygame.draw.circle(screen, (*color, 180), (side_x + 3, sign_y + sign_h // 2 - 2), 2)
+
+        # "SHOP" 텍스트 (새긴 글씨 스타일)
+        letter_x = sign_x + 12
+        letter_y = sign_y + 5
+        pixel_size = 1
+
+        shop_letters = [
+            # S (자연스러운 곡선)
+            [(0,0),(1,0),(2,0),(3,0),(0,1),(0,2),(1,2),(2,2),(3,2),(3,3),(3,4),(0,4),(1,4),(2,4),(3,4)],
+            # H
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,2),(2,2),(3,2),(3,0),(3,1),(3,3),(3,4)],
+            # O
+            [(0,0),(1,0),(2,0),(3,0),(0,1),(0,2),(0,3),(0,4),(1,4),(2,4),(3,4),(3,1),(3,2),(3,3)],
+            # P
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(3,0),(3,1),(3,2),(1,2),(2,2)]
+        ]
+
+        for i, letter in enumerate(shop_letters):
+            for px, py in letter:
+                draw_x = letter_x + i * 6 + px * pixel_size
+                draw_y = letter_y + py * pixel_size
+                # 새긴 글씨 (어두운 녹색)
+                pygame.draw.rect(screen, (50, 80, 30), (draw_x, draw_y, pixel_size, pixel_size))
+                # 그림자
+                pygame.draw.rect(screen, (30, 50, 20), (draw_x + 1, draw_y + 1, pixel_size, pixel_size))
+
+        # 자연스러운 나무 문 (하단 중앙)
+        door_w = w // 3
+        door_h = h // 4
+        door_x = x + (w - door_w) // 2
+        door_y = y + h - door_h - 8
+
+        # 문 배경 (나무 판자)
+        door_rect = pygame.Rect(door_x, door_y, door_w, door_h)
+        pygame.draw.rect(screen, (120, 80, 40), door_rect, border_radius=3)
+        pygame.draw.rect(screen, (100, 70, 30), door_rect, 2, border_radius=3)
+
+        # 세로 판자 질감 (3개)
+        for plank_offset in [door_w // 4, door_w // 2, 3 * door_w // 4]:
+            pygame.draw.line(screen, (100, 70, 30),
+                           (door_x + plank_offset, door_y),
+                           (door_x + plank_offset, door_y + door_h), 1)
+
+        # 나뭇잎 손잡이 (중앙)
+        handle_x = door_x + door_w // 2
+        handle_y = door_y + door_h // 2
+        handle_alpha = int(200 * abs(math.sin(self.animation_timer * 1.5)))
+
+        # 손잡이 (잎 모양)
+        leaf_points = [
+            (handle_x, handle_y - 4),
+            (handle_x + 3, handle_y),
+            (handle_x, handle_y + 4),
+            (handle_x - 3, handle_y)
+        ]
+        pygame.draw.polygon(screen, (*color, handle_alpha), leaf_points)
+        pygame.draw.polygon(screen, (50, 100, 50), leaf_points, 1)
 
     def _draw_luxury_shop(self, screen, x, y, w, h, design, pulse, glow):
         """고급 스타일 상점 - UHD 초고퀄리티"""
@@ -4093,6 +4363,112 @@ class BuildingDesigner:
                            (corner_x - 5, corner_y), (corner_x + 5, corner_y), 2)
             pygame.draw.line(screen, (*color, corner_alpha),
                            (corner_x, corner_y - 5), (corner_x, corner_y + 5), 2)
+
+        # 황금 명판 "SHOP" 간판 (상단, 보석과 화려한 장식)
+        sign_y = y + 5
+        sign_h = 17
+        sign_w = w - 16
+        sign_x = x + 8
+
+        # 명판 배경 (황금 그라데이션)
+        sign_bg = pygame.Rect(sign_x, sign_y, sign_w, sign_h)
+        for i in range(sign_h):
+            gradient_ratio = i / sign_h
+            shimmer = abs(math.sin((gradient_ratio * 3 + self.animation_timer * 3) * math.pi)) * 30
+            gold_color = (
+                max(0, min(255, int(255 - gradient_ratio * 50 + shimmer))),
+                max(0, min(255, int(215 - gradient_ratio * 30 + shimmer * 0.8))),
+                max(0, min(255, int(0 + shimmer * 0.5)))
+            )
+            pygame.draw.line(screen, gold_color,
+                           (sign_x, sign_y + i),
+                           (sign_x + sign_w, sign_y + i))
+
+        pygame.draw.rect(screen, color, sign_bg, 2, border_radius=3)
+        pygame.draw.rect(screen, secondary, (sign_x + 2, sign_y + 2, sign_w - 4, sign_h - 4), 1, border_radius=2)
+
+        # 보석 장식 (4개 모서리)
+        for gem_pos in [(sign_x + 3, sign_y + 3), (sign_x + sign_w - 3, sign_y + 3),
+                       (sign_x + 3, sign_y + sign_h - 3), (sign_x + sign_w - 3, sign_y + sign_h - 3)]:
+            gem_alpha = int(255 * abs(math.sin(self.animation_timer * 2)))
+            # 다이아몬드 모양
+            gem_points = [
+                (gem_pos[0], gem_pos[1] - 2),
+                (gem_pos[0] + 2, gem_pos[1]),
+                (gem_pos[0], gem_pos[1] + 2),
+                (gem_pos[0] - 2, gem_pos[1])
+            ]
+            pygame.draw.polygon(screen, (*secondary, gem_alpha), gem_points)
+            pygame.draw.polygon(screen, color, gem_points, 1)
+
+        # "SHOP" 텍스트 (황금 각인)
+        letter_x = sign_x + 14
+        letter_y = sign_y + 5
+        pixel_size = 1
+
+        shop_letters = [
+            # S
+            [(0,0),(1,0),(2,0),(3,0),(4,0),(0,1),(0,2),(1,2),(2,2),(3,2),(4,2),(4,3),(4,4),(0,4),(1,4),(2,4),(3,4),(4,4)],
+            # H
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,2),(2,2),(3,2),(4,2),(4,0),(4,1),(4,3),(4,4)],
+            # O
+            [(0,0),(1,0),(2,0),(3,0),(4,0),(0,1),(0,2),(0,3),(0,4),(1,4),(2,4),(3,4),(4,4),(4,1),(4,2),(4,3)],
+            # P
+            [(0,0),(0,1),(0,2),(0,3),(0,4),(1,0),(2,0),(3,0),(4,0),(4,1),(4,2),(1,2),(2,2),(3,2)]
+        ]
+
+        for i, letter in enumerate(shop_letters):
+            for px, py in letter:
+                draw_x = letter_x + i * 7 + px * pixel_size
+                draw_y = letter_y + py * pixel_size
+                # 황금 글씨
+                pygame.draw.rect(screen, (200, 150, 0), (draw_x, draw_y, pixel_size, pixel_size))
+                # 하이라이트
+                if px == 0 or py == 0:
+                    pygame.draw.rect(screen, (255, 220, 100), (draw_x, draw_y, pixel_size, pixel_size))
+
+        # 프리미엄 문 (하단 중앙, 대칭 디자인)
+        door_w = w // 3 + 5
+        door_h = h // 4 + 5
+        door_x = x + (w - door_w) // 2
+        door_y = y + h - door_h - 5
+
+        # 문 배경 (화려한 그라데이션)
+        door_rect = pygame.Rect(door_x, door_y, door_w, door_h)
+        for i in range(door_h):
+            gradient_ratio = i / door_h
+            door_color = (
+                int(60 + gradient_ratio * 20),
+                int(55 + gradient_ratio * 15),
+                int(50 + gradient_ratio * 10)
+            )
+            pygame.draw.line(screen, door_color,
+                           (door_x, door_y + i),
+                           (door_x + door_w, door_y + i))
+
+        pygame.draw.rect(screen, color, door_rect, 3, border_radius=4)
+        pygame.draw.rect(screen, secondary, (door_x + 2, door_y + 2, door_w - 4, door_h - 4), 1, border_radius=3)
+
+        # 문 장식 패턴 (대칭)
+        for pattern_y in [door_y + 5, door_y + door_h - 5]:
+            pygame.draw.line(screen, color,
+                           (door_x + 5, pattern_y),
+                           (door_x + door_w - 5, pattern_y), 1)
+
+        # 황금 손잡이 (중앙, 보석 장식)
+        handle_x = door_x + door_w // 2
+        handle_y = door_y + door_h // 2
+        handle_alpha = int(255 * abs(math.sin(self.animation_timer * 1.5)))
+
+        # 손잡이 글로우
+        for glow_r in range(8, 3, -1):
+            glow_alpha = int(handle_alpha / (9 - glow_r))
+            pygame.draw.circle(screen, (*color, glow_alpha), (handle_x, handle_y), glow_r)
+
+        # 메인 손잡이
+        pygame.draw.circle(screen, color, (handle_x, handle_y), 4)
+        pygame.draw.circle(screen, secondary, (handle_x, handle_y), 3)
+        pygame.draw.circle(screen, (255, 240, 200), (handle_x - 1, handle_y - 1), 2)
 
 
 # 싱글톤 인스턴스
