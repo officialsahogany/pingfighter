@@ -19,6 +19,7 @@ from .action_points import ActionPointSystem, ActionPointEvent
 from .renderer import DowntownRenderer
 from .npc import NPCManager
 from .shop import Shop
+from .building_interior import BuildingInterior
 
 # 인게임 메뉴 함수 import
 try:
@@ -1275,8 +1276,109 @@ class DowntownManager:
         pass
 
     def _show_placeholder(self, building_type):
-        """플레이스홀더 - 컨텐츠 없음 (아무것도 하지 않음)"""
-        pass
+        """건물 내부 표시 (인테리어, NPC, 나가기)"""
+        # 건물 내부 인스턴스 생성
+        interior = BuildingInterior(building_type, self._freetype_fonts)
+
+        clock = pygame.time.Clock()
+        running = True
+
+        while running:
+            dt = clock.tick(60) / 1000.0  # 60 FPS
+
+            # 이벤트 처리
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    return
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        # ESC로 나가기
+                        running = False
+
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:  # 왼쪽 클릭
+                        result = interior.handle_click(event.pos)
+                        if result == "exit":
+                            running = False
+                        elif result and result[0] == "talk":
+                            # NPC 대화 (간단한 메시지)
+                            npc = result[1]
+                            self._show_npc_dialogue(npc)
+
+            # 업데이트
+            interior.update(dt)
+
+            # 그리기
+            interior.draw(self.screen)
+
+            pygame.display.flip()
+
+    def _show_npc_dialogue(self, npc):
+        """NPC 대화창"""
+        if not npc.dialogue:
+            return
+
+        dialogue_idx = 0
+        clock = pygame.time.Clock()
+        running = True
+
+        while running and dialogue_idx < len(npc.dialogue):
+            dt = clock.tick(60) / 1000.0
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        dialogue_idx += 1
+                        if dialogue_idx >= len(npc.dialogue):
+                            running = False
+
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    dialogue_idx += 1
+                    if dialogue_idx >= len(npc.dialogue):
+                        running = False
+
+            # 배경 (현재 화면 위에 오버레이)
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 100))
+            self.screen.blit(overlay, (0, 0))
+
+            # 대화창
+            box_width = 600
+            box_height = 150
+            box_x = (SCREEN_WIDTH - box_width) // 2
+            box_y = SCREEN_HEIGHT - box_height - 50
+
+            pygame.draw.rect(self.screen, (30, 30, 40), (box_x, box_y, box_width, box_height), border_radius=10)
+            pygame.draw.rect(self.screen, (100, 100, 120), (box_x, box_y, box_width, box_height), 3, border_radius=10)
+
+            # NPC 이름
+            font_medium = self._freetype_fonts.get('medium')
+            if font_medium:
+                name_surf, name_rect = font_medium.render(npc.name, npc.color)
+                self.screen.blit(name_surf, (box_x + 20, box_y + 15))
+
+            # 대화 내용
+            font_body = self._freetype_fonts.get('body')
+            if font_body:
+                text = npc.dialogue[dialogue_idx]
+                text_surf, text_rect = font_body.render(text, Colors.TEXT_WHITE)
+                self.screen.blit(text_surf, (box_x + 20, box_y + 60))
+
+            # 진행 표시
+            font_small = self._freetype_fonts.get('small')
+            if font_small:
+                hint = f"[{dialogue_idx + 1}/{len(npc.dialogue)}] Space/Enter 또는 클릭"
+                hint_surf, hint_rect = font_small.render(hint, (150, 150, 160))
+                self.screen.blit(hint_surf, (box_x + box_width - hint_rect.width - 20, box_y + box_height - 30))
+
+            pygame.display.flip()
 
     def _show_message(self, message, color=Colors.TEXT_WHITE):
         """메시지 표시 (한글 지원)"""
