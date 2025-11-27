@@ -28655,6 +28655,7 @@ def handle_player(keys):
         """옵티머스 전용: ↓키(또는 한글 'ㄴ') 홀드로 게이지 충전."""
         global optimus_charge_active, optimus_charge_hold_ms
         global optimus_charge_last_update_ms, optimus_charge_anim_tick_ms
+        global special_gauge, special_ready  # 실제 게이지를 수정하려면 전역 참조가 필요
         if selected_character_type != "optimus":
             return
         # 충전 불가 조건
@@ -75646,9 +75647,6 @@ def main(stage_num, new_boss_mode=False):
             if right_just_pressed:
                 right_press_frame = frame_counter
             last_right_state = current_right_state
-            # ↓ 먼저 누른 뒤 방향키를 뒤늦게 누르면 락을 해제해 바로 대쉬가 가능하도록 허용
-            if dash_down_first_lock and current_down_state and (left_just_pressed or right_just_pressed):
-                dash_down_first_lock = False
             down_just_pressed = current_down_state and not last_down_state
             # ↓ 선입력 락: 방향키 없이 ↓가 먼저 눌리면 락 활성화, ↓를 떼면 해제
             try:

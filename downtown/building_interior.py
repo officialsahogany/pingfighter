@@ -1829,21 +1829,38 @@ class BuildingInterior:
                 pygame.draw.rect(screen, (25, 35, 50), item_rect, border_radius=4)
                 text_color = TEXT_WHITE
 
-            # 아이템 텍스트
+            # 아이템 텍스트 및 아이콘
             if font_small:
-                # 아이콘
-                if item == "환전":
-                    icon = "💱"
-                elif item == "예금":
-                    icon = "💰"
-                else:
-                    icon = "🚪"
+                # 아이콘 그리기 (도형으로)
+                icon_x = item_rect.x + 15
+                icon_y = item_rect.y + item_h // 2 - 2
 
-                icon_surf, _ = font_small.render(icon, text_color)
-                screen.blit(icon_surf, (item_rect.x + 30, item_rect.y + 8))
+                if item == "환전":
+                    # 환전 아이콘: 양방향 화살표 (↔)
+                    pygame.draw.polygon(screen, TEXT_GOLD, [
+                        (icon_x, icon_y), (icon_x + 6, icon_y - 4), (icon_x + 6, icon_y + 4)
+                    ])
+                    pygame.draw.polygon(screen, TEXT_GOLD, [
+                        (icon_x + 16, icon_y), (icon_x + 10, icon_y - 4), (icon_x + 10, icon_y + 4)
+                    ])
+                    pygame.draw.rect(screen, TEXT_GOLD, (icon_x + 4, icon_y - 1, 8, 2))
+                elif item == "예금":
+                    # 예금 아이콘: 동전 (●)
+                    pygame.draw.circle(screen, TEXT_GOLD, (icon_x + 8, icon_y), 7)
+                    pygame.draw.circle(screen, (180, 140, 50), (icon_x + 8, icon_y), 7, 1)
+                    pygame.draw.line(screen, (180, 140, 50), (icon_x + 8, icon_y - 4), (icon_x + 8, icon_y + 4), 1)
+                else:
+                    # 나가기 아이콘: 문 (□→)
+                    pygame.draw.rect(screen, text_color, (icon_x, icon_y - 6, 10, 12), 1)
+                    pygame.draw.polygon(screen, text_color, [
+                        (icon_x + 12, icon_y), (icon_x + 18, icon_y), (icon_x + 15, icon_y - 3)
+                    ])
+                    pygame.draw.polygon(screen, text_color, [
+                        (icon_x + 12, icon_y), (icon_x + 18, icon_y), (icon_x + 15, icon_y + 3)
+                    ])
 
                 item_surf, _ = font_small.render(item, text_color)
-                screen.blit(item_surf, (item_rect.x + 55, item_rect.y + 8))
+                screen.blit(item_surf, (item_rect.x + 40, item_rect.y + 8))
 
         # 하단 조작 힌트
         hint_y = menu_y + menu_h - 25
