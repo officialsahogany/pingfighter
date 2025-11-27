@@ -1364,6 +1364,12 @@ class BuildingInterior:
         self.exchange_direction = 0  # 0: 스타포인트→골드, 1: 골드→스타포인트
         self.exchange_amount = 1  # 환전할 양
 
+        # 예금 창 상태
+        self.deposit_menu_open = False
+        self.deposit_tab = 0  # 0: 예금 탭, 1: 설명 탭
+        self.deposit_amount = 0  # 예금할 금액
+        self.withdraw_mode = False  # False: 예금, True: 출금
+
     def _create_npcs(self):
         """NPC들 생성"""
         npcs = []
@@ -1599,6 +1605,10 @@ class BuildingInterior:
 
     def handle_click(self, pos):
         """클릭 처리"""
+        # 예금 메뉴가 열려있으면 예금 메뉴 클릭 처리
+        if self.deposit_menu_open:
+            return self._handle_deposit_menu_click(pos)
+
         # 환전 메뉴가 열려있으면 환전 메뉴 클릭 처리
         if self.exchange_menu_open:
             return self._handle_exchange_menu_click(pos)
@@ -1630,6 +1640,50 @@ class BuildingInterior:
     def handle_key(self, event):
         """키 입력 처리 (이벤트 기반)"""
         if event.type != pygame.KEYDOWN:
+            return None
+
+        # 예금 메뉴가 열려있을 때
+        if self.deposit_menu_open:
+            if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                # 탭 전환
+                self.deposit_tab = 0
+                return ("deposit_tab", None)
+            elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                # 탭 전환
+                self.deposit_tab = 1
+                return ("deposit_tab", None)
+            elif event.key == pygame.K_TAB:
+                # 예금/출금 모드 전환 (예금 탭에서만)
+                if self.deposit_tab == 0:
+                    self.withdraw_mode = not self.withdraw_mode
+                    self.deposit_amount = 0
+                    return ("deposit_mode", None)
+            elif event.key == pygame.K_UP or event.key == pygame.K_w:
+                # 금액 증가 (예금 탭에서만)
+                if self.deposit_tab == 0:
+                    if self.withdraw_mode:
+                        max_amount = self.player_data.get('deposit_balance', 0)
+                    else:
+                        max_amount = self.player_data.get('gold', 0)
+                    scroll_step = max(1, max_amount // 20)
+                    self.deposit_amount = min(max_amount, self.deposit_amount + scroll_step)
+                    return ("deposit_amount", None)
+            elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                # 금액 감소 (예금 탭에서만)
+                if self.deposit_tab == 0:
+                    if self.withdraw_mode:
+                        max_amount = self.player_data.get('deposit_balance', 0)
+                    else:
+                        max_amount = self.player_data.get('gold', 0)
+                    scroll_step = max(1, max_amount // 20)
+                    self.deposit_amount = max(0, self.deposit_amount - scroll_step)
+                    return ("deposit_amount", None)
+            elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                if self.deposit_tab == 0:
+                    return self._execute_deposit()
+            elif event.key == pygame.K_ESCAPE:
+                self.deposit_menu_open = False
+                return ("menu_close", None)
             return None
 
         # 환전 메뉴가 열려있을 때
@@ -1680,26 +1734,45 @@ class BuildingInterior:
 
     def handle_scroll(self, event, mouse_pos=None):
         """마우스 휠 스크롤 처리 (슬라이더 위에서만 작동)"""
-        if not self.exchange_menu_open:
-            return None
-
         if event.type == pygame.MOUSEWHEEL:
-            # 마우스 위치 확인 (슬라이더 영역 내에서만 작동)
-            if mouse_pos:
-                menu_w, menu_h = 340, 270
-                menu_x = (SCREEN_WIDTH - menu_w) // 2
-                menu_y = (SCREEN_HEIGHT - menu_h) // 2
-                slider_rect = pygame.Rect(menu_x + 30, menu_y + 120, 280, 44)  # 확장된 영역
+            # 예금 메뉴 슬라이더 처리
+            if self.deposit_menu_open and self.deposit_tab == 0:
+                if mouse_pos:
+                    menu_w, menu_h = 420, 340
+                    menu_x = (SCREEN_WIDTH - menu_w) // 2
+                    menu_y = (SCREEN_HEIGHT - menu_h) // 2
+                    slider_rect = pygame.Rect(menu_x + 30, menu_y + 150, 360, 44)  # 확장된 영역
 
-                if not slider_rect.collidepoint(mouse_pos):
-                    return None
+                    if slider_rect.collidepoint(mouse_pos):
+                        # 최대값 계산
+                        if self.withdraw_mode:
+                            max_amount = self.player_data.get('deposit_balance', 0)
+                        else:
+                            max_amount = self.player_data.get('gold', 0)
 
-            # 최대값에 비례한 스크롤 단위 계산
-            max_amount = self._get_max_exchange_amount()
-            scroll_step = max(1, max_amount // 20)  # 최대값의 5%씩 조절
+                        scroll_step = max(1, max_amount // 20)  # 최대값의 5%씩 조절
+                        self.deposit_amount = max(0, min(max_amount, self.deposit_amount + event.y * scroll_step))
+                        return ("deposit_amount", None)
+                return None
 
-            self._adjust_exchange_amount(event.y * scroll_step)
-            return ("exchange_amount", None)
+            # 환전 메뉴 슬라이더 처리
+            if self.exchange_menu_open:
+                # 마우스 위치 확인 (슬라이더 영역 내에서만 작동)
+                if mouse_pos:
+                    menu_w, menu_h = 340, 270
+                    menu_x = (SCREEN_WIDTH - menu_w) // 2
+                    menu_y = (SCREEN_HEIGHT - menu_h) // 2
+                    slider_rect = pygame.Rect(menu_x + 30, menu_y + 120, 280, 44)  # 확장된 영역
+
+                    if not slider_rect.collidepoint(mouse_pos):
+                        return None
+
+                # 최대값에 비례한 스크롤 단위 계산
+                max_amount = self._get_max_exchange_amount()
+                scroll_step = max(1, max_amount // 20)  # 최대값의 5%씩 조절
+
+                self._adjust_exchange_amount(event.y * scroll_step)
+                return ("exchange_amount", None)
 
         return None
 
@@ -1828,6 +1901,10 @@ class BuildingInterior:
             return ("bank_exchange", None)
         elif selected == "예금":
             self.bank_menu_open = False
+            self.deposit_menu_open = True
+            self.deposit_tab = 0  # 기본: 예금 탭
+            self.deposit_amount = 0
+            self.withdraw_mode = False
             return ("bank_deposit", None)
         elif selected == "나가기":
             self.bank_menu_open = False
@@ -1897,6 +1974,118 @@ class BuildingInterior:
             return ("menu_close", None)
 
         return None
+
+    def _handle_deposit_menu_click(self, pos):
+        """예금 메뉴 클릭 처리"""
+        # 메뉴 영역 계산 (화면 중앙, 더 넓은 메뉴)
+        menu_w, menu_h = 420, 340
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        # 탭 버튼 영역 (상단)
+        tab_y = menu_y + 10
+        tab_w = 190
+        tab_h = 36
+        tab1_btn = pygame.Rect(menu_x + 15, tab_y, tab_w, tab_h)
+        tab2_btn = pygame.Rect(menu_x + 215, tab_y, tab_w, tab_h)
+
+        if tab1_btn.collidepoint(pos):
+            self.deposit_tab = 0
+            return ("deposit_tab", None)
+        elif tab2_btn.collidepoint(pos):
+            self.deposit_tab = 1
+            return ("deposit_tab", None)
+
+        # 예금 탭에서만 작동하는 요소들
+        if self.deposit_tab == 0:
+            # 예금/출금 모드 전환 버튼
+            mode_y = menu_y + 70
+            deposit_btn = pygame.Rect(menu_x + 30, mode_y, 170, 36)
+            withdraw_btn = pygame.Rect(menu_x + 220, mode_y, 170, 36)
+
+            if deposit_btn.collidepoint(pos):
+                self.withdraw_mode = False
+                self.deposit_amount = 0
+                return ("deposit_mode", None)
+            elif withdraw_btn.collidepoint(pos):
+                self.withdraw_mode = True
+                self.deposit_amount = 0
+                return ("withdraw_mode", None)
+
+            # 슬라이더 클릭 처리
+            slider_y = menu_y + 150
+            slider_x = menu_x + 30
+            slider_w = 360
+            slider_h = 24
+            slider_rect = pygame.Rect(slider_x, slider_y - 10, slider_w, slider_h + 20)
+
+            if slider_rect.collidepoint(pos):
+                click_x = pos[0] - slider_x
+                ratio = max(0, min(1, click_x / slider_w))
+
+                # 최대값 계산
+                if self.withdraw_mode:
+                    max_amount = self.player_data.get('deposit_balance', 0)
+                else:
+                    max_amount = self.player_data.get('gold', 0)
+
+                self.deposit_amount = max(0, int(ratio * max_amount))
+                return ("deposit_amount", None)
+
+            # 실행 버튼 (예금하기 / 출금하기)
+            confirm_btn = pygame.Rect(menu_x + 30, menu_y + 280, 360, 42)
+            if confirm_btn.collidepoint(pos):
+                return self._execute_deposit()
+
+        # 닫기 버튼 (우상단)
+        close_btn = pygame.Rect(menu_x + menu_w - 35, menu_y + 8, 26, 26)
+        if close_btn.collidepoint(pos):
+            self.deposit_menu_open = False
+            return ("menu_close", None)
+
+        # 메뉴 바깥 클릭시 닫기
+        menu_rect = pygame.Rect(menu_x, menu_y, menu_w, menu_h)
+        if not menu_rect.collidepoint(pos):
+            self.deposit_menu_open = False
+            return ("menu_close", None)
+
+        return None
+
+    def _execute_deposit(self):
+        """예금 또는 출금 실행"""
+        gold = self.player_data.get('gold', 0)
+        balance = self.player_data.get('deposit_balance', 0)
+
+        if self.withdraw_mode:
+            # 출금 모드
+            if self.deposit_amount <= 0:
+                return ("deposit_error", "출금할 금액을 설정하세요")
+            if self.deposit_amount > balance:
+                return ("deposit_error", "잔액이 부족합니다")
+
+            # 출금 실행
+            self.player_data['deposit_balance'] = balance - self.deposit_amount
+            self.player_data['gold'] = gold + self.deposit_amount
+            withdrawn = self.deposit_amount
+            self.deposit_amount = 0
+            return ("withdraw_success", withdrawn)
+        else:
+            # 예금 모드
+            if self.deposit_amount <= 0:
+                return ("deposit_error", "예금할 금액을 설정하세요")
+            if self.deposit_amount > gold:
+                return ("deposit_error", "골드가 부족합니다")
+
+            # 예금 실행
+            self.player_data['gold'] = gold - self.deposit_amount
+            self.player_data['deposit_balance'] = balance + self.deposit_amount
+
+            # 현재 이자율을 player_data에 저장 (다음 스테이지에서 이자 적용용)
+            self.player_data['last_interest_rate'] = self.deposit_interest_rate
+
+            deposited = self.deposit_amount
+            self.deposit_amount = 0
+            return ("deposit_success", deposited)
 
     def _draw_exchange_menu(self, screen):
         """환전 메뉴창 그리기 - SF 스타일 (가로 스크롤바)"""
@@ -2071,6 +2260,239 @@ class BuildingInterior:
             hint_surf, _ = font_small.render("슬라이더 위에서 휠로 조절", (90, 100, 120))
             screen.blit(hint_surf, (menu_x + menu_w // 2 - 70, menu_y + menu_h - 16))
 
+    def _draw_deposit_menu(self, screen):
+        """예금 메뉴창 그리기 - SF 스타일 (2탭 구조)"""
+        import math
+
+        # 메뉴 크기 및 위치 (화면 중앙, 더 넓은 메뉴)
+        menu_w, menu_h = 420, 340
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        # 색상
+        BG_DARK = (15, 22, 35)
+        BORDER_CYAN = (70, 180, 255)
+        BORDER_GLOW = (50, 120, 180)
+        HIGHLIGHT = (40, 60, 90)
+        TEXT_WHITE = (240, 245, 255)
+        TEXT_CYAN = (100, 200, 255)
+        TEXT_GOLD = (255, 210, 100)
+        TEXT_GREEN = (100, 255, 150)
+        TEXT_RED = (255, 100, 100)
+        BTN_BG = (30, 45, 65)
+        SLIDER_BG = (25, 35, 50)
+        SLIDER_FILL = (100, 180, 80)  # 녹색 계열 (예금)
+        SLIDER_HANDLE = (150, 220, 120)
+        TAB_ACTIVE = (50, 80, 120)
+        TAB_INACTIVE = (25, 35, 50)
+
+        # 배경 어둡게 (반투명 오버레이)
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 170))
+        screen.blit(overlay, (0, 0))
+
+        # 글로우 효과
+        glow_intensity = int(25 + 12 * math.sin(self.animation_timer * 3))
+        glow_surf = pygame.Surface((menu_w + 20, menu_h + 20), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*TEXT_GREEN, glow_intensity), (0, 0, menu_w + 20, menu_h + 20), border_radius=12)
+        screen.blit(glow_surf, (menu_x - 10, menu_y - 10))
+
+        # 메뉴 배경
+        pygame.draw.rect(screen, BG_DARK, (menu_x, menu_y, menu_w, menu_h), border_radius=8)
+        pygame.draw.rect(screen, TEXT_GREEN, (menu_x, menu_y, menu_w, menu_h), 2, border_radius=8)
+
+        font_small = self.fonts.get('small')
+        font_medium = self.fonts.get('medium')
+
+        # 닫기 버튼 (X)
+        close_btn = pygame.Rect(menu_x + menu_w - 35, menu_y + 8, 26, 26)
+        pygame.draw.rect(screen, (60, 40, 40), close_btn, border_radius=4)
+        pygame.draw.rect(screen, TEXT_RED, close_btn, 1, border_radius=4)
+        pygame.draw.line(screen, TEXT_RED, (close_btn.x + 7, close_btn.y + 7), (close_btn.x + 19, close_btn.y + 19), 2)
+        pygame.draw.line(screen, TEXT_RED, (close_btn.x + 19, close_btn.y + 7), (close_btn.x + 7, close_btn.y + 19), 2)
+
+        # === 탭 버튼 ===
+        tab_y = menu_y + 10
+        tab_w = 190
+        tab_h = 36
+
+        # 예금 탭
+        tab1_color = TAB_ACTIVE if self.deposit_tab == 0 else TAB_INACTIVE
+        tab1_border = TEXT_GREEN if self.deposit_tab == 0 else BORDER_GLOW
+        tab1_btn = pygame.Rect(menu_x + 15, tab_y, tab_w, tab_h)
+        pygame.draw.rect(screen, tab1_color, tab1_btn, border_radius=6)
+        pygame.draw.rect(screen, tab1_border, tab1_btn, 2, border_radius=6)
+        if font_small:
+            txt_surf, txt_rect = font_small.render("예금/출금", TEXT_GREEN if self.deposit_tab == 0 else TEXT_WHITE)
+            screen.blit(txt_surf, (tab1_btn.centerx - txt_rect.width // 2, tab1_btn.centery - txt_rect.height // 2))
+
+        # 설명 탭
+        tab2_color = TAB_ACTIVE if self.deposit_tab == 1 else TAB_INACTIVE
+        tab2_border = TEXT_CYAN if self.deposit_tab == 1 else BORDER_GLOW
+        tab2_btn = pygame.Rect(menu_x + 215, tab_y, tab_w, tab_h)
+        pygame.draw.rect(screen, tab2_color, tab2_btn, border_radius=6)
+        pygame.draw.rect(screen, tab2_border, tab2_btn, 2, border_radius=6)
+        if font_small:
+            txt_surf, txt_rect = font_small.render("시스템 설명", TEXT_CYAN if self.deposit_tab == 1 else TEXT_WHITE)
+            screen.blit(txt_surf, (tab2_btn.centerx - txt_rect.width // 2, tab2_btn.centery - txt_rect.height // 2))
+
+        # 구분선
+        pygame.draw.line(screen, BORDER_GLOW, (menu_x + 15, tab_y + tab_h + 8), (menu_x + menu_w - 15, tab_y + tab_h + 8), 1)
+
+        if self.deposit_tab == 0:
+            # === 예금/출금 탭 ===
+            gold = self.player_data.get('gold', 0)
+            balance = self.player_data.get('deposit_balance', 0)
+            interest_rate = self.deposit_interest_rate
+
+            # 현재 보유량/잔액 표시
+            info_y = menu_y + 58
+            if font_small:
+                gold_surf, _ = font_small.render(f"보유 골드: G {gold:,}", TEXT_GOLD)
+                screen.blit(gold_surf, (menu_x + 30, info_y))
+                balance_surf, _ = font_small.render(f"통장 잔액: G {balance:,}", TEXT_GREEN)
+                screen.blit(balance_surf, (menu_x + 220, info_y))
+
+            # 예금/출금 모드 전환 버튼
+            mode_y = menu_y + 90
+            deposit_btn = pygame.Rect(menu_x + 30, mode_y, 170, 36)
+            withdraw_btn = pygame.Rect(menu_x + 220, mode_y, 170, 36)
+
+            # 예금 버튼
+            btn_color = HIGHLIGHT if not self.withdraw_mode else BTN_BG
+            border_color = TEXT_GREEN if not self.withdraw_mode else BORDER_GLOW
+            pygame.draw.rect(screen, btn_color, deposit_btn, border_radius=6)
+            pygame.draw.rect(screen, border_color, deposit_btn, 2, border_radius=6)
+            if font_small:
+                txt_surf, txt_rect = font_small.render("예금하기", TEXT_GREEN if not self.withdraw_mode else TEXT_WHITE)
+                screen.blit(txt_surf, (deposit_btn.centerx - txt_rect.width // 2, deposit_btn.centery - txt_rect.height // 2))
+
+            # 출금 버튼
+            btn_color = HIGHLIGHT if self.withdraw_mode else BTN_BG
+            border_color = TEXT_GOLD if self.withdraw_mode else BORDER_GLOW
+            pygame.draw.rect(screen, btn_color, withdraw_btn, border_radius=6)
+            pygame.draw.rect(screen, border_color, withdraw_btn, 2, border_radius=6)
+            if font_small:
+                txt_surf, txt_rect = font_small.render("출금하기", TEXT_GOLD if self.withdraw_mode else TEXT_WHITE)
+                screen.blit(txt_surf, (withdraw_btn.centerx - txt_rect.width // 2, withdraw_btn.centery - txt_rect.height // 2))
+
+            # === 금액 슬라이더 ===
+            slider_y = menu_y + 160
+            slider_x = menu_x + 30
+            slider_w = 360
+            slider_h = 24
+
+            # 최대값 계산
+            if self.withdraw_mode:
+                max_amount = max(0, balance)
+            else:
+                max_amount = max(0, gold)
+
+            # 슬라이더 영역 저장
+            self._deposit_slider_rect = pygame.Rect(slider_x, slider_y, slider_w, slider_h)
+            self._deposit_slider_max = max_amount
+
+            # 슬라이더 배경
+            slider_fill_color = SLIDER_FILL if not self.withdraw_mode else (200, 170, 80)
+            pygame.draw.rect(screen, SLIDER_BG, (slider_x, slider_y, slider_w, slider_h), border_radius=12)
+            pygame.draw.rect(screen, BORDER_GLOW, (slider_x, slider_y, slider_w, slider_h), 1, border_radius=12)
+
+            # 슬라이더 채움
+            if max_amount > 0:
+                fill_ratio = min(1.0, self.deposit_amount / max_amount)
+            else:
+                fill_ratio = 0
+            fill_w = int((slider_w - 4) * fill_ratio)
+            if fill_w > 0:
+                pygame.draw.rect(screen, slider_fill_color, (slider_x + 2, slider_y + 2, fill_w, slider_h - 4), border_radius=10)
+
+            # 슬라이더 핸들
+            handle_x = slider_x + 2 + fill_w
+            handle_y = slider_y + slider_h // 2
+            handle_color = SLIDER_HANDLE if not self.withdraw_mode else (220, 190, 100)
+            pygame.draw.circle(screen, handle_color, (handle_x, handle_y), 10)
+            pygame.draw.circle(screen, TEXT_WHITE, (handle_x, handle_y), 6)
+
+            # 금액 표시
+            if font_medium:
+                amt_text = f"G {self.deposit_amount:,}"
+                amt_surf, amt_rect = font_medium.render(amt_text, TEXT_WHITE)
+                screen.blit(amt_surf, (slider_x + slider_w // 2 - amt_rect.width // 2, slider_y - 24))
+
+            # 최소/최대 라벨
+            if font_small:
+                min_surf, _ = font_small.render("0", (100, 110, 130))
+                screen.blit(min_surf, (slider_x, slider_y + slider_h + 4))
+                max_surf, max_rect = font_small.render(f"{max_amount:,}", (100, 110, 130))
+                screen.blit(max_surf, (slider_x + slider_w - max_rect.width, slider_y + slider_h + 4))
+
+            # 이자율 정보
+            rate_y = menu_y + 210
+            if font_small:
+                rate_text = f"현재 이자율: {interest_rate*100:.1f}%"
+                rate_surf, rate_rect = font_small.render(rate_text, TEXT_CYAN)
+                screen.blit(rate_surf, (menu_x + menu_w // 2 - rate_rect.width // 2, rate_y))
+
+            # 예상 수익 (예금 모드에서만)
+            if not self.withdraw_mode and self.deposit_amount > 0:
+                expected_y = menu_y + 232
+                expected_balance = balance + self.deposit_amount
+                expected_interest = int(expected_balance * interest_rate)
+                expected_total = expected_balance + expected_interest
+                if font_small:
+                    exp_text = f"다음 스테이지 예상: G {expected_total:,} (+{expected_interest:,})"
+                    exp_surf, exp_rect = font_small.render(exp_text, TEXT_GREEN)
+                    screen.blit(exp_surf, (menu_x + menu_w // 2 - exp_rect.width // 2, expected_y))
+
+            # 실행 버튼
+            confirm_btn = pygame.Rect(menu_x + 30, menu_y + 280, 360, 42)
+            if self.withdraw_mode:
+                pygame.draw.rect(screen, (80, 65, 40), confirm_btn, border_radius=6)
+                pygame.draw.rect(screen, TEXT_GOLD, confirm_btn, 2, border_radius=6)
+                if font_medium:
+                    btn_text = "출금하기"
+                    btn_surf, btn_rect = font_medium.render(btn_text, TEXT_GOLD)
+                    screen.blit(btn_surf, (confirm_btn.centerx - btn_rect.width // 2, confirm_btn.centery - btn_rect.height // 2))
+            else:
+                pygame.draw.rect(screen, (40, 80, 60), confirm_btn, border_radius=6)
+                pygame.draw.rect(screen, TEXT_GREEN, confirm_btn, 2, border_radius=6)
+                if font_medium:
+                    btn_text = "예금하기"
+                    btn_surf, btn_rect = font_medium.render(btn_text, TEXT_GREEN)
+                    screen.blit(btn_surf, (confirm_btn.centerx - btn_rect.width // 2, confirm_btn.centery - btn_rect.height // 2))
+
+        else:
+            # === 설명 탭 ===
+            desc_y = menu_y + 65
+            line_height = 26
+            descriptions = [
+                "◆ STARBANK 예금 시스템 ◆",
+                "",
+                "▸ 골드를 예금하면 이자가 붙습니다",
+                "▸ 이자는 다음 스테이지 시작 시 적용됩니다",
+                "",
+                "▸ 복리 방식으로 계산됩니다",
+                "  예) 1000G 예금, 이자율 10%",
+                "      → 다음 스테이지: 1100G",
+                "      → 이자율 2% 적용 시: 1122G",
+                "",
+                f"▸ 현재 이자율: {self.deposit_interest_rate*100:.1f}%",
+                "▸ 이자율은 스테이지마다 변동됩니다",
+            ]
+
+            if font_small:
+                for i, line in enumerate(descriptions):
+                    if line.startswith("◆"):
+                        color = TEXT_CYAN
+                    elif line.startswith("▸"):
+                        color = TEXT_WHITE
+                    elif "예)" in line or "→" in line:
+                        color = TEXT_GOLD
+                    else:
+                        color = (150, 160, 180)
+                    text_surf, _ = font_small.render(line, color)
+                    screen.blit(text_surf, (menu_x + 30, desc_y + i * line_height))
+
     def draw(self, screen):
         """건물 내부 그리기"""
         # 특수 인테리어 체크
@@ -2127,6 +2549,10 @@ class BuildingInterior:
         # 환전 메뉴 (맨 위에)
         if self.exchange_menu_open:
             self._draw_exchange_menu(screen)
+
+        # 예금 메뉴 (맨 위에)
+        if self.deposit_menu_open:
+            self._draw_deposit_menu(screen)
 
     def _draw_bank_menu(self, screen):
         """은행 메뉴창 그리기 - SF 스타일"""

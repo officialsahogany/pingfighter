@@ -2598,30 +2598,22 @@ class EmptyLegendary(LegendaryItem):
         self.active = False
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 천사의 가호와 동일 (주사위 없음)"""
-        # 흔들림 오프셋 계산
+        """애니메이션 아이콘 그리기 - 라그나로크 해머와 동일 (PNG 프레임에 이미 글로우 포함)"""
+        # 흔들림 오프셋만 계산 (PNG에 이미 글로우가 포함되어 있으므로 공통 프레임의 글로우는 사용 안 함)
         frame_offset = int(math.sin(self.animation_time * 2.5) * 2)
         frame_y = y + frame_offset
 
-        # 파란색 원형 글로우 - 직접 스크린에 그리기 (대칭 보장)
-        pulse = (math.sin(self.animation_time * 4.0) + 1) / 2
-        base_radius = int(size * 0.36)
-        glow_radius = int(base_radius + size * 0.03 * pulse)
+        # 애니메이션 프레임 그리기 (PNG에 글로우+테두리 포함)
+        if self.animation_frames and len(self.animation_frames) > 0:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
 
-        # 정확한 중심점 계산
-        center_x = x + size // 2
-        center_y = frame_y + size // 2
-
-        # 글로우를 위한 임시 서피스 (전체 아이콘 크기로 생성하여 대칭 보장)
-        glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-        glow_cx = size // 2
-        glow_cy = size // 2
-        pygame.draw.circle(glow_surface, (30, 90, 170, 80), (glow_cx, glow_cy), glow_radius)
-        pygame.draw.circle(glow_surface, (70, 140, 200, 150), (glow_cx, glow_cy), int(glow_radius * 0.82))
-        pygame.draw.circle(glow_surface, (140, 190, 220, 190), (glow_cx, glow_cy), int(glow_radius * 0.58))
-
-        # 아이콘 위치에 정확히 배치
-        screen.blit(glow_surface, (x, frame_y))
+            icon_y = y + frame_offset + int(self.animation_offset)
+            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled_icon = pygame.transform.scale(current_icon, (size, size))
+            screen.blit(scaled_icon, (x, icon_y))
 
         # 외곽 테두리
         border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
@@ -2640,20 +2632,6 @@ class EmptyLegendary(LegendaryItem):
 
         for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
             pygame.draw.circle(screen, COMMON_LEGENDARY_CORNER_COLOR, (cx, cy), 2)
-
-        # 애니메이션 프레임 그리기 (테두리만)
-        if self.animation_frames and len(self.animation_frames) > 0:
-            self.frame_counter += 1
-            if self.frame_counter >= self.animation_speed:
-                self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
-
-            icon_y = y + frame_offset + int(self.animation_offset)
-            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
-            scaled_icon = pygame.transform.scale(current_icon, (size, size))
-            screen.blit(scaled_icon, (x, icon_y))
-
-            # 중앙 주사위 없음 - 빈 슬롯
 
 
 class AngelBlessing(LegendaryItem):

@@ -127,6 +127,46 @@ class DowntownManager:
             'buffs_obtained': []
         }
 
+        # 예금 이자 관련
+        self.interest_applied_this_stage = False  # 이번 스테이지 이자 적용 여부
+        self.last_interest_amount = 0  # 마지막 적용된 이자 금액
+
+    def _apply_deposit_interest(self):
+        """예금 이자 적용 (스테이지 시작 시)"""
+        import random
+
+        # 예금 잔액 확인
+        balance = self.player_data.get('deposit_balance', 0)
+        if balance <= 0:
+            self.interest_applied_this_stage = False
+            self.last_interest_amount = 0
+            return
+
+        # 이전 스테이지에서 저장된 이자율 가져오기
+        # (없으면 새로운 이자율 생성)
+        interest_rate = self.player_data.get('last_interest_rate', 0)
+        if interest_rate <= 0:
+            # 첫 번째 스테이지이거나 이자율이 없는 경우 - 이자 적용 안함
+            self.interest_applied_this_stage = False
+            self.last_interest_amount = 0
+            return
+
+        # 복리 이자 계산 및 적용
+        interest_amount = int(balance * interest_rate)
+        new_balance = balance + interest_amount
+
+        # 예금 잔액 업데이트
+        self.player_data['deposit_balance'] = new_balance
+        self.interest_applied_this_stage = True
+        self.last_interest_amount = interest_amount
+
+        # 다음 스테이지를 위한 새 이자율 생성 (5% ~ 20%)
+        new_rate = random.uniform(0.05, 0.20)
+        self.player_data['last_interest_rate'] = new_rate
+
+        print(f"[DEPOSIT] Interest applied: {balance:,}G + {interest_amount:,}G ({interest_rate*100:.1f}%) = {new_balance:,}G")
+        print(f"[DEPOSIT] New interest rate for next stage: {new_rate*100:.1f}%")
+
     def _init_fonts(self):
         """폰트 초기화 (pygame.freetype 사용 - 한글 지원)"""
         self._freetype_fonts = {}
@@ -177,6 +217,9 @@ class DowntownManager:
         # 플레이어 데이터 설정
         if player_data:
             self.player_data = player_data
+
+        # 예금 이자 적용 (스테이지 시작 시)
+        self._apply_deposit_interest()
 
         # 맵 생성
         self.downtown_map = DowntownMap(stage_number)
