@@ -1324,12 +1324,18 @@ class DowntownManager:
                             show_character_info()
 
                     else:
-                        # 한글 키보드 및 이동 키 지원 (WASD, 화살표)
-                        scancode = getattr(event, 'scancode', None)
-                        unicode_char = getattr(event, 'unicode', '')
-                        interior.player.handle_movement_key_event(
-                            True, scancode=scancode, keycode=event.key, unicode_char=unicode_char
-                        )
+                        # 메뉴 키 처리 (은행 메뉴, 환전 메뉴 등)
+                        menu_result = interior.handle_key(event)
+                        if menu_result:
+                            # 환전 성공 시 player_data가 자동으로 업데이트됨
+                            pass
+                        else:
+                            # 한글 키보드 및 이동 키 지원 (WASD, 화살표)
+                            scancode = getattr(event, 'scancode', None)
+                            unicode_char = getattr(event, 'unicode', '')
+                            interior.player.handle_movement_key_event(
+                                True, scancode=scancode, keycode=event.key, unicode_char=unicode_char
+                            )
 
                 elif event.type == pygame.KEYUP:
                     # 키 릴리즈 처리 (한글 키보드 및 이동 키)
@@ -1345,6 +1351,10 @@ class DowntownManager:
                         if result and isinstance(result, tuple) and result[0] == "talk":
                             # NPC 대화 - 말풍선은 InteriorNPC에서 처리
                             pass
+
+                elif event.type == pygame.MOUSEWHEEL:
+                    # 마우스 휠 처리 (환전 양 조절)
+                    interior.handle_scroll(event)
 
             # 업데이트 (플레이어 이동, NPC 애니메이션, 문 나가기 체크)
             interior.update(dt)
