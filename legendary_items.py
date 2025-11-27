@@ -2971,30 +2971,17 @@ class AngelBlessing(LegendaryItem):
                 # 중앙으로부터의 거리 계산
                 dist = math.sqrt((px - cx) ** 2 + (py - cy) ** 2)
 
-                # 아래쪽 손잡이 영역은 더 넓게 제거 (중앙 아래)
-                in_handle_area = (py > cy and abs(px - cx) < width * 0.25)
-
-                # 중앙 영역 내부 또는 손잡이 영역
-                if dist < inner_radius or in_handle_area:
+                # 중앙 영역 내부는 파란색 배경 빼고 전부 제거
+                if dist < inner_radius:
                     color = frame.get_at((px, py))
                     if color.a == 0:
                         continue
 
-                    # 파란색 원 배경은 유지 (파란색 계열)
-                    is_blue_bg = (color.b > 100 and color.b > color.r and color.b > color.g * 0.8)
+                    # 파란색 원 배경만 유지 (순수 파란색 계열만)
+                    is_pure_blue = (color.b > 120 and color.b > color.r * 1.5 and color.b > color.g)
 
-                    # 어두운 배경도 유지
-                    is_dark_bg = (color.r < 60 and color.g < 60 and color.b < 80)
-
-                    # 갈색/베이지 손잡이 제거 (더 넓은 범위)
-                    is_handle_color = (color.r > 60 and color.g < 160 and color.b < 120 and
-                                       color.r > color.b)
-
-                    # 파란색 배경이나 어두운 배경이 아니면 모두 제거
-                    if not is_blue_bg and not is_dark_bg:
-                        result.set_at((px, py), (0, 0, 0, 0))
-                    # 손잡이 색상은 명시적으로 제거
-                    elif is_handle_color:
+                    # 파란색 배경이 아니면 전부 제거
+                    if not is_pure_blue:
                         result.set_at((px, py), (0, 0, 0, 0))
 
         return result

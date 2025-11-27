@@ -1594,6 +1594,10 @@ class BuildingInterior:
 
     def handle_click(self, pos):
         """클릭 처리"""
+        # 은행 메뉴가 열려있으면 메뉴 클릭 처리
+        if self.bank_menu_open:
+            return self._handle_bank_menu_click(pos)
+
         # 화면 좌표를 월드 좌표로 변환
         world_x = pos[0] + self.camera_offset[0]
         world_y = pos[1] + self.camera_offset[1]
@@ -1602,9 +1606,103 @@ class BuildingInterior:
         for npc in self.npcs:
             npc_rect = npc.get_rect()
             if npc_rect.collidepoint(world_x, world_y):
-                dialogue = npc.start_dialogue()
-                if dialogue:
-                    return ("talk", npc)
+                # 은행 메인 NPC인 경우 메뉴 열기
+                if self.building_type == BuildingType.BANK and npc.role == "main":
+                    self.bank_menu_open = True
+                    self.bank_menu_selection = 0
+                    return ("bank_menu", npc)
+                else:
+                    dialogue = npc.start_dialogue()
+                    if dialogue:
+                        return ("talk", npc)
+
+        return None
+
+    def handle_key(self, event):
+        """키 입력 처리 (이벤트 기반)"""
+        if event.type != pygame.KEYDOWN:
+            return None
+
+        # 은행 메뉴가 열려있을 때
+        if self.bank_menu_open:
+            if event.key == pygame.K_UP or event.key == pygame.K_w:
+                self.bank_menu_selection = (self.bank_menu_selection - 1) % len(self.bank_menu_items)
+                return ("menu_move", None)
+            elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                self.bank_menu_selection = (self.bank_menu_selection + 1) % len(self.bank_menu_items)
+                return ("menu_move", None)
+            elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                return self._select_bank_menu_item()
+            elif event.key == pygame.K_ESCAPE:
+                self.bank_menu_open = False
+                return ("menu_close", None)
+            return None
+
+        # 메뉴가 닫혀있을 때 - Space로 NPC 상호작용
+        if event.key == pygame.K_SPACE:
+            return self._try_interact_with_npc()
+
+        return None
+
+    def _try_interact_with_npc(self):
+        """플레이어 근처 NPC와 상호작용 시도"""
+        player_rect = pygame.Rect(
+            self.player.x - 40, self.player.y - 40, 80, 80
+        )
+
+        for npc in self.npcs:
+            npc_rect = npc.get_rect()
+            if player_rect.colliderect(npc_rect):
+                # 은행 메인 NPC인 경우 메뉴 열기
+                if self.building_type == BuildingType.BANK and npc.role == "main":
+                    self.bank_menu_open = True
+                    self.bank_menu_selection = 0
+                    return ("bank_menu", npc)
+                else:
+                    dialogue = npc.start_dialogue()
+                    if dialogue:
+                        return ("talk", npc)
+
+        return None
+
+    def _handle_bank_menu_click(self, pos):
+        """은행 메뉴 클릭 처리"""
+        # 메뉴 영역 계산 (화면 중앙)
+        menu_w, menu_h = 200, 160
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        # 메뉴 아이템 클릭 체크
+        item_h = 32
+        item_start_y = menu_y + 50
+
+        for i, item in enumerate(self.bank_menu_items):
+            item_rect = pygame.Rect(menu_x + 20, item_start_y + i * item_h, menu_w - 40, item_h - 4)
+            if item_rect.collidepoint(pos):
+                self.bank_menu_selection = i
+                return self._select_bank_menu_item()
+
+        # 메뉴 바깥 클릭시 닫기
+        menu_rect = pygame.Rect(menu_x, menu_y, menu_w, menu_h)
+        if not menu_rect.collidepoint(pos):
+            self.bank_menu_open = False
+            return ("menu_close", None)
+
+        return None
+
+    def _select_bank_menu_item(self):
+        """은행 메뉴 아이템 선택"""
+        selected = self.bank_menu_items[self.bank_menu_selection]
+
+        if selected == "환전":
+            self.bank_menu_open = False
+            return ("bank_exchange", None)
+        elif selected == "예금":
+            self.bank_menu_open = False
+            return ("bank_deposit", None)
+        elif selected == "나가기":
+            self.bank_menu_open = False
+            return ("menu_close", None)
 
         return None
 
@@ -1656,6 +1754,102 @@ class BuildingInterior:
 
         # UI
         self._draw_ui(screen)
+
+        # 은행 메뉴 (맨 위에)
+        if self.bank_menu_open:
+            self._draw_bank_menu(screen)
+
+    def _draw_bank_menu(self, screen):
+        """은행 메뉴창 그리기 - SF 스타일"""
+        import math
+
+        # 메뉴 크기 및 위치 (화면 중앙)
+        menu_w, menu_h = 220, 180
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        # 색상
+        BG_DARK = (15, 22, 35)
+        BORDER_CYAN = (70, 180, 255)
+        BORDER_GLOW = (50, 120, 180)
+        HIGHLIGHT = (40, 60, 90)
+        TEXT_WHITE = (240, 245, 255)
+        TEXT_CYAN = (100, 200, 255)
+        TEXT_GOLD = (255, 210, 100)
+
+        # 배경 어둡게 (반투명 오버레이)
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        screen.blit(overlay, (0, 0))
+
+        # 글로우 효과
+        glow_intensity = int(20 + 10 * math.sin(self.animation_timer * 3))
+        glow_surf = pygame.Surface((menu_w + 20, menu_h + 20), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*BORDER_CYAN, glow_intensity), (0, 0, menu_w + 20, menu_h + 20), border_radius=12)
+        screen.blit(glow_surf, (menu_x - 10, menu_y - 10))
+
+        # 메뉴 배경
+        pygame.draw.rect(screen, BG_DARK, (menu_x, menu_y, menu_w, menu_h), border_radius=8)
+        pygame.draw.rect(screen, BORDER_CYAN, (menu_x, menu_y, menu_w, menu_h), 2, border_radius=8)
+
+        # 상단 바
+        pygame.draw.rect(screen, (25, 35, 55), (menu_x + 2, menu_y + 2, menu_w - 4, 36), border_radius=6)
+        pygame.draw.line(screen, BORDER_GLOW, (menu_x + 10, menu_y + 40), (menu_x + menu_w - 10, menu_y + 40), 1)
+
+        font_small = self.fonts.get('small')
+        font_medium = self.fonts.get('medium')
+
+        # 타이틀
+        if font_medium:
+            title_surf, title_rect = font_medium.render("무엇을 도와드릴까요?", TEXT_WHITE)
+            screen.blit(title_surf, (menu_x + menu_w // 2 - title_rect.width // 2, menu_y + 10))
+
+        # 메뉴 아이템
+        item_h = 36
+        item_start_y = menu_y + 52
+
+        for i, item in enumerate(self.bank_menu_items):
+            item_y = item_start_y + i * item_h
+            item_rect = pygame.Rect(menu_x + 15, item_y, menu_w - 30, item_h - 4)
+
+            # 선택된 아이템 하이라이트
+            if i == self.bank_menu_selection:
+                # 선택 배경
+                pygame.draw.rect(screen, HIGHLIGHT, item_rect, border_radius=4)
+                pygame.draw.rect(screen, BORDER_CYAN, item_rect, 2, border_radius=4)
+
+                # 선택 표시 (▶)
+                if font_small:
+                    arrow_surf, _ = font_small.render("▶", TEXT_CYAN)
+                    screen.blit(arrow_surf, (item_rect.x + 8, item_rect.y + 8))
+
+                text_color = TEXT_CYAN
+            else:
+                # 비선택 배경
+                pygame.draw.rect(screen, (25, 35, 50), item_rect, border_radius=4)
+                text_color = TEXT_WHITE
+
+            # 아이템 텍스트
+            if font_small:
+                # 아이콘
+                if item == "환전":
+                    icon = "💱"
+                elif item == "예금":
+                    icon = "💰"
+                else:
+                    icon = "🚪"
+
+                icon_surf, _ = font_small.render(icon, text_color)
+                screen.blit(icon_surf, (item_rect.x + 30, item_rect.y + 8))
+
+                item_surf, _ = font_small.render(item, text_color)
+                screen.blit(item_surf, (item_rect.x + 55, item_rect.y + 8))
+
+        # 하단 조작 힌트
+        hint_y = menu_y + menu_h - 25
+        if font_small:
+            hint_surf, _ = font_small.render("↑↓ 이동  Space/Enter 선택  ESC 닫기", (100, 120, 150))
+            screen.blit(hint_surf, (menu_x + menu_w // 2 - 95, hint_y))
 
     def _draw_bank_interior(self, screen):
         """스타뱅크 전용 인테리어 - 깔끔한 SF 은행 스타일"""
