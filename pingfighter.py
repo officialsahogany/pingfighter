@@ -5605,31 +5605,87 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
         wrist_int = (int(wrist[0]), int(wrist[1]))
         pygame.draw.circle(surface, palette["hand"], wrist_int, 12)  # 6→12
 
-        # [디테일 추가] 손가락 (오른손만 - 왼손은 무기를 들고 있음)
-        if side > 0:
-            for finger_idx in range(4):
-                finger_angle = math.radians(-30 + finger_idx * 20)
-                finger_len = 10 + (1 if finger_idx in (1, 2) else 0) * 2
-                fx = wrist_int[0] + int(math.cos(finger_angle) * finger_len) + side * 8
-                fy = wrist_int[1] + int(math.sin(finger_angle) * finger_len) + 6
-                pygame.draw.line(surface, palette["hand"], wrist_int, (fx, fy), 4)
-                pygame.draw.circle(surface, palette["hand"], (fx, fy), 3)
-            # 엄지
-            thumb_x = wrist_int[0] + side * 6
-            thumb_y = wrist_int[1] - 6
-            pygame.draw.line(surface, palette["hand"], wrist_int, (thumb_x, thumb_y), 4)
-            pygame.draw.circle(surface, palette["hand"], (thumb_x, thumb_y), 3)
+        # [디테일 추가] 손가락 (양손 모두)
+        for finger_idx in range(4):
+            finger_angle = math.radians(-30 + finger_idx * 20)
+            finger_len = 10 + (1 if finger_idx in (1, 2) else 0) * 2
+            fx = wrist_int[0] + int(math.cos(finger_angle) * finger_len) + side * 8
+            fy = wrist_int[1] + int(math.sin(finger_angle) * finger_len) + 6
+            pygame.draw.line(surface, palette["hand"], wrist_int, (fx, fy), 4)
+            pygame.draw.circle(surface, palette["hand"], (fx, fy), 3)
+        # 엄지
+        thumb_x = wrist_int[0] + side * 6
+        thumb_y = wrist_int[1] - 6
+        pygame.draw.line(surface, palette["hand"], wrist_int, (thumb_x, thumb_y), 4)
+        pygame.draw.circle(surface, palette["hand"], (thumb_x, thumb_y), 3)
 
-        # 왼팔 플라즈마 블레이드 - 고해상도
+        # 왼팔 사이버 전자 탁구채 (15도 오른쪽 회전)
         if side < 0:
-            grip_x, grip_y = wrist[0] - 8, wrist[1] + 16  # 4→8, 8→16
-            pygame.draw.rect(surface, palette["grip"], (int(grip_x - 6), int(grip_y - 20), 20, 48), border_radius=8)  # 3→6, 10→20, 10→20, 24→48, 4→8
-            pygame.draw.rect(surface, palette["grip_line"], (int(grip_x - 2), int(grip_y - 16), 12, 40), 2, border_radius=6)  # 1→2, 8→16, 6→12, 20→40, 1→2, 3→6
-            blade_height = 92  # 46→92
-            blade_surface = pygame.Surface((16, blade_height), pygame.SRCALPHA)  # 8→16
-            pygame.draw.rect(blade_surface, (*palette["accent"], 160), (0, 0, 16, blade_height), border_radius=6)  # 8→16, 3→6
-            pygame.draw.rect(blade_surface, (*palette["visor_highlight"], 200), (4, 4, 8, blade_height - 8), border_radius=4)  # 2→4, 4→8, 4→8, 2→4
-            surface.blit(blade_surface, (int(grip_x + 4), int(grip_y + 20)))  # 2→4, 10→20
+            # 탁구채를 별도 서피스에 그린 후 회전
+            paddle_surf_size = 100
+            paddle_surface = pygame.Surface((paddle_surf_size, paddle_surf_size), pygame.SRCALPHA)
+            ps_cx, ps_cy = paddle_surf_size // 2, paddle_surf_size // 2  # 서피스 중앙
+
+            # 손잡이 (그립) - 서피스 중앙 기준
+            grip_offset_y = 28
+            pygame.draw.rect(paddle_surface, palette["grip"],
+                           (ps_cx - 7, ps_cy + grip_offset_y - 4, 14, 32), border_radius=4)
+            pygame.draw.rect(paddle_surface, palette["grip_line"],
+                           (ps_cx - 5, ps_cy + grip_offset_y, 10, 24), 1, border_radius=3)
+
+            # 탁구채 라켓 면 (사각형 사이버 스타일)
+            paddle_w, paddle_h = 48, 56
+            paddle_rect = pygame.Rect(ps_cx - paddle_w // 2, ps_cy - paddle_h // 2 - 8, paddle_w, paddle_h)
+
+            # 라켓 외곽 프레임 (다크 메탈)
+            pygame.draw.rect(paddle_surface, palette["hex_base"], paddle_rect, border_radius=6)
+
+            # 라켓 메인 면 (네온 사이언)
+            inner_rect = paddle_rect.inflate(-8, -8)
+            pygame.draw.rect(paddle_surface, palette["helmet"], inner_rect, border_radius=4)
+
+            # 사이버 그리드 패턴
+            grid_color = (*palette["accent"], 120)
+            for gy in range(inner_rect.top + 6, inner_rect.bottom - 4, 10):
+                pygame.draw.line(paddle_surface, grid_color, (inner_rect.left + 4, gy), (inner_rect.right - 4, gy), 1)
+            for gx in range(inner_rect.left + 6, inner_rect.right - 4, 10):
+                pygame.draw.line(paddle_surface, grid_color, (gx, inner_rect.top + 4), (gx, inner_rect.bottom - 4), 1)
+
+            # 중앙 에너지 코어 (원형)
+            core_cx, core_cy = paddle_rect.centerx, paddle_rect.centery
+            pygame.draw.circle(paddle_surface, palette["hex_base"], (core_cx, core_cy), 12)
+            pygame.draw.circle(paddle_surface, palette["accent"], (core_cx, core_cy), 10)
+            pygame.draw.circle(paddle_surface, palette["hex_core"], (core_cx, core_cy), 6)
+            pygame.draw.circle(paddle_surface, palette["visor_highlight"], (core_cx, core_cy), 3)
+
+            # 라켓 외곽 LED 테두리
+            pygame.draw.rect(paddle_surface, palette["accent"], paddle_rect, 3, border_radius=6)
+
+            # 모서리 LED 포인트
+            for corner in [(paddle_rect.left + 4, paddle_rect.top + 4),
+                          (paddle_rect.right - 4, paddle_rect.top + 4),
+                          (paddle_rect.left + 4, paddle_rect.bottom - 4),
+                          (paddle_rect.right - 4, paddle_rect.bottom - 4)]:
+                pygame.draw.circle(paddle_surface, palette["visor_highlight"], corner, 3)
+
+            # 15도 오른쪽(시계방향) 회전
+            rotated_paddle = pygame.transform.rotate(paddle_surface, -15)
+
+            # 회전된 탁구채를 메인 서피스에 블릿
+            # 위치 계산: 손목 기준
+            paddle_blit_x = wrist_int[0] - rotated_paddle.get_width() // 2 - 12
+            paddle_blit_y = wrist_int[1] - rotated_paddle.get_height() // 2 - 8
+
+            # 글로우 효과 (회전 전 서피스)
+            glow_surface = pygame.Surface((paddle_surf_size + 20, paddle_surf_size + 20), pygame.SRCALPHA)
+            glow_alpha = int(30 + 20 * math.sin(phase * math.tau * 2))
+            pygame.draw.rect(glow_surface, (*palette["accent"], glow_alpha),
+                           (10, 10, paddle_w + 10, paddle_h + 10), border_radius=10)
+            rotated_glow = pygame.transform.rotate(glow_surface, -15)
+            surface.blit(rotated_glow, (paddle_blit_x - 10, paddle_blit_y - 10))
+
+            # 탁구채 블릿
+            surface.blit(rotated_paddle, (paddle_blit_x, paddle_blit_y))
 
     draw_arm(-1, arm_swing_left, left_swing_ratio)
     draw_arm(1, arm_swing_right, right_swing_ratio)
@@ -75590,6 +75646,9 @@ def main(stage_num, new_boss_mode=False):
             if right_just_pressed:
                 right_press_frame = frame_counter
             last_right_state = current_right_state
+            # ↓ 먼저 누른 뒤 방향키를 뒤늦게 누르면 락을 해제해 바로 대쉬가 가능하도록 허용
+            if dash_down_first_lock and current_down_state and (left_just_pressed or right_just_pressed):
+                dash_down_first_lock = False
             down_just_pressed = current_down_state and not last_down_state
             # ↓ 선입력 락: 방향키 없이 ↓가 먼저 눌리면 락 활성화, ↓를 떼면 해제
             try:
