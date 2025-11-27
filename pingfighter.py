@@ -5022,10 +5022,11 @@ MECHA_SPRITE_SIZE = (250, 120)
 MECHA_CENTER_X = 125
 MECHA_CENTER_Y = 60
 OPTIMUS_SCALE_MULT = 2.0                         # 시각·패들 크기 2배 확대
+OPTIMUS_HITBOX_SCALE = 0.575                     # 히트박스는 15%만 축소(0.5 → 0.575)
 # 옵티머스 기본 스펙
-OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_SCALE_MULT)  # 250px → 500px
-OPTIMUS_PADDLE_TARGET_WIDTH = int(280 * OPTIMUS_SCALE_MULT)                 # 280px → 560px
-OPTIMUS_PADDLE_BASE_HEIGHT = int(50 * OPTIMUS_SCALE_MULT)                   # 기본 높이도 2배
+OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCALE)  # 250px → 250px(50%)
+OPTIMUS_PADDLE_TARGET_WIDTH = int(280 * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCALE)                 # 280px → 280px(50%)
+OPTIMUS_PADDLE_BASE_HEIGHT = int(MECHA_SPRITE_SIZE[1] * OPTIMUS_SCALE_MULT * OPTIMUS_HITBOX_SCALE)  # 120→120
 OPTIMUS_BASE_MAX_SPEED = 2                       # 기본 이동 속도(캐릭터 능력치 기준)
 OPTIMUS_DECELERATION_MULT = 0.5                  # 감속을 절반으로(2배 느리게)
 OPTIMUS_FLOOR_ADJUST = 12                        # 렌더링 시 발 위치 하향 보정
@@ -57915,6 +57916,14 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         selected_character_type = "smasher"
     elif character_id == "optimus":
         selected_character_type = "optimus"
+        # 옵티머스는 확대된 스프라이트에 맞춰 히트박스도 확대
+        global PADDLE_BASE_WIDTH, PADDLE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_HEIGHT
+        PADDLE_BASE_WIDTH = OPTIMUS_PADDLE_BASE_WIDTH
+        PADDLE_WIDTH = OPTIMUS_PADDLE_TARGET_WIDTH
+        PADDLE_BASE_HEIGHT = OPTIMUS_PADDLE_BASE_HEIGHT
+        PADDLE_HEIGHT = OPTIMUS_PADDLE_BASE_HEIGHT
+        apply_equipment_paddle_modifiers()
+        align_player_to_floor()
     else:
         selected_character_type = "normal"
 
@@ -82399,6 +82408,9 @@ def apply_character_selection(character_id):
         PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
         PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
         PADDLE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
+    # 패들 크기 변경 시 실제 히트박스에 반영
+    apply_equipment_paddle_modifiers()
+    align_player_to_floor()
     return selected_character_type
 
 

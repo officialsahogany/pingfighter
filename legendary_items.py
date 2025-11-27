@@ -2823,53 +2823,33 @@ class AngelBlessing(LegendaryItem):
             self._roll_blessing(current_stage)
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """빈전설 프레임 위에 천사의 주사위 오버레이 - 3D 구르는 효과."""
-        # 공통 프레임(빈전설과 동일)
-        self._inner_placeholder.animation_time = self.animation_time
-        self._inner_placeholder.current_frame = getattr(self._inner_placeholder, "current_frame", 0)
-        self._inner_placeholder.draw_icon(screen, x, y, size)
+        """하얀색 주사위가 계속 돌아가는 애니메이션 - 전설 아이템 규격."""
+        # 공통 배경 프레임 연출 (다른 전설 아이템과 동일한 빨간 테두리)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time,
+                                                    border_color=COMMON_LEGENDARY_BORDER_COLOR,
+                                                    corner_color=COMMON_LEGENDARY_CORNER_COLOR)
 
-        # 3D 주사위 구르기 애니메이션
         t = self.animation_time
+        frame_y = y + frame_offset
 
-        # 지속적인 부드러운 회전 (항상 구르는 느낌)
-        roll_speed = 2.5  # 회전 속도
-        bounce_speed = 3.0  # 바운스 속도
+        # 주사위 크기 (프레임 내부에 맞게 조정)
+        dice_size = int(size * 0.45)
+        cx, cy = x + size // 2, frame_y + size // 2
 
-        # X, Y, Z 축 회전 각도 (3D 효과를 위한 다중 축 회전)
-        rot_x = math.sin(t * roll_speed) * 25  # X축 기울기 (-25 ~ 25도)
-        rot_y = math.cos(t * roll_speed * 0.7) * 20  # Y축 기울기
-        rot_z = t * 60 % 360  # Z축 지속 회전
+        # 부드러운 떠다니는 효과
+        float_offset = math.sin(t * 2.5) * 2 + int(self.animation_offset)
 
-        # 바운스 효과 (구르는 주사위가 살짝 튀는 느낌)
-        bounce = abs(math.sin(t * bounce_speed)) * 4
+        # 3D 회전 각도 (계속 돌아가는 느낌)
+        rot_x = math.sin(t * 1.8) * 18  # X축 기울기
+        rot_y = t * 50 % 360  # Y축 지속 회전 (계속 돌아감)
 
-        # 주사위 크기 (3D 원근감)
-        dice_size = int(size * 0.65)
-        perspective_scale = 1.0 + math.sin(t * roll_speed) * 0.08
+        # 주사위 서피스
+        surf_size = dice_size * 2 + 10
+        dice_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+        surf_cx, surf_cy = surf_size // 2, surf_size // 2
 
-        # 주사위 서피스 생성
-        dice_surface = pygame.Surface((dice_size * 2, dice_size * 2), pygame.SRCALPHA)
-
-        # 3D 주사위 면 색상
-        face_light = (252, 253, 255)  # 밝은 면
-        face_mid = (230, 235, 245)    # 중간 면
-        face_dark = (200, 210, 230)   # 어두운 면
-        edge_color = (100, 140, 200)  # 엣지 색상
-        pip_color = (50, 80, 180)     # 눈 색상
-        pip_glow = (150, 180, 255, 180)  # 눈 발광
-
-        # 3D 투영 계산
-        cx, cy = dice_size, dice_size
-        half = int(dice_size * 0.4 * perspective_scale)
-
-        # 3D 큐브 꼭짓점 계산 (간단한 등각 투영)
-        sin_x = math.sin(math.radians(rot_x))
-        cos_x = math.cos(math.radians(rot_x))
-        sin_y = math.sin(math.radians(rot_y))
-        cos_y = math.cos(math.radians(rot_y))
-
-        # 큐브 정점 (중심 기준)
+        # 3D 큐브 꼭짓점 계산
+        half = dice_size // 2
         vertices_3d = [
             (-half, -half, -half), (half, -half, -half),
             (half, half, -half), (-half, half, -half),
@@ -2877,8 +2857,12 @@ class AngelBlessing(LegendaryItem):
             (half, half, half), (-half, half, half),
         ]
 
-        # 3D 회전 및 2D 투영
+        # 회전 행렬 적용
+        sin_x, cos_x = math.sin(math.radians(rot_x)), math.cos(math.radians(rot_x))
+        sin_y, cos_y = math.sin(math.radians(rot_y)), math.cos(math.radians(rot_y))
+
         vertices_2d = []
+        vertices_depth = []
         for vx, vy, vz in vertices_3d:
             # Y축 회전
             x1 = vx * cos_y - vz * sin_y
@@ -2886,184 +2870,104 @@ class AngelBlessing(LegendaryItem):
             # X축 회전
             y1 = vy * cos_x - z1 * sin_x
             z2 = vy * sin_x + z1 * cos_x
-            # 2D 투영 (원근감 적용)
-            scale_factor = 1.0 + z2 * 0.003
-            vertices_2d.append((cx + int(x1 * scale_factor), cy + int(y1 * scale_factor)))
 
-        # 면 정의 (정점 인덱스)
+            vertices_2d.append((surf_cx + int(x1), surf_cy + int(y1)))
+            vertices_depth.append(z2)
+
+        # 면 정의: (정점 인덱스, 면 번호)
         faces = [
-            ([0, 1, 2, 3], face_light, 1),   # 전면
-            ([4, 5, 6, 7], face_dark, 6),    # 후면
-            ([0, 1, 5, 4], face_mid, 2),     # 상단
-            ([2, 3, 7, 6], face_mid, 5),     # 하단
-            ([0, 3, 7, 4], face_dark, 3),    # 왼쪽
-            ([1, 2, 6, 5], face_light, 4),   # 오른쪽
+            ([0, 1, 2, 3], 1),  # 전면
+            ([4, 5, 6, 7], 6),  # 후면
+            ([0, 1, 5, 4], 2),  # 상단
+            ([2, 3, 7, 6], 5),  # 하단
+            ([0, 3, 7, 4], 3),  # 왼쪽
+            ([1, 2, 6, 5], 4),  # 오른쪽
         ]
 
         # 면 깊이 정렬 (페인터 알고리즘)
-        def face_depth(face_data):
-            indices, _, _ = face_data
-            return sum(vertices_3d[i][2] for i in indices) / 4
+        def get_face_depth(face_data):
+            indices, _ = face_data
+            return sum(vertices_depth[i] for i in indices) / 4
 
-        faces_sorted = sorted(faces, key=face_depth, reverse=True)
+        faces_sorted = sorted(faces, key=get_face_depth, reverse=True)
 
-        # 애니메이션 중이면 면이 빠르게 바뀌는 효과
-        anim_face = self.roll_face
-        display_face = int(t * 8 % 6) + 1  # 빠르게 변하는 면 번호
+        # 하얀색 주사위 색상 (신성한 느낌)
+        white_light = (255, 255, 255)
+        white_mid = (240, 245, 255)
+        white_dark = (220, 230, 245)
+        edge_color = (200, 210, 230)
+        pip_color = (100, 130, 200)  # 눈 색상 (파란빛)
 
-        # 면 그리기
-        for indices, color, face_num in faces_sorted[:3]:  # 보이는 면만 (최대 3개)
+        # 보이는 면만 그리기
+        for indices, face_num in faces_sorted[:3]:
             points = [vertices_2d[i] for i in indices]
 
-            # 면 색상 (회전에 따른 밝기 변화)
-            brightness = 0.8 + 0.2 * math.sin(t * 2 + face_num)
-            adj_color = tuple(int(c * brightness) for c in color)
+            # 면 밝기 계산
+            avg_depth = sum(vertices_depth[i] for i in indices) / 4
+            brightness = 0.7 + 0.3 * (avg_depth / half + 1) / 2
+            brightness = min(1.0, max(0.6, brightness))
 
-            pygame.draw.polygon(dice_surface, adj_color, points)
-            pygame.draw.polygon(dice_surface, edge_color, points, 2)
+            # 시간에 따른 미세한 반짝임
+            shimmer = 1.0 + math.sin(t * 3 + face_num) * 0.03
+            brightness *= shimmer
+
+            # 면 색상 결정
+            if brightness > 0.85:
+                base_color = white_light
+            elif brightness > 0.75:
+                base_color = white_mid
+            else:
+                base_color = white_dark
+
+            adj_color = tuple(min(255, int(c * brightness)) for c in base_color)
+
+            # 면 그리기
+            pygame.draw.polygon(dice_surf, adj_color, points)
+            pygame.draw.polygon(dice_surf, edge_color, points, 1)
 
             # 면 중심 계산
             fcx = sum(p[0] for p in points) // 4
             fcy = sum(p[1] for p in points) // 4
 
-            # 주사위 눈 그리기 (보이는 면에만)
-            pip_offset = int(half * 0.35)
-            pip_size = max(2, int(half * 0.15))
+            # 주사위 눈 그리기
+            pip_offset = int(half * 0.38)
+            pip_size = max(2, int(half * 0.16))
 
-            # 현재 애니메이션 면에 해당하는 눈 표시
-            if face_num == display_face or (not self.roll_anim_active and face_num == anim_face):
-                pip_positions = {
-                    1: [(0, 0)],
-                    2: [(-pip_offset, -pip_offset), (pip_offset, pip_offset)],
-                    3: [(-pip_offset, -pip_offset), (0, 0), (pip_offset, pip_offset)],
-                    4: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset),
-                        (-pip_offset, pip_offset), (pip_offset, pip_offset)],
-                    5: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset), (0, 0),
-                        (-pip_offset, pip_offset), (pip_offset, pip_offset)],
-                    6: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset),
-                        (-pip_offset, 0), (pip_offset, 0),
-                        (-pip_offset, pip_offset), (pip_offset, pip_offset)],
-                }
+            pip_positions = {
+                1: [(0, 0)],
+                2: [(-pip_offset, -pip_offset), (pip_offset, pip_offset)],
+                3: [(-pip_offset, -pip_offset), (0, 0), (pip_offset, pip_offset)],
+                4: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset),
+                    (-pip_offset, pip_offset), (pip_offset, pip_offset)],
+                5: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset), (0, 0),
+                    (-pip_offset, pip_offset), (pip_offset, pip_offset)],
+                6: [(-pip_offset, -pip_offset), (pip_offset, -pip_offset),
+                    (-pip_offset, 0), (pip_offset, 0),
+                    (-pip_offset, pip_offset), (pip_offset, pip_offset)],
+            }
 
-                current_pips = pip_positions.get(display_face if self.roll_anim_active else anim_face, [(0, 0)])
-                for px, py in current_pips:
-                    pip_x = fcx + px
-                    pip_y = fcy + py
-                    # 발광 효과
-                    pygame.draw.circle(dice_surface, pip_glow, (pip_x, pip_y), pip_size + 2)
-                    pygame.draw.circle(dice_surface, pip_color, (pip_x, pip_y), pip_size)
-                    # 하이라이트
-                    pygame.draw.circle(dice_surface, (255, 255, 255, 100),
-                                      (pip_x - 1, pip_y - 1), max(1, pip_size // 2))
-
-        # Z축 회전 적용
-        rotated_dice = pygame.transform.rotozoom(dice_surface, rot_z, 1.0)
-
-        # 그림자 효과
-        shadow_surf = pygame.Surface((rotated_dice.get_width(), 10), pygame.SRCALPHA)
-        shadow_alpha = int(80 - bounce * 8)
-        if shadow_alpha > 0:
-            pygame.draw.ellipse(shadow_surf, (0, 0, 0, shadow_alpha), shadow_surf.get_rect())
-            shadow_x = x + (size - rotated_dice.get_width()) // 2
-            shadow_y = y + size - 8
-            screen.blit(shadow_surf, (shadow_x, shadow_y))
-
-        # ========== 천사 날개 그리기 (주사위 뒤에) ==========
-        wing_center_x = x + size // 2
-        wing_center_y = y + size // 2 + int(self.animation_offset) - int(bounce)
-
-        # 날개 펄럭임 애니메이션
-        wing_flap = math.sin(t * 4) * 0.15  # 날개 펄럭이는 각도
-        wing_scale = 1.0 + math.sin(t * 3) * 0.05  # 미세한 크기 변화
-
-        # 날개 색상 (신성한 흰색/금색 계열)
-        wing_color_base = (255, 255, 255, 200)
-        wing_color_inner = (255, 250, 230, 180)
-        wing_color_glow = (255, 255, 220, 100)
-        wing_feather_color = (240, 245, 255, 160)
-
-        # 날개 크기
-        wing_width = int(size * 0.45 * wing_scale)
-        wing_height = int(size * 0.35 * wing_scale)
-
-        # 왼쪽 날개
-        left_wing_surf = pygame.Surface((wing_width + 10, wing_height + 10), pygame.SRCALPHA)
-
-        # 날개 깃털 레이어 (뒤쪽부터)
-        for layer in range(3):
-            layer_offset = layer * 3
-            layer_alpha = 200 - layer * 40
-            feather_color = (*wing_color_base[:3], layer_alpha)
-
-            # 깃털 포인트 계산 (곡선형 날개)
-            feather_points = []
-            num_feathers = 5
-            for i in range(num_feathers):
-                angle = math.pi * 0.3 + (math.pi * 0.4 * i / (num_feathers - 1))
-                # 펄럭임 효과 적용
-                flap_offset = wing_flap * (1 - i / num_feathers)
-                r = wing_width - layer_offset - i * 2
-                fx = 5 + wing_width - int(math.cos(angle + flap_offset) * r)
-                fy = 5 + wing_height // 2 + int(math.sin(angle + flap_offset) * (wing_height // 2 - layer_offset))
-                feather_points.append((fx, fy))
-
-            # 날개 몸체
-            if len(feather_points) >= 3:
-                # 날개 베이스 (둥근 부분)
-                base_points = [(5 + wing_width, 5 + wing_height // 2 - 5),
-                              (5 + wing_width, 5 + wing_height // 2 + 5)]
-                full_points = base_points + feather_points
-                pygame.draw.polygon(left_wing_surf, feather_color, full_points)
-
-                # 깃털 선 (디테일)
-                for i, (fx, fy) in enumerate(feather_points):
-                    start_x = 5 + wing_width
-                    start_y = 5 + wing_height // 2
-                    line_alpha = 120 - layer * 30
-                    pygame.draw.line(left_wing_surf, (*wing_feather_color[:3], line_alpha),
-                                    (start_x, start_y), (fx, fy), 1)
-
-        # 날개 발광 효과
-        glow_surf = pygame.Surface((wing_width + 10, wing_height + 10), pygame.SRCALPHA)
-        pygame.draw.ellipse(glow_surf, wing_color_glow,
-                          (5, 5, wing_width // 2, wing_height))
-        left_wing_surf.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
-
-        # 오른쪽 날개 (왼쪽 날개 좌우 반전)
-        right_wing_surf = pygame.transform.flip(left_wing_surf, True, False)
-
-        # 날개 위치 계산
-        left_wing_x = wing_center_x - wing_width - size // 6
-        left_wing_y = wing_center_y - wing_height // 2
-        right_wing_x = wing_center_x + size // 6
-        right_wing_y = wing_center_y - wing_height // 2
-
-        # 날개 블릿 (주사위 뒤에)
-        screen.blit(left_wing_surf, (left_wing_x, left_wing_y))
-        screen.blit(right_wing_surf, (right_wing_x, right_wing_y))
-
-        # 날개 끝 반짝임 파티클
-        if random.random() < 0.2:
-            for wing_x in [left_wing_x, right_wing_x + wing_width]:
-                sparkle_x = wing_x + random.randint(-5, 5)
-                sparkle_y = wing_center_y + random.randint(-10, 10)
-                sparkle_color = (255, 255, 200, random.randint(100, 200))
-                sparkle_size = random.randint(1, 2)
-                pygame.draw.circle(screen, sparkle_color, (sparkle_x, sparkle_y), sparkle_size)
-
-        # ========== 천사 파티클 효과 ==========
-        if random.random() < 0.15:
-            for _ in range(2):
-                px = x + size // 2 + random.randint(-20, 20)
-                py = y + size // 2 + random.randint(-20, 20)
-                particle_color = (255, 255, 255, random.randint(80, 150))
-                particle_size = random.randint(1, 3)
-                pygame.draw.circle(screen, particle_color, (px, py), particle_size)
+            for px, py in pip_positions.get(face_num, []):
+                pip_x = fcx + px
+                pip_y = fcy + py
+                pygame.draw.circle(dice_surf, pip_color, (pip_x, pip_y), pip_size)
+                # 하이라이트
+                pygame.draw.circle(dice_surf, (255, 255, 255),
+                                  (pip_x - 1, pip_y - 1), max(1, pip_size // 3))
 
         # 주사위 블릿
-        dice_x = x + (size - rotated_dice.get_width()) // 2
-        dice_y = y + (size - rotated_dice.get_height()) // 2 - int(bounce)
-        screen.blit(rotated_dice, (dice_x, dice_y + int(self.animation_offset)))
+        dice_x = cx - surf_size // 2
+        dice_y = cy - surf_size // 2 + int(float_offset)
+        screen.blit(dice_surf, (dice_x, dice_y))
+
+        # 신성한 빛 파티클 효과
+        if random.random() < 0.2:
+            for _ in range(2):
+                angle = random.uniform(0, math.pi * 2)
+                dist = random.uniform(size * 0.2, size * 0.4)
+                px = cx + int(math.cos(angle) * dist)
+                py = cy + int(math.sin(angle) * dist) + int(float_offset)
+                p_size = random.randint(1, 2)
+                pygame.draw.circle(screen, (255, 255, 220, 180), (px, py), p_size)
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
 
