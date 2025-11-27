@@ -2603,17 +2603,24 @@ class EmptyLegendary(LegendaryItem):
         frame_offset = int(math.sin(self.animation_time * 2.5) * 2)
         frame_y = y + frame_offset
 
-        # 파란색 원형 글로우 - 정확히 중앙에 배치
+        # 파란색 원형 글로우 - 직접 스크린에 그리기 (대칭 보장)
         pulse = (math.sin(self.animation_time * 4.0) + 1) / 2
-        base_radius = int(size * 0.38)
-        glow_radius = int(base_radius + size * 0.04 * pulse)
+        base_radius = int(size * 0.36)
+        glow_radius = int(base_radius + size * 0.03 * pulse)
 
-        # 글로우 서피스 생성 (정확히 중앙 정렬)
+        # 정확한 중심점 계산
+        center_x = x + size // 2
+        center_y = frame_y + size // 2
+
+        # 글로우를 위한 임시 서피스 (전체 아이콘 크기로 생성하여 대칭 보장)
         glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-        center = (size // 2, size // 2)
-        pygame.draw.circle(glow_surface, (30, 90, 170, 80), center, glow_radius)
-        pygame.draw.circle(glow_surface, (70, 140, 200, 150), center, int(glow_radius * 0.85))
-        pygame.draw.circle(glow_surface, (140, 190, 220, 190), center, int(glow_radius * 0.6))
+        glow_cx = size // 2
+        glow_cy = size // 2
+        pygame.draw.circle(glow_surface, (30, 90, 170, 80), (glow_cx, glow_cy), glow_radius)
+        pygame.draw.circle(glow_surface, (70, 140, 200, 150), (glow_cx, glow_cy), int(glow_radius * 0.82))
+        pygame.draw.circle(glow_surface, (140, 190, 220, 190), (glow_cx, glow_cy), int(glow_radius * 0.58))
+
+        # 아이콘 위치에 정확히 배치
         screen.blit(glow_surface, (x, frame_y))
 
         # 외곽 테두리

@@ -1752,15 +1752,23 @@ class BuildingInterior:
 
     def _get_current_star_points(self):
         """현재 스타포인트 가져오기 (academy 우선)"""
-        if self.academy and hasattr(self.academy, 'skill_system'):
-            return self.academy.skill_system.skill_points
+        if self.academy:
+            if hasattr(self.academy, 'skill_system') and self.academy.skill_system:
+                return getattr(self.academy.skill_system, 'skill_points', 0)
+            if hasattr(self.academy, 'skill_points'):
+                return self.academy.skill_points
         return self.player_data.get('star_points', 0)
 
     def _set_star_points(self, value):
         """스타포인트 설정 (academy와 player_data 모두 동기화)"""
         self.player_data['star_points'] = value
-        if self.academy and hasattr(self.academy, 'skill_system'):
-            self.academy.skill_system.skill_points = value
+        # academy의 skill_system 동기화
+        if self.academy:
+            if hasattr(self.academy, 'skill_system') and self.academy.skill_system:
+                self.academy.skill_system.skill_points = value
+            # academy 자체에 skill_points 속성이 있는 경우도 처리
+            if hasattr(self.academy, 'skill_points'):
+                self.academy.skill_points = value
 
     def _try_interact_with_npc(self):
         """플레이어 근처 NPC와 상호작용 시도"""
@@ -3069,12 +3077,8 @@ class BuildingInterior:
 
     def _draw_star_points(self, screen):
         """스타 포인트 표시 - 광장과 동일 (우측 상단)"""
-        # Academy에서 실제 스킬 포인트 가져오기
-        star_points = 0
-        if self.academy and hasattr(self.academy, 'skill_system'):
-            star_points = self.academy.skill_system.skill_points
-        else:
-            star_points = self.player_data.get('star_points', 0)
+        # 스타포인트 가져오기 (통합 메서드 사용)
+        star_points = self._get_current_star_points()
 
         # 우측 상단 위치
         star_x = SCREEN_WIDTH - 100
