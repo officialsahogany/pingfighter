@@ -1117,7 +1117,8 @@ class BuildingInterior:
             elif "table" in deco_type or "counter" in deco_type or "desk" in deco_type:
                 # 테이블/카운터
                 pygame.draw.rect(screen, secondary, (x, y + h // 3, w, h * 2 // 3))
-                pygame.draw.rect(screen, tuple(c - 20 for c in secondary), (x, y + h // 3, w, h * 2 // 3), 2)
+                border_color = tuple(max(0, c - 20) for c in secondary)
+                pygame.draw.rect(screen, border_color, (x, y + h // 3, w, h * 2 // 3), 2)
             elif "torch" in deco_type or "lamp" in deco_type:
                 # 횃불/램프 (빛 효과)
                 glow_alpha = int(100 + 50 * math.sin(self.animation_timer * 3))
