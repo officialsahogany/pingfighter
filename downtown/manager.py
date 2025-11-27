@@ -263,8 +263,9 @@ class DowntownManager:
                 self._handle_interaction_or_talk()
 
             elif event.key == pygame.K_TAB:
-                # 인벤토리
-                self._show_inventory()
+                # 캐릭터 정보 (인게임과 동일)
+                show_character_info_fn, _ = _import_ingame_functions()
+                show_character_info_fn()
 
         elif event.type == pygame.KEYUP:
             if self.player:
