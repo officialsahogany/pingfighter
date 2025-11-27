@@ -1105,10 +1105,16 @@ class BuildingInterior:
 
     # 광장과 동일한 타일 크기 사용 (constants.py의 TILE_SIZE = 40)
 
-    def __init__(self, building_type, freetype_fonts, player_sprite=None):
+    def __init__(self, building_type, freetype_fonts, player_sprite=None,
+                 player_data=None, academy=None, ap_system=None):
         self.building_type = building_type
         self.fonts = freetype_fonts
         self.animation_timer = 0
+
+        # 광장 UI 표시용 데이터
+        self.player_data = player_data or {'gold': 0, 'star_points': 0}
+        self.academy = academy
+        self.ap_system = ap_system
 
         # 건물별 설정
         self.config = INTERIOR_CONFIGS.get(building_type, DEFAULT_INTERIOR_CONFIG)
@@ -1675,20 +1681,120 @@ class BuildingInterior:
                                    (bar_x, bar_y, int(bar_w * progress), bar_h), border_radius=4)
 
     def _draw_ui(self, screen):
-        """UI 그리기"""
+        """UI 그리기 - 광장과 동일한 상단 UI + 하단 조작 안내"""
         font_small = self.fonts.get('small')
-        if not font_small:
-            return
+        font_medium = self.fonts.get('medium')
 
-        # 조작 안내
-        hints = [
-            "WASD/방향키: 이동",
-            "마우스 클릭: NPC 대화",
-            "문으로 나가기"
-        ]
+        # === 좌측 상단: 열쇠 (AP) ===
+        if self.ap_system:
+            self.ap_system.draw(screen, 35, 30, font_medium)
 
-        hint_y = SCREEN_HEIGHT - 20 - len(hints) * 18
-        for hint in hints:
-            hint_surf, hint_rect = font_small.render(hint, (150, 150, 160))
-            screen.blit(hint_surf, (15, hint_y))
-            hint_y += 18
+        # === 좌측 상단: 금화 (열쇠 아래) ===
+        self._draw_gold(screen)
+
+        # === 우측 상단: 스타 포인트 ===
+        self._draw_star_points(screen)
+
+        # === 하단: 조작 안내 ===
+        if font_small:
+            hints = [
+                "WASD/방향키: 이동",
+                "마우스 클릭: NPC 대화",
+                "문으로 나가기"
+            ]
+
+            hint_y = SCREEN_HEIGHT - 20 - len(hints) * 18
+            for hint in hints:
+                hint_surf, hint_rect = font_small.render(hint, (150, 150, 160))
+                screen.blit(hint_surf, (15, hint_y))
+                hint_y += 18
+
+    def _draw_gold(self, screen):
+        """골드 표시 - 광장과 동일"""
+        gold = self.player_data.get('gold', 0)
+
+        # 금화 아이콘 그리기 (열쇠 아래 위치)
+        coin_x, coin_y = 35, 75
+        coin_size = 18
+        self._draw_gold_coin(screen, coin_x, coin_y, coin_size)
+
+        # 골드 숫자
+        font_medium = self.fonts.get('medium')
+        if font_medium:
+            gold_text = f"{gold:,}"
+            text_surface, _ = font_medium.render(gold_text, Colors.UI_ACCENT)
+            screen.blit(text_surface, (coin_x + coin_size + 8, coin_y - 4))
+
+    def _draw_gold_coin(self, screen, x, y, size):
+        """금화 아이콘 그리기 - 광장과 동일"""
+        # 외곽 (어두운 금색)
+        pygame.draw.circle(screen, (180, 140, 50), (x, y), size)
+        # 내부 (밝은 금색)
+        pygame.draw.circle(screen, (255, 215, 0), (x, y), size - 2)
+        # 하이라이트
+        pygame.draw.circle(screen, (255, 245, 150), (x - size//4, y - size//4), size//3)
+        # G 마크
+        font_small = self.fonts.get('small')
+        if font_small:
+            g_surf, g_rect = font_small.render("G", (180, 140, 50))
+            screen.blit(g_surf, (x - g_rect.width//2, y - g_rect.height//2))
+
+    def _draw_star_points(self, screen):
+        """스타 포인트 표시 - 광장과 동일 (우측 상단)"""
+        # Academy에서 실제 스킬 포인트 가져오기
+        star_points = 0
+        if self.academy and hasattr(self.academy, 'skill_system'):
+            star_points = self.academy.skill_system.skill_points
+        else:
+            star_points = self.player_data.get('star_points', 0)
+
+        # 우측 상단 위치
+        star_x = SCREEN_WIDTH - 100
+        star_y = 30
+
+        # 별 아이콘 그리기
+        star_size = 16
+        self._draw_star_icon(screen, star_x, star_y, star_size)
+
+        # 스타 포인트 숫자
+        font_medium = self.fonts.get('medium')
+        if font_medium:
+            star_text = f"{star_points}"
+            text_surface, _ = font_medium.render(star_text, (255, 220, 100))
+            screen.blit(text_surface, (star_x + star_size + 10, star_y - 6))
+
+    def _draw_star_icon(self, screen, cx, cy, size):
+        """5각 별 아이콘 그리기 - 광장과 동일"""
+        import math
+
+        # 메인 별 포인트 계산
+        star_points = []
+        for i in range(10):
+            angle = -math.pi / 2 + (i * math.pi / 5)  # 위쪽부터 시작
+            radius = size if i % 2 == 0 else size * 0.5
+            px = cx + radius * math.cos(angle)
+            py = cy + radius * math.sin(angle)
+            star_points.append((px, py))
+
+        # 메인 별 그리기 (노란색)
+        pygame.draw.polygon(screen, (255, 255, 100), star_points)
+
+        # 외곽선 그리기 (금색)
+        pygame.draw.polygon(screen, (255, 215, 0), star_points, 2)
+
+        # 광택 효과 (작은 별)
+        gloss_points = []
+        for i in range(10):
+            angle = -math.pi / 2 + (i * math.pi / 5)
+            radius = size * 0.3 if i % 2 == 0 else size * 0.15
+            px = cx + radius * math.cos(angle)
+            py = cy - 2 + radius * math.sin(angle)  # 약간 위로
+            gloss_points.append((px, py))
+
+        # 광택 별 그리기 (밝은 노란색, 반투명)
+        gloss_surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+        gloss_offset_x = size * 2 - cx
+        gloss_offset_y = size * 2 - cy
+        adjusted_gloss_points = [(px + gloss_offset_x, py + gloss_offset_y) for px, py in gloss_points]
+        pygame.draw.polygon(gloss_surf, (255, 255, 200, 180), adjusted_gloss_points)
+        screen.blit(gloss_surf, (cx - size * 2, cy - size * 2))

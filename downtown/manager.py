@@ -1280,7 +1280,12 @@ class DowntownManager:
         """건물 내부 표시 (광장 스타일 확장 - 플레이어 이동, 문 출입, 광장과 동일한 키 조작)"""
         # 플레이어 스프라이트 전달하여 건물 내부 인스턴스 생성
         player_sprite = getattr(self.player, 'sprite', None)
-        interior = BuildingInterior(building_type, self._freetype_fonts, player_sprite)
+        interior = BuildingInterior(
+            building_type, self._freetype_fonts, player_sprite,
+            player_data=self.player_data,
+            academy=self.academy,
+            ap_system=self.ap_system
+        )
 
         clock = pygame.time.Clock()
         running = True

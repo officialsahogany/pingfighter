@@ -29,7 +29,7 @@ CHARACTER_LABELS = {
     "soldier": "코만도",
     "blacksmith": "발토르",
     "smasher": "스매셔",
-    "optimus": "안드로이드",
+    "optimus": "옵티머스",
     "normal": "일반 플레이어",
 }
 

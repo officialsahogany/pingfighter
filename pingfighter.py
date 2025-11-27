@@ -5017,15 +5017,18 @@ MARINE_COLORS = {
     "highlight": (110, 140, 210),
 }
 
-# 안드로이드(optimus ID) – 테슬라 사이버 로봇 스타일
+# 옵티머스(optimus ID) – 테슬라 사이버 로봇 스타일
 MECHA_SPRITE_SIZE = (250, 120)
 MECHA_CENTER_X = 125
 MECHA_CENTER_Y = 60
-# 안드로이드 기본 스펙
-OPTIMUS_PADDLE_BASE_WIDTH = MECHA_SPRITE_SIZE[0]  # 250px 기본 폭
-OPTIMUS_PADDLE_TARGET_WIDTH = 280                # 요구 패들 크기
+OPTIMUS_SCALE_MULT = 2.0                         # 시각·패들 크기 2배 확대
+# 옵티머스 기본 스펙
+OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_SCALE_MULT)  # 250px → 500px
+OPTIMUS_PADDLE_TARGET_WIDTH = int(280 * OPTIMUS_SCALE_MULT)                 # 280px → 560px
+OPTIMUS_PADDLE_BASE_HEIGHT = int(50 * OPTIMUS_SCALE_MULT)                   # 기본 높이도 2배
 OPTIMUS_BASE_MAX_SPEED = 2                       # 기본 이동 속도(캐릭터 능력치 기준)
 OPTIMUS_DECELERATION_MULT = 0.5                  # 감속을 절반으로(2배 느리게)
+OPTIMUS_FLOOR_ADJUST = 12                        # 렌더링 시 발 위치 하향 보정
 
 OPTIMUS_MECHA_PALETTE = {
     # 실버+네온 청록 기반 테슬라 사이버 로봇 컬러링
@@ -5843,7 +5846,12 @@ def create_smasher_paddle_walking() -> pygame.Surface:
 
 
 def create_optimus_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
-    return _create_mecha_paddle_surface(OPTIMUS_MECHA_PALETTE, step_phase)
+    base_surface = _create_mecha_paddle_surface(OPTIMUS_MECHA_PALETTE, step_phase)
+    if OPTIMUS_SCALE_MULT != 1.0:
+        w, h = base_surface.get_size()
+        target_size = (int(w * OPTIMUS_SCALE_MULT), int(h * OPTIMUS_SCALE_MULT))
+        base_surface = pygame.transform.smoothscale(base_surface, target_size)
+    return base_surface
 
 
 def create_optimus_paddle_walking() -> pygame.Surface:
@@ -17110,7 +17118,7 @@ BLACKSMITH_UMBRELLA_CRACK_SEGMENTS: list[list[tuple[tuple[float, float], tuple[f
     [((-0.22, 0.04), (-0.36, -0.20)), ((0.22, 0.04), (0.38, -0.22)), ((0.0, 0.26), (-0.12, 0.44)), ((0.0, 0.26), (0.14, 0.46))],
 ]
 
-# === 스매셔 / 안드로이드(optimus ID) 걷기 애니메이션 변수 ===
+# === 스매셔 / 옵티머스(optimus ID) 걷기 애니메이션 변수 ===
 smasher_walking_active = False
 smasher_walking_timer = 0
 SMASHER_WALKING_CYCLE = 30
@@ -28282,7 +28290,7 @@ def handle_player(keys):
     global soldier_walking_active, soldier_walking_timer  # 코만도 걷기 애니메이션 변수
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction  # 발토르 걷기 애니메이션 변수
     global smasher_walking_active, smasher_walking_timer  # 스매셔 걷기 애니메이션 변수
-    global optimus_walking_active, optimus_walking_timer  # 안드로이드(optimus) 걷기 애니메이션 변수
+    global optimus_walking_active, optimus_walking_timer  # 옵티머스(optimus) 걷기 애니메이션 변수
     global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge  # 챕터별 게이지 오버라이드
     global tutorial_drive_completion_dialogue_shown, tutorial_drive_count  # Chapter 3 완료 체크
@@ -44597,6 +44605,14 @@ def draw_objects():
     else:
         player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x,
                                                       PLAYER.centery + screen_shake_offset_y + player_knockback_y))
+        # 옵티머스는 다리 기준이 바닥에 닿도록 하단을 정렬해 잘림을 방지한다.
+        if selected_character_type == "optimus":
+            target_bottom = int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y + OPTIMUS_FLOOR_ADJUST))
+            rotated_bounds = rotated_player.get_bounding_rect(min_alpha=1)
+            content_bottom = player_rect.y + rotated_bounds.bottom
+            delta_y = target_bottom - content_bottom
+            if delta_y != 0:
+                player_rect.y += delta_y
 
     # 디버깅: rotated_player 확인 (frame_count가 정의되어 있을 때만)
     try:
@@ -45347,6 +45363,11 @@ def draw_objects():
             pass
         
         draw_with_shake(player_to_draw, player_rect.topleft)
+
+    # 옵티머스 패들 히트박스 시각화
+    if selected_character_type == "optimus":
+        hitbox_color = (80, 255, 180)  # 네온 그린
+        draw_rect_with_shake(hitbox_color, PLAYER, width=2)
 
     if (
         DEBUG_DRAW_UMBRELLA_HITBOX
@@ -55834,7 +55855,7 @@ def show_character_selection():
         },
         {
             "id": "optimus",
-            "name": "안드로이드",
+            "name": "옵티머스",
             "description": "테슬라 모듈이 전기 충격 부여.\n네온 드라이브로 궤적을 가속.",
             "image": "optimus.png",
             "stats": {"속도": 2, "파워": 7, "방어": 5},
@@ -57110,7 +57131,7 @@ def show_character_selection():
                     point_y = emblem_y + math.sin(point_angle) * point_radius
                     pygame.draw.circle(SCREEN, (100, 255, 100), (int(point_x), int(point_y)), 1)
 
-            # 안드로이드(optimus) 캐릭터 전용 엠블럼
+            # 옵티머스(optimus) 캐릭터 전용 엠블럼
             elif current_char["id"] == "optimus":
                 emblem_x = detail_x + detail_card_width//2 + name_rect.width//2 + 40
                 emblem_y = name_y
@@ -79328,7 +79349,7 @@ def show_character_info():
     def gather_stats():
         """현재 능력치 및 기준값을 수집."""
         char_type = globals().get("selected_character_type", "normal")
-        # 캐릭터별 기본 이동속도: 안드로이드는 자체 상수(OPTIMUS_BASE_MAX_SPEED) 사용
+        # 캐릭터별 기본 이동속도: 옵티머스는 자체 상수(OPTIMUS_BASE_MAX_SPEED) 사용
         if char_type == "blacksmith":
             base_max_speed = 3.0
         elif char_type == "optimus":
@@ -82371,12 +82392,13 @@ def apply_character_selection(character_id):
     if selected_character_type == "optimus":
         PADDLE_BASE_WIDTH = OPTIMUS_PADDLE_BASE_WIDTH
         PADDLE_WIDTH = OPTIMUS_PADDLE_TARGET_WIDTH
+        PADDLE_BASE_HEIGHT = OPTIMUS_PADDLE_BASE_HEIGHT
+        PADDLE_HEIGHT = OPTIMUS_PADDLE_BASE_HEIGHT
     else:
         PADDLE_BASE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
         PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
-    # 높이는 공통 유지
-    PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
-    PADDLE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
+        PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
+        PADDLE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
     return selected_character_type
 
 
@@ -82388,7 +82410,7 @@ def get_character_name(character_id):
         "smasher": "스매셔",
         "soldier": "코만도",
         "blacksmith": "발토르",
-        "optimus": "안드로이드"
+        "optimus": "옵티머스"
     }
     return char_names.get(character_id, "알 수 없음")
 
