@@ -2579,16 +2579,24 @@ class EmptyLegendary(LegendaryItem):
         print(f"빈전설 프레임 {frames_loaded}/8개 로드")
 
     def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
-        """프레임에서 중앙 콘텐츠 모두 제거하고 테두리만 유지 - 천사의 가호와 동일"""
+        """프레임에서 중앙 콘텐츠 + 파란색 글로우 모두 제거하고 빨간 테두리만 유지"""
         result = frame.copy()
         width, height = frame.get_size()
         cx, cy = width // 2, height // 2
-        inner_radius = min(width, height) * 0.45
 
         for py in range(height):
             for px in range(width):
-                dist = math.sqrt((px - cx) ** 2 + (py - cy) ** 2)
-                if dist < inner_radius:
+                color = frame.get_at((px, py))
+                r, g, b, a = color.r, color.g, color.b, color.a
+
+                if a == 0:
+                    continue
+
+                # 빨간색 테두리만 유지 (R이 높고 G, B가 낮은 색상)
+                is_red_border = r > 100 and r > g + 30 and r > b + 30
+
+                # 빨간색이 아니면 제거
+                if not is_red_border:
                     result.set_at((px, py), (0, 0, 0, 0))
 
         return result

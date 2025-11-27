@@ -2555,7 +2555,7 @@ class BuildingInterior:
             self._draw_deposit_menu(screen)
 
     def _draw_bank_menu(self, screen):
-        """은행 메뉴창 그리기 - SF 스타일"""
+        """은행 메뉴창 그리기 - SF 스타일 (마우스 호버 효과 포함)"""
         import math
 
         # 메뉴 크기 및 위치 (화면 중앙)
@@ -2568,9 +2568,14 @@ class BuildingInterior:
         BORDER_CYAN = (70, 180, 255)
         BORDER_GLOW = (50, 120, 180)
         HIGHLIGHT = (40, 60, 90)
+        HOVER_BG = (35, 50, 70)  # 호버 배경색
         TEXT_WHITE = (240, 245, 255)
         TEXT_CYAN = (100, 200, 255)
         TEXT_GOLD = (255, 210, 100)
+        TEXT_HOVER = (180, 220, 255)  # 호버 시 텍스트 색상
+
+        # 마우스 위치 가져오기
+        mouse_pos = pygame.mouse.get_pos()
 
         # 배경 어둡게 (반투명 오버레이)
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
@@ -2607,8 +2612,16 @@ class BuildingInterior:
             item_y = item_start_y + i * item_h
             item_rect = pygame.Rect(menu_x + 15, item_y, menu_w - 30, item_h - 4)
 
-            # 선택된 아이템 하이라이트
-            if i == self.bank_menu_selection:
+            # 마우스 호버 체크
+            is_hovered = item_rect.collidepoint(mouse_pos)
+            is_selected = (i == self.bank_menu_selection)
+
+            # 호버 시 선택 상태 업데이트
+            if is_hovered:
+                self.bank_menu_selection = i
+
+            # 선택/호버 아이템 하이라이트
+            if is_selected:
                 # 선택 배경
                 pygame.draw.rect(screen, HIGHLIGHT, item_rect, border_radius=4)
                 pygame.draw.rect(screen, BORDER_CYAN, item_rect, 2, border_radius=4)
@@ -2619,6 +2632,11 @@ class BuildingInterior:
                     screen.blit(arrow_surf, (item_rect.x + 8, item_rect.y + 8))
 
                 text_color = TEXT_CYAN
+            elif is_hovered:
+                # 호버 배경 (선택은 아니지만 마우스가 위에 있음)
+                pygame.draw.rect(screen, HOVER_BG, item_rect, border_radius=4)
+                pygame.draw.rect(screen, BORDER_GLOW, item_rect, 1, border_radius=4)
+                text_color = TEXT_HOVER
             else:
                 # 비선택 배경
                 pygame.draw.rect(screen, (25, 35, 50), item_rect, border_radius=4)
@@ -2630,18 +2648,21 @@ class BuildingInterior:
                 icon_x = item_rect.x + 15
                 icon_y = item_rect.y + item_h // 2 - 2
 
+                # 호버/선택 시 아이콘 색상 변경
+                icon_color = TEXT_GOLD if (is_selected or is_hovered) else (200, 170, 80)
+
                 if item == "환전":
                     # 환전 아이콘: 양방향 화살표 (↔)
-                    pygame.draw.polygon(screen, TEXT_GOLD, [
+                    pygame.draw.polygon(screen, icon_color, [
                         (icon_x, icon_y), (icon_x + 6, icon_y - 4), (icon_x + 6, icon_y + 4)
                     ])
-                    pygame.draw.polygon(screen, TEXT_GOLD, [
+                    pygame.draw.polygon(screen, icon_color, [
                         (icon_x + 16, icon_y), (icon_x + 10, icon_y - 4), (icon_x + 10, icon_y + 4)
                     ])
-                    pygame.draw.rect(screen, TEXT_GOLD, (icon_x + 4, icon_y - 1, 8, 2))
+                    pygame.draw.rect(screen, icon_color, (icon_x + 4, icon_y - 1, 8, 2))
                 elif item == "예금/출금":
                     # 예금/출금 아이콘: 동전 (●)
-                    pygame.draw.circle(screen, TEXT_GOLD, (icon_x + 8, icon_y), 7)
+                    pygame.draw.circle(screen, icon_color, (icon_x + 8, icon_y), 7)
                     pygame.draw.circle(screen, (180, 140, 50), (icon_x + 8, icon_y), 7, 1)
                     pygame.draw.line(screen, (180, 140, 50), (icon_x + 8, icon_y - 4), (icon_x + 8, icon_y + 4), 1)
                 else:
