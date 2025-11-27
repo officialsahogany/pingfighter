@@ -79647,10 +79647,11 @@ def show_character_info():
                 wrap_width = 200
                 name_for_compare = hover_info.get("name", "")
                 raw_name = hover_info.get("raw_name", "")
-                desc_text = clean_description(hover_info.get("desc", ""), name_for_compare, raw_name)
+                base_name = get_item_name_korean(raw_name) if raw_name else ""
+                desc_text = clean_description(hover_info.get("desc", ""), name_for_compare, base_name, raw_name)
                 desc_lines = desc_lines_cached or wrap_text(desc_text, local_font_tiny, wrap_width)
-                desc_lines = [strip_name_prefix(ln, name_for_compare, raw_name) for ln in desc_lines]
-                desc_lines = [ln for ln in desc_lines if ln and not is_name_line(ln, name_for_compare, raw_name)]
+                desc_lines = [strip_name_prefix(ln, name_for_compare, base_name, raw_name) for ln in desc_lines]
+                desc_lines = [ln for ln in desc_lines if ln and not is_name_line(ln, name_for_compare, base_name, raw_name)]
                 desc_entries = [{"text": t, "color": (200, 210, 230)} for t in desc_lines]
                 option_entries = []
                 for opt in options_entries:
@@ -79765,15 +79766,17 @@ def show_character_info():
                 if not desc_entries:
                     name_for_compare = hover_info.get("name", "")
                     raw_name = hover_info.get("raw_name", "")
-                    desc_text = clean_description(hover_info["desc"], name_for_compare, raw_name)
+                    base_name = get_item_name_korean(raw_name) if raw_name else ""
+                    desc_text = clean_description(hover_info["desc"], name_for_compare, base_name, raw_name)
                     desc_entries = [{"text": t, "color": (200, 210, 230)} for t in wrap_text(desc_text, local_font_tiny, tooltip_width - 20)]
                 # 이름이 이미 상단에 그려지므로 본문 라인에서는 제거 및 접두사 정리
                 cleaned_entries = []
                 name_for_compare = hover_info.get("name", "")
                 raw_name = hover_info.get("raw_name", "")
+                base_name = get_item_name_korean(raw_name) if raw_name else ""
                 for entry in desc_entries:
-                    txt = strip_name_prefix(entry.get("text", ""), name_for_compare, raw_name)
-                    if not txt or is_name_line(txt, name_for_compare, raw_name):
+                    txt = strip_name_prefix(entry.get("text", ""), name_for_compare, base_name, raw_name)
+                    if not txt or is_name_line(txt, name_for_compare, base_name, raw_name):
                         continue
                     new_entry = dict(entry)
                     new_entry["text"] = txt

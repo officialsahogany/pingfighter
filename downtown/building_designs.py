@@ -3617,122 +3617,482 @@ class BuildingDesigner:
             self._draw_luxury_shop(screen, x, y, w, h, selected_design, pulse, glow)
 
     def _draw_cyberpunk_shop(self, screen, x, y, w, h, design, pulse, glow):
-        """사이버펑크 스타일 상점"""
+        """사이버펑크 스타일 상점 - UHD 초고퀄리티"""
         color = design["color"]
         secondary = design["secondary_color"]
 
-        # 네온 글로우
-        glow_alpha = int(100 * glow)
-        for i in range(4):
-            glow_size = 15 - i * 3
+        # 다층 네온 글로우 (8레이어)
+        for i in range(8):
+            glow_size = 30 - i * 3
+            glow_alpha = int(150 * glow / (i + 1))
             glow_surf = pygame.Surface((w + glow_size * 2, h + glow_size * 2), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surf, (*color, glow_alpha // (i + 1)),
-                           (0, 0, w + glow_size * 2, h + glow_size * 2), border_radius=10)
+            pygame.draw.rect(glow_surf, (*color, glow_alpha),
+                           (0, 0, w + glow_size * 2, h + glow_size * 2), border_radius=15)
             screen.blit(glow_surf, (x - glow_size, y - glow_size))
 
-        # 메인 박스
-        pygame.draw.rect(screen, (40, 40, 60), (x, y, w, h), border_radius=8)
-        pygame.draw.rect(screen, color, (x, y, w, h), 3, border_radius=8)
+        # 외곽 네온 프레임 (3중)
+        for offset in range(3):
+            frame_alpha = int(220 - offset * 60)
+            pygame.draw.rect(screen, (*secondary, frame_alpha),
+                           (x - offset * 2, y - offset * 2, w + offset * 4, h + offset * 4),
+                           3, border_radius=12 + offset * 2)
 
-        # 네온 라인
-        for i in range(3):
-            line_y = y + 20 + i * 15
-            alpha = int(200 * pulse)
-            pygame.draw.line(screen, (*secondary, alpha), (x + 10, line_y), (x + w - 10, line_y), 2)
+        # 그라데이션 배경
+        for i in range(h):
+            gradient_alpha = int(80 + 40 * (i / h) * pulse)
+            gradient_color = (
+                int(40 + 20 * math.sin(self.animation_timer + i * 0.05)),
+                int(40 + 20 * math.cos(self.animation_timer + i * 0.05)),
+                int(60 + 30 * math.sin(self.animation_timer * 1.5 + i * 0.05))
+            )
+            pygame.draw.line(screen, gradient_color, (x, y + i), (x + w, y + i))
+
+        # 메인 박스 테두리
+        pygame.draw.rect(screen, color, (x, y, w, h), 4, border_radius=12)
+
+        # 홀로그램 네온 라인 (애니메이션)
+        for i in range(6):
+            line_y = y + 15 + i * 12
+            line_offset = int(10 * math.sin(self.animation_timer * 2 + i * 0.5))
+            alpha = int(255 * pulse * abs(math.sin(self.animation_timer * 1.5 + i * 0.3)))
+
+            # 글로우 효과
+            for j in range(3):
+                glow_width = 6 - j * 2
+                glow_alpha = alpha // (j + 1)
+                pygame.draw.line(screen, (*secondary, glow_alpha),
+                               (x + 15 + line_offset, line_y),
+                               (x + w - 15 + line_offset, line_y), glow_width)
+
+            # 메인 라인
+            pygame.draw.line(screen, secondary,
+                           (x + 15 + line_offset, line_y),
+                           (x + w - 15 + line_offset, line_y), 2)
+
+        # 회로 패턴
+        circuit_color = (*color, int(180 * glow))
+        for i in range(4):
+            for j in range(3):
+                cx = x + 10 + i * 18
+                cy = y + 10 + j * 20
+                pygame.draw.circle(screen, circuit_color, (cx, cy), 2)
+                if i < 3:
+                    pygame.draw.line(screen, circuit_color, (cx, cy), (cx + 18, cy), 1)
+
+        # 디지털 입자 효과
+        for i in range(15):
+            particle_x = x + (i * 7 + int(self.animation_timer * 50)) % w
+            particle_y = y + h // 2 + int(10 * math.sin(self.animation_timer * 3 + i))
+            particle_alpha = int(200 * abs(math.sin(self.animation_timer * 2 + i * 0.5)))
+            pygame.draw.circle(screen, (*secondary, particle_alpha), (particle_x, particle_y), 2)
 
     def _draw_fantasy_shop(self, screen, x, y, w, h, design, pulse, glow):
-        """판타지 스타일 상점"""
+        """판타지 스타일 상점 - UHD 초고퀄리티"""
         color = design["color"]
         secondary = design["secondary_color"]
 
-        # 마법 오라
-        aura_alpha = int(80 * pulse)
-        aura_surf = pygame.Surface((w + 20, h + 20), pygame.SRCALPHA)
-        pygame.draw.ellipse(aura_surf, (*color, aura_alpha), (0, 0, w + 20, h + 20))
-        screen.blit(aura_surf, (x - 10, y - 10))
+        # 다층 마법 오라 (6레이어)
+        for i in range(6):
+            aura_size = 40 - i * 5
+            aura_alpha = int(120 * pulse / (i + 1))
+            aura_surf = pygame.Surface((w + aura_size * 2, h + aura_size * 2), pygame.SRCALPHA)
+            pygame.draw.ellipse(aura_surf, (*color, aura_alpha), (0, 0, w + aura_size * 2, h + aura_size * 2))
+            screen.blit(aura_surf, (x - aura_size, y - aura_size))
 
-        # 건물 본체
-        pygame.draw.rect(screen, (60, 40, 100), (x, y + 10, w, h - 15), border_radius=5)
-        pygame.draw.rect(screen, color, (x, y + 10, w, h - 15), 2, border_radius=5)
+        # 마법 파티클 효과 (회전)
+        for i in range(20):
+            angle = (self.animation_timer * 2 + i * 18) * math.pi / 180
+            radius = 40 + 10 * math.sin(self.animation_timer * 3 + i * 0.3)
+            px = x + w // 2 + int(radius * math.cos(angle))
+            py = y + h // 2 + int(radius * math.sin(angle))
+            particle_alpha = int(200 * abs(math.sin(self.animation_timer * 2 + i * 0.2)))
+            pygame.draw.circle(screen, (*secondary, particle_alpha), (px, py), 3)
+            # 파티클 글로우
+            pygame.draw.circle(screen, (*secondary, particle_alpha // 2), (px, py), 5)
 
-        # 지붕
-        roof_points = [(x, y + 10), (x + w // 2, y - 5), (x + w, y + 10)]
-        pygame.draw.polygon(screen, secondary, roof_points)
+        # 그라데이션 건물 본체
+        for i in range(h - 15):
+            gradient_ratio = i / (h - 15)
+            base_color = (
+                int(60 + 40 * gradient_ratio * pulse),
+                int(40 + 60 * gradient_ratio * pulse),
+                int(100 + 55 * gradient_ratio * pulse)
+            )
+            pygame.draw.line(screen, base_color, (x, y + 10 + i), (x + w, y + 10 + i))
 
-        # 마법진
+        pygame.draw.rect(screen, color, (x, y + 10, w, h - 15), 3, border_radius=8)
+
+        # 화려한 지붕 (다층 그라데이션)
+        roof_layers = 5
+        for layer in range(roof_layers):
+            layer_offset = layer * 2
+            layer_alpha = int(255 - layer * 40)
+            roof_color = (
+                int(secondary[0] * (1 - layer * 0.1)),
+                int(secondary[1] * (1 - layer * 0.1)),
+                int(secondary[2] * (1 - layer * 0.1))
+            )
+            roof_points = [
+                (x + layer_offset, y + 10 - layer_offset),
+                (x + w // 2, y - 5 - layer * 3),
+                (x + w - layer_offset, y + 10 - layer_offset)
+            ]
+            pygame.draw.polygon(screen, roof_color, roof_points)
+
+        # 복잡한 마법진 (3중 회전)
         cx = x + w // 2
         cy = y + h // 2
-        pygame.draw.circle(screen, (*secondary, int(150 * glow)), (cx, cy), 12, 2)
+
+        # 외곽 마법진
+        for ring in range(3):
+            ring_radius = 20 + ring * 8
+            ring_alpha = int(200 * glow / (ring + 1))
+
+            # 회전하는 룬 문자
+            for i in range(8):
+                angle = (self.animation_timer * (1 + ring * 0.5) + i * 45) * math.pi / 180
+                rx = cx + int(ring_radius * math.cos(angle))
+                ry = cy + int(ring_radius * math.sin(angle))
+                pygame.draw.circle(screen, (*secondary, ring_alpha), (rx, ry), 2)
+
+            pygame.draw.circle(screen, (*secondary, ring_alpha), (cx, cy), ring_radius, 2)
+
+        # 중앙 코어
+        core_alpha = int(255 * pulse)
+        for i in range(4):
+            core_size = 8 - i * 2
+            pygame.draw.circle(screen, (*color, core_alpha // (i + 1)), (cx, cy), core_size)
+
+        # 마법 광선 (8방향)
+        for i in range(8):
+            angle = (self.animation_timer * 1.5 + i * 45) * math.pi / 180
+            beam_length = 15 + 5 * abs(math.sin(self.animation_timer * 2 + i * 0.5))
+            ex = cx + int(beam_length * math.cos(angle))
+            ey = cy + int(beam_length * math.sin(angle))
+            beam_alpha = int(180 * pulse)
+            pygame.draw.line(screen, (*secondary, beam_alpha), (cx, cy), (ex, ey), 2)
 
     def _draw_steampunk_shop(self, screen, x, y, w, h, design, pulse, glow):
-        """스팀펑크 스타일 상점"""
+        """스팀펑크 스타일 상점 - UHD 초고퀄리티"""
         color = design["color"]
         secondary = design["secondary_color"]
 
-        # 기계식 박스
-        pygame.draw.rect(screen, (80, 60, 40), (x, y, w, h), border_radius=5)
-        pygame.draw.rect(screen, color, (x, y, w, h), 2, border_radius=5)
+        # 증기 효과 (아래에서 위로)
+        for i in range(10):
+            steam_y = y + h - int((self.animation_timer * 30 + i * 15) % (h + 20))
+            steam_x = x + w // 2 + int(10 * math.sin(self.animation_timer * 2 + i))
+            steam_alpha = int(100 * (1 - (h - steam_y) / h) * glow)
+            steam_size = int(5 + 3 * ((h - steam_y) / h))
+            pygame.draw.circle(screen, (200, 200, 200, steam_alpha), (steam_x, steam_y), steam_size)
 
-        # 리벳
-        for row in range(3):
-            for col in range(4):
-                rivet_x = x + 10 + col * 15
-                rivet_y = y + 15 + row * 20
+        # 금속 질감 그라데이션
+        for i in range(h):
+            gradient_ratio = i / h
+            metallic_shine = abs(math.sin((gradient_ratio * 4 + self.animation_timer) * math.pi))
+            base_color = (
+                int(80 + 40 * metallic_shine * pulse),
+                int(60 + 30 * metallic_shine * pulse),
+                int(40 + 20 * metallic_shine * pulse)
+            )
+            pygame.draw.line(screen, base_color, (x, y + i), (x + w, y + i))
+
+        # 3중 테두리
+        pygame.draw.rect(screen, color, (x, y, w, h), 4, border_radius=8)
+        pygame.draw.rect(screen, secondary, (x + 3, y + 3, w - 6, h - 6), 2, border_radius=6)
+        pygame.draw.rect(screen, color, (x + 6, y + 6, w - 12, h - 12), 1, border_radius=4)
+
+        # 리벳 패턴 (대폭 증가)
+        for row in range(8):
+            for col in range(10):
+                rivet_x = x + 8 + col * 8
+                rivet_y = y + 8 + row * 9
+                # 리벳 헤드
                 pygame.draw.circle(screen, secondary, (rivet_x, rivet_y), 2)
+                # 하이라이트
+                pygame.draw.circle(screen, (200, 180, 150), (rivet_x - 1, rivet_y - 1), 1)
 
-        # 기어
+        # 복잡한 기어 시스템 (3개 연결)
         cx = x + w // 2
         cy = y + h // 2
-        pygame.draw.circle(screen, secondary, (cx, cy), 15, 3)
-        pygame.draw.circle(screen, color, (cx, cy), 8, 2)
+
+        # 메인 기어 (중앙)
+        gear_angle = self.animation_timer * 50
+        for gear_idx, (gx_offset, gy_offset, radius, teeth) in enumerate([
+            (0, 0, 18, 12),      # 중앙 대형
+            (-20, -15, 12, 8),   # 좌상 중형
+            (20, 15, 10, 6)      # 우하 소형
+        ]):
+            gx = cx + gx_offset
+            gy = cy + gy_offset
+            angle_mult = 1 if gear_idx % 2 == 0 else -1
+
+            # 기어 본체
+            pygame.draw.circle(screen, secondary, (gx, gy), radius, 3)
+            pygame.draw.circle(screen, (60, 50, 30), (gx, gy), radius - 4)
+
+            # 기어 톱니
+            for i in range(teeth):
+                angle = (gear_angle * angle_mult + i * (360 / teeth)) * math.pi / 180
+                tooth_x1 = gx + int((radius - 2) * math.cos(angle))
+                tooth_y1 = gy + int((radius - 2) * math.sin(angle))
+                tooth_x2 = gx + int((radius + 4) * math.cos(angle))
+                tooth_y2 = gy + int((radius + 4) * math.sin(angle))
+                pygame.draw.line(screen, color, (tooth_x1, tooth_y1), (tooth_x2, tooth_y2), 3)
+
+            # 중앙 축
+            pygame.draw.circle(screen, color, (gx, gy), radius // 3)
+            pygame.draw.circle(screen, (100, 90, 70), (gx, gy), radius // 4)
+
+        # 연결 체인/벨트
+        for i in range(3):
+            chain_y = y + 15 + i * 20
+            for j in range(8):
+                chain_x = x + 10 + j * 10
+                link_offset = int(3 * math.sin(self.animation_timer * 3 + j * 0.5))
+                pygame.draw.circle(screen, secondary, (chain_x, chain_y + link_offset), 2)
+                if j < 7:
+                    pygame.draw.line(screen, secondary,
+                                   (chain_x, chain_y + link_offset),
+                                   (chain_x + 10, chain_y + link_offset), 1)
+
+        # 압력 게이지 (애니메이션)
+        gauge_x = x + 10
+        gauge_y = y + 10
+        gauge_w = 20
+        gauge_h = 8
+        pygame.draw.rect(screen, (40, 40, 40), (gauge_x, gauge_y, gauge_w, gauge_h), border_radius=2)
+        pressure = abs(math.sin(self.animation_timer * 2)) * gauge_w
+        pressure_color = (int(255 * pressure / gauge_w), int(255 * (1 - pressure / gauge_w)), 0)
+        pygame.draw.rect(screen, pressure_color, (gauge_x, gauge_y, int(pressure), gauge_h), border_radius=2)
 
     def _draw_nature_shop(self, screen, x, y, w, h, design, pulse, glow):
-        """자연 스타일 상점"""
+        """자연 스타일 상점 - UHD 초고퀄리티"""
         color = design["color"]
         secondary = design["secondary_color"]
 
-        # 목조 건물
-        pygame.draw.rect(screen, (139, 90, 43), (x, y + 15, w, h - 20), border_radius=8)
-        pygame.draw.rect(screen, color, (x, y + 15, w, h - 20), 2, border_radius=8)
+        # 나뭇잎 파티클 효과 (떨어지는 잎)
+        for i in range(12):
+            leaf_x = x + (i * 7 + int(self.animation_timer * 20)) % w
+            leaf_y = y + int((self.animation_timer * 25 + i * 10) % (h + 30)) - 30
+            leaf_rotation = (self.animation_timer * 100 + i * 30) % 360
+            leaf_alpha = int(180 * abs(math.sin(self.animation_timer + i * 0.3)))
 
-        # 지붕
-        roof_points = [(x, y + 15), (x + w // 2, y), (x + w, y + 15)]
-        pygame.draw.polygon(screen, secondary, roof_points)
+            # 나뭇잎 모양
+            leaf_size = 4
+            leaf_points = [
+                (leaf_x + int(leaf_size * math.cos(math.radians(leaf_rotation))),
+                 leaf_y + int(leaf_size * math.sin(math.radians(leaf_rotation)))),
+                (leaf_x + int(leaf_size * math.cos(math.radians(leaf_rotation + 120))),
+                 leaf_y + int(leaf_size * math.sin(math.radians(leaf_rotation + 120)))),
+                (leaf_x + int(leaf_size * math.cos(math.radians(leaf_rotation + 240))),
+                 leaf_y + int(leaf_size * math.sin(math.radians(leaf_rotation + 240))))
+            ]
+            pygame.draw.polygon(screen, (*color, leaf_alpha), leaf_points)
 
-        # 나뭇잎
-        leaf_x = x + 10
-        leaf_y = y + 10
-        pygame.draw.circle(screen, color, (leaf_x, leaf_y), 5)
-        pygame.draw.circle(screen, color, (leaf_x + 10, leaf_y - 3), 4)
+        # 나무 질감 그라데이션
+        for i in range(h - 20):
+            wood_pattern = abs(math.sin((i + self.animation_timer * 10) * 0.3)) * 30
+            wood_color = (
+                int(139 + wood_pattern * pulse),
+                int(90 + wood_pattern * 0.5 * pulse),
+                int(43 + wood_pattern * 0.3 * pulse)
+            )
+            pygame.draw.line(screen, wood_color, (x, y + 15 + i), (x + w, y + 15 + i))
+
+        # 나무 테두리
+        pygame.draw.rect(screen, color, (x, y + 15, w, h - 20), 3, border_radius=10)
+        pygame.draw.rect(screen, (100, 70, 30), (x + 2, y + 17, w - 4, h - 24), 1, border_radius=8)
+
+        # 화려한 지붕 (여러 레이어)
+        for layer in range(4):
+            layer_offset = layer * 3
+            roof_color = (
+                int(secondary[0] * (1 - layer * 0.15)),
+                int(secondary[1] * (1 - layer * 0.15)),
+                int(secondary[2] * (1 - layer * 0.15))
+            )
+            roof_points = [
+                (x + layer_offset, y + 15 - layer_offset),
+                (x + w // 2, y - layer * 2),
+                (x + w - layer_offset, y + 15 - layer_offset)
+            ]
+            pygame.draw.polygon(screen, roof_color, roof_points)
+            if layer > 0:
+                pygame.draw.lines(screen, color, False, roof_points, 1)
+
+        # 창문 (빛 효과)
+        for i in range(2):
+            window_x = x + 15 + i * 35
+            window_y = y + 30
+            window_w = 20
+            window_h = 15
+
+            # 창문 글로우
+            window_alpha = int(150 * pulse)
+            pygame.draw.rect(screen, (*color, window_alpha // 2),
+                           (window_x - 2, window_y - 2, window_w + 4, window_h + 4), border_radius=3)
+            pygame.draw.rect(screen, (255, 255, 200), (window_x, window_y, window_w, window_h), border_radius=2)
+            pygame.draw.rect(screen, (100, 70, 30), (window_x, window_y, window_w, window_h), 2, border_radius=2)
+
+            # 십자 창틀
+            pygame.draw.line(screen, (100, 70, 30),
+                           (window_x + window_w // 2, window_y),
+                           (window_x + window_w // 2, window_y + window_h), 2)
+            pygame.draw.line(screen, (100, 70, 30),
+                           (window_x, window_y + window_h // 2),
+                           (window_x + window_w, window_y + window_h // 2), 2)
+
+        # 덩굴 식물 (양옆)
+        for side in [-1, 1]:
+            vine_x = x + w // 2 + side * (w // 2 - 5)
+            for i in range(10):
+                vine_y = y + 20 + i * 6
+                vine_offset = int(3 * math.sin(self.animation_timer * 2 + i * 0.5))
+                leaf_alpha = int(200 * abs(math.cos(self.animation_timer + i * 0.3)))
+
+                # 줄기
+                pygame.draw.circle(screen, (50, 100, 50),
+                                 (vine_x + vine_offset * side, vine_y), 1)
+
+                # 잎
+                if i % 2 == 0:
+                    pygame.draw.circle(screen, (*color, leaf_alpha),
+                                     (vine_x + vine_offset * side + side * 5, vine_y), 3)
+
+        # 꽃 장식
+        for i in range(5):
+            flower_x = x + 15 + i * 15
+            flower_y = y + h - 10
+            petal_alpha = int(220 * pulse * abs(math.sin(self.animation_timer * 2 + i * 0.5)))
+
+            # 꽃잎 (5개)
+            for petal in range(5):
+                petal_angle = (petal * 72 + self.animation_timer * 30) * math.pi / 180
+                petal_x = flower_x + int(4 * math.cos(petal_angle))
+                petal_y = flower_y + int(4 * math.sin(petal_angle))
+                pygame.draw.circle(screen, (255, 100, 150, petal_alpha), (petal_x, petal_y), 3)
+
+            # 꽃 중심
+            pygame.draw.circle(screen, (255, 200, 50), (flower_x, flower_y), 2)
 
     def _draw_luxury_shop(self, screen, x, y, w, h, design, pulse, glow):
-        """고급 스타일 상점"""
+        """고급 스타일 상점 - UHD 초고퀄리티"""
         color = design["color"]
         secondary = design["secondary_color"]
 
-        # 황금 글로우
-        glow_alpha = int(120 * pulse)
-        glow_surf = pygame.Surface((w + 20, h + 20), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (*color, glow_alpha), (0, 0, w + 20, h + 20), border_radius=12)
-        screen.blit(glow_surf, (x - 10, y - 10))
+        # 다층 황금 광채 (10레이어)
+        for i in range(10):
+            glow_size = 50 - i * 4
+            glow_alpha = int(150 * pulse / (i + 1))
+            glow_surf = pygame.Surface((w + glow_size * 2, h + glow_size * 2), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*color, glow_alpha), (0, 0, w + glow_size * 2, h + glow_size * 2),
+                           border_radius=15 + i)
+            screen.blit(glow_surf, (x - glow_size, y - glow_size))
 
-        # 고급 박스
-        pygame.draw.rect(screen, (50, 45, 40), (x, y, w, h), border_radius=10)
-        pygame.draw.rect(screen, color, (x, y, w, h), 3, border_radius=10)
+        # 반짝이는 입자 효과
+        for i in range(25):
+            sparkle_angle = (self.animation_timer * 80 + i * 14.4) * math.pi / 180
+            sparkle_radius = 35 + 10 * abs(math.sin(self.animation_timer * 2 + i * 0.2))
+            sparkle_x = x + w // 2 + int(sparkle_radius * math.cos(sparkle_angle))
+            sparkle_y = y + h // 2 + int(sparkle_radius * math.sin(sparkle_angle))
+            sparkle_alpha = int(255 * abs(math.sin(self.animation_timer * 3 + i * 0.4)))
 
-        # 은색 테두리
-        pygame.draw.rect(screen, secondary, (x + 5, y + 5, w - 10, h - 10), 2, border_radius=8)
+            # 십자 반짝임
+            sparkle_size = 3 + int(2 * abs(math.sin(self.animation_timer * 4 + i)))
+            pygame.draw.line(screen, (*color, sparkle_alpha),
+                           (sparkle_x - sparkle_size, sparkle_y),
+                           (sparkle_x + sparkle_size, sparkle_y), 2)
+            pygame.draw.line(screen, (*color, sparkle_alpha),
+                           (sparkle_x, sparkle_y - sparkle_size),
+                           (sparkle_x, sparkle_y + sparkle_size), 2)
 
-        # 다이아몬드
+        # 프리미엄 그라데이션 배경
+        for i in range(h):
+            gradient_ratio = i / h
+            shimmer = abs(math.sin((gradient_ratio * 5 + self.animation_timer * 2) * math.pi)) * 30
+            base_color = (
+                int(50 + shimmer * pulse),
+                int(45 + shimmer * 0.9 * pulse),
+                int(40 + shimmer * 0.8 * pulse)
+            )
+            pygame.draw.line(screen, base_color, (x, y + i), (x + w, y + i))
+
+        # 다중 황금 테두리 (5중)
+        for i in range(5):
+            offset = i * 2
+            border_alpha = int(255 - i * 40)
+            border_color = (
+                int(color[0] * (1 - i * 0.1)),
+                int(color[1] * (1 - i * 0.1)),
+                int(color[2] * (1 - i * 0.1))
+            )
+            pygame.draw.rect(screen, border_color,
+                           (x + offset, y + offset, w - offset * 2, h - offset * 2),
+                           2, border_radius=12 - i)
+
+        # 은색 장식 테두리 (애니메이션)
+        for i in range(3):
+            silver_offset = 8 + i * 4
+            silver_alpha = int(200 * abs(math.cos(self.animation_timer * 1.5 + i)))
+            pygame.draw.rect(screen, (*secondary, silver_alpha),
+                           (x + silver_offset, y + silver_offset,
+                            w - silver_offset * 2, h - silver_offset * 2),
+                           1, border_radius=10 - i)
+
+        # 회전하는 다이아몬드 (중앙)
         cx = x + w // 2
         cy = y + h // 2
-        diamond_points = [
-            (cx, cy - 10),
-            (cx - 8, cy),
-            (cx, cy + 10),
-            (cx + 8, cy)
+        diamond_rotation = self.animation_timer * 50
+
+        # 다이아몬드 글로우 효과
+        for glow_layer in range(5):
+            glow_scale = 1.4 - glow_layer * 0.1
+            glow_alpha = int(150 * pulse / (glow_layer + 1))
+            diamond_points = [
+                (cx + int(15 * glow_scale * math.cos(math.radians(diamond_rotation + 90))),
+                 cy + int(15 * glow_scale * math.sin(math.radians(diamond_rotation + 90)))),
+                (cx + int(12 * glow_scale * math.cos(math.radians(diamond_rotation))),
+                 cy + int(12 * glow_scale * math.sin(math.radians(diamond_rotation)))),
+                (cx + int(15 * glow_scale * math.cos(math.radians(diamond_rotation + 270))),
+                 cy + int(15 * glow_scale * math.sin(math.radians(diamond_rotation + 270)))),
+                (cx + int(12 * glow_scale * math.cos(math.radians(diamond_rotation + 180))),
+                 cy + int(12 * glow_scale * math.sin(math.radians(diamond_rotation + 180))))
+            ]
+            pygame.draw.polygon(screen, (*secondary, glow_alpha), diamond_points)
+
+        # 메인 다이아몬드
+        main_diamond_points = [
+            (cx + int(12 * math.cos(math.radians(diamond_rotation + 90))),
+             cy + int(12 * math.sin(math.radians(diamond_rotation + 90)))),
+            (cx + int(10 * math.cos(math.radians(diamond_rotation))),
+             cy + int(10 * math.sin(math.radians(diamond_rotation)))),
+            (cx + int(12 * math.cos(math.radians(diamond_rotation + 270))),
+             cy + int(12 * math.sin(math.radians(diamond_rotation + 270)))),
+            (cx + int(10 * math.cos(math.radians(diamond_rotation + 180))),
+             cy + int(10 * math.sin(math.radians(diamond_rotation + 180))))
         ]
-        pygame.draw.polygon(screen, secondary, diamond_points, 2)
+        pygame.draw.polygon(screen, secondary, main_diamond_points)
+        pygame.draw.polygon(screen, color, main_diamond_points, 2)
+
+        # 내부 광선
+        for i in range(4):
+            beam_angle = (diamond_rotation + i * 90) * math.pi / 180
+            beam_length = 8
+            beam_x = cx + int(beam_length * math.cos(beam_angle))
+            beam_y = cy + int(beam_length * math.sin(beam_angle))
+            pygame.draw.line(screen, color, (cx, cy), (beam_x, beam_y), 1)
+
+        # 코너 장식 (4개)
+        for corner_idx, (corner_x, corner_y) in enumerate([
+            (x + 10, y + 10), (x + w - 10, y + 10),
+            (x + 10, y + h - 10), (x + w - 10, y + h - 10)
+        ]):
+            corner_alpha = int(200 * abs(math.sin(self.animation_timer * 2 + corner_idx * 0.5)))
+            # L자 장식
+            pygame.draw.line(screen, (*color, corner_alpha),
+                           (corner_x - 5, corner_y), (corner_x + 5, corner_y), 2)
+            pygame.draw.line(screen, (*color, corner_alpha),
+                           (corner_x, corner_y - 5), (corner_x, corner_y + 5), 2)
 
 
 # 싱글톤 인스턴스
