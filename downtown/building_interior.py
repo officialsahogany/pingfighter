@@ -105,6 +105,23 @@ class InteriorNPC:
         self.original_y = y
         self.walk_range = 60  # 원래 위치에서 최대 60픽셀 범위
 
+        # === 마법 학원 활동 시스템 ===
+        self.academy_activity = None  # "magic_practice", "dash_practice", "pair_practice", "standing", "walking"
+        self.pair_partner = None  # 짝꿍 NPC (pair_practice용)
+        self.practice_timer = 0  # 연습 애니메이션 타이머
+        self.magic_charge = 0  # 마법 차징 (0~1)
+        self.dash_state = "idle"  # "idle", "charging", "dashing", "recovering"
+        self.dash_timer = 0
+        self.dash_start_x = x
+        self.dash_target_x = x
+        self.magic_color = random.choice([
+            (100, 200, 255),  # 파란 마법
+            (255, 150, 100),  # 주황 마법
+            (150, 255, 150),  # 초록 마법
+            (255, 200, 100),  # 노란 마법
+            (200, 150, 255),  # 보라 마법
+        ])
+
     def update(self, dt, walkable_rect=None, obstacle_rects=None):
         """NPC 업데이트"""
         # 말풍선 타이머
@@ -124,9 +141,83 @@ class InteriorNPC:
             self.idle_timer = random.uniform(2, 5)
             self.idle_action = random.choice([None, None, "look_around", "think"])
 
-        # 고객 NPC만 걸어다니기 (메인, 스태프 제외)
-        if self.role == "customer" and walkable_rect:
+        # 마법 학원 활동 업데이트
+        if self.academy_activity:
+            # walking 활동은 기존 걷기 로직 사용
+            if self.academy_activity == "walking" and walkable_rect:
+                self._update_walking(dt, walkable_rect, obstacle_rects)
+            elif self.academy_activity not in ("standing", "walking"):
+                self._update_academy_activity(dt)
+        # 고객 NPC만 걸어다니기 (메인, 스태프 제외, 마법 학원 활동 중이 아닐 때)
+        elif self.role == "customer" and walkable_rect:
             self._update_walking(dt, walkable_rect, obstacle_rects)
+
+    def _update_academy_activity(self, dt):
+        """마법 학원 활동 업데이트"""
+        self.practice_timer += dt
+
+        if self.academy_activity == "magic_practice":
+            # 마법 차징 → 발사 → 쿨다운 사이클
+            cycle_time = 3.0  # 3초 사이클
+            phase = (self.practice_timer % cycle_time) / cycle_time
+            if phase < 0.6:  # 차징 (60%)
+                self.magic_charge = phase / 0.6
+            elif phase < 0.7:  # 발사 (10%)
+                self.magic_charge = 1.0
+            else:  # 쿨다운 (30%)
+                self.magic_charge = 0
+
+        elif self.academy_activity == "pair_practice":
+            # 짝꿍과 마법 주고받기
+            cycle_time = 4.0  # 4초 사이클
+            phase = (self.practice_timer % cycle_time) / cycle_time
+            if phase < 0.4:  # 차징
+                self.magic_charge = phase / 0.4
+            elif phase < 0.5:  # 발사
+                self.magic_charge = 1.0
+            elif phase < 0.9:  # 대기 (상대방 턴)
+                self.magic_charge = 0
+            else:  # 받기 준비
+                self.magic_charge = 0.3
+
+        elif self.academy_activity == "dash_practice":
+            # 대쉬 연습: 충전 → 대쉬 → 회복
+            if self.dash_state == "idle":
+                self.dash_timer += dt
+                if self.dash_timer >= 2.0:  # 2초 대기 후 충전 시작
+                    self.dash_state = "charging"
+                    self.dash_timer = 0
+                    self.dash_start_x = self.x
+                    # 대쉬 방향 결정 (왼쪽/오른쪽)
+                    dash_dir = 1 if self.direction == 2 else -1
+                    self.dash_target_x = self.x + dash_dir * 80
+
+            elif self.dash_state == "charging":
+                self.dash_timer += dt
+                self.magic_charge = min(1.0, self.dash_timer / 0.8)  # 0.8초 충전
+                if self.dash_timer >= 0.8:
+                    self.dash_state = "dashing"
+                    self.dash_timer = 0
+
+            elif self.dash_state == "dashing":
+                self.dash_timer += dt
+                # 빠른 이동 (0.2초)
+                progress = min(1.0, self.dash_timer / 0.2)
+                self.x = self.dash_start_x + (self.dash_target_x - self.dash_start_x) * progress
+                if progress >= 1.0:
+                    self.dash_state = "recovering"
+                    self.dash_timer = 0
+                    self.magic_charge = 0
+
+            elif self.dash_state == "recovering":
+                self.dash_timer += dt
+                if self.dash_timer >= 1.5:  # 1.5초 회복
+                    self.dash_state = "idle"
+                    self.dash_timer = 0
+                    # 방향 전환
+                    self.direction = 1 if self.direction == 2 else 2
+                    # 원래 위치로 돌아갈 준비
+                    self.dash_target_x = self.original_x
 
     def _update_walking(self, dt, walkable_rect, obstacle_rects=None):
         """걸어다니기 업데이트 (드물게, 몇 걸음씩)"""
@@ -969,6 +1060,144 @@ class InteriorNPC:
             ])
             screen.blit(marker_surf, (center_x - 10, marker_y))
 
+        # === 마법 학원 활동 이펙트 ===
+        if not is_main and self.academy_activity:
+            self._draw_academy_activity_effects(screen, center_x, feet_y, robe_y, animation_timer)
+
+    def _draw_academy_activity_effects(self, screen, center_x, feet_y, robe_y, animation_timer):
+        """마법 학원 활동 이펙트 그리기"""
+        magic_color = getattr(self, 'magic_color', (100, 200, 255))
+        charge = getattr(self, 'magic_charge', 0)
+
+        if self.academy_activity == "magic_practice":
+            # 혼자 마법 연습: 손 앞에 마법구 차징
+            if charge > 0:
+                # 손 위치 (로브 앞쪽)
+                hand_x = center_x + (15 if self.direction == 2 else -15 if self.direction == 1 else 0)
+                hand_y = robe_y + 15
+
+                # 차징 크기
+                orb_size = int(5 + charge * 12)
+                glow_size = int(orb_size * 1.8)
+
+                # 마법구 글로우
+                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                glow_alpha = int(80 + charge * 100)
+                pygame.draw.circle(glow_surf, (*magic_color, glow_alpha), (glow_size, glow_size), glow_size)
+                screen.blit(glow_surf, (hand_x - glow_size, hand_y - glow_size))
+
+                # 마법구 코어
+                pygame.draw.circle(screen, magic_color, (hand_x, hand_y), orb_size)
+                pygame.draw.circle(screen, (255, 255, 255), (hand_x - 2, hand_y - 2), max(1, orb_size // 3))
+
+                # 파티클 이펙트 (차징 중)
+                if charge > 0.3:
+                    for i in range(3):
+                        angle = animation_timer * 3 + i * 2.1
+                        particle_dist = orb_size + 5 + int(5 * math.sin(animation_timer * 5 + i))
+                        px = hand_x + int(particle_dist * math.cos(angle))
+                        py = hand_y + int(particle_dist * math.sin(angle))
+                        particle_alpha = int(100 + 50 * math.sin(animation_timer * 7 + i))
+                        p_surf = pygame.Surface((6, 6), pygame.SRCALPHA)
+                        pygame.draw.circle(p_surf, (*magic_color, particle_alpha), (3, 3), 3)
+                        screen.blit(p_surf, (px - 3, py - 3))
+
+        elif self.academy_activity == "pair_practice":
+            # 짝꿍 마법 연습: 상대를 향해 마법 발사
+            if charge > 0:
+                # 방향에 따른 손 위치
+                dir_mult = 1 if self.direction == 2 else -1
+                hand_x = center_x + dir_mult * 18
+                hand_y = robe_y + 12
+
+                # 차징 이펙트
+                orb_size = int(4 + charge * 10)
+
+                # 마법구
+                glow_surf = pygame.Surface((orb_size * 3, orb_size * 3), pygame.SRCALPHA)
+                glow_alpha = int(60 + charge * 120)
+                pygame.draw.circle(glow_surf, (*magic_color, glow_alpha),
+                                  (orb_size * 3 // 2, orb_size * 3 // 2), orb_size * 3 // 2)
+                screen.blit(glow_surf, (hand_x - orb_size * 3 // 2, hand_y - orb_size * 3 // 2))
+
+                pygame.draw.circle(screen, magic_color, (hand_x, hand_y), orb_size)
+                pygame.draw.circle(screen, (255, 255, 255), (hand_x, hand_y), max(1, orb_size // 2))
+
+                # 발사 중일 때 (charge == 1) 마법 빔 효과
+                if charge >= 0.95:
+                    beam_length = 50
+                    end_x = hand_x + dir_mult * beam_length
+                    # 빔 본체
+                    beam_surf = pygame.Surface((abs(beam_length) + 10, 16), pygame.SRCALPHA)
+                    for i in range(8):
+                        beam_alpha = int(150 - i * 15)
+                        y_off = 8 + int(3 * math.sin(animation_timer * 10 + i * 0.5))
+                        pygame.draw.line(beam_surf, (*magic_color, beam_alpha),
+                                       (5 if dir_mult > 0 else abs(beam_length) + 5, y_off),
+                                       (abs(beam_length) + 5 if dir_mult > 0 else 5, y_off), 2)
+                    screen.blit(beam_surf, (min(hand_x, end_x) - 5, hand_y - 8))
+
+        elif self.academy_activity == "dash_practice":
+            # 대쉬 연습 이펙트
+            dash_state = getattr(self, 'dash_state', 'idle')
+
+            if dash_state == "charging":
+                # 충전 이펙트: 발 밑에 마법진
+                charge_progress = charge
+                circle_radius = int(15 + charge_progress * 10)
+                glow_alpha = int(50 + charge_progress * 150)
+
+                # 마법진 글로우
+                glow_surf = pygame.Surface((circle_radius * 2 + 20, circle_radius * 2 + 20), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (200, 150, 255, glow_alpha // 2),
+                                  (circle_radius + 10, circle_radius + 10), circle_radius + 10)
+                pygame.draw.circle(glow_surf, (200, 150, 255, glow_alpha),
+                                  (circle_radius + 10, circle_radius + 10), circle_radius)
+                screen.blit(glow_surf, (center_x - circle_radius - 10, feet_y - 10 - circle_radius - 10))
+
+                # 회전하는 룬 심볼
+                for i in range(4):
+                    angle = animation_timer * 2 + i * math.pi / 2
+                    rx = center_x + int((circle_radius - 5) * math.cos(angle))
+                    ry = feet_y - 10 + int((circle_radius - 5) * 0.4 * math.sin(angle))
+                    pygame.draw.circle(screen, (255, 200, 255), (rx, ry), 3)
+
+            elif dash_state == "dashing":
+                # 대쉬 중: 잔상 이펙트
+                dash_timer = getattr(self, 'dash_timer', 0)
+                trail_count = 4
+
+                for i in range(trail_count):
+                    trail_alpha = int(100 - i * 25)
+                    trail_offset = int(i * 15 * (1 if self.direction == 1 else -1))
+
+                    trail_surf = pygame.Surface((20, 40), pygame.SRCALPHA)
+                    pygame.draw.ellipse(trail_surf, (200, 150, 255, trail_alpha), (0, 0, 20, 40))
+                    screen.blit(trail_surf, (center_x - 10 + trail_offset, robe_y))
+
+                # 스피드 라인
+                for i in range(6):
+                    line_y = robe_y + 5 + i * 6
+                    line_x = center_x + (20 if self.direction == 1 else -20)
+                    line_len = 15 + random.randint(0, 10)
+                    line_alpha = random.randint(100, 200)
+                    line_surf = pygame.Surface((line_len, 2), pygame.SRCALPHA)
+                    pygame.draw.rect(line_surf, (255, 255, 255, line_alpha), (0, 0, line_len, 2))
+                    if self.direction == 1:
+                        screen.blit(line_surf, (line_x, line_y))
+                    else:
+                        screen.blit(line_surf, (line_x - line_len, line_y))
+
+            elif dash_state == "recovering":
+                # 회복 중: 약한 파티클
+                for i in range(3):
+                    px = center_x + random.randint(-15, 15)
+                    py = feet_y - random.randint(10, 30)
+                    particle_alpha = random.randint(50, 100)
+                    p_surf = pygame.Surface((4, 4), pygame.SRCALPHA)
+                    pygame.draw.circle(p_surf, (200, 150, 255, particle_alpha), (2, 2), 2)
+                    screen.blit(p_surf, (px - 2, py - 2))
+
     def draw_speech_bubble(self, screen, camera_offset, fonts):
         """말풍선 그리기"""
         if not self.is_talking or self.current_dialogue_idx >= len(self.dialogue):
@@ -1655,6 +1884,10 @@ class BuildingInterior:
 
     def _create_npcs(self):
         """NPC들 생성"""
+        # 마법 학원은 전용 NPC 생성 로직 사용
+        if self.building_type == BuildingType.ACADEMY:
+            return self._create_academy_npcs()
+
         npcs = []
 
         # 메인 NPC
@@ -1729,6 +1962,205 @@ class BuildingInterior:
                 staff_color, dialogue, self.building_type
             )
             npcs.append(staff)
+
+        return npcs
+
+    def _create_academy_npcs(self):
+        """마법 학원 전용 NPC 생성 (8~12명 학생, 다양한 활동)"""
+        npcs = []
+
+        # === 학장 아르카나 (메인 NPC) ===
+        main_cfg = self.config["main_npc"]
+        main_x = int(self.pixel_width * main_cfg["position"][0])
+        main_y = int(self.pixel_height * main_cfg["position"][1])
+
+        main_npc = InteriorNPC(
+            main_x, main_y,
+            main_cfg["name"],
+            "main",
+            main_cfg["color"],
+            main_cfg["dialogue"],
+            self.building_type
+        )
+        npcs.append(main_npc)
+
+        # === 학생 NPC 배치 (8~12명) ===
+        student_count = random.randint(8, 12)
+        student_names = [
+            "리나", "카이", "미라", "제이크", "소피아", "루크",
+            "에밀리", "노아", "클로이", "이선", "올리비아", "레오"
+        ]
+        random.shuffle(student_names)
+
+        student_dialogues = [
+            ["마법 연습 중이에요!", "집중해야 해요..."],
+            ["이 주문이 어려워요...", "선생님께 여쭤봐야겠어요."],
+            ["오늘 수업 재밌었어요!", "내일도 열심히 해야지."],
+            ["대쉬 연습이 힘들어요.", "하지만 재미있어요!"],
+            ["파트너랑 연습 중이에요.", "서로 도와가며 배워요."],
+            ["마법 학원 최고!", "실력이 늘고 있어요."],
+        ]
+
+        # 활동 배치 계획
+        # - 짝꿍 연습: 2쌍 (4명) - 서로 마주보고 마법 연습
+        # - 대쉬 연습: 1명
+        # - 혼자 마법 연습: 2~3명
+        # - 서있기: 1~2명
+        # - 걸어다니기: 나머지
+
+        wall_h = int(TILE_SIZE * 3.5)  # 상단 벽 높이
+        center_x = self.pixel_width // 2
+        center_y = (wall_h + self.pixel_height) // 2
+
+        student_idx = 0
+
+        # --- 짝꿍 연습 1조 (왼쪽 영역) ---
+        pair1_x = center_x - 120
+        pair1_y = center_y + 30
+        pair_distance = 70  # 짝꿍 간 거리
+
+        if student_idx < student_count:
+            # 왼쪽 학생 (오른쪽 바라봄)
+            s1 = InteriorNPC(
+                pair1_x - pair_distance // 2, pair1_y,
+                student_names[student_idx % len(student_names)], "customer",
+                (100, 150, 255), random.choice(student_dialogues), self.building_type
+            )
+            s1.academy_activity = "pair_practice"
+            s1.direction = 2  # 오른쪽 바라봄
+            s1.practice_timer = 0
+            npcs.append(s1)
+            student_idx += 1
+
+        if student_idx < student_count:
+            # 오른쪽 학생 (왼쪽 바라봄)
+            s2 = InteriorNPC(
+                pair1_x + pair_distance // 2, pair1_y,
+                student_names[student_idx % len(student_names)], "customer",
+                (255, 150, 100), random.choice(student_dialogues), self.building_type
+            )
+            s2.academy_activity = "pair_practice"
+            s2.direction = 1  # 왼쪽 바라봄
+            s2.practice_timer = 2.0  # 반 사이클 오프셋 (서로 번갈아 마법)
+            s2.pair_partner = s1
+            s1.pair_partner = s2
+            npcs.append(s2)
+            student_idx += 1
+
+        # --- 짝꿍 연습 2조 (오른쪽 영역) ---
+        pair2_x = center_x + 100
+        pair2_y = center_y - 20
+
+        if student_idx < student_count:
+            s3 = InteriorNPC(
+                pair2_x - pair_distance // 2, pair2_y,
+                student_names[student_idx % len(student_names)], "customer",
+                (150, 255, 150), random.choice(student_dialogues), self.building_type
+            )
+            s3.academy_activity = "pair_practice"
+            s3.direction = 2
+            s3.practice_timer = 1.0
+            npcs.append(s3)
+            student_idx += 1
+
+        if student_idx < student_count:
+            s4 = InteriorNPC(
+                pair2_x + pair_distance // 2, pair2_y,
+                student_names[student_idx % len(student_names)], "customer",
+                (255, 200, 100), random.choice(student_dialogues), self.building_type
+            )
+            s4.academy_activity = "pair_practice"
+            s4.direction = 1
+            s4.practice_timer = 3.0
+            s4.pair_partner = s3
+            s3.pair_partner = s4
+            npcs.append(s4)
+            student_idx += 1
+
+        # --- 대쉬 연습 (1명, 하단 중앙) ---
+        if student_idx < student_count:
+            dash_student = InteriorNPC(
+                center_x, center_y + 100,
+                student_names[student_idx % len(student_names)], "customer",
+                (200, 150, 255), ["대쉬 연습 중!", "으랏차!"], self.building_type
+            )
+            dash_student.academy_activity = "dash_practice"
+            dash_student.direction = 2  # 오른쪽부터 시작
+            dash_student.dash_state = "idle"
+            dash_student.dash_timer = random.uniform(0, 1.5)  # 랜덤 시작 시간
+            npcs.append(dash_student)
+            student_idx += 1
+
+        # --- 혼자 마법 연습 (2~3명) ---
+        solo_positions = [
+            (center_x - 180, center_y + 80),
+            (center_x + 180, center_y + 60),
+            (center_x - 50, center_y + 150),
+        ]
+        solo_count = min(3, student_count - student_idx)
+
+        for i in range(solo_count):
+            if student_idx >= student_count:
+                break
+            px, py = solo_positions[i]
+            solo_student = InteriorNPC(
+                px, py,
+                student_names[student_idx % len(student_names)], "customer",
+                (150, 200, 255), random.choice(student_dialogues), self.building_type
+            )
+            solo_student.academy_activity = "magic_practice"
+            solo_student.direction = random.choice([0, 1, 2, 3])  # 랜덤 방향
+            solo_student.practice_timer = random.uniform(0, 3)  # 랜덤 시작 위상
+            npcs.append(solo_student)
+            student_idx += 1
+
+        # --- 서있는 학생 (1~2명) ---
+        standing_positions = [
+            (center_x + 150, center_y + 130),
+            (center_x - 150, center_y + 150),
+        ]
+        standing_count = min(2, student_count - student_idx)
+
+        for i in range(standing_count):
+            if student_idx >= student_count:
+                break
+            px, py = standing_positions[i]
+            standing_student = InteriorNPC(
+                px, py,
+                student_names[student_idx % len(student_names)], "customer",
+                (180, 180, 200), random.choice(student_dialogues), self.building_type
+            )
+            standing_student.academy_activity = "standing"
+            standing_student.direction = random.choice([0, 1, 2, 3])
+            npcs.append(standing_student)
+            student_idx += 1
+
+        # --- 걸어다니는 학생 (나머지) ---
+        walking_positions = [
+            (center_x - 100, center_y + 180),
+            (center_x + 50, center_y + 200),
+            (center_x - 30, center_y + 50),
+        ]
+
+        walk_idx = 0
+        while student_idx < student_count:
+            px, py = walking_positions[walk_idx % len(walking_positions)]
+            # 약간의 랜덤 오프셋
+            px += random.randint(-30, 30)
+            py += random.randint(-20, 20)
+
+            walking_student = InteriorNPC(
+                px, py,
+                student_names[student_idx % len(student_names)], "customer",
+                (160, 180, 220), random.choice(student_dialogues), self.building_type
+            )
+            walking_student.academy_activity = "walking"
+            walking_student.is_walking = False
+            walking_student.walk_timer = random.uniform(1, 5)  # 곧 걷기 시작
+            walking_student.walk_range = 80
+            npcs.append(walking_student)
+            student_idx += 1
+            walk_idx += 1
 
         return npcs
 
