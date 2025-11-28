@@ -2551,26 +2551,38 @@ class BuildingInterior:
             item = player_items[idx]
             item_name = item.get("name", "")
 
-            # 판매가 계산 (원가의 30%)
+            # 판매가 계산 (원가의 30% + 품질 보너스)
             base_price = self._get_item_base_price(item_name)
-            sell_price = int(base_price * 0.3)
+            quality_tier = item.get("quality_tier", "low")
+            quality_bonus = 0
+            if quality_tier == "top":
+                quality_bonus = int(base_price * 0.5)
+            elif quality_tier == "high":
+                quality_bonus = int(base_price * 0.3)
+            elif quality_tier == "mid":
+                quality_bonus = int(base_price * 0.15)
+            sell_price = int((base_price + quality_bonus) * 0.3)
 
             # 플레이어 골드 증가
             current_gold = self.player_data.get('gold', 0)
             self.player_data['gold'] = current_gold + sell_price
 
             # 플레이어 인벤토리에서 제거
-            pingfighter.passive_item_list.pop(idx)
+            removed_item = pingfighter.passive_item_list.pop(idx)
 
-            # 상점 인벤토리에 추가
+            # 상점 인벤토리에 추가 (롤옵션, 품질 정보 유지)
             korean_name = self._get_item_korean_name(item_name)
             shop_item = {
                 "name": item_name,
                 "korean": korean_name,
-                "price": base_price,  # 상점은 원가로 판매
-                "options": item.get("options", []),
-                "type": item.get("type", "passive"),
-                "icon": None
+                "price": int((base_price + quality_bonus) * 1.0),  # 상점은 원가+품질보너스로 판매
+                "type": removed_item.get("type", "passive"),
+                "icon": None,
+                # 롤옵션 및 품질 정보 유지
+                "rolled_options": removed_item.get("rolled_options", []),
+                "quality_tier": removed_item.get("quality_tier"),
+                "name_prefix": removed_item.get("name_prefix"),
+                "quality_color": removed_item.get("quality_color"),
             }
             self.shop_inventory.append(shop_item)
 
@@ -2598,25 +2610,35 @@ class BuildingInterior:
         self.player_data['gold'] = current_gold - price
 
         # 상점 인벤토리에서 제거
-        self.shop_inventory.pop(idx)
+        removed_item = self.shop_inventory.pop(idx)
 
         # 플레이어 인벤토리에 추가
         try:
             import pingfighter
 
-            # 아이템 데이터 생성
+            # 아이템 데이터 생성 (롤옵션, 품질 정보 유지)
             item_data = {
                 "name": item_name,
-                "type": item.get("type", "passive"),
-                "options": item.get("options", []),
-                "icon": None
+                "type": removed_item.get("type", "passive"),
+                "icon": None,
+                # 롤옵션 및 품질 정보 유지
+                "rolled_options": removed_item.get("rolled_options", []),
+                "quality_tier": removed_item.get("quality_tier"),
+                "name_prefix": removed_item.get("name_prefix"),
+                "quality_color": removed_item.get("quality_color"),
             }
+
+            # 롤옵션이 없는 경우 새로 생성
+            if not item_data.get("rolled_options") and item_data.get("type") == "passive":
+                ensure_passive_rolls = getattr(pingfighter, 'ensure_passive_rolls', None)
+                if ensure_passive_rolls:
+                    ensure_passive_rolls(item_data)
 
             # passive_item_list에 추가
             pingfighter.passive_item_list.append(item_data)
 
             # 전설 아이템인 경우 획득 플래그 설정
-            if item.get("type") == "legendary":
+            if removed_item.get("type") == "legendary":
                 if item_name == "ragnarok_hammer":
                     import items
                     items.ragnarok_hammer_obtained = True
