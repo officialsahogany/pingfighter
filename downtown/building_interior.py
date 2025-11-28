@@ -3443,31 +3443,22 @@ class BuildingInterior:
         title2_text = "새로운 기술을 배우러 오셨습니까?"
         subtitle_text = "- 기술을 배우려면 스타포인트가 필요합니다 -"
 
-        # 한글 폰트 로드 (resource_path 사용)
-        try:
-            font_path = resource_path("fonts/NanumSquareB.ttf")
-            title_font = pygame.font.Font(font_path, 18)
-            subtitle_font = pygame.font.Font(font_path, 14)
-            button_font = pygame.font.Font(font_path, 16)
-        except:
-            # 폴백: 기본 폰트
-            title_font = pygame.font.Font(None, 22)
-            subtitle_font = pygame.font.Font(None, 18)
-            button_font = pygame.font.Font(None, 24)
+        # freetype 폰트 사용 (self.fonts - 클래스에서 초기화됨)
+        font_medium = self.fonts.get('medium')
+        font_small = self.fonts.get('small')
 
-        # 제목 렌더링
-        title_surf = title_font.render(title_text, True, TEXT_WHITE)
-        title_rect = title_surf.get_rect(centerx=dialog_x + dialog_w // 2, top=dialog_y + 25)
-        screen.blit(title_surf, title_rect)
+        # 제목 렌더링 (freetype)
+        if font_medium:
+            title_surf, title_rect = font_medium.render(title_text, TEXT_WHITE)
+            screen.blit(title_surf, (dialog_x + dialog_w // 2 - title_rect.width // 2, dialog_y + 25))
 
-        title2_surf = title_font.render(title2_text, True, TEXT_WHITE)
-        title2_rect = title2_surf.get_rect(centerx=dialog_x + dialog_w // 2, top=dialog_y + 50)
-        screen.blit(title2_surf, title2_rect)
+            title2_surf, title2_rect = font_medium.render(title2_text, TEXT_WHITE)
+            screen.blit(title2_surf, (dialog_x + dialog_w // 2 - title2_rect.width // 2, dialog_y + 50))
 
         # 부제목 렌더링
-        subtitle_surf = subtitle_font.render(subtitle_text, True, TEXT_GOLD)
-        subtitle_rect = subtitle_surf.get_rect(centerx=dialog_x + dialog_w // 2, top=dialog_y + 85)
-        screen.blit(subtitle_surf, subtitle_rect)
+        if font_small:
+            subtitle_surf, subtitle_rect = font_small.render(subtitle_text, TEXT_GOLD)
+            screen.blit(subtitle_surf, (dialog_x + dialog_w // 2 - subtitle_rect.width // 2, dialog_y + 85))
 
         # 버튼 영역
         btn_w, btn_h = 80, 32
@@ -3484,9 +3475,10 @@ class BuildingInterior:
         yes_bg = BUTTON_SELECTED if (yes_selected or yes_hover) else BUTTON_BG
         pygame.draw.rect(screen, yes_bg, yes_btn, border_radius=5)
         pygame.draw.rect(screen, BUTTON_BORDER if yes_selected else BORDER_GLOW, yes_btn, 2, border_radius=5)
-        yes_text = button_font.render("예", True, TEXT_WHITE if yes_selected else TEXT_PURPLE)
-        yes_text_rect = yes_text.get_rect(center=yes_btn.center)
-        screen.blit(yes_text, yes_text_rect)
+        if font_medium:
+            yes_color = TEXT_WHITE if yes_selected else TEXT_PURPLE
+            yes_surf, yes_rect = font_medium.render("예", yes_color)
+            screen.blit(yes_surf, (yes_btn.centerx - yes_rect.width // 2, yes_btn.centery - yes_rect.height // 2))
 
         # 아니오 버튼
         no_hover = no_btn.collidepoint(mouse_pos)
@@ -3494,15 +3486,16 @@ class BuildingInterior:
         no_bg = BUTTON_SELECTED if (no_selected or no_hover) else BUTTON_BG
         pygame.draw.rect(screen, no_bg, no_btn, border_radius=5)
         pygame.draw.rect(screen, BUTTON_BORDER if no_selected else BORDER_GLOW, no_btn, 2, border_radius=5)
-        no_text = button_font.render("아니오", True, TEXT_WHITE if no_selected else TEXT_PURPLE)
-        no_text_rect = no_text.get_rect(center=no_btn.center)
-        screen.blit(no_text, no_text_rect)
+        if font_medium:
+            no_color = TEXT_WHITE if no_selected else TEXT_PURPLE
+            no_surf, no_rect = font_medium.render("아니오", no_color)
+            screen.blit(no_surf, (no_btn.centerx - no_rect.width // 2, no_btn.centery - no_rect.height // 2))
 
         # 선택 힌트
-        hint_text = "← → 선택  |  Enter 확인  |  ESC 닫기"
-        hint_surf = subtitle_font.render(hint_text, True, (150, 150, 180))
-        hint_rect = hint_surf.get_rect(centerx=dialog_x + dialog_w // 2, bottom=dialog_y + dialog_h - 8)
-        screen.blit(hint_surf, hint_rect)
+        if font_small:
+            hint_text = "← → 선택  |  Enter 확인  |  ESC 닫기"
+            hint_surf, hint_rect = font_small.render(hint_text, (150, 150, 180))
+            screen.blit(hint_surf, (dialog_x + dialog_w // 2 - hint_rect.width // 2, dialog_y + dialog_h - 20))
 
     def _draw_bank_menu(self, screen):
         """은행 메뉴창 그리기 - SF 스타일 (마우스 호버 효과 포함)"""
