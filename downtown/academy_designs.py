@@ -10,10 +10,10 @@ import random
 from downtown.constants import *
 
 # =============================================================================
-# 디자인 1: 마법 학원 (해리포터 스타일)
+# 디자인 1: 아카데미 (해리포터 스타일)
 # =============================================================================
 def draw_academy_design1_magic_school(screen, building, x, y, building_id, animation_timer, particles):
-    """디자인 1: 마법 학원 - 중세 성 + 마법 효과"""
+    """디자인 1: 아카데미 - 중세 성 + 마법 효과"""
     w, h = building.width, building.height
 
     # 색상 팔레트
@@ -187,10 +187,10 @@ def draw_academy_design1_magic_school(screen, building, x, y, building_id, anima
 
 
 # =============================================================================
-# 디자인 2: 현대 대학교 (유리 건물)
+# 디자인 2: 아카데미 (유리 건물)
 # =============================================================================
 def draw_academy_design2_modern_university(screen, building, x, y, building_id, animation_timer, particles):
-    """디자인 2: 현대 대학교 - 유리 건물 + 책 모티브"""
+    """디자인 2: 아카데미 - 유리 건물 + 책 모티브"""
     w, h = building.width, building.height
 
     # 색상 팔레트

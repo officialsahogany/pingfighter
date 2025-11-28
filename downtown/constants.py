@@ -195,8 +195,8 @@ BUILDING_INFO = {
         "style": "gacha",
     },
     BuildingType.ACADEMY: {
-        "name": "대학교",
-        "name_en": "Magic Academy",
+        "name": "아카데미",
+        "name_en": "Academy",
         "icon": "📚",
         "color": (150, 100, 255),    # 마법의 보라색
         "ap_cost": 1,

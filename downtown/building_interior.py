@@ -105,7 +105,7 @@ class InteriorNPC:
         self.original_y = y
         self.walk_range = 60  # 원래 위치에서 최대 60픽셀 범위
 
-        # === 마법 학원 활동 시스템 ===
+        # === 아카데미 활동 시스템 ===
         self.academy_activity = None  # "magic_practice", "dash_practice", "pair_practice", "standing", "walking"
         self.pair_partner = None  # 짝꿍 NPC (pair_practice용)
         self.practice_timer = 0  # 연습 애니메이션 타이머
@@ -141,19 +141,19 @@ class InteriorNPC:
             self.idle_timer = random.uniform(2, 5)
             self.idle_action = random.choice([None, None, "look_around", "think"])
 
-        # 마법 학원 활동 업데이트
+        # 아카데미 활동 업데이트
         if self.academy_activity:
             # walking 활동은 기존 걷기 로직 사용
             if self.academy_activity == "walking" and walkable_rect:
                 self._update_walking(dt, walkable_rect, obstacle_rects)
             elif self.academy_activity not in ("standing", "walking"):
                 self._update_academy_activity(dt)
-        # 고객 NPC만 걸어다니기 (메인, 스태프 제외, 마법 학원 활동 중이 아닐 때)
+        # 고객 NPC만 걸어다니기 (메인, 스태프 제외, 아카데미 활동 중이 아닐 때)
         elif self.role == "customer" and walkable_rect:
             self._update_walking(dt, walkable_rect, obstacle_rects)
 
     def _update_academy_activity(self, dt):
-        """마법 학원 활동 업데이트"""
+        """아카데미 활동 업데이트"""
         self.practice_timer += dt
 
         if self.academy_activity == "magic_practice":
@@ -331,7 +331,7 @@ class InteriorNPC:
             self._draw_robot(screen, draw_x, draw_y, animation_timer)
             return
 
-        # 마법 학원 NPC인 경우 마법사/견습생 스타일로 그리기
+        # 아카데미 NPC인 경우 마법사/견습생 스타일로 그리기
         if self.building_type == BuildingType.ACADEMY:
             self._draw_wizard(screen, draw_x, draw_y, animation_timer)
             return
@@ -821,7 +821,7 @@ class InteriorNPC:
             screen.blit(marker_surf, (center_x - 10, marker_y))
 
     def _draw_wizard(self, screen, draw_x, draw_y, animation_timer):
-        """마법 학원 마법사/견습생 NPC 그리기"""
+        """아카데미 마법사/견습생 NPC 그리기"""
         npc_id = hash(self.name)
         is_main = self.role == "main"  # 학장 아르카나
 
@@ -1060,12 +1060,12 @@ class InteriorNPC:
             ])
             screen.blit(marker_surf, (center_x - 10, marker_y))
 
-        # === 마법 학원 활동 이펙트 ===
+        # === 아카데미 활동 이펙트 ===
         if not is_main and self.academy_activity:
             self._draw_academy_activity_effects(screen, center_x, feet_y, robe_y, animation_timer)
 
     def _draw_academy_activity_effects(self, screen, center_x, feet_y, robe_y, animation_timer):
-        """마법 학원 활동 이펙트 그리기"""
+        """아카데미 활동 이펙트 그리기"""
         magic_color = getattr(self, 'magic_color', (100, 200, 255))
         charge = getattr(self, 'magic_charge', 0)
 
@@ -1620,7 +1620,7 @@ INTERIOR_CONFIGS = {
         "staff_count": 1,
     },
     BuildingType.ACADEMY: {
-        "name": "마법 학원",
+        "name": "아카데미",
         "map_size": (32, 24),  # 2배 확대 (16x12 → 32x24)
         "bg_color": (25, 50, 50),  # 청록색 계열 (스크린샷 참조)
         "floor_color": (45, 80, 80),  # 청록색 바닥
@@ -1634,7 +1634,7 @@ INTERIOR_CONFIGS = {
             "color": (150, 100, 255),
             "position": (0.5, 0.18),  # 맵이 커졌으므로 위치 조정
             "dialogue": [
-                "마법 학원에 오신 것을 환영합니다.",
+                "아카데미에 오신 것을 환영합니다.",
                 "새로운 스킬을 배우고 싶으신가요?",
                 "현재 강의 준비 중입니다.",
                 "곧 수업이 시작될 거예요."
@@ -1847,7 +1847,7 @@ class BuildingInterior:
         # 은행 카운터 충돌 영역 (BANK에서만 사용, draw에서 설정됨)
         self.bank_counter_rect = None
 
-        # 마법 학원 장애물 영역들 (ACADEMY에서만 사용)
+        # 아카데미 장애물 영역들 (ACADEMY에서만 사용)
         self.academy_obstacle_rects = []
 
         # 환율 시스템 (STARBANK 전용)
@@ -1884,7 +1884,7 @@ class BuildingInterior:
 
     def _create_npcs(self):
         """NPC들 생성"""
-        # 마법 학원은 전용 NPC 생성 로직 사용
+        # 아카데미은 전용 NPC 생성 로직 사용
         if self.building_type == BuildingType.ACADEMY:
             return self._create_academy_npcs()
 
@@ -1966,7 +1966,7 @@ class BuildingInterior:
         return npcs
 
     def _create_academy_npcs(self):
-        """마법 학원 전용 NPC 생성 (8~12명 학생, 다양한 활동)"""
+        """아카데미 전용 NPC 생성 (8~12명 학생, 다양한 활동)"""
         npcs = []
 
         # === 학장 아르카나 (메인 NPC) ===
@@ -1998,7 +1998,7 @@ class BuildingInterior:
             ["오늘 수업 재밌었어요!", "내일도 열심히 해야지."],
             ["대쉬 연습이 힘들어요.", "하지만 재미있어요!"],
             ["파트너랑 연습 중이에요.", "서로 도와가며 배워요."],
-            ["마법 학원 최고!", "실력이 늘고 있어요."],
+            ["아카데미 최고!", "실력이 늘고 있어요."],
         ]
 
         # 활동 배치 계획
@@ -2255,7 +2255,7 @@ class BuildingInterior:
             if player_rect.colliderect(self.bank_counter_rect):
                 return False
 
-        # 마법 학원 장애물 충돌 체크 (ACADEMY 전용)
+        # 아카데미 장애물 충돌 체크 (ACADEMY 전용)
         if hasattr(self, 'academy_obstacle_rects') and self.academy_obstacle_rects:
             for obstacle_rect in self.academy_obstacle_rects:
                 if player_rect.colliderect(obstacle_rect):
@@ -3263,7 +3263,7 @@ class BuildingInterior:
             # 은행 전용 인테리어
             self._draw_bank_interior(screen)
         elif special_interior == "academy":
-            # 마법 학원 전용 인테리어
+            # 아카데미 전용 인테리어
             self._draw_academy_interior(screen)
         else:
             # 기본 인테리어
@@ -3443,7 +3443,7 @@ class BuildingInterior:
                 screen.blit(item_surf, (item_rect.x + 40, item_rect.y + 8))
 
     def _draw_academy_interior(self, screen):
-        """마법 학원 전용 인테리어 - 마법 도서관 스타일"""
+        """아카데미 전용 인테리어 - 마법 도서관 스타일"""
         import math
 
         # 색상 팔레트 (청록색/시안 계열 마법 테마)
@@ -3526,7 +3526,7 @@ class BuildingInterior:
         # 5. 창문들 (상단 벽)
         self._draw_academy_windows(screen, cam_x, cam_y, wall_h, self.animation_timer)
 
-        # 6. 건물 이름 표시 (마법 학원)
+        # 6. 건물 이름 표시 (아카데미)
         sign_y = -cam_y + 15
         sign_x = cx - cam_x
 
@@ -3544,7 +3544,7 @@ class BuildingInterior:
         # 로고 텍스트
         font_large = self.fonts.get('large')
         if font_large:
-            text_surf, text_rect = font_large.render("마법 학원", ACCENT_CYAN)
+            text_surf, text_rect = font_large.render("아카데미", ACCENT_CYAN)
             screen.blit(text_surf, (sign_x - text_rect.width // 2, sign_y + 2))
 
         # 7. 책장들 (좌우 벽)
@@ -3635,7 +3635,7 @@ class BuildingInterior:
             pygame.draw.line(screen, MAGIC_DIM, (int(x1), int(y1)), (int(x2), int(y2)), 1)
 
     def _draw_academy_windows(self, screen, cam_x, cam_y, wall_h, anim_timer):
-        """마법 학원 창문들 (상단 벽)"""
+        """아카데미 창문들 (상단 벽)"""
         import math
 
         FRAME_COLOR = (80, 100, 90)      # 창틀
@@ -4409,7 +4409,7 @@ class BuildingInterior:
                     else:
                         color = tuple(max(0, c - 5) for c in floor_color)
                 elif pattern == "magic_circle_academy":
-                    # 마법 학원 타일 (청록색 격자 기본)
+                    # 아카데미 타일 (청록색 격자 기본)
                     if (tx + ty) % 2 == 0:
                         color = floor_color
                     else:
