@@ -188,6 +188,22 @@ class DowntownRenderer:
         """색상 보간"""
         return tuple(int(c1 + (c2 - c1) * t) for c1, c2 in zip(color1, color2))
 
+    def _sanitize_color(self, color):
+        """pygame이 허용하는 (r, g, b) 튜플로 정규화"""
+        try:
+            if color is None:
+                raise ValueError
+            seq = list(color)
+            if len(seq) < 3:
+                raise ValueError
+            r, g, b = seq[0], seq[1], seq[2]
+            r = max(0, min(255, int(r)))
+            g = max(0, min(255, int(g)))
+            b = max(0, min(255, int(b)))
+            return (r, g, b)
+        except Exception:
+            return (255, 255, 255)
+
     def _spawn_environment_particle(self, particle_type):
         """환경 파티클 생성 (고품질)"""
         if random.random() > 0.15:
@@ -725,7 +741,7 @@ class DowntownRenderer:
         if len(trail) < 2:
             return
 
-        color = p.get('color', (255, 255, 255))
+        color = self._sanitize_color(p.get('color', (255, 255, 255)))
         for i in range(len(trail) - 1):
             t1 = trail[i]
             t2 = trail[i + 1]

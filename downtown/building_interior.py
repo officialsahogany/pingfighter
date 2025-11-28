@@ -1452,7 +1452,7 @@ class InteriorPlayer:
 # =============================================================================
 INTERIOR_CONFIGS = {
     BuildingType.MAGIC_STORE: {
-        "name": "마법 상점",
+        "name": "상점",
         "map_size": (12, 10),  # 타일 개수 (가로 x 세로)
         "bg_color": (30, 20, 50),
         "floor_color": (50, 35, 70),
@@ -1476,7 +1476,7 @@ INTERIOR_CONFIGS = {
         "staff_count": 1,
     },
     BuildingType.ITEM_SHOP: {
-        "name": "네온 마켓",
+        "name": "상점",
         "map_size": (21, 18),  # 1.5배 확대 (14x12 → 21x18)
         "bg_color": (20, 20, 35),
         "floor_color": (40, 40, 55),

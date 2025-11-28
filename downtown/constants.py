@@ -99,8 +99,8 @@ BUILDING_INFO = {
         "style": "volcanic",
     },
     BuildingType.MAGIC_STORE: {
-        "name": "마법 성소",
-        "name_en": "Mystic Sanctuary",
+        "name": "상점",
+        "name_en": "Shop",
         "icon": "🌙",
         "color": (120, 80, 200),     # 깊은 보라
         "ap_cost": 1,
@@ -213,8 +213,8 @@ BUILDING_INFO = {
 # =============================================================================
 SHOP_DESIGNS = {
     "hero_armory": {
-        "name": "용사의 무기점",
-        "name_en": "Hero's Armory",
+        "name": "상점",
+        "name_en": "Shop",
         "icon": "⚔️",
         "color": (139, 69, 19),      # 진한 갈색 (목재)
         "secondary_color": (218, 165, 32),  # 골든로드 (황금 장식)
@@ -229,8 +229,8 @@ SHOP_DESIGNS = {
         "shop_theme": "rpg",
     },
     "cyberpunk_shop": {
-        "name": "네온 마켓",
-        "name_en": "Neon Market",
+        "name": "상점",
+        "name_en": "Shop",
         "icon": "🛒",
         "color": (255, 20, 147),     # 네온 핑크
         "secondary_color": (0, 255, 255),  # 사이버 시안
