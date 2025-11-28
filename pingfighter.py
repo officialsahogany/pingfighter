@@ -6076,18 +6076,29 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                         pygame.draw.line(surface, (255, 200, 120), spark_start, spark_mid, 2)
                         pygame.draw.line(surface, (255, 255, 200), spark_mid, spark_end, 2)
 
-            # 글로우 효과 (강화 시 더 강렬한 골드)
-            glow_surface = pygame.Surface((paddle_surf_size + 30, paddle_surf_size + 30), pygame.SRCALPHA)
+            # 글로우 효과 (강화 시 더 강렬한 골드) - 탁구채 중심에 맞춤
+            glow_margin = 20 if paddle_upgraded else 15
+            glow_w = paddle_w + glow_margin * 2
+            glow_h = paddle_h + glow_margin * 2
+            glow_surface = pygame.Surface((paddle_surf_size, paddle_surf_size), pygame.SRCALPHA)
+            # 글로우를 탁구채와 같은 위치에 그림 (paddle_rect 기준)
+            glow_rect = pygame.Rect(
+                paddle_rect.left - glow_margin,
+                paddle_rect.top - glow_margin,
+                glow_w,
+                glow_h
+            )
             if paddle_upgraded:
                 glow_alpha = int(50 + 40 * math.sin(phase * math.tau * 2))
-                pygame.draw.rect(glow_surface, (255, 180, 80, glow_alpha),
-                               (15, 15, paddle_w + 15, paddle_h + 15), border_radius=12)
+                pygame.draw.rect(glow_surface, (255, 180, 80, glow_alpha), glow_rect, border_radius=14)
             else:
                 glow_alpha = int(30 + 20 * math.sin(phase * math.tau * 2))
-                pygame.draw.rect(glow_surface, (*palette["accent"], glow_alpha),
-                               (10, 10, paddle_w + 10, paddle_h + 10), border_radius=10)
+                pygame.draw.rect(glow_surface, (*palette["accent"], glow_alpha), glow_rect, border_radius=10)
             rotated_glow = pygame.transform.rotate(glow_surface, -15)
-            surface.blit(rotated_glow, (paddle_blit_x - 15, paddle_blit_y - 15))
+            # 회전된 글로우를 탁구채와 같은 위치에 블릿
+            glow_blit_x = wrist_int[0] - rotated_glow.get_width() // 2 - (16 if paddle_upgraded else 12)
+            glow_blit_y = wrist_int[1] - rotated_glow.get_height() // 2 - (12 if paddle_upgraded else 8)
+            surface.blit(rotated_glow, (glow_blit_x, glow_blit_y))
 
             # 탁구채 블릿
             surface.blit(rotated_paddle, (paddle_blit_x, paddle_blit_y))
