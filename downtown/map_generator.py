@@ -214,17 +214,26 @@ class DowntownMap:
                 direction *= -1  # 방향 전환
 
     def _place_buildings(self):
-        """건물 배치 - 긴 탐험형 맵에 분산 배치"""
+        """건물 배치 - 긴 탐험형 맵에 분산 배치 (총 3~7개)"""
         self.buildings.clear()
 
-        # 1. 먼저 은행을 시작 지점 근처에 배치
-        self._place_bank_near_spawn()
+        # 총 건물 개수 결정 (3~7개 - 은행, 아카데미 포함)
+        total_building_count = random.randint(3, 7)
+        current_count = 0
 
-        # 2. 아카데미를 광장 근처에 배치 (60% 확률)
-        if random.random() < 0.60:
-            self._place_academy_near_plaza()
+        # 1. 먼저 은행을 시작 지점 근처에 배치 (필수)
+        if self._place_bank_near_spawn():
+            current_count += 1
 
-        # 필수 건물 (항상 등장 - 은행은 이미 배치됨)
+        # 2. 아카데미를 광장 근처에 배치 (60% 확률, 개수 여유 있을 때만)
+        if current_count < total_building_count and random.random() < 0.60:
+            if self._place_academy_near_plaza():
+                current_count += 1
+
+        # 남은 슬롯 계산
+        remaining_slots = total_building_count - current_count
+
+        # 필수 건물 (은행, 아카데미 제외)
         required_buildings = [BuildingType.MAGIC_STORE, BuildingType.BLACKSMITH]
 
         # 스테이지에 따른 추가 필수 건물
@@ -233,16 +242,23 @@ class DowntownMap:
         if self.stage_number >= 3:
             required_buildings.append(BuildingType.COLOSSEUM)
 
-        # 선택적 건물 (확률에 따라 - 은행, 아카데미 제외)
+        # 선택적 건물 (확률에 따라 - 은행, 아카데미, 필수 건물 제외)
         optional_buildings = []
         for btype, info in BUILDING_INFO.items():
             if btype not in required_buildings and btype != BuildingType.BANK and btype != BuildingType.ACADEMY:
                 if random.random() < info["rarity"]:
                     optional_buildings.append(btype)
 
-        # 건물 스폰 개수 (3~7개 랜덤)
-        max_buildings = random.randint(3, 7)
-        all_buildings = required_buildings + optional_buildings[:max(0, max_buildings - len(required_buildings))]
+        # 남은 슬롯에 맞춰 건물 선택 (필수 건물 우선, 남으면 선택적 건물)
+        # 필수 건물이 남은 슬롯보다 많으면 필수 건물 중에서 랜덤 선택
+        random.shuffle(required_buildings)
+        if len(required_buildings) > remaining_slots:
+            all_buildings = required_buildings[:remaining_slots]
+        else:
+            # 필수 건물 다 넣고, 남은 슬롯에 선택적 건물 추가
+            random.shuffle(optional_buildings)
+            extra_slots = remaining_slots - len(required_buildings)
+            all_buildings = required_buildings + optional_buildings[:extra_slots]
 
         # 건물을 구역별로 분산 배치 (탐험하면서 발견하는 재미)
         num_sections = 5  # 맵을 5구역으로 나눔

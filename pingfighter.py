@@ -1722,8 +1722,14 @@ optimus_charge_anim_tick_ms = 0
 optimus_charge_lock_until_ms = 0  # 충전 종료 후 통제불능 종료 시각
 optimus_charge_block_until_ms = 0  # 서브 직후 수동 충전 금지 타이머 (ms)
 optimus_charge_shockwave_at_ms = 0  # 충전 종료 후 충격파 발사 시각
+optimus_charge_shake_until_ms = 0  # 충전 종료 후 패들 떨림 종료 시각
 optimus_max_scale = 1.0  # 최대 게이지 감소 배율 (스테이지 동안 유지)
 optimus_max_decay_last_ms = 0  # 최대 게이지 감소 타이머 기준 시각
+# 옵티머스 최대 게이지 400 이하 경고 애니메이션
+optimus_low_gauge_warning_triggered = False  # 400 이하로 떨어졌을 때 1회 트리거
+optimus_low_gauge_warning_timer = 0  # 경고 애니메이션 타이머 (ms 기준)
+optimus_low_gauge_warning_phase = 0  # 애니메이션 단계 (0: 붉어짐, 1: 하얘짐, 2: 에너지 휘감기)
+optimus_low_gauge_energy_particles = []  # 에너지 파티클 리스트
 PLAYER_PADDLE_SCALE_BY_MODE: dict[str, float] = {
     "junior": 1.2,
     "주니어": 1.2,
@@ -5066,9 +5072,9 @@ OPTIMUS_TURN_DECEL_MULT = 0.4                    # 좌우 방향 전환 감속 �
 OPTIMUS_FLOOR_ADJUST = 72                        # 렌더링 시 발 위치 하향 보정 (36→72, 고해상도)
 OPTIMUS_MAX_GAUGE = 500                          # 시작/최대 배터리 용량
 OPTIMUS_GAUGE_DRAIN_PER_SEC = 7                  # 초당 배터리 소모량
-OPTIMUS_MIN_PADDLE_WIDTH = 50                    # 방전 시 패들 최소 너비
+OPTIMUS_MIN_PADDLE_WIDTH = 250                   # 방전 시 패들 최소 너비
 OPTIMUS_CHARGE_HOLD_MS = 500                     # 충전 시작까지 누르고 있을 시간
-OPTIMUS_CHARGE_RATE_PER_SEC = 40                 # 충전 중 초당 게이지 회복량 (요청: 초당 40)
+OPTIMUS_CHARGE_RATE_PER_SEC = 50                 # 충전 중 초당 게이지 회복량
 
 OPTIMUS_MECHA_PALETTE = {
     # 실버+네온 청록 기반 테슬라 사이버 로봇 컬러링
@@ -5131,7 +5137,9 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     global special_gauge, special_gauge_max, displayed_gauge, special_ready
     global optimus_gauge_drain_buffer, optimus_last_gauge_tick_ms, optimus_last_round_marker
     global optimus_max_scale, optimus_max_decay_last_ms, optimus_charge_block_until_ms
-    global optimus_charge_shockwave_at_ms
+    global optimus_charge_shockwave_at_ms, optimus_charge_shake_until_ms
+    global optimus_low_gauge_warning_triggered, optimus_low_gauge_warning_timer
+    global optimus_low_gauge_warning_phase, optimus_low_gauge_energy_particles
     if globals().get("selected_character_type") != "optimus":
         return
 
@@ -5139,6 +5147,12 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     optimus_max_decay_last_ms = pygame.time.get_ticks()
     optimus_charge_block_until_ms = 0
     optimus_charge_shockwave_at_ms = 0
+    optimus_charge_shake_until_ms = 0
+    # 경고 애니메이션 초기화
+    optimus_low_gauge_warning_triggered = False
+    optimus_low_gauge_warning_timer = 0
+    optimus_low_gauge_warning_phase = 0
+    optimus_low_gauge_energy_particles = []
     special_gauge_max = get_max_gauge()
     if full_gauge:
         special_gauge = special_gauge_max
@@ -5179,6 +5193,8 @@ def update_optimus_energy() -> None:
     global optimus_last_gauge_tick_ms, optimus_gauge_drain_buffer, optimus_last_round_marker
     global optimus_max_scale, optimus_max_decay_last_ms
     global PADDLE_WIDTH, PADDLE_HEIGHT, PLAYER
+    global optimus_low_gauge_warning_triggered, optimus_low_gauge_warning_timer
+    global optimus_low_gauge_warning_phase, optimus_low_gauge_energy_particles
 
     if globals().get("selected_character_type") != "optimus":
         return
@@ -5215,6 +5231,32 @@ def update_optimus_energy() -> None:
         optimus_max_scale *= (decay_factor ** steps)
         optimus_max_scale = max(0.1, optimus_max_scale)  # 완전 소멸 방지 최소 배율
         optimus_max_decay_last_ms += steps * 3000
+
+        # 최대 게이지가 400 이하로 떨어지면 경고 애니메이션 1회 트리거
+        if current_max_gauge is not None and current_max_gauge <= 400 and not optimus_low_gauge_warning_triggered:
+            optimus_low_gauge_warning_triggered = True
+            optimus_low_gauge_warning_timer = now
+            optimus_low_gauge_warning_phase = 0
+            # 에너지 파티클 생성 (게이지바 주변에서 솟구치는 에너지)
+            optimus_low_gauge_energy_particles = []
+            gauge_x = WIDTH - 44
+            gauge_y = HEIGHT - 200
+            gauge_height = 118
+            for i in range(12):  # 12개의 에너지 파티클
+                angle = random.uniform(-0.5, 0.5)  # 위로 향하는 각도
+                speed = random.uniform(2.5, 4.5)
+                px = gauge_x + random.randint(-8, 22)  # 게이지바 주변
+                py = gauge_y + random.randint(0, gauge_height)
+                lifetime = random.randint(600, 1000)  # ms
+                optimus_low_gauge_energy_particles.append({
+                    'x': px, 'y': py,
+                    'vx': math.sin(angle) * speed,
+                    'vy': -speed * random.uniform(1.5, 2.5),  # 위로 솟구침
+                    'life': lifetime,
+                    'max_life': lifetime,
+                    'size': random.uniform(2, 4),
+                    'spawn_time': now
+                })
 
     # 충전 중에는 기본 배터리 소모를 일시 정지
     if not globals().get("optimus_charge_active", False):
@@ -28852,8 +28894,7 @@ def handle_player(keys):
         global optimus_charge_last_update_ms, optimus_charge_anim_tick_ms
         global special_gauge, special_ready  # 실제 게이지를 수정하려면 전역 참조가 필요
         global player_stun_star_suppress_until_ms, player_stun_text_suppress, player_stun_text_hidden_until_ms
-        global optimus_charge_block_until_ms, optimus_charge_shockwave_at_ms
-        global screen_shake_timer, screen_shake_intensity
+        global optimus_charge_block_until_ms, optimus_charge_shockwave_at_ms, optimus_charge_shake_until_ms
         if selected_character_type != "optimus":
             return
         prev_charge_active = optimus_charge_active
@@ -28926,9 +28967,8 @@ def handle_player(keys):
             if prev_charge_active:
                 optimus_charge_lock_until_ms = now_ms + 500
                 optimus_charge_shockwave_at_ms = now_ms + 500  # 0.5초 후 충격파
-                # 스턴 중 화면 떨림(0.5초) 추가
-                screen_shake_timer = max(screen_shake_timer, 30)
-                screen_shake_intensity = max(screen_shake_intensity, 6)
+                # 스턴 중 패들 떨림(0.5초) 추가
+                optimus_charge_shake_until_ms = now_ms + 500
                 # 옵티머스 충전 해제 시 짧은 스턴 및 전기 이펙트(머리 위 별은 숨김)
                 applied = try_apply_player_stun(0.5, source="optimus_charge_release")
                 if applied > 0:
@@ -41120,6 +41160,8 @@ def draw_player_gauge():
     global gauge_charge_animation_timer, gauge_charge_animation_amount  # 충전 애니메이션
     global selected_character_type  # 캐릭터 타입 확인용
     global soldier_emergency_supply_toast_timer, soldier_emergency_supply_used
+    global optimus_low_gauge_warning_triggered, optimus_low_gauge_warning_timer
+    global optimus_low_gauge_warning_phase, optimus_low_gauge_energy_particles
     # 필살기 게이지바 위치와 크기 - 엣지있는 주인공 스타일
     gauge_x = WIDTH - 40  # 오른쪽에서 40px
     gauge_y = HEIGHT - 200  # 하단에서 200px 위 (살짝 조정)
@@ -41505,6 +41547,87 @@ def draw_player_gauge():
             draw.line((120, 235, 255), (gauge_x + gauge_width + 1, y), (gauge_x + gauge_width + 4, y), 1)
         center_x = gauge_x + gauge_width // 2
         draw.line((60, 170, 255), (center_x, gauge_y + 6), (center_x, gauge_y + gauge_height - 6), 1)
+
+        # === 옵티머스 최대 게이지 400 이하 경고 애니메이션 ===
+        if optimus_low_gauge_warning_triggered and optimus_low_gauge_warning_timer > 0:
+            warning_elapsed = time_now - optimus_low_gauge_warning_timer
+            warning_duration = 1200  # 전체 애니메이션 1.2초
+
+            if warning_elapsed < warning_duration:
+                # 경고 오버레이 Surface 생성
+                warning_surf = pygame.Surface((gauge_width + 20, gauge_height + 30), pygame.SRCALPHA)
+
+                # 단계별 색상 전환: 붉어짐 → 하얘짐 → 살짝 붉어지며 에너지 휘감기
+                if warning_elapsed < 300:  # 0~300ms: 강렬한 붉은색으로 경고
+                    phase_progress = warning_elapsed / 300.0
+                    red_intensity = int(255 * phase_progress)
+                    glow_alpha = int(180 * phase_progress)
+                    # 붉은 글로우 오버레이
+                    pygame.draw.rect(warning_surf, (red_intensity, 40, 40, glow_alpha),
+                                   (0, 0, gauge_width + 20, gauge_height + 30), border_radius=8)
+                    # 붉은 테두리 펄스
+                    pygame.draw.rect(warning_surf, (255, 80, 80, int(200 * phase_progress)),
+                                   (0, 0, gauge_width + 20, gauge_height + 30), 3, border_radius=8)
+                elif warning_elapsed < 550:  # 300~550ms: 하얀색으로 플래시
+                    phase_progress = (warning_elapsed - 300) / 250.0
+                    white_intensity = int(255 * (1.0 - phase_progress * 0.7))
+                    glow_alpha = int(150 * (1.0 - phase_progress))
+                    # 하얀 플래시
+                    pygame.draw.rect(warning_surf, (white_intensity, white_intensity, white_intensity, glow_alpha),
+                                   (0, 0, gauge_width + 20, gauge_height + 30), border_radius=8)
+                else:  # 550~1200ms: 살짝 붉은 에너지가 휘감으며 페이드아웃
+                    phase_progress = (warning_elapsed - 550) / 650.0
+                    fade_alpha = int(100 * (1.0 - phase_progress))
+                    # 연한 붉은 잔상
+                    red_tint = int(180 * (1.0 - phase_progress))
+                    pygame.draw.rect(warning_surf, (red_tint, 60, 80, fade_alpha),
+                                   (0, 0, gauge_width + 20, gauge_height + 30), border_radius=8)
+                    # 휘감는 에너지 링 효과
+                    ring_count = 3
+                    for ri in range(ring_count):
+                        ring_y = int((gauge_height + 20) * ((phase_progress + ri * 0.15) % 1.0))
+                        ring_alpha = int(120 * (1.0 - phase_progress))
+                        pygame.draw.line(warning_surf, (255, 100, 120, ring_alpha),
+                                       (2, ring_y), (gauge_width + 18, ring_y), 2)
+
+                SCREEN.blit(warning_surf, (gauge_x - 10, gauge_y - 10))
+
+                # 에너지 파티클 업데이트 및 렌더링
+                particles_to_remove = []
+                for particle in optimus_low_gauge_energy_particles:
+                    p_elapsed = time_now - particle['spawn_time']
+                    if p_elapsed >= particle['max_life']:
+                        particles_to_remove.append(particle)
+                        continue
+
+                    # 파티클 위치 업데이트
+                    dt = 0.016  # 약 60fps 기준
+                    particle['x'] += particle['vx']
+                    particle['y'] += particle['vy']
+                    particle['vy'] += 0.08  # 약간의 중력
+                    particle['vx'] *= 0.98  # 감속
+
+                    # 파티클 페이드아웃
+                    life_ratio = 1.0 - (p_elapsed / particle['max_life'])
+                    alpha = int(255 * life_ratio)
+                    size = particle['size'] * life_ratio
+
+                    # 붉은색 + 시안색 에너지 파티클 (경고 느낌)
+                    if random.random() < 0.5:
+                        color = (255, int(80 + 100 * life_ratio), int(100 + 50 * life_ratio))
+                    else:
+                        color = (int(100 + 100 * life_ratio), int(200 * life_ratio), 255)
+
+                    # 글로우 효과
+                    glow_surf = pygame.Surface((int(size * 4), int(size * 4)), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surf, (*color, int(alpha * 0.4)), (int(size * 2), int(size * 2)), int(size * 1.5))
+                    pygame.draw.circle(glow_surf, (*color, alpha), (int(size * 2), int(size * 2)), int(size))
+                    SCREEN.blit(glow_surf, (int(particle['x'] - size * 2), int(particle['y'] - size * 2)))
+
+                # 소멸한 파티클 제거
+                for p in particles_to_remove:
+                    if p in optimus_low_gauge_energy_particles:
+                        optimus_low_gauge_energy_particles.remove(p)
     else:
         # 기존 스매셔 프레임 하단
         hex_bottom = [
@@ -45601,6 +45724,11 @@ def draw_objects():
             delta_y = target_bottom - content_bottom
             if delta_y != 0:
                 player_rect.y += delta_y
+            # 충전 해제 후 0.5초 동안 패들 흔들림 적용
+            if globals().get("optimus_charge_shake_until_ms", 0) > pygame.time.get_ticks():
+                jitter = 3
+                player_rect.x += random.randint(-jitter, jitter)
+                player_rect.y += random.randint(-jitter, jitter)
 
     # 디버깅: rotated_player 확인 (frame_count가 정의되어 있을 때만)
     try:
