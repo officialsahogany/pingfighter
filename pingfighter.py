@@ -21614,8 +21614,9 @@ berserk_potion_timer = 0
 berserk_aura_surface: pygame.Surface | None = None
 BERSERK_AURA_SIZE = (160, 160)
 
-# 병기 단축 선택 UI 설정 (↑키 0.3초 홀드로 메뉴 호출)
-SOLDIER_WEAPON_MENU_HOLD_FRAMES = int(0.5 * 60)  # 0.5초 유지 시 활성화 (안정화)
+# 병기 단축 선택 UI 설정 (↑/W/ㅈ 입력 시 즉시 HUD, 짧게 눌러 순환)
+SOLDIER_WEAPON_MENU_HOLD_FRAMES = 0  # 키를 누르는 즉시 HUD 활성화
+SOLDIER_WEAPON_QUICK_SWITCH_FRAMES = int(0.5 * 60)  # 0.5초 미만 짧은 입력은 무기 순환
 soldier_weapon_hold_frames = 0
 soldier_weapon_menu_active = False
 # HUD 닫힘 직후 클릭-발사 동시 처리 방지용 억제 프레임 카운터
@@ -30408,15 +30409,22 @@ def handle_player(keys):
             held_frames = soldier_weapon_hold_frames
             short_press = (
                 held_frames
-                and held_frames < SOLDIER_WEAPON_MENU_HOLD_FRAMES
+                and held_frames < SOLDIER_WEAPON_QUICK_SWITCH_FRAMES
                 and not space_pressed
             )
-            if soldier_weapon_menu_active:
+            if (
+                short_press
+                and allow_weapon_switch
+                and soldier_controller.switch_cooldown <= 0
+                and not suicide_drone_active
+            ):
                 soldier_weapon_menu_active = False
-            elif short_press and allow_weapon_switch and soldier_controller.switch_cooldown <= 0 and not suicide_drone_active:
                 next_index = (soldier_controller.current_index + 1) % len(soldier_controller.weapons)
                 soldier_switch_weapon(next_index)
                 soldier_weapon_hold_frames = 0
+            elif soldier_weapon_menu_active:
+                soldier_weapon_menu_active = False
+            soldier_weapon_hold_frames = 0
     else:
         soldier_weapon_hold_frames = 0
         soldier_weapon_menu_active = False

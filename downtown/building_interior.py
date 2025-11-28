@@ -1893,8 +1893,9 @@ class BuildingInterior:
         # 상점 거래 시스템 (ITEM_SHOP 전용)
         self.shop_trade_open = False  # 거래 창 열림 여부
         self.shop_inventory = []  # 상점 인벤토리 (랜덤 생성)
-        self.shop_hover_item = None  # 마우스 호버 중인 아이템 (player/shop, index)
+        self.shop_hover_item = None  # 마우스 호버 중인 아이템 (source, idx, item, rect)
         self.shop_tooltip_item = None  # 툴팁 표시할 아이템
+        self.shop_item_rects = {"player": {}, "shop": {}}  # 클릭 영역 저장
         self._init_shop_inventory()  # 상점 인벤토리 초기화
 
     def _init_shop_inventory(self):
@@ -2486,23 +2487,27 @@ class BuildingInterior:
         return None
 
     def _handle_shop_trade_click(self, pos):
-        """상점 거래창 우클릭 처리 (판매/구매)"""
-        if not self.shop_hover_item:
+        """상점 거래창 우클릭 처리 (판매/구매) - 아이콘 그리드 방식"""
+        # shop_item_rects를 사용하여 클릭된 아이템 확인
+        if not hasattr(self, 'shop_item_rects'):
             return None
 
-        source, idx = self.shop_hover_item
+        # 플레이어 인벤토리 클릭 확인
+        for idx, rect in self.shop_item_rects.get("player", {}).items():
+            if rect.collidepoint(pos):
+                return self._sell_player_item(idx)
 
-        if source == "player":
-            # 플레이어 아이템 판매
-            return self._sell_player_item(idx)
-        else:  # shop
-            # 상점 아이템 구매
-            return self._buy_shop_item(idx)
+        # 상점 인벤토리 클릭 확인
+        for idx, rect in self.shop_item_rects.get("shop", {}).items():
+            if rect.collidepoint(pos):
+                return self._buy_shop_item(idx)
+
+        return None
 
     def _handle_shop_trade_left_click(self, pos):
         """상점 거래창 좌클릭 처리 (UI 바깥 클릭시 닫기)"""
-        # UI 영역 계산
-        total_w, total_h = 560, 380
+        # UI 영역 계산 (새 크기에 맞게 업데이트)
+        total_w, total_h = 620, 420
         ui_x = (SCREEN_WIDTH - total_w) // 2
         ui_y = (SCREEN_HEIGHT - total_h) // 2
         ui_rect = pygame.Rect(ui_x, ui_y, total_w, total_h)
@@ -3660,26 +3665,27 @@ class BuildingInterior:
             self._draw_shop_trade_ui(screen)
 
     def _draw_shop_trade_ui(self, screen):
-        """상점 거래 UI 그리기 - 좌: 플레이어 인벤토리, 우: 상점 인벤토리"""
-        # UI 크기 및 위치
-        total_w, total_h = 560, 380
+        """상점 거래 UI 그리기 - 아이콘 그리드 방식 (캐릭터 정보창 스타일)"""
+        # UI 크기 및 위치 (더 넓게)
+        total_w, total_h = 620, 420
         ui_x = (SCREEN_WIDTH - total_w) // 2
         ui_y = (SCREEN_HEIGHT - total_h) // 2
 
-        panel_w = 260
-        gap = 40  # 두 패널 사이 간격
+        panel_w = 280
+        gap = 20  # 두 패널 사이 간격
 
-        # 색상 정의
-        BG_DARK = (25, 20, 30)
-        PANEL_BG = (40, 35, 50)
+        # 색상 정의 (캐릭터 정보창 스타일)
+        BG_DARK = (22, 26, 40)
+        PANEL_BG = (30, 36, 54)
+        BORDER_MAIN = (90, 130, 200)
         BORDER_GOLD = (200, 170, 100)
-        BORDER_CYAN = (100, 200, 200)
+        BORDER_CYAN = (100, 180, 200)
         TEXT_WHITE = (240, 240, 240)
         TEXT_GOLD = (255, 215, 100)
         TEXT_GRAY = (150, 150, 150)
-        ITEM_BG = (50, 45, 60)
-        ITEM_HOVER = (70, 65, 90)
-        ITEM_LEGENDARY = (80, 60, 100)
+        CELL_BG = (30, 36, 54)
+        CELL_BORDER = (80, 110, 150)
+        CELL_HOVER = (150, 200, 255)
 
         mouse_pos = pygame.mouse.get_pos()
 
@@ -3689,10 +3695,8 @@ class BuildingInterior:
         screen.blit(overlay, (0, 0))
 
         # 메인 배경
-        main_bg = pygame.Surface((total_w, total_h), pygame.SRCALPHA)
-        pygame.draw.rect(main_bg, (*BG_DARK, 245), (0, 0, total_w, total_h), border_radius=10)
-        screen.blit(main_bg, (ui_x, ui_y))
-        pygame.draw.rect(screen, BORDER_GOLD, (ui_x, ui_y, total_w, total_h), 2, border_radius=10)
+        pygame.draw.rect(screen, BG_DARK, (ui_x, ui_y, total_w, total_h), border_radius=10)
+        pygame.draw.rect(screen, BORDER_MAIN, (ui_x, ui_y, total_w, total_h), 2, border_radius=10)
 
         # 폰트
         font_medium = self.fonts.get('medium')
@@ -3705,206 +3709,323 @@ class BuildingInterior:
             gold_surf, gold_rect = font_medium.render(gold_text, TEXT_GOLD)
             screen.blit(gold_surf, (ui_x + total_w // 2 - gold_rect.width // 2, ui_y + 12))
 
-        # === 좌측: 플레이어 인벤토리 ===
-        left_x = ui_x + 15
-        left_y = ui_y + 45
-
-        # 패널 배경
-        pygame.draw.rect(screen, PANEL_BG, (left_x, left_y, panel_w, total_h - 90), border_radius=6)
-        pygame.draw.rect(screen, BORDER_CYAN, (left_x, left_y, panel_w, total_h - 90), 2, border_radius=6)
-
-        # 제목
-        if font_medium:
-            title_surf, title_rect = font_medium.render("내 인벤토리", TEXT_WHITE)
-            screen.blit(title_surf, (left_x + panel_w // 2 - title_rect.width // 2, left_y + 8))
-
-        # 아이템 목록 - pingfighter의 passive_item_list 가져오기
+        # 아이템 목록 - pingfighter 가져오기
         try:
             import pingfighter
             player_items = getattr(pingfighter, 'passive_item_list', [])
+            get_item_icon = getattr(pingfighter, 'get_item_icon', None)
+            get_item_description = getattr(pingfighter, 'get_item_description', None)
         except:
             player_items = []
+            get_item_icon = None
+            get_item_description = None
 
-        item_h = 36
-        item_start_y = left_y + 35
-        max_visible = 7
+        # 그리드 설정
+        cell_size = 42
+        cell_gap = 6
+        cols = 5
+        rows = 2
 
         self.shop_hover_item = None  # 매 프레임 리셋
+        self.shop_item_rects = {"player": {}, "shop": {}}  # 클릭 영역 저장
 
-        for i, item in enumerate(player_items[:max_visible]):
-            item_y = item_start_y + i * item_h
-            item_rect = pygame.Rect(left_x + 8, item_y, panel_w - 16, item_h - 4)
-
-            # 호버 체크
-            is_hover = item_rect.collidepoint(mouse_pos)
-            if is_hover:
-                self.shop_hover_item = ("player", i)
-                bg_color = ITEM_HOVER
-            else:
-                bg_color = ITEM_BG
-
-            # 아이템 배경
-            pygame.draw.rect(screen, bg_color, item_rect, border_radius=4)
-
-            # 아이템 이름
-            item_name = item.get("name", "알 수 없음")
-            korean_name = self._get_item_korean_name(item_name)
-
-            # 판매가 계산 (원가의 30%)
-            base_price = self._get_item_base_price(item_name)
-            sell_price = int(base_price * 0.3)
-
-            if font_small:
-                # 이름
-                name_surf, name_rect = font_small.render(korean_name, TEXT_WHITE)
-                screen.blit(name_surf, (item_rect.x + 8, item_rect.centery - name_rect.height // 2))
-
-                # 판매가
-                price_text = f"{sell_price}G"
-                price_surf, price_rect = font_small.render(price_text, TEXT_GOLD)
-                screen.blit(price_surf, (item_rect.right - price_rect.width - 8, item_rect.centery - price_rect.height // 2))
-
-        # 아이템이 없을 때
-        if not player_items and font_small:
-            empty_surf, empty_rect = font_small.render("(아이템 없음)", TEXT_GRAY)
-            screen.blit(empty_surf, (left_x + panel_w // 2 - empty_rect.width // 2, item_start_y + 50))
-
-        # === 우측: 상점 인벤토리 ===
-        right_x = ui_x + panel_w + gap
-        right_y = ui_y + 45
+        # === 좌측: 플레이어 인벤토리 (아이콘 그리드) ===
+        left_x = ui_x + 20
+        left_y = ui_y + 50
 
         # 패널 배경
-        pygame.draw.rect(screen, PANEL_BG, (right_x, right_y, panel_w, total_h - 90), border_radius=6)
-        pygame.draw.rect(screen, BORDER_GOLD, (right_x, right_y, panel_w, total_h - 90), 2, border_radius=6)
+        panel_h = total_h - 100
+        pygame.draw.rect(screen, PANEL_BG, (left_x, left_y, panel_w, panel_h), border_radius=8)
+        pygame.draw.rect(screen, BORDER_CYAN, (left_x, left_y, panel_w, panel_h), 2, border_radius=8)
 
         # 제목
-        if font_medium:
-            title_surf, title_rect = font_medium.render("상점 물품", TEXT_WHITE)
-            screen.blit(title_surf, (right_x + panel_w // 2 - title_rect.width // 2, right_y + 8))
+        if font_small:
+            title_surf, title_rect = font_small.render("내 인벤토리 (판매)", TEXT_WHITE)
+            screen.blit(title_surf, (left_x + 10, left_y + 8))
 
-        # 상점 아이템 목록
-        for i, item in enumerate(self.shop_inventory[:max_visible]):
-            item_y = item_start_y + i * item_h
-            item_rect = pygame.Rect(right_x + 8, item_y, panel_w - 16, item_h - 4)
+        # 아이콘 그리드 시작 위치
+        grid_x = left_x + 12
+        grid_y = left_y + 35
+
+        # 플레이어 아이템 그리드 그리기
+        for idx, item in enumerate(player_items):
+            if idx >= cols * rows:
+                break
+            row = idx // cols
+            col = idx % cols
+            cell_rect = pygame.Rect(
+                grid_x + col * (cell_size + cell_gap),
+                grid_y + row * (cell_size + cell_gap),
+                cell_size,
+                cell_size
+            )
+            self.shop_item_rects["player"][idx] = cell_rect
+
+            # 셀 배경
+            pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=8)
 
             # 호버 체크
-            is_hover = item_rect.collidepoint(mouse_pos)
+            is_hover = cell_rect.collidepoint(mouse_pos)
             if is_hover:
-                self.shop_hover_item = ("shop", i)
-                bg_color = ITEM_HOVER
+                self.shop_hover_item = ("player", idx, item, cell_rect)
+                pygame.draw.rect(screen, CELL_HOVER, cell_rect, 2, border_radius=8)
             else:
-                is_legendary = item.get("type") == "legendary"
-                bg_color = ITEM_LEGENDARY if is_legendary else ITEM_BG
+                pygame.draw.rect(screen, CELL_BORDER, cell_rect, 1, border_radius=8)
 
-            # 아이템 배경
-            pygame.draw.rect(screen, bg_color, item_rect, border_radius=4)
+            # 아이콘 그리기
+            item_name = item.get("name", "")
+            icon = None
+            if get_item_icon:
+                icon = get_item_icon(item_name)
+            if not icon:
+                icon = item.get("icon")
 
-            # 전설 아이템은 금테두리
-            if item.get("type") == "legendary":
-                pygame.draw.rect(screen, BORDER_GOLD, item_rect, 2, border_radius=4)
+            if icon:
+                scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
 
-            if font_small:
-                # 이름
-                korean_name = item.get("korean", item.get("name", "???"))
-                name_color = TEXT_GOLD if item.get("type") == "legendary" else TEXT_WHITE
-                name_surf, name_rect = font_small.render(korean_name, name_color)
-                screen.blit(name_surf, (item_rect.x + 8, item_rect.centery - name_rect.height // 2))
+        # 빈 슬롯 그리기
+        total_player_slots = cols * rows
+        for idx in range(len(player_items), total_player_slots):
+            row = idx // cols
+            col = idx % cols
+            cell_rect = pygame.Rect(
+                grid_x + col * (cell_size + cell_gap),
+                grid_y + row * (cell_size + cell_gap),
+                cell_size,
+                cell_size
+            )
+            pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=8)
+            pygame.draw.rect(screen, (50, 60, 80), cell_rect, 1, border_radius=8)
 
-                # 구매가
-                price_text = f"{item.get('price', 0):,}G"
-                price_surf, price_rect = font_small.render(price_text, TEXT_GOLD)
-                screen.blit(price_surf, (item_rect.right - price_rect.width - 8, item_rect.centery - price_rect.height // 2))
+        # 판매 안내 텍스트
+        if font_small:
+            hint_surf, _ = font_small.render("우클릭으로 판매 (30%)", (120, 180, 200))
+            screen.blit(hint_surf, (left_x + 10, left_y + panel_h - 25))
 
-        # 상점 아이템이 없을 때
-        if not self.shop_inventory and font_small:
-            empty_surf, empty_rect = font_small.render("(품절)", TEXT_GRAY)
-            screen.blit(empty_surf, (right_x + panel_w // 2 - empty_rect.width // 2, item_start_y + 50))
+        # === 우측: 상점 인벤토리 (아이콘 그리드) ===
+        right_x = ui_x + panel_w + gap + 20
+        right_y = ui_y + 50
+
+        # 패널 배경
+        pygame.draw.rect(screen, PANEL_BG, (right_x, right_y, panel_w, panel_h), border_radius=8)
+        pygame.draw.rect(screen, BORDER_GOLD, (right_x, right_y, panel_w, panel_h), 2, border_radius=8)
+
+        # 제목
+        if font_small:
+            title_surf, title_rect = font_small.render("상점 물품 (구매)", TEXT_WHITE)
+            screen.blit(title_surf, (right_x + 10, right_y + 8))
+
+        # 상점 아이콘 그리드 시작 위치
+        shop_grid_x = right_x + 12
+        shop_grid_y = right_y + 35
+
+        # 상점 아이템 그리드 그리기
+        for idx, item in enumerate(self.shop_inventory):
+            if idx >= cols * rows:
+                break
+            row = idx // cols
+            col = idx % cols
+            cell_rect = pygame.Rect(
+                shop_grid_x + col * (cell_size + cell_gap),
+                shop_grid_y + row * (cell_size + cell_gap),
+                cell_size,
+                cell_size
+            )
+            self.shop_item_rects["shop"][idx] = cell_rect
+
+            is_legendary = item.get("type") == "legendary"
+
+            # 셀 배경 (전설 아이템은 특별한 배경)
+            if is_legendary:
+                pygame.draw.rect(screen, (60, 50, 80), cell_rect, border_radius=8)
+            else:
+                pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=8)
+
+            # 호버 체크
+            is_hover = cell_rect.collidepoint(mouse_pos)
+            if is_hover:
+                self.shop_hover_item = ("shop", idx, item, cell_rect)
+                pygame.draw.rect(screen, CELL_HOVER, cell_rect, 2, border_radius=8)
+            elif is_legendary:
+                pygame.draw.rect(screen, BORDER_GOLD, cell_rect, 2, border_radius=8)
+            else:
+                pygame.draw.rect(screen, CELL_BORDER, cell_rect, 1, border_radius=8)
+
+            # 아이콘 그리기
+            item_name = item.get("name", "")
+            icon = None
+            if get_item_icon:
+                icon = get_item_icon(item_name)
+
+            if icon:
+                scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+
+        # 빈 슬롯 그리기
+        total_shop_slots = cols * rows
+        for idx in range(len(self.shop_inventory), total_shop_slots):
+            row = idx // cols
+            col = idx % cols
+            cell_rect = pygame.Rect(
+                shop_grid_x + col * (cell_size + cell_gap),
+                shop_grid_y + row * (cell_size + cell_gap),
+                cell_size,
+                cell_size
+            )
+            pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=8)
+            pygame.draw.rect(screen, (50, 60, 80), cell_rect, 1, border_radius=8)
+
+        # 구매 안내 텍스트
+        if font_small:
+            hint_surf, _ = font_small.render("우클릭으로 구매", (200, 180, 120))
+            screen.blit(hint_surf, (right_x + 10, right_y + panel_h - 25))
 
         # === 하단: 조작 안내 ===
         if font_small:
-            hint_text = "우클릭: 판매/구매  |  ESC: 닫기"
+            hint_text = "ESC: 닫기"
             hint_surf, hint_rect = font_small.render(hint_text, TEXT_GRAY)
             screen.blit(hint_surf, (ui_x + total_w // 2 - hint_rect.width // 2, ui_y + total_h - 25))
 
-        # === 툴팁 표시 ===
+        # === 툴팁 표시 (맨 위에) ===
         if self.shop_hover_item:
-            self._draw_shop_tooltip(screen, mouse_pos)
+            self._draw_shop_tooltip(screen, mouse_pos, get_item_description)
 
-    def _draw_shop_tooltip(self, screen, mouse_pos):
-        """상점 아이템 툴팁 그리기"""
+    def _draw_shop_tooltip(self, screen, mouse_pos, get_item_description=None):
+        """상점 아이템 툴팁 그리기 - 캐릭터 정보창 스타일"""
         if not self.shop_hover_item:
             return
 
-        source, idx = self.shop_hover_item
+        # 새로운 형식: (source, idx, item, cell_rect)
+        if len(self.shop_hover_item) < 4:
+            return
 
-        # 아이템 정보 가져오기
+        source, idx, item, cell_rect = self.shop_hover_item
+        item_name = item.get("name", "")
+        korean_name = self._get_item_korean_name(item_name)
+        is_legendary = item.get("type") == "legendary"
+
+        # 가격 계산
         if source == "player":
-            try:
-                import pingfighter
-                player_items = getattr(pingfighter, 'passive_item_list', [])
-                if idx < len(player_items):
-                    item = player_items[idx]
-                    item_name = item.get("name", "")
-                    korean_name = self._get_item_korean_name(item_name)
-                    base_price = self._get_item_base_price(item_name)
-                    sell_price = int(base_price * 0.3)
-                    is_legendary = item.get("type") == "legendary"
-                else:
-                    return
-            except:
-                return
+            base_price = self._get_item_base_price(item_name)
+            price = int(base_price * 0.3)
+            price_label = "판매가"
         else:  # shop
-            if idx < len(self.shop_inventory):
-                item = self.shop_inventory[idx]
-                korean_name = item.get("korean", "???")
-                sell_price = item.get("price", 0)
-                is_legendary = item.get("type") == "legendary"
-            else:
-                return
+            price = item.get("price", 0)
+            price_label = "구매가"
 
-        # 툴팁 크기
-        tooltip_w, tooltip_h = 180, 80
-        tooltip_x = mouse_pos[0] + 15
-        tooltip_y = mouse_pos[1] + 10
+        # 아이템 설명 가져오기
+        description = ""
+        if get_item_description:
+            description = get_item_description(item_name)
 
-        # 화면 밖으로 나가지 않게
-        if tooltip_x + tooltip_w > SCREEN_WIDTH:
-            tooltip_x = mouse_pos[0] - tooltip_w - 10
-        if tooltip_y + tooltip_h > SCREEN_HEIGHT:
-            tooltip_y = mouse_pos[1] - tooltip_h - 10
+        # 롤 옵션 가져오기
+        rolled_options = item.get("rolled_options", []) or item.get("options", [])
+
+        # 폰트
+        font_small = self.fonts.get('small')
+        font_tiny = self.fonts.get('tiny') or font_small
+
+        if not font_small:
+            return
 
         # 색상
-        BG_COLOR = (30, 25, 40, 240)
-        BORDER_COLOR = (200, 170, 100) if is_legendary else (100, 100, 120)
+        BG_COLOR = (16, 20, 34, 245)
+        BORDER_COLOR = (200, 170, 100) if is_legendary else (120, 180, 255)
         TEXT_WHITE = (240, 240, 240)
         TEXT_GOLD = (255, 215, 100)
+        TEXT_DESC = (200, 210, 230)
+        TEXT_OPTION = (120, 255, 170)
 
-        # 배경
+        # 툴팁 내용 구성
+        lines = []
+        line_colors = []
+
+        # 1. 아이템 이름
+        lines.append(korean_name)
+        line_colors.append(TEXT_GOLD if is_legendary else TEXT_WHITE)
+
+        # 2. 타입 라벨
+        type_label = "전설" if is_legendary else "신발" if "boots" in item_name or "shoes" in item_name else "패시브"
+        lines.append(type_label)
+        line_colors.append((255, 220, 160))
+
+        # 3. 설명 (여러 줄로 분리)
+        if description:
+            # 설명에서 아이템 이름 부분 제거
+            desc_clean = description
+            if ":" in desc_clean:
+                desc_clean = desc_clean.split(":", 1)[-1].strip()
+
+            # 줄바꿈 처리 (약 25자마다)
+            max_chars = 25
+            words = desc_clean.split()
+            current_line = ""
+            for word in words:
+                if len(current_line) + len(word) + 1 <= max_chars:
+                    current_line = (current_line + " " + word).strip()
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                        line_colors.append(TEXT_DESC)
+                    current_line = word
+            if current_line:
+                lines.append(current_line)
+                line_colors.append(TEXT_DESC)
+
+        # 4. 롤 옵션
+        if rolled_options:
+            lines.append("")  # 빈 줄
+            line_colors.append(TEXT_DESC)
+            for opt in rolled_options:
+                opt_text = opt.get("text", "") if isinstance(opt, dict) else str(opt)
+                if opt_text:
+                    lines.append(opt_text)
+                    line_colors.append(TEXT_OPTION)
+
+        # 5. 가격
+        lines.append("")  # 빈 줄
+        line_colors.append(TEXT_DESC)
+        lines.append(f"{price_label}: {price:,}G")
+        line_colors.append(TEXT_GOLD)
+
+        # 툴팁 크기 계산
+        line_height = 20
+        padding = 12
+        max_width = 0
+        for line in lines:
+            if line:
+                surf, rect = font_small.render(line, TEXT_WHITE)
+                max_width = max(max_width, rect.width)
+
+        tooltip_w = max(220, min(320, max_width + padding * 2))
+        tooltip_h = padding * 2 + len(lines) * line_height
+
+        # 툴팁 위치 (셀 위에 표시)
+        tooltip_x = cell_rect.x + cell_rect.width // 2 - tooltip_w // 2
+        tooltip_y = cell_rect.y - tooltip_h - 8
+
+        # 화면 밖으로 나가지 않게 조정
+        if tooltip_x < 10:
+            tooltip_x = 10
+        if tooltip_x + tooltip_w > SCREEN_WIDTH - 10:
+            tooltip_x = SCREEN_WIDTH - tooltip_w - 10
+        if tooltip_y < 10:
+            tooltip_y = cell_rect.bottom + 8
+
+        # 배경 그리기
         tooltip_surf = pygame.Surface((tooltip_w, tooltip_h), pygame.SRCALPHA)
-        pygame.draw.rect(tooltip_surf, BG_COLOR, (0, 0, tooltip_w, tooltip_h), border_radius=6)
+        pygame.draw.rect(tooltip_surf, BG_COLOR, (0, 0, tooltip_w, tooltip_h), border_radius=8)
         screen.blit(tooltip_surf, (tooltip_x, tooltip_y))
-        pygame.draw.rect(screen, BORDER_COLOR, (tooltip_x, tooltip_y, tooltip_w, tooltip_h), 2, border_radius=6)
+        pygame.draw.rect(screen, BORDER_COLOR, (tooltip_x, tooltip_y, tooltip_w, tooltip_h), 2, border_radius=8)
 
-        font_small = self.fonts.get('small')
-        if font_small:
-            # 이름
-            name_color = TEXT_GOLD if is_legendary else TEXT_WHITE
-            name_surf, name_rect = font_small.render(korean_name, name_color)
-            screen.blit(name_surf, (tooltip_x + 10, tooltip_y + 10))
-
-            # 가격
-            if source == "player":
-                price_label = "판매가:"
-            else:
-                price_label = "구매가:"
-            price_text = f"{price_label} {sell_price:,}G"
-            price_surf, price_rect = font_small.render(price_text, TEXT_GOLD)
-            screen.blit(price_surf, (tooltip_x + 10, tooltip_y + 35))
-
-            # 타입
-            type_text = "전설 아이템" if is_legendary else "패시브 아이템"
-            type_surf, type_rect = font_small.render(type_text, (150, 150, 180))
-            screen.blit(type_surf, (tooltip_x + 10, tooltip_y + 55))
+        # 텍스트 그리기
+        text_y = tooltip_y + padding
+        for i, (line, color) in enumerate(zip(lines, line_colors)):
+            if line:
+                text_surf, text_rect = font_small.render(line, color)
+                screen.blit(text_surf, (tooltip_x + padding, text_y))
+            text_y += line_height
 
     def _get_item_korean_name(self, item_name):
         """아이템 영문명을 한글명으로 변환"""
