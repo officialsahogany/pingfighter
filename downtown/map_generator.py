@@ -240,9 +240,9 @@ class DowntownMap:
                 if random.random() < info["rarity"]:
                     optional_buildings.append(btype)
 
-        # 긴 맵에서는 더 많은 건물 배치 (8~12개)
-        max_buildings = min(8 + self.stage_number // 2, 12)
-        all_buildings = required_buildings + optional_buildings[:max_buildings - len(required_buildings)]
+        # 건물 스폰 개수 (3~7개 랜덤)
+        max_buildings = random.randint(3, 7)
+        all_buildings = required_buildings + optional_buildings[:max(0, max_buildings - len(required_buildings))]
 
         # 건물을 구역별로 분산 배치 (탐험하면서 발견하는 재미)
         num_sections = 5  # 맵을 5구역으로 나눔
