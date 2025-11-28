@@ -1905,6 +1905,15 @@ class BuildingInterior:
 
         self.shop_inventory = []
 
+        # pingfighter 함수들 가져오기
+        try:
+            import pingfighter
+            roll_passive_options = getattr(pingfighter, 'roll_passive_options', None)
+            assign_item_prefix = getattr(pingfighter, 'assign_item_prefix', None)
+        except:
+            roll_passive_options = None
+            assign_item_prefix = None
+
         # 패시브 아이템 목록 (판매 가능한 아이템들)
         passive_items = [
             {"name": "speedboots", "base_price": 500, "korean": "스피드부츠"},
@@ -1949,34 +1958,45 @@ class BuildingInterior:
             if random.random() < 0.05 and legendary_items:
                 selected = random.choice(legendary_items)
                 legendary_items.remove(selected)  # 중복 방지
+                is_legendary = True
             else:
                 selected = random.choice(available_pool)
                 available_pool.remove(selected)  # 중복 방지
+                is_legendary = False
 
-            # 옵션 랜덤 생성 (가격에 영향)
-            option_bonus = 0
-            options = []
-
-            # 30% 확률로 추가 옵션
-            if random.random() < 0.3:
-                option_type = random.choice(["attack", "defense", "speed", "luck"])
-                option_value = random.randint(1, 5)
-                options.append({"type": option_type, "value": option_value})
-                option_bonus += option_value * 50  # 옵션당 50골드 추가
-
-            # 최종 가격 계산 (기본가 + 옵션 보너스 + 랜덤 변동 ±10%)
-            base_price = selected["base_price"]
-            price_variance = random.uniform(0.9, 1.1)
-            final_price = int((base_price + option_bonus) * price_variance)
-
+            # 기본 아이템 데이터 생성
             shop_item = {
                 "name": selected["name"],
                 "korean": selected["korean"],
-                "price": final_price,
-                "options": options,
-                "type": selected.get("type", "passive"),
-                "icon": None  # 나중에 로드
+                "type": "legendary" if is_legendary else "passive",
+                "icon": None
             }
+
+            # 전설 아이템이 아닌 경우 롤옵션 생성
+            if not is_legendary and roll_passive_options:
+                rolled_options = roll_passive_options(selected["name"])
+                if rolled_options:
+                    shop_item["rolled_options"] = rolled_options
+                    # 품질 등급 및 수식어 설정
+                    if assign_item_prefix:
+                        assign_item_prefix(shop_item, force=True)
+
+            # 최종 가격 계산 (기본가 + 품질 보너스 + 랜덤 변동 ±10%)
+            base_price = selected["base_price"]
+            # 품질에 따른 가격 보너스
+            quality_bonus = 0
+            quality_tier = shop_item.get("quality_tier", "low")
+            if quality_tier == "top":
+                quality_bonus = int(base_price * 0.5)  # 50% 추가
+            elif quality_tier == "high":
+                quality_bonus = int(base_price * 0.3)  # 30% 추가
+            elif quality_tier == "mid":
+                quality_bonus = int(base_price * 0.15)  # 15% 추가
+
+            price_variance = random.uniform(0.9, 1.1)
+            final_price = int((base_price + quality_bonus) * price_variance)
+            shop_item["price"] = final_price
+
             self.shop_inventory.append(shop_item)
 
     def _create_npcs(self):
@@ -3911,11 +3931,21 @@ class BuildingInterior:
             get_item_quality_color = getattr(pingfighter, 'get_item_quality_color', None)
             get_item_slot_label = getattr(pingfighter, 'get_item_slot_label', None)
             get_item_description_func = getattr(pingfighter, 'get_item_description', None)
+            ensure_passive_rolls = getattr(pingfighter, 'ensure_passive_rolls', None)
+            build_tooltip_lines = getattr(pingfighter, 'build_tooltip_lines', None)
         except:
             format_item_display_name = None
             get_item_quality_color = None
             get_item_slot_label = None
             get_item_description_func = get_item_description
+            ensure_passive_rolls = None
+            build_tooltip_lines = None
+
+        # 롤옵션이 없는 패시브 아이템은 롤옵션 생성
+        if not is_legendary and ensure_passive_rolls:
+            if not item.get("rolled_options"):
+                item["type"] = "passive"  # type이 없으면 설정
+                ensure_passive_rolls(item)
 
         # 아이템 이름 (수식어 포함)
         if format_item_display_name:
@@ -3951,8 +3981,10 @@ class BuildingInterior:
         elif get_item_description:
             description = get_item_description(item_name)
 
-        # 롤 옵션 가져오기 (색상 포함)
-        rolled_options = item.get("rolled_options", []) or item.get("options", [])
+        # 롤 옵션 가져오기 (색상 포함) - ensure_passive_rolls 후 다시 가져옴
+        rolled_options = item.get("rolled_options", [])
+        if not rolled_options:
+            rolled_options = []
 
         # 폰트
         font_small = self.fonts.get('small')
