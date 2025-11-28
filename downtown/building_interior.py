@@ -2053,8 +2053,11 @@ class BuildingInterior:
 
     def _execute_deposit(self):
         """예금 또는 출금 실행"""
+        import random
+        
         gold = self.player_data.get('gold', 0)
         balance = self.player_data.get('deposit_balance', 0)
+        current_stage = self.player_data.get('current_stage', 1)
 
         if self.withdraw_mode:
             # 출금 모드
@@ -2066,8 +2069,25 @@ class BuildingInterior:
             # 출금 실행
             self.player_data['deposit_balance'] = balance - self.deposit_amount
             self.player_data['gold'] = gold + self.deposit_amount
+            
+            # 은행 방문 기록 업데이트 (출금했으므로 이 스테이지를 마지막 방문으로 기록)
+            self.player_data['last_deposit_stage'] = current_stage
+            
+            # 다음 스테이지를 위한 새 이자율 생성
+            new_rate = random.uniform(0.05, 0.20)
+            self.player_data['last_interest_rate'] = new_rate
+            
+            # 다음 스테이지의 이자율을 pending_rates에 추가
+            if 'pending_interest_rates' not in self.player_data:
+                self.player_data['pending_interest_rates'] = {}
+            self.player_data['pending_interest_rates'][str(current_stage + 1)] = new_rate
+            
             withdrawn = self.deposit_amount
             self.deposit_amount = 0
+            
+            print(f"[DEPOSIT] Withdraw at stage {current_stage}: {withdrawn:,}G")
+            print(f"[DEPOSIT] Interest rate for stage {current_stage + 1}: {new_rate*100:.1f}%")
+            
             return ("withdraw_success", withdrawn)
         else:
             # 예금 모드
@@ -2080,11 +2100,24 @@ class BuildingInterior:
             self.player_data['gold'] = gold - self.deposit_amount
             self.player_data['deposit_balance'] = balance + self.deposit_amount
 
-            # 현재 이자율을 player_data에 저장 (다음 스테이지에서 이자 적용용)
-            self.player_data['last_interest_rate'] = self.deposit_interest_rate
+            # 은행 방문 기록 업데이트 (예금했으므로 이 스테이지를 마지막 방문으로 기록)
+            self.player_data['last_deposit_stage'] = current_stage
+            
+            # 다음 스테이지를 위한 새 이자율 생성
+            new_rate = random.uniform(0.05, 0.20)
+            self.player_data['last_interest_rate'] = new_rate
+            
+            # 다음 스테이지의 이자율을 pending_rates에 추가
+            if 'pending_interest_rates' not in self.player_data:
+                self.player_data['pending_interest_rates'] = {}
+            self.player_data['pending_interest_rates'][str(current_stage + 1)] = new_rate
 
             deposited = self.deposit_amount
             self.deposit_amount = 0
+            
+            print(f"[DEPOSIT] Deposit at stage {current_stage}: {deposited:,}G")
+            print(f"[DEPOSIT] Interest rate for stage {current_stage + 1}: {new_rate*100:.1f}%")
+            
             return ("deposit_success", deposited)
 
     def _draw_exchange_menu(self, screen):
@@ -2469,12 +2502,18 @@ class BuildingInterior:
                 "◆ STARBANK 예금 시스템 ◆",
                 "",
                 "▸ 골드를 예금하면 이자가 붙습니다",
-                "▸ 이자는 다음 스테이지 시작 시 적용됩니다",
+                "▸ 이자는 매 스테이지마다 자동 적용됩니다",
                 "",
                 "▸ 복리 방식으로 계산됩니다",
                 "  예) 1000G 예금, 이자율 10%",
                 "      → 다음 스테이지: 1100G",
-                "      → 이자율 2% 적용 시: 1122G",
+                "      → 이자율 15% 적용 시: 1265G",
+                "",
+                "▸ 은행을 건너뛰어도 이자가 쌓입니다!",
+                "  스테이지2: 1000G 예금 (이자 10%)",
+                "  스테이지3: 은행 안 감 (이자 15%)",
+                "  스테이지4: 출금하면",
+                "  → 1000 × 1.10 × 1.15 = 1265G",
                 "",
                 f"▸ 현재 이자율: {self.deposit_interest_rate*100:.1f}%",
                 "▸ 이자율은 스테이지마다 변동됩니다",

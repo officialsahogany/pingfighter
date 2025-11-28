@@ -132,7 +132,7 @@ class DowntownManager:
         self.last_interest_amount = 0  # 마지막 적용된 이자 금액
 
     def _apply_deposit_interest(self):
-        """예금 이자 적용 (스테이지 시작 시)"""
+        """예금 이자 적용 (스테이지 시작 시) - 건너뛴 스테이지 복리 이자 포함"""
         import random
 
         # 예금 잔액 확인
@@ -142,30 +142,76 @@ class DowntownManager:
             self.last_interest_amount = 0
             return
 
-        # 이전 스테이지에서 저장된 이자율 가져오기
-        # (없으면 새로운 이자율 생성)
-        interest_rate = self.player_data.get('last_interest_rate', 0)
-        if interest_rate <= 0:
-            # 첫 번째 스테이지이거나 이자율이 없는 경우 - 이자 적용 안함
+        # 마지막 은행 방문 스테이지 확인 (최초 예금 또는 마지막 출금/입금 스테이지)
+        last_deposit_stage = self.player_data.get('last_deposit_stage', 0)
+        
+        # 예금이 있는데 마지막 예금 스테이지가 없으면 첫 예금 (이자 적용 안함)
+        if last_deposit_stage == 0:
+            self.interest_applied_this_stage = False
+            self.last_interest_amount = 0
+            # 다음 스테이지를 위한 새 이자율 생성 (5% ~ 20%)
+            new_rate = random.uniform(0.05, 0.20)
+            self.player_data['last_interest_rate'] = new_rate
+            print(f"[DEPOSIT] First deposit detected. Interest rate for next stage: {new_rate*100:.1f}%")
+            return
+
+        # 대기 중인 이자율 딕셔너리 가져오기
+        pending_rates = self.player_data.setdefault('pending_interest_rates', {})
+        
+        # 현재 스테이지가 마지막 예금 스테이지보다 클 때만 이자 적용
+        if self.stage_number <= last_deposit_stage:
             self.interest_applied_this_stage = False
             self.last_interest_amount = 0
             return
 
-        # 복리 이자 계산 및 적용
-        interest_amount = int(balance * interest_rate)
-        new_balance = balance + interest_amount
+        # 건너뛴 스테이지들의 복리 이자 계산
+        # last_deposit_stage + 1부터 현재 스테이지까지 모든 이자율 적용
+        current_balance = balance
+        total_interest = 0
+        
+        print(f"[DEPOSIT] Starting compound interest calculation")
+        print(f"[DEPOSIT] Initial balance: {balance:,}G")
+        print(f"[DEPOSIT] Last deposit stage: {last_deposit_stage}, Current stage: {self.stage_number}")
+        
+        for stage in range(last_deposit_stage + 1, self.stage_number + 1):
+            # 건너뛴 스테이지의 이자율이 비어 있으면 즉시 생성해 복리 계산에 포함
+            if str(stage) not in pending_rates and stage not in pending_rates:
+                pending_rates[str(stage)] = random.uniform(0.05, 0.20)
 
-        # 예금 잔액 업데이트
-        self.player_data['deposit_balance'] = new_balance
-        self.interest_applied_this_stage = True
-        self.last_interest_amount = interest_amount
+            # 해당 스테이지의 이자율 가져오기 (문자열 키로 저장되어 있을 수 있음)
+            stage_rate = pending_rates.get(str(stage), pending_rates.get(stage, 0))
+            
+            if stage_rate > 0:
+                interest = int(current_balance * stage_rate)
+                current_balance += interest
+                total_interest += interest
+                print(f"[DEPOSIT] Stage {stage}: {current_balance - interest:,}G × {stage_rate*100:.1f}% = +{interest:,}G → {current_balance:,}G")
+        
+        # 이자가 적용되었으면 잔액 업데이트
+        if total_interest > 0:
+            self.player_data['deposit_balance'] = current_balance
+            self.interest_applied_this_stage = True
+            self.last_interest_amount = total_interest
+            print(f"[DEPOSIT] Total compound interest: +{total_interest:,}G")
+            print(f"[DEPOSIT] Final balance: {current_balance:,}G")
+        else:
+            # 이자율이 없는 경우 (예: 첫 스테이지)
+            self.interest_applied_this_stage = False
+            self.last_interest_amount = 0
 
-        # 다음 스테이지를 위한 새 이자율 생성 (5% ~ 20%)
+        # 이번 스테이지까지 이자가 반영되었음을 기록해 중복 적용을 방지
+        self.player_data['last_deposit_stage'] = self.stage_number
+
+        # 다음 스테이지를 위한 새 이자율 생성
         new_rate = random.uniform(0.05, 0.20)
         self.player_data['last_interest_rate'] = new_rate
-
-        print(f"[DEPOSIT] Interest applied: {balance:,}G + {interest_amount:,}G ({interest_rate*100:.1f}%) = {new_balance:,}G")
-        print(f"[DEPOSIT] New interest rate for next stage: {new_rate*100:.1f}%")
+        
+        # 다음 스테이지의 이자율을 pending_rates에 추가
+        if 'pending_interest_rates' not in self.player_data:
+            self.player_data['pending_interest_rates'] = {}
+        self.player_data['pending_interest_rates'][str(self.stage_number + 1)] = new_rate
+        
+        print(f"[DEPOSIT] Interest rate for stage {self.stage_number + 1}: {new_rate*100:.1f}%")
 
     def _init_fonts(self):
         """폰트 초기화 (pygame.freetype 사용 - 한글 지원)"""
@@ -217,6 +263,9 @@ class DowntownManager:
         # 플레이어 데이터 설정
         if player_data:
             self.player_data = player_data
+        
+        # 현재 스테이지 번호를 player_data에 저장 (building interior에서 접근 가능)
+        self.player_data['current_stage'] = stage_number
 
         # 예금 이자 적용 (스테이지 시작 시)
         self._apply_deposit_interest()
@@ -286,6 +335,14 @@ class DowntownManager:
         """이벤트 처리"""
         if self.state == DowntownState.IN_BUILDING:
             self._handle_building_event(event)
+            return
+
+        # ENTERING 상태에서는 이벤트 무시 (진입 애니메이션 중)
+        if self.state == DowntownState.ENTERING:
+            return
+
+        # EXITING 상태에서도 이벤트 무시 (나가는 애니메이션 중)
+        if self.state == DowntownState.EXITING:
             return
 
         if event.type == pygame.KEYDOWN:

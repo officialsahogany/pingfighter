@@ -2579,27 +2579,42 @@ class EmptyLegendary(LegendaryItem):
         print(f"빈전설 프레임 {frames_loaded}/8개 로드")
 
     def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
-        """프레임에서 중앙 콘텐츠 + 파란색 글로우 제거, 빨간 테두리 + 은색 모서리 유지"""
+        """프레임에서 테두리 영역만 유지 (가장자리 6픽셀), 중앙 완전 제거"""
         result = frame.copy()
         width, height = frame.get_size()
         cx, cy = width // 2, height // 2
 
+        # 테두리 두께 (가장자리에서 이 범위 내의 픽셀만 유지)
+        border_thickness = 6
+
         for py in range(height):
             for px in range(width):
                 color = frame.get_at((px, py))
-                r, g, b, a = color.r, color.g, color.b, color.a
-
-                if a == 0:
+                if color.a == 0:
                     continue
 
-                # 빨간색 테두리 유지 (R이 높고 G, B가 낮은 색상)
-                is_red_border = r > 100 and r > g + 30 and r > b + 30
+                # 가장자리에서의 거리 계산
+                dist_from_left = px
+                dist_from_right = width - 1 - px
+                dist_from_top = py
+                dist_from_bottom = height - 1 - py
 
-                # 은색/회색 모서리 유지 (R, G, B가 비슷하고 밝은 색상)
-                is_silver_corner = (abs(r - g) < 40 and abs(g - b) < 40 and abs(r - b) < 40 and r > 80)
+                # 가장 가까운 가장자리까지의 거리
+                min_dist = min(dist_from_left, dist_from_right, dist_from_top, dist_from_bottom)
 
-                # 빨간색 또는 은색이 아니면 제거
-                if not is_red_border and not is_silver_corner:
+                # 테두리 영역인지 확인
+                is_border = min_dist < border_thickness
+
+                # 테두리 영역이라도 빨간색이 아니면 제거 (망치 그림자 제거)
+                if is_border:
+                    r, g, b = color.r, color.g, color.b
+                    # 빨간색 계열 또는 은색/흰색 계열만 유지
+                    is_red = r > 100 and r > g + 20 and r > b + 20
+                    is_silver = r > 120 and g > 120 and b > 120 and abs(r - g) < 50 and abs(g - b) < 50
+                    if not is_red and not is_silver:
+                        result.set_at((px, py), (0, 0, 0, 0))
+                else:
+                    # 테두리 영역이 아니면 모두 제거
                     result.set_at((px, py), (0, 0, 0, 0))
 
         return result

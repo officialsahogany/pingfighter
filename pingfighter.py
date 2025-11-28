@@ -1627,7 +1627,12 @@ def get_max_gauge():
     if is_devil_dice_active():
         multipliers = get_devil_dice_multipliers()
         base_max = int(base_max * multipliers['skill_gauge'])
-    
+
+    # 옵티머스: 스테이지 진행 중 최대 게이지가 서서히 감소
+    if globals().get("selected_character_type") == "optimus":
+        scale = float(globals().get("optimus_max_scale", 1.0))
+        base_max = int(base_max * max(0.0, scale))
+
     return int(base_max * ANGEL_GAUGE_MULT)
 # GameState와 동기화되는 변수들 (점진적 마이그레이션)
 special_gauge = game_state.special_gauge
@@ -1715,6 +1720,10 @@ optimus_charge_hold_ms = 0
 optimus_charge_last_update_ms = 0
 optimus_charge_anim_tick_ms = 0
 optimus_charge_lock_until_ms = 0  # 충전 종료 후 통제불능 종료 시각
+optimus_charge_block_until_ms = 0  # 서브 직후 수동 충전 금지 타이머 (ms)
+optimus_charge_shockwave_at_ms = 0  # 충전 종료 후 충격파 발사 시각
+optimus_max_scale = 1.0  # 최대 게이지 감소 배율 (스테이지 동안 유지)
+optimus_max_decay_last_ms = 0  # 최대 게이지 감소 타이머 기준 시각
 PLAYER_PADDLE_SCALE_BY_MODE: dict[str, float] = {
     "junior": 1.2,
     "주니어": 1.2,
@@ -2009,6 +2018,7 @@ def apply_serve_result(serve_result):
     """serve_ball() 결과를 전역 상태에 반영한다."""
     global ball_vel, ball_impact_boost
     global player_collision_cooldown, boss_collision_cooldown, is_player_serve
+    global optimus_charge_block_until_ms
 
     new_velocity = serve_result.get('ball_vel', [0.0, 0.0])
     if len(new_velocity) < 2:
@@ -2026,6 +2036,13 @@ def apply_serve_result(serve_result):
     try:
         game_state.ball_vel = [ball_vel[0], ball_vel[1]]
         game_state.ball_impact_boost = ball_impact_boost
+    except Exception:
+        pass
+
+    # 옵티머스: 서브 직후 1초간 수동 충전 금지(플레이어/보스 서브 모두)
+    try:
+        if globals().get("selected_character_type") == "optimus":
+            optimus_charge_block_until_ms = pygame.time.get_ticks() + 1000
     except Exception:
         pass
 
@@ -5043,11 +5060,12 @@ OPTIMUS_HITBOX_SCALE = 0.575                     # 히트박스는 15%만 축소
 OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_HITBOX_SCALE)   # 520 * 0.575 ≈ 299px
 OPTIMUS_PADDLE_TARGET_WIDTH = int(560 * OPTIMUS_HITBOX_SCALE)                   # 560 * 0.575 ≈ 322px (기존 280*2)
 OPTIMUS_PADDLE_BASE_HEIGHT = int(MECHA_SPRITE_SIZE[1] * OPTIMUS_HITBOX_SCALE)  # 320 * 0.575 ≈ 184px
-OPTIMUS_BASE_MAX_SPEED = 5                       # 기본 이동 속도(캐릭터 능력치 기준)
+OPTIMUS_BASE_MAX_SPEED = 4                       # 기본 이동 속도(캐릭터 능력치 기준)
 OPTIMUS_DECELERATION_MULT = 0.5                  # 감속을 절반으로(2배 느리게)
+OPTIMUS_TURN_DECEL_MULT = 0.4                    # 좌우 방향 전환 감속 속도 60% 감소
 OPTIMUS_FLOOR_ADJUST = 72                        # 렌더링 시 발 위치 하향 보정 (36→72, 고해상도)
 OPTIMUS_MAX_GAUGE = 500                          # 시작/최대 배터리 용량
-OPTIMUS_GAUGE_DRAIN_PER_SEC = 10                 # 초당 배터리 소모량
+OPTIMUS_GAUGE_DRAIN_PER_SEC = 7                  # 초당 배터리 소모량
 OPTIMUS_MIN_PADDLE_WIDTH = 50                    # 방전 시 패들 최소 너비
 OPTIMUS_CHARGE_HOLD_MS = 500                     # 충전 시작까지 누르고 있을 시간
 OPTIMUS_CHARGE_RATE_PER_SEC = 40                 # 충전 중 초당 게이지 회복량 (요청: 초당 40)
@@ -5088,7 +5106,9 @@ def get_optimus_gauge_ratio() -> float:
     """옵티머스 배터리 잔량(0~1). 다른 캐릭터는 1.0을 반환."""
     if globals().get("selected_character_type") != "optimus":
         return 1.0
-    return max(0.0, min(1.0, special_gauge / OPTIMUS_MAX_GAUGE))
+    max_gauge = max(1.0, float(globals().get("special_gauge_max", OPTIMUS_MAX_GAUGE)))
+    gauge_for_scale = float(globals().get("displayed_gauge", special_gauge))
+    return max(0.0, min(1.0, gauge_for_scale / max_gauge))
 
 
 def _recalculate_optimus_gauge_scale() -> None:
@@ -5110,13 +5130,19 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     """옵티머스 배터리/스케일 초기화."""
     global special_gauge, special_gauge_max, displayed_gauge, special_ready
     global optimus_gauge_drain_buffer, optimus_last_gauge_tick_ms, optimus_last_round_marker
+    global optimus_max_scale, optimus_max_decay_last_ms, optimus_charge_block_until_ms
+    global optimus_charge_shockwave_at_ms
     if globals().get("selected_character_type") != "optimus":
         return
 
-    special_gauge_max = OPTIMUS_MAX_GAUGE
+    optimus_max_scale = 1.0
+    optimus_max_decay_last_ms = pygame.time.get_ticks()
+    optimus_charge_block_until_ms = 0
+    optimus_charge_shockwave_at_ms = 0
+    special_gauge_max = get_max_gauge()
     if full_gauge:
-        special_gauge = OPTIMUS_MAX_GAUGE
-        displayed_gauge = OPTIMUS_MAX_GAUGE
+        special_gauge = special_gauge_max
+        displayed_gauge = special_gauge_max
         special_ready = True
         try:
             game_state.special_gauge = special_gauge
@@ -5137,10 +5163,21 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     apply_equipment_paddle_modifiers()
 
 
+def _freeze_optimus_energy_timers() -> None:
+    """일시정지/정보창 등 메인 루프가 멈춘 동안 옵티머스 게이지 감소 타이머를 현재 시각으로 고정."""
+    if globals().get("selected_character_type") != "optimus":
+        return
+    global optimus_last_gauge_tick_ms, optimus_max_decay_last_ms
+    now = pygame.time.get_ticks()
+    optimus_last_gauge_tick_ms = now
+    optimus_max_decay_last_ms = now
+
+
 def update_optimus_energy() -> None:
     """옵티머스 배터리 소모 및 패들/이동 스케일 반영."""
-    global special_gauge, special_gauge_max, special_ready
+    global special_gauge, special_gauge_max, special_ready, displayed_gauge
     global optimus_last_gauge_tick_ms, optimus_gauge_drain_buffer, optimus_last_round_marker
+    global optimus_max_scale, optimus_max_decay_last_ms
     global PADDLE_WIDTH, PADDLE_HEIGHT, PLAYER
 
     if globals().get("selected_character_type") != "optimus":
@@ -5151,10 +5188,33 @@ def update_optimus_energy() -> None:
         optimus_last_round_marker = current_round_marker
 
     now = pygame.time.get_ticks()
+    # 일시정지/정보창 등 게임 멈춤 상태에서는 배터리 소모/최대치 감소를 중단한다.
+    # ESC/P 일시정지, 툴팁 강제정지는 game_paused 플래그로 처리되며
+    # Tab 캐릭터정보창은 별도 프리즈 가드(_freeze_optimus_energy_timers)로 보호된다.
+    if globals().get("game_paused", False):
+        optimus_last_gauge_tick_ms = now
+        optimus_max_decay_last_ms = now
+        return
     if optimus_last_gauge_tick_ms == 0:
         optimus_last_gauge_tick_ms = now
     elapsed_ms = max(0, now - optimus_last_gauge_tick_ms)
     optimus_last_gauge_tick_ms = now
+
+    # 최대 게이지 서서히 감소 (기본 3초마다 1%, 400 이하일 땐 1.5%)
+    if optimus_max_decay_last_ms == 0:
+        optimus_max_decay_last_ms = now
+    decay_ms = max(0, now - optimus_max_decay_last_ms)
+    if decay_ms >= 3000:
+        steps = decay_ms // 3000
+        # 최대 게이지가 400 이하로 떨어지면 더 빠르게(3초당 1.5%) 감소
+        try:
+            current_max_gauge = get_max_gauge()
+        except Exception:
+            current_max_gauge = None
+        decay_factor = 0.985 if current_max_gauge is not None and current_max_gauge <= 400 else 0.99
+        optimus_max_scale *= (decay_factor ** steps)
+        optimus_max_scale = max(0.1, optimus_max_scale)  # 완전 소멸 방지 최소 배율
+        optimus_max_decay_last_ms += steps * 3000
 
     # 충전 중에는 기본 배터리 소모를 일시 정지
     if not globals().get("optimus_charge_active", False):
@@ -5167,9 +5227,16 @@ def update_optimus_energy() -> None:
         # 소모 버퍼를 초기화해 충전 종료 후 바로 감소가 시작되지 않도록 방지
         optimus_gauge_drain_buffer = 0.0
 
-    special_gauge_max = OPTIMUS_MAX_GAUGE
-    if special_gauge > OPTIMUS_MAX_GAUGE:
-        special_gauge = OPTIMUS_MAX_GAUGE
+    special_gauge_max = get_max_gauge()
+    if special_gauge > special_gauge_max:
+        special_gauge = special_gauge_max
+    if displayed_gauge > special_gauge_max:
+        displayed_gauge = special_gauge_max
+    try:
+        game_state.special_gauge_max = special_gauge_max
+        game_state.special_gauge = special_gauge
+    except Exception:
+        pass
     special_ready = special_gauge >= 350
     # 외부 패들 크기 변형(롱패들 등)을 보존하기 위해 현재 게이지 스케일 기준 기대 크기 대비 배율을 계산
     angel_scale = globals().get("ANGEL_PADDLE_SCALE", 1.0)
@@ -17708,7 +17775,7 @@ def trigger_smasher_contact_animation(offset_x: float) -> None:
 
 optimus_walking_active = False
 optimus_walking_timer = 0
-OPTIMUS_WALKING_CYCLE = 30
+OPTIMUS_WALKING_CYCLE = 45  # 걷기 애니메이션을 조금 더 느리게
 OPTIMUS_ARM_SWING_DURATION = 32
 optimus_arm_swing_left_timer = 0
 optimus_arm_swing_right_timer = 0
@@ -28784,17 +28851,22 @@ def handle_player(keys):
         global optimus_charge_active, optimus_charge_hold_ms
         global optimus_charge_last_update_ms, optimus_charge_anim_tick_ms
         global special_gauge, special_ready  # 실제 게이지를 수정하려면 전역 참조가 필요
+        global player_stun_star_suppress_until_ms, player_stun_text_suppress, player_stun_text_hidden_until_ms
+        global optimus_charge_block_until_ms, optimus_charge_shockwave_at_ms
+        global screen_shake_timer, screen_shake_intensity
         if selected_character_type != "optimus":
             return
         prev_charge_active = optimus_charge_active
-        # 충전 불가 조건
+        block_active = now_ms < optimus_charge_block_until_ms
+        # 충전 불가 조건 (완전 방전 상태에서도 수동 충전은 허용해야 복구 가능)
         if (
-            globals().get("optimus_drained", False)
-            or rolling_active
+            rolling_active
             or rolling_stun_timer > 0
             or player_stunned
             or half_dash_used_flag
             or long_boost_active  # 거대화포션 중에는 강제 이동 방지를 위해 충전 비활성화
+            or globals().get("is_waiting_for_serve", False)  # 서브 준비/안내 중 선입력 차단
+            or block_active  # 서브 직후 금지 시간
         ):
             optimus_charge_active = False
             optimus_charge_hold_ms = 0
@@ -28853,6 +28925,25 @@ def handle_player(keys):
             # 충전 종료: 0.5초 통제불능 (입력 차단용 타임스탬프)
             if prev_charge_active:
                 optimus_charge_lock_until_ms = now_ms + 500
+                optimus_charge_shockwave_at_ms = now_ms + 500  # 0.5초 후 충격파
+                # 스턴 중 화면 떨림(0.5초) 추가
+                screen_shake_timer = max(screen_shake_timer, 30)
+                screen_shake_intensity = max(screen_shake_intensity, 6)
+                # 옵티머스 충전 해제 시 짧은 스턴 및 전기 이펙트(머리 위 별은 숨김)
+                applied = try_apply_player_stun(0.5, source="optimus_charge_release")
+                if applied > 0:
+                    player_stun_text_suppress = True
+                    player_stun_text_hidden_until_ms = now_ms + int(applied * 1000)
+                    player_stun_star_suppress_until_ms = now_ms + int(applied * 1000)
+                    try:
+                        effects_manager.spawn_star_particles(
+                            PLAYER.centerx,
+                            PLAYER.y - 20,
+                            count=12,
+                            color=(120, 235, 255),
+                        )
+                    except Exception:
+                        pass
             optimus_charge_active = False
             optimus_charge_hold_ms = 0
             optimus_charge_last_update_ms = now_ms
@@ -28868,6 +28959,7 @@ def handle_player(keys):
                 f" stun={rolling_stun_timer>0 or player_stunned}"
                 f" serve_wait={is_waiting_for_serve}"
                 f" long_boost={long_boost_active}"
+                f" serve_block={(optimus_charge_block_until_ms - now_ms) if optimus_charge_block_until_ms > now_ms else 0}"
                 f" gauge={special_gauge:.1f}/{get_max_gauge():.1f}"
                 f" hold_ms={optimus_charge_hold_ms}"
             )
@@ -29482,6 +29574,20 @@ def handle_player(keys):
         )
     down_pressed = down_pressed_raw
     _handle_optimus_manual_charge(pygame.time.get_ticks(), down_pressed)
+    # 충전 해제 후 예정된 충격파 발사 처리
+    if selected_character_type == "optimus":
+        global optimus_charge_shockwave_at_ms
+        if optimus_charge_shockwave_at_ms and pygame.time.get_ticks() >= optimus_charge_shockwave_at_ms:
+            try:
+                effects_manager.spawn_shockwave(
+                    PLAYER.centerx,
+                    PLAYER.centery,
+                    force=12,
+                    color=(120, 235, 255),
+                )
+            except Exception:
+                pass
+            optimus_charge_shockwave_at_ms = 0
     
     # 물자보급 스킬 처리 (코만도 캐릭터 전용)
     
@@ -31379,6 +31485,8 @@ def handle_player(keys):
             effective_max_speed = (base_max_speed + skill_speed_boost) * speed_multiplier
             if selected_character_type == "optimus":
                 effective_max_speed *= get_optimus_gauge_ratio()
+                # 게이지 소진 후에도 최소 이동속도 1 확보
+                effective_max_speed = max(1.0, effective_max_speed)
             # 일반 이동 키 처리 (키보드 + 마우스 조작 통합)
             # 후딜 상태에서는 일반 이동 불가 (더블대쉬 아이템 소지 시에도)
             # Stage 4 사원 파괴 애니메이션 중에도 이동 불가
@@ -31571,6 +31679,8 @@ def handle_player(keys):
         direction_change_boost = DIRECTION_CHANGE_BOOST if speedgear_obtained else 1.0  # 150% 더 빠른 방향 전환
         # 빠른 방향 전환 감속 (악마의 주사위 배율 적용)
         adjusted_instant_decel = INSTANT_STOP_DECELERATION * direction_change_boost * devil_dice_speed_multiplier
+        if selected_character_type == "optimus":
+            adjusted_instant_decel *= OPTIMUS_TURN_DECEL_MULT  # 전환속도 60% 감소
         if umbrella_guarding:
             adjusted_instant_decel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
         # 좌/우 입력은 화살표와 A/D 모두 동일하게 인정해야 하므로
@@ -31978,6 +32088,15 @@ def handle_player(keys):
             blacksmith_walking_timer = 0
             blacksmith_walk_direction = 0
     elif selected_character_type in ("smasher", "optimus"):
+        # 안전 가드: 이동 로직에서 계산되지 않은 경우를 대비해 기본 최대속도 설정
+        if "effective_max_speed" not in locals():
+            if selected_character_type == "optimus":
+                effective_max_speed = OPTIMUS_BASE_MAX_SPEED * get_optimus_gauge_ratio()
+                effective_max_speed = max(1.0, effective_max_speed)
+            elif selected_character_type == "smasher":
+                effective_max_speed = 3.0
+            else:
+                effective_max_speed = MAX_SPEED
         walking = abs(current_speed) > 1.0
         if selected_character_type == "smasher":
             if walking:
@@ -31993,7 +32112,11 @@ def handle_player(keys):
                 if not optimus_walking_active:
                     optimus_walking_active = True
                     optimus_walking_timer = 0
-                optimus_walking_timer += 1
+                # 이동 속도에 비례해 걷기 애니메이션 속도를 가변 적용
+                # 게이지 감소로 이동이 느려질 때 애니메이션도 함께 느려지도록 한다.
+                walk_speed_factor = abs(current_speed) / max(0.001, effective_max_speed)
+                walk_speed_factor = max(0.25, min(1.5, walk_speed_factor))  # 과도한 속도 변화 클램프
+                optimus_walking_timer += walk_speed_factor
             else:
                 optimus_walking_active = False
                 optimus_walking_timer = 0
@@ -32852,7 +32975,9 @@ def handle_player(keys):
                 base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
             else:
                 # 캐릭터별 기본 게이지 충전량
-                if selected_character_type == "soldier":
+                if selected_character_type == "optimus":
+                    base_gauge_gain = 0  # 옵티머스는 패들 히트로 게이지를 획득하지 않음
+                elif selected_character_type == "soldier":
                     # 코만도 기본: 패들 히트 시 게이지 50
                     # 요구사항: 권총(pistol) 외 다른 화기류 선택 시 게이지 획득량 50% 감소 → 25
                     base_gauge_gain = 50
@@ -33006,6 +33131,8 @@ trade_point_texts = []  # 트레이드 포인트 획득 시 표시할 텍스트 
 # 은행 예금 시스템 (스테이지 간 유지)
 deposit_balance = 0  # 예금 잔액
 deposit_interest_rate = 0.0  # 현재 적용될 이자율 (다음 스테이지에 적용)
+deposit_last_deposit_stage = 0  # 마지막 은행 거래/이자 반영 스테이지
+deposit_pending_interest_rates: dict[str, float] = {}  # 스테이지별 예정 이자율
 
 # 승리 화면 가챠 연속 사용 보너스 추적
 GACHA_REROLL_LIMIT_PER_STAGE = 5  # 스테이지당 허용되는 최대 추가 가챠 횟수
@@ -46295,37 +46422,40 @@ def draw_objects():
         local_timer = player_missile_stunned_timer if player_missile_stunned_timer > 0 else player_stunned_timer
         rotation_angle = (18 - min(18, local_timer)) * 20  # 회전 각도(느슨)
         
-        # 별 3개가 머리 위에서 회전 (보스 스턴 별과 동일 스타일)
-        num_stars = 3
-        radius = DEFAULT_RADIUS
-        for i in range(num_stars):
-            angle = (rotation_angle + i * (FULL_ROTATION / num_stars)) % FULL_ROTATION
-            angle_rad = math.radians(angle)
-            # 보스 별과 동일한 궤도/배치 방식
-            star_x = PLAYER.centerx + radius * math.cos(angle_rad)
-            star_y = stars_y + radius * math.sin(angle_rad) * 0.5
+        suppress_stars_until = globals().get("player_stun_star_suppress_until_ms", 0)
+        show_stars = pygame.time.get_ticks() >= suppress_stars_until
+        if show_stars:
+            # 별 3개가 머리 위에서 회전 (보스 스턴 별과 동일 스타일)
+            num_stars = 3
+            radius = DEFAULT_RADIUS
+            for i in range(num_stars):
+                angle = (rotation_angle + i * (FULL_ROTATION / num_stars)) % FULL_ROTATION
+                angle_rad = math.radians(angle)
+                # 보스 별과 동일한 궤도/배치 방식
+                star_x = PLAYER.centerx + radius * math.cos(angle_rad)
+                star_y = stars_y + radius * math.sin(angle_rad) * 0.5
 
-            # 보스 별과 동일한 10포인트(외곽/내곽) 별 모양, 크기 8
-            star_size = 8
-            star_points = []
-            for j in range(10):
-                angle_star = j * 36 - QUARTER_ROTATION
-                angle_star_rad = math.radians(angle_star)
-                if j % 2 == 0:
-                    px = star_x + star_size * math.cos(angle_star_rad)
-                    py = star_y + star_size * math.sin(angle_star_rad)
-                else:
-                    px = star_x + (star_size * 0.4) * math.cos(angle_star_rad)
-                    py = star_y + (star_size * 0.4) * math.sin(angle_star_rad)
-                star_points.append((px, py))
+                # 보스 별과 동일한 10포인트(외곽/내곽) 별 모양, 크기 8
+                star_size = 8
+                star_points = []
+                for j in range(10):
+                    angle_star = j * 36 - QUARTER_ROTATION
+                    angle_star_rad = math.radians(angle_star)
+                    if j % 2 == 0:
+                        px = star_x + star_size * math.cos(angle_star_rad)
+                        py = star_y + star_size * math.sin(angle_star_rad)
+                    else:
+                        px = star_x + (star_size * 0.4) * math.cos(angle_star_rad)
+                        py = star_y + (star_size * 0.4) * math.sin(angle_star_rad)
+                    star_points.append((px, py))
 
-            # 색상/테두리/글로우를 보스 스턴 별과 동일하게 적용
-            star_color = (255, 255, 100)
-            draw.polygon(star_color, star_points)
-            draw.polygon((255, 200, 0), star_points, 1)
-            glow_surface = pygame.Surface((star_size * 3, star_size * 3), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surface, (255, 255, 100, 60), (star_size * 1.5, star_size * 1.5), star_size)
-            SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
+                # 색상/테두리/글로우를 보스 스턴 별과 동일하게 적용
+                star_color = (255, 255, 100)
+                draw.polygon(star_color, star_points)
+                draw.polygon((255, 200, 0), star_points, 1)
+                glow_surface = pygame.Surface((star_size * 3, star_size * 3), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surface, (255, 255, 100, 60), (star_size * 1.5, star_size * 1.5), star_size)
+                SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
             
         # 스턴 텍스트 표시 (초인 테트로 폭발 유발 스턴 동안은 숨김)
         try:
@@ -48678,10 +48808,14 @@ def run_downtown_hub(next_stage_display: int) -> None:
     - 간단한 플레이어 데이터만 전달 (추가 자원 연동은 이후 확장).
     """
     global deposit_balance, deposit_interest_rate
+    global deposit_last_deposit_stage, deposit_pending_interest_rates
 
     try:
         screen = pygame.display.get_surface() or SCREEN
         # 이전 화면에서 남은 QUIT/KEY 이벤트가 바로 종료시키지 않도록 큐 비움
+        pygame.event.get()
+        # 키 입력 상태 초기화를 위해 잠시 대기 후 이벤트 다시 비우기
+        pygame.time.wait(100)  # 100ms 대기
         pygame.event.get()
         player_data = {
             "gold": trade_point_collected if "trade_point_collected" in globals() else 0,
@@ -48691,6 +48825,8 @@ def run_downtown_hub(next_stage_display: int) -> None:
             # 은행 예금 데이터 (스테이지 간 유지)
             "deposit_balance": deposit_balance,
             "last_interest_rate": deposit_interest_rate,
+            "last_deposit_stage": deposit_last_deposit_stage,
+            "pending_interest_rates": deposit_pending_interest_rates,
         }
         manager = DowntownManager(screen, academy=academy)
         manager.initialize(stage_number=next_stage_display, player_data=player_data)
@@ -48705,6 +48841,8 @@ def run_downtown_hub(next_stage_display: int) -> None:
         # 광장에서 돌아온 후 예금 데이터 동기화
         deposit_balance = manager.player_data.get('deposit_balance', 0)
         deposit_interest_rate = manager.player_data.get('last_interest_rate', 0.0)
+        deposit_last_deposit_stage = manager.player_data.get('last_deposit_stage', 0)
+        deposit_pending_interest_rates = manager.player_data.get('pending_interest_rates', {})
 
         pygame.event.get()  # 남은 이벤트 정리
     except Exception as err:  # 방어적: 광장 모듈 문제 시 다음 스테이지로 바로 이동
@@ -49916,6 +50054,7 @@ def show_start_screen():
     def enter_downtown_dev():
         """개발자용: 메인메뉴에서 0번 키로 광장 직접 입장"""
         global selected_character_type, deposit_balance, deposit_interest_rate
+        global deposit_last_deposit_stage, deposit_pending_interest_rates
         # 기본 캐릭터로 스매셔 선택
         char_type = selected_character_type if "selected_character_type" in globals() and selected_character_type else "smasher"
         player_data = {
@@ -49926,6 +50065,8 @@ def show_start_screen():
             # 은행 예금 데이터 (스테이지 간 유지)
             "deposit_balance": deposit_balance,
             "last_interest_rate": deposit_interest_rate,
+            "last_deposit_stage": deposit_last_deposit_stage,
+            "pending_interest_rates": deposit_pending_interest_rates,
         }
         manager = DowntownManager(SCREEN, academy=academy)
         manager.initialize(stage_number=1, player_data=player_data)
@@ -49937,6 +50078,8 @@ def show_start_screen():
         # 광장에서 돌아온 후 예금 데이터 동기화
         deposit_balance = manager.player_data.get('deposit_balance', 0)
         deposit_interest_rate = manager.player_data.get('last_interest_rate', 0.0)
+        deposit_last_deposit_stage = manager.player_data.get('last_deposit_stage', 0)
+        deposit_pending_interest_rates = manager.player_data.get('pending_interest_rates', {})
 
     ctx = MenuContext(
         get_screen=lambda: SCREEN,
@@ -65249,6 +65392,8 @@ def calculate_bounce(paddle):
 #  화염탄 맞았을 때 플레이어 스턴 관련 변수
 player_stunned_timer = 0      # 프레임 단위 (0이면 스턴 아님)
 player_knockback_vel = 0      # 좌우 튕김 속도
+# 스턴 별 애니메이션 억제 타이머 (ms)
+player_stun_star_suppress_until_ms = 0
 # Stage 4 달 크레이터 파편 화상 효과
 player_burn_timer = 0         # 화상 후딜 타이머 (프레임 단위)
 player_burn_effect = False    # 화상 효과 활성화 여부
@@ -67251,9 +67396,10 @@ def handle_ball():
                                 play_sound_with_volume(SOUND_DIVINE_THUNDER)
                             # 플레이어 스킬 게이지 증가 (기본 +40, 강화디바인스톤 +50)
                             try:
-                                gauge_gain = 50 if reinforced else 40
-                                special_gauge = min(special_gauge_max, special_gauge + gauge_gain)
-                                special_ready = special_gauge >= 350
+                                if selected_character_type != "optimus":
+                                    gauge_gain = 50 if reinforced else 40
+                                    special_gauge = min(special_gauge_max, special_gauge + gauge_gain)
+                                    special_ready = special_gauge >= 350
                             except Exception:
                                 pass
                             # 쿨타임: 기본 디바인스톤 15~25초, 강화디바인스톤 13~23초
@@ -67695,7 +67841,9 @@ def handle_ball():
                     # 충전가방 효과
                     if chargebag_obtained and not aipill_active:
                         # 캐릭터별 기본 게이지 충전량
-                        if selected_character_type == "soldier":
+                        if selected_character_type == "optimus":
+                            base_gauge_gain = 0  # 옵티머스는 자동 게이지 충전 없음
+                        elif selected_character_type == "soldier":
                             base_gauge_gain = 50  # 코만도: 게이지 충전 50
                         elif selected_character_type == "blacksmith":
                             if blacksmith_umbrella_open:
@@ -67704,21 +67852,22 @@ def handle_ball():
                                 base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                         else:
                             base_gauge_gain = 80  # 스매셔: 게이지 충전 80
-                        # 충전가방: 현재 게이지 획득량(블루투스링 등 적용)을 기반으로 추가 충전
-                        bonus_pct = globals().get("chargebag_bonus_pct", 20)
-                        # 패들 히트 기준 게이지 획득량을 재계산해 보너스를 맞춰준다.
-                        current_gain_tmp = base_gauge_gain
-                        try:
-                            if is_bluetooth_ring_active():
-                                bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
-                                current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
-                        except Exception:
-                            pass
-                        chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
-                        old_gauge = special_gauge
-                        current_max = get_max_gauge()
-                        special_gauge = min(current_max, special_gauge + chargebag_gain)
-                        print(f"충전가방! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
+                        if base_gauge_gain > 0:
+                            # 충전가방: 현재 게이지 획득량(블루투스링 등 적용)을 기반으로 추가 충전
+                            bonus_pct = globals().get("chargebag_bonus_pct", 20)
+                            # 패들 히트 기준 게이지 획득량을 재계산해 보너스를 맞춰준다.
+                            current_gain_tmp = base_gauge_gain
+                            try:
+                                if is_bluetooth_ring_active():
+                                    bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
+                                    current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
+                            except Exception:
+                                pass
+                            chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
+                            old_gauge = special_gauge
+                            current_max = get_max_gauge()
+                            special_gauge = min(current_max, special_gauge + chargebag_gain)
+                            print(f"충전가방! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
 
                     wall_hit = True
                     break  # 한 번에 하나의 벽돌만 처리
@@ -68409,7 +68558,9 @@ def handle_ball():
         # 충전가방 효과: 공이 벽에 닿을 때마다 기본 게이지 충전량의 20% 충전
         if chargebag_obtained and not aipill_active:
             # 캐릭터별 기본 게이지 충전량
-            if selected_character_type == "soldier":
+            if selected_character_type == "optimus":
+                base_gauge_gain = 0  # 옵티머스는 자동 게이지 충전 없음
+            elif selected_character_type == "soldier":
                 base_gauge_gain = 50  # 코만도: 게이지 충전 50
             elif selected_character_type == "blacksmith":
                 if blacksmith_umbrella_open:
@@ -68418,22 +68569,23 @@ def handle_ball():
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
                 base_gauge_gain = 80  # 스매셔: 게이지 충전 80
-            # 충전가방은 현재 게이지 획득량(블루투스링 등 적용)에 롤 보너스를 곱해 추가 충전
-            bonus_pct = globals().get("chargebag_bonus_pct", 20)
-            current_gain_tmp = base_gauge_gain
-            try:
-                if is_bluetooth_ring_active():
-                    bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
-                    current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
-            except Exception:
-                pass
-            chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
-            print(f" DEBUG:     ( : {chargebag_gain})")
-            old_gauge = special_gauge
-            #  동적 최대치 계산 적용
-            current_max = get_max_gauge()
-            special_gauge = min(current_max, special_gauge + chargebag_gain)
-            print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
+            if base_gauge_gain > 0:
+                # 충전가방은 현재 게이지 획득량(블루투스링 등 적용)에 롤 보너스를 곱해 추가 충전
+                bonus_pct = globals().get("chargebag_bonus_pct", 20)
+                current_gain_tmp = base_gauge_gain
+                try:
+                    if is_bluetooth_ring_active():
+                        bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
+                        current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
+                except Exception:
+                    pass
+                chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
+                print(f" DEBUG:     ( : {chargebag_gain})")
+                old_gauge = special_gauge
+                #  동적 최대치 계산 적용
+                current_max = get_max_gauge()
+                special_gauge = min(current_max, special_gauge + chargebag_gain)
+                print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
     elif BALL.right >= WIDTH:
         BALL.right = WIDTH
         ball_vel[0] *= -1
@@ -68445,7 +68597,9 @@ def handle_ball():
         # 충전가방 효과: 공이 벽에 닿을 때마다 기본 게이지 충전량의 20% 충전
         if chargebag_obtained and not aipill_active:
             # 캐릭터별 기본 게이지 충전량
-            if selected_character_type == "soldier":
+            if selected_character_type == "optimus":
+                base_gauge_gain = 0  # 옵티머스는 자동 게이지 충전 없음
+            elif selected_character_type == "soldier":
                 base_gauge_gain = 50  # 코만도: 게이지 충전 50
             elif selected_character_type == "blacksmith":
                 if blacksmith_umbrella_open:
@@ -68454,22 +68608,23 @@ def handle_ball():
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
                 base_gauge_gain = 80  # 스매셔: 게이지 충전 80
-            # 충전가방은 현재 게이지 획득량(블루투스링 등 적용)에 롤 보너스를 곱해 추가 충전
-            bonus_pct = globals().get("chargebag_bonus_pct", 20)
-            current_gain_tmp = base_gauge_gain
-            try:
-                if is_bluetooth_ring_active():
-                    bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
-                    current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
-            except Exception:
-                pass
-            chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
-            print(f" DEBUG:     ( : {chargebag_gain})")
-            old_gauge = special_gauge
-            #  동적 최대치 계산 적용
-            current_max = get_max_gauge()
-            special_gauge = min(current_max, special_gauge + chargebag_gain)
-            print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
+            if base_gauge_gain > 0:
+                # 충전가방은 현재 게이지 획득량(블루투스링 등 적용)에 롤 보너스를 곱해 추가 충전
+                bonus_pct = globals().get("chargebag_bonus_pct", 20)
+                current_gain_tmp = base_gauge_gain
+                try:
+                    if is_bluetooth_ring_active():
+                        bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
+                        current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
+                except Exception:
+                    pass
+                chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
+                print(f" DEBUG:     ( : {chargebag_gain})")
+                old_gauge = special_gauge
+                #  동적 최대치 계산 적용
+                current_max = get_max_gauge()
+                special_gauge = min(current_max, special_gauge + chargebag_gain)
+                print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
         
         # 무승부 판정 시스템: 좌우 벽 연속 충돌 카운트
         current_time = pygame.time.get_ticks()
@@ -69365,7 +69520,9 @@ def handle_ball():
                 base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
             else:
                 # 캐릭터별 기본 게이지 충전량
-                if selected_character_type == "soldier":
+                if selected_character_type == "optimus":
+                    base_gauge_gain = 0  # 옵티머스는 패들 히트로 게이지를 획득하지 않음
+                elif selected_character_type == "soldier":
                     base_gauge_gain = 50  # 코만도: 기본 50
                     # 비-권총 화기 선택 시 50% 감소(25) - handle_ball 백업 경로에도 동일 규칙 적용
                     if _is_soldier_non_pistol_selected():
@@ -74117,6 +74274,12 @@ def main(stage_num, new_boss_mode=False):
 
     boss_fail_timer = 0  # 보스 실수 타이머 초기화
     current_stage = stage_num
+    # 스테이지 진입 시 옵티머스 배터리를 항상 풀 충전 (라운드 사이에는 유지)
+    try:
+        if globals().get("selected_character_type") == "optimus":
+            reset_optimus_energy(full_gauge=True)
+    except Exception:
+        pass
     # 튜토리얼(Stage 50) 이외에서는 챕터별 임시 최대 게이지 영향이 남지 않도록 즉시 해제
     if current_stage != 50:
         try:
@@ -79127,6 +79290,7 @@ def show_pause_menu():
         return None
 
     while True:
+        _freeze_optimus_energy_timers()
         # 현재 게임 화면을 배경으로 사용
         draw_field()
         draw_shaking_screen()
@@ -79694,6 +79858,7 @@ def show_character_info():
     clock = pygame.time.Clock()
     # Tab 상태 스냅샷: 진입 시 눌린 상태는 무시하고, 놓았다가 다시 누를 때만 종료
     tab_prev = pygame.key.get_pressed()[pygame.K_TAB]
+    _freeze_optimus_energy_timers()
     sync_equipped_passive_effects()
     # 장비 슬롯/매핑 (전역 정의 재사용)
     slot_definitions = EQUIPMENT_SLOT_DEFINITIONS
@@ -80246,6 +80411,7 @@ def show_character_info():
         move_speed = (base_max_speed + skill_speed_boost) * speed_multiplier
         if char_type == "optimus":
             move_speed *= get_optimus_gauge_ratio()
+            move_speed = max(1.0, move_speed)
 
         def estimate_dash_distance(base_timer: float) -> float:
             """대쉬 타이머(프레임)로 예상 이동거리를 근사한다."""
@@ -80302,6 +80468,8 @@ def show_character_info():
 
         def compute_gauge_gain_per_hit() -> tuple[int, int]:
             """패들 히트 1회당 게이지 획득량 (기본값, 현재 적용값)."""
+            if char_type == "optimus":
+                return 0, 0  # 옵티머스는 히트로 게이지를 얻지 않음
             if (
                 "tutorial_current_chapter" in globals()
                 and globals().get("tutorial_current_chapter") == 4
@@ -80703,6 +80871,8 @@ def show_character_info():
 
     dragging_item = None
     while True:
+        # 캐릭터정보창을 보는 동안 옵티머스 게이지/최대치 감소 타이머를 고정한다.
+        _freeze_optimus_energy_timers()
         dt = clock.tick(60)
         slot_state = get_equipment_state()
         # 보유한 모든 패시브 아이템을 보여주되, 장착 여부는 아이콘 상태로 구분
@@ -81163,6 +81333,7 @@ def show_game_info():
     clock = pygame.time.Clock()
     
     while True:
+        _freeze_optimus_energy_timers()
         # 델타 타임 계산 (60 FPS 제한)
         dt = clock.tick(60)
         # 입력 상태 갱신
