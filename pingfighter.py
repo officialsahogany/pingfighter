@@ -5072,7 +5072,7 @@ OPTIMUS_PADDLE_TARGET_WIDTH = int(560 * OPTIMUS_HITBOX_SCALE)                   
 OPTIMUS_PADDLE_BASE_HEIGHT = int(MECHA_SPRITE_SIZE[1] * OPTIMUS_HITBOX_SCALE)  # 320 * 0.575 ≈ 184px
 OPTIMUS_BASE_MAX_SPEED = 4                       # 기본 이동 속도(캐릭터 능력치 기준)
 OPTIMUS_DECELERATION_MULT = 0.5                  # 감속을 절반으로(2배 느리게)
-OPTIMUS_TURN_DECEL_MULT = 0.4                    # 좌우 방향 전환 감속 속도 60% 감소
+OPTIMUS_TURN_DECEL_MULT = 0.2                    # 좌우 방향 전환 감속 속도 80% 감소 (현행 대비 2배 더 둔하게)
 OPTIMUS_FLOOR_ADJUST = 72                        # 렌더링 시 발 위치 하향 보정 (36→72, 고해상도)
 OPTIMUS_MAX_GAUGE = 500                          # 시작/최대 배터리 용량
 OPTIMUS_GAUGE_DRAIN_PER_SEC = 7                  # 초당 배터리 소모량
@@ -5259,7 +5259,7 @@ def update_optimus_energy() -> None:
                 speed = random.uniform(2.5, 4.5)
                 px = gauge_x + random.randint(-8, 22)  # 게이지바 주변
                 py = gauge_y + random.randint(0, gauge_height)
-                lifetime = random.randint(600, 1000)  # ms
+                lifetime = random.randint(1200, 1800)  # ms - 2초 애니메이션에 맞게 연장
                 optimus_low_gauge_energy_particles.append({
                     'x': px, 'y': py,
                     'vx': math.sin(angle) * speed,
@@ -5284,7 +5284,7 @@ def update_optimus_energy() -> None:
                 speed = random.uniform(3.5, 6.0)  # 더 빠른 속도
                 px = gauge_x + random.randint(-15, 30)  # 더 넓은 범위
                 py = gauge_y + random.randint(0, gauge_height)
-                lifetime = random.randint(800, 1400)  # 더 오래 지속
+                lifetime = random.randint(1400, 2000)  # 2초 애니메이션에 맞게 연장
                 optimus_critical_gauge_energy_particles.append({
                     'x': px, 'y': py,
                     'vx': math.sin(angle) * speed * 1.5,
@@ -41591,15 +41591,15 @@ def draw_player_gauge():
         # === 옵티머스 최대 게이지 400 이하 경고 애니메이션 ===
         if optimus_low_gauge_warning_triggered and optimus_low_gauge_warning_timer > 0:
             warning_elapsed = time_now - optimus_low_gauge_warning_timer
-            warning_duration = 1200  # 전체 애니메이션 1.2초
+            warning_duration = 2000  # 전체 애니메이션 2초
 
             if warning_elapsed < warning_duration:
                 # 경고 오버레이 Surface 생성
                 warning_surf = pygame.Surface((gauge_width + 20, gauge_height + 30), pygame.SRCALPHA)
 
                 # 단계별 색상 전환: 붉어짐 → 하얘짐 → 살짝 붉어지며 에너지 휘감기
-                if warning_elapsed < 300:  # 0~300ms: 강렬한 붉은색으로 경고
-                    phase_progress = warning_elapsed / 300.0
+                if warning_elapsed < 400:  # 0~400ms: 강렬한 붉은색으로 경고
+                    phase_progress = warning_elapsed / 400.0
                     red_intensity = int(255 * phase_progress)
                     glow_alpha = int(180 * phase_progress)
                     # 붉은 글로우 오버레이
@@ -41608,24 +41608,24 @@ def draw_player_gauge():
                     # 붉은 테두리 펄스
                     pygame.draw.rect(warning_surf, (255, 80, 80, int(200 * phase_progress)),
                                    (0, 0, gauge_width + 20, gauge_height + 30), 3, border_radius=8)
-                elif warning_elapsed < 550:  # 300~550ms: 하얀색으로 플래시
-                    phase_progress = (warning_elapsed - 300) / 250.0
+                elif warning_elapsed < 750:  # 400~750ms: 하얀색으로 플래시
+                    phase_progress = (warning_elapsed - 400) / 350.0
                     white_intensity = int(255 * (1.0 - phase_progress * 0.7))
                     glow_alpha = int(150 * (1.0 - phase_progress))
                     # 하얀 플래시
                     pygame.draw.rect(warning_surf, (white_intensity, white_intensity, white_intensity, glow_alpha),
                                    (0, 0, gauge_width + 20, gauge_height + 30), border_radius=8)
-                else:  # 550~1200ms: 살짝 붉은 에너지가 휘감으며 페이드아웃
-                    phase_progress = (warning_elapsed - 550) / 650.0
+                else:  # 750~2000ms: 살짝 붉은 에너지가 휘감으며 페이드아웃
+                    phase_progress = (warning_elapsed - 750) / 1250.0
                     fade_alpha = int(100 * (1.0 - phase_progress))
                     # 연한 붉은 잔상
                     red_tint = int(180 * (1.0 - phase_progress))
                     pygame.draw.rect(warning_surf, (red_tint, 60, 80, fade_alpha),
                                    (0, 0, gauge_width + 20, gauge_height + 30), border_radius=8)
                     # 휘감는 에너지 링 효과
-                    ring_count = 3
+                    ring_count = 4
                     for ri in range(ring_count):
-                        ring_y = int((gauge_height + 20) * ((phase_progress + ri * 0.15) % 1.0))
+                        ring_y = int((gauge_height + 20) * ((phase_progress + ri * 0.12) % 1.0))
                         ring_alpha = int(120 * (1.0 - phase_progress))
                         pygame.draw.line(warning_surf, (255, 100, 120, ring_alpha),
                                        (2, ring_y), (gauge_width + 18, ring_y), 2)
@@ -41672,15 +41672,15 @@ def draw_player_gauge():
         # === 옵티머스 최대 게이지 300 이하 위험 경고 애니메이션 (더 화려함) ===
         if optimus_critical_gauge_warning_triggered and optimus_critical_gauge_warning_timer > 0:
             critical_elapsed = time_now - optimus_critical_gauge_warning_timer
-            critical_duration = 1800  # 전체 애니메이션 1.8초 (더 길게)
+            critical_duration = 2000  # 전체 애니메이션 2초
 
             if critical_elapsed < critical_duration:
                 # 위험 경고 오버레이 Surface 생성 (더 큰 영역)
                 critical_surf = pygame.Surface((gauge_width + 40, gauge_height + 50), pygame.SRCALPHA)
 
                 # 단계별 색상 전환: 강렬한 빨강 → 하얀 플래시 → 빨간색 펄스 + 전기 효과
-                if critical_elapsed < 400:  # 0~400ms: 매우 강렬한 빨간색 경고
-                    phase_progress = critical_elapsed / 400.0
+                if critical_elapsed < 450:  # 0~450ms: 매우 강렬한 빨간색 경고
+                    phase_progress = critical_elapsed / 450.0
                     red_intensity = int(255 * phase_progress)
                     glow_alpha = int(220 * phase_progress)
                     # 강렬한 빨간 글로우 오버레이
@@ -41695,8 +41695,8 @@ def draw_player_gauge():
                         pygame.draw.rect(critical_surf, (255, 100, 100, ring_alpha),
                                        (ring * 3, ring * 3, gauge_width + 40 - ring * 6, gauge_height + 50 - ring * 6),
                                        2, border_radius=10 - ring)
-                elif critical_elapsed < 700:  # 400~700ms: 강렬한 하얀 플래시
-                    phase_progress = (critical_elapsed - 400) / 300.0
+                elif critical_elapsed < 800:  # 450~800ms: 강렬한 하얀 플래시
+                    phase_progress = (critical_elapsed - 450) / 350.0
                     white_intensity = int(255 * (1.0 - phase_progress * 0.5))
                     glow_alpha = int(200 * (1.0 - phase_progress * 0.7))
                     # 하얀 플래시 (더 밝게)
@@ -41710,8 +41710,8 @@ def draw_player_gauge():
                         bolt_mid_x = bolt_x + random.randint(-8, 8)
                         pygame.draw.lines(critical_surf, (255, 255, 255, int(180 * (1 - phase_progress))), False,
                                         [(bolt_x, bolt_y1), (bolt_mid_x, (bolt_y1 + bolt_y2) // 2), (bolt_x, bolt_y2)], 2)
-                else:  # 700~1800ms: 빨간색 잔상 + 전기 아크 + 나선형 에너지
-                    phase_progress = (critical_elapsed - 700) / 1100.0
+                else:  # 800~2000ms: 빨간색 잔상 + 전기 아크 + 나선형 에너지
+                    phase_progress = (critical_elapsed - 800) / 1200.0
                     fade_alpha = int(140 * (1.0 - phase_progress))
                     # 붉은 잔상 (더 강렬하게)
                     red_tint = int(220 * (1.0 - phase_progress * 0.7))
