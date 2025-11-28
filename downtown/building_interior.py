@@ -3892,7 +3892,7 @@ class BuildingInterior:
             self._draw_shop_tooltip(screen, mouse_pos, get_item_description)
 
     def _draw_shop_tooltip(self, screen, mouse_pos, get_item_description=None):
-        """상점 아이템 툴팁 그리기 - 캐릭터 정보창 스타일"""
+        """상점 아이템 툴팁 그리기 - 캐릭터 정보창과 동일한 스타일"""
         if not self.shop_hover_item:
             return
 
@@ -3902,24 +3902,56 @@ class BuildingInterior:
 
         source, idx, item, cell_rect = self.shop_hover_item
         item_name = item.get("name", "")
-        korean_name = self._get_item_korean_name(item_name)
         is_legendary = item.get("type") == "legendary"
+
+        # pingfighter 함수들 가져오기
+        try:
+            import pingfighter
+            format_item_display_name = getattr(pingfighter, 'format_item_display_name', None)
+            get_item_quality_color = getattr(pingfighter, 'get_item_quality_color', None)
+            get_item_slot_label = getattr(pingfighter, 'get_item_slot_label', None)
+            get_item_description_func = getattr(pingfighter, 'get_item_description', None)
+        except:
+            format_item_display_name = None
+            get_item_quality_color = None
+            get_item_slot_label = None
+            get_item_description_func = get_item_description
+
+        # 아이템 이름 (수식어 포함)
+        if format_item_display_name:
+            display_name = format_item_display_name(item)
+        else:
+            display_name = self._get_item_korean_name(item_name)
+
+        # 아이템 품질 색상
+        if get_item_quality_color:
+            name_color = get_item_quality_color(item)
+        else:
+            name_color = None
+        if not name_color:
+            name_color = (255, 215, 0) if is_legendary else (240, 240, 240)
+
+        # 슬롯 라벨
+        if get_item_slot_label:
+            slot_label = get_item_slot_label(item_name)
+        else:
+            slot_label = self._get_item_slot_label(item_name)
 
         # 가격 계산
         if source == "player":
             base_price = self._get_item_base_price(item_name)
             price = int(base_price * 0.3)
-            price_label = "판매가"
         else:  # shop
             price = item.get("price", 0)
-            price_label = "구매가"
 
         # 아이템 설명 가져오기
         description = ""
-        if get_item_description:
+        if get_item_description_func:
+            description = get_item_description_func(item_name)
+        elif get_item_description:
             description = get_item_description(item_name)
 
-        # 롤 옵션 가져오기
+        # 롤 옵션 가져오기 (색상 포함)
         rolled_options = item.get("rolled_options", []) or item.get("options", [])
 
         # 폰트
@@ -3929,36 +3961,25 @@ class BuildingInterior:
         if not font_small:
             return
 
-        # 색상
-        BG_COLOR = (16, 20, 34, 245)
+        # 색상 정의
+        BG_COLOR = (16, 20, 34, 235)
         BORDER_COLOR = (200, 170, 100) if is_legendary else (120, 180, 255)
-        TEXT_WHITE = (240, 240, 240)
-        TEXT_GOLD = (255, 215, 100)
         TEXT_DESC = (200, 210, 230)
-        TEXT_OPTION = (120, 255, 170)
+        TEXT_GOLD = (255, 215, 100)
+        SLOT_COLOR = (255, 220, 160)
 
-        # 툴팁 내용 구성
-        lines = []
-        line_colors = []
-
-        # 1. 아이템 이름
-        lines.append(korean_name)
-        line_colors.append(TEXT_GOLD if is_legendary else TEXT_WHITE)
-
-        # 2. 타입 라벨
-        type_label = "전설" if is_legendary else "신발" if "boots" in item_name or "shoes" in item_name else "패시브"
-        lines.append(type_label)
-        line_colors.append((255, 220, 160))
-
-        # 3. 설명 (여러 줄로 분리)
+        # === 좌측 박스 (이름 + 슬롯 + 설명) ===
+        # 설명 텍스트 처리
+        desc_clean = ""
         if description:
-            # 설명에서 아이템 이름 부분 제거
             desc_clean = description
             if ":" in desc_clean:
                 desc_clean = desc_clean.split(":", 1)[-1].strip()
 
-            # 줄바꿈 처리 (약 25자마다)
-            max_chars = 25
+        # 설명 줄바꿈
+        desc_lines = []
+        if desc_clean:
+            max_chars = 22
             words = desc_clean.split()
             current_line = ""
             for word in words:
@@ -3966,66 +3987,168 @@ class BuildingInterior:
                     current_line = (current_line + " " + word).strip()
                 else:
                     if current_line:
-                        lines.append(current_line)
-                        line_colors.append(TEXT_DESC)
+                        desc_lines.append(current_line)
                     current_line = word
             if current_line:
-                lines.append(current_line)
-                line_colors.append(TEXT_DESC)
+                desc_lines.append(current_line)
 
-        # 4. 롤 옵션
-        if rolled_options:
-            lines.append("")  # 빈 줄
-            line_colors.append(TEXT_DESC)
-            for opt in rolled_options:
-                opt_text = opt.get("text", "") if isinstance(opt, dict) else str(opt)
-                if opt_text:
-                    lines.append(opt_text)
-                    line_colors.append(TEXT_OPTION)
+        # 롤 옵션 라인
+        option_lines = []
+        for opt in rolled_options:
+            if isinstance(opt, dict):
+                opt_text = opt.get("text", "")
+                opt_color = opt.get("color", (120, 255, 170))
+            else:
+                opt_text = str(opt)
+                opt_color = (120, 255, 170)
+            if opt_text:
+                option_lines.append({"text": opt_text, "color": opt_color})
 
-        # 5. 가격
-        lines.append("")  # 빈 줄
-        line_colors.append(TEXT_DESC)
-        lines.append(f"{price_label}: {price:,}G")
-        line_colors.append(TEXT_GOLD)
-
-        # 툴팁 크기 계산
-        line_height = 20
+        # 크기 계산
+        line_height = 22
         padding = 12
-        max_width = 0
-        for line in lines:
-            if line:
-                surf, rect = font_small.render(line, TEXT_WHITE)
-                max_width = max(max_width, rect.width)
 
-        tooltip_w = max(220, min(320, max_width + padding * 2))
-        tooltip_h = padding * 2 + len(lines) * line_height
+        # 좌측 박스 크기
+        name_surf, name_rect = font_small.render(display_name, name_color)
+        slot_surf = None
+        if slot_label:
+            slot_surf, slot_rect = font_small.render(slot_label, SLOT_COLOR)
+
+        left_w = max(180, name_rect.width + (slot_rect.width + 20 if slot_surf else 0) + padding * 2)
+        for line in desc_lines:
+            surf, rect = font_small.render(line, TEXT_DESC)
+            left_w = max(left_w, rect.width + padding * 2)
+        left_w = min(260, left_w)
+
+        left_h = padding + name_rect.height + 8  # 이름 + 슬롯 줄
+        left_h += len(desc_lines) * line_height  # 설명 줄들
+        left_h += padding
+
+        # 우측 박스 크기 (옵션 + 가격)
+        right_w = 0
+        for opt in option_lines:
+            surf, rect = font_small.render(opt["text"], opt["color"])
+            right_w = max(right_w, rect.width + padding * 2)
+
+        # 가격 표시 (금화 아이콘 + 숫자)
+        price_text = f"{price:,}"
+        price_surf, price_rect = font_small.render(price_text, TEXT_GOLD)
+        coin_size = 16
+        price_total_w = coin_size + 6 + price_rect.width
+        right_w = max(right_w, price_total_w + padding * 2)
+        right_w = max(120, min(180, right_w))
+
+        right_h = padding
+        if option_lines:
+            right_h += len(option_lines) * line_height
+            right_h += 8  # 간격
+        right_h += line_height  # 가격 줄
+        right_h += padding
+
+        # 전체 툴팁 크기
+        gap = 12
+        total_w = left_w + gap + right_w
+        total_h = max(left_h, right_h)
 
         # 툴팁 위치 (셀 위에 표시)
-        tooltip_x = cell_rect.x + cell_rect.width // 2 - tooltip_w // 2
-        tooltip_y = cell_rect.y - tooltip_h - 8
+        tooltip_x = cell_rect.x + cell_rect.width // 2 - total_w // 2
+        tooltip_y = cell_rect.y - total_h - 8
 
         # 화면 밖으로 나가지 않게 조정
         if tooltip_x < 10:
             tooltip_x = 10
-        if tooltip_x + tooltip_w > SCREEN_WIDTH - 10:
-            tooltip_x = SCREEN_WIDTH - tooltip_w - 10
+        if tooltip_x + total_w > SCREEN_WIDTH - 10:
+            tooltip_x = SCREEN_WIDTH - total_w - 10
         if tooltip_y < 10:
             tooltip_y = cell_rect.bottom + 8
 
-        # 배경 그리기
-        tooltip_surf = pygame.Surface((tooltip_w, tooltip_h), pygame.SRCALPHA)
-        pygame.draw.rect(tooltip_surf, BG_COLOR, (0, 0, tooltip_w, tooltip_h), border_radius=8)
-        screen.blit(tooltip_surf, (tooltip_x, tooltip_y))
-        pygame.draw.rect(screen, BORDER_COLOR, (tooltip_x, tooltip_y, tooltip_w, tooltip_h), 2, border_radius=8)
+        # === 좌측 박스 그리기 ===
+        left_rect = pygame.Rect(tooltip_x, tooltip_y, left_w, total_h)
+        left_surf = pygame.Surface((left_w, total_h), pygame.SRCALPHA)
+        pygame.draw.rect(left_surf, BG_COLOR, (0, 0, left_w, total_h), border_radius=8)
+        screen.blit(left_surf, (left_rect.x, left_rect.y))
+        pygame.draw.rect(screen, BORDER_COLOR, left_rect, 2, border_radius=8)
 
-        # 텍스트 그리기
-        text_y = tooltip_y + padding
-        for i, (line, color) in enumerate(zip(lines, line_colors)):
-            if line:
-                text_surf, text_rect = font_small.render(line, color)
-                screen.blit(text_surf, (tooltip_x + padding, text_y))
+        # 이름 + 슬롯
+        text_y = left_rect.y + padding
+        screen.blit(name_surf, (left_rect.x + padding, text_y))
+        if slot_surf:
+            screen.blit(slot_surf, (left_rect.right - slot_rect.width - padding, text_y))
+        text_y += name_rect.height + 8
+
+        # 설명
+        for line in desc_lines:
+            line_surf, _ = font_small.render(line, TEXT_DESC)
+            screen.blit(line_surf, (left_rect.x + padding, text_y))
             text_y += line_height
+
+        # === 우측 박스 그리기 ===
+        right_rect = pygame.Rect(tooltip_x + left_w + gap, tooltip_y, right_w, total_h)
+        right_surf = pygame.Surface((right_w, total_h), pygame.SRCALPHA)
+        pygame.draw.rect(right_surf, (18, 22, 40, 235), (0, 0, right_w, total_h), border_radius=8)
+        screen.blit(right_surf, (right_rect.x, right_rect.y))
+        pygame.draw.rect(screen, BORDER_COLOR, right_rect, 2, border_radius=8)
+
+        # 옵션
+        text_y = right_rect.y + padding
+        for opt in option_lines:
+            opt_surf, _ = font_small.render(opt["text"], opt["color"])
+            screen.blit(opt_surf, (right_rect.x + padding, text_y))
+            text_y += line_height
+
+        # 가격 (금화 아이콘 + 숫자)
+        if option_lines:
+            text_y += 4  # 간격
+
+        # 금화 아이콘 그리기
+        coin_x = right_rect.x + padding
+        coin_y = text_y + (line_height - coin_size) // 2
+        self._draw_gold_coin_icon(screen, coin_x, coin_y, coin_size)
+
+        # 가격 숫자
+        screen.blit(price_surf, (coin_x + coin_size + 6, text_y))
+
+    def _draw_gold_coin_icon(self, screen, x, y, size):
+        """금화 아이콘 그리기"""
+        # 동전 배경 (금색)
+        pygame.draw.circle(screen, (255, 200, 50), (x + size // 2, y + size // 2), size // 2)
+        # 동전 테두리 (어두운 금색)
+        pygame.draw.circle(screen, (180, 140, 30), (x + size // 2, y + size // 2), size // 2, 2)
+        # 동전 하이라이트
+        pygame.draw.circle(screen, (255, 230, 120), (x + size // 2 - 2, y + size // 2 - 2), size // 4)
+        # G 문자
+        font_tiny = self.fonts.get('tiny')
+        if font_tiny and size >= 14:
+            g_surf, g_rect = font_tiny.render("G", (120, 80, 20))
+            screen.blit(g_surf, (x + size // 2 - g_rect.width // 2, y + size // 2 - g_rect.height // 2))
+
+    def _get_item_slot_label(self, item_name):
+        """아이템 슬롯 라벨 반환 (pingfighter 연동 안될 때 폴백)"""
+        slot_map = {
+            "speedboots": "신발",
+            "spikeboots": "신발",
+            "hermes_shoes": "신발",
+            "speedgear": "장신구",
+            "battery": "장신구",
+            "revival": "장신구",
+            "master": "장신구",
+            "cooltime": "장신구",
+            "chargebag": "가방",
+            "dashgear": "장신구",
+            "bulkup": "상의",
+            "sensor": "장신구",
+            "gravitybelt": "허리",
+            "dashholder": "허리",
+            "dowsing_pendulum": "장신구",
+            "smartphone": "장신구",
+            "commando_arm": "팔",
+            "technical_vest": "상의",
+            "fuel_pouch": "가방",
+            "slot_add": "가방",
+            "ragnarok_hammer": "전설",
+            "poseidon_trident": "전설",
+        }
+        return slot_map.get(item_name, "패시브")
 
     def _get_item_korean_name(self, item_name):
         """아이템 영문명을 한글명으로 변환"""
