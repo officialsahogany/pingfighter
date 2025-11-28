@@ -2579,12 +2579,11 @@ class EmptyLegendary(LegendaryItem):
         print(f"빈전설 프레임 {frames_loaded}/8개 로드")
 
     def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
-        """프레임에서 테두리 영역만 유지 (가장자리 6픽셀), 중앙 완전 제거"""
+        """프레임에서 테두리 영역(가장자리 6픽셀) 그대로 유지, 내부만 완전 제거"""
         result = frame.copy()
         width, height = frame.get_size()
-        cx, cy = width // 2, height // 2
 
-        # 테두리 두께 (가장자리에서 이 범위 내의 픽셀만 유지)
+        # 테두리 두께 (가장자리에서 이 범위 내의 픽셀은 그대로 유지)
         border_thickness = 6
 
         for py in range(height):
@@ -2602,19 +2601,8 @@ class EmptyLegendary(LegendaryItem):
                 # 가장 가까운 가장자리까지의 거리
                 min_dist = min(dist_from_left, dist_from_right, dist_from_top, dist_from_bottom)
 
-                # 테두리 영역인지 확인
-                is_border = min_dist < border_thickness
-
-                # 테두리 영역이라도 빨간색이 아니면 제거 (망치 그림자 제거)
-                if is_border:
-                    r, g, b = color.r, color.g, color.b
-                    # 빨간색 계열 또는 은색/흰색 계열만 유지
-                    is_red = r > 100 and r > g + 20 and r > b + 20
-                    is_silver = r > 120 and g > 120 and b > 120 and abs(r - g) < 50 and abs(g - b) < 50
-                    if not is_red and not is_silver:
-                        result.set_at((px, py), (0, 0, 0, 0))
-                else:
-                    # 테두리 영역이 아니면 모두 제거
+                # 테두리 영역이 아니면 (내부면) 모두 제거
+                if min_dist >= border_thickness:
                     result.set_at((px, py), (0, 0, 0, 0))
 
         return result
@@ -2624,23 +2612,10 @@ class EmptyLegendary(LegendaryItem):
         self.active = False
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 천사의 가호와 동일 (주사위 없음)"""
-        # 공통 배경 프레임 연출 (천사의 가호와 동일)
-        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
-
-        # 애니메이션 프레임 그리기 (중앙 망치 제거된 프레임 = 테두리만)
-        if self.animation_frames and len(self.animation_frames) > 0:
-            self.frame_counter += 1
-            if self.frame_counter >= self.animation_speed:
-                self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
-
-            icon_y = y + frame_offset + int(self.animation_offset)
-            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
-            scaled_icon = pygame.transform.scale(current_icon, (size, size))
-            screen.blit(scaled_icon, (x, icon_y))
-
-            # 중앙 주사위 없음 - 빈 슬롯
+        """애니메이션 아이콘 그리기 - 공통 프레임만 사용 (PNG 프레임 사용 안 함)"""
+        # 공통 배경 프레임 연출만 사용 (글로우 + 빨간 테두리 + 코너)
+        # PNG 프레임을 사용하지 않아 해머/번개 잔상 없음
+        _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
 
 class AngelBlessing(LegendaryItem):

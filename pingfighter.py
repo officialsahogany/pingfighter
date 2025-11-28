@@ -1730,6 +1730,10 @@ optimus_low_gauge_warning_triggered = False  # 400 이하로 떨어졌을 때 1�
 optimus_low_gauge_warning_timer = 0  # 경고 애니메이션 타이머 (ms 기준)
 optimus_low_gauge_warning_phase = 0  # 애니메이션 단계 (0: 붉어짐, 1: 하얘짐, 2: 에너지 휘감기)
 optimus_low_gauge_energy_particles = []  # 에너지 파티클 리스트
+# 옵티머스 최대 게이지 300 이하 위험 경고 애니메이션
+optimus_critical_gauge_warning_triggered = False  # 300 이하로 떨어졌을 때 1회 트리거
+optimus_critical_gauge_warning_timer = 0  # 위험 경고 애니메이션 타이머
+optimus_critical_gauge_energy_particles = []  # 위험 경고 에너지 파티클
 PLAYER_PADDLE_SCALE_BY_MODE: dict[str, float] = {
     "junior": 1.2,
     "주니어": 1.2,
@@ -5074,7 +5078,7 @@ OPTIMUS_MAX_GAUGE = 500                          # 시작/최대 배터리 용�
 OPTIMUS_GAUGE_DRAIN_PER_SEC = 7                  # 초당 배터리 소모량
 OPTIMUS_MIN_PADDLE_WIDTH = 250                   # 방전 시 패들 최소 너비
 OPTIMUS_CHARGE_HOLD_MS = 500                     # 충전 시작까지 누르고 있을 시간
-OPTIMUS_CHARGE_RATE_PER_SEC = 50                 # 충전 중 초당 게이지 회복량
+OPTIMUS_CHARGE_RATE_PER_SEC = 60                 # 충전 중 초당 게이지 회복량
 
 OPTIMUS_MECHA_PALETTE = {
     # 실버+네온 청록 기반 테슬라 사이버 로봇 컬러링
@@ -5140,6 +5144,8 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     global optimus_charge_shockwave_at_ms, optimus_charge_shake_until_ms
     global optimus_low_gauge_warning_triggered, optimus_low_gauge_warning_timer
     global optimus_low_gauge_warning_phase, optimus_low_gauge_energy_particles
+    global optimus_critical_gauge_warning_triggered, optimus_critical_gauge_warning_timer
+    global optimus_critical_gauge_energy_particles
     if globals().get("selected_character_type") != "optimus":
         return
 
@@ -5148,11 +5154,15 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     optimus_charge_block_until_ms = 0
     optimus_charge_shockwave_at_ms = 0
     optimus_charge_shake_until_ms = 0
-    # 경고 애니메이션 초기화
+    # 경고 애니메이션 초기화 (400 이하)
     optimus_low_gauge_warning_triggered = False
     optimus_low_gauge_warning_timer = 0
     optimus_low_gauge_warning_phase = 0
     optimus_low_gauge_energy_particles = []
+    # 위험 경고 애니메이션 초기화 (300 이하)
+    optimus_critical_gauge_warning_triggered = False
+    optimus_critical_gauge_warning_timer = 0
+    optimus_critical_gauge_energy_particles = []
     special_gauge_max = get_max_gauge()
     if full_gauge:
         special_gauge = special_gauge_max
@@ -5195,6 +5205,8 @@ def update_optimus_energy() -> None:
     global PADDLE_WIDTH, PADDLE_HEIGHT, PLAYER
     global optimus_low_gauge_warning_triggered, optimus_low_gauge_warning_timer
     global optimus_low_gauge_warning_phase, optimus_low_gauge_energy_particles
+    global optimus_critical_gauge_warning_triggered, optimus_critical_gauge_warning_timer
+    global optimus_critical_gauge_energy_particles
 
     if globals().get("selected_character_type") != "optimus":
         return
@@ -5256,6 +5268,32 @@ def update_optimus_energy() -> None:
                     'max_life': lifetime,
                     'size': random.uniform(2, 4),
                     'spawn_time': now
+                })
+
+        # 최대 게이지가 300 이하로 떨어지면 위험 경고 애니메이션 1회 트리거 (더 화려함)
+        if current_max_gauge is not None and current_max_gauge <= 300 and not optimus_critical_gauge_warning_triggered:
+            optimus_critical_gauge_warning_triggered = True
+            optimus_critical_gauge_warning_timer = now
+            # 더 많은 에너지 파티클 생성 (화려한 위험 경고)
+            optimus_critical_gauge_energy_particles = []
+            gauge_x = WIDTH - 44
+            gauge_y = HEIGHT - 200
+            gauge_height = 118
+            for i in range(24):  # 24개의 에너지 파티클 (2배)
+                angle = random.uniform(-1.0, 1.0)  # 더 넓은 각도
+                speed = random.uniform(3.5, 6.0)  # 더 빠른 속도
+                px = gauge_x + random.randint(-15, 30)  # 더 넓은 범위
+                py = gauge_y + random.randint(0, gauge_height)
+                lifetime = random.randint(800, 1400)  # 더 오래 지속
+                optimus_critical_gauge_energy_particles.append({
+                    'x': px, 'y': py,
+                    'vx': math.sin(angle) * speed * 1.5,
+                    'vy': -speed * random.uniform(2.0, 3.5),  # 더 높이 솟구침
+                    'life': lifetime,
+                    'max_life': lifetime,
+                    'size': random.uniform(3, 6),  # 더 큰 파티클
+                    'spawn_time': now,
+                    'spiral_phase': random.uniform(0, math.pi * 2)  # 나선형 회전용
                 })
 
     # 충전 중에는 기본 배터리 소모를 일시 정지
@@ -41162,6 +41200,8 @@ def draw_player_gauge():
     global soldier_emergency_supply_toast_timer, soldier_emergency_supply_used
     global optimus_low_gauge_warning_triggered, optimus_low_gauge_warning_timer
     global optimus_low_gauge_warning_phase, optimus_low_gauge_energy_particles
+    global optimus_critical_gauge_warning_triggered, optimus_critical_gauge_warning_timer
+    global optimus_critical_gauge_energy_particles
     # 필살기 게이지바 위치와 크기 - 엣지있는 주인공 스타일
     gauge_x = WIDTH - 40  # 오른쪽에서 40px
     gauge_y = HEIGHT - 200  # 하단에서 200px 위 (살짝 조정)
@@ -41628,6 +41668,132 @@ def draw_player_gauge():
                 for p in particles_to_remove:
                     if p in optimus_low_gauge_energy_particles:
                         optimus_low_gauge_energy_particles.remove(p)
+
+        # === 옵티머스 최대 게이지 300 이하 위험 경고 애니메이션 (더 화려함) ===
+        if optimus_critical_gauge_warning_triggered and optimus_critical_gauge_warning_timer > 0:
+            critical_elapsed = time_now - optimus_critical_gauge_warning_timer
+            critical_duration = 1800  # 전체 애니메이션 1.8초 (더 길게)
+
+            if critical_elapsed < critical_duration:
+                # 위험 경고 오버레이 Surface 생성 (더 큰 영역)
+                critical_surf = pygame.Surface((gauge_width + 40, gauge_height + 50), pygame.SRCALPHA)
+
+                # 단계별 색상 전환: 강렬한 빨강 → 하얀 플래시 → 빨간색 펄스 + 전기 효과
+                if critical_elapsed < 400:  # 0~400ms: 매우 강렬한 빨간색 경고
+                    phase_progress = critical_elapsed / 400.0
+                    red_intensity = int(255 * phase_progress)
+                    glow_alpha = int(220 * phase_progress)
+                    # 강렬한 빨간 글로우 오버레이
+                    pygame.draw.rect(critical_surf, (red_intensity, 20, 30, glow_alpha),
+                                   (0, 0, gauge_width + 40, gauge_height + 50), border_radius=10)
+                    # 두꺼운 빨간 테두리 펄스
+                    pygame.draw.rect(critical_surf, (255, 50, 50, int(255 * phase_progress)),
+                                   (0, 0, gauge_width + 40, gauge_height + 50), 4, border_radius=10)
+                    # 내부 글로우 링
+                    for ring in range(3):
+                        ring_alpha = int(150 * phase_progress * (1 - ring * 0.3))
+                        pygame.draw.rect(critical_surf, (255, 100, 100, ring_alpha),
+                                       (ring * 3, ring * 3, gauge_width + 40 - ring * 6, gauge_height + 50 - ring * 6),
+                                       2, border_radius=10 - ring)
+                elif critical_elapsed < 700:  # 400~700ms: 강렬한 하얀 플래시
+                    phase_progress = (critical_elapsed - 400) / 300.0
+                    white_intensity = int(255 * (1.0 - phase_progress * 0.5))
+                    glow_alpha = int(200 * (1.0 - phase_progress * 0.7))
+                    # 하얀 플래시 (더 밝게)
+                    pygame.draw.rect(critical_surf, (white_intensity, white_intensity, int(white_intensity * 0.9), glow_alpha),
+                                   (0, 0, gauge_width + 40, gauge_height + 50), border_radius=10)
+                    # 번개 효과
+                    for i in range(4):
+                        bolt_x = random.randint(5, gauge_width + 35)
+                        bolt_y1 = random.randint(5, (gauge_height + 40) // 2)
+                        bolt_y2 = bolt_y1 + random.randint(15, 30)
+                        bolt_mid_x = bolt_x + random.randint(-8, 8)
+                        pygame.draw.lines(critical_surf, (255, 255, 255, int(180 * (1 - phase_progress))), False,
+                                        [(bolt_x, bolt_y1), (bolt_mid_x, (bolt_y1 + bolt_y2) // 2), (bolt_x, bolt_y2)], 2)
+                else:  # 700~1800ms: 빨간색 잔상 + 전기 아크 + 나선형 에너지
+                    phase_progress = (critical_elapsed - 700) / 1100.0
+                    fade_alpha = int(140 * (1.0 - phase_progress))
+                    # 붉은 잔상 (더 강렬하게)
+                    red_tint = int(220 * (1.0 - phase_progress * 0.7))
+                    pygame.draw.rect(critical_surf, (red_tint, 30, 50, fade_alpha),
+                                   (0, 0, gauge_width + 40, gauge_height + 50), border_radius=10)
+
+                    # 전기 아크 효과 (화려한 번개)
+                    arc_count = max(1, int(5 * (1.0 - phase_progress)))
+                    for ai in range(arc_count):
+                        arc_start_y = random.randint(10, gauge_height + 30)
+                        arc_end_y = arc_start_y + random.randint(-20, 20)
+                        arc_x1 = 5
+                        arc_x2 = gauge_width + 35
+                        arc_points = [(arc_x1, arc_start_y)]
+                        for seg in range(3):
+                            seg_x = arc_x1 + (arc_x2 - arc_x1) * (seg + 1) / 4
+                            seg_y = arc_start_y + (arc_end_y - arc_start_y) * (seg + 1) / 4 + random.randint(-10, 10)
+                            arc_points.append((seg_x, seg_y))
+                        arc_points.append((arc_x2, arc_end_y))
+                        arc_alpha = int(200 * (1.0 - phase_progress))
+                        pygame.draw.lines(critical_surf, (255, 80, 80, arc_alpha), False, arc_points, 2)
+
+                    # 나선형 휘감는 에너지 링
+                    ring_count = 5
+                    for ri in range(ring_count):
+                        spiral_progress = (phase_progress * 3 + ri * 0.12) % 1.0
+                        ring_y = int((gauge_height + 40) * spiral_progress)
+                        ring_alpha = int(180 * (1.0 - phase_progress) * (1.0 - abs(spiral_progress - 0.5) * 2))
+                        ring_width = int(gauge_width + 30 - abs(spiral_progress - 0.5) * 20)
+                        ring_x = (gauge_width + 40 - ring_width) // 2
+                        pygame.draw.line(critical_surf, (255, 60, 80, ring_alpha),
+                                       (ring_x, ring_y), (ring_x + ring_width, ring_y), 3)
+
+                SCREEN.blit(critical_surf, (gauge_x - 20, gauge_y - 20))
+
+                # 위험 경고 에너지 파티클 업데이트 및 렌더링 (더 화려함)
+                critical_particles_to_remove = []
+                for particle in optimus_critical_gauge_energy_particles:
+                    p_elapsed = time_now - particle['spawn_time']
+                    if p_elapsed >= particle['max_life']:
+                        critical_particles_to_remove.append(particle)
+                        continue
+
+                    # 나선형 회전 움직임 추가
+                    spiral_phase = particle.get('spiral_phase', 0) + 0.15
+                    particle['spiral_phase'] = spiral_phase
+                    spiral_offset_x = math.sin(spiral_phase) * 3
+                    spiral_offset_y = math.cos(spiral_phase) * 2
+
+                    # 파티클 위치 업데이트
+                    particle['x'] += particle['vx'] + spiral_offset_x
+                    particle['y'] += particle['vy'] + spiral_offset_y
+                    particle['vy'] += 0.06  # 약간의 중력 (더 느리게)
+                    particle['vx'] *= 0.97  # 감속
+
+                    # 파티클 페이드아웃
+                    life_ratio = 1.0 - (p_elapsed / particle['max_life'])
+                    alpha = int(255 * life_ratio)
+                    size = particle['size'] * life_ratio
+
+                    # 빨간색 + 주황색 + 노란색 에너지 파티클 (위험 느낌)
+                    color_choice = random.random()
+                    if color_choice < 0.4:
+                        color = (255, int(50 + 80 * life_ratio), int(50 + 30 * life_ratio))  # 빨강
+                    elif color_choice < 0.7:
+                        color = (255, int(120 + 80 * life_ratio), int(30 + 40 * life_ratio))  # 주황
+                    else:
+                        color = (255, int(200 + 55 * life_ratio), int(80 + 50 * life_ratio))  # 노랑
+
+                    # 더 큰 글로우 효과
+                    glow_size = int(size * 5)
+                    if glow_size > 0:
+                        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+                        pygame.draw.circle(glow_surf, (*color, int(alpha * 0.3)), (glow_size // 2, glow_size // 2), int(size * 2))
+                        pygame.draw.circle(glow_surf, (*color, int(alpha * 0.6)), (glow_size // 2, glow_size // 2), int(size * 1.2))
+                        pygame.draw.circle(glow_surf, (*color, alpha), (glow_size // 2, glow_size // 2), int(size))
+                        SCREEN.blit(glow_surf, (int(particle['x'] - glow_size // 2), int(particle['y'] - glow_size // 2)))
+
+                # 소멸한 파티클 제거
+                for p in critical_particles_to_remove:
+                    if p in optimus_critical_gauge_energy_particles:
+                        optimus_critical_gauge_energy_particles.remove(p)
     else:
         # 기존 스매셔 프레임 하단
         hex_bottom = [
@@ -41715,8 +41881,29 @@ def draw_player_gauge():
                 )
                 energy_color = (255, 205, 130)
         elif selected_character_type == "optimus":
-            # === 옵티머스 전용 게이지 색상 (네온 전기 계열) ===
-            if displayed_gauge < 150:
+            # === 옵티머스 전용 게이지 색상 (최대 게이지에 따라 색상 변화) ===
+            # 최대 게이지 300 이하: 빨간색 (위험)
+            # 최대 게이지 400 이하: 주황색 (경고)
+            # 그 외: 기본 네온 전기 계열
+            if optimus_critical_gauge_warning_triggered:
+                # 300 이하 - 빨간색 계열 (위험 상태)
+                pulse = abs(math.sin(time_now * 0.008))
+                base_color = (
+                    int(200 + pulse * 55),
+                    int(40 + pulse * 30),
+                    int(40 + pulse * 20)
+                )
+                energy_color = (255, int(80 + pulse * 50), int(80 + pulse * 30))
+            elif optimus_low_gauge_warning_triggered:
+                # 400 이하 - 주황색 계열 (경고 상태)
+                pulse = abs(math.sin(time_now * 0.007))
+                base_color = (
+                    int(220 + pulse * 35),
+                    int(130 + pulse * 40),
+                    int(30 + pulse * 20)
+                )
+                energy_color = (255, int(180 + pulse * 40), int(60 + pulse * 30))
+            elif displayed_gauge < 150:
                 base_color = (40, 140, 200)
                 energy_color = (80, 210, 255)
             elif displayed_gauge < 300:
@@ -68530,8 +68717,8 @@ def handle_ball():
                     # 넉백 효과 - 부드러운 넉백을 위한 오프셋 설정
                     player_knockback_y = apply_knockback_resist(_scale_knockback(-20))  # 20픽셀 위로 넉백
                     
-                    # 게이지 감소 (붉은 달 파편: 50 -> 20로 완화)
-                    special_gauge = max(0, special_gauge - 20)
+                    # 게이지 감소 (붉은 달 파편: 50 -> 2로 대폭 완화)
+                    special_gauge = max(0, special_gauge - 2)
                     
                     # 화상 효과음 재생
                     try:
@@ -68539,7 +68726,7 @@ def handle_ball():
                     except:
                         pass
                     
-                    print(f"플레이어 화상! 게이지 -20, 0.5초 후딜 + 넉백")
+                    print(f"플레이어 화상! 게이지 -2, 0.5초 후딜 + 넉백")
                     print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}), 패들: ({PLAYER.centerx}, {PLAYER.centery})")
                 break  # 한 프레임에 하나의 파편만 처리
 
