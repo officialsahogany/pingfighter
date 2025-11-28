@@ -1113,18 +1113,18 @@ INTERIOR_CONFIGS = {
     },
     BuildingType.ACADEMY: {
         "name": "마법 학원",
-        "map_size": (16, 12),
-        "bg_color": (30, 25, 55),
-        "floor_color": (50, 45, 80),
-        "floor_pattern": "academy_tile",
-        "wall_color": (40, 35, 65),
-        "accent_color": (150, 100, 255),
-        "secondary_color": (100, 200, 255),
-        "decorations": ["bookshelf_large", "study_desk", "globe", "potion_lab"],
+        "map_size": (32, 24),  # 2배 확대 (16x12 → 32x24)
+        "bg_color": (25, 50, 50),  # 청록색 계열 (스크린샷 참조)
+        "floor_color": (45, 80, 80),  # 청록색 바닥
+        "floor_pattern": "magic_circle_academy",  # 마법진 바닥 타일
+        "wall_color": (35, 65, 65),  # 청록색 벽
+        "accent_color": (120, 255, 200),  # 발광 청록 (마법진 색상)
+        "secondary_color": (80, 150, 130),  # 보조 색상
+        "decorations": [],  # 커스텀 인테리어 사용
         "main_npc": {
             "name": "학장 아르카나",
             "color": (150, 100, 255),
-            "position": (0.5, 0.25),
+            "position": (0.5, 0.18),  # 맵이 커졌으므로 위치 조정
             "dialogue": [
                 "마법 학원에 오신 것을 환영합니다.",
                 "새로운 스킬을 배우고 싶으신가요?",
@@ -1132,8 +1132,9 @@ INTERIOR_CONFIGS = {
                 "곧 수업이 시작될 거예요."
             ]
         },
-        "customer_range": (3, 6),
-        "staff_count": 2,
+        "customer_range": (4, 8),  # 학생 수 증가
+        "staff_count": 3,  # 교직원 증가
+        "special_interior": "academy",  # 특수 인테리어 플래그
     },
     BuildingType.MYSTERY: {
         "name": "???",
@@ -2540,6 +2541,9 @@ class BuildingInterior:
         if special_interior == "bank":
             # 은행 전용 인테리어
             self._draw_bank_interior(screen)
+        elif special_interior == "academy":
+            # 마법 학원 전용 인테리어
+            self._draw_academy_interior(screen)
         else:
             # 기본 인테리어
             # 배경
@@ -2716,6 +2720,388 @@ class BuildingInterior:
 
                 item_surf, _ = font_small.render(item, text_color)
                 screen.blit(item_surf, (item_rect.x + 40, item_rect.y + 8))
+
+    def _draw_academy_interior(self, screen):
+        """마법 학원 전용 인테리어 - 마법 도서관 스타일"""
+        import math
+
+        # 색상 팔레트 (청록색/시안 계열 마법 테마)
+        BG_DARK = (15, 35, 35)           # 어두운 청록 배경
+        FLOOR_A = (35, 65, 65)           # 바닥 타일 A
+        FLOOR_B = (45, 75, 75)           # 바닥 타일 B
+        WALL_COLOR = (25, 50, 50)        # 벽 색상
+        ACCENT_CYAN = (100, 255, 200)    # 발광 청록 (마법진)
+        ACCENT_CYAN_DIM = (60, 150, 120) # 어두운 청록
+        MAGIC_GLOW = (120, 255, 220)     # 마법 발광
+        WOOD_DARK = (60, 45, 30)         # 어두운 나무
+        WOOD_MID = (90, 65, 40)          # 중간 나무
+        WOOD_LIGHT = (120, 90, 55)       # 밝은 나무
+        GOLD = (255, 200, 100)           # 금색 (장식)
+        FLAME_ORANGE = (255, 150, 50)    # 횃불 불꽃
+        FLAME_YELLOW = (255, 220, 100)   # 횃불 밝은 불꽃
+        WHITE = (240, 245, 250)
+
+        cam_x, cam_y = self.camera_offset
+        cx = self.pixel_width // 2  # 중앙 X
+        cy = self.pixel_height // 2  # 중앙 Y
+
+        # 1. 배경
+        screen.fill(BG_DARK)
+
+        # 2. 바닥 타일 (기본 격자)
+        for ty in range(self.map_height):
+            for tx in range(self.map_width):
+                tile_x = tx * TILE_SIZE - cam_x
+                tile_y = ty * TILE_SIZE - cam_y
+                color = FLOOR_A if (tx + ty) % 2 == 0 else FLOOR_B
+                pygame.draw.rect(screen, color, (tile_x, tile_y, TILE_SIZE, TILE_SIZE))
+
+        # 3. 마법진 (중앙 바닥에 큰 원형 룬)
+        self._draw_magic_circle(screen, cx - cam_x, cy - cam_y, self.animation_timer)
+
+        # 4. 상단 벽
+        wall_h = int(TILE_SIZE * 3.5)
+        pygame.draw.rect(screen, WALL_COLOR, (-cam_x, -cam_y, self.pixel_width, wall_h))
+
+        # 벽 하단 장식 라인
+        pygame.draw.rect(screen, ACCENT_CYAN_DIM, (-cam_x, -cam_y + wall_h - 4, self.pixel_width, 4))
+
+        # 5. 창문들 (상단 벽)
+        self._draw_academy_windows(screen, cam_x, cam_y, wall_h, self.animation_timer)
+
+        # 6. 건물 이름 표시 (마법 학원)
+        sign_y = -cam_y + 15
+        sign_x = cx - cam_x
+
+        # 로고 배경 패널
+        panel_w, panel_h = 140, 32
+        pygame.draw.rect(screen, (20, 40, 40), (sign_x - panel_w//2, sign_y - 3, panel_w, panel_h), border_radius=6)
+        pygame.draw.rect(screen, ACCENT_CYAN, (sign_x - panel_w//2, sign_y - 3, panel_w, panel_h), 2, border_radius=6)
+
+        # 로고 글로우
+        glow_intensity = int(40 + 25 * math.sin(self.animation_timer * 1.5))
+        glow_surf = pygame.Surface((panel_w + 16, panel_h + 16), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*ACCENT_CYAN, glow_intensity), (0, 0, panel_w + 16, panel_h + 16), border_radius=10)
+        screen.blit(glow_surf, (sign_x - panel_w//2 - 8, sign_y - 11))
+
+        # 로고 텍스트
+        font_large = self.fonts.get('large')
+        if font_large:
+            text_surf, text_rect = font_large.render("마법 학원", ACCENT_CYAN)
+            screen.blit(text_surf, (sign_x - text_rect.width // 2, sign_y + 2))
+
+        # 7. 책장들 (좌우 벽)
+        self._draw_bookshelves(screen, cam_x, cam_y, wall_h)
+
+        # 8. 횃불들 (벽면)
+        self._draw_wall_torches(screen, cam_x, cam_y, wall_h, self.animation_timer)
+
+        # 9. 책상들 (중앙 영역)
+        self._draw_study_desks(screen, cam_x, cam_y, wall_h)
+
+        # 10. 문 그리기
+        self._draw_door(screen)
+
+    def _draw_magic_circle(self, screen, cx, cy, anim_timer):
+        """마법진 그리기 (바닥 중앙)"""
+        import math
+
+        MAGIC_CYAN = (100, 255, 200)
+        MAGIC_DIM = (50, 150, 120)
+        MAGIC_GLOW = (80, 200, 160)
+
+        # 마법진 크기
+        outer_radius = 140
+        inner_radius = 100
+        center_radius = 40
+
+        # 회전 애니메이션
+        rotation = anim_timer * 0.3
+
+        # 글로우 효과 (배경)
+        glow_intensity = int(30 + 15 * math.sin(anim_timer * 2))
+        for r in range(outer_radius + 30, outer_radius, -5):
+            alpha = max(0, glow_intensity - (r - outer_radius) * 2)
+            glow_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*MAGIC_DIM, alpha), (r, r), r)
+            screen.blit(glow_surf, (cx - r, cy - r))
+
+        # 외부 원
+        pygame.draw.circle(screen, MAGIC_CYAN, (int(cx), int(cy)), outer_radius, 3)
+        pygame.draw.circle(screen, MAGIC_DIM, (int(cx), int(cy)), outer_radius - 8, 2)
+
+        # 중간 원
+        pygame.draw.circle(screen, MAGIC_CYAN, (int(cx), int(cy)), inner_radius, 2)
+
+        # 내부 원
+        pygame.draw.circle(screen, MAGIC_GLOW, (int(cx), int(cy)), center_radius, 2)
+
+        # 룬 심볼들 (외부 원 주위)
+        for i in range(12):
+            angle = rotation + (i * math.pi / 6)
+            rx = cx + (outer_radius - 15) * math.cos(angle)
+            ry = cy + (outer_radius - 15) * math.sin(angle)
+
+            # 작은 원 (룬 포인트)
+            pulse = 3 + int(2 * math.sin(anim_timer * 3 + i))
+            pygame.draw.circle(screen, MAGIC_CYAN, (int(rx), int(ry)), pulse)
+
+        # 별 모양 (중앙)
+        star_points = []
+        for i in range(10):
+            angle = -math.pi / 2 + rotation + (i * math.pi / 5)
+            r = center_radius - 5 if i % 2 == 0 else (center_radius - 5) * 0.4
+            star_points.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
+        pygame.draw.polygon(screen, MAGIC_CYAN, star_points, 2)
+
+        # 삼각형 패턴 (내부)
+        for i in range(3):
+            angle1 = rotation * 0.5 + (i * 2 * math.pi / 3)
+            angle2 = angle1 + (2 * math.pi / 3)
+            angle3 = angle2 + (2 * math.pi / 3)
+
+            tri_r = inner_radius - 15
+            points = [
+                (cx + tri_r * math.cos(angle1), cy + tri_r * math.sin(angle1)),
+                (cx + tri_r * math.cos(angle2), cy + tri_r * math.sin(angle2)),
+                (cx + tri_r * math.cos(angle3), cy + tri_r * math.sin(angle3))
+            ]
+            pygame.draw.polygon(screen, MAGIC_DIM, points, 1)
+
+        # 연결선 (중앙에서 외부로)
+        for i in range(6):
+            angle = rotation * 0.7 + (i * math.pi / 3)
+            x1 = cx + center_radius * math.cos(angle)
+            y1 = cy + center_radius * math.sin(angle)
+            x2 = cx + inner_radius * math.cos(angle)
+            y2 = cy + inner_radius * math.sin(angle)
+            pygame.draw.line(screen, MAGIC_DIM, (int(x1), int(y1)), (int(x2), int(y2)), 1)
+
+    def _draw_academy_windows(self, screen, cam_x, cam_y, wall_h, anim_timer):
+        """마법 학원 창문들 (상단 벽)"""
+        import math
+
+        FRAME_COLOR = (80, 100, 90)      # 창틀
+        GLASS_COLOR = (60, 100, 110)     # 유리
+        LIGHT_COLOR = (150, 200, 180)    # 빛
+
+        # 창문 설정
+        window_w = 50
+        window_h = 60
+        window_y = -cam_y + 30
+
+        # 창문 개수와 간격
+        num_windows = 5
+        spacing = self.pixel_width // (num_windows + 1)
+
+        for i in range(num_windows):
+            wx = -cam_x + spacing * (i + 1) - window_w // 2
+
+            # 창문 배경 (유리)
+            pygame.draw.rect(screen, GLASS_COLOR, (wx, window_y, window_w, window_h))
+
+            # 빛 효과 (애니메이션)
+            light_intensity = int(100 + 50 * math.sin(anim_timer * 1.2 + i * 0.5))
+            light_surf = pygame.Surface((window_w - 8, window_h - 8), pygame.SRCALPHA)
+            light_surf.fill((*LIGHT_COLOR, light_intensity))
+            screen.blit(light_surf, (wx + 4, window_y + 4))
+
+            # 창틀 (십자)
+            pygame.draw.rect(screen, FRAME_COLOR, (wx, window_y, window_w, window_h), 3)
+            pygame.draw.line(screen, FRAME_COLOR, (wx + window_w // 2, window_y),
+                           (wx + window_w // 2, window_y + window_h), 2)
+            pygame.draw.line(screen, FRAME_COLOR, (wx, window_y + window_h // 2),
+                           (wx + window_w, window_y + window_h // 2), 2)
+
+            # 상단 아치 장식
+            pygame.draw.arc(screen, FRAME_COLOR,
+                          (wx - 2, window_y - 15, window_w + 4, 30), 0, math.pi, 3)
+
+    def _draw_bookshelves(self, screen, cam_x, cam_y, wall_h):
+        """책장들 그리기 (좌우 벽)"""
+        WOOD_DARK = (50, 35, 25)
+        WOOD_MID = (80, 55, 35)
+        WOOD_LIGHT = (110, 80, 50)
+
+        # 책 색상들
+        BOOK_COLORS = [
+            (150, 50, 50),    # 빨강
+            (50, 100, 150),   # 파랑
+            (50, 130, 80),    # 초록
+            (130, 100, 50),   # 갈색
+            (100, 50, 120),   # 보라
+            (150, 120, 50),   # 노랑
+            (80, 80, 100),    # 회색
+        ]
+
+        # 책장 크기
+        shelf_w = 70
+        shelf_h = 180
+        shelf_y = -cam_y + wall_h + 20
+
+        # 왼쪽 책장들
+        for i in range(3):
+            sx = -cam_x + 15 + i * (shelf_w + 10)
+            self._draw_single_bookshelf(screen, sx, shelf_y, shelf_w, shelf_h,
+                                       WOOD_DARK, WOOD_MID, WOOD_LIGHT, BOOK_COLORS, i)
+
+        # 오른쪽 책장들
+        for i in range(3):
+            sx = self.pixel_width - cam_x - 15 - (i + 1) * (shelf_w + 10) + 10
+            self._draw_single_bookshelf(screen, sx, shelf_y, shelf_w, shelf_h,
+                                       WOOD_DARK, WOOD_MID, WOOD_LIGHT, BOOK_COLORS, i + 3)
+
+    def _draw_single_bookshelf(self, screen, x, y, w, h, wood_dark, wood_mid, wood_light, book_colors, seed):
+        """단일 책장 그리기"""
+        import random
+        random.seed(seed * 42)  # 일관된 책 배치
+
+        # 책장 프레임
+        pygame.draw.rect(screen, wood_dark, (x, y, w, h))
+        pygame.draw.rect(screen, wood_mid, (x, y, w, h), 3)
+
+        # 선반 (4개)
+        shelf_spacing = h // 4
+        for s in range(4):
+            sy = y + s * shelf_spacing
+            # 선반 판
+            pygame.draw.rect(screen, wood_mid, (x + 3, sy, w - 6, 5))
+            pygame.draw.rect(screen, wood_light, (x + 3, sy, w - 6, 2))
+
+            # 책들 (각 선반에 랜덤 배치)
+            if s < 3:  # 맨 아래 선반은 빈 공간
+                book_x = x + 6
+                while book_x < x + w - 15:
+                    book_w = random.randint(8, 14)
+                    book_h = random.randint(25, 38)
+                    book_color = random.choice(book_colors)
+
+                    # 책 본체
+                    book_y = sy + shelf_spacing - book_h - 3
+                    pygame.draw.rect(screen, book_color, (book_x, book_y, book_w, book_h))
+
+                    # 책 등 하이라이트
+                    pygame.draw.rect(screen, tuple(min(255, c + 30) for c in book_color),
+                                   (book_x, book_y, 2, book_h))
+
+                    book_x += book_w + random.randint(1, 3)
+
+        # 상단 장식 (삼각형 지붕)
+        pygame.draw.polygon(screen, wood_mid, [
+            (x, y), (x + w // 2, y - 15), (x + w, y)
+        ])
+        pygame.draw.polygon(screen, wood_light, [
+            (x, y), (x + w // 2, y - 15), (x + w, y)
+        ], 2)
+
+    def _draw_wall_torches(self, screen, cam_x, cam_y, wall_h, anim_timer):
+        """벽면 횃불들"""
+        import math
+        import random
+
+        TORCH_HOLDER = (60, 50, 40)      # 횃불 거치대
+        TORCH_WOOD = (80, 60, 40)        # 횃불 나무
+        FLAME_ORANGE = (255, 150, 50)    # 불꽃 오렌지
+        FLAME_YELLOW = (255, 220, 100)   # 불꽃 노랑
+        FLAME_RED = (255, 100, 50)       # 불꽃 빨강
+
+        # 횃불 위치 (좌우 대칭)
+        torch_positions = [
+            (-cam_x + 100, -cam_y + wall_h - 40),
+            (-cam_x + 220, -cam_y + wall_h - 40),
+            (self.pixel_width - cam_x - 100, -cam_y + wall_h - 40),
+            (self.pixel_width - cam_x - 220, -cam_y + wall_h - 40),
+        ]
+
+        for i, (tx, ty) in enumerate(torch_positions):
+            # 거치대
+            pygame.draw.rect(screen, TORCH_HOLDER, (tx - 8, ty, 16, 25))
+            pygame.draw.rect(screen, (80, 70, 60), (tx - 8, ty, 16, 25), 2)
+
+            # 횃불 막대
+            pygame.draw.rect(screen, TORCH_WOOD, (tx - 4, ty - 30, 8, 35))
+
+            # 불꽃 (애니메이션)
+            flame_offset = math.sin(anim_timer * 8 + i * 1.5) * 2
+            flame_size = 12 + int(4 * math.sin(anim_timer * 6 + i))
+
+            # 불꽃 글로우
+            glow_surf = pygame.Surface((flame_size * 4, flame_size * 4), pygame.SRCALPHA)
+            glow_alpha = int(60 + 30 * math.sin(anim_timer * 5 + i))
+            pygame.draw.circle(glow_surf, (*FLAME_ORANGE, glow_alpha),
+                             (flame_size * 2, flame_size * 2), flame_size * 2)
+            screen.blit(glow_surf, (tx - flame_size * 2, ty - 45 - flame_size * 2))
+
+            # 불꽃 코어
+            flame_points = [
+                (tx + flame_offset, ty - 35),
+                (tx - 8, ty - 45),
+                (tx - 4 + flame_offset * 0.5, ty - 55 - flame_size),
+                (tx + 4 + flame_offset * 0.5, ty - 55 - flame_size),
+                (tx + 8, ty - 45),
+            ]
+            pygame.draw.polygon(screen, FLAME_ORANGE, flame_points)
+
+            # 내부 밝은 불꽃
+            inner_points = [
+                (tx + flame_offset * 0.5, ty - 38),
+                (tx - 4, ty - 45),
+                (tx + flame_offset * 0.3, ty - 50 - flame_size // 2),
+                (tx + 4, ty - 45),
+            ]
+            pygame.draw.polygon(screen, FLAME_YELLOW, inner_points)
+
+    def _draw_study_desks(self, screen, cam_x, cam_y, wall_h):
+        """책상들 그리기 (중앙 영역)"""
+        DESK_DARK = (70, 55, 40)
+        DESK_MID = (100, 80, 55)
+        DESK_LIGHT = (130, 105, 75)
+        PAPER_WHITE = (240, 235, 220)
+
+        # 책상 크기
+        desk_w = 80
+        desk_h = 50
+
+        # 책상 위치 (마법진 주변 - 2열 x 3행)
+        center_x = self.pixel_width // 2
+        center_y = self.pixel_height // 2
+
+        desk_positions = [
+            # 좌측 열
+            (center_x - 180, center_y - 80),
+            (center_x - 180, center_y + 60),
+            # 우측 열
+            (center_x + 100, center_y - 80),
+            (center_x + 100, center_y + 60),
+        ]
+
+        for dx, dy in desk_positions:
+            desk_x = dx - cam_x
+            desk_y = dy - cam_y
+
+            # 책상 상판
+            pygame.draw.rect(screen, DESK_MID, (desk_x, desk_y, desk_w, desk_h))
+            pygame.draw.rect(screen, DESK_LIGHT, (desk_x, desk_y, desk_w, 5))
+            pygame.draw.rect(screen, DESK_DARK, (desk_x, desk_y, desk_w, desk_h), 2)
+
+            # 책상 다리
+            pygame.draw.rect(screen, DESK_DARK, (desk_x + 5, desk_y + desk_h, 8, 25))
+            pygame.draw.rect(screen, DESK_DARK, (desk_x + desk_w - 13, desk_y + desk_h, 8, 25))
+
+            # 책상 위 물건들 (책, 종이)
+            # 책
+            pygame.draw.rect(screen, (100, 60, 60), (desk_x + 10, desk_y + 8, 20, 15))
+            pygame.draw.rect(screen, (120, 80, 80), (desk_x + 10, desk_y + 8, 20, 3))
+
+            # 종이
+            pygame.draw.rect(screen, PAPER_WHITE, (desk_x + 40, desk_y + 10, 25, 30))
+            pygame.draw.rect(screen, (200, 195, 180), (desk_x + 40, desk_y + 10, 25, 30), 1)
+
+            # 종이 위 글씨 (작은 선들)
+            for line in range(5):
+                pygame.draw.line(screen, (150, 145, 130),
+                               (desk_x + 44, desk_y + 15 + line * 5),
+                               (desk_x + 60, desk_y + 15 + line * 5), 1)
 
     def _draw_bank_interior(self, screen):
         """스타뱅크 전용 인테리어 - 깔끔한 SF 은행 스타일"""
@@ -3265,6 +3651,12 @@ class BuildingInterior:
                         color = tuple(min(255, c + 10) for c in floor_color)
                     else:
                         color = tuple(max(0, c - 5) for c in floor_color)
+                elif pattern == "magic_circle_academy":
+                    # 마법 학원 타일 (청록색 격자 기본)
+                    if (tx + ty) % 2 == 0:
+                        color = floor_color
+                    else:
+                        color = tuple(max(0, c - 8) for c in floor_color)
                 else:
                     # 체크 패턴 (기본)
                     if (tx + ty) % 2 == 0:
