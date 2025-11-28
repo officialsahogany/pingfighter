@@ -1734,6 +1734,11 @@ optimus_low_gauge_energy_particles = []  # 에너지 파티클 리스트
 optimus_critical_gauge_warning_triggered = False  # 300 이하로 떨어졌을 때 1회 트리거
 optimus_critical_gauge_warning_timer = 0  # 위험 경고 애니메이션 타이머
 optimus_critical_gauge_energy_particles = []  # 위험 경고 에너지 파티클
+# 옵티머스 기계손 강화 애니메이션 (400 이하 시 트리거)
+optimus_mech_arm_upgrade_active = False  # 기계손 강화 애니메이션 진행 중
+optimus_mech_arm_upgrade_timer = 0  # 애니메이션 시작 시간
+optimus_mech_arm_upgrade_complete = False  # 강화 완료 상태 (더 강력한 기계손으로 유지)
+optimus_mech_arm_particles = []  # 조립/강화 파티클
 PLAYER_PADDLE_SCALE_BY_MODE: dict[str, float] = {
     "junior": 1.2,
     "주니어": 1.2,
@@ -5146,6 +5151,8 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     global optimus_low_gauge_warning_phase, optimus_low_gauge_energy_particles
     global optimus_critical_gauge_warning_triggered, optimus_critical_gauge_warning_timer
     global optimus_critical_gauge_energy_particles
+    global optimus_mech_arm_upgrade_active, optimus_mech_arm_upgrade_timer
+    global optimus_mech_arm_upgrade_complete, optimus_mech_arm_particles
     if globals().get("selected_character_type") != "optimus":
         return
 
@@ -5163,6 +5170,11 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     optimus_critical_gauge_warning_triggered = False
     optimus_critical_gauge_warning_timer = 0
     optimus_critical_gauge_energy_particles = []
+    # 기계손 강화 애니메이션 초기화
+    optimus_mech_arm_upgrade_active = False
+    optimus_mech_arm_upgrade_timer = 0
+    optimus_mech_arm_upgrade_complete = False
+    optimus_mech_arm_particles = []
     special_gauge_max = get_max_gauge()
     if full_gauge:
         special_gauge = special_gauge_max
@@ -5207,6 +5219,8 @@ def update_optimus_energy() -> None:
     global optimus_low_gauge_warning_phase, optimus_low_gauge_energy_particles
     global optimus_critical_gauge_warning_triggered, optimus_critical_gauge_warning_timer
     global optimus_critical_gauge_energy_particles
+    global optimus_mech_arm_upgrade_active, optimus_mech_arm_upgrade_timer
+    global optimus_mech_arm_upgrade_complete, optimus_mech_arm_particles
 
     if globals().get("selected_character_type") != "optimus":
         return
@@ -5268,6 +5282,27 @@ def update_optimus_energy() -> None:
                     'max_life': lifetime,
                     'size': random.uniform(2, 4),
                     'spawn_time': now
+                })
+
+            # 기계손 강화 애니메이션도 동시에 트리거
+            optimus_mech_arm_upgrade_active = True
+            optimus_mech_arm_upgrade_timer = now
+            optimus_mech_arm_particles = []
+            # 조립 파티클 생성 (플레이어 오른팔 주변)
+            for i in range(20):
+                angle = random.uniform(0, math.pi * 2)
+                dist = random.uniform(30, 80)
+                lifetime = random.randint(800, 1600)
+                optimus_mech_arm_particles.append({
+                    'angle': angle,
+                    'dist': dist,
+                    'target_dist': 0,  # 중심으로 수렴
+                    'life': lifetime,
+                    'max_life': lifetime,
+                    'size': random.uniform(3, 7),
+                    'spawn_time': now,
+                    'type': 'converge',  # 수렴형 파티클
+                    'color_idx': random.randint(0, 2)  # 색상 인덱스 (파랑, 시안, 흰색)
                 })
 
         # 최대 게이지가 300 이하로 떨어지면 위험 경고 애니메이션 1회 트리거 (더 화려함)
@@ -5845,78 +5880,229 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
         if side > 0:
             fist_cx, fist_cy = wrist_int[0] + 8, wrist_int[1] + 4
 
-            # 강철 주먹 외곽 (다크 메탈)
-            fist_w, fist_h = 36, 40
+            # 기계손 강화 상태 체크
+            mech_arm_upgraded = globals().get("optimus_mech_arm_upgrade_complete", False)
+            mech_arm_anim_active = globals().get("optimus_mech_arm_upgrade_active", False)
+            mech_arm_timer = globals().get("optimus_mech_arm_upgrade_timer", 0)
+            mech_arm_particles = globals().get("optimus_mech_arm_particles", [])
+            anim_now = pygame.time.get_ticks()
+            anim_duration = 2000  # 2초 강화 애니메이션
+
+            # 애니메이션 진행률 계산
+            anim_progress = 0.0
+            if mech_arm_anim_active and mech_arm_timer > 0:
+                anim_elapsed = anim_now - mech_arm_timer
+                anim_progress = min(1.0, anim_elapsed / anim_duration)
+                if anim_progress >= 1.0:
+                    # 애니메이션 완료 → 강화 완료 상태로 전환
+                    globals()["optimus_mech_arm_upgrade_active"] = False
+                    globals()["optimus_mech_arm_upgrade_complete"] = True
+                    mech_arm_upgraded = True
+                    mech_arm_anim_active = False
+
+            # 강화 애니메이션 진행 중일 때 조립 이펙트
+            if mech_arm_anim_active and anim_progress > 0:
+                # 페이즈별 애니메이션
+                # Phase 1 (0-0.3): 기존 주먹 분해 + 파티클 수렴
+                # Phase 2 (0.3-0.7): 새 부품 조립
+                # Phase 3 (0.7-1.0): 완성 + 에너지 폭발
+
+                # 배경 글로우 (강화 중 더 강렬한 빛)
+                glow_intensity = int(80 + 120 * math.sin(anim_progress * math.pi))
+                glow_size = int(60 + 40 * anim_progress)
+                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (100, 180, 255, glow_intensity), (glow_size, glow_size), glow_size)
+                surface.blit(glow_surf, (fist_cx - glow_size, fist_cy - glow_size))
+
+                # 수렴하는 파티클 그리기
+                particle_colors = [(80, 150, 255), (100, 220, 255), (200, 230, 255)]
+                for p in mech_arm_particles:
+                    p_elapsed = anim_now - p['spawn_time']
+                    p_life_ratio = min(1.0, p_elapsed / p['max_life'])
+
+                    # 파티클이 중심으로 수렴
+                    current_dist = p['dist'] * (1.0 - anim_progress * 0.9)
+                    px = fist_cx + int(math.cos(p['angle'] + anim_progress * 2) * current_dist)
+                    py = fist_cy + int(math.sin(p['angle'] + anim_progress * 2) * current_dist)
+
+                    # 파티클 크기 (수렴하면서 작아짐)
+                    p_size = int(p['size'] * (1.0 - p_life_ratio * 0.5))
+                    if p_size > 0:
+                        p_color = particle_colors[p['color_idx']]
+                        p_alpha = int(255 * (1.0 - p_life_ratio * 0.7))
+                        p_surf = pygame.Surface((p_size * 2 + 4, p_size * 2 + 4), pygame.SRCALPHA)
+                        pygame.draw.circle(p_surf, (*p_color, p_alpha), (p_size + 2, p_size + 2), p_size)
+                        # 파티클 꼬리 (라인)
+                        tail_len = int(8 * (1.0 - anim_progress))
+                        if tail_len > 0:
+                            tail_x = px + int(math.cos(p['angle']) * tail_len)
+                            tail_y = py + int(math.sin(p['angle']) * tail_len)
+                            pygame.draw.line(surface, (*p_color, p_alpha // 2), (px, py), (tail_x, tail_y), 2)
+                        surface.blit(p_surf, (px - p_size - 2, py - p_size - 2))
+
+                # Phase 2-3: 조립 중인 부품 그리기
+                if anim_progress > 0.3:
+                    assemble_progress = (anim_progress - 0.3) / 0.7
+                    # 조립 중인 아머 플레이트 (위에서 내려옴)
+                    for plate_idx in range(4):
+                        plate_angle = math.radians(plate_idx * 90 + 45)
+                        plate_start_dist = 50 * (1.0 - assemble_progress)
+                        plate_x = fist_cx + int(math.cos(plate_angle) * plate_start_dist)
+                        plate_y = fist_cy + int(math.sin(plate_angle) * plate_start_dist)
+                        plate_size = int(8 + 4 * assemble_progress)
+                        plate_alpha = int(200 * assemble_progress)
+                        plate_surf = pygame.Surface((plate_size * 2, plate_size * 2), pygame.SRCALPHA)
+                        pygame.draw.rect(plate_surf, (60, 80, 120, plate_alpha), (0, 0, plate_size * 2, plate_size * 2), border_radius=3)
+                        pygame.draw.rect(plate_surf, (100, 180, 255, plate_alpha), (0, 0, plate_size * 2, plate_size * 2), 2, border_radius=3)
+                        surface.blit(plate_surf, (plate_x - plate_size, plate_y - plate_size))
+
+                # Phase 3: 완성 에너지 폭발
+                if anim_progress > 0.7:
+                    burst_progress = (anim_progress - 0.7) / 0.3
+                    burst_radius = int(20 + 60 * burst_progress)
+                    burst_alpha = int(180 * (1.0 - burst_progress))
+                    burst_surf = pygame.Surface((burst_radius * 2, burst_radius * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(burst_surf, (150, 220, 255, burst_alpha), (burst_radius, burst_radius), burst_radius, 3)
+                    pygame.draw.circle(burst_surf, (255, 255, 255, burst_alpha // 2), (burst_radius, burst_radius), int(burst_radius * 0.7), 2)
+                    surface.blit(burst_surf, (fist_cx - burst_radius, fist_cy - burst_radius))
+
+                    # 방사형 전기 스파크
+                    for spark_i in range(8):
+                        spark_angle = math.radians(spark_i * 45 + phase * 180)
+                        spark_len = int(30 * burst_progress)
+                        spark_start = (fist_cx + int(math.cos(spark_angle) * 15), fist_cy + int(math.sin(spark_angle) * 15))
+                        spark_end = (fist_cx + int(math.cos(spark_angle) * (15 + spark_len)), fist_cy + int(math.sin(spark_angle) * (15 + spark_len)))
+                        spark_mid = ((spark_start[0] + spark_end[0]) // 2 + int(math.sin(phase * 30 + spark_i) * 5),
+                                    (spark_start[1] + spark_end[1]) // 2 + int(math.cos(phase * 30 + spark_i) * 5))
+                        pygame.draw.line(surface, (200, 240, 255), spark_start, spark_mid, 2)
+                        pygame.draw.line(surface, (255, 255, 255), spark_mid, spark_end, 2)
+
+            # 기본 주먹 크기 (강화 시 더 큼)
+            if mech_arm_upgraded:
+                fist_w, fist_h = 44, 50  # 강화된 크기
+            else:
+                fist_w, fist_h = 36, 40
             fist_rect = pygame.Rect(fist_cx - fist_w // 2, fist_cy - fist_h // 2, fist_w, fist_h)
 
-            # 주먹 글로우 효과 (전기 느낌)
-            fist_glow = pygame.Surface((fist_w + 30, fist_h + 30), pygame.SRCALPHA)
-            glow_alpha = int(40 + 30 * math.sin(phase * math.tau * 3))
-            pygame.draw.ellipse(fist_glow, (100, 200, 255, glow_alpha), (0, 0, fist_w + 30, fist_h + 30))
-            surface.blit(fist_glow, (fist_rect.left - 15, fist_rect.top - 15))
+            # 주먹 글로우 효과 (강화 시 더 강렬)
+            fist_glow = pygame.Surface((fist_w + 40, fist_h + 40), pygame.SRCALPHA)
+            if mech_arm_upgraded:
+                glow_alpha = int(60 + 50 * math.sin(phase * math.tau * 3))
+                glow_color = (255, 150, 80, glow_alpha)  # 오렌지 글로우 (강화)
+            else:
+                glow_alpha = int(40 + 30 * math.sin(phase * math.tau * 3))
+                glow_color = (100, 200, 255, glow_alpha)  # 블루 글로우 (기본)
+            pygame.draw.ellipse(fist_glow, glow_color, (0, 0, fist_w + 40, fist_h + 40))
+            surface.blit(fist_glow, (fist_rect.left - 20, fist_rect.top - 20))
 
-            # 강철 주먹 베이스 (진한 메탈)
-            pygame.draw.ellipse(surface, palette["hex_base"], fist_rect)
-            pygame.draw.ellipse(surface, (60, 70, 85), fist_rect.inflate(-6, -6))
+            # 강철 주먹 베이스 (강화 시 다른 색상)
+            if mech_arm_upgraded:
+                pygame.draw.ellipse(surface, (80, 60, 50), fist_rect)  # 어두운 오렌지-브론즈
+                pygame.draw.ellipse(surface, (100, 80, 60), fist_rect.inflate(-6, -6))
+            else:
+                pygame.draw.ellipse(surface, palette["hex_base"], fist_rect)
+                pygame.draw.ellipse(surface, (60, 70, 85), fist_rect.inflate(-6, -6))
 
-            # 너클 플레이트 (4개)
-            knuckle_y = fist_cy - 10
-            for ki, kx_off in enumerate([-10, -3, 4, 11]):
-                knuckle_rect = pygame.Rect(fist_cx + kx_off - 5, knuckle_y - 6, 10, 14)
-                pygame.draw.rect(surface, palette["body"], knuckle_rect, border_radius=3)
-                pygame.draw.rect(surface, palette["accent"], knuckle_rect, 1, border_radius=3)
-                # 너클 LED
-                led_pulse = int(180 + 75 * math.sin(phase * math.tau * 4 + ki * 0.5))
-                pygame.draw.circle(surface, (led_pulse, led_pulse, 255), (fist_cx + kx_off, knuckle_y - 2), 2)
+            # 너클 플레이트 (강화 시 더 크고 날카로움)
+            knuckle_y = fist_cy - (12 if mech_arm_upgraded else 10)
+            knuckle_offsets = [-12, -4, 4, 12] if mech_arm_upgraded else [-10, -3, 4, 11]
+            for ki, kx_off in enumerate(knuckle_offsets):
+                knuckle_w = 12 if mech_arm_upgraded else 10
+                knuckle_h = 18 if mech_arm_upgraded else 14
+                knuckle_rect = pygame.Rect(fist_cx + kx_off - knuckle_w // 2, knuckle_y - knuckle_h // 2, knuckle_w, knuckle_h)
+                if mech_arm_upgraded:
+                    # 강화된 너클: 스파이크 형태
+                    pygame.draw.rect(surface, (90, 70, 55), knuckle_rect, border_radius=2)
+                    pygame.draw.rect(surface, (255, 180, 100), knuckle_rect, 2, border_radius=2)
+                    # 스파이크 LED (오렌지)
+                    led_pulse = int(200 + 55 * math.sin(phase * math.tau * 5 + ki * 0.5))
+                    pygame.draw.circle(surface, (255, led_pulse, 50), (fist_cx + kx_off, knuckle_y - 3), 3)
+                else:
+                    pygame.draw.rect(surface, palette["body"], knuckle_rect, border_radius=3)
+                    pygame.draw.rect(surface, palette["accent"], knuckle_rect, 1, border_radius=3)
+                    led_pulse = int(180 + 75 * math.sin(phase * math.tau * 4 + ki * 0.5))
+                    pygame.draw.circle(surface, (led_pulse, led_pulse, 255), (fist_cx + kx_off, knuckle_y - 2), 2)
 
-            # 전기 아크 효과 (주먹 주변)
-            arc_color = (150, 220, 255)
-            for arc_i in range(3):
-                arc_phase = phase * math.tau * 5 + arc_i * 2.1
-                arc_len = 12 + 6 * math.sin(arc_phase)
-                arc_angle = math.radians(-60 + arc_i * 40 + math.sin(phase * 10) * 15)
-                arc_start = (fist_cx + int(math.cos(arc_angle) * 18), fist_cy - 8 + int(math.sin(arc_angle) * 12))
+            # 전기/에너지 아크 효과 (강화 시 더 화려)
+            if mech_arm_upgraded:
+                # 강화된 아크: 오렌지-레드 에너지
+                arc_colors = [(255, 180, 80), (255, 140, 60), (255, 200, 120)]
+                arc_count = 5
+            else:
+                arc_colors = [(150, 220, 255)] * 3
+                arc_count = 3
+
+            for arc_i in range(arc_count):
+                arc_phase = phase * math.tau * 5 + arc_i * (2.1 if not mech_arm_upgraded else 1.3)
+                arc_len = (16 if mech_arm_upgraded else 12) + 6 * math.sin(arc_phase)
+                arc_angle = math.radians(-60 + arc_i * (72 if mech_arm_upgraded else 40) + math.sin(phase * 10) * 15)
+                arc_start_dist = 22 if mech_arm_upgraded else 18
+                arc_start = (fist_cx + int(math.cos(arc_angle) * arc_start_dist), fist_cy - 8 + int(math.sin(arc_angle) * 14))
                 arc_end = (arc_start[0] + int(math.cos(arc_angle + 0.3) * arc_len),
                           arc_start[1] + int(math.sin(arc_angle + 0.3) * arc_len))
-                # 지그재그 전기 아크
-                mid1 = ((arc_start[0] + arc_end[0]) // 2 + int(math.sin(phase * 20 + arc_i) * 4),
-                       (arc_start[1] + arc_end[1]) // 2 + int(math.cos(phase * 20 + arc_i) * 3))
-                pygame.draw.line(surface, arc_color, arc_start, mid1, 2)
-                pygame.draw.line(surface, arc_color, mid1, arc_end, 2)
+                mid1 = ((arc_start[0] + arc_end[0]) // 2 + int(math.sin(phase * 20 + arc_i) * 5),
+                       (arc_start[1] + arc_end[1]) // 2 + int(math.cos(phase * 20 + arc_i) * 4))
+                arc_color = arc_colors[arc_i % len(arc_colors)]
+                pygame.draw.line(surface, arc_color, arc_start, mid1, 3 if mech_arm_upgraded else 2)
+                pygame.draw.line(surface, arc_color, mid1, arc_end, 3 if mech_arm_upgraded else 2)
                 # 아크 끝 글로우
-                pygame.draw.circle(surface, (200, 240, 255), arc_end, 3)
+                end_glow_color = (255, 220, 150) if mech_arm_upgraded else (200, 240, 255)
+                pygame.draw.circle(surface, end_glow_color, arc_end, 4 if mech_arm_upgraded else 3)
 
-            # 손등 에너지 코어
-            core_x, core_y = fist_cx, fist_cy + 6
-            pygame.draw.circle(surface, palette["hex_base"], (core_x, core_y), 10)
+            # 손등 에너지 코어 (강화 시 더 크고 오렌지)
+            core_x, core_y = fist_cx, fist_cy + (8 if mech_arm_upgraded else 6)
+            core_radius = 14 if mech_arm_upgraded else 10
+            pygame.draw.circle(surface, (80, 60, 50) if mech_arm_upgraded else palette["hex_base"], (core_x, core_y), core_radius)
             core_pulse = int(200 + 55 * math.sin(phase * math.tau * 2))
-            pygame.draw.circle(surface, (core_pulse, core_pulse, 255), (core_x, core_y), 8)
-            pygame.draw.circle(surface, (255, 255, 255), (core_x, core_y), 4)
+            if mech_arm_upgraded:
+                pygame.draw.circle(surface, (255, core_pulse, 50), (core_x, core_y), core_radius - 2)
+                pygame.draw.circle(surface, (255, 255, 200), (core_x, core_y), 6)
+                # 추가 외곽 링
+                pygame.draw.circle(surface, (255, 180, 80), (core_x, core_y), core_radius + 2, 2)
+            else:
+                pygame.draw.circle(surface, (core_pulse, core_pulse, 255), (core_x, core_y), 8)
+                pygame.draw.circle(surface, (255, 255, 255), (core_x, core_y), 4)
 
-            # 손가락 관절 (주먹 쥔 상태)
-            for fi in range(4):
-                finger_x = fist_cx - 10 + fi * 7
-                finger_y = fist_cy - 18
-                pygame.draw.circle(surface, palette["hand"], (finger_x, finger_y), 5)
-                pygame.draw.circle(surface, palette["body"], (finger_x, finger_y), 4)
+            # 손가락 관절 (주먹 쥔 상태) - 강화 시 더 큼
+            finger_count = 4
+            finger_spread = 8 if mech_arm_upgraded else 7
+            finger_y_offset = 22 if mech_arm_upgraded else 18
+            for fi in range(finger_count):
+                finger_x = fist_cx - int(finger_spread * 1.5) + fi * finger_spread
+                finger_y = fist_cy - finger_y_offset
+                finger_size = 6 if mech_arm_upgraded else 5
+                pygame.draw.circle(surface, (90, 70, 55) if mech_arm_upgraded else palette["hand"], (finger_x, finger_y), finger_size)
+                pygame.draw.circle(surface, (70, 55, 45) if mech_arm_upgraded else palette["body"], (finger_x, finger_y), finger_size - 1)
+            # 엄지 (주먹 옆) - 강화 시 더 크고 다른 색상
+            if mech_arm_upgraded:
+                thumb_pts = [(fist_cx + 24, fist_cy - 5), (fist_cx + 32, fist_cy + 3), (fist_cx + 30, fist_cy + 14)]
+                pygame.draw.polygon(surface, (90, 70, 55), thumb_pts)
+                pygame.draw.polygon(surface, (255, 180, 100), thumb_pts, 2)
+            else:
+                thumb_pts = [(fist_cx + 20, fist_cy - 4), (fist_cx + 26, fist_cy + 2), (fist_cx + 24, fist_cy + 10)]
+                pygame.draw.polygon(surface, palette["hand"], thumb_pts)
+                pygame.draw.polygon(surface, palette["body"], thumb_pts, 2)
 
-            # 엄지 (주먹 옆)
-            thumb_pts = [(fist_cx + 20, fist_cy - 4), (fist_cx + 26, fist_cy + 2), (fist_cx + 24, fist_cy + 10)]
-            pygame.draw.polygon(surface, palette["hand"], thumb_pts)
-            pygame.draw.polygon(surface, palette["body"], thumb_pts, 2)
+            # 주먹 외곽 LED 링 (강화 시 오렌지)
+            if mech_arm_upgraded:
+                pygame.draw.ellipse(surface, (255, 180, 100), fist_rect, 3)
+            else:
+                pygame.draw.ellipse(surface, palette["accent"], fist_rect, 2)
 
-            # 주먹 외곽 LED 링
-            pygame.draw.ellipse(surface, palette["accent"], fist_rect, 2)
-
-            # 스파크 파티클 (랜덤 위치)
-            for sp_i in range(4):
-                sp_phase = phase * 8 + sp_i * 1.5
-                sp_x = fist_cx + int(math.cos(sp_phase) * (20 + sp_i * 3))
-                sp_y = fist_cy - 6 + int(math.sin(sp_phase * 1.3) * (15 + sp_i * 2))
+            # 스파크 파티클 (강화 시 더 많고 오렌지)
+            spark_count = 6 if mech_arm_upgraded else 4
+            for sp_i in range(spark_count):
+                sp_phase = phase * 8 + sp_i * (1.0 if mech_arm_upgraded else 1.5)
+                spark_dist = (24 if mech_arm_upgraded else 20) + sp_i * 3
+                sp_x = fist_cx + int(math.cos(sp_phase) * spark_dist)
+                sp_y = fist_cy - 6 + int(math.sin(sp_phase * 1.3) * (18 if mech_arm_upgraded else 15 + sp_i * 2))
                 sp_alpha = int(150 + 100 * math.sin(sp_phase * 2))
-                spark_surf = pygame.Surface((6, 6), pygame.SRCALPHA)
-                pygame.draw.circle(spark_surf, (255, 255, 255, sp_alpha), (3, 3), 2)
-                surface.blit(spark_surf, (sp_x - 3, sp_y - 3))
+                spark_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+                if mech_arm_upgraded:
+                    pygame.draw.circle(spark_surf, (255, 200, 100, sp_alpha), (4, 4), 3)
+                else:
+                    pygame.draw.circle(spark_surf, (255, 255, 255, sp_alpha), (4, 4), 2)
+                surface.blit(spark_surf, (sp_x - 4, sp_y - 4))
 
     draw_arm(-1, arm_swing_left, left_swing_ratio)
     draw_arm(1, arm_swing_right, right_swing_ratio)
