@@ -1899,15 +1899,23 @@ class DowntownManager:
             for dx in range(building_size[0]):
                 map_data[tile_y + dy][tile_x + dx] = 9  # 건물 타일
 
-        # 건물 매니저에 건물 추가
-        pixel_x = tile_x * TILE_SIZE + (building_size[0] * TILE_SIZE) // 2
-        pixel_y = tile_y * TILE_SIZE + (building_size[1] * TILE_SIZE) // 2
+        # 픽셀 좌표 계산 (건물 정보의 pixel_size 사용)
+        pixel_x = tile_x * TILE_SIZE
+        pixel_y = tile_y * TILE_SIZE
+
+        # 건물별 고유 크기 사용
+        if 'pixel_size' in building_info:
+            pixel_w = building_info['pixel_size'][0]
+            pixel_h = building_info['pixel_size'][1]
+        else:
+            pixel_w = building_size[0] * TILE_SIZE
+            pixel_h = building_size[1] * TILE_SIZE
 
         # 새 건물 데이터 생성
         new_building = {
             'type': building_type,
-            'x': pixel_x,
-            'y': pixel_y,
+            'x': pixel_x + pixel_w // 2,
+            'y': pixel_y + pixel_h // 2,
             'tile_x': tile_x,
             'tile_y': tile_y,
             'size': building_size,
@@ -1918,15 +1926,16 @@ class DowntownManager:
         # BuildingManager에 추가
         self.buildings.add_building(new_building)
 
-        # downtown_map의 buildings 리스트에도 추가
+        # downtown_map의 buildings 리스트에 추가 (타일 기반 형식)
         if hasattr(self.downtown_map, 'buildings'):
-            self.downtown_map.buildings.append({
-                'type': building_type,
-                'tile_x': tile_x,
-                'tile_y': tile_y,
-                'pixel_x': pixel_x,
-                'pixel_y': pixel_y
-            })
+            self.downtown_map.buildings.append(
+                (building_type, tile_x, tile_y, building_size[0], building_size[1])
+            )
+
+        # downtown_map의 building_rects에 추가 (상호작용용 - 핵심!)
+        if hasattr(self.downtown_map, 'building_rects'):
+            building_rect = pygame.Rect(pixel_x, pixel_y, pixel_w, pixel_h)
+            self.downtown_map.building_rects.append((building_type, building_rect))
 
         return True
 
