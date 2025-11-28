@@ -105,7 +105,7 @@ class InteriorNPC:
         self.original_y = y
         self.walk_range = 60  # 원래 위치에서 최대 60픽셀 범위
 
-    def update(self, dt, walkable_rect=None):
+    def update(self, dt, walkable_rect=None, obstacle_rects=None):
         """NPC 업데이트"""
         # 말풍선 타이머
         if self.is_talking:
@@ -126,9 +126,9 @@ class InteriorNPC:
 
         # 고객 NPC만 걸어다니기 (메인, 스태프 제외)
         if self.role == "customer" and walkable_rect:
-            self._update_walking(dt, walkable_rect)
+            self._update_walking(dt, walkable_rect, obstacle_rects)
 
-    def _update_walking(self, dt, walkable_rect):
+    def _update_walking(self, dt, walkable_rect, obstacle_rects=None):
         """걸어다니기 업데이트 (드물게, 몇 걸음씩)"""
         # 대화 중이면 걷지 않음
         if self.is_talking:
@@ -150,18 +150,38 @@ class InteriorNPC:
                 self.walk_target_y = None
                 self.walk_timer = random.uniform(8, 20)  # 다음 걷기까지 8~20초 대기
             else:
-                # 이동
+                # 이동 전 다음 위치가 장애물과 충돌하는지 체크
                 move_dist = self.walk_speed * dt
                 if move_dist > dist:
                     move_dist = dist
-                self.x += (dx / dist) * move_dist
-                self.y += (dy / dist) * move_dist
+                next_x = self.x + (dx / dist) * move_dist
+                next_y = self.y + (dy / dist) * move_dist
 
-                # 방향 업데이트
-                if abs(dx) > abs(dy):
-                    self.direction = 2 if dx > 0 else 1  # 좌우
+                # 장애물 충돌 체크
+                can_move = True
+                if obstacle_rects:
+                    npc_rect = pygame.Rect(next_x - self.size, next_y - self.size,
+                                          self.size * 2, self.size * 2)
+                    for obstacle in obstacle_rects:
+                        if npc_rect.colliderect(obstacle):
+                            can_move = False
+                            break
+
+                if can_move:
+                    self.x = next_x
+                    self.y = next_y
+
+                    # 방향 업데이트
+                    if abs(dx) > abs(dy):
+                        self.direction = 2 if dx > 0 else 1  # 좌우
+                    else:
+                        self.direction = 0 if dy > 0 else 3  # 상하
                 else:
-                    self.direction = 0 if dy > 0 else 3  # 상하
+                    # 장애물에 막히면 걷기 중단
+                    self.is_walking = False
+                    self.walk_target_x = None
+                    self.walk_target_y = None
+                    self.walk_timer = random.uniform(3, 8)  # 짧은 대기 후 재시도
         else:
             # 걷기 타이머 감소
             self.walk_timer -= dt
@@ -174,9 +194,23 @@ class InteriorNPC:
                 target_x = max(walkable_rect.left + 20, min(walkable_rect.right - 20, target_x))
                 target_y = max(walkable_rect.top + 20, min(walkable_rect.bottom - 60, target_y))
 
-                self.walk_target_x = target_x
-                self.walk_target_y = target_y
-                self.is_walking = True
+                # 목표 지점이 장애물 안에 있는지 체크
+                target_valid = True
+                if obstacle_rects:
+                    target_rect = pygame.Rect(target_x - self.size, target_y - self.size,
+                                             self.size * 2, self.size * 2)
+                    for obstacle in obstacle_rects:
+                        if target_rect.colliderect(obstacle):
+                            target_valid = False
+                            break
+
+                if target_valid:
+                    self.walk_target_x = target_x
+                    self.walk_target_y = target_y
+                    self.is_walking = True
+                else:
+                    # 장애물 안이면 다음 기회에 다시 시도
+                    self.walk_timer = random.uniform(2, 5)
 
     def start_dialogue(self):
         """대화 시작"""
@@ -204,6 +238,11 @@ class InteriorNPC:
         # 은행 로봇 NPC인 경우 로봇 스타일로 그리기
         if self.building_type == BuildingType.BANK:
             self._draw_robot(screen, draw_x, draw_y, animation_timer)
+            return
+
+        # 마법 학원 NPC인 경우 마법사/견습생 스타일로 그리기
+        if self.building_type == BuildingType.ACADEMY:
+            self._draw_wizard(screen, draw_x, draw_y, animation_timer)
             return
 
         # NPC 고유 ID로 외모 특성 결정
@@ -686,6 +725,246 @@ class InteriorNPC:
             glow_alpha = int(150 + 80 * math.sin(animation_timer * 3))
             marker_surf = pygame.Surface((20, 12), pygame.SRCALPHA)
             pygame.draw.polygon(marker_surf, (*led_color, glow_alpha), [
+                (10, 10), (4, 2), (16, 2)
+            ])
+            screen.blit(marker_surf, (center_x - 10, marker_y))
+
+    def _draw_wizard(self, screen, draw_x, draw_y, animation_timer):
+        """마법 학원 마법사/견습생 NPC 그리기"""
+        npc_id = hash(self.name)
+        is_main = self.role == "main"  # 학장 아르카나
+
+        # 메인 NPC(학장)는 더 크고 특별한 색상
+        scale = 1.15 if is_main else 1.0
+
+        # 마법사 색상 팔레트
+        if is_main:
+            # 학장 아르카나: 보라색 로브 + 금색 장식
+            ROBE_COLOR = (100, 50, 140)       # 보라색 로브
+            ROBE_DARK = (70, 30, 100)         # 어두운 보라
+            ROBE_LIGHT = (140, 80, 180)       # 밝은 보라
+            ACCENT_COLOR = (255, 200, 100)    # 금색 장식
+            MAGIC_GLOW = (180, 120, 255)      # 마법 발광
+        else:
+            # 견습생: 다양한 로브 색상
+            robe_colors = [
+                ((60, 90, 140), (40, 60, 100), (90, 120, 170)),    # 파란 로브
+                ((80, 120, 80), (50, 80, 50), (110, 150, 110)),    # 초록 로브
+                ((140, 80, 80), (100, 50, 50), (170, 110, 110)),   # 빨간 로브
+                ((100, 100, 120), (70, 70, 90), (130, 130, 150)),  # 회색 로브
+                ((120, 100, 60), (80, 70, 40), (150, 130, 90)),    # 갈색 로브
+            ]
+            robe_set = robe_colors[npc_id % len(robe_colors)]
+            ROBE_COLOR, ROBE_DARK, ROBE_LIGHT = robe_set
+            ACCENT_COLOR = (180, 180, 200)    # 은색 장식
+            MAGIC_GLOW = (100, 200, 180)      # 청록 마법
+
+        # 피부톤 (다양화)
+        skin_tones = [
+            (255, 224, 189), (255, 205, 148), (234, 192, 134),
+            (198, 134, 66), (255, 219, 172)
+        ]
+        skin_color = skin_tones[npc_id % len(skin_tones)]
+        skin_dark = tuple(max(0, c - 25) for c in skin_color)
+
+        # 애니메이션
+        hover_offset = int(1.5 * math.sin(animation_timer * 1.5 + npc_id))
+        robe_sway = math.sin(animation_timer * 2 + npc_id) * 2
+
+        # 위치 계산
+        center_x = int(draw_x)
+        feet_y = int(draw_y) + hover_offset
+
+        # === 그림자 ===
+        shadow_w = int((self.width + 12) * scale)
+        shadow_h = int(8 * scale)
+        shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 0, shadow_w, shadow_h))
+        screen.blit(shadow_surf, (center_x - shadow_w // 2, feet_y - 4 - hover_offset))
+
+        # === 로브 하단 (바닥에 닿는 부분) ===
+        robe_bottom_w = int(28 * scale)
+        robe_bottom_h = int(12 * scale)
+        robe_bottom_y = feet_y - robe_bottom_h
+
+        # 로브 하단 (물결 모양)
+        points = [
+            (center_x - robe_bottom_w // 2 + robe_sway, robe_bottom_y),
+            (center_x - robe_bottom_w // 2 - 2 + robe_sway, feet_y),
+            (center_x + robe_bottom_w // 2 + 2 - robe_sway, feet_y),
+            (center_x + robe_bottom_w // 2 - robe_sway, robe_bottom_y),
+        ]
+        pygame.draw.polygon(screen, ROBE_DARK, points)
+
+        # === 로브 본체 ===
+        robe_w = int(26 * scale)
+        robe_h = int(38 * scale)
+        robe_y = robe_bottom_y - robe_h + 8
+        robe_x = center_x - robe_w // 2
+
+        # 로브 몸통 (사다리꼴 형태)
+        robe_points = [
+            (center_x - robe_w // 3, robe_y),
+            (center_x - robe_w // 2, robe_bottom_y),
+            (center_x + robe_w // 2, robe_bottom_y),
+            (center_x + robe_w // 3, robe_y),
+        ]
+        pygame.draw.polygon(screen, ROBE_COLOR, robe_points)
+
+        # 로브 테두리/장식
+        pygame.draw.polygon(screen, ROBE_LIGHT, robe_points, 2)
+
+        # 중앙 장식 라인
+        pygame.draw.line(screen, ACCENT_COLOR,
+                        (center_x, robe_y + 5),
+                        (center_x, robe_bottom_y - 5), 2)
+
+        # 학장: 추가 금장식
+        if is_main:
+            # 가슴 엠블럼
+            emblem_y = robe_y + 12
+            pygame.draw.circle(screen, ACCENT_COLOR, (center_x, emblem_y), 6)
+            pygame.draw.circle(screen, ROBE_DARK, (center_x, emblem_y), 4)
+            # 별 모양
+            for i in range(5):
+                angle = -math.pi / 2 + (i * 2 * math.pi / 5)
+                px = center_x + int(3 * math.cos(angle))
+                py = emblem_y + int(3 * math.sin(angle))
+                pygame.draw.circle(screen, ACCENT_COLOR, (px, py), 1)
+
+        # === 소매/팔 ===
+        arm_y = robe_y + int(10 * scale)
+        arm_swing = int(2 * math.sin(animation_timer * 1.2 + npc_id))
+
+        # 왼팔 (소매)
+        sleeve_w = int(10 * scale)
+        sleeve_h = int(16 * scale)
+        pygame.draw.ellipse(screen, ROBE_DARK,
+                           (robe_x - sleeve_w + 6, arm_y + arm_swing, sleeve_w, sleeve_h))
+        # 손
+        pygame.draw.ellipse(screen, skin_color,
+                           (robe_x - 2, arm_y + sleeve_h - 5 + arm_swing, 6, 6))
+
+        # 오른팔 (소매)
+        pygame.draw.ellipse(screen, ROBE_COLOR,
+                           (robe_x + robe_w - 6, arm_y - arm_swing, sleeve_w, sleeve_h))
+        # 손
+        pygame.draw.ellipse(screen, skin_color,
+                           (robe_x + robe_w - 2, arm_y + sleeve_h - 5 - arm_swing, 6, 6))
+
+        # 학장: 지팡이
+        if is_main:
+            staff_x = robe_x + robe_w + 4
+            staff_top = arm_y - 20
+            staff_bottom = feet_y - 5
+            # 지팡이 막대
+            pygame.draw.line(screen, (100, 70, 40), (staff_x, staff_bottom), (staff_x, staff_top), 3)
+            # 지팡이 보석
+            gem_pulse = int(150 + 80 * math.sin(animation_timer * 3))
+            pygame.draw.circle(screen, MAGIC_GLOW, (staff_x, staff_top - 5), 6)
+            # 보석 글로우
+            glow_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*MAGIC_GLOW, gem_pulse // 2), (10, 10), 10)
+            screen.blit(glow_surf, (staff_x - 10, staff_top - 15))
+
+        # === 목/칼라 ===
+        collar_y = robe_y - 2
+        pygame.draw.ellipse(screen, ROBE_DARK,
+                           (center_x - 8, collar_y, 16, 8))
+        pygame.draw.ellipse(screen, ACCENT_COLOR,
+                           (center_x - 8, collar_y, 16, 8), 1)
+
+        # === 머리 ===
+        head_w = int(14 * scale)
+        head_h = int(14 * scale)
+        head_y = collar_y - head_h + 4
+        head_x = center_x - head_w // 2
+
+        pygame.draw.ellipse(screen, skin_color, (head_x, head_y, head_w, head_h))
+
+        # 볼 터치
+        pygame.draw.circle(screen, (255, 200, 190), (head_x + 2, head_y + head_h // 2 + 1), 2)
+        pygame.draw.circle(screen, (255, 200, 190), (head_x + head_w - 2, head_y + head_h // 2 + 1), 2)
+
+        # === 마법사 모자 (학장) / 후드 (견습생) ===
+        if is_main:
+            # 마법사 뾰족 모자
+            hat_base_y = head_y + 2
+            hat_tip_y = head_y - int(25 * scale)
+            hat_width = int(20 * scale)
+
+            # 모자 본체
+            hat_points = [
+                (center_x, hat_tip_y),
+                (center_x - hat_width // 2, hat_base_y),
+                (center_x + hat_width // 2, hat_base_y),
+            ]
+            pygame.draw.polygon(screen, ROBE_COLOR, hat_points)
+            pygame.draw.polygon(screen, ROBE_LIGHT, hat_points, 2)
+
+            # 모자 챙
+            pygame.draw.ellipse(screen, ROBE_DARK,
+                              (center_x - hat_width // 2 - 3, hat_base_y - 3, hat_width + 6, 8))
+
+            # 모자 장식 (금색 띠)
+            pygame.draw.line(screen, ACCENT_COLOR,
+                           (center_x - hat_width // 2 + 2, hat_base_y + 2),
+                           (center_x + hat_width // 2 - 2, hat_base_y + 2), 2)
+
+            # 모자 끝 별
+            star_x = center_x + int(2 * math.sin(animation_timer * 2))
+            pygame.draw.circle(screen, ACCENT_COLOR, (star_x, hat_tip_y), 4)
+            # 별 글로우
+            glow_alpha = int(100 + 50 * math.sin(animation_timer * 4))
+            glow_surf = pygame.Surface((16, 16), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*ACCENT_COLOR, glow_alpha), (8, 8), 8)
+            screen.blit(glow_surf, (star_x - 8, hat_tip_y - 8))
+        else:
+            # 견습생: 후드
+            hood_points = [
+                (center_x, head_y - 5),
+                (center_x - head_w // 2 - 4, head_y + head_h // 2),
+                (center_x - head_w // 2 - 2, collar_y + 2),
+                (center_x + head_w // 2 + 2, collar_y + 2),
+                (center_x + head_w // 2 + 4, head_y + head_h // 2),
+            ]
+            pygame.draw.polygon(screen, ROBE_DARK, hood_points)
+            pygame.draw.polygon(screen, ROBE_COLOR, hood_points, 2)
+
+        # === 눈 ===
+        eye_y = head_y + head_h // 2 - 1
+        eye_offset = 1 if self.direction == 2 else (-1 if self.direction == 1 else 0)
+
+        # 눈 흰자
+        pygame.draw.ellipse(screen, (255, 255, 255),
+                           (center_x - 4 + eye_offset, eye_y - 2, 4, 4))
+        pygame.draw.ellipse(screen, (255, 255, 255),
+                           (center_x + 1 + eye_offset, eye_y - 2, 4, 4))
+
+        # 눈동자
+        pupil_color = (60, 40, 100) if is_main else (40, 30, 20)
+        pygame.draw.circle(screen, pupil_color, (center_x - 2 + eye_offset, eye_y), 2)
+        pygame.draw.circle(screen, pupil_color, (center_x + 3 + eye_offset, eye_y), 2)
+
+        # 눈 하이라이트
+        pygame.draw.circle(screen, (255, 255, 255), (center_x - 2 + eye_offset, eye_y - 1), 1)
+        pygame.draw.circle(screen, (255, 255, 255), (center_x + 3 + eye_offset, eye_y - 1), 1)
+
+        # === 입 ===
+        mouth_y = head_y + head_h - 4
+        if self.is_talking:
+            mouth_open = int(abs(math.sin(animation_timer * 8)) * 2)
+            pygame.draw.ellipse(screen, (60, 40, 40),
+                              (center_x - 2, mouth_y, 4, 2 + mouth_open))
+        else:
+            pygame.draw.line(screen, skin_dark, (center_x - 2, mouth_y), (center_x + 2, mouth_y), 1)
+
+        # === 학장 마커 ===
+        if is_main:
+            marker_y = head_y - 35
+            glow_alpha = int(150 + 80 * math.sin(animation_timer * 3))
+            marker_surf = pygame.Surface((20, 12), pygame.SRCALPHA)
+            pygame.draw.polygon(marker_surf, (*ACCENT_COLOR, glow_alpha), [
                 (10, 10), (4, 2), (16, 2)
             ])
             screen.blit(marker_surf, (center_x - 10, marker_y))
@@ -1339,6 +1618,9 @@ class BuildingInterior:
         # 은행 카운터 충돌 영역 (BANK에서만 사용, draw에서 설정됨)
         self.bank_counter_rect = None
 
+        # 마법 학원 장애물 영역들 (ACADEMY에서만 사용)
+        self.academy_obstacle_rects = []
+
         # 환율 시스템 (STARBANK 전용)
         # 기본 환율: 1 스타포인트 = 500 골드
         # 일일 변동: -15% ~ +15%
@@ -1541,6 +1823,12 @@ class BuildingInterior:
             if player_rect.colliderect(self.bank_counter_rect):
                 return False
 
+        # 마법 학원 장애물 충돌 체크 (ACADEMY 전용)
+        if hasattr(self, 'academy_obstacle_rects') and self.academy_obstacle_rects:
+            for obstacle_rect in self.academy_obstacle_rects:
+                if player_rect.colliderect(obstacle_rect):
+                    return False
+
         return True
 
     def _update_camera(self):
@@ -1584,9 +1872,10 @@ class BuildingInterior:
         # 카메라 업데이트
         self._update_camera()
 
-        # NPC 업데이트 (걸어다니기용 walkable_rect 전달)
+        # NPC 업데이트 (걸어다니기용 walkable_rect + 장애물 영역 전달)
+        obstacle_rects = getattr(self, 'academy_obstacle_rects', [])
         for npc in self.npcs:
-            npc.update(dt, self.walkable_rect)
+            npc.update(dt, self.walkable_rect, obstacle_rects)
 
         # 문 근처에서 나가기 체크 (입장 쿨다운 후에만)
         if self.entry_cooldown <= 0:
@@ -2744,6 +3033,42 @@ class BuildingInterior:
         cam_x, cam_y = self.camera_offset
         cx = self.pixel_width // 2  # 중앙 X
         cy = self.pixel_height // 2  # 중앙 Y
+
+        # 장애물 영역 설정 (플레이어/NPC 이동 불가)
+        wall_h = int(TILE_SIZE * 3.5)
+        shelf_w = 70
+        shelf_h = 180
+        desk_w = 80
+        desk_h = 75  # 책상 + 다리 높이
+
+        # 장애물 영역 리스트 초기화
+        self.academy_obstacle_rects = []
+
+        # 1) 상단 벽 영역
+        self.academy_obstacle_rects.append(pygame.Rect(0, 0, self.pixel_width, wall_h))
+
+        # 2) 왼쪽 책장들 (3개)
+        shelf_y = wall_h + 20
+        for i in range(3):
+            sx = 15 + i * (shelf_w + 10)
+            self.academy_obstacle_rects.append(pygame.Rect(sx, shelf_y - 15, shelf_w, shelf_h + 15))
+
+        # 3) 오른쪽 책장들 (3개)
+        for i in range(3):
+            sx = self.pixel_width - 15 - (i + 1) * (shelf_w + 10) + 10
+            self.academy_obstacle_rects.append(pygame.Rect(sx, shelf_y - 15, shelf_w, shelf_h + 15))
+
+        # 4) 책상들 (4개)
+        center_x = self.pixel_width // 2
+        center_y = self.pixel_height // 2
+        desk_positions = [
+            (center_x - 180, center_y - 80),
+            (center_x - 180, center_y + 60),
+            (center_x + 100, center_y - 80),
+            (center_x + 100, center_y + 60),
+        ]
+        for dx, dy in desk_positions:
+            self.academy_obstacle_rects.append(pygame.Rect(dx, dy, desk_w, desk_h))
 
         # 1. 배경
         screen.fill(BG_DARK)
