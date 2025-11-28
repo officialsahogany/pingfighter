@@ -233,10 +233,10 @@ class DowntownMap:
         if self.stage_number >= 3:
             required_buildings.append(BuildingType.COLOSSEUM)
 
-        # 선택적 건물 (확률에 따라 - 은행 제외)
+        # 선택적 건물 (확률에 따라 - 은행, 아카데미 제외)
         optional_buildings = []
         for btype, info in BUILDING_INFO.items():
-            if btype not in required_buildings and btype != BuildingType.BANK:
+            if btype not in required_buildings and btype != BuildingType.BANK and btype != BuildingType.ACADEMY:
                 if random.random() < info["rarity"]:
                     optional_buildings.append(btype)
 
