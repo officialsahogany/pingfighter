@@ -1882,6 +1882,11 @@ class BuildingInterior:
         self.deposit_amount = 0  # 예금할 금액
         self.withdraw_mode = False  # False: 예금, True: 출금
 
+        # 아카데미 메뉴 상태 (ACADEMY 전용)
+        self.academy_dialog_open = False  # 학장 대화 미니창
+        self.academy_dialog_selection = 0  # 0: 예, 1: 아니오
+        self.open_skill_menu_requested = False  # 스킬 메뉴 열기 요청 플래그
+
     def _create_npcs(self):
         """NPC들 생성"""
         # 아카데미은 전용 NPC 생성 로직 사용
@@ -2292,8 +2297,8 @@ class BuildingInterior:
         if self.entry_cooldown > 0:
             self.entry_cooldown -= dt
 
-        # 은행 메뉴 또는 환전 메뉴가 열려있으면 플레이어 입력 차단
-        if self.bank_menu_open or self.exchange_menu_open:
+        # 메뉴가 열려있으면 플레이어 입력 차단
+        if self.bank_menu_open or self.exchange_menu_open or self.academy_dialog_open:
             return
 
         # 플레이어 업데이트
@@ -2327,6 +2332,10 @@ class BuildingInterior:
 
     def handle_click(self, pos):
         """클릭 처리"""
+        # 아카데미 대화창이 열려있으면 대화창 클릭 처리
+        if self.academy_dialog_open:
+            return self._handle_academy_dialog_click(pos)
+
         # 예금 메뉴가 열려있으면 예금 메뉴 클릭 처리
         if self.deposit_menu_open:
             return self._handle_deposit_menu_click(pos)
@@ -2352,6 +2361,11 @@ class BuildingInterior:
                     self.bank_menu_open = True
                     self.bank_menu_selection = 0
                     return ("bank_menu", npc)
+                # 아카데미 메인 NPC인 경우 대화창 열기
+                elif self.building_type == BuildingType.ACADEMY and npc.role == "main":
+                    self.academy_dialog_open = True
+                    self.academy_dialog_selection = 0
+                    return ("academy_dialog", npc)
                 else:
                     dialogue = npc.start_dialogue()
                     if dialogue:
@@ -2362,6 +2376,14 @@ class BuildingInterior:
     def handle_key(self, event):
         """키 입력 처리 (이벤트 기반)"""
         if event.type != pygame.KEYDOWN:
+            return None
+
+        # 아카데미 대화창이 열려있을 때
+        if self.academy_dialog_open:
+            if self._handle_academy_dialog_key(event.key):
+                if self.open_skill_menu_requested:
+                    return ("academy_skill_menu", None)
+                return ("academy_dialog_close", None)
             return None
 
         # 예금 메뉴가 열려있을 때
@@ -2579,6 +2601,11 @@ class BuildingInterior:
                     self.bank_menu_open = True
                     self.bank_menu_selection = 0
                     return ("bank_menu", npc)
+                # 아카데미 메인 NPC (학장 아르카나)인 경우 대화창 열기
+                elif self.building_type == BuildingType.ACADEMY and npc.role == "main":
+                    self.academy_dialog_open = True
+                    self.academy_dialog_selection = 0
+                    return ("academy_dialog", npc)
                 else:
                     dialogue = npc.start_dialogue()
                     if dialogue:
@@ -2633,6 +2660,60 @@ class BuildingInterior:
             return ("menu_close", None)
 
         return None
+
+    def _handle_academy_dialog_click(self, pos):
+        """아카데미 대화창 클릭 처리"""
+        # 대화창 영역 계산 (화면 중앙)
+        dialog_w, dialog_h = 320, 180
+        dialog_x = (SCREEN_WIDTH - dialog_w) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_h) // 2
+
+        # 버튼 영역
+        btn_w, btn_h = 80, 32
+        btn_y = dialog_y + dialog_h - 50
+        yes_btn = pygame.Rect(dialog_x + dialog_w // 2 - btn_w - 20, btn_y, btn_w, btn_h)
+        no_btn = pygame.Rect(dialog_x + dialog_w // 2 + 20, btn_y, btn_w, btn_h)
+
+        if yes_btn.collidepoint(pos):
+            # 예 선택 - 스킬 메뉴 열기 요청
+            self.academy_dialog_open = False
+            self.open_skill_menu_requested = True
+            return ("academy_skill_menu", None)
+        elif no_btn.collidepoint(pos):
+            # 아니오 선택 - 대화창 닫기
+            self.academy_dialog_open = False
+            return ("academy_dialog_close", None)
+
+        # 대화창 바깥 클릭시 닫기
+        dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_w, dialog_h)
+        if not dialog_rect.collidepoint(pos):
+            self.academy_dialog_open = False
+            return ("academy_dialog_close", None)
+
+        return None
+
+    def _handle_academy_dialog_key(self, key):
+        """아카데미 대화창 키보드 처리"""
+        if key == pygame.K_LEFT or key == pygame.K_a:
+            self.academy_dialog_selection = 0  # 예
+            return True
+        elif key == pygame.K_RIGHT or key == pygame.K_d:
+            self.academy_dialog_selection = 1  # 아니오
+            return True
+        elif key == pygame.K_RETURN or key == pygame.K_SPACE:
+            if self.academy_dialog_selection == 0:
+                # 예 선택
+                self.academy_dialog_open = False
+                self.open_skill_menu_requested = True
+                return True
+            else:
+                # 아니오 선택
+                self.academy_dialog_open = False
+                return True
+        elif key == pygame.K_ESCAPE:
+            self.academy_dialog_open = False
+            return True
+        return False
 
     def _handle_exchange_menu_click(self, pos):
         """환전 메뉴 클릭 처리 (슬라이더 지원)"""
@@ -3317,6 +3398,120 @@ class BuildingInterior:
         # 예금 메뉴 (맨 위에)
         if self.deposit_menu_open:
             self._draw_deposit_menu(screen)
+
+        # 아카데미 대화창 (맨 위에)
+        if self.academy_dialog_open:
+            self._draw_academy_dialog(screen)
+
+    def _draw_academy_dialog(self, screen):
+        """학장 아르카나와의 대화창 그리기"""
+        # 대화창 크기 및 위치
+        dialog_w, dialog_h = 320, 180
+        dialog_x = (SCREEN_WIDTH - dialog_w) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_h) // 2
+
+        # 색상 정의 (마법학원 테마 - 보라색/금색)
+        BG_DARK = (25, 15, 45)
+        BORDER_PURPLE = (180, 100, 255)
+        BORDER_GLOW = (120, 60, 180)
+        TEXT_WHITE = (240, 245, 255)
+        TEXT_GOLD = (255, 215, 100)
+        TEXT_PURPLE = (200, 150, 255)
+        BUTTON_BG = (50, 30, 80)
+        BUTTON_SELECTED = (100, 60, 150)
+        BUTTON_BORDER = (180, 100, 255)
+
+        # 마우스 위치
+        mouse_pos = pygame.mouse.get_pos()
+
+        # 배경 어둡게 (반투명 오버레이)
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        screen.blit(overlay, (0, 0))
+
+        # 대화창 배경
+        dialog_surface = pygame.Surface((dialog_w, dialog_h), pygame.SRCALPHA)
+        pygame.draw.rect(dialog_surface, (*BG_DARK, 240), (0, 0, dialog_w, dialog_h), border_radius=8)
+        screen.blit(dialog_surface, (dialog_x, dialog_y))
+
+        # 테두리 (글로우 효과)
+        pygame.draw.rect(screen, BORDER_GLOW, (dialog_x - 2, dialog_y - 2, dialog_w + 4, dialog_h + 4), 3, border_radius=10)
+        pygame.draw.rect(screen, BORDER_PURPLE, (dialog_x, dialog_y, dialog_w, dialog_h), 2, border_radius=8)
+
+        # 제목 텍스트
+        title_text = "핑파이터 견습생이시어"
+        title2_text = "새로운 기술을 배우러 오셨습니까?"
+        subtitle_text = "- 기술을 배우려면 스타포인트가 필요합니다 -"
+
+        # 폰트 (기본 폰트 사용)
+        try:
+            title_font = pygame.font.Font(None, 22)
+            subtitle_font = pygame.font.Font(None, 18)
+            button_font = pygame.font.Font(None, 24)
+        except:
+            title_font = pygame.font.SysFont(None, 22)
+            subtitle_font = pygame.font.SysFont(None, 18)
+            button_font = pygame.font.SysFont(None, 24)
+
+        # 한글 폰트 시도
+        try:
+            import os
+            font_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts", "NanumSquareB.ttf")
+            if os.path.exists(font_path):
+                title_font = pygame.font.Font(font_path, 18)
+                subtitle_font = pygame.font.Font(font_path, 14)
+                button_font = pygame.font.Font(font_path, 16)
+        except:
+            pass
+
+        # 제목 렌더링
+        title_surf = title_font.render(title_text, True, TEXT_WHITE)
+        title_rect = title_surf.get_rect(centerx=dialog_x + dialog_w // 2, top=dialog_y + 25)
+        screen.blit(title_surf, title_rect)
+
+        title2_surf = title_font.render(title2_text, True, TEXT_WHITE)
+        title2_rect = title2_surf.get_rect(centerx=dialog_x + dialog_w // 2, top=dialog_y + 50)
+        screen.blit(title2_surf, title2_rect)
+
+        # 부제목 렌더링
+        subtitle_surf = subtitle_font.render(subtitle_text, True, TEXT_GOLD)
+        subtitle_rect = subtitle_surf.get_rect(centerx=dialog_x + dialog_w // 2, top=dialog_y + 85)
+        screen.blit(subtitle_surf, subtitle_rect)
+
+        # 버튼 영역
+        btn_w, btn_h = 80, 32
+        btn_y = dialog_y + dialog_h - 50
+        yes_btn_x = dialog_x + dialog_w // 2 - btn_w - 20
+        no_btn_x = dialog_x + dialog_w // 2 + 20
+
+        yes_btn = pygame.Rect(yes_btn_x, btn_y, btn_w, btn_h)
+        no_btn = pygame.Rect(no_btn_x, btn_y, btn_w, btn_h)
+
+        # 예 버튼
+        yes_hover = yes_btn.collidepoint(mouse_pos)
+        yes_selected = self.academy_dialog_selection == 0
+        yes_bg = BUTTON_SELECTED if (yes_selected or yes_hover) else BUTTON_BG
+        pygame.draw.rect(screen, yes_bg, yes_btn, border_radius=5)
+        pygame.draw.rect(screen, BUTTON_BORDER if yes_selected else BORDER_GLOW, yes_btn, 2, border_radius=5)
+        yes_text = button_font.render("예", True, TEXT_WHITE if yes_selected else TEXT_PURPLE)
+        yes_text_rect = yes_text.get_rect(center=yes_btn.center)
+        screen.blit(yes_text, yes_text_rect)
+
+        # 아니오 버튼
+        no_hover = no_btn.collidepoint(mouse_pos)
+        no_selected = self.academy_dialog_selection == 1
+        no_bg = BUTTON_SELECTED if (no_selected or no_hover) else BUTTON_BG
+        pygame.draw.rect(screen, no_bg, no_btn, border_radius=5)
+        pygame.draw.rect(screen, BUTTON_BORDER if no_selected else BORDER_GLOW, no_btn, 2, border_radius=5)
+        no_text = button_font.render("아니오", True, TEXT_WHITE if no_selected else TEXT_PURPLE)
+        no_text_rect = no_text.get_rect(center=no_btn.center)
+        screen.blit(no_text, no_text_rect)
+
+        # 선택 힌트
+        hint_text = "← → 선택  |  Enter 확인  |  ESC 닫기"
+        hint_surf = subtitle_font.render(hint_text, True, (150, 150, 180))
+        hint_rect = hint_surf.get_rect(centerx=dialog_x + dialog_w // 2, bottom=dialog_y + dialog_h - 8)
+        screen.blit(hint_surf, hint_rect)
 
     def _draw_bank_menu(self, screen):
         """은행 메뉴창 그리기 - SF 스타일 (마우스 호버 효과 포함)"""
