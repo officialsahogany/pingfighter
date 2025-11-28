@@ -1739,6 +1739,11 @@ optimus_mech_arm_upgrade_active = False  # 기계손 강화 애니메이션 진�
 optimus_mech_arm_upgrade_timer = 0  # 애니메이션 시작 시간
 optimus_mech_arm_upgrade_complete = False  # 강화 완료 상태 (더 강력한 기계손으로 유지)
 optimus_mech_arm_particles = []  # 조립/강화 파티클
+# 옵티머스 궁극의 탁구채 강화 애니메이션 (300 이하 시 트리거)
+optimus_paddle_upgrade_active = False  # 탁구채 강화 애니메이션 진행 중
+optimus_paddle_upgrade_timer = 0  # 애니메이션 시작 시간
+optimus_paddle_upgrade_complete = False  # 강화 완료 상태 (궁극의 탁구채로 유지)
+optimus_paddle_upgrade_particles = []  # 탁구채 조립/강화 파티클
 PLAYER_PADDLE_SCALE_BY_MODE: dict[str, float] = {
     "junior": 1.2,
     "주니어": 1.2,
@@ -5153,6 +5158,8 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     global optimus_critical_gauge_energy_particles
     global optimus_mech_arm_upgrade_active, optimus_mech_arm_upgrade_timer
     global optimus_mech_arm_upgrade_complete, optimus_mech_arm_particles
+    global optimus_paddle_upgrade_active, optimus_paddle_upgrade_timer
+    global optimus_paddle_upgrade_complete, optimus_paddle_upgrade_particles
     if globals().get("selected_character_type") != "optimus":
         return
 
@@ -5175,6 +5182,11 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     optimus_mech_arm_upgrade_timer = 0
     optimus_mech_arm_upgrade_complete = False
     optimus_mech_arm_particles = []
+    # 궁극의 탁구채 강화 애니메이션 초기화
+    optimus_paddle_upgrade_active = False
+    optimus_paddle_upgrade_timer = 0
+    optimus_paddle_upgrade_complete = False
+    optimus_paddle_upgrade_particles = []
     special_gauge_max = get_max_gauge()
     if full_gauge:
         special_gauge = special_gauge_max
@@ -5221,6 +5233,8 @@ def update_optimus_energy() -> None:
     global optimus_critical_gauge_energy_particles
     global optimus_mech_arm_upgrade_active, optimus_mech_arm_upgrade_timer
     global optimus_mech_arm_upgrade_complete, optimus_mech_arm_particles
+    global optimus_paddle_upgrade_active, optimus_paddle_upgrade_timer
+    global optimus_paddle_upgrade_complete, optimus_paddle_upgrade_particles
 
     if globals().get("selected_character_type") != "optimus":
         return
@@ -5329,6 +5343,27 @@ def update_optimus_energy() -> None:
                     'size': random.uniform(3, 6),  # 더 큰 파티클
                     'spawn_time': now,
                     'spiral_phase': random.uniform(0, math.pi * 2)  # 나선형 회전용
+                })
+
+            # 궁극의 탁구채 강화 애니메이션도 동시에 트리거
+            optimus_paddle_upgrade_active = True
+            optimus_paddle_upgrade_timer = now
+            optimus_paddle_upgrade_particles = []
+            # 조립 파티클 생성 (플레이어 왼팔 탁구채 주변)
+            for i in range(24):
+                angle = random.uniform(0, math.pi * 2)
+                dist = random.uniform(40, 100)
+                lifetime = random.randint(1000, 1800)
+                optimus_paddle_upgrade_particles.append({
+                    'angle': angle,
+                    'dist': dist,
+                    'target_dist': 0,
+                    'life': lifetime,
+                    'max_life': lifetime,
+                    'size': random.uniform(4, 8),
+                    'spawn_time': now,
+                    'type': 'converge',
+                    'color_idx': random.randint(0, 3)  # 색상 인덱스 (레드, 오렌지, 골드, 흰색)
                 })
 
     # 충전 중에는 기본 배터리 소모를 일시 정지
@@ -5810,68 +5845,249 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
 
         # 왼팔 사이버 전자 탁구채 (15도 오른쪽 회전)
         if side < 0:
+            # 궁극의 탁구채 강화 상태 체크
+            paddle_upgraded = globals().get("optimus_paddle_upgrade_complete", False)
+            paddle_anim_active = globals().get("optimus_paddle_upgrade_active", False)
+            paddle_anim_timer = globals().get("optimus_paddle_upgrade_timer", 0)
+            paddle_particles = globals().get("optimus_paddle_upgrade_particles", [])
+            paddle_anim_now = pygame.time.get_ticks()
+            paddle_anim_duration = 2000  # 2초 강화 애니메이션
+
+            # 애니메이션 진행률 계산
+            paddle_anim_progress = 0.0
+            if paddle_anim_active and paddle_anim_timer > 0:
+                paddle_anim_elapsed = paddle_anim_now - paddle_anim_timer
+                paddle_anim_progress = min(1.0, paddle_anim_elapsed / paddle_anim_duration)
+                if paddle_anim_progress >= 1.0:
+                    # 애니메이션 완료 → 강화 완료 상태로 전환
+                    globals()["optimus_paddle_upgrade_active"] = False
+                    globals()["optimus_paddle_upgrade_complete"] = True
+                    paddle_upgraded = True
+                    paddle_anim_active = False
+
             # 탁구채를 별도 서피스에 그린 후 회전
-            paddle_surf_size = 100
+            paddle_surf_size = 140 if paddle_upgraded else 100
             paddle_surface = pygame.Surface((paddle_surf_size, paddle_surf_size), pygame.SRCALPHA)
             ps_cx, ps_cy = paddle_surf_size // 2, paddle_surf_size // 2  # 서피스 중앙
 
-            # 손잡이 (그립) - 서피스 중앙 기준
-            grip_offset_y = 28
-            pygame.draw.rect(paddle_surface, palette["grip"],
-                           (ps_cx - 7, ps_cy + grip_offset_y - 4, 14, 32), border_radius=4)
-            pygame.draw.rect(paddle_surface, palette["grip_line"],
-                           (ps_cx - 5, ps_cy + grip_offset_y, 10, 24), 1, border_radius=3)
+            # 손잡이 (그립) - 강화 시 더 화려함
+            grip_offset_y = 32 if paddle_upgraded else 28
+            if paddle_upgraded:
+                # 궁극의 탁구채 그립 (골드-레드)
+                pygame.draw.rect(paddle_surface, (100, 50, 30),
+                               (ps_cx - 9, ps_cy + grip_offset_y - 6, 18, 40), border_radius=5)
+                pygame.draw.rect(paddle_surface, (255, 180, 80),
+                               (ps_cx - 7, ps_cy + grip_offset_y - 4, 14, 36), border_radius=4)
+                pygame.draw.rect(paddle_surface, (255, 220, 120),
+                               (ps_cx - 5, ps_cy + grip_offset_y, 10, 28), 1, border_radius=3)
+                # 그립 보석 장식
+                pygame.draw.circle(paddle_surface, (255, 80, 80), (ps_cx, ps_cy + grip_offset_y + 16), 6)
+                pygame.draw.circle(paddle_surface, (255, 200, 200), (ps_cx, ps_cy + grip_offset_y + 16), 3)
+            else:
+                pygame.draw.rect(paddle_surface, palette["grip"],
+                               (ps_cx - 7, ps_cy + grip_offset_y - 4, 14, 32), border_radius=4)
+                pygame.draw.rect(paddle_surface, palette["grip_line"],
+                               (ps_cx - 5, ps_cy + grip_offset_y, 10, 24), 1, border_radius=3)
 
-            # 탁구채 라켓 면 (사각형 사이버 스타일)
-            paddle_w, paddle_h = 48, 56
+            # 탁구채 라켓 면 크기 (강화 시 더 큼)
+            if paddle_upgraded:
+                paddle_w, paddle_h = 64, 72  # 궁극의 탁구채
+            else:
+                paddle_w, paddle_h = 48, 56
             paddle_rect = pygame.Rect(ps_cx - paddle_w // 2, ps_cy - paddle_h // 2 - 8, paddle_w, paddle_h)
 
-            # 라켓 외곽 프레임 (다크 메탈)
-            pygame.draw.rect(paddle_surface, palette["hex_base"], paddle_rect, border_radius=6)
+            if paddle_upgraded:
+                # === 궁극의 탁구채 디자인 ===
+                # 라켓 외곽 프레임 (다크 레드-골드)
+                pygame.draw.rect(paddle_surface, (80, 30, 20), paddle_rect, border_radius=8)
+                pygame.draw.rect(paddle_surface, (60, 20, 15), paddle_rect.inflate(-4, -4), border_radius=6)
 
-            # 라켓 메인 면 (네온 사이언)
-            inner_rect = paddle_rect.inflate(-8, -8)
-            pygame.draw.rect(paddle_surface, palette["helmet"], inner_rect, border_radius=4)
+                # 라켓 메인 면 (크림슨-골드 그라데이션 느낌)
+                inner_rect = paddle_rect.inflate(-10, -10)
+                pygame.draw.rect(paddle_surface, (120, 40, 30), inner_rect, border_radius=5)
 
-            # 사이버 그리드 패턴
-            grid_color = (*palette["accent"], 120)
-            for gy in range(inner_rect.top + 6, inner_rect.bottom - 4, 10):
-                pygame.draw.line(paddle_surface, grid_color, (inner_rect.left + 4, gy), (inner_rect.right - 4, gy), 1)
-            for gx in range(inner_rect.left + 6, inner_rect.right - 4, 10):
-                pygame.draw.line(paddle_surface, grid_color, (gx, inner_rect.top + 4), (gx, inner_rect.bottom - 4), 1)
+                # 궁극의 에너지 패턴 (십자형 + 대각선)
+                energy_color = (255, 200, 100, 180)
+                # 십자형
+                pygame.draw.line(paddle_surface, energy_color,
+                               (inner_rect.centerx, inner_rect.top + 4),
+                               (inner_rect.centerx, inner_rect.bottom - 4), 2)
+                pygame.draw.line(paddle_surface, energy_color,
+                               (inner_rect.left + 4, inner_rect.centery),
+                               (inner_rect.right - 4, inner_rect.centery), 2)
+                # 대각선
+                pygame.draw.line(paddle_surface, energy_color,
+                               (inner_rect.left + 8, inner_rect.top + 8),
+                               (inner_rect.right - 8, inner_rect.bottom - 8), 2)
+                pygame.draw.line(paddle_surface, energy_color,
+                               (inner_rect.right - 8, inner_rect.top + 8),
+                               (inner_rect.left + 8, inner_rect.bottom - 8), 2)
 
-            # 중앙 에너지 코어 (원형)
-            core_cx, core_cy = paddle_rect.centerx, paddle_rect.centery
-            pygame.draw.circle(paddle_surface, palette["hex_base"], (core_cx, core_cy), 12)
-            pygame.draw.circle(paddle_surface, palette["accent"], (core_cx, core_cy), 10)
-            pygame.draw.circle(paddle_surface, palette["hex_core"], (core_cx, core_cy), 6)
-            pygame.draw.circle(paddle_surface, palette["visor_highlight"], (core_cx, core_cy), 3)
+                # 중앙 궁극의 에너지 코어 (더 크고 화려함)
+                core_cx, core_cy = paddle_rect.centerx, paddle_rect.centery
+                # 외곽 글로우 링
+                for ring_i in range(3):
+                    ring_radius = 18 - ring_i * 4
+                    ring_alpha = int(80 + 60 * math.sin(phase * math.tau * 3 + ring_i))
+                    ring_surf = pygame.Surface((ring_radius * 2 + 4, ring_radius * 2 + 4), pygame.SRCALPHA)
+                    pygame.draw.circle(ring_surf, (255, 180, 80, ring_alpha), (ring_radius + 2, ring_radius + 2), ring_radius, 2)
+                    paddle_surface.blit(ring_surf, (core_cx - ring_radius - 2, core_cy - ring_radius - 2))
 
-            # 라켓 외곽 LED 테두리
-            pygame.draw.rect(paddle_surface, palette["accent"], paddle_rect, 3, border_radius=6)
+                pygame.draw.circle(paddle_surface, (80, 30, 20), (core_cx, core_cy), 16)
+                core_pulse = int(200 + 55 * math.sin(phase * math.tau * 2))
+                pygame.draw.circle(paddle_surface, (255, core_pulse, 50), (core_cx, core_cy), 14)
+                pygame.draw.circle(paddle_surface, (255, 220, 150), (core_cx, core_cy), 10)
+                pygame.draw.circle(paddle_surface, (255, 255, 230), (core_cx, core_cy), 5)
 
-            # 모서리 LED 포인트
-            for corner in [(paddle_rect.left + 4, paddle_rect.top + 4),
-                          (paddle_rect.right - 4, paddle_rect.top + 4),
-                          (paddle_rect.left + 4, paddle_rect.bottom - 4),
-                          (paddle_rect.right - 4, paddle_rect.bottom - 4)]:
-                pygame.draw.circle(paddle_surface, palette["visor_highlight"], corner, 3)
+                # 라켓 외곽 LED 테두리 (골드)
+                pygame.draw.rect(paddle_surface, (255, 200, 100), paddle_rect, 4, border_radius=8)
+
+                # 모서리 에너지 포인트 (더 크고 화려)
+                corner_offsets = [(6, 6), (-6, 6), (6, -6), (-6, -6)]
+                for ci, (ox, oy) in enumerate(corner_offsets):
+                    cx_pos = paddle_rect.left + 6 if ox > 0 else paddle_rect.right - 6
+                    cy_pos = paddle_rect.top + 6 if oy > 0 else paddle_rect.bottom - 6
+                    corner_pulse = int(200 + 55 * math.sin(phase * math.tau * 4 + ci * 0.5))
+                    pygame.draw.circle(paddle_surface, (255, corner_pulse, 80), (cx_pos, cy_pos), 5)
+                    pygame.draw.circle(paddle_surface, (255, 255, 200), (cx_pos, cy_pos), 2)
+
+                # 에너지 아크 (라켓 면에서 발산)
+                for arc_i in range(4):
+                    arc_angle = math.radians(arc_i * 90 + 45 + phase * 60)
+                    arc_start = (core_cx + int(math.cos(arc_angle) * 12), core_cy + int(math.sin(arc_angle) * 12))
+                    arc_len = 10 + 5 * math.sin(phase * math.tau * 4 + arc_i)
+                    arc_end = (core_cx + int(math.cos(arc_angle) * (12 + arc_len)),
+                              core_cy + int(math.sin(arc_angle) * (12 + arc_len)))
+                    pygame.draw.line(paddle_surface, (255, 220, 150), arc_start, arc_end, 2)
+            else:
+                # === 기본 탁구채 디자인 ===
+                # 라켓 외곽 프레임 (다크 메탈)
+                pygame.draw.rect(paddle_surface, palette["hex_base"], paddle_rect, border_radius=6)
+
+                # 라켓 메인 면 (네온 사이언)
+                inner_rect = paddle_rect.inflate(-8, -8)
+                pygame.draw.rect(paddle_surface, palette["helmet"], inner_rect, border_radius=4)
+
+                # 사이버 그리드 패턴
+                grid_color = (*palette["accent"], 120)
+                for gy in range(inner_rect.top + 6, inner_rect.bottom - 4, 10):
+                    pygame.draw.line(paddle_surface, grid_color, (inner_rect.left + 4, gy), (inner_rect.right - 4, gy), 1)
+                for gx in range(inner_rect.left + 6, inner_rect.right - 4, 10):
+                    pygame.draw.line(paddle_surface, grid_color, (gx, inner_rect.top + 4), (gx, inner_rect.bottom - 4), 1)
+
+                # 중앙 에너지 코어 (원형)
+                core_cx, core_cy = paddle_rect.centerx, paddle_rect.centery
+                pygame.draw.circle(paddle_surface, palette["hex_base"], (core_cx, core_cy), 12)
+                pygame.draw.circle(paddle_surface, palette["accent"], (core_cx, core_cy), 10)
+                pygame.draw.circle(paddle_surface, palette["hex_core"], (core_cx, core_cy), 6)
+                pygame.draw.circle(paddle_surface, palette["visor_highlight"], (core_cx, core_cy), 3)
+
+                # 라켓 외곽 LED 테두리
+                pygame.draw.rect(paddle_surface, palette["accent"], paddle_rect, 3, border_radius=6)
+
+                # 모서리 LED 포인트
+                for corner in [(paddle_rect.left + 4, paddle_rect.top + 4),
+                              (paddle_rect.right - 4, paddle_rect.top + 4),
+                              (paddle_rect.left + 4, paddle_rect.bottom - 4),
+                              (paddle_rect.right - 4, paddle_rect.bottom - 4)]:
+                    pygame.draw.circle(paddle_surface, palette["visor_highlight"], corner, 3)
 
             # 15도 오른쪽(시계방향) 회전
             rotated_paddle = pygame.transform.rotate(paddle_surface, -15)
 
             # 회전된 탁구채를 메인 서피스에 블릿
             # 위치 계산: 손목 기준
-            paddle_blit_x = wrist_int[0] - rotated_paddle.get_width() // 2 - 12
-            paddle_blit_y = wrist_int[1] - rotated_paddle.get_height() // 2 - 8
+            paddle_blit_x = wrist_int[0] - rotated_paddle.get_width() // 2 - (16 if paddle_upgraded else 12)
+            paddle_blit_y = wrist_int[1] - rotated_paddle.get_height() // 2 - (12 if paddle_upgraded else 8)
 
-            # 글로우 효과 (회전 전 서피스)
-            glow_surface = pygame.Surface((paddle_surf_size + 20, paddle_surf_size + 20), pygame.SRCALPHA)
-            glow_alpha = int(30 + 20 * math.sin(phase * math.tau * 2))
-            pygame.draw.rect(glow_surface, (*palette["accent"], glow_alpha),
-                           (10, 10, paddle_w + 10, paddle_h + 10), border_radius=10)
+            # 강화 애니메이션 진행 중일 때 조립 이펙트
+            if paddle_anim_active and paddle_anim_progress > 0:
+                paddle_center_x = paddle_blit_x + rotated_paddle.get_width() // 2
+                paddle_center_y = paddle_blit_y + rotated_paddle.get_height() // 2
+
+                # 배경 글로우 (강화 중 강렬한 레드-골드 빛)
+                glow_intensity = int(100 + 150 * math.sin(paddle_anim_progress * math.pi))
+                glow_size = int(70 + 50 * paddle_anim_progress)
+                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (255, 150, 80, glow_intensity), (glow_size, glow_size), glow_size)
+                surface.blit(glow_surf, (paddle_center_x - glow_size, paddle_center_y - glow_size))
+
+                # 수렴하는 파티클 그리기
+                particle_colors = [(255, 80, 80), (255, 160, 80), (255, 220, 120), (255, 255, 200)]
+                for p in paddle_particles:
+                    p_elapsed = paddle_anim_now - p['spawn_time']
+                    p_life_ratio = min(1.0, p_elapsed / p['max_life'])
+
+                    # 파티클이 중심으로 수렴
+                    current_dist = p['dist'] * (1.0 - paddle_anim_progress * 0.9)
+                    px = paddle_center_x + int(math.cos(p['angle'] + paddle_anim_progress * 3) * current_dist)
+                    py = paddle_center_y + int(math.sin(p['angle'] + paddle_anim_progress * 3) * current_dist)
+
+                    p_size = int(p['size'] * (1.0 - p_life_ratio * 0.5))
+                    if p_size > 0:
+                        p_color = particle_colors[p['color_idx'] % len(particle_colors)]
+                        p_alpha = int(255 * (1.0 - p_life_ratio * 0.6))
+                        p_surf = pygame.Surface((p_size * 2 + 4, p_size * 2 + 4), pygame.SRCALPHA)
+                        pygame.draw.circle(p_surf, (*p_color, p_alpha), (p_size + 2, p_size + 2), p_size)
+                        # 파티클 꼬리
+                        tail_len = int(10 * (1.0 - paddle_anim_progress))
+                        if tail_len > 0:
+                            tail_x = px + int(math.cos(p['angle']) * tail_len)
+                            tail_y = py + int(math.sin(p['angle']) * tail_len)
+                            pygame.draw.line(surface, (*p_color, p_alpha // 2), (px, py), (tail_x, tail_y), 2)
+                        surface.blit(p_surf, (px - p_size - 2, py - p_size - 2))
+
+                # Phase 2-3: 조립 중인 부품 그리기
+                if paddle_anim_progress > 0.3:
+                    assemble_progress = (paddle_anim_progress - 0.3) / 0.7
+                    # 궁극의 탁구채 부품 (6방향에서 수렴)
+                    for plate_idx in range(6):
+                        plate_angle = math.radians(plate_idx * 60 + 30)
+                        plate_start_dist = 60 * (1.0 - assemble_progress)
+                        plate_x = paddle_center_x + int(math.cos(plate_angle) * plate_start_dist)
+                        plate_y = paddle_center_y + int(math.sin(plate_angle) * plate_start_dist)
+                        plate_size = int(10 + 6 * assemble_progress)
+                        plate_alpha = int(220 * assemble_progress)
+                        plate_surf = pygame.Surface((plate_size * 2, plate_size * 2), pygame.SRCALPHA)
+                        pygame.draw.rect(plate_surf, (120, 50, 30, plate_alpha), (0, 0, plate_size * 2, plate_size * 2), border_radius=4)
+                        pygame.draw.rect(plate_surf, (255, 180, 80, plate_alpha), (0, 0, plate_size * 2, plate_size * 2), 2, border_radius=4)
+                        surface.blit(plate_surf, (plate_x - plate_size, plate_y - plate_size))
+
+                # Phase 3: 완성 에너지 폭발
+                if paddle_anim_progress > 0.7:
+                    burst_progress = (paddle_anim_progress - 0.7) / 0.3
+                    burst_radius = int(25 + 70 * burst_progress)
+                    burst_alpha = int(200 * (1.0 - burst_progress))
+                    burst_surf = pygame.Surface((burst_radius * 2, burst_radius * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(burst_surf, (255, 180, 80, burst_alpha), (burst_radius, burst_radius), burst_radius, 4)
+                    pygame.draw.circle(burst_surf, (255, 255, 200, burst_alpha // 2), (burst_radius, burst_radius), int(burst_radius * 0.7), 3)
+                    surface.blit(burst_surf, (paddle_center_x - burst_radius, paddle_center_y - burst_radius))
+
+                    # 방사형 에너지 스파크 (더 화려함)
+                    for spark_i in range(10):
+                        spark_angle = math.radians(spark_i * 36 + phase * 200)
+                        spark_len = int(35 * burst_progress)
+                        spark_start = (paddle_center_x + int(math.cos(spark_angle) * 18),
+                                      paddle_center_y + int(math.sin(spark_angle) * 18))
+                        spark_end = (paddle_center_x + int(math.cos(spark_angle) * (18 + spark_len)),
+                                    paddle_center_y + int(math.sin(spark_angle) * (18 + spark_len)))
+                        spark_mid = ((spark_start[0] + spark_end[0]) // 2 + int(math.sin(phase * 40 + spark_i) * 6),
+                                    (spark_start[1] + spark_end[1]) // 2 + int(math.cos(phase * 40 + spark_i) * 6))
+                        pygame.draw.line(surface, (255, 200, 120), spark_start, spark_mid, 2)
+                        pygame.draw.line(surface, (255, 255, 200), spark_mid, spark_end, 2)
+
+            # 글로우 효과 (강화 시 더 강렬한 골드)
+            glow_surface = pygame.Surface((paddle_surf_size + 30, paddle_surf_size + 30), pygame.SRCALPHA)
+            if paddle_upgraded:
+                glow_alpha = int(50 + 40 * math.sin(phase * math.tau * 2))
+                pygame.draw.rect(glow_surface, (255, 180, 80, glow_alpha),
+                               (15, 15, paddle_w + 15, paddle_h + 15), border_radius=12)
+            else:
+                glow_alpha = int(30 + 20 * math.sin(phase * math.tau * 2))
+                pygame.draw.rect(glow_surface, (*palette["accent"], glow_alpha),
+                               (10, 10, paddle_w + 10, paddle_h + 10), border_radius=10)
             rotated_glow = pygame.transform.rotate(glow_surface, -15)
-            surface.blit(rotated_glow, (paddle_blit_x - 10, paddle_blit_y - 10))
+            surface.blit(rotated_glow, (paddle_blit_x - 15, paddle_blit_y - 15))
 
             # 탁구채 블릿
             surface.blit(rotated_paddle, (paddle_blit_x, paddle_blit_y))
