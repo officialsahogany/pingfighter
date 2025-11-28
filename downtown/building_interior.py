@@ -1477,27 +1477,27 @@ INTERIOR_CONFIGS = {
     },
     BuildingType.ITEM_SHOP: {
         "name": "네온 마켓",
-        "map_size": (14, 12),
+        "map_size": (21, 18),  # 1.5배 확대 (14x12 → 21x18)
         "bg_color": (20, 20, 35),
         "floor_color": (40, 40, 55),
         "floor_pattern": "neon_grid",
         "wall_color": (30, 30, 45),
         "accent_color": (0, 255, 255),
         "secondary_color": (255, 20, 147),
-        "decorations": ["neon_sign", "display_case", "hologram", "led_shelf"],
+        "decorations": [],  # 커스텀 인테리어 사용
         "main_npc": {
-            "name": "점주 사이버",
-            "color": (0, 255, 255),
-            "position": (0.5, 0.25),
+            "name": "점주 그린",  # 인간 상인
+            "color": (0, 255, 100),
+            "position": (0.35, 0.32),  # 카운터 뒤 왼쪽
             "dialogue": [
                 "어서오세요, 고객님!",
-                "최신 아이템이 입고되었습니다.",
-                "뭘 찾으시나요?",
+                "오늘은 좋은 물건이 많이 들어왔습니다.",
                 "천천히 구경하세요~"
             ]
         },
-        "customer_range": (3, 5),
-        "staff_count": 2,
+        "customer_range": (2, 4),
+        "staff_count": 0,  # 커스텀 NPC 사용
+        "special_interior": "neon_shop",  # 특수 인테리어 플래그
     },
     BuildingType.BLACKSMITH: {
         "name": "대장간",
@@ -1889,9 +1889,12 @@ class BuildingInterior:
 
     def _create_npcs(self):
         """NPC들 생성"""
-        # 아카데미은 전용 NPC 생성 로직 사용
+        # 아카데미는 전용 NPC 생성 로직 사용
         if self.building_type == BuildingType.ACADEMY:
             return self._create_academy_npcs()
+        # 네온 상점은 전용 NPC 생성 로직 사용
+        if self.building_type == BuildingType.ITEM_SHOP:
+            return self._create_neon_shop_npcs()
 
         npcs = []
 
@@ -3346,6 +3349,9 @@ class BuildingInterior:
         elif special_interior == "academy":
             # 아카데미 전용 인테리어
             self._draw_academy_interior(screen)
+        elif special_interior == "neon_shop":
+            # 네온 상점 전용 인테리어
+            self._draw_neon_shop_interior(screen)
         else:
             # 기본 인테리어
             # 배경
@@ -4532,6 +4538,440 @@ class BuildingInterior:
         led_blink = int(anim_timer * 2.5) % 2 == 0
         led_c = rate_color if led_blink else LED_DIM
         pygame.draw.circle(screen, led_c, (x + board_w - 8, y + board_h - 8), 3)
+
+    # ==========================================================================
+    # 네온 상점 전용 인테리어
+    # ==========================================================================
+
+    def _create_neon_shop_npcs(self):
+        """네온 상점 전용 NPC 생성 - 인간 상인 + 로봇 상인"""
+        npcs = []
+
+        # 카운터 중앙 위치 계산
+        counter_y = int(self.pixel_height * 0.32)  # 카운터 높이
+        counter_center_x = self.pixel_width // 2
+
+        # === 1. 인간 상인 (점주 그린) - 카운터 왼쪽 ===
+        human_x = counter_center_x - 60
+        human_y = counter_y
+
+        human_merchant = InteriorNPC(
+            human_x, human_y,
+            "점주 그린",
+            "main",
+            (0, 255, 100),  # 녹색 계열
+            [
+                "어서오세요, 고객님!",
+                "오늘은 좋은 물건이 많이 들어왔습니다.",
+                "필요한 게 있으시면 말씀하세요~"
+            ],
+            self.building_type
+        )
+        human_merchant.is_shop_human = True  # 인간 상인 표시
+        npcs.append(human_merchant)
+
+        # === 2. 로봇 상인 - 카운터 오른쪽 ===
+        robot_x = counter_center_x + 60
+        robot_y = counter_y
+
+        robot_merchant = InteriorNPC(
+            robot_x, robot_y,
+            "상점 로봇",
+            "staff",
+            (100, 200, 255),  # 시안 계열
+            [
+                "삐빅... 환영합니다, 고객님.",
+                "재고 현황 분석 중...",
+                "최적의 상품을 추천해 드리겠습니다."
+            ],
+            self.building_type
+        )
+        robot_merchant.is_shop_robot = True  # 로봇 상인 표시
+        npcs.append(robot_merchant)
+
+        # === 3. 고객 NPC (2~4명) ===
+        customer_count = random.randint(2, 4)
+        customer_colors = [
+            (255, 150, 180), (180, 150, 255), (150, 255, 200),
+            (255, 200, 150), (200, 200, 255)
+        ]
+
+        # 고객 배치 가능 영역 (하단 2/3)
+        customer_zone_top = int(self.pixel_height * 0.45)
+        customer_zone_bottom = int(self.pixel_height * 0.85)
+        customer_zone_left = int(self.pixel_width * 0.15)
+        customer_zone_right = int(self.pixel_width * 0.85)
+
+        for i in range(customer_count):
+            x = random.randint(customer_zone_left, customer_zone_right)
+            y = random.randint(customer_zone_top, customer_zone_bottom)
+
+            # 다른 NPC와 겹치지 않게
+            attempts = 0
+            while attempts < 15:
+                too_close = False
+                for existing in npcs:
+                    if abs(x - existing.x) < 50 and abs(y - existing.y) < 50:
+                        too_close = True
+                        break
+                if not too_close:
+                    break
+                x = random.randint(customer_zone_left, customer_zone_right)
+                y = random.randint(customer_zone_top, customer_zone_bottom)
+                attempts += 1
+
+            name = random.choice(InteriorNPC.NPC_NAMES["customer"])
+            dialogue = random.choice(InteriorNPC.CUSTOMER_DIALOGUES)
+
+            customer = InteriorNPC(
+                x, y, name, "customer",
+                customer_colors[i % len(customer_colors)],
+                dialogue, self.building_type
+            )
+            npcs.append(customer)
+
+        return npcs
+
+    def _draw_neon_shop_interior(self, screen):
+        """네온 상점 전용 인테리어 그리기 - 스타듀밸리 모험가 길드 스타일"""
+        import math
+
+        # 색상 정의 (나무/따뜻한 분위기 + 네온 강조)
+        BG_DARK = (25, 18, 15)  # 어두운 나무색 배경
+        FLOOR_WOOD = (65, 45, 30)  # 나무 바닥
+        FLOOR_WOOD_DARK = (50, 35, 22)
+        WALL_WOOD = (55, 38, 25)  # 나무 벽
+        WALL_WOOD_DARK = (40, 28, 18)
+        COUNTER_WOOD = (80, 55, 35)  # 카운터 나무색
+        COUNTER_TOP = (100, 75, 50)  # 카운터 상판
+        SHELF_WOOD = (70, 50, 32)  # 선반 나무색
+        ACCENT_CYAN = (0, 255, 255)  # 네온 시안
+        ACCENT_PINK = (255, 50, 150)  # 네온 핑크
+        ACCENT_GOLD = (255, 200, 80)  # 금색
+
+        cam_x, cam_y = self.camera_offset
+
+        # 1. 배경 채우기
+        screen.fill(BG_DARK)
+
+        # 2. 나무 바닥 그리기 (스타듀밸리 스타일)
+        self._draw_wood_floor_neon(screen, cam_x, cam_y, FLOOR_WOOD, FLOOR_WOOD_DARK)
+
+        # 3. 상단 벽 (나무 패널 + 장식)
+        wall_h = int(TILE_SIZE * 4.5)  # 벽 높이
+        wall_rect = pygame.Rect(-cam_x, -cam_y, self.pixel_width, wall_h)
+        pygame.draw.rect(screen, WALL_WOOD, wall_rect)
+
+        # 벽 패널 라인
+        for i in range(0, self.pixel_width, 60):
+            panel_x = i - cam_x
+            pygame.draw.line(screen, WALL_WOOD_DARK, (panel_x, -cam_y), (panel_x, wall_h - cam_y), 2)
+
+        # 4. 벽 상단 장식 - 무기/방패/포션 선반
+        self._draw_wall_decorations_neon(screen, cam_x, cam_y, wall_h, ACCENT_CYAN, ACCENT_PINK, ACCENT_GOLD)
+
+        # 5. 메인 카운터 (중앙)
+        counter_y = wall_h + int(TILE_SIZE * 0.5)
+        counter_h = int(TILE_SIZE * 2)
+        counter_w = int(self.pixel_width * 0.6)
+        counter_x = (self.pixel_width - counter_w) // 2
+
+        self._draw_main_counter_neon(screen, counter_x - cam_x, counter_y - cam_y,
+                                      counter_w, counter_h, COUNTER_WOOD, COUNTER_TOP, ACCENT_CYAN)
+
+        # 6. 좌측 진열대 (가판대)
+        left_shelf_x = int(TILE_SIZE * 1.5)
+        shelf_h = int(TILE_SIZE * 4)
+        self._draw_display_shelf_neon(screen, left_shelf_x - cam_x, counter_y - cam_y,
+                                       int(TILE_SIZE * 2.5), shelf_h, SHELF_WOOD, ACCENT_CYAN, "left")
+
+        # 7. 우측 진열대 (가판대)
+        right_shelf_x = self.pixel_width - int(TILE_SIZE * 4)
+        self._draw_display_shelf_neon(screen, right_shelf_x - cam_x, counter_y - cam_y,
+                                       int(TILE_SIZE * 2.5), shelf_h, SHELF_WOOD, ACCENT_PINK, "right")
+
+        # 8. 좌우 벽 장식 횃불/램프
+        self._draw_wall_lamps_neon(screen, cam_x, cam_y, wall_h, ACCENT_GOLD)
+
+        # 9. 문 그리기
+        self._draw_door(screen)
+
+    def _draw_wood_floor_neon(self, screen, cam_x, cam_y, floor_color, floor_dark):
+        """나무 바닥 그리기 (체크 패턴)"""
+        tile_w = TILE_SIZE
+        tile_h = TILE_SIZE // 2  # 나무 판자 느낌
+
+        start_x = max(0, int(cam_x // tile_w))
+        start_y = max(0, int(cam_y // tile_h))
+        end_x = min(self.map_width * 2, start_x + SCREEN_WIDTH // tile_w + 3)
+        end_y = min(self.map_height * 2, start_y + SCREEN_HEIGHT // tile_h + 3)
+
+        for ty in range(start_y, end_y):
+            for tx in range(start_x, end_x):
+                tile_x = tx * tile_w - cam_x
+                tile_y = ty * tile_h - cam_y
+
+                # 체크 패턴
+                color = floor_color if (tx + ty) % 2 == 0 else floor_dark
+                pygame.draw.rect(screen, color, (tile_x, tile_y, tile_w, tile_h))
+
+                # 나무결 라인
+                if (tx + ty) % 3 == 0:
+                    line_y = tile_y + tile_h // 2
+                    line_color = tuple(max(0, c - 15) for c in color)
+                    pygame.draw.line(screen, line_color, (tile_x + 5, line_y), (tile_x + tile_w - 5, line_y), 1)
+
+    def _draw_wall_decorations_neon(self, screen, cam_x, cam_y, wall_h, accent1, accent2, accent_gold):
+        """벽 장식 - 무기, 방패, 포션병 등"""
+        center_x = self.pixel_width // 2
+
+        # 상단 중앙: 대형 방패 2개 (좌우)
+        shield_y = int(wall_h * 0.15)
+        self._draw_shield_decoration(screen, center_x - 100 - cam_x, shield_y - cam_y, (50, 100, 200), accent_gold)
+        self._draw_shield_decoration(screen, center_x + 60 - cam_x, shield_y - cam_y, (200, 50, 50), accent_gold)
+
+        # 중앙 상단: 검 진열대
+        sword_y = int(wall_h * 0.2)
+        for i, offset in enumerate([-180, -120, -60, 0, 60, 120, 180]):
+            sword_x = center_x + offset - cam_x
+            sword_color = [(150, 180, 200), (200, 150, 100), (180, 200, 180),
+                          (200, 180, 220), (150, 200, 200), (220, 180, 150), (180, 150, 200)][i % 7]
+            self._draw_sword_decoration(screen, sword_x, sword_y - cam_y, sword_color)
+
+        # 중간: 포션 선반
+        potion_y = int(wall_h * 0.55)
+        potion_colors = [(255, 100, 100), (100, 255, 100), (100, 150, 255),
+                        (255, 255, 100), (255, 150, 255), (150, 255, 255)]
+        for i, offset in enumerate(range(-200, 220, 70)):
+            potion_x = center_x + offset - cam_x
+            self._draw_potion_bottle(screen, potion_x, potion_y - cam_y, potion_colors[i % len(potion_colors)])
+
+        # 하단 선반: 책과 스크롤
+        book_y = int(wall_h * 0.75)
+        book_colors = [(150, 50, 50), (50, 100, 150), (50, 150, 50),
+                      (150, 100, 50), (100, 50, 150)]
+        for i, offset in enumerate(range(-250, 270, 40)):
+            book_x = center_x + offset - cam_x
+            self._draw_book_decoration(screen, book_x, book_y - cam_y, book_colors[i % len(book_colors)])
+
+    def _draw_shield_decoration(self, screen, x, y, color, accent):
+        """방패 장식 그리기"""
+        # 방패 본체
+        shield_w, shield_h = 35, 45
+        points = [
+            (x + shield_w // 2, y),  # 상단 중앙
+            (x + shield_w, y + shield_h // 3),  # 우상단
+            (x + shield_w, y + shield_h * 2 // 3),  # 우하단
+            (x + shield_w // 2, y + shield_h),  # 하단 뾰족
+            (x, y + shield_h * 2 // 3),  # 좌하단
+            (x, y + shield_h // 3),  # 좌상단
+        ]
+        pygame.draw.polygon(screen, color, points)
+        pygame.draw.polygon(screen, accent, points, 2)
+
+        # 중앙 엠블럼
+        emblem_cx = x + shield_w // 2
+        emblem_cy = y + shield_h // 2
+        pygame.draw.circle(screen, accent, (emblem_cx, emblem_cy), 8)
+        pygame.draw.circle(screen, color, (emblem_cx, emblem_cy), 5)
+
+    def _draw_sword_decoration(self, screen, x, y, color):
+        """검 장식 그리기 (세로로 걸림)"""
+        blade_color = color
+        hilt_color = (80, 60, 40)
+
+        # 검날 (세로)
+        pygame.draw.rect(screen, blade_color, (x - 2, y, 4, 50))
+        # 검끝
+        pygame.draw.polygon(screen, blade_color, [(x - 2, y + 50), (x + 2, y + 50), (x, y + 58)])
+        # 손잡이
+        pygame.draw.rect(screen, hilt_color, (x - 6, y - 5, 12, 8))
+        pygame.draw.rect(screen, (60, 45, 30), (x - 2, y - 12, 4, 10))
+        # 하이라이트
+        pygame.draw.line(screen, (255, 255, 255, 100), (x, y + 5), (x, y + 45), 1)
+
+    def _draw_potion_bottle(self, screen, x, y, color):
+        """포션병 그리기"""
+        bottle_color = (200, 200, 220)
+
+        # 병 목
+        pygame.draw.rect(screen, bottle_color, (x - 3, y - 8, 6, 8))
+        # 병 몸통
+        pygame.draw.ellipse(screen, color, (x - 8, y, 16, 20))
+        # 코르크
+        pygame.draw.rect(screen, (139, 90, 43), (x - 4, y - 12, 8, 5))
+        # 반짝임
+        pygame.draw.circle(screen, (255, 255, 255), (x - 3, y + 5), 2)
+
+    def _draw_book_decoration(self, screen, x, y, color):
+        """책 장식 그리기"""
+        book_w, book_h = 12, 20
+        pygame.draw.rect(screen, color, (x, y, book_w, book_h))
+        # 책등
+        pygame.draw.rect(screen, tuple(max(0, c - 30) for c in color), (x, y, 3, book_h))
+        # 페이지
+        pygame.draw.rect(screen, (240, 235, 220), (x + 3, y + 2, book_w - 5, book_h - 4))
+
+    def _draw_main_counter_neon(self, screen, x, y, w, h, wood_color, top_color, accent):
+        """메인 카운터 그리기 (유리 진열대 포함)"""
+        # 카운터 본체
+        pygame.draw.rect(screen, wood_color, (x, y, w, h))
+        pygame.draw.rect(screen, tuple(max(0, c - 20) for c in wood_color), (x, y, w, h), 3)
+
+        # 카운터 상판
+        pygame.draw.rect(screen, top_color, (x - 5, y, w + 10, 8))
+        pygame.draw.rect(screen, tuple(min(255, c + 20) for c in top_color), (x - 5, y, w + 10, 3))
+
+        # 유리 진열대 (중앙)
+        glass_w = w - 60
+        glass_h = h - 30
+        glass_x = x + 30
+        glass_y = y + 15
+
+        # 유리 배경 (반투명 시안)
+        glass_surf = pygame.Surface((glass_w, glass_h), pygame.SRCALPHA)
+        glass_surf.fill((0, 50, 60, 150))
+        screen.blit(glass_surf, (glass_x, glass_y))
+
+        # 유리 테두리
+        pygame.draw.rect(screen, accent, (glass_x, glass_y, glass_w, glass_h), 2)
+
+        # 진열대 안 아이템들 (작은 아이콘들)
+        item_y = glass_y + glass_h // 2
+        item_spacing = glass_w // 6
+        item_colors = [(255, 100, 100), (100, 255, 150), (100, 150, 255),
+                      (255, 200, 100), (200, 100, 255)]
+        for i in range(5):
+            item_x = glass_x + item_spacing * (i + 1)
+            # 작은 아이템 아이콘
+            pygame.draw.rect(screen, item_colors[i], (item_x - 8, item_y - 10, 16, 20), border_radius=3)
+            # 반짝임
+            pygame.draw.circle(screen, (255, 255, 255), (item_x - 4, item_y - 6), 2)
+
+        # 카운터 하단 서랍
+        drawer_y = y + h - 25
+        for i in range(4):
+            drawer_x = x + 20 + i * (w - 40) // 4
+            drawer_w = (w - 50) // 4
+            pygame.draw.rect(screen, tuple(max(0, c - 15) for c in wood_color),
+                           (drawer_x, drawer_y, drawer_w, 20), border_radius=2)
+            # 손잡이
+            pygame.draw.circle(screen, (200, 180, 100), (drawer_x + drawer_w // 2, drawer_y + 10), 3)
+
+    def _draw_display_shelf_neon(self, screen, x, y, w, h, wood_color, accent, side):
+        """진열대 (가판대) 그리기"""
+        # 선반 본체
+        pygame.draw.rect(screen, wood_color, (x, y, w, h))
+        pygame.draw.rect(screen, tuple(max(0, c - 20) for c in wood_color), (x, y, w, h), 2)
+
+        # 선반 칸 (4단)
+        shelf_count = 4
+        shelf_h = h // (shelf_count + 1)
+
+        for i in range(shelf_count):
+            shelf_y = y + shelf_h * (i + 1)
+            # 선반 판
+            pygame.draw.rect(screen, tuple(min(255, c + 15) for c in wood_color),
+                           (x + 3, shelf_y - 3, w - 6, 6))
+
+            # 선반 위 아이템들
+            item_count = random.randint(2, 4)
+            for j in range(item_count):
+                item_x = x + 10 + j * (w - 20) // item_count
+                item_y = shelf_y - 25
+
+                # 랜덤 아이템 타입
+                item_type = random.randint(0, 3)
+                if item_type == 0:
+                    # 포션
+                    color = random.choice([(255, 100, 100), (100, 200, 255), (100, 255, 150)])
+                    self._draw_potion_bottle(screen, item_x + 8, item_y, color)
+                elif item_type == 1:
+                    # 보석
+                    gem_color = random.choice([(255, 50, 100), (50, 200, 255), (100, 255, 100), (255, 200, 50)])
+                    self._draw_gem_item(screen, item_x + 8, item_y + 5, gem_color)
+                elif item_type == 2:
+                    # 상자
+                    self._draw_small_chest(screen, item_x, item_y, accent)
+                else:
+                    # 두루마리
+                    self._draw_scroll_item(screen, item_x + 5, item_y)
+
+        # 네온 테두리 효과
+        glow_alpha = int(80 + 40 * math.sin(self.animation_timer * 2))
+        glow_surf = pygame.Surface((w + 10, h + 10), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*accent, glow_alpha), (0, 0, w + 10, h + 10), 3, border_radius=5)
+        screen.blit(glow_surf, (x - 5, y - 5))
+
+    def _draw_gem_item(self, screen, x, y, color):
+        """보석 아이템 그리기"""
+        points = [
+            (x, y - 6),
+            (x + 8, y - 6),
+            (x + 10, y),
+            (x + 4, y + 8),
+            (x - 2, y)
+        ]
+        pygame.draw.polygon(screen, color, points)
+        pygame.draw.polygon(screen, (255, 255, 255), points, 1)
+        # 반짝임
+        pygame.draw.circle(screen, (255, 255, 255), (x + 2, y - 3), 2)
+
+    def _draw_small_chest(self, screen, x, y, accent):
+        """작은 상자 그리기"""
+        chest_w, chest_h = 20, 15
+        # 상자 본체
+        pygame.draw.rect(screen, (139, 90, 43), (x, y, chest_w, chest_h), border_radius=2)
+        # 뚜껑
+        pygame.draw.rect(screen, (160, 110, 60), (x - 2, y - 3, chest_w + 4, 6), border_radius=2)
+        # 자물쇠
+        pygame.draw.circle(screen, accent, (x + chest_w // 2, y + chest_h // 2), 3)
+
+    def _draw_scroll_item(self, screen, x, y):
+        """두루마리 아이템 그리기"""
+        scroll_color = (240, 230, 200)
+        # 두루마리 본체
+        pygame.draw.rect(screen, scroll_color, (x, y, 15, 8))
+        # 양끝 둥근 부분
+        pygame.draw.circle(screen, (200, 180, 140), (x, y + 4), 5)
+        pygame.draw.circle(screen, (200, 180, 140), (x + 15, y + 4), 5)
+
+    def _draw_wall_lamps_neon(self, screen, cam_x, cam_y, wall_h, accent_gold):
+        """벽 횃불/램프 그리기"""
+        lamp_y = wall_h // 2
+
+        # 좌측 램프들
+        for i, offset_y in enumerate([lamp_y - 30, lamp_y + 50]):
+            lamp_x = int(TILE_SIZE * 0.8)
+            self._draw_wall_torch(screen, lamp_x - cam_x, offset_y - cam_y, accent_gold)
+
+        # 우측 램프들
+        for i, offset_y in enumerate([lamp_y - 30, lamp_y + 50]):
+            lamp_x = self.pixel_width - int(TILE_SIZE * 0.8)
+            self._draw_wall_torch(screen, lamp_x - cam_x, offset_y - cam_y, accent_gold)
+
+    def _draw_wall_torch(self, screen, x, y, color):
+        """벽 횃불 그리기"""
+        # 횃불대
+        pygame.draw.rect(screen, (80, 60, 40), (x - 3, y, 6, 20))
+
+        # 불꽃 효과
+        flame_offset = int(3 * math.sin(self.animation_timer * 8))
+        flame_colors = [
+            (255, 200, 50),
+            (255, 150, 30),
+            (255, 100, 20)
+        ]
+        for i, c in enumerate(flame_colors):
+            flame_size = 8 - i * 2
+            flame_y = y - 5 - i * 3 + flame_offset
+            pygame.draw.ellipse(screen, c, (x - flame_size // 2, flame_y, flame_size, flame_size + 4))
+
+        # 빛 효과 (글로우)
+        glow_alpha = int(60 + 30 * math.sin(self.animation_timer * 5))
+        glow_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (*color, glow_alpha), (20, 20), 18)
+        screen.blit(glow_surf, (x - 20, y - 30))
 
     def _draw_floor(self, screen):
         """바닥 타일 그리기"""

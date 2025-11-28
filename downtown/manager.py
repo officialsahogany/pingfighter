@@ -106,6 +106,13 @@ class DowntownManager:
         # 건물 입장 기록 (광장 세션당 1회 제한)
         self.visited_buildings_this_session = set()  # BuildingType 저장
 
+        # 개발자 건물 소환 UI 상태
+        self.dev_building_spawn_mode = False  # 0번 키로 활성화
+        # BuildingType은 Enum이 아니므로 직접 키 목록을 사용한다.
+        self.dev_building_list = list(BUILDING_INFO.keys())  # 소환 가능한 건물 목록
+        self.dev_selected_building_idx = 0  # 현재 선택된 건물 인덱스
+        self.dev_building_scroll_offset = 0  # 스크롤 오프셋
+
         # 전환 효과
         self.transition_alpha = 255
         self.transition_speed = 300
@@ -368,6 +375,14 @@ class DowntownManager:
                 show_character_info_fn, _ = _import_ingame_functions()
                 show_character_info_fn()
 
+            elif event.key == pygame.K_0:
+                # 개발자 건물 소환 모드 토글 (0번 키)
+                self.dev_building_spawn_mode = not self.dev_building_spawn_mode
+                if self.dev_building_spawn_mode:
+                    print("[DEV] 건물 소환 모드 활성화")
+                else:
+                    print("[DEV] 건물 소환 모드 비활성화")
+
         elif event.type == pygame.KEYUP:
             if self.player:
                 self.player.handle_movement_key_event(
@@ -379,12 +394,23 @@ class DowntownManager:
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # 왼쪽 마우스 버튼
+                # 개발자 건물 소환 모드 처리
+                if self.dev_building_spawn_mode:
+                    self._handle_dev_building_click(event.pos)
                 # 다이얼로그가 열려있으면 버튼 클릭 처리
-                if self.building_confirmation_dialog:
+                elif self.building_confirmation_dialog:
                     self._handle_dialog_click(event.pos)
                 else:
                     # 건물 클릭 체크
                     self._handle_mouse_click(event.pos)
+
+            elif event.button == 4:  # 마우스 휠 위로
+                if self.dev_building_spawn_mode:
+                    self.dev_building_scroll_offset = max(0, self.dev_building_scroll_offset - 1)
+            elif event.button == 5:  # 마우스 휠 아래로
+                if self.dev_building_spawn_mode:
+                    max_scroll = max(0, len(self.dev_building_list) - 8)
+                    self.dev_building_scroll_offset = min(max_scroll, self.dev_building_scroll_offset + 1)
 
     def _handle_building_event(self, event):
         """건물 내부 이벤트 처리"""
@@ -779,6 +805,10 @@ class DowntownManager:
         # 열쇠 애니메이션 (건물 입장 시)
         if self.key_animation:
             self._draw_key_animation()
+
+        # 개발자 건물 소환 모드 UI
+        if self.dev_building_spawn_mode:
+            self._draw_dev_building_spawn_ui()
 
     def _draw_confirmation_dialog(self):
         """건물 입장 확인 다이얼로그 그리기"""
@@ -1691,6 +1721,214 @@ class DowntownManager:
     def _show_inventory(self):
         """인벤토리"""
         pass
+
+    # ==========================================================================
+    # 개발자 건물 소환 시스템
+    # ==========================================================================
+
+    def _draw_dev_building_spawn_ui(self):
+        """개발자 건물 소환 UI 그리기"""
+        # 반투명 배경
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 100))
+        self.screen.blit(overlay, (0, 0))
+
+        # 건물 리스트 패널 (좌측)
+        panel_x = 20
+        panel_y = 100
+        panel_width = 280
+        panel_height = 450
+
+        # 패널 배경
+        pygame.draw.rect(self.screen, (30, 30, 50),
+                        (panel_x, panel_y, panel_width, panel_height),
+                        border_radius=12)
+        pygame.draw.rect(self.screen, (0, 255, 100),
+                        (panel_x, panel_y, panel_width, panel_height),
+                        3, border_radius=12)
+
+        # 제목
+        font_large = self._freetype_fonts.get('large')
+        if font_large:
+            title_surf, title_rect = font_large.render("건물 소환", (0, 255, 100))
+            self.screen.blit(title_surf, (panel_x + 20, panel_y + 15))
+
+        # 건물 리스트
+        font_medium = self._freetype_fonts.get('medium')
+        font_small = self._freetype_fonts.get('small')
+
+        visible_count = 8  # 한 번에 보이는 건물 수
+        item_height = 45
+        list_y = panel_y + 60
+
+        # 저장용 rect 리스트
+        self._dev_building_rects = []
+
+        for i in range(visible_count):
+            idx = i + self.dev_building_scroll_offset
+            if idx >= len(self.dev_building_list):
+                break
+
+            building_type = self.dev_building_list[idx]
+            building_info = BUILDING_INFO.get(building_type, {})
+            building_name = building_info.get('name', str(building_type))
+            building_color = building_info.get('color', (200, 200, 200))
+
+            item_y = list_y + i * item_height
+            item_rect = pygame.Rect(panel_x + 10, item_y, panel_width - 20, item_height - 5)
+
+            # 저장
+            self._dev_building_rects.append((item_rect, building_type))
+
+            # 마우스 호버 체크
+            mouse_pos = pygame.mouse.get_pos()
+            is_hover = item_rect.collidepoint(mouse_pos)
+
+            # 아이템 배경
+            bg_color = (50, 60, 80) if is_hover else (40, 45, 60)
+            pygame.draw.rect(self.screen, bg_color, item_rect, border_radius=8)
+
+            # 건물 색상 표시
+            color_rect = pygame.Rect(item_rect.x + 8, item_rect.y + 8, 24, 24)
+            pygame.draw.rect(self.screen, building_color, color_rect, border_radius=4)
+            pygame.draw.rect(self.screen, (255, 255, 255), color_rect, 1, border_radius=4)
+
+            # 건물 이름
+            if font_medium:
+                text_surf, text_rect = font_medium.render(building_name, (255, 255, 255))
+                self.screen.blit(text_surf, (item_rect.x + 45, item_rect.y + 10))
+
+        # 스크롤 표시
+        if len(self.dev_building_list) > visible_count:
+            scroll_text = f"({self.dev_building_scroll_offset + 1}-{min(self.dev_building_scroll_offset + visible_count, len(self.dev_building_list))}/{len(self.dev_building_list)})"
+            if font_small:
+                scroll_surf, _ = font_small.render(scroll_text, (150, 150, 150))
+                self.screen.blit(scroll_surf, (panel_x + 20, panel_y + panel_height - 30))
+
+        # 안내 텍스트
+        if font_small:
+            # 패널 아래 안내
+            hint1_surf, _ = font_small.render("건물 클릭 -> 맵 빈공간 클릭", (180, 180, 180))
+            self.screen.blit(hint1_surf, (panel_x + 20, panel_y + panel_height - 55))
+
+            # 화면 상단 안내
+            hint2_surf, _ = font_small.render("[0] 닫기  |  마우스 휠: 스크롤", (0, 255, 100))
+            self.screen.blit(hint2_surf, (20, 70))
+
+        # 선택된 건물이 있으면 마우스 커서에 표시
+        if hasattr(self, '_dev_selected_building') and self._dev_selected_building:
+            mouse_pos = pygame.mouse.get_pos()
+            selected_info = BUILDING_INFO.get(self._dev_selected_building, {})
+            selected_name = selected_info.get('name', '???')
+            selected_color = selected_info.get('color', (200, 200, 200))
+
+            # 커서 옆에 건물 표시
+            cursor_surf = pygame.Surface((120, 40), pygame.SRCALPHA)
+            pygame.draw.rect(cursor_surf, (30, 30, 50, 200), (0, 0, 120, 40), border_radius=8)
+            pygame.draw.rect(cursor_surf, selected_color, (0, 0, 120, 40), 2, border_radius=8)
+
+            if font_small:
+                name_surf, _ = font_small.render(selected_name, (255, 255, 255))
+                cursor_surf.blit(name_surf, (10, 12))
+
+            self.screen.blit(cursor_surf, (mouse_pos[0] + 20, mouse_pos[1] + 10))
+
+    def _handle_dev_building_click(self, mouse_pos):
+        """개발자 건물 소환 클릭 처리"""
+        # 건물 리스트에서 클릭 체크
+        if hasattr(self, '_dev_building_rects'):
+            for rect, building_type in self._dev_building_rects:
+                if rect.collidepoint(mouse_pos):
+                    # 건물 선택
+                    self._dev_selected_building = building_type
+                    building_name = BUILDING_INFO.get(building_type, {}).get('name', str(building_type))
+                    print(f"[DEV] 건물 선택: {building_name}")
+                    return
+
+        # 건물이 선택된 상태에서 맵 클릭
+        if hasattr(self, '_dev_selected_building') and self._dev_selected_building:
+            # 카메라 오프셋 가져오기
+            camera_offset = self.renderer.get_camera_offset()
+
+            # 월드 좌표로 변환
+            world_x = mouse_pos[0] + camera_offset[0]
+            world_y = mouse_pos[1] + camera_offset[1]
+
+            # 타일 좌표로 변환
+            tile_x = int(world_x // TILE_SIZE)
+            tile_y = int(world_y // TILE_SIZE)
+
+            # 빈 공간인지 확인하고 건물 배치
+            if self._try_spawn_building_at(tile_x, tile_y, self._dev_selected_building):
+                building_name = BUILDING_INFO.get(self._dev_selected_building, {}).get('name', str(self._dev_selected_building))
+                print(f"[DEV] 건물 소환 성공: {building_name} at ({tile_x}, {tile_y})")
+                self._dev_selected_building = None  # 소환 후 선택 해제
+            else:
+                print(f"[DEV] 건물 소환 실패: 해당 위치에 배치할 수 없습니다")
+
+    def _try_spawn_building_at(self, tile_x, tile_y, building_type):
+        """지정된 위치에 건물 배치 시도"""
+        if not self.downtown_map:
+            return False
+
+        # 건물 정보 가져오기
+        building_info = BUILDING_INFO.get(building_type, {})
+        building_size = building_info.get('size', (3, 3))  # 기본 3x3
+
+        # 배치 가능 여부 확인
+        map_data = self.downtown_map.tiles
+
+        for dy in range(building_size[1]):
+            for dx in range(building_size[0]):
+                check_x = tile_x + dx
+                check_y = tile_y + dy
+
+                # 맵 범위 확인
+                if check_x < 0 or check_x >= len(map_data[0]) or check_y < 0 or check_y >= len(map_data):
+                    return False
+
+                # 이동 가능한 타일인지 확인 (빈 공간)
+                tile = map_data[check_y][check_x]
+                # 1 = 이동 가능 타일, 0 = 벽, 2+ = 건물/특수 타일
+                if tile != 1:
+                    return False
+
+        # 건물 배치
+        # 맵 데이터에 건물 표시 (임시로 9로 표시)
+        for dy in range(building_size[1]):
+            for dx in range(building_size[0]):
+                map_data[tile_y + dy][tile_x + dx] = 9  # 건물 타일
+
+        # 건물 매니저에 건물 추가
+        pixel_x = tile_x * TILE_SIZE + (building_size[0] * TILE_SIZE) // 2
+        pixel_y = tile_y * TILE_SIZE + (building_size[1] * TILE_SIZE) // 2
+
+        # 새 건물 데이터 생성
+        new_building = {
+            'type': building_type,
+            'x': pixel_x,
+            'y': pixel_y,
+            'tile_x': tile_x,
+            'tile_y': tile_y,
+            'size': building_size,
+            'visited': False,
+            'info': building_info
+        }
+
+        # BuildingManager에 추가
+        self.buildings.add_building(new_building)
+
+        # downtown_map의 buildings 리스트에도 추가
+        if hasattr(self.downtown_map, 'buildings'):
+            self.downtown_map.buildings.append({
+                'type': building_type,
+                'tile_x': tile_x,
+                'tile_y': tile_y,
+                'pixel_x': pixel_x,
+                'pixel_y': pixel_y
+            })
+
+        return True
 
 
 # =============================================================================

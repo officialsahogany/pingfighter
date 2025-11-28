@@ -209,3 +209,16 @@ class BuildingManager:
     def get_available_buildings(self):
         """이용 가능한 건물 목록"""
         return [b for b in self.buildings if b.available and not b.visited]
+
+    def add_building(self, building_data):
+        """새 건물 추가 (개발자 모드용)"""
+        building_type = building_data.get('type')
+        tile_x = building_data.get('tile_x', 0)
+        tile_y = building_data.get('tile_y', 0)
+        size = building_data.get('size', (3, 3))
+
+        # Building 인스턴스 생성
+        building = Building(building_type, tile_x, tile_y, size[0], size[1])
+        self.buildings.append(building)
+
+        return building

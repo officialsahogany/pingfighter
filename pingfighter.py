@@ -5870,8 +5870,16 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
             paddle_surface = pygame.Surface((paddle_surf_size, paddle_surf_size), pygame.SRCALPHA)
             ps_cx, ps_cy = paddle_surf_size // 2, paddle_surf_size // 2  # 서피스 중앙
 
-            # 손잡이 (그립) - 강화 시 더 화려함
-            grip_offset_y = 32 if paddle_upgraded else 28
+            # 탁구채 라켓 면 크기 (강화 시 더 큼)
+            if paddle_upgraded:
+                paddle_w, paddle_h = 64, 72  # 궁극의 탁구채
+            else:
+                paddle_w, paddle_h = 48, 56
+            # 라켓 면을 손잡이 바로 아래에 배치 (완전히 붙임)
+            paddle_rect = pygame.Rect(ps_cx - paddle_w // 2, ps_cy - 8, paddle_w, paddle_h)
+
+            # 손잡이 (그립) - 라켓 면 바로 위에 배치 (간격 없이 완전히 붙임)
+            grip_offset_y = -44 if paddle_upgraded else -40  # 손잡이와 라켓 면 완전히 붙임
             if paddle_upgraded:
                 # 궁극의 탁구채 그립 (골드-레드)
                 pygame.draw.rect(paddle_surface, (100, 50, 30),
@@ -5888,13 +5896,6 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                                (ps_cx - 7, ps_cy + grip_offset_y - 4, 14, 32), border_radius=4)
                 pygame.draw.rect(paddle_surface, palette["grip_line"],
                                (ps_cx - 5, ps_cy + grip_offset_y, 10, 24), 1, border_radius=3)
-
-            # 탁구채 라켓 면 크기 (강화 시 더 큼)
-            if paddle_upgraded:
-                paddle_w, paddle_h = 64, 72  # 궁극의 탁구채
-            else:
-                paddle_w, paddle_h = 48, 56
-            paddle_rect = pygame.Rect(ps_cx - paddle_w // 2, ps_cy - paddle_h // 2 - 8, paddle_w, paddle_h)
 
             if paddle_upgraded:
                 # === 궁극의 탁구채 디자인 ===
@@ -5992,13 +5993,13 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                               (paddle_rect.right - 4, paddle_rect.bottom - 4)]:
                     pygame.draw.circle(paddle_surface, palette["visor_highlight"], corner, 3)
 
-            # 15도 오른쪽(시계방향) 회전
-            rotated_paddle = pygame.transform.rotate(paddle_surface, -15)
+            # 145도 오른쪽(시계방향) 회전 (기존 15도 + 추가 130도)
+            rotated_paddle = pygame.transform.rotate(paddle_surface, -145)
 
             # 회전된 탁구채를 메인 서피스에 블릿
-            # 위치 계산: 손목 기준
+            # 위치 계산: 손목(왼손) 기준 - 손잡이가 손 위치에 오도록 위로 배치
             paddle_blit_x = wrist_int[0] - rotated_paddle.get_width() // 2 - (16 if paddle_upgraded else 12)
-            paddle_blit_y = wrist_int[1] - rotated_paddle.get_height() // 2 - (12 if paddle_upgraded else 8)
+            paddle_blit_y = wrist_int[1] - rotated_paddle.get_height() // 2 - (8 if paddle_upgraded else 4)
 
             # 강화 애니메이션 진행 중일 때 조립 이펙트
             if paddle_anim_active and paddle_anim_progress > 0:
@@ -6075,30 +6076,6 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                                     (spark_start[1] + spark_end[1]) // 2 + int(math.cos(phase * 40 + spark_i) * 6))
                         pygame.draw.line(surface, (255, 200, 120), spark_start, spark_mid, 2)
                         pygame.draw.line(surface, (255, 255, 200), spark_mid, spark_end, 2)
-
-            # 글로우 효과 (강화 시 더 강렬한 골드) - 탁구채 중심에 맞춤
-            glow_margin = 20 if paddle_upgraded else 15
-            glow_w = paddle_w + glow_margin * 2
-            glow_h = paddle_h + glow_margin * 2
-            glow_surface = pygame.Surface((paddle_surf_size, paddle_surf_size), pygame.SRCALPHA)
-            # 글로우를 탁구채와 같은 위치에 그림 (paddle_rect 기준)
-            glow_rect = pygame.Rect(
-                paddle_rect.left - glow_margin,
-                paddle_rect.top - glow_margin,
-                glow_w,
-                glow_h
-            )
-            if paddle_upgraded:
-                glow_alpha = int(50 + 40 * math.sin(phase * math.tau * 2))
-                pygame.draw.rect(glow_surface, (255, 180, 80, glow_alpha), glow_rect, border_radius=14)
-            else:
-                glow_alpha = int(30 + 20 * math.sin(phase * math.tau * 2))
-                pygame.draw.rect(glow_surface, (*palette["accent"], glow_alpha), glow_rect, border_radius=10)
-            rotated_glow = pygame.transform.rotate(glow_surface, -15)
-            # 회전된 글로우를 탁구채와 같은 위치에 블릿
-            glow_blit_x = wrist_int[0] - rotated_glow.get_width() // 2 - (16 if paddle_upgraded else 12)
-            glow_blit_y = wrist_int[1] - rotated_glow.get_height() // 2 - (12 if paddle_upgraded else 8)
-            surface.blit(rotated_glow, (glow_blit_x, glow_blit_y))
 
             # 탁구채 블릿
             surface.blit(rotated_paddle, (paddle_blit_x, paddle_blit_y))
@@ -49575,6 +49552,7 @@ def run_downtown_hub(next_stage_display: int) -> None:
         pygame.event.get()  # 남은 이벤트 정리
     except Exception as err:  # 방어적: 광장 모듈 문제 시 다음 스테이지로 바로 이동
         print(f"[WARN] downtown hub skipped: {err}")
+
 def show_victory_screen(stage_cleared, reward):
     global trade_point_collected, trade_point_system
     global stage3_hearts_collected, stage4_crows_collected
@@ -57608,7 +57586,7 @@ def show_character_selection():
         {
             "id": "optimus",
             "name": "옵티머스",
-            "description": "테슬라 모듈이 전기 충격 부여.\n네온 드라이브로 궤적을 가속.",
+            "description": "배터리가 닳아 위기의 순간,\n기계 강화로 역전을 노린다.",
             "image": "optimus.png",
             "stats": {"속도": 5, "파워": 7, "방어": 5},
             "special": " 스매셔 계열 전용 장비",

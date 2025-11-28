@@ -746,26 +746,31 @@ class DowntownRenderer:
         color = p.get('color', Colors.NEON_CYAN)
         length = p.get('length', 20)
 
+        # 색상 값을 정수로 변환하고 범위 제한
+        r = max(0, min(255, int(color[0])))
+        g = max(0, min(255, int(color[1])))
+        b = max(0, min(255, int(color[2])))
+        base_alpha = max(0, min(255, int(alpha)))
+
         # 글로우 효과
         if p.get('glow'):
             glow_radius = p.get('glow_radius', 4)
             glow_surf = pygame.Surface((glow_radius * 4, length + glow_radius * 4), pygame.SRCALPHA)
-            for r in range(glow_radius, 0, -1):
-                glow_alpha = int(alpha * 0.3 * r / glow_radius)
-                pygame.draw.line(glow_surf, (*color[:3], glow_alpha),
+            for rad in range(glow_radius, 0, -1):
+                glow_alpha = max(0, min(255, int(base_alpha * 0.3 * rad / glow_radius)))
+                pygame.draw.line(glow_surf, (r, g, b, glow_alpha),
                                (glow_radius * 2, glow_radius),
-                               (glow_radius * 2, length + glow_radius), r * 2)
+                               (glow_radius * 2, length + glow_radius), rad * 2)
             screen.blit(glow_surf, (px - glow_radius * 2, py - glow_radius))
 
         # 메인 빗줄기 (그라데이션)
         for i in range(int(length)):
             progress = i / length
-            line_alpha = int(alpha * (1 - progress * 0.5))
-            line_color = (*color[:3], line_alpha)
-            pygame.draw.line(screen, line_color[:3], (px, py + i), (px, py + i + 1), 2)
+            line_alpha = max(0, min(255, int(base_alpha * (1 - progress * 0.5))))
+            pygame.draw.line(screen, (r, g, b), (px, py + i), (px, py + i + 1), 2)
 
         # 빛나는 끝부분
-        pygame.draw.circle(screen, (*color[:3], alpha), (int(px), int(py)), 2)
+        pygame.draw.circle(screen, (r, g, b), (int(px), int(py)), 2)
 
     def _draw_snow_particle(self, screen, p, px, py, alpha):
         """눈 파티클 (고품질)"""
