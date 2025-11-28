@@ -1850,6 +1850,9 @@ class BuildingInterior:
         # 아카데미 장애물 영역들 (ACADEMY에서만 사용)
         self.academy_obstacle_rects = []
 
+        # 상점 장애물 영역들 (ITEM_SHOP에서만 사용)
+        self.shop_obstacle_rects = []
+
         # 환율 시스템 (STARBANK 전용)
         # 기본 환율: 1 스타포인트 = 500 골드
         # 일일 변동: -15% ~ +15%
@@ -1886,6 +1889,94 @@ class BuildingInterior:
         self.academy_dialog_open = False  # 학장 대화 미니창
         self.academy_dialog_selection = 0  # 0: 예, 1: 아니오
         self.open_skill_menu_requested = False  # 스킬 메뉴 열기 요청 플래그
+
+        # 상점 거래 시스템 (ITEM_SHOP 전용)
+        self.shop_trade_open = False  # 거래 창 열림 여부
+        self.shop_inventory = []  # 상점 인벤토리 (랜덤 생성)
+        self.shop_hover_item = None  # 마우스 호버 중인 아이템 (player/shop, index)
+        self.shop_tooltip_item = None  # 툴팁 표시할 아이템
+        self._init_shop_inventory()  # 상점 인벤토리 초기화
+
+    def _init_shop_inventory(self):
+        """상점 인벤토리 초기화 (랜덤 패시브 아이템 1~7개 + 5% 전설)"""
+        if self.building_type != BuildingType.ITEM_SHOP:
+            return
+
+        self.shop_inventory = []
+
+        # 패시브 아이템 목록 (판매 가능한 아이템들)
+        passive_items = [
+            {"name": "speedboots", "base_price": 500, "korean": "스피드부츠"},
+            {"name": "speedgear", "base_price": 450, "korean": "스피드기어"},
+            {"name": "battery", "base_price": 600, "korean": "배터리"},
+            {"name": "revival", "base_price": 1500, "korean": "부활"},
+            {"name": "master", "base_price": 800, "korean": "장인"},
+            {"name": "cooltime", "base_price": 700, "korean": "쿨타임"},
+            {"name": "chargebag", "base_price": 550, "korean": "충전가방"},
+            {"name": "spikeboots", "base_price": 650, "korean": "스파이크부츠"},
+            {"name": "dashgear", "base_price": 600, "korean": "대쉬기어"},
+            {"name": "bulkup", "base_price": 750, "korean": "벌크업"},
+            {"name": "sensor", "base_price": 500, "korean": "감지센서"},
+            {"name": "gravitybelt", "base_price": 900, "korean": "무중력벨트"},
+            {"name": "dashholder", "base_price": 650, "korean": "대쉬홀더"},
+            {"name": "dowsing_pendulum", "base_price": 700, "korean": "다우징팬들럼"},
+            {"name": "smartphone", "base_price": 850, "korean": "스마트폰"},
+            {"name": "commando_arm", "base_price": 800, "korean": "코만도암"},
+            {"name": "technical_vest", "base_price": 750, "korean": "테크니컬조끼"},
+            {"name": "fuel_pouch", "base_price": 500, "korean": "연료파우치"},
+            {"name": "slot_add", "base_price": 1200, "korean": "슬롯추가"},
+        ]
+
+        # 전설 아이템 목록 (5% 확률)
+        legendary_items = [
+            {"name": "ragnarok_hammer", "base_price": 5000, "korean": "라그나로크 해머", "type": "legendary"},
+            {"name": "hermes_shoes", "base_price": 4500, "korean": "헤르메스의 신발", "type": "legendary"},
+            {"name": "poseidon_trident", "base_price": 5500, "korean": "포세이돈의 삼지창", "type": "legendary"},
+        ]
+
+        # 랜덤 아이템 개수 (1~7개)
+        item_count = random.randint(1, 7)
+
+        # 사용 가능한 아이템 풀에서 랜덤 선택
+        available_pool = passive_items.copy()
+
+        for _ in range(item_count):
+            if not available_pool:
+                break
+
+            # 5% 확률로 전설 아이템
+            if random.random() < 0.05 and legendary_items:
+                selected = random.choice(legendary_items)
+                legendary_items.remove(selected)  # 중복 방지
+            else:
+                selected = random.choice(available_pool)
+                available_pool.remove(selected)  # 중복 방지
+
+            # 옵션 랜덤 생성 (가격에 영향)
+            option_bonus = 0
+            options = []
+
+            # 30% 확률로 추가 옵션
+            if random.random() < 0.3:
+                option_type = random.choice(["attack", "defense", "speed", "luck"])
+                option_value = random.randint(1, 5)
+                options.append({"type": option_type, "value": option_value})
+                option_bonus += option_value * 50  # 옵션당 50골드 추가
+
+            # 최종 가격 계산 (기본가 + 옵션 보너스 + 랜덤 변동 ±10%)
+            base_price = selected["base_price"]
+            price_variance = random.uniform(0.9, 1.1)
+            final_price = int((base_price + option_bonus) * price_variance)
+
+            shop_item = {
+                "name": selected["name"],
+                "korean": selected["korean"],
+                "price": final_price,
+                "options": options,
+                "type": selected.get("type", "passive"),
+                "icon": None  # 나중에 로드
+            }
+            self.shop_inventory.append(shop_item)
 
     def _create_npcs(self):
         """NPC들 생성"""
@@ -2269,6 +2360,12 @@ class BuildingInterior:
                 if player_rect.colliderect(obstacle_rect):
                     return False
 
+        # 상점 장애물 충돌 체크 (ITEM_SHOP 전용)
+        if hasattr(self, 'shop_obstacle_rects') and self.shop_obstacle_rects:
+            for obstacle_rect in self.shop_obstacle_rects:
+                if player_rect.colliderect(obstacle_rect):
+                    return False
+
         return True
 
     def _update_camera(self):
@@ -2333,8 +2430,15 @@ class BuildingInterior:
             else:
                 self.exit_timer = 0
 
-    def handle_click(self, pos):
-        """클릭 처리"""
+    def handle_click(self, pos, button=1):
+        """클릭 처리 (button: 1=좌클릭, 3=우클릭)"""
+        # 상점 거래창이 열려있으면 거래 처리
+        if self.shop_trade_open:
+            if button == 3:  # 우클릭 = 판매/구매
+                return self._handle_shop_trade_click(pos)
+            else:  # 좌클릭 = 닫기 체크 (UI 바깥 클릭시)
+                return self._handle_shop_trade_left_click(pos)
+
         # 아카데미 대화창이 열려있으면 대화창 클릭 처리
         if self.academy_dialog_open:
             return self._handle_academy_dialog_click(pos)
@@ -2369,6 +2473,11 @@ class BuildingInterior:
                     self.academy_dialog_open = True
                     self.academy_dialog_selection = 0
                     return ("academy_dialog", npc)
+                # 상점 인간 상인 (점주 그린)인 경우 거래창 열기
+                elif self.building_type == BuildingType.ITEM_SHOP and getattr(npc, 'is_shop_human', False):
+                    self.shop_trade_open = True
+                    self.shop_hover_item = None
+                    return ("shop_trade", npc)
                 else:
                     dialogue = npc.start_dialogue()
                     if dialogue:
@@ -2376,10 +2485,142 @@ class BuildingInterior:
 
         return None
 
+    def _handle_shop_trade_click(self, pos):
+        """상점 거래창 우클릭 처리 (판매/구매)"""
+        if not self.shop_hover_item:
+            return None
+
+        source, idx = self.shop_hover_item
+
+        if source == "player":
+            # 플레이어 아이템 판매
+            return self._sell_player_item(idx)
+        else:  # shop
+            # 상점 아이템 구매
+            return self._buy_shop_item(idx)
+
+    def _handle_shop_trade_left_click(self, pos):
+        """상점 거래창 좌클릭 처리 (UI 바깥 클릭시 닫기)"""
+        # UI 영역 계산
+        total_w, total_h = 560, 380
+        ui_x = (SCREEN_WIDTH - total_w) // 2
+        ui_y = (SCREEN_HEIGHT - total_h) // 2
+        ui_rect = pygame.Rect(ui_x, ui_y, total_w, total_h)
+
+        # UI 바깥 클릭시 닫기
+        if not ui_rect.collidepoint(pos):
+            self.shop_trade_open = False
+            return ("shop_close", None)
+
+        return None
+
+    def _sell_player_item(self, idx):
+        """플레이어 아이템 판매"""
+        try:
+            import pingfighter
+            player_items = getattr(pingfighter, 'passive_item_list', [])
+
+            if idx >= len(player_items):
+                return None
+
+            item = player_items[idx]
+            item_name = item.get("name", "")
+
+            # 판매가 계산 (원가의 30%)
+            base_price = self._get_item_base_price(item_name)
+            sell_price = int(base_price * 0.3)
+
+            # 플레이어 골드 증가
+            current_gold = self.player_data.get('gold', 0)
+            self.player_data['gold'] = current_gold + sell_price
+
+            # 플레이어 인벤토리에서 제거
+            pingfighter.passive_item_list.pop(idx)
+
+            # 상점 인벤토리에 추가
+            korean_name = self._get_item_korean_name(item_name)
+            shop_item = {
+                "name": item_name,
+                "korean": korean_name,
+                "price": base_price,  # 상점은 원가로 판매
+                "options": item.get("options", []),
+                "type": item.get("type", "passive"),
+                "icon": None
+            }
+            self.shop_inventory.append(shop_item)
+
+            return ("sold", {"item": item_name, "price": sell_price})
+
+        except Exception as e:
+            print(f"아이템 판매 실패: {e}")
+            return None
+
+    def _buy_shop_item(self, idx):
+        """상점 아이템 구매"""
+        if idx >= len(self.shop_inventory):
+            return None
+
+        item = self.shop_inventory[idx]
+        price = item.get("price", 0)
+        item_name = item.get("name", "")
+
+        # 골드 확인
+        current_gold = self.player_data.get('gold', 0)
+        if current_gold < price:
+            return ("not_enough_gold", {"need": price, "have": current_gold})
+
+        # 골드 차감
+        self.player_data['gold'] = current_gold - price
+
+        # 상점 인벤토리에서 제거
+        self.shop_inventory.pop(idx)
+
+        # 플레이어 인벤토리에 추가
+        try:
+            import pingfighter
+
+            # 아이템 데이터 생성
+            item_data = {
+                "name": item_name,
+                "type": item.get("type", "passive"),
+                "options": item.get("options", []),
+                "icon": None
+            }
+
+            # passive_item_list에 추가
+            pingfighter.passive_item_list.append(item_data)
+
+            # 전설 아이템인 경우 획득 플래그 설정
+            if item.get("type") == "legendary":
+                if item_name == "ragnarok_hammer":
+                    import items
+                    items.ragnarok_hammer_obtained = True
+                elif item_name == "hermes_shoes":
+                    import items
+                    items.hermes_shoes_obtained = True
+                elif item_name == "poseidon_trident":
+                    import items
+                    items.poseidon_trident_obtained = True
+
+            return ("bought", {"item": item_name, "price": price})
+
+        except Exception as e:
+            print(f"아이템 구매 실패: {e}")
+            # 실패시 골드 복구
+            self.player_data['gold'] = current_gold
+            return None
+
     def handle_key(self, event):
         """키 입력 처리 (이벤트 기반)"""
         if event.type != pygame.KEYDOWN:
             return None
+
+        # 상점 거래창이 열려있을 때
+        if self.shop_trade_open:
+            if event.key == pygame.K_ESCAPE:
+                self.shop_trade_open = False
+                return ("shop_close", None)
+            return None  # 다른 키는 무시
 
         # 아카데미 대화창이 열려있을 때
         if self.academy_dialog_open:
@@ -2609,6 +2850,11 @@ class BuildingInterior:
                     self.academy_dialog_open = True
                     self.academy_dialog_selection = 0
                     return ("academy_dialog", npc)
+                # 상점 인간 상인 (점주 그린)인 경우 거래창 열기
+                elif self.building_type == BuildingType.ITEM_SHOP and getattr(npc, 'is_shop_human', False):
+                    self.shop_trade_open = True
+                    self.shop_hover_item = None
+                    return ("shop_trade", npc)
                 else:
                     dialogue = npc.start_dialogue()
                     if dialogue:
@@ -3408,6 +3654,313 @@ class BuildingInterior:
         # 아카데미 대화창 (맨 위에)
         if self.academy_dialog_open:
             self._draw_academy_dialog(screen)
+
+        # 상점 거래창 (맨 위에)
+        if self.shop_trade_open:
+            self._draw_shop_trade_ui(screen)
+
+    def _draw_shop_trade_ui(self, screen):
+        """상점 거래 UI 그리기 - 좌: 플레이어 인벤토리, 우: 상점 인벤토리"""
+        # UI 크기 및 위치
+        total_w, total_h = 560, 380
+        ui_x = (SCREEN_WIDTH - total_w) // 2
+        ui_y = (SCREEN_HEIGHT - total_h) // 2
+
+        panel_w = 260
+        gap = 40  # 두 패널 사이 간격
+
+        # 색상 정의
+        BG_DARK = (25, 20, 30)
+        PANEL_BG = (40, 35, 50)
+        BORDER_GOLD = (200, 170, 100)
+        BORDER_CYAN = (100, 200, 200)
+        TEXT_WHITE = (240, 240, 240)
+        TEXT_GOLD = (255, 215, 100)
+        TEXT_GRAY = (150, 150, 150)
+        ITEM_BG = (50, 45, 60)
+        ITEM_HOVER = (70, 65, 90)
+        ITEM_LEGENDARY = (80, 60, 100)
+
+        mouse_pos = pygame.mouse.get_pos()
+
+        # 반투명 오버레이
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        # 메인 배경
+        main_bg = pygame.Surface((total_w, total_h), pygame.SRCALPHA)
+        pygame.draw.rect(main_bg, (*BG_DARK, 245), (0, 0, total_w, total_h), border_radius=10)
+        screen.blit(main_bg, (ui_x, ui_y))
+        pygame.draw.rect(screen, BORDER_GOLD, (ui_x, ui_y, total_w, total_h), 2, border_radius=10)
+
+        # 폰트
+        font_medium = self.fonts.get('medium')
+        font_small = self.fonts.get('small')
+
+        # === 플레이어 골드 표시 (상단) ===
+        player_gold = self.player_data.get('gold', 0)
+        gold_text = f"보유 골드: {player_gold:,}G"
+        if font_medium:
+            gold_surf, gold_rect = font_medium.render(gold_text, TEXT_GOLD)
+            screen.blit(gold_surf, (ui_x + total_w // 2 - gold_rect.width // 2, ui_y + 12))
+
+        # === 좌측: 플레이어 인벤토리 ===
+        left_x = ui_x + 15
+        left_y = ui_y + 45
+
+        # 패널 배경
+        pygame.draw.rect(screen, PANEL_BG, (left_x, left_y, panel_w, total_h - 90), border_radius=6)
+        pygame.draw.rect(screen, BORDER_CYAN, (left_x, left_y, panel_w, total_h - 90), 2, border_radius=6)
+
+        # 제목
+        if font_medium:
+            title_surf, title_rect = font_medium.render("내 인벤토리", TEXT_WHITE)
+            screen.blit(title_surf, (left_x + panel_w // 2 - title_rect.width // 2, left_y + 8))
+
+        # 아이템 목록 - pingfighter의 passive_item_list 가져오기
+        try:
+            import pingfighter
+            player_items = getattr(pingfighter, 'passive_item_list', [])
+        except:
+            player_items = []
+
+        item_h = 36
+        item_start_y = left_y + 35
+        max_visible = 7
+
+        self.shop_hover_item = None  # 매 프레임 리셋
+
+        for i, item in enumerate(player_items[:max_visible]):
+            item_y = item_start_y + i * item_h
+            item_rect = pygame.Rect(left_x + 8, item_y, panel_w - 16, item_h - 4)
+
+            # 호버 체크
+            is_hover = item_rect.collidepoint(mouse_pos)
+            if is_hover:
+                self.shop_hover_item = ("player", i)
+                bg_color = ITEM_HOVER
+            else:
+                bg_color = ITEM_BG
+
+            # 아이템 배경
+            pygame.draw.rect(screen, bg_color, item_rect, border_radius=4)
+
+            # 아이템 이름
+            item_name = item.get("name", "알 수 없음")
+            korean_name = self._get_item_korean_name(item_name)
+
+            # 판매가 계산 (원가의 30%)
+            base_price = self._get_item_base_price(item_name)
+            sell_price = int(base_price * 0.3)
+
+            if font_small:
+                # 이름
+                name_surf, name_rect = font_small.render(korean_name, TEXT_WHITE)
+                screen.blit(name_surf, (item_rect.x + 8, item_rect.centery - name_rect.height // 2))
+
+                # 판매가
+                price_text = f"{sell_price}G"
+                price_surf, price_rect = font_small.render(price_text, TEXT_GOLD)
+                screen.blit(price_surf, (item_rect.right - price_rect.width - 8, item_rect.centery - price_rect.height // 2))
+
+        # 아이템이 없을 때
+        if not player_items and font_small:
+            empty_surf, empty_rect = font_small.render("(아이템 없음)", TEXT_GRAY)
+            screen.blit(empty_surf, (left_x + panel_w // 2 - empty_rect.width // 2, item_start_y + 50))
+
+        # === 우측: 상점 인벤토리 ===
+        right_x = ui_x + panel_w + gap
+        right_y = ui_y + 45
+
+        # 패널 배경
+        pygame.draw.rect(screen, PANEL_BG, (right_x, right_y, panel_w, total_h - 90), border_radius=6)
+        pygame.draw.rect(screen, BORDER_GOLD, (right_x, right_y, panel_w, total_h - 90), 2, border_radius=6)
+
+        # 제목
+        if font_medium:
+            title_surf, title_rect = font_medium.render("상점 물품", TEXT_WHITE)
+            screen.blit(title_surf, (right_x + panel_w // 2 - title_rect.width // 2, right_y + 8))
+
+        # 상점 아이템 목록
+        for i, item in enumerate(self.shop_inventory[:max_visible]):
+            item_y = item_start_y + i * item_h
+            item_rect = pygame.Rect(right_x + 8, item_y, panel_w - 16, item_h - 4)
+
+            # 호버 체크
+            is_hover = item_rect.collidepoint(mouse_pos)
+            if is_hover:
+                self.shop_hover_item = ("shop", i)
+                bg_color = ITEM_HOVER
+            else:
+                is_legendary = item.get("type") == "legendary"
+                bg_color = ITEM_LEGENDARY if is_legendary else ITEM_BG
+
+            # 아이템 배경
+            pygame.draw.rect(screen, bg_color, item_rect, border_radius=4)
+
+            # 전설 아이템은 금테두리
+            if item.get("type") == "legendary":
+                pygame.draw.rect(screen, BORDER_GOLD, item_rect, 2, border_radius=4)
+
+            if font_small:
+                # 이름
+                korean_name = item.get("korean", item.get("name", "???"))
+                name_color = TEXT_GOLD if item.get("type") == "legendary" else TEXT_WHITE
+                name_surf, name_rect = font_small.render(korean_name, name_color)
+                screen.blit(name_surf, (item_rect.x + 8, item_rect.centery - name_rect.height // 2))
+
+                # 구매가
+                price_text = f"{item.get('price', 0):,}G"
+                price_surf, price_rect = font_small.render(price_text, TEXT_GOLD)
+                screen.blit(price_surf, (item_rect.right - price_rect.width - 8, item_rect.centery - price_rect.height // 2))
+
+        # 상점 아이템이 없을 때
+        if not self.shop_inventory and font_small:
+            empty_surf, empty_rect = font_small.render("(품절)", TEXT_GRAY)
+            screen.blit(empty_surf, (right_x + panel_w // 2 - empty_rect.width // 2, item_start_y + 50))
+
+        # === 하단: 조작 안내 ===
+        if font_small:
+            hint_text = "우클릭: 판매/구매  |  ESC: 닫기"
+            hint_surf, hint_rect = font_small.render(hint_text, TEXT_GRAY)
+            screen.blit(hint_surf, (ui_x + total_w // 2 - hint_rect.width // 2, ui_y + total_h - 25))
+
+        # === 툴팁 표시 ===
+        if self.shop_hover_item:
+            self._draw_shop_tooltip(screen, mouse_pos)
+
+    def _draw_shop_tooltip(self, screen, mouse_pos):
+        """상점 아이템 툴팁 그리기"""
+        if not self.shop_hover_item:
+            return
+
+        source, idx = self.shop_hover_item
+
+        # 아이템 정보 가져오기
+        if source == "player":
+            try:
+                import pingfighter
+                player_items = getattr(pingfighter, 'passive_item_list', [])
+                if idx < len(player_items):
+                    item = player_items[idx]
+                    item_name = item.get("name", "")
+                    korean_name = self._get_item_korean_name(item_name)
+                    base_price = self._get_item_base_price(item_name)
+                    sell_price = int(base_price * 0.3)
+                    is_legendary = item.get("type") == "legendary"
+                else:
+                    return
+            except:
+                return
+        else:  # shop
+            if idx < len(self.shop_inventory):
+                item = self.shop_inventory[idx]
+                korean_name = item.get("korean", "???")
+                sell_price = item.get("price", 0)
+                is_legendary = item.get("type") == "legendary"
+            else:
+                return
+
+        # 툴팁 크기
+        tooltip_w, tooltip_h = 180, 80
+        tooltip_x = mouse_pos[0] + 15
+        tooltip_y = mouse_pos[1] + 10
+
+        # 화면 밖으로 나가지 않게
+        if tooltip_x + tooltip_w > SCREEN_WIDTH:
+            tooltip_x = mouse_pos[0] - tooltip_w - 10
+        if tooltip_y + tooltip_h > SCREEN_HEIGHT:
+            tooltip_y = mouse_pos[1] - tooltip_h - 10
+
+        # 색상
+        BG_COLOR = (30, 25, 40, 240)
+        BORDER_COLOR = (200, 170, 100) if is_legendary else (100, 100, 120)
+        TEXT_WHITE = (240, 240, 240)
+        TEXT_GOLD = (255, 215, 100)
+
+        # 배경
+        tooltip_surf = pygame.Surface((tooltip_w, tooltip_h), pygame.SRCALPHA)
+        pygame.draw.rect(tooltip_surf, BG_COLOR, (0, 0, tooltip_w, tooltip_h), border_radius=6)
+        screen.blit(tooltip_surf, (tooltip_x, tooltip_y))
+        pygame.draw.rect(screen, BORDER_COLOR, (tooltip_x, tooltip_y, tooltip_w, tooltip_h), 2, border_radius=6)
+
+        font_small = self.fonts.get('small')
+        if font_small:
+            # 이름
+            name_color = TEXT_GOLD if is_legendary else TEXT_WHITE
+            name_surf, name_rect = font_small.render(korean_name, name_color)
+            screen.blit(name_surf, (tooltip_x + 10, tooltip_y + 10))
+
+            # 가격
+            if source == "player":
+                price_label = "판매가:"
+            else:
+                price_label = "구매가:"
+            price_text = f"{price_label} {sell_price:,}G"
+            price_surf, price_rect = font_small.render(price_text, TEXT_GOLD)
+            screen.blit(price_surf, (tooltip_x + 10, tooltip_y + 35))
+
+            # 타입
+            type_text = "전설 아이템" if is_legendary else "패시브 아이템"
+            type_surf, type_rect = font_small.render(type_text, (150, 150, 180))
+            screen.blit(type_surf, (tooltip_x + 10, tooltip_y + 55))
+
+    def _get_item_korean_name(self, item_name):
+        """아이템 영문명을 한글명으로 변환"""
+        name_map = {
+            "speedboots": "스피드부츠",
+            "speedgear": "스피드기어",
+            "battery": "배터리",
+            "revival": "부활",
+            "master": "장인",
+            "cooltime": "쿨타임",
+            "chargebag": "충전가방",
+            "spikeboots": "스파이크부츠",
+            "dashgear": "대쉬기어",
+            "bulkup": "벌크업",
+            "sensor": "감지센서",
+            "gravitybelt": "무중력벨트",
+            "dashholder": "대쉬홀더",
+            "dowsing_pendulum": "다우징팬들럼",
+            "smartphone": "스마트폰",
+            "commando_arm": "코만도암",
+            "technical_vest": "테크니컬조끼",
+            "fuel_pouch": "연료파우치",
+            "slot_add": "슬롯추가",
+            "ragnarok_hammer": "라그나로크 해머",
+            "hermes_shoes": "헤르메스의 신발",
+            "poseidon_trident": "포세이돈의 삼지창",
+        }
+        return name_map.get(item_name, item_name)
+
+    def _get_item_base_price(self, item_name):
+        """아이템 기본 가격 반환"""
+        price_map = {
+            "speedboots": 500,
+            "speedgear": 450,
+            "battery": 600,
+            "revival": 1500,
+            "master": 800,
+            "cooltime": 700,
+            "chargebag": 550,
+            "spikeboots": 650,
+            "dashgear": 600,
+            "bulkup": 750,
+            "sensor": 500,
+            "gravitybelt": 900,
+            "dashholder": 650,
+            "dowsing_pendulum": 700,
+            "smartphone": 850,
+            "commando_arm": 800,
+            "technical_vest": 750,
+            "fuel_pouch": 500,
+            "slot_add": 1200,
+            "ragnarok_hammer": 5000,
+            "hermes_shoes": 4500,
+            "poseidon_trident": 5500,
+        }
+        return price_map.get(item_name, 500)
 
     def _draw_academy_dialog(self, screen):
         """학장 아르카나와의 대화창 그리기"""
@@ -4693,7 +5246,24 @@ class BuildingInterior:
         # 8. 좌우 벽 장식 횃불/램프
         self._draw_wall_lamps_neon(screen, cam_x, cam_y, wall_h, ACCENT_GOLD)
 
-        # 9. 문 그리기
+        # 9. 충돌 영역 설정 (벽, 카운터, 진열대)
+        self.shop_obstacle_rects = []
+
+        # 상단 벽 영역 (상인들 뒤)
+        self.shop_obstacle_rects.append(pygame.Rect(0, 0, self.pixel_width, wall_h))
+
+        # 메인 카운터 충돌 영역
+        self.shop_obstacle_rects.append(pygame.Rect(counter_x, counter_y, counter_w, counter_h))
+
+        # 좌측 진열대 충돌 영역
+        left_shelf_w = int(TILE_SIZE * 2.5)
+        self.shop_obstacle_rects.append(pygame.Rect(left_shelf_x, counter_y, left_shelf_w, shelf_h))
+
+        # 우측 진열대 충돌 영역
+        right_shelf_w = int(TILE_SIZE * 2.5)
+        self.shop_obstacle_rects.append(pygame.Rect(right_shelf_x, counter_y, right_shelf_w, shelf_h))
+
+        # 10. 문 그리기
         self._draw_door(screen)
 
     def _draw_wood_floor_neon(self, screen, cam_x, cam_y, floor_color, floor_dark):
