@@ -223,6 +223,10 @@ class DowntownMap:
         # 필수 건물 (항상 등장 - 은행은 이미 배치됨)
         required_buildings = [BuildingType.MAGIC_STORE, BuildingType.BLACKSMITH]
 
+        # 아카데미는 높은 확률로 등장 (93.5%)
+        if random.random() < 0.935:
+            required_buildings.append(BuildingType.ACADEMY)
+
         # 스테이지에 따른 추가 필수 건물
         if self.stage_number >= 2:
             required_buildings.append(BuildingType.ELDER)
