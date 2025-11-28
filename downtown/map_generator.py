@@ -220,10 +220,11 @@ class DowntownMap:
         # 1. 먼저 은행을 시작 지점 근처에 배치
         self._place_bank_near_spawn()
 
-        # 2. 아카데미를 광장 근처에 우선 배치 (필수 건물)
-        self._place_academy_near_plaza()
+        # 2. 아카데미를 광장 근처에 배치 (60% 확률)
+        if random.random() < 0.60:
+            self._place_academy_near_plaza()
 
-        # 필수 건물 (항상 등장 - 은행, 아카데미는 이미 배치됨)
+        # 필수 건물 (항상 등장 - 은행은 이미 배치됨)
         required_buildings = [BuildingType.MAGIC_STORE, BuildingType.BLACKSMITH]
 
         # 스테이지에 따른 추가 필수 건물
