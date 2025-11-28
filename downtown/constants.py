@@ -203,7 +203,7 @@ BUILDING_INFO = {
         "size": (3, 2),              # 3개의 탑이 있는 넓은 성
         "pixel_size": (110, 95),     # 3개 탑 포함 크기
         "description": "스킬을 배울 수 있는 학교",
-        "rarity": 0.87,              # 87% 확률로 스폰 (3번 접속 시 2번 이상)
+        "rarity": 0.935,             # 93.5% 확률로 스폰 (거의 항상 등장)
         "style": "magic_school",
     },
 }
