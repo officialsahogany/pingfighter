@@ -220,12 +220,11 @@ class DowntownMap:
         # 1. 먼저 은행을 시작 지점 근처에 배치
         self._place_bank_near_spawn()
 
-        # 필수 건물 (항상 등장 - 은행은 이미 배치됨)
-        required_buildings = [BuildingType.MAGIC_STORE, BuildingType.BLACKSMITH]
+        # 2. 아카데미를 광장 근처에 우선 배치 (필수 건물)
+        self._place_academy_near_plaza()
 
-        # 아카데미는 높은 확률로 등장 (93.5%)
-        if random.random() < 0.935:
-            required_buildings.append(BuildingType.ACADEMY)
+        # 필수 건물 (항상 등장 - 은행, 아카데미는 이미 배치됨)
+        required_buildings = [BuildingType.MAGIC_STORE, BuildingType.BLACKSMITH]
 
         # 스테이지에 따른 추가 필수 건물
         if self.stage_number >= 2:
@@ -281,7 +280,8 @@ class DowntownMap:
                 self._place_single_building(building_type, x, y, bw, bh)
                 return True
 
-        return False
+        # 구역 내 실패 시 전체 맵에서 재시도 (필수 건물용)
+        return self._try_place_building(building_type, max_attempts=50)
 
     def _try_place_building(self, building_type, max_attempts=50):
         """건물 배치 시도"""
@@ -409,6 +409,91 @@ class DowntownMap:
                 return True
 
         return False
+
+    def _place_academy_near_plaza(self):
+        """아카데미를 광장 근처에 배치 (필수 건물)"""
+        mid_x = self.width // 2
+        academy_info = BUILDING_INFO[BuildingType.ACADEMY]
+        bw, bh = academy_info["size"]
+
+        # 광장 위치들 (맵의 1/4, 1/2, 3/4 지점)
+        plaza_positions = [self.height // 4, self.height // 2, self.height * 3 // 4]
+
+        # 각 광장 근처에서 배치 시도
+        for plaza_y in plaza_positions:
+            # 광장 주변 위치들 (왼쪽, 오른쪽, 위, 아래)
+            search_positions = [
+                # 광장 바로 옆 (가장 우선)
+                (mid_x - 5 - bw, plaza_y - bh // 2),  # 왼쪽
+                (mid_x + 5, plaza_y - bh // 2),        # 오른쪽
+                (mid_x - bw // 2, plaza_y - 5 - bh),   # 위
+                (mid_x - bw // 2, plaza_y + 5),        # 아래
+                # 약간 떨어진 위치
+                (mid_x - 6 - bw, plaza_y - 1),
+                (mid_x + 6, plaza_y - 1),
+                (2, plaza_y - bh // 2),                # 맵 왼쪽 끝
+                (self.width - bw - 2, plaza_y - bh // 2),  # 맵 오른쪽 끝
+            ]
+
+            for test_x, test_y in search_positions:
+                # 범위 체크
+                if test_x < 2 or test_y < 2:
+                    continue
+                if test_x + bw >= self.width - 2 or test_y + bh >= self.height - 2:
+                    continue
+
+                if self._can_place_building(test_x, test_y, bw, bh):
+                    self._place_single_building(BuildingType.ACADEMY, test_x, test_y, bw, bh)
+                    return True
+
+        # 광장 근처 실패 시 전체 맵에서 랜덤 배치 시도 (100번)
+        for _ in range(100):
+            x = random.randint(2, self.width - bw - 2)
+            y = random.randint(2, self.height - bh - 2)
+            if self._can_place_building(x, y, bw, bh):
+                self._place_single_building(BuildingType.ACADEMY, x, y, bw, bh)
+                return True
+
+        # 최후의 수단: 도로 인접 조건 완화하여 배치
+        for _ in range(50):
+            x = random.randint(2, self.width - bw - 2)
+            y = random.randint(2, self.height - bh - 2)
+            # 도로 인접 없이 기본 조건만 확인
+            if self._can_place_building_relaxed(x, y, bw, bh):
+                self._place_single_building(BuildingType.ACADEMY, x, y, bw, bh)
+                return True
+
+        return False
+
+    def _can_place_building_relaxed(self, x, y, width, height):
+        """건물 배치 가능 여부 (완화된 조건 - 도로 인접 불필요)"""
+        # 범위 체크
+        if x < 1 or y < 1 or x + width >= self.width - 1 or y + height >= self.height - 1:
+            return False
+
+        # 타일 체크 (바닥이어야 함)
+        for dy in range(height):
+            for dx in range(width):
+                tile = self.tiles[y + dy][x + dx]
+                if tile != TileType.GROUND:
+                    return False
+
+        # 시작/도착 지점 주변 금지 영역 체크
+        if self._is_near_spawn_or_exit(x, y, width, height):
+            return False
+
+        # 기존 건물과 겹침 체크 (간격 축소: 4타일)
+        building_spacing = TILE_SIZE * 4
+
+        new_rect = pygame.Rect(x * TILE_SIZE, y * TILE_SIZE,
+                              width * TILE_SIZE, height * TILE_SIZE)
+        for _, bx, by, bw, bh in self.buildings:
+            existing_rect = pygame.Rect(bx * TILE_SIZE, by * TILE_SIZE,
+                                        bw * TILE_SIZE, bh * TILE_SIZE)
+            if new_rect.colliderect(existing_rect.inflate(building_spacing, building_spacing)):
+                return False
+
+        return True  # 도로 인접 체크 생략
 
     def _place_single_building(self, building_type, x, y, width, height):
         """단일 건물 배치"""
