@@ -1424,11 +1424,19 @@ class DowntownManager:
                             show_character_info()
 
                     else:
-                        # 메뉴 키 처리 (은행 메뉴, 환전 메뉴 등)
+                        # 메뉴 키 처리 (은행 메뉴, 환전 메뉴, 아카데미 대화창 등)
                         menu_result = interior.handle_key(event)
                         if menu_result:
+                            if isinstance(menu_result, tuple) and menu_result[0] == "academy_skill_menu":
+                                # 아카데미 스킬 메뉴 열기
+                                if self.academy:
+                                    self.academy.show_academy_menu(
+                                        self.screen,
+                                        SCREEN_WIDTH,
+                                        SCREEN_HEIGHT,
+                                        self.player_data.get('character_type', 'smasher')
+                                    )
                             # 환전 성공 시 player_data가 자동으로 업데이트됨
-                            pass
                         else:
                             # 한글 키보드 및 이동 키 지원 (WASD, 화살표)
                             scancode = getattr(event, 'scancode', None)
@@ -1448,9 +1456,19 @@ class DowntownManager:
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # 왼쪽 클릭
                         result = interior.handle_click(event.pos)
-                        if result and isinstance(result, tuple) and result[0] == "talk":
-                            # NPC 대화 - 말풍선은 InteriorNPC에서 처리
-                            pass
+                        if result and isinstance(result, tuple):
+                            if result[0] == "talk":
+                                # NPC 대화 - 말풍선은 InteriorNPC에서 처리
+                                pass
+                            elif result[0] == "academy_skill_menu":
+                                # 아카데미 스킬 메뉴 열기
+                                if self.academy:
+                                    self.academy.show_academy_menu(
+                                        self.screen,
+                                        SCREEN_WIDTH,
+                                        SCREEN_HEIGHT,
+                                        self.player_data.get('character_type', 'smasher')
+                                    )
 
                 elif event.type == pygame.MOUSEWHEEL:
                     # 마우스 휠 처리 (환전 양 조절 - 슬라이더 위에서만)

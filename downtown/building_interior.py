@@ -3443,26 +3443,17 @@ class BuildingInterior:
         title2_text = "새로운 기술을 배우러 오셨습니까?"
         subtitle_text = "- 기술을 배우려면 스타포인트가 필요합니다 -"
 
-        # 폰트 (기본 폰트 사용)
+        # 한글 폰트 로드 (resource_path 사용)
         try:
+            font_path = resource_path("fonts/NanumSquareB.ttf")
+            title_font = pygame.font.Font(font_path, 18)
+            subtitle_font = pygame.font.Font(font_path, 14)
+            button_font = pygame.font.Font(font_path, 16)
+        except:
+            # 폴백: 기본 폰트
             title_font = pygame.font.Font(None, 22)
             subtitle_font = pygame.font.Font(None, 18)
             button_font = pygame.font.Font(None, 24)
-        except:
-            title_font = pygame.font.SysFont(None, 22)
-            subtitle_font = pygame.font.SysFont(None, 18)
-            button_font = pygame.font.SysFont(None, 24)
-
-        # 한글 폰트 시도
-        try:
-            import os
-            font_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts", "NanumSquareB.ttf")
-            if os.path.exists(font_path):
-                title_font = pygame.font.Font(font_path, 18)
-                subtitle_font = pygame.font.Font(font_path, 14)
-                button_font = pygame.font.Font(font_path, 16)
-        except:
-            pass
 
         # 제목 렌더링
         title_surf = title_font.render(title_text, True, TEXT_WHITE)
