@@ -76268,6 +76268,8 @@ def main(stage_num, new_boss_mode=False):
             game_session_active = False  #  게임 세션 종료
             # 테크니컬조끼 비활성화
             deactivate_technical_vest()
+            # 레이저스코프 비활성화
+            deactivate_laser_scope()
             #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
             acceleration_skill_level = 0
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
