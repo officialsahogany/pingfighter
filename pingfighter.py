@@ -31420,7 +31420,14 @@ def handle_player(keys):
                         multipliers = get_devil_dice_multipliers()
                         base_timer = int(base_timer * multipliers['dash_cooldown'])
                         print(f"[DEBUG]     : x{multipliers['dash_cooldown']:.1f}")
-                    
+
+                    # 천사의 가호 대쉬 쿨타임 버프 적용
+                    if dash is not None:
+                        external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
+                        if external_cooldown_mul != 1.0:
+                            base_timer = int(base_timer * external_cooldown_mul)
+                            print(f"[DEBUG] 천사의 가호 대쉬 쿨타임 버프: x{external_cooldown_mul:.2f}")
+
                     rolling_cooldown = base_timer
                     rolling_charge_timer = base_timer
                     print(f"[DEBUG]      : {rolling_charge_timer} (: {rolling_charges})")
@@ -31434,7 +31441,7 @@ def handle_player(keys):
                         rolling_consecutive_count += 1
                     # 연속대쉬는 후딜시간(stun timer) 내에서만 유효
                     print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 후딜시간: {rolling_stun_timer}")
-                    
+
                     # Count consecutive dash immediately when 2 dashes are used consecutively
                     # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
                     if current_stage == 50 and tutorial_current_chapter == 2:
