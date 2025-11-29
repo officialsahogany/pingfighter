@@ -61,11 +61,16 @@ class ShaolinTempleBackground:
         self.destruction_wave_charging = False  # Moon charging up wave
         # Stage4 moon fragment hit sound (building impact)
         self.stage4_hit_sound = None
+        self.stage4_moon_shoot_sound = None
         try:
             self.stage4_hit_sound = pygame.mixer.Sound(resource_path("sounds/stage4hitting.wav"))
         except Exception:
             # Sound load failure should not break gameplay
             self.stage4_hit_sound = None
+        try:
+            self.stage4_moon_shoot_sound = pygame.mixer.Sound(resource_path("sounds/stage4moonshoot.wav"))
+        except Exception:
+            self.stage4_moon_shoot_sound = None
 
         # Approximate temple hitbox used for moon-fragment collision
         temple_width = 280
@@ -3117,6 +3122,7 @@ class ShaolinTempleBackground:
                 self.moon_pulse_scale = 1.0 + (self.destruction_timer / 60.0) * 0.5  # Grow to 1.5x
             elif self.destruction_timer == 61:  # Fire the wave
                 print("🌙 FIRING DESTRUCTION WAVE!")
+                self._play_stage4_moon_shoot_sound()
                 self._fire_destruction_wave()
                 self.destruction_wave_charging = False
                 self.moon_pulse_active = False
@@ -4227,6 +4233,14 @@ class ShaolinTempleBackground:
         if self.stage4_hit_sound:
             try:
                 self.stage4_hit_sound.play()
+            except Exception:
+                pass
+
+    def _play_stage4_moon_shoot_sound(self):
+        """Play moon destruction beam firing sound"""
+        if self.stage4_moon_shoot_sound:
+            try:
+                self.stage4_moon_shoot_sound.play()
             except Exception:
                 pass
     
