@@ -83725,7 +83725,7 @@ def show_character_item_manager():
         {"name": "pandora_box", "type": "active", "icon": get_icon_safe("pandora_box_icon", "pandora_box")},
         {"name": "stopwatch", "type": "active", "icon": get_icon_safe("stopwatch_icon", "stopwatch")},
         {"name": "devil_dice", "type": "active", "icon": get_icon_safe("devil_dice_icon", "devil_dice")},
-        {"name": "laser_scope", "type": "active", "icon": get_icon_safe("laser_scope_icon", "laser_scope")},
+        {"name": "laser_scope", "type": "active", "icon": get_item_icon("laser_scope")},
         # 패시브 아이템들
         {"name": "slot_add", "type": "passive", "icon": get_icon_safe("slot_add_icon", "slot_add")},
         {"name": "revival", "type": "passive", "icon": get_icon_safe("revival_icon", "revival")},
