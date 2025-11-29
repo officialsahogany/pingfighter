@@ -2129,6 +2129,11 @@ class BuildingInterior:
             self.player.x - 30, self.player.y - 30, 60, 60
         )
 
+        # 디버그 출력
+        print(f"[DEBUG] Player pos: ({self.player.x}, {self.player.y}), rect: {player_rect}")
+        for i, machine_info in enumerate(self.gacha_machine_rects):
+            print(f"[DEBUG] Machine {i}: interact={machine_info['rect']}, machine={machine_info['machine_rect']}")
+
         for i, machine_info in enumerate(self.gacha_machine_rects):
             if player_rect.colliderect(machine_info["rect"]):
                 return i
