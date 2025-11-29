@@ -3091,7 +3091,7 @@ class AngelBlessing(LegendaryItem):
 
     def _draw_angel_dice(self, surf: pygame.Surface, size: int, rot_x: float, rot_y: float):
         """중앙에 천사의 주사위 그리기 (천사 날개 + 3D 주사위)"""
-        dice_size = int(size * 0.35)  # 주사위 크기
+        dice_size = int(size * 0.45)  # 주사위 크기 증가 (더 잘 보이도록)
         cx, cy = size // 2, size // 2
 
         # 천사 날개 그리기 (주사위 뒤에)
