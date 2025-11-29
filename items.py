@@ -993,7 +993,7 @@ ITEM_TYPES = [
         "effect": "laser_scope",
         "icon": None,
         "chance": 0.004,  # 확률 0.8%
-        "duration": 1500,  # 15초
+        "duration": 1800,  # 15초
         "unlock_condition": None
     }
 ]
