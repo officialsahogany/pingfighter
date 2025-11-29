@@ -2635,8 +2635,12 @@ class AngelBlessing(LegendaryItem):
         self.roll_timer = 0.0
         self.roll_face = 1
         self.roll_anim_active = False
-        self.roll_anim_duration = 1.1
+        self.roll_anim_duration = 3.0  # 3초간 화려한 연출
         self.waiting_for_space = False  # 스페이스바 대기 상태
+        # 화려한 연출용 파티클 리스트
+        self.holy_particles = []
+        self.light_rays = []
+        self.feathers = []
         self._frame_cache: Dict[int, pygame.Surface] = {}
 
         # 라그나로크 해머와 동일한 애니메이션 프레임 구조
