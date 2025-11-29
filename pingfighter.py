@@ -1929,6 +1929,7 @@ blacksmith_hammer_charge_sound_channel = None
 poseidon_wave_sound_channel = None
 stage4_magnetic_sound_channel = None
 spider_mine_walk_channel = None
+optimus_charge_sound_channel = None
 
 
 def play_poseidon_wave_sound() -> None:
@@ -1983,6 +1984,39 @@ def _stop_spider_mine_walk_sound() -> None:
     except Exception:
         pass
     spider_mine_walk_channel = None
+
+
+def _start_optimus_charge_sound() -> None:
+    """옵티머스 수동 충전 사운드를 루프로 재생."""
+
+    global optimus_charge_sound_channel, sfx_volume
+
+    try:
+        if not SOUND_OPTIMUS_CHARGE:
+            return
+        ch = optimus_charge_sound_channel
+        if ch and ch.get_busy():
+            ch.set_volume(sfx_volume)
+            return
+        optimus_charge_sound_channel = SOUND_OPTIMUS_CHARGE.play(loops=-1)
+        if optimus_charge_sound_channel:
+            optimus_charge_sound_channel.set_volume(sfx_volume)
+    except Exception as exc:
+        optimus_charge_sound_channel = None
+        print(f"[WARN] optimus charge sound failed: {exc}")
+
+
+def _stop_optimus_charge_sound() -> None:
+    """옵티머스 수동 충전 사운드를 중단."""
+
+    global optimus_charge_sound_channel
+
+    try:
+        if optimus_charge_sound_channel:
+            optimus_charge_sound_channel.stop()
+    except Exception:
+        pass
+    optimus_charge_sound_channel = None
 
 
 def start_stage4_magnetic_sound() -> None:
@@ -2546,6 +2580,7 @@ SOUND_ITEM_GET = sound_effects['ITEM_GET']
 SOUND_NOTIFICATION = sound_effects['NOTIFICATION']
 SOUND_HONGRYUN_CHARGE = sound_effects['HONGRYUN_CHARGE']
 SOUND_HONGRYUN_SHOOT = sound_effects['HONGRYUN_SHOOT']
+SOUND_OPTIMUS_CHARGE = sound_effects.get('OPTIMUS_CHARGE')
 SOUND_BAZOOKA_GOING = sound_effects['BAZOOKA_GOING']
 # Stage 5 보스 피격 효과음
 #  Stage 5 홍련 피격 효과음들 (3개 중 랜덤)
