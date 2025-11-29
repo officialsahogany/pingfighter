@@ -3064,12 +3064,10 @@ class ShaolinTempleBackground:
             self.destruction_animation_active = True
             self.destruction_phase = 1
             self.destruction_timer = 0
-            # Immediately enable moon fragment barrage toward the temple
-            self.moon_fragment_active = True
-            # Force first spawn on next update tick
-            self.moon_fragment_timer = self.moon_fragment_interval
-            # Faster initial interval for dramatic effect
-            self.moon_fragment_interval = max(60, self.moon_fragment_interval // 3)
+            # Stop any ongoing moon fragments during the cinematic
+            self.moon_fragment_active = False
+            self.moon_fragment_timer = 0
+            self.moon_fragments.clear()
             print("Temple destruction animation started!")
     
     def is_destruction_animation_active(self):
@@ -4119,6 +4117,10 @@ class ShaolinTempleBackground:
     
     def _update_moon_fragments(self):
         """Update moon crater fragments"""
+        # Do not spawn or update fragments during the destruction cinematic
+        if self.destruction_animation_active:
+            return
+        
         # Update moon pulsing effect
         if self.moon_pulse_active:
             if self.moon_pulse_timer > 0:
