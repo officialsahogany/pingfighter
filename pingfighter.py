@@ -5174,6 +5174,7 @@ MARINE_BASE_Y = 30
 
 # Stage 7 게이지/궁극기 정지를 위한 UI 일시정지 스택 (탭/ESC 메뉴 등)
 stage7_ui_pause_depth = 0
+stage7_ui_pause_start_ms = 0  # UI 정지 시작 시각 (경과 시간 계산용)
 
 
 def _reset_stage7_timers_after_ui_pause():
@@ -5194,18 +5195,6 @@ def _reset_stage7_timers_after_ui_pause():
         globals()['stage7_super_last_update_ms'] = now
     if 'stage7_super_drain_progress' in globals():
         globals()['stage7_super_drain_progress'] = 0.0
-
-    # 가드 스킬 타이머 리셋 (다음 발동까지 대기)
-    if 'stage7_guard_next_trigger_ms' in globals() and globals()['stage7_guard_next_trigger_ms'] > 0:
-        # 남은 대기 시간을 유지하되 기준 시간을 현재로 갱신
-        # (즉, UI 정지 중 경과한 시간만큼 발동 시점을 뒤로 미룸)
-        pass  # 가드 스킬은 next_trigger 방식이므로 별도 처리 불필요
-
-    # 테트로미노/벽 스킬의 last_update_ms 리셋
-    if 'stage7_tetromino_last_update_ms' in globals():
-        globals()['stage7_tetromino_last_update_ms'] = now
-    if 'stage7_tetro_wall_last_update_ms' in globals():
-        globals()['stage7_tetro_wall_last_update_ms'] = now
 
 
 def _push_stage7_ui_pause():
