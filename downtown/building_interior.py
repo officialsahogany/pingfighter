@@ -2195,13 +2195,19 @@ class BuildingInterior:
         return None
 
     def _check_crane_game_click(self, world_x, world_y):
-        """크레인 게임이 클릭되었는지 확인"""
+        """크레인 게임이 클릭되었는지 확인 (플레이어가 근처에 있어야 함)"""
         if self.building_type != BuildingType.GACHA:
             return None
 
-        for i, crane_info in enumerate(self.crane_game_rects):
-            if crane_info["rect"].collidepoint(world_x, world_y):
-                return i
+        # 플레이어가 근처에 있는 크레인만 클릭 가능
+        nearby_crane = self._check_nearby_crane_game()
+        if nearby_crane is None:
+            return None
+
+        # 근처에 있는 크레인을 클릭했는지 확인
+        crane_info = self.crane_game_rects[nearby_crane]
+        if crane_info["rect"].collidepoint(world_x, world_y):
+            return nearby_crane
 
         return None
 
@@ -2226,13 +2232,19 @@ class BuildingInterior:
         return None
 
     def _check_gacha_machine_click(self, world_x, world_y):
-        """가챠 머신이 클릭되었는지 확인"""
+        """가챠 머신이 클릭되었는지 확인 (플레이어가 근처에 있어야 함)"""
         if self.building_type != BuildingType.GACHA:
             return None
 
-        for i, machine_info in enumerate(self.gacha_machine_rects):
-            if machine_info["rect"].collidepoint(world_x, world_y):
-                return i
+        # 플레이어가 근처에 있는 머신만 클릭 가능
+        nearby_machine = self._check_nearby_gacha_machine()
+        if nearby_machine is None:
+            return None
+
+        # 근처에 있는 머신을 클릭했는지 확인
+        machine_info = self.gacha_machine_rects[nearby_machine]
+        if machine_info["rect"].collidepoint(world_x, world_y):
+            return nearby_machine
 
         return None
 
