@@ -4303,8 +4303,16 @@ class LegendaryItemManager:
                 # reset_round_effects 메서드가 있는 아이템만 호출
                 if hasattr(item, 'reset_round_effects'):
                     item.reset_round_effects()
-                    
+
         print(f"🎮 모든 전설 아이템 라운드 효과 초기화 완료")
+
+    def reset_for_new_game(self):
+        """새 게임 시작 시 모든 아이템 발동 이력 초기화 (게임 오버/메인 메뉴 복귀 시 호출)"""
+        for name, item in self.items.items():
+            # reset_for_new_game 메서드가 있는 아이템만 호출
+            if hasattr(item, 'reset_for_new_game'):
+                item.reset_for_new_game()
+        print(f"🎮 모든 전설 아이템 새 게임 초기화 완료")
 
 
 # 싱글톤 인스턴스
