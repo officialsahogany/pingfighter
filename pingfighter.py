@@ -31981,14 +31981,21 @@ def handle_player(keys):
                         # 스파이크부츠 효과: 쿨타임 감소 (롤 옵션 적용)
                         base_cooldown = apply_spikeboots_cooldown(base_cooldown)
                         base_timer = max(6, base_cooldown - cooldown_reduction)  # 최소 0.1초
-                    
+
                     #  악마의 주사위 대쉬 쿨타임 배율 적용
                     from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
                     if is_devil_dice_active():
                         multipliers = get_devil_dice_multipliers()
                         base_timer = int(base_timer * multipliers['dash_cooldown'])
                         print(f"[DEBUG]     : x{multipliers['dash_cooldown']:.1f}")
-                    
+
+                    # 천사의 가호 대쉬 쿨타임 버프 적용 (왼쪽 대쉬)
+                    if dash is not None:
+                        external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
+                        if external_cooldown_mul != 1.0:
+                            base_timer = int(base_timer * external_cooldown_mul)
+                            print(f"[DEBUG] 천사의 가호 대쉬 쿨타임 버프: x{external_cooldown_mul:.2f}")
+
                     rolling_cooldown = base_timer
                     rolling_charge_timer = base_timer
                     print(f"[DEBUG]      : {rolling_charge_timer} (: {rolling_charges})")
