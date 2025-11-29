@@ -43611,6 +43611,102 @@ def draw_player_gauge():
             SCREEN.blit(rotated, rot_rect.topleft)
 
         # 숫자 남은시간 표시는 제거 (요청사항)
+
+    # 레이저스코프 가로 게이지 그리기
+    if is_laser_scope_active():
+        ls_v_width = 150
+        ls_v_height = 12
+        ls_base_x = WIDTH - ls_v_width - 16
+        ls_base_y = HEIGHT - 28
+        ls_idx = _hg_index('laser_scope')
+        if ls_idx < 0:
+            _hg_on_activate('laser_scope')
+            ls_idx = _hg_index('laser_scope')
+        ls_spacing = 18
+        ls_x = ls_base_x
+        ls_y = ls_base_y - max(0, ls_idx) * ls_spacing
+        hg_stack_any = True
+        hg_top_y = min(hg_top_y, ls_y)
+
+        # 레이저스코프 게이지 비율
+        ls_ratio = get_laser_scope_gauge_ratio()
+        ls_remaining = get_laser_scope_remaining_time()
+
+        # 게이지 프레임 그리기
+        ls_outer_rect = pygame.Rect(ls_x - 5, ls_y - 6, ls_v_width + 10, ls_v_height + 12)
+        ls_mid_rect = pygame.Rect(ls_x - 3, ls_y - 4, ls_v_width + 6, ls_v_height + 8)
+        ls_frame_rect = pygame.Rect(ls_x - 2, ls_y - 2, ls_v_width + 4, ls_v_height + 4)
+        ls_inner_rect = pygame.Rect(ls_x, ls_y, ls_v_width, ls_v_height)
+
+        # 그림자
+        ls_shadow_surf = pygame.Surface((ls_outer_rect.width, ls_outer_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(ls_shadow_surf, (0, 0, 0, 70), ls_shadow_surf.get_rect(), border_radius=8)
+        SCREEN.blit(ls_shadow_surf, (ls_outer_rect.x, ls_outer_rect.y))
+
+        # 레드 계열 메탈릭 프레임 (레이저 테마)
+        draw.rect((22, 16, 16), ls_outer_rect, border_radius=8)
+        draw.rect((120, 30, 30), ls_mid_rect, border_radius=7)
+        draw.rect((200, 60, 60), ls_mid_rect, 2, border_radius=7)
+        draw.rect((24, 18, 18), ls_frame_rect, border_radius=6)
+
+        # 내부 그림자
+        ls_inner_shadow = pygame.Surface((ls_inner_rect.width, ls_inner_rect.height), pygame.SRCALPHA)
+        for i in range(4):
+            alpha = 40 - i * 8
+            pygame.draw.rect(ls_inner_shadow, (0, 0, 0, alpha), (0, i, ls_inner_rect.width, 1))
+        SCREEN.blit(ls_inner_shadow, (ls_inner_rect.x, ls_inner_rect.y))
+
+        # 게이지 채우기
+        ls_fill_w = max(1, int((ls_v_width - 4) * ls_ratio))
+        if ls_fill_w > 0:
+            if ls_remaining > 10.0:
+                ls_base_col = (255, 50, 50)
+                ls_hi_col = (255, 120, 120)
+            elif ls_remaining > 5.0:
+                ls_base_col = (255, 100, 50)
+                ls_hi_col = (255, 160, 100)
+            else:
+                ls_pulse = abs(math.sin(pygame.time.get_ticks() * 0.015))
+                ls_base_col = (255, int(50 + 100 * ls_pulse), int(50 + 100 * ls_pulse))
+                ls_hi_col = (255, int(100 + 80 * ls_pulse), int(100 + 80 * ls_pulse))
+
+            ls_fill_rect = pygame.Rect(ls_x + 2, ls_y + 2, ls_fill_w, ls_v_height - 4)
+            ls_grad = pygame.Surface((ls_fill_rect.width, ls_fill_rect.height), pygame.SRCALPHA)
+            for lsx in range(ls_fill_rect.width):
+                t = lsx / max(1, ls_fill_rect.width - 1)
+                col = (
+                    int(ls_base_col[0] + (ls_hi_col[0] - ls_base_col[0]) * t),
+                    int(ls_base_col[1] + (ls_hi_col[1] - ls_base_col[1]) * t),
+                    int(ls_base_col[2] + (ls_hi_col[2] - ls_base_col[2]) * t),
+                    255,
+                )
+                pygame.draw.line(ls_grad, col, (lsx, 0), (lsx, ls_fill_rect.height - 1))
+            ls_mask = pygame.Surface((ls_fill_rect.width, ls_fill_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(ls_mask, (255, 255, 255, 255), ls_mask.get_rect(), border_radius=3)
+            ls_grad.blit(ls_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            SCREEN.blit(ls_grad, (ls_fill_rect.x, ls_fill_rect.y))
+
+            # 펄스 글로우 효과
+            ls_pulse_glow = abs(math.sin(pygame.time.get_ticks() * 0.02))
+            ls_glow = (
+                int(ls_hi_col[0] * (0.6 + 0.4 * ls_pulse_glow)),
+                int(ls_hi_col[1] * (0.6 + 0.4 * ls_pulse_glow)),
+                int(ls_hi_col[2] * (0.6 + 0.4 * ls_pulse_glow)),
+            )
+            draw.rect(ls_glow, (ls_x + 2, ls_y + 2, ls_fill_w, 2), border_radius=2)
+
+        # 아이콘 표시
+        ls_emblem_size = int(ls_v_height * 1.6)
+        ls_emblem_x = ls_x - ls_emblem_size - 6
+        ls_emblem_y = ls_y + (ls_v_height - ls_emblem_size) // 2
+        ls_icon = get_item_icon("laser_scope")
+        if ls_icon:
+            ls_icon_scaled = pygame.transform.smoothscale(ls_icon, (ls_emblem_size, ls_emblem_size))
+            SCREEN.blit(ls_icon_scaled, (ls_emblem_x, ls_emblem_y))
+    elif _hg_index('laser_scope') != -1:
+        # 비활성화 시 스택에서 제거
+        _hg_on_deactivate('laser_scope')
+
     #  벽돌 설치 게이지 (플레이어 패들 바로 위)
     if wall_install_gauge_visible and wall_installing:
         # 설치 게이지 위치 (플레이어 패들 바로 위)
