@@ -61717,6 +61717,16 @@ def get_item_icon(item_name):
         icon_cache[item_name] = icon
         return icon
 
+    if item_name == "laser_scope":
+        try:
+            import items as items_module
+            if hasattr(items_module, '_draw_laser_scope_icon'):
+                icon = items_module._draw_laser_scope_icon(ICON_SIZE)
+                icon_cache[item_name] = icon
+                return icon
+        except Exception:
+            pass
+
     # 디버그 로그 (필요시 주석 해제)
     # print(f"Loading icon for: {item_name}")
     
