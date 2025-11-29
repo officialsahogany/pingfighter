@@ -1595,6 +1595,9 @@ class DowntownManager:
                                         SCREEN_HEIGHT,
                                         self.player_data.get('character_type', 'smasher')
                                     )
+                            elif isinstance(menu_result, tuple) and menu_result[0] == "gacha_interact":
+                                # 가챠 머신 상호작용 - 가챠 실행
+                                self._run_gacha_from_interior(interior)
                             # 환전 성공 시 player_data가 자동으로 업데이트됨
                         else:
                             # 한글 키보드 및 이동 키 지원 (WASD, 화살표)
