@@ -2717,8 +2717,11 @@ class AngelBlessing(LegendaryItem):
         self._set_global_multiplier("ANGEL_SPEED_MULT", 1.0)
         try:
             import dash_manager
-            if hasattr(dash_manager, "_GLOBAL_DASH_INST"):
-                dash_manager._GLOBAL_DASH_INST.set_external_multipliers(1.0, 1.0)
+            # _GLOBAL_DASH_INST 우선 사용 (실제 게임에서 사용하는 인스턴스)
+            dm = dash_manager._GLOBAL_DASH_INST or dash_manager.get_dash_manager()
+            if dm:
+                dm.set_external_multipliers(1.0, 1.0)
+                print(f"[AngelBlessing] 대쉬 버프 초기화됨: cost=1.0, cooldown=1.0")
         except Exception:
             pass
         # 이동 속도 복구 (MAX_SPEED)
