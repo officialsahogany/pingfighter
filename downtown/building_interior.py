@@ -2073,8 +2073,8 @@ class BuildingInterior:
         self.gacha_machine_rects = []
 
         # 사이버펑크 가챠샵 레이아웃에서 가챠 머신 위치 계산
-        # _draw_gacha_machine_row와 동일한 값 사용 (중요!)
-        wall_h = int(TILE_SIZE * 2.5)
+        # _draw_gacha_interior()와 동일한 값 사용 (중요!)
+        wall_h = int(TILE_SIZE * 5)  # _draw_gacha_interior와 동일!
         machine_y = wall_h + int(TILE_SIZE * 0.5)  # 실제 머신 Y 위치
         machine_h = int(TILE_SIZE * 3.5)  # _draw_gacha_machine_row와 동일!
         machine_w = int(TILE_SIZE * 1.5)
