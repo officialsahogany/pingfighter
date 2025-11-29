@@ -3106,6 +3106,80 @@ class AngelBlessing(LegendaryItem):
             self._draw_angel_dice(dice_surf, size, rot_x, rot_y)
             screen.blit(dice_surf, (x, icon_y))
 
+    def _draw_2d_dice_result(self, screen: pygame.Surface, cx: int, cy: int, size: int, result: int):
+        """2D 주사위 결과 그리기 - 결과 숫자만 명확하게 표시
+
+        Args:
+            screen: 화면 Surface
+            cx, cy: 중심 좌표
+            size: 주사위 크기
+            result: 주사위 결과 (1-6)
+        """
+        half = size // 2
+
+        # 천사 날개 (주사위 뒤에)
+        wing_color = (255, 255, 255, 220)
+        wing_width = int(size * 0.35)
+        wing_height = int(size * 0.25)
+        wing_flap = math.sin(pygame.time.get_ticks() * 0.005) * 3
+
+        # 왼쪽 날개
+        left_wing = [
+            (cx - half//2, cy),
+            (cx - half - wing_width, cy - wing_height + wing_flap),
+            (cx - half - wing_width - 5, cy + wing_flap),
+            (cx - half - wing_width + 10, cy + wing_height//2 + wing_flap),
+            (cx - half//2, cy + 5),
+        ]
+        # 오른쪽 날개
+        right_wing = [
+            (cx + half//2, cy),
+            (cx + half + wing_width, cy - wing_height + wing_flap),
+            (cx + half + wing_width + 5, cy + wing_flap),
+            (cx + half + wing_width - 10, cy + wing_height//2 + wing_flap),
+            (cx + half//2, cy + 5),
+        ]
+        pygame.draw.polygon(screen, wing_color, left_wing)
+        pygame.draw.polygon(screen, wing_color, right_wing)
+
+        # 깃털 디테일
+        feather_color = (230, 240, 255, 180)
+        for i in range(3):
+            offset = (i + 1) * wing_width // 3
+            pygame.draw.line(screen, feather_color,
+                           (cx - half//2, cy),
+                           (cx - half - offset, cy - wing_height//2 + i*4 + wing_flap), 1)
+            pygame.draw.line(screen, feather_color,
+                           (cx + half//2, cy),
+                           (cx + half + offset, cy - wing_height//2 + i*4 + wing_flap), 1)
+
+        # 주사위 배경 (흰색 사각형)
+        dice_rect = pygame.Rect(cx - half, cy - half, size, size)
+        pygame.draw.rect(screen, (255, 255, 255), dice_rect, border_radius=8)
+        pygame.draw.rect(screen, (200, 180, 140), dice_rect, 3, border_radius=8)  # 골드 테두리
+
+        # 주사위 눈 위치 (결과에 따라)
+        pip_color = (80, 50, 150)  # 보라색
+        pip_size = max(8, size // 8)
+        pip_positions = {
+            1: [(0, 0)],
+            2: [(-0.35, -0.35), (0.35, 0.35)],
+            3: [(-0.35, -0.35), (0, 0), (0.35, 0.35)],
+            4: [(-0.35, -0.35), (0.35, -0.35), (-0.35, 0.35), (0.35, 0.35)],
+            5: [(-0.35, -0.35), (0.35, -0.35), (0, 0), (-0.35, 0.35), (0.35, 0.35)],
+            6: [(-0.35, -0.35), (0.35, -0.35), (-0.35, 0), (0.35, 0), (-0.35, 0.35), (0.35, 0.35)],
+        }
+
+        for px, py in pip_positions.get(result, []):
+            pip_x = cx + int(px * size * 0.7)
+            pip_y = cy + int(py * size * 0.7)
+            # 그림자
+            pygame.draw.circle(screen, (40, 30, 80), (pip_x + 2, pip_y + 2), pip_size)
+            # 본체
+            pygame.draw.circle(screen, pip_color, (pip_x, pip_y), pip_size)
+            # 하이라이트
+            pygame.draw.circle(screen, (255, 255, 255), (pip_x - 2, pip_y - 2), pip_size // 2)
+
     def _draw_angel_dice(self, surf: pygame.Surface, size: int, rot_x: float, rot_y: float):
         """중앙에 천사의 주사위 그리기 (천사 날개 + 3D 주사위)"""
         dice_size = int(size * 0.45)  # 주사위 크기 증가 (더 잘 보이도록)
