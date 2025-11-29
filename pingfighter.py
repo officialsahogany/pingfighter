@@ -81858,18 +81858,11 @@ def show_character_info(background_surface=None):
             },
             {
                 "label": "대쉬비용",
-                "base": 1.0,
-                "current": dash_cost_ratio,
-                "max_hint": 2.0,
-                "unit": "x",
-                "higher_is_better": False,
-            },
-            {
-                "label": "대쉬소모게이지",
                 "base": dash_cost_base,
                 "current": dash_cost_now,
                 "max_hint": 200.0,
                 "unit": "pt",
+                "higher_is_better": False,
             },
             {
                 "label": "아이템쿨타임",
@@ -81926,7 +81919,7 @@ def show_character_info(background_surface=None):
             if label == "대쉬쿨타임":
                 # 대쉬후딜시간 라벨과 겹치지 않도록 살짝 좌상단으로 이동
                 label_rect.move_ip(-6, -4)
-            elif label == "대쉬소모게이지":
+            elif label == "대쉬비용":
                 # 인접 라벨과 겹침을 줄이기 위해 왼쪽으로 약간 이동
                 label_rect.move_ip(-8, 0)
             # 긴 한글 라벨이 인접 축과 겹치면 반경 방향으로 살짝 밀어낸다.
