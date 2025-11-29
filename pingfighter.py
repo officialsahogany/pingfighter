@@ -75015,6 +75015,13 @@ def show_result(won):
         if dash is not None:
             dash.update_bonuses(False, False, False)  # 모든 아이템 비활성화
             dash.reset_to_base()  # 기본 상태로 리셋
+        # 😇 천사의 가호 발동 이력 초기화 (새 게임 시작 시 다시 발동 가능)
+        try:
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                legendary_manager.reset_for_new_game()
+        except Exception:
+            pass
         show_start_screen()
 def show_new_boss_selection_screen():
     """새로운 보스 vs 보스 모드 선택 화면"""
