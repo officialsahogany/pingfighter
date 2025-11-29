@@ -47065,7 +47065,7 @@ def draw_objects():
                                ball_vx=ball_vel[0], ball_vy=ball_vel[1],
                                screen_width=WIDTH, screen_height=HEIGHT,
                                paddle_y=PLAYER.centery,
-                               boss_paddle_y=AI.centery)
+                               boss_paddle_y=BOSS.centery)
 
     # 미사일 무적 시간 체크
     time_now = pygame.time.get_ticks()
