@@ -2699,6 +2699,7 @@ class BuildingInterior:
         # 가챠 건물에서 근처 머신 체크
         if self.building_type == BuildingType.GACHA:
             self.nearby_gacha_machine = self._check_nearby_gacha_machine()
+            self.nearby_crane_game = self._check_nearby_crane_game()
 
     def handle_click(self, pos, button=1):
         """클릭 처리 (button: 1=좌클릭, 3=우클릭)"""
@@ -2736,6 +2737,13 @@ class BuildingInterior:
                 self.gacha_interact_requested = True
                 self.nearby_gacha_machine = clicked_machine
                 return ("gacha_interact", clicked_machine)
+
+            # 크레인 게임 클릭 체크
+            clicked_crane = self._check_crane_game_click(world_x, world_y)
+            if clicked_crane is not None:
+                self.crane_interact_requested = True
+                self.nearby_crane_game = clicked_crane
+                return ("crane_interact", clicked_crane)
 
         # NPC 클릭 체크
         for npc in self.npcs:
