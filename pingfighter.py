@@ -25772,7 +25772,8 @@ def activate_meditation():
     show_speech("위빠사나명상...", duration=90)
     #  명상 사운드
     try:
-        meditation_sound = pygame.mixer.Sound(resource_path("sounds/meditation.wav"))
+        # Stage4 퐁크 위빠사나 명상 전용 사운드
+        meditation_sound = pygame.mixer.Sound(resource_path("sounds/ponkmeditation.wav"))
         play_sound_with_volume(meditation_sound)
     except:
         pass
