@@ -1175,6 +1175,9 @@ styles = [
     ("style8_cyberpunk_wave", draw_style8_cyberpunk_wave, "사이버펑크 웨이브 - 파동 테두리"),
     ("style9_cyberpunk_holo", draw_style9_cyberpunk_holo, "사이버펑크 홀로그래픽 - 레이어 효과"),
     ("style10_cyberpunk_grid", draw_style10_cyberpunk_grid, "사이버펑크 그리드 - 격자 무늬"),
+    ("style11_aaa_premium", draw_style11_aaa_premium, "AAA급 프리미엄 - 풀HD 야구장 전광판"),
+    ("style12_aaa_neon_dynasty", draw_style12_aaa_neon_dynasty, "AAA급 네온 왕조 - 사이버펑크 스타디움"),
+    ("style13_aaa_epic_showdown", draw_style13_aaa_epic_showdown, "AAA급 에픽 쇼다운 - 영화급 연출"),
 ]
 
 for filename, draw_func, description in styles:
