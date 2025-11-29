@@ -2829,25 +2829,53 @@ class AngelBlessing(LegendaryItem):
         elif buff == "dash_cost":
             try:
                 import dash_manager
+                import sys
                 # _GLOBAL_DASH_INST 우선 사용 (실제 게임에서 사용하는 인스턴스)
                 dm = dash_manager._GLOBAL_DASH_INST or dash_manager.get_dash_manager()
+                print(f"[AngelBlessing][DEBUG] dash_manager._GLOBAL_DASH_INST = {dash_manager._GLOBAL_DASH_INST}")
+                print(f"[AngelBlessing][DEBUG] dm = {dm}, id={id(dm) if dm else None}")
+                # pingfighter의 dash 변수도 확인
+                pf_module = sys.modules.get("pingfighter")
+                if pf_module and hasattr(pf_module, "dash"):
+                    pf_dash = getattr(pf_module, "dash")
+                    print(f"[AngelBlessing][DEBUG] pingfighter.dash = {pf_dash}, id={id(pf_dash) if pf_dash else None}")
+                    print(f"[AngelBlessing][DEBUG] 동일 인스턴스? {dm is pf_dash}")
                 if dm:
+                    old_cost = getattr(dm, 'external_cost_multiplier', 1.0)
                     dm.set_external_multipliers(cost_mul=0.5)
-                    print(f"[AngelBlessing] 대쉬 비용 버프 적용: cost_mul=0.5")
+                    new_cost = getattr(dm, 'external_cost_multiplier', 1.0)
+                    print(f"[AngelBlessing] 대쉬 비용 버프 적용: {old_cost} -> {new_cost}")
                 else:
                     print(f"[AngelBlessing] 대쉬 매니저를 찾을 수 없음")
             except Exception as e:
+                import traceback
                 print(f"[AngelBlessing] 대쉬 비용 버프 적용 실패: {e}")
+                traceback.print_exc()
         elif buff == "dash_cooldown":
             try:
                 import dash_manager
+                import sys
                 # _GLOBAL_DASH_INST 우선 사용 (실제 게임에서 사용하는 인스턴스)
                 dm = dash_manager._GLOBAL_DASH_INST or dash_manager.get_dash_manager()
+                print(f"[AngelBlessing][DEBUG] dash_manager._GLOBAL_DASH_INST = {dash_manager._GLOBAL_DASH_INST}")
+                print(f"[AngelBlessing][DEBUG] dm = {dm}, id={id(dm) if dm else None}")
+                # pingfighter의 dash 변수도 확인
+                pf_module = sys.modules.get("pingfighter")
+                if pf_module and hasattr(pf_module, "dash"):
+                    pf_dash = getattr(pf_module, "dash")
+                    print(f"[AngelBlessing][DEBUG] pingfighter.dash = {pf_dash}, id={id(pf_dash) if pf_dash else None}")
+                    print(f"[AngelBlessing][DEBUG] 동일 인스턴스? {dm is pf_dash}")
                 if dm:
                     old_mul = getattr(dm, 'external_cooldown_multiplier', 1.0)
                     dm.set_external_multipliers(cooldown_mul=0.5)
                     new_mul = getattr(dm, 'external_cooldown_multiplier', 1.0)
                     print(f"[AngelBlessing] 대쉬 쿨타임 버프 적용: {old_mul} -> {new_mul}")
+                    # pingfighter.dash에도 직접 확인
+                    if pf_module and hasattr(pf_module, "dash"):
+                        pf_dash = getattr(pf_module, "dash")
+                        if pf_dash:
+                            pf_cooldown = getattr(pf_dash, 'external_cooldown_multiplier', 1.0)
+                            print(f"[AngelBlessing][DEBUG] pingfighter.dash.external_cooldown_multiplier = {pf_cooldown}")
                 else:
                     print(f"[AngelBlessing] 대쉬 매니저를 찾을 수 없음")
             except Exception as e:
