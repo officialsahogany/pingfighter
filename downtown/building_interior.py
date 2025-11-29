@@ -2073,43 +2073,43 @@ class BuildingInterior:
         self.gacha_machine_rects = []
 
         # 사이버펑크 가챠샵 레이아웃에서 가챠 머신 위치 계산
-        # 상단 층 (2층) - 가챠 머신이 있는 곳
+        # _draw_cyberpunk_gacha_interior와 동일한 계산 사용
         wall_h = int(TILE_SIZE * 2.5)
-        upper_floor_y = wall_h + int(TILE_SIZE * 2)  # 에스컬레이터 위쪽 층
+        machine_y = wall_h + int(TILE_SIZE * 0.5)  # 실제 머신 Y 위치
         machine_h = int(TILE_SIZE * 2.2)
         machine_w = int(TILE_SIZE * 1.5)
 
-        # 왼쪽 가챠 머신들 (3대)
+        # 왼쪽 가챠 머신들 (3대) - _draw_gacha_machine_row와 동일한 위치
         left_x = int(TILE_SIZE * 1.5)
         for i in range(3):
             mx = left_x + i * (machine_w + 8)
-            # 상호작용 영역 (머신 앞쪽에 여유 공간 추가)
+            # 상호작용 영역 (머신 앞쪽/아래쪽에 여유 공간 추가)
             interact_rect = pygame.Rect(
                 mx - 10,
-                upper_floor_y + machine_h,  # 머신 아래쪽
+                machine_y + machine_h,  # 머신 바로 아래
                 machine_w + 20,
-                TILE_SIZE * 1.5  # 상호작용 가능 범위
+                TILE_SIZE * 2  # 상호작용 가능 범위 (아래로)
             )
             self.gacha_machine_rects.append({
                 "rect": interact_rect,
-                "machine_rect": pygame.Rect(mx, upper_floor_y, machine_w, machine_h),
+                "machine_rect": pygame.Rect(mx, machine_y, machine_w, machine_h),
                 "side": "left",
                 "index": i
             })
 
-        # 오른쪽 가챠 머신들 (3대)
-        right_x = self.pixel_width - int(TILE_SIZE * 1.5) - machine_w * 3 - 16
+        # 오른쪽 가챠 머신들 (3대) - _draw_gacha_machine_row와 동일한 위치
+        right_x = self.pixel_width - int(TILE_SIZE * 6)
         for i in range(3):
             mx = right_x + i * (machine_w + 8)
             interact_rect = pygame.Rect(
                 mx - 10,
-                upper_floor_y + machine_h,
+                machine_y + machine_h,  # 머신 바로 아래
                 machine_w + 20,
-                TILE_SIZE * 1.5
+                TILE_SIZE * 2
             )
             self.gacha_machine_rects.append({
                 "rect": interact_rect,
-                "machine_rect": pygame.Rect(mx, upper_floor_y, machine_w, machine_h),
+                "machine_rect": pygame.Rect(mx, machine_y, machine_w, machine_h),
                 "side": "right",
                 "index": i + 3
             })
