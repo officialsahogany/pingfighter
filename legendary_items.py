@@ -2845,10 +2845,15 @@ class AngelBlessing(LegendaryItem):
                     globals()["PLAYER_SPEED"] = base_speed * 1.5
 
     def deactivate(self):
+        """천사의 가호 비활성화 - 모든 버프 효과 즉시 해제"""
+        print(f"[AngelBlessing] 비활성화 시작 - 현재 버프: {self.active_buffs}")
         super().deactivate()
-        self._reset_globals()
+        self._reset_globals()  # 모든 버프 효과 해제
         self.applied_stage = None
         self.active_buffs.clear()
+        self.roll_anim_active = False
+        self.waiting_for_space = False
+        print(f"[AngelBlessing] 비활성화 완료 - 모든 보너스 혜택 제거됨")
 
     def _roll_blessing(self, current_stage: int):
         """주사위 굴림 및 버프 적용"""
