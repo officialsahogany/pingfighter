@@ -61468,8 +61468,14 @@ def apply_selected_items(
             if item_name == "angel_blessing":
                 # 천사의 가호는 active_items 리스트에만 추가하고 발동은 하지 않음
                 # 아이템 관리창에서 장착 시 sync_equipped_passive_effects()에서 처리
-                legendary_manager.active_items.append(item_name)
-                print(f"[DEBUG] 천사의 가호 픽업 - 발동 보류 (스테이지 진입 후 장착 시 발동)")
+                if item_name not in legendary_manager.active_items:
+                    legendary_manager.active_items.append(item_name)
+                # 발동 이력 초기화 (개발자 모드에서 새로 시작하므로)
+                angel_blessing = legendary_manager.get_item("angel_blessing")
+                if angel_blessing:
+                    angel_blessing._triggered_stages.clear()
+                    angel_blessing.applied_stage = None
+                    print(f"[DEBUG] 천사의 가호 픽업 - 발동 이력 초기화 (스테이지 진입 후 장착 시 발동)")
             else:
                 legendary_game_state = {
                     'current_stage': 1,
