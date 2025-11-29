@@ -3797,6 +3797,9 @@ class AngelBlessing(LegendaryItem):
         # 스테이지 변경 시 자동 주사위 굴림(게임 진행 모드에서만)
         current_stage = self._get_current_stage()
         if not ui_mode and current_stage is not None and current_stage != self.applied_stage:
+            # 이미 발동된 스테이지면 스킵 (재장착 방지)
+            if current_stage in self._triggered_stages:
+                return
             if os.environ.get("PINGF_DEBUG_ANGEL", "0") == "1":
                 print(f"[AngelBlessing][DEBUG] stage change detected: prev={self.applied_stage}, now={current_stage}")
             self._roll_blessing(current_stage)
