@@ -31536,6 +31536,11 @@ def handle_player(keys):
                         charge_time_reduction = lightweight_bonus
                         base_charge_time = 90  # 1.5초
                         rolling_charge_timer_value = int(base_charge_time * (1 - charge_time_reduction))
+                        # 천사의 가호 대쉬 쿨타임 버프 적용
+                        if dash is not None:
+                            external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
+                            if external_cooldown_mul != 1.0:
+                                rolling_charge_timer_value = int(rolling_charge_timer_value * external_cooldown_mul)
                         _rolling_set("rolling_charge_timer", rolling_charge_timer_value)
                         print(f"[DEBUG]     : {rolling_charge_timer_value}")
                     else:
