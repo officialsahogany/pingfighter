@@ -1665,6 +1665,7 @@ class DowntownManager:
         try:
             import gacha
             import pingfighter
+            import items
 
             # pingfighter에서 필요한 함수들 가져오기
             get_item_name_korean = getattr(pingfighter, 'get_item_name_korean', lambda x: x)
@@ -1683,6 +1684,21 @@ class DowntownManager:
                     return True
                 return False
 
+            # 가챠 시스템 초기화 - 사용 가능한 아이템 목록 생성
+            available_items = []
+            for item_data in items.ITEM_TYPES:
+                item_name = item_data.get("name", "")
+                # 잠금 해제된 아이템만 추가
+                if items.unlocked_items.get(item_name, False):
+                    available_items.append(item_data)
+
+            # 기본 아이템이 없으면 모든 아이템 추가
+            if not available_items:
+                available_items = list(items.ITEM_TYPES)
+
+            # 가챠 초기화 (반드시 run_gacha 전에 호출!)
+            gacha.init_gacha(available_items, legendary_bonus=0.0)
+
             # 가챠 실행
             gacha.run_gacha(
                 self.screen,
@@ -1695,6 +1711,9 @@ class DowntownManager:
                 get_star_count=get_star_count,
                 spend_stars=spend_stars
             )
+
+            # 가챠 종료 후 이벤트 큐 클리어 (입력 잔류 방지)
+            pygame.event.clear()
 
             # 가챠 후 상호작용 플래그 리셋
             interior.gacha_interact_requested = False
