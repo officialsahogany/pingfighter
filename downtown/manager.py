@@ -1631,6 +1631,12 @@ class DowntownManager:
                                         SCREEN_HEIGHT,
                                         self.player_data.get('character_type', 'smasher')
                                     )
+                            elif result[0] == "gacha_interact":
+                                # 가챠 머신 클릭 - 가챠 실행
+                                self._run_gacha_from_interior(interior)
+                            elif result[0] == "crane_interact":
+                                # 크레인 게임 클릭 - 크레인 게임 실행 (TODO: 구현 필요)
+                                print(f"[DEBUG] 크레인 게임 클릭: {result[1]}")
                     elif event.button == 3:  # 오른쪽 클릭 (상점 거래 등)
                         interior.handle_click(event.pos, button=3)
 
