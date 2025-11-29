@@ -2589,6 +2589,10 @@ class BuildingInterior:
             else:
                 self.exit_timer = 0
 
+        # 가챠 건물에서 근처 머신 체크
+        if self.building_type == BuildingType.GACHA:
+            self.nearby_gacha_machine = self._check_nearby_gacha_machine()
+
     def handle_click(self, pos, button=1):
         """클릭 처리 (button: 1=좌클릭, 3=우클릭)"""
         # 상점 거래창이 열려있으면 거래 처리
