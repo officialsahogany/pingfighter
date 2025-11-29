@@ -2874,6 +2874,15 @@ class AngelBlessing(LegendaryItem):
         self.waiting_for_space = False
         print(f"[AngelBlessing] 비활성화 완료 - 버프 제거됨 (스테이지 {self.applied_stage} 발동 이력 유지)")
 
+    def reset_for_new_game(self):
+        """새 게임 시작 시 모든 발동 이력 초기화 (게임 오버/메인 메뉴 복귀 시 호출)"""
+        self._triggered_stages.clear()
+        self.applied_stage = None
+        self.active_buffs.clear()
+        self.roll_anim_active = False
+        self.waiting_for_space = False
+        print("[AngelBlessing] 새 게임 - 발동 이력 초기화됨")
+
     def _roll_blessing(self, current_stage: int):
         """주사위 굴림 및 버프 적용"""
         import random
@@ -4203,8 +4212,8 @@ class LegendaryItemManager:
             
             item = self.items[name]
             item.activate(game_state)
-            # 천사의 가호는 활성화 시점에 현재 스테이지에서 즉시 주사위를 다시 굴려
-            # 다음 스테이지 진입 경로와 상관없이 항상 발동하도록 보정한다.
+            # 천사의 가호는 활성화 시점에 현재 스테이지 확인
+            # NOTE: _triggered_stages에 이미 발동된 스테이지가 있으면 재발동하지 않음
             if name == "angel_blessing":
                 try:
                     current_stage_hint = None
@@ -4212,8 +4221,10 @@ class LegendaryItemManager:
                         current_stage_hint = int(game_state.get("current_stage"))
                     except Exception:
                         current_stage_hint = game_state.get("current_stage")
-                    item.applied_stage = None
-                    item.update(0.0, ui_mode=False)
+                    # 해당 스테이지에서 아직 발동 안 했으면 발동
+                    if current_stage_hint not in item._triggered_stages:
+                        item.applied_stage = None  # 새 발동을 위해 리셋
+                        item.update(0.0, ui_mode=False)
                 except Exception:
                     pass
             if name not in self.active_items:
