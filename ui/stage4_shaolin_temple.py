@@ -3330,9 +3330,13 @@ class ShaolinTempleBackground:
         temple_distance = math.sqrt((wave['current_x'] - wave['target_x'])**2 + 
                                   (wave['current_y'] - wave['target_y'])**2)
         
-        if temple_distance < 50 or wave['lifetime'] >= wave['max_lifetime']:
+        if temple_distance < 50:
             print("🌙 Destruction wave hit the temple!")
+            self._play_stage4_hit_sound()
             self.destruction_wave = None  # Remove the wave
+        elif wave['lifetime'] >= wave['max_lifetime']:
+            # Expired before reaching the target (failsafe)
+            self.destruction_wave = None
     
     def _draw_destruction_wave(self, surface: pygame.Surface):
         """Draw the destruction wave from moon to temple"""
