@@ -932,6 +932,16 @@ from item_effects.technical_vest import (
     check_technical_vest_smoke_collision,
     get_technical_vest_smoke_areas,
 )
+from item_effects.laser_scope import (
+    activate_laser_scope,
+    deactivate_laser_scope,
+    update_laser_scope,
+    draw_laser_scope_effects,
+    draw_laser_scope_gauge,
+    is_laser_scope_active,
+    get_laser_scope_remaining_time,
+    get_laser_scope_gauge_ratio,
+)
 from item_effects.fuel_pouch import (
     activate_fuel_pouch,
     deactivate_fuel_pouch,
