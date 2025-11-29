@@ -81906,6 +81906,15 @@ def show_character_info(background_surface=None):
             except Exception:
                 dash_cd_skill = 0.0
             current_frames = max(1, current_frames - int(dash_cd_skill * FPS))
+            # 천사의 가호 대쉬 쿨타임 버프 적용
+            try:
+                dm_inst = dash_manager._GLOBAL_DASH_INST
+                if dm_inst is not None:
+                    external_cooldown_mul = getattr(dm_inst, 'external_cooldown_multiplier', 1.0)
+                    if external_cooldown_mul != 1.0:
+                        current_frames = max(6, int(current_frames * external_cooldown_mul))
+            except Exception:
+                pass
             fps_value = float(globals().get("FPS", 60) or 60)
             return base_frames / fps_value, current_frames / fps_value
         dash_cd_base_s, dash_cd_now_s = compute_dash_cooldown_seconds()
