@@ -43991,7 +43991,9 @@ def draw_player_gauge():
             # 사용된 토큰 - 충전 중
             # 충전 진행률 계산
             if rolling_charge_timer > 0:
-                # 최대 충전 시간 계산
+                # 최대 충전 시간 계산 (버프 미적용 기본값 - UI 표시용)
+                # 중요: rolling_charge_timer는 이미 버프가 적용된 값으로 설정되므로,
+                # max_charge_time도 동일한 버프를 적용해야 정확한 진행률이 계산됨
                 dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
                 cooldown_reduction = int(dash_cooldown_bonus * 60)
                 if dashholder_obtained and rolling_charges >= 1:
@@ -44004,7 +44006,10 @@ def draw_player_gauge():
                     if external_cooldown_mul != 1.0:
                         max_charge_time = max(6, int(max_charge_time * external_cooldown_mul))
                 # 충전 진행률 (0.0 ~ 1.0)
-                charge_progress = 1.0 - (rolling_charge_timer / max_charge_time)
+                # rolling_charge_timer가 max_charge_time보다 클 수 있음 (버프 적용 타이밍 문제)
+                # 이 경우 max_charge_time을 rolling_charge_timer로 조정하여 진행률 계산
+                effective_max_charge_time = max(max_charge_time, rolling_charge_timer)
+                charge_progress = 1.0 - (rolling_charge_timer / effective_max_charge_time)
                 charge_progress = max(0, min(1, charge_progress))
                 # 충전 중인 토큰 확인 (왼쪽부터 충전)
                 # 왼쪽부터 첫 번째 비어있는 토큰만 충전
