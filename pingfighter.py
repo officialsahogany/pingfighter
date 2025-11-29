@@ -75322,6 +75322,8 @@ def main(stage_num, new_boss_mode=False):
     global chapter4_dialogue_completed, chapter4_first_hit_after_dialogue
     global chapter4_power_helper_shown, chapter4_power_helper_timer
     global tutorial_guide_hint_visible, tutorial_guide_hint_start_ticks
+    global dashholder_obtained, dashgear_obtained, spikeboots_obtained  # 대쉬 아이템 보유 상태
+    global power_smashing_direction, power_smashing_original_speed  # 파워스매싱 관련 변수
     nine_just_pressed = False
     last_nine_state = False
     
