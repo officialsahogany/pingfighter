@@ -2631,6 +2631,7 @@ class AngelBlessing(LegendaryItem):
         )
         self.unlocked = True
         self.applied_stage: Optional[int] = None
+        self._triggered_stages: set = set()  # 발동된 스테이지 이력 (재장착 방지용)
         self.active_buffs: List[str] = []
         self.roll_timer = 0.0
         self.roll_face = 1
@@ -2662,12 +2663,13 @@ class AngelBlessing(LegendaryItem):
             stage = self._get_current_stage()
 
         # 같은 스테이지에서 이미 주사위를 굴렸으면 다시 굴리지 않음 (재장착 방지)
-        if stage is not None and stage == self.applied_stage:
-            print(f"[AngelBlessing] 스테이지 {stage}에서 이미 발동됨 - 재발동 방지")
+        if stage is not None and stage in self._triggered_stages:
+            print(f"[AngelBlessing] 스테이지 {stage}에서 이미 발동됨 - 재장착해도 재발동 안됨")
             return
 
         # 새로운 스테이지에서만 주사위 굴림
         if stage is not None:
+            self._triggered_stages.add(stage)  # 발동 이력 기록
             self._roll_blessing(stage)
 
     # ------------------------------------------------------------------ #
