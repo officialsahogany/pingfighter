@@ -62,6 +62,7 @@ class ShaolinTempleBackground:
         # Stage4 moon fragment hit sound (building impact)
         self.stage4_hit_sound = None
         self.stage4_moon_shoot_sound = None
+        self.stage4_fragment_shoot_sound = None
         try:
             self.stage4_hit_sound = pygame.mixer.Sound(resource_path("sounds/stage4hitting.wav"))
         except Exception:
@@ -71,6 +72,10 @@ class ShaolinTempleBackground:
             self.stage4_moon_shoot_sound = pygame.mixer.Sound(resource_path("sounds/stage4moonshoot.wav"))
         except Exception:
             self.stage4_moon_shoot_sound = None
+        try:
+            self.stage4_fragment_shoot_sound = pygame.mixer.Sound(resource_path("sounds/stage4moonshoot2.wav"))
+        except Exception:
+            self.stage4_fragment_shoot_sound = None
 
         # Approximate temple hitbox used for moon-fragment collision
         temple_width = 280
@@ -4077,6 +4082,9 @@ class ShaolinTempleBackground:
         # Activate moon pulsing effect
         self.moon_pulse_active = True
         self.moon_pulse_timer = 30  # 0.5 second pulse
+
+        # Play firing sound for the fragment volley
+        self._play_stage4_fragment_shoot_sound()
         
         for _ in range(num_fragments):
             # Random target position across the entire map, including player area
@@ -4241,6 +4249,14 @@ class ShaolinTempleBackground:
         if self.stage4_moon_shoot_sound:
             try:
                 self.stage4_moon_shoot_sound.play()
+            except Exception:
+                pass
+
+    def _play_stage4_fragment_shoot_sound(self):
+        """Play moon fragment volley firing sound"""
+        if self.stage4_fragment_shoot_sound:
+            try:
+                self.stage4_fragment_shoot_sound.play()
             except Exception:
                 pass
     
