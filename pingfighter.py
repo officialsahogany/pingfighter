@@ -31809,7 +31809,14 @@ def handle_player(keys):
                                     multipliers = get_devil_dice_multipliers()
                                     base_timer = int(base_timer * multipliers['dash_cooldown'])
                                     print(f"[DEBUG]  -     : x{multipliers['dash_cooldown']:.1f}")
-                                
+
+                                # 천사의 가호 대쉬 쿨타임 버프 적용 (하프대쉬)
+                                if dash is not None:
+                                    external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
+                                    if external_cooldown_mul != 1.0:
+                                        base_timer = int(base_timer * external_cooldown_mul)
+                                        print(f"[DEBUG] 하프대쉬 천사의 가호 쿨타임 버프: x{external_cooldown_mul:.2f}")
+
                                 rolling_charge_timer = base_timer
                             
                             # 하프대쉬 전용 효과음
