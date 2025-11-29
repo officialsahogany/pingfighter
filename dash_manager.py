@@ -298,18 +298,27 @@ class DashManager:
         # 쿨다운 진행률 계산
         cooldown_progress = 0
         if self.cooldown_timer > 0:
+            # 아카데미 쿨다운 감소 스킬
+            cooldown_reduction = 0
+            if self.get_skill_bonus:
+                dash_cooldown_bonus = self.get_skill_bonus("dash_cooldown")
+                cooldown_reduction = int(dash_cooldown_bonus * 60)
+
             if self.has_holder:
                 if self.current_tokens >= 1:
-                    max_cooldown = 60  # 1초
+                    max_cooldown = 60 - cooldown_reduction  # 1초
                 else:
-                    max_cooldown = 90  # 1.5초
+                    max_cooldown = 90 - cooldown_reduction  # 1.5초
             else:
-                max_cooldown = 90  # 1.5초
+                max_cooldown = 90 - cooldown_reduction  # 1.5초
                 if self.has_spikeboots:
-                    max_cooldown = 60
-            
+                    max_cooldown = 60 - cooldown_reduction
+
+            # 외부 배율(전설/버프) 적용
+            max_cooldown = max(6, int(max_cooldown * self.external_cooldown_multiplier))
+
             cooldown_progress = self.cooldown_timer / max_cooldown
-        
+
         return {
             'current': self.current_tokens,
             'max': self.max_tokens,
