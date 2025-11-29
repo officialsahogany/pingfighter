@@ -7014,11 +7014,11 @@ class BuildingInterior:
             return
 
         # 화면 하단에 힌트 박스 표시
-        hint_text = "SPACE - 가챠 뽑기"
+        hint_text = "SPACE / CLICK - 가챠 뽑기"
         pulse = abs(math.sin(self.animation_timer * 4))
 
         # 힌트 박스 크기
-        box_w = 180
+        box_w = 240
         box_h = 40
         box_x = (SCREEN_WIDTH - box_w) // 2
         box_y = SCREEN_HEIGHT - 80
@@ -7063,6 +7063,15 @@ class BuildingInterior:
         # 키 배경
         pygame.draw.rect(screen, (60, 50, 80), (key_x, key_y, key_w, key_h), border_radius=3)
         pygame.draw.rect(screen, neon_cyan, (key_x, key_y, key_w, key_h), 1, border_radius=3)
+
+        # 마우스 아이콘 (우측)
+        mouse_x = box_x + box_w - 32
+        mouse_y = box_y + (box_h - 24) // 2
+        # 마우스 본체
+        pygame.draw.ellipse(screen, (60, 50, 80), (mouse_x, mouse_y, 20, 24))
+        pygame.draw.ellipse(screen, neon_cyan, (mouse_x, mouse_y, 20, 24), 1)
+        # 클릭 영역 (왼쪽 버튼 강조)
+        pygame.draw.rect(screen, neon_pink, (mouse_x + 2, mouse_y + 2, 7, 8), border_radius=2)
 
     def _draw_cyberpunk_floor(self, screen, cam_x, cam_y, floor_color, floor_dark, stripe_color):
         """사이버펑크 바닥 그리기 (대각선 스트라이프 + 네온 라인)"""
