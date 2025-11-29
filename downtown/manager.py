@@ -1779,9 +1779,9 @@ class DowntownManager:
                 cost_y = dialog_y + 70
                 self.screen.blit(cost_surf, (cost_x, cost_y))
 
-                # 골드 아이콘 (실제 UI와 동일한 금화)
+                # 골드 아이콘 (실제 UI와 동일한 금화) - 텍스트와 Y축 정렬
                 gold_icon_x = cost_x + cost_rect.width + 8 + coin_size // 2
-                gold_icon_y = cost_y + cost_rect.height // 2
+                gold_icon_y = cost_y + coin_size // 2 - 2  # 텍스트 상단 기준 정렬
                 self._draw_gold_coin(self.screen, gold_icon_x, gold_icon_y, coin_size)
 
             # 남은 횟수 표시
