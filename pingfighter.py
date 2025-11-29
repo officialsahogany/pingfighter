@@ -26692,7 +26692,8 @@ def deactivate_aipill(reason: str, *, allow_override: bool = False) -> bool:
     deactivate_doping_potion()
     return True
 # 대쉬 관리자 초기화 (기존 변수들은 호환성을 위해 유지)
-dash = None  # 대쉬 매니저 인스턴스 (나중에 초기화됨)
+# dash는 라인 2308에서 이미 초기화되었으므로 여기서 None으로 덮어쓰지 않음
+# dash = None  # 대쉬 매니저 인스턴스 (나중에 초기화됨) - 주석 처리됨
 # 대쉬 관련 변수 (더블대쉬 제거 후 단순화) - 호환성을 위해 유지
 rolling_active = False
 rolling_timer = 0
