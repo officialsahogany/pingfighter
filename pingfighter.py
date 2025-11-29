@@ -70533,6 +70533,11 @@ def handle_ball():
                     charge_time_reduction = lightweight_bonus
                     base_charge_time = 90  # 1.5초
                     rolling_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
+                    # 천사의 가호 대쉬 쿨타임 버프 적용
+                    if dash is not None:
+                        external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
+                        if external_cooldown_mul != 1.0:
+                            rolling_charge_timer = int(rolling_charge_timer * external_cooldown_mul)
                     if DEBUG_HANDLE_BALL_VERBOSE:
                         print(f"  ! (handle_ball)    (: {rolling_charge_timer})")
                         print(f"[DEBUG] (handle_ball)    : {rolling_charge_timer}")
