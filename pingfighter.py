@@ -81809,7 +81809,6 @@ def show_character_info(background_surface=None):
             fps_value = float(globals().get("FPS", 60) or 60)
             return base_frames / fps_value, current_frames / fps_value
         dash_cd_base_s, dash_cd_now_s = compute_dash_cooldown_seconds()
-        dash_cost_ratio = dash_cost_now / dash_cost_base if dash_cost_base else 1.0
 
         stats = [
             {
