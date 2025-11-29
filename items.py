@@ -233,6 +233,66 @@ def _make_vitamin_icon_frames(size: int = 32, frame_count: int = 8) -> list[pyga
     return frames
 
 
+def _draw_laser_scope_icon(size: int = 32) -> pygame.Surface:
+    """레이저스코프 아이콘 그리기 - 조준경 + 레이저 빔"""
+    s = pygame.Surface((size, size), pygame.SRCALPHA)
+    cx, cy = size // 2, size // 2
+    k = size / 32.0
+
+    # 배경 글로우 (빨간색)
+    for i in range(3):
+        radius = int((14 - i * 3) * k)
+        alpha = 30 - i * 10
+        pygame.draw.circle(s, (255, 50, 50, alpha), (cx, cy), radius)
+
+    # 조준경 외곽 원 (검은색 + 회색 테두리)
+    outer_radius = int(12 * k)
+    pygame.draw.circle(s, (40, 40, 50), (cx, cy), outer_radius)
+    pygame.draw.circle(s, (80, 80, 100), (cx, cy), outer_radius, 2)
+
+    # 내부 원 (어두운 유리)
+    inner_radius = int(9 * k)
+    pygame.draw.circle(s, (20, 30, 40), (cx, cy), inner_radius)
+
+    # 레이저 십자선 (빨간색)
+    laser_color = (255, 50, 50)
+    laser_glow = (255, 100, 100, 100)
+    cross_len = int(8 * k)
+
+    # 글로우 효과
+    glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    pygame.draw.line(glow_surf, laser_glow, (cx - cross_len, cy), (cx + cross_len, cy), 3)
+    pygame.draw.line(glow_surf, laser_glow, (cx, cy - cross_len), (cx, cy + cross_len), 3)
+    s.blit(glow_surf, (0, 0))
+
+    # 핵심 레이저 라인
+    pygame.draw.line(s, laser_color, (cx - cross_len, cy), (cx + cross_len, cy), 1)
+    pygame.draw.line(s, laser_color, (cx, cy - cross_len), (cx, cy + cross_len), 1)
+
+    # 중앙 점 (밝은 빨간색)
+    pygame.draw.circle(s, (255, 150, 150), (cx, cy), int(2 * k))
+    pygame.draw.circle(s, (255, 255, 255), (cx, cy), int(1 * k))
+
+    # 조준경 마운트 (위아래 작은 돌출부)
+    mount_color = (60, 60, 70)
+    mount_w = int(4 * k)
+    mount_h = int(3 * k)
+    # 위쪽 마운트
+    pygame.draw.rect(s, mount_color, (cx - mount_w//2, int(2 * k), mount_w, mount_h))
+    # 아래쪽 마운트
+    pygame.draw.rect(s, mount_color, (cx - mount_w//2, size - int(5 * k), mount_w, mount_h))
+
+    # 유리 반사 하이라이트
+    highlight_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    pygame.draw.arc(highlight_surf, (255, 255, 255, 40),
+                   (cx - inner_radius + 2, cy - inner_radius + 2,
+                    inner_radius * 2 - 4, inner_radius * 2 - 4),
+                   math.pi * 0.7, math.pi * 1.3, 2)
+    s.blit(highlight_surf, (0, 0))
+
+    return s
+
+
 def _render_legendary_icon_frames(item_name, target_size):
     """legendary_item.draw_icon을 사용해 지정 크기의 프레임을 생성"""
 
@@ -460,6 +520,16 @@ def load_item_icons():
                     pygame.draw.rect(icon, (160, 100, 60), (12, 10, 8, 14))
                     pygame.draw.rect(icon, (230, 200, 90), (11, 7, 10, 4))
                     pygame.draw.rect(icon, (30, 90, 200), (10, 16, 12, 6))
+                    ITEM_ICONS[item_name] = icon
+            elif item_name == "laser_scope":
+                # 레이저스코프 아이콘 프로시저럴 생성
+                try:
+                    ITEM_ICONS[item_name] = _draw_laser_scope_icon(32)
+                except Exception:
+                    icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                    pygame.draw.circle(icon, (255, 50, 50), (16, 16), 12)
+                    pygame.draw.line(icon, (255, 100, 100), (4, 16), (28, 16), 2)
+                    pygame.draw.line(icon, (255, 100, 100), (16, 4), (16, 28), 2)
                     ITEM_ICONS[item_name] = icon
             else:
                 icon = pygame.Surface((32, 32), pygame.SRCALPHA)
