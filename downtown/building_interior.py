@@ -2147,12 +2147,12 @@ class BuildingInterior:
         left_x = int(TILE_SIZE * 1.5)
         for i in range(2):
             mx = left_x + i * (machine_w + 10)
-            # 상호작용 영역: 머신 아래쪽 (바짝 붙어야 함)
+            # 상호작용 영역: 머신 몸통 + 아래쪽까지 포함
             interact_rect = pygame.Rect(
-                mx - 5,
-                machine_bottom,
-                machine_w + 10,
-                TILE_SIZE
+                mx - 10,
+                prize_y,                    # 머신 상단부터 시작
+                machine_w + 20,
+                machine_h + TILE_SIZE       # 머신 높이 + 아래 1타일
             )
             self.crane_game_rects.append({
                 "rect": interact_rect,
@@ -2165,12 +2165,12 @@ class BuildingInterior:
         right_x = self.pixel_width - int(TILE_SIZE * 6)
         for i in range(2):
             mx = right_x + i * (machine_w + 10)
-            # 상호작용 영역: 머신 아래쪽 (바짝 붙어야 함)
+            # 상호작용 영역: 머신 몸통 + 아래쪽까지 포함
             interact_rect = pygame.Rect(
-                mx - 5,
-                machine_bottom,
-                machine_w + 10,
-                TILE_SIZE
+                mx - 10,
+                prize_y,                    # 머신 상단부터 시작
+                machine_w + 20,
+                machine_h + TILE_SIZE       # 머신 높이 + 아래 1타일
             )
             self.crane_game_rects.append({
                 "rect": interact_rect,
