@@ -1633,17 +1633,17 @@ def show_gacha_result_page(
         screen.blit(shadow_name, shadow_name_rect)
         screen.blit(main_name, main_name_rect)
 
-        # 롤 옵션을 이름 아래에 표시 (패시브 롤 가시화)
-        rolled_opts = gacha_result.get("rolled_options") or []
-        if rolled_opts:
-            desc_font = fonts["desc"]
-            start_y = main_name_rect.bottom + 12
-            for idx, opt in enumerate(rolled_opts):
-                opt_text = opt.get("text", "")
-                opt_color = opt.get("color", (200, 210, 230))
-                surf = desc_font.render(opt_text, True, opt_color)
-                rect = surf.get_rect(center=(width // 2, start_y + idx * 22))
-                screen.blit(surf, rect)
+        # 롤 옵션 표시 제거 - 아이템 이름만 표시
+        # rolled_opts = gacha_result.get("rolled_options") or []
+        # if rolled_opts:
+        #     desc_font = fonts["desc"]
+        #     start_y = main_name_rect.bottom + 12
+        #     for idx, opt in enumerate(rolled_opts):
+        #         opt_text = opt.get("text", "")
+        #         opt_color = opt.get("color", (200, 210, 230))
+        #         surf = desc_font.render(opt_text, True, opt_color)
+        #         rect = surf.get_rect(center=(width // 2, start_y + idx * 22))
+        #         screen.blit(surf, rect)
         
         continue_area = pygame.Rect(container_x + 150, container_y + 560, container_width - 300, 70)
         # 버튼을 홀로그램 네온 톤으로 맞춰 전체 UI 컨셉과 통일
