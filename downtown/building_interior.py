@@ -7132,41 +7132,41 @@ class BuildingInterior:
         self._draw_gacha_interact_hint(screen, NEON_PINK, NEON_CYAN)
         self._draw_crane_interact_hint(screen, NEON_YELLOW, NEON_GREEN)
 
-        # ===== 디버그: 상호작용 영역 표시 =====
-        cam_x, cam_y = self.camera_offset
-        # 가챠 머신 (빨간색/파란색)
-        for machine_info in self.gacha_machine_rects:
-            rect = machine_info["rect"]
-            debug_rect = pygame.Rect(
-                rect.x - cam_x, rect.y - cam_y,
-                rect.width, rect.height
-            )
-            pygame.draw.rect(screen, (255, 0, 0), debug_rect, 2)
-            m_rect = machine_info["machine_rect"]
-            debug_m_rect = pygame.Rect(
-                m_rect.x - cam_x, m_rect.y - cam_y,
-                m_rect.width, m_rect.height
-            )
-            pygame.draw.rect(screen, (0, 0, 255), debug_m_rect, 2)
-        # 크레인 게임 (노란색/시안색)
-        for crane_info in self.crane_game_rects:
-            rect = crane_info["rect"]
-            debug_rect = pygame.Rect(
-                rect.x - cam_x, rect.y - cam_y,
-                rect.width, rect.height
-            )
-            pygame.draw.rect(screen, (255, 255, 0), debug_rect, 2)
-            m_rect = crane_info["machine_rect"]
-            debug_m_rect = pygame.Rect(
-                m_rect.x - cam_x, m_rect.y - cam_y,
-                m_rect.width, m_rect.height
-            )
-            pygame.draw.rect(screen, (0, 255, 255), debug_m_rect, 2)
-        # 플레이어 위치 (녹색)
-        player_rect = pygame.Rect(
-            self.player.x - cam_x - 30, self.player.y - cam_y - 30, 60, 60
-        )
-        pygame.draw.rect(screen, (0, 255, 0), player_rect, 2)
+        # ===== 디버그: 상호작용 영역 표시 (숨김) =====
+        # cam_x, cam_y = self.camera_offset
+        # # 가챠 머신 (빨간색/파란색)
+        # for machine_info in self.gacha_machine_rects:
+        #     rect = machine_info["rect"]
+        #     debug_rect = pygame.Rect(
+        #         rect.x - cam_x, rect.y - cam_y,
+        #         rect.width, rect.height
+        #     )
+        #     pygame.draw.rect(screen, (255, 0, 0), debug_rect, 2)
+        #     m_rect = machine_info["machine_rect"]
+        #     debug_m_rect = pygame.Rect(
+        #         m_rect.x - cam_x, m_rect.y - cam_y,
+        #         m_rect.width, m_rect.height
+        #     )
+        #     pygame.draw.rect(screen, (0, 0, 255), debug_m_rect, 2)
+        # # 크레인 게임 (노란색/시안색)
+        # for crane_info in self.crane_game_rects:
+        #     rect = crane_info["rect"]
+        #     debug_rect = pygame.Rect(
+        #         rect.x - cam_x, rect.y - cam_y,
+        #         rect.width, rect.height
+        #     )
+        #     pygame.draw.rect(screen, (255, 255, 0), debug_rect, 2)
+        #     m_rect = crane_info["machine_rect"]
+        #     debug_m_rect = pygame.Rect(
+        #         m_rect.x - cam_x, m_rect.y - cam_y,
+        #         m_rect.width, m_rect.height
+        #     )
+        #     pygame.draw.rect(screen, (0, 255, 255), debug_m_rect, 2)
+        # # 플레이어 위치 (녹색)
+        # player_rect = pygame.Rect(
+        #     self.player.x - cam_x - 30, self.player.y - cam_y - 30, 60, 60
+        # )
+        # pygame.draw.rect(screen, (0, 255, 0), player_rect, 2)
         # ===== 디버그 끝 =====
 
     def _draw_gacha_interact_hint(self, screen, neon_pink, neon_cyan):
