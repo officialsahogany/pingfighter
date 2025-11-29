@@ -82058,8 +82058,10 @@ def show_character_info(background_surface=None):
                 sys.exit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_TAB:
+                    _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
                     return
                 if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
+                    _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
                     return
                 if event.key in (pygame.K_DOWN, pygame.K_PAGEDOWN):
                     passive_scroll_row = min(passive_scroll_row + 1, passive_scroll_max)
