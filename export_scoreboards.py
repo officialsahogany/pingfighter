@@ -595,6 +595,310 @@ def draw_style5(surface):
     surface.blit(footer, footer_rect)
 
 
+def draw_style6_cyberpunk_edge(surface):
+    """스타일 6: 사이버펑크 엣지 - 예각 테두리"""
+    board_width = 750
+    board_height = 400
+    board_x = (WIDTH - board_width) // 2
+    board_y = (HEIGHT - board_height) // 2
+
+    pygame.draw.rect(surface, (8, 3, 15), (board_x, board_y, board_width, board_height))
+
+    # 네온 라임 테두리 - 예각 스타일
+    corner_size = 40
+    thickness = 4
+    neon_lime = (0, 255, 100)
+
+    # 코너 예각 라인
+    points = [
+        [(board_x + corner_size, board_y), (board_x + board_width - corner_size, board_y)],
+        [(board_x + board_width, board_y + corner_size), (board_x + board_width, board_y + board_height - corner_size)],
+        [(board_x + board_width - corner_size, board_y + board_height), (board_x + corner_size, board_y + board_height)],
+        [(board_x, board_y + board_height - corner_size), (board_x, board_y + corner_size)]
+    ]
+
+    for line in points:
+        pygame.draw.line(surface, neon_lime, line[0], line[1], thickness)
+
+    # 코너 대각선
+    pygame.draw.line(surface, neon_lime, (board_x, board_y), (board_x + corner_size, board_y), thickness)
+    pygame.draw.line(surface, neon_lime, (board_x, board_y), (board_x, board_y + corner_size), thickness)
+    pygame.draw.line(surface, neon_lime, (board_x + board_width, board_y), (board_x + board_width - corner_size, board_y), thickness)
+    pygame.draw.line(surface, neon_lime, (board_x + board_width, board_y), (board_x + board_width, board_y + corner_size), thickness)
+    pygame.draw.line(surface, neon_lime, (board_x, board_y + board_height), (board_x + corner_size, board_y + board_height), thickness)
+    pygame.draw.line(surface, neon_lime, (board_x, board_y + board_height), (board_x, board_y + board_height - corner_size), thickness)
+    pygame.draw.line(surface, neon_lime, (board_x + board_width, board_y + board_height), (board_x + board_width - corner_size, board_y + board_height), thickness)
+    pygame.draw.line(surface, neon_lime, (board_x + board_width, board_y + board_height), (board_x + board_width, board_y + board_height - corner_size), thickness)
+
+    # 내부 컨텐츠
+    title = font_title.render("⚡ ROUND SCORE ⚡", True, neon_lime)
+    title_rect = title.get_rect(center=(WIDTH // 2, board_y + 50))
+    surface.blit(title, title_rect)
+
+    score_y = board_y + 120
+
+    # 플레이어 섹션
+    p_box = pygame.Rect(board_x + 50, score_y, 270, 180)
+    pygame.draw.rect(surface, (5, 25, 15), p_box)
+    pygame.draw.rect(surface, neon_lime, p_box, 2)
+
+    p_label = font_medium.render("PLAYER", True, neon_lime)
+    surface.blit(p_label, (board_x + 70, score_y + 15))
+
+    draw_dot_matrix_digit(surface, board_x + 90, score_y + 60, 2, neon_lime, 100, 4)
+
+    # 보스 섹션
+    b_box = pygame.Rect(board_x + board_width - 320, score_y, 270, 180)
+    pygame.draw.rect(surface, (25, 5, 15), b_box)
+    pygame.draw.rect(surface, (255, 50, 150), b_box, 2)
+
+    b_label = font_medium.render("BOSS", True, (255, 50, 150))
+    surface.blit(b_label, (board_x + board_width - 300, score_y + 15))
+
+    draw_dot_matrix_digit(surface, board_x + board_width - 265, score_y + 60, 1, (255, 50, 150), 100, 4)
+
+
+def draw_style7_cyberpunk_diamond(surface):
+    """스타일 7: 사이버펑크 다이아몬드 - 기하학적 무늬"""
+    board_width = 750
+    board_height = 400
+    board_x = (WIDTH - board_width) // 2
+    board_y = (HEIGHT - board_height) // 2
+
+    pygame.draw.rect(surface, (3, 8, 12), (board_x, board_y, board_width, board_height))
+
+    # 다이아몬드 패턴 테두리
+    neon_cyan = (0, 255, 255)
+    neon_magenta = (255, 0, 200)
+
+    diamond_size = 30
+    for x in range(board_x, board_x + board_width + diamond_size, diamond_size):
+        # 상단
+        points = [(x, board_y), (x + diamond_size//2, board_y - 15), (x + diamond_size, board_y), (x + diamond_size//2, board_y + 15)]
+        pygame.draw.polygon(surface, neon_cyan, points, 2)
+        # 하단
+        points = [(x, board_y + board_height), (x + diamond_size//2, board_y + board_height - 15), (x + diamond_size, board_y + board_height), (x + diamond_size//2, board_y + board_height + 15)]
+        pygame.draw.polygon(surface, neon_magenta, points, 2)
+
+    for y in range(board_y, board_y + board_height + diamond_size, diamond_size):
+        # 좌측
+        points = [(board_x, y), (board_x - 15, y + diamond_size//2), (board_x, y + diamond_size), (board_x + 15, y + diamond_size//2)]
+        pygame.draw.polygon(surface, neon_cyan, points, 2)
+        # 우측
+        points = [(board_x + board_width, y), (board_x + board_width - 15, y + diamond_size//2), (board_x + board_width, y + diamond_size), (board_x + board_width + 15, y + diamond_size//2)]
+        pygame.draw.polygon(surface, neon_magenta, points, 2)
+
+    # 내부 테두리
+    pygame.draw.rect(surface, neon_cyan, (board_x + 10, board_y + 10, board_width - 20, board_height - 20), 3)
+
+    title = font_title.render("◆ SCORE BOARD ◆", True, neon_cyan)
+    title_rect = title.get_rect(center=(WIDTH // 2, board_y + 50))
+    surface.blit(title, title_rect)
+
+    score_y = board_y + 120
+
+    p_box = pygame.Rect(board_x + 50, score_y, 270, 180)
+    pygame.draw.rect(surface, (5, 15, 25), p_box)
+    pygame.draw.rect(surface, neon_cyan, p_box, 2)
+
+    p_label = font_medium.render("PLAYER", True, neon_cyan)
+    surface.blit(p_label, (board_x + 70, score_y + 15))
+
+    draw_7segment_digit(surface, board_x + 90, score_y + 60, 2, neon_cyan, 100)
+
+    b_box = pygame.Rect(board_x + board_width - 320, score_y, 270, 180)
+    pygame.draw.rect(surface, (25, 5, 20), b_box)
+    pygame.draw.rect(surface, neon_magenta, b_box, 2)
+
+    b_label = font_medium.render("BOSS", True, neon_magenta)
+    surface.blit(b_label, (board_x + board_width - 300, score_y + 15))
+
+    draw_7segment_digit(surface, board_x + board_width - 265, score_y + 60, 1, neon_magenta, 100)
+
+
+def draw_style8_cyberpunk_wave(surface):
+    """스타일 8: 사이버펑크 웨이브 - 파동 테두리"""
+    board_width = 750
+    board_height = 400
+    board_x = (WIDTH - board_width) // 2
+    board_y = (HEIGHT - board_height) // 2
+
+    pygame.draw.rect(surface, (5, 3, 10), (board_x, board_y, board_width, board_height))
+
+    # 파동 테두리
+    neon_lime = (50, 255, 80)
+    neon_pink = (255, 0, 127)
+
+    wave_amplitude = 8
+    wave_frequency = 0.05
+
+    # 상단 파동
+    points = []
+    for x in range(board_x, board_x + board_width + 1):
+        y = board_y - wave_amplitude + int(wave_amplitude * math.sin((x - board_x) * wave_frequency))
+        points.append((x, y))
+    for i in range(len(points) - 1):
+        color = neon_lime if i % 2 == 0 else neon_pink
+        pygame.draw.line(surface, color, points[i], points[i+1], 3)
+
+    # 하단 파동
+    points = []
+    for x in range(board_x, board_x + board_width + 1):
+        y = board_y + board_height + wave_amplitude - int(wave_amplitude * math.sin((x - board_x) * wave_frequency))
+        points.append((x, y))
+    for i in range(len(points) - 1):
+        color = neon_lime if i % 2 == 0 else neon_pink
+        pygame.draw.line(surface, color, points[i], points[i+1], 3)
+
+    # 좌측 파동
+    points = []
+    for y in range(board_y, board_y + board_height + 1):
+        x = board_x - wave_amplitude + int(wave_amplitude * math.sin((y - board_y) * wave_frequency))
+        points.append((x, y))
+    for i in range(len(points) - 1):
+        color = neon_lime if i % 2 == 0 else neon_pink
+        pygame.draw.line(surface, color, points[i], points[i+1], 3)
+
+    # 우측 파동
+    points = []
+    for y in range(board_y, board_y + board_height + 1):
+        x = board_x + board_width + wave_amplitude - int(wave_amplitude * math.sin((y - board_y) * wave_frequency))
+        points.append((x, y))
+    for i in range(len(points) - 1):
+        color = neon_lime if i % 2 == 0 else neon_pink
+        pygame.draw.line(surface, color, points[i], points[i+1], 3)
+
+    title = font_title.render("≈ SCORE BOARD ≈", True, neon_lime)
+    title_rect = title.get_rect(center=(WIDTH // 2, board_y + 50))
+    surface.blit(title, title_rect)
+
+    score_y = board_y + 120
+
+    p_box = pygame.Rect(board_x + 50, score_y, 270, 180)
+    pygame.draw.rect(surface, (8, 15, 10), p_box)
+    pygame.draw.rect(surface, neon_lime, p_box, 2)
+
+    p_label = font_medium.render("PLAYER", True, neon_lime)
+    surface.blit(p_label, (board_x + 70, score_y + 15))
+
+    draw_dot_matrix_digit(surface, board_x + 90, score_y + 60, 2, neon_lime, 100, 4)
+
+    b_box = pygame.Rect(board_x + board_width - 320, score_y, 270, 180)
+    pygame.draw.rect(surface, (15, 5, 10), b_box)
+    pygame.draw.rect(surface, neon_pink, b_box, 2)
+
+    b_label = font_medium.render("BOSS", True, neon_pink)
+    surface.blit(b_label, (board_x + board_width - 300, score_y + 15))
+
+    draw_dot_matrix_digit(surface, board_x + board_width - 265, score_y + 60, 1, neon_pink, 100, 4)
+
+
+def draw_style9_cyberpunk_holo(surface):
+    """스타일 9: 사이버펑크 홀로그래픽 - 레이어 효과"""
+    board_width = 750
+    board_height = 400
+    board_x = (WIDTH - board_width) // 2
+    board_y = (HEIGHT - board_height) // 2
+
+    pygame.draw.rect(surface, (2, 5, 15), (board_x, board_y, board_width, board_height))
+
+    # 홀로그래픽 레이어 테두리
+    neon_cyan = (0, 200, 255)
+    neon_lime = (0, 255, 150)
+    neon_magenta = (200, 0, 255)
+
+    layer_offset = [0, 3, 6, 9]
+    layer_colors = [neon_magenta, neon_cyan, neon_lime, neon_cyan]
+
+    for offset, color in zip(layer_offset, layer_colors):
+        pygame.draw.rect(surface, color, (board_x - offset, board_y - offset, board_width + offset*2, board_height + offset*2), 2)
+
+    # 스캔라인 효과
+    for y in range(board_y, board_y + board_height, 2):
+        pygame.draw.line(surface, (0, 255, 150, 30), (board_x, y), (board_x + board_width, y), 1)
+
+    title = font_title.render("╔ SCORE BOARD ╗", True, neon_lime)
+    title_rect = title.get_rect(center=(WIDTH // 2, board_y + 50))
+    surface.blit(title, title_rect)
+
+    score_y = board_y + 120
+
+    p_box = pygame.Rect(board_x + 50, score_y, 270, 180)
+    pygame.draw.rect(surface, (5, 20, 30), p_box)
+    for offset in [0, 2, 4]:
+        pygame.draw.rect(surface, (0, 200 - offset*30, 255 - offset*20), p_box.inflate(-offset*2, -offset*2), 2)
+
+    p_label = font_medium.render("PLAYER", True, neon_cyan)
+    surface.blit(p_label, (board_x + 70, score_y + 15))
+
+    draw_7segment_digit(surface, board_x + 90, score_y + 60, 2, neon_cyan, 100)
+
+    b_box = pygame.Rect(board_x + board_width - 320, score_y, 270, 180)
+    pygame.draw.rect(surface, (30, 5, 25), b_box)
+    for offset in [0, 2, 4]:
+        pygame.draw.rect(surface, (200 - offset*30, 0, 255 - offset*20), b_box.inflate(-offset*2, -offset*2), 2)
+
+    b_label = font_medium.render("BOSS", True, neon_magenta)
+    surface.blit(b_label, (board_x + board_width - 300, score_y + 15))
+
+    draw_7segment_digit(surface, board_x + board_width - 265, score_y + 60, 1, neon_magenta, 100)
+
+
+def draw_style10_cyberpunk_grid(surface):
+    """스타일 10: 사이버펑크 그리드 - 격자 무늬"""
+    board_width = 750
+    board_height = 400
+    board_x = (WIDTH - board_width) // 2
+    board_y = (HEIGHT - board_height) // 2
+
+    pygame.draw.rect(surface, (3, 5, 12), (board_x, board_y, board_width, board_height))
+
+    # 격자 배경
+    grid_size = 15
+    neon_lime = (0, 255, 120)
+    neon_purple = (150, 0, 255)
+
+    for x in range(board_x, board_x + board_width + grid_size, grid_size):
+        pygame.draw.line(surface, (20, 80, 40), (x, board_y), (x, board_y + board_height), 1)
+
+    for y in range(board_y, board_y + board_height + grid_size, grid_size):
+        pygame.draw.line(surface, (20, 80, 40), (board_x, y), (board_x + board_width, y), 1)
+
+    # 강조 테두리
+    pygame.draw.rect(surface, neon_lime, (board_x, board_y, board_width, board_height), 4)
+
+    # 코너 강조
+    corner_size = 25
+    pygame.draw.rect(surface, neon_purple, (board_x, board_y, corner_size, corner_size), 2)
+    pygame.draw.rect(surface, neon_purple, (board_x + board_width - corner_size, board_y, corner_size, corner_size), 2)
+    pygame.draw.rect(surface, neon_purple, (board_x, board_y + board_height - corner_size, corner_size, corner_size), 2)
+    pygame.draw.rect(surface, neon_purple, (board_x + board_width - corner_size, board_y + board_height - corner_size, corner_size, corner_size), 2)
+
+    title = font_title.render("┌─ SCORE BOARD ─┐", True, neon_lime)
+    title_rect = title.get_rect(center=(WIDTH // 2, board_y + 50))
+    surface.blit(title, title_rect)
+
+    score_y = board_y + 120
+
+    p_box = pygame.Rect(board_x + 50, score_y, 270, 180)
+    pygame.draw.rect(surface, (5, 15, 25), p_box)
+    pygame.draw.rect(surface, neon_lime, p_box, 3)
+
+    p_label = font_medium.render("PLAYER", True, neon_lime)
+    surface.blit(p_label, (board_x + 70, score_y + 15))
+
+    draw_dot_matrix_digit(surface, board_x + 90, score_y + 60, 2, neon_lime, 100, 4)
+
+    b_box = pygame.Rect(board_x + board_width - 320, score_y, 270, 180)
+    pygame.draw.rect(surface, (25, 5, 20), b_box)
+    pygame.draw.rect(surface, neon_purple, b_box, 3)
+
+    b_label = font_medium.render("BOSS", True, neon_purple)
+    surface.blit(b_label, (board_x + board_width - 300, score_y + 15))
+
+    draw_dot_matrix_digit(surface, board_x + board_width - 265, score_y + 60, 1, neon_purple, 100, 4)
+
+
 # 각 스타일을 개별 이미지로 저장
 styles = [
     ("style1_premium_classic", draw_style1, "프리미엄 클래식 - Fenway 스타일"),
@@ -602,6 +906,11 @@ styles = [
     ("style3_jumbotron_ultra", draw_style3, "점보트론 울트라 - 대형 스크린"),
     ("style4_kbo_premium", draw_style4, "KBO 프리미엄 - 한글 스타일"),
     ("style5_neon_arcade", draw_style5, "네온 아케이드 - 사이버펑크"),
+    ("style6_cyberpunk_edge", draw_style6_cyberpunk_edge, "사이버펑크 엣지 - 예각 테두리"),
+    ("style7_cyberpunk_diamond", draw_style7_cyberpunk_diamond, "사이버펑크 다이아몬드 - 기하학적 무늬"),
+    ("style8_cyberpunk_wave", draw_style8_cyberpunk_wave, "사이버펑크 웨이브 - 파동 테두리"),
+    ("style9_cyberpunk_holo", draw_style9_cyberpunk_holo, "사이버펑크 홀로그래픽 - 레이어 효과"),
+    ("style10_cyberpunk_grid", draw_style10_cyberpunk_grid, "사이버펑크 그리드 - 격자 무늬"),
 ]
 
 for filename, draw_func, description in styles:
