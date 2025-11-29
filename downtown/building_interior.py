@@ -7044,6 +7044,9 @@ class BuildingInterior:
 
     def _draw_monitor_display(self, screen, x, y, w, h, color):
         """모니터/화면 디스플레이 그리기"""
+        # float을 int로 변환
+        x, y, w, h = int(x), int(y), int(w), int(h)
+
         # 모니터 프레임
         frame_color = (50, 45, 70)
         pygame.draw.rect(screen, frame_color, (x, y, w, h), border_radius=5)
@@ -7065,9 +7068,9 @@ class BuildingInterior:
         for i in range(4):
             char_x = char_x_start + i * 18
             # 머리
-            pygame.draw.circle(screen, char_colors[i], (char_x, char_y - 5), 5)
+            pygame.draw.circle(screen, char_colors[i], (int(char_x), int(char_y - 5)), 5)
             # 몸
-            pygame.draw.rect(screen, char_colors[i], (char_x - 4, char_y, 8, 10))
+            pygame.draw.rect(screen, char_colors[i], (int(char_x - 4), int(char_y), 8, 10))
 
         # 스캔라인 효과
         for scan_y in range(y + screen_margin, y + h - screen_margin, 4):
