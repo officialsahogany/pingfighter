@@ -46963,7 +46963,7 @@ def draw_objects():
     draw_technical_vest_effects(SCREEN)
 
     # 레이저스코프 궤적 그리기
-    if is_laser_scope_active():
+    if is_laser_scope_active() and hasattr(BALL, 'vx') and hasattr(BALL, 'vy'):
         draw_laser_scope_effects(SCREEN,
                                ball_x=BALL.x, ball_y=BALL.y,
                                ball_vx=BALL.vx, ball_vy=BALL.vy,
