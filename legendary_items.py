@@ -3355,26 +3355,80 @@ class AngelBlessing(LegendaryItem):
 
         # 주사위 숫자 표시
         if progress > 0.8 or waiting_for_space:
-            # 최종 결과 표시
-            if small_font:
+            # 최종 결과 표시 - 주사위 눈 크게 표시
+            dice_number_y = results_y - 10
+
+            # 주사위 눈 숫자를 크게 표시 (굵은 폰트)
+            try:
+                big_font = pygame.freetype.Font(resource_path(font_paths[0]), 36)
+            except Exception:
+                big_font = None
+
+            if big_font:
+                # 주사위 결과 숫자 (크고 눈에 띄게)
+                dice_text = f"🎲 {self.roll_face}"
+                dice_surf, dice_rect = big_font.render(dice_text, (255, 215, 0))  # 골드색
+                dice_rect.centerx = screen_w // 2
+                dice_rect.y = dice_number_y
+                screen.blit(dice_surf, dice_rect)
+            elif small_font:
                 result_surf, result_rect = small_font.render(f"주사위 결과: {self.roll_face}", (255, 220, 150))
                 result_rect.centerx = screen_w // 2
-                result_rect.y = results_y
+                result_rect.y = dice_number_y
                 screen.blit(result_surf, result_rect)
 
-                # 선택된 버프 목록 표시
-                buff_y = results_y + 35
-                for i, buff in enumerate(self.active_buffs):
+            # 모든 옵션 표시 (선택된 것은 강조)
+            all_options = list(ANGEL_BLESSING_OPTIONS)
+            options_start_y = results_y + 30
+            option_height = 26
+
+            # 강조 애니메이션용 시간 계산
+            anim_time = pygame.time.get_ticks() / 1000.0
+
+            if small_font:
+                for i, buff in enumerate(all_options):
                     buff_name = buff_names_kr.get(buff, buff)
-                    buff_color = (120, 255, 120)  # 밝은 녹색
-                    buff_surf, buff_rect = small_font.render(f">> {buff_name}", buff_color)
-                    buff_rect.centerx = screen_w // 2
-                    buff_rect.y = buff_y + i * 30
-                    screen.blit(buff_surf, buff_rect)
+                    is_selected = buff in self.active_buffs
+
+                    option_y = options_start_y + i * option_height
+
+                    if is_selected:
+                        # 선택된 옵션 - 강조 애니메이션
+                        # 펄스 효과 (밝기 변화)
+                        pulse = 0.7 + 0.3 * math.sin(anim_time * 5 + i * 0.5)
+
+                        # 배경 하이라이트 (깜빡이는 효과)
+                        highlight_alpha = int(80 + 40 * math.sin(anim_time * 4 + i))
+                        highlight_surf = pygame.Surface((panel_width - 40, option_height), pygame.SRCALPHA)
+                        highlight_surf.fill((100, 255, 100, highlight_alpha))
+                        screen.blit(highlight_surf, (panel_x + 20, option_y - 2))
+
+                        # 텍스트 색상 (밝은 녹색 펄스)
+                        green_val = int(200 + 55 * pulse)
+                        buff_color = (120, min(255, green_val), 120)
+
+                        # 선택 마커
+                        marker = "★ "
+                        buff_surf, buff_rect = small_font.render(f"{marker}{buff_name}", buff_color)
+
+                        # 살짝 좌우 흔들림 효과
+                        shake_x = int(math.sin(anim_time * 8 + i) * 2)
+                        buff_rect.centerx = screen_w // 2 + shake_x
+                        buff_rect.y = option_y
+                        screen.blit(buff_surf, buff_rect)
+                    else:
+                        # 선택되지 않은 옵션 - 어둡게 표시
+                        buff_color = (100, 100, 100)  # 회색
+                        buff_surf, buff_rect = small_font.render(f"  {buff_name}", buff_color)
+                        buff_rect.centerx = screen_w // 2
+                        buff_rect.y = option_y
+                        screen.blit(buff_surf, buff_rect)
 
                 # 스페이스바 안내 문구 표시
                 if waiting_for_space:
-                    prompt_surf, prompt_rect = small_font.render("스페이스바를 눌러 계속하기", (255, 255, 100))
+                    # 깜빡이는 효과
+                    blink = int(128 + 127 * math.sin(anim_time * 3))
+                    prompt_surf, prompt_rect = small_font.render("스페이스바를 눌러 계속하기", (255, 255, blink))
                     prompt_rect.centerx = screen_w // 2
                     prompt_rect.y = panel_y + panel_height - 40
                     screen.blit(prompt_surf, prompt_rect)
@@ -3382,20 +3436,33 @@ class AngelBlessing(LegendaryItem):
                 # fallback: pygame.font 사용 (영문)
                 try:
                     fallback_small = pygame.font.Font(None, 22)
-                    result_surf = fallback_small.render(f"Dice Result: {self.roll_face}", True, (255, 220, 150))
-                    result_rect = result_surf.get_rect(centerx=screen_w // 2, y=results_y)
+                    fallback_big = pygame.font.Font(None, 40)
+
+                    # 주사위 결과 숫자
+                    result_surf = fallback_big.render(f"Dice: {self.roll_face}", True, (255, 215, 0))
+                    result_rect = result_surf.get_rect(centerx=screen_w // 2, y=dice_number_y)
                     screen.blit(result_surf, result_rect)
 
-                    buff_y = results_y + 35
-                    for i, buff in enumerate(self.active_buffs):
+                    for i, buff in enumerate(all_options):
                         buff_name = buff_names_en.get(buff, buff)
-                        buff_surf = fallback_small.render(f">> {buff_name}", True, (120, 255, 120))
-                        buff_rect = buff_surf.get_rect(centerx=screen_w // 2, y=buff_y + i * 30)
+                        is_selected = buff in self.active_buffs
+                        option_y = options_start_y + i * option_height
+
+                        if is_selected:
+                            # 강조 효과
+                            pulse = 0.7 + 0.3 * math.sin(anim_time * 5 + i * 0.5)
+                            green_val = int(200 + 55 * pulse)
+                            buff_surf = fallback_small.render(f"* {buff_name}", True, (120, min(255, green_val), 120))
+                        else:
+                            buff_surf = fallback_small.render(f"  {buff_name}", True, (100, 100, 100))
+
+                        buff_rect = buff_surf.get_rect(centerx=screen_w // 2, y=option_y)
                         screen.blit(buff_surf, buff_rect)
 
                     # 스페이스바 안내 문구 표시 (영문)
                     if waiting_for_space:
-                        prompt_surf = fallback_small.render("Press SPACE to continue", True, (255, 255, 100))
+                        blink = int(128 + 127 * math.sin(anim_time * 3))
+                        prompt_surf = fallback_small.render("Press SPACE to continue", True, (255, 255, blink))
                         prompt_rect = prompt_surf.get_rect(centerx=screen_w // 2, y=panel_y + panel_height - 40)
                         screen.blit(prompt_surf, prompt_rect)
                 except Exception:
