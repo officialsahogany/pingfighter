@@ -7144,69 +7144,205 @@ class BuildingInterior:
                                            machine_color, top_color, accent, i)
 
     def _draw_single_gacha_machine(self, screen, x, y, w, h, machine_color, top_color, accent, index):
-        """단일 가챠 머신 그리기"""
-        # 머신 본체 (하단)
-        body_h = h * 0.4
-        body_y = y + h - body_h
-        pygame.draw.rect(screen, machine_color, (x, body_y, w, body_h), border_radius=5)
-        pygame.draw.rect(screen, tuple(max(0, c - 30) for c in machine_color), (x, body_y, w, body_h), 2, border_radius=5)
+        """단일 가챠 머신 그리기 - 고퀄리티 버전"""
+        x, y, w, h = int(x), int(y), int(w), int(h)
 
-        # 캡슐 돔 (상단 - 반투명 유리)
-        dome_h = h * 0.6
+        # 머신 본체 (하단) - 3D 효과 추가
+        body_h = int(h * 0.4)
+        body_y = y + h - body_h
+
+        # 본체 그림자 (깊이감)
+        shadow_color = tuple(max(0, c - 50) for c in machine_color)
+        pygame.draw.rect(screen, shadow_color, (x + 3, body_y + 3, w, body_h), border_radius=5)
+
+        # 본체 메인
+        pygame.draw.rect(screen, machine_color, (x, body_y, w, body_h), border_radius=5)
+
+        # 본체 상단 하이라이트 (입체감)
+        highlight_color = tuple(min(255, c + 30) for c in machine_color)
+        pygame.draw.rect(screen, highlight_color, (x + 2, body_y + 2, w - 4, 8), border_radius=3)
+
+        # 본체 패널 라인들 (메탈릭 디테일)
+        panel_color = tuple(max(0, c - 20) for c in machine_color)
+        pygame.draw.line(screen, panel_color, (x + 5, body_y + 12), (x + w - 5, body_y + 12), 1)
+        pygame.draw.line(screen, panel_color, (x + 5, body_y + body_h - 15), (x + w - 5, body_y + body_h - 15), 1)
+
+        # 테두리
+        pygame.draw.rect(screen, tuple(max(0, c - 40) for c in machine_color), (x, body_y, w, body_h), 2, border_radius=5)
+
+        # ===== 캡슐 돔 (상단) - 더 정교한 유리 효과 =====
+        dome_h = int(h * 0.6)
         dome_y = y
 
-        # 돔 배경
-        pygame.draw.ellipse(screen, (40, 30, 60), (x + 3, dome_y + 3, w - 6, dome_h - 6))
+        # 돔 베이스 (금속 링)
+        ring_h = 8
+        ring_color = (120, 100, 140)
+        pygame.draw.ellipse(screen, ring_color, (x, dome_y + dome_h - ring_h, w, ring_h * 2))
+        pygame.draw.ellipse(screen, tuple(min(255, c + 30) for c in ring_color),
+                           (x + 2, dome_y + dome_h - ring_h + 2, w - 4, ring_h), 2)
 
-        # 돔 유리 (반투명)
-        dome_surf = pygame.Surface((w - 6, dome_h - 6), pygame.SRCALPHA)
-        pygame.draw.ellipse(dome_surf, (100, 150, 200, 80), (0, 0, w - 6, dome_h - 6))
-        screen.blit(dome_surf, (x + 3, dome_y + 3))
+        # 돔 내부 배경 (어두운 공간)
+        pygame.draw.ellipse(screen, (25, 20, 35), (x + 4, dome_y + 4, w - 8, dome_h - 12))
 
-        # 돔 테두리
-        pygame.draw.ellipse(screen, top_color, (x + 3, dome_y + 3, w - 6, dome_h - 6), 3)
+        # 돔 유리 (다층 반투명 효과)
+        dome_surf = pygame.Surface((w, dome_h), pygame.SRCALPHA)
+        # 외부 유리층
+        pygame.draw.ellipse(dome_surf, (80, 120, 180, 40), (2, 2, w - 4, dome_h - 8))
+        # 내부 유리층
+        pygame.draw.ellipse(dome_surf, (100, 150, 200, 60), (6, 6, w - 12, dome_h - 16))
+        screen.blit(dome_surf, (x, dome_y))
 
-        # 돔 안의 캡슐들 (애니메이션)
-        capsule_colors = [(255, 100, 150), (100, 200, 255), (255, 255, 100),
-                         (150, 255, 150), (255, 150, 100)]
-        capsule_count = 6
+        # 돔 반사광 (왼쪽 상단)
+        reflect_surf = pygame.Surface((w // 3, dome_h // 3), pygame.SRCALPHA)
+        pygame.draw.ellipse(reflect_surf, (255, 255, 255, 60), (0, 0, w // 3, dome_h // 3))
+        screen.blit(reflect_surf, (x + 8, dome_y + 8))
+
+        # 돔 테두리 (이중 링)
+        pygame.draw.ellipse(screen, top_color, (x + 2, dome_y + 2, w - 4, dome_h - 8), 3)
+        pygame.draw.ellipse(screen, tuple(min(255, c + 50) for c in top_color),
+                           (x + 4, dome_y + 4, w - 8, dome_h - 12), 1)
+
+        # ===== 캡슐들 (더 디테일한 캡슐) =====
+        capsule_colors = [
+            (255, 100, 150), (100, 200, 255), (255, 255, 100),
+            (150, 255, 150), (255, 150, 100), (200, 150, 255),
+            (255, 200, 150), (150, 255, 255)
+        ]
+        capsule_count = 8
         center_x = x + w // 2
-        center_y = dome_y + dome_h // 2
+        center_y = dome_y + dome_h // 2 - 5
 
         for i in range(capsule_count):
-            angle = self.animation_timer * (1 + index * 0.2) + i * (math.pi * 2 / capsule_count)
-            radius_x = (w - 20) // 3
-            radius_y = (dome_h - 20) // 3
+            # 다양한 궤도와 속도
+            orbit = 0.8 + (i % 3) * 0.15
+            speed = 0.8 + (i % 2) * 0.4
+            angle = self.animation_timer * speed * (1 + index * 0.15) + i * (math.pi * 2 / capsule_count)
+
+            radius_x = int((w - 24) // 3 * orbit)
+            radius_y = int((dome_h - 30) // 3 * orbit * 0.7)
             cx = center_x + math.cos(angle) * radius_x
-            cy = center_y + math.sin(angle) * radius_y * 0.7
+            cy = center_y + math.sin(angle) * radius_y
 
             capsule_color = capsule_colors[i % len(capsule_colors)]
+            darker_color = tuple(max(0, c - 50) for c in capsule_color)
 
-            # 캡슐 (타원형)
-            pygame.draw.ellipse(screen, capsule_color, (cx - 5, cy - 7, 10, 14))
-            # 하이라이트
-            pygame.draw.circle(screen, (255, 255, 255), (int(cx - 2), int(cy - 3)), 2)
+            # 캡슐 그림자
+            pygame.draw.ellipse(screen, (30, 25, 40), (cx - 4, cy - 5, 10, 14))
 
-        # 배출구
-        outlet_y = body_y + 15
-        pygame.draw.rect(screen, (30, 25, 40), (x + w // 2 - 12, outlet_y, 24, 18), border_radius=4)
-        pygame.draw.rect(screen, accent, (x + w // 2 - 12, outlet_y, 24, 18), 2, border_radius=4)
+            # 캡슐 본체 (상하 분리된 캡슐)
+            # 상단 반구
+            pygame.draw.ellipse(screen, capsule_color, (cx - 5, cy - 7, 10, 8))
+            # 하단 반구 (약간 어둡게)
+            pygame.draw.ellipse(screen, darker_color, (cx - 5, cy - 1, 10, 8))
+            # 중앙 분리선
+            pygame.draw.line(screen, tuple(max(0, c - 30) for c in capsule_color),
+                           (int(cx - 4), int(cy)), (int(cx + 4), int(cy)), 1)
 
-        # 코인 투입구
-        coin_y = body_y + 45
-        pygame.draw.rect(screen, (80, 70, 100), (x + w // 2 - 8, coin_y, 16, 8), border_radius=2)
-        pygame.draw.rect(screen, (200, 180, 100), (x + w // 2 - 8, coin_y, 16, 8), 1, border_radius=2)
+            # 하이라이트 (반짝임)
+            pygame.draw.circle(screen, (255, 255, 255), (int(cx - 2), int(cy - 4)), 2)
+            pygame.draw.circle(screen, (255, 255, 255, 150), (int(cx + 1), int(cy - 2)), 1)
 
-        # 머신 하단 장식 라인
-        pygame.draw.line(screen, accent, (x + 5, body_y + body_h - 10), (x + w - 5, body_y + body_h - 10), 2)
+        # ===== 배출구 (더 정교한 디자인) =====
+        outlet_y = body_y + 12
+        outlet_w, outlet_h = 28, 22
 
-        # 네온 글로우 (상단 돔 주위)
+        # 배출구 외부 프레임
+        pygame.draw.rect(screen, (50, 45, 65), (x + w // 2 - outlet_w // 2 - 2, outlet_y - 2,
+                                                 outlet_w + 4, outlet_h + 4), border_radius=6)
+        # 배출구 내부 (어두운 구멍)
+        pygame.draw.rect(screen, (20, 15, 25), (x + w // 2 - outlet_w // 2, outlet_y,
+                                                 outlet_w, outlet_h), border_radius=4)
+        # 배출구 테두리 (네온)
+        pygame.draw.rect(screen, accent, (x + w // 2 - outlet_w // 2 - 2, outlet_y - 2,
+                                          outlet_w + 4, outlet_h + 4), 2, border_radius=6)
+        # 내부 그라데이션 효과
+        for i in range(3):
+            alpha = 40 - i * 12
+            inner_surf = pygame.Surface((outlet_w - 4, 3), pygame.SRCALPHA)
+            inner_surf.fill((*accent, alpha))
+            screen.blit(inner_surf, (x + w // 2 - outlet_w // 2 + 2, outlet_y + 2 + i * 3))
+
+        # ===== 코인 투입구 (디테일 추가) =====
+        coin_y = body_y + 42
+        coin_w, coin_h = 20, 12
+
+        # 코인 투입구 베이스
+        pygame.draw.rect(screen, (60, 55, 75), (x + w // 2 - coin_w // 2 - 2, coin_y - 2,
+                                                 coin_w + 4, coin_h + 4), border_radius=4)
+        # 슬롯
+        pygame.draw.rect(screen, (30, 25, 35), (x + w // 2 - coin_w // 2, coin_y, coin_w, coin_h), border_radius=2)
+        # 금색 테두리
+        pygame.draw.rect(screen, (220, 190, 100), (x + w // 2 - coin_w // 2, coin_y, coin_w, coin_h), 1, border_radius=2)
+        # 코인 아이콘
+        pygame.draw.circle(screen, (255, 215, 0), (x + w // 2, coin_y + coin_h // 2), 3)
+        pygame.draw.circle(screen, (200, 170, 50), (x + w // 2, coin_y + coin_h // 2), 3, 1)
+
+        # ===== 가격 표시 LED =====
+        price_y = body_y + 58
+        pygame.draw.rect(screen, (20, 20, 30), (x + w // 2 - 12, price_y, 24, 10), border_radius=2)
+        # LED 숫자 효과 (100)
+        led_color = (0, 255, 100)
+        for i, digit_x in enumerate([x + w // 2 - 8, x + w // 2 - 2, x + w // 2 + 4]):
+            pygame.draw.rect(screen, led_color, (digit_x, price_y + 2, 4, 6), border_radius=1)
+
+        # ===== 손잡이 (회전 레버) =====
+        handle_x = x + w - 8
+        handle_y = body_y + body_h // 2
+        handle_angle = self.animation_timer * 0.5 + index
+
+        # 레버 베이스
+        pygame.draw.circle(screen, (80, 70, 100), (handle_x, handle_y), 6)
+        pygame.draw.circle(screen, (100, 90, 120), (handle_x, handle_y), 4)
+
+        # 레버 암
+        lever_len = 12
+        lever_end_x = handle_x + math.cos(handle_angle) * lever_len
+        lever_end_y = handle_y + math.sin(handle_angle) * lever_len
+        pygame.draw.line(screen, (150, 140, 170), (handle_x, handle_y),
+                        (int(lever_end_x), int(lever_end_y)), 3)
+        # 레버 손잡이 (빨간 공)
+        pygame.draw.circle(screen, (255, 80, 80), (int(lever_end_x), int(lever_end_y)), 5)
+        pygame.draw.circle(screen, (255, 150, 150), (int(lever_end_x - 1), int(lever_end_y - 1)), 2)
+
+        # ===== 장식 라인 및 라벨 =====
+        # 하단 장식 라인 (이중)
+        pygame.draw.line(screen, accent, (x + 5, body_y + body_h - 12), (x + w - 5, body_y + body_h - 12), 2)
+        pygame.draw.line(screen, tuple(min(255, c + 50) for c in accent),
+                        (x + 8, body_y + body_h - 9), (x + w - 8, body_y + body_h - 9), 1)
+
+        # 측면 장식 볼트
+        for bolt_y in [body_y + 20, body_y + body_h - 20]:
+            pygame.draw.circle(screen, (100, 95, 115), (x + 6, bolt_y), 3)
+            pygame.draw.circle(screen, (70, 65, 85), (x + 6, bolt_y), 2)
+            pygame.draw.circle(screen, (100, 95, 115), (x + w - 6, bolt_y), 3)
+            pygame.draw.circle(screen, (70, 65, 85), (x + w - 6, bolt_y), 2)
+
+        # ===== 네온 글로우 (더 화려하게) =====
         glow_pulse = abs(math.sin(self.animation_timer * 3 + index))
-        for offset in range(2):
-            alpha = int((50 - offset * 20) * glow_pulse)
-            glow_surf = pygame.Surface((w + 8, dome_h + 8), pygame.SRCALPHA)
-            pygame.draw.ellipse(glow_surf, (*accent, alpha), (0, 0, w + 8, dome_h + 8), 2)
-            screen.blit(glow_surf, (x - 4, dome_y - 4))
+        for offset in range(3):
+            alpha = int((70 - offset * 20) * glow_pulse)
+            glow_surf = pygame.Surface((w + 12, dome_h + 12), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (*accent, alpha), (0, 0, w + 12, dome_h + 8), 2)
+            screen.blit(glow_surf, (x - 6, dome_y - 4))
+
+        # 상단 스타 라이트
+        star_pulse = abs(math.sin(self.animation_timer * 5 + index * 0.7))
+        star_x, star_y = x + w // 2, dome_y - 3
+        star_size = int(4 + star_pulse * 2)
+        self._draw_mini_star(screen, star_x, star_y, star_size, accent)
+
+    def _draw_mini_star(self, screen, x, y, size, color):
+        """작은 별 그리기"""
+        points = []
+        for i in range(10):
+            angle = i * math.pi / 5 - math.pi / 2
+            r = size if i % 2 == 0 else size * 0.4
+            px = x + r * math.cos(angle)
+            py = y + r * math.sin(angle)
+            points.append((px, py))
+        if len(points) >= 3:
+            pygame.draw.polygon(screen, color, points)
+            pygame.draw.polygon(screen, (255, 255, 255), points, 1)
 
     def _draw_prize_machines(self, screen, x, y, w, accent1, accent2):
         """프라이즈/크레인 게임 머신들 그리기"""
