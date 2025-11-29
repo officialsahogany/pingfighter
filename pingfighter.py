@@ -77770,6 +77770,17 @@ def main(stage_num, new_boss_mode=False):
                 genie_assistant.handle_event(event)
                 continue
 
+            # 😇 천사의 가호 스페이스바 입력 처리 (결과 화면 닫기)
+            try:
+                legendary_manager = get_legendary_manager()
+                if legendary_manager and "angel_blessing" in getattr(legendary_manager, "active_items", []):
+                    angel_blessing = legendary_manager.get_item("angel_blessing")
+                    if angel_blessing and getattr(angel_blessing, "roll_anim_active", False):
+                        if angel_blessing.handle_input(event):
+                            continue  # 이벤트 처리됨 - 다른 입력 무시
+            except Exception:
+                pass
+
             # AI 필 수동 종료: 스페이스바 또는 좌클릭으로 즉시 해제
             if aipill_active:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
