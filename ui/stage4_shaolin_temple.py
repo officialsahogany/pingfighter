@@ -59,6 +59,20 @@ class ShaolinTempleBackground:
         # Destruction wave from moon
         self.destruction_wave = None  # Active destruction wave
         self.destruction_wave_charging = False  # Moon charging up wave
+        # Stage4 moon fragment hit sound (building impact)
+        self.stage4_hit_sound = None
+        try:
+            self.stage4_hit_sound = pygame.mixer.Sound(resource_path("sounds/stage4hitting.wav"))
+        except Exception:
+            # Sound load failure should not break gameplay
+            self.stage4_hit_sound = None
+
+        # Approximate temple hitbox used for moon-fragment collision
+        temple_width = 280
+        temple_height = 380
+        temple_x = self.width // 2 - temple_width // 2
+        temple_y = max(0, 450 - temple_height)  # top of temple
+        self.temple_hitbox = pygame.Rect(temple_x, temple_y, temple_width, temple_height + 60)  # include stairs
         
         # OPTIMIZATION: Cache for red moon effect
         self.red_moon_cache = None  # Cached red moon surface
@@ -3050,6 +3064,12 @@ class ShaolinTempleBackground:
             self.destruction_animation_active = True
             self.destruction_phase = 1
             self.destruction_timer = 0
+            # Immediately enable moon fragment barrage toward the temple
+            self.moon_fragment_active = True
+            # Force first spawn on next update tick
+            self.moon_fragment_timer = self.moon_fragment_interval
+            # Faster initial interval for dramatic effect
+            self.moon_fragment_interval = max(60, self.moon_fragment_interval // 3)
             print("Temple destruction animation started!")
     
     def is_destruction_animation_active(self):
