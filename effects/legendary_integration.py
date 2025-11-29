@@ -122,6 +122,28 @@ def handle_legendary_space_press() -> bool:
     effect = get_legendary_effect()
     return effect.handle_space_press()
 
+def update_angel_blessing_animation(dt: float) -> bool:
+    """천사의 가호 주사위 애니메이션 업데이트 (일시정지 중에도 호출됨)
+
+    Args:
+        dt: 델타 타임
+
+    Returns:
+        애니메이션 활성 상태
+    """
+    try:
+        from legendary_items import get_legendary_manager
+        legendary_manager = get_legendary_manager()
+        if legendary_manager and "angel_blessing" in getattr(legendary_manager, "active_items", []):
+            angel_blessing = legendary_manager.get_item("angel_blessing")
+            if angel_blessing and getattr(angel_blessing, "roll_anim_active", False):
+                angel_blessing.update(dt)
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def skip_legendary_animation() -> bool:
     """전설 아이템 획득 연출을 즉시 종료 (AI 자동 플레이용)."""
     skipped = False
