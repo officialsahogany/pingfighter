@@ -3786,11 +3786,25 @@ class AngelBlessing(LegendaryItem):
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
 
+        # 스테이지 변경 시 자동 주사위 굴림 (타이머 업데이트보다 먼저 체크)
+        current_stage = self._get_current_stage()
+        just_rolled = False
+        if not ui_mode and current_stage is not None and current_stage != self.applied_stage:
+            # 이미 발동된 스테이지면 스킵 (재장착 방지)
+            if current_stage not in self._triggered_stages:
+                if os.environ.get("PINGF_DEBUG_ANGEL", "0") == "1":
+                    print(f"[AngelBlessing][DEBUG] stage change detected: prev={self.applied_stage}, now={current_stage}")
+                self._roll_blessing(current_stage)
+                just_rolled = True  # 방금 롤했으면 이번 프레임에서는 타이머 업데이트 스킵
+
         # 주사위 애니메이션 타이머 업데이트 (CRITICAL: 이 로직이 없으면 애니메이션이 진행되지 않음)
-        if self.roll_anim_active:
+        if self.roll_anim_active and not just_rolled:
             # 스페이스바 대기 상태가 아니면 타이머 진행
             if not getattr(self, 'waiting_for_space', False):
-                self.roll_timer += dt if dt < 5 else dt / 1000.0
+                # dt 정규화: 비정상적으로 큰 dt 값 제한 (최대 0.1초 = 100ms)
+                normalized_dt = dt if dt < 5 else dt / 1000.0
+                normalized_dt = min(normalized_dt, 0.1)  # 최대 100ms로 제한
+                self.roll_timer += normalized_dt
                 if self.roll_timer >= self.roll_anim_duration:
                     # 타이머가 끝나면 스페이스바 대기 상태로 전환 (바로 닫지 않음)
                     self.waiting_for_space = True
@@ -3803,16 +3817,6 @@ class AngelBlessing(LegendaryItem):
             self.current_frame = (self.current_frame + 1) % 8
 
         self.particle_timer = 0
-
-        # 스테이지 변경 시 자동 주사위 굴림(게임 진행 모드에서만)
-        current_stage = self._get_current_stage()
-        if not ui_mode and current_stage is not None and current_stage != self.applied_stage:
-            # 이미 발동된 스테이지면 스킵 (재장착 방지)
-            if current_stage in self._triggered_stages:
-                return
-            if os.environ.get("PINGF_DEBUG_ANGEL", "0") == "1":
-                print(f"[AngelBlessing][DEBUG] stage change detected: prev={self.applied_stage}, now={current_stage}")
-            self._roll_blessing(current_stage)
 
 
 class EmptyLegendarySlot(LegendaryItem):
