@@ -1621,18 +1621,18 @@ INTERIOR_CONFIGS = {
     },
     BuildingType.GACHA: {
         "name": "스타 가챠샵",
-        "map_size": (10, 10),
-        "bg_color": (35, 25, 50),
-        "floor_color": (55, 40, 75),
-        "floor_pattern": "star_pattern",
-        "wall_color": (45, 35, 60),
-        "accent_color": (255, 215, 0),
-        "secondary_color": (255, 100, 255),
-        "decorations": ["gacha_machine", "prize_display", "star_lamp", "banner"],
+        "map_size": (20, 20),  # 2배 확대 (10x10 → 20x20)
+        "bg_color": (25, 15, 35),  # 사이버펑크 어두운 보라
+        "floor_color": (60, 30, 80),  # 핑크빛 보라 바닥
+        "floor_pattern": "cyberpunk_tiles",  # 사이버펑크 타일 패턴
+        "wall_color": (35, 20, 50),  # 어두운 벽
+        "accent_color": (255, 50, 150),  # 네온 핑크/마젠타
+        "secondary_color": (0, 255, 255),  # 네온 시안
+        "decorations": [],  # 커스텀 인테리어 사용
         "main_npc": {
             "name": "가챠 마스터",
-            "color": (255, 200, 100),
-            "position": (0.5, 0.35),
+            "color": (255, 100, 200),  # 핑크빛
+            "position": (0.5, 0.2),  # 맵이 커졌으므로 위치 조정
             "dialogue": [
                 "스타 가챠샵에 오신 것을 환영해요!",
                 "오늘의 운세는 어떨까요?",
@@ -1640,8 +1640,9 @@ INTERIOR_CONFIGS = {
                 "준비 중... 조금만 기다려주세요!"
             ]
         },
-        "customer_range": (2, 5),
-        "staff_count": 1,
+        "customer_range": (6, 12),  # 넓어져서 손님 증가
+        "staff_count": 3,  # 직원 증가
+        "special_interior": "cyberpunk_gacha",  # 사이버펑크 가챠샵 특수 인테리어
     },
     BuildingType.ACADEMY: {
         "name": "아카데미",
@@ -4342,6 +4343,9 @@ class BuildingInterior:
         elif special_interior == "neon_shop":
             # 네온 상점 전용 인테리어
             self._draw_neon_shop_interior(screen)
+        elif special_interior == "cyberpunk_gacha":
+            # 사이버펑크 가챠샵 전용 인테리어
+            self._draw_cyberpunk_gacha_interior(screen)
         else:
             # 기본 인테리어
             # 배경
