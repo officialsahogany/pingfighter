@@ -199,10 +199,31 @@ def init_gacha(available_items, legendary_bonus=0.0):
     gacha_result = None
     gacha_animation = 0
     gacha_legendary_bonus = max(0.0, min(0.45, legendary_bonus))
-    
+
+    # 패시브 아이템 목록 (영구적으로 적용되는 아이템들)
+    PASSIVE_ITEM_NAMES = {
+        "speedboots", "speedgear", "battery", "revival", "master", "cooltime",
+        "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
+        "gravitybelt", "slot_add", "technical_vest", "commando_arm", "berserker_fist",
+        "phantom_cloak", "bulletproof_hat", "spiked_helmet", "angel_blessing",
+        # 전설 아이템들
+        "ragnarok_hammer", "hermes_shoes", "poseidon_trident"
+    }
+
     # 뽑기 통 안의 아이템들 (40개로 증가, 다양한 색상)
     gacha_items = []
-    gacha_available_items_template = [item.copy() for item in available_items]
+    # 아이템 복사 시 type 필드 자동 설정
+    gacha_available_items_template = []
+    for item in available_items:
+        item_copy = item.copy()
+        # type이 없으면 패시브 아이템 목록 기반으로 설정
+        if "type" not in item_copy or not item_copy.get("type"):
+            item_name = item_copy.get("name", "")
+            if item_name in PASSIVE_ITEM_NAMES:
+                item_copy["type"] = "passive"
+            else:
+                item_copy["type"] = "active"
+        gacha_available_items_template.append(item_copy)
     capsule_colors = [
         (255, 100, 100),  # 밝은 빨강
         (100, 255, 100),  # 밝은 초록
