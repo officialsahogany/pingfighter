@@ -2756,8 +2756,16 @@ class AngelBlessing(LegendaryItem):
                     pf.set_paddle_scale(current_scale)
                 elif "set_paddle_scale" in globals():
                     set_paddle_scale(current_scale)  # type: ignore[name-defined]
+
+            # 패들 배율 변경 후 즉시 재계산
+            if pf is not None and hasattr(pf, "apply_equipment_paddle_modifiers"):
+                pf.apply_equipment_paddle_modifiers()
+            elif "apply_equipment_paddle_modifiers" in globals():
+                apply_equipment_paddle_modifiers()  # type: ignore[name-defined]
         except Exception:
             pass
+
+        print(f"[AngelBlessing] 버프 효과 해제됨 - 모든 보너스 초기화")
 
     def _apply_buff(self, buff: str):
         """선택된 버프 적용"""
