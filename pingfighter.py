@@ -79535,7 +79535,17 @@ def main(stage_num, new_boss_mode=False):
         from item_effects.devil_dice import draw_devil_dice_effects, is_devil_dice_active
         if is_devil_dice_active():
             draw_devil_dice_effects(SCREEN, PLAYER)  # 패들 효과와 주사위 애니메이션 모두 그리기
-        
+
+        # 😇 천사의 가호 주사위 애니메이션 그리기 (스테이지 시작 시)
+        try:
+            legendary_manager = get_legendary_manager()
+            if legendary_manager and "angel_blessing" in getattr(legendary_manager, "active_items", []):
+                angel_blessing = legendary_manager.get_item("angel_blessing")
+                if angel_blessing and getattr(angel_blessing, "roll_anim_active", False):
+                    angel_blessing.draw_roll_animation(SCREEN)
+        except Exception as e:
+            pass  # 천사의 가호 애니메이션 오류 무시
+
         # 📦 탄약상자 효과 그리기
         ammo_box = get_ammo_box_instance()
         if ammo_box and ammo_box.active:
