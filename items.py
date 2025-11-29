@@ -915,6 +915,15 @@ ITEM_TYPES = [
         "chance": 0.012,  # 기본 1.2%
         "duration": 600,
         "unlock_condition": None
+    },
+    {
+        "name": "laser_scope",  # 레이저스코프 액티브 아이템
+        "color": (255, 50, 50),  # 빨간색 (레이저 색상)
+        "effect": "laser_scope",
+        "icon": None,
+        "chance": 0.008,  # 확률 0.8%
+        "duration": 900,  # 15초
+        "unlock_condition": None
     }
 ]
 
@@ -1014,6 +1023,7 @@ unlocked_items = {
     "doping_potion": True,
     "berserk_potion": True,
     "vitamin_pill": True,
+    "laser_scope": True,
 
     # 전설 아이템 해금 상태
     "ragnarok_hammer": True,
