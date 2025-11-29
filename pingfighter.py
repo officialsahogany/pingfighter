@@ -30077,6 +30077,13 @@ def handle_player(keys):
                 base_timer = int(base_timer * multipliers.get("dash_cooldown", 1.0))
                 print(f"[DEBUG]     : x{multipliers.get('dash_cooldown', 1.0):.1f}")
 
+        # 천사의 가호 대쉬 쿨타임 버프 적용
+        if dash is not None:
+            external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
+            if external_cooldown_mul != 1.0:
+                base_timer = int(base_timer * external_cooldown_mul)
+                print(f"[DEBUG] 천사의 가호 대쉬 쿨타임 버프: x{external_cooldown_mul:.2f}")
+
         set_roll("rolling_cooldown", base_timer)
         set_roll("rolling_charge_timer", base_timer)
         print(f"[DEBUG]      : {get_roll('rolling_charge_timer')} (: {get_roll('rolling_charges')})")
