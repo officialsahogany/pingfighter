@@ -1,6 +1,6 @@
 """
 레이저스코프 아이템 효과
-발동 시 15초간 모든 보스의 공/스킬/장애물의 궤적을 레이저 선으로 표시
+발동 시 25초간 모든 보스의 공/스킬/장애물의 궤적을 레이저 선으로 표시
 공의 최종 도달 지점을 정확히 알려줌
 """
 
@@ -10,9 +10,9 @@ import math
 class LaserScope:
     def __init__(self):
         self.active = False
-        self.duration = 900  # 15초 (60 FPS 기준)
+        self.duration = 1500  # 25초 (60 FPS 기준)
         self.timer = 0
-        self.max_duration = 900  # 최대 지속 시간 저장
+        self.max_duration = 1500  # 최대 지속 시간 저장
 
         # 레이저 효과 설정
         self.laser_color = (255, 50, 50, 150)  # 빨간색 레이저

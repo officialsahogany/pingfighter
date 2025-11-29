@@ -992,8 +992,8 @@ ITEM_TYPES = [
         "color": (255, 50, 50),  # 빨간색 (레이저 색상)
         "effect": "laser_scope",
         "icon": None,
-        "chance": 0.004,  # 확률 0.8%
-        "duration": 1800,  # 15초
+        "chance": 0.004,  # 확률 0.4%
+        "duration": 1500,  # 25초
         "unlock_condition": None
     }
 ]
