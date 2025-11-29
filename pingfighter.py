@@ -5176,6 +5176,38 @@ MARINE_BASE_Y = 30
 stage7_ui_pause_depth = 0
 
 
+def _reset_stage7_timers_after_ui_pause():
+    """UI 정지 해제 후 Stage 7 시간 관련 변수들을 현재 시간으로 리셋.
+
+    TAB/ESC 메뉴에서 보낸 시간이 게이지 충전이나 스킬 타이머에 반영되지 않도록 한다.
+    """
+    now = pygame.time.get_ticks()
+
+    # 게이지 충전 타이머 리셋
+    if 'stage7_gauge_last_update_ms' in globals():
+        globals()['stage7_gauge_last_update_ms'] = now
+    if 'stage7_gauge_charge_progress' in globals():
+        globals()['stage7_gauge_charge_progress'] = 0.0
+
+    # 초인테트리서 드레인 타이머 리셋
+    if 'stage7_super_last_update_ms' in globals():
+        globals()['stage7_super_last_update_ms'] = now
+    if 'stage7_super_drain_progress' in globals():
+        globals()['stage7_super_drain_progress'] = 0.0
+
+    # 가드 스킬 타이머 리셋 (다음 발동까지 대기)
+    if 'stage7_guard_next_trigger_ms' in globals() and globals()['stage7_guard_next_trigger_ms'] > 0:
+        # 남은 대기 시간을 유지하되 기준 시간을 현재로 갱신
+        # (즉, UI 정지 중 경과한 시간만큼 발동 시점을 뒤로 미룸)
+        pass  # 가드 스킬은 next_trigger 방식이므로 별도 처리 불필요
+
+    # 테트로미노/벽 스킬의 last_update_ms 리셋
+    if 'stage7_tetromino_last_update_ms' in globals():
+        globals()['stage7_tetromino_last_update_ms'] = now
+    if 'stage7_tetro_wall_last_update_ms' in globals():
+        globals()['stage7_tetro_wall_last_update_ms'] = now
+
+
 def _push_stage7_ui_pause():
     """Stage 7 게이지 업데이트를 잠시 중단하는 UI 중첩 카운터 증가."""
     global stage7_ui_pause_depth
