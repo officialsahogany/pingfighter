@@ -2826,17 +2826,27 @@ class AngelBlessing(LegendaryItem):
         elif buff == "dash_cost":
             try:
                 import dash_manager
-                if hasattr(dash_manager, "_GLOBAL_DASH_INST"):
-                    dash_manager._GLOBAL_DASH_INST.set_external_multipliers(cost_mul=0.5)
-            except Exception:
-                pass
+                # get_dash_manager() 사용 (항상 유효한 인스턴스 반환)
+                dm = dash_manager.get_dash_manager()
+                if dm:
+                    dm.set_external_multipliers(cost_mul=0.5)
+                    print(f"[AngelBlessing] 대쉬 비용 버프 적용: cost_mul=0.5")
+                else:
+                    print(f"[AngelBlessing] 대쉬 매니저를 찾을 수 없음")
+            except Exception as e:
+                print(f"[AngelBlessing] 대쉬 비용 버프 적용 실패: {e}")
         elif buff == "dash_cooldown":
             try:
                 import dash_manager
-                if hasattr(dash_manager, "_GLOBAL_DASH_INST"):
-                    dash_manager._GLOBAL_DASH_INST.set_external_multipliers(cooldown_mul=0.5)
-            except Exception:
-                pass
+                # get_dash_manager() 사용 (항상 유효한 인스턴스 반환)
+                dm = dash_manager.get_dash_manager()
+                if dm:
+                    dm.set_external_multipliers(cooldown_mul=0.5)
+                    print(f"[AngelBlessing] 대쉬 쿨타임 버프 적용: cooldown_mul=0.5")
+                else:
+                    print(f"[AngelBlessing] 대쉬 매니저를 찾을 수 없음")
+            except Exception as e:
+                print(f"[AngelBlessing] 대쉬 쿨타임 버프 적용 실패: {e}")
         elif buff == "move_speed":
             # MAX_SPEED 증가 (실제 이동속도 결정 변수)
             try:
