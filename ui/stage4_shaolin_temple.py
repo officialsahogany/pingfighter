@@ -4126,10 +4126,6 @@ class ShaolinTempleBackground:
     
     def _update_moon_fragments(self):
         """Update moon crater fragments"""
-        # Do not spawn or update fragments during the destruction cinematic
-        if self.destruction_animation_active:
-            return
-        
         # Update moon pulsing effect
         if self.moon_pulse_active:
             if self.moon_pulse_timer > 0:
