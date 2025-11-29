@@ -239,7 +239,8 @@ def init_gacha(available_items, legendary_bonus=0.0):
     # items.py의 패시브 아이템 획득 상태 확인
     import items
     filtered_items = []
-    for item in available_items:
+    # gacha_available_items_template 사용 (type이 이미 설정됨)
+    for item in gacha_available_items_template:
         item_name = item.get("name", "")
 
         # chargebag 중복 방지
@@ -255,13 +256,13 @@ def init_gacha(available_items, legendary_bonus=0.0):
 
         # 이미 획득한 패시브 아이템은 제외
         should_skip = False
-        
+
         # 패시브 아이템 중복 획득 허용: 필터링 없이 모두 포함
         filtered_items.append(item)
-    
+
     # 필터링된 아이템이 없으면 원본 사용
     if not filtered_items:
-        filtered_items = available_items
+        filtered_items = gacha_available_items_template
     
     # 전설 아이템과 일반 아이템 분리
     legendary_pool = ["ragnarok_hammer", "hermes_shoes", "poseidon_trident"]
