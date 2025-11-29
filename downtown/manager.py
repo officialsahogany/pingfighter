@@ -1699,6 +1699,11 @@ class DowntownManager:
             # 가챠 초기화 (반드시 run_gacha 전에 호출!)
             gacha.init_gacha(available_items, legendary_bonus=0.0)
 
+            # 가챠 실행 전 인벤토리 상태 저장
+            before_passive_count = len(pingfighter.passive_item_list) if hasattr(pingfighter, 'passive_item_list') else 0
+            before_active_count = len(pingfighter.active_item_list) if hasattr(pingfighter, 'active_item_list') else 0
+            print(f"[가챠] 실행 전 - 패시브: {before_passive_count}개, 액티브: {before_active_count}개")
+
             # 가챠 실행
             gacha.run_gacha(
                 self.screen,
@@ -1711,6 +1716,11 @@ class DowntownManager:
                 get_star_count=get_star_count,
                 spend_stars=spend_stars
             )
+
+            # 가챠 종료 후 인벤토리 상태 확인
+            after_passive_count = len(pingfighter.passive_item_list) if hasattr(pingfighter, 'passive_item_list') else 0
+            after_active_count = len(pingfighter.active_item_list) if hasattr(pingfighter, 'active_item_list') else 0
+            print(f"[가챠] 실행 후 - 패시브: {after_passive_count}개, 액티브: {after_active_count}개")
 
             # 가챠 종료 후 이벤트 큐 클리어 (입력 잔류 방지)
             pygame.event.clear()
