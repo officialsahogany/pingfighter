@@ -2720,12 +2720,18 @@ class AngelBlessing(LegendaryItem):
                 dash_manager._GLOBAL_DASH_INST.set_external_multipliers(1.0, 1.0)
         except Exception:
             pass
-        # 이동 속도 복구
-        if prev_speed_mult not in (0, None):
-            if pf is not None and hasattr(pf, "PLAYER_SPEED"):
-                pf.PLAYER_SPEED = getattr(pf, "PLAYER_SPEED", 1.0) / prev_speed_mult
-            elif "PLAYER_SPEED" in globals():
-                globals()["PLAYER_SPEED"] = globals().get("PLAYER_SPEED", 1.0) / prev_speed_mult
+        # 이동 속도 복구 (MAX_SPEED)
+        if hasattr(self, "_original_max_speed") and self._original_max_speed is not None:
+            if pf is not None and hasattr(pf, "MAX_SPEED"):
+                pf.MAX_SPEED = self._original_max_speed
+                print(f"[AngelBlessing] MAX_SPEED 복원: {self._original_max_speed}")
+            self._original_max_speed = None
+        # 가속도 복구 (ACCELERATION)
+        if hasattr(self, "_original_acceleration") and self._original_acceleration is not None:
+            if pf is not None and hasattr(pf, "ACCELERATION"):
+                pf.ACCELERATION = self._original_acceleration
+                print(f"[AngelBlessing] ACCELERATION 복원: {self._original_acceleration}")
+            self._original_acceleration = None
         # 게이지 재계산
         try:
             calc_max = None
