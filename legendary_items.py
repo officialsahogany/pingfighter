@@ -2831,18 +2831,25 @@ class AngelBlessing(LegendaryItem):
             except Exception:
                 pass
         elif buff == "move_speed":
-            base_speed = None
-            if pf is not None and hasattr(pf, "PLAYER_SPEED"):
-                base_speed = getattr(pf, "PLAYER_SPEED", 1.0)
-            elif "PLAYER_SPEED" in globals():
-                base_speed = globals().get("PLAYER_SPEED", 1.0)
-
-            if base_speed is not None:
-                self._set_global_multiplier("ANGEL_SPEED_MULT", 1.5)
-                if pf is not None and hasattr(pf, "PLAYER_SPEED"):
-                    pf.PLAYER_SPEED = base_speed * 1.5
-                else:
-                    globals()["PLAYER_SPEED"] = base_speed * 1.5
+            # MAX_SPEED 증가 (실제 이동속도 결정 변수)
+            try:
+                if pf is not None and hasattr(pf, "MAX_SPEED"):
+                    base_max_speed = getattr(pf, "MAX_SPEED", 5)
+                    # 기본 MAX_SPEED 저장 (복원용)
+                    if not hasattr(self, "_original_max_speed"):
+                        self._original_max_speed = base_max_speed
+                    pf.MAX_SPEED = int(base_max_speed * 1.5)
+                    self._set_global_multiplier("ANGEL_SPEED_MULT", 1.5)
+                    print(f"[AngelBlessing] 이동속도 버프 적용: MAX_SPEED {base_max_speed} -> {pf.MAX_SPEED}")
+                # ACCELERATION도 증가
+                if pf is not None and hasattr(pf, "ACCELERATION"):
+                    base_accel = getattr(pf, "ACCELERATION", 0.4)
+                    if not hasattr(self, "_original_acceleration"):
+                        self._original_acceleration = base_accel
+                    pf.ACCELERATION = base_accel * 1.3
+                    print(f"[AngelBlessing] 가속도 버프 적용: ACCELERATION {base_accel} -> {pf.ACCELERATION}")
+            except Exception as e:
+                print(f"[AngelBlessing] 이동속도 버프 적용 실패: {e}")
 
     def deactivate(self):
         """천사의 가호 비활성화 - 모든 버프 효과 즉시 해제"""
