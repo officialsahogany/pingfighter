@@ -5182,7 +5182,12 @@ def _reset_stage7_timers_after_ui_pause():
 
     TAB/ESC 메뉴에서 보낸 시간이 게이지 충전이나 스킬 타이머에 반영되지 않도록 한다.
     """
+    global stage7_ui_pause_start_ms
     now = pygame.time.get_ticks()
+
+    # UI 정지 중 경과한 시간 계산
+    paused_duration = now - stage7_ui_pause_start_ms if stage7_ui_pause_start_ms > 0 else 0
+    stage7_ui_pause_start_ms = 0  # 리셋
 
     # 게이지 충전 타이머 리셋
     if 'stage7_gauge_last_update_ms' in globals():
@@ -5196,10 +5201,23 @@ def _reset_stage7_timers_after_ui_pause():
     if 'stage7_super_drain_progress' in globals():
         globals()['stage7_super_drain_progress'] = 0.0
 
+    # next_trigger_ms 변수들을 정지 시간만큼 뒤로 미룸
+    # (정지 중에는 시간이 흐르지 않은 것처럼 처리)
+    if paused_duration > 0:
+        if 'stage7_guard_next_trigger_ms' in globals() and globals()['stage7_guard_next_trigger_ms'] > 0:
+            globals()['stage7_guard_next_trigger_ms'] += paused_duration
+        if 'stage7_tetromino_next_trigger_ms' in globals() and globals()['stage7_tetromino_next_trigger_ms'] > 0:
+            globals()['stage7_tetromino_next_trigger_ms'] += paused_duration
+        if 'stage7_tetro_wall_next_trigger_ms' in globals() and globals()['stage7_tetro_wall_next_trigger_ms'] > 0:
+            globals()['stage7_tetro_wall_next_trigger_ms'] += paused_duration
+
 
 def _push_stage7_ui_pause():
     """Stage 7 게이지 업데이트를 잠시 중단하는 UI 중첩 카운터 증가."""
-    global stage7_ui_pause_depth
+    global stage7_ui_pause_depth, stage7_ui_pause_start_ms
+    if stage7_ui_pause_depth == 0:
+        # 첫 번째 정지 시작 시점 기록
+        stage7_ui_pause_start_ms = pygame.time.get_ticks()
     stage7_ui_pause_depth += 1
 
 
