@@ -4071,11 +4071,16 @@ class ShaolinTempleBackground:
         self.moon_pulse_timer = 30  # 0.5 second pulse
         
         for _ in range(num_fragments):
-            # Random target position across the entire map, including player area
-            target_x = random.randint(50, self.width - 50)
-            # Target area from middle to player position (500-710)
-            # Player is around HEIGHT-140 (610) to HEIGHT-40 (710)
-            target_y = random.randint(500, self.height - 40)  # Cover full playable area including player
+            # When temple destruction event is active, bias fragments toward the temple body
+            if self.destruction_animation_active and not self.temple_destroyed:
+                target_x = self.width // 2 + random.randint(-90, 90)
+                target_y = 380 + random.randint(-40, 60)
+            else:
+                # Random target position across the entire map, including player area
+                target_x = random.randint(50, self.width - 50)
+                # Target area from middle to player position (500-710)
+                # Player is around HEIGHT-140 (610) to HEIGHT-40 (710)
+                target_y = random.randint(500, self.height - 40)  # Cover full playable area including player
             
             # Calculate trajectory
             dx = target_x - moon_x
@@ -4142,6 +4147,16 @@ class ShaolinTempleBackground:
                 fragment['rotation'] += fragment['rotation_speed']
                 fragment['glow_phase'] += 0.1
                 
+                # Check collision with temple during destruction event
+                if self.destruction_animation_active and not self.temple_destroyed:
+                    if self._get_temple_hitbox().collidepoint(fragment['x'], fragment['y']):
+                        fragment['impact'] = True
+                        fragment['impact_timer'] = 30  # 0.5 second impact effect
+                        fragment['shockwave_radius'] = 0
+                        fragment['impact_reason'] = "temple"
+                        self._play_stage4_hit_sound()
+                        continue
+                
                 # Add to trail
                 if len(fragment['trail']) < 15:
                     fragment['trail'].append({
@@ -4193,9 +4208,26 @@ class ShaolinTempleBackground:
                 if fragment.get('impact_timer', 0) > 0:
                     fragment['impact_timer'] -= 1
                     fragment['shockwave_radius'] = (30 - fragment['impact_timer']) * 3
-                else:
-                    # Remove fragment after impact
-                    self.moon_fragments.remove(fragment)
+            else:
+                # Remove fragment after impact
+                self.moon_fragments.remove(fragment)
+
+    def _get_temple_hitbox(self) -> pygame.Rect:
+        """Return current temple hitbox, adjusted for collapse offset"""
+        base_y = 450 + getattr(self, "collapse_offset", 0)
+        width = self.temple_hitbox.width
+        height = self.temple_hitbox.height
+        x = self.width // 2 - width // 2
+        y = max(0, base_y - height)
+        return pygame.Rect(x, y, width, height)
+
+    def _play_stage4_hit_sound(self):
+        """Play moon-fragment-to-temple impact sound"""
+        if self.stage4_hit_sound:
+            try:
+                self.stage4_hit_sound.play()
+            except Exception:
+                pass
     
     def _explode_all_monks(self):
         """Explode all monks when temple is destroyed"""
