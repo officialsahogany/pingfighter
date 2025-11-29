@@ -61463,11 +61463,19 @@ def apply_selected_items(
                 print(f"  [{legendary_item.korean_name}]   !")
 
             # 전설 아이템 활성화
-            legendary_game_state = {
-                'current_stage': 1,
-                'cooldown_multiplier': 1.0
-            }
-            legendary_manager.activate_item(item_name, legendary_game_state)
+            # NOTE: 천사의 가호는 개발자모드에서 픽업 시 발동하지 않음
+            # 스테이지 진입 후 아이템 관리창에서 장착할 때 발동되도록 함
+            if item_name == "angel_blessing":
+                # 천사의 가호는 active_items 리스트에만 추가하고 발동은 하지 않음
+                # 아이템 관리창에서 장착 시 sync_equipped_passive_effects()에서 처리
+                legendary_manager.active_items.append(item_name)
+                print(f"[DEBUG] 천사의 가호 픽업 - 발동 보류 (스테이지 진입 후 장착 시 발동)")
+            else:
+                legendary_game_state = {
+                    'current_stage': 1,
+                    'cooldown_multiplier': 1.0
+                }
+                legendary_manager.activate_item(item_name, legendary_game_state)
 
         if activated_legendary_items:
             print(f"  [{', '.join(activated_legendary_items)}] !")
