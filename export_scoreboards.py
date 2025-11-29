@@ -1052,7 +1052,7 @@ def draw_style12_aaa_neon_dynasty(surface):
 
     pygame.draw.rect(surface, (40, 5, 30), (b_x, b_y, p_w, p_h))
     for glow in range(20, 0, -2):
-        glow_color = (255 - glow*10, 50 - glow*2, 150 - glow*8)
+        glow_color = (max(0, 255 - glow*10), max(0, 50 - glow*2), max(0, 150 - glow*8))
         pygame.draw.rect(surface, glow_color, (b_x - glow, b_y - glow, p_w + glow*2, p_h + glow*2), 1)
 
     b_label = pygame.font.Font(None, 40).render("BOSS MODE", True, (255, 100, 200))
