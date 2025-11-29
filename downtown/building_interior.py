@@ -7668,45 +7668,190 @@ class BuildingInterior:
             pygame.draw.line(screen, (60, 55, 80), (bx, by - 1), (bx, by + 1), 1)
 
     def _draw_floor_neon_lines(self, screen, cam_x, cam_y, wall_h, neon_pink, neon_cyan):
-        """바닥 네온 라인 장식 그리기"""
+        """바닥 네온 라인 장식 그리기 - 업그레이드 버전"""
         floor_y = wall_h + int(TILE_SIZE * 10)  # 바닥 영역
 
-        # 가로 네온 라인들
-        line_spacing = TILE_SIZE * 4
-        for i in range(3):
+        # === 가로 네온 라인들 (더 많고 복잡하게) ===
+        line_spacing = TILE_SIZE * 3
+        for i in range(5):
             line_y = floor_y + i * line_spacing - cam_y
 
-            # 핑크 라인
-            glow_pulse = abs(math.sin(self.animation_timer * 2 + i * 0.5))
-            line_alpha = int(150 * glow_pulse)
+            # 펄스 애니메이션 (시간차 적용)
+            glow_pulse = abs(math.sin(self.animation_timer * 2.5 + i * 0.7))
 
-            line_surf = pygame.Surface((self.pixel_width, 4), pygame.SRCALPHA)
+            # 메인 라인
             color = neon_pink if i % 2 == 0 else neon_cyan
-            pygame.draw.rect(line_surf, (*color, line_alpha), (0, 0, self.pixel_width, 4))
+            line_h = 3 + int(2 * glow_pulse)
+
+            # 외부 글로우 (넓은 범위)
+            for glow_layer in range(3):
+                glow_alpha = int((60 - glow_layer * 18) * glow_pulse)
+                glow_h = line_h + (glow_layer + 1) * 4
+                glow_surf = pygame.Surface((self.pixel_width, glow_h), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (*color, glow_alpha), (0, 0, self.pixel_width, glow_h))
+                screen.blit(glow_surf, (-cam_x, line_y - glow_layer * 2))
+
+            # 코어 라인 (밝은 중심)
+            core_alpha = int(180 + 75 * glow_pulse)
+            line_surf = pygame.Surface((self.pixel_width, line_h), pygame.SRCALPHA)
+            pygame.draw.rect(line_surf, (*color, min(255, core_alpha)), (0, 0, self.pixel_width, line_h))
             screen.blit(line_surf, (-cam_x, line_y))
 
+            # 중심 하이라이트 (흰색)
+            highlight_surf = pygame.Surface((self.pixel_width, 1), pygame.SRCALPHA)
+            highlight_alpha = int(100 * glow_pulse)
+            pygame.draw.rect(highlight_surf, (255, 255, 255, highlight_alpha), (0, 0, self.pixel_width, 1))
+            screen.blit(highlight_surf, (-cam_x, line_y + line_h // 2))
+
+        # === 세로 네온 라인 (교차 그리드) ===
+        v_line_spacing = TILE_SIZE * 4
+        for j in range(int(self.pixel_width // v_line_spacing) + 1):
+            line_x = j * v_line_spacing - cam_x
+
+            # 교차 색상 (가로와 반대)
+            color = neon_cyan if j % 2 == 0 else neon_pink
+            pulse = abs(math.sin(self.animation_timer * 2 + j * 0.5))
+
+            # 세로 라인 (짧은 세그먼트로)
+            for seg in range(5):
+                seg_y = floor_y + seg * line_spacing - cam_y
+                seg_h = line_spacing - 10
+
+                # 글로우
+                for glow in range(2):
+                    glow_alpha = int((40 - glow * 15) * pulse)
+                    glow_w = 3 + glow * 2
+                    glow_surf = pygame.Surface((glow_w, seg_h), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_surf, (*color, glow_alpha), (0, 0, glow_w, seg_h))
+                    screen.blit(glow_surf, (line_x - glow, seg_y))
+
+                # 코어
+                core_surf = pygame.Surface((2, seg_h), pygame.SRCALPHA)
+                core_alpha = int(120 * pulse)
+                pygame.draw.rect(core_surf, (*color, core_alpha), (0, 0, 2, seg_h))
+                screen.blit(core_surf, (line_x, seg_y))
+
+        # === 교차점 발광 노드 ===
+        for i in range(5):
+            for j in range(int(self.pixel_width // v_line_spacing) + 1):
+                node_x = j * v_line_spacing - cam_x
+                node_y = floor_y + i * line_spacing - cam_y
+
+                # 노드 펄스 (교차하는 색상 혼합)
+                pulse = abs(math.sin(self.animation_timer * 3 + i * 0.5 + j * 0.3))
+
+                # 글로우 원
+                for radius in range(3, 0, -1):
+                    glow_alpha = int((80 - (3 - radius) * 25) * pulse)
+                    node_surf = pygame.Surface((radius * 6, radius * 6), pygame.SRCALPHA)
+                    # 색상 혼합 (핑크 + 시안 = 흰색 계열)
+                    blend_color = (
+                        min(255, neon_pink[0] // 2 + neon_cyan[0] // 2),
+                        min(255, neon_pink[1] // 2 + neon_cyan[1] // 2),
+                        min(255, neon_pink[2] // 2 + neon_cyan[2] // 2),
+                    )
+                    pygame.draw.circle(node_surf, (*blend_color, glow_alpha),
+                                      (radius * 3, radius * 3), radius * 3)
+                    screen.blit(node_surf, (node_x - radius * 3, node_y - radius * 3))
+
     def _draw_ceiling_neon_tubes(self, screen, cam_x, cam_y, neon_pink, neon_cyan):
-        """천장 네온 튜브 그리기"""
+        """천장 네온 튜브 그리기 - 업그레이드 버전"""
         tube_y = -cam_y - 5
-        tube_h = 8
+        tube_h = 10
         tube_spacing = TILE_SIZE * 3
 
         for i in range(int(self.pixel_width // tube_spacing) + 1):
             tube_x = i * tube_spacing - cam_x
+            tube_w = tube_spacing - 25
 
             # 교차 색상
             color = neon_pink if i % 2 == 0 else neon_cyan
 
-            # 튜브 본체
-            pygame.draw.rect(screen, color, (tube_x, tube_y, tube_spacing - 20, tube_h), border_radius=3)
+            # 펄스 애니메이션
+            glow_pulse = abs(math.sin(self.animation_timer * 4 + i * 0.4))
+            flicker = 0.8 + 0.2 * abs(math.sin(self.animation_timer * 15 + i * 2.1))
 
-            # 글로우 효과
-            glow_pulse = abs(math.sin(self.animation_timer * 4 + i * 0.3))
-            for offset in range(2):
-                alpha = int((80 - offset * 30) * glow_pulse)
-                glow_surf = pygame.Surface((tube_spacing - 16, tube_h + 8), pygame.SRCALPHA)
-                pygame.draw.rect(glow_surf, (*color, alpha), (0, 0, tube_spacing - 16, tube_h + 8), border_radius=4)
-                screen.blit(glow_surf, (tube_x - 2, tube_y - 4))
+            # === 외부 대형 글로우 (분위기 조명) ===
+            for glow_layer in range(4):
+                glow_expand = (glow_layer + 1) * 6
+                glow_alpha = int((50 - glow_layer * 12) * glow_pulse * flicker)
+                glow_surf = pygame.Surface((tube_w + glow_expand * 2, tube_h + glow_expand * 2), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (*color, glow_alpha),
+                               (0, 0, tube_w + glow_expand * 2, tube_h + glow_expand * 2),
+                               border_radius=6)
+                screen.blit(glow_surf, (tube_x - glow_expand, tube_y - glow_expand))
+
+            # === 튜브 마운트 (금속 고정 장치) ===
+            mount_color = (80, 75, 100)
+            mount_w = 8
+            mount_h = tube_h + 6
+            # 왼쪽 마운트
+            pygame.draw.rect(screen, mount_color, (tube_x - 2, tube_y - 3, mount_w, mount_h), border_radius=2)
+            pygame.draw.rect(screen, (100, 95, 120), (tube_x, tube_y - 1, mount_w - 4, mount_h - 4), border_radius=1)
+            # 오른쪽 마운트
+            pygame.draw.rect(screen, mount_color, (tube_x + tube_w - mount_w + 2, tube_y - 3, mount_w, mount_h), border_radius=2)
+            pygame.draw.rect(screen, (100, 95, 120), (tube_x + tube_w - mount_w + 4, tube_y - 1, mount_w - 4, mount_h - 4), border_radius=1)
+
+            # === 튜브 본체 (유리관 효과) ===
+            # 어두운 배경 (튜브 내부)
+            pygame.draw.rect(screen, (20, 15, 30), (tube_x + 5, tube_y, tube_w - 10, tube_h), border_radius=4)
+
+            # 빛나는 가스 (코어)
+            core_brightness = int(200 + 55 * glow_pulse * flicker)
+            bright_color = (
+                min(255, color[0] + 30),
+                min(255, color[1] + 30),
+                min(255, color[2] + 30),
+            )
+            pygame.draw.rect(screen, bright_color, (tube_x + 7, tube_y + 2, tube_w - 14, tube_h - 4), border_radius=3)
+
+            # 중심 하이라이트 (가장 밝은 부분)
+            highlight_alpha = int(180 * glow_pulse * flicker)
+            highlight_surf = pygame.Surface((tube_w - 18, 3), pygame.SRCALPHA)
+            pygame.draw.rect(highlight_surf, (255, 255, 255, highlight_alpha), (0, 0, tube_w - 18, 3), border_radius=1)
+            screen.blit(highlight_surf, (tube_x + 9, tube_y + tube_h // 2 - 1))
+
+            # 유리관 테두리 (반투명)
+            glass_surf = pygame.Surface((tube_w - 10, tube_h), pygame.SRCALPHA)
+            pygame.draw.rect(glass_surf, (200, 220, 255, 40), (0, 0, tube_w - 10, tube_h), border_radius=4)
+            pygame.draw.rect(glass_surf, (255, 255, 255, 60), (0, 0, tube_w - 10, tube_h), 1, border_radius=4)
+            screen.blit(glass_surf, (tube_x + 5, tube_y))
+
+            # === 광선 효과 (아래로 내려오는 빛) ===
+            ray_count = 3
+            for r in range(ray_count):
+                ray_x = tube_x + 10 + r * (tube_w - 20) // ray_count
+                ray_alpha = int(30 * glow_pulse * flicker)
+                ray_surf = pygame.Surface((6, 30), pygame.SRCALPHA)
+
+                # 그라데이션 광선
+                for ry in range(30):
+                    fade = 1 - ry / 30
+                    pygame.draw.line(ray_surf, (*color, int(ray_alpha * fade)), (0, ry), (6, ry), 1)
+
+                screen.blit(ray_surf, (ray_x, tube_y + tube_h))
+
+        # === 추가: 중앙 대형 샹들리에 효과 ===
+        chandelier_x = self.pixel_width // 2 - cam_x
+        chandelier_y = tube_y + 20
+
+        # 대형 글로우 볼
+        for glow_r in range(5, 0, -1):
+            glow_alpha = int((60 - glow_r * 10) * abs(math.sin(self.animation_timer * 2)))
+            glow_size = glow_r * 15
+            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            # 핑크-시안 그라데이션
+            blend = (
+                int(neon_pink[0] * 0.6 + neon_cyan[0] * 0.4),
+                int(neon_pink[1] * 0.6 + neon_cyan[1] * 0.4),
+                int(neon_pink[2] * 0.6 + neon_cyan[2] * 0.4),
+            )
+            pygame.draw.circle(glow_surf, (*blend, glow_alpha), (glow_size, glow_size), glow_size)
+            screen.blit(glow_surf, (chandelier_x - glow_size, chandelier_y - glow_size))
+
+        # 샹들리에 중심부
+        pygame.draw.circle(screen, (255, 220, 255), (chandelier_x, chandelier_y), 8)
+        pygame.draw.circle(screen, (255, 255, 255), (chandelier_x, chandelier_y), 4)
 
     def _draw_floor(self, screen):
         """바닥 타일 그리기"""
