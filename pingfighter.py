@@ -44002,7 +44002,7 @@ def draw_player_gauge():
                 if dash is not None:
                     external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
                     if external_cooldown_mul != 1.0:
-                        max_charge_time = int(max_charge_time * external_cooldown_mul)
+                        max_charge_time = max(6, int(max_charge_time * external_cooldown_mul))
                 # 충전 진행률 (0.0 ~ 1.0)
                 charge_progress = 1.0 - (rolling_charge_timer / max_charge_time)
                 charge_progress = max(0, min(1, charge_progress))
