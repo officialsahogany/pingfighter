@@ -1771,15 +1771,18 @@ class DowntownManager:
             if font_medium:
                 cost_text = f"비용: {self.gacha_cost}"
                 cost_surf, cost_rect = font_medium.render(cost_text, (255, 220, 100))
-                cost_x = dialog_x + (dialog_width - cost_rect.width - 30) // 2
+                # 골드 아이콘 크기
+                coin_size = 22
+                # 텍스트 + 아이콘 전체 너비 계산 (아이콘은 텍스트 오른쪽에 여유 두고 배치)
+                total_width = cost_rect.width + 8 + coin_size
+                cost_x = dialog_x + (dialog_width - total_width) // 2
                 cost_y = dialog_y + 70
                 self.screen.blit(cost_surf, (cost_x, cost_y))
 
-                # 골드 아이콘 (간단한 원)
-                gold_icon_x = cost_x + cost_rect.width + 10
+                # 골드 아이콘 (실제 UI와 동일한 금화)
+                gold_icon_x = cost_x + cost_rect.width + 8 + coin_size // 2
                 gold_icon_y = cost_y + cost_rect.height // 2
-                pygame.draw.circle(self.screen, (255, 215, 0), (gold_icon_x, gold_icon_y), 10)
-                pygame.draw.circle(self.screen, (200, 170, 0), (gold_icon_x, gold_icon_y), 10, 2)
+                self._draw_gold_coin(self.screen, gold_icon_x, gold_icon_y, coin_size)
 
             # 남은 횟수 표시
             if font_small:
