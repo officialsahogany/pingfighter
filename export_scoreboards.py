@@ -899,6 +899,270 @@ def draw_style10_cyberpunk_grid(surface):
     draw_dot_matrix_digit(surface, board_x + board_width - 265, score_y + 60, 1, neon_purple, 100, 4)
 
 
+def draw_style11_aaa_premium(surface):
+    """AAA급 프리미엄 - 풀HD 실제 야구장 전광판"""
+    board_width = 900
+    board_height = 450
+    board_x = (WIDTH - board_width) // 2
+    board_y = (HEIGHT - board_height) // 2
+
+    # 배경: 깊이감 있는 검은색
+    pygame.draw.rect(surface, (5, 5, 10), (board_x, board_y, board_width, board_height))
+
+    # 외부 조명 효과
+    for glow in range(60, 0, -5):
+        glow_alpha = int(30 * (1 - glow/60))
+        glow_surf = pygame.Surface((board_width + glow*2, board_height + glow*2), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (50, 200, 255, glow_alpha), glow_surf.get_rect(), 3)
+        surface.blit(glow_surf, (board_x - glow, board_y - glow))
+
+    # 메인 테두리: 광택 효과
+    pygame.draw.rect(surface, (30, 150, 255), (board_x, board_y, board_width, board_height), 4)
+    pygame.draw.rect(surface, (100, 200, 255), (board_x + 2, board_y + 2, board_width - 4, board_height - 4), 2)
+
+    # 상단 헤더 섹션
+    header_height = 80
+    for i in range(header_height):
+        ratio = i / header_height
+        g_val = int(100 + 100 * ratio)
+        b_val = int(200 + 55 * ratio)
+        pygame.draw.line(surface, (0, g_val, b_val), (board_x, board_y + i), (board_x + board_width, board_y + i), 1)
+
+    # 로고/제목 영역
+    title_font = pygame.font.Font(None, 48)
+    title = title_font.render("⚾ PING FIGHTER ⚾", True, (255, 255, 100))
+    surface.blit(title, (board_x + board_width // 2 - title.get_width() // 2, board_y + 15))
+
+    # 경기 정보 바
+    info_bar_y = board_y + 65
+    pygame.draw.line(surface, (100, 200, 255), (board_x + 20, info_bar_y), (board_x + board_width - 20, info_bar_y), 3)
+
+    # 플레이어 섹션 (좌측)
+    p_section_x = board_x + 40
+    p_section_y = board_y + 120
+    p_section_w = 350
+    p_section_h = 280
+
+    # 플레이어 배경 박스
+    pygame.draw.rect(surface, (10, 40, 80), (p_section_x, p_section_y, p_section_w, p_section_h))
+    for i in range(p_section_h):
+        alpha = int(100 * (i / p_section_h))
+        color = (20 + i // 2, 60 + i // 2, 120 + i // 3)
+        pygame.draw.line(surface, color, (p_section_x, p_section_y + i), (p_section_x + p_section_w, p_section_y + i), 1)
+
+    pygame.draw.rect(surface, (100, 200, 255), (p_section_x, p_section_y, p_section_w, p_section_h), 3)
+
+    # 플레이어 라벨
+    label_font = pygame.font.Font(None, 36)
+    p_label = label_font.render("● PLAYER", True, (100, 220, 255))
+    surface.blit(p_label, (p_section_x + 20, p_section_y + 15))
+
+    draw_dot_matrix_digit(surface, p_section_x + 60, p_section_y + 80, 2, (0, 255, 150), 180, 6)
+
+    # 보스 섹션 (우측)
+    b_section_x = board_x + board_width - p_section_w - 40
+    b_section_y = board_y + 120
+
+    pygame.draw.rect(surface, (80, 10, 40), (b_section_x, b_section_y, p_section_w, p_section_h))
+    for i in range(p_section_h):
+        alpha = int(100 * (i / p_section_h))
+        color = (120 + i // 3, 20 + i // 2, 60 + i // 2)
+        pygame.draw.line(surface, color, (b_section_x, b_section_y + i), (b_section_x + p_section_w, b_section_y + i), 1)
+
+    pygame.draw.rect(surface, (255, 100, 150), (b_section_x, b_section_y, p_section_w, p_section_h), 3)
+
+    b_label = label_font.render("● BOSS", True, (255, 150, 200))
+    surface.blit(b_label, (b_section_x + 20, b_section_y + 15))
+
+    draw_dot_matrix_digit(surface, b_section_x + 60, b_section_y + 80, 1, (255, 80, 150), 180, 6)
+
+    # 중앙 VS 섹션
+    vs_center_x = board_x + board_width // 2
+    vs_center_y = board_y + board_height // 2
+
+    # VS 배경
+    vs_box_size = 120
+    pygame.draw.rect(surface, (20, 20, 40),
+                     (vs_center_x - vs_box_size // 2, vs_center_y - vs_box_size // 2, vs_box_size, vs_box_size))
+    pygame.draw.rect(surface, (150, 200, 255),
+                     (vs_center_x - vs_box_size // 2, vs_center_y - vs_box_size // 2, vs_box_size, vs_box_size), 3)
+
+    vs_text = pygame.font.Font(None, 60).render("VS", True, (255, 255, 100))
+    surface.blit(vs_text, (vs_center_x - vs_text.get_width() // 2, vs_center_y - vs_text.get_height() // 2))
+
+    # 하단 상태바
+    status_bar_y = board_y + board_height - 50
+    pygame.draw.rect(surface, (20, 60, 100), (board_x + 10, status_bar_y, board_width - 20, 40))
+    pygame.draw.rect(surface, (100, 200, 255), (board_x + 10, status_bar_y, board_width - 20, 40), 2)
+
+    status_text = pygame.font.Font(None, 24).render("🔥 INTENSE MATCH IN PROGRESS 🔥", True, (255, 200, 100))
+    surface.blit(status_text, (board_x + board_width // 2 - status_text.get_width() // 2, status_bar_y + 8))
+
+
+def draw_style12_aaa_neon_dynasty(surface):
+    """AAA급 네온 왕조 - 사이버펑크 스타디움"""
+    board_width = 900
+    board_height = 450
+    board_x = (WIDTH - board_width) // 2
+    board_y = (HEIGHT - board_height) // 2
+
+    # 배경: 다이나믹한 그래디언트
+    for i in range(board_height):
+        ratio = i / board_height
+        r = int(10 + 20 * ratio)
+        g = int(5 + 10 * ratio)
+        b = int(20 + 30 * ratio)
+        pygame.draw.line(surface, (r, g, b), (board_x, board_y + i), (board_x + board_width, board_y + i), 1)
+
+    # 다중 네온 테두리
+    neon_colors = [(255, 0, 150), (0, 255, 200), (200, 100, 255)]
+    for idx, color in enumerate(neon_colors):
+        offset = idx * 4
+        pygame.draw.rect(surface, color, (board_x - offset, board_y - offset, board_width + offset*2, board_height + offset*2), 3)
+
+    # 스캔라인 효과
+    for y in range(board_y, board_y + board_height, 3):
+        pygame.draw.line(surface, (50, 200, 255), (board_x, y), (board_x + board_width, y), 1)
+
+    # 상단 타이틀
+    title = pygame.font.Font(None, 56).render("▶ NEON DYNASTY ◀", True, (0, 255, 200))
+    title_shadow = pygame.font.Font(None, 56).render("▶ NEON DYNASTY ◀", True, (0, 100, 150))
+    surface.blit(title_shadow, (board_x + board_width // 2 - title.get_width() // 2 + 2, board_y + 20))
+    surface.blit(title, (board_x + board_width // 2 - title.get_width() // 2, board_y + 18))
+
+    # 플레이어 섹션
+    p_x = board_x + 50
+    p_y = board_y + 100
+    p_w = 350
+    p_h = 300
+
+    pygame.draw.rect(surface, (5, 30, 40), (p_x, p_y, p_w, p_h))
+    for glow in range(20, 0, -2):
+        glow_color = (0, 255 - glow*10, 200 - glow*8)
+        pygame.draw.rect(surface, glow_color, (p_x - glow, p_y - glow, p_w + glow*2, p_h + glow*2), 1)
+
+    p_label = pygame.font.Font(None, 40).render("PLAYER 1", True, (0, 255, 200))
+    surface.blit(p_label, (p_x + 30, p_y + 20))
+
+    draw_dot_matrix_digit(surface, p_x + 60, p_y + 90, 2, (0, 255, 200), 180, 6)
+
+    # 보스 섹션
+    b_x = board_x + board_width - p_w - 50
+    b_y = board_y + 100
+
+    pygame.draw.rect(surface, (40, 5, 30), (b_x, b_y, p_w, p_h))
+    for glow in range(20, 0, -2):
+        glow_color = (255 - glow*10, 50 - glow*2, 150 - glow*8)
+        pygame.draw.rect(surface, glow_color, (b_x - glow, b_y - glow, p_w + glow*2, p_h + glow*2), 1)
+
+    b_label = pygame.font.Font(None, 40).render("BOSS MODE", True, (255, 100, 200))
+    surface.blit(b_label, (b_x + 30, b_y + 20))
+
+    draw_dot_matrix_digit(surface, b_x + 60, b_y + 90, 1, (255, 100, 200), 180, 6)
+
+    # 중앙 VS
+    vs_x = board_x + board_width // 2
+    vs_y = board_y + board_height // 2
+
+    for size in [100, 80, 60]:
+        color = (255 if size < 80 else 200, 200 - size // 2, 255 - size // 2)
+        points = [
+            (vs_x, vs_y - size // 2),
+            (vs_x + size // 2, vs_y),
+            (vs_x, vs_y + size // 2),
+            (vs_x - size // 2, vs_y)
+        ]
+        pygame.draw.polygon(surface, color, points, 2)
+
+    vs_text = pygame.font.Font(None, 72).render("VS", True, (255, 255, 100))
+    surface.blit(vs_text, (vs_x - vs_text.get_width() // 2, vs_y - vs_text.get_height() // 2))
+
+    # 하단 상태바
+    pygame.draw.rect(surface, (10, 10, 25), (board_x + 10, board_y + board_height - 50, board_width - 20, 40))
+    pygame.draw.rect(surface, (0, 255, 200), (board_x + 10, board_y + board_height - 50, board_width - 20, 40), 2)
+
+    status = pygame.font.Font(None, 28).render("⚡ CRITICAL MOMENT - FINAL ROUND ⚡", True, (0, 255, 200))
+    surface.blit(status, (board_x + board_width // 2 - status.get_width() // 2, board_y + board_height - 42))
+
+
+def draw_style13_aaa_epic_showdown(surface):
+    """AAA급 에픽 쇼다운 - 영화급 연출"""
+    board_width = 900
+    board_height = 450
+    board_x = (WIDTH - board_width) // 2
+    board_y = (HEIGHT - board_height) // 2
+
+    # 배경: 영화 포스터 스타일
+    pygame.draw.rect(surface, (15, 15, 25), (board_x, board_y, board_width, board_height))
+
+    # 배경 효과: 극적인 라이팅
+    for i in range(board_height):
+        ratio = (i - board_height // 2) / board_height
+        intensity = int(255 * (1 - abs(ratio) * 2))
+        color = (20 + intensity // 20, 10, 40 + intensity // 10)
+        pygame.draw.line(surface, color, (board_x, board_y + i), (board_x + board_width, board_y + i), 1)
+
+    # 외부 금속 프레임
+    frame_colors = [(255, 200, 100), (200, 150, 50), (150, 100, 30)]
+    for idx, color in enumerate(frame_colors):
+        pygame.draw.rect(surface, color, (board_x - idx*2, board_y - idx*2, board_width + idx*4, board_height + idx*4), 2)
+
+    # 타이틀: 영화 스타일
+    title_font = pygame.font.Font(None, 64)
+    title1 = title_font.render("EPIC", True, (255, 200, 100))
+    title2 = title_font.render("SHOWDOWN", True, (255, 100, 100))
+    surface.blit(title1, (board_x + board_width // 2 - title1.get_width() // 2, board_y + 15))
+    surface.blit(title2, (board_x + board_width // 2 - title2.get_width() // 2, board_y + 45))
+
+    # 플레이어 정보 카드
+    p_card_x = board_x + 40
+    p_card_y = board_y + 110
+    p_card_w = 320
+    p_card_h = 300
+
+    pygame.draw.rect(surface, (30, 50, 80), (p_card_x, p_card_y, p_card_w, p_card_h))
+    pygame.draw.rect(surface, (200, 200, 255), (p_card_x, p_card_y, p_card_w, p_card_h), 3)
+
+    pygame.draw.line(surface, (100, 200, 255), (p_card_x, p_card_y + 50), (p_card_x + p_card_w, p_card_y + 50), 2)
+
+    p_name = pygame.font.Font(None, 48).render("YOU", True, (100, 220, 255))
+    surface.blit(p_name, (p_card_x + 20, p_card_y + 12))
+
+    draw_dot_matrix_digit(surface, p_card_x + 40, p_card_y + 100, 2, (100, 220, 255), 160, 5)
+
+    # 보스 정보 카드
+    b_card_x = board_x + board_width - p_card_w - 40
+    b_card_y = board_y + 110
+
+    pygame.draw.rect(surface, (80, 30, 50), (b_card_x, b_card_y, p_card_w, p_card_h))
+    pygame.draw.rect(surface, (255, 150, 150), (b_card_x, b_card_y, p_card_w, p_card_h), 3)
+
+    pygame.draw.line(surface, (255, 100, 100), (b_card_x, b_card_y + 50), (b_card_x + p_card_w, b_card_y + 50), 2)
+
+    b_name = pygame.font.Font(None, 48).render("BOSS", True, (255, 150, 150))
+    surface.blit(b_name, (b_card_x + 20, b_card_y + 12))
+
+    draw_dot_matrix_digit(surface, b_card_x + 40, b_card_y + 100, 1, (255, 150, 150), 160, 5)
+
+    # 중앙: 극적인 VS
+    vs_center_x = board_x + board_width // 2
+    vs_center_y = board_y + board_height // 2 + 20
+
+    for radius in range(80, 30, -5):
+        alpha_color = (255 - radius, 200 - radius // 2, 100)
+        pygame.draw.circle(surface, alpha_color, (vs_center_x, vs_center_y), radius, 2)
+
+    vs_text = pygame.font.Font(None, 80).render("VS", True, (255, 255, 100))
+    surface.blit(vs_text, (vs_center_x - vs_text.get_width() // 2, vs_center_y - vs_text.get_height() // 2))
+
+    # 하단 상태: 극적인 메시지
+    pygame.draw.rect(surface, (50, 20, 20), (board_x + 10, board_y + board_height - 45, board_width - 20, 35))
+    pygame.draw.rect(surface, (255, 100, 100), (board_x + 10, board_y + board_height - 45, board_width - 20, 35), 2)
+
+    status_msg = pygame.font.Font(None, 32).render("🔥 THE FINAL BATTLE - EVERYTHING IS AT STAKE 🔥", True, (255, 150, 100))
+    surface.blit(status_msg, (board_x + board_width // 2 - status_msg.get_width() // 2, board_y + board_height - 38))
+
+
 # 각 스타일을 개별 이미지로 저장
 styles = [
     ("style1_premium_classic", draw_style1, "프리미엄 클래식 - Fenway 스타일"),
