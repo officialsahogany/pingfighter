@@ -7,7 +7,23 @@ Oriental temple theme with traditional Chinese architecture and martial arts atm
 import pygame
 import math
 import random
+import os
+import sys
 from typing import List, Tuple, Dict, Any
+
+def resource_path(relative_path):
+    """PyInstaller 번들과 일반 실행 모두에서 작동하는 리소스 경로 반환"""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        if os.path.basename(base_path) == "ui":
+            base_path = os.path.dirname(base_path)
+    relative_path = relative_path.replace('/', os.sep).replace('\\', os.sep)
+    return os.path.join(base_path, relative_path)
+
+# 픽셀 폰트 경로
+PIXEL_FONT = resource_path("PFStardust.ttf")
 
 class ShaolinTempleBackground:
     def __init__(self, width: int = 600, height: int = 750):
@@ -2746,25 +2762,25 @@ class ShaolinTempleBackground:
     def _draw_stage_title(self, surface: pygame.Surface):
         """Draw stage title"""
         try:
-            font = pygame.font.Font("NeoDGM.ttf", 24)
+            font = pygame.font.Font(PIXEL_FONT, 24)
         except:
             font = pygame.font.Font(None, 24)
-        
+
         title = "Stage 4: Shaolin Temple"
         subtitle = "소림사"
-        
+
         # Create glowing text effect
         for offset in [(2, 2), (-2, -2), (2, -2), (-2, 2)]:
             shadow_text = font.render(title, True, self.colors['gold_dim'])
-            surface.blit(shadow_text, (self.width // 2 - shadow_text.get_width() // 2 + offset[0], 
+            surface.blit(shadow_text, (self.width // 2 - shadow_text.get_width() // 2 + offset[0],
                                       30 + offset[1]))
-        
+
         title_text = font.render(title, True, self.colors['gold_accent'])
         surface.blit(title_text, (self.width // 2 - title_text.get_width() // 2, 30))
-        
+
         # Korean subtitle
         try:
-            font_kr = pygame.font.Font("NeoDGM.ttf", 20)
+            font_kr = pygame.font.Font(PIXEL_FONT, 20)
         except:
             font_kr = pygame.font.Font(None, 20)
         

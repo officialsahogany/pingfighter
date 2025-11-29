@@ -25,6 +25,10 @@ class BGMManager:
         """BGM 매니저 초기화"""
         self.current_bgm = None
         self.volume = 0.4  # 기본 볼륨 40%
+        self._is_paused = False
+        self._user_muted = False  # 사용자 토글로 음소거 상태인지
+        self._muted_volume_cache = self.volume
+        self._muted_last_bgm = None  # 사용자 음소거 시점의 트랙을 기억해 재진입 시 복원
         # 포맷 호환성 확보: mp3 실패 시 ogg/wav 순으로 대체 시도
         # Windows PyInstaller 번들에서 mp3 코덱 누락 시 재생 실패할 수 있음
         self.bgm_candidates = {
@@ -118,6 +122,14 @@ class BGMManager:
             print(f"{bgm_name} BGM이 이미 재생 중입니다.")
             return
             
+        # 사용자 음소거 상태면 트랙만 기억하고 재생을 건너뜀
+        if getattr(self, "_user_muted", False):
+            self._muted_last_bgm = bgm_name
+            self.current_bgm = bgm_name
+            self._is_paused = True
+            print(f"{bgm_name} BGM 요청됨 (사용자 음소거 중, 재생 건너뜀)")
+            return
+            
         bgm_path = self._resolve_bgm_path(bgm_name)
         if not bgm_path:
             print(f"BGM '{bgm_name}'을 찾을 수 없습니다.")
@@ -146,6 +158,7 @@ class BGMManager:
             pygame.mixer.music.set_volume(self.volume)
             pygame.mixer.music.play(loop)
             self.current_bgm = bgm_name
+            self._is_paused = False
             try:
                 file_size = os.path.getsize(bgm_path)
             except Exception:
@@ -162,17 +175,57 @@ class BGMManager:
             caller = traceback.format_stack(limit=3)[0].strip()
             print(f"{self.current_bgm} BGM 정지 (caller: {caller})")
             self.current_bgm = None
+        self._muted_last_bgm = None
+        self._is_paused = False
             
     def pause_bgm(self):
         """BGM 일시정지"""
         if pygame.mixer.music.get_busy():
             pygame.mixer.music.pause()
             print("BGM 일시정지")
+            self._is_paused = True
             
     def unpause_bgm(self):
         """BGM 재개"""
+        if self._user_muted:
+            print("BGM 재개 요청 무시: 사용자 음소거 중")
+            return
         pygame.mixer.music.unpause()
+        self._is_paused = False
         print("BGM 재개")
+
+    def toggle_bgm(self):
+        """BGM 토글 (사용자 음소거 on/off)"""
+        if not self.is_initialized:
+            self.initialize()
+        # 음소거 해제
+        if self._user_muted:
+            self._user_muted = False
+            # 볼륨 복원
+            pygame.mixer.music.set_volume(self.volume)
+            if self._is_paused and pygame.mixer.music.get_busy():
+                self.unpause_bgm()
+                return False
+            target = self.current_bgm or self._muted_last_bgm
+            self._muted_last_bgm = None
+            if target:
+                self.play_bgm(target)
+            else:
+                print("BGM 토글: 재생할 트랙이 없습니다.")
+            return False
+
+        # 음소거로 전환 (현재 재생 중이면 일시정지 + 볼륨 0)
+        try:
+            # 일시정지가 아니라 완전 정지로 전환해 즉시 끊기도록 처리
+            pygame.mixer.music.stop()
+        except Exception as e:
+            print(f"BGM 정지 실패: {e}")
+        self._is_paused = False
+        self._muted_last_bgm = self.current_bgm
+        self._muted_volume_cache = self.volume
+        pygame.mixer.music.set_volume(0)
+        self._user_muted = True
+        return True
         
     def set_volume(self, volume):
         """
@@ -182,8 +235,14 @@ class BGMManager:
             volume: 볼륨 값 (0.0 ~ 1.0)
         """
         self.volume = max(0.0, min(1.0, volume))
-        pygame.mixer.music.set_volume(self.volume)
-        print(f"BGM 볼륨 설정: {self.volume * 100:.0f}%")
+        if not self.is_initialized:
+            self.initialize()
+        if self._user_muted:
+            # 음소거 상태에서는 즉시 적용하지 않고 값만 기억
+            self._muted_volume_cache = self.volume
+        else:
+            pygame.mixer.music.set_volume(self.volume)
+        print(f"BGM 볼륨 설정: {self.volume * 100:.0f}% (음소거={self._user_muted})")
         
     def is_playing(self):
         """BGM이 재생 중인지 확인"""
@@ -254,3 +313,7 @@ def stop_bgm():
 def set_bgm_volume(volume):
     """BGM 볼륨 설정"""
     bgm_manager.set_volume(volume)
+
+def toggle_bgm():
+    """BGM 토글 (일시정지/재개)"""
+    bgm_manager.toggle_bgm()

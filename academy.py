@@ -3,6 +3,7 @@ import json
 import os
 import math
 import sys
+from game_state.audio import get_sfx_volume
 
 ACADEMY_DEBUG = os.getenv("ACADEMY_DEBUG") == "1"
 
@@ -449,6 +450,39 @@ class AcademyUI:
             self.font_large = pygame.font.Font(None, 24)
             self.font_medium = pygame.font.Font(None, 18)
             self.font_small = pygame.font.Font(None, 14)
+
+        # 스킬 포인트 투자 사운드 (없어도 실행은 계속)
+        self.academy_skill_sound = self._load_academy_skill_sound()
+
+    def _load_academy_skill_sound(self):
+        """스킬 포인트 투자 사운드를 로드 (실패 시 None 반환)"""
+        try:
+            if not pygame.mixer.get_init():
+                return None
+            sound_path = resource_path(os.path.join("sounds", "academyskill.wav"))
+            return pygame.mixer.Sound(sound_path)
+        except Exception as exc:
+            if ACADEMY_DEBUG:
+                print(f"[ACADEMY] 투자 사운드 로드 실패: {exc}")
+            return None
+
+    def play_skill_invest_sound(self):
+        """스킬 포인트 투자 사운드를 재생"""
+        if not self.academy_skill_sound:
+            self.academy_skill_sound = self._load_academy_skill_sound()
+        sound = self.academy_skill_sound
+        if not sound:
+            return
+        try:
+            sound.set_volume(get_sfx_volume())
+        except Exception:
+            # 볼륨 설정 실패는 무음 환경 등에서 허용
+            pass
+        try:
+            sound.play()
+        except Exception as exc:
+            if ACADEMY_DEBUG:
+                print(f"[ACADEMY] 투자 사운드 재생 실패: {exc}")
 
 
     def _determine_default_tree(self, selected_character: str) -> str:
@@ -1777,6 +1811,7 @@ class AcademyUI:
                                         # 레벨업 애니메이션 시작
                                         if new_level > old_level:
                                             self.start_levelup_animation(skill["id"])
+                                            self.play_skill_invest_sound()
                                         
                                         # 0→1 전환시 언락 애니메이션
                                         if old_level == 0 and new_level == 1:
@@ -1795,6 +1830,7 @@ class AcademyUI:
                                         # 레벨업 애니메이션 시작 (모든 레벨업에서)
                                         if new_level > old_level:
                                             self.start_levelup_animation(skill["id"])
+                                            self.play_skill_invest_sound()
                                         
                                         # 0→1 전환시에만 언락 애니메이션
                                         if old_level == 0 and new_level == 1:
@@ -1853,6 +1889,7 @@ class AcademyUI:
                     if cost > 0:
                         self.skill_system.skill_points -= cost
                         self.skill_system.register_manual_investment("smasher", cost)
+                        self.play_skill_invest_sound()
                     return None
         elif self.selected_tree in SKILL_TREES:
             # 아카데미 화면에서 실제로 그려진 아이콘 좌표(self.skill_positions)를 기준으로
@@ -1890,6 +1927,7 @@ class AcademyUI:
                     if new_level > old_level:
                         # 레벨업 애니메이션 시작 (모든 레벨업에서)
                         self.start_levelup_animation(clicked_skill_id)
+                        self.play_skill_invest_sound()
 
                         # 0→1 전환시에만 언락 애니메이션
                         if old_level == 0:

@@ -1131,15 +1131,24 @@ class DowntownRenderer:
 
         font = None
 
-        # 1차 시도: resource_path로 폰트 로드
+        # 1차 시도: 네오둥근모 프로 픽셀 폰트
         try:
-            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-            if os.path.exists(font_path):
-                font = pygame.freetype.Font(font_path, size)
+            pixel_font_path = resource_path("PFStardust.ttf")
+            if os.path.exists(pixel_font_path):
+                font = pygame.freetype.Font(pixel_font_path, size)
         except Exception:
             pass
 
-        # 2차 시도: 시스템 폰트 (macOS/Windows)
+        # 2차 시도: NanumSquare 폴백
+        if font is None:
+            try:
+                font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                if os.path.exists(font_path):
+                    font = pygame.freetype.Font(font_path, size)
+            except Exception:
+                pass
+
+        # 3차 시도: 시스템 폰트 (macOS/Windows)
         if font is None:
             try:
                 # macOS
@@ -1151,7 +1160,7 @@ class DowntownRenderer:
             except Exception:
                 pass
 
-        # 3차 시도: 기본 폰트
+        # 4차 시도: 기본 폰트
         if font is None:
             try:
                 font = pygame.freetype.SysFont("malgungothic", size)

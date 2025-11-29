@@ -44,7 +44,13 @@ _alchemy_font = None
 def get_alchemy_font():
     global _alchemy_font
     if _alchemy_font is None:
-        for candidate in ["NeoDunggeunmoPro.ttf", "NeoDGM.ttf", "NanumSquareB.ttf", "NanumSquareR.ttf"]:
+        # fonts/pixel/ 폴더의 네오둥근모 프로 우선 사용
+        for candidate in [
+            "PFStardust.ttf",
+            "PFStardust.ttf",
+            "NanumSquareB.ttf",
+            "NanumSquareR.ttf"
+        ]:
             try:
                 _alchemy_font = pygame.font.Font(resource_path(candidate), 18)
                 break
@@ -490,7 +496,7 @@ ITEM_TYPES = [
         "color": (255, 180, 80),
         "effect": "slot_add",
         "icon": None,
-        "chance": 0.008,  # 확률 1.0%로 상향 (기존: 0.3%)
+        "chance": 0.006,  # 확률 1.0%로 상향 (기존: 0.3%)
         "duration": 600,
         "unlock_condition": None
     },
@@ -581,7 +587,7 @@ ITEM_TYPES = [
         "color": (100, 255, 100),  # 초록색
         "effect": "chargebag",
         "icon": None,
-        "chance": 0.005,  # 중간 확률
+        "chance": 0.003,  # 중간 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -1689,7 +1695,7 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                 
                 # 카운트다운 숫자 표시 (크고 굵게)
                 try:
-                    countdown_font = pygame.font.Font("NeoDGM.ttf", 32)
+                    countdown_font = pygame.font.Font(resource_path("PFStardust.ttf"), 32)
                 except:
                     countdown_font = pygame.font.Font(None, 40)
                 

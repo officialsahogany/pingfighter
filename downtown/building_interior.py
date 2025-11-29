@@ -7,10 +7,26 @@ import pygame
 import pygame.freetype
 import math
 import random
-from .constants import (
-    SCREEN_WIDTH, SCREEN_HEIGHT, BuildingType, Colors, resource_path,
-    TILE_SIZE, PLAYER_SPEED, PLAYER_SIZE
-)
+
+# Allow running as a module or as a script
+try:
+    from .constants import (
+        SCREEN_WIDTH, SCREEN_HEIGHT, BuildingType, Colors, resource_path,
+        TILE_SIZE, PLAYER_SPEED, PLAYER_SIZE
+    )
+except ImportError:  # pragma: no cover - fallback for direct execution
+    import sys
+    from pathlib import Path
+
+    # Add project root (parent of 'downtown') to sys.path so 'downtown' becomes importable
+    project_root = Path(__file__).resolve().parents[1]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+    from downtown.constants import (  # type: ignore
+        SCREEN_WIDTH, SCREEN_HEIGHT, BuildingType, Colors, resource_path,
+        TILE_SIZE, PLAYER_SPEED, PLAYER_SIZE
+    )
 
 
 # =============================================================================
@@ -1356,6 +1372,14 @@ class InteriorPlayer:
             if scancode is not None:
                 self._scancode_map.pop(scancode, None)
 
+    def reset_input_state(self):
+        """모달 화면 복귀 시 입력이 고정되지 않도록 상태 초기화."""
+        self.pressed_keys.clear()
+        self._scancode_map.clear()
+        self.velocity_x = 0
+        self.velocity_y = 0
+        self.is_moving = False
+
     def handle_input(self, keys, dt):
         """입력 처리 (광장 플레이어와 동일한 방식)"""
         self.velocity_x = 0
@@ -1805,6 +1829,14 @@ class BuildingInterior:
         self.player_data = player_data or {'gold': 0, 'star_points': 0}
         self.academy = academy
         self.ap_system = ap_system
+        # 상점 거래창 스크롤 상태
+        self.shop_player_scroll = 0
+        self.shop_shop_scroll = 0
+        self._shop_player_max_scroll = 0
+        self._shop_shop_max_scroll = 0
+        self._shop_player_visible_rows = 0
+        self._shop_shop_visible_rows = 0
+        self.shop_confirm_dialog = None  # {"action":..., ...}
 
         # 건물별 설정
         self.config = INTERIOR_CONFIGS.get(building_type, DEFAULT_INTERIOR_CONFIG)
@@ -1878,6 +1910,8 @@ class BuildingInterior:
         self.exchange_menu_open = False
         self.exchange_direction = 0  # 0: 스타포인트→골드, 1: 골드→스타포인트
         self.exchange_amount = 1  # 환전할 양
+        self.exchange_slider_dragging = False  # 슬라이더 드래그 중 여부
+        self.exchange_slider_rect = None  # 슬라이더 트랙 영역 (draw에서 설정)
 
         # 예금 창 상태
         self.deposit_menu_open = False
@@ -1896,6 +1930,32 @@ class BuildingInterior:
         self.shop_hover_item = None  # 마우스 호버 중인 아이템 (source, idx, item, rect)
         self.shop_tooltip_item = None  # 툴팁 표시할 아이템
         self.shop_item_rects = {"player": {}, "shop": {}}  # 클릭 영역 저장
+
+        # 드래그 앤 드롭 시스템
+        self.shop_dragging_item = None  # {'source': 'player'|'shop', 'idx': int, 'item': dict}
+        self.shop_drag_start_pos = None  # 드래그 시작 위치
+        self.shop_drag_offset = (0, 0)  # 아이템 중심에서 마우스 오프셋
+
+        # 골드 변동 애니메이션 시스템
+        self.gold_float_animations = []  # {'amount': int, 'is_gain': bool, 'x': int, 'y': int, 'timer': float, 'alpha': int}
+
+        # 상점/환전 효과음 로드
+        self.trade_sound = None
+        self.star_exchange_sound = None
+        try:
+            import os
+            trade_sound_path = resource_path(os.path.join("sounds", "trade.wav"))
+            if os.path.exists(trade_sound_path):
+                self.trade_sound = pygame.mixer.Sound(trade_sound_path)
+                self.trade_sound.set_volume(0.6)  # 볼륨 60%
+
+            star_sound_path = resource_path(os.path.join("sounds", "star.wav"))
+            if os.path.exists(star_sound_path):
+                self.star_exchange_sound = pygame.mixer.Sound(star_sound_path)
+                self.star_exchange_sound.set_volume(0.6)
+        except Exception as e:
+            print(f"Warning: Could not load trade/star sound: {e}")
+
         self._init_shop_inventory()  # 상점 인벤토리 초기화
 
     def _init_shop_inventory(self):
@@ -1916,31 +1976,37 @@ class BuildingInterior:
 
         # 패시브 아이템 목록 (판매 가능한 아이템들)
         passive_items = [
-            {"name": "speedboots", "base_price": 500, "korean": "스피드부츠"},
-            {"name": "speedgear", "base_price": 450, "korean": "스피드기어"},
-            {"name": "battery", "base_price": 600, "korean": "배터리"},
-            {"name": "revival", "base_price": 1500, "korean": "부활"},
-            {"name": "master", "base_price": 800, "korean": "장인"},
+            {"name": "speedboots", "base_price": 1100, "korean": "스피드부츠"},
+            {"name": "speedgear", "base_price": 800, "korean": "스피드기어"},
+            {"name": "battery", "base_price": 1300, "korean": "배터리"},
+            {"name": "revival", "base_price": 3000, "korean": "부활"},
+            {"name": "master", "base_price": 900, "korean": "토르의 망치"},
             {"name": "cooltime", "base_price": 700, "korean": "쿨타임"},
-            {"name": "chargebag", "base_price": 550, "korean": "충전가방"},
-            {"name": "spikeboots", "base_price": 650, "korean": "스파이크부츠"},
-            {"name": "dashgear", "base_price": 600, "korean": "대쉬기어"},
-            {"name": "bulkup", "base_price": 750, "korean": "벌크업"},
-            {"name": "sensor", "base_price": 500, "korean": "감지센서"},
-            {"name": "gravitybelt", "base_price": 900, "korean": "무중력벨트"},
-            {"name": "dashholder", "base_price": 650, "korean": "대쉬홀더"},
+            {"name": "chargebag", "base_price": 1500, "korean": "충전가방"},
+            {"name": "spikeboots", "base_price": 1200, "korean": "스파이크부츠"},
+            {"name": "dashgear", "base_price": 1200, "korean": "대쉬기어"},
+            {"name": "bulkup", "base_price": 1100, "korean": "벌크업"},
+            {"name": "sensor", "base_price": 1800, "korean": "위험감지센서"},
+            {"name": "gravitybelt", "base_price": 2500, "korean": "무중력벨트"},
+            {"name": "dashholder", "base_price": 1800, "korean": "대쉬홀더"},
             {"name": "dowsing_pendulum", "base_price": 700, "korean": "다우징팬들럼"},
-            {"name": "smartphone", "base_price": 850, "korean": "스마트폰"},
-            {"name": "commando_arm", "base_price": 800, "korean": "코만도암"},
-            {"name": "technical_vest", "base_price": 750, "korean": "테크니컬조끼"},
-            {"name": "fuel_pouch", "base_price": 500, "korean": "연료파우치"},
-            {"name": "slot_add", "base_price": 1200, "korean": "슬롯추가"},
+            {"name": "smartphone", "base_price": 800, "korean": "스마트폰"},
+            {"name": "commando_arm", "base_price": 1100, "korean": "코만도암"},
+            {"name": "technical_vest", "base_price": 1200, "korean": "테크니컬조끼"},
+            {"name": "fuel_pouch", "base_price": 700, "korean": "연료파우치"},
+            {"name": "slot_add", "base_price": 900, "korean": "가방"},
+            {"name": "bluetooth_ring", "base_price": 1200, "korean": "블루투스링"},
+            {"name": "star_detector", "base_price": 900, "korean": "별탐지기"},
+            {"name": "foul_whistle", "base_price": 1300, "korean": "반칙호루라기"},
+            {"name": "bulletproof_hat", "base_price": 800, "korean": "방탄모자"},
+            {"name": "spiked_helmet", "base_price": 1000, "korean": "가시투구"},
+            {"name": "knee_pads", "base_price": 800, "korean": "킥차져"},
         ]
 
         # 전설 아이템 목록 (5% 확률)
         legendary_items = [
-            {"name": "ragnarok_hammer", "base_price": 5000, "korean": "라그나로크 해머", "type": "legendary"},
-            {"name": "hermes_shoes", "base_price": 4500, "korean": "헤르메스의 신발", "type": "legendary"},
+            {"name": "ragnarok_hammer", "base_price": 6500, "korean": "라그나로크 해머", "type": "legendary"},
+            {"name": "hermes_shoes", "base_price": 5500, "korean": "헤르메스의 신발", "type": "legendary"},
             {"name": "poseidon_trident", "base_price": 5500, "korean": "포세이돈의 삼지창", "type": "legendary"},
         ]
 
@@ -1981,20 +2047,13 @@ class BuildingInterior:
                     if assign_item_prefix:
                         assign_item_prefix(shop_item, force=True)
 
-            # 최종 가격 계산 (기본가 + 품질 보너스 + 랜덤 변동 ±10%)
+            # 최종 가격 계산 (기본가 + 품질/롤옵션 보너스)
             base_price = selected["base_price"]
-            # 품질에 따른 가격 보너스
-            quality_bonus = 0
-            quality_tier = shop_item.get("quality_tier", "low")
-            if quality_tier == "top":
-                quality_bonus = int(base_price * 0.5)  # 50% 추가
-            elif quality_tier == "high":
-                quality_bonus = int(base_price * 0.3)  # 30% 추가
-            elif quality_tier == "mid":
-                quality_bonus = int(base_price * 0.15)  # 15% 추가
+            # 품질 등급과 롤옵션 세부 수치에 따른 가격 보너스
+            quality_roll_bonus = self._get_quality_and_roll_bonus(shop_item, base_price)
 
-            price_variance = random.uniform(0.9, 1.1)
-            final_price = int((base_price + quality_bonus) * price_variance)
+            # 랜덤 변동 제거 - 일관된 가격 유지 (사고팔아도 가격 변동 없음)
+            final_price = int(base_price + quality_roll_bonus)
             shop_item["price"] = final_price
 
             self.shop_inventory.append(shop_item)
@@ -2414,6 +2473,14 @@ class BuildingInterior:
         """업데이트"""
         self.animation_timer += dt
 
+        # 골드 변동 애니메이션 업데이트
+        self._update_gold_float_animations(dt)
+
+        # 환전 슬라이더 드래그 중이면 마우스 위치로 값 업데이트
+        if self.exchange_menu_open and self.exchange_slider_dragging:
+            mouse_pos = pygame.mouse.get_pos()
+            self._handle_exchange_slider_drag(mouse_pos)
+
         # 입장 쿨다운 감소
         if self.entry_cooldown > 0:
             self.entry_cooldown -= dt
@@ -2506,8 +2573,25 @@ class BuildingInterior:
 
         return None
 
+    def handle_mouse_up(self, pos, button=1):
+        """마우스 버튼 릴리즈 처리"""
+        # 환전 슬라이더 드래그 종료
+        if self.exchange_menu_open and button == 1:
+            if self._handle_exchange_slider_release():
+                return ("exchange_drag_end", None)
+
+        # 상점 거래창에서 드래그 앤 드롭 처리
+        if self.shop_trade_open and button == 1:  # 좌클릭 릴리즈
+            if self.shop_dragging_item:
+                return self._handle_shop_drag_release(pos)
+        return None
+
     def _handle_shop_trade_click(self, pos):
         """상점 거래창 우클릭 처리 (판매/구매) - 아이콘 그리드 방식"""
+        # 확인 창이 열려있다면 먼저 처리
+        if self.shop_confirm_dialog:
+            return self._handle_shop_confirm_click(pos)
+
         # shop_item_rects를 사용하여 클릭된 아이템 확인
         if not hasattr(self, 'shop_item_rects'):
             return None
@@ -2515,31 +2599,168 @@ class BuildingInterior:
         # 플레이어 인벤토리 클릭 확인
         for idx, rect in self.shop_item_rects.get("player", {}).items():
             if rect.collidepoint(pos):
-                return self._sell_player_item(idx)
+                return self._sell_player_item(idx, pos)
 
         # 상점 인벤토리 클릭 확인
         for idx, rect in self.shop_item_rects.get("shop", {}).items():
             if rect.collidepoint(pos):
-                return self._buy_shop_item(idx)
+                return self._buy_shop_item(idx, pos)
 
         return None
 
     def _handle_shop_trade_left_click(self, pos):
-        """상점 거래창 좌클릭 처리 (UI 바깥 클릭시 닫기)"""
-        # UI 영역 계산 (새 크기에 맞게 업데이트)
+        """상점 거래창 좌클릭 처리 (드래그 시작 또는 UI 바깥 클릭시 닫기)"""
+        # 확인 다이얼로그가 열려있으면 버튼 처리 우선
+        if self.shop_confirm_dialog:
+            result = self._handle_shop_confirm_click(pos)
+            if result:
+                return result
+
+        # UI 영역 및 스크롤바 계산 (draw와 동일)
         total_w, total_h = 620, 420
         ui_x = (SCREEN_WIDTH - total_w) // 2
         ui_y = (SCREEN_HEIGHT - total_h) // 2
-        ui_rect = pygame.Rect(ui_x, ui_y, total_w, total_h)
+        panel_w = 280
+        gap = 20
+        panel_h = total_h - 100
+
+        left_x = ui_x + 20
+        left_y = ui_y + 50
+        right_x = ui_x + panel_w + gap + 20
+        right_y = ui_y + 50
+
+        grid_y_left = left_y + 35
+        grid_y_right = right_y + 35
+        grid_h = panel_h - 60
+
+        left_track = pygame.Rect(left_x + panel_w - 12, grid_y_left, 8, grid_h)
+        right_track = pygame.Rect(right_x + panel_w - 12, grid_y_right, 8, grid_h)
+
+        def _apply_scroll(click_pos, track_rect, max_scroll, visible_rows):
+            if max_scroll <= 0:
+                return None
+            thumb_h = max(18, int(track_rect.height * (visible_rows / max(visible_rows + max_scroll, 1))))
+            rel = max(0, min(track_rect.height - thumb_h, click_pos[1] - track_rect.y - thumb_h // 2))
+            ratio = 0 if (track_rect.height - thumb_h) == 0 else rel / (track_rect.height - thumb_h)
+            return max(0, min(max_scroll, int(round(ratio * max_scroll))))
+
+        # 좌측 스크롤바 클릭
+        if left_track.collidepoint(pos):
+            new_scroll = _apply_scroll(pos, left_track, self._shop_player_max_scroll, self._shop_player_visible_rows)
+            if new_scroll is not None:
+                self.shop_player_scroll = new_scroll
+                return ("shop_player_scroll", new_scroll)
+
+        # 우측 스크롤바 클릭
+        if right_track.collidepoint(pos):
+            new_scroll = _apply_scroll(pos, right_track, self._shop_shop_max_scroll, self._shop_shop_visible_rows)
+            if new_scroll is not None:
+                self.shop_shop_scroll = new_scroll
+                return ("shop_shop_scroll", new_scroll)
+
+        # 아이템 드래그 시작 체크
+        try:
+            import pingfighter
+            player_items = getattr(pingfighter, 'passive_item_list', [])
+        except:
+            player_items = []
+
+        # 플레이어 인벤토리에서 드래그 시작
+        for idx, rect in self.shop_item_rects.get("player", {}).items():
+            if rect.collidepoint(pos) and idx < len(player_items):
+                item = player_items[idx]
+                self.shop_dragging_item = {
+                    'source': 'player',
+                    'idx': idx,
+                    'item': item.copy()
+                }
+                self.shop_drag_start_pos = pos
+                self.shop_drag_offset = (pos[0] - rect.centerx, pos[1] - rect.centery)
+                return ("drag_start", {"source": "player", "idx": idx})
+
+        # 상점 인벤토리에서 드래그 시작
+        for idx, rect in self.shop_item_rects.get("shop", {}).items():
+            if rect.collidepoint(pos) and idx < len(self.shop_inventory):
+                item = self.shop_inventory[idx]
+                self.shop_dragging_item = {
+                    'source': 'shop',
+                    'idx': idx,
+                    'item': item.copy()
+                }
+                self.shop_drag_start_pos = pos
+                self.shop_drag_offset = (pos[0] - rect.centerx, pos[1] - rect.centery)
+                return ("drag_start", {"source": "shop", "idx": idx})
 
         # UI 바깥 클릭시 닫기
+        ui_rect = pygame.Rect(ui_x, ui_y, total_w, total_h)
         if not ui_rect.collidepoint(pos):
             self.shop_trade_open = False
             return ("shop_close", None)
 
         return None
 
-    def _sell_player_item(self, idx):
+    def _handle_shop_drag_release(self, pos):
+        """드래그 놓기 처리 (구매/판매/위치 교환)"""
+        if not self.shop_dragging_item:
+            return None
+
+        drag_source = self.shop_dragging_item['source']
+        drag_idx = self.shop_dragging_item['idx']
+        drag_item = self.shop_dragging_item['item']
+
+        # 드래그 상태 초기화
+        self.shop_dragging_item = None
+        self.shop_drag_start_pos = None
+
+        try:
+            import pingfighter
+            player_items = getattr(pingfighter, 'passive_item_list', [])
+        except:
+            player_items = []
+
+        # UI 영역 계산
+        total_w, total_h = 620, 420
+        ui_x = (SCREEN_WIDTH - total_w) // 2
+        ui_y = (SCREEN_HEIGHT - total_h) // 2
+        panel_w = 280
+        gap = 20
+
+        left_panel = pygame.Rect(ui_x + 20, ui_y + 50, panel_w, total_h - 100)
+        right_panel = pygame.Rect(ui_x + panel_w + gap + 20, ui_y + 50, panel_w, total_h - 100)
+
+        # 플레이어 인벤토리에서 시작한 드래그
+        if drag_source == 'player':
+            # 상점 패널에 놓으면 판매
+            if right_panel.collidepoint(pos):
+                return self._sell_player_item(drag_idx, pos)
+
+            # 플레이어 패널 내에서 위치 교환
+            if left_panel.collidepoint(pos):
+                for idx, rect in self.shop_item_rects.get("player", {}).items():
+                    if rect.collidepoint(pos) and idx != drag_idx and idx < len(player_items):
+                        # 위치 교환
+                        player_items[drag_idx], player_items[idx] = player_items[idx], player_items[drag_idx]
+                        return ("swap_player", {"from": drag_idx, "to": idx})
+                return None
+
+        # 상점 인벤토리에서 시작한 드래그
+        elif drag_source == 'shop':
+            # 플레이어 패널에 놓으면 구매
+            if left_panel.collidepoint(pos):
+                return self._buy_shop_item(drag_idx, pos)
+
+            # 상점 패널 내에서 위치 교환
+            if right_panel.collidepoint(pos):
+                for idx, rect in self.shop_item_rects.get("shop", {}).items():
+                    if rect.collidepoint(pos) and idx != drag_idx and idx < len(self.shop_inventory):
+                        # 위치 교환
+                        self.shop_inventory[drag_idx], self.shop_inventory[idx] = self.shop_inventory[idx], self.shop_inventory[drag_idx]
+                        return ("swap_shop", {"from": drag_idx, "to": idx})
+                return None
+
+        return None
+
+    def _sell_player_item(self, idx, mouse_pos=None):
         """플레이어 아이템 판매"""
         try:
             import pingfighter
@@ -2550,22 +2771,35 @@ class BuildingInterior:
 
             item = player_items[idx]
             item_name = item.get("name", "")
+            is_equipped = bool(item.get("_equipped_slot"))
 
-            # 판매가 계산 (원가의 30% + 품질 보너스)
+            # 판매가 계산 (품질 + 롤옵션 수치 반영 가격의 30%)
             base_price = self._get_item_base_price(item_name)
-            quality_tier = item.get("quality_tier", "low")
-            quality_bonus = 0
-            if quality_tier == "top":
-                quality_bonus = int(base_price * 0.5)
-            elif quality_tier == "high":
-                quality_bonus = int(base_price * 0.3)
-            elif quality_tier == "mid":
-                quality_bonus = int(base_price * 0.15)
-            sell_price = int((base_price + quality_bonus) * 0.3)
+            quality_roll_bonus = self._get_quality_and_roll_bonus(item, base_price)
+            sell_price = int((base_price + quality_roll_bonus) * 0.3)
+            shop_price = int((base_price + quality_roll_bonus) * 1.0)
+
+            # 장착 중이면 판매 확인 팝업 띄우기
+            if is_equipped:
+                self.shop_confirm_dialog = {
+                    "action": "sell_equipped",
+                    "item": item,
+                    "item_name": item_name,
+                    "sell_price": sell_price,
+                    "shop_price": shop_price,
+                }
+                return ("confirm_sell_equipped", {"item": item_name, "price": sell_price})
 
             # 플레이어 골드 증가
             current_gold = self.player_data.get('gold', 0)
             self.player_data['gold'] = current_gold + sell_price
+
+            # 골드 획득 애니메이션 추가 (초록색, + 표시, 마우스 위치)
+            self._add_gold_float_animation(sell_price, is_gain=True, pos=mouse_pos)
+
+            # 거래 효과음 재생
+            if self.trade_sound:
+                self.trade_sound.play()
 
             # 플레이어 인벤토리에서 제거
             removed_item = pingfighter.passive_item_list.pop(idx)
@@ -2575,7 +2809,7 @@ class BuildingInterior:
             shop_item = {
                 "name": item_name,
                 "korean": korean_name,
-                "price": int((base_price + quality_bonus) * 1.0),  # 상점은 원가+품질보너스로 판매
+                "price": shop_price,  # 상점은 원가+품질보너스로 판매
                 "type": removed_item.get("type", "passive"),
                 "icon": None,
                 # 롤옵션 및 품질 정보 유지
@@ -2592,7 +2826,7 @@ class BuildingInterior:
             print(f"아이템 판매 실패: {e}")
             return None
 
-    def _buy_shop_item(self, idx):
+    def _buy_shop_item(self, idx, mouse_pos=None):
         """상점 아이템 구매"""
         if idx >= len(self.shop_inventory):
             return None
@@ -2608,6 +2842,13 @@ class BuildingInterior:
 
         # 골드 차감
         self.player_data['gold'] = current_gold - price
+
+        # 골드 소모 애니메이션 추가 (빨간색, - 표시, 마우스 위치)
+        self._add_gold_float_animation(price, is_gain=False, pos=mouse_pos)
+
+        # 거래 효과음 재생
+        if self.trade_sound:
+            self.trade_sound.play()
 
         # 상점 인벤토리에서 제거
         removed_item = self.shop_inventory.pop(idx)
@@ -2656,6 +2897,281 @@ class BuildingInterior:
             # 실패시 골드 복구
             self.player_data['gold'] = current_gold
             return None
+
+    def _handle_shop_confirm_click(self, pos):
+        """장착 아이템 판매 확인 다이얼로그 클릭 처리"""
+        if not self.shop_confirm_dialog:
+            return None
+
+        dialog_rect, yes_rect, no_rect = self._get_shop_confirm_rects()
+        if yes_rect.collidepoint(pos):
+            result = self._execute_shop_confirm()
+            self.shop_confirm_dialog = None
+            return result
+        if no_rect.collidepoint(pos):
+            # '아니오' 클릭 또는 다이얼로그 내부 다른 곳은 취소
+            self.shop_confirm_dialog = None
+            return ("cancel_confirm", None)
+        # 다이얼로그 내부 빈 공간 클릭은 무시
+        if dialog_rect.collidepoint(pos):
+            return None
+        return None
+
+    def _get_shop_confirm_rects(self):
+        """확인 다이얼로그 영역 반환"""
+        dialog_w, dialog_h = 260, 140
+        dialog_x = (SCREEN_WIDTH - dialog_w) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_h) // 2
+        dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_w, dialog_h)
+        btn_w, btn_h = 90, 34
+        btn_y = dialog_y + dialog_h - btn_h - 16
+        yes_rect = pygame.Rect(dialog_x + 24, btn_y, btn_w, btn_h)
+        no_rect = pygame.Rect(dialog_x + dialog_w - btn_w - 24, btn_y, btn_w, btn_h)
+        return dialog_rect, yes_rect, no_rect
+
+    def _execute_shop_confirm(self):
+        """확인된 판매 실행"""
+        data = self.shop_confirm_dialog or {}
+        if data.get("action") != "sell_equipped":
+            return None
+        try:
+            import pingfighter
+            player_items = getattr(pingfighter, 'passive_item_list', [])
+        except Exception:
+            return None
+
+        item = data.get("item")
+        if item not in player_items:
+            return None
+        idx = player_items.index(item)
+        item_name = data.get("item_name", item.get("name", ""))
+        sell_price = data.get("sell_price", 0)
+        shop_price = data.get("shop_price", 0)
+
+        # 골드 증가
+        current_gold = self.player_data.get('gold', 0)
+        self.player_data['gold'] = current_gold + sell_price
+
+        # 효과 표시
+        self._add_gold_float_animation(sell_price, is_gain=True, pos=pygame.mouse.get_pos())
+
+        # 인벤토리에서 제거
+        removed_item = pingfighter.passive_item_list.pop(idx)
+
+        # 상점에 추가
+        korean_name = self._get_item_korean_name(item_name)
+        shop_item = {
+            "name": item_name,
+            "korean": korean_name,
+            "price": shop_price,
+            "type": removed_item.get("type", "passive"),
+            "icon": None,
+            "rolled_options": removed_item.get("rolled_options", []),
+            "quality_tier": removed_item.get("quality_tier"),
+            "name_prefix": removed_item.get("name_prefix"),
+            "quality_color": removed_item.get("quality_color"),
+        }
+        self.shop_inventory.append(shop_item)
+        return ("sold", {"item": item_name, "price": sell_price})
+
+    def _add_gold_float_animation(self, amount, is_gain=True, pos=None):
+        """골드 변동 플로팅 애니메이션 추가"""
+        # 마우스 위치가 있으면 오른쪽 상단 오프셋 적용, 없으면 화면 중앙
+        if pos:
+            x = pos[0] + 20  # 마우스 오른쪽으로 20px
+            y = pos[1] - 30  # 마우스 위로 30px
+        else:
+            x = SCREEN_WIDTH // 2
+            y = 80
+
+        anim = {
+            'amount': amount,
+            'is_gain': is_gain,  # True: 획득(초록), False: 소모(빨강)
+            'x': x,
+            'y': y,
+            'start_y': y,
+            'timer': 0,
+            'duration': 1.2,  # 1.2초 동안 표시
+            'alpha': 255
+        }
+        self.gold_float_animations.append(anim)
+
+    def _add_star_float_animation(self, amount, pos=None):
+        """스타포인트 획득 플로팅 애니메이션 추가"""
+        # 위치 설정
+        if pos:
+            x = pos[0] + 20
+            y = pos[1] - 30
+        else:
+            x = SCREEN_WIDTH // 2
+            y = 80
+
+        anim = {
+            'amount': amount,
+            'is_gain': True,  # 스타포인트는 항상 획득
+            'is_star': True,  # 스타포인트 표시용 플래그
+            'x': x,
+            'y': y,
+            'start_y': y,
+            'timer': 0,
+            'duration': 1.2,
+            'alpha': 255
+        }
+        self.gold_float_animations.append(anim)
+
+    def _update_gold_float_animations(self, dt):
+        """골드 변동 애니메이션 업데이트"""
+        animations_to_remove = []
+
+        for anim in self.gold_float_animations:
+            anim['timer'] += dt
+
+            # 위로 떠오르는 효과 (총 30픽셀 상승)
+            progress = anim['timer'] / anim['duration']
+            anim['y'] = anim['start_y'] - int(30 * progress)
+
+            # 페이드아웃 (후반 50%에서 시작)
+            if progress > 0.5:
+                fade_progress = (progress - 0.5) / 0.5  # 0 ~ 1
+                anim['alpha'] = int(255 * (1 - fade_progress))
+
+            # 애니메이션 완료
+            if anim['timer'] >= anim['duration']:
+                animations_to_remove.append(anim)
+
+        # 완료된 애니메이션 제거
+        for anim in animations_to_remove:
+            self.gold_float_animations.remove(anim)
+
+    def _draw_gold_float_animations(self, screen):
+        """골드 변동 플로팅 애니메이션 그리기"""
+        if not self.gold_float_animations:
+            return
+
+        font_small = self.fonts.get('small')
+        if not font_small:
+            return
+
+        for anim in self.gold_float_animations:
+            amount = anim['amount']
+            is_gain = anim['is_gain']
+            is_star = anim.get('is_star', False)  # 스타포인트 여부
+            x = anim['x']
+            y = anim['y']
+            alpha = anim['alpha']
+
+            # 스타포인트 애니메이션
+            if is_star:
+                text_color = (100, 220, 255)  # 시안색
+                sign = "+"
+                text = f"{sign} {amount}★"
+                icon_char = "★"
+                icon_color = (100, 200, 255, alpha)
+                icon_dark = (60, 150, 200, alpha)
+            else:
+                # 골드 애니메이션
+                if is_gain:
+                    text_color = (50, 255, 100)  # 초록색
+                    sign = "+"
+                else:
+                    text_color = (255, 80, 80)  # 빨간색
+                    sign = "-"
+                text = f"{sign} {amount}G"
+                icon_char = "G"
+                icon_color = (255, 215, 0, alpha)  # 금색
+                icon_dark = (200, 160, 0, alpha)
+
+            # 반투명 서피스 생성
+            text_surf, text_rect = font_small.render(text, text_color)
+
+            # 아이콘 크기
+            coin_size = 16
+
+            # 전체 너비 계산
+            total_width = coin_size + 4 + text_rect.width
+            start_x = x - total_width // 2
+
+            # 알파값이 있는 서피스 생성
+            anim_surface = pygame.Surface((total_width + 10, max(coin_size, text_rect.height) + 10), pygame.SRCALPHA)
+
+            # 아이콘 그리기
+            coin_center_x = coin_size // 2 + 5
+            coin_center_y = anim_surface.get_height() // 2
+
+            if is_star:
+                # 스타 아이콘 (별 모양)
+                star_surf, _ = font_small.render("★", (100, 220, 255))
+                star_surf.set_alpha(alpha)
+                anim_surface.blit(star_surf, (coin_center_x - star_surf.get_width() // 2, coin_center_y - star_surf.get_height() // 2))
+            else:
+                # 골드 아이콘 (금화)
+                pygame.draw.circle(anim_surface, icon_color, (coin_center_x, coin_center_y), coin_size // 2)
+                pygame.draw.circle(anim_surface, icon_dark, (coin_center_x, coin_center_y), coin_size // 2, 2)
+                g_surf, _ = font_small.render("G", (180, 140, 0))
+                g_surf.set_alpha(alpha)
+                anim_surface.blit(g_surf, (coin_center_x - g_surf.get_width() // 2, coin_center_y - g_surf.get_height() // 2))
+
+            # 텍스트 그리기
+            text_surf.set_alpha(alpha)
+            text_x = coin_size + 8
+            text_y = (anim_surface.get_height() - text_rect.height) // 2
+            anim_surface.blit(text_surf, (text_x, text_y))
+
+            # 화면에 그리기
+            screen.blit(anim_surface, (start_x, y - anim_surface.get_height() // 2))
+
+    def _draw_dragging_item(self, screen, mouse_pos):
+        """드래그 중인 아이템 그리기 (마우스 위치에)"""
+        if not self.shop_dragging_item:
+            return
+
+        item = self.shop_dragging_item['item']
+        item_name = item.get("name", "")
+
+        # 아이콘 크기
+        icon_size = 40
+
+        # 마우스 위치 중심으로 그리기 (드래그 오프셋 적용)
+        draw_x = mouse_pos[0] - icon_size // 2
+        draw_y = mouse_pos[1] - icon_size // 2
+
+        # 반투명 배경
+        bg_surface = pygame.Surface((icon_size + 4, icon_size + 4), pygame.SRCALPHA)
+        bg_surface.fill((40, 50, 70, 200))
+        pygame.draw.rect(bg_surface, (150, 200, 255, 200), bg_surface.get_rect(), 2, border_radius=4)
+        screen.blit(bg_surface, (draw_x - 2, draw_y - 2))
+
+        # 아이템 아이콘 그리기
+        icon = None
+        try:
+            import pingfighter
+            get_item_icon = getattr(pingfighter, 'get_item_icon', None)
+            if get_item_icon:
+                icon = get_item_icon(item_name)
+        except:
+            pass
+
+        if icon:
+            # 아이콘을 적절한 크기로 스케일
+            scaled_icon = pygame.transform.scale(icon, (icon_size, icon_size))
+            screen.blit(scaled_icon, (draw_x, draw_y))
+        else:
+            # 아이콘이 없으면 색상 사각형으로 표시
+            color = item.get("color", (100, 150, 200))
+            pygame.draw.rect(screen, color, (draw_x, draw_y, icon_size, icon_size), border_radius=4)
+            pygame.draw.rect(screen, (200, 200, 200), (draw_x, draw_y, icon_size, icon_size), 2, border_radius=4)
+
+        # 품질 테두리
+        quality_tier = item.get("quality_tier")
+        if quality_tier:
+            quality_colors = {
+                "top": (255, 215, 0),      # 금색
+                "high": (180, 100, 255),   # 보라색
+                "mid": (100, 180, 255),    # 파란색
+                "low": (150, 150, 150)     # 회색
+            }
+            qcolor = quality_colors.get(quality_tier, (150, 150, 150))
+            pygame.draw.rect(screen, qcolor, (draw_x - 2, draw_y - 2, icon_size + 4, icon_size + 4), 2, border_radius=4)
 
     def handle_key(self, event):
         """키 입력 처리 (이벤트 기반)"""
@@ -2770,6 +3286,43 @@ class BuildingInterior:
     def handle_scroll(self, event, mouse_pos=None):
         """마우스 휠 스크롤 처리 (슬라이더 위에서만 작동)"""
         if event.type == pygame.MOUSEWHEEL:
+            # 상점 거래창 스크롤
+            if self.shop_trade_open:
+                if self.shop_confirm_dialog:
+                    return None  # 확인창 열려있을 땐 스크롤 무시
+                if mouse_pos:
+                    total_w, total_h = 620, 420
+                    ui_x = (SCREEN_WIDTH - total_w) // 2
+                    ui_y = (SCREEN_HEIGHT - total_h) // 2
+                    panel_w = 280
+                    gap = 20
+                    left_x = ui_x + 20
+                    left_y = ui_y + 50
+                    right_x = ui_x + panel_w + gap + 20
+                    right_y = ui_y + 50
+                    panel_h = total_h - 100
+
+                    grid_y_left = left_y + 35
+                    grid_h_left = panel_h - 60
+                    grid_y_right = right_y + 35
+                    grid_h_right = panel_h - 60
+
+                    left_rect = pygame.Rect(left_x, left_y, panel_w, panel_h)
+                    right_rect = pygame.Rect(right_x, right_y, panel_w, panel_h)
+
+                    delta = -event.y  # 휠 위로: y=1, 스크롤 감소
+
+                    if left_rect.collidepoint(mouse_pos):
+                        if self._shop_player_max_scroll > 0:
+                            self.shop_player_scroll = max(0, min(self._shop_player_max_scroll, self.shop_player_scroll + delta))
+                            return ("shop_player_scroll", self.shop_player_scroll)
+                    if right_rect.collidepoint(mouse_pos):
+                        if self._shop_shop_max_scroll > 0:
+                            self.shop_shop_scroll = max(0, min(self._shop_shop_max_scroll, self.shop_shop_scroll + delta))
+                            return ("shop_shop_scroll", self.shop_shop_scroll)
+                # 바깥에서 스크롤한 경우 무시
+                return None
+
             # 예금 메뉴 슬라이더 처리
             if self.deposit_menu_open and self.deposit_tab == 0:
                 if mouse_pos:
@@ -2817,20 +3370,71 @@ class BuildingInterior:
         gold = self.player_data.get('gold', 0)
 
         if self.exchange_direction == 0:
-            return max(1, star_points)
+            # 스타포인트 → 골드: 스타포인트가 0이면 0 반환
+            return star_points
         else:
-            return max(1, gold // self.current_exchange_rate) if self.current_exchange_rate > 0 else 1
+            # 골드 → 스타포인트: 골드가 환율보다 적으면 0 반환
+            if self.current_exchange_rate > 0:
+                return gold // self.current_exchange_rate
+            return 0
 
     def _adjust_exchange_amount(self, delta):
         """환전 양 조절"""
-        self.exchange_amount = max(1, self.exchange_amount + delta)
-
-        # 최대값 제한 (보유량 기준)
         max_amount = self._get_max_exchange_amount()
+
+        # 소지량이 없으면 0으로 유지
+        if max_amount <= 0:
+            self.exchange_amount = 0
+            return
+
+        self.exchange_amount = max(1, self.exchange_amount + delta)
         self.exchange_amount = min(self.exchange_amount, max_amount)
+
+    def _update_exchange_slider_from_pos(self, mouse_x):
+        """마우스 X 위치로 환전 슬라이더 값 업데이트"""
+        if not self.exchange_slider_rect:
+            return
+
+        # 최대값 계산
+        max_amount = self._get_max_exchange_amount()
+
+        # 소지량이 없으면 0으로 유지
+        if max_amount <= 0:
+            self.exchange_amount = 0
+            return
+
+        slider_x = self.exchange_slider_rect.x
+        slider_w = self.exchange_slider_rect.width
+
+        # 마우스 위치를 0~1 비율로 변환
+        ratio = (mouse_x - slider_x) / slider_w
+        ratio = max(0, min(1, ratio))
+
+        # 비율에 따른 양 계산 (최소 1)
+        self.exchange_amount = max(1, int(ratio * max_amount))
+
+    def _handle_exchange_slider_drag(self, pos):
+        """환전 슬라이더 드래그 처리"""
+        if self.exchange_slider_dragging:
+            self._update_exchange_slider_from_pos(pos[0])
+            return True
+        return False
+
+    def _handle_exchange_slider_release(self):
+        """환전 슬라이더 드래그 종료"""
+        if self.exchange_slider_dragging:
+            self.exchange_slider_dragging = False
+            return True
+        return False
 
     def _execute_exchange(self):
         """환전 실행"""
+        # 애니메이션 위치 (환전 버튼 근처)
+        menu_w, menu_h = 340, 270
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+        anim_pos = (menu_x + menu_w // 2, menu_y + 200)
+
         if self.exchange_direction == 0:
             # 스타포인트 → 골드
             star_points = self._get_current_star_points()
@@ -2839,6 +3443,11 @@ class BuildingInterior:
                 new_star_points = star_points - self.exchange_amount
                 self._set_star_points(new_star_points)
                 self.player_data['gold'] = self.player_data.get('gold', 0) + gold_gained
+                # 골드 획득 애니메이션 (초록색)
+                self._add_gold_float_animation(gold_gained, is_gain=True, pos=anim_pos)
+                # 거래 효과음
+                if self.trade_sound:
+                    self.trade_sound.play()
                 self.exchange_menu_open = False
                 return ("exchange_success", {"type": "star_to_gold", "amount": self.exchange_amount, "gold": gold_gained})
             else:
@@ -2851,6 +3460,13 @@ class BuildingInterior:
                 self.player_data['gold'] = gold - gold_needed
                 current_star = self._get_current_star_points()
                 self._set_star_points(current_star + self.exchange_amount)
+                # 스타포인트 획득 애니메이션 (시안색) - 커스텀
+                self._add_star_float_animation(self.exchange_amount, pos=anim_pos)
+                # 거래 효과음 (골드 → 스타포인트 전용)
+                if self.star_exchange_sound:
+                    self.star_exchange_sound.play()
+                elif self.trade_sound:
+                    self.trade_sound.play()
                 self.exchange_menu_open = False
                 return ("exchange_success", {"type": "gold_to_star", "amount": self.exchange_amount, "gold": gold_needed})
             else:
@@ -2941,8 +3557,10 @@ class BuildingInterior:
         if selected == "환전":
             self.bank_menu_open = False
             self.exchange_menu_open = True
-            self.exchange_amount = 1
             self.exchange_direction = 0
+            # 소지량에 따라 초기값 설정
+            max_amount = self._get_max_exchange_amount()
+            self.exchange_amount = 1 if max_amount > 0 else 0
             return ("bank_exchange", None)
         elif selected == "예금/출금":
             self.bank_menu_open = False
@@ -3025,35 +3643,56 @@ class BuildingInterior:
 
         if left_btn.collidepoint(pos):
             self.exchange_direction = 0  # 스타포인트 → 골드
-            self.exchange_amount = 1
+            # 소지량에 따라 초기값 설정
+            max_amount = self._get_max_exchange_amount()
+            self.exchange_amount = 1 if max_amount > 0 else 0
             return ("exchange_direction", None)
         elif right_btn.collidepoint(pos):
             self.exchange_direction = 1  # 골드 → 스타포인트
-            self.exchange_amount = 1
+            # 소지량에 따라 초기값 설정
+            max_amount = self._get_max_exchange_amount()
+            self.exchange_amount = 1 if max_amount > 0 else 0
             return ("exchange_direction", None)
 
-        # 슬라이더 클릭 처리
-        slider_y = menu_y + 130
-        slider_x = menu_x + 30
-        slider_w = 280
-        slider_h = 24
+        # +/- 버튼 클릭 처리
+        slider_y = menu_y + 135
+        slider_w = 240
+        minus_btn = pygame.Rect(menu_x + 15, slider_y - 2, 30, 32)
+        plus_btn = pygame.Rect(menu_x + slider_w + 61, slider_y - 2, 30, 32)
+
+        if minus_btn.collidepoint(pos):
+            # 10% 감소 또는 최소 1 감소
+            max_amount = self._get_max_exchange_amount()
+            if max_amount <= 0:
+                self.exchange_amount = 0
+            else:
+                decrement = max(1, max_amount // 10)
+                self.exchange_amount = max(1, self.exchange_amount - decrement)
+            return ("exchange_minus", None)
+
+        if plus_btn.collidepoint(pos):
+            # 10% 증가
+            max_amount = self._get_max_exchange_amount()
+            if max_amount <= 0:
+                self.exchange_amount = 0
+            else:
+                increment = max(1, max_amount // 10)
+                self.exchange_amount = min(max_amount, self.exchange_amount + increment)
+            return ("exchange_plus", None)
+
+        # 슬라이더 드래그 시작 처리
+        slider_x = menu_x + 50
+        slider_w = 240
+        slider_h = 28
         slider_rect = pygame.Rect(slider_x, slider_y - 10, slider_w, slider_h + 20)  # 클릭 영역 확장
 
         if slider_rect.collidepoint(pos):
-            # 클릭 위치로 양 계산
-            click_x = pos[0] - slider_x
-            ratio = max(0, min(1, click_x / slider_w))
-
-            # 최대값 계산
-            star_points = self.player_data.get('star_points', 0)
-            gold = self.player_data.get('gold', 0)
-            if self.exchange_direction == 0:
-                max_amount = max(1, star_points)
-            else:
-                max_amount = max(1, gold // self.current_exchange_rate) if self.current_exchange_rate > 0 else 1
-
-            self.exchange_amount = max(1, int(ratio * max_amount))
-            return ("exchange_amount", None)
+            # 드래그 시작
+            self.exchange_slider_dragging = True
+            self.exchange_slider_rect = pygame.Rect(slider_x, slider_y, slider_w, slider_h)
+            # 클릭 위치로 양 즉시 계산
+            self._update_exchange_slider_from_pos(pos[0])
+            return ("exchange_drag_start", None)
 
         # 환전 실행 버튼
         confirm_btn = pygame.Rect(menu_x + 30, menu_y + 218, 280, 38)
@@ -3312,11 +3951,11 @@ class BuildingInterior:
             txt_surf, txt_rect = font_small.render("G → ★", TEXT_GOLD if self.exchange_direction == 1 else TEXT_WHITE)
             screen.blit(txt_surf, (right_btn.centerx - txt_rect.width // 2, right_btn.centery - txt_rect.height // 2))
 
-        # === 가로 스크롤바 (슬라이더) ===
-        slider_y = menu_y + 130
-        slider_x = menu_x + 30
-        slider_w = 280
-        slider_h = 24
+        # === 개선된 슬라이더 UI ===
+        slider_y = menu_y + 135
+        slider_x = menu_x + 50  # 좌우 버튼 공간 확보
+        slider_w = 240
+        slider_h = 28
 
         # 최대값 계산
         if self.exchange_direction == 0:
@@ -3324,38 +3963,91 @@ class BuildingInterior:
         else:
             max_amount = max(1, gold // self.current_exchange_rate) if self.current_exchange_rate > 0 else 1
 
-        # 슬라이더 영역 저장 (클릭/휠 처리용)
+        # 슬라이더 영역 저장 (드래그 처리용)
         self._slider_rect = pygame.Rect(slider_x, slider_y, slider_w, slider_h)
         self._slider_max = max_amount
+        self.exchange_slider_rect = pygame.Rect(slider_x, slider_y, slider_w, slider_h)
 
-        # 슬라이더 배경
-        pygame.draw.rect(screen, SLIDER_BG, (slider_x, slider_y, slider_w, slider_h), border_radius=12)
-        pygame.draw.rect(screen, BORDER_GLOW, (slider_x, slider_y, slider_w, slider_h), 1, border_radius=12)
+        # - 버튼 (좌측)
+        minus_btn = pygame.Rect(menu_x + 15, slider_y - 2, 30, 32)
+        mouse_pos = pygame.mouse.get_pos()
+        minus_hover = minus_btn.collidepoint(mouse_pos)
+        minus_color = (80, 60, 60) if minus_hover else (50, 40, 40)
+        pygame.draw.rect(screen, minus_color, minus_btn, border_radius=6)
+        pygame.draw.rect(screen, (180, 100, 100), minus_btn, 2, border_radius=6)
+        pygame.draw.line(screen, (220, 150, 150), (minus_btn.x + 8, minus_btn.centery), (minus_btn.x + 22, minus_btn.centery), 3)
 
-        # 슬라이더 채움 (현재 양 비율)
+        # + 버튼 (우측) - 슬라이더 바로 오른쪽
+        plus_btn = pygame.Rect(menu_x + slider_w + 61, slider_y - 2, 30, 32)
+        plus_hover = plus_btn.collidepoint(mouse_pos)
+        plus_color = (60, 80, 60) if plus_hover else (40, 50, 40)
+        pygame.draw.rect(screen, plus_color, plus_btn, border_radius=6)
+        pygame.draw.rect(screen, (100, 180, 100), plus_btn, 2, border_radius=6)
+        pygame.draw.line(screen, (150, 220, 150), (plus_btn.x + 8, plus_btn.centery), (plus_btn.x + 22, plus_btn.centery), 3)
+        pygame.draw.line(screen, (150, 220, 150), (plus_btn.centerx, plus_btn.y + 8), (plus_btn.centerx, plus_btn.y + 24), 3)
+
+        # 저장 (클릭 처리용)
+        self._exchange_minus_btn = minus_btn
+        self._exchange_plus_btn = plus_btn
+
+        # 슬라이더 트랙 배경 (어두운 색상으로 채움과 구분)
+        track_rect = pygame.Rect(slider_x, slider_y, slider_w, slider_h)
+        pygame.draw.rect(screen, (15, 18, 25), track_rect, border_radius=14)
+        pygame.draw.rect(screen, (25, 30, 40), (slider_x + 2, slider_y + 2, slider_w - 4, slider_h - 4), border_radius=12)
+
+        # 눈금 표시 (10%, 25%, 50%, 75% 위치)
+        for pct in [0.25, 0.5, 0.75]:
+            tick_x = slider_x + int(slider_w * pct)
+            pygame.draw.line(screen, (60, 70, 90), (tick_x, slider_y + 6), (tick_x, slider_y + slider_h - 6), 1)
+
+        # 슬라이더 채움 (그라데이션 효과)
         fill_ratio = min(1.0, self.exchange_amount / max_amount) if max_amount > 0 else 0
-        fill_w = int((slider_w - 4) * fill_ratio)
-        if fill_w > 0:
-            pygame.draw.rect(screen, SLIDER_FILL, (slider_x + 2, slider_y + 2, fill_w, slider_h - 4), border_radius=10)
+        fill_w = int((slider_w - 8) * fill_ratio)
+        if fill_w > 4:
+            # 채움 색상 (방향에 따라 다른 색상)
+            if self.exchange_direction == 0:
+                fill_color = (80, 180, 220)  # 시안 (스타포인트)
+                glow_color = (100, 200, 240)
+            else:
+                fill_color = (220, 180, 80)  # 골드
+                glow_color = (240, 200, 100)
+            pygame.draw.rect(screen, fill_color, (slider_x + 4, slider_y + 4, fill_w, slider_h - 8), border_radius=10)
+            # 상단 하이라이트
+            pygame.draw.rect(screen, glow_color, (slider_x + 4, slider_y + 4, fill_w, 4), border_radius=10)
 
-        # 슬라이더 핸들 (동그란 노브)
-        handle_x = slider_x + 2 + fill_w
+        # 슬라이더 핸들 (크고 눈에 띄게)
+        handle_x = slider_x + 4 + fill_w
         handle_y = slider_y + slider_h // 2
-        pygame.draw.circle(screen, SLIDER_HANDLE, (handle_x, handle_y), 10)
-        pygame.draw.circle(screen, TEXT_WHITE, (handle_x, handle_y), 6)
+        handle_radius = 14 if self.exchange_slider_dragging else 12
 
-        # 양 표시 (슬라이더 위)
+        # 드래그 중일 때 글로우 효과
+        if self.exchange_slider_dragging:
+            glow_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (100, 200, 255, 80), (20, 20), 18)
+            screen.blit(glow_surf, (handle_x - 20, handle_y - 20))
+
+        # 핸들 외곽 (그림자)
+        pygame.draw.circle(screen, (20, 30, 40), (handle_x + 1, handle_y + 1), handle_radius)
+        # 핸들 본체
+        handle_color = (200, 220, 255) if self.exchange_slider_dragging else (180, 200, 230)
+        pygame.draw.circle(screen, handle_color, (handle_x, handle_y), handle_radius)
+        # 핸들 내부 (입체감)
+        pygame.draw.circle(screen, (220, 235, 255), (handle_x - 2, handle_y - 2), handle_radius - 4)
+        # 핸들 중앙 점
+        pygame.draw.circle(screen, (100, 130, 180), (handle_x, handle_y), 3)
+
+        # 양 표시 (슬라이더 위, 더 크게)
         if font_medium:
             amt_text = f"{self.exchange_amount:,}"
             amt_surf, amt_rect = font_medium.render(amt_text, TEXT_WHITE)
-            screen.blit(amt_surf, (slider_x + slider_w // 2 - amt_rect.width // 2, slider_y - 22))
+            screen.blit(amt_surf, (slider_x + slider_w // 2 - amt_rect.width // 2, slider_y - 26))
 
-        # 최소/최대 라벨
+        # 최소/최대 라벨 (버튼 아래)
         if font_small:
-            min_surf, _ = font_small.render("1", (100, 110, 130))
-            screen.blit(min_surf, (slider_x, slider_y + slider_h + 4))
-            max_surf, max_rect = font_small.render(f"{max_amount:,}", (100, 110, 130))
-            screen.blit(max_surf, (slider_x + slider_w - max_rect.width, slider_y + slider_h + 4))
+            min_surf, _ = font_small.render("MIN", (80, 90, 110))
+            screen.blit(min_surf, (minus_btn.centerx - 12, slider_y + slider_h + 6))
+            max_surf, _ = font_small.render("MAX", (80, 90, 110))
+            screen.blit(max_surf, (plus_btn.centerx - 14, slider_y + slider_h + 6))
 
         # 환전 결과 미리보기
         preview_y = menu_y + 175
@@ -3379,18 +4071,23 @@ class BuildingInterior:
             rate_surf, rate_rect = font_small.render(rate_text, (120, 130, 150))
             screen.blit(rate_surf, (menu_x + menu_w // 2 - rate_rect.width // 2, rate_y))
 
-        # 환전 실행 버튼
+        # 환전 실행 버튼 (호버 효과)
         confirm_btn = pygame.Rect(menu_x + 30, menu_y + 218, 280, 38)
-        pygame.draw.rect(screen, (40, 80, 60), confirm_btn, border_radius=6)
-        pygame.draw.rect(screen, TEXT_GREEN, confirm_btn, 2, border_radius=6)
+        confirm_hover = confirm_btn.collidepoint(mouse_pos)
+        if confirm_hover:
+            # 호버 시 밝은 색상
+            btn_bg_color = (60, 120, 90)
+            btn_border_color = (150, 255, 150)
+            btn_text_color = (200, 255, 200)
+        else:
+            btn_bg_color = (40, 80, 60)
+            btn_border_color = TEXT_GREEN
+            btn_text_color = TEXT_GREEN
+        pygame.draw.rect(screen, btn_bg_color, confirm_btn, border_radius=6)
+        pygame.draw.rect(screen, btn_border_color, confirm_btn, 2, border_radius=6)
         if font_medium:
-            btn_surf, btn_rect = font_medium.render("환전하기", TEXT_GREEN)
+            btn_surf, btn_rect = font_medium.render("환전하기", btn_text_color)
             screen.blit(btn_surf, (confirm_btn.centerx - btn_rect.width // 2, confirm_btn.centery - btn_rect.height // 2))
-
-        # 휠 힌트
-        if font_small:
-            hint_surf, _ = font_small.render("슬라이더 위에서 휠로 조절", (90, 100, 120))
-            screen.blit(hint_surf, (menu_x + menu_w // 2 - 70, menu_y + menu_h - 16))
 
     def _draw_deposit_menu(self, screen):
         """예금 메뉴창 그리기 - SF 스타일 (2탭 구조)"""
@@ -3706,6 +4403,14 @@ class BuildingInterior:
         if self.shop_trade_open:
             self._draw_shop_trade_ui(screen)
 
+        # 골드 변동 애니메이션 (최상위 레이어)
+        self._draw_gold_float_animations(screen)
+
+        # 드래그 중인 아이템 그리기 (최상위)
+        if self.shop_trade_open and self.shop_dragging_item:
+            mouse_pos = pygame.mouse.get_pos()
+            self._draw_dragging_item(screen, mouse_pos)
+
     def _draw_shop_trade_ui(self, screen):
         """상점 거래 UI 그리기 - 아이콘 그리드 방식 (캐릭터 정보창 스타일)"""
         # UI 크기 및 위치 (더 넓게)
@@ -3762,11 +4467,10 @@ class BuildingInterior:
             get_item_icon = None
             get_item_description = None
 
-        # 그리드 설정
+        # 그리드 설정 (패널 높이에 맞춰 가변)
         cell_size = 42
         cell_gap = 6
         cols = 5
-        rows = 2
 
         self.shop_hover_item = None  # 매 프레임 리셋
         self.shop_item_rects = {"player": {}, "shop": {}}  # 클릭 영역 저장
@@ -3789,56 +4493,67 @@ class BuildingInterior:
         grid_x = left_x + 12
         grid_y = left_y + 35
 
-        # 플레이어 아이템 그리드 그리기
-        for idx, item in enumerate(player_items):
-            if idx >= cols * rows:
-                break
-            row = idx // cols
-            col = idx % cols
-            cell_rect = pygame.Rect(
-                grid_x + col * (cell_size + cell_gap),
-                grid_y + row * (cell_size + cell_gap),
-                cell_size,
-                cell_size
-            )
-            self.shop_item_rects["player"][idx] = cell_rect
+        # 가시 영역 계산 (스크롤)
+        grid_height = panel_h - 60  # 제목/힌트 제외
+        visible_rows = max(1, (grid_height + cell_gap) // (cell_size + cell_gap))
+        total_rows = max(1, math.ceil(len(player_items) / cols))
+        self._shop_player_visible_rows = visible_rows
+        self._shop_player_max_scroll = max(0, total_rows - visible_rows)
+        self.shop_player_scroll = max(0, min(self.shop_player_scroll, self._shop_player_max_scroll))
+        start_idx = self.shop_player_scroll * cols
 
-            # 셀 배경
-            pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=8)
+        # 플레이어 아이템 그리드 그리기 (스크롤 적용)
+        for vis_row in range(visible_rows):
+            for col in range(cols):
+                idx = start_idx + vis_row * cols + col
+                cell_rect = pygame.Rect(
+                    grid_x + col * (cell_size + cell_gap),
+                    grid_y + vis_row * (cell_size + cell_gap),
+                    cell_size,
+                    cell_size
+                )
+                # 인덱스가 실제 아이템에 매핑될 때만 클릭/호버 처리
+                if idx < len(player_items):
+                    self.shop_item_rects["player"][idx] = cell_rect
+                # 셀 배경
+                pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=8)
 
-            # 호버 체크
-            is_hover = cell_rect.collidepoint(mouse_pos)
-            if is_hover:
-                self.shop_hover_item = ("player", idx, item, cell_rect)
-                pygame.draw.rect(screen, CELL_HOVER, cell_rect, 2, border_radius=8)
-            else:
-                pygame.draw.rect(screen, CELL_BORDER, cell_rect, 1, border_radius=8)
+                if idx >= len(player_items):
+                    pygame.draw.rect(screen, (50, 60, 80), cell_rect, 1, border_radius=8)
+                    continue
 
-            # 아이콘 그리기
-            item_name = item.get("name", "")
-            icon = None
-            if get_item_icon:
-                icon = get_item_icon(item_name)
-            if not icon:
-                icon = item.get("icon")
+                item = player_items[idx]
 
-            if icon:
-                scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
-                screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+                # 호버 체크
+                is_hover = cell_rect.collidepoint(mouse_pos)
+                if is_hover:
+                    self.shop_hover_item = ("player", idx, item, cell_rect)
+                    pygame.draw.rect(screen, CELL_HOVER, cell_rect, 2, border_radius=8)
+                else:
+                    pygame.draw.rect(screen, CELL_BORDER, cell_rect, 1, border_radius=8)
 
-        # 빈 슬롯 그리기
-        total_player_slots = cols * rows
-        for idx in range(len(player_items), total_player_slots):
-            row = idx // cols
-            col = idx % cols
-            cell_rect = pygame.Rect(
-                grid_x + col * (cell_size + cell_gap),
-                grid_y + row * (cell_size + cell_gap),
-                cell_size,
-                cell_size
-            )
-            pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=8)
-            pygame.draw.rect(screen, (50, 60, 80), cell_rect, 1, border_radius=8)
+                # 아이콘 그리기
+                item_name = item.get("name", "")
+                icon = None
+                if get_item_icon:
+                    icon = get_item_icon(item_name)
+                if not icon:
+                    icon = item.get("icon")
+
+                if icon:
+                    scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                    screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+                # 장착 배지
+                if item.get("_equipped_slot"):
+                    badge_rect = pygame.Rect(cell_rect.right - 18, cell_rect.bottom - 14, 16, 12)
+                    pygame.draw.rect(screen, (70, 160, 255), badge_rect, border_radius=3)
+                    badge_surf = None
+                    badge_font = self.fonts.get('tiny') or self.fonts.get('small')
+                    if badge_font and hasattr(badge_font, "render"):
+                        badge_surf, badge_rect_txt = badge_font.render("E", (255, 255, 255))
+                    if badge_surf:
+                        badge_pos = badge_surf.get_rect(center=badge_rect.center)
+                        screen.blit(badge_surf, badge_pos)
 
         # 판매 안내 텍스트
         if font_small:
@@ -3862,61 +4577,61 @@ class BuildingInterior:
         shop_grid_x = right_x + 12
         shop_grid_y = right_y + 35
 
-        # 상점 아이템 그리드 그리기
-        for idx, item in enumerate(self.shop_inventory):
-            if idx >= cols * rows:
-                break
-            row = idx // cols
-            col = idx % cols
-            cell_rect = pygame.Rect(
-                shop_grid_x + col * (cell_size + cell_gap),
-                shop_grid_y + row * (cell_size + cell_gap),
-                cell_size,
-                cell_size
-            )
-            self.shop_item_rects["shop"][idx] = cell_rect
+        grid_height_shop = panel_h - 60
+        visible_rows_shop = max(1, (grid_height_shop + cell_gap) // (cell_size + cell_gap))
+        total_rows_shop = max(1, math.ceil(len(self.shop_inventory) / cols))
+        self._shop_shop_visible_rows = visible_rows_shop
+        self._shop_shop_max_scroll = max(0, total_rows_shop - visible_rows_shop)
+        self.shop_shop_scroll = max(0, min(self.shop_shop_scroll, self._shop_shop_max_scroll))
+        start_idx_shop = self.shop_shop_scroll * cols
 
-            is_legendary = item.get("type") == "legendary"
+        # 상점 아이템 그리드 그리기 (스크롤 적용)
+        for vis_row in range(visible_rows_shop):
+            for col in range(cols):
+                idx = start_idx_shop + vis_row * cols + col
+                cell_rect = pygame.Rect(
+                    shop_grid_x + col * (cell_size + cell_gap),
+                    shop_grid_y + vis_row * (cell_size + cell_gap),
+                    cell_size,
+                    cell_size
+                )
+                if idx < len(self.shop_inventory):
+                    self.shop_item_rects["shop"][idx] = cell_rect
+                is_legendary = False
+                if idx < len(self.shop_inventory):
+                    item = self.shop_inventory[idx]
+                    is_legendary = item.get("type") == "legendary"
+                # 셀 배경
+                if is_legendary:
+                    pygame.draw.rect(screen, (60, 50, 80), cell_rect, border_radius=8)
+                else:
+                    pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=8)
 
-            # 셀 배경 (전설 아이템은 특별한 배경)
-            if is_legendary:
-                pygame.draw.rect(screen, (60, 50, 80), cell_rect, border_radius=8)
-            else:
-                pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=8)
+                if idx >= len(self.shop_inventory):
+                    pygame.draw.rect(screen, (50, 60, 80), cell_rect, 1, border_radius=8)
+                    continue
 
-            # 호버 체크
-            is_hover = cell_rect.collidepoint(mouse_pos)
-            if is_hover:
-                self.shop_hover_item = ("shop", idx, item, cell_rect)
-                pygame.draw.rect(screen, CELL_HOVER, cell_rect, 2, border_radius=8)
-            elif is_legendary:
-                pygame.draw.rect(screen, BORDER_GOLD, cell_rect, 2, border_radius=8)
-            else:
-                pygame.draw.rect(screen, CELL_BORDER, cell_rect, 1, border_radius=8)
+                item = self.shop_inventory[idx]
 
-            # 아이콘 그리기
-            item_name = item.get("name", "")
-            icon = None
-            if get_item_icon:
-                icon = get_item_icon(item_name)
+                # 호버 체크
+                is_hover = cell_rect.collidepoint(mouse_pos)
+                if is_hover:
+                    self.shop_hover_item = ("shop", idx, item, cell_rect)
+                    pygame.draw.rect(screen, CELL_HOVER, cell_rect, 2, border_radius=8)
+                elif is_legendary:
+                    pygame.draw.rect(screen, BORDER_GOLD, cell_rect, 2, border_radius=8)
+                else:
+                    pygame.draw.rect(screen, CELL_BORDER, cell_rect, 1, border_radius=8)
 
-            if icon:
-                scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
-                screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+                # 아이콘 그리기
+                item_name = item.get("name", "")
+                icon = None
+                if get_item_icon:
+                    icon = get_item_icon(item_name)
 
-        # 빈 슬롯 그리기
-        total_shop_slots = cols * rows
-        for idx in range(len(self.shop_inventory), total_shop_slots):
-            row = idx // cols
-            col = idx % cols
-            cell_rect = pygame.Rect(
-                shop_grid_x + col * (cell_size + cell_gap),
-                shop_grid_y + row * (cell_size + cell_gap),
-                cell_size,
-                cell_size
-            )
-            pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=8)
-            pygame.draw.rect(screen, (50, 60, 80), cell_rect, 1, border_radius=8)
+                if icon:
+                    scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                    screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
 
         # 구매 안내 텍스트
         if font_small:
@@ -3929,17 +4644,48 @@ class BuildingInterior:
             hint_surf, hint_rect = font_small.render(hint_text, TEXT_GRAY)
             screen.blit(hint_surf, (ui_x + total_w // 2 - hint_rect.width // 2, ui_y + total_h - 25))
 
+        # === 스크롤바 표시 ===
+        def _draw_scrollbar(x, y, h, total_rows, visible_rows, current_scroll, color):
+            if total_rows <= visible_rows:
+                return
+            track_rect = pygame.Rect(x, y, 8, h)
+            pygame.draw.rect(screen, (40, 50, 70), track_rect, border_radius=3)
+            thumb_h = max(18, int(h * (visible_rows / total_rows)))
+            scrollable = total_rows - visible_rows
+            thumb_y = track_rect.y if scrollable == 0 else track_rect.y + int((current_scroll / scrollable) * (h - thumb_h))
+            thumb_rect = pygame.Rect(track_rect.x, thumb_y, track_rect.width, thumb_h)
+            pygame.draw.rect(screen, color, thumb_rect, border_radius=3)
+
+        _draw_scrollbar(
+            left_x + panel_w - 12,
+            grid_y,
+            grid_height,
+            total_rows,
+            visible_rows,
+            self.shop_player_scroll,
+            (140, 200, 255)
+        )
+        _draw_scrollbar(
+            right_x + panel_w - 12,
+            shop_grid_y,
+            grid_height_shop,
+            total_rows_shop,
+            visible_rows_shop,
+            self.shop_shop_scroll,
+            (255, 215, 120)
+        )
+
         # === 툴팁 표시 (맨 위에) ===
         if self.shop_hover_item:
             self._draw_shop_tooltip(screen, mouse_pos, get_item_description)
 
-    def _draw_shop_tooltip(self, screen, mouse_pos, get_item_description=None):
-        """상점 아이템 툴팁 그리기 - 캐릭터 정보창과 동일한 스타일"""
-        if not self.shop_hover_item:
-            return
+        # === 장착 아이템 판매 확인 다이얼로그 ===
+        if self.shop_confirm_dialog:
+            self._draw_shop_confirm_dialog(screen)
 
-        # 새로운 형식: (source, idx, item, cell_rect)
-        if len(self.shop_hover_item) < 4:
+    def _draw_shop_tooltip(self, screen, mouse_pos, get_item_description=None):
+        """상점 아이템 툴팁 그리기 - 캐릭터 정보창 스타일(폰트/배치 동일) + 가격"""
+        if not self.shop_hover_item or len(self.shop_hover_item) < 4:
             return
 
         source, idx, item, cell_rect = self.shop_hover_item
@@ -3954,28 +4700,53 @@ class BuildingInterior:
             get_item_slot_label = getattr(pingfighter, 'get_item_slot_label', None)
             get_item_description_func = getattr(pingfighter, 'get_item_description', None)
             ensure_passive_rolls = getattr(pingfighter, 'ensure_passive_rolls', None)
-            build_tooltip_lines = getattr(pingfighter, 'build_tooltip_lines', None)
-        except:
+            assign_item_prefix = getattr(pingfighter, 'assign_item_prefix', None)
+            wrap_text = getattr(pingfighter, 'wrap_text', None)
+            clean_description = getattr(pingfighter, 'clean_description', None)
+            strip_name_prefix = getattr(pingfighter, 'strip_name_prefix', None)
+            is_name_line = getattr(pingfighter, 'is_name_line', None)
+            get_item_name_korean = getattr(pingfighter, 'get_item_name_korean', None)
+        except Exception:
             format_item_display_name = None
             get_item_quality_color = None
             get_item_slot_label = None
             get_item_description_func = get_item_description
             ensure_passive_rolls = None
-            build_tooltip_lines = None
+            assign_item_prefix = None
+            wrap_text = None
+            clean_description = None
+            strip_name_prefix = None
+            is_name_line = None
+            get_item_name_korean = None
 
-        # 롤옵션이 없는 패시브 아이템은 롤옵션 생성
+        # 롤옵션/수식어 보정: 저장 데이터에 없던 수식어 누락을 방지
         if not is_legendary and ensure_passive_rolls:
             if not item.get("rolled_options"):
-                item["type"] = "passive"  # type이 없으면 설정
+                item["type"] = item.get("type") or "passive"
                 ensure_passive_rolls(item)
+        if not is_legendary and assign_item_prefix:
+            if item.get("rolled_options") and (not item.get("name_prefix") or not item.get("quality_tier")):
+                assign_item_prefix(item, force=True)
+        # 일부 저장본에서 name_prefix가 빠진 경우 quality_tier 기반으로 복원
+        if not item.get("name_prefix") and item.get("quality_tier"):
+            try:
+                from pingfighter import QUALITY_PREFIXES  # type: ignore
+                cand = QUALITY_PREFIXES.get(item.get("quality_tier") or "", [])
+                if cand:
+                    item["name_prefix"] = cand[0]
+            except Exception:
+                pass
 
         # 아이템 이름 (수식어 포함)
         if format_item_display_name:
             display_name = format_item_display_name(item)
         else:
-            display_name = self._get_item_korean_name(item_name)
+            # 핑파이터 모듈이 없을 때도 수식어가 보이도록 폴백 (None 억제)
+            prefix = item.get("name_prefix") or ""
+            base_name = self._get_item_korean_name(item_name)
+            display_name = f"{prefix} {base_name}".strip()
 
-        # 아이템 품질 색상
+        # 품질 색상
         if get_item_quality_color:
             name_color = get_item_quality_color(item)
         else:
@@ -3989,178 +4760,230 @@ class BuildingInterior:
         else:
             slot_label = self._get_item_slot_label(item_name)
 
-        # 가격 계산
+        # 가격
         if source == "player":
             base_price = self._get_item_base_price(item_name)
-            price = int(base_price * 0.3)
-        else:  # shop
+            # 품질 + 롤옵션 수치 보너스 계산 (실제 판매가와 동일하게)
+            quality_roll_bonus = self._get_quality_and_roll_bonus(item, base_price)
+            price = int((base_price + quality_roll_bonus) * 0.3)
+        else:
             price = item.get("price", 0)
+        price_text = f"{price:,}G"
 
-        # 아이템 설명 가져오기
+        # 설명
         description = ""
         if get_item_description_func:
             description = get_item_description_func(item_name)
         elif get_item_description:
             description = get_item_description(item_name)
+        description = description or ""
+        # 설명에 이름이 다시 붙어있는 경우 제거 (예: "배터리: 게이지 유지...")
+        base_name_local = self._get_item_korean_name(item_name)
+        for nm in (display_name, base_name_local, item_name):
+            if not nm:
+                continue
+            lowered = nm.lower()
+            desc_lower = description.lower()
+            if desc_lower.startswith(lowered + ":"):
+                description = description[len(nm) + 1 :].lstrip()
+                break
+            if desc_lower.startswith(lowered + " :"):
+                description = description[len(nm) + 2 :].lstrip()
+                break
 
-        # 롤 옵션 가져오기 (색상 포함) - ensure_passive_rolls 후 다시 가져옴
-        rolled_options = item.get("rolled_options", [])
-        if not rolled_options:
-            rolled_options = []
+        if clean_description and description:
+            try:
+                base_name = get_item_name_korean(item_name) if get_item_name_korean else item_name
+                description = clean_description(description, display_name, base_name, item_name)
+            except Exception:
+                pass
+
+        # 롤 옵션
+        rolled_options = item.get("rolled_options") or []
+        option_entries = []
+        for opt in rolled_options:
+            opt_text = opt.get("text", "") if isinstance(opt, dict) else str(opt)
+            if not opt_text:
+                continue
+            option_entries.append({
+                "text": opt_text,
+                "color": opt.get("color", (200, 210, 230)) if isinstance(opt, dict) else (200, 210, 230)
+            })
 
         # 폰트
         font_small = self.fonts.get('small')
         font_tiny = self.fonts.get('tiny') or font_small
-
-        if not font_small:
+        if not font_small or not font_tiny:
             return
 
-        # 색상 정의
-        BG_COLOR = (16, 20, 34, 235)
-        BORDER_COLOR = (200, 170, 100) if is_legendary else (120, 180, 255)
+        # 색상 정의 (캐릭터 정보창과 동일)
+        BG_LEFT = (16, 20, 34, 235)
+        BG_RIGHT = (18, 22, 40, 235)
+        BORDER_COLOR = (120, 180, 255)
         TEXT_DESC = (200, 210, 230)
-        TEXT_GOLD = (255, 215, 100)
         SLOT_COLOR = (255, 220, 160)
+        PRICE_COLOR = (255, 215, 120)
 
-        # === 좌측 박스 (이름 + 슬롯 + 설명) ===
-        # 설명 텍스트 처리
-        desc_clean = ""
-        if description:
-            desc_clean = description
-            if ":" in desc_clean:
-                desc_clean = desc_clean.split(":", 1)[-1].strip()
+        def _font_height(f):
+            return f.get_sized_height() if hasattr(f, "get_sized_height") else f.get_height()
 
-        # 설명 줄바꿈
-        desc_lines = []
-        if desc_clean:
-            max_chars = 22
-            words = desc_clean.split()
-            current_line = ""
-            for word in words:
-                if len(current_line) + len(word) + 1 <= max_chars:
-                    current_line = (current_line + " " + word).strip()
-                else:
-                    if current_line:
-                        desc_lines.append(current_line)
-                    current_line = word
-            if current_line:
-                desc_lines.append(current_line)
+        line_height = _font_height(font_tiny) + 2
+        wrap_width = 240
 
-        # 롤 옵션 라인
-        option_lines = []
-        for opt in rolled_options:
-            if isinstance(opt, dict):
-                opt_text = opt.get("text", "")
-                opt_color = opt.get("color", (120, 255, 170))
-            else:
-                opt_text = str(opt)
-                opt_color = (120, 255, 170)
-            if opt_text:
-                option_lines.append({"text": opt_text, "color": opt_color})
+        def _measure_width(text: str) -> int:
+            """글자 폭을 freetype/font 모두 호환되게 측정."""
+            try:
+                rect = font_tiny.get_rect(text)
+                return rect.width if hasattr(rect, "width") else rect[2]
+            except Exception:
+                pass
+            try:
+                return font_tiny.size(text)[0]  # pygame.font.Font 용
+            except Exception:
+                return 0
 
-        # 크기 계산
-        line_height = 22
-        padding = 12
+        def _calc_width(entries):
+            widths = []
+            for entry in entries:
+                text = entry.get("text", "")
+                if text:
+                    widths.append(_measure_width(text))
+            return max(widths) if widths else 0
 
-        # 좌측 박스 크기
+        def _wrap_text_local(text: str, max_width: int) -> list[str]:
+            lines = []
+            for paragraph in text.split("\n"):
+                words = paragraph.split()
+                current = ""
+                for word in words:
+                    trial = word if not current else current + " " + word
+                    if _measure_width(trial) <= max_width:
+                        current = trial
+                        continue
+                    if current:
+                        lines.append(current)
+                        current = ""
+                    # 단일 단어가 한 줄을 초과하면 글자 단위로 쪼갠다
+                    chunk = ""
+                    for ch in word:
+                        trial2 = chunk + ch
+                        if _measure_width(trial2) <= max_width:
+                            chunk = trial2
+                        else:
+                            if chunk:
+                                lines.append(chunk)
+                            chunk = ch
+                    current = chunk
+                if current:
+                    lines.append(current)
+            return lines
+
+        def _wrap_entries(entries, max_width):
+            wrapped = []
+            for entry in entries:
+                text = entry.get("text", "")
+                color = entry.get("color", TEXT_DESC)
+                if not text:
+                    continue
+                lines = _wrap_text_local(text, max_width)
+                for ln in lines:
+                    wrapped.append({"text": ln, "color": color})
+            return wrapped
+
+        # 표면 준비
         name_surf, name_rect = font_small.render(display_name, name_color)
         slot_surf = None
+        slot_rect = None
         if slot_label:
             slot_surf, slot_rect = font_small.render(slot_label, SLOT_COLOR)
 
-        left_w = max(180, name_rect.width + (slot_rect.width + 20 if slot_surf else 0) + padding * 2)
-        for line in desc_lines:
-            surf, rect = font_small.render(line, TEXT_DESC)
-            left_w = max(left_w, rect.width + padding * 2)
-        left_w = min(260, left_w)
+        desc_entries = []
+        if description:
+            # 이름 중복 제거
+            if strip_name_prefix:
+                try:
+                    base_name = get_item_name_korean(item_name) if get_item_name_korean else item_name
+                    description = strip_name_prefix(description, display_name, base_name, item_name)
+                except Exception:
+                    pass
+            desc_entries.append({"text": description.strip(), "color": TEXT_DESC})
 
-        left_h = padding + name_rect.height + 8  # 이름 + 슬롯 줄
-        left_h += len(desc_lines) * line_height  # 설명 줄들
-        left_h += padding
+        name_height = name_rect.height
+        slot_height = slot_rect.height if slot_rect else 0
+        name_slot_width = name_rect.width + (slot_rect.width + 14 if slot_rect else 0)
+        content_width = max(_calc_width(desc_entries), name_slot_width)
+        desc_width = min(240, max(180, min(content_width + 20, wrap_width + 20)))
+        slot_below = slot_surf and (name_rect.width + slot_rect.width + 24 > desc_width - 12)
+        top_row_height = name_height if slot_below else max(name_height, slot_height)
+        desc_wrapped = _wrap_entries(desc_entries, desc_width - 20)
+        extra_slot = slot_height + 4 if slot_below else 0
+        desc_height = 20 + top_row_height + extra_slot + 8 + len(desc_wrapped) * line_height
 
-        # 우측 박스 크기 (옵션 + 가격)
-        right_w = 0
-        for opt in option_lines:
-            surf, rect = font_small.render(opt["text"], opt["color"])
-            right_w = max(right_w, rect.width + padding * 2)
-
-        # 가격 표시 (금화 아이콘 + 숫자)
-        price_text = f"{price:,}"
-        price_surf, price_rect = font_small.render(price_text, TEXT_GOLD)
         coin_size = 16
-        price_total_w = coin_size + 6 + price_rect.width
-        right_w = max(right_w, price_total_w + padding * 2)
-        right_w = max(120, min(180, right_w))
+        price_width = _measure_width(price_text) + coin_size + 6
+        roll_content_w = max(_calc_width(option_entries), price_width)
+        roll_width = min(260, max(180, roll_content_w + 20))
+        roll_wrapped = _wrap_entries(option_entries, roll_width - 20)
+        roll_height = 16 + len(roll_wrapped) * line_height
+        if roll_wrapped:
+            roll_height += 4
+        roll_height += line_height  # 가격 줄
 
-        right_h = padding
-        if option_lines:
-            right_h += len(option_lines) * line_height
-            right_h += 8  # 간격
-        right_h += line_height  # 가격 줄
-        right_h += padding
-
-        # 전체 툴팁 크기
         gap = 12
-        total_w = left_w + gap + right_w
-        total_h = max(left_h, right_h)
+        total_w = desc_width + gap + roll_width
+        total_h = max(desc_height, roll_height)
 
-        # 툴팁 위치 (셀 위에 표시)
-        tooltip_x = cell_rect.x + cell_rect.width // 2 - total_w // 2
-        tooltip_y = cell_rect.y - total_h - 8
+        tooltip_x = max(8, min(SCREEN_WIDTH - total_w - 8, cell_rect.x + 10))
+        tooltip_y = cell_rect.top - total_h - 12
+        if tooltip_y < 8:
+            tooltip_y = cell_rect.bottom + 12
+        if tooltip_y + total_h + 4 > SCREEN_HEIGHT:
+            tooltip_y = max(8, SCREEN_HEIGHT - total_h - 4)
 
-        # 화면 밖으로 나가지 않게 조정
-        if tooltip_x < 10:
-            tooltip_x = 10
-        if tooltip_x + total_w > SCREEN_WIDTH - 10:
-            tooltip_x = SCREEN_WIDTH - total_w - 10
-        if tooltip_y < 10:
-            tooltip_y = cell_rect.bottom + 8
+        desc_rect = pygame.Rect(tooltip_x, tooltip_y, desc_width, desc_height)
+        roll_rect = pygame.Rect(tooltip_x + desc_width + gap, tooltip_y, roll_width, roll_height)
 
-        # === 좌측 박스 그리기 ===
-        left_rect = pygame.Rect(tooltip_x, tooltip_y, left_w, total_h)
-        left_surf = pygame.Surface((left_w, total_h), pygame.SRCALPHA)
-        pygame.draw.rect(left_surf, BG_COLOR, (0, 0, left_w, total_h), border_radius=8)
-        screen.blit(left_surf, (left_rect.x, left_rect.y))
-        pygame.draw.rect(screen, BORDER_COLOR, left_rect, 2, border_radius=8)
+        # 좌측 박스
+        left_surf = pygame.Surface((desc_width, desc_height), pygame.SRCALPHA)
+        pygame.draw.rect(left_surf, BG_LEFT, (0, 0, desc_width, desc_height), border_radius=8)
+        screen.blit(left_surf, desc_rect.topleft)
+        pygame.draw.rect(screen, BORDER_COLOR, desc_rect, 2, border_radius=8)
 
-        # 이름 + 슬롯
-        text_y = left_rect.y + padding
-        screen.blit(name_surf, (left_rect.x + padding, text_y))
+        name_y = desc_rect.y + 10 + (top_row_height - name_rect.height) // 2
+        screen.blit(name_surf, (desc_rect.x + 10, name_y))
         if slot_surf:
-            screen.blit(slot_surf, (left_rect.right - slot_rect.width - padding, text_y))
-        text_y += name_rect.height + 8
+            if slot_below:
+                slot_y = name_y + name_height + 2
+                slot_x = desc_rect.x + 10
+            else:
+                slot_y = desc_rect.y + 10 + (top_row_height - slot_rect.height) // 2
+                slot_x = desc_rect.right - slot_rect.width - 10
+            screen.blit(slot_surf, (slot_x, slot_y))
 
-        # 설명
-        for line in desc_lines:
-            line_surf, _ = font_small.render(line, TEXT_DESC)
-            screen.blit(line_surf, (left_rect.x + padding, text_y))
-            text_y += line_height
+        desc_text_y = desc_rect.y + 10 + top_row_height + extra_slot + 6
+        for entry in desc_wrapped:
+            line_surf, _ = font_tiny.render(entry.get("text", ""), entry.get("color", TEXT_DESC))
+            screen.blit(line_surf, (desc_rect.x + 10, desc_text_y))
+            desc_text_y += line_height
 
-        # === 우측 박스 그리기 ===
-        right_rect = pygame.Rect(tooltip_x + left_w + gap, tooltip_y, right_w, total_h)
-        right_surf = pygame.Surface((right_w, total_h), pygame.SRCALPHA)
-        pygame.draw.rect(right_surf, (18, 22, 40, 235), (0, 0, right_w, total_h), border_radius=8)
-        screen.blit(right_surf, (right_rect.x, right_rect.y))
-        pygame.draw.rect(screen, BORDER_COLOR, right_rect, 2, border_radius=8)
+        # 우측 박스 (옵션 + 가격)
+        right_surf = pygame.Surface((roll_width, roll_height), pygame.SRCALPHA)
+        pygame.draw.rect(right_surf, BG_RIGHT, (0, 0, roll_width, roll_height), border_radius=8)
+        screen.blit(right_surf, roll_rect.topleft)
+        pygame.draw.rect(screen, BORDER_COLOR, roll_rect, 2, border_radius=8)
 
-        # 옵션
-        text_y = right_rect.y + padding
-        for opt in option_lines:
-            opt_surf, _ = font_small.render(opt["text"], opt["color"])
-            screen.blit(opt_surf, (right_rect.x + padding, text_y))
-            text_y += line_height
+        roll_text_y = roll_rect.y + 10
+        for entry in roll_wrapped:
+            opt_surf, _ = font_tiny.render(entry.get("text", ""), entry.get("color", TEXT_DESC))
+            screen.blit(opt_surf, (roll_rect.x + 10, roll_text_y))
+            roll_text_y += line_height
+        if roll_wrapped:
+            roll_text_y += 4
 
-        # 가격 (금화 아이콘 + 숫자)
-        if option_lines:
-            text_y += 4  # 간격
-
-        # 금화 아이콘 그리기
-        coin_x = right_rect.x + padding
-        coin_y = text_y + (line_height - coin_size) // 2
-        self._draw_gold_coin_icon(screen, coin_x, coin_y, coin_size)
-
-        # 가격 숫자
-        screen.blit(price_surf, (coin_x + coin_size + 6, text_y))
+        coin_y = roll_text_y + (line_height - coin_size) // 2
+        self._draw_gold_coin_icon(screen, roll_rect.x + 10, coin_y, coin_size)
+        price_surf, _ = font_tiny.render(price_text, PRICE_COLOR)
+        screen.blit(price_surf, (roll_rect.x + 10 + coin_size + 6, roll_text_y))
 
     def _draw_gold_coin_icon(self, screen, x, y, size):
         """금화 아이콘 그리기"""
@@ -4199,6 +5022,12 @@ class BuildingInterior:
             "technical_vest": "상의",
             "fuel_pouch": "가방",
             "slot_add": "가방",
+            "bluetooth_ring": "장신구",
+            "star_detector": "장신구",
+            "foul_whistle": "장신구",
+            "bulletproof_hat": "머리",
+            "spiked_helmet": "머리",
+            "knee_pads": "무릎",
             "ragnarok_hammer": "전설",
             "poseidon_trident": "전설",
         }
@@ -4229,36 +5058,176 @@ class BuildingInterior:
             "ragnarok_hammer": "라그나로크 해머",
             "hermes_shoes": "헤르메스의 신발",
             "poseidon_trident": "포세이돈의 삼지창",
+            "foul_whistle": "반칙호루라기",
+            "spiked_helmet": "가시투구",
+            "star_detector": "별탐지기",
+            "knee_pads": "킥차져",
+            "bluetooth_ring": "블루투스링",
+            "bulletproof_hat": "방탄모자",
         }
         return name_map.get(item_name, item_name)
 
     def _get_item_base_price(self, item_name):
-        """아이템 기본 가격 반환"""
+        """아이템 기본 가격 반환 (상점 판매가와 동기화)"""
         price_map = {
-            "speedboots": 500,
-            "speedgear": 450,
-            "battery": 600,
-            "revival": 1500,
-            "master": 800,
+            # 패시브 아이템
+            "speedboots": 900,
+            "speedgear": 800,
+            "battery": 1000,
+            "revival": 3000,
+            "master": 900,
             "cooltime": 700,
-            "chargebag": 550,
-            "spikeboots": 650,
-            "dashgear": 600,
-            "bulkup": 750,
-            "sensor": 500,
-            "gravitybelt": 900,
-            "dashholder": 650,
+            "chargebag": 1500,
+            "spikeboots": 1100,
+            "dashgear": 1000,
+            "bulkup": 800,
+            "sensor": 1800,
+            "gravitybelt": 2500,
+            "dashholder": 1200,
             "dowsing_pendulum": 700,
-            "smartphone": 850,
-            "commando_arm": 800,
-            "technical_vest": 750,
-            "fuel_pouch": 500,
-            "slot_add": 1200,
-            "ragnarok_hammer": 5000,
-            "hermes_shoes": 4500,
+            "smartphone": 800,
+            "commando_arm": 1100,
+            "technical_vest": 1000,
+            "fuel_pouch": 700,
+            "slot_add": 900,
+            # 전설 아이템
+            "ragnarok_hammer": 6500,
+            "hermes_shoes": 5500,
             "poseidon_trident": 5500,
+            # 기타 아이템
+            "foul_whistle": 2000,
+            "spiked_helmet": 1100,
+            "star_detector": 1400,
+            "knee_pads": 900,
+            "bluetooth_ring": 1200,
+            "bulletproof_hat": 1000,
         }
         return price_map.get(item_name, 500)
+
+    def _calculate_roll_option_bonus(self, item):
+        """롤옵션 세부 수치에 따른 가격 보너스 계산 (0.0 ~ 1.0)"""
+        try:
+            import pingfighter
+            PASSIVE_OPTION_RANGES = getattr(pingfighter, 'PASSIVE_OPTION_RANGES', {})
+        except Exception:
+            return 0.0
+
+        rolled_options = item.get("rolled_options") or []
+        if not rolled_options:
+            return 0.0
+
+        item_name = item.get("name", "")
+        ranges = PASSIVE_OPTION_RANGES.get(item_name, [])
+        if not ranges:
+            return 0.0
+
+        # 각 옵션의 퍼센타일 평균 계산
+        percentiles = []
+        for opt in rolled_options:
+            key = opt.get("key")
+            value = opt.get("value")
+            if key is None or value is None:
+                continue
+
+            # 해당 옵션의 범위 찾기
+            for range_def in ranges:
+                if range_def.get("key") == key:
+                    v_min = range_def.get("min", 0)
+                    v_max = range_def.get("max", 100)
+                    reverse = range_def.get("reverse", False)
+
+                    if v_max == v_min:
+                        pct = 1.0
+                    else:
+                        pct = (value - v_min) / (v_max - v_min)
+                        if reverse:
+                            pct = 1.0 - pct
+
+                    percentiles.append(pct)
+                    break
+
+        if not percentiles:
+            return 0.0
+
+        # 평균 퍼센타일 반환 (0.0 ~ 1.0)
+        return sum(percentiles) / len(percentiles)
+
+    def _get_quality_and_roll_bonus(self, item, base_price):
+        """품질과 롤옵션 수치에 따른 가격 보너스 계산"""
+        quality_tier = item.get("quality_tier", "low")
+
+        # 품질 등급별 기본 배수 (low=1.0 기준)
+        quality_multipliers = {
+            "top": 1.8,    # 1.8배 ~ 2.3배
+            "high": 1.5,   # 1.5배 ~ 1.8배
+            "mid": 1.2,    # 1.2배 ~ 1.5배
+            "low": 1.0,    # 1.0배
+        }
+
+        # 품질 등급별 롤옵션 추가 배수 범위 (최대치)
+        roll_bonus_ranges = {
+            "top": 0.5,    # 롤옵션 퍼센타일에 따라 +0% ~ +50%
+            "high": 0.3,   # 롤옵션 퍼센타일에 따라 +0% ~ +30%
+            "mid": 0.3,    # 롤옵션 퍼센타일에 따라 +0% ~ +30%
+            "low": 0.0,    # low 등급은 롤옵션 보너스 없음
+        }
+
+        base_mult = quality_multipliers.get(quality_tier, 1.0)
+        roll_range = roll_bonus_ranges.get(quality_tier, 0.0)
+
+        # 롤옵션 퍼센타일 (0.0 ~ 1.0)
+        roll_pct = self._calculate_roll_option_bonus(item)
+
+        # 최종 배수 = 기본 배수 + (롤옵션 범위 * 롤옵션 퍼센타일)
+        final_mult = base_mult + (roll_range * roll_pct)
+
+        # 가격 보너스 = (최종 배수 - 1) * 기본가
+        return int(base_price * (final_mult - 1))
+
+    def _draw_shop_confirm_dialog(self, screen):
+        """장착 아이템 판매 확인 다이얼로그"""
+        dialog_rect, yes_rect, no_rect = self._get_shop_confirm_rects()
+
+        # 배경 흐림
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 140))
+        screen.blit(overlay, (0, 0))
+
+        # 다이얼로그
+        pygame.draw.rect(screen, (26, 32, 52), dialog_rect, border_radius=10)
+        pygame.draw.rect(screen, (120, 180, 255), dialog_rect, 2, border_radius=10)
+
+        font_small = self.fonts.get('small')
+        font_tiny = self.fonts.get('tiny') or font_small
+        if font_small:
+            title = "현재 착용중인 아이템입니다"
+            title_surf, title_rect = font_small.render(title, (255, 230, 180))
+            screen.blit(title_surf, (dialog_rect.x + (dialog_rect.width - title_rect.width) // 2, dialog_rect.y + 18))
+        if font_tiny:
+            msg = "판매하시겠습니까?"
+            msg_surf, msg_rect = font_tiny.render(msg, (210, 215, 230))
+            screen.blit(msg_surf, (dialog_rect.x + (dialog_rect.width - msg_rect.width) // 2, dialog_rect.y + 54))
+
+        # 버튼
+        def _draw_btn(rect, text, base_fill, base_border, hover_fill, hover_border):
+            is_hover = rect.collidepoint(pygame.mouse.get_pos())
+            fill = hover_fill if is_hover else base_fill
+            border = hover_border if is_hover else base_border
+            pygame.draw.rect(screen, fill, rect, border_radius=6)
+            pygame.draw.rect(screen, border, rect, 2, border_radius=6)
+            if font_tiny:
+                txt_surf, txt_rect = font_tiny.render(text, (15, 18, 26))
+                # 버튼 중앙에 텍스트 정렬 (y축 약간 위로 조정)
+                txt_x = rect.x + (rect.width - txt_rect.width) // 2
+                txt_y = rect.y + (rect.height - txt_rect.height) // 2 - 3
+                screen.blit(txt_surf, (txt_x, txt_y))
+
+        _draw_btn(yes_rect, "예",
+                  (120, 200, 140), (80, 160, 110),
+                  (140, 220, 160), (90, 170, 120))
+        _draw_btn(no_rect, "아니오",
+                  (200, 140, 120), (160, 110, 90),
+                  (220, 160, 140), (180, 130, 110))
 
     def _draw_academy_dialog(self, screen):
         """학장 아르카나와의 대화창 그리기"""

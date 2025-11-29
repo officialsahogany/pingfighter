@@ -7,7 +7,21 @@
 import pygame
 import math
 import random
+import os
+import sys
 from typing import List, Dict, Tuple, Optional, Any
+
+def resource_path(relative_path):
+    """PyInstaller 번들과 일반 실행 모두에서 작동하는 리소스 경로 반환"""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        # events 폴더에서 실행되면 상위 폴더로 이동
+        if os.path.basename(base_path) == "events":
+            base_path = os.path.dirname(base_path)
+    relative_path = relative_path.replace('/', os.sep).replace('\\', os.sep)
+    return os.path.join(base_path, relative_path)
 
 class BalloonMachineEvent:
     """스테이지 1 - 10~30초마다 랜덤하게 풍선 발사 기계 이벤트"""
@@ -85,7 +99,7 @@ class BalloonMachineEvent:
         """폰트 초기화"""
         if not self.font:
             try:
-                self.font = pygame.font.Font("NeoDGM.ttf", 20)
+                self.font = pygame.font.Font(resource_path("PFStardust.ttf"), 20)
             except:
                 self.font = pygame.font.Font(None, 20)
     

@@ -1,10 +1,27 @@
 """
-레트로 스타일 게임 종료 화면 - 네오 둥근모 폰트 사용
+레트로 스타일 게임 종료 화면 - 네오 둥근모 프로 픽셀 폰트 사용
 """
 import pygame
 import math
 import random
+import os
+import sys
 from typing import Tuple, Dict, Any
+
+def resource_path(relative_path):
+    """PyInstaller 번들과 일반 실행 모두에서 작동하는 리소스 경로 반환"""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        # ui 폴더에서 실행되면 상위 폴더로 이동
+        if os.path.basename(base_path) == "ui":
+            base_path = os.path.dirname(base_path)
+    relative_path = relative_path.replace('/', os.sep).replace('\\', os.sep)
+    return os.path.join(base_path, relative_path)
+
+# 픽셀 폰트 경로
+PIXEL_FONT = resource_path("PFStardust.ttf")
 
 class RetroGameOverScreen:
     """레트로 픽셀 스타일 게임 종료 화면"""
@@ -43,16 +60,16 @@ class RetroGameOverScreen:
         self.scanline_y = 0
         
     def _load_fonts(self) -> Dict[str, pygame.font.Font]:
-        """네오 둥근모 폰트 로드"""
+        """네오 둥근모 프로 픽셀 폰트 로드"""
         fonts = {}
         try:
-            # 네오 둥근모 폰트 사용
-            fonts['title'] = pygame.font.Font("NeoDGM.ttf", 48)
-            fonts['subtitle'] = pygame.font.Font("NeoDGM.ttf", 24)
-            fonts['normal'] = pygame.font.Font("NeoDGM.ttf", 20)
-            fonts['small'] = pygame.font.Font("NeoDGM.ttf", 16)
-            fonts['tiny'] = pygame.font.Font("NeoDGM.ttf", 14)
-            fonts['grade'] = pygame.font.Font("NeoDGM.ttf", 36)
+            # 네오 둥근모 프로 픽셀 폰트 사용
+            fonts['title'] = pygame.font.Font(PIXEL_FONT, 48)
+            fonts['subtitle'] = pygame.font.Font(PIXEL_FONT, 24)
+            fonts['normal'] = pygame.font.Font(PIXEL_FONT, 20)
+            fonts['small'] = pygame.font.Font(PIXEL_FONT, 16)
+            fonts['tiny'] = pygame.font.Font(PIXEL_FONT, 14)
+            fonts['grade'] = pygame.font.Font(PIXEL_FONT, 36)
         except:
             # 폴백 폰트
             fonts['title'] = pygame.font.Font(None, 48)

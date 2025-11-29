@@ -121,7 +121,7 @@ class ItemSystem:
             },
             'foul_whistle': {
                 'name': '반칙호루라기',
-                'description': '라운드 패배 시 10% 확률로 무효 선언 후 재경기',
+                'description': '라운드 패배 시 7~13% 확률로 무효 선언 후 재경기',
                 'type': 'passive',
                 'effect': {'round_negate_chance': 0.1},
                 'permanent': True

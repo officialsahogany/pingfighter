@@ -181,6 +181,14 @@ class DowntownPlayer:
             if scancode is not None:
                 self._scancode_map.pop(scancode, None)
 
+    def reset_input_state(self):
+        """모달 화면 후 남을 수 있는 이동 입력 상태를 초기화."""
+        self.pressed_keys.clear()
+        self._scancode_map.clear()
+        self.velocity_x = 0
+        self.velocity_y = 0
+        self.is_moving = False
+
     def set_korean_key(self, key_char, pressed, scancode=None, keycode=None):
         """기존 호환용 래퍼 (한글 자모 / 스캔코드 모두 처리)"""
         self.handle_movement_key_event(pressed, scancode=scancode, keycode=keycode, unicode_char=key_char)

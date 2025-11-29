@@ -232,7 +232,6 @@ class MenuSystem:
         """스테이지 클리어 메뉴 생성"""
         return [
             MenuItem("다음 스테이지", action=lambda: self.next_stage()),
-            MenuItem("아카데미", action=lambda: self.open_academy()),
             MenuItem("가챠", action=lambda: self.open_gacha()),
             MenuItem("메인 메뉴로", action=lambda: self.to_main_menu())
         ]

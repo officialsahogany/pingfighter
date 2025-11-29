@@ -5,20 +5,11 @@ from __future__ import annotations
 import math
 import os
 import random
-import sys
 from typing import List, Tuple
 
 import pygame
 
-
-def resource_path(relative_path: str) -> str:
-    """PyInstaller 번들/일반 실행 모두에서 사용할 수 있는 리소스 경로."""
-
-    try:
-        base_path = sys._MEIPASS  # type: ignore[attr-defined]
-    except Exception:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_path, relative_path)
+from resource_path import resource_path
 
 
 class FoulWhistle:
@@ -29,7 +20,7 @@ class FoulWhistle:
             pygame.font.init()
 
         self.active = False
-        self.negate_chance = 0.1
+        self.negate_chance = 0.10
 
         self.animation_active = False
         self.animation_frame = 0
@@ -143,22 +134,29 @@ class FoulWhistle:
         return self._overlay_surface
 
     def _load_font(self, size: int) -> pygame.font.Font:
-        candidates = [
-            "NeoDunggeunmoPro.ttf",
-            os.path.join("..", "NeoDunggeunmoPro.ttf"),
-            "NeoDGM.ttf",
-            os.path.join("..", "NeoDGM.ttf"),
-            "NanumSquareB.ttf",
-            os.path.join("..", "NanumSquareB.ttf"),
-            None,
+        """한글 글리프가 확실한 폰트 우선 로드."""
+
+        candidates: list[tuple[str | None, int]] = [
+            ("NanumSquareB.ttf", size),
+            ("Pretendard-Bold.ttf", size),
+            ("NeoDunggeunmoPro.ttf", int(size * 1.05)),
+            ("PFStardust.ttf", int(size * 1.1)),  # 픽셀 느낌 폴백
+            (None, size),
         ]
-        for name in candidates:
+
+        for name, adjusted_size in candidates:
             try:
                 if name is None:
-                    return pygame.font.Font(None, size)
-                return pygame.font.Font(resource_path(name), size)
+                    return pygame.font.Font(None, adjusted_size)
+
+                path = resource_path(name)
+                if not os.path.exists(path):
+                    continue
+
+                return pygame.font.Font(path, adjusted_size)
             except Exception:
                 continue
+
         return pygame.font.Font(None, size)
 
     def _create_referee_frames(self) -> List[pygame.Surface]:

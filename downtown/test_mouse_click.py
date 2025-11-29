@@ -44,15 +44,31 @@ def test_mouse_click():
     for building_type, bx, by, bw, bh in downtown_map.buildings:
         buildings.add_building(building_type, bx, by, bw, bh)
 
-    # 폰트 (freetype 사용 - 한글 지원)
+    # 폰트 (freetype 사용 - 한글 지원) - 네오둥근모 프로 도트 폰트 우선
+    font = None
+    small_font = None
+
+    # 1차 시도: 네오둥근모 프로 픽셀 폰트
     try:
-        font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-        if os.path.exists(font_path):
-            font = pygame.freetype.Font(font_path, 24)
-            small_font = pygame.freetype.Font(font_path, 16)
-        else:
-            raise FileNotFoundError
+        pixel_font_path = resource_path("PFStardust.ttf")
+        if os.path.exists(pixel_font_path):
+            font = pygame.freetype.Font(pixel_font_path, 24)
+            small_font = pygame.freetype.Font(pixel_font_path, 16)
     except:
+        pass
+
+    # 2차 시도: NanumSquare 폴백
+    if font is None:
+        try:
+            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+            if os.path.exists(font_path):
+                font = pygame.freetype.Font(font_path, 24)
+                small_font = pygame.freetype.Font(font_path, 16)
+        except:
+            pass
+
+    # 3차 시도: 기본 폰트
+    if font is None:
         font = pygame.freetype.Font(None, 24)
         small_font = pygame.freetype.Font(None, 16)
 

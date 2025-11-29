@@ -85,10 +85,10 @@ class Stage5FireMachineEvent:
         self.font = None
         
     def init_font(self):
-        """폰트 초기화"""
+        """폰트 초기화 - PF스타더스트 픽셀 폰트"""
         if not self.font:
             try:
-                self.font = pygame.font.Font("NeoDGM.ttf", 20)
+                self.font = pygame.font.Font("PFStardust.ttf", 20)
             except:
                 self.font = pygame.font.Font(None, 20)
     

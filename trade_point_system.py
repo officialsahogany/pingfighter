@@ -63,7 +63,7 @@ class TradePointSystem:
         
         # 폰트 설정
         try:
-            self.font = pygame.font.Font("NeoDGM.ttf", 20)
+            self.font = pygame.font.Font(resource_path("PFStardust.ttf"), 20)
         except:
             self.font = pygame.font.Font(None, 20)
     

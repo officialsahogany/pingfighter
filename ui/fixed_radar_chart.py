@@ -6,16 +6,32 @@
 
 import pygame
 import math
+import os
+import sys
+
+def resource_path(relative_path):
+    """PyInstaller 번들과 일반 실행 모두에서 작동하는 리소스 경로 반환"""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        if os.path.basename(base_path) == "ui":
+            base_path = os.path.dirname(base_path)
+    relative_path = relative_path.replace('/', os.sep).replace('\\', os.sep)
+    return os.path.join(base_path, relative_path)
+
+# 픽셀 폰트 경로
+PIXEL_FONT = resource_path("PFStardust.ttf")
 
 
 def draw_improved_radar_chart(screen, stats, center_x, center_y, radius=120):
     """개선된 능력치 레이더 차트 그리기"""
-    
-    # 네오둥근모 폰트 로드
+
+    # 네오둥근모 프로 픽셀 폰트 로드
     try:
-        font_label = pygame.font.Font("NeoDGM.ttf", 14)  # 라벨용 작은 폰트
-        font_grade = pygame.font.Font("NeoDGM.ttf", 12)  # 등급 표시용
-        font_percent = pygame.font.Font("NeoDGM.ttf", 10)  # 퍼센트 표시용
+        font_label = pygame.font.Font(PIXEL_FONT, 14)  # 라벨용 작은 폰트
+        font_grade = pygame.font.Font(PIXEL_FONT, 12)  # 등급 표시용
+        font_percent = pygame.font.Font(PIXEL_FONT, 10)  # 퍼센트 표시용
     except:
         font_label = pygame.font.Font(None, 14)
         font_grade = pygame.font.Font(None, 12)
@@ -190,11 +206,11 @@ def score_to_grade(score):
 
 def draw_compact_radar_chart(screen, stats, center_x, center_y, radius=80):
     """작은 공간에 맞는 컴팩트한 레이더 차트"""
-    
-    # 네오둥근모 폰트 로드 (더 작은 크기)
+
+    # 네오둥근모 프로 픽셀 폰트 로드 (더 작은 크기)
     try:
-        font_label = pygame.font.Font("NeoDGM.ttf", 11)
-        font_grade = pygame.font.Font("NeoDGM.ttf", 10)
+        font_label = pygame.font.Font(PIXEL_FONT, 11)
+        font_grade = pygame.font.Font(PIXEL_FONT, 10)
     except:
         font_label = pygame.font.Font(None, 11)
         font_grade = pygame.font.Font(None, 10)

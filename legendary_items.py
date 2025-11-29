@@ -3670,6 +3670,19 @@ class LegendaryItemManager:
             
             item = self.items[name]
             item.activate(game_state)
+            # 천사의 가호는 활성화 시점에 현재 스테이지에서 즉시 주사위를 다시 굴려
+            # 다음 스테이지 진입 경로와 상관없이 항상 발동하도록 보정한다.
+            if name == "angel_blessing":
+                try:
+                    current_stage_hint = None
+                    try:
+                        current_stage_hint = int(game_state.get("current_stage"))
+                    except Exception:
+                        current_stage_hint = game_state.get("current_stage")
+                    item.applied_stage = None
+                    item.update(0.0, ui_mode=False)
+                except Exception:
+                    pass
             if name not in self.active_items:
                 self.active_items.append(name)
                 print(f"   ✅ {name}을 active_items에 추가: {self.active_items}")

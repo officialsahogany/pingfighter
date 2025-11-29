@@ -19,7 +19,13 @@ except Exception:  # 런타임 없는 정적 분석 환경 대비
     pygame = None  # type: ignore
 
 
-def should_charge_gauge(*, current_stage: int, stopwatch_active: bool, stopwatch_timer: int) -> bool:
+def should_charge_gauge(
+    *,
+    current_stage: int,
+    stopwatch_active: bool,
+    stopwatch_timer: int,
+    paused: bool = False,
+) -> bool:
     """Stage 7 보스 게이지 충전 여부 판단.
 
     불변식:
@@ -28,6 +34,8 @@ def should_charge_gauge(*, current_stage: int, stopwatch_active: bool, stopwatch
     - 스테이지 7일 때만 테트리서 게이지 충전 로직을 가동한다.
     """
     if current_stage != 7:
+        return False
+    if paused:
         return False
     if stopwatch_active and stopwatch_timer > 0:
         return False

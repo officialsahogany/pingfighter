@@ -17,19 +17,30 @@ from downtown.constants import SCREEN_WIDTH, SCREEN_HEIGHT, resource_path
 from downtown.shop import Shop, preview_shop_themes
 
 def init_fonts():
-    """폰트 초기화"""
+    """폰트 초기화 - 네오둥근모 프로 도트 폰트 우선"""
     freetype_fonts = {}
 
     # freetype 폰트 로드 시도
     font = None
+
+    # 1차 시도: 네오둥근모 프로 픽셀 폰트
     try:
-        font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-        if os.path.exists(font_path):
-            font = font_path
+        pixel_font_path = resource_path("PFStardust.ttf")
+        if os.path.exists(pixel_font_path):
+            font = pixel_font_path
     except:
         pass
 
-    # 시스템 폰트 fallback
+    # 2차 시도: NanumSquare 폴백
+    if font is None:
+        try:
+            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+            if os.path.exists(font_path):
+                font = font_path
+        except:
+            pass
+
+    # 3차 시도: 시스템 폰트 fallback
     if font is None:
         if os.path.exists("/System/Library/Fonts/AppleSDGothicNeo.ttc"):
             font = "/System/Library/Fonts/AppleSDGothicNeo.ttc"

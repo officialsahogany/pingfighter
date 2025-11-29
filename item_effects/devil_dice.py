@@ -71,10 +71,7 @@ class DevilDice:
     def init_fonts(self):
         """폰트 초기화"""
         font_candidates = [
-            "fonts/pixel/NeoDunggeunmoPro.ttf",
-            "NeoDunggeunmoPro.ttf",
-            "fonts/pixel/NeoDGM.ttf",
-            "NeoDGM.ttf",
+            "PFStardust.ttf",
             "NanumSquareB.ttf",
             "NanumSquareR.ttf",
         ]

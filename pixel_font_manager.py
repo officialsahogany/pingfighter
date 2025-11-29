@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 🎮 픽셀 폰트 매니저
-네오둥근모 레트로 픽셀 폰트를 중앙에서 관리
+네오둥근모 프로 레트로 픽셀 폰트를 전체 게임에 적용
+한글/영문 모두 완벽 지원, 맥/윈도우 호환
 """
 
 import pygame
@@ -16,35 +17,52 @@ def resource_path(relative_path):
     except Exception:
         # 일반 Python 실행인 경우
         base_path = os.path.dirname(os.path.abspath(__file__))
-    
+
+    # 경로 구분자 통일 (크로스 플랫폼)
+    relative_path = relative_path.replace('/', os.sep).replace('\\', os.sep)
     return os.path.join(base_path, relative_path)
 
-# 폰트 파일 경로
-# 한글 호환성을 위해 NanumSquare 폰트를 메인으로 사용
-MAIN_FONT_EXTRA_BOLD = resource_path("NanumSquareEB.ttf")
-MAIN_FONT_BOLD = resource_path("NanumSquareB.ttf")
-MAIN_FONT_REGULAR = resource_path("NanumSquareR.ttf")
+# ============================================
+# 🎮 네오둥근모 프로 - 메인 픽셀 폰트
+# 한글 완벽 지원, 맥/윈도우 호환, OFL 라이선스
+# ============================================
 
-# 픽셀 폰트는 영문 전용으로 사용 (선택적)
-if os.path.exists(resource_path("PFStardust.ttf")):
-    PIXEL_FONT = resource_path("PFStardust.ttf")
-elif os.path.exists(resource_path("NeoDGM.ttf")):
-    PIXEL_FONT = resource_path("NeoDGM.ttf")
-elif os.path.exists(resource_path("NeoDunggeunmoPro.ttf")):
-    PIXEL_FONT = resource_path("NeoDunggeunmoPro.ttf")
-else:
-    PIXEL_FONT = None  # 픽셀 폰트 없으면 NanumSquare 사용
-    
+# 픽셀 폰트 경로 (PF스타더스트 3.0 - 가독성 좋은 레트로 픽셀 폰트)
+PIXEL_FONT_PATH = resource_path("PFStardust.ttf")
+
+# 메인 폰트 = 픽셀 폰트 (네오둥근모 프로)
+MAIN_FONT_EXTRA_BOLD = PIXEL_FONT_PATH
+MAIN_FONT_BOLD = PIXEL_FONT_PATH
+MAIN_FONT_REGULAR = PIXEL_FONT_PATH
+
+# 픽셀 폰트 경로 설정
+PIXEL_FONT = PIXEL_FONT_PATH
+
+# 폴백 폰트 (픽셀 폰트 없을 때만 사용)
+_fallback_nanum_bold = resource_path("NanumSquareB.ttf")
+_fallback_nanum_regular = resource_path("NanumSquareR.ttf")
+
+# 픽셀 폰트 존재 확인
+if not os.path.exists(PIXEL_FONT_PATH):
+    print(f"⚠️ 픽셀 폰트를 찾을 수 없음: {PIXEL_FONT_PATH}")
+    print("   → NanumSquare 폴백 사용")
+    MAIN_FONT_EXTRA_BOLD = _fallback_nanum_bold
+    MAIN_FONT_BOLD = _fallback_nanum_bold
+    MAIN_FONT_REGULAR = _fallback_nanum_regular
+    PIXEL_FONT = _fallback_nanum_bold
+
 # 폴백 폰트 (호환성 유지)
-FALLBACK_FONT_BOLD = MAIN_FONT_BOLD
-FALLBACK_FONT_REGULAR = MAIN_FONT_REGULAR
+FALLBACK_FONT_BOLD = _fallback_nanum_bold
+FALLBACK_FONT_REGULAR = _fallback_nanum_regular
 
-# 픽셀 폰트 사용 여부
+# 픽셀 폰트 사용 여부 (항상 True)
 USE_PIXEL_FONT = True
-# Windows 한글 폰트 폴백
+
+# Windows 한글 폰트 폴백 (최후의 수단)
 if sys.platform == "win32":
-    # Windows에서 한글 폰트 우선순위
     WINDOWS_KOREAN_FONTS = ["맑은 고딕", "굴림", "돋움", "바탕"]
+else:
+    WINDOWS_KOREAN_FONTS = []
 
 
 # 폰트 캐시 (성능 최적화)
@@ -147,62 +165,66 @@ class FontStyle:
 def get_font(size, style="regular", force_pixel=None):
     """
     폰트 가져오기 (캐싱 지원)
-    
+
     Args:
         size: 폰트 크기
-        style: "bold", "regular", "small" 등
+        style: "bold", "regular", "small" 등 (픽셀 폰트는 모두 같은 폰트 사용)
         force_pixel: True면 픽셀 폰트 강제, False면 기본 폰트 강제, None이면 설정 따름
     """
     use_pixel = force_pixel if force_pixel is not None else USE_PIXEL_FONT
-    
+
     # 캐시 키 생성
     cache_key = (size, style, use_pixel)
-    
+
     # 캐시에 있으면 반환
     if cache_key in _font_cache:
         return _font_cache[cache_key]
-    
-    # NanumSquare 폰트 사용 (한글 완벽 지원)
-    if use_pixel:
-        # 크기 조정
-        adjusted_size = adjust_pixel_size(size)
-        
-        # 스타일에 따라 적절한 NanumSquare 폰트 선택
+
+    # 픽셀 폰트 크기 조정
+    adjusted_size = adjust_pixel_size(size) if use_pixel else size
+
+    # 네오둥근모 프로 픽셀 폰트 사용
+    try:
+        font = pygame.font.Font(PIXEL_FONT, adjusted_size)
+        _font_cache[cache_key] = font
+        return font
+    except Exception as e:
+        print(f"⚠️ 픽셀 폰트 로드 실패: {e}")
+
+        # 폴백 1: NanumSquare
         try:
             if style == "bold":
-                font = pygame.font.Font(MAIN_FONT_BOLD, adjusted_size)
-            elif style == "extra_bold" or adjusted_size >= 48:  # 큰 사이즈는 ExtraBold 사용
-                font = pygame.font.Font(MAIN_FONT_EXTRA_BOLD, adjusted_size)
+                font = pygame.font.Font(FALLBACK_FONT_BOLD, adjusted_size)
             else:
-                font = pygame.font.Font(MAIN_FONT_REGULAR, adjusted_size)
+                font = pygame.font.Font(FALLBACK_FONT_REGULAR, adjusted_size)
             _font_cache[cache_key] = font
             return font
-        except Exception as e:
-            print(f"NanumSquare 폰트 로드 실패: {e}")
-            # 시스템 폰트 폴백
-            if sys.platform == "win32":
-                for font_name in WINDOWS_KOREAN_FONTS:
-                    try:
-                        font = pygame.font.SysFont(font_name, adjusted_size)
-                        _font_cache[cache_key] = font
-                        return font
-                    except:
-                        continue
-    
-    # 폴백 폰트 사용 (NanumSquare)
-    try:
-        if style == "bold":
-            font = pygame.font.Font(MAIN_FONT_BOLD, size)
-        elif style == "extra_bold":
-            font = pygame.font.Font(MAIN_FONT_EXTRA_BOLD, size)
-        else:
-            font = pygame.font.Font(MAIN_FONT_REGULAR, size)
-    except:
-        # 최종 폴백: 시스템 기본 폰트
-        font = pygame.font.Font(None, size)
-    
-    _font_cache[cache_key] = font
-    return font
+        except:
+            pass
+
+        # 폴백 2: Windows 시스템 폰트
+        if sys.platform == "win32":
+            for font_name in WINDOWS_KOREAN_FONTS:
+                try:
+                    font = pygame.font.SysFont(font_name, adjusted_size)
+                    _font_cache[cache_key] = font
+                    return font
+                except:
+                    continue
+
+        # 폴백 3: macOS 시스템 폰트
+        if sys.platform == "darwin":
+            try:
+                font = pygame.font.SysFont("AppleGothic", adjusted_size)
+                _font_cache[cache_key] = font
+                return font
+            except:
+                pass
+
+        # 최종 폴백: pygame 기본 폰트
+        font = pygame.font.Font(None, adjusted_size)
+        _font_cache[cache_key] = font
+        return font
 
 def adjust_pixel_size(size):
     """픽셀 폰트용 크기 조정 (크기 감소 - 더 작고 얇게)"""
@@ -251,27 +273,27 @@ def clear_font_cache():
 # 기본 폰트 상태 확인
 def check_font_status():
     """폰트 상태 확인 (디버깅용)"""
-    print(":")
+    print("🎮 폰트 상태:")
     if os.path.exists(PIXEL_FONT):
-        print(f"  [OK]   ({os.path.basename(PIXEL_FONT)})")
+        print(f"  ✅ 픽셀 폰트: {os.path.basename(PIXEL_FONT)}")
     else:
-        print(f"  [X]   ({os.path.basename(PIXEL_FONT)})")
-    
+        print(f"  ❌ 픽셀 폰트 없음: {PIXEL_FONT}")
+
     if os.path.exists(FALLBACK_FONT_BOLD):
-        print(f"  [OK]  Bold")
+        print(f"  ✅ 폴백 Bold: {os.path.basename(FALLBACK_FONT_BOLD)}")
     else:
-        print(f"  [X]  Bold")
-        
+        print(f"  ❌ 폴백 Bold 없음")
+
     if os.path.exists(FALLBACK_FONT_REGULAR):
-        print(f"  [OK]  Regular")
+        print(f"  ✅ 폴백 Regular: {os.path.basename(FALLBACK_FONT_REGULAR)}")
     else:
-        print(f"  [X]  Regular")
+        print(f"  ❌ 폴백 Regular 없음")
 
 # 프로그램 시작 시 상태 체크
 check_font_status()
 
 # 픽셀 폰트 가용 여부 확인
 if os.path.exists(PIXEL_FONT):
-    print(f"{os.path.basename(PIXEL_FONT).replace('.ttf', '')}    !")
+    print(f"🎮 도트 폰트 활성화: {os.path.basename(PIXEL_FONT).replace('.ttf', '')}")
 else:
-    print(",")
+    print("⚠️ 도트 폰트 없음, 폴백 폰트 사용")

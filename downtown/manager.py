@@ -42,14 +42,14 @@ try:
                 _show_pause_options = pingfighter.show_pause_options
             except (ImportError, AttributeError) as e:
                 print(f"Warning: Could not import ingame functions: {e}")
-                _show_character_info = lambda: None
-                _show_pause_options = lambda: None
+                _show_character_info = lambda *args, **kwargs: None
+                _show_pause_options = lambda *args, **kwargs: None
         return _show_character_info, _show_pause_options
 
 except Exception as e:
     print(f"Warning: Could not setup ingame function import: {e}")
     def _import_ingame_functions():
-        return lambda: None, lambda: None
+        return (lambda *args, **kwargs: None), (lambda *args, **kwargs: None)
 
 class DowntownState:
     """번화가 상태"""
@@ -101,7 +101,37 @@ class DowntownManager:
 
         # 열쇠 애니메이션 (건물 입장 시)
         self.key_animation = None  # {'start_time': ..., 'building_type': ...}
-        self.key_anim_duration = 3000  # 3초 (밀리초)
+        self.key_anim_duration = 2000  # 2초 (밀리초)
+
+        # 열쇠 삽입 효과음 로드
+        self.key_insert_sound = None
+        try:
+            key_sound_path = resource_path(os.path.join("sounds", "insertkey.wav"))
+            if os.path.exists(key_sound_path):
+                self.key_insert_sound = pygame.mixer.Sound(key_sound_path)
+                self.key_insert_sound.set_volume(0.7)  # 볼륨 70%
+        except Exception as e:
+            print(f"Warning: Could not load key insert sound: {e}")
+
+        # 강아지 짖는 소리 로드
+        self.dog_bark_sound = None
+        try:
+            dog_sound_path = resource_path(os.path.join("sounds", "dogbark.wav"))
+            if os.path.exists(dog_sound_path):
+                self.dog_bark_sound = pygame.mixer.Sound(dog_sound_path)
+                self.dog_bark_sound.set_volume(0.6)  # 볼륨 60%
+        except Exception as e:
+            print(f"Warning: Could not load dog bark sound: {e}")
+
+        # 고양이 야옹 소리 로드
+        self.cat_meow_sound = None
+        try:
+            cat_sound_path = resource_path(os.path.join("sounds", "cat.wav"))
+            if os.path.exists(cat_sound_path):
+                self.cat_meow_sound = pygame.mixer.Sound(cat_sound_path)
+                self.cat_meow_sound.set_volume(0.6)  # 볼륨 60%
+        except Exception as e:
+            print(f"Warning: Could not load cat meow sound: {e}")
 
         # 건물 입장 기록 (광장 세션당 1회 제한)
         self.visited_buildings_this_session = set()  # BuildingType 저장
@@ -221,24 +251,24 @@ class DowntownManager:
         print(f"[DEPOSIT] Interest rate for stage {self.stage_number + 1}: {new_rate*100:.1f}%")
 
     def _init_fonts(self):
-        """폰트 초기화 (pygame.freetype 사용 - 한글 지원)"""
+        """폰트 초기화 (pygame.freetype 사용 - 한글 지원) - 네오둥근모 프로 도트 폰트"""
         self._freetype_fonts = {}
 
-        # freetype 폰트 로드 시도
+        # 픽셀 폰트 경로 (네오둥근모 프로)
         font = None
-        try:
-            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-            if os.path.exists(font_path):
-                font = font_path
-        except:
-            pass
+        pixel_font_path = resource_path("PFStardust.ttf")
+        fallback_font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
 
+        # 픽셀 폰트 우선 로드
+        if os.path.exists(pixel_font_path):
+            font = pixel_font_path
+        elif os.path.exists(fallback_font_path):
+            font = fallback_font_path
         # 시스템 폰트 fallback
-        if font is None:
-            if os.path.exists("/System/Library/Fonts/AppleSDGothicNeo.ttc"):
-                font = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
-            elif os.path.exists("C:/Windows/Fonts/malgun.ttf"):
-                font = "C:/Windows/Fonts/malgun.ttf"
+        elif os.path.exists("/System/Library/Fonts/AppleSDGothicNeo.ttc"):
+            font = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
+        elif os.path.exists("C:/Windows/Fonts/malgun.ttf"):
+            font = "C:/Windows/Fonts/malgun.ttf"
 
         # freetype 폰트 생성
         try:
@@ -252,10 +282,9 @@ class DowntownManager:
 
         # 기존 pygame.font도 유지 (호환성)
         try:
-            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-            self.font_large = pygame.font.Font(font_path, 32)
-            self.font_medium = pygame.font.Font(font_path, 24)
-            self.font_small = pygame.font.Font(font_path, 16)
+            self.font_large = pygame.font.Font(font, 32)
+            self.font_medium = pygame.font.Font(font, 24)
+            self.font_small = pygame.font.Font(font, 16)
         except:
             self.font_large = pygame.font.Font(None, 32)
             self.font_medium = pygame.font.Font(None, 24)
@@ -338,6 +367,16 @@ class DowntownManager:
 
         return None
 
+    def _reset_player_input_state(self):
+        """모달 화면 복귀 시 남아 있는 이동 입력을 정리."""
+        if self.player and hasattr(self.player, "reset_input_state"):
+            self.player.reset_input_state()
+        # 남아 있던 키 입력 이벤트는 버려 이동 고정 현상을 방지
+        try:
+            pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP])
+        except Exception:
+            pygame.event.clear()
+
     def _handle_event(self, event):
         """이벤트 처리"""
         if self.state == DowntownState.IN_BUILDING:
@@ -365,6 +404,7 @@ class DowntownManager:
             if event.key == pygame.K_ESCAPE:
                 # ESC 메뉴
                 self._show_pause_menu()
+                self._reset_player_input_state()
 
             elif event.key == pygame.K_SPACE:
                 # 상호작용 (건물/출구) 또는 NPC 대화
@@ -373,7 +413,13 @@ class DowntownManager:
             elif event.key == pygame.K_TAB:
                 # 캐릭터 정보 (인게임과 동일)
                 show_character_info_fn, _ = _import_ingame_functions()
-                show_character_info_fn()
+                if show_character_info_fn:
+                    bg_snapshot = self.screen.copy() if self.screen else None
+                    if bg_snapshot is not None:
+                        show_character_info_fn(background_surface=bg_snapshot)
+                    else:
+                        show_character_info_fn()
+                self._reset_player_input_state()
 
             elif event.key == pygame.K_0:
                 # 개발자 건물 소환 모드 토글 (0번 키)
@@ -430,8 +476,21 @@ class DowntownManager:
 
         if dialogue:
             # 대화 성공 - NPC가 알아서 말풍선을 표시함
-            pass
-        # 대화 실패 시 아무것도 하지 않음 (자연스럽게)
+            return
+
+        # 대화 가능한 NPC가 없으면 동물 상호작용 시도
+        animal_result = self.npc_manager.try_interact_with_animal(
+            self.player.x, self.player.y, radius=70
+        )
+
+        if animal_result:
+            npc_type, reaction = animal_result
+            # 강아지 상호작용 - 짖는 소리 재생
+            if npc_type.value == "dog" and self.dog_bark_sound:
+                self.dog_bark_sound.play()
+            # 고양이 상호작용 - 야옹 소리 재생
+            elif npc_type.value == "cat" and self.cat_meow_sound:
+                self.cat_meow_sound.play()
 
     def _handle_interaction_or_talk(self):
         """상호작용 또는 NPC 대화 처리 (Space/마우스 클릭용)"""
@@ -480,6 +539,26 @@ class DowntownManager:
                 # 대화 성공 - NPC가 알아서 말풍선 표시
                 return
 
+        # 1.5. 대화 가능한 NPC가 없으면 동물 클릭 체크
+        clicked_animal = self._check_animal_click(world_x, world_y)
+        if clicked_animal:
+            # 동물 상호작용 - 소리 재생
+            from .npc import NPCType
+            animal_result = self.npc_manager.try_interact_with_animal(
+                world_x, world_y, radius=50
+            )
+            if animal_result:
+                npc_type, reaction = animal_result
+                # 강아지 상호작용 - 짖는 소리 재생
+                if npc_type == NPCType.DOG and self.dog_bark_sound:
+                    self.dog_bark_sound.play()
+                    print(f"  -> Dog bark sound played!")
+                # 고양이 상호작용 - 야옹 소리 재생
+                elif npc_type == NPCType.CAT and self.cat_meow_sound:
+                    self.cat_meow_sound.play()
+                    print(f"  -> Cat meow sound played!")
+            return
+
         # 2. NPC가 없으면 건물 클릭 체크
         clicked_building = self.player.check_building_click(
             mouse_pos, camera_offset, self.downtown_map
@@ -513,6 +592,20 @@ class DowntownManager:
                     return npc
 
         print("  -> No NPC clicked")
+        return None
+
+    def _check_animal_click(self, world_x, world_y):
+        """마우스 클릭 위치에 동물(강아지/고양이)이 있는지 확인"""
+        from .npc import NPCType
+
+        for npc in self.npc_manager.npcs:
+            # 동물인지 확인
+            if npc.type in [NPCType.DOG, NPCType.CAT]:
+                npc_rect = npc.get_rect()
+                if npc_rect.collidepoint(world_x, world_y):
+                    print(f"  -> Animal HIT! type={npc.type}")
+                    return npc
+
         return None
 
     def _show_building_confirmation_dialog(self, building_type):
@@ -568,6 +661,10 @@ class DowntownManager:
             'start_time': pygame.time.get_ticks(),
             'building_type': building_type
         }
+
+        # 열쇠 삽입 효과음 재생
+        if self.key_insert_sound:
+            self.key_insert_sound.play()
 
         # 건물 방문 처리 (애니메이션 후 실제 입장은 나중에)
         building = self.buildings.get_nearest_building(
@@ -867,24 +964,45 @@ class DowntownManager:
         yes_button_x = dialog_x + (dialog_width // 2) - button_width - (button_spacing // 2)
         no_button_x = dialog_x + (dialog_width // 2) + (button_spacing // 2)
 
+        # 마우스 위치 확인
+        mouse_pos = pygame.mouse.get_pos()
+
         # 예 버튼
         self.dialog_yes_rect = pygame.Rect(yes_button_x, buttons_y, button_width, button_height)
-        pygame.draw.rect(self.screen, Colors.UI_SUCCESS, self.dialog_yes_rect, border_radius=10)
-        pygame.draw.rect(self.screen, (100, 255, 100), self.dialog_yes_rect, 2, border_radius=10)
+        yes_hover = self.dialog_yes_rect.collidepoint(mouse_pos)
+        if yes_hover:
+            yes_bg_color = (60, 180, 90)  # 호버 시 밝은 초록
+            yes_border_color = (140, 255, 140)
+            yes_text_color = (255, 255, 255)
+        else:
+            yes_bg_color = Colors.UI_SUCCESS
+            yes_border_color = (100, 255, 100)
+            yes_text_color = Colors.TEXT_WHITE
+        pygame.draw.rect(self.screen, yes_bg_color, self.dialog_yes_rect, border_radius=10)
+        pygame.draw.rect(self.screen, yes_border_color, self.dialog_yes_rect, 2, border_radius=10)
 
         yes_text = "예"
-        yes_surface, yes_rect = self._freetype_fonts['medium'].render(yes_text, Colors.TEXT_WHITE)
+        yes_surface, yes_rect = self._freetype_fonts['medium'].render(yes_text, yes_text_color)
         yes_text_x = yes_button_x + (button_width - yes_rect.width) // 2
         yes_text_y = buttons_y + (button_height - yes_rect.height) // 2
         self.screen.blit(yes_surface, (yes_text_x, yes_text_y))
 
         # 아니오 버튼
         self.dialog_no_rect = pygame.Rect(no_button_x, buttons_y, button_width, button_height)
-        pygame.draw.rect(self.screen, Colors.UI_DANGER, self.dialog_no_rect, border_radius=10)
-        pygame.draw.rect(self.screen, (255, 100, 100), self.dialog_no_rect, 2, border_radius=10)
+        no_hover = self.dialog_no_rect.collidepoint(mouse_pos)
+        if no_hover:
+            no_bg_color = (220, 80, 80)  # 호버 시 밝은 빨강
+            no_border_color = (255, 140, 140)
+            no_text_color = (255, 255, 255)
+        else:
+            no_bg_color = Colors.UI_DANGER
+            no_border_color = (255, 100, 100)
+            no_text_color = Colors.TEXT_WHITE
+        pygame.draw.rect(self.screen, no_bg_color, self.dialog_no_rect, border_radius=10)
+        pygame.draw.rect(self.screen, no_border_color, self.dialog_no_rect, 2, border_radius=10)
 
         no_text = "아니오"
-        no_surface, no_rect = self._freetype_fonts['medium'].render(no_text, Colors.TEXT_WHITE)
+        no_surface, no_rect = self._freetype_fonts['medium'].render(no_text, no_text_color)
         no_text_x = no_button_x + (button_width - no_rect.width) // 2
         no_text_y = buttons_y + (button_height - no_rect.height) // 2
         self.screen.blit(no_surface, (no_text_x, no_text_y))
@@ -1440,6 +1558,10 @@ class DowntownManager:
                         show_character_info, show_pause_options = _import_ingame_functions()
                         if show_pause_options:
                             result = show_pause_options()
+                            # 모달 메뉴에서 돌아올 때 입력 상태를 초기화해 고정 이동 방지
+                            if interior and interior.player:
+                                interior.player.reset_input_state()
+                            pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP])
                             if result == "main_menu":
                                 running = False
                                 self.should_exit = True
@@ -1451,7 +1573,14 @@ class DowntownManager:
                         # TAB으로 캐릭터 정보창 (광장과 동일)
                         show_character_info, _ = _import_ingame_functions()
                         if show_character_info:
-                            show_character_info()
+                            bg_snapshot = self.screen.copy() if self.screen else None
+                            if bg_snapshot is not None:
+                                show_character_info(background_surface=bg_snapshot)
+                            else:
+                                show_character_info()
+                            if interior and interior.player:
+                                interior.player.reset_input_state()
+                            pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP])
 
                     else:
                         # 메뉴 키 처리 (은행 메뉴, 환전 메뉴, 아카데미 대화창 등)
@@ -1499,6 +1628,13 @@ class DowntownManager:
                                         SCREEN_HEIGHT,
                                         self.player_data.get('character_type', 'smasher')
                                     )
+                    elif event.button == 3:  # 오른쪽 클릭 (상점 거래 등)
+                        interior.handle_click(event.pos, button=3)
+
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    # 마우스 버튼 릴리즈 처리 (드래그 앤 드롭)
+                    if event.button == 1:  # 왼쪽 버튼 릴리즈
+                        interior.handle_mouse_up(event.pos, button=1)
 
                 elif event.type == pygame.MOUSEWHEEL:
                     # 마우스 휠 처리 (환전 양 조절 - 슬라이더 위에서만)
@@ -1518,6 +1654,7 @@ class DowntownManager:
             pygame.display.flip()
 
         # 건물 내부에서 나왔으므로 상태를 EXPLORING으로 복원
+        self._reset_player_input_state()
         self._exit_building()
 
     def _show_npc_dialogue(self, npc):
@@ -1584,6 +1721,9 @@ class DowntownManager:
                 self.screen.blit(hint_surf, (box_x + box_width - hint_rect.width - 20, box_y + box_height - 30))
 
             pygame.display.flip()
+
+        # 대화창을 닫고 돌아올 때 이동 입력이 고정되지 않도록 초기화
+        self._reset_player_input_state()
 
     def _show_message(self, message, color=Colors.TEXT_WHITE):
         """메시지 표시 (한글 지원)"""
@@ -1691,10 +1831,16 @@ class DowntownManager:
                         action = menu_options[selected][1]
                         if action == "character":
                             # 인게임 캐릭터 정보 화면 호출
-                            show_character_info_fn()
+                            bg_snapshot = self.screen.copy() if self.screen else None
+                            if bg_snapshot is not None:
+                                show_character_info_fn(background_surface=bg_snapshot)
+                            else:
+                                show_character_info_fn()
+                            self._reset_player_input_state()
                         elif action == "options":
                             # 인게임 옵션 메뉴 호출
                             show_pause_options_fn()
+                            self._reset_player_input_state()
                         elif action == "quit":
                             # 번화가 종료
                             self.state = DowntownState.EXITING
@@ -1709,14 +1855,23 @@ class DowntownManager:
                             if option_rect.collidepoint(event.pos):
                                 if action == "character":
                                     # 인게임 캐릭터 정보 화면 호출
-                                    show_character_info_fn()
+                                    bg_snapshot = self.screen.copy() if self.screen else None
+                                    if bg_snapshot is not None:
+                                        show_character_info_fn(background_surface=bg_snapshot)
+                                    else:
+                                        show_character_info_fn()
+                                    self._reset_player_input_state()
                                 elif action == "options":
                                     # 인게임 옵션 메뉴 호출
                                     show_pause_options_fn()
+                                    self._reset_player_input_state()
                                 elif action == "quit":
                                     self.state = DowntownState.EXITING
                                     running = False
                                 break
+
+        # 메뉴를 닫고 광장으로 복귀할 때 입력 상태 초기화
+        self._reset_player_input_state()
 
     def _show_inventory(self):
         """인벤토리"""

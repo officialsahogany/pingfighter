@@ -514,9 +514,16 @@ NPC_CONFIG = {
         "size": (28, 42),
         "speed": 1.5,
         "colors": [
-            {"body": (150, 150, 160), "accent": (0, 200, 255), "eye": (255, 50, 50)},
-            {"body": (200, 200, 210), "accent": (255, 100, 255), "eye": (0, 255, 100)},
-            {"body": (100, 100, 120), "accent": (255, 200, 0), "eye": (0, 150, 255)},
+            # Type 0: 클래식 로봇 (은색 + 시안)
+            {"body": (150, 150, 160), "accent": (0, 200, 255), "eye": (255, 50, 50), "detail": (100, 100, 110)},
+            # Type 1: 전투 로봇 (다크 그레이 + 레드)
+            {"body": (80, 80, 90), "accent": (255, 50, 50), "eye": (255, 200, 0), "detail": (60, 60, 70)},
+            # Type 2: 서비스 로봇 (화이트 + 그린)
+            {"body": (220, 220, 230), "accent": (50, 255, 100), "eye": (100, 200, 255), "detail": (180, 180, 190)},
+            # Type 3: 빈티지 로봇 (브론즈 + 골드)
+            {"body": (180, 140, 100), "accent": (255, 200, 50), "eye": (255, 100, 50), "detail": (140, 100, 60)},
+            # Type 4: 사이버 로봇 (블랙 + 네온 퍼플)
+            {"body": (50, 50, 60), "accent": (200, 50, 255), "eye": (0, 255, 200), "detail": (30, 30, 40)},
         ],
         "idle_chance": 0.01,
         "chat_chance": 0.005,
@@ -608,8 +615,13 @@ class NPC:
         self.vy = 0
         self.direction = random.randint(0, 3)  # 0:하, 1:좌, 2:우, 3:상
 
-        # 색상 (랜덤 선택)
-        self.colors = random.choice(self.config["colors"])
+        # 색상 (랜덤 선택, 로봇은 variant에 맞는 색상 선택)
+        if npc_type == NPCType.ROBOT:
+            # 로봇은 먼저 variant를 결정하고 해당 색상 선택
+            self.robot_variant = random.randint(0, 4)
+            self.colors = self.config["colors"][self.robot_variant]
+        else:
+            self.colors = random.choice(self.config["colors"])
 
         # 상태
         self.state = "walking"  # walking, idle, sitting, chatting
@@ -637,6 +649,10 @@ class NPC:
         self.effect_timer = 0
         self.speech_bubble = None
         self.speech_timer = 0
+
+        # 로봇이 아닌 NPC는 variant 0으로 설정
+        if not hasattr(self, 'robot_variant'):
+            self.robot_variant = 0
 
         # 대화 시스템
         self.is_talking = False
@@ -1194,403 +1210,1073 @@ class NPC:
             pygame.draw.circle(screen, (80, 50, 30), (int(cane_x), int(torso_y + 5)), 4)
 
     def _draw_dog(self, screen, x, y):
-        """강아지 그리기"""
+        """강아지 그리기 - 사실적인 비글/골든 리트리버 스타일"""
         colors = self.colors
         is_moving = self.vx != 0 or self.vy != 0
 
-        # 개의 자연스러운 4족 보행 (trot gait - 대각선 다리가 함께 움직임)
+        # 방향에 따른 오프셋 (0: 하, 1: 좌, 2: 우, 3: 상)
+        dir_x = 1 if self.direction == 2 else -1 if self.direction == 1 else 0
+
+        # 걷기 애니메이션
         if is_moving:
             wp = self.walk_progress
-            # 개는 트롯 보행: 대각선 다리쌍이 교차로 움직임
-            bounce = abs(math.sin(wp * 2)) * 2.5  # 더 빠른 상하 움직임
+            bounce = abs(math.sin(wp * 2)) * 2
         else:
-            bounce = abs(math.sin(self.effect_timer * 1.5)) * 0.5  # 호흡
+            bounce = abs(math.sin(self.effect_timer * 1.5)) * 0.5
 
-        # 몸통
-        body_w = self.width
-        body_h = int(self.height * 0.7)
+        # === 그림자 ===
+        shadow_surf = pygame.Surface((28, 8), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 0, 28, 8))
+        screen.blit(shadow_surf, (x - 14, y + 8))
+
+        # === 꼬리 (몸 뒤쪽에 먼저 그림) ===
+        if self.config.get("wag_tail"):
+            wag = math.sin(self.effect_timer * 12) * 20  # 빠른 꼬리 흔들기
+            tail_base_x = x - dir_x * 6  # 몸통에 더 가깝게 (10 -> 6)
+            tail_base_y = y - 2 - bounce  # 몸통 중심에 맞춤 (-4 -> -2)
+
+            # 꼬리 곡선 (위로 올라가며 휘어짐)
+            tail_points = []
+            for i in range(6):
+                t = i / 5
+                tx = tail_base_x - dir_x * (4 + t * 10)  # 시작점을 몸에 더 붙임 (8 -> 4)
+                ty = tail_base_y - t * 12 + math.sin(t * math.pi + wag * 0.05) * 4
+                tail_points.append((int(tx), int(ty)))
+
+            if len(tail_points) >= 2:
+                pygame.draw.lines(screen, colors["body"], False, tail_points, 5)
+                # 꼬리 끝 털
+                pygame.draw.circle(screen, colors["body"], tail_points[-1], 4)
+
+        # === 뒷다리 (몸 뒤에) ===
+        leg_y = y + 2 - bounce
+        if is_moving:
+            wp = self.walk_progress
+            back_left = math.sin(wp + math.pi) * 3
+            back_right = math.sin(wp) * 3
+        else:
+            back_left = back_right = 0
+
+        # 뒷다리 (허벅지 + 종아리)
+        back_leg_x1 = x - 8
+        back_leg_x2 = x + 8
+
+        # 왼쪽 뒷다리
+        pygame.draw.ellipse(screen, colors["body"],
+                           (back_leg_x1 - 4, leg_y - 3, 8, 10))  # 허벅지
+        pygame.draw.line(screen, colors["body"],
+                        (back_leg_x1, leg_y + 5),
+                        (back_leg_x1 + int(back_left), leg_y + 12), 4)  # 종아리
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                           (back_leg_x1 - 3 + int(back_left), leg_y + 10, 6, 4))  # 발
+
+        # 오른쪽 뒷다리
+        pygame.draw.ellipse(screen, colors["body"],
+                           (back_leg_x2 - 4, leg_y - 3, 8, 10))
+        pygame.draw.line(screen, colors["body"],
+                        (back_leg_x2, leg_y + 5),
+                        (back_leg_x2 + int(back_right), leg_y + 12), 4)
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                           (back_leg_x2 - 3 + int(back_right), leg_y + 10, 6, 4))
+
+        # === 몸통 (타원형, 약간 길쭉) ===
+        body_w = int(self.width * 1.1)
+        body_h = int(self.height * 0.65)
         body_rect = pygame.Rect(
             x - body_w // 2,
-            y - body_h // 2 - bounce,
+            y - body_h // 2 - bounce - 2,
             body_w,
             body_h
         )
         pygame.draw.ellipse(screen, colors["body"], body_rect)
 
-        # 배
+        # 배 (밝은 색)
         belly_rect = pygame.Rect(
             x - body_w // 3,
             y - body_h // 4 - bounce,
             body_w * 2 // 3,
             body_h // 2
         )
-        pygame.draw.ellipse(screen, colors["belly"], belly_rect)
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]), belly_rect)
 
-        # 머리
-        head_x = x + (body_w // 3 if self.direction == 2 else -body_w // 3 if self.direction == 1 else 0)
-        head_y = y - body_h // 2 - bounce
-        head_size = int(body_h * 0.8)
-        pygame.draw.circle(screen, colors["body"], (int(head_x), int(head_y)), head_size // 2)
-
-        # 귀
-        ear_offset = 6
-        pygame.draw.ellipse(screen, colors["body"],
-                          (head_x - ear_offset - 4, head_y - head_size // 2, 8, 12))
-        pygame.draw.ellipse(screen, colors["body"],
-                          (head_x + ear_offset - 4, head_y - head_size // 2, 8, 12))
-
-        # 코
-        nose_x = head_x + (8 if self.direction == 2 else -8 if self.direction == 1 else 0)
-        pygame.draw.circle(screen, colors["nose"], (int(nose_x), int(head_y + 2)), 3)
-
-        # 눈
-        eye_x = head_x + (4 if self.direction == 2 else -4 if self.direction == 1 else 0)
-        pygame.draw.circle(screen, (40, 40, 40), (int(eye_x - 4), int(head_y - 2)), 2)
-        pygame.draw.circle(screen, (40, 40, 40), (int(eye_x + 4), int(head_y - 2)), 2)
-
-        # 꼬리 (흔들림)
-        if self.config.get("wag_tail"):
-            wag = math.sin(self.effect_timer * 10) * 15
-            tail_x = x - body_w // 2 - 5 if self.direction != 1 else x + body_w // 2 + 5
-            tail_base = (tail_x, y - bounce)
-            tail_end = (tail_x + (-10 if self.direction != 1 else 10),
-                       y - body_h // 2 + wag - bounce)
-            pygame.draw.line(screen, colors["body"], tail_base, tail_end, 4)
-
-        # 다리 애니메이션 (4족 보행 - trot gait)
-        leg_y = y + body_h // 4 - bounce
-
+        # === 앞다리 ===
         if is_moving:
             wp = self.walk_progress
-            # 트롯 보행: 대각선 다리쌍이 함께 움직임
-            # 앞왼발 + 뒤오른발 (위상 0), 앞오른발 + 뒤왼발 (위상 π)
-            front_left_offset = math.sin(wp) * 4
-            front_right_offset = math.sin(wp + math.pi) * 4
-            back_left_offset = math.sin(wp + math.pi) * 3  # 뒷다리는 약간 작게
-            back_right_offset = math.sin(wp) * 3
-
-            # 발 들어올림 효과
-            front_left_lift = max(0, math.sin(wp + math.pi * 0.3)) * 2
-            front_right_lift = max(0, math.sin(wp + math.pi * 1.3)) * 2
-            back_left_lift = max(0, math.sin(wp + math.pi * 1.3)) * 1.5
-            back_right_lift = max(0, math.sin(wp + math.pi * 0.3)) * 1.5
+            front_left = math.sin(wp) * 4
+            front_right = math.sin(wp + math.pi) * 4
+            fl_lift = max(0, math.sin(wp + math.pi * 0.3)) * 2
+            fr_lift = max(0, math.sin(wp + math.pi * 1.3)) * 2
         else:
-            front_left_offset = front_right_offset = 0
-            back_left_offset = back_right_offset = 0
-            front_left_lift = front_right_lift = 0
-            back_left_lift = back_right_lift = 0
+            front_left = front_right = 0
+            fl_lift = fr_lift = 0
 
-        # 앞다리
-        pygame.draw.line(screen, colors["body"],
-                        (x - 6, leg_y - int(front_left_lift)),
-                        (x - 6 + int(front_left_offset), leg_y + 8), 4)
-        pygame.draw.line(screen, colors["body"],
-                        (x + 6, leg_y - int(front_right_lift)),
-                        (x + 6 + int(front_right_offset), leg_y + 8), 4)
+        front_leg_x1 = x - 5
+        front_leg_x2 = x + 5
 
-        # 뒷다리 (약간 뒤쪽)
+        # 왼쪽 앞다리
         pygame.draw.line(screen, colors["body"],
-                        (x - 10, leg_y + 2 - int(back_left_lift)),
-                        (x - 10 + int(back_left_offset), leg_y + 10), 3)
+                        (front_leg_x1, leg_y - 4 - int(fl_lift)),
+                        (front_leg_x1 + int(front_left), leg_y + 10), 4)
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                           (front_leg_x1 - 3 + int(front_left), leg_y + 8, 6, 4))
+
+        # 오른쪽 앞다리
         pygame.draw.line(screen, colors["body"],
-                        (x + 10, leg_y + 2 - int(back_right_lift)),
-                        (x + 10 + int(back_right_offset), leg_y + 10), 3)
+                        (front_leg_x2, leg_y - 4 - int(fr_lift)),
+                        (front_leg_x2 + int(front_right), leg_y + 10), 4)
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                           (front_leg_x2 - 3 + int(front_right), leg_y + 8, 6, 4))
+
+        # === 목 (몸통과 머리 연결) ===
+        neck_x = x + dir_x * 10
+        neck_y = y - body_h // 2 - bounce - 2
+        pygame.draw.ellipse(screen, colors["body"],
+                           (neck_x - 6, neck_y - 4, 12, 14))
+
+        # === 머리 (주둥이가 긴 개 특유의 형태) ===
+        head_x = x + dir_x * 14
+        head_y = y - body_h // 2 - 6 - bounce
+
+        # 머리 본체 (둥근 사각형)
+        head_w = 14
+        head_h = 12
+        pygame.draw.ellipse(screen, colors["body"],
+                           (head_x - head_w // 2, head_y - head_h // 2, head_w, head_h))
+
+        # 주둥이 (앞으로 튀어나온 부분)
+        snout_x = head_x + dir_x * 8
+        snout_y = head_y + 2
+        pygame.draw.ellipse(screen, colors["body"],
+                           (snout_x - 6, snout_y - 4, 12, 8))
+        # 주둥이 밝은 부분
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                           (snout_x - 4, snout_y - 2, 8, 5))
+
+        # === 귀 (늘어진 귀 - 비글/골든 스타일) ===
+        ear_w = 8
+        ear_h = 14
+
+        # 왼쪽 귀
+        left_ear_x = head_x - 7
+        left_ear_y = head_y - 2
+        pygame.draw.ellipse(screen, colors["body"],
+                           (left_ear_x - ear_w // 2, left_ear_y, ear_w, ear_h))
+        # 귀 안쪽 (약간 어두운 색)
+        darker_body = tuple(max(0, c - 30) for c in colors["body"])
+        pygame.draw.ellipse(screen, darker_body,
+                           (left_ear_x - ear_w // 2 + 2, left_ear_y + 2, ear_w - 4, ear_h - 4))
+
+        # 오른쪽 귀
+        right_ear_x = head_x + 7
+        right_ear_y = head_y - 2
+        pygame.draw.ellipse(screen, colors["body"],
+                           (right_ear_x - ear_w // 2, right_ear_y, ear_w, ear_h))
+        pygame.draw.ellipse(screen, darker_body,
+                           (right_ear_x - ear_w // 2 + 2, right_ear_y + 2, ear_w - 4, ear_h - 4))
+
+        # === 눈 (반짝이는 눈) ===
+        eye_offset = dir_x * 2
+        eye_y = head_y - 1
+
+        # 눈 흰자
+        pygame.draw.ellipse(screen, (255, 255, 255),
+                           (head_x - 5 + eye_offset, eye_y - 2, 5, 4))
+        pygame.draw.ellipse(screen, (255, 255, 255),
+                           (head_x + 1 + eye_offset, eye_y - 2, 5, 4))
+
+        # 눈동자
+        pygame.draw.circle(screen, (50, 30, 20),
+                          (int(head_x - 3 + eye_offset + dir_x), int(eye_y)), 2)
+        pygame.draw.circle(screen, (50, 30, 20),
+                          (int(head_x + 3 + eye_offset + dir_x), int(eye_y)), 2)
+
+        # 눈 반짝임
+        pygame.draw.circle(screen, (255, 255, 255),
+                          (int(head_x - 4 + eye_offset), int(eye_y - 1)), 1)
+        pygame.draw.circle(screen, (255, 255, 255),
+                          (int(head_x + 2 + eye_offset), int(eye_y - 1)), 1)
+
+        # === 코 (검은색, 촉촉한 느낌) ===
+        nose_x = snout_x + dir_x * 3
+        nose_y = snout_y
+        pygame.draw.ellipse(screen, colors["nose"],
+                           (nose_x - 3, nose_y - 2, 6, 5))
+        # 코 반짝임
+        pygame.draw.circle(screen, (80, 80, 80), (int(nose_x - 1), int(nose_y - 1)), 1)
+
+        # === 입 (살짝 벌린 입 - 혀 보이기) ===
+        if is_moving or self.speech_bubble:
+            # 달리거나 짖을 때 입 벌림
+            mouth_y = snout_y + 3
+            pygame.draw.arc(screen, (60, 40, 40),
+                           (nose_x - 4, mouth_y - 2, 8, 6), 0, math.pi, 2)
+            # 혀
+            tongue_wave = math.sin(self.effect_timer * 6) * 2
+            pygame.draw.ellipse(screen, (255, 120, 140),
+                               (nose_x - 2, mouth_y + int(tongue_wave), 5, 4))
 
     def _draw_cat(self, screen, x, y):
-        """고양이 그리기"""
+        """고양이 그리기 - 사실적인 고양이 스타일"""
         colors = self.colors
         is_moving = self.vx != 0 or self.vy != 0
 
         if self.state == "sitting":
-            # 앉은 자세
             self._draw_sitting_cat(screen, x, y, colors)
             return
 
-        # 고양이의 우아한 걸음걸이 (살금살금)
+        # 방향에 따른 오프셋
+        dir_x = 1 if self.direction == 2 else -1 if self.direction == 1 else 0
+
+        # 걷기 애니메이션 (고양이는 우아하게)
         if is_moving:
             wp = self.walk_progress
-            # 고양이는 부드럽고 우아한 움직임
-            bounce = abs(math.sin(wp * 2)) * 1.8  # 개보다 낮은 바운스
+            bounce = abs(math.sin(wp * 2)) * 1.5
         else:
             bounce = abs(math.sin(self.effect_timer * 1.2)) * 0.3
 
-        # 몸통
-        body_w = self.width
-        body_h = int(self.height * 0.7)
+        # === 그림자 ===
+        shadow_surf = pygame.Surface((24, 6), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 35), (0, 0, 24, 6))
+        screen.blit(shadow_surf, (x - 12, y + 6))
+
+        # === 꼬리 (S자 곡선으로 우아하게) ===
+        tail_wave = math.sin(self.effect_timer * 3) * 8
+        tail_base_x = x - dir_x * 8
+        tail_base_y = y - 4 - bounce  # 몸통에 더 가깝게
+
+        tail_points = []
+        for i in range(10):
+            t = i / 9
+            # S자 곡선
+            tx = tail_base_x - dir_x * (5 + t * 15)
+            ty = tail_base_y - t * 18 + math.sin(t * math.pi * 1.5 + self.effect_timer * 2) * (6 + t * 4)
+            tail_points.append((int(tx), int(ty)))
+
+        if len(tail_points) >= 2:
+            # 꼬리 두께 점진적 감소
+            for i in range(len(tail_points) - 1):
+                thickness = max(2, 5 - i // 2)
+                pygame.draw.line(screen, colors["body"],
+                               tail_points[i], tail_points[i + 1], thickness)
+
+        # === 뒷다리 (몸 뒤에 먼저) ===
+        leg_y = y + 2 - bounce
+        if is_moving:
+            wp = self.walk_progress
+            back_left = math.sin(wp + math.pi * 0.5) * 2
+            back_right = math.sin(wp + math.pi * 1.5) * 2
+        else:
+            back_left = back_right = 0
+
+        # 뒷다리 (고양이는 뒷다리가 더 길고 각진 느낌)
+        back_leg_x1 = x - 6
+        back_leg_x2 = x + 6
+
+        # 왼쪽 뒷다리 (허벅지)
+        pygame.draw.ellipse(screen, colors["body"],
+                           (back_leg_x1 - 4, leg_y - 4, 8, 12))
+        # 종아리
+        pygame.draw.line(screen, colors["body"],
+                        (back_leg_x1, leg_y + 6),
+                        (back_leg_x1 + int(back_left), leg_y + 12), 3)
+        # 발
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                           (back_leg_x1 - 2 + int(back_left), leg_y + 10, 5, 3))
+
+        # 오른쪽 뒷다리
+        pygame.draw.ellipse(screen, colors["body"],
+                           (back_leg_x2 - 4, leg_y - 4, 8, 12))
+        pygame.draw.line(screen, colors["body"],
+                        (back_leg_x2, leg_y + 6),
+                        (back_leg_x2 + int(back_right), leg_y + 12), 3)
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                           (back_leg_x2 - 2 + int(back_right), leg_y + 10, 5, 3))
+
+        # === 몸통 (날씬하고 유연한 형태) ===
+        body_w = int(self.width * 1.0)
+        body_h = int(self.height * 0.6)
         body_rect = pygame.Rect(
             x - body_w // 2,
-            y - body_h // 2 - bounce,
+            y - body_h // 2 - bounce - 2,
             body_w,
             body_h
         )
         pygame.draw.ellipse(screen, colors["body"], body_rect)
 
-        # 배
+        # 배 (밝은 색)
         belly_rect = pygame.Rect(
-            x - body_w // 4,
+            x - body_w // 3,
             y - body_h // 4 - bounce,
-            body_w // 2,
+            body_w * 2 // 3,
             body_h // 2
         )
-        pygame.draw.ellipse(screen, colors["belly"], belly_rect)
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]), belly_rect)
 
-        # 머리
-        dir_offset = 8 if self.direction == 2 else -8 if self.direction == 1 else 0
-        head_x = x + dir_offset
-        head_y = y - body_h // 2 - 2 - bounce
-        head_size = int(body_h * 0.9)
-        pygame.draw.circle(screen, colors["body"], (int(head_x), int(head_y)), head_size // 2)
-
-        # 삼각형 귀
-        ear_size = 8
-        # 왼쪽 귀
-        pygame.draw.polygon(screen, colors["body"], [
-            (head_x - head_size // 3, head_y - head_size // 4),
-            (head_x - head_size // 3 - ear_size // 2, head_y - head_size // 2 - ear_size),
-            (head_x - head_size // 3 + ear_size // 2, head_y - head_size // 4),
-        ])
-        # 오른쪽 귀
-        pygame.draw.polygon(screen, colors["body"], [
-            (head_x + head_size // 3, head_y - head_size // 4),
-            (head_x + head_size // 3 + ear_size // 2, head_y - head_size // 2 - ear_size),
-            (head_x + head_size // 3 - ear_size // 2, head_y - head_size // 4),
-        ])
-
-        # 귀 안쪽 (핑크)
-        pygame.draw.polygon(screen, (255, 180, 180), [
-            (head_x - head_size // 3, head_y - head_size // 4 + 2),
-            (head_x - head_size // 3, head_y - head_size // 2 - ear_size + 4),
-            (head_x - head_size // 3 + 3, head_y - head_size // 4 + 2),
-        ])
-        pygame.draw.polygon(screen, (255, 180, 180), [
-            (head_x + head_size // 3, head_y - head_size // 4 + 2),
-            (head_x + head_size // 3, head_y - head_size // 2 - ear_size + 4),
-            (head_x + head_size // 3 - 3, head_y - head_size // 4 + 2),
-        ])
-
-        # 눈 (고양이 특유의 타원형)
-        eye_offset = 3 if self.direction == 2 else -3 if self.direction == 1 else 0
-        eye_y = head_y
-        pygame.draw.ellipse(screen, colors["eyes"],
-                          (head_x - 6 + eye_offset, eye_y - 3, 5, 6))
-        pygame.draw.ellipse(screen, colors["eyes"],
-                          (head_x + 2 + eye_offset, eye_y - 3, 5, 6))
-        # 동공 (세로 슬릿)
-        pygame.draw.line(screen, (20, 20, 20),
-                        (head_x - 4 + eye_offset, eye_y - 2),
-                        (head_x - 4 + eye_offset, eye_y + 2), 1)
-        pygame.draw.line(screen, (20, 20, 20),
-                        (head_x + 4 + eye_offset, eye_y - 2),
-                        (head_x + 4 + eye_offset, eye_y + 2), 1)
-
-        # 코
-        pygame.draw.polygon(screen, (255, 150, 150), [
-            (head_x + eye_offset, head_y + 3),
-            (head_x - 2 + eye_offset, head_y + 6),
-            (head_x + 2 + eye_offset, head_y + 6),
-        ])
-
-        # 수염
-        whisker_y = head_y + 4
-        for dy in [-2, 0, 2]:
-            pygame.draw.line(screen, (200, 200, 200),
-                           (head_x - 8 + eye_offset, whisker_y + dy),
-                           (head_x - 15 + eye_offset, whisker_y + dy - 1), 1)
-            pygame.draw.line(screen, (200, 200, 200),
-                           (head_x + 8 + eye_offset, whisker_y + dy),
-                           (head_x + 15 + eye_offset, whisker_y + dy - 1), 1)
-
-        # 꼬리 (S자 곡선)
-        tail_wave = math.sin(self.effect_timer * 3) * 5
-        tail_x = x - body_w // 2 - 3
-        points = []
-        for i in range(8):
-            t = i / 7
-            tx = tail_x - i * 2
-            ty = y - bounce + math.sin(t * math.pi + self.effect_timer * 2) * 8
-            points.append((tx, ty))
-        if len(points) >= 2:
-            pygame.draw.lines(screen, colors["body"], False, points, 4)
-
-        # 다리 (고양이 특유의 우아한 걸음걸이)
-        leg_y = y + body_h // 4 - bounce
-
+        # === 앞다리 ===
         if is_moving:
             wp = self.walk_progress
-            # 고양이는 살금살금 걷기: 부드럽고 조용한 움직임
             front_left = math.sin(wp) * 2.5
             front_right = math.sin(wp + math.pi) * 2.5
-            back_left = math.sin(wp + math.pi * 0.5) * 2
-            back_right = math.sin(wp + math.pi * 1.5) * 2
-
-            # 발 들어올림 (고양이는 발을 높이 들지 않음)
             fl_lift = max(0, math.sin(wp + math.pi * 0.3)) * 1.5
             fr_lift = max(0, math.sin(wp + math.pi * 1.3)) * 1.5
         else:
-            front_left = front_right = back_left = back_right = 0
+            front_left = front_right = 0
             fl_lift = fr_lift = 0
 
-        # 앞다리
-        pygame.draw.line(screen, colors["body"],
-                        (x - 5, leg_y - int(fl_lift)),
-                        (x - 5 + int(front_left), leg_y + 6), 3)
-        pygame.draw.line(screen, colors["body"],
-                        (x + 5, leg_y - int(fr_lift)),
-                        (x + 5 + int(front_right), leg_y + 6), 3)
+        front_leg_x1 = x - 4
+        front_leg_x2 = x + 4
 
-        # 뒷다리
+        # 왼쪽 앞다리 (가늘고 우아함)
         pygame.draw.line(screen, colors["body"],
-                        (x - 8, leg_y + 2), (x - 8 + int(back_left), leg_y + 8), 2)
+                        (front_leg_x1, leg_y - 3 - int(fl_lift)),
+                        (front_leg_x1 + int(front_left), leg_y + 8), 3)
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                           (front_leg_x1 - 2 + int(front_left), leg_y + 6, 5, 3))
+
+        # 오른쪽 앞다리
         pygame.draw.line(screen, colors["body"],
-                        (x + 8, leg_y + 2), (x + 8 + int(back_right), leg_y + 8), 2)
+                        (front_leg_x2, leg_y - 3 - int(fr_lift)),
+                        (front_leg_x2 + int(front_right), leg_y + 8), 3)
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                           (front_leg_x2 - 2 + int(front_right), leg_y + 6, 5, 3))
+
+        # === 목 (가늘고 우아함) ===
+        neck_x = x + dir_x * 8
+        neck_y = y - body_h // 2 - bounce - 1
+        pygame.draw.ellipse(screen, colors["body"],
+                           (neck_x - 5, neck_y - 3, 10, 10))
+
+        # === 머리 (둥글고 작은 편) ===
+        head_x = x + dir_x * 11
+        head_y = y - body_h // 2 - 6 - bounce
+
+        head_w = 13
+        head_h = 11
+        pygame.draw.ellipse(screen, colors["body"],
+                           (head_x - head_w // 2, head_y - head_h // 2, head_w, head_h))
+
+        # === 귀 (삼각형, 뾰족한 고양이 귀) ===
+        ear_size = 8
+
+        # 왼쪽 귀
+        left_ear_x = head_x - 5
+        left_ear_y = head_y - 4
+        pygame.draw.polygon(screen, colors["body"], [
+            (left_ear_x, left_ear_y + 3),
+            (left_ear_x - 4, left_ear_y - ear_size),
+            (left_ear_x + 4, left_ear_y + 1),
+        ])
+        # 귀 안쪽 (핑크)
+        pygame.draw.polygon(screen, (255, 180, 180), [
+            (left_ear_x, left_ear_y + 2),
+            (left_ear_x - 2, left_ear_y - ear_size + 3),
+            (left_ear_x + 2, left_ear_y + 1),
+        ])
+
+        # 오른쪽 귀
+        right_ear_x = head_x + 5
+        right_ear_y = head_y - 4
+        pygame.draw.polygon(screen, colors["body"], [
+            (right_ear_x, right_ear_y + 3),
+            (right_ear_x + 4, right_ear_y - ear_size),
+            (right_ear_x - 4, right_ear_y + 1),
+        ])
+        pygame.draw.polygon(screen, (255, 180, 180), [
+            (right_ear_x, right_ear_y + 2),
+            (right_ear_x + 2, right_ear_y - ear_size + 3),
+            (right_ear_x - 2, right_ear_y + 1),
+        ])
+
+        # === 눈 (고양이 특유의 아몬드형 + 세로 동공) ===
+        eye_offset = dir_x * 2
+        eye_y = head_y
+
+        # 눈 배경 (아몬드형)
+        pygame.draw.ellipse(screen, colors.get("eyes", (100, 200, 100)),
+                           (head_x - 6 + eye_offset, eye_y - 3, 6, 5))
+        pygame.draw.ellipse(screen, colors.get("eyes", (100, 200, 100)),
+                           (head_x + 1 + eye_offset, eye_y - 3, 6, 5))
+
+        # 세로 동공 (고양이 특유)
+        pupil_size = 1 if is_moving else 2  # 움직일 때 동공 수축
+        pygame.draw.ellipse(screen, (20, 20, 20),
+                           (head_x - 4 + eye_offset, eye_y - 2, pupil_size, 4))
+        pygame.draw.ellipse(screen, (20, 20, 20),
+                           (head_x + 3 + eye_offset, eye_y - 2, pupil_size, 4))
+
+        # 눈 반짝임
+        pygame.draw.circle(screen, (255, 255, 255),
+                          (int(head_x - 4 + eye_offset), int(eye_y - 1)), 1)
+        pygame.draw.circle(screen, (255, 255, 255),
+                          (int(head_x + 3 + eye_offset), int(eye_y - 1)), 1)
+
+        # === 코 (작은 삼각형, 핑크색) ===
+        nose_x = head_x + dir_x * 4
+        nose_y = head_y + 2
+        pygame.draw.polygon(screen, (255, 150, 160), [
+            (nose_x, nose_y),
+            (nose_x - 2, nose_y + 3),
+            (nose_x + 2, nose_y + 3),
+        ])
+
+        # === 입 (W 모양) ===
+        mouth_y = nose_y + 3
+        pygame.draw.line(screen, (100, 80, 80),
+                        (nose_x - 3, mouth_y), (nose_x, mouth_y + 1), 1)
+        pygame.draw.line(screen, (100, 80, 80),
+                        (nose_x, mouth_y + 1), (nose_x + 3, mouth_y), 1)
+
+        # === 수염 (양쪽 3개씩) ===
+        whisker_y = nose_y + 2
+        whisker_color = (220, 220, 220)
+
+        for dy in [-2, 0, 2]:
+            # 왼쪽 수염
+            pygame.draw.line(screen, whisker_color,
+                           (head_x - 6 + eye_offset, whisker_y + dy),
+                           (head_x - 16 + eye_offset, whisker_y + dy - 2), 1)
+            # 오른쪽 수염
+            pygame.draw.line(screen, whisker_color,
+                           (head_x + 6 + eye_offset, whisker_y + dy),
+                           (head_x + 16 + eye_offset, whisker_y + dy - 2), 1)
 
     def _draw_sitting_cat(self, screen, x, y, colors):
-        """앉은 고양이 그리기"""
-        # 몸통 (원형으로)
-        body_size = int(self.width * 0.9)
-        pygame.draw.circle(screen, colors["body"], (int(x), int(y)), body_size // 2)
+        """앉은 고양이 그리기 - 사실적인 앉은 자세"""
+        # === 그림자 ===
+        shadow_surf = pygame.Surface((20, 10), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 30), (0, 0, 20, 10))
+        screen.blit(shadow_surf, (x - 10, y + 8))
 
-        # 앞발
-        pygame.draw.ellipse(screen, colors["body"],
-                          (x - body_size // 3, y + body_size // 4, 10, 6))
-        pygame.draw.ellipse(screen, colors["body"],
-                          (x + body_size // 3 - 10, y + body_size // 4, 10, 6))
-
-        # 머리
-        head_size = int(body_size * 0.8)
-        head_y = y - body_size // 2
-        pygame.draw.circle(screen, colors["body"], (int(x), int(head_y)), head_size // 2)
-
-        # 귀
-        ear_size = 7
-        pygame.draw.polygon(screen, colors["body"], [
-            (x - head_size // 3, head_y - head_size // 4),
-            (x - head_size // 3, head_y - head_size // 2 - ear_size),
-            (x - head_size // 3 + ear_size, head_y - head_size // 4),
-        ])
-        pygame.draw.polygon(screen, colors["body"], [
-            (x + head_size // 3, head_y - head_size // 4),
-            (x + head_size // 3, head_y - head_size // 2 - ear_size),
-            (x + head_size // 3 - ear_size, head_y - head_size // 4),
-        ])
-
-        # 눈 (감은 눈 - 앉아서 쉬는 중)
-        eye_y = head_y - 1
-        pygame.draw.arc(screen, (40, 40, 40), (x - 8, eye_y - 2, 6, 4), 0, math.pi, 2)
-        pygame.draw.arc(screen, (40, 40, 40), (x + 2, eye_y - 2, 6, 4), 0, math.pi, 2)
-
-        # 코
-        pygame.draw.polygon(screen, (255, 150, 150), [
-            (x, head_y + 2),
-            (x - 2, head_y + 5),
-            (x + 2, head_y + 5),
-        ])
-
-        # 꼬리 (몸 옆에)
+        # === 꼬리 (몸 옆에 감싸듯이) ===
         tail_wave = math.sin(self.effect_timer * 2) * 3
-        pygame.draw.arc(screen, colors["body"],
-                       (x + body_size // 3, y - body_size // 4, 20, 30 + tail_wave),
-                       -0.5, math.pi * 0.8, 4)
+        tail_points = []
+        for i in range(8):
+            t = i / 7
+            tx = x + 8 + t * 12  # 몸통에 더 가깝게
+            ty = y - 2 + math.sin(t * math.pi * 0.8) * 8 + tail_wave * t  # 몸통 중앙에서 시작
+            tail_points.append((int(tx), int(ty)))
+
+        if len(tail_points) >= 2:
+            for i in range(len(tail_points) - 1):
+                thickness = max(2, 4 - i // 2)
+                pygame.draw.line(screen, colors["body"],
+                               tail_points[i], tail_points[i + 1], thickness)
+
+        # === 몸통 (앉아서 둥글게) ===
+        body_w = int(self.width * 0.9)
+        body_h = int(self.height * 0.8)
+        pygame.draw.ellipse(screen, colors["body"],
+                          (x - body_w // 2, y - body_h // 3, body_w, body_h))
+
+        # 배 (앞쪽 밝은 부분)
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                          (x - body_w // 3, y - body_h // 4, body_w * 2 // 3, body_h * 2 // 3))
+
+        # === 앞발 (앞으로 가지런히) ===
+        paw_y = y + body_h // 3
+        pygame.draw.ellipse(screen, colors["body"],
+                          (x - 8, paw_y, 8, 5))
+        pygame.draw.ellipse(screen, colors["body"],
+                          (x + 1, paw_y, 8, 5))
+        # 발가락
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                          (x - 6, paw_y + 1, 4, 3))
+        pygame.draw.ellipse(screen, colors.get("belly", colors["body"]),
+                          (x + 3, paw_y + 1, 4, 3))
+
+        # === 목 ===
+        neck_y = y - body_h // 3
+        pygame.draw.ellipse(screen, colors["body"],
+                          (x - 6, neck_y - 4, 12, 12))
+
+        # === 머리 ===
+        head_y = y - body_h // 2 - 6
+        head_w = 14
+        head_h = 12
+        pygame.draw.ellipse(screen, colors["body"],
+                          (x - head_w // 2, head_y - head_h // 2, head_w, head_h))
+
+        # === 귀 (뾰족한 삼각형) ===
+        ear_size = 8
+
+        # 왼쪽 귀
+        pygame.draw.polygon(screen, colors["body"], [
+            (x - 5, head_y - 3),
+            (x - 8, head_y - ear_size - 4),
+            (x - 1, head_y - 2),
+        ])
+        pygame.draw.polygon(screen, (255, 180, 180), [
+            (x - 5, head_y - 2),
+            (x - 6, head_y - ear_size - 1),
+            (x - 3, head_y - 2),
+        ])
+
+        # 오른쪽 귀
+        pygame.draw.polygon(screen, colors["body"], [
+            (x + 5, head_y - 3),
+            (x + 8, head_y - ear_size - 4),
+            (x + 1, head_y - 2),
+        ])
+        pygame.draw.polygon(screen, (255, 180, 180), [
+            (x + 5, head_y - 2),
+            (x + 6, head_y - ear_size - 1),
+            (x + 3, head_y - 2),
+        ])
+
+        # === 눈 (감은 눈 - 만족스러운 표정) ===
+        eye_y = head_y
+        # 눈 감은 곡선 (^_^)
+        pygame.draw.arc(screen, (60, 50, 50),
+                       (x - 6, eye_y - 2, 5, 4), math.pi * 0.1, math.pi * 0.9, 2)
+        pygame.draw.arc(screen, (60, 50, 50),
+                       (x + 1, eye_y - 2, 5, 4), math.pi * 0.1, math.pi * 0.9, 2)
+
+        # === 코 ===
+        nose_y = head_y + 3
+        pygame.draw.polygon(screen, (255, 150, 160), [
+            (x, nose_y),
+            (x - 2, nose_y + 2),
+            (x + 2, nose_y + 2),
+        ])
+
+        # === 입 (살짝 미소) ===
+        mouth_y = nose_y + 2
+        pygame.draw.line(screen, (100, 80, 80),
+                        (x - 2, mouth_y), (x, mouth_y + 1), 1)
+        pygame.draw.line(screen, (100, 80, 80),
+                        (x, mouth_y + 1), (x + 2, mouth_y), 1)
+
+        # === 수염 ===
+        whisker_y = nose_y + 1
+        for dy in [-1, 1]:
+            pygame.draw.line(screen, (200, 200, 200),
+                           (x - 5, whisker_y + dy),
+                           (x - 12, whisker_y + dy - 1), 1)
+            pygame.draw.line(screen, (200, 200, 200),
+                           (x + 5, whisker_y + dy),
+                           (x + 12, whisker_y + dy - 1), 1)
 
     def _draw_robot(self, screen, x, y):
-        """로봇 그리기"""
+        """로봇 그리기 - 5가지 타입별 디자인"""
+        variant = self.robot_variant
         colors = self.colors
         bounce = 0
 
         if self.vx != 0 or self.vy != 0:
             bounce = math.sin(self.animation_frame * math.pi) * 1
 
-        # 글로우 효과
-        if self.config.get("has_glow"):
-            glow_alpha = int(100 + 50 * math.sin(self.effect_timer * 5))
-            glow_surf = pygame.Surface((self.width + 20, self.height + 20), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surf, (*colors["accent"], glow_alpha // 3),
-                           (0, 0, self.width + 20, self.height + 20), border_radius=10)
-            screen.blit(glow_surf, (x - self.width // 2 - 10, y - self.height // 2 - 10 - bounce))
+        blink = int(self.effect_timer * 5) % 2 == 0
 
-        # 몸통 (사각형)
-        body_rect = pygame.Rect(
-            x - self.width // 2,
-            y - self.height // 3 - bounce,
-            self.width,
-            self.height * 2 // 3
-        )
-        pygame.draw.rect(screen, colors["body"], body_rect, border_radius=5)
-        pygame.draw.rect(screen, colors["accent"], body_rect, 2, border_radius=5)
+        if variant == 0:
+            # Type 0: 클래식 휴머노이드 로봇 (원형 머리 + 직사각형 몸통)
+            self._draw_robot_classic(screen, x, y, colors, bounce, blink)
+        elif variant == 1:
+            # Type 1: 전투/군사 로봇 (각진 장갑, 어깨 캐논)
+            self._draw_robot_combat(screen, x, y, colors, bounce, blink)
+        elif variant == 2:
+            # Type 2: 서비스/도우미 로봇 (둥글둥글, 친근한 디자인)
+            self._draw_robot_service(screen, x, y, colors, bounce, blink)
+        elif variant == 3:
+            # Type 3: 빈티지/스팀펑크 로봇 (기어, 파이프, 연통)
+            self._draw_robot_vintage(screen, x, y, colors, bounce, blink)
+        else:
+            # Type 4: 사이버/네온 로봇 (홀로그램 디스플레이, 네온 라인)
+            self._draw_robot_cyber(screen, x, y, colors, bounce, blink)
+
+    def _draw_robot_classic(self, screen, x, y, colors, bounce, blink):
+        """클래식 휴머노이드 로봇 - 원형 머리, 사각 몸통"""
+        # 그림자
+        shadow_surf = pygame.Surface((30, 10), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 0, 30, 10))
+        screen.blit(shadow_surf, (x - 15, y + self.height // 3 + 8))
+
+        # 글로우 효과
+        glow_alpha = int(80 + 40 * math.sin(self.effect_timer * 4))
+        glow_surf = pygame.Surface((self.width + 16, self.height + 16), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow_surf, (*colors["accent"], glow_alpha // 4),
+                          (0, 0, self.width + 16, self.height + 16))
+        screen.blit(glow_surf, (x - self.width // 2 - 8, y - self.height // 2 - 8 - bounce))
+
+        # 다리
+        leg_y = y + self.height // 4 - bounce
+        leg_offset = math.sin(self.animation_frame * math.pi / 2) * 4 if (self.vx != 0 or self.vy != 0) else 0
+        for i, lx in enumerate([x - 7, x + 7]):
+            offset = leg_offset if i == 0 else -leg_offset
+            # 허벅지
+            pygame.draw.rect(screen, colors["body"], (lx - 4, leg_y, 8, 12))
+            # 무릎 관절
+            pygame.draw.circle(screen, colors["detail"], (lx, int(leg_y + 12)), 3)
+            # 정강이
+            pygame.draw.rect(screen, colors["body"], (lx - 3, leg_y + 12, 6, 10 + int(abs(offset))))
+            # 발
+            pygame.draw.rect(screen, colors["accent"], (lx - 5, leg_y + 22 + int(abs(offset)), 10, 4))
+
+        # 몸통 (직사각형)
+        body_rect = pygame.Rect(x - self.width // 2, y - self.height // 3 - bounce, self.width, self.height * 2 // 3)
+        pygame.draw.rect(screen, colors["body"], body_rect, border_radius=4)
+        pygame.draw.rect(screen, colors["accent"], body_rect, 2, border_radius=4)
 
         # 가슴 패널
-        panel_rect = pygame.Rect(
-            x - self.width // 3,
-            y - self.height // 4 - bounce,
-            self.width * 2 // 3,
-            self.height // 4
-        )
-        pygame.draw.rect(screen, (50, 50, 60), panel_rect)
-        # 패널 조명
-        light_x = x - self.width // 4
+        panel_rect = pygame.Rect(x - 10, y - self.height // 4 - bounce, 20, 12)
+        pygame.draw.rect(screen, colors["detail"], panel_rect, border_radius=2)
+        # LED 표시등 (3개)
         for i in range(3):
-            light_color = colors["accent"] if (int(self.effect_timer * 3) + i) % 3 == 0 else (60, 60, 70)
-            pygame.draw.circle(screen, light_color,
-                             (int(light_x + i * 10), int(y - self.height // 6 - bounce)), 3)
+            led_color = colors["accent"] if (int(self.effect_timer * 4) + i) % 3 == 0 else (50, 50, 60)
+            pygame.draw.circle(screen, led_color, (x - 6 + i * 6, int(y - self.height // 5 - bounce)), 2)
 
-        # 머리 (사각형)
-        head_w = int(self.width * 0.8)
-        head_h = int(self.height * 0.35)
-        head_rect = pygame.Rect(
-            x - head_w // 2,
-            y - self.height // 2 - head_h // 2 - bounce,
-            head_w,
-            head_h
-        )
-        pygame.draw.rect(screen, colors["body"], head_rect, border_radius=3)
-        pygame.draw.rect(screen, colors["accent"], head_rect, 2, border_radius=3)
+        # 팔 (좌우)
+        arm_y = y - self.height // 4 - bounce
+        arm_swing = math.sin(self.animation_frame * math.pi) * 3 if (self.vx != 0 or self.vy != 0) else 0
+        for i, ax in enumerate([x - self.width // 2 - 3, x + self.width // 2 - 3]):
+            swing = arm_swing if i == 0 else -arm_swing
+            # 어깨 관절
+            pygame.draw.circle(screen, colors["detail"], (ax + 3, int(arm_y)), 4)
+            # 팔
+            pygame.draw.rect(screen, colors["body"], (ax, int(arm_y), 6, 16 + int(swing)))
+            # 손
+            pygame.draw.circle(screen, colors["accent"], (ax + 3, int(arm_y + 18 + swing)), 4)
+
+        # 목
+        pygame.draw.rect(screen, colors["detail"], (x - 4, y - self.height // 2 + 2 - bounce, 8, 6))
+
+        # 머리 (원형)
+        head_y = y - self.height // 2 - 12 - bounce
+        pygame.draw.circle(screen, colors["body"], (int(x), int(head_y)), 14)
+        pygame.draw.circle(screen, colors["accent"], (int(x), int(head_y)), 14, 2)
+
+        # 눈 (LED 원형)
+        eye_glow = colors["eye"] if blink else tuple(c // 2 for c in colors["eye"])
+        pygame.draw.circle(screen, eye_glow, (int(x - 5), int(head_y)), 4)
+        pygame.draw.circle(screen, eye_glow, (int(x + 5), int(head_y)), 4)
+        # 눈 하이라이트
+        pygame.draw.circle(screen, (255, 255, 255), (int(x - 6), int(head_y - 1)), 1)
+        pygame.draw.circle(screen, (255, 255, 255), (int(x + 4), int(head_y - 1)), 1)
 
         # 안테나
-        antenna_y = y - self.height // 2 - head_h - bounce
-        pygame.draw.line(screen, colors["body"],
-                        (x, y - self.height // 2 - head_h // 2 - bounce),
-                        (x, antenna_y - 5), 2)
-        # 안테나 끝 (깜빡임)
-        blink = int(self.effect_timer * 5) % 2 == 0
-        pygame.draw.circle(screen, colors["accent"] if blink else (100, 100, 100),
-                          (int(x), int(antenna_y - 5)), 3)
+        pygame.draw.line(screen, colors["detail"], (x, head_y - 14), (x, head_y - 22), 2)
+        antenna_glow = colors["accent"] if blink else (80, 80, 80)
+        pygame.draw.circle(screen, antenna_glow, (int(x), int(head_y - 24)), 3)
 
-        # 눈 (LED)
-        eye_y = y - self.height // 2 - bounce
-        eye_glow = 255 if blink else 150
-        pygame.draw.rect(screen, (*colors["eye"][:2], eye_glow),
-                        (x - 10, eye_y - 3, 8, 6))
-        pygame.draw.rect(screen, (*colors["eye"][:2], eye_glow),
-                        (x + 2, eye_y - 3, 8, 6))
+    def _draw_robot_combat(self, screen, x, y, colors, bounce, blink):
+        """전투/군사 로봇 - 각진 장갑, 어깨 무기"""
+        # 그림자
+        shadow_surf = pygame.Surface((36, 12), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), (0, 0, 36, 12))
+        screen.blit(shadow_surf, (x - 18, y + self.height // 3 + 6))
 
-        # 다리 (기계식)
-        leg_y = y + self.height // 3 - bounce
+        # 위협적인 레드 글로우
+        glow_alpha = int(60 + 40 * math.sin(self.effect_timer * 6))
+        glow_surf = pygame.Surface((self.width + 20, self.height + 20), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*colors["accent"], glow_alpha // 3),
+                        (0, 0, self.width + 20, self.height + 20))
+        screen.blit(glow_surf, (x - self.width // 2 - 10, y - self.height // 2 - 10 - bounce))
+
+        # 다리 (중장갑)
+        leg_y = y + self.height // 5 - bounce
         leg_offset = math.sin(self.animation_frame * math.pi / 2) * 3 if (self.vx != 0 or self.vy != 0) else 0
-        for i, lx in enumerate([x - 6, x + 6]):
-            offset = leg_offset if i % 2 == 0 else -leg_offset
-            pygame.draw.line(screen, colors["body"],
-                           (lx, leg_y), (lx, leg_y + 10), 4)
-            pygame.draw.rect(screen, colors["accent"],
-                           (lx - 4, leg_y + 10 + abs(offset), 8, 4))
+        for i, lx in enumerate([x - 9, x + 9]):
+            offset = leg_offset if i == 0 else -leg_offset
+            # 허벅지 장갑
+            points = [(lx - 5, leg_y), (lx + 5, leg_y), (lx + 4, leg_y + 10), (lx - 4, leg_y + 10)]
+            pygame.draw.polygon(screen, colors["body"], points)
+            pygame.draw.polygon(screen, colors["accent"], points, 1)
+            # 무릎 가드
+            pygame.draw.rect(screen, colors["detail"], (lx - 4, leg_y + 10, 8, 4))
+            # 정강이
+            pygame.draw.rect(screen, colors["body"], (lx - 4, leg_y + 14, 8, 10 + int(abs(offset))))
+            # 발 (장갑 부츠)
+            pygame.draw.polygon(screen, colors["detail"], [
+                (lx - 6, leg_y + 24 + int(abs(offset))),
+                (lx + 6, leg_y + 24 + int(abs(offset))),
+                (lx + 7, leg_y + 28 + int(abs(offset))),
+                (lx - 7, leg_y + 28 + int(abs(offset)))
+            ])
+
+        # 몸통 (각진 장갑)
+        body_points = [
+            (x - 14, y - self.height // 3 - bounce),  # 좌상
+            (x + 14, y - self.height // 3 - bounce),  # 우상
+            (x + 12, y + self.height // 5 - bounce),  # 우하
+            (x - 12, y + self.height // 5 - bounce),  # 좌하
+        ]
+        pygame.draw.polygon(screen, colors["body"], body_points)
+        pygame.draw.polygon(screen, colors["accent"], body_points, 2)
+
+        # 가슴 장갑판
+        chest_points = [
+            (x - 8, y - self.height // 4 - bounce),
+            (x + 8, y - self.height // 4 - bounce),
+            (x + 6, y - bounce),
+            (x - 6, y - bounce),
+        ]
+        pygame.draw.polygon(screen, colors["detail"], chest_points)
+        # 가슴 코어 (에너지 코어)
+        core_pulse = int(4 + 2 * math.sin(self.effect_timer * 8))
+        pygame.draw.circle(screen, colors["accent"], (int(x), int(y - self.height // 8 - bounce)), core_pulse)
+        pygame.draw.circle(screen, colors["eye"], (int(x), int(y - self.height // 8 - bounce)), core_pulse - 2)
+
+        # 어깨 캐논/장갑
+        shoulder_y = y - self.height // 3 - bounce
+        for sx in [x - 18, x + 18]:
+            # 어깨 장갑
+            pygame.draw.rect(screen, colors["body"], (sx - 6, shoulder_y - 2, 12, 10), border_radius=2)
+            pygame.draw.rect(screen, colors["accent"], (sx - 6, shoulder_y - 2, 12, 10), 1, border_radius=2)
+            # 미니건/캐논
+            pygame.draw.rect(screen, colors["detail"], (sx - 2, shoulder_y - 8, 4, 8))
+            # 캐논 팁 (깜빡임)
+            if blink:
+                pygame.draw.circle(screen, colors["accent"], (int(sx), int(shoulder_y - 10)), 2)
+
+        # 머리 (바이저 헬멧)
+        head_y = y - self.height // 2 - 8 - bounce
+        # 헬멧
+        helmet_points = [
+            (x - 10, head_y + 8),
+            (x - 12, head_y),
+            (x - 10, head_y - 8),
+            (x + 10, head_y - 8),
+            (x + 12, head_y),
+            (x + 10, head_y + 8),
+        ]
+        pygame.draw.polygon(screen, colors["body"], helmet_points)
+        pygame.draw.polygon(screen, colors["accent"], helmet_points, 2)
+        # 바이저 (눈)
+        visor_color = colors["eye"] if blink else tuple(c // 2 for c in colors["eye"])
+        pygame.draw.rect(screen, visor_color, (x - 8, head_y - 2, 16, 5))
+        # 바이저 스캔 라인
+        scan_x = x - 7 + int((math.sin(self.effect_timer * 4) + 1) * 7)
+        pygame.draw.line(screen, (255, 255, 255), (scan_x, head_y - 1), (scan_x, head_y + 2), 1)
+
+    def _draw_robot_service(self, screen, x, y, colors, bounce, blink):
+        """서비스/도우미 로봇 - 둥글둥글, 친근한 디자인"""
+        # 그림자
+        shadow_surf = pygame.Surface((28, 8), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 35), (0, 0, 28, 8))
+        screen.blit(shadow_surf, (x - 14, y + self.height // 3 + 10))
+
+        # 부드러운 글로우
+        glow_alpha = int(50 + 30 * math.sin(self.effect_timer * 3))
+        glow_surf = pygame.Surface((self.width + 24, self.height + 24), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow_surf, (*colors["accent"], glow_alpha // 4),
+                          (0, 0, self.width + 24, self.height + 24))
+        screen.blit(glow_surf, (x - self.width // 2 - 12, y - self.height // 2 - 12 - bounce))
+
+        # 바퀴 (하단) - 호버링 효과
+        hover_offset = math.sin(self.effect_timer * 6) * 2
+        wheel_y = y + self.height // 3 - bounce + hover_offset
+        pygame.draw.ellipse(screen, colors["detail"], (x - 10, wheel_y, 20, 8))
+        pygame.draw.ellipse(screen, colors["accent"], (x - 10, wheel_y, 20, 8), 1)
+        # 호버 글로우
+        hover_glow = pygame.Surface((24, 6), pygame.SRCALPHA)
+        pygame.draw.ellipse(hover_glow, (*colors["accent"], 80), (0, 0, 24, 6))
+        screen.blit(hover_glow, (x - 12, wheel_y + 6))
+
+        # 몸통 (둥근 캡슐형)
+        body_rect = pygame.Rect(x - 13, y - self.height // 3 - bounce, 26, self.height * 2 // 3)
+        pygame.draw.rect(screen, colors["body"], body_rect, border_radius=12)
+        pygame.draw.rect(screen, colors["accent"], body_rect, 2, border_radius=12)
+
+        # 가슴 디스플레이 (웃는 얼굴 이모티콘)
+        display_rect = pygame.Rect(x - 10, y - self.height // 6 - bounce, 20, 14)
+        pygame.draw.rect(screen, (30, 30, 40), display_rect, border_radius=4)
+        # 하트 또는 웃는 얼굴 표시
+        if blink:
+            # 하트
+            pygame.draw.circle(screen, colors["accent"], (x - 3, int(y - self.height // 8 - bounce)), 3)
+            pygame.draw.circle(screen, colors["accent"], (x + 3, int(y - self.height // 8 - bounce)), 3)
+            pygame.draw.polygon(screen, colors["accent"], [
+                (x - 6, y - self.height // 8 - bounce + 1),
+                (x + 6, y - self.height // 8 - bounce + 1),
+                (x, y - self.height // 8 - bounce + 7)
+            ])
+        else:
+            # 웃는 얼굴
+            pygame.draw.circle(screen, colors["accent"], (x - 4, int(y - self.height // 7 - bounce)), 2)
+            pygame.draw.circle(screen, colors["accent"], (x + 4, int(y - self.height // 7 - bounce)), 2)
+            pygame.draw.arc(screen, colors["accent"], (x - 5, y - self.height // 8 - bounce - 2, 10, 8), 3.14, 6.28, 1)
+
+        # 팔 (작고 귀여운)
+        arm_y = y - self.height // 6 - bounce
+        arm_wave = math.sin(self.effect_timer * 4) * 5
+        for i, ax in enumerate([x - 15, x + 15]):
+            wave = arm_wave if i == 0 else -arm_wave
+            # 팔
+            pygame.draw.ellipse(screen, colors["body"], (ax - 4, int(arm_y + wave), 8, 12))
+            pygame.draw.ellipse(screen, colors["accent"], (ax - 4, int(arm_y + wave), 8, 12), 1)
+            # 손 (집게)
+            pygame.draw.circle(screen, colors["detail"], (ax, int(arm_y + 14 + wave)), 4)
+
+        # 머리 (큰 원형, 귀여운 눈)
+        head_y = y - self.height // 2 - 10 - bounce
+        pygame.draw.circle(screen, colors["body"], (int(x), int(head_y)), 16)
+        pygame.draw.circle(screen, colors["accent"], (int(x), int(head_y)), 16, 2)
+
+        # 큰 귀여운 눈
+        eye_color = colors["eye"]
+        # 왼쪽 눈
+        pygame.draw.ellipse(screen, (255, 255, 255), (x - 10, head_y - 5, 8, 10))
+        pygame.draw.circle(screen, eye_color, (x - 6, int(head_y)), 3)
+        pygame.draw.circle(screen, (255, 255, 255), (x - 7, int(head_y - 1)), 1)
+        # 오른쪽 눈
+        pygame.draw.ellipse(screen, (255, 255, 255), (x + 2, head_y - 5, 8, 10))
+        pygame.draw.circle(screen, eye_color, (x + 6, int(head_y)), 3)
+        pygame.draw.circle(screen, (255, 255, 255), (x + 5, int(head_y - 1)), 1)
+
+        # 눈썹 (행복한 표정)
+        pygame.draw.arc(screen, colors["detail"], (x - 11, head_y - 10, 8, 6), 3.5, 6.0, 2)
+        pygame.draw.arc(screen, colors["detail"], (x + 3, head_y - 10, 8, 6), 3.5, 6.0, 2)
+
+        # 안테나 (하트 또는 별)
+        pygame.draw.line(screen, colors["detail"], (x, head_y - 16), (x, head_y - 24), 2)
+        # 하트 모양 안테나 끝
+        pygame.draw.circle(screen, colors["accent"], (x - 2, int(head_y - 26)), 3)
+        pygame.draw.circle(screen, colors["accent"], (x + 2, int(head_y - 26)), 3)
+        pygame.draw.polygon(screen, colors["accent"], [(x - 5, head_y - 25), (x + 5, head_y - 25), (x, head_y - 20)])
+
+    def _draw_robot_vintage(self, screen, x, y, colors, bounce, blink):
+        """빈티지/스팀펑크 로봇 - 기어, 파이프, 연통"""
+        # 그림자
+        shadow_surf = pygame.Surface((32, 10), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 45), (0, 0, 32, 10))
+        screen.blit(shadow_surf, (x - 16, y + self.height // 3 + 8))
+
+        # 따뜻한 글로우 (골드)
+        glow_alpha = int(60 + 30 * math.sin(self.effect_timer * 2))
+        glow_surf = pygame.Surface((self.width + 20, self.height + 20), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*colors["accent"], glow_alpha // 4),
+                        (0, 0, self.width + 20, self.height + 20), border_radius=8)
+        screen.blit(glow_surf, (x - self.width // 2 - 10, y - self.height // 2 - 10 - bounce))
+
+        # 다리 (파이프 스타일)
+        leg_y = y + self.height // 4 - bounce
+        leg_offset = math.sin(self.animation_frame * math.pi / 2) * 3 if (self.vx != 0 or self.vy != 0) else 0
+        for i, lx in enumerate([x - 8, x + 8]):
+            offset = leg_offset if i == 0 else -leg_offset
+            # 파이프 다리
+            pygame.draw.rect(screen, colors["body"], (lx - 4, leg_y, 8, 16 + int(abs(offset))))
+            # 리벳
+            for ry in range(3):
+                pygame.draw.circle(screen, colors["accent"], (lx - 3, int(leg_y + 3 + ry * 5)), 1)
+                pygame.draw.circle(screen, colors["accent"], (lx + 3, int(leg_y + 3 + ry * 5)), 1)
+            # 부츠 (둥근)
+            pygame.draw.ellipse(screen, colors["detail"], (lx - 5, leg_y + 14 + int(abs(offset)), 10, 6))
+
+        # 몸통 (리벳이 박힌 철판)
+        body_rect = pygame.Rect(x - 14, y - self.height // 3 - bounce, 28, self.height * 2 // 3)
+        pygame.draw.rect(screen, colors["body"], body_rect, border_radius=4)
+        pygame.draw.rect(screen, colors["detail"], body_rect, 2, border_radius=4)
+        # 리벳 장식
+        for ry in [-self.height // 4, 0, self.height // 6]:
+            pygame.draw.circle(screen, colors["accent"], (x - 12, int(y + ry - bounce)), 2)
+            pygame.draw.circle(screen, colors["accent"], (x + 12, int(y + ry - bounce)), 2)
+
+        # 가슴 기어 (회전)
+        gear_angle = self.effect_timer * 2
+        gear_y = y - self.height // 6 - bounce
+        # 큰 기어
+        pygame.draw.circle(screen, colors["detail"], (int(x), int(gear_y)), 8)
+        pygame.draw.circle(screen, colors["body"], (int(x), int(gear_y)), 5)
+        # 기어 이빨
+        for i in range(6):
+            angle = gear_angle + i * math.pi / 3
+            tx = x + math.cos(angle) * 9
+            ty = gear_y + math.sin(angle) * 9
+            pygame.draw.circle(screen, colors["accent"], (int(tx), int(ty)), 2)
+
+        # 보일러 게이지 (가슴)
+        gauge_rect = pygame.Rect(x - 5, y + 2 - bounce, 10, 6)
+        pygame.draw.rect(screen, (30, 30, 30), gauge_rect, border_radius=2)
+        # 게이지 바늘
+        gauge_level = (math.sin(self.effect_timer * 3) + 1) / 2  # 0~1
+        pygame.draw.rect(screen, colors["accent"], (x - 4, y + 3 - bounce, int(8 * gauge_level), 4), border_radius=1)
+
+        # 파이프 팔
+        arm_y = y - self.height // 4 - bounce
+        piston_move = math.sin(self.effect_timer * 5) * 3
+        for i, ax in enumerate([x - 18, x + 18]):
+            # 어깨 관절 (기어)
+            pygame.draw.circle(screen, colors["detail"], (ax, int(arm_y - 2)), 5)
+            pygame.draw.circle(screen, colors["accent"], (ax, int(arm_y - 2)), 5, 1)
+            # 파이프 팔
+            pygame.draw.rect(screen, colors["body"], (ax - 3, int(arm_y + 2), 6, 14 + int(piston_move if i == 0 else -piston_move)))
+            # 집게 손
+            pygame.draw.polygon(screen, colors["detail"], [
+                (ax - 4, arm_y + 18 + int(piston_move if i == 0 else -piston_move)),
+                (ax + 4, arm_y + 18 + int(piston_move if i == 0 else -piston_move)),
+                (ax, arm_y + 24 + int(piston_move if i == 0 else -piston_move))
+            ])
+
+        # 머리 (둥근 철제 헬멧)
+        head_y = y - self.height // 2 - 10 - bounce
+        pygame.draw.circle(screen, colors["body"], (int(x), int(head_y)), 12)
+        pygame.draw.circle(screen, colors["detail"], (int(x), int(head_y)), 12, 2)
+        # 철판 라인
+        pygame.draw.line(screen, colors["detail"], (x - 10, head_y), (x + 10, head_y), 1)
+
+        # 눈 (둥근 유리창)
+        eye_glow = colors["eye"] if blink else tuple(max(0, c - 80) for c in colors["eye"])
+        pygame.draw.circle(screen, (40, 40, 50), (x - 5, int(head_y)), 5)
+        pygame.draw.circle(screen, eye_glow, (x - 5, int(head_y)), 4)
+        pygame.draw.circle(screen, colors["accent"], (x - 5, int(head_y)), 5, 1)
+        pygame.draw.circle(screen, (40, 40, 50), (x + 5, int(head_y)), 5)
+        pygame.draw.circle(screen, eye_glow, (x + 5, int(head_y)), 4)
+        pygame.draw.circle(screen, colors["accent"], (x + 5, int(head_y)), 5, 1)
+
+        # 연통 (연기 효과)
+        chimney_x = x + 8
+        chimney_y = head_y - 12
+        pygame.draw.rect(screen, colors["detail"], (chimney_x - 3, chimney_y, 6, 10))
+        pygame.draw.rect(screen, colors["accent"], (chimney_x - 4, chimney_y - 2, 8, 3))
+        # 연기 파티클
+        smoke_offset = (self.effect_timer * 20) % 15
+        for i in range(3):
+            smoke_y = chimney_y - 4 - i * 5 - smoke_offset
+            smoke_alpha = max(0, 100 - i * 30 - int(smoke_offset * 5))
+            smoke_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.circle(smoke_surf, (180, 180, 180, smoke_alpha), (4, 4), 3 + i)
+            screen.blit(smoke_surf, (chimney_x - 4 + i * 2, int(smoke_y)))
+
+    def _draw_robot_cyber(self, screen, x, y, colors, bounce, blink):
+        """사이버/네온 로봇 - 홀로그램, 네온 라인"""
+        # 그림자
+        shadow_surf = pygame.Surface((30, 8), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), (0, 0, 30, 8))
+        screen.blit(shadow_surf, (x - 15, y + self.height // 3 + 10))
+
+        # 강렬한 네온 글로우
+        glow_alpha = int(80 + 50 * math.sin(self.effect_timer * 6))
+        glow_surf = pygame.Surface((self.width + 30, self.height + 30), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*colors["accent"], glow_alpha // 3),
+                        (0, 0, self.width + 30, self.height + 30), border_radius=6)
+        screen.blit(glow_surf, (x - self.width // 2 - 15, y - self.height // 2 - 15 - bounce))
+
+        # 다리 (네온 라인)
+        leg_y = y + self.height // 4 - bounce
+        leg_offset = math.sin(self.animation_frame * math.pi / 2) * 4 if (self.vx != 0 or self.vy != 0) else 0
+        for i, lx in enumerate([x - 7, x + 7]):
+            offset = leg_offset if i == 0 else -leg_offset
+            # 슬림한 다리
+            pygame.draw.rect(screen, colors["body"], (lx - 3, leg_y, 6, 18 + int(abs(offset))))
+            # 네온 라인
+            pygame.draw.line(screen, colors["accent"], (lx, leg_y), (lx, leg_y + 16 + int(abs(offset))), 1)
+            # 발 (홀로그램)
+            foot_glow = pygame.Surface((12, 4), pygame.SRCALPHA)
+            pygame.draw.rect(foot_glow, (*colors["accent"], 150), (0, 0, 12, 4))
+            screen.blit(foot_glow, (lx - 6, leg_y + 18 + int(abs(offset))))
+
+        # 몸통 (슬림, 네온 엣지)
+        body_rect = pygame.Rect(x - 12, y - self.height // 3 - bounce, 24, self.height * 2 // 3)
+        pygame.draw.rect(screen, colors["body"], body_rect, border_radius=3)
+        # 네온 엣지 라인
+        pygame.draw.rect(screen, colors["accent"], body_rect, 1, border_radius=3)
+        # 세로 네온 라인
+        pygame.draw.line(screen, colors["accent"],
+                        (x - 6, y - self.height // 3 + 4 - bounce),
+                        (x - 6, y + self.height // 4 - bounce), 1)
+        pygame.draw.line(screen, colors["accent"],
+                        (x + 6, y - self.height // 3 + 4 - bounce),
+                        (x + 6, y + self.height // 4 - bounce), 1)
+
+        # 홀로그램 디스플레이 (가슴)
+        display_y = y - self.height // 6 - bounce
+        # 디스플레이 배경
+        pygame.draw.rect(screen, (10, 10, 20), (x - 8, display_y - 6, 16, 12), border_radius=2)
+        # 홀로그램 효과 (움직이는 파형)
+        wave_points = []
+        for wx in range(-6, 7):
+            wy = math.sin((wx + self.effect_timer * 10) * 0.5) * 3
+            wave_points.append((x + wx, display_y + wy))
+        if len(wave_points) > 1:
+            pygame.draw.lines(screen, colors["accent"], False, wave_points, 1)
+        # 데이터 점들
+        for i in range(4):
+            data_x = x - 5 + (i * 3 + int(self.effect_timer * 8)) % 12
+            pygame.draw.circle(screen, colors["eye"], (int(data_x), int(display_y + 3)), 1)
+
+        # 팔 (슬림, 네온)
+        arm_y = y - self.height // 4 - bounce
+        arm_pulse = math.sin(self.effect_timer * 4) * 4
+        for i, ax in enumerate([x - 16, x + 16]):
+            pulse = arm_pulse if i == 0 else -arm_pulse
+            # 슬림한 팔
+            pygame.draw.rect(screen, colors["body"], (ax - 2, int(arm_y), 4, 14 + int(pulse)))
+            # 네온 라인
+            pygame.draw.line(screen, colors["accent"], (ax, arm_y), (ax, arm_y + 12 + int(pulse)), 1)
+            # 손 (에너지 구체)
+            hand_y = arm_y + 16 + int(pulse)
+            pygame.draw.circle(screen, colors["body"], (ax, int(hand_y)), 4)
+            energy_alpha = int(150 + 50 * math.sin(self.effect_timer * 8 + i * math.pi))
+            energy_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
+            pygame.draw.circle(energy_surf, (*colors["accent"], energy_alpha), (5, 5), 4)
+            screen.blit(energy_surf, (ax - 5, int(hand_y) - 5))
+
+        # 머리 (삼각형/사이버 헬멧)
+        head_y = y - self.height // 2 - 8 - bounce
+        # 삼각형 헬멧
+        helmet_points = [
+            (x, head_y - 14),  # 정점
+            (x - 12, head_y + 6),  # 좌하
+            (x + 12, head_y + 6),  # 우하
+        ]
+        pygame.draw.polygon(screen, colors["body"], helmet_points)
+        pygame.draw.polygon(screen, colors["accent"], helmet_points, 2)
+
+        # 바이저 (가로로 긴 LED)
+        visor_rect = pygame.Rect(x - 10, head_y - 2, 20, 6)
+        pygame.draw.rect(screen, (10, 10, 20), visor_rect)
+        # 눈 (스캔 라인)
+        eye_glow = colors["eye"] if blink else tuple(max(0, c - 50) for c in colors["eye"])
+        scan_progress = (math.sin(self.effect_timer * 5) + 1) / 2  # 0~1
+        scan_x = x - 8 + int(16 * scan_progress)
+        pygame.draw.rect(screen, eye_glow, (x - 8, head_y - 1, 16, 4))
+        pygame.draw.line(screen, (255, 255, 255), (scan_x, head_y - 1), (scan_x, head_y + 3), 2)
+
+        # 안테나 (디지털)
+        pygame.draw.line(screen, colors["accent"], (x - 6, head_y - 14), (x - 10, head_y - 22), 2)
+        pygame.draw.line(screen, colors["accent"], (x + 6, head_y - 14), (x + 10, head_y - 22), 2)
+        # 안테나 끝 (펄스)
+        pulse_size = 2 + int(math.sin(self.effect_timer * 10) * 1)
+        pygame.draw.circle(screen, colors["eye"], (x - 10, int(head_y - 22)), pulse_size)
+        pygame.draw.circle(screen, colors["eye"], (x + 10, int(head_y - 22)), pulse_size)
+
+        # 홀로그램 파티클 (주변에 떠다니는)
+        for i in range(4):
+            particle_angle = self.effect_timer * 2 + i * math.pi / 2
+            particle_dist = 18 + math.sin(self.effect_timer * 3 + i) * 3
+            px = x + math.cos(particle_angle) * particle_dist
+            py = y - self.height // 4 - bounce + math.sin(particle_angle) * particle_dist * 0.3
+            particle_alpha = int(100 + 50 * math.sin(self.effect_timer * 4 + i))
+            particle_surf = pygame.Surface((6, 6), pygame.SRCALPHA)
+            pygame.draw.rect(particle_surf, (*colors["accent"], particle_alpha), (1, 1, 4, 4))
+            screen.blit(particle_surf, (int(px) - 3, int(py) - 3))
 
     def _draw_speech_bubble(self, screen, x, y):
         """말풍선 그리기"""
         if not self.speech_bubble:
             return
 
-        # 한글 폰트 로드 (pygame.freetype 사용)
+        # 한글 폰트 로드 (pygame.freetype 사용) - 네오둥근모 프로 도트 폰트 우선
         font = None
         font_size = 14
 
-        # 1차 시도: resource_path로 폰트 로드
+        # 1차 시도: 네오둥근모 프로 픽셀 폰트
         try:
-            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-            if os.path.exists(font_path):
-                font = pygame.freetype.Font(font_path, font_size)
+            pixel_font_path = resource_path("PFStardust.ttf")
+            if os.path.exists(pixel_font_path):
+                font = pygame.freetype.Font(pixel_font_path, font_size)
         except Exception:
             pass
 
-        # 2차 시도: 시스템 폰트 (macOS/Windows)
+        # 2차 시도: NanumSquare 폴백
+        if font is None:
+            try:
+                font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                if os.path.exists(font_path):
+                    font = pygame.freetype.Font(font_path, font_size)
+            except Exception:
+                pass
+
+        # 3차 시도: 시스템 폰트 (macOS/Windows)
         if font is None:
             try:
                 # macOS
@@ -1602,7 +2288,7 @@ class NPC:
             except Exception:
                 pass
 
-        # 3차 시도: 기본 폰트
+        # 4차 시도: 기본 폰트
         if font is None:
             try:
                 font = pygame.freetype.SysFont("malgungothic", font_size)
@@ -1853,6 +2539,48 @@ class NPCManager:
         npc = self.get_talkable_npc_near(x, y, radius)
         if npc:
             return npc.start_dialogue()
+        return None
+
+    def try_interact_with_animal(self, x, y, radius=60):
+        """동물 NPC와 상호작용 시도 - 성공 시 (npc_type, reaction) 반환"""
+        nearby = self.get_npcs_in_range(x, y, radius)
+
+        # 동물만 필터링
+        animals = [npc for npc in nearby if npc.type in [NPCType.DOG, NPCType.CAT]]
+
+        if not animals:
+            return None
+
+        # 가장 가까운 동물
+        animals.sort(key=lambda n: math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2))
+        animal = animals[0]
+
+        if animal.type == NPCType.DOG:
+            # 강아지 반응 - 꼬리 흔들며 멍멍!
+            animal.speech_bubble = random.choice(["멍멍!", "왈왈!", "멍!", "꼬리살랑~"])
+            animal.speech_timer = 2.0
+            # 플레이어 쪽으로 다가옴
+            animal.target_x = x + random.randint(-20, 20)
+            animal.target_y = y + random.randint(-20, 20)
+            return (NPCType.DOG, "bark")
+
+        elif animal.type == NPCType.CAT:
+            # 고양이 반응 - 야옹 또는 도망
+            if random.random() < 0.5:
+                animal.speech_bubble = random.choice(["야옹~", "냐옹", "그르릉...", "퉤!"])
+                animal.speech_timer = 2.0
+                return (NPCType.CAT, "meow")
+            else:
+                # 도망
+                dx = animal.x - x
+                dy = animal.y - y
+                dist = math.sqrt(dx * dx + dy * dy) or 1
+                animal.target_x = animal.x + (dx / dist) * 80
+                animal.target_y = animal.y + (dy / dist) * 80
+                animal.speech_bubble = "야옹~"
+                animal.speech_timer = 1.0
+                return (NPCType.CAT, "flee")
+
         return None
 
     def trigger_reactions(self, player_x, player_y, radius=50):

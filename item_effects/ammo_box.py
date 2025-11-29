@@ -339,7 +339,7 @@ class AmmoBox:
 
         resource_path = getattr(game_module, 'resource_path', None) if game_module else None
         font_candidates = (
-            "fonts/pixel/NeoDunggeunmoPro.ttf",
+            "PFStardust.ttf",
             "fonts/NanumSquareB.ttf",
             "fonts/Pretendard-Regular.ttf",
         )
