@@ -47064,8 +47064,8 @@ def draw_objects():
                                ball_x=BALL.centerx, ball_y=BALL.centery,
                                ball_vx=ball_vel[0], ball_vy=ball_vel[1],
                                screen_width=WIDTH, screen_height=HEIGHT,
-                               paddle_y=PLAYER.rect.centery,
-                               boss_paddle_y=AI.rect.centery)
+                               paddle_y=PLAYER.centery,
+                               boss_paddle_y=AI.centery)
 
     # 미사일 무적 시간 체크
     time_now = pygame.time.get_ticks()
@@ -84163,7 +84163,7 @@ def show_stage_selection(show_character_hint=True):
         else:
             card_width = 160  # 아이템 관리자 전용 축소 크기
             card_height = 120
-        cards_per_row = 3
+        carㅁds_per_row = 3
         card_spacing = 40
         start_y = 180
         
