@@ -3425,15 +3425,39 @@ class AngelBlessing(LegendaryItem):
 
         return True  # 애니메이션 진행 중
 
+    def handle_input(self, event) -> bool:
+        """스페이스바 입력 처리 - 결과 화면 닫기
+
+        Returns:
+            True if the event was handled (animation closed), False otherwise
+        """
+        if not self.roll_anim_active:
+            return False
+
+        if not getattr(self, 'waiting_for_space', False):
+            return False
+
+        # 스페이스바 또는 엔터키로 창 닫기
+        if event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN):
+            self.roll_anim_active = False
+            self.waiting_for_space = False
+            print(f"[AngelBlessing] 주사위 애니메이션 종료 - applied_stage: {self.applied_stage}")
+            return True
+
+        return False
+
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
 
         # 주사위 애니메이션 타이머 업데이트 (CRITICAL: 이 로직이 없으면 애니메이션이 진행되지 않음)
         if self.roll_anim_active:
-            self.roll_timer += dt if dt < 5 else dt / 1000.0
-            if self.roll_timer >= self.roll_anim_duration:
-                self.roll_anim_active = False
-                print(f"[AngelBlessing] 주사위 애니메이션 종료 - applied_stage: {self.applied_stage}")
+            # 스페이스바 대기 상태가 아니면 타이머 진행
+            if not getattr(self, 'waiting_for_space', False):
+                self.roll_timer += dt if dt < 5 else dt / 1000.0
+                if self.roll_timer >= self.roll_anim_duration:
+                    # 타이머가 끝나면 스페이스바 대기 상태로 전환 (바로 닫지 않음)
+                    self.waiting_for_space = True
+                    print(f"[AngelBlessing] 주사위 결과 표시 - 스페이스바 대기 중...")
 
         # 8프레임 애니메이션 업데이트
         self.frame_counter += 1
