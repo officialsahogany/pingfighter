@@ -31259,9 +31259,10 @@ def handle_player(keys):
                         base_timer = int(base_timer * multipliers['dash_cooldown'])
                         print(f"[DEBUG]     : x{multipliers['dash_cooldown']:.1f}")
 
-                    # 천사의 가호 대쉬 쿨타임 버프 적용
-                    if dash is not None:
-                        external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
+                    # 천사의 가호 대쉬 쿨타임 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
+                    dm_inst = dash_manager._GLOBAL_DASH_INST
+                    if dm_inst is not None:
+                        external_cooldown_mul = getattr(dm_inst, 'external_cooldown_multiplier', 1.0)
                         if external_cooldown_mul != 1.0:
                             base_timer = int(base_timer * external_cooldown_mul)
                             print(f"[DEBUG] 천사의 가호 대쉬 쿨타임 버프: x{external_cooldown_mul:.2f}")
@@ -31424,9 +31425,10 @@ def handle_player(keys):
                         base_timer = int(base_timer * multipliers['dash_cooldown'])
                         print(f"[DEBUG]     : x{multipliers['dash_cooldown']:.1f}")
 
-                    # 천사의 가호 대쉬 쿨타임 버프 적용
-                    if dash is not None:
-                        external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
+                    # 천사의 가호 대쉬 쿨타임 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
+                    dm_inst = dash_manager._GLOBAL_DASH_INST
+                    if dm_inst is not None:
+                        external_cooldown_mul = getattr(dm_inst, 'external_cooldown_multiplier', 1.0)
                         if external_cooldown_mul != 1.0:
                             base_timer = int(base_timer * external_cooldown_mul)
                             print(f"[DEBUG] 천사의 가호 대쉬 쿨타임 버프: x{external_cooldown_mul:.2f}")
@@ -31813,9 +31815,10 @@ def handle_player(keys):
                                     base_timer = int(base_timer * multipliers['dash_cooldown'])
                                     print(f"[DEBUG]  -     : x{multipliers['dash_cooldown']:.1f}")
 
-                                # 천사의 가호 대쉬 쿨타임 버프 적용 (하프대쉬)
-                                if dash is not None:
-                                    external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
+                                # 천사의 가호 대쉬 쿨타임 버프 적용 (하프대쉬) - dash_manager._GLOBAL_DASH_INST 직접 참조
+                                dm_inst = dash_manager._GLOBAL_DASH_INST
+                                if dm_inst is not None:
+                                    external_cooldown_mul = getattr(dm_inst, 'external_cooldown_multiplier', 1.0)
                                     if external_cooldown_mul != 1.0:
                                         base_timer = int(base_timer * external_cooldown_mul)
                                         print(f"[DEBUG] 하프대쉬 천사의 가호 쿨타임 버프: x{external_cooldown_mul:.2f}")
