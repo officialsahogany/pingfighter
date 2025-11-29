@@ -5298,6 +5298,8 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     if globals().get("selected_character_type") != "optimus":
         return
 
+    _stop_optimus_charge_sound()
+
     optimus_max_scale = 1.0
     optimus_max_decay_last_ms = pygame.time.get_ticks()
     optimus_charge_block_until_ms = 0
@@ -29480,6 +29482,9 @@ def handle_player(keys):
         global player_stun_star_suppress_until_ms, player_stun_text_suppress, player_stun_text_hidden_until_ms
         global optimus_charge_block_until_ms, optimus_charge_shockwave_at_ms, optimus_charge_shake_until_ms
         if selected_character_type != "optimus":
+            if optimus_charge_active:
+                _stop_optimus_charge_sound()
+                optimus_charge_active = False
             return
         prev_charge_active = optimus_charge_active
         block_active = now_ms < optimus_charge_block_until_ms
@@ -29497,6 +29502,8 @@ def handle_player(keys):
             optimus_charge_hold_ms = 0
             optimus_charge_last_update_ms = now_ms
             optimus_charge_anim_tick_ms = 0
+            if prev_charge_active:
+                _stop_optimus_charge_sound()
             return
 
         if down_held:
@@ -29508,6 +29515,7 @@ def handle_player(keys):
             if (not optimus_charge_active) and optimus_charge_hold_ms >= OPTIMUS_CHARGE_HOLD_MS:
                 optimus_charge_active = True
                 optimus_charge_anim_tick_ms = now_ms  # 시작 즉시 첫 스파크 표시
+                _start_optimus_charge_sound()
 
             if optimus_charge_active and delta_ms > 0:
                 charge_gain = OPTIMUS_CHARGE_RATE_PER_SEC * (delta_ms / 1000.0)
@@ -29572,6 +29580,8 @@ def handle_player(keys):
             optimus_charge_hold_ms = 0
             optimus_charge_last_update_ms = now_ms
             optimus_charge_anim_tick_ms = 0
+            if prev_charge_active:
+                _stop_optimus_charge_sound()
         # 디버그: 충전 입력 및 차단 사유 로깅 (환경변수 PINGF_CHARGE_DEBUG=1)
         if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off"):
             print(
