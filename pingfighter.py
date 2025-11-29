@@ -4642,6 +4642,18 @@ except Exception as e:
     stopwatch_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     pygame.draw.circle(stopwatch_icon, (200, 200, 200), (16, 16), 12, 2)
     pygame.draw.line(stopwatch_icon, (100, 100, 100), (16, 16), (16, 8), 2)
+
+# 레이저스코프 아이콘 로드
+laser_scope_icon = None  # 전역 변수로 선언
+try:
+    import items as items_mod
+    laser_scope_icon = items_mod._draw_laser_scope_icon(ICON_SIZE)
+except Exception as e:
+    print(f"Failed to load laser_scope icon: {e}")
+    laser_scope_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+    pygame.draw.circle(laser_scope_icon, (255, 50, 50), (16, 16), 12, 2)
+    pygame.draw.line(laser_scope_icon, (255, 50, 50), (16, 16), (16, 8), 2)
+
 # ITEM_TYPES에 아이콘 할당
 for item in items.ITEM_TYPES:
     if item["name"] == "gauge_200":
@@ -4700,6 +4712,8 @@ for item in items.ITEM_TYPES:
         item["icon"] = smoke_grenade_icon
     elif item["name"] == "stopwatch":
         item["icon"] = stopwatch_icon
+    elif item["name"] == "laser_scope":
+        item["icon"] = laser_scope_icon
 # === 롱부스트 관련 ===
 long_boost_active = False
 long_boost_timer = 0
