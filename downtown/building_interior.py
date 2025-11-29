@@ -2065,6 +2065,70 @@ class BuildingInterior:
 
             self.shop_inventory.append(shop_item)
 
+    def _init_gacha_machine_zones(self):
+        """가챠 머신 상호작용 영역 초기화 (GACHA 전용)"""
+        if self.building_type != BuildingType.GACHA:
+            return
+
+        self.gacha_machine_rects = []
+
+        # 사이버펑크 가챠샵 레이아웃에서 가챠 머신 위치 계산
+        # 상단 층 (2층) - 가챠 머신이 있는 곳
+        wall_h = int(TILE_SIZE * 2.5)
+        upper_floor_y = wall_h + int(TILE_SIZE * 2)  # 에스컬레이터 위쪽 층
+        machine_h = int(TILE_SIZE * 2.2)
+        machine_w = int(TILE_SIZE * 1.5)
+
+        # 왼쪽 가챠 머신들 (3대)
+        left_x = int(TILE_SIZE * 1.5)
+        for i in range(3):
+            mx = left_x + i * (machine_w + 8)
+            # 상호작용 영역 (머신 앞쪽에 여유 공간 추가)
+            interact_rect = pygame.Rect(
+                mx - 10,
+                upper_floor_y + machine_h,  # 머신 아래쪽
+                machine_w + 20,
+                TILE_SIZE * 1.5  # 상호작용 가능 범위
+            )
+            self.gacha_machine_rects.append({
+                "rect": interact_rect,
+                "machine_rect": pygame.Rect(mx, upper_floor_y, machine_w, machine_h),
+                "side": "left",
+                "index": i
+            })
+
+        # 오른쪽 가챠 머신들 (3대)
+        right_x = self.pixel_width - int(TILE_SIZE * 1.5) - machine_w * 3 - 16
+        for i in range(3):
+            mx = right_x + i * (machine_w + 8)
+            interact_rect = pygame.Rect(
+                mx - 10,
+                upper_floor_y + machine_h,
+                machine_w + 20,
+                TILE_SIZE * 1.5
+            )
+            self.gacha_machine_rects.append({
+                "rect": interact_rect,
+                "machine_rect": pygame.Rect(mx, upper_floor_y, machine_w, machine_h),
+                "side": "right",
+                "index": i + 3
+            })
+
+    def _check_nearby_gacha_machine(self):
+        """플레이어 근처에 가챠 머신이 있는지 확인"""
+        if self.building_type != BuildingType.GACHA:
+            return None
+
+        player_rect = pygame.Rect(
+            self.player.x - 30, self.player.y - 30, 60, 60
+        )
+
+        for i, machine_info in enumerate(self.gacha_machine_rects):
+            if player_rect.colliderect(machine_info["rect"]):
+                return i
+
+        return None
+
     def _create_npcs(self):
         """NPC들 생성"""
         # 아카데미는 전용 NPC 생성 로직 사용
@@ -3284,8 +3348,17 @@ class BuildingInterior:
                 return ("menu_close", None)
             return None
 
-        # 메뉴가 닫혀있을 때 - Space로 NPC 상호작용
+        # 메뉴가 닫혀있을 때 - Space로 상호작용
         if event.key == pygame.K_SPACE:
+            # 가챠 건물에서는 먼저 가챠 머신 상호작용 확인
+            if self.building_type == BuildingType.GACHA:
+                nearby_machine = self._check_nearby_gacha_machine()
+                if nearby_machine is not None:
+                    self.gacha_interact_requested = True
+                    self.nearby_gacha_machine = nearby_machine
+                    return ("gacha_interact", nearby_machine)
+
+            # NPC 상호작용
             return self._try_interact_with_npc()
 
         return None
