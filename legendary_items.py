@@ -2667,9 +2667,8 @@ class AngelBlessing(LegendaryItem):
             print(f"[AngelBlessing] 스테이지 {stage}에서 이미 발동됨 - 재장착해도 재발동 안됨")
             return
 
-        # 새로운 스테이지에서만 주사위 굴림
+        # 새로운 스테이지에서만 주사위 굴림 (_roll_blessing 내부에서 _triggered_stages에 추가)
         if stage is not None:
-            self._triggered_stages.add(stage)  # 발동 이력 기록
             self._roll_blessing(stage)
 
     # ------------------------------------------------------------------ #
