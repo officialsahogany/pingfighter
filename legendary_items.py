@@ -2646,7 +2646,7 @@ class AngelBlessing(LegendaryItem):
         self._load_animation_frames()
 
     def activate(self, game_state: Dict):
-        """장착/획득 시 즉시 현재 스테이지에 맞춰 주사위 굴림."""
+        """장착/획득 시 - 같은 스테이지에서는 재발동하지 않음."""
         super().activate(game_state)
         stage = None
         try:
@@ -2655,7 +2655,14 @@ class AngelBlessing(LegendaryItem):
             stage = game_state.get("current_stage") if isinstance(game_state, dict) else None
         if stage is None:
             stage = self._get_current_stage()
-        if stage is not None and stage != self.applied_stage:
+
+        # 같은 스테이지에서 이미 주사위를 굴렸으면 다시 굴리지 않음 (재장착 방지)
+        if stage is not None and stage == self.applied_stage:
+            print(f"[AngelBlessing] 스테이지 {stage}에서 이미 발동됨 - 재발동 방지")
+            return
+
+        # 새로운 스테이지에서만 주사위 굴림
+        if stage is not None:
             self._roll_blessing(stage)
 
     # ------------------------------------------------------------------ #
@@ -3260,16 +3267,20 @@ class AngelBlessing(LegendaryItem):
         # 폰트 로드 (pygame.freetype 사용 - 한글 지원)
         title_font = None
         small_font = None
-        try:
-            title_font = pygame.freetype.Font(resource_path("fonts/NanumSquareB.ttf"), 28)
-            small_font = pygame.freetype.Font(resource_path("fonts/NanumSquareB.ttf"), 18)
-        except Exception:
+        font_paths = [
+            "fonts/NanumSquareB.ttf",
+            "fonts/NanumSquareR.ttf",
+            "NanumSquareB.ttf",
+            "NanumSquareR.ttf",
+        ]
+        for font_path in font_paths:
+            if title_font and small_font:
+                break
             try:
-                title_font = pygame.freetype.Font(resource_path("fonts/NanumSquareR.ttf"), 28)
-                small_font = pygame.freetype.Font(resource_path("fonts/NanumSquareR.ttf"), 18)
+                title_font = pygame.freetype.Font(resource_path(font_path), 28)
+                small_font = pygame.freetype.Font(resource_path(font_path), 18)
             except Exception:
-                title_font = None
-                small_font = None
+                continue
 
         # 제목 "천사의 가호"
         if title_font:
@@ -3277,6 +3288,15 @@ class AngelBlessing(LegendaryItem):
             title_rect.centerx = screen_w // 2
             title_rect.y = panel_y + 20
             screen.blit(title_surf, title_rect)
+        else:
+            # fallback: pygame.font 사용
+            try:
+                fallback_title = pygame.font.Font(None, 32)
+                title_surf = fallback_title.render("Angel's Blessing", True, (220, 200, 255))
+                title_rect = title_surf.get_rect(centerx=screen_w // 2, y=panel_y + 20)
+                screen.blit(title_surf, title_rect)
+            except Exception:
+                pass
 
         # 주사위 애니메이션 중앙에 그리기
         dice_center_x = screen_w // 2
@@ -3308,35 +3328,60 @@ class AngelBlessing(LegendaryItem):
         # 결과 텍스트 영역
         results_y = panel_y + 220
 
+        # 버프 이름 (한글/영문)
+        buff_names_kr = {
+            "paddle_size": "패들 크기 +50%",
+            "gauge_max": "최대 게이지 +50%",
+            "item_spawn": "아이템 스폰률 +50%",
+            "item_cooldown": "아이템 쿨타임 -50%",
+            "dash_cost": "대쉬 비용 -50%",
+            "dash_cooldown": "대쉬 쿨타임 -50%",
+            "move_speed": "이동 속도 +50%",
+        }
+        buff_names_en = {
+            "paddle_size": "Paddle Size +50%",
+            "gauge_max": "Max Gauge +50%",
+            "item_spawn": "Item Spawn +50%",
+            "item_cooldown": "Item Cooldown -50%",
+            "dash_cost": "Dash Cost -50%",
+            "dash_cooldown": "Dash Cooldown -50%",
+            "move_speed": "Move Speed +50%",
+        }
+
         # 주사위 숫자 표시
         if progress > 0.8:
             # 최종 결과 표시
             if small_font:
-                dice_surf, dice_rect = small_font.render(f"주사위 결과: {self.roll_face}", (255, 220, 150))
-                dice_rect.centerx = screen_w // 2
-                dice_rect.y = results_y
-                screen.blit(dice_surf, dice_rect)
+                result_surf, result_rect = small_font.render(f"주사위 결과: {self.roll_face}", (255, 220, 150))
+                result_rect.centerx = screen_w // 2
+                result_rect.y = results_y
+                screen.blit(result_surf, result_rect)
 
-            # 선택된 버프 목록 표시
-            buff_names = {
-                "paddle_size": "패들 크기 +50%",
-                "gauge_max": "최대 게이지 +50%",
-                "item_spawn": "아이템 스폰률 +50%",
-                "item_cooldown": "아이템 쿨타임 -50%",
-                "dash_cost": "대쉬 비용 -50%",
-                "dash_cooldown": "대쉬 쿨타임 -50%",
-                "move_speed": "이동 속도 +50%",
-            }
-
-            buff_y = results_y + 35
-            for i, buff in enumerate(self.active_buffs):
-                buff_name = buff_names.get(buff, buff)
-                buff_color = (120, 255, 120)  # 밝은 녹색 (어두운 배경에서 잘 보이도록)
-                if small_font:
+                # 선택된 버프 목록 표시
+                buff_y = results_y + 35
+                for i, buff in enumerate(self.active_buffs):
+                    buff_name = buff_names_kr.get(buff, buff)
+                    buff_color = (120, 255, 120)  # 밝은 녹색
                     buff_surf, buff_rect = small_font.render(f">> {buff_name}", buff_color)
                     buff_rect.centerx = screen_w // 2
                     buff_rect.y = buff_y + i * 30
                     screen.blit(buff_surf, buff_rect)
+            else:
+                # fallback: pygame.font 사용 (영문)
+                try:
+                    fallback_small = pygame.font.Font(None, 22)
+                    result_surf = fallback_small.render(f"Dice Result: {self.roll_face}", True, (255, 220, 150))
+                    result_rect = result_surf.get_rect(centerx=screen_w // 2, y=results_y)
+                    screen.blit(result_surf, result_rect)
+
+                    buff_y = results_y + 35
+                    for i, buff in enumerate(self.active_buffs):
+                        buff_name = buff_names_en.get(buff, buff)
+                        buff_surf = fallback_small.render(f">> {buff_name}", True, (120, 255, 120))
+                        buff_rect = buff_surf.get_rect(centerx=screen_w // 2, y=buff_y + i * 30)
+                        screen.blit(buff_surf, buff_rect)
+                except Exception:
+                    pass
         else:
             # 굴리는 중 - ??? 표시
             if small_font:
@@ -3344,6 +3389,14 @@ class AngelBlessing(LegendaryItem):
                 rolling_rect.centerx = screen_w // 2
                 rolling_rect.y = results_y
                 screen.blit(rolling_surf, rolling_rect)
+            else:
+                try:
+                    fallback_small = pygame.font.Font(None, 22)
+                    rolling_surf = fallback_small.render("Rolling dice...", True, (200, 180, 255))
+                    rolling_rect = rolling_surf.get_rect(centerx=screen_w // 2, y=results_y)
+                    screen.blit(rolling_surf, rolling_rect)
+                except Exception:
+                    pass
 
         # 빛나는 파티클 효과 (황금색/흰색 계열)
         for _ in range(2):
