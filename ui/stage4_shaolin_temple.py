@@ -4208,9 +4208,9 @@ class ShaolinTempleBackground:
                 if fragment.get('impact_timer', 0) > 0:
                     fragment['impact_timer'] -= 1
                     fragment['shockwave_radius'] = (30 - fragment['impact_timer']) * 3
-            else:
-                # Remove fragment after impact
-                self.moon_fragments.remove(fragment)
+                else:
+                    # Remove fragment after impact
+                    self.moon_fragments.remove(fragment)
 
     def _get_temple_hitbox(self) -> pygame.Rect:
         """Return current temple hitbox, adjusted for collapse offset"""
