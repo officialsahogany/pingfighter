@@ -1965,6 +1965,12 @@ class BuildingInterior:
         self.nearby_gacha_machine = None  # 근처 가챠 머신 인덱스
         self._init_gacha_machine_zones()  # 가챠 머신 영역 초기화
 
+        # 크레인 게임(인형뽑기) 상호작용 영역 (GACHA 전용)
+        self.crane_game_rects = []  # 크레인 게임 상호작용 영역들
+        self.crane_interact_requested = False  # 크레인 게임 실행 요청 플래그
+        self.nearby_crane_game = None  # 근처 크레인 게임 인덱스
+        self._init_crane_game_zones()  # 크레인 게임 영역 초기화
+
     def _init_shop_inventory(self):
         """상점 인벤토리 초기화 (랜덤 패시브 아이템 1~7개 + 5% 전설)"""
         if self.building_type != BuildingType.ITEM_SHOP:
@@ -2120,6 +2126,84 @@ class BuildingInterior:
                 "side": "right",
                 "index": i + 3
             })
+
+    def _init_crane_game_zones(self):
+        """크레인 게임(인형뽑기) 상호작용 영역 초기화 (GACHA 전용)"""
+        if self.building_type != BuildingType.GACHA:
+            return
+
+        self.crane_game_rects = []
+
+        # _draw_cyberpunk_gacha_interior와 동일한 값 사용
+        wall_h = int(TILE_SIZE * 5)
+        prize_y = wall_h + int(TILE_SIZE * 6)  # 크레인 게임 Y 위치
+        machine_w = int(TILE_SIZE * 2)  # _draw_prize_machines에서 사용하는 크기
+        machine_h = int(TILE_SIZE * 3)
+
+        # 머신 하단 (bottom)
+        machine_bottom = prize_y + machine_h
+
+        # 왼쪽 크레인 게임들 (2대)
+        left_x = int(TILE_SIZE * 1.5)
+        for i in range(2):
+            mx = left_x + i * (machine_w + 10)
+            # 상호작용 영역: 머신 아래쪽 (바짝 붙어야 함)
+            interact_rect = pygame.Rect(
+                mx - 5,
+                machine_bottom,
+                machine_w + 10,
+                TILE_SIZE
+            )
+            self.crane_game_rects.append({
+                "rect": interact_rect,
+                "machine_rect": pygame.Rect(mx, prize_y, machine_w, machine_h),
+                "side": "left",
+                "index": i
+            })
+
+        # 오른쪽 크레인 게임들 (2대)
+        right_x = self.pixel_width - int(TILE_SIZE * 6)
+        for i in range(2):
+            mx = right_x + i * (machine_w + 10)
+            # 상호작용 영역: 머신 아래쪽 (바짝 붙어야 함)
+            interact_rect = pygame.Rect(
+                mx - 5,
+                machine_bottom,
+                machine_w + 10,
+                TILE_SIZE
+            )
+            self.crane_game_rects.append({
+                "rect": interact_rect,
+                "machine_rect": pygame.Rect(mx, prize_y, machine_w, machine_h),
+                "side": "right",
+                "index": i + 2
+            })
+
+    def _check_nearby_crane_game(self):
+        """플레이어 근처에 크레인 게임이 있는지 확인"""
+        if self.building_type != BuildingType.GACHA:
+            return None
+
+        player_rect = pygame.Rect(
+            self.player.x - 30, self.player.y - 30, 60, 60
+        )
+
+        for i, crane_info in enumerate(self.crane_game_rects):
+            if player_rect.colliderect(crane_info["rect"]):
+                return i
+
+        return None
+
+    def _check_crane_game_click(self, world_x, world_y):
+        """크레인 게임이 클릭되었는지 확인"""
+        if self.building_type != BuildingType.GACHA:
+            return None
+
+        for i, crane_info in enumerate(self.crane_game_rects):
+            if crane_info["rect"].collidepoint(world_x, world_y):
+                return i
+
+        return None
 
     def _check_nearby_gacha_machine(self):
         """플레이어 근처에 가챠 머신이 있는지 확인"""
