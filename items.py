@@ -377,6 +377,7 @@ def load_item_icons():
         "spider_mine": "spider_mine.png",  # 스파이더지뢰 아이콘
         "repair_kit": "repair_kit.png",  # 수리키트 아이콘
         "vitamin_pill": "vitamin_pill.png",  # 비타민약 아이콘 (없을 시 코드로 그립니다)
+        "laser_scope": "laser_scope.png",  # 레이저스코프 아이콘
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
         "hermes_shoes": "legendary/hermes_shoes.png",
