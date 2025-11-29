@@ -3485,6 +3485,13 @@ class BuildingInterior:
                     self.nearby_gacha_machine = nearby_machine
                     return ("gacha_interact", nearby_machine)
 
+                # 크레인 게임 상호작용 확인
+                nearby_crane = self._check_nearby_crane_game()
+                if nearby_crane is not None:
+                    self.crane_interact_requested = True
+                    self.nearby_crane_game = nearby_crane
+                    return ("crane_interact", nearby_crane)
+
             # NPC 상호작용
             return self._try_interact_with_npc()
 
@@ -7109,8 +7116,9 @@ class BuildingInterior:
         # 12. 문 그리기
         self._draw_door(screen)
 
-        # 13. 가챠 머신 상호작용 힌트 표시
+        # 13. 가챠 머신 / 크레인 게임 상호작용 힌트 표시
         self._draw_gacha_interact_hint(screen, NEON_PINK, NEON_CYAN)
+        self._draw_crane_interact_hint(screen, NEON_YELLOW, NEON_GREEN)
 
         # ===== 디버그: 상호작용 영역 표시 =====
         cam_x, cam_y = self.camera_offset
