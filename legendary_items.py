@@ -3196,8 +3196,9 @@ class AngelBlessing(LegendaryItem):
             6: [(-0.4, -0.4), (0.4, -0.4), (-0.4, 0), (0.4, 0), (-0.4, 0.4), (0.4, 0.4)],
         }
 
-        pip_size = max(2, int(half * 0.18))
-        pip_scale = half * 0.65
+        # 주사위 눈 크기 증가 (더 명확하게 보이도록)
+        pip_size = max(4, int(half * 0.25))  # 크기 증가
+        pip_scale = half * 0.55  # 눈금 간격 조정
 
         for face_data in faces_sorted[:3]:
             indices, face_num, center_3d, u_axis, v_axis = face_data
@@ -3217,7 +3218,7 @@ class AngelBlessing(LegendaryItem):
             adj_color = tuple(min(255, int(c * brightness)) for c in base_color)
 
             pygame.draw.polygon(surf, adj_color, points)
-            pygame.draw.polygon(surf, edge_color, points, 1)
+            pygame.draw.polygon(surf, edge_color, points, 2)  # 테두리 두께 증가
 
             for pu, pv in pip_positions_local.get(face_num, []):
                 pip_3d_x = center_3d[0] + u_axis[0] * pu * pip_scale + v_axis[0] * pv * pip_scale
@@ -3225,11 +3226,16 @@ class AngelBlessing(LegendaryItem):
                 pip_3d_z = center_3d[2] + u_axis[2] * pu * pip_scale + v_axis[2] * pv * pip_scale
                 pip_x, pip_y, _ = rotate_point(pip_3d_x, pip_3d_y, pip_3d_z)
 
-                pygame.draw.circle(surf, (pip_color[0]//2, pip_color[1]//2, pip_color[2]//2),
-                                  (pip_x + 1, pip_y + 1), pip_size)
-                pygame.draw.circle(surf, pip_color, (pip_x, pip_y), pip_size)
-                pygame.draw.circle(surf, (240, 240, 255),
-                                  (pip_x - 1, pip_y - 1), max(1, pip_size // 3))
+                # 눈금 그림자 (더 진하게)
+                pygame.draw.circle(surf, (40, 30, 80),
+                                  (pip_x + 2, pip_y + 2), pip_size)
+                # 눈금 본체 (더 진한 보라색)
+                pygame.draw.circle(surf, (80, 50, 150), (pip_x, pip_y), pip_size)
+                # 눈금 외곽선 (더 명확하게)
+                pygame.draw.circle(surf, (60, 40, 120), (pip_x, pip_y), pip_size, 1)
+                # 하이라이트 (더 크게)
+                pygame.draw.circle(surf, (255, 255, 255),
+                                  (pip_x - 1, pip_y - 1), max(2, pip_size // 2))
 
     def _spawn_particle(self, screen, cx, cy):
         """파티클 생성 - 라그나로크 해머와 동일"""
@@ -3257,9 +3263,9 @@ class AngelBlessing(LegendaryItem):
         overlay.fill((20, 15, 40, 180))  # 어두운 남색 배경
         screen.blit(overlay, (0, 0))
 
-        # 패널 크기와 위치
+        # 패널 크기와 위치 (7개 옵션 모두 표시할 수 있도록 높이 증가)
         panel_width = 500
-        panel_height = 450
+        panel_height = 520
         panel_x = (screen_w - panel_width) // 2
         panel_y = (screen_h - panel_height) // 2
 
