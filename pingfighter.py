@@ -23942,6 +23942,13 @@ def apply_effect(effect_name):
     elif effect_name == "vitamin_pill":  # 비타민약 액티브 아이템
         activate_vitamin_pill()
         print("비타민약 섭취! 10초간 이동속도 50% 증가")
+    elif effect_name == "laser_scope":  # 레이저스코프 액티브 아이템
+        activate_laser_scope()
+        try:
+            _hg_on_activate('laser_scope')
+        except Exception:
+            pass
+        print("🔴 레이저스코프 발동! 15초간 모든 공의 궤적이 표시됩니다")
     elif effect_name == "berserk_potion":  # 광폭물약 액티브 아이템
         activate_berserk_potion()
         print("광폭물약 발동! 15초 동안 건설/업그레이드 속도 3배, 포탑 수동 발사 쿨다운 400% 단축")
@@ -46940,6 +46947,15 @@ def draw_objects():
 
     # 테크니컬조끼 연막 효과 그리기 (플레이어 패들보다 먼저 그려서 패들이 위에 보이도록)
     draw_technical_vest_effects(SCREEN)
+
+    # 레이저스코프 궤적 그리기
+    if is_laser_scope_active():
+        draw_laser_scope_effects(SCREEN,
+                               ball_x=BALL.x, ball_y=BALL.y,
+                               ball_vx=BALL.vx, ball_vy=BALL.vy,
+                               screen_width=WIDTH, screen_height=HEIGHT,
+                               paddle_y=PLAYER.rect.centery,
+                               boss_paddle_y=AI.rect.centery)
 
     # 미사일 무적 시간 체크
     time_now = pygame.time.get_ticks()
@@ -78383,6 +78399,8 @@ def main(stage_num, new_boss_mode=False):
         
         # 테크니컬조끼 업데이트 (플레이어 패들 위치 전달)
         update_technical_vest(PLAYER)
+        # 레이저스코프 업데이트
+        update_laser_scope()
         # Stage 7: 테크니컬조끼 연막이 테트로미노에 닿으면 증발 처리
         # - 기존 연막탄 파괴 경로(destroy_stage7_tetrominoes_in_smoke)를 재사용해 성능/일관성 유지
         if current_stage == 7:
