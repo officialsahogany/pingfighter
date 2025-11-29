@@ -76843,9 +76843,7 @@ def main(stage_num, new_boss_mode=False):
         
         #  퍼펙트 타이밍 시스템: 스페이스바 + 방향키 프레임 단위 입력 감지
         #  관련 전역은 main() 초기에 한 번에 선언함(중복 선언으로 인한 SyntaxError 방지)
-        # special_gauge, special_ready, special_active는 이미 함수 시작 부분에서 global 선언됨
-        global power_smashing_direction, power_smashing_original_speed  #  파워스매싱 관련 변수 (ball_vel은 이미 전역)
-        global dashholder_obtained, dashgear_obtained, spikeboots_obtained  # 대쉬 아이템 보유 상태
+        # special_gauge, special_ready, special_active, power_smashing_*, dashholder_obtained 등은 이미 함수 시작 부분에서 global 선언됨
         if selected_character_type == "blacksmith":
             _sync_blacksmith_hammer_projectiles_to_frame(frame_counter)
         # 프레임 카운터 증가
