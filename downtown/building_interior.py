@@ -7122,21 +7122,34 @@ class BuildingInterior:
 
         # ===== 디버그: 상호작용 영역 표시 =====
         cam_x, cam_y = self.camera_offset
+        # 가챠 머신 (빨간색/파란색)
         for machine_info in self.gacha_machine_rects:
             rect = machine_info["rect"]
-            # 상호작용 영역 (빨간색)
             debug_rect = pygame.Rect(
                 rect.x - cam_x, rect.y - cam_y,
                 rect.width, rect.height
             )
             pygame.draw.rect(screen, (255, 0, 0), debug_rect, 2)
-            # 머신 영역 (파란색)
             m_rect = machine_info["machine_rect"]
             debug_m_rect = pygame.Rect(
                 m_rect.x - cam_x, m_rect.y - cam_y,
                 m_rect.width, m_rect.height
             )
             pygame.draw.rect(screen, (0, 0, 255), debug_m_rect, 2)
+        # 크레인 게임 (노란색/시안색)
+        for crane_info in self.crane_game_rects:
+            rect = crane_info["rect"]
+            debug_rect = pygame.Rect(
+                rect.x - cam_x, rect.y - cam_y,
+                rect.width, rect.height
+            )
+            pygame.draw.rect(screen, (255, 255, 0), debug_rect, 2)
+            m_rect = crane_info["machine_rect"]
+            debug_m_rect = pygame.Rect(
+                m_rect.x - cam_x, m_rect.y - cam_y,
+                m_rect.width, m_rect.height
+            )
+            pygame.draw.rect(screen, (0, 255, 255), debug_m_rect, 2)
         # 플레이어 위치 (녹색)
         player_rect = pygame.Rect(
             self.player.x - cam_x - 30, self.player.y - cam_y - 30, 60, 60
@@ -7208,6 +7221,75 @@ class BuildingInterior:
         pygame.draw.ellipse(screen, neon_cyan, (mouse_x, mouse_y, 20, 24), 1)
         # 클릭 영역 (왼쪽 버튼 강조)
         pygame.draw.rect(screen, neon_pink, (mouse_x + 2, mouse_y + 2, 7, 8), border_radius=2)
+
+    def _draw_crane_interact_hint(self, screen, neon_yellow, neon_green):
+        """크레인 게임 근처일 때 상호작용 힌트 표시"""
+        if self.nearby_crane_game is None:
+            return
+
+        # 가챠 힌트가 이미 표시 중이면 표시 안함 (겹침 방지)
+        if self.nearby_gacha_machine is not None:
+            return
+
+        # 화면 하단에 힌트 박스 표시
+        hint_text = "SPACE / CLICK - 인형뽑기"
+        pulse = abs(math.sin(self.animation_timer * 4))
+
+        # 힌트 박스 크기
+        box_w = 240
+        box_h = 40
+        box_x = (SCREEN_WIDTH - box_w) // 2
+        box_y = SCREEN_HEIGHT - 80
+
+        # 글로우 효과
+        for glow in range(3, 0, -1):
+            glow_alpha = int((60 - glow * 15) * pulse)
+            glow_surf = pygame.Surface((box_w + glow * 6, box_h + glow * 6), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*neon_yellow, glow_alpha),
+                           (0, 0, box_w + glow * 6, box_h + glow * 6), border_radius=8)
+            screen.blit(glow_surf, (box_x - glow * 3, box_y - glow * 3))
+
+        # 박스 배경
+        box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box_surf, (30, 35, 20, 230), (0, 0, box_w, box_h), border_radius=6)
+        screen.blit(box_surf, (box_x, box_y))
+
+        # 테두리
+        border_color = (
+            int(neon_yellow[0] * 0.7 + neon_green[0] * 0.3),
+            int(neon_yellow[1] * 0.7 + neon_green[1] * 0.3),
+            int(neon_yellow[2] * 0.7 + neon_green[2] * 0.3),
+        )
+        pygame.draw.rect(screen, border_color, (box_x, box_y, box_w, box_h), 2, border_radius=6)
+
+        # 텍스트
+        if self.fonts:
+            font = self.fonts.get("small") or self.fonts.get("main")
+            if font:
+                text_color = (255, 255, 255)
+                text_surf, text_rect = font.render(hint_text, text_color)
+                text_x = box_x + (box_w - text_rect.width) // 2
+                text_y = box_y + (box_h - text_rect.height) // 2
+                screen.blit(text_surf, (text_x, text_y))
+
+        # SPACE 키 아이콘 (좌측)
+        key_x = box_x + 12
+        key_y = box_y + (box_h - 20) // 2
+        key_w = 50
+        key_h = 20
+
+        # 키 배경
+        pygame.draw.rect(screen, (60, 60, 40), (key_x, key_y, key_w, key_h), border_radius=3)
+        pygame.draw.rect(screen, neon_green, (key_x, key_y, key_w, key_h), 1, border_radius=3)
+
+        # 마우스 아이콘 (우측)
+        mouse_x = box_x + box_w - 32
+        mouse_y = box_y + (box_h - 24) // 2
+        # 마우스 본체
+        pygame.draw.ellipse(screen, (60, 60, 40), (mouse_x, mouse_y, 20, 24))
+        pygame.draw.ellipse(screen, neon_green, (mouse_x, mouse_y, 20, 24), 1)
+        # 클릭 영역 (왼쪽 버튼 강조)
+        pygame.draw.rect(screen, neon_yellow, (mouse_x + 2, mouse_y + 2, 7, 8), border_radius=2)
 
     def _draw_cyberpunk_floor(self, screen, cam_x, cam_y, floor_color, floor_dark, stripe_color):
         """사이버펑크 바닥 그리기 (대각선 스트라이프 + 네온 라인)"""
