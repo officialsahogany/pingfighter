@@ -62,6 +62,11 @@ class BGMManager:
                 os.path.join("bgm", "stage4bgm.mp3"),
                 os.path.join("bgm", "stage4bgm.wav"),
             ],
+            'stage6': [
+                os.path.join("bgm", "stage6bgm.ogg"),
+                os.path.join("bgm", "stage6bgm.mp3"),
+                os.path.join("bgm", "stage6bgm.wav"),
+            ],
             'downtown': [
                 os.path.join("bgm", "tutorialmainbgm.mp3"),
                 os.path.join("bgm", "tutorialmainbgm.ogg"),
@@ -286,6 +291,8 @@ class BGMManager:
             self.play_bgm('stage3')
         elif stage_num == 4:
             self.play_bgm('stage4')
+        elif stage_num == 6:
+            self.play_bgm('stage6')
         elif stage_num == 50:  # 튜토리얼
             self.play_bgm('tutorial')
         # 다른 스테이지 BGM은 추후 추가

@@ -75884,6 +75884,8 @@ def main(stage_num, new_boss_mode=False):
     elif stage_num == 6:  #  Stage 6 추가 (항공모함)
         CURRENT_BG = STAGE6_BG
         BOSS_COLOR = (150, 200, 255)  # 금속/은색
+        # Stage 6 BGM 재생
+        bgm_manager.play_stage_bgm(6)
     elif stage_num == 7:
         CURRENT_BG = STAGE7_BG
         BOSS_COLOR = (120, 170, 255)
