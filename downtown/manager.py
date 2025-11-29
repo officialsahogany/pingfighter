@@ -1673,11 +1673,168 @@ class DowntownManager:
         self._exit_building()
 
     def _run_gacha_from_interior(self, interior):
-        """가챠 머신에서 가챠 실행"""
+        """가챠 머신에서 가챠 실행 - 확인 다이얼로그 표시"""
+        # 가챠 확인 다이얼로그 표시
+        result = self._show_gacha_confirm_dialog(interior)
+        if result:
+            self._execute_gacha(interior)
+
+    def _show_gacha_confirm_dialog(self, interior):
+        """가챠 확인 다이얼로그 표시"""
+        clock = pygame.time.Clock()
+        running = True
+        result = False
+
+        # 현재 골드
+        current_gold = self.player_data.get('gold', 0)
+        remaining_count = self.gacha_max_count - self.gacha_used_count
+
+        # 다이얼로그 크기 및 위치
+        dialog_width = 380
+        dialog_height = 200
+        dialog_x = (SCREEN_WIDTH - dialog_width) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_height) // 2
+
+        # 버튼 영역
+        btn_width = 100
+        btn_height = 40
+        btn_y = dialog_y + dialog_height - 60
+        yes_btn = pygame.Rect(dialog_x + 60, btn_y, btn_width, btn_height)
+        no_btn = pygame.Rect(dialog_x + dialog_width - 160, btn_y, btn_width, btn_height)
+
+        selected = 0  # 0: 예, 1: 아니오
+
+        while running:
+            dt = clock.tick(60) / 1000.0
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+                        result = False
+                    elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                        selected = 1 - selected
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        if selected == 0:  # 예
+                            # 골드 및 횟수 체크
+                            if current_gold >= self.gacha_cost and remaining_count > 0:
+                                result = True
+                            running = False
+                        else:  # 아니오
+                            running = False
+                            result = False
+
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    mx, my = event.pos
+                    if yes_btn.collidepoint(mx, my):
+                        if current_gold >= self.gacha_cost and remaining_count > 0:
+                            result = True
+                        running = False
+                    elif no_btn.collidepoint(mx, my):
+                        running = False
+                        result = False
+
+                if event.type == pygame.MOUSEMOTION:
+                    mx, my = event.pos
+                    if yes_btn.collidepoint(mx, my):
+                        selected = 0
+                    elif no_btn.collidepoint(mx, my):
+                        selected = 1
+
+            # 배경 그리기 (현재 인테리어)
+            interior.draw(self.screen)
+
+            # 오버레이
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            self.screen.blit(overlay, (0, 0))
+
+            # 다이얼로그 박스
+            dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_width, dialog_height)
+            pygame.draw.rect(self.screen, (20, 25, 40), dialog_rect, border_radius=12)
+            pygame.draw.rect(self.screen, (0, 200, 255), dialog_rect, 3, border_radius=12)
+
+            # 제목: "가챠를 하시겠습니까?"
+            font_large = self._freetype_fonts.get('large')
+            font_medium = self._freetype_fonts.get('medium')
+            font_small = self._freetype_fonts.get('small')
+
+            if font_large:
+                title_surf, title_rect = font_large.render("가챠를 하시겠습니까?", (255, 255, 255))
+                self.screen.blit(title_surf, (dialog_x + (dialog_width - title_rect.width) // 2, dialog_y + 25))
+
+            # 비용 표시: "비용: 800" + 골드 아이콘
+            if font_medium:
+                cost_text = f"비용: {self.gacha_cost}"
+                cost_surf, cost_rect = font_medium.render(cost_text, (255, 220, 100))
+                cost_x = dialog_x + (dialog_width - cost_rect.width - 30) // 2
+                cost_y = dialog_y + 70
+                self.screen.blit(cost_surf, (cost_x, cost_y))
+
+                # 골드 아이콘 (간단한 원)
+                gold_icon_x = cost_x + cost_rect.width + 10
+                gold_icon_y = cost_y + cost_rect.height // 2
+                pygame.draw.circle(self.screen, (255, 215, 0), (gold_icon_x, gold_icon_y), 10)
+                pygame.draw.circle(self.screen, (200, 170, 0), (gold_icon_x, gold_icon_y), 10, 2)
+
+            # 남은 횟수 표시
+            if font_small:
+                count_text = f"남은 횟수: ({remaining_count}/{self.gacha_max_count})"
+                # 횟수 없으면 빨간색
+                count_color = (255, 100, 100) if remaining_count <= 0 else (180, 180, 200)
+                count_surf, count_rect = font_small.render(count_text, count_color)
+                self.screen.blit(count_surf, (dialog_x + (dialog_width - count_rect.width) // 2, dialog_y + 105))
+
+            # 골드 부족 경고
+            if current_gold < self.gacha_cost:
+                if font_small:
+                    warn_surf, warn_rect = font_small.render("골드가 부족합니다!", (255, 80, 80))
+                    self.screen.blit(warn_surf, (dialog_x + (dialog_width - warn_rect.width) // 2, dialog_y + 125))
+
+            # 버튼: 예
+            yes_color = (0, 180, 100) if selected == 0 else (60, 80, 60)
+            yes_border = (100, 255, 150) if selected == 0 else (80, 100, 80)
+            # 골드/횟수 부족시 비활성화
+            can_gacha = current_gold >= self.gacha_cost and remaining_count > 0
+            if not can_gacha:
+                yes_color = (50, 50, 50)
+                yes_border = (80, 80, 80)
+            pygame.draw.rect(self.screen, yes_color, yes_btn, border_radius=8)
+            pygame.draw.rect(self.screen, yes_border, yes_btn, 2, border_radius=8)
+            if font_medium:
+                yes_surf, yes_rect = font_medium.render("예", (255, 255, 255) if can_gacha else (100, 100, 100))
+                self.screen.blit(yes_surf, (yes_btn.centerx - yes_rect.width // 2, yes_btn.centery - yes_rect.height // 2))
+
+            # 버튼: 아니오
+            no_color = (180, 60, 60) if selected == 1 else (80, 50, 50)
+            no_border = (255, 100, 100) if selected == 1 else (100, 70, 70)
+            pygame.draw.rect(self.screen, no_color, no_btn, border_radius=8)
+            pygame.draw.rect(self.screen, no_border, no_btn, 2, border_radius=8)
+            if font_medium:
+                no_surf, no_rect = font_medium.render("아니오", (255, 255, 255))
+                self.screen.blit(no_surf, (no_btn.centerx - no_rect.width // 2, no_btn.centery - no_rect.height // 2))
+
+            pygame.display.flip()
+
+        # 이벤트 클리어
+        pygame.event.clear()
+        return result
+
+    def _execute_gacha(self, interior):
+        """실제 가챠 실행"""
         try:
             import gacha
             import pingfighter
             import items
+
+            # 골드 차감
+            current_gold = self.player_data.get('gold', 0)
+            self.player_data['gold'] = current_gold - self.gacha_cost
+            self.gacha_used_count += 1
 
             # pingfighter에서 필요한 함수들 가져오기
             get_item_name_korean = getattr(pingfighter, 'get_item_name_korean', lambda x: x)
@@ -1685,16 +1842,12 @@ class DowntownManager:
             store_active_item = getattr(pingfighter, 'store_active_item', lambda x: None)
             get_item_description = getattr(pingfighter, 'get_item_description', lambda x: "")
 
-            # 스타포인트 관련 함수 정의
+            # 스타포인트 관련 함수 정의 (사용하지 않지만 호환성 유지)
             def get_star_count():
                 return self.player_data.get('star_points', 0)
 
             def spend_stars(amount):
-                current = self.player_data.get('star_points', 0)
-                if current >= amount:
-                    self.player_data['star_points'] = current - amount
-                    return True
-                return False
+                return False  # 골드로 이미 결제함
 
             # 가챠 시스템 초기화 - 사용 가능한 아이템 목록 생성
             available_items = []
@@ -1715,6 +1868,7 @@ class DowntownManager:
             before_passive_count = len(pingfighter.passive_item_list) if hasattr(pingfighter, 'passive_item_list') else 0
             before_active_count = len(pingfighter.active_item_list) if hasattr(pingfighter, 'active_item_list') else 0
             print(f"[가챠] 실행 전 - 패시브: {before_passive_count}개, 액티브: {before_active_count}개")
+            print(f"[가챠] 비용 {self.gacha_cost}G 차감, 남은 횟수: {self.gacha_max_count - self.gacha_used_count}/{self.gacha_max_count}")
 
             # 가챠 실행
             gacha.run_gacha(
