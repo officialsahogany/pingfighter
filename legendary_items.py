@@ -2856,19 +2856,20 @@ class AngelBlessing(LegendaryItem):
             try:
                 if pf is not None and hasattr(pf, "MAX_SPEED"):
                     base_max_speed = getattr(pf, "MAX_SPEED", 5)
-                    # 기본 MAX_SPEED 저장 (복원용)
-                    if not hasattr(self, "_original_max_speed"):
+                    # 기본 MAX_SPEED 저장 (복원용) - 값이 None이거나 속성이 없으면 저장
+                    if not hasattr(self, "_original_max_speed") or self._original_max_speed is None:
                         self._original_max_speed = base_max_speed
-                    pf.MAX_SPEED = int(base_max_speed * 1.5)
+                    pf.MAX_SPEED = int(self._original_max_speed * 1.5)  # 항상 원본 기준으로 계산
                     self._set_global_multiplier("ANGEL_SPEED_MULT", 1.5)
-                    print(f"[AngelBlessing] 이동속도 버프 적용: MAX_SPEED {base_max_speed} -> {pf.MAX_SPEED}")
+                    print(f"[AngelBlessing] 이동속도 버프 적용: MAX_SPEED {self._original_max_speed} -> {pf.MAX_SPEED}")
                 # ACCELERATION도 증가
                 if pf is not None and hasattr(pf, "ACCELERATION"):
                     base_accel = getattr(pf, "ACCELERATION", 0.4)
-                    if not hasattr(self, "_original_acceleration"):
+                    # 기본 ACCELERATION 저장 (복원용) - 값이 None이거나 속성이 없으면 저장
+                    if not hasattr(self, "_original_acceleration") or self._original_acceleration is None:
                         self._original_acceleration = base_accel
-                    pf.ACCELERATION = base_accel * 1.3
-                    print(f"[AngelBlessing] 가속도 버프 적용: ACCELERATION {base_accel} -> {pf.ACCELERATION}")
+                    pf.ACCELERATION = self._original_acceleration * 1.3  # 항상 원본 기준으로 계산
+                    print(f"[AngelBlessing] 가속도 버프 적용: ACCELERATION {self._original_acceleration} -> {pf.ACCELERATION}")
             except Exception as e:
                 print(f"[AngelBlessing] 이동속도 버프 적용 실패: {e}")
 
