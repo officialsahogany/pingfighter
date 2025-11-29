@@ -6986,6 +6986,65 @@ class BuildingInterior:
         # 12. 문 그리기
         self._draw_door(screen)
 
+        # 13. 가챠 머신 상호작용 힌트 표시
+        self._draw_gacha_interact_hint(screen, NEON_PINK, NEON_CYAN)
+
+    def _draw_gacha_interact_hint(self, screen, neon_pink, neon_cyan):
+        """가챠 머신 근처일 때 상호작용 힌트 표시"""
+        if self.nearby_gacha_machine is None:
+            return
+
+        # 화면 하단에 힌트 박스 표시
+        hint_text = "SPACE - 가챠 뽑기"
+        pulse = abs(math.sin(self.animation_timer * 4))
+
+        # 힌트 박스 크기
+        box_w = 180
+        box_h = 40
+        box_x = (SCREEN_WIDTH - box_w) // 2
+        box_y = SCREEN_HEIGHT - 80
+
+        # 글로우 효과
+        for glow in range(3, 0, -1):
+            glow_alpha = int((60 - glow * 15) * pulse)
+            glow_surf = pygame.Surface((box_w + glow * 6, box_h + glow * 6), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*neon_pink, glow_alpha),
+                           (0, 0, box_w + glow * 6, box_h + glow * 6), border_radius=8)
+            screen.blit(glow_surf, (box_x - glow * 3, box_y - glow * 3))
+
+        # 박스 배경
+        box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box_surf, (30, 20, 40, 230), (0, 0, box_w, box_h), border_radius=6)
+        screen.blit(box_surf, (box_x, box_y))
+
+        # 테두리
+        border_color = (
+            int(neon_pink[0] * 0.7 + neon_cyan[0] * 0.3),
+            int(neon_pink[1] * 0.7 + neon_cyan[1] * 0.3),
+            int(neon_pink[2] * 0.7 + neon_cyan[2] * 0.3),
+        )
+        pygame.draw.rect(screen, border_color, (box_x, box_y, box_w, box_h), 2, border_radius=6)
+
+        # 텍스트
+        if self.fonts:
+            font = self.fonts.get("small") or self.fonts.get("main")
+            if font:
+                text_color = (255, 255, 255)
+                text_surf, text_rect = font.render(hint_text, text_color)
+                text_x = box_x + (box_w - text_rect.width) // 2
+                text_y = box_y + (box_h - text_rect.height) // 2
+                screen.blit(text_surf, (text_x, text_y))
+
+        # SPACE 키 아이콘 (좌측)
+        key_x = box_x + 12
+        key_y = box_y + (box_h - 20) // 2
+        key_w = 50
+        key_h = 20
+
+        # 키 배경
+        pygame.draw.rect(screen, (60, 50, 80), (key_x, key_y, key_w, key_h), border_radius=3)
+        pygame.draw.rect(screen, neon_cyan, (key_x, key_y, key_w, key_h), 1, border_radius=3)
+
     def _draw_cyberpunk_floor(self, screen, cam_x, cam_y, floor_color, floor_dark, stripe_color):
         """사이버펑크 바닥 그리기 (대각선 스트라이프 + 네온 라인)"""
         tile_w = TILE_SIZE
