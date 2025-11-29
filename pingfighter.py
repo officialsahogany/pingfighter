@@ -84149,7 +84149,7 @@ def show_stage_selection(show_character_hint=True):
             char_rect = char_text.get_rect(center=(WIDTH // 2, 120))
             SCREEN.blit(char_text, char_rect)
         else:
-            hint_tㅁext = font_medium.render("캐릭터는 다음 단계에서 선택합니다", True, WHITE)
+            hint_text = font_medium.render("캐릭터는 다음 단계에서 선택합니다", True, WHITE)
             hint_rect = hint_text.get_rect(center=(WIDTH // 2, 120))
             SCREEN.blit(hint_text, hint_rect)
         
