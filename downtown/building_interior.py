@@ -7020,8 +7020,7 @@ class BuildingInterior:
         self._draw_gacha_interact_hint(screen, NEON_PINK, NEON_CYAN)
 
         # ===== 디버그: 상호작용 영역 표시 =====
-        cam_x = int(self.camera_x)
-        cam_y = int(self.camera_y)
+        cam_x, cam_y = self.camera_offset
         for machine_info in self.gacha_machine_rects:
             rect = machine_info["rect"]
             # 상호작용 영역 (빨간색)
