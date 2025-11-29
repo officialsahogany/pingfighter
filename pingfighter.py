@@ -82724,8 +82724,7 @@ def show_pause_menu():
                                     show_item_management_menu(active_item_slot, selected_active_item, "active")
                                 else:
                                     selected_passive_item = clicked_index
-                                    show_item_management_menu(passive_item_list, selected_passive_item, "passive")    finally:
-        _release_stage7_ui_pause_once()
+                                    show_item_management_menu(passive_item_list, selected_passive_item, "passive")
 def get_item_name_korean(item_name):
     """아이템 이름을 한글로 변환"""
     # 무중력벨트 + 스피드기어 시너지 효과 확인
