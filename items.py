@@ -420,7 +420,7 @@ def load_item_icons():
         "molotov": "molotov.png",
         "smoke_grenade": "smoke_grenade.png",
         "devil_dice": "devil_dice.png",  # 😈 악마의 주사위 아이콘 추가
-        "cooltime": "cooltime.png",  # 쿨타임 아이콘 추가  
+        "cooltime": "coolingball.png",  # 쿨타임(쿨링볼) 아이콘  
         "life_elixir": "life_elixir.png",  # 생명수 아이콘
         "technical_vest": "technical_vest.png",  # 테크니컬조끼 아이콘
         "fuel_pouch": "fuel_pouch.png",  # 연료파우치 아이콘
