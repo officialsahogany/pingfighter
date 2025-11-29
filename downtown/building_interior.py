@@ -7356,66 +7356,316 @@ class BuildingInterior:
         self._draw_crane_game(screen, x + machine_w + 10, y, machine_w, machine_h, accent2)
 
     def _draw_crane_game(self, screen, x, y, w, h, accent):
-        """단일 크레인 게임 그리기"""
-        # 본체
-        body_color = (70, 60, 90)
-        pygame.draw.rect(screen, body_color, (x, y, w, h), border_radius=5)
-        pygame.draw.rect(screen, accent, (x, y, w, h), 2, border_radius=5)
+        """단일 크레인 게임 그리기 - 업그레이드 버전"""
+        x, y, w, h = int(x), int(y), int(w), int(h)
 
-        # 유리 부분
-        glass_margin = 5
-        glass_rect = (x + glass_margin, y + glass_margin,
-                     w - glass_margin * 2, h * 0.65)
+        # === 3D 그림자 효과 ===
+        shadow_offset = 4
+        shadow_color = (20, 15, 30)
+        pygame.draw.rect(screen, shadow_color,
+                        (x + shadow_offset, y + shadow_offset, w, h),
+                        border_radius=6)
 
-        # 유리 배경 (어두운 색)
-        pygame.draw.rect(screen, (25, 20, 35), glass_rect, border_radius=3)
+        # === 본체 (메탈릭 그라데이션) ===
+        body_base = (70, 60, 90)
+        body_highlight = (90, 80, 120)
+        body_dark = (50, 40, 70)
 
-        # 유리 반투명 효과
-        glass_surf = pygame.Surface((glass_rect[2], glass_rect[3]), pygame.SRCALPHA)
-        glass_surf.fill((80, 120, 160, 50))
-        screen.blit(glass_surf, (glass_rect[0], glass_rect[1]))
+        # 본체 배경
+        pygame.draw.rect(screen, body_base, (x, y, w, h), border_radius=6)
 
-        # 유리 테두리
-        pygame.draw.rect(screen, accent, glass_rect, 2, border_radius=3)
+        # 상단 하이라이트
+        highlight_surf = pygame.Surface((w, h // 4), pygame.SRCALPHA)
+        for i in range(h // 4):
+            alpha = int(60 * (1 - i / (h // 4)))
+            pygame.draw.line(highlight_surf, (*body_highlight, alpha),
+                           (0, i), (w, i), 1)
+        screen.blit(highlight_surf, (x, y))
 
-        # 내부 인형들
-        plush_colors = [(255, 200, 220), (200, 220, 255), (220, 255, 200), (255, 255, 200)]
-        plush_count = 4
-        plush_y = y + glass_margin + int(h * 0.4)
+        # 본체 테두리 (이중 테두리)
+        pygame.draw.rect(screen, body_dark, (x, y, w, h), 3, border_radius=6)
+        pygame.draw.rect(screen, accent, (x + 2, y + 2, w - 4, h - 4), 1, border_radius=5)
+
+        # === 상단 장식 프레임 ===
+        top_frame_h = 12
+        pygame.draw.rect(screen, accent, (x + 3, y + 3, w - 6, top_frame_h), border_radius=3)
+
+        # "CRANE" 텍스트 영역 (LED 스타일)
+        text_bg = pygame.Surface((w - 12, top_frame_h - 4), pygame.SRCALPHA)
+        pygame.draw.rect(text_bg, (0, 0, 0, 180), (0, 0, w - 12, top_frame_h - 4), border_radius=2)
+        screen.blit(text_bg, (x + 6, y + 5))
+
+        # LED 도트 텍스트 (CRANE)
+        dot_color = (255, 255, 100)
+        dot_start_x = x + 10
+        dot_y = y + 8
+        # 간단한 도트 패턴
+        for i in range(5):
+            pygame.draw.circle(screen, dot_color, (dot_start_x + i * 6, dot_y), 2)
+
+        # === 유리 케이스 부분 ===
+        glass_margin = 6
+        glass_x = x + glass_margin
+        glass_y = y + top_frame_h + 5
+        glass_w = w - glass_margin * 2
+        glass_h = int(h * 0.55)
+
+        # 유리 케이스 배경 (깊이감 있는 내부)
+        inner_bg = (20, 15, 35)
+        pygame.draw.rect(screen, inner_bg, (glass_x, glass_y, glass_w, glass_h), border_radius=4)
+
+        # 내부 바닥 (인형이 놓이는 곳)
+        floor_y = glass_y + glass_h - 15
+        floor_color = (40, 35, 55)
+        pygame.draw.rect(screen, floor_color, (glass_x + 3, floor_y, glass_w - 6, 12), border_radius=2)
+
+        # 바닥 그리드 패턴
+        grid_color = (50, 45, 70)
+        for gx in range(glass_x + 8, glass_x + glass_w - 5, 8):
+            pygame.draw.line(screen, grid_color, (gx, floor_y + 2), (gx, floor_y + 10), 1)
+
+        # === 인형들 (더 귀엽고 다양하게) ===
+        plush_types = [
+            {"body": (255, 180, 200), "cheek": (255, 150, 170), "type": "bear"},
+            {"body": (180, 200, 255), "cheek": (150, 170, 255), "type": "bunny"},
+            {"body": (200, 255, 200), "cheek": (170, 255, 170), "type": "frog"},
+            {"body": (255, 255, 180), "cheek": (255, 255, 150), "type": "chick"},
+            {"body": (220, 180, 255), "cheek": (200, 150, 255), "type": "cat"},
+        ]
+
+        plush_count = 5
+        plush_spacing = (glass_w - 20) // plush_count
 
         for i in range(plush_count):
-            plush_x = x + glass_margin + 8 + i * (w - glass_margin * 2 - 16) // plush_count
-            plush_color = plush_colors[i]
+            plush_info = plush_types[i % len(plush_types)]
+            plush_x = glass_x + 12 + i * plush_spacing
+            plush_y = floor_y - 5
 
-            # 인형 (둥근 캐릭터)
-            pygame.draw.circle(screen, plush_color, (plush_x, plush_y - 8), 10)  # 머리
-            pygame.draw.ellipse(screen, plush_color, (plush_x - 8, plush_y - 2, 16, 12))  # 몸
+            body_color = plush_info["body"]
+            cheek_color = plush_info["cheek"]
+            plush_type = plush_info["type"]
 
-            # 눈 (점)
-            pygame.draw.circle(screen, (50, 50, 50), (plush_x - 3, plush_y - 10), 2)
-            pygame.draw.circle(screen, (50, 50, 50), (plush_x + 3, plush_y - 10), 2)
+            # 인형 그림자
+            pygame.draw.ellipse(screen, (15, 10, 25),
+                              (plush_x - 7, plush_y + 2, 14, 5))
 
-        # 크레인 (간단한 선)
-        crane_x = x + w // 2 + int(10 * math.sin(self.animation_timer * 2))
-        crane_y = y + glass_margin + 5
-        pygame.draw.line(screen, (200, 200, 200), (crane_x, crane_y), (crane_x, crane_y + 30), 2)
-        pygame.draw.line(screen, (200, 200, 200), (crane_x - 8, crane_y + 30), (crane_x + 8, crane_y + 30), 2)
+            # 인형 몸
+            pygame.draw.ellipse(screen, body_color,
+                              (plush_x - 6, plush_y - 8, 12, 10))
 
-        # 하단 컨트롤 패널
-        panel_y = y + h * 0.7
-        panel_h = h * 0.3 - 5
-        pygame.draw.rect(screen, (50, 45, 65), (x + 3, panel_y, w - 6, panel_h), border_radius=3)
+            # 인형 머리
+            head_y = plush_y - 15
+            pygame.draw.circle(screen, body_color, (plush_x, head_y), 8)
 
-        # 조이스틱
+            # 귀 (타입별로 다르게)
+            if plush_type == "bear":
+                pygame.draw.circle(screen, body_color, (plush_x - 6, head_y - 6), 4)
+                pygame.draw.circle(screen, body_color, (plush_x + 6, head_y - 6), 4)
+                pygame.draw.circle(screen, cheek_color, (plush_x - 6, head_y - 6), 2)
+                pygame.draw.circle(screen, cheek_color, (plush_x + 6, head_y - 6), 2)
+            elif plush_type == "bunny":
+                pygame.draw.ellipse(screen, body_color, (plush_x - 5, head_y - 16, 4, 10))
+                pygame.draw.ellipse(screen, body_color, (plush_x + 1, head_y - 16, 4, 10))
+                pygame.draw.ellipse(screen, cheek_color, (plush_x - 4, head_y - 14, 2, 6))
+                pygame.draw.ellipse(screen, cheek_color, (plush_x + 2, head_y - 14, 2, 6))
+            elif plush_type == "cat":
+                pygame.draw.polygon(screen, body_color, [
+                    (plush_x - 7, head_y - 4), (plush_x - 5, head_y - 10), (plush_x - 2, head_y - 4)
+                ])
+                pygame.draw.polygon(screen, body_color, [
+                    (plush_x + 2, head_y - 4), (plush_x + 5, head_y - 10), (plush_x + 7, head_y - 4)
+                ])
+
+            # 볼터치
+            pygame.draw.circle(screen, cheek_color, (plush_x - 4, head_y + 2), 2)
+            pygame.draw.circle(screen, cheek_color, (plush_x + 4, head_y + 2), 2)
+
+            # 눈 (반짝이는 효과)
+            pygame.draw.circle(screen, (30, 30, 30), (plush_x - 3, head_y - 1), 2)
+            pygame.draw.circle(screen, (30, 30, 30), (plush_x + 3, head_y - 1), 2)
+            pygame.draw.circle(screen, (255, 255, 255), (plush_x - 2, head_y - 2), 1)
+            pygame.draw.circle(screen, (255, 255, 255), (plush_x + 4, head_y - 2), 1)
+
+            # 입 (미소)
+            if plush_type == "frog":
+                pygame.draw.arc(screen, (30, 30, 30), (plush_x - 4, head_y - 1, 8, 6),
+                              3.14, 0, 1)
+            else:
+                pygame.draw.circle(screen, (30, 30, 30), (plush_x, head_y + 3), 1)
+
+        # === 크레인 시스템 ===
+        crane_track_y = glass_y + 8
+        crane_track_color = (100, 95, 120)
+
+        # 크레인 레일
+        pygame.draw.rect(screen, crane_track_color,
+                        (glass_x + 5, crane_track_y, glass_w - 10, 4), border_radius=2)
+        pygame.draw.rect(screen, (60, 55, 80),
+                        (glass_x + 5, crane_track_y, glass_w - 10, 4), 1, border_radius=2)
+
+        # 크레인 위치 (애니메이션)
+        crane_offset = int(15 * math.sin(self.animation_timer * 1.5))
+        crane_x = x + w // 2 + crane_offset
+
+        # 크레인 캐리지
+        carriage_w = 16
+        carriage_h = 8
+        pygame.draw.rect(screen, (150, 145, 170),
+                        (crane_x - carriage_w // 2, crane_track_y - 2, carriage_w, carriage_h),
+                        border_radius=2)
+
+        # 크레인 로프
+        rope_length = 20 + int(5 * abs(math.sin(self.animation_timer * 3)))
+        rope_end_y = crane_track_y + carriage_h + rope_length
+        pygame.draw.line(screen, (180, 175, 200),
+                        (crane_x, crane_track_y + carriage_h),
+                        (crane_x, rope_end_y), 2)
+
+        # 크레인 집게 (더 디테일하게)
+        claw_color = (200, 195, 220)
+        claw_w = 12
+        claw_open = 3 + int(2 * abs(math.sin(self.animation_timer * 4)))
+
+        # 집게 본체
+        pygame.draw.rect(screen, claw_color,
+                        (crane_x - 4, rope_end_y, 8, 6), border_radius=1)
+
+        # 왼쪽 집게
+        pygame.draw.polygon(screen, claw_color, [
+            (crane_x - 4, rope_end_y + 4),
+            (crane_x - 4 - claw_open, rope_end_y + 12),
+            (crane_x - 2, rope_end_y + 10),
+        ])
+
+        # 오른쪽 집게
+        pygame.draw.polygon(screen, claw_color, [
+            (crane_x + 4, rope_end_y + 4),
+            (crane_x + 4 + claw_open, rope_end_y + 12),
+            (crane_x + 2, rope_end_y + 10),
+        ])
+
+        # === 유리 반사 효과 ===
+        glass_surf = pygame.Surface((glass_w, glass_h), pygame.SRCALPHA)
+
+        # 반투명 유리 색상
+        pygame.draw.rect(glass_surf, (100, 150, 200, 25), (0, 0, glass_w, glass_h), border_radius=4)
+
+        # 광택 하이라이트 (대각선)
+        for i in range(0, glass_w, 20):
+            pygame.draw.line(glass_surf, (255, 255, 255, 30),
+                           (i, 0), (i + 15, glass_h), 2)
+
+        # 좌상단 광택
+        pygame.draw.ellipse(glass_surf, (255, 255, 255, 40),
+                           (5, 5, 20, 10))
+
+        screen.blit(glass_surf, (glass_x, glass_y))
+
+        # 유리 테두리 (이중)
+        pygame.draw.rect(screen, (40, 35, 60), (glass_x, glass_y, glass_w, glass_h), 2, border_radius=4)
+        pygame.draw.rect(screen, accent, (glass_x + 1, glass_y + 1, glass_w - 2, glass_h - 2), 1, border_radius=3)
+
+        # === 하단 컨트롤 패널 ===
+        panel_y = int(glass_y + glass_h + 5)
+        panel_h = int(h - (panel_y - y) - 8)
+
+        # 패널 배경 (그라데이션)
+        panel_base = (55, 50, 75)
+        panel_highlight = (70, 65, 95)
+        pygame.draw.rect(screen, panel_base, (x + 4, panel_y, w - 8, panel_h), border_radius=4)
+
+        # 패널 상단 하이라이트
+        pygame.draw.rect(screen, panel_highlight, (x + 4, panel_y, w - 8, 4), border_radius=2)
+
+        # 패널 테두리
+        pygame.draw.rect(screen, (40, 35, 55), (x + 4, panel_y, w - 8, panel_h), 1, border_radius=4)
+
+        # === 조이스틱 (더 3D로) ===
         joy_x = x + w // 3
         joy_y = panel_y + panel_h // 2
-        pygame.draw.circle(screen, (80, 80, 100), (joy_x, int(joy_y)), 8)
-        pygame.draw.circle(screen, accent, (joy_x, int(joy_y)), 5)
 
-        # 버튼
-        btn_x = x + w * 2 // 3
-        pygame.draw.circle(screen, (255, 80, 80), (btn_x, int(joy_y)), 8)
-        pygame.draw.circle(screen, (255, 150, 150), (btn_x, int(joy_y)), 5)
+        # 조이스틱 베이스
+        pygame.draw.circle(screen, (40, 35, 55), (joy_x, joy_y), 12)
+        pygame.draw.circle(screen, (60, 55, 80), (joy_x, joy_y), 10)
+
+        # 조이스틱 스틱 (기울어진 상태)
+        stick_tilt_x = int(3 * math.sin(self.animation_timer * 2))
+        stick_tilt_y = int(2 * math.cos(self.animation_timer * 2))
+
+        pygame.draw.line(screen, (100, 95, 120),
+                        (joy_x, joy_y),
+                        (joy_x + stick_tilt_x, joy_y - 10 + stick_tilt_y), 4)
+
+        # 조이스틱 볼
+        pygame.draw.circle(screen, accent, (joy_x + stick_tilt_x, joy_y - 12 + stick_tilt_y), 6)
+        pygame.draw.circle(screen, (255, 255, 255, 100),
+                          (joy_x + stick_tilt_x - 2, joy_y - 14 + stick_tilt_y), 2)
+
+        # === 버튼 (빛나는 효과) ===
+        btn_x = int(x + w * 2 // 3)
+
+        # 버튼 베이스
+        pygame.draw.circle(screen, (40, 35, 55), (btn_x, joy_y), 12)
+
+        # 버튼 (펄스 효과)
+        pulse = abs(math.sin(self.animation_timer * 4))
+        btn_color_r = int(200 + 55 * pulse)
+        btn_color = (btn_color_r, 60, 60)
+
+        pygame.draw.circle(screen, btn_color, (btn_x, joy_y), 10)
+        pygame.draw.circle(screen, (255, 120, 120), (btn_x, joy_y), 7)
+
+        # 버튼 광택
+        pygame.draw.circle(screen, (255, 200, 200), (btn_x - 2, joy_y - 3), 3)
+
+        # === 코인 투입구 ===
+        coin_x = x + w - 20
+        coin_y = panel_y + 8
+
+        # 투입구 베이스
+        pygame.draw.rect(screen, (40, 35, 55), (coin_x - 8, coin_y, 16, 20), border_radius=2)
+        pygame.draw.rect(screen, (80, 75, 100), (coin_x - 6, coin_y + 2, 12, 16), border_radius=1)
+
+        # 투입구 슬롯
+        pygame.draw.rect(screen, (25, 20, 35), (coin_x - 4, coin_y + 6, 8, 3), border_radius=1)
+
+        # 가격 표시 LED
+        price_y = coin_y + 22
+        pygame.draw.rect(screen, (0, 0, 0), (coin_x - 10, price_y, 20, 10), border_radius=2)
+
+        # LED 숫자 "100"
+        led_color = (0, 255, 100)
+        for i, char in enumerate("100"):
+            char_x = coin_x - 8 + i * 6
+            pygame.draw.circle(screen, led_color, (char_x + 2, price_y + 5), 1)
+
+        # === 출구 슬롯 ===
+        exit_y = panel_y + panel_h - 15
+        exit_w = w // 3
+        exit_x = x + (w - exit_w) // 2
+
+        # 출구 배경
+        pygame.draw.rect(screen, (20, 15, 30), (exit_x, exit_y, exit_w, 12), border_radius=3)
+        pygame.draw.rect(screen, (60, 55, 80), (exit_x, exit_y, exit_w, 12), 1, border_radius=3)
+
+        # 출구 라벨 (작은 점들)
+        for i in range(3):
+            pygame.draw.circle(screen, accent, (exit_x + 8 + i * 8, exit_y + 6), 2)
+
+        # === 모서리 장식 볼트 ===
+        bolt_color = (120, 115, 140)
+        bolt_positions = [
+            (x + 8, y + 8),
+            (x + w - 8, y + 8),
+            (x + 8, y + h - 8),
+            (x + w - 8, y + h - 8),
+        ]
+        for bx, by in bolt_positions:
+            pygame.draw.circle(screen, bolt_color, (bx, by), 3)
+            pygame.draw.circle(screen, (80, 75, 100), (bx, by), 2)
+            # 볼트 십자
+            pygame.draw.line(screen, (60, 55, 80), (bx - 1, by), (bx + 1, by), 1)
+            pygame.draw.line(screen, (60, 55, 80), (bx, by - 1), (bx, by + 1), 1)
 
     def _draw_floor_neon_lines(self, screen, cam_x, cam_y, wall_h, neon_pink, neon_cyan):
         """바닥 네온 라인 장식 그리기"""
