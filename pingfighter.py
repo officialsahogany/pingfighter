@@ -82199,19 +82199,18 @@ def show_pause_menu():
                 # 스케일 실패 시 원본을 그대로 사용
                 bg_surface = background_surface
 
-        try:
-            while True:
-                _freeze_optimus_energy_timers()
-                # 델타 타임 계산 (60 FPS 제한)
-                dt = clock.tick(60)
-                # 입력 상태 갱신
-                pygame.event.pump()
-                # Tab 키 재입력(떼고 다시 누름) 감지 시 즉시 종료
-                keys_now = pygame.key.get_pressed()
-                if not tab_prev and keys_now[pygame.K_TAB]:
-                    _release_stage7_ui_pause_once()
-                    return
-                tab_prev = keys_now[pygame.K_TAB]
+        while True:
+            _freeze_optimus_energy_timers()
+            # 델타 타임 계산 (60 FPS 제한)
+            dt = clock.tick(60)
+            # 입력 상태 갱신
+            pygame.event.pump()
+            # Tab 키 재입력(떼고 다시 누름) 감지 시 즉시 종료
+            keys_now = pygame.key.get_pressed()
+            if not tab_prev and keys_now[pygame.K_TAB]:
+                _release_stage7_ui_pause_once()
+                return
+            tab_prev = keys_now[pygame.K_TAB]
             # 현재 게임 화면을 배경으로 사용
             if bg_surface is None:
                 draw_field()
