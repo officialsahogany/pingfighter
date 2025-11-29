@@ -2073,20 +2073,21 @@ class BuildingInterior:
         self.gacha_machine_rects = []
 
         # 사이버펑크 가챠샵 레이아웃에서 가챠 머신 위치 계산
-        # _draw_cyberpunk_gacha_interior와 동일한 계산 사용
+        # _draw_gacha_machine_row와 동일한 값 사용 (중요!)
         wall_h = int(TILE_SIZE * 2.5)
         machine_y = wall_h + int(TILE_SIZE * 0.5)  # 실제 머신 Y 위치
-        machine_h = int(TILE_SIZE * 2.2)
+        machine_h = int(TILE_SIZE * 3.5)  # _draw_gacha_machine_row와 동일!
         machine_w = int(TILE_SIZE * 1.5)
+        spacing = int(TILE_SIZE * 0.1)  # _draw_gacha_machine_row와 동일!
 
         # 왼쪽 가챠 머신들 (3대) - _draw_gacha_machine_row와 동일한 위치
         left_x = int(TILE_SIZE * 1.5)
         for i in range(3):
-            mx = left_x + i * (machine_w + 8)
-            # 상호작용 영역 (머신 앞쪽/아래쪽에 여유 공간 추가)
+            mx = left_x + i * (machine_w + spacing)
+            # 상호작용 영역 (머신 앞쪽/아래쪽 - 손잡이가 있는 방향)
             interact_rect = pygame.Rect(
                 mx - 10,
-                machine_y + machine_h,  # 머신 바로 아래
+                machine_y + machine_h,  # 머신 바로 아래 (손잡이 쪽)
                 machine_w + 20,
                 TILE_SIZE * 2  # 상호작용 가능 범위 (아래로)
             )
@@ -2100,10 +2101,11 @@ class BuildingInterior:
         # 오른쪽 가챠 머신들 (3대) - _draw_gacha_machine_row와 동일한 위치
         right_x = self.pixel_width - int(TILE_SIZE * 6)
         for i in range(3):
-            mx = right_x + i * (machine_w + 8)
+            mx = right_x + i * (machine_w + spacing)
+            # 상호작용 영역 (머신 앞쪽/아래쪽 - 손잡이가 있는 방향)
             interact_rect = pygame.Rect(
                 mx - 10,
-                machine_y + machine_h,  # 머신 바로 아래
+                machine_y + machine_h,  # 머신 바로 아래 (손잡이 쪽)
                 machine_w + 20,
                 TILE_SIZE * 2
             )
