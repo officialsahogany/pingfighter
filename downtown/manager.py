@@ -168,6 +168,12 @@ class DowntownManager:
         self.interest_applied_this_stage = False  # 이번 스테이지 이자 적용 여부
         self.last_interest_amount = 0  # 마지막 적용된 이자 금액
 
+        # 가챠 시스템 관련
+        self.gacha_cost = 800  # 가챠 1회 비용
+        self.gacha_max_count = 5  # 스테이지당 최대 가챠 횟수
+        self.gacha_used_count = 0  # 현재 스테이지에서 사용한 가챠 횟수
+        self.gacha_confirm_dialog = None  # 가챠 확인 다이얼로그 상태
+
     def _apply_deposit_interest(self):
         """예금 이자 적용 (스테이지 시작 시) - 건너뛴 스테이지 복리 이자 포함"""
         import random
