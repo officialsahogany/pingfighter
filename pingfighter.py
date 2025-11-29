@@ -39591,9 +39591,7 @@ def update_stage7_super_state(now: int | None = None) -> None:
 
         # 발동 중: 초당 25 드레인, 0이면 종료
         if stage7_super_active:
-            if ui_paused:
-                stage7_super_last_update_ms = now
-                return
+            # ui_paused 체크는 위에서 이미 처리됨
             if stage7_super_last_update_ms == 0:
                 stage7_super_last_update_ms = now
             elapsed = now - stage7_super_last_update_ms
