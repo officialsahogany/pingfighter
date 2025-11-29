@@ -5183,10 +5183,17 @@ def _push_stage7_ui_pause():
 
 
 def _pop_stage7_ui_pause():
-    """UI 중첩 카운터 감소(0 미만으로 내려가지 않도록 보호)."""
+    """UI 중첩 카운터 감소(0 미만으로 내려가지 않도록 보호).
+
+    UI 정지가 완전히 해제되면(depth가 0이 되면) 시간 관련 변수들을 현재 시간으로 리셋하여
+    TAB/ESC 메뉴에서 보낸 시간이 게이지 충전에 반영되지 않도록 한다.
+    """
     global stage7_ui_pause_depth
     if stage7_ui_pause_depth > 0:
         stage7_ui_pause_depth -= 1
+        # UI 정지가 완전히 해제되면 시간 변수 리셋
+        if stage7_ui_pause_depth == 0:
+            _reset_stage7_timers_after_ui_pause()
 
 
 def _is_stage7_ui_paused() -> bool:
