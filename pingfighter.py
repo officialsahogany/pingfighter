@@ -31540,7 +31540,7 @@ def handle_player(keys):
                         if dash is not None:
                             external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
                             if external_cooldown_mul != 1.0:
-                                rolling_charge_timer_value = int(rolling_charge_timer_value * external_cooldown_mul)
+                                rolling_charge_timer_value = max(6, int(rolling_charge_timer_value * external_cooldown_mul))
                         _rolling_set("rolling_charge_timer", rolling_charge_timer_value)
                         print(f"[DEBUG]     : {rolling_charge_timer_value}")
                     else:
@@ -33395,7 +33395,7 @@ def handle_player(keys):
                     if dash is not None:
                         external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
                         if external_cooldown_mul != 1.0:
-                            rolling_charge_timer = int(rolling_charge_timer * external_cooldown_mul)
+                            rolling_charge_timer = max(6, int(rolling_charge_timer * external_cooldown_mul))
                     print(f"  !    (: {rolling_charge_timer} = {rolling_charge_timer/60:.1f})")
                     print(f"[DEBUG]     : {rolling_charge_timer}")
                 else:
@@ -70537,7 +70537,7 @@ def handle_ball():
                     if dash is not None:
                         external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
                         if external_cooldown_mul != 1.0:
-                            rolling_charge_timer = int(rolling_charge_timer * external_cooldown_mul)
+                            rolling_charge_timer = max(6, int(rolling_charge_timer * external_cooldown_mul))
                     if DEBUG_HANDLE_BALL_VERBOSE:
                         print(f"  ! (handle_ball)    (: {rolling_charge_timer})")
                         print(f"[DEBUG] (handle_ball)    : {rolling_charge_timer}")
