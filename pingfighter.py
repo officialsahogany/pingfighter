@@ -81851,6 +81851,17 @@ def show_character_info(background_surface=None):
             except Exception:
                 battery_bonus = 0.0
             current_cost = max(10, int(current_cost * (1 - battery_bonus)))
+
+            # 천사의 가호 대쉬 비용 버프 적용
+            try:
+                dm_inst = dash_manager._GLOBAL_DASH_INST
+                if dm_inst is not None:
+                    external_cost_mul = getattr(dm_inst, 'external_cost_multiplier', 1.0)
+                    if external_cost_mul != 1.0:
+                        current_cost = int(current_cost * external_cost_mul)
+            except Exception:
+                pass
+
             return base_cost, current_cost
 
         gauge_base, gauge_now = compute_gauge_gain_per_hit()
