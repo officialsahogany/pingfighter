@@ -33391,6 +33391,11 @@ def handle_player(keys):
                     charge_time_reduction = lightweight_bonus  # 5% per level
                     base_charge_time = 90  # 1.5초
                     rolling_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
+                    # 천사의 가호 대쉬 쿨타임 버프 적용
+                    if dash is not None:
+                        external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
+                        if external_cooldown_mul != 1.0:
+                            rolling_charge_timer = int(rolling_charge_timer * external_cooldown_mul)
                     print(f"  !    (: {rolling_charge_timer} = {rolling_charge_timer/60:.1f})")
                     print(f"[DEBUG]     : {rolling_charge_timer}")
                 else:
@@ -43993,6 +43998,11 @@ def draw_player_gauge():
                     max_charge_time = max(6, 60 - cooldown_reduction)  # 1초
                 else:
                     max_charge_time = max(6, 90 - cooldown_reduction)  # 1.5초
+                # 천사의 가호 대쉬 쿨타임 버프 적용 (UI 표시용)
+                if dash is not None:
+                    external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
+                    if external_cooldown_mul != 1.0:
+                        max_charge_time = int(max_charge_time * external_cooldown_mul)
                 # 충전 진행률 (0.0 ~ 1.0)
                 charge_progress = 1.0 - (rolling_charge_timer / max_charge_time)
                 charge_progress = max(0, min(1, charge_progress))
