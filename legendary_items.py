@@ -3428,19 +3428,7 @@ class AngelBlessing(LegendaryItem):
         elif progress >= 0.75 and progress < 0.9:
             phase_progress = (progress - 0.75) / 0.15
 
-            # 주사위 점점 멈춤
-            rot_y = self.roll_face * 60  # 최종 면
-            rot_x = math.sin(anim_time * 2) * 5 * (1.0 - phase_progress)
-
-            # 주사위 크기 - 살짝 확대되며 고정
-            dice_size = int(base_dice_size * (1.0 + 0.1 * phase_progress))
-
-            dice_surf = pygame.Surface((dice_size + 40, dice_size + 40), pygame.SRCALPHA)
-            self._draw_angel_dice(dice_surf, dice_size, rot_x, rot_y)
-            dice_rect = dice_surf.get_rect(center=(dice_center_x, dice_center_y))
-            screen.blit(dice_surf, dice_rect)
-
-            # 결과 확정 시 폭발하는 빛
+            # 결과 확정 시 폭발하는 빛 (먼저 그리기)
             if phase_progress < 0.5:
                 explosion_progress = phase_progress / 0.5
                 explosion_radius = int(150 * explosion_progress)
@@ -3457,19 +3445,13 @@ class AngelBlessing(LegendaryItem):
             pygame.draw.circle(screen, (255, 215, 0, ring_alpha),
                               (dice_center_x, dice_center_y), ring_radius, 3)
 
+            # 2D 주사위 결과 표시 (정면 뷰)
+            dice_size = int(base_dice_size * (1.0 + 0.1 * phase_progress))
+            self._draw_2d_dice_result(screen, dice_center_x, dice_center_y, dice_size, self.roll_face)
+
         # ========== 🏆 Phase 4: 결과 표시 (90% ~ 100%) ==========
         else:
             phase_progress = (progress - 0.9) / 0.1 if progress < 1.0 else 1.0
-
-            # 주사위 최종 위치에 고정
-            rot_y = self.roll_face * 60
-            rot_x = 0
-            dice_size = int(base_dice_size * 1.1)
-
-            dice_surf = pygame.Surface((dice_size + 40, dice_size + 40), pygame.SRCALPHA)
-            self._draw_angel_dice(dice_surf, dice_size, rot_x, rot_y)
-            dice_rect = dice_surf.get_rect(center=(dice_center_x, dice_center_y))
-            screen.blit(dice_surf, dice_rect)
 
             # 성스러운 후광 효과 (계속 유지)
             halo_pulse = 0.8 + 0.2 * math.sin(anim_time * 3)
@@ -3480,6 +3462,10 @@ class AngelBlessing(LegendaryItem):
                 pygame.draw.circle(halo_surf, (255, 255, 200, alpha),
                                   (halo_radius + 10, halo_radius + 10), r)
             screen.blit(halo_surf, (dice_center_x - halo_radius - 10, dice_center_y - halo_radius - 10))
+
+            # 2D 주사위 결과 표시 (정면 뷰) - 고정
+            dice_size = int(base_dice_size * 1.1)
+            self._draw_2d_dice_result(screen, dice_center_x, dice_center_y, dice_size, self.roll_face)
 
         # ========== 공통: 떨어지는 천사 깃털 (항상) ==========
         if progress > 0.1:
