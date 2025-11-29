@@ -2112,13 +2112,13 @@ class BuildingInterior:
         right_x = self.pixel_width - int(TILE_SIZE * 6)
         for i in range(3):
             mx = right_x + i * (machine_w + spacing)
-            # 상호작용 영역: 머신 아래쪽 (건물 입구처럼)
-            # 플레이어가 머신 바로 앞에 바짝 붙어야 상호작용
+            # 상호작용 영역: 머신 몸통 + 아래쪽까지 포함
+            # 마우스 클릭은 머신 전체에서 가능
             interact_rect = pygame.Rect(
-                mx - 5,                     # 머신 X와 거의 동일
-                machine_bottom,             # 머신 바로 아래부터 시작
-                machine_w + 10,             # 머신 너비 + 약간의 여유
-                TILE_SIZE                   # 아래로 1타일 범위 (바짝 붙어야 함)
+                mx - 10,                    # 머신 X보다 약간 왼쪽
+                machine_y,                  # 머신 상단부터 시작 (몸통 포함)
+                machine_w + 20,             # 머신 너비 + 양쪽 여유
+                machine_h + TILE_SIZE       # 머신 높이 + 아래 1타일
             )
             self.gacha_machine_rects.append({
                 "rect": interact_rect,
