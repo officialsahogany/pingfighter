@@ -289,11 +289,17 @@ def init_gacha(available_items, legendary_bonus=0.0):
                 continue  # 아무 아이템도 없으면 건너뛰기
 
         # 전설 아이템 아이콘 애니메이션 동기화 (아이템 관리자와 동일한 프레임 사용)
-        animation_frames = items.get_item_icon_animation(item.get("name"), (64, 64))
+        item_name = item.get("name")
+        animation_frames = items.get_item_icon_animation(item_name, (64, 64))
         if animation_frames:
             item["icon_animation_frames"] = animation_frames
             item["icon_animation_speed"] = 6  # Poseidon/전설 아이콘 기본 재생 속도
             item["icon"] = animation_frames[0]
+        else:
+            # 일반 아이템은 ITEM_ICONS에서 아이콘 가져오기
+            static_icon = items.ITEM_ICONS.get(item_name)
+            if static_icon:
+                item["icon"] = static_icon
 
         item["capsule_color"] = random.choice(capsule_colors)
         gacha_items.append(item)
