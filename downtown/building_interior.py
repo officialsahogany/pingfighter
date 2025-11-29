@@ -2129,6 +2129,17 @@ class BuildingInterior:
 
         return None
 
+    def _check_gacha_machine_click(self, world_x, world_y):
+        """가챠 머신이 클릭되었는지 확인"""
+        if self.building_type != BuildingType.GACHA:
+            return None
+
+        for i, machine_info in enumerate(self.gacha_machine_rects):
+            if machine_info["rect"].collidepoint(world_x, world_y):
+                return i
+
+        return None
+
     def _create_npcs(self):
         """NPC들 생성"""
         # 아카데미는 전용 NPC 생성 로직 사용
@@ -2621,6 +2632,14 @@ class BuildingInterior:
         # 화면 좌표를 월드 좌표로 변환
         world_x = pos[0] + self.camera_offset[0]
         world_y = pos[1] + self.camera_offset[1]
+
+        # 가챠 건물에서 가챠 머신 클릭 체크
+        if self.building_type == BuildingType.GACHA:
+            clicked_machine = self._check_gacha_machine_click(world_x, world_y)
+            if clicked_machine is not None:
+                self.gacha_interact_requested = True
+                self.nearby_gacha_machine = clicked_machine
+                return ("gacha_interact", clicked_machine)
 
         # NPC 클릭 체크
         for npc in self.npcs:

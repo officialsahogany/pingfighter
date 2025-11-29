@@ -82,12 +82,27 @@ def draw_legendary_effect(screen: pygame.Surface, font_large: pygame.font.Font,
 
 def should_pause_for_legendary() -> bool:
     """전설 아이템 효과로 인해 게임을 일시정지해야 하는지 확인
-    
+
     Returns:
         게임 일시정지 필요 여부
     """
+    # 전설 아이템 획득 효과 체크
     effect = get_legendary_effect()
-    return effect.should_pause_game()
+    if effect.should_pause_game():
+        return True
+
+    # 천사의 가호 주사위 애니메이션 체크
+    try:
+        from legendary_items import get_legendary_manager
+        legendary_manager = get_legendary_manager()
+        if legendary_manager and "angel_blessing" in getattr(legendary_manager, "active_items", []):
+            angel_blessing = legendary_manager.get_item("angel_blessing")
+            if angel_blessing and getattr(angel_blessing, "roll_anim_active", False):
+                return True
+    except Exception:
+        pass
+
+    return False
 
 def is_legendary_effect_active() -> bool:
     """전설 아이템 획득 효과가 활성 상태인지 확인
@@ -109,8 +124,28 @@ def handle_legendary_space_press() -> bool:
 
 def skip_legendary_animation() -> bool:
     """전설 아이템 획득 연출을 즉시 종료 (AI 자동 플레이용)."""
+    skipped = False
+
+    # 전설 아이템 획득 효과 스킵
     effect = get_legendary_effect()
-    return effect.force_skip()
+    if effect.force_skip():
+        skipped = True
+
+    # 천사의 가호 주사위 애니메이션 스킵
+    try:
+        from legendary_items import get_legendary_manager
+        legendary_manager = get_legendary_manager()
+        if legendary_manager and "angel_blessing" in getattr(legendary_manager, "active_items", []):
+            angel_blessing = legendary_manager.get_item("angel_blessing")
+            if angel_blessing and getattr(angel_blessing, "roll_anim_active", False):
+                angel_blessing.roll_anim_active = False
+                angel_blessing.waiting_for_space = False
+                print("[AngelBlessing] AI 모드로 인해 애니메이션 스킵됨")
+                skipped = True
+    except Exception:
+        pass
+
+    return skipped
 
 def reset_legendary_effect():
     """전설 아이템 획득 효과 리셋"""
