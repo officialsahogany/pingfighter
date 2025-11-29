@@ -46963,10 +46963,10 @@ def draw_objects():
     draw_technical_vest_effects(SCREEN)
 
     # 레이저스코프 궤적 그리기
-    if is_laser_scope_active() and hasattr(BALL, 'vx') and hasattr(BALL, 'vy'):
+    if is_laser_scope_active():
         draw_laser_scope_effects(SCREEN,
-                               ball_x=BALL.x, ball_y=BALL.y,
-                               ball_vx=BALL.vx, ball_vy=BALL.vy,
+                               ball_x=BALL.centerx, ball_y=BALL.centery,
+                               ball_vx=ball_vel[0], ball_vy=ball_vel[1],
                                screen_width=WIDTH, screen_height=HEIGHT,
                                paddle_y=PLAYER.rect.centery,
                                boss_paddle_y=AI.rect.centery)
