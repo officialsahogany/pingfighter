@@ -74702,6 +74702,9 @@ def show_result(won):
         # 생명수 아이콘 추가 - get_item_icon 함수 사용하여 통일
         life_elixir_icon = get_item_icon("life_elixir")
         available_items.append({"name": "life_elixir", "color": (100, 200, 255), "type": "active", "icon": life_elixir_icon})
+        # 레이저스코프 아이콘 추가 - 보스의 공 궤적을 표시
+        laser_scope_icon = get_item_icon("laser_scope")
+        available_items.append({"name": "laser_scope", "color": (255, 50, 50), "type": "active", "icon": laser_scope_icon})
         if selected_character_type == "blacksmith":
             repair_kit_icon = get_item_icon("repair_kit")
             available_items.append({"name": "repair_kit", "color": (220, 210, 140), "type": "active", "icon": repair_kit_icon})
