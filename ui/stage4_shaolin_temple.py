@@ -4073,16 +4073,11 @@ class ShaolinTempleBackground:
         self.moon_pulse_timer = 30  # 0.5 second pulse
         
         for _ in range(num_fragments):
-            # When temple destruction event is active, bias fragments toward the temple body
-            if self.destruction_animation_active and not self.temple_destroyed:
-                target_x = self.width // 2 + random.randint(-90, 90)
-                target_y = 380 + random.randint(-40, 60)
-            else:
-                # Random target position across the entire map, including player area
-                target_x = random.randint(50, self.width - 50)
-                # Target area from middle to player position (500-710)
-                # Player is around HEIGHT-140 (610) to HEIGHT-40 (710)
-                target_y = random.randint(500, self.height - 40)  # Cover full playable area including player
+            # Random target position across the entire map, including player area
+            target_x = random.randint(50, self.width - 50)
+            # Target area from middle to player position (500-710)
+            # Player is around HEIGHT-140 (610) to HEIGHT-40 (710)
+            target_y = random.randint(500, self.height - 40)  # Cover full playable area including player
             
             # Calculate trajectory
             dx = target_x - moon_x
