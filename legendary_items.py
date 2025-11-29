@@ -3315,30 +3315,173 @@ class AngelBlessing(LegendaryItem):
 
         # 주사위 애니메이션 중앙에 그리기
         dice_center_x = screen_w // 2
-        dice_center_y = panel_y + 130
-        dice_size = 120
+        dice_center_y = panel_y + 140
+        base_dice_size = 120
 
         # 애니메이션 진행률 (0.0 ~ 1.0)
         progress = min(1.0, self.roll_timer / self.roll_anim_duration)
+        anim_time = self.roll_timer
 
-        # 회전 속도 (처음엔 빠르게, 점점 느려짐)
-        if progress < 0.7:
-            spin_speed = (1.0 - progress / 0.7) * 20  # 점점 느려짐
-            rot_y = (self.roll_timer * spin_speed * 50) % 360
+        # ========== 🌟 Phase 1: 성스러운 빛 강림 (0% ~ 20%) ==========
+        if progress < 0.2:
+            phase_progress = progress / 0.2
+
+            # 하늘에서 내려오는 빛줄기들
+            num_rays = 12
+            for i in range(num_rays):
+                ray_angle = (i / num_rays) * math.pi * 2 + anim_time * 2
+                ray_length = 300 * phase_progress
+                ray_width = 3 + int(5 * math.sin(anim_time * 8 + i))
+
+                start_x = dice_center_x + int(math.cos(ray_angle) * 20)
+                start_y = dice_center_y + int(math.sin(ray_angle) * 20)
+                end_x = dice_center_x + int(math.cos(ray_angle) * ray_length)
+                end_y = dice_center_y + int(math.sin(ray_angle) * ray_length)
+
+                # 빛줄기 (황금색 그라데이션)
+                ray_alpha = int(150 * phase_progress * (0.5 + 0.5 * math.sin(anim_time * 6 + i)))
+                ray_color = (255, 220, 100, ray_alpha)
+                pygame.draw.line(screen, ray_color, (start_x, start_y), (end_x, end_y), ray_width)
+
+            # 중앙 글로우 효과
+            glow_radius = int(80 * phase_progress)
+            if glow_radius > 0:
+                glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+                for r in range(glow_radius, 0, -3):
+                    alpha = int(100 * (1 - r / glow_radius) * phase_progress)
+                    pygame.draw.circle(glow_surf, (255, 255, 200, alpha), (glow_radius, glow_radius), r)
+                screen.blit(glow_surf, (dice_center_x - glow_radius, dice_center_y - glow_radius))
+
+            # Phase 1 후반: 주사위가 빛 속에서 등장
+            if phase_progress > 0.3:
+                appear_progress = (phase_progress - 0.3) / 0.7
+                dice_alpha = int(255 * appear_progress)
+                dice_size = int(base_dice_size * (0.5 + 0.5 * appear_progress))
+
+                dice_surf = pygame.Surface((dice_size + 40, dice_size + 40), pygame.SRCALPHA)
+                rot_y = anim_time * 100 % 360  # 빠르게 회전
+                rot_x = math.sin(anim_time * 8) * 20
+                self._draw_angel_dice(dice_surf, dice_size, rot_x, rot_y)
+                dice_surf.set_alpha(dice_alpha)
+                dice_rect = dice_surf.get_rect(center=(dice_center_x, dice_center_y))
+                screen.blit(dice_surf, dice_rect)
+
+        # ========== 🎲 Phase 2: 주사위 회전 (20% ~ 75%) ==========
+        if progress >= 0.2 and progress < 0.75:
+            phase_progress = (progress - 0.2) / 0.55
+
+            # 회전 속도 (처음엔 매우 빠르게, 점점 느려짐)
+            spin_speed = (1.0 - phase_progress) * 30
+            rot_y = (anim_time * spin_speed * 80) % 360
+            rot_x = math.sin(anim_time * 5) * 25 * (1.0 - phase_progress)
+
+            # 주사위 크기 - 약간 커졌다 작아지는 펄스
+            size_pulse = 1.0 + 0.15 * math.sin(anim_time * 12) * (1.0 - phase_progress)
+            dice_size = int(base_dice_size * size_pulse)
+
+            # 3D 주사위 그리기
+            dice_surf = pygame.Surface((dice_size + 40, dice_size + 40), pygame.SRCALPHA)
+            self._draw_angel_dice(dice_surf, dice_size, rot_x, rot_y)
+
+            # 주사위 바운스 + 회전 효과
+            bounce_y = math.sin(anim_time * 10) * 15 * (1.0 - phase_progress)
+            bounce_x = math.cos(anim_time * 7) * 10 * (1.0 - phase_progress)
+            dice_rect = dice_surf.get_rect(center=(dice_center_x + bounce_x, dice_center_y + bounce_y))
+            screen.blit(dice_surf, dice_rect)
+
+            # 회전하는 천사 깃털 파티클
+            num_feathers = 8
+            for i in range(num_feathers):
+                feather_angle = (i / num_feathers) * math.pi * 2 + anim_time * 3
+                feather_dist = 60 + 30 * math.sin(anim_time * 4 + i * 0.5)
+                feather_x = dice_center_x + int(math.cos(feather_angle) * feather_dist)
+                feather_y = dice_center_y + int(math.sin(feather_angle) * feather_dist)
+
+                # 깃털 모양 (작은 타원)
+                feather_size = 4 + int(3 * math.sin(anim_time * 6 + i))
+                pygame.draw.ellipse(screen, (255, 255, 255, 200),
+                                   (feather_x - feather_size, feather_y - feather_size // 2,
+                                    feather_size * 2, feather_size))
+
+            # 반짝이는 별 파티클
+            for _ in range(3):
+                star_x = dice_center_x + random.randint(-80, 80)
+                star_y = dice_center_y + random.randint(-80, 80)
+                star_size = random.randint(2, 5)
+                star_alpha = random.randint(150, 255)
+                pygame.draw.circle(screen, (255, 255, 200, star_alpha), (star_x, star_y), star_size)
+
+        # ========== ✨ Phase 3: 결과 확정 연출 (75% ~ 90%) ==========
+        elif progress >= 0.75 and progress < 0.9:
+            phase_progress = (progress - 0.75) / 0.15
+
+            # 주사위 점점 멈춤
+            rot_y = self.roll_face * 60  # 최종 면
+            rot_x = math.sin(anim_time * 2) * 5 * (1.0 - phase_progress)
+
+            # 주사위 크기 - 살짝 확대되며 고정
+            dice_size = int(base_dice_size * (1.0 + 0.1 * phase_progress))
+
+            dice_surf = pygame.Surface((dice_size + 40, dice_size + 40), pygame.SRCALPHA)
+            self._draw_angel_dice(dice_surf, dice_size, rot_x, rot_y)
+            dice_rect = dice_surf.get_rect(center=(dice_center_x, dice_center_y))
+            screen.blit(dice_surf, dice_rect)
+
+            # 결과 확정 시 폭발하는 빛
+            if phase_progress < 0.5:
+                explosion_progress = phase_progress / 0.5
+                explosion_radius = int(150 * explosion_progress)
+                explosion_alpha = int(200 * (1.0 - explosion_progress))
+
+                explosion_surf = pygame.Surface((explosion_radius * 2, explosion_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(explosion_surf, (255, 255, 220, explosion_alpha),
+                                  (explosion_radius, explosion_radius), explosion_radius)
+                screen.blit(explosion_surf, (dice_center_x - explosion_radius, dice_center_y - explosion_radius))
+
+            # 황금 링 이펙트
+            ring_radius = int(50 + 100 * phase_progress)
+            ring_alpha = int(255 * (1.0 - phase_progress * 0.5))
+            pygame.draw.circle(screen, (255, 215, 0, ring_alpha),
+                              (dice_center_x, dice_center_y), ring_radius, 3)
+
+        # ========== 🏆 Phase 4: 결과 표시 (90% ~ 100%) ==========
         else:
-            # 마지막 단계 - 최종 면으로 고정
-            rot_y = self.roll_face * 60  # 1,2,3에 해당하는 각도로 정지
+            phase_progress = (progress - 0.9) / 0.1 if progress < 1.0 else 1.0
 
-        rot_x = math.sin(self.roll_timer * 3) * 15 * (1.0 - progress)  # 흔들림도 점점 감소
+            # 주사위 최종 위치에 고정
+            rot_y = self.roll_face * 60
+            rot_x = 0
+            dice_size = int(base_dice_size * 1.1)
 
-        # 3D 주사위 그리기 (천사 날개 포함)
-        dice_surf = pygame.Surface((dice_size, dice_size), pygame.SRCALPHA)
-        self._draw_angel_dice(dice_surf, dice_size, rot_x, rot_y)
+            dice_surf = pygame.Surface((dice_size + 40, dice_size + 40), pygame.SRCALPHA)
+            self._draw_angel_dice(dice_surf, dice_size, rot_x, rot_y)
+            dice_rect = dice_surf.get_rect(center=(dice_center_x, dice_center_y))
+            screen.blit(dice_surf, dice_rect)
 
-        # 주사위 바운스 효과
-        bounce = math.sin(self.roll_timer * 8) * 10 * (1.0 - progress)
-        dice_rect = dice_surf.get_rect(center=(dice_center_x, dice_center_y + bounce))
-        screen.blit(dice_surf, dice_rect)
+            # 성스러운 후광 효과 (계속 유지)
+            halo_pulse = 0.8 + 0.2 * math.sin(anim_time * 3)
+            halo_radius = int(70 * halo_pulse)
+            halo_surf = pygame.Surface((halo_radius * 2 + 20, halo_radius * 2 + 20), pygame.SRCALPHA)
+            for r in range(halo_radius, 0, -5):
+                alpha = int(60 * (1 - r / halo_radius))
+                pygame.draw.circle(halo_surf, (255, 255, 200, alpha),
+                                  (halo_radius + 10, halo_radius + 10), r)
+            screen.blit(halo_surf, (dice_center_x - halo_radius - 10, dice_center_y - halo_radius - 10))
+
+        # ========== 공통: 떨어지는 천사 깃털 (항상) ==========
+        if progress > 0.1:
+            num_falling_feathers = int(10 * min(1.0, progress * 2))
+            for i in range(num_falling_feathers):
+                feather_seed = i * 1234.5
+                feather_x = screen_w // 2 + int(math.sin(feather_seed + anim_time * 0.5) * 200)
+                feather_y = int((anim_time * 50 + feather_seed) % (screen_h + 50)) - 25
+                feather_sway = math.sin(anim_time * 2 + feather_seed) * 20
+
+                # 깃털 그리기
+                feather_alpha = int(180 * (1.0 - feather_y / screen_h))
+                if feather_alpha > 0:
+                    pygame.draw.ellipse(screen, (255, 255, 255, min(255, feather_alpha)),
+                                       (feather_x + feather_sway - 6, feather_y - 3, 12, 6))
 
         # 결과 텍스트 영역
         results_y = panel_y + 220
@@ -3363,8 +3506,8 @@ class AngelBlessing(LegendaryItem):
             "move_speed": "Move Speed +50%",
         }
 
-        # 주사위 숫자 표시
-        if progress > 0.8 or waiting_for_space:
+        # 주사위 숫자 표시 (Phase 4 이후에만)
+        if progress > 0.9 or waiting_for_space:
             # 최종 결과 표시 - 주사위 눈 크게 표시
             dice_number_y = results_y - 10
 
