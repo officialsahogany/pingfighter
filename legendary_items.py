@@ -2860,25 +2860,34 @@ class AngelBlessing(LegendaryItem):
                 print(f"[AngelBlessing] 이동속도 버프 적용 실패: {e}")
 
     def deactivate(self):
-        """천사의 가호 비활성화 - 모든 버프 효과 즉시 해제"""
+        """천사의 가호 비활성화 - 모든 버프 효과 즉시 해제
+
+        NOTE: applied_stage와 _triggered_stages는 유지하여 같은 스테이지 내
+        재장착 시 재발동을 방지합니다.
+        """
         print(f"[AngelBlessing] 비활성화 시작 - 현재 버프: {self.active_buffs}")
         super().deactivate()
         self._reset_globals()  # 모든 버프 효과 해제
-        self.applied_stage = None
+        # applied_stage와 _triggered_stages는 유지 (같은 스테이지 내 재발동 방지)
         self.active_buffs.clear()
         self.roll_anim_active = False
         self.waiting_for_space = False
-        print(f"[AngelBlessing] 비활성화 완료 - 모든 보너스 혜택 제거됨")
+        print(f"[AngelBlessing] 비활성화 완료 - 버프 제거됨 (스테이지 {self.applied_stage} 발동 이력 유지)")
 
     def _roll_blessing(self, current_stage: int):
         """주사위 굴림 및 버프 적용"""
         import random
+        # 이미 발동된 스테이지면 스킵 (재장착 방지)
+        if current_stage in self._triggered_stages:
+            print(f"[AngelBlessing] 스테이지 {current_stage}에서 이미 발동됨 - 스킵")
+            return
         if self.applied_stage == current_stage:
             return
         debug = os.environ.get("PINGF_DEBUG_ANGEL", "0") == "1"
         if debug:
             print(f"[AngelBlessing][DEBUG] roll start (stage={current_stage})")
         self._reset_globals()
+        self._triggered_stages.add(current_stage)  # 발동 이력 기록
         dice_face = random.choice([1, 2, 3])
         # 옵션 중 복원 없는 랜덤 샘플
         selected = random.sample(list(ANGEL_BLESSING_OPTIONS), k=dice_face)
