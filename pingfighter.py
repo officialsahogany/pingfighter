@@ -74743,6 +74743,8 @@ def show_result(won):
         current_stage += 1
         # 스테이지 전환 시 테크니컬조끼 비활성화
         deactivate_technical_vest()
+        # 스테이지 전환 시 레이저스코프 비활성화
+        deactivate_laser_scope()
     else:
         # 부활 아이템이 있고 아직 사용하지 않았다면 부활 기회 제공
         if revival_obtained and not revival_used:
@@ -74792,6 +74794,8 @@ def show_result(won):
         game_session_active = False
         # 테크니컬조끼 비활성화
         deactivate_technical_vest()
+        # 레이저스코프 비활성화
+        deactivate_laser_scope()
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
         acceleration_skill_level = 0
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
@@ -83695,6 +83699,7 @@ def show_character_item_manager():
         {"name": "pandora_box", "type": "active", "icon": get_icon_safe("pandora_box_icon", "pandora_box")},
         {"name": "stopwatch", "type": "active", "icon": get_icon_safe("stopwatch_icon", "stopwatch")},
         {"name": "devil_dice", "type": "active", "icon": get_icon_safe("devil_dice_icon", "devil_dice")},
+        {"name": "laser_scope", "type": "active", "icon": get_icon_safe("laser_scope_icon", "laser_scope")},
         # 패시브 아이템들
         {"name": "slot_add", "type": "passive", "icon": get_icon_safe("slot_add_icon", "slot_add")},
         {"name": "revival", "type": "passive", "icon": get_icon_safe("revival_icon", "revival")},
