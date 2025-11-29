@@ -30121,6 +30121,11 @@ def handle_player(keys):
         if dashgear_obtained:
             discounted_cost = int(discounted_cost * 0.8)
         final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))
+        # 천사의 가호 대쉬 비용 버프 적용
+        if dash is not None:
+            external_cost_mul = getattr(dash, 'external_cost_multiplier', 1.0)
+            if external_cost_mul != 1.0:
+                final_gauge_cost = int(final_gauge_cost * external_cost_mul)
         consume_special_gauge(final_gauge_cost)
         print(
             f"    ! ( {get_roll('rolling_consecutive_count')},  : {final_gauge_cost},  : {get_roll('rolling_charges')}, : {special_gauge})"
