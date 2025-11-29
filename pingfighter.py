@@ -75871,6 +75871,8 @@ def main(stage_num, new_boss_mode=False):
     elif stage_num == 3:
         CURRENT_BG = STAGE3_BG
         BOSS_COLOR = YELLOW
+        # Stage 3 BGM 재생
+        bgm_manager.play_stage_bgm(3)
     elif stage_num == 4:
         CURRENT_BG = STAGE4_BG
         BOSS_COLOR = WHITE
