@@ -7014,6 +7014,31 @@ class BuildingInterior:
         # 13. 가챠 머신 상호작용 힌트 표시
         self._draw_gacha_interact_hint(screen, NEON_PINK, NEON_CYAN)
 
+        # ===== 디버그: 상호작용 영역 표시 =====
+        cam_x = int(self.camera_x)
+        cam_y = int(self.camera_y)
+        for machine_info in self.gacha_machine_rects:
+            rect = machine_info["rect"]
+            # 상호작용 영역 (빨간색)
+            debug_rect = pygame.Rect(
+                rect.x - cam_x, rect.y - cam_y,
+                rect.width, rect.height
+            )
+            pygame.draw.rect(screen, (255, 0, 0), debug_rect, 2)
+            # 머신 영역 (파란색)
+            m_rect = machine_info["machine_rect"]
+            debug_m_rect = pygame.Rect(
+                m_rect.x - cam_x, m_rect.y - cam_y,
+                m_rect.width, m_rect.height
+            )
+            pygame.draw.rect(screen, (0, 0, 255), debug_m_rect, 2)
+        # 플레이어 위치 (녹색)
+        player_rect = pygame.Rect(
+            self.player.x - cam_x - 30, self.player.y - cam_y - 30, 60, 60
+        )
+        pygame.draw.rect(screen, (0, 255, 0), player_rect, 2)
+        # ===== 디버그 끝 =====
+
     def _draw_gacha_interact_hint(self, screen, neon_pink, neon_cyan):
         """가챠 머신 근처일 때 상호작용 힌트 표시"""
         if self.nearby_gacha_machine is None:
