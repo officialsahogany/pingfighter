@@ -31842,6 +31842,11 @@ def handle_player(keys):
                     discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
+                # 천사의 가호 대쉬 비용 버프 적용
+                if dash is not None:
+                    external_cost_mul = getattr(dash, 'external_cost_multiplier', 1.0)
+                    if external_cost_mul != 1.0:
+                        required_gauge = int(required_gauge * external_cost_mul)
                 # A/D도 왼/오 입력으로 인정 (마우스+키보드 스킴 포함)
                 # 현재 방향키가 눌려 있고 ↓가 눌려 있으면 조합으로 인정한다.
                 left_before_down = (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
