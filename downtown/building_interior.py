@@ -1959,6 +1959,12 @@ class BuildingInterior:
 
         self._init_shop_inventory()  # 상점 인벤토리 초기화
 
+        # 가챠 머신 상호작용 영역 (GACHA 전용)
+        self.gacha_machine_rects = []  # 가챠 머신 상호작용 영역들
+        self.gacha_interact_requested = False  # 가챠 실행 요청 플래그
+        self.nearby_gacha_machine = None  # 근처 가챠 머신 인덱스
+        self._init_gacha_machine_zones()  # 가챠 머신 영역 초기화
+
     def _init_shop_inventory(self):
         """상점 인벤토리 초기화 (랜덤 패시브 아이템 1~7개 + 5% 전설)"""
         if self.building_type != BuildingType.ITEM_SHOP:
