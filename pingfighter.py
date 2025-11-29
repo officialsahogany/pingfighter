@@ -75767,6 +75767,8 @@ def main(stage_num, new_boss_mode=False):
                 # 직전 스테이지 번호가 그대로 남아있을 경우 강제로 초기화해
                 # 스테이지 진입 시마다 주사위가 반드시 다시 굴러가도록 보장한다.
                 angel_blessing.applied_stage = None
+                # NOTE: _triggered_stages는 "같은 스테이지 내 재장착" 방지용이므로
+                # 새 스테이지 진입 시에는 초기화하지 않음 (스테이지당 1회 발동 유지)
                 # 현재 스테이지 번호가 이미 설정된 상태에서 update를 호출해
                 # 주사위 롤 이벤트가 서브 전에 바로 실행되도록 보장한다.
                 angel_blessing.update(0.0, ui_mode=False)
