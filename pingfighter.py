@@ -982,7 +982,8 @@ from effects.legendary_integration import (
     should_pause_for_legendary,
     is_legendary_effect_active,
     handle_legendary_space_press,
-    skip_legendary_animation
+    skip_legendary_animation,
+    update_angel_blessing_animation
 )
 #  아이템 획득 플로팅 애니메이션
 from effects.item_acquisition import (
@@ -78592,6 +78593,10 @@ def main(stage_num, new_boss_mode=False):
         
         # 전설 아이템 애니메이션으로 인한 일시정지 체크
         legendary_effect_paused = should_pause_for_legendary()
+
+        # 😇 천사의 가호 주사위 애니메이션 업데이트 (일시정지 중에도 계속 진행)
+        if legendary_effect_paused:
+            update_angel_blessing_animation(legendary_animation_dt)
 
         # AI 플레이 모드에서는 전설 연출을 즉시 넘겨 게임이 멈추지 않도록 처리
         if player_ai_enabled and legendary_effect_paused:
