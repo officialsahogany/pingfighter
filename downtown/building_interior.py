@@ -2080,22 +2080,20 @@ class BuildingInterior:
         machine_w = int(TILE_SIZE * 1.5)
         spacing = int(TILE_SIZE * 0.1)  # _draw_gacha_machine_row와 동일!
 
-        # 손잡이는 기계 본체(하단 40%)의 오른쪽에 있음
-        body_h = int(machine_h * 0.4)
-        body_y = machine_y + machine_h - body_h  # 본체 시작 Y
+        # 머신 하단 (bottom) = machine_y + machine_h
+        machine_bottom = machine_y + machine_h
 
         # 왼쪽 가챠 머신들 (3대) - _draw_gacha_machine_row와 동일한 위치
         left_x = int(TILE_SIZE * 1.5)
         for i in range(3):
             mx = left_x + i * (machine_w + spacing)
-            # 상호작용 영역: 머신 앞쪽 (손잡이는 오른쪽 옆면에 있으나,
-            # 플레이어가 다가갈 수 있는 방향은 아래쪽)
-            # 머신 전체 영역 + 아래쪽 여유 공간
+            # 상호작용 영역: 머신 아래쪽 (건물 입구처럼)
+            # 플레이어가 머신 아래에 서서 위를 보고 상호작용
             interact_rect = pygame.Rect(
-                mx - 15,
-                body_y - 10,  # 본체 영역부터
-                machine_w + 30,
-                body_h + TILE_SIZE  # 본체 높이 + 아래 여유공간
+                mx - 20,                    # 머신 X보다 약간 왼쪽
+                machine_bottom,             # 머신 바로 아래부터 시작
+                machine_w + 40,             # 머신 너비 + 여유
+                TILE_SIZE * 2               # 아래로 2타일 범위
             )
             self.gacha_machine_rects.append({
                 "rect": interact_rect,
@@ -2108,12 +2106,12 @@ class BuildingInterior:
         right_x = self.pixel_width - int(TILE_SIZE * 6)
         for i in range(3):
             mx = right_x + i * (machine_w + spacing)
-            # 상호작용 영역: 머신 앞쪽 (본체 영역 + 아래 여유공간)
+            # 상호작용 영역: 머신 아래쪽 (건물 입구처럼)
             interact_rect = pygame.Rect(
-                mx - 15,
-                body_y - 10,  # 본체 영역부터
-                machine_w + 30,
-                body_h + TILE_SIZE  # 본체 높이 + 아래 여유공간
+                mx - 20,                    # 머신 X보다 약간 왼쪽
+                machine_bottom,             # 머신 바로 아래부터 시작
+                machine_w + 40,             # 머신 너비 + 여유
+                TILE_SIZE * 2               # 아래로 2타일 범위
             )
             self.gacha_machine_rects.append({
                 "rect": interact_rect,
