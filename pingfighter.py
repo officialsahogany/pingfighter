@@ -82200,6 +82200,7 @@ def show_game_info():
         # Tab 키 재입력(떼고 다시 누름) 감지 시 즉시 종료
         keys_now = pygame.key.get_pressed()
         if not tab_prev and keys_now[pygame.K_TAB]:
+            _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
             return
         tab_prev = keys_now[pygame.K_TAB]
         # 현재 게임 화면을 배경으로 사용
