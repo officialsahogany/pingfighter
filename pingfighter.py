@@ -80157,8 +80157,8 @@ def show_pause_menu():
                             result = handle_selection(i)
                             if result is not None:
                                 return result
-        finally:
-            _pop_stage7_ui_pause()
+    finally:
+        _pop_stage7_ui_pause()
     def draw_gradient_background(surface, rect, color1, color2, horizontal=False):
         """그라데이션 배경 그리기"""
         for i in range(rect.height if not horizontal else rect.width):
