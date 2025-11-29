@@ -81654,7 +81654,7 @@ def show_character_info(background_surface=None):
         else:
             base_max_speed = float(globals().get("MAX_SPEED", 5.0))
         speed_multiplier = 1.0
-        # 스피드부츠/헤르메스/비타민/그물 멀티 적용
+        # 스피드부츠/헤르메스/비타민/그물/천사의가호 멀티 적용
         try:
             speedboots_active = globals().get("speedboots_obtained", False) or getattr(items, "speedboots_obtained", False)
         except Exception:
@@ -81669,6 +81669,10 @@ def show_character_info(background_surface=None):
             speed_multiplier *= 1.5
         if globals().get("vitamin_pill_active", False) and globals().get("vitamin_pill_timer", 0) > 0:
             speed_multiplier *= globals().get("VITAMIN_PILL_SPEED_MULTIPLIER", 1.5)
+        # 천사의 가호 이동속도 버프 적용
+        angel_speed_mult = globals().get("ANGEL_SPEED_MULT", 1.0)
+        if angel_speed_mult != 1.0:
+            speed_multiplier *= angel_speed_mult
         try:
             net_gun = get_net_gun_instance()
             speed_multiplier *= net_gun.get_player_speed_multiplier()
