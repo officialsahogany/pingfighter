@@ -201,11 +201,15 @@ def init_gacha(available_items, legendary_bonus=0.0):
     gacha_legendary_bonus = max(0.0, min(0.45, legendary_bonus))
 
     # 패시브 아이템 목록 (영구적으로 적용되는 아이템들)
+    # store_active_item()의 필터 목록과 동기화 필요
     PASSIVE_ITEM_NAMES = {
         "speedboots", "speedgear", "battery", "revival", "master", "cooltime",
         "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
         "gravitybelt", "slot_add", "technical_vest", "commando_arm", "berserker_fist",
         "phantom_cloak", "bulletproof_hat", "spiked_helmet", "angel_blessing",
+        # 추가 패시브 아이템들 (store_active_item 필터에 있는 것들)
+        "dowsing_pendulum", "fuel_pouch", "bluetooth_ring", "foul_whistle",
+        "star_detector", "smartphone", "knee_pads",
         # 전설 아이템들
         "ragnarok_hammer", "hermes_shoes", "poseidon_trident"
     }
