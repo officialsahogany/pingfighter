@@ -1306,8 +1306,10 @@ def show_gacha_result_page(
 
     def _claim_and_store():
         nonlocal running
-        print(f"  : {gacha_result['name']} (: {gacha_result['type']})")
-        if gacha_result["type"] == "passive":
+        # type 필드가 없으면 기본값으로 "active" 사용
+        item_type = gacha_result.get("type", "active")
+        print(f"가챠 아이템 확정: {gacha_result['name']} (타입: {item_type})")
+        if item_type == "passive":
             item_data = {
                 "name": gacha_result["name"],
                 "color": gacha_result["color"],
