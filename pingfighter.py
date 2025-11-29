@@ -37756,6 +37756,10 @@ def update_stage7_guard_skill(now: int | None = None) -> None:
     if now is None:
         now = pygame.time.get_ticks()
 
+    # UI 정지 상태에서는 스킬 업데이트 중단
+    if _is_stage7_ui_paused():
+        return
+
     update_stage7_guard_blocks(now)
     enforce_player_blocking_by_installed_tetro()
 
@@ -37980,6 +37984,10 @@ def update_stage7_tetro_wall_skill(now: int | None = None) -> None:
         return
     if now is None:
         now = pygame.time.get_ticks()
+
+    # UI 정지 상태에서는 스킬 업데이트 중단
+    if _is_stage7_ui_paused():
+        return
 
     # 공용 스펙(레거시 호환)에서 간격(sec) 참조; 실패 시 상수 사용
     try:
@@ -39273,6 +39281,10 @@ def update_stage7_tetromino_skill(now: int | None = None) -> None:
 
     if now is None:
         now = pygame.time.get_ticks()
+
+    # UI 정지 상태에서는 스킬 업데이트 중단
+    if _is_stage7_ui_paused():
+        return
 
     update_stage7_tetrominoes(now)
 
