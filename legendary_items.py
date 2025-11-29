@@ -3233,14 +3233,16 @@ class AngelBlessing(LegendaryItem):
 
     def draw_roll_animation(self, screen: pygame.Surface):
         """스테이지 시작 시 화면 전체에 천사의 주사위 애니메이션 그리기 (악마의 주사위와 유사)"""
+        import pygame.freetype
+
         if not self.roll_anim_active:
             return False
 
         screen_w, screen_h = screen.get_size()
 
-        # 전체 화면 반투명 오버레이 (황금빛)
+        # 전체 화면 반투명 오버레이 (어두운 보라색/남색 계열 - 눈이 편안하도록)
         overlay = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
-        overlay.fill((255, 250, 220, 120))
+        overlay.fill((20, 15, 40, 180))  # 어두운 남색 배경
         screen.blit(overlay, (0, 0))
 
         # 패널 크기와 위치
@@ -3249,20 +3251,32 @@ class AngelBlessing(LegendaryItem):
         panel_x = (screen_w - panel_width) // 2
         panel_y = (screen_h - panel_height) // 2
 
-        # 패널 배경 (하늘색/흰색 그라데이션 느낌)
+        # 패널 배경 (어두운 보라색 계열)
         panel_surf = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-        pygame.draw.rect(panel_surf, (240, 248, 255, 230), (0, 0, panel_width, panel_height), border_radius=20)
-        pygame.draw.rect(panel_surf, (200, 180, 140, 255), (0, 0, panel_width, panel_height), 3, border_radius=20)
+        pygame.draw.rect(panel_surf, (40, 35, 70, 240), (0, 0, panel_width, panel_height), border_radius=20)
+        pygame.draw.rect(panel_surf, (180, 160, 220, 255), (0, 0, panel_width, panel_height), 3, border_radius=20)
         screen.blit(panel_surf, (panel_x, panel_y))
 
-        # 제목 "천사의 가호"
+        # 폰트 로드 (pygame.freetype 사용 - 한글 지원)
+        title_font = None
+        small_font = None
         try:
-            title_font = pygame.font.Font(resource_path("fonts/NanumSquareB.ttf"), 28)
-            title_text = title_font.render("천사의 가호", True, (100, 80, 180))
-            title_rect = title_text.get_rect(centerx=screen_w // 2, y=panel_y + 20)
-            screen.blit(title_text, title_rect)
+            title_font = pygame.freetype.Font(resource_path("fonts/NanumSquareB.ttf"), 28)
+            small_font = pygame.freetype.Font(resource_path("fonts/NanumSquareB.ttf"), 18)
         except Exception:
-            pass
+            try:
+                title_font = pygame.freetype.Font(resource_path("fonts/NanumSquareR.ttf"), 28)
+                small_font = pygame.freetype.Font(resource_path("fonts/NanumSquareR.ttf"), 18)
+            except Exception:
+                title_font = None
+                small_font = None
+
+        # 제목 "천사의 가호"
+        if title_font:
+            title_surf, title_rect = title_font.render("천사의 가호", (220, 200, 255))
+            title_rect.centerx = screen_w // 2
+            title_rect.y = panel_y + 20
+            screen.blit(title_surf, title_rect)
 
         # 주사위 애니메이션 중앙에 그리기
         dice_center_x = screen_w // 2
@@ -3294,17 +3308,14 @@ class AngelBlessing(LegendaryItem):
         # 결과 텍스트 영역
         results_y = panel_y + 220
 
-        try:
-            small_font = pygame.font.Font(resource_path("fonts/NanumSquareB.ttf"), 18)
-        except Exception:
-            small_font = pygame.font.Font(None, 18)
-
         # 주사위 숫자 표시
         if progress > 0.8:
             # 최종 결과 표시
-            dice_text = small_font.render(f"주사위 결과: {self.roll_face}", True, (80, 60, 140))
-            dice_text_rect = dice_text.get_rect(centerx=screen_w // 2, y=results_y)
-            screen.blit(dice_text, dice_text_rect)
+            if small_font:
+                dice_surf, dice_rect = small_font.render(f"주사위 결과: {self.roll_face}", (255, 220, 150))
+                dice_rect.centerx = screen_w // 2
+                dice_rect.y = results_y
+                screen.blit(dice_surf, dice_rect)
 
             # 선택된 버프 목록 표시
             buff_names = {
@@ -3320,23 +3331,27 @@ class AngelBlessing(LegendaryItem):
             buff_y = results_y + 35
             for i, buff in enumerate(self.active_buffs):
                 buff_name = buff_names.get(buff, buff)
-                buff_color = (60, 140, 60)  # 녹색 (긍정적 효과)
-                buff_text = small_font.render(f"✓ {buff_name}", True, buff_color)
-                buff_rect = buff_text.get_rect(centerx=screen_w // 2, y=buff_y + i * 30)
-                screen.blit(buff_text, buff_rect)
+                buff_color = (120, 255, 120)  # 밝은 녹색 (어두운 배경에서 잘 보이도록)
+                if small_font:
+                    buff_surf, buff_rect = small_font.render(f">> {buff_name}", buff_color)
+                    buff_rect.centerx = screen_w // 2
+                    buff_rect.y = buff_y + i * 30
+                    screen.blit(buff_surf, buff_rect)
         else:
             # 굴리는 중 - ??? 표시
-            rolling_text = small_font.render("주사위를 굴리는 중...", True, (150, 130, 100))
-            rolling_rect = rolling_text.get_rect(centerx=screen_w // 2, y=results_y)
-            screen.blit(rolling_text, rolling_rect)
+            if small_font:
+                rolling_surf, rolling_rect = small_font.render("주사위를 굴리는 중...", (200, 180, 255))
+                rolling_rect.centerx = screen_w // 2
+                rolling_rect.y = results_y
+                screen.blit(rolling_surf, rolling_rect)
 
-        # 빛나는 파티클 효과
+        # 빛나는 파티클 효과 (황금색/흰색 계열)
         for _ in range(2):
             particle_angle = random.uniform(0, math.pi * 2)
             particle_dist = random.uniform(50, 100)
             particle_x = dice_center_x + int(math.cos(particle_angle) * particle_dist)
             particle_y = dice_center_y + int(math.sin(particle_angle) * particle_dist)
-            particle_color = (255, 255, 200, random.randint(100, 200))
+            particle_color = (255, 230, 150, random.randint(100, 200))
             pygame.draw.circle(screen, particle_color, (particle_x, particle_y), random.randint(1, 3))
 
         return True  # 애니메이션 진행 중
