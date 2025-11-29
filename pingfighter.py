@@ -82373,10 +82373,12 @@ def show_character_info(background_surface=None):
                     try_skill_tree()
                 else:
                     if event.button == 3:  # 오른쪽 클릭: 액티브 아이템 사용
-                        for idx, rect in active_rects.items():
-                            if rect.collidepoint(event.pos):
-                                try_use_active_item_from_info(idx)
-                                break
+                        # 광장/건물 내부에서는 액티브 아이템 사용 불가
+                        if background_surface is None:  # 전투 모드에서만 사용 가능
+                            for idx, rect in active_rects.items():
+                                if rect.collidepoint(event.pos):
+                                    try_use_active_item_from_info(idx)
+                                    break
                     if event.button == 1:
                         # 액티브 아이템 드래그 시작 (슬롯 스왑)
                         for idx, rect in active_rects.items():
