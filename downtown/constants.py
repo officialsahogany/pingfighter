@@ -99,8 +99,8 @@ BUILDING_INFO = {
         "style": "volcanic",
     },
     BuildingType.MAGIC_STORE: {
-        "name": "상점",
-        "name_en": "Shop",
+        "name": "마법 성소",
+        "name_en": "Lunar Sanctuary",
         "icon": "🌙",
         "color": (120, 80, 200),     # 깊은 보라
         "ap_cost": 1,
