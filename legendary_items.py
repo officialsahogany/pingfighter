@@ -2855,18 +2855,6 @@ class AngelBlessing(LegendaryItem):
         else:
             print(f"[AngelBlessing] Stage {current_stage} 주사위 {dice_face} → {selected}")
 
-    def update(self, dt: float, ui_mode: bool = False):
-        super().update(dt, ui_mode)
-        # 주사위 애니메이션 타이머
-        if self.roll_anim_active:
-            self.roll_timer += dt if dt < 5 else dt / 1000.0
-            if self.roll_timer >= self.roll_anim_duration:
-                self.roll_anim_active = False
-        # 스테이지 변경 감지 (게임 로직용)
-        current_stage = self._get_current_stage()
-        if not ui_mode and current_stage is not None and current_stage != self.applied_stage:
-            self._roll_blessing(current_stage)
-
     def _load_animation_frames(self):
         """애니메이션 프레임 로드 - 라그나로크 해머 프레임에서 중앙 망치/번개만 제거"""
         self.animation_frames.clear()
@@ -3355,6 +3343,13 @@ class AngelBlessing(LegendaryItem):
 
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
+
+        # 주사위 애니메이션 타이머 업데이트 (CRITICAL: 이 로직이 없으면 애니메이션이 진행되지 않음)
+        if self.roll_anim_active:
+            self.roll_timer += dt if dt < 5 else dt / 1000.0
+            if self.roll_timer >= self.roll_anim_duration:
+                self.roll_anim_active = False
+                print(f"[AngelBlessing] 주사위 애니메이션 종료 - applied_stage: {self.applied_stage}")
 
         # 8프레임 애니메이션 업데이트
         self.frame_counter += 1
