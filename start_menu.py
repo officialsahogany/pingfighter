@@ -498,7 +498,7 @@ def _handle_menu_events(
                 ctx.play_click_sound()
                 ctx.show_developer_stage_select()
                 return False
-            if event.key == pygame.K_2 and state.item_manager_unlocked:
+            if event.key == pygame.K_2:
                 ctx.play_click_sound()
                 ctx.show_item_manager_menu()
                 return False
