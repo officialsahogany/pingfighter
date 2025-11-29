@@ -30132,9 +30132,10 @@ def handle_player(keys):
         if dashgear_obtained:
             discounted_cost = int(discounted_cost * 0.8)
         final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))
-        # 천사의 가호 대쉬 비용 버프 적용
-        if dash is not None:
-            external_cost_mul = getattr(dash, 'external_cost_multiplier', 1.0)
+        # 천사의 가호 대쉬 비용 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
+        dm_inst = dash_manager._GLOBAL_DASH_INST
+        if dm_inst is not None:
+            external_cost_mul = getattr(dm_inst, 'external_cost_multiplier', 1.0)
             if external_cost_mul != 1.0:
                 final_gauge_cost = int(final_gauge_cost * external_cost_mul)
         consume_special_gauge(final_gauge_cost)
@@ -31155,9 +31156,10 @@ def handle_player(keys):
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
 
-                # 천사의 가호 대쉬 비용 버프 적용
-                if dash is not None:
-                    external_cost_mul = getattr(dash, 'external_cost_multiplier', 1.0)
+                # 천사의 가호 대쉬 비용 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
+                dm_inst = dash_manager._GLOBAL_DASH_INST
+                if dm_inst is not None:
+                    external_cost_mul = getattr(dm_inst, 'external_cost_multiplier', 1.0)
                     if external_cost_mul != 1.0:
                         required_gauge = int(required_gauge * external_cost_mul)
 
