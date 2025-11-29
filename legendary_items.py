@@ -3245,6 +3245,9 @@ class AngelBlessing(LegendaryItem):
         if not self.roll_anim_active:
             return False
 
+        # 결과 표시 중이고 스페이스바 대기 상태인지 확인
+        waiting_for_space = getattr(self, 'waiting_for_space', False)
+
         screen_w, screen_h = screen.get_size()
 
         # 전체 화면 반투명 오버레이 (어두운 보라색/남색 계열 - 눈이 편안하도록)
@@ -3349,7 +3352,7 @@ class AngelBlessing(LegendaryItem):
         }
 
         # 주사위 숫자 표시
-        if progress > 0.8:
+        if progress > 0.8 or waiting_for_space:
             # 최종 결과 표시
             if small_font:
                 result_surf, result_rect = small_font.render(f"주사위 결과: {self.roll_face}", (255, 220, 150))
@@ -3366,6 +3369,13 @@ class AngelBlessing(LegendaryItem):
                     buff_rect.centerx = screen_w // 2
                     buff_rect.y = buff_y + i * 30
                     screen.blit(buff_surf, buff_rect)
+
+                # 스페이스바 안내 문구 표시
+                if waiting_for_space:
+                    prompt_surf, prompt_rect = small_font.render("스페이스바를 눌러 계속하기", (255, 255, 100))
+                    prompt_rect.centerx = screen_w // 2
+                    prompt_rect.y = panel_y + panel_height - 40
+                    screen.blit(prompt_surf, prompt_rect)
             else:
                 # fallback: pygame.font 사용 (영문)
                 try:
@@ -3380,6 +3390,12 @@ class AngelBlessing(LegendaryItem):
                         buff_surf = fallback_small.render(f">> {buff_name}", True, (120, 255, 120))
                         buff_rect = buff_surf.get_rect(centerx=screen_w // 2, y=buff_y + i * 30)
                         screen.blit(buff_surf, buff_rect)
+
+                    # 스페이스바 안내 문구 표시 (영문)
+                    if waiting_for_space:
+                        prompt_surf = fallback_small.render("Press SPACE to continue", True, (255, 255, 100))
+                        prompt_rect = prompt_surf.get_rect(centerx=screen_w // 2, y=panel_y + panel_height - 40)
+                        screen.blit(prompt_surf, prompt_rect)
                 except Exception:
                     pass
         else:
