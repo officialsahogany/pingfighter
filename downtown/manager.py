@@ -1660,6 +1660,50 @@ class DowntownManager:
         self._reset_player_input_state()
         self._exit_building()
 
+    def _run_gacha_from_interior(self, interior):
+        """가챠 머신에서 가챠 실행"""
+        try:
+            import gacha
+            import pingfighter
+
+            # pingfighter에서 필요한 함수들 가져오기
+            get_item_name_korean = getattr(pingfighter, 'get_item_name_korean', lambda x: x)
+            store_passive_item = getattr(pingfighter, 'store_passive_item', lambda x: None)
+            store_active_item = getattr(pingfighter, 'store_active_item', lambda x: None)
+            get_item_description = getattr(pingfighter, 'get_item_description', lambda x: "")
+
+            # 스타포인트 관련 함수 정의
+            def get_star_count():
+                return self.player_data.get('star_points', 0)
+
+            def spend_stars(amount):
+                current = self.player_data.get('star_points', 0)
+                if current >= amount:
+                    self.player_data['star_points'] = current - amount
+                    return True
+                return False
+
+            # 가챠 실행
+            gacha.run_gacha(
+                self.screen,
+                SCREEN_WIDTH,
+                SCREEN_HEIGHT,
+                get_item_name_korean,
+                store_passive_item,
+                store_active_item,
+                get_item_description,
+                get_star_count=get_star_count,
+                spend_stars=spend_stars
+            )
+
+            # 가챠 후 상호작용 플래그 리셋
+            interior.gacha_interact_requested = False
+
+        except Exception as e:
+            print(f"가챠 실행 오류: {e}")
+            import traceback
+            traceback.print_exc()
+
     def _show_npc_dialogue(self, npc):
         """NPC 대화창"""
         if not npc.dialogue:
