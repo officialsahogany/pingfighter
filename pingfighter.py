@@ -39563,6 +39563,11 @@ def update_stage7_super_state(now: int | None = None) -> None:
         except Exception:
             pass
     else:
+        # UI 정지 상태에서는 상태 변경 없이 타이머만 갱신
+        if ui_paused:
+            stage7_super_last_update_ms = now
+            return
+
         # 발동 트리거: 500 도달
         if not stage7_super_active and boss_special_gauge >= 500:
             stage7_super_active = True
