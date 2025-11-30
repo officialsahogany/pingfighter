@@ -2554,7 +2554,7 @@ class BuildingInterior:
             {"name": "foul_whistle", "korean": "반칙호루라기", "rarity": "rare", "type": "passive"},
             {"name": "star_detector", "korean": "스타감지기", "rarity": "rare", "type": "passive"},
             {"name": "dashholder", "korean": "대쉬홀더", "rarity": "rare", "type": "passive"},
-            {"name": "master", "korean": "마스터", "rarity": "rare", "type": "passive"},
+            {"name": "master", "korean": "토르의망치", "rarity": "rare", "type": "passive"},
             # 에픽 패시브 (3개만)
             {"name": "sensor", "korean": "위험감지센서", "rarity": "epic", "type": "passive"},
             {"name": "gravitybelt", "korean": "무중력벨트", "rarity": "epic", "type": "passive"},
