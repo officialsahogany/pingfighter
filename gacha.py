@@ -322,6 +322,17 @@ def init_gacha(available_items, legendary_bonus=0.0):
             static_icon = items.ITEM_ICONS.get(item_name)
             if static_icon:
                 item["icon"] = static_icon
+            elif not item.get("icon"):
+                # 아이콘이 없으면 pingfighter의 get_item_icon 시도
+                try:
+                    if 'pingfighter' in sys.modules:
+                        pingfighter_module = sys.modules['pingfighter']
+                        if hasattr(pingfighter_module, 'get_item_icon'):
+                            fallback_icon = pingfighter_module.get_item_icon(item_name)
+                            if fallback_icon:
+                                item["icon"] = fallback_icon
+                except Exception:
+                    pass
 
         item["capsule_color"] = random.choice(capsule_colors)
         gacha_items.append(item)
