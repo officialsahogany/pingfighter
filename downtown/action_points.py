@@ -10,16 +10,17 @@ from .constants import (
 
 class ActionPointSystem:
     """
-    행동 포인트 시스템
-    - 번화가에서의 활동 제한
-    - 각 이벤트 방문 시 AP 소모
-    - AP가 0이 되면 다음 스테이지로 강제 진입
+    행동 포인트 시스템 (누적형)
+    - 처음 시작 시 3개
+    - 스테이지 클리어 시 마지막 남은 열쇠 + 1
+    - 다음 스테이지로 넘어가도 열쇠가 초기화되지 않음
     """
 
     def __init__(self):
-        self.current_ap = BASE_ACTION_POINTS
+        self.current_ap = BASE_ACTION_POINTS  # 처음 시작 시 3개
         self.max_ap = MAX_ACTION_POINTS
         self.base_ap = BASE_ACTION_POINTS
+        self.is_first_stage = True  # 첫 스테이지 여부
 
         # 애니메이션
         self.display_ap = float(self.current_ap)
@@ -30,13 +31,26 @@ class ActionPointSystem:
         self.bonus_ap_sources = {}
 
     def reset(self, stage_number=1):
-        """새 스테이지에서 AP 리셋"""
-        # 스테이지에 따른 기본 AP 계산
-        bonus = min(stage_number // 3, 3)  # 3스테이지마다 +1, 최대 +3
-        self.current_ap = self.base_ap + bonus
-        self.max_ap = min(self.current_ap + 3, MAX_ACTION_POINTS)
+        """새 게임 시작 시에만 AP 리셋 (스테이지 넘어갈 때는 호출하지 않음)"""
+        # 첫 스테이지일 때만 기본 AP로 초기화
+        if stage_number == 1 or self.is_first_stage:
+            self.current_ap = self.base_ap  # 처음 시작 시 3개
+            self.is_first_stage = False
+        # 이후 스테이지에서는 현재 AP 유지 (리셋하지 않음)
         self.display_ap = float(self.current_ap)
         self.bonus_ap_sources.clear()
+
+    def on_stage_clear(self):
+        """스테이지 클리어 시 - 현재 남은 열쇠에서 +1"""
+        old_ap = self.current_ap
+        self.current_ap = min(self.current_ap + AP_PER_STAGE_CLEAR, self.max_ap)
+        actual_gain = self.current_ap - old_ap
+
+        if actual_gain > 0:
+            self.last_change_amount = actual_gain
+            self.ap_change_animation = 1.0
+
+        return actual_gain
 
     def add_ap(self, amount, source="unknown"):
         """AP 추가"""
@@ -84,8 +98,8 @@ class ActionPointSystem:
 
     def draw(self, screen, x, y, font=None):
         """AP UI 그리기 - 열쇠만 표시 (배경/텍스트 없음)"""
-        # 현재 열쇠 개수 (최대 5개로 제한)
-        display_count = min(int(self.display_ap), 5)
+        # 현재 열쇠 개수 (최대 MAX_ACTION_POINTS개로 제한)
+        display_count = min(int(self.display_ap), self.max_ap)
 
         # AP 아이콘들 (현재 보유한 열쇠만 표시, 최대 5개)
         icon_size = 16   # 20에서 20% 감소
@@ -287,12 +301,15 @@ class ActionPointEvent:
 
     @staticmethod
     def on_stage_clear(ap_system, stage_number):
-        """스테이지 클리어 시"""
-        bonus = AP_PER_STAGE_CLEAR
-        # 특정 스테이지에서 추가 보너스
-        if stage_number % 5 == 0:  # 5의 배수 스테이지
-            bonus += 1
-        ap_system.add_ap(bonus, f"stage_{stage_number}_clear")
+        """스테이지 클리어 시 - 현재 남은 열쇠에서 +1 (누적)"""
+        # 새로운 on_stage_clear 메서드 사용
+        gained = ap_system.on_stage_clear()
+
+        # 5의 배수 스테이지에서 추가 보너스
+        if stage_number % 5 == 0:
+            ap_system.add_ap(1, f"stage_{stage_number}_bonus")
+
+        return gained
 
     @staticmethod
     def on_perfect_clear(ap_system):
@@ -303,3 +320,9 @@ class ActionPointEvent:
     def on_item_effect(ap_system, amount, item_name):
         """아이템 효과로 AP 획득"""
         ap_system.add_ap(amount, f"item_{item_name}")
+
+    @staticmethod
+    def on_new_game(ap_system):
+        """새 게임 시작 시 AP 완전 초기화"""
+        ap_system.is_first_stage = True
+        ap_system.reset(stage_number=1)

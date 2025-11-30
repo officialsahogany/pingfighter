@@ -1993,7 +1993,7 @@ class AcademyUI:
                                             particle['y'] - size * (3-i) // 2))
         
         # 네온 제목
-        title_text = "◈ NEURAL UPGRADE SYSTEM ◈"
+        title_text = "◈ SKILL TREE ◈"
         
         # 글로우 효과를 위한 여러 레이어
         for i in range(3):

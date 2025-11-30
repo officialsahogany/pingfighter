@@ -10,7 +10,7 @@ import math
 from .constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE,
     BuildingType, BUILDING_INFO, Colors, PLANET_THEMES, PlanetTheme,
-    resource_path
+    resource_path, AP_PER_STAGE_CLEAR
 )
 from .map_generator import DowntownMap
 from .player import DowntownPlayer
@@ -135,6 +135,9 @@ class DowntownManager:
 
         # 건물 입장 기록 (광장 세션당 1회 제한)
         self.visited_buildings_this_session = set()  # BuildingType 저장
+
+        # 건물 방문 직후 플래그 (AP 소진 체크 스킵용)
+        self.just_visited_building = False
 
         # 개발자 건물 소환 UI 상태
         self.dev_building_spawn_mode = False  # 0번 키로 활성화
@@ -323,8 +326,18 @@ class DowntownManager:
         # 건물 로드
         self.buildings.load_from_map(self.downtown_map)
 
-        # AP 초기화
-        self.ap_system.reset(stage_number)
+        # AP 복원 (player_data에서 이전 상태 가져오기)
+        saved_ap = self.player_data.get('downtown_ap_current', None)
+        saved_is_first = self.player_data.get('downtown_ap_is_first_stage', True)
+
+        if saved_ap is not None and not saved_is_first:
+            # 이전 광장에서 저장된 AP 복원 + 스테이지 클리어 보너스 +1
+            self.ap_system.current_ap = min(saved_ap + AP_PER_STAGE_CLEAR, self.ap_system.max_ap)
+            self.ap_system.is_first_stage = False
+            self.ap_system.display_ap = float(self.ap_system.current_ap)
+        else:
+            # 첫 광장 진입: 기본 AP(3개)로 시작
+            self.ap_system.reset(stage_number)
 
         # 렌더러 테마 설정
         theme = self.downtown_map.theme
@@ -355,6 +368,7 @@ class DowntownManager:
             # 이벤트 처리
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    self._save_ap_state()  # AP 상태 저장
                     self.is_running = False
                     return None
                 self._handle_event(event)
@@ -369,9 +383,16 @@ class DowntownManager:
 
             # 완료 체크
             if self.state == DowntownState.COMPLETED:
+                self._save_ap_state()  # AP 상태 저장
                 return self.result_data
 
+        self._save_ap_state()  # AP 상태 저장
         return None
+
+    def _save_ap_state(self):
+        """현재 AP 상태를 player_data에 저장"""
+        self.player_data['downtown_ap_current'] = self.ap_system.current_ap
+        self.player_data['downtown_ap_is_first_stage'] = False  # 이후부터는 첫 광장이 아님
 
     def _reset_player_input_state(self):
         """모달 화면 복귀 시 남아 있는 이동 입력을 정리."""
@@ -653,7 +674,7 @@ class DowntownManager:
 
         # AP 체크
         if not self.ap_system.can_use(ap_cost):
-            self._show_message("행동 포인트가 부족합니다!", Colors.UI_DANGER)
+            self._show_message("열쇠가 부족합니다!", Colors.UI_DANGER)
             return
 
         # AP 소모
@@ -661,6 +682,9 @@ class DowntownManager:
 
         # 이번 세션에 방문한 건물로 기록
         self.visited_buildings_this_session.add(building_type)
+
+        # 건물 방문 직후 플래그 설정 (AP 소진 체크 스킵용)
+        self.just_visited_building = True
 
         # 열쇠 애니메이션 시작
         self.key_animation = {
@@ -712,6 +736,7 @@ class DowntownManager:
         """건물 나가기"""
         self.state = DowntownState.EXPLORING
         self.current_building = None
+        self.just_visited_building = False  # 건물 나가면 플래그 해제
         if self.player and hasattr(self.player, 'end_interaction'):
             self.player.end_interaction()
 
@@ -720,7 +745,7 @@ class DowntownManager:
         # AP가 남아있으면 확인
         if self.ap_system.current_ap > 0:
             confirm = self._show_confirm(
-                "아직 행동 포인트가 남아있습니다.\n정말 다음 스테이지로 이동하시겠습니까?"
+                "아직 열쇠가 남아있습니다.\n정말 다음 스테이지로 이동하시겠습니까?"
             )
             if not confirm:
                 return
@@ -803,9 +828,9 @@ class DowntownManager:
         # 렌더러 업데이트
         self.renderer.update(dt, self.player.x, self.player.y)
 
-        # AP 소진 체크
-        if self.ap_system.is_exhausted():
-            # 강제 출구로 이동
+        # AP 소진 체크 - 건물 방문 직후에는 체크하지 않음 (건물 이용은 허용)
+        # 열쇠 애니메이션 중이거나 건물 이용 중에는 스킵
+        if self.ap_system.is_exhausted() and not self.just_visited_building and self.key_animation is None:
             self._force_exit()
 
     def _update_in_building(self, dt):
@@ -821,7 +846,7 @@ class DowntownManager:
 
     def _force_exit(self):
         """강제 퇴장 (AP 소진)"""
-        self._show_message("행동 포인트가 모두 소진되었습니다!", Colors.UI_ACCENT)
+        self._show_message("열쇠가 모두 소진되었습니다!", Colors.UI_ACCENT)
         pygame.time.delay(1500)
         self.state = DowntownState.EXITING
         self.transition_alpha = 0

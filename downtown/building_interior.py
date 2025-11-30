@@ -1647,26 +1647,26 @@ INTERIOR_CONFIGS = {
     BuildingType.ACADEMY: {
         "name": "아카데미",
         "map_size": (32, 24),  # 2배 확대 (16x12 → 32x24)
-        "bg_color": (25, 50, 50),  # 청록색 계열 (스크린샷 참조)
-        "floor_color": (45, 80, 80),  # 청록색 바닥
-        "floor_pattern": "magic_circle_academy",  # 마법진 바닥 타일
-        "wall_color": (35, 65, 65),  # 청록색 벽
-        "accent_color": (120, 255, 200),  # 발광 청록 (마법진 색상)
-        "secondary_color": (80, 150, 130),  # 보조 색상
+        "bg_color": (35, 35, 40),  # 어두운 금속/콘크리트 색상
+        "floor_color": (55, 55, 60),  # 훈련장 바닥
+        "floor_pattern": "training_emblem",  # 창과방패 엠블럼 바닥
+        "wall_color": (45, 45, 50),  # 금속 벽
+        "accent_color": (255, 180, 80),  # 주황/골드 엑센트
+        "secondary_color": (180, 100, 50),  # 보조 색상 (따뜻한 톤)
         "decorations": [],  # 커스텀 인테리어 사용
         "main_npc": {
-            "name": "학장 아르카나",
-            "color": (150, 100, 255),
+            "name": "교관 타이탄",
+            "color": (200, 150, 80),  # 골드/브론즈 색상
             "position": (0.5, 0.18),  # 맵이 커졌으므로 위치 조정
             "dialogue": [
-                "아카데미에 오신 것을 환영합니다.",
-                "새로운 스킬을 배우고 싶으신가요?",
-                "현재 강의 준비 중입니다.",
-                "곧 수업이 시작될 거예요."
+                "훈련소에 온 것을 환영한다, 신병!",
+                "강해지고 싶다면 땀을 흘려라.",
+                "오늘의 훈련 메뉴는 대쉬와 회피다.",
+                "실전에서 살아남으려면 여기서 먼저 죽어라!"
             ]
         },
-        "customer_range": (4, 8),  # 학생 수 증가
-        "staff_count": 3,  # 교직원 증가
+        "customer_range": (4, 8),  # 훈련생 수
+        "staff_count": 3,  # 교관/의무병
         "special_interior": "academy",  # 특수 인테리어 플래그
     },
     BuildingType.MYSTERY: {
@@ -2336,10 +2336,10 @@ class BuildingInterior:
         return npcs
 
     def _create_academy_npcs(self):
-        """아카데미 전용 NPC 생성 (8~12명 학생, 다양한 활동)"""
+        """전투 아카데미 전용 NPC 생성 - 훈련생들 (프리스매셔, 프리발토르, 프리코만도)"""
         npcs = []
 
-        # === 학장 아르카나 (메인 NPC) ===
+        # === 교관 타이탄 (메인 NPC) - 미래전사 스타일 ===
         main_cfg = self.config["main_npc"]
         main_x = int(self.pixel_width * main_cfg["position"][0])
         main_y = int(self.pixel_height * main_cfg["position"][1])
@@ -2352,184 +2352,229 @@ class BuildingInterior:
             main_cfg["dialogue"],
             self.building_type
         )
+        # 교관 특수 속성 - 미래전사 느낌
+        main_npc.is_commander = True
         npcs.append(main_npc)
 
-        # === 학생 NPC 배치 (8~12명) ===
-        student_count = random.randint(8, 12)
-        student_names = [
-            "리나", "카이", "미라", "제이크", "소피아", "루크",
-            "에밀리", "노아", "클로이", "이선", "올리비아", "레오"
-        ]
-        random.shuffle(student_names)
+        # === 훈련생 NPC 배치 (8~12명) ===
+        trainee_count = random.randint(8, 12)
 
-        student_dialogues = [
-            ["마법 연습 중이에요!", "집중해야 해요..."],
-            ["이 주문이 어려워요...", "선생님께 여쭤봐야겠어요."],
-            ["오늘 수업 재밌었어요!", "내일도 열심히 해야지."],
-            ["대쉬 연습이 힘들어요.", "하지만 재미있어요!"],
-            ["파트너랑 연습 중이에요.", "서로 도와가며 배워요."],
-            ["아카데미 최고!", "실력이 늘고 있어요."],
-        ]
+        # 훈련생 유형별 이름과 색상
+        # 프리스매셔 (힘/근육형) - 빨강/주황 계열
+        pre_smasher_names = ["록키", "타이슨", "브루스"]
+        pre_smasher_color = (255, 120, 80)  # 주황-빨강
 
-        # 활동 배치 계획
-        # - 짝꿍 연습: 2쌍 (4명) - 서로 마주보고 마법 연습
-        # - 대쉬 연습: 1명
-        # - 혼자 마법 연습: 2~3명
-        # - 서있기: 1~2명
-        # - 걸어다니기: 나머지
+        # 프리발토르 (속도/민첩형) - 파랑/시안 계열
+        pre_baltor_names = ["스위프트", "블레이즈", "제트"]
+        pre_baltor_color = (100, 180, 255)  # 밝은 파랑
 
-        wall_h = int(TILE_SIZE * 3.5)  # 상단 벽 높이
+        # 프리코만도 (정확/사격형) - 초록/카키 계열
+        pre_commando_names = ["헌터", "스나이퍼", "레인저"]
+        pre_commando_color = (120, 180, 100)  # 카키/초록
+
+        trainee_dialogues = {
+            "pre_smasher": [
+                ["하! 파워 훈련 중이다!", "더 강해질 거야!"],
+                ["이 타이어 100개 넘는다!", "근육이 불타!"],
+                ["스매셔 선배처럼 되고 싶어!", "포기란 없다!"],
+            ],
+            "pre_baltor": [
+                ["속도가 생명이지!", "대쉬, 또 대쉬!"],
+                ["발토르 선배의 스피드에 도전!", "바람보다 빠르게!"],
+                ["민첩성 훈련 중!", "번개처럼 움직여!"],
+            ],
+            "pre_commando": [
+                ["조준... 발사!", "정확도가 전부야."],
+                ["코만도 선배의 사격술을 배우는 중.", "한 발, 한 명."],
+                ["침착하게, 정확하게.", "훈련이 실력을 만든다."],
+            ],
+            "ping_pong": [
+                ["탁구로 반사신경 훈련!", "좋아, 좋은 랠리야!"],
+                ["손목 스냅이 중요해!", "이기면 아이스크림!"],
+            ],
+        }
+
+        wall_h = int(TILE_SIZE * 3.5)
         center_x = self.pixel_width // 2
         center_y = (wall_h + self.pixel_height) // 2
 
-        student_idx = 0
+        trainee_idx = 0
 
-        # --- 짝꿍 연습 1조 (왼쪽 영역) ---
-        pair1_x = center_x - 120
-        pair1_y = center_y + 30
-        pair_distance = 70  # 짝꿍 간 거리
+        # === 탁구대 1 (프리발토르 vs 프리스매셔) ===
+        table1_x = center_x - 160
+        table1_y = center_y - 40
 
-        if student_idx < student_count:
-            # 왼쪽 학생 (오른쪽 바라봄)
-            s1 = InteriorNPC(
-                pair1_x - pair_distance // 2, pair1_y,
-                student_names[student_idx % len(student_names)], "customer",
-                (100, 150, 255), random.choice(student_dialogues), self.building_type
+        if trainee_idx < trainee_count:
+            # 프리발토르 (왼쪽)
+            pp1 = InteriorNPC(
+                table1_x - 20, table1_y + 30,
+                random.choice(pre_baltor_names), "customer",
+                pre_baltor_color, random.choice(trainee_dialogues["ping_pong"]), self.building_type
             )
-            s1.academy_activity = "pair_practice"
-            s1.direction = 2  # 오른쪽 바라봄
-            s1.practice_timer = 0
-            npcs.append(s1)
-            student_idx += 1
+            pp1.academy_activity = "ping_pong"
+            pp1.trainee_type = "pre_baltor"
+            pp1.direction = 2
+            pp1.ping_pong_timer = 0
+            npcs.append(pp1)
+            trainee_idx += 1
 
-        if student_idx < student_count:
-            # 오른쪽 학생 (왼쪽 바라봄)
-            s2 = InteriorNPC(
-                pair1_x + pair_distance // 2, pair1_y,
-                student_names[student_idx % len(student_names)], "customer",
-                (255, 150, 100), random.choice(student_dialogues), self.building_type
+        if trainee_idx < trainee_count:
+            # 프리스매셔 (오른쪽)
+            pp2 = InteriorNPC(
+                table1_x + 120, table1_y + 30,
+                random.choice(pre_smasher_names), "customer",
+                pre_smasher_color, random.choice(trainee_dialogues["ping_pong"]), self.building_type
             )
-            s2.academy_activity = "pair_practice"
-            s2.direction = 1  # 왼쪽 바라봄
-            s2.practice_timer = 2.0  # 반 사이클 오프셋 (서로 번갈아 마법)
-            s2.pair_partner = s1
-            s1.pair_partner = s2
-            npcs.append(s2)
-            student_idx += 1
+            pp2.academy_activity = "ping_pong"
+            pp2.trainee_type = "pre_smasher"
+            pp2.direction = 1
+            pp2.ping_pong_timer = 0.5
+            if trainee_idx > 0:
+                pp2.ping_pong_partner = pp1
+                pp1.ping_pong_partner = pp2
+            npcs.append(pp2)
+            trainee_idx += 1
 
-        # --- 짝꿍 연습 2조 (오른쪽 영역) ---
-        pair2_x = center_x + 100
-        pair2_y = center_y - 20
+        # === 탁구대 2 (프리코만도 vs 프리발토르) ===
+        table2_x = center_x + 60
+        table2_y = center_y + 50
 
-        if student_idx < student_count:
-            s3 = InteriorNPC(
-                pair2_x - pair_distance // 2, pair2_y,
-                student_names[student_idx % len(student_names)], "customer",
-                (150, 255, 150), random.choice(student_dialogues), self.building_type
+        if trainee_idx < trainee_count:
+            pp3 = InteriorNPC(
+                table2_x - 20, table2_y + 30,
+                random.choice(pre_commando_names), "customer",
+                pre_commando_color, random.choice(trainee_dialogues["ping_pong"]), self.building_type
             )
-            s3.academy_activity = "pair_practice"
-            s3.direction = 2
-            s3.practice_timer = 1.0
-            npcs.append(s3)
-            student_idx += 1
+            pp3.academy_activity = "ping_pong"
+            pp3.trainee_type = "pre_commando"
+            pp3.direction = 2
+            pp3.ping_pong_timer = 0.3
+            npcs.append(pp3)
+            trainee_idx += 1
 
-        if student_idx < student_count:
-            s4 = InteriorNPC(
-                pair2_x + pair_distance // 2, pair2_y,
-                student_names[student_idx % len(student_names)], "customer",
-                (255, 200, 100), random.choice(student_dialogues), self.building_type
+        if trainee_idx < trainee_count:
+            pp4 = InteriorNPC(
+                table2_x + 120, table2_y + 30,
+                random.choice(pre_baltor_names), "customer",
+                pre_baltor_color, random.choice(trainee_dialogues["ping_pong"]), self.building_type
             )
-            s4.academy_activity = "pair_practice"
-            s4.direction = 1
-            s4.practice_timer = 3.0
-            s4.pair_partner = s3
-            s3.pair_partner = s4
-            npcs.append(s4)
-            student_idx += 1
+            pp4.academy_activity = "ping_pong"
+            pp4.trainee_type = "pre_baltor"
+            pp4.direction = 1
+            pp4.ping_pong_timer = 0.8
+            pp4.ping_pong_partner = pp3
+            pp3.ping_pong_partner = pp4
+            npcs.append(pp4)
+            trainee_idx += 1
 
-        # --- 대쉬 연습 (1명, 하단 중앙) ---
-        if student_idx < student_count:
-            dash_student = InteriorNPC(
-                center_x, center_y + 100,
-                student_names[student_idx % len(student_names)], "customer",
-                (200, 150, 255), ["대쉬 연습 중!", "으랏차!"], self.building_type
+        # === 대쉬 연습 프리발토르 (2명, 러닝 트랙) ===
+        if trainee_idx < trainee_count:
+            dash_trainee = InteriorNPC(
+                220, center_y + 80,
+                random.choice(pre_baltor_names), "customer",
+                pre_baltor_color, random.choice(trainee_dialogues["pre_baltor"]), self.building_type
             )
-            dash_student.academy_activity = "dash_practice"
-            dash_student.direction = 2  # 오른쪽부터 시작
-            dash_student.dash_state = "idle"
-            dash_student.dash_timer = random.uniform(0, 1.5)  # 랜덤 시작 시간
-            npcs.append(dash_student)
-            student_idx += 1
+            dash_trainee.academy_activity = "dash_practice"
+            dash_trainee.trainee_type = "pre_baltor"
+            dash_trainee.direction = 0  # 위쪽
+            dash_trainee.dash_state = "running"
+            dash_trainee.dash_timer = random.uniform(0, 1.5)
+            npcs.append(dash_trainee)
+            trainee_idx += 1
 
-        # --- 혼자 마법 연습 (2~3명) ---
-        solo_positions = [
-            (center_x - 180, center_y + 80),
-            (center_x + 180, center_y + 60),
-            (center_x - 50, center_y + 150),
+        # === 타이어/수류탄 훈련 프리스매셔 (2명) ===
+        strength_positions = [
+            (60, wall_h + 120),  # 타이어 근처
+            (130, wall_h + 100),  # 수류탄 상자 근처
         ]
-        solo_count = min(3, student_count - student_idx)
-
-        for i in range(solo_count):
-            if student_idx >= student_count:
+        for i, (px, py) in enumerate(strength_positions):
+            if trainee_idx >= trainee_count:
                 break
-            px, py = solo_positions[i]
-            solo_student = InteriorNPC(
+            strength_trainee = InteriorNPC(
                 px, py,
-                student_names[student_idx % len(student_names)], "customer",
-                (150, 200, 255), random.choice(student_dialogues), self.building_type
+                random.choice(pre_smasher_names), "customer",
+                pre_smasher_color, random.choice(trainee_dialogues["pre_smasher"]), self.building_type
             )
-            solo_student.academy_activity = "magic_practice"
-            solo_student.direction = random.choice([0, 1, 2, 3])  # 랜덤 방향
-            solo_student.practice_timer = random.uniform(0, 3)  # 랜덤 시작 위상
-            npcs.append(solo_student)
-            student_idx += 1
+            strength_trainee.academy_activity = "strength_training" if i == 0 else "grenade_practice"
+            strength_trainee.trainee_type = "pre_smasher"
+            strength_trainee.direction = 0
+            strength_trainee.practice_timer = random.uniform(0, 2)
+            npcs.append(strength_trainee)
+            trainee_idx += 1
 
-        # --- 서있는 학생 (1~2명) ---
-        standing_positions = [
+        # === 사격 연습 프리코만도 (1명, 사격장) ===
+        if trainee_idx < trainee_count:
+            shooter = InteriorNPC(
+                self.pixel_width - 90, wall_h + 150,
+                random.choice(pre_commando_names), "customer",
+                pre_commando_color, random.choice(trainee_dialogues["pre_commando"]), self.building_type
+            )
+            shooter.academy_activity = "shooting_practice"
+            shooter.trainee_type = "pre_commando"
+            shooter.direction = 0  # 위쪽 (과녁 방향)
+            shooter.practice_timer = random.uniform(0, 3)
+            shooter.is_aiming = True
+            npcs.append(shooter)
+            trainee_idx += 1
+
+        # === 대기/휴식 중인 훈련생들 ===
+        rest_positions = [
+            (center_x - 100, center_y + 150),
             (center_x + 150, center_y + 130),
-            (center_x - 150, center_y + 150),
+            (center_x - 50, center_y + 180),
         ]
-        standing_count = min(2, student_count - student_idx)
+        trainee_types = [
+            ("pre_smasher", pre_smasher_names, pre_smasher_color, trainee_dialogues["pre_smasher"]),
+            ("pre_baltor", pre_baltor_names, pre_baltor_color, trainee_dialogues["pre_baltor"]),
+            ("pre_commando", pre_commando_names, pre_commando_color, trainee_dialogues["pre_commando"]),
+        ]
 
-        for i in range(standing_count):
-            if student_idx >= student_count:
-                break
-            px, py = standing_positions[i]
-            standing_student = InteriorNPC(
+        rest_idx = 0
+        while trainee_idx < trainee_count and rest_idx < len(rest_positions):
+            px, py = rest_positions[rest_idx]
+            px += random.randint(-20, 20)
+            py += random.randint(-10, 10)
+
+            t_type, t_names, t_color, t_dialogues = trainee_types[rest_idx % len(trainee_types)]
+
+            resting_trainee = InteriorNPC(
                 px, py,
-                student_names[student_idx % len(student_names)], "customer",
-                (180, 180, 200), random.choice(student_dialogues), self.building_type
+                random.choice(t_names), "customer",
+                t_color, random.choice(t_dialogues), self.building_type
             )
-            standing_student.academy_activity = "standing"
-            standing_student.direction = random.choice([0, 1, 2, 3])
-            npcs.append(standing_student)
-            student_idx += 1
+            resting_trainee.academy_activity = "standing"
+            resting_trainee.trainee_type = t_type
+            resting_trainee.direction = random.choice([0, 1, 2, 3])
+            npcs.append(resting_trainee)
+            trainee_idx += 1
+            rest_idx += 1
 
-        # --- 걸어다니는 학생 (나머지) ---
+        # === 걸어다니는 훈련생 (나머지) ===
         walking_positions = [
-            (center_x - 100, center_y + 180),
-            (center_x + 50, center_y + 200),
-            (center_x - 30, center_y + 50),
+            (center_x - 80, center_y + 120),
+            (center_x + 80, center_y + 100),
         ]
 
         walk_idx = 0
-        while student_idx < student_count:
+        while trainee_idx < trainee_count:
             px, py = walking_positions[walk_idx % len(walking_positions)]
-            # 약간의 랜덤 오프셋
             px += random.randint(-30, 30)
             py += random.randint(-20, 20)
 
-            walking_student = InteriorNPC(
+            t_type, t_names, t_color, t_dialogues = trainee_types[walk_idx % len(trainee_types)]
+
+            walking_trainee = InteriorNPC(
                 px, py,
-                student_names[student_idx % len(student_names)], "customer",
-                (160, 180, 220), random.choice(student_dialogues), self.building_type
+                random.choice(t_names), "customer",
+                t_color, random.choice(t_dialogues), self.building_type
             )
-            walking_student.academy_activity = "walking"
-            walking_student.is_walking = False
-            walking_student.walk_timer = random.uniform(1, 5)  # 곧 걷기 시작
-            walking_student.walk_range = 80
-            npcs.append(walking_student)
-            student_idx += 1
+            walking_trainee.academy_activity = "walking"
+            walking_trainee.trainee_type = t_type
+            walking_trainee.is_walking = False
+            walking_trainee.walk_timer = random.uniform(1, 4)
+            walking_trainee.walk_range = 60
+            npcs.append(walking_trainee)
+            trainee_idx += 1
             walk_idx += 1
 
         return npcs
@@ -5684,24 +5729,21 @@ class BuildingInterior:
                 screen.blit(item_surf, (item_rect.x + 40, item_rect.y + 8))
 
     def _draw_academy_interior(self, screen):
-        """아카데미 전용 인테리어 - 마법 도서관 스타일"""
+        """아카데미 전용 인테리어 - 훈련소/전투 아카데미 스타일"""
         import math
 
-        # 색상 팔레트 (청록색/시안 계열 마법 테마)
-        BG_DARK = (15, 35, 35)           # 어두운 청록 배경
-        FLOOR_A = (35, 65, 65)           # 바닥 타일 A
-        FLOOR_B = (45, 75, 75)           # 바닥 타일 B
-        WALL_COLOR = (25, 50, 50)        # 벽 색상
-        ACCENT_CYAN = (100, 255, 200)    # 발광 청록 (마법진)
-        ACCENT_CYAN_DIM = (60, 150, 120) # 어두운 청록
-        MAGIC_GLOW = (120, 255, 220)     # 마법 발광
-        WOOD_DARK = (60, 45, 30)         # 어두운 나무
-        WOOD_MID = (90, 65, 40)          # 중간 나무
-        WOOD_LIGHT = (120, 90, 55)       # 밝은 나무
-        GOLD = (255, 200, 100)           # 금색 (장식)
-        FLAME_ORANGE = (255, 150, 50)    # 횃불 불꽃
-        FLAME_YELLOW = (255, 220, 100)   # 횃불 밝은 불꽃
+        # 색상 팔레트 (금속/콘크리트 훈련소 테마)
+        BG_DARK = (30, 30, 35)           # 어두운 금속 배경
+        FLOOR_A = (50, 50, 55)           # 바닥 타일 A (콘크리트)
+        FLOOR_B = (60, 60, 65)           # 바닥 타일 B
+        WALL_COLOR = (40, 40, 45)        # 금속 벽
+        ACCENT_GOLD = (255, 180, 80)     # 골드 엑센트
+        ACCENT_GOLD_DIM = (180, 120, 50) # 어두운 골드
+        METAL_LIGHT = (80, 85, 90)       # 밝은 금속
+        METAL_DARK = (45, 48, 52)        # 어두운 금속
+        WARNING_ORANGE = (255, 150, 50)  # 경고 주황
         WHITE = (240, 245, 250)
+        GREEN_HEAL = (100, 255, 150)     # 힐링 캡슐 색상
 
         cam_x, cam_y = self.camera_offset
         cx = self.pixel_width // 2  # 중앙 X
@@ -5709,10 +5751,6 @@ class BuildingInterior:
 
         # 장애물 영역 설정 (플레이어/NPC 이동 불가)
         wall_h = int(TILE_SIZE * 3.5)
-        shelf_w = 70
-        shelf_h = 180
-        desk_w = 80
-        desk_h = 75  # 책상 + 다리 높이
 
         # 장애물 영역 리스트 초기화
         self.academy_obstacle_rects = []
@@ -5720,160 +5758,211 @@ class BuildingInterior:
         # 1) 상단 벽 영역
         self.academy_obstacle_rects.append(pygame.Rect(0, 0, self.pixel_width, wall_h))
 
-        # 2) 왼쪽 책장들 (3개)
-        shelf_y = wall_h + 20
-        for i in range(3):
-            sx = 15 + i * (shelf_w + 10)
-            self.academy_obstacle_rects.append(pygame.Rect(sx, shelf_y - 15, shelf_w, shelf_h + 15))
+        # 2) 왼쪽 훈련 장비들 (타이어, 수류탄 상자)
+        equip_y = wall_h + 20
+        for i in range(2):
+            sx = 15 + i * 90
+            self.academy_obstacle_rects.append(pygame.Rect(sx, equip_y, 70, 120))
 
-        # 3) 오른쪽 책장들 (3개)
-        for i in range(3):
-            sx = self.pixel_width - 15 - (i + 1) * (shelf_w + 10) + 10
-            self.academy_obstacle_rects.append(pygame.Rect(sx, shelf_y - 15, shelf_w, shelf_h + 15))
+        # 3) 오른쪽 사격장
+        shoot_range_x = self.pixel_width - 150
+        self.academy_obstacle_rects.append(pygame.Rect(shoot_range_x, equip_y, 120, 180))
 
-        # 4) 책상들 (4개)
-        center_x = self.pixel_width // 2
-        center_y = self.pixel_height // 2
-        desk_positions = [
-            (center_x - 180, center_y - 80),
-            (center_x - 180, center_y + 60),
-            (center_x + 100, center_y - 80),
-            (center_x + 100, center_y + 60),
+        # 4) 탁구대들 (2개)
+        table_w, table_h = 100, 60
+        table_positions = [
+            (cx - 160, cy - 40),
+            (cx + 60, cy + 50),
         ]
-        for dx, dy in desk_positions:
-            self.academy_obstacle_rects.append(pygame.Rect(dx, dy, desk_w, desk_h))
+        for tx, ty in table_positions:
+            self.academy_obstacle_rects.append(pygame.Rect(tx, ty, table_w, table_h))
+
+        # 5) 힐링 캡슐
+        capsule_x, capsule_y = 30, self.pixel_height - 150
+        self.academy_obstacle_rects.append(pygame.Rect(capsule_x, capsule_y, 60, 100))
 
         # 1. 배경
         screen.fill(BG_DARK)
 
-        # 2. 바닥 타일 (기본 격자)
+        # 2. 바닥 타일 (콘크리트 격자)
         for ty in range(self.map_height):
             for tx in range(self.map_width):
                 tile_x = tx * TILE_SIZE - cam_x
                 tile_y = ty * TILE_SIZE - cam_y
                 color = FLOOR_A if (tx + ty) % 2 == 0 else FLOOR_B
                 pygame.draw.rect(screen, color, (tile_x, tile_y, TILE_SIZE, TILE_SIZE))
+                # 콘크리트 금이 간 느낌
+                if (tx + ty) % 5 == 0:
+                    pygame.draw.line(screen, (40, 40, 45),
+                                   (tile_x, tile_y),
+                                   (tile_x + TILE_SIZE, tile_y + TILE_SIZE), 1)
 
-        # 3. 마법진 (중앙 바닥에 큰 원형 룬)
-        self._draw_magic_circle(screen, cx - cam_x, cy - cam_y, self.animation_timer)
+        # 3. 창과방패 엠블럼 (중앙 바닥)
+        self._draw_training_emblem(screen, cx - cam_x, cy - cam_y, self.animation_timer)
 
-        # 4. 상단 벽
+        # 4. 상단 벽 (금속 패널)
         wall_h = int(TILE_SIZE * 3.5)
         pygame.draw.rect(screen, WALL_COLOR, (-cam_x, -cam_y, self.pixel_width, wall_h))
 
-        # 벽 하단 장식 라인
-        pygame.draw.rect(screen, ACCENT_CYAN_DIM, (-cam_x, -cam_y + wall_h - 4, self.pixel_width, 4))
+        # 금속 리벳 라인
+        for rx in range(0, self.pixel_width, 60):
+            pygame.draw.circle(screen, METAL_LIGHT, (rx - cam_x, int(-cam_y + wall_h - 15)), 4)
+        pygame.draw.rect(screen, ACCENT_GOLD_DIM, (-cam_x, -cam_y + wall_h - 4, self.pixel_width, 4))
 
-        # 5. 창문들 (상단 벽)
-        self._draw_academy_windows(screen, cam_x, cam_y, wall_h, self.animation_timer)
+        # 5. 훈련소 창문 (철창 스타일)
+        self._draw_training_windows(screen, cam_x, cam_y, wall_h, self.animation_timer)
 
-        # 6. 건물 이름 표시 (아카데미)
+        # 6. 건물 이름 표시 (훈련소)
         sign_y = -cam_y + 15
         sign_x = cx - cam_x
 
-        # 로고 배경 패널
-        panel_w, panel_h = 140, 32
-        pygame.draw.rect(screen, (20, 40, 40), (sign_x - panel_w//2, sign_y - 3, panel_w, panel_h), border_radius=6)
-        pygame.draw.rect(screen, ACCENT_CYAN, (sign_x - panel_w//2, sign_y - 3, panel_w, panel_h), 2, border_radius=6)
+        # 군사 스타일 로고 패널
+        panel_w, panel_h = 160, 36
+        pygame.draw.rect(screen, (35, 35, 40), (sign_x - panel_w//2, sign_y - 3, panel_w, panel_h), border_radius=3)
+        pygame.draw.rect(screen, ACCENT_GOLD, (sign_x - panel_w//2, sign_y - 3, panel_w, panel_h), 2, border_radius=3)
 
         # 로고 글로우
         glow_intensity = int(40 + 25 * math.sin(self.animation_timer * 1.5))
         glow_surf = pygame.Surface((panel_w + 16, panel_h + 16), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (*ACCENT_CYAN, glow_intensity), (0, 0, panel_w + 16, panel_h + 16), border_radius=10)
+        pygame.draw.rect(glow_surf, (*ACCENT_GOLD, glow_intensity), (0, 0, panel_w + 16, panel_h + 16), border_radius=6)
         screen.blit(glow_surf, (sign_x - panel_w//2 - 8, sign_y - 11))
 
         # 로고 텍스트
         font_large = self.fonts.get('large')
         if font_large:
-            text_surf, text_rect = font_large.render("아카데미", ACCENT_CYAN)
-            screen.blit(text_surf, (sign_x - text_rect.width // 2, sign_y + 2))
+            text_surf, text_rect = font_large.render("전투 아카데미", ACCENT_GOLD)
+            screen.blit(text_surf, (sign_x - text_rect.width // 2, sign_y + 4))
 
-        # 7. 책장들 (좌우 벽)
-        self._draw_bookshelves(screen, cam_x, cam_y, wall_h)
+        # 7. 왼쪽: 훈련 장비 (타이어, 수류탄 상자)
+        self._draw_training_equipment(screen, cam_x, cam_y, wall_h)
 
-        # 8. 횃불들 (벽면)
-        self._draw_wall_torches(screen, cam_x, cam_y, wall_h, self.animation_timer)
+        # 8. 오른쪽: 사격 연습장
+        self._draw_shooting_range(screen, cam_x, cam_y, wall_h, self.animation_timer)
 
-        # 9. 책상들 (중앙 영역)
-        self._draw_study_desks(screen, cam_x, cam_y, wall_h)
+        # 9. 탁구대들 (중앙 영역)
+        self._draw_ping_pong_tables(screen, cam_x, cam_y)
 
-        # 10. 문 그리기
+        # 10. 힐링 캡슐 (부상자 치료)
+        self._draw_healing_capsule(screen, cam_x, cam_y, self.animation_timer)
+
+        # 11. 러닝 트랙 라인 (바닥)
+        self._draw_running_track(screen, cam_x, cam_y, wall_h)
+
+        # 12. 문 그리기
         self._draw_door(screen)
 
-    def _draw_magic_circle(self, screen, cx, cy, anim_timer):
-        """마법진 그리기 (바닥 중앙)"""
+    def _draw_training_emblem(self, screen, cx, cy, anim_timer):
+        """창과방패 엠블럼 그리기 (바닥 중앙)"""
         import math
 
-        MAGIC_CYAN = (100, 255, 200)
-        MAGIC_DIM = (50, 150, 120)
-        MAGIC_GLOW = (80, 200, 160)
+        EMBLEM_GOLD = (255, 200, 100)
+        EMBLEM_DIM = (180, 140, 70)
+        EMBLEM_GLOW = (255, 220, 150)
+        SHIELD_GRAY = (120, 130, 140)
+        SPEAR_BROWN = (140, 100, 60)
 
-        # 마법진 크기
-        outer_radius = 140
-        inner_radius = 100
-        center_radius = 40
-
-        # 회전 애니메이션
-        rotation = anim_timer * 0.3
+        # 엠블럼 크기
+        outer_radius = 150
+        shield_size = 90
 
         # 글로우 효과 (배경)
-        glow_intensity = int(30 + 15 * math.sin(anim_timer * 2))
+        glow_intensity = int(25 + 12 * math.sin(anim_timer * 1.5))
         for r in range(outer_radius + 30, outer_radius, -5):
             alpha = max(0, glow_intensity - (r - outer_radius) * 2)
             glow_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*MAGIC_DIM, alpha), (r, r), r)
+            pygame.draw.circle(glow_surf, (*EMBLEM_DIM, alpha), (r, r), r)
             screen.blit(glow_surf, (cx - r, cy - r))
 
-        # 외부 원
-        pygame.draw.circle(screen, MAGIC_CYAN, (int(cx), int(cy)), outer_radius, 3)
-        pygame.draw.circle(screen, MAGIC_DIM, (int(cx), int(cy)), outer_radius - 8, 2)
+        # 외부 원 (골드 테두리)
+        pygame.draw.circle(screen, EMBLEM_GOLD, (int(cx), int(cy)), outer_radius, 4)
+        pygame.draw.circle(screen, EMBLEM_DIM, (int(cx), int(cy)), outer_radius - 10, 2)
 
-        # 중간 원
-        pygame.draw.circle(screen, MAGIC_CYAN, (int(cx), int(cy)), inner_radius, 2)
+        # 장식 점들 (외부 원 주위)
+        for i in range(16):
+            angle = (i * math.pi / 8)
+            rx = cx + (outer_radius - 7) * math.cos(angle)
+            ry = cy + (outer_radius - 7) * math.sin(angle)
+            pulse = 3 + int(1 * math.sin(anim_timer * 2 + i))
+            pygame.draw.circle(screen, EMBLEM_GOLD, (int(rx), int(ry)), pulse)
 
-        # 내부 원
-        pygame.draw.circle(screen, MAGIC_GLOW, (int(cx), int(cy)), center_radius, 2)
+        # === 방패 (중앙) ===
+        shield_points = [
+            (cx, cy - shield_size),                    # 상단 꼭지점
+            (cx + shield_size * 0.8, cy - shield_size * 0.5),  # 우상단
+            (cx + shield_size * 0.8, cy + shield_size * 0.3),  # 우측
+            (cx, cy + shield_size),                    # 하단 꼭지점
+            (cx - shield_size * 0.8, cy + shield_size * 0.3),  # 좌측
+            (cx - shield_size * 0.8, cy - shield_size * 0.5),  # 좌상단
+        ]
+        pygame.draw.polygon(screen, SHIELD_GRAY, shield_points)
+        pygame.draw.polygon(screen, EMBLEM_GOLD, shield_points, 3)
 
-        # 룬 심볼들 (외부 원 주위)
-        for i in range(12):
-            angle = rotation + (i * math.pi / 6)
-            rx = cx + (outer_radius - 15) * math.cos(angle)
-            ry = cy + (outer_radius - 15) * math.sin(angle)
+        # 방패 내부 장식 (십자)
+        pygame.draw.line(screen, EMBLEM_GOLD, (cx, cy - shield_size * 0.7),
+                        (cx, cy + shield_size * 0.7), 3)
+        pygame.draw.line(screen, EMBLEM_GOLD, (cx - shield_size * 0.5, cy),
+                        (cx + shield_size * 0.5, cy), 3)
 
-            # 작은 원 (룬 포인트)
-            pulse = 3 + int(2 * math.sin(anim_timer * 3 + i))
-            pygame.draw.circle(screen, MAGIC_CYAN, (int(rx), int(ry)), pulse)
+        # === 창 (왼쪽 대각선) ===
+        spear_length = 180
+        spear_angle = math.pi * 0.75  # 135도
+        spear_x1 = cx + spear_length * 0.6 * math.cos(spear_angle)
+        spear_y1 = cy + spear_length * 0.6 * math.sin(spear_angle)
+        spear_x2 = cx - spear_length * 0.6 * math.cos(spear_angle)
+        spear_y2 = cy - spear_length * 0.6 * math.sin(spear_angle)
 
-        # 별 모양 (중앙)
-        star_points = []
-        for i in range(10):
-            angle = -math.pi / 2 + rotation + (i * math.pi / 5)
-            r = center_radius - 5 if i % 2 == 0 else (center_radius - 5) * 0.4
-            star_points.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
-        pygame.draw.polygon(screen, MAGIC_CYAN, star_points, 2)
+        # 창대
+        pygame.draw.line(screen, SPEAR_BROWN, (int(spear_x1), int(spear_y1)),
+                        (int(spear_x2), int(spear_y2)), 6)
 
-        # 삼각형 패턴 (내부)
-        for i in range(3):
-            angle1 = rotation * 0.5 + (i * 2 * math.pi / 3)
-            angle2 = angle1 + (2 * math.pi / 3)
-            angle3 = angle2 + (2 * math.pi / 3)
+        # 창끝 (삼각형)
+        tip_size = 20
+        tip_angle = spear_angle + math.pi
+        tip_points = [
+            (spear_x2, spear_y2),
+            (spear_x2 - tip_size * 0.4 * math.cos(tip_angle - 0.5),
+             spear_y2 - tip_size * 0.4 * math.sin(tip_angle - 0.5)),
+            (spear_x2 + tip_size * math.cos(tip_angle),
+             spear_y2 + tip_size * math.sin(tip_angle)),
+            (spear_x2 - tip_size * 0.4 * math.cos(tip_angle + 0.5),
+             spear_y2 - tip_size * 0.4 * math.sin(tip_angle + 0.5)),
+        ]
+        pygame.draw.polygon(screen, EMBLEM_GOLD, tip_points)
 
-            tri_r = inner_radius - 15
-            points = [
-                (cx + tri_r * math.cos(angle1), cy + tri_r * math.sin(angle1)),
-                (cx + tri_r * math.cos(angle2), cy + tri_r * math.sin(angle2)),
-                (cx + tri_r * math.cos(angle3), cy + tri_r * math.sin(angle3))
-            ]
-            pygame.draw.polygon(screen, MAGIC_DIM, points, 1)
+        # === 창 (오른쪽 대각선) ===
+        spear_angle2 = math.pi * 0.25  # 45도
+        spear2_x1 = cx + spear_length * 0.6 * math.cos(spear_angle2)
+        spear2_y1 = cy + spear_length * 0.6 * math.sin(spear_angle2)
+        spear2_x2 = cx - spear_length * 0.6 * math.cos(spear_angle2)
+        spear2_y2 = cy - spear_length * 0.6 * math.sin(spear_angle2)
 
-        # 연결선 (중앙에서 외부로)
-        for i in range(6):
-            angle = rotation * 0.7 + (i * math.pi / 3)
-            x1 = cx + center_radius * math.cos(angle)
-            y1 = cy + center_radius * math.sin(angle)
-            x2 = cx + inner_radius * math.cos(angle)
-            y2 = cy + inner_radius * math.sin(angle)
-            pygame.draw.line(screen, MAGIC_DIM, (int(x1), int(y1)), (int(x2), int(y2)), 1)
+        # 창대
+        pygame.draw.line(screen, SPEAR_BROWN, (int(spear2_x1), int(spear2_y1)),
+                        (int(spear2_x2), int(spear2_y2)), 6)
+
+        # 창끝 (삼각형)
+        tip_angle2 = spear_angle2 + math.pi
+        tip_points2 = [
+            (spear2_x2, spear2_y2),
+            (spear2_x2 - tip_size * 0.4 * math.cos(tip_angle2 - 0.5),
+             spear2_y2 - tip_size * 0.4 * math.sin(tip_angle2 - 0.5)),
+            (spear2_x2 + tip_size * math.cos(tip_angle2),
+             spear2_y2 + tip_size * math.sin(tip_angle2)),
+            (spear2_x2 - tip_size * 0.4 * math.cos(tip_angle2 + 0.5),
+             spear2_y2 - tip_size * 0.4 * math.sin(tip_angle2 + 0.5)),
+        ]
+        pygame.draw.polygon(screen, EMBLEM_GOLD, tip_points2)
+
+        # 텍스트 "COMBAT ACADEMY"
+        font_small = self.fonts.get('small')
+        if font_small:
+            pulse_alpha = int(200 + 55 * math.sin(anim_timer * 2))
+            text_surf, text_rect = font_small.render("COMBAT ACADEMY", EMBLEM_GOLD)
+            screen.blit(text_surf, (cx - text_rect.width // 2, cy + outer_radius + 10))
+
+    def _draw_magic_circle(self, screen, cx, cy, anim_timer):
+        """마법진 그리기 (바닥 중앙) - 레거시, 훈련소에서는 사용 안함"""
+        pass  # _draw_training_emblem으로 대체됨
 
     def _draw_academy_windows(self, screen, cam_x, cam_y, wall_h, anim_timer):
         """아카데미 창문들 (상단 벽)"""
@@ -6100,6 +6189,291 @@ class BuildingInterior:
                 pygame.draw.line(screen, (150, 145, 130),
                                (desk_x + 44, desk_y + 15 + line * 5),
                                (desk_x + 60, desk_y + 15 + line * 5), 1)
+
+    # ========== 훈련소 전용 인테리어 함수들 ==========
+
+    def _draw_training_windows(self, screen, cam_x, cam_y, wall_h, anim_timer):
+        """훈련소 창문들 (철창 스타일)"""
+        import math
+
+        FRAME_COLOR = (70, 75, 80)       # 금속 창틀
+        GLASS_COLOR = (40, 50, 60)       # 어두운 유리
+        LIGHT_COLOR = (200, 180, 150)    # 따뜻한 빛
+        BAR_COLOR = (90, 95, 100)        # 철창
+
+        # 창문 설정
+        window_w = 55
+        window_h = 65
+        window_y = -cam_y + 25
+
+        # 창문 개수와 간격
+        num_windows = 5
+        spacing = self.pixel_width // (num_windows + 1)
+
+        for i in range(num_windows):
+            wx = -cam_x + spacing * (i + 1) - window_w // 2
+
+            # 창문 배경 (유리)
+            pygame.draw.rect(screen, GLASS_COLOR, (wx, window_y, window_w, window_h))
+
+            # 빛 효과 (약간의 애니메이션)
+            light_intensity = int(80 + 40 * math.sin(anim_timer * 0.8 + i * 0.3))
+            light_surf = pygame.Surface((window_w - 8, window_h - 8), pygame.SRCALPHA)
+            light_surf.fill((*LIGHT_COLOR, light_intensity))
+            screen.blit(light_surf, (wx + 4, window_y + 4))
+
+            # 철창 (세로 바)
+            for bar in range(4):
+                bar_x = wx + 10 + bar * 12
+                pygame.draw.rect(screen, BAR_COLOR, (bar_x, window_y, 4, window_h))
+
+            # 창틀
+            pygame.draw.rect(screen, FRAME_COLOR, (wx, window_y, window_w, window_h), 4)
+
+    def _draw_training_equipment(self, screen, cam_x, cam_y, wall_h):
+        """훈련 장비 그리기 (타이어, 수류탄 상자)"""
+        TIRE_BLACK = (30, 30, 35)
+        TIRE_GRAY = (50, 50, 55)
+        BOX_BROWN = (100, 70, 40)
+        BOX_DARK = (70, 50, 30)
+        GRENADE_GREEN = (60, 80, 50)
+        WARNING_ORANGE = (255, 150, 50)
+
+        equip_y = -cam_y + wall_h + 30
+
+        # === 타이어 스택 (왼쪽) ===
+        tire_x = -cam_x + 25
+
+        # 타이어 3개 쌓기
+        for t in range(3):
+            ty = equip_y + t * 35
+            # 타이어 외곽
+            pygame.draw.ellipse(screen, TIRE_BLACK, (tire_x, ty, 55, 30))
+            # 타이어 내부 (구멍)
+            pygame.draw.ellipse(screen, TIRE_GRAY, (tire_x + 15, ty + 8, 25, 14))
+
+        # === 수류탄 상자 (오른쪽) ===
+        box_x = -cam_x + 100
+        box_y = equip_y + 20
+        box_w, box_h = 65, 50
+
+        # 상자 본체
+        pygame.draw.rect(screen, BOX_BROWN, (box_x, box_y, box_w, box_h))
+        pygame.draw.rect(screen, BOX_DARK, (box_x, box_y, box_w, box_h), 3)
+
+        # 상자 뚜껑 열린 부분
+        pygame.draw.rect(screen, BOX_DARK, (box_x + 5, box_y - 10, box_w - 10, 15))
+
+        # 경고 스트라이프
+        for stripe in range(0, box_w, 12):
+            pygame.draw.rect(screen, WARNING_ORANGE, (box_x + stripe, box_y + 35, 6, 10))
+
+        # 수류탄들 (상자 안에 보이는)
+        for g in range(3):
+            gx = box_x + 12 + g * 18
+            gy = box_y + 5
+            # 수류탄 몸체
+            pygame.draw.ellipse(screen, GRENADE_GREEN, (gx, gy, 14, 20))
+            # 수류탄 핀
+            pygame.draw.rect(screen, (150, 150, 150), (gx + 5, gy - 5, 4, 8))
+
+        # 라벨 "GRENADE"
+        font_small = self.fonts.get('small')
+        if font_small:
+            text_surf, _ = font_small.render("GRENADE", WARNING_ORANGE)
+            screen.blit(text_surf, (box_x + 5, box_y + box_h + 5))
+
+    def _draw_shooting_range(self, screen, cam_x, cam_y, wall_h, anim_timer):
+        """사격 연습장 그리기"""
+        import math
+
+        BOOTH_GRAY = (60, 65, 70)
+        BOOTH_DARK = (40, 45, 50)
+        TARGET_TAN = (200, 180, 150)
+        TARGET_RED = (200, 50, 50)
+        MUZZLE_FLASH = (255, 220, 100)
+
+        range_x = self.pixel_width - cam_x - 140
+        range_y = -cam_y + wall_h + 20
+
+        # === 사격 부스 ===
+        booth_w, booth_h = 110, 160
+        pygame.draw.rect(screen, BOOTH_GRAY, (range_x, range_y, booth_w, booth_h))
+        pygame.draw.rect(screen, BOOTH_DARK, (range_x, range_y, booth_w, booth_h), 3)
+
+        # 부스 칸막이
+        pygame.draw.rect(screen, BOOTH_DARK, (range_x + 50, range_y, 8, booth_h))
+
+        # === 과녁 (상단) ===
+        target_x = range_x + 25
+        target_y = range_y + 15
+        target_size = 35
+
+        # 과녁 배경 (인체 실루엣 - 단순화)
+        pygame.draw.ellipse(screen, TARGET_TAN, (target_x, target_y, target_size, target_size))  # 머리
+        pygame.draw.rect(screen, TARGET_TAN, (target_x + 5, target_y + target_size - 5, target_size - 10, 45))  # 몸통
+
+        # 과녁 원 (가슴 부위)
+        pygame.draw.circle(screen, TARGET_RED, (target_x + target_size // 2, target_y + target_size + 15), 12)
+        pygame.draw.circle(screen, (255, 100, 100), (target_x + target_size // 2, target_y + target_size + 15), 6)
+        pygame.draw.circle(screen, (255, 255, 200), (target_x + target_size // 2, target_y + target_size + 15), 2)
+
+        # 총알 구멍 효과 (애니메이션으로 깜빡임)
+        if int(anim_timer * 2) % 3 == 0:
+            hole_x = target_x + target_size // 2 + int(5 * math.sin(anim_timer * 3))
+            hole_y = target_y + target_size + 15 + int(3 * math.cos(anim_timer * 4))
+            pygame.draw.circle(screen, (30, 30, 30), (hole_x, hole_y), 3)
+
+        # === 두 번째 과녁 ===
+        target2_x = range_x + 70
+        pygame.draw.ellipse(screen, TARGET_TAN, (target2_x, target_y, target_size, target_size))
+        pygame.draw.rect(screen, TARGET_TAN, (target2_x + 5, target_y + target_size - 5, target_size - 10, 45))
+        pygame.draw.circle(screen, TARGET_RED, (target2_x + target_size // 2, target_y + target_size + 15), 12)
+
+        # 사격장 라벨
+        font_small = self.fonts.get('small')
+        if font_small:
+            text_surf, _ = font_small.render("SHOOTING RANGE", (255, 180, 80))
+            screen.blit(text_surf, (range_x + 5, range_y + booth_h + 5))
+
+    def _draw_ping_pong_tables(self, screen, cam_x, cam_y):
+        """탁구대들 그리기"""
+        TABLE_GREEN = (40, 100, 60)
+        TABLE_DARK = (30, 70, 45)
+        NET_WHITE = (200, 200, 200)
+        LINE_WHITE = (220, 220, 220)
+        LEG_GRAY = (80, 80, 85)
+
+        center_x = self.pixel_width // 2
+        center_y = self.pixel_height // 2
+
+        # 탁구대 위치들
+        table_positions = [
+            (center_x - 160, center_y - 40),
+            (center_x + 60, center_y + 50),
+        ]
+
+        for tx, ty in table_positions:
+            table_x = tx - cam_x
+            table_y = ty - cam_y
+            table_w, table_h = 100, 60
+
+            # 테이블 상판
+            pygame.draw.rect(screen, TABLE_GREEN, (table_x, table_y, table_w, table_h))
+            pygame.draw.rect(screen, TABLE_DARK, (table_x, table_y, table_w, table_h), 3)
+
+            # 테이블 라인 (흰색 테두리)
+            pygame.draw.rect(screen, LINE_WHITE, (table_x + 3, table_y + 3, table_w - 6, table_h - 6), 2)
+
+            # 중앙선
+            pygame.draw.line(screen, LINE_WHITE, (table_x + table_w // 2, table_y + 5),
+                           (table_x + table_w // 2, table_y + table_h - 5), 2)
+
+            # 네트
+            net_y = table_y + table_h // 2
+            pygame.draw.rect(screen, NET_WHITE, (table_x + 5, net_y - 8, table_w - 10, 4))
+            # 네트 지지대
+            pygame.draw.rect(screen, (100, 100, 105), (table_x + 3, net_y - 12, 6, 16))
+            pygame.draw.rect(screen, (100, 100, 105), (table_x + table_w - 9, net_y - 12, 6, 16))
+
+            # 테이블 다리
+            pygame.draw.rect(screen, LEG_GRAY, (table_x + 8, table_y + table_h, 8, 20))
+            pygame.draw.rect(screen, LEG_GRAY, (table_x + table_w - 16, table_y + table_h, 8, 20))
+
+    def _draw_healing_capsule(self, screen, cam_x, cam_y, anim_timer):
+        """힐링 캡슐 그리기 (부상자 치료)"""
+        import math
+
+        CAPSULE_GRAY = (70, 80, 90)
+        CAPSULE_DARK = (50, 55, 65)
+        GLASS_BLUE = (100, 180, 220, 150)
+        HEAL_GREEN = (100, 255, 150)
+        HEAL_DIM = (60, 180, 100)
+        BODY_TAN = (200, 160, 130)
+
+        capsule_x = 30 - cam_x
+        capsule_y = self.pixel_height - 150 - cam_y
+        capsule_w, capsule_h = 60, 100
+
+        # 캡슐 베이스 (금속)
+        pygame.draw.rect(screen, CAPSULE_GRAY, (capsule_x, capsule_y + capsule_h - 20, capsule_w, 20), border_radius=5)
+        pygame.draw.rect(screen, CAPSULE_DARK, (capsule_x, capsule_y + capsule_h - 20, capsule_w, 20), 2, border_radius=5)
+
+        # 캡슐 유리 튜브
+        glass_surf = pygame.Surface((capsule_w - 10, capsule_h - 25), pygame.SRCALPHA)
+        pygame.draw.rect(glass_surf, GLASS_BLUE, (0, 0, capsule_w - 10, capsule_h - 25), border_radius=10)
+        screen.blit(glass_surf, (capsule_x + 5, capsule_y + 5))
+
+        # 캡슐 프레임
+        pygame.draw.rect(screen, CAPSULE_GRAY, (capsule_x, capsule_y, capsule_w, capsule_h), 4, border_radius=15)
+
+        # === 부상자 (단순 실루엣) ===
+        person_x = capsule_x + capsule_w // 2
+        person_y = capsule_y + 25
+
+        # 머리
+        pygame.draw.circle(screen, BODY_TAN, (person_x, person_y), 10)
+
+        # 몸통
+        pygame.draw.rect(screen, BODY_TAN, (person_x - 8, person_y + 10, 16, 35))
+
+        # 붕대 (부상 표시)
+        pygame.draw.rect(screen, (240, 240, 240), (person_x - 12, person_y + 15, 24, 8))
+        pygame.draw.line(screen, (200, 50, 50), (person_x - 8, person_y + 19), (person_x + 8, person_y + 19), 2)
+
+        # === 힐링 이펙트 ===
+        # 파티클 (위로 올라가는 초록 점들)
+        for i in range(5):
+            particle_y_offset = (anim_timer * 30 + i * 20) % (capsule_h - 30)
+            particle_x_offset = int(5 * math.sin(anim_timer * 3 + i))
+            particle_alpha = int(200 - particle_y_offset * 3)
+            if particle_alpha > 0:
+                particle_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+                pygame.draw.circle(particle_surf, (*HEAL_GREEN, particle_alpha), (4, 4), 3)
+                screen.blit(particle_surf, (person_x - 4 + particle_x_offset,
+                                          capsule_y + capsule_h - 30 - particle_y_offset))
+
+        # 글로우 효과
+        glow_intensity = int(40 + 20 * math.sin(anim_timer * 2))
+        glow_surf = pygame.Surface((capsule_w + 20, capsule_h + 20), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*HEAL_DIM, glow_intensity), (0, 0, capsule_w + 20, capsule_h + 20), border_radius=20)
+        screen.blit(glow_surf, (capsule_x - 10, capsule_y - 10))
+
+        # 라벨 "HEALING"
+        font_small = self.fonts.get('small')
+        if font_small:
+            text_surf, _ = font_small.render("HEALING", HEAL_GREEN)
+            screen.blit(text_surf, (capsule_x, capsule_y + capsule_h + 5))
+
+    def _draw_running_track(self, screen, cam_x, cam_y, wall_h):
+        """러닝 트랙 라인 그리기 (바닥)"""
+        TRACK_LINE = (255, 200, 100, 80)  # 반투명 골드
+
+        # 트랙 시작/끝
+        track_start_y = wall_h + 250
+        track_end_y = self.pixel_height - 50
+
+        # 트랙 라인들 (좌우 경계)
+        track_surf = pygame.Surface((self.pixel_width, self.pixel_height), pygame.SRCALPHA)
+
+        # 왼쪽 트랙 (세로)
+        pygame.draw.line(track_surf, TRACK_LINE, (200, track_start_y), (200, track_end_y), 3)
+        pygame.draw.line(track_surf, TRACK_LINE, (250, track_start_y), (250, track_end_y), 3)
+
+        # 시작/결승선 (가로)
+        pygame.draw.line(track_surf, TRACK_LINE, (200, track_end_y - 20), (250, track_end_y - 20), 5)
+
+        # 화살표 마커 (방향 표시)
+        for i in range(3):
+            arrow_y = track_start_y + 50 + i * 80
+            # 위쪽 화살표
+            pygame.draw.polygon(track_surf, TRACK_LINE, [
+                (225, arrow_y - 10),
+                (215, arrow_y + 5),
+                (235, arrow_y + 5)
+            ])
+
+        screen.blit(track_surf, (-cam_x, -cam_y))
 
     def _draw_bank_interior(self, screen):
         """스타뱅크 전용 인테리어 - 깔끔한 SF 은행 스타일"""
