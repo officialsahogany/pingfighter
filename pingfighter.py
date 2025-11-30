@@ -83633,6 +83633,20 @@ def show_item_management_menu(item_list, selected_index, item_type):
                 # 폴백: 일반 아이콘 사용
                 icon = pygame.transform.scale(item["icon"], (60, 60))
                 SCREEN.blit(icon, (panel_x + 20, panel_y + 20))
+        elif item_name == "angel_blessing":
+            # 천사의 가호도 전설 아이템 매니저를 통해 애니메이션 그리기
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                angel = legendary_manager.get_item("angel_blessing")
+                if angel:
+                    # UI 모드로 애니메이션 업데이트
+                    angel.update(0.016, ui_mode=True)  # 60fps 기준 16ms, UI 모드
+                    # 애니메이션 아이콘 그리기 (천사의 기운 오오라 포함)
+                    angel.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
+            elif item.get("icon"):
+                # 폴백: 일반 아이콘 사용
+                icon = pygame.transform.scale(item["icon"], (60, 60))
+                SCREEN.blit(icon, (panel_x + 20, panel_y + 20))
         elif item.get("icon"):
             icon = pygame.transform.scale(item["icon"], (60, 60))
             SCREEN.blit(icon, (panel_x + 20, panel_y + 20))
