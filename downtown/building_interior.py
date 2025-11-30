@@ -6453,12 +6453,6 @@ class BuildingInterior:
             # 수류탄 핀
             pygame.draw.rect(screen, (150, 150, 150), (gx + 5, gy - 5, 4, 8))
 
-        # 라벨 "GRENADE"
-        font_small = self.fonts.get('small')
-        if font_small:
-            text_surf, _ = font_small.render("GRENADE", WARNING_ORANGE)
-            screen.blit(text_surf, (box_x + 5, box_y + box_h + 5))
-
     def _draw_shooting_range(self, screen, cam_x, cam_y, wall_h, anim_timer):
         """사격 연습장 그리기"""
         import math
@@ -6505,12 +6499,6 @@ class BuildingInterior:
         pygame.draw.ellipse(screen, TARGET_TAN, (target2_x, target_y, target_size, target_size))
         pygame.draw.rect(screen, TARGET_TAN, (target2_x + 5, target_y + target_size - 5, target_size - 10, 45))
         pygame.draw.circle(screen, TARGET_RED, (target2_x + target_size // 2, target_y + target_size + 15), 12)
-
-        # 사격장 라벨
-        font_small = self.fonts.get('small')
-        if font_small:
-            text_surf, _ = font_small.render("SHOOTING RANGE", (255, 180, 80))
-            screen.blit(text_surf, (range_x + 5, range_y + booth_h + 5))
 
     def _draw_ping_pong_tables(self, screen, cam_x, cam_y):
         """탁구대들 그리기 - 더 크고 분산된 위치, 탁구공 애니메이션 포함"""
@@ -6702,12 +6690,6 @@ class BuildingInterior:
         glow_surf = pygame.Surface((capsule_w + 20, capsule_h + 20), pygame.SRCALPHA)
         pygame.draw.rect(glow_surf, (*HEAL_DIM, glow_intensity), (0, 0, capsule_w + 20, capsule_h + 20), border_radius=20)
         screen.blit(glow_surf, (capsule_x - 10, capsule_y - 10))
-
-        # 라벨 "HEALING"
-        font_small = self.fonts.get('small')
-        if font_small:
-            text_surf, _ = font_small.render("HEALING", HEAL_GREEN)
-            screen.blit(text_surf, (capsule_x, capsule_y + capsule_h + 5))
 
     def _draw_running_track(self, screen, cam_x, cam_y, wall_h):
         """러닝 트랙 라인 그리기 (바닥)"""
