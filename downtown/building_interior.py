@@ -2482,11 +2482,12 @@ class BuildingInterior:
         return None
 
     def _init_crane_prizes(self):
-        """크레인 게임 아이템 캡슐 초기화 - 실제 게임 아이템 사용"""
+        """크레인 게임 아이템 캡슐 초기화 - 모든 패시브 아이템 + 전설 아이템"""
         self.crane_prizes = []
 
-        # 크레인 게임용 아이템 풀 (실제 게임 아이템)
+        # 크레인 게임용 아이템 풀 (모든 패시브 아이템)
         crane_items = [
+            # === 커먼 (Common) ===
             {"name": "speedboots", "korean": "스피드부츠", "rarity": "common"},
             {"name": "speedgear", "korean": "스피드기어", "rarity": "common"},
             {"name": "battery", "korean": "배터리", "rarity": "common"},
@@ -2495,16 +2496,36 @@ class BuildingInterior:
             {"name": "dowsing_pendulum", "korean": "다우징팬들럼", "rarity": "common"},
             {"name": "smartphone", "korean": "스마트폰", "rarity": "common"},
             {"name": "bulletproof_hat", "korean": "방탄모자", "rarity": "common"},
+            {"name": "knee_pads", "korean": "무릎보호대", "rarity": "common"},
+            {"name": "slot_add", "korean": "슬롯추가", "rarity": "common"},
+
+            # === 레어 (Rare) ===
             {"name": "spikeboots", "korean": "스파이크부츠", "rarity": "rare"},
             {"name": "dashgear", "korean": "대쉬기어", "rarity": "rare"},
             {"name": "bulkup", "korean": "벌크업", "rarity": "rare"},
             {"name": "commando_arm", "korean": "코만도암", "rarity": "rare"},
             {"name": "technical_vest", "korean": "테크니컬조끼", "rarity": "rare"},
             {"name": "chargebag", "korean": "충전가방", "rarity": "rare"},
+            {"name": "spiked_helmet", "korean": "가시투구", "rarity": "rare"},
+            {"name": "bluetooth_ring", "korean": "블루투스링", "rarity": "rare"},
+            {"name": "foul_whistle", "korean": "파울휘슬", "rarity": "rare"},
+            {"name": "star_detector", "korean": "스타감지기", "rarity": "rare"},
+
+            # === 에픽 (Epic) ===
             {"name": "sensor", "korean": "위험감지센서", "rarity": "epic"},
             {"name": "gravitybelt", "korean": "무중력벨트", "rarity": "epic"},
             {"name": "dashholder", "korean": "대쉬홀더", "rarity": "epic"},
             {"name": "revival", "korean": "부활", "rarity": "epic"},
+            {"name": "master", "korean": "마스터", "rarity": "epic"},
+            {"name": "angel_blessing", "korean": "천사의축복", "rarity": "epic"},
+            {"name": "sacred_laurel", "korean": "신성한월계관", "rarity": "epic"},
+
+            # === 전설 (Legendary) - 매우 낮은 확률 ===
+            {"name": "ragnarok_hammer", "korean": "라그나로크해머", "rarity": "legendary"},
+            {"name": "hermes_shoes", "korean": "헤르메스의신발", "rarity": "legendary"},
+            {"name": "poseidon_trident", "korean": "포세이돈의삼지창", "rarity": "legendary"},
+            {"name": "zeus_lightning", "korean": "제우스의번개", "rarity": "legendary"},
+            {"name": "hades_helm", "korean": "하데스의투구", "rarity": "legendary"},
         ]
 
         # 캡슐 색상 (레어리티별)
@@ -2512,20 +2533,23 @@ class BuildingInterior:
             "common": (150, 200, 255),    # 파란색 캡슐
             "rare": (255, 215, 100),      # 금색 캡슐
             "epic": (200, 100, 255),      # 보라색 캡슐
+            "legendary": (255, 100, 100), # 빨간색 캡슐 (전설)
         }
 
-        # 10~15개의 랜덤 캡슐 배치
-        num_prizes = random.randint(10, 15)
+        # 12~18개의 랜덤 캡슐 배치
+        num_prizes = random.randint(12, 18)
         used_items = set()
 
         for _ in range(num_prizes):
             # 랜덤 타입 (레어리티에 따른 확률)
             roll = random.random()
-            if roll < 0.08:  # 8% 에픽
+            if roll < 0.005:  # 0.5% 전설 (매우 낮은 확률!)
+                rarity = "legendary"
+            elif roll < 0.06:  # 5.5% 에픽
                 rarity = "epic"
-            elif roll < 0.30:  # 22% 레어
+            elif roll < 0.25:  # 19% 레어
                 rarity = "rare"
-            else:  # 70% 커먼
+            else:  # 75% 커먼
                 rarity = "common"
 
             # 해당 레어리티의 아이템 선택
@@ -6601,6 +6625,30 @@ class BuildingInterior:
                                    (capsule_size // 2, capsule_size // 2,
                                     capsule_size * 2, capsule_size * 2))
                 screen.blit(glow_surf, (px - capsule_size * 1.5, py - capsule_size * 1.5 + int(wobble)))
+            elif item_rarity == "legendary":
+                # 전설 아이템: 화려한 무지개 글로우 효과
+                glow_alpha = int(180 + 75 * math.sin(self.animation_timer * 10))
+                glow_surf = pygame.Surface((capsule_size * 4, capsule_size * 4), pygame.SRCALPHA)
+                # 빨간색 외곽 글로우
+                pygame.draw.ellipse(glow_surf, (255, 50, 50, glow_alpha // 2),
+                                   (capsule_size // 4, capsule_size // 4,
+                                    capsule_size * 3.5, capsule_size * 3.5))
+                # 내부 금색 글로우
+                inner_alpha = int(150 + 105 * math.sin(self.animation_timer * 12 + 1))
+                pygame.draw.ellipse(glow_surf, (255, 200, 50, inner_alpha // 2),
+                                   (capsule_size // 2, capsule_size // 2,
+                                    capsule_size * 3, capsule_size * 3))
+                screen.blit(glow_surf, (px - capsule_size * 2, py - capsule_size * 2 + int(wobble)))
+
+                # 별 반짝임 효과
+                for i in range(3):
+                    star_offset = math.sin(self.animation_timer * 15 + i * 2) * 5
+                    star_x = px + int(math.cos(self.animation_timer * 3 + i * 2.1) * 15)
+                    star_y = py + int(math.sin(self.animation_timer * 3 + i * 2.1) * 10) + int(wobble)
+                    star_alpha = int(200 + 55 * math.sin(self.animation_timer * 20 + i))
+                    star_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
+                    pygame.draw.circle(star_surf, (255, 255, 200, star_alpha), (5, 5), 3)
+                    screen.blit(star_surf, (star_x - 5, star_y - 5))
 
         # === 크레인 그리기 ===
         crane_px = game_x + int(self.crane_x * game_w)
