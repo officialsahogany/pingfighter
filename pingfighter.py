@@ -50159,6 +50159,13 @@ def show_victory_screen(stage_cleared, reward):
 
     stop_blacksmith_construction_sound()
 
+    # 물자보급 비행기 사운드 정지 (스테이지 전환 시)
+    if supply_drop_state.aircraft and hasattr(supply_drop_state.aircraft, 'stop_sound'):
+        supply_drop_state.aircraft.stop_sound()
+    supply_drop_state.aircraft = None
+    supply_drop_state.active = False
+    supply_runtime.reset()
+
     star_stack_sound = sound_effects.get("STAR_POINT_STACK")
     star_end_sound = sound_effects.get("STAR_POINT_END")
 
@@ -75408,7 +75415,14 @@ def show_result(won):
         
         # BGM 정지 (게임 오버 시 메인 메뉴로 돌아가기 전)
         bgm_manager.stop_bgm()
-        
+
+        # 물자보급 비행기 사운드 정지 (게임 오버 시)
+        if supply_drop_state.aircraft and hasattr(supply_drop_state.aircraft, 'stop_sound'):
+            supply_drop_state.aircraft.stop_sound()
+        supply_drop_state.aircraft = None
+        supply_drop_state.active = False
+        supply_runtime.reset()
+
         # 킥차져 효과 초기화 (게임 오버 시)
         try:
             from item_effects.knee_pads import get_knee_pads_instance

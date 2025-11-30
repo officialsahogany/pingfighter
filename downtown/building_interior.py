@@ -6538,8 +6538,8 @@ class BuildingInterior:
 
         # ========== 수류탄들 (상자 안에 보이는) - 고디테일 ==========
         for g in range(3):
-            gx = box_x + 12 + g * 18
-            gy = box_y - 15
+            gx = int(box_x + 12 + g * 18)
+            gy = int(box_y - 15)
 
             # 수류탄 그림자
             pygame.draw.ellipse(screen, (0, 0, 0, 60), (gx + 2, gy + 2, 16, 24))
