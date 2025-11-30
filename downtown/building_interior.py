@@ -2482,50 +2482,71 @@ class BuildingInterior:
         return None
 
     def _init_crane_prizes(self):
-        """크레인 게임 아이템 캡슐 초기화 - 모든 패시브 아이템 + 전설 아이템"""
+        """크레인 게임 아이템 캡슐 초기화 - 액티브 70% + 패시브 30%"""
         self.crane_prizes = []
 
-        # 크레인 게임용 아이템 풀 (모든 패시브 아이템)
-        crane_items = [
-            # === 커먼 (Common) ===
-            {"name": "speedboots", "korean": "스피드부츠", "rarity": "common"},
-            {"name": "speedgear", "korean": "스피드기어", "rarity": "common"},
-            {"name": "battery", "korean": "배터리", "rarity": "common"},
-            {"name": "cooltime", "korean": "쿨타임", "rarity": "common"},
-            {"name": "fuel_pouch", "korean": "연료파우치", "rarity": "common"},
-            {"name": "dowsing_pendulum", "korean": "다우징팬들럼", "rarity": "common"},
-            {"name": "smartphone", "korean": "스마트폰", "rarity": "common"},
-            {"name": "bulletproof_hat", "korean": "방탄모자", "rarity": "common"},
-            {"name": "knee_pads", "korean": "무릎보호대", "rarity": "common"},
-            {"name": "slot_add", "korean": "슬롯추가", "rarity": "common"},
+        # === 액티브 아이템 풀 (70% 비율) ===
+        active_items = [
+            # 커먼 액티브
+            {"name": "long_boost", "korean": "롱부스트", "rarity": "common", "type": "active"},
+            {"name": "gauge_charge", "korean": "게이지충전", "rarity": "common", "type": "active"},
+            {"name": "wall", "korean": "벽", "rarity": "common", "type": "active"},
+            {"name": "flare", "korean": "섬광탄", "rarity": "common", "type": "active"},
+            {"name": "smoke_grenade", "korean": "연막탄", "rarity": "common", "type": "active"},
+            {"name": "vitamin_pill", "korean": "비타민", "rarity": "common", "type": "active"},
+            # 레어 액티브
+            {"name": "molotov", "korean": "화염병", "rarity": "rare", "type": "active"},
+            {"name": "grenade", "korean": "수류탄", "rarity": "rare", "type": "active"},
+            {"name": "spider_mine", "korean": "거미지뢰", "rarity": "rare", "type": "active"},
+            {"name": "stopwatch", "korean": "스톱워치", "rarity": "rare", "type": "active"},
+            {"name": "repair_kit", "korean": "수리키트", "rarity": "rare", "type": "active"},
+            # 에픽 액티브
+            {"name": "berserk_potion", "korean": "광포화물약", "rarity": "epic", "type": "active"},
+            {"name": "aipill", "korean": "AI알약", "rarity": "epic", "type": "active"},
+            {"name": "pandora_box", "korean": "판도라상자", "rarity": "epic", "type": "active"},
+            {"name": "life_elixir", "korean": "생명의영약", "rarity": "epic", "type": "active"},
+            {"name": "devil_dice", "korean": "악마의주사위", "rarity": "epic", "type": "active"},
+            {"name": "laser_scope", "korean": "레이저조준경", "rarity": "epic", "type": "active"},
+        ]
 
-            # === 레어 (Rare) ===
-            {"name": "spikeboots", "korean": "스파이크부츠", "rarity": "rare"},
-            {"name": "dashgear", "korean": "대쉬기어", "rarity": "rare"},
-            {"name": "bulkup", "korean": "벌크업", "rarity": "rare"},
-            {"name": "commando_arm", "korean": "코만도암", "rarity": "rare"},
-            {"name": "technical_vest", "korean": "테크니컬조끼", "rarity": "rare"},
-            {"name": "chargebag", "korean": "충전가방", "rarity": "rare"},
-            {"name": "spiked_helmet", "korean": "가시투구", "rarity": "rare"},
-            {"name": "bluetooth_ring", "korean": "블루투스링", "rarity": "rare"},
-            {"name": "foul_whistle", "korean": "파울휘슬", "rarity": "rare"},
-            {"name": "star_detector", "korean": "스타감지기", "rarity": "rare"},
-
-            # === 에픽 (Epic) ===
-            {"name": "sensor", "korean": "위험감지센서", "rarity": "epic"},
-            {"name": "gravitybelt", "korean": "무중력벨트", "rarity": "epic"},
-            {"name": "dashholder", "korean": "대쉬홀더", "rarity": "epic"},
-            {"name": "revival", "korean": "부활", "rarity": "epic"},
-            {"name": "master", "korean": "마스터", "rarity": "epic"},
-            {"name": "angel_blessing", "korean": "천사의축복", "rarity": "epic"},
-            {"name": "sacred_laurel", "korean": "신성한월계관", "rarity": "epic"},
-
-            # === 전설 (Legendary) - 매우 낮은 확률 ===
-            {"name": "ragnarok_hammer", "korean": "라그나로크해머", "rarity": "legendary"},
-            {"name": "hermes_shoes", "korean": "헤르메스의신발", "rarity": "legendary"},
-            {"name": "poseidon_trident", "korean": "포세이돈의삼지창", "rarity": "legendary"},
-            {"name": "zeus_lightning", "korean": "제우스의번개", "rarity": "legendary"},
-            {"name": "hades_helm", "korean": "하데스의투구", "rarity": "legendary"},
+        # === 패시브 아이템 풀 (30% 비율) ===
+        passive_items = [
+            # 커먼 패시브
+            {"name": "speedboots", "korean": "스피드부츠", "rarity": "common", "type": "passive"},
+            {"name": "speedgear", "korean": "스피드기어", "rarity": "common", "type": "passive"},
+            {"name": "battery", "korean": "배터리", "rarity": "common", "type": "passive"},
+            {"name": "cooltime", "korean": "쿨타임", "rarity": "common", "type": "passive"},
+            {"name": "fuel_pouch", "korean": "연료파우치", "rarity": "common", "type": "passive"},
+            {"name": "dowsing_pendulum", "korean": "다우징팬들럼", "rarity": "common", "type": "passive"},
+            {"name": "smartphone", "korean": "스마트폰", "rarity": "common", "type": "passive"},
+            {"name": "bulletproof_hat", "korean": "방탄모자", "rarity": "common", "type": "passive"},
+            {"name": "knee_pads", "korean": "무릎보호대", "rarity": "common", "type": "passive"},
+            {"name": "slot_add", "korean": "슬롯추가", "rarity": "common", "type": "passive"},
+            # 레어 패시브
+            {"name": "spikeboots", "korean": "스파이크부츠", "rarity": "rare", "type": "passive"},
+            {"name": "dashgear", "korean": "대쉬기어", "rarity": "rare", "type": "passive"},
+            {"name": "bulkup", "korean": "벌크업", "rarity": "rare", "type": "passive"},
+            {"name": "commando_arm", "korean": "코만도암", "rarity": "rare", "type": "passive"},
+            {"name": "technical_vest", "korean": "테크니컬조끼", "rarity": "rare", "type": "passive"},
+            {"name": "chargebag", "korean": "충전가방", "rarity": "rare", "type": "passive"},
+            {"name": "spiked_helmet", "korean": "가시투구", "rarity": "rare", "type": "passive"},
+            {"name": "bluetooth_ring", "korean": "블루투스링", "rarity": "rare", "type": "passive"},
+            {"name": "foul_whistle", "korean": "파울휘슬", "rarity": "rare", "type": "passive"},
+            {"name": "star_detector", "korean": "스타감지기", "rarity": "rare", "type": "passive"},
+            # 에픽 패시브
+            {"name": "sensor", "korean": "위험감지센서", "rarity": "epic", "type": "passive"},
+            {"name": "gravitybelt", "korean": "무중력벨트", "rarity": "epic", "type": "passive"},
+            {"name": "dashholder", "korean": "대쉬홀더", "rarity": "epic", "type": "passive"},
+            {"name": "revival", "korean": "부활", "rarity": "epic", "type": "passive"},
+            {"name": "master", "korean": "마스터", "rarity": "epic", "type": "passive"},
+            {"name": "angel_blessing", "korean": "천사의축복", "rarity": "epic", "type": "passive"},
+            {"name": "sacred_laurel", "korean": "신성한월계관", "rarity": "epic", "type": "passive"},
+            # 전설 패시브 (매우 낮은 확률!)
+            {"name": "ragnarok_hammer", "korean": "라그나로크해머", "rarity": "legendary", "type": "passive"},
+            {"name": "hermes_shoes", "korean": "헤르메스의신발", "rarity": "legendary", "type": "passive"},
+            {"name": "poseidon_trident", "korean": "포세이돈의삼지창", "rarity": "legendary", "type": "passive"},
+            {"name": "zeus_lightning", "korean": "제우스의번개", "rarity": "legendary", "type": "passive"},
+            {"name": "hades_helm", "korean": "하데스의투구", "rarity": "legendary", "type": "passive"},
         ]
 
         # 캡슐 색상 (레어리티별)
@@ -2541,21 +2562,41 @@ class BuildingInterior:
         used_items = set()
 
         for _ in range(num_prizes):
-            # 랜덤 타입 (레어리티에 따른 확률)
-            roll = random.random()
-            if roll < 0.005:  # 0.5% 전설 (매우 낮은 확률!)
-                rarity = "legendary"
-            elif roll < 0.06:  # 5.5% 에픽
-                rarity = "epic"
-            elif roll < 0.25:  # 19% 레어
-                rarity = "rare"
-            else:  # 75% 커먼
-                rarity = "common"
+            # 1단계: 액티브(70%) vs 패시브(30%) 결정
+            is_active = random.random() < 0.70
+
+            if is_active:
+                # 액티브 아이템 풀에서 선택
+                item_pool = active_items
+                # 액티브 레어리티 확률: 커먼 60%, 레어 30%, 에픽 10%
+                roll = random.random()
+                if roll < 0.10:
+                    rarity = "epic"
+                elif roll < 0.40:
+                    rarity = "rare"
+                else:
+                    rarity = "common"
+            else:
+                # 패시브 아이템 풀에서 선택
+                item_pool = passive_items
+                # 패시브 레어리티 확률: 커먼 70%, 레어 20%, 에픽 8%, 전설 2%
+                roll = random.random()
+                if roll < 0.02:  # 2% 전설 (패시브에서만!)
+                    rarity = "legendary"
+                elif roll < 0.10:  # 8% 에픽
+                    rarity = "epic"
+                elif roll < 0.30:  # 20% 레어
+                    rarity = "rare"
+                else:  # 70% 커먼
+                    rarity = "common"
 
             # 해당 레어리티의 아이템 선택
-            available = [item for item in crane_items if item["rarity"] == rarity and item["name"] not in used_items]
+            available = [item for item in item_pool if item["rarity"] == rarity and item["name"] not in used_items]
             if not available:
-                available = [item for item in crane_items if item["rarity"] == rarity]
+                available = [item for item in item_pool if item["rarity"] == rarity]
+            if not available:
+                # 해당 레어리티가 없으면 커먼에서 선택
+                available = [item for item in item_pool if item["rarity"] == "common"]
             if not available:
                 continue
 
@@ -2739,13 +2780,18 @@ class BuildingInterior:
 
                     # 패시브 아이템 목록 (store_passive_item으로 처리해야 하는 아이템들)
                     passive_items = [
-                        "speedboots", "speedgear", "battery", "slot_add", "revival",
-                        "master", "cooltime", "chargebag", "spikeboots", "dashgear",
-                        "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum",
-                        "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring",
-                        "foul_whistle", "star_detector", "smartphone", "knee_pads",
+                        # 커먼 패시브
+                        "speedboots", "speedgear", "battery", "cooltime", "fuel_pouch",
+                        "dowsing_pendulum", "smartphone", "bulletproof_hat", "knee_pads", "slot_add",
+                        # 레어 패시브
+                        "spikeboots", "dashgear", "bulkup", "commando_arm", "technical_vest",
+                        "chargebag", "spiked_helmet", "bluetooth_ring", "foul_whistle", "star_detector",
+                        # 에픽 패시브
+                        "sensor", "gravitybelt", "dashholder", "revival", "master",
+                        "angel_blessing", "sacred_laurel",
+                        # 전설 패시브
                         "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
-                        "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel"
+                        "zeus_lightning", "hades_helm"
                     ]
 
                     # ITEM_TYPES에서 해당 아이템 찾기
@@ -2761,7 +2807,7 @@ class BuildingInterior:
                                     pingfighter.store_passive_item(item_copy)
                                     print(f"[크레인 게임] 패시브 아이템 획득: {item_name}")
                             else:
-                                # store_active_item 함수 호출
+                                # store_active_item 함수 호출 (액티브 아이템)
                                 if hasattr(pingfighter, 'store_active_item'):
                                     pingfighter.store_active_item(item_copy)
                                     print(f"[크레인 게임] 액티브 아이템 획득: {item_name}")

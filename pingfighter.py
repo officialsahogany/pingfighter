@@ -31103,6 +31103,9 @@ def handle_player(keys):
             current_speed = 0
     else:
         #  구르기 상태 처리
+        # 🔧 디버그: rolling_active 상태 확인 (매 30프레임마다 출력)
+        if frame_count % 30 == 0 and _rolling_get("rolling_charge_timer") > 0:
+            print(f"[DEBUG] 충전 루프: rolling_active={_rolling_get('rolling_active')}, rolling_charge_timer={_rolling_get('rolling_charge_timer')}")
         if _rolling_get("rolling_active"):
             # 구르기 중일 때
             rolling_timer_value = _rolling_get("rolling_timer") - 1
@@ -31572,19 +31575,20 @@ def handle_player(keys):
                     rolling_charges_value = min(rolling_charges_value + 1, max_charges)
                     _rolling_set("rolling_charges", rolling_charges_value)
                     # 왼쪽부터 토큰 충전 (token_states가 있을 때만)
+                    # 🔧 버그 수정: 직접 token_states 수정 (로컬 복사본 사용하지 않음)
                     if 'token_states' in globals() and len(token_states) > 0:
-                        # 첫 번째 비어있는 토큰을 찾아서 충전
-                        token_states_local = list(token_states)
-                        for idx in range(min(len(token_states_local), max_charges)):
-                            if idx < len(token_states_local) and not token_states_local[idx]:
-                                token_states_local[idx] = True
+                        # 첫 번째 비어있는 토큰을 찾아서 충전 (일반 대쉬와 동일한 패턴)
+                        for idx in range(min(len(token_states), max_charges)):
+                            if idx < len(token_states) and not token_states[idx]:
+                                token_states[idx] = True
+                                print(f"[DEBUG] 토큰 충전 완료: idx={idx}를 True로 설정, token_states={token_states}")
                                 break
-                        token_states[:] = token_states_local
                         if rolling_state is not None:
-                            rolling_state.token_states = list(token_states_local)
+                            rolling_state.token_states = list(token_states)
                     else:
                         # token_states가 없으면 초기화
                         token_states = [True] * rolling_charges_value + [False] * (max_charges - rolling_charges_value)
+                        print(f"[DEBUG] 토큰 충전 초기화: {token_states}")
                         if rolling_state is not None:
                             rolling_state.token_states = list(token_states)
                     # 아직 최대 토큰이 아니면 다음 충전 타이머 설정
@@ -31857,19 +31861,21 @@ def handle_player(keys):
                             max_charges = int(base_charges + holder_bonus + amplification_bonus)
 
                             #  토큰 상태 UI 업데이트 (하프대쉬도 토큰 소모 반영)
+                            # 🔧 버그 수정: 일반 대쉬와 동일한 패턴으로 직접 token_states 수정
                             # 오른쪽부터 토큰 소모 (가장 마지막 활성 토큰을 비활성화)
-                            token_states_local = list(globals().get("token_states", []))
-                            if token_states_local and len(token_states_local) > 0:
-                                for idx in range(min(len(token_states_local), max_charges) - 1, -1, -1):
-                                    if token_states_local[idx]:
-                                        token_states_local[idx] = False
+                            if 'token_states' in globals() and len(token_states) > 0:
+                                # 오른쪽부터 검색하여 소진 (일반 대쉬와 동일한 패턴)
+                                for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
+                                    if idx < len(token_states) and token_states[idx]:
+                                        token_states[idx] = False
+                                        print(f"[DEBUG] 하프대쉬 token_states 업데이트: idx={idx}를 False로 설정, token_states={token_states}")
                                         break
-                                token_states[:] = token_states_local
                                 if rolling_state is not None:
-                                    rolling_state.token_states = list(token_states_local)
+                                    rolling_state.token_states = list(token_states)
                             else:
                                 # token_states가 없으면 초기화
                                 token_states = [True] * current_charges + [False] * (max_charges - current_charges)
+                                print(f"[DEBUG] 하프대쉬 token_states 초기화: {token_states}")
                                 if rolling_state is not None:
                                     rolling_state.token_states = list(token_states)
                             
@@ -44041,6 +44047,7 @@ def draw_player_gauge():
         max_tokens = 1
     if max_tokens > last_max_dash_tokens:
         added = max_tokens - last_max_dash_tokens
+        print(f"[DEBUG UI 토큰증가] max_tokens={max_tokens} > last_max={last_max_dash_tokens}, added={added}")
         rolling_charges = min(max_tokens, rolling_charges + added)
         rolling_charge_timer = 0
         token_states = [True] * rolling_charges + [False] * (max_tokens - rolling_charges)
@@ -44070,16 +44077,25 @@ def draw_player_gauge():
     if len(token_states) != max_tokens:
         # 현재 충전된 토큰 수 계산
         current_charged = sum(1 for state in token_states if state)
+        print(f"[DEBUG UI 크기조정] len(token_states)={len(token_states)} != max_tokens={max_tokens}, rolling_charges={rolling_charges}")
         # 새로운 토큰 상태 배열 생성
         if rolling_charges > 0:
             # 실제 충전된 토큰 수에 맞춰 재구성
+            print(f"[DEBUG UI 크기조정] token_states를 [True]*{rolling_charges}로 덮어씀!")
             token_states = [True] * min(rolling_charges, max_tokens) + [False] * max(0, max_tokens - rolling_charges)
         else:
             # 토큰이 없으면 모두 비어있음
             token_states = [False] * max_tokens
+    # 🔧 디버그: UI에서 rolling_charge_timer 값 확인 (1초마다)
+    if 'ui_debug_timer' not in globals():
+        globals()['ui_debug_timer'] = 0
+    globals()['ui_debug_timer'] = globals().get('ui_debug_timer', 0) + 1
+    if globals()['ui_debug_timer'] % 60 == 0:
+        print(f"[DEBUG UI] rolling_charge_timer={rolling_charge_timer}, token_states={token_states}, rolling_charges={rolling_charges}")
+
     for i in range(max_tokens):
         token_x = token_start_x + i * token_spacing
-        
+
         # 강조 효과 애니메이션 계산 (토큰 추가 시)
         emphasis_scale = 1.0
         emphasis_glow = 0
@@ -44088,7 +44104,7 @@ def draw_player_gauge():
             pulse = abs(math.sin(emphasis_timer * 0.008))  # 0.008 = 약 125ms 주기
             emphasis_scale = 1.0 + pulse * 0.5  # 1.0 ~ 1.5 크기 변화
             emphasis_glow = int(pulse * 100)  # 글로우 강도
-        
+
         # 토큰 상태에 따른 표시
         if i < len(token_states) and token_states[i]:
             # 사용 가능한 토큰 - 밝은 빨간색
