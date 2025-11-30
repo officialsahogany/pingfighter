@@ -253,10 +253,17 @@ def init_gacha(available_items, legendary_bonus=0.0):
     # 발토르 전용 아이템 목록
     BLACKSMITH_ONLY_ITEMS = {"repair_kit", "berserk_potion"}
 
+    # 코만도 전용 아이템 목록 (물자보급 스킬에서만 획득 가능)
+    COMMANDO_SUPPLY_ONLY_ITEMS = {"ammo_box", "fire_support", "doping_potion", "suicide_drone"}
+
     filtered_items = []
     # gacha_available_items_template 사용 (type이 이미 설정됨)
     for item in gacha_available_items_template:
         item_name = item.get("name", "")
+
+        # 코만도 전용 아이템은 가챠에서 제외 (물자보급에서만 획득 가능)
+        if item_name in COMMANDO_SUPPLY_ONLY_ITEMS:
+            continue
 
         # 발토르 전용 아이템은 발토르가 아니면 제외
         if item_name in BLACKSMITH_ONLY_ITEMS and not is_blacksmith:
