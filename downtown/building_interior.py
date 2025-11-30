@@ -2290,6 +2290,7 @@ class BuildingInterior:
             {"name": "hermes_shoes", "base_price": 5500, "korean": "헤르메스의 신발", "type": "legendary"},
             {"name": "poseidon_trident", "base_price": 5500, "korean": "포세이돈의 삼지창", "type": "legendary"},
             {"name": "angel_blessing", "base_price": 6000, "korean": "천사의 가호", "type": "legendary"},
+            {"name": "sacred_laurel", "base_price": 5800, "korean": "신성 월계수", "type": "legendary"},
         ]
 
         # 랜덤 아이템 개수 (1~7개)
@@ -3779,6 +3780,9 @@ class BuildingInterior:
                 elif item_name == "angel_blessing":
                     import items
                     items.angel_blessing_obtained = True
+                elif item_name == "sacred_laurel":
+                    import items
+                    items.sacred_laurel_obtained = True
 
             return ("bought", {"item": item_name, "price": price})
 
@@ -6043,6 +6047,7 @@ class BuildingInterior:
             "ragnarok_hammer": "전설",
             "poseidon_trident": "전설",
             "angel_blessing": "전설",
+            "sacred_laurel": "전설",
         }
         return slot_map.get(item_name, "패시브")
 
@@ -6072,6 +6077,7 @@ class BuildingInterior:
             "hermes_shoes": "헤르메스의 신발",
             "poseidon_trident": "포세이돈의 삼지창",
             "angel_blessing": "천사의 가호",
+            "sacred_laurel": "신성 월계수",
             "foul_whistle": "반칙호루라기",
             "spiked_helmet": "가시투구",
             "star_detector": "별탐지기",
@@ -6109,6 +6115,7 @@ class BuildingInterior:
             "hermes_shoes": 5500,
             "poseidon_trident": 5500,
             "angel_blessing": 6000,
+            "sacred_laurel": 5800,
             # 기타 아이템
             "foul_whistle": 2000,
             "spiked_helmet": 1100,

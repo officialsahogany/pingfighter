@@ -143,7 +143,8 @@
       "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_T5u3os/**)",
       "Bash(xargs ls:*)",
       "Bash(screencapture:*)",
-      "Bash(git revert:*)"
+      "Bash(git revert:*)",
+      "Bash(while IFS= read -r line)"
     ],
     "defaultMode": "acceptEdits"
   }

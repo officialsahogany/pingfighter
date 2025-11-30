@@ -24107,6 +24107,26 @@ def activate_smoke_grenade():
     # 효과음 재생
     play_active_item_sound()
     print(f"   !")
+
+def get_item_spawn_delay():
+    """아이템 스폰 딜레이 계산 (10~40초 기본, 스킬/아이템 배율 적용)"""
+    base_delay = random.randint(10000, 40000)
+
+    # 악마의 주사위 배율 적용
+    from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
+    if is_devil_dice_active():
+        multipliers = get_devil_dice_multipliers()
+        base_delay = int(base_delay / multipliers['item_spawn'])
+
+    # 아카데미 스킬 배율 적용
+    if 'academy' in globals():
+        try:
+            base_delay = int(base_delay * academy.get_item_spawn_delay_multiplier())
+        except Exception:
+            pass
+
+    return base_delay
+
 def activate_pandora_box():
     """판도라의 상자 활성화 - 3초간 아이템 스폰 시간 극단적으로 단축"""
     global pandora_box_active, pandora_box_timer, pandora_box_original_spawn_delay
@@ -31825,8 +31845,10 @@ def handle_player(keys):
                             
                             # 하프 대쉬도 토큰 소모 (게이지는 소모 없음)
                             # 🔧 버그 수정: set_roll 사용하여 rolling_state와 글로벌 변수 모두에 설정
+                            print(f"[DEBUG] 하프대쉬 토큰 소모 전: rolling_charges={rolling_charges}, half_dash_token_cost={half_dash_token_cost}")
                             current_charges = max(0, rolling_charges - half_dash_token_cost)
                             set_roll("rolling_charges", current_charges)
+                            print(f"[DEBUG] 하프대쉬 토큰 소모 후: current_charges={current_charges}")
 
                             # 최대 토큰 수 계산
                             base_charges = 1
@@ -31856,6 +31878,7 @@ def handle_player(keys):
 
                             #  하프대쉬 후 토큰 충전 타이머 설정 (중요!)
                             # max_charges는 위에서 이미 계산됨, current_charges는 감소된 토큰 수
+                            print(f"[DEBUG] 하프대쉬 충전조건: current_charges={current_charges} < max_charges={max_charges} ? {current_charges < max_charges}")
                             if current_charges < max_charges:
                                 # 경량화 스킬 효과 적용
                                 lightweight_bonus = academy.get_skill_bonus("dash_lightweight") if 'academy' in globals() else 0
@@ -31879,8 +31902,9 @@ def handle_player(keys):
                                         print(f"[DEBUG] 하프대쉬 천사의 가호 쿨타임 버프: x{external_cooldown_mul:.2f}")
 
                                 # 🔧 버그 수정: set_roll 사용하여 rolling_state와 글로벌 변수 모두에 설정
+                                print(f"[DEBUG] 하프대쉬 set_roll 호출 전: rolling_charge_timer={globals().get('rolling_charge_timer', 'N/A')}")
                                 set_roll("rolling_charge_timer", base_timer)
-                                print(f"[DEBUG] 하프대쉬 토큰 충전 타이머 설정: {base_timer}")
+                                print(f"[DEBUG] 하프대쉬 set_roll 호출 후: base_timer={base_timer}, rolling_charge_timer={globals().get('rolling_charge_timer', 'N/A')}")
                             
                             # 하프대쉬 전용 효과음
                             if 'SOUND_HALF_DASH' in globals():
@@ -76430,27 +76454,9 @@ def main(stage_num, new_boss_mode=False):
     
     print("/")
     
-    # 아이템 첫 스폰 시간 설정 (첫스폰))
+    # 아이템 스폰 타이머 초기화 (일반 스폰 딜레이 사용)
     last_item_spawn_time = pygame.time.get_ticks()
-    base_first_spawn = random.randint(10000, 20000)  # 첫 스폰 빠르게
-    
-    #  테스트: 연료파우치 자동 획득 (나중에 제거)
-    # activate_fuel_pouch({'max_gauge': 500, 'gauge': 0}, stage_num)
-    # items.fuel_pouch_obtained = True
-    
-    #  악마의 주사위 아이템 스폰 배율 적용 (첫 스폰에도)
-    from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
-    if is_devil_dice_active():
-        multipliers = get_devil_dice_multipliers()
-        base_first_spawn = int(base_first_spawn / multipliers['item_spawn'])
-
-    if 'academy' in globals():
-        try:
-            base_first_spawn = int(base_first_spawn * academy.get_item_spawn_delay_multiplier())
-        except Exception:
-            pass
-
-    next_item_spawn_delay = base_first_spawn
+    next_item_spawn_delay = get_item_spawn_delay()
     # selected_item_index 초기화 (active_item_slot이 비어있으면 0으로 설정)
     if not active_item_slot:
         selected_item_index = 0
@@ -78308,6 +78314,7 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
             # 악마의 주사위 배율
+            from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
             if is_devil_dice_active():
                 multipliers = get_devil_dice_multipliers()
                 cooldown_ms = max(0, int(cooldown_ms * multipliers['item_cooldown']))
@@ -79188,28 +79195,12 @@ def main(stage_num, new_boss_mode=False):
             if current_stage != 50 and pygame.time.get_ticks() - last_item_spawn_time >= next_item_spawn_delay:
                 items.spawn_random_item()
                 last_item_spawn_time = pygame.time.get_ticks()
-                
-                # 판도라의 상자 효과 중일 때는 0.5~1초로 스폰
-                if pandora_box_active:
-                    next_item_spawn_delay = random.randint(500, 1000)
-                else:
-                    base_delay = random.randint(15000, 25000)
-                    
-                    #  악마의 주사위 아이템 스폰 배율 적용
-                    from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
-                    if is_devil_dice_active():
-                        multipliers = get_devil_dice_multipliers()
-                        # item_spawn이 1.5면 스폰 주기가 짧아짐 (딜레이를 배율로 나눔)
-                        # item_spawn이 0.5면 스폰 주기가 길어짐 (딜레이를 배율로 나눔)
-                        base_delay = int(base_delay / multipliers['item_spawn'])
-                    
-                    if 'academy' in globals():
-                        try:
-                            base_delay = int(base_delay * academy.get_item_spawn_delay_multiplier())
-                        except Exception:
-                            pass
 
-                    next_item_spawn_delay = base_delay
+                # 다음 스폰 딜레이 설정
+                if pandora_box_active:
+                    next_item_spawn_delay = random.randint(500, 1000)  # 판도라 효과: 0.5~1초
+                else:
+                    next_item_spawn_delay = get_item_spawn_delay()  # 일반: 15~25초 + 배율
             
             #  파워스매싱 정지 시간 체크 및 처리
             if power_smashing_freeze_active:
