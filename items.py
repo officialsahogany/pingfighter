@@ -443,7 +443,8 @@ def load_item_icons():
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
         "hermes_shoes": "legendary/hermes_shoes.png",
         "poseidon_trident": "legendary/poseidon_trident.png",
-        "angel_blessing": "legendary/angel_blessing.png"  # 천사의 가호 아이콘
+        "angel_blessing": "legendary/holy_laurel.png",  # 천사의 가호 아이콘
+        "sacred_laurel": "legendary/sacred_laurel.png"  # 신성한 월계관 아이콘
     }
 
     legendary_manager = None
