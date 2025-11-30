@@ -79630,13 +79630,13 @@ def main(stage_num, new_boss_mode=False):
                                 # 잎이 공에 맞아 제거됨 - 보스 방향으로 반사 (타격 판정)
                                 # 공 속도 유지하면서 보스 방향(위쪽)으로 반사
                                 import math as _math_laurel
-                                current_speed = _math_laurel.sqrt(ball_dx**2 + ball_dy**2)
+                                import random as _random_laurel
+                                current_speed = _math_laurel.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                                 if current_speed > 0:
                                     # 보스 방향 (위쪽, 약간의 랜덤 각도 추가)
-                                    import random as _random_laurel
                                     angle_offset = _random_laurel.uniform(-0.3, 0.3)  # 약간의 각도 변화
-                                    ball_dy = -abs(current_speed * 0.8)  # 위쪽으로 반사
-                                    ball_dx = current_speed * 0.6 * angle_offset  # 약간의 좌우 변화
+                                    ball_vel[1] = -abs(current_speed * 0.8)  # 위쪽으로 반사
+                                    ball_vel[0] = current_speed * 0.6 * angle_offset  # 약간의 좌우 변화
                 except Exception as e:
                     print(f"[ERROR] LegendaryManager update failed: {e}")
                     import traceback
