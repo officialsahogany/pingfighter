@@ -2481,51 +2481,83 @@ class BuildingInterior:
         return None
 
     def _init_crane_prizes(self):
-        """크레인 게임 인형들 초기화"""
+        """크레인 게임 아이템 캡슐 초기화 - 실제 게임 아이템 사용"""
         self.crane_prizes = []
-        # 다양한 인형 타입 정의 (색상, 이름)
-        prize_types = [
-            {"color": (255, 100, 100), "name": "빨간 곰돌이", "rarity": "common"},
-            {"color": (100, 255, 100), "name": "초록 토끼", "rarity": "common"},
-            {"color": (100, 100, 255), "name": "파란 고양이", "rarity": "common"},
-            {"color": (255, 255, 100), "name": "노란 병아리", "rarity": "common"},
-            {"color": (255, 150, 200), "name": "핑크 돼지", "rarity": "common"},
-            {"color": (200, 100, 255), "name": "보라 유니콘", "rarity": "rare"},
-            {"color": (255, 215, 0), "name": "황금 곰돌이", "rarity": "rare"},
-            {"color": (0, 255, 255), "name": "시안 드래곤", "rarity": "epic"},
+
+        # 크레인 게임용 아이템 풀 (실제 게임 아이템)
+        crane_items = [
+            {"name": "speedboots", "korean": "스피드부츠", "rarity": "common"},
+            {"name": "speedgear", "korean": "스피드기어", "rarity": "common"},
+            {"name": "battery", "korean": "배터리", "rarity": "common"},
+            {"name": "cooltime", "korean": "쿨타임", "rarity": "common"},
+            {"name": "fuel_pouch", "korean": "연료파우치", "rarity": "common"},
+            {"name": "dowsing_pendulum", "korean": "다우징팬들럼", "rarity": "common"},
+            {"name": "smartphone", "korean": "스마트폰", "rarity": "common"},
+            {"name": "bulletproof_hat", "korean": "방탄모자", "rarity": "common"},
+            {"name": "spikeboots", "korean": "스파이크부츠", "rarity": "rare"},
+            {"name": "dashgear", "korean": "대쉬기어", "rarity": "rare"},
+            {"name": "bulkup", "korean": "벌크업", "rarity": "rare"},
+            {"name": "commando_arm", "korean": "코만도암", "rarity": "rare"},
+            {"name": "technical_vest", "korean": "테크니컬조끼", "rarity": "rare"},
+            {"name": "chargebag", "korean": "충전가방", "rarity": "rare"},
+            {"name": "sensor", "korean": "위험감지센서", "rarity": "epic"},
+            {"name": "gravitybelt", "korean": "무중력벨트", "rarity": "epic"},
+            {"name": "dashholder", "korean": "대쉬홀더", "rarity": "epic"},
+            {"name": "revival", "korean": "부활", "rarity": "epic"},
         ]
 
-        # 15~25개의 랜덤 인형 배치
-        num_prizes = random.randint(15, 25)
+        # 캡슐 색상 (레어리티별)
+        capsule_colors = {
+            "common": (150, 200, 255),    # 파란색 캡슐
+            "rare": (255, 215, 100),      # 금색 캡슐
+            "epic": (200, 100, 255),      # 보라색 캡슐
+        }
+
+        # 10~15개의 랜덤 캡슐 배치
+        num_prizes = random.randint(10, 15)
+        used_items = set()
+
         for _ in range(num_prizes):
-            # 랜덤 위치 (중앙에 몰리도록)
-            x = random.uniform(0.15, 0.85)
-            y = random.uniform(0.5, 0.9)
             # 랜덤 타입 (레어리티에 따른 확률)
             roll = random.random()
-            if roll < 0.05:  # 5% 에픽
-                prize_type = [p for p in prize_types if p["rarity"] == "epic"][0]
-            elif roll < 0.20:  # 15% 레어
-                prize_type = random.choice([p for p in prize_types if p["rarity"] == "rare"])
-            else:  # 80% 커먼
-                prize_type = random.choice([p for p in prize_types if p["rarity"] == "common"])
+            if roll < 0.08:  # 8% 에픽
+                rarity = "epic"
+            elif roll < 0.30:  # 22% 레어
+                rarity = "rare"
+            else:  # 70% 커먼
+                rarity = "common"
 
+            # 해당 레어리티의 아이템 선택
+            available = [item for item in crane_items if item["rarity"] == rarity and item["name"] not in used_items]
+            if not available:
+                available = [item for item in crane_items if item["rarity"] == rarity]
+            if not available:
+                continue
+
+            selected_item = random.choice(available)
+            used_items.add(selected_item["name"])
+
+            # 캡슐 초기 위치 및 움직임 설정
             self.crane_prizes.append({
-                "x": x,
-                "y": y,
-                "type": prize_type,
+                "x": random.uniform(0.1, 0.9),
+                "y": random.uniform(0.55, 0.85),
+                "vx": random.uniform(-0.002, 0.002),  # X 속도
+                "vy": random.uniform(-0.001, 0.001),  # Y 속도
+                "item": selected_item,
+                "capsule_color": capsule_colors[rarity],
                 "grabbed": False,
-                "wobble": random.uniform(0, 6.28),  # 흔들림 애니메이션용
+                "wobble": random.uniform(0, 6.28),
+                "rotation": random.uniform(0, 360),  # 회전 각도
             })
 
     def _reset_crane_game(self):
-        """크레인 게임 상태 초기화"""
+        """크레인 게임 상태 초기화 - 1회 시스템"""
         self.crane_x = 0.5
         self.crane_y = 0.0
         self.crane_state = "idle"
         self.crane_direction = 1
         self.crane_grab_timer = 0
-        self.crane_attempts = 5
+        self.crane_attempts = 1  # 1회 시스템으로 변경
         self.crane_grabbed_prize = None
         self.crane_result = None
         self._init_crane_prizes()
@@ -2558,10 +2590,42 @@ class BuildingInterior:
         if not self.crane_game_playing:
             return
 
-        # 인형 흔들림 애니메이션
+        # 캡슐 움직임 및 애니메이션
         for prize in self.crane_prizes:
             if not prize["grabbed"]:
+                # 흔들림 애니메이션
                 prize["wobble"] += dt * 2
+
+                # 캡슐 위치 이동 (vx, vy 속도로 움직임)
+                prize["x"] += prize["vx"]
+                prize["y"] += prize["vy"]
+
+                # 회전 애니메이션
+                prize["rotation"] += dt * 30  # 천천히 회전
+
+                # 벽에 부딪히면 방향 반전 (X축)
+                if prize["x"] <= 0.1:
+                    prize["x"] = 0.1
+                    prize["vx"] = abs(prize["vx"])
+                elif prize["x"] >= 0.9:
+                    prize["x"] = 0.9
+                    prize["vx"] = -abs(prize["vx"])
+
+                # 벽에 부딪히면 방향 반전 (Y축)
+                if prize["y"] <= 0.55:
+                    prize["y"] = 0.55
+                    prize["vy"] = abs(prize["vy"])
+                elif prize["y"] >= 0.85:
+                    prize["y"] = 0.85
+                    prize["vy"] = -abs(prize["vy"])
+
+                # 랜덤하게 방향 약간 변경 (자연스러운 움직임)
+                if random.random() < 0.01:  # 1% 확률로
+                    prize["vx"] += random.uniform(-0.001, 0.001)
+                    prize["vy"] += random.uniform(-0.0005, 0.0005)
+                    # 속도 제한
+                    prize["vx"] = max(-0.004, min(0.004, prize["vx"]))
+                    prize["vy"] = max(-0.002, min(0.002, prize["vy"]))
 
         if self.crane_state == "idle":
             # 자동 좌우 이동
@@ -2600,12 +2664,19 @@ class BuildingInterior:
             else:
                 # 결과 처리
                 if self.crane_grabbed_prize:
-                    # 성공! 인형 획득
+                    # 성공! 캡슐 획득
                     self.crane_result = {
                         "success": True,
                         "prize": self.crane_grabbed_prize
                     }
-                    # 인형 제거
+
+                    # 실제 아이템을 플레이어 인벤토리에 추가
+                    item_info = self.crane_grabbed_prize.get("item", {})
+                    item_name = item_info.get("name", "")
+                    if item_name:
+                        self._give_crane_item_to_player(item_name)
+
+                    # 캡슐 제거
                     self.crane_prizes = [p for p in self.crane_prizes if p != self.crane_grabbed_prize]
                     self.crane_grabbed_prize = None
                 else:
@@ -2630,10 +2701,41 @@ class BuildingInterior:
                     self.crane_state = "idle"
                     self.crane_result = None
 
+    def _give_crane_item_to_player(self, item_name):
+        """크레인 게임에서 획득한 아이템을 플레이어 인벤토리에 추가"""
+        try:
+            import sys
+            if 'pingfighter' in sys.modules:
+                pingfighter = sys.modules['pingfighter']
+
+                # items 모듈에서 ITEM_TYPES 가져오기
+                if 'items' in sys.modules:
+                    items_module = sys.modules['items']
+
+                    # ITEM_TYPES에서 해당 아이템 찾기
+                    for item_data in items_module.ITEM_TYPES:
+                        if item_data.get("name") == item_name:
+                            # 아이템 데이터 복사
+                            item_copy = item_data.copy()
+
+                            # store_active_item 함수 호출하여 인벤토리에 추가
+                            if hasattr(pingfighter, 'store_active_item'):
+                                pingfighter.store_active_item(item_copy)
+
+                                # 효과음 재생
+                                if hasattr(pingfighter, 'item_sound') and pingfighter.item_sound:
+                                    pingfighter.item_sound.play()
+                            break
+        except Exception as e:
+            print(f"[크레인 게임] 아이템 획득 오류: {e}")
+
     def _try_grab_prize(self):
-        """인형 잡기 시도"""
-        grab_range = 0.08  # 잡을 수 있는 범위
-        grab_chance = 0.6  # 기본 성공 확률 60%
+        """캡슐 잡기 시도 - 정확한 위치 매칭 (랜덤 확률 없음)"""
+        grab_range = 0.06  # 정확한 위치에 있어야 잡힘 (좁은 범위)
+
+        # 가장 가까운 캡슐 찾기
+        closest_prize = None
+        closest_distance = float('inf')
 
         for prize in self.crane_prizes:
             if prize["grabbed"]:
@@ -2641,23 +2743,19 @@ class BuildingInterior:
 
             dx = abs(self.crane_x - prize["x"])
             dy = abs(self.crane_y - prize["y"])
+            distance = (dx ** 2 + dy ** 2) ** 0.5
 
-            if dx < grab_range and dy < 0.15:
-                # 범위 내에 인형 있음
-                # 레어리티에 따른 확률 조정
-                if prize["type"]["rarity"] == "epic":
-                    success_chance = grab_chance * 0.5  # 30%
-                elif prize["type"]["rarity"] == "rare":
-                    success_chance = grab_chance * 0.7  # 42%
-                else:
-                    success_chance = grab_chance  # 60%
+            # 범위 내에 있고 가장 가까운 캡슐 선택
+            if dx < grab_range and dy < 0.12 and distance < closest_distance:
+                closest_distance = distance
+                closest_prize = prize
 
-                if random.random() < success_chance:
-                    prize["grabbed"] = True
-                    self.crane_grabbed_prize = prize
-                    return
-
-        self.crane_grabbed_prize = None
+        # 정확한 위치에 캡슐이 있으면 100% 성공
+        if closest_prize:
+            closest_prize["grabbed"] = True
+            self.crane_grabbed_prize = closest_prize
+        else:
+            self.crane_grabbed_prize = None
 
     def _check_nearby_gacha_machine(self):
         """플레이어 근처에 가챠 머신이 있는지 확인"""
@@ -6394,7 +6492,7 @@ class BuildingInterior:
             shelf_y = game_y + game_h * 0.4 + i * 50
             pygame.draw.rect(screen, color, (game_x, shelf_y, game_w, 50))
 
-        # === 인형들 그리기 ===
+        # === 캡슐들 그리기 ===
         for prize in self.crane_prizes:
             if prize["grabbed"]:
                 continue
@@ -6404,40 +6502,79 @@ class BuildingInterior:
             py = game_y + int(prize["y"] * game_h)
 
             # 흔들림 애니메이션
-            wobble = math.sin(prize["wobble"]) * 2
+            wobble = math.sin(prize["wobble"]) * 3
 
-            # 인형 그리기 (심플한 원형 + 귀)
-            color = prize["type"]["color"]
-            size = 18
+            # 캡슐 색상 (레어리티에 따라)
+            capsule_color = prize.get("capsule_color", (150, 200, 255))
+            capsule_size = 22
 
             # 그림자
-            shadow_color = (color[0] // 3, color[1] // 3, color[2] // 3)
-            pygame.draw.circle(screen, shadow_color, (px + 3, py + 3 + int(wobble)), size)
+            shadow_color = (capsule_color[0] // 3, capsule_color[1] // 3, capsule_color[2] // 3)
+            pygame.draw.ellipse(screen, shadow_color,
+                               (px - capsule_size + 3, py - capsule_size // 2 + 3 + int(wobble),
+                                capsule_size * 2, capsule_size + 6))
 
-            # 몸체
-            pygame.draw.circle(screen, color, (px, py + int(wobble)), size)
+            # 캡슐 본체 (타원형)
+            pygame.draw.ellipse(screen, capsule_color,
+                               (px - capsule_size, py - capsule_size // 2 + int(wobble),
+                                capsule_size * 2, capsule_size + 6))
 
-            # 귀 (곰돌이 스타일)
-            ear_size = size // 3
-            pygame.draw.circle(screen, color, (px - size + 4, py - size + 4 + int(wobble)), ear_size)
-            pygame.draw.circle(screen, color, (px + size - 4, py - size + 4 + int(wobble)), ear_size)
+            # 캡슐 상단 하이라이트
+            highlight_color = (min(255, capsule_color[0] + 60),
+                              min(255, capsule_color[1] + 60),
+                              min(255, capsule_color[2] + 60))
+            pygame.draw.ellipse(screen, highlight_color,
+                               (px - capsule_size + 4, py - capsule_size // 2 + 2 + int(wobble),
+                                capsule_size - 4, capsule_size // 3))
 
-            # 눈
-            eye_color = (30, 30, 30)
-            pygame.draw.circle(screen, eye_color, (px - 5, py - 3 + int(wobble)), 3)
-            pygame.draw.circle(screen, eye_color, (px + 5, py - 3 + int(wobble)), 3)
+            # 캡슐 테두리
+            border_color = (capsule_color[0] // 2, capsule_color[1] // 2, capsule_color[2] // 2)
+            pygame.draw.ellipse(screen, border_color,
+                               (px - capsule_size, py - capsule_size // 2 + int(wobble),
+                                capsule_size * 2, capsule_size + 6), 2)
+
+            # 캡슐 가운데 선 (투명 부분 표현)
+            pygame.draw.line(screen, (255, 255, 255, 100),
+                            (px - capsule_size + 5, py + int(wobble)),
+                            (px + capsule_size - 5, py + int(wobble)), 1)
+
+            # 아이템 아이콘 그리기 (캡슐 안에)
+            item_name = prize.get("item", {}).get("name", "")
+            if item_name:
+                try:
+                    # pingfighter의 get_item_icon 사용 시도
+                    import sys
+                    if 'pingfighter' in sys.modules:
+                        pingfighter = sys.modules['pingfighter']
+                        if hasattr(pingfighter, 'get_item_icon'):
+                            item_icon = pingfighter.get_item_icon(item_name)
+                            if item_icon:
+                                # 아이콘 크기 조정 (20x20)
+                                icon_size = 20
+                                scaled_icon = pygame.transform.scale(item_icon, (icon_size, icon_size))
+                                icon_x = px - icon_size // 2
+                                icon_y = py - icon_size // 2 + int(wobble)
+                                screen.blit(scaled_icon, (icon_x, icon_y))
+                except Exception:
+                    # 아이콘 로드 실패 시 간단한 표시
+                    pygame.draw.circle(screen, (255, 255, 255), (px, py + int(wobble)), 8)
 
             # 레어리티 표시 (희귀 아이템은 반짝임)
-            if prize["type"]["rarity"] == "rare":
+            item_rarity = prize.get("item", {}).get("rarity", "common")
+            if item_rarity == "rare":
                 glow_alpha = int(128 + 127 * math.sin(self.animation_timer * 5))
-                glow_surf = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (255, 215, 0, glow_alpha // 2), (size * 1.5, size * 1.5), size + 5)
-                screen.blit(glow_surf, (px - size * 1.5, py - size * 1.5 + int(wobble)))
-            elif prize["type"]["rarity"] == "epic":
+                glow_surf = pygame.Surface((capsule_size * 3, capsule_size * 3), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf, (255, 215, 0, glow_alpha // 3),
+                                   (capsule_size // 2, capsule_size // 2,
+                                    capsule_size * 2, capsule_size * 2))
+                screen.blit(glow_surf, (px - capsule_size * 1.5, py - capsule_size * 1.5 + int(wobble)))
+            elif item_rarity == "epic":
                 glow_alpha = int(128 + 127 * math.sin(self.animation_timer * 8))
-                glow_surf = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (0, 255, 255, glow_alpha // 2), (size * 1.5, size * 1.5), size + 8)
-                screen.blit(glow_surf, (px - size * 1.5, py - size * 1.5 + int(wobble)))
+                glow_surf = pygame.Surface((capsule_size * 3, capsule_size * 3), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf, (200, 100, 255, glow_alpha // 3),
+                                   (capsule_size // 2, capsule_size // 2,
+                                    capsule_size * 2, capsule_size * 2))
+                screen.blit(glow_surf, (px - capsule_size * 1.5, py - capsule_size * 1.5 + int(wobble)))
 
         # === 크레인 그리기 ===
         crane_px = game_x + int(self.crane_x * game_w)
@@ -6473,18 +6610,38 @@ class BuildingInterior:
         pygame.draw.line(screen, CRANE_SILVER, (crane_px, crane_py),
                         (crane_px + claw_open, crane_py + claw_length), 4)
 
-        # 잡은 인형 그리기
+        # 잡은 캡슐 그리기
         if self.crane_grabbed_prize and (self.crane_state == "rising" or self.crane_state == "returning"):
             prize = self.crane_grabbed_prize
-            color = prize["type"]["color"]
-            grab_y = crane_py + claw_length + 10
-            pygame.draw.circle(screen, color, (crane_px, grab_y), 18)
-            # 귀
-            pygame.draw.circle(screen, color, (crane_px - 14, grab_y - 14), 6)
-            pygame.draw.circle(screen, color, (crane_px + 14, grab_y - 14), 6)
-            # 눈
-            pygame.draw.circle(screen, (30, 30, 30), (crane_px - 5, grab_y - 3), 3)
-            pygame.draw.circle(screen, (30, 30, 30), (crane_px + 5, grab_y - 3), 3)
+            capsule_color = prize.get("capsule_color", (150, 200, 255))
+            grab_y = crane_py + claw_length + 12
+            capsule_size = 20
+
+            # 캡슐 본체 (타원형)
+            pygame.draw.ellipse(screen, capsule_color,
+                               (crane_px - capsule_size, grab_y - capsule_size // 2,
+                                capsule_size * 2, capsule_size + 6))
+            # 캡슐 테두리
+            border_color = (capsule_color[0] // 2, capsule_color[1] // 2, capsule_color[2] // 2)
+            pygame.draw.ellipse(screen, border_color,
+                               (crane_px - capsule_size, grab_y - capsule_size // 2,
+                                capsule_size * 2, capsule_size + 6), 2)
+
+            # 아이템 아이콘 그리기
+            item_name = prize.get("item", {}).get("name", "")
+            if item_name:
+                try:
+                    import sys
+                    if 'pingfighter' in sys.modules:
+                        pingfighter = sys.modules['pingfighter']
+                        if hasattr(pingfighter, 'get_item_icon'):
+                            item_icon = pingfighter.get_item_icon(item_name)
+                            if item_icon:
+                                icon_size = 18
+                                scaled_icon = pygame.transform.scale(item_icon, (icon_size, icon_size))
+                                screen.blit(scaled_icon, (crane_px - icon_size // 2, grab_y - icon_size // 2))
+                except Exception:
+                    pygame.draw.circle(screen, (255, 255, 255), (crane_px, grab_y), 7)
 
         # 유리 반사 효과
         glass_overlay = pygame.Surface((game_w, game_h), pygame.SRCALPHA)
@@ -6504,11 +6661,11 @@ class BuildingInterior:
         pygame.draw.rect(screen, (40, 35, 30), (game_x, info_bar_y, game_w, 35), border_radius=5)
         pygame.draw.rect(screen, MACHINE_ORANGE, (game_x, info_bar_y, game_w, 35), 2, border_radius=5)
 
-        # 남은 시도 횟수
+        # 크레인 게임 타이틀 (1회 시스템)
         if font_medium:
-            attempts_text = f"남은 횟수: {self.crane_attempts}/5"
-            attempts_surf, attempts_rect = font_medium.render(attempts_text, (255, 255, 255))
-            screen.blit(attempts_surf, (game_x + 20, info_bar_y + 8))
+            title_text = "🎯 크레인 게임"
+            title_surf, title_rect = font_medium.render(title_text, (255, 255, 255))
+            screen.blit(title_surf, (game_x + 20, info_bar_y + 8))
 
         # 골드 표시
         if font_small:
@@ -6538,21 +6695,41 @@ class BuildingInterior:
 
         # === 결과 표시 ===
         if self.crane_state == "result" and self.crane_result:
-            result_overlay = pygame.Surface((game_w, 80), pygame.SRCALPHA)
-            result_overlay.fill((0, 0, 0, 180))
-            screen.blit(result_overlay, (game_x, game_y + game_h // 2 - 40))
+            result_overlay = pygame.Surface((game_w, 100), pygame.SRCALPHA)
+            result_overlay.fill((0, 0, 0, 200))
+            screen.blit(result_overlay, (game_x, game_y + game_h // 2 - 50))
 
             if font_medium:
                 if self.crane_result["success"]:
                     prize = self.crane_result["prize"]
-                    result_text = f"성공! {prize['type']['name']} 획득!"
+                    # 아이템 한글 이름 가져오기
+                    item_info = prize.get("item", {})
+                    item_korean_name = item_info.get("korean", item_info.get("name", "아이템"))
+                    result_text = f"🎉 성공! {item_korean_name} 획득!"
                     result_color = (100, 255, 100)
+
+                    # 아이템 아이콘도 표시
+                    item_name = item_info.get("name", "")
+                    if item_name:
+                        try:
+                            import sys
+                            if 'pingfighter' in sys.modules:
+                                pingfighter = sys.modules['pingfighter']
+                                if hasattr(pingfighter, 'get_item_icon'):
+                                    item_icon = pingfighter.get_item_icon(item_name)
+                                    if item_icon:
+                                        icon_size = 32
+                                        scaled_icon = pygame.transform.scale(item_icon, (icon_size, icon_size))
+                                        screen.blit(scaled_icon, (game_x + game_w // 2 - icon_size // 2,
+                                                                 game_y + game_h // 2 - 45))
+                        except Exception:
+                            pass
                 else:
-                    result_text = "아쉽네요... 다시 도전해보세요!"
+                    result_text = "😢 빗나갔어요... 다시 도전해보세요!"
                     result_color = (255, 150, 150)
 
                 result_surf, result_rect = font_medium.render(result_text, result_color)
-                screen.blit(result_surf, (game_x + game_w // 2 - result_rect.width // 2, game_y + game_h // 2 - 10))
+                screen.blit(result_surf, (game_x + game_w // 2 - result_rect.width // 2, game_y + game_h // 2 + 5))
 
     def _draw_bank_menu(self, screen):
         """은행 메뉴창 그리기 - SF 스타일 (마우스 호버 효과 포함)"""
