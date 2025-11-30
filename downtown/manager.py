@@ -1047,7 +1047,8 @@ class DowntownManager:
         # 텍스트
         if self.font_medium:
             text_color = (255, 255, 255)
-            text_surf, text_rect = self.font_medium.render(hint_text, text_color)
+            text_surf = self.font_medium.render(hint_text, True, text_color)
+            text_rect = text_surf.get_rect()
             text_x = box_x + (box_w - text_rect.width) // 2 + 15
             text_y = box_y + (box_h - text_rect.height) // 2
             self.screen.blit(text_surf, (text_x, text_y))
