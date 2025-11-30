@@ -634,7 +634,8 @@ class DowntownManager:
         return None
 
     def _check_animal_click(self, world_x, world_y):
-        """마우스 클릭 위치에 동물(강아지/고양이)이 있는지 확인"""
+        """마우스 클릭 위치에 동물(강아지/고양이)이 있는지 확인 (플레이어가 가까이 있어야 함)"""
+        import math
         from .npc import NPCType
 
         for npc in self.npc_manager.npcs:
@@ -642,8 +643,17 @@ class DowntownManager:
             if npc.type in [NPCType.DOG, NPCType.CAT]:
                 npc_rect = npc.get_rect()
                 if npc_rect.collidepoint(world_x, world_y):
-                    print(f"  -> Animal HIT! type={npc.type}")
-                    return npc
+                    # 플레이어와 동물 사이 거리 체크 (80픽셀 이내)
+                    player_x = self.player.x
+                    player_y = self.player.y
+                    distance = math.sqrt((player_x - npc.x) ** 2 + (player_y - npc.y) ** 2)
+
+                    if distance <= 80:
+                        print(f"  -> Animal HIT! type={npc.type}, distance={distance:.1f}px")
+                        return npc
+                    else:
+                        print(f"  -> Animal too far: {distance:.1f}px (need <= 80px)")
+                        return None
 
         return None
 

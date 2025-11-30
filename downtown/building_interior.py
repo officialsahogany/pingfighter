@@ -3079,32 +3079,31 @@ class BuildingInterior:
                 self.nearby_crane_game = clicked_crane
                 return ("crane_interact", clicked_crane)
 
-        # NPC 클릭 체크
+        # NPC 클릭 체크 (플레이어가 가까이 있어야 함)
         for npc in self.npcs:
             npc_rect = npc.get_rect()
             if npc_rect.collidepoint(world_x, world_y):
+                # 플레이어와 NPC 사이 거리 체크 (100픽셀 이내)
+                player_x = self.player_x
+                player_y = self.player_y
+                npc_x = npc.x
+                npc_y = npc.y
+                distance = math.sqrt((player_x - npc_x) ** 2 + (player_y - npc_y) ** 2)
+
+                # 거리가 100픽셀 초과면 상호작용 불가
+                if distance > 100:
+                    return None
+
                 # 은행 메인 NPC인 경우 메뉴 열기
                 if self.building_type == BuildingType.BANK and npc.role == "main":
                     self.bank_menu_open = True
                     self.bank_menu_selection = 0
                     return ("bank_menu", npc)
-                # 아카데미 메인 NPC(학장 아르카나)인 경우 - 가까이 있어야만 상호작용 가능
+                # 아카데미 메인 NPC(학장 아르카나)인 경우 대화창 열기
                 elif self.building_type == BuildingType.ACADEMY and npc.role == "main":
-                    # 플레이어와 NPC 사이 거리 체크
-                    player_x = self.player_x
-                    player_y = self.player_y
-                    npc_x = npc.x
-                    npc_y = npc.y
-                    distance = math.sqrt((player_x - npc_x) ** 2 + (player_y - npc_y) ** 2)
-
-                    # 100픽셀 이내에 있어야 상호작용 가능
-                    if distance <= 100:
-                        self.academy_dialog_open = True
-                        self.academy_dialog_selection = 0
-                        return ("academy_dialog", npc)
-                    else:
-                        # 너무 멀리 있으면 None 반환 (상호작용 불가)
-                        return None
+                    self.academy_dialog_open = True
+                    self.academy_dialog_selection = 0
+                    return ("academy_dialog", npc)
                 # 상점 인간 상인 (점주 그린)인 경우 거래창 열기
                 elif self.building_type == BuildingType.ITEM_SHOP and getattr(npc, 'is_shop_human', False):
                     self.shop_trade_open = True
