@@ -2768,16 +2768,23 @@ class BuildingInterior:
 
         elif self.crane_state == "item_falling":
             # 아이템 낙하 애니메이션
-            self.crane_drop_speed += 0.008  # 중력
+            self.crane_drop_speed += 0.015  # 중력 (더 빠르게)
             self.crane_drop_y += self.crane_drop_speed
 
             # 바닥에 닿으면 튀어오름
-            if self.crane_drop_y >= 0.3 and self.crane_drop_speed > 0:
-                self.crane_drop_speed = -self.crane_drop_speed * 0.5  # 튀어오름
+            ground_y = 1.0  # 바닥 위치
+            if self.crane_drop_y >= ground_y and self.crane_drop_speed > 0:
+                self.crane_drop_y = ground_y  # 바닥에 고정
+                self.crane_drop_speed = -self.crane_drop_speed * 0.4  # 튀어오름 (감쇠)
                 self.crane_drop_bounce += 1
 
-            # 2번 튀어오른 후 결과 처리
-            if self.crane_drop_bounce >= 2 and self.crane_drop_speed >= 0:
+                # 속도가 너무 작으면 멈춤
+                if abs(self.crane_drop_speed) < 0.02:
+                    self.crane_drop_speed = 0
+                    self.crane_drop_bounce = 3  # 강제로 종료 조건 충족
+
+            # 2번 이상 튀어오른 후 결과 처리
+            if self.crane_drop_bounce >= 2 and self.crane_drop_speed >= -0.01:
                 # 성공! 캡슐 획득
                 self.crane_result = {
                     "success": True,
@@ -7052,15 +7059,13 @@ class BuildingInterior:
             capsule_color = prize.get("capsule_color", (150, 200, 255))
 
             # 배출구 위쪽에서 시작해서 아래로 떨어짐
-            drop_start_y = chute_y + 20  # 배출구 내부 상단
-            drop_end_y = chute_y + chute_h + 30  # 배출구 아래로 떨어짐
-            drop_y = drop_start_y + int(self.crane_drop_y * (drop_end_y - drop_start_y))
+            drop_start_y = chute_y + 15  # 배출구 내부 상단
+            drop_end_y = chute_y + chute_h + 20  # 배출구 아래 바닥
+            # crane_drop_y는 0.0 ~ 1.0 범위
+            drop_y = drop_start_y + int(min(self.crane_drop_y, 1.0) * (drop_end_y - drop_start_y))
             drop_x = chute_x + chute_w // 2
 
             cap_w, cap_h = 24, 32
-
-            # 캡슐 회전 효과 (튕길 때마다 회전)
-            rotation_offset = int(self.crane_drop_y * 10) % 4
 
             # 캡슐 그리기
             bottom_color = (capsule_color[0] * 7 // 10, capsule_color[1] * 7 // 10, capsule_color[2] * 7 // 10)
@@ -7093,12 +7098,12 @@ class BuildingInterior:
                 except Exception:
                     pygame.draw.circle(screen, (255, 255, 255), (drop_x, drop_y), 6)
 
-            # 튕김 효과 파티클
-            if self.crane_drop_bounce > 0 and self.crane_drop_speed < 0:
+            # 튕김 효과 파티클 (바닥에 닿을 때)
+            if self.crane_drop_bounce > 0 and abs(self.crane_drop_y - 1.0) < 0.05:
                 for i in range(3):
-                    particle_x = drop_x + random.randint(-15, 15)
-                    particle_y = drop_y + cap_h // 2 + random.randint(-5, 5)
-                    pygame.draw.circle(screen, (255, 255, 200, 150), (particle_x, particle_y), 2)
+                    particle_x = drop_x + random.randint(-10, 10)
+                    particle_y = drop_end_y + random.randint(-3, 3)
+                    pygame.draw.circle(screen, (255, 255, 200), (particle_x, particle_y), 2)
 
         # === 조이스틱 & 버튼 영역 (하단) ===
         control_y = frame_y + frame_h - 50
