@@ -82710,7 +82710,7 @@ def show_character_info(background_surface=None):
                 pygame.draw.rect(SCREEN, (200, 200, 200), (mouse_pos[0] - 27, mouse_pos[1] - 27, 54, 54), 1)
 
         # 스킬트리 버튼 (툴팁보다 먼저 그려 레이어 문제 예방)
-        hovered = skill_button_rect.collidepoint(mouse_pos)
+     ㅁ   hovered = skill_button_rect.collidepoint(mouse_pos)
         btn_fill = (55, 90, 150) if hovered else (40, 70, 120)
         btn_border = (255, 220, 120) if hovered else (200, 200, 200)
         pygame.draw.rect(SCREEN, btn_fill, skill_button_rect, border_radius=12)

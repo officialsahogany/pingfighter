@@ -2645,11 +2645,21 @@ class SacredLaurel(LegendaryItem):
         if self.active:
             return
         import math
+        import random
         self.active = True
         self.leaves = []
         for i in range(self.max_leaves):
             angle = (2 * math.pi / self.max_leaves) * i
-            self.leaves.append({'active': True, 'base_angle': angle, 'removal_effect': False, 'removal_timer': 0})
+            # 4가지 다른 잎 모양 타입 랜덤 할당
+            leaf_type = random.randint(0, 3)
+            self.leaves.append({
+                'active': True,
+                'base_angle': angle,
+                'removal_effect': False,
+                'removal_timer': 0,
+                'leaf_type': leaf_type,  # 0: 클래식, 1: 뾰족한, 2: 둥근, 3: 톱니
+                'size_variation': random.uniform(0.8, 1.2)  # 크기 변화
+            })
         self.current_angle = 0
         self.all_leaves_destroyed = False
         self.respawn_timer = 0
@@ -2714,10 +2724,19 @@ class SacredLaurel(LegendaryItem):
 
     def _respawn_leaves(self):
         import math
+        import random
         self.leaves = []
         for i in range(self.max_leaves):
             angle = (2 * math.pi / self.max_leaves) * i
-            self.leaves.append({'active': True, 'base_angle': angle, 'removal_effect': False, 'removal_timer': 0})
+            leaf_type = random.randint(0, 3)
+            self.leaves.append({
+                'active': True,
+                'base_angle': angle,
+                'removal_effect': False,
+                'removal_timer': 0,
+                'leaf_type': leaf_type,
+                'size_variation': random.uniform(0.8, 1.2)
+            })
         self.all_leaves_destroyed = False
         self.respawn_timer = 0
 
@@ -2757,6 +2776,124 @@ class SacredLaurel(LegendaryItem):
             self.all_leaves_destroyed = True
             self.respawn_timer = 0
 
+    def _draw_leaf_type_0(self, surf, w, h, depth_factor):
+        """클래식 월계수 잎 - 타원형 기본"""
+        import pygame
+        # 메인 잎 몸체
+        base_green = (int(85 * depth_factor), int(165 * depth_factor), int(75 * depth_factor))
+        mid_green = (int(100 * depth_factor), int(185 * depth_factor), int(90 * depth_factor))
+        light_green = (int(140 * depth_factor), int(220 * depth_factor), int(120 * depth_factor))
+        highlight = (int(180 * depth_factor), int(245 * depth_factor), int(160 * depth_factor))
+        vein_color = (int(60 * depth_factor), int(130 * depth_factor), int(55 * depth_factor))
+
+        # 외곽 그림자
+        pygame.draw.ellipse(surf, base_green, (1, 1, w-2, h-2))
+        # 메인 잎
+        pygame.draw.ellipse(surf, mid_green, (2, 2, w-4, h-4))
+        # 하이라이트 (왼쪽 상단)
+        pygame.draw.ellipse(surf, light_green, (3, 2, w//3, h//2))
+        pygame.draw.ellipse(surf, highlight, (4, 3, w//5, h//3))
+        # 중심 잎맥
+        pygame.draw.line(surf, vein_color, (w-2, h//2), (3, h//2), 2)
+        # 측면 잎맥들
+        for i in range(3):
+            offset = (i + 1) * w // 5
+            pygame.draw.line(surf, vein_color, (w - offset, h//2), (w - offset - 4, h//4 + 1), 1)
+            pygame.draw.line(surf, vein_color, (w - offset, h//2), (w - offset - 4, h*3//4 - 1), 1)
+
+    def _draw_leaf_type_1(self, surf, w, h, depth_factor):
+        """뾰족한 월계수 잎 - 창 모양"""
+        import pygame
+        base_green = (int(75 * depth_factor), int(155 * depth_factor), int(65 * depth_factor))
+        mid_green = (int(95 * depth_factor), int(180 * depth_factor), int(85 * depth_factor))
+        light_green = (int(130 * depth_factor), int(210 * depth_factor), int(110 * depth_factor))
+        highlight = (int(170 * depth_factor), int(240 * depth_factor), int(150 * depth_factor))
+        vein_color = (int(55 * depth_factor), int(120 * depth_factor), int(50 * depth_factor))
+
+        # 뾰족한 잎 모양 (폴리곤)
+        points = [
+            (w - 2, h // 2),  # 뾰족한 끝
+            (w * 2 // 3, h // 5),  # 상단
+            (w // 4, h // 4),
+            (3, h // 2),  # 줄기 연결
+            (w // 4, h * 3 // 4),
+            (w * 2 // 3, h * 4 // 5),  # 하단
+        ]
+        pygame.draw.polygon(surf, base_green, points)
+        # 내부 레이어
+        inner_points = [(int(p[0] * 0.9 + w * 0.05), int(p[1] * 0.85 + h * 0.075)) for p in points]
+        pygame.draw.polygon(surf, mid_green, inner_points)
+        # 하이라이트
+        pygame.draw.ellipse(surf, light_green, (w//3, h//4, w//4, h//3))
+        pygame.draw.ellipse(surf, highlight, (w//3 + 2, h//4 + 2, w//6, h//5))
+        # 중심 잎맥
+        pygame.draw.line(surf, vein_color, (w-3, h//2), (5, h//2), 2)
+
+    def _draw_leaf_type_2(self, surf, w, h, depth_factor):
+        """둥근 월계수 잎 - 부드러운 곡선"""
+        import pygame
+        base_green = (int(90 * depth_factor), int(170 * depth_factor), int(80 * depth_factor))
+        mid_green = (int(110 * depth_factor), int(195 * depth_factor), int(100 * depth_factor))
+        light_green = (int(150 * depth_factor), int(230 * depth_factor), int(130 * depth_factor))
+        highlight = (int(190 * depth_factor), int(250 * depth_factor), int(170 * depth_factor))
+        vein_color = (int(65 * depth_factor), int(140 * depth_factor), int(60 * depth_factor))
+        edge_color = (int(50 * depth_factor), int(110 * depth_factor), int(45 * depth_factor))
+
+        # 둥근 외곽
+        pygame.draw.ellipse(surf, edge_color, (0, 0, w, h))
+        pygame.draw.ellipse(surf, base_green, (1, 1, w-2, h-2))
+        # 둥근 내부
+        pygame.draw.ellipse(surf, mid_green, (3, 2, w-6, h-4))
+        # 원형 하이라이트
+        pygame.draw.ellipse(surf, light_green, (w//4, h//5, w//3, h//2))
+        pygame.draw.ellipse(surf, highlight, (w//4 + 2, h//5 + 2, w//5, h//3))
+        # 부드러운 잎맥
+        pygame.draw.arc(surf, vein_color, (2, h//4, w-4, h//2), 3.14, 0, 2)
+        pygame.draw.line(surf, vein_color, (w-2, h//2), (4, h//2), 1)
+
+    def _draw_leaf_type_3(self, surf, w, h, depth_factor):
+        """톱니 월계수 잎 - 가장자리 톱니"""
+        import pygame
+        import math
+        base_green = (int(80 * depth_factor), int(160 * depth_factor), int(70 * depth_factor))
+        mid_green = (int(100 * depth_factor), int(185 * depth_factor), int(90 * depth_factor))
+        light_green = (int(135 * depth_factor), int(215 * depth_factor), int(115 * depth_factor))
+        highlight = (int(175 * depth_factor), int(242 * depth_factor), int(155 * depth_factor))
+        vein_color = (int(58 * depth_factor), int(125 * depth_factor), int(52 * depth_factor))
+
+        # 톱니 모양 외곽
+        points = []
+        num_teeth = 6
+        for i in range(num_teeth * 2 + 1):
+            t = i / (num_teeth * 2)
+            x = w - 2 - (w - 4) * t
+            if i % 2 == 0:
+                y_offset = 0
+            else:
+                y_offset = h // 8 if i < num_teeth else -h // 8
+            base_y = h // 2
+            curve = math.sin(t * math.pi) * (h // 3)
+            if i <= num_teeth:
+                y = base_y - curve + y_offset
+            else:
+                y = base_y + curve + y_offset
+            points.append((x, max(1, min(h-1, y))))
+
+        if len(points) > 2:
+            pygame.draw.polygon(surf, base_green, points)
+        # 내부
+        pygame.draw.ellipse(surf, mid_green, (w//6, h//4, w*2//3, h//2))
+        # 하이라이트
+        pygame.draw.ellipse(surf, light_green, (w//4, h//4, w//3, h//3))
+        pygame.draw.ellipse(surf, highlight, (w//4 + 3, h//4 + 2, w//5, h//5))
+        # 잎맥
+        pygame.draw.line(surf, vein_color, (w-3, h//2), (5, h//2), 2)
+        # 측면 잎맥
+        for i in range(2):
+            offset = (i + 1) * w // 4
+            pygame.draw.line(surf, vein_color, (w - offset, h//2), (w - offset - 5, h//3), 1)
+            pygame.draw.line(surf, vein_color, (w - offset, h//2), (w - offset - 5, h*2//3), 1)
+
     def draw_effects(self, screen):
         if not self.active:
             return
@@ -2783,25 +2920,33 @@ class SacredLaurel(LegendaryItem):
         for depth, angle, leaf_x, leaf_y, leaf in leaf_draw_order:
             # 깊이에 따라 크기와 투명도 조절 (3D 원근감)
             depth_factor = 0.6 + 0.4 * ((depth + 1) / 2)  # 0.6 ~ 1.0 범위
-            current_leaf_size = int(self.leaf_size * depth_factor)
+            size_var = leaf.get('size_variation', 1.0)
+            current_leaf_size = int(self.leaf_size * depth_factor * size_var)
             alpha_factor = 0.5 + 0.5 * ((depth + 1) / 2)  # 0.5 ~ 1.0 범위
 
+            # 글로우 효과
             glow_alpha = int((100 + 50 * self.glow_intensity) * alpha_factor)
-            glow_surf = pygame.Surface((current_leaf_size * 3, current_leaf_size * 3), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (150, 255, 150, glow_alpha),
-                             (current_leaf_size * 1.5, current_leaf_size * 1.5), current_leaf_size * 1.2)
-            screen.blit(glow_surf, (leaf_x - current_leaf_size * 1.5, leaf_y - current_leaf_size * 1.5))
+            glow_surf = pygame.Surface((current_leaf_size * 4, current_leaf_size * 3), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (150, 255, 150, glow_alpha),
+                              (0, 0, current_leaf_size * 4, current_leaf_size * 3))
+            screen.blit(glow_surf, (leaf_x - current_leaf_size * 2, leaf_y - current_leaf_size * 1.5))
 
-            leaf_surf = pygame.Surface((current_leaf_size * 2, current_leaf_size), pygame.SRCALPHA)
-            # 깊이에 따라 색상 조절 (뒤쪽은 어둡게)
-            green_intensity = int(200 * depth_factor)
-            light_green = int(255 * depth_factor)
-            pygame.draw.ellipse(leaf_surf, (int(100 * depth_factor), green_intensity, int(100 * depth_factor)),
-                              (0, 0, current_leaf_size * 2, current_leaf_size))
-            pygame.draw.ellipse(leaf_surf, (int(180 * depth_factor), light_green, int(180 * depth_factor)),
-                              (3, 2, current_leaf_size // 2, current_leaf_size // 3))
-            pygame.draw.line(leaf_surf, (int(80 * depth_factor), int(160 * depth_factor), int(80 * depth_factor)),
-                           (current_leaf_size * 2, current_leaf_size // 2), (0, current_leaf_size // 2), 1)
+            # 잎 서피스 생성 (가로로 길게)
+            leaf_w = int(current_leaf_size * 2.5)
+            leaf_h = int(current_leaf_size * 1.2)
+            leaf_surf = pygame.Surface((leaf_w, leaf_h), pygame.SRCALPHA)
+
+            # 잎 타입에 따라 다른 모양 그리기
+            leaf_type = leaf.get('leaf_type', 0)
+            if leaf_type == 0:
+                self._draw_leaf_type_0(leaf_surf, leaf_w, leaf_h, depth_factor)
+            elif leaf_type == 1:
+                self._draw_leaf_type_1(leaf_surf, leaf_w, leaf_h, depth_factor)
+            elif leaf_type == 2:
+                self._draw_leaf_type_2(leaf_surf, leaf_w, leaf_h, depth_factor)
+            else:
+                self._draw_leaf_type_3(leaf_surf, leaf_w, leaf_h, depth_factor)
+
             rotated = pygame.transform.rotate(leaf_surf, -math.degrees(angle))
             rect = rotated.get_rect(center=(int(leaf_x), int(leaf_y)))
             screen.blit(rotated, rect)
