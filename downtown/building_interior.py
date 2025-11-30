@@ -6561,22 +6561,22 @@ class BuildingInterior:
             pygame.draw.line(screen, LINE_WHITE, (table_x + table_w // 2, table_y + 8),
                            (table_x + table_w // 2, table_y + table_h - 8), 3)
 
-            # === 네트 (더 상세하게) ===
-            net_y = table_y + table_h // 2
+            # === 네트 (세로 중앙 배치) ===
+            net_x = table_x + table_w // 2
 
-            # 네트 지지대 (양쪽)
-            pygame.draw.rect(screen, (90, 90, 95), (table_x + 2, net_y - 18, 8, 24))
-            pygame.draw.rect(screen, (90, 90, 95), (table_x + table_w - 10, net_y - 18, 8, 24))
+            # 네트 지지대 (위아래)
+            pygame.draw.rect(screen, (90, 90, 95), (net_x - 4, table_y + 2, 8, 8))
+            pygame.draw.rect(screen, (90, 90, 95), (net_x - 4, table_y + table_h - 10, 8, 8))
 
-            # 네트 상단 바
-            pygame.draw.rect(screen, (120, 120, 125), (table_x + 8, net_y - 18, table_w - 16, 4))
+            # 네트 세로 바 (중앙선 위)
+            pygame.draw.rect(screen, (120, 120, 125), (net_x - 2, table_y + 8, 4, table_h - 16))
 
-            # 네트 메쉬 (세로선들)
-            for nx in range(12, table_w - 12, 8):
-                pygame.draw.line(screen, NET_SHADOW, (table_x + nx, net_y - 14), (table_x + nx, net_y - 2), 1)
+            # 네트 메쉬 (가로선들)
+            for ny in range(12, table_h - 12, 6):
+                pygame.draw.line(screen, NET_SHADOW, (net_x - 8, table_y + ny), (net_x + 8, table_y + ny), 1)
 
-            # 네트 가로선
-            pygame.draw.line(screen, NET_WHITE, (table_x + 8, net_y - 8), (table_x + table_w - 8, net_y - 8), 1)
+            # 네트 세로선 (중앙)
+            pygame.draw.line(screen, NET_WHITE, (net_x, table_y + 10), (net_x, table_y + table_h - 10), 2)
 
             # === 테이블 다리 (4개) ===
             leg_w, leg_h = 10, 25
