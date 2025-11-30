@@ -3973,6 +3973,8 @@ def sync_equipped_passive_effects():
     sync_bool("knee_pads", "items.knee_pads_obtained")
     sync_bool("ragnarok_hammer", "items.ragnarok_hammer_obtained")
     sync_bool("poseidon_trident", "items.poseidon_trident_obtained")
+    sync_bool("angel_blessing", "items.angel_blessing_obtained")
+    sync_bool("sacred_laurel", "items.sacred_laurel_obtained")
 
     # 장비 슬롯 확장 (slot_add) - 장착 수만큼 적용
     slot_add_count = sum(1 for item in equipped_items if item.get("name") == "slot_add")
@@ -4088,7 +4090,7 @@ def sync_equipped_passive_effects():
     if legendary_manager:
         gs = {"current_stage": globals().get("current_stage", 1)}
         # 장비 슬롯에 존재하면 전설 효과 활성화
-        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing"):
+        for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"):
             if legend_name in equipped_names:
                 legendary_manager.activate_item(legend_name, gs)
             else:
@@ -34206,7 +34208,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -34701,6 +34703,26 @@ def store_passive_item(item_data):
             print("😇 천사의 가호 획득! 천사의 축복이 함께합니다!")
         else:
             print("이미 천사의 가호를 보유 중입니다.")
+    elif item_data["name"] == "sacred_laurel":
+        # 신성 월계수 전설 아이템 획득
+        if not items.sacred_laurel_obtained:
+            items.sacred_laurel_obtained = True
+            # 전설 아이템 타입 설정
+            item_data["type"] = "legendary"
+            try:
+                legendary_manager = get_legendary_manager()
+                if "sacred_laurel" not in legendary_manager.unlocked_items:
+                    legendary_manager.unlocked_items.append("sacred_laurel")
+                    legendary_manager.items["sacred_laurel"].unlocked = True
+                # 활성화는 장착 시점에 수행, 여기서는 해금만 보장
+            except Exception:
+                pass
+            # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
+            trigger_legendary_acquisition("sacred_laurel", "신성 월계수", item_icon,
+                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            print("🌿 신성 월계수 획득! 장착 시 성스러운 월계수 잎이 당신을 보호합니다!")
+        else:
+            print("이미 신성 월계수를 보유 중입니다.")
     else:
         # 알 수 없는 패시브 아이템 처리
         print(f"     : {item_data['name']}")
@@ -45644,6 +45666,10 @@ def draw_objects():
             trident = legendary_manager.get_item("poseidon_trident")
             if trident and trident.active:
                 trident.draw_effects(SCREEN)
+            # 신성 월계수 효과 그리기
+            laurel = legendary_manager.get_item("sacred_laurel")
+            if laurel and laurel.active:
+                laurel.draw_effects(SCREEN)
     except:
         pass
 
@@ -61426,6 +61452,11 @@ def apply_selected_items(
             print(f"[DEBUG apply_selected_items] After: items.poseidon_trident_obtained = {items.poseidon_trident_obtained}")
             # store_passive_item을 호출하여 일관된 처리
             store_passive_item(item_data)
+        elif item_name == "sacred_laurel":
+            # 신성 월계수 획득 플래그 설정
+            items.sacred_laurel_obtained = True
+            # store_passive_item을 호출하여 일관된 처리
+            store_passive_item(item_data)
         elif item_name == "speedgear":
             speedgear_obtained = True
             items.speedgear_obtained = True
@@ -75473,6 +75504,8 @@ def show_result(won):
         items.gravitybelt_obtained = False
         items.sensor_obtained = False
         items.hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
+        items.sacred_laurel_obtained = False  # 신성 월계수 초기화
+        items.angel_blessing_obtained = False  # 천사의 가호 초기화
         items.foul_whistle_obtained = False
         try:
             from item_effects.foul_whistle import get_foul_whistle_instance
@@ -79582,6 +79615,20 @@ def main(stage_num, new_boss_mode=False):
                             trident.update_water_droplets_with_boss(
                                 BOSS.x, BOSS.y, BOSS.width, BOSS.height
                             )
+                        
+                        # 신성 월계수 업데이트 (플레이어 위치 기반)
+                        laurel = legendary_manager.get_item("sacred_laurel")
+                        if laurel and laurel.active:
+                            laurel.set_player_position(PLAYER.centerx, PLAYER.centery)
+                            laurel.update(0.016)  # 60fps 기준 0.016초
+                            
+                            # 공과 월계수 잎 충돌 체크 (패들이 아닌 공에 잎이 닿을 때만)
+                            ball_cx = BALL.centerx
+                            ball_cy = BALL.centery
+                            ball_radius = BALL.width // 2
+                            if laurel.check_ball_collision(ball_cx, ball_cy, ball_radius):
+                                # 잎이 공에 맞아 제거됨 - 공은 그대로 통과
+                                pass
                 except Exception as e:
                     print(f"[ERROR] LegendaryManager update failed: {e}")
                     import traceback
@@ -83587,6 +83634,7 @@ def get_item_name_korean(item_name):
         "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창",
         "angel_blessing": "천사의 가호",
+        "sacred_laurel": "신성 월계수",
         "laser_scope": "레이저스코프",
         # 전설탭 전용: baby (헤르메스 아이콘과 동일)
         "baby": "베이비",
@@ -83691,6 +83739,7 @@ def get_item_description(item_name):
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
         "angel_blessing": "천사의 가호: 스테이지 시작 시 천사의 주사위를 굴려 1~3개의 축복을 랜덤으로 받습니다.",
+        "sacred_laurel": "신성 월계수: 6개의 신성한 월계수 잎이 플레이어 주변을 고리 형태로 회전하며 보호합니다. 공이 잎에 닿으면 잎이 1개씩 제거되며, 모든 잎이 제거되면 30초 후 다시 리스폰됩니다. (패들에 닿으면 제거되지 않음)",
         "baby": "베이비: 아이템관리자 전설탭 표시용. 헤르메스의 신발과 동일한 아이콘/연출을 사용합니다.",
         "empty_legendary": "빈전설: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
         "empty_legendary2": "빈전설2: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
@@ -83974,6 +84023,20 @@ def show_item_management_menu(item_list, selected_index, item_type):
                     angel.update(0.016, ui_mode=True)  # 60fps 기준 16ms, UI 모드
                     # 애니메이션 아이콘 그리기 (천사의 기운 오오라 포함)
                     angel.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
+            elif item.get("icon"):
+                # 폴백: 일반 아이콘 사용
+                icon = pygame.transform.scale(item["icon"], (60, 60))
+                SCREEN.blit(icon, (panel_x + 20, panel_y + 20))
+        elif item_name == "sacred_laurel":
+            # 신성 월계수도 전설 아이템 매니저를 통해 애니메이션 그리기
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                laurel = legendary_manager.get_item("sacred_laurel")
+                if laurel:
+                    # UI 모드로 애니메이션 업데이트
+                    laurel.update(0.016, ui_mode=True)  # 60fps 기준 16ms, UI 모드
+                    # 애니메이션 아이콘 그리기
+                    laurel.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
             elif item.get("icon"):
                 # 폴백: 일반 아이콘 사용
                 icon = pygame.transform.scale(item["icon"], (60, 60))

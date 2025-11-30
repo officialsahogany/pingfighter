@@ -330,6 +330,15 @@ class InteriorNPC:
 
     def get_rect(self):
         """NPC 클릭 영역"""
+        # 아카데미 학장(교관)은 상호작용 영역을 위로 더 길게
+        if self.building_type == BuildingType.ACADEMY and self.role == "main":
+            # 교관 스타일 NPC는 군모까지 포함하여 위로 더 길게
+            return pygame.Rect(
+                self.x - self.size - 8,
+                self.y - self.size - 60,  # 위로 60픽셀 더 확장 (군모 + 마커까지)
+                (self.size + 8) * 2,
+                self.size + 70  # 전체 높이
+            )
         return pygame.Rect(
             self.x - self.size - 5,
             self.y - self.size - 5,
@@ -837,197 +846,450 @@ class InteriorNPC:
             screen.blit(marker_surf, (center_x - 10, marker_y))
 
     def _draw_wizard(self, screen, draw_x, draw_y, animation_timer):
-        """아카데미 마법사/견습생 NPC 그리기"""
+        """아카데미 NPC 그리기 - 학장(교관 스타일) / 견습생(로브 스타일)"""
         npc_id = hash(self.name)
         is_main = self.role == "main"  # 학장 아르카나
 
         # 메인 NPC(학장)는 더 크고 특별한 색상
-        scale = 1.15 if is_main else 1.0
+        scale = 1.2 if is_main else 1.0
 
-        # 마법사 색상 팔레트
-        if is_main:
-            # 학장 아르카나: 보라색 로브 + 금색 장식
-            ROBE_COLOR = (100, 50, 140)       # 보라색 로브
-            ROBE_DARK = (70, 30, 100)         # 어두운 보라
-            ROBE_LIGHT = (140, 80, 180)       # 밝은 보라
-            ACCENT_COLOR = (255, 200, 100)    # 금색 장식
-            MAGIC_GLOW = (180, 120, 255)      # 마법 발광
-        else:
-            # 견습생: 다양한 로브 색상
-            robe_colors = [
-                ((60, 90, 140), (40, 60, 100), (90, 120, 170)),    # 파란 로브
-                ((80, 120, 80), (50, 80, 50), (110, 150, 110)),    # 초록 로브
-                ((140, 80, 80), (100, 50, 50), (170, 110, 110)),   # 빨간 로브
-                ((100, 100, 120), (70, 70, 90), (130, 130, 150)),  # 회색 로브
-                ((120, 100, 60), (80, 70, 40), (150, 130, 90)),    # 갈색 로브
-            ]
-            robe_set = robe_colors[npc_id % len(robe_colors)]
-            ROBE_COLOR, ROBE_DARK, ROBE_LIGHT = robe_set
-            ACCENT_COLOR = (180, 180, 200)    # 은색 장식
-            MAGIC_GLOW = (100, 200, 180)      # 청록 마법
-
-        # 피부톤 (다양화)
+        # 피부톤
         skin_tones = [
             (255, 224, 189), (255, 205, 148), (234, 192, 134),
             (198, 134, 66), (255, 219, 172)
         ]
-        skin_color = skin_tones[npc_id % len(skin_tones)]
+        skin_color = skin_tones[npc_id % len(skin_tones)] if not is_main else (255, 224, 189)
         skin_dark = tuple(max(0, c - 25) for c in skin_color)
-
-        # 애니메이션
-        hover_offset = int(1.5 * math.sin(animation_timer * 1.5 + npc_id))
-        robe_sway = math.sin(animation_timer * 2 + npc_id) * 2
 
         # 위치 계산
         center_x = int(draw_x)
-        feet_y = int(draw_y) + hover_offset
+        feet_y = int(draw_y)
 
-        # === 그림자 ===
-        shadow_w = int((self.width + 12) * scale)
-        shadow_h = int(8 * scale)
-        shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 0, shadow_w, shadow_h))
-        screen.blit(shadow_surf, (center_x - shadow_w // 2, feet_y - 4 - hover_offset))
-
-        # === 로브 하단 (바닥에 닿는 부분) ===
-        robe_bottom_w = int(28 * scale)
-        robe_bottom_h = int(12 * scale)
-        robe_bottom_y = feet_y - robe_bottom_h
-
-        # 로브 하단 (물결 모양)
-        points = [
-            (center_x - robe_bottom_w // 2 + robe_sway, robe_bottom_y),
-            (center_x - robe_bottom_w // 2 - 2 + robe_sway, feet_y),
-            (center_x + robe_bottom_w // 2 + 2 - robe_sway, feet_y),
-            (center_x + robe_bottom_w // 2 - robe_sway, robe_bottom_y),
-        ]
-        pygame.draw.polygon(screen, ROBE_DARK, points)
-
-        # === 로브 본체 ===
-        robe_w = int(26 * scale)
-        robe_h = int(38 * scale)
-        robe_y = robe_bottom_y - robe_h + 8
-        robe_x = center_x - robe_w // 2
-
-        # 로브 몸통 (사다리꼴 형태)
-        robe_points = [
-            (center_x - robe_w // 3, robe_y),
-            (center_x - robe_w // 2, robe_bottom_y),
-            (center_x + robe_w // 2, robe_bottom_y),
-            (center_x + robe_w // 3, robe_y),
-        ]
-        pygame.draw.polygon(screen, ROBE_COLOR, robe_points)
-
-        # 로브 테두리/장식
-        pygame.draw.polygon(screen, ROBE_LIGHT, robe_points, 2)
-
-        # 중앙 장식 라인
-        pygame.draw.line(screen, ACCENT_COLOR,
-                        (center_x, robe_y + 5),
-                        (center_x, robe_bottom_y - 5), 2)
-
-        # 학장: 추가 금장식
         if is_main:
-            # 가슴 엠블럼
-            emblem_y = robe_y + 12
-            pygame.draw.circle(screen, ACCENT_COLOR, (center_x, emblem_y), 6)
-            pygame.draw.circle(screen, ROBE_DARK, (center_x, emblem_y), 4)
-            # 별 모양
+            # ============================================================
+            # 학장 아르카나 - 고퀄리티 군사 교관 스타일
+            # ============================================================
+
+            # 색상 팔레트 (군복 스타일)
+            UNIFORM_COLOR = (25, 35, 60)          # 진한 네이비 유니폼
+            UNIFORM_DARK = (15, 22, 40)           # 어두운 네이비
+            UNIFORM_LIGHT = (45, 55, 85)          # 밝은 네이비
+            ACCENT_COLOR = (255, 200, 80)         # 금색 장식
+            ACCENT_LIGHT = (255, 225, 150)        # 밝은 금색
+            BELT_COLOR = (80, 50, 30)             # 가죽 벨트 갈색
+            BELT_DARK = (50, 30, 15)              # 어두운 벨트
+            BUTTON_COLOR = (220, 180, 60)         # 금색 버튼
+            EPAULETTE_COLOR = (255, 200, 80)      # 견장 금색
+            MEDAL_GOLD = (255, 215, 0)            # 메달 금색
+            MEDAL_RED = (180, 40, 40)             # 메달 리본 빨강
+
+            # 애니메이션
+            breath_offset = int(0.8 * math.sin(animation_timer * 1.2 + npc_id))
+            arm_swing = int(1.5 * math.sin(animation_timer * 0.8 + npc_id))
+
+            # === 그림자 ===
+            shadow_w = int(32 * scale)
+            shadow_h = int(10 * scale)
+            shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), (0, 0, shadow_w, shadow_h))
+            screen.blit(shadow_surf, (center_x - shadow_w // 2, feet_y - 5))
+
+            # === 부츠 (군용 정장 부츠) ===
+            boot_h = int(14 * scale)
+            boot_w = int(8 * scale)
+            boot_y = feet_y - boot_h
+
+            # 왼쪽 부츠
+            pygame.draw.rect(screen, (30, 25, 20), (center_x - 10, boot_y, boot_w, boot_h), border_radius=2)
+            pygame.draw.rect(screen, (50, 40, 30), (center_x - 10, boot_y, boot_w, 3))
+            pygame.draw.line(screen, (70, 55, 40), (center_x - 10, boot_y + boot_h - 2),
+                           (center_x - 10 + boot_w, boot_y + boot_h - 2), 2)
+
+            # 오른쪽 부츠
+            pygame.draw.rect(screen, (30, 25, 20), (center_x + 2, boot_y, boot_w, boot_h), border_radius=2)
+            pygame.draw.rect(screen, (50, 40, 30), (center_x + 2, boot_y, boot_w, 3))
+            pygame.draw.line(screen, (70, 55, 40), (center_x + 2, boot_y + boot_h - 2),
+                           (center_x + 2 + boot_w, boot_y + boot_h - 2), 2)
+
+            # === 바지 (군복 정장 바지) ===
+            pants_h = int(22 * scale)
+            pants_top_y = boot_y - pants_h + 5
+            pants_w = int(24 * scale)
+
+            pants_points = [
+                (center_x - pants_w // 2 + 3, pants_top_y),
+                (center_x - 11, boot_y),
+                (center_x + 11, boot_y),
+                (center_x + pants_w // 2 - 3, pants_top_y),
+            ]
+            pygame.draw.polygon(screen, UNIFORM_COLOR, pants_points)
+            pygame.draw.polygon(screen, UNIFORM_DARK, pants_points, 1)
+
+            # 바지 중심선 (다림질 자국)
+            pygame.draw.line(screen, UNIFORM_LIGHT, (center_x - 5, pants_top_y + 5),
+                           (center_x - 6, boot_y - 3), 1)
+            pygame.draw.line(screen, UNIFORM_LIGHT, (center_x + 5, pants_top_y + 5),
+                           (center_x + 6, boot_y - 3), 1)
+
+            # 측면 금색 스트라이프
+            pygame.draw.line(screen, ACCENT_COLOR, (center_x - pants_w // 2 + 4, pants_top_y + 2),
+                           (center_x - 10, boot_y - 2), 2)
+            pygame.draw.line(screen, ACCENT_COLOR, (center_x + pants_w // 2 - 4, pants_top_y + 2),
+                           (center_x + 10, boot_y - 2), 2)
+
+            # === 벨트 ===
+            belt_y = pants_top_y - 2
+            belt_h = int(6 * scale)
+            belt_w = int(28 * scale)
+
+            pygame.draw.rect(screen, BELT_COLOR,
+                           (center_x - belt_w // 2, belt_y, belt_w, belt_h), border_radius=1)
+            pygame.draw.rect(screen, BELT_DARK,
+                           (center_x - belt_w // 2, belt_y, belt_w, belt_h), 1, border_radius=1)
+
+            # 벨트 버클 (금색)
+            buckle_w = int(10 * scale)
+            buckle_h = int(8 * scale)
+            pygame.draw.rect(screen, BUTTON_COLOR,
+                           (center_x - buckle_w // 2, belt_y - 1, buckle_w, buckle_h), border_radius=2)
+            pygame.draw.rect(screen, (180, 140, 40),
+                           (center_x - buckle_w // 2, belt_y - 1, buckle_w, buckle_h), 1, border_radius=2)
+            pygame.draw.circle(screen, UNIFORM_DARK, (center_x, belt_y + belt_h // 2), 2)
+
+            # === 상의 (더블 브레스트 군복 재킷) ===
+            jacket_h = int(30 * scale)
+            jacket_top_y = belt_y - jacket_h + breath_offset
+            jacket_w = int(30 * scale)
+
+            jacket_points = [
+                (center_x - jacket_w // 2 + 2, jacket_top_y + 5),
+                (center_x - jacket_w // 2, belt_y + 3),
+                (center_x + jacket_w // 2, belt_y + 3),
+                (center_x + jacket_w // 2 - 2, jacket_top_y + 5),
+            ]
+            pygame.draw.polygon(screen, UNIFORM_COLOR, jacket_points)
+
+            # 재킷 앞판 라인 (더블 브레스트)
+            pygame.draw.line(screen, UNIFORM_DARK, (center_x - 4, jacket_top_y + 8),
+                           (center_x - 4, belt_y), 2)
+            pygame.draw.line(screen, UNIFORM_DARK, (center_x + 4, jacket_top_y + 8),
+                           (center_x + 4, belt_y), 2)
+
+            # 금색 버튼 2열
+            for row in range(3):
+                btn_y = jacket_top_y + 10 + row * 7
+                pygame.draw.circle(screen, BUTTON_COLOR, (center_x - 6, btn_y), 3)
+                pygame.draw.circle(screen, ACCENT_LIGHT, (center_x - 7, btn_y - 1), 1)
+                pygame.draw.circle(screen, BUTTON_COLOR, (center_x + 6, btn_y), 3)
+                pygame.draw.circle(screen, ACCENT_LIGHT, (center_x + 5, btn_y - 1), 1)
+
+            # 재킷 테두리 장식 (금색)
+            pygame.draw.polygon(screen, ACCENT_COLOR, jacket_points, 2)
+
+            # === 견장 (Epaulettes) ===
+            epaulette_w = int(12 * scale)
+            epaulette_h = int(6 * scale)
+            epaulette_y = jacket_top_y + 4
+
+            # 왼쪽 견장
+            pygame.draw.rect(screen, EPAULETTE_COLOR,
+                           (center_x - jacket_w // 2 - 2, epaulette_y, epaulette_w, epaulette_h), border_radius=2)
+            pygame.draw.rect(screen, (200, 160, 40),
+                           (center_x - jacket_w // 2 - 2, epaulette_y, epaulette_w, epaulette_h), 1, border_radius=2)
+            for f in range(4):
+                fx = center_x - jacket_w // 2 - 1 + f * 3
+                pygame.draw.line(screen, ACCENT_LIGHT, (fx, epaulette_y + epaulette_h),
+                               (fx, epaulette_y + epaulette_h + 4), 1)
+
+            # 오른쪽 견장
+            pygame.draw.rect(screen, EPAULETTE_COLOR,
+                           (center_x + jacket_w // 2 - epaulette_w + 2, epaulette_y, epaulette_w, epaulette_h), border_radius=2)
+            pygame.draw.rect(screen, (200, 160, 40),
+                           (center_x + jacket_w // 2 - epaulette_w + 2, epaulette_y, epaulette_w, epaulette_h), 1, border_radius=2)
+            for f in range(4):
+                fx = center_x + jacket_w // 2 - epaulette_w + 3 + f * 3
+                pygame.draw.line(screen, ACCENT_LIGHT, (fx, epaulette_y + epaulette_h),
+                               (fx, epaulette_y + epaulette_h + 4), 1)
+
+            # === 훈장/메달 (가슴 왼쪽) ===
+            medal_x = center_x - 10
+            medal_y = jacket_top_y + 12
+
+            for m in range(3):
+                mx = medal_x + m * 6
+                pygame.draw.rect(screen, MEDAL_RED, (mx - 2, medal_y, 4, 5))
+                pygame.draw.rect(screen, (150, 30, 30), (mx - 2, medal_y, 4, 5), 1)
+                pygame.draw.circle(screen, MEDAL_GOLD, (mx, medal_y + 7), 3)
+                pygame.draw.circle(screen, (200, 170, 0), (mx, medal_y + 7), 3, 1)
+                pygame.draw.circle(screen, ACCENT_LIGHT, (mx - 1, medal_y + 6), 1)
+
+            # === 팔 / 소매 ===
+            arm_y = jacket_top_y + int(8 * scale)
+            sleeve_w = int(10 * scale)
+            sleeve_h = int(20 * scale)
+
+            # 왼팔
+            left_arm_x = center_x - jacket_w // 2 - 2
+            pygame.draw.ellipse(screen, UNIFORM_COLOR,
+                              (left_arm_x - 3, arm_y + arm_swing, sleeve_w, sleeve_h))
+            pygame.draw.ellipse(screen, UNIFORM_DARK,
+                              (left_arm_x - 3, arm_y + arm_swing, sleeve_w, sleeve_h), 1)
+            pygame.draw.line(screen, ACCENT_COLOR, (left_arm_x - 1, arm_y + sleeve_h - 6 + arm_swing),
+                           (left_arm_x + sleeve_w - 3, arm_y + sleeve_h - 6 + arm_swing), 2)
+            pygame.draw.line(screen, ACCENT_COLOR, (left_arm_x - 1, arm_y + sleeve_h - 10 + arm_swing),
+                           (left_arm_x + sleeve_w - 3, arm_y + sleeve_h - 10 + arm_swing), 2)
+            # 손 (흰 장갑)
+            pygame.draw.ellipse(screen, (250, 248, 245),
+                              (left_arm_x, arm_y + sleeve_h - 3 + arm_swing, 7, 7))
+            pygame.draw.ellipse(screen, (220, 218, 215),
+                              (left_arm_x, arm_y + sleeve_h - 3 + arm_swing, 7, 7), 1)
+
+            # 오른팔
+            right_arm_x = center_x + jacket_w // 2 - sleeve_w + 2
+            pygame.draw.ellipse(screen, UNIFORM_COLOR,
+                              (right_arm_x + 3, arm_y - arm_swing, sleeve_w, sleeve_h))
+            pygame.draw.ellipse(screen, UNIFORM_DARK,
+                              (right_arm_x + 3, arm_y - arm_swing, sleeve_w, sleeve_h), 1)
+            pygame.draw.line(screen, ACCENT_COLOR, (right_arm_x + 5, arm_y + sleeve_h - 6 - arm_swing),
+                           (right_arm_x + sleeve_w + 1, arm_y + sleeve_h - 6 - arm_swing), 2)
+            pygame.draw.line(screen, ACCENT_COLOR, (right_arm_x + 5, arm_y + sleeve_h - 10 - arm_swing),
+                           (right_arm_x + sleeve_w + 1, arm_y + sleeve_h - 10 - arm_swing), 2)
+            pygame.draw.ellipse(screen, (250, 248, 245),
+                              (right_arm_x + 5, arm_y + sleeve_h - 3 - arm_swing, 7, 7))
+            pygame.draw.ellipse(screen, (220, 218, 215),
+                              (right_arm_x + 5, arm_y + sleeve_h - 3 - arm_swing, 7, 7), 1)
+
+            # 지휘봉 (교관 특유)
+            baton_x = right_arm_x + sleeve_w + 6
+            baton_top = arm_y + 5 - arm_swing
+            baton_bottom = arm_y + sleeve_h + 10 - arm_swing
+            pygame.draw.line(screen, (60, 40, 25), (baton_x, baton_top), (baton_x, baton_bottom), 3)
+            pygame.draw.line(screen, (90, 65, 40), (baton_x - 1, baton_top), (baton_x - 1, baton_bottom), 1)
+            pygame.draw.circle(screen, ACCENT_COLOR, (baton_x, baton_top - 2), 4)
+            pygame.draw.circle(screen, ACCENT_LIGHT, (baton_x - 1, baton_top - 3), 2)
+
+            # === 높은 칼라 (스탠드 칼라) ===
+            collar_y = jacket_top_y - 3 + breath_offset
+            collar_h = int(8 * scale)
+            collar_w = int(22 * scale)
+
+            pygame.draw.rect(screen, UNIFORM_COLOR,
+                           (center_x - collar_w // 2, collar_y, collar_w, collar_h), border_radius=2)
+            pygame.draw.rect(screen, UNIFORM_DARK,
+                           (center_x - collar_w // 2, collar_y, collar_w, collar_h), 1, border_radius=2)
+            pygame.draw.line(screen, ACCENT_COLOR, (center_x - collar_w // 2 + 2, collar_y + 1),
+                           (center_x + collar_w // 2 - 2, collar_y + 1), 2)
+
+            # === 목 ===
+            neck_h = int(4 * scale)
+            pygame.draw.rect(screen, skin_color, (center_x - 4, collar_y - neck_h, 8, neck_h + 2))
+
+            # === 머리 ===
+            head_w = int(16 * scale)
+            head_h = int(16 * scale)
+            head_y = collar_y - neck_h - head_h + 5 + breath_offset
+            head_x = center_x - head_w // 2
+
+            pygame.draw.ellipse(screen, skin_color, (head_x, head_y, head_w, head_h))
+            pygame.draw.ellipse(screen, skin_dark, (head_x, head_y, head_w, head_h), 1)
+
+            # 볼 터치
+            pygame.draw.circle(screen, (255, 210, 200), (head_x + 3, head_y + head_h // 2 + 2), 2)
+            pygame.draw.circle(screen, (255, 210, 200), (head_x + head_w - 3, head_y + head_h // 2 + 2), 2)
+
+            # === 머리카락 (짧은 군인 스타일) ===
+            hair_color = (50, 35, 25)
+            hair_dark = (35, 22, 15)
+
+            pygame.draw.ellipse(screen, hair_color, (head_x - 1, head_y - 2, head_w + 2, head_h // 2 + 4))
+            pygame.draw.ellipse(screen, hair_color, (head_x - 2, head_y + 1, 6, 8))
+            pygame.draw.ellipse(screen, hair_color, (head_x + head_w - 4, head_y + 1, 6, 8))
+            pygame.draw.arc(screen, hair_color, (head_x, head_y - 3, head_w, 10),
+                          math.pi * 0.2, math.pi * 0.8, 3)
+            pygame.draw.line(screen, hair_dark, (center_x - 3, head_y + 1), (center_x + 5, head_y), 2)
+
+            # === 군모 (정모/제모) ===
+            cap_w = int(22 * scale)
+            cap_h = int(10 * scale)
+            cap_y = head_y - 4
+
+            pygame.draw.ellipse(screen, UNIFORM_COLOR,
+                              (center_x - cap_w // 2, cap_y, cap_w, cap_h))
+            pygame.draw.ellipse(screen, UNIFORM_DARK,
+                              (center_x - cap_w // 2, cap_y, cap_w, cap_h), 1)
+
+            # 모자 챙 (검은색)
+            visor_w = int(18 * scale)
+            visor_h = int(5 * scale)
+            pygame.draw.ellipse(screen, (20, 20, 25),
+                              (center_x - visor_w // 2, cap_y + cap_h - 3, visor_w, visor_h))
+            pygame.draw.arc(screen, (60, 60, 70),
+                          (center_x - visor_w // 2 + 2, cap_y + cap_h - 2, visor_w - 4, visor_h - 2),
+                          math.pi, math.pi * 2, 1)
+
+            # 모자 밴드 (금색)
+            pygame.draw.line(screen, ACCENT_COLOR,
+                           (center_x - cap_w // 2 + 3, cap_y + cap_h // 2),
+                           (center_x + cap_w // 2 - 3, cap_y + cap_h // 2), 3)
+
+            # 모자 엠블럼 (중앙 금장)
+            emblem_x = center_x
+            emblem_y_cap = cap_y + cap_h // 2
+            pygame.draw.circle(screen, MEDAL_GOLD, (emblem_x, emblem_y_cap), 5)
+            pygame.draw.circle(screen, ACCENT_LIGHT, (emblem_x, emblem_y_cap), 5, 1)
             for i in range(5):
                 angle = -math.pi / 2 + (i * 2 * math.pi / 5)
-                px = center_x + int(3 * math.cos(angle))
-                py = emblem_y + int(3 * math.sin(angle))
-                pygame.draw.circle(screen, ACCENT_COLOR, (px, py), 1)
+                sx = emblem_x + int(3 * math.cos(angle))
+                sy = emblem_y_cap + int(3 * math.sin(angle))
+                pygame.draw.circle(screen, ACCENT_LIGHT, (sx, sy), 1)
 
-        # === 소매/팔 ===
-        arm_y = robe_y + int(10 * scale)
-        arm_swing = int(2 * math.sin(animation_timer * 1.2 + npc_id))
+            # 모자 꼭대기
+            pygame.draw.ellipse(screen, UNIFORM_LIGHT,
+                              (center_x - cap_w // 3, cap_y - 2, cap_w // 3 * 2, 6))
 
-        # 왼팔 (소매)
-        sleeve_w = int(10 * scale)
-        sleeve_h = int(16 * scale)
-        pygame.draw.ellipse(screen, ROBE_DARK,
-                           (robe_x - sleeve_w + 6, arm_y + arm_swing, sleeve_w, sleeve_h))
-        # 손
-        pygame.draw.ellipse(screen, skin_color,
-                           (robe_x - 2, arm_y + sleeve_h - 5 + arm_swing, 6, 6))
+            # === 눈 (날카롭고 위엄있는) ===
+            eye_y = head_y + head_h // 2 - 1
+            eye_offset = 1 if self.direction == 2 else (-1 if self.direction == 1 else 0)
 
-        # 오른팔 (소매)
-        pygame.draw.ellipse(screen, ROBE_COLOR,
-                           (robe_x + robe_w - 6, arm_y - arm_swing, sleeve_w, sleeve_h))
-        # 손
-        pygame.draw.ellipse(screen, skin_color,
-                           (robe_x + robe_w - 2, arm_y + sleeve_h - 5 - arm_swing, 6, 6))
+            # 눈썹 (굵고 날카로운)
+            pygame.draw.line(screen, hair_dark, (center_x - 6 + eye_offset, eye_y - 4),
+                           (center_x - 1 + eye_offset, eye_y - 5), 2)
+            pygame.draw.line(screen, hair_dark, (center_x + 1 + eye_offset, eye_y - 5),
+                           (center_x + 6 + eye_offset, eye_y - 4), 2)
 
-        # 학장: 지팡이
-        if is_main:
-            staff_x = robe_x + robe_w + 4
-            staff_top = arm_y - 20
-            staff_bottom = feet_y - 5
-            # 지팡이 막대
-            pygame.draw.line(screen, (100, 70, 40), (staff_x, staff_bottom), (staff_x, staff_top), 3)
-            # 지팡이 보석
-            gem_pulse = int(150 + 80 * math.sin(animation_timer * 3))
-            pygame.draw.circle(screen, MAGIC_GLOW, (staff_x, staff_top - 5), 6)
-            # 보석 글로우
-            glow_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*MAGIC_GLOW, gem_pulse // 2), (10, 10), 10)
-            screen.blit(glow_surf, (staff_x - 10, staff_top - 15))
+            # 눈 흰자
+            pygame.draw.ellipse(screen, (255, 255, 255),
+                              (center_x - 5 + eye_offset, eye_y - 2, 5, 4))
+            pygame.draw.ellipse(screen, (255, 255, 255),
+                              (center_x + 1 + eye_offset, eye_y - 2, 5, 4))
 
-        # === 목/칼라 ===
-        collar_y = robe_y - 2
-        pygame.draw.ellipse(screen, ROBE_DARK,
-                           (center_x - 8, collar_y, 16, 8))
-        pygame.draw.ellipse(screen, ACCENT_COLOR,
-                           (center_x - 8, collar_y, 16, 8), 1)
+            # 눈동자
+            pygame.draw.circle(screen, (40, 50, 70), (center_x - 3 + eye_offset, eye_y), 2)
+            pygame.draw.circle(screen, (40, 50, 70), (center_x + 3 + eye_offset, eye_y), 2)
 
-        # === 머리 ===
-        head_w = int(14 * scale)
-        head_h = int(14 * scale)
-        head_y = collar_y - head_h + 4
-        head_x = center_x - head_w // 2
+            # 눈 하이라이트
+            pygame.draw.circle(screen, (255, 255, 255), (center_x - 3 + eye_offset, eye_y - 1), 1)
+            pygame.draw.circle(screen, (255, 255, 255), (center_x + 3 + eye_offset, eye_y - 1), 1)
 
-        pygame.draw.ellipse(screen, skin_color, (head_x, head_y, head_w, head_h))
+            # === 코 ===
+            pygame.draw.line(screen, skin_dark, (center_x, eye_y + 2), (center_x, eye_y + 5), 1)
+            pygame.draw.circle(screen, skin_dark, (center_x, eye_y + 5), 1)
 
-        # 볼 터치
-        pygame.draw.circle(screen, (255, 200, 190), (head_x + 2, head_y + head_h // 2 + 1), 2)
-        pygame.draw.circle(screen, (255, 200, 190), (head_x + head_w - 2, head_y + head_h // 2 + 1), 2)
+            # === 입 (위엄있는 미소) ===
+            mouth_y = head_y + head_h - 5
+            if self.is_talking:
+                mouth_open = int(abs(math.sin(animation_timer * 8)) * 2)
+                pygame.draw.ellipse(screen, (80, 50, 50),
+                                  (center_x - 3, mouth_y, 6, 2 + mouth_open))
+            else:
+                pygame.draw.arc(screen, skin_dark,
+                              (center_x - 4, mouth_y - 2, 8, 6),
+                              0, math.pi, 1)
 
-        # === 마법사 모자 (학장) / 후드 (견습생) ===
-        if is_main:
-            # 마법사 뾰족 모자
-            hat_base_y = head_y + 2
-            hat_tip_y = head_y - int(25 * scale)
-            hat_width = int(20 * scale)
+            # === 학장 마커 (위엄있는 금색 화살표) ===
+            marker_y = cap_y - 18
+            glow_alpha = int(150 + 80 * math.sin(animation_timer * 2))
+            marker_surf = pygame.Surface((24, 14), pygame.SRCALPHA)
+            pygame.draw.polygon(marker_surf, (*ACCENT_COLOR, glow_alpha), [
+                (12, 12), (4, 2), (20, 2)
+            ])
+            pygame.draw.polygon(marker_surf, (*ACCENT_LIGHT, glow_alpha // 2), [
+                (12, 12), (4, 2), (20, 2)
+            ], 2)
+            screen.blit(marker_surf, (center_x - 12, marker_y))
 
-            # 모자 본체
-            hat_points = [
-                (center_x, hat_tip_y),
-                (center_x - hat_width // 2, hat_base_y),
-                (center_x + hat_width // 2, hat_base_y),
-            ]
-            pygame.draw.polygon(screen, ROBE_COLOR, hat_points)
-            pygame.draw.polygon(screen, ROBE_LIGHT, hat_points, 2)
+            # 글로우 효과
+            glow_surf = pygame.Surface((30, 20), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (*ACCENT_COLOR, glow_alpha // 3), (0, 0, 30, 20))
+            screen.blit(glow_surf, (center_x - 15, marker_y - 3))
 
-            # 모자 챙
-            pygame.draw.ellipse(screen, ROBE_DARK,
-                              (center_x - hat_width // 2 - 3, hat_base_y - 3, hat_width + 6, 8))
-
-            # 모자 장식 (금색 띠)
-            pygame.draw.line(screen, ACCENT_COLOR,
-                           (center_x - hat_width // 2 + 2, hat_base_y + 2),
-                           (center_x + hat_width // 2 - 2, hat_base_y + 2), 2)
-
-            # 모자 끝 별
-            star_x = center_x + int(2 * math.sin(animation_timer * 2))
-            pygame.draw.circle(screen, ACCENT_COLOR, (star_x, hat_tip_y), 4)
-            # 별 글로우
-            glow_alpha = int(100 + 50 * math.sin(animation_timer * 4))
-            glow_surf = pygame.Surface((16, 16), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*ACCENT_COLOR, glow_alpha), (8, 8), 8)
-            screen.blit(glow_surf, (star_x - 8, hat_tip_y - 8))
         else:
-            # 견습생: 후드
+            # ============================================================
+            # 견습생 (기존 로브 스타일 유지)
+            # ============================================================
+            robe_colors = [
+                ((60, 90, 140), (40, 60, 100), (90, 120, 170)),
+                ((80, 120, 80), (50, 80, 50), (110, 150, 110)),
+                ((140, 80, 80), (100, 50, 50), (170, 110, 110)),
+                ((100, 100, 120), (70, 70, 90), (130, 130, 150)),
+                ((120, 100, 60), (80, 70, 40), (150, 130, 90)),
+            ]
+            robe_set = robe_colors[npc_id % len(robe_colors)]
+            ROBE_COLOR, ROBE_DARK, ROBE_LIGHT = robe_set
+            ACCENT_COLOR = (180, 180, 200)
+
+            hover_offset = int(1.5 * math.sin(animation_timer * 1.5 + npc_id))
+            robe_sway = math.sin(animation_timer * 2 + npc_id) * 2
+            feet_y += hover_offset
+
+            # === 그림자 ===
+            shadow_w = int((self.width + 12) * scale)
+            shadow_h = int(8 * scale)
+            shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 0, shadow_w, shadow_h))
+            screen.blit(shadow_surf, (center_x - shadow_w // 2, feet_y - 4 - hover_offset))
+
+            # === 로브 하단 ===
+            robe_bottom_w = int(28 * scale)
+            robe_bottom_h = int(12 * scale)
+            robe_bottom_y = feet_y - robe_bottom_h
+
+            points = [
+                (center_x - robe_bottom_w // 2 + robe_sway, robe_bottom_y),
+                (center_x - robe_bottom_w // 2 - 2 + robe_sway, feet_y),
+                (center_x + robe_bottom_w // 2 + 2 - robe_sway, feet_y),
+                (center_x + robe_bottom_w // 2 - robe_sway, robe_bottom_y),
+            ]
+            pygame.draw.polygon(screen, ROBE_DARK, points)
+
+            # === 로브 본체 ===
+            robe_w = int(26 * scale)
+            robe_h = int(38 * scale)
+            robe_y = robe_bottom_y - robe_h + 8
+            robe_x = center_x - robe_w // 2
+
+            robe_points = [
+                (center_x - robe_w // 3, robe_y),
+                (center_x - robe_w // 2, robe_bottom_y),
+                (center_x + robe_w // 2, robe_bottom_y),
+                (center_x + robe_w // 3, robe_y),
+            ]
+            pygame.draw.polygon(screen, ROBE_COLOR, robe_points)
+            pygame.draw.polygon(screen, ROBE_LIGHT, robe_points, 2)
+            pygame.draw.line(screen, ACCENT_COLOR, (center_x, robe_y + 5), (center_x, robe_bottom_y - 5), 2)
+
+            # === 소매/팔 ===
+            arm_y = robe_y + int(10 * scale)
+            arm_swing = int(2 * math.sin(animation_timer * 1.2 + npc_id))
+            sleeve_w = int(10 * scale)
+            sleeve_h = int(16 * scale)
+
+            pygame.draw.ellipse(screen, ROBE_DARK,
+                              (robe_x - sleeve_w + 6, arm_y + arm_swing, sleeve_w, sleeve_h))
+            pygame.draw.ellipse(screen, skin_color,
+                              (robe_x - 2, arm_y + sleeve_h - 5 + arm_swing, 6, 6))
+
+            pygame.draw.ellipse(screen, ROBE_COLOR,
+                              (robe_x + robe_w - 6, arm_y - arm_swing, sleeve_w, sleeve_h))
+            pygame.draw.ellipse(screen, skin_color,
+                              (robe_x + robe_w - 2, arm_y + sleeve_h - 5 - arm_swing, 6, 6))
+
+            # === 목/칼라 ===
+            collar_y = robe_y - 2
+            pygame.draw.ellipse(screen, ROBE_DARK, (center_x - 8, collar_y, 16, 8))
+            pygame.draw.ellipse(screen, ACCENT_COLOR, (center_x - 8, collar_y, 16, 8), 1)
+
+            # === 머리 ===
+            head_w = int(14 * scale)
+            head_h = int(14 * scale)
+            head_y = collar_y - head_h + 4
+            head_x = center_x - head_w // 2
+
+            pygame.draw.ellipse(screen, skin_color, (head_x, head_y, head_w, head_h))
+            pygame.draw.circle(screen, (255, 200, 190), (head_x + 2, head_y + head_h // 2 + 1), 2)
+            pygame.draw.circle(screen, (255, 200, 190), (head_x + head_w - 2, head_y + head_h // 2 + 1), 2)
+
+            # 후드
             hood_points = [
                 (center_x, head_y - 5),
                 (center_x - head_w // 2 - 4, head_y + head_h // 2),
@@ -1038,47 +1300,28 @@ class InteriorNPC:
             pygame.draw.polygon(screen, ROBE_DARK, hood_points)
             pygame.draw.polygon(screen, ROBE_COLOR, hood_points, 2)
 
-        # === 눈 ===
-        eye_y = head_y + head_h // 2 - 1
-        eye_offset = 1 if self.direction == 2 else (-1 if self.direction == 1 else 0)
+            # === 눈 ===
+            eye_y = head_y + head_h // 2 - 1
+            eye_offset = 1 if self.direction == 2 else (-1 if self.direction == 1 else 0)
 
-        # 눈 흰자
-        pygame.draw.ellipse(screen, (255, 255, 255),
-                           (center_x - 4 + eye_offset, eye_y - 2, 4, 4))
-        pygame.draw.ellipse(screen, (255, 255, 255),
-                           (center_x + 1 + eye_offset, eye_y - 2, 4, 4))
+            pygame.draw.ellipse(screen, (255, 255, 255), (center_x - 4 + eye_offset, eye_y - 2, 4, 4))
+            pygame.draw.ellipse(screen, (255, 255, 255), (center_x + 1 + eye_offset, eye_y - 2, 4, 4))
+            pygame.draw.circle(screen, (40, 30, 20), (center_x - 2 + eye_offset, eye_y), 2)
+            pygame.draw.circle(screen, (40, 30, 20), (center_x + 3 + eye_offset, eye_y), 2)
+            pygame.draw.circle(screen, (255, 255, 255), (center_x - 2 + eye_offset, eye_y - 1), 1)
+            pygame.draw.circle(screen, (255, 255, 255), (center_x + 3 + eye_offset, eye_y - 1), 1)
 
-        # 눈동자
-        pupil_color = (60, 40, 100) if is_main else (40, 30, 20)
-        pygame.draw.circle(screen, pupil_color, (center_x - 2 + eye_offset, eye_y), 2)
-        pygame.draw.circle(screen, pupil_color, (center_x + 3 + eye_offset, eye_y), 2)
+            # === 입 ===
+            mouth_y = head_y + head_h - 4
+            if self.is_talking:
+                mouth_open = int(abs(math.sin(animation_timer * 8)) * 2)
+                pygame.draw.ellipse(screen, (60, 40, 40), (center_x - 2, mouth_y, 4, 2 + mouth_open))
+            else:
+                pygame.draw.line(screen, skin_dark, (center_x - 2, mouth_y), (center_x + 2, mouth_y), 1)
 
-        # 눈 하이라이트
-        pygame.draw.circle(screen, (255, 255, 255), (center_x - 2 + eye_offset, eye_y - 1), 1)
-        pygame.draw.circle(screen, (255, 255, 255), (center_x + 3 + eye_offset, eye_y - 1), 1)
-
-        # === 입 ===
-        mouth_y = head_y + head_h - 4
-        if self.is_talking:
-            mouth_open = int(abs(math.sin(animation_timer * 8)) * 2)
-            pygame.draw.ellipse(screen, (60, 40, 40),
-                              (center_x - 2, mouth_y, 4, 2 + mouth_open))
-        else:
-            pygame.draw.line(screen, skin_dark, (center_x - 2, mouth_y), (center_x + 2, mouth_y), 1)
-
-        # === 학장 마커 ===
-        if is_main:
-            marker_y = head_y - 35
-            glow_alpha = int(150 + 80 * math.sin(animation_timer * 3))
-            marker_surf = pygame.Surface((20, 12), pygame.SRCALPHA)
-            pygame.draw.polygon(marker_surf, (*ACCENT_COLOR, glow_alpha), [
-                (10, 10), (4, 2), (16, 2)
-            ])
-            screen.blit(marker_surf, (center_x - 10, marker_y))
-
-        # === 아카데미 활동 이펙트 ===
-        if not is_main and self.academy_activity:
-            self._draw_academy_activity_effects(screen, center_x, feet_y, robe_y, animation_timer)
+            # === 아카데미 활동 이펙트 ===
+            if self.academy_activity:
+                self._draw_academy_activity_effects(screen, center_x, feet_y, robe_y, animation_timer)
 
     def _draw_academy_activity_effects(self, screen, center_x, feet_y, robe_y, animation_timer):
         """아카데미 활동 이펙트 그리기"""
@@ -1971,6 +2214,9 @@ class BuildingInterior:
         self.nearby_crane_game = None  # 근처 크레인 게임 인덱스
         self._init_crane_game_zones()  # 크레인 게임 영역 초기화
 
+        # 아카데미 학장 상호작용 (ACADEMY 전용)
+        self.nearby_headmaster = False  # 학장 근처 여부
+
     def _init_shop_inventory(self):
         """상점 인벤토리 초기화 (랜덤 패시브 아이템 1~7개 + 5% 전설)"""
         if self.building_type != BuildingType.ITEM_SHOP:
@@ -2231,6 +2477,31 @@ class BuildingInterior:
                 return i
 
         return None
+
+    def _check_nearby_headmaster(self):
+        """아카데미 학장(교관) 근처에 있는지 확인"""
+        if self.building_type != BuildingType.ACADEMY:
+            return False
+
+        # 학장 NPC 찾기
+        headmaster = None
+        for npc in self.npcs:
+            if npc.role == "main":
+                headmaster = npc
+                break
+
+        if headmaster is None:
+            return False
+
+        # 플레이어와 학장 사이 거리 계산
+        player_x = self.player_x
+        player_y = self.player_y
+        npc_x = headmaster.x
+        npc_y = headmaster.y
+        distance = math.sqrt((player_x - npc_x) ** 2 + (player_y - npc_y) ** 2)
+
+        # 100픽셀 이내에 있으면 True
+        return distance <= 100
 
     def _check_gacha_machine_click(self, world_x, world_y):
         """가챠 머신이 클릭되었는지 확인 (플레이어가 근처에 있어야 함)"""
@@ -2760,6 +3031,10 @@ class BuildingInterior:
             self.nearby_gacha_machine = self._check_nearby_gacha_machine()
             self.nearby_crane_game = self._check_nearby_crane_game()
 
+        # 아카데미 건물에서 학장 근처 체크
+        if self.building_type == BuildingType.ACADEMY:
+            self.nearby_headmaster = self._check_nearby_headmaster()
+
     def handle_click(self, pos, button=1):
         """클릭 처리 (button: 1=좌클릭, 3=우클릭)"""
         # 상점 거래창이 열려있으면 거래 처리
@@ -2813,11 +3088,23 @@ class BuildingInterior:
                     self.bank_menu_open = True
                     self.bank_menu_selection = 0
                     return ("bank_menu", npc)
-                # 아카데미 메인 NPC인 경우 대화창 열기
+                # 아카데미 메인 NPC(학장 아르카나)인 경우 - 가까이 있어야만 상호작용 가능
                 elif self.building_type == BuildingType.ACADEMY and npc.role == "main":
-                    self.academy_dialog_open = True
-                    self.academy_dialog_selection = 0
-                    return ("academy_dialog", npc)
+                    # 플레이어와 NPC 사이 거리 체크
+                    player_x = self.player_x
+                    player_y = self.player_y
+                    npc_x = npc.x
+                    npc_y = npc.y
+                    distance = math.sqrt((player_x - npc_x) ** 2 + (player_y - npc_y) ** 2)
+
+                    # 100픽셀 이내에 있어야 상호작용 가능
+                    if distance <= 100:
+                        self.academy_dialog_open = True
+                        self.academy_dialog_selection = 0
+                        return ("academy_dialog", npc)
+                    else:
+                        # 너무 멀리 있으면 None 반환 (상호작용 불가)
+                        return None
                 # 상점 인간 상인 (점주 그린)인 경우 거래창 열기
                 elif self.building_type == BuildingType.ITEM_SHOP and getattr(npc, 'is_shop_human', False):
                     self.shop_trade_open = True
@@ -3784,11 +4071,11 @@ class BuildingInterior:
                     self.bank_menu_open = True
                     self.bank_menu_selection = 0
                     return ("bank_menu", npc)
-                # 아카데미 메인 NPC (학장 아르카나)인 경우 대화창 열기
+                # 아카데미 메인 NPC (학장 아르카나)인 경우 - 마우스 클릭으로만 상호작용
+                # 스페이스바로는 상호작용 불가 (마우스 클릭 필요)
                 elif self.building_type == BuildingType.ACADEMY and npc.role == "main":
-                    self.academy_dialog_open = True
-                    self.academy_dialog_selection = 0
-                    return ("academy_dialog", npc)
+                    # 스페이스바 대신 마우스 클릭 안내 (상호작용 불가)
+                    return None
                 # 상점 인간 상인 (점주 그린)인 경우 거래창 열기
                 elif self.building_type == BuildingType.ITEM_SHOP and getattr(npc, 'is_shop_human', False):
                     self.shop_trade_open = True
@@ -5729,6 +6016,82 @@ class BuildingInterior:
                 item_surf, _ = font_small.render(item, text_color)
                 screen.blit(item_surf, (item_rect.x + 40, item_rect.y + 8))
 
+    def _draw_headmaster_interact_hint(self, screen):
+        """아카데미 학장 근처일 때 상호작용 힌트 표시 (마우스 클릭 전용)"""
+        if not self.nearby_headmaster:
+            return
+
+        # 대화창이 열려있으면 힌트 숨기기
+        if self.academy_dialog_open:
+            return
+
+        # 화면 하단에 힌트 박스 표시
+        hint_text = "CLICK - 학장과 대화"
+        pulse = abs(math.sin(self.animation_timer * 4))
+
+        # 색상 팔레트 (군사/골드 테마)
+        ACCENT_GOLD = (255, 180, 80)
+        ACCENT_BRONZE = (180, 120, 70)
+        NAVY_BLUE = (30, 40, 70)
+
+        # 힌트 박스 크기
+        box_w = 220
+        box_h = 40
+        box_x = (SCREEN_WIDTH - box_w) // 2
+        box_y = SCREEN_HEIGHT - 80
+
+        # 글로우 효과 (골드)
+        for glow in range(3, 0, -1):
+            glow_alpha = int((60 - glow * 15) * pulse)
+            glow_surf = pygame.Surface((box_w + glow * 6, box_h + glow * 6), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*ACCENT_GOLD, glow_alpha),
+                           (0, 0, box_w + glow * 6, box_h + glow * 6), border_radius=8)
+            screen.blit(glow_surf, (box_x - glow * 3, box_y - glow * 3))
+
+        # 박스 배경 (네이비)
+        box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box_surf, (*NAVY_BLUE, 230), (0, 0, box_w, box_h), border_radius=6)
+        screen.blit(box_surf, (box_x, box_y))
+
+        # 테두리 (골드)
+        pygame.draw.rect(screen, ACCENT_GOLD, (box_x, box_y, box_w, box_h), 2, border_radius=6)
+
+        # 텍스트
+        if self.fonts:
+            font = self.fonts.get("small") or self.fonts.get("main")
+            if font:
+                text_color = (255, 255, 255)
+                text_surf, text_rect = font.render(hint_text, text_color)
+                text_x = box_x + (box_w - text_rect.width) // 2 + 10
+                text_y = box_y + (box_h - text_rect.height) // 2
+                screen.blit(text_surf, (text_x, text_y))
+
+        # 마우스 클릭 아이콘 (좌측)
+        mouse_x = box_x + 20
+        mouse_y = box_y + (box_h - 28) // 2
+        # 마우스 본체
+        pygame.draw.ellipse(screen, (60, 50, 80), (mouse_x, mouse_y, 22, 28))
+        pygame.draw.ellipse(screen, ACCENT_GOLD, (mouse_x, mouse_y, 22, 28), 2)
+        # 왼쪽 버튼 강조 (클릭 표시)
+        click_alpha = int(200 + 55 * pulse)
+        pygame.draw.rect(screen, ACCENT_GOLD, (mouse_x + 2, mouse_y + 2, 8, 10), border_radius=2)
+        # 버튼 구분선
+        pygame.draw.line(screen, (40, 30, 60), (mouse_x + 11, mouse_y + 2), (mouse_x + 11, mouse_y + 12), 1)
+
+        # 별 마크 (우측 - 군사 느낌)
+        star_x = box_x + box_w - 30
+        star_y = box_y + box_h // 2
+        # 5각 별 그리기
+        star_points = []
+        for i in range(5):
+            # 외곽 점
+            angle_outer = math.radians(-90 + i * 72)
+            star_points.append((star_x + 10 * math.cos(angle_outer), star_y + 10 * math.sin(angle_outer)))
+            # 내곽 점
+            angle_inner = math.radians(-90 + i * 72 + 36)
+            star_points.append((star_x + 4 * math.cos(angle_inner), star_y + 4 * math.sin(angle_inner)))
+        pygame.draw.polygon(screen, ACCENT_GOLD, star_points)
+
     def _draw_academy_interior(self, screen):
         """아카데미 전용 인테리어 - 훈련소/전투 아카데미 스타일"""
         import math
@@ -6476,8 +6839,8 @@ class BuildingInterior:
                 pygame.draw.circle(screen, METAL_LIGHT, (bx, by), 2)
 
         # ========== 수류탄 상자 - 3D 입체 ==========
-        box_x = 140 - cam_x
-        box_y = equip_y + 25
+        box_x = int(140 - cam_x)
+        box_y = int(equip_y + 25)
         box_w, box_h, box_d = 65, 55, 15  # 너비, 높이, 깊이
 
         # 상자 그림자

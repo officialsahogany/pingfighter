@@ -74,7 +74,7 @@ ITEM_ICONS = {}
 # 전설 아이콘 애니메이션 프레임 캐시
 ITEM_ICON_ANIMATIONS = {}
 _ICON_ANIMATION_SCALE_CACHE = {}
-_LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing"}
+_LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
 # 전설 버프용 아이템 스폰 배율
 LEGENDARY_ITEM_SPAWN_MULT = 1.0
 
@@ -936,6 +936,15 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
+        "name": "sacred_laurel",  # 신성 월계수 전설 아이템
+        "color": (100, 200, 100),  # 연두색
+        "effect": "sacred_laurel",
+        "icon": None,
+        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "duration": 600,
+        "unlock_condition": None
+    },
+    {
         "name": "knee_pads",  # 킥차져 패시브 아이템
         "color": (80, 80, 100),  # 어두운 회색-파란색
         "effect": "knee_pads",
@@ -1044,6 +1053,7 @@ ragnarok_hammer_obtained = False  # 라그나로크 해머 획득 여부
 hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
 poseidon_trident_obtained = False  # 포세이돈의 삼지창 획득 여부
 angel_blessing_obtained = False  # 천사의 가호 획득 여부
+sacred_laurel_obtained = False  # 신성 월계수 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
 
@@ -1347,6 +1357,10 @@ def spawn_random_item():
         if item["name"] == "angel_blessing" and angel_blessing_obtained:
             continue
         
+        # 신성 월계수는 한 번 획득하면 더 이상 스폰 안함
+        if item["name"] == "sacred_laurel" and sacred_laurel_obtained:
+            continue
+        
         # 패시브 아이템 중복 스폰 허용(파밍). 단, 동일 아이템이 필드에 이미 있을 때는 혼잡 방지를 위해 1개만 유지.
         if item["name"] in items_in_field and item["name"] != "chargebag":
             print(f"[DEBUG] Skipping {item['name']} - already spawned in field (limit 1 concurrently)")
@@ -1368,7 +1382,7 @@ def spawn_random_item():
     except Exception:
         pass
 
-    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing"}
+    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
     try:
         legendary_multiplier = academy.get_treasure_map_field_multiplier()
     except Exception:

@@ -211,7 +211,7 @@ def init_gacha(available_items, legendary_bonus=0.0):
         "dowsing_pendulum", "fuel_pouch", "bluetooth_ring", "foul_whistle",
         "star_detector", "smartphone", "knee_pads",
         # 전설 아이템들
-        "ragnarok_hammer", "hermes_shoes", "poseidon_trident"
+        "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"
     }
 
     # 뽑기 통 안의 아이템들 (40개로 증가, 다양한 색상)
@@ -269,7 +269,7 @@ def init_gacha(available_items, legendary_bonus=0.0):
         filtered_items = gacha_available_items_template
     
     # 전설 아이템과 일반 아이템 분리
-    legendary_pool = ["ragnarok_hammer", "hermes_shoes", "poseidon_trident"]
+    legendary_pool = ["ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"]
     legendary_items = [item for item in filtered_items if item.get("name", "") in legendary_pool]
     normal_items = [item for item in filtered_items if item.get("name", "") not in legendary_pool]
     
