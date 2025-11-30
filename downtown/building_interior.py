@@ -2586,22 +2586,22 @@ class BuildingInterior:
             if is_active:
                 # 액티브 아이템 풀에서 선택
                 item_pool = active_items
-                # 액티브 레어리티 확률: 커먼 95%, 에픽 5% (판도라상자)
+                # 액티브 레어리티 확률: 커먼 97%, 에픽 3% (판도라상자)
                 roll = random.random()
-                if roll < 0.05:  # 5% 에픽
+                if roll < 0.03:  # 3% 에픽
                     rarity = "epic"
-                else:  # 95% 커먼
+                else:  # 97% 커먼
                     rarity = "common"
             else:
                 # 패시브 아이템 풀에서 선택
                 item_pool = passive_items
-                # 패시브 레어리티 확률: 레어 88%, 에픽 10%, 전설 2%
+                # 패시브 레어리티 확률: 레어 92%, 에픽 6%, 전설 2%
                 roll = random.random()
                 if roll < 0.02:  # 2% 전설
                     rarity = "legendary"
-                elif roll < 0.12:  # 10% 에픽
+                elif roll < 0.08:  # 6% 에픽
                     rarity = "epic"
-                else:  # 88% 레어
+                else:  # 92% 레어
                     rarity = "rare"
 
             # 해당 레어리티의 아이템 선택
