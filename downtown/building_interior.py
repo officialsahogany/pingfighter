@@ -2214,6 +2214,25 @@ class BuildingInterior:
         self.nearby_crane_game = None  # 근처 크레인 게임 인덱스
         self._init_crane_game_zones()  # 크레인 게임 영역 초기화
 
+        # 크레인 게임 확인 다이얼로그 상태
+        self.crane_confirm_dialog_open = False  # 확인 다이얼로그 열림 여부
+        self.crane_confirm_selection = 0  # 0: 예, 1: 아니오
+        self.crane_game_cost = 300  # 크레인 게임 비용 (골드)
+
+        # 크레인 게임 플레이 화면 상태
+        self.crane_game_playing = False  # 크레인 게임 플레이 중
+        self.crane_x = 0.5  # 크레인 X 위치 (0.0 ~ 1.0)
+        self.crane_y = 0.0  # 크레인 Y 위치 (0.0 = 상단, 1.0 = 하단)
+        self.crane_state = "idle"  # idle, moving_left, moving_right, dropping, grabbing, rising, returning
+        self.crane_direction = 1  # 1 = 오른쪽, -1 = 왼쪽
+        self.crane_speed = 0.008  # 크레인 이동 속도
+        self.crane_grab_timer = 0  # 그랩 타이머
+        self.crane_attempts = 5  # 남은 시도 횟수
+        self.crane_prizes = []  # 인형들 위치와 종류 [{x, y, type, grabbed}]
+        self.crane_grabbed_prize = None  # 잡은 인형
+        self.crane_result = None  # 게임 결과 {"success": bool, "prize": ...}
+        self._init_crane_prizes()  # 인형 초기화
+
         # 아카데미 학장 상호작용 (ACADEMY 전용)
         self.nearby_headmaster = False  # 학장 근처 여부
 
@@ -2460,6 +2479,185 @@ class BuildingInterior:
             return nearby_crane
 
         return None
+
+    def _init_crane_prizes(self):
+        """크레인 게임 인형들 초기화"""
+        self.crane_prizes = []
+        # 다양한 인형 타입 정의 (색상, 이름)
+        prize_types = [
+            {"color": (255, 100, 100), "name": "빨간 곰돌이", "rarity": "common"},
+            {"color": (100, 255, 100), "name": "초록 토끼", "rarity": "common"},
+            {"color": (100, 100, 255), "name": "파란 고양이", "rarity": "common"},
+            {"color": (255, 255, 100), "name": "노란 병아리", "rarity": "common"},
+            {"color": (255, 150, 200), "name": "핑크 돼지", "rarity": "common"},
+            {"color": (200, 100, 255), "name": "보라 유니콘", "rarity": "rare"},
+            {"color": (255, 215, 0), "name": "황금 곰돌이", "rarity": "rare"},
+            {"color": (0, 255, 255), "name": "시안 드래곤", "rarity": "epic"},
+        ]
+
+        # 15~25개의 랜덤 인형 배치
+        num_prizes = random.randint(15, 25)
+        for _ in range(num_prizes):
+            # 랜덤 위치 (중앙에 몰리도록)
+            x = random.uniform(0.15, 0.85)
+            y = random.uniform(0.5, 0.9)
+            # 랜덤 타입 (레어리티에 따른 확률)
+            roll = random.random()
+            if roll < 0.05:  # 5% 에픽
+                prize_type = [p for p in prize_types if p["rarity"] == "epic"][0]
+            elif roll < 0.20:  # 15% 레어
+                prize_type = random.choice([p for p in prize_types if p["rarity"] == "rare"])
+            else:  # 80% 커먼
+                prize_type = random.choice([p for p in prize_types if p["rarity"] == "common"])
+
+            self.crane_prizes.append({
+                "x": x,
+                "y": y,
+                "type": prize_type,
+                "grabbed": False,
+                "wobble": random.uniform(0, 6.28),  # 흔들림 애니메이션용
+            })
+
+    def _reset_crane_game(self):
+        """크레인 게임 상태 초기화"""
+        self.crane_x = 0.5
+        self.crane_y = 0.0
+        self.crane_state = "idle"
+        self.crane_direction = 1
+        self.crane_grab_timer = 0
+        self.crane_attempts = 5
+        self.crane_grabbed_prize = None
+        self.crane_result = None
+        self._init_crane_prizes()
+
+    def _start_crane_game(self):
+        """크레인 게임 시작 (골드 차감 후)"""
+        current_gold = self.player_data.get('gold', 0)
+        if current_gold < self.crane_game_cost:
+            return False
+
+        # 골드 차감
+        self.player_data['gold'] = current_gold - self.crane_game_cost
+
+        # 골드 감소 애니메이션
+        self._add_gold_float_animation(self.crane_game_cost, is_gain=False)
+
+        # 거래 효과음
+        if self.trade_sound:
+            self.trade_sound.play()
+
+        # 게임 상태 초기화 및 시작
+        self._reset_crane_game()
+        self.crane_game_playing = True
+        self.crane_confirm_dialog_open = False
+
+        return True
+
+    def _update_crane_game(self, dt):
+        """크레인 게임 업데이트"""
+        if not self.crane_game_playing:
+            return
+
+        # 인형 흔들림 애니메이션
+        for prize in self.crane_prizes:
+            if not prize["grabbed"]:
+                prize["wobble"] += dt * 2
+
+        if self.crane_state == "idle":
+            # 자동 좌우 이동
+            self.crane_x += self.crane_direction * self.crane_speed
+            if self.crane_x >= 0.9:
+                self.crane_direction = -1
+            elif self.crane_x <= 0.1:
+                self.crane_direction = 1
+
+        elif self.crane_state == "dropping":
+            # 크레인 내려가기
+            self.crane_y += 0.015
+            if self.crane_y >= 0.85:
+                self.crane_state = "grabbing"
+                self.crane_grab_timer = 0.5  # 0.5초 대기
+
+        elif self.crane_state == "grabbing":
+            # 집기 시도
+            self.crane_grab_timer -= dt
+            if self.crane_grab_timer <= 0:
+                # 인형 잡기 시도
+                self._try_grab_prize()
+                self.crane_state = "rising"
+
+        elif self.crane_state == "rising":
+            # 크레인 올라가기
+            self.crane_y -= 0.012
+            if self.crane_y <= 0.0:
+                self.crane_y = 0.0
+                self.crane_state = "returning"
+
+        elif self.crane_state == "returning":
+            # 배출구로 이동 (왼쪽 끝)
+            if self.crane_x > 0.05:
+                self.crane_x -= 0.01
+            else:
+                # 결과 처리
+                if self.crane_grabbed_prize:
+                    # 성공! 인형 획득
+                    self.crane_result = {
+                        "success": True,
+                        "prize": self.crane_grabbed_prize
+                    }
+                    # 인형 제거
+                    self.crane_prizes = [p for p in self.crane_prizes if p != self.crane_grabbed_prize]
+                    self.crane_grabbed_prize = None
+                else:
+                    # 실패
+                    self.crane_result = {"success": False, "prize": None}
+
+                self.crane_attempts -= 1
+                self.crane_state = "result"
+                self.crane_grab_timer = 2.0  # 결과 표시 시간
+
+        elif self.crane_state == "result":
+            self.crane_grab_timer -= dt
+            if self.crane_grab_timer <= 0:
+                if self.crane_attempts <= 0:
+                    # 게임 종료
+                    self.crane_game_playing = False
+                    self.crane_state = "idle"
+                else:
+                    # 다음 시도
+                    self.crane_x = 0.5
+                    self.crane_y = 0.0
+                    self.crane_state = "idle"
+                    self.crane_result = None
+
+    def _try_grab_prize(self):
+        """인형 잡기 시도"""
+        grab_range = 0.08  # 잡을 수 있는 범위
+        grab_chance = 0.6  # 기본 성공 확률 60%
+
+        for prize in self.crane_prizes:
+            if prize["grabbed"]:
+                continue
+
+            dx = abs(self.crane_x - prize["x"])
+            dy = abs(self.crane_y - prize["y"])
+
+            if dx < grab_range and dy < 0.15:
+                # 범위 내에 인형 있음
+                # 레어리티에 따른 확률 조정
+                if prize["type"]["rarity"] == "epic":
+                    success_chance = grab_chance * 0.5  # 30%
+                elif prize["type"]["rarity"] == "rare":
+                    success_chance = grab_chance * 0.7  # 42%
+                else:
+                    success_chance = grab_chance  # 60%
+
+                if random.random() < success_chance:
+                    prize["grabbed"] = True
+                    self.crane_grabbed_prize = prize
+                    return
+
+        self.crane_grabbed_prize = None
 
     def _check_nearby_gacha_machine(self):
         """플레이어 근처에 가챠 머신이 있는지 확인"""
@@ -2987,6 +3185,11 @@ class BuildingInterior:
         # 골드 변동 애니메이션 업데이트
         self._update_gold_float_animations(dt)
 
+        # 크레인 게임 업데이트
+        if self.crane_game_playing:
+            self._update_crane_game(dt)
+            return  # 크레인 게임 중에는 다른 업데이트 차단
+
         # 환전 슬라이더 드래그 중이면 마우스 위치로 값 업데이트
         if self.exchange_menu_open and self.exchange_slider_dragging:
             mouse_pos = pygame.mouse.get_pos()
@@ -2997,7 +3200,7 @@ class BuildingInterior:
             self.entry_cooldown -= dt
 
         # 메뉴가 열려있으면 플레이어 입력 차단
-        if self.bank_menu_open or self.exchange_menu_open or self.academy_dialog_open:
+        if self.bank_menu_open or self.exchange_menu_open or self.academy_dialog_open or self.crane_confirm_dialog_open:
             return
 
         # 플레이어 업데이트
@@ -3062,6 +3265,22 @@ class BuildingInterior:
 
     def handle_click(self, pos, button=1):
         """클릭 처리 (button: 1=좌클릭, 3=우클릭)"""
+        # 크레인 게임 플레이 중일 때
+        if self.crane_game_playing:
+            if self.crane_state == "idle":
+                # 클릭으로 크레인 내리기
+                self.crane_state = "dropping"
+                return ("crane_drop", None)
+            elif self.crane_state == "result":
+                # 결과 화면에서 클릭시 다음으로
+                self.crane_grab_timer = 0
+                return ("crane_next", None)
+            return None
+
+        # 크레인 게임 확인 다이얼로그가 열려있으면
+        if self.crane_confirm_dialog_open:
+            return self._handle_crane_confirm_click(pos)
+
         # 상점 거래창이 열려있으면 거래 처리
         if self.shop_trade_open:
             if button == 3:  # 우클릭 = 판매/구매
@@ -3097,12 +3316,14 @@ class BuildingInterior:
                 self.nearby_gacha_machine = clicked_machine
                 return ("gacha_interact", clicked_machine)
 
-            # 크레인 게임 클릭 체크
+            # 크레인 게임 클릭 체크 -> 확인 다이얼로그 열기
             clicked_crane = self._check_crane_game_click(world_x, world_y)
             if clicked_crane is not None:
                 self.crane_interact_requested = True
                 self.nearby_crane_game = clicked_crane
-                return ("crane_interact", clicked_crane)
+                self.crane_confirm_dialog_open = True  # 확인 다이얼로그 열기
+                self.crane_confirm_selection = 0  # 기본: 예
+                return ("crane_confirm_dialog", clicked_crane)
 
         # NPC 클릭 체크 (플레이어가 가까이 있어야 함)
         for npc in self.npcs:
@@ -3848,6 +4069,54 @@ class BuildingInterior:
                 return ("menu_close", None)
             return None
 
+        # 크레인 게임 확인 다이얼로그가 열려있을 때
+        if self.crane_confirm_dialog_open:
+            if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                self.crane_confirm_selection = 0  # 예
+                return ("crane_dialog_move", None)
+            elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                self.crane_confirm_selection = 1  # 아니오
+                return ("crane_dialog_move", None)
+            elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                if self.crane_confirm_selection == 0:  # 예
+                    # 골드 체크 후 게임 시작
+                    current_gold = self.player_data.get('gold', 0)
+                    if current_gold >= self.crane_game_cost:
+                        self._start_crane_game()
+                        return ("crane_game_start", None)
+                    else:
+                        # 골드 부족
+                        self.crane_confirm_dialog_open = False
+                        return ("not_enough_gold", {"need": self.crane_game_cost, "have": current_gold})
+                else:  # 아니오
+                    self.crane_confirm_dialog_open = False
+                    self.crane_interact_requested = False
+                    return ("crane_dialog_cancel", None)
+            elif event.key == pygame.K_ESCAPE:
+                self.crane_confirm_dialog_open = False
+                self.crane_interact_requested = False
+                return ("crane_dialog_cancel", None)
+            return None
+
+        # 크레인 게임 플레이 중일 때
+        if self.crane_game_playing:
+            if self.crane_state == "idle":
+                # 스페이스/엔터로 크레인 내리기
+                if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
+                    self.crane_state = "dropping"
+                    return ("crane_drop", None)
+            elif self.crane_state == "result":
+                # 아무 키나 누르면 다음으로
+                if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
+                    self.crane_grab_timer = 0  # 즉시 다음으로
+                    return ("crane_next", None)
+            # ESC로 게임 종료
+            if event.key == pygame.K_ESCAPE:
+                self.crane_game_playing = False
+                self.crane_state = "idle"
+                return ("crane_game_exit", None)
+            return None
+
         # 메뉴가 닫혀있을 때 - Space로 상호작용
         if event.key == pygame.K_SPACE:
             # 가챠 건물에서는 먼저 가챠 머신 상호작용 확인
@@ -3858,12 +4127,14 @@ class BuildingInterior:
                     self.nearby_gacha_machine = nearby_machine
                     return ("gacha_interact", nearby_machine)
 
-                # 크레인 게임 상호작용 확인
+                # 크레인 게임 상호작용 확인 -> 확인 다이얼로그 열기
                 nearby_crane = self._check_nearby_crane_game()
                 if nearby_crane is not None:
                     self.crane_interact_requested = True
                     self.nearby_crane_game = nearby_crane
-                    return ("crane_interact", nearby_crane)
+                    self.crane_confirm_dialog_open = True  # 확인 다이얼로그 열기
+                    self.crane_confirm_selection = 0  # 기본: 예
+                    return ("crane_confirm_dialog", nearby_crane)
 
             # NPC 상호작용
             return self._try_interact_with_npc()
@@ -4215,6 +4486,44 @@ class BuildingInterior:
             self.academy_dialog_open = False
             return True
         return False
+
+    def _handle_crane_confirm_click(self, pos):
+        """크레인 게임 확인 다이얼로그 클릭 처리"""
+        # 다이얼로그 영역 계산 (화면 중앙)
+        dialog_w, dialog_h = 320, 180
+        dialog_x = (SCREEN_WIDTH - dialog_w) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_h) // 2
+
+        # 버튼 영역
+        btn_w, btn_h = 80, 32
+        btn_y = dialog_y + dialog_h - 50
+        yes_btn = pygame.Rect(dialog_x + dialog_w // 2 - btn_w - 20, btn_y, btn_w, btn_h)
+        no_btn = pygame.Rect(dialog_x + dialog_w // 2 + 20, btn_y, btn_w, btn_h)
+
+        if yes_btn.collidepoint(pos):
+            # 예 선택 - 게임 시작
+            current_gold = self.player_data.get('gold', 0)
+            if current_gold >= self.crane_game_cost:
+                self._start_crane_game()
+                return ("crane_game_start", None)
+            else:
+                # 골드 부족
+                self.crane_confirm_dialog_open = False
+                return ("not_enough_gold", {"need": self.crane_game_cost, "have": current_gold})
+        elif no_btn.collidepoint(pos):
+            # 아니오 선택 - 다이얼로그 닫기
+            self.crane_confirm_dialog_open = False
+            self.crane_interact_requested = False
+            return ("crane_dialog_cancel", None)
+
+        # 다이얼로그 바깥 클릭시 닫기
+        dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_w, dialog_h)
+        if not dialog_rect.collidepoint(pos):
+            self.crane_confirm_dialog_open = False
+            self.crane_interact_requested = False
+            return ("crane_dialog_cancel", None)
+
+        return None
 
     def _handle_exchange_menu_click(self, pos):
         """환전 메뉴 클릭 처리 (슬라이더 지원)"""
@@ -4988,6 +5297,14 @@ class BuildingInterior:
         # 아카데미 대화창 (맨 위에)
         if self.academy_dialog_open:
             self._draw_academy_dialog(screen)
+
+        # 크레인 게임 확인 다이얼로그 (맨 위에)
+        if self.crane_confirm_dialog_open:
+            self._draw_crane_confirm_dialog(screen)
+
+        # 크레인 게임 플레이 화면 (최상위)
+        if self.crane_game_playing:
+            self._draw_crane_game_screen(screen)
 
         # 아카데미 학장 상호작용 힌트 (대화창 닫혀있고 근처일 때만)
         if self.building_type == BuildingType.ACADEMY:
@@ -5922,6 +6239,320 @@ class BuildingInterior:
             hint_text = "← → 선택  |  Enter 확인  |  ESC 닫기"
             hint_surf, hint_rect = font_small.render(hint_text, (150, 150, 180))
             screen.blit(hint_surf, (dialog_x + dialog_w // 2 - hint_rect.width // 2, dialog_y + dialog_h - 20))
+
+    def _draw_crane_confirm_dialog(self, screen):
+        """크레인 게임 확인 다이얼로그 그리기"""
+        import math
+
+        # 대화창 크기 및 위치
+        dialog_w, dialog_h = 320, 180
+        dialog_x = (SCREEN_WIDTH - dialog_w) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_h) // 2
+
+        # 색상 정의 (네온 아케이드 테마)
+        BG_DARK = (25, 15, 45)
+        BORDER_YELLOW = (255, 220, 100)
+        BORDER_GLOW = (180, 150, 60)
+        TEXT_WHITE = (240, 245, 255)
+        TEXT_GOLD = (255, 215, 100)
+        TEXT_YELLOW = (255, 255, 150)
+        BUTTON_BG = (50, 40, 70)
+        BUTTON_SELECTED = (100, 80, 130)
+        BUTTON_BORDER = (255, 220, 100)
+
+        # 마우스 위치
+        mouse_pos = pygame.mouse.get_pos()
+
+        # 배경 어둡게 (반투명 오버레이)
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        screen.blit(overlay, (0, 0))
+
+        # 대화창 배경
+        dialog_surface = pygame.Surface((dialog_w, dialog_h), pygame.SRCALPHA)
+        pygame.draw.rect(dialog_surface, (*BG_DARK, 240), (0, 0, dialog_w, dialog_h), border_radius=8)
+        screen.blit(dialog_surface, (dialog_x, dialog_y))
+
+        # 테두리 (글로우 효과)
+        pygame.draw.rect(screen, BORDER_GLOW, (dialog_x - 2, dialog_y - 2, dialog_w + 4, dialog_h + 4), 3, border_radius=10)
+        pygame.draw.rect(screen, BORDER_YELLOW, (dialog_x, dialog_y, dialog_w, dialog_h), 2, border_radius=8)
+
+        # 크레인 아이콘 (간단한 픽셀 아트)
+        crane_x = dialog_x + 20
+        crane_y = dialog_y + 20
+        # 크레인 집게 그리기
+        pygame.draw.rect(screen, (255, 200, 50), (crane_x + 10, crane_y, 4, 30))  # 줄
+        pygame.draw.polygon(screen, (255, 200, 50), [
+            (crane_x, crane_y + 30), (crane_x + 12, crane_y + 40),
+            (crane_x + 24, crane_y + 30), (crane_x + 12, crane_y + 25)
+        ])  # 집게
+
+        # 제목 텍스트
+        title_text = "🎮 인형뽑기 게임"
+        cost_text = f"비용: {self.crane_game_cost} 골드"
+        current_gold = self.player_data.get('gold', 0)
+        gold_text = f"보유 골드: {current_gold}"
+
+        # 폰트
+        font_medium = self.fonts.get('medium')
+        font_small = self.fonts.get('small')
+
+        # 제목 렌더링
+        if font_medium:
+            # 이모지 제거하고 텍스트만
+            title_surf, title_rect = font_medium.render("인형뽑기 게임", TEXT_WHITE)
+            screen.blit(title_surf, (dialog_x + 60, dialog_y + 25))
+
+        # 비용 및 골드 정보
+        if font_small:
+            cost_surf, cost_rect = font_small.render(cost_text, TEXT_GOLD)
+            screen.blit(cost_surf, (dialog_x + dialog_w // 2 - cost_rect.width // 2, dialog_y + 60))
+
+            # 골드가 부족하면 빨간색으로 표시
+            gold_color = TEXT_YELLOW if current_gold >= self.crane_game_cost else (255, 100, 100)
+            gold_surf, gold_rect = font_small.render(gold_text, gold_color)
+            screen.blit(gold_surf, (dialog_x + dialog_w // 2 - gold_rect.width // 2, dialog_y + 85))
+
+            # 질문
+            question_text = "플레이 하시겠습니까?"
+            q_surf, q_rect = font_small.render(question_text, TEXT_WHITE)
+            screen.blit(q_surf, (dialog_x + dialog_w // 2 - q_rect.width // 2, dialog_y + 110))
+
+        # 버튼 영역
+        btn_w, btn_h = 80, 32
+        btn_y = dialog_y + dialog_h - 50
+        yes_btn_x = dialog_x + dialog_w // 2 - btn_w - 20
+        no_btn_x = dialog_x + dialog_w // 2 + 20
+
+        yes_btn = pygame.Rect(yes_btn_x, btn_y, btn_w, btn_h)
+        no_btn = pygame.Rect(no_btn_x, btn_y, btn_w, btn_h)
+
+        # 예 버튼
+        yes_hover = yes_btn.collidepoint(mouse_pos)
+        yes_selected = self.crane_confirm_selection == 0
+        yes_bg = BUTTON_SELECTED if (yes_selected or yes_hover) else BUTTON_BG
+        pygame.draw.rect(screen, yes_bg, yes_btn, border_radius=5)
+        pygame.draw.rect(screen, BUTTON_BORDER if yes_selected else BORDER_GLOW, yes_btn, 2, border_radius=5)
+        if font_medium:
+            yes_color = TEXT_WHITE if yes_selected else TEXT_YELLOW
+            yes_surf, yes_rect = font_medium.render("예", yes_color)
+            screen.blit(yes_surf, (yes_btn.centerx - yes_rect.width // 2, yes_btn.centery - yes_rect.height // 2))
+
+        # 아니오 버튼
+        no_hover = no_btn.collidepoint(mouse_pos)
+        no_selected = self.crane_confirm_selection == 1
+        no_bg = BUTTON_SELECTED if (no_selected or no_hover) else BUTTON_BG
+        pygame.draw.rect(screen, no_bg, no_btn, border_radius=5)
+        pygame.draw.rect(screen, BUTTON_BORDER if no_selected else BORDER_GLOW, no_btn, 2, border_radius=5)
+        if font_medium:
+            no_color = TEXT_WHITE if no_selected else TEXT_YELLOW
+            no_surf, no_rect = font_medium.render("아니오", no_color)
+            screen.blit(no_surf, (no_btn.centerx - no_rect.width // 2, no_btn.centery - no_rect.height // 2))
+
+        # 선택 힌트
+        if font_small:
+            hint_text = "← → 선택  |  Enter 확인  |  ESC 닫기"
+            hint_surf, hint_rect = font_small.render(hint_text, (150, 150, 180))
+            screen.blit(hint_surf, (dialog_x + dialog_w // 2 - hint_rect.width // 2, dialog_y + dialog_h - 18))
+
+    def _draw_crane_game_screen(self, screen):
+        """크레인 게임 플레이 화면 그리기 (사진 참조 스타일)"""
+        import math
+
+        # 게임 화면 크기 (전체 화면이 아닌 중앙에 배치)
+        game_w, game_h = 500, 400
+        game_x = (SCREEN_WIDTH - game_w) // 2
+        game_y = (SCREEN_HEIGHT - game_h) // 2 - 20
+
+        # 색상 정의 (노란색 아케이드 머신 스타일)
+        MACHINE_YELLOW = (255, 200, 50)
+        MACHINE_ORANGE = (255, 150, 50)
+        MACHINE_DARK = (180, 140, 40)
+        GLASS_BG = (40, 60, 100)  # 유리 안쪽 배경
+        GLASS_TINT = (60, 80, 120, 100)
+        CRANE_SILVER = (200, 200, 220)
+        CRANE_GRAY = (150, 150, 170)
+
+        # 배경 어둡게 (반투명 오버레이)
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        screen.blit(overlay, (0, 0))
+
+        # === 크레인 머신 외형 ===
+        # 머신 프레임 (노란색)
+        frame_rect = pygame.Rect(game_x - 20, game_y - 20, game_w + 40, game_h + 80)
+        pygame.draw.rect(screen, MACHINE_YELLOW, frame_rect, border_radius=10)
+        pygame.draw.rect(screen, MACHINE_ORANGE, frame_rect, 4, border_radius=10)
+
+        # 유리창 영역 (인형들이 보이는 곳)
+        glass_rect = pygame.Rect(game_x, game_y, game_w, game_h)
+        pygame.draw.rect(screen, GLASS_BG, glass_rect)
+
+        # 진열대 배경 (편의점 진열대처럼)
+        shelf_colors = [(80, 100, 140), (60, 80, 120), (50, 70, 110)]
+        for i, color in enumerate(shelf_colors):
+            shelf_y = game_y + game_h * 0.4 + i * 50
+            pygame.draw.rect(screen, color, (game_x, shelf_y, game_w, 50))
+
+        # === 인형들 그리기 ===
+        for prize in self.crane_prizes:
+            if prize["grabbed"]:
+                continue
+
+            # 위치 계산
+            px = game_x + int(prize["x"] * game_w)
+            py = game_y + int(prize["y"] * game_h)
+
+            # 흔들림 애니메이션
+            wobble = math.sin(prize["wobble"]) * 2
+
+            # 인형 그리기 (심플한 원형 + 귀)
+            color = prize["type"]["color"]
+            size = 18
+
+            # 그림자
+            shadow_color = (color[0] // 3, color[1] // 3, color[2] // 3)
+            pygame.draw.circle(screen, shadow_color, (px + 3, py + 3 + int(wobble)), size)
+
+            # 몸체
+            pygame.draw.circle(screen, color, (px, py + int(wobble)), size)
+
+            # 귀 (곰돌이 스타일)
+            ear_size = size // 3
+            pygame.draw.circle(screen, color, (px - size + 4, py - size + 4 + int(wobble)), ear_size)
+            pygame.draw.circle(screen, color, (px + size - 4, py - size + 4 + int(wobble)), ear_size)
+
+            # 눈
+            eye_color = (30, 30, 30)
+            pygame.draw.circle(screen, eye_color, (px - 5, py - 3 + int(wobble)), 3)
+            pygame.draw.circle(screen, eye_color, (px + 5, py - 3 + int(wobble)), 3)
+
+            # 레어리티 표시 (희귀 아이템은 반짝임)
+            if prize["type"]["rarity"] == "rare":
+                glow_alpha = int(128 + 127 * math.sin(self.animation_timer * 5))
+                glow_surf = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (255, 215, 0, glow_alpha // 2), (size * 1.5, size * 1.5), size + 5)
+                screen.blit(glow_surf, (px - size * 1.5, py - size * 1.5 + int(wobble)))
+            elif prize["type"]["rarity"] == "epic":
+                glow_alpha = int(128 + 127 * math.sin(self.animation_timer * 8))
+                glow_surf = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (0, 255, 255, glow_alpha // 2), (size * 1.5, size * 1.5), size + 8)
+                screen.blit(glow_surf, (px - size * 1.5, py - size * 1.5 + int(wobble)))
+
+        # === 크레인 그리기 ===
+        crane_px = game_x + int(self.crane_x * game_w)
+        crane_py = game_y + int(self.crane_y * game_h * 0.85)
+
+        # 크레인 레일 (상단)
+        rail_y = game_y + 15
+        pygame.draw.rect(screen, CRANE_GRAY, (game_x + 10, rail_y, game_w - 20, 8))
+        pygame.draw.rect(screen, (100, 100, 120), (game_x + 10, rail_y, game_w - 20, 8), 2)
+
+        # 크레인 본체
+        crane_w, crane_h = 40, 25
+        pygame.draw.rect(screen, CRANE_SILVER, (crane_px - crane_w // 2, rail_y - 5, crane_w, crane_h), border_radius=3)
+        pygame.draw.rect(screen, CRANE_GRAY, (crane_px - crane_w // 2, rail_y - 5, crane_w, crane_h), 2, border_radius=3)
+
+        # 크레인 줄
+        rope_length = crane_py - rail_y - crane_h
+        if rope_length > 0:
+            pygame.draw.line(screen, CRANE_GRAY, (crane_px, rail_y + crane_h - 5), (crane_px, crane_py), 3)
+
+        # 크레인 집게 (3발 집게)
+        claw_open = 15 if self.crane_state == "idle" or self.crane_state == "dropping" else 8
+        claw_length = 25
+
+        # 중앙 집게
+        pygame.draw.line(screen, CRANE_SILVER, (crane_px, crane_py), (crane_px, crane_py + claw_length), 4)
+
+        # 왼쪽 집게
+        pygame.draw.line(screen, CRANE_SILVER, (crane_px, crane_py),
+                        (crane_px - claw_open, crane_py + claw_length), 4)
+
+        # 오른쪽 집게
+        pygame.draw.line(screen, CRANE_SILVER, (crane_px, crane_py),
+                        (crane_px + claw_open, crane_py + claw_length), 4)
+
+        # 잡은 인형 그리기
+        if self.crane_grabbed_prize and (self.crane_state == "rising" or self.crane_state == "returning"):
+            prize = self.crane_grabbed_prize
+            color = prize["type"]["color"]
+            grab_y = crane_py + claw_length + 10
+            pygame.draw.circle(screen, color, (crane_px, grab_y), 18)
+            # 귀
+            pygame.draw.circle(screen, color, (crane_px - 14, grab_y - 14), 6)
+            pygame.draw.circle(screen, color, (crane_px + 14, grab_y - 14), 6)
+            # 눈
+            pygame.draw.circle(screen, (30, 30, 30), (crane_px - 5, grab_y - 3), 3)
+            pygame.draw.circle(screen, (30, 30, 30), (crane_px + 5, grab_y - 3), 3)
+
+        # 유리 반사 효과
+        glass_overlay = pygame.Surface((game_w, game_h), pygame.SRCALPHA)
+        pygame.draw.line(glass_overlay, (255, 255, 255, 30), (0, 0), (game_w, game_h), 80)
+        pygame.draw.line(glass_overlay, (255, 255, 255, 20), (50, 0), (game_w, game_h - 50), 60)
+        screen.blit(glass_overlay, (game_x, game_y))
+
+        # 유리창 테두리
+        pygame.draw.rect(screen, (100, 80, 40), glass_rect, 4)
+
+        # === UI 표시 ===
+        font_medium = self.fonts.get('medium')
+        font_small = self.fonts.get('small')
+
+        # 상단 정보 바
+        info_bar_y = game_y - 45
+        pygame.draw.rect(screen, (40, 35, 30), (game_x, info_bar_y, game_w, 35), border_radius=5)
+        pygame.draw.rect(screen, MACHINE_ORANGE, (game_x, info_bar_y, game_w, 35), 2, border_radius=5)
+
+        # 남은 시도 횟수
+        if font_medium:
+            attempts_text = f"남은 횟수: {self.crane_attempts}/5"
+            attempts_surf, attempts_rect = font_medium.render(attempts_text, (255, 255, 255))
+            screen.blit(attempts_surf, (game_x + 20, info_bar_y + 8))
+
+        # 골드 표시
+        if font_small:
+            gold_text = f"💰 {self.player_data.get('gold', 0)}"
+            gold_surf, gold_rect = font_small.render(gold_text, (255, 215, 100))
+            screen.blit(gold_surf, (game_x + game_w - gold_rect.width - 20, info_bar_y + 10))
+
+        # 배출구 (왼쪽)
+        chute_rect = pygame.Rect(game_x - 15, game_y + game_h - 80, 30, 80)
+        pygame.draw.rect(screen, (60, 50, 40), chute_rect, border_radius=5)
+        pygame.draw.rect(screen, MACHINE_DARK, chute_rect, 2, border_radius=5)
+
+        # 하단 조작 힌트
+        hint_y = game_y + game_h + 20
+        pygame.draw.rect(screen, (40, 35, 30), (game_x, hint_y, game_w, 40), border_radius=5)
+
+        if font_small:
+            if self.crane_state == "idle":
+                hint_text = "SPACE / CLICK - 크레인 내리기   |   ESC - 나가기"
+            elif self.crane_state == "result":
+                hint_text = "SPACE / CLICK - 계속   |   ESC - 나가기"
+            else:
+                hint_text = "크레인 작동 중..."
+
+            hint_surf, hint_rect = font_small.render(hint_text, (200, 200, 200))
+            screen.blit(hint_surf, (game_x + game_w // 2 - hint_rect.width // 2, hint_y + 12))
+
+        # === 결과 표시 ===
+        if self.crane_state == "result" and self.crane_result:
+            result_overlay = pygame.Surface((game_w, 80), pygame.SRCALPHA)
+            result_overlay.fill((0, 0, 0, 180))
+            screen.blit(result_overlay, (game_x, game_y + game_h // 2 - 40))
+
+            if font_medium:
+                if self.crane_result["success"]:
+                    prize = self.crane_result["prize"]
+                    result_text = f"성공! {prize['type']['name']} 획득!"
+                    result_color = (100, 255, 100)
+                else:
+                    result_text = "아쉽네요... 다시 도전해보세요!"
+                    result_color = (255, 150, 150)
+
+                result_surf, result_rect = font_medium.render(result_text, result_color)
+                screen.blit(result_surf, (game_x + game_w // 2 - result_rect.width // 2, game_y + game_h // 2 - 10))
 
     def _draw_bank_menu(self, screen):
         """은행 메뉴창 그리기 - SF 스타일 (마우스 호버 효과 포함)"""
@@ -8566,8 +9197,9 @@ class BuildingInterior:
             pygame.draw.line(screen, SHELF_WOOD_DARK, (shelf_x + 2, shelf_y + shelf_thickness // 2 - 1), (shelf_x + shelf_w - 2, shelf_y + shelf_thickness // 2 - 1), 1)
 
         # === 5. 아이템 배치 ===
-        if side == "left" and hasattr(self, 'shop_inventory') and self.shop_inventory:
-            self._draw_premium_shop_items(screen, glass_rect, shelf_count, shelf_spacing, accent)
+        # 양쪽 진열대 모두 장식용 도구/장비 표시
+        if side == "left":
+            self._draw_premium_deco_items_left(screen, glass_rect, shelf_count, shelf_spacing, accent)
         else:
             self._draw_premium_deco_items(screen, glass_rect, shelf_count, shelf_spacing, accent)
 
@@ -8703,6 +9335,188 @@ class BuildingInterior:
                     glow_surf = pygame.Surface((slot_size + 12, slot_size + 12), pygame.SRCALPHA)
                     pygame.draw.rect(glow_surf, (255, 215, 0, glow_alpha), (0, 0, slot_size + 12, slot_size + 12), 3, border_radius=6)
                     screen.blit(glow_surf, (slot_x - 6, slot_y - 6))
+
+    def _draw_premium_deco_items_left(self, screen, glass_rect, shelf_count, shelf_spacing, accent):
+        """프리미엄 장식 아이템 (왼쪽 진열대 - 도구/장비)"""
+        # 왼쪽 진열대용 장비/도구 패턴
+        deco_patterns = [
+            [("sword", (180, 180, 200)), ("shield", (100, 150, 200))],
+            [("helmet", (160, 140, 120)), ("gloves", (140, 100, 70))],
+            [("axe", (150, 150, 160)), ("bow", (160, 120, 80))],
+            [("boots", (100, 80, 60)), ("dagger", (200, 200, 210))]
+        ]
+        items_per_shelf = 2
+        item_slot_w = (glass_rect.width - 24) // items_per_shelf
+
+        for shelf_idx in range(shelf_count):
+            shelf_y = glass_rect.y + shelf_spacing * (shelf_idx + 1)
+            pattern = deco_patterns[shelf_idx % len(deco_patterns)]
+
+            for slot_idx, (item_type, color) in enumerate(pattern):
+                slot_center_x = glass_rect.x + 12 + slot_idx * item_slot_w + item_slot_w // 2
+                item_y = shelf_y - 28
+
+                # 받침대
+                platform_w, platform_h = 30, 4
+                pygame.draw.rect(screen, (50, 40, 35), (slot_center_x - platform_w // 2, shelf_y - platform_h - 2, platform_w, platform_h), border_radius=1)
+
+                if item_type == "sword":
+                    self._draw_deco_sword(screen, slot_center_x, item_y, color)
+                elif item_type == "shield":
+                    self._draw_deco_shield(screen, slot_center_x, item_y + 2, color)
+                elif item_type == "helmet":
+                    self._draw_deco_helmet(screen, slot_center_x, item_y + 4, color)
+                elif item_type == "gloves":
+                    self._draw_deco_gloves(screen, slot_center_x, item_y + 6, color)
+                elif item_type == "axe":
+                    self._draw_deco_axe(screen, slot_center_x, item_y, color)
+                elif item_type == "bow":
+                    self._draw_deco_bow(screen, slot_center_x, item_y + 2, color)
+                elif item_type == "boots":
+                    self._draw_deco_boots(screen, slot_center_x, item_y + 6, color)
+                elif item_type == "dagger":
+                    self._draw_deco_dagger(screen, slot_center_x, item_y + 4, color)
+
+    def _draw_deco_sword(self, screen, cx, y, color):
+        """장식용 검"""
+        # 검날
+        blade_w, blade_h = 4, 22
+        darker = tuple(max(0, c - 40) for c in color)
+        lighter = tuple(min(255, c + 40) for c in color)
+        pygame.draw.rect(screen, darker, (cx - blade_w // 2, y, blade_w, blade_h))
+        pygame.draw.rect(screen, color, (cx - blade_w // 2 + 1, y, blade_w - 2, blade_h))
+        pygame.draw.line(screen, lighter, (cx - 1, y + 2), (cx - 1, y + blade_h - 2), 1)
+        # 검끝
+        pygame.draw.polygon(screen, color, [(cx - blade_w // 2, y), (cx, y - 5), (cx + blade_w // 2, y)])
+        # 가드
+        guard_w, guard_h = 12, 4
+        pygame.draw.rect(screen, (180, 150, 50), (cx - guard_w // 2, y + blade_h, guard_w, guard_h), border_radius=1)
+        # 손잡이
+        handle_w, handle_h = 3, 8
+        pygame.draw.rect(screen, (100, 70, 40), (cx - handle_w // 2, y + blade_h + guard_h, handle_w, handle_h))
+        # 폼멜
+        pygame.draw.circle(screen, (180, 150, 50), (cx, y + blade_h + guard_h + handle_h + 2), 3)
+
+    def _draw_deco_shield(self, screen, cx, y, color):
+        """장식용 방패"""
+        shield_w, shield_h = 18, 22
+        darker = tuple(max(0, c - 30) for c in color)
+        lighter = tuple(min(255, c + 30) for c in color)
+        # 방패 본체
+        points = [
+            (cx, y),
+            (cx + shield_w // 2, y + 4),
+            (cx + shield_w // 2, y + shield_h - 6),
+            (cx, y + shield_h),
+            (cx - shield_w // 2, y + shield_h - 6),
+            (cx - shield_w // 2, y + 4)
+        ]
+        pygame.draw.polygon(screen, darker, points)
+        inner_points = [(p[0] * 0.85 + cx * 0.15, p[1] * 0.9 + y * 0.1 + 2) for p in points]
+        pygame.draw.polygon(screen, color, inner_points)
+        # 장식
+        pygame.draw.circle(screen, (200, 170, 50), (cx, y + shield_h // 2), 4)
+        pygame.draw.line(screen, lighter, (cx - 4, y + 6), (cx - 4, y + shield_h - 8), 1)
+
+    def _draw_deco_helmet(self, screen, cx, y, color):
+        """장식용 헬멧"""
+        helmet_w, helmet_h = 16, 18
+        darker = tuple(max(0, c - 30) for c in color)
+        lighter = tuple(min(255, c + 40) for c in color)
+        # 헬멧 본체
+        pygame.draw.ellipse(screen, darker, (cx - helmet_w // 2, y, helmet_w, helmet_h - 4))
+        pygame.draw.ellipse(screen, color, (cx - helmet_w // 2 + 1, y + 1, helmet_w - 2, helmet_h - 6))
+        # 얼굴 가리개
+        pygame.draw.rect(screen, darker, (cx - helmet_w // 2 + 2, y + helmet_h - 8, helmet_w - 4, 8), border_radius=2)
+        # 눈 슬릿
+        pygame.draw.rect(screen, (20, 20, 25), (cx - 5, y + helmet_h - 6, 10, 3))
+        # 상단 장식
+        pygame.draw.polygon(screen, lighter, [(cx, y - 4), (cx - 3, y + 2), (cx + 3, y + 2)])
+        # 하이라이트
+        pygame.draw.arc(screen, lighter, (cx - helmet_w // 2 + 2, y + 2, helmet_w - 4, helmet_h - 8), 0.5, 2.5, 1)
+
+    def _draw_deco_gloves(self, screen, cx, y, color):
+        """장식용 장갑"""
+        glove_w, glove_h = 14, 16
+        darker = tuple(max(0, c - 25) for c in color)
+        lighter = tuple(min(255, c + 30) for c in color)
+        # 장갑 본체
+        pygame.draw.rect(screen, darker, (cx - glove_w // 2, y + 4, glove_w, glove_h - 4), border_radius=3)
+        pygame.draw.rect(screen, color, (cx - glove_w // 2 + 1, y + 5, glove_w - 2, glove_h - 6), border_radius=2)
+        # 손가락
+        finger_w = 3
+        for i in range(4):
+            fx = cx - 5 + i * 3
+            pygame.draw.rect(screen, color, (fx, y, finger_w, 6), border_radius=1)
+        # 손목 부분
+        pygame.draw.rect(screen, darker, (cx - glove_w // 2 - 1, y + glove_h - 2, glove_w + 2, 4), border_radius=1)
+        # 금속 장식
+        pygame.draw.circle(screen, (180, 170, 140), (cx, y + 10), 2)
+
+    def _draw_deco_axe(self, screen, cx, y, color):
+        """장식용 도끼"""
+        # 자루
+        handle_w, handle_h = 3, 26
+        pygame.draw.rect(screen, (120, 85, 50), (cx - handle_w // 2, y + 4, handle_w, handle_h))
+        pygame.draw.line(screen, (150, 110, 70), (cx - 1, y + 5), (cx - 1, y + handle_h + 2), 1)
+        # 도끼날
+        darker = tuple(max(0, c - 30) for c in color)
+        axe_points = [
+            (cx + 2, y + 2),
+            (cx + 12, y - 2),
+            (cx + 14, y + 8),
+            (cx + 12, y + 16),
+            (cx + 2, y + 14)
+        ]
+        pygame.draw.polygon(screen, darker, axe_points)
+        pygame.draw.polygon(screen, color, [(p[0] - 1, p[1] + 1) for p in axe_points[:4]] + [axe_points[4]])
+        # 날 하이라이트
+        pygame.draw.line(screen, (220, 220, 230), (cx + 11, y), (cx + 13, y + 7), 1)
+
+    def _draw_deco_bow(self, screen, cx, y, color):
+        """장식용 활"""
+        bow_h = 24
+        darker = tuple(max(0, c - 20) for c in color)
+        # 활 몸체 (곡선)
+        pygame.draw.arc(screen, darker, (cx - 12, y, 14, bow_h), 1.2, 5.1, 4)
+        pygame.draw.arc(screen, color, (cx - 11, y + 1, 12, bow_h - 2), 1.2, 5.1, 3)
+        # 활시위
+        pygame.draw.line(screen, (200, 190, 170), (cx - 5, y + 2), (cx - 5, y + bow_h - 2), 1)
+        # 손잡이 부분
+        pygame.draw.rect(screen, (100, 70, 45), (cx - 8, y + bow_h // 2 - 3, 5, 6), border_radius=1)
+
+    def _draw_deco_boots(self, screen, cx, y, color):
+        """장식용 부츠"""
+        boot_w, boot_h = 12, 16
+        darker = tuple(max(0, c - 25) for c in color)
+        lighter = tuple(min(255, c + 25) for c in color)
+        # 부츠 본체
+        pygame.draw.rect(screen, darker, (cx - boot_w // 2, y, boot_w, boot_h - 4), border_radius=2)
+        pygame.draw.rect(screen, color, (cx - boot_w // 2 + 1, y + 1, boot_w - 2, boot_h - 6), border_radius=1)
+        # 발 부분
+        pygame.draw.ellipse(screen, darker, (cx - boot_w // 2 - 2, y + boot_h - 6, boot_w + 6, 6))
+        pygame.draw.ellipse(screen, color, (cx - boot_w // 2 - 1, y + boot_h - 5, boot_w + 4, 4))
+        # 버클
+        pygame.draw.rect(screen, (180, 160, 100), (cx - 2, y + 4, 4, 3))
+        # 하이라이트
+        pygame.draw.line(screen, lighter, (cx - boot_w // 2 + 2, y + 2), (cx - boot_w // 2 + 2, y + boot_h - 8), 1)
+
+    def _draw_deco_dagger(self, screen, cx, y, color):
+        """장식용 단검"""
+        # 검날
+        blade_h = 14
+        darker = tuple(max(0, c - 30) for c in color)
+        lighter = tuple(min(255, c + 50) for c in color)
+        blade_points = [(cx, y), (cx + 3, y + blade_h), (cx - 3, y + blade_h)]
+        pygame.draw.polygon(screen, darker, blade_points)
+        pygame.draw.polygon(screen, color, [(cx, y + 2), (cx + 2, y + blade_h - 1), (cx - 2, y + blade_h - 1)])
+        pygame.draw.line(screen, lighter, (cx, y + 3), (cx, y + blade_h - 2), 1)
+        # 가드
+        pygame.draw.rect(screen, (160, 130, 50), (cx - 5, y + blade_h, 10, 3), border_radius=1)
+        # 손잡이
+        pygame.draw.rect(screen, (80, 55, 35), (cx - 2, y + blade_h + 3, 4, 8))
+        # 폼멜
+        pygame.draw.circle(screen, (160, 130, 50), (cx, y + blade_h + 12), 2)
 
     def _draw_premium_deco_items(self, screen, glass_rect, shelf_count, shelf_spacing, accent):
         """프리미엄 장식 아이템 (오른쪽 진열대)"""

@@ -31475,8 +31475,9 @@ def handle_player(keys):
                             print(f"[DEBUG] 천사의 가호 대쉬 쿨타임 버프: x{external_cooldown_mul:.2f}")
 
                     rolling_cooldown = base_timer
-                    rolling_charge_timer = base_timer
-                    print(f"[DEBUG]      : {rolling_charge_timer} (: {rolling_charges})")
+                    # 🔧 버그 수정: set_roll 사용하여 rolling_state와 글로벌 변수 모두에 설정 (일반 대쉬 - 경로1)
+                    set_roll("rolling_charge_timer", base_timer)
+                    print(f"[DEBUG]      : {base_timer} (: {rolling_charges})")
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
                     # 하프대쉬 후에는 연속 대쉬 카운트를 증가시키지 않음
                     if half_dash_used_flag:
@@ -31823,33 +31824,39 @@ def handle_player(keys):
                                 print(f"튜토리얼: 하프대쉬 발동 - 공 충돌 대기 중")
                             
                             # 하프 대쉬도 토큰 소모 (게이지는 소모 없음)
-                            rolling_charges -= half_dash_token_cost
-                            
-                            #  토큰 상태 UI 업데이트 (하프대쉬도 토큰 소모 반영)
-                            if 'token_states' in globals():
-                                # 오른쪽부터 토큰 소모 (가장 마지막 활성 토큰을 비활성화)
-                                for idx in range(len(token_states) - 1, -1, -1):
-                                    if idx < len(token_states) and token_states[idx]:
-                                        token_states[idx] = False
-                                        break
-                            else:
-                                # token_states가 없으면 초기화
-                                base_charges = 1
-                                holder_bonus = _get_dashholder_count()
-                                amplification_bonus = academy.get_skill_bonus("dash_amplification") if 'academy' in globals() else 0
-                                max_charges = int(base_charges + holder_bonus + amplification_bonus)
-                                token_states = [True] * rolling_charges + [False] * (max_charges - rolling_charges)
-                            
-                            # 대쉬 후 스턴 타이머 설정 (일반 대쉬와 동일)
-                            rolling_stun_timer = 20  # 일반 대쉬와 동일한 쿨다운
-                            
-                            #  하프대쉬 후 토큰 충전 타이머 설정 (중요!)
+                            # 🔧 버그 수정: set_roll 사용하여 rolling_state와 글로벌 변수 모두에 설정
+                            current_charges = max(0, rolling_charges - half_dash_token_cost)
+                            set_roll("rolling_charges", current_charges)
+
+                            # 최대 토큰 수 계산
                             base_charges = 1
                             holder_bonus = _get_dashholder_count()
                             amplification_bonus = academy.get_skill_bonus("dash_amplification") if 'academy' in globals() else 0
                             max_charges = int(base_charges + holder_bonus + amplification_bonus)
+
+                            #  토큰 상태 UI 업데이트 (하프대쉬도 토큰 소모 반영)
+                            # 오른쪽부터 토큰 소모 (가장 마지막 활성 토큰을 비활성화)
+                            token_states_local = list(globals().get("token_states", []))
+                            if token_states_local and len(token_states_local) > 0:
+                                for idx in range(min(len(token_states_local), max_charges) - 1, -1, -1):
+                                    if token_states_local[idx]:
+                                        token_states_local[idx] = False
+                                        break
+                                token_states[:] = token_states_local
+                                if rolling_state is not None:
+                                    rolling_state.token_states = list(token_states_local)
+                            else:
+                                # token_states가 없으면 초기화
+                                token_states = [True] * current_charges + [False] * (max_charges - current_charges)
+                                if rolling_state is not None:
+                                    rolling_state.token_states = list(token_states)
                             
-                            if rolling_charges < max_charges:
+                            # 대쉬 후 스턴 타이머 설정 (일반 대쉬와 동일)
+                            rolling_stun_timer = 20  # 일반 대쉬와 동일한 쿨다운
+
+                            #  하프대쉬 후 토큰 충전 타이머 설정 (중요!)
+                            # max_charges는 위에서 이미 계산됨, current_charges는 감소된 토큰 수
+                            if current_charges < max_charges:
                                 # 경량화 스킬 효과 적용
                                 lightweight_bonus = academy.get_skill_bonus("dash_lightweight") if 'academy' in globals() else 0
                                 charge_time_reduction = lightweight_bonus
@@ -31871,7 +31878,9 @@ def handle_player(keys):
                                         base_timer = int(base_timer * external_cooldown_mul)
                                         print(f"[DEBUG] 하프대쉬 천사의 가호 쿨타임 버프: x{external_cooldown_mul:.2f}")
 
-                                rolling_charge_timer = base_timer
+                                # 🔧 버그 수정: set_roll 사용하여 rolling_state와 글로벌 변수 모두에 설정
+                                set_roll("rolling_charge_timer", base_timer)
+                                print(f"[DEBUG] 하프대쉬 토큰 충전 타이머 설정: {base_timer}")
                             
                             # 하프대쉬 전용 효과음
                             if 'SOUND_HALF_DASH' in globals():
@@ -32053,8 +32062,9 @@ def handle_player(keys):
                             print(f"[DEBUG] 천사의 가호 대쉬 쿨타임 버프: x{external_cooldown_mul:.2f}")
 
                     rolling_cooldown = base_timer
-                    rolling_charge_timer = base_timer
-                    print(f"[DEBUG]      : {rolling_charge_timer} (: {rolling_charges})")
+                    # 🔧 버그 수정: set_roll 사용하여 rolling_state와 글로벌 변수 모두에 설정 (왼쪽 대쉬)
+                    set_roll("rolling_charge_timer", base_timer)
+                    print(f"[DEBUG]      : {base_timer} (: {rolling_charges})")
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
                     # 하프대쉬 후에는 연속 대쉬 카운트를 증가시키지 않음
                     if half_dash_used_flag:
@@ -32065,7 +32075,7 @@ def handle_player(keys):
                         rolling_consecutive_count += 1
                     # 연속대쉬는 후딜시간(stun timer) 내에서만 유효
                     print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 후딜시간: {rolling_stun_timer}")
-                    
+
                     # Count consecutive dash immediately when 2 dashes are used consecutively
                     # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
                     if current_stage == 50 and tutorial_current_chapter == 2:
@@ -32239,8 +32249,9 @@ def handle_player(keys):
                             print(f"[DEBUG] 천사의 가호 대쉬 쿨타임 버프: x{external_cooldown_mul:.2f}")
 
                     rolling_cooldown = base_timer
-                    rolling_charge_timer = base_timer
-                    print(f"[DEBUG]      : {rolling_charge_timer} (: {rolling_charges})")
+                    # 🔧 버그 수정: set_roll 사용하여 rolling_state와 글로벌 변수 모두에 설정 (오른쪽 대쉬)
+                    set_roll("rolling_charge_timer", base_timer)
+                    print(f"[DEBUG]      : {base_timer} (: {rolling_charges})")
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
                     # 하프대쉬 후에는 연속 대쉬 카운트를 증가시키지 않음
                     if half_dash_used_flag:
@@ -32251,7 +32262,7 @@ def handle_player(keys):
                         rolling_consecutive_count += 1
                     # 연속대쉬는 후딜시간(stun timer) 내에서만 유효
                     print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 후딜시간: {rolling_stun_timer}")
-                    
+
                     # Count consecutive dash immediately when 2 dashes are used consecutively
                     # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
                     if current_stage == 50 and tutorial_current_chapter == 2:
@@ -33427,14 +33438,16 @@ def handle_player(keys):
                     lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
                     charge_time_reduction = lightweight_bonus  # 5% per level
                     base_charge_time = 90  # 1.5초
-                    rolling_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
+                    new_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
                     # 천사의 가호 대쉬 쿨타임 버프 적용
                     if dash is not None:
                         external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
                         if external_cooldown_mul != 1.0:
-                            rolling_charge_timer = max(6, int(rolling_charge_timer * external_cooldown_mul))
-                    print(f"  !    (: {rolling_charge_timer} = {rolling_charge_timer/60:.1f})")
-                    print(f"[DEBUG]     : {rolling_charge_timer}")
+                            new_charge_timer = max(6, int(new_charge_timer * external_cooldown_mul))
+                    # 🔧 버그 수정: set_roll 사용하여 rolling_state와 글로벌 변수 모두에 설정 (고스트샷 종료)
+                    set_roll("rolling_charge_timer", new_charge_timer)
+                    print(f"  !    (: {new_charge_timer} = {new_charge_timer/60:.1f})")
+                    print(f"[DEBUG]     : {new_charge_timer}")
                 else:
                     print(f"  ! (  : {rolling_charges}/{max_charges})")
             else:
@@ -70889,15 +70902,17 @@ def handle_ball():
                     lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
                     charge_time_reduction = lightweight_bonus
                     base_charge_time = 90  # 1.5초
-                    rolling_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
+                    new_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
                     # 천사의 가호 대쉬 쿨타임 버프 적용
                     if dash is not None:
                         external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
                         if external_cooldown_mul != 1.0:
-                            rolling_charge_timer = max(6, int(rolling_charge_timer * external_cooldown_mul))
+                            new_charge_timer = max(6, int(new_charge_timer * external_cooldown_mul))
+                    # 🔧 버그 수정: set_roll 사용하여 rolling_state와 글로벌 변수 모두에 설정 (handle_ball 고스트샷 종료)
+                    set_roll("rolling_charge_timer", new_charge_timer)
                     if DEBUG_HANDLE_BALL_VERBOSE:
-                        print(f"  ! (handle_ball)    (: {rolling_charge_timer})")
-                        print(f"[DEBUG] (handle_ball)    : {rolling_charge_timer}")
+                        print(f"  ! (handle_ball)    (: {new_charge_timer})")
+                        print(f"[DEBUG] (handle_ball)    : {new_charge_timer}")
                 else:
                     if DEBUG_HANDLE_BALL_VERBOSE:
                         print(f"  ! (handle_ball)   : {rolling_charges}/{max_charges}")
