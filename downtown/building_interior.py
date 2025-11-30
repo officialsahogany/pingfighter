@@ -3100,6 +3100,9 @@ class BuildingInterior:
                 elif item_name == "poseidon_trident":
                     import items
                     items.poseidon_trident_obtained = True
+                elif item_name == "angel_blessing":
+                    import items
+                    items.angel_blessing_obtained = True
 
             return ("bought", {"item": item_name, "price": price})
 
@@ -5260,6 +5263,7 @@ class BuildingInterior:
             "knee_pads": "무릎",
             "ragnarok_hammer": "전설",
             "poseidon_trident": "전설",
+            "angel_blessing": "전설",
         }
         return slot_map.get(item_name, "패시브")
 
@@ -5288,6 +5292,7 @@ class BuildingInterior:
             "ragnarok_hammer": "라그나로크 해머",
             "hermes_shoes": "헤르메스의 신발",
             "poseidon_trident": "포세이돈의 삼지창",
+            "angel_blessing": "천사의 가호",
             "foul_whistle": "반칙호루라기",
             "spiked_helmet": "가시투구",
             "star_detector": "별탐지기",
