@@ -79622,21 +79622,23 @@ def main(stage_num, new_boss_mode=False):
                             laurel.set_player_position(PLAYER.centerx, PLAYER.centery)
                             laurel.update(0.016)  # 60fps 기준 0.016초
                             
-                            # 공과 월계수 잎 충돌 체크 (패들이 아닌 공에 잎이 닿을 때만)
-                            ball_cx = BALL.centerx
-                            ball_cy = BALL.centery
-                            ball_radius = BALL.width // 2
-                            if laurel.check_ball_collision(ball_cx, ball_cy, ball_radius):
-                                # 잎이 공에 맞아 제거됨 - 보스 방향으로 반사 (타격 판정)
-                                # 공 속도 유지하면서 보스 방향(위쪽)으로 반사
-                                import math as _math_laurel
-                                import random as _random_laurel
-                                current_speed = _math_laurel.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                                if current_speed > 0:
-                                    # 보스 방향 (위쪽, 약간의 랜덤 각도 추가)
-                                    angle_offset = _random_laurel.uniform(-0.3, 0.3)  # 약간의 각도 변화
-                                    ball_vel[1] = -abs(current_speed * 0.8)  # 위쪽으로 반사
-                                    ball_vel[0] = current_speed * 0.6 * angle_offset  # 약간의 좌우 변화
+                            # 공과 월계수 잎 충돌 체크 (보스가 친 공만 - 아래로 내려오는 공)
+                            # ball_vel[1] > 0 이면 아래로 내려오는 공 (보스가 친 공)
+                            if ball_vel[1] > 0:  # 플레이어가 발사한 공(위로 올라가는)은 무시
+                                ball_cx = BALL.centerx
+                                ball_cy = BALL.centery
+                                ball_radius = BALL.width // 2
+                                if laurel.check_ball_collision(ball_cx, ball_cy, ball_radius):
+                                    # 잎이 공에 맞아 제거됨 - 보스 방향으로 반사 (타격 판정)
+                                    # 공 속도 유지하면서 보스 방향(위쪽)으로 반사
+                                    import math as _math_laurel
+                                    import random as _random_laurel
+                                    current_speed = _math_laurel.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                                    if current_speed > 0:
+                                        # 보스 방향 (위쪽, 약간의 랜덤 각도 추가)
+                                        angle_offset = _random_laurel.uniform(-0.3, 0.3)  # 약간의 각도 변화
+                                        ball_vel[1] = -abs(current_speed * 0.8)  # 위쪽으로 반사
+                                        ball_vel[0] = current_speed * 0.6 * angle_offset  # 약간의 좌우 변화
                 except Exception as e:
                     print(f"[ERROR] LegendaryManager update failed: {e}")
                     import traceback
