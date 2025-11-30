@@ -63,16 +63,17 @@ class BGMManager:
                 os.path.join("bgm", "stage4bgm.mp3"),
                 os.path.join("bgm", "stage4bgm.wav"),
             ],
-            # Stage 5 전용 네메시스 테마
+            # Stage 5는 기존 Stage 6 테마(네메시스)를 사용한다.
             'stage5': [
-                os.path.join("bgm", "stage5bgm.wav"),
-                os.path.join("bgm", "stage5bgm.ogg"),
-                os.path.join("bgm", "stage5bgm.mp3"),
-            ],
-            'stage6': [
                 os.path.join("bgm", "stage6bgm.ogg"),
                 os.path.join("bgm", "stage6bgm.mp3"),
                 os.path.join("bgm", "stage6bgm.wav"),
+            ],
+            # Stage 6는 새 Stage 5 테마로 교체
+            'stage6': [
+                os.path.join("bgm", "stage5bgm.wav"),
+                os.path.join("bgm", "stage5bgm.ogg"),
+                os.path.join("bgm", "stage5bgm.mp3"),
             ],
             'downtown': [
                 os.path.join("bgm", "tutorialmainbgm.mp3"),
