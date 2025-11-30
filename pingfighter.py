@@ -77839,6 +77839,7 @@ def main(stage_num, new_boss_mode=False):
                     special_gauge >= 350
                     and current_space_state
                     and selected_character_type == "smasher"
+                    and serve_power_smash_lockout <= 0  # 서브 직후 파워스매싱 금지
                 ):  # 파워스매싱은 스매셔 전용
                     # 파워스매싱 발동 (고스트샷 제거됨)
                     global power_smashing_parabola_active
@@ -78710,7 +78711,11 @@ def main(stage_num, new_boss_mode=False):
                     is_player_serve = False
                     # 서브 완료 후 3초간 물자보급/대시 금지 타이머 설정
                     serve_completed_timer = 180  # 3초 * 60fps
-                    
+
+                    # 스매셔: 서브 직후 파워스매싱 금지 (서브공이 파워스매싱으로 바뀌는 버그 방지)
+                    if selected_character_type == "smasher":
+                        serve_power_smash_lockout = POWER_SMASH_SERVE_LOCKOUT_FRAMES
+
                     # 튜토리얼 모드: 플레이어가 서브했음을 표시
                     if current_stage == 50 and 'tutorial_practice_mode' in globals():
                         if tutorial_practice_mode:
