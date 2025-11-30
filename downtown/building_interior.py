@@ -2555,14 +2555,12 @@ class BuildingInterior:
             {"name": "dashholder", "korean": "대쉬홀더", "rarity": "epic", "type": "passive"},
             {"name": "revival", "korean": "부활", "rarity": "epic", "type": "passive"},
             {"name": "master", "korean": "마스터", "rarity": "epic", "type": "passive"},
-            {"name": "angel_blessing", "korean": "천사의축복", "rarity": "epic", "type": "passive"},
-            {"name": "sacred_laurel", "korean": "신성한월계관", "rarity": "epic", "type": "passive"},
-            # 전설 패시브 (매우 낮은 확률!)
+            # 전설 패시브 (매우 낮은 확률!) - 완성된 5개 전설 아이템만 포함
             {"name": "ragnarok_hammer", "korean": "라그나로크해머", "rarity": "legendary", "type": "passive"},
             {"name": "hermes_shoes", "korean": "헤르메스의신발", "rarity": "legendary", "type": "passive"},
             {"name": "poseidon_trident", "korean": "포세이돈의삼지창", "rarity": "legendary", "type": "passive"},
-            {"name": "zeus_lightning", "korean": "제우스의번개", "rarity": "legendary", "type": "passive"},
-            {"name": "hades_helm", "korean": "하데스의투구", "rarity": "legendary", "type": "passive"},
+            {"name": "angel_blessing", "korean": "천사의가호", "rarity": "legendary", "type": "passive"},
+            {"name": "sacred_laurel", "korean": "신성월계수", "rarity": "legendary", "type": "passive"},
         ]
 
         # 캡슐 색상 (레어리티별)
