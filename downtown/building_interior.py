@@ -2713,19 +2713,38 @@ class BuildingInterior:
                 if 'items' in sys.modules:
                     items_module = sys.modules['items']
 
+                    # 패시브 아이템 목록 (store_passive_item으로 처리해야 하는 아이템들)
+                    passive_items = [
+                        "speedboots", "speedgear", "battery", "slot_add", "revival",
+                        "master", "cooltime", "chargebag", "spikeboots", "dashgear",
+                        "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum",
+                        "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring",
+                        "foul_whistle", "star_detector", "smartphone", "knee_pads",
+                        "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
+                        "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel"
+                    ]
+
                     # ITEM_TYPES에서 해당 아이템 찾기
                     for item_data in items_module.ITEM_TYPES:
                         if item_data.get("name") == item_name:
                             # 아이템 데이터 복사
                             item_copy = item_data.copy()
 
-                            # store_active_item 함수 호출하여 인벤토리에 추가
-                            if hasattr(pingfighter, 'store_active_item'):
-                                pingfighter.store_active_item(item_copy)
+                            # 패시브 아이템인지 확인
+                            if item_name in passive_items:
+                                # store_passive_item 함수 호출
+                                if hasattr(pingfighter, 'store_passive_item'):
+                                    pingfighter.store_passive_item(item_copy)
+                                    print(f"[크레인 게임] 패시브 아이템 획득: {item_name}")
+                            else:
+                                # store_active_item 함수 호출
+                                if hasattr(pingfighter, 'store_active_item'):
+                                    pingfighter.store_active_item(item_copy)
+                                    print(f"[크레인 게임] 액티브 아이템 획득: {item_name}")
 
-                                # 효과음 재생
-                                if hasattr(pingfighter, 'item_sound') and pingfighter.item_sound:
-                                    pingfighter.item_sound.play()
+                            # 효과음 재생
+                            if hasattr(pingfighter, 'item_sound') and pingfighter.item_sound:
+                                pingfighter.item_sound.play()
                             break
         except Exception as e:
             print(f"[크레인 게임] 아이템 획득 오류: {e}")
