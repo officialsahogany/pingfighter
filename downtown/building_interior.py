@@ -2217,6 +2217,9 @@ class BuildingInterior:
         # 아카데미 학장 상호작용 (ACADEMY 전용)
         self.nearby_headmaster = False  # 학장 근처 여부
 
+        # 일반 NPC 상호작용 힌트
+        self.nearby_npc = None  # 근처에 있는 NPC (100픽셀 이내)
+
     def _init_shop_inventory(self):
         """상점 인벤토리 초기화 (랜덤 패시브 아이템 1~7개 + 5% 전설)"""
         if self.building_type != BuildingType.ITEM_SHOP:
@@ -3034,6 +3037,28 @@ class BuildingInterior:
         # 아카데미 건물에서 학장 근처 체크
         if self.building_type == BuildingType.ACADEMY:
             self.nearby_headmaster = self._check_nearby_headmaster()
+
+        # 일반 NPC 근처 체크 (상호작용 힌트용)
+        self.nearby_npc = self._check_nearby_npc()
+
+    def _check_nearby_npc(self):
+        """근처에 있는 대화 가능한 NPC 찾기 (100픽셀 이내)"""
+        player_x = self.player_x
+        player_y = self.player_y
+
+        closest_npc = None
+        closest_distance = float('inf')
+
+        for npc in self.npcs:
+            # 거리 계산
+            distance = math.sqrt((player_x - npc.x) ** 2 + (player_y - npc.y) ** 2)
+
+            # 100픽셀 이내이고 가장 가까운 NPC 선택
+            if distance <= 100 and distance < closest_distance:
+                closest_npc = npc
+                closest_distance = distance
+
+        return closest_npc
 
     def handle_click(self, pos, button=1):
         """클릭 처리 (button: 1=좌클릭, 3=우클릭)"""

@@ -1000,6 +1000,69 @@ class DowntownManager:
         if self.dev_building_spawn_mode:
             self._draw_dev_building_spawn_ui()
 
+    def _draw_npc_interact_hint(self):
+        """NPC 근처일 때 상호작용 힌트 표시"""
+        if not self.nearby_npc:
+            return
+
+        # 힌트 텍스트 - NPC 이름 사용
+        npc_name = getattr(self.nearby_npc, 'name', '주민')
+        hint_text = f"CLICK - {npc_name}과(와) 대화"
+
+        # 애니메이션 펄스
+        pulse = abs(math.sin(self.animation_timer * 4))
+
+        # 색상 팔레트 (사이버펑크 테마)
+        NEON_CYAN = (70, 200, 255)
+        NEON_PURPLE = (180, 100, 255)
+        DARK_BG = (20, 25, 40)
+
+        # 힌트 박스 크기
+        box_w = 260
+        box_h = 40
+        box_x = (SCREEN_WIDTH - box_w) // 2
+        box_y = SCREEN_HEIGHT - 80
+
+        # 글로우 효과
+        for glow in range(3, 0, -1):
+            glow_alpha = int((60 - glow * 15) * pulse)
+            glow_surf = pygame.Surface((box_w + glow * 6, box_h + glow * 6), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*NEON_CYAN, glow_alpha),
+                           (0, 0, box_w + glow * 6, box_h + glow * 6), border_radius=8)
+            self.screen.blit(glow_surf, (box_x - glow * 3, box_y - glow * 3))
+
+        # 박스 배경
+        box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box_surf, (*DARK_BG, 230), (0, 0, box_w, box_h), border_radius=6)
+        self.screen.blit(box_surf, (box_x, box_y))
+
+        # 테두리 (그라데이션 효과)
+        border_color = (
+            int(NEON_CYAN[0] * 0.6 + NEON_PURPLE[0] * 0.4),
+            int(NEON_CYAN[1] * 0.6 + NEON_PURPLE[1] * 0.4),
+            int(NEON_CYAN[2] * 0.6 + NEON_PURPLE[2] * 0.4),
+        )
+        pygame.draw.rect(self.screen, border_color, (box_x, box_y, box_w, box_h), 2, border_radius=6)
+
+        # 텍스트
+        if self.font_medium:
+            text_color = (255, 255, 255)
+            text_surf, text_rect = self.font_medium.render(hint_text, text_color)
+            text_x = box_x + (box_w - text_rect.width) // 2 + 15
+            text_y = box_y + (box_h - text_rect.height) // 2
+            self.screen.blit(text_surf, (text_x, text_y))
+
+        # 마우스 클릭 아이콘 (좌측)
+        mouse_x = box_x + 20
+        mouse_y = box_y + (box_h - 26) // 2
+        # 마우스 본체
+        pygame.draw.ellipse(self.screen, (50, 55, 70), (mouse_x, mouse_y, 20, 26))
+        pygame.draw.ellipse(self.screen, NEON_CYAN, (mouse_x, mouse_y, 20, 26), 2)
+        # 왼쪽 버튼 강조 (클릭 표시)
+        pygame.draw.rect(self.screen, NEON_CYAN, (mouse_x + 2, mouse_y + 2, 7, 9), border_radius=2)
+        # 버튼 구분선
+        pygame.draw.line(self.screen, DARK_BG, (mouse_x + 10, mouse_y + 2), (mouse_x + 10, mouse_y + 11), 1)
+
     def _draw_confirmation_dialog(self):
         """건물 입장 확인 다이얼로그 그리기"""
         dialog = self.building_confirmation_dialog

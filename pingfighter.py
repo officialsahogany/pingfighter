@@ -79628,13 +79628,13 @@ def main(stage_num, new_boss_mode=False):
                             ball_radius = BALL.width // 2
                             if laurel.check_ball_collision(ball_cx, ball_cy, ball_radius):
                                 # 잎이 공에 맞아 제거됨 - 보스 방향으로 반사 (타격 판정)
-                                import math
                                 # 공 속도 유지하면서 보스 방향(위쪽)으로 반사
-                                current_speed = math.sqrt(ball_dx**2 + ball_dy**2)
+                                import math as _math_laurel
+                                current_speed = _math_laurel.sqrt(ball_dx**2 + ball_dy**2)
                                 if current_speed > 0:
                                     # 보스 방향 (위쪽, 약간의 랜덤 각도 추가)
-                                    import random
-                                    angle_offset = random.uniform(-0.3, 0.3)  # 약간의 각도 변화
+                                    import random as _random_laurel
+                                    angle_offset = _random_laurel.uniform(-0.3, 0.3)  # 약간의 각도 변화
                                     ball_dy = -abs(current_speed * 0.8)  # 위쪽으로 반사
                                     ball_dx = current_speed * 0.6 * angle_offset  # 약간의 좌우 변화
                 except Exception as e:
