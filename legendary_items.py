@@ -3133,7 +3133,7 @@ class AngelBlessing(LegendaryItem):
                                   (pip_x - 1, pip_y - 1), max(1, pip_size // 3))
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 라그나로크 해머 테두리 + 중앙 천사의 주사위"""
+        """애니메이션 아이콘 그리기 - 라그나로크 해머 테두리 + 중앙 흰색 주사위 (날개 없음)"""
         # 공통 배경 프레임 연출 (라그나로크 해머와 동일)
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
@@ -3149,11 +3149,13 @@ class AngelBlessing(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
 
-            # 중앙에 천사의 주사위 그리기
+            # 중앙에 흰색 주사위 그리기 (날개 없음, 프레임 속도 낮춤)
             dice_surf = pygame.Surface((size, size), pygame.SRCALPHA)
-            rot_y = self.current_frame * 45  # 8프레임으로 360도 회전
-            rot_x = math.sin(self.current_frame * 0.8) * 15
-            self._draw_angel_dice(dice_surf, size, rot_x, rot_y)
+            # 주사위 회전 속도를 낮춤 (animation_speed 기반 대신 더 느린 회전)
+            slow_frame = (self.current_frame // 2) % 8  # 2배 느리게
+            rot_y = slow_frame * 45  # 8프레임으로 360도 회전
+            rot_x = math.sin(slow_frame * 0.8) * 10  # 기울기도 줄임
+            self._draw_angel_dice_no_wings(dice_surf, size, rot_x, rot_y)
             screen.blit(dice_surf, (x, icon_y))
 
     def _draw_2d_dice_result(self, screen: pygame.Surface, cx: int, cy: int, size: int, result: int):
