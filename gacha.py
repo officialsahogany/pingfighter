@@ -749,7 +749,7 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
         # 캡슐 내부 아이콘
         item_name = falling_capsule.get("name")
         legendary_fall = False
-        if item_name in {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}:
+        if item_name in {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}:
             try:
                 from legendary_items import get_legendary_manager
                 legendary_manager = get_legendary_manager()
@@ -1609,7 +1609,7 @@ def show_gacha_result_page(
         icon_surface = None
         drew_legendary_icon = False
 
-        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}
+        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
         if gacha_result["name"] in legendary_names:
             if legendary_manager is None:
                 from legendary_items import get_legendary_manager  # 지연 import
