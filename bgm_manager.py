@@ -48,9 +48,10 @@ class BGMManager:
                 os.path.join("bgm", "stage1bgm.wav"),
             ],
             'stage2': [
+                # 새 스테이지2 테마는 WAV 우선으로 재생한다.
+                os.path.join("bgm", "stage2bgm.wav"),
                 os.path.join("bgm", "stage2bgm.ogg"),
                 os.path.join("bgm", "stage2bgm.mp3"),
-                os.path.join("bgm", "stage2bgm.wav"),
             ],
             'stage3': [
                 os.path.join("bgm", "stage3bgm.ogg"),
