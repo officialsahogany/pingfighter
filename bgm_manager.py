@@ -62,6 +62,12 @@ class BGMManager:
                 os.path.join("bgm", "stage4bgm.mp3"),
                 os.path.join("bgm", "stage4bgm.wav"),
             ],
+            # Stage 5는 전용 트랙이 없어 Stage 6 테마(네메시스)를 공유한다.
+            'stage5': [
+                os.path.join("bgm", "stage6bgm.ogg"),
+                os.path.join("bgm", "stage6bgm.mp3"),
+                os.path.join("bgm", "stage6bgm.wav"),
+            ],
             'stage6': [
                 os.path.join("bgm", "stage6bgm.ogg"),
                 os.path.join("bgm", "stage6bgm.mp3"),
@@ -291,6 +297,9 @@ class BGMManager:
             self.play_bgm('stage3')
         elif stage_num == 4:
             self.play_bgm('stage4')
+        elif stage_num == 5:
+            # 네메시스 스테이지는 Stage 6 테마를 사용한다.
+            self.play_bgm('stage5')
         elif stage_num == 6:
             self.play_bgm('stage6')
         elif stage_num == 50:  # 튜토리얼
