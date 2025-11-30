@@ -1017,9 +1017,9 @@ class DowntownManager:
         NEON_PURPLE = (180, 100, 255)
         DARK_BG = (20, 25, 40)
 
-        # 힌트 박스 크기
-        box_w = 260
-        box_h = 40
+        # 힌트 박스 크기 (작은 폰트에 맞게 조정)
+        box_w = 240
+        box_h = 34
         box_x = (SCREEN_WIDTH - box_w) // 2
         box_y = SCREEN_HEIGHT - 80
 
@@ -1044,10 +1044,10 @@ class DowntownManager:
         )
         pygame.draw.rect(self.screen, border_color, (box_x, box_y, box_w, box_h), 2, border_radius=6)
 
-        # 텍스트
-        if self.font_medium:
+        # 텍스트 (작은 폰트 사용 - 아카데미 내부와 동일)
+        if self.font_small:
             text_color = (255, 255, 255)
-            text_surf = self.font_medium.render(hint_text, True, text_color)
+            text_surf = self.font_small.render(hint_text, True, text_color)
             text_rect = text_surf.get_rect()
             text_x = box_x + (box_w - text_rect.width) // 2 + 15
             text_y = box_y + (box_h - text_rect.height) // 2

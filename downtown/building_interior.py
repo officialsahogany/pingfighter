@@ -2497,8 +2497,8 @@ class BuildingInterior:
             return False
 
         # 플레이어와 학장 사이 거리 계산
-        player_x = self.player_x
-        player_y = self.player_y
+        player_x = self.player.x
+        player_y = self.player.y
         npc_x = headmaster.x
         npc_y = headmaster.y
         distance = math.sqrt((player_x - npc_x) ** 2 + (player_y - npc_y) ** 2)
@@ -3043,8 +3043,8 @@ class BuildingInterior:
 
     def _check_nearby_npc(self):
         """근처에 있는 대화 가능한 NPC 찾기 (100픽셀 이내)"""
-        player_x = self.player_x
-        player_y = self.player_y
+        player_x = self.player.x
+        player_y = self.player.y
 
         closest_npc = None
         closest_distance = float('inf')
@@ -3109,8 +3109,8 @@ class BuildingInterior:
             npc_rect = npc.get_rect()
             if npc_rect.collidepoint(world_x, world_y):
                 # 플레이어와 NPC 사이 거리 체크 (100픽셀 이내)
-                player_x = self.player_x
-                player_y = self.player_y
+                player_x = self.player.x
+                player_y = self.player.y
                 npc_x = npc.x
                 npc_y = npc.y
                 distance = math.sqrt((player_x - npc_x) ** 2 + (player_y - npc_y) ** 2)
@@ -8512,40 +8512,149 @@ class BuildingInterior:
         shelf_count = 4
         shelf_h = h // (shelf_count + 1)
 
-        for i in range(shelf_count):
-            shelf_y = y + shelf_h * (i + 1)
-            # 선반 판
-            pygame.draw.rect(screen, tuple(min(255, c + 15) for c in wood_color),
-                           (x + 3, shelf_y - 3, w - 6, 6))
+        # 왼쪽 진열대: 상점 인벤토리 아이템 표시
+        if side == "left" and hasattr(self, 'shop_inventory') and self.shop_inventory:
+            self._draw_shop_items_on_shelf(screen, x, y, w, shelf_count, shelf_h, accent)
+        else:
+            # 오른쪽 진열대: 기존 랜덤 장식 아이템
+            for i in range(shelf_count):
+                shelf_y = y + shelf_h * (i + 1)
+                # 선반 판
+                pygame.draw.rect(screen, tuple(min(255, c + 15) for c in wood_color),
+                               (x + 3, shelf_y - 3, w - 6, 6))
 
-            # 선반 위 아이템들
-            item_count = random.randint(2, 4)
-            for j in range(item_count):
-                item_x = x + 10 + j * (w - 20) // item_count
-                item_y = shelf_y - 25
+                # 선반 위 아이템들
+                item_count = random.randint(2, 4)
+                for j in range(item_count):
+                    item_x = x + 10 + j * (w - 20) // item_count
+                    item_y = shelf_y - 25
 
-                # 랜덤 아이템 타입
-                item_type = random.randint(0, 3)
-                if item_type == 0:
-                    # 포션
-                    color = random.choice([(255, 100, 100), (100, 200, 255), (100, 255, 150)])
-                    self._draw_potion_bottle(screen, item_x + 8, item_y, color)
-                elif item_type == 1:
-                    # 보석
-                    gem_color = random.choice([(255, 50, 100), (50, 200, 255), (100, 255, 100), (255, 200, 50)])
-                    self._draw_gem_item(screen, item_x + 8, item_y + 5, gem_color)
-                elif item_type == 2:
-                    # 상자
-                    self._draw_small_chest(screen, item_x, item_y, accent)
-                else:
-                    # 두루마리
-                    self._draw_scroll_item(screen, item_x + 5, item_y)
+                    # 랜덤 아이템 타입
+                    item_type = random.randint(0, 3)
+                    if item_type == 0:
+                        # 포션
+                        color = random.choice([(255, 100, 100), (100, 200, 255), (100, 255, 150)])
+                        self._draw_potion_bottle(screen, item_x + 8, item_y, color)
+                    elif item_type == 1:
+                        # 보석
+                        gem_color = random.choice([(255, 50, 100), (50, 200, 255), (100, 255, 100), (255, 200, 50)])
+                        self._draw_gem_item(screen, item_x + 8, item_y + 5, gem_color)
+                    elif item_type == 2:
+                        # 상자
+                        self._draw_small_chest(screen, item_x, item_y, accent)
+                    else:
+                        # 두루마리
+                        self._draw_scroll_item(screen, item_x + 5, item_y)
 
         # 네온 테두리 효과
         glow_alpha = int(80 + 40 * math.sin(self.animation_timer * 2))
         glow_surf = pygame.Surface((w + 10, h + 10), pygame.SRCALPHA)
         pygame.draw.rect(glow_surf, (*accent, glow_alpha), (0, 0, w + 10, h + 10), 3, border_radius=5)
         screen.blit(glow_surf, (x - 5, y - 5))
+
+    def _draw_shop_items_on_shelf(self, screen, x, y, w, shelf_count, shelf_h, accent):
+        """왼쪽 진열대에 상점 인벤토리 아이템 표시"""
+        import math
+
+        # pingfighter에서 get_item_icon 가져오기
+        try:
+            import pingfighter
+            get_item_icon = getattr(pingfighter, 'get_item_icon', None)
+        except:
+            get_item_icon = None
+
+        # items 모듈에서 아이템 정보 가져오기
+        try:
+            import items as items_module
+        except:
+            items_module = None
+
+        # 선반당 최대 2개 아이템 배치 (4단 × 2개 = 최대 8개)
+        items_per_shelf = 2
+        icon_size = 24
+
+        for shelf_idx in range(shelf_count):
+            shelf_y = y + shelf_h * (shelf_idx + 1)
+
+            # 선반 판 그리기 (더 진한 색)
+            wood_light = tuple(min(255, c + 15) for c in (70, 50, 32))
+            pygame.draw.rect(screen, wood_light, (x + 3, shelf_y - 3, w - 6, 6))
+
+            # 이 선반에 배치할 아이템 인덱스
+            start_idx = shelf_idx * items_per_shelf
+
+            for slot_idx in range(items_per_shelf):
+                item_idx = start_idx + slot_idx
+                if item_idx >= len(self.shop_inventory):
+                    break
+
+                item = self.shop_inventory[item_idx]
+                item_name = item.get("name", "")
+                item_type = item.get("type", "passive")
+
+                # 아이템 위치 계산
+                item_x = x + 15 + slot_idx * (w - 30) // max(1, items_per_shelf - 1) if items_per_shelf > 1 else x + w // 2 - icon_size // 2
+                item_y = shelf_y - icon_size - 5
+
+                # 아이콘 배경 (품질에 따른 색상)
+                if item_type == "legendary":
+                    bg_color = (180, 130, 50, 150)  # 금색 배경
+                    border_color = (255, 215, 0)
+                else:
+                    quality = item.get("quality", "normal")
+                    if quality == "epic":
+                        bg_color = (130, 70, 180, 150)
+                        border_color = (180, 100, 255)
+                    elif quality == "rare":
+                        bg_color = (50, 100, 180, 150)
+                        border_color = (100, 150, 255)
+                    elif quality == "uncommon":
+                        bg_color = (50, 150, 80, 150)
+                        border_color = (100, 200, 130)
+                    else:
+                        bg_color = (80, 80, 80, 150)
+                        border_color = (150, 150, 150)
+
+                # 배경 그리기
+                bg_surf = pygame.Surface((icon_size + 4, icon_size + 4), pygame.SRCALPHA)
+                pygame.draw.rect(bg_surf, bg_color, (0, 0, icon_size + 4, icon_size + 4), border_radius=4)
+                screen.blit(bg_surf, (item_x - 2, item_y - 2))
+
+                # 테두리
+                pygame.draw.rect(screen, border_color, (item_x - 2, item_y - 2, icon_size + 4, icon_size + 4), 2, border_radius=4)
+
+                # 아이콘 그리기
+                icon = None
+                if get_item_icon:
+                    icon = get_item_icon(item_name)
+
+                if icon:
+                    # 아이콘 크기 조정
+                    try:
+                        scaled_icon = pygame.transform.smoothscale(icon, (icon_size, icon_size))
+                        screen.blit(scaled_icon, (item_x, item_y))
+                    except:
+                        # 스케일 실패시 기본 사각형
+                        pygame.draw.rect(screen, accent, (item_x, item_y, icon_size, icon_size), border_radius=3)
+                else:
+                    # 아이콘이 없으면 기본 표시
+                    pygame.draw.rect(screen, accent, (item_x, item_y, icon_size, icon_size), border_radius=3)
+                    # 물음표 표시
+                    if self.korean_font:
+                        try:
+                            q_surf, q_rect = self.korean_font.render("?", (255, 255, 255))
+                            screen.blit(q_surf, (item_x + icon_size // 2 - q_rect.width // 2,
+                                                item_y + icon_size // 2 - q_rect.height // 2))
+                        except:
+                            pass
+
+                # 전설 아이템 반짝임 효과
+                if item_type == "legendary":
+                    sparkle_alpha = int(100 + 80 * math.sin(self.animation_timer * 4 + item_idx))
+                    sparkle_surf = pygame.Surface((icon_size + 8, icon_size + 8), pygame.SRCALPHA)
+                    pygame.draw.rect(sparkle_surf, (255, 215, 0, sparkle_alpha),
+                                   (0, 0, icon_size + 8, icon_size + 8), 2, border_radius=5)
+                    screen.blit(sparkle_surf, (item_x - 4, item_y - 4))
 
     def _draw_gem_item(self, screen, x, y, color):
         """보석 아이템 그리기"""
@@ -8753,12 +8862,12 @@ class BuildingInterior:
             return
 
         # 화면 하단에 힌트 박스 표시
-        hint_text = "SPACE / CLICK - 가챠 뽑기"
+        hint_text = "E / CLICK - 가챠 뽑기"
         pulse = abs(math.sin(self.animation_timer * 4))
 
-        # 힌트 박스 크기
-        box_w = 240
-        box_h = 40
+        # 힌트 박스 크기 (텍스트가 잘리지 않도록 충분히 넓게)
+        box_w = 280
+        box_h = 36
         box_x = (SCREEN_WIDTH - box_w) // 2
         box_y = SCREEN_HEIGHT - 80
 
@@ -8783,20 +8892,10 @@ class BuildingInterior:
         )
         pygame.draw.rect(screen, border_color, (box_x, box_y, box_w, box_h), 2, border_radius=6)
 
-        # 텍스트
-        if self.fonts:
-            font = self.fonts.get("small") or self.fonts.get("main")
-            if font:
-                text_color = (255, 255, 255)
-                text_surf, text_rect = font.render(hint_text, text_color)
-                text_x = box_x + (box_w - text_rect.width) // 2
-                text_y = box_y + (box_h - text_rect.height) // 2
-                screen.blit(text_surf, (text_x, text_y))
-
-        # SPACE 키 아이콘 (좌측)
+        # E 키 아이콘 (좌측)
         key_x = box_x + 12
         key_y = box_y + (box_h - 20) // 2
-        key_w = 50
+        key_w = 24
         key_h = 20
 
         # 키 배경
@@ -8812,6 +8911,19 @@ class BuildingInterior:
         # 클릭 영역 (왼쪽 버튼 강조)
         pygame.draw.rect(screen, neon_pink, (mouse_x + 2, mouse_y + 2, 7, 8), border_radius=2)
 
+        # 텍스트 (아이콘 사이에 배치)
+        if self.fonts:
+            font = self.fonts.get("small") or self.fonts.get("main")
+            if font:
+                text_color = (255, 255, 255)
+                text_surf, text_rect = font.render(hint_text, text_color)
+                # 텍스트를 아이콘 사이 중앙에 배치
+                text_area_start = key_x + key_w + 10
+                text_area_end = mouse_x - 10
+                text_x = text_area_start + (text_area_end - text_area_start - text_rect.width) // 2
+                text_y = box_y + (box_h - text_rect.height) // 2
+                screen.blit(text_surf, (text_x, text_y))
+
     def _draw_crane_interact_hint(self, screen, neon_yellow, neon_green):
         """크레인 게임 근처일 때 상호작용 힌트 표시"""
         if self.nearby_crane_game is None:
@@ -8822,12 +8934,12 @@ class BuildingInterior:
             return
 
         # 화면 하단에 힌트 박스 표시
-        hint_text = "SPACE / CLICK - 인형뽑기"
+        hint_text = "E / CLICK - 인형뽑기"
         pulse = abs(math.sin(self.animation_timer * 4))
 
-        # 힌트 박스 크기
-        box_w = 240
-        box_h = 40
+        # 힌트 박스 크기 (텍스트가 잘리지 않도록 충분히 넓게)
+        box_w = 280
+        box_h = 36
         box_x = (SCREEN_WIDTH - box_w) // 2
         box_y = SCREEN_HEIGHT - 80
 
@@ -8852,20 +8964,10 @@ class BuildingInterior:
         )
         pygame.draw.rect(screen, border_color, (box_x, box_y, box_w, box_h), 2, border_radius=6)
 
-        # 텍스트
-        if self.fonts:
-            font = self.fonts.get("small") or self.fonts.get("main")
-            if font:
-                text_color = (255, 255, 255)
-                text_surf, text_rect = font.render(hint_text, text_color)
-                text_x = box_x + (box_w - text_rect.width) // 2
-                text_y = box_y + (box_h - text_rect.height) // 2
-                screen.blit(text_surf, (text_x, text_y))
-
-        # SPACE 키 아이콘 (좌측)
+        # E 키 아이콘 (좌측)
         key_x = box_x + 12
         key_y = box_y + (box_h - 20) // 2
-        key_w = 50
+        key_w = 24
         key_h = 20
 
         # 키 배경
@@ -8880,6 +8982,19 @@ class BuildingInterior:
         pygame.draw.ellipse(screen, neon_green, (mouse_x, mouse_y, 20, 24), 1)
         # 클릭 영역 (왼쪽 버튼 강조)
         pygame.draw.rect(screen, neon_yellow, (mouse_x + 2, mouse_y + 2, 7, 8), border_radius=2)
+
+        # 텍스트 (아이콘 사이에 배치)
+        if self.fonts:
+            font = self.fonts.get("small") or self.fonts.get("main")
+            if font:
+                text_color = (255, 255, 255)
+                text_surf, text_rect = font.render(hint_text, text_color)
+                # 텍스트를 아이콘 사이 중앙에 배치
+                text_area_start = key_x + key_w + 10
+                text_area_end = mouse_x - 10
+                text_x = text_area_start + (text_area_end - text_area_start - text_rect.width) // 2
+                text_y = box_y + (box_h - text_rect.height) // 2
+                screen.blit(text_surf, (text_x, text_y))
 
     def _draw_cyberpunk_floor(self, screen, cam_x, cam_y, floor_color, floor_dark, stripe_color):
         """사이버펑크 바닥 그리기 (대각선 스트라이프 + 네온 라인)"""

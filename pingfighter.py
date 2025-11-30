@@ -79632,11 +79632,11 @@ def main(stage_num, new_boss_mode=False):
                                     # 잎이 공에 맞아 제거됨 - 가속 + 괴상한 방향으로 반사
                                     import math as _math_laurel
                                     import random as _random_laurel
-                                    current_speed = _math_laurel.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                                    if current_speed > 0:
+                                    _laurel_ball_speed = _math_laurel.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                                    if _laurel_ball_speed > 0:
                                         # 가속 (1.2~1.5배)
                                         speed_boost = _random_laurel.uniform(1.2, 1.5)
-                                        new_speed = current_speed * speed_boost
+                                        new_speed = _laurel_ball_speed * speed_boost
                                         # 괴상한 랜덤 각도 (-60도 ~ 60도 범위, 위쪽 방향 기준)
                                         # -90도가 완전 위쪽, 여기서 ±60도 범위로 랜덤
                                         base_angle = -_math_laurel.pi / 2  # -90도 (위쪽)
@@ -79644,6 +79644,53 @@ def main(stage_num, new_boss_mode=False):
                                         final_angle = base_angle + angle_variation
                                         ball_vel[0] = new_speed * _math_laurel.cos(final_angle)
                                         ball_vel[1] = new_speed * _math_laurel.sin(final_angle)
+
+                                        # 월계수 잎 충돌 시 플레이어 게이지 획득량만큼 게이지 획득
+                                        try:
+                                            _laurel_base_gain = 80  # 기본 게이지 획득량
+                                            # 캐릭터별 게이지 획득량 적용
+                                            if selected_character_type == "optimus":
+                                                _laurel_base_gain = 0  # 옵티머스는 게이지 획득 불가
+                                            elif selected_character_type == "soldier":
+                                                _laurel_base_gain = 50
+                                                if _is_soldier_non_pistol_selected():
+                                                    _laurel_base_gain = 25
+                                            elif selected_character_type == "blacksmith":
+                                                if blacksmith_umbrella_open:
+                                                    _laurel_base_gain = get_blacksmith_umbrella_gauge_gain()
+                                                else:
+                                                    _laurel_base_gain = 30
+
+                                            # 스킬 게이지 부스트 적용
+                                            _laurel_skill_boost = skill.apply_gauge_boost(0) if 'skill' in dir() else 0
+                                            _laurel_total_gain = _laurel_base_gain + _laurel_skill_boost
+
+                                            # 블루투스링 게이지 충전량 증가 적용
+                                            if is_bluetooth_ring_active():
+                                                _bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
+                                                _laurel_total_gain = int(_laurel_total_gain * (1 + _bt_bonus / 100.0))
+
+                                            # 악마의 주사위 패들 게이지 충전량 배율 적용
+                                            from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
+                                            if is_devil_dice_active():
+                                                _dice_multipliers = get_devil_dice_multipliers()
+                                                _paddle_charge_mult = _dice_multipliers.get('paddle_gauge_charge', 1.0)
+                                                _laurel_total_gain = int(_laurel_total_gain * _paddle_charge_mult)
+
+                                            # 버서크 포션 보너스 적용
+                                            _laurel_total_gain = _apply_blacksmith_berserk_gauge_bonus(_laurel_total_gain)
+
+                                            # 게이지 적용
+                                            if _laurel_total_gain > 0 and selected_character_type != "optimus":
+                                                special_gauge += _laurel_total_gain
+                                                _current_max = get_max_gauge()
+                                                if special_gauge > _current_max:
+                                                    special_gauge = _current_max
+                                                if special_gauge >= 350:
+                                                    special_ready = True
+                                                print(f"🌿 월계수 잎 충돌! 게이지 +{_laurel_total_gain} (현재: {special_gauge})")
+                                        except Exception as _laurel_gauge_err:
+                                            print(f"[WARNING] 월계수 게이지 획득 오류: {_laurel_gauge_err}")
                 except Exception as e:
                     print(f"[ERROR] LegendaryManager update failed: {e}")
                     import traceback
@@ -82710,7 +82757,7 @@ def show_character_info(background_surface=None):
                 pygame.draw.rect(SCREEN, (200, 200, 200), (mouse_pos[0] - 27, mouse_pos[1] - 27, 54, 54), 1)
 
         # 스킬트리 버튼 (툴팁보다 먼저 그려 레이어 문제 예방)
-     ㅁ   hovered = skill_button_rect.collidepoint(mouse_pos)
+        hovered = skill_button_rect.collidepoint(mouse_pos)
         btn_fill = (55, 90, 150) if hovered else (40, 70, 120)
         btn_border = (255, 220, 120) if hovered else (200, 200, 200)
         pygame.draw.rect(SCREEN, btn_fill, skill_button_rect, border_radius=12)

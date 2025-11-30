@@ -2557,11 +2557,24 @@ class SacredLaurel(LegendaryItem):
         self.rotation_speed = 1.5
         self.current_angle = 0
         self.respawn_timer = 0
-        self.respawn_delay = 30 * 60
+        self.respawn_delay = 30 * 60  # 모든 잎 파괴 시 전체 리스폰 (사용 안함)
         self.all_leaves_destroyed = False
         self.glow_intensity = 0
         self.glow_direction = 1
         self.removal_particles = []
+        # 개별 잎 재생 시스템 (12초마다 1개씩)
+        self.leaf_regen_timer = 0
+        self.leaf_regen_delay = 12 * 60  # 12초 (60fps 기준)
+        # 장식 파티클 시스템 (잎 주변 꾸밈 효과)
+        self.decoration_particles = []
+        self.decoration_spawn_timer = 0
+        self.decoration_spawn_delay = 8  # 8프레임마다 새 파티클 생성
+        # 잎 상태 저장용 (장착 해제 후 재장착 시 상태 유지)
+        self._saved_leaves = None
+        self._saved_all_destroyed = False
+        self._saved_respawn_timer = 0
+        self._saved_current_angle = 0
+        self._saved_regen_timer = 0
         self.animation_frames = []
         self.current_frame = 0
         self.frame_counter = 0
@@ -2597,10 +2610,11 @@ class SacredLaurel(LegendaryItem):
                 dist = math.sqrt((x - cx)**2 + (y - cy)**2)
                 if dist < 12:
                     frame.set_at((x, y), (0, 0, 0, 0))
-        leaf_colors = [(100, 200, 100), (80, 180, 80), (120, 220, 100), (90, 190, 90),
-                       (110, 210, 110), (70, 170, 70), (130, 230, 120), (85, 185, 85)]
-        highlight_colors = [(180, 255, 180), (160, 240, 160), (200, 255, 200), (170, 250, 170),
-                           (190, 255, 190), (150, 230, 150), (210, 255, 210), (165, 245, 165)]
+        # 금빛 잎 색상
+        leaf_colors = [(220, 180, 60), (200, 160, 50), (240, 200, 70), (210, 170, 55),
+                       (230, 190, 65), (190, 150, 45), (250, 210, 80), (205, 165, 52)]
+        highlight_colors = [(255, 240, 150), (255, 230, 140), (255, 245, 160), (255, 235, 145),
+                           (255, 242, 155), (255, 225, 135), (255, 250, 170), (255, 232, 142)]
         leaf_color = leaf_colors[frame_idx % len(leaf_colors)]
         highlight = highlight_colors[frame_idx % len(highlight_colors)]
         for i in range(3):
@@ -2621,16 +2635,22 @@ class SacredLaurel(LegendaryItem):
         import math
         frame = pygame.Surface((32, 32), pygame.SRCALPHA)
         cx, cy = 16, 16
-        bg_colors = [(60, 140, 80), (50, 130, 70), (70, 150, 90), (55, 135, 75),
-                     (65, 145, 85), (45, 125, 65), (75, 155, 95), (52, 132, 72)]
+        # 금빛 배경
+        bg_colors = [(160, 130, 50), (150, 120, 45), (170, 140, 55), (155, 125, 48),
+                     (165, 135, 52), (145, 115, 42), (175, 145, 58), (152, 122, 46)]
         pygame.draw.circle(frame, bg_colors[frame_idx], (cx, cy), 14)
+        # 금빛 잎
+        leaf_colors = [(220, 180, 60), (200, 160, 50), (240, 200, 70), (210, 170, 55),
+                       (230, 190, 65), (190, 150, 45), (250, 210, 80), (205, 165, 52)]
+        highlight_colors = [(255, 240, 150), (255, 230, 140), (255, 245, 160), (255, 235, 145),
+                           (255, 242, 155), (255, 225, 135), (255, 250, 170), (255, 232, 142)]
         for i in range(3):
             angle = (frame_idx * 0.2) + (i * 2 * math.pi / 3)
             lx = cx + int(math.cos(angle) * 8)
             ly = cy + int(math.sin(angle) * 8)
             leaf_surf = pygame.Surface((10, 6), pygame.SRCALPHA)
-            pygame.draw.ellipse(leaf_surf, (100, 200, 100), (0, 0, 10, 6))
-            pygame.draw.ellipse(leaf_surf, (180, 255, 180), (2, 1, 4, 3))
+            pygame.draw.ellipse(leaf_surf, leaf_colors[frame_idx], (0, 0, 10, 6))
+            pygame.draw.ellipse(leaf_surf, highlight_colors[frame_idx], (2, 1, 4, 3))
             rotated = pygame.transform.rotate(leaf_surf, -math.degrees(angle))
             rect = rotated.get_rect(center=(lx, ly))
             frame.blit(rotated, rect)
@@ -2647,38 +2667,75 @@ class SacredLaurel(LegendaryItem):
         import math
         import random
         self.active = True
-        self.leaves = []
-        for i in range(self.max_leaves):
-            angle = (2 * math.pi / self.max_leaves) * i
-            # 4가지 다른 잎 모양 타입 랜덤 할당
-            leaf_type = random.randint(0, 3)
-            self.leaves.append({
-                'active': True,
-                'base_angle': angle,
-                'removal_effect': False,
-                'removal_timer': 0,
-                'leaf_type': leaf_type,  # 0: 클래식, 1: 뾰족한, 2: 둥근, 3: 톱니
-                'size_variation': random.uniform(0.8, 1.2)  # 크기 변화
-            })
-        self.current_angle = 0
-        self.all_leaves_destroyed = False
-        self.respawn_timer = 0
+
+        # 저장된 잎 상태가 있으면 복원
+        if self._saved_leaves is not None:
+            self.leaves = self._saved_leaves
+            self.all_leaves_destroyed = self._saved_all_destroyed
+            self.respawn_timer = self._saved_respawn_timer
+            self.current_angle = self._saved_current_angle
+            self.leaf_regen_timer = self._saved_regen_timer
+            active_count = sum(1 for leaf in self.leaves if leaf['active'])
+            print(f"🌿 신성 월계수 재활성화! {active_count}개의 월계수 잎이 남아있습니다!")
+        else:
+            # 처음 활성화 시 새로운 잎 생성
+            self.leaves = []
+            for i in range(self.max_leaves):
+                angle = (2 * math.pi / self.max_leaves) * i
+                # 4가지 다른 잎 모양 타입 랜덤 할당
+                leaf_type = random.randint(0, 3)
+                self.leaves.append({
+                    'active': True,
+                    'base_angle': angle,
+                    'removal_effect': False,
+                    'removal_timer': 0,
+                    'leaf_type': leaf_type,  # 0: 클래식, 1: 뾰족한, 2: 둥근, 3: 톱니
+                    'size_variation': random.uniform(0.8, 1.2)  # 크기 변화
+                })
+            self.current_angle = 0
+            self.all_leaves_destroyed = False
+            self.respawn_timer = 0
+            self.leaf_regen_timer = 0
+            print(f"🌿 신성 월계수 활성화! {self.max_leaves}개의 월계수 잎이 당신을 보호합니다!")
+
         self.removal_particles = []
-        print(f"🌿 신성 월계수 활성화! {self.max_leaves}개의 월계수 잎이 당신을 보호합니다!")
 
     def deactivate(self):
+        # 현재 잎 상태 저장 (재장착 시 복원용)
+        if self.leaves:
+            import copy
+            self._saved_leaves = copy.deepcopy(self.leaves)
+            self._saved_all_destroyed = self.all_leaves_destroyed
+            self._saved_respawn_timer = self.respawn_timer
+            self._saved_current_angle = self.current_angle
+            self._saved_regen_timer = self.leaf_regen_timer
+
         self.active = False
         self.leaves = []
         self.removal_particles = []
-        self.all_leaves_destroyed = False
-        self.respawn_timer = 0
+        self.decoration_particles = []
 
     def reset(self):
+        """스테이지 리셋 - 저장된 상태 유지 (같은 게임 내)"""
         self.deactivate()
 
     def reset_for_new_game(self):
-        """새 게임 시작 시 초기화"""
-        self.deactivate()
+        """새 게임 시작 시 완전 초기화 - 저장된 상태도 클리어"""
+        self.active = False
+        self.leaves = []
+        self.removal_particles = []
+        self.decoration_particles = []
+        self.decoration_spawn_timer = 0
+        self.all_leaves_destroyed = False
+        self.respawn_timer = 0
+        self.current_angle = 0
+        self.leaf_regen_timer = 0
+        # 저장된 상태도 초기화
+        self._saved_leaves = None
+        self._saved_all_destroyed = False
+        self._saved_respawn_timer = 0
+        self._saved_current_angle = 0
+        self._saved_regen_timer = 0
 
     def set_player_position(self, x, y):
         self.player_x = x
@@ -2706,10 +2763,23 @@ class SacredLaurel(LegendaryItem):
         elif self.glow_intensity < 0:
             self.glow_intensity = 0
             self.glow_direction = 1
+        # 개별 잎 재생 시스템: 파괴된 잎이 있으면 5초마다 1개씩 재생
+        destroyed_leaves = [leaf for leaf in self.leaves if not leaf['active']]
+        if destroyed_leaves:
+            self.leaf_regen_timer += 1
+            if self.leaf_regen_timer >= self.leaf_regen_delay:
+                self.leaf_regen_timer = 0
+                self._regenerate_one_leaf()
+        else:
+            self.leaf_regen_timer = 0  # 모든 잎이 살아있으면 타이머 리셋
+
+        # 모든 잎이 파괴된 경우도 개별 재생 시스템으로 처리
         if self.all_leaves_destroyed:
-            self.respawn_timer += 1
-            if self.respawn_timer >= self.respawn_delay:
-                self._respawn_leaves()
+            # 첫 번째 잎이 재생되면 all_leaves_destroyed 해제
+            active_count = sum(1 for leaf in self.leaves if leaf['active'])
+            if active_count > 0:
+                self.all_leaves_destroyed = False
+
         for particle in self.removal_particles[:]:
             particle['x'] += particle['vx']
             particle['y'] += particle['vy']
@@ -2717,12 +2787,61 @@ class SacredLaurel(LegendaryItem):
             particle['vy'] += 0.2
             if particle['life'] <= 0:
                 self.removal_particles.remove(particle)
+
+        # 장식 파티클 생성 (잎 주변에 반짝이는 효과)
+        import random
+        self.decoration_spawn_timer += 1
+        if self.decoration_spawn_timer >= self.decoration_spawn_delay:
+            self.decoration_spawn_timer = 0
+            # 활성화된 잎 주변에서 파티클 생성
+            active_leaves = [(i, leaf) for i, leaf in enumerate(self.leaves) if leaf['active']]
+            if active_leaves:
+                idx, leaf = random.choice(active_leaves)
+                angle = self.current_angle + leaf['base_angle']
+                ellipse_scale_y = 0.3
+                leaf_x = self.player_x + math.cos(angle) * self.leaf_radius
+                leaf_y = self.player_y + math.sin(angle) * self.leaf_radius * ellipse_scale_y
+                # 파티클 타입 랜덤 선택
+                particle_type = random.choice(['sparkle', 'trail', 'ring', 'star'])
+                self.decoration_particles.append({
+                    'x': leaf_x + random.uniform(-15, 15),
+                    'y': leaf_y + random.uniform(-10, 10),
+                    'vx': random.uniform(-0.5, 0.5),
+                    'vy': random.uniform(-1.0, -0.3),
+                    'life': random.randint(30, 60),
+                    'max_life': random.randint(30, 60),
+                    'size': random.uniform(2, 5),
+                    'type': particle_type,
+                    'color': random.choice([
+                        (255, 215, 100),  # 금색
+                        (255, 240, 150),  # 밝은 금색
+                        (255, 200, 80),   # 진한 금색
+                        (255, 255, 200),  # 크림색
+                        (200, 180, 100),  # 어두운 금색
+                    ]),
+                    'angle': random.uniform(0, 6.28),
+                    'spin': random.uniform(-0.1, 0.1),
+                })
+
+        # 장식 파티클 업데이트
+        for particle in self.decoration_particles[:]:
+            particle['x'] += particle['vx']
+            particle['y'] += particle['vy']
+            particle['life'] -= 1
+            particle['angle'] += particle['spin']
+            # 부드러운 움직임
+            particle['vx'] *= 0.98
+            particle['vy'] *= 0.98
+            if particle['life'] <= 0:
+                self.decoration_particles.remove(particle)
+
         self.frame_counter += 1
         if self.frame_counter >= self.animation_speed:
             self.frame_counter = 0
             self.current_frame = (self.current_frame + 1) % max(1, len(self.animation_frames))
 
     def _respawn_leaves(self):
+        """모든 잎 전체 리스폰 (사용 안함 - 개별 재생으로 대체)"""
         import math
         import random
         self.leaves = []
@@ -2739,6 +2858,27 @@ class SacredLaurel(LegendaryItem):
             })
         self.all_leaves_destroyed = False
         self.respawn_timer = 0
+        self.leaf_regen_timer = 0
+
+    def _regenerate_one_leaf(self):
+        """파괴된 잎 1개를 재생"""
+        import random
+        # 파괴된 잎 찾기
+        destroyed_leaves = [leaf for leaf in self.leaves if not leaf['active']]
+        if not destroyed_leaves:
+            return
+
+        # 첫 번째 파괴된 잎 재생
+        leaf = destroyed_leaves[0]
+        leaf['active'] = True
+        leaf['removal_effect'] = False
+        leaf['removal_timer'] = 0
+        # 새로운 타입과 크기 랜덤 할당
+        leaf['leaf_type'] = random.randint(0, 3)
+        leaf['size_variation'] = random.uniform(0.8, 1.2)
+
+        active_count = sum(1 for l in self.leaves if l['active'])
+        print(f"🌿 월계수 잎 1개 재생! (현재 {active_count}/{self.max_leaves}개)")
 
     def get_active_leaf_count(self):
         return sum(1 for leaf in self.leaves if leaf['active'])
@@ -2777,21 +2917,21 @@ class SacredLaurel(LegendaryItem):
             self.respawn_timer = 0
 
     def _draw_leaf_type_0(self, surf, w, h, depth_factor):
-        """클래식 월계수 잎 - 타원형 기본"""
+        """클래식 월계수 잎 - 타원형 기본 (금빛)"""
         import pygame
-        # 메인 잎 몸체
-        base_green = (int(85 * depth_factor), int(165 * depth_factor), int(75 * depth_factor))
-        mid_green = (int(100 * depth_factor), int(185 * depth_factor), int(90 * depth_factor))
-        light_green = (int(140 * depth_factor), int(220 * depth_factor), int(120 * depth_factor))
-        highlight = (int(180 * depth_factor), int(245 * depth_factor), int(160 * depth_factor))
-        vein_color = (int(60 * depth_factor), int(130 * depth_factor), int(55 * depth_factor))
+        # 메인 잎 몸체 (금빛)
+        base_gold = (int(180 * depth_factor), int(140 * depth_factor), int(50 * depth_factor))
+        mid_gold = (int(220 * depth_factor), int(180 * depth_factor), int(60 * depth_factor))
+        light_gold = (int(255 * depth_factor), int(215 * depth_factor), int(80 * depth_factor))
+        highlight = (int(255 * depth_factor), int(240 * depth_factor), int(150 * depth_factor))
+        vein_color = (int(150 * depth_factor), int(110 * depth_factor), int(30 * depth_factor))
 
         # 외곽 그림자
-        pygame.draw.ellipse(surf, base_green, (1, 1, w-2, h-2))
+        pygame.draw.ellipse(surf, base_gold, (1, 1, w-2, h-2))
         # 메인 잎
-        pygame.draw.ellipse(surf, mid_green, (2, 2, w-4, h-4))
+        pygame.draw.ellipse(surf, mid_gold, (2, 2, w-4, h-4))
         # 하이라이트 (왼쪽 상단)
-        pygame.draw.ellipse(surf, light_green, (3, 2, w//3, h//2))
+        pygame.draw.ellipse(surf, light_gold, (3, 2, w//3, h//2))
         pygame.draw.ellipse(surf, highlight, (4, 3, w//5, h//3))
         # 중심 잎맥
         pygame.draw.line(surf, vein_color, (w-2, h//2), (3, h//2), 2)
@@ -2802,13 +2942,13 @@ class SacredLaurel(LegendaryItem):
             pygame.draw.line(surf, vein_color, (w - offset, h//2), (w - offset - 4, h*3//4 - 1), 1)
 
     def _draw_leaf_type_1(self, surf, w, h, depth_factor):
-        """뾰족한 월계수 잎 - 창 모양"""
+        """뾰족한 월계수 잎 - 창 모양 (금빛)"""
         import pygame
-        base_green = (int(75 * depth_factor), int(155 * depth_factor), int(65 * depth_factor))
-        mid_green = (int(95 * depth_factor), int(180 * depth_factor), int(85 * depth_factor))
-        light_green = (int(130 * depth_factor), int(210 * depth_factor), int(110 * depth_factor))
-        highlight = (int(170 * depth_factor), int(240 * depth_factor), int(150 * depth_factor))
-        vein_color = (int(55 * depth_factor), int(120 * depth_factor), int(50 * depth_factor))
+        base_gold = (int(170 * depth_factor), int(130 * depth_factor), int(40 * depth_factor))
+        mid_gold = (int(210 * depth_factor), int(170 * depth_factor), int(55 * depth_factor))
+        light_gold = (int(245 * depth_factor), int(205 * depth_factor), int(70 * depth_factor))
+        highlight = (int(255 * depth_factor), int(235 * depth_factor), int(140 * depth_factor))
+        vein_color = (int(140 * depth_factor), int(100 * depth_factor), int(25 * depth_factor))
 
         # 뾰족한 잎 모양 (폴리곤)
         points = [
@@ -2819,47 +2959,47 @@ class SacredLaurel(LegendaryItem):
             (w // 4, h * 3 // 4),
             (w * 2 // 3, h * 4 // 5),  # 하단
         ]
-        pygame.draw.polygon(surf, base_green, points)
+        pygame.draw.polygon(surf, base_gold, points)
         # 내부 레이어
         inner_points = [(int(p[0] * 0.9 + w * 0.05), int(p[1] * 0.85 + h * 0.075)) for p in points]
-        pygame.draw.polygon(surf, mid_green, inner_points)
+        pygame.draw.polygon(surf, mid_gold, inner_points)
         # 하이라이트
-        pygame.draw.ellipse(surf, light_green, (w//3, h//4, w//4, h//3))
+        pygame.draw.ellipse(surf, light_gold, (w//3, h//4, w//4, h//3))
         pygame.draw.ellipse(surf, highlight, (w//3 + 2, h//4 + 2, w//6, h//5))
         # 중심 잎맥
         pygame.draw.line(surf, vein_color, (w-3, h//2), (5, h//2), 2)
 
     def _draw_leaf_type_2(self, surf, w, h, depth_factor):
-        """둥근 월계수 잎 - 부드러운 곡선"""
+        """둥근 월계수 잎 - 부드러운 곡선 (금빛)"""
         import pygame
-        base_green = (int(90 * depth_factor), int(170 * depth_factor), int(80 * depth_factor))
-        mid_green = (int(110 * depth_factor), int(195 * depth_factor), int(100 * depth_factor))
-        light_green = (int(150 * depth_factor), int(230 * depth_factor), int(130 * depth_factor))
-        highlight = (int(190 * depth_factor), int(250 * depth_factor), int(170 * depth_factor))
-        vein_color = (int(65 * depth_factor), int(140 * depth_factor), int(60 * depth_factor))
-        edge_color = (int(50 * depth_factor), int(110 * depth_factor), int(45 * depth_factor))
+        base_gold = (int(190 * depth_factor), int(150 * depth_factor), int(55 * depth_factor))
+        mid_gold = (int(225 * depth_factor), int(185 * depth_factor), int(65 * depth_factor))
+        light_gold = (int(255 * depth_factor), int(220 * depth_factor), int(90 * depth_factor))
+        highlight = (int(255 * depth_factor), int(245 * depth_factor), int(160 * depth_factor))
+        vein_color = (int(155 * depth_factor), int(115 * depth_factor), int(35 * depth_factor))
+        edge_color = (int(130 * depth_factor), int(95 * depth_factor), int(25 * depth_factor))
 
         # 둥근 외곽
         pygame.draw.ellipse(surf, edge_color, (0, 0, w, h))
-        pygame.draw.ellipse(surf, base_green, (1, 1, w-2, h-2))
+        pygame.draw.ellipse(surf, base_gold, (1, 1, w-2, h-2))
         # 둥근 내부
-        pygame.draw.ellipse(surf, mid_green, (3, 2, w-6, h-4))
+        pygame.draw.ellipse(surf, mid_gold, (3, 2, w-6, h-4))
         # 원형 하이라이트
-        pygame.draw.ellipse(surf, light_green, (w//4, h//5, w//3, h//2))
+        pygame.draw.ellipse(surf, light_gold, (w//4, h//5, w//3, h//2))
         pygame.draw.ellipse(surf, highlight, (w//4 + 2, h//5 + 2, w//5, h//3))
         # 부드러운 잎맥
         pygame.draw.arc(surf, vein_color, (2, h//4, w-4, h//2), 3.14, 0, 2)
         pygame.draw.line(surf, vein_color, (w-2, h//2), (4, h//2), 1)
 
     def _draw_leaf_type_3(self, surf, w, h, depth_factor):
-        """톱니 월계수 잎 - 가장자리 톱니"""
+        """톱니 월계수 잎 - 가장자리 톱니 (금빛)"""
         import pygame
         import math
-        base_green = (int(80 * depth_factor), int(160 * depth_factor), int(70 * depth_factor))
-        mid_green = (int(100 * depth_factor), int(185 * depth_factor), int(90 * depth_factor))
-        light_green = (int(135 * depth_factor), int(215 * depth_factor), int(115 * depth_factor))
-        highlight = (int(175 * depth_factor), int(242 * depth_factor), int(155 * depth_factor))
-        vein_color = (int(58 * depth_factor), int(125 * depth_factor), int(52 * depth_factor))
+        base_gold = (int(175 * depth_factor), int(135 * depth_factor), int(45 * depth_factor))
+        mid_gold = (int(215 * depth_factor), int(175 * depth_factor), int(60 * depth_factor))
+        light_gold = (int(250 * depth_factor), int(210 * depth_factor), int(75 * depth_factor))
+        highlight = (int(255 * depth_factor), int(238 * depth_factor), int(145 * depth_factor))
+        vein_color = (int(145 * depth_factor), int(105 * depth_factor), int(28 * depth_factor))
 
         # 톱니 모양 외곽
         points = []
@@ -2880,11 +3020,11 @@ class SacredLaurel(LegendaryItem):
             points.append((x, max(1, min(h-1, y))))
 
         if len(points) > 2:
-            pygame.draw.polygon(surf, base_green, points)
+            pygame.draw.polygon(surf, base_gold, points)
         # 내부
-        pygame.draw.ellipse(surf, mid_green, (w//6, h//4, w*2//3, h//2))
+        pygame.draw.ellipse(surf, mid_gold, (w//6, h//4, w*2//3, h//2))
         # 하이라이트
-        pygame.draw.ellipse(surf, light_green, (w//4, h//4, w//3, h//3))
+        pygame.draw.ellipse(surf, light_gold, (w//4, h//4, w//3, h//3))
         pygame.draw.ellipse(surf, highlight, (w//4 + 3, h//4 + 2, w//5, h//5))
         # 잎맥
         pygame.draw.line(surf, vein_color, (w-3, h//2), (5, h//2), 2)
@@ -2924,10 +3064,10 @@ class SacredLaurel(LegendaryItem):
             current_leaf_size = int(self.leaf_size * depth_factor * size_var)
             alpha_factor = 0.5 + 0.5 * ((depth + 1) / 2)  # 0.5 ~ 1.0 범위
 
-            # 글로우 효과
-            glow_alpha = int((100 + 50 * self.glow_intensity) * alpha_factor)
+            # 글로우 효과 (옅은 금빛)
+            glow_alpha = int((30 + 20 * self.glow_intensity) * alpha_factor)  # 투명하게 조절
             glow_surf = pygame.Surface((current_leaf_size * 4, current_leaf_size * 3), pygame.SRCALPHA)
-            pygame.draw.ellipse(glow_surf, (150, 255, 150, glow_alpha),
+            pygame.draw.ellipse(glow_surf, (255, 215, 100, glow_alpha),  # 옅은 금빛
                               (0, 0, current_leaf_size * 4, current_leaf_size * 3))
             screen.blit(glow_surf, (leaf_x - current_leaf_size * 2, leaf_y - current_leaf_size * 1.5))
 
@@ -2959,8 +3099,84 @@ class SacredLaurel(LegendaryItem):
             pygame.draw.circle(part_surf, (*color, alpha), (size, size), size)
             screen.blit(part_surf, (int(particle['x'] - size), int(particle['y'] - size)))
 
+        # 장식 파티클 그리기 (반짝이, 별, 고리 등)
+        for particle in self.decoration_particles:
+            life_ratio = particle['life'] / particle['max_life']
+            alpha = int(255 * life_ratio * 0.8)
+            color = particle['color']
+            p_size = particle['size'] * (0.5 + 0.5 * life_ratio)
+            px, py = int(particle['x']), int(particle['y'])
+            p_type = particle['type']
+
+            if p_type == 'sparkle':
+                # 반짝이 효과 (십자가 모양)
+                sparkle_surf = pygame.Surface((int(p_size * 4), int(p_size * 4)), pygame.SRCALPHA)
+                center = int(p_size * 2)
+                # 십자가 라인
+                pygame.draw.line(sparkle_surf, (*color, alpha),
+                               (center - int(p_size), center), (center + int(p_size), center), max(1, int(p_size * 0.4)))
+                pygame.draw.line(sparkle_surf, (*color, alpha),
+                               (center, center - int(p_size)), (center, center + int(p_size)), max(1, int(p_size * 0.4)))
+                # 대각선 (더 짧게)
+                diag = int(p_size * 0.6)
+                pygame.draw.line(sparkle_surf, (*color, int(alpha * 0.6)),
+                               (center - diag, center - diag), (center + diag, center + diag), 1)
+                pygame.draw.line(sparkle_surf, (*color, int(alpha * 0.6)),
+                               (center - diag, center + diag), (center + diag, center - diag), 1)
+                # 중심 빛
+                pygame.draw.circle(sparkle_surf, (*color, min(255, alpha + 50)), (center, center), max(1, int(p_size * 0.3)))
+                screen.blit(sparkle_surf, (px - center, py - center))
+
+            elif p_type == 'trail':
+                # 꼬리 효과 (작은 원들이 이어진 형태)
+                trail_surf = pygame.Surface((int(p_size * 6), int(p_size * 3)), pygame.SRCALPHA)
+                for i in range(4):
+                    trail_alpha = int(alpha * (1 - i * 0.2))
+                    trail_size = max(1, int(p_size * (1 - i * 0.15)))
+                    cx = int(p_size * 3) - i * int(p_size * 0.8)
+                    cy = int(p_size * 1.5)
+                    pygame.draw.circle(trail_surf, (*color, trail_alpha), (cx, cy), trail_size)
+                # 회전 적용
+                rotated = pygame.transform.rotate(trail_surf, math.degrees(particle['angle']))
+                rect = rotated.get_rect(center=(px, py))
+                screen.blit(rotated, rect)
+
+            elif p_type == 'ring':
+                # 고리 효과 (확장하는 원)
+                ring_size = int(p_size * (2 - life_ratio))  # 점점 커짐
+                ring_surf = pygame.Surface((ring_size * 2 + 4, ring_size * 2 + 4), pygame.SRCALPHA)
+                center = ring_size + 2
+                thickness = max(1, int(p_size * 0.3 * life_ratio))
+                pygame.draw.circle(ring_surf, (*color, int(alpha * 0.7)), (center, center), ring_size, thickness)
+                # 내부 빛
+                inner_alpha = int(alpha * 0.3 * life_ratio)
+                pygame.draw.circle(ring_surf, (*color, inner_alpha), (center, center), max(1, ring_size - thickness))
+                screen.blit(ring_surf, (px - center, py - center))
+
+            elif p_type == 'star':
+                # 별 효과 (5각 별)
+                star_surf = pygame.Surface((int(p_size * 4), int(p_size * 4)), pygame.SRCALPHA)
+                center = int(p_size * 2)
+                # 5각 별 포인트 계산
+                points = []
+                for i in range(10):
+                    angle_offset = particle['angle'] + (i * math.pi / 5) - (math.pi / 2)
+                    if i % 2 == 0:
+                        r = p_size * 1.2
+                    else:
+                        r = p_size * 0.5
+                    px_star = center + int(math.cos(angle_offset) * r)
+                    py_star = center + int(math.sin(angle_offset) * r)
+                    points.append((px_star, py_star))
+                if len(points) >= 3:
+                    pygame.draw.polygon(star_surf, (*color, alpha), points)
+                    # 별 테두리
+                    pygame.draw.polygon(star_surf, (255, 255, 255, int(alpha * 0.5)), points, 1)
+                screen.blit(star_surf, (px - center, py - center))
+
     def draw_icon(self, screen, x, y, size=32):
         import pygame
+        import math
 
         # 애니메이션 프레임 업데이트 (draw_icon 호출 시마다)
         if self.animation_frames and len(self.animation_frames) > 1:
@@ -2969,14 +3185,85 @@ class SacredLaurel(LegendaryItem):
                 self.frame_counter = 0
                 self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
 
+        # 위아래 천천히 움직이는 오프셋 (헤르메스 신발과 동일 - 먼저 계산)
+        frame_offset = int(math.sin(self.animation_time * 2.5) * 2)
+        frame_y = y + frame_offset
+
+        # 파란색 원형 배경 애니메이션 (헤르메스 신발/_draw_common_legendary_frame과 완전 동일)
+        pulse = (math.sin(self.animation_time * 4.0) + 1) / 2  # 0~1
+        pulse_ratio = pulse  # 펄스 비율로 크기 변화
+        base_radius = max(6, int(size * 0.42))
+        outer_radius = min(size // 2, int(base_radius + size * 0.05 * pulse_ratio))
+        inner_radius = max(4, int(outer_radius * 0.65))
+
+        glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        center = (size // 2, size // 2)
+        # 외곽 파란색 글로우 (헤르메스 신발과 동일 색상)
+        pygame.draw.circle(glow_surf, (30, 90, 170, 80), center, outer_radius)
+        pygame.draw.circle(glow_surf, (70, 140, 200, 150), center, int(outer_radius * 0.85))
+        pygame.draw.circle(glow_surf, (140, 190, 220, 190), center, inner_radius)
+
+        # 글로우 배치 (위아래 움직임 적용 - 헤르메스 신발과 동일 위치)
+        screen.blit(glow_surf, (x, frame_y))
+
+        # 내부 붉은색 테두리 (프레임별 그라데이션) - 3겹 (헤르메스 신발과 동일)
+        inner_pulse = (math.sin(self.animation_time * 6.0) + 1) / 2
+        outer_inner_color = (
+            int(150 + 70 * inner_pulse),
+            int(30 + 35 * inner_pulse),
+            int(30 + 35 * inner_pulse)
+        )
+        inner_inner_color = (
+            int(120 + 60 * inner_pulse),
+            int(10 + 25 * inner_pulse),
+            int(10 + 25 * inner_pulse)
+        )
+        mid_inner_color = (
+            (outer_inner_color[0] + inner_inner_color[0]) // 2,
+            (outer_inner_color[1] + inner_inner_color[1]) // 2,
+            (outer_inner_color[2] + inner_inner_color[2]) // 2,
+        )
+
+        inner_rect_outer = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
+        inner_rect_mid = inner_rect_outer.inflate(-2, -2)
+        inner_rect_inner = inner_rect_outer.inflate(-4, -4)
+
+        pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 1)
+        pygame.draw.rect(screen, mid_inner_color, inner_rect_mid, 1)
+        pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 1)
+
+        # 외곽 빨간색 테두리 (헤르메스 신발과 동일)
+        border_color = COMMON_LEGENDARY_BORDER_COLOR
+        border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
+        pygame.draw.rect(screen, border_color, border_rect, 2)
+
+        # L자 코너 장식 (파란색/흰색 그라데이션 - 헤르메스 신발과 동일)
+        corner_color = COMMON_LEGENDARY_CORNER_COLOR
+        corner_size = 8
+
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x - 2, frame_y + corner_size), (x - 2, frame_y - 2), (x + corner_size, frame_y - 2)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x + size - corner_size + 2, frame_y - 2), (x + size + 2, frame_y - 2), (x + size + 2, frame_y + corner_size)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x - 2, frame_y + size - corner_size + 2), (x - 2, frame_y + size + 2), (x + corner_size, frame_y + size + 2)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x + size - corner_size + 2, frame_y + size + 2), (x + size + 2, frame_y + size + 2), (x + size + 2, frame_y + size - corner_size + 2)], 2)
+
+        # 코너 원형 장식
+        for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
+            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
+
+        # 아이콘 프레임 그리기
         if self.animation_frames:
             frame = self.animation_frames[self.current_frame % len(self.animation_frames)]
             if size != 32:
                 frame = pygame.transform.scale(frame, (size, size))
-            screen.blit(frame, (x, y))
+            screen.blit(frame, (x, frame_y))
         else:
-            pygame.draw.circle(screen, (100, 200, 100), (x + size // 2, y + size // 2), size // 2 - 2)
-            pygame.draw.circle(screen, (255, 0, 0), (x + size // 2, y + size // 2), size // 2, 2)
+            # 금빛 기본 아이콘
+            pygame.draw.circle(screen, (220, 180, 60), (x + size // 2, frame_y + size // 2), size // 2 - 2)
+            pygame.draw.circle(screen, (255, 0, 0), (x + size // 2, frame_y + size // 2), size // 2, 2)
 
 
 class EmptyLegendary(LegendaryItem):
@@ -3051,10 +3338,101 @@ class EmptyLegendary(LegendaryItem):
         self.active = False
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 공통 프레임만 사용 (PNG 프레임 사용 안 함)"""
-        # 공통 배경 프레임 연출만 사용 (글로우 + 빨간 테두리 + 코너)
-        # PNG 프레임을 사용하지 않아 해머/번개 잔상 없음
-        _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        """애니메이션 아이콘 그리기 - 신성 월계수 스타일 (중앙 월계수 그림 제외)"""
+        import math
+
+        # 애니메이션 프레임 업데이트
+        self.frame_counter += 1
+        if self.frame_counter >= self.animation_speed:
+            self.frame_counter = 0
+            self.current_frame = (self.current_frame + 1) % 8
+
+        # 위아래 천천히 움직이는 오프셋 (다른 전설 아이템과 동일)
+        frame_offset = int(math.sin(self.animation_time * 2.5) * 2)
+        frame_y = y + frame_offset
+
+        # animation_time 기반 펄스 (신성 월계수와 동일한 속도)
+        pulse = (math.sin(self.animation_time * 4.0) + 1) / 2  # 0~1 사이 값
+
+        # 커졌다 작아졌다 하는 원형 글로우 (금빛)
+        glow_base_size = int(size * 1.3)
+        glow_size = int(glow_base_size + size * 0.15 * pulse)
+        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+
+        # 그라데이션 원형 글로우 (금빛)
+        center = glow_size // 2
+        for i in range(4):
+            radius = center - i * (center // 5)
+            if radius > 0:
+                alpha = int(60 - i * 12 + pulse * 20)
+                alpha = max(0, min(255, alpha))
+                gold_intensity = int(180 + pulse * 40)
+                glow_color = (min(255, gold_intensity + 40), min(255, gold_intensity), int(50 + pulse * 30), alpha)
+                pygame.draw.circle(glow_surf, glow_color, (center, center), radius)
+
+        # 글로우 중앙에 배치
+        glow_x = x - (glow_size - size) // 2
+        glow_y = frame_y - (glow_size - size) // 2
+        screen.blit(glow_surf, (glow_x, glow_y))
+
+        # 내부 붉은색 테두리 (프레임별 그라데이션) - 3겹
+        inner_pulse = (math.sin(self.animation_time * 6.0) + 1) / 2
+        outer_inner_color = (
+            int(150 + 70 * inner_pulse),
+            int(30 + 35 * inner_pulse),
+            int(30 + 35 * inner_pulse)
+        )
+        inner_inner_color = (
+            int(120 + 60 * inner_pulse),
+            int(10 + 25 * inner_pulse),
+            int(10 + 25 * inner_pulse)
+        )
+        mid_inner_color = (
+            (outer_inner_color[0] + inner_inner_color[0]) // 2,
+            (outer_inner_color[1] + inner_inner_color[1]) // 2,
+            (outer_inner_color[2] + inner_inner_color[2]) // 2,
+        )
+
+        inner_rect_outer = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
+        inner_rect_mid = inner_rect_outer.inflate(-2, -2)
+        inner_rect_inner = inner_rect_outer.inflate(-4, -4)
+
+        pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 1)
+        pygame.draw.rect(screen, mid_inner_color, inner_rect_mid, 1)
+        pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 1)
+
+        # 외곽 빨간색 테두리
+        border_color = (180, 50, 50)
+        border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
+        pygame.draw.rect(screen, border_color, border_rect, 2)
+
+        # 코너 장식 (파란색/흰색 그라데이션)
+        corner_pulse = (math.sin(self.animation_time * 3.0) + 1) / 2  # 0~1
+        corner_color = (
+            int(100 + 155 * corner_pulse),   # 100~255 (파란색 → 흰색)
+            int(150 + 105 * corner_pulse),   # 150~255
+            int(255)                          # 255 고정
+        )
+        corner_size = 8
+
+        # L자 코너 장식 (다른 전설 아이템과 동일)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x - 2, frame_y + corner_size), (x - 2, frame_y - 2), (x + corner_size, frame_y - 2)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x + size - corner_size + 2, frame_y - 2), (x + size + 2, frame_y - 2), (x + size + 2, frame_y + corner_size)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x - 2, frame_y + size - corner_size + 2), (x - 2, frame_y + size + 2), (x + corner_size, frame_y + size + 2)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x + size - corner_size + 2, frame_y + size + 2), (x + size + 2, frame_y + size + 2), (x + size + 2, frame_y + size - corner_size + 2)], 2)
+
+        # 코너 원형 장식
+        for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
+            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
+
+        # 중앙은 비워둠 (월계수 그림 제외) - 금빛 배경만 표시
+        bg_pulse = int(pulse * 20)
+        bg_color = (160 + bg_pulse, 130 + bg_pulse, 50)
+        pygame.draw.circle(screen, bg_color, (x + size // 2, frame_y + size // 2), size // 2 - 4)
 
 
 class AngelBlessing(LegendaryItem):
