@@ -2813,11 +2813,6 @@ class SacredLaurel(LegendaryItem):
             part_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
             pygame.draw.circle(part_surf, (*color, alpha), (size, size), size)
             screen.blit(part_surf, (int(particle['x'] - size), int(particle['y'] - size)))
-        if self.all_leaves_destroyed:
-            remaining = (self.respawn_delay - self.respawn_timer) // 60
-            font = pygame.font.Font(None, 20)
-            text = font.render(f"{remaining}s", True, (255, 255, 255))
-            screen.blit(text, (self.player_x - 10, self.player_y - 70))
 
     def draw_icon(self, screen, x, y, size=32):
         import pygame

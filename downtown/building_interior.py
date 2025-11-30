@@ -6249,12 +6249,14 @@ class BuildingInterior:
         capsule_x, capsule_y = self.pixel_width - 130, wall_h + 240
         self.academy_obstacle_rects.append(pygame.Rect(capsule_x, capsule_y, 80, 110))
 
-        # 6) 도서관 책장들 (3개 세로 배치 - 왼쪽 벽)
+        # 6) 도서관 책장들 (3개 가로 배치 - 학장 아르카나 왼쪽)
         shelf_w, shelf_h = 55, 90
-        shelf_x = 40  # 왼쪽 벽에서 약간 떨어진 위치
-        shelf_start_y = wall_h + 320  # 훈련 장비 아래쪽
+        # 학장 위치 (약 x=512, y=138) 왼쪽에 배치
+        headmaster_x = int(self.pixel_width * 0.5)  # 약 512
+        shelf_start_x = headmaster_x - 250  # 학장보다 250픽셀 왼쪽
+        shelf_y = wall_h + 60  # 벽 바로 아래 (학장과 비슷한 y 위치)
         for i in range(3):
-            shelf_y = shelf_start_y + i * (shelf_h + 10)
+            shelf_x = shelf_start_x + i * (shelf_w + 15)  # 가로로 간격 두고 배치
             self.academy_obstacle_rects.append(pygame.Rect(shelf_x, shelf_y, shelf_w, shelf_h))
 
         # 1. 배경
