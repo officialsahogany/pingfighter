@@ -7040,8 +7040,9 @@ class BuildingInterior:
         pygame.draw.rect(screen, (100, 85, 70), glass_rect, 3)
         pygame.draw.rect(screen, (40, 35, 30), glass_rect, 1)
 
-        # === 배출구 (왼쪽 하단) ===
-        chute_x = frame_x + 10
+        # === 배출구 (유리창 내부 왼쪽 하단) ===
+        # 크레인이 x=0.05 (5%) 위치까지 이동하므로 배출구도 그 위치에 맞춤
+        chute_x = glass_x + int(game_w * 0.05) - 20  # 크레인 위치에 맞춤
         chute_y = glass_y + game_h - 60
         chute_w, chute_h = 40, 80
 
