@@ -34242,7 +34242,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -35199,7 +35199,13 @@ def handle_wall():
                     direction = 1 if bx >= cx else -1
                     # 넉백 세기(백업값 복구: 40)
                     power = 40.0
+                    # 넉백 타이머 설정 (즉시 넉백 적용을 위해 필수)
+                    boss_knockback_timer = max(globals().get("boss_knockback_timer", 0), 36)
                     boss_knockback_vel = _apply_boss_knockback_velocity(direction * power)
+                    # 대쉬/후딜 상태 강제 해제 (넉백 즉시 적용)
+                    globals()["boss_dashing"] = False
+                    globals()["boss_dash_timer"] = 0
+                    globals()["boss_dash_stun_timer"] = 0
                     zone["boss_applied"] = True
         except Exception:
             pass
@@ -74320,6 +74326,57 @@ def handle_boss():
         _update_stage8_stun_escape(now_ms)
         return
 
+    #  수평 넉백 처리 (라그나로크 해머 + 코만도 총알 + 수류탄/화력지원)
+    #  대쉬/후딜보다 우선 처리하여 즉시 넉백 적용
+    if boss_knockback_timer > 0:
+        # Stage 8: 스턴 중이면 넉백 구간에서도 영체탈주 발동 시도
+        if _try_stage8_stun_escape(now_ms):
+            return
+
+        boss_knockback_timer -= 1
+
+        if head_shot_active and head_shot_timer > 0:
+            head_shot_timer -= 1
+            if head_shot_timer <= 0:
+                head_shot_active = False
+
+        # 라그나로크 해머 체크
+        legendary_manager = get_legendary_manager()
+        is_ragnarok_knockback = "ragnarok_hammer" in legendary_manager.active_items
+
+        # 수평 넉백 속도 적용 (라그나로크 해머, 코만도 총알, 수류탄/화력지원)
+        if abs(boss_knockback_vel) > 0.1:
+            BOSS.x += boss_knockback_vel
+            BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
+
+            # 넉백 감속 처리
+            if boss_knockback_timer <= 18:  # 짧은 넉백 (코만도 총알 등)
+                boss_knockback_vel *= 0.85  # 매 프레임마다 15% 감속
+            else:  # 라그나로크 해머 (더 긴 넉백)
+                if boss_knockback_timer > 50:
+                    boss_knockback_vel *= 1.0  # 감속 없음
+                elif boss_knockback_timer > 30:
+                    boss_knockback_vel *= 0.99  # 1% 감속만
+                else:
+                    boss_knockback_vel *= 0.97  # 3% 감속
+
+        # 라그나로크 해머만의 추가 효과
+        if is_ragnarok_knockback:
+            if boss_knockback_timer > 18:
+                shake_x = random.uniform(-3, 3)
+                BOSS.x += shake_x
+                BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
+
+            if boss_knockback_timer <= 1 and boss_knockback_timer > 0 and ragnarok_stun_pending > 0:
+                boss_stun_timer = ragnarok_stun_pending
+                ragnarok_stun_pending = 0
+                play_ragnarok_shock_sound()
+                ragnarok_shock_playing = True
+
+        # 넉백 중에는 보스 이동 불가
+        boss_current_speed = 0
+        return
+
     #  보스 대쉬 모션 처리 (플레이어 대쉬와 유사: 초반 고속, 이후 감속)
     #  스테이지8 그림자분신 주문 중에는 패들을 고정
     if current_stage == 8 and (stage8_shadow_casting or stage8_shuriken_casting):
@@ -74381,72 +74438,6 @@ def handle_boss():
     if stage8_in_superspeed and not is_waiting_for_serve:
         return
 
-    #  수평 넉백 처리 (라그나로크 해머 + 코만도 총알)
-    if boss_knockback_timer > 0:
-        # Stage 8: 스턴 중이면 넉백 구간에서도 영체탈주 발동 시도
-        if _try_stage8_stun_escape(now_ms):
-            return
-
-        boss_knockback_timer -= 1
-
-        if head_shot_active and head_shot_timer > 0:
-            head_shot_timer -= 1
-            if head_shot_timer <= 0:
-                head_shot_active = False
-        
-        # 라그나로크 해머 체크
-        # Import already done globally at line 141
-        legendary_manager = get_legendary_manager()
-        is_ragnarok_knockback = "ragnarok_hammer" in legendary_manager.active_items
-        
-        # 수평 넉백 속도 적용 (라그나로크 해머 또는 코만도 총알)
-        if abs(boss_knockback_vel) > 0.1:
-            BOSS.x += boss_knockback_vel
-            BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
-            
-            # 코만도 총알 넉백을 위한 감속 처리
-            if boss_knockback_timer <= 18:  # 코만도 총알 (18프레임)
-                boss_knockback_vel *= 0.85  # 매 프레임마다 15% 감속
-            else:  # 라그나로크 해머 (더 긴 넉백)
-                # 부드러운 감속 (초반엔 거의 감속 없이, 후반에 천천히)
-                if boss_knockback_timer > 50:  # 처음 0.16초는 감속 없음
-                    boss_knockback_vel *= 1.0  # 감속 없음
-                elif boss_knockback_timer > 30:  # 중간 0.33초는 아주 약간 감속
-                    boss_knockback_vel *= 0.99  # 1% 감속만
-                else:  # 마지막 0.5초는 점진적 감속
-                    boss_knockback_vel *= 0.97  # 3% 감속
-            
-            print(f"[DEBUG] 보스 넉백 업데이트 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}, pos: {BOSS.x:.2f}")
-        
-        # 라그나로크 해머만의 추가 효과
-        if is_ragnarok_knockback:
-            # 추가 흔들림 효과 (수평만, 넉백 초반에만 강하게)
-            if boss_knockback_timer > 18:  # 처음 0.3초만 흔들림
-                shake_x = random.uniform(-3, 3)
-                BOSS.x += shake_x
-                BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
-            
-            # 넉백이 끝나면 스턴 적용 (라그나로크 해머만)
-            if boss_knockback_timer <= 1 and boss_knockback_timer > 0 and ragnarok_stun_pending > 0:  # 넉백 마지막 프레임 (타이밍 안정성 개선)
-                boss_stun_timer = ragnarok_stun_pending
-                ragnarok_stun_pending = 0  # 적용 후 초기화
-                print(f"  ! boss_stun_timer = {boss_stun_timer}, : {boss_knockback_timer}")
-                # 전기 감전 사운드 시작
-                play_ragnarok_shock_sound()
-                ragnarok_shock_playing = True
-        
-        # 넉백 중에는 보스 이동 불가
-        boss_current_speed = 0  # 속도를 0으로 설정
-        return  # AI 및 모든 이동 처리 차단
-        
-        # 타이머가 끝나면 원위치로 돌아오기 시작
-        if boss_knockback_timer == 0:
-            boss_knockback_distance = 0
-            # 넉백이 완전히 끝났는데 스턴이 적용되지 않았다면 초기화
-            if ragnarok_stun_pending > 0:
-                print(f"   -   : {ragnarok_stun_pending}")
-                ragnarok_stun_pending = 0
-    
     #  라그나로크 해머 스턴 체크 - 스턴 중이면 모든 처리 차단
     if boss_stun_timer > 0:
         boss_stun_timer -= 1
