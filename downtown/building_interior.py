@@ -5781,12 +5781,12 @@ class BuildingInterior:
         capsule_x, capsule_y = self.pixel_width - 130, wall_h + 240
         self.academy_obstacle_rects.append(pygame.Rect(capsule_x, capsule_y, 80, 110))
 
-        # 6) 도서관 책장들 (3개 나란히 - 하단 중앙)
-        shelf_w, shelf_h = 55, 120
-        shelf_start_x = (self.pixel_width - (shelf_w * 3 + 10 * 2)) // 2  # 중앙 정렬
-        shelf_y = self.pixel_height - 160
+        # 6) 도서관 책장들 (3개 세로 배치 - 왼쪽 벽)
+        shelf_w, shelf_h = 55, 90
+        shelf_x = 40  # 왼쪽 벽에서 약간 떨어진 위치
+        shelf_start_y = wall_h + 320  # 훈련 장비 아래쪽
         for i in range(3):
-            shelf_x = shelf_start_x + i * (shelf_w + 10)
+            shelf_y = shelf_start_y + i * (shelf_h + 10)
             self.academy_obstacle_rects.append(pygame.Rect(shelf_x, shelf_y, shelf_w, shelf_h))
 
         # 1. 배경
@@ -7106,14 +7106,14 @@ class BuildingInterior:
         GOLD_ACCENT = (255, 200, 100)
         LABEL_BG = (40, 35, 30)
 
-        # 책장 위치들 (3개 나란히 - 하단 중앙, 장애물 영역과 일치)
-        shelf_w, shelf_h = 55, 120
-        shelf_start_x = (self.pixel_width - (shelf_w * 3 + 10 * 2)) // 2
-        shelf_y = self.pixel_height - 160
+        # 책장 위치들 (3개 세로 배치 - 왼쪽 벽, 장애물 영역과 일치)
+        shelf_w, shelf_h = 55, 90
+        shelf_x = 40  # 왼쪽 벽에서 약간 떨어진 위치
+        shelf_start_y = wall_h + 320  # 훈련 장비 아래쪽
         shelf_positions = [
-            (shelf_start_x, shelf_y),
-            (shelf_start_x + shelf_w + 10, shelf_y),
-            (shelf_start_x + (shelf_w + 10) * 2, shelf_y),
+            (shelf_x, shelf_start_y),
+            (shelf_x, shelf_start_y + shelf_h + 10),
+            (shelf_x, shelf_start_y + (shelf_h + 10) * 2),
         ]
         shelf_labels = ["전술", "기록", "역사"]
 
