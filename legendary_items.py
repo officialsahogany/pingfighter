@@ -1638,13 +1638,57 @@ class PoseidonTrident(LegendaryItem):
             if self.current_frame in [0, 4]:
                 # 작은 번개 이펙트
                 bolt_color = (255, 255, 150)
-                pygame.draw.line(screen, bolt_color, 
-                               (x + size//4, y + frame_offset - 5), 
+                pygame.draw.line(screen, bolt_color,
+                               (x + size//4, y + frame_offset - 5),
                                (x + size//3, y + frame_offset + size//4), 2)
                 pygame.draw.line(screen, bolt_color,
                                (x + size*3//4, y + frame_offset - 5),
                                (x + size*2//3, y + frame_offset + size//4), 2)
-        
+        else:
+            # Fallback: 프레임이 없으면 기본 삼지창 아이콘 그리기
+            icon_y = y + frame_offset + int(self.animation_offset)
+            trident_color = (70, 180, 220)  # 바다색
+            handle_color = (60, 130, 180)   # 어두운 바다색
+            water_color = (100, 200, 255)   # 밝은 물색
+
+            # 삼지창 손잡이
+            handle_x = x + size//2 - size//16
+            pygame.draw.rect(screen, handle_color,
+                           (handle_x, icon_y + size//3, size//8, size//2))
+            pygame.draw.rect(screen, (40, 100, 140),
+                           (handle_x, icon_y + size//3, size//8, size//2), 1)
+
+            # 삼지창 머리 (세 갈래)
+            prong_y = icon_y + size//6
+            center_x = x + size//2
+
+            # 중앙 갈래
+            pygame.draw.polygon(screen, trident_color, [
+                (center_x, prong_y - size//8),
+                (center_x - size//12, prong_y + size//6),
+                (center_x + size//12, prong_y + size//6)
+            ])
+            # 왼쪽 갈래
+            pygame.draw.polygon(screen, trident_color, [
+                (center_x - size//5, prong_y),
+                (center_x - size//4, prong_y + size//6),
+                (center_x - size//7, prong_y + size//6)
+            ])
+            # 오른쪽 갈래
+            pygame.draw.polygon(screen, trident_color, [
+                (center_x + size//5, prong_y),
+                (center_x + size//4, prong_y + size//6),
+                (center_x + size//7, prong_y + size//6)
+            ])
+
+            # 물결 효과
+            wave_y = icon_y + size*3//4
+            for i in range(3):
+                wave_x = x + size//4 + i * size//6
+                pygame.draw.arc(screen, water_color,
+                              (wave_x, wave_y, size//6, size//8),
+                              0, 3.14, 2)
+
         # 파티클 효과
         if self.particle_timer > 1.0:
             self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
@@ -2499,7 +2543,34 @@ class RagnarokHammer(LegendaryItem):
                 pygame.draw.line(screen, bolt_color,
                                  (x + size * 3 // 4, y + frame_offset - 5),
                                  (x + size * 2 // 3, y + frame_offset + size // 4), 2)
-        
+        else:
+            # Fallback: 프레임이 없으면 기본 해머 아이콘 그리기
+            icon_y = y + frame_offset + int(self.animation_offset)
+            hammer_color = (180, 120, 60)  # 갈색 (해머 머리)
+            handle_color = (120, 80, 40)   # 어두운 갈색 (손잡이)
+            lightning_color = (255, 220, 100)  # 노란색 (번개)
+
+            # 해머 손잡이
+            handle_rect = pygame.Rect(x + size//2 - size//12, icon_y + size//4, size//6, size//2)
+            pygame.draw.rect(screen, handle_color, handle_rect)
+            pygame.draw.rect(screen, (80, 50, 30), handle_rect, 1)
+
+            # 해머 머리
+            head_rect = pygame.Rect(x + size//4, icon_y + size//6, size//2, size//4)
+            pygame.draw.rect(screen, hammer_color, head_rect, border_radius=3)
+            pygame.draw.rect(screen, (140, 90, 40), head_rect, 2, border_radius=3)
+
+            # 번개 효과
+            bolt_y = icon_y + size//8
+            pygame.draw.line(screen, lightning_color,
+                           (x + size//3, bolt_y), (x + size//2 - 2, bolt_y + size//6), 2)
+            pygame.draw.line(screen, lightning_color,
+                           (x + size//2 - 2, bolt_y + size//6), (x + size//3 + 4, bolt_y + size//4), 2)
+            pygame.draw.line(screen, lightning_color,
+                           (x + size*2//3, bolt_y), (x + size//2 + 2, bolt_y + size//6), 2)
+            pygame.draw.line(screen, lightning_color,
+                           (x + size//2 + 2, bolt_y + size//6), (x + size*2//3 - 4, bolt_y + size//4), 2)
+
         # 파티클 효과
         if self.particle_timer > 1.0:
             self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
@@ -4072,6 +4143,66 @@ class AngelBlessing(LegendaryItem):
             rot_x = math.sin(self.animation_time * 0.8) * 8  # 부드러운 기울기
             self._draw_angel_dice_no_wings(dice_surf, size, rot_x, rot_y)
             screen.blit(dice_surf, (x, icon_y))
+        else:
+            # Fallback: 프레임이 없으면 기본 천사 주사위 아이콘 그리기
+            icon_y = y + frame_offset + int(self.animation_offset)
+            dice_color = (255, 255, 255)  # 흰색 주사위
+            wing_color = (255, 240, 200)  # 금빛 날개
+            halo_color = (255, 255, 180)  # 후광
+
+            center_x = x + size // 2
+            center_y = icon_y + size // 2
+
+            # 후광 효과
+            for i in range(3):
+                halo_radius = size // 3 + i * 3
+                halo_alpha = 80 - i * 20
+                halo_surf = pygame.Surface((halo_radius * 2, halo_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(halo_surf, (*halo_color, halo_alpha),
+                                 (halo_radius, halo_radius), halo_radius)
+                screen.blit(halo_surf, (center_x - halo_radius, center_y - halo_radius))
+
+            # 날개 (왼쪽)
+            wing_points_left = [
+                (center_x - size // 6, center_y),
+                (center_x - size // 3, center_y - size // 6),
+                (center_x - size * 2 // 5, center_y - size // 8),
+                (center_x - size // 3, center_y + size // 8),
+                (center_x - size // 6, center_y + size // 12)
+            ]
+            pygame.draw.polygon(screen, wing_color, wing_points_left)
+            pygame.draw.polygon(screen, (220, 200, 150), wing_points_left, 1)
+
+            # 날개 (오른쪽)
+            wing_points_right = [
+                (center_x + size // 6, center_y),
+                (center_x + size // 3, center_y - size // 6),
+                (center_x + size * 2 // 5, center_y - size // 8),
+                (center_x + size // 3, center_y + size // 8),
+                (center_x + size // 6, center_y + size // 12)
+            ]
+            pygame.draw.polygon(screen, wing_color, wing_points_right)
+            pygame.draw.polygon(screen, (220, 200, 150), wing_points_right, 1)
+
+            # 주사위 본체
+            dice_size = size // 3
+            dice_rect = pygame.Rect(center_x - dice_size // 2, center_y - dice_size // 2,
+                                   dice_size, dice_size)
+            pygame.draw.rect(screen, dice_color, dice_rect, border_radius=3)
+            pygame.draw.rect(screen, (200, 200, 200), dice_rect, 1, border_radius=3)
+
+            # 주사위 눈 (6 표시)
+            pip_color = (100, 100, 100)
+            pip_size = max(2, dice_size // 8)
+            pip_offset = dice_size // 4
+            # 왼쪽 열
+            pygame.draw.circle(screen, pip_color, (center_x - pip_offset, center_y - pip_offset), pip_size)
+            pygame.draw.circle(screen, pip_color, (center_x - pip_offset, center_y), pip_size)
+            pygame.draw.circle(screen, pip_color, (center_x - pip_offset, center_y + pip_offset), pip_size)
+            # 오른쪽 열
+            pygame.draw.circle(screen, pip_color, (center_x + pip_offset, center_y - pip_offset), pip_size)
+            pygame.draw.circle(screen, pip_color, (center_x + pip_offset, center_y), pip_size)
+            pygame.draw.circle(screen, pip_color, (center_x + pip_offset, center_y + pip_offset), pip_size)
 
     def _draw_2d_dice_result(self, screen: pygame.Surface, cx: int, cy: int, size: int, result: int):
         """2D 주사위 결과 그리기 - 결과 숫자만 명확하게 표시
