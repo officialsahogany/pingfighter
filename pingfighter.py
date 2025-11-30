@@ -79629,16 +79629,21 @@ def main(stage_num, new_boss_mode=False):
                                 ball_cy = BALL.centery
                                 ball_radius = BALL.width // 2
                                 if laurel.check_ball_collision(ball_cx, ball_cy, ball_radius):
-                                    # 잎이 공에 맞아 제거됨 - 보스 방향으로 반사 (타격 판정)
-                                    # 공 속도 유지하면서 보스 방향(위쪽)으로 반사
+                                    # 잎이 공에 맞아 제거됨 - 가속 + 괴상한 방향으로 반사
                                     import math as _math_laurel
                                     import random as _random_laurel
                                     current_speed = _math_laurel.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                                     if current_speed > 0:
-                                        # 보스 방향 (위쪽, 약간의 랜덤 각도 추가)
-                                        angle_offset = _random_laurel.uniform(-0.3, 0.3)  # 약간의 각도 변화
-                                        ball_vel[1] = -abs(current_speed * 0.8)  # 위쪽으로 반사
-                                        ball_vel[0] = current_speed * 0.6 * angle_offset  # 약간의 좌우 변화
+                                        # 가속 (1.2~1.5배)
+                                        speed_boost = _random_laurel.uniform(1.2, 1.5)
+                                        new_speed = current_speed * speed_boost
+                                        # 괴상한 랜덤 각도 (-60도 ~ 60도 범위, 위쪽 방향 기준)
+                                        # -90도가 완전 위쪽, 여기서 ±60도 범위로 랜덤
+                                        base_angle = -_math_laurel.pi / 2  # -90도 (위쪽)
+                                        angle_variation = _random_laurel.uniform(-_math_laurel.pi / 3, _math_laurel.pi / 3)  # ±60도
+                                        final_angle = base_angle + angle_variation
+                                        ball_vel[0] = new_speed * _math_laurel.cos(final_angle)
+                                        ball_vel[1] = new_speed * _math_laurel.sin(final_angle)
                 except Exception as e:
                     print(f"[ERROR] LegendaryManager update failed: {e}")
                     import traceback
