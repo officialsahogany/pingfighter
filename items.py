@@ -1043,6 +1043,7 @@ technical_vest_obtained = False  # 테크니컬조끼 아이템 획득 여부
 ragnarok_hammer_obtained = False  # 라그나로크 해머 획득 여부
 hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
 poseidon_trident_obtained = False  # 포세이돈의 삼지창 획득 여부
+angel_blessing_obtained = False  # 천사의 가호 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
 

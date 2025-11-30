@@ -5329,6 +5329,7 @@ class BuildingInterior:
             "ragnarok_hammer": 6500,
             "hermes_shoes": 5500,
             "poseidon_trident": 5500,
+            "angel_blessing": 5000,
             # 기타 아이템
             "foul_whistle": 2000,
             "spiked_helmet": 1100,
