@@ -3380,11 +3380,11 @@ class AngelBlessing(LegendaryItem):
                                   (pip_x - 1, pip_y - 1), max(2, pip_size // 2))
 
     def _draw_angel_dice_no_wings(self, surf: pygame.Surface, size: int, rot_x: float, rot_y: float):
-        """중앙에 흰색 주사위만 그리기 (날개 없음) - 아이콘용"""
+        """중앙에 흰색 주사위 + 천사 날개 문양 그리기 - 아이콘용"""
         dice_size = int(size * 0.5)  # 주사위 크기
         cx, cy = size // 2, size // 2
 
-        # 3D 주사위 그리기 (날개 없음)
+        # 3D 주사위 그리기
         sin_x, cos_x = math.sin(math.radians(rot_x)), math.cos(math.radians(rot_x))
         sin_y, cos_y = math.sin(math.radians(rot_y)), math.cos(math.radians(rot_y))
 
@@ -3429,19 +3429,6 @@ class AngelBlessing(LegendaryItem):
         white_mid = (248, 250, 255)
         white_dark = (235, 240, 250)
         edge_color = (200, 200, 210)  # 은색 테두리
-        pip_color = (80, 100, 160)  # 파란색 계열 점
-
-        pip_positions_local = {
-            1: [(0, 0)],
-            2: [(-0.4, -0.4), (0.4, 0.4)],
-            3: [(-0.4, -0.4), (0, 0), (0.4, 0.4)],
-            4: [(-0.4, -0.4), (0.4, -0.4), (-0.4, 0.4), (0.4, 0.4)],
-            5: [(-0.4, -0.4), (0.4, -0.4), (0, 0), (-0.4, 0.4), (0.4, 0.4)],
-            6: [(-0.4, -0.4), (0.4, -0.4), (-0.4, 0), (0.4, 0), (-0.4, 0.4), (0.4, 0.4)],
-        }
-
-        pip_size = max(3, int(half * 0.22))
-        pip_scale = half * 0.55
 
         for face_data in faces_sorted[:3]:
             indices, face_num, center_3d, u_axis, v_axis = face_data
@@ -3463,20 +3450,42 @@ class AngelBlessing(LegendaryItem):
             pygame.draw.polygon(surf, adj_color, points)
             pygame.draw.polygon(surf, edge_color, points, 1)
 
-            for pu, pv in pip_positions_local.get(face_num, []):
-                pip_3d_x = center_3d[0] + u_axis[0] * pu * pip_scale + v_axis[0] * pv * pip_scale
-                pip_3d_y = center_3d[1] + u_axis[1] * pu * pip_scale + v_axis[1] * pv * pip_scale
-                pip_3d_z = center_3d[2] + u_axis[2] * pu * pip_scale + v_axis[2] * pv * pip_scale
-                pip_x, pip_y, _ = rotate_point(pip_3d_x, pip_3d_y, pip_3d_z)
+            # 각 면의 중심에 천사 날개 문양 그리기
+            face_center_x = center_3d[0]
+            face_center_y = center_3d[1]
+            face_center_z = center_3d[2]
+            wing_cx, wing_cy, _ = rotate_point(face_center_x, face_center_y, face_center_z)
 
-                # 눈금 그림자
-                pygame.draw.circle(surf, (50, 60, 100),
-                                  (pip_x + 1, pip_y + 1), pip_size)
-                # 눈금 본체
-                pygame.draw.circle(surf, pip_color, (pip_x, pip_y), pip_size)
-                # 하이라이트
-                pygame.draw.circle(surf, (255, 255, 255),
-                                  (pip_x - 1, pip_y - 1), max(1, pip_size // 2))
+            # 날개 크기 (면 크기에 비례)
+            wing_scale = half * 0.6
+
+            # 날개 색상 (은은한 금색/베이지)
+            wing_color = (220, 200, 160, int(200 * brightness))
+            wing_outline = (180, 160, 120, int(180 * brightness))
+
+            # 왼쪽 날개 (작은 삼각형 형태)
+            left_wing = [
+                (wing_cx - 1, wing_cy),
+                (wing_cx - int(wing_scale * 0.7), wing_cy - int(wing_scale * 0.4)),
+                (wing_cx - int(wing_scale * 0.5), wing_cy + int(wing_scale * 0.2)),
+            ]
+
+            # 오른쪽 날개
+            right_wing = [
+                (wing_cx + 1, wing_cy),
+                (wing_cx + int(wing_scale * 0.7), wing_cy - int(wing_scale * 0.4)),
+                (wing_cx + int(wing_scale * 0.5), wing_cy + int(wing_scale * 0.2)),
+            ]
+
+            # 날개 그리기
+            pygame.draw.polygon(surf, wing_color[:3], left_wing)
+            pygame.draw.polygon(surf, wing_color[:3], right_wing)
+            pygame.draw.polygon(surf, wing_outline[:3], left_wing, 1)
+            pygame.draw.polygon(surf, wing_outline[:3], right_wing, 1)
+
+            # 중앙에 작은 원 (천사의 머리/후광 표현)
+            halo_color = (240, 220, 180)
+            pygame.draw.circle(surf, halo_color, (wing_cx, wing_cy - int(wing_scale * 0.15)), max(2, int(wing_scale * 0.15)))
 
     def _spawn_particle(self, screen, cx, cy):
         """파티클 생성 - 라그나로크 해머와 동일"""
