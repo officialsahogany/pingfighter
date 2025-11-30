@@ -2021,6 +2021,7 @@ class BuildingInterior:
             {"name": "ragnarok_hammer", "base_price": 6500, "korean": "라그나로크 해머", "type": "legendary"},
             {"name": "hermes_shoes", "base_price": 5500, "korean": "헤르메스의 신발", "type": "legendary"},
             {"name": "poseidon_trident", "base_price": 5500, "korean": "포세이돈의 삼지창", "type": "legendary"},
+            {"name": "angel_blessing", "base_price": 5000, "korean": "천사의 가호", "type": "legendary"},
         ]
 
         # 랜덤 아이템 개수 (1~7개)
