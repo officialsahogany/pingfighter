@@ -3133,7 +3133,7 @@ class AngelBlessing(LegendaryItem):
                                   (pip_x - 1, pip_y - 1), max(1, pip_size // 3))
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 라그나로크 해머 테두리 + 중앙 흰색 주사위 (날개 없음)"""
+        """애니메이션 아이콘 그리기 - 천사의 기운 오오라 + 중앙 흰색 주사위"""
         # 공통 배경 프레임 연출 (라그나로크 해머와 동일)
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
@@ -3148,6 +3148,104 @@ class AngelBlessing(LegendaryItem):
             current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
+
+            # ========== 천사의 기운 오오라 애니메이션 ==========
+            cx, cy = x + size // 2, icon_y + size // 2
+            aura_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            aura_cx, aura_cy = size, size  # 오오라 서피스 중심
+
+            # 1. 외곽 신성한 빛 링 (맥동하는 후광)
+            pulse = math.sin(self.animation_time * 3) * 0.15 + 0.85  # 0.7 ~ 1.0
+            for ring_i in range(4):
+                ring_radius = int(size * 0.42 + ring_i * 3)
+                ring_alpha = int((80 - ring_i * 15) * pulse)
+                ring_color = (255, 255, 220, max(0, ring_alpha))
+                pygame.draw.circle(aura_surf, ring_color, (aura_cx, aura_cy), ring_radius, 2)
+
+            # 2. 빛나는 광선 (회전하는 신성한 빛줄기)
+            ray_count = 8
+            for ray_i in range(ray_count):
+                ray_angle = (self.animation_time * 40 + ray_i * (360 / ray_count)) % 360
+                ray_rad = math.radians(ray_angle)
+                ray_length = int(size * 0.38 + math.sin(self.animation_time * 5 + ray_i) * 3)
+                inner_r = int(size * 0.22)
+
+                # 빛줄기 시작점과 끝점
+                start_x = aura_cx + int(math.cos(ray_rad) * inner_r)
+                start_y = aura_cy + int(math.sin(ray_rad) * inner_r)
+                end_x = aura_cx + int(math.cos(ray_rad) * ray_length)
+                end_y = aura_cy + int(math.sin(ray_rad) * ray_length)
+
+                # 빛줄기 그라데이션 (중심에서 바깥으로 투명해짐)
+                ray_alpha = int(120 * pulse)
+                ray_color = (255, 255, 200, ray_alpha)
+                pygame.draw.line(aura_surf, ray_color, (start_x, start_y), (end_x, end_y), 2)
+
+                # 더 밝은 중심선
+                mid_end_x = aura_cx + int(math.cos(ray_rad) * (ray_length * 0.7))
+                mid_end_y = aura_cy + int(math.sin(ray_rad) * (ray_length * 0.7))
+                pygame.draw.line(aura_surf, (255, 255, 240, int(ray_alpha * 0.8)),
+                               (start_x, start_y), (mid_end_x, mid_end_y), 1)
+
+            # 3. 반짝이는 별 파티클 (주사위 주변을 도는 작은 별들)
+            star_count = 6
+            for star_i in range(star_count):
+                # 각 별이 다른 속도와 궤도로 회전
+                star_angle = (self.animation_time * (60 + star_i * 10) + star_i * 60) % 360
+                star_rad = math.radians(star_angle)
+                orbit_radius = int(size * 0.32 + math.sin(self.animation_time * 2 + star_i) * 4)
+
+                star_x = aura_cx + int(math.cos(star_rad) * orbit_radius)
+                star_y = aura_cy + int(math.sin(star_rad) * orbit_radius)
+
+                # 별 크기 맥동
+                star_size = int(2 + math.sin(self.animation_time * 8 + star_i * 1.5) * 1.5)
+                star_alpha = int(180 + math.sin(self.animation_time * 6 + star_i) * 60)
+
+                # 별 모양 (4각 별)
+                star_points = []
+                for point_i in range(8):
+                    point_angle = point_i * (360 / 8) + self.animation_time * 100
+                    point_rad = math.radians(point_angle)
+                    point_dist = star_size if point_i % 2 == 0 else star_size * 0.4
+                    px = star_x + int(math.cos(point_rad) * point_dist)
+                    py = star_y + int(math.sin(point_rad) * point_dist)
+                    star_points.append((px, py))
+
+                if len(star_points) >= 3:
+                    pygame.draw.polygon(aura_surf, (255, 255, 200, star_alpha), star_points)
+                    # 별 중심 하이라이트
+                    pygame.draw.circle(aura_surf, (255, 255, 255, min(255, star_alpha + 50)),
+                                      (star_x, star_y), max(1, star_size // 2))
+
+            # 4. 부드러운 내부 글로우 (주사위 주변 발광)
+            glow_pulse = math.sin(self.animation_time * 2.5) * 0.2 + 0.8
+            for glow_i in range(3):
+                glow_radius = int(size * 0.25 - glow_i * 3)
+                glow_alpha = int((50 - glow_i * 12) * glow_pulse)
+                glow_color = (255, 250, 220, max(0, glow_alpha))
+                pygame.draw.circle(aura_surf, glow_color, (aura_cx, aura_cy), glow_radius)
+
+            # 5. 떨어지는 깃털/빛 파티클
+            feather_count = 4
+            for f_i in range(feather_count):
+                # 각 깃털이 다른 위상으로 떨어짐
+                fall_phase = (self.animation_time * 0.8 + f_i * 0.7) % 2.0
+                feather_x = aura_cx + int(math.sin(self.animation_time * 1.5 + f_i * 2) * size * 0.3)
+                feather_y = aura_cy - int(size * 0.35) + int(fall_phase * size * 0.35)
+
+                # 깃털이 내려갈수록 투명해짐
+                feather_alpha = int(150 * (1 - fall_phase / 2.0))
+                if feather_alpha > 0:
+                    feather_size = int(3 + math.sin(self.animation_time * 4 + f_i) * 1)
+                    # 작은 타원형 깃털
+                    feather_rect = pygame.Rect(feather_x - feather_size, feather_y - 1,
+                                              feather_size * 2, 3)
+                    pygame.draw.ellipse(aura_surf, (255, 255, 240, feather_alpha), feather_rect)
+
+            # 오오라 서피스를 화면에 블리트 (중심 맞춤)
+            screen.blit(aura_surf, (cx - size, cy - size), special_flags=pygame.BLEND_RGBA_ADD)
+            # ========== 천사의 기운 오오라 끝 ==========
 
             # 중앙에 흰색 주사위 그리기 (날개 없음, 부드러운 회전)
             dice_surf = pygame.Surface((size, size), pygame.SRCALPHA)
