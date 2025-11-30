@@ -177,6 +177,10 @@ class DowntownManager:
         self.gacha_used_count = 0  # 현재 스테이지에서 사용한 가챠 횟수
         self.gacha_confirm_dialog = None  # 가챠 확인 다이얼로그 상태
 
+        # NPC 상호작용 힌트 관련
+        self.nearby_npc = None  # 근처에 있는 NPC (100픽셀 이내)
+        self.animation_timer = 0  # 힌트 애니메이션 타이머
+
     def _apply_deposit_interest(self):
         """예금 이자 적용 (스테이지 시작 시) - 건너뛴 스테이지 복리 이자 포함"""
         import random
@@ -657,6 +661,34 @@ class DowntownManager:
 
         return None
 
+    def _check_nearby_npc(self):
+        """플레이어 근처에 대화 가능한 NPC가 있는지 확인 (100픽셀 이내)"""
+        from .npc import NPCType
+
+        player_x = self.player.x
+        player_y = self.player.y
+
+        closest_npc = None
+        closest_distance = float('inf')
+
+        for npc in self.npc_manager.npcs:
+            # 대화 가능한 NPC인지 확인 (동물 제외)
+            if npc.type in [NPCType.DOG, NPCType.CAT]:
+                continue
+
+            if not npc.can_talk():
+                continue
+
+            # 거리 계산
+            distance = math.sqrt((player_x - npc.x) ** 2 + (player_y - npc.y) ** 2)
+
+            # 100픽셀 이내이고 가장 가까운 NPC 선택
+            if distance <= 100 and distance < closest_distance:
+                closest_npc = npc
+                closest_distance = distance
+
+        return closest_npc
+
     def _show_building_confirmation_dialog(self, building_type):
         """건물 입장 확인 다이얼로그 표시"""
         building_info = BUILDING_INFO[building_type]
@@ -832,6 +864,10 @@ class DowntownManager:
         # NPC가 플레이어에 반응
         self.npc_manager.trigger_reactions(self.player.x, self.player.y, 60)
 
+        # 근처 NPC 체크 (상호작용 힌트용)
+        self.nearby_npc = self._check_nearby_npc()
+        self.animation_timer += dt
+
         # 하이라이트 업데이트
         if self.player.interaction_target:
             if self.player.interaction_target['type'] == 'building':
@@ -938,6 +974,10 @@ class DowntownManager:
                     'color': Colors.NEON_ORANGE
                 }
                 self.renderer.draw_interaction_hint(self.screen, exit_info, self.font_medium)
+
+        # NPC 상호작용 힌트 (근처에 있을 때)
+        if self.nearby_npc and self.state == DowntownState.EXPLORING:
+            self._draw_npc_interact_hint()
 
         # 스테이지 정보
         self._draw_stage_info()
