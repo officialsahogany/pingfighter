@@ -7113,19 +7113,50 @@ class BuildingInterior:
         # 최대 깊이(1.0)일 때 집게 끝 위치
         max_claw_tip_y = glass_y + int(1.0 * game_h * 0.85) + claw_tip_offset_for_slider
 
-        depth_panel_x = glass_x - 45  # 유리창 왼쪽 바깥
+        depth_panel_x = glass_x - 50  # 유리창 왼쪽 바깥
         depth_panel_y = min_claw_tip_y - 10  # 집게 끝 최소 위치에 맞춤
-        depth_panel_w = 35
+        depth_panel_w = 40
         depth_panel_h = max_claw_tip_y - min_claw_tip_y + 20  # 집게 끝 이동 범위에 맞춤
+        arrow_tip_w = 15  # 화살촉 돌출 길이
 
-        # 패널 배경 (메탈릭, 초록 톤)
-        depth_bg = pygame.Surface((depth_panel_w, depth_panel_h), pygame.SRCALPHA)
-        for y in range(depth_panel_h):
-            ratio = y / depth_panel_h
-            brightness = int(50 - ratio * 15)
-            pygame.draw.line(depth_bg, (brightness - 10, brightness + 10, brightness - 5), (0, y), (depth_panel_w, y))
+        # 화살촉 모양 폴리곤 (오른쪽을 바라봄)
+        # 왼쪽은 직선, 오른쪽은 뾰족한 화살촉
+        arrow_points = [
+            (depth_panel_x, depth_panel_y),  # 좌상단
+            (depth_panel_x + depth_panel_w, depth_panel_y),  # 우상단
+            (depth_panel_x + depth_panel_w + arrow_tip_w, depth_panel_y + depth_panel_h // 2),  # 화살촉 끝
+            (depth_panel_x + depth_panel_w, depth_panel_y + depth_panel_h),  # 우하단
+            (depth_panel_x, depth_panel_y + depth_panel_h),  # 좌하단
+        ]
+
+        # 패널 배경 (메탈릭, 초록 톤) - 화살촉 모양
+        depth_bg = pygame.Surface((depth_panel_w + arrow_tip_w + 5, depth_panel_h + 5), pygame.SRCALPHA)
+        # 그라데이션 효과를 위한 여러 레이어
+        for i in range(3):
+            offset_points = [
+                (p[0] - depth_panel_x + i, p[1] - depth_panel_y + i)
+                for p in arrow_points
+            ]
+            alpha = 60 - i * 20
+            pygame.draw.polygon(depth_bg, (20 + i * 10, 30 + i * 10, 20 + i * 10, alpha), offset_points)
+
+        # 메인 화살촉 배경
+        local_arrow_points = [(p[0] - depth_panel_x, p[1] - depth_panel_y) for p in arrow_points]
+        pygame.draw.polygon(depth_bg, (35, 50, 40), local_arrow_points)
         screen.blit(depth_bg, (depth_panel_x, depth_panel_y))
-        pygame.draw.rect(screen, FRAME_GOLD_DARK, (depth_panel_x, depth_panel_y, depth_panel_w, depth_panel_h), 2, border_radius=5)
+
+        # 화살촉 테두리 (골드)
+        pygame.draw.polygon(screen, FRAME_GOLD_DARK, arrow_points, 2)
+
+        # 내부 하이라이트 (상단)
+        highlight_points = [
+            (depth_panel_x + 3, depth_panel_y + 3),
+            (depth_panel_x + depth_panel_w - 2, depth_panel_y + 3),
+            (depth_panel_x + depth_panel_w + arrow_tip_w - 8, depth_panel_y + depth_panel_h // 2),
+            (depth_panel_x + depth_panel_w - 2, depth_panel_y + 15),
+            (depth_panel_x + 3, depth_panel_y + 15),
+        ]
+        pygame.draw.polygon(screen, (50, 70, 55, 100), highlight_points)
 
         # 슬라이더 트랙 (세로) - 패널 전체 높이 사용
         track_x = depth_panel_x + depth_panel_w // 2
