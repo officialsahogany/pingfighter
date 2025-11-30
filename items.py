@@ -1208,7 +1208,7 @@ def reset_items():
 # 아이템 생성
 def spawn_random_item():
     # 전역 변수 참조
-    global ragnarok_hammer_obtained, poseidon_trident_obtained, foul_whistle_obtained
+    global ragnarok_hammer_obtained, poseidon_trident_obtained, foul_whistle_obtained, angel_blessing_obtained
     
     debug_spawn = os.environ.get("PINGF_DEBUG_ITEMS", "0").lower() in ("1", "true", "yes", "on")
     if debug_spawn:
@@ -1342,6 +1342,10 @@ def spawn_random_item():
                 continue
             else:
                 print(f"[DEBUG] poseidon_trident can spawn (not obtained yet)")
+
+        # 천사의 가호는 한 번 획득하면 더 이상 스폰 안함
+        if item["name"] == "angel_blessing" and angel_blessing_obtained:
+            continue
         
         # 패시브 아이템 중복 스폰 허용(파밍). 단, 동일 아이템이 필드에 이미 있을 때는 혼잡 방지를 위해 1개만 유지.
         if item["name"] in items_in_field and item["name"] != "chargebag":
