@@ -290,23 +290,31 @@ def init_gacha(available_items, legendary_bonus=0.0):
     if not filtered_items:
         filtered_items = gacha_available_items_template
     
-    # 전설 아이템과 일반 아이템 분리
+    # 전설 아이템과 일반 아이템 분리 (액티브/패시브 구분)
     legendary_pool = ["ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"]
     legendary_items = [item for item in filtered_items if item.get("name", "") in legendary_pool]
-    normal_items = [item for item in filtered_items if item.get("name", "") not in legendary_pool]
-    
-    # 캡슐 40개 생성 (전설 아이템 기본 확률 3%로 설정)
+    active_items = [item for item in filtered_items if item.get("name", "") not in legendary_pool and item.get("type") == "active"]
+    passive_items = [item for item in filtered_items if item.get("name", "") not in legendary_pool and item.get("type") == "passive"]
+
+    # 캡슐 40개 생성 (액티브 50%, 패시브 45%, 전설 5%)
     for i in range(40):
-        # 기존 5% → 3%, 보너스 포함치도 60%로 축소 적용
-        legendary_chance = min(0.45, 0.05 + gacha_legendary_bonus) * 0.6
-        if random.random() < legendary_chance and legendary_items:
+        roll = random.random()
+
+        # 전설 5% (보너스 적용 시 증가)
+        legendary_chance = min(0.30, 0.05 + gacha_legendary_bonus)
+        if roll < legendary_chance and legendary_items:
             item = random.choice(legendary_items).copy()
-        elif normal_items:
-            item = random.choice(normal_items).copy()
+        elif roll < legendary_chance + 0.50 and active_items:
+            # 액티브 50%
+            item = random.choice(active_items).copy()
+        elif passive_items:
+            # 패시브 45%
+            item = random.choice(passive_items).copy()
         else:
-            # 일반 아이템이 없으면 전설 아이템이라도 선택
-            if legendary_items:
-                item = random.choice(legendary_items).copy()
+            # 폴백: 아무 아이템이라도 선택
+            all_items = legendary_items + active_items + passive_items
+            if all_items:
+                item = random.choice(all_items).copy()
             else:
                 continue  # 아무 아이템도 없으면 건너뛰기
 
