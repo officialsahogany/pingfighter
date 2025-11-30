@@ -8503,84 +8503,125 @@ class BuildingInterior:
             pygame.draw.circle(screen, (200, 180, 100), (drawer_x + drawer_w // 2, drawer_y + 10), 3)
 
     def _draw_display_shelf_neon(self, screen, x, y, w, h, wood_color, accent, side):
-        """진열대 (가판대) 그리기"""
-        # 선반 본체
-        pygame.draw.rect(screen, wood_color, (x, y, w, h))
-        pygame.draw.rect(screen, tuple(max(0, c - 20) for c in wood_color), (x, y, w, h), 2)
-
-        # 선반 칸 (4단)
-        shelf_count = 4
-        shelf_h = h // (shelf_count + 1)
-
-        # 왼쪽 진열대: 상점 인벤토리 아이템 표시
-        if side == "left" and hasattr(self, 'shop_inventory') and self.shop_inventory:
-            self._draw_shop_items_on_shelf(screen, x, y, w, shelf_count, shelf_h, accent)
-        else:
-            # 오른쪽 진열대: 기존 랜덤 장식 아이템
-            for i in range(shelf_count):
-                shelf_y = y + shelf_h * (i + 1)
-                # 선반 판
-                pygame.draw.rect(screen, tuple(min(255, c + 15) for c in wood_color),
-                               (x + 3, shelf_y - 3, w - 6, 6))
-
-                # 선반 위 아이템들
-                item_count = random.randint(2, 4)
-                for j in range(item_count):
-                    item_x = x + 10 + j * (w - 20) // item_count
-                    item_y = shelf_y - 25
-
-                    # 랜덤 아이템 타입
-                    item_type = random.randint(0, 3)
-                    if item_type == 0:
-                        # 포션
-                        color = random.choice([(255, 100, 100), (100, 200, 255), (100, 255, 150)])
-                        self._draw_potion_bottle(screen, item_x + 8, item_y, color)
-                    elif item_type == 1:
-                        # 보석
-                        gem_color = random.choice([(255, 50, 100), (50, 200, 255), (100, 255, 100), (255, 200, 50)])
-                        self._draw_gem_item(screen, item_x + 8, item_y + 5, gem_color)
-                    elif item_type == 2:
-                        # 상자
-                        self._draw_small_chest(screen, item_x, item_y, accent)
-                    else:
-                        # 두루마리
-                        self._draw_scroll_item(screen, item_x + 5, item_y)
-
-        # 네온 테두리 효과
-        glow_alpha = int(80 + 40 * math.sin(self.animation_timer * 2))
-        glow_surf = pygame.Surface((w + 10, h + 10), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (*accent, glow_alpha), (0, 0, w + 10, h + 10), 3, border_radius=5)
-        screen.blit(glow_surf, (x - 5, y - 5))
-
-    def _draw_shop_items_on_shelf(self, screen, x, y, w, shelf_count, shelf_h, accent):
-        """왼쪽 진열대에 상점 인벤토리 아이템 표시"""
+        """고급 유리 진열대 그리기 - 프리미엄 디자인"""
         import math
 
-        # pingfighter에서 get_item_icon 가져오기
+        # === 색상 팔레트 ===
+        FRAME_DARK = (35, 25, 20)
+        FRAME_MID = (55, 40, 30)
+        FRAME_LIGHT = (75, 55, 40)
+        FRAME_HIGHLIGHT = (95, 70, 50)
+        GLASS_BASE = (200, 220, 240, 40)
+        SHELF_WOOD = (90, 65, 45)
+        SHELF_WOOD_DARK = (70, 50, 35)
+        SHELF_WOOD_LIGHT = (110, 80, 55)
+        METAL_DARK = (60, 65, 70)
+        METAL_LIGHT = (120, 130, 140)
+
+        frame_thickness = 8
+
+        # === 1. 외곽 그림자 ===
+        shadow_surf = pygame.Surface((w + 12, h + 12), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (0, 0, 0, 60), (6, 6, w, h), border_radius=6)
+        screen.blit(shadow_surf, (x - 3, y - 3))
+
+        # === 2. 프레임 ===
+        pygame.draw.rect(screen, FRAME_DARK, (x - 2, y - 2, w + 4, h + 4), border_radius=5)
+        pygame.draw.rect(screen, FRAME_MID, (x, y, w, h), border_radius=4)
+        pygame.draw.line(screen, FRAME_LIGHT, (x + 2, y + 2), (x + w - 4, y + 2), 2)
+        pygame.draw.line(screen, FRAME_LIGHT, (x + 2, y + 2), (x + 2, y + h - 4), 2)
+        pygame.draw.line(screen, FRAME_DARK, (x + 4, y + h - 3), (x + w - 2, y + h - 3), 2)
+        pygame.draw.line(screen, FRAME_DARK, (x + w - 3, y + 4), (x + w - 3, y + h - 2), 2)
+
+        # === 3. 유리 내부 ===
+        glass_rect = pygame.Rect(x + frame_thickness, y + frame_thickness,
+                                 w - frame_thickness * 2, h - frame_thickness * 2)
+        pygame.draw.rect(screen, (25, 20, 18), glass_rect, border_radius=3)
+        glass_surf = pygame.Surface((glass_rect.width, glass_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(glass_surf, GLASS_BASE, (0, 0, glass_rect.width, glass_rect.height), border_radius=3)
+        screen.blit(glass_surf, glass_rect.topleft)
+
+        # === 4. 선반 (4단) ===
+        shelf_count = 4
+        inner_h = glass_rect.height
+        shelf_spacing = inner_h // (shelf_count + 1)
+        shelf_thickness = 6
+
+        for i in range(shelf_count):
+            shelf_y = glass_rect.y + shelf_spacing * (i + 1)
+            bracket_w, bracket_h = 6, 12
+
+            # 브라켓
+            pygame.draw.rect(screen, METAL_DARK, (glass_rect.x + 2, shelf_y - bracket_h + 3, bracket_w, bracket_h))
+            pygame.draw.rect(screen, METAL_LIGHT, (glass_rect.x + 2, shelf_y - bracket_h + 3, bracket_w - 1, 2))
+            pygame.draw.rect(screen, METAL_DARK, (glass_rect.right - bracket_w - 2, shelf_y - bracket_h + 3, bracket_w, bracket_h))
+            pygame.draw.rect(screen, METAL_LIGHT, (glass_rect.right - bracket_w - 2, shelf_y - bracket_h + 3, bracket_w - 1, 2))
+
+            # 선반
+            shelf_x = glass_rect.x + bracket_w + 2
+            shelf_w = glass_rect.width - bracket_w * 2 - 4
+            pygame.draw.rect(screen, (20, 15, 12), (shelf_x, shelf_y + 1, shelf_w, shelf_thickness + 2), border_radius=1)
+            pygame.draw.rect(screen, SHELF_WOOD, (shelf_x, shelf_y - shelf_thickness // 2, shelf_w, shelf_thickness), border_radius=1)
+            pygame.draw.line(screen, SHELF_WOOD_LIGHT, (shelf_x + 2, shelf_y - shelf_thickness // 2 + 1), (shelf_x + shelf_w - 2, shelf_y - shelf_thickness // 2 + 1), 1)
+            pygame.draw.line(screen, SHELF_WOOD_DARK, (shelf_x + 2, shelf_y + shelf_thickness // 2 - 1), (shelf_x + shelf_w - 2, shelf_y + shelf_thickness // 2 - 1), 1)
+
+        # === 5. 아이템 배치 ===
+        if side == "left" and hasattr(self, 'shop_inventory') and self.shop_inventory:
+            self._draw_premium_shop_items(screen, glass_rect, shelf_count, shelf_spacing, accent)
+        else:
+            self._draw_premium_deco_items(screen, glass_rect, shelf_count, shelf_spacing, accent)
+
+        # === 6. 유리 반사 효과 ===
+        shine_surf = pygame.Surface((glass_rect.width, glass_rect.height), pygame.SRCALPHA)
+        for i in range(3):
+            alpha = 40 - i * 12
+            pygame.draw.line(shine_surf, (255, 255, 255, alpha), (i * 15, 0), (0, i * 15 + 30), 2)
+        screen.blit(shine_surf, glass_rect.topleft)
+
+        # === 7. 네온 글로우 ===
+        glow_pulse = math.sin(self.animation_timer * 2.5)
+        glow_alpha = int(50 + 30 * glow_pulse)
+        glow_surf = pygame.Surface((w + 16, h + 16), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*accent, glow_alpha), (0, 0, w + 16, h + 16), 4, border_radius=8)
+        screen.blit(glow_surf, (x - 8, y - 8))
+
+        # === 8. 상단 라벨 ===
+        label_w, label_h = 50, 14
+        label_x = x + (w - label_w) // 2
+        label_y = y - label_h - 2
+        pygame.draw.rect(screen, FRAME_DARK, (label_x - 2, label_y - 1, label_w + 4, label_h + 2), border_radius=3)
+        pygame.draw.rect(screen, FRAME_MID, (label_x, label_y, label_w, label_h), border_radius=2)
+        if self.korean_font:
+            try:
+                label_text = "장비" if side == "left" else "소품"
+                text_surf, text_rect = self.korean_font.render(label_text, accent)
+                screen.blit(text_surf, (label_x + (label_w - text_rect.width) // 2, label_y + (label_h - text_rect.height) // 2))
+            except:
+                pass
+
+        # === 9. 하단 받침대 ===
+        base_h = 10
+        base_y = y + h
+        pygame.draw.rect(screen, (20, 15, 12), (x - 4, base_y + 2, w + 8, base_h), border_radius=2)
+        pygame.draw.rect(screen, FRAME_DARK, (x - 3, base_y, w + 6, base_h), border_radius=2)
+        pygame.draw.rect(screen, FRAME_MID, (x - 2, base_y, w + 4, base_h - 2), border_radius=2)
+        pygame.draw.line(screen, FRAME_HIGHLIGHT, (x, base_y + 1), (x + w - 2, base_y + 1), 1)
+
+    def _draw_premium_shop_items(self, screen, glass_rect, shelf_count, shelf_spacing, accent):
+        """프리미엄 스타일 상점 아이템 표시"""
+        import math
         try:
             import pingfighter
             get_item_icon = getattr(pingfighter, 'get_item_icon', None)
         except:
             get_item_icon = None
 
-        # items 모듈에서 아이템 정보 가져오기
-        try:
-            import items as items_module
-        except:
-            items_module = None
-
-        # 선반당 최대 2개 아이템 배치 (4단 × 2개 = 최대 8개)
         items_per_shelf = 2
-        icon_size = 24
+        icon_size = 28
+        item_slot_w = (glass_rect.width - 24) // items_per_shelf
 
         for shelf_idx in range(shelf_count):
-            shelf_y = y + shelf_h * (shelf_idx + 1)
-
-            # 선반 판 그리기 (더 진한 색)
-            wood_light = tuple(min(255, c + 15) for c in (70, 50, 32))
-            pygame.draw.rect(screen, wood_light, (x + 3, shelf_y - 3, w - 6, 6))
-
-            # 이 선반에 배치할 아이템 인덱스
+            shelf_y = glass_rect.y + shelf_spacing * (shelf_idx + 1)
             start_idx = shelf_idx * items_per_shelf
 
             for slot_idx in range(items_per_shelf):
@@ -8592,69 +8633,156 @@ class BuildingInterior:
                 item_name = item.get("name", "")
                 item_type = item.get("type", "passive")
 
-                # 아이템 위치 계산
-                item_x = x + 15 + slot_idx * (w - 30) // max(1, items_per_shelf - 1) if items_per_shelf > 1 else x + w // 2 - icon_size // 2
-                item_y = shelf_y - icon_size - 5
+                # 위치 계산 (균등 정렬)
+                slot_center_x = glass_rect.x + 12 + slot_idx * item_slot_w + item_slot_w // 2
+                item_x = slot_center_x - icon_size // 2
+                item_y = shelf_y - icon_size - 8
 
-                # 아이콘 배경 (품질에 따른 색상)
+                # 받침대
+                platform_w, platform_h = icon_size + 10, 4
+                platform_x = slot_center_x - platform_w // 2
+                pygame.draw.rect(screen, (50, 40, 35), (platform_x, shelf_y - platform_h - 2, platform_w, platform_h), border_radius=1)
+                pygame.draw.line(screen, (70, 55, 45), (platform_x + 1, shelf_y - platform_h - 2), (platform_x + platform_w - 2, shelf_y - platform_h - 2), 1)
+
+                # 품질 색상
                 if item_type == "legendary":
-                    bg_color = (180, 130, 50, 150)  # 금색 배경
+                    bg_colors = [(180, 140, 50), (220, 180, 80), (255, 215, 100)]
                     border_color = (255, 215, 0)
+                    glow_color = (255, 200, 50)
                 else:
                     quality = item.get("quality", "normal")
                     if quality == "epic":
-                        bg_color = (130, 70, 180, 150)
-                        border_color = (180, 100, 255)
+                        bg_colors = [(100, 50, 150), (130, 70, 180), (160, 100, 210)]
+                        border_color, glow_color = (180, 100, 255), (150, 80, 220)
                     elif quality == "rare":
-                        bg_color = (50, 100, 180, 150)
-                        border_color = (100, 150, 255)
+                        bg_colors = [(40, 80, 150), (60, 100, 180), (80, 130, 210)]
+                        border_color, glow_color = (100, 150, 255), (80, 130, 220)
                     elif quality == "uncommon":
-                        bg_color = (50, 150, 80, 150)
-                        border_color = (100, 200, 130)
+                        bg_colors = [(40, 120, 60), (60, 150, 80), (80, 180, 100)]
+                        border_color, glow_color = (100, 200, 130), (80, 180, 100)
                     else:
-                        bg_color = (80, 80, 80, 150)
-                        border_color = (150, 150, 150)
+                        bg_colors = [(60, 60, 65), (80, 80, 85), (100, 100, 105)]
+                        border_color, glow_color = (140, 140, 145), (120, 120, 130)
 
-                # 배경 그리기
-                bg_surf = pygame.Surface((icon_size + 4, icon_size + 4), pygame.SRCALPHA)
-                pygame.draw.rect(bg_surf, bg_color, (0, 0, icon_size + 4, icon_size + 4), border_radius=4)
-                screen.blit(bg_surf, (item_x - 2, item_y - 2))
+                # 슬롯 배경 (그라데이션)
+                slot_size = icon_size + 8
+                slot_x, slot_y = item_x - 4, item_y - 4
+                for i in range(3):
+                    pygame.draw.rect(screen, bg_colors[min(i, len(bg_colors)-1)],
+                                   (slot_x + i, slot_y + i, slot_size - i * 2, slot_size - i * 2), border_radius=4)
+
+                # 하이라이트
+                highlight_surf = pygame.Surface((slot_size - 4, slot_size - 4), pygame.SRCALPHA)
+                pygame.draw.rect(highlight_surf, (255, 255, 255, 30), (0, 0, slot_size - 4, (slot_size - 4) // 2), border_radius=3)
+                screen.blit(highlight_surf, (slot_x + 2, slot_y + 2))
 
                 # 테두리
-                pygame.draw.rect(screen, border_color, (item_x - 2, item_y - 2, icon_size + 4, icon_size + 4), 2, border_radius=4)
+                pygame.draw.rect(screen, border_color, (slot_x, slot_y, slot_size, slot_size), 2, border_radius=4)
 
-                # 아이콘 그리기
-                icon = None
-                if get_item_icon:
-                    icon = get_item_icon(item_name)
-
+                # 아이콘
+                icon = get_item_icon(item_name) if get_item_icon else None
                 if icon:
-                    # 아이콘 크기 조정
                     try:
                         scaled_icon = pygame.transform.smoothscale(icon, (icon_size, icon_size))
                         screen.blit(scaled_icon, (item_x, item_y))
                     except:
-                        # 스케일 실패시 기본 사각형
-                        pygame.draw.rect(screen, accent, (item_x, item_y, icon_size, icon_size), border_radius=3)
+                        pygame.draw.rect(screen, glow_color, (item_x, item_y, icon_size, icon_size), border_radius=3)
                 else:
-                    # 아이콘이 없으면 기본 표시
-                    pygame.draw.rect(screen, accent, (item_x, item_y, icon_size, icon_size), border_radius=3)
-                    # 물음표 표시
+                    pygame.draw.rect(screen, glow_color, (item_x, item_y, icon_size, icon_size), border_radius=3)
                     if self.korean_font:
                         try:
                             q_surf, q_rect = self.korean_font.render("?", (255, 255, 255))
-                            screen.blit(q_surf, (item_x + icon_size // 2 - q_rect.width // 2,
-                                                item_y + icon_size // 2 - q_rect.height // 2))
+                            screen.blit(q_surf, (item_x + icon_size // 2 - q_rect.width // 2, item_y + icon_size // 2 - q_rect.height // 2))
                         except:
                             pass
 
-                # 전설 아이템 반짝임 효과
+                # 전설 효과
                 if item_type == "legendary":
-                    sparkle_alpha = int(100 + 80 * math.sin(self.animation_timer * 4 + item_idx))
-                    sparkle_surf = pygame.Surface((icon_size + 8, icon_size + 8), pygame.SRCALPHA)
-                    pygame.draw.rect(sparkle_surf, (255, 215, 0, sparkle_alpha),
-                                   (0, 0, icon_size + 8, icon_size + 8), 2, border_radius=5)
-                    screen.blit(sparkle_surf, (item_x - 4, item_y - 4))
+                    pulse = math.sin(self.animation_timer * 4 + item_idx * 0.5)
+                    glow_alpha = int(80 + 60 * pulse)
+                    glow_surf = pygame.Surface((slot_size + 12, slot_size + 12), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_surf, (255, 215, 0, glow_alpha), (0, 0, slot_size + 12, slot_size + 12), 3, border_radius=6)
+                    screen.blit(glow_surf, (slot_x - 6, slot_y - 6))
+
+    def _draw_premium_deco_items(self, screen, glass_rect, shelf_count, shelf_spacing, accent):
+        """프리미엄 장식 아이템 (오른쪽 진열대)"""
+        deco_patterns = [
+            [("potion", (255, 80, 100)), ("gem", (100, 200, 255))],
+            [("scroll", None), ("chest", accent)],
+            [("gem", (100, 255, 150)), ("potion", (150, 100, 255))],
+            [("chest", accent), ("scroll", None)]
+        ]
+        items_per_shelf = 2
+        item_slot_w = (glass_rect.width - 24) // items_per_shelf
+
+        for shelf_idx in range(shelf_count):
+            shelf_y = glass_rect.y + shelf_spacing * (shelf_idx + 1)
+            pattern = deco_patterns[shelf_idx % len(deco_patterns)]
+
+            for slot_idx, (item_type, color) in enumerate(pattern):
+                slot_center_x = glass_rect.x + 12 + slot_idx * item_slot_w + item_slot_w // 2
+                item_y = shelf_y - 28
+
+                # 받침대
+                platform_w, platform_h = 30, 4
+                pygame.draw.rect(screen, (50, 40, 35), (slot_center_x - platform_w // 2, shelf_y - platform_h - 2, platform_w, platform_h), border_radius=1)
+
+                if item_type == "potion":
+                    self._draw_premium_potion(screen, slot_center_x, item_y, color)
+                elif item_type == "gem":
+                    self._draw_premium_gem(screen, slot_center_x, item_y + 5, color)
+                elif item_type == "chest":
+                    self._draw_premium_chest(screen, slot_center_x - 12, item_y, color)
+                elif item_type == "scroll":
+                    self._draw_premium_scroll(screen, slot_center_x - 10, item_y + 5)
+
+    def _draw_premium_potion(self, screen, cx, y, color):
+        """고급 포션 병"""
+        neck_w, neck_h = 6, 8
+        pygame.draw.rect(screen, (180, 180, 190), (cx - neck_w // 2, y, neck_w, neck_h), border_radius=1)
+        pygame.draw.rect(screen, (160, 120, 80), (cx - neck_w // 2 + 1, y - 4, neck_w - 2, 5), border_radius=1)
+        body_w, body_h = 14, 16
+        body_y = y + neck_h
+        darker = tuple(max(0, c - 40) for c in color)
+        pygame.draw.ellipse(screen, darker, (cx - body_w // 2, body_y, body_w, body_h))
+        pygame.draw.ellipse(screen, color, (cx - body_w // 2 + 1, body_y + 1, body_w - 3, body_h - 3))
+        pygame.draw.circle(screen, (255, 255, 255), (cx - 2, body_y + body_h // 2), 2)
+
+    def _draw_premium_gem(self, screen, cx, cy, color):
+        """고급 보석"""
+        size = 10
+        points = [(cx, cy - size), (cx + size, cy), (cx + size // 2, cy + size), (cx - size // 2, cy + size), (cx - size, cy)]
+        darker = tuple(max(0, c - 60) for c in color)
+        pygame.draw.polygon(screen, darker, points)
+        inner_points = [(cx, cy - size + 3), (cx + size - 3, cy), (cx + size // 2 - 1, cy + size - 3), (cx - size // 2 + 1, cy + size - 3), (cx - size + 3, cy)]
+        pygame.draw.polygon(screen, color, inner_points)
+        lighter = tuple(min(255, c + 60) for c in color)
+        pygame.draw.polygon(screen, lighter, [(cx, cy - size + 3), (cx + size - 5, cy - 2), (cx, cy + 2), (cx - size + 5, cy - 2)])
+        pygame.draw.circle(screen, (255, 255, 255), (cx - 3, cy - 4), 2)
+        pygame.draw.polygon(screen, (255, 255, 255), points, 1)
+
+    def _draw_premium_chest(self, screen, x, y, accent):
+        """고급 상자"""
+        chest_w, chest_h = 24, 18
+        pygame.draw.rect(screen, (30, 20, 15), (x + 2, y + 2, chest_w, chest_h), border_radius=2)
+        pygame.draw.rect(screen, (120, 75, 35), (x, y, chest_w, chest_h), border_radius=2)
+        pygame.draw.rect(screen, (150, 100, 55), (x + 1, y + 1, chest_w - 2, chest_h // 2), border_radius=2)
+        pygame.draw.rect(screen, (140, 90, 45), (x - 2, y - 4, chest_w + 4, 8), border_radius=2)
+        pygame.draw.rect(screen, (80, 70, 60), (x + 2, y + chest_h // 2 - 2, chest_w - 4, 4))
+        pygame.draw.circle(screen, accent, (x + chest_w // 2, y + chest_h // 2 + 1), 3)
+
+    def _draw_premium_scroll(self, screen, x, y):
+        """고급 두루마리"""
+        scroll_w, scroll_h = 20, 12
+        pygame.draw.rect(screen, (230, 215, 180), (x + 4, y + 2, scroll_w - 8, scroll_h - 4))
+        roll_r = 6
+        pygame.draw.circle(screen, (200, 180, 140), (x + roll_r, y + scroll_h // 2), roll_r)
+        pygame.draw.circle(screen, (180, 160, 120), (x + roll_r, y + scroll_h // 2), roll_r - 2)
+        pygame.draw.circle(screen, (200, 180, 140), (x + scroll_w - roll_r, y + scroll_h // 2), roll_r)
+        pygame.draw.circle(screen, (180, 160, 120), (x + scroll_w - roll_r, y + scroll_h // 2), roll_r - 2)
+        for i in range(3):
+            pygame.draw.line(screen, (180, 160, 130), (x + 7 + i, y + 3 + i * 3), (x + 7 + scroll_w - 14 - i * 2, y + 3 + i * 3), 1)
+        pygame.draw.rect(screen, (180, 50, 50), (x + scroll_w // 2 - 2, y - 2, 4, scroll_h + 4))
 
     def _draw_gem_item(self, screen, x, y, color):
         """보석 아이템 그리기"""

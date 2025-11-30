@@ -163,7 +163,7 @@ BUILDING_INFO = {
         "name_en": "StarBank",
         "icon": "⭐",
         "color": (255, 215, 0),      # 황금색
-        "ap_cost": 0,
+        "ap_cost": 1,
         "size": (2, 2),              # 별빛 환전소
         "pixel_size": (85, 80),      # (축소)
         "description": "환전,예금 등 은행업무를 담당해요",

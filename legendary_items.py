@@ -2910,7 +2910,13 @@ class SacredLaurel(LegendaryItem):
                 'x': x, 'y': y,
                 'vx': random.uniform(-3, 3), 'vy': random.uniform(-4, 1),
                 'life': random.randint(20, 40),
-                'color': random.choice([(100, 200, 100), (150, 255, 150), (80, 180, 80), (255, 215, 0)])
+                'color': random.choice([
+                    (255, 215, 100),  # 금색
+                    (255, 240, 150),  # 밝은 금색
+                    (255, 200, 80),   # 진한 금색
+                    (220, 180, 60),   # 어두운 금색
+                    (255, 255, 200),  # 크림색
+                ])
             })
         if self.get_active_leaf_count() == 0:
             self.all_leaves_destroyed = True
