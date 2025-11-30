@@ -5853,10 +5853,7 @@ class BuildingInterior:
         # 10. 힐링 캡슐 (부상자 치료) - 오른쪽 위치
         self._draw_healing_capsule(screen, cam_x, cam_y, self.animation_timer)
 
-        # 11. 러닝 트랙 라인 (바닥)
-        self._draw_running_track(screen, cam_x, cam_y, wall_h)
-
-        # 12. 도서관 책장들 (전술 매뉴얼)
+        # 11. 도서관 책장들 (전술 매뉴얼)
         self._draw_tactical_bookshelves(screen, cam_x, cam_y, wall_h)
 
         # 13. 문 그리기
