@@ -75889,6 +75889,8 @@ def main(stage_num, new_boss_mode=False):
     elif stage_num == 5:  #  Stage 5 추가
         CURRENT_BG = STAGE5_BG
         BOSS_COLOR = (255, 80, 0)   # 홍련색
+        # Stage 5는 네메시스 테마로 Stage 6 BGM을 사용
+        bgm_manager.play_stage_bgm(5)
     elif stage_num == 6:  #  Stage 6 추가 (항공모함)
         CURRENT_BG = STAGE6_BG
         BOSS_COLOR = (150, 200, 255)  # 금속/은색

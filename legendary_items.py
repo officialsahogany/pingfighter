@@ -3149,12 +3149,11 @@ class AngelBlessing(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
 
-            # 중앙에 흰색 주사위 그리기 (날개 없음, 프레임 속도 낮춤)
+            # 중앙에 흰색 주사위 그리기 (날개 없음, 부드러운 회전)
             dice_surf = pygame.Surface((size, size), pygame.SRCALPHA)
-            # 주사위 회전 속도를 낮춤 (animation_speed 기반 대신 더 느린 회전)
-            slow_frame = (self.current_frame // 2) % 8  # 2배 느리게
-            rot_y = slow_frame * 45  # 8프레임으로 360도 회전
-            rot_x = math.sin(slow_frame * 0.8) * 10  # 기울기도 줄임
+            # 부드러운 회전을 위해 animation_time 기반 연속 회전
+            rot_y = (self.animation_time * 25) % 360  # 부드럽게 연속 회전
+            rot_x = math.sin(self.animation_time * 0.8) * 8  # 부드러운 기울기
             self._draw_angel_dice_no_wings(dice_surf, size, rot_x, rot_y)
             screen.blit(dice_surf, (x, icon_y))
 
