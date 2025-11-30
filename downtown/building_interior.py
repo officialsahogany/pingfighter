@@ -2229,7 +2229,7 @@ class BuildingInterior:
         self.crane_game_playing = False  # 크레인 게임 플레이 중
         self.crane_x = 0.5  # 크레인 X 위치 (0.0 ~ 1.0)
         self.crane_y = 0.0  # 크레인 Y 위치 (0.0 = 상단, 1.0 = 하단)
-        self.crane_target_y = 0.7  # 크레인 Y축 목표 지점 (0.3 ~ 0.9)
+        self.crane_target_y = 0.75  # 크레인 Y축 목표 지점 (0.55 ~ 1.0, 초록 바닥 영역)
         self.crane_state = "idle"  # idle, moving_left, moving_right, dropping, grabbing, rising, returning, releasing, item_falling
         self.crane_direction = 1  # 1 = 오른쪽, -1 = 왼쪽
         self.crane_speed = 0.008  # 크레인 이동 속도
@@ -2638,7 +2638,7 @@ class BuildingInterior:
         """크레인 게임 상태 초기화 - 1회 시스템"""
         self.crane_x = 0.5
         self.crane_y = 0.0
-        self.crane_target_y = 0.7  # Y축 목표 지점 초기화
+        self.crane_target_y = 0.75  # Y축 목표 지점 초기화 (초록 바닥 영역)
         self.crane_state = "idle"
         self.crane_direction = 1
         self.crane_grab_timer = 0
@@ -4386,14 +4386,14 @@ class BuildingInterior:
                 if hasattr(event, 'unicode') and event.unicode in ('ㅈ', 'w', 'W'):
                     is_w_key = True
                 if is_w_key:
-                    self.crane_target_y = max(0.3, self.crane_target_y - 0.05)
+                    self.crane_target_y = max(0.55, self.crane_target_y - 0.05)  # 초록 바닥 영역 상단
                     return ("crane_target_y", self.crane_target_y)
                 # S/ㄴ/아래 방향키로 Y축 목표 위치 내리기
                 is_s_key = event.key == pygame.K_s or event.key == pygame.K_DOWN
                 if hasattr(event, 'unicode') and event.unicode in ('ㄴ', 's', 'S'):
                     is_s_key = True
                 if is_s_key:
-                    self.crane_target_y = min(0.9, self.crane_target_y + 0.05)
+                    self.crane_target_y = min(1.0, self.crane_target_y + 0.05)  # 초록 바닥 영역 하단
                     return ("crane_target_y", self.crane_target_y)
                 # 스페이스/엔터로 크레인 내리기
                 if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
@@ -4440,11 +4440,11 @@ class BuildingInterior:
     def handle_scroll(self, event, mouse_pos=None):
         """마우스 휠 스크롤 처리 (슬라이더 위에서만 작동)"""
         if event.type == pygame.MOUSEWHEEL:
-            # 크레인 게임 플레이 중 Y축 조절
+            # 크레인 게임 플레이 중 Y축 조절 (초록 바닥 영역만)
             if self.crane_game_playing and self.crane_state == "idle":
                 # 휠 위로: Y축 목표 위치 올리기, 휠 아래로: 내리기
                 delta = -event.y * 0.05
-                self.crane_target_y = max(0.3, min(0.9, self.crane_target_y + delta))
+                self.crane_target_y = max(0.55, min(1.0, self.crane_target_y + delta))
                 return ("crane_target_y", self.crane_target_y)
 
             # 상점 거래창 스크롤
@@ -7098,90 +7098,92 @@ class BuildingInterior:
         pygame.draw.rect(screen, (100, 85, 70), glass_rect, 3)
         pygame.draw.rect(screen, (40, 35, 30), glass_rect, 1)
 
-        # === Y축 깊이 조절 장치 (유리창 왼쪽 바깥) ===
-        depth_panel_x = glass_x - 55  # 유리창 왼쪽 바깥
-        depth_panel_y = glass_y + 30
-        depth_panel_w = 45
-        depth_panel_h = game_h - 60  # 유리창 높이에 맞춤
+        # === Y축 깊이 조절 장치 (초록색 바닥 영역에 맞춤) ===
+        # 초록색 바닥 영역: game_h * 0.55 ~ game_h (화면상)
+        # 크레인 Y 좌표는 0.85 스케일 적용: crane_py = glass_y + crane_y * game_h * 0.85
+        # 따라서 실제 조절 범위: 0.55 ~ 1.0 (crane_target_y)
 
-        # 패널 배경 (메탈릭)
+        # 슬라이더 패널을 초록색 영역과 정확히 일치시킴
+        floor_start_ratio = 0.55  # 초록색 바닥 시작점
+        depth_panel_x = glass_x - 45  # 유리창 왼쪽 바깥
+        depth_panel_y = glass_y + int(game_h * floor_start_ratio * 0.85)  # 초록 영역 시작과 맞춤
+        depth_panel_w = 35
+        depth_panel_h = int(game_h * (1.0 - floor_start_ratio) * 0.85)  # 초록 영역 높이와 맞춤
+
+        # 패널 배경 (메탈릭, 초록 톤)
         depth_bg = pygame.Surface((depth_panel_w, depth_panel_h), pygame.SRCALPHA)
         for y in range(depth_panel_h):
             ratio = y / depth_panel_h
-            brightness = int(60 - ratio * 20)
-            pygame.draw.line(depth_bg, (brightness, brightness - 5, brightness + 10), (0, y), (depth_panel_w, y))
+            brightness = int(50 - ratio * 15)
+            pygame.draw.line(depth_bg, (brightness - 10, brightness + 10, brightness - 5), (0, y), (depth_panel_w, y))
         screen.blit(depth_bg, (depth_panel_x, depth_panel_y))
         pygame.draw.rect(screen, FRAME_GOLD_DARK, (depth_panel_x, depth_panel_y, depth_panel_w, depth_panel_h), 2, border_radius=5)
 
-        # "DEPTH" 라벨
-        font_small = self.fonts.get('small')
-        if font_small:
-            depth_label, _ = font_small.render("깊이", (255, 200, 100))
-            screen.blit(depth_label, (depth_panel_x + 8, depth_panel_y + 5))
-
-        # 슬라이더 트랙 (세로)
+        # 슬라이더 트랙 (세로) - 패널 전체 높이 사용
         track_x = depth_panel_x + depth_panel_w // 2
-        track_top = depth_panel_y + 30
-        track_bottom = depth_panel_y + depth_panel_h - 25
+        track_top = depth_panel_y + 10
+        track_bottom = depth_panel_y + depth_panel_h - 10
         track_height = track_bottom - track_top
 
         # 트랙 배경 (오목한 느낌)
-        pygame.draw.rect(screen, (30, 30, 35), (track_x - 6, track_top, 12, track_height), border_radius=4)
-        pygame.draw.rect(screen, (50, 50, 55), (track_x - 4, track_top + 2, 8, track_height - 4), border_radius=3)
+        pygame.draw.rect(screen, (30, 35, 30), (track_x - 5, track_top, 10, track_height), border_radius=4)
+        pygame.draw.rect(screen, (45, 55, 45), (track_x - 3, track_top + 2, 6, track_height - 4), border_radius=3)
 
-        # 깊이 눈금 (0.3 ~ 0.9 범위, 7단계)
-        for i in range(7):
-            mark_ratio = i / 6  # 0.0 ~ 1.0
+        # 깊이 눈금 (5단계)
+        for i in range(5):
+            mark_ratio = i / 4  # 0.0 ~ 1.0
             mark_y = track_top + int(mark_ratio * track_height)
-            mark_width = 8 if i % 3 == 0 else 4  # 큰 눈금 / 작은 눈금
-            pygame.draw.line(screen, (100, 100, 110), (track_x - mark_width, mark_y), (track_x - 2, mark_y), 1)
-            pygame.draw.line(screen, (100, 100, 110), (track_x + 2, mark_y), (track_x + mark_width, mark_y), 1)
+            mark_width = 6 if i % 2 == 0 else 3  # 큰 눈금 / 작은 눈금
+            pygame.draw.line(screen, (80, 100, 80), (track_x - mark_width - 2, mark_y), (track_x - 3, mark_y), 1)
+            pygame.draw.line(screen, (80, 100, 80), (track_x + 3, mark_y), (track_x + mark_width + 2, mark_y), 1)
 
         # 현재 타겟 Y 위치를 슬라이더에 표시
-        # crane_target_y: 0.3 (상단) ~ 0.9 (하단)
-        target_ratio = (self.crane_target_y - 0.3) / 0.6  # 0.0 ~ 1.0으로 정규화
+        # crane_target_y: 0.55 (상단, 초록 시작) ~ 1.0 (하단)
+        target_ratio = (self.crane_target_y - floor_start_ratio) / (1.0 - floor_start_ratio)  # 0.0 ~ 1.0으로 정규화
+        target_ratio = max(0.0, min(1.0, target_ratio))  # 범위 제한
         slider_y = track_top + int(target_ratio * track_height)
 
         # 슬라이더 핸들 (빛나는 효과)
         if self.crane_state == "idle":
             # idle 상태에서 빛나는 효과
             glow_pulse = int(100 + 80 * math.sin(self.animation_timer * 4))
-            glow_surf = pygame.Surface((30, 20), pygame.SRCALPHA)
-            pygame.draw.ellipse(glow_surf, (80, 200, 255, glow_pulse), (0, 0, 30, 20))
-            screen.blit(glow_surf, (track_x - 15, slider_y - 10))
+            glow_surf = pygame.Surface((24, 16), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (80, 255, 150, glow_pulse), (0, 0, 24, 16))
+            screen.blit(glow_surf, (track_x - 12, slider_y - 8))
 
-        # 슬라이더 핸들 본체
-        handle_color = (80, 180, 220) if self.crane_state == "idle" else (100, 100, 120)
-        pygame.draw.ellipse(screen, (40, 40, 50), (track_x - 10, slider_y - 6, 20, 14))  # 그림자
-        pygame.draw.ellipse(screen, handle_color, (track_x - 8, slider_y - 5, 16, 12))
-        pygame.draw.ellipse(screen, (min(255, handle_color[0] + 40), min(255, handle_color[1] + 40), min(255, handle_color[2] + 40)),
-                           (track_x - 6, slider_y - 4, 12, 6))  # 하이라이트
-        pygame.draw.ellipse(screen, (60, 60, 70), (track_x - 8, slider_y - 5, 16, 12), 1)  # 테두리
+        # 슬라이더 핸들 본체 (초록 계열)
+        handle_color = (60, 200, 120) if self.crane_state == "idle" else (80, 100, 80)
+        pygame.draw.ellipse(screen, (30, 40, 30), (track_x - 8, slider_y - 5, 16, 12))  # 그림자
+        pygame.draw.ellipse(screen, handle_color, (track_x - 7, slider_y - 4, 14, 10))
+        pygame.draw.ellipse(screen, (min(255, handle_color[0] + 50), min(255, handle_color[1] + 40), min(255, handle_color[2] + 50)),
+                           (track_x - 5, slider_y - 3, 10, 5))  # 하이라이트
+        pygame.draw.ellipse(screen, (40, 60, 40), (track_x - 7, slider_y - 4, 14, 10), 1)  # 테두리
 
-        # 크레인 깊이 목표선 (유리창 내부에 표시)
+        # 크레인 깊이 목표선 (유리창 내부, 초록 영역에만 표시)
         if self.crane_state == "idle":
             target_line_y = glass_y + int(self.crane_target_y * game_h * 0.85)
             line_alpha = int(100 + 50 * math.sin(self.animation_timer * 3))
             target_line_surf = pygame.Surface((game_w - 40, 2), pygame.SRCALPHA)
-            # 점선 효과
+            # 점선 효과 (초록 계열)
             for i in range(0, game_w - 40, 10):
-                pygame.draw.rect(target_line_surf, (80, 200, 255, line_alpha), (i, 0, 5, 2))
+                pygame.draw.rect(target_line_surf, (80, 255, 150, line_alpha), (i, 0, 5, 2))
             screen.blit(target_line_surf, (glass_x + 20, target_line_y))
 
             # 화살표 표시 (왼쪽)
-            arrow_x = glass_x + 10
-            pygame.draw.polygon(screen, (80, 200, 255, line_alpha), [
+            arrow_x = glass_x + 12
+            pygame.draw.polygon(screen, (80, 255, 150), [
                 (arrow_x, target_line_y),
-                (arrow_x + 8, target_line_y - 5),
-                (arrow_x + 8, target_line_y + 5)
+                (arrow_x + 6, target_line_y - 4),
+                (arrow_x + 6, target_line_y + 4)
             ])
 
-        # 조작 힌트 (깊이 패널 하단)
+        # 조작 힌트 (깊이 패널 위/아래)
+        font_small = self.fonts.get('small')
         if font_small and self.crane_state == "idle":
-            hint1, _ = font_small.render("W/↑", (150, 200, 255))
-            hint2, _ = font_small.render("S/↓", (150, 200, 255))
-            screen.blit(hint1, (depth_panel_x + 8, track_top - 18))
-            screen.blit(hint2, (depth_panel_x + 8, track_bottom + 5))
+            hint1, _ = font_small.render("W", (100, 200, 130))
+            hint2, _ = font_small.render("S", (100, 200, 130))
+            screen.blit(hint1, (depth_panel_x + depth_panel_w // 2 - 5, depth_panel_y - 15))
+            screen.blit(hint2, (depth_panel_x + depth_panel_w // 2 - 4, depth_panel_y + depth_panel_h + 3))
 
         # === 배출구 (유리창 내부 왼쪽 하단) ===
         # 크레인이 x=0.05 (5%) 위치까지 이동하므로 배출구도 그 위치에 맞춤
