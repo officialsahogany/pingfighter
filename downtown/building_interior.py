@@ -5759,15 +5759,14 @@ class BuildingInterior:
         # 1) 상단 벽 영역
         self.academy_obstacle_rects.append(pygame.Rect(0, 0, self.pixel_width, wall_h))
 
-        # 2) 왼쪽 훈련 장비들 (타이어, 수류탄 상자)
-        equip_y = wall_h + 20
-        for i in range(2):
-            sx = 15 + i * 90
-            self.academy_obstacle_rects.append(pygame.Rect(sx, equip_y, 70, 120))
+        # 2) 왼쪽 훈련 장비들 (타이어, 수류탄 상자) - 가장자리에서 떨어뜨림
+        equip_y = wall_h + 40
+        self.academy_obstacle_rects.append(pygame.Rect(40, equip_y, 80, 100))  # 타이어
+        self.academy_obstacle_rects.append(pygame.Rect(140, equip_y + 20, 70, 80))  # 수류탄 상자
 
-        # 3) 오른쪽 사격장
-        shoot_range_x = self.pixel_width - 150
-        self.academy_obstacle_rects.append(pygame.Rect(shoot_range_x, equip_y, 120, 180))
+        # 3) 사격장 - 오른쪽 상단, 가장자리에서 떨어뜨림
+        shoot_range_x = self.pixel_width - 180
+        self.academy_obstacle_rects.append(pygame.Rect(shoot_range_x, equip_y, 140, 160))
 
         # 4) 탁구대들 (2개) - 분산 배치, 더 큰 크기
         table_w, table_h = 140, 85
@@ -5778,9 +5777,9 @@ class BuildingInterior:
         for tx, ty in table_positions:
             self.academy_obstacle_rects.append(pygame.Rect(tx, ty, table_w, table_h + 25))
 
-        # 5) 힐링 캡슐 - 오른쪽으로 이동
-        capsule_x, capsule_y = self.pixel_width - 100, wall_h + 220
-        self.academy_obstacle_rects.append(pygame.Rect(capsule_x, capsule_y, 60, 100))
+        # 5) 힐링 캡슐 - 중앙 오른쪽, 가장자리에서 떨어뜨림
+        capsule_x, capsule_y = self.pixel_width - 130, wall_h + 240
+        self.academy_obstacle_rects.append(pygame.Rect(capsule_x, capsule_y, 80, 110))
 
         # 6) 도서관 책장들 (3개 나란히 - 하단 중앙)
         shelf_w, shelf_h = 55, 120
@@ -6405,98 +6404,328 @@ class BuildingInterior:
             pygame.draw.rect(screen, FRAME_COLOR, (wx, window_y, window_w, window_h), 4)
 
     def _draw_training_equipment(self, screen, cam_x, cam_y, wall_h):
-        """훈련 장비 그리기 (타이어, 수류탄 상자)"""
-        TIRE_BLACK = (30, 30, 35)
-        TIRE_GRAY = (50, 50, 55)
-        BOX_BROWN = (100, 70, 40)
-        BOX_DARK = (70, 50, 30)
-        GRENADE_GREEN = (60, 80, 50)
-        WARNING_ORANGE = (255, 150, 50)
-
-        equip_y = -cam_y + wall_h + 30
-
-        # === 타이어 스택 (왼쪽) ===
-        tire_x = -cam_x + 25
-
-        # 타이어 3개 쌓기
-        for t in range(3):
-            ty = equip_y + t * 35
-            # 타이어 외곽
-            pygame.draw.ellipse(screen, TIRE_BLACK, (tire_x, ty, 55, 30))
-            # 타이어 내부 (구멍)
-            pygame.draw.ellipse(screen, TIRE_GRAY, (tire_x + 15, ty + 8, 25, 14))
-
-        # === 수류탄 상자 (오른쪽) ===
-        box_x = -cam_x + 100
-        box_y = equip_y + 20
-        box_w, box_h = 65, 50
-
-        # 상자 본체
-        pygame.draw.rect(screen, BOX_BROWN, (box_x, box_y, box_w, box_h))
-        pygame.draw.rect(screen, BOX_DARK, (box_x, box_y, box_w, box_h), 3)
-
-        # 상자 뚜껑 열린 부분
-        pygame.draw.rect(screen, BOX_DARK, (box_x + 5, box_y - 10, box_w - 10, 15))
-
-        # 경고 스트라이프
-        for stripe in range(0, box_w, 12):
-            pygame.draw.rect(screen, WARNING_ORANGE, (box_x + stripe, box_y + 35, 6, 10))
-
-        # 수류탄들 (상자 안에 보이는)
-        for g in range(3):
-            gx = box_x + 12 + g * 18
-            gy = box_y + 5
-            # 수류탄 몸체
-            pygame.draw.ellipse(screen, GRENADE_GREEN, (gx, gy, 14, 20))
-            # 수류탄 핀
-            pygame.draw.rect(screen, (150, 150, 150), (gx + 5, gy - 5, 4, 8))
-
-    def _draw_shooting_range(self, screen, cam_x, cam_y, wall_h, anim_timer):
-        """사격 연습장 그리기"""
+        """훈련 장비 그리기 (타이어, 수류탄 상자) - 고퀄리티 3D 버전"""
         import math
 
-        BOOTH_GRAY = (60, 65, 70)
-        BOOTH_DARK = (40, 45, 50)
-        TARGET_TAN = (200, 180, 150)
-        TARGET_RED = (200, 50, 50)
-        MUZZLE_FLASH = (255, 220, 100)
+        # 색상 팔레트
+        TIRE_BLACK = (25, 25, 30)
+        TIRE_DARK = (35, 35, 40)
+        TIRE_MID = (50, 50, 55)
+        TIRE_LIGHT = (70, 70, 75)
+        TIRE_TREAD = (40, 40, 45)
 
-        range_x = self.pixel_width - cam_x - 140
-        range_y = -cam_y + wall_h + 20
+        BOX_WOOD = (130, 95, 55)
+        BOX_WOOD_LIGHT = (160, 125, 80)
+        BOX_WOOD_DARK = (90, 65, 35)
+        BOX_WOOD_SHADOW = (60, 45, 25)
+        METAL_BAND = (80, 85, 90)
+        METAL_LIGHT = (120, 125, 130)
 
-        # === 사격 부스 ===
-        booth_w, booth_h = 110, 160
-        pygame.draw.rect(screen, BOOTH_GRAY, (range_x, range_y, booth_w, booth_h))
-        pygame.draw.rect(screen, BOOTH_DARK, (range_x, range_y, booth_w, booth_h), 3)
+        GRENADE_BODY = (75, 95, 65)
+        GRENADE_LIGHT = (100, 125, 85)
+        GRENADE_DARK = (50, 65, 40)
+        GRENADE_METAL = (160, 165, 170)
+        PIN_GOLD = (200, 180, 100)
 
-        # 부스 칸막이
-        pygame.draw.rect(screen, BOOTH_DARK, (range_x + 50, range_y, 8, booth_h))
+        WARNING_YELLOW = (255, 200, 50)
+        WARNING_BLACK = (30, 30, 35)
 
-        # === 과녁 (상단) ===
-        target_x = range_x + 25
-        target_y = range_y + 15
-        target_size = 35
+        equip_y = wall_h + 40 - cam_y
 
-        # 과녁 배경 (인체 실루엣 - 단순화)
-        pygame.draw.ellipse(screen, TARGET_TAN, (target_x, target_y, target_size, target_size))  # 머리
-        pygame.draw.rect(screen, TARGET_TAN, (target_x + 5, target_y + target_size - 5, target_size - 10, 45))  # 몸통
+        # ========== 타이어 스택 (왼쪽) - 3D 입체 ==========
+        tire_x = 40 - cam_x
+        tire_w, tire_h = 70, 35
 
-        # 과녁 원 (가슴 부위)
-        pygame.draw.circle(screen, TARGET_RED, (target_x + target_size // 2, target_y + target_size + 15), 12)
-        pygame.draw.circle(screen, (255, 100, 100), (target_x + target_size // 2, target_y + target_size + 15), 6)
-        pygame.draw.circle(screen, (255, 255, 200), (target_x + target_size // 2, target_y + target_size + 15), 2)
+        # 타이어 3개 쌓기 (아래서 위로)
+        for t in range(3):
+            ty = equip_y + (2 - t) * 28  # 위에서 아래로 그리기
 
-        # 총알 구멍 효과 (애니메이션으로 깜빡임)
-        if int(anim_timer * 2) % 3 == 0:
-            hole_x = target_x + target_size // 2 + int(5 * math.sin(anim_timer * 3))
-            hole_y = target_y + target_size + 15 + int(3 * math.cos(anim_timer * 4))
-            pygame.draw.circle(screen, (30, 30, 30), (hole_x, hole_y), 3)
+            # 타이어 그림자
+            shadow_surf = pygame.Surface((tire_w + 10, tire_h + 5), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (5, 5, tire_w, tire_h))
+            screen.blit(shadow_surf, (tire_x - 2, ty + 3))
 
-        # === 두 번째 과녁 ===
-        target2_x = range_x + 70
-        pygame.draw.ellipse(screen, TARGET_TAN, (target2_x, target_y, target_size, target_size))
-        pygame.draw.rect(screen, TARGET_TAN, (target2_x + 5, target_y + target_size - 5, target_size - 10, 45))
-        pygame.draw.circle(screen, TARGET_RED, (target2_x + target_size // 2, target_y + target_size + 15), 12)
+            # 타이어 측면 (3D 두께)
+            pygame.draw.ellipse(screen, TIRE_BLACK, (tire_x, ty + 8, tire_w, tire_h))
+
+            # 타이어 본체 (상단면)
+            pygame.draw.ellipse(screen, TIRE_DARK, (tire_x, ty, tire_w, tire_h))
+
+            # 타이어 트레드 패턴 (바깥쪽)
+            for i in range(8):
+                angle = i * math.pi / 4
+                px = tire_x + tire_w // 2 + int((tire_w // 2 - 8) * math.cos(angle))
+                py = ty + tire_h // 2 + int((tire_h // 2 - 4) * math.sin(angle))
+                pygame.draw.circle(screen, TIRE_TREAD, (px, py), 3)
+
+            # 타이어 테두리 하이라이트
+            pygame.draw.ellipse(screen, TIRE_MID, (tire_x + 3, ty + 2, tire_w - 6, tire_h - 4), 2)
+
+            # 타이어 내부 구멍 (림)
+            rim_x = tire_x + tire_w // 2 - 15
+            rim_y = ty + tire_h // 2 - 8
+            pygame.draw.ellipse(screen, TIRE_BLACK, (rim_x, rim_y, 30, 16))
+            pygame.draw.ellipse(screen, TIRE_MID, (rim_x + 3, rim_y + 2, 24, 12))
+            pygame.draw.ellipse(screen, TIRE_LIGHT, (rim_x + 8, rim_y + 4, 14, 8))
+
+            # 림 볼트
+            for b in range(4):
+                bolt_angle = b * math.pi / 2 + math.pi / 4
+                bx = tire_x + tire_w // 2 + int(8 * math.cos(bolt_angle))
+                by = ty + tire_h // 2 + int(4 * math.sin(bolt_angle))
+                pygame.draw.circle(screen, METAL_LIGHT, (bx, by), 2)
+
+        # ========== 수류탄 상자 - 3D 입체 ==========
+        box_x = 140 - cam_x
+        box_y = equip_y + 25
+        box_w, box_h, box_d = 65, 55, 15  # 너비, 높이, 깊이
+
+        # 상자 그림자
+        shadow_surf = pygame.Surface((box_w + 15, box_h + 10), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (0, 0, 0, 50), (8, 8, box_w, box_h), border_radius=3)
+        screen.blit(shadow_surf, (box_x - 3, box_y))
+
+        # 상자 측면 (3D - 오른쪽)
+        side_points = [
+            (box_x + box_w, box_y + 5),
+            (box_x + box_w + box_d, box_y - 5),
+            (box_x + box_w + box_d, box_y + box_h - 10),
+            (box_x + box_w, box_y + box_h),
+        ]
+        pygame.draw.polygon(screen, BOX_WOOD_DARK, side_points)
+        pygame.draw.polygon(screen, BOX_WOOD_SHADOW, side_points, 2)
+
+        # 상자 상단면 (3D - 열린 뚜껑)
+        top_points = [
+            (box_x, box_y),
+            (box_x + box_d, box_y - box_d),
+            (box_x + box_w + box_d, box_y - box_d),
+            (box_x + box_w, box_y),
+        ]
+        pygame.draw.polygon(screen, BOX_WOOD_LIGHT, top_points)
+        pygame.draw.polygon(screen, BOX_WOOD, top_points, 2)
+
+        # 상자 정면
+        pygame.draw.rect(screen, BOX_WOOD, (box_x, box_y, box_w, box_h), border_radius=3)
+
+        # 나무 결 텍스처
+        for line_y in range(box_y + 8, box_y + box_h - 5, 12):
+            pygame.draw.line(screen, BOX_WOOD_DARK, (box_x + 5, line_y), (box_x + box_w - 5, line_y), 1)
+
+        # 상자 테두리
+        pygame.draw.rect(screen, BOX_WOOD_DARK, (box_x, box_y, box_w, box_h), 3, border_radius=3)
+
+        # 금속 보강 밴드
+        pygame.draw.rect(screen, METAL_BAND, (box_x, box_y + 10, box_w, 6))
+        pygame.draw.rect(screen, METAL_LIGHT, (box_x, box_y + 10, box_w, 2))
+        pygame.draw.rect(screen, METAL_BAND, (box_x, box_y + box_h - 16, box_w, 6))
+        pygame.draw.rect(screen, METAL_LIGHT, (box_x, box_y + box_h - 16, box_w, 2))
+
+        # 경고 스트라이프 (대각선)
+        for stripe in range(0, box_w + 20, 10):
+            sx = box_x + stripe
+            if stripe % 20 == 0:
+                pygame.draw.line(screen, WARNING_YELLOW, (sx, box_y + box_h - 8), (sx - 8, box_y + box_h), 4)
+            else:
+                pygame.draw.line(screen, WARNING_BLACK, (sx, box_y + box_h - 8), (sx - 8, box_y + box_h), 4)
+
+        # 모서리 리벳
+        rivet_positions = [(box_x + 8, box_y + 8), (box_x + box_w - 8, box_y + 8),
+                          (box_x + 8, box_y + box_h - 8), (box_x + box_w - 8, box_y + box_h - 8)]
+        for rx, ry in rivet_positions:
+            pygame.draw.circle(screen, METAL_BAND, (rx, ry), 4)
+            pygame.draw.circle(screen, METAL_LIGHT, (rx - 1, ry - 1), 2)
+
+        # ========== 수류탄들 (상자 안에 보이는) - 고디테일 ==========
+        for g in range(3):
+            gx = box_x + 12 + g * 18
+            gy = box_y - 15
+
+            # 수류탄 그림자
+            pygame.draw.ellipse(screen, (0, 0, 0, 60), (gx + 2, gy + 2, 16, 24))
+
+            # 수류탄 몸체 (파인애플 형태)
+            pygame.draw.ellipse(screen, GRENADE_BODY, (gx, gy, 16, 24))
+
+            # 몸체 하이라이트
+            pygame.draw.ellipse(screen, GRENADE_LIGHT, (gx + 2, gy + 2, 8, 12))
+
+            # 파인애플 패턴 (격자)
+            for py in range(gy + 6, gy + 20, 5):
+                pygame.draw.line(screen, GRENADE_DARK, (gx + 3, py), (gx + 13, py), 1)
+            for px in range(gx + 4, gx + 14, 4):
+                pygame.draw.line(screen, GRENADE_DARK, (px, gy + 5), (px, gy + 20), 1)
+
+            # 수류탄 상단 (퓨즈 어셈블리)
+            pygame.draw.rect(screen, GRENADE_METAL, (gx + 5, gy - 6, 6, 8), border_radius=2)
+            pygame.draw.rect(screen, (180, 185, 190), (gx + 5, gy - 6, 6, 3), border_radius=1)
+
+            # 안전핀과 링
+            pygame.draw.rect(screen, PIN_GOLD, (gx + 7, gy - 10, 2, 5))
+            pygame.draw.circle(screen, PIN_GOLD, (gx + 8, gy - 12), 4, 2)
+
+            # 스푼 (레버)
+            pygame.draw.rect(screen, GRENADE_METAL, (gx + 11, gy - 4, 3, 12), border_radius=1)
+
+    def _draw_shooting_range(self, screen, cam_x, cam_y, wall_h, anim_timer):
+        """사격 연습장 그리기 - 고품질 3D 버전"""
+        import math
+
+        # === 색상 팔레트 ===
+        BOOTH_DARK = (35, 40, 48)
+        BOOTH_MID = (55, 62, 72)
+        BOOTH_LIGHT = (75, 85, 98)
+
+        METAL_DARK = (50, 55, 60)
+        METAL_MID = (90, 100, 110)
+        METAL_LIGHT = (140, 155, 170)
+
+        TARGET_PAPER = (235, 225, 200)
+        TARGET_PAPER_DARK = (200, 190, 165)
+        TARGET_RED = (180, 40, 40)
+        TARGET_RED_DARK = (130, 25, 25)
+        TARGET_RING = (50, 50, 55)
+
+        LIGHT_YELLOW = (255, 240, 180)
+
+        # 위치 계산 (가장자리에서 떨어뜨림)
+        range_x = self.pixel_width - 180 - cam_x
+        range_y = wall_h + 40 - cam_y
+        booth_w, booth_h = 140, 160
+
+        # === 바닥 그림자 ===
+        shadow_surf = pygame.Surface((booth_w + 30, 20), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), (0, 0, booth_w + 30, 20))
+        screen.blit(shadow_surf, (range_x - 15, range_y + booth_h - 5))
+
+        # === 뒷벽 (3D 깊이감) ===
+        pygame.draw.rect(screen, BOOTH_DARK, (range_x, range_y, booth_w, booth_h))
+
+        # 뒷벽 3D 효과 (왼쪽 측면)
+        back_points = [
+            (range_x, range_y),
+            (range_x - 15, range_y + 10),
+            (range_x - 15, range_y + booth_h + 10),
+            (range_x, range_y + booth_h)
+        ]
+        pygame.draw.polygon(screen, BOOTH_MID, back_points)
+
+        # 뒷벽 상단 면
+        top_points = [
+            (range_x, range_y),
+            (range_x - 15, range_y + 10),
+            (range_x + booth_w - 15, range_y + 10),
+            (range_x + booth_w, range_y)
+        ]
+        pygame.draw.polygon(screen, BOOTH_LIGHT, top_points)
+
+        # === 사격 레인 (2개) ===
+        lane_w = booth_w // 2 - 8
+        for lane_idx in range(2):
+            lane_x = range_x + 4 + lane_idx * (lane_w + 8)
+
+            # 레인 바닥
+            pygame.draw.rect(screen, (25, 28, 35), (lane_x, range_y + 90, lane_w, booth_h - 95))
+
+            # 레인 벽
+            pygame.draw.rect(screen, BOOTH_MID, (lane_x - 3, range_y, 6, booth_h), border_radius=2)
+            pygame.draw.rect(screen, BOOTH_LIGHT, (lane_x - 1, range_y, 2, booth_h))
+
+            # === 과녁 레일 시스템 ===
+            rail_y = range_y + 12
+            pygame.draw.rect(screen, METAL_DARK, (lane_x + 5, rail_y, lane_w - 10, 8))
+            pygame.draw.rect(screen, METAL_LIGHT, (lane_x + 5, rail_y, lane_w - 10, 3))
+
+            # 과녁 행거 (움직이는 효과)
+            hanger_offset = int(8 * math.sin(anim_timer * 1.5 + lane_idx * math.pi))
+            hanger_x = lane_x + lane_w // 2 + hanger_offset
+
+            pygame.draw.line(screen, METAL_MID, (hanger_x, rail_y + 8), (hanger_x, rail_y + 25), 2)
+            pygame.draw.circle(screen, METAL_LIGHT, (hanger_x, rail_y + 10), 3)
+
+            # === 인체 과녁 ===
+            target_x = hanger_x - 18
+            target_y = rail_y + 25
+            target_w, target_h = 36, 55
+            tilt = hanger_offset / 20
+
+            # 과녁 종이
+            target_points = [
+                (target_x + tilt, target_y),
+                (target_x + target_w + tilt, target_y),
+                (target_x + target_w - tilt, target_y + target_h),
+                (target_x - tilt, target_y + target_h)
+            ]
+            pygame.draw.polygon(screen, TARGET_PAPER, target_points)
+            pygame.draw.polygon(screen, TARGET_PAPER_DARK, target_points, 2)
+
+            # 인체 실루엣
+            head_x = target_x + target_w // 2
+            head_y = target_y + 10
+            pygame.draw.circle(screen, (60, 60, 65), (int(head_x), int(head_y)), 8)
+
+            body_points = [
+                (head_x - 10, head_y + 8), (head_x + 10, head_y + 8),
+                (head_x + 12, head_y + 35), (head_x + 6, head_y + 45),
+                (head_x - 6, head_y + 45), (head_x - 12, head_y + 35)
+            ]
+            pygame.draw.polygon(screen, (60, 60, 65), body_points)
+
+            # 점수 링
+            ring_x, ring_y = int(head_x), int(head_y + 22)
+            pygame.draw.circle(screen, TARGET_RING, (ring_x, ring_y), 14, 2)
+            pygame.draw.circle(screen, TARGET_RING, (ring_x, ring_y), 10, 2)
+            pygame.draw.circle(screen, TARGET_RED_DARK, (ring_x, ring_y), 7)
+            pygame.draw.circle(screen, TARGET_RED, (ring_x, ring_y), 5)
+            pygame.draw.circle(screen, (255, 255, 200), (ring_x, ring_y), 2)
+
+            # 총알 구멍들
+            holes = [(ring_x - 3, ring_y + 2), (ring_x + 4, ring_y - 1)] if lane_idx == 0 else [(ring_x - 2, ring_y - 3)]
+            for hx, hy in holes:
+                pygame.draw.circle(screen, (20, 20, 25), (hx, hy), 2)
+                pygame.draw.circle(screen, TARGET_PAPER_DARK, (hx, hy), 3, 1)
+
+            # === 조명 ===
+            light_x = lane_x + lane_w // 2
+            light_y = range_y + 5
+            pygame.draw.rect(screen, METAL_DARK, (light_x - 8, light_y, 16, 6), border_radius=2)
+            pygame.draw.rect(screen, METAL_LIGHT, (light_x - 6, light_y + 1, 12, 2))
+
+            glow_alpha = int(40 + 20 * math.sin(anim_timer * 4 + lane_idx))
+            glow_surf = pygame.Surface((40, 80), pygame.SRCALPHA)
+            pygame.draw.polygon(glow_surf, (*LIGHT_YELLOW[:3], glow_alpha), [(20, 0), (35, 70), (5, 70)])
+            screen.blit(glow_surf, (light_x - 20, light_y + 5))
+
+        # === 선반 (하단) ===
+        shelf_y = range_y + booth_h - 35
+        pygame.draw.rect(screen, BOOTH_MID, (range_x + 5, shelf_y, booth_w - 10, 8))
+        pygame.draw.rect(screen, BOOTH_LIGHT, (range_x + 5, shelf_y, booth_w - 10, 3))
+
+        # === 총 거치대 ===
+        gun_x, gun_y = range_x + 15, shelf_y - 20
+        pygame.draw.rect(screen, (40, 42, 48), (gun_x, gun_y, 25, 12), border_radius=2)
+        pygame.draw.rect(screen, (60, 65, 75), (gun_x + 2, gun_y + 1, 20, 4))
+        pygame.draw.rect(screen, (35, 30, 28), (gun_x + 5, gun_y + 10, 10, 15), border_radius=2)
+        for gy in [11, 15, 19]:
+            pygame.draw.rect(screen, (50, 45, 40), (gun_x + 6, gun_y + gy, 8, 2))
+        pygame.draw.rect(screen, (30, 32, 38), (gun_x + 23, gun_y + 3, 8, 6), border_radius=1)
+
+        # === 탄창 ===
+        mag_x = range_x + 55
+        pygame.draw.rect(screen, (45, 48, 55), (mag_x, shelf_y - 18, 8, 18), border_radius=1)
+        pygame.draw.rect(screen, (70, 75, 85), (mag_x + 1, shelf_y - 17, 6, 3))
+        pygame.draw.rect(screen, (45, 48, 55), (mag_x + 12, shelf_y - 18, 8, 18), border_radius=1)
+
+        # === 귀마개 ===
+        ear_x, ear_y = range_x + 95, shelf_y - 12
+        pygame.draw.arc(screen, (40, 40, 45), (ear_x, ear_y - 8, 30, 20), 0, math.pi, 3)
+        pygame.draw.ellipse(screen, (60, 60, 65), (ear_x - 2, ear_y, 14, 18))
+        pygame.draw.ellipse(screen, (80, 80, 90), (ear_x, ear_y + 2, 10, 14))
+        pygame.draw.ellipse(screen, (60, 60, 65), (ear_x + 20, ear_y, 14, 18))
+        pygame.draw.ellipse(screen, (80, 80, 90), (ear_x + 22, ear_y + 2, 10, 14))
+
+        # === 프레임 테두리 ===
+        pygame.draw.rect(screen, METAL_DARK, (range_x - 2, range_y - 2, booth_w + 4, booth_h + 4), 3, border_radius=3)
 
     def _draw_ping_pong_tables(self, screen, cam_x, cam_y):
         """탁구대들 그리기 - 더 크고 분산된 위치, 탁구공 애니메이션 포함"""
@@ -6629,65 +6858,202 @@ class BuildingInterior:
             pygame.draw.ellipse(screen, (60, 60, 65), (paddle_x - 10, paddle_y - 5, 20, 25), 2)
 
     def _draw_healing_capsule(self, screen, cam_x, cam_y, anim_timer):
-        """힐링 캡슐 그리기 (부상자 치료)"""
+        """힐링 캡슐 그리기 - 고품질 3D SF 버전"""
         import math
 
-        CAPSULE_GRAY = (70, 80, 90)
-        CAPSULE_DARK = (50, 55, 65)
-        GLASS_BLUE = (100, 180, 220, 150)
-        HEAL_GREEN = (100, 255, 150)
-        HEAL_DIM = (60, 180, 100)
-        BODY_TAN = (200, 160, 130)
+        # === 색상 팔레트 ===
+        # 금속 프레임
+        FRAME_DARK = (40, 50, 65)
+        FRAME_MID = (70, 85, 105)
+        FRAME_LIGHT = (110, 130, 155)
+        FRAME_SHINE = (160, 180, 210)
 
-        # 위치 (장애물 영역과 일치 - 오른쪽 상단)
+        # 유리/액체
+        GLASS_OUTER = (80, 160, 200, 100)
+        GLASS_INNER = (100, 200, 240, 80)
+        LIQUID_GREEN = (60, 220, 140, 120)
+        LIQUID_DARK = (40, 160, 100, 150)
+
+        # 힐링 효과
+        HEAL_GLOW = (80, 255, 160)
+        HEAL_PARTICLE = (120, 255, 180)
+        HEAL_RING = (100, 255, 200, 80)
+
+        # 인체
+        SKIN_BASE = (200, 160, 135)
+        SKIN_SHADOW = (170, 130, 105)
+        BANDAGE = (240, 240, 235)
+
+        # 위치 계산 (가장자리에서 떨어뜨림)
         wall_h = int(TILE_SIZE * 3.5)
-        capsule_x = self.pixel_width - 100 - cam_x
-        capsule_y = wall_h + 220 - cam_y
-        capsule_w, capsule_h = 60, 100
+        capsule_x = self.pixel_width - 130 - cam_x
+        capsule_y = wall_h + 240 - cam_y
+        capsule_w, capsule_h = 80, 110
 
-        # 캡슐 베이스 (금속)
-        pygame.draw.rect(screen, CAPSULE_GRAY, (capsule_x, capsule_y + capsule_h - 20, capsule_w, 20), border_radius=5)
-        pygame.draw.rect(screen, CAPSULE_DARK, (capsule_x, capsule_y + capsule_h - 20, capsule_w, 20), 2, border_radius=5)
+        # === 바닥 그림자 ===
+        shadow_surf = pygame.Surface((capsule_w + 40, 25), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 60), (0, 0, capsule_w + 40, 25))
+        screen.blit(shadow_surf, (capsule_x - 20, capsule_y + capsule_h - 8))
 
-        # 캡슐 유리 튜브
-        glass_surf = pygame.Surface((capsule_w - 10, capsule_h - 25), pygame.SRCALPHA)
-        pygame.draw.rect(glass_surf, GLASS_BLUE, (0, 0, capsule_w - 10, capsule_h - 25), border_radius=10)
-        screen.blit(glass_surf, (capsule_x + 5, capsule_y + 5))
+        # === 베이스 플랫폼 (3D) ===
+        base_h = 22
 
-        # 캡슐 프레임
-        pygame.draw.rect(screen, CAPSULE_GRAY, (capsule_x, capsule_y, capsule_w, capsule_h), 4, border_radius=15)
+        # 베이스 상단면
+        base_top_points = [
+            (capsule_x - 8, capsule_y + capsule_h - base_h),
+            (capsule_x + capsule_w + 8, capsule_y + capsule_h - base_h),
+            (capsule_x + capsule_w + 3, capsule_y + capsule_h - base_h + 5),
+            (capsule_x - 3, capsule_y + capsule_h - base_h + 5)
+        ]
+        pygame.draw.polygon(screen, FRAME_LIGHT, base_top_points)
 
-        # === 부상자 (단순 실루엣) ===
+        # 베이스 전면
+        base_front_points = [
+            (capsule_x - 3, capsule_y + capsule_h - base_h + 5),
+            (capsule_x + capsule_w + 3, capsule_y + capsule_h - base_h + 5),
+            (capsule_x + capsule_w + 3, capsule_y + capsule_h),
+            (capsule_x - 3, capsule_y + capsule_h)
+        ]
+        pygame.draw.polygon(screen, FRAME_MID, base_front_points)
+
+        # 베이스 테두리
+        pygame.draw.polygon(screen, FRAME_DARK, base_front_points, 2)
+
+        # 베이스 환기구 (디테일)
+        for i in range(4):
+            vent_x = capsule_x + 8 + i * 18
+            pygame.draw.rect(screen, FRAME_DARK, (vent_x, capsule_y + capsule_h - 12, 12, 6), border_radius=1)
+            pygame.draw.rect(screen, (30, 40, 50), (vent_x + 2, capsule_y + capsule_h - 10, 8, 2))
+
+        # === 캡슐 프레임 (3D 원통형) ===
+        tube_y = capsule_y + 8
+        tube_h = capsule_h - base_h - 8
+
+        # 프레임 측면 (왼쪽)
+        pygame.draw.rect(screen, FRAME_MID, (capsule_x - 2, tube_y, 8, tube_h), border_radius=2)
+        pygame.draw.rect(screen, FRAME_LIGHT, (capsule_x - 2, tube_y, 4, tube_h), border_radius=2)
+        pygame.draw.rect(screen, FRAME_SHINE, (capsule_x - 1, tube_y + 5, 2, tube_h - 10))
+
+        # 프레임 측면 (오른쪽)
+        pygame.draw.rect(screen, FRAME_MID, (capsule_x + capsule_w - 6, tube_y, 8, tube_h), border_radius=2)
+        pygame.draw.rect(screen, FRAME_DARK, (capsule_x + capsule_w - 2, tube_y, 4, tube_h), border_radius=2)
+
+        # 상단 아치
+        pygame.draw.arc(screen, FRAME_MID, (capsule_x - 2, tube_y - 15, capsule_w + 4, 30), 0, math.pi, 6)
+        pygame.draw.arc(screen, FRAME_LIGHT, (capsule_x, tube_y - 13, capsule_w, 26), 0.1, math.pi - 0.1, 3)
+
+        # 상단 캡
+        pygame.draw.ellipse(screen, FRAME_MID, (capsule_x + 5, tube_y - 8, capsule_w - 10, 16))
+        pygame.draw.ellipse(screen, FRAME_LIGHT, (capsule_x + 10, tube_y - 5, capsule_w - 20, 10))
+
+        # === 유리 튜브 (투명 효과) ===
+        glass_surf = pygame.Surface((capsule_w - 12, tube_h - 5), pygame.SRCALPHA)
+
+        # 외부 유리
+        pygame.draw.rect(glass_surf, GLASS_OUTER, (0, 0, capsule_w - 12, tube_h - 5), border_radius=8)
+
+        # 내부 하이라이트
+        pygame.draw.rect(glass_surf, GLASS_INNER, (4, 4, capsule_w - 20, tube_h - 13), border_radius=6)
+
+        # 반사 효과
+        pygame.draw.rect(glass_surf, (255, 255, 255, 40), (6, 8, 8, tube_h - 25), border_radius=3)
+
+        screen.blit(glass_surf, (capsule_x + 6, tube_y + 3))
+
+        # === 치료액 (애니메이션) ===
+        liquid_level = int(tube_h * 0.75)
+        liquid_wave = int(3 * math.sin(anim_timer * 2))
+
+        liquid_surf = pygame.Surface((capsule_w - 20, liquid_level), pygame.SRCALPHA)
+
+        # 액체 메인
+        pygame.draw.rect(liquid_surf, LIQUID_GREEN, (0, 5 + liquid_wave, capsule_w - 20, liquid_level - 10), border_radius=5)
+
+        # 액체 표면 파동
+        for wx in range(0, capsule_w - 20, 8):
+            wave_y = int(3 * math.sin(anim_timer * 3 + wx * 0.2))
+            pygame.draw.ellipse(liquid_surf, LIQUID_DARK, (wx, wave_y, 10, 6))
+
+        screen.blit(liquid_surf, (capsule_x + 10, tube_y + tube_h - liquid_level - 5))
+
+        # === 부상자 (더 상세하게) ===
         person_x = capsule_x + capsule_w // 2
-        person_y = capsule_y + 25
+        person_y = tube_y + 20
 
         # 머리
-        pygame.draw.circle(screen, BODY_TAN, (person_x, person_y), 10)
+        pygame.draw.circle(screen, SKIN_BASE, (person_x, person_y), 11)
+        pygame.draw.circle(screen, SKIN_SHADOW, (person_x + 3, person_y + 2), 9)  # 그림자
+        pygame.draw.circle(screen, SKIN_BASE, (person_x - 1, person_y - 1), 9)  # 하이라이트
 
-        # 몸통
-        pygame.draw.rect(screen, BODY_TAN, (person_x - 8, person_y + 10, 16, 35))
+        # 눈 (감은 상태)
+        pygame.draw.line(screen, (80, 60, 50), (person_x - 5, person_y - 1), (person_x - 2, person_y - 1), 1)
+        pygame.draw.line(screen, (80, 60, 50), (person_x + 2, person_y - 1), (person_x + 5, person_y - 1), 1)
 
-        # 붕대 (부상 표시)
-        pygame.draw.rect(screen, (240, 240, 240), (person_x - 12, person_y + 15, 24, 8))
-        pygame.draw.line(screen, (200, 50, 50), (person_x - 8, person_y + 19), (person_x + 8, person_y + 19), 2)
+        # 몸통 (의료 가운)
+        gown_color = (180, 200, 210)
+        pygame.draw.rect(screen, gown_color, (person_x - 10, person_y + 10, 20, 40), border_radius=3)
+        pygame.draw.rect(screen, (160, 180, 190), (person_x - 10, person_y + 10, 20, 40), 1, border_radius=3)
 
-        # === 힐링 이펙트 ===
-        # 파티클 (위로 올라가는 초록 점들)
-        for i in range(5):
-            particle_y_offset = (anim_timer * 30 + i * 20) % (capsule_h - 30)
-            particle_x_offset = int(5 * math.sin(anim_timer * 3 + i))
-            particle_alpha = int(200 - particle_y_offset * 3)
-            if particle_alpha > 0:
-                particle_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
-                pygame.draw.circle(particle_surf, (*HEAL_GREEN, particle_alpha), (4, 4), 3)
-                screen.blit(particle_surf, (person_x - 4 + particle_x_offset,
-                                          capsule_y + capsule_h - 30 - particle_y_offset))
+        # 팔
+        pygame.draw.rect(screen, SKIN_BASE, (person_x - 14, person_y + 15, 6, 20), border_radius=2)
+        pygame.draw.rect(screen, SKIN_BASE, (person_x + 8, person_y + 15, 6, 20), border_radius=2)
 
-        # 글로우 효과
-        glow_intensity = int(40 + 20 * math.sin(anim_timer * 2))
-        glow_surf = pygame.Surface((capsule_w + 20, capsule_h + 20), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (*HEAL_DIM, glow_intensity), (0, 0, capsule_w + 20, capsule_h + 20), border_radius=20)
-        screen.blit(glow_surf, (capsule_x - 10, capsule_y - 10))
+        # 붕대 (가슴)
+        pygame.draw.rect(screen, BANDAGE, (person_x - 8, person_y + 18, 16, 12), border_radius=2)
+        pygame.draw.line(screen, (200, 60, 60), (person_x - 5, person_y + 24), (person_x + 5, person_y + 24), 2)
+        pygame.draw.line(screen, (200, 60, 60), (person_x, person_y + 20), (person_x, person_y + 28), 2)
+
+        # 머리 붕대
+        pygame.draw.arc(screen, BANDAGE, (person_x - 12, person_y - 14, 24, 20), 0.5, 2.6, 3)
+
+        # === 힐링 이펙트 (상세) ===
+        # 힐링 링 (회전)
+        ring_phase = anim_timer * 2
+        ring_y = tube_y + tube_h - liquid_level + int(10 * math.sin(anim_timer))
+
+        ring_surf = pygame.Surface((capsule_w, 20), pygame.SRCALPHA)
+        ring_w = int(capsule_w * 0.6 + 5 * math.sin(ring_phase))
+        pygame.draw.ellipse(ring_surf, HEAL_RING, ((capsule_w - ring_w) // 2, 5, ring_w, 10), 2)
+        screen.blit(ring_surf, (capsule_x, ring_y))
+
+        # 힐링 파티클 (상승)
+        for i in range(8):
+            p_phase = (anim_timer * 40 + i * 30) % tube_h
+            p_x_offset = int(12 * math.sin(anim_timer * 2 + i * 0.8))
+            p_alpha = int(255 - p_phase * 2.5)
+
+            if p_alpha > 0:
+                p_size = max(2, 4 - int(p_phase / 25))
+                p_surf = pygame.Surface((p_size * 2 + 4, p_size * 2 + 4), pygame.SRCALPHA)
+
+                # 파티클 글로우
+                pygame.draw.circle(p_surf, (*HEAL_PARTICLE[:3], p_alpha // 3), (p_size + 2, p_size + 2), p_size + 2)
+                pygame.draw.circle(p_surf, (*HEAL_PARTICLE[:3], p_alpha), (p_size + 2, p_size + 2), p_size)
+
+                screen.blit(p_surf, (person_x - p_size + p_x_offset, tube_y + tube_h - 15 - p_phase))
+
+        # === 컨트롤 패널 (베이스 우측) ===
+        panel_x = capsule_x + capsule_w - 25
+        panel_y = capsule_y + capsule_h - base_h + 2
+
+        # 패널 배경
+        pygame.draw.rect(screen, FRAME_DARK, (panel_x, panel_y, 20, 15), border_radius=2)
+
+        # LED 표시등
+        led_glow = int(200 + 55 * math.sin(anim_timer * 4))
+        pygame.draw.circle(screen, (50, led_glow, 100), (panel_x + 6, panel_y + 5), 3)
+        pygame.draw.circle(screen, (200, 200, 60), (panel_x + 14, panel_y + 5), 3)
+
+        # 미니 디스플레이
+        pygame.draw.rect(screen, (20, 40, 30), (panel_x + 2, panel_y + 9, 16, 4))
+        bar_width = int(10 + 4 * math.sin(anim_timer * 1.5))
+        pygame.draw.rect(screen, (80, 255, 150), (panel_x + 3, panel_y + 10, bar_width, 2))
+
+        # === 글로우 이펙트 (전체) ===
+        glow_intensity = int(30 + 15 * math.sin(anim_timer * 1.5))
+        glow_surf = pygame.Surface((capsule_w + 30, capsule_h + 30), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*HEAL_GLOW[:3], glow_intensity), (0, 0, capsule_w + 30, capsule_h + 30), border_radius=20)
+        screen.blit(glow_surf, (capsule_x - 15, capsule_y - 15))
 
     def _draw_running_track(self, screen, cam_x, cam_y, wall_h):
         """러닝 트랙 라인 그리기 (바닥)"""
