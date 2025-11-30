@@ -63117,12 +63117,15 @@ def show_stage5_intro():
     if played_video:
         return
 
-    try:
-        boss_img = pygame.image.load(STAGE5_INTRO_IMAGE_PATH).convert()
-        boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
-    except:
-        boss_img = pygame.Surface((WIDTH, HEIGHT))
-        boss_img.fill((20, 40, 60))
+    boss_img = pygame.Surface((WIDTH, HEIGHT))
+    boss_img.fill((20, 40, 60))
+
+    if STAGE5_INTRO_IMAGE_PATH:
+        try:
+            boss_img = pygame.image.load(STAGE5_INTRO_IMAGE_PATH).convert()
+            boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
+        except Exception:
+            boss_img.fill((20, 40, 60))
 
     skipped_early = False
     for alpha in range(0, 256, 8):
