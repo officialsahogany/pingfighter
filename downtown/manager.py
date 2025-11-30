@@ -603,7 +603,9 @@ class DowntownManager:
             self._show_building_confirmation_dialog(building_type)
 
     def _check_npc_click(self, world_x, world_y):
-        """마우스 클릭 위치에 NPC가 있는지 확인"""
+        """마우스 클릭 위치에 NPC가 있는지 확인 (플레이어가 가까이 있어야 함)"""
+        import math
+
         # 디버깅: 클릭 좌표 출력
         print(f"[NPC Click Debug] world_x={world_x}, world_y={world_y}")
 
@@ -616,7 +618,17 @@ class DowntownManager:
                 print(f"  -> HIT! can_talk={npc.can_talk()}")
                 # 대화 가능한 NPC인지 확인
                 if npc.can_talk():
-                    return npc
+                    # 플레이어와 NPC 사이 거리 체크 (100픽셀 이내)
+                    player_x = self.player.x
+                    player_y = self.player.y
+                    distance = math.sqrt((player_x - npc.x) ** 2 + (player_y - npc.y) ** 2)
+
+                    if distance <= 100:
+                        print(f"  -> Distance OK: {distance:.1f}px")
+                        return npc
+                    else:
+                        print(f"  -> Too far: {distance:.1f}px (need <= 100px)")
+                        return None
 
         print("  -> No NPC clicked")
         return None

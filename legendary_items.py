@@ -2552,7 +2552,7 @@ class SacredLaurel(LegendaryItem):
         )
         self.max_leaves = 6
         self.leaves = []
-        self.leaf_radius = 50
+        self.leaf_radius = 100  # 가로 길이 200% 증가 (50 -> 100)
         self.leaf_size = 12
         self.rotation_speed = 1.5
         self.current_angle = 0
