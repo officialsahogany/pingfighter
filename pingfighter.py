@@ -63107,8 +63107,8 @@ def show_stage5_intro():
     if STAGE5_INTRO_VIDEO_PATH:
         played_video, _ = play_stage_intro_video(
             STAGE5_INTRO_VIDEO_PATH,
-            stage_text=stage_text,
-            boss_text=boss_name,
+            stage_text="",  # 영상 자체에 자막이 포함되어 중복 표시 방지
+            boss_text="",
             stage_color=(0, 255, 255),
             boss_color=(150, 200, 255),
             post_hold_ms=0,
