@@ -2485,6 +2485,13 @@ class BuildingInterior:
         """크레인 게임 아이템 캡슐 초기화 - 액티브 70% + 패시브 30%"""
         self.crane_prizes = []
 
+        # 현재 캐릭터 타입 확인 (발토르 전용 아이템 필터링용)
+        import sys
+        is_blacksmith = False
+        if 'pingfighter' in sys.modules:
+            pingfighter = sys.modules['pingfighter']
+            is_blacksmith = getattr(pingfighter, 'selected_character_type', '') == 'blacksmith'
+
         # === 액티브 아이템 풀 (70% 비율) ===
         active_items = [
             # 커먼 액티브
@@ -2499,15 +2506,18 @@ class BuildingInterior:
             {"name": "grenade", "korean": "수류탄", "rarity": "rare", "type": "active"},
             {"name": "spider_mine", "korean": "거미지뢰", "rarity": "rare", "type": "active"},
             {"name": "stopwatch", "korean": "스톱워치", "rarity": "rare", "type": "active"},
-            {"name": "repair_kit", "korean": "수리키트", "rarity": "rare", "type": "active"},
             # 에픽 액티브
-            {"name": "berserk_potion", "korean": "광포화물약", "rarity": "epic", "type": "active"},
             {"name": "aipill", "korean": "AI알약", "rarity": "epic", "type": "active"},
             {"name": "pandora_box", "korean": "판도라상자", "rarity": "epic", "type": "active"},
             {"name": "life_elixir", "korean": "생명의영약", "rarity": "epic", "type": "active"},
             {"name": "devil_dice", "korean": "악마의주사위", "rarity": "epic", "type": "active"},
             {"name": "laser_scope", "korean": "레이저조준경", "rarity": "epic", "type": "active"},
         ]
+
+        # 발토르 전용 아이템 추가 (발토르로 플레이 시에만)
+        if is_blacksmith:
+            active_items.append({"name": "repair_kit", "korean": "수리키트", "rarity": "rare", "type": "active"})
+            active_items.append({"name": "berserk_potion", "korean": "광포화물약", "rarity": "epic", "type": "active"})
 
         # === 패시브 아이템 풀 (30% 비율) ===
         passive_items = [

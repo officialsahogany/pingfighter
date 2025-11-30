@@ -31848,11 +31848,8 @@ def handle_player(keys):
                                 print(f"튜토리얼: 하프대쉬 발동 - 공 충돌 대기 중")
                             
                             # 하프 대쉬도 토큰 소모 (게이지는 소모 없음)
-                            # 🔧 버그 수정: set_roll 사용하여 rolling_state와 글로벌 변수 모두에 설정
-                            print(f"[DEBUG] 하프대쉬 토큰 소모 전: rolling_charges={rolling_charges}, half_dash_token_cost={half_dash_token_cost}")
                             current_charges = max(0, rolling_charges - half_dash_token_cost)
                             set_roll("rolling_charges", current_charges)
-                            print(f"[DEBUG] 하프대쉬 토큰 소모 후: current_charges={current_charges}")
 
                             # 최대 토큰 수 계산
                             base_charges = 1
@@ -31868,14 +31865,12 @@ def handle_player(keys):
                                 for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
                                     if idx < len(token_states) and token_states[idx]:
                                         token_states[idx] = False
-                                        print(f"[DEBUG] 하프대쉬 token_states 업데이트: idx={idx}를 False로 설정, token_states={token_states}")
                                         break
                                 if rolling_state is not None:
                                     rolling_state.token_states = list(token_states)
                             else:
                                 # token_states가 없으면 초기화
                                 token_states = [True] * current_charges + [False] * (max_charges - current_charges)
-                                print(f"[DEBUG] 하프대쉬 token_states 초기화: {token_states}")
                                 if rolling_state is not None:
                                     rolling_state.token_states = list(token_states)
                             
@@ -31911,6 +31906,15 @@ def handle_player(keys):
                                 print(f"[DEBUG] 하프대쉬 set_roll 호출 전: rolling_charge_timer={globals().get('rolling_charge_timer', 'N/A')}")
                                 set_roll("rolling_charge_timer", base_timer)
                                 print(f"[DEBUG] 하프대쉬 set_roll 호출 후: base_timer={base_timer}, rolling_charge_timer={globals().get('rolling_charge_timer', 'N/A')}")
+
+                                # 🔧 핵심 수정: 대쉬 매니저에도 동기화 (매 프레임 동기화에서 덮어쓰기 방지)
+                                if dash is not None:
+                                    dash.sync_with_legacy_system(
+                                        current_charges,  # rolling_charges (소모된 후)
+                                        base_timer,       # rolling_charge_timer (새로 설정)
+                                        get_roll("rolling_consecutive_count")
+                                    )
+                                    print(f"[DEBUG] 하프대쉬 dash.sync_with_legacy_system 호출: charges={current_charges}, timer={base_timer}")
                             
                             # 하프대쉬 전용 효과음
                             if 'SOUND_HALF_DASH' in globals():

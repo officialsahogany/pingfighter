@@ -242,10 +242,25 @@ def init_gacha(available_items, legendary_bonus=0.0):
     # 🚫 패시브 아이템 중복 방지를 위한 필터링
     # items.py의 패시브 아이템 획득 상태 확인
     import items
+    import sys
+
+    # 현재 캐릭터 타입 확인 (발토르 전용 아이템 필터링용)
+    is_blacksmith = False
+    if 'pingfighter' in sys.modules:
+        pingfighter_module = sys.modules['pingfighter']
+        is_blacksmith = getattr(pingfighter_module, 'selected_character_type', '') == 'blacksmith'
+
+    # 발토르 전용 아이템 목록
+    BLACKSMITH_ONLY_ITEMS = {"repair_kit", "berserk_potion"}
+
     filtered_items = []
     # gacha_available_items_template 사용 (type이 이미 설정됨)
     for item in gacha_available_items_template:
         item_name = item.get("name", "")
+
+        # 발토르 전용 아이템은 발토르가 아니면 제외
+        if item_name in BLACKSMITH_ONLY_ITEMS and not is_blacksmith:
+            continue
 
         # chargebag 중복 방지
         if item_name == "chargebag" and getattr(items, 'chargebag_obtained', False):
