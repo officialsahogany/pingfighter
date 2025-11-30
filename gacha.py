@@ -179,15 +179,6 @@ capsule_fall_y = 0
 capsule_bounce_count = 0
 capsule_bounce_height = 0
 
-# 크레인 집게 애니메이션 변수
-crane_claw_phase = 0  # 0: 대기, 1: 내려감, 2: 집음, 3: 올라감, 4: 배출구로 이동, 5: 집게 벌림, 6: 아이템 낙하
-crane_claw_x = 0  # 집게 X 위치
-crane_claw_y = 0  # 집게 Y 위치
-crane_claw_open = 0.0  # 집게 벌림 정도 (0.0: 닫힘, 1.0: 열림)
-crane_target_item_idx = -1  # 집으려는 아이템 인덱스
-crane_animation_timer = 0  # 애니메이션 타이머
-crane_held_item = None  # 집게가 들고 있는 아이템
-
 # 뽑기통 크기 및 위치
 GACHA_MACHINE_WIDTH = 300
 GACHA_MACHINE_HEIGHT = 400
@@ -200,8 +191,6 @@ def init_gacha(available_items, legendary_bonus=0.0):
     global gacha_result, gacha_animation, gacha_spin_timer
     global falling_capsule, capsule_fall_speed, capsule_fall_y, capsule_bounce_count, capsule_bounce_height
     global gacha_available_items_template, gacha_legendary_bonus
-    global crane_claw_phase, crane_claw_x, crane_claw_y, crane_claw_open
-    global crane_target_item_idx, crane_animation_timer, crane_held_item
 
     gacha_active = True
     gacha_phase = 0
@@ -210,15 +199,6 @@ def init_gacha(available_items, legendary_bonus=0.0):
     gacha_result = None
     gacha_animation = 0
     gacha_legendary_bonus = max(0.0, min(0.45, legendary_bonus))
-
-    # 크레인 집게 초기화
-    crane_claw_phase = 0
-    crane_claw_x = 0
-    crane_claw_y = 0
-    crane_claw_open = 0.5  # 반쯤 열린 상태로 시작
-    crane_target_item_idx = -1
-    crane_animation_timer = 0
-    crane_held_item = None
 
     # 패시브 아이템 목록 (영구적으로 적용되는 아이템들)
     # store_active_item()의 필터 목록과 동기화 필요
@@ -370,97 +350,41 @@ def update_gacha():
     """뽑기 시스템 업데이트 함수"""
     global gacha_phase, gacha_spinning, gacha_spin_timer, gacha_result, gacha_animation
     global falling_capsule, capsule_fall_speed, capsule_fall_y, capsule_bounce_count, capsule_bounce_height
-    global crane_claw_phase, crane_claw_x, crane_claw_y, crane_claw_open
-    global crane_target_item_idx, crane_animation_timer, crane_held_item
-
+    
     if not gacha_active:
         return
-
-    if gacha_phase == 1:  # 동전 투입 -> 크레인 애니메이션 시작
+    
+    if gacha_phase == 1:  # 동전 투입 애니메이션
         gacha_spin_timer += 1
-        if gacha_spin_timer >= 30:  # 0.5초 후 크레인 시작
+        if gacha_spin_timer >= 60:  # 1초 후 캡슐 떨어짐
             gacha_phase = 2
             gacha_spin_timer = 0
-
+            
             # 랜덤하게 아이템 선택
             gacha_result = random.choice(gacha_items)
-            crane_target_item_idx = gacha_items.index(gacha_result) if gacha_result in gacha_items else 0
-
-            # 크레인 애니메이션 초기화
-            crane_claw_phase = 1  # 내려감 시작
-            crane_claw_open = 0.7  # 집게 열린 상태
-            crane_animation_timer = 0
-            crane_held_item = None
-
-            # 캡슐 변수 초기화 (나중에 배출구에서 사용)
-            falling_capsule = None
+            
+            # 캡슐 떨어지는 애니메이션 시작
+            falling_capsule = gacha_result
             capsule_fall_y = 0
             capsule_fall_speed = 0
             capsule_bounce_count = 0
             capsule_bounce_height = 0
-
-    elif gacha_phase == 2:  # 크레인 애니메이션 진행
-        crane_animation_timer += 1
-
-        if crane_claw_phase == 1:  # 집게 내려감
-            crane_claw_y += 3
-            # 흔들림 효과
-            crane_claw_x = math.sin(crane_animation_timer * 0.15) * 3
-            if crane_claw_y >= 80:  # 아이템 위치까지 도달
-                crane_claw_phase = 2
-                crane_animation_timer = 0
-
-        elif crane_claw_phase == 2:  # 아이템 집기
-            crane_claw_open -= 0.05  # 집게 닫기
-            if crane_claw_open <= 0.15:
-                crane_claw_open = 0.15
-                crane_animation_timer += 1
-                if crane_animation_timer >= 15:  # 잠시 대기
-                    crane_claw_phase = 3
-                    crane_animation_timer = 0
-                    crane_held_item = gacha_result  # 아이템 집음
-
-        elif crane_claw_phase == 3:  # 집게 올라감
-            crane_claw_y -= 4
-            if crane_claw_y <= -10:
-                crane_claw_y = -10
-                crane_claw_phase = 4
-                crane_animation_timer = 0
-
-        elif crane_claw_phase == 4:  # 배출구로 수평 이동 (왼쪽 하단)
-            crane_claw_x -= 4
-            crane_claw_y += 1.5  # 약간 아래로
-            if crane_claw_x <= -100:  # 배출구 위치
-                crane_claw_x = -100
-                crane_claw_phase = 5
-                crane_animation_timer = 0
-
-        elif crane_claw_phase == 5:  # 집게 벌림 (아이템 놓기)
-            crane_claw_open += 0.08
-            if crane_claw_open >= 0.9:
-                crane_claw_open = 0.9
-                crane_claw_phase = 6
-                crane_animation_timer = 0
-                # 아이템 낙하 시작
-                falling_capsule = crane_held_item
-                crane_held_item = None
-
-        elif crane_claw_phase == 6:  # 아이템 배출구에서 낙하
-            capsule_fall_speed += 0.6  # 중력
-            capsule_fall_y += capsule_fall_speed
-
-            # 바닥에 닿으면 튀어오름
-            if capsule_fall_y >= 120 and capsule_fall_speed > 0:
-                capsule_fall_speed = -capsule_fall_speed * 0.5
-                capsule_bounce_count += 1
-                capsule_bounce_height = capsule_fall_y
-
-            # 2번 튀어오른 후 축하 페이지로 이동
-            if capsule_bounce_count >= 2:
-                gacha_phase = 3
-                gacha_animation = 0
-                crane_claw_phase = 0
-                return
+    
+    elif gacha_phase == 2:  # 캡슐 떨어지는 애니메이션
+        capsule_fall_speed += 0.8  # 중력
+        capsule_fall_y += capsule_fall_speed
+        
+        # 바닥에 닿으면 튀어오름
+        if capsule_fall_y >= 200 and capsule_fall_speed > 0:
+            capsule_fall_speed = -capsule_fall_speed * 0.6  # 튀어오름
+            capsule_bounce_count += 1
+            capsule_bounce_height = capsule_fall_y
+        
+        # 3번 튀어오른 후 바로 축하 페이지로 이동
+        if capsule_bounce_count >= 3:
+            gacha_phase = 3
+            gacha_animation = 0
+            return
     
     # 애니메이션 업데이트
     if gacha_phase == 3:
@@ -787,27 +711,13 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
     pygame.draw.rect(display_surf, (0, 255, 255), (0, 0, GACHA_MACHINE_WIDTH - 60, 30), 2)
     screen.blit(display_surf, (display_rect.x, display_rect.y))
     
-    # 상태 텍스트 (크레인 단계별)
+    # 상태 텍스트
     if gacha_phase == 0:
         status_text = "READY"
         status_color = (0, 255, 255)
     elif gacha_phase == 1:
-        status_text = "STARTING..."
+        status_text = "EXTRACTING..."
         status_color = (255, 255, 0)
-    elif gacha_phase == 2:
-        # 크레인 애니메이션 단계별 상태
-        if crane_claw_phase <= 2:
-            status_text = "GRABBING..."
-            status_color = (255, 200, 0)
-        elif crane_claw_phase <= 4:
-            status_text = "MOVING..."
-            status_color = (255, 150, 0)
-        elif crane_claw_phase == 5:
-            status_text = "RELEASING..."
-            status_color = (255, 100, 0)
-        else:
-            status_text = "DROPPING!"
-            status_color = (255, 50, 0)
     else:
         status_text = "COMPLETE!"
         status_color = (0, 255, 0)
@@ -839,134 +749,38 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
         pygame.draw.circle(screen, (150, 150, 200), (bolt_x, bolt_y), 4)
         pygame.draw.circle(screen, (0, 255, 255), (bolt_x, bolt_y), 4, 2)
     
-    # 7. 크레인 집게 애니메이션
-    if gacha_phase == 2 and crane_claw_phase > 0:
-        # 크레인 기준점 (구체 중앙 상단)
-        claw_base_x = globe_center_x + crane_claw_x
-        claw_base_y = globe_center_y - GACHA_GLOBE_RADIUS + 30 + crane_claw_y
-
-        # 집게 크기 및 열림 정도
-        claw_arm_length = 25
-        claw_angle_base = 30 + crane_claw_open * 40  # 열림에 따라 각도 변화
-
-        # 크레인 로프 (집게와 상단 연결)
-        rope_top_y = globe_center_y - GACHA_GLOBE_RADIUS - 10
-        pygame.draw.line(screen, (150, 150, 150), (int(claw_base_x), rope_top_y),
-                        (int(claw_base_x), int(claw_base_y)), 3)
-        # 로프 네온 효과
-        pygame.draw.line(screen, (0, 255, 255), (int(claw_base_x), rope_top_y),
-                        (int(claw_base_x), int(claw_base_y)), 1)
-
-        # 집게 본체 (중앙 연결부)
-        claw_body_color = (100, 100, 150)
-        pygame.draw.circle(screen, claw_body_color, (int(claw_base_x), int(claw_base_y)), 8)
-        pygame.draw.circle(screen, (0, 255, 255), (int(claw_base_x), int(claw_base_y)), 8, 2)
-
-        # 왼쪽 집게 암
-        left_angle = math.radians(180 - claw_angle_base)
-        left_end_x = claw_base_x + math.cos(left_angle) * claw_arm_length
-        left_end_y = claw_base_y - math.sin(left_angle) * claw_arm_length
-        pygame.draw.line(screen, (180, 180, 200), (int(claw_base_x), int(claw_base_y)),
-                        (int(left_end_x), int(left_end_y)), 5)
-        pygame.draw.line(screen, (0, 255, 255), (int(claw_base_x), int(claw_base_y)),
-                        (int(left_end_x), int(left_end_y)), 2)
-        # 집게 끝 (갈고리)
-        left_hook_angle = left_angle - math.radians(90)
-        left_hook_x = left_end_x + math.cos(left_hook_angle) * 10
-        left_hook_y = left_end_y - math.sin(left_hook_angle) * 10
-        pygame.draw.line(screen, (255, 0, 255), (int(left_end_x), int(left_end_y)),
-                        (int(left_hook_x), int(left_hook_y)), 4)
-
-        # 오른쪽 집게 암
-        right_angle = math.radians(claw_angle_base)
-        right_end_x = claw_base_x + math.cos(right_angle) * claw_arm_length
-        right_end_y = claw_base_y - math.sin(right_angle) * claw_arm_length
-        pygame.draw.line(screen, (180, 180, 200), (int(claw_base_x), int(claw_base_y)),
-                        (int(right_end_x), int(right_end_y)), 5)
-        pygame.draw.line(screen, (0, 255, 255), (int(claw_base_x), int(claw_base_y)),
-                        (int(right_end_x), int(right_end_y)), 2)
-        # 집게 끝 (갈고리)
-        right_hook_angle = right_angle + math.radians(90)
-        right_hook_x = right_end_x + math.cos(right_hook_angle) * 10
-        right_hook_y = right_end_y - math.sin(right_hook_angle) * 10
-        pygame.draw.line(screen, (255, 0, 255), (int(right_end_x), int(right_end_y)),
-                        (int(right_hook_x), int(right_hook_y)), 4)
-
-        # 집게가 아이템을 들고 있을 때
-        if crane_held_item:
-            held_x = int(claw_base_x)
-            held_y = int(claw_base_y + 20)
-
-            # 홀로그램 글로우
-            for i in range(2):
-                glow_radius = 18 + i * 4
-                glow_alpha = 60 - i * 20
-                glow_surf = _get_particle_glow_surface(glow_radius * 2, crane_held_item["color"], glow_alpha)
-                screen.blit(glow_surf, (held_x - glow_radius, held_y - glow_radius))
-
-            # 캡슐
-            capsule_radius = 12
-            pygame.draw.circle(screen, crane_held_item["color"], (held_x, held_y), capsule_radius)
-            pygame.draw.circle(screen, (0, 255, 255), (held_x, held_y), capsule_radius, 2)
-
-            # 아이콘
-            item_name = crane_held_item.get("name", "")
-            legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
-            drew_legendary = False
-            if item_name in legendary_names:
-                try:
-                    from legendary_items import get_legendary_manager
-                    lm = get_legendary_manager()
-                    li = lm.get_item(item_name) if lm else None
-                    if li:
-                        li.update(1/60.0, ui_mode=True)
-                        icon_surf = pygame.Surface((18, 18), pygame.SRCALPHA)
-                        li.draw_icon(icon_surf, 0, 0, 18)
-                        screen.blit(icon_surf, (held_x - 9, held_y - 9))
-                        drew_legendary = True
-                except Exception:
-                    pass
-            if not drew_legendary and "icon" in crane_held_item and crane_held_item["icon"]:
-                icon = pygame.transform.smoothscale(crane_held_item["icon"], (16, 16))
-                screen.blit(icon, (held_x - 8, held_y - 8))
-
-    # 8. 배출구에서 떨어지는 캡슐 (크레인이 놓은 후)
-    if gacha_phase == 2 and crane_claw_phase == 6 and falling_capsule:
-        # 배출구 위치 (왼쪽 하단)
-        chute_x = globe_center_x - 100
-        chute_y = machine_y + GACHA_MACHINE_HEIGHT - GACHA_BASE_HEIGHT + 60
-        fall_x = chute_x
-        fall_y = chute_y + capsule_fall_y
-
+    # 7. 떨어지는 캡슐 애니메이션 (홀로그램 스타일)
+    if gacha_phase == 2 and falling_capsule:
+        fall_x = center_x
+        fall_y = machine_y + GACHA_MACHINE_HEIGHT + 50 + capsule_fall_y
+        
         # 홀로그램 글로우 효과
         for i in range(3):
             glow_radius = 20 + i * 5
             glow_alpha = 80 - i * 20
             glow_surf = _get_particle_glow_surface(glow_radius * 2, falling_capsule["color"], glow_alpha)
-            screen.blit(glow_surf, (int(fall_x - glow_radius), int(fall_y - glow_radius)))
-
+            screen.blit(glow_surf, (fall_x - glow_radius, fall_y - glow_radius))
+        
         # 떨어지는 캡슐
         capsule_radius = 15
         pygame.draw.circle(screen, falling_capsule["color"], (int(fall_x), int(fall_y)), capsule_radius)
         pygame.draw.circle(screen, (0, 255, 255), (int(fall_x), int(fall_y)), capsule_radius, 3)
-
-        # 트레일 효과 (속도가 빠를 때만)
-        if capsule_fall_speed > 2:
-            trail_count = min(5, int(capsule_fall_speed))
-            for i in range(trail_count):
-                trail_y_pos = fall_y - (i + 1) * 8
-                trail_alpha = 100 - i * 20
-                trail_radius = max(5, capsule_radius - i * 2)
-                trail_surf = pygame.Surface((trail_radius * 2, trail_radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(trail_surf, (*falling_capsule["color"], trail_alpha),
-                                 (trail_radius, trail_radius), trail_radius)
-                screen.blit(trail_surf, (int(fall_x - trail_radius), int(trail_y_pos - trail_radius)))
-
+        
+        # 트레일 효과
+        trail_count = 5
+        for i in range(trail_count):
+            trail_y = fall_y - (i + 1) * 10
+            trail_alpha = 100 - i * 20
+            trail_radius = capsule_radius - i
+            trail_surf = pygame.Surface((trail_radius * 2, trail_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(trail_surf, (*falling_capsule["color"], trail_alpha), 
+                             (trail_radius, trail_radius), trail_radius)
+            screen.blit(trail_surf, (fall_x - trail_radius, trail_y - trail_radius))
+        
         # 캡슐 내부 아이콘
-        item_name = falling_capsule.get("name", "")
-        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
+        item_name = falling_capsule.get("name")
         legendary_fall = False
-        if item_name in legendary_names:
+        if item_name in {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}:
             try:
                 from legendary_items import get_legendary_manager
                 legendary_manager = get_legendary_manager()
@@ -1209,15 +1023,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     
     elif gacha_phase == 2:
         guide_font = draw_gacha._guide_font_mid
-        # 크레인 애니메이션 단계별 안내 텍스트
-        if crane_claw_phase <= 2:
-            guide_text = "크레인이 아이템을 집고 있습니다..."
-        elif crane_claw_phase <= 4:
-            guide_text = "배출구로 이동 중..."
-        elif crane_claw_phase == 5:
-            guide_text = "집게를 열고 있습니다..."
-        else:
-            guide_text = "아이템이 떨어지고 있습니다!"
+        guide_text = "아이템이 나오고 있습니다..."
         text = guide_font.render(guide_text, True, (255, 255, 255))
         shadow_text = guide_font.render(guide_text, True, (80, 80, 80))
         text_rect = text.get_rect(center=(container_x + container_width // 2, container_y + container_height - 80))
