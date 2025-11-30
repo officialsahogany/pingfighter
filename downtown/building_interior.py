@@ -4380,12 +4380,19 @@ class BuildingInterior:
         # 크레인 게임 플레이 중일 때
         if self.crane_game_playing:
             if self.crane_state == "idle":
-                # W/위 방향키로 Y축 목표 위치 올리기
-                if event.key == pygame.K_w or event.key == pygame.K_UP:
+                # W/ㅈ/위 방향키로 Y축 목표 위치 올리기
+                # 한글 'ㅈ'은 유니코드로 처리 (event.unicode 사용)
+                is_w_key = event.key == pygame.K_w or event.key == pygame.K_UP
+                if hasattr(event, 'unicode') and event.unicode in ('ㅈ', 'w', 'W'):
+                    is_w_key = True
+                if is_w_key:
                     self.crane_target_y = max(0.3, self.crane_target_y - 0.05)
                     return ("crane_target_y", self.crane_target_y)
-                # S/아래 방향키로 Y축 목표 위치 내리기
-                if event.key == pygame.K_s or event.key == pygame.K_DOWN:
+                # S/ㄴ/아래 방향키로 Y축 목표 위치 내리기
+                is_s_key = event.key == pygame.K_s or event.key == pygame.K_DOWN
+                if hasattr(event, 'unicode') and event.unicode in ('ㄴ', 's', 'S'):
+                    is_s_key = True
+                if is_s_key:
                     self.crane_target_y = min(0.9, self.crane_target_y + 0.05)
                     return ("crane_target_y", self.crane_target_y)
                 # 스페이스/엔터로 크레인 내리기
