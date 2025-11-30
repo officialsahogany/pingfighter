@@ -2520,7 +2520,7 @@ class BuildingInterior:
             {"name": "stopwatch", "korean": "스톱워치", "rarity": "common", "type": "active"},
             {"name": "aipill", "korean": "AI알약", "rarity": "common", "type": "active"},
             {"name": "pandora_box", "korean": "판도라상자", "rarity": "epic", "type": "active"},
-            {"name": "life_elixir", "korean": "생명수", "rarity": "common", "type": "active"},
+            {"name": "life_elixir", "korean": "생명수", "rarity": "epic", "type": "active"},
             {"name": "devil_dice", "korean": "악마의주사위", "rarity": "common", "type": "active"},
             {"name": "laser_scope", "korean": "레이저스코프", "rarity": "common", "type": "active"},
         ]
