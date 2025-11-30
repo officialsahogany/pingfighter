@@ -7098,17 +7098,25 @@ class BuildingInterior:
         pygame.draw.rect(screen, (100, 85, 70), glass_rect, 3)
         pygame.draw.rect(screen, (40, 35, 30), glass_rect, 1)
 
-        # === Y축 깊이 조절 장치 (초록색 바닥 영역에 맞춤) ===
+        # === Y축 깊이 조절 장치 (집게 끝 위치 기준) ===
         # 초록색 바닥 영역: game_h * 0.55 ~ game_h (화면상)
         # 크레인 Y 좌표는 0.85 스케일 적용: crane_py = glass_y + crane_y * game_h * 0.85
-        # 따라서 실제 조절 범위: 0.55 ~ 1.0 (crane_target_y)
+        # 집게 끝 오프셋: 43픽셀 (claw_box 높이 + claw_length)
+        # 슬라이더는 집게 끝이 닿는 실제 위치를 표시
 
-        # 슬라이더 패널을 초록색 영역과 정확히 일치시킴
+        claw_tip_offset_for_slider = 43  # 집게 끝까지의 픽셀 오프셋
         floor_start_ratio = 0.55  # 초록색 바닥 시작점
+
+        # 집게 끝 기준으로 슬라이더 위치 계산
+        # 최소 깊이(0.55)일 때 집게 끝 위치
+        min_claw_tip_y = glass_y + int(floor_start_ratio * game_h * 0.85) + claw_tip_offset_for_slider
+        # 최대 깊이(1.0)일 때 집게 끝 위치
+        max_claw_tip_y = glass_y + int(1.0 * game_h * 0.85) + claw_tip_offset_for_slider
+
         depth_panel_x = glass_x - 45  # 유리창 왼쪽 바깥
-        depth_panel_y = glass_y + int(game_h * floor_start_ratio * 0.85)  # 초록 영역 시작과 맞춤
+        depth_panel_y = min_claw_tip_y - 10  # 집게 끝 최소 위치에 맞춤
         depth_panel_w = 35
-        depth_panel_h = int(game_h * (1.0 - floor_start_ratio) * 0.85)  # 초록 영역 높이와 맞춤
+        depth_panel_h = max_claw_tip_y - min_claw_tip_y + 20  # 집게 끝 이동 범위에 맞춤
 
         # 패널 배경 (메탈릭, 초록 톤)
         depth_bg = pygame.Surface((depth_panel_w, depth_panel_h), pygame.SRCALPHA)
@@ -7159,9 +7167,13 @@ class BuildingInterior:
                            (track_x - 5, slider_y - 3, 10, 5))  # 하이라이트
         pygame.draw.ellipse(screen, (40, 60, 40), (track_x - 7, slider_y - 4, 14, 10), 1)  # 테두리
 
-        # 크레인 깊이 목표선 (유리창 내부, 초록 영역에만 표시)
+        # 크레인 깊이 목표선 (유리창 내부, 집게 끝 위치 표시)
+        # 집게 끝 오프셋: claw_box_y(crane_py-5) + claw_box_h(18) + claw_length(30) = crane_py + 43
+        claw_tip_offset = 43  # 집게 끝까지의 픽셀 오프셋
         if self.crane_state == "idle":
-            target_line_y = glass_y + int(self.crane_target_y * game_h * 0.85)
+            # 크레인 몸통 위치 + 집게 끝 오프셋 = 실제 집게 끝 위치
+            crane_body_y = glass_y + int(self.crane_target_y * game_h * 0.85)
+            target_line_y = crane_body_y + claw_tip_offset
             line_alpha = int(100 + 50 * math.sin(self.animation_timer * 3))
             target_line_surf = pygame.Surface((game_w - 40, 2), pygame.SRCALPHA)
             # 점선 효과 (초록 계열)
