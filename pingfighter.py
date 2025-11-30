@@ -31103,9 +31103,6 @@ def handle_player(keys):
             current_speed = 0
     else:
         #  구르기 상태 처리
-        # 🔧 디버그: rolling_active 상태 확인 (매 30프레임마다 출력)
-        if frame_count % 30 == 0 and _rolling_get("rolling_charge_timer") > 0:
-            print(f"[DEBUG] 충전 루프: rolling_active={_rolling_get('rolling_active')}, rolling_charge_timer={_rolling_get('rolling_charge_timer')}")
         if _rolling_get("rolling_active"):
             # 구르기 중일 때
             rolling_timer_value = _rolling_get("rolling_timer") - 1
@@ -31114,8 +31111,6 @@ def handle_player(keys):
                 # 구르기 종료, 통제 불가능 상태 시작
                 _rolling_set("rolling_active", False)
                 # 하프대쉬 플래그는 충돌 처리가 완료될 때까지 유지
-                # is_half_dash_active = False  # 주석 처리 - 충돌 체크 후에 리셋
-                print(f"[DEBUG 킥차져] 대쉬 종료, is_half_dash_active는 유지: {is_half_dash_active}")
                 
                 # 튜토리얼: 대쉬 종료 시 카운팅 플래그 리셋
                 if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
@@ -31581,14 +31576,12 @@ def handle_player(keys):
                         for idx in range(min(len(token_states), max_charges)):
                             if idx < len(token_states) and not token_states[idx]:
                                 token_states[idx] = True
-                                print(f"[DEBUG] 토큰 충전 완료: idx={idx}를 True로 설정, token_states={token_states}")
                                 break
                         if rolling_state is not None:
                             rolling_state.token_states = list(token_states)
                     else:
                         # token_states가 없으면 초기화
                         token_states = [True] * rolling_charges_value + [False] * (max_charges - rolling_charges_value)
-                        print(f"[DEBUG] 토큰 충전 초기화: {token_states}")
                         if rolling_state is not None:
                             rolling_state.token_states = list(token_states)
                     # 아직 최대 토큰이 아니면 다음 충전 타이머 설정
@@ -31879,7 +31872,6 @@ def handle_player(keys):
 
                             #  하프대쉬 후 토큰 충전 타이머 설정 (중요!)
                             # max_charges는 위에서 이미 계산됨, current_charges는 감소된 토큰 수
-                            print(f"[DEBUG] 하프대쉬 충전조건: current_charges={current_charges} < max_charges={max_charges} ? {current_charges < max_charges}")
                             if current_charges < max_charges:
                                 # 경량화 스킬 효과 적용
                                 lightweight_bonus = academy.get_skill_bonus("dash_lightweight") if 'academy' in globals() else 0
@@ -31892,7 +31884,6 @@ def handle_player(keys):
                                 if is_devil_dice_active():
                                     multipliers = get_devil_dice_multipliers()
                                     base_timer = int(base_timer * multipliers['dash_cooldown'])
-                                    print(f"[DEBUG]  -     : x{multipliers['dash_cooldown']:.1f}")
 
                                 # 천사의 가호 대쉬 쿨타임 버프 적용 (하프대쉬) - dash_manager._GLOBAL_DASH_INST 직접 참조
                                 dm_inst = dash_manager._GLOBAL_DASH_INST
@@ -31900,12 +31891,9 @@ def handle_player(keys):
                                     external_cooldown_mul = getattr(dm_inst, 'external_cooldown_multiplier', 1.0)
                                     if external_cooldown_mul != 1.0:
                                         base_timer = int(base_timer * external_cooldown_mul)
-                                        print(f"[DEBUG] 하프대쉬 천사의 가호 쿨타임 버프: x{external_cooldown_mul:.2f}")
 
                                 # 🔧 버그 수정: set_roll 사용하여 rolling_state와 글로벌 변수 모두에 설정
-                                print(f"[DEBUG] 하프대쉬 set_roll 호출 전: rolling_charge_timer={globals().get('rolling_charge_timer', 'N/A')}")
                                 set_roll("rolling_charge_timer", base_timer)
-                                print(f"[DEBUG] 하프대쉬 set_roll 호출 후: base_timer={base_timer}, rolling_charge_timer={globals().get('rolling_charge_timer', 'N/A')}")
 
                                 # 🔧 핵심 수정: 대쉬 매니저에도 동기화 (매 프레임 동기화에서 덮어쓰기 방지)
                                 if dash is not None:
@@ -31914,7 +31902,6 @@ def handle_player(keys):
                                         base_timer,       # rolling_charge_timer (새로 설정)
                                         get_roll("rolling_consecutive_count")
                                     )
-                                    print(f"[DEBUG] 하프대쉬 dash.sync_with_legacy_system 호출: charges={current_charges}, timer={base_timer}")
                             
                             # 하프대쉬 전용 효과음
                             if 'SOUND_HALF_DASH' in globals():
@@ -44051,7 +44038,6 @@ def draw_player_gauge():
         max_tokens = 1
     if max_tokens > last_max_dash_tokens:
         added = max_tokens - last_max_dash_tokens
-        print(f"[DEBUG UI 토큰증가] max_tokens={max_tokens} > last_max={last_max_dash_tokens}, added={added}")
         rolling_charges = min(max_tokens, rolling_charges + added)
         rolling_charge_timer = 0
         token_states = [True] * rolling_charges + [False] * (max_tokens - rolling_charges)
@@ -44081,21 +44067,13 @@ def draw_player_gauge():
     if len(token_states) != max_tokens:
         # 현재 충전된 토큰 수 계산
         current_charged = sum(1 for state in token_states if state)
-        print(f"[DEBUG UI 크기조정] len(token_states)={len(token_states)} != max_tokens={max_tokens}, rolling_charges={rolling_charges}")
         # 새로운 토큰 상태 배열 생성
         if rolling_charges > 0:
             # 실제 충전된 토큰 수에 맞춰 재구성
-            print(f"[DEBUG UI 크기조정] token_states를 [True]*{rolling_charges}로 덮어씀!")
             token_states = [True] * min(rolling_charges, max_tokens) + [False] * max(0, max_tokens - rolling_charges)
         else:
             # 토큰이 없으면 모두 비어있음
             token_states = [False] * max_tokens
-    # 🔧 디버그: UI에서 rolling_charge_timer 값 확인 (1초마다)
-    if 'ui_debug_timer' not in globals():
-        globals()['ui_debug_timer'] = 0
-    globals()['ui_debug_timer'] = globals().get('ui_debug_timer', 0) + 1
-    if globals()['ui_debug_timer'] % 60 == 0:
-        print(f"[DEBUG UI] rolling_charge_timer={rolling_charge_timer}, token_states={token_states}, rolling_charges={rolling_charges}")
 
     for i in range(max_tokens):
         token_x = token_start_x + i * token_spacing
