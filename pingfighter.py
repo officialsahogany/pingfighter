@@ -19,6 +19,7 @@ import random
 import importlib
 import copy
 import glob
+import tempfile
 from pathlib import Path
 import time
 
@@ -837,9 +838,41 @@ def load_stage_intro_audio(video_path: str | os.PathLike[str] | None) -> pygame.
                 clip.close()
                 return None
 
-        sound_array = audio_clip.to_soundarray(fps=freq)
-        audio_clip.close()
-        clip.close()
+        sound_array = None
+        temp_path = None
+        try:
+            sound_array = audio_clip.to_soundarray(fps=freq)
+        except Exception as exc:  # pylint: disable=broad-except
+            # 일부 코덱/프레임 조합에서 to_soundarray가 실패할 수 있어 파일 추출로 폴백한다.
+            print(f"[StageIntro] to_soundarray 실패, 파일 추출 시도 - {exc}")
+            try:
+                fd, temp_path = tempfile.mkstemp(suffix=".wav")
+                os.close(fd)
+                audio_clip.write_audiofile(
+                    temp_path, fps=freq, codec="pcm_s16le", logger=None, verbose=False
+                )
+                try:
+                    sound = pygame.mixer.Sound(temp_path)
+                    intro_audio_cache[absolute_path] = sound
+                    return sound
+                except Exception as exc2:  # pylint: disable=broad-except
+                    print(f"[StageIntro] 오디오 파일 변환 실패 - {exc2}")
+                    return None
+            finally:
+                try:
+                    if temp_path and os.path.isfile(temp_path):
+                        os.remove(temp_path)
+                except Exception:
+                    pass
+        finally:
+            try:
+                audio_clip.close()
+            except Exception:
+                pass
+            try:
+                clip.close()
+            except Exception:
+                pass
     except Exception as exc:  # pylint: disable=broad-except
         print(f"[StageIntro] 오디오 추출 실패 - {exc}")
         return None
@@ -1467,6 +1500,8 @@ STAGE6_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage6.mov")
 STAGE6_INTRO_IMAGE_PATH = resource_path("stage6_field.png")
 STAGE7_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage7.mp4")
 STAGE7_INTRO_IMAGE_PATH = resource_path("stage7_field.png")
+STAGE8_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage8.mp4")
+STAGE8_INTRO_IMAGE_PATH = resource_path("stage8_field.png")
 
 animated_bg = stage_backgrounds.animated_bg
 animated_bg_stage2 = stage_backgrounds.animated_bg_stage2
@@ -49626,7 +49661,8 @@ def draw_objects():
                             'patrol_center_x': 0,
                             'patrol_center_y': 0,
                             'health': 1,  # 한 번 맞으면 파괴
-                            'glow_timer': 0
+                            'glow_timer': 0,
+                            'golden': random.random() < 0.30  # 30% 확률로 황금 인터셉터
                         }
                         interceptors.append(new_interceptor)
                         to_launch.append(interceptor_data)
@@ -49687,15 +49723,21 @@ def draw_objects():
                         ball_vel[0] += random.uniform(-2, 2)
                         # 인터셉터 파괴
                         interceptors.remove(interceptor)
-                        # 폭발 이펙트
+                        # 폭발 이펙트 (불꽃 느낌, 황금 색상 유지)
                         play_sound_with_volume(SOUND_STAGE6_INTERCEPTOR_HIT)
-                        for _ in range(15):
+                        for _ in range(18):
                             spark_angle = random.uniform(0, math.pi * 2)
                             spark_dist = random.uniform(0, 25)
                             spark_x = interceptor['x'] + math.cos(spark_angle) * spark_dist
                             spark_y = interceptor['y'] + math.sin(spark_angle) * spark_dist
-                            draw.circle((255, 200, 100), 
-                                             (int(spark_x), int(spark_y)), random.randint(2, 4))
+                            color = (255, 215, 120) if interceptor.get('golden') else (255, 200, 100)
+                            draw.circle(color, (int(spark_x), int(spark_y)), random.randint(2, 4))
+                        # 황금 인터셉터 보상: 스타포인트 드랍
+                        try:
+                            if interceptor.get('golden') and 'trade_point_system' in globals() and trade_point_system:
+                                trade_point_system.spawn_star(interceptor['x'], interceptor['y'], "gold_interceptor")
+                        except Exception:
+                            pass
                         continue
                     # 공이 멀어지면 다시 순찰
                     if dist > 150 or ball_vel[1] > 0:
@@ -49713,14 +49755,20 @@ def draw_objects():
                 # 그림자
                 shadow_points = [(p[0] + 2, p[1] + 2) for p in points]
                 draw.polygon((30, 30, 40), shadow_points)
-                # 본체
-                draw.polygon((100, 120, 140), points)
-                draw.polygon((150, 170, 190), points, 2)
+                # 본체 색상: 일반은 청록, 황금 인터셉터는 금색 계열
+                if interceptor.get('golden'):
+                    body_color = (220, 170, 40)
+                    rim_color = (255, 215, 80)
+                    core_color = (255, 230, 140 + int(glow))
+                else:
+                    body_color = (100, 120, 140)
+                    rim_color = (150, 170, 190)
+                    core_color = (100 + glow, 150 + glow, 255)
+                draw.polygon(body_color, points)
+                draw.polygon(rim_color, points, 2)
                 # 에너지 코어
-                draw.circle((100 + glow, 150 + glow, 255), 
-                                 (int(interceptor['x']), int(interceptor['y'])), 3)
-                draw.circle(WHITE, 
-                                 (int(interceptor['x']), int(interceptor['y'])), 1)
+                draw.circle(core_color, (int(interceptor['x']), int(interceptor['y'])), 3)
+                draw.circle(WHITE, (int(interceptor['x']), int(interceptor['y'])), 1)
                 # 추진 효과
                 if interceptor['state'] in ['launching', 'intercepting']:
                     # 이동 방향 계산
@@ -50121,6 +50169,8 @@ def show_victory_screen(stage_cleared, reward):
         preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
     if display_stage_cleared == 6:
         preload_stage_intro_resources(STAGE7_INTRO_VIDEO_PATH)
+    if display_stage_cleared == 7:
+        preload_stage_intro_resources(STAGE8_INTRO_VIDEO_PATH)
     # 스테이지 클리어 보상으로 스킬 포인트 추가
     import academy
     base_points = 1
@@ -51050,6 +51100,9 @@ def show_victory_screen(stage_cleared, reward):
                 elif next_stage_display == 7:
                     preload_stage_intro_resources(STAGE7_INTRO_VIDEO_PATH)
                     show_stage7_intro()
+                elif next_stage_display == 8:
+                    preload_stage_intro_resources(STAGE8_INTRO_VIDEO_PATH)
+                    show_stage8_intro()
 
                 if not game_should_exit:
                     # 스테이지 전환 직전 스냅샷(옵션)
@@ -61815,16 +61868,130 @@ def get_item_icon(item_name):
 
     if item_name == "angel_blessing":
         icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
-        pygame.draw.rect(icon_surface, (235, 245, 255), (2, 2, ICON_SIZE - 4, ICON_SIZE - 4), border_radius=6)
-        pygame.draw.rect(icon_surface, (120, 170, 220), (2, 2, ICON_SIZE - 4, ICON_SIZE - 4), 2, border_radius=6)
-        # 간단한 주사위 눈 3개 배치
-        pip_positions = [
-            (ICON_SIZE // 2, ICON_SIZE // 2),
-            (ICON_SIZE // 4, ICON_SIZE // 4),
-            (ICON_SIZE * 3 // 4, ICON_SIZE * 3 // 4),
+        size = ICON_SIZE
+        cx, cy = size // 2, size // 2
+
+        # 공통 전설 프레임 배경 (정적 버전)
+        # Layer 1: Blue Pulsing Glow (정적)
+        pygame.draw.circle(icon_surface, (30, 90, 170), (cx, cy), size // 2 - 2)
+        pygame.draw.circle(icon_surface, (70, 140, 200), (cx, cy), int((size // 2 - 2) * 0.85))
+        pygame.draw.circle(icon_surface, (140, 190, 220), (cx, cy), int((size // 2 - 2) * 0.65))
+
+        # Layer 2: Red Inner Borders
+        pygame.draw.rect(icon_surface, (180, 40, 40), (2, 2, size - 4, size - 4), 1)
+        pygame.draw.rect(icon_surface, (160, 30, 30), (3, 3, size - 6, size - 6), 1)
+
+        # Layer 4: Silver-Blue Frame
+        pygame.draw.rect(icon_surface, (180, 200, 255), (0, 0, size, size), 2)
+
+        # Layer 5: Golden Corners
+        corner_size = max(4, size // 8)
+        corner_color = (255, 215, 0)
+        pygame.draw.lines(icon_surface, corner_color, False, [(0, corner_size), (0, 0), (corner_size, 0)], 2)
+        pygame.draw.lines(icon_surface, corner_color, False, [(size - corner_size, 0), (size - 1, 0), (size - 1, corner_size)], 2)
+        pygame.draw.lines(icon_surface, corner_color, False, [(0, size - corner_size), (0, size - 1), (corner_size, size - 1)], 2)
+        pygame.draw.lines(icon_surface, corner_color, False, [(size - corner_size, size - 1), (size - 1, size - 1), (size - 1, size - corner_size)], 2)
+
+        # 중앙에 3D 주사위 그리기 (정적 버전 - 3면 보이는 각도)
+        dice_size = int(size * 0.35)
+        half = dice_size // 2
+
+        # 고정된 회전 각도 (30도, 30도)
+        import math
+        rot_x_rad = math.radians(25)
+        rot_y_rad = math.radians(35)
+        cos_x, sin_x = math.cos(rot_x_rad), math.sin(rot_x_rad)
+        cos_y, sin_y = math.cos(rot_y_rad), math.sin(rot_y_rad)
+
+        def rotate_point(px, py, pz):
+            x1 = px * cos_y - pz * sin_y
+            z1 = px * sin_y + pz * cos_y
+            y1 = py * cos_x - z1 * sin_x
+            z2 = py * sin_x + z1 * cos_x
+            return cx + int(x1), cy + int(y1), z2
+
+        vertices_3d = [
+            (-half, -half, -half), (half, -half, -half),
+            (half, half, -half), (-half, half, -half),
+            (-half, -half, half), (half, -half, half),
+            (half, half, half), (-half, half, half),
         ]
-        for px, py in pip_positions:
-            pygame.draw.circle(icon_surface, (90, 130, 200), (px, py), 3)
+
+        vertices_2d = []
+        vertices_depth = []
+        for vx, vy, vz in vertices_3d:
+            rx, ry, rz = rotate_point(vx, vy, vz)
+            vertices_2d.append((rx, ry))
+            vertices_depth.append(rz)
+
+        # 면 정의: [정점 인덱스], 주사위 눈 수, 중심점 3D, u축, v축
+        faces = [
+            ([0, 1, 2, 3], 1, (0, 0, -half), (1, 0, 0), (0, 1, 0)),
+            ([5, 4, 7, 6], 6, (0, 0, half), (-1, 0, 0), (0, 1, 0)),
+            ([4, 5, 1, 0], 2, (0, -half, 0), (1, 0, 0), (0, 0, 1)),
+            ([3, 2, 6, 7], 5, (0, half, 0), (1, 0, 0), (0, 0, -1)),
+            ([4, 0, 3, 7], 3, (-half, 0, 0), (0, 0, -1), (0, 1, 0)),
+            ([1, 5, 6, 2], 4, (half, 0, 0), (0, 0, 1), (0, 1, 0)),
+        ]
+
+        def get_face_depth(face_data):
+            return sum(vertices_depth[i] for i in face_data[0]) / 4
+
+        faces_sorted = sorted(faces, key=get_face_depth, reverse=True)
+
+        # 주사위 색상
+        white_light = (255, 255, 255)
+        white_mid = (240, 245, 255)
+        white_dark = (220, 230, 245)
+        edge_color = (180, 190, 210)
+        pip_color = (80, 110, 180)
+
+        pip_positions_local = {
+            1: [(0, 0)],
+            2: [(-0.45, -0.45), (0.45, 0.45)],
+            3: [(-0.45, -0.45), (0, 0), (0.45, 0.45)],
+            4: [(-0.45, -0.45), (0.45, -0.45), (-0.45, 0.45), (0.45, 0.45)],
+            5: [(-0.45, -0.45), (0.45, -0.45), (0, 0), (-0.45, 0.45), (0.45, 0.45)],
+            6: [(-0.45, -0.45), (0.45, -0.45), (-0.45, 0), (0.45, 0), (-0.45, 0.45), (0.45, 0.45)],
+        }
+
+        pip_size = max(2, int(half * 0.22))
+        pip_scale = half * 0.7
+
+        # 앞 3면만 그리기
+        for face_data in faces_sorted[:3]:
+            indices, face_num, center_3d, u_axis, v_axis = face_data
+            points = [vertices_2d[i] for i in indices]
+
+            avg_depth = sum(vertices_depth[i] for i in indices) / 4
+            brightness = 0.75 + 0.25 * (avg_depth / half + 1) / 2
+            brightness = min(1.0, max(0.65, brightness))
+
+            if brightness > 0.88:
+                base_color = white_light
+            elif brightness > 0.78:
+                base_color = white_mid
+            else:
+                base_color = white_dark
+
+            adj_color = tuple(min(255, int(c * brightness)) for c in base_color)
+
+            pygame.draw.polygon(icon_surface, adj_color, points)
+            pygame.draw.polygon(icon_surface, edge_color, points, 1)
+
+            # 주사위 눈 그리기
+            for pu, pv in pip_positions_local.get(face_num, []):
+                pip_3d_x = center_3d[0] + u_axis[0] * pu * pip_scale + v_axis[0] * pv * pip_scale
+                pip_3d_y = center_3d[1] + u_axis[1] * pu * pip_scale + v_axis[1] * pv * pip_scale
+                pip_3d_z = center_3d[2] + u_axis[2] * pu * pip_scale + v_axis[2] * pv * pip_scale
+                pip_x, pip_y, _ = rotate_point(pip_3d_x, pip_3d_y, pip_3d_z)
+
+                pygame.draw.circle(icon_surface, (pip_color[0]//2, pip_color[1]//2, pip_color[2]//2),
+                                  (pip_x + 1, pip_y + 1), pip_size)
+                pygame.draw.circle(icon_surface, pip_color, (pip_x, pip_y), pip_size)
+                pygame.draw.circle(icon_surface, (220, 230, 255),
+                                  (pip_x - 1, pip_y - 1), max(1, pip_size // 3))
+
         icon_cache[item_name] = icon_surface
         return icon_surface
 
@@ -63446,6 +63613,124 @@ def show_stage7_intro():
         SCREEN.blit(boss_img, (0, 0))
         grid_overlay.set_alpha(alpha)
         SCREEN.blit(grid_overlay, (0, 0))
+        pygame.display.flip()
+        pygame.time.delay(25)
+
+
+def show_stage8_intro():
+    stage_text = "STAGE 8"
+    boss_name = "탁닌자"
+
+    played_video = False
+    if STAGE8_INTRO_VIDEO_PATH:
+        played_video, _ = play_stage_intro_video(
+            STAGE8_INTRO_VIDEO_PATH,
+            stage_text=stage_text,
+            boss_text=boss_name,
+            stage_color=(90, 140, 200),
+            boss_color=(150, 220, 255),
+            post_hold_ms=0,
+        )
+
+    if played_video:
+        return
+
+    try:
+        boss_img = pygame.image.load(STAGE8_INTRO_IMAGE_PATH).convert()
+        boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
+    except Exception:
+        boss_img = pygame.Surface((WIDTH, HEIGHT))
+        boss_img.fill((15, 20, 35))
+
+    wind_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    for y in range(0, HEIGHT, 18):
+        pygame.draw.line(wind_overlay, (60, 90, 140, 80), (0, y), (WIDTH, y))
+    for x in range(-160, WIDTH + 160, 180):
+        pygame.draw.circle(wind_overlay, (120, 180, 255, 30), (x, HEIGHT // 2), 160, width=2)
+
+    skipped_early = False
+    for alpha in range(0, 256, 8):
+        boss_img.set_alpha(alpha)
+        wind_overlay.set_alpha(min(200, alpha + 60))
+        SCREEN.fill(BLACK)
+        SCREEN.blit(boss_img, (0, 0))
+        SCREEN.blit(wind_overlay, (0, 0))
+
+        pulse = alpha / 255.0
+        stage_color = (
+            int(70 + 70 * pulse),
+            int(100 + 80 * pulse),
+            int(150 + 90 * pulse),
+        )
+        boss_color = (
+            int(120 + 80 * pulse),
+            int(190 + 40 * pulse),
+            255,
+        )
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, boss_color, "glow")
+
+        pygame.display.flip()
+        pygame.time.delay(25)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE) or (event.type == pygame.MOUSEBUTTONDOWN):
+                skipped_early = True
+        if skipped_early:
+            break
+
+    boss_img.set_alpha(255)
+
+    waiting = not skipped_early
+    frame_count = 0
+    wait_start = pygame.time.get_ticks()
+    while waiting:
+        frame_count += 1
+        SCREEN.fill(BLACK)
+        SCREEN.blit(boss_img, (0, 0))
+
+        shift = int(20 * math.sin(frame_count * 0.05))
+        SCREEN.blit(wind_overlay, (shift, 0))
+
+        pulse = abs(math.sin(frame_count * 0.04))
+        stage_color = (
+            int(70 + 70 * pulse),
+            int(110 + 60 * pulse),
+            int(160 + 60 * pulse),
+        )
+        boss_color = (
+            int(120 + 70 * pulse),
+            int(200 + 40 * pulse),
+            255,
+        )
+        info_color = (170, 220, 255)
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, boss_color, "glow")
+        ui_manager.draw_centered_text("SHADOW ART OF THE WIND", 24, 0, info_color, "normal")
+
+        pygame.display.flip()
+        pygame.time.delay(16)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE) or (event.type == pygame.MOUSEBUTTONDOWN):
+                waiting = False
+
+        if waiting and pygame.time.get_ticks() - wait_start >= INTRO_AUTO_EXIT_MS:
+            waiting = False
+
+    pygame.event.pump()
+    pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
+
+    for alpha in range(255, -1, -8):
+        boss_img.set_alpha(alpha)
+        wind_overlay.set_alpha(alpha)
+        SCREEN.fill(BLACK)
+        SCREEN.blit(boss_img, (0, 0))
+        SCREEN.blit(wind_overlay, (0, 0))
         pygame.display.flip()
         pygame.time.delay(25)
 
@@ -71719,6 +72004,10 @@ def _boss_try_emergency_dash() -> bool:
 
     now_ms = pygame.time.get_ticks()
 
+    # 네메시스(현 Stage 6) 미사일/레이저 기계 콘셉트 → 대쉬 금지
+    if current_stage == 6:
+        return False
+
     # 스테이지 설정에서 대쉬가 비활성화된 경우 즉시 종료
     stage_cfg = BOSS_CONFIGS.get(current_stage, {}) if 'BOSS_CONFIGS' in globals() else {}
     if stage_cfg.get("dash_enabled") is False:
@@ -75428,6 +75717,8 @@ def main(stage_num, new_boss_mode=False):
         preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
     elif display_stage_num == 7:
         preload_stage_intro_resources(STAGE7_INTRO_VIDEO_PATH)
+    elif display_stage_num == 8:
+        preload_stage_intro_resources(STAGE8_INTRO_VIDEO_PATH)
 
     #  Ultra Smooth 물리 엔진 초기화 (우선)
     if ULTRA_SMOOTH_AVAILABLE:
@@ -75925,9 +76216,13 @@ def main(stage_num, new_boss_mode=False):
     elif stage_num == 7:
         CURRENT_BG = STAGE7_BG
         BOSS_COLOR = (120, 170, 255)
+        # Stage 7 전용 BGM 재생
+        bgm_manager.play_stage_bgm(7)
     elif stage_num == 8:
         CURRENT_BG = STAGE8_BG
         BOSS_COLOR = (70, 90, 140)
+        # Stage 8 전용 BGM 재생
+        bgm_manager.play_stage_bgm(8)
     elif stage_num == 8:
         CURRENT_BG = STAGE8_BG
         BOSS_COLOR = (70, 90, 140)
