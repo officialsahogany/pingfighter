@@ -7576,14 +7576,15 @@ class BuildingInterior:
         GOLD_ACCENT = (255, 200, 100)
         LABEL_BG = (40, 35, 30)
 
-        # 책장 위치들 (3개 세로 배치 - 왼쪽 벽, 장애물 영역과 일치)
+        # 책장 위치들 (3개 가로 배치 - 학장 아르카나 왼쪽)
         shelf_w, shelf_h = 55, 90
-        shelf_x = 40  # 왼쪽 벽에서 약간 떨어진 위치
-        shelf_start_y = wall_h + 320  # 훈련 장비 아래쪽
+        headmaster_x = int(self.pixel_width * 0.5)  # 학장 위치 약 512
+        shelf_start_x = headmaster_x - 250  # 학장보다 250픽셀 왼쪽
+        shelf_y = wall_h + 60  # 학장과 비슷한 y 위치
         shelf_positions = [
-            (shelf_x, shelf_start_y),
-            (shelf_x, shelf_start_y + shelf_h + 10),
-            (shelf_x, shelf_start_y + (shelf_h + 10) * 2),
+            (shelf_start_x, shelf_y),
+            (shelf_start_x + shelf_w + 15, shelf_y),
+            (shelf_start_x + (shelf_w + 15) * 2, shelf_y),
         ]
         shelf_labels = ["전술", "기록", "역사"]
 
