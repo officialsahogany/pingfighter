@@ -3380,6 +3380,105 @@ class AngelBlessing(LegendaryItem):
                 pygame.draw.circle(surf, (255, 255, 255),
                                   (pip_x - 1, pip_y - 1), max(2, pip_size // 2))
 
+    def _draw_angel_dice_no_wings(self, surf: pygame.Surface, size: int, rot_x: float, rot_y: float):
+        """중앙에 흰색 주사위만 그리기 (날개 없음) - 아이콘용"""
+        dice_size = int(size * 0.5)  # 주사위 크기
+        cx, cy = size // 2, size // 2
+
+        # 3D 주사위 그리기 (날개 없음)
+        sin_x, cos_x = math.sin(math.radians(rot_x)), math.cos(math.radians(rot_x))
+        sin_y, cos_y = math.sin(math.radians(rot_y)), math.cos(math.radians(rot_y))
+
+        def rotate_point(px, py, pz):
+            x1 = px * cos_y - pz * sin_y
+            z1 = px * sin_y + pz * cos_y
+            y1 = py * cos_x - z1 * sin_x
+            z2 = py * sin_x + z1 * cos_x
+            return cx + int(x1), cy + int(y1), z2
+
+        half = dice_size // 2
+        vertices_3d = [
+            (-half, -half, -half), (half, -half, -half),
+            (half, half, -half), (-half, half, -half),
+            (-half, -half, half), (half, -half, half),
+            (half, half, half), (-half, half, half),
+        ]
+
+        vertices_2d = []
+        vertices_depth = []
+        for vx, vy, vz in vertices_3d:
+            rx, ry, rz = rotate_point(vx, vy, vz)
+            vertices_2d.append((rx, ry))
+            vertices_depth.append(rz)
+
+        faces = [
+            ([0, 1, 2, 3], 1, (0, 0, -half), (1, 0, 0), (0, 1, 0)),
+            ([5, 4, 7, 6], 6, (0, 0, half), (-1, 0, 0), (0, 1, 0)),
+            ([4, 5, 1, 0], 2, (0, -half, 0), (1, 0, 0), (0, 0, 1)),
+            ([3, 2, 6, 7], 5, (0, half, 0), (1, 0, 0), (0, 0, -1)),
+            ([4, 0, 3, 7], 3, (-half, 0, 0), (0, 0, -1), (0, 1, 0)),
+            ([1, 5, 6, 2], 4, (half, 0, 0), (0, 0, 1), (0, 1, 0)),
+        ]
+
+        def get_face_depth(face_data):
+            return sum(vertices_depth[i] for i in face_data[0]) / 4
+
+        faces_sorted = sorted(faces, key=get_face_depth, reverse=True)
+
+        # 흰색 주사위 색상 (순백색 계열)
+        white_light = (255, 255, 255)
+        white_mid = (248, 250, 255)
+        white_dark = (235, 240, 250)
+        edge_color = (200, 200, 210)  # 은색 테두리
+        pip_color = (80, 100, 160)  # 파란색 계열 점
+
+        pip_positions_local = {
+            1: [(0, 0)],
+            2: [(-0.4, -0.4), (0.4, 0.4)],
+            3: [(-0.4, -0.4), (0, 0), (0.4, 0.4)],
+            4: [(-0.4, -0.4), (0.4, -0.4), (-0.4, 0.4), (0.4, 0.4)],
+            5: [(-0.4, -0.4), (0.4, -0.4), (0, 0), (-0.4, 0.4), (0.4, 0.4)],
+            6: [(-0.4, -0.4), (0.4, -0.4), (-0.4, 0), (0.4, 0), (-0.4, 0.4), (0.4, 0.4)],
+        }
+
+        pip_size = max(3, int(half * 0.22))
+        pip_scale = half * 0.55
+
+        for face_data in faces_sorted[:3]:
+            indices, face_num, center_3d, u_axis, v_axis = face_data
+            points = [vertices_2d[i] for i in indices]
+
+            avg_depth = sum(vertices_depth[i] for i in indices) / 4
+            brightness = 0.75 + 0.25 * (avg_depth / half + 1) / 2
+            brightness = min(1.0, max(0.65, brightness))
+
+            if brightness > 0.88:
+                base_color = white_light
+            elif brightness > 0.78:
+                base_color = white_mid
+            else:
+                base_color = white_dark
+
+            adj_color = tuple(min(255, int(c * brightness)) for c in base_color)
+
+            pygame.draw.polygon(surf, adj_color, points)
+            pygame.draw.polygon(surf, edge_color, points, 1)
+
+            for pu, pv in pip_positions_local.get(face_num, []):
+                pip_3d_x = center_3d[0] + u_axis[0] * pu * pip_scale + v_axis[0] * pv * pip_scale
+                pip_3d_y = center_3d[1] + u_axis[1] * pu * pip_scale + v_axis[1] * pv * pip_scale
+                pip_3d_z = center_3d[2] + u_axis[2] * pu * pip_scale + v_axis[2] * pv * pip_scale
+                pip_x, pip_y, _ = rotate_point(pip_3d_x, pip_3d_y, pip_3d_z)
+
+                # 눈금 그림자
+                pygame.draw.circle(surf, (50, 60, 100),
+                                  (pip_x + 1, pip_y + 1), pip_size)
+                # 눈금 본체
+                pygame.draw.circle(surf, pip_color, (pip_x, pip_y), pip_size)
+                # 하이라이트
+                pygame.draw.circle(surf, (255, 255, 255),
+                                  (pip_x - 1, pip_y - 1), max(1, pip_size // 2))
+
     def _spawn_particle(self, screen, cx, cy):
         """파티클 생성 - 라그나로크 해머와 동일"""
         for _ in range(2):
