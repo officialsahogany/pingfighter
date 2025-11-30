@@ -81447,7 +81447,7 @@ def show_character_info(background_surface=None):
                 except Exception:
                     legendary_item = None
                 if legendary_item:
-                    legendary_item.update(0, ui_mode=True)
+                    legendary_item.update(0.016, ui_mode=True)  # 60fps 기준 16ms
                     legendary_item.draw_icon(SCREEN, cell_rect.x + 4, cell_rect.y + 4, cell_size - 8)
                 elif icon:
                     SCREEN.blit(pygame.transform.scale(icon, (cell_size - 8, cell_size - 8)), (cell_rect.x + 4, cell_rect.y + 4))
@@ -81540,7 +81540,7 @@ def show_character_info(background_surface=None):
                 except Exception:
                     legendary_item = None
                 if legendary_item:
-                    legendary_item.update(0, ui_mode=True)
+                    legendary_item.update(0.016, ui_mode=True)  # 60fps 기준 16ms
                     legendary_item.draw_icon(SCREEN, icon_rect.x, icon_rect.y, icon_size)
                 elif icon:
                     SCREEN.blit(pygame.transform.scale(icon, (icon_size, icon_size)), icon_rect.topleft)
@@ -81653,7 +81653,7 @@ def show_character_info(background_surface=None):
                     except Exception:
                         legendary_item = None
                     if legendary_item:
-                        legendary_item.update(0, ui_mode=True)
+                        legendary_item.update(0.016, ui_mode=True)  # 60fps 기준 16ms
                         legendary_item.draw_icon(SCREEN, cell_rect.x + 6, cell_rect.y + 6, slot_size - 12)
                     elif icon:
                         SCREEN.blit(pygame.transform.scale(icon, (slot_size - 12, slot_size - 12)), (cell_rect.x + 6, cell_rect.y + 6))
