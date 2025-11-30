@@ -5782,12 +5782,13 @@ class BuildingInterior:
         capsule_x, capsule_y = self.pixel_width - 100, wall_h + 220
         self.academy_obstacle_rects.append(pygame.Rect(capsule_x, capsule_y, 60, 100))
 
-        # 6) 도서관 책장들 (좌측 하단, 우측 상단)
-        shelf_w, shelf_h = 60, 140
-        # 좌측 하단 책장
-        self.academy_obstacle_rects.append(pygame.Rect(20, self.pixel_height - 180, shelf_w, shelf_h))
-        # 우측 벽 책장
-        self.academy_obstacle_rects.append(pygame.Rect(self.pixel_width - 80, wall_h + 60, shelf_w, shelf_h))
+        # 6) 도서관 책장들 (3개 나란히 - 하단 중앙)
+        shelf_w, shelf_h = 55, 120
+        shelf_start_x = (self.pixel_width - (shelf_w * 3 + 10 * 2)) // 2  # 중앙 정렬
+        shelf_y = self.pixel_height - 160
+        for i in range(3):
+            shelf_x = shelf_start_x + i * (shelf_w + 10)
+            self.academy_obstacle_rects.append(pygame.Rect(shelf_x, shelf_y, shelf_w, shelf_h))
 
         # 1. 배경
         screen.fill(BG_DARK)
@@ -6739,13 +6740,16 @@ class BuildingInterior:
         GOLD_ACCENT = (255, 200, 100)
         LABEL_BG = (40, 35, 30)
 
-        # 책장 위치들 (장애물 영역과 일치)
+        # 책장 위치들 (3개 나란히 - 하단 중앙, 장애물 영역과 일치)
+        shelf_w, shelf_h = 55, 120
+        shelf_start_x = (self.pixel_width - (shelf_w * 3 + 10 * 2)) // 2
+        shelf_y = self.pixel_height - 160
         shelf_positions = [
-            (20, self.pixel_height - 180),      # 좌측 하단
-            (self.pixel_width - 80, wall_h + 60),  # 우측 상단
+            (shelf_start_x, shelf_y),
+            (shelf_start_x + shelf_w + 10, shelf_y),
+            (shelf_start_x + (shelf_w + 10) * 2, shelf_y),
         ]
-
-        shelf_w, shelf_h = 60, 140
+        shelf_labels = ["전술", "기록", "역사"]
 
         for idx, (shelf_x, shelf_y) in enumerate(shelf_positions):
             sx = shelf_x - cam_x
@@ -6817,7 +6821,7 @@ class BuildingInterior:
             # 라벨 텍스트
             font_small = self.fonts.get('small')
             if font_small:
-                label_text = "전술" if idx == 0 else "기록"
+                label_text = shelf_labels[idx] if idx < len(shelf_labels) else "기타"
                 text_surf, text_rect = font_small.render(label_text, GOLD_ACCENT)
                 screen.blit(text_surf, (label_x + (label_w - text_rect.width) // 2, label_y + 1))
 
