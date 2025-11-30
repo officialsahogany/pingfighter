@@ -6560,204 +6560,398 @@ class BuildingInterior:
             screen.blit(hint_surf, (dialog_x + dialog_w // 2 - hint_rect.width // 2, dialog_y + dialog_h - 18))
 
     def _draw_crane_game_screen(self, screen):
-        """크레인 게임 플레이 화면 그리기 (사진 참조 스타일)"""
+        """크레인 게임 플레이 화면 그리기 - 고퀄리티 실제 크레인 게임 스타일"""
         import math
 
-        # 게임 화면 크기 (전체 화면이 아닌 중앙에 배치)
-        game_w, game_h = 500, 400
+        # 게임 화면 크기 (확대)
+        game_w, game_h = 520, 420
         game_x = (SCREEN_WIDTH - game_w) // 2
-        game_y = (SCREEN_HEIGHT - game_h) // 2 - 20
+        game_y = (SCREEN_HEIGHT - game_h) // 2 - 10
 
-        # 색상 정의 (노란색 아케이드 머신 스타일)
-        MACHINE_YELLOW = (255, 200, 50)
-        MACHINE_ORANGE = (255, 150, 50)
-        MACHINE_DARK = (180, 140, 40)
-        GLASS_BG = (40, 60, 100)  # 유리 안쪽 배경
-        GLASS_TINT = (60, 80, 120, 100)
-        CRANE_SILVER = (200, 200, 220)
-        CRANE_GRAY = (150, 150, 170)
+        # === 고급 색상 팔레트 ===
+        # 머신 프레임 색상 (메탈릭 레드/골드)
+        FRAME_RED = (180, 40, 50)
+        FRAME_RED_LIGHT = (220, 70, 80)
+        FRAME_RED_DARK = (120, 25, 35)
+        FRAME_GOLD = (255, 200, 80)
+        FRAME_GOLD_DARK = (200, 150, 50)
 
-        # 배경 어둡게 (반투명 오버레이)
+        # 내부 조명 색상
+        INNER_BG_TOP = (20, 35, 60)
+        INNER_BG_BOTTOM = (10, 20, 40)
+        NEON_PINK = (255, 100, 180)
+        NEON_BLUE = (80, 200, 255)
+        NEON_PURPLE = (180, 100, 255)
+
+        # 크레인 색상 (메탈릭)
+        CRANE_CHROME = (220, 225, 235)
+        CRANE_CHROME_LIGHT = (245, 248, 255)
+        CRANE_CHROME_DARK = (160, 165, 180)
+        CRANE_STEEL = (100, 105, 120)
+
+        # LED 색상
+        LED_GREEN = (50, 255, 100)
+        LED_RED = (255, 60, 60)
+        LED_YELLOW = (255, 230, 50)
+
+        # === 배경 암전 + 스포트라이트 효과 ===
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 200))
+        overlay.fill((0, 0, 0, 220))
         screen.blit(overlay, (0, 0))
 
-        # === 크레인 머신 외형 ===
-        # 머신 프레임 (노란색)
-        frame_rect = pygame.Rect(game_x - 20, game_y - 20, game_w + 40, game_h + 80)
-        pygame.draw.rect(screen, MACHINE_YELLOW, frame_rect, border_radius=10)
-        pygame.draw.rect(screen, MACHINE_ORANGE, frame_rect, 4, border_radius=10)
+        # 스포트라이트 효과 (중앙에 빛)
+        spotlight = pygame.Surface((game_w + 100, game_h + 150), pygame.SRCALPHA)
+        for i in range(50, 0, -1):
+            alpha = int(3 * (50 - i))
+            pygame.draw.ellipse(spotlight, (255, 250, 240, alpha),
+                               (50 - i, 75 - i * 1.5, game_w + i * 2, game_h + i * 3))
+        screen.blit(spotlight, (game_x - 50, game_y - 75))
 
-        # 유리창 영역 (인형들이 보이는 곳)
-        glass_rect = pygame.Rect(game_x, game_y, game_w, game_h)
-        pygame.draw.rect(screen, GLASS_BG, glass_rect)
+        # === 크레인 머신 외형 (3D 효과) ===
+        frame_x = game_x - 30
+        frame_y = game_y - 60
+        frame_w = game_w + 60
+        frame_h = game_h + 130
 
-        # 진열대 배경 (편의점 진열대처럼)
-        shelf_colors = [(80, 100, 140), (60, 80, 120), (50, 70, 110)]
-        for i, color in enumerate(shelf_colors):
-            shelf_y = game_y + game_h * 0.4 + i * 50
-            pygame.draw.rect(screen, color, (game_x, shelf_y, game_w, 50))
+        # 머신 그림자 (깊이감)
+        shadow_surf = pygame.Surface((frame_w + 20, frame_h + 20), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (0, 0, 0, 100), (10, 10, frame_w, frame_h), border_radius=15)
+        screen.blit(shadow_surf, (frame_x, frame_y))
 
-        # === 캡슐들 그리기 ===
+        # 머신 본체 (그라데이션 효과)
+        machine_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
+        for i in range(frame_h):
+            ratio = i / frame_h
+            r = int(FRAME_RED[0] * (1 - ratio * 0.3))
+            g = int(FRAME_RED[1] * (1 - ratio * 0.3))
+            b = int(FRAME_RED[2] * (1 - ratio * 0.3))
+            pygame.draw.line(machine_surf, (r, g, b), (0, i), (frame_w, i))
+
+        # 둥근 모서리 마스크 적용
+        mask_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
+        pygame.draw.rect(mask_surf, (255, 255, 255, 255), (0, 0, frame_w, frame_h), border_radius=15)
+        machine_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        screen.blit(machine_surf, (frame_x, frame_y))
+
+        # 프레임 하이라이트 (왼쪽 상단 빛)
+        highlight_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
+        pygame.draw.rect(highlight_surf, (255, 255, 255, 40), (0, 0, frame_w // 3, frame_h), border_radius=15)
+        screen.blit(highlight_surf, (frame_x, frame_y))
+
+        # 메탈릭 테두리 (3중 레이어)
+        pygame.draw.rect(screen, FRAME_RED_DARK, (frame_x, frame_y, frame_w, frame_h), 6, border_radius=15)
+        pygame.draw.rect(screen, FRAME_GOLD, (frame_x + 3, frame_y + 3, frame_w - 6, frame_h - 6), 3, border_radius=12)
+        pygame.draw.rect(screen, FRAME_RED_LIGHT, (frame_x + 6, frame_y + 6, frame_w - 12, frame_h - 12), 2, border_radius=10)
+
+        # === 상단 장식 (아케이드 스타일) ===
+        top_decor_y = frame_y + 5
+        # 중앙 금색 장식 패널
+        decor_w = 200
+        decor_x = frame_x + (frame_w - decor_w) // 2
+        pygame.draw.rect(screen, FRAME_GOLD, (decor_x, top_decor_y, decor_w, 25), border_radius=5)
+        pygame.draw.rect(screen, FRAME_GOLD_DARK, (decor_x, top_decor_y, decor_w, 25), 2, border_radius=5)
+
+        # "CRANE GAME" 네온 텍스트 효과
+        font_medium = self.fonts.get('medium')
+        if font_medium:
+            # 글로우 효과
+            glow_intensity = int(200 + 55 * math.sin(self.animation_timer * 4))
+            for offset in range(3, 0, -1):
+                glow_surf, _ = font_medium.render("CRANE GAME", (255, 100, 150, glow_intensity // (offset + 1)))
+                screen.blit(glow_surf, (decor_x + 28 - offset, top_decor_y + 4 - offset))
+            title_surf, _ = font_medium.render("CRANE GAME", (255, 255, 255))
+            screen.blit(title_surf, (decor_x + 28, top_decor_y + 4))
+
+        # 상단 LED 라이트 (깜빡이는 효과)
+        led_colors = [LED_RED, LED_YELLOW, LED_GREEN, LED_YELLOW, LED_RED]
+        for i, color in enumerate(led_colors):
+            led_x = frame_x + 40 + i * 30
+            blink = math.sin(self.animation_timer * 6 + i * 0.8) > 0
+            led_color = color if blink else (color[0] // 3, color[1] // 3, color[2] // 3)
+            # LED 글로우
+            glow_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+            if blink:
+                pygame.draw.circle(glow_surf, (*color, 80), (10, 10), 10)
+            pygame.draw.circle(glow_surf, led_color, (10, 10), 5)
+            screen.blit(glow_surf, (led_x - 10, top_decor_y + 30))
+
+        # 오른쪽 LED도
+        for i, color in enumerate(led_colors):
+            led_x = frame_x + frame_w - 40 - i * 30
+            blink = math.sin(self.animation_timer * 6 + i * 0.8 + 3.14) > 0
+            led_color = color if blink else (color[0] // 3, color[1] // 3, color[2] // 3)
+            glow_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+            if blink:
+                pygame.draw.circle(glow_surf, (*color, 80), (10, 10), 10)
+            pygame.draw.circle(glow_surf, led_color, (10, 10), 5)
+            screen.blit(glow_surf, (led_x - 10, top_decor_y + 30))
+
+        # === 유리창 영역 (내부 조명 효과) ===
+        glass_x = game_x
+        glass_y = game_y
+        glass_rect = pygame.Rect(glass_x, glass_y, game_w, game_h)
+
+        # 내부 배경 (그라데이션)
+        inner_surf = pygame.Surface((game_w, game_h))
+        for y in range(game_h):
+            ratio = y / game_h
+            r = int(INNER_BG_TOP[0] * (1 - ratio) + INNER_BG_BOTTOM[0] * ratio)
+            g = int(INNER_BG_TOP[1] * (1 - ratio) + INNER_BG_BOTTOM[1] * ratio)
+            b = int(INNER_BG_TOP[2] * (1 - ratio) + INNER_BG_BOTTOM[2] * ratio)
+            pygame.draw.line(inner_surf, (r, g, b), (0, y), (game_w, y))
+        screen.blit(inner_surf, (glass_x, glass_y))
+
+        # 네온 조명 바 (상단, 측면)
+        neon_pulse = int(180 + 75 * math.sin(self.animation_timer * 3))
+        # 상단 네온
+        neon_bar = pygame.Surface((game_w - 20, 4), pygame.SRCALPHA)
+        pygame.draw.rect(neon_bar, (*NEON_PINK[:3], neon_pulse), (0, 0, game_w - 20, 4))
+        screen.blit(neon_bar, (glass_x + 10, glass_y + 8))
+        # 하단 네온
+        pygame.draw.rect(neon_bar, (*NEON_BLUE[:3], neon_pulse), (0, 0, game_w - 20, 4))
+        screen.blit(neon_bar, (glass_x + 10, glass_y + game_h - 12))
+
+        # 바닥 펠트 (녹색 계열, 진짜 크레인 게임처럼)
+        floor_y = glass_y + int(game_h * 0.55)
+        floor_h = game_h - int(game_h * 0.55)
+        floor_surf = pygame.Surface((game_w, floor_h), pygame.SRCALPHA)
+        for y in range(floor_h):
+            green_val = int(60 + (y / floor_h) * 30)
+            pygame.draw.line(floor_surf, (30, green_val, 50), (0, y), (game_w, y))
+        screen.blit(floor_surf, (glass_x, floor_y))
+
+        # 바닥 질감 (점선 패턴)
+        for i in range(0, game_w, 20):
+            for j in range(0, floor_h, 20):
+                if (i + j) % 40 == 0:
+                    pygame.draw.circle(screen, (40, 90, 60, 50), (glass_x + i + 10, floor_y + j + 10), 2)
+
+        # === 캡슐들 그리기 (고퀄리티) ===
         for prize in self.crane_prizes:
             if prize["grabbed"]:
                 continue
 
-            # 위치 계산
-            px = game_x + int(prize["x"] * game_w)
-            py = game_y + int(prize["y"] * game_h)
-
-            # 흔들림 애니메이션
-            wobble = math.sin(prize["wobble"]) * 3
-
-            # 캡슐 색상 (레어리티에 따라)
+            px = glass_x + int(prize["x"] * game_w)
+            py = glass_y + int(prize["y"] * game_h)
+            wobble = math.sin(prize["wobble"]) * 2
             capsule_color = prize.get("capsule_color", (150, 200, 255))
-            capsule_size = 22
 
-            # 그림자
-            shadow_color = (capsule_color[0] // 3, capsule_color[1] // 3, capsule_color[2] // 3)
-            pygame.draw.ellipse(screen, shadow_color,
-                               (px - capsule_size + 3, py - capsule_size // 2 + 3 + int(wobble),
-                                capsule_size * 2, capsule_size + 6))
+            # 캡슐 크기 증가
+            cap_w, cap_h = 28, 36
 
-            # 캡슐 본체 (타원형)
-            pygame.draw.ellipse(screen, capsule_color,
-                               (px - capsule_size, py - capsule_size // 2 + int(wobble),
-                                capsule_size * 2, capsule_size + 6))
+            # 그림자 (부드러운)
+            shadow_surf = pygame.Surface((cap_w + 10, cap_h + 10), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_surf, (0, 0, 0, 60), (5, 8, cap_w, cap_h - 4))
+            screen.blit(shadow_surf, (px - cap_w // 2 - 3, py - cap_h // 2 + int(wobble)))
 
-            # 캡슐 상단 하이라이트
-            highlight_color = (min(255, capsule_color[0] + 60),
-                              min(255, capsule_color[1] + 60),
-                              min(255, capsule_color[2] + 60))
-            pygame.draw.ellipse(screen, highlight_color,
-                               (px - capsule_size + 4, py - capsule_size // 2 + 2 + int(wobble),
-                                capsule_size - 4, capsule_size // 3))
+            # 캡슐 하단부 (진한색)
+            bottom_color = (capsule_color[0] * 7 // 10, capsule_color[1] * 7 // 10, capsule_color[2] * 7 // 10)
+            pygame.draw.ellipse(screen, bottom_color,
+                               (px - cap_w // 2, py + int(wobble), cap_w, cap_h // 2))
+
+            # 캡슐 상단부 (투명 느낌)
+            top_color = (min(255, capsule_color[0] + 30), min(255, capsule_color[1] + 30), min(255, capsule_color[2] + 30))
+            pygame.draw.ellipse(screen, top_color,
+                               (px - cap_w // 2, py - cap_h // 2 + int(wobble), cap_w, cap_h // 2 + 8))
+
+            # 캡슐 중간 분리선
+            pygame.draw.line(screen, (255, 255, 255, 150),
+                            (px - cap_w // 2 + 3, py + int(wobble)),
+                            (px + cap_w // 2 - 3, py + int(wobble)), 2)
+
+            # 상단 하이라이트 (반사광)
+            highlight_surf = pygame.Surface((cap_w, cap_h), pygame.SRCALPHA)
+            pygame.draw.ellipse(highlight_surf, (255, 255, 255, 120),
+                               (cap_w // 4, 4, cap_w // 3, cap_h // 5))
+            screen.blit(highlight_surf, (px - cap_w // 2, py - cap_h // 2 + int(wobble)))
 
             # 캡슐 테두리
-            border_color = (capsule_color[0] // 2, capsule_color[1] // 2, capsule_color[2] // 2)
-            pygame.draw.ellipse(screen, border_color,
-                               (px - capsule_size, py - capsule_size // 2 + int(wobble),
-                                capsule_size * 2, capsule_size + 6), 2)
+            pygame.draw.ellipse(screen, (capsule_color[0] // 2, capsule_color[1] // 2, capsule_color[2] // 2),
+                               (px - cap_w // 2, py - cap_h // 2 + int(wobble), cap_w, cap_h), 2)
 
-            # 캡슐 가운데 선 (투명 부분 표현)
-            pygame.draw.line(screen, (255, 255, 255, 100),
-                            (px - capsule_size + 5, py + int(wobble)),
-                            (px + capsule_size - 5, py + int(wobble)), 1)
-
-            # 아이템 아이콘 그리기 (캡슐 안에)
+            # 아이템 아이콘
             item_name = prize.get("item", {}).get("name", "")
             if item_name:
                 try:
-                    # pingfighter의 get_item_icon 사용 시도
                     import sys
                     if 'pingfighter' in sys.modules:
                         pingfighter = sys.modules['pingfighter']
                         if hasattr(pingfighter, 'get_item_icon'):
                             item_icon = pingfighter.get_item_icon(item_name)
                             if item_icon:
-                                # 아이콘 크기 조정 (20x20)
-                                icon_size = 20
+                                icon_size = 22
                                 scaled_icon = pygame.transform.scale(item_icon, (icon_size, icon_size))
-                                icon_x = px - icon_size // 2
-                                icon_y = py - icon_size // 2 + int(wobble)
-                                screen.blit(scaled_icon, (icon_x, icon_y))
+                                screen.blit(scaled_icon, (px - icon_size // 2, py - icon_size // 2 + int(wobble)))
                 except Exception:
-                    # 아이콘 로드 실패 시 간단한 표시
                     pygame.draw.circle(screen, (255, 255, 255), (px, py + int(wobble)), 8)
 
-            # 레어리티 표시 (희귀 아이템은 반짝임)
+            # 레어리티 효과 (더 화려하게)
             item_rarity = prize.get("item", {}).get("rarity", "common")
             if item_rarity == "rare":
-                glow_alpha = int(128 + 127 * math.sin(self.animation_timer * 5))
-                glow_surf = pygame.Surface((capsule_size * 3, capsule_size * 3), pygame.SRCALPHA)
-                pygame.draw.ellipse(glow_surf, (255, 215, 0, glow_alpha // 3),
-                                   (capsule_size // 2, capsule_size // 2,
-                                    capsule_size * 2, capsule_size * 2))
-                screen.blit(glow_surf, (px - capsule_size * 1.5, py - capsule_size * 1.5 + int(wobble)))
+                glow_alpha = int(100 + 80 * math.sin(self.animation_timer * 5))
+                glow_surf = pygame.Surface((cap_w * 2, cap_h * 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf, (255, 215, 0, glow_alpha),
+                                   (cap_w // 2, cap_h // 2, cap_w, cap_h))
+                screen.blit(glow_surf, (px - cap_w, py - cap_h + int(wobble)))
             elif item_rarity == "epic":
-                glow_alpha = int(128 + 127 * math.sin(self.animation_timer * 8))
-                glow_surf = pygame.Surface((capsule_size * 3, capsule_size * 3), pygame.SRCALPHA)
-                pygame.draw.ellipse(glow_surf, (200, 100, 255, glow_alpha // 3),
-                                   (capsule_size // 2, capsule_size // 2,
-                                    capsule_size * 2, capsule_size * 2))
-                screen.blit(glow_surf, (px - capsule_size * 1.5, py - capsule_size * 1.5 + int(wobble)))
+                glow_alpha = int(120 + 80 * math.sin(self.animation_timer * 7))
+                glow_surf = pygame.Surface((cap_w * 2, cap_h * 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf, (180, 80, 255, glow_alpha),
+                                   (cap_w // 2, cap_h // 2, cap_w, cap_h))
+                screen.blit(glow_surf, (px - cap_w, py - cap_h + int(wobble)))
+                # 파티클 효과
+                for i in range(4):
+                    p_angle = self.animation_timer * 3 + i * 1.57
+                    p_x = px + int(math.cos(p_angle) * 20)
+                    p_y = py + int(math.sin(p_angle) * 15) + int(wobble)
+                    p_alpha = int(200 + 55 * math.sin(self.animation_timer * 10 + i))
+                    pygame.draw.circle(screen, (200, 150, 255, p_alpha), (p_x, p_y), 3)
             elif item_rarity == "legendary":
-                # 전설 아이템: 화려한 무지개 글로우 효과
-                glow_alpha = int(180 + 75 * math.sin(self.animation_timer * 10))
-                glow_surf = pygame.Surface((capsule_size * 4, capsule_size * 4), pygame.SRCALPHA)
-                # 빨간색 외곽 글로우
-                pygame.draw.ellipse(glow_surf, (255, 50, 50, glow_alpha // 2),
-                                   (capsule_size // 4, capsule_size // 4,
-                                    capsule_size * 3.5, capsule_size * 3.5))
-                # 내부 금색 글로우
-                inner_alpha = int(150 + 105 * math.sin(self.animation_timer * 12 + 1))
-                pygame.draw.ellipse(glow_surf, (255, 200, 50, inner_alpha // 2),
-                                   (capsule_size // 2, capsule_size // 2,
-                                    capsule_size * 3, capsule_size * 3))
-                screen.blit(glow_surf, (px - capsule_size * 2, py - capsule_size * 2 + int(wobble)))
+                # 전설: 무지개 오라 + 별 반짝임
+                for ring in range(3):
+                    ring_alpha = int(80 + 60 * math.sin(self.animation_timer * 8 + ring))
+                    hue_shift = (self.animation_timer * 50 + ring * 30) % 360
+                    # 무지개 색상
+                    r = int(255 * (1 + math.sin(math.radians(hue_shift))) / 2)
+                    g = int(255 * (1 + math.sin(math.radians(hue_shift + 120))) / 2)
+                    b = int(255 * (1 + math.sin(math.radians(hue_shift + 240))) / 2)
+                    glow_surf = pygame.Surface((cap_w * 3, cap_h * 3), pygame.SRCALPHA)
+                    pygame.draw.ellipse(glow_surf, (r, g, b, ring_alpha),
+                                       (cap_w // 2 + ring * 5, cap_h // 2 + ring * 5,
+                                        cap_w * 2 - ring * 10, cap_h * 2 - ring * 10))
+                    screen.blit(glow_surf, (px - cap_w * 1.5, py - cap_h * 1.5 + int(wobble)))
+                # 별 효과
+                for i in range(5):
+                    star_angle = self.animation_timer * 2 + i * 1.26
+                    star_dist = 25 + 5 * math.sin(self.animation_timer * 5 + i)
+                    star_x = px + int(math.cos(star_angle) * star_dist)
+                    star_y = py + int(math.sin(star_angle) * star_dist * 0.7) + int(wobble)
+                    star_size = int(3 + 2 * math.sin(self.animation_timer * 12 + i * 2))
+                    # 별 그리기 (4방향)
+                    pygame.draw.line(screen, (255, 255, 200), (star_x - star_size, star_y), (star_x + star_size, star_y), 2)
+                    pygame.draw.line(screen, (255, 255, 200), (star_x, star_y - star_size), (star_x, star_y + star_size), 2)
 
-                # 별 반짝임 효과
-                for i in range(3):
-                    star_offset = math.sin(self.animation_timer * 15 + i * 2) * 5
-                    star_x = px + int(math.cos(self.animation_timer * 3 + i * 2.1) * 15)
-                    star_y = py + int(math.sin(self.animation_timer * 3 + i * 2.1) * 10) + int(wobble)
-                    star_alpha = int(200 + 55 * math.sin(self.animation_timer * 20 + i))
-                    star_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
-                    pygame.draw.circle(star_surf, (255, 255, 200, star_alpha), (5, 5), 3)
-                    screen.blit(star_surf, (star_x - 5, star_y - 5))
+        # === 크레인 그리기 (고퀄리티 메탈릭) ===
+        crane_px = glass_x + int(self.crane_x * game_w)
+        crane_py = glass_y + int(self.crane_y * game_h * 0.85)
 
-        # === 크레인 그리기 ===
-        crane_px = game_x + int(self.crane_x * game_w)
-        crane_py = game_y + int(self.crane_y * game_h * 0.85)
+        # 크레인 레일 (3D 효과)
+        rail_y = glass_y + 20
+        rail_h = 12
+        # 레일 그림자
+        pygame.draw.rect(screen, (30, 30, 40), (glass_x + 15, rail_y + 3, game_w - 30, rail_h))
+        # 레일 본체 (그라데이션)
+        rail_surf = pygame.Surface((game_w - 30, rail_h), pygame.SRCALPHA)
+        for y in range(rail_h):
+            brightness = int(150 + 50 * (1 - abs(y - rail_h // 2) / (rail_h // 2)))
+            pygame.draw.line(rail_surf, (brightness, brightness, brightness + 20), (0, y), (game_w - 30, y))
+        screen.blit(rail_surf, (glass_x + 15, rail_y))
+        pygame.draw.rect(screen, CRANE_STEEL, (glass_x + 15, rail_y, game_w - 30, rail_h), 2)
 
-        # 크레인 레일 (상단)
-        rail_y = game_y + 15
-        pygame.draw.rect(screen, CRANE_GRAY, (game_x + 10, rail_y, game_w - 20, 8))
-        pygame.draw.rect(screen, (100, 100, 120), (game_x + 10, rail_y, game_w - 20, 8), 2)
+        # 레일 볼트
+        for i in range(5):
+            bolt_x = glass_x + 30 + i * (game_w - 60) // 4
+            pygame.draw.circle(screen, (80, 80, 90), (bolt_x, rail_y + rail_h // 2), 4)
+            pygame.draw.circle(screen, (120, 120, 130), (bolt_x, rail_y + rail_h // 2), 3)
 
-        # 크레인 본체
-        crane_w, crane_h = 40, 25
-        pygame.draw.rect(screen, CRANE_SILVER, (crane_px - crane_w // 2, rail_y - 5, crane_w, crane_h), border_radius=3)
-        pygame.draw.rect(screen, CRANE_GRAY, (crane_px - crane_w // 2, rail_y - 5, crane_w, crane_h), 2, border_radius=3)
+        # 크레인 캐리지 (본체)
+        carriage_w, carriage_h = 50, 35
+        carriage_x = crane_px - carriage_w // 2
+        carriage_y = rail_y - 8
 
-        # 크레인 줄
-        rope_length = crane_py - rail_y - crane_h
+        # 캐리지 그림자
+        pygame.draw.rect(screen, (40, 40, 50), (carriage_x + 3, carriage_y + 3, carriage_w, carriage_h), border_radius=5)
+
+        # 캐리지 본체 (메탈릭 그라데이션)
+        carriage_surf = pygame.Surface((carriage_w, carriage_h), pygame.SRCALPHA)
+        for y in range(carriage_h):
+            ratio = y / carriage_h
+            brightness = int(CRANE_CHROME[0] * (1 - ratio * 0.4))
+            pygame.draw.line(carriage_surf, (brightness, brightness, brightness + 15), (0, y), (carriage_w, y))
+        pygame.draw.rect(carriage_surf, (0, 0, 0, 0), (0, 0, carriage_w, carriage_h), border_radius=5)
+        screen.blit(carriage_surf, (carriage_x, carriage_y))
+        pygame.draw.rect(screen, CRANE_STEEL, (carriage_x, carriage_y, carriage_w, carriage_h), 2, border_radius=5)
+
+        # 캐리지 장식
+        pygame.draw.rect(screen, CRANE_CHROME_LIGHT, (carriage_x + 5, carriage_y + 5, carriage_w - 10, 4), border_radius=2)
+
+        # 모터 표시등
+        motor_blink = math.sin(self.animation_timer * 8) > 0 if self.crane_state != "idle" else False
+        motor_color = LED_GREEN if motor_blink else (50, 80, 50)
+        pygame.draw.circle(screen, motor_color, (carriage_x + carriage_w - 10, carriage_y + 10), 4)
+
+        # 크레인 줄 (체인 효과)
+        rope_start_y = carriage_y + carriage_h
+        rope_length = crane_py - rope_start_y
         if rope_length > 0:
-            pygame.draw.line(screen, CRANE_GRAY, (crane_px, rail_y + crane_h - 5), (crane_px, crane_py), 3)
+            chain_segments = int(rope_length / 8)
+            for i in range(chain_segments):
+                seg_y = rope_start_y + i * 8
+                seg_width = 3 if i % 2 == 0 else 5
+                seg_color = CRANE_CHROME if i % 2 == 0 else CRANE_CHROME_DARK
+                pygame.draw.line(screen, seg_color, (crane_px - 1, seg_y), (crane_px - 1, seg_y + 8), seg_width)
 
-        # 크레인 집게 (3발 집게)
-        claw_open = 15 if self.crane_state == "idle" or self.crane_state == "dropping" else 8
-        claw_length = 25
+        # 크레인 집게 본체 (메탈릭 박스)
+        claw_box_w, claw_box_h = 30, 18
+        claw_box_x = crane_px - claw_box_w // 2
+        claw_box_y = crane_py - 5
 
-        # 중앙 집게
-        pygame.draw.line(screen, CRANE_SILVER, (crane_px, crane_py), (crane_px, crane_py + claw_length), 4)
+        # 집게 박스 그림자
+        pygame.draw.rect(screen, (40, 40, 50), (claw_box_x + 2, claw_box_y + 2, claw_box_w, claw_box_h), border_radius=3)
 
-        # 왼쪽 집게
-        pygame.draw.line(screen, CRANE_SILVER, (crane_px, crane_py),
-                        (crane_px - claw_open, crane_py + claw_length), 4)
+        # 집게 박스 본체
+        claw_surf = pygame.Surface((claw_box_w, claw_box_h), pygame.SRCALPHA)
+        for y in range(claw_box_h):
+            brightness = int(200 + 40 * (1 - y / claw_box_h))
+            pygame.draw.line(claw_surf, (brightness, brightness, brightness + 10), (0, y), (claw_box_w, y))
+        screen.blit(claw_surf, (claw_box_x, claw_box_y))
+        pygame.draw.rect(screen, CRANE_STEEL, (claw_box_x, claw_box_y, claw_box_w, claw_box_h), 2, border_radius=3)
 
-        # 오른쪽 집게
-        pygame.draw.line(screen, CRANE_SILVER, (crane_px, crane_py),
-                        (crane_px + claw_open, crane_py + claw_length), 4)
+        # 집게 (3발, 곡선형)
+        claw_open = 18 if self.crane_state in ["idle", "dropping"] else 6
+        claw_length = 30
+        claw_base_y = claw_box_y + claw_box_h
 
-        # 잡은 캡슐 그리기
-        if self.crane_grabbed_prize and (self.crane_state == "rising" or self.crane_state == "returning"):
+        # 집게 발 (두꺼운 메탈)
+        for offset in [-1, 0, 1]:
+            claw_end_x = crane_px + offset * claw_open
+            # 집게 몸체 (그라데이션 효과)
+            claw_points = [
+                (crane_px + offset * 5, claw_base_y),
+                (claw_end_x - 4, claw_base_y + claw_length),
+                (claw_end_x + 4, claw_base_y + claw_length),
+                (crane_px + offset * 5, claw_base_y)
+            ]
+            pygame.draw.polygon(screen, CRANE_CHROME, claw_points)
+            pygame.draw.polygon(screen, CRANE_STEEL, claw_points, 2)
+
+            # 집게 끝 (고무 패드)
+            pygame.draw.ellipse(screen, (60, 60, 70),
+                               (claw_end_x - 5, claw_base_y + claw_length - 3, 10, 8))
+            pygame.draw.ellipse(screen, (40, 40, 50),
+                               (claw_end_x - 5, claw_base_y + claw_length - 3, 10, 8), 1)
+
+        # 잡은 캡슐
+        if self.crane_grabbed_prize and self.crane_state in ["rising", "returning"]:
             prize = self.crane_grabbed_prize
             capsule_color = prize.get("capsule_color", (150, 200, 255))
-            grab_y = crane_py + claw_length + 12
-            capsule_size = 20
+            grab_y = claw_base_y + claw_length + 10
+            cap_w, cap_h = 26, 34
 
-            # 캡슐 본체 (타원형)
-            pygame.draw.ellipse(screen, capsule_color,
-                               (crane_px - capsule_size, grab_y - capsule_size // 2,
-                                capsule_size * 2, capsule_size + 6))
-            # 캡슐 테두리
-            border_color = (capsule_color[0] // 2, capsule_color[1] // 2, capsule_color[2] // 2)
-            pygame.draw.ellipse(screen, border_color,
-                               (crane_px - capsule_size, grab_y - capsule_size // 2,
-                                capsule_size * 2, capsule_size + 6), 2)
+            # 캡슐 그리기 (위와 동일한 스타일)
+            bottom_color = (capsule_color[0] * 7 // 10, capsule_color[1] * 7 // 10, capsule_color[2] * 7 // 10)
+            pygame.draw.ellipse(screen, bottom_color,
+                               (crane_px - cap_w // 2, grab_y, cap_w, cap_h // 2))
+            top_color = (min(255, capsule_color[0] + 30), min(255, capsule_color[1] + 30), min(255, capsule_color[2] + 30))
+            pygame.draw.ellipse(screen, top_color,
+                               (crane_px - cap_w // 2, grab_y - cap_h // 2, cap_w, cap_h // 2 + 8))
+            pygame.draw.line(screen, (255, 255, 255, 150),
+                            (crane_px - cap_w // 2 + 3, grab_y),
+                            (crane_px + cap_w // 2 - 3, grab_y), 2)
+            pygame.draw.ellipse(screen, (capsule_color[0] // 2, capsule_color[1] // 2, capsule_color[2] // 2),
+                               (crane_px - cap_w // 2, grab_y - cap_h // 2, cap_w, cap_h), 2)
 
-            # 아이템 아이콘 그리기
+            # 아이콘
             item_name = prize.get("item", {}).get("name", "")
             if item_name:
                 try:
@@ -6767,99 +6961,142 @@ class BuildingInterior:
                         if hasattr(pingfighter, 'get_item_icon'):
                             item_icon = pingfighter.get_item_icon(item_name)
                             if item_icon:
-                                icon_size = 18
+                                icon_size = 20
                                 scaled_icon = pygame.transform.scale(item_icon, (icon_size, icon_size))
                                 screen.blit(scaled_icon, (crane_px - icon_size // 2, grab_y - icon_size // 2))
                 except Exception:
                     pygame.draw.circle(screen, (255, 255, 255), (crane_px, grab_y), 7)
 
-        # 유리 반사 효과
+        # === 유리 효과 (반사, 틴트) ===
         glass_overlay = pygame.Surface((game_w, game_h), pygame.SRCALPHA)
-        pygame.draw.line(glass_overlay, (255, 255, 255, 30), (0, 0), (game_w, game_h), 80)
-        pygame.draw.line(glass_overlay, (255, 255, 255, 20), (50, 0), (game_w, game_h - 50), 60)
-        screen.blit(glass_overlay, (game_x, game_y))
+        # 대각선 반사광
+        for i in range(3):
+            pygame.draw.line(glass_overlay, (255, 255, 255, 25 - i * 8),
+                            (-50 + i * 80, 0), (game_w - 100 + i * 80, game_h), 40 - i * 10)
+        # 상단 밝은 부분
+        pygame.draw.rect(glass_overlay, (255, 255, 255, 15), (0, 0, game_w, 60))
+        screen.blit(glass_overlay, (glass_x, glass_y))
 
-        # 유리창 테두리
-        pygame.draw.rect(screen, (100, 80, 40), glass_rect, 4)
+        # 유리창 프레임 (두꺼운 메탈)
+        pygame.draw.rect(screen, (60, 50, 45), glass_rect, 6)
+        pygame.draw.rect(screen, (100, 85, 70), glass_rect, 3)
+        pygame.draw.rect(screen, (40, 35, 30), glass_rect, 1)
 
-        # === UI 표시 ===
-        font_medium = self.fonts.get('medium')
+        # === 배출구 (왼쪽 하단) ===
+        chute_x = frame_x + 10
+        chute_y = glass_y + game_h - 60
+        chute_w, chute_h = 40, 80
+
+        # 배출구 프레임
+        pygame.draw.rect(screen, (50, 45, 40), (chute_x, chute_y, chute_w, chute_h), border_radius=5)
+        # 배출구 내부 (어두운 구멍)
+        pygame.draw.rect(screen, (20, 20, 25), (chute_x + 5, chute_y + 5, chute_w - 10, chute_h - 30), border_radius=3)
+        # 고무 플랩
+        pygame.draw.rect(screen, (30, 30, 35), (chute_x + 8, chute_y + chute_h - 25, chute_w - 16, 20), border_radius=2)
+        pygame.draw.rect(screen, FRAME_GOLD_DARK, (chute_x, chute_y, chute_w, chute_h), 2, border_radius=5)
+
+        # === 조이스틱 & 버튼 영역 (하단) ===
+        control_y = frame_y + frame_h - 50
+        control_panel = pygame.Rect(frame_x + 20, control_y, frame_w - 40, 40)
+        pygame.draw.rect(screen, (50, 45, 40), control_panel, border_radius=5)
+        pygame.draw.rect(screen, FRAME_GOLD_DARK, control_panel, 2, border_radius=5)
+
+        # 조이스틱 (왼쪽)
+        joy_x = frame_x + 80
+        joy_y = control_y + 20
+        pygame.draw.circle(screen, (30, 30, 35), (joy_x, joy_y), 15)
+        pygame.draw.circle(screen, (60, 60, 70), (joy_x, joy_y), 12)
+        pygame.draw.circle(screen, (80, 80, 90), (joy_x, joy_y - 2), 10)
+        # 조이스틱 하이라이트
+        pygame.draw.circle(screen, (120, 120, 130), (joy_x - 3, joy_y - 5), 4)
+
+        # 버튼 (오른쪽)
+        btn_x = frame_x + frame_w - 80
+        btn_pressed = self.crane_state != "idle"
+        btn_y_offset = 3 if btn_pressed else 0
+        # 버튼 그림자
+        pygame.draw.ellipse(screen, (20, 20, 25), (btn_x - 18, joy_y - 12, 36, 28))
+        # 버튼 본체
+        btn_color = (200, 60, 60) if not btn_pressed else (150, 40, 40)
+        pygame.draw.ellipse(screen, btn_color, (btn_x - 15, joy_y - 10 + btn_y_offset, 30, 22))
+        pygame.draw.ellipse(screen, (255, 100, 100), (btn_x - 12, joy_y - 8 + btn_y_offset, 24, 14))
+        pygame.draw.ellipse(screen, (180, 50, 50), (btn_x - 15, joy_y - 10 + btn_y_offset, 30, 22), 2)
+
+        # === UI 패널 (하단 정보) ===
+        ui_panel_y = frame_y + frame_h + 10
+        ui_panel = pygame.Rect(game_x - 20, ui_panel_y, game_w + 40, 45)
+        pygame.draw.rect(screen, (30, 28, 35), ui_panel, border_radius=8)
+        pygame.draw.rect(screen, FRAME_GOLD, ui_panel, 2, border_radius=8)
+
         font_small = self.fonts.get('small')
-
-        # 상단 정보 바
-        info_bar_y = game_y - 45
-        pygame.draw.rect(screen, (40, 35, 30), (game_x, info_bar_y, game_w, 35), border_radius=5)
-        pygame.draw.rect(screen, MACHINE_ORANGE, (game_x, info_bar_y, game_w, 35), 2, border_radius=5)
-
-        # 크레인 게임 타이틀 (1회 시스템)
-        if font_medium:
-            title_text = "🎯 크레인 게임"
-            title_surf, title_rect = font_medium.render(title_text, (255, 255, 255))
-            screen.blit(title_surf, (game_x + 20, info_bar_y + 8))
-
-        # 골드 표시
         if font_small:
-            gold_text = f"💰 {self.player_data.get('gold', 0)}"
+            # 골드 표시
+            gold_text = f"💰 {self.player_data.get('gold', 0):,}"
             gold_surf, gold_rect = font_small.render(gold_text, (255, 215, 100))
-            screen.blit(gold_surf, (game_x + game_w - gold_rect.width - 20, info_bar_y + 10))
+            screen.blit(gold_surf, (game_x, ui_panel_y + 14))
 
-        # 배출구 (왼쪽)
-        chute_rect = pygame.Rect(game_x - 15, game_y + game_h - 80, 30, 80)
-        pygame.draw.rect(screen, (60, 50, 40), chute_rect, border_radius=5)
-        pygame.draw.rect(screen, MACHINE_DARK, chute_rect, 2, border_radius=5)
-
-        # 하단 조작 힌트
-        hint_y = game_y + game_h + 20
-        pygame.draw.rect(screen, (40, 35, 30), (game_x, hint_y, game_w, 40), border_radius=5)
-
-        if font_small:
+            # 조작 힌트
             if self.crane_state == "idle":
-                hint_text = "SPACE / CLICK - 크레인 내리기   |   ESC - 나가기"
+                hint_text = "SPACE - 크레인 내리기  |  ESC - 나가기"
             elif self.crane_state == "result":
-                hint_text = "SPACE / CLICK - 계속   |   ESC - 나가기"
+                hint_text = "SPACE - 계속  |  ESC - 나가기"
             else:
-                hint_text = "크레인 작동 중..."
+                hint_text = "▶ 크레인 작동 중..."
 
-            hint_surf, hint_rect = font_small.render(hint_text, (200, 200, 200))
-            screen.blit(hint_surf, (game_x + game_w // 2 - hint_rect.width // 2, hint_y + 12))
+            hint_surf, hint_rect = font_small.render(hint_text, (180, 180, 190))
+            screen.blit(hint_surf, (game_x + game_w - hint_rect.width, ui_panel_y + 14))
 
-        # === 결과 표시 ===
+        # === 결과 표시 (화려한 효과) ===
         if self.crane_state == "result" and self.crane_result:
-            result_overlay = pygame.Surface((game_w, 100), pygame.SRCALPHA)
-            result_overlay.fill((0, 0, 0, 200))
-            screen.blit(result_overlay, (game_x, game_y + game_h // 2 - 50))
+            # 결과 오버레이
+            result_surf = pygame.Surface((game_w, 120), pygame.SRCALPHA)
+            result_surf.fill((0, 0, 0, 200))
+            screen.blit(result_surf, (glass_x, glass_y + game_h // 2 - 60))
 
-            if font_medium:
-                if self.crane_result["success"]:
-                    prize = self.crane_result["prize"]
-                    # 아이템 한글 이름 가져오기
-                    item_info = prize.get("item", {})
-                    item_korean_name = item_info.get("korean", item_info.get("name", "아이템"))
-                    result_text = f"🎉 성공! {item_korean_name} 획득!"
-                    result_color = (100, 255, 100)
+            if self.crane_result["success"]:
+                prize = self.crane_result["prize"]
+                item_info = prize.get("item", {})
+                item_korean = item_info.get("korean", item_info.get("name", "아이템"))
 
-                    # 아이템 아이콘도 표시
-                    item_name = item_info.get("name", "")
-                    if item_name:
-                        try:
-                            import sys
-                            if 'pingfighter' in sys.modules:
-                                pingfighter = sys.modules['pingfighter']
-                                if hasattr(pingfighter, 'get_item_icon'):
-                                    item_icon = pingfighter.get_item_icon(item_name)
-                                    if item_icon:
-                                        icon_size = 32
-                                        scaled_icon = pygame.transform.scale(item_icon, (icon_size, icon_size))
-                                        screen.blit(scaled_icon, (game_x + game_w // 2 - icon_size // 2,
-                                                                 game_y + game_h // 2 - 45))
-                        except Exception:
-                            pass
-                else:
-                    result_text = "😢 빗나갔어요... 다시 도전해보세요!"
-                    result_color = (255, 150, 150)
+                # 성공 텍스트 (글로우 효과)
+                if font_medium:
+                    result_text = f"🎉 {item_korean} 획득!"
+                    for offset in range(3, 0, -1):
+                        glow_surf, _ = font_medium.render(result_text, (100, 255, 100, 150 // offset))
+                        screen.blit(glow_surf, (glass_x + game_w // 2 - glow_surf.get_width() // 2 - offset,
+                                               glass_y + game_h // 2 + 15 - offset))
+                    result_surf, _ = font_medium.render(result_text, (150, 255, 150))
+                    screen.blit(result_surf, (glass_x + game_w // 2 - result_surf.get_width() // 2,
+                                             glass_y + game_h // 2 + 15))
 
-                result_surf, result_rect = font_medium.render(result_text, result_color)
-                screen.blit(result_surf, (game_x + game_w // 2 - result_rect.width // 2, game_y + game_h // 2 + 5))
+                # 아이템 아이콘 (크게)
+                item_name = item_info.get("name", "")
+                if item_name:
+                    try:
+                        import sys
+                        if 'pingfighter' in sys.modules:
+                            pingfighter = sys.modules['pingfighter']
+                            if hasattr(pingfighter, 'get_item_icon'):
+                                item_icon = pingfighter.get_item_icon(item_name)
+                                if item_icon:
+                                    icon_size = 48
+                                    scaled_icon = pygame.transform.scale(item_icon, (icon_size, icon_size))
+                                    # 아이콘 글로우
+                                    glow_surf = pygame.Surface((icon_size + 20, icon_size + 20), pygame.SRCALPHA)
+                                    pygame.draw.circle(glow_surf, (255, 255, 200, 80),
+                                                      (icon_size // 2 + 10, icon_size // 2 + 10), icon_size // 2 + 8)
+                                    screen.blit(glow_surf, (glass_x + game_w // 2 - icon_size // 2 - 10,
+                                                          glass_y + game_h // 2 - 55))
+                                    screen.blit(scaled_icon, (glass_x + game_w // 2 - icon_size // 2,
+                                                             glass_y + game_h // 2 - 45))
+                    except Exception:
+                        pass
+            else:
+                if font_medium:
+                    result_text = "😢 아쉽네요... 다시 도전!"
+                    result_surf, _ = font_medium.render(result_text, (255, 150, 150))
+                    screen.blit(result_surf, (glass_x + game_w // 2 - result_surf.get_width() // 2,
+                                             glass_y + game_h // 2 - 5))
 
     def _draw_bank_menu(self, screen):
         """은행 메뉴창 그리기 - SF 스타일 (마우스 호버 효과 포함)"""
