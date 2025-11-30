@@ -3718,34 +3718,50 @@ class AngelBlessing(LegendaryItem):
             size_pulse = 1.0 + 0.15 * math.sin(anim_time * 12) * (1.0 - phase_progress)
             dice_size = int(base_dice_size * size_pulse)
 
-            # 3D 주사위 그리기
-            dice_surf = pygame.Surface((dice_size + 40, dice_size + 40), pygame.SRCALPHA)
-            self._draw_angel_dice(dice_surf, dice_size, rot_x, rot_y)
-
-            # 주사위 바운스 + 회전 효과
+            # 주사위 바운스 + 회전 효과 (먼저 계산)
             bounce_y = math.sin(anim_time * 10) * 15 * (1.0 - phase_progress)
             bounce_x = math.cos(anim_time * 7) * 10 * (1.0 - phase_progress)
-            dice_rect = dice_surf.get_rect(center=(dice_center_x + bounce_x, dice_center_y + bounce_y))
-            screen.blit(dice_surf, dice_rect)
 
-            # 회전하는 천사 깃털 파티클
+            # 주사위 실제 중심 위치 (바운스 적용)
+            actual_dice_x = dice_center_x + bounce_x
+            actual_dice_y = dice_center_y + bounce_y
+
+            # 회전하는 천사 깃털 파티클 (주사위 뒤에 먼저 그리기)
             num_feathers = 8
             for i in range(num_feathers):
                 feather_angle = (i / num_feathers) * math.pi * 2 + anim_time * 3
                 feather_dist = 60 + 30 * math.sin(anim_time * 4 + i * 0.5)
-                feather_x = dice_center_x + int(math.cos(feather_angle) * feather_dist)
-                feather_y = dice_center_y + int(math.sin(feather_angle) * feather_dist)
+                # 주사위 바운스 위치를 따라감
+                feather_x = actual_dice_x + math.cos(feather_angle) * feather_dist
+                feather_y = actual_dice_y + math.sin(feather_angle) * feather_dist
 
-                # 깃털 모양 (작은 타원)
+                # 깃털 모양 (대칭 타원) - 깃털이 궤도 방향으로 회전
                 feather_size = 4 + int(3 * math.sin(anim_time * 6 + i))
-                pygame.draw.ellipse(screen, (255, 255, 255, 200),
-                                   (feather_x - feather_size, feather_y - feather_size // 2,
-                                    feather_size * 2, feather_size))
+                feather_height = max(1, feather_size)
+                feather_width = feather_size * 2
 
-            # 반짝이는 별 파티클
+                # 깃털 서피스 생성 및 회전
+                feather_surf = pygame.Surface((feather_width + 4, feather_height + 4), pygame.SRCALPHA)
+                pygame.draw.ellipse(feather_surf, (255, 255, 255, 200),
+                                   (2, 2, feather_width, feather_height))
+                # 깃털이 궤도 접선 방향으로 회전
+                feather_rotation = math.degrees(feather_angle) + 90
+                rotated_feather = pygame.transform.rotate(feather_surf, -feather_rotation)
+                feather_rect = rotated_feather.get_rect(center=(int(feather_x), int(feather_y)))
+                screen.blit(rotated_feather, feather_rect)
+
+            # 3D 주사위 그리기 (깃털 위에)
+            dice_surf = pygame.Surface((dice_size + 40, dice_size + 40), pygame.SRCALPHA)
+            self._draw_angel_dice(dice_surf, dice_size, rot_x, rot_y)
+            dice_rect = dice_surf.get_rect(center=(int(actual_dice_x), int(actual_dice_y)))
+            screen.blit(dice_surf, dice_rect)
+
+            # 반짝이는 별 파티클 (주사위 주변, 바운스 따라감)
             for _ in range(3):
-                star_x = dice_center_x + random.randint(-80, 80)
-                star_y = dice_center_y + random.randint(-80, 80)
+                star_offset_x = random.randint(-80, 80)
+                star_offset_y = random.randint(-80, 80)
+                star_x = int(actual_dice_x + star_offset_x)
+                star_y = int(actual_dice_y + star_offset_y)
                 star_size = random.randint(2, 5)
                 star_alpha = random.randint(150, 255)
                 pygame.draw.circle(screen, (255, 255, 200, star_alpha), (star_x, star_y), star_size)

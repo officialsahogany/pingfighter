@@ -2808,7 +2808,7 @@ laser_cannon_angle = QUARTER_ROTATION  # 레이저 캐논 현재 각도 (기본 
 laser_target_angle = QUARTER_ROTATION  # 레이저 캐논 목표 각도
 laser_rotating_mode = False  # 레이저 회전 모드 (등대 모드)
 laser_rotation_direction = 1  # 레이저 회전 방향 (1: 시계방향, -1: 반시계방향)
-laser_cooldown = 5000  # 레이저 쿨타임 (5~9초 랜덤)
+laser_cooldown = 12000  # 레이저 쿨타임 (12~15초 랜덤)
 laser_rotation_range = 60  # 레이저 회전 범위 (랜덤으로 설정됨)
 laser_rotation_speed = 1.0  # 레이저 회전 속도 배율 (랜덤으로 설정됨)
 # 쉴드 안테나 시스템 변수
@@ -49306,7 +49306,8 @@ def draw_objects():
                     closest_y = beam_start_y + t * line_vec_y
                     distance = calculate_distance((player_center_x, player_center_y), (closest_x, closest_y))
                     # 플레이어 패들과 빔의 충돌 (빔 두께 + 패들 반지름, 연막 안에 있지 않을 때만)
-                    if distance < beam_width/2 + PADDLE_WIDTH/2 and not player_stunned and not is_player_in_smoke():
+                    # 대쉬(rolling_active) 중에는 레이저에 피격되지 않도록 예외 처리
+                    if distance < beam_width/2 + PADDLE_WIDTH/2 and not player_stunned and not is_player_in_smoke() and not rolling_active:
                         # 플레이어 감전
                         player_stunned = True
                         player_stun_end_time = current_time + 500  # 0.5초 스턴
@@ -49316,8 +49317,8 @@ def draw_objects():
                 laser_cannon_active = False
                 # 레이저 빔 사운드 정지
                 SOUND_STAGE6_BEAM.stop()
-                # 다음 레이저 쿨타임을 5~9초 랜덤으로 설정
-                laser_cooldown = random.randint(5000, 9000)
+                # 다음 레이저 쿨타임을 12~15초 랜덤으로 설정
+                laser_cooldown = random.randint(12000, 15000)
         # 플레이어 감전 상태 체크
         if player_stunned:
             if current_time > player_stun_end_time:
