@@ -3154,15 +3154,10 @@ class AngelBlessing(LegendaryItem):
             aura_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
             aura_cx, aura_cy = size, size  # 오오라 서피스 중심
 
-            # 1. 외곽 신성한 빛 링 (맥동하는 후광)
+            # 맥동 값 (다른 효과에서 사용)
             pulse = math.sin(self.animation_time * 3) * 0.15 + 0.85  # 0.7 ~ 1.0
-            for ring_i in range(4):
-                ring_radius = int(size * 0.42 + ring_i * 3)
-                ring_alpha = int((80 - ring_i * 15) * pulse)
-                ring_color = (255, 255, 220, max(0, ring_alpha))
-                pygame.draw.circle(aura_surf, ring_color, (aura_cx, aura_cy), ring_radius, 2)
 
-            # 2. 빛나는 광선 (회전하는 신성한 빛줄기)
+            # 1. 빛나는 광선 (회전하는 신성한 빛줄기)
             ray_count = 8
             for ray_i in range(ray_count):
                 ray_angle = (self.animation_time * 40 + ray_i * (360 / ray_count)) % 360

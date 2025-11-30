@@ -49062,36 +49062,40 @@ def draw_objects():
                 missile['y'] += missile['vy']
             # 나이는 계속 증가 (화면에서 사라지게 하기 위해)
             missile['age'] += 1
-            # 화면 밖으로 나가거나 너무 오래된 미사일 제거
+            # 플레이어와 충돌 체크 (무적 시간이 아니고 연막 안에 있지 않을 때만)
+            missile_rect = pygame.Rect(missile['x'] - 3, missile['y'] - 3, 6, 6)
+            collided_with_player = (
+                missile_rect.colliderect(PLAYER)
+                and current_time > player_missile_invulnerable_time
+                and not is_player_in_smoke()
+            )
+            if collided_with_player:
+                # 스테이지 5 화염탄 대비 50% 짧은 스턴 + 가벼운 넉백
+                missile_speed = math.sqrt(missile['vx']**2 + missile['vy']**2)
+                if missile_speed > 0:
+                    knockback_direction = missile['vx'] / abs(missile['vx']) if missile['vx'] != 0 else random.choice([-1, 1])
+                    player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_direction * 12))  # 약간의 넉백 강화
+                    stun_applied = try_apply_player_stun(0.15, source="stage6_missile", knockback_scaled=True)  # 기존 0.3s → 0.15s
+                    if stun_applied > 0:
+                        player_missile_stunned_timer = int(stun_applied * FPS)  # 실제 적용 시간 반영
+                # 충돌 효과 및 파티클
+                effects_manager.create_impact_effect(missile['x'], missile['y'], 10, is_player=False)
+                # 화면 흔들림 효과 추가
+                for _ in range(10):
+                    spark_x = PLAYER.x + random.randint(0, PLAYER.width)
+                    spark_y = PLAYER.y + random.randint(0, PLAYER.height)
+                # 사운드 & 무적 시간
+                if not missile_hit_this_frame:
+                    play_sound_with_volume(SOUND_MISSILE)  # 미사일 충돌 사운드 재생
+                    missile_hit_this_frame = True
+                    player_missile_invulnerable_time = current_time + 500  # 0.5초 무적
+                # 플레이어에 닿은 미사일은 즉시 제거(폭발 후 소멸)
+                continue
+
+            # 화면 밖이거나 수명 초과 시 제거
             if (0 <= missile['x'] <= WIDTH and 0 <= missile['y'] <= HEIGHT and 
                 missile['age'] < 300):  # 5초 후 제거
                 new_missiles.append(missile)
-                # 플레이어와 충돌 체크 (무적 시간이 아니고 연막 안에 있지 않을 때만)
-                missile_rect = pygame.Rect(missile['x'] - 3, missile['y'] - 3, 6, 6)
-                if missile_rect.colliderect(PLAYER) and current_time > player_missile_invulnerable_time and not is_player_in_smoke():
-                    # 스테이지 5 화염탄과 동일한 넉백 시스템 적용
-                    # 미사일 방향에 따른 넉백 속도 설정
-                    missile_speed = math.sqrt(missile['vx']**2 + missile['vy']**2)
-                    if missile_speed > 0:
-                        # 미사일 진행 방향으로 넉백 (화염탄의 25% 강도)
-                        knockback_direction = missile['vx'] / abs(missile['vx']) if missile['vx'] != 0 else random.choice([-1, 1])
-                        player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_direction * 9))  # 화염탄의 25% 강도 (36 -> 18 -> 9)
-                        stun_applied = try_apply_player_stun(0.3, source="stage6_missile", knockback_scaled=True)
-                        if stun_applied > 0:
-                            player_missile_stunned_timer = int(stun_applied * FPS)  # 실제 적용 시간 반영
-                    # 충돌 효과 표시
-                    effects_manager.create_impact_effect(missile['x'], missile['y'], 10, is_player=False)
-                    # 화면 흔들림 효과 추가
-                    for _ in range(10):
-                        spark_x = PLAYER.x + random.randint(0, PLAYER.width)
-                        spark_y = PLAYER.y + random.randint(0, PLAYER.height)
-                    # 한 프레임에 한 번만 사운드 재생
-                    if not missile_hit_this_frame:
-                        play_sound_with_volume(SOUND_MISSILE)  # 미사일 충돌 사운드 재생
-                        missile_hit_this_frame = True
-                        # 무적 시간 설정 (0.5초로 감소)
-                        player_missile_invulnerable_time = current_time + 500
-                    continue  # 충돌한 미사일은 제거
         turret_missiles = new_missiles
         # 미사일 그리기 (탄도미사일 스타일)
         for missile in turret_missiles:
