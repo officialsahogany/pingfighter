@@ -2186,6 +2186,7 @@ class BuildingInterior:
         # 상점/환전 효과음 로드
         self.trade_sound = None
         self.star_exchange_sound = None
+        self.crane_bgm_path = None  # 크레인 게임 BGM 경로
         try:
             import os
             trade_sound_path = resource_path(os.path.join("sounds", "trade.wav"))
@@ -2197,6 +2198,11 @@ class BuildingInterior:
             if os.path.exists(star_sound_path):
                 self.star_exchange_sound = pygame.mixer.Sound(star_sound_path)
                 self.star_exchange_sound.set_volume(0.6)
+
+            # 크레인 게임 BGM 경로 설정
+            crane_bgm_path = resource_path(os.path.join("bgm", "crane.wav"))
+            if os.path.exists(crane_bgm_path):
+                self.crane_bgm_path = crane_bgm_path
         except Exception as e:
             print(f"Warning: Could not load trade/star sound: {e}")
 
@@ -2227,6 +2233,8 @@ class BuildingInterior:
         self.crane_direction = 1  # 1 = 오른쪽, -1 = 왼쪽
         self.crane_speed = 0.008  # 크레인 이동 속도
         self.crane_grab_timer = 0  # 그랩 타이머
+        self.crane_time_limit = 20.0  # 크레인 게임 제한 시간 (초)
+        self.crane_time_remaining = 20.0  # 남은 시간
         self.crane_attempts = 5  # 남은 시도 횟수
         self.crane_prizes = []  # 인형들 위치와 종류 [{x, y, type, grabbed}]
         self.crane_grabbed_prize = None  # 잡은 인형
@@ -2498,47 +2506,43 @@ class BuildingInterior:
             pingfighter = sys.modules['pingfighter']
             is_blacksmith = getattr(pingfighter, 'selected_character_type', '') == 'blacksmith'
 
-        # === 액티브 아이템 풀 (70% 비율) ===
+        # === 액티브 아이템 풀 (70% 비율) - 전부 커먼 ===
         active_items = [
-            # 커먼 액티브
             {"name": "long_boost", "korean": "롱부스트", "rarity": "common", "type": "active"},
             {"name": "gauge_charge", "korean": "게이지충전", "rarity": "common", "type": "active"},
             {"name": "wall", "korean": "벽", "rarity": "common", "type": "active"},
             {"name": "flare", "korean": "섬광탄", "rarity": "common", "type": "active"},
             {"name": "smoke_grenade", "korean": "연막탄", "rarity": "common", "type": "active"},
             {"name": "vitamin_pill", "korean": "비타민", "rarity": "common", "type": "active"},
-            # 레어 액티브
-            {"name": "molotov", "korean": "화염병", "rarity": "rare", "type": "active"},
-            {"name": "grenade", "korean": "수류탄", "rarity": "rare", "type": "active"},
-            {"name": "spider_mine", "korean": "거미지뢰", "rarity": "rare", "type": "active"},
-            {"name": "stopwatch", "korean": "스톱워치", "rarity": "rare", "type": "active"},
-            # 에픽 액티브
-            {"name": "aipill", "korean": "AI알약", "rarity": "epic", "type": "active"},
-            {"name": "pandora_box", "korean": "판도라상자", "rarity": "epic", "type": "active"},
-            {"name": "life_elixir", "korean": "생명의영약", "rarity": "epic", "type": "active"},
-            {"name": "devil_dice", "korean": "악마의주사위", "rarity": "epic", "type": "active"},
-            {"name": "laser_scope", "korean": "레이저조준경", "rarity": "epic", "type": "active"},
+            {"name": "molotov", "korean": "화염병", "rarity": "common", "type": "active"},
+            {"name": "grenade", "korean": "수류탄", "rarity": "common", "type": "active"},
+            {"name": "spider_mine", "korean": "거미지뢰", "rarity": "common", "type": "active"},
+            {"name": "stopwatch", "korean": "스톱워치", "rarity": "common", "type": "active"},
+            {"name": "aipill", "korean": "AI알약", "rarity": "common", "type": "active"},
+            {"name": "pandora_box", "korean": "판도라상자", "rarity": "common", "type": "active"},
+            {"name": "life_elixir", "korean": "생명의영약", "rarity": "common", "type": "active"},
+            {"name": "devil_dice", "korean": "악마의주사위", "rarity": "common", "type": "active"},
+            {"name": "laser_scope", "korean": "레이저조준경", "rarity": "common", "type": "active"},
         ]
 
         # 발토르 전용 아이템 추가 (발토르로 플레이 시에만)
         if is_blacksmith:
-            active_items.append({"name": "repair_kit", "korean": "수리키트", "rarity": "rare", "type": "active"})
-            active_items.append({"name": "berserk_potion", "korean": "광포화물약", "rarity": "epic", "type": "active"})
+            active_items.append({"name": "repair_kit", "korean": "수리키트", "rarity": "common", "type": "active"})
+            active_items.append({"name": "berserk_potion", "korean": "광포화물약", "rarity": "common", "type": "active"})
 
         # === 패시브 아이템 풀 (30% 비율) ===
         passive_items = [
-            # 커먼 패시브
-            {"name": "speedboots", "korean": "스피드부츠", "rarity": "common", "type": "passive"},
-            {"name": "speedgear", "korean": "스피드기어", "rarity": "common", "type": "passive"},
-            {"name": "battery", "korean": "배터리", "rarity": "common", "type": "passive"},
-            {"name": "cooltime", "korean": "쿨타임", "rarity": "common", "type": "passive"},
-            {"name": "fuel_pouch", "korean": "연료파우치", "rarity": "common", "type": "passive"},
-            {"name": "dowsing_pendulum", "korean": "다우징팬들럼", "rarity": "common", "type": "passive"},
-            {"name": "smartphone", "korean": "스마트폰", "rarity": "common", "type": "passive"},
-            {"name": "bulletproof_hat", "korean": "방탄모자", "rarity": "common", "type": "passive"},
-            {"name": "knee_pads", "korean": "무릎보호대", "rarity": "common", "type": "passive"},
-            {"name": "slot_add", "korean": "슬롯추가", "rarity": "common", "type": "passive"},
-            # 레어 패시브
+            # 레어 패시브 (기본)
+            {"name": "speedboots", "korean": "스피드부츠", "rarity": "rare", "type": "passive"},
+            {"name": "speedgear", "korean": "스피드기어", "rarity": "rare", "type": "passive"},
+            {"name": "battery", "korean": "배터리", "rarity": "rare", "type": "passive"},
+            {"name": "cooltime", "korean": "쿨타임", "rarity": "rare", "type": "passive"},
+            {"name": "fuel_pouch", "korean": "연료파우치", "rarity": "rare", "type": "passive"},
+            {"name": "dowsing_pendulum", "korean": "다우징팬들럼", "rarity": "rare", "type": "passive"},
+            {"name": "smartphone", "korean": "스마트폰", "rarity": "rare", "type": "passive"},
+            {"name": "bulletproof_hat", "korean": "방탄모자", "rarity": "rare", "type": "passive"},
+            {"name": "knee_pads", "korean": "무릎보호대", "rarity": "rare", "type": "passive"},
+            {"name": "slot_add", "korean": "슬롯추가", "rarity": "rare", "type": "passive"},
             {"name": "spikeboots", "korean": "스파이크부츠", "rarity": "rare", "type": "passive"},
             {"name": "dashgear", "korean": "대쉬기어", "rarity": "rare", "type": "passive"},
             {"name": "bulkup", "korean": "벌크업", "rarity": "rare", "type": "passive"},
@@ -2549,13 +2553,13 @@ class BuildingInterior:
             {"name": "bluetooth_ring", "korean": "블루투스링", "rarity": "rare", "type": "passive"},
             {"name": "foul_whistle", "korean": "파울휘슬", "rarity": "rare", "type": "passive"},
             {"name": "star_detector", "korean": "스타감지기", "rarity": "rare", "type": "passive"},
-            # 에픽 패시브
+            {"name": "dashholder", "korean": "대쉬홀더", "rarity": "rare", "type": "passive"},
+            {"name": "master", "korean": "마스터", "rarity": "rare", "type": "passive"},
+            # 에픽 패시브 (3개만)
             {"name": "sensor", "korean": "위험감지센서", "rarity": "epic", "type": "passive"},
             {"name": "gravitybelt", "korean": "무중력벨트", "rarity": "epic", "type": "passive"},
-            {"name": "dashholder", "korean": "대쉬홀더", "rarity": "epic", "type": "passive"},
             {"name": "revival", "korean": "부활", "rarity": "epic", "type": "passive"},
-            {"name": "master", "korean": "마스터", "rarity": "epic", "type": "passive"},
-            # 전설 패시브 (매우 낮은 확률!) - 완성된 5개 전설 아이템만 포함
+            # 전설 패시브 - 완성된 5개 전설 아이템
             {"name": "ragnarok_hammer", "korean": "라그나로크해머", "rarity": "legendary", "type": "passive"},
             {"name": "hermes_shoes", "korean": "헤르메스의신발", "rarity": "legendary", "type": "passive"},
             {"name": "poseidon_trident", "korean": "포세이돈의삼지창", "rarity": "legendary", "type": "passive"},
@@ -2580,36 +2584,30 @@ class BuildingInterior:
             is_active = random.random() < 0.70
 
             if is_active:
-                # 액티브 아이템 풀에서 선택
+                # 액티브 아이템 풀에서 선택 - 전부 커먼
                 item_pool = active_items
-                # 액티브 레어리티 확률: 커먼 60%, 레어 30%, 에픽 10%
-                roll = random.random()
-                if roll < 0.10:
-                    rarity = "epic"
-                elif roll < 0.40:
-                    rarity = "rare"
-                else:
-                    rarity = "common"
+                rarity = "common"
             else:
                 # 패시브 아이템 풀에서 선택
                 item_pool = passive_items
-                # 패시브 레어리티 확률: 커먼 70%, 레어 20%, 에픽 8%, 전설 2%
+                # 패시브 레어리티 확률: 레어 88%, 에픽 10%, 전설 2%
                 roll = random.random()
-                if roll < 0.02:  # 2% 전설 (패시브에서만!)
+                if roll < 0.02:  # 2% 전설
                     rarity = "legendary"
-                elif roll < 0.10:  # 8% 에픽
+                elif roll < 0.12:  # 10% 에픽
                     rarity = "epic"
-                elif roll < 0.30:  # 20% 레어
+                else:  # 88% 레어
                     rarity = "rare"
-                else:  # 70% 커먼
-                    rarity = "common"
 
             # 해당 레어리티의 아이템 선택
             available = [item for item in item_pool if item["rarity"] == rarity and item["name"] not in used_items]
             if not available:
                 available = [item for item in item_pool if item["rarity"] == rarity]
             if not available:
-                # 해당 레어리티가 없으면 커먼에서 선택
+                # 해당 레어리티가 없으면 레어에서 선택
+                available = [item for item in item_pool if item["rarity"] == "rare"]
+            if not available:
+                # 레어도 없으면 커먼에서 선택
                 available = [item for item in item_pool if item["rarity"] == "common"]
             if not available:
                 continue
@@ -2637,6 +2635,7 @@ class BuildingInterior:
         self.crane_state = "idle"
         self.crane_direction = 1
         self.crane_grab_timer = 0
+        self.crane_time_remaining = self.crane_time_limit  # 타이머 초기화
         self.crane_attempts = 1  # 1회 시스템으로 변경
         self.crane_grabbed_prize = None
         self.crane_result = None
@@ -2658,12 +2657,31 @@ class BuildingInterior:
         if self.trade_sound:
             self.trade_sound.play()
 
+        # 크레인 게임 BGM 재생
+        if self.crane_bgm_path:
+            try:
+                pygame.mixer.music.load(self.crane_bgm_path)
+                pygame.mixer.music.set_volume(0.5)
+                pygame.mixer.music.play(-1)  # 무한 반복
+            except Exception as e:
+                print(f"[크레인] BGM 재생 실패: {e}")
+
         # 게임 상태 초기화 및 시작
         self._reset_crane_game()
         self.crane_game_playing = True
         self.crane_confirm_dialog_open = False
 
         return True
+
+    def _stop_crane_bgm(self):
+        """크레인 게임 BGM 중지 및 광장 BGM 복구"""
+        try:
+            pygame.mixer.music.stop()
+            # 광장 BGM 복구 (bgm_manager 사용)
+            import bgm_manager
+            bgm_manager.play_downtown_bgm()
+        except Exception as e:
+            print(f"[크레인] BGM 복구 실패: {e}")
 
     def _update_crane_game(self, dt):
         """크레인 게임 업데이트"""
@@ -2708,6 +2726,14 @@ class BuildingInterior:
                     prize["vy"] = max(-0.002, min(0.002, prize["vy"]))
 
         if self.crane_state == "idle":
+            # 타이머 감소
+            self.crane_time_remaining -= dt
+            if self.crane_time_remaining <= 0:
+                # 시간 초과 - 자동으로 집기 시작
+                self.crane_time_remaining = 0
+                self.crane_state = "dropping"
+                print("[크레인] 시간 초과! 자동으로 집기 시작")
+
             # 자동 좌우 이동
             self.crane_x += self.crane_direction * self.crane_speed
             if self.crane_x >= 0.9:
@@ -2810,6 +2836,8 @@ class BuildingInterior:
                     # 게임 종료
                     self.crane_game_playing = False
                     self.crane_state = "idle"
+                    # 크레인 BGM 중지 및 광장 BGM 복구
+                    self._stop_crane_bgm()
                 else:
                     # 다음 시도
                     self.crane_x = 0.5
@@ -4357,6 +4385,8 @@ class BuildingInterior:
             if event.key == pygame.K_ESCAPE:
                 self.crane_game_playing = False
                 self.crane_state = "idle"
+                # 크레인 BGM 중지 및 광장 BGM 복구
+                self._stop_crane_bgm()
                 return ("crane_game_exit", None)
             return None
 
@@ -7154,6 +7184,42 @@ class BuildingInterior:
 
             hint_surf, hint_rect = font_small.render(hint_text, (180, 180, 190))
             screen.blit(hint_surf, (game_x + game_w - hint_rect.width, ui_panel_y + 14))
+
+        # === 타이머 표시 (상단 오른쪽) ===
+        if self.crane_state == "idle" and hasattr(self, 'crane_time_remaining'):
+            time_remaining = max(0, self.crane_time_remaining)
+            time_int = int(time_remaining)
+
+            # 타이머 배경
+            timer_w, timer_h = 80, 40
+            timer_x = frame_x + frame_w - timer_w - 15
+            timer_y = frame_y + 35
+            timer_rect = pygame.Rect(timer_x, timer_y, timer_w, timer_h)
+
+            # 시간에 따른 색상 변경
+            if time_remaining <= 5:
+                timer_bg = (100, 30, 30)  # 빨간 배경 (위험)
+                timer_color = (255, 80, 80)  # 빨간색
+                # 깜빡임 효과
+                if int(time_remaining * 2) % 2 == 0:
+                    timer_color = (255, 255, 255)
+            elif time_remaining <= 10:
+                timer_bg = (80, 60, 20)  # 노란 배경 (경고)
+                timer_color = (255, 220, 80)  # 노란색
+            else:
+                timer_bg = (20, 50, 30)  # 녹색 배경 (안전)
+                timer_color = (100, 255, 150)  # 녹색
+
+            # 타이머 박스 그리기
+            pygame.draw.rect(screen, timer_bg, timer_rect, border_radius=8)
+            pygame.draw.rect(screen, FRAME_GOLD, timer_rect, 2, border_radius=8)
+
+            # 타이머 숫자 표시
+            if font_medium:
+                timer_text = f"{time_int}"
+                timer_surf, timer_text_rect = font_medium.render(timer_text, timer_color)
+                screen.blit(timer_surf, (timer_x + timer_w // 2 - timer_text_rect.width // 2,
+                                        timer_y + timer_h // 2 - timer_text_rect.height // 2))
 
         # === 결과 표시 (화려한 효과) ===
         if self.crane_state == "result" and self.crane_result:
