@@ -2116,6 +2116,15 @@ class DowntownManager:
                             self.state = DowntownState.EXITING
                             running = False
 
+                elif event.type == pygame.MOUSEMOTION:
+                    # 마우스 호버 처리
+                    for idx, (label, action) in enumerate(menu_options):
+                        option_y = box_y + 110 + idx * 50
+                        option_rect = pygame.Rect(box_x + 50, option_y - 5, box_width - 100, 40)
+                        if option_rect.collidepoint(event.pos):
+                            selected = idx
+                            break
+
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # 왼쪽 클릭
                         # 옵션 클릭 체크

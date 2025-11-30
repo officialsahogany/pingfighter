@@ -2398,36 +2398,38 @@ class BuildingInterior:
         center_x = self.pixel_width // 2
         center_y = (wall_h + self.pixel_height) // 2
 
+        # 탁구대 위치 (장애물 영역과 일치 - 분산 배치)
+        table_w, table_h = 140, 85
+        table1_x, table1_y = 100, wall_h + 180  # 왼쪽 상단
+        table2_x, table2_y = self.pixel_width - 280, self.pixel_height - 200  # 오른쪽 하단
+
         trainee_idx = 0
 
-        # === 탁구대 1 (프리발토르 vs 프리스매셔) ===
-        table1_x = center_x - 160
-        table1_y = center_y - 40
-
+        # === 탁구대 1 (프리발토르 vs 프리스매셔) - 왼쪽 상단 ===
         if trainee_idx < trainee_count:
-            # 프리발토르 (왼쪽)
+            # 프리발토르 (왼쪽 - 탁구대 왼쪽)
             pp1 = InteriorNPC(
-                table1_x - 20, table1_y + 30,
+                table1_x - 25, table1_y + table_h // 2,
                 random.choice(pre_baltor_names), "customer",
                 pre_baltor_color, random.choice(trainee_dialogues["ping_pong"]), self.building_type
             )
             pp1.academy_activity = "ping_pong"
             pp1.trainee_type = "pre_baltor"
-            pp1.direction = 2
+            pp1.direction = 2  # 오른쪽 보기
             pp1.ping_pong_timer = 0
             npcs.append(pp1)
             trainee_idx += 1
 
         if trainee_idx < trainee_count:
-            # 프리스매셔 (오른쪽)
+            # 프리스매셔 (오른쪽 - 탁구대 오른쪽)
             pp2 = InteriorNPC(
-                table1_x + 120, table1_y + 30,
+                table1_x + table_w + 25, table1_y + table_h // 2,
                 random.choice(pre_smasher_names), "customer",
                 pre_smasher_color, random.choice(trainee_dialogues["ping_pong"]), self.building_type
             )
             pp2.academy_activity = "ping_pong"
             pp2.trainee_type = "pre_smasher"
-            pp2.direction = 1
+            pp2.direction = 1  # 왼쪽 보기
             pp2.ping_pong_timer = 0.5
             if trainee_idx > 0:
                 pp2.ping_pong_partner = pp1
@@ -2435,32 +2437,31 @@ class BuildingInterior:
             npcs.append(pp2)
             trainee_idx += 1
 
-        # === 탁구대 2 (프리코만도 vs 프리발토르) ===
-        table2_x = center_x + 60
-        table2_y = center_y + 50
-
+        # === 탁구대 2 (프리코만도 vs 프리발토르) - 오른쪽 하단 ===
         if trainee_idx < trainee_count:
+            # 프리코만도 (왼쪽 - 탁구대 왼쪽)
             pp3 = InteriorNPC(
-                table2_x - 20, table2_y + 30,
+                table2_x - 25, table2_y + table_h // 2,
                 random.choice(pre_commando_names), "customer",
                 pre_commando_color, random.choice(trainee_dialogues["ping_pong"]), self.building_type
             )
             pp3.academy_activity = "ping_pong"
             pp3.trainee_type = "pre_commando"
-            pp3.direction = 2
+            pp3.direction = 2  # 오른쪽 보기
             pp3.ping_pong_timer = 0.3
             npcs.append(pp3)
             trainee_idx += 1
 
         if trainee_idx < trainee_count:
+            # 프리발토르 (오른쪽 - 탁구대 오른쪽)
             pp4 = InteriorNPC(
-                table2_x + 120, table2_y + 30,
+                table2_x + table_w + 25, table2_y + table_h // 2,
                 random.choice(pre_baltor_names), "customer",
                 pre_baltor_color, random.choice(trainee_dialogues["ping_pong"]), self.building_type
             )
             pp4.academy_activity = "ping_pong"
             pp4.trainee_type = "pre_baltor"
-            pp4.direction = 1
+            pp4.direction = 1  # 왼쪽 보기
             pp4.ping_pong_timer = 0.8
             pp4.ping_pong_partner = pp3
             pp3.ping_pong_partner = pp4
@@ -5768,18 +5769,25 @@ class BuildingInterior:
         shoot_range_x = self.pixel_width - 150
         self.academy_obstacle_rects.append(pygame.Rect(shoot_range_x, equip_y, 120, 180))
 
-        # 4) 탁구대들 (2개)
-        table_w, table_h = 100, 60
+        # 4) 탁구대들 (2개) - 분산 배치, 더 큰 크기
+        table_w, table_h = 140, 85
         table_positions = [
-            (cx - 160, cy - 40),
-            (cx + 60, cy + 50),
+            (100, wall_h + 180),  # 왼쪽 상단
+            (self.pixel_width - 280, self.pixel_height - 200),  # 오른쪽 하단
         ]
         for tx, ty in table_positions:
-            self.academy_obstacle_rects.append(pygame.Rect(tx, ty, table_w, table_h))
+            self.academy_obstacle_rects.append(pygame.Rect(tx, ty, table_w, table_h + 25))
 
-        # 5) 힐링 캡슐
-        capsule_x, capsule_y = 30, self.pixel_height - 150
+        # 5) 힐링 캡슐 - 오른쪽으로 이동
+        capsule_x, capsule_y = self.pixel_width - 100, wall_h + 220
         self.academy_obstacle_rects.append(pygame.Rect(capsule_x, capsule_y, 60, 100))
+
+        # 6) 도서관 책장들 (좌측 하단, 우측 상단)
+        shelf_w, shelf_h = 60, 140
+        # 좌측 하단 책장
+        self.academy_obstacle_rects.append(pygame.Rect(20, self.pixel_height - 180, shelf_w, shelf_h))
+        # 우측 벽 책장
+        self.academy_obstacle_rects.append(pygame.Rect(self.pixel_width - 80, wall_h + 60, shelf_w, shelf_h))
 
         # 1. 배경
         screen.fill(BG_DARK)
@@ -5839,126 +5847,294 @@ class BuildingInterior:
         # 8. 오른쪽: 사격 연습장
         self._draw_shooting_range(screen, cam_x, cam_y, wall_h, self.animation_timer)
 
-        # 9. 탁구대들 (중앙 영역)
+        # 9. 탁구대들 (분산 배치)
         self._draw_ping_pong_tables(screen, cam_x, cam_y)
 
-        # 10. 힐링 캡슐 (부상자 치료)
+        # 10. 힐링 캡슐 (부상자 치료) - 오른쪽 위치
         self._draw_healing_capsule(screen, cam_x, cam_y, self.animation_timer)
 
         # 11. 러닝 트랙 라인 (바닥)
         self._draw_running_track(screen, cam_x, cam_y, wall_h)
 
-        # 12. 문 그리기
+        # 12. 도서관 책장들 (전술 매뉴얼)
+        self._draw_tactical_bookshelves(screen, cam_x, cam_y, wall_h)
+
+        # 13. 문 그리기
         self._draw_door(screen)
 
     def _draw_training_emblem(self, screen, cx, cy, anim_timer):
-        """창과방패 엠블럼 그리기 (바닥 중앙)"""
+        """창과방패 엠블럼 그리기 (바닥 중앙) - 고퀄리티 버전"""
         import math
 
-        EMBLEM_GOLD = (255, 200, 100)
-        EMBLEM_DIM = (180, 140, 70)
-        EMBLEM_GLOW = (255, 220, 150)
-        SHIELD_GRAY = (120, 130, 140)
-        SPEAR_BROWN = (140, 100, 60)
+        # 색상 팔레트 (더 풍부한 색상)
+        GOLD_BRIGHT = (255, 215, 120)
+        GOLD_MID = (255, 190, 80)
+        GOLD_DIM = (180, 140, 60)
+        GOLD_DARK = (120, 90, 40)
+        SHIELD_BLUE = (70, 90, 120)
+        SHIELD_BLUE_LIGHT = (100, 130, 170)
+        SHIELD_BLUE_DARK = (40, 55, 80)
+        SPEAR_WOOD = (120, 85, 50)
+        SPEAR_WOOD_LIGHT = (160, 120, 75)
+        SPEAR_WOOD_DARK = (80, 55, 35)
+        SPEAR_METAL = (200, 210, 220)
+        SPEAR_METAL_DARK = (140, 150, 165)
+        RED_ACCENT = (180, 60, 60)
+        WHITE = (240, 245, 250)
 
         # 엠블럼 크기
-        outer_radius = 150
-        shield_size = 90
+        outer_radius = 160
+        inner_radius = 140
+        shield_w = 100
+        shield_h = 120
 
-        # 글로우 효과 (배경)
-        glow_intensity = int(25 + 12 * math.sin(anim_timer * 1.5))
-        for r in range(outer_radius + 30, outer_radius, -5):
-            alpha = max(0, glow_intensity - (r - outer_radius) * 2)
-            glow_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*EMBLEM_DIM, alpha), (r, r), r)
-            screen.blit(glow_surf, (cx - r, cy - r))
+        # === 1. 배경 글로우 효과 (다중 레이어) ===
+        glow_pulse = math.sin(anim_timer * 1.2)
+        for layer in range(4):
+            r = outer_radius + 40 - layer * 10
+            alpha = int(15 + 8 * glow_pulse) - layer * 3
+            if alpha > 0:
+                glow_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (*GOLD_DIM, alpha), (r, r), r)
+                screen.blit(glow_surf, (int(cx - r), int(cy - r)))
 
-        # 외부 원 (골드 테두리)
-        pygame.draw.circle(screen, EMBLEM_GOLD, (int(cx), int(cy)), outer_radius, 4)
-        pygame.draw.circle(screen, EMBLEM_DIM, (int(cx), int(cy)), outer_radius - 10, 2)
+        # === 2. 외곽 원형 장식 ===
+        # 가장 바깥 원 (두꺼운 금색)
+        pygame.draw.circle(screen, GOLD_DARK, (int(cx), int(cy)), outer_radius, 8)
+        pygame.draw.circle(screen, GOLD_MID, (int(cx), int(cy)), outer_radius - 2, 4)
 
-        # 장식 점들 (외부 원 주위)
-        for i in range(16):
-            angle = (i * math.pi / 8)
-            rx = cx + (outer_radius - 7) * math.cos(angle)
-            ry = cy + (outer_radius - 7) * math.sin(angle)
-            pulse = 3 + int(1 * math.sin(anim_timer * 2 + i))
-            pygame.draw.circle(screen, EMBLEM_GOLD, (int(rx), int(ry)), pulse)
+        # 내부 원 (장식선)
+        pygame.draw.circle(screen, GOLD_DIM, (int(cx), int(cy)), inner_radius, 2)
+        pygame.draw.circle(screen, GOLD_DIM, (int(cx), int(cy)), inner_radius - 8, 1)
 
-        # === 방패 (중앙) ===
+        # 장식 점들 (외부 원 - 큰 점과 작은 점 번갈아)
+        for i in range(24):
+            angle = (i * math.pi / 12) + anim_timer * 0.1
+            rx = cx + (outer_radius - 4) * math.cos(angle)
+            ry = cy + (outer_radius - 4) * math.sin(angle)
+            dot_size = 4 if i % 2 == 0 else 2
+            pulse = dot_size + int(1 * math.sin(anim_timer * 2.5 + i * 0.3))
+            pygame.draw.circle(screen, GOLD_BRIGHT, (int(rx), int(ry)), pulse)
+
+        # 내부 장식선 (방사형)
+        for i in range(8):
+            angle = (i * math.pi / 4) + math.pi / 8
+            inner_x = cx + (inner_radius - 10) * math.cos(angle)
+            inner_y = cy + (inner_radius - 10) * math.sin(angle)
+            outer_x = cx + (outer_radius - 12) * math.cos(angle)
+            outer_y = cy + (outer_radius - 12) * math.sin(angle)
+            pygame.draw.line(screen, GOLD_DIM, (int(inner_x), int(inner_y)),
+                           (int(outer_x), int(outer_y)), 2)
+
+        # === 3. 방패 (중앙 - 고디테일) ===
+        # 방패 그림자
+        shadow_offset = 4
+        shield_points_shadow = [
+            (cx + shadow_offset, cy - shield_h * 0.45 + shadow_offset),
+            (cx + shield_w * 0.5 + shadow_offset, cy - shield_h * 0.3 + shadow_offset),
+            (cx + shield_w * 0.5 + shadow_offset, cy + shield_h * 0.25 + shadow_offset),
+            (cx + shadow_offset, cy + shield_h * 0.55 + shadow_offset),
+            (cx - shield_w * 0.5 + shadow_offset, cy + shield_h * 0.25 + shadow_offset),
+            (cx - shield_w * 0.5 + shadow_offset, cy - shield_h * 0.3 + shadow_offset),
+        ]
+        shadow_surf = pygame.Surface((shield_w + 20, shield_h + 20), pygame.SRCALPHA)
+        pygame.draw.polygon(shadow_surf, (0, 0, 0, 40),
+                          [(p[0] - cx + shield_w//2 + 10, p[1] - cy + shield_h//2 + 10) for p in shield_points_shadow])
+        screen.blit(shadow_surf, (int(cx - shield_w//2 - 10), int(cy - shield_h//2 - 10)))
+
+        # 방패 본체 (다각형)
         shield_points = [
-            (cx, cy - shield_size),                    # 상단 꼭지점
-            (cx + shield_size * 0.8, cy - shield_size * 0.5),  # 우상단
-            (cx + shield_size * 0.8, cy + shield_size * 0.3),  # 우측
-            (cx, cy + shield_size),                    # 하단 꼭지점
-            (cx - shield_size * 0.8, cy + shield_size * 0.3),  # 좌측
-            (cx - shield_size * 0.8, cy - shield_size * 0.5),  # 좌상단
+            (cx, cy - shield_h * 0.45),              # 상단
+            (cx + shield_w * 0.5, cy - shield_h * 0.3),  # 우상단
+            (cx + shield_w * 0.5, cy + shield_h * 0.25), # 우하단
+            (cx, cy + shield_h * 0.55),              # 하단 (뾰족)
+            (cx - shield_w * 0.5, cy + shield_h * 0.25), # 좌하단
+            (cx - shield_w * 0.5, cy - shield_h * 0.3),  # 좌상단
         ]
-        pygame.draw.polygon(screen, SHIELD_GRAY, shield_points)
-        pygame.draw.polygon(screen, EMBLEM_GOLD, shield_points, 3)
 
-        # 방패 내부 장식 (십자)
-        pygame.draw.line(screen, EMBLEM_GOLD, (cx, cy - shield_size * 0.7),
-                        (cx, cy + shield_size * 0.7), 3)
-        pygame.draw.line(screen, EMBLEM_GOLD, (cx - shield_size * 0.5, cy),
-                        (cx + shield_size * 0.5, cy), 3)
+        # 방패 본체 (그라데이션 효과 - 왼쪽 밝게)
+        pygame.draw.polygon(screen, SHIELD_BLUE, shield_points)
 
-        # === 창 (왼쪽 대각선) ===
-        spear_length = 180
-        spear_angle = math.pi * 0.75  # 135도
-        spear_x1 = cx + spear_length * 0.6 * math.cos(spear_angle)
-        spear_y1 = cy + spear_length * 0.6 * math.sin(spear_angle)
-        spear_x2 = cx - spear_length * 0.6 * math.cos(spear_angle)
-        spear_y2 = cy - spear_length * 0.6 * math.sin(spear_angle)
-
-        # 창대
-        pygame.draw.line(screen, SPEAR_BROWN, (int(spear_x1), int(spear_y1)),
-                        (int(spear_x2), int(spear_y2)), 6)
-
-        # 창끝 (삼각형)
-        tip_size = 20
-        tip_angle = spear_angle + math.pi
-        tip_points = [
-            (spear_x2, spear_y2),
-            (spear_x2 - tip_size * 0.4 * math.cos(tip_angle - 0.5),
-             spear_y2 - tip_size * 0.4 * math.sin(tip_angle - 0.5)),
-            (spear_x2 + tip_size * math.cos(tip_angle),
-             spear_y2 + tip_size * math.sin(tip_angle)),
-            (spear_x2 - tip_size * 0.4 * math.cos(tip_angle + 0.5),
-             spear_y2 - tip_size * 0.4 * math.sin(tip_angle + 0.5)),
+        # 방패 하이라이트 (왼쪽)
+        highlight_points = [
+            (cx - shield_w * 0.45, cy - shield_h * 0.28),
+            (cx - shield_w * 0.15, cy - shield_h * 0.35),
+            (cx - shield_w * 0.15, cy + shield_h * 0.15),
+            (cx - shield_w * 0.45, cy + shield_h * 0.2),
         ]
-        pygame.draw.polygon(screen, EMBLEM_GOLD, tip_points)
+        pygame.draw.polygon(screen, SHIELD_BLUE_LIGHT, highlight_points)
 
-        # === 창 (오른쪽 대각선) ===
-        spear_angle2 = math.pi * 0.25  # 45도
-        spear2_x1 = cx + spear_length * 0.6 * math.cos(spear_angle2)
-        spear2_y1 = cy + spear_length * 0.6 * math.sin(spear_angle2)
-        spear2_x2 = cx - spear_length * 0.6 * math.cos(spear_angle2)
-        spear2_y2 = cy - spear_length * 0.6 * math.sin(spear_angle2)
-
-        # 창대
-        pygame.draw.line(screen, SPEAR_BROWN, (int(spear2_x1), int(spear2_y1)),
-                        (int(spear2_x2), int(spear2_y2)), 6)
-
-        # 창끝 (삼각형)
-        tip_angle2 = spear_angle2 + math.pi
-        tip_points2 = [
-            (spear2_x2, spear2_y2),
-            (spear2_x2 - tip_size * 0.4 * math.cos(tip_angle2 - 0.5),
-             spear2_y2 - tip_size * 0.4 * math.sin(tip_angle2 - 0.5)),
-            (spear2_x2 + tip_size * math.cos(tip_angle2),
-             spear2_y2 + tip_size * math.sin(tip_angle2)),
-            (spear2_x2 - tip_size * 0.4 * math.cos(tip_angle2 + 0.5),
-             spear2_y2 - tip_size * 0.4 * math.sin(tip_angle2 + 0.5)),
+        # 방패 어두운 부분 (오른쪽)
+        dark_points = [
+            (cx + shield_w * 0.15, cy - shield_h * 0.35),
+            (cx + shield_w * 0.45, cy - shield_h * 0.28),
+            (cx + shield_w * 0.45, cy + shield_h * 0.2),
+            (cx + shield_w * 0.15, cy + shield_h * 0.15),
         ]
-        pygame.draw.polygon(screen, EMBLEM_GOLD, tip_points2)
+        pygame.draw.polygon(screen, SHIELD_BLUE_DARK, dark_points)
+
+        # 방패 테두리 (다중 선)
+        pygame.draw.polygon(screen, GOLD_MID, shield_points, 4)
+        pygame.draw.polygon(screen, GOLD_BRIGHT, shield_points, 2)
+
+        # 방패 내부 장식 - 십자 (더 디테일)
+        cross_w = 12
+        # 세로 십자
+        pygame.draw.rect(screen, GOLD_DIM, (cx - cross_w//2, cy - shield_h * 0.35,
+                                            cross_w, shield_h * 0.75))
+        pygame.draw.rect(screen, GOLD_MID, (cx - cross_w//2 + 2, cy - shield_h * 0.35 + 2,
+                                           cross_w - 4, shield_h * 0.75 - 4))
+        # 가로 십자
+        pygame.draw.rect(screen, GOLD_DIM, (cx - shield_w * 0.35, cy - cross_w//2,
+                                            shield_w * 0.7, cross_w))
+        pygame.draw.rect(screen, GOLD_MID, (cx - shield_w * 0.35 + 2, cy - cross_w//2 + 2,
+                                           shield_w * 0.7 - 4, cross_w - 4))
+
+        # 방패 중앙 보석 (빨간색)
+        gem_radius = 10
+        pygame.draw.circle(screen, RED_ACCENT, (int(cx), int(cy)), gem_radius)
+        pygame.draw.circle(screen, (220, 100, 100), (int(cx - 2), int(cy - 2)), gem_radius - 3)
+        pygame.draw.circle(screen, GOLD_BRIGHT, (int(cx), int(cy)), gem_radius, 2)
+
+        # 방패 모서리 리벳
+        rivet_positions = [
+            (cx, cy - shield_h * 0.38),
+            (cx + shield_w * 0.4, cy - shield_h * 0.22),
+            (cx + shield_w * 0.4, cy + shield_h * 0.15),
+            (cx - shield_w * 0.4, cy + shield_h * 0.15),
+            (cx - shield_w * 0.4, cy - shield_h * 0.22),
+        ]
+        for rx, ry in rivet_positions:
+            pygame.draw.circle(screen, GOLD_DARK, (int(rx), int(ry)), 5)
+            pygame.draw.circle(screen, GOLD_BRIGHT, (int(rx), int(ry)), 3)
+            pygame.draw.circle(screen, GOLD_MID, (int(rx - 1), int(ry - 1)), 1)
+
+        # === 4. 창 두 자루 (X자 교차 - 고디테일) ===
+        spear_length = 200
+
+        for spear_idx, base_angle in enumerate([math.pi * 0.72, math.pi * 0.28]):
+            # 창 위치 계산
+            sx1 = cx + spear_length * 0.55 * math.cos(base_angle)
+            sy1 = cy + spear_length * 0.55 * math.sin(base_angle)
+            sx2 = cx - spear_length * 0.55 * math.cos(base_angle)
+            sy2 = cy - spear_length * 0.55 * math.sin(base_angle)
+
+            # 창대 (나무 - 그라데이션)
+            # 메인 창대
+            pygame.draw.line(screen, SPEAR_WOOD_DARK, (int(sx1), int(sy1)),
+                           (int(sx2), int(sy2)), 10)
+            pygame.draw.line(screen, SPEAR_WOOD, (int(sx1), int(sy1)),
+                           (int(sx2), int(sy2)), 7)
+            pygame.draw.line(screen, SPEAR_WOOD_LIGHT, (int(sx1 + 1), int(sy1 + 1)),
+                           (int(sx2 + 1), int(sy2 + 1)), 2)
+
+            # 창대 장식 밴드 (금속)
+            band_positions = [0.3, 0.5, 0.7]
+            for bp in band_positions:
+                bx = sx1 + (sx2 - sx1) * bp
+                by = sy1 + (sy2 - sy1) * bp
+                pygame.draw.circle(screen, GOLD_DIM, (int(bx), int(by)), 6)
+                pygame.draw.circle(screen, GOLD_MID, (int(bx), int(by)), 4)
+
+            # 창끝 (금속 - 더 디테일한 형태)
+            tip_length = 35
+            tip_angle = base_angle + math.pi
+
+            # 창끝 본체
+            tip_base_x = sx2 + 5 * math.cos(tip_angle)
+            tip_base_y = sy2 + 5 * math.sin(tip_angle)
+            tip_end_x = tip_base_x + tip_length * math.cos(tip_angle)
+            tip_end_y = tip_base_y + tip_length * math.sin(tip_angle)
+
+            # 창날 외곽 (다이아몬드 형태)
+            perp_angle = tip_angle + math.pi / 2
+            tip_width = 12
+            blade_points = [
+                (tip_end_x, tip_end_y),  # 끝점
+                (tip_base_x + tip_width * 0.6 * math.cos(perp_angle),
+                 tip_base_y + tip_width * 0.6 * math.sin(perp_angle)),
+                (tip_base_x + tip_length * 0.3 * math.cos(tip_angle) + tip_width * math.cos(perp_angle),
+                 tip_base_y + tip_length * 0.3 * math.sin(tip_angle) + tip_width * math.sin(perp_angle)),
+                (tip_base_x + tip_length * 0.3 * math.cos(tip_angle),
+                 tip_base_y + tip_length * 0.3 * math.sin(tip_angle)),
+                (tip_base_x + tip_length * 0.3 * math.cos(tip_angle) - tip_width * math.cos(perp_angle),
+                 tip_base_y + tip_length * 0.3 * math.sin(tip_angle) - tip_width * math.sin(perp_angle)),
+                (tip_base_x - tip_width * 0.6 * math.cos(perp_angle),
+                 tip_base_y - tip_width * 0.6 * math.sin(perp_angle)),
+            ]
+            pygame.draw.polygon(screen, SPEAR_METAL_DARK, blade_points)
+            pygame.draw.polygon(screen, SPEAR_METAL, blade_points, 0)
+
+            # 창날 중앙선 (하이라이트)
+            pygame.draw.line(screen, WHITE, (int(tip_end_x), int(tip_end_y)),
+                           (int(tip_base_x + tip_length * 0.3 * math.cos(tip_angle)),
+                            int(tip_base_y + tip_length * 0.3 * math.sin(tip_angle))), 2)
+
+            # 창날 테두리
+            pygame.draw.polygon(screen, GOLD_DIM, blade_points, 2)
+
+            # 창끝 기부 장식 (금속 밴드)
+            pygame.draw.circle(screen, SPEAR_METAL_DARK, (int(sx2), int(sy2)), 8)
+            pygame.draw.circle(screen, GOLD_MID, (int(sx2), int(sy2)), 6)
+
+            # 창 반대쪽 끝 (뭉툭한 끝)
+            pygame.draw.circle(screen, SPEAR_WOOD_DARK, (int(sx1), int(sy1)), 6)
+            pygame.draw.circle(screen, GOLD_DIM, (int(sx1), int(sy1)), 4)
+
+        # === 5. 하단 배너/리본 ===
+        banner_y = cy + outer_radius - 10
+        banner_w = 180
+        banner_h = 28
+
+        # 리본 본체
+        ribbon_points = [
+            (cx - banner_w//2 - 15, banner_y + 5),
+            (cx - banner_w//2, banner_y),
+            (cx + banner_w//2, banner_y),
+            (cx + banner_w//2 + 15, banner_y + 5),
+            (cx + banner_w//2 + 10, banner_y + banner_h),
+            (cx + banner_w//2, banner_y + banner_h - 5),
+            (cx - banner_w//2, banner_y + banner_h - 5),
+            (cx - banner_w//2 - 10, banner_y + banner_h),
+        ]
+        pygame.draw.polygon(screen, RED_ACCENT, ribbon_points)
+        pygame.draw.polygon(screen, GOLD_MID, ribbon_points, 2)
+
+        # 리본 그림자
+        pygame.draw.line(screen, (120, 40, 40), (int(cx - banner_w//2), int(banner_y + banner_h - 8)),
+                        (int(cx + banner_w//2), int(banner_y + banner_h - 8)), 2)
 
         # 텍스트 "COMBAT ACADEMY"
         font_small = self.fonts.get('small')
         if font_small:
-            pulse_alpha = int(200 + 55 * math.sin(anim_timer * 2))
-            text_surf, text_rect = font_small.render("COMBAT ACADEMY", EMBLEM_GOLD)
-            screen.blit(text_surf, (cx - text_rect.width // 2, cy + outer_radius + 10))
+            text_surf, text_rect = font_small.render("COMBAT ACADEMY", GOLD_BRIGHT)
+            screen.blit(text_surf, (int(cx - text_rect.width // 2), int(banner_y + 5)))
+
+        # === 6. 상단 왕관 장식 ===
+        crown_y = cy - outer_radius + 5
+        crown_w = 60
+        crown_h = 25
+
+        # 왕관 본체
+        crown_points = [
+            (cx - crown_w//2, crown_y + crown_h),
+            (cx - crown_w//2, crown_y + crown_h * 0.4),
+            (cx - crown_w//3, crown_y),
+            (cx - crown_w//6, crown_y + crown_h * 0.3),
+            (cx, crown_y - 5),
+            (cx + crown_w//6, crown_y + crown_h * 0.3),
+            (cx + crown_w//3, crown_y),
+            (cx + crown_w//2, crown_y + crown_h * 0.4),
+            (cx + crown_w//2, crown_y + crown_h),
+        ]
+        pygame.draw.polygon(screen, GOLD_MID, crown_points)
+        pygame.draw.polygon(screen, GOLD_BRIGHT, crown_points, 2)
+
+        # 왕관 보석들
+        gem_positions = [(cx - crown_w//3, crown_y + 3), (cx, crown_y - 2), (cx + crown_w//3, crown_y + 3)]
+        for gx, gy in gem_positions:
+            pygame.draw.circle(screen, RED_ACCENT, (int(gx), int(gy)), 4)
+            pygame.draw.circle(screen, (220, 100, 100), (int(gx - 1), int(gy - 1)), 2)
 
     def _draw_magic_circle(self, screen, cx, cy, anim_timer):
         """마법진 그리기 (바닥 중앙) - 레거시, 훈련소에서는 사용 안함"""
@@ -6337,48 +6513,134 @@ class BuildingInterior:
             screen.blit(text_surf, (range_x + 5, range_y + booth_h + 5))
 
     def _draw_ping_pong_tables(self, screen, cam_x, cam_y):
-        """탁구대들 그리기"""
+        """탁구대들 그리기 - 더 크고 분산된 위치, 탁구공 애니메이션 포함"""
+        import math
+
         TABLE_GREEN = (40, 100, 60)
         TABLE_DARK = (30, 70, 45)
-        NET_WHITE = (200, 200, 200)
-        LINE_WHITE = (220, 220, 220)
-        LEG_GRAY = (80, 80, 85)
+        TABLE_LIGHT = (60, 130, 80)
+        NET_WHITE = (220, 220, 220)
+        NET_SHADOW = (180, 180, 180)
+        LINE_WHITE = (240, 240, 240)
+        LEG_GRAY = (70, 70, 75)
+        LEG_DARK = (50, 50, 55)
+        BALL_WHITE = (255, 255, 255)
+        BALL_ORANGE = (255, 180, 100)
+        PADDLE_RED = (200, 60, 60)
+        PADDLE_BLACK = (40, 40, 45)
 
-        center_x = self.pixel_width // 2
-        center_y = self.pixel_height // 2
+        wall_h = int(TILE_SIZE * 3.5)
 
-        # 탁구대 위치들
+        # 탁구대 위치들 - 분산 배치 (왼쪽 상단, 오른쪽 하단)
+        table_w, table_h = 140, 85  # 더 큰 탁구대
         table_positions = [
-            (center_x - 160, center_y - 40),
-            (center_x + 60, center_y + 50),
+            (100, wall_h + 180),  # 왼쪽 상단
+            (self.pixel_width - 280, self.pixel_height - 200),  # 오른쪽 하단
         ]
 
-        for tx, ty in table_positions:
+        for table_idx, (tx, ty) in enumerate(table_positions):
             table_x = tx - cam_x
             table_y = ty - cam_y
-            table_w, table_h = 100, 60
 
-            # 테이블 상판
+            # === 테이블 그림자 ===
+            pygame.draw.rect(screen, (25, 25, 30), (table_x + 5, table_y + 5, table_w, table_h))
+
+            # === 테이블 상판 ===
             pygame.draw.rect(screen, TABLE_GREEN, (table_x, table_y, table_w, table_h))
-            pygame.draw.rect(screen, TABLE_DARK, (table_x, table_y, table_w, table_h), 3)
 
-            # 테이블 라인 (흰색 테두리)
-            pygame.draw.rect(screen, LINE_WHITE, (table_x + 3, table_y + 3, table_w - 6, table_h - 6), 2)
+            # 상판 하이라이트 (위쪽)
+            pygame.draw.rect(screen, TABLE_LIGHT, (table_x + 2, table_y + 2, table_w - 4, 8))
 
-            # 중앙선
-            pygame.draw.line(screen, LINE_WHITE, (table_x + table_w // 2, table_y + 5),
-                           (table_x + table_w // 2, table_y + table_h - 5), 2)
+            # 테두리
+            pygame.draw.rect(screen, TABLE_DARK, (table_x, table_y, table_w, table_h), 4)
 
-            # 네트
+            # === 테이블 라인 (흰색 테두리) ===
+            pygame.draw.rect(screen, LINE_WHITE, (table_x + 6, table_y + 6, table_w - 12, table_h - 12), 3)
+
+            # 중앙선 (세로)
+            pygame.draw.line(screen, LINE_WHITE, (table_x + table_w // 2, table_y + 8),
+                           (table_x + table_w // 2, table_y + table_h - 8), 3)
+
+            # === 네트 (더 상세하게) ===
             net_y = table_y + table_h // 2
-            pygame.draw.rect(screen, NET_WHITE, (table_x + 5, net_y - 8, table_w - 10, 4))
-            # 네트 지지대
-            pygame.draw.rect(screen, (100, 100, 105), (table_x + 3, net_y - 12, 6, 16))
-            pygame.draw.rect(screen, (100, 100, 105), (table_x + table_w - 9, net_y - 12, 6, 16))
 
-            # 테이블 다리
-            pygame.draw.rect(screen, LEG_GRAY, (table_x + 8, table_y + table_h, 8, 20))
-            pygame.draw.rect(screen, LEG_GRAY, (table_x + table_w - 16, table_y + table_h, 8, 20))
+            # 네트 지지대 (양쪽)
+            pygame.draw.rect(screen, (90, 90, 95), (table_x + 2, net_y - 18, 8, 24))
+            pygame.draw.rect(screen, (90, 90, 95), (table_x + table_w - 10, net_y - 18, 8, 24))
+
+            # 네트 상단 바
+            pygame.draw.rect(screen, (120, 120, 125), (table_x + 8, net_y - 18, table_w - 16, 4))
+
+            # 네트 메쉬 (세로선들)
+            for nx in range(12, table_w - 12, 8):
+                pygame.draw.line(screen, NET_SHADOW, (table_x + nx, net_y - 14), (table_x + nx, net_y - 2), 1)
+
+            # 네트 가로선
+            pygame.draw.line(screen, NET_WHITE, (table_x + 8, net_y - 8), (table_x + table_w - 8, net_y - 8), 1)
+
+            # === 테이블 다리 (4개) ===
+            leg_w, leg_h = 10, 25
+            leg_positions = [
+                (table_x + 12, table_y + table_h),
+                (table_x + table_w - 22, table_y + table_h),
+                (table_x + 12, table_y + table_h),  # 앞쪽 다리
+                (table_x + table_w - 22, table_y + table_h),
+            ]
+            for lx, ly in leg_positions[:2]:
+                pygame.draw.rect(screen, LEG_GRAY, (lx, ly, leg_w, leg_h))
+                pygame.draw.rect(screen, LEG_DARK, (lx, ly, leg_w, leg_h), 2)
+
+            # === 탁구공 애니메이션 ===
+            ball_phase = (self.animation_timer * 3 + table_idx * 1.5) % (2 * math.pi)
+            ball_x_offset = int(50 * math.sin(ball_phase))  # 좌우로 왕복
+            ball_y_offset = int(-15 * abs(math.sin(ball_phase * 2)))  # 위아래 튀는 효과
+
+            ball_x = table_x + table_w // 2 + ball_x_offset
+            ball_y = table_y + table_h // 2 - 25 + ball_y_offset
+
+            # 공 그림자
+            shadow_y = table_y + table_h // 2 - 5
+            shadow_size = max(2, 5 - abs(ball_y_offset) // 3)
+            pygame.draw.ellipse(screen, (30, 30, 35), (ball_x - shadow_size, shadow_y - 2, shadow_size * 2, 4))
+
+            # 탁구공 (주황색 또는 흰색)
+            ball_color = BALL_ORANGE if table_idx == 0 else BALL_WHITE
+            pygame.draw.circle(screen, ball_color, (int(ball_x), int(ball_y)), 6)
+            # 하이라이트
+            pygame.draw.circle(screen, (255, 255, 255), (int(ball_x) - 2, int(ball_y) - 2), 2)
+
+            # === 플레이어 위치 표시 (좌우) ===
+            # 왼쪽 플레이어 위치
+            left_player_x = table_x - 25
+            left_player_y = table_y + table_h // 2
+
+            # 오른쪽 플레이어 위치
+            right_player_x = table_x + table_w + 25
+            right_player_y = table_y + table_h // 2
+
+            # 탁구채 그리기 (플레이어 손에)
+            # 왼쪽 탁구채 (공이 오른쪽에 있을 때 스윙)
+            left_swing = ball_x_offset < -20
+            left_paddle_angle = 0.3 if left_swing else -0.2
+
+            # 왼쪽 탁구채
+            paddle_x = left_player_x + 20
+            paddle_y = left_player_y - 10 + (5 if left_swing else 0)
+            # 손잡이
+            pygame.draw.rect(screen, PADDLE_BLACK, (paddle_x - 3, paddle_y + 8, 6, 15))
+            # 라켓 면
+            pygame.draw.ellipse(screen, PADDLE_RED, (paddle_x - 10, paddle_y - 5, 20, 25))
+            pygame.draw.ellipse(screen, (180, 50, 50), (paddle_x - 10, paddle_y - 5, 20, 25), 2)
+
+            # 오른쪽 탁구채 (공이 왼쪽에 있을 때 스윙)
+            right_swing = ball_x_offset > 20
+            paddle_x = right_player_x - 20
+            paddle_y = right_player_y - 10 + (5 if right_swing else 0)
+            # 손잡이
+            pygame.draw.rect(screen, PADDLE_BLACK, (paddle_x - 3, paddle_y + 8, 6, 15))
+            # 라켓 면 (검정색)
+            pygame.draw.ellipse(screen, PADDLE_BLACK, (paddle_x - 10, paddle_y - 5, 20, 25))
+            pygame.draw.ellipse(screen, (60, 60, 65), (paddle_x - 10, paddle_y - 5, 20, 25), 2)
 
     def _draw_healing_capsule(self, screen, cam_x, cam_y, anim_timer):
         """힐링 캡슐 그리기 (부상자 치료)"""
@@ -6391,8 +6653,10 @@ class BuildingInterior:
         HEAL_DIM = (60, 180, 100)
         BODY_TAN = (200, 160, 130)
 
-        capsule_x = 30 - cam_x
-        capsule_y = self.pixel_height - 150 - cam_y
+        # 위치 (장애물 영역과 일치 - 오른쪽 상단)
+        wall_h = int(TILE_SIZE * 3.5)
+        capsule_x = self.pixel_width - 100 - cam_x
+        capsule_y = wall_h + 220 - cam_y
         capsule_w, capsule_h = 60, 100
 
         # 캡슐 베이스 (금속)
@@ -6474,6 +6738,119 @@ class BuildingInterior:
             ])
 
         screen.blit(track_surf, (-cam_x, -cam_y))
+
+    def _draw_tactical_bookshelves(self, screen, cam_x, cam_y, wall_h):
+        """전술 매뉴얼 책장들 그리기 (도서관 영역)"""
+        import math
+
+        # 색상
+        WOOD_DARK = (70, 50, 35)
+        WOOD_MID = (100, 75, 50)
+        WOOD_LIGHT = (130, 100, 70)
+        BOOK_COLORS = [
+            (180, 60, 60),    # 빨강
+            (60, 100, 180),   # 파랑
+            (60, 140, 80),    # 초록
+            (180, 140, 60),   # 노랑
+            (140, 80, 140),   # 보라
+            (80, 80, 80),     # 회색
+            (180, 120, 80),   # 주황
+            (100, 150, 180),  # 하늘
+        ]
+        GOLD_ACCENT = (255, 200, 100)
+        LABEL_BG = (40, 35, 30)
+
+        # 책장 위치들 (장애물 영역과 일치)
+        shelf_positions = [
+            (20, self.pixel_height - 180),      # 좌측 하단
+            (self.pixel_width - 80, wall_h + 60),  # 우측 상단
+        ]
+
+        shelf_w, shelf_h = 60, 140
+
+        for idx, (shelf_x, shelf_y) in enumerate(shelf_positions):
+            sx = shelf_x - cam_x
+            sy = shelf_y - cam_y
+
+            # 책장 프레임 (나무 느낌)
+            # 뒷판
+            pygame.draw.rect(screen, WOOD_DARK, (sx, sy, shelf_w, shelf_h))
+            # 테두리
+            pygame.draw.rect(screen, WOOD_LIGHT, (sx, sy, shelf_w, shelf_h), 3)
+
+            # 선반 4개 (수평)
+            num_shelves = 4
+            shelf_spacing = shelf_h // (num_shelves + 1)
+            for s in range(1, num_shelves + 1):
+                shelf_row_y = sy + s * shelf_spacing
+                # 선반 판
+                pygame.draw.rect(screen, WOOD_MID, (sx + 3, shelf_row_y - 2, shelf_w - 6, 6))
+                pygame.draw.rect(screen, WOOD_LIGHT, (sx + 3, shelf_row_y - 2, shelf_w - 6, 6), 1)
+
+                # 책들 그리기 (각 선반에)
+                book_x = sx + 6
+                row_idx = s - 1
+                num_books = 5 + (row_idx % 3)  # 선반마다 다른 개수
+
+                for b in range(num_books):
+                    book_w = 6 + (b % 3) * 2  # 책 두께 다양
+                    book_h = shelf_spacing - 12  # 선반 높이에 맞춤
+
+                    if book_x + book_w > sx + shelf_w - 6:
+                        break  # 선반 넘어가면 중단
+
+                    # 책 색상 (다양하게)
+                    color_idx = (idx * 7 + row_idx * 3 + b) % len(BOOK_COLORS)
+                    book_color = BOOK_COLORS[color_idx]
+
+                    book_top_y = shelf_row_y - book_h - 2
+
+                    # 책 본체
+                    pygame.draw.rect(screen, book_color, (book_x, book_top_y, book_w, book_h))
+
+                    # 책 테두리 (어두운 색)
+                    darker = tuple(max(0, c - 40) for c in book_color)
+                    pygame.draw.rect(screen, darker, (book_x, book_top_y, book_w, book_h), 1)
+
+                    # 일부 책에 금색 제목 라인
+                    if b % 3 == 0:
+                        title_y = book_top_y + book_h // 3
+                        pygame.draw.line(screen, GOLD_ACCENT,
+                                       (book_x + 2, title_y),
+                                       (book_x + book_w - 2, title_y), 1)
+
+                    # 일부 책 기울어진 느낌 (세로선)
+                    if b % 4 == 2 and book_w > 8:
+                        pygame.draw.line(screen, darker,
+                                       (book_x + book_w - 2, book_top_y),
+                                       (book_x + book_w - 2, book_top_y + book_h), 1)
+
+                    book_x += book_w + 1
+
+            # 책장 상단 장식 (금속 라벨)
+            label_w, label_h = 40, 12
+            label_x = sx + (shelf_w - label_w) // 2
+            label_y = sy + 8
+
+            pygame.draw.rect(screen, LABEL_BG, (label_x, label_y, label_w, label_h), border_radius=2)
+            pygame.draw.rect(screen, GOLD_ACCENT, (label_x, label_y, label_w, label_h), 1, border_radius=2)
+
+            # 라벨 텍스트
+            font_small = self.fonts.get('small')
+            if font_small:
+                label_text = "전술" if idx == 0 else "기록"
+                text_surf, text_rect = font_small.render(label_text, GOLD_ACCENT)
+                screen.blit(text_surf, (label_x + (label_w - text_rect.width) // 2, label_y + 1))
+
+            # 책장 하단 받침대
+            base_h = 8
+            pygame.draw.rect(screen, WOOD_MID, (sx - 2, sy + shelf_h, shelf_w + 4, base_h))
+            pygame.draw.rect(screen, WOOD_LIGHT, (sx - 2, sy + shelf_h, shelf_w + 4, base_h), 1)
+
+            # 발 (2개)
+            foot_w, foot_h = 10, 5
+            pygame.draw.rect(screen, WOOD_DARK, (sx + 5, sy + shelf_h + base_h, foot_w, foot_h))
+            pygame.draw.rect(screen, WOOD_DARK, (sx + shelf_w - 15, sy + shelf_h + base_h, foot_w, foot_h))
 
     def _draw_bank_interior(self, screen):
         """스타뱅크 전용 인테리어 - 깔끔한 SF 은행 스타일"""
