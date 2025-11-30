@@ -2830,8 +2830,10 @@ class BuildingInterior:
             print(f"[크레인 게임] 아이템 획득 오류: {e}")
 
     def _try_grab_prize(self):
-        """캡슐 잡기 시도 - 정확한 위치 매칭 (랜덤 확률 없음)"""
-        grab_range = 0.06  # 정확한 위치에 있어야 잡힘 (좁은 범위)
+        """캡슐 잡기 시도 - 크레인 중심에 정확히 위치해야 잡힘"""
+        # 크레인 집게 중심부에 캡슐이 정확히 있어야 잡힘 (매우 좁은 범위)
+        grab_range_x = 0.025  # 가로 범위 (집게 중심부만)
+        grab_range_y = 0.08   # 세로 범위 (집게가 내려가는 방향)
 
         # 가장 가까운 캡슐 찾기
         closest_prize = None
@@ -2845,8 +2847,8 @@ class BuildingInterior:
             dy = abs(self.crane_y - prize["y"])
             distance = (dx ** 2 + dy ** 2) ** 0.5
 
-            # 범위 내에 있고 가장 가까운 캡슐 선택
-            if dx < grab_range and dy < 0.12 and distance < closest_distance:
+            # 크레인 중심에 정확히 있어야만 잡힘 (가장자리는 불가)
+            if dx < grab_range_x and dy < grab_range_y and distance < closest_distance:
                 closest_distance = distance
                 closest_prize = prize
 
