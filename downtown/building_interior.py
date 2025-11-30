@@ -2519,7 +2519,7 @@ class BuildingInterior:
             {"name": "spider_mine", "korean": "스파이더지뢰", "rarity": "common", "type": "active"},
             {"name": "stopwatch", "korean": "스톱워치", "rarity": "common", "type": "active"},
             {"name": "aipill", "korean": "AI알약", "rarity": "common", "type": "active"},
-            {"name": "pandora_box", "korean": "판도라상자", "rarity": "common", "type": "active"},
+            {"name": "pandora_box", "korean": "판도라상자", "rarity": "epic", "type": "active"},
             {"name": "life_elixir", "korean": "생명수", "rarity": "common", "type": "active"},
             {"name": "devil_dice", "korean": "악마의주사위", "rarity": "common", "type": "active"},
             {"name": "laser_scope", "korean": "레이저스코프", "rarity": "common", "type": "active"},
@@ -2584,9 +2584,14 @@ class BuildingInterior:
             is_active = random.random() < 0.70
 
             if is_active:
-                # 액티브 아이템 풀에서 선택 - 전부 커먼
+                # 액티브 아이템 풀에서 선택
                 item_pool = active_items
-                rarity = "common"
+                # 액티브 레어리티 확률: 커먼 95%, 에픽 5% (판도라상자)
+                roll = random.random()
+                if roll < 0.05:  # 5% 에픽
+                    rarity = "epic"
+                else:  # 95% 커먼
+                    rarity = "common"
             else:
                 # 패시브 아이템 풀에서 선택
                 item_pool = passive_items
