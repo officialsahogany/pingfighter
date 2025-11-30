@@ -2223,7 +2223,7 @@ class BuildingInterior:
         self.crane_game_playing = False  # 크레인 게임 플레이 중
         self.crane_x = 0.5  # 크레인 X 위치 (0.0 ~ 1.0)
         self.crane_y = 0.0  # 크레인 Y 위치 (0.0 = 상단, 1.0 = 하단)
-        self.crane_state = "idle"  # idle, moving_left, moving_right, dropping, grabbing, rising, returning
+        self.crane_state = "idle"  # idle, moving_left, moving_right, dropping, grabbing, rising, returning, releasing, item_falling
         self.crane_direction = 1  # 1 = 오른쪽, -1 = 왼쪽
         self.crane_speed = 0.008  # 크레인 이동 속도
         self.crane_grab_timer = 0  # 그랩 타이머
@@ -2232,6 +2232,12 @@ class BuildingInterior:
         self.crane_grabbed_prize = None  # 잡은 인형
         self.crane_result = None  # 게임 결과 {"success": bool, "prize": ...}
         self._init_crane_prizes()  # 인형 초기화
+
+        # 크레인 배출 애니메이션 변수
+        self.crane_claw_open = 0.0  # 집게 벌림 정도 (0.0: 닫힘, 1.0: 열림)
+        self.crane_drop_y = 0.0  # 배출구에서 떨어지는 아이템 Y 위치
+        self.crane_drop_speed = 0.0  # 낙하 속도
+        self.crane_drop_bounce = 0  # 튕김 횟수
 
         # 아카데미 학장 상호작용 (ACADEMY 전용)
         self.nearby_headmaster = False  # 학장 근처 여부
@@ -2738,26 +2744,55 @@ class BuildingInterior:
             if self.crane_x > 0.05:
                 self.crane_x -= 0.01
             else:
-                # 결과 처리
+                # 배출구 도착 - 집게 벌림 애니메이션 시작
+                self.crane_state = "releasing"
+                self.crane_claw_open = 0.0  # 닫힌 상태에서 시작
+                self.crane_drop_y = 0.0
+                self.crane_drop_speed = 0.0
+                self.crane_drop_bounce = 0
+
+        elif self.crane_state == "releasing":
+            # 집게 벌림 애니메이션
+            self.crane_claw_open += 0.05  # 천천히 열림
+            if self.crane_claw_open >= 1.0:
+                self.crane_claw_open = 1.0
+                # 아이템 낙하 시작
                 if self.crane_grabbed_prize:
-                    # 성공! 캡슐 획득
-                    self.crane_result = {
-                        "success": True,
-                        "prize": self.crane_grabbed_prize
-                    }
-
-                    # 실제 아이템을 플레이어 인벤토리에 추가
-                    item_info = self.crane_grabbed_prize.get("item", {})
-                    item_name = item_info.get("name", "")
-                    if item_name:
-                        self._give_crane_item_to_player(item_name)
-
-                    # 캡슐 제거
-                    self.crane_prizes = [p for p in self.crane_prizes if p != self.crane_grabbed_prize]
-                    self.crane_grabbed_prize = None
+                    self.crane_state = "item_falling"
                 else:
-                    # 실패
+                    # 빈 손이면 바로 결과
                     self.crane_result = {"success": False, "prize": None}
+                    self.crane_attempts -= 1
+                    self.crane_state = "result"
+                    self.crane_grab_timer = 2.0
+
+        elif self.crane_state == "item_falling":
+            # 아이템 낙하 애니메이션
+            self.crane_drop_speed += 0.008  # 중력
+            self.crane_drop_y += self.crane_drop_speed
+
+            # 바닥에 닿으면 튀어오름
+            if self.crane_drop_y >= 0.3 and self.crane_drop_speed > 0:
+                self.crane_drop_speed = -self.crane_drop_speed * 0.5  # 튀어오름
+                self.crane_drop_bounce += 1
+
+            # 2번 튀어오른 후 결과 처리
+            if self.crane_drop_bounce >= 2 and self.crane_drop_speed >= 0:
+                # 성공! 캡슐 획득
+                self.crane_result = {
+                    "success": True,
+                    "prize": self.crane_grabbed_prize
+                }
+
+                # 실제 아이템을 플레이어 인벤토리에 추가
+                item_info = self.crane_grabbed_prize.get("item", {})
+                item_name = item_info.get("name", "")
+                if item_name:
+                    self._give_crane_item_to_player(item_name)
+
+                # 캡슐 제거
+                self.crane_prizes = [p for p in self.crane_prizes if p != self.crane_grabbed_prize]
+                self.crane_grabbed_prize = None
 
                 self.crane_attempts -= 1
                 self.crane_state = "result"
@@ -6910,7 +6945,16 @@ class BuildingInterior:
         pygame.draw.rect(screen, CRANE_STEEL, (claw_box_x, claw_box_y, claw_box_w, claw_box_h), 2, border_radius=3)
 
         # 집게 (3발, 곡선형)
-        claw_open = 18 if self.crane_state in ["idle", "dropping"] else 6
+        # 집게 벌림 정도 계산 (상태에 따라)
+        if self.crane_state in ["idle", "dropping"]:
+            claw_open = 18
+        elif self.crane_state == "releasing":
+            # releasing 상태에서는 점점 벌어짐
+            claw_open = 6 + int(self.crane_claw_open * 20)
+        elif self.crane_state == "item_falling":
+            claw_open = 26  # 완전히 벌린 상태
+        else:
+            claw_open = 6
         claw_length = 30
         claw_base_y = claw_box_y + claw_box_h
 
@@ -6933,11 +6977,16 @@ class BuildingInterior:
             pygame.draw.ellipse(screen, (40, 40, 50),
                                (claw_end_x - 5, claw_base_y + claw_length - 3, 10, 8), 1)
 
-        # 잡은 캡슐
-        if self.crane_grabbed_prize and self.crane_state in ["rising", "returning"]:
+        # 잡은 캡슐 (집게에 매달린 상태)
+        if self.crane_grabbed_prize and self.crane_state in ["rising", "returning", "releasing"]:
             prize = self.crane_grabbed_prize
             capsule_color = prize.get("capsule_color", (150, 200, 255))
             grab_y = claw_base_y + claw_length + 10
+
+            # releasing 상태에서 캡슐이 점점 아래로 떨어지기 시작
+            if self.crane_state == "releasing":
+                grab_y += int(self.crane_claw_open * 30)  # 집게가 벌어질수록 아래로
+
             cap_w, cap_h = 26, 34
 
             # 캡슐 그리기 (위와 동일한 스타일)
@@ -6996,6 +7045,60 @@ class BuildingInterior:
         # 고무 플랩
         pygame.draw.rect(screen, (30, 30, 35), (chute_x + 8, chute_y + chute_h - 25, chute_w - 16, 20), border_radius=2)
         pygame.draw.rect(screen, FRAME_GOLD_DARK, (chute_x, chute_y, chute_w, chute_h), 2, border_radius=5)
+
+        # === 배출구에서 떨어지는 캡슐 (item_falling 상태) ===
+        if self.crane_state == "item_falling" and self.crane_grabbed_prize:
+            prize = self.crane_grabbed_prize
+            capsule_color = prize.get("capsule_color", (150, 200, 255))
+
+            # 배출구 위쪽에서 시작해서 아래로 떨어짐
+            drop_start_y = chute_y + 20  # 배출구 내부 상단
+            drop_end_y = chute_y + chute_h + 30  # 배출구 아래로 떨어짐
+            drop_y = drop_start_y + int(self.crane_drop_y * (drop_end_y - drop_start_y))
+            drop_x = chute_x + chute_w // 2
+
+            cap_w, cap_h = 24, 32
+
+            # 캡슐 회전 효과 (튕길 때마다 회전)
+            rotation_offset = int(self.crane_drop_y * 10) % 4
+
+            # 캡슐 그리기
+            bottom_color = (capsule_color[0] * 7 // 10, capsule_color[1] * 7 // 10, capsule_color[2] * 7 // 10)
+            pygame.draw.ellipse(screen, bottom_color,
+                               (drop_x - cap_w // 2, drop_y, cap_w, cap_h // 2))
+            top_color = (min(255, capsule_color[0] + 30), min(255, capsule_color[1] + 30), min(255, capsule_color[2] + 30))
+            pygame.draw.ellipse(screen, top_color,
+                               (drop_x - cap_w // 2, drop_y - cap_h // 2, cap_w, cap_h // 2 + 8))
+            # 캡슐 중앙 라인
+            pygame.draw.line(screen, (255, 255, 255, 180),
+                            (drop_x - cap_w // 2 + 3, drop_y),
+                            (drop_x + cap_w // 2 - 3, drop_y), 2)
+            # 캡슐 외곽선
+            pygame.draw.ellipse(screen, (capsule_color[0] // 2, capsule_color[1] // 2, capsule_color[2] // 2),
+                               (drop_x - cap_w // 2, drop_y - cap_h // 2, cap_w, cap_h), 2)
+
+            # 아이콘
+            item_name = prize.get("item", {}).get("name", "")
+            if item_name:
+                try:
+                    import sys
+                    if 'pingfighter' in sys.modules:
+                        pingfighter = sys.modules['pingfighter']
+                        if hasattr(pingfighter, 'get_item_icon'):
+                            item_icon = pingfighter.get_item_icon(item_name)
+                            if item_icon:
+                                icon_size = 18
+                                scaled_icon = pygame.transform.scale(item_icon, (icon_size, icon_size))
+                                screen.blit(scaled_icon, (drop_x - icon_size // 2, drop_y - icon_size // 2))
+                except Exception:
+                    pygame.draw.circle(screen, (255, 255, 255), (drop_x, drop_y), 6)
+
+            # 튕김 효과 파티클
+            if self.crane_drop_bounce > 0 and self.crane_drop_speed < 0:
+                for i in range(3):
+                    particle_x = drop_x + random.randint(-15, 15)
+                    particle_y = drop_y + cap_h // 2 + random.randint(-5, 5)
+                    pygame.draw.circle(screen, (255, 255, 200, 150), (particle_x, particle_y), 2)
 
         # === 조이스틱 & 버튼 영역 (하단) ===
         control_y = frame_y + frame_h - 50

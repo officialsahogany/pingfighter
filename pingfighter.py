@@ -77831,6 +77831,7 @@ def main(stage_num, new_boss_mode=False):
                     and current_space_state
                     and selected_character_type == "smasher"
                     and serve_power_smash_lockout <= 0  # 서브 직후 파워스매싱 금지
+                    and not is_waiting_for_serve  # 서브 대기 상태에서는 파워스매싱 금지
                 ):  # 파워스매싱은 스매셔 전용
                     # 파워스매싱 발동 (고스트샷 제거됨)
                     global power_smashing_parabola_active
