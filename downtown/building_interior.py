@@ -4993,6 +4993,9 @@ class BuildingInterior:
         if self.building_type == BuildingType.ACADEMY:
             self._draw_headmaster_interact_hint(screen)
 
+        # 일반 NPC 상호작용 힌트 (근처일 때만)
+        self._draw_npc_interact_hint(screen)
+
         # 상점 거래창 (맨 위에)
         if self.shop_trade_open:
             self._draw_shop_trade_ui(screen)
@@ -6119,6 +6122,80 @@ class BuildingInterior:
             angle_inner = math.radians(-90 + i * 72 + 36)
             star_points.append((star_x + 4 * math.cos(angle_inner), star_y + 4 * math.sin(angle_inner)))
         pygame.draw.polygon(screen, ACCENT_GOLD, star_points)
+
+    def _draw_npc_interact_hint(self, screen):
+        """일반 NPC 근처일 때 상호작용 힌트 표시"""
+        # 학장 힌트가 표시 중이면 스킵 (중복 방지)
+        if self.building_type == BuildingType.ACADEMY and self.nearby_headmaster:
+            return
+
+        if not self.nearby_npc:
+            return
+
+        # 대화창/메뉴가 열려있으면 힌트 숨기기
+        if self.academy_dialog_open or self.bank_menu_open or self.shop_trade_open:
+            return
+
+        # NPC 이름 가져오기
+        npc_name = getattr(self.nearby_npc, 'name', '주민')
+        hint_text = f"CLICK - {npc_name}과(와) 대화"
+
+        # 애니메이션 펄스
+        pulse = abs(math.sin(self.animation_timer * 4))
+
+        # 색상 팔레트 (건물 타입별)
+        if self.building_type == BuildingType.BANK:
+            ACCENT_COLOR = (70, 180, 255)  # 시안 (은행)
+            DARK_BG = (18, 25, 38)
+        elif self.building_type == BuildingType.ITEM_SHOP:
+            ACCENT_COLOR = (100, 255, 150)  # 그린 (상점)
+            DARK_BG = (20, 35, 25)
+        else:
+            ACCENT_COLOR = (180, 100, 255)  # 퍼플 (기본)
+            DARK_BG = (25, 20, 35)
+
+        # 힌트 박스 크기
+        box_w = 260
+        box_h = 40
+        box_x = (SCREEN_WIDTH - box_w) // 2
+        box_y = SCREEN_HEIGHT - 80
+
+        # 글로우 효과
+        for glow in range(3, 0, -1):
+            glow_alpha = int((60 - glow * 15) * pulse)
+            glow_surf = pygame.Surface((box_w + glow * 6, box_h + glow * 6), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*ACCENT_COLOR, glow_alpha),
+                           (0, 0, box_w + glow * 6, box_h + glow * 6), border_radius=8)
+            screen.blit(glow_surf, (box_x - glow * 3, box_y - glow * 3))
+
+        # 박스 배경
+        box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box_surf, (*DARK_BG, 230), (0, 0, box_w, box_h), border_radius=6)
+        screen.blit(box_surf, (box_x, box_y))
+
+        # 테두리
+        pygame.draw.rect(screen, ACCENT_COLOR, (box_x, box_y, box_w, box_h), 2, border_radius=6)
+
+        # 텍스트
+        if self.fonts:
+            font = self.fonts.get("small") or self.fonts.get("main")
+            if font:
+                text_color = (255, 255, 255)
+                text_surf, text_rect = font.render(hint_text, text_color)
+                text_x = box_x + (box_w - text_rect.width) // 2 + 15
+                text_y = box_y + (box_h - text_rect.height) // 2
+                screen.blit(text_surf, (text_x, text_y))
+
+        # 마우스 클릭 아이콘 (좌측)
+        mouse_x = box_x + 20
+        mouse_y = box_y + (box_h - 26) // 2
+        # 마우스 본체
+        pygame.draw.ellipse(screen, (50, 55, 70), (mouse_x, mouse_y, 20, 26))
+        pygame.draw.ellipse(screen, ACCENT_COLOR, (mouse_x, mouse_y, 20, 26), 2)
+        # 왼쪽 버튼 강조 (클릭 표시)
+        pygame.draw.rect(screen, ACCENT_COLOR, (mouse_x + 2, mouse_y + 2, 7, 9), border_radius=2)
+        # 버튼 구분선
+        pygame.draw.line(screen, DARK_BG, (mouse_x + 10, mouse_y + 2), (mouse_x + 10, mouse_y + 11), 1)
 
     def _draw_academy_interior(self, screen):
         """아카데미 전용 인테리어 - 훈련소/전투 아카데미 스타일"""
