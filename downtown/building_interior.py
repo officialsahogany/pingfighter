@@ -2508,21 +2508,21 @@ class BuildingInterior:
 
         # === 액티브 아이템 풀 (70% 비율) - 전부 커먼 ===
         active_items = [
-            {"name": "long_boost", "korean": "롱부스트", "rarity": "common", "type": "active"},
-            {"name": "gauge_charge", "korean": "게이지충전", "rarity": "common", "type": "active"},
-            {"name": "wall", "korean": "벽", "rarity": "common", "type": "active"},
+            {"name": "long_boost", "korean": "거대화포션", "rarity": "common", "type": "active"},
+            {"name": "gauge_charge", "korean": "에너지드링크", "rarity": "common", "type": "active"},
+            {"name": "wall", "korean": "벽돌", "rarity": "common", "type": "active"},
             {"name": "flare", "korean": "섬광탄", "rarity": "common", "type": "active"},
             {"name": "smoke_grenade", "korean": "연막탄", "rarity": "common", "type": "active"},
-            {"name": "vitamin_pill", "korean": "비타민", "rarity": "common", "type": "active"},
+            {"name": "vitamin_pill", "korean": "비타민약", "rarity": "common", "type": "active"},
             {"name": "molotov", "korean": "화염병", "rarity": "common", "type": "active"},
             {"name": "grenade", "korean": "수류탄", "rarity": "common", "type": "active"},
-            {"name": "spider_mine", "korean": "거미지뢰", "rarity": "common", "type": "active"},
+            {"name": "spider_mine", "korean": "스파이더지뢰", "rarity": "common", "type": "active"},
             {"name": "stopwatch", "korean": "스톱워치", "rarity": "common", "type": "active"},
             {"name": "aipill", "korean": "AI알약", "rarity": "common", "type": "active"},
             {"name": "pandora_box", "korean": "판도라상자", "rarity": "common", "type": "active"},
-            {"name": "life_elixir", "korean": "생명의영약", "rarity": "common", "type": "active"},
+            {"name": "life_elixir", "korean": "생명수", "rarity": "common", "type": "active"},
             {"name": "devil_dice", "korean": "악마의주사위", "rarity": "common", "type": "active"},
-            {"name": "laser_scope", "korean": "레이저조준경", "rarity": "common", "type": "active"},
+            {"name": "laser_scope", "korean": "레이저스코프", "rarity": "common", "type": "active"},
         ]
 
         # 발토르 전용 아이템 추가 (발토르로 플레이 시에만)
@@ -2541,8 +2541,8 @@ class BuildingInterior:
             {"name": "dowsing_pendulum", "korean": "다우징팬들럼", "rarity": "rare", "type": "passive"},
             {"name": "smartphone", "korean": "스마트폰", "rarity": "rare", "type": "passive"},
             {"name": "bulletproof_hat", "korean": "방탄모자", "rarity": "rare", "type": "passive"},
-            {"name": "knee_pads", "korean": "무릎보호대", "rarity": "rare", "type": "passive"},
-            {"name": "slot_add", "korean": "슬롯추가", "rarity": "rare", "type": "passive"},
+            {"name": "knee_pads", "korean": "킥차져", "rarity": "rare", "type": "passive"},
+            {"name": "slot_add", "korean": "배낭", "rarity": "rare", "type": "passive"},
             {"name": "spikeboots", "korean": "스파이크부츠", "rarity": "rare", "type": "passive"},
             {"name": "dashgear", "korean": "대쉬기어", "rarity": "rare", "type": "passive"},
             {"name": "bulkup", "korean": "벌크업", "rarity": "rare", "type": "passive"},
@@ -2551,7 +2551,7 @@ class BuildingInterior:
             {"name": "chargebag", "korean": "충전가방", "rarity": "rare", "type": "passive"},
             {"name": "spiked_helmet", "korean": "가시투구", "rarity": "rare", "type": "passive"},
             {"name": "bluetooth_ring", "korean": "블루투스링", "rarity": "rare", "type": "passive"},
-            {"name": "foul_whistle", "korean": "파울휘슬", "rarity": "rare", "type": "passive"},
+            {"name": "foul_whistle", "korean": "반칙호루라기", "rarity": "rare", "type": "passive"},
             {"name": "star_detector", "korean": "스타감지기", "rarity": "rare", "type": "passive"},
             {"name": "dashholder", "korean": "대쉬홀더", "rarity": "rare", "type": "passive"},
             {"name": "master", "korean": "마스터", "rarity": "rare", "type": "passive"},
