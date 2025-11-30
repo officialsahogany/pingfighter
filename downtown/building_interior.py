@@ -8591,10 +8591,10 @@ class BuildingInterior:
         label_y = y - label_h - 2
         pygame.draw.rect(screen, FRAME_DARK, (label_x - 2, label_y - 1, label_w + 4, label_h + 2), border_radius=3)
         pygame.draw.rect(screen, FRAME_MID, (label_x, label_y, label_w, label_h), border_radius=2)
-        if self.korean_font:
+        if self.fonts and self.fonts.get('small'):
             try:
                 label_text = "장비" if side == "left" else "소품"
-                text_surf, text_rect = self.korean_font.render(label_text, accent)
+                text_surf, text_rect = self.fonts['small'].render(label_text, accent)
                 screen.blit(text_surf, (label_x + (label_w - text_rect.width) // 2, label_y + (label_h - text_rect.height) // 2))
             except:
                 pass
@@ -8689,9 +8689,9 @@ class BuildingInterior:
                         pygame.draw.rect(screen, glow_color, (item_x, item_y, icon_size, icon_size), border_radius=3)
                 else:
                     pygame.draw.rect(screen, glow_color, (item_x, item_y, icon_size, icon_size), border_radius=3)
-                    if self.korean_font:
+                    if self.fonts and self.fonts.get('small'):
                         try:
-                            q_surf, q_rect = self.korean_font.render("?", (255, 255, 255))
+                            q_surf, q_rect = self.fonts['small'].render("?", (255, 255, 255))
                             screen.blit(q_surf, (item_x + icon_size // 2 - q_rect.width // 2, item_y + icon_size // 2 - q_rect.height // 2))
                         except:
                             pass
