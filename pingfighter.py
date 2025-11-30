@@ -34647,6 +34647,25 @@ def store_passive_item(item_data):
             print("🌊 포세이돈의 삼지창 획득! 바다의 힘이 깃들었습니다!")
         else:
             print("이미 포세이돈의 삼지창을 보유 중입니다.")
+    elif item_data["name"] == "angel_blessing":
+        # 천사의 가호 전설 아이템 획득
+        if not items.angel_blessing_obtained:
+            items.angel_blessing_obtained = True
+            # 전설 아이템 타입 설정
+            item_data["type"] = "legendary"
+            try:
+                legendary_manager = get_legendary_manager()
+                if "angel_blessing" not in legendary_manager.unlocked_items:
+                    legendary_manager.unlocked_items.append("angel_blessing")
+                    legendary_manager.items["angel_blessing"].unlocked = True
+            except Exception:
+                pass
+            # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
+            trigger_legendary_acquisition("angel_blessing", "천사의 가호", item_icon,
+                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            print("😇 천사의 가호 획득! 천사의 축복이 함께합니다!")
+        else:
+            print("이미 천사의 가호를 보유 중입니다.")
     else:
         # 알 수 없는 패시브 아이템 처리
         print(f"     : {item_data['name']}")
@@ -49074,12 +49093,14 @@ def draw_objects():
                 missile_speed = math.sqrt(missile['vx']**2 + missile['vy']**2)
                 if missile_speed > 0:
                     knockback_direction = missile['vx'] / abs(missile['vx']) if missile['vx'] != 0 else random.choice([-1, 1])
-                    player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_direction * 12))  # 약간의 넉백 강화
+                    # 약간 더 강한 넉백으로 조정
+                    player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_direction * 14))
                     stun_applied = try_apply_player_stun(0.15, source="stage6_missile", knockback_scaled=True)  # 기존 0.3s → 0.15s
                     if stun_applied > 0:
                         player_missile_stunned_timer = int(stun_applied * FPS)  # 실제 적용 시간 반영
                 # 충돌 효과 및 파티클
-                effects_manager.create_impact_effect(missile['x'], missile['y'], 10, is_player=False)
+                # 불꽃 느낌의 얇은 입자를 위해 주황 계열(플레이어 색)로 렌더
+                effects_manager.create_impact_effect(missile['x'], missile['y'], 10, is_player=True)
                 # 화면 흔들림 효과 추가
                 for _ in range(10):
                     spark_x = PLAYER.x + random.randint(0, PLAYER.width)
