@@ -310,7 +310,7 @@ BUILDING_INFO[BuildingType.ITEM_SHOP] = SHOP_DESIGNS[SELECTED_SHOP_DESIGN]
 # =============================================================================
 # 행동 포인트 설정
 # =============================================================================
-BASE_ACTION_POINTS = 4          # 기본 AP
+BASE_ACTION_POINTS = 3          # 기본 AP (스테이지1 광장 시작 시 열쇠 3개)
 MAX_ACTION_POINTS = 10          # 최대 AP
 AP_PER_STAGE_CLEAR = 1          # 스테이지 클리어 시 추가 AP
 

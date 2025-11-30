@@ -460,6 +460,12 @@ class DowntownManager:
                 else:
                     print("[DEV] 건물 소환 모드 비활성화")
 
+            elif event.key == pygame.K_9:
+                # 개발자 치트: 10만 골드 추가 (9번 키)
+                current_gold = self.player_data.get('gold', 0)
+                self.player_data['gold'] = current_gold + 100000
+                print(f"[DEV] 골드 +100,000 추가! (현재: {self.player_data['gold']:,})")
+
         elif event.type == pygame.KEYUP:
             if self.player:
                 self.player.handle_movement_key_event(

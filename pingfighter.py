@@ -34029,6 +34029,9 @@ trade_point_particles = []  # 형광가루 파티클 효과 리스트
 trade_point_collected = 0  # 현재 스테이지에서 수집한 트레이드 포인트
 trade_point_texts = []  # 트레이드 포인트 획득 시 표시할 텍스트 효과
 
+# 광장 골드 시스템 (스테이지 간 유지, 스타포인트와 별개)
+downtown_gold = 0  # 광장에서 사용하는 골드 (환전, 상점 등)
+
 # 은행 예금 시스템 (스테이지 간 유지)
 deposit_balance = 0  # 예금 잔액
 deposit_interest_rate = 0.0  # 현재 적용될 이자율 (다음 스테이지에 적용)
@@ -50163,6 +50166,7 @@ def run_downtown_hub(next_stage_display: int) -> None:
     """
     global deposit_balance, deposit_interest_rate
     global deposit_last_deposit_stage, deposit_pending_interest_rates
+    global downtown_gold
 
     try:
         screen = pygame.display.get_surface() or SCREEN
@@ -50172,7 +50176,7 @@ def run_downtown_hub(next_stage_display: int) -> None:
         pygame.time.wait(100)  # 100ms 대기
         pygame.event.get()
         player_data = {
-            "gold": trade_point_collected if "trade_point_collected" in globals() else 0,
+            "gold": downtown_gold,
             "items": [],
             "buffs": [],
             "character_type": selected_character_type if "selected_character_type" in globals() else "smasher",
@@ -50191,6 +50195,9 @@ def run_downtown_hub(next_stage_display: int) -> None:
             pass
         # BGM 정지는 직전 점수 화면에서 수행; 여기서는 바로 광장 실행
         manager.run()
+
+        # 광장에서 돌아온 후 골드 동기화 (다음 스테이지 광장으로 유지)
+        downtown_gold = manager.player_data.get('gold', 0)
 
         # 광장에서 돌아온 후 예금 데이터 동기화
         deposit_balance = manager.player_data.get('deposit_balance', 0)
@@ -51147,7 +51154,8 @@ def show_victory_screen(stage_cleared, reward):
                 show_start_screen()
             else:
                 if mode == 'downtown':
-                    run_downtown_hub(target_stage)
+                    # 스테이지1 클리어 → 스테이지1 광장 (target_stage - 1)
+                    run_downtown_hub(target_stage - 1)
                 next_stage_display = target_stage
 
                 items.clear_field_items()
@@ -76169,10 +76177,12 @@ def main(stage_num, new_boss_mode=False):
     
     #  게임 세션 최초 시작 시에만 스킬 포인트 초기화
     global trade_point_collected, stage3_hearts_collected, stage4_crows_collected, trade_point_system
-    
+    global downtown_gold
+
     if stage_num == 1 and not game_session_active:
         # 게임이 처음 시작될 때만 스킬 포인트 초기화
         academy.reset_skill_points()  # 포인트만 0으로 초기화, 스킬 레벨은 유지
+        downtown_gold = 0  # 광장 골드도 초기화
         game_session_active = True  # 게임 세션 활성화
         record_game_start()  # 새 세션을 실력 분석에 반영
         print(":")
