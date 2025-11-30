@@ -673,9 +673,29 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
                              (capsule_radius - capsule_radius//3, capsule_radius - capsule_radius//3), 
                              capsule_radius//3)
             screen.blit(highlight_surf, (capsule_x - capsule_radius, capsule_y - capsule_radius))
-            
+
             # 캡슐 내부 아이콘
-            if "icon" in item and item["icon"]:
+            item_name = item.get("name", "")
+            legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
+            drew_legendary = False
+
+            if item_name in legendary_names:
+                try:
+                    from legendary_items import get_legendary_manager
+                    legendary_manager = get_legendary_manager()
+                    legendary_item = legendary_manager.get_item(item_name) if legendary_manager else None
+                    if legendary_item:
+                        icon_size = max(10, capsule_radius - 1)
+                        legendary_item.update(1 / 60.0, ui_mode=True)
+                        icon_surface = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+                        legendary_item.draw_icon(icon_surface, 0, 0, icon_size)
+                        icon_rect = icon_surface.get_rect(center=(int(capsule_x), int(capsule_y)))
+                        screen.blit(icon_surface, icon_rect)
+                        drew_legendary = True
+                except Exception:
+                    pass
+
+            if not drew_legendary and "icon" in item and item["icon"]:
                 icon_size = max(10, capsule_radius - 1)
                 icon = pygame.transform.scale(item["icon"], (icon_size, icon_size))
                 icon_rect = icon.get_rect(center=(int(capsule_x), int(capsule_y)))
