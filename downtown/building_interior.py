@@ -4965,6 +4965,10 @@ class BuildingInterior:
         if self.academy_dialog_open:
             self._draw_academy_dialog(screen)
 
+        # 아카데미 학장 상호작용 힌트 (대화창 닫혀있고 근처일 때만)
+        if self.building_type == BuildingType.ACADEMY:
+            self._draw_headmaster_interact_hint(screen)
+
         # 상점 거래창 (맨 위에)
         if self.shop_trade_open:
             self._draw_shop_trade_ui(screen)
