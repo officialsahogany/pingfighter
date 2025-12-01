@@ -172,7 +172,7 @@ class Stage1BossSprite:
 
                 idle_rect = pygame.Rect(idle_x, idle_y, idle_width, idle_h)
                 large_idle = sprite_sheet.subsurface(idle_rect).copy()
-                large_idle = self._remove_white_background(large_idle, threshold=245)
+                # 투명 배경 이미지이므로 그대로 사용
                 self.large_idle_frame = large_idle
             except Exception as e:
                 print(f"⚠️ 큰 정지 프레임 추출 실패: {e}")
@@ -187,60 +187,6 @@ class Stage1BossSprite:
             traceback.print_exc()
             self._create_fallback_frames()
             return False
-
-    def _remove_white_background(self, surface: pygame.Surface,
-                                  threshold: int = 240) -> pygame.Surface:
-        """
-        흰색/밝은 배경을 투명하게 처리 (최적화 버전)
-
-        Args:
-            surface: 처리할 서피스
-            threshold: 흰색으로 판단할 RGB 최소값 (기본 240)
-
-        Returns:
-            배경이 투명하게 처리된 서피스
-        """
-        # colorkey를 사용한 빠른 배경 제거
-        # 이미지 모서리의 색상을 배경색으로 판단
-        try:
-            # 서피스를 알파 채널이 있는 새 서피스로 변환
-            new_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-
-            # 원본 서피스의 모서리 색상 확인 (배경색 추정)
-            corner_color = surface.get_at((0, 0))
-
-            # 배경색이 밝은색(흰색 계열)인지 확인
-            if corner_color.r >= threshold and corner_color.g >= threshold and corner_color.b >= threshold:
-                # colorkey 설정으로 빠르게 배경 제거
-                temp_surface = surface.copy()
-                temp_surface.set_colorkey(corner_color)
-                new_surface.blit(temp_surface, (0, 0))
-            else:
-                # 배경색이 흰색이 아니면 pixelarray 사용
-                try:
-                    # PixelArray를 사용한 빠른 처리
-                    pixel_array = pygame.PixelArray(surface.copy())
-                    width, height = surface.get_size()
-
-                    # 흰색 픽셀을 투명하게
-                    for x in range(width):
-                        for y in range(height):
-                            color = surface.unmap_rgb(pixel_array[x, y])
-                            if color[0] >= threshold and color[1] >= threshold and color[2] >= threshold:
-                                pass  # 배경색은 블릿하지 않음
-                            else:
-                                new_surface.set_at((x, y), (*color[:3], 255))
-
-                    del pixel_array
-                except:
-                    # PixelArray 실패 시 원본 반환
-                    new_surface = surface.convert_alpha()
-
-            return new_surface
-
-        except Exception as e:
-            # 오류 발생 시 원본 서피스를 알파로 변환하여 반환
-            return surface.convert_alpha()
 
     def _create_fallback_frames(self):
         """폴백 프레임 생성 (스프라이트 로드 실패 시)"""
