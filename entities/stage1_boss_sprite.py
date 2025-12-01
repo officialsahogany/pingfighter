@@ -80,7 +80,8 @@ class Stage1BossSprite:
             성공 여부
         """
         try:
-            sprite_sheet = pygame.image.load(path).convert()
+            # 알파 채널이 있는 이미지로 로드 (투명 배경 지원)
+            sprite_sheet = pygame.image.load(path).convert_alpha()
             sheet_width = sprite_sheet.get_width()
             sheet_height = sprite_sheet.get_height()
 
@@ -122,8 +123,7 @@ class Stage1BossSprite:
                         frame_rect.height = sheet_height - frame_rect.y
 
                     frame = sprite_sheet.subsurface(frame_rect).copy()
-                    # 흰색/밝은 배경을 투명하게 처리
-                    frame = self._remove_white_background(frame, threshold=245)
+                    # 투명 배경 이미지이므로 그대로 사용
                     self.frames_left.append(frame)
                 except Exception as e:
                     print(f"⚠️ 왼쪽 프레임 {i} 추출 실패: {e}")
@@ -146,8 +146,7 @@ class Stage1BossSprite:
                         frame_rect.height = sheet_height - frame_rect.y
 
                     frame = sprite_sheet.subsurface(frame_rect).copy()
-                    # 흰색/밝은 배경을 투명하게 처리
-                    frame = self._remove_white_background(frame, threshold=245)
+                    # 투명 배경 이미지이므로 그대로 사용
                     self.frames_right.append(frame)
                 except Exception as e:
                     print(f"⚠️ 오른쪽 프레임 {i} 추출 실패: {e}")
