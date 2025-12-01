@@ -159,9 +159,10 @@ class Bazooka:
             # 위치 업데이트
             projectile["x"] += projectile["vel_x"]
             projectile["y"] += projectile["vel_y"]
-            
-            # 화면 밖으로 나가면 제거
-            if projectile["y"] < -50:
+
+            # 화면 상단 벽(보스 뒷벽)에 도달하면 벽 충돌로 처리 (check_wall_collision에서 폭발)
+            # y < -50 제거 조건을 완화하여 벽 충돌 체크가 먼저 발생하도록 함
+            if projectile["y"] < -100:  # 벽 충돌 체크 이후에도 남아있으면 제거
                 projectile["active"] = False
                 
     def check_boss_collision(self, boss_rect, screen_width=800):

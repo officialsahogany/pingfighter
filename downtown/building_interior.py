@@ -2894,7 +2894,9 @@ class BuildingInterior:
                                     print(f"[크레인 게임] 패시브 아이템 획득: {item_name}")
                             else:
                                 # store_active_item 함수 호출 (액티브 아이템)
+                                # 크레인 게임 아이템은 슬롯 초과 허용 (MAX_ITEM_SLOTS 영향 X)
                                 if hasattr(pingfighter, 'store_active_item'):
+                                    item_copy["allow_overflow"] = True  # 슬롯 초과 허용
                                     pingfighter.store_active_item(item_copy)
                                     print(f"[크레인 게임] 액티브 아이템 획득: {item_name}")
 
@@ -4386,14 +4388,14 @@ class BuildingInterior:
                 if hasattr(event, 'unicode') and event.unicode in ('ㅈ', 'w', 'W'):
                     is_w_key = True
                 if is_w_key:
-                    self.crane_target_y = max(0.55, self.crane_target_y - 0.05)  # 초록 바닥 영역 상단
+                    self.crane_target_y = max(0.55, self.crane_target_y - 0.015)  # 부드러운 조정
                     return ("crane_target_y", self.crane_target_y)
                 # S/ㄴ/아래 방향키로 Y축 목표 위치 내리기
                 is_s_key = event.key == pygame.K_s or event.key == pygame.K_DOWN
                 if hasattr(event, 'unicode') and event.unicode in ('ㄴ', 's', 'S'):
                     is_s_key = True
                 if is_s_key:
-                    self.crane_target_y = min(1.0, self.crane_target_y + 0.05)  # 초록 바닥 영역 하단
+                    self.crane_target_y = min(1.0, self.crane_target_y + 0.015)  # 부드러운 조정
                     return ("crane_target_y", self.crane_target_y)
                 # 스페이스/엔터로 크레인 내리기
                 if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
@@ -4443,7 +4445,7 @@ class BuildingInterior:
             # 크레인 게임 플레이 중 Y축 조절 (초록 바닥 영역만)
             if self.crane_game_playing and self.crane_state == "idle":
                 # 휠 위로: Y축 목표 위치 올리기, 휠 아래로: 내리기
-                delta = -event.y * 0.05
+                delta = -event.y * 0.015  # 부드러운 휠 조정
                 self.crane_target_y = max(0.55, min(1.0, self.crane_target_y + delta))
                 return ("crane_target_y", self.crane_target_y)
 
@@ -7137,14 +7139,6 @@ class BuildingInterior:
         pygame.draw.rect(screen, (30, 35, 30), (track_x - 5, track_top, 10, track_height), border_radius=4)
         pygame.draw.rect(screen, (45, 55, 45), (track_x - 3, track_top + 2, 6, track_height - 4), border_radius=3)
 
-        # 깊이 눈금 (5단계)
-        for i in range(5):
-            mark_ratio = i / 4  # 0.0 ~ 1.0
-            mark_y = track_top + int(mark_ratio * track_height)
-            mark_width = 6 if i % 2 == 0 else 3  # 큰 눈금 / 작은 눈금
-            pygame.draw.line(screen, (80, 100, 80), (track_x - mark_width - 2, mark_y), (track_x - 3, mark_y), 1)
-            pygame.draw.line(screen, (80, 100, 80), (track_x + 3, mark_y), (track_x + mark_width + 2, mark_y), 1)
-
         # 현재 타겟 Y 위치를 슬라이더에 표시
         # crane_target_y: 0.55 (상단, 초록 시작) ~ 1.0 (하단)
         target_ratio = (self.crane_target_y - floor_start_ratio) / (1.0 - floor_start_ratio)  # 0.0 ~ 1.0으로 정규화
@@ -7195,28 +7189,6 @@ class BuildingInterior:
 
         # 테두리
         pygame.draw.polygon(screen, (40, 80, 50), arrow_handle_points, 2)
-
-        # 크레인 깊이 목표선 (유리창 내부, 집게 끝 위치 표시)
-        # 집게 끝 오프셋: claw_box_y(crane_py-5) + claw_box_h(18) + claw_length(30) = crane_py + 43
-        claw_tip_offset = 43  # 집게 끝까지의 픽셀 오프셋
-        if self.crane_state == "idle":
-            # 크레인 몸통 위치 + 집게 끝 오프셋 = 실제 집게 끝 위치
-            crane_body_y = glass_y + int(self.crane_target_y * game_h * 0.85)
-            target_line_y = crane_body_y + claw_tip_offset
-            line_alpha = int(100 + 50 * math.sin(self.animation_timer * 3))
-            target_line_surf = pygame.Surface((game_w - 40, 2), pygame.SRCALPHA)
-            # 점선 효과 (초록 계열)
-            for i in range(0, game_w - 40, 10):
-                pygame.draw.rect(target_line_surf, (80, 255, 150, line_alpha), (i, 0, 5, 2))
-            screen.blit(target_line_surf, (glass_x + 20, target_line_y))
-
-            # 화살표 표시 (왼쪽)
-            arrow_x = glass_x + 12
-            pygame.draw.polygon(screen, (80, 255, 150), [
-                (arrow_x, target_line_y),
-                (arrow_x + 6, target_line_y - 4),
-                (arrow_x + 6, target_line_y + 4)
-            ])
 
         # 조작 힌트 (깊이 패널 위/아래)
         font_small = self.fonts.get('small')

@@ -10037,7 +10037,9 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             # 과부하 상태에서는 디바인쉴드 게이지를 채울 수 없다.
             shield_overheat = int(divine_state.get("shield_overheat", 0))
             shield_active = bool(divine_state.get("shield_active", False))
-            if shield_overheat <= 0 and not shield_active:
+            shield_ready = bool(divine_state.get("shield_ready", False))
+            # 디바인쉴드 게이지가 100%이면 망치질 상호작용 차단 (게이지 소모 방지)
+            if shield_overheat <= 0 and not shield_active and not shield_ready:
                 distance = abs(PLAYER.centerx - stone_rect.centerx)
                 vertical_front_overlap = PLAYER.bottom >= (stone_rect.top - 12)
                 standing_in_front = PLAYER.centerx <= stone_rect.centerx
@@ -10103,6 +10105,9 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         if blacksmith_turret_state.get("overdrive_active"):
             blacksmith_turret_xp_partial_drain = 0.0
         elif overheat_timer > 0:
+            blacksmith_turret_xp_partial_drain = 0.0
+        elif blacksmith_turret_state.get("overdrive_ready"):
+            # 오버드라이브 게이지가 100%이면 망치질 상호작용 차단 (게이지 소모 방지)
             blacksmith_turret_xp_partial_drain = 0.0
         elif down_pressed and turret_rect is not None:
             distance = abs(PLAYER.centerx - turret_rect.centerx)
@@ -21759,8 +21764,8 @@ soldier_pistol_boss_hit_count = 0
 soldier_ak47_boss_hit_count = 0
 
 # === 코만도 탄약 시스템 관련 변수 ===
-soldier_ammo_count = 5  # 현재 탄약 개수 (최대 5개)
-soldier_max_ammo = 5  # 최대 탄약 개수
+soldier_ammo_count = 6  # 현재 탄약 개수 (최대 6개)
+soldier_max_ammo = 6  # 최대 탄약 개수
 soldier_reloading = False  # 재장전 중인지
 soldier_reload_timer = 0  # 재장전 타이머 (120프레임 = 2초)
 SOLDIER_RELOAD_TIME = 120  # 2초 재장전 시간
@@ -21799,7 +21804,7 @@ soldier_gun_animation_timer = 0  # 애니메이션 타이머
 leg_shot_active = False  # 레그샷 효과 활성화 상태
 leg_shot_timer = 0  # 레그샷 효과 지속 타이머
 leg_shot_text_timer = 0  # '레그샷!' 텍스트 표시 타이머
-LEG_SHOT_DURATION = 180  # 3초간 지속 (60fps * 3)
+LEG_SHOT_DURATION = 132  # 2.2초간 지속 (60fps * 2.2)
 LEG_SHOT_CHANCE = 0.12  # 12% 확률
 LEG_SHOT_SPEED_REDUCTION = 0.7  # 이동속도 70% (30% 감소)
 LEG_SHOT_TEXT_DURATION = 60  # 텍스트 1초간 표시
@@ -21814,7 +21819,7 @@ AK47_KNOCKBACK_SCALE = 0.35  # 총알 속도를 넉백 속도로 추가 환산�
 head_shot_active = False  # 헤드샷 효과 활성화 상태
 head_shot_timer = 0  # 헤드샷 스턴 지속 타이머
 head_shot_text_timer = 0  # '헤드샷!' 텍스트 표시 타이머
-HEAD_SHOT_DURATION = 90  # 1.5초간 스턴 (60fps * 1.5)
+HEAD_SHOT_DURATION = 60  # 1초간 스턴 (60fps * 1)
 HEAD_SHOT_CHANCE = 0.1  # 10% 확률
 HEAD_SHOT_TEXT_DURATION = 60  # 텍스트 1초간 표시
 
@@ -24387,6 +24392,17 @@ def throw_grenade():
         print(f"   : {speed:.1f}")
     vel_x = (dx / distance) * speed if distance > 0 else 0
     vel_y = (dy / distance) * speed if distance > 0 else -speed
+
+    # 발사 오차 적용 (-15도 ~ +15도)
+    angle_offset = random.uniform(-15, 15)
+    angle_rad = math.radians(angle_offset)
+    cos_a = math.cos(angle_rad)
+    sin_a = math.sin(angle_rad)
+    vel_x_new = vel_x * cos_a - vel_y * sin_a
+    vel_y_new = vel_x * sin_a + vel_y * cos_a
+    vel_x = vel_x_new
+    vel_y = vel_y_new
+
     grenade = {
         "x": PLAYER.centerx,
         "y": PLAYER.centery,
@@ -24798,6 +24814,17 @@ def throw_flare():
         print(f"   : {speed:.1f}")
     vel_x = (dx / distance) * speed if distance > 0 else 0
     vel_y = (dy / distance) * speed if distance > 0 else -speed
+
+    # 발사 오차 적용 (-15도 ~ +15도)
+    angle_offset = random.uniform(-15, 15)
+    angle_rad = math.radians(angle_offset)
+    cos_a = math.cos(angle_rad)
+    sin_a = math.sin(angle_rad)
+    vel_x_new = vel_x * cos_a - vel_y * sin_a
+    vel_y_new = vel_x * sin_a + vel_y * cos_a
+    vel_x = vel_x_new
+    vel_y = vel_y_new
+
     flare = {
         "x": PLAYER.centerx,
         "y": PLAYER.centery,
@@ -24958,6 +24985,17 @@ def throw_molotov():
         print(f"   : {speed:.1f}")
     vel_x = (dx / distance) * speed if distance > 0 else 0
     vel_y = (dy / distance) * speed if distance > 0 else -speed
+
+    # 발사 오차 적용 (-15도 ~ +15도)
+    angle_offset = random.uniform(-15, 15)
+    angle_rad = math.radians(angle_offset)
+    cos_a = math.cos(angle_rad)
+    sin_a = math.sin(angle_rad)
+    vel_x_new = vel_x * cos_a - vel_y * sin_a
+    vel_y_new = vel_x * sin_a + vel_y * cos_a
+    vel_x = vel_x_new
+    vel_y = vel_y_new
+
     molotov = {
         "x": PLAYER.centerx,
         "y": PLAYER.centery,
@@ -28357,12 +28395,17 @@ def draw_soldier_weapon_ui(screen):
             show_pistol_ammo = False
 
     if show_pistol_ammo:
-        # 총탄 개수 표시 (권총 아이콘 아래) - 실제 총탄 모양으로 (크기 축소)
-        bullet_start_x = weapon_x + 3
-        bullet_y = weapon_y + weapon_size + 6
+        # 총탄 개수 표시 (권총 아이콘 아래) - 실제 총탄 모양으로 (화기류 가로길이에 맞춤)
         bullet_width = 5
         bullet_height = 10
-        bullet_spacing = 11
+        # 화기류 가로길이(weapon_size)에 맞춰 탄환 간격 계산
+        total_bullet_width = bullet_width * soldier_max_ammo
+        available_space = weapon_size - total_bullet_width
+        bullet_spacing = (available_space // (soldier_max_ammo - 1)) + bullet_width if soldier_max_ammo > 1 else bullet_width
+        # 화기류 UI 중앙에 탄환 정렬
+        total_bullets_width = bullet_width + (soldier_max_ammo - 1) * bullet_spacing
+        bullet_start_x = weapon_x + (weapon_size - total_bullets_width) // 2
+        bullet_y = weapon_y + weapon_size + 6
         
         # 재장전 중일 때 표시할 총탄 수 계산
         if soldier_reloading:
@@ -28544,22 +28587,29 @@ def draw_soldier_weapon_ui(screen):
 def create_soldier_bullet():
     """실제 총알을 생성하는 함수 (애니메이션 완료 후 호출)"""
     global soldier_bullets, soldier_gun_muzzle_x, soldier_gun_muzzle_y
-    
+
     # 플레이어 위치에서 보스 방향으로 총알 발사
     player_center_x = PLAYER.centerx
     player_center_y = PLAYER.centery
     boss_center_x = BOSS.centerx
     boss_center_y = BOSS.centery
-    
+
     # 방향 벡터 계산
     dx = boss_center_x - player_center_x
     dy = boss_center_y - player_center_y
     distance = math.sqrt(dx**2 + dy**2)
-    
+
     if distance > 0:
-        # 정규화된 방향 벡터
-        dx_norm = dx / distance
-        dy_norm = dy / distance
+        # 기본 각도 계산
+        base_angle = math.atan2(dy, dx)
+        # 랜덤 각도 추가 (-15도 ~ +15도)
+        random_offset = random.uniform(-15, 15)  # 도 단위
+        random_offset_rad = math.radians(random_offset)  # 라디안으로 변환
+        final_angle = base_angle + random_offset_rad
+
+        # 정규화된 방향 벡터 (랜덤 각도 적용)
+        dx_norm = math.cos(final_angle)
+        dy_norm = math.sin(final_angle)
         
         # 총알 생성
         if soldier_gun_muzzle_x == 0 and soldier_gun_muzzle_y == 0:
@@ -28890,21 +28940,21 @@ def update_soldier_bullets():
                 shot_roll = random.random()
                 head_chance, leg_chance = get_soldier_shot_probabilities()
                 if shot_roll < head_chance:
-                    # 헤드샷 발동 (1.5초 스턴)
+                    # 헤드샷 발동 (1초 스턴)
                     head_shot_active = True
-                    head_shot_timer = HEAD_SHOT_DURATION  # 1.5초간 스턴
+                    head_shot_timer = HEAD_SHOT_DURATION  # 1초간 스턴
                     head_shot_text_timer = HEAD_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
-                    boss_stunned_timer = HEAD_SHOT_DURATION  # 별 효과를 위한 타이머 (1.5초)
-                    print("💥 헤드샷! 보스 1.5초간 스턴!")
+                    boss_stunned_timer = HEAD_SHOT_DURATION  # 별 효과를 위한 타이머 (1초)
+                    print("💥 헤드샷! 보스 1초간 스턴!")
                 elif shot_roll < head_chance + leg_chance:
                     # 레그샷 발동 (헤드샷이 발동하지 않은 경우에만)
                     leg_shot_active = True
-                    leg_shot_timer = LEG_SHOT_DURATION  # 3초간 지속
+                    leg_shot_timer = LEG_SHOT_DURATION  # 2.2초간 지속
                     leg_shot_text_timer = LEG_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
                     print("🎯 레그샷! 보스 이동속도 30% 감소!")
                 else:
-                    # 일반 명중 (0.5초 스턴)
-                    boss_stunned_timer = 30  # 0.5초 스턴 (수류탄과 동일한 시각 효과)
+                    # 일반 명중 (0.3초 스턴)
+                    boss_stunned_timer = 18  # 0.3초 스턴
                 
                 # 라그나로크 해머 방식의 넉백 효과 적용
                 trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
@@ -34032,6 +34082,10 @@ trade_point_texts = []  # 트레이드 포인트 획득 시 표시할 텍스트 
 # 광장 골드 시스템 (스테이지 간 유지, 스타포인트와 별개)
 downtown_gold = 0  # 광장에서 사용하는 골드 (환전, 상점 등)
 
+# 광장 열쇠(AP) 시스템 (스테이지 간 유지)
+downtown_ap_current = None  # 현재 남은 열쇠 (None이면 첫 광장)
+downtown_ap_is_first_stage = True  # 첫 광장 여부
+
 # 은행 예금 시스템 (스테이지 간 유지)
 deposit_balance = 0  # 예금 잔액
 deposit_interest_rate = 0.0  # 현재 적용될 이자율 (다음 스테이지에 적용)
@@ -35178,6 +35232,36 @@ def handle_wall():
             )
             grenades.remove(grenade)
             continue
+        # 화면 상단 벽(보스 뒷벽)에 도달하면 폭발
+        if grenade["y"] <= 10:
+            trigger_grenade_style_explosion(
+                grenade["x"],
+                10,  # 벽 위치에서 폭발
+                apply_commando_bonus=True,
+                source="grenade",
+            )
+            grenades.remove(grenade)
+            continue
+        # 좌우 벽 충돌 시 반사 (벽 뒤로 넘어가지 않도록)
+        wall_margin = 10  # 벽 경계 여유
+        if grenade["x"] <= wall_margin:
+            grenade["x"] = wall_margin
+            grenade["vel_x"] = abs(grenade["vel_x"]) * 0.7  # 오른쪽으로 반사, 속도 감쇠
+            # 반사 후 보스 방향(위쪽)으로 속도 조정
+            if grenade["vel_y"] > 0:  # 아래로 가고 있었다면
+                grenade["vel_y"] = -abs(grenade["vel_y"]) * 0.5  # 위로 방향 전환
+            print(f"[DEBUG] 수류탄 왼쪽 벽 반사!")
+        elif grenade["x"] >= WIDTH - wall_margin:
+            grenade["x"] = WIDTH - wall_margin
+            grenade["vel_x"] = -abs(grenade["vel_x"]) * 0.7  # 왼쪽으로 반사, 속도 감쇠
+            # 반사 후 보스 방향(위쪽)으로 속도 조정
+            if grenade["vel_y"] > 0:  # 아래로 가고 있었다면
+                grenade["vel_y"] = -abs(grenade["vel_y"]) * 0.5  # 위로 방향 전환
+            print(f"[DEBUG] 수류탄 오른쪽 벽 반사!")
+        # 화면 완전히 밖으로 나가면 제거 (안전장치)
+        if grenade["x"] < -100 or grenade["x"] > WIDTH + 100 or grenade["y"] > HEIGHT + 100:
+            grenades.remove(grenade)
+            continue
     # 폭발 지역 업데이트 (지속시간 감소 + 테트로 증발 처리)
     explosion_zones = [zone for zone in explosion_zones if zone["duration"] > 0]
     for zone in explosion_zones:
@@ -35524,8 +35608,33 @@ def handle_wall():
             flare["x"] += flare["vel_x"]
             flare["y"] += flare["vel_y"]
             flare["rotation"] += 12  # 회전
+            # 화면 상단 벽(보스 뒷벽)에 도달하면 즉시 도착 처리
+            if flare["y"] <= 10:
+                flare["arrived"] = True
+                flare["y"] = 10  # 벽 위치에 고정
+                print(f"조명탄 벽에 도달! 1.5초 후 폭발.")
+            # 좌우 벽 충돌 시 반사 (벽 뒤로 넘어가지 않도록)
+            wall_margin = 10  # 벽 경계 여유
+            if flare["x"] <= wall_margin:
+                flare["x"] = wall_margin
+                flare["vel_x"] = abs(flare["vel_x"]) * 0.7  # 오른쪽으로 반사, 속도 감쇠
+                # 반사 후 보스 방향(위쪽)으로 속도 조정
+                if flare["vel_y"] > 0:  # 아래로 가고 있었다면
+                    flare["vel_y"] = -abs(flare["vel_y"]) * 0.5  # 위로 방향 전환
+                print(f"[DEBUG] 조명탄 왼쪽 벽 반사!")
+            elif flare["x"] >= WIDTH - wall_margin:
+                flare["x"] = WIDTH - wall_margin
+                flare["vel_x"] = -abs(flare["vel_x"]) * 0.7  # 왼쪽으로 반사, 속도 감쇠
+                # 반사 후 보스 방향(위쪽)으로 속도 조정
+                if flare["vel_y"] > 0:  # 아래로 가고 있었다면
+                    flare["vel_y"] = -abs(flare["vel_y"]) * 0.5  # 위로 방향 전환
+                print(f"[DEBUG] 조명탄 오른쪽 벽 반사!")
+            # 화면 완전히 밖으로 나가면 제거 (안전장치)
+            if flare["x"] < -100 or flare["x"] > WIDTH + 100 or flare["y"] > HEIGHT + 100:
+                flares.remove(flare)
+                continue
             # 목표 지점에 도달했는지 체크 (거리 기반으로 체크)
-            dist_to_target = math.sqrt((flare["x"] - flare["target_x"])**2 + 
+            dist_to_target = math.sqrt((flare["x"] - flare["target_x"])**2 +
                                       (flare["y"] - flare["target_y"])**2)
             if dist_to_target < 10:  # 목표 지점에 충분히 가까워졌을 때
                 flare["arrived"] = True
@@ -35625,8 +35734,31 @@ def handle_wall():
         molotov["x"] += molotov["vel_x"]
         molotov["y"] += molotov["vel_y"]
         molotov["rotation"] += 10  # 회전
-        # 목표 지점에 도달했는지 체크 (화염병이 목표 Y좌표에 도달하면 폭발)
-        if molotov["y"] <= molotov["target_y"]:
+        # 좌우 벽 충돌 시 반사 (벽 뒤로 넘어가지 않도록)
+        wall_margin = 10  # 벽 경계 여유
+        if molotov["x"] <= wall_margin:
+            molotov["x"] = wall_margin
+            molotov["vel_x"] = abs(molotov["vel_x"]) * 0.7  # 오른쪽으로 반사, 속도 감쇠
+            # 반사 후 보스 방향(위쪽)으로 속도 조정
+            if molotov["vel_y"] > 0:  # 아래로 가고 있었다면
+                molotov["vel_y"] = -abs(molotov["vel_y"]) * 0.5  # 위로 방향 전환
+            print(f"[DEBUG] 화염병 왼쪽 벽 반사!")
+        elif molotov["x"] >= WIDTH - wall_margin:
+            molotov["x"] = WIDTH - wall_margin
+            molotov["vel_x"] = -abs(molotov["vel_x"]) * 0.7  # 왼쪽으로 반사, 속도 감쇠
+            # 반사 후 보스 방향(위쪽)으로 속도 조정
+            if molotov["vel_y"] > 0:  # 아래로 가고 있었다면
+                molotov["vel_y"] = -abs(molotov["vel_y"]) * 0.5  # 위로 방향 전환
+            print(f"[DEBUG] 화염병 오른쪽 벽 반사!")
+        # 화면 완전히 밖으로 나가면 제거 (안전장치)
+        if molotov["x"] < -100 or molotov["x"] > WIDTH + 100 or molotov["y"] > HEIGHT + 100:
+            molotovs.remove(molotov)
+            continue
+        # 목표 지점에 도달하거나 화면 상단 벽(보스 뒷벽)에 도달하면 폭발
+        explode_y = molotov["target_y"]
+        if molotov["y"] <= 10:  # 화면 상단 벽에 도달
+            explode_y = 10
+        if molotov["y"] <= molotov["target_y"] or molotov["y"] <= 10:
             # 폭발 효과 - 불길이 번지는 효과
             import items
             # 코만도암 효과: 폭발 범위 증가 (스택 반영)
@@ -35639,7 +35771,7 @@ def handle_wall():
             
             fire_zone = {
                 "x": molotov["x"],
-                "y": molotov["target_y"],  # 목표 지점에 생성
+                "y": explode_y,  # 실제 폭발 위치에 생성
                 "width": fire_width,  # 코만도암 효과 적용된 화염 지대 너비
                 "height": fire_height,  # 코만도암 효과 적용된 화염 지대 높이
                 "duration": 150,  # 2.5초 (60fps * 2.5)
@@ -35650,7 +35782,7 @@ def handle_wall():
             for i in range(15):
                 flame = {
                     "x": molotov["x"] + random.uniform(-30, 30),
-                    "y": molotov["target_y"] + random.uniform(-10, 10),
+                    "y": explode_y + random.uniform(-10, 10),
                     "size": random.uniform(8, 20),
                     "lifetime": random.uniform(20, 40),
                     "color_phase": random.uniform(0, 1)
@@ -50167,6 +50299,7 @@ def run_downtown_hub(next_stage_display: int) -> None:
     global deposit_balance, deposit_interest_rate
     global deposit_last_deposit_stage, deposit_pending_interest_rates
     global downtown_gold
+    global downtown_ap_current, downtown_ap_is_first_stage
 
     try:
         screen = pygame.display.get_surface() or SCREEN
@@ -50185,6 +50318,9 @@ def run_downtown_hub(next_stage_display: int) -> None:
             "last_interest_rate": deposit_interest_rate,
             "last_deposit_stage": deposit_last_deposit_stage,
             "pending_interest_rates": deposit_pending_interest_rates,
+            # 열쇠(AP) 데이터 (스테이지 간 유지)
+            "downtown_ap_current": downtown_ap_current,
+            "downtown_ap_is_first_stage": downtown_ap_is_first_stage,
         }
         manager = DowntownManager(screen, academy=academy)
         manager.initialize(stage_number=next_stage_display, player_data=player_data)
@@ -50204,6 +50340,10 @@ def run_downtown_hub(next_stage_display: int) -> None:
         deposit_interest_rate = manager.player_data.get('last_interest_rate', 0.0)
         deposit_last_deposit_stage = manager.player_data.get('last_deposit_stage', 0)
         deposit_pending_interest_rates = manager.player_data.get('pending_interest_rates', {})
+
+        # 광장에서 돌아온 후 열쇠(AP) 데이터 동기화
+        downtown_ap_current = manager.player_data.get('downtown_ap_current', None)
+        downtown_ap_is_first_stage = manager.player_data.get('downtown_ap_is_first_stage', False)
 
         pygame.event.get()  # 남은 이벤트 정리
     except Exception as err:  # 방어적: 광장 모듈 문제 시 다음 스테이지로 바로 이동
@@ -51412,6 +51552,7 @@ def show_start_screen():
         """개발자용: 메인메뉴에서 0번 키로 광장 직접 입장"""
         global selected_character_type, deposit_balance, deposit_interest_rate
         global deposit_last_deposit_stage, deposit_pending_interest_rates
+        global downtown_ap_current, downtown_ap_is_first_stage
         # 기본 캐릭터로 스매셔 선택
         char_type = selected_character_type if "selected_character_type" in globals() and selected_character_type else "smasher"
         player_data = {
@@ -51424,6 +51565,9 @@ def show_start_screen():
             "last_interest_rate": deposit_interest_rate,
             "last_deposit_stage": deposit_last_deposit_stage,
             "pending_interest_rates": deposit_pending_interest_rates,
+            # 열쇠(AP) 데이터 (개발자 모드: 첫 광장으로 초기화)
+            "downtown_ap_current": None,
+            "downtown_ap_is_first_stage": True,
         }
         manager = DowntownManager(SCREEN, academy=academy)
         manager.initialize(stage_number=1, player_data=player_data)
@@ -51437,6 +51581,9 @@ def show_start_screen():
         deposit_interest_rate = manager.player_data.get('last_interest_rate', 0.0)
         deposit_last_deposit_stage = manager.player_data.get('last_deposit_stage', 0)
         deposit_pending_interest_rates = manager.player_data.get('pending_interest_rates', {})
+        # 광장에서 돌아온 후 열쇠(AP) 데이터 동기화
+        downtown_ap_current = manager.player_data.get('downtown_ap_current', None)
+        downtown_ap_is_first_stage = manager.player_data.get('downtown_ap_is_first_stage', False)
 
     ctx = MenuContext(
         get_screen=lambda: SCREEN,
@@ -61441,24 +61588,25 @@ def apply_selected_items(
     print(f"[DEBUG]   : {selected_legendary_items}")
     print(f"[DEBUG]    : {selected_firearm_items}")
 
-    desired_slot_capacity = min(
-        ITEM_MANAGER_ACTIVE_LIMIT,
-        max(len(selected_active_items), item_state_adapter.max_slots()),
-    )
-    _set_max_item_slots(desired_slot_capacity)
+    # 가챠에서 선택한 아이템 수는 MAX_ITEM_SLOTS에 영향을 주지 않음
+    # MAX_ITEM_SLOTS는 가방(slot_add), 아카데미 스킬로만 증가
+    # 초과 아이템은 temporary_overflow로 마킹하여 임시 휴대 처리
+    actual_max_slots = get_effective_max_item_slots()
 
     # 아이템 슬롯 초기화
     item_state_adapter.clear_active_items()
     clear_alchemy_notices()
     item_state_adapter.clear_passive_items()
     # 선택된 엑티브 아이템들을 슬롯에 추가
-    for item_name in selected_active_items:
+    for idx, item_name in enumerate(selected_active_items):
         # 아이템 데이터 생성
+        is_overflow = idx >= actual_max_slots  # 슬롯 한도 초과 여부
         item_data = {
             "name": item_name,
             "icon": get_item_icon(item_name),
             "last_use": 0,
-            "effect": item_name  # effect 키 추가
+            "effect": item_name,  # effect 키 추가
+            "temporary_overflow": is_overflow  # 초과 아이템 마킹
         }
         item_state_adapter.append_active_item(item_data)
     _set_selected_item_index(0)
@@ -74218,6 +74366,46 @@ def record_round_start():
             player_analyzer.stats.total_rounds += 1
         except Exception:
             pass
+
+def _process_bazooka_collisions():
+    """바주카포 발사체 충돌 체크 및 폭발 처리 (스턴 중에도 실행)"""
+    global boss_stunned_timer, boss_knockback_vel
+    if selected_character_type != "soldier":
+        return
+    from item_effects.bazooka import get_bazooka_instance
+    bazooka_inst = get_bazooka_instance()
+    # 발사된 로켓이 없으면 종료
+    if not bazooka_inst.equipped and not getattr(bazooka_inst, 'projectiles', None):
+        return
+    # 벽과의 충돌 체크
+    wall_explosions = bazooka_inst.check_wall_collision()
+    # 보스와의 직접 충돌 체크
+    direct_explosions = bazooka_inst.check_boss_collision(BOSS, WIDTH)
+    all_explosions = wall_explosions + direct_explosions
+    # 모든 폭발에 대해 처리
+    for explosion in all_explosions:
+        create_bazooka_explosion(explosion["x"], explosion["y"])
+        _destroy_stage2_rocks_in_radius(
+            explosion["x"], explosion["y"], explosion["radius"], source="bazooka"
+        )
+        # 폭발 사운드 재생
+        try:
+            if 'SOUND_GRENADE' in globals():
+                play_sound_with_volume(SOUND_GRENADE)
+        except:
+            pass
+        # 폭발 범위 내 보스 체크
+        boss_center_x = BOSS.centerx
+        boss_center_y = BOSS.centery
+        distance = calculate_distance((boss_center_x, boss_center_y), (explosion["x"], explosion["y"]))
+        if distance < explosion["radius"]:
+            boss_stunned_timer = 90  # 1.5초 스턴
+            direction = 1 if explosion["x"] < WIDTH / 2 else -1
+            knockback_power = compute_knockback_magnitude("bazooka")
+            boss_knockback_vel = _apply_boss_knockback_velocity(direction * knockback_power)
+            print(f"🚀💥 바주카포 폭발! 보스 스턴 1.5초, 넉백: {boss_knockback_vel}")
+            apply_health_boss_damage(2, source="bazooka")
+
 def handle_boss():
     global boss_speed_boost_timer, BOSS_SPEED
     global boss_fake_move, boss_fake_start_time
@@ -74433,6 +74621,8 @@ def handle_boss():
             else:
                 boss_dash_stun_timer = max(1, int(stun_seconds * FPS))
 
+        # 대쉬 중에도 바주카포 충돌 체크
+        _process_bazooka_collisions()
         # 대쉬 중에는 다른 AI 처리 건너뜀
         return
 
@@ -74440,10 +74630,12 @@ def handle_boss():
     if boss_dash_stun_timer > 0:
         boss_dash_stun_timer -= 1
         boss_current_speed = 0
+        _process_bazooka_collisions()  # 스턴 중에도 바주카포 충돌 체크
         return
 
     # 극정호신 상태에서는 일반 AI를 건너뛰되, 서브 대기 중이면 서브 로직은 그대로 진행
     if stage8_in_superspeed and not is_waiting_for_serve:
+        _process_bazooka_collisions()  # 극정호신 중에도 바주카포 충돌 체크
         return
 
     #  라그나로크 해머 스턴 체크 - 스턴 중이면 모든 처리 차단
@@ -74451,15 +74643,18 @@ def handle_boss():
         boss_stun_timer -= 1
         boss_current_speed = 0  # 속도를 0으로
         BOSS.x = BOSS.x  # 위치 고정 (현재 위치 유지)
-        
+
         # 스턴이 끝나면 전기 감전 사운드 중지
         if boss_stun_timer == 0 and ragnarok_shock_playing:
             stop_ragnarok_shock_sound()
             ragnarok_shock_playing = False
             print("-")
-        
+
         if boss_stun_timer % 20 == 0:  # 매 20프레임마다 디버그 출력
             print(f"   !  : {boss_stun_timer/60:.1f}, : {boss_current_speed}")
+
+        # 스턴 중에도 바주카포 발사체 충돌 체크는 계속 수행
+        _process_bazooka_collisions()
         return  # 스턴 중에는 모든 처리 차단
     
     # 바주카포 충돌 체크 및 폭발 처리
@@ -74615,7 +74810,7 @@ def handle_boss():
                     print(f"🚀💥 바주카포 폭발! 보스 스턴 1.5초, 넉백: {boss_knockback_vel}")
                     apply_health_boss_damage(2, source="bazooka")
 
-    # 헤드샷 스턴 상태 처리 - 1.5초간 보스 완전 정지
+    # 헤드샷 스턴 상태 처리 - 1초간 보스 완전 정지
     if head_shot_active and head_shot_timer > 0:
         head_shot_timer -= 1
         boss_current_speed = 0  # 스턴 중에는 속도를 0으로
@@ -76147,8 +76342,8 @@ def main(stage_num, new_boss_mode=False):
     
     # 코만도 탄약 시스템 초기화
     global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
-    soldier_ammo_count = 5
-    soldier_max_ammo = 5
+    soldier_ammo_count = 6
+    soldier_max_ammo = 6
     soldier_reloading = False
     soldier_reload_timer = 0
     
@@ -76178,11 +76373,14 @@ def main(stage_num, new_boss_mode=False):
     #  게임 세션 최초 시작 시에만 스킬 포인트 초기화
     global trade_point_collected, stage3_hearts_collected, stage4_crows_collected, trade_point_system
     global downtown_gold
+    global downtown_ap_current, downtown_ap_is_first_stage
 
     if stage_num == 1 and not game_session_active:
         # 게임이 처음 시작될 때만 스킬 포인트 초기화
         academy.reset_skill_points()  # 포인트만 0으로 초기화, 스킬 레벨은 유지
         downtown_gold = 0  # 광장 골드도 초기화
+        downtown_ap_current = None  # 열쇠(AP) 초기화 (첫 광장에서 3개로 시작)
+        downtown_ap_is_first_stage = True  # 첫 광장 플래그
         game_session_active = True  # 게임 세션 활성화
         record_game_start()  # 새 세션을 실력 분석에 반영
         print(":")
