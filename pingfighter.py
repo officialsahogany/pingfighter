@@ -46289,10 +46289,11 @@ def draw_objects():
     # 상모돌리기 중이거나 스피드디펜스 중일 때는 기울기 효과 제거
     if (current_stage == 1 and whip_active) or (current_stage == 2 and speed_defense_active):
         rotated_boss = boss_img.copy()
-        # Stage 1은 세로가 긴 스프라이트이므로 midbottom 기준으로 위치 조정
+        # Stage 1은 세로가 긴 스프라이트이므로 Y 오프셋 추가 (캐릭터가 화면에 보이도록)
         if current_stage == 1:
-            boss_rect = rotated_boss.get_rect(midbottom=(BOSS.centerx + screen_shake_offset_x,
-                                                         BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 10))
+            # 세로 160px 스프라이트 → 중심을 아래로 70px 내림
+            boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x,
+                                                      BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 70))
         else:
             boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x,
                                                       BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
@@ -46303,10 +46304,11 @@ def draw_objects():
         base_img = pygame.transform.scale(boss_img, (boss_w, boss_h))
         rotated_boss.blit(base_img, (0, 0))
         rotated_boss = pygame.transform.rotate(rotated_boss, tilt_angle_boss)
-        # Stage 1은 세로가 긴 스프라이트이므로 midbottom 기준으로 위치 조정
+        # Stage 1은 세로가 긴 스프라이트이므로 Y 오프셋 추가 (캐릭터가 화면에 보이도록)
         if current_stage == 1:
-            boss_rect = rotated_boss.get_rect(midbottom=(BOSS.centerx + screen_shake_offset_x,
-                                                         BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 10))
+            # 세로 160px 스프라이트 → 중심을 아래로 70px 내림
+            boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x,
+                                                      BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 70))
         else:
             boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x,
                                                       BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
@@ -54977,10 +54979,10 @@ def show_drive_monitor_demo(background):
         
         # 보스 그리기
         if boss_img:
-            # Stage 1은 세로가 긴 스프라이트이므로 Y 위치 조정 (캐릭터가 패들 위에 서있는 것처럼)
+            # Stage 1은 세로가 긴 스프라이트이므로 Y 오프셋 추가 (캐릭터가 화면에 보이도록)
             if current_stage == 1:
-                # 스프라이트 하단이 boss_y에 오도록 조정
-                boss_rect = boss_img.get_rect(midbottom=(boss_x, boss_y + 10))
+                # 세로 160px 스프라이트 → 중심을 아래로 70px 내림
+                boss_rect = boss_img.get_rect(center=(boss_x, boss_y + 70))
             else:
                 boss_rect = boss_img.get_rect(center=(boss_x, boss_y))
             SCREEN.blit(boss_img, boss_rect)
