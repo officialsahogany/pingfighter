@@ -88,40 +88,29 @@ class Stage1BossSprite:
 
             print(f"🎭 스프라이트 시트 로드: {sheet_width}x{sheet_height}")
 
-            # 스프라이트 시트 구조 분석 (boss_stage1.png):
-            # - 상단: 큰 캐릭터 이미지 (정지 프레임으로 사용)
-            # - 하단 2행: 걷기 애니메이션 프레임들 (각 12프레임)
-            #   - 1행: 왼쪽 이동 애니메이션
-            #   - 2행: 오른쪽 이동 애니메이션
+            # 스프라이트 시트 구조 분석 (stage1walking3.png):
+            # - 2행 × 6프레임 구조
+            # - 상단 행: 왼쪽 이동 애니메이션 (6프레임)
+            # - 하단 행: 오른쪽 이동 애니메이션 (6프레임)
+            # - 전체 이미지: 1024 x 1024 픽셀
 
-            # 이미지 하반부에서 걷기 애니메이션 영역 계산
-            # 새 이미지 구조: 상단 약 55%는 메인 캐릭터, 하단 45%가 2행의 걷기 애니메이션
-            animation_start_y = int(sheet_height * 0.55)  # 애니메이션 시작 Y
-            animation_height = sheet_height - animation_start_y
-            row_height = animation_height // 2  # 2행으로 나눔
+            # 행 높이 계산 (2행으로 균등 분할)
+            row_height = sheet_height // 2  # 512px
 
-            # 프레임 개수 자동 감지 (가로 방향으로 균등 분할)
-            # 1024px / 12프레임 = 85.33px (나누어 떨어지지 않음)
-            # 실제 캐릭터 영역만 추출하도록 여백 고려
-            frame_width = sheet_width // self.total_frames  # 85px
-            # 프레임 내 캐릭터 중앙 영역만 사용 (좌우 여백 제거)
-            frame_padding = 4  # 좌우 각 4px 여백
+            # 프레임 너비 계산 (6프레임으로 균등 분할)
+            frame_width = sheet_width // self.total_frames  # 약 170px
 
-            print(f"🎭 프레임 크기: {frame_width}x{row_height}, 시작 Y: {animation_start_y}, 패딩: {frame_padding}")
-
-            # 실제 추출할 프레임 크기 (좌우 패딩 제거)
-            actual_frame_width = frame_width - (frame_padding * 2)
+            print(f"🎭 프레임 크기: {frame_width}x{row_height}, 총 프레임: {self.total_frames}")
 
             # 첫 번째 행 (왼쪽 이동) 프레임 추출
             self.frames_left = []
             for i in range(self.total_frames):
                 try:
-                    # 중앙 영역만 추출 (좌우 패딩 제거)
-                    frame_x = i * frame_width + frame_padding
+                    frame_x = i * frame_width
                     frame_rect = pygame.Rect(
                         frame_x,
-                        animation_start_y,
-                        actual_frame_width,
+                        0,
+                        frame_width,
                         row_height
                     )
                     # 경계 체크
@@ -138,15 +127,14 @@ class Stage1BossSprite:
 
             # 두 번째 행 (오른쪽 이동) 프레임 추출
             self.frames_right = []
-            row2_y = animation_start_y + row_height
+            row2_y = row_height  # 512px 부터 시작
             for i in range(self.total_frames):
                 try:
-                    # 중앙 영역만 추출 (좌우 패딩 제거)
-                    frame_x = i * frame_width + frame_padding
+                    frame_x = i * frame_width
                     frame_rect = pygame.Rect(
                         frame_x,
                         row2_y,
-                        actual_frame_width,
+                        frame_width,
                         row_height
                     )
                     # 경계 체크
@@ -161,32 +149,16 @@ class Stage1BossSprite:
                 except Exception as e:
                     print(f"⚠️ 오른쪽 프레임 {i} 추출 실패: {e}")
 
-            # 정지 프레임 - 중앙 프레임 사용 (가장 자연스러운 자세)
+            # 정지 프레임 - 첫 번째 프레임 사용 (가장 자연스러운 자세)
             if self.frames_right:
-                center_idx = len(self.frames_right) // 2
-                self.idle_frame = self.frames_right[center_idx]
+                self.idle_frame = self.frames_right[0]
             elif self.frames_left:
-                center_idx = len(self.frames_left) // 2
-                self.idle_frame = self.frames_left[center_idx]
+                self.idle_frame = self.frames_left[0]
             else:
                 self.idle_frame = None
 
-            # 상단의 큰 캐릭터를 정지 프레임으로 사용 (선택적)
-            try:
-                idle_height = animation_start_y
-                # 중앙 영역에서 캐릭터 추출
-                idle_width = int(sheet_width * 0.35)
-                idle_x = (sheet_width - idle_width) // 2
-                idle_y = int(idle_height * 0.1)  # 상단 약간 아래부터
-                idle_h = int(idle_height * 0.85)  # 높이
-
-                idle_rect = pygame.Rect(idle_x, idle_y, idle_width, idle_h)
-                large_idle = sprite_sheet.subsurface(idle_rect).copy()
-                # 투명 배경 이미지이므로 그대로 사용
-                self.large_idle_frame = large_idle
-            except Exception as e:
-                print(f"⚠️ 큰 정지 프레임 추출 실패: {e}")
-                self.large_idle_frame = None
+            # 큰 정지 프레임은 이 스프라이트 시트에는 없음
+            self.large_idle_frame = None
 
             print(f"✅ 프레임 로드 완료: 왼쪽 {len(self.frames_left)}개, 오른쪽 {len(self.frames_right)}개")
             return True
