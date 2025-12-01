@@ -87,22 +87,21 @@ class Stage1BossSprite:
 
             print(f"🎭 스프라이트 시트 로드: {sheet_width}x{sheet_height}")
 
-            # 스프라이트 시트 구조 분석:
-            # - 상단: 큰 캐릭터 이미지 (정지 프레임으로 사용 가능)
-            # - 하단 2행: 걷기 애니메이션 프레임들
-            #   - 1행: 왼쪽 이동 (또는 오른쪽 방향 보기)
-            #   - 2행: 오른쪽 이동 (또는 왼쪽 방향 보기)
+            # 스프라이트 시트 구조 분석 (boss_stage1.png):
+            # - 상단: 큰 캐릭터 이미지 (정지 프레임으로 사용)
+            # - 하단 2행: 걷기 애니메이션 프레임들 (각 12프레임)
+            #   - 1행: 왼쪽 이동 애니메이션
+            #   - 2행: 오른쪽 이동 애니메이션
 
             # 이미지 하반부에서 걷기 애니메이션 영역 계산
-            # 이미지 분석 결과: 하단 약 40%가 2행의 걷기 애니메이션
-            animation_start_y = int(sheet_height * 0.54)  # 애니메이션 시작 Y
+            # 새 이미지 구조: 상단 약 55%는 메인 캐릭터, 하단 45%가 2행의 걷기 애니메이션
+            animation_start_y = int(sheet_height * 0.55)  # 애니메이션 시작 Y
             animation_height = sheet_height - animation_start_y
             row_height = animation_height // 2  # 2행으로 나눔
 
             # 프레임 개수 자동 감지 (가로 방향으로 균등 분할)
-            # 실제 프레임 수 계산 (대략 48px 간격으로 12프레임)
-            estimated_frame_width = sheet_width // self.total_frames
-            frame_width = estimated_frame_width
+            # 각 행에 12개 프레임
+            frame_width = sheet_width // self.total_frames
 
             print(f"🎭 프레임 크기: {frame_width}x{row_height}, 시작 Y: {animation_start_y}")
 
