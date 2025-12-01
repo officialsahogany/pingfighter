@@ -17991,6 +17991,9 @@ long_boost_animation_timer = 0
 # 보스 이미지 크기 - config 오버라이드
 BOSS_IMG_WIDTH = 160  # 기본값 오버라이드
 BOSS_IMG_HEIGHT = 80
+# 스테이지 1 전용 사이즈 (세로가 긴 스프라이트에 맞춤)
+BOSS_IMG_STAGE1_WIDTH = 80
+BOSS_IMG_STAGE1_HEIGHT = 160
 # 스테이지 4, 5 전용 사이즈
 BOSS_IMG_STAGE4_WIDTH = 130
 BOSS_IMG_STAGE4_HEIGHT = 70
