@@ -23,14 +23,15 @@ class Stage1BossSprite:
     """
     🎭 풍악보이 (Stage 1 보스) 걷기 애니메이션 클래스
 
-    스프라이트 시트 구조:
-    - 상단 행: 왼쪽 이동 애니메이션 (12프레임)
-    - 하단 행: 오른쪽 이동 애니메이션 (12프레임)
+    스프라이트 시트 구조 (stage1walking3.png):
+    - 상단 행: 왼쪽 이동 애니메이션 (6프레임)
+    - 하단 행: 오른쪽 이동 애니메이션 (6프레임)
+    - 이미지 크기: 1024x1024
     """
 
     def __init__(self, sprite_sheet_path: str = None,
-                 frame_width: int = 48, frame_height: int = 64,
-                 total_frames: int = 12, animation_speed: float = 0.1):
+                 frame_width: int = 170, frame_height: int = 512,
+                 total_frames: int = 6, animation_speed: float = 0.1):
         """
         애니메이션 초기화
 
@@ -65,8 +66,8 @@ class Stage1BossSprite:
         if sprite_sheet_path:
             self.load_sprite_sheet(sprite_sheet_path)
         else:
-            # 기본 경로 시도 - boss_stage1.png 사용
-            default_path = resource_path("boss_stage1.png")
+            # 기본 경로 시도 - stage1walking3.png 사용 (6프레임 버전)
+            default_path = resource_path(os.path.join("assets", "stage1walking3.png"))
             self.load_sprite_sheet(default_path)
 
     def load_sprite_sheet(self, path: str) -> bool:
