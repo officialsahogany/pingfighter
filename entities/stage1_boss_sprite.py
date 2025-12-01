@@ -100,19 +100,27 @@ class Stage1BossSprite:
             row_height = animation_height // 2  # 2행으로 나눔
 
             # 프레임 개수 자동 감지 (가로 방향으로 균등 분할)
-            # 각 행에 12개 프레임
-            frame_width = sheet_width // self.total_frames
+            # 1024px / 12프레임 = 85.33px (나누어 떨어지지 않음)
+            # 실제 캐릭터 영역만 추출하도록 여백 고려
+            frame_width = sheet_width // self.total_frames  # 85px
+            # 프레임 내 캐릭터 중앙 영역만 사용 (좌우 여백 제거)
+            frame_padding = 4  # 좌우 각 4px 여백
 
-            print(f"🎭 프레임 크기: {frame_width}x{row_height}, 시작 Y: {animation_start_y}")
+            print(f"🎭 프레임 크기: {frame_width}x{row_height}, 시작 Y: {animation_start_y}, 패딩: {frame_padding}")
+
+            # 실제 추출할 프레임 크기 (좌우 패딩 제거)
+            actual_frame_width = frame_width - (frame_padding * 2)
 
             # 첫 번째 행 (왼쪽 이동) 프레임 추출
             self.frames_left = []
             for i in range(self.total_frames):
                 try:
+                    # 중앙 영역만 추출 (좌우 패딩 제거)
+                    frame_x = i * frame_width + frame_padding
                     frame_rect = pygame.Rect(
-                        i * frame_width,
+                        frame_x,
                         animation_start_y,
-                        frame_width,
+                        actual_frame_width,
                         row_height
                     )
                     # 경계 체크
@@ -132,10 +140,12 @@ class Stage1BossSprite:
             row2_y = animation_start_y + row_height
             for i in range(self.total_frames):
                 try:
+                    # 중앙 영역만 추출 (좌우 패딩 제거)
+                    frame_x = i * frame_width + frame_padding
                     frame_rect = pygame.Rect(
-                        i * frame_width,
+                        frame_x,
                         row2_y,
-                        frame_width,
+                        actual_frame_width,
                         row_height
                     )
                     # 경계 체크
