@@ -65,8 +65,8 @@ class Stage1BossSprite:
         if sprite_sheet_path:
             self.load_sprite_sheet(sprite_sheet_path)
         else:
-            # 기본 경로 시도
-            default_path = resource_path(os.path.join("assets", "stage1walking.jpg"))
+            # 기본 경로 시도 - boss_stage1.png 사용
+            default_path = resource_path("boss_stage1.png")
             self.load_sprite_sheet(default_path)
 
     def load_sprite_sheet(self, path: str) -> bool:
