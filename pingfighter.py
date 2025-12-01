@@ -21,6 +21,7 @@ import copy
 import glob
 import tempfile
 from pathlib import Path
+import pygame.transform
 import time
 
 # imageio 메타데이터 누락 시 importlib.metadata 오류를 피하기 위해 비활성화
