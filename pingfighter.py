@@ -46104,35 +46104,35 @@ def draw_objects():
             boss_img = BOSS_IMG_STAGE4
             boss_w, boss_h = BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
         else:
-            # Stage 1 스타일 보스 - 걷기 애니메이션 적용
+            # Stage 1 스타일 보스 - 걷기 애니메이션 적용 (세로가 긴 스프라이트)
             if STAGE1_BOSS_ANIMATION_AVAILABLE and stage1_boss_sprite is not None:
                 boss_img_prescaled = True
                 boss_x_pos = BOSS.x if BOSS else WIDTH // 2
                 stage1_boss_sprite.update(boss_x_pos, 1/60)
-                boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+                boss_w, boss_h = BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT
                 boss_img = stage1_boss_sprite.get_current_frame((boss_w, boss_h))
                 if boss_img is None:
                     boss_img = BOSS_IMG_STAGE1
                     boss_img_prescaled = False
             else:
                 boss_img = BOSS_IMG_STAGE1
-                boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+                boss_w, boss_h = BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT
     elif current_stage == 1:
-        # Stage 1 보스 (풍악보이) 걷기 애니메이션 적용
+        # Stage 1 보스 (풍악보이) 걷기 애니메이션 적용 - 세로가 긴 스프라이트
         if STAGE1_BOSS_ANIMATION_AVAILABLE and stage1_boss_sprite is not None:
             boss_img_prescaled = True
             # 애니메이션 업데이트 (보스 X 좌표 기반)
             boss_x_pos = BOSS.x if BOSS else WIDTH // 2
             stage1_boss_sprite.update(boss_x_pos, 1/60)  # 60fps 기준
-            # 현재 프레임 가져오기
-            boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+            # 현재 프레임 가져오기 (세로가 긴 스프라이트 사이즈)
+            boss_w, boss_h = BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT
             boss_img = stage1_boss_sprite.get_current_frame((boss_w, boss_h))
             if boss_img is None:
                 boss_img = BOSS_IMG_STAGE1
                 boss_img_prescaled = False
         else:
             boss_img = BOSS_IMG_STAGE1
-            boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+            boss_w, boss_h = BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT
     elif current_stage == 2:
         boss_img = SPEED_DEFENSE_IMG if speed_defense_active else BOSS_IMG_STAGE2
         boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
