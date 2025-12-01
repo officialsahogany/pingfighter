@@ -54937,16 +54937,16 @@ def show_drive_monitor_demo(background):
         else:
             # 실제 스테이지별 보스 이미지 사용
             if current_stage == 1:
-                # Stage 1 보스 걷기 애니메이션 적용
+                # Stage 1 보스 걷기 애니메이션 적용 (세로가 긴 스프라이트)
                 if STAGE1_BOSS_ANIMATION_AVAILABLE and stage1_boss_sprite is not None:
                     stage1_boss_sprite.update(boss_x, 1/60)
-                    boss_img = stage1_boss_sprite.get_current_frame((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
+                    boss_img = stage1_boss_sprite.get_current_frame((BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT))
                     if boss_img is None:
                         boss_img = BOSS_IMG_STAGE1
-                        boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
+                        boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT))
                 else:
                     boss_img = BOSS_IMG_STAGE1
-                    boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
+                    boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT))
             elif current_stage == 2:
                 boss_img = draw_crocodile_boss(boss_x, boss_y, ball_x, ball_y)
             elif current_stage == 3:
