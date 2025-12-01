@@ -46289,8 +46289,13 @@ def draw_objects():
     # 상모돌리기 중이거나 스피드디펜스 중일 때는 기울기 효과 제거
     if (current_stage == 1 and whip_active) or (current_stage == 2 and speed_defense_active):
         rotated_boss = boss_img.copy()
-        boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x, 
-                                                  BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
+        # Stage 1은 세로가 긴 스프라이트이므로 midbottom 기준으로 위치 조정
+        if current_stage == 1:
+            boss_rect = rotated_boss.get_rect(midbottom=(BOSS.centerx + screen_shake_offset_x,
+                                                         BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 10))
+        else:
+            boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x,
+                                                      BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
     else:
         # 원래 보스 회전 로직 (화면 흔들림 오프셋 적용)
         rotated_boss = pygame.Surface((boss_w, boss_h), pygame.SRCALPHA)
@@ -46298,8 +46303,13 @@ def draw_objects():
         base_img = pygame.transform.scale(boss_img, (boss_w, boss_h))
         rotated_boss.blit(base_img, (0, 0))
         rotated_boss = pygame.transform.rotate(rotated_boss, tilt_angle_boss)
-        boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x, 
-                                                  BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
+        # Stage 1은 세로가 긴 스프라이트이므로 midbottom 기준으로 위치 조정
+        if current_stage == 1:
+            boss_rect = rotated_boss.get_rect(midbottom=(BOSS.centerx + screen_shake_offset_x,
+                                                         BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 10))
+        else:
+            boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x,
+                                                      BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
     # 초인 오라(배경) + 강렬 펄싱 + 파티클
     if current_stage == 7 and stage7_super_active:
         try:
@@ -54967,9 +54977,14 @@ def show_drive_monitor_demo(background):
         
         # 보스 그리기
         if boss_img:
-            boss_rect = boss_img.get_rect(center=(boss_x, boss_y))
+            # Stage 1은 세로가 긴 스프라이트이므로 Y 위치 조정 (캐릭터가 패들 위에 서있는 것처럼)
+            if current_stage == 1:
+                # 스프라이트 하단이 boss_y에 오도록 조정
+                boss_rect = boss_img.get_rect(midbottom=(boss_x, boss_y + 10))
+            else:
+                boss_rect = boss_img.get_rect(center=(boss_x, boss_y))
             SCREEN.blit(boss_img, boss_rect)
-        
+
         # 공 그리기 - 실제 게임과 동일한 디테일
         ball_color = (255, 200, 0)  # 노란색 공
         ball_radius = 8  # 실제 게임 공 크기
