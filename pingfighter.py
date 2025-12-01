@@ -22885,6 +22885,21 @@ try:
 except:
     BOSS_IMG_STAGE1 = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
     BOSS_IMG_STAGE1.fill(WHITE)
+
+# Stage 1 보스 (풍악보이) 걷기 애니메이션 초기화
+try:
+    from entities.stage1_boss_sprite import (
+        get_stage1_boss_sprite,
+        init_stage1_boss_sprite,
+        Stage1BossSprite
+    )
+    stage1_boss_sprite = init_stage1_boss_sprite()
+    STAGE1_BOSS_ANIMATION_AVAILABLE = True
+    print("🎭 Stage 1 보스 걷기 애니메이션 로드 완료")
+except Exception as e:
+    print(f"⚠️ Stage 1 보스 애니메이션 로드 실패: {e}")
+    stage1_boss_sprite = None
+    STAGE1_BOSS_ANIMATION_AVAILABLE = False
 try:
     BOSS_IMG_STAGE2 = pygame.image.load(resource_path("boss_stage2.png")).convert_alpha()
     BOSS_IMG_STAGE2 = pygame.transform.scale(BOSS_IMG_STAGE2, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
@@ -46086,11 +46101,35 @@ def draw_objects():
             boss_img = BOSS_IMG_STAGE4
             boss_w, boss_h = BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
         else:
+            # Stage 1 스타일 보스 - 걷기 애니메이션 적용
+            if STAGE1_BOSS_ANIMATION_AVAILABLE and stage1_boss_sprite is not None:
+                boss_img_prescaled = True
+                boss_x_pos = BOSS.x if BOSS else WIDTH // 2
+                stage1_boss_sprite.update(boss_x_pos, 1/60)
+                boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+                boss_img = stage1_boss_sprite.get_current_frame((boss_w, boss_h))
+                if boss_img is None:
+                    boss_img = BOSS_IMG_STAGE1
+                    boss_img_prescaled = False
+            else:
+                boss_img = BOSS_IMG_STAGE1
+                boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+    elif current_stage == 1:
+        # Stage 1 보스 (풍악보이) 걷기 애니메이션 적용
+        if STAGE1_BOSS_ANIMATION_AVAILABLE and stage1_boss_sprite is not None:
+            boss_img_prescaled = True
+            # 애니메이션 업데이트 (보스 X 좌표 기반)
+            boss_x_pos = BOSS.x if BOSS else WIDTH // 2
+            stage1_boss_sprite.update(boss_x_pos, 1/60)  # 60fps 기준
+            # 현재 프레임 가져오기
+            boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+            boss_img = stage1_boss_sprite.get_current_frame((boss_w, boss_h))
+            if boss_img is None:
+                boss_img = BOSS_IMG_STAGE1
+                boss_img_prescaled = False
+        else:
             boss_img = BOSS_IMG_STAGE1
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
-    elif current_stage == 1:
-        boss_img = BOSS_IMG_STAGE1
-        boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
     elif current_stage == 2:
         boss_img = SPEED_DEFENSE_IMG if speed_defense_active else BOSS_IMG_STAGE2
         boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
