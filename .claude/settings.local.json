@@ -144,7 +144,8 @@
       "Bash(xargs ls:*)",
       "Bash(screencapture:*)",
       "Bash(git revert:*)",
-      "Bash(while IFS= read -r line)"
+      "Bash(while IFS= read -r line)",
+      "Bash(git remote set-url:*)"
     ],
     "defaultMode": "acceptEdits"
   }
