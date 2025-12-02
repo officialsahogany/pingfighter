@@ -721,53 +721,53 @@ class PokerGameUI:
                        cx, y + 50, (150, 150, 150), 12, center=True)
 
     def _draw_result_ui(self, screen):
-        """결과 UI"""
-        cx, cy = self.screen_width // 2, self.screen_height // 2
+        """결과 UI - 카드가 보이도록 하단에 결과 표시"""
+        cx = self.screen_width // 2
 
-        # 반투명 오버레이
-        overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 150))
-        screen.blit(overlay, (0, 0))
+        # 결과 박스 (하단에 배치하여 카드가 보이도록)
+        box_w, box_h = 400, 120
+        box_y = self.screen_height - 140
 
-        # 결과 박스
-        box_w, box_h = 350, 200
-        pygame.draw.rect(screen, (40, 35, 55), (cx - box_w // 2, cy - box_h // 2, box_w, box_h), border_radius=15)
+        # 반투명 배경
+        overlay = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        overlay.fill((30, 25, 45, 230))
+        screen.blit(overlay, (cx - box_w // 2, box_y))
 
         # 결과 색상
         if self.game.winner == 'player':
             result_color = (100, 255, 100)
-            title = "🎉 승리!"
+            title = "승리!"
         elif self.game.winner == 'dealer':
             result_color = (255, 100, 100)
-            title = "😢 패배"
+            title = "패배"
         else:
             result_color = (255, 255, 100)
-            title = "🤝 무승부"
+            title = "무승부"
 
-        pygame.draw.rect(screen, result_color, (cx - box_w // 2, cy - box_h // 2, box_w, box_h), 3, border_radius=15)
+        # 테두리
+        pygame.draw.rect(screen, result_color, (cx - box_w // 2, box_y, box_w, box_h), 3, border_radius=10)
 
         # 결과 텍스트
-        self._draw_text(screen, title, cx, cy - 60, result_color, 32, center=True)
-        self._draw_text(screen, self.game.result_message, cx, cy - 20, self.WHITE, 18, center=True)
+        self._draw_text(screen, title, cx, box_y + 10, result_color, 28, center=True)
 
-        # 패 정보
+        # 패 정보 (양쪽에 표시)
         if self.game.player_hand_result:
             p_name = self.game.player_hand_result[2]
-            self._draw_text(screen, f"내 패: {p_name}", cx, cy + 15, (150, 200, 255), 14, center=True)
+            self._draw_text(screen, f"내 패: {p_name}", cx - 90, box_y + 45, (150, 200, 255), 14, center=True)
 
         if self.game.dealer_hand_result:
             d_name = self.game.dealer_hand_result[2]
-            self._draw_text(screen, f"딜러 패: {d_name}", cx, cy + 35, (255, 150, 150), 14, center=True)
+            self._draw_text(screen, f"딜러: {d_name}", cx + 90, box_y + 45, (255, 150, 150), 14, center=True)
 
         # 골드 변화
-        gold_text = f"보유 골드: {self.game.player_gold} G"
-        self._draw_text(screen, gold_text, cx, cy + 65, self.GOLD, 20, center=True)
+        gold_text = f"골드: {self.game.player_gold} G"
+        self._draw_text(screen, gold_text, cx, box_y + 70, self.GOLD, 16, center=True)
 
         # 계속하기
         if self.game.player_gold >= self.game.min_bet:
-            self._draw_text(screen, "Enter: 다음 라운드  ESC: 나가기", cx, cy + 90, (150, 150, 150), 12, center=True)
+            self._draw_text(screen, "Enter: 계속  ESC: 나가기", cx, box_y + 95, (150, 150, 150), 12, center=True)
         else:
-            self._draw_text(screen, "골드가 부족합니다! ESC: 나가기", cx, cy + 90, (255, 100, 100), 12, center=True)
+            self._draw_text(screen, "골드 부족! ESC: 나가기", cx, box_y + 95, (255, 100, 100), 12, center=True)
 
     def _draw_text(self, screen, text, x, y, color, size, center=False, right=False):
         """텍스트 그리기 (freetype 폰트 사용)"""
