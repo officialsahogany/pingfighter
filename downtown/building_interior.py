@@ -12263,20 +12263,16 @@ class BuildingInterior:
                 tile_x = tx * tile_w - cam_x
                 tile_y = ty * tile_h - cam_y
 
-                # 대각선 다이아몬드 패턴
+                # 체크무늬 카펫 패턴
                 if (tx + ty) % 2 == 0:
                     color = floor_color
                 else:
                     color = floor_dark
                 pygame.draw.rect(screen, color, (tile_x, tile_y, tile_w, tile_h))
 
-                # 금색 테두리 (럭셔리 느낌)
-                if (tx + ty) % 4 == 0:
-                    pygame.draw.rect(screen, stripe_color, (tile_x + 2, tile_y + 2, tile_w - 4, tile_h - 4), 1)
-                    # 대각선 장식
-                    pygame.draw.line(screen, stripe_color,
-                                   (tile_x + 4, tile_y + 4),
-                                   (tile_x + tile_w - 4, tile_y + tile_h - 4), 1)
+                # 모든 타일에 얇은 테두리 (일관된 패턴)
+                border_color = (stripe_color[0] // 3, stripe_color[1] // 3, stripe_color[2] // 3)
+                pygame.draw.rect(screen, border_color, (tile_x, tile_y, tile_w, tile_h), 1)
 
     def _draw_casino_neon_signs(self, screen, cam_x, cam_y, wall_h, neon_pink, neon_cyan, neon_green, gold):
         """카지노 네온 간판들 그리기 (CASINO, JACKPOT, POKER)"""
