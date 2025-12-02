@@ -18081,8 +18081,8 @@ stage8_shadow_freeze_posx: int = 0
 stage8_shadow_freeze_posy: int = 0
 stage8_shadow_anchor_x: int = 0
 stage8_shadow_anchor_y: int = 0
-stage8_awakened: bool = False  # 초각성 상태 (플레이어 점수 3점 이상)
-stage8_awaken_intro_pending: bool = False  # 3점 달성 후 연출 진행 여부
+stage8_awakened: bool = False  # 초각성 상태 (플레이어 점수 2점 이상)
+stage8_awaken_intro_pending: bool = False  # 2점 달성 후 연출 진행 여부
 stage8_awaken_intro_done: bool = False     # 연출 완료 여부
 stage8_awaken_freeze_end_ms: int = 0
 
@@ -23330,8 +23330,8 @@ def go_to_next_round():
         globals()["stage8_awaken_freeze_end_ms"] = 0
         # 바람 오오라 효과도 리셋
         reset_stage8_wind_effects()
-    # Stage 8: 플레이어가 3점 이상이면 다음 라운드에 한 번만 연출 예약
-    if current_stage == 8 and round_wins >= 3:
+    # Stage 8: 플레이어가 2점 이상이면 다음 라운드에 한 번만 연출 예약
+    if current_stage == 8 and round_wins >= 2:
         if not globals().get("stage8_awaken_intro_done", False) and not globals().get("stage8_awaken_intro_pending", False):
             globals()["stage8_awaken_intro_pending"] = True
             globals()["stage8_awaken_intro_done"] = False
@@ -46326,9 +46326,9 @@ def draw_objects():
         rotated_boss = boss_img.copy()
         # Stage 1은 세로가 긴 스프라이트이므로 Y 오프셋 추가 (캐릭터가 화면에 보이도록)
         if current_stage == 1:
-            # 세로 160px 스프라이트 → 중심을 아래로 10px 내림 (정수 좌표로 떨림 방지) - 위로 10px 조정
+            # 세로 160px 스프라이트 → 중심을 아래로 25px 내림 (정수 좌표로 떨림 방지)
             boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
-                                                      int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 10)))
+                                                      int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 25)))
         else:
             boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x,
                                                       BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
@@ -46341,9 +46341,9 @@ def draw_objects():
         rotated_boss = pygame.transform.rotate(rotated_boss, tilt_angle_boss)
         # Stage 1은 세로가 긴 스프라이트이므로 Y 오프셋 추가 (캐릭터가 화면에 보이도록)
         if current_stage == 1:
-            # 세로 160px 스프라이트 → 중심을 아래로 10px 내림 (정수 좌표로 떨림 방지) - 위로 10px 조정
+            # 세로 160px 스프라이트 → 중심을 아래로 25px 내림 (정수 좌표로 떨림 방지)
             boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
-                                                      int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 10)))
+                                                      int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 25)))
         else:
             boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x,
                                                       BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
@@ -51669,6 +51669,12 @@ def show_start_screen():
         downtown_ap_current = manager.player_data.get('downtown_ap_current', None)
         downtown_ap_is_first_stage = manager.player_data.get('downtown_ap_is_first_stage', False)
 
+    def start_local_multiplayer():
+        """로컬 멀티플레이 게임 시작"""
+        global player_ai_enabled
+        player_ai_enabled = False
+        return main_multiplayer()
+
     ctx = MenuContext(
         get_screen=lambda: SCREEN,
         get_dimensions=lambda: (WIDTH, HEIGHT),
@@ -51704,6 +51710,8 @@ def show_start_screen():
     )
     # 개발자용 광장 입장 콜백 추가
     ctx.enter_downtown_dev = enter_downtown_dev
+    # 로컬 멀티플레이 콜백 추가
+    ctx.start_local_multiplayer = start_local_multiplayer
 
     show_start_menu(ctx)
 def show_tutorial_dialog():
@@ -74578,7 +74586,7 @@ def handle_boss():
     # 스테이지 8: 그물 포획/스턴 시 영체탈주 우선 시도
     if current_stage == 8:
         try:
-            score_reached = (round_wins >= 3) or (player_score >= 3)
+            score_reached = (round_wins >= 2) or (player_score >= 2)
             if not stage8_awaken_intro_done and score_reached:
                 if not stage8_awaken_intro_pending:
                     stage8_awaken_intro_pending = True
@@ -85665,6 +85673,394 @@ def get_character_name(character_id):
         "optimus": "옵티머스"
     }
     return char_names.get(character_id, "알 수 없음")
+
+
+# ============================================================================
+# 로컬 멀티플레이어 모드
+# ============================================================================
+
+# 멀티플레이 전역 변수
+multiplayer_mode = False
+player2_score = 0
+player2_x = 0
+player2_y = 0
+player2_width = 100
+player2_height = 20
+
+# P2 키 바인딩 (WASD + Space)
+P2_KEY_UP = pygame.K_w
+P2_KEY_DOWN = pygame.K_s
+P2_KEY_LEFT = pygame.K_a
+P2_KEY_RIGHT = pygame.K_d
+P2_KEY_DASH = pygame.K_SPACE
+
+# P1 키 바인딩 (방향키 + Shift)
+P1_KEY_UP = pygame.K_UP
+P1_KEY_DOWN = pygame.K_DOWN
+P1_KEY_LEFT = pygame.K_LEFT
+P1_KEY_RIGHT = pygame.K_RIGHT
+P1_KEY_DASH = pygame.K_RSHIFT
+
+
+def main_multiplayer():
+    """로컬 2인용 멀티플레이 게임 모드
+
+    P1 (하단): 방향키 + 오른쪽 Shift (대시)
+    P2 (상단): WASD + Space (대시)
+    """
+    global multiplayer_mode, player2_score, player2_x, player2_y
+    global player2_width, player2_height
+    global PLAYER, ball, ball_vel, player_score, boss_score
+
+    multiplayer_mode = True
+    clock = pygame.time.Clock()
+
+    # 게임 초기화
+    p1_score = 0
+    p2_score = 0
+    win_score = 5  # 5점 선승제
+
+    # P1 (하단 플레이어) 설정
+    p1_width = 100
+    p1_height = 20
+    p1_x = WIDTH // 2 - p1_width // 2
+    p1_y = HEIGHT - 80
+    p1_speed = 8
+    p1_color = (0, 150, 255)  # 파란색
+
+    # P2 (상단 플레이어) 설정
+    p2_width = 100
+    p2_height = 20
+    p2_x = WIDTH // 2 - p2_width // 2
+    p2_y = 60
+    p2_speed = 8
+    p2_color = (255, 100, 100)  # 빨간색
+
+    # 공 설정
+    ball_radius = 10
+    ball_x = WIDTH // 2
+    ball_y = HEIGHT // 2
+    ball_speed_x = 5
+    ball_speed_y = 5
+    ball_base_speed = 5
+    ball_max_speed = 15
+    ball_color = (255, 255, 255)
+
+    # 대시 시스템
+    p1_dash_cooldown = 0
+    p2_dash_cooldown = 0
+    dash_cooldown_max = 30  # 0.5초 쿨다운
+    dash_speed_boost = 3
+
+    # 라운드 시작 딜레이
+    round_start_delay = 60  # 1초 대기
+    round_timer = round_start_delay
+    game_paused = True
+
+    # BGM 재생
+    try:
+        bgm_manager.play_stage_bgm(1)
+    except Exception:
+        pass
+
+    running = True
+    while running:
+        dt = clock.tick(60)
+
+        # 이벤트 처리
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                multiplayer_mode = False
+                return
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    # ESC로 메인 메뉴 복귀
+                    multiplayer_mode = False
+                    try:
+                        bgm_manager.play_menu_bgm()
+                    except Exception:
+                        pass
+                    return
+
+        # 라운드 시작 대기
+        if game_paused:
+            round_timer -= 1
+            if round_timer <= 0:
+                game_paused = False
+
+        keys = pygame.key.get_pressed()
+
+        if not game_paused:
+            # P1 이동 (하단, 방향키)
+            p1_move_speed = p1_speed
+            if p1_dash_cooldown <= 0 and keys[P1_KEY_DASH]:
+                p1_move_speed += dash_speed_boost
+                p1_dash_cooldown = dash_cooldown_max
+
+            if keys[P1_KEY_LEFT]:
+                p1_x -= p1_move_speed
+            if keys[P1_KEY_RIGHT]:
+                p1_x += p1_move_speed
+
+            # P1 경계 제한
+            p1_x = max(0, min(WIDTH - p1_width, p1_x))
+
+            # P2 이동 (상단, WASD)
+            p2_move_speed = p2_speed
+            if p2_dash_cooldown <= 0 and keys[P2_KEY_DASH]:
+                p2_move_speed += dash_speed_boost
+                p2_dash_cooldown = dash_cooldown_max
+
+            if keys[P2_KEY_LEFT]:
+                p2_x -= p2_move_speed
+            if keys[P2_KEY_RIGHT]:
+                p2_x += p2_move_speed
+
+            # P2 경계 제한
+            p2_x = max(0, min(WIDTH - p2_width, p2_x))
+
+            # 대시 쿨다운 감소
+            if p1_dash_cooldown > 0:
+                p1_dash_cooldown -= 1
+            if p2_dash_cooldown > 0:
+                p2_dash_cooldown -= 1
+
+            # 공 이동
+            ball_x += ball_speed_x
+            ball_y += ball_speed_y
+
+            # 좌우 벽 충돌
+            if ball_x - ball_radius <= 0:
+                ball_x = ball_radius
+                ball_speed_x = abs(ball_speed_x)
+                try:
+                    play_wall_hit_sound()
+                except Exception:
+                    pass
+            elif ball_x + ball_radius >= WIDTH:
+                ball_x = WIDTH - ball_radius
+                ball_speed_x = -abs(ball_speed_x)
+                try:
+                    play_wall_hit_sound()
+                except Exception:
+                    pass
+
+            # P1 패들 충돌 (하단)
+            p1_rect = pygame.Rect(p1_x, p1_y, p1_width, p1_height)
+            if (ball_y + ball_radius >= p1_y and
+                ball_y - ball_radius <= p1_y + p1_height and
+                ball_x >= p1_x and ball_x <= p1_x + p1_width and
+                ball_speed_y > 0):
+                # 반사
+                ball_speed_y = -abs(ball_speed_y)
+                # 패들 위치에 따른 각도 조절
+                hit_pos = (ball_x - p1_x) / p1_width  # 0.0 ~ 1.0
+                ball_speed_x = (hit_pos - 0.5) * 10
+                # 속도 증가
+                speed = math.sqrt(ball_speed_x**2 + ball_speed_y**2)
+                if speed < ball_max_speed:
+                    factor = min(1.05, ball_max_speed / speed)
+                    ball_speed_x *= factor
+                    ball_speed_y *= factor
+                try:
+                    play_hit_sound()
+                except Exception:
+                    pass
+
+            # P2 패들 충돌 (상단)
+            p2_rect = pygame.Rect(p2_x, p2_y, p2_width, p2_height)
+            if (ball_y - ball_radius <= p2_y + p2_height and
+                ball_y + ball_radius >= p2_y and
+                ball_x >= p2_x and ball_x <= p2_x + p2_width and
+                ball_speed_y < 0):
+                # 반사
+                ball_speed_y = abs(ball_speed_y)
+                # 패들 위치에 따른 각도 조절
+                hit_pos = (ball_x - p2_x) / p2_width
+                ball_speed_x = (hit_pos - 0.5) * 10
+                # 속도 증가
+                speed = math.sqrt(ball_speed_x**2 + ball_speed_y**2)
+                if speed < ball_max_speed:
+                    factor = min(1.05, ball_max_speed / speed)
+                    ball_speed_x *= factor
+                    ball_speed_y *= factor
+                try:
+                    play_hit_sound()
+                except Exception:
+                    pass
+
+            # 득점 체크
+            scored = False
+            if ball_y - ball_radius <= 0:
+                # P1 득점 (P2 쪽 벽)
+                p1_score += 1
+                scored = True
+                try:
+                    play_score_sound()
+                except Exception:
+                    pass
+            elif ball_y + ball_radius >= HEIGHT:
+                # P2 득점 (P1 쪽 벽)
+                p2_score += 1
+                scored = True
+                try:
+                    play_score_sound()
+                except Exception:
+                    pass
+
+            if scored:
+                # 공 리셋
+                ball_x = WIDTH // 2
+                ball_y = HEIGHT // 2
+                ball_speed_x = ball_base_speed * (1 if ball_speed_x > 0 else -1)
+                ball_speed_y = ball_base_speed * (1 if p1_score > p2_score else -1)
+                game_paused = True
+                round_timer = round_start_delay
+
+                # 승리 체크
+                if p1_score >= win_score or p2_score >= win_score:
+                    winner = "P1" if p1_score >= win_score else "P2"
+                    _show_multiplayer_result(winner, p1_score, p2_score)
+                    multiplayer_mode = False
+                    try:
+                        bgm_manager.play_menu_bgm()
+                    except Exception:
+                        pass
+                    return
+
+        # 화면 렌더링
+        SCREEN.fill((20, 25, 35))  # 어두운 배경
+
+        # 중앙선
+        pygame.draw.line(SCREEN, (60, 70, 90), (0, HEIGHT // 2), (WIDTH, HEIGHT // 2), 2)
+        for i in range(0, WIDTH, 30):
+            pygame.draw.circle(SCREEN, (80, 90, 110), (i, HEIGHT // 2), 3)
+
+        # P1 패들 (하단, 파란색)
+        pygame.draw.rect(SCREEN, p1_color, (p1_x, p1_y, p1_width, p1_height), border_radius=5)
+        pygame.draw.rect(SCREEN, (100, 200, 255), (p1_x, p1_y, p1_width, p1_height), 2, border_radius=5)
+
+        # P2 패들 (상단, 빨간색)
+        pygame.draw.rect(SCREEN, p2_color, (p2_x, p2_y, p2_width, p2_height), border_radius=5)
+        pygame.draw.rect(SCREEN, (255, 150, 150), (p2_x, p2_y, p2_width, p2_height), 2, border_radius=5)
+
+        # 공
+        pygame.draw.circle(SCREEN, ball_color, (int(ball_x), int(ball_y)), ball_radius)
+        pygame.draw.circle(SCREEN, (200, 200, 200), (int(ball_x), int(ball_y)), ball_radius, 2)
+
+        # 점수 표시
+        try:
+            score_font = get_font(48)
+        except Exception:
+            score_font = pygame.font.Font(None, 48)
+
+        # P2 점수 (상단)
+        p2_score_text = score_font.render(f"P2: {p2_score}", True, p2_color)
+        SCREEN.blit(p2_score_text, (WIDTH // 2 - p2_score_text.get_width() // 2, 10))
+
+        # P1 점수 (하단)
+        p1_score_text = score_font.render(f"P1: {p1_score}", True, p1_color)
+        SCREEN.blit(p1_score_text, (WIDTH // 2 - p1_score_text.get_width() // 2, HEIGHT - 50))
+
+        # 대시 쿨다운 표시
+        if p1_dash_cooldown > 0:
+            cooldown_width = 50 * (p1_dash_cooldown / dash_cooldown_max)
+            pygame.draw.rect(SCREEN, (100, 100, 100), (p1_x + p1_width // 2 - 25, p1_y + p1_height + 5, 50, 5))
+            pygame.draw.rect(SCREEN, p1_color, (p1_x + p1_width // 2 - 25, p1_y + p1_height + 5, 50 - cooldown_width, 5))
+
+        if p2_dash_cooldown > 0:
+            cooldown_width = 50 * (p2_dash_cooldown / dash_cooldown_max)
+            pygame.draw.rect(SCREEN, (100, 100, 100), (p2_x + p2_width // 2 - 25, p2_y - 10, 50, 5))
+            pygame.draw.rect(SCREEN, p2_color, (p2_x + p2_width // 2 - 25, p2_y - 10, 50 - cooldown_width, 5))
+
+        # 라운드 시작 카운트다운
+        if game_paused and round_timer > 0:
+            countdown = (round_timer // 20) + 1
+            try:
+                countdown_font = get_font(72)
+            except Exception:
+                countdown_font = pygame.font.Font(None, 72)
+            countdown_text = countdown_font.render(str(countdown), True, (255, 255, 0))
+            SCREEN.blit(countdown_text, (WIDTH // 2 - countdown_text.get_width() // 2, HEIGHT // 2 - countdown_text.get_height() // 2))
+
+        # 조작법 안내
+        try:
+            help_font = get_font(16)
+        except Exception:
+            help_font = pygame.font.Font(None, 16)
+
+        p1_help = help_font.render("P1: ←→ 이동, Shift 대시", True, (150, 150, 150))
+        p2_help = help_font.render("P2: A/D 이동, Space 대시", True, (150, 150, 150))
+        esc_help = help_font.render("ESC: 메뉴로 돌아가기", True, (150, 150, 150))
+
+        SCREEN.blit(p1_help, (10, HEIGHT - 25))
+        SCREEN.blit(p2_help, (10, 5))
+        SCREEN.blit(esc_help, (WIDTH - esc_help.get_width() - 10, HEIGHT // 2 - 10))
+
+        pygame.display.flip()
+
+    multiplayer_mode = False
+
+
+def _show_multiplayer_result(winner: str, p1_score: int, p2_score: int):
+    """멀티플레이 결과 화면 표시"""
+    clock = pygame.time.Clock()
+    animation_timer = 0
+
+    while True:
+        dt = clock.tick(60) / 1000.0
+        animation_timer += dt
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
+                    return
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                return
+
+        # 배경
+        SCREEN.fill((15, 20, 30))
+
+        # 승자 표시
+        try:
+            title_font = get_font(64)
+            score_font = get_font(36)
+            hint_font = get_font(24)
+        except Exception:
+            title_font = pygame.font.Font(None, 64)
+            score_font = pygame.font.Font(None, 36)
+            hint_font = pygame.font.Font(None, 24)
+
+        winner_color = (0, 150, 255) if winner == "P1" else (255, 100, 100)
+
+        # 글로우 효과
+        glow_alpha = int(abs(math.sin(animation_timer * 3)) * 100 + 155)
+
+        title_text = title_font.render(f"{winner} 승리!", True, winner_color)
+        title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 80))
+
+        # 글로우
+        for i in range(3):
+            glow_surf = title_font.render(f"{winner} 승리!", True, (*winner_color[:3], glow_alpha // (i + 1)))
+            glow_rect = glow_surf.get_rect(center=(WIDTH // 2 + i, HEIGHT // 2 - 80 + i))
+            SCREEN.blit(glow_surf, glow_rect)
+
+        SCREEN.blit(title_text, title_rect)
+
+        # 최종 점수
+        score_text = score_font.render(f"P1: {p1_score}  -  P2: {p2_score}", True, (200, 200, 200))
+        score_rect = score_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        SCREEN.blit(score_text, score_rect)
+
+        # 안내
+        hint_text = hint_font.render("아무 키나 눌러 메뉴로 돌아가기", True, (150, 150, 150))
+        hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 80))
+        SCREEN.blit(hint_text, hint_rect)
+
+        pygame.display.flip()
+
 
 if __name__ == "__main__":
     # 무조건 오프닝 애니메이션 표시

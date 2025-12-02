@@ -20,9 +20,11 @@ from start_menu_config import (
     IDLE_CINEMATIC_DELAY_MS,
 )
 
-BASE_MENU_OPTIONS = ["경기장 입장", "개발테스트", "메달샵", "크레딧"]
+BASE_MENU_OPTIONS = ["경기장 입장", "멀티플레이", "개발테스트", "메달샵", "크레딧"]
 MENU_ICONS = {
     "경기장 입장": "▶",
+    "멀티플레이": "👥",
+    "로컬플레이": "🎮",
     "AI 플레이": "🤖",
     "테스트메뉴": "★",
     "개발테스트": "🧪",
@@ -334,6 +336,104 @@ def _run_ai_play_flow(ctx: MenuContext) -> bool:
     return True
 
 
+def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
+    """멀티플레이 서브메뉴 - 로컬 플레이 등 선택."""
+    options = ["로컬플레이", "뒤로"]
+    selected = 0
+    clock = pygame.time.Clock()
+    while True:
+        dt = clock.tick(60) / 1000.0
+        state.animation_timer += dt
+        screen = ctx.get_screen()
+        width, height = ctx.get_dimensions()
+        _update_background_layers(ctx, state, dt, screen, width, height)
+
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+            if ev.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION):
+                state.idle_start_time = pygame.time.get_ticks()
+            if ev.type == pygame.KEYDOWN:
+                if ev.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_DOWN, pygame.K_s):
+                    selected = (selected + 1) % len(options)
+                elif ev.key in (pygame.K_LEFT, pygame.K_a, pygame.K_UP, pygame.K_w):
+                    selected = (selected - 1) % len(options)
+                elif ev.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    choice = options[selected]
+                    if choice == "로컬플레이":
+                        # 로컬 멀티플레이 시작
+                        if hasattr(ctx, 'start_local_multiplayer') and ctx.start_local_multiplayer:
+                            ctx.start_local_multiplayer()
+                            return True
+                        return False
+                    return False  # 뒤로
+                elif ev.key == pygame.K_ESCAPE:
+                    return False
+            if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+                mx, my = ev.pos
+                menu_y = height // 2
+                item_w = 220
+                spacing = 24
+                total_w = len(options) * item_w + (len(options) - 1) * spacing
+                start_x = (width - total_w) // 2
+                for idx, opt in enumerate(options):
+                    rect = pygame.Rect(start_x + idx * (item_w + spacing), menu_y - 40, item_w, 90)
+                    if rect.collidepoint(mx, my):
+                        selected = idx
+                        if opt == "로컬플레이":
+                            if hasattr(ctx, 'start_local_multiplayer') and ctx.start_local_multiplayer:
+                                ctx.start_local_multiplayer()
+                                return True
+                            return False
+                        return False
+
+        font_title = ctx.FontStyle.title()
+        font_item = ctx.FontStyle.body()
+        overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 120))
+        screen.blit(overlay, (0, 0))
+
+        title = font_title.render("멀티플레이", True, (200, 230, 255))
+        screen.blit(title, title.get_rect(center=(width // 2, height // 2 - 130)))
+
+        # 설명 텍스트
+        desc_font = ctx.FontStyle.tiny()
+        desc_text = "같은 PC에서 2명이 대결합니다"
+        desc_surf = desc_font.render(desc_text, True, (180, 200, 220))
+        screen.blit(desc_surf, desc_surf.get_rect(center=(width // 2, height // 2 - 90)))
+
+        item_w = 220
+        spacing = 24
+        total_w = len(options) * item_w + (len(options) - 1) * spacing
+        start_x = (width - total_w) // 2
+        for idx, opt in enumerate(options):
+            x = start_x + idx * (item_w + spacing)
+            rect = pygame.Rect(x, height // 2 - 40, item_w, 90)
+            is_sel = idx == selected
+            bg_color = (50, 90, 140) if is_sel else (30, 40, 60)
+            pygame.draw.rect(screen, bg_color, rect, border_radius=12)
+            pygame.draw.rect(screen, (140, 200, 255), rect, 2 if is_sel else 1, border_radius=12)
+
+            # 아이콘 표시
+            icon = MENU_ICONS.get(opt, "")
+            if icon:
+                icon_font = ctx.get_font(28)
+                icon_surface = icon_font.render(icon, True, (0, 255, 255))
+                icon_rect = icon_surface.get_rect(center=(rect.centerx, rect.centery - 15))
+                screen.blit(icon_surface, icon_rect)
+
+            label_surface = font_item.render(opt, True, (255, 255, 255))
+            screen.blit(label_surface, label_surface.get_rect(center=(rect.centerx, rect.centery + 15)))
+
+            if is_sel and opt == "로컬플레이":
+                hint = "P1: 방향키/Shift  |  P2: WASD/Space"
+                hint_surf = ctx.FontStyle.tiny().render(hint, True, (210, 220, 255))
+                screen.blit(hint_surf, hint_surf.get_rect(center=(width // 2, rect.bottom + 30)))
+
+        pygame.display.flip()
+
+
 def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
     """메인 메뉴 하위 개발/테스트 묶음."""
     options = ["AI 플레이", "테스트메뉴", "뒤로"]
@@ -426,6 +526,8 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
                 if difficulty is not None:
                     ctx.start_game_with_difficulty(character, difficulty)
         return True
+    if choice == "멀티플레이":
+        return _show_multiplayer_menu(ctx, state)
     if choice == "AI 플레이":
         return _run_ai_play_flow(ctx)
     if choice == "테스트메뉴":

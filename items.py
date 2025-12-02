@@ -905,7 +905,7 @@ ITEM_TYPES = [
         "color": (255, 50, 50),  # 붉은색 (전설 색상)
         "effect": "ragnarok_hammer",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -914,7 +914,7 @@ ITEM_TYPES = [
         "color": (100, 200, 255),  # 하늘색 (전설 색상)
         "effect": "hermes_shoes",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -923,7 +923,7 @@ ITEM_TYPES = [
         "color": (50, 150, 255),  # 바다색 (전설 색상)
         "effect": "poseidon_trident",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -932,7 +932,7 @@ ITEM_TYPES = [
         "color": (220, 240, 255),  # 옅은 하늘색
         "effect": "angel_blessing",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -941,7 +941,7 @@ ITEM_TYPES = [
         "color": (100, 200, 100),  # 연두색
         "effect": "sacred_laurel",
         "icon": None,
-        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None
     },
