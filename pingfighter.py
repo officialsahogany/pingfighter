@@ -54991,7 +54991,14 @@ def show_drive_monitor_demo(background):
                     boss_img = BOSS_IMG_STAGE1
                     boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT))
             elif current_stage == 2:
-                boss_img = draw_crocodile_boss(boss_x, boss_y, ball_x, ball_y)
+                # Stage 2 보스 걷기 애니메이션 적용
+                if STAGE2_BOSS_ANIMATION_AVAILABLE and stage2_boss_sprite is not None:
+                    stage2_boss_sprite.update(boss_x, 1/60)
+                    boss_img = stage2_boss_sprite.get_current_frame((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
+                    if boss_img is None:
+                        boss_img = draw_crocodile_boss(boss_x, boss_y, ball_x, ball_y)
+                else:
+                    boss_img = draw_crocodile_boss(boss_x, boss_y, ball_x, ball_y)
             elif current_stage == 3:
                 boss_img = BOSS_IMG_STAGE3
                 boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
