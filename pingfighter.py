@@ -71525,6 +71525,12 @@ def handle_ball():
         if current_stage == 1:
             boss_special_gauge = min(boss_special_gauge + 50, 500)
             print(f"스테이지1 보스 게이지 충전: +50 (현재: {boss_special_gauge}/500)")
+            # 스테이지 1 보스 히트 애니메이션 트리거
+            try:
+                if stage1_boss_sprite:
+                    stage1_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
+            except Exception as e:
+                print(f"⚠️ 히트 애니메이션 트리거 실패: {e}")
         # 스테이지 2 악어장군 게이지 충전 (+70)
         elif current_stage == 2:
             boss_special_gauge = min(boss_special_gauge + 70, 500)
