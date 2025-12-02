@@ -222,9 +222,32 @@ class Stage1BossSprite:
 
         self.prev_x = current_x
 
+    def _build_scaled_cache(self, scale_size: tuple):
+        """스케일된 프레임 캐시 생성 (떨림 방지)"""
+        if scale_size == self._cached_scale_size:
+            return  # 이미 캐시됨
+
+        self._cached_scale_size = scale_size
+
+        # 왼쪽 프레임 캐시
+        self._scaled_frames_left = []
+        for frame in self.frames_left:
+            scaled = pygame.transform.smoothscale(frame, scale_size)
+            self._scaled_frames_left.append(scaled)
+
+        # 오른쪽 프레임 캐시
+        self._scaled_frames_right = []
+        for frame in self.frames_right:
+            scaled = pygame.transform.smoothscale(frame, scale_size)
+            self._scaled_frames_right.append(scaled)
+
+        # 정지 프레임 캐시
+        if self.idle_frame:
+            self._scaled_idle_frame = pygame.transform.smoothscale(self.idle_frame, scale_size)
+
     def get_current_frame(self, scale_size: tuple = None) -> pygame.Surface:
         """
-        현재 프레임 반환
+        현재 프레임 반환 (캐시된 스케일 프레임 사용으로 떨림 방지)
 
         Args:
             scale_size: (width, height) 크기로 스케일링 (None이면 원본 크기)
@@ -232,18 +255,27 @@ class Stage1BossSprite:
         Returns:
             현재 애니메이션 프레임 서피스
         """
+        # 스케일 사이즈가 있으면 캐시 빌드
+        if scale_size:
+            self._build_scaled_cache(scale_size)
+
+            # 캐시된 프레임에서 가져오기
+            if self.direction == -1 and self._scaled_frames_left:
+                return self._scaled_frames_left[self.current_frame % len(self._scaled_frames_left)]
+            elif self.direction == 1 and self._scaled_frames_right:
+                return self._scaled_frames_right[self.current_frame % len(self._scaled_frames_right)]
+            else:
+                # 정지 상태
+                return self._scaled_idle_frame if self._scaled_idle_frame else self._scaled_frames_right[0]
+
+        # 원본 크기 반환
         if self.direction == -1 and self.frames_left:
-            frame = self.frames_left[self.current_frame % len(self.frames_left)]
+            return self.frames_left[self.current_frame % len(self.frames_left)]
         elif self.direction == 1 and self.frames_right:
-            frame = self.frames_right[self.current_frame % len(self.frames_right)]
+            return self.frames_right[self.current_frame % len(self.frames_right)]
         else:
             # 정지 상태
-            frame = self.idle_frame if self.idle_frame else self.frames_right[0]
-
-        if scale_size and frame:
-            frame = pygame.transform.smoothscale(frame, scale_size)
-
-        return frame
+            return self.idle_frame if self.idle_frame else self.frames_right[0]
 
     def draw(self, surface: pygame.Surface, x: float, y: float,
              width: int = None, height: int = None, center: bool = True):
