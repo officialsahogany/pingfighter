@@ -233,20 +233,31 @@ class Stage1BossSprite:
 
             # 2행 × 6프레임 구조
             row_height = sheet_height // 2
-            frame_width = sheet_width // self.hit_total_frames
+            frame_width_float = sheet_width / self.hit_total_frames  # 170.67px
 
-            print(f"🥊 히트 프레임 크기: {frame_width}x{row_height}, 총 프레임: {self.hit_total_frames}")
+            # 옆 프레임이 보이지 않도록 양쪽 여백 추가
+            margin = 4  # 양쪽 4px씩 잘라냄
+            actual_frame_width = int(frame_width_float) - (margin * 2)
+
+            print(f"🥊 히트 프레임 크기: {actual_frame_width}x{row_height}, 총 프레임: {self.hit_total_frames}")
 
             # 첫 번째 행 (왼쪽 히트) 프레임 추출
             self.frames_hit_left = []
             for i in range(self.hit_total_frames):
                 try:
-                    frame_x = i * frame_width
-                    frame_rect = pygame.Rect(frame_x, 0, frame_width, row_height)
+                    # 프레임 중앙 기준으로 추출 (양쪽 margin 제외)
+                    frame_center_x = int(frame_width_float * (i + 0.5))
+                    frame_x = frame_center_x - (actual_frame_width // 2)
+                    frame_rect = pygame.Rect(frame_x, 0, actual_frame_width, row_height)
+
+                    # 경계 체크
+                    if frame_rect.x < 0:
+                        frame_rect.x = 0
                     if frame_rect.right > sheet_width:
                         frame_rect.width = sheet_width - frame_rect.x
                     if frame_rect.bottom > sheet_height:
                         frame_rect.height = sheet_height - frame_rect.y
+
                     frame = sprite_sheet.subsurface(frame_rect).copy()
                     self.frames_hit_left.append(frame)
                 except Exception as e:
@@ -257,12 +268,19 @@ class Stage1BossSprite:
             row2_y = row_height
             for i in range(self.hit_total_frames):
                 try:
-                    frame_x = i * frame_width
-                    frame_rect = pygame.Rect(frame_x, row2_y, frame_width, row_height)
+                    # 프레임 중앙 기준으로 추출 (양쪽 margin 제외)
+                    frame_center_x = int(frame_width_float * (i + 0.5))
+                    frame_x = frame_center_x - (actual_frame_width // 2)
+                    frame_rect = pygame.Rect(frame_x, row2_y, actual_frame_width, row_height)
+
+                    # 경계 체크
+                    if frame_rect.x < 0:
+                        frame_rect.x = 0
                     if frame_rect.right > sheet_width:
                         frame_rect.width = sheet_width - frame_rect.x
                     if frame_rect.bottom > sheet_height:
                         frame_rect.height = sheet_height - frame_rect.y
+
                     frame = sprite_sheet.subsurface(frame_rect).copy()
                     self.frames_hit_right.append(frame)
                 except Exception as e:
