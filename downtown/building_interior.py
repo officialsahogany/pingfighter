@@ -2510,7 +2510,8 @@ class BuildingInterior:
             return
 
         # 포커 테이블 위치 (_draw_neon_casino_interior 기준)
-        wall_h = int(TILE_SIZE * 2)
+        # IMPORTANT: wall_h는 _draw_neon_casino_interior와 동일해야 함 (TILE_SIZE * 4)
+        wall_h = int(TILE_SIZE * 4)
         poker_x = self.pixel_width // 2 - int(TILE_SIZE * 3)
         poker_y = wall_h + int(TILE_SIZE * 3)
 
