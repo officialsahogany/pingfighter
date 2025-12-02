@@ -1327,47 +1327,59 @@ class PokerGameUI:
             self._draw_text(screen, "DEALER", cx, 70 - 25, self.RED, 14, center=True)
 
     def _draw_showdown_cards(self, screen):
-        """쇼다운 시 카드 배치"""
+        """쇼다운 시 카드 배치 - 오리지널 텍사스 홀덤 방식
+        딜러 홀카드 2장만 공개, 커뮤니티 카드는 가운데 유지"""
         cx = self.screen_width // 2
-        small_w = 50
-        small_h = 70
 
-        # 딜러 패 (상단)
-        dealer_y = 55
-        dealer_cards = self.game.dealer_hand + self.game.community_cards
-        dealer_start_x = cx - (len(dealer_cards) * (small_w + 8)) // 2
+        # 커뮤니티 카드 (중앙) - 그대로 유지
+        if self.game.community_cards:
+            comm_y = self.screen_height // 2 + 25
+            total_width = len(self.game.community_cards) * (self.CARD_WIDTH + 10)
+            comm_start_x = cx - total_width // 2
 
-        # 딜러 패 레이블
-        self._draw_text(screen, "DEALER HAND", cx, dealer_y - 22, (255, 150, 150), 14, center=True)
+            for i, card in enumerate(self.game.community_cards):
+                card_x = comm_start_x + i * (self.CARD_WIDTH + 10)
+                self.card_renderer.draw_card(screen, card, card_x, comm_y,
+                                            self.CARD_WIDTH, self.CARD_HEIGHT)
 
-        for i, card in enumerate(dealer_cards):
-            card.face_up = True  # 쇼다운이므로 모두 공개
-            card_x = dealer_start_x + i * (small_w + 8)
+            self._draw_text(screen, "COMMUNITY CARDS", cx, comm_y - 30, self.GOLD, 14, center=True)
 
-            # 홀카드 강조
-            if i < 2:
-                # 강조 테두리
+        # 딜러 카드 (상단) - 2장만, 공개
+        if self.game.dealer_hand:
+            dealer_y = 70
+            dealer_start_x = cx - (self.CARD_WIDTH + 15)
+
+            for i, card in enumerate(self.game.dealer_hand):
+                card.face_up = True  # 쇼다운이므로 공개
+                card_x = dealer_start_x + i * (self.CARD_WIDTH + 15)
+
+                # 강조 테두리 (공개된 홀카드)
                 pygame.draw.rect(screen, (255, 100, 100),
-                               (card_x - 3, dealer_y - 3, small_w + 6, small_h + 6), 2, border_radius=6)
+                               (card_x - 3, dealer_y - 3, self.CARD_WIDTH + 6, self.CARD_HEIGHT + 6),
+                               2, border_radius=6)
 
-            self.card_renderer.draw_card(screen, card, card_x, dealer_y, small_w, small_h)
+                self.card_renderer.draw_card(screen, card, card_x, dealer_y,
+                                            self.CARD_WIDTH, self.CARD_HEIGHT)
 
-        # 플레이어 패 (하단)
-        player_y = self.screen_height - 190
-        player_cards = self.game.player_hand + self.game.community_cards
-        player_start_x = cx - (len(player_cards) * (small_w + 8)) // 2
+            self._draw_text(screen, "DEALER", cx, dealer_y - 25, self.RED, 14, center=True)
 
-        # 플레이어 패 레이블
-        self._draw_text(screen, "YOUR HAND", cx, player_y - 22, (150, 200, 255), 14, center=True)
+        # 플레이어 카드 (하단) - 2장만
+        if self.game.player_hand:
+            player_y = self.screen_height - 160
+            player_start_x = cx - (self.CARD_WIDTH + 15)
 
-        for i, card in enumerate(player_cards):
-            card_x = player_start_x + i * (small_w + 8)
+            for i, card in enumerate(self.game.player_hand):
+                card_x = player_start_x + i * (self.CARD_WIDTH + 15)
 
-            if i < 2:
+                # 강조 테두리
                 pygame.draw.rect(screen, (100, 150, 255),
-                               (card_x - 3, player_y - 3, small_w + 6, small_h + 6), 2, border_radius=6)
+                               (card_x - 3, player_y - 3, self.CARD_WIDTH + 6, self.CARD_HEIGHT + 6),
+                               2, border_radius=6)
 
-            self.card_renderer.draw_card(screen, card, card_x, player_y, small_w, small_h)
+                self.card_renderer.draw_card(screen, card, card_x, player_y,
+                                            self.CARD_WIDTH, self.CARD_HEIGHT)
+
+            self._draw_text(screen, "YOUR HAND", cx, player_y - 25, self.BLUE, 14, center=True)
 
     def _draw_ui(self, screen):
         """기본 UI"""
