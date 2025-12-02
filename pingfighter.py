@@ -22903,6 +22903,21 @@ except Exception as e:
     print(f"⚠️ Stage 1 보스 애니메이션 로드 실패: {e}")
     stage1_boss_sprite = None
     STAGE1_BOSS_ANIMATION_AVAILABLE = False
+# Stage 2 보스 (악어장군) 걷기 애니메이션 초기화
+try:
+    from entities.stage2_boss_sprite import (
+        get_stage2_boss_sprite,
+        init_stage2_boss_sprite,
+        Stage2BossSprite
+    )
+    stage2_boss_sprite = init_stage2_boss_sprite()
+    STAGE2_BOSS_ANIMATION_AVAILABLE = True
+    print("🐊 Stage 2 보스 걷기 애니메이션 로드 완료")
+except Exception as e:
+    print(f"⚠️ Stage 2 보스 애니메이션 로드 실패: {e}")
+    stage2_boss_sprite = None
+    STAGE2_BOSS_ANIMATION_AVAILABLE = False
+
 try:
     BOSS_IMG_STAGE2 = pygame.image.load(resource_path("boss_stage2.png")).convert_alpha()
     BOSS_IMG_STAGE2 = pygame.transform.scale(BOSS_IMG_STAGE2, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
