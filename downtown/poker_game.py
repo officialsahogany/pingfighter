@@ -708,19 +708,73 @@ class PremiumCardRenderer:
         surf.blit(text, (x, y))
 
     def _draw_suit_symbol(self, surf, symbol, x, y, color, size):
-        """무늬 심볼"""
-        font_size = max(8, size)
-        try:
-            font = pygame.font.SysFont('Segoe UI Symbol', font_size)
-        except:
-            font = pygame.font.Font(None, font_size + 4)
+        """무늬 심볼 - 도형으로 직접 그리기"""
+        self._draw_suit_shape(surf, symbol, x + size // 2, y + size // 2, size, color)
 
-        text = font.render(symbol, True, color)
-        surf.blit(text, (x, y))
+    def _draw_suit_shape(self, surf, suit_symbol, cx, cy, size, color):
+        """무늬를 도형으로 직접 그리기 (폰트 의존 없음)"""
+        s = max(4, size)
+        half = s // 2
+
+        if suit_symbol == '♥':  # 하트
+            # 하트 모양 그리기
+            points = []
+            for i in range(20):
+                t = i / 20 * 3.14159 * 2
+                px = 16 * (math.sin(t) ** 3)
+                py = -(13 * math.cos(t) - 5 * math.cos(2*t) - 2 * math.cos(3*t) - math.cos(4*t))
+                points.append((cx + px * s / 35, cy + py * s / 35))
+            if len(points) >= 3:
+                pygame.draw.polygon(surf, color, points)
+
+        elif suit_symbol == '♦':  # 다이아몬드
+            points = [
+                (cx, cy - half),
+                (cx + half * 0.6, cy),
+                (cx, cy + half),
+                (cx - half * 0.6, cy)
+            ]
+            pygame.draw.polygon(surf, color, points)
+
+        elif suit_symbol == '♣':  # 클럽 (클로버)
+            r = half * 0.35
+            # 위쪽 원
+            pygame.draw.circle(surf, color, (int(cx), int(cy - r * 0.8)), int(r))
+            # 왼쪽 원
+            pygame.draw.circle(surf, color, (int(cx - r * 0.9), int(cy + r * 0.3)), int(r))
+            # 오른쪽 원
+            pygame.draw.circle(surf, color, (int(cx + r * 0.9), int(cy + r * 0.3)), int(r))
+            # 줄기
+            pygame.draw.polygon(surf, color, [
+                (cx - r * 0.25, cy + r * 0.3),
+                (cx + r * 0.25, cy + r * 0.3),
+                (cx + r * 0.15, cy + half),
+                (cx - r * 0.15, cy + half)
+            ])
+
+        elif suit_symbol == '♠':  # 스페이드
+            # 스페이드 상단 (뒤집힌 하트 형태)
+            points = []
+            for i in range(20):
+                t = i / 20 * 3.14159 * 2
+                px = 16 * (math.sin(t) ** 3)
+                py = (13 * math.cos(t) - 5 * math.cos(2*t) - 2 * math.cos(3*t) - math.cos(4*t))
+                points.append((cx + px * s / 40, cy - half * 0.2 + py * s / 40))
+            if len(points) >= 3:
+                pygame.draw.polygon(surf, color, points)
+            # 줄기
+            r = half * 0.35
+            pygame.draw.polygon(surf, color, [
+                (cx - r * 0.25, cy + r * 0.5),
+                (cx + r * 0.25, cy + r * 0.5),
+                (cx + r * 0.15, cy + half),
+                (cx - r * 0.15, cy + half)
+            ])
 
     def _draw_face_card(self, surf, card, w, h, color):
         """페이스 카드 (J, Q, K) 디자인"""
         cx, cy = w // 2, h // 2
+        symbol = Card.SUIT_SYMBOLS[card.suit]
 
         # 중앙 프레임
         frame_w = int(w * 0.7)
@@ -735,13 +789,17 @@ class PremiumCardRenderer:
         # 페이스 카드 글자
         letter = card.rank
         try:
-            font = pygame.font.SysFont('Georgia', int(w * 0.55))
+            font = pygame.font.SysFont('Georgia', int(w * 0.45))
         except:
-            font = pygame.font.Font(None, int(w * 0.55) + 4)
+            font = pygame.font.Font(None, int(w * 0.45) + 4)
 
         text = font.render(letter, True, color)
-        text_rect = text.get_rect(center=(cx, cy + 5))
+        text_rect = text.get_rect(center=(cx, cy - 2))
         surf.blit(text, text_rect)
+
+        # 프레임 내 작은 무늬
+        small_suit_size = int(w * 0.18)
+        self._draw_suit_shape(surf, symbol, cx, cy + int(h * 0.16), small_suit_size, color)
 
         # 장식 라인
         pygame.draw.line(surf, (*color, 100), (frame_x + 5, frame_y + 5),
@@ -753,15 +811,9 @@ class PremiumCardRenderer:
         """에이스 카드 디자인"""
         cx, cy = w // 2, h // 2
 
-        # 대형 중앙 심볼
-        try:
-            font = pygame.font.SysFont('Segoe UI Symbol', int(w * 0.7))
-        except:
-            font = pygame.font.Font(None, int(w * 0.7) + 4)
-
-        text = font.render(symbol, True, color)
-        text_rect = text.get_rect(center=(cx, cy + 5))
-        surf.blit(text, text_rect)
+        # 대형 중앙 심볼 - 도형으로 직접 그리기
+        large_size = int(w * 0.65)
+        self._draw_suit_shape(surf, symbol, cx, cy + 5, large_size, color)
 
         # 장식 원
         pygame.draw.circle(surf, (*color, 40), (cx, cy + 5), int(w * 0.35), 2)
@@ -771,23 +823,15 @@ class PremiumCardRenderer:
         cx, cy = w // 2, h // 2
         value = card.get_value()
 
-        # 핍 위치 패턴 (간소화)
-        pip_size = int(w * 0.25)
-
-        try:
-            font = pygame.font.SysFont('Segoe UI Symbol', pip_size)
-        except:
-            font = pygame.font.Font(None, pip_size + 4)
-
-        text = font.render(symbol, True, color)
+        # 핍 크기
+        pip_size = int(w * 0.22)
 
         # 핍 배치 (카드 값에 따라)
         positions = self._get_pip_positions(value, w, h)
 
         for px, py, flipped in positions:
-            pip = text if not flipped else pygame.transform.rotate(text, 180)
-            pip_rect = pip.get_rect(center=(px, py))
-            surf.blit(pip, pip_rect)
+            # 도형으로 직접 그리기 (flipped는 무시 - 대칭 도형이므로)
+            self._draw_suit_shape(surf, symbol, int(px), int(py), pip_size, color)
 
     def _get_pip_positions(self, value, w, h):
         """핍 위치 계산"""
