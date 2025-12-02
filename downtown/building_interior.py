@@ -2552,15 +2552,18 @@ class BuildingInterior:
             try:
                 from downtown.poker_game import PokerGameUI
             except ImportError:
-                print("[ERROR] poker_game.py 모듈을 찾을 수 없습니다.")
                 return False
 
-        # 플레이어 골드 가져오기 (downtown_gold 사용)
+        # 플레이어 골드 가져오기 (player_data 우선, 없으면 downtown_gold)
+        player_gold = self.player_data.get('gold', 0)
+
+        # downtown_gold도 확인 (더 큰 값 사용)
         import sys
-        player_gold = 0  # 기본값
         if 'pingfighter' in sys.modules:
             pingfighter = sys.modules['pingfighter']
-            player_gold = getattr(pingfighter, 'downtown_gold', 0)
+            downtown_gold = getattr(pingfighter, 'downtown_gold', 0)
+            if downtown_gold > player_gold:
+                player_gold = downtown_gold
 
         # 최소 베팅 확인
         if player_gold < 10:
@@ -7830,6 +7833,10 @@ class BuildingInterior:
 
     def _draw_npc_interact_hint(self, screen):
         """일반 NPC 근처일 때 상호작용 힌트 표시"""
+        # 포커 게임 중에는 힌트 숨기기
+        if self.poker_game_playing:
+            return
+
         # 학장 힌트가 표시 중이면 스킵 (중복 방지)
         if self.building_type == BuildingType.ACADEMY and self.nearby_headmaster:
             return
