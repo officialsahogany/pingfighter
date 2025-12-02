@@ -2283,7 +2283,7 @@ class BuildingInterior:
             {"name": "dashgear", "base_price": 1200, "korean": "대쉬기어"},
             {"name": "bulkup", "base_price": 1100, "korean": "벌크업"},
             {"name": "sensor", "base_price": 1800, "korean": "위험감지센서"},
-            {"name": "gravitybelt", "base_price": 2500, "korean": "무중력벨트"},
+            {"name": "gravitybelt", "base_price": 2800, "korean": "무중력벨트"},
             {"name": "dashholder", "base_price": 1800, "korean": "대쉬홀더"},
             {"name": "dowsing_pendulum", "base_price": 700, "korean": "다우징팬들럼"},
             {"name": "smartphone", "base_price": 800, "korean": "스마트폰"},
