@@ -773,15 +773,15 @@ class PokerGameUI:
         """텍스트 그리기 (freetype 폰트 사용)"""
         # freetype 폰트가 전달된 경우 사용
         if self.fonts:
-            # 크기에 맞는 폰트 선택
+            # 크기에 맞는 폰트 선택 (manager.py의 키: large, medium, small)
             if size >= 28:
-                font_key = 'title'
+                font_key = 'large'
             elif size <= 14:
                 font_key = 'small'
             else:
-                font_key = 'default'
+                font_key = 'medium'
 
-            font = self.fonts.get(font_key) or self.fonts.get('default')
+            font = self.fonts.get(font_key) or self.fonts.get('medium') or self.fonts.get('default')
             if font:
                 try:
                     # freetype 렌더링
