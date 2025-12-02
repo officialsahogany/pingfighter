@@ -73,6 +73,20 @@ class Stage1BossSprite:
         self.fallback_surface = None
         self.large_idle_frame = None  # 큰 정지 프레임
 
+        # 히트 애니메이션 상태
+        self.is_hit = False  # 히트 애니메이션 재생 중
+        self.hit_frame = 0  # 히트 애니메이션 현재 프레임
+        self.hit_timer = 0.0  # 히트 애니메이션 타이머
+        self.hit_animation_speed = 0.05  # 히트 애니메이션 속도 (초, 빠르게)
+        self.hit_total_frames = 6  # 히트 애니메이션 총 프레임
+        self.hit_direction = 1  # 히트 시 방향 (-1: 왼쪽, 1: 오른쪽)
+
+        # 히트 프레임 저장
+        self.frames_hit_left = []  # 왼쪽 히트 프레임
+        self.frames_hit_right = []  # 오른쪽 히트 프레임
+        self._scaled_frames_hit_left = []  # 스케일된 왼쪽 히트 프레임
+        self._scaled_frames_hit_right = []  # 스케일된 오른쪽 히트 프레임
+
         # 스프라이트 시트 로드
         if sprite_sheet_path:
             self.load_sprite_sheet(sprite_sheet_path)
@@ -80,6 +94,10 @@ class Stage1BossSprite:
             # 기본 경로 시도 - stage1walking3.png 사용 (6프레임 버전)
             default_path = resource_path(os.path.join("assets", "stage1walking3.png"))
             self.load_sprite_sheet(default_path)
+
+        # 히트 스프라이트 시트 로드
+        hit_path = resource_path(os.path.join("assets", "stage1hit.png"))
+        self.load_hit_sprite_sheet(hit_path)
 
     def load_sprite_sheet(self, path: str) -> bool:
         """
