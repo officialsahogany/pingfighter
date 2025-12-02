@@ -2565,8 +2565,8 @@ class BuildingInterior:
         if player_gold < 10:
             return False
 
-        # 포커 게임 UI 생성
-        self.poker_game_ui = PokerGameUI(SCREEN_WIDTH, SCREEN_HEIGHT)
+        # 포커 게임 UI 생성 (폰트 전달)
+        self.poker_game_ui = PokerGameUI(SCREEN_WIDTH, SCREEN_HEIGHT, fonts=self.fonts)
         self.poker_game_ui.start_game(player_gold)
         self.poker_game_playing = True
 
@@ -4377,9 +4377,10 @@ class BuildingInterior:
         # 포커 게임 중일 때 - 모든 입력을 포커 게임으로 전달
         if self.poker_game_playing:
             result = self._handle_poker_game_event(event)
+            # 포커 게임 중에는 항상 처리된 것으로 반환 (다른 키 입력 차단)
             if result:
                 return (result, None)
-            return None
+            return ("poker_input", None)  # 입력 처리됨 (다른 로직 차단)
 
         # 상점 거래창이 열려있을 때
         if self.shop_trade_open:

@@ -4,6 +4,7 @@
 """
 
 import pygame
+import pygame.freetype
 import random
 import math
 import os
@@ -416,10 +417,11 @@ class PokerGameUI:
     CARD_WIDTH = 60
     CARD_HEIGHT = 84
 
-    def __init__(self, screen_width, screen_height):
+    def __init__(self, screen_width, screen_height, fonts=None):
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.game = None
+        self.fonts = fonts  # freetype 폰트 딕셔너리
 
         # UI 상태
         self.bet_amount = 50
@@ -437,6 +439,9 @@ class PokerGameUI:
         self.BLACK = (20, 20, 20)
         self.RED = (220, 50, 50)
         self.DARK_BG = (25, 20, 35)
+
+        # 폰트 캐시 (freetype이 없을 경우 대비)
+        self._font_cache = {}
 
     def start_game(self, player_gold):
         """게임 시작"""
@@ -765,21 +770,54 @@ class PokerGameUI:
             self._draw_text(screen, "골드가 부족합니다! ESC: 나가기", cx, cy + 90, (255, 100, 100), 12, center=True)
 
     def _draw_text(self, screen, text, x, y, color, size, center=False, right=False):
-        """텍스트 그리기 (기본 폰트 사용)"""
-        try:
-            font = pygame.font.Font(None, size + 10)  # 기본 폰트
-        except:
-            font = pygame.font.SysFont('arial', size)
+        """텍스트 그리기 (freetype 폰트 사용)"""
+        # freetype 폰트가 전달된 경우 사용
+        if self.fonts:
+            # 크기에 맞는 폰트 선택
+            if size >= 28:
+                font_key = 'title'
+            elif size <= 14:
+                font_key = 'small'
+            else:
+                font_key = 'default'
 
-        # 한글 지원을 위해 시스템 폰트 시도
-        try:
-            font = pygame.font.SysFont('malgungothic', size)  # Windows
-        except:
+            font = self.fonts.get(font_key) or self.fonts.get('default')
+            if font:
+                try:
+                    # freetype 렌더링
+                    text_surface, text_rect = font.render(text, color)
+
+                    if center:
+                        text_rect.centerx = x
+                        text_rect.y = y
+                    elif right:
+                        text_rect.right = x
+                        text_rect.y = y
+                    else:
+                        text_rect.x = x
+                        text_rect.y = y
+
+                    screen.blit(text_surface, text_rect)
+                    return
+                except Exception as e:
+                    pass  # 폰트 렌더링 실패 시 대체 방법 사용
+
+        # 대체 방법: 시스템 폰트 사용
+        if size not in self._font_cache:
             try:
-                font = pygame.font.SysFont('applegothic', size)  # macOS
+                # 한글 지원 폰트 시도
+                for font_name in ['NanumGothic', 'AppleGothic', 'malgun gothic', 'Arial']:
+                    try:
+                        self._font_cache[size] = pygame.font.SysFont(font_name, size)
+                        break
+                    except:
+                        continue
+                if size not in self._font_cache:
+                    self._font_cache[size] = pygame.font.Font(None, size + 10)
             except:
-                pass
+                self._font_cache[size] = pygame.font.Font(None, size + 10)
 
+        font = self._font_cache[size]
         text_surface = font.render(text, True, color)
         text_rect = text_surface.get_rect()
 
