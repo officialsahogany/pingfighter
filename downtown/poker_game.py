@@ -712,63 +712,72 @@ class PremiumCardRenderer:
         self._draw_suit_shape(surf, symbol, x + size // 2, y + size // 2, size, color)
 
     def _draw_suit_shape(self, surf, suit_symbol, cx, cy, size, color):
-        """무늬를 도형으로 직접 그리기 (폰트 의존 없음)"""
-        s = max(4, size)
+        """무늬를 도형으로 직접 그리기 (폰트 의존 없음) - 개선된 버전"""
+        s = max(6, size)
         half = s // 2
 
         if suit_symbol == '♥':  # 하트
-            # 하트 모양 그리기
-            points = []
-            for i in range(20):
-                t = i / 20 * 3.14159 * 2
-                px = 16 * (math.sin(t) ** 3)
-                py = -(13 * math.cos(t) - 5 * math.cos(2*t) - 2 * math.cos(3*t) - math.cos(4*t))
-                points.append((cx + px * s / 35, cy + py * s / 35))
-            if len(points) >= 3:
-                pygame.draw.polygon(surf, color, points)
+            # 두 개의 원 + 삼각형으로 하트 구성
+            r = int(s * 0.28)
+            # 왼쪽 상단 원
+            pygame.draw.circle(surf, color, (int(cx - r * 0.7), int(cy - r * 0.3)), r)
+            # 오른쪽 상단 원
+            pygame.draw.circle(surf, color, (int(cx + r * 0.7), int(cy - r * 0.3)), r)
+            # 하단 삼각형
+            points = [
+                (cx - r * 1.65, cy - r * 0.1),
+                (cx + r * 1.65, cy - r * 0.1),
+                (cx, cy + r * 1.8)
+            ]
+            pygame.draw.polygon(surf, color, points)
 
         elif suit_symbol == '♦':  # 다이아몬드
             points = [
                 (cx, cy - half),
-                (cx + half * 0.6, cy),
+                (cx + half * 0.65, cy),
                 (cx, cy + half),
-                (cx - half * 0.6, cy)
+                (cx - half * 0.65, cy)
             ]
             pygame.draw.polygon(surf, color, points)
 
         elif suit_symbol == '♣':  # 클럽 (클로버)
-            r = half * 0.35
+            r = int(s * 0.22)
             # 위쪽 원
-            pygame.draw.circle(surf, color, (int(cx), int(cy - r * 0.8)), int(r))
+            pygame.draw.circle(surf, color, (int(cx), int(cy - r * 1.1)), r)
             # 왼쪽 원
-            pygame.draw.circle(surf, color, (int(cx - r * 0.9), int(cy + r * 0.3)), int(r))
+            pygame.draw.circle(surf, color, (int(cx - r * 1.0), int(cy + r * 0.2)), r)
             # 오른쪽 원
-            pygame.draw.circle(surf, color, (int(cx + r * 0.9), int(cy + r * 0.3)), int(r))
+            pygame.draw.circle(surf, color, (int(cx + r * 1.0), int(cy + r * 0.2)), r)
             # 줄기
+            stem_w = max(2, int(s * 0.12))
             pygame.draw.polygon(surf, color, [
-                (cx - r * 0.25, cy + r * 0.3),
-                (cx + r * 0.25, cy + r * 0.3),
-                (cx + r * 0.15, cy + half),
-                (cx - r * 0.15, cy + half)
+                (cx - stem_w, cy + r * 0.3),
+                (cx + stem_w, cy + r * 0.3),
+                (cx + stem_w * 1.5, cy + half),
+                (cx - stem_w * 1.5, cy + half)
             ])
 
         elif suit_symbol == '♠':  # 스페이드
-            # 스페이드 상단 (뒤집힌 하트 형태)
-            points = []
-            for i in range(20):
-                t = i / 20 * 3.14159 * 2
-                px = 16 * (math.sin(t) ** 3)
-                py = (13 * math.cos(t) - 5 * math.cos(2*t) - 2 * math.cos(3*t) - math.cos(4*t))
-                points.append((cx + px * s / 40, cy - half * 0.2 + py * s / 40))
-            if len(points) >= 3:
-                pygame.draw.polygon(surf, color, points)
+            # 뒤집힌 하트 형태 (원 2개 + 삼각형)
+            r = int(s * 0.25)
+            # 왼쪽 하단 원
+            pygame.draw.circle(surf, color, (int(cx - r * 0.7), int(cy + r * 0.15)), r)
+            # 오른쪽 하단 원
+            pygame.draw.circle(surf, color, (int(cx + r * 0.7), int(cy + r * 0.15)), r)
+            # 상단 삼각형 (뾰족한 부분)
+            points = [
+                (cx - r * 1.6, cy + r * 0.3),
+                (cx + r * 1.6, cy + r * 0.3),
+                (cx, cy - r * 1.7)
+            ]
+            pygame.draw.polygon(surf, color, points)
             # 줄기
-            r = half * 0.35
+            stem_w = max(2, int(s * 0.12))
             pygame.draw.polygon(surf, color, [
-                (cx - r * 0.25, cy + r * 0.5),
-                (cx + r * 0.25, cy + r * 0.5),
-                (cx + r * 0.15, cy + half),
-                (cx - r * 0.15, cy + half)
+                (cx - stem_w, cy + r * 0.5),
+                (cx + stem_w, cy + r * 0.5),
+                (cx + stem_w * 1.5, cy + half),
+                (cx - stem_w * 1.5, cy + half)
             ])
 
     def _draw_face_card(self, surf, card, w, h, color):
@@ -819,28 +828,36 @@ class PremiumCardRenderer:
         pygame.draw.circle(surf, (*color, 40), (cx, cy + 5), int(w * 0.35), 2)
 
     def _draw_pip_card(self, surf, card, w, h, color, symbol):
-        """숫자 카드 핍 패턴"""
+        """숫자 카드 핍 패턴 - 개선된 레이아웃"""
         cx, cy = w // 2, h // 2
         value = card.get_value()
 
-        # 핍 크기
-        pip_size = int(w * 0.22)
+        # 핍 크기 (카드 크기에 비례, 더 작게)
+        pip_size = int(w * 0.18)
 
         # 핍 배치 (카드 값에 따라)
         positions = self._get_pip_positions(value, w, h)
 
         for px, py, flipped in positions:
-            # 도형으로 직접 그리기 (flipped는 무시 - 대칭 도형이므로)
+            # 도형으로 직접 그리기
             self._draw_suit_shape(surf, symbol, int(px), int(py), pip_size, color)
 
     def _get_pip_positions(self, value, w, h):
-        """핍 위치 계산"""
+        """핍 위치 계산 - 랭크/심볼 영역 피해서 배치"""
         cx, cy = w // 2, h // 2
-        top = int(h * 0.25)
-        bot = int(h * 0.75)
-        mid = cy + 3
-        left = int(w * 0.25)
-        right = int(w * 0.75)
+
+        # 핍 영역 (좌상단/우하단 랭크+심볼 영역 피함)
+        # 상단 마진 더 크게 (랭크+심볼 영역)
+        top_margin = int(h * 0.32)
+        bot_margin = int(h * 0.68)
+
+        top = int(h * 0.35)
+        bot = int(h * 0.65)
+        mid = cy
+
+        # 좌우도 여유있게
+        left = int(w * 0.30)
+        right = int(w * 0.70)
 
         patterns = {
             2: [(cx, top, False), (cx, bot, True)],
@@ -848,10 +865,10 @@ class PremiumCardRenderer:
             4: [(left, top, False), (right, top, False), (left, bot, True), (right, bot, True)],
             5: [(left, top, False), (right, top, False), (cx, mid, False), (left, bot, True), (right, bot, True)],
             6: [(left, top, False), (right, top, False), (left, mid, False), (right, mid, False), (left, bot, True), (right, bot, True)],
-            7: [(left, top, False), (right, top, False), (cx, int(h*0.35), False), (left, mid, False), (right, mid, False), (left, bot, True), (right, bot, True)],
-            8: [(left, top, False), (right, top, False), (cx, int(h*0.35), False), (left, mid, False), (right, mid, False), (cx, int(h*0.65), True), (left, bot, True), (right, bot, True)],
-            9: [(left, top, False), (right, top, False), (left, int(h*0.38), False), (right, int(h*0.38), False), (cx, mid, False), (left, int(h*0.62), True), (right, int(h*0.62), True), (left, bot, True), (right, bot, True)],
-            10: [(left, top, False), (right, top, False), (cx, int(h*0.28), False), (left, int(h*0.38), False), (right, int(h*0.38), False), (left, int(h*0.62), True), (right, int(h*0.62), True), (cx, int(h*0.72), True), (left, bot, True), (right, bot, True)],
+            7: [(left, top, False), (right, top, False), (cx, int(h*0.42), False), (left, mid, False), (right, mid, False), (left, bot, True), (right, bot, True)],
+            8: [(left, top, False), (right, top, False), (cx, int(h*0.40), False), (left, mid, False), (right, mid, False), (cx, int(h*0.60), True), (left, bot, True), (right, bot, True)],
+            9: [(left, top, False), (right, top, False), (left, int(h*0.43), False), (right, int(h*0.43), False), (cx, mid, False), (left, int(h*0.57), True), (right, int(h*0.57), True), (left, bot, True), (right, bot, True)],
+            10: [(left, top, False), (right, top, False), (cx, int(h*0.38), False), (left, int(h*0.45), False), (right, int(h*0.45), False), (left, int(h*0.55), True), (right, int(h*0.55), True), (cx, int(h*0.62), True), (left, bot, True), (right, bot, True)],
         }
 
         return patterns.get(value, [(cx, mid, False)])
