@@ -579,7 +579,14 @@ class PokerGameUI:
     def _draw_cards(self, screen):
         """카드 그리기"""
         cx = self.screen_width // 2
+        is_showdown = self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER]
 
+        # 쇼다운 시 레이아웃 변경 - 딜러와 플레이어 패를 각각 7장으로 표시
+        if is_showdown and self.game.community_cards:
+            self._draw_showdown_cards(screen)
+            return
+
+        # 일반 게임 중 레이아웃
         # 커뮤니티 카드 (중앙)
         comm_y = self.screen_height // 2 + 10
         comm_start_x = cx - (len(self.game.community_cards) * (self.CARD_WIDTH + 8)) // 2
@@ -607,6 +614,63 @@ class PokerGameUI:
         # 레이블
         self._draw_text(screen, "딜러", cx, dealer_y - 25, self.WHITE, 18, center=True)
         self._draw_text(screen, "플레이어", cx, player_y + self.CARD_HEIGHT + 10, self.WHITE, 18, center=True)
+
+    def _draw_showdown_cards(self, screen):
+        """쇼다운 시 카드 배치 - 양쪽에 7장씩 표시"""
+        cx = self.screen_width // 2
+        small_w = 45  # 작은 카드 크기
+        small_h = 63
+
+        # 딜러 패 (상단) - 홀카드 2장 + 커뮤니티 5장
+        dealer_y = 60
+        dealer_cards = self.game.dealer_hand + self.game.community_cards
+        dealer_start_x = cx - (len(dealer_cards) * (small_w + 5)) // 2
+
+        self._draw_text(screen, "딜러 패", cx, dealer_y - 20, (255, 150, 150), 16, center=True)
+        for i, card in enumerate(dealer_cards):
+            card_x = dealer_start_x + i * (small_w + 5)
+            # 홀카드는 빨간 테두리로 강조
+            highlight = i < 2
+            self._draw_card_small(screen, card, card_x, dealer_y, small_w, small_h, highlight, (255, 100, 100))
+
+        # 플레이어 패 (하단) - 홀카드 2장 + 커뮤니티 5장
+        player_y = self.screen_height - 180
+        player_cards = self.game.player_hand + self.game.community_cards
+        player_start_x = cx - (len(player_cards) * (small_w + 5)) // 2
+
+        self._draw_text(screen, "내 패", cx, player_y - 20, (150, 200, 255), 16, center=True)
+        for i, card in enumerate(player_cards):
+            card_x = player_start_x + i * (small_w + 5)
+            # 홀카드는 파란 테두리로 강조
+            highlight = i < 2
+            self._draw_card_small(screen, card, card_x, player_y, small_w, small_h, highlight, (100, 150, 255))
+
+    def _draw_card_small(self, screen, card, x, y, w, h, highlight=False, highlight_color=None):
+        """작은 카드 그리기"""
+        # 카드 그림자
+        pygame.draw.rect(screen, (0, 0, 0, 80), (x + 2, y + 2, w, h), border_radius=4)
+
+        if card.face_up:
+            # 앞면
+            pygame.draw.rect(screen, (250, 248, 240), (x, y, w, h), border_radius=4)
+
+            # 강조 테두리 (홀카드)
+            if highlight and highlight_color:
+                pygame.draw.rect(screen, highlight_color, (x - 2, y - 2, w + 4, h + 4), 3, border_radius=6)
+
+            pygame.draw.rect(screen, (180, 180, 180), (x, y, w, h), 1, border_radius=4)
+
+            # 카드 내용
+            suit_color = Card.SUIT_COLORS[card.suit]
+            symbol = Card.SUIT_SYMBOLS[card.suit]
+
+            # 랭크와 심볼 (작게)
+            self._draw_text(screen, card.rank, x + 5, y + 3, suit_color, 12)
+            self._draw_text(screen, symbol, x + w // 2, y + h // 2 - 5, suit_color, 18, center=True)
+        else:
+            # 뒷면
+            pygame.draw.rect(screen, (70, 50, 120), (x, y, w, h), border_radius=4)
+            pygame.draw.rect(screen, (100, 80, 150), (x, y, w, h), 1, border_radius=4)
 
     def _draw_card(self, screen, card, x, y):
         """개별 카드 그리기"""
