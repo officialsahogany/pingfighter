@@ -12426,90 +12426,265 @@ class BuildingInterior:
         pygame.draw.rect(screen, text_color, (sign_x + 8, sign_y + 5, 54, 10), border_radius=2)
 
     def _draw_poker_table(self, screen, x, y, green_color, gold):
-        """포커 테이블 그리기 (스타듀밸리 스타일)"""
+        """포커 테이블 그리기 (고퀄리티 스타듀밸리 스타일)"""
         # 테이블 크기
         table_w = int(TILE_SIZE * 6)
         table_h = int(TILE_SIZE * 4)
 
-        # 테이블 그림자
-        shadow_surf = pygame.Surface((table_w + 10, table_h + 10), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 60), (0, 0, table_w + 10, table_h + 10))
-        screen.blit(shadow_surf, (x - 5, y + 5))
+        # === 테이블 그림자 (더 부드럽게) ===
+        for shadow_layer in range(4):
+            shadow_alpha = 40 - shadow_layer * 8
+            shadow_expand = shadow_layer * 3
+            shadow_surf = pygame.Surface((table_w + 20 + shadow_expand, table_h + 20 + shadow_expand), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_surf, (0, 0, 0, shadow_alpha),
+                              (0, 0, table_w + 20 + shadow_expand, table_h + 20 + shadow_expand))
+            screen.blit(shadow_surf, (x - 10 - shadow_layer, y + 8 + shadow_layer))
 
-        # 테이블 테두리 (나무)
-        border_color = (90, 60, 40)
+        # === 테이블 다리 (4개) ===
+        leg_color = (60, 40, 25)
+        leg_highlight = (80, 55, 35)
+        leg_positions = [
+            (x + 20, y + table_h - 5),
+            (x + table_w - 30, y + table_h - 5),
+            (x + 40, y + table_h + 10),
+            (x + table_w - 50, y + table_h + 10),
+        ]
+        for lx, ly in leg_positions:
+            # 다리 본체
+            pygame.draw.rect(screen, leg_color, (lx, ly, 10, 20), border_radius=2)
+            # 다리 하이라이트
+            pygame.draw.rect(screen, leg_highlight, (lx + 1, ly + 1, 3, 18), border_radius=1)
+
+        # === 테이블 외곽 프레임 (고급 나무) ===
+        # 어두운 외곽
+        pygame.draw.ellipse(screen, (50, 30, 20), (x - 12, y - 8, table_w + 24, table_h + 16))
+        # 나무 프레임 본체
+        border_color = (100, 65, 40)
         pygame.draw.ellipse(screen, border_color, (x - 8, y - 5, table_w + 16, table_h + 10))
+        # 프레임 하이라이트
+        pygame.draw.ellipse(screen, (120, 80, 50), (x - 6, y - 3, table_w + 12, table_h + 6), 2)
 
-        # 테이블 펠트 (녹색)
+        # === 테이블 펠트 (녹색 그라데이션) ===
+        # 베이스 펠트
         pygame.draw.ellipse(screen, green_color, (x, y, table_w, table_h))
+        # 펠트 텍스처 (미세한 패턴)
+        felt_dark = (max(0, green_color[0] - 15), max(0, green_color[1] - 15), max(0, green_color[2] - 15))
+        for i in range(0, table_w, 8):
+            for j in range(0, table_h, 8):
+                if (i + j) % 16 == 0:
+                    pygame.draw.circle(screen, felt_dark, (x + i + 4, y + j + 4), 1)
+        # 펠트 내부 하이라이트 (중앙이 밝음)
+        highlight_surf = pygame.Surface((table_w - 20, table_h - 15), pygame.SRCALPHA)
+        pygame.draw.ellipse(highlight_surf, (*green_color[:3], 40), (0, 0, table_w - 20, table_h - 15))
+        screen.blit(highlight_surf, (x + 10, y + 7))
 
-        # 테이블 라인 (베팅 구역)
+        # === 베팅 라인들 (상세) ===
         line_color = (255, 255, 200)
-        pygame.draw.ellipse(screen, line_color, (x + 15, y + 10, table_w - 30, table_h - 20), 2)
+        line_dark = (200, 180, 120)
+        # 외곽 베팅 라인
+        pygame.draw.ellipse(screen, line_dark, (x + 12, y + 8, table_w - 24, table_h - 16), 3)
+        pygame.draw.ellipse(screen, line_color, (x + 14, y + 10, table_w - 28, table_h - 20), 2)
 
-        # 중앙 로고/장식
+        # === 중앙 로고/장식 (더 정교하게) ===
         center_x = x + table_w // 2
         center_y = y + table_h // 2
-        pygame.draw.circle(screen, gold, (center_x, center_y), 20)
-        pygame.draw.circle(screen, (200, 170, 50), (center_x, center_y), 15)
-        pygame.draw.circle(screen, gold, (center_x, center_y), 10, 2)
+        # 로고 글로우
+        glow_pulse = abs(math.sin(self.animation_timer * 2))
+        for glow in range(3):
+            glow_alpha = int((40 - glow * 12) * glow_pulse)
+            glow_surf = pygame.Surface((50 + glow * 8, 50 + glow * 8), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*gold, glow_alpha), (25 + glow * 4, 25 + glow * 4), 25 + glow * 4)
+            screen.blit(glow_surf, (center_x - 25 - glow * 4, center_y - 25 - glow * 4))
+        # 로고 본체
+        pygame.draw.circle(screen, (180, 150, 40), (center_x, center_y), 22)
+        pygame.draw.circle(screen, gold, (center_x, center_y), 18)
+        pygame.draw.circle(screen, (255, 235, 150), (center_x, center_y), 14)
+        # 다이아몬드 심볼
+        diamond_points = [(center_x, center_y - 8), (center_x + 6, center_y),
+                         (center_x, center_y + 8), (center_x - 6, center_y)]
+        pygame.draw.polygon(screen, (200, 50, 50), diamond_points)
+        pygame.draw.polygon(screen, (255, 100, 100), diamond_points, 1)
 
-        # 카드들 (테이블 중앙)
-        card_w, card_h = 18, 25
-        card_colors = [(255, 0, 0), (0, 0, 0), (255, 0, 0), (0, 0, 0), (255, 0, 0)]
+        # === 커뮤니티 카드들 (5장, 더 정교하게) ===
+        card_w, card_h = 20, 28
+        card_suits = ['heart', 'spade', 'heart', 'club', 'diamond']
+        card_values = ['A', 'K', 'Q', 'J', '10']
         for i in range(5):
-            card_x = center_x - 50 + i * 22
-            card_y = center_y - 35
-            # 카드 배경
-            pygame.draw.rect(screen, (255, 255, 255), (card_x, card_y, card_w, card_h), border_radius=3)
-            pygame.draw.rect(screen, (200, 200, 200), (card_x, card_y, card_w, card_h), 1, border_radius=3)
-            # 카드 심볼
-            pygame.draw.rect(screen, card_colors[i], (card_x + 6, card_y + 8, 6, 9))
+            card_x = center_x - 55 + i * 24
+            card_y = center_y - 45
+            self._draw_playing_card(screen, card_x, card_y, card_w, card_h, card_suits[i], card_values[i])
 
-        # 칩 더미들 (테이블 주변)
+        # === 칩 더미들 (더 많은 위치, 다양한 높이) ===
         chip_positions = [
-            (x + 30, y + table_h // 2 - 15),
-            (x + table_w - 50, y + table_h // 2 - 15),
-            (center_x - 60, y + table_h - 35),
-            (center_x + 40, y + table_h - 35),
+            (x + 25, y + table_h // 2 - 20, 5),  # 좌측 (높은 더미)
+            (x + 45, y + table_h // 2 + 5, 3),   # 좌측 아래
+            (x + table_w - 55, y + table_h // 2 - 20, 4),  # 우측
+            (x + table_w - 70, y + table_h // 2 + 5, 6),   # 우측 아래 (가장 높음)
+            (center_x - 70, y + table_h - 40, 3),  # 하단 좌
+            (center_x + 50, y + table_h - 40, 4),  # 하단 우
+            (center_x - 20, y + table_h - 30, 2),  # 하단 중앙
         ]
-        chip_colors = [(255, 50, 50), (50, 50, 255), (50, 200, 50), (255, 200, 50)]
-        for (cx, cy), color in zip(chip_positions, chip_colors):
-            self._draw_poker_chips(screen, cx, cy, color, 3)
+        chip_colors = [
+            (220, 40, 40),    # 빨강
+            (40, 40, 200),    # 파랑
+            (40, 180, 40),    # 초록
+            (220, 180, 40),   # 노랑
+            (180, 40, 180),   # 보라
+            (40, 180, 180),   # 시안
+            (255, 255, 255),  # 흰색
+        ]
+        for idx, (cx, cy, count) in enumerate(chip_positions):
+            self._draw_poker_chips_detailed(screen, cx, cy, chip_colors[idx % len(chip_colors)], count)
 
-        # 앉아있는 플레이어 자리 표시 (의자)
+        # === 플레이어 자리 (의자 + 베팅 영역) ===
         chair_positions = [
-            (x - 20, y + table_h // 2 - 15),  # 좌
-            (x + table_w + 5, y + table_h // 2 - 15),  # 우
-            (center_x - 30, y + table_h + 5),  # 하단 좌
-            (center_x + 15, y + table_h + 5),  # 하단 우
+            (x - 25, y + table_h // 2 - 18, 'left'),
+            (x + table_w + 5, y + table_h // 2 - 18, 'right'),
+            (center_x - 45, y + table_h + 8, 'bottom'),
+            (center_x + 20, y + table_h + 8, 'bottom'),
         ]
-        for cx, cy in chair_positions:
-            self._draw_casino_chair(screen, cx, cy)
+        for cx, cy, direction in chair_positions:
+            self._draw_casino_chair_detailed(screen, cx, cy, direction)
 
-    def _draw_poker_chips(self, screen, x, y, color, count):
-        """포커 칩 더미 그리기"""
+        # === 딜러 위치 표시 ===
+        dealer_x = center_x - 15
+        dealer_y = y - 15
+        pygame.draw.ellipse(screen, (30, 30, 35), (dealer_x, dealer_y, 30, 18))
+        pygame.draw.ellipse(screen, gold, (dealer_x + 2, dealer_y + 2, 26, 14))
+        # "D" 마크
+        pygame.draw.rect(screen, (50, 30, 20), (dealer_x + 10, dealer_y + 4, 10, 10), border_radius=2)
+
+    def _draw_playing_card(self, screen, x, y, w, h, suit, value):
+        """정교한 플레이잉 카드 그리기"""
+        # 카드 그림자
+        shadow_surf = pygame.Surface((w + 4, h + 4), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (0, 0, 0, 40), (2, 2, w, h), border_radius=3)
+        screen.blit(shadow_surf, (x - 1, y + 1))
+
+        # 카드 배경
+        pygame.draw.rect(screen, (255, 255, 255), (x, y, w, h), border_radius=3)
+        pygame.draw.rect(screen, (220, 220, 220), (x, y, w, h), 1, border_radius=3)
+
+        # 카드 내부 패턴
+        pygame.draw.rect(screen, (250, 248, 245), (x + 2, y + 2, w - 4, h - 4), border_radius=2)
+
+        # 수트 색상
+        if suit in ['heart', 'diamond']:
+            suit_color = (220, 30, 30)
+        else:
+            suit_color = (20, 20, 20)
+
+        # 수트 심볼 (중앙)
+        cx, cy = x + w // 2, y + h // 2 + 2
+        if suit == 'heart':
+            # 하트
+            pygame.draw.circle(screen, suit_color, (cx - 3, cy - 2), 4)
+            pygame.draw.circle(screen, suit_color, (cx + 3, cy - 2), 4)
+            pygame.draw.polygon(screen, suit_color, [(cx - 6, cy - 1), (cx, cy + 6), (cx + 6, cy - 1)])
+        elif suit == 'diamond':
+            # 다이아몬드
+            points = [(cx, cy - 6), (cx + 5, cy), (cx, cy + 6), (cx - 5, cy)]
+            pygame.draw.polygon(screen, suit_color, points)
+        elif suit == 'spade':
+            # 스페이드
+            pygame.draw.circle(screen, suit_color, (cx - 3, cy), 4)
+            pygame.draw.circle(screen, suit_color, (cx + 3, cy), 4)
+            pygame.draw.polygon(screen, suit_color, [(cx, cy - 6), (cx - 6, cy + 1), (cx + 6, cy + 1)])
+            pygame.draw.rect(screen, suit_color, (cx - 2, cy + 2, 4, 5))
+        else:  # club
+            # 클로버
+            pygame.draw.circle(screen, suit_color, (cx, cy - 3), 4)
+            pygame.draw.circle(screen, suit_color, (cx - 4, cy + 1), 4)
+            pygame.draw.circle(screen, suit_color, (cx + 4, cy + 1), 4)
+            pygame.draw.rect(screen, suit_color, (cx - 2, cy + 2, 4, 5))
+
+        # 카드 값 (좌상단)
+        pygame.draw.rect(screen, suit_color, (x + 3, y + 3, 6, 8), border_radius=1)
+
+    def _draw_poker_chips_detailed(self, screen, x, y, color, count):
+        """정교한 포커 칩 더미 그리기"""
+        chip_w, chip_h = 22, 14
+
         for i in range(count):
-            chip_y = y - i * 4
-            # 칩 본체
-            pygame.draw.ellipse(screen, color, (x, chip_y, 20, 12))
-            pygame.draw.ellipse(screen, (min(255, color[0] + 50), min(255, color[1] + 50), min(255, color[2] + 50)),
-                              (x, chip_y, 20, 12), 1)
-            # 칩 무늬
-            pygame.draw.line(screen, (255, 255, 255), (x + 5, chip_y + 6), (x + 15, chip_y + 6), 1)
+            chip_y = y - i * 5
 
-    def _draw_casino_chair(self, screen, x, y):
-        """카지노 의자 그리기"""
-        chair_color = (120, 30, 30)  # 빨간 가죽
-        frame_color = (80, 60, 40)  # 나무 프레임
+            # 칩 그림자 (맨 아래 칩만)
+            if i == 0:
+                shadow_surf = pygame.Surface((chip_w + 4, chip_h + 4), pygame.SRCALPHA)
+                pygame.draw.ellipse(shadow_surf, (0, 0, 0, 30), (0, 2, chip_w + 4, chip_h))
+                screen.blit(shadow_surf, (x - 2, chip_y))
 
-        # 좌석
-        pygame.draw.ellipse(screen, chair_color, (x, y + 10, 25, 15))
-        pygame.draw.ellipse(screen, (150, 50, 50), (x + 3, y + 12, 19, 10))
+            # 칩 측면 (3D 효과)
+            side_color = (max(0, color[0] - 40), max(0, color[1] - 40), max(0, color[2] - 40))
+            pygame.draw.ellipse(screen, side_color, (x, chip_y + 3, chip_w, chip_h))
 
-        # 등받이
-        pygame.draw.rect(screen, chair_color, (x + 5, y, 15, 15), border_radius=3)
-        pygame.draw.rect(screen, (150, 50, 50), (x + 7, y + 2, 11, 10), border_radius=2)
+            # 칩 상단
+            pygame.draw.ellipse(screen, color, (x, chip_y, chip_w, chip_h))
+
+            # 칩 하이라이트
+            highlight = (min(255, color[0] + 60), min(255, color[1] + 60), min(255, color[2] + 60))
+            pygame.draw.ellipse(screen, highlight, (x + 3, chip_y + 2, chip_w - 6, chip_h - 6), 1)
+
+            # 칩 무늬 (가장자리 점들)
+            for angle in range(0, 360, 45):
+                rad = math.radians(angle)
+                dot_x = x + chip_w // 2 + int(7 * math.cos(rad))
+                dot_y = chip_y + chip_h // 2 + int(4 * math.sin(rad))
+                pygame.draw.circle(screen, (255, 255, 255), (dot_x, dot_y), 2)
+
+            # 중앙 원
+            pygame.draw.circle(screen, (255, 255, 255), (x + chip_w // 2, chip_y + chip_h // 2), 4)
+            pygame.draw.circle(screen, color, (x + chip_w // 2, chip_y + chip_h // 2), 3)
+
+    def _draw_casino_chair_detailed(self, screen, x, y, direction='bottom'):
+        """정교한 카지노 의자 그리기"""
+        chair_color = (140, 35, 35)  # 빨간 가죽
+        chair_highlight = (180, 60, 60)
+        chair_shadow = (100, 25, 25)
+        frame_color = (70, 50, 35)  # 나무 프레임
+        frame_highlight = (90, 65, 45)
+        gold_trim = (200, 170, 80)
+
+        # === 의자 다리 ===
+        leg_positions = [(x + 3, y + 28), (x + 22, y + 28)]
+        for lx, ly in leg_positions:
+            pygame.draw.rect(screen, frame_color, (lx, ly, 5, 12), border_radius=1)
+            pygame.draw.rect(screen, frame_highlight, (lx + 1, ly, 2, 10), border_radius=1)
+
+        # === 좌석 쿠션 ===
+        # 그림자
+        pygame.draw.ellipse(screen, chair_shadow, (x - 2, y + 18, 34, 16))
+        # 쿠션 본체
+        pygame.draw.ellipse(screen, chair_color, (x, y + 15, 30, 14))
+        # 쿠션 하이라이트
+        pygame.draw.ellipse(screen, chair_highlight, (x + 4, y + 17, 22, 8))
+        # 쿠션 주름 (디테일)
+        pygame.draw.arc(screen, chair_shadow, (x + 5, y + 18, 20, 8), 0, 3.14, 1)
+
+        # === 등받이 ===
+        if direction != 'bottom':
+            # 등받이 프레임
+            pygame.draw.rect(screen, frame_color, (x + 5, y - 5, 20, 22), border_radius=4)
+            pygame.draw.rect(screen, frame_highlight, (x + 7, y - 3, 16, 18), border_radius=3)
+            # 등받이 쿠션
+            pygame.draw.rect(screen, chair_color, (x + 8, y - 2, 14, 16), border_radius=3)
+            pygame.draw.rect(screen, chair_highlight, (x + 10, y, 10, 12), border_radius=2)
+            # 금색 장식
+            pygame.draw.rect(screen, gold_trim, (x + 6, y - 4, 18, 2), border_radius=1)
+            # 버튼 디테일
+            pygame.draw.circle(screen, chair_shadow, (x + 15, y + 5), 2)
+            pygame.draw.circle(screen, chair_shadow, (x + 15, y + 10), 2)
+        else:
+            # 앞을 향한 의자 (등받이가 뒤에)
+            pygame.draw.rect(screen, frame_color, (x + 8, y - 2, 14, 8), border_radius=3)
+            pygame.draw.rect(screen, chair_color, (x + 9, y - 1, 12, 6), border_radius=2)
+
+        # === 팔걸이 ===
+        pygame.draw.rect(screen, frame_color, (x - 2, y + 10, 6, 10), border_radius=2)
+        pygame.draw.rect(screen, frame_color, (x + 26, y + 10, 6, 10), border_radius=2)
+        # 팔걸이 상단
+        pygame.draw.rect(screen, gold_trim, (x - 2, y + 8, 6, 3), border_radius=1)
+        pygame.draw.rect(screen, gold_trim, (x + 26, y + 8, 6, 3), border_radius=1)
 
     def _draw_slot_machine_row(self, screen, x, y, count, machine_color, accent1, accent2):
         """슬롯머신 열 그리기"""
@@ -12520,60 +12695,242 @@ class BuildingInterior:
             self._draw_slot_machine(screen, machine_x, y, machine_color, accent1 if i % 2 == 0 else accent2)
 
     def _draw_slot_machine(self, screen, x, y, base_color, accent_color):
-        """개별 슬롯머신 그리기"""
-        machine_w = int(TILE_SIZE * 1.2)
-        machine_h = int(TILE_SIZE * 2.5)
+        """개별 슬롯머신 그리기 - 고퀄리티 버전"""
+        machine_w = int(TILE_SIZE * 1.4)
+        machine_h = int(TILE_SIZE * 2.8)
 
-        # 머신 본체
-        pygame.draw.rect(screen, base_color, (x, y, machine_w, machine_h), border_radius=5)
-        pygame.draw.rect(screen, (min(255, base_color[0] + 30), min(255, base_color[1] + 30), min(255, base_color[2] + 30)),
-                        (x, y, machine_w, machine_h), 2, border_radius=5)
+        # === 그림자 (입체감) ===
+        shadow_surf = pygame.Surface((machine_w + 8, machine_h + 8), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (0, 0, 0, 60), (4, 4, machine_w, machine_h), border_radius=6)
+        screen.blit(shadow_surf, (x - 2, y - 2))
 
-        # 상단 장식 (네온 프레임)
-        top_h = 15
-        pygame.draw.rect(screen, accent_color, (x - 3, y - 5, machine_w + 6, top_h), border_radius=3)
+        # === 머신 본체 (그라데이션 효과) ===
+        # 베이스 색상
+        pygame.draw.rect(screen, base_color, (x, y, machine_w, machine_h), border_radius=6)
+        # 상단 하이라이트
+        highlight = (min(255, base_color[0] + 40), min(255, base_color[1] + 40), min(255, base_color[2] + 40))
+        pygame.draw.rect(screen, highlight, (x + 2, y + 2, machine_w - 4, 15), border_radius=4)
+        # 하단 어두운 부분
+        darker = (max(0, base_color[0] - 30), max(0, base_color[1] - 30), max(0, base_color[2] - 30))
+        pygame.draw.rect(screen, darker, (x + 2, y + machine_h - 35, machine_w - 4, 33), border_radius=4)
+        # 테두리
+        border_color = (min(255, base_color[0] + 50), min(255, base_color[1] + 50), min(255, base_color[2] + 50))
+        pygame.draw.rect(screen, border_color, (x, y, machine_w, machine_h), 2, border_radius=6)
 
+        # === 상단 장식 (네온 크라운) ===
+        crown_h = 20
+        crown_y = y - 12
+        # 크라운 베이스
+        pygame.draw.rect(screen, (40, 30, 50), (x - 5, crown_y, machine_w + 10, crown_h), border_radius=4)
+        # 네온 프레임
+        pygame.draw.rect(screen, accent_color, (x - 3, crown_y + 2, machine_w + 6, crown_h - 4), border_radius=3)
+
+        # 크라운 글로우 효과
         glow_pulse = abs(math.sin(self.animation_timer * 4 + x * 0.1))
-        for glow in range(2):
-            alpha = int((60 - glow * 25) * glow_pulse)
-            glow_surf = pygame.Surface((machine_w + 10, top_h + 4), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surf, (*accent_color, alpha), (0, 0, machine_w + 10, top_h + 4), border_radius=4)
-            screen.blit(glow_surf, (x - 5, y - 7))
+        for glow in range(3):
+            alpha = int((70 - glow * 20) * glow_pulse)
+            glow_surf = pygame.Surface((machine_w + 14, crown_h + 6), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*accent_color, alpha), (0, 0, machine_w + 14, crown_h + 6), border_radius=5)
+            screen.blit(glow_surf, (x - 7, crown_y - 3))
 
-        # 디스플레이 (릴 창)
-        display_y = y + 20
-        display_h = 45
-        pygame.draw.rect(screen, (30, 25, 40), (x + 5, display_y, machine_w - 10, display_h), border_radius=3)
+        # 크라운 상단 삼각 장식
+        triangle_points = [
+            (x + machine_w // 2, crown_y - 8),
+            (x + machine_w // 2 - 10, crown_y + 2),
+            (x + machine_w // 2 + 10, crown_y + 2)
+        ]
+        pygame.draw.polygon(screen, accent_color, triangle_points)
+        # 삼각 글로우
+        glow_surf = pygame.Surface((24, 14), pygame.SRCALPHA)
+        pygame.draw.polygon(glow_surf, (*accent_color, int(50 * glow_pulse)), [(12, 0), (0, 12), (24, 12)])
+        screen.blit(glow_surf, (x + machine_w // 2 - 12, crown_y - 10))
 
-        # 릴 (3개)
-        reel_w = (machine_w - 16) // 3
-        symbols = ['7', 'BAR', '*']
-        symbol_colors = [(255, 50, 50), (255, 200, 50), (50, 200, 255)]
+        # === "777" 또는 "JACKPOT" 미니 표시 ===
+        mini_sign_y = crown_y + 5
+        text_color = (255, 255, 200) if glow_pulse > 0.5 else (200, 180, 100)
+        # 미니 "7" 표시 3개
+        for i in range(3):
+            seven_x = x + 8 + i * (machine_w - 16) // 3
+            pygame.draw.rect(screen, text_color, (seven_x, mini_sign_y, 6, 10), border_radius=1)
 
-        for r in range(3):
-            reel_x = x + 8 + r * reel_w
-            # 릴 배경
-            pygame.draw.rect(screen, (50, 45, 60), (reel_x, display_y + 3, reel_w - 2, display_h - 6), border_radius=2)
-            # 심볼
-            symbol_offset = int((self.animation_timer * 2 + r) % 3)
-            pygame.draw.rect(screen, symbol_colors[symbol_offset],
-                           (reel_x + 2, display_y + 15, reel_w - 6, 20), border_radius=2)
+        # === 디스플레이 (릴 창) - 고급 프레임 ===
+        display_y = y + 18
+        display_h = 55
+        display_margin = 6
 
-        # 레버
-        lever_x = x + machine_w - 8
-        lever_y = y + 70
-        pygame.draw.rect(screen, (80, 80, 90), (lever_x, lever_y, 6, 30), border_radius=2)
-        pygame.draw.circle(screen, (200, 50, 50), (lever_x + 3, lever_y), 8)
+        # 디스플레이 프레임 (금색 테두리)
+        frame_outer = (x + display_margin - 3, display_y - 3, machine_w - display_margin * 2 + 6, display_h + 6)
+        pygame.draw.rect(screen, (180, 150, 80), frame_outer, border_radius=4)
+        pygame.draw.rect(screen, (220, 190, 100), frame_outer, 2, border_radius=4)
 
-        # 코인 슬롯
-        pygame.draw.rect(screen, (40, 40, 50), (x + machine_w // 2 - 8, y + machine_h - 25, 16, 8), border_radius=2)
+        # 디스플레이 내부 (어두운 배경)
+        pygame.draw.rect(screen, (20, 18, 30), (x + display_margin, display_y, machine_w - display_margin * 2, display_h), border_radius=3)
+        # 내부 그라데이션 효과
+        inner_highlight = pygame.Surface((machine_w - display_margin * 2, 8), pygame.SRCALPHA)
+        pygame.draw.rect(inner_highlight, (60, 50, 80, 100), (0, 0, machine_w - display_margin * 2, 8))
+        screen.blit(inner_highlight, (x + display_margin, display_y + 2))
 
-        # 코인 트레이
-        pygame.draw.rect(screen, (60, 60, 70), (x + 5, y + machine_h - 15, machine_w - 10, 12), border_radius=3)
-        # 코인들
-        for c in range(3):
-            coin_x = x + 10 + c * 8
-            pygame.draw.circle(screen, (255, 215, 0), (coin_x, y + machine_h - 9), 4)
+        # === 릴 (3개) - 실제 심볼 그리기 ===
+        reel_count = 3
+        reel_spacing = 3
+        total_reel_w = machine_w - display_margin * 2 - reel_spacing * 2
+        reel_w = total_reel_w // reel_count
+
+        for r in range(reel_count):
+            reel_x = x + display_margin + reel_spacing + r * (reel_w + reel_spacing // 2)
+            reel_inner_w = reel_w - 4
+
+            # 릴 배경 (밝은 영역)
+            pygame.draw.rect(screen, (45, 40, 55), (reel_x, display_y + 4, reel_inner_w, display_h - 8), border_radius=2)
+            # 릴 하이라이트
+            pygame.draw.rect(screen, (60, 55, 75), (reel_x, display_y + 4, reel_inner_w, 6), border_radius=2)
+
+            # 심볼 애니메이션
+            symbol_offset = int((self.animation_timer * 3 + r * 0.7) % 4)
+            symbol_y = display_y + 18
+
+            # 심볼 그리기
+            self._draw_slot_symbol(screen, reel_x + 2, symbol_y, reel_inner_w - 4, 24, symbol_offset, r)
+
+            # 릴 구분선
+            if r < reel_count - 1:
+                line_x = reel_x + reel_inner_w + 1
+                pygame.draw.line(screen, (80, 70, 100), (line_x, display_y + 6), (line_x, display_y + display_h - 6), 1)
+
+        # 당첨 라인 표시 (중앙 가로선)
+        line_y = display_y + display_h // 2
+        pygame.draw.line(screen, (255, 215, 0), (x + display_margin + 2, line_y), (x + machine_w - display_margin - 2, line_y), 2)
+        # 라인 화살표
+        pygame.draw.polygon(screen, (255, 215, 0), [
+            (x + display_margin - 2, line_y),
+            (x + display_margin + 4, line_y - 4),
+            (x + display_margin + 4, line_y + 4)
+        ])
+        pygame.draw.polygon(screen, (255, 215, 0), [
+            (x + machine_w - display_margin + 2, line_y),
+            (x + machine_w - display_margin - 4, line_y - 4),
+            (x + machine_w - display_margin - 4, line_y + 4)
+        ])
+
+        # === 버튼 패널 ===
+        panel_y = display_y + display_h + 5
+        panel_h = 25
+        pygame.draw.rect(screen, (50, 45, 60), (x + 4, panel_y, machine_w - 8, panel_h), border_radius=3)
+
+        # BET 버튼
+        bet_btn_x = x + 8
+        pygame.draw.rect(screen, (80, 60, 40), (bet_btn_x, panel_y + 3, 20, 18), border_radius=3)
+        pygame.draw.rect(screen, (120, 100, 60), (bet_btn_x + 2, panel_y + 5, 16, 6), border_radius=2)
+
+        # SPIN 버튼
+        spin_btn_x = x + machine_w - 28
+        spin_pulse = abs(math.sin(self.animation_timer * 5))
+        spin_color = (50 + int(150 * spin_pulse), 180, 50 + int(50 * spin_pulse))
+        pygame.draw.rect(screen, spin_color, (spin_btn_x, panel_y + 3, 20, 18), border_radius=3)
+        pygame.draw.rect(screen, (100, 255, 100), (spin_btn_x + 2, panel_y + 5, 16, 6), border_radius=2)
+
+        # === 레버 (우측) - 3D 효과 ===
+        lever_x = x + machine_w + 2
+        lever_y = y + 30
+
+        # 레버 마운트
+        pygame.draw.rect(screen, (60, 55, 70), (lever_x - 2, lever_y, 10, 12), border_radius=2)
+
+        # 레버 막대 (그라데이션)
+        lever_colors = [(90, 85, 100), (70, 65, 80), (50, 45, 60)]
+        lever_h = 40
+        lever_anim = int(math.sin(self.animation_timer * 2) * 3)
+        for i, lc in enumerate(lever_colors):
+            pygame.draw.rect(screen, lc, (lever_x + i, lever_y + 10 + lever_anim, 8 - i * 2, lever_h - lever_anim), border_radius=2)
+
+        # 레버 손잡이 (빨간 공)
+        handle_y = lever_y + 8 + lever_anim
+        # 손잡이 그림자
+        pygame.draw.circle(screen, (100, 30, 30), (lever_x + 5, handle_y + 2), 10)
+        # 손잡이 본체
+        pygame.draw.circle(screen, (200, 50, 50), (lever_x + 4, handle_y), 10)
+        # 손잡이 하이라이트
+        pygame.draw.circle(screen, (255, 100, 100), (lever_x + 1, handle_y - 3), 4)
+        pygame.draw.circle(screen, (255, 200, 200), (lever_x, handle_y - 4), 2)
+
+        # === 코인 슬롯 ===
+        slot_y = panel_y + panel_h + 5
+        pygame.draw.rect(screen, (30, 28, 40), (x + machine_w // 2 - 10, slot_y, 20, 10), border_radius=2)
+        pygame.draw.rect(screen, (20, 18, 30), (x + machine_w // 2 - 6, slot_y + 3, 12, 4), border_radius=1)
+
+        # === 코인 트레이 (3D) ===
+        tray_y = y + machine_h - 18
+        tray_h = 16
+        # 트레이 외곽
+        pygame.draw.rect(screen, (50, 48, 60), (x + 4, tray_y, machine_w - 8, tray_h), border_radius=4)
+        # 트레이 내부
+        pygame.draw.rect(screen, (35, 32, 45), (x + 6, tray_y + 3, machine_w - 12, tray_h - 6), border_radius=3)
+
+        # 코인들 (3D 효과)
+        coin_count = 4
+        for c in range(coin_count):
+            coin_x = x + 10 + c * 9
+            coin_y = tray_y + 6
+            # 코인 그림자
+            pygame.draw.ellipse(screen, (100, 80, 0), (coin_x - 1, coin_y + 2, 8, 6))
+            # 코인 본체
+            pygame.draw.ellipse(screen, (255, 215, 0), (coin_x, coin_y, 7, 5))
+            # 코인 하이라이트
+            pygame.draw.ellipse(screen, (255, 240, 150), (coin_x + 1, coin_y, 4, 3))
+
+        # === 장식 LED 라이트 (양쪽) ===
+        led_colors = [(255, 50, 50), (50, 255, 50), (50, 150, 255), (255, 255, 50)]
+        for side in [-1, 1]:
+            led_x = x - 4 if side < 0 else x + machine_w + 1
+            for i in range(4):
+                led_y = y + 25 + i * 20
+                led_color = led_colors[(i + int(self.animation_timer * 5)) % 4]
+                led_alpha = 150 + int(100 * abs(math.sin(self.animation_timer * 6 + i * 0.5)))
+                # LED 글로우
+                glow_s = pygame.Surface((8, 8), pygame.SRCALPHA)
+                pygame.draw.circle(glow_s, (*led_color, min(255, led_alpha // 2)), (4, 4), 4)
+                screen.blit(glow_s, (led_x - 2, led_y - 2))
+                # LED 본체
+                pygame.draw.circle(screen, led_color, (led_x + 2, led_y + 2), 3)
+                pygame.draw.circle(screen, (255, 255, 255), (led_x + 1, led_y + 1), 1)
+
+    def _draw_slot_symbol(self, screen, x, y, w, h, symbol_type, reel_index):
+        """슬롯머신 심볼 그리기 - 다양한 심볼"""
+        # 심볼 배경
+        bg_colors = [(200, 50, 50), (50, 200, 50), (50, 100, 255), (255, 200, 50)]
+        bg_color = bg_colors[symbol_type % 4]
+        pygame.draw.rect(screen, bg_color, (x, y, w, h), border_radius=3)
+
+        # 심볼 내용 (타입별로 다름)
+        cx = x + w // 2
+        cy = y + h // 2
+
+        if symbol_type == 0:
+            # 럭키 7
+            pygame.draw.rect(screen, (255, 255, 200), (cx - 4, cy - 8, 8, 3), border_radius=1)
+            pygame.draw.rect(screen, (255, 255, 200), (cx + 1, cy - 8, 3, 16), border_radius=1)
+            pygame.draw.rect(screen, (255, 255, 200), (cx - 4, cy + 5, 6, 3), border_radius=1)
+        elif symbol_type == 1:
+            # BAR
+            pygame.draw.rect(screen, (255, 255, 255), (cx - 7, cy - 4, 14, 8), border_radius=2)
+            pygame.draw.rect(screen, (50, 50, 50), (cx - 5, cy - 2, 10, 4), border_radius=1)
+        elif symbol_type == 2:
+            # 다이아몬드
+            points = [(cx, cy - 7), (cx + 7, cy), (cx, cy + 7), (cx - 7, cy)]
+            pygame.draw.polygon(screen, (200, 230, 255), points)
+            pygame.draw.polygon(screen, (255, 255, 255), points, 1)
+            # 다이아몬드 내부 빛
+            pygame.draw.polygon(screen, (255, 255, 255), [(cx, cy - 4), (cx + 3, cy), (cx, cy + 4), (cx - 3, cy)])
+        elif symbol_type == 3:
+            # 체리
+            # 줄기
+            pygame.draw.arc(screen, (100, 200, 50), (cx - 6, cy - 10, 12, 12), 0, 3.14, 2)
+            # 체리 1
+            pygame.draw.circle(screen, (220, 50, 50), (cx - 4, cy + 3), 5)
+            pygame.draw.circle(screen, (255, 150, 150), (cx - 5, cy + 1), 2)
+            # 체리 2
+            pygame.draw.circle(screen, (220, 50, 50), (cx + 4, cy + 3), 5)
+            pygame.draw.circle(screen, (255, 150, 150), (cx + 3, cy + 1), 2)
 
     def _draw_poker_room_entrance(self, screen, x, y, neon_blue, gold):
         """포커 룸 입구 표시"""
