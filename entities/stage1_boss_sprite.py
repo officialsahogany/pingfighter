@@ -363,10 +363,17 @@ class Stage1BossSprite:
 
         self.prev_x = current_x
 
-    def _build_scaled_cache(self, scale_size: tuple):
+    def _build_scaled_cache(self, scale_size: tuple, force_hit_rebuild: bool = False):
         """스케일된 프레임 캐시 생성 (떨림 방지)"""
-        if scale_size == self._cached_scale_size:
-            return  # 이미 캐시됨
+        # 히트 프레임 캐시가 비어있으면 강제 리빌드
+        if not force_hit_rebuild and scale_size == self._cached_scale_size:
+            # 히트 프레임 캐시가 비어있고 히트 프레임이 있으면 리빌드
+            if self.frames_hit_left and not self._scaled_frames_hit_left:
+                force_hit_rebuild = True
+            elif self.frames_hit_right and not self._scaled_frames_hit_right:
+                force_hit_rebuild = True
+            else:
+                return  # 이미 캐시됨
 
         self._cached_scale_size = scale_size
 
