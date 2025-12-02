@@ -54981,8 +54981,8 @@ def show_drive_monitor_demo(background):
         if boss_img:
             # Stage 1은 세로가 긴 스프라이트이므로 Y 오프셋 추가 (캐릭터가 화면에 보이도록)
             if current_stage == 1:
-                # 세로 160px 스프라이트 → 중심을 아래로 70px 내림
-                boss_rect = boss_img.get_rect(center=(boss_x, boss_y + 70))
+                # 세로 160px 스프라이트 → 중심을 아래로 40px 내림
+                boss_rect = boss_img.get_rect(center=(boss_x, boss_y + 40))
             else:
                 boss_rect = boss_img.get_rect(center=(boss_x, boss_y))
             SCREEN.blit(boss_img, boss_rect)
