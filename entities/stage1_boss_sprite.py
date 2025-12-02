@@ -127,22 +127,26 @@ class Stage1BossSprite:
             row_height = sheet_height // 2  # 512px
 
             # 프레임 너비 계산 (6프레임으로 균등 분할)
-            frame_width = sheet_width // self.total_frames  # 약 170px
+            frame_width_float = sheet_width / self.total_frames  # 170.67px
 
-            print(f"🎭 프레임 크기: {frame_width}x{row_height}, 총 프레임: {self.total_frames}")
+            # 옆 프레임이 보이지 않도록 양쪽 여백 추가
+            margin = 4  # 양쪽 4px씩 잘라냄
+            actual_frame_width = int(frame_width_float) - (margin * 2)
+
+            print(f"🎭 프레임 크기: {actual_frame_width}x{row_height}, 총 프레임: {self.total_frames}")
 
             # 첫 번째 행 (왼쪽 이동) 프레임 추출
             self.frames_left = []
             for i in range(self.total_frames):
                 try:
-                    frame_x = i * frame_width
-                    frame_rect = pygame.Rect(
-                        frame_x,
-                        0,
-                        frame_width,
-                        row_height
-                    )
+                    # 프레임 중앙 기준으로 추출 (양쪽 margin 제외)
+                    frame_center_x = int(frame_width_float * (i + 0.5))
+                    frame_x = frame_center_x - (actual_frame_width // 2)
+                    frame_rect = pygame.Rect(frame_x, 0, actual_frame_width, row_height)
+
                     # 경계 체크
+                    if frame_rect.x < 0:
+                        frame_rect.x = 0
                     if frame_rect.right > sheet_width:
                         frame_rect.width = sheet_width - frame_rect.x
                     if frame_rect.bottom > sheet_height:
@@ -159,14 +163,14 @@ class Stage1BossSprite:
             row2_y = row_height  # 512px 부터 시작
             for i in range(self.total_frames):
                 try:
-                    frame_x = i * frame_width
-                    frame_rect = pygame.Rect(
-                        frame_x,
-                        row2_y,
-                        frame_width,
-                        row_height
-                    )
+                    # 프레임 중앙 기준으로 추출 (양쪽 margin 제외)
+                    frame_center_x = int(frame_width_float * (i + 0.5))
+                    frame_x = frame_center_x - (actual_frame_width // 2)
+                    frame_rect = pygame.Rect(frame_x, row2_y, actual_frame_width, row_height)
+
                     # 경계 체크
+                    if frame_rect.x < 0:
+                        frame_rect.x = 0
                     if frame_rect.right > sheet_width:
                         frame_rect.width = sheet_width - frame_rect.x
                     if frame_rect.bottom > sheet_height:
