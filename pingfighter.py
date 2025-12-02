@@ -4948,6 +4948,10 @@ def trigger_grenade_style_explosion(
     play_sound_with_volume(SOUND_GRENADE)
     print(f"💥 {source} 폭발 발생: X={x:.1f}, Y={y:.1f}, 반경={explosion_radius}")
 
+    # 스테이지 2: 수류탄 폭발 시 반경 내 바위 파괴
+    if current_stage == 2 and source == "grenade":
+        _destroy_stage2_rocks_in_radius(x, y, explosion_radius, source="grenade")
+
 
 # =====================
 # Stage 7 EMP 펄스(파문) 이펙트
