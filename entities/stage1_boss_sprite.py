@@ -214,6 +214,85 @@ class Stage1BossSprite:
 
         print("⚠️ 폴백 프레임 생성됨")
 
+    def load_hit_sprite_sheet(self, path: str) -> bool:
+        """
+        히트 스프라이트 시트 로드 및 프레임 분할
+
+        Args:
+            path: 히트 스프라이트 시트 이미지 경로 (stage1hit.png)
+
+        Returns:
+            성공 여부
+        """
+        try:
+            sprite_sheet = pygame.image.load(path).convert_alpha()
+            sheet_width = sprite_sheet.get_width()
+            sheet_height = sprite_sheet.get_height()
+
+            print(f"🥊 히트 스프라이트 시트 로드: {sheet_width}x{sheet_height}")
+
+            # 2행 × 6프레임 구조
+            row_height = sheet_height // 2
+            frame_width = sheet_width // self.hit_total_frames
+
+            print(f"🥊 히트 프레임 크기: {frame_width}x{row_height}, 총 프레임: {self.hit_total_frames}")
+
+            # 첫 번째 행 (왼쪽 히트) 프레임 추출
+            self.frames_hit_left = []
+            for i in range(self.hit_total_frames):
+                try:
+                    frame_x = i * frame_width
+                    frame_rect = pygame.Rect(frame_x, 0, frame_width, row_height)
+                    if frame_rect.right > sheet_width:
+                        frame_rect.width = sheet_width - frame_rect.x
+                    if frame_rect.bottom > sheet_height:
+                        frame_rect.height = sheet_height - frame_rect.y
+                    frame = sprite_sheet.subsurface(frame_rect).copy()
+                    self.frames_hit_left.append(frame)
+                except Exception as e:
+                    print(f"⚠️ 왼쪽 히트 프레임 {i} 추출 실패: {e}")
+
+            # 두 번째 행 (오른쪽 히트) 프레임 추출
+            self.frames_hit_right = []
+            row2_y = row_height
+            for i in range(self.hit_total_frames):
+                try:
+                    frame_x = i * frame_width
+                    frame_rect = pygame.Rect(frame_x, row2_y, frame_width, row_height)
+                    if frame_rect.right > sheet_width:
+                        frame_rect.width = sheet_width - frame_rect.x
+                    if frame_rect.bottom > sheet_height:
+                        frame_rect.height = sheet_height - frame_rect.y
+                    frame = sprite_sheet.subsurface(frame_rect).copy()
+                    self.frames_hit_right.append(frame)
+                except Exception as e:
+                    print(f"⚠️ 오른쪽 히트 프레임 {i} 추출 실패: {e}")
+
+            print(f"✅ 히트 프레임 로드 완료: 왼쪽 {len(self.frames_hit_left)}개, 오른쪽 {len(self.frames_hit_right)}개")
+            return True
+
+        except Exception as e:
+            print(f"⚠️ 히트 스프라이트 시트 로드 실패 (폴백 사용): {e}")
+            # 폴백 - 일반 프레임 사용
+            self.frames_hit_left = self.frames_left.copy() if self.frames_left else []
+            self.frames_hit_right = self.frames_right.copy() if self.frames_right else []
+            return False
+
+    def trigger_hit(self, ball_x: float, boss_x: float):
+        """
+        히트 애니메이션 시작
+
+        Args:
+            ball_x: 공의 X 좌표
+            boss_x: 보스의 X 좌표
+        """
+        self.is_hit = True
+        self.hit_frame = 0
+        self.hit_timer = 0.0
+        # 공이 온 방향에 따라 히트 방향 결정
+        self.hit_direction = 1 if ball_x > boss_x else -1
+        print(f"🥊 히트 애니메이션 시작 (방향: {'오른쪽' if self.hit_direction == 1 else '왼쪽'})")
+
     def update(self, current_x: float, dt: float = 1/60):
         """
         애니메이션 업데이트
@@ -222,6 +301,20 @@ class Stage1BossSprite:
             current_x: 현재 보스 X 좌표
             dt: 델타 타임 (초 단위)
         """
+        # 히트 애니메이션 업데이트 (우선순위 높음)
+        if self.is_hit:
+            self.hit_timer += dt
+            if self.hit_timer >= self.hit_animation_speed:
+                self.hit_timer = 0.0
+                self.hit_frame += 1
+                # 히트 애니메이션 완료
+                if self.hit_frame >= self.hit_total_frames:
+                    self.is_hit = False
+                    self.hit_frame = 0
+            # 히트 중에는 이동 애니메이션 업데이트 안함
+            self.prev_x = current_x
+            return
+
         # 이동 방향 감지
         dx = current_x - self.prev_x
 
