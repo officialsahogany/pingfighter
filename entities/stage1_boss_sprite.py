@@ -58,6 +58,12 @@ class Stage1BossSprite:
         self.frames_right = []  # 오른쪽 이동 프레임
         self.idle_frame = None  # 정지 프레임
 
+        # 스케일된 프레임 캐시 (떨림 방지)
+        self._scaled_frames_left = []
+        self._scaled_frames_right = []
+        self._scaled_idle_frame = None
+        self._cached_scale_size = None
+
         # 기본 이미지 (폴백용)
         self.fallback_surface = None
         self.large_idle_frame = None  # 큰 정지 프레임
