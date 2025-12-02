@@ -386,6 +386,17 @@ class Stage1BossSprite:
         if self.idle_frame:
             self._scaled_idle_frame = pygame.transform.smoothscale(self.idle_frame, scale_size)
 
+        # 히트 프레임 캐시
+        self._scaled_frames_hit_left = []
+        for frame in self.frames_hit_left:
+            scaled = pygame.transform.smoothscale(frame, scale_size)
+            self._scaled_frames_hit_left.append(scaled)
+
+        self._scaled_frames_hit_right = []
+        for frame in self.frames_hit_right:
+            scaled = pygame.transform.smoothscale(frame, scale_size)
+            self._scaled_frames_hit_right.append(scaled)
+
     def get_current_frame(self, scale_size: tuple = None) -> pygame.Surface:
         """
         현재 프레임 반환 (캐시된 스케일 프레임 사용으로 떨림 방지)
@@ -400,6 +411,13 @@ class Stage1BossSprite:
         if scale_size:
             self._build_scaled_cache(scale_size)
 
+            # 히트 애니메이션 중이면 히트 프레임 반환
+            if self.is_hit:
+                if self.hit_direction == -1 and self._scaled_frames_hit_left:
+                    return self._scaled_frames_hit_left[self.hit_frame % len(self._scaled_frames_hit_left)]
+                elif self._scaled_frames_hit_right:
+                    return self._scaled_frames_hit_right[self.hit_frame % len(self._scaled_frames_hit_right)]
+
             # 캐시된 프레임에서 가져오기
             if self.direction == -1 and self._scaled_frames_left:
                 return self._scaled_frames_left[self.current_frame % len(self._scaled_frames_left)]
@@ -408,6 +426,13 @@ class Stage1BossSprite:
             else:
                 # 정지 상태
                 return self._scaled_idle_frame if self._scaled_idle_frame else self._scaled_frames_right[0]
+
+        # 히트 애니메이션 중이면 히트 프레임 반환 (원본 크기)
+        if self.is_hit:
+            if self.hit_direction == -1 and self.frames_hit_left:
+                return self.frames_hit_left[self.hit_frame % len(self.frames_hit_left)]
+            elif self.frames_hit_right:
+                return self.frames_hit_right[self.hit_frame % len(self.frames_hit_right)]
 
         # 원본 크기 반환
         if self.direction == -1 and self.frames_left:
