@@ -46790,15 +46790,10 @@ def draw_objects():
     #  일반 스턴 및 헤드샷 시 머리 위 빙글빙글 도는 별 효과 (라그나로크가 아닌 경우만)
     elif boss_stunned_timer > 0 or (head_shot_active and head_shot_timer > 0):
         # 별 3개가 머리 위에서 회전
-        # 프레임 기반 회전 (스턴 타이머 또는 헤드샷 타이머를 이용)
-        if head_shot_active and head_shot_timer > 0:
-            # 헤드샷 시에는 head_shot_timer 사용 (90프레임)
-            stun_timer_value = max(0, head_shot_timer)
-            rotation_angle = (90 - min(90, stun_timer_value)) * 4  # 헤드샷용 회전 (4도씩, 최대 90까지)
-        else:
-            # 일반 스턴 시에는 boss_stunned_timer 사용 (30프레임)
-            stun_timer_value = max(0, boss_stunned_timer)
-            rotation_angle = (60 - min(60, stun_timer_value)) * 6  # 일반 스턴용 회전 (6도씩, 최대 60까지)
+        # 시간 기반 회전 (pygame.time.get_ticks() 사용으로 즉시 회전 시작)
+        current_time = pygame.time.get_ticks()
+        # 6도/프레임 = 360도/초 회전 속도 (60fps 기준)
+        rotation_angle = (current_time * 0.36) % 360  # 0.36도/ms = 360도/초
         num_stars = 3
         radius = DEFAULT_RADIUS  # 회전 반경 (25 → DEFAULT_RADIUS)
         for i in range(num_stars):
