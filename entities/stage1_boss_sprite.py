@@ -363,46 +363,46 @@ class Stage1BossSprite:
 
         self.prev_x = current_x
 
-    def _build_scaled_cache(self, scale_size: tuple, force_hit_rebuild: bool = False):
+    def _build_scaled_cache(self, scale_size: tuple):
         """스케일된 프레임 캐시 생성 (떨림 방지)"""
-        # 히트 프레임 캐시가 비어있으면 강제 리빌드
-        if not force_hit_rebuild and scale_size == self._cached_scale_size:
-            # 히트 프레임 캐시가 비어있고 히트 프레임이 있으면 리빌드
-            if self.frames_hit_left and not self._scaled_frames_hit_left:
-                force_hit_rebuild = True
-            elif self.frames_hit_right and not self._scaled_frames_hit_right:
-                force_hit_rebuild = True
-            else:
-                return  # 이미 캐시됨
+        need_full_rebuild = (scale_size != self._cached_scale_size)
+        need_hit_rebuild = (self.frames_hit_left and not self._scaled_frames_hit_left) or \
+                           (self.frames_hit_right and not self._scaled_frames_hit_right)
+
+        if not need_full_rebuild and not need_hit_rebuild:
+            return  # 이미 캐시됨
 
         self._cached_scale_size = scale_size
 
-        # 왼쪽 프레임 캐시
-        self._scaled_frames_left = []
-        for frame in self.frames_left:
-            scaled = pygame.transform.smoothscale(frame, scale_size)
-            self._scaled_frames_left.append(scaled)
+        # 전체 리빌드 필요 시
+        if need_full_rebuild:
+            # 왼쪽 프레임 캐시
+            self._scaled_frames_left = []
+            for frame in self.frames_left:
+                scaled = pygame.transform.smoothscale(frame, scale_size)
+                self._scaled_frames_left.append(scaled)
 
-        # 오른쪽 프레임 캐시
-        self._scaled_frames_right = []
-        for frame in self.frames_right:
-            scaled = pygame.transform.smoothscale(frame, scale_size)
-            self._scaled_frames_right.append(scaled)
+            # 오른쪽 프레임 캐시
+            self._scaled_frames_right = []
+            for frame in self.frames_right:
+                scaled = pygame.transform.smoothscale(frame, scale_size)
+                self._scaled_frames_right.append(scaled)
 
-        # 정지 프레임 캐시
-        if self.idle_frame:
-            self._scaled_idle_frame = pygame.transform.smoothscale(self.idle_frame, scale_size)
+            # 정지 프레임 캐시
+            if self.idle_frame:
+                self._scaled_idle_frame = pygame.transform.smoothscale(self.idle_frame, scale_size)
 
-        # 히트 프레임 캐시
-        self._scaled_frames_hit_left = []
-        for frame in self.frames_hit_left:
-            scaled = pygame.transform.smoothscale(frame, scale_size)
-            self._scaled_frames_hit_left.append(scaled)
+        # 히트 프레임 캐시 (필요 시에만)
+        if need_full_rebuild or need_hit_rebuild:
+            self._scaled_frames_hit_left = []
+            for frame in self.frames_hit_left:
+                scaled = pygame.transform.smoothscale(frame, scale_size)
+                self._scaled_frames_hit_left.append(scaled)
 
-        self._scaled_frames_hit_right = []
-        for frame in self.frames_hit_right:
-            scaled = pygame.transform.smoothscale(frame, scale_size)
-            self._scaled_frames_hit_right.append(scaled)
+            self._scaled_frames_hit_right = []
+            for frame in self.frames_hit_right:
+                scaled = pygame.transform.smoothscale(frame, scale_size)
+                self._scaled_frames_hit_right.append(scaled)
 
     def get_current_frame(self, scale_size: tuple = None) -> pygame.Surface:
         """
