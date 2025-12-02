@@ -2255,6 +2255,13 @@ class BuildingInterior:
         # 일반 NPC 상호작용 힌트
         self.nearby_npc = None  # 근처에 있는 NPC (100픽셀 이내)
 
+        # 포커 게임 상호작용 (CASINO 전용)
+        self.poker_table_rect = None  # 포커 테이블 상호작용 영역
+        self.nearby_poker_table = False  # 포커 테이블 근처 여부
+        self.poker_game_playing = False  # 포커 게임 플레이 중
+        self.poker_game_ui = None  # 포커 게임 UI 인스턴스
+        self._init_poker_table_zone()  # 포커 테이블 영역 초기화
+
     def _init_shop_inventory(self):
         """상점 인벤토리 초기화 (랜덤 패시브 아이템 1~7개 + 5% 전설)"""
         if self.building_type != BuildingType.ITEM_SHOP:
@@ -2496,6 +2503,112 @@ class BuildingInterior:
             return nearby_crane
 
         return None
+
+    def _init_poker_table_zone(self):
+        """포커 테이블 상호작용 영역 초기화 (CASINO 전용)"""
+        if self.building_type != BuildingType.CASINO:
+            return
+
+        # 포커 테이블 위치 (_draw_neon_casino_interior 기준)
+        wall_h = int(TILE_SIZE * 2)
+        poker_x = self.pixel_width // 2 - int(TILE_SIZE * 3)
+        poker_y = wall_h + int(TILE_SIZE * 3)
+
+        # 테이블 크기
+        table_w = int(TILE_SIZE * 6)
+        table_h = int(TILE_SIZE * 3.5)
+
+        # 상호작용 영역 (테이블보다 약간 넓게)
+        self.poker_table_rect = pygame.Rect(
+            poker_x - TILE_SIZE,
+            poker_y - TILE_SIZE // 2,
+            table_w + TILE_SIZE * 2,
+            table_h + TILE_SIZE
+        )
+
+    def _check_nearby_poker_table(self):
+        """플레이어 근처에 포커 테이블이 있는지 확인"""
+        if self.building_type != BuildingType.CASINO:
+            return False
+
+        if not self.poker_table_rect:
+            return False
+
+        player_rect = pygame.Rect(
+            self.player.x - 40, self.player.y - 40, 80, 80
+        )
+
+        return player_rect.colliderect(self.poker_table_rect)
+
+    def _start_poker_game(self):
+        """포커 게임 시작"""
+        if self.poker_game_playing:
+            return False
+
+        try:
+            from .poker_game import PokerGameUI
+        except ImportError:
+            try:
+                from downtown.poker_game import PokerGameUI
+            except ImportError:
+                print("[ERROR] poker_game.py 모듈을 찾을 수 없습니다.")
+                return False
+
+        # 플레이어 골드 가져오기
+        import sys
+        player_gold = 1000  # 기본값
+        if 'pingfighter' in sys.modules:
+            pingfighter = sys.modules['pingfighter']
+            player_gold = getattr(pingfighter, 'gold', 1000)
+
+        # 최소 베팅 확인
+        if player_gold < 10:
+            return False
+
+        # 포커 게임 UI 생성
+        self.poker_game_ui = PokerGameUI(SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.poker_game_ui.start_game(player_gold)
+        self.poker_game_playing = True
+
+        return True
+
+    def _update_poker_game(self, dt):
+        """포커 게임 업데이트"""
+        if not self.poker_game_playing or not self.poker_game_ui:
+            return
+
+        self.poker_game_ui.update(dt)
+
+    def _handle_poker_game_event(self, event):
+        """포커 게임 이벤트 처리"""
+        if not self.poker_game_playing or not self.poker_game_ui:
+            return None
+
+        result = self.poker_game_ui.handle_event(event)
+
+        if result == 'exit':
+            # 게임 종료 - 골드 업데이트
+            final_gold = self.poker_game_ui.get_player_gold()
+            self._sync_poker_gold(final_gold)
+            self.poker_game_playing = False
+            self.poker_game_ui = None
+            return 'poker_exit'
+
+        return result
+
+    def _sync_poker_gold(self, new_gold):
+        """포커 게임 결과로 플레이어 골드 동기화"""
+        import sys
+        if 'pingfighter' in sys.modules:
+            pingfighter = sys.modules['pingfighter']
+            setattr(pingfighter, 'gold', new_gold)
+
+    def _draw_poker_game(self, screen):
+        """포커 게임 화면 그리기"""
+        if not self.poker_game_playing or not self.poker_game_ui:
+            return
+
+        self.poker_game_ui.draw(screen)
 
     def _init_crane_prizes(self):
         """크레인 게임 아이템 캡슐 초기화 - 액티브 70% + 패시브 30%"""
@@ -3464,6 +3577,11 @@ class BuildingInterior:
         # 골드 변동 애니메이션 업데이트
         self._update_gold_float_animations(dt)
 
+        # 포커 게임 업데이트
+        if self.poker_game_playing:
+            self._update_poker_game(dt)
+            return  # 포커 게임 중에는 다른 업데이트 차단
+
         # 크레인 게임 업데이트
         if self.crane_game_playing:
             self._update_crane_game(dt)
@@ -3519,6 +3637,10 @@ class BuildingInterior:
         # 아카데미 건물에서 학장 근처 체크
         if self.building_type == BuildingType.ACADEMY:
             self.nearby_headmaster = self._check_nearby_headmaster()
+
+        # 카지노에서 포커 테이블 근처 체크
+        if self.building_type == BuildingType.CASINO:
+            self.nearby_poker_table = self._check_nearby_poker_table()
 
         # 일반 NPC 근처 체크 (상호작용 힌트용)
         self.nearby_npc = self._check_nearby_npc()
@@ -4252,6 +4374,13 @@ class BuildingInterior:
         if event.type != pygame.KEYDOWN:
             return None
 
+        # 포커 게임 중일 때 - 모든 입력을 포커 게임으로 전달
+        if self.poker_game_playing:
+            result = self._handle_poker_game_event(event)
+            if result:
+                return (result, None)
+            return None
+
         # 상점 거래창이 열려있을 때
         if self.shop_trade_open:
             if event.key == pygame.K_ESCAPE:
@@ -4418,6 +4547,15 @@ class BuildingInterior:
 
         # 메뉴가 닫혀있을 때 - Space로 상호작용
         if event.key == pygame.K_SPACE:
+            # 카지노 건물에서 포커 테이블 상호작용 확인
+            if self.building_type == BuildingType.CASINO:
+                if self.nearby_poker_table:
+                    if self._start_poker_game():
+                        return ("poker_start", None)
+                    else:
+                        # 골드 부족 등의 이유로 시작 실패
+                        return ("poker_fail", "골드가 부족합니다")
+
             # 가챠 건물에서는 먼저 가챠 머신 상호작용 확인
             if self.building_type == BuildingType.GACHA:
                 nearby_machine = self._check_nearby_gacha_machine()
@@ -5614,6 +5752,15 @@ class BuildingInterior:
         # 크레인 게임 플레이 화면 (최상위)
         if self.crane_game_playing:
             self._draw_crane_game_screen(screen)
+
+        # 포커 게임 플레이 화면 (최상위)
+        if self.poker_game_playing:
+            self._draw_poker_game(screen)
+
+        # 카지노 포커 테이블 상호작용 힌트
+        if self.building_type == BuildingType.CASINO and self.nearby_poker_table:
+            if not self.poker_game_playing:
+                self._draw_poker_table_hint(screen)
 
         # 아카데미 학장 상호작용 힌트 (대화창 닫혀있고 근처일 때만)
         if self.building_type == BuildingType.ACADEMY:
@@ -7606,6 +7753,78 @@ class BuildingInterior:
             angle_inner = math.radians(-90 + i * 72 + 36)
             star_points.append((star_x + 4 * math.cos(angle_inner), star_y + 4 * math.sin(angle_inner)))
         pygame.draw.polygon(screen, ACCENT_GOLD, star_points)
+
+    def _draw_poker_table_hint(self, screen):
+        """포커 테이블 근처일 때 상호작용 힌트 표시"""
+        # 화면 하단에 힌트 박스 표시
+        hint_text = "SPACE - 포커 게임 시작"
+        pulse = abs(math.sin(self.animation_timer * 4))
+
+        # 색상 팔레트 (카지노 테마 - 네온 핑크/골드)
+        NEON_PINK = (255, 50, 150)
+        CASINO_GOLD = (255, 215, 0)
+        DARK_PURPLE = (35, 20, 50)
+
+        # 힌트 박스 크기
+        box_w = 240
+        box_h = 45
+        box_x = (SCREEN_WIDTH - box_w) // 2
+        box_y = SCREEN_HEIGHT - 85
+
+        # 글로우 효과 (네온 핑크)
+        for glow in range(3, 0, -1):
+            glow_alpha = int((70 - glow * 18) * pulse)
+            glow_surf = pygame.Surface((box_w + glow * 8, box_h + glow * 8), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*NEON_PINK, glow_alpha),
+                           (0, 0, box_w + glow * 8, box_h + glow * 8), border_radius=10)
+            screen.blit(glow_surf, (box_x - glow * 4, box_y - glow * 4))
+
+        # 박스 배경 (다크 퍼플)
+        box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box_surf, (*DARK_PURPLE, 240), (0, 0, box_w, box_h), border_radius=8)
+        screen.blit(box_surf, (box_x, box_y))
+
+        # 테두리 (골드 + 핑크 그라데이션 효과)
+        pygame.draw.rect(screen, CASINO_GOLD, (box_x, box_y, box_w, box_h), 2, border_radius=8)
+        pygame.draw.rect(screen, NEON_PINK, (box_x + 2, box_y + 2, box_w - 4, box_h - 4), 1, border_radius=6)
+
+        # 텍스트
+        if self.fonts:
+            font = self.fonts.get("small") or self.fonts.get("main")
+            if font:
+                text_color = (255, 255, 255)
+                text_surf, text_rect = font.render(hint_text, text_color)
+                text_x = box_x + (box_w - text_rect.width) // 2 + 15
+                text_y = box_y + (box_h - text_rect.height) // 2
+                screen.blit(text_surf, (text_x, text_y))
+
+        # 카드 아이콘 (좌측 - 스페이드)
+        card_x = box_x + 18
+        card_y = box_y + (box_h - 28) // 2
+        # 카드 배경
+        pygame.draw.rect(screen, (250, 248, 240), (card_x, card_y, 18, 26), border_radius=3)
+        pygame.draw.rect(screen, CASINO_GOLD, (card_x, card_y, 18, 26), 1, border_radius=3)
+        # 스페이드 심볼
+        spade_x = card_x + 9
+        spade_y = card_y + 13
+        # 스페이드 모양 (하트 뒤집은 형태)
+        pygame.draw.polygon(screen, (30, 30, 30), [
+            (spade_x, spade_y - 7),
+            (spade_x - 6, spade_y + 2),
+            (spade_x, spade_y - 1),
+            (spade_x + 6, spade_y + 2)
+        ])
+        pygame.draw.circle(screen, (30, 30, 30), (spade_x - 3, spade_y + 1), 3)
+        pygame.draw.circle(screen, (30, 30, 30), (spade_x + 3, spade_y + 1), 3)
+        pygame.draw.rect(screen, (30, 30, 30), (spade_x - 2, spade_y + 3, 4, 5))
+
+        # 칩 아이콘 (우측)
+        chip_x = box_x + box_w - 28
+        chip_y = box_y + box_h // 2
+        # 칩 본체
+        pygame.draw.circle(screen, (200, 50, 50), (chip_x, chip_y), 10)
+        pygame.draw.circle(screen, CASINO_GOLD, (chip_x, chip_y), 10, 2)
+        pygame.draw.circle(screen, (255, 255, 255), (chip_x, chip_y), 5)
 
     def _draw_npc_interact_hint(self, screen):
         """일반 NPC 근처일 때 상호작용 힌트 표시"""
