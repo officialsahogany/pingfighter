@@ -2554,12 +2554,12 @@ class BuildingInterior:
                 print("[ERROR] poker_game.py 모듈을 찾을 수 없습니다.")
                 return False
 
-        # 플레이어 골드 가져오기
+        # 플레이어 골드 가져오기 (downtown_gold 사용)
         import sys
-        player_gold = 1000  # 기본값
+        player_gold = 0  # 기본값
         if 'pingfighter' in sys.modules:
             pingfighter = sys.modules['pingfighter']
-            player_gold = getattr(pingfighter, 'gold', 1000)
+            player_gold = getattr(pingfighter, 'downtown_gold', 0)
 
         # 최소 베팅 확인
         if player_gold < 10:
@@ -2597,11 +2597,11 @@ class BuildingInterior:
         return result
 
     def _sync_poker_gold(self, new_gold):
-        """포커 게임 결과로 플레이어 골드 동기화"""
+        """포커 게임 결과로 플레이어 골드 동기화 (downtown_gold)"""
         import sys
         if 'pingfighter' in sys.modules:
             pingfighter = sys.modules['pingfighter']
-            setattr(pingfighter, 'gold', new_gold)
+            setattr(pingfighter, 'downtown_gold', new_gold)
 
     def _draw_poker_game(self, screen):
         """포커 게임 화면 그리기"""

@@ -1408,17 +1408,75 @@ class PokerGameUI:
         self._draw_status_badge(screen, self.screen_width - 20, 20, state_text)
 
     def _draw_gold_display(self, screen, x, y):
-        """골드 표시 (프리미엄)"""
+        """골드 표시 - 인게임 금화 아이콘과 동일"""
         # 배경
         box_w, box_h = 130, 35
         pygame.draw.rect(screen, (30, 25, 40), (x, y, box_w, box_h), border_radius=6)
         pygame.draw.rect(screen, self.GOLD, (x, y, box_w, box_h), 2, border_radius=6)
 
-        # 칩 아이콘
-        self._draw_chip(screen, x + 20, y + box_h // 2, 12)
+        # 금화 아이콘 (인게임과 동일)
+        coin_size = 22
+        self._draw_gold_coin(screen, x + 18, y + box_h // 2, coin_size)
 
         # 골드 텍스트
-        self._draw_text(screen, f"{self.game.player_gold:,}G", x + 40, y + 8, self.GOLD_LIGHT, 16)
+        self._draw_text(screen, f"{self.game.player_gold:,}", x + 38, y + 8, self.GOLD_LIGHT, 16)
+
+    def _draw_gold_coin(self, screen, x, y, size):
+        """금화 아이콘 그리기 - 인게임과 동일한 입체감 있는 동전"""
+        # 금화 서피스 생성
+        coin_surf = pygame.Surface((size + 4, size + 4), pygame.SRCALPHA)
+
+        cx, cy = size // 2 + 2, size // 2 + 2
+        radius = size // 2
+
+        # 색상 정의
+        gold_dark = (180, 130, 20)      # 어두운 금색 (테두리/그림자)
+        gold_main = (255, 200, 50)       # 메인 금색
+        gold_light = (255, 235, 120)     # 밝은 금색 (하이라이트)
+        gold_shine = (255, 250, 200)     # 반짝임
+
+        # 그림자 (약간 아래 오른쪽)
+        pygame.draw.circle(coin_surf, (0, 0, 0, 80), (cx + 2, cy + 2), radius)
+
+        # 외곽 테두리 (어두운 금색)
+        pygame.draw.circle(coin_surf, gold_dark, (cx, cy), radius)
+
+        # 메인 금화
+        pygame.draw.circle(coin_surf, gold_main, (cx, cy), radius - 2)
+
+        # 내부 테두리 (입체감)
+        pygame.draw.circle(coin_surf, gold_dark, (cx, cy), radius - 3, 1)
+
+        # 상단 하이라이트 (반원)
+        highlight_rect = (cx - radius + 4, cy - radius + 3, (radius - 4) * 2, radius - 2)
+        pygame.draw.arc(coin_surf, gold_light, highlight_rect, 0.5, 2.6, 2)
+
+        # 중앙에 별 무늬
+        star_size = radius // 2
+        star_points = []
+        for i in range(5):
+            # 바깥 점
+            angle = math.pi / 2 + i * 2 * math.pi / 5
+            px = cx + int(star_size * math.cos(angle))
+            py = cy - int(star_size * math.sin(angle))
+            star_points.append((px, py))
+            # 안쪽 점
+            angle += math.pi / 5
+            px = cx + int(star_size * 0.4 * math.cos(angle))
+            py = cy - int(star_size * 0.4 * math.sin(angle))
+            star_points.append((px, py))
+
+        if len(star_points) >= 3:
+            pygame.draw.polygon(coin_surf, gold_dark, star_points)
+            # 별 하이라이트
+            inner_star = [(int(cx + (p[0] - cx) * 0.7), int(cy + (p[1] - cy) * 0.7)) for p in star_points]
+            if len(inner_star) >= 3:
+                pygame.draw.polygon(coin_surf, gold_light, inner_star)
+
+        # 반짝임 효과 (우상단)
+        pygame.draw.circle(coin_surf, gold_shine, (cx + radius // 3, cy - radius // 3), 2)
+
+        screen.blit(coin_surf, (x - size // 2, y - size // 2))
 
     def _draw_status_badge(self, screen, x, y, text):
         """상태 배지"""
