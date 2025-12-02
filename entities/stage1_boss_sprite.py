@@ -53,6 +53,11 @@ class Stage1BossSprite:
         self.direction = 0  # -1: 왼쪽, 0: 정지, 1: 오른쪽
         self.prev_x = 0.0
 
+        # 방향 전환 안정화 (떨림 방지)
+        self.direction_change_cooldown = 0.0  # 방향 전환 쿨다운 타이머
+        self.direction_change_threshold = 0.15  # 방향 전환 최소 대기 시간 (초)
+        self.movement_accumulator = 0.0  # 이동량 누적 (방향 결정용)
+
         # 프레임 저장 리스트
         self.frames_left = []   # 왼쪽 이동 프레임
         self.frames_right = []  # 오른쪽 이동 프레임
@@ -202,8 +207,29 @@ class Stage1BossSprite:
         # 이동 방향 감지
         dx = current_x - self.prev_x
 
-        if abs(dx) > 0.5:  # 데드존
-            self.direction = 1 if dx > 0 else -1
+        # 방향 전환 쿨다운 업데이트
+        if self.direction_change_cooldown > 0:
+            self.direction_change_cooldown -= dt
+
+        # 이동량 누적 (방향 결정에 사용)
+        self.movement_accumulator += dx
+
+        # 더 큰 데드존 (2.0) 과 누적 이동량 체크로 떨림 방지
+        if abs(dx) > 2.0:  # 기존 0.5에서 2.0으로 증가
+            new_direction = 1 if dx > 0 else -1
+
+            # 방향 전환 시 쿨다운 체크 및 누적 이동량 확인
+            if new_direction != self.direction:
+                # 같은 방향으로 충분히 누적된 이동이 있고, 쿨다운이 끝났을 때만 방향 전환
+                if self.direction_change_cooldown <= 0 and abs(self.movement_accumulator) > 5.0:
+                    if (self.movement_accumulator > 0 and new_direction == 1) or \
+                       (self.movement_accumulator < 0 and new_direction == -1):
+                        self.direction = new_direction
+                        self.direction_change_cooldown = self.direction_change_threshold
+                        self.movement_accumulator = 0  # 방향 전환 후 누적량 리셋
+            else:
+                # 같은 방향 유지 - 누적량 리셋하지 않음
+                pass
 
             # 이동 속도에 따라 애니메이션 속도 조절
             speed_factor = min(abs(dx) / 5.0, 2.0)  # 최대 2배속
@@ -215,10 +241,14 @@ class Stage1BossSprite:
                 self.animation_timer = 0
                 self.current_frame = (self.current_frame + 1) % self.total_frames
         else:
-            # 정지 상태
-            self.direction = 0
-            self.current_frame = 0
-            self.animation_timer = 0
+            # 정지 상태 - 하지만 바로 방향을 0으로 바꾸지 않고 일정 시간 유지
+            if self.direction_change_cooldown <= 0:
+                # 누적 이동량이 거의 없을 때만 정지 상태로 전환
+                if abs(self.movement_accumulator) < 3.0:
+                    self.direction = 0
+                    self.current_frame = 0
+                    self.animation_timer = 0
+                self.movement_accumulator *= 0.8  # 점진적으로 누적량 감소
 
         self.prev_x = current_x
 
