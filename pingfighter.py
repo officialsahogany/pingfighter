@@ -46341,9 +46341,9 @@ def draw_objects():
         rotated_boss = pygame.transform.rotate(rotated_boss, tilt_angle_boss)
         # Stage 1은 세로가 긴 스프라이트이므로 Y 오프셋 추가 (캐릭터가 화면에 보이도록)
         if current_stage == 1:
-            # 세로 160px 스프라이트 → 중심을 아래로 40px 내림 (정수 좌표로 떨림 방지)
+            # 세로 160px 스프라이트 → 중심을 아래로 20px 내림 (정수 좌표로 떨림 방지)
             boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
-                                                      int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 40)))
+                                                      int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 20)))
         else:
             boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x,
                                                       BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
