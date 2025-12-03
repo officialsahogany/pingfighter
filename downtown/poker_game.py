@@ -3133,6 +3133,12 @@ class PokerGameUI:
             'east': (100, 255, 180),
         }
 
+        # 현재 턴인 플레이어 조명 효과
+        current_turn = self.game.current_action_player
+        if current_turn and self.game.state in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
+                                                  PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
+            self._draw_turn_spotlight(screen, current_turn, player_info_positions)
+
         # 각 플레이어 정보 패널 표시
         for position, player in self.game.players.items():
             x, y = player_info_positions[position]
@@ -3169,13 +3175,6 @@ class PokerGameUI:
         }
         state_text = state_names.get(self.game.state, self.game.state)
         self._draw_status_badge(screen, self.screen_width - 20, 20, state_text)
-
-        # 현재 턴 표시
-        if self.game.current_action_player:
-            current_player = self.game.players.get(self.game.current_action_player)
-            if current_player and not current_player.folded:
-                turn_text = f"턴: {current_player.name}"
-                self._draw_text(screen, turn_text, self.screen_width - 80, 50, (200, 200, 100), 12, center=True)
 
         # NPC 생각 중 또는 액션 표시
         self._draw_npc_thinking(screen)
@@ -3244,6 +3243,54 @@ class PokerGameUI:
 
                 # 텍스트
                 self._draw_text(screen, action_text, bx, by - 6, text_color, 12, center=True)
+
+    def _draw_turn_spotlight(self, screen, position, player_info_positions):
+        """현재 턴인 플레이어에게 조명 효과"""
+        if position not in player_info_positions:
+            return
+
+        player = self.game.players.get(position)
+        if not player or player.folded or player.is_bankrupt:
+            return
+
+        x, y = player_info_positions[position]
+        box_w, box_h = 130, 45
+
+        # 조명 효과 - 여러 겹의 반투명 글로우
+        spotlight_surf = pygame.Surface((box_w + 60, box_h + 60), pygame.SRCALPHA)
+
+        # 위치별 조명 색상
+        spotlight_colors = {
+            'south': (100, 150, 255),   # 파란색 (플레이어)
+            'north': (255, 100, 100),   # 빨간색
+            'west': (255, 180, 100),    # 주황색
+            'east': (100, 255, 180),    # 민트색
+        }
+        base_color = spotlight_colors.get(position, (255, 220, 100))
+
+        # 펄스 애니메이션 (시간에 따라 밝기 변화)
+        import math
+        pulse = (math.sin(self.animation_timer * 3) + 1) / 2  # 0~1 사이 값
+        alpha_base = 25 + int(20 * pulse)
+
+        # 외곽 글로우 (큰 원)
+        for i in range(3):
+            alpha = alpha_base - i * 8
+            if alpha > 0:
+                glow_color = (*base_color, alpha)
+                radius = 30 - i * 5
+                pygame.draw.ellipse(spotlight_surf, glow_color,
+                                   (30 - radius, 30 - radius,
+                                    box_w + radius * 2, box_h + radius * 2))
+
+        screen.blit(spotlight_surf, (x - 30, y - 30))
+
+        # 테두리 강조 효과
+        border_alpha = 150 + int(50 * pulse)
+        border_color = (*base_color, min(255, border_alpha))
+        border_surf = pygame.Surface((box_w + 6, box_h + 6), pygame.SRCALPHA)
+        pygame.draw.rect(border_surf, border_color, (0, 0, box_w + 6, box_h + 6), 3, border_radius=8)
+        screen.blit(border_surf, (x - 3, y - 3))
 
     def _draw_player_info_panel(self, screen, x, y, player, color):
         """플레이어 정보 패널 그리기"""
