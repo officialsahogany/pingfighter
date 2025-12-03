@@ -3249,8 +3249,11 @@ class PokerGameUI:
         """플레이어 정보 패널 그리기"""
         box_w, box_h = 130, 45
 
-        # 폴드한 플레이어는 어둡게
-        if player.folded:
+        # 파산/폴드한 플레이어는 어둡게
+        if player.is_bankrupt:
+            bg_color = (15, 15, 20)
+            border_color = (60, 60, 60)
+        elif player.folded:
             bg_color = (20, 20, 25)
             border_color = (80, 80, 80)
         else:
@@ -3260,14 +3263,27 @@ class PokerGameUI:
         pygame.draw.rect(screen, bg_color, (x, y, box_w, box_h), border_radius=6)
         pygame.draw.rect(screen, border_color, (x, y, box_w, box_h), 2, border_radius=6)
 
-        # 이름 (상단)
-        name_text = player.name if not player.folded else f"{player.name} (FOLD)"
-        self._draw_text(screen, name_text, x + box_w // 2, y + 5, color if not player.folded else (100, 100, 100), 11, center=True)
+        # 이름 (상단) - 파산/폴드 태그 표시
+        if player.is_bankrupt:
+            name_text = f"{player.name} (파산)"
+            text_color = (120, 80, 80)
+        elif player.folded:
+            name_text = f"{player.name} (FOLD)"
+            text_color = (100, 100, 100)
+        else:
+            name_text = player.name
+            text_color = color
+        self._draw_text(screen, name_text, x + box_w // 2, y + 5, text_color, 11, center=True)
 
         # 금화 아이콘 + 골드 (하단)
         coin_size = 18
         self._draw_gold_coin(screen, x + 15, y + 32, coin_size)
-        gold_color = self.GOLD_LIGHT if not player.folded else (100, 100, 80)
+        if player.is_bankrupt:
+            gold_color = (80, 60, 60)
+        elif player.folded:
+            gold_color = (100, 100, 80)
+        else:
+            gold_color = self.GOLD_LIGHT
         self._draw_text(screen, f"{player.gold:,}", x + 32, y + 24, gold_color, 14)
 
         # 현재 베팅 금액 표시
