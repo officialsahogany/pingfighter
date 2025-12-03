@@ -2775,9 +2775,9 @@ class PokerGameUI:
             return
 
         # 일반 게임 레이아웃
-        # 커뮤니티 카드 (중앙)
+        # 커뮤니티 카드 (중앙) - 더 위로 이동
         if self.game.community_cards:
-            comm_y = cy - 20
+            comm_y = cy - 60
             total_width = len(self.game.community_cards) * (self.CARD_WIDTH + 10)
             comm_start_x = cx - total_width // 2
 
@@ -2855,9 +2855,9 @@ class PokerGameUI:
         cy = self.screen_height // 2
 
         # 이미 배치된 카드들 (애니메이션 완료된 것들)
-        # 커뮤니티 카드
+        # 커뮤니티 카드 - 더 위로 이동
         if self.game.community_cards:
-            comm_y = cy - 20
+            comm_y = cy - 60
             total_width = len(self.game.community_cards) * (self.CARD_WIDTH + 10)
             comm_start_x = cx - total_width // 2
 
@@ -2901,7 +2901,7 @@ class PokerGameUI:
 
         # 펜딩 카드 (커뮤니티 딜링 중)
         if self.game.pending_cards:
-            comm_y = cy - 20
+            comm_y = cy - 60
             base_idx = len(self.game.community_cards)
             base_x = 200 + base_idx * (self.CARD_WIDTH + 10)
 
@@ -2934,9 +2934,9 @@ class PokerGameUI:
         cx = self.screen_width // 2
         cy = self.screen_height // 2
 
-        # 커뮤니티 카드 (중앙) - 그대로 유지
+        # 커뮤니티 카드 (중앙) - 위로 이동
         if self.game.community_cards:
-            comm_y = cy
+            comm_y = cy - 60
             total_width = len(self.game.community_cards) * (self.CARD_WIDTH + 10)
             comm_start_x = cx - total_width // 2
 
@@ -3073,10 +3073,7 @@ class PokerGameUI:
             color = label_colors[position]
             self._draw_player_info_panel(screen, x, y, player, color)
 
-        # 팟(Pot) 정보 표시 (중앙 상단)
-        if self.game.pot > 0:
-            pot_text = f"POT: {self.game.pot}G"
-            self._draw_text(screen, pot_text, cx, cy - 80, self.GOLD, 18, center=True)
+        # 팟(Pot) 정보 - 제거됨 (UI 간소화)
 
         # 현재 콜 금액 (플레이어 차례일 때)
         human = self.game.players['south']
