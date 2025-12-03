@@ -1868,10 +1868,10 @@ class PokerGameUI:
         # 플로팅 텍스트 업데이트
         updated_floating = []
         for ft in self.floating_texts:
-            text, x, y, color, timer, max_timer, text_type = ft
+            text, x, y, color, timer, max_timer, text_type, target = ft
             timer += dt
             if timer < max_timer:
-                updated_floating.append((text, x, y, color, timer, max_timer, text_type))
+                updated_floating.append((text, x, y, color, timer, max_timer, text_type, target))
         self.floating_texts = updated_floating
 
         if self.game:
@@ -1885,10 +1885,10 @@ class PokerGameUI:
 
                 # 펜딩된 플로팅 텍스트 처리
                 if self.game.pending_floating_texts:
-                    # 플레이어 골드 위치: 좌하단 (20, screen_height - 50)
-                    # 딜러 골드 위치: 좌상단 (20, 15)
+                    # 플레이어 골드 위치: 좌하단
+                    # 딜러 골드 위치: 좌상단 (딜러 박스 아래에서 시작)
                     player_x, player_y = 150, self.screen_height - 50
-                    dealer_x, dealer_y = 150, 40
+                    dealer_x, dealer_y = 150, 70  # 딜러 박스(y=15, h=50) 아래
 
                     player_offset = 0
                     dealer_offset = 0
@@ -1917,8 +1917,8 @@ class PokerGameUI:
                             y = dealer_y + dealer_offset
                             dealer_offset += 25
 
-                        # 플로팅 텍스트 추가 (text, x, y, color, timer, max_timer, type)
-                        self.floating_texts.append((text, x, y, color, 0, 2.0, text_type))
+                        # 플로팅 텍스트 추가 (text, x, y, color, timer, max_timer, type, target)
+                        self.floating_texts.append((text, x, y, color, 0, 2.0, text_type, target))
 
                         # 효과음 재생 (한 번만)
                         if not played_sound:
@@ -1962,15 +1962,18 @@ class PokerGameUI:
         self._draw_floating_texts(screen)
 
     def _draw_floating_texts(self, screen):
-        """플로팅 텍스트 렌더링 (위로 올라가며 페이드아웃)"""
+        """플로팅 텍스트 렌더링 (위로/아래로 이동하며 페이드아웃)"""
         for ft in self.floating_texts:
-            text, base_x, base_y, color, timer, max_timer, text_type = ft
+            text, base_x, base_y, color, timer, max_timer, text_type, target = ft
 
             # 진행률 계산 (0.0 ~ 1.0)
             progress = timer / max_timer
 
-            # 위로 이동 (최대 60px)
-            y_offset = -progress * 60
+            # 이동 방향: 플레이어는 위로, 딜러는 아래로 (최대 60px)
+            if target == 'dealer':
+                y_offset = progress * 60  # 아래로 이동
+            else:
+                y_offset = -progress * 60  # 위로 이동
             current_y = base_y + y_offset
 
             # 페이드아웃 (0.5초 후부터 페이드)
@@ -1989,8 +1992,8 @@ class PokerGameUI:
             icon_x = int(base_x)
             icon_y = int(current_y)
 
-            # 아이콘 서피스 생성
-            icon_surf = pygame.Surface((icon_size + 100, icon_size + 8), pygame.SRCALPHA)
+            # 아이콘 서피스 생성 (텍스트 길이에 맞게 충분히 크게)
+            icon_surf = pygame.Surface((icon_size + 200, icon_size + 8), pygame.SRCALPHA)
 
             # 골드 코인 아이콘 그리기
             coin_color = (255, 200, 50, alpha)
@@ -2008,9 +2011,19 @@ class PokerGameUI:
             except:
                 pass
 
-            # 숫자 텍스트 - 시스템 폰트 사용
+            # 숫자 텍스트 - 한글 지원 폰트 사용
             try:
-                text_font = pygame.font.SysFont('Arial', 16, bold=True)
+                # 한글 폰트 우선 시도
+                text_font = None
+                for font_name in ['NanumGothic', 'AppleGothic', 'Malgun Gothic', 'Arial']:
+                    try:
+                        text_font = pygame.font.SysFont(font_name, 14, bold=True)
+                        break
+                    except:
+                        continue
+                if text_font is None:
+                    text_font = pygame.font.Font(None, 16)
+
                 text_color = (color[0], color[1], color[2])
                 text_surf = text_font.render(text, True, text_color)
                 text_surf.set_alpha(alpha)
