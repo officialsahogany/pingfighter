@@ -630,7 +630,7 @@ class PokerGame:
             self._showdown()
 
     def _dealer_ai_decision(self):
-        """딜러 AI: 핸드 강도에 따라 레이즈/콜/체크 결정"""
+        """딜러 AI: 예측 불가능한 혼합 전략"""
         import random
 
         # 딜러 핸드 + 커뮤니티 카드로 현재 패 평가
@@ -647,38 +647,76 @@ class PokerGame:
         min_raise = max(10, int(base_bet * 0.5))  # 최소: 베팅의 50%
         max_raise = int(base_bet * 2.0)  # 최대: 베팅의 200%
 
-        # 레이즈 확률 및 배율 계산 (핸드가 강할수록 높음)
-        # hand_rank: 1(하이카드) ~ 10(로얄플러시)
-        base_raise_chance = 0.0
-        raise_multiplier = 0.5  # 베팅 대비 레이즈 배율
+        # ===== 혼합 전략 선택 (매번 랜덤) =====
+        strategy = random.choices(
+            ['standard', 'slow_play', 'bluff', 'random'],
+            weights=[40, 20, 20, 20]  # 40% 표준, 20% 슬로우플레이, 20% 블러핑, 20% 랜덤
+        )[0]
 
-        if hand_rank >= 8:  # 스트레이트 플러시 이상
-            base_raise_chance = 0.9
-            raise_multiplier = random.uniform(1.5, 2.0)  # 150~200%
-        elif hand_rank >= 6:  # 플러시/풀하우스
-            base_raise_chance = 0.7
-            raise_multiplier = random.uniform(1.0, 1.5)  # 100~150%
-        elif hand_rank >= 4:  # 스트레이트/트리플
-            base_raise_chance = 0.5
-            raise_multiplier = random.uniform(0.7, 1.2)  # 70~120%
-        elif hand_rank >= 3:  # 투페어
-            base_raise_chance = 0.35
-            raise_multiplier = random.uniform(0.5, 0.8)  # 50~80%
-        elif hand_rank >= 2:  # 원페어
-            base_raise_chance = 0.2
-            raise_multiplier = random.uniform(0.3, 0.6)  # 30~60%
-        else:  # 하이카드
-            base_raise_chance = 0.1  # 블러핑
-            raise_multiplier = random.uniform(0.3, 0.5)  # 30~50%
+        base_raise_chance = 0.0
+        raise_multiplier = 0.5
+
+        if strategy == 'standard':
+            # === 전략 1: 표준 (패 강도에 비례) ===
+            if hand_rank >= 8:
+                base_raise_chance = 0.85
+                raise_multiplier = random.uniform(1.2, 1.8)
+            elif hand_rank >= 6:
+                base_raise_chance = 0.7
+                raise_multiplier = random.uniform(0.9, 1.4)
+            elif hand_rank >= 4:
+                base_raise_chance = 0.5
+                raise_multiplier = random.uniform(0.6, 1.0)
+            elif hand_rank >= 3:
+                base_raise_chance = 0.35
+                raise_multiplier = random.uniform(0.5, 0.8)
+            elif hand_rank >= 2:
+                base_raise_chance = 0.25
+                raise_multiplier = random.uniform(0.4, 0.6)
+            else:
+                base_raise_chance = 0.1
+                raise_multiplier = random.uniform(0.3, 0.5)
+
+        elif strategy == 'slow_play':
+            # === 전략 2: 슬로우 플레이 (강한 패 → 작게 베팅해서 유인) ===
+            if hand_rank >= 6:  # 아주 강한 패
+                base_raise_chance = 0.6  # 레이즈 확률 낮춤
+                raise_multiplier = random.uniform(0.3, 0.5)  # 작게 베팅
+            elif hand_rank >= 4:
+                base_raise_chance = 0.4
+                raise_multiplier = random.uniform(0.4, 0.6)
+            elif hand_rank >= 2:
+                base_raise_chance = 0.5  # 중간 패는 보통으로
+                raise_multiplier = random.uniform(0.5, 0.8)
+            else:
+                base_raise_chance = 0.15
+                raise_multiplier = random.uniform(0.3, 0.5)
+
+        elif strategy == 'bluff':
+            # === 전략 3: 블러핑 (약한 패 → 크게 베팅해서 폴드 유도) ===
+            if hand_rank <= 2:  # 약한 패
+                base_raise_chance = 0.7  # 높은 블러핑 확률
+                raise_multiplier = random.uniform(1.0, 1.8)  # 크게 베팅
+            elif hand_rank <= 4:
+                base_raise_chance = 0.5
+                raise_multiplier = random.uniform(0.8, 1.2)
+            else:  # 강한 패는 오히려 조용히
+                base_raise_chance = 0.4
+                raise_multiplier = random.uniform(0.4, 0.7)
+
+        else:  # random
+            # === 전략 4: 완전 랜덤 (패와 무관) ===
+            base_raise_chance = random.uniform(0.2, 0.7)
+            raise_multiplier = random.uniform(0.4, 1.5)
 
         # 스테이지에 따른 조정 (후반부일수록 더 공격적)
         stage_multiplier = 1.0
         if self.state == self.STATE_TURN:
-            stage_multiplier = 1.2
+            stage_multiplier = 1.15
         elif self.state == self.STATE_RIVER:
-            stage_multiplier = 1.4
+            stage_multiplier = 1.3
 
-        final_raise_chance = min(0.95, base_raise_chance * stage_multiplier)
+        final_raise_chance = min(0.9, base_raise_chance * stage_multiplier)
 
         # 랜덤으로 레이즈 여부 결정
         if random.random() < final_raise_chance:
@@ -1974,11 +2012,11 @@ class PokerGameUI:
             circle_left_x = x - s * 0.35
             circle_right_x = x + s * 0.35
 
-            # 상단 뾰족한 삼각형 (뒤집힌 하트) - 더 가파른 각도
+            # 상단 뾰족한 삼각형 (뒤집힌 하트) - 원 안쪽까지만
             pygame.draw.polygon(screen, color, [
-                (x, y - s * 0.7),                                # 상단 뾰족점
-                (circle_left_x - r * 0.45, circle_y - r * 0.15),  # 왼쪽 (더 좁게)
-                (circle_right_x + r * 0.45, circle_y - r * 0.15), # 오른쪽 (더 좁게)
+                (x, y - s * 0.7),                    # 상단 뾰족점
+                (circle_left_x, circle_y - r * 0.3),  # 왼쪽 (원 안쪽)
+                (circle_right_x, circle_y - r * 0.3), # 오른쪽 (원 안쪽)
             ])
 
             # 하단 원들
