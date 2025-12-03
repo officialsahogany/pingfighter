@@ -2047,11 +2047,23 @@ class PokerGameUI:
             ]
             pygame.draw.polygon(screen, color, points)
         elif symbol_index == 3:  # 클럽 ♣
-            # 세 개의 원 + 줄기
-            pygame.draw.circle(screen, color, (x, y - size // 2), size // 2 + 1)
-            pygame.draw.circle(screen, color, (x - size // 2 - 1, y + size // 4), size // 2 + 1)
-            pygame.draw.circle(screen, color, (x + size // 2 + 1, y + size // 4), size // 2 + 1)
-            pygame.draw.rect(screen, color, (x - size // 4, y + size // 3, size // 2, size // 2))
+            # 세 개의 큰 원 (잎) + 줄기
+            s = size * 1.3  # 전체 크기 확대
+            leaf_r = int(s * 0.45)  # 잎 반지름 (더 크게)
+
+            # 상단 잎 (더 위로)
+            pygame.draw.circle(screen, color, (x, int(y - s * 0.4)), leaf_r)
+            # 좌하단 잎 (더 벌어지게)
+            pygame.draw.circle(screen, color, (int(x - s * 0.45), int(y + s * 0.15)), leaf_r)
+            # 우하단 잎 (더 벌어지게)
+            pygame.draw.circle(screen, color, (int(x + s * 0.45), int(y + s * 0.15)), leaf_r)
+
+            # 줄기 (삼각형)
+            pygame.draw.polygon(screen, color, [
+                (x - s * 0.15, y + s * 0.2),
+                (x + s * 0.15, y + s * 0.2),
+                (x, y + s * 0.7)
+            ])
 
     def _draw_pot_display(self, screen, x, y):
         """팟 표시 (프리미엄)"""
