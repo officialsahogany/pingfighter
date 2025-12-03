@@ -2892,28 +2892,12 @@ class PokerGameUI:
                     self.card_renderer.draw_card(screen, card, card_x, actual_y,
                                                 self.CARD_WIDTH, self.CARD_HEIGHT)
 
-            # 레이블 위치
-            label_x = start_x + self.CARD_WIDTH
+            # 플레이어(south)만 카드 라벨 표시 - NPC는 정보 패널에 이름 있음
             if position == 'south':
+                label_x = start_x + self.CARD_WIDTH
                 label_y = card_y - 25
                 label_text = "YOUR HAND"
-            elif position == 'north':
-                label_y = card_y - 25
-                label_text = player.name
-            elif position == 'west':
-                label_x = start_x + self.CARD_WIDTH + 10
-                label_y = card_y - 25
-                label_text = player.name
-            else:  # east
-                label_x = start_x
-                label_y = card_y - 25
-                label_text = player.name
-
-            # 폴드한 플레이어 표시
-            if player.folded:
-                label_text = f"{player.name} (FOLD)"
-
-            self._draw_text(screen, label_text, label_x, label_y, label_colors[position], 14, center=True)
+                self._draw_text(screen, label_text, label_x, label_y, label_colors[position], 14, center=True)
 
     def _draw_animated_cards(self, screen):
         """애니메이션 중인 카드 그리기 - 4인 테이블"""
