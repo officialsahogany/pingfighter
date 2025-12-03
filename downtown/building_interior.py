@@ -2206,6 +2206,13 @@ class BuildingInterior:
             crane_bgm_path = resource_path(os.path.join("bgm", "crane.wav"))
             if os.path.exists(crane_bgm_path):
                 self.crane_bgm_path = crane_bgm_path
+
+            # 빠칭코 게임 BGM 경로 설정
+            pachinko_bgm_path = resource_path(os.path.join("bgm", "ppachinkobgm.wav"))
+            if os.path.exists(pachinko_bgm_path):
+                self.pachinko_bgm_path = pachinko_bgm_path
+            else:
+                self.pachinko_bgm_path = None
         except Exception as e:
             print(f"Warning: Could not load trade/star sound: {e}")
 
@@ -2628,6 +2635,15 @@ class BuildingInterior:
         self.pachinko_game_ui.start_game(player_gold)
         self.pachinko_game_playing = True
 
+        # 빠칭코 BGM 재생
+        if hasattr(self, 'pachinko_bgm_path') and self.pachinko_bgm_path:
+            try:
+                pygame.mixer.music.load(self.pachinko_bgm_path)
+                pygame.mixer.music.set_volume(0.5)
+                pygame.mixer.music.play(-1)  # 무한 반복
+            except Exception as e:
+                print(f"[빠칭코] BGM 재생 실패: {e}")
+
         return True
 
     def _update_pachinko_game(self, dt):
@@ -2650,6 +2666,8 @@ class BuildingInterior:
             self._sync_pachinko_gold(final_gold)
             self.pachinko_game_playing = False
             self.pachinko_game_ui = None
+            # 빠칭코 BGM 중지 및 광장 BGM 복구
+            self._stop_pachinko_bgm()
             return 'pachinko_exit'
 
         return result
@@ -2971,6 +2989,16 @@ class BuildingInterior:
             bgm_manager.play_downtown_bgm()
         except Exception as e:
             print(f"[크레인] BGM 복구 실패: {e}")
+
+    def _stop_pachinko_bgm(self):
+        """빠칭코 게임 BGM 중지 및 광장 BGM 복구"""
+        try:
+            pygame.mixer.music.stop()
+            # 광장 BGM 복구 (bgm_manager 사용)
+            import bgm_manager
+            bgm_manager.play_downtown_bgm()
+        except Exception as e:
+            print(f"[빠칭코] BGM 복구 실패: {e}")
 
     def _update_crane_game(self, dt):
         """크레인 게임 업데이트"""
@@ -5362,10 +5390,20 @@ class BuildingInterior:
             
             withdrawn = self.deposit_amount
             self.deposit_amount = 0
-            
+
+            # 골드 증가 애니메이션 추가 (출금 = 골드 획득)
+            self._add_gold_float_animation(withdrawn, is_gain=True)
+
+            # 효과음 재생
+            if self.trade_sound:
+                try:
+                    self.trade_sound.play()
+                except Exception:
+                    pass
+
             print(f"[DEPOSIT] Withdraw at stage {current_stage}: {withdrawn:,}G")
             print(f"[DEPOSIT] Interest rate for stage {current_stage + 1}: {new_rate*100:.1f}%")
-            
+
             return ("withdraw_success", withdrawn)
         else:
             # 예금 모드
@@ -5392,10 +5430,20 @@ class BuildingInterior:
 
             deposited = self.deposit_amount
             self.deposit_amount = 0
-            
+
+            # 골드 감소 애니메이션 추가 (예금 = 골드 소모)
+            self._add_gold_float_animation(deposited, is_gain=False)
+
+            # 효과음 재생
+            if self.trade_sound:
+                try:
+                    self.trade_sound.play()
+                except Exception:
+                    pass
+
             print(f"[DEPOSIT] Deposit at stage {current_stage}: {deposited:,}G")
             print(f"[DEPOSIT] Interest rate for stage {current_stage + 1}: {new_rate*100:.1f}%")
-            
+
             return ("deposit_success", deposited)
 
     def _draw_exchange_menu(self, screen):

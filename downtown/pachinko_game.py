@@ -33,24 +33,24 @@ class SlotSymbol:
     """슬롯 심볼 정의"""
     # 심볼 타입과 배당률
     SYMBOLS = {
-        "pingpong": {"name": "탁구공", "multiplier": 2, "color": (255, 255, 255)},
-        "banana": {"name": "바나나", "multiplier": 3, "color": (255, 230, 50)},
         "apple": {"name": "사과", "multiplier": 4, "color": (220, 50, 50)},
-        "key": {"name": "열쇠", "multiplier": 5, "color": (255, 200, 100)},
-        "diamond": {"name": "다이아몬드", "multiplier": 7, "color": (100, 200, 255)},
-        "pandora": {"name": "판도라 상자", "multiplier": 10, "color": (180, 100, 255)},
+        "key": {"name": "열쇠", "multiplier": 6, "color": (255, 200, 100)},
+        "banana": {"name": "금괴", "multiplier": 9, "color": (255, 215, 0)},
+        "pingpong": {"name": "진주", "multiplier": 15, "color": (255, 255, 255)},
+        "diamond": {"name": "다이아몬드", "multiplier": 20, "color": (100, 200, 255)},
+        "pandora": {"name": "판도라 상자", "multiplier": 30, "color": (180, 100, 255)},
         "seven": {"name": "럭키 7", "multiplier": 0, "color": (255, 215, 0), "bonus": True},  # 보너스 라운드
     }
 
-    # 심볼 등장 확률 (가중치)
+    # 심볼 등장 확률 (가중치) - 배율 순서대로 재정렬
     WEIGHTS = {
-        "pingpong": 30,  # 가장 흔함
-        "banana": 25,
-        "apple": 20,
-        "key": 12,
-        "diamond": 8,
-        "pandora": 4,
-        "seven": 1,  # 가장 희귀
+        "apple": 30,      # 가장 흔함 (4배)
+        "key": 25,        # (6배)
+        "banana": 20,     # (9배)
+        "pingpong": 12,   # (15배)
+        "diamond": 8,     # (20배)
+        "pandora": 4,     # (30배)
+        "seven": 1,       # 가장 희귀 (보너스)
     }
 
     @classmethod
@@ -160,14 +160,19 @@ class PachinkoGame:
     STATE_BONUS_SPINNING = "bonus_spinning"
     STATE_BONUS_RESULT = "bonus_result"
 
+    # 3매치 확률 부스트 설정 (0.0 ~ 1.0)
+    # 0.0 = 완전 랜덤, 1.0 = 거의 항상 매칭
+    MATCH_BOOST_CHANCE_REEL2 = 0.35  # 두 번째 릴: 35% 확률로 첫 번째 릴과 동일
+    MATCH_BOOST_CHANCE_REEL3 = 0.08  # 세 번째 릴: 8% 확률로 (매우 어렵게)
+
     def __init__(self):
         self.reels = [SlotReel(i) for i in range(3)]
         self.state = self.STATE_BETTING
 
         # 배팅 관련
-        self.bet_amount = 10
+        self.bet_amount = 5
         self.min_bet = 1
-        self.max_bet = 100
+        self.max_bet = 30
         self.player_gold = 0
 
         # 결과 관련
@@ -181,6 +186,9 @@ class PachinkoGame:
         self.bonus_round = False
         self.bonus_bet = 0
         self.bonus_symbol = None
+
+        # 매칭 부스트용 - 첫 번째 릴의 심볼 저장
+        self.first_reel_symbol = None
 
         # 애니메이션
         self.animation_timer = 0
@@ -244,13 +252,39 @@ class PachinkoGame:
 
         return False
 
+    def _get_boosted_symbol(self, reel_index):
+        """매칭 부스트가 적용된 심볼 선택"""
+        # 첫 번째 릴은 완전 랜덤
+        if reel_index == 0:
+            symbol = SlotSymbol.get_random_symbol()
+            self.first_reel_symbol = symbol
+            return symbol
+
+        # 두 번째 릴: 35% 확률로 첫 번째와 동일
+        if reel_index == 1:
+            if self.first_reel_symbol and random.random() < self.MATCH_BOOST_CHANCE_REEL2:
+                return self.first_reel_symbol
+            else:
+                return SlotSymbol.get_random_symbol()
+
+        # 세 번째 릴: 15% 확률로 첫 번째와 동일 (더 어렵게)
+        if reel_index == 2:
+            if self.first_reel_symbol and random.random() < self.MATCH_BOOST_CHANCE_REEL3:
+                return self.first_reel_symbol
+            else:
+                return SlotSymbol.get_random_symbol()
+
+        return SlotSymbol.get_random_symbol()
+
     def stop_current_reel(self):
         """현재 릴 정지 (클릭 시)"""
         if self.state == self.STATE_SPINNING:
             if self.stopped_reels < 3:
                 reel = self.reels[self.stopped_reels]
                 if reel.is_spinning and not reel.is_stopped:
-                    reel.stop_spin()
+                    # 매칭 부스트 적용된 심볼 선택
+                    boosted_symbol = self._get_boosted_symbol(self.stopped_reels)
+                    reel.stop_spin(forced_symbol=boosted_symbol)
                     self.stopped_reels += 1
                     self.play_stop_sound = True
 
@@ -474,23 +508,29 @@ class PachinkoGameUI:
                     if self.game.result_display_timer > 1.0:
                         self.game.reset_for_new_game()
 
-        # 마우스 휠로 배팅 조절
+        # 마우스 휠로 배팅 조절 (5골드씩)
         elif event.type == pygame.MOUSEWHEEL:
-            self.game.adjust_bet(event.y * 5)
+            mouse_pos = pygame.mouse.get_pos()
+            if self._is_inside_window(mouse_pos):
+                self.game.adjust_bet(event.y * 5)  # 휠 한 번에 5골드
+                return "bet_adjust"
 
         # 마우스 클릭
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:  # 좌클릭
-                mouse_pos = pygame.mouse.get_pos()
+            mouse_pos = event.pos if hasattr(event, 'pos') else pygame.mouse.get_pos()
 
-                # 창 내부 클릭 확인
-                if self._is_inside_window(mouse_pos):
+            # 창 내부 클릭 확인
+            if self._is_inside_window(mouse_pos):
+                if event.button == 1:  # 좌클릭
                     # 회전 중이면 릴 정지
                     if self.game.state in [self.game.STATE_SPINNING, self.game.STATE_BONUS_SPINNING]:
                         self.game.stop_current_reel()
+                        return "reel_stop"
                     # 버튼 클릭 확인
                     else:
-                        self._handle_button_click(mouse_pos)
+                        result = self._handle_button_click(mouse_pos)
+                        if result:
+                            return result
 
         return None
 
@@ -506,9 +546,11 @@ class PachinkoGameUI:
         if spin_btn.collidepoint(pos):
             if self.game.state in [self.game.STATE_BETTING, self.game.STATE_BONUS_BETTING]:
                 self.game.start_spin()
+                return "spin_start"
             elif self.game.state in [self.game.STATE_RESULT, self.game.STATE_BONUS_RESULT]:
                 if self.game.result_display_timer > 0.5:
                     self.game.reset_for_new_game()
+                    return "next_round"
 
         # 배팅 +/- 버튼
         plus_btn = self._get_bet_plus_button_rect()
@@ -516,8 +558,12 @@ class PachinkoGameUI:
 
         if plus_btn.collidepoint(pos):
             self.game.adjust_bet(10)
+            return "bet_plus"
         elif minus_btn.collidepoint(pos):
             self.game.adjust_bet(-10)
+            return "bet_minus"
+
+        return None
 
     def _get_spin_button_rect(self):
         """스핀 버튼 영역"""
@@ -690,21 +736,6 @@ class PachinkoGameUI:
             self._draw_single_reel(screen, reel, reel_x, reel_area_y + 15,
                                   reel_width, reel_area_h - 30, i)
 
-        # 당첨 라인 (중앙 가로선)
-        line_y = reel_area_y + reel_area_h // 2
-        pygame.draw.line(screen, C["win_line"],
-                        (reel_area_x - 10, line_y), (reel_area_x + reel_area_w + 10, line_y), 3)
-        # 화살표
-        pygame.draw.polygon(screen, C["win_line"], [
-            (reel_area_x - 15, line_y),
-            (reel_area_x - 5, line_y - 8),
-            (reel_area_x - 5, line_y + 8)
-        ])
-        pygame.draw.polygon(screen, C["win_line"], [
-            (reel_area_x + reel_area_w + 15, line_y),
-            (reel_area_x + reel_area_w + 5, line_y - 8),
-            (reel_area_x + reel_area_w + 5, line_y + 8)
-        ])
 
     def _draw_single_reel(self, screen, reel, x, y, w, h, reel_index):
         """개별 릴 그리기"""
@@ -749,93 +780,575 @@ class PachinkoGameUI:
                 ], 2)
 
     def _draw_symbol(self, screen, symbol_name, x, y, w, h, is_center=False):
-        """심볼 그리기"""
+        """심볼 그리기 - 고퀄리티 실사풍"""
         symbol_data = SlotSymbol.SYMBOLS.get(symbol_name, {})
         color = symbol_data.get("color", (200, 200, 200))
 
-        # 심볼 배경
-        bg_color = (color[0]//4, color[1]//4, color[2]//4)
-        pygame.draw.rect(screen, bg_color, (x, y, w, h), border_radius=6)
+        # 심볼 배경 (그라데이션 효과)
+        bg_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        for i in range(h):
+            ratio = i / h
+            r = int(30 + 20 * ratio)
+            g = int(20 + 15 * ratio)
+            b = int(50 + 20 * ratio)
+            pygame.draw.line(bg_surf, (r, g, b, 230), (0, i), (w, i))
+        pygame.draw.rect(bg_surf, (0, 0, 0, 0), (0, 0, w, h), border_radius=6)
+        screen.blit(bg_surf, (x, y))
+        pygame.draw.rect(screen, (60, 50, 80), (x, y, w, h), border_radius=6)
 
-        # 중앙 심볼 강조
+        # 중앙 심볼 강조 (글로우 효과)
         if is_center:
-            pygame.draw.rect(screen, color, (x, y, w, h), 2, border_radius=6)
+            glow_surf = pygame.Surface((w + 8, h + 8), pygame.SRCALPHA)
+            glow_alpha = int(100 + 50 * math.sin(self.animation_timer * 4))
+            pygame.draw.rect(glow_surf, (*color, glow_alpha), (0, 0, w + 8, h + 8), border_radius=8)
+            screen.blit(glow_surf, (x - 4, y - 4))
+            pygame.draw.rect(screen, color, (x, y, w, h), 3, border_radius=6)
 
         # 심볼 아이콘 그리기
         cx = x + w // 2
         cy = y + h // 2
+        r = min(w, h) // 3  # 기본 반지름
 
         if symbol_name == "pingpong":
-            # 탁구공
-            pygame.draw.circle(screen, (255, 255, 255), (cx, cy), min(w, h) // 3)
-            pygame.draw.circle(screen, (200, 200, 200), (cx, cy), min(w, h) // 3, 2)
-            # 줄무늬
-            pygame.draw.arc(screen, (220, 220, 220),
-                          (cx - min(w,h)//3, cy - min(w,h)//3, min(w,h)*2//3, min(w,h)*2//3),
-                          0.5, 2.5, 2)
+            # 진주 - 고급스러운 푸른빛 흰색 진주
+            t = self.animation_timer
+
+            # === 다층 그림자 (입체감) ===
+            # 먼 그림자 (퍼짐)
+            shadow_surf = pygame.Surface((r*2 + 10, 14), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_surf, (40, 50, 70, 50), (0, 0, r*2 + 6, 10))
+            screen.blit(shadow_surf, (cx - r - 3, cy + r - 2))
+            # 가까운 그림자
+            pygame.draw.ellipse(screen, (50, 60, 80), (cx - r + 2, cy + r - 4, r*2 - 4, 8))
+
+            # === 진주 베이스 (푸른빛 흰색) ===
+            # 외곽 테두리 (살짝 푸른 그림자)
+            pygame.draw.circle(screen, (200, 215, 235), (cx, cy), r + 1)
+
+            # 진주 본체 - 다층 그라데이션
+            for i in range(r, 0, -1):
+                ratio = i / r
+
+                # 중심으로 갈수록 밝아지고, 가장자리는 푸른빛
+                # 푸른빛 강도 (가장자리에서 강하게)
+                blue_strength = 0.4 * (1 - ratio) ** 0.7
+
+                # 베이스 색상 (흰색 → 옅은 푸른빛)
+                base_r = int(255 - 35 * (1 - ratio))
+                base_g = int(255 - 20 * (1 - ratio))
+                base_b = int(255 - 5 * (1 - ratio))
+
+                # 푸른빛 블렌딩
+                blue_tint_r = 180
+                blue_tint_g = 210
+                blue_tint_b = 255
+
+                pr = int(base_r * (1 - blue_strength) + blue_tint_r * blue_strength)
+                pg = int(base_g * (1 - blue_strength) + blue_tint_g * blue_strength)
+                pb = int(base_b * (1 - blue_strength) + blue_tint_b * blue_strength)
+
+                # 좌상단으로 살짝 오프셋 (빛 방향)
+                offset_x = int(r * 0.08 * (1 - ratio))
+                offset_y = int(r * 0.08 * (1 - ratio))
+
+                pygame.draw.circle(screen, (min(255, pr), min(255, pg), min(255, pb)),
+                                 (cx - offset_x, cy - offset_y), i)
+
+            # === 광택 레이어 (여러 층) ===
+            # 메인 광택 글로우 (부드러운 빛)
+            glow_surf = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
+            for gi in range(r//2, 0, -1):
+                glow_alpha = int(80 * (gi / (r//2)))
+                pygame.draw.circle(glow_surf, (255, 255, 255, glow_alpha),
+                                 (r//2 + 2, r//2 + 2), gi)
+            screen.blit(glow_surf, (cx - r//2 - r//3, cy - r//2 - r//3))
+
+            # === 메인 하이라이트 (좌상단 강한 빛) ===
+            # 큰 하이라이트 (글로우)
+            highlight_x = cx - r//3
+            highlight_y = cy - r//3
+            for hi in range(r//3 + 3, 0, -1):
+                h_alpha = int(200 * (hi / (r//3 + 3)))
+                h_surf = pygame.Surface((hi*2, hi*2), pygame.SRCALPHA)
+                pygame.draw.circle(h_surf, (255, 255, 255, h_alpha), (hi, hi), hi)
+                screen.blit(h_surf, (highlight_x - hi, highlight_y - hi))
+
+            # 핵심 하이라이트 (순수 흰색)
+            pygame.draw.circle(screen, (255, 255, 255), (highlight_x, highlight_y), r//4)
+            pygame.draw.circle(screen, (255, 255, 255), (highlight_x - 2, highlight_y - 2), r//6)
+
+            # === 보조 하이라이트들 ===
+            # 우측 상단 작은 반사
+            pygame.draw.circle(screen, (240, 248, 255), (cx + r//4, cy - r//4), r//7)
+            pygame.draw.circle(screen, (255, 255, 255), (cx + r//4 - 1, cy - r//4 - 1), r//10)
+
+            # 하단 미세 반사 (환경광)
+            pygame.draw.circle(screen, (220, 235, 255, 150), (cx + r//6, cy + r//3), r//8)
+
+            # === 푸른빛 무지개 광택 (회전) ===
+            # 푸른 계열 색상
+            blue_iridescent = [
+                (200, 230, 255),  # 하늘색
+                (180, 220, 255),  # 연한 파랑
+                (220, 240, 255),  # 아이스 블루
+                (190, 210, 250),  # 라벤더 블루
+                (210, 235, 255),  # 페일 블루
+            ]
+
+            # 회전하는 무지개빛 아크
+            irid_surf = pygame.Surface((r*2 + 8, r*2 + 8), pygame.SRCALPHA)
+            for idx, irid_color in enumerate(blue_iridescent):
+                arc_alpha = int(50 + 40 * math.sin(t * 2.5 + idx * 1.2))
+                start_angle = (t * 0.8 + idx * (math.pi / 2.5)) % (2 * math.pi)
+                end_angle = start_angle + 1.0
+
+                pygame.draw.arc(irid_surf, (*irid_color, arc_alpha),
+                              (4, 4, r*2, r*2), start_angle, end_angle, 3)
+            screen.blit(irid_surf, (cx - r - 4, cy - r - 4))
+
+            # === 림 라이트 (가장자리 빛) ===
+            # 우하단 림 라이트 (반사광)
+            rim_surf = pygame.Surface((r*2 + 4, r*2 + 4), pygame.SRCALPHA)
+            rim_intensity = int(60 + 30 * math.sin(t * 3))
+            pygame.draw.arc(rim_surf, (200, 230, 255, rim_intensity),
+                          (2, 2, r*2, r*2), -0.8, 0.5, 2)
+            pygame.draw.arc(rim_surf, (180, 220, 255, rim_intensity // 2),
+                          (2, 2, r*2, r*2), -1.0, 0.7, 1)
+            screen.blit(rim_surf, (cx - r - 2, cy - r - 2))
+
+            # === 스파클 효과 (반짝임) ===
+            sparkle_phase = t * 4
+
+            # 메인 스파클
+            sparkle1 = int(255 * max(0, math.sin(sparkle_phase)))
+            if sparkle1 > 120:
+                pygame.draw.circle(screen, (255, 255, 255), (cx - r//3 + 2, cy - r//3 + 2), 2)
+                # 스파클 광선
+                for angle in range(0, 360, 45):
+                    rad = math.radians(angle)
+                    end_x = cx - r//3 + 2 + int(4 * math.cos(rad))
+                    end_y = cy - r//3 + 2 + int(4 * math.sin(rad))
+                    pygame.draw.line(screen, (255, 255, 255, sparkle1),
+                                   (cx - r//3 + 2, cy - r//3 + 2), (end_x, end_y), 1)
+
+            # 서브 스파클
+            sparkle2 = int(255 * max(0, math.sin(sparkle_phase + 2.5)))
+            if sparkle2 > 180:
+                pygame.draw.circle(screen, (230, 245, 255), (cx + r//5, cy - r//6), 2)
+
+            sparkle3 = int(255 * max(0, math.sin(sparkle_phase + 4.5)))
+            if sparkle3 > 200:
+                pygame.draw.circle(screen, (255, 255, 255), (cx - r//5, cy + r//5), 1)
+
+            # === 외곽 테두리 (부드러운 푸른빛) ===
+            border_pulse = int(180 + 40 * math.sin(t * 2))
+            pygame.draw.circle(screen, (border_pulse, min(255, border_pulse + 30), 255), (cx, cy), r, 1)
 
         elif symbol_name == "banana":
-            # 바나나
-            pygame.draw.arc(screen, (255, 230, 50),
-                          (cx - 20, cy - 15, 40, 40), 0.5, 2.8, 8)
-            pygame.draw.arc(screen, (200, 180, 40),
-                          (cx - 20, cy - 15, 40, 40), 0.5, 2.8, 2)
+            # 금괴 - 초고급 리얼리스틱 골드바
+            t = self.animation_timer
+
+            # === 다층 그림자 (입체감 강화) ===
+            # 멀리 퍼지는 그림자
+            shadow_surf = pygame.Surface((50, 20), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_surf, (30, 25, 10, 60), (0, 0, 50, 12))
+            screen.blit(shadow_surf, (cx - 25, cy + 14))
+            # 가까운 그림자 (더 진하게)
+            pygame.draw.polygon(screen, (50, 40, 15, 180), [
+                (cx - 18, cy + 13), (cx + 20, cy + 13),
+                (cx + 22, cy + 16), (cx - 16, cy + 16)
+            ])
+
+            # === 금괴 본체 - 3D 사다리꼴 ===
+            # 왼쪽 면 (어두운 금색 - 그림자 면)
+            left_face = [
+                (cx - 16, cy - 8), (cx - 14, cy - 2),
+                (cx - 18, cy + 12), (cx - 20, cy + 8)
+            ]
+            # 왼쪽 면 그라데이션
+            for i in range(12):
+                ratio = i / 12
+                shade_r = int(140 + 40 * ratio)
+                shade_g = int(110 + 30 * ratio)
+                shade_b = int(20 + 15 * ratio)
+                y_pos = cy - 2 + i
+                x_left = cx - 14 - int(4 * (i / 12))
+                x_right = cx - 14
+                pygame.draw.line(screen, (shade_r, shade_g, shade_b),
+                               (x_left, y_pos), (x_right, y_pos))
+
+            # 앞면 (메인 골드 - 풍부한 그라데이션)
+            front_face = [
+                (cx - 14, cy - 2), (cx + 16, cy - 2),
+                (cx + 18, cy + 12), (cx - 18, cy + 12)
+            ]
+            # 앞면 다층 그라데이션 (위에서 아래로)
+            for i in range(14):
+                ratio = i / 14
+                # 위는 밝고 아래는 어둡게
+                base_r = int(255 - 45 * ratio)
+                base_g = int(210 - 50 * ratio)
+                base_b = int(80 - 40 * ratio)
+                y_pos = cy - 2 + i
+                x_left = cx - 14 - int(4 * (i / 14))
+                x_right = cx + 16 + int(2 * (i / 14))
+                pygame.draw.line(screen, (base_r, base_g, base_b),
+                               (x_left, y_pos), (x_right, y_pos))
+
+            # 앞면 세로 그라데이션 (좌우 명암)
+            for i in range(32):
+                ratio = i / 32
+                # 가운데가 밝고 양옆이 어두움
+                brightness = 1.0 - 0.15 * abs(ratio - 0.5) * 2
+                x_pos = cx - 16 + i
+                pygame.draw.line(screen, (
+                    int(240 * brightness),
+                    int(195 * brightness),
+                    int(60 * brightness), 50
+                ), (x_pos, cy), (x_pos, cy + 10))
+
+            # 오른쪽 면 (중간 밝기)
+            right_face = [
+                (cx + 16, cy - 2), (cx + 18, cy + 12),
+                (cx + 22, cy + 8), (cx + 18, cy - 6)
+            ]
+            # 오른쪽 면 그라데이션
+            for i in range(10):
+                ratio = i / 10
+                shade_r = int(220 - 30 * ratio)
+                shade_g = int(175 - 25 * ratio)
+                shade_b = int(50 - 15 * ratio)
+                y_pos = cy - 2 + i
+                x_left = cx + 16
+                x_right = cx + 16 + int(4 * (1 - abs(i - 5) / 5))
+                pygame.draw.line(screen, (shade_r, shade_g, shade_b),
+                               (x_left, y_pos), (x_right + 2, y_pos))
+
+            # === 윗면 (가장 밝은 면) ===
+            top_face = [
+                (cx - 12, cy - 10), (cx + 14, cy - 10),
+                (cx + 16, cy - 2), (cx - 14, cy - 2)
+            ]
+            # 윗면 그라데이션 (뒤에서 앞으로)
+            for i in range(8):
+                ratio = i / 8
+                shade_r = int(255 - 20 * ratio)
+                shade_g = int(240 - 25 * ratio)
+                shade_b = int(140 - 50 * ratio)
+                y_pos = cy - 10 + i
+                x_left = cx - 12 - int(2 * ratio)
+                x_right = cx + 14 + int(2 * ratio)
+                pygame.draw.line(screen, (shade_r, shade_g, shade_b),
+                               (x_left, y_pos), (x_right, y_pos))
+
+            # === 메탈릭 하이라이트 (빛 반사) ===
+            # 윗면 메인 하이라이트 (강한 빛)
+            highlight_intensity = int(220 + 35 * math.sin(t * 3))
+            pygame.draw.line(screen, (255, 255, highlight_intensity),
+                           (cx - 8, cy - 9), (cx + 10, cy - 9), 3)
+            pygame.draw.line(screen, (255, 255, 255),
+                           (cx - 6, cy - 8), (cx + 8, cy - 8), 2)
+
+            # 윗면 보조 하이라이트
+            pygame.draw.line(screen, (255, 250, 200),
+                           (cx - 4, cy - 7), (cx + 6, cy - 7), 1)
+
+            # 앞면 반사 하이라이트 (가운데 빛줄기)
+            for i in range(3):
+                alpha = 80 - i * 20
+                pygame.draw.line(screen, (255, 240, 150, alpha),
+                               (cx - 2 + i, cy), (cx + i, cy + 8), 2)
+
+            # === 각인 (999.9 FINE GOLD) ===
+            # 각인 홈 (어두운 부분)
+            pygame.draw.rect(screen, (180, 140, 30), (cx - 10, cy + 1, 20, 8), border_radius=2)
+            # 각인 면 (밝은 부분)
+            pygame.draw.rect(screen, (255, 215, 70), (cx - 9, cy + 2, 18, 6), border_radius=1)
+            # 각인 텍스트 효과 (작은 선들)
+            pygame.draw.line(screen, (200, 160, 40), (cx - 7, cy + 4), (cx - 4, cy + 4), 1)
+            pygame.draw.line(screen, (200, 160, 40), (cx - 2, cy + 4), (cx + 1, cy + 4), 1)
+            pygame.draw.line(screen, (200, 160, 40), (cx + 3, cy + 4), (cx + 6, cy + 4), 1)
+            pygame.draw.line(screen, (200, 160, 40), (cx - 6, cy + 6), (cx + 5, cy + 6), 1)
+
+            # === 엣지 하이라이트 (금속 테두리) ===
+            # 윗면 앞쪽 엣지 (가장 밝음)
+            pygame.draw.line(screen, (255, 250, 180), (cx - 14, cy - 2), (cx + 16, cy - 2), 2)
+            # 윗면 뒷쪽 엣지
+            pygame.draw.line(screen, (255, 240, 160), (cx - 12, cy - 10), (cx + 14, cy - 10), 1)
+            # 앞면 아래쪽 엣지
+            pygame.draw.line(screen, (200, 160, 50), (cx - 18, cy + 12), (cx + 18, cy + 12), 1)
+
+            # === 코너 베벨 효과 ===
+            # 좌상단 코너
+            pygame.draw.line(screen, (255, 245, 180), (cx - 12, cy - 10), (cx - 14, cy - 2), 1)
+            # 우상단 코너
+            pygame.draw.line(screen, (240, 200, 100), (cx + 14, cy - 10), (cx + 16, cy - 2), 1)
+
+            # === 반짝이는 스파클 효과 ===
+            sparkle_phase = t * 5
+            # 메인 스파클 (상단)
+            sparkle1 = int(255 * max(0, math.sin(sparkle_phase)))
+            if sparkle1 > 100:
+                pygame.draw.circle(screen, (255, 255, sparkle1), (cx - 5, cy - 8), 3)
+                pygame.draw.circle(screen, (255, 255, 255), (cx - 5, cy - 8), 2)
+
+            # 서브 스파클들 (여러 위치에서 반짝임)
+            sparkle2 = int(255 * max(0, math.sin(sparkle_phase + 2)))
+            if sparkle2 > 150:
+                pygame.draw.circle(screen, (255, sparkle2, 200), (cx + 8, cy - 6), 2)
+
+            sparkle3 = int(255 * max(0, math.sin(sparkle_phase + 4)))
+            if sparkle3 > 180:
+                pygame.draw.circle(screen, (255, 255, sparkle3), (cx + 12, cy + 3), 2)
+
+            sparkle4 = int(255 * max(0, math.sin(sparkle_phase + 1.5)))
+            if sparkle4 > 120:
+                pygame.draw.circle(screen, (sparkle4, sparkle4, 200), (cx - 10, cy + 5), 1)
+
+            # === 금속 광택 오버레이 ===
+            # 미세한 광택 레이어 (전체적인 금속 느낌)
+            gloss_surf = pygame.Surface((40, 20), pygame.SRCALPHA)
+            for gy in range(20):
+                gloss_alpha = int(30 * math.sin(gy / 20 * math.pi))
+                pygame.draw.line(gloss_surf, (255, 255, 200, gloss_alpha),
+                               (0, gy), (40, gy))
+            screen.blit(gloss_surf, (cx - 18, cy - 2))
 
         elif symbol_name == "apple":
-            # 사과
-            pygame.draw.circle(screen, (220, 50, 50), (cx, cy + 3), min(w, h) // 3)
-            pygame.draw.circle(screen, (180, 40, 40), (cx, cy + 3), min(w, h) // 3, 2)
+            # 사과 - 실사풍 광택
+            # 그림자
+            pygame.draw.ellipse(screen, (60, 20, 20), (cx - r - 2, cy + r - 5, r*2 + 4, 10))
+            # 사과 본체
+            pygame.draw.circle(screen, (200, 30, 30), (cx, cy + 2), r)
+            # 그라데이션 (입체감)
+            for i in range(r, 0, -1):
+                ratio = i / r
+                red = int(220 - 60 * (1 - ratio))
+                pygame.draw.circle(screen, (red, 30 + int(20*ratio), 30 + int(20*ratio)),
+                                 (cx - int(r*0.15), cy + 2 - int(r*0.1)), i)
+            # 광택 하이라이트
+            pygame.draw.ellipse(screen, (255, 150, 150), (cx - r//2 - 5, cy - r//2 - 2, r//2, r//3))
+            pygame.draw.ellipse(screen, (255, 200, 200), (cx - r//2 - 2, cy - r//2, r//4, r//5))
             # 꼭지
-            pygame.draw.rect(screen, (100, 70, 40), (cx - 2, cy - 18, 4, 10))
+            pygame.draw.polygon(screen, (90, 60, 30), [
+                (cx - 2, cy - r + 2), (cx + 2, cy - r + 2),
+                (cx + 1, cy - r - 10), (cx - 1, cy - r - 12)
+            ])
             # 잎
-            pygame.draw.ellipse(screen, (80, 180, 80), (cx + 2, cy - 20, 12, 8))
+            leaf_points = [(cx + 3, cy - r - 5), (cx + 15, cy - r - 12),
+                          (cx + 18, cy - r - 8), (cx + 8, cy - r - 2)]
+            pygame.draw.polygon(screen, (60, 160, 60), leaf_points)
+            pygame.draw.polygon(screen, (80, 200, 80), leaf_points, 1)
+            # 잎 줄기
+            pygame.draw.line(screen, (40, 120, 40), (cx + 5, cy - r - 4), (cx + 14, cy - r - 9), 1)
+            # 테두리
+            pygame.draw.circle(screen, (150, 20, 20), (cx, cy + 2), r, 2)
 
         elif symbol_name == "key":
-            # 열쇠
-            pygame.draw.circle(screen, (255, 200, 100), (cx - 8, cy - 5), 10)
-            pygame.draw.circle(screen, (200, 150, 70), (cx - 8, cy - 5), 6)
-            pygame.draw.rect(screen, (255, 200, 100), (cx - 2, cy - 5, 20, 5))
-            pygame.draw.rect(screen, (255, 200, 100), (cx + 10, cy, 5, 8))
-            pygame.draw.rect(screen, (255, 200, 100), (cx + 5, cy, 5, 6))
+            # 황금 열쇠 - 메탈릭 광택
+            # 그림자
+            pygame.draw.ellipse(screen, (60, 50, 30), (cx - 12, cy + 12, 35, 8))
+            # 손잡이 부분 (원형)
+            pygame.draw.circle(screen, (200, 160, 60), (cx - 6, cy - 3), 12)
+            pygame.draw.circle(screen, (255, 215, 80), (cx - 6, cy - 3), 10)
+            pygame.draw.circle(screen, (180, 140, 50), (cx - 6, cy - 3), 6)
+            # 손잡이 하이라이트
+            pygame.draw.arc(screen, (255, 240, 150), (cx - 14, cy - 11, 16, 16), 0.5, 2.5, 2)
+            # 몸통
+            pygame.draw.rect(screen, (255, 200, 80), (cx, cy - 5, 22, 6), border_radius=2)
+            # 몸통 그라데이션
+            pygame.draw.rect(screen, (255, 220, 120), (cx, cy - 5, 22, 3), border_radius=2)
+            pygame.draw.rect(screen, (200, 160, 60), (cx, cy - 2, 22, 3), border_radius=2)
+            # 이빨
+            pygame.draw.rect(screen, (255, 200, 80), (cx + 16, cy + 1, 4, 10))
+            pygame.draw.rect(screen, (255, 200, 80), (cx + 10, cy + 1, 4, 7))
+            # 이빨 하이라이트
+            pygame.draw.rect(screen, (255, 230, 130), (cx + 16, cy + 1, 4, 3))
+            pygame.draw.rect(screen, (255, 230, 130), (cx + 10, cy + 1, 4, 2))
+            # 테두리
+            pygame.draw.circle(screen, (150, 120, 40), (cx - 6, cy - 3), 12, 2)
 
         elif symbol_name == "diamond":
-            # 다이아몬드
-            points = [(cx, cy - 20), (cx + 18, cy), (cx, cy + 20), (cx - 18, cy)]
-            pygame.draw.polygon(screen, (100, 200, 255), points)
-            pygame.draw.polygon(screen, (200, 240, 255), points, 2)
-            # 내부 빛
-            inner_points = [(cx, cy - 10), (cx + 8, cy), (cx, cy + 10), (cx - 8, cy)]
-            pygame.draw.polygon(screen, (200, 240, 255), inner_points)
-
-        elif symbol_name == "pandora":
-            # 판도라 상자
-            pygame.draw.rect(screen, (120, 60, 160), (cx - 15, cy - 10, 30, 25), border_radius=3)
-            pygame.draw.rect(screen, (180, 100, 220), (cx - 15, cy - 15, 30, 10), border_radius=3)
-            # 잠금장치
-            pygame.draw.circle(screen, (255, 215, 0), (cx, cy + 2), 5)
-            pygame.draw.rect(screen, (255, 215, 0), (cx - 2, cy - 3, 4, 8))
-            # 빛나는 효과
-            glow = int(100 + 50 * math.sin(self.animation_timer * 5))
-            glow_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surf, (180, 100, 255, glow), (5, 5, 30, 30), border_radius=5)
-            screen.blit(glow_surf, (cx - 20, cy - 15))
-
-        elif symbol_name == "seven":
-            # 럭키 7
-            # 배경 글로우
-            glow = int(150 + 100 * math.sin(self.animation_timer * 6))
-            glow_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surf, (255, 215, 0, glow), (0, 0, w, h), border_radius=6)
-            screen.blit(glow_surf, (x, y))
-
-            # 7 그리기
-            pygame.draw.rect(screen, (255, 50, 50), (cx - 15, cy - 20, 30, 8), border_radius=2)
-            pygame.draw.polygon(screen, (255, 50, 50), [
-                (cx + 10, cy - 12), (cx + 15, cy - 12),
-                (cx - 5, cy + 20), (cx - 10, cy + 20)
+            # 다이아몬드 - 프리즘 빛 반사
+            size = 20
+            # 그림자
+            shadow_points = [(cx, cy + size + 5), (cx + size - 5, cy + 8), (cx - size + 5, cy + 8)]
+            pygame.draw.polygon(screen, (40, 60, 80), shadow_points)
+            # 다이아몬드 상단 (크라운)
+            top_points = [(cx, cy - size), (cx + size, cy - 2), (cx - size, cy - 2)]
+            pygame.draw.polygon(screen, (180, 230, 255), top_points)
+            # 다이아몬드 하단 (파빌리온)
+            bottom_points = [(cx - size, cy - 2), (cx + size, cy - 2), (cx, cy + size)]
+            pygame.draw.polygon(screen, (100, 180, 255), bottom_points)
+            # 내부 빛 굴절
+            pygame.draw.polygon(screen, (200, 240, 255), [
+                (cx - size//2, cy - 2), (cx, cy - size + 5), (cx + size//2, cy - 2)
+            ])
+            pygame.draw.polygon(screen, (150, 210, 255), [
+                (cx - size//2, cy - 2), (cx, cy + size - 5), (cx + size//2, cy - 2)
+            ])
+            # 프리즘 효과 (무지개빛)
+            pygame.draw.line(screen, (255, 200, 200), (cx - 8, cy - 5), (cx - 3, cy + 5), 2)
+            pygame.draw.line(screen, (200, 255, 200), (cx, cy - 8), (cx, cy + 3), 2)
+            pygame.draw.line(screen, (200, 200, 255), (cx + 5, cy - 5), (cx + 8, cy + 5), 2)
+            # 하이라이트
+            pygame.draw.polygon(screen, (255, 255, 255), [
+                (cx - 5, cy - size + 8), (cx, cy - size + 3), (cx + 5, cy - size + 8)
             ])
             # 테두리
-            pygame.draw.rect(screen, (255, 255, 200), (cx - 15, cy - 20, 30, 8), 2, border_radius=2)
+            pygame.draw.polygon(screen, (150, 200, 255), top_points, 2)
+            pygame.draw.polygon(screen, (80, 150, 220), bottom_points, 2)
+
+        elif symbol_name == "pandora":
+            # 판도라 상자 - 무지개빛 신비로운 보물상자
+            t = self.animation_timer
+
+            # 무지개 색상 배열 (빨주노초파남보)
+            rainbow_colors = [
+                (255, 50, 50),    # 빨강
+                (255, 150, 50),   # 주황
+                (255, 255, 50),   # 노랑
+                (50, 255, 50),    # 초록
+                (50, 150, 255),   # 파랑
+                (100, 50, 255),   # 남색
+                (200, 50, 255),   # 보라
+            ]
+
+            # 무지개 글로우 효과 (다층 회전)
+            for layer in range(4):
+                glow_surf = pygame.Surface((60, 60), pygame.SRCALPHA)
+                # 각 레이어마다 다른 무지개 색상 사이클
+                color_idx = int((t * 3 + layer * 1.5) % len(rainbow_colors))
+                next_idx = (color_idx + 1) % len(rainbow_colors)
+                blend = (t * 3 + layer * 1.5) % 1.0
+
+                r = int(rainbow_colors[color_idx][0] * (1 - blend) + rainbow_colors[next_idx][0] * blend)
+                g = int(rainbow_colors[color_idx][1] * (1 - blend) + rainbow_colors[next_idx][1] * blend)
+                b = int(rainbow_colors[color_idx][2] * (1 - blend) + rainbow_colors[next_idx][2] * blend)
+
+                glow_alpha = int(60 + 40 * math.sin(t * 4 + layer))
+                pygame.draw.rect(glow_surf, (r, g, b, glow_alpha), (5 - layer*2, 5 - layer*2, 50 + layer*4, 50 + layer*4), border_radius=10)
+                screen.blit(glow_surf, (cx - 30, cy - 25))
+
+            # 그림자 (무지개빛 반사)
+            shadow_color_idx = int(t * 2) % len(rainbow_colors)
+            shadow_r = rainbow_colors[shadow_color_idx][0] // 4
+            shadow_g = rainbow_colors[shadow_color_idx][1] // 4
+            shadow_b = rainbow_colors[shadow_color_idx][2] // 4
+            pygame.draw.ellipse(screen, (shadow_r, shadow_g, shadow_b), (cx - 18, cy + 12, 36, 8))
+
+            # 상자 몸통 (무지개 그라데이션)
+            pygame.draw.rect(screen, (80, 40, 100), (cx - 16, cy - 5, 32, 22), border_radius=4)
+            for i in range(22):
+                ratio = i / 22
+                color_phase = (t * 2 + ratio * 2) % len(rainbow_colors)
+                color_idx = int(color_phase)
+                next_idx = (color_idx + 1) % len(rainbow_colors)
+                blend = color_phase - color_idx
+
+                base_r = int(rainbow_colors[color_idx][0] * (1 - blend) + rainbow_colors[next_idx][0] * blend)
+                base_g = int(rainbow_colors[color_idx][1] * (1 - blend) + rainbow_colors[next_idx][1] * blend)
+                base_b = int(rainbow_colors[color_idx][2] * (1 - blend) + rainbow_colors[next_idx][2] * blend)
+
+                # 어둡게 조정
+                shade = 0.4 + 0.3 * (1 - ratio)
+                r = int(base_r * shade)
+                g = int(base_g * shade)
+                b = int(base_b * shade)
+                pygame.draw.line(screen, (r, g, b), (cx - 15, cy - 4 + i), (cx + 15, cy - 4 + i))
+
+            # 상자 뚜껑 (무지개빛 변화)
+            lid_color_idx = int(t * 3) % len(rainbow_colors)
+            lid_next = (lid_color_idx + 1) % len(rainbow_colors)
+            lid_blend = (t * 3) % 1.0
+            lid_r = int(rainbow_colors[lid_color_idx][0] * 0.6 * (1 - lid_blend) + rainbow_colors[lid_next][0] * 0.6 * lid_blend)
+            lid_g = int(rainbow_colors[lid_color_idx][1] * 0.6 * (1 - lid_blend) + rainbow_colors[lid_next][1] * 0.6 * lid_blend)
+            lid_b = int(rainbow_colors[lid_color_idx][2] * 0.6 * (1 - lid_blend) + rainbow_colors[lid_next][2] * 0.6 * lid_blend)
+            pygame.draw.rect(screen, (lid_r, lid_g, lid_b), (cx - 18, cy - 12, 36, 12), border_radius=4)
+
+            # 뚜껑 하이라이트 (빛나는 무지개)
+            highlight_r = min(255, lid_r + 80)
+            highlight_g = min(255, lid_g + 80)
+            highlight_b = min(255, lid_b + 80)
+            pygame.draw.rect(screen, (highlight_r, highlight_g, highlight_b), (cx - 16, cy - 11, 32, 4), border_radius=2)
+
+            # 금속 테두리 (무지개 광택)
+            border_phase = (t * 4) % len(rainbow_colors)
+            border_idx = int(border_phase)
+            border_next = (border_idx + 1) % len(rainbow_colors)
+            border_blend = border_phase - border_idx
+            border_r = int(rainbow_colors[border_idx][0] * (1 - border_blend) + rainbow_colors[border_next][0] * border_blend)
+            border_g = int(rainbow_colors[border_idx][1] * (1 - border_blend) + rainbow_colors[border_next][1] * border_blend)
+            border_b = int(rainbow_colors[border_idx][2] * (1 - border_blend) + rainbow_colors[border_next][2] * border_blend)
+            pygame.draw.rect(screen, (border_r, border_g, border_b), (cx - 18, cy - 6, 36, 4))
+            pygame.draw.rect(screen, (min(255, border_r + 50), min(255, border_g + 50), min(255, border_b + 50)), (cx - 18, cy - 6, 36, 2))
+
+            # 자물쇠 (황금빛 유지 + 무지개 반사)
+            lock_glow = int(200 + 55 * math.sin(t * 5))
+            pygame.draw.circle(screen, (lock_glow, int(lock_glow * 0.8), 60), (cx, cy + 3), 7)
+            pygame.draw.circle(screen, (180, 140, 50), (cx, cy + 3), 5)
+            pygame.draw.rect(screen, (lock_glow, int(lock_glow * 0.8), 60), (cx - 3, cy - 4, 6, 8), border_radius=2)
+            # 자물쇠 구멍
+            pygame.draw.ellipse(screen, (40, 30, 20), (cx - 2, cy + 1, 4, 5))
+
+            # 보석 장식 (무지개빛으로 변화)
+            gem1_idx = int(t * 5) % len(rainbow_colors)
+            gem2_idx = int(t * 5 + 3) % len(rainbow_colors)
+            pygame.draw.circle(screen, rainbow_colors[gem1_idx], (cx - 10, cy + 5), 3)
+            pygame.draw.circle(screen, rainbow_colors[gem2_idx], (cx + 10, cy + 5), 3)
+
+            # 무지개 빛 파티클 (상자 주변에서 반짝임)
+            for i in range(6):
+                angle = t * 3 + i * (math.pi / 3)
+                dist = 18 + 5 * math.sin(t * 4 + i)
+                px = cx + int(math.cos(angle) * dist)
+                py = cy - 3 + int(math.sin(angle) * dist * 0.6)
+                spark_color = rainbow_colors[(int(t * 8) + i) % len(rainbow_colors)]
+                spark_alpha = int(180 + 75 * math.sin(t * 6 + i * 2))
+                spark_size = 2 + int(math.sin(t * 5 + i) > 0.5)
+                pygame.draw.circle(screen, spark_color, (px, py), spark_size)
+
+            # 상자 테두리 (무지개빛 외곽선)
+            pygame.draw.rect(screen, (border_r, border_g, border_b), (cx - 16, cy - 5, 32, 22), 2, border_radius=4)
+            pygame.draw.rect(screen, (lid_r, lid_g, lid_b), (cx - 18, cy - 12, 36, 12), 2, border_radius=4)
+
+        elif symbol_name == "seven":
+            # 럭키 7 - 화려한 네온 스타일
+            # 배경 글로우 (다층)
+            for g in range(3):
+                glow = int((120 - g * 30) + (80 - g * 20) * math.sin(self.animation_timer * 6))
+                glow_surf = pygame.Surface((w + g*10, h + g*10), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (255, 215, 0, glow), (0, 0, w + g*10, h + g*10), border_radius=8)
+                screen.blit(glow_surf, (x - g*5, y - g*5))
+            # 7 배경
+            pygame.draw.rect(screen, (80, 20, 20), (cx - 18, cy - 22, 36, 44), border_radius=5)
+            # 7 본체 (3D 효과)
+            # 그림자
+            pygame.draw.rect(screen, (150, 30, 30), (cx - 14, cy - 18, 30, 10), border_radius=3)
+            pygame.draw.polygon(screen, (150, 30, 30), [
+                (cx + 12, cy - 8), (cx + 18, cy - 8),
+                (cx - 2, cy + 20), (cx - 8, cy + 20)
+            ])
+            # 메인 7
+            pygame.draw.rect(screen, (255, 50, 50), (cx - 15, cy - 19, 30, 10), border_radius=3)
+            pygame.draw.polygon(screen, (255, 50, 50), [
+                (cx + 11, cy - 9), (cx + 17, cy - 9),
+                (cx - 3, cy + 19), (cx - 9, cy + 19)
+            ])
+            # 하이라이트
+            pygame.draw.rect(screen, (255, 150, 150), (cx - 14, cy - 18, 28, 4), border_radius=2)
+            pygame.draw.line(screen, (255, 180, 180), (cx + 13, cy - 7), (cx - 5, cy + 15), 3)
+            # 골드 테두리
+            pygame.draw.rect(screen, (255, 215, 0), (cx - 15, cy - 19, 30, 10), 2, border_radius=3)
+            pygame.draw.polygon(screen, (255, 215, 0), [
+                (cx + 11, cy - 9), (cx + 17, cy - 9),
+                (cx - 3, cy + 19), (cx - 9, cy + 19)
+            ], 2)
+            # 반짝임 효과
+            sparkle = int(255 * abs(math.sin(self.animation_timer * 10)))
+            pygame.draw.circle(screen, (255, 255, sparkle), (cx - 10, cy - 15), 3)
+            pygame.draw.circle(screen, (255, sparkle, 255), (cx + 10, cy - 15), 2)
+            pygame.draw.circle(screen, (sparkle, 255, 255), (cx + 5, cy + 10), 2)
 
     def _draw_ui(self, screen):
         """UI 요소 그리기"""

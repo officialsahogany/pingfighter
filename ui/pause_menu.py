@@ -192,14 +192,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     current_sfx_volume = clamp_volume(ctx.get_sfx_volume())
     # 사운드 매니저 기반 옵션 읽기
     sm = get_sound_manager()
-    limiter_enabled = bool(getattr(sm, 'limiter_enabled', True))
-    duck_enabled = bool(getattr(sm, 'duck_music_enabled', True))
     # 컨트롤 설정
     settings = get_settings_manager()
     control_scheme = settings.get_setting('controls', 'control_scheme', 'keyboard')
-    duck_triggers = set(getattr(sm, 'duck_trigger_channels', {"boss", "explosion"}))
-    duck_boss = 'boss' in duck_triggers
-    duck_explosion = 'explosion' in duck_triggers
     modern_loop_enabled = ctx.get_modern_loop_enabled()
 
     # 크고 겹치지 않는 고급 레이아웃
@@ -207,7 +202,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     handle_size = 14
 
     panel_width = min(900, max(640, int(ctx.width * 0.82)))
-    panel_height = 440
+    panel_height = 280  # 패널 높이 축소 (토글 제거로 인해)
     panel_x = (ctx.width - panel_width) // 2
     panel_y = (ctx.height - panel_height) // 2
 
@@ -227,15 +222,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     back_button_y = panel_y + panel_height - 70
     back_button_rect = pygame.Rect(back_button_x, back_button_y, back_button_width, back_button_height)
 
-    toggle_width = panel_width - 2 * margin_x
-    toggle_height = 35
-    limiter_toggle_rect = pygame.Rect(panel_x + margin_x, panel_y + 205, toggle_width, toggle_height)
-    duck_toggle_rect = pygame.Rect(panel_x + margin_x, panel_y + 245, toggle_width, toggle_height)
-    duck_boss_toggle_rect = pygame.Rect(panel_x + margin_x, panel_y + 285, toggle_width, toggle_height)
-    duck_explosion_toggle_rect = pygame.Rect(panel_x + margin_x, panel_y + 325, toggle_width, toggle_height)
-
     selected_slider: str | None = None  # 드래그 중인 슬라이더 식별자
-    focus: str = "bgm"  # 키보드 포커스: bgm / sfx / limiter / duck /(duck_boss/duck_explosion)/ back
+    focus: str = "bgm"  # 키보드 포커스: bgm / sfx / back
     dragging = False
 
     clock = ctx.clock_factory()
@@ -364,36 +352,6 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
         # (미니멀 구성: UI/환경 슬라이더 제거)
 
-        # 리미터 토글
-        def draw_toggle(rect: pygame.Rect, label: str, checked: bool, hover_color=(70, 110, 170), focused: bool = False, enabled: bool = True):
-            toggle_hover = rect.collidepoint(pygame.mouse.get_pos()) and enabled
-            base_color = (45, 55, 70)
-            toggle_color = hover_color if toggle_hover else base_color
-            pygame.draw.rect(ctx.screen, toggle_color, rect, border_radius=6)
-            border_col = const.WHITE if enabled else (140, 140, 140)
-            pygame.draw.rect(ctx.screen, border_col, rect, 2, border_radius=6)
-            if focused:
-                # 포커스 시 하이라이트 링 추가
-                pygame.draw.rect(ctx.screen, (90, 160, 220), rect.inflate(6, 6), 2, border_radius=8)
-            text_col = const.WHITE if enabled else (170, 170, 170)
-            text_surface = font_medium.render(label, True, text_col)
-            text_rect = text_surface.get_rect(left=rect.x + 50, centery=rect.centery)
-            ctx.screen.blit(text_surface, text_rect)
-            checkbox_size = 18
-            checkbox_rect = pygame.Rect(rect.x + 15, rect.centery - checkbox_size // 2, checkbox_size, checkbox_size)
-            pygame.draw.rect(ctx.screen, border_col, checkbox_rect, 2, border_radius=4)
-            if checked:
-                fill_col = (0, 220, 180) if enabled else (120, 180, 180)
-                pygame.draw.rect(ctx.screen, fill_col, checkbox_rect.inflate(-6, -6), border_radius=3)
-            return checkbox_rect
-
-        if current_tab == 'sound':
-            draw_toggle(limiter_toggle_rect, "효과음 리미터 켜기(피크 억제)", limiter_enabled, focused=(focus == "limiter"))
-            draw_toggle(duck_toggle_rect, "특정 효과음이 날 때 BGM 자동 낮춤", duck_enabled, focused=(focus == "duck"))
-            # 세부 항목(보스/폭발)은 메인 토글이 켜졌을 때만 활성
-            draw_toggle(duck_boss_toggle_rect, "적용 대상: 보스 효과음", duck_boss, focused=(focus == "duck_boss"), enabled=duck_enabled)
-            draw_toggle(duck_explosion_toggle_rect, "적용 대상: 폭발 효과음", duck_explosion, focused=(focus == "duck_explosion"), enabled=duck_enabled)
-
         button_hover = back_button_rect.collidepoint(pygame.mouse.get_pos()) or (focus == "back")
         button_color = (100, 150, 255) if button_hover else (50, 50, 50)
         pygame.draw.rect(ctx.screen, button_color, back_button_rect, border_radius=5)
@@ -416,16 +374,6 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 if event.key == pygame.K_ESCAPE:
                     current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
                     current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
-                    # 옵션 반영
-                    sm.set_limiter_enabled(limiter_enabled)
-                    sm.set_ducking(enabled=duck_enabled)
-                    # 트리거 반영
-                    triggers = set()
-                    if duck_boss:
-                        triggers.add('boss')
-                    if duck_explosion:
-                        triggers.add('explosion')
-                    sm.set_ducking_triggers(triggers)
                     # 컨트롤 스킴 저장
                     settings.set_setting('controls','control_scheme', control_scheme)
                     settings.save_settings()
@@ -434,7 +382,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     current_tab = 'controls' if current_tab == 'sound' else 'sound'
                 if event.key == pygame.K_LEFT:
                     if current_tab == 'controls':
-                        if locals().get('focus','bgm') in ('scheme','duck','limiter','back'):
+                        if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'keyboard'
                     elif focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume - 0.05)
@@ -444,15 +392,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         current_sfx_volume = clamp_volume(current_sfx_volume - 0.05)
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                         selected_slider = "sfx"
-                    elif focus == "limiter":
-                        limiter_enabled = not limiter_enabled
-                        sm.set_limiter_enabled(limiter_enabled)
-                    elif focus == "duck":
-                        duck_enabled = not duck_enabled
-                        sm.set_ducking(enabled=duck_enabled)
                 elif event.key == pygame.K_RIGHT:
                     if current_tab == 'controls':
-                        if locals().get('focus','bgm') in ('scheme','duck','limiter','back'):
+                        if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'mouse_keyboard'
                     elif focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume + 0.05)
@@ -462,61 +404,21 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         current_sfx_volume = clamp_volume(current_sfx_volume + 0.05)
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                         selected_slider = "sfx"
-                    elif focus == "limiter":
-                        limiter_enabled = not limiter_enabled
-                        sm.set_limiter_enabled(limiter_enabled)
-                    elif focus == "duck":
-                        duck_enabled = not duck_enabled
-                        sm.set_ducking(enabled=duck_enabled)
                 elif event.key == pygame.K_UP:
-                    order = ["scheme"] if current_tab == 'controls' else ["bgm", "sfx", "limiter", "duck"]
-                    if duck_enabled:
-                        order += ["duck_boss", "duck_explosion"]
+                    order = ["scheme"] if current_tab == 'controls' else ["bgm", "sfx"]
                     order += ["back"]
                     focus = order[(order.index(focus) - 1) % len(order)] if focus in order else "bgm"
                 elif event.key == pygame.K_DOWN:
-                    order = ["scheme"] if current_tab == 'controls' else ["bgm", "sfx", "limiter", "duck"]
-                    if duck_enabled:
-                        order += ["duck_boss", "duck_explosion"]
+                    order = ["scheme"] if current_tab == 'controls' else ["bgm", "sfx"]
                     order += ["back"]
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else "bgm"
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     if current_tab == 'controls' and focus == 'scheme':
                         control_scheme = 'mouse_keyboard' if control_scheme == 'keyboard' else 'keyboard'
-                    elif focus == "limiter":
-                        limiter_enabled = not limiter_enabled
-                        sm.set_limiter_enabled(limiter_enabled)
-                    elif focus == "duck":
-                        duck_enabled = not duck_enabled
-                        sm.set_ducking(enabled=duck_enabled)
-                    elif focus == "duck_boss" and duck_enabled:
-                        duck_boss = not duck_boss
-                        triggers = set()
-                        if duck_boss:
-                            triggers.add('boss')
-                        if duck_explosion:
-                            triggers.add('explosion')
-                        sm.set_ducking_triggers(triggers)
-                    elif focus == "duck_explosion" and duck_enabled:
-                        duck_explosion = not duck_explosion
-                        triggers = set()
-                        if duck_boss:
-                            triggers.add('boss')
-                        if duck_explosion:
-                            triggers.add('explosion')
-                        sm.set_ducking_triggers(triggers)
                     elif focus == "back":
                         ctx.play_button_click_sound()
                         current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
-                        sm.set_limiter_enabled(limiter_enabled)
-                        sm.set_ducking(enabled=duck_enabled)
-                        triggers = set()
-                        if duck_boss:
-                            triggers.add('boss')
-                        if duck_explosion:
-                            triggers.add('explosion')
-                        sm.set_ducking_triggers(triggers)
                         return
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 # 왼쪽 버튼(1)으로만 토글/슬라이더 조작 허용
@@ -536,11 +438,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         ctx.play_button_click_sound()
                         current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
-                        sm.set_limiter_enabled(limiter_enabled)
-                        sm.set_ducking(enabled=duck_enabled)
-                        # 단순 구성: 덕킹 트리거는 기본값 유지
                         return
-                    # 토글류
+                    # 컨트롤 탭 처리
                     if current_tab == 'controls':
                         if 'kb_rect' in locals() and kb_rect.collidepoint(mouse_pos):
                             control_scheme = 'keyboard'
@@ -548,36 +447,6 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         if 'mk_rect' in locals() and mk_rect.collidepoint(mouse_pos):
                             control_scheme = 'mouse_keyboard'
                             continue
-                    if current_tab == 'sound' and limiter_toggle_rect.collidepoint(mouse_pos):
-                        ctx.play_button_click_sound()
-                        limiter_enabled = not limiter_enabled
-                        sm.set_limiter_enabled(limiter_enabled)
-                        continue
-                    if current_tab == 'sound' and duck_toggle_rect.collidepoint(mouse_pos):
-                        ctx.play_button_click_sound()
-                        duck_enabled = not duck_enabled
-                        sm.set_ducking(enabled=duck_enabled)
-                        continue
-                    if current_tab == 'sound' and duck_enabled and duck_boss_toggle_rect.collidepoint(mouse_pos):
-                        ctx.play_button_click_sound()
-                        duck_boss = not duck_boss
-                        triggers = set()
-                        if duck_boss:
-                            triggers.add('boss')
-                        if duck_explosion:
-                            triggers.add('explosion')
-                        sm.set_ducking_triggers(triggers)
-                        continue
-                    if current_tab == 'sound' and duck_enabled and duck_explosion_toggle_rect.collidepoint(mouse_pos):
-                        ctx.play_button_click_sound()
-                        duck_explosion = not duck_explosion
-                        triggers = set()
-                        if duck_boss:
-                            triggers.add('boss')
-                        if duck_explosion:
-                            triggers.add('explosion')
-                        sm.set_ducking_triggers(triggers)
-                        continue
 
                     bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
                     if current_tab == 'sound' and (bgm_slider_rect.collidepoint(mouse_pos) or ('bgm_handle_rect' in locals() and bgm_handle_rect.collidepoint(mouse_pos))):
@@ -630,6 +499,3 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
     ctx.store_bgm_volume(current_bgm_volume)
     ctx.set_sfx_volume(current_sfx_volume)
-    sm.set_limiter_enabled(limiter_enabled)
-    sm.set_ducking(enabled=duck_enabled)
-    # 단순 구성: 덕킹 트리거는 기본값 유지

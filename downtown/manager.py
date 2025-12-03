@@ -1721,6 +1721,10 @@ class DowntownManager:
                         if interior.poker_game_playing:
                             menu_result = interior.handle_key(event)
                             # 포커 게임 종료 처리됨
+                        # 빠칭코 게임 중이면 빠칭코 게임에 ESC 전달
+                        elif interior.pachinko_game_playing:
+                            menu_result = interior.handle_key(event)
+                            # 빠칭코 게임 종료 처리됨
                         else:
                             # ESC 메뉴 호출 (광장과 동일)
                             show_character_info, show_pause_options = _import_ingame_functions()
@@ -1787,6 +1791,9 @@ class DowntownManager:
                     # 포커 게임 중이면 포커 게임에 마우스 이벤트 전달
                     if interior.poker_game_playing:
                         interior.handle_key(event)
+                    # 빠칭코 게임 중이면 빠칭코 게임에 마우스 이벤트 전달
+                    elif interior.pachinko_game_playing:
+                        interior.handle_key(event)
                     elif event.button == 1:  # 왼쪽 클릭
                         result = interior.handle_click(event.pos)
                         if result and isinstance(result, tuple):
@@ -1819,6 +1826,9 @@ class DowntownManager:
                 elif event.type == pygame.MOUSEWHEEL:
                     # 포커 게임 중이면 포커 게임에 휠 이벤트 전달
                     if interior.poker_game_playing:
+                        interior.handle_key(event)
+                    # 빠칭코 게임 중이면 빠칭코 게임에 휠 이벤트 전달
+                    elif interior.pachinko_game_playing:
                         interior.handle_key(event)
                     else:
                         # 마우스 휠 처리 (환전 양 조절 - 슬라이더 위에서만)
