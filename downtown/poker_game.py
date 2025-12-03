@@ -2949,10 +2949,10 @@ class PokerGameUI:
 
         # 4인 플레이어 카드 위치 (쇼다운용)
         card_positions = {
-            'south': (cx - self.CARD_WIDTH - 8, self.screen_height - 180),
+            'south': (cx - self.CARD_WIDTH - 8, self.screen_height - 140),  # 더 아래로 이동
             'north': (cx + 40, 60),  # 리버 카드와 겹치지 않게 오른쪽으로 이동
-            'west': (30, cy - self.CARD_HEIGHT // 2 - 60),
-            'east': (self.screen_width - 20 - self.CARD_WIDTH, cy - self.CARD_HEIGHT // 2 - 60),
+            'west': (30, cy - self.CARD_HEIGHT // 2 - 30),   # 약간 위로 이동
+            'east': (self.screen_width - 20 - self.CARD_WIDTH, cy - self.CARD_HEIGHT // 2 - 30),  # 약간 위로 이동
         }
 
         border_colors = {
@@ -3040,13 +3040,25 @@ class PokerGameUI:
         cx = self.screen_width // 2
         cy = self.screen_height // 2
 
+        # 쇼다운/결과 상태인지 확인
+        is_showdown = self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER]
+
         # 4인 플레이어 정보 표시 위치
-        player_info_positions = {
-            'south': (20, self.screen_height - 55),     # 좌하단 (플레이어)
-            'north': (20, 15),                           # 좌상단 (북쪽 NPC)
-            'west': (20, cy - 80),                       # 좌측 중앙 (서쪽 NPC)
-            'east': (self.screen_width - 150, cy - 80),  # 우측 중앙 (동쪽 NPC)
-        }
+        # 쇼다운 시에는 좌우 플레이어 정보를 카드 아래로 이동
+        if is_showdown:
+            player_info_positions = {
+                'south': (20, self.screen_height - 55),     # 좌하단 (플레이어)
+                'north': (20, 15),                           # 좌상단 (북쪽 NPC)
+                'west': (20, cy + 80),                       # 좌측 - 카드 아래로 이동
+                'east': (self.screen_width - 150, cy + 80),  # 우측 - 카드 아래로 이동
+            }
+        else:
+            player_info_positions = {
+                'south': (20, self.screen_height - 55),     # 좌하단 (플레이어)
+                'north': (20, 15),                           # 좌상단 (북쪽 NPC)
+                'west': (20, cy - 80),                       # 좌측 중앙 (서쪽 NPC)
+                'east': (self.screen_width - 150, cy - 80),  # 우측 중앙 (동쪽 NPC)
+            }
 
         label_colors = {
             'south': self.BLUE,
@@ -3442,9 +3454,9 @@ class PokerGameUI:
             self._draw_dealer_bankrupt_ui(screen)
             return
 
-        # 결과 박스
-        box_w, box_h = 420, 160
-        box_y = self.screen_height - 180
+        # 결과 박스 - 위치를 더 위로 이동하여 플레이어 카드가 보이게
+        box_w, box_h = 420, 140
+        box_y = self.screen_height // 2 + 60  # 화면 중앙 아래쪽으로 이동
 
         # 그림자
         pygame.draw.rect(screen, (0, 0, 0, 100), (cx - box_w // 2 + 5, box_y + 5, box_w, box_h), border_radius=15)
