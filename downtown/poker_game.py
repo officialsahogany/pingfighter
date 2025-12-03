@@ -646,6 +646,7 @@ class PokerGame:
         self.npc_action_display_time = 0  # 액션 표시 시작 시간
         self.npc_turn_queue = []  # 처리할 NPC 순서
         self.npcs_acted_this_round = False  # 이번 라운드에서 NPC들이 액션했는지
+        self.waiting_for_player_response = False  # NPC 레이즈 후 플레이어 응답 대기 중
 
         # 편의용 프로퍼티
         self.player_gold = player_gold  # 호환성 유지
@@ -709,6 +710,7 @@ class PokerGame:
         self.betting_round_complete = False
         self.last_raiser_idx = -1
         self.npcs_acted_this_round = False  # NPC 액션 플래그 리셋
+        self.waiting_for_player_response = False  # 플레이어 응답 대기 리셋
 
         # 딜러 버튼 이동 (시계방향)
         self.dealer_idx = (self.dealer_idx + 1) % 4
@@ -943,6 +945,7 @@ class PokerGame:
         """플레이어가 폴드"""
         if self.state in [self.STATE_PREFLOP, self.STATE_FLOP, self.STATE_TURN, self.STATE_RIVER]:
             self.human_player.fold()
+            self.waiting_for_player_response = False  # 응답 완료
 
             # 남은 플레이어 체크
             active = self.get_active_players()
@@ -957,8 +960,8 @@ class PokerGame:
                 if not self.npcs_acted_this_round:
                     self._continue_betting_round()
                 else:
-                    # NPC들이 이미 액션했으면 라운드 완료 체크
-                    self._check_round_complete()
+                    # NPC들이 이미 액션했으면 다음 페이즈로
+                    self._finish_betting_round()
             return True
         return False
 
@@ -971,8 +974,12 @@ class PokerGame:
                 actual_bet = player.bet(call_needed)
                 self.pot += actual_bet
 
+            # NPC 레이즈에 대한 응답이었으면 바로 다음 페이즈로
+            if self.waiting_for_player_response:
+                self.waiting_for_player_response = False
+                self._finish_betting_round()
             # NPC들이 이번 라운드에서 아직 액션 안 했으면 NPC 턴으로
-            if not self.npcs_acted_this_round:
+            elif not self.npcs_acted_this_round:
                 self._continue_betting_round()
             else:
                 # NPC들이 이미 액션했으면 라운드 완료 체크
@@ -1096,9 +1103,10 @@ class PokerGame:
             if not human.folded and not human.is_all_in:
                 call_needed = self.current_bet_to_call - human.current_bet
                 if call_needed > 0:
-                    # 플레이어가 콜/폴드/리레이즈 해야 함
+                    # 플레이어가 콜/폴드 해야 함 (NPC 레이즈에 대한 응답)
                     self.current_player_idx = 0  # 플레이어 차례로 설정
                     self.npcs_acted_this_round = True  # NPC들은 액션 완료
+                    self.waiting_for_player_response = True  # 플레이어 응답 대기
                     return
 
             # NPC들 액션 완료 표시
@@ -2026,26 +2034,40 @@ class PokerGameUI:
                 if btn_rect.collidepoint(pos):
                     # 마우스 클릭 시 키보드 선택 해제하고 바로 실행
                     self.selected_action = -1
-                    # 해당 액션 실행
-                    if i == 0:  # CALL/CHECK
-                        # 콜 금액이 플레이어 골드보다 크면 무시
-                        call_amount = self.game.get_call_amount()
-                        if call_amount > self.game.players['south'].gold:
-                            return None  # 골드 부족
-                        if call_amount > 0:
-                            self._spawn_chip_animation(call_amount)
-                        self.game.call()
-                        return 'action_call'
-                    elif i == 1:  # RAISE
-                        if self.game.raise_bet(self.raise_amount):
-                            human = self.game.players['south']
-                            call_needed = self.game.current_bet_to_call - human.current_bet
-                            total = self.raise_amount + max(0, call_needed)
-                            self._spawn_chip_animation(total)
-                            return 'action_raise'
-                    elif i == 2:  # FOLD
-                        self.game.fold()
-                        return 'action_fold'
+
+                    # NPC 응답 대기 중이면 버튼 2개 (콜/폴드)
+                    if self.game.waiting_for_player_response:
+                        if i == 0:  # CALL
+                            call_amount = self.game.get_call_amount()
+                            if call_amount > self.game.players['south'].gold:
+                                return None  # 골드 부족
+                            if call_amount > 0:
+                                self._spawn_chip_animation(call_amount)
+                            self.game.call()
+                            return 'action_call'
+                        elif i == 1:  # FOLD
+                            self.game.fold()
+                            return 'action_fold'
+                    else:
+                        # 일반 상태: 버튼 3개 (콜/레이즈/폴드)
+                        if i == 0:  # CALL/CHECK
+                            call_amount = self.game.get_call_amount()
+                            if call_amount > self.game.players['south'].gold:
+                                return None  # 골드 부족
+                            if call_amount > 0:
+                                self._spawn_chip_animation(call_amount)
+                            self.game.call()
+                            return 'action_call'
+                        elif i == 1:  # RAISE
+                            if self.game.raise_bet(self.raise_amount):
+                                human = self.game.players['south']
+                                call_needed = self.game.current_bet_to_call - human.current_bet
+                                total = self.raise_amount + max(0, call_needed)
+                                self._spawn_chip_animation(total)
+                                return 'action_raise'
+                        elif i == 2:  # FOLD
+                            self.game.fold()
+                            return 'action_fold'
         return None
 
     def _handle_betting_input(self, event):
@@ -2069,45 +2091,63 @@ class PokerGameUI:
         return None
 
     def _handle_action_input(self, event):
+        # NPC 응답 대기 중이면 버튼 2개 (콜/폴드), 아니면 3개 (콜/레이즈/폴드)
+        num_actions = 2 if self.game.waiting_for_player_response else 3
+
         if event.key == pygame.K_LEFT:
             # 키보드 사용 시 selected_action 활성화
             if self.selected_action == -1:
-                self.selected_action = 2  # 왼쪽 누르면 마지막(FOLD)에서 시작
+                self.selected_action = num_actions - 1  # 왼쪽 누르면 마지막에서 시작
             else:
-                self.selected_action = (self.selected_action - 1) % 3
+                self.selected_action = (self.selected_action - 1) % num_actions
             self.hovered_action = -1  # 키보드 사용 시 호버 해제
         elif event.key == pygame.K_RIGHT:
             # 키보드 사용 시 selected_action 활성화
             if self.selected_action == -1:
                 self.selected_action = 0  # 오른쪽 누르면 처음(CALL)에서 시작
             else:
-                self.selected_action = (self.selected_action + 1) % 3
+                self.selected_action = (self.selected_action + 1) % num_actions
             self.hovered_action = -1  # 키보드 사용 시 호버 해제
         elif event.key == pygame.K_UP:
-            # 레이즈 금액 증가 (선택 상태와 무관하게) - 베팅에 비례
-            self.raise_amount = min(self.max_raise, self.game.players['south'].gold, self.raise_amount + self.raise_step)
+            # 레이즈 금액 증가 (NPC 응답 대기 중이면 무시)
+            if not self.game.waiting_for_player_response:
+                self.raise_amount = min(self.max_raise, self.game.players['south'].gold, self.raise_amount + self.raise_step)
         elif event.key == pygame.K_DOWN:
-            # 레이즈 금액 감소 (선택 상태와 무관하게) - 베팅에 비례
-            self.raise_amount = max(self.min_raise, self.raise_amount - self.raise_step)
+            # 레이즈 금액 감소 (NPC 응답 대기 중이면 무시)
+            if not self.game.waiting_for_player_response:
+                self.raise_amount = max(self.min_raise, self.raise_amount - self.raise_step)
         elif event.key in [pygame.K_RETURN, pygame.K_z, pygame.K_SPACE]:
             # 키보드로 확인 시 selected_action 사용
-            if self.selected_action == 0:
-                # 콜 금액이 플레이어 골드보다 크면 무시
-                call_amount = self.game.get_call_amount()
-                if call_amount > self.game.players['south'].gold:
-                    return None  # 골드 부족
-                if call_amount > 0:
-                    self._spawn_chip_animation(call_amount)
-                self.game.call()
-                return 'action_call'
-            elif self.selected_action == 1:
-                if self.game.raise_bet(self.raise_amount):
-                    self._spawn_chip_animation(self.raise_amount)
+            if self.game.waiting_for_player_response:
+                # NPC 응답 대기 중: 0=콜, 1=폴드
+                if self.selected_action == 0:
+                    call_amount = self.game.get_call_amount()
+                    if call_amount > self.game.players['south'].gold:
+                        return None  # 골드 부족
+                    if call_amount > 0:
+                        self._spawn_chip_animation(call_amount)
                     self.game.call()
-                    return 'action_raise'
-            elif self.selected_action == 2:
-                self.game.fold()
-                return 'action_fold'
+                    return 'action_call'
+                elif self.selected_action == 1:
+                    self.game.fold()
+                    return 'action_fold'
+            else:
+                # 일반 상태: 0=콜, 1=레이즈, 2=폴드
+                if self.selected_action == 0:
+                    call_amount = self.game.get_call_amount()
+                    if call_amount > self.game.players['south'].gold:
+                        return None  # 골드 부족
+                    if call_amount > 0:
+                        self._spawn_chip_animation(call_amount)
+                    self.game.call()
+                    return 'action_call'
+                elif self.selected_action == 1:
+                    if self.game.raise_bet(self.raise_amount):
+                        self._spawn_chip_animation(self.raise_amount)
+                        return 'action_raise'
+                elif self.selected_action == 2:
+                    self.game.fold()
+                    return 'action_fold'
             # selected_action이 -1이면 아무 동작 안함 (마우스로 클릭해야 함)
         elif event.key == pygame.K_ESCAPE:
             return 'exit'
@@ -3308,11 +3348,18 @@ class PokerGameUI:
             call_text = "체크"  # 딜러가 체크했으면 플레이어도 체크
             call_show_gold = False
 
-        actions = [
-            (call_text, (80, 180, 100), (100, 220, 120), call_show_gold),
-            (f"레이즈 +{self.raise_amount}", (200, 170, 60), (240, 200, 80), True),  # 골드 아이콘 표시
-            ("폴드", (180, 80, 80), (220, 100, 100), False)
-        ]
+        # NPC 레이즈에 대한 응답 중이면 콜/폴드만 표시
+        if self.game.waiting_for_player_response:
+            actions = [
+                (call_text, (80, 180, 100), (100, 220, 120), call_show_gold),
+                ("폴드", (180, 80, 80), (220, 100, 100), False)
+            ]
+        else:
+            actions = [
+                (call_text, (80, 180, 100), (100, 220, 120), call_show_gold),
+                (f"레이즈 +{self.raise_amount}", (200, 170, 60), (240, 200, 80), True),  # 골드 아이콘 표시
+                ("폴드", (180, 80, 80), (220, 100, 100), False)
+            ]
 
         btn_w, btn_h = 110, 50
         total_w = len(actions) * btn_w + (len(actions) - 1) * 15
@@ -3374,13 +3421,17 @@ class PokerGameUI:
             else:
                 self._draw_text(screen, action, btn_x + btn_w // 2, y + btn_h // 2 - 10, text_color, 14, center=True)
 
-        # 레이즈 범위 표시
-        range_text = f"레이즈: {self.min_raise}~{self.max_raise}G (±{self.raise_step})"
-        self._draw_text(screen, range_text, cx, y + 55, (120, 120, 140), 10, center=True)
-
-        # 조작법
-        self._draw_text(screen, "◀▶/클릭: 선택  ▲▼/휠: 레이즈 조절  Space: 확인  ESC: 나가기",
-                       cx, y + 70, (100, 100, 110), 10, center=True)
+        # 레이즈 범위 표시 (NPC 응답 대기 중이면 숨김)
+        if not self.game.waiting_for_player_response:
+            range_text = f"레이즈: {self.min_raise}~{self.max_raise}G (±{self.raise_step})"
+            self._draw_text(screen, range_text, cx, y + 55, (120, 120, 140), 10, center=True)
+            # 조작법
+            self._draw_text(screen, "◀▶/클릭: 선택  ▲▼/휠: 레이즈 조절  Space: 확인  ESC: 나가기",
+                           cx, y + 70, (100, 100, 110), 10, center=True)
+        else:
+            # NPC 레이즈 응답 시 조작법
+            self._draw_text(screen, "◀▶/클릭: 선택  Space: 확인  ESC: 나가기",
+                           cx, y + 55, (100, 100, 110), 10, center=True)
 
     def _draw_result_ui(self, screen):
         """결과 UI (4인 프리미엄)"""
