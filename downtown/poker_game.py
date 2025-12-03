@@ -2043,16 +2043,32 @@ class PokerGameUI:
             except:
                 pass
 
-            # 숫자 텍스트 - 한글 지원 폰트 사용 (크기 확대)
+            # 숫자 텍스트 - 한글 지원 폰트 사용 (Pretendard 폰트 직접 로드)
             try:
-                # 한글 폰트 우선 시도
                 text_font = None
-                for font_name in ['NanumGothic', 'AppleGothic', 'Malgun Gothic', 'Arial']:
-                    try:
-                        text_font = pygame.font.SysFont(font_name, 22, bold=True)
-                        break
-                    except:
-                        continue
+                # Pretendard 폰트 파일 직접 로드 시도
+                font_paths = [
+                    resource_path(os.path.join("..", "fonts", "프리텐다드", "public", "static", "Pretendard-Bold.otf")),
+                    resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "Pretendard-Bold.otf")),
+                ]
+                for font_path in font_paths:
+                    if os.path.exists(font_path):
+                        try:
+                            text_font = pygame.font.Font(font_path, 22)
+                            break
+                        except:
+                            continue
+
+                # 폰트 파일 로드 실패 시 시스템 폰트 시도
+                if text_font is None:
+                    for font_name in ['Malgun Gothic', 'AppleGothic', 'NanumGothic', 'Arial']:
+                        try:
+                            text_font = pygame.font.SysFont(font_name, 22, bold=True)
+                            if text_font:
+                                break
+                        except:
+                            continue
+
                 if text_font is None:
                     text_font = pygame.font.Font(None, 24)
 
