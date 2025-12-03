@@ -898,8 +898,9 @@ class PokerGame:
             # 수수료 표시 및 플로팅 텍스트 트리거
             if fee > 0:
                 self.result_message = f"승리! {p_name} (+{net_profit}G, 수수료 {fee}G)"
-                # 수수료 차감 플로팅 텍스트 (플레이어 위치에서 발생)
-                self.pending_floating_texts.append((f"-{fee}", 'fee', 'player'))
+                # 수수료 차감 플로팅 텍스트 (플레이어 위치에서 발생) - 퍼센트 표시 포함
+                fee_percent = int(total_fee_rate * 100)
+                self.pending_floating_texts.append((f"-{fee} (수수료 {fee_percent}%)", 'fee', 'player'))
             else:
                 self.result_message = f"승리! {p_name} (+{net_profit}G)"
 
