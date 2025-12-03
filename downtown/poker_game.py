@@ -898,13 +898,18 @@ class PokerGame:
             # 수수료 표시 및 플로팅 텍스트 트리거
             if fee > 0:
                 self.result_message = f"승리! {p_name} (+{net_profit}G, 수수료 {fee}G)"
-                # 수수료 차감 플로팅 텍스트
-                self.pending_floating_texts.append((f"-{fee}", 'fee'))
+                # 수수료 차감 플로팅 텍스트 (플레이어 위치에서 발생)
+                self.pending_floating_texts.append((f"-{fee}", 'fee', 'player'))
             else:
                 self.result_message = f"승리! {p_name} (+{net_profit}G)"
 
-            # 획득 골드 플로팅 텍스트
-            self.pending_floating_texts.append((f"+{net_profit}", 'win'))
+            # 획득 골드 플로팅 텍스트 (플레이어 위치에서 발생)
+            self.pending_floating_texts.append((f"+{net_profit}", 'win', 'player'))
+
+            # 딜러 골드 감소 표시 (딜러 위치에서 발생)
+            dealer_loss = self.pot - self.current_bet  # 딜러가 잃은 금액
+            if dealer_loss > 0:
+                self.pending_floating_texts.append((f"-{dealer_loss}", 'lose', 'dealer'))
 
             # 딜러 파산 체크
             if self.dealer_gold <= 0:
@@ -918,6 +923,13 @@ class PokerGame:
             self.dealer_gold += self.pot
             self.player_win_streak = 0  # 연승 리셋
             self.result_message = f"패배... 딜러 {d_name}"
+
+            # 플레이어 골드 감소 표시 (플레이어 위치)
+            self.pending_floating_texts.append((f"-{self.current_bet}", 'lose', 'player'))
+            # 딜러 골드 증가 표시 (딜러 위치)
+            dealer_win = self.pot - self.current_bet  # 딜러 순이익
+            if dealer_win > 0:
+                self.pending_floating_texts.append((f"+{dealer_win}", 'win', 'dealer'))
         else:
             # 무승부 - 각자 베팅금 돌려받음
             self.winner = 'tie'
@@ -1590,6 +1602,38 @@ class PokerGameUI:
         # 플로팅 텍스트 애니메이션 (수수료, 획득 골드 등)
         self.floating_texts = []  # [(text, x, y, color, timer, max_timer), ...]
 
+        # 골드 증감 효과음 로드
+        self.gold_sound = None
+        self._load_gold_sound()
+
+    def _load_gold_sound(self):
+        """골드 증감 효과음 로드"""
+        try:
+            # sounds 폴더에서 itemget.wav 로드
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            sound_path = os.path.join(parent_dir, "sounds", "itemget.wav")
+
+            if os.path.exists(sound_path):
+                self.gold_sound = pygame.mixer.Sound(sound_path)
+                self.gold_sound.set_volume(0.5)
+            else:
+                # PyInstaller 환경
+                alt_path = resource_path(os.path.join("..", "sounds", "itemget.wav"))
+                if os.path.exists(alt_path):
+                    self.gold_sound = pygame.mixer.Sound(alt_path)
+                    self.gold_sound.set_volume(0.5)
+        except Exception as e:
+            print(f"[PokerGameUI] 골드 효과음 로드 실패: {e}")
+
+    def _play_gold_sound(self):
+        """골드 증감 효과음 재생"""
+        if self.gold_sound:
+            try:
+                self.gold_sound.play()
+            except Exception:
+                pass
+
     def start_game(self, player_gold):
         self.game = PokerGame(player_gold)
         self.game.start_new_round()
@@ -1840,23 +1884,45 @@ class PokerGameUI:
 
                 # 펜딩된 플로팅 텍스트 처리
                 if self.game.pending_floating_texts:
-                    base_y = self.screen_height - 200
-                    delay_offset = 0
-                    for text, text_type in self.game.pending_floating_texts:
-                        # 타입별 색상 및 위치 결정
+                    # 플레이어 골드 위치: 좌하단 (20, screen_height - 50)
+                    # 딜러 골드 위치: 좌상단 (20, 15)
+                    player_x, player_y = 150, self.screen_height - 50
+                    dealer_x, dealer_y = 150, 40
+
+                    player_offset = 0
+                    dealer_offset = 0
+                    played_sound = False
+
+                    for item in self.game.pending_floating_texts:
+                        text, text_type, target = item
+
+                        # 타입별 색상 결정
                         if text_type == 'fee':
-                            color = (255, 100, 100)  # 빨간색 (수수료)
-                            x = self.screen_width // 2 + 100
+                            color = (255, 150, 100)  # 주황색 (수수료)
                         elif text_type == 'win':
                             color = (100, 255, 100)  # 초록색 (획득)
-                            x = self.screen_width // 2 - 50
+                        elif text_type == 'lose':
+                            color = (255, 100, 100)  # 빨간색 (손실)
                         else:
                             color = (255, 255, 255)
-                            x = self.screen_width // 2
+
+                        # 타겟별 위치 결정
+                        if target == 'player':
+                            x = player_x
+                            y = player_y - player_offset
+                            player_offset += 25
+                        else:  # dealer
+                            x = dealer_x
+                            y = dealer_y + dealer_offset
+                            dealer_offset += 25
 
                         # 플로팅 텍스트 추가 (text, x, y, color, timer, max_timer, type)
-                        self.floating_texts.append((text, x, base_y + delay_offset, color, 0, 2.0, text_type))
-                        delay_offset += 30
+                        self.floating_texts.append((text, x, y, color, 0, 2.0, text_type))
+
+                        # 효과음 재생 (한 번만)
+                        if not played_sound:
+                            self._play_gold_sound()
+                            played_sound = True
 
                     self.game.pending_floating_texts = []
 
