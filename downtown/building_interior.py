@@ -14,6 +14,7 @@ try:
         SCREEN_WIDTH, SCREEN_HEIGHT, BuildingType, Colors, resource_path,
         TILE_SIZE, PLAYER_SPEED, PLAYER_SIZE
     )
+    from .pachinko_game import PachinkoGameUI
 except ImportError:  # pragma: no cover - fallback for direct execution
     import sys
     from pathlib import Path
@@ -27,6 +28,7 @@ except ImportError:  # pragma: no cover - fallback for direct execution
         SCREEN_WIDTH, SCREEN_HEIGHT, BuildingType, Colors, resource_path,
         TILE_SIZE, PLAYER_SPEED, PLAYER_SIZE
     )
+    from downtown.pachinko_game import PachinkoGameUI  # type: ignore
 
 
 # =============================================================================
@@ -2263,6 +2265,13 @@ class BuildingInterior:
         self.dealer_bankrupt = False  # 딜러 파산 여부 (파산 시 더 이상 게임 불가)
         self._init_poker_table_zone()  # 포커 테이블 영역 초기화
 
+        # 빠칭코(슬롯머신) 게임 상호작용 (CASINO 전용)
+        self.slot_machine_rects = []  # 슬롯머신 상호작용 영역 리스트
+        self.nearby_slot_machine = None  # 근처 슬롯머신 인덱스 (0~5, None이면 없음)
+        self.pachinko_game_playing = False  # 빠칭코 게임 플레이 중
+        self.pachinko_game_ui = None  # 빠칭코 게임 UI 인스턴스
+        self._init_slot_machine_zones()  # 슬롯머신 영역 초기화
+
     def _init_shop_inventory(self):
         """상점 인벤토리 초기화 (랜덤 패시브 아이템 1~7개 + 5% 전설)"""
         if self.building_type != BuildingType.ITEM_SHOP:
@@ -2527,6 +2536,144 @@ class BuildingInterior:
             table_w + TILE_SIZE * 2,
             table_h + TILE_SIZE
         )
+
+    def _init_slot_machine_zones(self):
+        """슬롯머신 상호작용 영역 초기화 (CASINO 전용) - 좌측 3개, 우측 3개"""
+        if self.building_type != BuildingType.CASINO:
+            return
+
+        self.slot_machine_rects = []
+
+        # 슬롯머신 위치 (_draw_neon_casino_interior 기준)
+        wall_h = int(TILE_SIZE * 4)
+        slot_y = wall_h + int(TILE_SIZE * 6)
+
+        # 개별 슬롯머신 크기
+        machine_w = int(TILE_SIZE * 1.4)
+        machine_h = int(TILE_SIZE * 2.8)
+        spacing = int(TILE_SIZE * 1.5)
+
+        # 좌측 슬롯머신 3개
+        slot_left_x = int(TILE_SIZE * 1.5)
+        for i in range(3):
+            machine_x = slot_left_x + i * spacing
+            rect = pygame.Rect(
+                machine_x - 10,
+                slot_y - 10,
+                machine_w + 20,
+                machine_h + 20
+            )
+            self.slot_machine_rects.append(rect)
+
+        # 우측 슬롯머신 3개
+        slot_right_x = self.pixel_width - int(TILE_SIZE * 6)
+        for i in range(3):
+            machine_x = slot_right_x + i * spacing
+            rect = pygame.Rect(
+                machine_x - 10,
+                slot_y - 10,
+                machine_w + 20,
+                machine_h + 20
+            )
+            self.slot_machine_rects.append(rect)
+
+    def _check_nearby_slot_machine(self):
+        """플레이어 근처에 슬롯머신이 있는지 확인 (인덱스 반환, 없으면 None)"""
+        if self.building_type != BuildingType.CASINO:
+            return None
+
+        if not self.slot_machine_rects:
+            return None
+
+        player_rect = pygame.Rect(
+            self.player.x - 30, self.player.y - 30, 60, 60
+        )
+
+        for i, slot_rect in enumerate(self.slot_machine_rects):
+            if player_rect.colliderect(slot_rect):
+                return i
+
+        return None
+
+    def _start_pachinko_game(self):
+        """빠칭코(슬롯머신) 게임 시작"""
+        if self.pachinko_game_playing:
+            return False
+
+        try:
+            from .pachinko_game import PachinkoGameUI
+        except ImportError:
+            try:
+                from downtown.pachinko_game import PachinkoGameUI
+            except ImportError:
+                return False
+
+        # 플레이어 골드 가져오기
+        import sys
+        player_gold = self.player_data.get('gold', 0) if self.player_data else 0
+
+        # pingfighter 모듈의 gold와 downtown_gold 확인
+        if 'pingfighter' in sys.modules:
+            pingfighter = sys.modules['pingfighter']
+            downtown_gold = getattr(pingfighter, 'downtown_gold', 0)
+            game_gold = getattr(pingfighter, 'gold', 0)
+            player_gold = max(player_gold, downtown_gold, game_gold)
+
+        # 최소 1골드 필요
+        if player_gold < 1:
+            return False
+
+        # 빠칭코 게임 UI 생성
+        self.pachinko_game_ui = PachinkoGameUI(SCREEN_WIDTH, SCREEN_HEIGHT, fonts=self.fonts)
+        self.pachinko_game_ui.start_game(player_gold)
+        self.pachinko_game_playing = True
+
+        return True
+
+    def _update_pachinko_game(self, dt):
+        """빠칭코 게임 업데이트"""
+        if not self.pachinko_game_playing or not self.pachinko_game_ui:
+            return
+
+        self.pachinko_game_ui.update(dt)
+
+    def _handle_pachinko_game_event(self, event):
+        """빠칭코 게임 이벤트 처리"""
+        if not self.pachinko_game_playing or not self.pachinko_game_ui:
+            return None
+
+        result = self.pachinko_game_ui.handle_event(event)
+
+        if result == 'exit':
+            # 게임 종료 - 골드 업데이트
+            final_gold = self.pachinko_game_ui.get_player_gold()
+            self._sync_pachinko_gold(final_gold)
+            self.pachinko_game_playing = False
+            self.pachinko_game_ui = None
+            return 'pachinko_exit'
+
+        return result
+
+    def _sync_pachinko_gold(self, new_gold):
+        """빠칭코 게임 결과로 플레이어 골드 동기화"""
+        import sys
+
+        # 1. player_data 업데이트
+        if self.player_data:
+            self.player_data['gold'] = new_gold
+
+        # 2. pingfighter 모듈 골드 업데이트
+        if 'pingfighter' in sys.modules:
+            pingfighter = sys.modules['pingfighter']
+            setattr(pingfighter, 'downtown_gold', new_gold)
+            setattr(pingfighter, 'gold', new_gold)
+
+    def _draw_pachinko_game(self, screen):
+        """빠칭코 게임 화면 그리기"""
+        if not self.pachinko_game_playing or not self.pachinko_game_ui:
+            return
+
+        self.pachinko_game_ui.draw(screen)
 
     def _check_nearby_poker_table(self):
         """플레이어 근처에 포커 테이블이 있는지 확인"""
@@ -3603,6 +3750,11 @@ class BuildingInterior:
             self._update_poker_game(dt)
             return  # 포커 게임 중에는 다른 업데이트 차단
 
+        # 빠칭코 게임 업데이트
+        if self.pachinko_game_playing:
+            self._update_pachinko_game(dt)
+            return  # 빠칭코 게임 중에는 다른 업데이트 차단
+
         # 크레인 게임 업데이트
         if self.crane_game_playing:
             self._update_crane_game(dt)
@@ -3662,6 +3814,8 @@ class BuildingInterior:
         # 카지노에서 포커 테이블 근처 체크
         if self.building_type == BuildingType.CASINO:
             self.nearby_poker_table = self._check_nearby_poker_table()
+            # 슬롯머신 근처 체크
+            self.nearby_slot_machine = self._check_nearby_slot_machine()
 
         # 일반 NPC 근처 체크 (상호작용 힌트용)
         self.nearby_npc = self._check_nearby_npc()
@@ -4403,6 +4557,15 @@ class BuildingInterior:
                 return ("poker_input", None)  # 입력 처리됨 (다른 로직 차단)
             return None
 
+        # 빠칭코(슬롯머신) 게임 중일 때 - 모든 입력을 빠칭코 게임으로 전달
+        if self.pachinko_game_playing:
+            if event.type in [pygame.KEYDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEWHEEL]:
+                result = self._handle_pachinko_game_event(event)
+                if result:
+                    return (result, None)
+                return ("pachinko_input", None)
+            return None
+
         if event.type != pygame.KEYDOWN:
             return None
 
@@ -4572,8 +4735,16 @@ class BuildingInterior:
 
         # 메뉴가 닫혀있을 때 - Space로 상호작용
         if event.key == pygame.K_SPACE:
-            # 카지노 건물에서 포커 테이블 상호작용 확인
+            # 카지노 건물에서 포커 테이블/슬롯머신 상호작용 확인
             if self.building_type == BuildingType.CASINO:
+                # 슬롯머신 상호작용 (포커 테이블보다 우선)
+                if self.nearby_slot_machine is not None:
+                    result = self._start_pachinko_game()
+                    if result == True:
+                        return ("pachinko_start", None)
+                    else:
+                        return ("pachinko_fail", "골드가 부족합니다")
+                # 포커 테이블 상호작용
                 if self.nearby_poker_table:
                     result = self._start_poker_game()
                     if result == True:
@@ -5786,10 +5957,19 @@ class BuildingInterior:
         if self.poker_game_playing:
             self._draw_poker_game(screen)
 
+        # 빠칭코(슬롯머신) 게임 플레이 화면 (최상위)
+        if self.pachinko_game_playing:
+            self._draw_pachinko_game(screen)
+
         # 카지노 포커 테이블 상호작용 힌트
         if self.building_type == BuildingType.CASINO and self.nearby_poker_table:
-            if not self.poker_game_playing:
+            if not self.poker_game_playing and not self.pachinko_game_playing:
                 self._draw_poker_table_hint(screen)
+
+        # 카지노 슬롯머신 상호작용 힌트
+        if self.building_type == BuildingType.CASINO and self.nearby_slot_machine is not None:
+            if not self.poker_game_playing and not self.pachinko_game_playing:
+                self._draw_slot_machine_hint(screen)
 
         # 아카데미 학장 상호작용 힌트 (대화창 닫혀있고 근처일 때만)
         if self.building_type == BuildingType.ACADEMY:
@@ -7857,6 +8037,71 @@ class BuildingInterior:
         pygame.draw.circle(screen, (200, 50, 50), (chip_x, chip_y), 10)
         pygame.draw.circle(screen, CASINO_GOLD, (chip_x, chip_y), 10, 2)
         pygame.draw.circle(screen, (255, 255, 255), (chip_x, chip_y), 5)
+
+    def _draw_slot_machine_hint(self, screen):
+        """슬롯머신 근처일 때 상호작용 힌트 표시"""
+        hint_text = "SPACE - 슬롯머신 게임"
+        pulse = abs(math.sin(self.animation_timer * 4))
+
+        # 색상 팔레트 (슬롯머신 테마 - 네온 그린/골드)
+        NEON_GREEN = (50, 255, 100)
+        SLOT_GOLD = (255, 200, 50)
+        DARK_GREEN = (20, 40, 30)
+
+        # 힌트 박스 크기
+        box_w = 240
+        box_h = 45
+        box_x = (SCREEN_WIDTH - box_w) // 2
+        box_y = SCREEN_HEIGHT - 85
+
+        # 글로우 효과 (네온 그린)
+        for glow in range(3, 0, -1):
+            glow_alpha = int((70 - glow * 18) * pulse)
+            glow_surf = pygame.Surface((box_w + glow * 8, box_h + glow * 8), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*NEON_GREEN, glow_alpha),
+                           (0, 0, box_w + glow * 8, box_h + glow * 8), border_radius=10)
+            screen.blit(glow_surf, (box_x - glow * 4, box_y - glow * 4))
+
+        # 박스 배경 (다크 그린)
+        box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box_surf, (*DARK_GREEN, 240), (0, 0, box_w, box_h), border_radius=8)
+        screen.blit(box_surf, (box_x, box_y))
+
+        # 테두리 (골드 + 그린 그라데이션 효과)
+        pygame.draw.rect(screen, SLOT_GOLD, (box_x, box_y, box_w, box_h), 2, border_radius=8)
+        pygame.draw.rect(screen, NEON_GREEN, (box_x + 2, box_y + 2, box_w - 4, box_h - 4), 1, border_radius=6)
+
+        # 텍스트
+        if self.fonts:
+            font = self.fonts.get("small") or self.fonts.get("main")
+            if font:
+                text_color = (255, 255, 255)
+                text_surf, text_rect = font.render(hint_text, text_color)
+                text_x = box_x + (box_w - text_rect.width) // 2 + 15
+                text_y = box_y + (box_h - text_rect.height) // 2
+                screen.blit(text_surf, (text_x, text_y))
+
+        # 슬롯 아이콘 (좌측 - 7 심볼)
+        slot_x = box_x + 12
+        slot_y = box_y + (box_h - 28) // 2
+        # 슬롯 배경
+        pygame.draw.rect(screen, (60, 60, 80), (slot_x, slot_y, 24, 28), border_radius=4)
+        pygame.draw.rect(screen, SLOT_GOLD, (slot_x, slot_y, 24, 28), 2, border_radius=4)
+        # 7 심볼
+        if self.fonts:
+            seven_font = self.fonts.get("main")
+            if seven_font:
+                seven_surf, seven_rect = seven_font.render("7", (255, 50, 50))
+                screen.blit(seven_surf, (slot_x + (24 - seven_rect.width) // 2,
+                                        slot_y + (28 - seven_rect.height) // 2))
+
+        # 코인 아이콘 (우측)
+        coin_x = box_x + box_w - 22
+        coin_y = box_y + box_h // 2
+        # 코인 본체
+        pygame.draw.circle(screen, SLOT_GOLD, (coin_x, coin_y), 10)
+        pygame.draw.circle(screen, (180, 150, 30), (coin_x, coin_y), 10, 2)
+        pygame.draw.circle(screen, (255, 230, 100), (coin_x, coin_y), 5)
 
     def _draw_npc_interact_hint(self, screen):
         """일반 NPC 근처일 때 상호작용 힌트 표시"""
