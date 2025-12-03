@@ -1689,14 +1689,49 @@ class PokerGameUI:
         text_glow = int(140 + 40 * math.sin(self.table_glow_phase * 2))
         self._draw_text(screen, "POKER", x, y - 8, (70, text_glow, 110), 16, center=True)
 
-        # 카드 문양 장식 (작은 아이콘들)
-        symbols = ['♠', '♥', '♦', '♣']
+        # 카드 문양 장식 (직접 그리기 - 폰트 깨짐 방지)
         symbol_colors = [(200, 200, 220), (220, 80, 80), (220, 80, 80), (200, 200, 220)]
-        for i, (sym, col) in enumerate(zip(symbols, symbol_colors)):
+        for i, col in enumerate(symbol_colors):
             angle = (i / 4) * 2 * math.pi - math.pi / 4 + self.table_glow_phase * 0.3
-            sym_x = x + math.cos(angle) * 22
-            sym_y = y + math.sin(angle) * 22 + 5
-            self._draw_text(screen, sym, int(sym_x), int(sym_y), col, 10, center=True)
+            sym_x = int(x + math.cos(angle) * 22)
+            sym_y = int(y + math.sin(angle) * 22 + 5)
+            self._draw_card_symbol_mini(screen, i, sym_x, sym_y, col, 6)
+
+    def _draw_card_symbol_mini(self, screen, symbol_index, x, y, color, size):
+        """미니 카드 문양 직접 그리기 (0=스페이드, 1=하트, 2=다이아, 3=클럽)"""
+        if symbol_index == 0:  # 스페이드 ♠
+            # 위쪽 뾰족한 부분
+            points = [
+                (x, y - size),
+                (x - size, y + size // 2),
+                (x - size // 3, y + size // 2),
+                (x - size // 3, y + size),
+                (x + size // 3, y + size),
+                (x + size // 3, y + size // 2),
+                (x + size, y + size // 2),
+            ]
+            pygame.draw.polygon(screen, color, points)
+        elif symbol_index == 1:  # 하트 ♥
+            # 두 개의 원 + 삼각형
+            pygame.draw.circle(screen, color, (x - size // 2, y - size // 3), size // 2 + 1)
+            pygame.draw.circle(screen, color, (x + size // 2, y - size // 3), size // 2 + 1)
+            points = [(x, y + size), (x - size, y - size // 4), (x + size, y - size // 4)]
+            pygame.draw.polygon(screen, color, points)
+        elif symbol_index == 2:  # 다이아몬드 ♦
+            # 마름모 형태
+            points = [
+                (x, y - size),      # 상단
+                (x + size, y),      # 우측
+                (x, y + size),      # 하단
+                (x - size, y),      # 좌측
+            ]
+            pygame.draw.polygon(screen, color, points)
+        elif symbol_index == 3:  # 클럽 ♣
+            # 세 개의 원 + 줄기
+            pygame.draw.circle(screen, color, (x, y - size // 2), size // 2 + 1)
+            pygame.draw.circle(screen, color, (x - size // 2 - 1, y + size // 4), size // 2 + 1)
+            pygame.draw.circle(screen, color, (x + size // 2 + 1, y + size // 4), size // 2 + 1)
+            pygame.draw.rect(screen, color, (x - size // 4, y + size // 3, size // 2, size // 2))
 
     def _draw_pot_display(self, screen, x, y):
         """팟 표시 (프리미엄)"""
