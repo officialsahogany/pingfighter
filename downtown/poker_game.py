@@ -1063,17 +1063,17 @@ class PremiumCardRenderer:
             circle_left_x = cx - w * 0.23
             circle_right_x = cx + w * 0.23
 
-            # 상단 뾰족한 삼각형 (뒤집힌 하트)
-            pygame.draw.polygon(surf, color, [
-                (cx, cy - h * 0.42),                              # 상단 뾰족점
-                (circle_left_x - r * 0.85, circle_y - r * 0.2),   # 왼쪽
-                (circle_right_x + r * 0.85, circle_y - r * 0.2),  # 오른쪽
-            ])
-
-            # 하단 왼쪽 원
+            # 하단 왼쪽 원 (먼저 그려서 삼각형이 덮도록)
             pygame.draw.circle(surf, color, (int(circle_left_x), int(circle_y)), int(r))
             # 하단 오른쪽 원
             pygame.draw.circle(surf, color, (int(circle_right_x), int(circle_y)), int(r))
+
+            # 상단 뾰족한 삼각형 (뒤집힌 하트) - 원을 완전히 덮도록
+            pygame.draw.polygon(surf, color, [
+                (cx, cy - h * 0.42),                              # 상단 뾰족점
+                (circle_left_x - r, circle_y + r * 0.3),          # 왼쪽 (원 아래까지 확장)
+                (circle_right_x + r, circle_y + r * 0.3),         # 오른쪽 (원 아래까지 확장)
+            ])
 
             # 줄기 (아래로 뻗는 역삼각형)
             stem_w = s * 0.14
@@ -1218,11 +1218,11 @@ class PremiumCardRenderer:
             circle_left_x = cx - w * 0.23
             circle_right_x = cx + w * 0.23
 
-            # 상단 뾰족한 삼각형 (뒤집힌 하트)
+            # 상단 뾰족한 삼각형 (뒤집힌 하트) - 원에 딱 맞게
             pygame.draw.polygon(surf, color, [
                 (cx, cy - h * 0.42),
-                (circle_left_x - r * 0.85, circle_y - r * 0.2),
-                (circle_right_x + r * 0.85, circle_y - r * 0.2),
+                (circle_left_x - r * 0.7, circle_y),              # 왼쪽 (원 외곽에 맞춤)
+                (circle_right_x + r * 0.7, circle_y),             # 오른쪽 (원 외곽에 맞춤)
             ])
 
             # 하단 왼쪽 원
@@ -2016,11 +2016,11 @@ class PokerGameUI:
             pygame.draw.circle(screen, color, (int(circle_left_x), int(circle_y)), int(r))
             pygame.draw.circle(screen, color, (int(circle_right_x), int(circle_y)), int(r))
 
-            # 상단 삼각형 - 원의 외곽 바깥까지 완전히 덮음
+            # 상단 삼각형 - 원에 딱 맞게
             pygame.draw.polygon(screen, color, [
                 (x, y - s * 0.7),                           # 상단 꼭지점
-                (circle_left_x - r - 1, circle_y + r * 0.3),   # 왼쪽 (원 외곽 바깥)
-                (circle_right_x + r + 1, circle_y + r * 0.3),  # 오른쪽 (원 외곽 바깥)
+                (circle_left_x - r * 0.7, circle_y),        # 왼쪽 (원 외곽에 맞춤)
+                (circle_right_x + r * 0.7, circle_y),       # 오른쪽 (원 외곽에 맞춤)
             ])
 
             # 줄기
