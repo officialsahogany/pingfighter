@@ -1898,9 +1898,10 @@ class PokerGameUI:
                         return 'action_call'
                     elif i == 1:  # RAISE
                         if self.game.raise_bet(self.raise_amount):
-                            total = self.raise_amount + self.game.player_to_call
+                            human = self.game.players['south']
+                            call_needed = self.game.current_bet_to_call - human.current_bet
+                            total = self.raise_amount + max(0, call_needed)
                             self._spawn_chip_animation(total)
-                            self.game.call()
                             return 'action_raise'
                     elif i == 2:  # FOLD
                         self.game.fold()
