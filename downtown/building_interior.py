@@ -2260,6 +2260,7 @@ class BuildingInterior:
         self.nearby_poker_table = False  # 포커 테이블 근처 여부
         self.poker_game_playing = False  # 포커 게임 플레이 중
         self.poker_game_ui = None  # 포커 게임 UI 인스턴스
+        self.dealer_bankrupt = False  # 딜러 파산 여부 (파산 시 더 이상 게임 불가)
         self._init_poker_table_zone()  # 포커 테이블 영역 초기화
 
     def _init_shop_inventory(self):
@@ -2546,6 +2547,10 @@ class BuildingInterior:
         if self.poker_game_playing:
             return False
 
+        # 딜러 파산 시 게임 불가
+        if self.dealer_bankrupt:
+            return 'bankrupt'
+
         try:
             from .poker_game import PokerGameUI
         except ImportError:
@@ -2592,6 +2597,10 @@ class BuildingInterior:
         result = self.poker_game_ui.handle_event(event)
 
         if result == 'exit':
+            # 딜러 파산 여부 확인 및 저장
+            if self.poker_game_ui.game and self.poker_game_ui.game.dealer_bankrupt:
+                self.dealer_bankrupt = True
+
             # 게임 종료 - 골드 업데이트
             final_gold = self.poker_game_ui.get_player_gold()
             self._sync_poker_gold(final_gold)
@@ -4566,8 +4575,12 @@ class BuildingInterior:
             # 카지노 건물에서 포커 테이블 상호작용 확인
             if self.building_type == BuildingType.CASINO:
                 if self.nearby_poker_table:
-                    if self._start_poker_game():
+                    result = self._start_poker_game()
+                    if result == True:
                         return ("poker_start", None)
+                    elif result == 'bankrupt':
+                        # 딜러 파산 - 게임 불가
+                        return ("poker_fail", "딜러가 파산했습니다. 테이블이 닫혔습니다.")
                     else:
                         # 골드 부족 등의 이유로 시작 실패
                         return ("poker_fail", "골드가 부족합니다")
@@ -7772,8 +7785,11 @@ class BuildingInterior:
 
     def _draw_poker_table_hint(self, screen):
         """포커 테이블 근처일 때 상호작용 힌트 표시"""
-        # 화면 하단에 힌트 박스 표시
-        hint_text = "SPACE - 포커 게임 시작"
+        # 딜러 파산 시 다른 메시지 표시
+        if self.dealer_bankrupt:
+            hint_text = "테이블 닫힘 - 딜러 파산"
+        else:
+            hint_text = "SPACE - 포커 게임 시작"
         pulse = abs(math.sin(self.animation_timer * 4))
 
         # 색상 팔레트 (카지노 테마 - 네온 핑크/골드)
