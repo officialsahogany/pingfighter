@@ -647,6 +647,7 @@ class PokerGame:
         self.npc_turn_queue = []  # 처리할 NPC 순서
         self.npcs_acted_this_round = False  # 이번 라운드에서 NPC들이 액션했는지
         self.waiting_for_player_response = False  # NPC 레이즈 후 플레이어 응답 대기 중
+        self.spectator_mode = False  # 관전자 모드 (플레이어 폴드 후)
 
         # 편의용 프로퍼티
         self.player_gold = player_gold  # 호환성 유지
@@ -711,6 +712,7 @@ class PokerGame:
         self.last_raiser_idx = -1
         self.npcs_acted_this_round = False  # NPC 액션 플래그 리셋
         self.waiting_for_player_response = False  # 플레이어 응답 대기 리셋
+        self.spectator_mode = False  # 관전자 모드 리셋
 
         # 딜러 버튼 이동 (시계방향)
         self.dealer_idx = (self.dealer_idx + 1) % 4
@@ -946,6 +948,7 @@ class PokerGame:
         if self.state in [self.STATE_PREFLOP, self.STATE_FLOP, self.STATE_TURN, self.STATE_RIVER]:
             self.human_player.fold()
             self.waiting_for_player_response = False  # 응답 완료
+            self.spectator_mode = True  # 관전자 모드 활성화
 
             # 남은 플레이어 체크
             active = self.get_active_players()
@@ -955,13 +958,10 @@ class PokerGame:
                 winner.win(self.pot)
                 self.result_message = f"{winner.name} 승리! (다른 플레이어 모두 폴드)"
                 self.state = self.STATE_GAME_OVER
+                self.spectator_mode = False
             else:
-                # NPC들이 아직 액션 안 했으면 NPC 턴으로
-                if not self.npcs_acted_this_round:
-                    self._continue_betting_round()
-                else:
-                    # NPC들이 이미 액션했으면 다음 페이즈로
-                    self._finish_betting_round()
+                # 관전자 모드: NPC들끼리 자동 진행
+                self._start_spectator_npc_round()
             return True
         return False
 
@@ -1098,21 +1098,26 @@ class PokerGame:
             self._start_npc_thinking(self.npc_turn_queue.pop(0))
         else:
             # 모든 NPC 액션 완료
-            # 플레이어가 아직 현재 베팅액에 맞추지 않았으면 플레이어 차례로
-            human = self.players['south']
-            if not human.folded and not human.is_all_in:
-                call_needed = self.current_bet_to_call - human.current_bet
-                if call_needed > 0:
-                    # 플레이어가 콜/폴드 해야 함 (NPC 레이즈에 대한 응답)
-                    self.current_player_idx = 0  # 플레이어 차례로 설정
-                    self.npcs_acted_this_round = True  # NPC들은 액션 완료
-                    self.waiting_for_player_response = True  # 플레이어 응답 대기
-                    return
+            # 관전자 모드가 아닐 때만 플레이어 차례로 돌아감
+            if not self.spectator_mode:
+                human = self.players['south']
+                if not human.folded and not human.is_all_in:
+                    call_needed = self.current_bet_to_call - human.current_bet
+                    if call_needed > 0:
+                        # 플레이어가 콜/폴드 해야 함 (NPC 레이즈에 대한 응답)
+                        self.current_player_idx = 0  # 플레이어 차례로 설정
+                        self.npcs_acted_this_round = True  # NPC들은 액션 완료
+                        self.waiting_for_player_response = True  # 플레이어 응답 대기
+                        return
 
             # NPC들 액션 완료 표시
             self.npcs_acted_this_round = True
-            # 모두 베팅액 맞춤 - 다음 스테이지로
-            self._finish_betting_round()
+            # 관전자 모드: 다음 스테이지 후 다시 NPC 라운드 시작
+            if self.spectator_mode:
+                self._finish_betting_round_spectator()
+            else:
+                # 모두 베팅액 맞춤 - 다음 스테이지로
+                self._finish_betting_round()
 
     def _check_round_complete(self):
         """플레이어 콜/체크 후 라운드 완료 체크"""
@@ -1151,6 +1156,56 @@ class PokerGame:
 
         # 다음 스테이지로 진행
         self.proceed_to_next_stage()
+
+    def _start_spectator_npc_round(self):
+        """관전자 모드: NPC들끼리 베팅 라운드 시작"""
+        # 활성 NPC 큐 설정
+        self.npc_turn_queue = []
+        for pos in ['west', 'north', 'east']:
+            npc = self.players[pos]
+            if not npc.folded and not npc.is_bankrupt and not npc.is_all_in:
+                self.npc_turn_queue.append(pos)
+
+        # 활성 플레이어가 1명이면 승자 결정
+        active = self.get_active_players()
+        if len(active) == 1:
+            winner = active[0]
+            self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
+            winner.win(self.pot)
+            self.result_message = f"{winner.name} 승리!"
+            self.state = self.STATE_GAME_OVER
+            self.spectator_mode = False
+            return
+
+        # 큐가 비어있으면 다음 스테이지
+        if not self.npc_turn_queue:
+            self._finish_betting_round_spectator()
+            return
+
+        # 첫 번째 NPC 생각 시작
+        self._start_npc_thinking(self.npc_turn_queue.pop(0))
+
+    def _finish_betting_round_spectator(self):
+        """관전자 모드: 베팅 라운드 종료 후 처리"""
+        # 한 명만 남았는지 체크
+        active = self.get_active_players()
+        if len(active) == 1:
+            winner = active[0]
+            self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
+            winner.win(self.pot)
+            self.result_message = f"{winner.name} 승리!"
+            self.state = self.STATE_GAME_OVER
+            self.spectator_mode = False
+            return
+
+        # 다음 스테이지로 진행
+        self.proceed_to_next_stage()
+
+        # 쇼다운이 아니면 다시 NPC 라운드 시작
+        if self.state not in [self.STATE_SHOWDOWN, self.STATE_GAME_OVER]:
+            # 베팅 상태 리셋 후 다음 NPC 라운드
+            self.npcs_acted_this_round = False
+            self._start_spectator_npc_round()
 
     def _showdown(self):
         """쇼다운: 모든 카드 공개 및 승자 결정"""
@@ -1224,6 +1279,9 @@ class PokerGame:
 
         # 플레이어 골드 동기화
         self.player_gold = self.human_player.gold
+
+        # 쇼다운 완료 - 관전자 모드 해제
+        self.spectator_mode = False
 
         self.state = self.STATE_SHOWDOWN
 
@@ -2027,9 +2085,11 @@ class PokerGameUI:
                                PokerGame.STATE_TURN_DEALING, PokerGame.STATE_RIVER_DEALING]:
             return None
 
-        # 액션 상태일 때 버튼 클릭 처리
+        # 액션 상태일 때 버튼 클릭 처리 (관전자 모드에서는 무시)
         if self.game.state in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
                                 PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
+            if self.game.spectator_mode:
+                return None  # 관전자 모드에서는 버튼 클릭 무시
             for i, btn_rect in enumerate(self.action_buttons):
                 if btn_rect.collidepoint(pos):
                     # 마우스 클릭 시 키보드 선택 해제하고 바로 실행
@@ -2091,6 +2151,12 @@ class PokerGameUI:
         return None
 
     def _handle_action_input(self, event):
+        # 관전자 모드일 때는 ESC만 처리
+        if self.game.spectator_mode:
+            if event.key == pygame.K_ESCAPE:
+                return 'exit'
+            return None
+
         # NPC 응답 대기 중이면 버튼 2개 (콜/폴드), 아니면 3개 (콜/레이즈/폴드)
         num_actions = 2 if self.game.waiting_for_player_response else 3
 
@@ -3345,6 +3411,14 @@ class PokerGameUI:
         """액션 UI (프리미엄) - 마우스 호버/클릭 지원"""
         cx = self.screen_width // 2
         y = self.screen_height - 85
+
+        # 관전자 모드일 때 액션 버튼 숨기고 관전 중 표시
+        if self.game.spectator_mode:
+            self.action_buttons = []  # 버튼 비활성화
+            # 관전 중 표시
+            self._draw_text(screen, "👁 관전 중...", cx, y + 10, (150, 150, 180), 16, center=True)
+            self._draw_text(screen, "ESC: 나가기", cx, y + 35, (100, 100, 110), 10, center=True)
+            return
 
         # 콜 금액 계산
         call_amount = self.game.get_call_amount()
