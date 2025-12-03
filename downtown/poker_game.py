@@ -3908,8 +3908,18 @@ class PokerGameUI:
 
         pygame.draw.rect(screen, self.GOLD, (box_x, box_y, box_w, box_h), 4, border_radius=15)
 
-        # 타이틀
-        self._draw_text(screen, "🎉 대승리! 🎉", cx, box_y + 20, self.GOLD, 32, center=True)
+        # 타이틀 - 연승 시 양쪽에 불꽃 아이콘
+        title_y = box_y + 20
+        if self.game.player_win_streak > 0:
+            intensity = 1.5 if self.game.player_win_streak >= 3 else 1.0
+            # 왼쪽 불꽃
+            self._draw_fire_icon(screen, cx - 90, title_y + 5, 20, intensity)
+            # 타이틀 텍스트
+            self._draw_text(screen, "대승리!", cx, title_y, self.GOLD, 32, center=True)
+            # 오른쪽 불꽃
+            self._draw_fire_icon(screen, cx + 70, title_y + 5, 20, intensity)
+        else:
+            self._draw_text(screen, "대승리!", cx, title_y, self.GOLD, 32, center=True)
 
         # 서브 타이틀
         self._draw_text(screen, "축하합니다! 모든 상대를 파산시켰습니다!", cx, box_y + 65, (255, 255, 200), 16, center=True)
@@ -3921,8 +3931,13 @@ class PokerGameUI:
             bankrupt_text = "파산: " + ", ".join(bankrupt_npcs)
             self._draw_text(screen, bankrupt_text, cx, box_y + 100, (200, 200, 200), 14, center=True)
 
-        # 최종 골드
-        self._draw_text(screen, f"최종 보유 골드: {self.game.players['south'].gold:,}G", cx, box_y + 130, self.GOLD_LIGHT, 18, center=True)
+        # 최종 골드 + 골드 코인 아이콘
+        gold_amount = self.game.players['south'].gold
+        gold_text = f"최종 보유 골드: {gold_amount:,}"
+        self._draw_text(screen, gold_text, cx - 10, box_y + 130, self.GOLD_LIGHT, 18, center=True)
+        # 골드 코인 아이콘 (숫자 뒤에)
+        text_width = len(gold_text) * 9  # 대략적인 텍스트 너비
+        self._draw_gold_coin(screen, cx + text_width // 2 - 5, box_y + 138, 16)
 
         # 안내
         self._draw_text(screen, "테이블이 닫힙니다. ESC를 눌러 나가세요.", cx, box_y + 175, (150, 150, 160), 14, center=True)
