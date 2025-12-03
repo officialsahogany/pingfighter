@@ -1987,23 +1987,23 @@ class PokerGameUI:
             if alpha <= 0:
                 continue
 
-            # 골드 아이콘 그리기 (16x16)
-            icon_size = 16
+            # 골드 아이콘 그리기 (24x24로 확대)
+            icon_size = 24
             icon_x = int(base_x)
             icon_y = int(current_y)
 
             # 아이콘 서피스 생성 (텍스트 길이에 맞게 충분히 크게)
-            icon_surf = pygame.Surface((icon_size + 200, icon_size + 8), pygame.SRCALPHA)
+            icon_surf = pygame.Surface((icon_size + 250, icon_size + 10), pygame.SRCALPHA)
 
             # 골드 코인 아이콘 그리기
             coin_color = (255, 200, 50, alpha)
             coin_border = (200, 150, 30, alpha)
             pygame.draw.circle(icon_surf, coin_color, (icon_size // 2, icon_size // 2 + 2), icon_size // 2 - 1)
-            pygame.draw.circle(icon_surf, coin_border, (icon_size // 2, icon_size // 2 + 2), icon_size // 2 - 1, 1)
+            pygame.draw.circle(icon_surf, coin_border, (icon_size // 2, icon_size // 2 + 2), icon_size // 2 - 1, 2)
 
             # G 텍스트 (코인 내부) - 시스템 폰트 사용
             try:
-                small_font = pygame.font.SysFont('Arial', 10)
+                small_font = pygame.font.SysFont('Arial', 14, bold=True)
                 g_surf = small_font.render("G", True, (180, 130, 20))
                 g_surf.set_alpha(alpha)
                 g_rect = g_surf.get_rect()
@@ -2011,24 +2011,24 @@ class PokerGameUI:
             except:
                 pass
 
-            # 숫자 텍스트 - 한글 지원 폰트 사용
+            # 숫자 텍스트 - 한글 지원 폰트 사용 (크기 확대)
             try:
                 # 한글 폰트 우선 시도
                 text_font = None
                 for font_name in ['NanumGothic', 'AppleGothic', 'Malgun Gothic', 'Arial']:
                     try:
-                        text_font = pygame.font.SysFont(font_name, 14, bold=True)
+                        text_font = pygame.font.SysFont(font_name, 22, bold=True)
                         break
                     except:
                         continue
                 if text_font is None:
-                    text_font = pygame.font.Font(None, 16)
+                    text_font = pygame.font.Font(None, 24)
 
                 text_color = (color[0], color[1], color[2])
                 text_surf = text_font.render(text, True, text_color)
                 text_surf.set_alpha(alpha)
                 text_rect = text_surf.get_rect()
-                icon_surf.blit(text_surf, (icon_size + 4, (icon_size - text_rect.height) // 2 + 2))
+                icon_surf.blit(text_surf, (icon_size + 6, (icon_size - text_rect.height) // 2 + 2))
             except:
                 pass
 
