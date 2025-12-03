@@ -190,7 +190,7 @@ class ParticleSystem:
 # 카드 애니메이션 시스템
 # ============================================
 class CardAnimation:
-    """카드 애니메이션"""
+    """카드 애니메이션 - 프리미엄 버전"""
     def __init__(self, card, start_x, start_y, end_x, end_y, duration=0.5,
                  delay=0, flip_at=0.5, start_face_up=False):
         self.card = card
@@ -207,9 +207,28 @@ class CardAnimation:
         self.start_face_up = start_face_up
         self.flipped = start_face_up
         self.completed = False
-        self.scale = 0.3  # 시작 스케일
-        self.rotation = random.uniform(-30, 30)  # 시작 회전
+        self.scale = 0.2  # 시작 스케일 (더 작게 시작)
+        self.rotation = random.uniform(-15, 15)  # 시작 회전 (덜 과격하게)
         self.target_rotation = 0
+        self.shadow_alpha = 0  # 그림자 투명도
+        self.arc_height = 40  # 호를 그리며 이동 (포물선 효과)
+
+    def _ease_out_back(self, t):
+        """부드러운 오버슈트 이징 (살짝 튕기는 효과)"""
+        c1 = 1.70158
+        c3 = c1 + 1
+        return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2)
+
+    def _ease_out_quart(self, t):
+        """부드러운 감속 이징"""
+        return 1 - pow(1 - t, 4)
+
+    def _ease_in_out_cubic(self, t):
+        """부드러운 가속-감속 이징"""
+        if t < 0.5:
+            return 4 * t * t * t
+        else:
+            return 1 - pow(-2 * t + 2, 3) / 2
 
     def update(self, dt):
         if self.completed:
@@ -222,18 +241,30 @@ class CardAnimation:
         self.elapsed += dt
         progress = min(1.0, self.elapsed / self.duration)
 
-        # 이징 함수 (ease-out cubic)
-        eased = 1 - pow(1 - progress, 3)
+        # 이징 함수 (부드러운 가속-감속)
+        eased = self._ease_in_out_cubic(progress)
 
-        # 위치 보간
-        self.current_x = self.start_x + (self.end_x - self.start_x) * eased
-        self.current_y = self.start_y + (self.end_y - self.start_y) * eased
+        # 위치용 이징 (살짝 오버슈트)
+        position_eased = self._ease_out_back(progress) if progress > 0.5 else self._ease_out_quart(progress * 2) * 0.5
 
-        # 스케일 보간
-        self.scale = 0.3 + 0.7 * eased
+        # 위치 보간 (X축)
+        self.current_x = self.start_x + (self.end_x - self.start_x) * position_eased
 
-        # 회전 보간
-        self.rotation = self.rotation + (self.target_rotation - self.rotation) * eased
+        # Y축은 포물선 효과 추가 (호를 그리며 이동)
+        linear_y = self.start_y + (self.end_y - self.start_y) * position_eased
+        arc_offset = -self.arc_height * math.sin(progress * math.pi)  # 포물선
+        self.current_y = linear_y + arc_offset
+
+        # 스케일 보간 (더 부드럽게)
+        scale_eased = self._ease_out_quart(progress)
+        self.scale = 0.2 + 0.8 * scale_eased
+
+        # 회전 보간 (부드럽게 0으로)
+        rotation_eased = self._ease_out_quart(progress)
+        self.rotation = self.rotation * (1 - rotation_eased)
+
+        # 그림자 효과 (착지할 때 강해짐)
+        self.shadow_alpha = int(80 * scale_eased)
 
         # 카드 뒤집기
         if not self.flipped and progress >= self.flip_at:
@@ -246,6 +277,7 @@ class CardAnimation:
             self.current_y = self.end_y
             self.scale = 1.0
             self.rotation = 0
+            self.shadow_alpha = 80
 
         return self.completed
 
@@ -598,8 +630,8 @@ class PokerGame:
         for i, (card, (end_x, end_y, face_up, delay)) in enumerate(zip(cards, positions)):
             anim = CardAnimation(
                 card, deck_x, deck_y, end_x, end_y,
-                duration=0.4, delay=delay,
-                flip_at=0.7 if face_up else 1.1,  # 딜러 카드는 안 뒤집음
+                duration=0.7, delay=delay * 1.5,  # 속도 느리게, 딜레이 늘림
+                flip_at=0.75 if face_up else 1.1,  # 딜러 카드는 안 뒤집음
                 start_face_up=False
             )
             self.card_animations.append(anim)
@@ -627,8 +659,8 @@ class PokerGame:
 
             anim = CardAnimation(
                 card, deck_x, deck_y, end_x, comm_y,
-                duration=0.35, delay=i * 0.12,
-                flip_at=0.6, start_face_up=False
+                duration=0.6, delay=i * 0.2,  # 속도 느리게, 딜레이 늘림
+                flip_at=0.7, start_face_up=False
             )
             self.card_animations.append(anim)
             self.pending_cards.append(card)
