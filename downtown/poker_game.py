@@ -942,7 +942,8 @@ class PokerGame:
                 self.result_message = f"{winner.name} 승리! (다른 플레이어 모두 폴드)"
                 self.state = self.STATE_GAME_OVER
             else:
-                self._continue_betting_round()
+                # 플레이어가 폴드하면 라운드 완료 체크
+                self._check_round_complete()
             return True
         return False
 
@@ -955,7 +956,9 @@ class PokerGame:
                 actual_bet = player.bet(call_needed)
                 self.pot += actual_bet
 
-            self._continue_betting_round()
+            # 플레이어가 콜/체크만 했으면 바로 다음 스테이지 체크
+            # (NPC들은 이미 액션했으므로)
+            self._check_round_complete()
             return True
         return False
 
@@ -1061,7 +1064,40 @@ class PokerGame:
         if self.npc_turn_queue:
             self._start_npc_thinking(self.npc_turn_queue.pop(0))
         else:
-            # 모든 NPC 액션 완료 - 다음 스테이지로
+            # 모든 NPC 액션 완료
+            # 플레이어가 아직 현재 베팅액에 맞추지 않았으면 플레이어 차례로
+            human = self.players['south']
+            if not human.folded and not human.is_all_in:
+                call_needed = self.current_bet_to_call - human.current_bet
+                if call_needed > 0:
+                    # 플레이어가 콜/폴드/리레이즈 해야 함
+                    self.current_player_idx = 0  # 플레이어 차례로 설정
+                    return
+
+            # 모두 베팅액 맞춤 - 다음 스테이지로
+            self._finish_betting_round()
+
+    def _check_round_complete(self):
+        """플레이어 콜/체크 후 라운드 완료 체크"""
+        # 한 명만 남았는지 체크
+        active = self.get_active_players()
+        if len(active) == 1:
+            winner = active[0]
+            self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
+            winner.win(self.pot)
+            self.result_message = f"{winner.name} 승리!"
+            self.state = self.STATE_GAME_OVER
+            return
+
+        # 모든 플레이어가 현재 베팅액에 맞췄는지 확인
+        all_matched = True
+        for player in active:
+            if player.current_bet < self.current_bet_to_call and not player.is_all_in:
+                all_matched = False
+                break
+
+        if all_matched:
+            # 모두 맞춤 - 다음 스테이지로
             self._finish_betting_round()
 
     def _finish_betting_round(self):
