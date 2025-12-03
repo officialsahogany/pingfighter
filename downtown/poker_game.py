@@ -636,6 +636,16 @@ class PokerGame:
         self.card_animations = []
         self.pending_cards = []
 
+        # NPC 생각 시스템
+        self.npc_thinking = False  # NPC가 생각 중인지
+        self.npc_thinking_player = None  # 현재 생각 중인 NPC 위치
+        self.npc_think_start_time = 0  # 생각 시작 시간
+        self.npc_think_duration = 0  # 생각 지속 시간 (ms)
+        self.npc_pending_action = None  # 결정된 액션 (action, amount)
+        self.npc_action_display = None  # 표시할 액션 텍스트
+        self.npc_action_display_time = 0  # 액션 표시 시작 시간
+        self.npc_turn_queue = []  # 처리할 NPC 순서
+
         # 편의용 프로퍼티
         self.player_gold = player_gold  # 호환성 유지
 
@@ -971,29 +981,92 @@ class PokerGame:
         return False
 
     def _continue_betting_round(self):
-        """베팅 라운드 계속 (NPC 턴 처리)"""
-        # NPC들 액션 처리 (서->북->동 순서)
+        """베팅 라운드 계속 (NPC 턴 순차 처리 시작)"""
+        # NPC 턴 큐 설정 (서->북->동 순서)
+        self.npc_turn_queue = []
         for pos in ['west', 'north', 'east']:
             npc = self.players[pos]
-            if npc.folded or npc.is_bankrupt or npc.is_all_in:
-                continue
+            if not npc.folded and not npc.is_bankrupt and not npc.is_all_in:
+                self.npc_turn_queue.append(pos)
 
-            action, amount = self.npc_action(npc)
+        # 큐가 비어있으면 바로 다음 스테이지
+        if not self.npc_turn_queue:
+            self._finish_betting_round()
+            return
 
-            # 레이즈가 있으면 모두 다시 액션해야 함 (간소화: 바로 콜 처리)
-            if action == 'raise':
-                # 다른 NPC들도 새 베팅에 대응 (간소화를 위해 콜 처리)
-                for other_pos in ['west', 'north', 'east', 'south']:
-                    other = self.players[other_pos]
-                    if other == npc or other.folded or other.is_bankrupt:
-                        continue
-                    call_diff = self.current_bet_to_call - other.current_bet
-                    if call_diff > 0 and not other.is_human:
-                        # NPC는 자동 콜 (간소화)
-                        actual = other.bet(min(call_diff, other.gold))
-                        self.pot += actual
+        # 첫 번째 NPC 생각 시작
+        self._start_npc_thinking(self.npc_turn_queue.pop(0))
+
+    def _start_npc_thinking(self, position):
+        """NPC 생각 시작"""
+        import time
+        self.npc_thinking = True
+        self.npc_thinking_player = position
+        self.npc_think_start_time = time.time() * 1000  # ms로 변환
+        self.npc_think_duration = random.randint(1000, 3000)  # 1~3초
+        self.npc_pending_action = None
+        self.npc_action_display = None
+
+    def update_npc_thinking(self):
+        """NPC 생각 업데이트 (매 프레임 호출)"""
+        import time
+        current_time = time.time() * 1000
+
+        # 생각 중일 때
+        if self.npc_thinking:
+            elapsed = current_time - self.npc_think_start_time
+
+            # 생각 시간 완료
+            if elapsed >= self.npc_think_duration:
+                # 액션 결정
+                npc = self.players[self.npc_thinking_player]
+                action, amount = self.npc_action(npc)
+                self.npc_pending_action = (action, amount)
+
+                # 액션 텍스트 생성
+                if action == 'fold':
+                    self.npc_action_display = f"{npc.name}: 폴드!"
+                elif action == 'check':
+                    self.npc_action_display = f"{npc.name}: 체크"
+                elif action == 'call':
+                    self.npc_action_display = f"{npc.name}: 콜 ({amount}G)"
+                elif action == 'raise':
+                    self.npc_action_display = f"{npc.name}: 레이즈! ({amount}G)"
+
+                self.npc_action_display_time = current_time
+                self.npc_thinking = False
+
+        # 액션 표시 후 0.8초 대기
+        if self.npc_action_display:
+            display_elapsed = current_time - self.npc_action_display_time
+            if display_elapsed >= 800:
+                # 다음 NPC로 넘어가거나 베팅 라운드 종료
+                self._process_next_npc()
+
+    def _process_next_npc(self):
+        """다음 NPC 처리 또는 베팅 라운드 종료"""
+        self.npc_action_display = None
 
         # 한 명만 남았는지 체크
+        active = self.get_active_players()
+        if len(active) == 1:
+            winner = active[0]
+            self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
+            winner.win(self.pot)
+            self.result_message = f"{winner.name} 승리!"
+            self.state = self.STATE_GAME_OVER
+            return
+
+        # 다음 NPC가 있으면 생각 시작
+        if self.npc_turn_queue:
+            self._start_npc_thinking(self.npc_turn_queue.pop(0))
+        else:
+            # 모든 NPC 액션 완료 - 다음 스테이지로
+            self._finish_betting_round()
+
+    def _finish_betting_round(self):
+        """베팅 라운드 종료 후 다음 스테이지로"""
+        # 한 명만 남았는지 다시 체크
         active = self.get_active_players()
         if len(active) == 1:
             winner = active[0]
@@ -2013,6 +2086,10 @@ class PokerGameUI:
         if self.game:
             self.game.update(dt)
 
+            # NPC 생각 업데이트
+            if self.game.npc_thinking or self.game.npc_action_display:
+                self.game.update_npc_thinking()
+
             # 승리 시 파티클 효과 및 플로팅 텍스트 생성
             if self.game.state == PokerGame.STATE_SHOWDOWN and not self.result_shown:
                 self.result_shown = True
@@ -2917,6 +2994,74 @@ class PokerGameUI:
             if current_player and not current_player.folded:
                 turn_text = f"턴: {current_player.name}"
                 self._draw_text(screen, turn_text, self.screen_width - 80, 50, (200, 200, 100), 12, center=True)
+
+        # NPC 생각 중 또는 액션 표시
+        self._draw_npc_thinking(screen)
+
+    def _draw_npc_thinking(self, screen):
+        """NPC 생각 중 또는 액션 표시"""
+        import time
+        cx = self.screen_width // 2
+        cy = self.screen_height // 2
+
+        # NPC 위치별 말풍선 좌표
+        bubble_positions = {
+            'west': (150, cy - 30),
+            'north': (cx + 120, 100),
+            'east': (self.screen_width - 150, cy - 30),
+        }
+
+        # 생각 중일 때
+        if self.game.npc_thinking and self.game.npc_thinking_player:
+            position = self.game.npc_thinking_player
+            if position in bubble_positions:
+                bx, by = bubble_positions[position]
+                npc = self.game.players[position]
+
+                # 생각 시간에 따른 점 개수 (애니메이션)
+                current_time = time.time() * 1000
+                elapsed = current_time - self.game.npc_think_start_time
+                dots = int((elapsed / 400) % 4)  # 0~3개 점
+                think_text = f"{npc.name} 생각 중" + "." * dots
+
+                # 말풍선 배경
+                text_width = len(think_text) * 10 + 20
+                bubble_rect = pygame.Rect(bx - text_width // 2, by - 15, text_width, 30)
+                pygame.draw.rect(screen, (40, 35, 50), bubble_rect, border_radius=8)
+                pygame.draw.rect(screen, (150, 140, 100), bubble_rect, 2, border_radius=8)
+
+                # 텍스트
+                self._draw_text(screen, think_text, bx, by - 8, (255, 220, 150), 14, center=True)
+
+        # 액션 표시
+        if self.game.npc_action_display and self.game.npc_thinking_player:
+            position = self.game.npc_thinking_player
+            if position in bubble_positions:
+                bx, by = bubble_positions[position]
+
+                # 액션별 색상
+                action_text = self.game.npc_action_display
+                if "폴드" in action_text:
+                    text_color = (180, 180, 180)
+                    border_color = (100, 100, 100)
+                elif "레이즈" in action_text:
+                    text_color = (255, 100, 100)
+                    border_color = (255, 80, 80)
+                elif "콜" in action_text:
+                    text_color = (100, 255, 150)
+                    border_color = (80, 200, 100)
+                else:  # 체크
+                    text_color = (150, 200, 255)
+                    border_color = (100, 150, 200)
+
+                # 말풍선 배경
+                text_width = len(action_text) * 12 + 30
+                bubble_rect = pygame.Rect(bx - text_width // 2, by - 18, text_width, 36)
+                pygame.draw.rect(screen, (30, 30, 40), bubble_rect, border_radius=10)
+                pygame.draw.rect(screen, border_color, bubble_rect, 3, border_radius=10)
+
+                # 텍스트
+                self._draw_text(screen, action_text, bx, by - 8, text_color, 16, center=True)
 
     def _draw_player_info_panel(self, screen, x, y, player, color):
         """플레이어 정보 패널 그리기"""
