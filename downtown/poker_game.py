@@ -1679,8 +1679,8 @@ class PremiumCardRenderer:
 class PokerGameUI:
     """포커 게임 UI - 프리미엄 버전"""
 
-    CARD_WIDTH = 70
-    CARD_HEIGHT = 98
+    CARD_WIDTH = 60   # 70 * 0.85 = 59.5 -> 60
+    CARD_HEIGHT = 83  # 98 * 0.85 = 83.3 -> 83
 
     def __init__(self, screen_width, screen_height, fonts=None):
         self.screen_width = screen_width
