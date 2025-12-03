@@ -645,6 +645,7 @@ class PokerGame:
         self.npc_action_display = None  # 표시할 액션 텍스트
         self.npc_action_display_time = 0  # 액션 표시 시작 시간
         self.npc_turn_queue = []  # 처리할 NPC 순서
+        self.npcs_acted_this_round = False  # 이번 라운드에서 NPC들이 액션했는지
 
         # 편의용 프로퍼티
         self.player_gold = player_gold  # 호환성 유지
@@ -707,6 +708,7 @@ class PokerGame:
         self.pending_cards = []
         self.betting_round_complete = False
         self.last_raiser_idx = -1
+        self.npcs_acted_this_round = False  # NPC 액션 플래그 리셋
 
         # 딜러 버튼 이동 (시계방향)
         self.dealer_idx = (self.dealer_idx + 1) % 4
@@ -801,6 +803,12 @@ class PokerGame:
 
     def proceed_to_next_stage(self):
         """다음 스테이지로 진행"""
+        # 새 라운드 시작 - 베팅 상태 리셋
+        self.npcs_acted_this_round = False
+        for player in self.players.values():
+            player.current_bet = 0  # 새 라운드에서 베팅액 리셋
+        self.current_bet_to_call = 0  # 콜 금액도 리셋
+
         if self.state == self.STATE_PREFLOP:
             self.state = self.STATE_FLOP_DEALING
             self._start_community_deal(3)
@@ -915,9 +923,12 @@ class PokerGame:
             return ('fold', 0)
 
         elif action == 'raise' and amount > 0:
-            actual_bet = npc.bet(amount)
+            # NPC 레이즈: 먼저 콜 금액 + 레이즈 금액을 베팅해야 함
+            call_needed = self.current_bet_to_call - npc.current_bet
+            total_bet_needed = call_needed + amount
+            actual_bet = npc.bet(total_bet_needed)
             self.pot += actual_bet
-            self.current_bet_to_call = max(self.current_bet_to_call, npc.current_bet)
+            self.current_bet_to_call = npc.current_bet  # NPC의 현재 베팅이 새로운 콜 기준
             return ('raise', actual_bet)
 
         else:  # call
@@ -942,13 +953,17 @@ class PokerGame:
                 self.result_message = f"{winner.name} 승리! (다른 플레이어 모두 폴드)"
                 self.state = self.STATE_GAME_OVER
             else:
-                # 플레이어가 폴드하면 라운드 완료 체크
-                self._check_round_complete()
+                # NPC들이 아직 액션 안 했으면 NPC 턴으로
+                if not self.npcs_acted_this_round:
+                    self._continue_betting_round()
+                else:
+                    # NPC들이 이미 액션했으면 라운드 완료 체크
+                    self._check_round_complete()
             return True
         return False
 
     def call(self):
-        """플레이어가 콜"""
+        """플레이어가 콜/체크"""
         if self.state in [self.STATE_PREFLOP, self.STATE_FLOP, self.STATE_TURN, self.STATE_RIVER]:
             player = self.human_player
             call_needed = self.current_bet_to_call - player.current_bet
@@ -956,9 +971,12 @@ class PokerGame:
                 actual_bet = player.bet(call_needed)
                 self.pot += actual_bet
 
-            # 플레이어가 콜/체크만 했으면 바로 다음 스테이지 체크
-            # (NPC들은 이미 액션했으므로)
-            self._check_round_complete()
+            # NPC들이 이번 라운드에서 아직 액션 안 했으면 NPC 턴으로
+            if not self.npcs_acted_this_round:
+                self._continue_betting_round()
+            else:
+                # NPC들이 이미 액션했으면 라운드 완료 체크
+                self._check_round_complete()
             return True
         return False
 
@@ -979,6 +997,8 @@ class PokerGame:
                 self.current_bet_to_call = player.current_bet
                 self.last_raiser_idx = 0  # 플레이어는 항상 인덱스 0
 
+                # 플레이어가 레이즈했으므로 NPC들 다시 액션해야 함
+                self.npcs_acted_this_round = False
                 self._continue_betting_round()
                 return True
         return False
@@ -1029,12 +1049,18 @@ class PokerGame:
                 # 액션 텍스트 생성
                 if action == 'fold':
                     self.npc_action_display = f"{npc.name}: 폴드!"
-                elif action == 'check':
-                    self.npc_action_display = f"{npc.name}: 체크"
                 elif action == 'call':
-                    self.npc_action_display = f"{npc.name}: 콜 ({amount}G)"
+                    # call_needed가 0이면 체크, 아니면 콜
+                    if amount == 0:
+                        self.npc_action_display = f"{npc.name}: 체크"
+                    else:
+                        self.npc_action_display = f"{npc.name}: 콜 ({amount}G)"
                 elif action == 'raise':
                     self.npc_action_display = f"{npc.name}: 레이즈! ({amount}G)"
+                elif action == 'skip':
+                    # 스킵인 경우 바로 다음 NPC로
+                    self._process_next_npc()
+                    return
 
                 self.npc_action_display_time = current_time
                 self.npc_thinking = False
@@ -1072,8 +1098,11 @@ class PokerGame:
                 if call_needed > 0:
                     # 플레이어가 콜/폴드/리레이즈 해야 함
                     self.current_player_idx = 0  # 플레이어 차례로 설정
+                    self.npcs_acted_this_round = True  # NPC들은 액션 완료
                     return
 
+            # NPC들 액션 완료 표시
+            self.npcs_acted_this_round = True
             # 모두 베팅액 맞춤 - 다음 스테이지로
             self._finish_betting_round()
 
@@ -1213,7 +1242,9 @@ class PokerGame:
             # 상태 전환
             if self.state == self.STATE_DEALING:
                 self.state = self.STATE_PREFLOP
-                # 플레이어 턴 시작 (액션 UI 표시)
+                # 프리플롭 시작 - NPC 액션 플래그 리셋
+                self.npcs_acted_this_round = False
+                # 안테는 이미 베팅된 상태이므로 current_bet 유지
             elif self.state == self.STATE_FLOP_DEALING:
                 self.state = self.STATE_FLOP
             elif self.state == self.STATE_TURN_DEALING:
