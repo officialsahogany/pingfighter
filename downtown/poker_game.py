@@ -3201,13 +3201,13 @@ class PokerGameUI:
                     hand_label_x = label_x
                     hand_label_y = card_y + self.CARD_HEIGHT + 15
                 elif position == 'west':
-                    # 좌측 NPC - 카드 아래 중앙에 표시
+                    # 좌측 NPC - 카드 상단에 표시
                     hand_label_x = start_x + self.CARD_WIDTH // 2
-                    hand_label_y = card_y + self.CARD_HEIGHT + 60  # 세로 카드 2장 아래
+                    hand_label_y = card_y - 25  # 카드 위쪽
                 else:  # east
-                    # 우측 NPC - 카드 아래 중앙에 표시
+                    # 우측 NPC - 카드 상단에 표시
                     hand_label_x = start_x + self.CARD_WIDTH // 2
-                    hand_label_y = card_y + self.CARD_HEIGHT + 60  # 세로 카드 2장 아래
+                    hand_label_y = card_y - 25  # 카드 위쪽
 
                 # 승자는 황금색, 나머지는 흰색
                 hand_color = self.GOLD if position in winner_positions else self.WHITE
