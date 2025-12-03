@@ -494,6 +494,60 @@ class HandEvaluator:
 
         return False
 
+    @staticmethod
+    def get_detailed_hand_name(rank, tiebreaker, cards=None):
+        """상세 족보 이름 반환 (예: A 원페어, K 스트레이트, 다이아 플러시)"""
+        # 숫자를 카드 이름으로 변환
+        value_names = {
+            14: 'A', 13: 'K', 12: 'Q', 11: 'J', 10: '10',
+            9: '9', 8: '8', 7: '7', 6: '6', 5: '5',
+            4: '4', 3: '3', 2: '2'
+        }
+        # 무늬 이름
+        suit_names = {
+            'hearts': '하트', 'diamonds': '다이아',
+            'clubs': '클로버', 'spades': '스페이드'
+        }
+
+        if not tiebreaker:
+            return HandEvaluator.HAND_NAMES.get(rank, "알 수 없음")
+
+        main_value = value_names.get(tiebreaker[0], str(tiebreaker[0])) if tiebreaker else ''
+
+        if rank == HandEvaluator.ROYAL_FLUSH:
+            return "로얄 플러시"
+        elif rank == HandEvaluator.STRAIGHT_FLUSH:
+            return f"{main_value} 스트레이트 플러시"
+        elif rank == HandEvaluator.FOUR_OF_KIND:
+            return f"{main_value} 포카드"
+        elif rank == HandEvaluator.FULL_HOUSE:
+            second_value = value_names.get(tiebreaker[1], str(tiebreaker[1])) if len(tiebreaker) > 1 else ''
+            return f"{main_value}/{second_value} 풀하우스"
+        elif rank == HandEvaluator.FLUSH:
+            # 플러시는 무늬 표시
+            if cards:
+                suits = [c.suit for c in cards]
+                suit_count = {}
+                for s in suits:
+                    suit_count[s] = suit_count.get(s, 0) + 1
+                flush_suit = max(suit_count, key=suit_count.get)
+                suit_name = suit_names.get(flush_suit, flush_suit)
+                return f"{suit_name} 플러시"
+            return f"{main_value} 플러시"
+        elif rank == HandEvaluator.STRAIGHT:
+            return f"{main_value} 스트레이트"
+        elif rank == HandEvaluator.THREE_OF_KIND:
+            return f"{main_value} 트리플"
+        elif rank == HandEvaluator.TWO_PAIR:
+            second_value = value_names.get(tiebreaker[1], str(tiebreaker[1])) if len(tiebreaker) > 1 else ''
+            return f"{main_value}/{second_value} 투페어"
+        elif rank == HandEvaluator.ONE_PAIR:
+            return f"{main_value} 원페어"
+        elif rank == HandEvaluator.HIGH_CARD:
+            return f"{main_value} 하이카드"
+
+        return HandEvaluator.HAND_NAMES.get(rank, "알 수 없음")
+
 
 # ============================================
 # 포커 플레이어 클래스 (4인용)
@@ -2907,7 +2961,10 @@ class PokerGameUI:
                 all_cards = south_player.hand + self.game.community_cards
                 if len(all_cards) >= 5:
                     hand_result = HandEvaluator.evaluate(all_cards)
-                    hand_name = hand_result[2]  # (rank, tiebreaker, name)
+                    rank = hand_result[0]
+                    tiebreaker = hand_result[1]
+                    # 상세 족보 이름 (예: A 원페어, K 스트레이트)
+                    hand_name = HandEvaluator.get_detailed_hand_name(rank, tiebreaker, all_cards)
 
                     # 플레이어 카드 우측에 표시
                     south_x, south_y = card_positions['south']
@@ -2915,7 +2972,6 @@ class PokerGameUI:
                     hand_text_y = south_y + self.CARD_HEIGHT // 2 - 7
 
                     # 족보에 따른 색상
-                    rank = hand_result[0]
                     if rank >= 9:  # 로얄 플러시, 스트레이트 플러시
                         hand_color = (255, 215, 0)  # 금색
                     elif rank >= 7:  # 풀하우스, 포카드
@@ -2988,7 +3044,10 @@ class PokerGameUI:
                 all_cards = south_player.hand + self.game.community_cards
                 if len(all_cards) >= 5:
                     hand_result = HandEvaluator.evaluate(all_cards)
-                    hand_name = hand_result[2]  # (rank, tiebreaker, name)
+                    rank = hand_result[0]
+                    tiebreaker = hand_result[1]
+                    # 상세 족보 이름 (예: A 원페어, K 스트레이트)
+                    hand_name = HandEvaluator.get_detailed_hand_name(rank, tiebreaker, all_cards)
 
                     # 플레이어 카드 우측에 표시
                     south_x, south_y = card_positions['south']
@@ -2997,7 +3056,6 @@ class PokerGameUI:
                     hand_text_y = south_y + self.CARD_HEIGHT // 2 - 7
 
                     # 족보에 따른 색상
-                    rank = hand_result[0]
                     if rank >= 9:  # 로얄 플러시, 스트레이트 플러시
                         hand_color = (255, 215, 0)  # 금색
                     elif rank >= 7:  # 풀하우스, 포카드
