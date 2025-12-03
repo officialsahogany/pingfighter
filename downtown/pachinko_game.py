@@ -33,10 +33,10 @@ class SlotSymbol:
     """슬롯 심볼 정의"""
     # 심볼 타입과 배당률
     SYMBOLS = {
-        "apple": {"name": "사과", "multiplier": 4, "color": (220, 50, 50)},
-        "key": {"name": "열쇠", "multiplier": 6, "color": (255, 200, 100)},
-        "banana": {"name": "금괴", "multiplier": 9, "color": (255, 215, 0)},
-        "pingpong": {"name": "진주", "multiplier": 15, "color": (255, 255, 255)},
+        "apple": {"name": "사과", "multiplier": 3, "color": (220, 50, 50)},
+        "key": {"name": "열쇠", "multiplier": 5, "color": (255, 200, 100)},
+        "banana": {"name": "금괴", "multiplier": 7, "color": (255, 215, 0)},
+        "pingpong": {"name": "진주", "multiplier": 10, "color": (255, 255, 255)},
         "diamond": {"name": "다이아몬드", "multiplier": 20, "color": (100, 200, 255)},
         "pandora": {"name": "판도라 상자", "multiplier": 30, "color": (180, 100, 255)},
         "seven": {"name": "럭키 7", "multiplier": 0, "color": (255, 215, 0), "bonus": True},  # 보너스 라운드
@@ -44,12 +44,12 @@ class SlotSymbol:
 
     # 심볼 등장 확률 (가중치) - 배율 순서대로 재정렬
     WEIGHTS = {
-        "apple": 30,      # 가장 흔함 (4배)
-        "key": 25,        # (6배)
-        "banana": 20,     # (9배)
-        "pingpong": 12,   # (15배)
-        "diamond": 8,     # (20배)
-        "pandora": 4,     # (30배)
+        "apple": 30,      # 가장 흔함 (x3)
+        "key": 25,        # (x5)
+        "banana": 20,     # (x7)
+        "pingpong": 12,   # (x10)
+        "diamond": 8,     # (x20)
+        "pandora": 4,     # (x30)
         "seven": 1,       # 가장 희귀 (보너스)
     }
 

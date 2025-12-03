@@ -1,6 +1,6 @@
 """
-포커 게임 모듈 - 1:1 텍사스 홀덤 (프리미엄 버전)
-플레이어 vs 딜러 (골드 베팅)
+포커 게임 모듈 - 4인 텍사스 홀덤 (프리미엄 버전)
+플레이어(남) + NPC 3명(동서북) 포커 테이블
 고퀄리티 카드 애니메이션 & 프리미엄 UI
 """
 
@@ -496,10 +496,76 @@ class HandEvaluator:
 
 
 # ============================================
-# 포커 게임 클래스
+# 포커 플레이어 클래스 (4인용)
+# ============================================
+class PokerPlayer:
+    """포커 플레이어 (유저 또는 NPC)"""
+
+    # NPC 이름 목록
+    NPC_NAMES = ["제이슨", "마이크", "사라", "알렉스", "에밀리", "다니엘", "올리비아", "크리스"]
+
+    def __init__(self, position, gold, is_human=False, name=None):
+        """
+        position: 'south'(플레이어), 'west', 'north', 'east'
+        gold: 보유 골드
+        is_human: 인간 플레이어 여부
+        name: 이름 (NPC는 랜덤 생성)
+        """
+        self.position = position
+        self.gold = gold
+        self.initial_gold = gold
+        self.is_human = is_human
+        self.name = name if name else (random.choice(PokerPlayer.NPC_NAMES) if not is_human else "플레이어")
+
+        self.hand = []  # 홀 카드 2장
+        self.current_bet = 0  # 현재 라운드에서 베팅한 금액
+        self.total_bet = 0  # 전체 게임에서 베팅한 금액
+        self.folded = False  # 폴드 여부
+        self.is_all_in = False  # 올인 여부
+        self.is_bankrupt = False  # 파산 여부
+        self.hand_result = None  # 패 결과 (랭크, 타이브레이커, 이름)
+
+        # AI 성향 (NPC용)
+        self.aggression = random.uniform(0.3, 0.8)  # 공격성 (0~1)
+        self.bluff_tendency = random.uniform(0.1, 0.4)  # 블러핑 성향
+
+    def reset_for_round(self):
+        """새 라운드를 위한 리셋"""
+        self.hand = []
+        self.current_bet = 0
+        self.total_bet = 0
+        self.folded = False
+        self.is_all_in = False
+        self.hand_result = None
+
+    def can_bet(self, amount):
+        """베팅 가능 여부"""
+        return not self.folded and not self.is_bankrupt and self.gold >= amount
+
+    def bet(self, amount):
+        """베팅"""
+        actual_amount = min(amount, self.gold)
+        self.gold -= actual_amount
+        self.current_bet += actual_amount
+        self.total_bet += actual_amount
+        if self.gold <= 0:
+            self.is_all_in = True
+        return actual_amount
+
+    def fold(self):
+        """폴드"""
+        self.folded = True
+
+    def win(self, amount):
+        """승리 시 상금 획득"""
+        self.gold += amount
+
+
+# ============================================
+# 포커 게임 클래스 (4인용)
 # ============================================
 class PokerGame:
-    """1:1 텍사스 홀덤 게임"""
+    """4인 텍사스 홀덤 게임"""
 
     STATE_BETTING = 'betting'
     STATE_DEALING = 'dealing'      # 카드 딜링 애니메이션
@@ -513,28 +579,44 @@ class PokerGame:
     STATE_SHOWDOWN = 'showdown'
     STATE_GAME_OVER = 'game_over'
 
-    def __init__(self, player_gold=1000, dealer_gold=None):
+    # 플레이어 위치 순서 (시계방향: 남->서->북->동)
+    POSITIONS = ['south', 'west', 'north', 'east']
+    POSITION_NAMES = {'south': '남', 'west': '서', 'north': '북', 'east': '동'}
+
+    def __init__(self, player_gold=1000):
         self.deck = Deck()
-        self.player_hand = []
-        self.dealer_hand = []
         self.community_cards = []
 
-        self.player_gold = player_gold
+        # 4명의 플레이어 생성
+        self.players = {}
+
+        # 플레이어 (남쪽 - 유저)
+        self.players['south'] = PokerPlayer('south', player_gold, is_human=True, name="플레이어")
+
+        # NPC 3명 (서, 북, 동) - 각각 500~1000골드 랜덤
+        used_names = set()
+        for pos in ['west', 'north', 'east']:
+            # 중복되지 않는 이름 선택
+            available_names = [n for n in PokerPlayer.NPC_NAMES if n not in used_names]
+            name = random.choice(available_names)
+            used_names.add(name)
+            gold = random.randint(500, 1000)
+            self.players[pos] = PokerPlayer(pos, gold, is_human=False, name=name)
+
+        # 게임 상태
         self.pot = 0
-        self.current_bet = 0
         self.min_bet = 10
         self.max_bet = 100  # 최대 판돈 제한
+        self.current_bet_to_call = 0  # 콜하기 위해 필요한 금액
 
-        # 딜러 베팅 시스템
-        self.dealer_bet = 0  # 딜러가 추가로 베팅한 금액
-        self.player_to_call = 0  # 플레이어가 콜하기 위해 내야 할 금액
+        # 현재 턴
+        self.current_player_idx = 0  # 현재 액션할 플레이어 인덱스
+        self.dealer_idx = 0  # 딜러 버튼 위치
+        self.round_starter_idx = 0  # 라운드 시작 플레이어
 
-        # 딜러 보유 골드 (랜덤 1000~3000G)
-        if dealer_gold is None:
-            self.dealer_gold = random.randint(1000, 3000)
-        else:
-            self.dealer_gold = dealer_gold
-        self.initial_dealer_gold = self.dealer_gold  # 초기 딜러 골드 기록
+        # 베팅 라운드 관리
+        self.betting_round_complete = False
+        self.last_raiser_idx = -1  # 마지막으로 레이즈한 플레이어
 
         # 하우스 엣지 (카지노 수수료 5%)
         self.house_edge = 0.05
@@ -543,129 +625,172 @@ class PokerGame:
         self.player_win_streak = 0
         self.win_streak_penalty = 0.02  # 연승당 2% 추가 수수료
 
-        # 딜러 파산 플래그
-        self.dealer_bankrupt = False
-
         # 플로팅 텍스트 트리거용 (UI에서 읽어서 애니메이션 생성)
-        self.pending_floating_texts = []  # [(text, type), ...] type: 'fee', 'win', 'lose'
+        self.pending_floating_texts = []  # [(text, type, target), ...]
 
         self.state = self.STATE_BETTING
-        self.winner = None
+        self.winners = []  # 승자 목록 (동점일 수 있음)
         self.result_message = ""
-
-        self.player_hand_result = None
-        self.dealer_hand_result = None
 
         self.animation_timer = 0
         self.card_animations = []
         self.pending_cards = []
 
+        # 편의용 프로퍼티
+        self.player_gold = player_gold  # 호환성 유지
+
+    @property
+    def human_player(self):
+        """유저 플레이어 반환"""
+        return self.players['south']
+
+    @property
+    def dealer_bankrupt(self):
+        """모든 NPC가 파산했는지 확인 (4인용)"""
+        for pos, player in self.players.items():
+            if pos != 'south' and not player.is_bankrupt:
+                return False
+        return True
+
+    @property
+    def current_action_player(self):
+        """현재 액션해야 하는 플레이어 위치"""
+        if self.current_player_idx < len(self.POSITIONS):
+            return self.POSITIONS[self.current_player_idx]
+        return None
+
+    def get_active_players(self):
+        """폴드하지 않은 활성 플레이어 목록"""
+        return [p for p in self.players.values() if not p.folded and not p.is_bankrupt]
+
+    def get_player_count(self):
+        """활성 플레이어 수"""
+        return len(self.get_active_players())
+
     def start_new_round(self):
+        """새 라운드 시작"""
         self.deck.reset()
-        self.player_hand = []
-        self.dealer_hand = []
         self.community_cards = []
         self.pot = 0
-        self.current_bet = 0
-        self.dealer_bet = 0
-        self.player_to_call = 0
+        self.current_bet_to_call = 0
+
+        # 모든 플레이어 리셋
+        for player in self.players.values():
+            player.reset_for_round()
+
+        # 파산 플레이어 체크 (최소 베팅 불가)
+        for player in self.players.values():
+            if player.gold < self.min_bet:
+                player.is_bankrupt = True
+
+        # 활성 플레이어 수 체크
+        active_count = len([p for p in self.players.values() if not p.is_bankrupt])
+        if active_count < 2:
+            self.state = self.STATE_GAME_OVER
+            self.result_message = "게임 종료 - 참가자 부족"
+            return
+
         self.state = self.STATE_BETTING
-        self.winner = None
+        self.winners = []
         self.result_message = ""
-        self.player_hand_result = None
-        self.dealer_hand_result = None
         self.card_animations = []
         self.pending_cards = []
+        self.betting_round_complete = False
+        self.last_raiser_idx = -1
+
+        # 딜러 버튼 이동 (시계방향)
+        self.dealer_idx = (self.dealer_idx + 1) % 4
+
+        # 플레이어 골드 동기화
+        self.player_gold = self.human_player.gold
 
     def place_bet(self, amount):
+        """초기 베팅 (안테)"""
         if self.state != self.STATE_BETTING:
             return False
 
-        amount = max(self.min_bet, min(amount, self.max_bet, self.player_gold))
+        amount = max(self.min_bet, min(amount, self.max_bet, self.human_player.gold))
 
-        if amount > self.player_gold:
+        if amount > self.human_player.gold:
             return False
 
-        self.current_bet = amount
-        self.player_gold -= amount
-        self.dealer_gold -= amount  # 딜러도 동일 금액 베팅
-        self.pot = amount * 2
+        # 모든 활성 플레이어가 동일 금액 베팅
+        for player in self.players.values():
+            if not player.is_bankrupt:
+                bet_amount = min(amount, player.gold)
+                player.bet(bet_amount)
+                self.pot += bet_amount
 
+        self.current_bet_to_call = amount
         self._start_deal_animation()
         return True
 
     def _start_deal_animation(self):
-        """딜링 애니메이션 시작"""
+        """4인용 딜링 애니메이션 시작"""
         self.state = self.STATE_DEALING
         self.card_animations = []
 
-        # 덱 위치 (화면 중앙 상단)
-        deck_x = 400  # 화면 중앙
-        deck_y = -100  # 화면 밖
+        # 덱 위치 (화면 중앙)
+        deck_x = 400
+        deck_y = 300
 
-        # 플레이어 카드 위치
-        player_x1, player_y = 340, 380
-        player_x2 = 410
+        # 각 플레이어 카드 위치 설정
+        card_positions = {
+            'south': [(340, 440), (410, 440)],  # 플레이어 (하단)
+            'west': [(60, 250), (60, 310)],      # 서쪽 NPC (좌측, 세로 배치)
+            'north': [(340, 80), (410, 80)],    # 북쪽 NPC (상단)
+            'east': [(680, 250), (680, 310)],   # 동쪽 NPC (우측, 세로 배치)
+        }
 
-        # 딜러 카드 위치
-        dealer_x1, dealer_y = 340, 80
-        dealer_x2 = 410
+        # 각 플레이어에게 카드 2장씩 배분
+        delay = 0
+        deal_order = ['south', 'west', 'north', 'east']  # 딜링 순서
 
-        # 카드 4장 뽑기 (플레이어 2장, 딜러 2장)
-        cards = [
-            self.deck.deal(True),   # 플레이어 1
-            self.deck.deal(False),  # 딜러 1 (뒷면)
-            self.deck.deal(True),   # 플레이어 2
-            self.deck.deal(False),  # 딜러 2 (뒷면)
-        ]
+        for round_num in range(2):  # 2라운드 (각 1장씩)
+            for pos in deal_order:
+                player = self.players[pos]
+                if player.is_bankrupt:
+                    continue
 
-        # 애니메이션 설정
-        positions = [
-            (player_x1, player_y, True, 0.0),    # 플레이어 1, 딜레이 0
-            (dealer_x1, dealer_y, False, 0.15),  # 딜러 1, 딜레이 0.15s
-            (player_x2, player_y, True, 0.3),    # 플레이어 2
-            (dealer_x2, dealer_y, False, 0.45),  # 딜러 2
-        ]
+                card = self.deck.deal(player.is_human)  # 유저만 앞면
+                player.hand.append(card)
 
-        for i, (card, (end_x, end_y, face_up, delay)) in enumerate(zip(cards, positions)):
-            anim = CardAnimation(
-                card, deck_x, deck_y, end_x, end_y,
-                duration=0.7, delay=delay * 1.5,  # 속도 느리게, 딜레이 늘림
-                flip_at=0.75 if face_up else 1.1,  # 딜러 카드는 안 뒤집음
-                start_face_up=False
-            )
-            self.card_animations.append(anim)
+                card_pos = card_positions[pos][round_num]
 
-            # 카드 저장
-            if i in [0, 2]:
-                self.player_hand.append(card)
-            else:
-                self.dealer_hand.append(card)
+                anim = CardAnimation(
+                    card, deck_x, deck_y, card_pos[0], card_pos[1],
+                    duration=0.5, delay=delay,
+                    flip_at=0.7 if player.is_human else 1.1,
+                    start_face_up=False
+                )
+                self.card_animations.append(anim)
+                delay += 0.12
 
     def _start_community_deal(self, count):
         """커뮤니티 카드 딜링"""
         deck_x = 400
-        deck_y = -100
+        deck_y = 300
 
-        # 커뮤니티 카드 위치 계산
-        base_x = 200 + len(self.community_cards) * 75
-        comm_y = 250
+        # 커뮤니티 카드 위치 계산 (테이블 중앙)
+        base_x = 225 + len(self.community_cards) * 65
+        comm_y = 280
 
         for i in range(count):
             card = self.deck.deal(True)
             card.face_up = False  # 시작은 뒷면
 
-            end_x = base_x + i * 75
+            end_x = base_x + i * 65
 
             anim = CardAnimation(
                 card, deck_x, deck_y, end_x, comm_y,
-                duration=0.6, delay=i * 0.2,  # 속도 느리게, 딜레이 늘림
-                flip_at=0.7, start_face_up=False
+                duration=0.5, delay=i * 0.15,
+                flip_at=0.6, start_face_up=False
             )
             self.card_animations.append(anim)
             self.pending_cards.append(card)
 
     def proceed_to_next_stage(self):
+        """다음 스테이지로 진행"""
         if self.state == self.STATE_PREFLOP:
             self.state = self.STATE_FLOP_DEALING
             self._start_community_deal(3)
@@ -681,127 +806,77 @@ class PokerGame:
         elif self.state == self.STATE_RIVER:
             self._showdown()
 
-    def _dealer_ai_decision(self):
-        """딜러 AI: 예측 불가능한 혼합 전략"""
-        import random
-
-        # 딜러 핸드 + 커뮤니티 카드로 현재 패 평가
+    def _npc_ai_decision(self, npc):
+        """NPC AI: 패 강도와 성향에 따른 결정"""
+        # 핸드 + 커뮤니티 카드로 현재 패 평가
         if self.community_cards:
-            dealer_cards = self.dealer_hand + self.community_cards
-            hand_result = HandEvaluator.evaluate(dealer_cards)
+            npc_cards = npc.hand + self.community_cards
+            hand_result = HandEvaluator.evaluate(npc_cards)
             hand_rank = hand_result[0]
         else:
             # 프리플랍: 홀 카드만으로 평가
-            hand_rank = self._evaluate_hole_cards()
+            hand_rank = self._evaluate_hole_cards_for_player(npc)
 
-        # 초기 베팅 기준으로 레이즈 범위 계산
-        base_bet = self.current_bet if self.current_bet > 0 else self.min_bet
-        min_raise = max(10, int(base_bet * 0.5))  # 최소: 베팅의 50%
-        max_raise = int(base_bet * 2.0)  # 최대: 베팅의 200%
+        # 베팅 기준으로 레이즈 범위 계산
+        base_bet = self.current_bet_to_call if self.current_bet_to_call > 0 else self.min_bet
+        min_raise = max(10, int(base_bet * 0.3))
+        max_raise = min(int(base_bet * 1.5), npc.gold)
 
-        # ===== 혼합 전략 선택 (매번 랜덤) =====
-        strategy = random.choices(
-            ['standard', 'slow_play', 'bluff', 'random'],
-            weights=[40, 20, 20, 20]  # 40% 표준, 20% 슬로우플레이, 20% 블러핑, 20% 랜덤
-        )[0]
+        # NPC 성향 적용
+        aggression = npc.aggression
+        bluff = npc.bluff_tendency
 
-        base_raise_chance = 0.0
-        raise_multiplier = 0.5
+        # 폴드 확률 계산
+        fold_chance = 0.0
+        if hand_rank <= 1:  # 하이 카드
+            fold_chance = 0.4 - (aggression * 0.2) + (bluff * 0.1)
+        elif hand_rank <= 2:  # 원 페어
+            fold_chance = 0.15 - (aggression * 0.1)
 
-        if strategy == 'standard':
-            # === 전략 1: 표준 (패 강도에 비례) ===
-            if hand_rank >= 8:
-                base_raise_chance = 0.85
-                raise_multiplier = random.uniform(1.2, 1.8)
-            elif hand_rank >= 6:
-                base_raise_chance = 0.7
-                raise_multiplier = random.uniform(0.9, 1.4)
-            elif hand_rank >= 4:
-                base_raise_chance = 0.5
-                raise_multiplier = random.uniform(0.6, 1.0)
-            elif hand_rank >= 3:
-                base_raise_chance = 0.35
-                raise_multiplier = random.uniform(0.5, 0.8)
-            elif hand_rank >= 2:
-                base_raise_chance = 0.25
-                raise_multiplier = random.uniform(0.4, 0.6)
-            else:
-                base_raise_chance = 0.1
-                raise_multiplier = random.uniform(0.3, 0.5)
+        # 레이즈 확률 계산
+        raise_chance = 0.0
+        if hand_rank >= 6:  # 플러시 이상
+            raise_chance = 0.8 + (aggression * 0.15)
+        elif hand_rank >= 4:  # 트리플 이상
+            raise_chance = 0.5 + (aggression * 0.2)
+        elif hand_rank >= 2:  # 페어
+            raise_chance = 0.25 + (aggression * 0.15)
+        else:  # 하이 카드 - 블러핑
+            raise_chance = bluff * 0.4
 
-        elif strategy == 'slow_play':
-            # === 전략 2: 슬로우 플레이 (강한 패 → 작게 베팅해서 유인) ===
-            if hand_rank >= 6:  # 아주 강한 패
-                base_raise_chance = 0.6  # 레이즈 확률 낮춤
-                raise_multiplier = random.uniform(0.3, 0.5)  # 작게 베팅
-            elif hand_rank >= 4:
-                base_raise_chance = 0.4
-                raise_multiplier = random.uniform(0.4, 0.6)
-            elif hand_rank >= 2:
-                base_raise_chance = 0.5  # 중간 패는 보통으로
-                raise_multiplier = random.uniform(0.5, 0.8)
-            else:
-                base_raise_chance = 0.15
-                raise_multiplier = random.uniform(0.3, 0.5)
-
-        elif strategy == 'bluff':
-            # === 전략 3: 블러핑 (약한 패 → 크게 베팅해서 폴드 유도) ===
-            if hand_rank <= 2:  # 약한 패
-                base_raise_chance = 0.7  # 높은 블러핑 확률
-                raise_multiplier = random.uniform(1.0, 1.8)  # 크게 베팅
-            elif hand_rank <= 4:
-                base_raise_chance = 0.5
-                raise_multiplier = random.uniform(0.8, 1.2)
-            else:  # 강한 패는 오히려 조용히
-                base_raise_chance = 0.4
-                raise_multiplier = random.uniform(0.4, 0.7)
-
-        else:  # random
-            # === 전략 4: 완전 랜덤 (패와 무관) ===
-            base_raise_chance = random.uniform(0.2, 0.7)
-            raise_multiplier = random.uniform(0.4, 1.5)
-
-        # 스테이지에 따른 조정 (후반부일수록 더 공격적)
-        stage_multiplier = 1.0
+        # 스테이지 보정
         if self.state == self.STATE_TURN:
-            stage_multiplier = 1.15
+            raise_chance *= 1.1
         elif self.state == self.STATE_RIVER:
-            stage_multiplier = 1.3
+            raise_chance *= 1.2
 
-        final_raise_chance = min(0.9, base_raise_chance * stage_multiplier)
-
-        # 랜덤으로 레이즈 여부 결정
-        if random.random() < final_raise_chance:
-            # 베팅에 비례한 레이즈 금액 계산
-            raise_amount = int(base_bet * raise_multiplier)
-            raise_amount = max(min_raise, min(raise_amount, max_raise))
-
-            # 플레이어 골드 고려 (플레이어가 콜할 수 있어야 함)
-            raise_amount = min(raise_amount, self.player_gold)
-
+        # 결정
+        roll = random.random()
+        if roll < fold_chance:
+            return ('fold', 0)
+        elif roll < fold_chance + raise_chance and npc.gold >= min_raise:
+            raise_amount = int(min_raise + random.random() * (max_raise - min_raise) * aggression)
+            raise_amount = min(raise_amount, npc.gold)
             if raise_amount >= min_raise:
                 return ('raise', raise_amount)
 
-        return ('check', 0)
+        return ('call', 0)
 
-    def _evaluate_hole_cards(self):
-        """홀 카드만으로 핸드 강도 평가 (프리플랍용)"""
-        if len(self.dealer_hand) < 2:
+    def _evaluate_hole_cards_for_player(self, player):
+        """플레이어의 홀 카드만으로 핸드 강도 평가"""
+        if len(player.hand) < 2:
             return 1
 
-        card1, card2 = self.dealer_hand
-        # 카드 값을 숫자로 변환 (get_value: 2~14, 여기서 0~12 범위로)
+        card1, card2 = player.hand
         rank1 = card1.get_value() - 2
         rank2 = card2.get_value() - 2
 
         # 포켓 페어
         if rank1 == rank2:
-            return 3 + (rank1 / 12)  # 페어 + 높은 카드일수록 보너스
+            return 3 + (rank1 / 12)
 
-        # 높은 카드 (A, K, Q, J: rank >= 9 → value >= 11)
+        # 높은 카드
         high_count = sum(1 for r in [rank1, rank2] if r >= 9)
-
-        # 수트 매치
         suited = card1.suit == card2.suit
 
         score = 1.0
@@ -813,166 +888,201 @@ class PokerGame:
         if suited:
             score += 0.5
 
-        # 연속 카드 (스트레이트 가능성)
         if abs(rank1 - rank2) == 1:
             score += 0.3
 
         return min(3, score)
 
-    def dealer_action(self):
-        """딜러의 액션 수행 (레이즈 또는 체크)"""
-        action, amount = self._dealer_ai_decision()
+    def npc_action(self, npc):
+        """NPC의 액션 수행"""
+        if npc.folded or npc.is_bankrupt or npc.is_all_in:
+            return ('skip', 0)
 
-        if action == 'raise' and amount > 0:
-            # 딜러 골드가 부족하면 레이즈 금액 조정
-            amount = min(amount, self.dealer_gold)
-            if amount > 0:
-                self.dealer_bet = amount
-                self.player_to_call = amount
-                self.dealer_gold -= amount  # 딜러 골드에서 차감
-                self.pot += amount  # 딜러가 팟에 추가
-                return ('raise', amount)
+        action, amount = self._npc_ai_decision(npc)
 
-        self.dealer_bet = 0
-        self.player_to_call = 0
-        return ('check', 0)
+        if action == 'fold':
+            npc.fold()
+            return ('fold', 0)
+
+        elif action == 'raise' and amount > 0:
+            actual_bet = npc.bet(amount)
+            self.pot += actual_bet
+            self.current_bet_to_call = max(self.current_bet_to_call, npc.current_bet)
+            return ('raise', actual_bet)
+
+        else:  # call
+            # 콜 금액 계산 (현재 콜해야 할 금액 - 이미 베팅한 금액)
+            call_needed = self.current_bet_to_call - npc.current_bet
+            if call_needed > 0:
+                actual_bet = npc.bet(call_needed)
+                self.pot += actual_bet
+            return ('call', call_needed)
 
     def fold(self):
+        """플레이어가 폴드"""
         if self.state in [self.STATE_PREFLOP, self.STATE_FLOP, self.STATE_TURN, self.STATE_RIVER]:
-            self.winner = 'dealer'
-            self.result_message = "폴드! 딜러 승리"
-            self.state = self.STATE_GAME_OVER
+            self.human_player.fold()
+
+            # 남은 플레이어 체크
+            active = self.get_active_players()
+            if len(active) == 1:
+                winner = active[0]
+                self.winners = [winner]
+                winner.win(self.pot)
+                self.result_message = f"{winner.name} 승리! (다른 플레이어 모두 폴드)"
+                self.state = self.STATE_GAME_OVER
+            else:
+                self._continue_betting_round()
             return True
         return False
 
     def call(self):
-        """플레이어가 콜 - 딜러 레이즈 금액만큼 지불"""
+        """플레이어가 콜"""
         if self.state in [self.STATE_PREFLOP, self.STATE_FLOP, self.STATE_TURN, self.STATE_RIVER]:
-            # 딜러가 레이즈한 경우, 플레이어가 그 금액을 지불
-            if self.player_to_call > 0:
-                call_amount = min(self.player_to_call, self.player_gold)
-                self.player_gold -= call_amount
-                self.pot += call_amount
-                self.current_bet += call_amount
-                self.player_to_call = 0
-                self.dealer_bet = 0
+            player = self.human_player
+            call_needed = self.current_bet_to_call - player.current_bet
+            if call_needed > 0 and player.gold >= call_needed:
+                actual_bet = player.bet(call_needed)
+                self.pot += actual_bet
 
-            self.proceed_to_next_stage()
+            self._continue_betting_round()
             return True
         return False
 
     def get_call_amount(self):
         """현재 콜하기 위해 필요한 금액 반환"""
-        return self.player_to_call
+        return max(0, self.current_bet_to_call - self.human_player.current_bet)
 
     def raise_bet(self, additional_amount):
+        """플레이어가 레이즈"""
         if self.state in [self.STATE_PREFLOP, self.STATE_FLOP, self.STATE_TURN, self.STATE_RIVER]:
-            # 먼저 콜 금액이 있으면 그것도 지불
-            total_amount = additional_amount + self.player_to_call
+            player = self.human_player
+            call_needed = self.current_bet_to_call - player.current_bet
+            total_needed = call_needed + additional_amount
 
-            # 딜러가 콜할 수 있는 금액 확인
-            dealer_call = min(additional_amount, self.dealer_gold)
+            if player.gold >= total_needed:
+                actual_bet = player.bet(total_needed)
+                self.pot += actual_bet
+                self.current_bet_to_call = player.current_bet
+                self.last_raiser_idx = 0  # 플레이어는 항상 인덱스 0
 
-            if total_amount <= self.player_gold and dealer_call > 0:
-                self.player_gold -= total_amount
-                self.pot += total_amount  # 플레이어가 낸 금액
-
-                # 딜러도 레이즈에 콜
-                self.dealer_gold -= dealer_call
-                self.pot += dealer_call
-
-                self.current_bet += total_amount
-                self.player_to_call = 0
-                self.dealer_bet = 0
+                self._continue_betting_round()
                 return True
         return False
 
+    def _continue_betting_round(self):
+        """베팅 라운드 계속 (NPC 턴 처리)"""
+        # NPC들 액션 처리 (서->북->동 순서)
+        for pos in ['west', 'north', 'east']:
+            npc = self.players[pos]
+            if npc.folded or npc.is_bankrupt or npc.is_all_in:
+                continue
+
+            action, amount = self.npc_action(npc)
+
+            # 레이즈가 있으면 모두 다시 액션해야 함 (간소화: 바로 콜 처리)
+            if action == 'raise':
+                # 다른 NPC들도 새 베팅에 대응 (간소화를 위해 콜 처리)
+                for other_pos in ['west', 'north', 'east', 'south']:
+                    other = self.players[other_pos]
+                    if other == npc or other.folded or other.is_bankrupt:
+                        continue
+                    call_diff = self.current_bet_to_call - other.current_bet
+                    if call_diff > 0 and not other.is_human:
+                        # NPC는 자동 콜 (간소화)
+                        actual = other.bet(min(call_diff, other.gold))
+                        self.pot += actual
+
+        # 한 명만 남았는지 체크
+        active = self.get_active_players()
+        if len(active) == 1:
+            winner = active[0]
+            self.winners = [winner]
+            winner.win(self.pot)
+            self.result_message = f"{winner.name} 승리!"
+            self.state = self.STATE_GAME_OVER
+            return
+
+        # 다음 스테이지로 진행
+        self.proceed_to_next_stage()
+
     def _showdown(self):
-        for card in self.dealer_hand:
-            card.face_up = True
+        """쇼다운: 모든 카드 공개 및 승자 결정"""
+        # 모든 플레이어 카드 공개
+        for player in self.players.values():
+            for card in player.hand:
+                card.face_up = True
 
-        player_cards = self.player_hand + self.community_cards
-        dealer_cards = self.dealer_hand + self.community_cards
+        # 활성 플레이어 패 평가
+        active = self.get_active_players()
+        self.hand_results = {}  # 각 플레이어의 패 결과 저장
 
-        self.player_hand_result = HandEvaluator.evaluate(player_cards)
-        self.dealer_hand_result = HandEvaluator.evaluate(dealer_cards)
+        for player in active:
+            all_cards = player.hand + self.community_cards
+            player.hand_result = HandEvaluator.evaluate(all_cards)
+            self.hand_results[player.position] = player.hand_result
 
-        p_rank, p_tie, p_name = self.player_hand_result
-        d_rank, d_tie, d_name = self.dealer_hand_result
+        # 최고 패 찾기
+        best_rank = -1
+        best_tiebreaker = []
+        winner_players = []
 
-        # 플레이어 승리 체크
-        player_wins = False
-        if p_rank > d_rank:
-            player_wins = True
-        elif p_rank == d_rank and p_tie > d_tie:
-            player_wins = True
+        for player in active:
+            rank, tiebreaker, name = player.hand_result
+            if rank > best_rank or (rank == best_rank and tiebreaker > best_tiebreaker):
+                best_rank = rank
+                best_tiebreaker = tiebreaker
+                winner_players = [player]
+            elif rank == best_rank and tiebreaker == best_tiebreaker:
+                winner_players.append(player)
 
-        if player_wins:
-            self.winner = 'player'
+        # winners를 딕셔너리 리스트로 저장 (UI에서 사용)
+        self.winners = [{'position': p.position, 'player': p, 'hand_result': p.hand_result}
+                        for p in winner_players]
 
-            # 하우스 엣지 + 연승 패널티 계산
-            total_fee_rate = self.house_edge + (self.player_win_streak * self.win_streak_penalty)
-            total_fee_rate = min(total_fee_rate, 0.20)  # 최대 20% 제한
+        # 상금 분배
+        if winner_players:
+            # 하우스 엣지 계산
+            total_fee_rate = self.house_edge
+            player_won = any(p.is_human for p in winner_players)
+            if player_won:
+                total_fee_rate += self.player_win_streak * self.win_streak_penalty
+            total_fee_rate = min(total_fee_rate, 0.20)
 
             fee = int(self.pot * total_fee_rate)
-            win_amount = self.pot - fee
+            prize = self.pot - fee
+            share = prize // len(winner_players)
 
-            # 플레이어가 팟에서 수수료 제외한 금액 획득
-            # (딜러는 이미 place_bet에서 베팅금을 냈으므로 추가 차감 불필요)
-            self.player_gold += win_amount
+            for winner in winner_players:
+                winner.win(share)
 
-            # 연승 카운트 증가
-            self.player_win_streak += 1
-
-            # 실제 순이익 계산 (베팅금 제외)
-            net_profit = win_amount - self.current_bet
-
-            # 수수료 표시 및 플로팅 텍스트 트리거
-            if fee > 0:
-                self.result_message = f"승리! {p_name} (+{net_profit}G, 수수료 {fee}G)"
-                # 수수료 차감 플로팅 텍스트 (플레이어 위치에서 발생) - 퍼센트 표시 포함
-                fee_percent = int(total_fee_rate * 100)
-                self.pending_floating_texts.append((f"-{fee} (수수료 {fee_percent}%)", 'fee', 'player'))
+            # 결과 메시지
+            if len(winner_players) == 1:
+                winner = winner_players[0]
+                hand_name = winner.hand_result[2]
+                if winner.is_human:
+                    self.player_win_streak += 1
+                    net_profit = share - winner.total_bet
+                    self.result_message = f"승리! {hand_name} (+{net_profit}G)"
+                    if fee > 0:
+                        self.pending_floating_texts.append((f"-{fee} (수수료)", 'fee', 'south'))
+                    self.pending_floating_texts.append((f"+{net_profit}", 'win', 'south'))
+                else:
+                    self.player_win_streak = 0
+                    self.result_message = f"{winner.name} 승리! {hand_name}"
             else:
-                self.result_message = f"승리! {p_name} (+{net_profit}G)"
-
-            # 획득 골드 플로팅 텍스트 (플레이어 위치에서 발생)
-            self.pending_floating_texts.append((f"+{net_profit}", 'win', 'player'))
-
-            # 딜러 골드 감소 표시 (딜러 위치에서 발생)
-            dealer_loss = self.pot - self.current_bet  # 딜러가 잃은 금액
-            if dealer_loss > 0:
-                self.pending_floating_texts.append((f"-{dealer_loss}", 'lose', 'dealer'))
-
-            # 딜러 파산 체크
-            if self.dealer_gold <= 0:
-                self.dealer_gold = 0
-                self.dealer_bankrupt = True
-                self.result_message = f"🎉 딜러 파산! {p_name} (+{net_profit}G)"
-
-        elif d_rank > p_rank or (d_rank == p_rank and d_tie > p_tie):
-            self.winner = 'dealer'
-            # 딜러가 팟 전체를 가져감 (딜러는 이미 베팅금을 냈으므로 팟 전체 획득)
-            self.dealer_gold += self.pot
-            self.player_win_streak = 0  # 연승 리셋
-            self.result_message = f"패배... 딜러 {d_name}"
-
-            # 플레이어 골드 감소 표시 (플레이어 위치)
-            self.pending_floating_texts.append((f"-{self.current_bet}", 'lose', 'player'))
-            # 딜러 골드 증가 표시 (딜러 위치)
-            dealer_win = self.pot - self.current_bet  # 딜러 순이익
-            if dealer_win > 0:
-                self.pending_floating_texts.append((f"+{dealer_win}", 'win', 'dealer'))
+                winner_names = ", ".join([w.name for w in winner_players])
+                self.result_message = f"무승부! {winner_names}"
         else:
-            # 무승부 - 각자 베팅금 돌려받음
-            self.winner = 'tie'
-            self.player_gold += self.current_bet
-            self.dealer_gold += self.current_bet
-            self.result_message = f"무승부! {p_name}"
+            self.result_message = "모두 폴드!"
+
+        # 플레이어 골드 동기화
+        self.player_gold = self.human_player.gold
 
         self.state = self.STATE_SHOWDOWN
 
     def update(self, dt):
+        """게임 상태 업데이트"""
         self.animation_timer += dt
 
         # 애니메이션 업데이트
@@ -994,20 +1104,13 @@ class PokerGame:
             # 상태 전환
             if self.state == self.STATE_DEALING:
                 self.state = self.STATE_PREFLOP
-                # 딜러가 먼저 액션 (레이즈 또는 체크)
-                self.dealer_action()
+                # 플레이어 턴 시작 (액션 UI 표시)
             elif self.state == self.STATE_FLOP_DEALING:
                 self.state = self.STATE_FLOP
-                # 딜러가 먼저 액션
-                self.dealer_action()
             elif self.state == self.STATE_TURN_DEALING:
                 self.state = self.STATE_TURN
-                # 딜러가 먼저 액션
-                self.dealer_action()
             elif self.state == self.STATE_RIVER_DEALING:
                 self.state = self.STATE_RIVER
-                # 딜러가 먼저 액션
-                self.dealer_action()
 
 
 # ============================================
@@ -1682,9 +1785,9 @@ class PokerGameUI:
         if not self.game:
             return
 
-        base_bet = self.game.current_bet if self.game.current_bet > 0 else self.game.min_bet
+        base_bet = self.game.current_bet_to_call if self.game.current_bet_to_call > 0 else self.game.min_bet
         self.min_raise = max(10, int(base_bet * 0.5))  # 최소: 베팅의 50%
-        self.max_raise = min(int(base_bet * 2.0), self.game.player_gold)  # 최대: 베팅의 200% 또는 보유 골드
+        self.max_raise = min(int(base_bet * 2.0), self.game.human_player.gold)  # 최대: 베팅의 200% 또는 보유 골드
         self.raise_step = max(5, int(base_bet * 0.1))  # 증감 단위: 베팅의 10%
 
         # 레이즈 금액이 범위를 벗어나면 조정
@@ -1737,7 +1840,7 @@ class PokerGameUI:
         # 베팅 상태일 때 - 베팅 금액 조정
         if self.game.state == PokerGame.STATE_BETTING:
             if wheel_y > 0:  # 휠 위로 - 금액 증가
-                self.bet_amount = min(self.game.max_bet, self.game.player_gold, self.bet_amount + 10)
+                self.bet_amount = min(self.game.max_bet, self.game.players['south'].gold, self.bet_amount + 10)
             elif wheel_y < 0:  # 휠 아래로 - 금액 감소
                 self.bet_amount = max(self.game.min_bet, self.bet_amount - 10)
             return None
@@ -1746,7 +1849,7 @@ class PokerGameUI:
         if self.game.state in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
                                 PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
             if wheel_y > 0:  # 휠 위로 - 레이즈 금액 증가
-                self.raise_amount = min(self.max_raise, self.game.player_gold, self.raise_amount + self.raise_step)
+                self.raise_amount = min(self.max_raise, self.game.players['south'].gold, self.raise_amount + self.raise_step)
             elif wheel_y < 0:  # 휠 아래로 - 레이즈 금액 감소
                 self.raise_amount = max(self.min_raise, self.raise_amount - self.raise_step)
             return None
@@ -1787,7 +1890,7 @@ class PokerGameUI:
                     if i == 0:  # CALL/CHECK
                         # 콜 금액이 플레이어 골드보다 크면 무시
                         call_amount = self.game.get_call_amount()
-                        if call_amount > self.game.player_gold:
+                        if call_amount > self.game.players['south'].gold:
                             return None  # 골드 부족
                         if call_amount > 0:
                             self._spawn_chip_animation(call_amount)
@@ -1808,9 +1911,9 @@ class PokerGameUI:
         if event.key == pygame.K_LEFT:
             self.bet_amount = max(self.game.min_bet, self.bet_amount - 10)
         elif event.key == pygame.K_RIGHT:
-            self.bet_amount = min(self.game.max_bet, self.game.player_gold, self.bet_amount + 10)
+            self.bet_amount = min(self.game.max_bet, self.game.players['south'].gold, self.bet_amount + 10)
         elif event.key == pygame.K_UP:
-            self.bet_amount = min(self.game.max_bet, self.game.player_gold, self.bet_amount + 50)
+            self.bet_amount = min(self.game.max_bet, self.game.players['south'].gold, self.bet_amount + 50)
         elif event.key == pygame.K_DOWN:
             self.bet_amount = max(self.game.min_bet, self.bet_amount - 50)
         elif event.key in [pygame.K_RETURN, pygame.K_z, pygame.K_SPACE]:
@@ -1841,7 +1944,7 @@ class PokerGameUI:
             self.hovered_action = -1  # 키보드 사용 시 호버 해제
         elif event.key == pygame.K_UP:
             # 레이즈 금액 증가 (선택 상태와 무관하게) - 베팅에 비례
-            self.raise_amount = min(self.max_raise, self.game.player_gold, self.raise_amount + self.raise_step)
+            self.raise_amount = min(self.max_raise, self.game.players['south'].gold, self.raise_amount + self.raise_step)
         elif event.key == pygame.K_DOWN:
             # 레이즈 금액 감소 (선택 상태와 무관하게) - 베팅에 비례
             self.raise_amount = max(self.min_raise, self.raise_amount - self.raise_step)
@@ -1850,7 +1953,7 @@ class PokerGameUI:
             if self.selected_action == 0:
                 # 콜 금액이 플레이어 골드보다 크면 무시
                 call_amount = self.game.get_call_amount()
-                if call_amount > self.game.player_gold:
+                if call_amount > self.game.players['south'].gold:
                     return None  # 골드 부족
                 if call_amount > 0:
                     self._spawn_chip_animation(call_amount)
@@ -1874,9 +1977,9 @@ class PokerGameUI:
             # 딜러 파산 시 계속 불가
             if self.game.dealer_bankrupt:
                 return 'exit'  # 파산 시 ESC와 동일하게 종료
-            if self.game.player_gold >= self.game.min_bet:
+            if self.game.players['south'].gold >= self.game.min_bet:
                 self.game.start_new_round()
-                self.bet_amount = min(50, self.game.player_gold)
+                self.bet_amount = min(50, self.game.players['south'].gold)
                 self.result_shown = False
                 return 'new_round'
             else:
@@ -2467,8 +2570,9 @@ class PokerGameUI:
                            (x + math.cos(rad) * outer_r, y + math.sin(rad) * outer_r), 2)
 
     def _draw_cards(self, screen):
-        """카드 그리기"""
+        """카드 그리기 - 4인 테이블"""
         cx = self.screen_width // 2
+        cy = self.screen_height // 2
         is_showdown = self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER]
         is_dealing = self.game.state in [PokerGame.STATE_DEALING, PokerGame.STATE_FLOP_DEALING,
                                           PokerGame.STATE_TURN_DEALING, PokerGame.STATE_RIVER_DEALING]
@@ -2484,9 +2588,9 @@ class PokerGameUI:
             return
 
         # 일반 게임 레이아웃
-        # 커뮤니티 카드 (중앙) - 위로 올림
+        # 커뮤니티 카드 (중앙)
         if self.game.community_cards:
-            comm_y = self.screen_height // 2 - 30
+            comm_y = cy - 20
             total_width = len(self.game.community_cards) * (self.CARD_WIDTH + 10)
             comm_start_x = cx - total_width // 2
 
@@ -2495,39 +2599,78 @@ class PokerGameUI:
                 self.card_renderer.draw_card(screen, card, card_x, comm_y,
                                             self.CARD_WIDTH, self.CARD_HEIGHT)
 
-        # 플레이어 카드 (하단)
-        if self.game.player_hand:
-            player_y = self.screen_height - 220
-            player_start_x = cx - (self.CARD_WIDTH + 15)
+        # 4인 플레이어 카드 위치
+        card_positions = {
+            'south': (cx - self.CARD_WIDTH - 8, self.screen_height - 180),  # 플레이어 (하단)
+            'north': (cx - self.CARD_WIDTH - 8, 60),                         # 북쪽 NPC (상단)
+            'west': (30, cy - self.CARD_HEIGHT // 2),                        # 서쪽 NPC (좌측)
+            'east': (self.screen_width - 30 - self.CARD_WIDTH * 2 - 15, cy - self.CARD_HEIGHT // 2),  # 동쪽 NPC (우측)
+        }
 
-            for i, card in enumerate(self.game.player_hand):
-                card_x = player_start_x + i * (self.CARD_WIDTH + 15)
-                # 살짝 기울이기
-                self.card_renderer.draw_card(screen, card, card_x, player_y,
-                                            self.CARD_WIDTH, self.CARD_HEIGHT)
+        label_colors = {
+            'south': self.BLUE,
+            'north': self.RED,
+            'west': (255, 180, 100),  # 주황색
+            'east': (100, 255, 180),  # 민트색
+        }
 
-            self._draw_text(screen, "YOUR HAND", cx, player_y - 25, self.BLUE, 14, center=True)
+        for position, player in self.game.players.items():
+            if not player.hand:
+                continue
 
-        # 딜러 카드 (상단)
-        if self.game.dealer_hand:
-            dealer_y = 70
-            dealer_start_x = cx - (self.CARD_WIDTH + 15)
+            start_x, card_y = card_positions[position]
+            is_human = player.is_human
 
-            for i, card in enumerate(self.game.dealer_hand):
-                card_x = dealer_start_x + i * (self.CARD_WIDTH + 15)
-                self.card_renderer.draw_card(screen, card, card_x, dealer_y,
-                                            self.CARD_WIDTH, self.CARD_HEIGHT)
+            for i, card in enumerate(player.hand):
+                if position in ['west', 'east']:
+                    # 좌우 플레이어는 세로 배치
+                    card_x = start_x
+                    actual_y = card_y + i * 50
+                else:
+                    # 상하 플레이어는 가로 배치
+                    card_x = start_x + i * (self.CARD_WIDTH + 15)
+                    actual_y = card_y
 
-            self._draw_text(screen, "DEALER", cx, dealer_y - 25, self.RED, 14, center=True)
+                # NPC 카드는 뒷면으로 (쇼다운 전)
+                if not is_human and not is_showdown:
+                    self.card_renderer.draw_card(screen, card, card_x, actual_y,
+                                                self.CARD_WIDTH, self.CARD_HEIGHT, face_up=False)
+                else:
+                    self.card_renderer.draw_card(screen, card, card_x, actual_y,
+                                                self.CARD_WIDTH, self.CARD_HEIGHT)
+
+            # 레이블 위치
+            label_x = start_x + self.CARD_WIDTH
+            if position == 'south':
+                label_y = card_y - 25
+                label_text = "YOUR HAND"
+            elif position == 'north':
+                label_y = card_y - 25
+                label_text = player.name
+            elif position == 'west':
+                label_x = start_x + self.CARD_WIDTH + 10
+                label_y = card_y - 25
+                label_text = player.name
+            else:  # east
+                label_x = start_x
+                label_y = card_y - 25
+                label_text = player.name
+
+            # 폴드한 플레이어 표시
+            if player.folded:
+                label_text = f"{player.name} (FOLD)"
+
+            self._draw_text(screen, label_text, label_x, label_y, label_colors[position], 14, center=True)
 
     def _draw_animated_cards(self, screen):
-        """애니메이션 중인 카드 그리기"""
+        """애니메이션 중인 카드 그리기 - 4인 테이블"""
         cx = self.screen_width // 2
+        cy = self.screen_height // 2
 
         # 이미 배치된 카드들 (애니메이션 완료된 것들)
         # 커뮤니티 카드
         if self.game.community_cards:
-            comm_y = self.screen_height // 2 - 30
+            comm_y = cy - 20
             total_width = len(self.game.community_cards) * (self.CARD_WIDTH + 10)
             comm_start_x = cx - total_width // 2
 
@@ -2536,30 +2679,42 @@ class PokerGameUI:
                 self.card_renderer.draw_card(screen, card, card_x, comm_y,
                                             self.CARD_WIDTH, self.CARD_HEIGHT)
 
-        # 플레이어 카드 (딜링 완료된 것만)
-        player_y = self.screen_height - 220
-        player_start_x = cx - (self.CARD_WIDTH + 15)
-        for i, card in enumerate(self.game.player_hand):
-            # 애니메이션 중인 카드는 제외
-            animating = any(a.card == card and not a.completed for a in self.game.card_animations)
-            if not animating:
-                card_x = player_start_x + i * (self.CARD_WIDTH + 15)
-                self.card_renderer.draw_card(screen, card, card_x, player_y,
-                                            self.CARD_WIDTH, self.CARD_HEIGHT)
+        # 4인 플레이어 카드 위치
+        card_positions = {
+            'south': (cx - self.CARD_WIDTH - 8, self.screen_height - 180),
+            'north': (cx - self.CARD_WIDTH - 8, 60),
+            'west': (30, cy - self.CARD_HEIGHT // 2),
+            'east': (self.screen_width - 30 - self.CARD_WIDTH * 2 - 15, cy - self.CARD_HEIGHT // 2),
+        }
 
-        # 딜러 카드
-        dealer_y = 70
-        dealer_start_x = cx - (self.CARD_WIDTH + 15)
-        for i, card in enumerate(self.game.dealer_hand):
-            animating = any(a.card == card and not a.completed for a in self.game.card_animations)
-            if not animating:
-                card_x = dealer_start_x + i * (self.CARD_WIDTH + 15)
-                self.card_renderer.draw_card(screen, card, card_x, dealer_y,
-                                            self.CARD_WIDTH, self.CARD_HEIGHT)
+        # 각 플레이어 카드 (딜링 완료된 것만)
+        for position, player in self.game.players.items():
+            if not player.hand:
+                continue
+            start_x, card_y = card_positions[position]
+            is_human = player.is_human
+
+            for i, card in enumerate(player.hand):
+                animating = any(a.card == card and not a.completed for a in self.game.card_animations)
+                if not animating:
+                    if position in ['west', 'east']:
+                        card_x = start_x
+                        actual_y = card_y + i * 50
+                    else:
+                        card_x = start_x + i * (self.CARD_WIDTH + 15)
+                        actual_y = card_y
+
+                    # NPC 카드는 뒷면
+                    if not is_human:
+                        self.card_renderer.draw_card(screen, card, card_x, actual_y,
+                                                    self.CARD_WIDTH, self.CARD_HEIGHT, face_up=False)
+                    else:
+                        self.card_renderer.draw_card(screen, card, card_x, actual_y,
+                                                    self.CARD_WIDTH, self.CARD_HEIGHT)
 
         # 펜딩 카드 (커뮤니티 딜링 중)
         if self.game.pending_cards:
-            comm_y = self.screen_height // 2 - 30
+            comm_y = cy - 20
             base_idx = len(self.game.community_cards)
             base_x = 200 + base_idx * (self.CARD_WIDTH + 10)
 
@@ -2586,20 +2741,15 @@ class PokerGameUI:
                     face_up=anim.flipped
                 )
 
-        # 레이블
-        if self.game.player_hand:
-            self._draw_text(screen, "YOUR HAND", cx, player_y - 25, self.BLUE, 14, center=True)
-        if self.game.dealer_hand:
-            self._draw_text(screen, "DEALER", cx, 70 - 25, self.RED, 14, center=True)
-
     def _draw_showdown_cards(self, screen):
-        """쇼다운 시 카드 배치 - 오리지널 텍사스 홀덤 방식
-        딜러 홀카드 2장만 공개, 커뮤니티 카드는 가운데 유지"""
+        """쇼다운 시 카드 배치 - 4인 텍사스 홀덤 방식
+        모든 플레이어 홀카드 2장 공개, 커뮤니티 카드는 가운데 유지"""
         cx = self.screen_width // 2
+        cy = self.screen_height // 2
 
         # 커뮤니티 카드 (중앙) - 그대로 유지
         if self.game.community_cards:
-            comm_y = self.screen_height // 2 + 25
+            comm_y = cy
             total_width = len(self.game.community_cards) * (self.CARD_WIDTH + 10)
             comm_start_x = cx - total_width // 2
 
@@ -2610,59 +2760,114 @@ class PokerGameUI:
 
             self._draw_text(screen, "COMMUNITY CARDS", cx, comm_y - 30, self.GOLD, 14, center=True)
 
-        # 딜러 카드 (상단) - 2장만, 공개
-        if self.game.dealer_hand:
-            dealer_y = 70
-            dealer_start_x = cx - (self.CARD_WIDTH + 15)
+        # 4인 플레이어 카드 위치 (쇼다운용)
+        card_positions = {
+            'south': (cx - self.CARD_WIDTH - 8, self.screen_height - 180),
+            'north': (cx - self.CARD_WIDTH - 8, 60),
+            'west': (30, cy - self.CARD_HEIGHT // 2 - 60),
+            'east': (self.screen_width - 30 - self.CARD_WIDTH * 2 - 15, cy - self.CARD_HEIGHT // 2 - 60),
+        }
 
-            for i, card in enumerate(self.game.dealer_hand):
-                card.face_up = True  # 쇼다운이므로 공개
-                card_x = dealer_start_x + i * (self.CARD_WIDTH + 15)
+        border_colors = {
+            'south': (100, 150, 255),   # 파란색
+            'north': (255, 100, 100),   # 빨간색
+            'west': (255, 180, 100),    # 주황색
+            'east': (100, 255, 180),    # 민트색
+        }
 
-                # 강조 테두리 (공개된 홀카드)
-                pygame.draw.rect(screen, (255, 100, 100),
-                               (card_x - 3, dealer_y - 3, self.CARD_WIDTH + 6, self.CARD_HEIGHT + 6),
-                               2, border_radius=6)
+        # 승자 정보 가져오기
+        winner_positions = []
+        if hasattr(self.game, 'winners') and self.game.winners:
+            winner_positions = [w['position'] for w in self.game.winners]
 
-                self.card_renderer.draw_card(screen, card, card_x, dealer_y,
-                                            self.CARD_WIDTH, self.CARD_HEIGHT)
+        for position, player in self.game.players.items():
+            if not player.hand or player.folded:
+                continue
 
-            self._draw_text(screen, "DEALER", cx, dealer_y - 25, self.RED, 14, center=True)
+            start_x, card_y = card_positions[position]
+            border_color = border_colors[position]
 
-        # 플레이어 카드 (하단) - 2장만, 결과 패널 위에 표시
-        if self.game.player_hand:
-            player_y = self.screen_height - 290  # 결과 패널(높이 130, y=-150)과 겹치지 않게 위로
-            player_start_x = cx - (self.CARD_WIDTH + 15)
+            # 승자는 황금색 테두리
+            if position in winner_positions:
+                border_color = self.GOLD
 
-            for i, card in enumerate(self.game.player_hand):
-                card_x = player_start_x + i * (self.CARD_WIDTH + 15)
+            for i, card in enumerate(player.hand):
+                card.face_up = True  # 쇼다운이므로 모두 공개
+
+                if position in ['west', 'east']:
+                    card_x = start_x
+                    actual_y = card_y + i * 50
+                else:
+                    card_x = start_x + i * (self.CARD_WIDTH + 15)
+                    actual_y = card_y
 
                 # 강조 테두리
-                pygame.draw.rect(screen, (100, 150, 255),
-                               (card_x - 3, player_y - 3, self.CARD_WIDTH + 6, self.CARD_HEIGHT + 6),
+                pygame.draw.rect(screen, border_color,
+                               (card_x - 3, actual_y - 3, self.CARD_WIDTH + 6, self.CARD_HEIGHT + 6),
                                2, border_radius=6)
 
-                self.card_renderer.draw_card(screen, card, card_x, player_y,
+                self.card_renderer.draw_card(screen, card, card_x, actual_y,
                                             self.CARD_WIDTH, self.CARD_HEIGHT)
 
-            self._draw_text(screen, "YOUR HAND", cx, player_y - 25, self.BLUE, 14, center=True)
+            # 레이블
+            label_x = start_x + self.CARD_WIDTH
+            if position == 'south':
+                label_y = card_y - 25
+                label_text = "YOUR HAND"
+            else:
+                if position in ['west', 'east']:
+                    label_x = start_x + self.CARD_WIDTH + 10 if position == 'west' else start_x
+                label_y = card_y - 25
+                label_text = player.name
+
+            # 승자 표시
+            if position in winner_positions:
+                label_text = f"★ {label_text} ★"
+
+            self._draw_text(screen, label_text, label_x, label_y, border_colors[position], 14, center=True)
 
     def _draw_ui(self, screen):
-        """기본 UI"""
-        # 딜러 골드 표시 (좌상단)
-        self._draw_dealer_gold_display(screen, 20, 15)
+        """기본 UI - 4인 테이블"""
+        cx = self.screen_width // 2
+        cy = self.screen_height // 2
 
-        # 플레이어 골드 표시 (좌하단)
-        self._draw_gold_display(screen, 20, self.screen_height - 50)
+        # 4인 플레이어 정보 표시 위치
+        player_info_positions = {
+            'south': (20, self.screen_height - 55),     # 좌하단 (플레이어)
+            'north': (20, 15),                           # 좌상단 (북쪽 NPC)
+            'west': (20, cy - 80),                       # 좌측 중앙 (서쪽 NPC)
+            'east': (self.screen_width - 150, cy - 80),  # 우측 중앙 (동쪽 NPC)
+        }
 
-        # 현재 베팅 (좌측 중앙)
-        if self.game.current_bet > 0:
-            self._draw_text(screen, f"BET: {self.game.current_bet}G", 20, self.screen_height - 80, self.SILVER, 14)
+        label_colors = {
+            'south': self.BLUE,
+            'north': self.RED,
+            'west': (255, 180, 100),
+            'east': (100, 255, 180),
+        }
 
-        # 연승 표시 (플레이어 골드 옆)
+        # 각 플레이어 정보 패널 표시
+        for position, player in self.game.players.items():
+            x, y = player_info_positions[position]
+            color = label_colors[position]
+            self._draw_player_info_panel(screen, x, y, player, color)
+
+        # 팟(Pot) 정보 표시 (중앙 상단)
+        if self.game.pot > 0:
+            pot_text = f"POT: {self.game.pot}G"
+            self._draw_text(screen, pot_text, cx, cy - 80, self.GOLD, 18, center=True)
+
+        # 현재 콜 금액 (플레이어 차례일 때)
+        human = self.game.players['south']
+        if self.game.current_action_player == 'south' and not human.folded:
+            call_amount = self.game.current_bet_to_call - human.current_bet
+            if call_amount > 0:
+                self._draw_text(screen, f"콜: {call_amount}G", cx, self.screen_height - 230, self.SILVER, 14, center=True)
+
+        # 연승 표시 (플레이어 정보 옆)
         if self.game.player_win_streak > 0:
             streak_color = (255, 100, 100) if self.game.player_win_streak >= 3 else (255, 200, 100)
-            self._draw_text(screen, f"🔥{self.game.player_win_streak}연승", 160, self.screen_height - 42, streak_color, 14)
+            self._draw_text(screen, f"🔥{self.game.player_win_streak}연승", 160, self.screen_height - 47, streak_color, 14)
 
         # 게임 상태 (우상단)
         state_names = {
@@ -2681,47 +2886,42 @@ class PokerGameUI:
         state_text = state_names.get(self.game.state, self.game.state)
         self._draw_status_badge(screen, self.screen_width - 20, 20, state_text)
 
-    def _draw_gold_display(self, screen, x, y):
-        """골드 표시 - 인게임 금화 아이콘과 동일"""
-        # 배경
-        box_w, box_h = 130, 35
-        pygame.draw.rect(screen, (30, 25, 40), (x, y, box_w, box_h), border_radius=6)
-        pygame.draw.rect(screen, self.GOLD, (x, y, box_w, box_h), 2, border_radius=6)
+        # 현재 턴 표시
+        if self.game.current_action_player:
+            current_player = self.game.players.get(self.game.current_action_player)
+            if current_player and not current_player.folded:
+                turn_text = f"턴: {current_player.name}"
+                self._draw_text(screen, turn_text, self.screen_width - 80, 50, (200, 200, 100), 12, center=True)
 
-        # 금화 아이콘 (인게임과 동일)
-        coin_size = 22
-        self._draw_gold_coin(screen, x + 18, y + box_h // 2 + 1, coin_size)
+    def _draw_player_info_panel(self, screen, x, y, player, color):
+        """플레이어 정보 패널 그리기"""
+        box_w, box_h = 130, 45
 
-        # 골드 텍스트 (금화와 수평 맞춤)
-        self._draw_text(screen, f"{self.game.player_gold:,}", x + 38, y + 9, self.GOLD_LIGHT, 16)
-
-    def _draw_dealer_gold_display(self, screen, x, y):
-        """딜러 골드 표시 - 플레이어와 동일한 스타일 (DEALER 라벨 + 금화 아이콘)"""
-        # 배경
-        box_w, box_h = 130, 50  # 높이 늘림 (라벨 + 골드)
-
-        # 딜러 골드 비율에 따라 색상 변화 (위험할수록 빨간색)
-        gold_ratio = self.game.dealer_gold / max(self.game.initial_dealer_gold, 1)
-        if gold_ratio <= 0.3:
-            border_color = (255, 80, 80)  # 위험 - 빨간색
-            bg_color = (60, 20, 20)
-        elif gold_ratio <= 0.5:
-            border_color = (255, 180, 80)  # 주의 - 주황색
-            bg_color = (50, 30, 20)
+        # 폴드한 플레이어는 어둡게
+        if player.folded:
+            bg_color = (20, 20, 25)
+            border_color = (80, 80, 80)
         else:
-            border_color = (150, 150, 180)  # 안전 - 은색
             bg_color = (30, 25, 40)
+            border_color = color
 
         pygame.draw.rect(screen, bg_color, (x, y, box_w, box_h), border_radius=6)
         pygame.draw.rect(screen, border_color, (x, y, box_w, box_h), 2, border_radius=6)
 
-        # "DEALER" 라벨 (상단)
-        self._draw_text(screen, "DEALER", x + box_w // 2, y + 5, (180, 180, 200), 12, center=True)
+        # 이름 (상단)
+        name_text = player.name if not player.folded else f"{player.name} (FOLD)"
+        self._draw_text(screen, name_text, x + box_w // 2, y + 5, color if not player.folded else (100, 100, 100), 11, center=True)
 
-        # 금화 아이콘 + 골드 텍스트 (하단, 플레이어와 동일)
-        coin_size = 22
-        self._draw_gold_coin(screen, x + 18, y + 35, coin_size)
-        self._draw_text(screen, f"{self.game.dealer_gold:,}", x + 38, y + 26, self.GOLD_LIGHT, 16)
+        # 금화 아이콘 + 골드 (하단)
+        coin_size = 18
+        self._draw_gold_coin(screen, x + 15, y + 32, coin_size)
+        gold_color = self.GOLD_LIGHT if not player.folded else (100, 100, 80)
+        self._draw_text(screen, f"{player.gold:,}", x + 32, y + 24, gold_color, 14)
+
+        # 현재 베팅 금액 표시
+        if player.current_bet > 0:
+            bet_text = f"bet:{player.current_bet}"
+            self._draw_text(screen, bet_text, x + box_w - 10, y + 24, (200, 200, 100), 10)
 
     def _draw_gold_coin(self, screen, x, y, size):
         """금화 아이콘 그리기 - 인게임과 동일한 입체감 있는 동전"""
@@ -2902,7 +3102,7 @@ class PokerGameUI:
             is_hovered = (i == self.hovered_action)
 
             # 콜 금액이 플레이어 골드보다 크면 비활성화
-            is_disabled = (i == 0 and call_amount > self.game.player_gold)
+            is_disabled = (i == 0 and call_amount > self.game.players['south'].gold)
 
             # 그림자
             pygame.draw.rect(screen, (0, 0, 0, 80), (btn_x + 3, y + 3, btn_w, btn_h), border_radius=8)
@@ -2952,34 +3152,44 @@ class PokerGameUI:
                        cx, y + 70, (100, 100, 110), 10, center=True)
 
     def _draw_result_ui(self, screen):
-        """결과 UI (프리미엄)"""
+        """결과 UI (4인 프리미엄)"""
         cx = self.screen_width // 2
 
-        # 딜러 파산 특별 화면
+        # 모든 NPC 파산 특별 화면
         if self.game.dealer_bankrupt:
             self._draw_dealer_bankrupt_ui(screen)
             return
 
         # 결과 박스
-        box_w, box_h = 420, 130
-        box_y = self.screen_height - 150
+        box_w, box_h = 420, 160
+        box_y = self.screen_height - 180
 
         # 그림자
         pygame.draw.rect(screen, (0, 0, 0, 100), (cx - box_w // 2 + 5, box_y + 5, box_w, box_h), border_radius=15)
 
-        # 결과 색상
-        if self.game.winner == 'player':
+        # 결과 색상 (4인용 - 유저 승리 여부)
+        player_won = False
+        winner_names = []
+        if self.game.winners:
+            winner_positions = [w['position'] for w in self.game.winners]
+            player_won = 'south' in winner_positions
+            winner_names = [self.game.players[pos].name for pos in winner_positions]
+
+        if player_won:
             result_color = (80, 220, 100)
             glow_color = (100, 255, 120, 30)
-            title = "VICTORY!"
-        elif self.game.winner == 'dealer':
+            if len(self.game.winners) > 1:
+                title = "SPLIT POT!"
+            else:
+                title = "VICTORY!"
+        elif self.game.human_player.folded:
+            result_color = (180, 180, 180)
+            glow_color = (150, 150, 150, 30)
+            title = "FOLDED"
+        else:
             result_color = (220, 80, 80)
             glow_color = (255, 100, 100, 30)
             title = "DEFEAT"
-        else:
-            result_color = (220, 200, 80)
-            glow_color = (255, 240, 100, 30)
-            title = "TIE"
 
         # 글로우 효과
         glow_surf = pygame.Surface((box_w + 20, box_h + 20), pygame.SRCALPHA)
@@ -3000,28 +3210,30 @@ class PokerGameUI:
         # 결과 타이틀
         self._draw_text(screen, title, cx, box_y + 12, result_color, 28, center=True)
 
-        # 패 정보
+        # 승자 정보
         info_y = box_y + 50
-        if self.game.player_hand_result:
-            p_name = self.game.player_hand_result[2]
-            self._draw_text(screen, f"나: {p_name}", cx - 90, info_y, (150, 200, 255), 14, center=True)
+        if winner_names:
+            winner_text = "승자: " + ", ".join(winner_names)
+            self._draw_text(screen, winner_text, cx, info_y, (255, 255, 200), 14, center=True)
 
-        if self.game.dealer_hand_result:
-            d_name = self.game.dealer_hand_result[2]
-            self._draw_text(screen, f"딜러: {d_name}", cx + 90, info_y, (255, 150, 150), 14, center=True)
+        # 플레이어 패 정보
+        human = self.game.human_player
+        if hasattr(self.game, 'hand_results') and 'south' in self.game.hand_results:
+            hand_name = self.game.hand_results['south'][2]
+            self._draw_text(screen, f"나의 패: {hand_name}", cx, info_y + 22, (150, 200, 255), 12, center=True)
 
         # 골드 변화
-        gold_text = f"골드: {self.game.player_gold:,}G"
-        self._draw_text(screen, gold_text, cx, info_y + 25, self.GOLD_LIGHT, 16, center=True)
+        gold_text = f"골드: {human.gold:,}G"
+        self._draw_text(screen, gold_text, cx, info_y + 45, self.GOLD_LIGHT, 16, center=True)
 
         # 계속하기
-        if self.game.player_gold >= self.game.min_bet:
-            self._draw_text(screen, "Enter: 계속  ESC: 나가기", cx, info_y + 50, (120, 120, 130), 12, center=True)
+        if human.gold >= self.game.min_bet:
+            self._draw_text(screen, "Enter: 계속  ESC: 나가기", cx, info_y + 70, (120, 120, 130), 12, center=True)
         else:
-            self._draw_text(screen, "골드 부족! ESC: 나가기", cx, info_y + 50, (255, 100, 100), 12, center=True)
+            self._draw_text(screen, "골드 부족! ESC: 나가기", cx, info_y + 70, (255, 100, 100), 12, center=True)
 
     def _draw_dealer_bankrupt_ui(self, screen):
-        """딜러 파산 특별 화면"""
+        """모든 NPC 파산 특별 화면 (4인용)"""
         cx = self.screen_width // 2
         cy = self.screen_height // 2
 
@@ -3031,7 +3243,7 @@ class PokerGameUI:
         screen.blit(overlay, (0, 0))
 
         # 결과 박스 (더 크게)
-        box_w, box_h = 450, 200
+        box_w, box_h = 450, 220
         box_x = cx - box_w // 2
         box_y = cy - box_h // 2
 
@@ -3055,18 +3267,23 @@ class PokerGameUI:
         pygame.draw.rect(screen, self.GOLD, (box_x, box_y, box_w, box_h), 4, border_radius=15)
 
         # 타이틀
-        self._draw_text(screen, "🎉 딜러 파산! 🎉", cx, box_y + 20, self.GOLD, 32, center=True)
+        self._draw_text(screen, "🎉 대승리! 🎉", cx, box_y + 20, self.GOLD, 32, center=True)
 
         # 서브 타이틀
-        self._draw_text(screen, "축하합니다! 딜러의 자금을 모두 털었습니다!", cx, box_y + 65, (255, 255, 200), 16, center=True)
+        self._draw_text(screen, "축하합니다! 모든 상대를 파산시켰습니다!", cx, box_y + 65, (255, 255, 200), 16, center=True)
 
-        # 획득 정보
-        total_won = self.game.initial_dealer_gold
-        self._draw_text(screen, f"딜러 초기 자금: {self.game.initial_dealer_gold:,}G", cx, box_y + 100, (200, 200, 200), 14, center=True)
-        self._draw_text(screen, f"최종 보유 골드: {self.game.player_gold:,}G", cx, box_y + 125, self.GOLD_LIGHT, 18, center=True)
+        # 파산한 NPC 목록
+        bankrupt_npcs = [p.name for pos, p in self.game.players.items()
+                         if pos != 'south' and p.gold <= 0]
+        if bankrupt_npcs:
+            bankrupt_text = "파산: " + ", ".join(bankrupt_npcs)
+            self._draw_text(screen, bankrupt_text, cx, box_y + 100, (200, 200, 200), 14, center=True)
+
+        # 최종 골드
+        self._draw_text(screen, f"최종 보유 골드: {self.game.players['south'].gold:,}G", cx, box_y + 130, self.GOLD_LIGHT, 18, center=True)
 
         # 안내
-        self._draw_text(screen, "테이블이 닫힙니다. ESC를 눌러 나가세요.", cx, box_y + 160, (150, 150, 160), 14, center=True)
+        self._draw_text(screen, "테이블이 닫힙니다. ESC를 눌러 나가세요.", cx, box_y + 175, (150, 150, 160), 14, center=True)
 
     def _draw_text(self, screen, text, x, y, color, size, center=False, right=False):
         """텍스트 그리기"""
@@ -3128,7 +3345,7 @@ class PokerGameUI:
         screen.blit(text_surface, text_rect)
 
     def get_player_gold(self):
-        return self.game.player_gold if self.game else 0
+        return self.game.players['south'].gold if self.game else 0
 
 
 # ============================================
