@@ -927,7 +927,7 @@ class PokerGame:
             active = self.get_active_players()
             if len(active) == 1:
                 winner = active[0]
-                self.winners = [winner]
+                self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
                 winner.win(self.pot)
                 self.result_message = f"{winner.name} 승리! (다른 플레이어 모두 폴드)"
                 self.state = self.STATE_GAME_OVER
@@ -997,7 +997,7 @@ class PokerGame:
         active = self.get_active_players()
         if len(active) == 1:
             winner = active[0]
-            self.winners = [winner]
+            self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
             winner.win(self.pot)
             self.result_message = f"{winner.name} 승리!"
             self.state = self.STATE_GAME_OVER
