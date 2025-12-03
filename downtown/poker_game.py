@@ -1923,7 +1923,7 @@ class PokerGameUI:
             icon_y = int(current_y)
 
             # 아이콘 서피스 생성
-            icon_surf = pygame.Surface((icon_size + 80, icon_size + 4), pygame.SRCALPHA)
+            icon_surf = pygame.Surface((icon_size + 100, icon_size + 8), pygame.SRCALPHA)
 
             # 골드 코인 아이콘 그리기
             coin_color = (255, 200, 50, alpha)
@@ -1931,19 +1931,26 @@ class PokerGameUI:
             pygame.draw.circle(icon_surf, coin_color, (icon_size // 2, icon_size // 2 + 2), icon_size // 2 - 1)
             pygame.draw.circle(icon_surf, coin_border, (icon_size // 2, icon_size // 2 + 2), icon_size // 2 - 1, 1)
 
-            # G 텍스트 (코인 내부)
-            font = self._get_font(10)
-            if font:
-                g_surf, g_rect = font.render("G", (180, 130, 20, alpha))
+            # G 텍스트 (코인 내부) - 시스템 폰트 사용
+            try:
+                small_font = pygame.font.SysFont('Arial', 10)
+                g_surf = small_font.render("G", True, (180, 130, 20))
+                g_surf.set_alpha(alpha)
+                g_rect = g_surf.get_rect()
                 icon_surf.blit(g_surf, (icon_size // 2 - g_rect.width // 2, icon_size // 2 - g_rect.height // 2 + 2))
+            except:
+                pass
 
-            # 숫자 텍스트
-            text_font = self._get_font(16)
-            if text_font:
-                # 색상에 알파 적용
-                text_color = (color[0], color[1], color[2], alpha)
-                text_surf, text_rect = text_font.render(text, text_color)
+            # 숫자 텍스트 - 시스템 폰트 사용
+            try:
+                text_font = pygame.font.SysFont('Arial', 16, bold=True)
+                text_color = (color[0], color[1], color[2])
+                text_surf = text_font.render(text, True, text_color)
+                text_surf.set_alpha(alpha)
+                text_rect = text_surf.get_rect()
                 icon_surf.blit(text_surf, (icon_size + 4, (icon_size - text_rect.height) // 2 + 2))
+            except:
+                pass
 
             # 화면에 블릿
             screen.blit(icon_surf, (icon_x, icon_y))
