@@ -2899,6 +2899,37 @@ class PokerGameUI:
                 label_text = "YOUR HAND"
                 self._draw_text(screen, label_text, label_x, label_y, label_colors[position], 14, center=True)
 
+        # 플레이어(south) 현재 족보 표시 (커뮤니티 카드가 있을 때만)
+        if self.game.community_cards and 'south' in self.game.players:
+            south_player = self.game.players['south']
+            if south_player.hand and len(south_player.hand) == 2:
+                # 플레이어 카드 + 커뮤니티 카드로 족보 계산
+                all_cards = south_player.hand + self.game.community_cards
+                if len(all_cards) >= 5:
+                    hand_result = HandEvaluator.evaluate(all_cards)
+                    hand_name = hand_result[2]  # (rank, tiebreaker, name)
+
+                    # 플레이어 카드 우측에 표시
+                    south_x, south_y = card_positions['south']
+                    hand_text_x = south_x + self.CARD_WIDTH + 15 + self.CARD_WIDTH + 20
+                    hand_text_y = south_y + self.CARD_HEIGHT // 2 - 7
+
+                    # 족보에 따른 색상
+                    rank = hand_result[0]
+                    if rank >= 9:  # 로얄 플러시, 스트레이트 플러시
+                        hand_color = (255, 215, 0)  # 금색
+                    elif rank >= 7:  # 풀하우스, 포카드
+                        hand_color = (255, 100, 255)  # 분홍색
+                    elif rank >= 5:  # 스트레이트, 플러시
+                        hand_color = (100, 200, 255)  # 하늘색
+                    elif rank >= 2:  # 원페어, 투페어, 트리플
+                        hand_color = (150, 255, 150)  # 연두색
+                    else:  # 하이카드
+                        hand_color = (180, 180, 180)  # 회색
+
+                    self._draw_text(screen, f"[{hand_name}]", hand_text_x, hand_text_y,
+                                   hand_color, 14, center=False)
+
     def _draw_animated_cards(self, screen):
         """애니메이션 중인 카드 그리기 - 4인 테이블"""
         cx = self.screen_width // 2
