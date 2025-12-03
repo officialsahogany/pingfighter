@@ -5107,6 +5107,157 @@ def draw_stage7_super_particles(surface: pygame.Surface) -> None:
                 pygame.draw.circle(surface, (*p['color'], glow_alpha), (int(p['x']), int(p['y'])), rr)
         # 중심
         pygame.draw.circle(surface, (*p['color'], 150), (int(p['x']), int(p['y'])), base_r)
+
+
+# === Stage 8 극정호신 어둠 기운 파티클 시스템 ===
+def spawn_stage8_superspeed_dark_particles(boss_rect: pygame.Rect) -> None:
+    """극정호신 발동 중 보스 주변에 어두운 불꽃 파티클을 생성한다."""
+    global stage8_superspeed_dark_particles
+    if current_stage != 8 or not globals().get('stage8_superspeed_active', False):
+        return
+    # 3~5개씩 생성 (더 많은 파티클)
+    count = random.randint(3, 5)
+    # 어두운 색상 팔레트 (검정, 짙은 보라, 짙은 빨강 계열)
+    dark_palette = [
+        (20, 10, 30),     # 매우 어두운 보라
+        (30, 5, 15),      # 매우 어두운 빨강
+        (15, 15, 25),     # 매우 어두운 파랑
+        (25, 5, 25),      # 어두운 마젠타
+        (10, 10, 10),     # 거의 검정
+        (40, 10, 40),     # 짙은 보라
+        (50, 15, 20),     # 짙은 빨강
+    ]
+    for _ in range(count):
+        # 보스 주변 넓은 영역에서 생성
+        px = random.randint(boss_rect.left - 20, boss_rect.right + 20)
+        py = random.randint(boss_rect.top - 15, boss_rect.bottom + 10)
+        # 위로 타오르는 움직임
+        vx = random.uniform(-1.0, 1.0)
+        vy = random.uniform(-2.5, -0.8)
+        size = random.uniform(3.0, 8.0)
+        life = random.randint(30, 60)
+        color = random.choice(dark_palette)
+        stage8_superspeed_dark_particles.append({
+            'x': float(px), 'y': float(py), 'vx': vx, 'vy': vy,
+            'size': float(size), 'life': int(life), 'max_life': int(life), 'color': color
+        })
+    # 개수 상한
+    if len(stage8_superspeed_dark_particles) > STAGE8_SUPERSPEED_DARK_PARTICLE_MAX:
+        del stage8_superspeed_dark_particles[:len(stage8_superspeed_dark_particles) - STAGE8_SUPERSPEED_DARK_PARTICLE_MAX]
+
+
+def update_stage8_superspeed_dark_particles() -> None:
+    """극정호신 어둠 파티클 업데이트."""
+    global stage8_superspeed_dark_particles
+    if not stage8_superspeed_dark_particles:
+        return
+    for p in stage8_superspeed_dark_particles[:]:
+        p['x'] += p['vx']
+        p['y'] += p['vy']
+        p['vx'] *= 0.98  # 약간의 마찰
+        p['vy'] *= 0.95  # 위로 올라가다 감속
+        p['size'] *= 0.97
+        p['life'] -= 1
+        if p['life'] <= 0 or p['size'] < 1.0:
+            stage8_superspeed_dark_particles.remove(p)
+
+
+def draw_stage8_superspeed_dark_particles(surface: pygame.Surface) -> None:
+    """극정호신 어둠 파티클 렌더링 - 어두운 불꽃 효과."""
+    if not stage8_superspeed_dark_particles:
+        return
+    for p in stage8_superspeed_dark_particles:
+        base_r = int(max(1, p['size']))
+        life_ratio = p['life'] / p['max_life'] if p['max_life'] > 0 else 1.0
+        # 어두운 글로우 효과 (여러 겹)
+        for i, (scale, alpha_mult) in enumerate([(2.0, 0.15), (1.5, 0.25), (1.2, 0.35)]):
+            rr = int(base_r * scale)
+            if rr > 0:
+                glow_alpha = int(180 * alpha_mult * life_ratio)
+                pygame.draw.circle(surface, (*p['color'], glow_alpha), (int(p['x']), int(p['y'])), rr)
+        # 중심 (밝은 핵심)
+        core_alpha = int(200 * life_ratio)
+        pygame.draw.circle(surface, (*p['color'], core_alpha), (int(p['x']), int(p['y'])), base_r)
+        # 가끔 밝은 불꽃 점 추가 (타오르는 느낌)
+        if random.random() < 0.3:
+            spark_color = (min(255, p['color'][0] + 80), min(255, p['color'][1] + 30), min(255, p['color'][2] + 80))
+            tiny_r = max(1, base_r // 2)
+            pygame.draw.circle(surface, (*spark_color, int(150 * life_ratio)), (int(p['x']), int(p['y'])), tiny_r)
+
+
+def clear_stage8_superspeed_dark_particles() -> None:
+    """극정호신 어둠 파티클 초기화."""
+    global stage8_superspeed_dark_particles
+    stage8_superspeed_dark_particles.clear()
+
+
+# === Stage 8 극정호신 움직임 잔상 시스템 ===
+stage8_superspeed_trail_frame_counter = 0  # 잔상 생성 프레임 카운터
+
+
+def spawn_stage8_superspeed_movement_trail(boss_rect: pygame.Rect, boss_image: pygame.Surface) -> None:
+    """극정호신 발동 중 보스 움직임 잔상 생성."""
+    global stage8_superspeed_movement_trail, stage8_superspeed_trail_frame_counter
+    if current_stage != 8 or not globals().get('stage8_superspeed_active', False):
+        return
+    stage8_superspeed_trail_frame_counter += 1
+    if stage8_superspeed_trail_frame_counter < STAGE8_SUPERSPEED_TRAIL_SPAWN_INTERVAL:
+        return
+    stage8_superspeed_trail_frame_counter = 0
+    # 잔상 이미지 복사 (어둡게 처리)
+    trail_img = boss_image.copy()
+    # 어두운 색조로 변환
+    dark_tint = pygame.Surface(trail_img.get_size(), pygame.SRCALPHA)
+    dark_tint.fill((30, 15, 40, 0))  # 어두운 보라색 틴트
+    trail_img.blit(dark_tint, (0, 0), special_flags=pygame.BLEND_RGB_SUB)
+    stage8_superspeed_movement_trail.append({
+        'x': boss_rect.centerx,
+        'y': boss_rect.centery,
+        'alpha': 180,  # 시작 투명도
+        'image': trail_img,
+        'spawn_ms': pygame.time.get_ticks()
+    })
+    # 최대 잔상 수 제한
+    if len(stage8_superspeed_movement_trail) > STAGE8_SUPERSPEED_TRAIL_MAX:
+        del stage8_superspeed_movement_trail[0]
+
+
+def update_stage8_superspeed_movement_trail() -> None:
+    """극정호신 움직임 잔상 업데이트 - 천천히 사라짐."""
+    global stage8_superspeed_movement_trail
+    if not stage8_superspeed_movement_trail:
+        return
+    for trail in stage8_superspeed_movement_trail[:]:
+        trail['alpha'] -= STAGE8_SUPERSPEED_TRAIL_FADE_SPEED
+        if trail['alpha'] <= 0:
+            stage8_superspeed_movement_trail.remove(trail)
+
+
+def draw_stage8_superspeed_movement_trail(surface: pygame.Surface) -> None:
+    """극정호신 움직임 잔상 렌더링."""
+    if not stage8_superspeed_movement_trail:
+        return
+    # 오래된 잔상부터 그려서 새 잔상이 위에 오도록
+    for trail in stage8_superspeed_movement_trail:
+        img = trail.get('image')
+        if img is None:
+            continue
+        alpha = trail.get('alpha', 0)
+        if alpha <= 0:
+            continue
+        surf = img.copy()
+        surf.set_alpha(int(alpha))
+        rect = surf.get_rect(center=(trail['x'], trail['y']))
+        surface.blit(surf, rect.topleft)
+
+
+def clear_stage8_superspeed_movement_trail() -> None:
+    """극정호신 움직임 잔상 초기화."""
+    global stage8_superspeed_movement_trail, stage8_superspeed_trail_frame_counter
+    stage8_superspeed_movement_trail.clear()
+    stage8_superspeed_trail_frame_counter = 0
+
+
 # === 조명탄 관련 ===
 flares = []  # 던져진 조명탄 리스트
 flare_zones = []  # 조명 지역 리스트
@@ -18119,6 +18270,16 @@ stage8_afterimage_ghosts: list = []  # 환영 분신 리스트 [{x, y, alpha, sp
 STAGE8_AFTERIMAGE_COUNT = 5  # 대쉬당 생성되는 환영 수
 STAGE8_AFTERIMAGE_FADE_MS = 800  # 환영 페이드아웃 시간
 STAGE8_AFTERIMAGE_DELAY_MS = 60  # 각 환영 간 딜레이
+
+# === 극정호신 어둠 기운 파티클 시스템 ===
+stage8_superspeed_dark_particles: list[dict] = []  # 어둠 불꽃 파티클
+STAGE8_SUPERSPEED_DARK_PARTICLE_MAX = 200  # 최대 파티클 수
+
+# === 극정호신 움직임 잔상 시스템 (길고 오래 남는 잔상) ===
+stage8_superspeed_movement_trail: list = []  # 움직임 잔상 [{x, y, alpha, image, spawn_ms}]
+STAGE8_SUPERSPEED_TRAIL_FADE_SPEED = 2  # 잔상이 사라지는 속도 (낮을수록 오래 남음)
+STAGE8_SUPERSPEED_TRAIL_MAX = 30  # 최대 잔상 수
+STAGE8_SUPERSPEED_TRAIL_SPAWN_INTERVAL = 2  # 잔상 생성 주기 (프레임 단위)
 STAGE8_SHADOW_CAST_MS = 500
 STAGE8_SHADOW_DURATION_MS = 10000
 STAGE8_SHADOW_EMERGE_MS = 600
@@ -41187,6 +41348,12 @@ def _end_stage8_superspeed() -> None:
     # 극정호신 종료 시 즉시 대쉬를 막기 위해 대쉬 상태도 초기화
     globals()["boss_dashing"] = False
     globals()["boss_dash_timer"] = 0
+    # 극정호신 어둠 기운 파티클 및 잔상 초기화
+    try:
+        clear_stage8_superspeed_dark_particles()
+        clear_stage8_superspeed_movement_trail()
+    except Exception:
+        pass
 
 
 def _start_stage8_superspeed(now: int) -> None:
@@ -46388,6 +46555,53 @@ def draw_objects():
             draw_stage7_super_particles(SCREEN)
         except Exception:
             pass
+    # === Stage 8 극정호신 어둠 기운 효과 ===
+    if current_stage == 8 and stage8_superspeed_active:
+        try:
+            time_now = pygame.time.get_ticks()
+            pulse = 0.5 + 0.5 * math.sin(time_now * 0.012)  # 느린 펄스
+
+            # 1) 어두운 오라 (검은 보라색 그라데이션)
+            aura_d = int(max(boss_w, boss_h) * 1.2)
+            aura_r = max(4, aura_d // 2)
+            aura_surface = pygame.Surface((aura_d, aura_d), pygame.SRCALPHA)
+            center_alpha = int(50 + 30 * pulse)
+            layers = 12
+            for layer in range(layers, 0, -1):
+                t = layer / layers
+                rr = int(aura_r * t)
+                alpha = int(center_alpha * (t ** 1.4))
+                # 어두운 보라/검정 색상
+                color = (30 + int(20 * pulse), 10, 40 + int(20 * pulse), alpha)
+                if rr > 0 and alpha > 0:
+                    pygame.draw.circle(aura_surface, color, (aura_r, aura_r), rr)
+            aura_rect = aura_surface.get_rect(center=boss_rect.center)
+            draw_with_shake(aura_surface, aura_rect.topleft)
+
+            # 2) 보스 이미지 어둡게 + 보라빛 틴트 (어두운 기운)
+            dark_tint = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
+            # 전체적으로 어둡게 (RGB 값을 줄임)
+            dark_mult = 0.6 + 0.1 * pulse  # 60~70% 밝기로 어둡게
+            dark_tint.fill((int(255 * dark_mult), int(200 * dark_mult), int(255 * dark_mult), 255))
+            rotated_boss.blit(dark_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            # 어두운 보라색 추가
+            add_tint = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
+            add_tint.fill((int(20 + 15 * pulse), 5, int(25 + 15 * pulse), 0))
+            rotated_boss.blit(add_tint, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
+
+            # 3) 어둠 불꽃 파티클 생성/업데이트/그리기
+            spawn_stage8_superspeed_dark_particles(boss_rect)
+            update_stage8_superspeed_dark_particles()
+            draw_stage8_superspeed_dark_particles(SCREEN)
+
+            # 4) 움직임 잔상 생성 (매 프레임)
+            spawn_stage8_superspeed_movement_trail(boss_rect, rotated_boss)
+        except Exception:
+            pass
+    # 극정호신 잔상 업데이트 및 렌더링 (보스 뒤에 그려짐)
+    if current_stage == 8:
+        update_stage8_superspeed_movement_trail()
+        draw_stage8_superspeed_movement_trail(SCREEN)
     # === Stage 2 스피드 디펜스 꼬리효과 ===
     if current_stage == 2 and speed_defense_active:
         # 원래 꼬리 효과 (매 프레임 추가) - 더 많은 잔상 추가
