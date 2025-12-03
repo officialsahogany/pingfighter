@@ -951,34 +951,48 @@ class PremiumCardRenderer:
         suit_color = (200, 30, 30) if is_red else (30, 30, 30)
         symbol = Card.SUIT_SYMBOLS[card.suit]
 
-        # 좌상단 랭크
-        rank_size = int(w * 0.22)
-        rank_x = int(w * 0.05)
-        rank_y = int(h * 0.02)
+        # === 통일된 배치 설정 (모든 문양 동일 적용) ===
+        rank_size = int(w * 0.22)           # 랭크 폰트 크기
+        small_suit_size = int(w * 0.16)     # 코너 작은 문양 크기
+
+        # 좌상단/우하단 완전 대칭을 위한 공통 값
+        margin_x = int(w * 0.08)            # 좌우 마진
+        margin_y = int(h * 0.05)            # 상하 마진 (약간 증가)
+        rank_height = int(h * 0.15)         # 랭크 텍스트 높이 (대칭 계산용)
+        suit_offset_y = int(h * 0.17)       # 랭크 아래 문양까지의 간격
+
+        # === 좌상단 (숫자 + 작은 문양) ===
+        # 랭크 위치
+        rank_x = margin_x
+        rank_y = margin_y
         self._draw_rank(surf, card.rank, rank_x, rank_y, suit_color, rank_size)
 
-        # 좌상단 작은 무늬 (숫자 아래, 간격 더 벌림)
-        small_suit_size = int(w * 0.16)
-        suit_x = rank_x + int(w * 0.03)
-        suit_y = int(h * 0.22)  # 더 아래로 내려서 간격 확보
-        self._draw_suit_shape(surf, symbol, suit_x + small_suit_size // 2, suit_y + small_suit_size // 2, small_suit_size, suit_color)
+        # 작은 문양 위치 (랭크 중앙 아래에 정렬)
+        suit_x = margin_x + (rank_size - small_suit_size) // 2
+        suit_y = margin_y + suit_offset_y
+        self._draw_suit_shape(surf, symbol,
+                              suit_x + small_suit_size // 2,
+                              suit_y + small_suit_size // 2,
+                              small_suit_size, suit_color)
 
-        # 중앙 대형 무늬 (모든 카드 동일 - 큰 무늬 1개)
+        # === 중앙 대형 문양 (모든 카드 동일) ===
         cx, cy = w // 2, h // 2
         large_size = int(w * 0.55)
         self._draw_suit_shape(surf, symbol, cx, cy, large_size, suit_color)
 
-        # 우하단 랭크 (180도 회전) - 위로+안쪽으로 당김
-        # 10처럼 두 자리 숫자는 더 안쪽으로
-        rank_offset_x = int(w * 0.26) if card.rank == '10' else int(w * 0.18)
-        rank_bottom_x = w - rank_x - rank_offset_x
-        rank_bottom_y = h - int(h * 0.22)  # 위로 올림
+        # === 우하단 (숫자 + 작은 문양) - 좌상단과 180도 대칭 ===
+        # 랭크 위치 (180도 회전)
+        rank_bottom_x = w - margin_x - rank_size
+        rank_bottom_y = h - margin_y - rank_height
         self._draw_rank(surf, card.rank, rank_bottom_x, rank_bottom_y, suit_color, rank_size, flip=True)
 
-        # 우하단 작은 무늬 (숫자 바로 위)
-        bottom_suit_x = w - suit_x - small_suit_size - int(w * 0.02)  # 안쪽으로
-        bottom_suit_y = h - int(h * 0.38)  # 위로 올림
-        self._draw_suit_shape(surf, symbol, bottom_suit_x + small_suit_size // 2, bottom_suit_y + small_suit_size // 2, small_suit_size, suit_color)
+        # 작은 문양 위치 (좌상단과 완전 대칭)
+        bottom_suit_x = w - margin_x - (rank_size + small_suit_size) // 2
+        bottom_suit_y = h - margin_y - suit_offset_y - small_suit_size
+        self._draw_suit_shape(surf, symbol,
+                              bottom_suit_x + small_suit_size // 2,
+                              bottom_suit_y + small_suit_size // 2,
+                              small_suit_size, suit_color)
 
     def _draw_rank(self, surf, rank, x, y, color, size, flip=False):
         """랭크 텍스트"""
@@ -1025,8 +1039,8 @@ class PremiumCardRenderer:
             ])
 
         elif suit_symbol == '♦':  # 다이아몬드 - 세로로 긴 마름모
-            w = s * 0.55  # 너비
-            h = s * 0.85  # 높이
+            w = s * 0.605  # 너비 (10% 증가: 0.55 * 1.1)
+            h = s * 0.935  # 높이 (10% 증가: 0.85 * 1.1)
             pygame.draw.polygon(surf, color, [
                 (cx, cy - h * 0.5),      # 상단
                 (cx + w * 0.5, cy),      # 우측
@@ -1035,54 +1049,65 @@ class PremiumCardRenderer:
             ])
 
         elif suit_symbol == '♣':  # 클로버 - 세 개의 둥근 잎 + 줄기
-            r = s * 0.24  # 잎 반지름
+            r = s * 0.252  # 잎 반지름 (10% 감소: 0.28 * 0.9)
 
-            # 상단 잎 (12시)
-            pygame.draw.circle(surf, color, (int(cx), int(cy - r * 0.7)), int(r))
-            # 좌하단 잎 (8시)
-            pygame.draw.circle(surf, color, (int(cx - r * 0.85), int(cy + r * 0.25)), int(r))
-            # 우하단 잎 (4시)
-            pygame.draw.circle(surf, color, (int(cx + r * 0.85), int(cy + r * 0.25)), int(r))
+            # 상단 잎 (12시) - 더 위로
+            pygame.draw.circle(surf, color, (int(cx), int(cy - r * 1.1)), int(r))
+            # 좌하단 잎 (8시) - 더 벌어지게
+            pygame.draw.circle(surf, color, (int(cx - r * 1.05), int(cy + r * 0.2)), int(r))
+            # 우하단 잎 (4시) - 더 벌어지게
+            pygame.draw.circle(surf, color, (int(cx + r * 1.05), int(cy + r * 0.2)), int(r))
 
-            # 줄기 (아래로 뻗는 역삼각형)
-            stem_w = s * 0.18
+            # 중앙 빈틈 채우기 (더 크게)
+            pygame.draw.circle(surf, color, (int(cx), int(cy)), int(r * 0.9))
+
+            # 줄기 (밑으로 갈수록 넓어지는 형태)
+            stem_top_w = s * 0.10
+            stem_bot_w = s * 0.20
             stem_h = s * 0.38
+            stem_top = cy + r * 0.5
             pygame.draw.polygon(surf, color, [
-                (cx - stem_w, cy + r * 0.1),
-                (cx + stem_w, cy + r * 0.1),
-                (cx, cy + stem_h + r * 0.1)
+                (cx - stem_top_w, stem_top),
+                (cx + stem_top_w, stem_top),
+                (cx + stem_bot_w, stem_top + stem_h),
+                (cx - stem_bot_w, stem_top + stem_h)
             ])
 
-        elif suit_symbol == '♠':  # 스페이드 - 뒤집힌 하트 + 줄기
+        elif suit_symbol == '♠':  # 스페이드 - 뒤집힌 하트 + 중앙에 밑으로 넓어지는 막대
             w = s * 0.9
             h = s * 0.95
             r = w * 0.28  # 하단 원 반지름
 
             # 원 중심 위치 (하트를 뒤집었으므로 아래쪽에 원)
-            circle_y = cy + h * 0.12
-            circle_left_x = cx - w * 0.23
-            circle_right_x = cx + w * 0.23
+            circle_y = cy + h * 0.05
+            circle_left_x = cx - w * 0.24
+            circle_right_x = cx + w * 0.24
 
-            # 하단 왼쪽 원 (먼저 그려서 삼각형이 덮도록)
+            # 먼저 줄기를 그림 (원과 삼각형 아래에 위치)
+            stem_top_w = s * 0.06   # 상단 너비 (좁음)
+            stem_bot_w = s * 0.20   # 하단 너비 (넓음)
+            stem_h = s * 0.38
+            stem_top = circle_y + r * 0.2
+            pygame.draw.polygon(surf, color, [
+                (cx - stem_top_w, stem_top),           # 왼쪽 상단 (좁음)
+                (cx + stem_top_w, stem_top),           # 오른쪽 상단 (좁음)
+                (cx + stem_bot_w, stem_top + stem_h),  # 오른쪽 하단 (넓음)
+                (cx - stem_bot_w, stem_top + stem_h)   # 왼쪽 하단 (넓음)
+            ])
+
+            # 하단 왼쪽 원
             pygame.draw.circle(surf, color, (int(circle_left_x), int(circle_y)), int(r))
             # 하단 오른쪽 원
             pygame.draw.circle(surf, color, (int(circle_right_x), int(circle_y)), int(r))
 
-            # 상단 뾰족한 삼각형 (뒤집힌 하트) - 원을 완전히 덮도록
+            # 상단 뾰족한 삼각형 (뒤집힌 하트) - 원을 덮도록
+            tri_top = cy - h * 0.42  # 상단 꼭지점
+            tri_bottom = circle_y + r * 0.5  # 삼각형 하단 (원 아래까지)
+            tri_width = w * 0.52  # 삼각형 밑변 너비
             pygame.draw.polygon(surf, color, [
-                (cx, cy - h * 0.42),                              # 상단 뾰족점
-                (circle_left_x - r, circle_y + r * 0.3),          # 왼쪽 (원 아래까지 확장)
-                (circle_right_x + r, circle_y + r * 0.3),         # 오른쪽 (원 아래까지 확장)
-            ])
-
-            # 줄기 (아래로 뻗는 역삼각형)
-            stem_w = s * 0.14
-            stem_h = s * 0.32
-            stem_top = circle_y + r * 0.3
-            pygame.draw.polygon(surf, color, [
-                (cx - stem_w, stem_top),
-                (cx + stem_w, stem_top),
-                (cx, stem_top + stem_h)
+                (cx, tri_top),                    # 상단 뾰족점
+                (cx - tri_width, tri_bottom),     # 왼쪽 하단
+                (cx + tri_width, tri_bottom),     # 오른쪽 하단
             ])
 
     def _draw_ornate_suit(self, surf, suit_symbol, cx, cy, size, color):
@@ -1208,21 +1233,26 @@ class PremiumCardRenderer:
             pygame.draw.circle(surf, color, (int(cx - w_d * 0.75), int(cy)), int(dot_r))
             pygame.draw.circle(surf, color, (int(cx + w_d * 0.75), int(cy)), int(dot_r))
 
-        elif suit_symbol == '♠':  # 스페이드 - 뒤집힌 하트 + 줄기 (화려한 버전)
+        elif suit_symbol == '♠':  # 스페이드 - 뒤집힌 하트 + 중앙에 밑으로 넓어지는 막대 (화려한 버전)
             w = s * 0.9
             h = s * 0.95
             r = w * 0.28
 
             # 원 중심 위치 (하트를 뒤집었으므로 아래쪽에 원)
-            circle_y = cy + h * 0.12
-            circle_left_x = cx - w * 0.23
-            circle_right_x = cx + w * 0.23
+            circle_y = cy + h * 0.08
+            circle_left_x = cx - w * 0.24
+            circle_right_x = cx + w * 0.24
 
-            # 상단 뾰족한 삼각형 (뒤집힌 하트) - 원에 딱 맞게
+            # 먼저 줄기를 그림 (원과 삼각형 아래에 위치)
+            stem_top_w = s * 0.06   # 상단 너비 (좁음)
+            stem_bot_w = s * 0.20   # 하단 너비 (넓음)
+            stem_h = s * 0.38
+            stem_top = circle_y + r * 0.2
             pygame.draw.polygon(surf, color, [
-                (cx, cy - h * 0.42),
-                (circle_left_x - r * 0.7, circle_y),              # 왼쪽 (원 외곽에 맞춤)
-                (circle_right_x + r * 0.7, circle_y),             # 오른쪽 (원 외곽에 맞춤)
+                (cx - stem_top_w, stem_top),           # 왼쪽 상단 (좁음)
+                (cx + stem_top_w, stem_top),           # 오른쪽 상단 (좁음)
+                (cx + stem_bot_w, stem_top + stem_h),  # 오른쪽 하단 (넓음)
+                (cx - stem_bot_w, stem_top + stem_h)   # 왼쪽 하단 (넓음)
             ])
 
             # 하단 왼쪽 원
@@ -1230,20 +1260,20 @@ class PremiumCardRenderer:
             # 하단 오른쪽 원
             pygame.draw.circle(surf, color, (int(circle_right_x), int(circle_y)), int(r))
 
-            # 줄기 (아래로 뻗는 역삼각형)
-            stem_w = s * 0.14
-            stem_h = s * 0.32
-            stem_top = circle_y + r * 0.3
+            # 상단 뾰족한 삼각형 (뒤집힌 하트) - 원을 덮도록
+            tri_top = cy - h * 0.42  # 상단 꼭지점
+            tri_bottom = circle_y + r * 0.5  # 삼각형 하단 (원 아래까지)
+            tri_width = w * 0.52  # 삼각형 밑변 너비
             pygame.draw.polygon(surf, color, [
-                (cx - stem_w, stem_top),
-                (cx + stem_w, stem_top),
-                (cx, stem_top + stem_h)
+                (cx, tri_top),                    # 상단 뾰족점
+                (cx - tri_width, tri_bottom),     # 왼쪽 하단
+                (cx + tri_width, tri_bottom),     # 오른쪽 하단
             ])
 
             # 장식 점들
             dot_r = s * 0.03
             pygame.draw.circle(surf, color, (int(cx), int(cy - h * 0.20)), int(dot_r))
-            pygame.draw.circle(surf, color, (int(cx), int(cy)), int(dot_r))
+            pygame.draw.circle(surf, color, (int(cx), int(cy + h * 0.05)), int(dot_r))
 
     def _draw_face_card(self, surf, card, w, h, color):
         """페이스 카드 (J, Q, K) 디자인 - 프리미엄 블랙 스타일"""
@@ -2003,33 +2033,39 @@ class PokerGameUI:
 
     def _draw_card_symbol_mini(self, screen, symbol_index, x, y, color, size):
         """미니 카드 문양 직접 그리기 (0=스페이드, 1=하트, 2=다이아, 3=클럽)"""
-        if symbol_index == 0:  # 스페이드 ♠ - 뒤집힌 하트 + 줄기
+        if symbol_index == 0:  # 스페이드 ♠ - 뒤집힌 하트 + 중앙에 밑으로 넓어지는 막대
             s = size * 1.2
             r = s * 0.36  # 하단 원 반지름
 
             # 원 중심 위치
-            circle_y = y + s * 0.22
-            circle_left_x = x - s * 0.28
-            circle_right_x = x + s * 0.28
+            circle_y = y + s * 0.1
+            circle_left_x = x - s * 0.30
+            circle_right_x = x + s * 0.30
 
-            # 하단 원들 (먼저 그림)
+            # 먼저 줄기를 그림 (원과 삼각형 아래에 위치)
+            stem_top_w = s * 0.08   # 상단 너비 (좁음)
+            stem_bot_w = s * 0.24   # 하단 너비 (넓음)
+            stem_h = s * 0.50
+            stem_top = circle_y + r * 0.2
+            pygame.draw.polygon(screen, color, [
+                (x - stem_top_w, stem_top),           # 왼쪽 상단 (좁음)
+                (x + stem_top_w, stem_top),           # 오른쪽 상단 (좁음)
+                (x + stem_bot_w, stem_top + stem_h),  # 오른쪽 하단 (넓음)
+                (x - stem_bot_w, stem_top + stem_h)   # 왼쪽 하단 (넓음)
+            ])
+
+            # 하단 원들
             pygame.draw.circle(screen, color, (int(circle_left_x), int(circle_y)), int(r))
             pygame.draw.circle(screen, color, (int(circle_right_x), int(circle_y)), int(r))
 
-            # 상단 삼각형 - 원에 딱 맞게
+            # 상단 삼각형 - 원을 덮도록
+            tri_top = y - s * 0.7  # 상단 꼭지점
+            tri_bottom = circle_y + r * 0.5  # 삼각형 하단 (원 아래까지)
+            tri_width = s * 0.65  # 삼각형 밑변 너비
             pygame.draw.polygon(screen, color, [
-                (x, y - s * 0.7),                           # 상단 꼭지점
-                (circle_left_x - r * 0.7, circle_y),        # 왼쪽 (원 외곽에 맞춤)
-                (circle_right_x + r * 0.7, circle_y),       # 오른쪽 (원 외곽에 맞춤)
-            ])
-
-            # 줄기
-            stem_w = s * 0.18
-            stem_top = circle_y + r * 0.5
-            pygame.draw.polygon(screen, color, [
-                (x - stem_w, stem_top),
-                (x + stem_w, stem_top),
-                (x, stem_top + s * 0.45)
+                (x, tri_top),                    # 상단 뾰족점
+                (x - tri_width, tri_bottom),     # 왼쪽 하단
+                (x + tri_width, tri_bottom),     # 오른쪽 하단
             ])
         elif symbol_index == 1:  # 하트 ♥
             # 두 개의 원 + 삼각형
@@ -2049,20 +2085,27 @@ class PokerGameUI:
         elif symbol_index == 3:  # 클럽 ♣
             # 세 개의 큰 원 (잎) + 줄기
             s = size * 1.3  # 전체 크기 확대
-            leaf_r = int(s * 0.45)  # 잎 반지름 (더 크게)
+            leaf_r = int(s * 0.50)  # 잎 반지름 (더 크게)
 
-            # 상단 잎 (더 위로)
-            pygame.draw.circle(screen, color, (x, int(y - s * 0.4)), leaf_r)
+            # 상단 잎 (더 위로, 더 도드라지게)
+            pygame.draw.circle(screen, color, (x, int(y - s * 0.55)), leaf_r)
             # 좌하단 잎 (더 벌어지게)
-            pygame.draw.circle(screen, color, (int(x - s * 0.45), int(y + s * 0.15)), leaf_r)
+            pygame.draw.circle(screen, color, (int(x - s * 0.52), int(y + s * 0.1)), leaf_r)
             # 우하단 잎 (더 벌어지게)
-            pygame.draw.circle(screen, color, (int(x + s * 0.45), int(y + s * 0.15)), leaf_r)
+            pygame.draw.circle(screen, color, (int(x + s * 0.52), int(y + s * 0.1)), leaf_r)
 
-            # 줄기 (삼각형)
+            # 중앙 빈틈 채우기
+            pygame.draw.circle(screen, color, (x, int(y - s * 0.15)), int(leaf_r * 0.6))
+
+            # 줄기 (밑으로 갈수록 넓어지는 형태)
+            stem_top_w = s * 0.12
+            stem_bot_w = s * 0.24
+            stem_top = y + s * 0.35
             pygame.draw.polygon(screen, color, [
-                (x - s * 0.15, y + s * 0.2),
-                (x + s * 0.15, y + s * 0.2),
-                (x, y + s * 0.7)
+                (x - stem_top_w, stem_top),
+                (x + stem_top_w, stem_top),
+                (x + stem_bot_w, y + s * 0.75),
+                (x - stem_bot_w, y + s * 0.75)
             ])
 
     def _draw_pot_display(self, screen, x, y):
