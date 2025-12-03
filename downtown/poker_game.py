@@ -3122,8 +3122,8 @@ class PokerGameUI:
             player_info_positions = {
                 'south': (20, self.screen_height - 55),     # 좌하단 (플레이어)
                 'north': (20, 15),                           # 좌상단 (북쪽 NPC)
-                'west': (20, cy - 80),                       # 좌측 중앙 (서쪽 NPC)
-                'east': (self.screen_width - 150, cy - 80),  # 우측 중앙 (동쪽 NPC)
+                'west': (20, cy - 130),                      # 좌측 - 커뮤니티 카드 위로 이동
+                'east': (self.screen_width - 150, cy - 130), # 우측 - 커뮤니티 카드 위로 이동
             }
 
         label_colors = {
@@ -3188,9 +3188,9 @@ class PokerGameUI:
 
         # NPC 위치별 말풍선 좌표
         bubble_positions = {
-            'west': (150, cy - 30),
+            'west': (150, cy - 80),
             'north': (cx + 120, 100),
-            'east': (self.screen_width - 150, cy - 30),
+            'east': (self.screen_width - 150, cy - 80),
         }
 
         # 생각 중일 때
