@@ -25,6 +25,89 @@ def resource_path(relative_path):
 
 
 # ============================================
+# BGM 관리
+# ============================================
+class PokerBGM:
+    """포커 게임 BGM 관리자"""
+    _instance = None
+    _previous_music = None  # 이전 BGM 상태 저장
+    _previous_pos = 0  # 이전 BGM 재생 위치
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def __init__(self):
+        self.bgm_path = None
+        self.is_playing = False
+        self._init_bgm_path()
+
+    def _init_bgm_path(self):
+        """BGM 경로 초기화"""
+        # downtown 폴더 기준으로 상위의 bgm 폴더 참조
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            bgm_path = os.path.join(parent_dir, "bgm", "pokerbgm.wav")
+
+            if os.path.exists(bgm_path):
+                self.bgm_path = bgm_path
+            else:
+                # PyInstaller 환경
+                self.bgm_path = resource_path(os.path.join("..", "bgm", "pokerbgm.wav"))
+        except Exception as e:
+            print(f"[PokerBGM] BGM 경로 초기화 실패: {e}")
+            self.bgm_path = None
+
+    def start(self, volume=0.5):
+        """포커 BGM 시작 (이전 BGM 상태 저장)"""
+        if not self.bgm_path or not os.path.exists(self.bgm_path):
+            print(f"[PokerBGM] BGM 파일을 찾을 수 없습니다: {self.bgm_path}")
+            return False
+
+        try:
+            # 현재 재생 중인 음악 상태 저장
+            if pygame.mixer.music.get_busy():
+                PokerBGM._previous_music = True
+                try:
+                    PokerBGM._previous_pos = pygame.mixer.music.get_pos()
+                except:
+                    PokerBGM._previous_pos = 0
+            else:
+                PokerBGM._previous_music = False
+
+            # 포커 BGM 재생
+            pygame.mixer.music.load(self.bgm_path)
+            pygame.mixer.music.set_volume(volume)
+            pygame.mixer.music.play(-1)  # 무한 반복
+            self.is_playing = True
+            print(f"[PokerBGM] BGM 재생 시작: {self.bgm_path}")
+            return True
+        except Exception as e:
+            print(f"[PokerBGM] BGM 재생 실패: {e}")
+            return False
+
+    def stop(self):
+        """포커 BGM 정지"""
+        if self.is_playing:
+            try:
+                pygame.mixer.music.fadeout(500)  # 0.5초 페이드아웃
+                self.is_playing = False
+                print("[PokerBGM] BGM 정지")
+            except Exception as e:
+                print(f"[PokerBGM] BGM 정지 실패: {e}")
+
+    def set_volume(self, volume):
+        """볼륨 설정 (0.0 ~ 1.0)"""
+        try:
+            pygame.mixer.music.set_volume(max(0.0, min(1.0, volume)))
+        except:
+            pass
+
+
+# ============================================
 # 파티클 시스템
 # ============================================
 class Particle:
@@ -410,6 +493,11 @@ class PokerGame:
         self.min_bet = 10
         self.max_bet = 500
 
+        # 딜러 베팅 시스템
+        self.dealer_bet = 0  # 딜러가 추가로 베팅한 금액
+        self.player_to_call = 0  # 플레이어가 콜하기 위해 내야 할 금액
+        self.dealer_gold = 2000  # 딜러 보유 골드 (무한하지만 표시용)
+
         self.state = self.STATE_BETTING
         self.winner = None
         self.result_message = ""
@@ -428,6 +516,8 @@ class PokerGame:
         self.community_cards = []
         self.pot = 0
         self.current_bet = 0
+        self.dealer_bet = 0
+        self.player_to_call = 0
         self.state = self.STATE_BETTING
         self.winner = None
         self.result_message = ""
@@ -539,6 +629,120 @@ class PokerGame:
         elif self.state == self.STATE_RIVER:
             self._showdown()
 
+    def _dealer_ai_decision(self):
+        """딜러 AI: 핸드 강도에 따라 레이즈/콜/체크 결정"""
+        import random
+
+        # 딜러 핸드 + 커뮤니티 카드로 현재 패 평가
+        if self.community_cards:
+            dealer_cards = self.dealer_hand + self.community_cards
+            hand_result = HandEvaluator.evaluate(dealer_cards)
+            hand_rank = hand_result[0]
+        else:
+            # 프리플랍: 홀 카드만으로 평가
+            hand_rank = self._evaluate_hole_cards()
+
+        # 초기 베팅 기준으로 레이즈 범위 계산
+        base_bet = self.current_bet if self.current_bet > 0 else self.min_bet
+        min_raise = max(10, int(base_bet * 0.5))  # 최소: 베팅의 50%
+        max_raise = int(base_bet * 2.0)  # 최대: 베팅의 200%
+
+        # 레이즈 확률 및 배율 계산 (핸드가 강할수록 높음)
+        # hand_rank: 1(하이카드) ~ 10(로얄플러시)
+        base_raise_chance = 0.0
+        raise_multiplier = 0.5  # 베팅 대비 레이즈 배율
+
+        if hand_rank >= 8:  # 스트레이트 플러시 이상
+            base_raise_chance = 0.9
+            raise_multiplier = random.uniform(1.5, 2.0)  # 150~200%
+        elif hand_rank >= 6:  # 플러시/풀하우스
+            base_raise_chance = 0.7
+            raise_multiplier = random.uniform(1.0, 1.5)  # 100~150%
+        elif hand_rank >= 4:  # 스트레이트/트리플
+            base_raise_chance = 0.5
+            raise_multiplier = random.uniform(0.7, 1.2)  # 70~120%
+        elif hand_rank >= 3:  # 투페어
+            base_raise_chance = 0.35
+            raise_multiplier = random.uniform(0.5, 0.8)  # 50~80%
+        elif hand_rank >= 2:  # 원페어
+            base_raise_chance = 0.2
+            raise_multiplier = random.uniform(0.3, 0.6)  # 30~60%
+        else:  # 하이카드
+            base_raise_chance = 0.1  # 블러핑
+            raise_multiplier = random.uniform(0.3, 0.5)  # 30~50%
+
+        # 스테이지에 따른 조정 (후반부일수록 더 공격적)
+        stage_multiplier = 1.0
+        if self.state == self.STATE_TURN:
+            stage_multiplier = 1.2
+        elif self.state == self.STATE_RIVER:
+            stage_multiplier = 1.4
+
+        final_raise_chance = min(0.95, base_raise_chance * stage_multiplier)
+
+        # 랜덤으로 레이즈 여부 결정
+        if random.random() < final_raise_chance:
+            # 베팅에 비례한 레이즈 금액 계산
+            raise_amount = int(base_bet * raise_multiplier)
+            raise_amount = max(min_raise, min(raise_amount, max_raise))
+
+            # 플레이어 골드 고려 (플레이어가 콜할 수 있어야 함)
+            raise_amount = min(raise_amount, self.player_gold)
+
+            if raise_amount >= min_raise:
+                return ('raise', raise_amount)
+
+        return ('check', 0)
+
+    def _evaluate_hole_cards(self):
+        """홀 카드만으로 핸드 강도 평가 (프리플랍용)"""
+        if len(self.dealer_hand) < 2:
+            return 1
+
+        card1, card2 = self.dealer_hand
+        # 카드 값을 숫자로 변환 (get_value: 2~14, 여기서 0~12 범위로)
+        rank1 = card1.get_value() - 2
+        rank2 = card2.get_value() - 2
+
+        # 포켓 페어
+        if rank1 == rank2:
+            return 3 + (rank1 / 12)  # 페어 + 높은 카드일수록 보너스
+
+        # 높은 카드 (A, K, Q, J: rank >= 9 → value >= 11)
+        high_count = sum(1 for r in [rank1, rank2] if r >= 9)
+
+        # 수트 매치
+        suited = card1.suit == card2.suit
+
+        score = 1.0
+        if high_count == 2:
+            score = 2.5
+        elif high_count == 1:
+            score = 1.8
+
+        if suited:
+            score += 0.5
+
+        # 연속 카드 (스트레이트 가능성)
+        if abs(rank1 - rank2) == 1:
+            score += 0.3
+
+        return min(3, score)
+
+    def dealer_action(self):
+        """딜러의 액션 수행 (레이즈 또는 체크)"""
+        action, amount = self._dealer_ai_decision()
+
+        if action == 'raise' and amount > 0:
+            self.dealer_bet = amount
+            self.player_to_call = amount
+            self.pot += amount  # 딜러가 팟에 추가
+            return ('raise', amount)
+        else:
+            self.dealer_bet = 0
+            self.player_to_call = 0
+            return ('check', 0)
+
     def fold(self):
         if self.state in [self.STATE_PREFLOP, self.STATE_FLOP, self.STATE_TURN, self.STATE_RIVER]:
             self.winner = 'dealer'
@@ -548,17 +752,36 @@ class PokerGame:
         return False
 
     def call(self):
+        """플레이어가 콜 - 딜러 레이즈 금액만큼 지불"""
         if self.state in [self.STATE_PREFLOP, self.STATE_FLOP, self.STATE_TURN, self.STATE_RIVER]:
+            # 딜러가 레이즈한 경우, 플레이어가 그 금액을 지불
+            if self.player_to_call > 0:
+                call_amount = min(self.player_to_call, self.player_gold)
+                self.player_gold -= call_amount
+                self.pot += call_amount
+                self.current_bet += call_amount
+                self.player_to_call = 0
+                self.dealer_bet = 0
+
             self.proceed_to_next_stage()
             return True
         return False
 
+    def get_call_amount(self):
+        """현재 콜하기 위해 필요한 금액 반환"""
+        return self.player_to_call
+
     def raise_bet(self, additional_amount):
         if self.state in [self.STATE_PREFLOP, self.STATE_FLOP, self.STATE_TURN, self.STATE_RIVER]:
-            if additional_amount <= self.player_gold:
-                self.player_gold -= additional_amount
-                self.pot += additional_amount * 2
-                self.current_bet += additional_amount
+            # 먼저 콜 금액이 있으면 그것도 지불
+            total_amount = additional_amount + self.player_to_call
+            if total_amount <= self.player_gold:
+                self.player_gold -= total_amount
+                self.pot += total_amount  # 플레이어가 낸 금액
+                self.pot += additional_amount  # 딜러도 레이즈에 콜한다고 가정
+                self.current_bet += total_amount
+                self.player_to_call = 0
+                self.dealer_bet = 0
                 return True
         return False
 
@@ -619,12 +842,20 @@ class PokerGame:
             # 상태 전환
             if self.state == self.STATE_DEALING:
                 self.state = self.STATE_PREFLOP
+                # 딜러가 먼저 액션 (레이즈 또는 체크)
+                self.dealer_action()
             elif self.state == self.STATE_FLOP_DEALING:
                 self.state = self.STATE_FLOP
+                # 딜러가 먼저 액션
+                self.dealer_action()
             elif self.state == self.STATE_TURN_DEALING:
                 self.state = self.STATE_TURN
+                # 딜러가 먼저 액션
+                self.dealer_action()
             elif self.state == self.STATE_RIVER_DEALING:
                 self.state = self.STATE_RIVER
+                # 딜러가 먼저 액션
+                self.dealer_action()
 
 
 # ============================================
@@ -737,17 +968,22 @@ class PremiumCardRenderer:
             # 하트 크기
             w = s * 0.9   # 전체 너비
             h = s * 0.95  # 전체 높이
-            r = w * 0.27  # 상단 원 반지름
+            r = w * 0.28  # 상단 원 반지름
+
+            # 원 중심 위치
+            circle_y = cy - h * 0.22
+            circle_left_x = cx - w * 0.23
+            circle_right_x = cx + w * 0.23
 
             # 상단 왼쪽 원
-            pygame.draw.circle(surf, color, (int(cx - w * 0.22), int(cy - h * 0.18)), int(r))
+            pygame.draw.circle(surf, color, (int(circle_left_x), int(circle_y)), int(r))
             # 상단 오른쪽 원
-            pygame.draw.circle(surf, color, (int(cx + w * 0.22), int(cy - h * 0.18)), int(r))
-            # 하단 뾰족한 삼각형
+            pygame.draw.circle(surf, color, (int(circle_right_x), int(circle_y)), int(r))
+            # 하단 뾰족한 삼각형 - 원과 자연스럽게 연결
             pygame.draw.polygon(surf, color, [
-                (cx - w * 0.48, cy - h * 0.08),
-                (cx + w * 0.48, cy - h * 0.08),
-                (cx, cy + h * 0.48)
+                (circle_left_x - r * 0.85, circle_y + r * 0.2),   # 왼쪽
+                (circle_right_x + r * 0.85, circle_y + r * 0.2), # 오른쪽
+                (cx, cy + h * 0.48)                               # 하단 뾰족점
             ])
 
         elif suit_symbol == '♦':  # 다이아몬드 - 세로로 긴 마름모
@@ -779,46 +1015,32 @@ class PremiumCardRenderer:
                 (cx, cy + stem_h + r * 0.1)
             ])
 
-        elif suit_symbol == '♠':  # 스페이드 - 뒤집힌 하트 형태 + 줄기
-            w = s * 0.95   # 전체 너비
-            h = s * 0.9    # 전체 높이 (줄기 제외)
+        elif suit_symbol == '♠':  # 스페이드 - 뒤집힌 하트 + 줄기
+            w = s * 0.9
+            h = s * 0.95
+            r = w * 0.28  # 하단 원 반지름
 
-            # 스페이드 본체 (뒤집힌 하트 형태) - 폴리곤으로 부드러운 곡선 표현
-            points = []
-            import math
+            # 원 중심 위치 (하트를 뒤집었으므로 아래쪽에 원)
+            circle_y = cy + h * 0.12
+            circle_left_x = cx - w * 0.23
+            circle_right_x = cx + w * 0.23
 
-            # 상단 뾰족한 점에서 시작
-            top_y = cy - h * 0.45
-            bottom_y = cy + h * 0.25
+            # 상단 뾰족한 삼각형 (뒤집힌 하트)
+            pygame.draw.polygon(surf, color, [
+                (cx, cy - h * 0.42),                              # 상단 뾰족점
+                (circle_left_x - r * 0.85, circle_y - r * 0.2),   # 왼쪽
+                (circle_right_x + r * 0.85, circle_y - r * 0.2),  # 오른쪽
+            ])
 
-            # 왼쪽 곡선 (위에서 아래로)
-            for i in range(20):
-                t = i / 19.0
-                # 베지어 곡선 느낌으로 - 상단 뾰족 → 옆으로 벌어짐 → 아래로 모임
-                angle = math.pi * 0.5 + math.pi * 0.6 * t  # 위에서 왼쪽 아래로
-                curve_x = cx - w * 0.48 * math.sin(math.pi * t) * (1 - t * 0.3)
-                curve_y = top_y + (bottom_y - top_y) * t
-                # 볼록한 곡선을 위해 x 조정
-                bulge = math.sin(math.pi * t) * w * 0.15
-                points.append((curve_x - bulge, curve_y))
-
-            # 하단 중앙 뾰족한 점
-            points.append((cx, bottom_y + h * 0.08))
-
-            # 오른쪽 곡선 (아래에서 위로)
-            for i in range(19, -1, -1):
-                t = i / 19.0
-                curve_x = cx + w * 0.48 * math.sin(math.pi * t) * (1 - t * 0.3)
-                curve_y = top_y + (bottom_y - top_y) * t
-                bulge = math.sin(math.pi * t) * w * 0.15
-                points.append((curve_x + bulge, curve_y))
-
-            pygame.draw.polygon(surf, color, points)
+            # 하단 왼쪽 원
+            pygame.draw.circle(surf, color, (int(circle_left_x), int(circle_y)), int(r))
+            # 하단 오른쪽 원
+            pygame.draw.circle(surf, color, (int(circle_right_x), int(circle_y)), int(r))
 
             # 줄기 (아래로 뻗는 역삼각형)
-            stem_w = s * 0.18
-            stem_h = s * 0.35
-            stem_top = bottom_y - h * 0.05
+            stem_w = s * 0.14
+            stem_h = s * 0.32
+            stem_top = circle_y + r * 0.3
             pygame.draw.polygon(surf, color, [
                 (cx - stem_w, stem_top),
                 (cx + stem_w, stem_top),
@@ -871,27 +1093,33 @@ class PremiumCardRenderer:
             h_h = s * 0.95
             r = w_h * 0.28
 
+            # 원 중심 위치
+            circle_y = cy - h_h * 0.22
+            circle_left_x = cx - w_h * 0.23
+            circle_right_x = cx + w_h * 0.23
+
             # 하트 외곽선 (두꺼운 선)
             # 상단 원들
-            pygame.draw.circle(surf, color, (int(cx - w_h * 0.24), int(cy - h_h * 0.15)), int(r))
-            pygame.draw.circle(surf, color, (int(cx + w_h * 0.24), int(cy - h_h * 0.15)), int(r))
-            # 하단 삼각형
+            pygame.draw.circle(surf, color, (int(circle_left_x), int(circle_y)), int(r))
+            pygame.draw.circle(surf, color, (int(circle_right_x), int(circle_y)), int(r))
+            # 하단 삼각형 - 원과 자연스럽게 연결
             pygame.draw.polygon(surf, color, [
-                (cx - w_h * 0.52, cy - h_h * 0.05),
-                (cx + w_h * 0.52, cy - h_h * 0.05),
+                (circle_left_x - r * 0.85, circle_y + r * 0.2),
+                (circle_right_x + r * 0.85, circle_y + r * 0.2),
                 (cx, cy + h_h * 0.50)
             ])
 
             # 내부 장식 (검정으로 하트 안에 패턴)
             inner_color = (15, 15, 15)  # 배경색
-            inner_scale = 0.6
+            inner_scale = 0.55
             ir = r * inner_scale
-            pygame.draw.circle(surf, inner_color, (int(cx - w_h * 0.18), int(cy - h_h * 0.10)), int(ir))
-            pygame.draw.circle(surf, inner_color, (int(cx + w_h * 0.18), int(cy - h_h * 0.10)), int(ir))
+            inner_circle_y = cy - h_h * 0.18
+            pygame.draw.circle(surf, inner_color, (int(cx - w_h * 0.20), int(inner_circle_y)), int(ir))
+            pygame.draw.circle(surf, inner_color, (int(cx + w_h * 0.20), int(inner_circle_y)), int(ir))
             pygame.draw.polygon(surf, inner_color, [
-                (cx - w_h * 0.30, cy - h_h * 0.02),
-                (cx + w_h * 0.30, cy - h_h * 0.02),
-                (cx, cy + h_h * 0.28)
+                (cx - w_h * 0.32, inner_circle_y + ir * 0.2),
+                (cx + w_h * 0.32, inner_circle_y + ir * 0.2),
+                (cx, cy + h_h * 0.30)
             ])
 
             # 스크롤 장식
@@ -942,39 +1170,32 @@ class PremiumCardRenderer:
             pygame.draw.circle(surf, color, (int(cx - w_d * 0.75), int(cy)), int(dot_r))
             pygame.draw.circle(surf, color, (int(cx + w_d * 0.75), int(cy)), int(dot_r))
 
-        elif suit_symbol == '♠':  # 스페이드 - 화려한 장식 (뒤집힌 하트 형태)
-            w = s * 0.95
-            h = s * 0.9
-            import math
+        elif suit_symbol == '♠':  # 스페이드 - 뒤집힌 하트 + 줄기 (화려한 버전)
+            w = s * 0.9
+            h = s * 0.95
+            r = w * 0.28
 
-            # 메인 스페이드 (뒤집힌 하트 형태)
-            top_y = cy - h * 0.45
-            bottom_y = cy + h * 0.25
+            # 원 중심 위치 (하트를 뒤집었으므로 아래쪽에 원)
+            circle_y = cy + h * 0.12
+            circle_left_x = cx - w * 0.23
+            circle_right_x = cx + w * 0.23
 
-            points = []
-            # 왼쪽 곡선
-            for i in range(20):
-                t = i / 19.0
-                curve_x = cx - w * 0.48 * math.sin(math.pi * t) * (1 - t * 0.3)
-                curve_y = top_y + (bottom_y - top_y) * t
-                bulge = math.sin(math.pi * t) * w * 0.15
-                points.append((curve_x - bulge, curve_y))
-            # 하단 중앙
-            points.append((cx, bottom_y + h * 0.08))
-            # 오른쪽 곡선
-            for i in range(19, -1, -1):
-                t = i / 19.0
-                curve_x = cx + w * 0.48 * math.sin(math.pi * t) * (1 - t * 0.3)
-                curve_y = top_y + (bottom_y - top_y) * t
-                bulge = math.sin(math.pi * t) * w * 0.15
-                points.append((curve_x + bulge, curve_y))
+            # 상단 뾰족한 삼각형 (뒤집힌 하트)
+            pygame.draw.polygon(surf, color, [
+                (cx, cy - h * 0.42),
+                (circle_left_x - r * 0.85, circle_y - r * 0.2),
+                (circle_right_x + r * 0.85, circle_y - r * 0.2),
+            ])
 
-            pygame.draw.polygon(surf, color, points)
+            # 하단 왼쪽 원
+            pygame.draw.circle(surf, color, (int(circle_left_x), int(circle_y)), int(r))
+            # 하단 오른쪽 원
+            pygame.draw.circle(surf, color, (int(circle_right_x), int(circle_y)), int(r))
 
-            # 줄기 (화려한 버전)
-            stem_w = s * 0.18
-            stem_h = s * 0.38
-            stem_top = bottom_y - h * 0.05
+            # 줄기 (아래로 뻗는 역삼각형)
+            stem_w = s * 0.14
+            stem_h = s * 0.32
+            stem_top = circle_y + r * 0.3
             pygame.draw.polygon(surf, color, [
                 (cx - stem_w, stem_top),
                 (cx + stem_w, stem_top),
@@ -982,9 +1203,8 @@ class PremiumCardRenderer:
             ])
 
             # 장식 점들
-            dot_r = s * 0.035
-            pygame.draw.circle(surf, color, (int(cx), int(cy - h * 0.30)), int(dot_r))
-            pygame.draw.circle(surf, color, (int(cx), int(cy - h * 0.15)), int(dot_r))
+            dot_r = s * 0.03
+            pygame.draw.circle(surf, color, (int(cx), int(cy - h * 0.20)), int(dot_r))
             pygame.draw.circle(surf, color, (int(cx), int(cy)), int(dot_r))
 
     def _draw_face_card(self, surf, card, w, h, color):
@@ -1185,6 +1405,11 @@ class PokerGameUI:
         self.hovered_action = -1  # 마우스 호버 중인 버튼 (-1: 없음)
         self.action_buttons = []  # 버튼 영역 저장용
 
+        # 레이즈 범위 (베팅에 비례하여 동적 계산)
+        self.min_raise = 10
+        self.max_raise = 100
+        self.raise_step = 10  # 레이즈 증감 단위
+
         self.animation_timer = 0
         self.show_result_timer = 0
         self.result_shown = False
@@ -1218,11 +1443,34 @@ class PokerGameUI:
         self.table_sparkles = []  # 테이블 테두리 반짝임 효과
         self.table_pulse_phase = 0  # 테이블 펄스 효과
 
+        # BGM 관리자
+        self.bgm = PokerBGM.get_instance()
+
     def start_game(self, player_gold):
         self.game = PokerGame(player_gold)
         self.game.start_new_round()
         self.bet_amount = min(50, player_gold)
         self.result_shown = False
+
+        # 포커 BGM 시작
+        if self.bgm:
+            self.bgm.start(volume=0.4)
+
+    def _update_raise_range(self):
+        """현재 베팅에 비례하여 레이즈 범위 계산"""
+        if not self.game:
+            return
+
+        base_bet = self.game.current_bet if self.game.current_bet > 0 else self.game.min_bet
+        self.min_raise = max(10, int(base_bet * 0.5))  # 최소: 베팅의 50%
+        self.max_raise = min(int(base_bet * 2.0), self.game.player_gold)  # 최대: 베팅의 200% 또는 보유 골드
+        self.raise_step = max(5, int(base_bet * 0.1))  # 증감 단위: 베팅의 10%
+
+        # 레이즈 금액이 범위를 벗어나면 조정
+        if self.raise_amount < self.min_raise:
+            self.raise_amount = self.min_raise
+        elif self.raise_amount > self.max_raise:
+            self.raise_amount = self.max_raise
 
     def handle_event(self, event):
         if not self.game:
@@ -1231,6 +1479,9 @@ class PokerGameUI:
         if event.type == pygame.KEYDOWN:
             # ESC는 언제든 나갈 수 있음
             if event.key == pygame.K_ESCAPE:
+                # BGM 정지
+                if self.bgm:
+                    self.bgm.stop()
                 return 'exit'
 
             # 애니메이션 중에는 다른 입력 무시 (일부 상태)
@@ -1270,13 +1521,13 @@ class PokerGameUI:
                 self.bet_amount = max(self.game.min_bet, self.bet_amount - 10)
             return None
 
-        # 액션 상태일 때 - 레이즈 금액 조정
+        # 액션 상태일 때 - 레이즈 금액 조정 (베팅에 비례)
         if self.game.state in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
                                 PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
             if wheel_y > 0:  # 휠 위로 - 레이즈 금액 증가
-                self.raise_amount = min(100, self.game.player_gold, self.raise_amount + 10)
+                self.raise_amount = min(self.max_raise, self.game.player_gold, self.raise_amount + self.raise_step)
             elif wheel_y < 0:  # 휠 아래로 - 레이즈 금액 감소
-                self.raise_amount = max(10, self.raise_amount - 10)
+                self.raise_amount = max(self.min_raise, self.raise_amount - self.raise_step)
             return None
 
         return None
@@ -1312,12 +1563,19 @@ class PokerGameUI:
                     # 마우스 클릭 시 키보드 선택 해제하고 바로 실행
                     self.selected_action = -1
                     # 해당 액션 실행
-                    if i == 0:  # CALL
+                    if i == 0:  # CALL/CHECK
+                        # 콜 금액이 플레이어 골드보다 크면 무시
+                        call_amount = self.game.get_call_amount()
+                        if call_amount > self.game.player_gold:
+                            return None  # 골드 부족
+                        if call_amount > 0:
+                            self._spawn_chip_animation(call_amount)
                         self.game.call()
                         return 'action_call'
                     elif i == 1:  # RAISE
                         if self.game.raise_bet(self.raise_amount):
-                            self._spawn_chip_animation(self.raise_amount)
+                            total = self.raise_amount + self.game.player_to_call
+                            self._spawn_chip_animation(total)
                             self.game.call()
                             return 'action_raise'
                     elif i == 2:  # FOLD
@@ -1338,6 +1596,8 @@ class PokerGameUI:
             if self.game.place_bet(self.bet_amount):
                 # 칩 애니메이션
                 self._spawn_chip_animation(self.bet_amount)
+                # 베팅 완료 후 레이즈 범위 업데이트
+                self._update_raise_range()
                 return 'bet_placed'
         elif event.key == pygame.K_ESCAPE:
             return 'exit'
@@ -1359,14 +1619,20 @@ class PokerGameUI:
                 self.selected_action = (self.selected_action + 1) % 3
             self.hovered_action = -1  # 키보드 사용 시 호버 해제
         elif event.key == pygame.K_UP:
-            # 레이즈 금액 증가 (선택 상태와 무관하게)
-            self.raise_amount = min(100, self.game.player_gold, self.raise_amount + 10)
+            # 레이즈 금액 증가 (선택 상태와 무관하게) - 베팅에 비례
+            self.raise_amount = min(self.max_raise, self.game.player_gold, self.raise_amount + self.raise_step)
         elif event.key == pygame.K_DOWN:
-            # 레이즈 금액 감소 (선택 상태와 무관하게)
-            self.raise_amount = max(10, self.raise_amount - 10)
+            # 레이즈 금액 감소 (선택 상태와 무관하게) - 베팅에 비례
+            self.raise_amount = max(self.min_raise, self.raise_amount - self.raise_step)
         elif event.key in [pygame.K_RETURN, pygame.K_z, pygame.K_SPACE]:
             # 키보드로 확인 시 selected_action 사용
             if self.selected_action == 0:
+                # 콜 금액이 플레이어 골드보다 크면 무시
+                call_amount = self.game.get_call_amount()
+                if call_amount > self.game.player_gold:
+                    return None  # 골드 부족
+                if call_amount > 0:
+                    self._spawn_chip_animation(call_amount)
                 self.game.call()
                 return 'action_call'
             elif self.selected_action == 1:
@@ -1699,18 +1965,34 @@ class PokerGameUI:
 
     def _draw_card_symbol_mini(self, screen, symbol_index, x, y, color, size):
         """미니 카드 문양 직접 그리기 (0=스페이드, 1=하트, 2=다이아, 3=클럽)"""
-        if symbol_index == 0:  # 스페이드 ♠
-            # 위쪽 뾰족한 부분
-            points = [
-                (x, y - size),
-                (x - size, y + size // 2),
-                (x - size // 3, y + size // 2),
-                (x - size // 3, y + size),
-                (x + size // 3, y + size),
-                (x + size // 3, y + size // 2),
-                (x + size, y + size // 2),
-            ]
-            pygame.draw.polygon(screen, color, points)
+        if symbol_index == 0:  # 스페이드 ♠ - 뒤집힌 하트 + 줄기
+            s = size * 1.2
+            r = s * 0.4  # 하단 원 반지름
+
+            # 원 중심 위치 (아래쪽에 원)
+            circle_y = y + s * 0.15
+            circle_left_x = x - s * 0.35
+            circle_right_x = x + s * 0.35
+
+            # 상단 뾰족한 삼각형 (뒤집힌 하트) - 더 가파른 각도
+            pygame.draw.polygon(screen, color, [
+                (x, y - s * 0.7),                                # 상단 뾰족점
+                (circle_left_x - r * 0.45, circle_y - r * 0.15),  # 왼쪽 (더 좁게)
+                (circle_right_x + r * 0.45, circle_y - r * 0.15), # 오른쪽 (더 좁게)
+            ])
+
+            # 하단 원들
+            pygame.draw.circle(screen, color, (int(circle_left_x), int(circle_y)), int(r))
+            pygame.draw.circle(screen, color, (int(circle_right_x), int(circle_y)), int(r))
+
+            # 줄기
+            stem_w = s * 0.2
+            stem_top = circle_y + r * 0.4
+            pygame.draw.polygon(screen, color, [
+                (x - stem_w, stem_top),
+                (x + stem_w, stem_top),
+                (x, stem_top + s * 0.5)
+            ])
         elif symbol_index == 1:  # 하트 ♥
             # 두 개의 원 + 삼각형
             pygame.draw.circle(screen, color, (x - size // 2, y - size // 3), size // 2 + 1)
@@ -2145,8 +2427,25 @@ class PokerGameUI:
         cx = self.screen_width // 2
         y = self.screen_height - 85
 
+        # 딜러 레이즈 정보 표시
+        call_amount = self.game.get_call_amount()
+        if call_amount > 0:
+            # 딜러가 레이즈했음을 알림
+            dealer_msg_y = y - 45
+            pygame.draw.rect(screen, (60, 40, 40), (cx - 120, dealer_msg_y - 5, 240, 30), border_radius=6)
+            pygame.draw.rect(screen, (200, 100, 100), (cx - 120, dealer_msg_y - 5, 240, 30), 2, border_radius=6)
+            self._draw_text(screen, f"딜러 레이즈! +{call_amount}G", cx, dealer_msg_y, (255, 150, 150), 14, center=True)
+
+        # 콜 버튼 텍스트 (콜 금액 표시)
+        if call_amount > 0:
+            call_text = f"콜 {call_amount}G"
+            call_show_gold = True
+        else:
+            call_text = "체크"  # 딜러가 체크했으면 플레이어도 체크
+            call_show_gold = False
+
         actions = [
-            ("콜", (80, 180, 100), (100, 220, 120), False),
+            (call_text, (80, 180, 100), (100, 220, 120), call_show_gold),
             (f"레이즈 +{self.raise_amount}", (200, 170, 60), (240, 200, 80), True),  # 골드 아이콘 표시
             ("폴드", (180, 80, 80), (220, 100, 100), False)
         ]
@@ -2169,10 +2468,18 @@ class PokerGameUI:
             is_selected = (i == self.selected_action)
             is_hovered = (i == self.hovered_action)
 
+            # 콜 금액이 플레이어 골드보다 크면 비활성화
+            is_disabled = (i == 0 and call_amount > self.game.player_gold)
+
             # 그림자
             pygame.draw.rect(screen, (0, 0, 0, 80), (btn_x + 3, y + 3, btn_w, btn_h), border_radius=8)
 
-            if is_selected:
+            if is_disabled:
+                # 비활성화 버튼
+                pygame.draw.rect(screen, (50, 50, 55), (btn_x, y, btn_w, btn_h), border_radius=8)
+                pygame.draw.rect(screen, (80, 80, 90), (btn_x, y, btn_w, btn_h), 2, border_radius=8)
+                text_color = (100, 100, 110)
+            elif is_selected:
                 # 선택된 버튼 (글로우 효과)
                 pygame.draw.rect(screen, (*color_light, 50), (btn_x - 4, y - 4, btn_w + 8, btn_h + 8), border_radius=10)
                 pygame.draw.rect(screen, color_light, (btn_x, y, btn_w, btn_h), border_radius=8)
@@ -2192,7 +2499,7 @@ class PokerGameUI:
 
             # 텍스트와 골드 아이콘 그리기
             if show_gold_icon:
-                # RAISE 버튼: 텍스트 + 골드 코인 아이콘
+                # 버튼: 텍스트 + 골드 코인 아이콘
                 text_x = btn_x + btn_w // 2 - 8  # 텍스트를 왼쪽으로 약간 이동
                 text_y = y + btn_h // 2 - 10
                 self._draw_text(screen, action, text_x, text_y, text_color, 14, center=True)
@@ -2203,9 +2510,13 @@ class PokerGameUI:
             else:
                 self._draw_text(screen, action, btn_x + btn_w // 2, y + btn_h // 2 - 10, text_color, 14, center=True)
 
+        # 레이즈 범위 표시
+        range_text = f"레이즈: {self.min_raise}~{self.max_raise}G (±{self.raise_step})"
+        self._draw_text(screen, range_text, cx, y + 55, (120, 120, 140), 10, center=True)
+
         # 조작법
         self._draw_text(screen, "◀▶/클릭: 선택  ▲▼/휠: 레이즈 조절  Space: 확인  ESC: 나가기",
-                       cx, y + 58, (100, 100, 110), 11, center=True)
+                       cx, y + 70, (100, 100, 110), 10, center=True)
 
     def _draw_result_ui(self, screen):
         """결과 UI (프리미엄)"""
@@ -2339,6 +2650,7 @@ class PokerGameUI:
 # ============================================
 if __name__ == "__main__":
     pygame.init()
+    pygame.mixer.init()  # 믹서 초기화 (BGM용)
     screen = pygame.display.set_mode((800, 600))
     pygame.display.set_caption("텍사스 홀덤 포커 - Premium")
     clock = pygame.time.Clock()
@@ -2352,6 +2664,9 @@ if __name__ == "__main__":
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                # BGM 정지 후 종료
+                if ui.bgm:
+                    ui.bgm.stop()
                 running = False
             else:
                 result = ui.handle_event(event)
