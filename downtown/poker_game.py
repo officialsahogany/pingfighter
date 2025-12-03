@@ -3186,7 +3186,12 @@ class PokerGameUI:
 
             # 각 플레이어 족보 표시
             if hasattr(self.game, 'hand_results') and position in self.game.hand_results:
-                hand_name = self.game.hand_results[position][2]  # (rank, tiebreaker, name)
+                hand_result = self.game.hand_results[position]
+                rank = hand_result[0]
+                tiebreaker = hand_result[1]
+                # 상세 족보 이름 (예: A 원페어, K 스트레이트)
+                all_cards = player.hand + self.game.community_cards if player.hand else []
+                hand_name = HandEvaluator.get_detailed_hand_name(rank, tiebreaker, all_cards)
 
                 # 족보 표시 위치 결정
                 if position == 'south':
