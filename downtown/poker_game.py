@@ -2016,7 +2016,9 @@ class PokerGameUI:
             # 승리 시 파티클 효과 및 플로팅 텍스트 생성
             if self.game.state == PokerGame.STATE_SHOWDOWN and not self.result_shown:
                 self.result_shown = True
-                if self.game.winner == 'player':
+                # 4인용: 플레이어가 승자 목록에 있는지 확인
+                player_won = any(w['position'] == 'south' for w in self.game.winners) if self.game.winners else False
+                if player_won:
                     self.particles.emit_win(self.screen_width // 2, self.screen_height // 2)
 
                 # 펜딩된 플로팅 텍스트 처리
