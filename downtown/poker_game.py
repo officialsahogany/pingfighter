@@ -3230,14 +3230,8 @@ class PokerGameUI:
         cx = self.screen_width // 2
         y = self.screen_height - 85
 
-        # 딜러 레이즈 정보 표시
+        # 콜 금액 계산
         call_amount = self.game.get_call_amount()
-        if call_amount > 0:
-            # 딜러가 레이즈했음을 알림
-            dealer_msg_y = y - 45
-            pygame.draw.rect(screen, (60, 40, 40), (cx - 120, dealer_msg_y - 5, 240, 30), border_radius=6)
-            pygame.draw.rect(screen, (200, 100, 100), (cx - 120, dealer_msg_y - 5, 240, 30), 2, border_radius=6)
-            self._draw_text(screen, f"딜러 레이즈! +{call_amount}G", cx, dealer_msg_y, (255, 150, 150), 14, center=True)
 
         # 콜 버튼 텍스트 (콜 금액 표시)
         if call_amount > 0:
