@@ -294,13 +294,22 @@ class HandEvaluator:
         best_tiebreaker = []
 
         from itertools import combinations
+
+        # 디버그: 모든 카드 출력
+        print(f"[HAND EVAL] 전체 카드 ({len(cards)}장): {[str(c) for c in cards]}")
+        print(f"[HAND EVAL] 무늬: {[c.suit for c in cards]}")
+
         for combo in combinations(cards, 5):
             rank, tiebreaker = HandEvaluator._evaluate_five(list(combo))
+            # 디버그: 플러시 이상일 때 출력
+            if rank >= 6:
+                print(f"[HAND EVAL] 조합: {[str(c) for c in combo]} -> 랭크 {rank}")
             if rank > best_rank or (rank == best_rank and tiebreaker > best_tiebreaker):
                 best_rank = rank
                 best_tiebreaker = tiebreaker
                 best_hand = combo
 
+        print(f"[HAND EVAL] 최종 결과: 랭크 {best_rank} = {HandEvaluator.HAND_NAMES.get(best_rank, '알 수 없음')}")
         return (best_rank, best_tiebreaker, HandEvaluator.HAND_NAMES.get(best_rank, "알 수 없음"))
 
     @staticmethod
@@ -453,7 +462,7 @@ class PokerGame:
         deck_y = -100  # 화면 밖
 
         # 플레이어 카드 위치
-        player_x1, player_y = 340, 420
+        player_x1, player_y = 340, 380
         player_x2 = 410
 
         # 딜러 카드 위치
@@ -661,38 +670,46 @@ class PremiumCardRenderer:
         screen.blit(card_surf, (x, y))
 
     def _draw_card_face(self, surf, card, w, h):
-        """카드 앞면 (프리미엄)"""
-        # 배경 그라데이션
-        for i in range(h):
-            ratio = i / h
-            r = int(255 - ratio * 10)
-            g = int(252 - ratio * 10)
-            b = int(245 - ratio * 12)
-            pygame.draw.line(surf, (r, g, b), (0, i), (w, i))
+        """카드 앞면 - 클래식 솔리테어 스타일 (흰 배경, 중앙 큰 무늬 1개)"""
+        # 흰색 배경
+        surf.fill((255, 255, 255))
 
-        # 테두리
-        pygame.draw.rect(surf, (200, 195, 185), (0, 0, w, h), 2, border_radius=8)
+        # 둥근 모서리 테두리
+        pygame.draw.rect(surf, (180, 180, 180), (0, 0, w, h), 2, border_radius=6)
 
-        # 카드 내부 테두리
-        pygame.draw.rect(surf, (230, 225, 215), (3, 3, w-6, h-6), 1, border_radius=6)
-
-        suit_color = Card.SUIT_COLORS[card.suit]
+        # 하트/다이아 = 빨간색, 클럽/스페이드 = 검은색
+        is_red = card.suit in ['hearts', 'diamonds']
+        suit_color = (200, 30, 30) if is_red else (30, 30, 30)
         symbol = Card.SUIT_SYMBOLS[card.suit]
 
-        # 좌상단 랭크와 심볼
-        self._draw_rank(surf, card.rank, 6, 4, suit_color, int(w * 0.28))
-        self._draw_suit_symbol(surf, symbol, 7, int(h * 0.22), suit_color, int(w * 0.22))
+        # 좌상단 랭크
+        rank_size = int(w * 0.22)
+        rank_x = int(w * 0.05)
+        rank_y = int(h * 0.02)
+        self._draw_rank(surf, card.rank, rank_x, rank_y, suit_color, rank_size)
 
-        # 중앙 대형 심볼 또는 페이스 카드 디자인
-        if card.rank in ['J', 'Q', 'K']:
-            self._draw_face_card(surf, card, w, h, suit_color)
-        elif card.rank == 'A':
-            self._draw_ace_card(surf, card, w, h, suit_color, symbol)
-        else:
-            self._draw_pip_card(surf, card, w, h, suit_color, symbol)
+        # 좌상단 작은 무늬 (숫자 아래, 간격 더 벌림)
+        small_suit_size = int(w * 0.16)
+        suit_x = rank_x + int(w * 0.03)
+        suit_y = int(h * 0.22)  # 더 아래로 내려서 간격 확보
+        self._draw_suit_shape(surf, symbol, suit_x + small_suit_size // 2, suit_y + small_suit_size // 2, small_suit_size, suit_color)
 
-        # 우하단 (180도 회전 효과)
-        self._draw_rank(surf, card.rank, w - 6 - int(w * 0.2), h - 4 - int(h * 0.22), suit_color, int(w * 0.28), flip=True)
+        # 중앙 대형 무늬 (모든 카드 동일 - 큰 무늬 1개)
+        cx, cy = w // 2, h // 2
+        large_size = int(w * 0.55)
+        self._draw_suit_shape(surf, symbol, cx, cy, large_size, suit_color)
+
+        # 우하단 랭크 (180도 회전) - 위로+안쪽으로 당김
+        # 10처럼 두 자리 숫자는 더 안쪽으로
+        rank_offset_x = int(w * 0.26) if card.rank == '10' else int(w * 0.18)
+        rank_bottom_x = w - rank_x - rank_offset_x
+        rank_bottom_y = h - int(h * 0.22)  # 위로 올림
+        self._draw_rank(surf, card.rank, rank_bottom_x, rank_bottom_y, suit_color, rank_size, flip=True)
+
+        # 우하단 작은 무늬 (숫자 바로 위)
+        bottom_suit_x = w - suit_x - small_suit_size - int(w * 0.02)  # 안쪽으로
+        bottom_suit_y = h - int(h * 0.38)  # 위로 올림
+        self._draw_suit_shape(surf, symbol, bottom_suit_x + small_suit_size // 2, bottom_suit_y + small_suit_size // 2, small_suit_size, suit_color)
 
     def _draw_rank(self, surf, rank, x, y, color, size, flip=False):
         """랭크 텍스트"""
@@ -712,128 +729,339 @@ class PremiumCardRenderer:
         self._draw_suit_shape(surf, symbol, x + size // 2, y + size // 2, size, color)
 
     def _draw_suit_shape(self, surf, suit_symbol, cx, cy, size, color):
-        """무늬를 도형으로 직접 그리기 (폰트 의존 없음) - 개선된 버전"""
-        s = max(6, size)
-        half = s // 2
+        """무늬를 도형으로 직접 그리기 - 실제 포커 카드 무늬 참고"""
+        s = max(8, size)
+        half = s / 2
 
-        if suit_symbol == '♥':  # 하트
-            # 두 개의 원 + 삼각형으로 하트 구성
-            r = int(s * 0.28)
-            # 왼쪽 상단 원
-            pygame.draw.circle(surf, color, (int(cx - r * 0.7), int(cy - r * 0.3)), r)
-            # 오른쪽 상단 원
-            pygame.draw.circle(surf, color, (int(cx + r * 0.7), int(cy - r * 0.3)), r)
-            # 하단 삼각형
-            points = [
-                (cx - r * 1.65, cy - r * 0.1),
-                (cx + r * 1.65, cy - r * 0.1),
-                (cx, cy + r * 1.8)
-            ]
+        if suit_symbol == '♥':  # 하트 - 위가 둥글고 아래가 뾰족
+            # 하트 크기
+            w = s * 0.9   # 전체 너비
+            h = s * 0.95  # 전체 높이
+            r = w * 0.27  # 상단 원 반지름
+
+            # 상단 왼쪽 원
+            pygame.draw.circle(surf, color, (int(cx - w * 0.22), int(cy - h * 0.18)), int(r))
+            # 상단 오른쪽 원
+            pygame.draw.circle(surf, color, (int(cx + w * 0.22), int(cy - h * 0.18)), int(r))
+            # 하단 뾰족한 삼각형
+            pygame.draw.polygon(surf, color, [
+                (cx - w * 0.48, cy - h * 0.08),
+                (cx + w * 0.48, cy - h * 0.08),
+                (cx, cy + h * 0.48)
+            ])
+
+        elif suit_symbol == '♦':  # 다이아몬드 - 세로로 긴 마름모
+            w = s * 0.55  # 너비
+            h = s * 0.85  # 높이
+            pygame.draw.polygon(surf, color, [
+                (cx, cy - h * 0.5),      # 상단
+                (cx + w * 0.5, cy),      # 우측
+                (cx, cy + h * 0.5),      # 하단
+                (cx - w * 0.5, cy)       # 좌측
+            ])
+
+        elif suit_symbol == '♣':  # 클로버 - 세 개의 둥근 잎 + 줄기
+            r = s * 0.24  # 잎 반지름
+
+            # 상단 잎 (12시)
+            pygame.draw.circle(surf, color, (int(cx), int(cy - r * 0.7)), int(r))
+            # 좌하단 잎 (8시)
+            pygame.draw.circle(surf, color, (int(cx - r * 0.85), int(cy + r * 0.25)), int(r))
+            # 우하단 잎 (4시)
+            pygame.draw.circle(surf, color, (int(cx + r * 0.85), int(cy + r * 0.25)), int(r))
+
+            # 줄기 (아래로 뻗는 역삼각형)
+            stem_w = s * 0.18
+            stem_h = s * 0.38
+            pygame.draw.polygon(surf, color, [
+                (cx - stem_w, cy + r * 0.1),
+                (cx + stem_w, cy + r * 0.1),
+                (cx, cy + stem_h + r * 0.1)
+            ])
+
+        elif suit_symbol == '♠':  # 스페이드 - 뒤집힌 하트 형태 + 줄기
+            w = s * 0.95   # 전체 너비
+            h = s * 0.9    # 전체 높이 (줄기 제외)
+
+            # 스페이드 본체 (뒤집힌 하트 형태) - 폴리곤으로 부드러운 곡선 표현
+            points = []
+            import math
+
+            # 상단 뾰족한 점에서 시작
+            top_y = cy - h * 0.45
+            bottom_y = cy + h * 0.25
+
+            # 왼쪽 곡선 (위에서 아래로)
+            for i in range(20):
+                t = i / 19.0
+                # 베지어 곡선 느낌으로 - 상단 뾰족 → 옆으로 벌어짐 → 아래로 모임
+                angle = math.pi * 0.5 + math.pi * 0.6 * t  # 위에서 왼쪽 아래로
+                curve_x = cx - w * 0.48 * math.sin(math.pi * t) * (1 - t * 0.3)
+                curve_y = top_y + (bottom_y - top_y) * t
+                # 볼록한 곡선을 위해 x 조정
+                bulge = math.sin(math.pi * t) * w * 0.15
+                points.append((curve_x - bulge, curve_y))
+
+            # 하단 중앙 뾰족한 점
+            points.append((cx, bottom_y + h * 0.08))
+
+            # 오른쪽 곡선 (아래에서 위로)
+            for i in range(19, -1, -1):
+                t = i / 19.0
+                curve_x = cx + w * 0.48 * math.sin(math.pi * t) * (1 - t * 0.3)
+                curve_y = top_y + (bottom_y - top_y) * t
+                bulge = math.sin(math.pi * t) * w * 0.15
+                points.append((curve_x + bulge, curve_y))
+
             pygame.draw.polygon(surf, color, points)
 
-        elif suit_symbol == '♦':  # 다이아몬드
-            points = [
-                (cx, cy - half),
-                (cx + half * 0.65, cy),
-                (cx, cy + half),
-                (cx - half * 0.65, cy)
-            ]
-            pygame.draw.polygon(surf, color, points)
+            # 줄기 (아래로 뻗는 역삼각형)
+            stem_w = s * 0.18
+            stem_h = s * 0.35
+            stem_top = bottom_y - h * 0.05
+            pygame.draw.polygon(surf, color, [
+                (cx - stem_w, stem_top),
+                (cx + stem_w, stem_top),
+                (cx, stem_top + stem_h)
+            ])
 
-        elif suit_symbol == '♣':  # 클럽 (클로버)
-            r = int(s * 0.22)
-            # 위쪽 원
-            pygame.draw.circle(surf, color, (int(cx), int(cy - r * 1.1)), r)
-            # 왼쪽 원
-            pygame.draw.circle(surf, color, (int(cx - r * 1.0), int(cy + r * 0.2)), r)
-            # 오른쪽 원
-            pygame.draw.circle(surf, color, (int(cx + r * 1.0), int(cy + r * 0.2)), r)
-            # 줄기
-            stem_w = max(2, int(s * 0.12))
+    def _draw_ornate_suit(self, surf, suit_symbol, cx, cy, size, color):
+        """화려한 장식이 있는 에이스 무늬 (스크린샷 스타일)"""
+        s = max(20, size)
+
+        if suit_symbol == '♣':  # 클로버 - 화려한 장식
+            # 기본 클로버 형태
+            r = s * 0.22
+            # 상단 잎
+            pygame.draw.circle(surf, color, (int(cx), int(cy - r * 1.2)), int(r))
+            # 좌하단 잎
+            pygame.draw.circle(surf, color, (int(cx - r * 1.0), int(cy + r * 0.1)), int(r))
+            # 우하단 잎
+            pygame.draw.circle(surf, color, (int(cx + r * 1.0), int(cy + r * 0.1)), int(r))
+
+            # 장식 - 좌우 스크롤 곡선
+            scroll_r = s * 0.35
+            # 왼쪽 스크롤
+            pygame.draw.arc(surf, color, (int(cx - s * 0.7), int(cy - s * 0.1), int(scroll_r), int(scroll_r)), 0.5, 2.5, 2)
+            pygame.draw.arc(surf, color, (int(cx - s * 0.75), int(cy + s * 0.15), int(scroll_r * 0.8), int(scroll_r * 0.8)), 3.5, 5.8, 2)
+            # 오른쪽 스크롤
+            pygame.draw.arc(surf, color, (int(cx + s * 0.35), int(cy - s * 0.1), int(scroll_r), int(scroll_r)), 0.6, 2.6, 2)
+            pygame.draw.arc(surf, color, (int(cx + s * 0.4), int(cy + s * 0.15), int(scroll_r * 0.8), int(scroll_r * 0.8)), 3.7, 6.0, 2)
+
+            # 중앙 장식 점들
+            dot_r = s * 0.04
+            pygame.draw.circle(surf, color, (int(cx), int(cy - r * 0.3)), int(dot_r))
+            pygame.draw.circle(surf, color, (int(cx - r * 0.5), int(cy + r * 0.5)), int(dot_r))
+            pygame.draw.circle(surf, color, (int(cx + r * 0.5), int(cy + r * 0.5)), int(dot_r))
+
+            # 줄기 (화려한 버전)
+            stem_w = s * 0.12
+            stem_h = s * 0.45
             pygame.draw.polygon(surf, color, [
                 (cx - stem_w, cy + r * 0.3),
                 (cx + stem_w, cy + r * 0.3),
-                (cx + stem_w * 1.5, cy + half),
-                (cx - stem_w * 1.5, cy + half)
+                (cx + stem_w * 0.3, cy + stem_h),
+                (cx - stem_w * 0.3, cy + stem_h)
+            ])
+            # 줄기 장식
+            pygame.draw.circle(surf, color, (int(cx), int(cy + stem_h * 0.7)), int(s * 0.06))
+
+        elif suit_symbol == '♥':  # 하트 - 화려한 장식
+            w_h = s * 0.9
+            h_h = s * 0.95
+            r = w_h * 0.28
+
+            # 하트 외곽선 (두꺼운 선)
+            # 상단 원들
+            pygame.draw.circle(surf, color, (int(cx - w_h * 0.24), int(cy - h_h * 0.15)), int(r))
+            pygame.draw.circle(surf, color, (int(cx + w_h * 0.24), int(cy - h_h * 0.15)), int(r))
+            # 하단 삼각형
+            pygame.draw.polygon(surf, color, [
+                (cx - w_h * 0.52, cy - h_h * 0.05),
+                (cx + w_h * 0.52, cy - h_h * 0.05),
+                (cx, cy + h_h * 0.50)
             ])
 
-        elif suit_symbol == '♠':  # 스페이드
-            # 뒤집힌 하트 형태 (원 2개 + 삼각형)
-            r = int(s * 0.25)
-            # 왼쪽 하단 원
-            pygame.draw.circle(surf, color, (int(cx - r * 0.7), int(cy + r * 0.15)), r)
-            # 오른쪽 하단 원
-            pygame.draw.circle(surf, color, (int(cx + r * 0.7), int(cy + r * 0.15)), r)
-            # 상단 삼각형 (뾰족한 부분)
-            points = [
-                (cx - r * 1.6, cy + r * 0.3),
-                (cx + r * 1.6, cy + r * 0.3),
-                (cx, cy - r * 1.7)
-            ]
-            pygame.draw.polygon(surf, color, points)
-            # 줄기
-            stem_w = max(2, int(s * 0.12))
-            pygame.draw.polygon(surf, color, [
-                (cx - stem_w, cy + r * 0.5),
-                (cx + stem_w, cy + r * 0.5),
-                (cx + stem_w * 1.5, cy + half),
-                (cx - stem_w * 1.5, cy + half)
+            # 내부 장식 (검정으로 하트 안에 패턴)
+            inner_color = (15, 15, 15)  # 배경색
+            inner_scale = 0.6
+            ir = r * inner_scale
+            pygame.draw.circle(surf, inner_color, (int(cx - w_h * 0.18), int(cy - h_h * 0.10)), int(ir))
+            pygame.draw.circle(surf, inner_color, (int(cx + w_h * 0.18), int(cy - h_h * 0.10)), int(ir))
+            pygame.draw.polygon(surf, inner_color, [
+                (cx - w_h * 0.30, cy - h_h * 0.02),
+                (cx + w_h * 0.30, cy - h_h * 0.02),
+                (cx, cy + h_h * 0.28)
             ])
+
+            # 스크롤 장식
+            scroll_w = s * 0.25
+            # 좌우 곡선 장식
+            pygame.draw.arc(surf, color, (int(cx - s * 0.55), int(cy - s * 0.05), int(scroll_w), int(scroll_w * 1.2)), 0.3, 2.8, 2)
+            pygame.draw.arc(surf, color, (int(cx + s * 0.30), int(cy - s * 0.05), int(scroll_w), int(scroll_w * 1.2)), 0.3, 2.8, 2)
+
+            # 중앙 장식 점
+            pygame.draw.circle(surf, color, (int(cx), int(cy - h_h * 0.05)), int(s * 0.05))
+
+        elif suit_symbol == '♦':  # 다이아몬드 - 화려한 장식
+            w_d = s * 0.45
+            h_d = s * 0.70
+
+            # 메인 다이아몬드
+            pygame.draw.polygon(surf, color, [
+                (cx, cy - h_d * 0.6),
+                (cx + w_d * 0.6, cy),
+                (cx, cy + h_d * 0.6),
+                (cx - w_d * 0.6, cy)
+            ])
+
+            # 내부 장식 (검은색 다이아몬드)
+            inner_color = (15, 15, 15)
+            pygame.draw.polygon(surf, inner_color, [
+                (cx, cy - h_d * 0.35),
+                (cx + w_d * 0.35, cy),
+                (cx, cy + h_d * 0.35),
+                (cx - w_d * 0.35, cy)
+            ])
+
+            # 화려한 스크롤 장식 (상하좌우)
+            scroll_size = s * 0.22
+            # 상단 장식
+            pygame.draw.arc(surf, color, (int(cx - scroll_size/2), int(cy - h_d * 0.85), int(scroll_size), int(scroll_size * 0.8)), 3.14, 6.28, 2)
+            # 하단 장식
+            pygame.draw.arc(surf, color, (int(cx - scroll_size/2), int(cy + h_d * 0.55), int(scroll_size), int(scroll_size * 0.8)), 0, 3.14, 2)
+            # 좌측 장식
+            pygame.draw.arc(surf, color, (int(cx - w_d * 0.9), int(cy - scroll_size/2), int(scroll_size * 0.8), int(scroll_size)), 4.7, 7.85, 2)
+            # 우측 장식
+            pygame.draw.arc(surf, color, (int(cx + w_d * 0.55), int(cy - scroll_size/2), int(scroll_size * 0.8), int(scroll_size)), 1.57, 4.7, 2)
+
+            # 코너 장식 점들
+            dot_r = s * 0.04
+            pygame.draw.circle(surf, color, (int(cx), int(cy - h_d * 0.75)), int(dot_r))
+            pygame.draw.circle(surf, color, (int(cx), int(cy + h_d * 0.75)), int(dot_r))
+            pygame.draw.circle(surf, color, (int(cx - w_d * 0.75), int(cy)), int(dot_r))
+            pygame.draw.circle(surf, color, (int(cx + w_d * 0.75), int(cy)), int(dot_r))
+
+        elif suit_symbol == '♠':  # 스페이드 - 화려한 장식 (뒤집힌 하트 형태)
+            w = s * 0.95
+            h = s * 0.9
+            import math
+
+            # 메인 스페이드 (뒤집힌 하트 형태)
+            top_y = cy - h * 0.45
+            bottom_y = cy + h * 0.25
+
+            points = []
+            # 왼쪽 곡선
+            for i in range(20):
+                t = i / 19.0
+                curve_x = cx - w * 0.48 * math.sin(math.pi * t) * (1 - t * 0.3)
+                curve_y = top_y + (bottom_y - top_y) * t
+                bulge = math.sin(math.pi * t) * w * 0.15
+                points.append((curve_x - bulge, curve_y))
+            # 하단 중앙
+            points.append((cx, bottom_y + h * 0.08))
+            # 오른쪽 곡선
+            for i in range(19, -1, -1):
+                t = i / 19.0
+                curve_x = cx + w * 0.48 * math.sin(math.pi * t) * (1 - t * 0.3)
+                curve_y = top_y + (bottom_y - top_y) * t
+                bulge = math.sin(math.pi * t) * w * 0.15
+                points.append((curve_x + bulge, curve_y))
+
+            pygame.draw.polygon(surf, color, points)
+
+            # 줄기 (화려한 버전)
+            stem_w = s * 0.18
+            stem_h = s * 0.38
+            stem_top = bottom_y - h * 0.05
+            pygame.draw.polygon(surf, color, [
+                (cx - stem_w, stem_top),
+                (cx + stem_w, stem_top),
+                (cx, stem_top + stem_h)
+            ])
+
+            # 장식 점들
+            dot_r = s * 0.035
+            pygame.draw.circle(surf, color, (int(cx), int(cy - h * 0.30)), int(dot_r))
+            pygame.draw.circle(surf, color, (int(cx), int(cy - h * 0.15)), int(dot_r))
+            pygame.draw.circle(surf, color, (int(cx), int(cy)), int(dot_r))
 
     def _draw_face_card(self, surf, card, w, h, color):
-        """페이스 카드 (J, Q, K) 디자인"""
+        """페이스 카드 (J, Q, K) 디자인 - 프리미엄 블랙 스타일"""
         cx, cy = w // 2, h // 2
         symbol = Card.SUIT_SYMBOLS[card.suit]
+        letter = card.rank
 
-        # 중앙 프레임
-        frame_w = int(w * 0.7)
-        frame_h = int(h * 0.5)
-        frame_x = cx - frame_w // 2
-        frame_y = cy - frame_h // 2 + 5
+        # 중앙 프레임 영역
+        frame_margin = int(w * 0.12)
+        frame_x = frame_margin
+        frame_y = int(h * 0.30)
+        frame_w = w - frame_margin * 2
+        frame_h = int(h * 0.40)
 
-        # 프레임 배경
-        pygame.draw.rect(surf, (*color, 30), (frame_x, frame_y, frame_w, frame_h), border_radius=4)
+        # 프레임 테두리 (무늬 색상)
         pygame.draw.rect(surf, color, (frame_x, frame_y, frame_w, frame_h), 2, border_radius=4)
 
-        # 페이스 카드 글자
-        letter = card.rank
-        try:
-            font = pygame.font.SysFont('Georgia', int(w * 0.45))
-        except:
-            font = pygame.font.Font(None, int(w * 0.45) + 4)
+        # 인물 실루엣
+        person_cx = cx
+        person_cy = frame_y + frame_h // 2
 
-        text = font.render(letter, True, color)
-        text_rect = text.get_rect(center=(cx, cy - 2))
-        surf.blit(text, text_rect)
+        # 머리
+        head_r = int(w * 0.09)
+        pygame.draw.circle(surf, color, (person_cx, person_cy - int(frame_h * 0.20)), head_r, 2)
 
-        # 프레임 내 작은 무늬
-        small_suit_size = int(w * 0.18)
-        self._draw_suit_shape(surf, symbol, cx, cy + int(h * 0.16), small_suit_size, color)
+        # 몸통
+        body_top_w = int(w * 0.12)
+        body_bot_w = int(w * 0.18)
+        body_h = int(frame_h * 0.35)
+        body_top_y = person_cy - int(frame_h * 0.02)
+        pygame.draw.polygon(surf, color, [
+            (person_cx - body_top_w, body_top_y),
+            (person_cx + body_top_w, body_top_y),
+            (person_cx + body_bot_w, body_top_y + body_h),
+            (person_cx - body_bot_w, body_top_y + body_h)
+        ], 2)
 
-        # 장식 라인
-        pygame.draw.line(surf, (*color, 100), (frame_x + 5, frame_y + 5),
-                        (frame_x + frame_w - 5, frame_y + 5), 1)
-        pygame.draw.line(surf, (*color, 100), (frame_x + 5, frame_y + frame_h - 5),
-                        (frame_x + frame_w - 5, frame_y + frame_h - 5), 1)
+        # 왕관 (K만)
+        if letter == 'K':
+            crown_y = person_cy - int(frame_h * 0.38)
+            pygame.draw.polygon(surf, color, [
+                (person_cx - int(w * 0.10), crown_y + int(h * 0.04)),
+                (person_cx - int(w * 0.08), crown_y),
+                (person_cx - int(w * 0.03), crown_y + int(h * 0.02)),
+                (person_cx, crown_y - int(h * 0.02)),
+                (person_cx + int(w * 0.03), crown_y + int(h * 0.02)),
+                (person_cx + int(w * 0.08), crown_y),
+                (person_cx + int(w * 0.10), crown_y + int(h * 0.04)),
+            ], 2)
+        # 여왕 티아라 (Q만)
+        elif letter == 'Q':
+            tiara_y = person_cy - int(frame_h * 0.35)
+            pygame.draw.arc(surf, color,
+                          (person_cx - int(w * 0.10), tiara_y, int(w * 0.20), int(h * 0.06)),
+                          3.14, 0, 2)
+        # 잭 모자 (J만)
+        elif letter == 'J':
+            hat_y = person_cy - int(frame_h * 0.35)
+            pygame.draw.ellipse(surf, color,
+                              (person_cx - int(w * 0.08), hat_y, int(w * 0.16), int(h * 0.04)), 2)
 
     def _draw_ace_card(self, surf, card, w, h, color, symbol):
-        """에이스 카드 디자인"""
+        """에이스 카드 디자인 - 프리미엄 장식 스타일 (스크린샷 참조)"""
         cx, cy = w // 2, h // 2
 
-        # 대형 중앙 심볼 - 도형으로 직접 그리기
-        large_size = int(w * 0.65)
-        self._draw_suit_shape(surf, symbol, cx, cy + 5, large_size, color)
-
-        # 장식 원
-        pygame.draw.circle(surf, (*color, 40), (cx, cy + 5), int(w * 0.35), 2)
+        # 대형 중앙 심볼 (화려한 장식 버전)
+        large_size = int(w * 0.55)
+        self._draw_ornate_suit(surf, symbol, cx, cy, large_size, color)
 
     def _draw_pip_card(self, surf, card, w, h, color, symbol):
-        """숫자 카드 핍 패턴 - 개선된 레이아웃"""
+        """숫자 카드 핍 패턴 - 넓게 분산된 레이아웃"""
         cx, cy = w // 2, h // 2
         value = card.get_value()
 
-        # 핍 크기 (카드 크기에 비례, 더 작게)
-        pip_size = int(w * 0.18)
+        # 핍 크기 (무늬가 잘 보이도록 적당한 크기)
+        pip_size = int(w * 0.20)
 
         # 핍 배치 (카드 값에 따라)
         positions = self._get_pip_positions(value, w, h)
@@ -843,32 +1071,52 @@ class PremiumCardRenderer:
             self._draw_suit_shape(surf, symbol, int(px), int(py), pip_size, color)
 
     def _get_pip_positions(self, value, w, h):
-        """핍 위치 계산 - 랭크/심볼 영역 피해서 배치"""
+        """핍 위치 계산 - 실제 포커 카드 레이아웃 (좌상단/우하단 숫자 영역 피함)"""
         cx, cy = w // 2, h // 2
 
-        # 핍 영역 (좌상단/우하단 랭크+심볼 영역 피함)
-        # 상단 마진 더 크게 (랭크+심볼 영역)
-        top_margin = int(h * 0.32)
-        bot_margin = int(h * 0.68)
+        # 핍 영역 - 좌상단과 우하단 숫자+무늬 영역 피해서 배치
+        # 상단/하단 위치 (숫자 영역 피해서)
+        top = int(h * 0.32)      # 상단 줄 (숫자 아래)
+        top2 = int(h * 0.42)     # 상단 두번째 줄
+        mid = cy                  # 중앙
+        bot2 = int(h * 0.58)     # 하단 두번째 줄
+        bot = int(h * 0.68)      # 하단 줄 (숫자 위)
 
-        top = int(h * 0.35)
-        bot = int(h * 0.65)
-        mid = cy
-
-        # 좌우도 여유있게
+        # 좌우 위치 (중앙에 더 가깝게)
         left = int(w * 0.30)
         right = int(w * 0.70)
 
         patterns = {
-            2: [(cx, top, False), (cx, bot, True)],
-            3: [(cx, top, False), (cx, mid, False), (cx, bot, True)],
-            4: [(left, top, False), (right, top, False), (left, bot, True), (right, bot, True)],
-            5: [(left, top, False), (right, top, False), (cx, mid, False), (left, bot, True), (right, bot, True)],
-            6: [(left, top, False), (right, top, False), (left, mid, False), (right, mid, False), (left, bot, True), (right, bot, True)],
-            7: [(left, top, False), (right, top, False), (cx, int(h*0.42), False), (left, mid, False), (right, mid, False), (left, bot, True), (right, bot, True)],
-            8: [(left, top, False), (right, top, False), (cx, int(h*0.40), False), (left, mid, False), (right, mid, False), (cx, int(h*0.60), True), (left, bot, True), (right, bot, True)],
-            9: [(left, top, False), (right, top, False), (left, int(h*0.43), False), (right, int(h*0.43), False), (cx, mid, False), (left, int(h*0.57), True), (right, int(h*0.57), True), (left, bot, True), (right, bot, True)],
-            10: [(left, top, False), (right, top, False), (cx, int(h*0.38), False), (left, int(h*0.45), False), (right, int(h*0.45), False), (left, int(h*0.55), True), (right, int(h*0.55), True), (cx, int(h*0.62), True), (left, bot, True), (right, bot, True)],
+            2: [(cx, int(h * 0.35), False), (cx, int(h * 0.65), True)],
+            3: [(cx, int(h * 0.32), False), (cx, mid, False), (cx, int(h * 0.68), True)],
+            4: [(left, top, False), (right, top, False),
+                (left, bot, True), (right, bot, True)],
+            5: [(left, top, False), (right, top, False),
+                (cx, mid, False),
+                (left, bot, True), (right, bot, True)],
+            6: [(left, top, False), (right, top, False),
+                (left, mid, False), (right, mid, False),
+                (left, bot, True), (right, bot, True)],
+            7: [(left, top, False), (right, top, False),
+                (cx, int(h * 0.40), False),
+                (left, mid, False), (right, mid, False),
+                (left, bot, True), (right, bot, True)],
+            8: [(left, top, False), (right, top, False),
+                (cx, int(h * 0.40), False),
+                (left, mid, False), (right, mid, False),
+                (cx, int(h * 0.60), True),
+                (left, bot, True), (right, bot, True)],
+            9: [(left, top, False), (right, top, False),
+                (left, top2, False), (right, top2, False),
+                (cx, mid, False),
+                (left, bot2, True), (right, bot2, True),
+                (left, bot, True), (right, bot, True)],
+            10: [(left, top, False), (right, top, False),
+                 (cx, int(h * 0.38), False),
+                 (left, top2, False), (right, top2, False),
+                 (left, bot2, True), (right, bot2, True),
+                 (cx, int(h * 0.62), True),
+                 (left, bot, True), (right, bot, True)],
         }
 
         return patterns.get(value, [(cx, mid, False)])
@@ -932,8 +1180,10 @@ class PokerGameUI:
         self.fonts = fonts
 
         self.bet_amount = 50
-        self.selected_action = 0
+        self.selected_action = -1  # 키보드 선택 (-1: 없음)
         self.raise_amount = 20
+        self.hovered_action = -1  # 마우스 호버 중인 버튼 (-1: 없음)
+        self.action_buttons = []  # 버튼 영역 저장용
 
         self.animation_timer = 0
         self.show_result_timer = 0
@@ -962,6 +1212,12 @@ class PokerGameUI:
 
         self._font_cache = {}
 
+        # 테이블 애니메이션용 변수
+        self.table_glow_phase = 0
+        self.table_sparkle_timer = 0
+        self.table_sparkles = []  # 테이블 테두리 반짝임 효과
+        self.table_pulse_phase = 0  # 테이블 펄스 효과
+
     def start_game(self, player_gold):
         self.game = PokerGame(player_gold)
         self.game.start_new_round()
@@ -973,7 +1229,11 @@ class PokerGameUI:
             return None
 
         if event.type == pygame.KEYDOWN:
-            # 애니메이션 중에는 입력 무시 (일부 상태)
+            # ESC는 언제든 나갈 수 있음
+            if event.key == pygame.K_ESCAPE:
+                return 'exit'
+
+            # 애니메이션 중에는 다른 입력 무시 (일부 상태)
             if self.game.state in [PokerGame.STATE_DEALING, PokerGame.STATE_FLOP_DEALING,
                                    PokerGame.STATE_TURN_DEALING, PokerGame.STATE_RIVER_DEALING]:
                 return None
@@ -986,6 +1246,83 @@ class PokerGameUI:
             elif self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER]:
                 return self._handle_result_input(event)
 
+        # 마우스 이동 - 호버 처리
+        elif event.type == pygame.MOUSEMOTION:
+            return self._handle_mouse_hover(event.pos)
+
+        # 마우스 클릭 - 버튼 클릭 처리
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            return self._handle_mouse_click(event.pos)
+
+        # 마우스 휠 - 금액 조정
+        elif event.type == pygame.MOUSEWHEEL:
+            return self._handle_mouse_wheel(event.y)
+
+        return None
+
+    def _handle_mouse_wheel(self, wheel_y):
+        """마우스 휠로 금액 조정"""
+        # 베팅 상태일 때 - 베팅 금액 조정
+        if self.game.state == PokerGame.STATE_BETTING:
+            if wheel_y > 0:  # 휠 위로 - 금액 증가
+                self.bet_amount = min(self.game.max_bet, self.game.player_gold, self.bet_amount + 10)
+            elif wheel_y < 0:  # 휠 아래로 - 금액 감소
+                self.bet_amount = max(self.game.min_bet, self.bet_amount - 10)
+            return None
+
+        # 액션 상태일 때 - 레이즈 금액 조정
+        if self.game.state in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
+                                PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
+            if wheel_y > 0:  # 휠 위로 - 레이즈 금액 증가
+                self.raise_amount = min(100, self.game.player_gold, self.raise_amount + 10)
+            elif wheel_y < 0:  # 휠 아래로 - 레이즈 금액 감소
+                self.raise_amount = max(10, self.raise_amount - 10)
+            return None
+
+        return None
+
+    def _handle_mouse_hover(self, pos):
+        """마우스 호버 처리"""
+        # 액션 상태일 때만 호버 처리
+        if self.game.state not in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
+                                    PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
+            self.hovered_action = -1
+            return None
+
+        # 버튼 영역 체크
+        self.hovered_action = -1
+        for i, btn_rect in enumerate(self.action_buttons):
+            if btn_rect.collidepoint(pos):
+                self.hovered_action = i
+                break
+        return None
+
+    def _handle_mouse_click(self, pos):
+        """마우스 클릭 처리"""
+        # 애니메이션 중에는 무시
+        if self.game.state in [PokerGame.STATE_DEALING, PokerGame.STATE_FLOP_DEALING,
+                               PokerGame.STATE_TURN_DEALING, PokerGame.STATE_RIVER_DEALING]:
+            return None
+
+        # 액션 상태일 때 버튼 클릭 처리
+        if self.game.state in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
+                                PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
+            for i, btn_rect in enumerate(self.action_buttons):
+                if btn_rect.collidepoint(pos):
+                    # 마우스 클릭 시 키보드 선택 해제하고 바로 실행
+                    self.selected_action = -1
+                    # 해당 액션 실행
+                    if i == 0:  # CALL
+                        self.game.call()
+                        return 'action_call'
+                    elif i == 1:  # RAISE
+                        if self.game.raise_bet(self.raise_amount):
+                            self._spawn_chip_animation(self.raise_amount)
+                            self.game.call()
+                            return 'action_raise'
+                    elif i == 2:  # FOLD
+                        self.game.fold()
+                        return 'action_fold'
         return None
 
     def _handle_betting_input(self, event):
@@ -997,7 +1334,7 @@ class PokerGameUI:
             self.bet_amount = min(self.game.max_bet, self.game.player_gold, self.bet_amount + 50)
         elif event.key == pygame.K_DOWN:
             self.bet_amount = max(self.game.min_bet, self.bet_amount - 50)
-        elif event.key in [pygame.K_RETURN, pygame.K_z]:
+        elif event.key in [pygame.K_RETURN, pygame.K_z, pygame.K_SPACE]:
             if self.game.place_bet(self.bet_amount):
                 # 칩 애니메이션
                 self._spawn_chip_animation(self.bet_amount)
@@ -1008,16 +1345,27 @@ class PokerGameUI:
 
     def _handle_action_input(self, event):
         if event.key == pygame.K_LEFT:
-            self.selected_action = (self.selected_action - 1) % 3
+            # 키보드 사용 시 selected_action 활성화
+            if self.selected_action == -1:
+                self.selected_action = 2  # 왼쪽 누르면 마지막(FOLD)에서 시작
+            else:
+                self.selected_action = (self.selected_action - 1) % 3
+            self.hovered_action = -1  # 키보드 사용 시 호버 해제
         elif event.key == pygame.K_RIGHT:
-            self.selected_action = (self.selected_action + 1) % 3
+            # 키보드 사용 시 selected_action 활성화
+            if self.selected_action == -1:
+                self.selected_action = 0  # 오른쪽 누르면 처음(CALL)에서 시작
+            else:
+                self.selected_action = (self.selected_action + 1) % 3
+            self.hovered_action = -1  # 키보드 사용 시 호버 해제
         elif event.key == pygame.K_UP:
-            if self.selected_action == 1:
-                self.raise_amount = min(100, self.game.player_gold, self.raise_amount + 10)
+            # 레이즈 금액 증가 (선택 상태와 무관하게)
+            self.raise_amount = min(100, self.game.player_gold, self.raise_amount + 10)
         elif event.key == pygame.K_DOWN:
-            if self.selected_action == 1:
-                self.raise_amount = max(10, self.raise_amount - 10)
-        elif event.key in [pygame.K_RETURN, pygame.K_z]:
+            # 레이즈 금액 감소 (선택 상태와 무관하게)
+            self.raise_amount = max(10, self.raise_amount - 10)
+        elif event.key in [pygame.K_RETURN, pygame.K_z, pygame.K_SPACE]:
+            # 키보드로 확인 시 selected_action 사용
             if self.selected_action == 0:
                 self.game.call()
                 return 'action_call'
@@ -1029,12 +1377,13 @@ class PokerGameUI:
             elif self.selected_action == 2:
                 self.game.fold()
                 return 'action_fold'
+            # selected_action이 -1이면 아무 동작 안함 (마우스로 클릭해야 함)
         elif event.key == pygame.K_ESCAPE:
             return 'exit'
         return None
 
     def _handle_result_input(self, event):
-        if event.key in [pygame.K_RETURN, pygame.K_z]:
+        if event.key in [pygame.K_RETURN, pygame.K_z, pygame.K_SPACE]:
             if self.game.player_gold >= self.game.min_bet:
                 self.game.start_new_round()
                 self.bet_amount = min(50, self.game.player_gold)
@@ -1115,61 +1464,246 @@ class PokerGameUI:
                               (self.screen_width // 2 - 300 - i, -50 - i, 600 + i * 2, 150 + i))
 
     def _draw_premium_table(self, screen):
-        """프리미엄 포커 테이블"""
+        """프리미엄 포커 테이블 - 화려한 애니메이션 버전"""
         cx, cy = self.screen_width // 2, self.screen_height // 2 + 20
 
         # 테이블 크기
         table_w, table_h = 520, 320
 
-        # 테이블 그림자
-        shadow_surf = pygame.Surface((table_w + 40, table_h + 40), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 80), (0, 0, table_w + 40, table_h + 40))
-        screen.blit(shadow_surf, (cx - table_w // 2 - 20, cy - table_h // 2 - 10))
+        # 애니메이션 업데이트
+        self.table_glow_phase += 0.03
+        self.table_pulse_phase += 0.05
+        self.table_sparkle_timer += 1
 
-        # 테이블 외곽 (나무 프레임)
-        pygame.draw.ellipse(screen, self.TABLE_BORDER,
-                           (cx - table_w // 2 - 15, cy - table_h // 2 - 15, table_w + 30, table_h + 30))
-        pygame.draw.ellipse(screen, self.TABLE_BORDER_LIGHT,
-                           (cx - table_w // 2 - 15, cy - table_h // 2 - 15, table_w + 30, table_h + 30), 3)
+        # 외부 글로우 효과 (여러 레이어)
+        glow_intensity = 0.5 + 0.3 * math.sin(self.table_glow_phase)
+        for i in range(4, 0, -1):
+            glow_surf = pygame.Surface((table_w + 80 + i * 20, table_h + 80 + i * 20), pygame.SRCALPHA)
+            glow_alpha = int(25 * glow_intensity * (5 - i) / 4)
+            glow_color = (50, 180, 100, glow_alpha)
+            pygame.draw.ellipse(glow_surf, glow_color, (0, 0, table_w + 80 + i * 20, table_h + 80 + i * 20))
+            screen.blit(glow_surf, (cx - table_w // 2 - 40 - i * 10, cy - table_h // 2 - 40 - i * 10))
 
-        # 펠트 (그라데이션 효과)
-        for i in range(5):
-            ratio = i / 5
-            color = (
-                int(self.TABLE_FELT[0] + (self.TABLE_FELT_LIGHT[0] - self.TABLE_FELT[0]) * ratio * 0.3),
-                int(self.TABLE_FELT[1] + (self.TABLE_FELT_LIGHT[1] - self.TABLE_FELT[1]) * ratio * 0.3),
-                int(self.TABLE_FELT[2] + (self.TABLE_FELT_LIGHT[2] - self.TABLE_FELT[2]) * ratio * 0.3)
-            )
-            pygame.draw.ellipse(screen, color,
-                               (cx - table_w // 2 + i * 2, cy - table_h // 2 + i * 2,
-                                table_w - i * 4, table_h - i * 4))
+        # 테이블 그림자 (깊이감)
+        shadow_surf = pygame.Surface((table_w + 50, table_h + 50), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 100), (0, 0, table_w + 50, table_h + 50))
+        screen.blit(shadow_surf, (cx - table_w // 2 - 25, cy - table_h // 2 - 15))
 
-        # 테이블 내부 라인
-        pygame.draw.ellipse(screen, (45, 130, 90),
-                           (cx - table_w // 2 + 25, cy - table_h // 2 + 25,
-                            table_w - 50, table_h - 50), 2)
+        # 테이블 외곽 프레임 (그라데이션 나무 테두리)
+        frame_w, frame_h = table_w + 40, table_h + 40
+        for i in range(8):
+            ratio = i / 8
+            r = int(80 - ratio * 30)
+            g = int(60 - ratio * 25)
+            b = int(45 - ratio * 20)
+            pygame.draw.ellipse(screen, (r, g, b),
+                               (cx - frame_w // 2 + i * 2, cy - frame_h // 2 + i * 2,
+                                frame_w - i * 4, frame_h - i * 4))
 
-        # 중앙 로고/장식
+        # 골드 테두리 라인 (애니메이션)
+        gold_pulse = 0.7 + 0.3 * math.sin(self.table_pulse_phase * 2)
+        gold_color = (int(255 * gold_pulse), int(180 * gold_pulse), int(50 * gold_pulse))
+        pygame.draw.ellipse(screen, gold_color,
+                           (cx - frame_w // 2, cy - frame_h // 2, frame_w, frame_h), 3)
+
+        # 내부 골드 하이라이트
+        pygame.draw.ellipse(screen, (120, 100, 70),
+                           (cx - frame_w // 2 + 5, cy - frame_h // 2 + 5, frame_w - 10, frame_h - 10), 2)
+
+        # 펠트 (고급 그라데이션)
+        for i in range(12):
+            ratio = i / 12
+            # 중앙이 밝고 가장자리가 어두운 그라데이션
+            brightness = 1.0 - ratio * 0.25
+            r = int(self.TABLE_FELT[0] * brightness + 15 * (1 - ratio))
+            g = int(self.TABLE_FELT[1] * brightness + 35 * (1 - ratio))
+            b = int(self.TABLE_FELT[2] * brightness + 20 * (1 - ratio))
+            pygame.draw.ellipse(screen, (r, g, b),
+                               (cx - table_w // 2 + i * 3, cy - table_h // 2 + i * 3,
+                                table_w - i * 6, table_h - i * 6))
+
+        # 펠트 중앙 하이라이트 (조명 효과)
+        highlight_surf = pygame.Surface((200, 120), pygame.SRCALPHA)
+        for i in range(60):
+            alpha = int(15 * (1 - i / 60))
+            pygame.draw.ellipse(highlight_surf, (100, 200, 130, alpha),
+                               (i, i // 2, 200 - i * 2, 120 - i))
+        screen.blit(highlight_surf, (cx - 100, cy - 80))
+
+        # 테이블 내부 장식 라인 (애니메이션 점선)
+        self._draw_animated_table_border(screen, cx, cy, table_w, table_h)
+
+        # 코너 장식
+        self._draw_table_corner_decorations(screen, cx, cy, table_w, table_h)
+
+        # 반짝임 효과 생성 및 그리기
+        self._update_and_draw_table_sparkles(screen, cx, cy, table_w, table_h)
+
+        # 중앙 로고/장식 (업그레이드)
         self._draw_table_logo(screen, cx, cy - 20)
 
         # POT 표시
         self._draw_pot_display(screen, cx, cy + 50)
 
-    def _draw_table_logo(self, screen, x, y):
-        """테이블 중앙 로고"""
-        # 장식 원
-        pygame.draw.circle(screen, (40, 115, 75), (x, y), 35, 2)
-        pygame.draw.circle(screen, (50, 140, 90), (x, y), 25, 1)
+    def _draw_animated_table_border(self, screen, cx, cy, table_w, table_h):
+        """애니메이션 테이블 내부 테두리"""
+        # 내부 라인 (점선 애니메이션)
+        inner_w, inner_h = table_w - 60, table_h - 60
+        num_segments = 48
+        dash_offset = (self.table_glow_phase * 30) % 15
 
-        # 텍스트
-        self._draw_text(screen, "POKER", x, y - 8, (60, 150, 100), 16, center=True)
+        for i in range(num_segments):
+            angle = (i / num_segments) * 2 * math.pi
+            next_angle = ((i + 1) / num_segments) * 2 * math.pi
+
+            # 점선 효과 (교차)
+            if (i + int(dash_offset / 3)) % 3 == 0:
+                continue
+
+            x1 = cx + math.cos(angle) * (inner_w // 2)
+            y1 = cy + math.sin(angle) * (inner_h // 2)
+            x2 = cx + math.cos(next_angle) * (inner_w // 2)
+            y2 = cy + math.sin(next_angle) * (inner_h // 2)
+
+            # 색상 그라데이션
+            color_phase = (i / num_segments + self.table_glow_phase * 0.5) % 1
+            r = int(50 + 30 * math.sin(color_phase * math.pi * 2))
+            g = int(140 + 40 * math.sin(color_phase * math.pi * 2))
+            b = int(90 + 30 * math.sin(color_phase * math.pi * 2))
+
+            pygame.draw.line(screen, (r, g, b), (x1, y1), (x2, y2), 2)
+
+        # 두 번째 내부 라인 (부드러운 글로우)
+        glow_alpha = int(60 + 30 * math.sin(self.table_pulse_phase))
+        inner_line_surf = pygame.Surface((table_w, table_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(inner_line_surf, (70, 180, 120, glow_alpha),
+                           (30, 30, inner_w, inner_h), 2)
+        screen.blit(inner_line_surf, (cx - table_w // 2, cy - table_h // 2))
+
+    def _draw_table_corner_decorations(self, screen, cx, cy, table_w, table_h):
+        """테이블 코너 장식"""
+        corners = [
+            (cx - table_w // 2 + 50, cy - table_h // 2 + 30),   # 좌상
+            (cx + table_w // 2 - 50, cy - table_h // 2 + 30),   # 우상
+            (cx - table_w // 2 + 50, cy + table_h // 2 - 30),   # 좌하
+            (cx + table_w // 2 - 50, cy + table_h // 2 - 30),   # 우하
+        ]
+
+        for i, (corner_x, corner_y) in enumerate(corners):
+            # 펄스 효과
+            pulse = 0.7 + 0.3 * math.sin(self.table_pulse_phase + i * 0.8)
+
+            # 외부 원
+            pygame.draw.circle(screen, (60, 150, 100), (int(corner_x), int(corner_y)), 12, 2)
+
+            # 내부 빛나는 원
+            inner_color = (int(80 * pulse), int(200 * pulse), int(130 * pulse))
+            pygame.draw.circle(screen, inner_color, (int(corner_x), int(corner_y)), 6)
+
+            # 글로우 효과
+            glow_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
+            glow_alpha = int(40 * pulse)
+            pygame.draw.circle(glow_surf, (100, 220, 150, glow_alpha), (15, 15), 12)
+            screen.blit(glow_surf, (corner_x - 15, corner_y - 15))
+
+    def _update_and_draw_table_sparkles(self, screen, cx, cy, table_w, table_h):
+        """테이블 테두리 반짝임 효과"""
+        # 새 반짝임 생성
+        if self.table_sparkle_timer % 8 == 0:
+            angle = random.uniform(0, math.pi * 2)
+            # 타원 경계에 반짝임 배치
+            x = cx + math.cos(angle) * (table_w // 2 + 10)
+            y = cy + math.sin(angle) * (table_h // 2 + 10)
+            self.table_sparkles.append({
+                'x': x, 'y': y,
+                'life': 1.0,
+                'size': random.uniform(2, 5),
+                'color': random.choice([
+                    (255, 215, 0),      # 골드
+                    (200, 255, 200),    # 연녹색
+                    (150, 255, 180),    # 민트
+                    (255, 255, 200),    # 크림
+                ])
+            })
+
+        # 반짝임 업데이트 및 그리기
+        new_sparkles = []
+        for sparkle in self.table_sparkles:
+            sparkle['life'] -= 0.03
+            if sparkle['life'] > 0:
+                new_sparkles.append(sparkle)
+
+                # 그리기
+                alpha = int(255 * sparkle['life'])
+                size = sparkle['size'] * (0.5 + sparkle['life'] * 0.5)
+                color = (*sparkle['color'][:3], alpha)
+
+                sparkle_surf = pygame.Surface((int(size * 4), int(size * 4)), pygame.SRCALPHA)
+
+                # 별 모양 반짝임
+                center = int(size * 2)
+                # 중앙 원
+                pygame.draw.circle(sparkle_surf, color, (center, center), int(size))
+                # 십자 광선
+                for angle in [0, math.pi/2, math.pi, math.pi*3/2]:
+                    end_x = center + math.cos(angle) * size * 2
+                    end_y = center + math.sin(angle) * size * 2
+                    pygame.draw.line(sparkle_surf, color, (center, center), (end_x, end_y), max(1, int(size / 2)))
+
+                screen.blit(sparkle_surf, (sparkle['x'] - center, sparkle['y'] - center))
+
+        self.table_sparkles = new_sparkles[:30]  # 최대 30개 유지
+
+    def _draw_table_logo(self, screen, x, y):
+        """테이블 중앙 로고 - 업그레이드 버전"""
+        # 로고 배경 글로우
+        glow_pulse = 0.6 + 0.4 * math.sin(self.table_pulse_phase * 1.5)
+        for i in range(4, 0, -1):
+            glow_surf = pygame.Surface((90 + i * 10, 90 + i * 10), pygame.SRCALPHA)
+            glow_alpha = int(20 * glow_pulse * (5 - i) / 4)
+            pygame.draw.circle(glow_surf, (60, 180, 110, glow_alpha),
+                              (45 + i * 5, 45 + i * 5), 40 + i * 5)
+            screen.blit(glow_surf, (x - 45 - i * 5, y - 45 - i * 5))
+
+        # 외부 장식 원 (회전 애니메이션)
+        num_dots = 12
+        for i in range(num_dots):
+            angle = (i / num_dots) * 2 * math.pi + self.table_glow_phase
+            dot_x = x + math.cos(angle) * 42
+            dot_y = y + math.sin(angle) * 42
+            dot_pulse = 0.5 + 0.5 * math.sin(self.table_pulse_phase + i * 0.5)
+            dot_color = (int(80 + 40 * dot_pulse), int(180 + 40 * dot_pulse), int(120 + 40 * dot_pulse))
+            pygame.draw.circle(screen, dot_color, (int(dot_x), int(dot_y)), 3)
+
+        # 메인 원
+        pygame.draw.circle(screen, (40, 120, 80), (x, y), 38, 3)
+        pygame.draw.circle(screen, (50, 150, 95), (x, y), 32, 2)
+        pygame.draw.circle(screen, (35, 100, 65), (x, y), 28)
+
+        # 내부 하이라이트
+        highlight_surf = pygame.Surface((50, 50), pygame.SRCALPHA)
+        pygame.draw.ellipse(highlight_surf, (80, 180, 120, 60), (8, 5, 34, 20))
+        screen.blit(highlight_surf, (x - 25, y - 30))
+
+        # 텍스트 (글로우 효과)
+        text_glow = int(140 + 40 * math.sin(self.table_glow_phase * 2))
+        self._draw_text(screen, "POKER", x, y - 8, (70, text_glow, 110), 16, center=True)
+
+        # 카드 문양 장식 (작은 아이콘들)
+        symbols = ['♠', '♥', '♦', '♣']
+        symbol_colors = [(200, 200, 220), (220, 80, 80), (220, 80, 80), (200, 200, 220)]
+        for i, (sym, col) in enumerate(zip(symbols, symbol_colors)):
+            angle = (i / 4) * 2 * math.pi - math.pi / 4 + self.table_glow_phase * 0.3
+            sym_x = x + math.cos(angle) * 22
+            sym_y = y + math.sin(angle) * 22 + 5
+            self._draw_text(screen, sym, int(sym_x), int(sym_y), col, 10, center=True)
 
     def _draw_pot_display(self, screen, x, y):
         """팟 표시 (프리미엄)"""
         pot = self.game.pot
 
         # 팟 박스
-        box_w, box_h = 140, 45
+        box_w, box_h = 170, 60
 
         # 그림자
         pygame.draw.rect(screen, (0, 0, 0, 60), (x - box_w // 2 + 3, y + 3, box_w, box_h), border_radius=8)
@@ -1187,13 +1721,14 @@ class PokerGameUI:
         pygame.draw.rect(screen, self.GOLD, (x - box_w // 2, y, box_w, box_h), 2, border_radius=8)
 
         # 칩 아이콘
-        chip_x = x - box_w // 2 + 25
+        chip_x = x - box_w // 2 + 28
         chip_y = y + box_h // 2
-        self._draw_chip(screen, chip_x, chip_y, 15)
+        self._draw_chip(screen, chip_x, chip_y, 16)
 
-        # POT 텍스트
-        self._draw_text(screen, "POT", x + 10, y + 5, self.SILVER, 12, center=True)
-        self._draw_text(screen, f"{pot:,}G", x + 10, y + 22, self.GOLD_LIGHT, 18, center=True)
+        # 판돈 텍스트
+        self._draw_text(screen, "판돈", x + 15, y + 6, self.SILVER, 20, center=True)
+        self._draw_text(screen, f"{pot:,}", x + 8, y + 30, self.GOLD_LIGHT, 26, center=True)
+        self._draw_gold_coin(screen, x + 60, y + 42, 14)
 
     def _draw_chip(self, screen, x, y, radius):
         """칩 그리기"""
@@ -1235,9 +1770,9 @@ class PokerGameUI:
             return
 
         # 일반 게임 레이아웃
-        # 커뮤니티 카드 (중앙)
+        # 커뮤니티 카드 (중앙) - 위로 올림
         if self.game.community_cards:
-            comm_y = self.screen_height // 2 + 25
+            comm_y = self.screen_height // 2 - 30
             total_width = len(self.game.community_cards) * (self.CARD_WIDTH + 10)
             comm_start_x = cx - total_width // 2
 
@@ -1248,7 +1783,7 @@ class PokerGameUI:
 
         # 플레이어 카드 (하단)
         if self.game.player_hand:
-            player_y = self.screen_height - 160
+            player_y = self.screen_height - 220
             player_start_x = cx - (self.CARD_WIDTH + 15)
 
             for i, card in enumerate(self.game.player_hand):
@@ -1278,7 +1813,7 @@ class PokerGameUI:
         # 이미 배치된 카드들 (애니메이션 완료된 것들)
         # 커뮤니티 카드
         if self.game.community_cards:
-            comm_y = self.screen_height // 2 + 25
+            comm_y = self.screen_height // 2 - 30
             total_width = len(self.game.community_cards) * (self.CARD_WIDTH + 10)
             comm_start_x = cx - total_width // 2
 
@@ -1288,7 +1823,7 @@ class PokerGameUI:
                                             self.CARD_WIDTH, self.CARD_HEIGHT)
 
         # 플레이어 카드 (딜링 완료된 것만)
-        player_y = self.screen_height - 160
+        player_y = self.screen_height - 220
         player_start_x = cx - (self.CARD_WIDTH + 15)
         for i, card in enumerate(self.game.player_hand):
             # 애니메이션 중인 카드는 제외
@@ -1310,7 +1845,7 @@ class PokerGameUI:
 
         # 펜딩 카드 (커뮤니티 딜링 중)
         if self.game.pending_cards:
-            comm_y = self.screen_height // 2 + 25
+            comm_y = self.screen_height // 2 - 30
             base_idx = len(self.game.community_cards)
             base_x = 200 + base_idx * (self.CARD_WIDTH + 10)
 
@@ -1380,9 +1915,9 @@ class PokerGameUI:
 
             self._draw_text(screen, "DEALER", cx, dealer_y - 25, self.RED, 14, center=True)
 
-        # 플레이어 카드 (하단) - 2장만
+        # 플레이어 카드 (하단) - 2장만, 결과 패널 위에 표시
         if self.game.player_hand:
-            player_y = self.screen_height - 160
+            player_y = self.screen_height - 290  # 결과 패널(높이 130, y=-150)과 겹치지 않게 위로
             player_start_x = cx - (self.CARD_WIDTH + 15)
 
             for i, card in enumerate(self.game.player_hand):
@@ -1433,10 +1968,10 @@ class PokerGameUI:
 
         # 금화 아이콘 (인게임과 동일)
         coin_size = 22
-        self._draw_gold_coin(screen, x + 18, y + box_h // 2, coin_size)
+        self._draw_gold_coin(screen, x + 18, y + box_h // 2 + 1, coin_size)
 
-        # 골드 텍스트
-        self._draw_text(screen, f"{self.game.player_gold:,}", x + 38, y + 8, self.GOLD_LIGHT, 16)
+        # 골드 텍스트 (금화와 수평 맞춤)
+        self._draw_text(screen, f"{self.game.player_gold:,}", x + 38, y + 9, self.GOLD_LIGHT, 16)
 
     def _draw_gold_coin(self, screen, x, y, size):
         """금화 아이콘 그리기 - 인게임과 동일한 입체감 있는 동전"""
@@ -1534,7 +2069,7 @@ class PokerGameUI:
         pygame.draw.rect(screen, self.GOLD, (box_x, y, box_w, box_h), 2, border_radius=12)
 
         # 베팅 금액 표시
-        self._draw_text(screen, "BET AMOUNT", cx, y + 8, self.SILVER, 12, center=True)
+        self._draw_text(screen, "베팅 금액", cx, y + 8, self.SILVER, 12, center=True)
 
         # 금액과 화살표
         arrow_y = y + 35
@@ -1546,8 +2081,9 @@ class PokerGameUI:
             (cx - 85, arrow_y + 10)
         ])
 
-        # 금액
-        self._draw_text(screen, f"{self.bet_amount:,}G", cx, y + 28, self.GOLD_LIGHT, 24, center=True)
+        # 금액 + 골드 코인 아이콘
+        self._draw_text(screen, f"{self.bet_amount:,}", cx - 10, y + 28, self.GOLD_LIGHT, 24, center=True)
+        self._draw_gold_coin(screen, cx + 45, y + 38, 16)
 
         # 오른쪽 화살표
         pygame.draw.polygon(screen, self.GOLD, [
@@ -1557,7 +2093,7 @@ class PokerGameUI:
         ])
 
         # 조작법
-        self._draw_text(screen, "◀▶: ±10G  ▲▼: ±50G  Enter: 확인  ESC: 나가기",
+        self._draw_text(screen, "◀▶/휠: ±10  ▲▼: ±50  Space: 확인  ESC: 나가기",
                        cx, y + 55, (120, 120, 130), 11, center=True)
 
     def _draw_dealing_ui(self, screen):
@@ -1570,25 +2106,33 @@ class PokerGameUI:
         self._draw_text(screen, f"딜링 중{dots}", cx, y, self.SILVER, 16, center=True)
 
     def _draw_action_ui(self, screen):
-        """액션 UI (프리미엄)"""
+        """액션 UI (프리미엄) - 마우스 호버/클릭 지원"""
         cx = self.screen_width // 2
         y = self.screen_height - 85
 
         actions = [
-            ("CALL", (80, 180, 100), (100, 220, 120)),
-            (f"RAISE +{self.raise_amount}G", (200, 170, 60), (240, 200, 80)),
-            ("FOLD", (180, 80, 80), (220, 100, 100))
+            ("콜", (80, 180, 100), (100, 220, 120), False),
+            (f"레이즈 +{self.raise_amount}", (200, 170, 60), (240, 200, 80), True),  # 골드 아이콘 표시
+            ("폴드", (180, 80, 80), (220, 100, 100), False)
         ]
 
         btn_w, btn_h = 110, 50
         total_w = len(actions) * btn_w + (len(actions) - 1) * 15
         start_x = cx - total_w // 2
 
-        for i, (action, color, color_light) in enumerate(actions):
+        # 버튼 영역 저장 (마우스 처리용)
+        self.action_buttons = []
+
+        for i, (action, color, color_light, show_gold_icon) in enumerate(actions):
             btn_x = start_x + i * (btn_w + 15)
 
-            # 선택 여부
+            # 버튼 영역 저장
+            btn_rect = pygame.Rect(btn_x, y, btn_w, btn_h)
+            self.action_buttons.append(btn_rect)
+
+            # 선택 또는 호버 여부
             is_selected = (i == self.selected_action)
+            is_hovered = (i == self.hovered_action)
 
             # 그림자
             pygame.draw.rect(screen, (0, 0, 0, 80), (btn_x + 3, y + 3, btn_w, btn_h), border_radius=8)
@@ -1599,15 +2143,33 @@ class PokerGameUI:
                 pygame.draw.rect(screen, color_light, (btn_x, y, btn_w, btn_h), border_radius=8)
                 pygame.draw.rect(screen, self.WHITE, (btn_x, y, btn_w, btn_h), 2, border_radius=8)
                 text_color = self.WHITE
+            elif is_hovered:
+                # 호버 효과 (선택보다 약간 연한 효과)
+                hover_color = tuple(min(255, c + 30) for c in color)
+                pygame.draw.rect(screen, (*color, 30), (btn_x - 2, y - 2, btn_w + 4, btn_h + 4), border_radius=9)
+                pygame.draw.rect(screen, hover_color, (btn_x, y, btn_w, btn_h), border_radius=8)
+                pygame.draw.rect(screen, color_light, (btn_x, y, btn_w, btn_h), 2, border_radius=8)
+                text_color = self.WHITE
             else:
                 pygame.draw.rect(screen, (40, 35, 50), (btn_x, y, btn_w, btn_h), border_radius=8)
                 pygame.draw.rect(screen, color, (btn_x, y, btn_w, btn_h), 2, border_radius=8)
                 text_color = (150, 150, 160)
 
-            self._draw_text(screen, action, btn_x + btn_w // 2, y + btn_h // 2 - 10, text_color, 14, center=True)
+            # 텍스트와 골드 아이콘 그리기
+            if show_gold_icon:
+                # RAISE 버튼: 텍스트 + 골드 코인 아이콘
+                text_x = btn_x + btn_w // 2 - 8  # 텍스트를 왼쪽으로 약간 이동
+                text_y = y + btn_h // 2 - 10
+                self._draw_text(screen, action, text_x, text_y, text_color, 14, center=True)
+                # 골드 코인 아이콘 (텍스트와 수평 맞춤)
+                coin_x = btn_x + btn_w - 18
+                coin_y = text_y + 7  # 텍스트 중앙과 수평 맞춤
+                self._draw_gold_coin(screen, coin_x, coin_y, 14)
+            else:
+                self._draw_text(screen, action, btn_x + btn_w // 2, y + btn_h // 2 - 10, text_color, 14, center=True)
 
         # 조작법
-        self._draw_text(screen, "◀▶: 선택  ▲▼: 레이즈 조절  Enter: 확인  ESC: 나가기",
+        self._draw_text(screen, "◀▶/클릭: 선택  ▲▼/휠: 레이즈 조절  Space: 확인  ESC: 나가기",
                        cx, y + 58, (100, 100, 110), 11, center=True)
 
     def _draw_result_ui(self, screen):

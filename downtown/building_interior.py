@@ -2554,16 +2554,17 @@ class BuildingInterior:
             except ImportError:
                 return False
 
-        # 플레이어 골드 가져오기 (player_data 우선, 없으면 downtown_gold)
-        player_gold = self.player_data.get('gold', 0)
-
-        # downtown_gold도 확인 (더 큰 값 사용)
+        # 플레이어 골드 가져오기 (여러 소스에서 최신 값 사용)
         import sys
+        player_gold = self.player_data.get('gold', 0) if self.player_data else 0
+
+        # pingfighter 모듈의 gold와 downtown_gold 확인
         if 'pingfighter' in sys.modules:
             pingfighter = sys.modules['pingfighter']
+            game_gold = getattr(pingfighter, 'gold', 0)
             downtown_gold = getattr(pingfighter, 'downtown_gold', 0)
-            if downtown_gold > player_gold:
-                player_gold = downtown_gold
+            # 가장 큰 값 사용 (동기화 문제 방지)
+            player_gold = max(player_gold, game_gold, downtown_gold)
 
         # 최소 베팅 확인
         if player_gold < 10:
@@ -2601,11 +2602,18 @@ class BuildingInterior:
         return result
 
     def _sync_poker_gold(self, new_gold):
-        """포커 게임 결과로 플레이어 골드 동기화 (downtown_gold)"""
+        """포커 게임 결과로 플레이어 골드 동기화 (player_data + downtown_gold + gold)"""
         import sys
+
+        # 1. player_data 업데이트
+        if self.player_data:
+            self.player_data['gold'] = new_gold
+
+        # 2. pingfighter 모듈의 downtown_gold와 gold 업데이트
         if 'pingfighter' in sys.modules:
             pingfighter = sys.modules['pingfighter']
             setattr(pingfighter, 'downtown_gold', new_gold)
+            setattr(pingfighter, 'gold', new_gold)  # 실제 게임 골드도 동기화
 
     def _draw_poker_game(self, screen):
         """포커 게임 화면 그리기"""
@@ -4375,16 +4383,19 @@ class BuildingInterior:
 
     def handle_key(self, event):
         """키 입력 처리 (이벤트 기반)"""
-        if event.type != pygame.KEYDOWN:
+        # 포커 게임 중일 때 - 모든 입력을 포커 게임으로 전달 (키보드 + 마우스)
+        if self.poker_game_playing:
+            # 포커 게임에서 처리할 이벤트 타입들
+            if event.type in [pygame.KEYDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEWHEEL]:
+                result = self._handle_poker_game_event(event)
+                # 포커 게임 중에는 항상 처리된 것으로 반환 (다른 입력 차단)
+                if result:
+                    return (result, None)
+                return ("poker_input", None)  # 입력 처리됨 (다른 로직 차단)
             return None
 
-        # 포커 게임 중일 때 - 모든 입력을 포커 게임으로 전달
-        if self.poker_game_playing:
-            result = self._handle_poker_game_event(event)
-            # 포커 게임 중에는 항상 처리된 것으로 반환 (다른 키 입력 차단)
-            if result:
-                return (result, None)
-            return ("poker_input", None)  # 입력 처리됨 (다른 로직 차단)
+        if event.type != pygame.KEYDOWN:
+            return None
 
         # 상점 거래창이 열려있을 때
         if self.shop_trade_open:

@@ -1717,20 +1717,25 @@ class DowntownManager:
 
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        # ESC 메뉴 호출 (광장과 동일)
-                        show_character_info, show_pause_options = _import_ingame_functions()
-                        if show_pause_options:
-                            result = show_pause_options()
-                            # 모달 메뉴에서 돌아올 때 입력 상태를 초기화해 고정 이동 방지
-                            if interior and interior.player:
-                                interior.player.reset_input_state()
-                            pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP])
-                            if result == "main_menu":
-                                running = False
-                                self.should_exit = True
-                                return
+                        # 포커 게임 중이면 포커 게임에 ESC 전달
+                        if interior.poker_game_playing:
+                            menu_result = interior.handle_key(event)
+                            # 포커 게임 종료 처리됨
                         else:
-                            running = False
+                            # ESC 메뉴 호출 (광장과 동일)
+                            show_character_info, show_pause_options = _import_ingame_functions()
+                            if show_pause_options:
+                                result = show_pause_options()
+                                # 모달 메뉴에서 돌아올 때 입력 상태를 초기화해 고정 이동 방지
+                                if interior and interior.player:
+                                    interior.player.reset_input_state()
+                                pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP])
+                                if result == "main_menu":
+                                    running = False
+                                    self.should_exit = True
+                                    return
+                            else:
+                                running = False
 
                     elif event.key == pygame.K_TAB:
                         # TAB으로 캐릭터 정보창 (광장과 동일)
@@ -1779,7 +1784,10 @@ class DowntownManager:
                     )
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1:  # 왼쪽 클릭
+                    # 포커 게임 중이면 포커 게임에 마우스 이벤트 전달
+                    if interior.poker_game_playing:
+                        interior.handle_key(event)
+                    elif event.button == 1:  # 왼쪽 클릭
                         result = interior.handle_click(event.pos)
                         if result and isinstance(result, tuple):
                             if result[0] == "talk":
@@ -1809,9 +1817,18 @@ class DowntownManager:
                         interior.handle_mouse_up(event.pos, button=1)
 
                 elif event.type == pygame.MOUSEWHEEL:
-                    # 마우스 휠 처리 (환전 양 조절 - 슬라이더 위에서만)
-                    mouse_pos = pygame.mouse.get_pos()
-                    interior.handle_scroll(event, mouse_pos)
+                    # 포커 게임 중이면 포커 게임에 휠 이벤트 전달
+                    if interior.poker_game_playing:
+                        interior.handle_key(event)
+                    else:
+                        # 마우스 휠 처리 (환전 양 조절 - 슬라이더 위에서만)
+                        mouse_pos = pygame.mouse.get_pos()
+                        interior.handle_scroll(event, mouse_pos)
+
+                elif event.type == pygame.MOUSEMOTION:
+                    # 포커 게임 중이면 호버 이벤트 전달
+                    if interior.poker_game_playing:
+                        interior.handle_key(event)
 
             # 업데이트 (플레이어 이동, NPC 애니메이션, 문 나가기 체크)
             interior.update(dt)
