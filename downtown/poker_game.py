@@ -3171,13 +3171,13 @@ class PokerGameUI:
                     border_color = (100, 150, 200)
 
                 # 말풍선 배경
-                text_width = len(action_text) * 12 + 30
-                bubble_rect = pygame.Rect(bx - text_width // 2, by - 18, text_width, 36)
-                pygame.draw.rect(screen, (30, 30, 40), bubble_rect, border_radius=10)
-                pygame.draw.rect(screen, border_color, bubble_rect, 3, border_radius=10)
+                text_width = len(action_text) * 10 + 24
+                bubble_rect = pygame.Rect(bx - text_width // 2, by - 14, text_width, 28)
+                pygame.draw.rect(screen, (30, 30, 40), bubble_rect, border_radius=8)
+                pygame.draw.rect(screen, border_color, bubble_rect, 2, border_radius=8)
 
                 # 텍스트
-                self._draw_text(screen, action_text, bx, by - 8, text_color, 16, center=True)
+                self._draw_text(screen, action_text, bx, by - 6, text_color, 12, center=True)
 
     def _draw_player_info_panel(self, screen, x, y, player, color):
         """플레이어 정보 패널 그리기"""
