@@ -2605,7 +2605,7 @@ class PokerGameUI:
         # 4인 플레이어 카드 위치
         card_positions = {
             'south': (cx - self.CARD_WIDTH - 8, self.screen_height - 180),  # 플레이어 (하단)
-            'north': (cx - self.CARD_WIDTH - 8, 60),                         # 북쪽 NPC (상단)
+            'north': (cx + 40, 60),                                          # 북쪽 NPC (상단) - 오른쪽으로 이동
             'west': (30, cy - self.CARD_HEIGHT // 2),                        # 서쪽 NPC (좌측)
             'east': (self.screen_width - 30 - self.CARD_WIDTH * 2 - 15, cy - self.CARD_HEIGHT // 2),  # 동쪽 NPC (우측)
         }
@@ -2685,7 +2685,7 @@ class PokerGameUI:
         # 4인 플레이어 카드 위치
         card_positions = {
             'south': (cx - self.CARD_WIDTH - 8, self.screen_height - 180),
-            'north': (cx - self.CARD_WIDTH - 8, 60),
+            'north': (cx + 40, 60),  # 리버 카드와 겹치지 않게 오른쪽으로 이동
             'west': (30, cy - self.CARD_HEIGHT // 2),
             'east': (self.screen_width - 30 - self.CARD_WIDTH * 2 - 15, cy - self.CARD_HEIGHT // 2),
         }
@@ -2766,7 +2766,7 @@ class PokerGameUI:
         # 4인 플레이어 카드 위치 (쇼다운용)
         card_positions = {
             'south': (cx - self.CARD_WIDTH - 8, self.screen_height - 180),
-            'north': (cx - self.CARD_WIDTH - 8, 60),
+            'north': (cx + 40, 60),  # 리버 카드와 겹치지 않게 오른쪽으로 이동
             'west': (30, cy - self.CARD_HEIGHT // 2 - 60),
             'east': (self.screen_width - 30 - self.CARD_WIDTH * 2 - 15, cy - self.CARD_HEIGHT // 2 - 60),
         }
@@ -2828,6 +2828,28 @@ class PokerGameUI:
                 label_text = f"★ {label_text} ★"
 
             self._draw_text(screen, label_text, label_x, label_y, border_colors[position], 14, center=True)
+
+            # 각 플레이어 족보 표시
+            if hasattr(self.game, 'hand_results') and position in self.game.hand_results:
+                hand_name = self.game.hand_results[position][2]  # (rank, tiebreaker, name)
+
+                # 족보 표시 위치 결정
+                if position == 'south':
+                    hand_label_x = label_x
+                    hand_label_y = card_y + self.CARD_HEIGHT + 15
+                elif position == 'north':
+                    hand_label_x = label_x
+                    hand_label_y = card_y + self.CARD_HEIGHT + 15
+                elif position == 'west':
+                    hand_label_x = start_x + self.CARD_WIDTH + 15
+                    hand_label_y = card_y + self.CARD_HEIGHT + 25
+                else:  # east
+                    hand_label_x = start_x - 10
+                    hand_label_y = card_y + self.CARD_HEIGHT + 25
+
+                # 승자는 황금색, 나머지는 흰색
+                hand_color = self.GOLD if position in winner_positions else self.WHITE
+                self._draw_text(screen, f"[{hand_name}]", hand_label_x, hand_label_y, hand_color, 12, center=True)
 
     def _draw_ui(self, screen):
         """기본 UI - 4인 테이블"""
