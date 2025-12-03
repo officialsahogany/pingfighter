@@ -3201,14 +3201,23 @@ class PokerGameUI:
                     hand_label_x = label_x
                     hand_label_y = card_y + self.CARD_HEIGHT + 15
                 elif position == 'west':
-                    hand_label_x = start_x + self.CARD_WIDTH + 15
-                    hand_label_y = card_y + self.CARD_HEIGHT + 25
+                    # 좌측 NPC - 카드 아래 중앙에 표시
+                    hand_label_x = start_x + self.CARD_WIDTH // 2
+                    hand_label_y = card_y + self.CARD_HEIGHT + 60  # 세로 카드 2장 아래
                 else:  # east
-                    hand_label_x = start_x - 10
-                    hand_label_y = card_y + self.CARD_HEIGHT + 25
+                    # 우측 NPC - 카드 아래 중앙에 표시
+                    hand_label_x = start_x + self.CARD_WIDTH // 2
+                    hand_label_y = card_y + self.CARD_HEIGHT + 60  # 세로 카드 2장 아래
 
                 # 승자는 황금색, 나머지는 흰색
                 hand_color = self.GOLD if position in winner_positions else self.WHITE
+
+                # 배경 박스 추가 (가독성 향상)
+                text_width = len(hand_name) * 8 + 20
+                bg_rect = pygame.Rect(hand_label_x - text_width // 2, hand_label_y - 2, text_width, 18)
+                pygame.draw.rect(screen, (20, 20, 30, 200), bg_rect, border_radius=4)
+                pygame.draw.rect(screen, hand_color, bg_rect, 1, border_radius=4)
+
                 self._draw_text(screen, f"[{hand_name}]", hand_label_x, hand_label_y, hand_color, 12, center=True)
 
     def _draw_ui(self, screen):
