@@ -2977,9 +2977,9 @@ class PokerGameUI:
 
                     # 플레이어 카드 우측에 표시
                     south_x, south_y = card_positions['south']
-                    # 카드 2장 너비 + 여백 계산
-                    hand_text_x = south_x + (self.CARD_WIDTH * 2) + 30
-                    hand_text_y = south_y + self.CARD_HEIGHT // 2
+                    # 카드 2장 너비 + 여백 계산 (카드간격: CARD_WIDTH + 15)
+                    hand_text_x = south_x + self.CARD_WIDTH + 15 + self.CARD_WIDTH + 20
+                    hand_text_y = south_y + self.CARD_HEIGHT // 2 - 7
 
                     # 족보에 따른 색상
                     rank = hand_result[0]
