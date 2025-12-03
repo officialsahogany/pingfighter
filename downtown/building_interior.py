@@ -5968,8 +5968,8 @@ class BuildingInterior:
         for npc in self.npcs:
             npc.draw_speech_bubble(screen, self.camera_offset, self.fonts)
 
-        # 건물 이름
-        self._draw_building_name(screen)
+        # 건물 이름 (제거됨 - 상단 중앙 텍스트 표시 안함)
+        # self._draw_building_name(screen)
 
         # 나가기 힌트
         self._draw_exit_hint(screen)
