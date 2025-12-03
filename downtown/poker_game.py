@@ -3525,8 +3525,10 @@ class PokerGameUI:
             is_selected = (i == self.selected_action)
             is_hovered = (i == self.hovered_action)
 
-            # 콜 금액이 플레이어 골드보다 크면 비활성화
-            is_disabled = (i == 0 and call_amount > self.game.players['south'].gold)
+            # NPC 차례이거나 콜 금액이 플레이어 골드보다 크면 비활성화
+            is_npc_turn = (self.game.current_action_player != 'south' and
+                          not self.game.waiting_for_player_response)
+            is_disabled = is_npc_turn or (i == 0 and call_amount > self.game.players['south'].gold)
 
             # 그림자
             pygame.draw.rect(screen, (0, 0, 0, 80), (btn_x + 3, y + 3, btn_w, btn_h), border_radius=8)
