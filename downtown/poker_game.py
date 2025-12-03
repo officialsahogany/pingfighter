@@ -3166,9 +3166,22 @@ class PokerGameUI:
         }
 
         # 현재 턴인 플레이어 조명 효과
-        current_turn = self.game.current_action_player
-        if current_turn and self.game.state in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
-                                                  PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
+        current_turn = None
+        if self.game.state in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
+                               PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
+            if self.game.npc_thinking and self.game.npc_thinking_player:
+                # NPC 생각 중
+                current_turn = self.game.npc_thinking_player
+            elif self.game.waiting_for_player_response:
+                # NPC 레이즈 후 플레이어 응답 대기
+                current_turn = 'south'
+            elif not self.game.betting_round_complete:
+                # 베팅 라운드 진행 중 - 플레이어 차례
+                south = self.game.players.get('south')
+                if south and not south.folded and not south.is_all_in:
+                    current_turn = 'south'
+
+        if current_turn:
             self._draw_turn_spotlight(screen, current_turn, player_info_positions)
 
         # 각 플레이어 정보 패널 표시
