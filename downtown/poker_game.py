@@ -2005,23 +2005,23 @@ class PokerGameUI:
         """미니 카드 문양 직접 그리기 (0=스페이드, 1=하트, 2=다이아, 3=클럽)"""
         if symbol_index == 0:  # 스페이드 ♠ - 뒤집힌 하트 + 줄기
             s = size * 1.2
-            r = s * 0.4  # 하단 원 반지름
+            r = s * 0.33  # 하단 원 반지름 (축소)
 
-            # 원 중심 위치 (아래쪽에 원)
-            circle_y = y + s * 0.15
-            circle_left_x = x - s * 0.35
-            circle_right_x = x + s * 0.35
+            # 원 중심 위치 (더 아래로)
+            circle_y = y + s * 0.3
+            circle_left_x = x - s * 0.3
+            circle_right_x = x + s * 0.3
 
-            # 상단 뾰족한 삼각형 (뒤집힌 하트) - 원 안쪽까지만
-            pygame.draw.polygon(screen, color, [
-                (x, y - s * 0.7),                    # 상단 뾰족점
-                (circle_left_x, circle_y - r * 0.3),  # 왼쪽 (원 안쪽)
-                (circle_right_x, circle_y - r * 0.3), # 오른쪽 (원 안쪽)
-            ])
-
-            # 하단 원들
+            # 하단 원들 (먼저 그려서 삼각형에 덮이게)
             pygame.draw.circle(screen, color, (int(circle_left_x), int(circle_y)), int(r))
             pygame.draw.circle(screen, color, (int(circle_right_x), int(circle_y)), int(r))
+
+            # 상단 뾰족한 삼각형 (뒤집힌 하트) - 원 위를 덮음
+            pygame.draw.polygon(screen, color, [
+                (x, y - s * 0.7),                     # 상단 뾰족점
+                (circle_left_x - r * 0.1, circle_y),  # 왼쪽 (원 중심 높이)
+                (circle_right_x + r * 0.1, circle_y), # 오른쪽 (원 중심 높이)
+            ])
 
             # 줄기
             stem_w = s * 0.2
