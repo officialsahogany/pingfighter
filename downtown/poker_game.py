@@ -3186,7 +3186,12 @@ class PokerGameUI:
         # 연승 표시 (플레이어 정보 옆)
         if self.game.player_win_streak > 0:
             streak_color = (255, 100, 100) if self.game.player_win_streak >= 3 else (255, 200, 100)
-            self._draw_text(screen, f"[{self.game.player_win_streak}연승]", 160, self.screen_height - 47, streak_color, 14)
+            intensity = 1.5 if self.game.player_win_streak >= 3 else 1.0
+            # 불꽃 아이콘 + 텍스트
+            fire_x = 152
+            fire_y = self.screen_height - 40
+            self._draw_fire_icon(screen, fire_x, fire_y, 16, intensity)
+            self._draw_text(screen, f"{self.game.player_win_streak}연승", fire_x + 18, self.screen_height - 47, streak_color, 14)
 
         # 게임 상태 (우상단)
         state_names = {
@@ -3423,6 +3428,78 @@ class PokerGameUI:
         pygame.draw.circle(coin_surf, gold_shine, (cx + radius // 3, cy - radius // 3), 2)
 
         screen.blit(coin_surf, (x - size // 2, y - size // 2))
+
+    def _draw_fire_icon(self, screen, x, y, size, intensity=1.0):
+        """불꽃 아이콘 그리기 - 연승 표시용"""
+        fire_surf = pygame.Surface((size + 4, size + 8), pygame.SRCALPHA)
+
+        cx = size // 2 + 2
+        base_y = size + 4
+
+        # 애니메이션 효과 (펄스)
+        pulse = (math.sin(self.animation_timer * 5) + 1) / 2 * 0.2 + 0.9
+
+        # 색상 정의 (intensity에 따라 조절)
+        if intensity >= 1.5:  # 3연승 이상
+            orange_dark = (200, 60, 0)
+            orange_main = (255, 100, 20)
+            yellow = (255, 180, 50)
+            yellow_light = (255, 230, 100)
+        else:
+            orange_dark = (200, 100, 20)
+            orange_main = (255, 150, 50)
+            yellow = (255, 200, 80)
+            yellow_light = (255, 235, 150)
+
+        # 외곽 불꽃 (큰 불꽃)
+        flame_points = [
+            (cx, int(base_y - size * 1.1 * pulse)),  # 꼭대기
+            (cx + size // 3, int(base_y - size * 0.6)),  # 오른쪽 위
+            (cx + size // 2, base_y - size // 4),  # 오른쪽 중간
+            (cx + size // 3, base_y),  # 오른쪽 아래
+            (cx, base_y - size // 6),  # 중앙 아래 (오목)
+            (cx - size // 3, base_y),  # 왼쪽 아래
+            (cx - size // 2, base_y - size // 4),  # 왼쪽 중간
+            (cx - size // 3, int(base_y - size * 0.6)),  # 왼쪽 위
+        ]
+        pygame.draw.polygon(fire_surf, orange_dark, flame_points)
+
+        # 중간 불꽃
+        inner_scale = 0.7
+        inner_points = [
+            (cx, int(base_y - size * 0.9 * pulse)),
+            (cx + int(size // 3 * inner_scale), int(base_y - size * 0.5)),
+            (cx + int(size // 2.5 * inner_scale), base_y - size // 5),
+            (cx + int(size // 4 * inner_scale), base_y - 2),
+            (cx, base_y - size // 5),
+            (cx - int(size // 4 * inner_scale), base_y - 2),
+            (cx - int(size // 2.5 * inner_scale), base_y - size // 5),
+            (cx - int(size // 3 * inner_scale), int(base_y - size * 0.5)),
+        ]
+        pygame.draw.polygon(fire_surf, orange_main, inner_points)
+
+        # 내부 불꽃 (노란색)
+        core_scale = 0.45
+        core_points = [
+            (cx, int(base_y - size * 0.7 * pulse)),
+            (cx + int(size // 4 * core_scale), int(base_y - size * 0.4)),
+            (cx + int(size // 3 * core_scale), base_y - size // 6),
+            (cx, base_y - 3),
+            (cx - int(size // 3 * core_scale), base_y - size // 6),
+            (cx - int(size // 4 * core_scale), int(base_y - size * 0.4)),
+        ]
+        pygame.draw.polygon(fire_surf, yellow, core_points)
+
+        # 중심 하이라이트
+        highlight_points = [
+            (cx, int(base_y - size * 0.5 * pulse)),
+            (cx + size // 8, base_y - size // 4),
+            (cx, base_y - 4),
+            (cx - size // 8, base_y - size // 4),
+        ]
+        pygame.draw.polygon(fire_surf, yellow_light, highlight_points)
+
+        screen.blit(fire_surf, (x - size // 2 - 2, y - size // 2 - 4))
 
     def _draw_status_badge(self, screen, x, y, text):
         """상태 배지"""
