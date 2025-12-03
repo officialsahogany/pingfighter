@@ -3186,7 +3186,7 @@ class PokerGameUI:
         # 연승 표시 (플레이어 정보 옆)
         if self.game.player_win_streak > 0:
             streak_color = (255, 100, 100) if self.game.player_win_streak >= 3 else (255, 200, 100)
-            self._draw_text(screen, f"🔥{self.game.player_win_streak}연승", 160, self.screen_height - 47, streak_color, 14)
+            self._draw_text(screen, f"[{self.game.player_win_streak}연승]", 160, self.screen_height - 47, streak_color, 14)
 
         # 게임 상태 (우상단)
         state_names = {
