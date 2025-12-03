@@ -3571,8 +3571,9 @@ class PokerGameUI:
             is_hovered = (i == self.hovered_action)
 
             # NPC 차례이거나 콜 금액이 플레이어 골드보다 크면 비활성화
-            is_npc_turn = (self.game.current_action_player != 'south' and
-                          not self.game.waiting_for_player_response)
+            # NPC 생각 중이면 플레이어 차례 아님
+            is_npc_turn = (self.game.npc_thinking and self.game.npc_thinking_player) or \
+                          self.game.betting_round_complete
             is_disabled = is_npc_turn or (i == 0 and call_amount > self.game.players['south'].gold)
 
             # 그림자
