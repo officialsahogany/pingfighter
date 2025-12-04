@@ -756,13 +756,20 @@ class PachinkoGameUI:
         # 회전 오프셋 계산
         scroll_offset = (reel.current_offset % 1) * symbol_h if reel.is_spinning else 0
 
+        # 클리핑 서피스 생성 - 릴 영역 내에서만 심볼이 보이도록
+        clip_surface = pygame.Surface((w, h), pygame.SRCALPHA)
+
         for i, symbol in enumerate(symbols):
-            symbol_y = y + i * symbol_h - scroll_offset + symbol_h // 6
-            # 화면 밖이면 스킵
-            if symbol_y < y - symbol_h or symbol_y > y + h:
+            # 클리핑 서피스 내부 좌표로 계산
+            symbol_local_y = i * symbol_h - scroll_offset + symbol_h // 6
+            # 완전히 밖이면 스킵
+            if symbol_local_y < -symbol_h or symbol_local_y > h:
                 continue
-            self._draw_symbol(screen, symbol, x + 5, symbol_y, w - 10, symbol_h - 10,
+            self._draw_symbol(clip_surface, symbol, 5, symbol_local_y, w - 10, symbol_h - 10,
                             is_center=(i == 1))
+
+        # 클리핑된 서피스를 화면에 그리기
+        screen.blit(clip_surface, (x, y))
 
         # 릴 테두리
         pygame.draw.rect(screen, C["frame_gold_dark"], (x, y, w, h), 2, border_radius=8)
