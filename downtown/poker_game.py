@@ -3465,14 +3465,14 @@ class PokerGameUI:
         north_info_x = cx - 180  # 중앙에서 왼쪽으로 180px
         if is_showdown:
             player_info_positions = {
-                'south': (20, self.screen_height - 55),     # 좌하단 (플레이어)
+                'south': (20, self.screen_height - 180),    # 좌하단 (플레이어) - 카드 y축과 정렬
                 'north': (north_info_x, 15),                 # 상단 중앙-왼쪽 (북쪽 NPC)
                 'west': (20, cy + 80),                       # 좌측 - 카드 아래로 이동
                 'east': (self.screen_width - 150, cy + 80),  # 우측 - 카드 아래로 이동
             }
         else:
             player_info_positions = {
-                'south': (20, self.screen_height - 55),     # 좌하단 (플레이어)
+                'south': (20, self.screen_height - 180),    # 좌하단 (플레이어) - 카드 y축과 정렬
                 'north': (north_info_x, 15),                 # 상단 중앙-왼쪽 (북쪽 NPC)
                 'west': (20, cy - 130),                      # 좌측 - 커뮤니티 카드 위로 이동
                 'east': (self.screen_width - 150, cy - 130), # 우측 - 커뮤니티 카드 위로 이동
