@@ -2953,6 +2953,23 @@ class PokerGameUI:
                 label_text = "YOUR HAND"
                 self._draw_text(screen, label_text, label_x, label_y, label_colors[position], 14, center=True)
 
+            # NPC 베팅 금액 표시 (카드 하단)
+            if position != 'south' and player.current_bet > 0:
+                bet_text = f"베팅:{player.current_bet}"
+                if position == 'north':
+                    # 북쪽 NPC - 카드 하단 중앙
+                    bet_x = start_x + self.CARD_WIDTH  # 두 카드 중간
+                    bet_y = card_y + self.CARD_HEIGHT + 5
+                elif position == 'west':
+                    # 서쪽 NPC - 카드 우측 하단
+                    bet_x = start_x + self.CARD_WIDTH + 10
+                    bet_y = card_y + self.CARD_HEIGHT + 30
+                elif position == 'east':
+                    # 동쪽 NPC - 카드 좌측 하단
+                    bet_x = start_x - 10
+                    bet_y = card_y + self.CARD_HEIGHT + 30
+                self._draw_text(screen, bet_text, bet_x, bet_y, (200, 200, 100), 12, center=True)
+
         # 플레이어(south) 현재 족보 표시 (커뮤니티 카드가 있을 때만)
         if self.game.community_cards and 'south' in self.game.players:
             south_player = self.game.players['south']
@@ -3230,17 +3247,19 @@ class PokerGameUI:
 
         # 4인 플레이어 정보 표시 위치
         # 쇼다운 시에는 좌우 플레이어 정보를 카드 아래로 이동
+        # 북쪽 NPC: 상단 중앙에서 살짝 왼쪽 (상단 카드와 겹침 방지)
+        north_info_x = cx - 180  # 중앙에서 왼쪽으로 180px
         if is_showdown:
             player_info_positions = {
                 'south': (20, self.screen_height - 55),     # 좌하단 (플레이어)
-                'north': (20, 15),                           # 좌상단 (북쪽 NPC)
+                'north': (north_info_x, 15),                 # 상단 중앙-왼쪽 (북쪽 NPC)
                 'west': (20, cy + 80),                       # 좌측 - 카드 아래로 이동
                 'east': (self.screen_width - 150, cy + 80),  # 우측 - 카드 아래로 이동
             }
         else:
             player_info_positions = {
                 'south': (20, self.screen_height - 55),     # 좌하단 (플레이어)
-                'north': (20, 15),                           # 좌상단 (북쪽 NPC)
+                'north': (north_info_x, 15),                 # 상단 중앙-왼쪽 (북쪽 NPC)
                 'west': (20, cy - 130),                      # 좌측 - 커뮤니티 카드 위로 이동
                 'east': (self.screen_width - 150, cy - 130), # 우측 - 커뮤니티 카드 위로 이동
             }
@@ -3470,10 +3489,7 @@ class PokerGameUI:
             gold_color = self.GOLD_LIGHT
         self._draw_text(screen, f"{player.gold:,}", x + 32, y + 24, gold_color, 14)
 
-        # 현재 베팅 금액 표시
-        if player.current_bet > 0:
-            bet_text = f"bet:{player.current_bet}"
-            self._draw_text(screen, bet_text, x + box_w - 10, y + 24, (200, 200, 100), 10)
+        # 현재 베팅 금액은 카드 하단에 표시하므로 패널에서는 제거됨
 
     def _draw_gold_coin(self, screen, x, y, size):
         """금화 아이콘 그리기 - 인게임과 동일한 입체감 있는 동전"""
