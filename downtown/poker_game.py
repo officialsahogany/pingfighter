@@ -2370,13 +2370,13 @@ class PokerGameUI:
         # 플레이어별 칩 스택 위치 설정
         # south(플레이어): 정보 패널 오른쪽
         # north: 정보 패널 오른쪽
-        # west: 정보 패널 아래
-        # east: 정보 패널 아래
+        # west: 정보 패널 오른쪽 (이름+골드 박스 오른쪽)
+        # east: 정보 패널 왼쪽 (이름+골드 박스 왼쪽)
         self.chip_stack_positions = {
             'south': (150, self.screen_height - 160),  # 플레이어 정보 패널 오른쪽
             'north': (cx - 50, 70),  # 북쪽 NPC 정보 패널 오른쪽
-            'west': (90, cy - 80),  # 서쪽 NPC 정보 패널 아래
-            'east': (self.screen_width - 90, cy - 80),  # 동쪽 NPC 정보 패널 아래
+            'west': (155, cy - 100),  # 서쪽 NPC 정보 패널 오른쪽 (x=20 + 패널너비130 + 여백5)
+            'east': (self.screen_width - 165, cy - 100),  # 동쪽 NPC 정보 패널 왼쪽 (x=screen_width-150 - 여백15)
         }
 
         # 칩 스택 생성
@@ -2405,11 +2405,11 @@ class PokerGameUI:
             return self.chip_stack_positions[position]
         return (self.screen_width // 2, self.screen_height // 2)
 
-    def _get_pot_position(self):
-        """판돈 박스 위치 반환"""
+    def _get_pot_chip_position(self):
+        """판돈 칩 스택 위치 반환 (베팅 시 칩 이동 목적지)"""
         cx = self.screen_width // 2
         cy = self.screen_height // 2
-        return (cx - 50, cy + 70)  # 판돈 박스 왼쪽 근처
+        return (cx - 120, cy + 80)  # 판돈 칩 스택 위치 (pot_chip_stack과 동일)
 
     def trigger_chip_animation(self, from_position, gold_amount):
         """베팅 시 칩 이동 애니메이션 트리거"""
@@ -2417,7 +2417,7 @@ class PokerGameUI:
             return
 
         start_pos = self._get_chip_stack_position(from_position)
-        end_pos = self._get_pot_position()
+        end_pos = self._get_pot_chip_position()  # 판돈 칩 스택 위치로 이동
 
         self.chip_animation_manager.add_animation(
             start_pos[0], start_pos[1],
@@ -2435,7 +2435,7 @@ class PokerGameUI:
         if pot_amount <= 0:
             return
 
-        start_pos = self._get_pot_position()
+        start_pos = self._get_pot_chip_position()  # 판돈 칩 스택 위치에서 출발
         end_pos = self._get_chip_stack_position(winner_position)
 
         # 여러 번에 나눠서 칩 이동 (더 화려하게)
