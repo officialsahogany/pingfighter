@@ -2992,81 +2992,157 @@ class PokerGameUI:
             ])
 
     def _draw_pot_display(self, screen, x, y):
-        """팟 표시 (프리미엄)"""
+        """팟 표시 (프리미엄) - 금액에 따른 애니메이션"""
         pot = self.game.pot
 
         # 팟 박스
         box_w, box_h = 170, 60
 
-        # 그림자
-        pygame.draw.rect(screen, (0, 0, 0, 60), (x - box_w // 2 + 3, y + 3, box_w, box_h), border_radius=8)
+        # 애니메이션 오프셋 계산 (판돈에 따라)
+        shake_x, shake_y = 0, 0
+        heat_intensity = 0  # 열기 효과 강도
 
-        # 배경
+        if pot >= 2000:
+            # 2000골드 이상: 힘찬 흔들림 + 열기 효과
+            shake_speed = 12  # 빠른 흔들림
+            shake_amount = 3  # 강한 흔들림
+            shake_x = int(math.sin(self.table_pulse_phase * shake_speed) * shake_amount)
+            shake_y = int(math.cos(self.table_pulse_phase * shake_speed * 1.3) * shake_amount * 0.7)
+            heat_intensity = 1.0
+        elif pot >= 1000:
+            # 1000골드 이상: 가벼운 흔들림
+            shake_speed = 6  # 느린 흔들림
+            shake_amount = 1.5  # 약한 흔들림
+            shake_x = int(math.sin(self.table_pulse_phase * shake_speed) * shake_amount)
+            shake_y = int(math.cos(self.table_pulse_phase * shake_speed * 1.2) * shake_amount * 0.5)
+            heat_intensity = 0.3
+
+        # 위치에 흔들림 적용
+        draw_x = x + shake_x
+        draw_y = y + shake_y
+
+        # 2000골드 이상: 열기 글로우 효과
+        if heat_intensity > 0.5:
+            # 붉은 열기 글로우
+            glow_surf = pygame.Surface((box_w + 30, box_h + 30), pygame.SRCALPHA)
+            glow_pulse = 0.6 + 0.4 * math.sin(self.table_pulse_phase * 8)
+            for i in range(3, 0, -1):
+                glow_alpha = int(40 * glow_pulse * heat_intensity * (4 - i) / 3)
+                glow_color = (255, 100 + int(50 * glow_pulse), 50, glow_alpha)
+                pygame.draw.rect(glow_surf, glow_color,
+                               (15 - i * 5, 15 - i * 5, box_w + i * 10, box_h + i * 10),
+                               border_radius=12)
+            screen.blit(glow_surf, (draw_x - box_w // 2 - 15, draw_y - 15))
+
+        # 그림자
+        pygame.draw.rect(screen, (0, 0, 0, 60), (draw_x - box_w // 2 + 3, draw_y + 3, box_w, box_h), border_radius=8)
+
+        # 배경 (열기에 따라 색상 변화)
         for i in range(box_h):
             ratio = i / box_h
-            r = int(35 + ratio * 15)
-            g = int(30 + ratio * 10)
-            b = int(45 + ratio * 15)
+            if heat_intensity > 0.5:
+                # 붉은 열기 배경
+                heat_pulse = 0.7 + 0.3 * math.sin(self.table_pulse_phase * 6 + i * 0.1)
+                r = int(55 + ratio * 20 + 30 * heat_intensity * heat_pulse)
+                g = int(30 + ratio * 10)
+                b = int(35 + ratio * 10)
+            else:
+                r = int(35 + ratio * 15)
+                g = int(30 + ratio * 10)
+                b = int(45 + ratio * 15)
             pygame.draw.line(screen, (r, g, b),
-                           (x - box_w // 2, y + i), (x + box_w // 2, y + i))
+                           (draw_x - box_w // 2, draw_y + i), (draw_x + box_w // 2, draw_y + i))
 
-        # 지그재그 테두리 (금색/은색 교차)
-        box_x = x - box_w // 2
+        # 지그재그 테두리 (금색/은색 교차, 열기 시 금색/주황색)
+        box_x = draw_x - box_w // 2
         zigzag_size = 6  # 지그재그 크기
-        border_colors = [self.GOLD, self.SILVER]
+
+        if heat_intensity > 0.5:
+            # 열기 효과: 금색/주황색 교차 + 움직이는 효과
+            heat_pulse = 0.7 + 0.3 * math.sin(self.table_pulse_phase * 10)
+            orange_color = (255, int(150 + 50 * heat_pulse), 50)
+            border_colors = [self.GOLD, orange_color]
+        else:
+            border_colors = [self.GOLD, self.SILVER]
+
+        # 지그재그 오프셋 (애니메이션용)
+        zigzag_offset = int(self.table_pulse_phase * 2) % (zigzag_size * 2) if pot >= 1000 else 0
 
         # 상단 지그재그
-        for i in range(0, box_w, zigzag_size * 2):
-            x1 = box_x + i
+        for i in range(-zigzag_offset, box_w + zigzag_size * 2, zigzag_size * 2):
+            x1 = max(box_x, box_x + i)
             x2 = min(box_x + i + zigzag_size, box_x + box_w)
             x3 = min(box_x + i + zigzag_size * 2, box_x + box_w)
-            color_idx = (i // (zigzag_size * 2)) % 2
-            pygame.draw.line(screen, border_colors[color_idx], (x1, y), (x2, y - 3), 2)
-            pygame.draw.line(screen, border_colors[color_idx], (x2, y - 3), (x3, y), 2)
+            if x1 < box_x + box_w and x2 > box_x:
+                color_idx = ((i + zigzag_offset) // (zigzag_size * 2)) % 2
+                pygame.draw.line(screen, border_colors[color_idx], (x1, draw_y), (x2, draw_y - 3), 2)
+                pygame.draw.line(screen, border_colors[color_idx], (x2, draw_y - 3), (x3, draw_y), 2)
 
         # 하단 지그재그
-        for i in range(0, box_w, zigzag_size * 2):
-            x1 = box_x + i
+        for i in range(-zigzag_offset, box_w + zigzag_size * 2, zigzag_size * 2):
+            x1 = max(box_x, box_x + i)
             x2 = min(box_x + i + zigzag_size, box_x + box_w)
             x3 = min(box_x + i + zigzag_size * 2, box_x + box_w)
-            color_idx = (i // (zigzag_size * 2)) % 2
-            pygame.draw.line(screen, border_colors[color_idx], (x1, y + box_h), (x2, y + box_h + 3), 2)
-            pygame.draw.line(screen, border_colors[color_idx], (x2, y + box_h + 3), (x3, y + box_h), 2)
+            if x1 < box_x + box_w and x2 > box_x:
+                color_idx = ((i + zigzag_offset) // (zigzag_size * 2)) % 2
+                pygame.draw.line(screen, border_colors[color_idx], (x1, draw_y + box_h), (x2, draw_y + box_h + 3), 2)
+                pygame.draw.line(screen, border_colors[color_idx], (x2, draw_y + box_h + 3), (x3, draw_y + box_h), 2)
 
         # 좌측 지그재그
-        for i in range(0, box_h, zigzag_size * 2):
-            y1 = y + i
-            y2 = min(y + i + zigzag_size, y + box_h)
-            y3 = min(y + i + zigzag_size * 2, y + box_h)
-            color_idx = (i // (zigzag_size * 2)) % 2
-            pygame.draw.line(screen, border_colors[color_idx], (box_x, y1), (box_x - 3, y2), 2)
-            pygame.draw.line(screen, border_colors[color_idx], (box_x - 3, y2), (box_x, y3), 2)
+        for i in range(-zigzag_offset, box_h + zigzag_size * 2, zigzag_size * 2):
+            y1 = max(draw_y, draw_y + i)
+            y2 = min(draw_y + i + zigzag_size, draw_y + box_h)
+            y3 = min(draw_y + i + zigzag_size * 2, draw_y + box_h)
+            if y1 < draw_y + box_h and y2 > draw_y:
+                color_idx = ((i + zigzag_offset) // (zigzag_size * 2)) % 2
+                pygame.draw.line(screen, border_colors[color_idx], (box_x, y1), (box_x - 3, y2), 2)
+                pygame.draw.line(screen, border_colors[color_idx], (box_x - 3, y2), (box_x, y3), 2)
 
         # 우측 지그재그
-        for i in range(0, box_h, zigzag_size * 2):
-            y1 = y + i
-            y2 = min(y + i + zigzag_size, y + box_h)
-            y3 = min(y + i + zigzag_size * 2, y + box_h)
-            color_idx = (i // (zigzag_size * 2)) % 2
-            pygame.draw.line(screen, border_colors[color_idx], (box_x + box_w, y1), (box_x + box_w + 3, y2), 2)
-            pygame.draw.line(screen, border_colors[color_idx], (box_x + box_w + 3, y2), (box_x + box_w, y3), 2)
+        for i in range(-zigzag_offset, box_h + zigzag_size * 2, zigzag_size * 2):
+            y1 = max(draw_y, draw_y + i)
+            y2 = min(draw_y + i + zigzag_size, draw_y + box_h)
+            y3 = min(draw_y + i + zigzag_size * 2, draw_y + box_h)
+            if y1 < draw_y + box_h and y2 > draw_y:
+                color_idx = ((i + zigzag_offset) // (zigzag_size * 2)) % 2
+                pygame.draw.line(screen, border_colors[color_idx], (box_x + box_w, y1), (box_x + box_w + 3, y2), 2)
+                pygame.draw.line(screen, border_colors[color_idx], (box_x + box_w + 3, y2), (box_x + box_w, y3), 2)
 
-        # 모서리 장식 (금색 동그라미)
+        # 모서리 장식 (금색 동그라미, 열기 시 펄스)
         corner_radius = 4
-        pygame.draw.circle(screen, self.GOLD, (box_x, y), corner_radius)
-        pygame.draw.circle(screen, self.GOLD, (box_x + box_w, y), corner_radius)
-        pygame.draw.circle(screen, self.GOLD, (box_x, y + box_h), corner_radius)
-        pygame.draw.circle(screen, self.GOLD, (box_x + box_w, y + box_h), corner_radius)
+        if heat_intensity > 0.5:
+            corner_pulse = int(2 * math.sin(self.table_pulse_phase * 8))
+            corner_radius = 4 + corner_pulse
+        pygame.draw.circle(screen, self.GOLD, (box_x, draw_y), corner_radius)
+        pygame.draw.circle(screen, self.GOLD, (box_x + box_w, draw_y), corner_radius)
+        pygame.draw.circle(screen, self.GOLD, (box_x, draw_y + box_h), corner_radius)
+        pygame.draw.circle(screen, self.GOLD, (box_x + box_w, draw_y + box_h), corner_radius)
+
+        # 2000골드 이상: 상단에 불꽃 파티클
+        if heat_intensity > 0.5:
+            for i in range(5):
+                flame_x = box_x + 20 + i * 35 + int(math.sin(self.table_pulse_phase * 5 + i) * 5)
+                flame_y = draw_y - 8 - int(abs(math.sin(self.table_pulse_phase * 8 + i * 1.5)) * 8)
+                flame_size = 3 + int(math.sin(self.table_pulse_phase * 6 + i) * 2)
+                flame_alpha = int(150 + 100 * math.sin(self.table_pulse_phase * 7 + i))
+                flame_color = (255, 150 + int(50 * math.sin(self.table_pulse_phase * 4 + i)), 50)
+                pygame.draw.circle(screen, flame_color, (flame_x, flame_y), max(1, flame_size))
 
         # 칩 아이콘
-        chip_x = x - box_w // 2 + 28
-        chip_y = y + box_h // 2
+        chip_x = draw_x - box_w // 2 + 28
+        chip_y = draw_y + box_h // 2
         self._draw_chip(screen, chip_x, chip_y, 16)
 
-        # 판돈 텍스트
-        self._draw_text(screen, "판돈", x + 15, y + 6, self.SILVER, 20, center=True)
-        self._draw_text(screen, f"{pot:,}", x + 8, y + 30, self.GOLD_LIGHT, 26, center=True)
-        self._draw_gold_coin(screen, x + 60, y + 42, 14)
+        # 판돈 텍스트 (열기 시 색상 변화)
+        if heat_intensity > 0.5:
+            text_pulse = 0.7 + 0.3 * math.sin(self.table_pulse_phase * 6)
+            pot_color = (255, int(200 + 55 * text_pulse), int(100 * text_pulse))
+        else:
+            pot_color = self.GOLD_LIGHT
+
+        self._draw_text(screen, "판돈", draw_x + 15, draw_y + 6, self.SILVER, 20, center=True)
+        self._draw_text(screen, f"{pot:,}", draw_x + 8, draw_y + 30, pot_color, 26, center=True)
+        self._draw_gold_coin(screen, draw_x + 60, draw_y + 42, 14)
 
     def _draw_chip(self, screen, x, y, radius):
         """칩 그리기"""
