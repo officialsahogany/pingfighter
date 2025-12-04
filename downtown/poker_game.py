@@ -233,6 +233,247 @@ class ParticleSystem:
 
 
 # ============================================
+# 칩 스택 시스템
+# ============================================
+class ChipStack:
+    """칩 스택 - 골드에 비례해서 쌓이는 칩"""
+    # 칩 색상 (금액별)
+    CHIP_COLORS = [
+        (200, 200, 220),  # 흰색/은색 (1-100)
+        (255, 100, 100),  # 빨강 (100-500)
+        (100, 180, 255),  # 파랑 (500-1000)
+        (100, 255, 100),  # 초록 (1000-2000)
+        (255, 200, 100),  # 주황 (2000-5000)
+        (200, 100, 255),  # 보라 (5000+)
+    ]
+
+    def __init__(self, x, y, direction='up'):
+        self.x = x
+        self.y = y
+        self.direction = direction  # 'up', 'left', 'right'
+        self.gold = 0
+        self.chip_size = 12  # 칩 반지름
+        self.chip_height = 4  # 칩 두께
+
+    def set_gold(self, gold):
+        """골드 설정"""
+        self.gold = max(0, gold)
+
+    def get_chip_count(self):
+        """골드에 따른 칩 개수 계산"""
+        if self.gold <= 0:
+            return 0
+        # 최소 1개, 최대 15개
+        count = min(15, max(1, self.gold // 200 + 1))
+        return count
+
+    def get_chip_color(self, index, total):
+        """칩 인덱스에 따른 색상"""
+        # 아래부터 낮은 가치, 위로 갈수록 높은 가치
+        if self.gold >= 5000:
+            return self.CHIP_COLORS[5]
+        elif self.gold >= 2000:
+            return self.CHIP_COLORS[4]
+        elif self.gold >= 1000:
+            return self.CHIP_COLORS[3]
+        elif self.gold >= 500:
+            return self.CHIP_COLORS[2]
+        elif self.gold >= 100:
+            return self.CHIP_COLORS[1]
+        else:
+            return self.CHIP_COLORS[0]
+
+    def draw(self, screen, offset_x=0, offset_y=0):
+        """칩 스택 그리기"""
+        if self.gold <= 0:
+            return
+
+        count = self.get_chip_count()
+        base_x = self.x + offset_x
+        base_y = self.y + offset_y
+
+        for i in range(count):
+            # 방향에 따른 오프셋
+            if self.direction == 'up':
+                chip_x = base_x
+                chip_y = base_y - i * self.chip_height
+            elif self.direction == 'left':
+                chip_x = base_x - i * 3
+                chip_y = base_y - i * self.chip_height
+            elif self.direction == 'right':
+                chip_x = base_x + i * 3
+                chip_y = base_y - i * self.chip_height
+            else:
+                chip_x = base_x
+                chip_y = base_y - i * self.chip_height
+
+            self._draw_single_chip(screen, chip_x, chip_y, i, count)
+
+    def _draw_single_chip(self, screen, x, y, index, total):
+        """개별 칩 그리기"""
+        color = self.get_chip_color(index, total)
+        r, g, b = color
+
+        # 칩 옆면 (어두운 색)
+        dark_color = (max(0, r - 60), max(0, g - 60), max(0, b - 60))
+        pygame.draw.ellipse(screen, dark_color,
+                           (x - self.chip_size, y, self.chip_size * 2, self.chip_height + 2))
+
+        # 칩 윗면
+        pygame.draw.ellipse(screen, color,
+                           (x - self.chip_size, y - self.chip_height, self.chip_size * 2, self.chip_height * 2))
+
+        # 칩 테두리
+        pygame.draw.ellipse(screen, (255, 255, 255),
+                           (x - self.chip_size, y - self.chip_height, self.chip_size * 2, self.chip_height * 2), 1)
+
+        # 칩 내부 장식 (작은 원)
+        inner_color = (min(255, r + 30), min(255, g + 30), min(255, b + 30))
+        pygame.draw.ellipse(screen, inner_color,
+                           (x - self.chip_size // 2, y - self.chip_height + 1,
+                            self.chip_size, self.chip_height))
+
+
+class ChipAnimation:
+    """칩 이동 애니메이션"""
+    def __init__(self, start_x, start_y, end_x, end_y, gold_amount, duration=0.5):
+        self.start_x = start_x
+        self.start_y = start_y
+        self.end_x = end_x
+        self.end_y = end_y
+        self.gold_amount = gold_amount
+        self.duration = duration
+        self.elapsed = 0
+        self.done = False
+        self.trail = []  # 잔상 위치들
+
+        # 칩 개수 (금액에 따라)
+        self.chip_count = min(8, max(1, gold_amount // 100))
+
+        # 칩 색상
+        if gold_amount >= 500:
+            self.chip_color = (100, 180, 255)  # 파랑
+        elif gold_amount >= 200:
+            self.chip_color = (255, 100, 100)  # 빨강
+        else:
+            self.chip_color = (200, 200, 220)  # 흰색
+
+    def update(self, dt):
+        """애니메이션 업데이트"""
+        if self.done:
+            return False
+
+        self.elapsed += dt
+
+        # 진행률 계산 (easing)
+        progress = min(1.0, self.elapsed / self.duration)
+        eased = 1 - (1 - progress) ** 3  # ease-out cubic
+
+        # 현재 위치 계산
+        current_x = self.start_x + (self.end_x - self.start_x) * eased
+        current_y = self.start_y + (self.end_y - self.start_y) * eased
+
+        # 잔상 추가 (매 프레임)
+        self.trail.append({
+            'x': current_x,
+            'y': current_y,
+            'alpha': 255,
+            'time': 0
+        })
+
+        # 잔상 페이드아웃
+        for t in self.trail:
+            t['time'] += dt
+            t['alpha'] = max(0, 255 - int(t['time'] * 800))
+
+        # 오래된 잔상 제거
+        self.trail = [t for t in self.trail if t['alpha'] > 0]
+
+        if progress >= 1.0:
+            self.done = True
+
+        return not self.done
+
+    def get_current_position(self):
+        """현재 위치 반환"""
+        progress = min(1.0, self.elapsed / self.duration)
+        eased = 1 - (1 - progress) ** 3
+        x = self.start_x + (self.end_x - self.start_x) * eased
+        y = self.start_y + (self.end_y - self.start_y) * eased
+        return x, y
+
+    def draw(self, screen):
+        """칩 애니메이션 그리기"""
+        # 잔상 그리기
+        for t in self.trail:
+            alpha = t['alpha']
+            if alpha <= 0:
+                continue
+            self._draw_chip_stack(screen, t['x'], t['y'], alpha // 3)
+
+        # 메인 칩 그리기
+        if not self.done:
+            x, y = self.get_current_position()
+            self._draw_chip_stack(screen, x, y, 255)
+
+    def _draw_chip_stack(self, screen, x, y, alpha):
+        """미니 칩 스택 그리기"""
+        chip_size = 10
+        chip_height = 3
+
+        for i in range(self.chip_count):
+            chip_y = y - i * chip_height
+
+            # 칩 서피스 생성
+            surf = pygame.Surface((chip_size * 2 + 4, chip_height * 3 + 4), pygame.SRCALPHA)
+
+            r, g, b = self.chip_color
+            # 칩 옆면
+            dark_color = (max(0, r - 60), max(0, g - 60), max(0, b - 60), alpha)
+            pygame.draw.ellipse(surf, dark_color,
+                               (2, chip_height + 2, chip_size * 2, chip_height + 2))
+
+            # 칩 윗면
+            top_color = (r, g, b, alpha)
+            pygame.draw.ellipse(surf, top_color,
+                               (2, 2, chip_size * 2, chip_height * 2))
+
+            # 테두리
+            border_color = (255, 255, 255, alpha // 2)
+            pygame.draw.ellipse(surf, border_color,
+                               (2, 2, chip_size * 2, chip_height * 2), 1)
+
+            screen.blit(surf, (x - chip_size - 2, chip_y - chip_height - 2))
+
+
+class ChipAnimationManager:
+    """칩 애니메이션 관리자"""
+    def __init__(self):
+        self.animations = []
+
+    def add_animation(self, start_x, start_y, end_x, end_y, gold_amount, duration=0.4):
+        """새 애니메이션 추가"""
+        anim = ChipAnimation(start_x, start_y, end_x, end_y, gold_amount, duration)
+        self.animations.append(anim)
+
+    def update(self, dt):
+        """모든 애니메이션 업데이트"""
+        for anim in self.animations:
+            anim.update(dt)
+        # 완료된 애니메이션 제거
+        self.animations = [a for a in self.animations if not a.done]
+
+    def draw(self, screen):
+        """모든 애니메이션 그리기"""
+        for anim in self.animations:
+            anim.draw(screen)
+
+    def has_animations(self):
+        """진행 중인 애니메이션 있는지"""
+        return len(self.animations) > 0
+
+
+# ============================================
 # 카드 애니메이션 시스템
 # ============================================
 class CardAnimation:
@@ -2008,6 +2249,8 @@ class PokerGameUI:
         self.animation_timer = 0
         self.show_result_timer = 0
         self.result_shown = False
+        self.win_chips_triggered = False  # 승리 시 칩 애니메이션 트리거 여부
+        self.last_npc_action_display = None  # 마지막 NPC 액션 표시 (칩 애니메이션 중복 방지)
 
         # 색상 팔레트 (프리미엄)
         self.DARK_BG = (18, 15, 25)
@@ -2027,8 +2270,11 @@ class PokerGameUI:
         self.card_renderer = PremiumCardRenderer()
         self.particles = ParticleSystem()
 
-        # 칩 애니메이션
-        self.chip_animations = []
+        # 칩 스택 시스템
+        self.chip_stacks = {}  # 플레이어별 칩 스택 {'south': ChipStack, ...}
+        self.pot_chip_stack = None  # 판돈 칩 스택
+        self.chip_animation_manager = ChipAnimationManager()
+        self._init_chip_stacks()
 
         self._font_cache = {}
 
@@ -2116,6 +2362,95 @@ class PokerGameUI:
             },
         }
 
+    def _init_chip_stacks(self):
+        """칩 스택 초기화"""
+        cx = self.screen_width // 2
+        cy = self.screen_height // 2
+
+        # 플레이어별 칩 스택 위치 설정
+        # south(플레이어): 정보 패널 오른쪽
+        # north: 정보 패널 오른쪽
+        # west: 정보 패널 아래
+        # east: 정보 패널 아래
+        self.chip_stack_positions = {
+            'south': (150, self.screen_height - 160),  # 플레이어 정보 패널 오른쪽
+            'north': (cx - 50, 70),  # 북쪽 NPC 정보 패널 오른쪽
+            'west': (90, cy - 80),  # 서쪽 NPC 정보 패널 아래
+            'east': (self.screen_width - 90, cy - 80),  # 동쪽 NPC 정보 패널 아래
+        }
+
+        # 칩 스택 생성
+        for position, (x, y) in self.chip_stack_positions.items():
+            self.chip_stacks[position] = ChipStack(x, y, 'up')
+
+        # 판돈 칩 스택 (판돈 박스 왼쪽)
+        self.pot_chip_stack = ChipStack(cx - 120, cy + 80, 'up')
+
+    def _update_chip_stacks(self):
+        """플레이어 골드에 맞게 칩 스택 업데이트"""
+        if not self.game:
+            return
+
+        for position, player in self.game.players.items():
+            if position in self.chip_stacks:
+                self.chip_stacks[position].set_gold(player.gold)
+
+        # 판돈 칩 스택 업데이트
+        if self.pot_chip_stack:
+            self.pot_chip_stack.set_gold(self.game.pot)
+
+    def _get_chip_stack_position(self, position):
+        """플레이어 위치에 따른 칩 스택 중심 좌표 반환"""
+        if position in self.chip_stack_positions:
+            return self.chip_stack_positions[position]
+        return (self.screen_width // 2, self.screen_height // 2)
+
+    def _get_pot_position(self):
+        """판돈 박스 위치 반환"""
+        cx = self.screen_width // 2
+        cy = self.screen_height // 2
+        return (cx - 50, cy + 70)  # 판돈 박스 왼쪽 근처
+
+    def trigger_chip_animation(self, from_position, gold_amount):
+        """베팅 시 칩 이동 애니메이션 트리거"""
+        if gold_amount <= 0:
+            return
+
+        start_pos = self._get_chip_stack_position(from_position)
+        end_pos = self._get_pot_position()
+
+        self.chip_animation_manager.add_animation(
+            start_pos[0], start_pos[1],
+            end_pos[0], end_pos[1],
+            gold_amount,
+            duration=0.4
+        )
+
+    def trigger_win_chip_animation(self, winner_position):
+        """승리 시 판돈 칩이 승자에게 이동하는 애니메이션"""
+        if not self.game:
+            return
+
+        pot_amount = self.game.pot
+        if pot_amount <= 0:
+            return
+
+        start_pos = self._get_pot_position()
+        end_pos = self._get_chip_stack_position(winner_position)
+
+        # 여러 번에 나눠서 칩 이동 (더 화려하게)
+        delay_count = min(5, pot_amount // 200 + 1)
+        for i in range(delay_count):
+            # 약간씩 다른 시작점에서 출발 (퍼지는 효과)
+            offset_x = random.randint(-15, 15)
+            offset_y = random.randint(-10, 10)
+            self.chip_animation_manager.add_animation(
+                start_pos[0] + offset_x, start_pos[1] + offset_y,
+                end_pos[0], end_pos[1],
+                pot_amount // delay_count,
+                duration=0.5 + i * 0.1
+            )
+
     def _load_gold_sound(self):
         """골드 증감 효과음 로드"""
         try:
@@ -2149,6 +2484,8 @@ class PokerGameUI:
         self.game.start_new_round()
         self.bet_amount = min(50, player_gold)
         self.result_shown = False
+        self.win_chips_triggered = False
+        self.last_npc_action_display = None
 
         # 포커 BGM 시작
         if self.bgm:
@@ -2445,6 +2782,8 @@ class PokerGameUI:
                 self.game.start_new_round()
                 self.bet_amount = min(50, self.game.players['south'].gold)
                 self.result_shown = False
+                self.win_chips_triggered = False
+                self.last_npc_action_display = None
                 return 'new_round'
             else:
                 return 'exit'
@@ -2452,17 +2791,26 @@ class PokerGameUI:
             return 'exit'
         return None
 
-    def _spawn_chip_animation(self, amount):
-        """칩 애니메이션 생성"""
+    def _spawn_chip_animation(self, amount, from_position='south'):
+        """칩 애니메이션 생성 - 베팅 시 칩이 판돈으로 이동"""
+        # 파티클 효과
         self.particles.emit_sparkle(
             self.screen_width // 2,
             self.screen_height - 100,
             count=15, color=self.GOLD
         )
+        # 칩 이동 애니메이션 트리거
+        self.trigger_chip_animation(from_position, amount)
 
     def update(self, dt):
         self.animation_timer += dt
         self.particles.update(dt)
+
+        # 칩 스택 업데이트
+        self._update_chip_stacks()
+
+        # 칩 애니메이션 업데이트
+        self.chip_animation_manager.update(dt)
 
         # 족보 패널 스크롤 애니메이션 업데이트
         self._update_hand_rankings_scroll(dt)
@@ -2479,17 +2827,37 @@ class PokerGameUI:
         if self.game:
             self.game.update(dt)
 
-            # NPC 생각 업데이트
+            # NPC 생각 업데이트 및 NPC 베팅 시 칩 애니메이션
             if self.game.npc_thinking or self.game.npc_action_display:
                 self.game.update_npc_thinking()
 
-            # 승리 시 파티클 효과 및 플로팅 텍스트 생성
-            if self.game.state == PokerGame.STATE_SHOWDOWN and not self.result_shown:
+                # NPC 액션이 새로 표시되면 칩 애니메이션 트리거
+                if self.game.npc_action_display and self.game.npc_action_display != self.last_npc_action_display:
+                    self.last_npc_action_display = self.game.npc_action_display
+                    # NPC 베팅 액션 감지 (콜/레이즈만 칩 애니메이션)
+                    if self.game.npc_thinking_player and self.game.npc_pending_action:
+                        action, amount = self.game.npc_pending_action
+                        if action in ['call', 'raise'] and amount > 0:
+                            self.trigger_chip_animation(self.game.npc_thinking_player, amount)
+            else:
+                # NPC 액션 표시가 없을 때 추적 초기화
+                if self.last_npc_action_display is not None and not self.game.npc_action_display:
+                    self.last_npc_action_display = None
+
+            # 승리 시 파티클 효과, 칩 애니메이션 및 플로팅 텍스트 생성
+            if self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER] and not self.result_shown:
                 self.result_shown = True
                 # 4인용: 플레이어가 승자 목록에 있는지 확인
                 player_won = any(w['position'] == 'south' for w in self.game.winners) if self.game.winners else False
                 if player_won:
                     self.particles.emit_win(self.screen_width // 2, self.screen_height // 2)
+
+                # 승리 시 칩 애니메이션 - 판돈이 승자에게 이동
+                if not self.win_chips_triggered and self.game.winners:
+                    self.win_chips_triggered = True
+                    for winner_info in self.game.winners:
+                        winner_pos = winner_info['position']
+                        self.trigger_win_chip_animation(winner_pos)
 
                 # 펜딩된 플로팅 텍스트 처리
                 if self.game.pending_floating_texts:
@@ -2565,6 +2933,12 @@ class PokerGameUI:
         elif self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER]:
             self._draw_result_ui(screen)
 
+        # 칩 스택 그리기
+        self._draw_chip_stacks(screen)
+
+        # 칩 애니메이션 그리기
+        self.chip_animation_manager.draw(screen)
+
         # 파티클
         self.particles.draw(screen)
 
@@ -2576,6 +2950,20 @@ class PokerGameUI:
 
         # 족보 패널 (열려있을 때)
         self._draw_hand_rankings_panel(screen)
+
+    def _draw_chip_stacks(self, screen):
+        """플레이어/NPC 칩 스택 및 판돈 칩 스택 그리기"""
+        if not self.game:
+            return
+
+        # 각 플레이어의 칩 스택 그리기
+        for position, chip_stack in self.chip_stacks.items():
+            if position in self.game.players:
+                chip_stack.draw(screen)
+
+        # 판돈 칩 스택 그리기
+        if self.pot_chip_stack and self.game.pot > 0:
+            self.pot_chip_stack.draw(screen)
 
     def _draw_floating_texts(self, screen):
         """플로팅 텍스트 렌더링 (위로/아래로 이동하며 페이드아웃)"""
