@@ -2232,6 +2232,24 @@ class PokerGameUI:
                                PokerGame.STATE_TURN_DEALING, PokerGame.STATE_RIVER_DEALING]:
             return None
 
+        # 베팅 상태일 때 화살표 클릭 처리
+        if self.game.state == PokerGame.STATE_BETTING:
+            cx = self.screen_width // 2
+            y = self.screen_height - 80
+            arrow_y = y + 35
+
+            # 왼쪽 화살표 영역 (감소)
+            left_arrow_rect = pygame.Rect(cx - 110, arrow_y - 15, 35, 30)
+            if left_arrow_rect.collidepoint(pos):
+                self.bet_amount = max(self.game.min_bet, self.bet_amount - 10)
+                return None
+
+            # 오른쪽 화살표 영역 (증가)
+            right_arrow_rect = pygame.Rect(cx + 75, arrow_y - 15, 35, 30)
+            if right_arrow_rect.collidepoint(pos):
+                self.bet_amount = min(self.game.max_bet, self.game.players['south'].gold, self.bet_amount + 10)
+                return None
+
         # 액션 상태일 때 버튼 클릭 처리 (관전자 모드에서는 무시)
         if self.game.state in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
                                 PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
@@ -3772,10 +3790,10 @@ class PokerGameUI:
 
         # 금액 + 골드 코인 아이콘
         bet_text = f"{self.bet_amount:,}"
-        self._draw_text(screen, bet_text, cx - 8, y + 28, self.GOLD_LIGHT, 24, center=True)
-        # 숫자 길이에 따라 아이콘 위치 조정 (숫자 바로 옆에)
+        self._draw_text(screen, bet_text, cx - 12, y + 28, self.GOLD_LIGHT, 24, center=True)
+        # 숫자 길이에 따라 아이콘 위치 조정 (숫자에서 적당히 떨어진 위치)
         text_half_width = len(bet_text) * 7  # 24pt 폰트 기준 대략적 반너비
-        self._draw_gold_coin(screen, cx - 8 + text_half_width + 5, y + 38, 16)
+        self._draw_gold_coin(screen, cx - 12 + text_half_width + 12, y + 38, 16)
 
         # 오른쪽 화살표
         pygame.draw.polygon(screen, self.GOLD, [
