@@ -3968,25 +3968,6 @@ class PokerGameUI:
 
             item_y += item_height
 
-        # === 하단 현재 족보 안내 ===
-        bottom_y = panel_y + panel_height - 40
-        # 하단 배경
-        bottom_bg = pygame.Surface((panel_width - 40, 30), pygame.SRCALPHA)
-        pygame.draw.rect(bottom_bg, (40, 20, 25, 200), (0, 0, panel_width - 40, 30), border_radius=5)
-        screen.blit(bottom_bg, (panel_x + 20, bottom_y))
-        pygame.draw.rect(screen, (180, 140, 60), (panel_x + 20, bottom_y, panel_width - 40, 30), 1, border_radius=5)
-
-        if current_hand_rank > 0:
-            current_name = ""
-            for rank, name, _ in self.HAND_RANKINGS_LIST:
-                if rank == current_hand_rank:
-                    current_name = name
-                    break
-            self._draw_text(screen, f"나의 패: {current_name}", panel_x + panel_width // 2,
-                           bottom_y + 7, (255, 220, 120), 12, center=True)
-        else:
-            self._draw_text(screen, "커뮤니티 카드를 기다리세요", panel_x + panel_width // 2,
-                           bottom_y + 7, (180, 160, 140), 10, center=True)
 
         # 클리핑 해제
         screen.set_clip(None)
