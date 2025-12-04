@@ -3958,7 +3958,7 @@ class PokerGameUI:
 
             # 현재 족보 옆에 표시
             if is_current:
-                self._draw_text(screen, "← 현재 나의 패", panel_x + 155, item_y + 5, (255, 220, 100), 9)
+                self._draw_text(screen, "← 현재", panel_x + 130, item_y + 5, (255, 220, 100), 9)
 
             # 구분선 (희미한 금색)
             if rank > 1:
