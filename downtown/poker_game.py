@@ -3716,79 +3716,100 @@ class PokerGameUI:
                        cx, y + 55, (120, 120, 130), 11, center=True)
 
     def _draw_scroll_icon(self, screen):
-        """족보 스크롤 아이콘 그리기 (우하단)"""
-        # 아이콘 위치 (베팅 박스 오른쪽)
+        """족보 스크롤 아이콘 그리기 (고급 붉은 융단 파피루스 스타일)"""
         cx = self.screen_width // 2
-        icon_x = cx + 200  # 베팅 박스 오른쪽
-        icon_y = self.screen_height - 70
-        icon_size = 40
+        icon_x = cx + 230  # 더 오른쪽으로
+        icon_y = self.screen_height - 65
+        icon_size = 50
 
         # 애니메이션 업데이트
-        self.scroll_icon_animation += 0.05
-        bounce = math.sin(self.scroll_icon_animation * 2) * 3
+        self.scroll_icon_animation += 0.03
+        bounce = math.sin(self.scroll_icon_animation * 1.5) * 2
+        glow_pulse = 0.7 + 0.3 * math.sin(self.scroll_icon_animation * 2)
 
         # 클릭 영역 저장
-        self.scroll_icon_rect = pygame.Rect(icon_x - icon_size//2, icon_y - icon_size//2 + bounce,
-                                            icon_size, icon_size)
+        self.scroll_icon_rect = pygame.Rect(icon_x - icon_size//2, int(icon_y - icon_size//2 + bounce),
+                                            icon_size, icon_size + 10)
 
-        # 글로우 효과
-        glow_alpha = int(80 + 40 * math.sin(self.scroll_icon_animation * 3))
-        glow_surf = pygame.Surface((icon_size + 20, icon_size + 20), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (255, 200, 100, glow_alpha),
-                          (icon_size//2 + 10, icon_size//2 + 10), icon_size//2 + 8)
-        screen.blit(glow_surf, (icon_x - icon_size//2 - 10, icon_y - icon_size//2 + bounce - 10))
+        # 신비로운 외부 글로우 (다중 레이어)
+        for i in range(3, 0, -1):
+            glow_surf = pygame.Surface((icon_size + 30 + i*10, icon_size + 30 + i*10), pygame.SRCALPHA)
+            glow_alpha = int(40 * glow_pulse * (4-i) / 3)
+            # 붉은색 + 금색 혼합 글로우
+            pygame.draw.ellipse(glow_surf, (180, 80, 40, glow_alpha),
+                              (0, 0, icon_size + 30 + i*10, icon_size + 30 + i*10))
+            screen.blit(glow_surf, (icon_x - icon_size//2 - 15 - i*5,
+                                   int(icon_y - icon_size//2 + bounce - 15 - i*5)))
 
-        # 스크롤 배경 (양피지 색상)
-        scroll_color = (200, 170, 120)
-        scroll_dark = (150, 120, 80)
+        # 스크롤 본체 서피스
+        scroll_surf = pygame.Surface((40, 50), pygame.SRCALPHA)
 
-        # 스크롤 본체
-        pygame.draw.rect(screen, scroll_color,
-                        (icon_x - 12, icon_y - 15 + bounce, 24, 30), border_radius=3)
+        # 붉은 융단 배경 그라데이션
+        for i in range(50):
+            ratio = i / 50
+            # 깊은 와인레드 → 진홍색 그라데이션
+            r = int(120 + ratio * 30 - abs(ratio - 0.5) * 40)
+            g = int(25 + ratio * 15)
+            b = int(35 + ratio * 15)
+            pygame.draw.line(scroll_surf, (r, g, b), (3, i), (37, i))
 
-        # 스크롤 상단 롤 (말린 부분)
-        pygame.draw.ellipse(screen, scroll_dark,
-                           (icon_x - 14, icon_y - 18 + bounce, 28, 8))
-        pygame.draw.ellipse(screen, scroll_color,
-                           (icon_x - 12, icon_y - 16 + bounce, 24, 6))
+        # 파피루스 질감 효과 (노이즈)
+        for _ in range(30):
+            nx = random.randint(5, 35)
+            ny = random.randint(5, 45)
+            noise_alpha = random.randint(10, 30)
+            pygame.draw.circle(scroll_surf, (200, 180, 150, noise_alpha), (nx, ny), 1)
 
-        # 스크롤 하단 롤
-        pygame.draw.ellipse(screen, scroll_dark,
-                           (icon_x - 14, icon_y + 12 + bounce, 28, 8))
-        pygame.draw.ellipse(screen, scroll_color,
-                           (icon_x - 12, icon_y + 14 + bounce, 24, 6))
+        # 금색 테두리
+        pygame.draw.rect(scroll_surf, (200, 160, 60), (2, 2, 36, 46), 2, border_radius=4)
+        pygame.draw.rect(scroll_surf, (255, 200, 80), (3, 3, 34, 44), 1, border_radius=3)
 
-        # 텍스트 라인 (스크롤 내용 암시)
-        for i in range(3):
-            line_y = icon_y - 8 + i * 7 + bounce
-            line_width = 14 - i * 2
-            pygame.draw.line(screen, scroll_dark,
-                           (icon_x - line_width//2, line_y),
-                           (icon_x + line_width//2, line_y), 2)
+        # 상단 스크롤 롤 (말린 부분) - 골드 장식
+        roll_color_dark = (140, 100, 40)
+        roll_color_light = (220, 180, 80)
+        roll_color_highlight = (255, 230, 150)
 
-        # "족보" 라벨
-        self._draw_text(screen, "족보", icon_x, icon_y + 28 + bounce, (200, 180, 140), 10, center=True)
+        # 상단 롤
+        pygame.draw.ellipse(scroll_surf, roll_color_dark, (0, -2, 40, 10))
+        pygame.draw.ellipse(scroll_surf, roll_color_light, (2, 0, 36, 7))
+        pygame.draw.ellipse(scroll_surf, roll_color_highlight, (8, 1, 24, 4))
 
-        # 열림/닫힘 상태 표시 화살표
-        if self.show_hand_rankings:
-            # 위쪽 화살표 (닫기)
-            arrow_y = icon_y - 22 + bounce
-            pygame.draw.polygon(screen, self.GOLD, [
-                (icon_x, arrow_y - 5),
-                (icon_x - 6, arrow_y + 3),
-                (icon_x + 6, arrow_y + 3)
+        # 하단 롤
+        pygame.draw.ellipse(scroll_surf, roll_color_dark, (0, 44, 40, 10))
+        pygame.draw.ellipse(scroll_surf, roll_color_light, (2, 45, 36, 7))
+        pygame.draw.ellipse(scroll_surf, roll_color_highlight, (8, 46, 24, 4))
+
+        # 중앙 카드 문양 (스페이드)
+        spade_color = (255, 215, 100)
+        # 스페이드 심볼
+        pygame.draw.polygon(scroll_surf, spade_color, [
+            (20, 15), (14, 24), (17, 24), (17, 28), (23, 28), (23, 24), (26, 24)
+        ])
+        pygame.draw.circle(scroll_surf, spade_color, (16, 22), 4)
+        pygame.draw.circle(scroll_surf, spade_color, (24, 22), 4)
+
+        # 장식 라인
+        pygame.draw.line(scroll_surf, (255, 200, 100), (8, 33), (32, 33), 1)
+        pygame.draw.line(scroll_surf, (255, 200, 100), (10, 37), (30, 37), 1)
+        pygame.draw.line(scroll_surf, (255, 200, 100), (12, 41), (28, 41), 1)
+
+        # 스크롤 그리기
+        screen.blit(scroll_surf, (icon_x - 20, int(icon_y - 25 + bounce)))
+
+        # 반짝임 효과
+        if int(self.scroll_icon_animation * 10) % 20 < 3:
+            sparkle_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.polygon(sparkle_surf, (255, 255, 200, 200), [
+                (4, 0), (5, 3), (8, 4), (5, 5), (4, 8), (3, 5), (0, 4), (3, 3)
             ])
-        else:
-            # 아래쪽 화살표 (열기)
-            arrow_y = icon_y - 22 + bounce
-            pygame.draw.polygon(screen, self.GOLD, [
-                (icon_x, arrow_y + 3),
-                (icon_x - 6, arrow_y - 5),
-                (icon_x + 6, arrow_y - 5)
-            ])
+            screen.blit(sparkle_surf, (icon_x + 10, int(icon_y - 20 + bounce)))
+
+        # "족보" 라벨 (금색 그림자)
+        self._draw_text(screen, "족보", icon_x + 1, int(icon_y + 32 + bounce + 1), (80, 40, 20), 11, center=True)
+        self._draw_text(screen, "족보", icon_x, int(icon_y + 32 + bounce), (255, 200, 100), 11, center=True)
 
     def _draw_hand_rankings_panel(self, screen):
-        """족보 패널 그리기 (스크롤 애니메이션)"""
+        """족보 패널 그리기 (고급 붉은 융단 파피루스 스타일)"""
         if self.hand_rankings_scroll <= 0:
             return
 
@@ -3801,86 +3822,167 @@ class PokerGameUI:
                 hand_result = self.game.evaluator.evaluate(all_cards)
                 current_hand_rank = hand_result[0]
 
-        # 패널 크기 및 위치
-        panel_width = 220
-        panel_height = 320
-        panel_x = self.screen_width - panel_width - 20
-        panel_y_base = self.screen_height - 100
+        # 패널 크기 및 위치 (더 오른쪽으로)
+        panel_width = 240
+        panel_height = 360
+        panel_x = self.screen_width - panel_width - 5  # 더 오른쪽으로
+        panel_y_base = self.screen_height - 80
 
         # 스크롤 애니메이션 적용 (아래에서 위로 올라옴)
         scroll_offset = (1 - self.hand_rankings_scroll) * panel_height
         panel_y = int(panel_y_base - panel_height + scroll_offset)
 
         # 클리핑 영역 설정
-        clip_rect = pygame.Rect(panel_x - 5, panel_y_base - panel_height - 10,
-                                panel_width + 10, panel_height + 20)
+        clip_rect = pygame.Rect(panel_x - 15, panel_y_base - panel_height - 20,
+                                panel_width + 30, panel_height + 40)
         screen.set_clip(clip_rect)
 
-        # 패널 배경 그라데이션
+        # === 외부 글로우 효과 (신비로운 빛) ===
+        glow_pulse = 0.7 + 0.3 * math.sin(self.scroll_icon_animation * 1.5)
+        for i in range(4, 0, -1):
+            glow_surf = pygame.Surface((panel_width + i*15, panel_height + i*15), pygame.SRCALPHA)
+            glow_alpha = int(25 * glow_pulse * (5-i) / 4)
+            pygame.draw.rect(glow_surf, (150, 50, 30, glow_alpha),
+                           (0, 0, panel_width + i*15, panel_height + i*15), border_radius=15)
+            screen.blit(glow_surf, (panel_x - i*7, panel_y - i*7))
+
+        # === 메인 패널 배경 (붉은 융단 그라데이션) ===
         for i in range(panel_height):
             ratio = i / panel_height
-            r = int(50 + ratio * 10)
-            g = int(40 + ratio * 10)
-            b = int(60 + ratio * 10)
-            pygame.draw.line(screen, (r, g, b), (panel_x, panel_y + i), (panel_x + panel_width, panel_y + i))
+            # 깊은 와인레드 그라데이션 (상단 밝음 → 하단 어두움)
+            brightness = 1.0 - ratio * 0.3
+            edge_dark = abs(ratio - 0.5) * 0.2  # 가장자리 약간 어둡게
+            r = int((100 + ratio * 40) * brightness - edge_dark * 30)
+            g = int((20 + ratio * 15) * brightness)
+            b = int((30 + ratio * 20) * brightness)
+            pygame.draw.line(screen, (max(0,r), max(0,g), max(0,b)),
+                           (panel_x, panel_y + i), (panel_x + panel_width, panel_y + i))
 
-        # 테두리
-        pygame.draw.rect(screen, self.GOLD, (panel_x, panel_y, panel_width, panel_height), 2, border_radius=8)
+        # === 파피루스 질감 오버레이 ===
+        texture_surf = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        for _ in range(80):
+            tx = random.randint(5, panel_width - 5)
+            ty = random.randint(5, panel_height - 5)
+            t_alpha = random.randint(5, 20)
+            t_size = random.randint(1, 3)
+            pygame.draw.circle(texture_surf, (200, 180, 150, t_alpha), (tx, ty), t_size)
+        screen.blit(texture_surf, (panel_x, panel_y))
 
-        # 제목 배경
-        pygame.draw.rect(screen, (40, 35, 55), (panel_x + 10, panel_y + 8, panel_width - 20, 28), border_radius=5)
-        pygame.draw.rect(screen, self.GOLD, (panel_x + 10, panel_y + 8, panel_width - 20, 28), 1, border_radius=5)
+        # === 화려한 금색 테두리 (다중 레이어) ===
+        # 외부 어두운 테두리
+        pygame.draw.rect(screen, (100, 70, 30), (panel_x - 3, panel_y - 3,
+                        panel_width + 6, panel_height + 6), 4, border_radius=12)
+        # 메인 금색 테두리
+        pygame.draw.rect(screen, (200, 160, 60), (panel_x - 1, panel_y - 1,
+                        panel_width + 2, panel_height + 2), 3, border_radius=10)
+        # 내부 밝은 금색 하이라이트
+        pygame.draw.rect(screen, (255, 220, 120), (panel_x + 1, panel_y + 1,
+                        panel_width - 2, panel_height - 2), 1, border_radius=8)
 
-        # 제목 텍스트
-        self._draw_text(screen, "포커 족보", panel_x + panel_width // 2, panel_y + 12, self.GOLD, 14, center=True)
+        # === 코너 장식 (금색 문양) ===
+        corner_size = 20
+        corner_color = (255, 200, 80)
+        corners = [
+            (panel_x + 5, panel_y + 5),  # 좌상단
+            (panel_x + panel_width - 25, panel_y + 5),  # 우상단
+            (panel_x + 5, panel_y + panel_height - 25),  # 좌하단
+            (panel_x + panel_width - 25, panel_y + panel_height - 25),  # 우하단
+        ]
+        for cx, cy in corners:
+            pygame.draw.line(screen, corner_color, (cx, cy + 8), (cx + 8, cy), 2)
+            pygame.draw.line(screen, corner_color, (cx + corner_size - 8, cy),
+                           (cx + corner_size, cy + 8), 2)
 
-        # 족보 목록 그리기
-        item_y = panel_y + 50
-        item_height = 26
+        # === 제목 영역 ===
+        title_y = panel_y + 12
+        # 제목 배경 (어두운 붉은색)
+        title_bg = pygame.Surface((panel_width - 30, 35), pygame.SRCALPHA)
+        for i in range(35):
+            ratio = i / 35
+            r = int(60 + ratio * 20)
+            g = int(15 + ratio * 10)
+            b = int(25 + ratio * 10)
+            pygame.draw.line(title_bg, (r, g, b, 230), (0, i), (panel_width - 30, i))
+        screen.blit(title_bg, (panel_x + 15, title_y - 2))
+
+        # 제목 테두리
+        pygame.draw.rect(screen, (200, 160, 60), (panel_x + 15, title_y - 2,
+                        panel_width - 30, 35), 2, border_radius=5)
+
+        # 제목 텍스트 (카드 문양 포함)
+        self._draw_text(screen, "♠ 포커 족보 ♥", panel_x + panel_width // 2,
+                       title_y + 6, (255, 215, 100), 16, center=True)
+
+        # === 족보 목록 ===
+        item_y = panel_y + 58
+        item_height = 28
 
         for rank, name, color in self.HAND_RANKINGS_LIST:
-            # 현재 플레이어 족보 하이라이트
             is_current = (rank == current_hand_rank)
 
             if is_current:
-                # 하이라이트 배경
-                highlight_surf = pygame.Surface((panel_width - 16, item_height), pygame.SRCALPHA)
-                pygame.draw.rect(highlight_surf, (255, 200, 50, 60),
-                               (0, 0, panel_width - 16, item_height), border_radius=4)
-                screen.blit(highlight_surf, (panel_x + 8, item_y - 2))
+                # 현재 족보 하이라이트 (황금빛 배경)
+                highlight_surf = pygame.Surface((panel_width - 24, item_height + 2), pygame.SRCALPHA)
+                for hi in range(item_height + 2):
+                    h_ratio = hi / (item_height + 2)
+                    h_alpha = int(80 - abs(h_ratio - 0.5) * 60)
+                    pygame.draw.line(highlight_surf, (255, 200, 50, h_alpha),
+                                   (0, hi), (panel_width - 24, hi))
+                screen.blit(highlight_surf, (panel_x + 12, item_y - 2))
 
-                # 하이라이트 테두리
-                pygame.draw.rect(screen, self.GOLD,
-                               (panel_x + 8, item_y - 2, panel_width - 16, item_height), 2, border_radius=4)
+                # 하이라이트 테두리 (금색)
+                pygame.draw.rect(screen, (255, 200, 80),
+                               (panel_x + 12, item_y - 2, panel_width - 24, item_height + 2), 2, border_radius=5)
 
-                # 화살표 표시
-                arrow_points = [
-                    (panel_x + 18, item_y + item_height//2 - 5),
-                    (panel_x + 25, item_y + item_height//2),
-                    (panel_x + 18, item_y + item_height//2 + 5)
-                ]
-                pygame.draw.polygon(screen, self.GOLD, arrow_points)
+                # 화살표 마커
+                arrow_x = panel_x + 20
+                arrow_cy = item_y + item_height // 2
+                pygame.draw.polygon(screen, (255, 215, 100), [
+                    (arrow_x, arrow_cy - 6),
+                    (arrow_x + 10, arrow_cy),
+                    (arrow_x, arrow_cy + 6)
+                ])
 
-            # 순위 번호
-            rank_color = color if is_current else (150, 150, 160)
-            # 족보 이름
-            name_color = color if is_current else (180, 180, 190)
+            # 텍스트 색상
+            if is_current:
+                rank_color = (255, 230, 150)
+                name_color = color
+            else:
+                rank_color = (180, 160, 140)
+                name_color = (200, 180, 160)
 
-            # 텍스트 그리기
-            self._draw_text(screen, f"{rank}.", panel_x + 30, item_y + 3, rank_color, 11 if is_current else 10)
-            self._draw_text(screen, name, panel_x + 50, item_y + 3, name_color, 11 if is_current else 10)
+            # 순위 번호와 족보 이름
+            font_size = 13 if is_current else 11
+            self._draw_text(screen, f"{rank}.", panel_x + 38, item_y + 4, rank_color, font_size)
+            self._draw_text(screen, name, panel_x + 60, item_y + 4, name_color, font_size)
+
+            # 구분선 (희미한 금색)
+            if rank > 1:
+                pygame.draw.line(screen, (120, 90, 50, 100),
+                               (panel_x + 30, item_y + item_height + 1),
+                               (panel_x + panel_width - 30, item_y + item_height + 1), 1)
 
             item_y += item_height
 
-        # 현재 족보 안내 (하단)
+        # === 하단 현재 족보 안내 ===
+        bottom_y = panel_y + panel_height - 40
+        # 하단 배경
+        bottom_bg = pygame.Surface((panel_width - 40, 30), pygame.SRCALPHA)
+        pygame.draw.rect(bottom_bg, (40, 20, 25, 200), (0, 0, panel_width - 40, 30), border_radius=5)
+        screen.blit(bottom_bg, (panel_x + 20, bottom_y))
+        pygame.draw.rect(screen, (180, 140, 60), (panel_x + 20, bottom_y, panel_width - 40, 30), 1, border_radius=5)
+
         if current_hand_rank > 0:
             current_name = ""
             for rank, name, _ in self.HAND_RANKINGS_LIST:
                 if rank == current_hand_rank:
                     current_name = name
                     break
-            self._draw_text(screen, f"현재: {current_name}", panel_x + panel_width // 2,
-                           panel_y + panel_height - 25, self.GOLD_LIGHT, 10, center=True)
+            self._draw_text(screen, f"▶ 현재: {current_name}", panel_x + panel_width // 2,
+                           bottom_y + 7, (255, 220, 120), 12, center=True)
+        else:
+            self._draw_text(screen, "카드를 확인하세요", panel_x + panel_width // 2,
+                           bottom_y + 7, (180, 160, 140), 11, center=True)
 
         # 클리핑 해제
         screen.set_clip(None)
