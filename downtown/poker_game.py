@@ -3819,7 +3819,7 @@ class PokerGameUI:
             player = self.game.players.get('south')
             if player and player.hand:
                 all_cards = player.hand + self.game.community_cards
-                hand_result = self.game.evaluator.evaluate(all_cards)
+                hand_result = HandEvaluator.evaluate(all_cards)
                 current_hand_rank = hand_result[0]
 
         # 패널 크기 및 위치 (더 오른쪽으로)
@@ -3956,6 +3956,10 @@ class PokerGameUI:
             self._draw_text(screen, f"{rank}.", panel_x + 38, item_y + 4, rank_color, font_size)
             self._draw_text(screen, name, panel_x + 60, item_y + 4, name_color, font_size)
 
+            # 현재 족보 옆에 표시
+            if is_current:
+                self._draw_text(screen, "← 현재 나의 패", panel_x + 155, item_y + 5, (255, 220, 100), 9)
+
             # 구분선 (희미한 금색)
             if rank > 1:
                 pygame.draw.line(screen, (120, 90, 50, 100),
@@ -3978,11 +3982,11 @@ class PokerGameUI:
                 if rank == current_hand_rank:
                     current_name = name
                     break
-            self._draw_text(screen, f"▶ 현재: {current_name}", panel_x + panel_width // 2,
+            self._draw_text(screen, f"나의 패: {current_name}", panel_x + panel_width // 2,
                            bottom_y + 7, (255, 220, 120), 12, center=True)
         else:
-            self._draw_text(screen, "카드를 확인하세요", panel_x + panel_width // 2,
-                           bottom_y + 7, (180, 160, 140), 11, center=True)
+            self._draw_text(screen, "커뮤니티 카드를 기다리세요", panel_x + panel_width // 2,
+                           bottom_y + 7, (180, 160, 140), 10, center=True)
 
         # 클리핑 해제
         screen.set_clip(None)
