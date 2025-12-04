@@ -2672,6 +2672,10 @@ class PokerGameUI:
         self.gold_sound = None
         self._load_gold_sound()
 
+        # NPC 액션 음성 효과음 로드
+        self.action_sounds = {}
+        self._load_action_sounds()
+
         # 족보 스크롤 패널 관련 변수
         self.show_hand_rankings = False  # 족보 패널 표시 여부
         self.hand_rankings_scroll = 0  # 스크롤 애니메이션 진행도 (0~1)
@@ -2854,6 +2858,48 @@ class PokerGameUI:
         if self.gold_sound:
             try:
                 self.gold_sound.play()
+            except Exception:
+                pass
+
+    def _load_action_sounds(self):
+        """NPC 액션 음성 효과음 로드"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            poker_sounds_dir = os.path.join(parent_dir, "sounds", "poker")
+
+            action_files = {
+                'call': 'call.mp3',
+                'check': 'check.mp3',
+                'raise': 'raise.mp3',
+                'fold': 'fold.mp3',
+                'all_in': 'all_in.mp3'
+            }
+
+            for action, filename in action_files.items():
+                sound_path = os.path.join(poker_sounds_dir, filename)
+                if os.path.exists(sound_path):
+                    self.action_sounds[action] = pygame.mixer.Sound(sound_path)
+                    self.action_sounds[action].set_volume(0.7)
+                else:
+                    # PyInstaller 환경
+                    alt_path = resource_path(os.path.join("sounds", "poker", filename))
+                    if os.path.exists(alt_path):
+                        self.action_sounds[action] = pygame.mixer.Sound(alt_path)
+                        self.action_sounds[action].set_volume(0.7)
+
+            if self.action_sounds:
+                print(f"[PokerGameUI] 액션 효과음 로드 완료: {list(self.action_sounds.keys())}")
+        except Exception as e:
+            print(f"[PokerGameUI] 액션 효과음 로드 실패: {e}")
+
+    def _play_action_sound(self, action):
+        """NPC 액션 음성 효과음 재생
+        action: 'call', 'check', 'raise', 'fold', 'all_in'
+        """
+        if action in self.action_sounds:
+            try:
+                self.action_sounds[action].play()
             except Exception:
                 pass
 
@@ -3239,12 +3285,30 @@ class PokerGameUI:
             if self.game.npc_thinking or self.game.npc_action_display:
                 self.game.update_npc_thinking()
 
-                # NPC 액션이 새로 표시되면 칩 애니메이션 트리거
+                # NPC 액션이 새로 표시되면 칩 애니메이션 트리거 + 음성 효과음
                 if self.game.npc_action_display and self.game.npc_action_display != self.last_npc_action_display:
                     self.last_npc_action_display = self.game.npc_action_display
-                    # NPC 베팅 액션 감지 (콜/레이즈만 칩 애니메이션)
+                    # NPC 베팅 액션 감지
                     if self.game.npc_thinking_player and self.game.npc_pending_action:
                         action, amount = self.game.npc_pending_action
+
+                        # 음성 효과음 재생
+                        if action == 'fold':
+                            self._play_action_sound('fold')
+                        elif action == 'call':
+                            if amount == 0:
+                                self._play_action_sound('check')
+                            else:
+                                self._play_action_sound('call')
+                        elif action == 'raise':
+                            # 올인인지 확인
+                            npc = self.game.players.get(self.game.npc_thinking_player)
+                            if npc and npc.gold == 0:
+                                self._play_action_sound('all_in')
+                            else:
+                                self._play_action_sound('raise')
+
+                        # 콜/레이즈만 칩 애니메이션
                         if action in ['call', 'raise'] and amount > 0:
                             self.trigger_chip_animation(self.game.npc_thinking_player, amount)
             else:
