@@ -370,13 +370,7 @@ class ChipStack:
                            (x - inner_radius2, y - self.chip_height + 2,
                             inner_radius2 * 2, self.chip_height * 2 - 4), 1)
 
-        # 6. 중앙 하이라이트 (빛 반사)
-        highlight_color = (min(255, r + 60), min(255, g + 60), min(255, b + 60))
-        pygame.draw.ellipse(screen, highlight_color,
-                           (x - 3, y - self.chip_height,
-                            6, 3))
-
-        # 7. 외곽 테두리
+        # 6. 외곽 테두리
         pygame.draw.ellipse(screen, edge_color,
                            (x - self.chip_radius, y - self.chip_height,
                             self.chip_radius * 2, self.chip_height * 2 + 1), 1)
@@ -532,12 +526,7 @@ class ChipAnimation:
                 py = cy - chip_height + int(chip_height * 0.5 * math.sin(angle))
                 pygame.draw.rect(surf, edge_alpha, (px - 1, py, 2, 1))
 
-            # 5. 하이라이트
-            highlight = (min(255, r + 60), min(255, g + 60), min(255, b + 60), alpha // 2)
-            pygame.draw.ellipse(surf, highlight,
-                               (cx - 2, cy - chip_height, 4, 2))
-
-            # 6. 테두리
+            # 5. 테두리
             border = (edge[0], edge[1], edge[2], alpha // 2)
             pygame.draw.ellipse(surf, border,
                                (cx - chip_radius, cy - chip_height, chip_radius * 2, chip_height * 2), 1)
