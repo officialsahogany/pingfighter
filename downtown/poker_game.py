@@ -4207,11 +4207,11 @@ class PokerGameUI:
                 ])
 
         # === 설명 텍스트 ===
-        desc_y = card_y + card_height + 8
+        desc_y = card_y + card_height + 10
         desc_lines = desc.split('\n')
         for line in desc_lines:
             self._draw_text(screen, line, tooltip_x + tooltip_width // 2, desc_y, (200, 200, 180), 10, center=True)
-            desc_y += 14
+            desc_y += 18
 
         # 연결선 (툴팁과 항목 사이)
         if rank in self.hand_ranking_rects:
