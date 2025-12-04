@@ -2904,7 +2904,7 @@ class PokerGameUI:
         # 4인 플레이어 카드 위치
         card_positions = {
             'south': (cx - self.CARD_WIDTH - 8, self.screen_height - 180),  # 플레이어 (하단)
-            'north': (cx + 40, 60),                                          # 북쪽 NPC (상단) - 오른쪽으로 이동
+            'north': (cx - 20, 60),                                          # 북쪽 NPC (상단) - 가운데로 이동
             'west': (30, cy - self.CARD_HEIGHT // 2),                        # 서쪽 NPC (좌측)
             'east': (self.screen_width - 20 - self.CARD_WIDTH, cy - self.CARD_HEIGHT // 2),  # 동쪽 NPC (우측) - 더 오른쪽
         }
@@ -3018,7 +3018,7 @@ class PokerGameUI:
         # 4인 플레이어 카드 위치
         card_positions = {
             'south': (cx - self.CARD_WIDTH - 8, self.screen_height - 180),
-            'north': (cx + 40, 60),  # 리버 카드와 겹치지 않게 오른쪽으로 이동
+            'north': (cx - 20, 60),  # 가운데로 이동
             'west': (30, cy - self.CARD_HEIGHT // 2),
             'east': (self.screen_width - 20 - self.CARD_WIDTH, cy - self.CARD_HEIGHT // 2),
         }
@@ -3133,7 +3133,7 @@ class PokerGameUI:
         # 4인 플레이어 카드 위치 (쇼다운용)
         card_positions = {
             'south': (cx - self.CARD_WIDTH - 8, self.screen_height - 140),  # 더 아래로 이동
-            'north': (cx + 40, 60),  # 리버 카드와 겹치지 않게 오른쪽으로 이동
+            'north': (cx - 20, 60),  # 가운데로 이동
             'west': (30, cy - self.CARD_HEIGHT // 2 - 30),   # 약간 위로 이동
             'east': (self.screen_width - 20 - self.CARD_WIDTH, cy - self.CARD_HEIGHT // 2 - 30),  # 약간 위로 이동
         }
