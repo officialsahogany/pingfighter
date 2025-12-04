@@ -236,106 +236,164 @@ class ParticleSystem:
 # 칩 스택 시스템
 # ============================================
 class ChipStack:
-    """칩 스택 - 골드에 비례해서 쌓이는 칩"""
-    # 칩 색상 (금액별)
-    CHIP_COLORS = [
-        (200, 200, 220),  # 흰색/은색 (1-100)
-        (255, 100, 100),  # 빨강 (100-500)
-        (100, 180, 255),  # 파랑 (500-1000)
-        (100, 255, 100),  # 초록 (1000-2000)
-        (255, 200, 100),  # 주황 (2000-5000)
-        (200, 100, 255),  # 보라 (5000+)
+    """칩 스택 - 골드에 비례해서 쌓이는 칩 (2~4개 스택, 고퀄리티 디자인)"""
+    # 칩 색상 (금액별) - 메인색, 엣지색, 패턴색
+    CHIP_DESIGNS = [
+        {'main': (220, 220, 235), 'edge': (255, 255, 255), 'pattern': (180, 180, 200), 'value': 50},    # 흰색/은색
+        {'main': (220, 60, 60), 'edge': (255, 255, 255), 'pattern': (180, 40, 40), 'value': 100},       # 빨강
+        {'main': (50, 120, 220), 'edge': (255, 255, 255), 'pattern': (30, 80, 180), 'value': 500},      # 파랑
+        {'main': (50, 180, 80), 'edge': (255, 255, 255), 'pattern': (30, 140, 50), 'value': 1000},      # 초록
+        {'main': (255, 140, 50), 'edge': (255, 255, 255), 'pattern': (220, 100, 30), 'value': 2000},    # 주황
+        {'main': (140, 50, 200), 'edge': (255, 215, 0), 'pattern': (100, 30, 160), 'value': 5000},      # 보라 (금테)
+        {'main': (30, 30, 30), 'edge': (255, 215, 0), 'pattern': (60, 60, 60), 'value': 10000},         # 검정 (금테)
     ]
 
     def __init__(self, x, y, direction='up'):
         self.x = x
         self.y = y
-        self.direction = direction  # 'up', 'left', 'right'
+        self.direction = direction
         self.gold = 0
-        self.chip_size = 12  # 칩 반지름
-        self.chip_height = 4  # 칩 두께
+        self.chip_radius = 11  # 칩 반지름
+        self.chip_height = 4   # 칩 두께
+        self.stack_spacing = 22  # 스택 간 간격
+
+        # 각 스택의 높이 변화 (자연스럽게)
+        self.stack_height_offsets = [0, -2, 1, -1]
 
     def set_gold(self, gold):
         """골드 설정"""
         self.gold = max(0, gold)
 
-    def get_chip_count(self):
-        """골드에 따른 칩 개수 계산"""
+    def _calculate_stacks(self):
+        """골드에 따른 스택 구성 계산 (여러 색상의 칩 분배)"""
         if self.gold <= 0:
-            return 0
-        # 최소 1개, 최대 15개
-        count = min(15, max(1, self.gold // 200 + 1))
-        return count
+            return []
 
-    def get_chip_color(self, index, total):
-        """칩 인덱스에 따른 색상"""
-        # 아래부터 낮은 가치, 위로 갈수록 높은 가치
-        if self.gold >= 5000:
-            return self.CHIP_COLORS[5]
-        elif self.gold >= 2000:
-            return self.CHIP_COLORS[4]
-        elif self.gold >= 1000:
-            return self.CHIP_COLORS[3]
-        elif self.gold >= 500:
-            return self.CHIP_COLORS[2]
-        elif self.gold >= 100:
-            return self.CHIP_COLORS[1]
-        else:
-            return self.CHIP_COLORS[0]
+        stacks = []
+        remaining = self.gold
+
+        # 높은 가치부터 칩 배분
+        for i in range(len(self.CHIP_DESIGNS) - 1, -1, -1):
+            design = self.CHIP_DESIGNS[i]
+            value = design['value']
+            if remaining >= value:
+                chip_count = min(remaining // value, 8)  # 한 스택당 최대 8개
+                if chip_count > 0:
+                    stacks.append({
+                        'design_idx': i,
+                        'count': chip_count
+                    })
+                    remaining -= chip_count * value
+
+            if len(stacks) >= 4:  # 최대 4개 스택
+                break
+
+        # 스택이 없으면 최소 1개
+        if not stacks and self.gold > 0:
+            stacks.append({'design_idx': 0, 'count': 1})
+
+        return stacks
 
     def draw(self, screen, offset_x=0, offset_y=0):
-        """칩 스택 그리기"""
+        """여러 스택 그리기"""
         if self.gold <= 0:
             return
 
-        count = self.get_chip_count()
+        stacks = self._calculate_stacks()
+        if not stacks:
+            return
+
         base_x = self.x + offset_x
         base_y = self.y + offset_y
 
-        for i in range(count):
-            # 방향에 따른 오프셋
-            if self.direction == 'up':
-                chip_x = base_x
-                chip_y = base_y - i * self.chip_height
-            elif self.direction == 'left':
-                chip_x = base_x - i * 3
-                chip_y = base_y - i * self.chip_height
-            elif self.direction == 'right':
-                chip_x = base_x + i * 3
-                chip_y = base_y - i * self.chip_height
-            else:
-                chip_x = base_x
-                chip_y = base_y - i * self.chip_height
+        # 스택 개수에 따라 시작 위치 조정 (중앙 정렬)
+        num_stacks = len(stacks)
+        total_width = (num_stacks - 1) * self.stack_spacing
+        start_x = base_x - total_width // 2
 
-            self._draw_single_chip(screen, chip_x, chip_y, i, count)
+        # 각 스택 그리기 (뒤에서부터 - 깊이감)
+        for stack_idx, stack_info in enumerate(stacks):
+            stack_x = start_x + stack_idx * self.stack_spacing
+            height_offset = self.stack_height_offsets[stack_idx % 4]
+            design = self.CHIP_DESIGNS[stack_info['design_idx']]
 
-    def _draw_single_chip(self, screen, x, y, index, total):
-        """개별 칩 그리기"""
-        color = self.get_chip_color(index, total)
-        r, g, b = color
+            for chip_idx in range(stack_info['count']):
+                chip_y = base_y - chip_idx * self.chip_height + height_offset
+                self._draw_premium_chip(screen, stack_x, chip_y, design)
 
-        # 칩 옆면 (어두운 색)
-        dark_color = (max(0, r - 60), max(0, g - 60), max(0, b - 60))
-        pygame.draw.ellipse(screen, dark_color,
-                           (x - self.chip_size, y, self.chip_size * 2, self.chip_height + 2))
+    def _draw_premium_chip(self, screen, x, y, design):
+        """고퀄리티 칩 그리기 (가장자리 패턴 포함)"""
+        main_color = design['main']
+        edge_color = design['edge']
+        pattern_color = design['pattern']
+        r, g, b = main_color
 
-        # 칩 윗면
-        pygame.draw.ellipse(screen, color,
-                           (x - self.chip_size, y - self.chip_height, self.chip_size * 2, self.chip_height * 2))
+        # 1. 칩 옆면 (그림자 효과)
+        shadow_color = (max(0, r - 80), max(0, g - 80), max(0, b - 80))
+        for i in range(3):
+            pygame.draw.ellipse(screen, shadow_color,
+                               (x - self.chip_radius, y + i,
+                                self.chip_radius * 2, self.chip_height + 2))
 
-        # 칩 테두리
-        pygame.draw.ellipse(screen, (255, 255, 255),
-                           (x - self.chip_size, y - self.chip_height, self.chip_size * 2, self.chip_height * 2), 1)
+        # 2. 칩 옆면 디테일 (줄무늬)
+        side_light = (max(0, r - 40), max(0, g - 40), max(0, b - 40))
+        pygame.draw.ellipse(screen, side_light,
+                           (x - self.chip_radius, y,
+                            self.chip_radius * 2, self.chip_height + 1))
 
-        # 칩 내부 장식 (작은 원)
-        inner_color = (min(255, r + 30), min(255, g + 30), min(255, b + 30))
-        pygame.draw.ellipse(screen, inner_color,
-                           (x - self.chip_size // 2, y - self.chip_height + 1,
-                            self.chip_size, self.chip_height))
+        # 3. 칩 윗면 베이스
+        pygame.draw.ellipse(screen, main_color,
+                           (x - self.chip_radius, y - self.chip_height,
+                            self.chip_radius * 2, self.chip_height * 2 + 1))
+
+        # 4. 가장자리 패턴 (8개의 사각형 패턴)
+        import math
+        pattern_radius = self.chip_radius - 2
+        num_patterns = 8
+        pattern_size = 3
+
+        for i in range(num_patterns):
+            angle = (i / num_patterns) * 2 * math.pi
+            px = x + int(pattern_radius * math.cos(angle))
+            # y축은 타원형이라 조정
+            py = y - self.chip_height + int((self.chip_height) * math.sin(angle))
+            pygame.draw.rect(screen, edge_color,
+                           (px - pattern_size // 2, py - 1, pattern_size, 2))
+
+        # 5. 칩 내부 원 (2중)
+        inner_radius1 = self.chip_radius - 4
+        inner_radius2 = self.chip_radius - 6
+        pygame.draw.ellipse(screen, pattern_color,
+                           (x - inner_radius1, y - self.chip_height + 1,
+                            inner_radius1 * 2, self.chip_height * 2 - 2), 1)
+        pygame.draw.ellipse(screen, edge_color,
+                           (x - inner_radius2, y - self.chip_height + 2,
+                            inner_radius2 * 2, self.chip_height * 2 - 4), 1)
+
+        # 6. 중앙 하이라이트 (빛 반사)
+        highlight_color = (min(255, r + 60), min(255, g + 60), min(255, b + 60))
+        pygame.draw.ellipse(screen, highlight_color,
+                           (x - 3, y - self.chip_height,
+                            6, 3))
+
+        # 7. 외곽 테두리
+        pygame.draw.ellipse(screen, edge_color,
+                           (x - self.chip_radius, y - self.chip_height,
+                            self.chip_radius * 2, self.chip_height * 2 + 1), 1)
 
 
 class ChipAnimation:
-    """칩 이동 애니메이션"""
+    """칩 이동 애니메이션 (고퀄리티)"""
+    # 칩 디자인 (ChipStack과 동일)
+    CHIP_DESIGNS = [
+        {'main': (220, 220, 235), 'edge': (255, 255, 255), 'pattern': (180, 180, 200), 'value': 50},
+        {'main': (220, 60, 60), 'edge': (255, 255, 255), 'pattern': (180, 40, 40), 'value': 100},
+        {'main': (50, 120, 220), 'edge': (255, 255, 255), 'pattern': (30, 80, 180), 'value': 500},
+        {'main': (50, 180, 80), 'edge': (255, 255, 255), 'pattern': (30, 140, 50), 'value': 1000},
+        {'main': (255, 140, 50), 'edge': (255, 255, 255), 'pattern': (220, 100, 30), 'value': 2000},
+        {'main': (140, 50, 200), 'edge': (255, 215, 0), 'pattern': (100, 30, 160), 'value': 5000},
+    ]
+
     def __init__(self, start_x, start_y, end_x, end_y, gold_amount, duration=0.5):
         self.start_x = start_x
         self.start_y = start_y
@@ -347,16 +405,29 @@ class ChipAnimation:
         self.done = False
         self.trail = []  # 잔상 위치들
 
-        # 칩 개수 (금액에 따라)
-        self.chip_count = min(8, max(1, gold_amount // 100))
+        # 칩 구성 계산 (금액에 따라 여러 색상)
+        self.chips = self._calculate_chips()
 
-        # 칩 색상
-        if gold_amount >= 500:
-            self.chip_color = (100, 180, 255)  # 파랑
-        elif gold_amount >= 200:
-            self.chip_color = (255, 100, 100)  # 빨강
-        else:
-            self.chip_color = (200, 200, 220)  # 흰색
+    def _calculate_chips(self):
+        """금액에 따른 칩 구성"""
+        chips = []
+        remaining = self.gold_amount
+
+        for i in range(len(self.CHIP_DESIGNS) - 1, -1, -1):
+            design = self.CHIP_DESIGNS[i]
+            value = design['value']
+            if remaining >= value:
+                count = min(remaining // value, 4)
+                for _ in range(count):
+                    chips.append(design)
+                    remaining -= value
+                if len(chips) >= 6:  # 최대 6개 칩
+                    break
+
+        if not chips and self.gold_amount > 0:
+            chips.append(self.CHIP_DESIGNS[0])
+
+        return chips[:6]
 
     def update(self, dt):
         """애니메이션 업데이트"""
@@ -409,41 +480,69 @@ class ChipAnimation:
             alpha = t['alpha']
             if alpha <= 0:
                 continue
-            self._draw_chip_stack(screen, t['x'], t['y'], alpha // 3)
+            self._draw_flying_chips(screen, t['x'], t['y'], alpha // 3)
 
         # 메인 칩 그리기
         if not self.done:
             x, y = self.get_current_position()
-            self._draw_chip_stack(screen, x, y, 255)
+            self._draw_flying_chips(screen, x, y, 255)
 
-    def _draw_chip_stack(self, screen, x, y, alpha):
-        """미니 칩 스택 그리기"""
-        chip_size = 10
+    def _draw_flying_chips(self, screen, x, y, alpha):
+        """날아가는 칩들 그리기 (고퀄리티)"""
+        chip_radius = 9
         chip_height = 3
 
-        for i in range(self.chip_count):
+        for i, design in enumerate(self.chips):
             chip_y = y - i * chip_height
 
             # 칩 서피스 생성
-            surf = pygame.Surface((chip_size * 2 + 4, chip_height * 3 + 4), pygame.SRCALPHA)
+            surf_width = chip_radius * 2 + 8
+            surf_height = chip_height * 3 + 8
+            surf = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
 
-            r, g, b = self.chip_color
-            # 칩 옆면
-            dark_color = (max(0, r - 60), max(0, g - 60), max(0, b - 60), alpha)
-            pygame.draw.ellipse(surf, dark_color,
-                               (2, chip_height + 2, chip_size * 2, chip_height + 2))
+            main = design['main']
+            edge = design['edge']
+            r, g, b = main
 
-            # 칩 윗면
-            top_color = (r, g, b, alpha)
-            pygame.draw.ellipse(surf, top_color,
-                               (2, 2, chip_size * 2, chip_height * 2))
+            cx = surf_width // 2
+            cy = chip_height + 4
 
-            # 테두리
-            border_color = (255, 255, 255, alpha // 2)
-            pygame.draw.ellipse(surf, border_color,
-                               (2, 2, chip_size * 2, chip_height * 2), 1)
+            # 1. 옆면 그림자
+            shadow = (max(0, r - 80), max(0, g - 80), max(0, b - 80), alpha)
+            pygame.draw.ellipse(surf, shadow,
+                               (cx - chip_radius, cy, chip_radius * 2, chip_height + 2))
 
-            screen.blit(surf, (x - chip_size - 2, chip_y - chip_height - 2))
+            # 2. 옆면
+            side = (max(0, r - 40), max(0, g - 40), max(0, b - 40), alpha)
+            pygame.draw.ellipse(surf, side,
+                               (cx - chip_radius, cy - 1, chip_radius * 2, chip_height + 1))
+
+            # 3. 윗면
+            top = (r, g, b, alpha)
+            pygame.draw.ellipse(surf, top,
+                               (cx - chip_radius, cy - chip_height, chip_radius * 2, chip_height * 2))
+
+            # 4. 가장자리 패턴
+            import math
+            pattern_r = chip_radius - 2
+            edge_alpha = (edge[0], edge[1], edge[2], alpha)
+            for j in range(6):
+                angle = (j / 6) * 2 * math.pi
+                px = cx + int(pattern_r * math.cos(angle))
+                py = cy - chip_height + int(chip_height * 0.5 * math.sin(angle))
+                pygame.draw.rect(surf, edge_alpha, (px - 1, py, 2, 1))
+
+            # 5. 하이라이트
+            highlight = (min(255, r + 60), min(255, g + 60), min(255, b + 60), alpha // 2)
+            pygame.draw.ellipse(surf, highlight,
+                               (cx - 2, cy - chip_height, 4, 2))
+
+            # 6. 테두리
+            border = (edge[0], edge[1], edge[2], alpha // 2)
+            pygame.draw.ellipse(surf, border,
+                               (cx - chip_radius, cy - chip_height, chip_radius * 2, chip_height * 2), 1)
+
+            screen.blit(surf, (x - surf_width // 2, chip_y - surf_height // 2))
 
 
 class ChipAnimationManager:
