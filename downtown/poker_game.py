@@ -3773,7 +3773,52 @@ class PokerGameUI:
             b = int(50 + ratio * 15)
             pygame.draw.line(screen, (r, g, b), (box_x, y + i), (box_x + box_w, y + i))
 
-        pygame.draw.rect(screen, self.GOLD, (box_x, y, box_w, box_h), 2, border_radius=12)
+        # 지그재그 테두리 (금색/은색 교차)
+        zigzag_size = 8  # 지그재그 크기
+        border_colors = [self.GOLD, self.SILVER]
+
+        # 상단 지그재그
+        for i in range(0, box_w, zigzag_size * 2):
+            x1 = box_x + i
+            x2 = min(box_x + i + zigzag_size, box_x + box_w)
+            x3 = min(box_x + i + zigzag_size * 2, box_x + box_w)
+            color_idx = (i // (zigzag_size * 2)) % 2
+            pygame.draw.line(screen, border_colors[color_idx], (x1, y), (x2, y - 3), 2)
+            pygame.draw.line(screen, border_colors[color_idx], (x2, y - 3), (x3, y), 2)
+
+        # 하단 지그재그
+        for i in range(0, box_w, zigzag_size * 2):
+            x1 = box_x + i
+            x2 = min(box_x + i + zigzag_size, box_x + box_w)
+            x3 = min(box_x + i + zigzag_size * 2, box_x + box_w)
+            color_idx = (i // (zigzag_size * 2)) % 2
+            pygame.draw.line(screen, border_colors[color_idx], (x1, y + box_h), (x2, y + box_h + 3), 2)
+            pygame.draw.line(screen, border_colors[color_idx], (x2, y + box_h + 3), (x3, y + box_h), 2)
+
+        # 좌측 지그재그
+        for i in range(0, box_h, zigzag_size * 2):
+            y1 = y + i
+            y2 = min(y + i + zigzag_size, y + box_h)
+            y3 = min(y + i + zigzag_size * 2, y + box_h)
+            color_idx = (i // (zigzag_size * 2)) % 2
+            pygame.draw.line(screen, border_colors[color_idx], (box_x, y1), (box_x - 3, y2), 2)
+            pygame.draw.line(screen, border_colors[color_idx], (box_x - 3, y2), (box_x, y3), 2)
+
+        # 우측 지그재그
+        for i in range(0, box_h, zigzag_size * 2):
+            y1 = y + i
+            y2 = min(y + i + zigzag_size, y + box_h)
+            y3 = min(y + i + zigzag_size * 2, y + box_h)
+            color_idx = (i // (zigzag_size * 2)) % 2
+            pygame.draw.line(screen, border_colors[color_idx], (box_x + box_w, y1), (box_x + box_w + 3, y2), 2)
+            pygame.draw.line(screen, border_colors[color_idx], (box_x + box_w + 3, y2), (box_x + box_w, y3), 2)
+
+        # 모서리 장식 (금색 동그라미)
+        corner_radius = 5
+        pygame.draw.circle(screen, self.GOLD, (box_x, y), corner_radius)
+        pygame.draw.circle(screen, self.GOLD, (box_x + box_w, y), corner_radius)
+        pygame.draw.circle(screen, self.GOLD, (box_x, y + box_h), corner_radius)
+        pygame.draw.circle(screen, self.GOLD, (box_x + box_w, y + box_h), corner_radius)
 
         # 베팅 금액 표시
         self._draw_text(screen, "베팅 금액", cx, y + 8, self.SILVER, 12, center=True)
