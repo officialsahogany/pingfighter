@@ -3769,8 +3769,11 @@ class PokerGameUI:
         ])
 
         # 금액 + 골드 코인 아이콘
-        self._draw_text(screen, f"{self.bet_amount:,}", cx - 10, y + 28, self.GOLD_LIGHT, 24, center=True)
-        self._draw_gold_coin(screen, cx + 45, y + 38, 16)
+        bet_text = f"{self.bet_amount:,}"
+        self._draw_text(screen, bet_text, cx - 8, y + 28, self.GOLD_LIGHT, 24, center=True)
+        # 숫자 길이에 따라 아이콘 위치 조정 (숫자 바로 옆에)
+        text_half_width = len(bet_text) * 7  # 24pt 폰트 기준 대략적 반너비
+        self._draw_gold_coin(screen, cx - 8 + text_half_width + 5, y + 38, 16)
 
         # 오른쪽 화살표
         pygame.draw.polygon(screen, self.GOLD, [
