@@ -2423,10 +2423,10 @@ class PokerGameUI:
 
                 # 펜딩된 플로팅 텍스트 처리
                 if self.game.pending_floating_texts:
-                    # 플레이어 골드 위치: 좌하단
-                    # 딜러 골드 위치: 좌상단 (딜러 박스 아래에서 시작)
-                    player_x, player_y = 150, self.screen_height - 50
-                    dealer_x, dealer_y = 150, 70  # 딜러 박스(y=15, h=50) 아래
+                    # 플레이어(south) 골드 위치: 좌하단 플레이어 정보 패널 옆
+                    player_x, player_y = 130, self.screen_height - 35
+                    # 딜러/NPC 골드 위치: 해당 NPC 위치에 맞게
+                    dealer_x, dealer_y = 150, 70
 
                     player_offset = 0
                     dealer_offset = 0
@@ -2445,18 +2445,20 @@ class PokerGameUI:
                         else:
                             color = (255, 255, 255)
 
-                        # 타겟별 위치 결정
-                        if target == 'player':
+                        # 타겟별 위치 결정 (south = 플레이어)
+                        if target == 'player' or target == 'south':
                             x = player_x
                             y = player_y - player_offset
                             player_offset += 25
-                        else:  # dealer
+                            actual_target = 'south'
+                        else:  # dealer 또는 다른 NPC
                             x = dealer_x
                             y = dealer_y + dealer_offset
                             dealer_offset += 25
+                            actual_target = 'dealer'
 
                         # 플로팅 텍스트 추가 (text, x, y, color, timer, max_timer, type, target)
-                        self.floating_texts.append((text, x, y, color, 0, 2.0, text_type, target))
+                        self.floating_texts.append((text, x, y, color, 0, 2.0, text_type, actual_target))
 
                         # 효과음 재생 (한 번만)
                         if not played_sound:
@@ -2513,10 +2515,10 @@ class PokerGameUI:
             # 진행률 계산 (0.0 ~ 1.0)
             progress = timer / max_timer
 
-            # 이동 방향: 플레이어는 위로, 딜러는 아래로 (최대 60px)
+            # 이동 방향: 플레이어(south)는 위로, 딜러/NPC는 아래로 (최대 60px)
             if target == 'dealer':
                 y_offset = progress * 60  # 아래로 이동
-            else:
+            else:  # south 또는 player
                 y_offset = -progress * 60  # 위로 이동
             current_y = base_y + y_offset
 
