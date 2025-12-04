@@ -3803,7 +3803,7 @@ class PokerGameUI:
         ])
 
         # 조작법 (박스 안에 들어오도록)
-        self._draw_text(screen, "◀▶/휠: ±10  ▲▼: ±50  Space: 확인  ESC: 나가기",
+        self._draw_text(screen, "◀▶/휠:±10 ▲▼:±50 Space:확인 ESC:나가기",
                        cx, y + 62, (120, 120, 130), 10, center=True)
 
     def _draw_scroll_icon(self, screen):
