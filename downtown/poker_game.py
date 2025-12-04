@@ -2503,11 +2503,6 @@ class PokerGameUI:
             b = int(25 + ratio * 15)
             pygame.draw.line(screen, (r, g, b), (0, y), (self.screen_width, y))
 
-        # 조명 효과 (상단)
-        for i in range(100):
-            alpha = int(30 * (1 - i / 100))
-            pygame.draw.ellipse(screen, (60, 50, 80, alpha),
-                              (self.screen_width // 2 - 300 - i, -50 - i, 600 + i * 2, 150 + i))
 
     def _draw_premium_table(self, screen):
         """프리미엄 포커 테이블 - 화려한 애니메이션 버전"""
