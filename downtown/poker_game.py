@@ -2008,6 +2008,8 @@ class PokerGameUI:
         self.hand_rankings_target = 0  # 목표 스크롤 (0: 닫힘, 1: 열림)
         self.scroll_icon_animation = 0  # 스크롤 아이콘 애니메이션 타이머
         self.scroll_icon_rect = None  # 스크롤 아이콘 클릭 영역
+        self.hand_ranking_rects = {}  # 각 족보 항목의 영역 (툴팁용)
+        self.hovered_hand_rank = None  # 현재 호버 중인 족보
 
         # 포커 족보 순위 (높은 순서대로)
         self.HAND_RANKINGS_LIST = [
@@ -2022,6 +2024,51 @@ class PokerGameUI:
             (2, "원페어", (150, 150, 150)),                     # 회색
             (1, "하이카드", (120, 120, 120)),                   # 어두운 회색
         ]
+
+        # 족보별 예시 카드와 설명 (툴팁용)
+        # 카드 형식: (숫자, 문양) - 문양: 's'=스페이드, 'h'=하트, 'd'=다이아, 'c'=클로버
+        self.HAND_RANKING_EXAMPLES = {
+            10: {  # 로얄 스트레이트 플러시
+                "cards": [("A", "s"), ("K", "s"), ("Q", "s"), ("J", "s"), ("10", "s")],
+                "desc": "같은 문양의 A-K-Q-J-10\n가장 높은 족보!"
+            },
+            9: {  # 스트레이트 플러시
+                "cards": [("9", "h"), ("8", "h"), ("7", "h"), ("6", "h"), ("5", "h")],
+                "desc": "같은 문양의 연속된 5장\n로얄 다음으로 강력!"
+            },
+            8: {  # 포카드
+                "cards": [("K", "s"), ("K", "h"), ("K", "d"), ("K", "c"), ("7", "s")],
+                "desc": "같은 숫자 4장\n매우 희귀한 족보"
+            },
+            7: {  # 풀하우스
+                "cards": [("Q", "s"), ("Q", "h"), ("Q", "d"), ("9", "c"), ("9", "s")],
+                "desc": "트리플 + 원페어\n강력한 조합"
+            },
+            6: {  # 플러시
+                "cards": [("A", "d"), ("J", "d"), ("8", "d"), ("6", "d"), ("3", "d")],
+                "desc": "같은 문양 5장\n숫자는 상관없음"
+            },
+            5: {  # 스트레이트
+                "cards": [("8", "s"), ("7", "h"), ("6", "d"), ("5", "c"), ("4", "s")],
+                "desc": "연속된 숫자 5장\n문양은 달라도 됨"
+            },
+            4: {  # 트리플
+                "cards": [("J", "s"), ("J", "h"), ("J", "d"), ("8", "c"), ("4", "s")],
+                "desc": "같은 숫자 3장\n중상위 족보"
+            },
+            3: {  # 투페어
+                "cards": [("10", "s"), ("10", "h"), ("7", "d"), ("7", "c"), ("A", "s")],
+                "desc": "페어 2쌍\n자주 나오는 족보"
+            },
+            2: {  # 원페어
+                "cards": [("A", "s"), ("A", "h"), ("K", "d"), ("9", "c"), ("5", "s")],
+                "desc": "같은 숫자 2장\n기본적인 족보"
+            },
+            1: {  # 하이카드
+                "cards": [("A", "s"), ("J", "h"), ("8", "d"), ("6", "c"), ("2", "s")],
+                "desc": "아무 조합 없음\n가장 높은 카드로 비교"
+            },
+        }
 
     def _load_gold_sound(self):
         """골드 증감 효과음 로드"""
@@ -2139,7 +2186,15 @@ class PokerGameUI:
 
     def _handle_mouse_hover(self, pos):
         """마우스 호버 처리"""
-        # 액션 상태일 때만 호버 처리
+        # 족보 패널 호버 체크 (패널이 열려있을 때)
+        self.hovered_hand_rank = None
+        if self.show_hand_rankings and self.hand_rankings_scroll > 0.9:
+            for rank, rect in self.hand_ranking_rects.items():
+                if rect.collidepoint(pos):
+                    self.hovered_hand_rank = rank
+                    break
+
+        # 액션 상태일 때만 버튼 호버 처리
         if self.game.state not in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
                                     PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
             self.hovered_action = -1
@@ -3930,9 +3985,28 @@ class PokerGameUI:
         # === 족보 목록 ===
         item_y = panel_y + 58
         item_height = 28
+        self.hand_ranking_rects = {}  # 매 프레임 초기화
 
         for rank, name, color in self.HAND_RANKINGS_LIST:
             is_current = (rank == current_hand_rank)
+            is_hovered = (rank == self.hovered_hand_rank)
+
+            # 항목 영역 저장 (툴팁용)
+            item_rect = pygame.Rect(panel_x + 12, item_y - 2, panel_width - 24, item_height + 2)
+            self.hand_ranking_rects[rank] = item_rect
+
+            # 호버 효과 (현재 족보가 아닐 때)
+            if is_hovered and not is_current:
+                hover_surf = pygame.Surface((panel_width - 24, item_height + 2), pygame.SRCALPHA)
+                for hi in range(item_height + 2):
+                    h_ratio = hi / (item_height + 2)
+                    h_alpha = int(40 - abs(h_ratio - 0.5) * 30)
+                    pygame.draw.line(hover_surf, (200, 180, 150, h_alpha),
+                                   (0, hi), (panel_width - 24, hi))
+                screen.blit(hover_surf, (panel_x + 12, item_y - 2))
+                # 호버 테두리 (밝은 갈색)
+                pygame.draw.rect(screen, (180, 150, 100),
+                               (panel_x + 12, item_y - 2, panel_width - 24, item_height + 2), 1, border_radius=5)
 
             if is_current:
                 # 현재 족보 하이라이트 (황금빛 배경)
@@ -3961,6 +4035,9 @@ class PokerGameUI:
             if is_current:
                 rank_color = (255, 230, 150)
                 name_color = color
+            elif is_hovered:
+                rank_color = (220, 200, 170)
+                name_color = (240, 220, 200)
             else:
                 rank_color = (180, 160, 140)
                 name_color = (200, 180, 160)
@@ -3982,9 +4059,119 @@ class PokerGameUI:
 
             item_y += item_height
 
-
         # 클리핑 해제
         screen.set_clip(None)
+
+        # 툴팁 그리기 (클리핑 해제 후)
+        if self.hovered_hand_rank and self.hovered_hand_rank in self.HAND_RANKING_EXAMPLES:
+            self._draw_hand_ranking_tooltip(screen, self.hovered_hand_rank)
+
+    def _draw_hand_ranking_tooltip(self, screen, rank):
+        """족보 툴팁 그리기 - 예시 카드와 설명"""
+        if rank not in self.HAND_RANKING_EXAMPLES:
+            return
+
+        example = self.HAND_RANKING_EXAMPLES[rank]
+        cards = example["cards"]
+        desc = example["desc"]
+
+        # 족보 이름 가져오기
+        rank_name = ""
+        rank_color = (255, 255, 255)
+        for r, name, color in self.HAND_RANKINGS_LIST:
+            if r == rank:
+                rank_name = name
+                rank_color = color
+                break
+
+        # 툴팁 크기 및 위치 (족보 패널 왼쪽에 표시)
+        tooltip_width = 200
+        tooltip_height = 140
+        panel_width = 240
+        panel_x = self.screen_width - panel_width - 5
+
+        # 호버된 항목 위치 기준으로 툴팁 위치 결정
+        if rank in self.hand_ranking_rects:
+            item_rect = self.hand_ranking_rects[rank]
+            tooltip_x = panel_x - tooltip_width - 15
+            tooltip_y = item_rect.centery - tooltip_height // 2
+
+            # 화면 경계 체크
+            if tooltip_y < 10:
+                tooltip_y = 10
+            if tooltip_y + tooltip_height > self.screen_height - 10:
+                tooltip_y = self.screen_height - tooltip_height - 10
+        else:
+            return
+
+        # === 툴팁 배경 (고급 스타일) ===
+        tooltip_surf = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
+
+        # 그라데이션 배경 (어두운 녹색/파랑 계열 - 카지노 테이블 느낌)
+        for i in range(tooltip_height):
+            ratio = i / tooltip_height
+            r = int(25 + ratio * 15)
+            g = int(40 + ratio * 20)
+            b = int(35 + ratio * 15)
+            pygame.draw.line(tooltip_surf, (r, g, b, 240), (0, i), (tooltip_width, i))
+
+        screen.blit(tooltip_surf, (tooltip_x, tooltip_y))
+
+        # 외부 글로우
+        glow_surf = pygame.Surface((tooltip_width + 10, tooltip_height + 10), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (100, 150, 120, 40), (0, 0, tooltip_width + 10, tooltip_height + 10), border_radius=12)
+        screen.blit(glow_surf, (tooltip_x - 5, tooltip_y - 5))
+
+        # 테두리 (금색)
+        pygame.draw.rect(screen, (180, 150, 80), (tooltip_x, tooltip_y, tooltip_width, tooltip_height), 2, border_radius=8)
+        pygame.draw.rect(screen, (220, 190, 100), (tooltip_x + 1, tooltip_y + 1, tooltip_width - 2, tooltip_height - 2), 1, border_radius=7)
+
+        # === 족보 이름 ===
+        self._draw_text(screen, rank_name, tooltip_x + tooltip_width // 2, tooltip_y + 8, rank_color, 14, center=True)
+
+        # 구분선
+        pygame.draw.line(screen, (120, 100, 60), (tooltip_x + 15, tooltip_y + 28), (tooltip_x + tooltip_width - 15, tooltip_y + 28), 1)
+
+        # === 예시 카드 그리기 ===
+        card_width = 30
+        card_height = 42
+        cards_total_width = len(cards) * (card_width + 4) - 4
+        card_start_x = tooltip_x + (tooltip_width - cards_total_width) // 2
+        card_y = tooltip_y + 35
+
+        # 문양 기호 및 색상
+        suit_symbols = {'s': '♠', 'h': '♥', 'd': '♦', 'c': '♣'}
+        suit_colors = {'s': (30, 30, 30), 'h': (200, 50, 50), 'd': (200, 50, 50), 'c': (30, 30, 30)}
+
+        for i, (value, suit) in enumerate(cards):
+            cx = card_start_x + i * (card_width + 4)
+
+            # 카드 배경 (흰색)
+            pygame.draw.rect(screen, (250, 248, 240), (cx, card_y, card_width, card_height), border_radius=3)
+            pygame.draw.rect(screen, (100, 100, 100), (cx, card_y, card_width, card_height), 1, border_radius=3)
+
+            # 숫자/문자
+            suit_color = suit_colors.get(suit, (30, 30, 30))
+            # 값 표시 (좌상단)
+            self._draw_text(screen, value, cx + 5, card_y + 3, suit_color, 9)
+
+            # 문양 기호 (중앙)
+            suit_symbol = suit_symbols.get(suit, '?')
+            self._draw_text(screen, suit_symbol, cx + card_width // 2, card_y + card_height // 2 - 2, suit_color, 14, center=True)
+
+        # === 설명 텍스트 ===
+        desc_y = card_y + card_height + 8
+        desc_lines = desc.split('\n')
+        for line in desc_lines:
+            self._draw_text(screen, line, tooltip_x + tooltip_width // 2, desc_y, (200, 200, 180), 10, center=True)
+            desc_y += 14
+
+        # 연결선 (툴팁과 항목 사이)
+        if rank in self.hand_ranking_rects:
+            item_rect = self.hand_ranking_rects[rank]
+            line_start = (tooltip_x + tooltip_width, tooltip_y + tooltip_height // 2)
+            line_end = (item_rect.left, item_rect.centery)
+            pygame.draw.line(screen, (150, 130, 80, 150), line_start, line_end, 1)
 
     def _update_hand_rankings_scroll(self, dt):
         """족보 패널 스크롤 애니메이션 업데이트"""
