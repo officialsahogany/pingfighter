@@ -2002,6 +2002,27 @@ class PokerGameUI:
         self.gold_sound = None
         self._load_gold_sound()
 
+        # 족보 스크롤 패널 관련 변수
+        self.show_hand_rankings = False  # 족보 패널 표시 여부
+        self.hand_rankings_scroll = 0  # 스크롤 애니메이션 진행도 (0~1)
+        self.hand_rankings_target = 0  # 목표 스크롤 (0: 닫힘, 1: 열림)
+        self.scroll_icon_animation = 0  # 스크롤 아이콘 애니메이션 타이머
+        self.scroll_icon_rect = None  # 스크롤 아이콘 클릭 영역
+
+        # 포커 족보 순위 (높은 순서대로)
+        self.HAND_RANKINGS_LIST = [
+            (10, "로얄 스트레이트 플러시", (255, 215, 0)),      # 금색
+            (9, "스트레이트 플러시", (255, 180, 50)),           # 밝은 금색
+            (8, "포카드", (255, 100, 100)),                     # 빨간색
+            (7, "풀하우스", (255, 150, 100)),                   # 주황색
+            (6, "플러시", (100, 180, 255)),                     # 파란색
+            (5, "스트레이트", (100, 255, 180)),                 # 민트색
+            (4, "트리플", (200, 150, 255)),                     # 보라색
+            (3, "투페어", (180, 180, 180)),                     # 은색
+            (2, "원페어", (150, 150, 150)),                     # 회색
+            (1, "하이카드", (120, 120, 120)),                   # 어두운 회색
+        ]
+
     def _load_gold_sound(self):
         """골드 증감 효과음 로드"""
         try:
@@ -2134,6 +2155,10 @@ class PokerGameUI:
 
     def _handle_mouse_click(self, pos):
         """마우스 클릭 처리"""
+        # 족보 스크롤 아이콘 클릭 체크 (항상 가능)
+        if self.handle_scroll_icon_click(pos):
+            return None
+
         # 애니메이션 중에는 무시
         if self.game.state in [PokerGame.STATE_DEALING, PokerGame.STATE_FLOP_DEALING,
                                PokerGame.STATE_TURN_DEALING, PokerGame.STATE_RIVER_DEALING]:
@@ -2301,6 +2326,9 @@ class PokerGameUI:
         self.animation_timer += dt
         self.particles.update(dt)
 
+        # 족보 패널 스크롤 애니메이션 업데이트
+        self._update_hand_rankings_scroll(dt)
+
         # 플로팅 텍스트 업데이트
         updated_floating = []
         for ft in self.floating_texts:
@@ -2402,6 +2430,12 @@ class PokerGameUI:
 
         # 플로팅 텍스트 (수수료, 획득 골드 등)
         self._draw_floating_texts(screen)
+
+        # 족보 스크롤 아이콘 (항상 표시)
+        self._draw_scroll_icon(screen)
+
+        # 족보 패널 (열려있을 때)
+        self._draw_hand_rankings_panel(screen)
 
     def _draw_floating_texts(self, screen):
         """플로팅 텍스트 렌더링 (위로/아래로 이동하며 페이드아웃)"""
@@ -3680,6 +3714,221 @@ class PokerGameUI:
         # 조작법
         self._draw_text(screen, "◀▶/휠: ±10  ▲▼: ±50  Space: 확인  ESC: 나가기",
                        cx, y + 55, (120, 120, 130), 11, center=True)
+
+    def _draw_scroll_icon(self, screen):
+        """족보 스크롤 아이콘 그리기 (우하단)"""
+        # 아이콘 위치 (베팅 박스 오른쪽)
+        cx = self.screen_width // 2
+        icon_x = cx + 200  # 베팅 박스 오른쪽
+        icon_y = self.screen_height - 70
+        icon_size = 40
+
+        # 애니메이션 업데이트
+        self.scroll_icon_animation += 0.05
+        bounce = math.sin(self.scroll_icon_animation * 2) * 3
+
+        # 클릭 영역 저장
+        self.scroll_icon_rect = pygame.Rect(icon_x - icon_size//2, icon_y - icon_size//2 + bounce,
+                                            icon_size, icon_size)
+
+        # 글로우 효과
+        glow_alpha = int(80 + 40 * math.sin(self.scroll_icon_animation * 3))
+        glow_surf = pygame.Surface((icon_size + 20, icon_size + 20), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (255, 200, 100, glow_alpha),
+                          (icon_size//2 + 10, icon_size//2 + 10), icon_size//2 + 8)
+        screen.blit(glow_surf, (icon_x - icon_size//2 - 10, icon_y - icon_size//2 + bounce - 10))
+
+        # 스크롤 배경 (양피지 색상)
+        scroll_color = (200, 170, 120)
+        scroll_dark = (150, 120, 80)
+
+        # 스크롤 본체
+        pygame.draw.rect(screen, scroll_color,
+                        (icon_x - 12, icon_y - 15 + bounce, 24, 30), border_radius=3)
+
+        # 스크롤 상단 롤 (말린 부분)
+        pygame.draw.ellipse(screen, scroll_dark,
+                           (icon_x - 14, icon_y - 18 + bounce, 28, 8))
+        pygame.draw.ellipse(screen, scroll_color,
+                           (icon_x - 12, icon_y - 16 + bounce, 24, 6))
+
+        # 스크롤 하단 롤
+        pygame.draw.ellipse(screen, scroll_dark,
+                           (icon_x - 14, icon_y + 12 + bounce, 28, 8))
+        pygame.draw.ellipse(screen, scroll_color,
+                           (icon_x - 12, icon_y + 14 + bounce, 24, 6))
+
+        # 텍스트 라인 (스크롤 내용 암시)
+        for i in range(3):
+            line_y = icon_y - 8 + i * 7 + bounce
+            line_width = 14 - i * 2
+            pygame.draw.line(screen, scroll_dark,
+                           (icon_x - line_width//2, line_y),
+                           (icon_x + line_width//2, line_y), 2)
+
+        # "족보" 라벨
+        self._draw_text(screen, "족보", icon_x, icon_y + 28 + bounce, (200, 180, 140), 10, center=True)
+
+        # 열림/닫힘 상태 표시 화살표
+        if self.show_hand_rankings:
+            # 위쪽 화살표 (닫기)
+            arrow_y = icon_y - 22 + bounce
+            pygame.draw.polygon(screen, self.GOLD, [
+                (icon_x, arrow_y - 5),
+                (icon_x - 6, arrow_y + 3),
+                (icon_x + 6, arrow_y + 3)
+            ])
+        else:
+            # 아래쪽 화살표 (열기)
+            arrow_y = icon_y - 22 + bounce
+            pygame.draw.polygon(screen, self.GOLD, [
+                (icon_x, arrow_y + 3),
+                (icon_x - 6, arrow_y - 5),
+                (icon_x + 6, arrow_y - 5)
+            ])
+
+    def _draw_hand_rankings_panel(self, screen):
+        """족보 패널 그리기 (스크롤 애니메이션)"""
+        if self.hand_rankings_scroll <= 0:
+            return
+
+        # 현재 플레이어 족보 계산
+        current_hand_rank = 0
+        if self.game and self.game.community_cards:
+            player = self.game.players.get('south')
+            if player and player.hand:
+                all_cards = player.hand + self.game.community_cards
+                hand_result = self.game.evaluator.evaluate(all_cards)
+                current_hand_rank = hand_result[0]
+
+        # 패널 크기 및 위치
+        panel_width = 220
+        panel_height = 320
+        panel_x = self.screen_width - panel_width - 20
+        panel_y_base = self.screen_height - 100
+
+        # 스크롤 애니메이션 적용 (아래에서 위로 올라옴)
+        scroll_offset = (1 - self.hand_rankings_scroll) * panel_height
+        panel_y = panel_y_base - panel_height + scroll_offset
+
+        # 클리핑 영역 설정
+        clip_rect = pygame.Rect(panel_x - 5, panel_y_base - panel_height - 10,
+                                panel_width + 10, panel_height + 20)
+
+        # 패널 배경 (양피지 스타일)
+        panel_surf = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+
+        # 배경 그라데이션 (양피지 색상)
+        for i in range(panel_height):
+            ratio = i / panel_height
+            r = int(50 + ratio * 10)
+            g = int(40 + ratio * 10)
+            b = int(60 + ratio * 10)
+            pygame.draw.line(panel_surf, (r, g, b), (0, i), (panel_width, i))
+
+        # 테두리
+        pygame.draw.rect(panel_surf, self.GOLD, (0, 0, panel_width, panel_height), 2, border_radius=8)
+
+        # 제목
+        title_y = 15
+        # 제목 배경
+        pygame.draw.rect(panel_surf, (40, 35, 55), (10, 8, panel_width - 20, 28), border_radius=5)
+        pygame.draw.rect(panel_surf, self.GOLD, (10, 8, panel_width - 20, 28), 1, border_radius=5)
+
+        # 족보 목록 그리기
+        item_y = 50
+        item_height = 26
+
+        for rank, name, color in self.HAND_RANKINGS_LIST:
+            # 현재 플레이어 족보 하이라이트
+            is_current = (rank == current_hand_rank)
+
+            if is_current:
+                # 하이라이트 배경
+                highlight_surf = pygame.Surface((panel_width - 16, item_height), pygame.SRCALPHA)
+                pygame.draw.rect(highlight_surf, (255, 200, 50, 60),
+                               (0, 0, panel_width - 16, item_height), border_radius=4)
+                panel_surf.blit(highlight_surf, (8, item_y - 2))
+
+                # 하이라이트 테두리
+                pygame.draw.rect(panel_surf, self.GOLD,
+                               (8, item_y - 2, panel_width - 16, item_height), 2, border_radius=4)
+
+                # 화살표 표시
+                arrow_points = [
+                    (18, item_y + item_height//2 - 5),
+                    (25, item_y + item_height//2),
+                    (18, item_y + item_height//2 + 5)
+                ]
+                pygame.draw.polygon(panel_surf, self.GOLD, arrow_points)
+
+            # 순위 번호
+            rank_color = color if is_current else (150, 150, 160)
+            # 족보 이름
+            name_color = color if is_current else (180, 180, 190)
+
+            # 텍스트 그리기 (패널 서피스에)
+            font = self._get_font(11 if is_current else 10)
+            rank_text = f"{rank}."
+            rank_surf = font.render(rank_text, True, rank_color)
+            panel_surf.blit(rank_surf, (30, item_y + 3))
+
+            name_surf = font.render(name, True, name_color)
+            panel_surf.blit(name_surf, (50, item_y + 3))
+
+            item_y += item_height
+
+        # 제목 텍스트 (나중에 그려서 위에 표시)
+        title_font = self._get_font(14)
+        title_surf = title_font.render("♠ 포커 족보 ♥", True, self.GOLD)
+        title_rect = title_surf.get_rect(centerx=panel_width//2, y=title_y - 3)
+        panel_surf.blit(title_surf, title_rect)
+
+        # 현재 족보 안내 (하단)
+        if current_hand_rank > 0:
+            current_name = ""
+            for rank, name, _ in self.HAND_RANKINGS_LIST:
+                if rank == current_hand_rank:
+                    current_name = name
+                    break
+            hint_font = self._get_font(9)
+            hint_text = f"현재: {current_name}"
+            hint_surf = hint_font.render(hint_text, True, self.GOLD_LIGHT)
+            hint_rect = hint_surf.get_rect(centerx=panel_width//2, y=panel_height - 20)
+            panel_surf.blit(hint_surf, hint_rect)
+
+        # 클리핑하여 화면에 그리기
+        screen.set_clip(clip_rect)
+        screen.blit(panel_surf, (panel_x, panel_y))
+        screen.set_clip(None)
+
+    def _update_hand_rankings_scroll(self, dt):
+        """족보 패널 스크롤 애니메이션 업데이트"""
+        scroll_speed = 5.0  # 애니메이션 속도
+
+        if self.show_hand_rankings:
+            self.hand_rankings_target = 1.0
+        else:
+            self.hand_rankings_target = 0.0
+
+        # 부드러운 애니메이션
+        diff = self.hand_rankings_target - self.hand_rankings_scroll
+        self.hand_rankings_scroll += diff * scroll_speed * dt
+
+        # 정밀도 보정
+        if abs(diff) < 0.01:
+            self.hand_rankings_scroll = self.hand_rankings_target
+
+    def toggle_hand_rankings(self):
+        """족보 패널 토글"""
+        self.show_hand_rankings = not self.show_hand_rankings
+
+    def handle_scroll_icon_click(self, pos):
+        """스크롤 아이콘 클릭 처리"""
+        if self.scroll_icon_rect and self.scroll_icon_rect.collidepoint(pos):
+            self.toggle_hand_rankings()
+            return True
+        return False
 
     def _draw_dealing_ui(self, screen):
         """딜링 중 UI"""
