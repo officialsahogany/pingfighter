@@ -4202,6 +4202,22 @@ class PokerGameUI:
         # 안내
         self._draw_text(screen, "테이블이 닫힙니다. ESC를 눌러 나가세요.", cx, box_y + 175, (150, 150, 160), 14, center=True)
 
+    def _get_font(self, size):
+        """폰트 가져오기 (캐시 사용)"""
+        if size not in self._font_cache:
+            try:
+                for font_name in ['NanumGothic', 'AppleGothic', 'malgun gothic', 'Arial']:
+                    try:
+                        self._font_cache[size] = pygame.font.SysFont(font_name, size)
+                        break
+                    except:
+                        continue
+                if size not in self._font_cache:
+                    self._font_cache[size] = pygame.font.Font(None, size + 10)
+            except:
+                self._font_cache[size] = pygame.font.Font(None, size + 10)
+        return self._font_cache[size]
+
     def _draw_text(self, screen, text, x, y, color, size, center=False, right=False):
         """텍스트 그리기"""
         if self.fonts:
