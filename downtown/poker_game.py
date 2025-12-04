@@ -2472,7 +2472,7 @@ class PokerGameUI:
         # west: 정보 패널 오른쪽 (이름+골드 박스 오른쪽)
         # east: 정보 패널 왼쪽 (이름+골드 박스 왼쪽)
         self.chip_stack_positions = {
-            'south': (150, self.screen_height - 160),  # 플레이어 정보 패널 오른쪽
+            'south': (150, self.screen_height - 200),  # 플레이어 정보 패널 오른쪽 (위로 40px 올림)
             'north': (cx - 50, 70),  # 북쪽 NPC 정보 패널 오른쪽
             'west': (155, cy - 100),  # 서쪽 NPC 정보 패널 오른쪽 (x=20 + 패널너비130 + 여백5)
             'east': (self.screen_width - 165, cy - 100),  # 동쪽 NPC 정보 패널 왼쪽 (x=screen_width-150 - 여백15)
