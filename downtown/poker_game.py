@@ -216,6 +216,72 @@ class ParticleSystem:
             life = random.uniform(1.0, 2.0)
             self.particles.append(Particle(x, y, color, vx, vy, life, size, gravity=200))
 
+    def emit_confetti(self, screen_width, screen_height):
+        """빵빠레 폭죽 - 화면 중앙에서 터지는 축하 이펙트"""
+        cx, cy = screen_width // 2, screen_height // 2
+
+        # 다양한 색상의 컨페티
+        confetti_colors = [
+            (255, 100, 100),   # 빨강
+            (255, 200, 50),    # 노랑/금색
+            (100, 200, 255),   # 하늘색
+            (200, 100, 255),   # 보라
+            (100, 255, 150),   # 민트/초록
+            (255, 150, 200),   # 분홍
+            (255, 180, 100),   # 주황
+            (150, 150, 255),   # 연보라
+        ]
+
+        # 왼쪽 폭죽 (화면 좌하단에서 위로 발사)
+        left_x = cx - 120
+        left_y = cy + 50
+        for _ in range(80):
+            color = random.choice(confetti_colors)
+            # 위쪽으로 퍼지는 각도 (-30도 ~ -150도)
+            angle = random.uniform(math.radians(-150), math.radians(-30))
+            speed = random.uniform(200, 450)
+            vx = math.cos(angle) * speed
+            vy = math.sin(angle) * speed
+            size = random.uniform(3, 7)
+            life = random.uniform(1.5, 2.5)
+            self.particles.append(Particle(left_x, left_y, color, vx, vy, life, size, gravity=180))
+
+        # 오른쪽 폭죽 (화면 우하단에서 위로 발사)
+        right_x = cx + 120
+        right_y = cy + 50
+        for _ in range(80):
+            color = random.choice(confetti_colors)
+            # 위쪽으로 퍼지는 각도 (-30도 ~ -150도)
+            angle = random.uniform(math.radians(-150), math.radians(-30))
+            speed = random.uniform(200, 450)
+            vx = math.cos(angle) * speed
+            vy = math.sin(angle) * speed
+            size = random.uniform(3, 7)
+            life = random.uniform(1.5, 2.5)
+            self.particles.append(Particle(right_x, right_y, color, vx, vy, life, size, gravity=180))
+
+        # 중앙 폭발 (별 모양 파티클)
+        for _ in range(60):
+            color = random.choice(confetti_colors)
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(150, 350)
+            vx = math.cos(angle) * speed
+            vy = math.sin(angle) * speed
+            size = random.uniform(4, 9)
+            life = random.uniform(1.2, 2.0)
+            self.particles.append(Particle(cx, cy - 30, color, vx, vy, life, size, gravity=150))
+
+        # 리본/스트리머 효과 (천천히 떨어지는 긴 파티클)
+        for _ in range(40):
+            color = random.choice(confetti_colors)
+            start_x = random.uniform(cx - 150, cx + 150)
+            start_y = random.uniform(cy - 100, cy - 50)
+            vx = random.uniform(-30, 30)
+            vy = random.uniform(-50, 50)
+            size = random.uniform(2, 5)
+            life = random.uniform(2.0, 3.0)
+            self.particles.append(Particle(start_x, start_y, color, vx, vy, life, size, gravity=80))
+
     def emit_card_trail(self, x, y, color=(200, 200, 255)):
         """카드 이동 트레일"""
         for _ in range(3):
@@ -3132,7 +3198,8 @@ class PokerGameUI:
                 # 4인용: 플레이어가 승자 목록에 있는지 확인
                 player_won = any(w['position'] == 'south' for w in self.game.winners) if self.game.winners else False
                 if player_won:
-                    self.particles.emit_win(self.screen_width // 2, self.screen_height // 2)
+                    # 빵빠레 폭죽 애니메이션
+                    self.particles.emit_confetti(self.screen_width, self.screen_height)
 
                 # 승리 시 칩 애니메이션 - 판돈이 승자에게 이동
                 if not self.win_chips_triggered and self.game.winners:
