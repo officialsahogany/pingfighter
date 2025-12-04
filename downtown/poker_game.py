@@ -3809,34 +3809,33 @@ class PokerGameUI:
 
         # 스크롤 애니메이션 적용 (아래에서 위로 올라옴)
         scroll_offset = (1 - self.hand_rankings_scroll) * panel_height
-        panel_y = panel_y_base - panel_height + scroll_offset
+        panel_y = int(panel_y_base - panel_height + scroll_offset)
 
         # 클리핑 영역 설정
         clip_rect = pygame.Rect(panel_x - 5, panel_y_base - panel_height - 10,
                                 panel_width + 10, panel_height + 20)
+        screen.set_clip(clip_rect)
 
-        # 패널 배경 (양피지 스타일)
-        panel_surf = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-
-        # 배경 그라데이션 (양피지 색상)
+        # 패널 배경 그라데이션
         for i in range(panel_height):
             ratio = i / panel_height
             r = int(50 + ratio * 10)
             g = int(40 + ratio * 10)
             b = int(60 + ratio * 10)
-            pygame.draw.line(panel_surf, (r, g, b), (0, i), (panel_width, i))
+            pygame.draw.line(screen, (r, g, b), (panel_x, panel_y + i), (panel_x + panel_width, panel_y + i))
 
         # 테두리
-        pygame.draw.rect(panel_surf, self.GOLD, (0, 0, panel_width, panel_height), 2, border_radius=8)
+        pygame.draw.rect(screen, self.GOLD, (panel_x, panel_y, panel_width, panel_height), 2, border_radius=8)
 
-        # 제목
-        title_y = 15
         # 제목 배경
-        pygame.draw.rect(panel_surf, (40, 35, 55), (10, 8, panel_width - 20, 28), border_radius=5)
-        pygame.draw.rect(panel_surf, self.GOLD, (10, 8, panel_width - 20, 28), 1, border_radius=5)
+        pygame.draw.rect(screen, (40, 35, 55), (panel_x + 10, panel_y + 8, panel_width - 20, 28), border_radius=5)
+        pygame.draw.rect(screen, self.GOLD, (panel_x + 10, panel_y + 8, panel_width - 20, 28), 1, border_radius=5)
+
+        # 제목 텍스트
+        self._draw_text(screen, "포커 족보", panel_x + panel_width // 2, panel_y + 12, self.GOLD, 14, center=True)
 
         # 족보 목록 그리기
-        item_y = 50
+        item_y = panel_y + 50
         item_height = 26
 
         for rank, name, color in self.HAND_RANKINGS_LIST:
@@ -3848,41 +3847,30 @@ class PokerGameUI:
                 highlight_surf = pygame.Surface((panel_width - 16, item_height), pygame.SRCALPHA)
                 pygame.draw.rect(highlight_surf, (255, 200, 50, 60),
                                (0, 0, panel_width - 16, item_height), border_radius=4)
-                panel_surf.blit(highlight_surf, (8, item_y - 2))
+                screen.blit(highlight_surf, (panel_x + 8, item_y - 2))
 
                 # 하이라이트 테두리
-                pygame.draw.rect(panel_surf, self.GOLD,
-                               (8, item_y - 2, panel_width - 16, item_height), 2, border_radius=4)
+                pygame.draw.rect(screen, self.GOLD,
+                               (panel_x + 8, item_y - 2, panel_width - 16, item_height), 2, border_radius=4)
 
                 # 화살표 표시
                 arrow_points = [
-                    (18, item_y + item_height//2 - 5),
-                    (25, item_y + item_height//2),
-                    (18, item_y + item_height//2 + 5)
+                    (panel_x + 18, item_y + item_height//2 - 5),
+                    (panel_x + 25, item_y + item_height//2),
+                    (panel_x + 18, item_y + item_height//2 + 5)
                 ]
-                pygame.draw.polygon(panel_surf, self.GOLD, arrow_points)
+                pygame.draw.polygon(screen, self.GOLD, arrow_points)
 
             # 순위 번호
             rank_color = color if is_current else (150, 150, 160)
             # 족보 이름
             name_color = color if is_current else (180, 180, 190)
 
-            # 텍스트 그리기 (패널 서피스에)
-            font = self._get_font(11 if is_current else 10)
-            rank_text = f"{rank}."
-            rank_surf = font.render(rank_text, True, rank_color)
-            panel_surf.blit(rank_surf, (30, item_y + 3))
-
-            name_surf = font.render(name, True, name_color)
-            panel_surf.blit(name_surf, (50, item_y + 3))
+            # 텍스트 그리기
+            self._draw_text(screen, f"{rank}.", panel_x + 30, item_y + 3, rank_color, 11 if is_current else 10)
+            self._draw_text(screen, name, panel_x + 50, item_y + 3, name_color, 11 if is_current else 10)
 
             item_y += item_height
-
-        # 제목 텍스트 (나중에 그려서 위에 표시)
-        title_font = self._get_font(14)
-        title_surf = title_font.render("♠ 포커 족보 ♥", True, self.GOLD)
-        title_rect = title_surf.get_rect(centerx=panel_width//2, y=title_y - 3)
-        panel_surf.blit(title_surf, title_rect)
 
         # 현재 족보 안내 (하단)
         if current_hand_rank > 0:
@@ -3891,15 +3879,10 @@ class PokerGameUI:
                 if rank == current_hand_rank:
                     current_name = name
                     break
-            hint_font = self._get_font(9)
-            hint_text = f"현재: {current_name}"
-            hint_surf = hint_font.render(hint_text, True, self.GOLD_LIGHT)
-            hint_rect = hint_surf.get_rect(centerx=panel_width//2, y=panel_height - 20)
-            panel_surf.blit(hint_surf, hint_rect)
+            self._draw_text(screen, f"현재: {current_name}", panel_x + panel_width // 2,
+                           panel_y + panel_height - 25, self.GOLD_LIGHT, 10, center=True)
 
-        # 클리핑하여 화면에 그리기
-        screen.set_clip(clip_rect)
-        screen.blit(panel_surf, (panel_x, panel_y))
+        # 클리핑 해제
         screen.set_clip(None)
 
     def _update_hand_rankings_scroll(self, dt):
