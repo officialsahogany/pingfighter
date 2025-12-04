@@ -1069,6 +1069,12 @@ class PokerGame:
         self.showdown_hand_rank = 0  # 현재 플레이어 족보 등급 (1-10)
         self.showdown_particles = []  # 파티클 이펙트
 
+        # 카드 뒤집기 애니메이션
+        self.card_flip_active = False  # 카드 뒤집기 애니메이션 활성화
+        self.card_flip_progress = 0.0  # 뒤집기 진행도 (0.0 ~ 1.0)
+        self.card_flip_duration = 0.25  # 뒤집기 애니메이션 시간 (초)
+        self.card_flip_card_idx = -1  # 현재 뒤집는 카드 인덱스
+
         # 편의용 프로퍼티
         self.player_gold = player_gold  # 호환성 유지
 
@@ -1656,6 +1662,11 @@ class PokerGame:
         self.showdown_hand_effect_timer = 0
         self.showdown_particles = []
 
+        # 카드 뒤집기 애니메이션 초기화
+        self.card_flip_active = False
+        self.card_flip_progress = 0.0
+        self.card_flip_card_idx = -1
+
         # 쇼다운 인트로 시작
         self.state = self.STATE_SHOWDOWN_INTRO
 
@@ -1767,24 +1778,36 @@ class PokerGame:
 
         # 카드 공개 단계
         elif self.state == self.STATE_SHOWDOWN_REVEAL:
-            # 0.3초마다 카드 한 장씩 공개
-            if self.showdown_timer >= 0.3:
-                self.showdown_timer = 0
-                player = self.showdown_current_player
+            player = self.showdown_current_player
 
-                if player and self.showdown_card_idx < len(player.hand):
-                    # 카드 공개
-                    player.hand[self.showdown_card_idx].face_up = True
+            # 뒤집기 애니메이션 진행 중
+            if self.card_flip_active:
+                self.card_flip_progress += dt / self.card_flip_duration
+                if self.card_flip_progress >= 1.0:
+                    # 애니메이션 완료 - 카드 앞면으로 전환
+                    self.card_flip_active = False
+                    self.card_flip_progress = 0.0
+                    if player and self.card_flip_card_idx < len(player.hand):
+                        player.hand[self.card_flip_card_idx].face_up = True
                     self.showdown_card_idx += 1
+                    self.showdown_timer = 0  # 다음 카드 대기 시간 시작
 
-                # 모든 카드 공개 완료
-                if player and self.showdown_card_idx >= len(player.hand):
-                    # 족보 하이라이트 단계로 전환
-                    self.showdown_hand_highlight = self._get_best_five_cards(player)
-                    rank = player.hand_result[0] if player.hand_result else 0
-                    self.showdown_hand_rank = self._get_hand_rank_level(rank)
-                    self.showdown_hand_effect_timer = 0
-                    self.state = self.STATE_SHOWDOWN_HAND
+                    # 모든 카드 공개 완료 체크
+                    if player and self.showdown_card_idx >= len(player.hand):
+                        # 족보 하이라이트 단계로 전환
+                        self.showdown_hand_highlight = self._get_best_five_cards(player)
+                        rank = player.hand_result[0] if player.hand_result else 0
+                        self.showdown_hand_rank = self._get_hand_rank_level(rank)
+                        self.showdown_hand_effect_timer = 0
+                        self.state = self.STATE_SHOWDOWN_HAND
+            else:
+                # 다음 카드 뒤집기 시작 대기 (0.5초 간격)
+                if self.showdown_timer >= 0.5:
+                    if player and self.showdown_card_idx < len(player.hand):
+                        # 뒤집기 애니메이션 시작
+                        self.card_flip_active = True
+                        self.card_flip_progress = 0.0
+                        self.card_flip_card_idx = self.showdown_card_idx
 
         # 족보 하이라이트 단계
         elif self.state == self.STATE_SHOWDOWN_HAND:
@@ -1807,6 +1830,10 @@ class PokerGame:
                     self.showdown_timer = 0
                     self.showdown_hand_highlight = []
                     self.showdown_particles = []
+                    # 카드 뒤집기 애니메이션 초기화
+                    self.card_flip_active = False
+                    self.card_flip_progress = 0.0
+                    self.card_flip_card_idx = -1
                     self.state = self.STATE_SHOWDOWN_REVEAL
                 else:
                     # 모든 플레이어 공개 완료 - 결과 표시
@@ -4260,14 +4287,26 @@ class PokerGameUI:
                     show_face = True
                     card.face_up = True
 
+                # 카드 뒤집기 애니메이션 체크
+                is_flipping = (is_animating and
+                              self.game.card_flip_active and
+                              player_reveal_idx == current_reveal_idx and
+                              i == self.game.card_flip_card_idx)
+
                 # 강조 테두리 (공개된 카드만)
                 if show_face or not is_animating:
                     pygame.draw.rect(screen, border_color,
                                    (card_x - 3, actual_y - 3, self.CARD_WIDTH + 6, self.CARD_HEIGHT + 6),
                                    2, border_radius=6)
 
-                self.card_renderer.draw_card(screen, card, card_x, actual_y,
-                                            self.CARD_WIDTH, self.CARD_HEIGHT, face_up=show_face)
+                if is_flipping:
+                    # 뒤집기 애니메이션 렌더링
+                    self._draw_flipping_card(screen, card, card_x, actual_y,
+                                            self.CARD_WIDTH, self.CARD_HEIGHT,
+                                            self.game.card_flip_progress)
+                else:
+                    self.card_renderer.draw_card(screen, card, card_x, actual_y,
+                                                self.CARD_WIDTH, self.CARD_HEIGHT, face_up=show_face)
 
             # 레이블
             label_x = start_x + self.CARD_WIDTH
@@ -5528,6 +5567,55 @@ class PokerGameUI:
             py = y + r * math.sin(angle)
             points.append((px, py))
         pygame.draw.polygon(screen, color, points)
+
+    def _draw_flipping_card(self, screen, card, x, y, width, height, progress):
+        """카드 뒤집기 애니메이션 그리기
+        progress: 0.0 ~ 1.0 (0=뒷면, 0.5=옆면, 1.0=앞면)
+        """
+        import math
+
+        # 뒤집기 진행도에 따른 가로 스케일 계산
+        # 0.0~0.5: 뒷면에서 옆면으로 (스케일 1.0 -> 0.0)
+        # 0.5~1.0: 옆면에서 앞면으로 (스케일 0.0 -> 1.0)
+        if progress < 0.5:
+            # 뒷면 -> 옆면
+            scale_x = 1.0 - (progress * 2)
+            show_front = False
+        else:
+            # 옆면 -> 앞면
+            scale_x = (progress - 0.5) * 2
+            show_front = True
+
+        # 최소 스케일 (완전히 사라지지 않도록)
+        scale_x = max(0.05, scale_x)
+
+        # 스케일에 따른 너비 계산
+        scaled_width = int(width * scale_x)
+        if scaled_width < 1:
+            scaled_width = 1
+
+        # 중앙 정렬을 위한 x 오프셋
+        x_offset = (width - scaled_width) // 2
+
+        # 카드 서피스 생성
+        card_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+
+        # 카드 렌더링 (앞면 또는 뒷면)
+        self.card_renderer.draw_card(card_surf, card, 0, 0, width, height, face_up=show_front)
+
+        # 스케일 적용
+        if scaled_width != width:
+            scaled_surf = pygame.transform.scale(card_surf, (scaled_width, height))
+            screen.blit(scaled_surf, (x + x_offset, y))
+        else:
+            screen.blit(card_surf, (x, y))
+
+        # 뒤집는 중 반짝임 효과 (중간 지점에서)
+        if 0.3 < progress < 0.7:
+            flash_alpha = int(100 * (1 - abs(progress - 0.5) * 4))
+            flash_surf = pygame.Surface((scaled_width, height), pygame.SRCALPHA)
+            flash_surf.fill((255, 255, 255, flash_alpha))
+            screen.blit(flash_surf, (x + x_offset, y))
 
     def _draw_showdown_particles(self, screen):
         """쇼다운 파티클 렌더링"""
