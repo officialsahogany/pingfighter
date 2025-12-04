@@ -4204,6 +4204,14 @@ class PokerGameUI:
         if hasattr(self.game, 'winners') and self.game.winners:
             winner_positions = [w['position'] for w in self.game.winners]
 
+        # 쇼다운 애니메이션 중인지 확인
+        is_animating = self.game.state in [PokerGame.STATE_SHOWDOWN_INTRO,
+                                            PokerGame.STATE_SHOWDOWN_REVEAL,
+                                            PokerGame.STATE_SHOWDOWN_HAND]
+
+        # 현재까지 공개 완료된 플레이어 인덱스
+        current_reveal_idx = self.game.showdown_player_idx if is_animating else len(self.game.showdown_reveal_order)
+
         for position, player in self.game.players.items():
             if not player.hand or player.folded:
                 continue
@@ -4215,9 +4223,14 @@ class PokerGameUI:
             if position in winner_positions:
                 border_color = self.GOLD
 
-            for i, card in enumerate(player.hand):
-                card.face_up = True  # 쇼다운이므로 모두 공개
+            # 이 플레이어가 공개 순서에서 몇 번째인지 확인
+            player_reveal_idx = -1
+            for idx, p in enumerate(self.game.showdown_reveal_order):
+                if p.position == position:
+                    player_reveal_idx = idx
+                    break
 
+            for i, card in enumerate(player.hand):
                 if position in ['west', 'east']:
                     card_x = start_x
                     actual_y = card_y + i * 50
@@ -4225,13 +4238,36 @@ class PokerGameUI:
                     card_x = start_x + i * (self.CARD_WIDTH + 15)
                     actual_y = card_y
 
-                # 강조 테두리
-                pygame.draw.rect(screen, border_color,
-                               (card_x - 3, actual_y - 3, self.CARD_WIDTH + 6, self.CARD_HEIGHT + 6),
-                               2, border_radius=6)
+                # 카드 공개 여부 결정
+                if is_animating:
+                    if player.is_human:
+                        # 플레이어 카드는 항상 공개
+                        show_face = True
+                    elif player_reveal_idx < 0:
+                        # 공개 순서에 없는 플레이어 (폴드 등)
+                        show_face = False
+                    elif player_reveal_idx < current_reveal_idx:
+                        # 이미 공개 완료된 플레이어
+                        show_face = True
+                    elif player_reveal_idx == current_reveal_idx:
+                        # 현재 공개 중인 플레이어 - card.face_up 상태에 따름
+                        show_face = card.face_up
+                    else:
+                        # 아직 공개 안 된 플레이어
+                        show_face = False
+                else:
+                    # 쇼다운 결과 화면 - 모두 공개
+                    show_face = True
+                    card.face_up = True
+
+                # 강조 테두리 (공개된 카드만)
+                if show_face or not is_animating:
+                    pygame.draw.rect(screen, border_color,
+                                   (card_x - 3, actual_y - 3, self.CARD_WIDTH + 6, self.CARD_HEIGHT + 6),
+                                   2, border_radius=6)
 
                 self.card_renderer.draw_card(screen, card, card_x, actual_y,
-                                            self.CARD_WIDTH, self.CARD_HEIGHT)
+                                            self.CARD_WIDTH, self.CARD_HEIGHT, face_up=show_face)
 
             # 레이블
             label_x = start_x + self.CARD_WIDTH
@@ -4250,8 +4286,20 @@ class PokerGameUI:
 
             self._draw_text(screen, label_text, label_x, label_y, border_colors[position], 14, center=True)
 
-            # 각 플레이어 족보 표시
-            if hasattr(self.game, 'hand_results') and position in self.game.hand_results:
+            # 각 플레이어 족보 표시 (카드가 완전히 공개된 경우만)
+            # 애니메이션 중에는 이미 공개 완료된 플레이어만 족보 표시
+            should_show_hand = False
+            if is_animating:
+                if player.is_human:
+                    should_show_hand = True
+                elif player_reveal_idx >= 0 and player_reveal_idx < current_reveal_idx:
+                    # 이미 공개 완료된 플레이어
+                    should_show_hand = True
+            else:
+                # 결과 화면에서는 모두 표시
+                should_show_hand = True
+
+            if should_show_hand and hasattr(self.game, 'hand_results') and position in self.game.hand_results:
                 hand_result = self.game.hand_results[position]
                 rank = hand_result[0]
                 tiebreaker = hand_result[1]
