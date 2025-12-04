@@ -1141,6 +1141,12 @@ class PokerGame:
         self.card_flip_duration = 0.25  # 뒤집기 애니메이션 시간 (초)
         self.card_flip_card_idx = -1  # 현재 뒤집는 카드 인덱스
 
+        # 리버 드라마틱 연출
+        self.river_dramatic_phase = 0  # 0: 없음, 1: 대기, 2: 뒤집기, 3: 완료
+        self.river_dramatic_timer = 0.0
+        self.river_dramatic_card = None  # 리버 카드 참조
+        self.river_flip_progress = 0.0  # 리버 카드 뒤집기 진행도
+
         # 편의용 프로퍼티
         self.player_gold = player_gold  # 호환성 유지
 
@@ -1274,8 +1280,10 @@ class PokerGame:
                 self.card_animations.append(anim)
                 delay += 0.12
 
-    def _start_community_deal(self, count):
-        """커뮤니티 카드 딜링"""
+    def _start_community_deal(self, count, dramatic=False):
+        """커뮤니티 카드 딜링
+        dramatic: True면 리버 드라마틱 연출 (카드가 뒷면으로 놓이고 뜸들인 후 뒤집힘)
+        """
         deck_x = 400
         deck_y = 300
 
@@ -1289,11 +1297,20 @@ class PokerGame:
 
             end_x = base_x + i * 65
 
-            anim = CardAnimation(
-                card, deck_x, deck_y, end_x, comm_y,
-                duration=0.5, delay=i * 0.15,
-                flip_at=0.6, start_face_up=False
-            )
+            if dramatic:
+                # 리버 드라마틱 모드: 카드가 뒷면으로 테이블에 놓임 (뒤집기 없음)
+                anim = CardAnimation(
+                    card, deck_x, deck_y, end_x, comm_y,
+                    duration=0.5, delay=i * 0.15,
+                    flip_at=None, start_face_up=False  # 뒤집기 비활성화
+                )
+                self.river_dramatic_card = card  # 리버 카드 참조 저장
+            else:
+                anim = CardAnimation(
+                    card, deck_x, deck_y, end_x, comm_y,
+                    duration=0.5, delay=i * 0.15,
+                    flip_at=0.6, start_face_up=False
+                )
             self.card_animations.append(anim)
             self.pending_cards.append(card)
 
@@ -1315,7 +1332,11 @@ class PokerGame:
 
         elif self.state == self.STATE_TURN:
             self.state = self.STATE_RIVER_DEALING
-            self._start_community_deal(1)
+            # 리버 드라마틱 연출 시작
+            self.river_dramatic_phase = 1  # 대기 단계
+            self.river_dramatic_timer = 0.0
+            self.river_flip_progress = 0.0
+            self._start_community_deal(1, dramatic=True)  # 드라마틱 모드로 딜링
 
         elif self.state == self.STATE_RIVER:
             self._showdown()
@@ -1954,24 +1975,63 @@ class PokerGame:
         if all_completed and self.card_animations:
             self.card_animations = []
 
-            # 펜딩 카드를 커뮤니티에 추가
-            for card in self.pending_cards:
-                card.face_up = True
-                self.community_cards.append(card)
-            self.pending_cards = []
+            # 리버 드라마틱 모드인 경우 특별 처리
+            if self.state == self.STATE_RIVER_DEALING and self.river_dramatic_phase == 1:
+                # 펜딩 카드를 커뮤니티에 추가하되 face_up은 False로 유지
+                for card in self.pending_cards:
+                    card.face_up = False  # 뒤집어진 상태로 유지
+                    self.community_cards.append(card)
+                self.pending_cards = []
+                # 드라마틱 대기 페이즈 시작 (뜸들이기)
+                self.river_dramatic_timer = 0.0
+                # 페이즈 1: 대기 상태 유지
+            else:
+                # 일반적인 카드 처리
+                for card in self.pending_cards:
+                    card.face_up = True
+                    self.community_cards.append(card)
+                self.pending_cards = []
 
-            # 상태 전환
-            if self.state == self.STATE_DEALING:
-                self.state = self.STATE_PREFLOP
-                # 프리플롭 시작 - NPC 액션 플래그 리셋
-                self.npcs_acted_this_round = False
-                # 안테는 이미 베팅된 상태이므로 current_bet 유지
-            elif self.state == self.STATE_FLOP_DEALING:
-                self.state = self.STATE_FLOP
-            elif self.state == self.STATE_TURN_DEALING:
-                self.state = self.STATE_TURN
-            elif self.state == self.STATE_RIVER_DEALING:
-                self.state = self.STATE_RIVER
+                # 상태 전환
+                if self.state == self.STATE_DEALING:
+                    self.state = self.STATE_PREFLOP
+                    # 프리플롭 시작 - NPC 액션 플래그 리셋
+                    self.npcs_acted_this_round = False
+                    # 안테는 이미 베팅된 상태이므로 current_bet 유지
+                elif self.state == self.STATE_FLOP_DEALING:
+                    self.state = self.STATE_FLOP
+                elif self.state == self.STATE_TURN_DEALING:
+                    self.state = self.STATE_TURN
+                elif self.state == self.STATE_RIVER_DEALING:
+                    self.state = self.STATE_RIVER
+
+        # 리버 드라마틱 애니메이션 업데이트
+        if self.state == self.STATE_RIVER_DEALING and self.river_dramatic_phase >= 1:
+            self.river_dramatic_timer += dt
+
+            if self.river_dramatic_phase == 1:
+                # 페이즈 1: 대기 (0.8초 뜸들이기)
+                if self.river_dramatic_timer >= 0.8:
+                    self.river_dramatic_phase = 2
+                    self.river_flip_progress = 0.0
+                    self.river_dramatic_timer = 0.0
+
+            elif self.river_dramatic_phase == 2:
+                # 페이즈 2: 카드 뒤집기 애니메이션 (0.5초)
+                self.river_flip_progress = min(1.0, self.river_dramatic_timer / 0.5)
+
+                if self.river_flip_progress >= 1.0:
+                    # 뒤집기 완료 - 카드를 앞면으로
+                    if self.community_cards:
+                        self.community_cards[-1].face_up = True
+                    self.river_dramatic_phase = 3
+                    self.river_dramatic_timer = 0.0
+
+            elif self.river_dramatic_phase == 3:
+                # 페이즈 3: 완료 후 잠시 대기 (0.3초)
+                if self.river_dramatic_timer >= 0.3:
+                    self.river_dramatic_phase = 0
+                    self.state = self.STATE_RIVER
 
         # 쇼다운 애니메이션 업데이트
         if self.state in [self.STATE_SHOWDOWN_INTRO, self.STATE_SHOWDOWN_REVEAL, self.STATE_SHOWDOWN_HAND]:
@@ -4032,8 +4092,11 @@ class PokerGameUI:
             self._draw_showdown_cards(screen)
             return
 
-        # 딜링 애니메이션 중
-        if is_dealing:
+        # 딜링 애니메이션 중 (리버 드라마틱 페이즈에서는 일반 렌더링 사용)
+        is_river_dramatic = (self.game.state == PokerGame.STATE_RIVER_DEALING and
+                            self.game.river_dramatic_phase >= 1 and
+                            not self.game.card_animations)
+        if is_dealing and not is_river_dramatic:
             self._draw_animated_cards(screen)
             return
 
@@ -4046,8 +4109,37 @@ class PokerGameUI:
 
             for i, card in enumerate(self.game.community_cards):
                 card_x = comm_start_x + i * (self.CARD_WIDTH + 10)
-                self.card_renderer.draw_card(screen, card, card_x, comm_y,
-                                            self.CARD_WIDTH, self.CARD_HEIGHT)
+
+                # 리버 드라마틱 페이즈 처리
+                is_last_card = (i == len(self.game.community_cards) - 1)
+                is_river_waiting = (self.game.river_dramatic_phase == 1 and is_last_card)
+                is_river_flipping = (self.game.river_dramatic_phase == 2 and is_last_card)
+
+                if is_river_waiting:
+                    # 페이즈 1: 뜸들이기 - 카드 뒷면 + 살짝 진동 + 빛나는 효과
+                    import math
+                    shake = math.sin(self.game.river_dramatic_timer * 15) * 2
+                    pulse = 0.5 + 0.5 * math.sin(self.game.river_dramatic_timer * 8)
+
+                    # 빛나는 테두리 효과
+                    glow_alpha = int(100 + pulse * 100)
+                    glow_rect = pygame.Rect(card_x - 4, comm_y - 4,
+                                           self.CARD_WIDTH + 8, self.CARD_HEIGHT + 8)
+                    glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_surf, (255, 215, 0, glow_alpha), glow_surf.get_rect(), border_radius=10)
+                    screen.blit(glow_surf, glow_rect.topleft)
+
+                    # 카드 뒷면 (약간 진동)
+                    self.card_renderer.draw_card(screen, card, card_x + shake, comm_y,
+                                                self.CARD_WIDTH, self.CARD_HEIGHT, face_up=False)
+                elif is_river_flipping:
+                    # 페이즈 2: 뒤집기 애니메이션으로 그리기
+                    self._draw_flipping_card(screen, card, card_x, comm_y,
+                                            self.CARD_WIDTH, self.CARD_HEIGHT,
+                                            self.game.river_flip_progress)
+                else:
+                    self.card_renderer.draw_card(screen, card, card_x, comm_y,
+                                                self.CARD_WIDTH, self.CARD_HEIGHT)
 
         # 4인 플레이어 카드 위치
         card_positions = {
