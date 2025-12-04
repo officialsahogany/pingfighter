@@ -3255,29 +3255,30 @@ class PokerGameUI:
                 # 족보 표시 위치 결정
                 if position == 'south':
                     hand_label_x = label_x
-                    hand_label_y = card_y + self.CARD_HEIGHT + 15
+                    hand_label_y = card_y + self.CARD_HEIGHT + 20
                 elif position == 'north':
                     hand_label_x = label_x
-                    hand_label_y = card_y + self.CARD_HEIGHT + 15
+                    hand_label_y = card_y + self.CARD_HEIGHT + 20
                 elif position == 'west':
                     # 좌측 NPC - 카드 상단에 표시
                     hand_label_x = start_x + self.CARD_WIDTH // 2
-                    hand_label_y = card_y - 50  # 카드 위쪽
+                    hand_label_y = card_y - 55  # 카드 위쪽
                 else:  # east
-                    # 우측 NPC - 카드 상단에 표시
-                    hand_label_x = start_x + self.CARD_WIDTH // 2
-                    hand_label_y = card_y - 50  # 카드 위쪽
+                    # 우측 NPC - 카드 상단에 표시 (왼쪽, 위로 이동)
+                    hand_label_x = start_x + self.CARD_WIDTH // 2 - 30  # 왼쪽으로 30px 이동
+                    hand_label_y = card_y - 60  # 카드 위쪽으로 더 이동
 
                 # 승자는 황금색, 나머지는 흰색
                 hand_color = self.GOLD if position in winner_positions else self.WHITE
 
-                # 배경 박스 추가 (가독성 향상)
-                text_width = len(hand_name) * 8 + 20
-                bg_rect = pygame.Rect(hand_label_x - text_width // 2, hand_label_y - 2, text_width, 18)
-                pygame.draw.rect(screen, (20, 20, 30, 200), bg_rect, border_radius=4)
-                pygame.draw.rect(screen, hand_color, bg_rect, 1, border_radius=4)
+                # 배경 박스 추가 (가독성 향상) - 크기 확대
+                text_width = len(hand_name) * 11 + 30  # 텍스트 너비 계산 확대
+                box_height = 26  # 박스 높이 확대
+                bg_rect = pygame.Rect(hand_label_x - text_width // 2, hand_label_y - 4, text_width, box_height)
+                pygame.draw.rect(screen, (20, 20, 30, 200), bg_rect, border_radius=6)
+                pygame.draw.rect(screen, hand_color, bg_rect, 2, border_radius=6)
 
-                self._draw_text(screen, f"[{hand_name}]", hand_label_x, hand_label_y, hand_color, 12, center=True)
+                self._draw_text(screen, f"[{hand_name}]", hand_label_x, hand_label_y + 2, hand_color, 16, center=True)
 
     def _draw_ui(self, screen):
         """기본 UI - 4인 테이블"""
