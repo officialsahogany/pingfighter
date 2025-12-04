@@ -253,9 +253,9 @@ class ChipStack:
         self.y = y
         self.direction = direction
         self.gold = 0
-        self.chip_radius = 11  # 칩 반지름
-        self.chip_height = 4   # 칩 두께
-        self.stack_spacing = 22  # 스택 간 간격
+        self.chip_radius = 14  # 칩 반지름 (+30%)
+        self.chip_height = 5   # 칩 두께 (+30%)
+        self.stack_spacing = 28  # 스택 간 간격 (+30%)
 
         # 각 스택의 높이 변화 (자연스럽게)
         self.stack_height_offsets = [0, -2, 1, -1]
@@ -346,21 +346,7 @@ class ChipStack:
                            (x - self.chip_radius, y - self.chip_height,
                             self.chip_radius * 2, self.chip_height * 2 + 1))
 
-        # 4. 가장자리 패턴 (8개의 사각형 패턴)
-        import math
-        pattern_radius = self.chip_radius - 2
-        num_patterns = 8
-        pattern_size = 3
-
-        for i in range(num_patterns):
-            angle = (i / num_patterns) * 2 * math.pi
-            px = x + int(pattern_radius * math.cos(angle))
-            # y축은 타원형이라 조정
-            py = y - self.chip_height + int((self.chip_height) * math.sin(angle))
-            pygame.draw.rect(screen, edge_color,
-                           (px - pattern_size // 2, py - 1, pattern_size, 2))
-
-        # 5. 칩 내부 원 (2중)
+        # 4. 칩 내부 원 (2중)
         inner_radius1 = self.chip_radius - 4
         inner_radius2 = self.chip_radius - 6
         pygame.draw.ellipse(screen, pattern_color,
@@ -483,8 +469,8 @@ class ChipAnimation:
 
     def _draw_flying_chips(self, screen, x, y, alpha):
         """날아가는 칩들 그리기 (고퀄리티)"""
-        chip_radius = 9
-        chip_height = 3
+        chip_radius = 12  # +30%
+        chip_height = 4   # +30%
 
         for i, design in enumerate(self.chips):
             chip_y = y - i * chip_height
@@ -516,17 +502,7 @@ class ChipAnimation:
             pygame.draw.ellipse(surf, top,
                                (cx - chip_radius, cy - chip_height, chip_radius * 2, chip_height * 2))
 
-            # 4. 가장자리 패턴
-            import math
-            pattern_r = chip_radius - 2
-            edge_alpha = (edge[0], edge[1], edge[2], alpha)
-            for j in range(6):
-                angle = (j / 6) * 2 * math.pi
-                px = cx + int(pattern_r * math.cos(angle))
-                py = cy - chip_height + int(chip_height * 0.5 * math.sin(angle))
-                pygame.draw.rect(surf, edge_alpha, (px - 1, py, 2, 1))
-
-            # 5. 테두리
+            # 4. 테두리
             border = (edge[0], edge[1], edge[2], alpha // 2)
             pygame.draw.ellipse(surf, border,
                                (cx - chip_radius, cy - chip_height, chip_radius * 2, chip_height * 2), 1)
@@ -1005,7 +981,10 @@ class PokerGame:
     STATE_TURN = 'turn'
     STATE_RIVER_DEALING = 'river_dealing'
     STATE_RIVER = 'river'
-    STATE_SHOWDOWN = 'showdown'
+    STATE_SHOWDOWN_INTRO = 'showdown_intro'  # 쇼다운 시작 연출
+    STATE_SHOWDOWN_REVEAL = 'showdown_reveal'  # 플레이어별 카드 공개
+    STATE_SHOWDOWN_HAND = 'showdown_hand'  # 족보 하이라이트
+    STATE_SHOWDOWN = 'showdown'  # 결과 표시
     STATE_GAME_OVER = 'game_over'
 
     # 플레이어 위치 순서 (시계방향: 남->서->북->동)
@@ -1077,6 +1056,18 @@ class PokerGame:
         self.npcs_acted_this_round = False  # 이번 라운드에서 NPC들이 액션했는지
         self.waiting_for_player_response = False  # NPC 레이즈 후 플레이어 응답 대기 중
         self.spectator_mode = False  # 관전자 모드 (플레이어 폴드 후)
+
+        # 쇼다운 애니메이션 시스템
+        self.showdown_phase = 0  # 현재 쇼다운 단계
+        self.showdown_player_idx = 0  # 현재 카드 공개 중인 플레이어 인덱스
+        self.showdown_card_idx = 0  # 현재 공개 중인 카드 인덱스
+        self.showdown_timer = 0  # 쇼다운 타이머
+        self.showdown_reveal_order = []  # 카드 공개 순서 (폴드 안한 플레이어)
+        self.showdown_current_player = None  # 현재 쇼다운 중인 플레이어
+        self.showdown_hand_highlight = []  # 족보에 사용된 카드 인덱스
+        self.showdown_hand_effect_timer = 0  # 족보 이펙트 타이머
+        self.showdown_hand_rank = 0  # 현재 플레이어 족보 등급 (1-10)
+        self.showdown_particles = []  # 파티클 이펙트
 
         # 편의용 프로퍼티
         self.player_gold = player_gold  # 호환성 유지
@@ -1631,26 +1622,46 @@ class PokerGame:
         self.proceed_to_next_stage()
 
         # 쇼다운이 아니면 다시 NPC 라운드 시작
-        if self.state not in [self.STATE_SHOWDOWN, self.STATE_GAME_OVER]:
+        if self.state not in [self.STATE_SHOWDOWN, self.STATE_GAME_OVER,
+                              self.STATE_SHOWDOWN_INTRO, self.STATE_SHOWDOWN_REVEAL, self.STATE_SHOWDOWN_HAND]:
             # 베팅 상태 리셋 후 다음 NPC 라운드
             self.npcs_acted_this_round = False
             self._start_spectator_npc_round()
 
     def _showdown(self):
-        """쇼다운: 모든 카드 공개 및 승자 결정"""
-        # 모든 플레이어 카드 공개
-        for player in self.players.values():
-            for card in player.hand:
-                card.face_up = True
-
-        # 활성 플레이어 패 평가
+        """쇼다운: 애니메이션 쇼다운 시작"""
+        # 활성 플레이어 패 평가 (카드는 아직 공개하지 않음)
         active = self.get_active_players()
-        self.hand_results = {}  # 각 플레이어의 패 결과 저장
+        self.hand_results = {}
 
         for player in active:
             all_cards = player.hand + self.community_cards
             player.hand_result = HandEvaluator.evaluate(all_cards)
             self.hand_results[player.position] = player.hand_result
+
+        # 카드 공개 순서 설정 (폴드하지 않은 플레이어, 딜러 왼쪽부터)
+        self.showdown_reveal_order = []
+        for pos in self.POSITIONS:
+            player = self.players[pos]
+            if not player.folded and not player.is_bankrupt:
+                self.showdown_reveal_order.append(player)
+
+        # 쇼다운 애니메이션 초기화
+        self.showdown_phase = 0
+        self.showdown_player_idx = 0
+        self.showdown_card_idx = 0
+        self.showdown_timer = 0
+        self.showdown_current_player = None
+        self.showdown_hand_highlight = []
+        self.showdown_hand_effect_timer = 0
+        self.showdown_particles = []
+
+        # 쇼다운 인트로 시작
+        self.state = self.STATE_SHOWDOWN_INTRO
+
+    def _finish_showdown(self):
+        """쇼다운 완료: 승자 결정 및 상금 분배"""
+        active = self.get_active_players()
 
         # 최고 패 찾기
         best_rank = -1
@@ -1714,6 +1725,128 @@ class PokerGame:
 
         self.state = self.STATE_SHOWDOWN
 
+    def _get_hand_rank_level(self, hand_rank):
+        """족보 등급 반환 (1-10, 높을수록 화려한 애니메이션)"""
+        # HandEvaluator rank: 0=하이카드, 1=원페어, ... 9=로얄플러시
+        return hand_rank + 1
+
+    def _get_best_five_cards(self, player):
+        """플레이어의 최고 5장 카드 조합 반환"""
+        all_cards = player.hand + self.community_cards
+        if len(all_cards) < 5:
+            return all_cards
+
+        # 모든 5장 조합 중 최고 찾기
+        from itertools import combinations
+        best_combo = None
+        best_result = (-1, [], "")
+
+        for combo in combinations(all_cards, 5):
+            result = HandEvaluator.evaluate(list(combo))
+            if result[0] > best_result[0] or (result[0] == best_result[0] and result[1] > best_result[1]):
+                best_result = result
+                best_combo = list(combo)
+
+        return best_combo if best_combo else all_cards[:5]
+
+    def update_showdown_animation(self, dt):
+        """쇼다운 애니메이션 업데이트"""
+        self.showdown_timer += dt
+
+        # 인트로 단계 (0.5초 대기)
+        if self.state == self.STATE_SHOWDOWN_INTRO:
+            if self.showdown_timer >= 0.5:
+                self.showdown_timer = 0
+                self.showdown_player_idx = 0
+                if self.showdown_reveal_order:
+                    self.showdown_current_player = self.showdown_reveal_order[0]
+                    self.showdown_card_idx = 0
+                    self.state = self.STATE_SHOWDOWN_REVEAL
+                else:
+                    self._finish_showdown()
+
+        # 카드 공개 단계
+        elif self.state == self.STATE_SHOWDOWN_REVEAL:
+            # 0.3초마다 카드 한 장씩 공개
+            if self.showdown_timer >= 0.3:
+                self.showdown_timer = 0
+                player = self.showdown_current_player
+
+                if player and self.showdown_card_idx < len(player.hand):
+                    # 카드 공개
+                    player.hand[self.showdown_card_idx].face_up = True
+                    self.showdown_card_idx += 1
+
+                # 모든 카드 공개 완료
+                if player and self.showdown_card_idx >= len(player.hand):
+                    # 족보 하이라이트 단계로 전환
+                    self.showdown_hand_highlight = self._get_best_five_cards(player)
+                    rank = player.hand_result[0] if player.hand_result else 0
+                    self.showdown_hand_rank = self._get_hand_rank_level(rank)
+                    self.showdown_hand_effect_timer = 0
+                    self.state = self.STATE_SHOWDOWN_HAND
+
+        # 족보 하이라이트 단계
+        elif self.state == self.STATE_SHOWDOWN_HAND:
+            self.showdown_hand_effect_timer += dt
+
+            # 족보 등급에 따른 표시 시간 (높을수록 길게)
+            display_time = 1.0 + (self.showdown_hand_rank * 0.15)
+
+            # 파티클 업데이트
+            self._update_showdown_particles(dt)
+
+            if self.showdown_hand_effect_timer >= display_time:
+                # 다음 플레이어로
+                self.showdown_player_idx += 1
+
+                if self.showdown_player_idx < len(self.showdown_reveal_order):
+                    # 다음 플레이어 카드 공개
+                    self.showdown_current_player = self.showdown_reveal_order[self.showdown_player_idx]
+                    self.showdown_card_idx = 0
+                    self.showdown_timer = 0
+                    self.showdown_hand_highlight = []
+                    self.showdown_particles = []
+                    self.state = self.STATE_SHOWDOWN_REVEAL
+                else:
+                    # 모든 플레이어 공개 완료 - 결과 표시
+                    self._finish_showdown()
+
+    def _update_showdown_particles(self, dt):
+        """쇼다운 파티클 업데이트"""
+        # 파티클 생성 (족보 등급에 따라 개수 결정)
+        if self.showdown_hand_rank >= 4:  # 쓰리카드 이상
+            spawn_rate = self.showdown_hand_rank * 2
+            for _ in range(int(spawn_rate * dt * 60)):
+                self.showdown_particles.append({
+                    'x': random.randint(100, 500),
+                    'y': random.randint(200, 400),
+                    'vx': random.uniform(-50, 50),
+                    'vy': random.uniform(-100, -50),
+                    'life': 1.0,
+                    'color': self._get_particle_color()
+                })
+
+        # 파티클 업데이트
+        for p in self.showdown_particles[:]:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['vy'] += 100 * dt  # 중력
+            p['life'] -= dt
+            if p['life'] <= 0:
+                self.showdown_particles.remove(p)
+
+    def _get_particle_color(self):
+        """족보 등급에 따른 파티클 색상"""
+        if self.showdown_hand_rank >= 9:  # 스트레이트 플러시 이상
+            return (255, 215, 0)  # 골드
+        elif self.showdown_hand_rank >= 7:  # 풀하우스 이상
+            return (255, 100, 100)  # 레드
+        elif self.showdown_hand_rank >= 5:  # 스트레이트 이상
+            return (100, 200, 255)  # 블루
+        else:
+            return (200, 200, 200)  # 실버
+
     def update(self, dt):
         """게임 상태 업데이트"""
         self.animation_timer += dt
@@ -1746,6 +1879,10 @@ class PokerGame:
                 self.state = self.STATE_TURN
             elif self.state == self.STATE_RIVER_DEALING:
                 self.state = self.STATE_RIVER
+
+        # 쇼다운 애니메이션 업데이트
+        if self.state in [self.STATE_SHOWDOWN_INTRO, self.STATE_SHOWDOWN_REVEAL, self.STATE_SHOWDOWN_HAND]:
+            self.update_showdown_animation(dt)
 
 
 # ============================================
@@ -2623,7 +2760,9 @@ class PokerGameUI:
             elif self.game.state in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
                                       PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
                 return self._handle_action_input(event)
-            elif self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER]:
+            elif self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER,
+                                      PokerGame.STATE_SHOWDOWN_INTRO, PokerGame.STATE_SHOWDOWN_REVEAL,
+                                      PokerGame.STATE_SHOWDOWN_HAND]:
                 return self._handle_result_input(event)
 
         # 마우스 이동 - 호버 처리
@@ -2709,7 +2848,7 @@ class PokerGameUI:
                                PokerGame.STATE_TURN_DEALING, PokerGame.STATE_RIVER_DEALING]:
             return None
 
-        # 베팅 상태일 때 화살표 클릭 처리
+        # 베팅 상태일 때 화살표 클릭 처리 및 확인 버튼
         if self.game.state == PokerGame.STATE_BETTING:
             cx = self.screen_width // 2
             y = self.screen_height - 80
@@ -2725,6 +2864,17 @@ class PokerGameUI:
             right_arrow_rect = pygame.Rect(cx + 75, arrow_y - 15, 35, 30)
             if right_arrow_rect.collidepoint(pos):
                 self.bet_amount = min(self.game.max_bet, self.game.players['south'].gold, self.bet_amount + 10)
+                return None
+
+            # 베팅 박스 중앙 영역 클릭 시 확인 (Space와 동일)
+            # 화살표 영역을 제외한 중앙 금액 표시 영역
+            bet_confirm_rect = pygame.Rect(cx - 70, y - 15, 140, 70)
+            if bet_confirm_rect.collidepoint(pos):
+                if self.game.place_bet(self.bet_amount):
+                    # 칩 애니메이션
+                    self._spawn_chip_animation(self.bet_amount)
+                    # 베팅 완료 후 레이즈 범위 업데이트
+                    self._update_raise_range()
                 return None
 
         # 액션 상태일 때 버튼 클릭 처리 (관전자 모드에서는 무시)
@@ -2770,6 +2920,23 @@ class PokerGameUI:
                         elif i == 2:  # FOLD
                             self.game.fold()
                             return 'action_fold'
+
+        # 결과/쇼다운 상태일 때 클릭으로 진행 (Space와 동일)
+        # 쇼다운 애니메이션 중에는 스킵 불가
+        if self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER]:
+            # 딜러 파산 시 계속 불가
+            if self.game.dealer_bankrupt:
+                return 'exit'
+            if self.game.players['south'].gold >= self.game.min_bet:
+                self.game.start_new_round()
+                self.bet_amount = min(50, self.game.players['south'].gold)
+                self.result_shown = False
+                self.win_chips_triggered = False
+                self.last_npc_action_display = None
+                return 'new_round'
+            else:
+                return 'exit'
+
         return None
 
     def _handle_betting_input(self, event):
@@ -3018,6 +3185,9 @@ class PokerGameUI:
         elif self.game.state in [PokerGame.STATE_PREFLOP, PokerGame.STATE_FLOP,
                                   PokerGame.STATE_TURN, PokerGame.STATE_RIVER]:
             self._draw_action_ui(screen)
+        elif self.game.state in [PokerGame.STATE_SHOWDOWN_INTRO, PokerGame.STATE_SHOWDOWN_REVEAL,
+                                  PokerGame.STATE_SHOWDOWN_HAND]:
+            self._draw_showdown_animation_ui(screen)
         elif self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER]:
             self._draw_result_ui(screen)
 
@@ -3477,8 +3647,20 @@ class PokerGameUI:
         # 애니메이션 오프셋 계산 (판돈에 따라)
         shake_x, shake_y = 0, 0
         heat_intensity = 0  # 열기 효과 강도
+        inferno_mode = False  # 3000골드 이상 극한 모드
 
-        if pot >= 2000:
+        if pot >= 3000:
+            # 3000골드 이상: 극한 인페르노 모드
+            shake_speed = 18  # 매우 빠른 흔들림
+            shake_amount = 5  # 매우 강한 흔들림
+            shake_x = int(math.sin(self.table_pulse_phase * shake_speed) * shake_amount)
+            shake_y = int(math.cos(self.table_pulse_phase * shake_speed * 1.5) * shake_amount * 0.8)
+            # 추가 랜덤 진동
+            shake_x += int(math.sin(self.table_pulse_phase * 25) * 2)
+            shake_y += int(math.cos(self.table_pulse_phase * 30) * 1.5)
+            heat_intensity = 1.5
+            inferno_mode = True
+        elif pot >= 2000:
             # 2000골드 이상: 힘찬 흔들림 + 열기 효과
             shake_speed = 12  # 빠른 흔들림
             shake_amount = 3  # 강한 흔들림
@@ -3499,16 +3681,45 @@ class PokerGameUI:
 
         # 2000골드 이상: 열기 글로우 효과
         if heat_intensity > 0.5:
-            # 붉은 열기 글로우
-            glow_surf = pygame.Surface((box_w + 30, box_h + 30), pygame.SRCALPHA)
-            glow_pulse = 0.6 + 0.4 * math.sin(self.table_pulse_phase * 8)
-            for i in range(3, 0, -1):
-                glow_alpha = int(40 * glow_pulse * heat_intensity * (4 - i) / 3)
-                glow_color = (255, 100 + int(50 * glow_pulse), 50, glow_alpha)
+            # 붉은 열기 글로우 (인페르노 모드에서 더 강렬하게)
+            glow_size = 50 if inferno_mode else 30  # 인페르노: 더 넓은 글로우
+            glow_surf = pygame.Surface((box_w + glow_size, box_h + glow_size), pygame.SRCALPHA)
+            glow_speed = 12 if inferno_mode else 8
+            glow_pulse = 0.6 + 0.4 * math.sin(self.table_pulse_phase * glow_speed)
+            glow_layers = 5 if inferno_mode else 3  # 인페르노: 더 많은 레이어
+
+            for i in range(glow_layers, 0, -1):
+                if inferno_mode:
+                    # 인페르노: 더 강렬한 빨강/주황 글로우
+                    glow_alpha = int(60 * glow_pulse * heat_intensity * (glow_layers + 1 - i) / glow_layers)
+                    # 바깥쪽은 빨강, 안쪽은 노랑
+                    red_ratio = i / glow_layers
+                    glow_color = (255, int(80 + 120 * (1 - red_ratio) * glow_pulse), int(30 * (1 - red_ratio)), glow_alpha)
+                else:
+                    glow_alpha = int(40 * glow_pulse * heat_intensity * (4 - i) / 3)
+                    glow_color = (255, 100 + int(50 * glow_pulse), 50, glow_alpha)
+
+                half_glow = glow_size // 2
                 pygame.draw.rect(glow_surf, glow_color,
-                               (15 - i * 5, 15 - i * 5, box_w + i * 10, box_h + i * 10),
+                               (half_glow - i * 5, half_glow - i * 5, box_w + i * 10, box_h + i * 10),
                                border_radius=12)
-            screen.blit(glow_surf, (draw_x - box_w // 2 - 15, draw_y - 15))
+            screen.blit(glow_surf, (draw_x - box_w // 2 - glow_size // 2, draw_y - glow_size // 2))
+
+            # 인페르노 모드: 외곽 불꽃 링 효과
+            if inferno_mode:
+                ring_surf = pygame.Surface((box_w + 60, box_h + 60), pygame.SRCALPHA)
+                ring_cx, ring_cy = (box_w + 60) // 2, (box_h + 60) // 2
+                for angle in range(0, 360, 15):
+                    rad = math.radians(angle + self.table_pulse_phase * 100)
+                    ring_pulse = 0.5 + 0.5 * math.sin(self.table_pulse_phase * 10 + angle * 0.1)
+                    ring_r = 50 + int(8 * ring_pulse)
+                    spark_x = ring_cx + int(math.cos(rad) * ring_r * (box_w / box_h))
+                    spark_y = ring_cy + int(math.sin(rad) * ring_r)
+                    spark_size = 2 + int(3 * ring_pulse)
+                    spark_alpha = int(180 * ring_pulse)
+                    spark_color = (255, int(100 + 100 * ring_pulse), 30, spark_alpha)
+                    pygame.draw.circle(ring_surf, spark_color, (spark_x, spark_y), spark_size)
+                screen.blit(ring_surf, (draw_x - box_w // 2 - 30, draw_y - 30))
 
         # 그림자
         pygame.draw.rect(screen, (0, 0, 0, 60), (draw_x - box_w // 2 + 3, draw_y + 3, box_w, box_h), border_radius=8)
@@ -3516,7 +3727,14 @@ class PokerGameUI:
         # 배경 (열기에 따라 색상 변화)
         for i in range(box_h):
             ratio = i / box_h
-            if heat_intensity > 0.5:
+            if inferno_mode:
+                # 인페르노: 강렬한 빨강/검정 그라데이션 (용암처럼)
+                heat_pulse = 0.6 + 0.4 * math.sin(self.table_pulse_phase * 10 + i * 0.15)
+                lava_wave = 0.5 + 0.5 * math.sin(self.table_pulse_phase * 8 + i * 0.2)
+                r = int(80 + ratio * 40 + 60 * heat_intensity * heat_pulse)
+                g = int(20 + ratio * 15 + 30 * lava_wave)
+                b = int(15 + ratio * 10)
+            elif heat_intensity > 0.5:
                 # 붉은 열기 배경
                 heat_pulse = 0.7 + 0.3 * math.sin(self.table_pulse_phase * 6 + i * 0.1)
                 r = int(55 + ratio * 20 + 30 * heat_intensity * heat_pulse)
@@ -3533,7 +3751,13 @@ class PokerGameUI:
         box_x = draw_x - box_w // 2
         zigzag_size = 6  # 지그재그 크기
 
-        if heat_intensity > 0.5:
+        if inferno_mode:
+            # 인페르노: 빨강/노랑 교차 (불타는 효과) + 매우 빠른 애니메이션
+            heat_pulse = 0.5 + 0.5 * math.sin(self.table_pulse_phase * 15)
+            red_color = (255, int(50 + 80 * heat_pulse), 30)
+            yellow_color = (255, int(200 + 55 * heat_pulse), int(50 + 50 * heat_pulse))
+            border_colors = [red_color, yellow_color]
+        elif heat_intensity > 0.5:
             # 열기 효과: 금색/주황색 교차 + 움직이는 효과
             heat_pulse = 0.7 + 0.3 * math.sin(self.table_pulse_phase * 10)
             orange_color = (255, int(150 + 50 * heat_pulse), 50)
@@ -3541,8 +3765,9 @@ class PokerGameUI:
         else:
             border_colors = [self.GOLD, self.SILVER]
 
-        # 지그재그 오프셋 (애니메이션용)
-        zigzag_offset = int(self.table_pulse_phase * 2) % (zigzag_size * 2) if pot >= 1000 else 0
+        # 지그재그 오프셋 (애니메이션용) - 인페르노는 더 빠르게
+        zigzag_speed = 4 if inferno_mode else 2
+        zigzag_offset = int(self.table_pulse_phase * zigzag_speed) % (zigzag_size * 2) if pot >= 1000 else 0
 
         # 상단 지그재그
         for i in range(-zigzag_offset, box_w + zigzag_size * 2, zigzag_size * 2):
@@ -3586,23 +3811,69 @@ class PokerGameUI:
 
         # 모서리 장식 (금색 동그라미, 열기 시 펄스)
         corner_radius = 4
-        if heat_intensity > 0.5:
+        if inferno_mode:
+            # 인페르노: 더 큰 펄스 + 빨간색으로 변화
+            corner_pulse = int(3 * math.sin(self.table_pulse_phase * 12))
+            corner_radius = 5 + corner_pulse
+            corner_color_pulse = 0.5 + 0.5 * math.sin(self.table_pulse_phase * 10)
+            corner_color = (255, int(100 + 100 * corner_color_pulse), 30)
+        elif heat_intensity > 0.5:
             corner_pulse = int(2 * math.sin(self.table_pulse_phase * 8))
             corner_radius = 4 + corner_pulse
-        pygame.draw.circle(screen, self.GOLD, (box_x, draw_y), corner_radius)
-        pygame.draw.circle(screen, self.GOLD, (box_x + box_w, draw_y), corner_radius)
-        pygame.draw.circle(screen, self.GOLD, (box_x, draw_y + box_h), corner_radius)
-        pygame.draw.circle(screen, self.GOLD, (box_x + box_w, draw_y + box_h), corner_radius)
+            corner_color = self.GOLD
+        else:
+            corner_color = self.GOLD
+        pygame.draw.circle(screen, corner_color, (box_x, draw_y), corner_radius)
+        pygame.draw.circle(screen, corner_color, (box_x + box_w, draw_y), corner_radius)
+        pygame.draw.circle(screen, corner_color, (box_x, draw_y + box_h), corner_radius)
+        pygame.draw.circle(screen, corner_color, (box_x + box_w, draw_y + box_h), corner_radius)
 
         # 2000골드 이상: 상단에 불꽃 파티클
         if heat_intensity > 0.5:
-            for i in range(5):
-                flame_x = box_x + 20 + i * 35 + int(math.sin(self.table_pulse_phase * 5 + i) * 5)
-                flame_y = draw_y - 8 - int(abs(math.sin(self.table_pulse_phase * 8 + i * 1.5)) * 8)
-                flame_size = 3 + int(math.sin(self.table_pulse_phase * 6 + i) * 2)
-                flame_alpha = int(150 + 100 * math.sin(self.table_pulse_phase * 7 + i))
-                flame_color = (255, 150 + int(50 * math.sin(self.table_pulse_phase * 4 + i)), 50)
-                pygame.draw.circle(screen, flame_color, (flame_x, flame_y), max(1, flame_size))
+            if inferno_mode:
+                # 인페르노: 더 많고, 크고, 높이 솟는 불꽃
+                flame_count = 9  # 더 많은 불꽃
+                for i in range(flame_count):
+                    flame_x = box_x + 10 + i * 18 + int(math.sin(self.table_pulse_phase * 8 + i) * 8)
+                    # 더 높이 솟는 불꽃
+                    flame_height = int(abs(math.sin(self.table_pulse_phase * 12 + i * 1.2)) * 18)
+                    flame_y = draw_y - 12 - flame_height
+                    flame_size = 4 + int(math.sin(self.table_pulse_phase * 9 + i) * 3)
+                    # 색상 변화 (빨강 → 노랑 → 주황)
+                    color_phase = (self.table_pulse_phase * 6 + i * 0.8) % (math.pi * 2)
+                    if color_phase < math.pi:
+                        flame_color = (255, int(80 + 120 * math.sin(color_phase)), 30)
+                    else:
+                        # Clamp values to valid 0-255 range
+                        g_val = max(0, min(255, int(200 + 55 * math.sin(color_phase))))
+                        b_val = max(0, min(255, int(80 * abs(math.sin(color_phase)))))
+                        flame_color = (255, g_val, b_val)
+                    pygame.draw.circle(screen, flame_color, (flame_x, flame_y), max(2, flame_size))
+                    # 불꽃 꼬리 (트레일)
+                    for t in range(1, 3):
+                        trail_y = flame_y + t * 4
+                        trail_size = max(1, flame_size - t)
+                        trail_alpha = 0.7 - t * 0.2
+                        trail_color = (255, int(150 * trail_alpha), int(30 * trail_alpha))
+                        pygame.draw.circle(screen, trail_color, (flame_x, trail_y), trail_size)
+
+                # 하단에도 불꽃 추가 (인페르노만)
+                for i in range(5):
+                    flame_x = box_x + 20 + i * 35 + int(math.sin(self.table_pulse_phase * 7 + i + 2) * 6)
+                    flame_y = draw_y + box_h + 8 + int(abs(math.sin(self.table_pulse_phase * 10 + i)) * 6)
+                    flame_size = 3 + int(math.sin(self.table_pulse_phase * 8 + i) * 2)
+                    g_val = max(0, min(255, int(100 + 80 * math.sin(self.table_pulse_phase * 5 + i))))
+                    flame_color = (255, g_val, 40)
+                    pygame.draw.circle(screen, flame_color, (flame_x, flame_y), max(1, flame_size))
+            else:
+                # 일반 2000골드: 기존 불꽃
+                for i in range(5):
+                    flame_x = box_x + 20 + i * 35 + int(math.sin(self.table_pulse_phase * 5 + i) * 5)
+                    flame_y = draw_y - 8 - int(abs(math.sin(self.table_pulse_phase * 8 + i * 1.5)) * 8)
+                    flame_size = 3 + int(math.sin(self.table_pulse_phase * 6 + i) * 2)
+                    g_val = max(0, min(255, 150 + int(50 * math.sin(self.table_pulse_phase * 4 + i))))
+                    flame_color = (255, g_val, 50)
+                    pygame.draw.circle(screen, flame_color, (flame_x, flame_y), max(1, flame_size))
 
         # 칩 아이콘
         chip_x = draw_x - box_w // 2 + 28
@@ -3610,14 +3881,24 @@ class PokerGameUI:
         self._draw_chip(screen, chip_x, chip_y, 16)
 
         # 판돈 텍스트 (열기 시 색상 변화)
-        if heat_intensity > 0.5:
+        if inferno_mode:
+            # 인페르노: 빨강/주황 깜빡이는 텍스트 + 더 큰 폰트
+            text_pulse = 0.5 + 0.5 * math.sin(self.table_pulse_phase * 10)
+            pot_color = (255, int(120 + 80 * text_pulse), int(40 * text_pulse))
+            label_color = (255, int(180 + 75 * text_pulse), int(100 * text_pulse))
+            pot_size = 28  # 더 큰 폰트
+        elif heat_intensity > 0.5:
             text_pulse = 0.7 + 0.3 * math.sin(self.table_pulse_phase * 6)
             pot_color = (255, int(200 + 55 * text_pulse), int(100 * text_pulse))
+            label_color = self.SILVER
+            pot_size = 26
         else:
             pot_color = self.GOLD_LIGHT
+            label_color = self.SILVER
+            pot_size = 26
 
-        self._draw_text(screen, "판돈", draw_x + 15, draw_y + 6, self.SILVER, 20, center=True)
-        self._draw_text(screen, f"{pot:,}", draw_x + 8, draw_y + 30, pot_color, 26, center=True)
+        self._draw_text(screen, "판돈", draw_x + 15, draw_y + 6, label_color, 20, center=True)
+        self._draw_text(screen, f"{pot:,}", draw_x + 8, draw_y + 30, pot_color, pot_size, center=True)
         self._draw_gold_coin(screen, draw_x + 60, draw_y + 42, 14)
 
     def _draw_chip(self, screen, x, y, radius):
@@ -3646,7 +3927,9 @@ class PokerGameUI:
         """카드 그리기 - 4인 테이블"""
         cx = self.screen_width // 2
         cy = self.screen_height // 2
-        is_showdown = self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER]
+        is_showdown = self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER,
+                                           PokerGame.STATE_SHOWDOWN_INTRO, PokerGame.STATE_SHOWDOWN_REVEAL,
+                                           PokerGame.STATE_SHOWDOWN_HAND]
         is_dealing = self.game.state in [PokerGame.STATE_DEALING, PokerGame.STATE_FLOP_DEALING,
                                           PokerGame.STATE_TURN_DEALING, PokerGame.STATE_RIVER_DEALING]
 
@@ -4009,7 +4292,9 @@ class PokerGameUI:
         cy = self.screen_height // 2
 
         # 쇼다운/결과 상태인지 확인
-        is_showdown = self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER]
+        is_showdown = self.game.state in [PokerGame.STATE_SHOWDOWN, PokerGame.STATE_GAME_OVER,
+                                           PokerGame.STATE_SHOWDOWN_INTRO, PokerGame.STATE_SHOWDOWN_REVEAL,
+                                           PokerGame.STATE_SHOWDOWN_HAND]
 
         # 4인 플레이어 정보 표시 위치
         # 쇼다운 시에는 좌우 플레이어 정보를 카드 아래로 이동
@@ -4453,7 +4738,7 @@ class PokerGameUI:
         ])
 
         # 조작법 (박스 안에 들어오도록)
-        self._draw_text(screen, "◀▶/휠:±10 ▲▼:±50 Space:확인 ESC:나가기",
+        self._draw_text(screen, "◀▶/휠:±10 ▲▼:±50 Space/클릭:확인 ESC:나가기",
                        cx, y + 62, (120, 120, 130), 10, center=True)
 
     def _draw_scroll_icon(self, screen):
@@ -5043,6 +5328,197 @@ class PokerGameUI:
             self._draw_text(screen, "◀▶/클릭: 선택  Space: 확인  ESC: 나가기",
                            cx, y + 55, (100, 100, 110), 10, center=True)
 
+    def _draw_showdown_animation_ui(self, screen):
+        """쇼다운 애니메이션 UI - 플레이어별 카드 공개 및 족보 하이라이트"""
+        cx = self.screen_width // 2
+        cy = self.screen_height // 2
+
+        # 현재 쇼다운 중인 플레이어
+        current_player = self.game.showdown_current_player
+
+        # 쇼다운 인트로
+        if self.game.state == PokerGame.STATE_SHOWDOWN_INTRO:
+            # "SHOWDOWN" 텍스트 애니메이션
+            progress = min(1.0, self.game.showdown_timer / 0.5)
+            scale = 0.5 + progress * 0.5
+            alpha = int(255 * progress)
+
+            # 배경 어둡게
+            overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, int(100 * progress)))
+            screen.blit(overlay, (0, 0))
+
+            # SHOWDOWN 텍스트
+            font_size = int(36 * scale)
+            self._draw_text_with_glow(screen, "SHOWDOWN", cx, cy - 50,
+                                     (255, 215, 0), font_size, (255, 150, 0, 100))
+
+        # 카드 공개 및 족보 하이라이트 단계
+        elif self.game.state in [PokerGame.STATE_SHOWDOWN_REVEAL, PokerGame.STATE_SHOWDOWN_HAND]:
+            if current_player:
+                # 현재 플레이어 이름 표시
+                name = current_player.name
+                pos = current_player.position
+
+                # 위치별 표시 좌표
+                name_positions = {
+                    'south': (cx, self.screen_height - 180),
+                    'north': (cx, 100),
+                    'west': (120, cy),
+                    'east': (self.screen_width - 120, cy)
+                }
+                name_x, name_y = name_positions.get(pos, (cx, cy))
+
+                # 플레이어 이름 하이라이트
+                self._draw_text_with_glow(screen, name, name_x, name_y - 40,
+                                         (0, 255, 255), 18, (0, 200, 255, 80))
+
+                # 족보 하이라이트 단계
+                if self.game.state == PokerGame.STATE_SHOWDOWN_HAND:
+                    self._draw_hand_highlight_effect(screen, current_player)
+
+        # 파티클 렌더링
+        self._draw_showdown_particles(screen)
+
+    def _draw_text_with_glow(self, screen, text, x, y, color, size, glow_color):
+        """글로우 효과가 있는 텍스트 그리기"""
+        # 글로우
+        glow_surf = pygame.Surface((len(text) * size + 40, size + 30), pygame.SRCALPHA)
+        for offset in range(3, 0, -1):
+            glow_alpha = glow_color[3] // (offset + 1) if len(glow_color) > 3 else 50
+            temp_color = (glow_color[0], glow_color[1], glow_color[2], glow_alpha)
+            # 간단한 텍스트 렌더링 (실제로는 _draw_text 사용)
+        # 메인 텍스트
+        self._draw_text(screen, text, x, y, color, size, center=True)
+
+    def _draw_hand_highlight_effect(self, screen, player):
+        """족보 하이라이트 이펙트 그리기"""
+        if not player or not player.hand_result:
+            return
+
+        rank = player.hand_result[0]
+        hand_name = player.hand_result[2]
+        rank_level = self.game._get_hand_rank_level(rank)
+
+        # 위치별 표시 좌표
+        pos = player.position
+        cx = self.screen_width // 2
+
+        # 족보 이름 표시 위치
+        hand_positions = {
+            'south': (cx, self.screen_height - 120),
+            'north': (cx, 160),
+            'west': (180, self.screen_height // 2 + 30),
+            'east': (self.screen_width - 180, self.screen_height // 2 + 30)
+        }
+        hx, hy = hand_positions.get(pos, (cx, self.screen_height // 2))
+
+        # 족보 등급별 색상 및 효과
+        effect_timer = self.game.showdown_hand_effect_timer
+
+        if rank_level >= 9:  # 스트레이트 플러시 이상 - 레인보우
+            hue = (effect_timer * 360) % 360
+            color = self._hsv_to_rgb(hue, 1.0, 1.0)
+            glow_color = (255, 215, 0, 150)
+            font_size = 24
+        elif rank_level >= 7:  # 풀하우스 이상 - 골드
+            color = (255, 215, 0)
+            glow_color = (255, 200, 100, 120)
+            font_size = 22
+        elif rank_level >= 5:  # 스트레이트 이상 - 시안
+            color = (0, 255, 255)
+            glow_color = (0, 200, 255, 100)
+            font_size = 20
+        elif rank_level >= 3:  # 투페어 이상 - 그린
+            color = (100, 255, 100)
+            glow_color = (100, 255, 100, 80)
+            font_size = 18
+        else:  # 원페어 이하 - 화이트
+            color = (220, 220, 220)
+            glow_color = (200, 200, 200, 60)
+            font_size = 16
+
+        # 펄스 효과
+        pulse = 1.0 + 0.1 * math.sin(effect_timer * 6)
+        font_size = int(font_size * pulse)
+
+        # 글로우 서피스
+        glow_size = font_size + 20
+        glow_surf = pygame.Surface((glow_size * len(hand_name) // 2 + 60, glow_size + 20), pygame.SRCALPHA)
+
+        # 글로우 그리기
+        for i in range(3):
+            alpha = glow_color[3] // (i + 1)
+            radius = (3 - i) * 4
+            pygame.draw.rect(glow_surf, (glow_color[0], glow_color[1], glow_color[2], alpha),
+                           (radius, radius, glow_surf.get_width() - radius * 2, glow_surf.get_height() - radius * 2),
+                           border_radius=10)
+
+        screen.blit(glow_surf, (hx - glow_surf.get_width() // 2, hy - glow_surf.get_height() // 2))
+
+        # 족보 이름 텍스트
+        self._draw_text(screen, hand_name, hx, hy, color, font_size, center=True)
+
+        # 등급 표시 (스타)
+        if rank_level >= 4:
+            star_count = min(5, (rank_level - 3))
+            star_y = hy + font_size + 5
+            star_width = star_count * 20
+            start_x = hx - star_width // 2 + 10
+
+            for i in range(star_count):
+                sx = start_x + i * 20
+                self._draw_star(screen, sx, star_y, 8, (255, 215, 0))
+
+    def _draw_star(self, screen, x, y, size, color):
+        """별 그리기"""
+        points = []
+        for i in range(10):
+            angle = math.radians(i * 36 - 90)
+            r = size if i % 2 == 0 else size * 0.4
+            px = x + r * math.cos(angle)
+            py = y + r * math.sin(angle)
+            points.append((px, py))
+        pygame.draw.polygon(screen, color, points)
+
+    def _draw_showdown_particles(self, screen):
+        """쇼다운 파티클 렌더링"""
+        for p in self.game.showdown_particles:
+            alpha = int(255 * p['life'])
+            color = (*p['color'][:3], alpha)
+
+            # 파티클 크기
+            size = int(4 * p['life'])
+            if size > 0:
+                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(surf, color, (size, size), size)
+                screen.blit(surf, (int(p['x']) - size, int(p['y']) - size))
+
+    def _hsv_to_rgb(self, h, s, v):
+        """HSV to RGB 변환"""
+        h = h / 360.0
+        i = int(h * 6)
+        f = (h * 6) - i
+        p = v * (1 - s)
+        q = v * (1 - f * s)
+        t = v * (1 - (1 - f) * s)
+
+        i = i % 6
+        if i == 0:
+            r, g, b = v, t, p
+        elif i == 1:
+            r, g, b = q, v, p
+        elif i == 2:
+            r, g, b = p, v, t
+        elif i == 3:
+            r, g, b = p, q, v
+        elif i == 4:
+            r, g, b = t, p, v
+        else:
+            r, g, b = v, p, q
+
+        return (int(r * 255), int(g * 255), int(b * 255))
+
     def _draw_result_ui(self, screen):
         """결과 UI (4인 프리미엄)"""
         cx = self.screen_width // 2
@@ -5120,7 +5596,7 @@ class PokerGameUI:
 
         # 계속하기
         if human.gold >= self.game.min_bet:
-            self._draw_text(screen, "Enter: 계속  ESC: 나가기", cx, info_y + 70, (120, 120, 130), 12, center=True)
+            self._draw_text(screen, "Enter/클릭: 계속  ESC: 나가기", cx, info_y + 70, (120, 120, 130), 12, center=True)
         else:
             self._draw_text(screen, "골드 부족! ESC: 나가기", cx, info_y + 70, (255, 100, 100), 12, center=True)
 
