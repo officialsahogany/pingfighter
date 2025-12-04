@@ -4139,8 +4139,7 @@ class PokerGameUI:
         card_start_x = tooltip_x + (tooltip_width - cards_total_width) // 2
         card_y = tooltip_y + 35
 
-        # 문양 기호 및 색상
-        suit_symbols = {'s': '♠', 'h': '♥', 'd': '♦', 'c': '♣'}
+        # 문양 색상
         suit_colors = {'s': (30, 30, 30), 'h': (200, 50, 50), 'd': (200, 50, 50), 'c': (30, 30, 30)}
 
         for i, (value, suit) in enumerate(cards):
@@ -4155,9 +4154,57 @@ class PokerGameUI:
             # 값 표시 (좌상단)
             self._draw_text(screen, value, cx + 5, card_y + 3, suit_color, 9)
 
-            # 문양 기호 (중앙)
-            suit_symbol = suit_symbols.get(suit, '?')
-            self._draw_text(screen, suit_symbol, cx + card_width // 2, card_y + card_height // 2 - 2, suit_color, 14, center=True)
+            # 문양 기호 (중앙) - 직접 도형으로 그리기
+            sym_cx = cx + card_width // 2
+            sym_cy = card_y + card_height // 2 + 2
+            sym_size = 7
+
+            if suit == 's':  # 스페이드 ♠
+                # 위쪽 뾰족한 부분 (하트 뒤집은 모양)
+                pygame.draw.polygon(screen, suit_color, [
+                    (sym_cx, sym_cy - sym_size),
+                    (sym_cx - sym_size, sym_cy + 2),
+                    (sym_cx + sym_size, sym_cy + 2)
+                ])
+                pygame.draw.circle(screen, suit_color, (sym_cx - 4, sym_cy + 1), 4)
+                pygame.draw.circle(screen, suit_color, (sym_cx + 4, sym_cy + 1), 4)
+                # 아래 기둥
+                pygame.draw.polygon(screen, suit_color, [
+                    (sym_cx - 2, sym_cy + 3),
+                    (sym_cx + 2, sym_cy + 3),
+                    (sym_cx + 3, sym_cy + sym_size),
+                    (sym_cx - 3, sym_cy + sym_size)
+                ])
+            elif suit == 'h':  # 하트 ♥
+                # 두 개의 원 (상단)
+                pygame.draw.circle(screen, suit_color, (sym_cx - 4, sym_cy - 3), 5)
+                pygame.draw.circle(screen, suit_color, (sym_cx + 4, sym_cy - 3), 5)
+                # 아래 뾰족한 부분
+                pygame.draw.polygon(screen, suit_color, [
+                    (sym_cx - 8, sym_cy - 2),
+                    (sym_cx + 8, sym_cy - 2),
+                    (sym_cx, sym_cy + sym_size)
+                ])
+            elif suit == 'd':  # 다이아 ♦
+                # 마름모 형태
+                pygame.draw.polygon(screen, suit_color, [
+                    (sym_cx, sym_cy - sym_size),      # 상단
+                    (sym_cx + sym_size - 1, sym_cy),  # 우측
+                    (sym_cx, sym_cy + sym_size),      # 하단
+                    (sym_cx - sym_size + 1, sym_cy)   # 좌측
+                ])
+            elif suit == 'c':  # 클로버 ♣
+                # 세 개의 원
+                pygame.draw.circle(screen, suit_color, (sym_cx, sym_cy - 4), 4)
+                pygame.draw.circle(screen, suit_color, (sym_cx - 5, sym_cy + 1), 4)
+                pygame.draw.circle(screen, suit_color, (sym_cx + 5, sym_cy + 1), 4)
+                # 아래 기둥
+                pygame.draw.polygon(screen, suit_color, [
+                    (sym_cx - 2, sym_cy + 2),
+                    (sym_cx + 2, sym_cy + 2),
+                    (sym_cx + 3, sym_cy + sym_size),
+                    (sym_cx - 3, sym_cy + sym_size)
+                ])
 
         # === 설명 텍스트 ===
         desc_y = card_y + card_height + 8
