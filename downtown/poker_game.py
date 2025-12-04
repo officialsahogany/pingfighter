@@ -2463,8 +2463,8 @@ class PokerGameUI:
         self.chip_stack_positions = {
             'south': (150, self.screen_height - 200),  # 플레이어 정보 패널 오른쪽 (위로 40px 올림)
             'north': (cx - 50, 70),  # 북쪽 NPC 정보 패널 오른쪽
-            'west': (155, cy - 100),  # 서쪽 NPC 정보 패널 오른쪽 (x=20 + 패널너비130 + 여백5)
-            'east': (self.screen_width - 165, cy - 100),  # 동쪽 NPC 정보 패널 왼쪽 (x=screen_width-150 - 여백15)
+            'west': (155, cy - 140),  # 서쪽 NPC 정보 패널 오른쪽 (위로 40px 올림)
+            'east': (self.screen_width - 165, cy - 140),  # 동쪽 NPC 정보 패널 왼쪽 (위로 40px 올림)
         }
 
         # 칩 스택 생성
