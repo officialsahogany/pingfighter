@@ -5397,7 +5397,7 @@ class PokerGameUI:
                 text_y = y + btn_h // 2 - 10
                 self._draw_text(screen, action, text_x, text_y, text_color, 14, center=True)
                 # 골드 코인 아이콘 (텍스트와 수평 맞춤)
-                coin_x = btn_x + btn_w - 18
+                coin_x = btn_x + btn_w - 14  # 오른쪽으로 4px 이동
                 coin_y = text_y + 7  # 텍스트 중앙과 수평 맞춤
                 self._draw_gold_coin(screen, coin_x, coin_y, 14)
             else:
