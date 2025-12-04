@@ -28,7 +28,7 @@ def resource_path(relative_path):
 # BGM 관리
 # ============================================
 class PokerBGM:
-    """포커 게임 BGM 관리자"""
+    """포커 게임 BGM 관리자 - 4곡 랜덤 재생"""
     _instance = None
     _previous_music = None  # 이전 BGM 상태 저장
     _previous_pos = 0  # 이전 BGM 재생 위치
@@ -40,34 +40,71 @@ class PokerBGM:
         return cls._instance
 
     def __init__(self):
-        self.bgm_path = None
+        self.bgm_paths = []  # 여러 BGM 경로 리스트
+        self.current_bgm_index = -1  # 현재 재생 중인 BGM 인덱스
         self.is_playing = False
-        self._init_bgm_path()
+        self.volume = 0.5
+        self._init_bgm_paths()
 
-    def _init_bgm_path(self):
-        """BGM 경로 초기화"""
-        # downtown 폴더 기준으로 상위의 bgm 폴더 참조
+    def _init_bgm_paths(self):
+        """BGM 경로 초기화 (4곡)"""
+        bgm_files = ["pokerbgm.wav", "pokerbgm2.wav", "pokerbgm3.wav", "pokerbgm4.wav"]
+
         try:
             current_dir = os.path.dirname(os.path.abspath(__file__))
             parent_dir = os.path.dirname(current_dir)
-            bgm_path = os.path.join(parent_dir, "bgm", "pokerbgm.wav")
 
-            if os.path.exists(bgm_path):
-                self.bgm_path = bgm_path
-            else:
-                # PyInstaller 환경
-                self.bgm_path = resource_path(os.path.join("..", "bgm", "pokerbgm.wav"))
+            for bgm_file in bgm_files:
+                bgm_path = os.path.join(parent_dir, "bgm", bgm_file)
+
+                if os.path.exists(bgm_path):
+                    self.bgm_paths.append(bgm_path)
+                else:
+                    # PyInstaller 환경
+                    pyinstaller_path = resource_path(os.path.join("..", "bgm", bgm_file))
+                    if os.path.exists(pyinstaller_path):
+                        self.bgm_paths.append(pyinstaller_path)
+
+            print(f"[PokerBGM] 로드된 BGM: {len(self.bgm_paths)}곡")
         except Exception as e:
             print(f"[PokerBGM] BGM 경로 초기화 실패: {e}")
-            self.bgm_path = None
 
-    def start(self, volume=0.5):
-        """포커 BGM 시작 (이전 BGM 상태 저장)"""
-        if not self.bgm_path or not os.path.exists(self.bgm_path):
-            print(f"[PokerBGM] BGM 파일을 찾을 수 없습니다: {self.bgm_path}")
+    def _play_random_bgm(self):
+        """랜덤 BGM 재생 (이전 곡 제외)"""
+        if not self.bgm_paths:
             return False
 
         try:
+            # 이전에 재생한 곡 제외하고 랜덤 선택
+            available_indices = [i for i in range(len(self.bgm_paths)) if i != self.current_bgm_index]
+            if not available_indices:
+                available_indices = list(range(len(self.bgm_paths)))
+
+            self.current_bgm_index = random.choice(available_indices)
+            bgm_path = self.bgm_paths[self.current_bgm_index]
+
+            pygame.mixer.music.load(bgm_path)
+            pygame.mixer.music.set_volume(self.volume)
+            pygame.mixer.music.play(0)  # 한 번만 재생 (끝나면 ENDSOUND 이벤트)
+
+            # 음악 종료 이벤트 설정
+            pygame.mixer.music.set_endevent(pygame.USEREVENT + 100)
+
+            print(f"[PokerBGM] BGM 재생: {os.path.basename(bgm_path)} ({self.current_bgm_index + 1}/{len(self.bgm_paths)})")
+            return True
+        except Exception as e:
+            print(f"[PokerBGM] BGM 재생 실패: {e}")
+            return False
+
+    def start(self, volume=0.5):
+        """포커 BGM 시작 (이전 BGM 상태 저장)"""
+        if not self.bgm_paths:
+            print("[PokerBGM] BGM 파일을 찾을 수 없습니다")
+            return False
+
+        try:
+            self.volume = volume
+
             # 현재 재생 중인 음악 상태 저장
             if pygame.mixer.music.get_busy():
                 PokerBGM._previous_music = True
@@ -78,23 +115,31 @@ class PokerBGM:
             else:
                 PokerBGM._previous_music = False
 
-            # 포커 BGM 재생
-            pygame.mixer.music.load(self.bgm_path)
-            pygame.mixer.music.set_volume(volume)
-            pygame.mixer.music.play(-1)  # 무한 반복
+            # 랜덤 BGM 재생 시작
             self.is_playing = True
-            print(f"[PokerBGM] BGM 재생 시작: {self.bgm_path}")
-            return True
+            return self._play_random_bgm()
         except Exception as e:
             print(f"[PokerBGM] BGM 재생 실패: {e}")
             return False
+
+    def check_and_play_next(self):
+        """현재 BGM이 끝났는지 확인하고 다음 곡 재생"""
+        if self.is_playing and not pygame.mixer.music.get_busy():
+            self._play_random_bgm()
+
+    def handle_music_end_event(self, event):
+        """음악 종료 이벤트 처리"""
+        if event.type == pygame.USEREVENT + 100 and self.is_playing:
+            self._play_random_bgm()
 
     def stop(self):
         """포커 BGM 정지"""
         if self.is_playing:
             try:
                 pygame.mixer.music.fadeout(500)  # 0.5초 페이드아웃
+                pygame.mixer.music.set_endevent()  # 이벤트 해제
                 self.is_playing = False
+                self.current_bgm_index = -1
                 print("[PokerBGM] BGM 정지")
             except Exception as e:
                 print(f"[PokerBGM] BGM 정지 실패: {e}")
@@ -102,7 +147,8 @@ class PokerBGM:
     def set_volume(self, volume):
         """볼륨 설정 (0.0 ~ 1.0)"""
         try:
-            pygame.mixer.music.set_volume(max(0.0, min(1.0, volume)))
+            self.volume = max(0.0, min(1.0, volume))
+            pygame.mixer.music.set_volume(self.volume)
         except:
             pass
 
@@ -2126,6 +2172,12 @@ class PokerGameUI:
 
     def handle_event(self, event):
         if not self.game:
+            return None
+
+        # BGM 종료 이벤트 처리 (곡이 끝나면 다음 곡 재생)
+        if event.type == pygame.USEREVENT + 100:
+            if self.bgm:
+                self.bgm.handle_music_end_event(event)
             return None
 
         if event.type == pygame.KEYDOWN:
@@ -4693,6 +4745,10 @@ if __name__ == "__main__":
                 if ui.bgm:
                     ui.bgm.stop()
                 running = False
+            elif event.type == pygame.USEREVENT + 100:
+                # BGM 종료 이벤트 - 다음 곡 재생
+                if ui.bgm:
+                    ui.bgm.handle_music_end_event(event)
             else:
                 result = ui.handle_event(event)
                 if result == 'exit':
