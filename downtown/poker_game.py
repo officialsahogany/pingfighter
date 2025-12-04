@@ -683,8 +683,8 @@ class CardAnimation:
         # 그림자 효과 (착지할 때 강해짐)
         self.shadow_alpha = int(80 * scale_eased)
 
-        # 카드 뒤집기
-        if not self.flipped and progress >= self.flip_at:
+        # 카드 뒤집기 (flip_at이 None이면 자동 뒤집기 비활성화)
+        if self.flip_at is not None and not self.flipped and progress >= self.flip_at:
             self.flipped = True
             self.card.face_up = not self.start_face_up or self.card.face_up
 
