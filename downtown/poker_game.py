@@ -3756,10 +3756,10 @@ class PokerGameUI:
     def _draw_betting_ui(self, screen):
         """베팅 UI (프리미엄)"""
         cx = self.screen_width // 2
-        y = self.screen_height - 85
+        y = self.screen_height - 95
 
-        # 베팅 박스
-        box_w, box_h = 340, 70
+        # 베팅 박스 (높이 확대)
+        box_w, box_h = 340, 80
         box_x = cx - box_w // 2
 
         # 그림자
@@ -3779,7 +3779,7 @@ class PokerGameUI:
         self._draw_text(screen, "베팅 금액", cx, y + 8, self.SILVER, 12, center=True)
 
         # 금액과 화살표
-        arrow_y = y + 35
+        arrow_y = y + 38
 
         # 왼쪽 화살표
         pygame.draw.polygon(screen, self.GOLD, [
@@ -3790,10 +3790,10 @@ class PokerGameUI:
 
         # 금액 + 골드 코인 아이콘
         bet_text = f"{self.bet_amount:,}"
-        self._draw_text(screen, bet_text, cx - 12, y + 28, self.GOLD_LIGHT, 24, center=True)
+        self._draw_text(screen, bet_text, cx - 12, y + 30, self.GOLD_LIGHT, 24, center=True)
         # 숫자 길이에 따라 아이콘 위치 조정 (숫자에서 적당히 떨어진 위치)
         text_half_width = len(bet_text) * 7  # 24pt 폰트 기준 대략적 반너비
-        self._draw_gold_coin(screen, cx - 12 + text_half_width + 12, y + 38, 16)
+        self._draw_gold_coin(screen, cx - 12 + text_half_width + 12, y + 40, 16)
 
         # 오른쪽 화살표
         pygame.draw.polygon(screen, self.GOLD, [
@@ -3802,9 +3802,9 @@ class PokerGameUI:
             (cx + 85, arrow_y + 10)
         ])
 
-        # 조작법
+        # 조작법 (박스 안에 들어오도록)
         self._draw_text(screen, "◀▶/휠: ±10  ▲▼: ±50  Space: 확인  ESC: 나가기",
-                       cx, y + 55, (120, 120, 130), 11, center=True)
+                       cx, y + 62, (120, 120, 130), 10, center=True)
 
     def _draw_scroll_icon(self, screen):
         """족보 스크롤 아이콘 그리기 (고급 붉은 융단 파피루스 스타일)"""
