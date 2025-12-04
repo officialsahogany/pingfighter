@@ -4511,10 +4511,13 @@ class PokerGameUI:
         # 최종 골드 + 골드 코인 아이콘
         gold_amount = self.game.players['south'].gold
         gold_text = f"최종 보유 골드: {gold_amount:,}"
-        self._draw_text(screen, gold_text, cx - 10, box_y + 130, self.GOLD_LIGHT, 18, center=True)
-        # 골드 코인 아이콘 (숫자 뒤에)
-        text_width = len(gold_text) * 9  # 대략적인 텍스트 너비
-        self._draw_gold_coin(screen, cx + text_width // 2 - 5, box_y + 138, 16)
+        # 텍스트 그리기 (아이콘 공간 확보를 위해 왼쪽으로)
+        self._draw_text(screen, gold_text, cx - 15, box_y + 130, self.GOLD_LIGHT, 18, center=True)
+        # 골드 코인 아이콘 (텍스트 오른쪽 끝에서 떨어진 위치)
+        # 폰트 크기 18 기준 대략적 문자 너비 계산
+        text_pixel_width = len(gold_text) * 10  # 18pt 폰트 기준 대략적 너비
+        icon_x = cx - 15 + text_pixel_width // 2 + 12  # 텍스트 끝에서 12px 오른쪽
+        self._draw_gold_coin(screen, icon_x, box_y + 138, 16)
 
         # 안내
         self._draw_text(screen, "테이블이 닫힙니다. ESC를 눌러 나가세요.", cx, box_y + 175, (150, 150, 160), 14, center=True)
