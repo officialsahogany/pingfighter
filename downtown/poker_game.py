@@ -2159,6 +2159,19 @@ class PokerGameUI:
         if self.handle_scroll_icon_click(pos):
             return None
 
+        # 족보 패널이 열려있을 때 패널 외부 클릭 시 닫기
+        if self.show_hand_rankings:
+            # 패널 영역 계산
+            panel_width = 240
+            panel_height = 360
+            panel_x = self.screen_width - panel_width - 5
+            panel_y = self.screen_height - 80 - panel_height
+            panel_rect = pygame.Rect(panel_x - 10, panel_y - 10, panel_width + 20, panel_height + 20)
+
+            # 패널 외부 클릭 시 닫기
+            if not panel_rect.collidepoint(pos):
+                self.show_hand_rankings = False
+
         # 애니메이션 중에는 무시
         if self.game.state in [PokerGame.STATE_DEALING, PokerGame.STATE_FLOP_DEALING,
                                PokerGame.STATE_TURN_DEALING, PokerGame.STATE_RIVER_DEALING]:
