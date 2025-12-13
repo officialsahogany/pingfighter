@@ -88,11 +88,15 @@ a = Analysis(
         ('items/*.png', 'items'),
         ('items/legendary/*.png', 'items/legendary'),
         ('backgrounds/*.png', 'backgrounds'),
+        # 스프라이트 시트 (보스 애니메이션)
+        ('assets/*.png', 'assets'),
         # 스테이지 배경 이미지
         ('stage*.png', '.'),
         ('boss_stage*.png', '.'),
         # 사운드 파일
         ('sounds/*.wav', 'sounds'),
+        ('sounds/poker/*.wav', 'sounds/poker'),
+        ('sounds/poker/*.mp3', 'sounds/poker'),
         
         # 설정 파일
         ('*.json', '.'),
@@ -131,6 +135,7 @@ a = Analysis(
         'importlib',
         'pathlib',
         # 게임 모듈
+        'splash_screen',  # 즉시 로딩 화면 표시용
         'items',
         'option',
         'gacha',
@@ -208,7 +213,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,  # 디버그용 콘솔 창 표시
+    console=True,  # 디버그용 콘솔 창 활성화
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

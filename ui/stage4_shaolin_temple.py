@@ -44,6 +44,16 @@ class ShaolinTempleBackground:
         self.screen_shake_intensity = 0
         self.falling_lanterns = []  # Lanterns that are falling during destruction
         self.ground_fires = []  # Fire effects on ground from broken lanterns
+
+        # 새로운 건물 찌그러짐/가라앉음 애니메이션 변수
+        self.building_sink_amount = 0.0  # 건물이 가라앉는 정도 (0.0 ~ 1.0)
+        self.building_crush_factor = 1.0  # 건물 수직 압축 비율 (1.0 = 정상, 0.3 = 70% 압축)
+        self.level_crush_offsets = [0, 0, 0, 0, 0]  # 각 층별 압축 오프셋
+        self.roof_fragments = []  # 지붕 기와 파편
+        self.wall_cracks = []  # 벽 균열 효과
+        self.dust_clouds = []  # 먼지 구름 효과
+        self.spire_fallen = False  # 상륜부 무너짐 여부
+        self.spire_fall_angle = 0  # 상륜부 기울어진 각도
         
         # Moon crater fragments system
         self.moon_fragments = []  # Active moon crater fragments
@@ -170,6 +180,13 @@ class ShaolinTempleBackground:
         self.brazier_x = self.width // 2
         self.brazier_y = 570
         self.brazier_hitbox = pygame.Rect(self.brazier_x - 40, self.brazier_y - 20, 80, 40)
+
+        # Temple door animation state (사원 쌍여닫이 문 애니메이션)
+        self.door_open_amount = 0.0  # 0.0 = 닫힘, 1.0 = 완전히 열림
+        self.door_target_open = 0.0  # 목표 열림 상태
+        self.door_animation_speed = 0.08  # 문 열림/닫힘 속도
+        self.door_entrance_y = 450  # 입구 Y 좌표
+        self.door_trigger_distance = 30  # 문 열림을 트리거하는 거리
         
         # Background surface for static elements (with transparency support)
         self.static_surface = pygame.Surface((width, height), pygame.SRCALPHA)
@@ -444,108 +461,634 @@ class ShaolinTempleBackground:
         return tuple(int(c1 + (c2 - c1) * ratio) for c1, c2 in zip(color1, color2))
     
     def _draw_temple(self, surface: pygame.Surface):
-        """Draw the main temple structure"""
+        """Draw the main temple structure - Ultra High Quality version"""
         # Base temple building
         temple_x = self.width // 2
         temple_base_y = 450
-        
+
         # Apply gradual collapse offset if destruction is active
         collapse_y_offset = 0
         collapse_rotation = 0
         collapse_opacity = 255
-        
+
+        # 새로운 찌그러짐/가라앉음 효과 변수
+        building_crush = getattr(self, 'building_crush_factor', 1.0)
+        building_sink = getattr(self, 'building_sink_amount', 0.0)
+        level_crushes = getattr(self, 'level_crush_offsets', [0, 0, 0, 0, 0])
+        spire_angle = getattr(self, 'spire_fall_angle', 0)
+
         if hasattr(self, 'collapse_offset') and self.collapse_offset > 0:
-            # Temple gradually sinks and becomes transparent
             collapse_y_offset = self.collapse_offset
-            # Add slight rotation for tilting effect
             collapse_rotation = min(5, self.collapse_offset / 30)
-            # Gradually fade temple
             collapse_opacity = max(100, 255 - self.collapse_offset)
-        
+
         # Create temple surface for collapse effects
         temple_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        
-        # 5층 탑 그리기
+
+        # 5층 탑 그리기 (울트라 고품질 버전)
+        # 가라앉음 오프셋 계산 (최대 300 픽셀까지 가라앉음)
+        sink_offset = building_sink * 300
+
         for level in range(self.pagoda_levels):
-            # Each level falls at slightly different speed for more natural collapse
             level_collapse_offset = collapse_y_offset * (1 + level * 0.1)
-            level_y = temple_base_y - level * 60 + level_collapse_offset
+
+            # 층별 찌그러짐 효과 적용
+            # 각 층의 높이가 crush_factor에 따라 압축됨
+            original_level_height = 60  # 원래 층 간격
+            crushed_level_height = original_level_height * building_crush
+
+            # 층별 개별 찌그러짐 오프셋 적용 (위층일수록 더 많이 압축)
+            level_crush_offset = level_crushes[level] if level < len(level_crushes) else 0
+
+            # 새로운 Y 좌표 계산: 베이스에서 시작하여 압축된 층 높이 적용 + 가라앉음
+            level_y = temple_base_y - level * crushed_level_height + level_collapse_offset + sink_offset + level_crush_offset
             level_width = 200 - level * 25
-            level_height = 50
-            
-            # 층 몸체 (with collapse opacity)
-            body_rect = pygame.Rect(
-                temple_x - level_width // 2,
-                level_y - level_height,
-                level_width,
-                level_height
-            )
-            # Apply opacity for collapse effect
-            main_color = (*self.colors['temple_main'], collapse_opacity)
-            dark_color = (*self.colors['temple_dark'], collapse_opacity)
-            
-            # Draw on temple surface with opacity
-            pygame.draw.rect(temple_surface, main_color, body_rect)
-            pygame.draw.rect(temple_surface, dark_color, body_rect, 2)
-            
-            # 기와 지붕 (with collapse opacity)
+
+            # 층 높이도 압축됨
+            level_height = int(50 * building_crush)
+            level_height = max(level_height, 10)  # 최소 높이 보장
+
+            # === 층 몸체 (다층 그라데이션 + 벽돌 질감) ===
+            body_x = temple_x - level_width // 2
+            body_y = level_y - level_height
+
+            # 다층 그림자 (깊이감 강화)
+            for shadow_i in range(3):
+                shadow_alpha = int(collapse_opacity * (0.4 - shadow_i * 0.1))
+                shadow_offset = 4 - shadow_i
+                shadow_color = (*self.colors['temple_dark'], shadow_alpha)
+                pygame.draw.rect(temple_surface, shadow_color,
+                               (body_x + shadow_offset, body_y + shadow_offset, level_width, level_height))
+
+            # 베이스 레이어 (그라데이션 효과)
+            for grad_y in range(level_height):
+                grad_ratio = grad_y / level_height
+                # 위에서 아래로 점점 어두워지는 그라데이션
+                r = int(self.colors['temple_main'][0] * (1 - grad_ratio * 0.15))
+                g = int(self.colors['temple_main'][1] * (1 - grad_ratio * 0.15))
+                b = int(self.colors['temple_main'][2] * (1 - grad_ratio * 0.15))
+                grad_color = (r, g, b, collapse_opacity)
+                pygame.draw.line(temple_surface, grad_color,
+                               (body_x, body_y + grad_y), (body_x + level_width, body_y + grad_y), 1)
+
+            # 벽돌/돌 질감 패턴
+            brick_dark = (*self.colors['temple_dark'], int(collapse_opacity * 0.3))
+            brick_light = (*self.colors['temple_highlight'], int(collapse_opacity * 0.2))
+            brick_height = 8
+            brick_width = 20
+            for by in range(0, level_height, brick_height):
+                offset = (by // brick_height % 2) * (brick_width // 2)
+                for bx in range(0, level_width, brick_width):
+                    brick_x = body_x + bx + offset
+                    if brick_x < body_x + level_width - 5:
+                        # 벽돌 아래쪽 그림자
+                        pygame.draw.line(temple_surface, brick_dark,
+                                       (brick_x, body_y + by + brick_height - 1),
+                                       (min(brick_x + brick_width, body_x + level_width), body_y + by + brick_height - 1), 1)
+                        # 벽돌 오른쪽 그림자
+                        pygame.draw.line(temple_surface, brick_dark,
+                                       (min(brick_x + brick_width, body_x + level_width - 1), body_y + by),
+                                       (min(brick_x + brick_width, body_x + level_width - 1), body_y + by + brick_height), 1)
+
+            # 하이라이트 그라데이션 (상단 - 더 정교하게)
+            for hi in range(10):
+                hi_alpha = int(collapse_opacity * 0.5 * (1 - hi / 10))
+                highlight_color = (*self.colors['temple_highlight'], hi_alpha)
+                pygame.draw.line(temple_surface, highlight_color,
+                               (body_x + 2, body_y + hi), (body_x + level_width - 2, body_y + hi), 1)
+
+            # 세로 기둥 (3D 효과)
+            num_pillars = max(3, level_width // 35)
+            for p in range(num_pillars + 1):
+                px = body_x + (level_width * p) // num_pillars
+                pillar_width = 6
+                # 기둥 그림자
+                pillar_shadow = (*self.colors['temple_dark'], int(collapse_opacity * 0.7))
+                pygame.draw.rect(temple_surface, pillar_shadow,
+                               (px - pillar_width // 2 + 1, body_y + 3, pillar_width, level_height - 6))
+                # 기둥 메인
+                pillar_main = (*self.colors['temple_main'], int(collapse_opacity * 0.9))
+                pygame.draw.rect(temple_surface, pillar_main,
+                               (px - pillar_width // 2, body_y + 2, pillar_width - 1, level_height - 4))
+                # 기둥 하이라이트
+                pillar_light = (*self.colors['temple_highlight'], int(collapse_opacity * 0.5))
+                pygame.draw.line(temple_surface, pillar_light,
+                               (px - pillar_width // 2, body_y + 4),
+                               (px - pillar_width // 2, body_y + level_height - 6), 1)
+                # 기둥 상단 장식
+                pygame.draw.rect(temple_surface, (*self.colors['gold_dim'], int(collapse_opacity * 0.6)),
+                               (px - pillar_width // 2 - 1, body_y + 1, pillar_width + 2, 3))
+
+            # 가로 띠 장식 (다층)
+            band_y = body_y + level_height - 14
+            band_shadow = (*self.colors['temple_dark'], int(collapse_opacity * 0.6))
+            pygame.draw.rect(temple_surface, band_shadow, (body_x + 4, band_y + 2, level_width - 8, 5))
+            band_color = (*self.colors['gold_dim'], int(collapse_opacity * 0.7))
+            pygame.draw.rect(temple_surface, band_color, (body_x + 3, band_y, level_width - 6, 4))
+            band_light = (min(255, self.colors['gold_dim'][0] + 30),
+                         min(255, self.colors['gold_dim'][1] + 25),
+                         min(255, self.colors['gold_dim'][2] + 15), int(collapse_opacity * 0.5))
+            pygame.draw.line(temple_surface, band_light,
+                           (body_x + 5, band_y), (body_x + level_width - 5, band_y), 1)
+
+            # 작은 난간 장식 (상단)
+            railing_y = body_y - 3
+            for rx in range(body_x + 10, body_x + level_width - 10, 12):
+                # 난간 기둥
+                pygame.draw.rect(temple_surface, (*self.colors['temple_dark'], int(collapse_opacity * 0.8)),
+                               (rx, railing_y, 3, 5))
+                pygame.draw.rect(temple_surface, (*self.colors['temple_highlight'], int(collapse_opacity * 0.4)),
+                               (rx, railing_y, 1, 4))
+
+            # 테두리 (다층)
+            pygame.draw.rect(temple_surface, (*self.colors['temple_dark'], int(collapse_opacity * 0.9)),
+                           (body_x, body_y, level_width, level_height), 2)
+            pygame.draw.rect(temple_surface, (*self.colors['temple_highlight'], int(collapse_opacity * 0.3)),
+                           (body_x + 1, body_y + 1, level_width - 2, level_height - 2), 1)
+
+            # === 기와 지붕 (울트라 고품질) ===
+            roof_overhang = 22 + level * 3
+            # 지붕 높이도 압축 적용
+            base_roof_height = 28 + level * 2
+            roof_height = int(base_roof_height * building_crush)
+            roof_height = max(roof_height, 8)  # 최소 높이 보장
+
+            roof_left = temple_x - level_width // 2 - roof_overhang
+            roof_right = temple_x + level_width // 2 + roof_overhang
+            roof_top = level_y - level_height - roof_height
+            roof_bottom = level_y - level_height
+
+            # 지붕 두께감 (다층 그림자)
+            for ri in range(4):
+                roof_shadow = [
+                    (roof_left + 4 - ri, roof_bottom + 3 - ri),
+                    (roof_right + 4 - ri, roof_bottom + 3 - ri),
+                    (roof_right - roof_overhang // 2 + 4 - ri, roof_top + 6 + 3 - ri),
+                    (roof_left + roof_overhang // 2 + 4 - ri, roof_top + 6 + 3 - ri),
+                ]
+                shadow_alpha = int(collapse_opacity * (0.5 - ri * 0.1))
+                pygame.draw.polygon(temple_surface, (15, 10, 20, shadow_alpha), roof_shadow)
+
+            # 메인 지붕
             roof_points = [
-                (temple_x - level_width // 2 - 15, level_y - level_height),
-                (temple_x + level_width // 2 + 15, level_y - level_height),
-                (temple_x + level_width // 2 + 5, level_y - level_height - 20),
-                (temple_x - level_width // 2 - 5, level_y - level_height - 20),
+                (roof_left, roof_bottom),
+                (roof_right, roof_bottom),
+                (roof_right - roof_overhang // 2, roof_top + 6),
+                (roof_left + roof_overhang // 2, roof_top + 6),
             ]
             roof_color = (*self.colors['roof_red'], collapse_opacity)
-            roof_dark_color = (*self.colors['roof_dark'], collapse_opacity)
             pygame.draw.polygon(temple_surface, roof_color, roof_points)
+
+            # 기와 패턴 (3D 효과 - 반원형 기와)
+            tile_rows = 5
+            for t in range(tile_rows):
+                ty = roof_bottom - (t + 1) * (roof_height // (tile_rows + 1))
+                t_ratio = t / tile_rows
+                t_left = roof_left + (roof_overhang // 2) * t_ratio + 8
+                t_right = roof_right - (roof_overhang // 2) * t_ratio - 8
+                row_width = t_right - t_left
+
+                # 기와 열 (반원형 기와 패턴)
+                tile_width = 12
+                num_tiles = int(row_width // tile_width)
+                for ti in range(num_tiles):
+                    tx = t_left + ti * tile_width + (t % 2) * (tile_width // 2)
+                    if tx < t_right - tile_width // 2:
+                        # 기와 그림자
+                        tile_shadow = (*self.colors['roof_dark'], int(collapse_opacity * 0.8))
+                        pygame.draw.arc(temple_surface, tile_shadow,
+                                      (int(tx) + 1, ty - 3, tile_width, 8), 0, math.pi, 2)
+                        # 기와 메인
+                        tile_main = (*self.colors['roof_red'], collapse_opacity)
+                        pygame.draw.arc(temple_surface, tile_main,
+                                      (int(tx), ty - 4, tile_width, 8), 0, math.pi, 2)
+                        # 기와 하이라이트
+                        tile_light = (min(255, self.colors['roof_red'][0] + 20),
+                                     min(255, self.colors['roof_red'][1] + 15),
+                                     min(255, self.colors['roof_red'][2] + 10), int(collapse_opacity * 0.5))
+                        pygame.draw.arc(temple_surface, tile_light,
+                                      (int(tx) + 2, ty - 5, tile_width - 4, 5), 0, math.pi, 1)
+
+            # 처마 끝 곡선 장식 (용머리 형태)
+            eave_gold = (*self.colors['gold_accent'], collapse_opacity)
+            eave_dark = (*self.colors['gold_dim'], collapse_opacity)
+            # 좌측 처마 장식
+            pygame.draw.arc(temple_surface, eave_dark, (roof_left - 8, roof_bottom - 20, 25, 25),
+                          math.pi * 0.4, math.pi * 0.9, 3)
+            pygame.draw.arc(temple_surface, eave_gold, (roof_left - 6, roof_bottom - 18, 22, 22),
+                          math.pi * 0.4, math.pi * 0.9, 2)
+            # 처마 끝 장식구
+            pygame.draw.circle(temple_surface, eave_dark, (roof_left - 2, roof_bottom - 8), 5)
+            pygame.draw.circle(temple_surface, eave_gold, (roof_left - 3, roof_bottom - 9), 4)
+            pygame.draw.circle(temple_surface, (min(255, self.colors['gold_accent'][0] + 50),
+                              min(255, self.colors['gold_accent'][1] + 40),
+                              min(255, self.colors['gold_accent'][2] + 30), collapse_opacity),
+                             (roof_left - 4, roof_bottom - 10), 2)
+
+            # 우측 처마 장식
+            pygame.draw.arc(temple_surface, eave_dark, (roof_right - 17, roof_bottom - 20, 25, 25),
+                          math.pi * 0.1, math.pi * 0.6, 3)
+            pygame.draw.arc(temple_surface, eave_gold, (roof_right - 16, roof_bottom - 18, 22, 22),
+                          math.pi * 0.1, math.pi * 0.6, 2)
+            pygame.draw.circle(temple_surface, eave_dark, (roof_right + 2, roof_bottom - 8), 5)
+            pygame.draw.circle(temple_surface, eave_gold, (roof_right + 1, roof_bottom - 9), 4)
+            pygame.draw.circle(temple_surface, (min(255, self.colors['gold_accent'][0] + 50),
+                              min(255, self.colors['gold_accent'][1] + 40),
+                              min(255, self.colors['gold_accent'][2] + 30), collapse_opacity),
+                             (roof_right, roof_bottom - 10), 2)
+
+            # 용마루 (3D 효과)
+            ridge_y = roof_top + 4
+            ridge_left = roof_left + roof_overhang // 2 + 5
+            ridge_right = roof_right - roof_overhang // 2 - 5
+            # 용마루 그림자
+            pygame.draw.line(temple_surface, (*self.colors['temple_dark'], int(collapse_opacity * 0.7)),
+                           (ridge_left + 2, ridge_y + 3), (ridge_right + 2, ridge_y + 3), 5)
+            # 용마루 메인
+            pygame.draw.line(temple_surface, (*self.colors['gold_dim'], collapse_opacity),
+                           (ridge_left, ridge_y), (ridge_right, ridge_y), 4)
+            # 용마루 하이라이트
+            pygame.draw.line(temple_surface, (min(255, self.colors['gold_dim'][0] + 40),
+                            min(255, self.colors['gold_dim'][1] + 35),
+                            min(255, self.colors['gold_dim'][2] + 25), int(collapse_opacity * 0.7)),
+                           (ridge_left, ridge_y - 1), (ridge_right, ridge_y - 1), 2)
+
+            # 용마루 끝 장식 (치미 형태)
+            for end_x, direction in [(ridge_left - 5, -1), (ridge_right + 5, 1)]:
+                # 치미 몸체
+                pygame.draw.polygon(temple_surface, eave_dark, [
+                    (end_x, ridge_y - 2),
+                    (end_x + direction * 12, ridge_y - 15),
+                    (end_x + direction * 8, ridge_y - 18),
+                    (end_x + direction * 3, ridge_y - 8),
+                ])
+                pygame.draw.polygon(temple_surface, eave_gold, [
+                    (end_x - 1, ridge_y - 3),
+                    (end_x + direction * 10, ridge_y - 14),
+                    (end_x + direction * 7, ridge_y - 16),
+                    (end_x + direction * 2, ridge_y - 7),
+                ])
+
+            # 테두리
+            roof_dark_color = (*self.colors['roof_dark'], collapse_opacity)
             pygame.draw.polygon(temple_surface, roof_dark_color, roof_points, 2)
-            
-            # 금색 장식 (with collapse opacity)
-            if level == 0:  # 최상층
-                # 탑 꼭대기 장식
+
+            # === 탑 꼭대기 장식 (상륜부) - 울트라 고품질 ===
+            if level == 0:
+                spire_base_y = level_y - level_height - roof_height
                 gold_color = (*self.colors['gold_accent'], collapse_opacity)
-                pygame.draw.circle(temple_surface, gold_color, 
-                                 (temple_x, level_y - level_height - 30), 8)
-                pygame.draw.lines(temple_surface, gold_color, False,
-                                [(temple_x, level_y - level_height - 38),
-                                 (temple_x, level_y - level_height - 50)], 2)
-            
-            # 창문
+                gold_light = (min(255, self.colors['gold_accent'][0] + 50),
+                             min(255, self.colors['gold_accent'][1] + 40),
+                             min(255, self.colors['gold_accent'][2] + 30), collapse_opacity)
+                gold_dark = (*self.colors['gold_dim'], collapse_opacity)
+
+                # 상륜부를 별도 Surface에 그린 후 기울기 적용
+                spire_height = 90
+                spire_width = 60
+                spire_surf = pygame.Surface((spire_width, spire_height), pygame.SRCALPHA)
+                spire_cx = spire_width // 2  # 상륜부 중심 X
+                spire_cy = spire_height - 10  # 상륜부 밑부분에서 회전
+
+                # 상륜부 받침 (노반)
+                pygame.draw.ellipse(spire_surf, gold_dark,
+                                  (spire_cx - 16, spire_height - 16, 32, 10))
+                pygame.draw.ellipse(spire_surf, gold_color,
+                                  (spire_cx - 14, spire_height - 18, 28, 10))
+                pygame.draw.ellipse(spire_surf, gold_light,
+                                  (spire_cx - 10, spire_height - 19, 18, 6), 1)
+
+                # 복발 (원형 장식) - 더 정교하게
+                for i in range(4):
+                    bowl_y = spire_height - 24 - i * 10
+                    bowl_size = 12 - i * 2
+                    # 그림자
+                    pygame.draw.ellipse(spire_surf, gold_dark,
+                                      (spire_cx - bowl_size + 2, bowl_y - bowl_size // 2 + 2,
+                                       bowl_size * 2, bowl_size + 2))
+                    # 메인
+                    pygame.draw.ellipse(spire_surf, gold_color,
+                                      (spire_cx - bowl_size, bowl_y - bowl_size // 2,
+                                       bowl_size * 2, bowl_size))
+                    # 하이라이트
+                    pygame.draw.ellipse(spire_surf, gold_light,
+                                      (spire_cx - bowl_size + 3, bowl_y - bowl_size // 2 + 1,
+                                       bowl_size - 2, bowl_size // 2), 1)
+                    # 테두리 장식
+                    pygame.draw.ellipse(spire_surf, gold_dark,
+                                      (spire_cx - bowl_size, bowl_y - bowl_size // 2,
+                                       bowl_size * 2, bowl_size), 1)
+
+                # 앙화 (연꽃 장식)
+                lotus_y = spire_height - 62
+                for petal in range(8):
+                    angle = (petal / 8) * math.pi * 2 - math.pi / 2
+                    petal_x = spire_cx + math.cos(angle) * 8
+                    petal_y = lotus_y + math.sin(angle) * 4
+                    pygame.draw.ellipse(spire_surf, gold_color,
+                                      (int(petal_x) - 3, int(petal_y) - 2, 6, 5))
+
+                # 찰주 (중심 기둥)
+                spire_top_y = 15
+                pygame.draw.line(spire_surf, gold_dark,
+                               (spire_cx + 2, spire_height - 65), (spire_cx + 2, spire_top_y + 2), 4)
+                pygame.draw.line(spire_surf, gold_color,
+                               (spire_cx, spire_height - 65), (spire_cx, spire_top_y), 3)
+                pygame.draw.line(spire_surf, gold_light,
+                               (spire_cx - 1, spire_height - 65), (spire_cx - 1, spire_top_y), 1)
+
+                # 보주 (꼭대기 구슬) - 보석처럼
+                pygame.draw.circle(spire_surf, gold_dark, (spire_cx + 2, spire_top_y - 4), 9)
+                pygame.draw.circle(spire_surf, gold_color, (spire_cx, spire_top_y - 6), 8)
+                pygame.draw.circle(spire_surf, gold_light, (spire_cx - 2, spire_top_y - 8), 5)
+                pygame.draw.circle(spire_surf, (255, 255, 240, int(collapse_opacity * 0.8)),
+                                 (spire_cx - 3, spire_top_y - 9), 2)
+
+                # 상륜부 기울기 적용 (spire_angle)
+                if spire_angle != 0:
+                    # 회전된 상륜부
+                    rotated_spire = pygame.transform.rotate(spire_surf, -spire_angle)
+                    # 회전 후 위치 조정
+                    rot_rect = rotated_spire.get_rect()
+                    # 회전 중심을 상륜부 밑부분에 맞춤
+                    rot_x = temple_x - rot_rect.width // 2 + int(spire_angle * 0.5)
+                    rot_y = spire_base_y - spire_height + 10 + int(abs(spire_angle) * 0.3)
+                    temple_surface.blit(rotated_spire, (rot_x, rot_y))
+                else:
+                    # 기울기 없을 때 정상 위치
+                    temple_surface.blit(spire_surf, (temple_x - spire_width // 2, spire_base_y - spire_height + 10))
+
+            # === 창문 (울트라 고품질 - 전통 격자창) ===
             if level < self.pagoda_levels - 1:
                 window_y = level_y - level_height // 2
-                window_dark_color = (*self.colors['temple_dark'], collapse_opacity)
-                window_gold_color = (*self.colors['gold_dim'], collapse_opacity)
-                pygame.draw.rect(temple_surface, window_dark_color,
-                               (temple_x - 15, window_y - 8, 30, 16))
-                pygame.draw.rect(temple_surface, window_gold_color,
-                               (temple_x - 15, window_y - 8, 30, 16), 1)
-        
-        # 입구 (with collapse offset)
+                window_width = 32
+                window_height = 22
+                window_x = temple_x - window_width // 2
+
+                # 창문 깊이 (다층 그림자)
+                for wi in range(3):
+                    frame_shadow = (*self.colors['temple_dark'], int(collapse_opacity * (0.6 - wi * 0.15)))
+                    pygame.draw.rect(temple_surface, frame_shadow,
+                                   (window_x + 3 - wi, window_y - window_height // 2 + 3 - wi,
+                                    window_width, window_height))
+
+                # 창문 내부 (깊은 어둠 + 미세한 빛)
+                inner_colors = [(10, 8, 15), (15, 12, 22), (12, 10, 18)]
+                for ic, inner_c in enumerate(inner_colors):
+                    pygame.draw.rect(temple_surface, (*inner_c, collapse_opacity),
+                                   (window_x + ic, window_y - window_height // 2 + ic,
+                                    window_width - ic * 2, window_height - ic * 2))
+
+                # 창살 (전통 꽃살문 패턴)
+                grid_color = (*self.colors['gold_dim'], int(collapse_opacity * 0.9))
+                grid_light = (min(255, self.colors['gold_dim'][0] + 30),
+                             min(255, self.colors['gold_dim'][1] + 25),
+                             min(255, self.colors['gold_dim'][2] + 15), int(collapse_opacity * 0.6))
+
+                # 외곽 프레임
+                pygame.draw.rect(temple_surface, grid_color,
+                               (window_x, window_y - window_height // 2, window_width, window_height), 2)
+
+                # 가로 창살 (3개)
+                for gy in range(3):
+                    gy_pos = window_y - window_height // 2 + (gy + 1) * (window_height // 4)
+                    pygame.draw.line(temple_surface, grid_color,
+                                   (window_x + 2, gy_pos), (window_x + window_width - 2, gy_pos), 1)
+
+                # 세로 창살 (3개)
+                for gx in range(3):
+                    gx_pos = window_x + (gx + 1) * (window_width // 4)
+                    pygame.draw.line(temple_surface, grid_color,
+                                   (gx_pos, window_y - window_height // 2 + 2),
+                                   (gx_pos, window_y + window_height // 2 - 2), 1)
+
+                # 대각선 장식 (꽃살 느낌)
+                for cell_y in range(3):
+                    for cell_x in range(3):
+                        cx = window_x + (cell_x + 0.5) * (window_width // 4) + window_width // 8
+                        cy = window_y - window_height // 2 + (cell_y + 0.5) * (window_height // 4) + window_height // 8
+                        cell_size = min(window_width // 8, window_height // 8) - 1
+                        # 작은 마름모 장식
+                        pygame.draw.line(temple_surface, grid_light,
+                                       (int(cx) - cell_size, int(cy)), (int(cx), int(cy) - cell_size), 1)
+                        pygame.draw.line(temple_surface, grid_light,
+                                       (int(cx), int(cy) - cell_size), (int(cx) + cell_size, int(cy)), 1)
+                        pygame.draw.line(temple_surface, grid_light,
+                                       (int(cx) + cell_size, int(cy)), (int(cx), int(cy) + cell_size), 1)
+                        pygame.draw.line(temple_surface, grid_light,
+                                       (int(cx), int(cy) + cell_size), (int(cx) - cell_size, int(cy)), 1)
+
+                # 창문 상단 아치 장식 (더 정교하게)
+                arch_dark = (*self.colors['gold_dim'], int(collapse_opacity * 0.8))
+                arch_light = (*self.colors['gold_accent'], collapse_opacity)
+                pygame.draw.arc(temple_surface, arch_dark,
+                              (window_x - 4, window_y - window_height // 2 - 12, window_width + 8, 16),
+                              0, math.pi, 3)
+                pygame.draw.arc(temple_surface, arch_light,
+                              (window_x - 3, window_y - window_height // 2 - 11, window_width + 6, 14),
+                              0, math.pi, 2)
+                # 아치 꼭대기 장식
+                pygame.draw.circle(temple_surface, arch_light,
+                                 (temple_x, window_y - window_height // 2 - 10), 3)
+
+        # === 입구 (울트라 고품질) ===
         entrance_y = temple_base_y + collapse_y_offset
+        entrance_width = 60
+        entrance_height = 55
+        entrance_x = temple_x - entrance_width // 2
+
+        # 입구 깊이감 (다층 그라데이션)
+        for di in range(5):
+            depth_alpha = collapse_opacity - di * 30
+            inner_dark = (10 - di * 2, 8 - di * 2, 15 - di * 2, max(0, depth_alpha))
+            pygame.draw.rect(temple_surface, inner_dark,
+                            (entrance_x + 5 + di * 2, entrance_y - entrance_height + 5 + di,
+                             entrance_width - 10 - di * 4, entrance_height - 5 - di * 2))
+
+        # 입구 프레임 (3D 효과)
+        frame_shadow = (*self.colors['temple_dark'], int(collapse_opacity * 0.8))
+        pygame.draw.rect(temple_surface, frame_shadow,
+                        (entrance_x + 2, entrance_y - entrance_height + 2, entrance_width, entrance_height))
         entrance_dark_color = (*self.colors['temple_dark'], collapse_opacity)
-        entrance_gold_color = (*self.colors['gold_accent'], collapse_opacity)
         pygame.draw.rect(temple_surface, entrance_dark_color,
-                        (temple_x - 25, entrance_y - 40, 50, 40))
-        pygame.draw.rect(temple_surface, entrance_gold_color,
-                        (temple_x - 25, entrance_y - 40, 50, 40), 2)
-        
-        # 돌계단 (with collapse offset)
+                        (entrance_x, entrance_y - entrance_height, entrance_width, entrance_height))
+
+        # 문 (이중문 표현 - 애니메이션 적용)
+        door_width = (entrance_width - 10) // 2
+        door_height = entrance_height - 15
+
+        # 문 열림 오프셋 계산 (왼쪽 문은 왼쪽으로, 오른쪽 문은 오른쪽으로 열림)
+        max_door_open_offset = door_width - 4  # 최대 열림 거리
+        door_open_offset = int(self.door_open_amount * max_door_open_offset)
+
+        # 왼쪽 문, 오른쪽 문 베이스 위치
+        left_door_base_x = entrance_x + 3
+        right_door_base_x = entrance_x + entrance_width // 2 + 2
+
+        for door_i, door_base_x in enumerate([left_door_base_x, right_door_base_x]):
+            # 문 열림에 따른 X 오프셋 (왼쪽 문은 -, 오른쪽 문은 +)
+            if door_i == 0:  # 왼쪽 문
+                door_x = door_base_x - door_open_offset
+            else:  # 오른쪽 문
+                door_x = door_base_x + door_open_offset
+
+            # 문이 입구 프레임 밖으로 나가지 않도록 클리핑
+            # (문이 열릴 때 벽 뒤로 숨어들어가는 효과)
+            visible_width = door_width - 2
+            if door_i == 0:  # 왼쪽 문
+                clip_left = max(entrance_x, door_x)
+                clip_width = min(visible_width, door_base_x + visible_width - clip_left)
+                if clip_width <= 0:
+                    continue  # 문이 완전히 숨겨짐
+                draw_x = clip_left
+                draw_width = clip_width
+            else:  # 오른쪽 문
+                clip_right = min(entrance_x + entrance_width, door_x + visible_width)
+                clip_width = min(visible_width, clip_right - door_x)
+                if clip_width <= 0:
+                    continue  # 문이 완전히 숨겨짐
+                draw_x = door_x
+                draw_width = clip_width
+
+            # 문 패널
+            door_color = (*self.colors['roof_dark'], collapse_opacity)
+            pygame.draw.rect(temple_surface, door_color,
+                           (draw_x, entrance_y - door_height - 5, draw_width, door_height))
+            # 문 테두리
+            pygame.draw.rect(temple_surface, (*self.colors['gold_dim'], int(collapse_opacity * 0.8)),
+                           (draw_x, entrance_y - door_height - 5, draw_width, door_height), 1)
+
+            # 문 장식 패널 (문이 충분히 보일 때만)
+            panel_margin = 3
+            if draw_width > panel_margin * 2 + 4:
+                pygame.draw.rect(temple_surface, (*self.colors['temple_dark'], int(collapse_opacity * 0.6)),
+                               (draw_x + panel_margin, entrance_y - door_height - 5 + panel_margin,
+                                draw_width - panel_margin * 2, door_height - panel_margin * 2), 1)
+
+            # 문고리 (문이 충분히 보일 때만)
+            ring_offset_from_edge = 8 if door_i == 0 else draw_width - 8
+            if draw_width > 15:
+                ring_x = draw_x + ring_offset_from_edge
+                ring_y = entrance_y - door_height // 2 - 5
+                pygame.draw.circle(temple_surface, (*self.colors['gold_dim'], collapse_opacity), (ring_x, ring_y), 4)
+                pygame.draw.circle(temple_surface, (*self.colors['gold_accent'], int(collapse_opacity * 0.7)),
+                                 (ring_x - 1, ring_y - 1), 2)
+
+        # 입구 기둥 (원형 기둥 - 3D 효과)
+        for pillar_x, highlight_offset in [(entrance_x - 10, -2), (entrance_x + entrance_width + 2, 2)]:
+            pillar_w = 12
+            # 기둥 그림자
+            pygame.draw.ellipse(temple_surface, (*self.colors['temple_dark'], int(collapse_opacity * 0.5)),
+                              (pillar_x - 1, entrance_y - 2, pillar_w + 2, 6))
+            # 기둥 메인 (그라데이션 효과)
+            for py in range(entrance_height + 15):
+                shade = 1 - abs((pillar_w // 2) - 3) / (pillar_w // 2) * 0.3
+                r = int(self.colors['temple_main'][0] * shade)
+                g = int(self.colors['temple_main'][1] * shade)
+                b = int(self.colors['temple_main'][2] * shade)
+                pygame.draw.line(temple_surface, (r, g, b, collapse_opacity),
+                               (pillar_x, entrance_y - entrance_height - 15 + py),
+                               (pillar_x + pillar_w, entrance_y - entrance_height - 15 + py), 1)
+            # 기둥 하이라이트
+            pygame.draw.line(temple_surface, (*self.colors['temple_highlight'], int(collapse_opacity * 0.6)),
+                           (pillar_x + highlight_offset + pillar_w // 2, entrance_y - entrance_height - 12),
+                           (pillar_x + highlight_offset + pillar_w // 2, entrance_y - 3), 2)
+            # 기둥 주두 (상단 장식)
+            pygame.draw.rect(temple_surface, (*self.colors['gold_dim'], collapse_opacity),
+                           (pillar_x - 2, entrance_y - entrance_height - 18, pillar_w + 4, 6))
+            pygame.draw.rect(temple_surface, (*self.colors['gold_accent'], int(collapse_opacity * 0.7)),
+                           (pillar_x - 1, entrance_y - entrance_height - 17, pillar_w + 2, 4), 1)
+            # 기둥 기단 (하단 장식)
+            pygame.draw.rect(temple_surface, (*self.colors['stone_gray'], collapse_opacity),
+                           (pillar_x - 2, entrance_y - 3, pillar_w + 4, 5))
+
+        # 입구 상단 현판 (더 정교하게)
+        plaque_x = entrance_x + 3
+        plaque_y = entrance_y - entrance_height - 8
+        plaque_w = entrance_width - 6
+        plaque_h = 16
+        # 현판 그림자
+        pygame.draw.rect(temple_surface, (*self.colors['temple_dark'], int(collapse_opacity * 0.6)),
+                        (plaque_x + 2, plaque_y + 2, plaque_w, plaque_h))
+        # 현판 메인
+        pygame.draw.rect(temple_surface, (*self.colors['roof_red'], collapse_opacity),
+                        (plaque_x, plaque_y, plaque_w, plaque_h))
+        # 현판 테두리 (다층)
+        pygame.draw.rect(temple_surface, (*self.colors['gold_dim'], collapse_opacity),
+                        (plaque_x, plaque_y, plaque_w, plaque_h), 2)
+        pygame.draw.rect(temple_surface, (*self.colors['gold_accent'], int(collapse_opacity * 0.7)),
+                        (plaque_x + 2, plaque_y + 2, plaque_w - 4, plaque_h - 4), 1)
+        # 현판 글자 표현 (추상적)
+        for tx in range(3):
+            text_x = plaque_x + 10 + tx * 15
+            pygame.draw.line(temple_surface, (*self.colors['gold_accent'], int(collapse_opacity * 0.8)),
+                           (text_x, plaque_y + 4), (text_x, plaque_y + plaque_h - 4), 2)
+            pygame.draw.line(temple_surface, (*self.colors['gold_accent'], int(collapse_opacity * 0.6)),
+                           (text_x - 3, plaque_y + plaque_h // 2), (text_x + 5, plaque_y + plaque_h // 2), 1)
+
+        # === 돌계단 (울트라 고품질) ===
         for step in range(5):
-            step_y = entrance_y + step * 8
-            step_width = 150 + step * 20
-            stone_color = (*self.colors['stone_gray'], collapse_opacity)
-            stone_dark_color = (*self.colors['stone_dark'], collapse_opacity)
-            pygame.draw.rect(temple_surface, stone_color,
-                           (temple_x - step_width // 2, step_y, step_width, 8))
+            step_y = entrance_y + step * 12
+            step_width = 170 + step * 28
+            step_height = 12
+            step_x = temple_x - step_width // 2
+
+            # 계단 다층 그림자
+            for si in range(3):
+                shadow_alpha = int(collapse_opacity * (0.4 - si * 0.1))
+                pygame.draw.rect(temple_surface, (20, 18, 25, shadow_alpha),
+                               (step_x + 3 - si, step_y + 3 - si, step_width, step_height))
+
+            # 계단 메인 (그라데이션)
+            for sy in range(step_height):
+                grad = 1 - sy / step_height * 0.2
+                r = int(self.colors['stone_gray'][0] * grad)
+                g = int(self.colors['stone_gray'][1] * grad)
+                b = int(self.colors['stone_gray'][2] * grad)
+                pygame.draw.line(temple_surface, (r, g, b, collapse_opacity),
+                               (step_x, step_y + sy), (step_x + step_width, step_y + sy), 1)
+
+            # 계단 하이라이트 (상단 엣지)
+            stone_light = (min(255, self.colors['stone_gray'][0] + 25),
+                          min(255, self.colors['stone_gray'][1] + 20),
+                          min(255, self.colors['stone_gray'][2] + 15), int(collapse_opacity * 0.8))
+            pygame.draw.line(temple_surface, stone_light,
+                           (step_x + 1, step_y), (step_x + step_width - 1, step_y), 2)
+
+            # 돌 블록 패턴
+            stone_dark_color = (*self.colors['stone_dark'], int(collapse_opacity * 0.6))
+            block_width = 35
+            num_blocks = step_width // block_width
+            for bi in range(num_blocks + 1):
+                bx = step_x + bi * block_width + (step % 2) * (block_width // 2)
+                if bx < step_x + step_width - 5:
+                    # 블록 세로선
+                    pygame.draw.line(temple_surface, stone_dark_color,
+                                   (bx, step_y + 1), (bx, step_y + step_height - 1), 1)
+                    # 블록 질감 (미세한 점)
+                    if bi % 2 == 0:
+                        pygame.draw.circle(temple_surface, stone_dark_color,
+                                         (bx + block_width // 2, step_y + step_height // 2), 1)
+
+            # 계단 측면 그림자
             pygame.draw.line(temple_surface, stone_dark_color,
-                           (temple_x - step_width // 2, step_y),
-                           (temple_x + step_width // 2, step_y), 1)
-        
+                           (step_x, step_y + step_height - 1),
+                           (step_x + step_width, step_y + step_height - 1), 1)
+
+        # === 석등/화로 받침대 ===
+        brazier_base_y = entrance_y + 30
+        # 받침대 (3D)
+        pygame.draw.rect(temple_surface, (*self.colors['stone_dark'], int(collapse_opacity * 0.7)),
+                        (temple_x - 22, brazier_base_y + 2, 44, 10))
+        pygame.draw.rect(temple_surface, (*self.colors['stone_gray'], collapse_opacity),
+                        (temple_x - 20, brazier_base_y, 40, 8))
+        pygame.draw.line(temple_surface, (min(255, self.colors['stone_gray'][0] + 20),
+                        min(255, self.colors['stone_gray'][1] + 15),
+                        min(255, self.colors['stone_gray'][2] + 10), int(collapse_opacity * 0.7)),
+                       (temple_x - 18, brazier_base_y + 1), (temple_x + 18, brazier_base_y + 1), 1)
+
         # Blit the temple surface to the main surface
-        # Apply rotation if collapsing for tilting effect
         if collapse_rotation > 0:
             rotated_temple = pygame.transform.rotate(temple_surface, collapse_rotation)
-            # Center the rotated surface
             rot_rect = rotated_temple.get_rect(center=(self.width // 2, self.height // 2))
             surface.blit(rotated_temple, rot_rect)
         else:
@@ -1566,7 +2109,17 @@ class ShaolinTempleBackground:
                     return (deflection_x, deflection_y)
         
         return None
-    
+
+    def _update_door_animation(self):
+        """Update temple door open/close animation (사원 문 열림/닫힘 애니메이션)"""
+        # 부드러운 보간으로 문 열림 상태 업데이트
+        if self.door_open_amount < self.door_target_open:
+            self.door_open_amount = min(self.door_target_open,
+                                       self.door_open_amount + self.door_animation_speed)
+        elif self.door_open_amount > self.door_target_open:
+            self.door_open_amount = max(self.door_target_open,
+                                       self.door_open_amount - self.door_animation_speed)
+
     def _spawn_monk(self, is_smoke_grenade_monk=False):
         """Spawn a monk that walks out from temple entrance"""
         # Only allow 1 normal monk at a time (연막탄 몽크는 예외)
@@ -1612,8 +2165,38 @@ class ShaolinTempleBackground:
             for monk in self.monks[:]:
                 # Existing monk update logic continues...
                 pass
+            # 사원 파괴 시 문도 닫힘
+            self.door_target_open = 0.0
+            self._update_door_animation()
             return
-            
+
+        # === 문 열림 상태 업데이트 ===
+        # 입구 근처에 있는 몽크 확인 (나가거나 들어오는 중)
+        temple_x = self.width // 2
+        entrance_y = self.door_entrance_y
+
+        monk_near_entrance = False
+        for monk in self.monks:
+            # 몽크가 입구 근처에 있는지 체크
+            dx = abs(monk['x'] - temple_x)
+            dy = abs(monk['y'] - entrance_y)
+
+            # 스폰 직후 (opacity가 낮을 때 = 나오는 중) 또는 복귀 중 (returning)
+            is_entering_or_exiting = monk['opacity'] < 255 or monk.get('returning_to_temple', False)
+
+            if dx < self.door_trigger_distance and dy < 20 and is_entering_or_exiting:
+                monk_near_entrance = True
+                break
+
+        # 문 열림 목표 설정
+        if monk_near_entrance:
+            self.door_target_open = 1.0  # 열림
+        else:
+            self.door_target_open = 0.0  # 닫힘
+
+        # 문 애니메이션 업데이트
+        self._update_door_animation()
+
         # Spawn timer
         self.monk_spawn_timer += 1
         if self.monk_spawn_timer >= self.monk_spawn_interval:
@@ -2554,7 +3137,10 @@ class ShaolinTempleBackground:
         
         # Draw collapse debris
         self._draw_collapse_debris(temp_surface)
-        
+
+        # Draw dust clouds during building collapse
+        self._draw_dust_clouds(temp_surface)
+
         # Draw ground fires from broken lanterns
         self._draw_ground_fires(temp_surface)
         
@@ -3140,68 +3726,122 @@ class ShaolinTempleBackground:
                 self._create_collapse_debris()
                 self._start_lanterns_falling()  # Start lanterns falling
                 
-        elif self.destruction_phase == 4:  # Temple collapsing (4.5 seconds)
+        elif self.destruction_phase == 4:  # Temple collapsing (5 seconds) - 건물 찌그러짐 + 가라앉음
             # Kill all monks and dummies when temple starts collapsing
-            if self.destruction_timer == 1:  # Changed from 0 to 1 since timer increments first
+            if self.destruction_timer == 1:
                 print(f"🔥 Temple collapsing! Current monks: {len(self.monks)}")
                 for i, monk in enumerate(self.monks):
                     print(f"   Monk {i}: at ({monk['x']}, {monk['y']}) - type: {monk.get('type', 'normal')}")
-                
+
                 # Always spawn some test monks to ensure explosion effect is visible
                 for i in range(2):
                     test_monk = {
                         'x': self.width // 2 + random.randint(-80, 80),
                         'y': 480 + random.randint(-30, 30),
-                        'color': (100, 80, 60),  # Brown robe
+                        'color': (100, 80, 60),
                         'type': 'star_reward' if i == 0 else 'normal'
                     }
                     self.monks.append(test_monk)
-                    print(f"   Added test monk at ({test_monk['x']}, {test_monk['y']})")
-                
+
                 print(f"🔥 About to explode {len(self.monks)} monks...")
                 self._explode_all_monks()
                 print(f"🔥 After explosion: {len(self.monk_death_particles)} particles, {len(self.monk_body_parts)} body parts")
-                
                 self._explode_all_training_dummies()
-            
-            # More intense screen shake
-            if self.destruction_timer < 90:
-                self.screen_shake_intensity = 5 + int(self.destruction_timer / 15)
-            elif self.destruction_timer < 180:
-                self.screen_shake_intensity = 10
+
+            # 화면 흔들림 (초반에 강하게, 후반에 약하게)
+            if self.destruction_timer < 60:
+                self.screen_shake_intensity = 8 + int(self.destruction_timer / 10)
+            elif self.destruction_timer < 150:
+                self.screen_shake_intensity = 12 - int((self.destruction_timer - 60) / 20)
             else:
-                self.screen_shake_intensity = max(0, 10 - (self.destruction_timer - 180) // 15)
-            
-            # Gradual collapse animation with acceleration
-            collapse_progress = self.destruction_timer / 270.0  # 4.5 seconds
-            # Use exponential curve for more natural collapse
-            self.collapse_offset = int(350 * (collapse_progress ** 1.5))
-            
-            # Update debris with more realistic physics
+                self.screen_shake_intensity = max(0, 6 - (self.destruction_timer - 150) // 30)
+
+            # === 건물 찌그러짐 + 가라앉음 애니메이션 ===
+            total_duration = 300.0  # 5초
+            progress = min(1.0, self.destruction_timer / total_duration)
+
+            # 상륜부 먼저 기울어짐 (0~20%)
+            if progress < 0.2:
+                spire_progress = progress / 0.2
+                self.spire_fall_angle = spire_progress * 45  # 최대 45도 기울어짐
+                if spire_progress > 0.8 and not self.spire_fallen:
+                    self.spire_fallen = True
+
+            # 건물 수직 압축 (찌그러짐) - 위층부터 순서대로
+            # 0.1~0.6 구간에서 점진적으로 압축
+            if progress > 0.1:
+                crush_progress = min(1.0, (progress - 0.1) / 0.5)
+                self.building_crush_factor = 1.0 - crush_progress * 0.6  # 최종 40%까지 압축
+
+                # 각 층별 압축 (위층일수록 더 많이 압축)
+                for level in range(self.pagoda_levels):
+                    level_delay = level * 0.08
+                    level_progress = max(0, min(1.0, (crush_progress - level_delay) / 0.5))
+                    # 각 층이 아래로 내려오는 오프셋
+                    self.level_crush_offsets[level] = int(level_progress * (4 - level) * 15)
+
+            # 건물 전체 가라앉음 (0.3~1.0 구간)
+            if progress > 0.3:
+                sink_progress = (progress - 0.3) / 0.7
+                # 점점 가속되다가 마지막에 감속
+                if sink_progress < 0.7:
+                    self.building_sink_amount = sink_progress * 1.2  # 가속
+                else:
+                    # 마지막 30%에서 감속하며 정지
+                    final_progress = (sink_progress - 0.7) / 0.3
+                    self.building_sink_amount = 0.84 + final_progress * 0.16
+
+            # 기존 collapse_offset도 가라앉음에 맞춰 조정
+            self.collapse_offset = int(self.building_sink_amount * 200)
+
+            # === 파편 물리 업데이트 (지연 시간 적용) ===
             for debris in self.collapse_debris:
-                debris['y'] += debris['vy']
-                debris['x'] += debris['vx']
-                debris['vy'] += 0.4  # Slightly less gravity for more float time
-                debris['vx'] *= 0.98  # Air resistance
-                debris['rotation'] += debris['rotation_speed']
-                # Slower fade for better visibility
-                if self.destruction_timer > 90:  # Start fading after 1.5 seconds
-                    debris['opacity'] = max(0, debris['opacity'] - 0.3)
-            
-            # Add more debris periodically for continuous collapse effect
-            if self.destruction_timer % 20 == 0 and self.destruction_timer < 180:
-                self._create_additional_debris()
-            
-            # Update falling lanterns
+                delay = debris.get('delay', 0)
+                if self.destruction_timer > delay:
+                    debris['y'] += debris['vy']
+                    debris['x'] += debris['vx']
+                    debris['vy'] += 0.35
+                    debris['vx'] *= 0.98
+                    debris['rotation'] += debris['rotation_speed']
+                    # 화면 밖으로 나가면 페이드 아웃
+                    if debris['y'] > self.height or self.destruction_timer > 200:
+                        debris['opacity'] = max(0, debris['opacity'] - 2)
+
+            # 지붕 기와 파편 업데이트
+            for tile in self.roof_fragments:
+                delay = tile.get('delay', 0)
+                if self.destruction_timer > delay:
+                    tile['y'] += tile['vy']
+                    tile['x'] += tile['vx']
+                    tile['vy'] += 0.3
+                    tile['vx'] *= 0.97
+                    tile['rotation'] += tile['rotation_speed']
+                    if tile['y'] > self.height or self.destruction_timer > 220:
+                        tile['opacity'] = max(0, tile['opacity'] - 2)
+
+            # 먼지 구름 업데이트
+            for dust in self.dust_clouds:
+                delay = dust.get('delay', 0)
+                if self.destruction_timer > delay:
+                    if dust['opacity'] < dust['max_opacity']:
+                        dust['opacity'] = min(dust['max_opacity'], dust['opacity'] + 3)
+                    dust['size'] += dust['expand_rate']
+                    dust['y'] += dust['rise_speed']
+                    # 서서히 사라짐
+                    if self.destruction_timer > delay + 120:
+                        dust['opacity'] = max(0, dust['opacity'] - 1)
+
+            # 추가 파편 생성 (건물이 찌그러지는 동안)
+            if self.destruction_timer % 25 == 0 and self.destruction_timer < 200:
+                self._create_additional_crush_debris()
+
+            # 등롱 및 불 효과 업데이트
             self._update_falling_lanterns()
-            
-            # Update ground fires
             self._update_ground_fires()
-            
-            if self.destruction_timer >= 270:  # 4.5 seconds
+
+            if self.destruction_timer >= 300:  # 5초
                 self.destruction_phase = 5
                 self.destruction_timer = 0
-                # Clear lanterns from the map after they've fallen
                 self.lanterns.clear()
                 
         elif self.destruction_phase == 5:  # Complete - show ruins
@@ -3528,31 +4168,157 @@ class ShaolinTempleBackground:
                     int(wave['current_y'] - center)))
     
     def _create_collapse_debris(self):
-        """Create debris particles for temple collapse"""
+        """Create debris particles for temple collapse - 새 건물에 맞는 파편들"""
         self.collapse_debris = []
-        
-        # Create many debris pieces with varied sizes and positions
-        for _ in range(80):  # More debris for better effect
-            debris = {
-                'x': self.width // 2 + random.randint(-150, 150),
-                'y': 350 + random.randint(-100, 100),  # Various starting heights
-                'vx': random.uniform(-8, 8),
-                'vy': random.uniform(-15, -3),  # Stronger initial upward velocity
-                'size': random.randint(3, 25),  # More size variation
+        self.roof_fragments = []
+        self.wall_cracks = []
+        self.dust_clouds = []
+
+        temple_x = self.width // 2
+        temple_base_y = 450
+
+        # === 상륜부(첨탑) 파편 - 가장 먼저 떨어짐 ===
+        spire_y = temple_base_y - 5 * 60 - 80  # 맨 위
+        for _ in range(8):
+            self.collapse_debris.append({
+                'x': temple_x + random.randint(-20, 20),
+                'y': spire_y + random.randint(-40, 20),
+                'vx': random.uniform(-4, 4),
+                'vy': random.uniform(-8, -2),
+                'size': random.randint(8, 20),
                 'rotation': random.uniform(0, 360),
-                'rotation_speed': random.uniform(-15, 15),
-                'color': random.choice([
-                    self.colors['temple_main'],
-                    self.colors['temple_dark'],
-                    self.colors['roof_red'],
-                    self.colors['stone_gray'],
-                    (80, 60, 40),  # Wood color
-                    (100, 80, 60),  # Light wood
-                ]),
+                'rotation_speed': random.uniform(-10, 10),
+                'color': self.colors['gold_accent'],
                 'opacity': 255,
-                'type': random.choice(['brick', 'roof_tile', 'wood_beam', 'stone', 'pillar_chunk'])  # Building fragment types
-            }
-            self.collapse_debris.append(debris)
+                'type': 'spire_ornament',  # 상륜부 장식 (금색)
+                'delay': 0  # 즉시 시작
+            })
+
+        # === 지붕 기와 파편 (반원형 기와) ===
+        for level in range(self.pagoda_levels):
+            level_y = temple_base_y - level * 60
+            level_width = 200 - level * 25
+
+            for _ in range(12 - level * 2):  # 아래층일수록 많은 기와
+                self.roof_fragments.append({
+                    'x': temple_x + random.randint(-level_width // 2, level_width // 2),
+                    'y': level_y - 50 + random.randint(-10, 10),
+                    'vx': random.uniform(-6, 6),
+                    'vy': random.uniform(-5, 0),
+                    'size': random.randint(10, 18),
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-12, 12),
+                    'color': self.colors['roof_red'],
+                    'dark_color': self.colors['roof_dark'],
+                    'opacity': 255,
+                    'type': 'roof_tile',
+                    'delay': level * 15  # 위층부터 순서대로 떨어짐
+                })
+
+        # === 벽돌/돌 파편 ===
+        for level in range(self.pagoda_levels):
+            level_y = temple_base_y - level * 60
+            level_width = 200 - level * 25
+
+            for _ in range(8 - level):
+                side = random.choice([-1, 1])
+                self.collapse_debris.append({
+                    'x': temple_x + side * random.randint(level_width // 4, level_width // 2),
+                    'y': level_y - random.randint(10, 40),
+                    'vx': side * random.uniform(2, 5),
+                    'vy': random.uniform(-3, 1),
+                    'size': random.randint(8, 20),
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-8, 8),
+                    'color': self.colors['temple_main'],
+                    'opacity': 255,
+                    'type': 'brick',
+                    'delay': level * 20 + random.randint(0, 30)
+                })
+
+        # === 기둥 파편 ===
+        for level in range(self.pagoda_levels):
+            level_y = temple_base_y - level * 60
+            level_width = 200 - level * 25
+
+            for side in [-1, 1]:
+                self.collapse_debris.append({
+                    'x': temple_x + side * (level_width // 2 - 15),
+                    'y': level_y - 25,
+                    'vx': side * random.uniform(1, 3),
+                    'vy': random.uniform(-2, 0),
+                    'size': random.randint(15, 25),
+                    'rotation': random.uniform(0, 90),
+                    'rotation_speed': random.uniform(-5, 5),
+                    'color': self.colors['temple_main'],
+                    'opacity': 255,
+                    'type': 'pillar_chunk',
+                    'delay': level * 25 + 50
+                })
+
+        # === 창문 격자 파편 (꽃살문) ===
+        for level in range(1, 4):  # 1~3층에 창문
+            level_y = temple_base_y - level * 60
+            for side in [-1, 1]:
+                self.collapse_debris.append({
+                    'x': temple_x + side * 50,
+                    'y': level_y - 25,
+                    'vx': side * random.uniform(2, 4),
+                    'vy': random.uniform(-4, -1),
+                    'size': random.randint(12, 18),
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-15, 15),
+                    'color': self.colors['gold_dim'],
+                    'opacity': 255,
+                    'type': 'window_lattice',
+                    'delay': level * 30 + 20
+                })
+
+        # === 입구 문 파편 ===
+        for i in range(4):
+            self.collapse_debris.append({
+                'x': temple_x + random.randint(-25, 25),
+                'y': temple_base_y - 30,
+                'vx': random.uniform(-3, 3),
+                'vy': random.uniform(-2, 1),
+                'size': random.randint(15, 25),
+                'rotation': random.uniform(0, 360),
+                'rotation_speed': random.uniform(-6, 6),
+                'color': self.colors['roof_dark'],
+                'opacity': 255,
+                'type': 'door_fragment',
+                'delay': 80 + i * 10
+            })
+
+        # === 돌계단 파편 ===
+        for step in range(5):
+            for _ in range(3):
+                self.collapse_debris.append({
+                    'x': temple_x + random.randint(-80, 80),
+                    'y': temple_base_y + step * 12 + 5,
+                    'vx': random.uniform(-2, 2),
+                    'vy': random.uniform(-1, 0),
+                    'size': random.randint(10, 20),
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-4, 4),
+                    'color': self.colors['stone_gray'],
+                    'opacity': 255,
+                    'type': 'stone',
+                    'delay': 120 + step * 15
+                })
+
+        # === 먼지 구름 효과 ===
+        for _ in range(15):
+            self.dust_clouds.append({
+                'x': temple_x + random.randint(-100, 100),
+                'y': temple_base_y + random.randint(-50, 50),
+                'size': random.randint(30, 60),
+                'opacity': 0,  # 서서히 나타남
+                'max_opacity': random.randint(80, 150),
+                'expand_rate': random.uniform(0.5, 1.5),
+                'rise_speed': random.uniform(-0.5, -0.2),
+                'delay': random.randint(30, 120)
+            })
     
     def _create_additional_debris(self):
         """Create additional debris during collapse for continuous effect"""
@@ -3576,7 +4342,86 @@ class ShaolinTempleBackground:
                 'type': random.choice(['brick', 'roof_tile', 'wood_beam', 'stone', 'pillar_chunk'])
             }
             self.collapse_debris.append(debris)
-    
+
+    def _create_additional_crush_debris(self):
+        """Create additional debris during building crush/sink animation"""
+        temple_x = self.width // 2
+        temple_base_y = 450
+
+        # 현재 가라앉음 상태에 맞춰 파편 생성 위치 조정
+        sink_offset = getattr(self, 'building_sink_amount', 0) * 300
+        crush_factor = getattr(self, 'building_crush_factor', 1.0)
+
+        # 파편 개수 (건물이 많이 찌그러질수록 더 많은 파편)
+        num_debris = int(3 + (1 - crush_factor) * 10)
+
+        for _ in range(num_debris):
+            # 파편 타입 선택 (가중치 적용)
+            debris_type = random.choices(
+                ['brick', 'roof_tile', 'stone', 'pillar_chunk', 'dust'],
+                weights=[30, 25, 20, 10, 15]
+            )[0]
+
+            if debris_type == 'dust':
+                # 먼지 구름 추가
+                self.dust_clouds.append({
+                    'x': temple_x + random.randint(-80, 80),
+                    'y': temple_base_y + sink_offset + random.randint(-30, 30),
+                    'size': random.randint(20, 40),
+                    'opacity': 0,
+                    'max_opacity': random.randint(60, 100),
+                    'expand_rate': random.uniform(0.8, 2.0),
+                    'rise_speed': random.uniform(-0.8, -0.3),
+                    'color': (70, 60, 50),  # 갈색 먼지
+                    'delay': 0
+                })
+            else:
+                # 일반 파편
+                level = random.randint(0, 4)
+                level_y = temple_base_y - level * 60 * crush_factor + sink_offset
+
+                # 파편 색상 결정
+                if debris_type == 'roof_tile':
+                    color = self.colors['roof_red']
+                elif debris_type == 'pillar_chunk':
+                    color = self.colors['temple_main']
+                elif debris_type == 'stone':
+                    color = self.colors['stone_gray']
+                else:  # brick
+                    color = self.colors['temple_main']
+
+                self.collapse_debris.append({
+                    'x': temple_x + random.randint(-100, 100),
+                    'y': level_y + random.randint(-20, 20),
+                    'vx': random.uniform(-3, 3),
+                    'vy': random.uniform(-2, 2),
+                    'size': random.randint(6, 14),
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-8, 8),
+                    'color': color,
+                    'opacity': 255,
+                    'type': debris_type,
+                    'delay': 0
+                })
+
+        # 지붕 기와 추가 (확률적으로)
+        if random.random() < 0.3 and crush_factor < 0.8:
+            for _ in range(2):
+                self.roof_fragments.append({
+                    'x': temple_x + random.randint(-60, 60),
+                    'y': temple_base_y - 200 * crush_factor + sink_offset,
+                    'vx': random.uniform(-4, 4),
+                    'vy': random.uniform(-3, 0),
+                    'size': random.randint(8, 14),
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-10, 10),
+                    'color': self.colors['roof_red'],
+                    'dark_color': self.colors['roof_dark'],
+                    'opacity': 255,
+                    'type': 'roof_tile',
+                    'delay': 0
+                })
+
     def _start_lanterns_falling(self):
         """Start all lanterns falling during destruction"""
         for lantern in self.lanterns:
@@ -3739,7 +4584,11 @@ class ShaolinTempleBackground:
     
     def _draw_collapse_debris(self, surface: pygame.Surface):
         """Draw falling debris during collapse as realistic building fragments"""
-        for debris in self.collapse_debris:
+        # roof_fragments도 collapse_debris와 함께 그리기
+        roof_fragments = getattr(self, 'roof_fragments', [])
+        all_debris = list(self.collapse_debris) + list(roof_fragments)
+
+        for debris in all_debris:
             # Check if debris has opacity (default to 255 if not)
             opacity = debris.get('opacity', 255)
             if opacity > 0:
@@ -3877,7 +4726,98 @@ class ShaolinTempleBackground:
                     # Add sharp edge highlight
                     bright_color = tuple(min(255, c + 50) for c in debris['color']) + (opacity,)
                     pygame.draw.polygon(debris_surf, bright_color, rotated_points, 1)
-                
+
+                elif debris.get('type') == 'spire_ornament':
+                    # Draw golden spire ornament fragment (상륜부 장식 파편)
+                    ornament_size = debris['size'] * 1.2
+
+                    # Draw as decorative oval/bowl shape
+                    pygame.draw.ellipse(debris_surf, color,
+                                      (center - ornament_size, center - ornament_size * 0.6,
+                                       ornament_size * 2, ornament_size * 1.2))
+                    # Add golden highlight
+                    bright_gold = tuple(min(255, c + 60) for c in debris['color']) + (opacity,)
+                    pygame.draw.ellipse(debris_surf, bright_gold,
+                                      (center - ornament_size * 0.6, center - ornament_size * 0.4,
+                                       ornament_size * 0.8, ornament_size * 0.5))
+                    # Add border
+                    pygame.draw.ellipse(debris_surf, darker_color,
+                                      (center - ornament_size, center - ornament_size * 0.6,
+                                       ornament_size * 2, ornament_size * 1.2), 2)
+
+                elif debris.get('type') == 'window_lattice':
+                    # Draw window lattice fragment (꽃살문 격자 파편)
+                    lattice_size = debris['size'] * 1.4
+                    angle = math.radians(debris['rotation'])
+
+                    # Draw diamond pattern (마름모 격자)
+                    # Main diamond
+                    points = [
+                        (center, center - lattice_size),      # Top
+                        (center + lattice_size * 0.8, center), # Right
+                        (center, center + lattice_size),       # Bottom
+                        (center - lattice_size * 0.8, center), # Left
+                    ]
+                    # Apply rotation
+                    rotated_points = []
+                    for px, py in points:
+                        rx = center + (px - center) * math.cos(angle) - (py - center) * math.sin(angle)
+                        ry = center + (px - center) * math.sin(angle) + (py - center) * math.cos(angle)
+                        rotated_points.append((rx, ry))
+
+                    # Draw as outline (lattice is hollow)
+                    pygame.draw.polygon(debris_surf, color, rotated_points, 2)
+                    # Cross lines inside
+                    pygame.draw.line(debris_surf, color, rotated_points[0], rotated_points[2], 1)
+                    pygame.draw.line(debris_surf, color, rotated_points[1], rotated_points[3], 1)
+
+                elif debris.get('type') == 'door_fragment':
+                    # Draw wooden door fragment (문짝 파편)
+                    door_width = debris['size'] * 1.6
+                    door_height = debris['size'] * 2.0
+
+                    # Rotate door fragment
+                    angle = math.radians(debris['rotation'])
+                    points = []
+                    for dx, dy in [(-door_width/2, -door_height/2),
+                                  (door_width/2, -door_height/2),
+                                  (door_width/2, door_height/2),
+                                  (-door_width/2, door_height/2)]:
+                        x = center + dx * math.cos(angle) - dy * math.sin(angle)
+                        y = center + dx * math.sin(angle) + dy * math.cos(angle)
+                        points.append((x, y))
+
+                    pygame.draw.polygon(debris_surf, color, points)
+                    pygame.draw.polygon(debris_surf, darker_color, points, 2)
+                    # Add door decoration lines
+                    for i in range(2):
+                        line_offset = (i - 0.5) * door_width * 0.4
+                        start_x = center + line_offset * math.cos(angle)
+                        start_y = center + line_offset * math.sin(angle)
+                        pygame.draw.circle(debris_surf, darker_color, (int(start_x), int(start_y)), 2)
+
+                elif debris.get('type') == 'stair_stone':
+                    # Draw stone stair fragment (계단 돌 파편)
+                    stair_width = debris['size'] * 1.8
+                    stair_height = debris['size'] * 0.7
+
+                    angle = math.radians(debris['rotation'])
+                    points = []
+                    for dx, dy in [(-stair_width/2, -stair_height/2),
+                                  (stair_width/2, -stair_height/2),
+                                  (stair_width/2, stair_height/2),
+                                  (-stair_width/2, stair_height/2)]:
+                        x = center + dx * math.cos(angle) - dy * math.sin(angle)
+                        y = center + dx * math.sin(angle) + dy * math.cos(angle)
+                        points.append((x, y))
+
+                    pygame.draw.polygon(debris_surf, color, points)
+                    pygame.draw.polygon(debris_surf, darker_color, points, 2)
+                    # Add stone texture line
+                    pygame.draw.line(debris_surf, darker_color,
+                                   (center - stair_width * 0.3, center),
+                                   (center + stair_width * 0.3, center), 1)
+
                 else:  # default irregular fragment
                     # Draw irregular building fragment
                     num_points = random.randint(4, 7)
@@ -3893,10 +4833,60 @@ class ShaolinTempleBackground:
                         pygame.draw.polygon(debris_surf, color, points)
                         pygame.draw.polygon(debris_surf, darker_color, points, 1)
                 
-                surface.blit(debris_surf, 
-                           (int(debris['x'] - center), 
+                surface.blit(debris_surf,
+                           (int(debris['x'] - center),
                             int(debris['y'] - center)))
-    
+
+    def _draw_dust_clouds(self, surface: pygame.Surface):
+        """Draw dust clouds during building collapse (건물 붕괴 시 먼지 구름)"""
+        dust_clouds = getattr(self, 'dust_clouds', [])
+
+        for dust in dust_clouds:
+            if dust.get('alpha', 0) <= 0:
+                continue
+
+            # 먼지 구름 크기와 투명도
+            size = dust.get('size', 30)
+            alpha = int(dust.get('alpha', 100))
+            x = dust.get('x', 0)
+            y = dust.get('y', 0)
+
+            # 먼지 색상 (갈색/회색 계열)
+            base_color = dust.get('color', (80, 70, 60))
+
+            # 여러 겹의 원으로 먼지 구름 표현
+            for layer in range(3):
+                layer_size = size * (1 - layer * 0.2)
+                layer_alpha = int(alpha * (1 - layer * 0.3))
+
+                if layer_alpha > 0:
+                    # 메인 구름
+                    dust_surf = pygame.Surface((int(layer_size * 2.5), int(layer_size * 2)), pygame.SRCALPHA)
+                    dust_color = (*base_color, layer_alpha)
+
+                    # 불규칙한 구름 모양 (여러 원 조합)
+                    cx, cy = int(layer_size * 1.25), int(layer_size)
+                    offsets = [
+                        (0, 0, 1.0),
+                        (-layer_size * 0.3, -layer_size * 0.2, 0.7),
+                        (layer_size * 0.3, -layer_size * 0.1, 0.6),
+                        (-layer_size * 0.2, layer_size * 0.2, 0.5),
+                        (layer_size * 0.2, layer_size * 0.15, 0.55),
+                    ]
+
+                    for ox, oy, scale in offsets:
+                        circle_x = int(cx + ox)
+                        circle_y = int(cy + oy)
+                        circle_r = int(layer_size * scale * 0.5)
+                        if circle_r > 0:
+                            pygame.draw.circle(dust_surf, dust_color,
+                                             (circle_x, circle_y), circle_r)
+
+                    # 화면에 그리기
+                    surface.blit(dust_surf,
+                               (int(x - layer_size * 1.25), int(y - layer_size)),
+                               special_flags=pygame.BLEND_ADD)
+
     def _draw_falling_lanterns(self, surface: pygame.Surface):
         """Draw lanterns falling during destruction"""
         for lantern in self.falling_lanterns:

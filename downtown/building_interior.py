@@ -142,6 +142,15 @@ class InteriorNPC:
 
     def update(self, dt, walkable_rect=None, obstacle_rects=None):
         """NPC 업데이트"""
+        # 임시 메시지 타이머 (커스텀 메시지)
+        if hasattr(self, '_temp_message_timer') and self._temp_message_timer > 0:
+            self._temp_message_timer -= dt
+            if self._temp_message_timer <= 0:
+                self._temp_message = None
+                self.is_talking = False
+                self.current_dialogue_idx = 0
+            return  # 임시 메시지 중에는 다른 대화 처리 안함
+
         # 말풍선 타이머
         if self.is_talking:
             self.talk_timer -= dt
@@ -329,6 +338,13 @@ class InteriorNPC:
             self.talk_timer = 3.0
             return self.dialogue[0]
         return None
+
+    def say_message(self, message, duration=3.0):
+        """커스텀 메시지 말하기 (임시 대사)"""
+        self._temp_message = message
+        self._temp_message_timer = duration
+        self.is_talking = True
+        self.current_dialogue_idx = -1  # 임시 메시지 표시 중임을 표시
 
     def get_rect(self):
         """NPC 클릭 영역"""
@@ -1461,13 +1477,19 @@ class InteriorNPC:
 
     def draw_speech_bubble(self, screen, camera_offset, fonts):
         """말풍선 그리기"""
-        if not self.is_talking or self.current_dialogue_idx >= len(self.dialogue):
+        if not self.is_talking:
             return
+
+        # 임시 메시지가 있으면 그것을 표시
+        if hasattr(self, '_temp_message') and self._temp_message and self.current_dialogue_idx == -1:
+            current_text = self._temp_message
+        elif self.current_dialogue_idx >= len(self.dialogue):
+            return
+        else:
+            current_text = self.dialogue[self.current_dialogue_idx]
 
         draw_x = self.x - camera_offset[0]
         draw_y = self.y - camera_offset[1]
-
-        current_text = self.dialogue[self.current_dialogue_idx]
 
         font = fonts.get('small')
         if not font:
@@ -2270,6 +2292,7 @@ class BuildingInterior:
         self.poker_game_playing = False  # 포커 게임 플레이 중
         self.poker_game_ui = None  # 포커 게임 UI 인스턴스
         self.dealer_bankrupt = False  # 딜러 파산 여부 (파산 시 더 이상 게임 불가)
+        self.poker_closed = False  # 포커 영업 종료 여부 (한 번 플레이 후 종료)
         self._init_poker_table_zone()  # 포커 테이블 영역 초기화
 
         # 빠칭코(슬롯머신) 게임 상호작용 (CASINO 전용)
@@ -2712,6 +2735,10 @@ class BuildingInterior:
         if self.poker_game_playing:
             return False
 
+        # 포커 영업 종료 (이미 한 번 플레이함)
+        if self.poker_closed:
+            return 'closed'
+
         # 딜러 파산 시 게임 불가
         if self.dealer_bankrupt:
             return 'bankrupt'
@@ -2771,6 +2798,10 @@ class BuildingInterior:
             self._sync_poker_gold(final_gold)
             self.poker_game_playing = False
             self.poker_game_ui = None
+
+            # 포커 영업 종료 (한 번 플레이 후 종료)
+            self.poker_closed = True
+
             return 'poker_exit'
 
         return result
@@ -2806,6 +2837,24 @@ class BuildingInterior:
         if 'pingfighter' in sys.modules:
             pingfighter = sys.modules['pingfighter']
             is_blacksmith = getattr(pingfighter, 'selected_character_type', '') == 'blacksmith'
+
+        # 이미 소유한 전설 아이템 목록 확인 (중복 방지)
+        owned_legendary_items = set()
+        try:
+            if 'items' in sys.modules:
+                items_module = sys.modules['items']
+                if getattr(items_module, 'ragnarok_hammer_obtained', False):
+                    owned_legendary_items.add('ragnarok_hammer')
+                if getattr(items_module, 'hermes_shoes_obtained', False):
+                    owned_legendary_items.add('hermes_shoes')
+                if getattr(items_module, 'poseidon_trident_obtained', False):
+                    owned_legendary_items.add('poseidon_trident')
+                if getattr(items_module, 'angel_blessing_obtained', False):
+                    owned_legendary_items.add('angel_blessing')
+                if getattr(items_module, 'sacred_laurel_obtained', False):
+                    owned_legendary_items.add('sacred_laurel')
+        except Exception as e:
+            print(f"[크레인] 전설 아이템 소유 확인 실패: {e}")
 
         # === 액티브 아이템 풀 (70% 비율) - 전부 커먼 ===
         active_items = [
@@ -2905,10 +2954,15 @@ class BuildingInterior:
                 else:  # 92% 레어
                     rarity = "rare"
 
-            # 해당 레어리티의 아이템 선택
-            available = [item for item in item_pool if item["rarity"] == rarity and item["name"] not in used_items]
+            # 해당 레어리티의 아이템 선택 (이미 소유한 전설 아이템 제외)
+            available = [item for item in item_pool
+                        if item["rarity"] == rarity
+                        and item["name"] not in used_items
+                        and item["name"] not in owned_legendary_items]
             if not available:
-                available = [item for item in item_pool if item["rarity"] == rarity]
+                available = [item for item in item_pool
+                            if item["rarity"] == rarity
+                            and item["name"] not in owned_legendary_items]
             if not available:
                 # 해당 레어리티가 없으면 레어에서 선택
                 available = [item for item in item_pool if item["rarity"] == "rare"]
@@ -4777,6 +4831,13 @@ class BuildingInterior:
                     result = self._start_poker_game()
                     if result == True:
                         return ("poker_start", None)
+                    elif result == 'closed':
+                        # 영업 종료 - 메인 NPC(딜러)가 말풍선으로 알림
+                        for npc in self.npcs:
+                            if npc.role == "main":
+                                npc.say_message("오늘은 포커게임 영업 종료되었습니다.", 3.0)
+                                break
+                        return ("poker_closed", None)
                     elif result == 'bankrupt':
                         # 딜러 파산 - 게임 불가
                         return ("poker_fail", "딜러가 파산했습니다. 테이블이 닫혔습니다.")
@@ -7770,15 +7831,30 @@ class BuildingInterior:
                 prize = self.crane_result["prize"]
                 item_info = prize.get("item", {})
                 item_korean = item_info.get("korean", item_info.get("name", "아이템"))
+                item_rarity = item_info.get("rarity", "common")
+
+                # 레어리티별 텍스트 색상 설정
+                if item_rarity == "legendary":
+                    text_color = (255, 215, 0)  # 금색/노란색
+                    glow_color = (255, 200, 0)
+                elif item_rarity == "epic":
+                    text_color = (200, 100, 255)  # 보라색
+                    glow_color = (180, 80, 255)
+                elif item_rarity == "rare":
+                    text_color = (100, 200, 255)  # 하늘색
+                    glow_color = (80, 180, 255)
+                else:
+                    text_color = (150, 255, 150)  # 녹색
+                    glow_color = (100, 255, 100)
 
                 # 성공 텍스트 (글로우 효과)
                 if font_medium:
                     result_text = f"🎉 {item_korean} 획득!"
                     for offset in range(3, 0, -1):
-                        glow_surf, _ = font_medium.render(result_text, (100, 255, 100, 150 // offset))
+                        glow_surf, _ = font_medium.render(result_text, (*glow_color, 150 // offset))
                         screen.blit(glow_surf, (glass_x + game_w // 2 - glow_surf.get_width() // 2 - offset,
                                                glass_y + game_h // 2 + 15 - offset))
-                    result_surf, _ = font_medium.render(result_text, (150, 255, 150))
+                    result_surf, _ = font_medium.render(result_text, text_color)
                     screen.blit(result_surf, (glass_x + game_w // 2 - result_surf.get_width() // 2,
                                              glass_y + game_h // 2 + 15))
 
@@ -7794,14 +7870,52 @@ class BuildingInterior:
                                 if item_icon:
                                     icon_size = 48
                                     scaled_icon = pygame.transform.scale(item_icon, (icon_size, icon_size))
-                                    # 아이콘 글로우
-                                    glow_surf = pygame.Surface((icon_size + 20, icon_size + 20), pygame.SRCALPHA)
-                                    pygame.draw.circle(glow_surf, (255, 255, 200, 80),
-                                                      (icon_size // 2 + 10, icon_size // 2 + 10), icon_size // 2 + 8)
-                                    screen.blit(glow_surf, (glass_x + game_w // 2 - icon_size // 2 - 10,
-                                                          glass_y + game_h // 2 - 55))
-                                    screen.blit(scaled_icon, (glass_x + game_w // 2 - icon_size // 2,
-                                                             glass_y + game_h // 2 - 45))
+                                    icon_x = glass_x + game_w // 2 - icon_size // 2
+                                    icon_y = glass_y + game_h // 2 - 45
+
+                                    # 전설 아이템: 화려한 무지개 오라 애니메이션
+                                    if item_rarity == "legendary":
+                                        # 무지개 오라 (여러 링)
+                                        for ring in range(4):
+                                            ring_alpha = int(100 + 60 * math.sin(self.animation_timer * 10 + ring))
+                                            hue_shift = (self.animation_timer * 80 + ring * 45) % 360
+                                            r = int(255 * (1 + math.sin(math.radians(hue_shift))) / 2)
+                                            g = int(255 * (1 + math.sin(math.radians(hue_shift + 120))) / 2)
+                                            b = int(255 * (1 + math.sin(math.radians(hue_shift + 240))) / 2)
+                                            glow_surf = pygame.Surface((icon_size + 40, icon_size + 40), pygame.SRCALPHA)
+                                            pygame.draw.circle(glow_surf, (r, g, b, ring_alpha),
+                                                              (icon_size // 2 + 20, icon_size // 2 + 20),
+                                                              icon_size // 2 + 15 - ring * 3)
+                                            screen.blit(glow_surf, (icon_x - 20, icon_y - 10))
+
+                                        # 별 반짝임 효과
+                                        for i in range(6):
+                                            star_angle = self.animation_timer * 3 + i * 1.05
+                                            star_dist = 35 + 8 * math.sin(self.animation_timer * 8 + i)
+                                            star_x = icon_x + icon_size // 2 + int(math.cos(star_angle) * star_dist)
+                                            star_y = icon_y + icon_size // 2 + int(math.sin(star_angle) * star_dist)
+                                            star_size = int(4 + 3 * math.sin(self.animation_timer * 15 + i * 2))
+                                            pygame.draw.line(screen, (255, 255, 200),
+                                                           (star_x - star_size, star_y), (star_x + star_size, star_y), 2)
+                                            pygame.draw.line(screen, (255, 255, 200),
+                                                           (star_x, star_y - star_size), (star_x, star_y + star_size), 2)
+
+                                    # 에픽 아이템: 보라색 오라
+                                    elif item_rarity == "epic":
+                                        glow_alpha = int(100 + 80 * math.sin(self.animation_timer * 8))
+                                        glow_surf = pygame.Surface((icon_size + 30, icon_size + 30), pygame.SRCALPHA)
+                                        pygame.draw.circle(glow_surf, (180, 80, 255, glow_alpha),
+                                                          (icon_size // 2 + 15, icon_size // 2 + 15), icon_size // 2 + 12)
+                                        screen.blit(glow_surf, (icon_x - 15, icon_y - 5))
+
+                                    # 기본 글로우
+                                    else:
+                                        glow_surf = pygame.Surface((icon_size + 20, icon_size + 20), pygame.SRCALPHA)
+                                        pygame.draw.circle(glow_surf, (255, 255, 200, 80),
+                                                          (icon_size // 2 + 10, icon_size // 2 + 10), icon_size // 2 + 8)
+                                        screen.blit(glow_surf, (icon_x - 10, icon_y - 10))
+
+                                    screen.blit(scaled_icon, (icon_x, icon_y))
                     except Exception:
                         pass
             else:

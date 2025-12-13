@@ -80,6 +80,11 @@ class Stage5FireMachineEvent:
         self.is_aiming = False  # 조준 중인지 여부
         self.aim_target_x = 0  # 조준 목표 X
         self.aim_target_y = 0  # 조준 목표 Y
+
+        # 용 입 벌림 애니메이션
+        self.dragon_jaw_open = 0.0  # 입 벌림 정도 (0.0 ~ 1.0)
+        self.dragon_jaw_phase = "closed"  # closed, opening, open, breathing
+        self.DRAGON_JAW_OPEN_TIME = 30  # 입 벌리는 시간 (0.5초)
         
         # Font for debugging
         self.font = None
@@ -136,6 +141,8 @@ class Stage5FireMachineEvent:
         self.cannon_angle = 0  # 포구 각도 초기화
         self.cannon_emergence = 0.0  # 포구 출현도 초기화
         self.cannon_current_length = 0  # 포구 길이 초기화
+        self.dragon_jaw_open = 0.0  # 용 입 벌림 초기화
+        self.dragon_jaw_phase = "closed"  # 입 닫힌 상태
         self.init_font()
         
         print(f"🔥 Stage 5 화염 방사 기계 이벤트 활성화!")
@@ -188,27 +195,59 @@ class Stage5FireMachineEvent:
                 self.timer = 0
                 
         elif self.phase == "spraying":
-            # 포구 서서히 출현 (처음 30프레임 동안)
-            if self.timer < 30:
-                self.cannon_emergence = self._ease_out_cubic(self.timer / 30)
+            # === 0단계: 목이 나오기 전에 먼저 조준 방향 설정 (첫 프레임에만) ===
+            # timer += 1이 먼저 실행되므로 timer == 1일 때가 첫 프레임
+            if self.timer == 1:
+                # 플레이어 쪽 바닥 영역으로 조준 방향 설정
+                fixed_floor_y = self.screen_height - 50
+                self.aim_target_x = random.randint(50, self.screen_width - 50)
+                self.aim_target_y = fixed_floor_y
+                # 조준 각도를 바로 설정 (목이 처음부터 올바른 방향으로 나옴)
+                self.cannon_angle = math.atan2(
+                    self.aim_target_y - self.machine_y,
+                    self.aim_target_x - self.machine_x
+                )
+                self.target_cannon_angle = self.cannon_angle
+                print(f"🐉 용 방향 설정! 목표: ({self.aim_target_x}, {self.aim_target_y}), 각도: {math.degrees(self.cannon_angle):.1f}°")
+
+            # === 1단계: 용 목이 먼저 길게 뻗어나감 (0~45프레임) ===
+            if self.timer < 45:
+                self.cannon_emergence = self._ease_out_cubic(self.timer / 45)
                 self.cannon_current_length = self.cannon_length * self.cannon_emergence
+                self.dragon_jaw_phase = "closed"
+                self.dragon_jaw_open = 0.0
+
+            # === 2단계: 입 벌리기 애니메이션 (45~75프레임) ===
+            elif self.timer < 75:
+                self.cannon_emergence = 1.0
+                self.cannon_current_length = self.cannon_length
+                jaw_progress = (self.timer - 45) / self.DRAGON_JAW_OPEN_TIME
+                self.dragon_jaw_open = self._ease_out_cubic(min(1.0, jaw_progress))
+                self.dragon_jaw_phase = "opening"
+                if jaw_progress >= 1.0:
+                    self.dragon_jaw_phase = "open"
+
+            # === 3단계: 입 완전히 열림 + 화염 방사 ===
             else:
                 self.cannon_emergence = 1.0
                 self.cannon_current_length = self.cannon_length
-            
-            # 화염 방사 중 (스트림 시작)
-            self._spray_fire()
-            
+                self.dragon_jaw_phase = "breathing"
+                # 입이 열린 상태에서 약간 벌렁거림 (숨쉬는 효과)
+                self.dragon_jaw_open = 1.0 + 0.1 * math.sin(self.timer * 0.2)
+
+                # 화염 방사 중 (스트림 시작) - 입이 열린 후에만 발사
+                self._spray_fire()
+
             # 스트림과 화염 지대 업데이트
             self._update_fire_streams()
             self._update_fire_zones()
-            
+
             # 방사 파티클 업데이트
             self._update_spray_particles()
-            
+
             # 연기 파티클 업데이트
             self._update_smoke_particles()
-            
+
             if self.timer >= self.SPRAYING_TIME:
                 self.phase = "spraying_wait"
                 self.timer = 0
@@ -218,7 +257,16 @@ class Stage5FireMachineEvent:
             self._update_fire_streams()
             self._update_fire_zones()
             self._update_smoke_particles()
-            
+
+            # 입 닫기 애니메이션 (처음 30프레임 동안)
+            if self.timer < 30:
+                close_progress = self.timer / 30.0
+                self.dragon_jaw_open = 1.0 - self._ease_in_cubic(close_progress)
+                self.dragon_jaw_phase = "closing"
+            else:
+                self.dragon_jaw_open = 0.0
+                self.dragon_jaw_phase = "closed"
+
             if self.timer >= self.SPRAYING_DELAY:
                 self.phase = "machine_lowering"
                 self.timer = 0
@@ -275,23 +323,12 @@ class Stage5FireMachineEvent:
     
     def _spray_fire(self):
         """화염 방사"""
-        # 조준 단계 (처음에 목표 설정)
+        # 조준 단계 (처음에 목표 설정) - spraying 단계에서 이미 설정됨
         if not self.is_aiming and self.spray_count < self.MAX_FIRE_ZONES and self.spray_timer == 0:
-            # 플레이어 쪽 바닥 영역 - 플레이어 패들과 겹치도록 조정
-            # 플레이어 패들 Y=710, 화염이 제대로 충돌하도록 Y=700으로 설정
-            fixed_floor_y = self.screen_height - 50  # 플레이어 패들과 겹침 (y=700)
-            
-            # 조준할 목표 위치 설정 - X축만 랜덤, Y축은 고정
-            self.aim_target_x = random.randint(50, self.screen_width - 50)
-            self.aim_target_y = fixed_floor_y  # 항상 맵 하단 테두리 위로 고정
-            
-            # 목표 각도 계산
-            self.target_cannon_angle = math.atan2(
-                self.aim_target_y - self.machine_y, 
-                self.aim_target_x - self.machine_x
-            )
+            # 조준 방향은 spraying 단계 시작 시 이미 설정됨
+            # 여기서는 is_aiming만 True로 설정
             self.is_aiming = True
-            print(f"🎯 조준 시작! 목표: ({self.aim_target_x}, {self.aim_target_y})")
+            print(f"🎯 화염 발사 준비 완료! 목표: ({self.aim_target_x}, {self.aim_target_y})")
         
         # 포구 회전 (부드럽게 목표 각도로 회전)
         if self.is_aiming:
@@ -307,10 +344,15 @@ class Stage5FireMachineEvent:
             
             # 충분히 조준되었으면 발사
             if abs(angle_diff) < 0.1 and self.spray_timer >= 20:  # 최소 20프레임(0.3초) 조준 시간
-                # 화염 스트림 생성 (현재 포구 길이 사용)
+                # 화염 스트림 생성 (용머리 입 위치에서 발사)
+                # 용 전체 길이: 목(70%) + 머리(head_length_px = 70 * scale)
+                dragon_total = self.cannon_current_length * 1.5  # 전체 길이
+                neck_len = dragon_total * 0.7  # 목 길이
+                head_len = 70 * self.machine_scale  # 머리 길이
+                dragon_mouth_length = neck_len + head_len  # 입 위치
                 fire_stream = {
-                    "start_x": self.machine_x + math.cos(self.cannon_angle) * self.cannon_current_length,
-                    "start_y": self.machine_y + math.sin(self.cannon_angle) * self.cannon_current_length,
+                    "start_x": self.machine_x + math.cos(self.cannon_angle) * dragon_mouth_length,
+                    "start_y": self.machine_y + math.sin(self.cannon_angle) * dragon_mouth_length,
                     "target_x": self.aim_target_x,
                     "target_y": self.aim_target_y,
                     "timer": 0,
@@ -745,127 +787,456 @@ class Stage5FireMachineEvent:
                                      (int(nozzle_x), int(nozzle_y)), 
                                      int(3 * self.machine_scale))
             
-            # 🎯 포구 그리기 (조준 가능한 사이버펑크 대포)
+            # 🐉 용머리 포구 그리기 (디테일한 동양풍 용)
             if self.machine_scale >= 0.8 and self.cannon_emergence > 0:
-                # 포구 크기 조정 (출현 애니메이션 반영)
-                barrel_length = self.cannon_current_length * self.machine_scale
-                barrel_width = self.cannon_width * self.machine_scale * self.cannon_emergence
+                # 용 전체 길이 (목이 먼저 길게 늘어남)
+                dragon_total_length = self.cannon_current_length * self.machine_scale * 1.5
+                dragon_scale = self.machine_scale * self.cannon_emergence
+
+                if dragon_total_length > 5:
+                    # 용 색상 팔레트 (홍련 기계와 동일한 붉은색/분홍색 계열)
+                    dragon_deep = (40, 10, 20)        # 깊은 붉은색
+                    dragon_dark = (80, 20, 30)        # 어두운 붉은색
+                    dragon_mid = (120, 30, 50)        # 중간 붉은색
+                    dragon_light = (180, 50, 80)      # 밝은 붉은색
+                    dragon_highlight = (255, 100, 150) # 핑크 하이라이트
+                    dragon_pink = (255, 150, 180)     # 핑크 악센트 (입 안)
+                    dragon_glow = (255, 200, 150)     # 화염 발광색
+
+                    # 수직 방향
+                    perp_angle = self.cannon_angle + math.pi / 2
+
+                    # === 1단계: 긴 목 (화염 방향으로 먼저 뻗어나감) ===
+                    neck_length = dragon_total_length * 0.7  # 목이 전체의 70%
+                    neck_segments = 15  # 더 많은 세그먼트로 부드러운 목
+
+                    # 목 두께 (시작 -> 머리로 갈수록 두꺼워짐)
+                    for i in range(neck_segments):
+                        progress = i / neck_segments
+                        seg_x = self.machine_x + math.cos(self.cannon_angle) * (neck_length * progress)
+                        seg_y = self.machine_y + math.sin(self.cannon_angle) * (neck_length * progress)
+
+                        # 목 두께 (시작: 얇음 -> 중간: 두꺼움 -> 머리: 약간 좁아짐)
+                        if progress < 0.5:
+                            thickness = 8 + progress * 30  # 8 -> 23
+                        else:
+                            thickness = 23 + (progress - 0.5) * 10  # 23 -> 28
+                        thickness = int(thickness * dragon_scale)
+
+                        # 목 비늘 레이어 (3D 효과)
+                        for layer in range(4):
+                            layer_offset = layer * 2
+                            layer_thickness = max(1, thickness - layer * 3)
+
+                            # 색상 그라데이션
+                            if layer == 0:
+                                color = dragon_deep
+                            elif layer == 1:
+                                color = dragon_dark
+                            elif layer == 2:
+                                color = dragon_mid
+                            else:
+                                color = dragon_light
+
+                            # 위아래로 목 그리기
+                            for side in [-1, 1]:
+                                offset_x = math.cos(perp_angle) * (layer_thickness * side * 0.5)
+                                offset_y = math.sin(perp_angle) * (layer_thickness * side * 0.5)
+                                pygame.draw.circle(screen, color,
+                                                 (int(seg_x + offset_x), int(seg_y + offset_y)),
+                                                 max(1, layer_thickness // 2))
+
+                        # 비늘 패턴 (V자 형태)
+                        if i % 2 == 0 and progress > 0.1:
+                            scale_size = int(thickness * 0.8)
+                            # 비늘 중심
+                            pygame.draw.polygon(screen, dragon_highlight,
+                                              [(int(seg_x), int(seg_y - scale_size * 0.3)),
+                                               (int(seg_x - scale_size * 0.4), int(seg_y + scale_size * 0.2)),
+                                               (int(seg_x), int(seg_y)),
+                                               (int(seg_x + scale_size * 0.4), int(seg_y + scale_size * 0.2))])
+                            pygame.draw.polygon(screen, dragon_dark,
+                                              [(int(seg_x), int(seg_y - scale_size * 0.3)),
+                                               (int(seg_x - scale_size * 0.4), int(seg_y + scale_size * 0.2)),
+                                               (int(seg_x), int(seg_y)),
+                                               (int(seg_x + scale_size * 0.4), int(seg_y + scale_size * 0.2))], 1)
+
+                    # === 2단계: 용 머리 (디테일한 서피스로 그리기) ===
+                    head_start_x = self.machine_x + math.cos(self.cannon_angle) * neck_length
+                    head_start_y = self.machine_y + math.sin(self.cannon_angle) * neck_length
+                    head_size = int(55 * dragon_scale)  # 머리 기본 크기 (약간 크게)
+                    head_length_px = int(80 * dragon_scale)  # 머리 길이 (더 길게)
+
+                    # 머리 끝 (입) 위치
+                    mouth_x = head_start_x + math.cos(self.cannon_angle) * head_length_px
+                    mouth_y = head_start_y + math.sin(self.cannon_angle) * head_length_px
+
+                    # 머리 서피스 생성 (충분히 크게)
+                    surf_size = head_length_px * 4
+                    head_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+                    cx, cy = surf_size // 2, surf_size // 2  # 서피스 중심
+
+                    # 입 벌림 계산
+                    base_jaw_open = 25 * self.dragon_jaw_open  # 최대 25픽셀 열림
+                    if self.dragon_jaw_phase == "breathing":
+                        jaw_open_amount = base_jaw_open + 4 * math.sin(self.timer * 0.3)
+                    else:
+                        jaw_open_amount = base_jaw_open
+
+                    # --- 1. 갈기 (머리 뒤쪽에서 뻗어나가는 불꽃 같은 형태) ---
+                    mane_colors = [dragon_deep, dragon_dark, dragon_mid, dragon_light, dragon_highlight]
+                    for mane_i in range(7):
+                        mane_angle = -50 + mane_i * 17  # -50도 ~ 52도
+                        mane_wave = math.sin(self.timer * 0.15 + mane_i * 0.8) * 8
+                        mane_len = head_size * (1.0 - abs(mane_i - 3) * 0.12) + mane_wave
+                        mane_rad = math.radians(mane_angle - 90)
+
+                        mane_base_x = cx - head_length_px * 0.35
+                        mane_tip_x = mane_base_x + math.cos(mane_rad) * mane_len
+                        mane_tip_y = cy + math.sin(mane_rad) * mane_len
+
+                        # 갈기 두께 (뿌리: 두껍게, 끝: 뾰족하게)
+                        mane_base_w = head_size * 0.12
+                        mane_points = [
+                            (mane_base_x - mane_base_w, cy - head_size * 0.15),
+                            (mane_tip_x, mane_tip_y),
+                            (mane_base_x + mane_base_w, cy - head_size * 0.15),
+                        ]
+                        # 레이어 효과
+                        for layer, color in enumerate(mane_colors[:3]):
+                            shrink = layer * 2
+                            pygame.draw.polygon(head_surf, color, mane_points)
+                        pygame.draw.polygon(head_surf, dragon_highlight, mane_points, 1)
+
+                    # --- 2. 뿔 (크고 곡선형, 사슴뿔 스타일) ---
+                    for horn_side in [-1, 1]:
+                        horn_base_x = cx - head_length_px * 0.25
+                        horn_base_y = cy + horn_side * head_size * 0.35
+
+                        # 메인 뿔
+                        horn_len = head_size * 0.9
+                        horn_curve = math.sin(self.timer * 0.1) * 2  # 약간의 움직임
+                        horn_points = [
+                            (horn_base_x, horn_base_y),
+                            (horn_base_x - head_size * 0.3, horn_base_y + horn_side * head_size * 0.4 + horn_curve),
+                            (horn_base_x - head_size * 0.5, horn_base_y + horn_side * head_size * 0.7),
+                            (horn_base_x - head_size * 0.4, horn_base_y + horn_side * head_size * 0.5 + horn_curve),
+                            (horn_base_x - head_size * 0.15, horn_base_y + horn_side * head_size * 0.2),
+                        ]
+                        pygame.draw.polygon(head_surf, dragon_dark, horn_points)
+                        pygame.draw.lines(head_surf, dragon_highlight, False, horn_points, 2)
+
+                        # 뿔 링 (마디)
+                        for ring in range(3):
+                            ring_x = horn_base_x - head_size * 0.1 * (ring + 1)
+                            ring_y = horn_base_y + horn_side * head_size * 0.15 * (ring + 1)
+                            pygame.draw.ellipse(head_surf, dragon_light,
+                                              (ring_x - 4, ring_y - 2, 8, 4))
+
+                    # --- 3. 머리 본체 (더 입체적인 형태) ---
+                    # 머리 뒤쪽 (둥근 두개골)
+                    pygame.draw.ellipse(head_surf, dragon_dark,
+                                       (cx - head_length_px * 0.45, cy - head_size * 0.45,
+                                        head_length_px * 0.55, head_size * 0.9))
+                    # 머리 중간 (좀 더 밝게)
+                    pygame.draw.ellipse(head_surf, dragon_mid,
+                                       (cx - head_length_px * 0.4, cy - head_size * 0.4,
+                                        head_length_px * 0.5, head_size * 0.8))
+
+                    # 이마 융기 (눈썹 뼈)
+                    brow_points = [
+                        (cx - head_length_px * 0.2, cy - head_size * 0.35),
+                        (cx + head_length_px * 0.1, cy - head_size * 0.45),
+                        (cx + head_length_px * 0.2, cy - head_size * 0.4),
+                        (cx + head_length_px * 0.1, cy - head_size * 0.3),
+                        (cx - head_length_px * 0.1, cy - head_size * 0.25),
+                    ]
+                    pygame.draw.polygon(head_surf, dragon_light, brow_points)
+                    pygame.draw.polygon(head_surf, dragon_highlight, brow_points, 1)
+
+                    # --- 4. 주둥이 (더 길고 위엄있는 형태) ---
+                    snout_length = head_length_px * 0.75
+
+                    # 윗턱 (더 디테일한 형태)
+                    upper_jaw = [
+                        (cx - head_length_px * 0.05, cy - head_size * 0.2),   # 머리 연결부
+                        (cx + head_length_px * 0.15, cy - head_size * 0.35),  # 코등 시작
+                        (cx + head_length_px * 0.35, cy - head_size * 0.32),  # 코등 중간
+                        (cx + head_length_px * 0.55, cy - head_size * 0.25),  # 코등 끝
+                        (cx + snout_length, cy - head_size * 0.12),           # 코끝 위
+                        (cx + snout_length + 5, cy - head_size * 0.02),       # 코끝 (앞으로 돌출)
+                        (cx + snout_length, cy + head_size * 0.02),           # 코끝 아래
+                        (cx + head_length_px * 0.4, cy),                       # 입천장
+                        (cx - head_length_px * 0.05, cy - head_size * 0.05),  # 머리 연결부
+                    ]
+                    pygame.draw.polygon(head_surf, dragon_mid, upper_jaw)
+
+                    # 윗턱 비늘 디테일 (더 많이)
+                    for row in range(2):
+                        for i in range(6):
+                            det_x = cx + head_length_px * 0.1 + i * head_length_px * 0.1
+                            det_y = cy - head_size * 0.32 + row * head_size * 0.08
+                            det_size = int(head_size * 0.06)
+                            pygame.draw.circle(head_surf, dragon_light, (int(det_x), int(det_y)), det_size)
+                            pygame.draw.circle(head_surf, dragon_dark, (int(det_x), int(det_y)), det_size, 1)
+
+                    # 콧등 하이라이트 (메인 라인)
+                    pygame.draw.line(head_surf, dragon_highlight,
+                                   (cx + head_length_px * 0.15, cy - head_size * 0.36),
+                                   (cx + head_length_px * 0.6, cy - head_size * 0.22), 3)
+                    # 콧등 보조 라인
+                    pygame.draw.line(head_surf, dragon_light,
+                                   (cx + head_length_px * 0.2, cy - head_size * 0.28),
+                                   (cx + head_length_px * 0.55, cy - head_size * 0.18), 2)
+
+                    # 아랫턱 (더 디테일하게)
+                    lower_jaw = [
+                        (cx - head_length_px * 0.05, cy + head_size * 0.15),   # 머리 연결부
+                        (cx + head_length_px * 0.1, cy + head_size * 0.25 + jaw_open_amount * 0.3),
+                        (cx + head_length_px * 0.3, cy + head_size * 0.22 + jaw_open_amount * 0.6),
+                        (cx + head_length_px * 0.5, cy + head_size * 0.18 + jaw_open_amount * 0.8),
+                        (cx + snout_length * 0.85, cy + head_size * 0.08 + jaw_open_amount * 0.9),
+                        (cx + snout_length * 0.9, cy + head_size * 0.05 + jaw_open_amount * 0.5),
+                        (cx + snout_length * 0.85, cy + head_size * 0.02),
+                        (cx + head_length_px * 0.35, cy + head_size * 0.05),
+                        (cx - head_length_px * 0.05, cy + head_size * 0.08),
+                    ]
+                    pygame.draw.polygon(head_surf, dragon_dark, lower_jaw)
+                    pygame.draw.polygon(head_surf, dragon_deep, lower_jaw, 2)
+
+                    # 아랫턱 비늘
+                    for i in range(4):
+                        det_x = cx + head_length_px * 0.15 + i * head_length_px * 0.12
+                        det_y = cy + head_size * 0.15 + jaw_open_amount * 0.4
+                        pygame.draw.circle(head_surf, dragon_mid, (int(det_x), int(det_y)), int(head_size * 0.05))
+
+                    # --- 5. 입 안쪽 (더 깊은 느낌) ---
+                    if jaw_open_amount > 2:
+                        # 입 안 어두운 배경
+                        mouth_back = [
+                            (cx + head_length_px * 0.05, cy),
+                            (cx + snout_length * 0.75, cy),
+                            (cx + head_length_px * 0.05, cy + jaw_open_amount * 0.4),
+                        ]
+                        pygame.draw.polygon(head_surf, (30, 10, 15), mouth_back)
+
+                        # 입 안쪽 (핑크/붉은색)
+                        mouth_inside = [
+                            (cx + head_length_px * 0.1, cy - head_size * 0.02),
+                            (cx + snout_length * 0.7, cy + head_size * 0.02),
+                            (cx + head_length_px * 0.1, cy + jaw_open_amount * 0.35),
+                        ]
+                        pygame.draw.polygon(head_surf, dragon_pink, mouth_inside)
+
+                        # 혀 (더 역동적인 형태)
+                        if jaw_open_amount > 8:
+                            tongue_wave = math.sin(self.timer * 0.25) * 4
+                            tongue_wave2 = math.cos(self.timer * 0.2) * 3
+                            tongue_color = (220, 80, 100)
+                            tongue_tip_color = (255, 120, 140)
+
+                            tongue_points = [
+                                (cx + head_length_px * 0.2, cy + jaw_open_amount * 0.15),
+                                (cx + head_length_px * 0.35, cy + jaw_open_amount * 0.25 + tongue_wave),
+                                (cx + head_length_px * 0.5, cy + jaw_open_amount * 0.2 + tongue_wave2),
+                                (cx + head_length_px * 0.65, cy + jaw_open_amount * 0.3 - tongue_wave),
+                                (cx + head_length_px * 0.8, cy + jaw_open_amount * 0.35),
+                                # 갈라진 혀끝
+                                (cx + head_length_px * 0.9, cy + jaw_open_amount * 0.25),
+                                (cx + head_length_px * 0.85, cy + jaw_open_amount * 0.3),
+                                (cx + head_length_px * 0.9, cy + jaw_open_amount * 0.4),
+                                # 돌아오기
+                                (cx + head_length_px * 0.65, cy + jaw_open_amount * 0.35 - tongue_wave),
+                                (cx + head_length_px * 0.5, cy + jaw_open_amount * 0.28 + tongue_wave2),
+                                (cx + head_length_px * 0.35, cy + jaw_open_amount * 0.32 + tongue_wave),
+                                (cx + head_length_px * 0.2, cy + jaw_open_amount * 0.22),
+                            ]
+                            pygame.draw.polygon(head_surf, tongue_color, tongue_points)
+                            # 혀 중앙선
+                            pygame.draw.line(head_surf, (180, 60, 80),
+                                           (cx + head_length_px * 0.25, cy + jaw_open_amount * 0.2),
+                                           (cx + head_length_px * 0.75, cy + jaw_open_amount * 0.3), 2)
+
+                    # --- 6. 이빨 (더 날카롭고 다양한 크기) ---
+                    # 윗니 (날카로운 송곳니)
+                    tooth_color = (255, 255, 245)
+                    tooth_shadow = (200, 200, 190)
+                    for t in range(7):
+                        tooth_x = cx + head_length_px * 0.12 + t * head_length_px * 0.1
+                        # 앞니는 작고, 송곳니(1,5번)는 크게
+                        if t in [1, 5]:
+                            tooth_size = head_size * 0.3
+                            tooth_w = 5
+                        elif t in [2, 4]:
+                            tooth_size = head_size * 0.18
+                            tooth_w = 4
+                        else:
+                            tooth_size = head_size * 0.12
+                            tooth_w = 3
+
+                        tooth_points = [
+                            (tooth_x - tooth_w, cy - head_size * 0.02),
+                            (tooth_x, cy + tooth_size),
+                            (tooth_x + tooth_w, cy - head_size * 0.02)
+                        ]
+                        pygame.draw.polygon(head_surf, tooth_color, tooth_points)
+                        pygame.draw.polygon(head_surf, tooth_shadow, tooth_points, 1)
+
+                    # 아랫니 (입이 열렸을 때만)
+                    if jaw_open_amount > 5:
+                        for t in range(5):
+                            tooth_x = cx + head_length_px * 0.18 + t * head_length_px * 0.11
+                            tooth_size = head_size * (0.2 if t in [0, 4] else 0.12)
+                            base_y = cy + head_size * 0.06 + jaw_open_amount * 0.35
+                            tooth_w = 3 if t in [0, 4] else 2
+
+                            tooth_points = [
+                                (tooth_x - tooth_w, base_y),
+                                (tooth_x, base_y - tooth_size),
+                                (tooth_x + tooth_w, base_y)
+                            ]
+                            pygame.draw.polygon(head_surf, tooth_color, tooth_points)
+
+                    # --- 7. 눈 (더 크고 위엄있게) ---
+                    eye_x = cx - head_length_px * 0.02
+                    eye_y = cy - head_size * 0.22
+                    eye_w = head_size * 0.4
+                    eye_h = head_size * 0.22
+
+                    # 눈두덩이 (어두운 부분)
+                    pygame.draw.ellipse(head_surf, dragon_deep,
+                                       (eye_x - eye_w/2 - 3, eye_y - eye_h/2 - 3, eye_w + 6, eye_h + 6))
+
+                    # 눈 배경 (검은색)
+                    pygame.draw.ellipse(head_surf, (15, 5, 8),
+                                       (eye_x - eye_w/2, eye_y - eye_h/2, eye_w, eye_h))
+
+                    # 홍채 (불타는 느낌)
+                    iris_glow = 150 + int(50 * math.sin(self.timer * 0.15))
+                    pygame.draw.ellipse(head_surf, (255, iris_glow, 30),
+                                       (eye_x - eye_w/2 + 3, eye_y - eye_h/2 + 3, eye_w - 6, eye_h - 6))
+
+                    # 눈동자 (세로 슬릿) - 화염 상태에 따라 크기 변화
+                    pupil_width = 3 if self.dragon_jaw_phase == "breathing" else 5
+                    pygame.draw.ellipse(head_surf, (20, 5, 5),
+                                       (eye_x - pupil_width/2, eye_y - eye_h/2 + 4, pupil_width, eye_h - 8))
+
+                    # 눈 하이라이트 (두 개)
+                    pygame.draw.circle(head_surf, (255, 255, 220),
+                                      (int(eye_x - eye_w * 0.25), int(eye_y - eye_h * 0.15)), 4)
+                    pygame.draw.circle(head_surf, (255, 200, 150),
+                                      (int(eye_x + eye_w * 0.1), int(eye_y + eye_h * 0.1)), 2)
+
+                    # --- 8. 콧구멍 (연기 효과 포함) ---
+                    nostril_x = cx + snout_length - head_size * 0.1
+                    nostril_y = cy - head_size * 0.08
+
+                    # 콧구멍 테두리
+                    pygame.draw.ellipse(head_surf, dragon_deep,
+                                       (nostril_x - 7, nostril_y - 5, 12, 8))
+                    pygame.draw.ellipse(head_surf, (10, 5, 15),
+                                       (nostril_x - 5, nostril_y - 3, 8, 5))
+
+                    # 두 번째 콧구멍
+                    pygame.draw.ellipse(head_surf, dragon_deep,
+                                       (nostril_x - 7, nostril_y + 6, 12, 8))
+                    pygame.draw.ellipse(head_surf, (10, 5, 15),
+                                       (nostril_x - 5, nostril_y + 8, 8, 5))
+
+                    # 콧구멍에서 나오는 연기 (화염 방사 시)
+                    if self.dragon_jaw_phase == "breathing":
+                        smoke_alpha = int(80 + 40 * math.sin(self.timer * 0.3))
+                        for smoke_i in range(3):
+                            smoke_x = nostril_x + 5 + smoke_i * 4 + math.sin(self.timer * 0.2 + smoke_i) * 3
+                            smoke_y = nostril_y + math.cos(self.timer * 0.15 + smoke_i) * 2
+                            smoke_size = 4 - smoke_i
+                            smoke_surf = pygame.Surface((smoke_size * 2, smoke_size * 2), pygame.SRCALPHA)
+                            pygame.draw.circle(smoke_surf, (100, 100, 100, smoke_alpha - smoke_i * 20),
+                                             (smoke_size, smoke_size), smoke_size)
+                            head_surf.blit(smoke_surf, (int(smoke_x - smoke_size), int(smoke_y - smoke_size)))
+
+                    # --- 9. 수염 (더 우아하게 흐르는 형태) ---
+                    whisker_base_x = cx + head_length_px * 0.05
+                    whisker_base_y = cy + head_size * 0.18 + jaw_open_amount * 0.3
+
+                    for w in range(5):
+                        wave = math.sin(self.timer * 0.12 + w * 0.6) * 6
+                        wave2 = math.cos(self.timer * 0.1 + w * 0.4) * 4
+                        whisker_len = 45 - w * 5
+
+                        whisker_points = [
+                            (whisker_base_x - w * 6, whisker_base_y + w * 4),
+                            (whisker_base_x - w * 6 - whisker_len * 0.4 + wave, whisker_base_y + w * 4 + whisker_len * 0.5 + wave2),
+                            (whisker_base_x - w * 6 - whisker_len * 0.8 + wave * 1.5, whisker_base_y + w * 4 + whisker_len * 0.8),
+                            (whisker_base_x - w * 6 - whisker_len + wave * 2, whisker_base_y + w * 4 + whisker_len),
+                        ]
+                        # 수염 두께 (뿌리: 두껍게, 끝: 가늘게)
+                        pygame.draw.lines(head_surf, dragon_highlight, False, whisker_points, 3 - w // 2)
+
+                    # --- 10. 머리 테두리 강조 ---
+                    pygame.draw.polygon(head_surf, dragon_deep, upper_jaw, 2)
+
+                    # --- 11. 볼/광대뼈 부분 디테일 ---
+                    cheek_x = cx - head_length_px * 0.1
+                    cheek_y = cy + head_size * 0.05
+                    pygame.draw.ellipse(head_surf, dragon_light,
+                                       (cheek_x - head_size * 0.15, cheek_y - head_size * 0.1,
+                                        head_size * 0.25, head_size * 0.15))
+
+                    # 머리 회전 및 배치
+                    rotated_head = pygame.transform.rotate(head_surf, -math.degrees(self.cannon_angle))
+                    head_rect = rotated_head.get_rect(center=(int(head_start_x + math.cos(self.cannon_angle) * head_length_px * 0.3),
+                                                              int(head_start_y + math.sin(self.cannon_angle) * head_length_px * 0.3)))
+                    screen.blit(rotated_head, head_rect)
+
+                    # === 입에서 나오는 화염 발광 효과 (입이 열릴 때만) ===
+                    if self.cannon_emergence >= 0.8 and self.dragon_jaw_open > 0.3:
+                        # 발광 강도는 입 벌림 정도에 비례
+                        glow_multiplier = min(1.0, self.dragon_jaw_open)
+                        glow_intensity = int((150 + 80 * math.sin(self.timer * 0.2)) * glow_multiplier)
+
+                        # 다중 레이어 글로우
+                        for g in range(5):
+                            glow_size = int((20 - g * 3) * dragon_scale * glow_multiplier)
+                            if glow_size < 1:
+                                continue
+                            alpha = int((100 - g * 15) * glow_multiplier)
+                            r = min(255, 255)
+                            gr = min(255, glow_intensity + g * 20)
+                            b = min(255, 100 + g * 30)
+
+                            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                            pygame.draw.circle(glow_surf, (r, gr, b, alpha),
+                                             (glow_size, glow_size), glow_size)
+                            screen.blit(glow_surf, (int(mouth_x - glow_size), int(mouth_y - glow_size)))
                 
-                if barrel_length > 5:  # 최소 길이 체크
-                    # 포구 끝 위치 계산
-                    barrel_end_x = self.machine_x + math.cos(self.cannon_angle) * barrel_length
-                    barrel_end_y = self.machine_y + math.sin(self.cannon_angle) * barrel_length
-                    
-                    # 포구 세그먼트 (여러 개의 원통형 섹션)
-                    segments = 5
-                    for seg in range(segments):
-                        seg_start = barrel_length * (seg / segments)
-                        seg_end = barrel_length * ((seg + 1) / segments)
-                        
-                        # 각 세그먼트의 시작과 끝 위치
-                        seg_start_x = self.machine_x + math.cos(self.cannon_angle) * seg_start
-                        seg_start_y = self.machine_y + math.sin(self.cannon_angle) * seg_start
-                        seg_end_x = self.machine_x + math.cos(self.cannon_angle) * seg_end
-                        seg_end_y = self.machine_y + math.sin(self.cannon_angle) * seg_end
-                        
-                        # 세그먼트별 너비 (끝으로 갈수록 약간 좁아짐)
-                        seg_width = barrel_width * (1 - seg * 0.05)
-                        
-                        # 메인 포구 몸체 (금속 질감)
-                        perp_angle = self.cannon_angle + math.pi/2
-                        for layer in range(3):  # 3층 레이어로 입체감
-                            layer_width = seg_width - layer * 2
-                            if layer_width > 0:
-                                # 레이어별 색상 (바깥쪽이 밝음)
-                                if layer == 0:  # 외곽
-                                    color = (120, 30, 40)
-                                elif layer == 1:  # 중간
-                                    color = (80, 20, 30)
-                                else:  # 내부
-                                    color = (40, 10, 20)
-                                
-                                # 상하 오프셋
-                                for side in [-1, 1]:
-                                    offset_x = math.cos(perp_angle) * (layer_width * side)
-                                    offset_y = math.sin(perp_angle) * (layer_width * side)
-                                    
-                                    pygame.draw.line(screen, color,
-                                                   (seg_start_x + offset_x, seg_start_y + offset_y),
-                                                   (seg_end_x + offset_x, seg_end_y + offset_y), 
-                                                   max(1, 4 - layer))
-                        
-                        # 세그먼트 구분선 (링 장식)
-                        if seg < segments - 1:
-                            pygame.draw.circle(screen, (150, 40, 50), 
-                                             (int(seg_end_x), int(seg_end_y)), 
-                                             int(seg_width + 2), 1)
-                            # 네온 효과
-                            pygame.draw.circle(screen, (255, 100, 150, 100), 
-                                             (int(seg_end_x), int(seg_end_y)), 
-                                             int(seg_width), 1)
-                    
-                    # 포구 내부 (발광 효과)
-                    for i in range(int(barrel_length), 0, -5):
-                        progress = i / barrel_length
-                        inner_x = self.machine_x + math.cos(self.cannon_angle) * i
-                        inner_y = self.machine_y + math.sin(self.cannon_angle) * i
-                        glow_size = int(barrel_width * 0.3 * progress)
-                        if glow_size > 0:
-                            glow_color = (255, int(100 * progress), int(50 * progress))
-                            pygame.draw.circle(screen, glow_color, 
-                                             (int(inner_x), int(inner_y)), glow_size)
-                    
-                    # 포구 끝 (고급 디테일)
-                    # 외부 링
-                    pygame.draw.circle(screen, (100, 20, 30), 
-                                     (int(barrel_end_x), int(barrel_end_y)), 
-                                     int(barrel_width * 0.9))
-                    pygame.draw.circle(screen, (150, 40, 50), 
-                                     (int(barrel_end_x), int(barrel_end_y)), 
-                                     int(barrel_width * 0.9), 2)
-                    
-                    # 내부 구멍 (발광)
-                    pygame.draw.circle(screen, (30, 0, 10), 
-                                     (int(barrel_end_x), int(barrel_end_y)), 
-                                     int(barrel_width * 0.6))
-                    # 네온 테두리
-                    pygame.draw.circle(screen, (255, 50, 100), 
-                                     (int(barrel_end_x), int(barrel_end_y)), 
-                                     int(barrel_width * 0.6), 2)
-                    
-                    # 중심 빛
-                    if self.cannon_emergence >= 0.8:
-                        pygame.draw.circle(screen, (255, 200, 150), 
-                                         (int(barrel_end_x), int(barrel_end_y)), 
-                                         int(barrel_width * 0.2))
-                
-                # 조준선 (조준 중일 때만)
+                # 조준선 (조준 중일 때만) - 용 입에서 목표까지
                 if self.is_aiming:
                     # 점선 조준선
                     line_length = math.hypot(
-                        self.aim_target_x - barrel_end_x,
-                        self.aim_target_y - barrel_end_y
+                        self.aim_target_x - mouth_x,
+                        self.aim_target_y - mouth_y
                     )
                     segments = int(line_length / 20)
-                    
+
                     for i in range(0, segments, 2):  # 짝수 세그먼트만 그려서 점선 효과
                         start_ratio = i / segments
                         end_ratio = min((i + 1) / segments, 1)
-                        
-                        start_x = barrel_end_x + (self.aim_target_x - barrel_end_x) * start_ratio
-                        start_y = barrel_end_y + (self.aim_target_y - barrel_end_y) * start_ratio
-                        end_x = barrel_end_x + (self.aim_target_x - barrel_end_x) * end_ratio
-                        end_y = barrel_end_y + (self.aim_target_y - barrel_end_y) * end_ratio
-                        
+
+                        start_x = mouth_x + (self.aim_target_x - mouth_x) * start_ratio
+                        start_y = mouth_y + (self.aim_target_y - mouth_y) * start_ratio
+                        end_x = mouth_x + (self.aim_target_x - mouth_x) * end_ratio
+                        end_y = mouth_y + (self.aim_target_y - mouth_y) * end_ratio
+
                         # 레이저 조준선 (빨간색)
                         pygame.draw.line(screen, (255, 0, 0, 100),
                                        (int(start_x), int(start_y)),
                                        (int(end_x), int(end_y)), 1)
-                    
+
                     # 조준점 표시
-                    pygame.draw.circle(screen, (255, 0, 0), 
+                    pygame.draw.circle(screen, (255, 0, 0),
                                      (int(self.aim_target_x), int(self.aim_target_y)), 8, 2)
-                    pygame.draw.circle(screen, (255, 100, 100), 
+                    pygame.draw.circle(screen, (255, 100, 100),
                                      (int(self.aim_target_x), int(self.aim_target_y)), 4, 2)
         
         # 화염 스트림 그리기 (물줄기 애니메이션)

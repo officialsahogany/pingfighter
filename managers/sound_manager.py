@@ -610,8 +610,8 @@ class SoundManager:
             self.play_sound('boss_hit', 'boss', position)
             
     def on_item_collected(self, event):
-        """아이템 획득 이벤트 처리"""
-        self.play_sound('item_pickup', 'item')
+        """아이템 획득 이벤트 처리 - 비활성화 (pingfighter.py에서 이미 사운드 재생)"""
+        pass  # 중복 재생 방지
         
     def on_special_activated(self, event):
         """스킬 발동 이벤트 처리"""

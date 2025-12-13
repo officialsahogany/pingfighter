@@ -418,18 +418,26 @@ def draw_player_gauge():
             # 충전 진행률 계산
             if current_rolling_charge_timer > 0:
                 pass
-                # 최대 충전 시간 계산
-                dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
-                cooldown_reduction = int(dash_cooldown_bonus * 60)
-                
-                if dashholder_obtained and current_rolling_charges >= 1:
-                    pass
-                    max_charge_time = max(6, 60 - cooldown_reduction)  # 1초
+                # _token_charge_states에서 각 토큰별 개별 타이머/max_time 가져오기 (균등 애니메이션용)
+                _token_charge_states = globals().get("_token_charge_states", [])
+                _charging_state = globals().get("_charging_state", {"timer": 0, "index": -1, "max_time": 90})
+
+                # 현재 토큰(i)에 대한 충전 상태 가져오기
+                if i < len(_token_charge_states) and _token_charge_states[i]["max_time"] > 0:
+                    # 개별 토큰 상태 사용 (균등 애니메이션)
+                    charging_timer = _token_charge_states[i]["timer"]
+                    max_charge_time = _token_charge_states[i]["max_time"]
                 else:
-                    max_charge_time = max(6, 90 - cooldown_reduction)  # 1.5초
-                
-                # 충전 진행률 (0.0 ~ 1.0)
-                charge_progress = 1.0 - (current_rolling_charge_timer / max_charge_time)
+                    # 폴백: 기존 _charging_state 사용
+                    max_charge_time = _charging_state.get("max_time", 90)
+                    charging_timer = _charging_state.get("timer", current_rolling_charge_timer)
+
+                # max_charge_time이 0이면 기본값 사용
+                if max_charge_time <= 0:
+                    max_charge_time = 90  # 균등 애니메이션을 위한 고정값
+
+                # 충전 진행률 (0.0 ~ 1.0) - 개별 토큰 타이머 사용
+                charge_progress = 1.0 - (charging_timer / max_charge_time)
                 charge_progress = max(0, min(1, charge_progress))
                 
                 # 충전 중인 토큰 확인 (왼쪽부터 충전)

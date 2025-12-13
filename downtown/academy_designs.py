@@ -30,24 +30,26 @@ def draw_academy_design1_magic_school(screen, building, x, y, building_id, anima
     magic_glow = abs(math.sin(animation_timer * 2))
     float_offset = 5 * math.sin(animation_timer * 1.2)
 
-    # 1. 마법 오라
-    for i in range(4):
-        aura_size = 35 - i * 8
-        aura_alpha = int((70 - i * 15) * pulse)
-        aura_surf = pygame.Surface((w + aura_size * 2, h + aura_size * 2), pygame.SRCALPHA)
-        pygame.draw.ellipse(aura_surf, (*MAGIC_PURPLE, aura_alpha),
-                           (0, 0, w + aura_size * 2, h + aura_size * 2))
-        screen.blit(aura_surf, (x - aura_size, y - aura_size))
+    # 1. 마법 바닥 글로우 (사각형 아티팩트 방지)
+    glow_h = 18
+    for i in range(3):
+        glow_w = w + 30 - i * 8
+        aura_alpha = int((50 - i * 12) * pulse)
+        if aura_alpha > 0:
+            aura_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+            pygame.draw.ellipse(aura_surf, (*MAGIC_PURPLE, aura_alpha),
+                               (0, 0, glow_w, glow_h))
+            screen.blit(aura_surf, (x - 15 + i * 4, y + h - 6))
 
-    # 2. 돌 성벽 (메인 건물)
-    castle_surf = pygame.Surface((w, h - 20), pygame.SRCALPHA)
-    for i in range(h - 20):
+    # 2. 돌 성벽 (메인 건물) - 직접 screen에 그리기
+    castle_rect_h = h - 35  # 탑 아래쪽 영역만
+    castle_rect_y = y + 30
+    for i in range(castle_rect_h):
         grad = 0.7 + 0.3 * math.sin(i * 0.1)
         r = int(STONE_GRAY[0] * grad)
         g = int(STONE_GRAY[1] * grad)
         b = int(STONE_GRAY[2] * grad)
-        pygame.draw.line(castle_surf, (r, g, b), (0, i), (w, i))
-    screen.blit(castle_surf, (x, y + 15))
+        pygame.draw.line(screen, (r, g, b), (x, castle_rect_y + i), (x + w, castle_rect_y + i))
 
     # 돌 블록 텍스처
     for row in range(3):
@@ -573,14 +575,16 @@ def draw_academy_design4_cyber_training(screen, building, x, y, building_id, ani
     data_flow = animation_timer * 40
     holo_flicker = 0.85 + 0.15 * abs(math.sin(animation_timer * 5))
 
-    # 1. 에너지 필드
-    for i in range(4):
-        field_size = 30 - i * 7
-        field_alpha = int((65 - i * 14) * pulse)
-        field_surf = pygame.Surface((w + field_size * 2, h + field_size * 2), pygame.SRCALPHA)
-        pygame.draw.rect(field_surf, (*NEON_BLUE, field_alpha),
-                        (field_size, field_size, w, h), border_radius=10)
-        screen.blit(field_surf, (x - field_size, y - field_size))
+    # 1. 에너지 필드 바닥 글로우 (사각형 아티팩트 방지)
+    glow_h = 16
+    for i in range(3):
+        glow_w = w + 30 - i * 8
+        field_alpha = int((50 - i * 12) * pulse)
+        if field_alpha > 0:
+            field_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+            pygame.draw.ellipse(field_surf, (*NEON_BLUE, field_alpha),
+                               (0, 0, glow_w, glow_h))
+            screen.blit(field_surf, (x - 15 + i * 4, y + h - 5))
 
     # 2. 메인 건물 (어두운 금속)
     main_surf = pygame.Surface((w, h), pygame.SRCALPHA)
@@ -748,14 +752,16 @@ def draw_academy_design5_ancient_temple(screen, building, x, y, building_id, ani
     glow = abs(math.sin(animation_timer * 2))
     float_offset = 4 * math.sin(animation_timer)
 
-    # 1. 신성한 빛
-    for i in range(5):
-        light_size = 35 - i * 7
-        light_alpha = int((60 - i * 10) * glow)
-        light_surf = pygame.Surface((w + light_size * 2, h + light_size * 2), pygame.SRCALPHA)
-        pygame.draw.ellipse(light_surf, (*GOLD, light_alpha),
-                           (light_size, light_size, w, h))
-        screen.blit(light_surf, (x - light_size, y - light_size))
+    # 1. 신성한 바닥 글로우 (사각형 아티팩트 방지)
+    glow_h = 18
+    for i in range(3):
+        glow_w = w + 35 - i * 10
+        light_alpha = int((50 - i * 12) * glow)
+        if light_alpha > 0:
+            light_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+            pygame.draw.ellipse(light_surf, (*GOLD, light_alpha),
+                               (0, 0, glow_w, glow_h))
+            screen.blit(light_surf, (x - 17 + i * 5, y + h - 6))
 
     # 2. 대리석 기단 (3단)
     for step in range(3):

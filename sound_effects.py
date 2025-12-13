@@ -86,6 +86,9 @@ SOUND_PATHS = {
     "OPTIMUS_CHARGE": "sounds/optimuscharge.wav",
     "BUTTON_CLICK": "sounds/button_click.wav",
     "BUTTON_HOVER": "sounds/button_hover.wav",
+    "DASH_CHARGE": "sounds/dashcharge.wav",
+    "THROWING_BANANA": "sounds/throwingbanana.wav",
+    "STEP_BANANA": "sounds/bananastep.wav",
 }
 
 

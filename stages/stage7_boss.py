@@ -221,18 +221,16 @@ class Stage7Boss:
         
     def draw(self, screen):
         """보스 그리기"""
-        # 어둠 효과
+        # 어둠 효과 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
         if self.darkness_level > 0:
-            dark_surface = pygame.Surface((600, 750))
-            dark_surface.set_alpha(self.darkness_level)
-            dark_surface.fill((0, 0, 0))
+            dark_surface = pygame.Surface((600, 750), pygame.SRCALPHA)
+            dark_surface.fill((0, 0, 0, self.darkness_level))
             screen.blit(dark_surface, (0, 0))
-            
+
         # 그림자 분신들
         for clone in self.shadow_clones:
-            clone_surface = pygame.Surface((clone['width'], clone['height']))
-            clone_surface.set_alpha(clone['alpha'])
-            clone_surface.fill((50, 0, 50))
+            clone_surface = pygame.Surface((clone['width'], clone['height']), pygame.SRCALPHA)
+            clone_surface.fill((50, 0, 50, clone['alpha']))
             screen.blit(clone_surface, (clone['x'] - clone['width']//2, clone['y'] - clone['height']//2))
             
         # 블랙홀들
@@ -302,11 +300,10 @@ class Stage7Boss:
         name_rect = name_text.get_rect(center=(300, 60))
         screen.blit(name_text, name_rect)
         
-        # 시간 정지 효과
+        # 시간 정지 효과 - convert()로 Windows 전체화면 알파 블렌딩 문제 해결
         if self.time_stopped:
-            time_surface = pygame.Surface((600, 750))
-            time_surface.set_alpha(100)
-            time_surface.fill((0, 100, 200))
+            time_surface = pygame.Surface((600, 750), pygame.SRCALPHA)
+            time_surface.fill((0, 100, 200, 100))
             screen.blit(time_surface, (0, 0))
             
             stop_font = pygame.font.Font("NanumSquareR.ttf", 50)

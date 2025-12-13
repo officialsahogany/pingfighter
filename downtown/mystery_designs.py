@@ -20,10 +20,11 @@ def draw_mystery_design_1(screen, building, x, y, building_id, animation_timer, 
     """디자인 1: 보이드 포탈 - 검은 구멍 + 보라색 소용돌이"""
     w, h = building.width, building.height
 
-    # 1. 배경 그림자
-    shadow_surf = safe_surface((w + 20, h + 20))
-    pygame.draw.ellipse(shadow_surf, (20, 0, 40, 100), (0, 0, w + 20, h + 20))
-    screen.blit(shadow_surf, (x - 10, y - 10))
+    # 1. 배경 그림자 (건물 아래에만 - 사각형 아티팩트 방지)
+    shadow_h = 15
+    shadow_surf = safe_surface((w + 20, shadow_h))
+    pygame.draw.ellipse(shadow_surf, (20, 0, 40, 80), (0, 0, w + 20, shadow_h))
+    screen.blit(shadow_surf, (x - 10, y + h - 5))
 
     # 2. 보라색 외곽 글로우
     for layer in range(5):

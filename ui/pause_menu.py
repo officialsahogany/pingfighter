@@ -12,7 +12,7 @@ from core.input_keys import is_move_down_event
 from pixel_font_manager import FontStyle
 from config.settings_system import get_settings_manager
 from managers.sound_manager import get_sound_manager
-from game_state.audio import clamp_volume
+from game_state.audio import clamp_volume, get_bgm_muted, set_bgm_muted, get_sfx_muted, set_sfx_muted
 from config import constants as const
 
 __all__ = ["PauseMenu", "PauseOptionsContext", "show_pause_options"]
@@ -190,6 +190,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
     current_bgm_volume = clamp_volume(ctx.get_bgm_runtime_volume())
     current_sfx_volume = clamp_volume(ctx.get_sfx_volume())
+    # 음소거 상태
+    bgm_muted = get_bgm_muted()
+    sfx_muted = get_sfx_muted()
     # 사운드 매니저 기반 옵션 읽기
     sm = get_sound_manager()
     # 컨트롤 설정
@@ -200,6 +203,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     # 크고 겹치지 않는 고급 레이아웃
     slider_height = 10
     handle_size = 14
+    checkbox_size = 20  # 체크박스 크기
 
     panel_width = min(900, max(640, int(ctx.width * 0.82)))
     panel_height = 280  # 패널 높이 축소 (토글 제거로 인해)
@@ -209,7 +213,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     margin_x = 29
     label_w = 160
     value_w = 48
-    slider_width = max(360, panel_width - (margin_x * 2 + label_w + value_w))
+    checkbox_margin = 70  # 체크박스와 퍼센트 사이 간격
+    slider_width = max(300, panel_width - (margin_x * 2 + label_w + value_w + checkbox_margin))
 
     bgm_slider_x = panel_x + margin_x + label_w
     bgm_slider_y = panel_y + 100
@@ -316,9 +321,23 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 handle_size // 2,
             )
 
-            bgm_percent = font_small.render(f"{int(current_bgm_volume * 100)}%", True, const.CYAN)
+            bgm_percent = font_small.render(f"{int(current_bgm_volume * 100)}%", True, const.CYAN if not bgm_muted else (100, 100, 100))
             bgm_percent_rect = bgm_percent.get_rect(left=bgm_slider_x + slider_width + 12, centery=bgm_slider_y + slider_height // 2)
             ctx.screen.blit(bgm_percent, bgm_percent_rect)
+
+            # BGM 음소거 체크박스
+            bgm_checkbox_x = bgm_slider_x + slider_width + 60
+            bgm_checkbox_y = bgm_slider_y + slider_height // 2 - checkbox_size // 2
+            bgm_checkbox_rect = pygame.Rect(bgm_checkbox_x, bgm_checkbox_y, checkbox_size, checkbox_size)
+            pygame.draw.rect(ctx.screen, (80, 80, 100), bgm_checkbox_rect, border_radius=4)
+            pygame.draw.rect(ctx.screen, (0, 200, 255) if bgm_muted else (150, 150, 150), bgm_checkbox_rect, 2, border_radius=4)
+            if bgm_muted:
+                # 체크 표시 (X 모양)
+                pygame.draw.line(ctx.screen, (255, 80, 80), (bgm_checkbox_x + 4, bgm_checkbox_y + 4), (bgm_checkbox_x + checkbox_size - 4, bgm_checkbox_y + checkbox_size - 4), 3)
+                pygame.draw.line(ctx.screen, (255, 80, 80), (bgm_checkbox_x + checkbox_size - 4, bgm_checkbox_y + 4), (bgm_checkbox_x + 4, bgm_checkbox_y + checkbox_size - 4), 3)
+            # 음소거 라벨
+            mute_label = font_small.render("OFF", True, (255, 80, 80) if bgm_muted else (120, 120, 120))
+            ctx.screen.blit(mute_label, (bgm_checkbox_x + checkbox_size + 5, bgm_checkbox_y + 2))
 
             sfx_label = font_medium.render("효과음 볼륨", True, const.WHITE)
             sfx_label_rect = sfx_label.get_rect(left=panel_x + margin_x, centery=sfx_slider_y + slider_height // 2)
@@ -346,9 +365,23 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 handle_size // 2,
             )
 
-            sfx_percent = font_small.render(f"{int(current_sfx_volume * 100)}%", True, (0, 255, 100))
+            sfx_percent = font_small.render(f"{int(current_sfx_volume * 100)}%", True, (0, 255, 100) if not sfx_muted else (100, 100, 100))
             sfx_percent_rect = sfx_percent.get_rect(left=sfx_slider_x + slider_width + 12, centery=sfx_slider_y + slider_height // 2)
             ctx.screen.blit(sfx_percent, sfx_percent_rect)
+
+            # SFX 음소거 체크박스
+            sfx_checkbox_x = sfx_slider_x + slider_width + 60
+            sfx_checkbox_y = sfx_slider_y + slider_height // 2 - checkbox_size // 2
+            sfx_checkbox_rect = pygame.Rect(sfx_checkbox_x, sfx_checkbox_y, checkbox_size, checkbox_size)
+            pygame.draw.rect(ctx.screen, (80, 80, 100), sfx_checkbox_rect, border_radius=4)
+            pygame.draw.rect(ctx.screen, (0, 255, 100) if sfx_muted else (150, 150, 150), sfx_checkbox_rect, 2, border_radius=4)
+            if sfx_muted:
+                # 체크 표시 (X 모양)
+                pygame.draw.line(ctx.screen, (255, 80, 80), (sfx_checkbox_x + 4, sfx_checkbox_y + 4), (sfx_checkbox_x + checkbox_size - 4, sfx_checkbox_y + checkbox_size - 4), 3)
+                pygame.draw.line(ctx.screen, (255, 80, 80), (sfx_checkbox_x + checkbox_size - 4, sfx_checkbox_y + 4), (sfx_checkbox_x + 4, sfx_checkbox_y + checkbox_size - 4), 3)
+            # 음소거 라벨
+            sfx_mute_label = font_small.render("OFF", True, (255, 80, 80) if sfx_muted else (120, 120, 120))
+            ctx.screen.blit(sfx_mute_label, (sfx_checkbox_x + checkbox_size + 5, sfx_checkbox_y + 2))
 
         # (미니멀 구성: UI/환경 슬라이더 제거)
 
@@ -386,11 +419,13 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                             control_scheme = 'keyboard'
                     elif focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume - 0.05)
-                        ctx.apply_bgm_volume(current_bgm_volume)
+                        if not bgm_muted:
+                            ctx.apply_bgm_volume(current_bgm_volume)
                         selected_slider = "bgm"
                     elif focus == "sfx":
                         current_sfx_volume = clamp_volume(current_sfx_volume - 0.05)
-                        current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                        if not sfx_muted:
+                            current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                         selected_slider = "sfx"
                 elif event.key == pygame.K_RIGHT:
                     if current_tab == 'controls':
@@ -398,11 +433,13 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                             control_scheme = 'mouse_keyboard'
                     elif focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume + 0.05)
-                        ctx.apply_bgm_volume(current_bgm_volume)
+                        if not bgm_muted:
+                            ctx.apply_bgm_volume(current_bgm_volume)
                         selected_slider = "bgm"
                     elif focus == "sfx":
                         current_sfx_volume = clamp_volume(current_sfx_volume + 0.05)
-                        current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                        if not sfx_muted:
+                            current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                         selected_slider = "sfx"
                 elif event.key == pygame.K_UP:
                     order = ["scheme"] if current_tab == 'controls' else ["bgm", "sfx"]
@@ -448,13 +485,40 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                             control_scheme = 'mouse_keyboard'
                             continue
 
+                    # BGM 체크박스 클릭 처리
+                    if current_tab == 'sound' and 'bgm_checkbox_rect' in dir() and bgm_checkbox_rect.collidepoint(mouse_pos):
+                        bgm_muted = not bgm_muted
+                        set_bgm_muted(bgm_muted)
+                        # 실제 BGM 음소거 적용
+                        if bgm_muted:
+                            pygame.mixer.music.set_volume(0)
+                        else:
+                            ctx.apply_bgm_volume(current_bgm_volume)
+                        ctx.play_button_click_sound()
+                        continue
+
+                    # SFX 체크박스 클릭 처리
+                    if current_tab == 'sound' and 'sfx_checkbox_rect' in dir() and sfx_checkbox_rect.collidepoint(mouse_pos):
+                        sfx_muted = not sfx_muted
+                        set_sfx_muted(sfx_muted)
+                        # 실제 SFX 음소거 적용
+                        if sfx_muted:
+                            for i in range(pygame.mixer.get_num_channels()):
+                                pygame.mixer.Channel(i).set_volume(0)
+                        else:
+                            for i in range(pygame.mixer.get_num_channels()):
+                                pygame.mixer.Channel(i).set_volume(current_sfx_volume)
+                        ctx.play_button_click_sound()
+                        continue
+
                     bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
                     if current_tab == 'sound' and (bgm_slider_rect.collidepoint(mouse_pos) or ('bgm_handle_rect' in locals() and bgm_handle_rect.collidepoint(mouse_pos))):
                         selected_slider = "bgm"
                         dragging = True
                         relative_x = mouse_x - bgm_slider_x
                         current_bgm_volume = clamp_volume(relative_x / slider_width)
-                        ctx.apply_bgm_volume(current_bgm_volume)
+                        if not bgm_muted:
+                            ctx.apply_bgm_volume(current_bgm_volume)
 
                     sfx_slider_rect = pygame.Rect(sfx_slider_x, sfx_slider_y - 10, slider_width, slider_height + 20)
                     if current_tab == 'sound' and (sfx_slider_rect.collidepoint(mouse_pos) or ('sfx_handle_rect' in locals() and sfx_handle_rect.collidepoint(mouse_pos))):
@@ -462,7 +526,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         dragging = True
                         relative_x = mouse_x - sfx_slider_x
                         current_sfx_volume = clamp_volume(relative_x / slider_width)
-                        current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                        if not sfx_muted:
+                            current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
 
 
             elif event.type == pygame.MOUSEBUTTONUP:
@@ -475,11 +540,13 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 if current_tab == 'sound' and selected_slider == "bgm":
                     relative_x = mouse_x - bgm_slider_x
                     current_bgm_volume = clamp_volume(relative_x / slider_width)
-                    ctx.apply_bgm_volume(current_bgm_volume)
+                    if not bgm_muted:
+                        ctx.apply_bgm_volume(current_bgm_volume)
                 elif current_tab == 'sound' and selected_slider == "sfx":
                     relative_x = mouse_x - sfx_slider_x
                     current_sfx_volume = clamp_volume(relative_x / slider_width)
-                    current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                    if not sfx_muted:
+                        current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                 # (미니멀 구성: UI/ENV 슬라이더 제거)
 
             elif event.type == pygame.MOUSEWHEEL:
@@ -489,11 +556,13 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
                 if current_tab == 'sound' and (bgm_slider_rect.collidepoint(mouse_pos) or selected_slider == "bgm"):
                     current_bgm_volume = clamp_volume(current_bgm_volume + event.y * 0.02)
-                    ctx.apply_bgm_volume(current_bgm_volume)
+                    if not bgm_muted:
+                        ctx.apply_bgm_volume(current_bgm_volume)
                     selected_slider = "bgm"
                 elif current_tab == 'sound' and (sfx_slider_rect.collidepoint(mouse_pos) or selected_slider == "sfx"):
                     current_sfx_volume = clamp_volume(current_sfx_volume + event.y * 0.02)
-                    current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                    if not sfx_muted:
+                        current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                     selected_slider = "sfx"
                 # (미니멀 구성: UI/ENV 휠 조정 제거)
 

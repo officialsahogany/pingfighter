@@ -17,11 +17,50 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
+# 인트로 클릭 사운드 로드
+_intro_click_sound = None
+
+def _load_intro_click_sound():
+    """인트로 클릭 사운드 로드 (지연 로딩)"""
+    global _intro_click_sound
+    if _intro_click_sound is None:
+        try:
+            sound_path = resource_path("sounds/introclick.wav")
+            _intro_click_sound = pygame.mixer.Sound(sound_path)
+            _intro_click_sound.set_volume(0.7)
+        except Exception as e:
+            print(f"[Opening] 인트로 클릭 사운드 로드 실패: {e}")
+            _intro_click_sound = None
+    return _intro_click_sound
+
+def play_intro_click_sound():
+    """인트로 클릭 사운드 재생"""
+    sound = _load_intro_click_sound()
+    if sound:
+        try:
+            sound.play()
+        except Exception:
+            pass
+
+
 def show_opening_animation(SCREEN, WIDTH, HEIGHT):
     """게임 오프닝 애니메이션 - 간단한 버전"""
     # 인트로 BGM 재생
     bgm_manager.play_intro_bgm()
-    
+
+    # 배경 이미지 로드 (main.jpg)
+    background_image = None
+    try:
+        bg_path = resource_path("main.jpg")
+        if os.path.exists(bg_path):
+            background_image = pygame.image.load(bg_path).convert()
+            # 화면 크기에 맞게 스케일
+            background_image = pygame.transform.smoothscale(background_image, (WIDTH, HEIGHT))
+            print(f"[Opening] 배경 이미지 로드 완료: {bg_path}")
+    except Exception as e:
+        print(f"[Opening] 배경 이미지 로드 실패: {e}")
+        background_image = None
+
     # 애니메이션 상태 변수들
     animation_timer = 0
     fade_alpha = 0
@@ -81,11 +120,13 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
                     return
                 # 안내 표시 이후에는 키 입력으로 특별 연출 시작
                 if show_press_key and not special_animation_active:
+                    play_intro_click_sound()  # 인트로 클릭 사운드 재생
                     special_animation_active = True
                     special_animation_timer = 0
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # 안내 표시 이후에는 클릭으로도 특별 연출 시작
                 if show_press_key and not special_animation_active:
+                    play_intro_click_sound()  # 인트로 클릭 사운드 재생
                     special_animation_active = True
                     special_animation_timer = 0
         
@@ -161,23 +202,32 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
                 })
         
         # 추가 이벤트 처리는 위 단일 루프에서 처리함 (중복 소비 방지)
-        
+
         # 화면 그리기
         SCREEN.fill((0, 0, 0))  # BLACK
-        
+
+        # 배경 이미지 그리기 (main.jpg)
+        if background_image is not None:
+            SCREEN.blit(background_image, (0, 0))
+            # 어두운 오버레이 (텍스트 가독성)
+            dark_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            dark_overlay.fill((0, 0, 0, 120))
+            SCREEN.blit(dark_overlay, (0, 0))
+        else:
+            # 배경 이미지가 없으면 기존 그라데이션 사용
+            for y in range(HEIGHT):
+                color_ratio = y / HEIGHT
+                time_factor = math.sin(animation_timer * 0.02) * 0.3 + 0.7
+                r = int(10 + color_ratio * 100 * time_factor)
+                g = int(20 + color_ratio * 150 * time_factor)
+                b = int(40 + color_ratio * 180 * time_factor)
+                pygame.draw.line(SCREEN, (r, g, b), (0, y), (WIDTH, y))
+
         # 특별 애니메이션 중일 때 배경을 더 어둡게
         if special_animation_active:
-            SCREEN.fill((10, 5, 15))  # 어두운 보라색 배경
-        
-        # 배경 그라데이션 애니메이션 (더 화려하게)
-        for y in range(HEIGHT):
-            color_ratio = y / HEIGHT
-            time_factor = math.sin(animation_timer * 0.02) * 0.3 + 0.7
-            # 더 화려한 색상 팔레트
-            r = int(10 + color_ratio * 100 * time_factor)
-            g = int(20 + color_ratio * 150 * time_factor)
-            b = int(40 + color_ratio * 180 * time_factor)
-            pygame.draw.line(SCREEN, (r, g, b), (0, y), (WIDTH, y))
+            dark_special = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            dark_special.fill((10, 5, 15, 180))
+            SCREEN.blit(dark_special, (0, 0))
         
         # 특별 애니메이션 중일 때만 특별 효과들 그리기
         if special_animation_active:

@@ -4,6 +4,7 @@ import os
 import math
 import sys
 from game_state.audio import get_sfx_volume
+from start_menu import is_admin_mode_enabled
 
 ACADEMY_DEBUG = os.getenv("ACADEMY_DEBUG") == "1"
 
@@ -454,6 +455,10 @@ class AcademyUI:
         # 스킬 포인트 투자 사운드 (없어도 실행은 계속)
         self.academy_skill_sound = self._load_academy_skill_sound()
 
+        # 세션 투자 제한 (한 광장에서 최대 5개까지 투자 가능)
+        self.session_invested_count = 0  # 현재 세션에서 투자한 횟수
+        self.session_invest_limit = 5    # 세션당 최대 투자 가능 횟수
+
     def _load_academy_skill_sound(self):
         """스킬 포인트 투자 사운드를 로드 (실패 시 None 반환)"""
         try:
@@ -484,6 +489,25 @@ class AcademyUI:
             if ACADEMY_DEBUG:
                 print(f"[ACADEMY] 투자 사운드 재생 실패: {exc}")
 
+    def can_invest_in_session(self):
+        """현재 세션에서 추가 투자가 가능한지 확인 (개발자 모드에서는 무제한)"""
+        if is_admin_mode_enabled():
+            return True  # 개발자 모드에서는 제한 없음
+        return self.session_invested_count < self.session_invest_limit
+
+    def get_remaining_session_invests(self):
+        """현재 세션에서 남은 투자 가능 횟수 반환"""
+        return max(0, self.session_invest_limit - self.session_invested_count)
+
+    def increment_session_invest(self):
+        """세션 투자 횟수 증가"""
+        self.session_invested_count += 1
+        if ACADEMY_DEBUG:
+            print(f"[ACADEMY] 세션 투자: {self.session_invested_count}/{self.session_invest_limit}")
+
+    def reset_session_invest(self):
+        """세션 투자 횟수 초기화 (새 세션 시작 시)"""
+        self.session_invested_count = 0
 
     def _determine_default_tree(self, selected_character: str) -> str:
         """사용자가 마지막으로 열어본 탭을 기준으로 초기 탭을 선택"""
@@ -1670,11 +1694,11 @@ class AcademyUI:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         return "back"
-                    elif event.key == pygame.K_8:
-                        # 디버그 기능: 스킬포인트 99개 생성 (누적 투자는 실제 투자할 때만 증가)
+                    elif event.key == pygame.K_8 and is_admin_mode_enabled():
+                        # 관리자 기능: 스킬포인트 99개 생성 (관리자 모드에서만 작동)
                         if not self.read_only:
                             self.skill_system.skill_points = 99
-                            print(":  99 ! (  TP    )")
+                            print("[ADMIN] 관리자 모드: 스킬포인트 99개 생성!")
                     elif event.key == pygame.K_TAB and not self.is_animating:
                         # Tab 키로 오른쪽 탭으로 순환 (Shift+Tab은 왼쪽)
                         mods = pygame.key.get_mods()
@@ -1791,6 +1815,9 @@ class AcademyUI:
                     elif event.key in [pygame.K_SPACE, pygame.K_RETURN] and not self.is_animating:
                         if self.read_only:
                             continue
+                        # 세션 투자 제한 확인
+                        if not self.can_invest_in_session():
+                            continue  # 세션 투자 제한에 도달하면 투자 불가
                         # 탭 선택 모드가 아닐 때만 스킬 업그레이드
                         if not self.tab_selection_mode:
                             # 스매셔 스킬트리 처리
@@ -1802,17 +1829,18 @@ class AcademyUI:
                                         old_level = skill["current_level"]
                                         cost = self.smasher_skills.upgrade_skill(skill["id"])
                                         new_level = skill["current_level"]
-                                        
+
                                         # 스킬 포인트 차감
                                         if cost > 0:
                                             self.skill_system.skill_points -= cost
                                             self.skill_system.save_skill_points()
-                                        
+                                            self.increment_session_invest()  # 세션 투자 횟수 증가
+
                                         # 레벨업 애니메이션 시작
                                         if new_level > old_level:
                                             self.start_levelup_animation(skill["id"])
                                             self.play_skill_invest_sound()
-                                        
+
                                         # 0→1 전환시 언락 애니메이션
                                         if old_level == 0 and new_level == 1:
                                             self.start_unlock_animation(skill["id"])
@@ -1826,16 +1854,17 @@ class AcademyUI:
                                         old_level = self.skill_system.get_skill_level(skill["id"])
                                         self.skill_system.upgrade_skill(skill["id"])
                                         new_level = self.skill_system.get_skill_level(skill["id"])
-                                        
+
                                         # 레벨업 애니메이션 시작 (모든 레벨업에서)
                                         if new_level > old_level:
                                             self.start_levelup_animation(skill["id"])
                                             self.play_skill_invest_sound()
-                                        
+                                            self.increment_session_invest()  # 세션 투자 횟수 증가
+
                                         # 0→1 전환시에만 언락 애니메이션
                                         if old_level == 0 and new_level == 1:
                                             self.start_unlock_animation(skill["id"])  # 내부에서 화살표 애니메이션 포함
-                                        
+
                                         # 누적 TP 업데이트 후 추가 해금 체크 및 애니메이션
                                         self.check_and_animate_unlocked_skills(skill["id"])
             
@@ -1884,12 +1913,16 @@ class AcademyUI:
                     self.set_selected_skill_by_id(clicked_skill)
                     if self.read_only:
                         return None
+                    # 세션 투자 제한 확인
+                    if not self.can_invest_in_session():
+                        return None  # 세션 투자 제한에 도달하면 투자 불가
                     # 스킬 업그레이드
                     cost = self.smasher_skills.upgrade_skill(clicked_skill)
                     if cost > 0:
                         self.skill_system.skill_points -= cost
                         self.skill_system.register_manual_investment("smasher", cost)
                         self.play_skill_invest_sound()
+                        self.increment_session_invest()  # 세션 투자 횟수 증가
                     return None
         elif self.selected_tree in SKILL_TREES:
             # 아카데미 화면에서 실제로 그려진 아이콘 좌표(self.skill_positions)를 기준으로
@@ -1918,6 +1951,9 @@ class AcademyUI:
                 self.set_selected_skill_by_id(clicked_skill_id)
                 if self.read_only:
                     return None
+                # 세션 투자 제한 확인
+                if not self.can_invest_in_session():
+                    return None  # 세션 투자 제한에 도달하면 투자 불가
                 if self.skill_system.can_upgrade_skill(clicked_skill_id):
                     old_level = self.skill_system.get_skill_level(clicked_skill_id)
                     self.skill_system.upgrade_skill(clicked_skill_id)
@@ -1928,6 +1964,7 @@ class AcademyUI:
                         # 레벨업 애니메이션 시작 (모든 레벨업에서)
                         self.start_levelup_animation(clicked_skill_id)
                         self.play_skill_invest_sound()
+                        self.increment_session_invest()  # 세션 투자 횟수 증가
 
                         # 0→1 전환시에만 언락 애니메이션
                         if old_level == 0:
@@ -2064,7 +2101,22 @@ class AcademyUI:
             ro_text = self.font_small.render("캐릭터정보 경로: 보기 전용", True, (255, 200, 140))
             ro_rect = ro_text.get_rect(topright=(self.width - 20, tree_sp_rect.bottom + 5))
             self.screen.blit(ro_text, ro_rect)
-        
+        else:
+            # 세션 투자 제한 표시
+            if is_admin_mode_enabled():
+                # 개발자 모드: 무제한
+                invest_color = (255, 200, 100)  # 주황색 - 개발자 모드
+                invest_text = self.font_small.render("투자 횟수: 무제한 [DEV]", True, invest_color)
+            else:
+                remaining_invests = self.get_remaining_session_invests()
+                if remaining_invests > 0:
+                    invest_color = (100, 255, 150)  # 녹색 - 투자 가능
+                else:
+                    invest_color = (255, 100, 100)  # 빨간색 - 투자 제한
+                invest_text = self.font_small.render(f"남은 투자 횟수: {remaining_invests}/{self.session_invest_limit}", True, invest_color)
+            invest_rect = invest_text.get_rect(topright=(self.width - 20, tree_sp_rect.bottom + 5))
+            self.screen.blit(invest_text, invest_rect)
+
         # 조작 안내
         if self.read_only:
             control_msg = "보기 전용: 업그레이드 불가 | ESC: 닫기"

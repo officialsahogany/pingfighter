@@ -434,10 +434,9 @@ class NetworkUI:
             
     def _render_input_field(self, screen: pygame.Surface):
         """입력 필드 렌더링"""
-        # 배경
-        input_bg = pygame.Surface((400, 100))
-        input_bg.set_alpha(240)
-        input_bg.fill((30, 30, 30))
+        # 배경 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
+        input_bg = pygame.Surface((400, 100), pygame.SRCALPHA)
+        input_bg.fill((30, 30, 30, 240))
         bg_rect = input_bg.get_rect(center=(self.global_manager.get('WIDTH', 600) // 2, 
                                            self.global_manager.get('HEIGHT', 750) // 2))
         screen.blit(input_bg, bg_rect)

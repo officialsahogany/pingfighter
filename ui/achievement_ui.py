@@ -180,9 +180,9 @@ class AchievementUI:
         panel_x = (self.global_manager.get('WIDTH', 600) - panel_width) // 2
         panel_y = (self.global_manager.get('HEIGHT', 750) - panel_height) // 2
         
-        panel_surface = pygame.Surface((panel_width, panel_height))
-        panel_surface.set_alpha(int(self.fade_alpha))
-        panel_surface.fill((30, 30, 30))
+        # SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
+        panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        panel_surface.fill((30, 30, 30, int(self.fade_alpha)))
         pygame.draw.rect(panel_surface, (100, 100, 100), 
                         (0, 0, panel_width, panel_height), 2)
         screen.blit(panel_surface, (panel_x, panel_y))
@@ -312,10 +312,9 @@ class AchievementUI:
             remaining = self.notification_duration - self.notification_timer
             alpha = int(remaining * 2 * 255)
             
-        # 배경
-        notif_surface = pygame.Surface((notif_width, notif_height))
-        notif_surface.set_alpha(alpha)
-        notif_surface.fill((40, 40, 40))
+        # 배경 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
+        notif_surface = pygame.Surface((notif_width, notif_height), pygame.SRCALPHA)
+        notif_surface.fill((40, 40, 40, alpha))
         
         # 테두리 (희귀도 색상)
         border_color = self.current_notification.rarity.value[1]

@@ -451,10 +451,9 @@ class UISystem:
         
         # 모달 오버레이
         if self.modal_stack:
-            # 반투명 배경
-            overlay = pygame.Surface((self.screen_width, self.screen_height))
-            overlay.set_alpha(128)
-            overlay.fill((0, 0, 0))
+            # 반투명 배경 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
+            overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 128))
             screen.blit(overlay, (0, 0))
             
             # 모달 다이얼로그 그리기

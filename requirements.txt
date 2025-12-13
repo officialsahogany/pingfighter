@@ -3,6 +3,7 @@ pygame>=2.5.0
 numpy>=1.21.0
 moviepy==1.0.3
 imageio-ffmpeg>=0.6.0
+opencv-python>=4.5.0
 
 # Optional AI dependencies (for ML integration)
 # Uncomment if using AI features

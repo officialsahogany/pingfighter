@@ -23,11 +23,9 @@ def show_credits_screen():
 
     # 크레딧 정보
     credits_data = [
-        {"role": "Game Director", "name": "Caisetgames", "color": (255, 215, 0)},
-        {"role": "Producer", "name": "HAPPYMILDVIBE", "color": (255, 230, 120)},
+        {"role": "Game Director", "name": "동네게임즈", "color": (255, 215, 0)},
         {"role": "BGM Sound Director", "name": "BK22", "color": (100, 200, 255)},
-        {"role": "Programming", "name": "Jaeyeob Woo", "color": (0, 255, 150)},
-        {"role": "QA Tester", "name": "정혜리", "color": (180, 220, 255)},
+        {"role": "AI Programming", "name": "Jaeyeob Woo", "color": (0, 255, 150)},
         {"role": "Special Thanks", "name": "All Players", "color": (255, 150, 200)},
     ]
 
@@ -64,10 +62,9 @@ def show_credits_screen():
         simple_bg.update(dt)
         simple_bg.draw(SCREEN)
 
-        # 반투명 오버레이
-        overlay = pygame.Surface((WIDTH, HEIGHT))
-        overlay.set_alpha(180)
-        overlay.fill((0, 0, 0))
+        # 반투명 오버레이 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
         SCREEN.blit(overlay, (0, 0))
 
         # 별 반짝임

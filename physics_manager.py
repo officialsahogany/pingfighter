@@ -46,12 +46,21 @@ def reset_ball(is_player_serve=True):
     
     print(f"   : ({_ball.centerx}, {_ball.centery}) - {'' if is_player_serve else ''}")
 
-def serve_ball(is_player_serve=True, current_stage=1):
-    """공 서브"""
+def serve_ball(is_player_serve=True, current_stage=1, league_mode="pro"):
+    """공 서브
+
+    Args:
+        is_player_serve: 플레이어 서브 여부
+        current_stage: 현재 스테이지
+        league_mode: 리그 모드 ("junior", "pro", "champion", "mythic")
+    """
     # 기본 서브 속도와 방향 설정
     base_speed = 9
     speed_scale = 1.2  # 서브공 속도 20% 증가
-    
+
+    # 🌱 주니어리그: 공 속도 -35% 감소 (초반 랠리 속도 완화)
+    junior_speed_multiplier = 0.65 if league_mode == "junior" else 1.0
+
     # 튜토리얼 스테이지(50)도 스테이지 1과 동일한 속도 사용
     if current_stage == 50:
         # 스테이지 1과 동일한 속도 메커니즘 적용
@@ -82,7 +91,9 @@ def serve_ball(is_player_serve=True, current_stage=1):
             ball_vel = [random.choice([-3, 3]), base_speed]
         
         # 스테이지별 속도 조정 (튜토리얼 제외) - 안전한 상한 적용
-        stage_multiplier = 1.0 + min((current_stage - 1) * 0.03, 0.5)  # 최대 1.5배까지만
+        # 🌱 주니어리그: 스테이지별 속도 증가율도 -20% 감소 (0.03 → 0.024)
+        speed_increase_rate = 0.024 if league_mode == "junior" else 0.03
+        stage_multiplier = 1.0 + min((current_stage - 1) * speed_increase_rate, 0.5)  # 최대 1.5배까지만
         ball_vel[0] *= stage_multiplier
         ball_vel[1] *= stage_multiplier
         ball_vel[0] *= speed_scale
@@ -98,11 +109,18 @@ def serve_ball(is_player_serve=True, current_stage=1):
             ball_vel[1] *= scale
             print(f"⚠️ 서브 속도 제한 적용: {current_speed:.2f} → {max_serve_speed:.2f}")
     
+    # 🌱 주니어리그: 공 속도 -35% 감소 적용
+    if junior_speed_multiplier != 1.0:
+        ball_vel[0] *= junior_speed_multiplier
+        ball_vel[1] *= junior_speed_multiplier
+        actual_speed = math.hypot(ball_vel[0], ball_vel[1])
+        print(f"🌱 주니어리그: 공 속도 -35% 감소 적용, 실제속도={actual_speed:.2f}")
+
     # 볼 임팩트 부스트 (기본값)
     ball_impact_boost = 1.0
-    
+
     print(f"  :  {ball_vel},  : {is_player_serve}")
-    
+
     return {
         'ball_vel': ball_vel,
         'ball_impact_boost': ball_impact_boost,

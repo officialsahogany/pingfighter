@@ -55,6 +55,9 @@ ANGEL_BLESSING_OPTIONS = (
     "move_speed",
 )
 
+# 천사의 가호 지연 활성화 대기열 (전설 획득 애니메이션 완료 후 발동)
+_pending_angel_blessing_activation: Optional[Dict] = None
+
 
 class KnockbackProfile(NamedTuple):
     base_power: float
@@ -692,6 +695,20 @@ class PoseidonTrident(LegendaryItem):
         self.water_momentum_timer = 0  # 추진력 유지 타이머
         self.water_momentum_force_y = 0  # 유지되는 Y축 힘
         self.water_momentum_force_x = 0  # 유지되는 X축 힘
+
+        # 효과 발동 쿨타임 시스템 (6초)
+        self.effect_cooldown = 0  # 현재 쿨타임 타이머
+        self.effect_cooldown_max = 6.0  # 최대 쿨타임 (6초)
+        self.effect_ready = True  # 효과 발동 가능 여부
+
+        # 쿨타임 충전 완료 물의 기운 응축 파티클
+        self.water_condensation_particles = []  # 물의 기운 응축 파티클
+        self.water_condensation_active = False  # 응축 효과 활성화
+        self.water_condensation_timer = 0  # 응축 효과 타이머
+        self.water_explosion_particles = []  # 폭발 파티클
+        self.water_explosion_active = False  # 폭발 효과 활성화
+        self.water_explosion_timer = 0  # 폭발 효과 타이머
+        self.player_position = (300, 550)  # 플레이어 위치 (업데이트됨)
         
         # 애니메이션용 아이콘 프레임들
         self.icon_frames = []
@@ -773,30 +790,42 @@ class PoseidonTrident(LegendaryItem):
         """라운드 종료 시 효과 초기화 (물방울 파티클 등)"""
         # 물방울 파티클 초기화
         self.water_droplets.clear()
-        
+
         # 물 궤적 초기화
         self.water_trail.clear()
         self.water_trail_active = False
-        
+
         # 회오리 효과 초기화
         self.vortex_active = False
         self.vortex_timer = 0
         self.vortex_particles.clear()
         self.vortex_left_height = 0
         self.vortex_right_height = 0
-        
+
         # 공 캡처 상태 초기화
         self.ball_in_vortex = False
         self.ball_vortex_timer = 0
         self.vortex_cooldown = 0
         self.vortex_affected = False
-        
+
         # 물 추진력 초기화
         self.water_momentum_active = False
         self.water_momentum_timer = 0
         self.water_momentum_force_y = 0
         self.water_momentum_force_x = 0
-        
+
+        # 쿨타임 시스템 초기화 (라운드 시작 시 바로 사용 가능)
+        self.effect_cooldown = 0
+        self.effect_ready = True
+
+        # 물의 기운 응축/폭발 효과 초기화
+        self.water_condensation_particles.clear()
+        self.water_condensation_active = False
+        self.water_condensation_timer = 0
+        self.water_explosion_particles.clear()
+        self.water_explosion_active = False
+        self.water_explosion_timer = 0
+
         print(f"🔱 포세이돈의 삼지창 라운드 효과 초기화")
         
     def stop_water_momentum(self):
@@ -815,12 +844,26 @@ class PoseidonTrident(LegendaryItem):
         # 이제 포세이돈의 삼지창은 순수하게 대시 물결 회오리만 생성합니다
         return ball_vx, ball_vy
         
-    def trigger_dash_wave(self, paddle_x: float, paddle_y: float, direction: int = 0):
-        """대시 후 통제불능 시 양쪽에 거대한 물결 회오리 발동"""
+    def trigger_dash_wave(self, paddle_x: float, paddle_y: float, direction: int = 0) -> bool:
+        """대시 후 통제불능 시 양쪽에 거대한 물결 회오리 발동
+
+        Returns:
+            bool: 효과가 발동되었으면 True, 쿨타임 중이면 False
+        """
         if not self.active:
             print(f"⚠️ 포세이돈 삼지창이 비활성화 상태입니다!")
-            return
-            
+            return False
+
+        # 쿨타임 체크
+        if not self.effect_ready:
+            print(f"🔱 포세이돈 삼지창 쿨타임 중: {self.effect_cooldown:.1f}초 남음")
+            return False
+
+        # 효과 발동 후 쿨타임 시작
+        self.effect_ready = False
+        self.effect_cooldown = self.effect_cooldown_max
+        print(f"🔱 포세이돈 삼지창 효과 발동! 쿨타임 {self.effect_cooldown_max}초 시작")
+
         self.dash_wave_active = True
         self.dash_wave_timer = 0
         
@@ -877,7 +920,9 @@ class PoseidonTrident(LegendaryItem):
                 "vortex_side": "right"  # 오른쪽 회오리 표시
             }
             self.vortex_particles.append(particle)
-                
+
+        return True  # 효과 발동 성공
+
     def apply_dash_wave_to_ball(self, ball_x: float, ball_y: float,
                                ball_vx: float, ball_vy: float,
                                paddle_x: float, paddle_y: float,
@@ -1576,7 +1621,148 @@ class PoseidonTrident(LegendaryItem):
             if self.dash_wave_timer > 60:  # 1초 후 종료
                 self.dash_wave_active = False
                 self.dash_wave_timer = 0
-                
+
+        # === 쿨타임 시스템 업데이트 === (첫 번째 update 함수 - 사용 안됨, 두 번째 update가 실제 사용됨)
+
+        # 물의 기운 응축 파티클 업데이트
+        if self.water_condensation_active:
+            self.water_condensation_timer += dt
+            self._update_water_condensation_particles(dt)
+
+        # 물의 기운 폭발 파티클 업데이트
+        if self.water_explosion_active:
+            self.water_explosion_timer += dt
+            self._update_water_explosion_particles(dt)
+
+    def update_player_position(self, player_x: float, player_y: float):
+        """플레이어 위치 업데이트 (물의 기운 효과용)"""
+        self.player_position = (player_x, player_y)
+
+    def _start_water_condensation_effect(self):
+        """쿨타임 충전 완료 시 물의 기운 응축 효과 시작"""
+        self.water_condensation_active = True
+        self.water_condensation_timer = 0
+        self.water_condensation_particles.clear()
+
+        player_x, player_y = self.player_position
+
+        # 플레이어 주변에서 중심으로 모이는 물 파티클 생성
+        for i in range(10):  # 10개 파티클
+            angle = (i / 10) * math.pi * 2
+            distance = random.uniform(70, 110)  # 70~110픽셀 거리 (2배)
+
+            start_x = player_x + math.cos(angle) * distance
+            start_y = player_y + math.sin(angle) * distance
+
+            particle = {
+                "x": start_x,
+                "y": start_y,
+                "target_x": player_x,
+                "target_y": player_y,
+                "start_x": start_x,
+                "start_y": start_y,
+                "angle": angle,
+                "distance": distance,
+                "speed": random.uniform(0.75, 1.0),  # 응축 속도 (2배 느리게)
+                "size": random.uniform(8, 14),  # 크기 2배
+                "life": 1.0,  # 응축 진행도 (1.0 → 0.0)
+                "color": (80 + random.randint(0, 40),
+                         180 + random.randint(0, 50),
+                         230 + random.randint(0, 25)),
+                "glow_phase": random.uniform(0, math.pi * 2)
+            }
+            self.water_condensation_particles.append(particle)
+
+    def _update_water_condensation_particles(self, dt: float):
+        """물의 기운 응축 파티클 업데이트 (간소화)"""
+        player_x, player_y = self.player_position
+        all_condensed = True
+
+        for particle in self.water_condensation_particles[:]:
+            # 타겟(플레이어 위치) 업데이트
+            particle["target_x"] = player_x
+            particle["target_y"] = player_y
+
+            # 응축 진행 (중심으로 이동)
+            particle["life"] -= dt * particle["speed"]
+
+            if particle["life"] > 0:
+                all_condensed = False
+                # 현재 위치 계산 (단순히 중심으로 이동)
+                progress = 1.0 - particle["life"]
+                eased_progress = 1 - (1 - progress) ** 2  # ease-out 곡선
+
+                # 직선으로 중심에 접근
+                current_distance = particle["distance"] * (1 - eased_progress)
+                particle["x"] = particle["target_x"] + math.cos(particle["angle"]) * current_distance
+                particle["y"] = particle["target_y"] + math.sin(particle["angle"]) * current_distance
+
+                # 빛나는 효과 업데이트
+                particle["glow_phase"] += dt * 6
+
+        # 모든 파티클이 응축 완료되면 폭발 효과 시작
+        if all_condensed:
+            self.water_condensation_active = False
+            self.water_condensation_particles.clear()
+            self._start_water_explosion_effect()
+
+    def _start_water_explosion_effect(self):
+        """물의 기운 폭발 효과 시작"""
+        self.water_explosion_active = True
+        self.water_explosion_timer = 0
+        self.water_explosion_particles.clear()
+
+        player_x, player_y = self.player_position
+
+        # 시작 시 플레이어 위치 저장 (파티클이 플레이어를 따라다니도록)
+        self.explosion_origin_x = player_x
+        self.explosion_origin_y = player_y
+
+        # 폭발 파티클 생성 (크기 1.5배)
+        for i in range(12):  # 12개
+            angle = (i / 12) * math.pi * 2 + random.uniform(-0.2, 0.2)
+            speed = random.uniform(60, 90)  # 속도 1.5배 (더 넓게 퍼짐)
+
+            particle = {
+                "offset_x": 0,  # 플레이어 기준 상대 위치
+                "offset_y": 0,
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed,
+                "size": random.uniform(12, 24),  # 크기 1.5배
+                "life": random.uniform(1.2, 2.0),
+                "max_life": 2.0,
+                "color": (100 + random.randint(0, 40),
+                         190 + random.randint(0, 50),
+                         240 + random.randint(0, 15))
+            }
+            self.water_explosion_particles.append(particle)
+
+    def _update_water_explosion_particles(self, dt: float):
+        """물의 기운 폭발 파티클 업데이트 (플레이어 따라다님)"""
+        particles_alive = False
+
+        for particle in self.water_explosion_particles[:]:
+            # 상대 위치 업데이트 (플레이어 기준)
+            particle["offset_x"] += particle["vx"] * dt
+            particle["offset_y"] += particle["vy"] * dt
+
+            # 속도 감쇠
+            particle["vx"] *= 0.92
+            particle["vy"] *= 0.92
+
+            # 수명 감소
+            particle["life"] -= dt
+
+            if particle["life"] > 0:
+                particles_alive = True
+            else:
+                self.water_explosion_particles.remove(particle)
+
+        # 모든 파티클 사라지면 폭발 효과 종료
+        if not particles_alive:
+            self.water_explosion_active = False
+            self.water_explosion_particles.clear()
+
     def draw_effects(self, screen: pygame.Surface):
         """거대한 물결 회오리 효과 그리기"""
         if not self.active:
@@ -1608,12 +1794,83 @@ class PoseidonTrident(LegendaryItem):
                     
                     # 하이라이트 효과
                     highlight_color = (200, 230, 255, alpha // 2)
-                    pygame.draw.circle(water_surf, highlight_color, 
-                                     (int(size - size // 3), int(size - size // 3)), 
+                    pygame.draw.circle(water_surf, highlight_color,
+                                     (int(size - size // 3), int(size - size // 3)),
                                      int(size // 3))
-                    
+
                     screen.blit(water_surf, (particle["x"] - size, particle["y"] - size))
-            
+
+        # 물의 기운 폭발 파티클 그리기
+        self._draw_water_explosion_particles(screen)
+
+    def _draw_water_condensation_particles(self, screen: pygame.Surface):
+        """물의 기운 응축 파티클 그리기 (간소화 - 작은 원만)"""
+        if not self.water_condensation_active:
+            return
+
+        for particle in self.water_condensation_particles:
+            size = int(particle["size"])
+            if size <= 0:
+                continue
+
+            px, py = int(particle["x"]), int(particle["y"])
+            alpha = int(220 * particle["life"])
+
+            # 글로우 효과 (더 큰 반투명 원)
+            glow_size = size + 6  # 글로우 더 크게
+            glow_alpha = alpha // 3
+            glow_color = (100, 200, 255, glow_alpha)
+            glow_surf = pygame.Surface((glow_size * 2 + 2, glow_size * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, glow_color, (glow_size + 1, glow_size + 1), glow_size)
+            screen.blit(glow_surf, (px - glow_size - 1, py - glow_size - 1))
+
+            # 메인 물방울
+            color = (*particle["color"], alpha)
+            pygame.draw.circle(screen, color, (px, py), size)
+
+    def _draw_water_explosion_particles(self, screen: pygame.Surface):
+        """물의 기운 폭발 파티클 그리기"""
+        if not self.water_explosion_active:
+            return
+
+        # 중심 폭발 플래시 (크기 1.5배)
+        if self.water_explosion_timer < 0.4:
+            player_x, player_y = self.player_position
+            flash_progress = self.water_explosion_timer / 0.4
+            flash_alpha = int(180 * (1 - flash_progress))
+            flash_size = int(30 + flash_progress * 90)  # 30~120픽셀 (1.5배)
+
+            # 글로우
+            glow_surf = pygame.Surface((flash_size * 2 + 4, flash_size * 2 + 4), pygame.SRCALPHA)
+            glow_color = (120, 200, 255, flash_alpha // 2)
+            pygame.draw.circle(glow_surf, glow_color, (flash_size + 2, flash_size + 2), flash_size)
+            screen.blit(glow_surf, (int(player_x) - flash_size - 2, int(player_y) - flash_size - 2))
+
+            # 중심 밝은 부분
+            center_color = (180, 230, 255, flash_alpha)
+            pygame.draw.circle(screen, center_color, (int(player_x), int(player_y)), flash_size // 2)
+
+        # 파티클 그리기 (플레이어 위치 + 상대 위치)
+        player_x, player_y = self.player_position
+        for particle in self.water_explosion_particles:
+            life_ratio = particle["life"] / particle["max_life"]
+            size = max(2, int(particle["size"] * life_ratio))
+            # 현재 플레이어 위치 + 파티클의 상대 위치
+            px = int(player_x + particle["offset_x"])
+            py = int(player_y + particle["offset_y"])
+            alpha = int(220 * life_ratio)
+
+            # 글로우
+            glow_size = size + 4  # 글로우도 더 크게
+            glow_surf = pygame.Surface((glow_size * 2 + 2, glow_size * 2 + 2), pygame.SRCALPHA)
+            glow_color = (100, 200, 255, alpha // 3)
+            pygame.draw.circle(glow_surf, glow_color, (glow_size + 1, glow_size + 1), glow_size)
+            screen.blit(glow_surf, (px - glow_size - 1, py - glow_size - 1))
+
+            # 메인
+            color = (*particle["color"], alpha)
+            pygame.draw.circle(screen, color, (px, py), size)
+
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         """애니메이션 아이콘 그리기 - 라그나로크 해머와 완전 동일"""
         import pygame
@@ -1814,10 +2071,26 @@ class PoseidonTrident(LegendaryItem):
             droplet['y'] += droplet['vy'] * dt * 60
             droplet['vy'] += 0.5  # 중력
             droplet['x'] += droplet['vx'] * dt * 60
-            
+
             if droplet['lifetime'] <= 0 or droplet['y'] > 800:
                 self.water_droplets.remove(droplet)
-    
+
+        # === 효과 발동 쿨타임 시스템 업데이트 ===
+        if self.active and not ui_mode:
+            if not self.effect_ready and self.effect_cooldown > 0:
+                self.effect_cooldown -= dt
+
+                # 쿨타임 완료 시 물의 기운 효과 시작 (폭발 효과만)
+                if self.effect_cooldown <= 0:
+                    self.effect_cooldown = 0
+                    self.effect_ready = True
+                    self._start_water_explosion_effect()  # 폭발 효과만 바로 실행
+
+            # 물의 기운 폭발 파티클 업데이트
+            if self.water_explosion_active:
+                self.water_explosion_timer += dt
+                self._update_water_explosion_particles(dt)
+
     def update_water_droplets_with_boss(self, boss_x: float, boss_y: float, boss_width: float, boss_height: float):
         """물방울 파티클과 보스 패들의 충돌 체크"""
         if not self.active:
@@ -2624,7 +2897,8 @@ class SacredLaurel(LegendaryItem):
         self.max_leaves = 6
         self.leaves = []
         self.leaf_radius = 200  # 가로 길이 400% (50 -> 100 -> 200)
-        self.leaf_size = 12
+        self.leaf_size = 12  # 그림 크기
+        self.leaf_hitbox_size = 24  # 타격 판정 범위 (그림 크기의 2배)
         self.rotation_speed = 1.5
         self.current_angle = 0
         self.respawn_timer = 0
@@ -2960,6 +3234,12 @@ class SacredLaurel(LegendaryItem):
         import math
         # 토성의 고리처럼 가로로 긴 타원 궤도 (ellipse_scale_y로 Y축 압축)
         ellipse_scale_y = 0.3  # Y축을 30%로 압축하여 가로로 납작한 고리 형성
+
+        # 패들 앞쪽 시야 판정 기준 (플레이어보다 이 값 이상 위에 있으면 앞쪽으로 판정)
+        # 타원 궤도의 Y축 반경 = leaf_radius * ellipse_scale_y = 200 * 0.3 = 60
+        # 앞쪽 판정은 플레이어보다 30픽셀 이상 위에 있을 때
+        front_threshold = 30
+
         for leaf in self.leaves:
             if not leaf['active']:
                 continue
@@ -2967,8 +3247,16 @@ class SacredLaurel(LegendaryItem):
             # 가로로 긴 타원 궤도: X는 원형, Y는 압축
             leaf_x = self.player_x + math.cos(angle) * self.leaf_radius
             leaf_y = self.player_y + math.sin(angle) * self.leaf_radius * ellipse_scale_y
+
+            # 플레이어 앞쪽(패들 시야 앞)에 있는 잎만 보스 공과 충돌하지 않음
+            # 스매셔 등 패들에 공을 맞춰야 하는 캐릭터를 위해
+            # 잎이 플레이어보다 front_threshold 이상 위에 있을 때만 충돌 무시
+            # (옆쪽 잎들은 정상적으로 공을 막아줌)
+            if leaf_y < self.player_y - front_threshold:
+                continue
+
             dist = math.sqrt((ball_x - leaf_x)**2 + (ball_y - leaf_y)**2)
-            if dist < ball_radius + self.leaf_size:
+            if dist < ball_radius + self.leaf_hitbox_size:  # 타격 판정은 2배 크기 사용
                 self._remove_leaf(leaf, leaf_x, leaf_y)
                 return True
         return False
@@ -3547,7 +3835,20 @@ class AngelBlessing(LegendaryItem):
 
     def activate(self, game_state: Dict):
         """장착/획득 시 - 같은 스테이지에서는 재발동하지 않음."""
+        global _pending_angel_blessing_activation
+
         super().activate(game_state)
+
+        # 전설 획득 애니메이션이 활성 상태면 대기열에 넣고 리턴
+        try:
+            from effects.legendary_integration import is_legendary_effect_active
+            if is_legendary_effect_active():
+                print(f"[AngelBlessing.activate] 전설 획득 애니메이션 진행 중 - 주사위 굴림 대기")
+                _pending_angel_blessing_activation = dict(game_state) if game_state else {}
+                return
+        except Exception as e:
+            print(f"[AngelBlessing.activate] 애니메이션 상태 확인 실패: {e}")
+
         stage = None
         try:
             stage = int(game_state.get("current_stage")) if isinstance(game_state, dict) else None
@@ -3826,29 +4127,13 @@ class AngelBlessing(LegendaryItem):
             print(f"[AngelBlessing] Stage {current_stage} 주사위 {dice_face} → {selected}")
 
     def _load_animation_frames(self):
-        """애니메이션 프레임 로드 - 라그나로크 해머 프레임에서 중앙 망치/번개만 제거"""
+        """애니메이션 프레임 로드 - 천사의 가호는 주사위+날개 아이콘 사용"""
         self.animation_frames.clear()
 
-        frames_loaded = 0
-        for i in range(8):
-            # 라그나로크 해머 프레임 사용
-            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
-            try:
-                frame = pygame.image.load(frame_path).convert_alpha()
-                cleaned_frame = _strip_legendary_red_ring(frame)
-                # 중앙 망치와 번개만 제거 (테두리/배경 효과 유지)
-                center_cleared = self._clear_center_content(cleaned_frame)
-                self.animation_frames.append(center_cleared)
-                frames_loaded += 1
-                print(f"✓ 천사의 가호 프레임 {i} 로드 성공 (중앙 제거): {frame_path}")
-            except Exception as e:
-                print(f"[INFO] 천사의 가호 프레임 {i} 로드 실패: {e}")
-
-        print(f"천사의 가호 프레임 {frames_loaded}/8개 로드 (중앙 제거)")
-
-        # PNG 프레임이 없으면 동적으로 주사위 프레임 생성
-        if not self.animation_frames:
-            self._generate_dice_frames()
+        # 천사의 가호는 주사위 테마이므로 주사위 프레임 직접 생성
+        # (라그나로크 해머 프레임을 사용하면 중앙이 비어 보임)
+        self._generate_dice_frames()
+        print(f"천사의 가호: 주사위+날개 애니메이션 프레임 {len(self.animation_frames)}개 생성 완료")
 
     def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
         """프레임에서 중앙 망치/번개/손잡이/그림자 모두 제거하고 테두리만 유지"""
@@ -5390,6 +5675,8 @@ class LegendaryItemManager:
         
     def activate_item(self, name: str, game_state: Dict):
         """아이템 활성화"""
+        global _pending_angel_blessing_activation
+
         if name in PLACEHOLDER_LEGENDARY_NAMES:
             return
         if name in self.items:
@@ -5413,8 +5700,23 @@ class LegendaryItemManager:
             print(f"   - items에 있음: {name in self.items}")
             print(f"   - unlocked_items에 있음: {name in self.unlocked_items}")
             print(f"   - unlocked_items: {self.unlocked_items}")
-            
+
             item = self.items[name]
+
+            # 천사의 가호: 전설 획득 애니메이션이 활성 상태면 대기열에 넣기
+            if name == "angel_blessing":
+                try:
+                    from effects.legendary_integration import is_legendary_effect_active
+                    if is_legendary_effect_active():
+                        print(f"[AngelBlessing] 전설 획득 애니메이션 진행 중 - 대기열에 추가")
+                        _pending_angel_blessing_activation = dict(game_state) if game_state else {}
+                        # active_items에는 추가하되 주사위 굴림은 나중에
+                        if name not in self.active_items:
+                            self.active_items.append(name)
+                        return
+                except Exception as e:
+                    print(f"[AngelBlessing] 애니메이션 상태 확인 실패: {e}")
+
             item.activate(game_state)
             # 천사의 가호는 활성화 시점에 현재 스테이지 확인
             # NOTE: _triggered_stages에 이미 발동된 스테이지가 있으면 재발동하지 않음
@@ -5533,3 +5835,46 @@ def reset_legendary_manager():
     """전설 아이템 매니저 리셋"""
     global _legendary_manager
     _legendary_manager = None
+
+
+def process_pending_angel_blessing():
+    """대기 중인 천사의 가호 활성화 처리 (전설 획득 애니메이션 완료 후 호출)"""
+    global _pending_angel_blessing_activation
+
+    if _pending_angel_blessing_activation is None:
+        return False
+
+    game_state = _pending_angel_blessing_activation
+    _pending_angel_blessing_activation = None
+
+    try:
+        legendary_manager = get_legendary_manager()
+        angel_blessing = legendary_manager.get_item("angel_blessing")
+        if angel_blessing and "angel_blessing" in legendary_manager.active_items:
+            print(f"[AngelBlessing] 전설 획득 애니메이션 완료 - 지연된 주사위 굴림 처리")
+            # 현재 스테이지 확인
+            current_stage_hint = None
+            try:
+                current_stage_hint = int(game_state.get("current_stage"))
+            except Exception:
+                current_stage_hint = game_state.get("current_stage")
+            if current_stage_hint is None:
+                current_stage_hint = angel_blessing._get_current_stage()
+
+            # 전설 애니메이션 완료 후 즉시 주사위 굴림 (조건 체크 없이 강제 실행)
+            if current_stage_hint is not None:
+                # _triggered_stages에서 현재 스테이지 제거 (전설 획득 시 처음 획득이므로)
+                angel_blessing._triggered_stages.discard(current_stage_hint)
+                angel_blessing.applied_stage = None
+                angel_blessing._roll_blessing(current_stage_hint)
+                print(f"[AngelBlessing] 전설 획득 후 주사위 애니메이션 시작 (스테이지 {current_stage_hint})")
+            return True
+    except Exception as e:
+        print(f"[AngelBlessing] 지연 활성화 처리 실패: {e}")
+
+    return False
+
+
+def has_pending_angel_blessing() -> bool:
+    """대기 중인 천사의 가호 활성화가 있는지 확인"""
+    return _pending_angel_blessing_activation is not None

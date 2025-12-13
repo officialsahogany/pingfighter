@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스매셔 - 핑파이터 위키</title>
+    <style>
+        /* 나무위키 스타일 CSS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', 'Nanum Gothic', sans-serif;
+            line-height: 1.8;
+            color: #373a3c;
+            background-color: #fff;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 문서 제목 */
+        .doc-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #e74c3c;
+            border-bottom: 2px solid #e74c3c;
+            padding-bottom: 10px;
+            margin-bottom: 5px;
+        }
+
+        .doc-subtitle {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+
+        /* 정보 박스 (문서 상단) */
+        .info-box {
+            float: right;
+            width: 280px;
+            border: 1px solid #dee2e6;
+            margin: 0 0 20px 20px;
+            background: #fff;
+        }
+
+        .info-box-title {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .info-box table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .info-box td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 13px;
+        }
+
+        .info-box td:first-child {
+            background: #f8f9fa;
+            font-weight: bold;
+            width: 90px;
+        }
+
+        /* 목차 */
+        .toc {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px 20px;
+            margin: 20px 0;
+            display: inline-block;
+            min-width: 350px;
+        }
+
+        .toc-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 14px;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 8px;
+        }
+
+        .toc ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .toc li {
+            padding: 3px 0;
+        }
+
+        .toc a {
+            color: #0275d8;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .toc .sub {
+            padding-left: 20px;
+            font-size: 12px;
+        }
+
+        .toc .sub2 {
+            padding-left: 40px;
+            font-size: 12px;
+        }
+
+        /* 섹션 헤딩 */
+        h2 {
+            font-size: 20px;
+            color: #373a3c;
+            border-bottom: 2px solid #e74c3c;
+            padding: 10px 0;
+            margin: 30px 0 15px 0;
+            clear: both;
+        }
+
+        h3 {
+            font-size: 16px;
+            color: #373a3c;
+            border-left: 4px solid #e74c3c;
+            padding-left: 10px;
+            margin: 25px 0 12px 0;
+        }
+
+        h4 {
+            font-size: 14px;
+            color: #373a3c;
+            margin: 20px 0 10px 0;
+            padding-left: 15px;
+            border-left: 2px solid #dee2e6;
+        }
+
+        /* 본문 */
+        p {
+            margin: 10px 0;
+            text-align: justify;
+        }
+
+        /* 테이블 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 10px 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+
+        /* 키보드 키 스타일 */
+        kbd {
+            display: inline-block;
+            padding: 3px 8px;
+            font-size: 12px;
+            font-family: 'Consolas', monospace;
+            color: #333;
+            background-color: #f7f7f7;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.2), inset 0 0 0 2px #fff;
+        }
+
+        /* 팁 박스 */
+        .tip-box {
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-left: 4px solid #17a2b8;
+            padding: 12px 15px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        /* 경고 박스 */
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-left: 4px solid #ff9800;
+            padding: 12px 15px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        /* 중요 박스 */
+        .important-box {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-left: 4px solid #dc3545;
+            padding: 12px 15px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        /* 성공 박스 */
+        .success-box {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-left: 4px solid #28a745;
+            padding: 12px 15px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        /* 정보 하이라이트 */
+        .info-highlight {
+            background: linear-gradient(135deg, #fff5f5, #ffe8e8);
+            border: 1px solid #e74c3c;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        /* 플로우 박스 */
+        .flow-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .flow-step {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .flow-arrow {
+            font-size: 18px;
+            color: #666;
+        }
+
+        /* 비교 박스 */
+        .compare-container {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .compare-good, .compare-bad {
+            flex: 1;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .compare-good {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+
+        .compare-bad {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+
+        .compare-good h4, .compare-bad h4 {
+            margin: 0 0 10px 0;
+            padding: 0;
+            border: none;
+        }
+
+        /* 하이라이트 텍스트 */
+        .highlight-red {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .highlight-green {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .highlight-blue {
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        /* 인용 박스 */
+        .quote-box {
+            background: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            padding: 15px 20px;
+            margin: 20px 0;
+            font-style: italic;
+            color: #6c757d;
+        }
+
+        /* 스탯 카드 */
+        .stat-card {
+            display: inline-block;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        /* 클리어픽스 */
+        .clearfix::after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+
+        /* 푸터 */
+        .footer {
+            margin-top: 50px;
+            padding: 20px;
+            text-align: center;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            font-size: 13px;
+            color: #6c757d;
+        }
+
+        /* TOP 버튼 */
+        .top-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .top-btn:hover {
+            background: #c0392b;
+        }
+
+        /* 스킬 트리 시각화 */
+        .skill-tree {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+
+        .skill-row {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+        }
+
+        .skill-node {
+            width: 80px;
+            height: 80px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            text-align: center;
+            position: relative;
+        }
+
+        .skill-node.active {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+        }
+
+        .skill-node.locked {
+            background: #dee2e6;
+            color: #6c757d;
+        }
+
+        /* 콤보 표시 */
+        .combo-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: 'Consolas', monospace;
+        }
+
+        .combo-key {
+            background: #e74c3c;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .combo-plus {
+            font-size: 20px;
+            color: #95a5a6;
+        }
+
+        .combo-result {
+            color: #f39c12;
+            font-weight: bold;
+        }
+
+        /* 스무스 스크롤 */
+        html {
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+<body id="top">
+    <!-- 문서 제목 -->
+    <h1 class="doc-title">스매셔 (Smasher)</h1>
+    <p class="doc-subtitle">핑파이터 캐릭터 공략 가이드 - 나무위키 스타일</p>
+
+    <!-- 정보 박스 -->
+    <div class="info-box">
+        <div class="info-box-title">스매셔 (Smasher)</div>
+        <table>
+            <tr><td>역할</td><td>공격형 / 기본</td></tr>
+            <tr><td>난이도</td><td>★★☆☆☆ (보통)</td></tr>
+            <tr><td>특징</td><td>드라이브, 파워스매싱</td></tr>
+            <tr><td>게이지 최대</td><td>500</td></tr>
+            <tr><td>패들 타격</td><td>80 게이지</td></tr>
+            <tr><td>해금 조건</td><td>기본 캐릭터</td></tr>
+            <tr><td>플레이 스타일</td><td>타이밍 기반 공격</td></tr>
+        </table>
+    </div>
+
+    <p>
+        <strong>스매셔</strong>는 핑파이터의 <strong>기본 캐릭터</strong>이자 가장 균형 잡힌 플레이어블 캐릭터입니다.
+        <strong>드라이브</strong>, <strong>파워스매싱</strong>, <strong>쇼트</strong>의 세 가지 핵심 기술을 활용하여
+        공격적인 탁구 플레이를 펼칠 수 있습니다.
+    </p>
+
+    <p>
+        타이밍 기반의 <strong>퍼펙트 타이밍</strong> 시스템을 통해 강력한 기술을 발동할 수 있으며,
+        숙련도에 따라 게임을 지배할 수 있는 잠재력을 가진 캐릭터입니다.
+    </p>
+
+    <!-- 목차 -->
+    <div class="toc">
+        <div class="toc-title">[ 목차 ]</div>
+        <ul>
+            <li><a href="#section1">1. 캐릭터 개요</a></li>
+            <li><a href="#section2">2. 조작법</a></li>
+            <li class="sub"><a href="#section2-1">2.1. 기본 조작</a></li>
+            <li class="sub"><a href="#section2-2">2.2. 기술 조작</a></li>
+            <li><a href="#section3">3. 게이지 시스템</a></li>
+            <li><a href="#section4">4. 퍼펙트 타이밍 시스템</a></li>
+            <li><a href="#section5">5. 핵심 기술</a></li>
+            <li class="sub"><a href="#section5-1">5.1. 드라이브 (Drive)</a></li>
+            <li class="sub"><a href="#section5-2">5.2. 파워스매싱 (Power Smashing)</a></li>
+            <li class="sub"><a href="#section5-3">5.3. 쇼트 (Short Shot)</a></li>
+            <li><a href="#section6">6. 콤보 시스템</a></li>
+            <li class="sub"><a href="#section6-1">6.1. 쇼트 카운터 보너스</a></li>
+            <li><a href="#section7">7. 스킬 트리</a></li>
+            <li class="sub"><a href="#section7-1">7.1. 추천 스킬</a></li>
+            <li class="sub"><a href="#section7-2">7.2. 추천 스킬 루트</a></li>
+            <li><a href="#section8">8. 공략 가이드</a></li>
+            <li><a href="#section9">9. 장단점 분석</a></li>
+            <li><a href="#section10">10. 여담</a></li>
+        </ul>
+    </div>
+
+    <div class="clearfix"></div>
+
+    <!-- 1. 캐릭터 개요 -->
+    <h2 id="section1">1. 캐릭터 개요</h2>
+
+    <p>
+        스매셔는 핑파이터의 <strong>기본 캐릭터</strong>로, 모든 플레이어가 처음 게임을 시작할 때 사용하게 됩니다.
+        <strong>탁구 라켓과 방패</strong>를 들고 있는 외형으로, 공격과 방어를 균형 있게 수행할 수 있습니다.
+    </p>
+
+    <p>
+        발토르가 건설과 방어에 특화되어 있고, 코만도가 화기 운용에 특화되어 있다면,
+        스매셔는 <strong>순수한 탁구 기술</strong>과 <strong>타이밍 기반 공격</strong>에 특화되어 있습니다.
+    </p>
+
+    <div class="info-highlight">
+        <strong>💡 스매셔의 핵심 컨셉</strong><br>
+        • 퍼펙트 타이밍에 맞춰 기술 발동 → 강력한 공 가속 및 커브<br>
+        • 드라이브, 파워스매싱, 쇼트의 삼각 구조<br>
+        • 게이지 관리와 타이밍이 핵심
+    </div>
+
+    <!-- 2. 조작법 -->
+    <h2 id="section2">2. 조작법</h2>
+
+    <h3 id="section2-1">2.1. 기본 조작</h3>
+
+    <table>
+        <tr>
+            <th>조작</th>
+            <th>동작</th>
+            <th>설명</th>
+        </tr>
+        <tr>
+            <td><kbd>A</kbd> <kbd>D</kbd></td>
+            <td>좌우 이동</td>
+            <td>패들 좌우 이동</td>
+        </tr>
+        <tr>
+            <td><kbd>A</kbd>/<kbd>D</kbd> + <kbd>S</kbd> 또는 <kbd>우클릭</kbd></td>
+            <td>대시</td>
+            <td>좌우 이동 중 S키로 대시</td>
+        </tr>
+        <tr>
+            <td><kbd>마우스 좌클릭</kbd></td>
+            <td>서브</td>
+            <td>공 서브 (게임 시작)</td>
+        </tr>
+        <tr>
+            <td><kbd>TAB</kbd></td>
+            <td>상태창</td>
+            <td>아이템, 스킬 확인</td>
+        </tr>
+        <tr>
+            <td><kbd>ESC</kbd></td>
+            <td>일시정지</td>
+            <td>게임 메뉴</td>
+        </tr>
+    </table>
+
+    <h3 id="section2-2">2.2. 기술 조작</h3>
+
+    <table>
+        <tr>
+            <th>조작</th>
+            <th>기술</th>
+            <th>발동 조건</th>
+        </tr>
+        <tr style="background: #fff3cd;">
+            <td><strong><kbd>A</kbd> 또는 <kbd>D</kbd></strong> (퍼펙트 타이밍)</td>
+            <td><strong>드라이브</strong></td>
+            <td>퍼펙트 타이밍 + 게이지 150</td>
+        </tr>
+        <tr style="background: #f8d7da;">
+            <td><strong><kbd>마우스 좌클릭</kbd></strong> (꾹 누른 채로)</td>
+            <td><strong>파워스매싱</strong></td>
+            <td>좌클릭 홀드 + 게이지 350 + 공 접촉</td>
+        </tr>
+        <tr style="background: #d4edda;">
+            <td><strong><kbd>W</kbd></strong> (퍼펙트 타이밍)</td>
+            <td><strong>쇼트</strong></td>
+            <td>퍼펙트 타이밍 + 게이지 (조건부)</td>
+        </tr>
+    </table>
+
+    <div class="tip-box">
+        <strong>💡 퍼펙트 타이밍이란?</strong> 공이 패들에 닿기 직전에 특정 키를 입력하면 발동되는 특수 시스템입니다. 화면에 원형 인디케이터가 표시되며, 이 타이밍에 맞춰 기술을 발동할 수 있습니다.
+    </div>
+
+    <!-- 3. 게이지 시스템 -->
+    <h2 id="section3">3. 게이지 시스템</h2>
+
+    <p>스매셔의 게이지 획득량은 <strong>일정</strong>합니다. 코만도처럼 화기에 따른 페널티가 없습니다.</p>
+
+    <table>
+        <tr>
+            <th>행동</th>
+            <th>획득 게이지</th>
+            <th>비고</th>
+        </tr>
+        <tr>
+            <td>패들로 공 히트</td>
+            <td><strong>80</strong></td>
+            <td>기본 획득량</td>
+        </tr>
+        <tr>
+            <td>드라이브 발동</td>
+            <td><strong>-150</strong></td>
+            <td>게이지 소모</td>
+        </tr>
+        <tr>
+            <td>파워스매싱 발동</td>
+            <td><strong>-350</strong></td>
+            <td>게이지 소모</td>
+        </tr>
+    </table>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0;">
+        <div class="stat-card">
+            <div class="stat-value">500</div>
+            <div class="stat-label">최대 게이지</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">80</div>
+            <div class="stat-label">히트당 게이지</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">150</div>
+            <div class="stat-label">드라이브 비용</div>
+        </div>
+    </div>
+
+    <!-- 4. 퍼펙트 타이밍 시스템 -->
+    <h2 id="section4">4. 퍼펙트 타이밍 시스템</h2>
+
+    <p>
+        스매셔의 모든 핵심 기술은 <strong>퍼펙트 타이밍</strong>에 맞춰 발동됩니다.
+        공이 패들에 닿기 직전, 화면에 표시되는 <strong>원형 인디케이터</strong>가 활성화될 때 키를 입력해야 합니다.
+    </p>
+
+    <div class="flow-box">
+        <span class="flow-step">공이 접근</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">인디케이터 표시</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">키 입력</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">기술 발동!</span>
+    </div>
+
+    <table>
+        <tr>
+            <th>입력 키</th>
+            <th>발동 기술</th>
+            <th>필요 게이지</th>
+            <th>효과</th>
+        </tr>
+        <tr>
+            <td><kbd>A</kbd> (왼쪽)</td>
+            <td>왼쪽 드라이브</td>
+            <td>150</td>
+            <td>공이 왼쪽으로 커브</td>
+        </tr>
+        <tr>
+            <td><kbd>D</kbd> (오른쪽)</td>
+            <td>오른쪽 드라이브</td>
+            <td>150</td>
+            <td>공이 오른쪽으로 커브</td>
+        </tr>
+        <tr>
+            <td><kbd>마우스 좌클릭</kbd> (홀드)</td>
+            <td>파워스매싱</td>
+            <td>350</td>
+            <td>좌클릭 꾹 누른 채 공 접촉 시 발동</td>
+        </tr>
+        <tr>
+            <td><kbd>W</kbd></td>
+            <td>쇼트</td>
+            <td>조건부</td>
+            <td>짧은 드롭샷 + 보너스 윈도우</td>
+        </tr>
+    </table>
+
+    <div class="warning-box">
+        <strong>⚠️ 주의!</strong> 퍼펙트 타이밍이 아닐 때 키를 입력하면 일반 히트로 처리됩니다. 게이지가 부족해도 기술이 발동되지 않습니다.
+    </div>
+
+    <!-- 5. 핵심 기술 -->
+    <h2 id="section5">5. 핵심 기술</h2>
+
+    <h3 id="section5-1">5.1. 드라이브 (Drive) 🌀</h3>
+
+    <p>스매셔의 <strong>기본 공격 기술</strong>입니다. 퍼펙트 타이밍에 <kbd>A</kbd> 또는 <kbd>D</kbd> 키를 입력하면 발동됩니다.</p>
+
+    <table>
+        <tr>
+            <th>스펙</th>
+            <th>수치</th>
+            <th>비고</th>
+        </tr>
+        <tr>
+            <td>소모 게이지</td>
+            <td><strong>150</strong></td>
+            <td>발동 시 즉시 소모</td>
+        </tr>
+        <tr>
+            <td>기본 커브량</td>
+            <td><strong>0.25</strong></td>
+            <td>ball_spin_strength</td>
+        </tr>
+        <tr>
+            <td>최대 커브량</td>
+            <td><strong>0.6</strong></td>
+            <td>커브 상한</td>
+        </tr>
+        <tr>
+            <td>속도 증가</td>
+            <td><strong>1.5%</strong></td>
+            <td>드라이브 성공 시</td>
+        </tr>
+        <tr style="background: #d4edda;">
+            <td><strong>쇼트 카운터 보너스</strong></td>
+            <td><strong>속도 1.6배</strong></td>
+            <td>쇼트 후 보너스 적용 시</td>
+        </tr>
+        <tr style="background: #d4edda;">
+            <td><strong>보너스 추가 커브</strong></td>
+            <td><strong>+0.36</strong></td>
+            <td>쇼트 카운터 보너스 시</td>
+        </tr>
+    </table>
+
+    <div class="combo-display">
+        <span class="combo-key">퍼펙트 타이밍</span>
+        <span class="combo-plus">+</span>
+        <span class="combo-key">A / D</span>
+        <span class="combo-plus">=</span>
+        <span class="combo-result">드라이브 발동!</span>
+    </div>
+
+    <div class="tip-box">
+        <strong>💡 드라이브 팁:</strong> 드라이브로 공을 쳐서 보스에게 맞히면 <strong>연두색 공</strong>으로 표시됩니다. 공 속도에 비례하여 추가 커브량이 적용됩니다!
+    </div>
+
+    <div class="important-box">
+        <strong>🎯 드라이브 발동 꿀팁!</strong><br>
+        공이 다가오기 <strong>살짝 전에</strong> <kbd>A</kbd> 또는 <kbd>D</kbd> 키와 <kbd>마우스 좌클릭</kbd>을 <strong>동시에</strong> 입력하면 드라이브가 잘 발동됩니다!<br><br>
+        <span style="color: #dc3545;">⚠️ 주의:</span> A/D 키나 마우스를 <strong>연타한다고 발동되는 것이 아닙니다!</strong> 타이밍을 맞춰서 입력해야 합니다.
+    </div>
+
+    <div class="warning-box">
+        <strong>💡 숙련자 팁:</strong> 드라이브는 화면에 표시되는 퍼펙트 타이밍 인디케이터에만 의존하기보다는, <strong>직접 발동 타이밍의 감을 익히는 것</strong>이 더 중요합니다. 플레이를 반복하면서 자신만의 타이밍을 체득하세요!
+    </div>
+
+    <h4>드라이브 각도 계산</h4>
+    <table>
+        <tr>
+            <th>드라이브 방향</th>
+            <th>기본 각도</th>
+            <th>위치 보정</th>
+        </tr>
+        <tr>
+            <td>왼쪽 (<kbd>A</kbd>)</td>
+            <td>+22.5°</td>
+            <td>패들 위치에 따라 ±0.3 보정</td>
+        </tr>
+        <tr>
+            <td>오른쪽 (<kbd>D</kbd>)</td>
+            <td>-22.5°</td>
+            <td>패들 위치에 따라 ±0.3 보정</td>
+        </tr>
+    </table>
+
+    <h3 id="section5-2">5.2. 파워스매싱 (Power Smashing) 💥</h3>
+
+    <p>스매셔의 <strong>필살기</strong>입니다. 게이지 350 이상일 때 <kbd>마우스 좌클릭</kbd>을 <strong>꾹 누르고 있는 상태</strong>에서 공에 닿으면 발동합니다.</p>
+
+    <div class="important-box">
+        <strong>🎯 파워스매싱 발동법</strong><br>
+        <kbd>마우스 좌클릭</kbd>을 <strong>누른 채로 유지</strong>하면서 공이 패들에 닿으면 파워스매싱이 발동됩니다!
+    </div>
+
+    <table>
+        <tr>
+            <th>스펙</th>
+            <th>수치</th>
+            <th>비고</th>
+        </tr>
+        <tr>
+            <td>필요 게이지</td>
+            <td><strong>350</strong></td>
+            <td>발동 조건</td>
+        </tr>
+        <tr>
+            <td>소모 게이지</td>
+            <td><strong>-350</strong></td>
+            <td>발동 시 소모</td>
+        </tr>
+        <tr>
+            <td>최소 각도</td>
+            <td><strong>25°</strong></td>
+            <td>수직 발동 방지용 하한</td>
+        </tr>
+        <tr>
+            <td>프리즈 시간</td>
+            <td><strong>1초</strong></td>
+            <td>발동 시 잠시 정지 연출</td>
+        </tr>
+        <tr>
+            <td>부스트 지속</td>
+            <td><strong>0.5초</strong></td>
+            <td>초기 가속 시간</td>
+        </tr>
+        <tr>
+            <td>플레이어 반동</td>
+            <td><strong>22프레임</strong></td>
+            <td>발동 시 뒤로 밀림</td>
+        </tr>
+        <tr style="background: #d4edda;">
+            <td><strong>쇼트 카운터 보너스</strong></td>
+            <td><strong>속도 1.5배</strong></td>
+            <td>쇼트 후 보너스 적용 시</td>
+        </tr>
+    </table>
+
+    <div class="combo-display">
+        <span class="combo-key">게이지 350</span>
+        <span class="combo-plus">+</span>
+        <span class="combo-key">좌클릭 홀드</span>
+        <span class="combo-plus">+</span>
+        <span class="combo-key">공 접촉</span>
+        <span class="combo-plus">=</span>
+        <span class="combo-result">파워스매싱!</span>
+    </div>
+
+    <div class="important-box">
+        <strong>⚡ 파워스매싱 반동:</strong> 발동 시 플레이어가 뒤로 밀리며, 반동 종료 후 짧은 스턴이 적용될 수 있습니다. 발동 위치를 잘 선택하세요!
+    </div>
+
+    <h4>파워스매싱 포물선 궤적</h4>
+    <table>
+        <tr>
+            <th>파라미터</th>
+            <th>수치</th>
+            <th>설명</th>
+        </tr>
+        <tr>
+            <td>중력 효과</td>
+            <td>0.035</td>
+            <td>완만한 곡선 생성</td>
+        </tr>
+        <tr>
+            <td>반동 속도</td>
+            <td>34.0 px/frame</td>
+            <td>초기 반동 속도</td>
+        </tr>
+        <tr>
+            <td>반동 감쇠</td>
+            <td>0.70</td>
+            <td>매 프레임 감쇠 계수</td>
+        </tr>
+    </table>
+
+    <div class="warning-box">
+        <strong>⚠️ 서브 직후 파워스매싱 금지:</strong> 서브 후 <strong>0.5초</strong> 동안은 파워스매싱을 발동할 수 없습니다!
+    </div>
+
+    <h4>파워스매싱 방향 시스템</h4>
+    <table>
+        <tr>
+            <th>입력 상태</th>
+            <th>발사 방향</th>
+            <th>설명</th>
+        </tr>
+        <tr>
+            <td>방향키 미입력</td>
+            <td><strong>맞은 방향</strong></td>
+            <td>공이 패들에 맞은 방향 그대로 발사</td>
+        </tr>
+        <tr>
+            <td><kbd>A</kbd> (왼쪽 이동 중)</td>
+            <td><strong>왼쪽</strong></td>
+            <td>왼쪽으로 강제 발사</td>
+        </tr>
+        <tr>
+            <td><kbd>D</kbd> (오른쪽 이동 중)</td>
+            <td><strong>오른쪽</strong></td>
+            <td>오른쪽으로 강제 발사</td>
+        </tr>
+    </table>
+
+    <div class="tip-box">
+        <strong>💡 각도 보정:</strong> 좌/우 방향을 지정해도 <strong>패들의 어느 부위에 공이 맞았느냐</strong>에 따라 각도가 미세하게 달라집니다. 이는 드라이브도 마찬가지입니다!
+    </div>
+
+    <h3 id="section5-3">5.3. 쇼트 (Short Shot) 🎯</h3>
+
+    <p>보스를 <strong>넉백</strong>시키고 <strong>카운터 보너스 윈도우</strong>를 활성화하는 기술입니다.</p>
+
+    <table>
+        <tr>
+            <th>스펙</th>
+            <th>수치</th>
+            <th>비고</th>
+        </tr>
+        <tr>
+            <td>광채 지속</td>
+            <td><strong>12프레임</strong></td>
+            <td>발동 시 빛나는 효과</td>
+        </tr>
+        <tr>
+            <td>보스 넉백</td>
+            <td><strong>24프레임</strong></td>
+            <td>넉백 지속 시간</td>
+        </tr>
+        <tr>
+            <td>넉백 속도</td>
+            <td><strong>9.0 px/frame</strong></td>
+            <td>보스 밀리는 속도</td>
+        </tr>
+        <tr>
+            <td>보스 스턴</td>
+            <td><strong>30프레임</strong></td>
+            <td>넉백 시 스턴 지속</td>
+        </tr>
+        <tr>
+            <td>속도 배율</td>
+            <td><strong>1.3배</strong></td>
+            <td>발동 시 공 가속</td>
+        </tr>
+        <tr style="background: #fff3cd;">
+            <td><strong>카운터 윈도우</strong></td>
+            <td><strong>720프레임 (12초)</strong></td>
+            <td>보스 반격 후 보너스 지속</td>
+        </tr>
+    </table>
+
+    <div class="success-box">
+        <strong>✨ 쇼트 카운터 시스템:</strong> 쇼트로 친 공을 보스가 반격하면, <strong>12초간</strong> 드라이브/대시/파워스매싱에 보너스가 적용됩니다!
+    </div>
+
+    <!-- 6. 콤보 시스템 -->
+    <h2 id="section6">6. 콤보 시스템</h2>
+
+    <h3 id="section6-1">6.1. 쇼트 카운터 보너스</h3>
+
+    <p>쇼트로 친 공을 보스가 반격하면 <strong>카운터 윈도우</strong>가 활성화됩니다. 이 동안 기술을 발동하면 추가 보너스가 적용됩니다.</p>
+
+    <div class="flow-box">
+        <span class="flow-step">쇼트 발동</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">보스 피격</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">보스 반격</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">카운터 윈도우!</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">보너스 기술!</span>
+    </div>
+
+    <table>
+        <tr>
+            <th>기술</th>
+            <th>일반</th>
+            <th>카운터 보너스</th>
+        </tr>
+        <tr>
+            <td>드라이브 속도</td>
+            <td>기본</td>
+            <td><span class="highlight-red">1.6배</span></td>
+        </tr>
+        <tr>
+            <td>드라이브 커브</td>
+            <td>0.25</td>
+            <td><span class="highlight-red">+0.36 추가</span></td>
+        </tr>
+        <tr>
+            <td>대시 속도</td>
+            <td>기본</td>
+            <td><span class="highlight-red">1.3배</span></td>
+        </tr>
+        <tr>
+            <td>파워스매싱 속도</td>
+            <td>기본</td>
+            <td><span class="highlight-red">1.5배</span></td>
+        </tr>
+    </table>
+
+    <div class="tip-box">
+        <strong>💡 고급 콤보:</strong> 쇼트 → 보스 반격 → 카운터 드라이브로 이어지는 콤보는 매우 강력합니다! 보스의 반격을 유도하여 카운터 윈도우를 활용하세요.
+    </div>
+
+    <div class="success-box">
+        <strong>🔥 숙련자 고급 콤보</strong><br>
+        실력이 늘면 다음과 같은 고급 콤보도 가능합니다:<br><br>
+        <strong>• 대시 → 드라이브:</strong> 대시로 빠르게 위치를 잡은 후 드라이브 발동<br>
+        <strong>• 대시 → 파워스매싱:</strong> 대시로 공에 접근 후 바로 파워스매싱으로 결정타<br><br>
+        ⚠️ 대시와 기술의 타이밍을 맞추는 연습이 필요합니다!
+    </div>
+
+    <!-- 7. 스킬 트리 -->
+    <h2 id="section7">7. 스킬 트리</h2>
+
+    <div class="success-box">
+        <strong>💡 대쉬 스킬 트리와의 시너지</strong><br>
+        스매셔는 전용 스킬 트리는 없지만, <strong>대쉬 스킬 트리</strong>와 궁합이 매우 좋습니다. 대쉬로 빠르게 위치를 잡고 드라이브나 파워스매싱을 연계하는 플레이가 가능하기 때문입니다.
+    </div>
+
+    <h3 id="section7-1">7.1. 추천 스킬</h3>
+
+    <table class="stat-table">
+        <thead>
+            <tr>
+                <th>스킬명</th>
+                <th>효과</th>
+                <th>추천도</th>
+                <th>설명</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>버스트업</strong></td>
+                <td>대쉬 사용시 패들 세로 크기 60% 증가</td>
+                <td>⭐⭐⭐⭐⭐</td>
+                <td>대쉬 후 넓어진 패들로 드라이브/파워스매싱 적중률 상승. 스매셔 필수 스킬!</td>
+            </tr>
+            <tr>
+                <td><strong>경량화</strong></td>
+                <td>대쉬 쿨타임 7% 감소 (레벨당)</td>
+                <td>⭐⭐⭐⭐</td>
+                <td>버스트업의 선행 스킬. 대쉬를 자주 쓸수록 효율 증가.</td>
+            </tr>
+            <tr>
+                <td><strong>모듈제어</strong></td>
+                <td>대쉬 후딜시간 10% 감소 (레벨당)</td>
+                <td>⭐⭐⭐⭐</td>
+                <td>대쉬 후 더 빠르게 드라이브/파워스매싱 연계 가능.</td>
+            </tr>
+            <tr>
+                <td><strong>배터리팩</strong></td>
+                <td>게이지 소모량 8% 감소 (레벨당)</td>
+                <td>⭐⭐⭐</td>
+                <td>게이지 효율 증가. 증폭 스킬로 가는 길목.</td>
+            </tr>
+            <tr>
+                <td><strong>대쉬 스피릿</strong></td>
+                <td>대쉬 시 30~50% 확률로 레이저 잔상 생성</td>
+                <td>⭐⭐⭐</td>
+                <td>추가 공격 수단. 버스트업 이후 찍으면 화려한 플레이 가능.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3 id="section7-2">7.2. 추천 스킬 루트</h3>
+
+    <div class="flow-box">
+        <span class="flow-step">경량화 5</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">도약 5</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">버스트업 5</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">대쉬 스피릿 2</span>
+    </div>
+
+    <div class="tip-box">
+        <strong>💡 스킬 포인트 운용 팁</strong><br>
+        버스트업이 핵심이므로 <strong>경량화 → 도약 → 버스트업</strong> 순서로 먼저 찍는 것을 추천합니다. 대쉬 스피릿은 여유가 있을 때 찍으면 됩니다.
+    </div>
+
+    <!-- 8. 공략 가이드 -->
+    <h2 id="section8">8. 공략 가이드</h2>
+
+    <h3>8.1. 초보자 필독 팁</h3>
+
+    <ul>
+        <li><strong>퍼펙트 타이밍을 익혀라!</strong> - 원형 인디케이터를 주시하세요</li>
+        <li><strong>드라이브로 시작하라</strong> - 게이지 150으로 발동 가능한 기본기</li>
+        <li><strong>게이지 350을 모아 파워스매싱</strong> - 결정타로 활용</li>
+        <li><strong>쇼트 카운터를 활용하라</strong> - 보스 반격 후 보너스를 노려라</li>
+    </ul>
+
+    <div class="warning-box">
+        <strong>🎮 기본기 숙련의 중요성</strong><br>
+        드라이브와 파워스매싱 모두 <strong>패들의 어느 부위에 공이 맞았느냐</strong>에 따라 발사 각도가 미세하게 달라집니다.<br><br>
+        • 패들 왼쪽에 맞으면 → 왼쪽으로 휘어지는 경향<br>
+        • 패들 오른쪽에 맞으면 → 오른쪽으로 휘어지는 경향<br>
+        • 패들 중앙에 맞으면 → 비교적 직선<br><br>
+        이 <strong>각도 보정 감각</strong>은 게임을 많이 해보면서 직접 터득할 수밖에 없습니다. 연습만이 살길!
+    </div>
+
+    <h3>8.2. 게이지 효율 운용법</h3>
+
+    <div class="flow-box">
+        <span class="flow-step">1. 공 히트 (80)</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">2. 게이지 150 도달</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">3. 드라이브 발동</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">4. 반복</span>
+    </div>
+
+    <div class="compare-container">
+        <div class="compare-good">
+            <h4>✓ 효율적인 운용</h4>
+            <ul>
+                <li>드라이브를 적극 활용</li>
+                <li>쇼트 카운터 보너스 활용</li>
+                <li>게이지 350 도달 시 파워스매싱</li>
+            </ul>
+        </div>
+        <div class="compare-bad">
+            <h4>✗ 비효율적인 운용</h4>
+            <ul>
+                <li>퍼펙트 타이밍 무시</li>
+                <li>게이지만 모으고 사용 안함</li>
+                <li>쇼트 카운터 윈도우 놓침</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>8.3. 상황별 대응</h3>
+
+    <table>
+        <tr>
+            <th>상황</th>
+            <th>권장 행동</th>
+        </tr>
+        <tr>
+            <td>게이지 150 이상</td>
+            <td>드라이브로 공격 + 커브</td>
+        </tr>
+        <tr>
+            <td>게이지 350 도달</td>
+            <td>파워스매싱으로 결정타</td>
+        </tr>
+        <tr>
+            <td>쇼트 카운터 활성</td>
+            <td>보너스 드라이브/파워스매싱</td>
+        </tr>
+        <tr>
+            <td>보스 스킬 발동 중</td>
+            <td>대시로 회피 후 반격</td>
+        </tr>
+    </table>
+
+    <!-- 9. 장단점 분석 -->
+    <h2 id="section9">9. 장단점 분석</h2>
+
+    <div class="compare-container">
+        <div class="compare-good">
+            <h4>✓ 장점</h4>
+            <ul>
+                <li>균형 잡힌 기본 캐릭터</li>
+                <li>세 가지 강력한 기술 보유</li>
+                <li>쇼트 카운터 보너스 시스템</li>
+                <li>게이지 획득 페널티 없음</li>
+                <li>직관적인 조작</li>
+                <li>기본 캐릭터로 해금 불필요</li>
+            </ul>
+        </div>
+        <div class="compare-bad">
+            <h4>✗ 단점</h4>
+            <ul>
+                <li>퍼펙트 타이밍 숙련 필요</li>
+                <li>특수 무기/건설 기능 없음</li>
+                <li>파워스매싱 후 반동/스턴</li>
+                <li>서브 직후 파워스매싱 제한</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 10. 여담 -->
+    <h2 id="section10">10. 여담</h2>
+
+    <ul>
+        <li>스매셔는 핑파이터의 <strong>첫 번째 플레이어블 캐릭터</strong>입니다.</li>
+        <li>드라이브 발동 시 공이 <strong>연두색</strong>으로 변합니다.</li>
+        <li>파워스매싱의 <strong>붉은 잔상 효과</strong>는 스매셔만의 시그니처입니다.</li>
+        <li>튜토리얼에서 드라이브와 파워스매싱을 차근차근 배울 수 있습니다.</li>
+        <li>왼팔과 오른팔로 공을 칠 때 <strong>다른 애니메이션</strong>이 재생됩니다.</li>
+        <li>패들 왼쪽에서 공을 치면 방패를 들어올리는 연출이 나옵니다.</li>
+        <li>스매셔는 <strong>걷기 애니메이션</strong>을 가진 캐릭터입니다 (30프레임 사이클).</li>
+    </ul>
+
+    <hr>
+
+    <div class="quote-box">
+        이 문서는 핑파이터 스매셔 캐릭터의 모든 시스템과 전략을 정리한 공략 가이드입니다.
+    </div>
+
+    <!-- 푸터 -->
+    <div class="footer">
+        <p>ⓒ 2024 Sahogany Studio - PingFighter</p>
+        <p>스매셔 캐릭터 공략 가이드 v1.0 (나무위키 스타일)</p>
+    </div>
+
+    <button class="top-btn" onclick="document.getElementById('top').scrollIntoView({behavior: 'smooth'})">⬆ TOP</button>
+</body>
+</html>

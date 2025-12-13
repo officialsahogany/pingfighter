@@ -7,6 +7,7 @@ BGM Manager Module for PingFighter
 import pygame
 import os
 import sys
+import random
 
 def resource_path(relative_path):
     """PyInstaller 번들과 일반 실행 모두에서 작동하는 리소스 경로 반환"""
@@ -26,21 +27,22 @@ class BGMManager:
         self.current_bgm = None
         self.volume = 0.4  # 기본 볼륨 40%
         self._is_paused = False
-        self._user_muted = False  # 사용자 토글로 음소거 상태인지
+        self._user_muted = False  # 사용자 토글(B키)로 음소거 상태인지
+        self._system_muted = False  # 옵션 메뉴에서 전체 음소거 설정
         self._muted_volume_cache = self.volume
         self._muted_last_bgm = None  # 사용자 음소거 시점의 트랙을 기억해 재진입 시 복원
         # 포맷 호환성 확보: mp3 실패 시 ogg/wav 순으로 대체 시도
         # Windows PyInstaller 번들에서 mp3 코덱 누락 시 재생 실패할 수 있음
         self.bgm_candidates = {
             'intro': [
-                os.path.join("bgm", "introbgm.ogg"),
-                os.path.join("bgm", "introbgm.mp3"),
-                os.path.join("bgm", "introbgm.wav"),
+                os.path.join("bgm", "introbgm2.mp3"),
+                os.path.join("bgm", "introbgm2.ogg"),
+                os.path.join("bgm", "introbgm2.wav"),
             ],
             'menu': [
-                os.path.join("bgm", "introbgm.ogg"),
-                os.path.join("bgm", "introbgm.mp3"),
-                os.path.join("bgm", "introbgm.wav"),
+                os.path.join("bgm", "introbgm2.mp3"),
+                os.path.join("bgm", "introbgm2.ogg"),
+                os.path.join("bgm", "introbgm2.wav"),
             ],
             'stage1': [
                 os.path.join("bgm", "stage1bgm.ogg"),
@@ -63,6 +65,11 @@ class BGMManager:
                 os.path.join("bgm", "stage4bgm.mp3"),
                 os.path.join("bgm", "stage4bgm.wav"),
             ],
+            'stage4_phase2': [
+                os.path.join("bgm", "stage4bgm-phase2.mp3"),
+                os.path.join("bgm", "stage4bgm-phase2.ogg"),
+                os.path.join("bgm", "stage4bgm-phase2.wav"),
+            ],
             # Stage 5는 기존 Stage 6 테마(네메시스)를 사용한다.
             'stage5': [
                 os.path.join("bgm", "stage6bgm.ogg"),
@@ -81,10 +88,21 @@ class BGMManager:
             'stage8': [
                 os.path.join("bgm", "stage8bgm.wav"),
             ],
+            # 광장 BGM은 여러 곡 중 랜덤 선택 (downtown1, downtown2, tutorialmainbgm)
             'downtown': [
                 os.path.join("bgm", "tutorialmainbgm.mp3"),
                 os.path.join("bgm", "tutorialmainbgm.ogg"),
                 os.path.join("bgm", "tutorialmainbgm.wav"),
+            ],
+            'downtown1': [
+                os.path.join("bgm", "downtown1.wav"),
+                os.path.join("bgm", "downtown1.mp3"),
+                os.path.join("bgm", "downtown1.ogg"),
+            ],
+            'downtown2': [
+                os.path.join("bgm", "downtown2.wav"),
+                os.path.join("bgm", "downtown2.mp3"),
+                os.path.join("bgm", "downtown2.ogg"),
             ],
             'tutorial': [
                 os.path.join("bgm", "tutorialmainbgm.ogg"),
@@ -150,8 +168,16 @@ class BGMManager:
         if self.current_bgm == bgm_name and pygame.mixer.music.get_busy():
             print(f"{bgm_name} BGM이 이미 재생 중입니다.")
             return
-            
-        # 사용자 음소거 상태면 트랙만 기억하고 재생을 건너뜀
+
+        # 시스템 전체 음소거 상태면 트랙만 기억하고 재생을 건너뜀
+        if getattr(self, "_system_muted", False):
+            self._muted_last_bgm = bgm_name
+            self.current_bgm = bgm_name
+            self._is_paused = True
+            print(f"{bgm_name} BGM 요청됨 (시스템 음소거 중, 재생 건너뜀)")
+            return
+
+        # 사용자 음소거 상태(B키)면 트랙만 기억하고 재생을 건너뜀
         if getattr(self, "_user_muted", False):
             self._muted_last_bgm = bgm_name
             self.current_bgm = bgm_name
@@ -227,35 +253,72 @@ class BGMManager:
         """BGM 토글 (사용자 음소거 on/off)"""
         if not self.is_initialized:
             self.initialize()
+
         # 음소거 해제
         if self._user_muted:
             self._user_muted = False
             # 볼륨 복원
             pygame.mixer.music.set_volume(self.volume)
-            if self._is_paused and pygame.mixer.music.get_busy():
-                self.unpause_bgm()
-                return False
-            target = self.current_bgm or self._muted_last_bgm
+            # 재생할 트랙 결정: 음소거 시점에 저장한 트랙 우선
+            target = self._muted_last_bgm or self.current_bgm
             self._muted_last_bgm = None
             if target:
+                # current_bgm 초기화 후 play_bgm 호출 (중복 체크 우회)
+                self.current_bgm = None
                 self.play_bgm(target)
+                print(f"BGM 음소거 해제: {target} 재생")
             else:
                 print("BGM 토글: 재생할 트랙이 없습니다.")
             return False
 
-        # 음소거로 전환 (현재 재생 중이면 일시정지 + 볼륨 0)
+        # 음소거로 전환 (현재 재생 중이면 완전 정지)
+        # 먼저 현재 트랙 저장
+        self._muted_last_bgm = self.current_bgm
+        self._muted_volume_cache = self.volume
         try:
-            # 일시정지가 아니라 완전 정지로 전환해 즉시 끊기도록 처리
             pygame.mixer.music.stop()
         except Exception as e:
             print(f"BGM 정지 실패: {e}")
         self._is_paused = False
-        self._muted_last_bgm = self.current_bgm
-        self._muted_volume_cache = self.volume
         pygame.mixer.music.set_volume(0)
         self._user_muted = True
+        print(f"BGM 음소거: {self._muted_last_bgm}")
         return True
-        
+
+    def set_system_mute(self, muted: bool):
+        """
+        시스템 전체 음소거 설정 (옵션 메뉴에서 사용)
+
+        Args:
+            muted: True면 음소거, False면 해제
+        """
+        if not self.is_initialized:
+            self.initialize()
+
+        self._system_muted = muted
+
+        if muted:
+            # 음소거: 현재 재생 중인 BGM 정지
+            self._muted_last_bgm = self.current_bgm
+            try:
+                pygame.mixer.music.stop()
+            except Exception as e:
+                print(f"BGM 정지 실패: {e}")
+            pygame.mixer.music.set_volume(0)
+            print(f"시스템 음소거 ON (마지막 트랙: {self._muted_last_bgm})")
+        else:
+            # 음소거 해제: 볼륨 복원 및 마지막 트랙 재생
+            pygame.mixer.music.set_volume(self.volume)
+            target = self._muted_last_bgm or self.current_bgm
+            if target and not self._user_muted:  # B키 음소거가 아닌 경우에만 재생
+                self.current_bgm = None  # 중복 체크 우회
+                self.play_bgm(target)
+            print(f"시스템 음소거 OFF (복원 트랙: {target})")
+
+    def is_system_muted(self) -> bool:
+        """시스템 음소거 상태 확인"""
+        return getattr(self, "_system_muted", False)
+
     def set_volume(self, volume):
         """
         BGM 볼륨 설정
@@ -345,8 +408,22 @@ def play_stage_bgm(stage_num):
     bgm_manager.play_stage_bgm(stage_num)
     
 def play_downtown_bgm():
-    """번화가 BGM 재생"""
-    bgm_manager.play_bgm('downtown')
+    """번화가 BGM 재생 - 3개 BGM 중 랜덤 선택"""
+    # downtown (기존), downtown1, downtown2 중 존재하는 파일만 후보로 추가
+    available_tracks = []
+    for track_name in ['downtown', 'downtown1', 'downtown2']:
+        bgm_path = bgm_manager._resolve_bgm_path(track_name)
+        if bgm_path:
+            available_tracks.append(track_name)
+
+    if available_tracks:
+        selected = random.choice(available_tracks)
+        print(f"[광장 BGM] {len(available_tracks)}개 중 '{selected}' 선택됨")
+        bgm_manager.play_bgm(selected)
+    else:
+        # 파일이 하나도 없으면 기본 downtown 시도
+        print("[광장 BGM] 사용 가능한 파일 없음, 기본 downtown 시도")
+        bgm_manager.play_bgm('downtown')
     
 def stop_bgm():
     """BGM 정지"""
@@ -359,3 +436,11 @@ def set_bgm_volume(volume):
 def toggle_bgm():
     """BGM 토글 (일시정지/재개)"""
     bgm_manager.toggle_bgm()
+
+def set_system_mute(muted: bool):
+    """시스템 전체 음소거 설정 (옵션 메뉴에서 사용)"""
+    bgm_manager.set_system_mute(muted)
+
+def is_system_muted() -> bool:
+    """시스템 음소거 상태 확인"""
+    return bgm_manager.is_system_muted()

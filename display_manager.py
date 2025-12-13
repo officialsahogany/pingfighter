@@ -3,9 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Sequence, Tuple
+from typing import Callable, Sequence, Tuple, Optional
 
 import pygame
+
+# 전체화면 모드 설정 (pingfighter.py에서 설정됨)
+_fullscreen_mode_active = False
+_fullscreen_game_surface: Optional[pygame.Surface] = None
+
+def set_fullscreen_mode(active: bool, game_surface: Optional[pygame.Surface] = None):
+    """전체화면 모드 설정 (pingfighter.py에서 호출)"""
+    global _fullscreen_mode_active, _fullscreen_game_surface
+    _fullscreen_mode_active = active
+    _fullscreen_game_surface = game_surface
 
 ResolutionOption = Tuple[int, int]
 
@@ -57,7 +67,15 @@ def change_resolution(
     next_index = (current_resolution_index + direction) % len(resolution_options)
     new_width, new_height = resolution_options[next_index]
 
-    screen = pygame.display.set_mode((new_width, new_height), screen_flags)
+    # 전체화면 모드에서는 기존 게임 Surface를 유지
+    if _fullscreen_mode_active and _fullscreen_game_surface is not None:
+        screen = _fullscreen_game_surface
+        # 전체화면 모드에서는 해상도 변경 무시 (게임 크기 고정)
+        new_width = internal_width
+        new_height = internal_height
+    else:
+        screen = pygame.display.set_mode((new_width, new_height), screen_flags)
+
     draw = factories.draw(screen)
     unified_renderer = factories.unified_renderer(screen, internal_width, internal_height)
     dialog_system = factories.dialog_system(screen, internal_width, internal_height)
@@ -105,7 +123,12 @@ def change_internal_resolution(
 ) -> ChangeInternalResolutionResult:
     """게임 내부 해상도를 변경하면서 화면/객체를 재설정한다."""
 
-    screen = pygame.display.set_mode((new_width, new_height))
+    # 전체화면 모드에서는 기존 게임 Surface를 유지
+    if _fullscreen_mode_active and _fullscreen_game_surface is not None:
+        screen = _fullscreen_game_surface
+    else:
+        screen = pygame.display.set_mode((new_width, new_height))
+
     draw = factories.draw(screen)
     unified_renderer = factories.unified_renderer(screen, new_width, new_height)
     dialog_system = factories.dialog_system(screen, new_width, new_height)

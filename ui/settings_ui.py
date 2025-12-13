@@ -563,17 +563,16 @@ class SettingsUI:
         if not self.active:
             return
             
-        # 배경 (반투명)
-        overlay = pygame.Surface((self.global_manager.get('WIDTH', 600), 
-                                 self.global_manager.get('HEIGHT', 750)))
+        # 배경 (반투명) - convert()로 Windows 전체화면 알파 블렌딩 문제 해결
+        overlay = pygame.Surface((self.global_manager.get('WIDTH', 600),
+                                 self.global_manager.get('HEIGHT', 750))).convert()
         overlay.set_alpha(200)
         overlay.fill((0, 0, 0))
         screen.blit(overlay, (0, 0))
-        
-        # 패널 배경
-        panel_surface = pygame.Surface((self.panel_width, self.panel_height))
-        panel_surface.set_alpha(int(self.fade_alpha))
-        panel_surface.fill((30, 30, 30))
+
+        # 패널 배경 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
+        panel_surface = pygame.Surface((self.panel_width, self.panel_height), pygame.SRCALPHA)
+        panel_surface.fill((30, 30, 30, int(self.fade_alpha)))
         pygame.draw.rect(panel_surface, (100, 100, 100), 
                         (0, 0, self.panel_width, self.panel_height), 2)
         screen.blit(panel_surface, (self.panel_x, self.panel_y))
@@ -739,10 +738,9 @@ class SettingsUI:
         
     def _render_binding_mode(self, screen: pygame.Surface):
         """키 바인딩 모드 렌더링"""
-        # 오버레이
-        overlay = pygame.Surface((self.panel_width - 40, 100))
-        overlay.set_alpha(240)
-        overlay.fill((40, 40, 40))
+        # 오버레이 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
+        overlay = pygame.Surface((self.panel_width - 40, 100), pygame.SRCALPHA)
+        overlay.fill((40, 40, 40, 240))
         overlay_rect = overlay.get_rect(center=(self.panel_x + self.panel_width // 2,
                                                self.panel_y + self.panel_height // 2))
         screen.blit(overlay, overlay_rect)

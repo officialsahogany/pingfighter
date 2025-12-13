@@ -209,6 +209,21 @@ BUILDING_INFO = {
 }
 
 # =============================================================================
+# 영업정지 건물 목록 (아직 구현되지 않은 건물들)
+# 나중에 구현이 완료되면 이 목록에서 제거하면 영업정지 해제됨
+# =============================================================================
+CLOSED_BUILDINGS = {
+    BuildingType.COLOSSEUM,      # 고대 투기장
+    BuildingType.BLACKSMITH,     # 용광로 대장간
+    BuildingType.MAGIC_STORE,    # 마법 성소
+    BuildingType.PET_SHOP,       # 숲의 펫샵
+    BuildingType.ELDER,          # 피라미드 현자
+    BuildingType.MINIGAME,       # 레트로 아케이드
+    BuildingType.TAVERN,         # 모험가의 선술집
+    BuildingType.MYSTERY,        # ???
+}
+
+# =============================================================================
 # 상점 건물 디자인 옵션 (5가지 - 사용자가 선택)
 # =============================================================================
 SHOP_DESIGNS = {
@@ -378,7 +393,7 @@ PLANET_THEMES = {
     },
     PlanetTheme.DESERT_TOWN: {
         "name": "사막 마을",
-        "bg_color": (60, 40, 20),
+        "bg_color": (150, 135, 100),          # 바닥색과 유사하게 변경 (건물 뒤 갈색 방지)
         "ground_color": (170, 150, 110),      # 바닥: 모래
         "road_color": (210, 195, 165),        # 도로: 밝은 사암 (대비 강화)
         "accent_color": Colors.NEON_ORANGE,

@@ -157,8 +157,9 @@ class LegendaryAcquisitionEffect:
         self.phase_timer = 0
         self.animation_complete = False
         
-        # 전설 아이템 애니메이션 설정
-        if item_name in ["hermes_shoes", "ragnarok_hammer"]:
+        # 전설 아이템 애니메이션 설정 - 모든 전설 아이템 지원
+        legendary_items_list = ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel"]
+        if item_name in legendary_items_list:
             from legendary_items import get_legendary_manager
             self.legendary_manager = get_legendary_manager()
             if self.legendary_manager:

@@ -607,7 +607,7 @@ class ChipAnimationManager:
 # 카드 애니메이션 시스템
 # ============================================
 class CardAnimation:
-    """카드 애니메이션 - 프리미엄 버전"""
+    """카드 애니메이션 - 프리미엄 버전 (자연스러운 모션)"""
     def __init__(self, card, start_x, start_y, end_x, end_y, duration=0.5,
                  delay=0, flip_at=0.5, start_face_up=False):
         self.card = card
@@ -619,33 +619,68 @@ class CardAnimation:
         self.current_y = start_y
         self.duration = duration
         self.delay = delay
+        self.initial_delay = delay  # 원래 딜레이 저장
         self.elapsed = 0
         self.flip_at = flip_at  # 카드 뒤집는 타이밍 (0~1)
         self.start_face_up = start_face_up
         self.flipped = start_face_up
         self.completed = False
-        self.scale = 0.2  # 시작 스케일 (더 작게 시작)
-        self.rotation = random.uniform(-15, 15)  # 시작 회전 (덜 과격하게)
+        self.started = False  # 실제 애니메이션 시작 여부 (딜레이 후)
+        self.sound_played = False  # 사운드 재생 여부
+        self.scale = 0.4  # 시작 스케일 (조금 더 크게 시작)
+        self.initial_rotation = random.uniform(-8, 8)  # 초기 회전 (덜 과격하게)
+        self.rotation = self.initial_rotation
         self.target_rotation = 0
         self.shadow_alpha = 0  # 그림자 투명도
-        self.arc_height = 40  # 호를 그리며 이동 (포물선 효과)
 
-    def _ease_out_back(self, t):
-        """부드러운 오버슈트 이징 (살짝 튕기는 효과)"""
-        c1 = 1.70158
-        c3 = c1 + 1
-        return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2)
+        # 자연스러운 곡선 이동을 위한 베지어 컨트롤 포인트
+        dist_x = end_x - start_x
+        dist_y = end_y - start_y
+        dist = math.sqrt(dist_x * dist_x + dist_y * dist_y)
+        self.arc_height = min(50, max(20, dist * 0.12))  # 거리에 비례한 호 높이
+
+        # 살짝 휘어지는 경로를 위한 컨트롤 포인트 (더 자연스럽게)
+        self.ctrl_x = start_x + dist_x * 0.5 + random.uniform(-15, 15)
+        self.ctrl_y = start_y + dist_y * 0.5  # Y는 베지어로만 처리, 호는 별도
+
+    def _ease_out_cubic(self, t):
+        """3차 감속 이징 - 부드러운 감속"""
+        return 1 - pow(1 - t, 3)
 
     def _ease_out_quart(self, t):
-        """부드러운 감속 이징"""
+        """4차 감속 이징 - 더 부드러운 감속"""
         return 1 - pow(1 - t, 4)
 
+    def _ease_out_quint(self, t):
+        """5차 감속 이징 - 매우 부드러운 감속"""
+        return 1 - pow(1 - t, 5)
+
     def _ease_in_out_cubic(self, t):
-        """부드러운 가속-감속 이징"""
+        """3차 가속-감속 이징 - 부드러운 시작과 끝"""
         if t < 0.5:
             return 4 * t * t * t
         else:
             return 1 - pow(-2 * t + 2, 3) / 2
+
+    def _ease_in_out_quint(self, t):
+        """5차 가속-감속 이징 - 부드러운 시작과 끝"""
+        if t < 0.5:
+            return 16 * t * t * t * t * t
+        else:
+            return 1 - pow(-2 * t + 2, 5) / 2
+
+    def _ease_smooth_step(self, t):
+        """스무스 스텝 이징 - 매우 부드러운 시작과 끝"""
+        return t * t * (3 - 2 * t)
+
+    def _ease_smoother_step(self, t):
+        """더 부드러운 스무스 스텝 이징"""
+        return t * t * t * (t * (t * 6 - 15) + 10)
+
+    def _bezier_point(self, t, p0, p1, p2):
+        """2차 베지어 곡선 계산"""
+        mt = 1 - t
+        return mt * mt * p0 + 2 * mt * t * p1 + t * t * p2
 
     def update(self, dt):
         if self.completed:
@@ -655,33 +690,55 @@ class CardAnimation:
             self.delay -= dt
             return False
 
+        # 딜레이가 끝나고 실제 애니메이션이 시작되는 시점 표시
+        if not self.started:
+            self.started = True
+
         self.elapsed += dt
         progress = min(1.0, self.elapsed / self.duration)
 
-        # 이징 함수 (부드러운 가속-감속)
-        eased = self._ease_in_out_cubic(progress)
+        # 스무더 스텝 이징 - 시작과 끝이 모두 부드러움
+        position_eased = self._ease_smoother_step(progress)
 
-        # 위치용 이징 (살짝 오버슈트)
-        position_eased = self._ease_out_back(progress) if progress > 0.5 else self._ease_out_quart(progress * 2) * 0.5
+        # 베지어 곡선을 따라 이동 (더 자연스러운 경로)
+        self.current_x = self._bezier_point(position_eased, self.start_x, self.ctrl_x, self.end_x)
+        self.current_y = self._bezier_point(position_eased, self.start_y, self.ctrl_y, self.end_y)
 
-        # 위치 보간 (X축)
-        self.current_x = self.start_x + (self.end_x - self.start_x) * position_eased
+        # 포물선 호 효과 (중간에 살짝 위로 올라갔다 내려옴)
+        arc_progress = math.sin(progress * math.pi)  # 0 -> 1 -> 0 형태
+        arc_offset = -self.arc_height * arc_progress * (1 - progress * 0.5)  # 끝으로 갈수록 줄어듦
+        self.current_y += arc_offset
 
-        # Y축은 포물선 효과 추가 (호를 그리며 이동)
-        linear_y = self.start_y + (self.end_y - self.start_y) * position_eased
-        arc_offset = -self.arc_height * math.sin(progress * math.pi)  # 포물선
-        self.current_y = linear_y + arc_offset
+        # 스케일 보간 (부드러운 확대 - 3차 이징 사용)
+        scale_eased = self._ease_out_cubic(progress)
+        self.scale = 0.5 + 0.5 * scale_eased
 
-        # 스케일 보간 (더 부드럽게)
-        scale_eased = self._ease_out_quart(progress)
-        self.scale = 0.2 + 0.8 * scale_eased
+        # 착지 시 미세한 스쿼시 & 스트레치
+        if progress > 0.85:
+            landing_progress = (progress - 0.85) / 0.15
+            # 착지 직전 살짝 늘어남 -> 착지 시 눌림 -> 복원
+            if landing_progress < 0.4:
+                # 늘어남
+                stretch = 1 + 0.03 * math.sin(landing_progress / 0.4 * math.pi * 0.5)
+            elif landing_progress < 0.7:
+                # 눌림
+                squash_t = (landing_progress - 0.4) / 0.3
+                stretch = 1.03 - 0.06 * math.sin(squash_t * math.pi * 0.5)
+            else:
+                # 복원
+                restore_t = (landing_progress - 0.7) / 0.3
+                stretch = 0.97 + 0.03 * self._ease_out_cubic(restore_t)
+            self.scale *= stretch
 
-        # 회전 보간 (부드럽게 0으로)
-        rotation_eased = self._ease_out_quart(progress)
-        self.rotation = self.rotation * (1 - rotation_eased)
+        # 회전 보간 (부드럽게 안정화)
+        rotation_eased = self._ease_smoother_step(progress)
+        # 이동 방향으로 살짝 기울어지는 효과
+        travel_tilt = math.sin(progress * math.pi) * 4 * (1 if self.end_x > self.start_x else -1)
+        self.rotation = self.initial_rotation * (1 - rotation_eased) + travel_tilt * (1 - progress)
 
-        # 그림자 효과 (착지할 때 강해짐)
-        self.shadow_alpha = int(80 * scale_eased)
+        # 그림자 효과 (높이에 따라 변화)
+        shadow_progress = self._ease_out_quart(progress)
+        self.shadow_alpha = int(60 * shadow_progress)
 
         # 카드 뒤집기 (flip_at이 None이면 자동 뒤집기 비활성화)
         if self.flip_at is not None and not self.flipped and progress >= self.flip_at:
@@ -694,7 +751,7 @@ class CardAnimation:
             self.current_y = self.end_y
             self.scale = 1.0
             self.rotation = 0
-            self.shadow_alpha = 80
+            self.shadow_alpha = 60
 
         return self.completed
 
@@ -1256,9 +1313,11 @@ class PokerGame:
             'east': [(680, 250), (680, 310)],   # 동쪽 NPC (우측, 세로 배치)
         }
 
-        # 각 플레이어에게 카드 2장씩 배분
+        # 각 플레이어에게 카드 2장씩 배분 (한 장씩 순차적으로)
         delay = 0
         deal_order = ['south', 'west', 'north', 'east']  # 딜링 순서
+        card_duration = 0.40  # 카드 이동 시간 (자연스러운 모션)
+        card_interval = 0.32  # 카드 간 간격 (빠른 진행)
 
         for round_num in range(2):  # 2라운드 (각 1장씩)
             for pos in deal_order:
@@ -1273,15 +1332,15 @@ class PokerGame:
 
                 anim = CardAnimation(
                     card, deck_x, deck_y, card_pos[0], card_pos[1],
-                    duration=0.5, delay=delay,
+                    duration=card_duration, delay=delay,
                     flip_at=0.7 if player.is_human else 1.1,
                     start_face_up=False
                 )
                 self.card_animations.append(anim)
-                delay += 0.12
+                delay += card_interval  # 한 장씩 순차적으로 딜링
 
     def _start_community_deal(self, count, dramatic=False):
-        """커뮤니티 카드 딜링
+        """커뮤니티 카드 딜링 (한 장씩 순차적으로)
         dramatic: True면 리버 드라마틱 연출 (카드가 뒷면으로 놓이고 뜸들인 후 뒤집힘)
         """
         deck_x = 400
@@ -1290,6 +1349,9 @@ class PokerGame:
         # 커뮤니티 카드 위치 계산 (테이블 중앙)
         base_x = 225 + len(self.community_cards) * 65
         comm_y = 280
+
+        card_duration = 0.45  # 카드 이동 시간 (자연스러운 모션)
+        card_interval = 0.40  # 카드 간 간격 (빠른 진행)
 
         for i in range(count):
             card = self.deck.deal(True)
@@ -1301,14 +1363,14 @@ class PokerGame:
                 # 리버 드라마틱 모드: 카드가 뒷면으로 테이블에 놓임 (뒤집기 없음)
                 anim = CardAnimation(
                     card, deck_x, deck_y, end_x, comm_y,
-                    duration=0.5, delay=i * 0.15,
+                    duration=card_duration, delay=i * card_interval,
                     flip_at=None, start_face_up=False  # 뒤집기 비활성화
                 )
                 self.river_dramatic_card = card  # 리버 카드 참조 저장
             else:
                 anim = CardAnimation(
                     card, deck_x, deck_y, end_x, comm_y,
-                    duration=0.5, delay=i * 0.15,
+                    duration=card_duration, delay=i * card_interval,
                     flip_at=0.6, start_face_up=False
                 )
             self.card_animations.append(anim)
@@ -1468,8 +1530,15 @@ class PokerGame:
             if len(active) == 1:
                 winner = active[0]
                 self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
-                winner.win(self.pot)
+                prize, fee = self._award_fold_winner(winner)
                 self.result_message = f"{winner.name} 승리! (다른 플레이어 모두 폴드)"
+                # 플레이어 골드 동기화
+                self.player_gold = self.human_player.gold
+                # 파산 체크
+                for player in self.players.values():
+                    if player.gold < self.min_bet and not player.is_bankrupt:
+                        player.is_bankrupt = True
+                        print(f"[Poker] {player.name} 파산! (골드: {player.gold})")
                 self.state = self.STATE_GAME_OVER
                 self.spectator_mode = False
             else:
@@ -1601,8 +1670,15 @@ class PokerGame:
         if len(active) == 1:
             winner = active[0]
             self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
-            winner.win(self.pot)
+            prize, fee = self._award_fold_winner(winner)
             self.result_message = f"{winner.name} 승리!"
+            # 플레이어 골드 동기화
+            self.player_gold = self.human_player.gold
+            # 파산 체크
+            for player in self.players.values():
+                if player.gold < self.min_bet and not player.is_bankrupt:
+                    player.is_bankrupt = True
+                    print(f"[Poker] {player.name} 파산! (골드: {player.gold})")
             self.state = self.STATE_GAME_OVER
             return
 
@@ -1639,8 +1715,15 @@ class PokerGame:
         if len(active) == 1:
             winner = active[0]
             self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
-            winner.win(self.pot)
+            prize, fee = self._award_fold_winner(winner)
             self.result_message = f"{winner.name} 승리!"
+            # 플레이어 골드 동기화
+            self.player_gold = self.human_player.gold
+            # 파산 체크
+            for player in self.players.values():
+                if player.gold < self.min_bet and not player.is_bankrupt:
+                    player.is_bankrupt = True
+                    print(f"[Poker] {player.name} 파산! (골드: {player.gold})")
             self.state = self.STATE_GAME_OVER
             return
 
@@ -1662,8 +1745,15 @@ class PokerGame:
         if len(active) == 1:
             winner = active[0]
             self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
-            winner.win(self.pot)
+            prize, fee = self._award_fold_winner(winner)
             self.result_message = f"{winner.name} 승리!"
+            # 플레이어 골드 동기화
+            self.player_gold = self.human_player.gold
+            # 파산 체크
+            for player in self.players.values():
+                if player.gold < self.min_bet and not player.is_bankrupt:
+                    player.is_bankrupt = True
+                    print(f"[Poker] {player.name} 파산! (골드: {player.gold})")
             self.state = self.STATE_GAME_OVER
             return
 
@@ -1684,8 +1774,15 @@ class PokerGame:
         if len(active) == 1:
             winner = active[0]
             self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
-            winner.win(self.pot)
+            prize, fee = self._award_fold_winner(winner)
             self.result_message = f"{winner.name} 승리!"
+            # 플레이어 골드 동기화
+            self.player_gold = self.human_player.gold
+            # 파산 체크
+            for player in self.players.values():
+                if player.gold < self.min_bet and not player.is_bankrupt:
+                    player.is_bankrupt = True
+                    print(f"[Poker] {player.name} 파산! (골드: {player.gold})")
             self.state = self.STATE_GAME_OVER
             self.spectator_mode = False
             return
@@ -1705,8 +1802,15 @@ class PokerGame:
         if len(active) == 1:
             winner = active[0]
             self.winners = [{'position': winner.position, 'player': winner, 'hand_result': None}]
-            winner.win(self.pot)
+            prize, fee = self._award_fold_winner(winner)
             self.result_message = f"{winner.name} 승리!"
+            # 플레이어 골드 동기화
+            self.player_gold = self.human_player.gold
+            # 파산 체크
+            for player in self.players.values():
+                if player.gold < self.min_bet and not player.is_bankrupt:
+                    player.is_bankrupt = True
+                    print(f"[Poker] {player.name} 파산! (골드: {player.gold})")
             self.state = self.STATE_GAME_OVER
             self.spectator_mode = False
             return
@@ -1720,6 +1824,35 @@ class PokerGame:
             # 베팅 상태 리셋 후 다음 NPC 라운드
             self.npcs_acted_this_round = False
             self._start_spectator_npc_round()
+
+    def _award_fold_winner(self, winner):
+        """폴드 승리 시 수수료 적용하여 상금 지급
+
+        Args:
+            winner: 승리한 플레이어
+
+        Returns:
+            tuple: (실제 지급액, 수수료)
+        """
+        # 하우스 엣지 계산 (쇼다운과 동일한 로직)
+        total_fee_rate = self.house_edge
+        if winner.is_human:
+            total_fee_rate += self.player_win_streak * self.win_streak_penalty
+        total_fee_rate = min(total_fee_rate, 0.20)  # 최대 20%
+
+        fee = int(self.pot * total_fee_rate)
+        prize = self.pot - fee
+        winner.win(prize)
+
+        # 플레이어 승리 시 연승 추가 & 수수료 표시
+        if winner.is_human:
+            self.player_win_streak += 1
+            if fee > 0:
+                self.pending_floating_texts.append((f"-{fee} (수수료)", 'fee', 'south'))
+        else:
+            self.player_win_streak = 0
+
+        return prize, fee
 
     def _showdown(self):
         """쇼다운: 애니메이션 쇼다운 시작"""
@@ -1821,6 +1954,12 @@ class PokerGame:
         # 쇼다운 완료 - 관전자 모드 해제
         self.spectator_mode = False
 
+        # 파산 체크 (골드가 최소 베팅보다 적으면 파산)
+        for player in self.players.values():
+            if player.gold < self.min_bet and not player.is_bankrupt:
+                player.is_bankrupt = True
+                print(f"[Poker] {player.name} 파산! (골드: {player.gold})")
+
         self.state = self.STATE_SHOWDOWN
 
     def _get_hand_rank_level(self, hand_rank):
@@ -1851,9 +1990,9 @@ class PokerGame:
         """쇼다운 애니메이션 업데이트"""
         self.showdown_timer += dt
 
-        # 인트로 단계 (0.5초 대기)
+        # 인트로 단계 (1.0초 대기 - 웨스턴 스타일 연출)
         if self.state == self.STATE_SHOWDOWN_INTRO:
-            if self.showdown_timer >= 0.5:
+            if self.showdown_timer >= 1.0:
                 self.showdown_timer = 0
                 self.showdown_player_idx = 0
                 if self.showdown_reveal_order:
@@ -2662,6 +2801,12 @@ class PokerGameUI:
         self.table_sparkles = []  # 테이블 테두리 반짝임 효과
         self.table_pulse_phase = 0  # 테이블 펄스 효과
 
+        # 프리미엄 배경 애니메이션 변수
+        self.bg_chandelier_phase = 0  # 샹들리에 애니메이션
+        self.bg_ambient_particles = []  # 공기 중 먼지/빛 입자
+        self.bg_star_twinkles = []  # 별빛 반짝임
+        self._init_background_elements()
+
         # BGM 관리자
         self.bgm = PokerBGM.get_instance()
 
@@ -2675,6 +2820,51 @@ class PokerGameUI:
         # NPC 액션 음성 효과음 로드
         self.action_sounds = {}
         self._load_action_sounds()
+
+        # 카드 배분 효과음 로드
+        self.card_sound = None
+        self._load_card_sound()
+
+        # 카드 딜링 사운드 추적용 (이전 프레임 카드 수)
+        self.last_card_animation_count = 0
+        self.last_community_card_count = 0
+        self.last_player_card_counts = {}  # 각 플레이어별 카드 수 추적
+
+        # 카드 뒤집기 효과음 로드 (쇼다운용)
+        self.card_flip_sound = None
+        self._load_card_flip_sound()
+        self.last_card_flip_active = False  # 카드 뒤집기 상태 추적
+
+        # 족보 공개 효과음 로드 (쇼다운용)
+        self.opencard_sound = None
+        self._load_opencard_sound()
+        self.last_showdown_state = None  # 쇼다운 상태 추적
+
+        # 승리 효과음 로드
+        self.victory_sound = None
+        self._load_victory_sound()
+
+        # 패배 효과음 로드
+        self.lose_sound = None
+        self._load_lose_sound()
+
+        # 칩 이동 효과음 로드
+        self.chips_sound = None
+        self._load_chips_sound()
+
+        # 툴팁 효과음 로드
+        self.tooltip_sound = None
+        self._load_tooltip_sound()
+
+        # 리버 오픈 효과음 로드
+        self.riveropen_sound = None
+        self._load_riveropen_sound()
+        self.last_river_dramatic_phase = 0  # 리버 드라마틱 페이즈 추적
+
+        # 쇼다운 인트로 효과음 로드
+        self.showdown_sound = None
+        self._load_showdown_sound()
+        self.last_showdown_intro_state = False  # 쇼다운 인트로 상태 추적
 
         # 족보 스크롤 패널 관련 변수
         self.show_hand_rankings = False  # 족보 패널 표시 여부
@@ -2808,6 +2998,9 @@ class PokerGameUI:
             duration=0.4
         )
 
+        # 칩 이동 효과음 재생
+        self._play_chips_sound()
+
     def trigger_win_chip_animation(self, winner_position):
         """승리 시 판돈 칩이 승자에게 이동하는 애니메이션"""
         if not self.game:
@@ -2903,6 +3096,267 @@ class PokerGameUI:
             except Exception:
                 pass
 
+    def _load_card_sound(self):
+        """카드 배분 효과음 로드"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            sound_path = os.path.join(parent_dir, "sounds", "poker", "cardshoot.wav")
+
+            if os.path.exists(sound_path):
+                self.card_sound = pygame.mixer.Sound(sound_path)
+                self.card_sound.set_volume(0.5)
+                print(f"[PokerGameUI] 카드 효과음 로드 완료")
+            else:
+                # PyInstaller 환경
+                alt_path = resource_path(os.path.join("sounds", "poker", "cardshoot.wav"))
+                if os.path.exists(alt_path):
+                    self.card_sound = pygame.mixer.Sound(alt_path)
+                    self.card_sound.set_volume(0.5)
+                    print(f"[PokerGameUI] 카드 효과음 로드 완료 (PyInstaller)")
+        except Exception as e:
+            print(f"[PokerGameUI] 카드 효과음 로드 실패: {e}")
+
+    def _play_card_sound(self):
+        """카드 배분 효과음 재생"""
+        if self.card_sound:
+            try:
+                self.card_sound.play()
+            except Exception:
+                pass
+
+    def _load_card_flip_sound(self):
+        """카드 뒤집기 효과음 로드 (쇼다운용)"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            sound_path = os.path.join(parent_dir, "sounds", "poker", "cardreverse.wav")
+
+            if os.path.exists(sound_path):
+                self.card_flip_sound = pygame.mixer.Sound(sound_path)
+                self.card_flip_sound.set_volume(0.5)
+                print(f"[PokerGameUI] 카드 뒤집기 효과음 로드 완료")
+            else:
+                # PyInstaller 환경
+                alt_path = resource_path(os.path.join("sounds", "poker", "cardreverse.wav"))
+                if os.path.exists(alt_path):
+                    self.card_flip_sound = pygame.mixer.Sound(alt_path)
+                    self.card_flip_sound.set_volume(0.5)
+                    print(f"[PokerGameUI] 카드 뒤집기 효과음 로드 완료 (PyInstaller)")
+        except Exception as e:
+            print(f"[PokerGameUI] 카드 뒤집기 효과음 로드 실패: {e}")
+
+    def _play_card_flip_sound(self):
+        """카드 뒤집기 효과음 재생"""
+        if self.card_flip_sound:
+            try:
+                self.card_flip_sound.play()
+            except Exception:
+                pass
+
+    def _load_opencard_sound(self):
+        """족보 공개 효과음 로드 (쇼다운용)"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            sound_path = os.path.join(parent_dir, "sounds", "poker", "opencard.wav")
+
+            if os.path.exists(sound_path):
+                self.opencard_sound = pygame.mixer.Sound(sound_path)
+                self.opencard_sound.set_volume(0.6)
+                print(f"[PokerGameUI] 족보 공개 효과음 로드 완료")
+            else:
+                # PyInstaller 환경
+                alt_path = resource_path(os.path.join("sounds", "poker", "opencard.wav"))
+                if os.path.exists(alt_path):
+                    self.opencard_sound = pygame.mixer.Sound(alt_path)
+                    self.opencard_sound.set_volume(0.6)
+                    print(f"[PokerGameUI] 족보 공개 효과음 로드 완료 (PyInstaller)")
+        except Exception as e:
+            print(f"[PokerGameUI] 족보 공개 효과음 로드 실패: {e}")
+
+    def _play_opencard_sound(self):
+        """족보 공개 효과음 재생"""
+        if self.opencard_sound:
+            try:
+                self.opencard_sound.play()
+            except Exception:
+                pass
+
+    def _load_victory_sound(self):
+        """승리 효과음 로드"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            sound_path = os.path.join(parent_dir, "sounds", "poker", "victory.wav")
+
+            if os.path.exists(sound_path):
+                self.victory_sound = pygame.mixer.Sound(sound_path)
+                self.victory_sound.set_volume(0.7)
+                print(f"[PokerGameUI] 승리 효과음 로드 완료")
+            else:
+                # PyInstaller 환경
+                alt_path = resource_path(os.path.join("sounds", "poker", "victory.wav"))
+                if os.path.exists(alt_path):
+                    self.victory_sound = pygame.mixer.Sound(alt_path)
+                    self.victory_sound.set_volume(0.7)
+                    print(f"[PokerGameUI] 승리 효과음 로드 완료 (PyInstaller)")
+        except Exception as e:
+            print(f"[PokerGameUI] 승리 효과음 로드 실패: {e}")
+
+    def _play_victory_sound(self):
+        """승리 효과음 재생"""
+        if self.victory_sound:
+            try:
+                self.victory_sound.play()
+            except Exception:
+                pass
+
+    def _load_lose_sound(self):
+        """패배 효과음 로드"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            sound_path = os.path.join(parent_dir, "sounds", "poker", "loose.wav")
+
+            if os.path.exists(sound_path):
+                self.lose_sound = pygame.mixer.Sound(sound_path)
+                self.lose_sound.set_volume(0.6)
+                print(f"[PokerGameUI] 패배 효과음 로드 완료")
+            else:
+                # PyInstaller 환경
+                alt_path = resource_path(os.path.join("sounds", "poker", "loose.wav"))
+                if os.path.exists(alt_path):
+                    self.lose_sound = pygame.mixer.Sound(alt_path)
+                    self.lose_sound.set_volume(0.6)
+                    print(f"[PokerGameUI] 패배 효과음 로드 완료 (PyInstaller)")
+        except Exception as e:
+            print(f"[PokerGameUI] 패배 효과음 로드 실패: {e}")
+
+    def _play_lose_sound(self):
+        """패배 효과음 재생"""
+        if self.lose_sound:
+            try:
+                self.lose_sound.play()
+            except Exception:
+                pass
+
+    def _load_chips_sound(self):
+        """칩 이동 효과음 로드"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            sound_path = os.path.join(parent_dir, "sounds", "poker", "chips.wav")
+
+            if os.path.exists(sound_path):
+                self.chips_sound = pygame.mixer.Sound(sound_path)
+                self.chips_sound.set_volume(0.5)
+                print(f"[PokerGameUI] 칩 이동 효과음 로드 완료")
+            else:
+                # PyInstaller 환경
+                alt_path = resource_path(os.path.join("sounds", "poker", "chips.wav"))
+                if os.path.exists(alt_path):
+                    self.chips_sound = pygame.mixer.Sound(alt_path)
+                    self.chips_sound.set_volume(0.5)
+                    print(f"[PokerGameUI] 칩 이동 효과음 로드 완료 (PyInstaller)")
+        except Exception as e:
+            print(f"[PokerGameUI] 칩 이동 효과음 로드 실패: {e}")
+
+    def _play_chips_sound(self):
+        """칩 이동 효과음 재생"""
+        if self.chips_sound:
+            try:
+                self.chips_sound.play()
+            except Exception:
+                pass
+
+    def _load_tooltip_sound(self):
+        """툴팁 효과음 로드"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            sound_path = os.path.join(parent_dir, "sounds", "poker", "pagetooltip.wav")
+
+            if os.path.exists(sound_path):
+                self.tooltip_sound = pygame.mixer.Sound(sound_path)
+                self.tooltip_sound.set_volume(0.4)
+                print(f"[PokerGameUI] 툴팁 효과음 로드 완료")
+            else:
+                # PyInstaller 환경
+                alt_path = resource_path(os.path.join("sounds", "poker", "pagetooltip.wav"))
+                if os.path.exists(alt_path):
+                    self.tooltip_sound = pygame.mixer.Sound(alt_path)
+                    self.tooltip_sound.set_volume(0.4)
+                    print(f"[PokerGameUI] 툴팁 효과음 로드 완료 (PyInstaller)")
+        except Exception as e:
+            print(f"[PokerGameUI] 툴팁 효과음 로드 실패: {e}")
+
+    def _play_tooltip_sound(self):
+        """툴팁 효과음 재생"""
+        if self.tooltip_sound:
+            try:
+                self.tooltip_sound.play()
+            except Exception:
+                pass
+
+    def _load_riveropen_sound(self):
+        """리버 오픈 효과음 로드"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            sound_path = os.path.join(parent_dir, "sounds", "poker", "riveropen.wav")
+
+            if os.path.exists(sound_path):
+                self.riveropen_sound = pygame.mixer.Sound(sound_path)
+                self.riveropen_sound.set_volume(0.5)
+                print(f"[PokerGameUI] 리버 오픈 효과음 로드 완료")
+            else:
+                # PyInstaller 환경
+                alt_path = resource_path(os.path.join("sounds", "poker", "riveropen.wav"))
+                if os.path.exists(alt_path):
+                    self.riveropen_sound = pygame.mixer.Sound(alt_path)
+                    self.riveropen_sound.set_volume(0.5)
+                    print(f"[PokerGameUI] 리버 오픈 효과음 로드 완료 (PyInstaller)")
+        except Exception as e:
+            print(f"[PokerGameUI] 리버 오픈 효과음 로드 실패: {e}")
+
+    def _play_riveropen_sound(self):
+        """리버 오픈 효과음 재생"""
+        if self.riveropen_sound:
+            try:
+                self.riveropen_sound.play()
+            except Exception:
+                pass
+
+    def _load_showdown_sound(self):
+        """쇼다운 인트로 효과음 로드"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            sound_path = os.path.join(parent_dir, "sounds", "poker", "showdown.wav")
+
+            if os.path.exists(sound_path):
+                self.showdown_sound = pygame.mixer.Sound(sound_path)
+                self.showdown_sound.set_volume(0.6)
+                print(f"[PokerGameUI] 쇼다운 효과음 로드 완료")
+            else:
+                # PyInstaller 환경
+                alt_path = resource_path(os.path.join("sounds", "poker", "showdown.wav"))
+                if os.path.exists(alt_path):
+                    self.showdown_sound = pygame.mixer.Sound(alt_path)
+                    self.showdown_sound.set_volume(0.6)
+                    print(f"[PokerGameUI] 쇼다운 효과음 로드 완료 (PyInstaller)")
+        except Exception as e:
+            print(f"[PokerGameUI] 쇼다운 효과음 로드 실패: {e}")
+
+    def _play_showdown_sound(self):
+        """쇼다운 인트로 효과음 재생"""
+        if self.showdown_sound:
+            try:
+                self.showdown_sound.play()
+            except Exception:
+                pass
+
     def start_game(self, player_gold):
         self.game = PokerGame(player_gold)
         self.game.start_new_round()
@@ -2910,6 +3364,15 @@ class PokerGameUI:
         self.result_shown = False
         self.win_chips_triggered = False
         self.last_npc_action_display = None
+
+        # 카드 딜링 사운드 추적 리셋
+        self.last_card_animation_count = 0
+        self.last_community_card_count = 0
+        self.last_player_card_counts = {}
+        self.last_card_flip_active = False
+        self.last_showdown_state = None
+        self.last_river_dramatic_phase = 0
+        self.last_showdown_intro_state = False
 
         # 포커 BGM 시작
         if self.bgm:
@@ -3002,11 +3465,15 @@ class PokerGameUI:
     def _handle_mouse_hover(self, pos):
         """마우스 호버 처리"""
         # 족보 패널 호버 체크 (패널이 열려있을 때)
+        prev_hovered_rank = self.hovered_hand_rank
         self.hovered_hand_rank = None
         if self.show_hand_rankings and self.hand_rankings_scroll > 0.9:
             for rank, rect in self.hand_ranking_rects.items():
                 if rect.collidepoint(pos):
                     self.hovered_hand_rank = rank
+                    # 새로운 족보에 호버 시 툴팁 효과음 재생
+                    if prev_hovered_rank != rank:
+                        self._play_tooltip_sound()
                     break
 
         # 액션 상태일 때만 버튼 호버 처리
@@ -3041,6 +3508,8 @@ class PokerGameUI:
             # 패널 외부 클릭 시 닫기
             if not panel_rect.collidepoint(pos):
                 self.show_hand_rankings = False
+                # 족보 탭 닫기 효과음 재생
+                self._play_chips_sound()
 
         # 애니메이션 중에는 무시
         if self.game.state in [PokerGame.STATE_DEALING, PokerGame.STATE_FLOP_DEALING,
@@ -3094,9 +3563,13 @@ class PokerGameUI:
                                 return None  # 골드 부족
                             if call_amount > 0:
                                 self._spawn_chip_animation(call_amount)
+                                self._play_action_sound('call')  # 플레이어 콜 음성
+                            else:
+                                self._play_action_sound('check')  # 플레이어 체크 음성
                             self.game.call()
                             return 'action_call'
                         elif i == 1:  # FOLD
+                            self._play_action_sound('fold')  # 플레이어 폴드 음성
                             self.game.fold()
                             return 'action_fold'
                     else:
@@ -3107,6 +3580,9 @@ class PokerGameUI:
                                 return None  # 골드 부족
                             if call_amount > 0:
                                 self._spawn_chip_animation(call_amount)
+                                self._play_action_sound('call')  # 플레이어 콜 음성
+                            else:
+                                self._play_action_sound('check')  # 플레이어 체크 음성
                             self.game.call()
                             return 'action_call'
                         elif i == 1:  # RAISE
@@ -3115,8 +3591,14 @@ class PokerGameUI:
                                 call_needed = self.game.current_bet_to_call - human.current_bet
                                 total = self.raise_amount + max(0, call_needed)
                                 self._spawn_chip_animation(total)
+                                # 올인인지 확인
+                                if human.gold == 0:
+                                    self._play_action_sound('all_in')  # 플레이어 올인 음성
+                                else:
+                                    self._play_action_sound('raise')  # 플레이어 레이즈 음성
                                 return 'action_raise'
                         elif i == 2:  # FOLD
+                            self._play_action_sound('fold')  # 플레이어 폴드 음성
                             self.game.fold()
                             return 'action_fold'
 
@@ -3200,9 +3682,13 @@ class PokerGameUI:
                         return None  # 골드 부족
                     if call_amount > 0:
                         self._spawn_chip_animation(call_amount)
+                        self._play_action_sound('call')  # 플레이어 콜 음성
+                    else:
+                        self._play_action_sound('check')  # 플레이어 체크 음성
                     self.game.call()
                     return 'action_call'
                 elif self.selected_action == 1:
+                    self._play_action_sound('fold')  # 플레이어 폴드 음성
                     self.game.fold()
                     return 'action_fold'
             else:
@@ -3213,13 +3699,23 @@ class PokerGameUI:
                         return None  # 골드 부족
                     if call_amount > 0:
                         self._spawn_chip_animation(call_amount)
+                        self._play_action_sound('call')  # 플레이어 콜 음성
+                    else:
+                        self._play_action_sound('check')  # 플레이어 체크 음성
                     self.game.call()
                     return 'action_call'
                 elif self.selected_action == 1:
                     if self.game.raise_bet(self.raise_amount):
+                        human = self.game.players['south']
                         self._spawn_chip_animation(self.raise_amount)
+                        # 올인인지 확인
+                        if human.gold == 0:
+                            self._play_action_sound('all_in')  # 플레이어 올인 음성
+                        else:
+                            self._play_action_sound('raise')  # 플레이어 레이즈 음성
                         return 'action_raise'
                 elif self.selected_action == 2:
+                    self._play_action_sound('fold')  # 플레이어 폴드 음성
                     self.game.fold()
                     return 'action_fold'
             # selected_action이 -1이면 아무 동작 안함 (마우스로 클릭해야 함)
@@ -3260,6 +3756,10 @@ class PokerGameUI:
         self.animation_timer += dt
         self.particles.update(dt)
 
+        # BGM 다음 곡 재생 체크 (이벤트 방식 백업)
+        if self.bgm:
+            self.bgm.check_and_play_next()
+
         # 칩 스택 업데이트
         self._update_chip_stacks()
 
@@ -3279,6 +3779,40 @@ class PokerGameUI:
         self.floating_texts = updated_floating
 
         if self.game:
+            # 카드 딜링 사운드 재생 (각 카드 애니메이션이 실제로 시작될 때)
+            for anim in self.game.card_animations:
+                # started=True이고 아직 사운드를 재생하지 않은 경우
+                if anim.started and not anim.sound_played:
+                    self._play_card_sound()
+                    anim.sound_played = True  # 사운드 재생 완료 표시
+
+            # 쇼다운 카드 뒤집기 사운드 재생 (뒤집기 시작 감지)
+            if self.game.card_flip_active and not self.last_card_flip_active:
+                # 카드 뒤집기 애니메이션 시작됨
+                self._play_card_flip_sound()
+            self.last_card_flip_active = self.game.card_flip_active
+
+            # 족보 공개 사운드 재생 (STATE_SHOWDOWN_HAND 진입 감지)
+            current_state = self.game.state
+            if current_state == PokerGame.STATE_SHOWDOWN_HAND and self.last_showdown_state != PokerGame.STATE_SHOWDOWN_HAND:
+                # 족보 하이라이트 단계 진입 = 족보 공개
+                self._play_opencard_sound()
+            self.last_showdown_state = current_state
+
+            # 리버 카드 공개 사운드 재생 (드라마틱 페이즈 2 진입 = 카드 뒤집기 시작)
+            current_river_phase = self.game.river_dramatic_phase
+            if current_river_phase == 2 and self.last_river_dramatic_phase != 2:
+                # 리버 카드 뒤집기 시작 = 리버 공개
+                self._play_riveropen_sound()
+            self.last_river_dramatic_phase = current_river_phase
+
+            # 쇼다운 인트로 사운드 재생 (STATE_SHOWDOWN_INTRO 진입 감지)
+            is_showdown_intro = (self.game.state == PokerGame.STATE_SHOWDOWN_INTRO)
+            if is_showdown_intro and not self.last_showdown_intro_state:
+                # 쇼다운 인트로 시작
+                self._play_showdown_sound()
+            self.last_showdown_intro_state = is_showdown_intro
+
             self.game.update(dt)
 
             # NPC 생각 업데이트 및 NPC 베팅 시 칩 애니메이션
@@ -3324,6 +3858,11 @@ class PokerGameUI:
                 if player_won:
                     # 빵빠레 폭죽 애니메이션
                     self.particles.emit_confetti(self.screen_width, self.screen_height)
+                    # 승리 효과음 재생
+                    self._play_victory_sound()
+                else:
+                    # 패배 효과음 재생
+                    self._play_lose_sound()
 
                 # 승리 시 칩 애니메이션 - 판돈이 승자에게 이동
                 if not self.win_chips_triggered and self.game.winners:
@@ -3531,16 +4070,655 @@ class PokerGameUI:
             # 화면에 블릿
             screen.blit(icon_surf, (icon_x, icon_y))
 
+    def _init_background_elements(self):
+        """프리미엄 카지노 배경 요소 초기화"""
+        # 천장 별빛/보석 반짝임 초기화 (샹들리에 주변, 좌상단 x=80 기준)
+        self.bg_star_twinkles = []
+        chandelier_x = 80  # 샹들리에 위치
+        chandelier_y = 70
+        for _ in range(10):
+            # 샹들리에 주변 반경 60~120 범위에 배치
+            angle = random.uniform(0, math.pi * 2)
+            distance = random.uniform(60, 120)
+            self.bg_star_twinkles.append({
+                'x': chandelier_x + math.cos(angle) * distance,
+                'y': chandelier_y + math.sin(angle) * distance * 0.6,  # y축은 좀 더 납작하게
+                'phase': random.uniform(0, math.pi * 2),
+                'size': random.uniform(1.5, 3.5),
+                'speed': random.uniform(0.02, 0.05)
+            })
+
+        # 공기 중 먼지/빛 입자 초기화
+        for _ in range(30):
+            self._spawn_ambient_particle()
+
+    def _spawn_ambient_particle(self):
+        """공기 중 입자 생성"""
+        self.bg_ambient_particles.append({
+            'x': random.randint(0, self.screen_width),
+            'y': random.randint(0, self.screen_height),
+            'vx': random.uniform(-0.3, 0.3),
+            'vy': random.uniform(-0.2, 0.2),
+            'size': random.uniform(1, 3),
+            'alpha': random.uniform(20, 60),
+            'life': random.uniform(200, 500)
+        })
+
     def _draw_background(self, screen):
-        """프리미엄 배경"""
-        # 그라데이션 배경
+        """프리미엄 카지노 배경 - 고급스러운 VIP 룸"""
+        # 애니메이션 업데이트
+        self.bg_chandelier_phase += 0.02
+
+        # 1. 깊이감 있는 그라데이션 배경 (어두운 와인색/보라색 톤)
         for y in range(self.screen_height):
             ratio = y / self.screen_height
-            r = int(18 + ratio * 8)
-            g = int(15 + ratio * 10)
-            b = int(25 + ratio * 15)
+            # 위쪽은 더 어둡고, 아래쪽은 약간 밝은 톤
+            r = int(22 + ratio * 12)
+            g = int(12 + ratio * 8)
+            b = int(28 + ratio * 18)
             pygame.draw.line(screen, (r, g, b), (0, y), (self.screen_width, y))
 
+        # 2. 벽면 패널/월페이퍼 패턴 (다마스크 느낌)
+        self._draw_wall_pattern(screen)
+
+        # 3. 천장 몰딩 장식
+        self._draw_ceiling_molding(screen)
+
+        # 4. 샹들리에 (좌상단)
+        self._draw_chandelier(screen, 80, 70)  # 좌상측 끝쪽
+
+        # 5. 바닥 카펫 가장자리
+        self._draw_carpet_edge(screen)
+
+        # 7. 천장 별빛/보석 반짝임
+        self._draw_ceiling_sparkles(screen)
+
+        # 8. 공기 중 먼지/빛 입자 (분위기)
+        self._draw_ambient_particles(screen)
+
+        # 9. 비네트 효과 (가장자리 어둡게)
+        self._draw_vignette(screen)
+
+    def _draw_wall_pattern(self, screen):
+        """벽면 다마스크 패턴"""
+        pattern_surf = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+
+        # 세로 줄무늬 패턴 (미묘한)
+        stripe_width = 60
+        for x in range(0, self.screen_width, stripe_width):
+            alpha = 8 if (x // stripe_width) % 2 == 0 else 4
+            pygame.draw.rect(pattern_surf, (40, 25, 50, alpha),
+                           (x, 0, stripe_width, self.screen_height))
+
+        # 다마스크 문양 (다이아몬드 패턴)
+        pattern_spacing = 80
+        for py in range(40, self.screen_height - 100, pattern_spacing):
+            for px in range(40, self.screen_width - 40, pattern_spacing):
+                # 짝/홀수 행에 따라 오프셋
+                offset = pattern_spacing // 2 if (py // pattern_spacing) % 2 == 1 else 0
+                dx = px + offset
+                if dx < self.screen_width - 40:
+                    self._draw_damask_motif(pattern_surf, dx, py)
+
+        screen.blit(pattern_surf, (0, 0))
+
+    def _draw_damask_motif(self, surface, x, y):
+        """다마스크 문양 하나 그리기"""
+        # 중앙 다이아몬드
+        size = 12
+        alpha = 15
+        color = (60, 40, 70, alpha)
+
+        points = [
+            (x, y - size),
+            (x + size, y),
+            (x, y + size),
+            (x - size, y)
+        ]
+        pygame.draw.polygon(surface, color, points)
+
+        # 작은 장식 점
+        for angle in [0, math.pi/2, math.pi, math.pi*3/2]:
+            dot_x = x + math.cos(angle) * (size + 6)
+            dot_y = y + math.sin(angle) * (size + 6)
+            pygame.draw.circle(surface, (50, 35, 60, 12), (int(dot_x), int(dot_y)), 2)
+
+    def _draw_ceiling_molding(self, screen):
+        """천장 몰딩 장식"""
+        molding_surf = pygame.Surface((self.screen_width, 50), pygame.SRCALPHA)
+
+        # 메인 몰딩 라인들 (골드 톤)
+        pygame.draw.rect(molding_surf, (50, 40, 30, 180), (0, 0, self.screen_width, 8))
+        pygame.draw.rect(molding_surf, (80, 65, 45, 200), (0, 8, self.screen_width, 4))
+        pygame.draw.rect(molding_surf, (60, 50, 35, 160), (0, 12, self.screen_width, 6))
+
+        # 골드 하이라이트 라인
+        pygame.draw.line(molding_surf, (180, 150, 80, 100), (0, 3), (self.screen_width, 3), 1)
+        pygame.draw.line(molding_surf, (150, 120, 60, 80), (0, 16), (self.screen_width, 16), 1)
+
+        # 반복되는 장식 패턴 (작은 아치)
+        arch_spacing = 40
+        for x in range(arch_spacing // 2, self.screen_width, arch_spacing):
+            # 작은 장식 아치
+            pygame.draw.arc(molding_surf, (70, 55, 40, 150),
+                          (x - 12, 20, 24, 20), 0, math.pi, 2)
+            # 중앙 점
+            pygame.draw.circle(molding_surf, (120, 100, 60, 180), (x, 35), 2)
+
+        screen.blit(molding_surf, (0, 0))
+
+    def _draw_chandelier(self, screen, cx=None, cy=None):
+        """초정밀 크리스탈 샹들리에 - 사실적 디테일 버전"""
+        if cx is None:
+            cx = self.screen_width // 2
+        if cy is None:
+            cy = 70
+
+        # === 판돈에 따른 흔들림 효과 ===
+        pot_amount = self.game.pot if self.game else 0
+        shake_x = 0
+        shake_y = 0
+        shake_rotation = 0  # 회전 느낌을 위한 추가 오프셋
+
+        if pot_amount >= 3000:
+            # 심각한 흔들림 (3000골드 이상)
+            shake_intensity = 6
+            shake_speed = 12
+            shake_x = math.sin(self.bg_chandelier_phase * shake_speed) * shake_intensity
+            shake_x += math.sin(self.bg_chandelier_phase * shake_speed * 1.7) * (shake_intensity * 0.5)
+            shake_y = math.cos(self.bg_chandelier_phase * shake_speed * 0.8) * (shake_intensity * 0.4)
+            shake_rotation = math.sin(self.bg_chandelier_phase * shake_speed * 1.3) * 0.15
+        elif pot_amount >= 2000:
+            # 중간 흔들림 (2000골드 이상)
+            shake_intensity = 3
+            shake_speed = 8
+            shake_x = math.sin(self.bg_chandelier_phase * shake_speed) * shake_intensity
+            shake_y = math.cos(self.bg_chandelier_phase * shake_speed * 0.7) * (shake_intensity * 0.3)
+            shake_rotation = math.sin(self.bg_chandelier_phase * shake_speed) * 0.08
+        elif pot_amount >= 1000:
+            # 약한 흔들림 (1000골드 이상)
+            shake_intensity = 1.5
+            shake_speed = 5
+            shake_x = math.sin(self.bg_chandelier_phase * shake_speed) * shake_intensity
+            shake_rotation = math.sin(self.bg_chandelier_phase * shake_speed) * 0.03
+
+        # 흔들림 적용된 중심점
+        cx = cx + shake_x
+        cy = cy + shake_y
+
+        # 애니메이션 펄스 (여러 주파수로 자연스러운 빛 흔들림)
+        pulse = 0.85 + 0.10 * math.sin(self.bg_chandelier_phase)
+        pulse2 = 0.90 + 0.08 * math.sin(self.bg_chandelier_phase * 1.3 + 0.5)
+        pulse3 = 0.88 + 0.12 * math.sin(self.bg_chandelier_phase * 0.7 + 1.2)
+
+        # === 1. 천장 마운트 & 체인 ===
+        # 천장 로제트 (장식 원판)
+        for i in range(3, 0, -1):
+            rosette_color = (70 + i * 8, 55 + i * 6, 40 + i * 5)
+            pygame.draw.ellipse(screen, rosette_color,
+                              (cx - 12 - i * 2, -5, 24 + i * 4, 12 + i * 2))
+
+        # 체인 링크들 (섬세한 고리 형태)
+        chain_start_y = 5
+        chain_end_y = cy - 38
+        num_links = 8
+        for i in range(num_links):
+            link_y = chain_start_y + (chain_end_y - chain_start_y) * i / num_links
+            link_width = 3 + math.sin(i * 0.8) * 0.5
+            # 체인 고리 (타원)
+            pygame.draw.ellipse(screen, (95, 80, 55),
+                              (cx - 2, link_y, 4, 6), 1)
+            # 고리 하이라이트
+            pygame.draw.arc(screen, (140, 120, 80),
+                          (cx - 2, link_y, 4, 6), 0.5, 2.5, 1)
+
+        # === 2. 상단 크라운 (캐노피) - 정교한 조각 ===
+        crown_y = cy - 35
+
+        # 크라운 베이스 (다층 그라데이션)
+        for layer in range(5):
+            layer_ratio = layer / 5
+            crown_color = (
+                int(75 + layer_ratio * 35),
+                int(60 + layer_ratio * 30),
+                int(45 + layer_ratio * 20)
+            )
+            shrink = layer * 1.5
+            pygame.draw.polygon(screen, crown_color, [
+                (cx - 28 + shrink, crown_y + layer),
+                (cx + 28 - shrink, crown_y + layer),
+                (cx + 22 - shrink, crown_y + 12 - layer * 0.5),
+                (cx - 22 + shrink, crown_y + 12 - layer * 0.5)
+            ])
+
+        # 크라운 상단 장식 (작은 돔)
+        pygame.draw.ellipse(screen, (100, 85, 60), (cx - 10, crown_y - 6, 20, 10))
+        pygame.draw.ellipse(screen, (130, 110, 75), (cx - 7, crown_y - 4, 14, 6))
+        # 돔 하이라이트
+        pygame.draw.arc(screen, (180, 160, 110), (cx - 6, crown_y - 3, 12, 5), 0.3, 2.8, 1)
+
+        # 크라운 테두리 장식 (작은 구슬들)
+        num_crown_beads = 16
+        for i in range(num_crown_beads):
+            bead_angle = (i / num_crown_beads) * math.pi * 2
+            bead_x = cx + math.cos(bead_angle) * 26
+            bead_y = crown_y + 6 + math.sin(bead_angle) * 3
+            bead_pulse = pulse * (0.9 + 0.1 * math.sin(self.bg_chandelier_phase * 2 + i * 0.4))
+            bead_color = (int(160 * bead_pulse), int(140 * bead_pulse), int(100 * bead_pulse))
+            pygame.draw.circle(screen, bead_color, (int(bead_x), int(bead_y)), 2)
+            # 구슬 하이라이트
+            pygame.draw.circle(screen, (220, 210, 180), (int(bead_x - 0.5), int(bead_y - 0.5)), 1)
+
+        # === 3. 메인 본체 (보울) - 다층 금속 ===
+        bowl_y = cy - 15
+        bowl_w, bowl_h = 70, 22
+
+        # 보울 외부 그림자
+        shadow_surf = pygame.Surface((bowl_w + 20, bowl_h + 15), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 30), (0, 5, bowl_w + 20, bowl_h + 10))
+        screen.blit(shadow_surf, (cx - bowl_w // 2 - 10, bowl_y - 5))
+
+        # 보울 본체 (여러 층의 금속 그라데이션)
+        for layer in range(8):
+            ratio = layer / 8
+            # 위쪽은 밝고 아래쪽은 어둡게
+            r = int(70 + ratio * 50 + pulse * 15)
+            g = int(55 + ratio * 45 + pulse * 12)
+            b = int(40 + ratio * 30 + pulse * 8)
+            shrink_w = layer * 2
+            shrink_h = layer * 1
+            pygame.draw.ellipse(screen, (r, g, b),
+                              (cx - bowl_w // 2 + shrink_w, bowl_y + layer,
+                               bowl_w - shrink_w * 2, bowl_h - shrink_h * 2))
+
+        # 보울 테두리 하이라이트
+        highlight_surf = pygame.Surface((bowl_w, 8), pygame.SRCALPHA)
+        for i in range(8):
+            alpha = int(80 - i * 10)
+            pygame.draw.ellipse(highlight_surf, (200, 180, 130, alpha),
+                              (i, i // 2, bowl_w - i * 2, 6 - i // 2))
+        screen.blit(highlight_surf, (cx - bowl_w // 2, bowl_y - 2))
+
+        # 보울 장식 밴드 (가운데 금색 띠)
+        pygame.draw.ellipse(screen, (180, 150, 90),
+                          (cx - bowl_w // 2 + 5, bowl_y + 8, bowl_w - 10, 6), 1)
+
+        # === 4. 크리스탈 가지 (암) - 3단계 계층 ===
+        arm_layers = [
+            {'count': 6, 'length': 55, 'y_offset': 5, 'crystal_size': 1.2},   # 상단 (긴 가지)
+            {'count': 8, 'length': 42, 'y_offset': 12, 'crystal_size': 1.0},  # 중단
+            {'count': 6, 'length': 30, 'y_offset': 18, 'crystal_size': 0.8},  # 하단 (짧은 가지)
+        ]
+
+        for layer_idx, layer in enumerate(arm_layers):
+            for i in range(layer['count']):
+                # 판돈에 따른 흔들림 회전 적용
+                angle = (i / layer['count']) * math.pi * 2 - math.pi / 2 + shake_rotation
+                arm_len = layer['length']
+
+                # 가지 시작/끝점
+                start_x = cx + math.cos(angle) * 25
+                start_y = cy + layer['y_offset']
+                end_x = cx + math.cos(angle) * arm_len
+                end_y = cy + layer['y_offset'] + 15 + math.sin(angle) * 5
+
+                # 가지 본체 (곡선 느낌을 위해 다중 세그먼트)
+                segments = 4
+                for seg in range(segments):
+                    t1 = seg / segments
+                    t2 = (seg + 1) / segments
+                    # 베지어 곡선 느낌
+                    curve = math.sin(t1 * math.pi) * 3
+                    curve2 = math.sin(t2 * math.pi) * 3
+
+                    seg_x1 = start_x + (end_x - start_x) * t1
+                    seg_y1 = start_y + (end_y - start_y) * t1 + curve
+                    seg_x2 = start_x + (end_x - start_x) * t2
+                    seg_y2 = start_y + (end_y - start_y) * t2 + curve2
+
+                    # 가지 금속 (그라데이션)
+                    arm_brightness = 0.7 + t1 * 0.3
+                    arm_color = (
+                        int(90 * arm_brightness),
+                        int(75 * arm_brightness),
+                        int(55 * arm_brightness)
+                    )
+                    thickness = max(1, int(3 - seg * 0.5))
+                    pygame.draw.line(screen, arm_color,
+                                   (seg_x1, seg_y1), (seg_x2, seg_y2), thickness)
+
+                # 가지 끝 장식 (캔들 홀더)
+                holder_x, holder_y = end_x, end_y
+                # 홀더 컵
+                pygame.draw.ellipse(screen, (85, 70, 50),
+                                  (holder_x - 6, holder_y - 2, 12, 6))
+                pygame.draw.ellipse(screen, (110, 95, 65),
+                                  (holder_x - 4, holder_y - 1, 8, 4))
+
+                # === 크리스탈 드롭 (초정밀) ===
+                crystal_x = holder_x
+                crystal_y = holder_y + 5
+                crystal_scale = layer['crystal_size']
+                crystal_pulse = pulse2 * (0.85 + 0.15 * math.sin(
+                    self.bg_chandelier_phase * 1.5 + i * 0.6 + layer_idx * 0.8))
+
+                # 크리스탈 글로우 (다중 레이어)
+                glow_size = int(25 * crystal_scale)
+                glow_surf = pygame.Surface((glow_size * 2, glow_size * 3), pygame.SRCALPHA)
+                for g in range(5, 0, -1):
+                    glow_alpha = int(20 * crystal_pulse * (6 - g) / 5)
+                    glow_color = (255, 240, 200, glow_alpha)
+                    pygame.draw.ellipse(glow_surf, glow_color,
+                                      (glow_size - 8 * g // 2, 5, 8 * g, 12 * g))
+                screen.blit(glow_surf, (crystal_x - glow_size, crystal_y - 5))
+
+                # 크리스탈 본체 (다면체 컷)
+                cs = 5 * crystal_scale  # 크리스탈 크기
+                crystal_base = (
+                    int(180 * crystal_pulse),
+                    int(170 * crystal_pulse),
+                    int(150 * crystal_pulse)
+                )
+                crystal_bright = (
+                    int(220 * crystal_pulse),
+                    int(215 * crystal_pulse),
+                    int(200 * crystal_pulse)
+                )
+                crystal_dark = (
+                    int(140 * crystal_pulse),
+                    int(130 * crystal_pulse),
+                    int(110 * crystal_pulse)
+                )
+
+                # 크리스탈 면들 (팔각형 프리즘)
+                # 상단면
+                pygame.draw.polygon(screen, crystal_bright, [
+                    (crystal_x, crystal_y),
+                    (crystal_x + cs * 0.7, crystal_y + cs * 0.5),
+                    (crystal_x, crystal_y + cs),
+                    (crystal_x - cs * 0.7, crystal_y + cs * 0.5)
+                ])
+                # 왼쪽 면
+                pygame.draw.polygon(screen, crystal_dark, [
+                    (crystal_x - cs * 0.7, crystal_y + cs * 0.5),
+                    (crystal_x, crystal_y + cs),
+                    (crystal_x - cs * 0.5, crystal_y + cs * 2.5),
+                    (crystal_x - cs * 0.9, crystal_y + cs * 1.5)
+                ])
+                # 오른쪽 면
+                pygame.draw.polygon(screen, crystal_base, [
+                    (crystal_x + cs * 0.7, crystal_y + cs * 0.5),
+                    (crystal_x + cs * 0.9, crystal_y + cs * 1.5),
+                    (crystal_x + cs * 0.5, crystal_y + cs * 2.5),
+                    (crystal_x, crystal_y + cs)
+                ])
+                # 하단 뾰족 부분
+                pygame.draw.polygon(screen, crystal_dark, [
+                    (crystal_x - cs * 0.5, crystal_y + cs * 2.5),
+                    (crystal_x, crystal_y + cs * 3.5),
+                    (crystal_x + cs * 0.5, crystal_y + cs * 2.5),
+                    (crystal_x, crystal_y + cs * 2)
+                ])
+
+                # 크리스탈 내부 빛 반사
+                pygame.draw.line(screen, (255, 255, 250, 180),
+                               (crystal_x - cs * 0.3, crystal_y + cs * 0.8),
+                               (crystal_x - cs * 0.2, crystal_y + cs * 1.8), 1)
+                # 크리스탈 엣지 하이라이트
+                pygame.draw.line(screen, (255, 255, 255),
+                               (crystal_x, crystal_y),
+                               (crystal_x + cs * 0.6, crystal_y + cs * 0.4), 1)
+
+                # 작은 보조 크리스탈 (일부 가지에만)
+                if i % 2 == 0 and layer_idx < 2:
+                    mini_x = crystal_x + cs * 1.2
+                    mini_y = crystal_y + cs
+                    mini_scale = 0.4
+                    mini_pulse = pulse3 * crystal_pulse
+                    mini_color = (int(200 * mini_pulse), int(195 * mini_pulse), int(180 * mini_pulse))
+                    pygame.draw.polygon(screen, mini_color, [
+                        (mini_x, mini_y),
+                        (mini_x + 2, mini_y + 3),
+                        (mini_x, mini_y + 7),
+                        (mini_x - 2, mini_y + 3)
+                    ])
+
+        # === 5. 중앙 대형 크리스탈 펜던트 ===
+        center_x = cx
+        center_y = cy + 25
+        center_pulse = pulse * (0.92 + 0.08 * math.sin(self.bg_chandelier_phase * 2))
+
+        # 중앙 크리스탈 글로우 (대형)
+        center_glow = pygame.Surface((80, 100), pygame.SRCALPHA)
+        for g in range(6, 0, -1):
+            glow_alpha = int(30 * center_pulse * (7 - g) / 6)
+            pygame.draw.ellipse(center_glow, (255, 245, 210, glow_alpha),
+                              (40 - g * 6, 20 - g * 3, g * 12, g * 18))
+        screen.blit(center_glow, (center_x - 40, center_y - 15))
+
+        # 중앙 크리스탈 마운트 (금속 캡)
+        pygame.draw.ellipse(screen, (90, 75, 55), (center_x - 10, center_y - 5, 20, 10))
+        pygame.draw.ellipse(screen, (120, 100, 70), (center_x - 7, center_y - 3, 14, 6))
+        # 캡 하이라이트
+        pygame.draw.arc(screen, (170, 150, 110), (center_x - 6, center_y - 2, 12, 5), 0.5, 2.6, 1)
+
+        # 중앙 크리스탈 본체 (대형 다면체)
+        cs = 10  # 크리스탈 스케일
+        cc_bright = (int(230 * center_pulse), int(225 * center_pulse), int(210 * center_pulse))
+        cc_base = (int(200 * center_pulse), int(195 * center_pulse), int(175 * center_pulse))
+        cc_dark = (int(160 * center_pulse), int(155 * center_pulse), int(140 * center_pulse))
+        cc_shadow = (int(120 * center_pulse), int(115 * center_pulse), int(100 * center_pulse))
+
+        # 상단 팔각형 면
+        pygame.draw.polygon(screen, cc_bright, [
+            (center_x, center_y + 5),
+            (center_x + cs, center_y + cs),
+            (center_x + cs * 0.7, center_y + cs * 1.8),
+            (center_x, center_y + cs * 1.5),
+            (center_x - cs * 0.7, center_y + cs * 1.8),
+            (center_x - cs, center_y + cs)
+        ])
+
+        # 중단 면들
+        pygame.draw.polygon(screen, cc_base, [
+            (center_x + cs, center_y + cs),
+            (center_x + cs * 1.2, center_y + cs * 2.5),
+            (center_x + cs * 0.8, center_y + cs * 4),
+            (center_x + cs * 0.7, center_y + cs * 1.8)
+        ])
+        pygame.draw.polygon(screen, cc_dark, [
+            (center_x - cs, center_y + cs),
+            (center_x - cs * 0.7, center_y + cs * 1.8),
+            (center_x - cs * 0.8, center_y + cs * 4),
+            (center_x - cs * 1.2, center_y + cs * 2.5)
+        ])
+
+        # 하단 뾰족 부분
+        pygame.draw.polygon(screen, cc_shadow, [
+            (center_x - cs * 0.8, center_y + cs * 4),
+            (center_x, center_y + cs * 5.5),
+            (center_x + cs * 0.8, center_y + cs * 4),
+            (center_x, center_y + cs * 3.5)
+        ])
+
+        # 내부 빛 반사선들
+        pygame.draw.line(screen, (255, 255, 255),
+                        (center_x - cs * 0.5, center_y + cs * 1.2),
+                        (center_x - cs * 0.3, center_y + cs * 3), 1)
+        pygame.draw.line(screen, (255, 255, 250),
+                        (center_x + cs * 0.2, center_y + cs * 1.5),
+                        (center_x + cs * 0.4, center_y + cs * 2.5), 1)
+
+        # 엣지 하이라이트
+        pygame.draw.line(screen, (255, 255, 255),
+                        (center_x, center_y + 5),
+                        (center_x + cs, center_y + cs), 1)
+        pygame.draw.line(screen, (250, 250, 245),
+                        (center_x + cs, center_y + cs),
+                        (center_x + cs * 1.2, center_y + cs * 2.5), 1)
+
+        # === 6. 크리스탈 비즈 스트랜드 (체인) ===
+        num_strands = 5
+        for strand in range(num_strands):
+            # 판돈에 따른 흔들림 회전 적용
+            strand_angle = (strand / num_strands) * math.pi * 2 - math.pi / 2 + shake_rotation
+            strand_start_x = cx + math.cos(strand_angle) * 20
+            strand_start_y = cy + 8
+            strand_end_x = cx + math.cos(strand_angle) * 45
+            strand_end_y = cy + 35
+
+            # 비즈들
+            num_beads = 6
+            for bead in range(num_beads):
+                t = bead / num_beads
+                bead_x = strand_start_x + (strand_end_x - strand_start_x) * t
+                bead_y = strand_start_y + (strand_end_y - strand_start_y) * t
+                # 처진 곡선
+                sag = math.sin(t * math.pi) * 8
+                bead_y += sag
+
+                bead_pulse = pulse3 * (0.8 + 0.2 * math.sin(
+                    self.bg_chandelier_phase * 2 + strand * 0.5 + bead * 0.3))
+                bead_size = 2 if bead % 2 == 0 else 1.5
+
+                # 비즈 글로우
+                if bead_size > 1.5:
+                    glow_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surf, (255, 250, 220, int(40 * bead_pulse)), (5, 5), 4)
+                    screen.blit(glow_surf, (int(bead_x - 5), int(bead_y - 5)))
+
+                # 비즈 본체
+                bead_color = (
+                    int(220 * bead_pulse),
+                    int(215 * bead_pulse),
+                    int(200 * bead_pulse)
+                )
+                pygame.draw.circle(screen, bead_color, (int(bead_x), int(bead_y)), int(bead_size))
+                # 하이라이트
+                pygame.draw.circle(screen, (255, 255, 250),
+                                 (int(bead_x - 0.5), int(bead_y - 0.5)), 1)
+
+    def _draw_carpet_edge(self, screen):
+        """바닥 카펫 가장자리"""
+        carpet_surf = pygame.Surface((self.screen_width, 80), pygame.SRCALPHA)
+
+        # 카펫 본체 (진한 빨강/와인색)
+        for i in range(30):
+            alpha = 60 - i * 2
+            y_offset = i
+            pygame.draw.rect(carpet_surf, (50, 20, 25, alpha),
+                           (0, self.screen_height - 80 + y_offset, self.screen_width, 2))
+
+        # 골드 테두리
+        pygame.draw.rect(carpet_surf, (120, 100, 60, 150),
+                        (0, 0, self.screen_width, 4))
+        pygame.draw.rect(carpet_surf, (80, 65, 45, 120),
+                        (0, 4, self.screen_width, 2))
+
+        # 장식 패턴 (작은 마름모)
+        for x in range(30, self.screen_width - 30, 50):
+            pygame.draw.polygon(carpet_surf, (100, 80, 50, 100), [
+                (x, 15), (x + 8, 23), (x, 31), (x - 8, 23)
+            ])
+
+        screen.blit(carpet_surf, (0, self.screen_height - 80))
+
+    def _draw_ceiling_sparkles(self, screen):
+        """천장 별빛/보석 반짝임"""
+        for star in self.bg_star_twinkles:
+            star['phase'] += star['speed']
+            pulse = 0.3 + 0.7 * abs(math.sin(star['phase']))
+
+            if pulse > 0.5:  # 밝을 때만 그리기
+                x, y = int(star['x']), int(star['y'])
+                size = star['size'] * pulse
+
+                # 글로우
+                glow_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+                glow_alpha = int(40 * pulse)
+                pygame.draw.circle(glow_surf, (255, 250, 220, glow_alpha), (10, 10), int(size * 3))
+                screen.blit(glow_surf, (x - 10, y - 10))
+
+                # 중앙 점
+                pygame.draw.circle(screen, (255, 255, 240), (x, y), max(1, int(size)))
+
+                # 십자 광선 (밝을 때)
+                if pulse > 0.7:
+                    line_len = int(size * 2)
+                    line_color = (255, 250, 230, int(100 * pulse))
+                    line_surf = pygame.Surface((line_len * 2 + 2, line_len * 2 + 2), pygame.SRCALPHA)
+                    center = line_len + 1
+                    pygame.draw.line(line_surf, line_color, (center, center - line_len),
+                                   (center, center + line_len), 1)
+                    pygame.draw.line(line_surf, line_color, (center - line_len, center),
+                                   (center + line_len, center), 1)
+                    screen.blit(line_surf, (x - center, y - center))
+
+    def _draw_ambient_particles(self, screen):
+        """공기 중 먼지/빛 입자"""
+        new_particles = []
+        for p in self.bg_ambient_particles:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['life'] -= 1
+
+            if p['life'] > 0:
+                # 화면 밖으로 나가면 반대편으로
+                if p['x'] < 0:
+                    p['x'] = self.screen_width
+                elif p['x'] > self.screen_width:
+                    p['x'] = 0
+                if p['y'] < 0:
+                    p['y'] = self.screen_height
+                elif p['y'] > self.screen_height:
+                    p['y'] = 0
+
+                new_particles.append(p)
+
+                # 그리기
+                alpha = int(p['alpha'] * (p['life'] / 500))
+                if alpha > 5:
+                    color = (255, 250, 230, alpha)
+                    particle_surf = pygame.Surface((int(p['size'] * 2 + 2), int(p['size'] * 2 + 2)), pygame.SRCALPHA)
+                    pygame.draw.circle(particle_surf, color,
+                                     (int(p['size'] + 1), int(p['size'] + 1)), int(p['size']))
+                    screen.blit(particle_surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
+            else:
+                # 새 입자 생성
+                self._spawn_ambient_particle()
+
+        self.bg_ambient_particles = new_particles[:40]  # 최대 40개
+
+    def _draw_vignette(self, screen):
+        """비네트 효과 (가장자리 어둡게)"""
+        # 모서리 그라데이션
+        corner_size = 200
+        corner_surf = pygame.Surface((corner_size, corner_size), pygame.SRCALPHA)
+
+        # 각 모서리에 어두운 그라데이션
+        for i in range(corner_size):
+            alpha = int(80 * (1 - i / corner_size) ** 2)
+            for j in range(corner_size - i):
+                corner_surf.set_at((i, j), (0, 0, 0, alpha))
+
+        # 4개 모서리에 배치
+        screen.blit(corner_surf, (0, 0))
+        screen.blit(pygame.transform.flip(corner_surf, True, False),
+                   (self.screen_width - corner_size, 0))
+        screen.blit(pygame.transform.flip(corner_surf, False, True),
+                   (0, self.screen_height - corner_size))
+        screen.blit(pygame.transform.flip(corner_surf, True, True),
+                   (self.screen_width - corner_size, self.screen_height - corner_size))
+
+        # 상하 가장자리
+        edge_height = 60
+        top_edge = pygame.Surface((self.screen_width, edge_height), pygame.SRCALPHA)
+        for y in range(edge_height):
+            alpha = int(50 * (1 - y / edge_height))
+            pygame.draw.line(top_edge, (0, 0, 0, alpha), (0, y), (self.screen_width, y))
+        screen.blit(top_edge, (0, 0))
+        screen.blit(pygame.transform.flip(top_edge, False, True),
+                   (0, self.screen_height - edge_height))
 
     def _draw_premium_table(self, screen):
         """프리미엄 포커 테이블 - 화려한 애니메이션 버전"""
@@ -4687,6 +5865,9 @@ class PokerGameUI:
             'turn': '턴',
             'river_dealing': '리버...',
             'river': '리버',
+            'showdown_intro': '쇼다운',
+            'showdown_reveal': '쇼다운',
+            'showdown_hand': '쇼다운',
             'showdown': '쇼다운',
             'game_over': '게임 종료'
         }
@@ -5507,6 +6688,8 @@ class PokerGameUI:
     def toggle_hand_rankings(self):
         """족보 패널 토글"""
         self.show_hand_rankings = not self.show_hand_rankings
+        # 족보 탭 토글 효과음 재생
+        self._play_chips_sound()
 
     def handle_scroll_icon_click(self, pos):
         """스크롤 아이콘 클릭 처리"""
@@ -5646,42 +6829,31 @@ class PokerGameUI:
         # 현재 쇼다운 중인 플레이어
         current_player = self.game.showdown_current_player
 
-        # 쇼다운 인트로
+        # 쇼다운 인트로 - 웨스턴 스타일 연출
         if self.game.state == PokerGame.STATE_SHOWDOWN_INTRO:
-            # "SHOWDOWN" 텍스트 애니메이션
-            progress = min(1.0, self.game.showdown_timer / 0.5)
-            scale = 0.5 + progress * 0.5
-            alpha = int(255 * progress)
-
-            # 배경 어둡게
-            overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, int(100 * progress)))
-            screen.blit(overlay, (0, 0))
-
-            # SHOWDOWN 텍스트
-            font_size = int(36 * scale)
-            self._draw_text_with_glow(screen, "SHOWDOWN", cx, cy - 50,
-                                     (255, 215, 0), font_size, (255, 150, 0, 100))
+            self._draw_western_showdown_intro(screen, cx, cy)
 
         # 카드 공개 및 족보 하이라이트 단계
         elif self.game.state in [PokerGame.STATE_SHOWDOWN_REVEAL, PokerGame.STATE_SHOWDOWN_HAND]:
             if current_player:
-                # 현재 플레이어 이름 표시
-                name = current_player.name
                 pos = current_player.position
 
-                # 위치별 표시 좌표
-                name_positions = {
-                    'south': (cx, self.screen_height - 180),
-                    'north': (cx, 100),
-                    'west': (120, cy),
-                    'east': (self.screen_width - 120, cy)
-                }
-                name_x, name_y = name_positions.get(pos, (cx, cy))
+                # 플레이어(유저)인 경우에만 이름 표시 (NPC는 이미 기존에 이름이 표시되어 있음)
+                if current_player.is_human:
+                    name = current_player.name
 
-                # 플레이어 이름 하이라이트
-                self._draw_text_with_glow(screen, name, name_x, name_y - 40,
-                                         (0, 255, 255), 18, (0, 200, 255, 80))
+                    # 위치별 표시 좌표
+                    name_positions = {
+                        'south': (cx, self.screen_height - 180),
+                        'north': (cx, 100),
+                        'west': (120, cy),
+                        'east': (self.screen_width - 120, cy)
+                    }
+                    name_x, name_y = name_positions.get(pos, (cx, cy))
+
+                    # 플레이어 이름 하이라이트
+                    self._draw_text_with_glow(screen, name, name_x, name_y - 40,
+                                             (0, 255, 255), 18, (0, 200, 255, 80))
 
                 # 족보 하이라이트 단계
                 if self.game.state == PokerGame.STATE_SHOWDOWN_HAND:
@@ -5689,6 +6861,185 @@ class PokerGameUI:
 
         # 파티클 렌더링
         self._draw_showdown_particles(screen)
+
+    def _draw_western_showdown_intro(self, screen, cx, cy):
+        """웨스턴 스타일 SHOWDOWN 인트로 애니메이션"""
+        timer = self.game.showdown_timer
+        total_duration = 1.0
+
+        # 페이즈 계산 (0~0.3: 등장, 0.3~0.7: 유지+효과, 0.7~1.0: 페이드아웃)
+        if timer < 0.3:
+            # 등장 페이즈 - 확대되면서 나타남
+            phase_progress = timer / 0.3
+            scale = 0.3 + phase_progress * 0.7  # 0.3 -> 1.0
+            alpha = int(255 * phase_progress)
+            shake = (1 - phase_progress) * 10  # 흔들림 감소
+        elif timer < 0.7:
+            # 유지 페이즈 - 강조 효과
+            phase_progress = (timer - 0.3) / 0.4
+            scale = 1.0 + 0.05 * math.sin(phase_progress * math.pi * 4)  # 미세한 펄스
+            alpha = 255
+            shake = 0
+        else:
+            # 페이드아웃 페이즈
+            phase_progress = (timer - 0.7) / 0.3
+            scale = 1.0 + phase_progress * 0.3  # 살짝 커지면서
+            alpha = int(255 * (1 - phase_progress))  # 사라짐
+            shake = 0
+
+        # 화면 어둡게 (빠르게 어두워졌다가 천천히 밝아짐)
+        if timer < 0.2:
+            darkness = int(150 * (timer / 0.2))
+        elif timer < 0.7:
+            darkness = 150
+        else:
+            darkness = int(150 * (1 - (timer - 0.7) / 0.3))
+
+        overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, darkness))
+        screen.blit(overlay, (0, 0))
+
+        # 흔들림 오프셋
+        shake_x = random.uniform(-shake, shake) if shake > 0 else 0
+        shake_y = random.uniform(-shake, shake) if shake > 0 else 0
+
+        # 메인 위치
+        main_x = cx + shake_x
+        main_y = cy - 30 + shake_y
+
+        # === 웨스턴 스타일 프레임 그리기 ===
+        frame_width = int(320 * scale)
+        frame_height = int(100 * scale)
+        frame_rect = pygame.Rect(main_x - frame_width // 2, main_y - frame_height // 2,
+                                  frame_width, frame_height)
+
+        # 프레임 서피스 (알파 지원)
+        frame_surf = pygame.Surface((frame_width + 40, frame_height + 40), pygame.SRCALPHA)
+
+        # 외곽 장식 (웨스턴 스타일 테두리)
+        # 바깥 테두리 - 진한 갈색
+        outer_color = (101, 67, 33, alpha)  # 다크 브라운
+        pygame.draw.rect(frame_surf, outer_color,
+                        (0, 0, frame_width + 40, frame_height + 40),
+                        border_radius=8)
+
+        # 안쪽 테두리 - 골드
+        gold_border = (218, 165, 32, alpha)  # 골드
+        pygame.draw.rect(frame_surf, gold_border,
+                        (4, 4, frame_width + 32, frame_height + 32),
+                        border_radius=6)
+
+        # 메인 배경 - 어두운 갈색/검정 그라데이션 느낌
+        inner_bg = (40, 30, 20, alpha)
+        pygame.draw.rect(frame_surf, inner_bg,
+                        (8, 8, frame_width + 24, frame_height + 24),
+                        border_radius=4)
+
+        # 내부 골드 라인
+        inner_gold = (184, 134, 11, alpha)
+        pygame.draw.rect(frame_surf, inner_gold,
+                        (12, 12, frame_width + 16, frame_height + 16),
+                        width=2, border_radius=3)
+
+        # 코너 장식 (작은 다이아몬드/스페이드 모양)
+        corner_size = int(12 * scale)
+        corners = [
+            (16, 16),  # 좌상
+            (frame_width + 24, 16),  # 우상
+            (16, frame_height + 24),  # 좌하
+            (frame_width + 24, frame_height + 24)  # 우하
+        ]
+        for corner_x, corner_y in corners:
+            # 작은 다이아몬드 모양
+            diamond_points = [
+                (corner_x, corner_y - corner_size // 2),
+                (corner_x + corner_size // 2, corner_y),
+                (corner_x, corner_y + corner_size // 2),
+                (corner_x - corner_size // 2, corner_y)
+            ]
+            pygame.draw.polygon(frame_surf, (255, 215, 0, alpha), diamond_points)
+
+        # 프레임 블릿
+        screen.blit(frame_surf, (main_x - frame_width // 2 - 20, main_y - frame_height // 2 - 20))
+
+        # === POKER 텍스트 (상단 작은 글씨) ===
+        poker_size = int(14 * scale)
+        poker_color = (218, 165, 32, alpha)  # 골드
+        self._draw_text_alpha(screen, "POKER", main_x, main_y - int(25 * scale),
+                             poker_color, poker_size, center=True)
+
+        # === SHOWDOWN 메인 텍스트 ===
+        main_size = int(42 * scale)
+
+        # 텍스트 그림자 (입체감)
+        shadow_color = (0, 0, 0, alpha // 2)
+        self._draw_text_alpha(screen, "SHOWDOWN", main_x + 3, main_y + 8,
+                             shadow_color, main_size, center=True)
+
+        # 텍스트 외곽선 효과 (두꺼운 테두리)
+        outline_color = (101, 67, 33, alpha)  # 다크 브라운
+        for ox, oy in [(-2, -2), (2, -2), (-2, 2), (2, 2), (-2, 0), (2, 0), (0, -2), (0, 2)]:
+            self._draw_text_alpha(screen, "SHOWDOWN", main_x + ox, main_y + oy,
+                                 outline_color, main_size, center=True)
+
+        # 메인 텍스트 - 크림/베이지 색상 (웨스턴 간판 느낌)
+        # 그라데이션 효과를 위해 두 레이어
+        base_color = (245, 222, 179, alpha)  # 밀색 (Wheat)
+        self._draw_text_alpha(screen, "SHOWDOWN", main_x, main_y,
+                             base_color, main_size, center=True)
+
+        # 하이라이트 (상단 밝은 부분)
+        highlight_color = (255, 248, 220, min(255, alpha + 30))  # 콘실크
+        self._draw_text_alpha(screen, "SHOWDOWN", main_x, main_y - 1,
+                             highlight_color, main_size, center=True)
+
+        # === 장식 요소 - 양옆 총/카드 심볼 ===
+        symbol_alpha = alpha
+        symbol_y = main_y + int(5 * scale)
+
+        # 왼쪽 스페이드 심볼
+        left_x = main_x - int(140 * scale)
+        self._draw_card_symbol(screen, left_x, symbol_y, '♠', int(20 * scale), (0, 0, 0, symbol_alpha))
+
+        # 오른쪽 스페이드 심볼
+        right_x = main_x + int(140 * scale)
+        self._draw_card_symbol(screen, right_x, symbol_y, '♠', int(20 * scale), (0, 0, 0, symbol_alpha))
+
+        # === 빛나는 효과 (등장 시) ===
+        if timer < 0.4:
+            glow_alpha = int(100 * (1 - timer / 0.4))
+            glow_surf = pygame.Surface((frame_width + 80, frame_height + 80), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (255, 215, 0, glow_alpha),
+                               (0, 0, frame_width + 80, frame_height + 80))
+            screen.blit(glow_surf, (main_x - frame_width // 2 - 40, main_y - frame_height // 2 - 40),
+                       special_flags=pygame.BLEND_RGBA_ADD)
+
+    def _draw_text_alpha(self, screen, text, x, y, color, size, center=False):
+        """알파값을 지원하는 텍스트 그리기"""
+        if len(color) == 4 and color[3] < 255:
+            # 알파가 있는 경우
+            temp_surf = pygame.Surface((len(text) * size + 20, size + 10), pygame.SRCALPHA)
+            rgb_color = (color[0], color[1], color[2])
+            self._draw_text(temp_surf, text, temp_surf.get_width() // 2 if center else 10,
+                           temp_surf.get_height() // 2, rgb_color, size, center=center)
+            temp_surf.set_alpha(color[3])
+            if center:
+                screen.blit(temp_surf, (x - temp_surf.get_width() // 2, y - temp_surf.get_height() // 2))
+            else:
+                screen.blit(temp_surf, (x, y))
+        else:
+            self._draw_text(screen, text, x, y, color[:3], size, center=center)
+
+    def _draw_card_symbol(self, screen, x, y, symbol, size, color):
+        """카드 심볼 그리기 (♠, ♥, ♦, ♣)"""
+        if len(color) == 4:
+            surf = pygame.Surface((size + 10, size + 10), pygame.SRCALPHA)
+            self._draw_text(surf, symbol, (size + 10) // 2, (size + 10) // 2,
+                           (color[0], color[1], color[2]), size, center=True)
+            surf.set_alpha(color[3])
+            screen.blit(surf, (x - (size + 10) // 2, y - (size + 10) // 2))
+        else:
+            self._draw_text(screen, symbol, x, y, color, size, center=True)
 
     def _draw_text_with_glow(self, screen, text, x, y, color, size, glow_color):
         """글로우 효과가 있는 텍스트 그리기"""
@@ -5715,10 +7066,11 @@ class PokerGameUI:
         cx = self.screen_width // 2
 
         # 족보 이름 표시 위치
+        # south(플레이어)는 카드 왼쪽에 표시 (카드와 같은 Y축 높이)
         hand_positions = {
-            'south': (cx, self.screen_height - 120),
+            'south': (150, self.screen_height - 115),  # 플레이어 카드 왼쪽 (카드와 같은 Y축)
             'north': (cx, 160),
-            'west': (180, self.screen_height // 2 + 30),
+            'west': (260, self.screen_height // 2 + 30),
             'east': (self.screen_width - 180, self.screen_height // 2 + 30)
         }
         hx, hy = hand_positions.get(pos, (cx, self.screen_height // 2))

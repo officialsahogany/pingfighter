@@ -139,11 +139,13 @@ class HalfDashSystem:
         """
         if not self.half_dash_active:
             return
-            
+
         # 하프 대쉬 잔상 효과 (더 연한 색상)
-        trail_surface = pygame.Surface((player_rect.width, player_rect.height))
-        trail_surface.set_alpha(self.half_dash_trail_alpha)
-        trail_surface.fill(self.half_dash_effect_color)
+        # SRCALPHA로 생성하여 Windows 전체화면에서 알파 블렌딩 문제 방지
+        trail_surface = pygame.Surface((player_rect.width, player_rect.height), pygame.SRCALPHA)
+        # SRCALPHA 사용 시 fill에 알파값 포함
+        trail_color_with_alpha = (*self.half_dash_effect_color, self.half_dash_trail_alpha)
+        trail_surface.fill(trail_color_with_alpha)
         
         # 방향에 따른 잔상 위치
         for i in range(3):

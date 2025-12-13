@@ -19,22 +19,65 @@ from start_menu_config import (
     ENABLE_SCAN_LINES,
     IDLE_CINEMATIC_DELAY_MS,
 )
+# baroque frame은 pillar_background.py에서 stage 0으로 처리됨
+from pillar_background import get_pillar_renderer
 
 BASE_MENU_OPTIONS = ["경기장 입장", "멀티플레이", "개발테스트", "메달샵", "크레딧"]
 MENU_ICONS = {
     "경기장 입장": "▶",
-    "멀티플레이": "👥",
-    "로컬플레이": "🎮",
-    "AI 플레이": "🤖",
-    "테스트메뉴": "★",
-    "개발테스트": "🧪",
+    "멀티플레이": "★",
+    "로컬플레이": "▷",
+    "AI 플레이": "◇",
+    "테스트메뉴": "◆",
+    "개발테스트": "▣",
     "메달샵": "◆",
     "크레딧": "●",
-    "개발자": "⚙",
+    "개발자": "☆",
 }
 VERSION_TEXT = "1.4v beta"
 DEV_CODE = [1]
 ITEM_CODE = [2]
+
+# 관리자 모드 시스템
+ADMIN_MODE_ENABLED = False  # 관리자 모드 활성화 여부
+ADMIN_KEY_SEQUENCE = []  # 7키 입력 시퀀스 추적
+ADMIN_KEY_LAST_TIME = 0  # 마지막 7키 입력 시간
+ADMIN_KEY_TIMEOUT = 1.0  # 연타 제한 시간 (1초 이내에 3번)
+ADMIN_MODE_MESSAGE_TIMER = 0  # 활성화 메시지 표시 타이머
+ADMIN_MODE_MESSAGE_DURATION = 2.0  # 메시지 표시 시간 (2초)
+
+def is_admin_mode_enabled() -> bool:
+    """관리자 모드 활성화 여부 반환"""
+    return ADMIN_MODE_ENABLED
+
+def activate_admin_mode():
+    """관리자 모드 활성화"""
+    global ADMIN_MODE_ENABLED, ADMIN_MODE_MESSAGE_TIMER
+    ADMIN_MODE_ENABLED = True
+    ADMIN_MODE_MESSAGE_TIMER = ADMIN_MODE_MESSAGE_DURATION
+    print("[ADMIN] 관리자 모드가 활성화되었습니다!")
+
+def check_admin_key_sequence(current_time: float) -> bool:
+    """7키 연타 시퀀스 확인 및 처리"""
+    global ADMIN_KEY_SEQUENCE, ADMIN_KEY_LAST_TIME, ADMIN_MODE_ENABLED
+
+    if ADMIN_MODE_ENABLED:
+        return False  # 이미 활성화됨
+
+    # 시간 초과 시 시퀀스 리셋
+    if current_time - ADMIN_KEY_LAST_TIME > ADMIN_KEY_TIMEOUT:
+        ADMIN_KEY_SEQUENCE = []
+
+    ADMIN_KEY_SEQUENCE.append(7)
+    ADMIN_KEY_LAST_TIME = current_time
+
+    # 777 입력 확인
+    if len(ADMIN_KEY_SEQUENCE) >= 3 and ADMIN_KEY_SEQUENCE[-3:] == [7, 7, 7]:
+        activate_admin_mode()
+        ADMIN_KEY_SEQUENCE = []
+        return True
+
+    return False
 
 MEDAL_FRAME_DURATION = 0.085
 MEDAL_BASE_SIZE = 40
@@ -101,9 +144,11 @@ def _update_background_layers(
     width: int,
     height: int,
 ) -> None:
+    # 게임 화면 안쪽 배경 (기존 그대로)
     simple_bg = ctx.simple_bg
     if simple_bg is not None:
         simple_bg.update(dt)
+        # 행성과 기본 배경만 그리기 (애니 효과는 나중에)
         simple_bg.draw(screen)
 
     state.star_field = draw_star_field(screen, width, height, state.animation_timer, state.star_field)
@@ -119,6 +164,13 @@ def _update_background_layers(
         state.neon_particles.clear()
     if ENABLE_SCAN_LINES:
         state.scan_lines = draw_scan_lines(screen, width, height, state.scan_lines)
+
+    # 애니 감성 효과를 맨 마지막에 그리기 (하트, 별, 키라키라 등)
+    if simple_bg is not None and hasattr(simple_bg, '_draw_anime_effects'):
+        simple_bg._draw_anime_effects(screen)
+
+    # 바로크 스타일 액자는 pillar_background.py의 stage 0에서 처리됨
+    # (_fullscreen_flip에서 pillar_renderer.draw()를 통해 그려짐)
 
 
 def _build_menu_options(state: MenuState) -> List[str]:
@@ -143,6 +195,8 @@ def _render_menu(
     elapsed = max(0.0, state.animation_timer - state.medal_anim_prev_time)
     state.medal_anim_prev_time = state.animation_timer
     _advance_medal_animation(state, elapsed)
+
+    # 바로크 액자는 _update_background_layers에서 필러 영역에 렌더링됨
 
     medal_center_x = width - 70
     medal_center_y = 45
@@ -178,80 +232,100 @@ def _render_menu(
 
     _draw_titles(ctx, screen, width, state.animation_timer)
 
-    menu_y = height - 180
-    menu_item_width = 120
-    menu_spacing = 15
+    # 가로 배열 메뉴 설정 (화면에 맞게 작은 사이즈)
+    menu_item_width = 100
+    menu_item_height = 70
+    menu_spacing = 8
     total_width = len(current_menu_options) * menu_item_width + (len(current_menu_options) - 1) * menu_spacing
     menu_start_x = (width - total_width) // 2
+    menu_y = height // 2 + 80  # 타이틀 아래 배치
     font_menu = ctx.FontStyle.small()
-    font_icon = ctx.get_font(36)
+    font_icon = ctx.get_font(26)
 
     for idx, option in enumerate(current_menu_options):
         x = menu_start_x + idx * (menu_item_width + menu_spacing)
         if idx == state.selected:
-            glow_surf = pygame.Surface((menu_item_width + 16, 70), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surf, (0, 255, 255, 30), (0, 0, menu_item_width + 16, 70), border_radius=12)
+            # 선택된 메뉴 항목 - 글로우 효과
+            glow_surf = pygame.Surface((menu_item_width + 16, menu_item_height + 16), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (0, 255, 255, 30), (0, 0, menu_item_width + 16, menu_item_height + 16), border_radius=10)
             screen.blit(glow_surf, (x - 8, menu_y - 8))
-            container = pygame.Surface((menu_item_width, 54), pygame.SRCALPHA)
-            pygame.draw.rect(container, (0, 50, 80, 180), (0, 0, menu_item_width, 54), border_radius=8)
-            pygame.draw.rect(container, (0, 255, 255, 255), (0, 0, menu_item_width, 54), 2, border_radius=8)
+            container = pygame.Surface((menu_item_width, menu_item_height), pygame.SRCALPHA)
+            pygame.draw.rect(container, (0, 50, 80, 180), (0, 0, menu_item_width, menu_item_height), border_radius=8)
+            pygame.draw.rect(container, (0, 255, 255, 255), (0, 0, menu_item_width, menu_item_height), 2, border_radius=8)
             screen.blit(container, (x, menu_y))
+            # 하단에 선택 표시 점들
             for j in range(3):
-                dot_x = x + menu_item_width // 2 + (j - 1) * 12
-                dot_y = menu_y + 62
+                dot_x = x + menu_item_width // 2 + (j - 1) * 10
+                dot_y = menu_y + menu_item_height + 12
                 dot_size = 2 + abs(math.sin(state.animation_timer * 3 + j)) * 1.5
                 pygame.draw.circle(screen, (0, 255, 255), (int(dot_x), int(dot_y)), int(dot_size))
         else:
-            container = pygame.Surface((menu_item_width, 54), pygame.SRCALPHA)
-            pygame.draw.rect(container, (20, 30, 50, 120), (0, 0, menu_item_width, 54), border_radius=8)
-            pygame.draw.rect(container, (100, 150, 200, 100), (0, 0, menu_item_width, 54), 1, border_radius=8)
+            container = pygame.Surface((menu_item_width, menu_item_height), pygame.SRCALPHA)
+            pygame.draw.rect(container, (20, 30, 50, 120), (0, 0, menu_item_width, menu_item_height), border_radius=8)
+            pygame.draw.rect(container, (100, 150, 200, 100), (0, 0, menu_item_width, menu_item_height), 1, border_radius=8)
             screen.blit(container, (x, menu_y))
 
+        # 아이콘과 텍스트를 세로로 배치 (가로 메뉴이므로)
         icon = MENU_ICONS.get(option, "")
-        if icon:
-            icon_surface = font_icon.render(icon, True, (0, 255, 255))
-            icon_rect = icon_surface.get_rect(center=(x + menu_item_width // 2, menu_y + 18))
-            screen.blit(icon_surface, icon_rect)
-
         display_text = option
         if option == "경기장 입장":
-            display_text = "경기장"
+            display_text = "입장"
         elif option == "AI 플레이":
-            display_text = "AI플레이"
+            display_text = "AI"
         elif option == "테스트메뉴":
             display_text = "테스트"
         elif option == "개발테스트":
-            display_text = "개발테스트"
-        text_surface = font_menu.render(display_text, True, (255, 255, 255))
-        text_rect = text_surface.get_rect(center=(x + menu_item_width // 2, menu_y + 38))
-        screen.blit(text_surface, text_rect)
+            display_text = "개발"
+        elif option == "멀티플레이":
+            display_text = "멀티"
+        elif option == "메달샵":
+            display_text = "메달샵"
+        elif option == "크레딧":
+            display_text = "크레딧"
+        elif option == "개발자":
+            display_text = "개발자"
 
+        # 아이콘과 텍스트 세로 배치
+        center_x = x + menu_item_width // 2
+        if icon:
+            icon_surface = font_icon.render(icon, True, (0, 255, 255))
+            icon_rect = icon_surface.get_rect(center=(center_x, menu_y + menu_item_height // 2 - 12))
+            screen.blit(icon_surface, icon_rect)
+            text_surface = font_menu.render(display_text, True, (255, 255, 255))
+            text_rect = text_surface.get_rect(center=(center_x, menu_y + menu_item_height // 2 + 16))
+            screen.blit(text_surface, text_rect)
+        else:
+            text_surface = font_menu.render(display_text, True, (255, 255, 255))
+            text_rect = text_surface.get_rect(center=(center_x, menu_y + menu_item_height // 2))
+            screen.blit(text_surface, text_rect)
+
+        # 선택된 개발테스트 메뉴일 때 설명 표시
         if idx == state.selected and option == "개발테스트":
             font_desc = ctx.FontStyle.tiny()
             desc = font_desc.render("개발용 AI/테스트 모드", True, (200, 200, 255))
-            desc_rect = desc.get_rect(center=(width // 2, menu_y + 75))
+            desc_rect = desc.get_rect(center=(width // 2, menu_y + menu_item_height + 35))
             screen.blit(desc, desc_rect)
 
     if state.locked_message_timer > 0:
         message_width = 400
         message_height = 40
         message_x = width // 2 - message_width // 2
-        message_y = menu_y + 100
+        message_y_pos = menu_y + menu_item_height + 50
         for j in range(10, 0, -2):
             alpha = int(60 * (1 - j / 10))
             glow_surface = pygame.Surface((message_width + j * 2, message_height + j * 2), pygame.SRCALPHA)
             pygame.draw.rect(glow_surface, (255, 100, 100, alpha), (0, 0, message_width + j * 2, message_height + j * 2), border_radius=ctx.default_radius)
-            screen.blit(glow_surface, (message_x - j, message_y - j))
+            screen.blit(glow_surface, (message_x - j, message_y_pos - j))
         message_bg = pygame.Surface((message_width, message_height), pygame.SRCALPHA)
         pygame.draw.rect(message_bg, (255, 100, 100, 40), (0, 0, message_width, message_height), border_radius=ctx.default_radius)
         pygame.draw.rect(message_bg, (255, 100, 100, 120), (0, 0, message_width, message_height), 2, border_radius=ctx.default_radius)
-        screen.blit(message_bg, (message_x, message_y))
+        screen.blit(message_bg, (message_x, message_y_pos))
         font_message = ctx.FontStyle.body()
         shadow = font_message.render("모든 보스를 클리어시 해금됩니다", True, (100, 50, 50))
-        shadow_rect = shadow.get_rect(center=(width // 2 + 1, 600 + 1))
+        shadow_rect = shadow.get_rect(center=(width // 2 + 1, message_y_pos + message_height // 2 + 1))
         screen.blit(shadow, shadow_rect)
         text = font_message.render("모든 보스를 클리어시 해금됩니다", True, (255, 150, 150))
-        text_rect = text.get_rect(center=(width // 2, 600))
+        text_rect = text.get_rect(center=(width // 2, message_y_pos + message_height // 2))
         screen.blit(text, text_rect)
         state.locked_message_timer -= 1
 
@@ -266,6 +340,43 @@ def _render_menu(
     resolution_surface = font_tiny.render(resolution_text, True, (150, 200, 255))
     resolution_rect = resolution_surface.get_rect(bottomright=(width - 10, height - 10))
     screen.blit(resolution_surface, resolution_rect)
+
+    # 관리자 모드 활성화 메시지 표시
+    global ADMIN_MODE_MESSAGE_TIMER
+    if ADMIN_MODE_MESSAGE_TIMER > 0:
+        ADMIN_MODE_MESSAGE_TIMER -= 1 / 60.0  # 60fps 기준
+
+        # 메시지 박스 설정
+        admin_msg_width = 350
+        admin_msg_height = 50
+        admin_msg_x = width // 2 - admin_msg_width // 2
+        admin_msg_y = height // 3
+
+        # 페이드 효과를 위한 알파값 계산 (0-255 범위 보장)
+        fade_alpha = max(0, min(255, int(ADMIN_MODE_MESSAGE_TIMER * 127.5)))
+        bg_alpha = max(0, min(255, int(fade_alpha * 0.8)))
+
+        # 외곽 글로우 효과 (황금색)
+        for j in range(15, 0, -3):
+            glow_alpha = max(0, min(255, int(fade_alpha * 0.3 * (1 - j / 15))))
+            glow_surface = pygame.Surface((admin_msg_width + j * 2, admin_msg_height + j * 2), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surface, (255, 200, 50, glow_alpha), (0, 0, admin_msg_width + j * 2, admin_msg_height + j * 2), border_radius=10)
+            screen.blit(glow_surface, (admin_msg_x - j, admin_msg_y - j))
+
+        # 배경 박스
+        admin_bg = pygame.Surface((admin_msg_width, admin_msg_height), pygame.SRCALPHA)
+        pygame.draw.rect(admin_bg, (50, 40, 10, bg_alpha), (0, 0, admin_msg_width, admin_msg_height), border_radius=8)
+        pygame.draw.rect(admin_bg, (255, 200, 50, fade_alpha), (0, 0, admin_msg_width, admin_msg_height), 3, border_radius=8)
+        screen.blit(admin_bg, (admin_msg_x, admin_msg_y))
+
+        # 텍스트 렌더링
+        font_admin = ctx.FontStyle.body()
+        admin_text = font_admin.render("🔓 관리자 모드 시작", True, (255, 220, 100))
+        admin_text_rect = admin_text.get_rect(center=(width // 2, admin_msg_y + admin_msg_height // 2))
+
+        # 텍스트 알파 적용
+        admin_text.set_alpha(fade_alpha)
+        screen.blit(admin_text, admin_text_rect)
 
 
 def _run_ai_play_flow(ctx: MenuContext) -> bool:
@@ -547,6 +658,17 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
     return False
 
 
+def _get_horizontal_menu_rects(width: int, height: int, num_options: int) -> tuple:
+    """가로 메뉴 레이아웃 계산을 위한 헬퍼 함수."""
+    menu_item_width = 100
+    menu_item_height = 70
+    menu_spacing = 8
+    total_width = num_options * menu_item_width + (num_options - 1) * menu_spacing
+    menu_start_x = (width - total_width) // 2
+    menu_y = height // 2 + 80
+    return menu_start_x, menu_y, menu_item_width, menu_item_height, menu_spacing
+
+
 def _handle_menu_events(
     ctx: MenuContext,
     state: MenuState,
@@ -563,14 +685,11 @@ def _handle_menu_events(
                 mouse_pos = pygame.mouse.get_pos()
                 width = ctx.get_dimensions()[0]
                 height = ctx.get_dimensions()[1]
-                menu_y = height - 180
-                menu_item_width = 120
-                menu_spacing = 15
-                total_width = len(current_menu_options) * menu_item_width + (len(current_menu_options) - 1) * menu_spacing
-                menu_start_x = (width - total_width) // 2
+                # 가로 메뉴 레이아웃
+                menu_start_x, menu_y, menu_item_width, menu_item_height, menu_spacing = _get_horizontal_menu_rects(width, height, len(current_menu_options))
                 for idx, option in enumerate(current_menu_options):
                     x = menu_start_x + idx * (menu_item_width + menu_spacing)
-                    option_rect = pygame.Rect(x, menu_y, menu_item_width, 54)
+                    option_rect = pygame.Rect(x, menu_y, menu_item_width, menu_item_height)
                     if option_rect.collidepoint(mouse_pos):
                         state.selected = idx
                         ctx.play_click_sound()
@@ -596,16 +715,18 @@ def _handle_menu_events(
             if event.key == pygame.K_F10:
                 _handle_resolution_change(ctx, state, 1)
                 continue
-            if event.key == pygame.K_1:
-                ctx.play_click_sound()
-                ctx.show_developer_stage_select()
-                return False
-            if event.key == pygame.K_2:
+            # 관리자 모드 활성화 (7키 연타)
+            if event.key == pygame.K_7:
+                import time
+                if check_admin_key_sequence(time.time()):
+                    ctx.play_click_sound()  # 활성화 시 효과음
+            # 관리자 전용 키들 (관리자 모드에서만 작동)
+            if event.key == pygame.K_2 and is_admin_mode_enabled():
                 ctx.play_click_sound()
                 ctx.show_item_manager_menu()
                 return False
-            # 개발자용: 0번 키로 광장 직접 입장
-            if event.key == pygame.K_0:
+            # 개발자용: 0번 키로 광장 직접 입장 (관리자 모드에서만)
+            if event.key == pygame.K_0 and is_admin_mode_enabled():
                 ctx.play_click_sound()
                 if hasattr(ctx, 'enter_downtown_dev') and ctx.enter_downtown_dev:
                     ctx.enter_downtown_dev()
@@ -618,6 +739,7 @@ def _handle_menu_events(
                     state.developer_unlocked = True
                 if state.input_buffer[-len(ITEM_CODE):] == ITEM_CODE:
                     state.item_manager_unlocked = True
+            # 가로 메뉴: 좌우 방향키로 이동
             if event.key in (pygame.K_RIGHT, pygame.K_d):
                 ctx.play_hover_sound()
                 state.selected = (state.selected + 1) % len(current_menu_options)
@@ -632,21 +754,28 @@ def _handle_menu_events(
         if event.type == pygame.MOUSEMOTION:
             mouse_pos = event.pos
             if current_menu_options:
-                # 호버에 따른 선택 이동은 추후 필요 시 구현
-                pass
+                # 마우스 호버에 따른 선택 이동
+                width = ctx.get_dimensions()[0]
+                height = ctx.get_dimensions()[1]
+                menu_start_x, menu_y, menu_item_width, menu_item_height, menu_spacing = _get_horizontal_menu_rects(width, height, len(current_menu_options))
+                for idx, option in enumerate(current_menu_options):
+                    x = menu_start_x + idx * (menu_item_width + menu_spacing)
+                    option_rect = pygame.Rect(x, menu_y, menu_item_width, menu_item_height)
+                    if option_rect.collidepoint(mouse_pos):
+                        if state.selected != idx:
+                            state.selected = idx
+                            ctx.play_hover_sound()
+                        break
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = event.pos
             if event.button == 1:
                 width = ctx.get_dimensions()[0]
                 height = ctx.get_dimensions()[1]
-                menu_y = height - 180
-                menu_item_width = 120
-                menu_spacing = 15
-                total_width = len(current_menu_options) * menu_item_width + (len(current_menu_options) - 1) * menu_spacing
-                menu_start_x = (width - total_width) // 2
+                # 가로 메뉴 레이아웃
+                menu_start_x, menu_y, menu_item_width, menu_item_height, menu_spacing = _get_horizontal_menu_rects(width, height, len(current_menu_options))
                 for idx, option in enumerate(current_menu_options):
                     x = menu_start_x + idx * (menu_item_width + menu_spacing)
-                    option_rect = pygame.Rect(x, menu_y, menu_item_width, 54)
+                    option_rect = pygame.Rect(x, menu_y, menu_item_width, menu_item_height)
                     if option_rect.collidepoint(mouse_pos):
                         state.selected = idx
                         ctx.play_click_sound()
@@ -662,14 +791,11 @@ def _handle_menu_events(
             mouse_pos = pygame.mouse.get_pos()
             width = ctx.get_dimensions()[0]
             height = ctx.get_dimensions()[1]
-            menu_y = height - 180
-            menu_item_width = 120
-            menu_spacing = 15
-            total_width = len(current_menu_options) * menu_item_width + (len(current_menu_options) - 1) * menu_spacing
-            menu_start_x = (width - total_width) // 2
+            # 가로 메뉴 레이아웃
+            menu_start_x, menu_y, menu_item_width, menu_item_height, menu_spacing = _get_horizontal_menu_rects(width, height, len(current_menu_options))
             for idx, option in enumerate(current_menu_options):
                 x = menu_start_x + idx * (menu_item_width + menu_spacing)
-                option_rect = pygame.Rect(x, menu_y, menu_item_width, 54)
+                option_rect = pygame.Rect(x, menu_y, menu_item_width, menu_item_height)
                 if option_rect.collidepoint(mouse_pos):
                     state.selected = idx
                     ctx.play_click_sound()
@@ -712,6 +838,8 @@ class MenuContext:
     get_current_resolution_index: Callable[[], int]
     two_seconds_frames: int
     idle_cinematic: Callable[[pygame.Surface, int, int], None]
+    # 전체화면 서피스 (필러 렌더링용, 없으면 get_screen 사용)
+    get_fullscreen: Optional[Callable[[], pygame.Surface]] = None
 
 
 @dataclass
@@ -733,6 +861,7 @@ class MenuState:
     # 첫 진입 원클릭 보장: 초반 N프레임 동안 다운/업 보정 허용
     first_click_grace_frames: int = 12
     last_mb_left_state: bool = False
+    # 바로크 스타일 액자는 pillar_background.py에서 처리됨 (stage 0)
 
 
 def _draw_titles(ctx: MenuContext, screen: pygame.Surface, width: int, animation_timer: float) -> None:
@@ -804,6 +933,7 @@ def _handle_resolution_change(ctx: MenuContext, state: MenuState, direction: int
     state.star_field = StarField()
     state.neon_particles.clear()
     state.scan_lines.clear()
+    # 바로크 액자는 pillar_background.py에서 처리됨
 
 
 def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuState:
@@ -812,6 +942,8 @@ def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuStat
     # 메뉴 진입 시 항상 원클릭 그레이스 리셋
     state.first_click_grace_frames = 12
     state.last_mb_left_state = False
+
+    # 바로크 액자 애니메이션 리셋은 pillar_background.py의 set_stage(0)에서 처리됨
 
     clock = pygame.time.Clock()
     state.idle_start_time = pygame.time.get_ticks()
@@ -836,6 +968,11 @@ def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuStat
         current_time = pygame.time.get_ticks()
         _run_idle_cinematic_if_needed(ctx, state, screen, width, height, current_time)
         _update_background_layers(ctx, state, dt, screen, width, height)
+
+        # 필러 배경 애니메이션 업데이트 (바로크 액자 애니메이션용)
+        pillar_renderer = get_pillar_renderer()
+        if pillar_renderer is not None:
+            pillar_renderer.update(dt)
 
         current_menu_options = _build_menu_options(state)
         _render_menu(ctx, state, screen, width, height, current_menu_options)

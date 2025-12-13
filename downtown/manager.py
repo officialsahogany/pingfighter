@@ -10,8 +10,9 @@ import math
 from .constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE,
     BuildingType, BUILDING_INFO, Colors, PLANET_THEMES, PlanetTheme,
-    resource_path, AP_PER_STAGE_CLEAR
+    resource_path, AP_PER_STAGE_CLEAR, CLOSED_BUILDINGS
 )
+from start_menu import is_admin_mode_enabled
 from .map_generator import DowntownMap
 from .player import DowntownPlayer
 from .buildings import BuildingManager
@@ -445,26 +446,43 @@ class DowntownManager:
                 # 캐릭터 정보 (인게임과 동일)
                 show_character_info_fn, _ = _import_ingame_functions()
                 if show_character_info_fn:
-                    bg_snapshot = self.screen.copy() if self.screen else None
+                    # 광장 화면을 pingfighter의 SCREEN에 직접 그림
+                    try:
+                        import pingfighter
+                        SCREEN = pingfighter.SCREEN
+                        self._draw()
+                        if self.screen and SCREEN:
+                            SCREEN.blit(self.screen, (0, 0))
+                        pygame.display.flip()
+                        bg_snapshot = SCREEN.copy()
+                    except Exception:
+                        self._draw()
+                        pygame.display.flip()
+                        bg_snapshot = self.screen.copy() if self.screen else None
+
                     if bg_snapshot is not None:
                         show_character_info_fn(background_surface=bg_snapshot)
                     else:
                         show_character_info_fn()
                 self._reset_player_input_state()
 
-            elif event.key == pygame.K_0:
-                # 개발자 건물 소환 모드 토글 (0번 키)
+            elif event.key == pygame.K_0 and is_admin_mode_enabled():
+                # 관리자 건물 소환 모드 토글 (관리자 모드에서만 작동)
                 self.dev_building_spawn_mode = not self.dev_building_spawn_mode
                 if self.dev_building_spawn_mode:
-                    print("[DEV] 건물 소환 모드 활성화")
+                    print("[ADMIN] 관리자 모드: 건물 소환 모드 활성화")
                 else:
-                    print("[DEV] 건물 소환 모드 비활성화")
+                    print("[ADMIN] 관리자 모드: 건물 소환 모드 비활성화")
 
-            elif event.key == pygame.K_9:
-                # 개발자 치트: 10만 골드 추가 (9번 키)
+            elif event.key == pygame.K_9 and is_admin_mode_enabled():
+                # 관리자 치트: 1천 골드 추가 (관리자 모드에서만 작동)
                 current_gold = self.player_data.get('gold', 0)
-                self.player_data['gold'] = current_gold + 100000
-                print(f"[DEV] 골드 +100,000 추가! (현재: {self.player_data['gold']:,})")
+                self.player_data['gold'] = current_gold + 1000
+                print(f"[ADMIN] 관리자 모드: 골드 +1,000 추가! (현재: {self.player_data['gold']:,})")
+
+            elif event.key == pygame.K_m:
+                # M키: 미니맵 확대/축소 토글
+                self.renderer.toggle_minimap_expanded()
 
         elif event.type == pygame.KEYUP:
             if self.player:
@@ -477,6 +495,12 @@ class DowntownManager:
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # 왼쪽 마우스 버튼
+                # 미니맵 클릭 체크 (확대/축소 토글)
+                minimap_rect = self.renderer.get_minimap_rect()
+                if minimap_rect.collidepoint(event.pos):
+                    self.renderer.toggle_minimap_expanded()
+                    return  # 미니맵 클릭 시 다른 동작 방지
+
                 # 개발자 건물 소환 모드 처리
                 if self.dev_building_spawn_mode:
                     self._handle_dev_building_click(event.pos)
@@ -697,6 +721,13 @@ class DowntownManager:
 
     def _show_building_confirmation_dialog(self, building_type):
         """건물 입장 확인 다이얼로그 표시"""
+        # 영업정지 건물 체크
+        if building_type in CLOSED_BUILDINGS:
+            building_info = BUILDING_INFO[building_type]
+            building_name = building_info['name']
+            self._show_closed_building_message(building_name)
+            return
+
         building_info = BUILDING_INFO[building_type]
         building_name = building_info['name']
         ap_cost = building_info['ap_cost']
@@ -960,9 +991,10 @@ class DowntownManager:
         # AP 표시 (모퉁이에서 살짝 안쪽으로)
         self.ap_system.draw(self.screen, 35, 30, self.font_medium)
 
-        # 미니맵
+        # 미니맵 (마우스 위치 전달하여 툴팁 표시)
+        mouse_pos = pygame.mouse.get_pos()
         self.renderer.draw_minimap(
-            self.screen, self.downtown_map, self.player, self.buildings
+            self.screen, self.downtown_map, self.player, self.buildings, mouse_pos
         )
 
         # 상호작용 힌트
@@ -1725,27 +1757,46 @@ class DowntownManager:
                         elif interior.pachinko_game_playing:
                             menu_result = interior.handle_key(event)
                             # 빠칭코 게임 종료 처리됨
+                        # 상점 거래창이 열려있으면 거래창만 닫기
+                        elif interior.shop_trade_open:
+                            interior.shop_trade_open = False
+                        # 은행/환전/예금 등 메뉴가 열려있으면 메뉴만 닫기
+                        elif interior.bank_menu_open:
+                            interior.bank_menu_open = False
+                        elif interior.exchange_menu_open:
+                            interior.exchange_menu_open = False
+                        elif interior.deposit_menu_open:
+                            interior.deposit_menu_open = False
+                        elif interior.academy_dialog_open:
+                            interior.academy_dialog_open = False
+                        elif interior.crane_confirm_dialog_open:
+                            interior.crane_confirm_dialog_open = False
+                            interior.crane_interact_requested = False
+                        elif interior.crane_game_playing:
+                            interior.crane_game_playing = False
+                            interior.crane_state = "idle"
+                            interior._stop_crane_bgm()
                         else:
-                            # ESC 메뉴 호출 (광장과 동일)
-                            show_character_info, show_pause_options = _import_ingame_functions()
-                            if show_pause_options:
-                                result = show_pause_options()
-                                # 모달 메뉴에서 돌아올 때 입력 상태를 초기화해 고정 이동 방지
-                                if interior and interior.player:
-                                    interior.player.reset_input_state()
-                                pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP])
-                                if result == "main_menu":
-                                    running = False
-                                    self.should_exit = True
-                                    return
-                            else:
-                                running = False
+                            # 건물 내부 ESC 메뉴 - 나가기만 지원
+                            running = False
 
                     elif event.key == pygame.K_TAB:
-                        # TAB으로 캐릭터 정보창 (광장과 동일)
+                        # TAB으로 캐릭터 정보창 (건물 내부 화면 스냅샷 사용)
                         show_character_info, _ = _import_ingame_functions()
                         if show_character_info:
-                            bg_snapshot = self.screen.copy() if self.screen else None
+                            # 건물 내부 화면을 pingfighter의 SCREEN에 그림
+                            try:
+                                import pingfighter
+                                SCREEN = pingfighter.SCREEN
+                                interior.draw(self.screen)
+                                if self.screen and SCREEN:
+                                    SCREEN.blit(self.screen, (0, 0))
+                                pygame.display.flip()
+                                bg_snapshot = SCREEN.copy()
+                            except Exception:
+                                interior.draw(self.screen)
+                                pygame.display.flip()
+                                bg_snapshot = self.screen.copy() if self.screen else None
                             if bg_snapshot is not None:
                                 show_character_info(background_surface=bg_snapshot)
                             else:
@@ -1857,14 +1908,312 @@ class DowntownManager:
         self._exit_building()
 
     def _run_gacha_from_interior(self, interior):
-        """가챠 머신에서 가챠 실행 - 확인 다이얼로그 표시"""
-        # 가챠 확인 다이얼로그 표시
-        result = self._show_gacha_confirm_dialog(interior)
-        if result:
+        """가챠 머신에서 가챠 실행 - 메뉴 선택 다이얼로그 표시"""
+        # 가챠 메뉴 다이얼로그 표시 (단일/연속 선택)
+        result = self._show_gacha_menu_dialog(interior)
+        if result == "single":
             self._execute_gacha(interior)
+        elif result == "multi":
+            self._execute_multi_gacha(interior)
+
+    def _show_gacha_menu_dialog(self, interior):
+        """가챠 메뉴 다이얼로그 - 1회 뽑기 / 연속 뽑기 선택"""
+        clock = pygame.time.Clock()
+        running = True
+        result = None
+
+        # 현재 골드
+        current_gold = self.player_data.get('gold', 0)
+        remaining_count = self.gacha_max_count - self.gacha_used_count
+
+        # 연속 뽑기 가능 횟수 계산 (골드 기준)
+        max_multi_count = min(current_gold // self.gacha_cost, remaining_count)
+
+        # 다이얼로그 크기 및 위치 (우측에 배치)
+        dialog_width = 320
+        dialog_height = 340
+        dialog_x = SCREEN_WIDTH - dialog_width - 50  # 우측에 배치
+        dialog_y = (SCREEN_HEIGHT - dialog_height) // 2
+
+        # 메뉴 항목 영역
+        menu_start_y = dialog_y + 100
+        menu_item_height = 70
+        menu_item_spacing = 15
+
+        # 메뉴: 0 = 1회 뽑기, 1 = 연속 뽑기, 2 = 취소
+        selected = 0
+
+        # 1회 뽑기 버튼
+        single_btn = pygame.Rect(dialog_x + 30, menu_start_y, dialog_width - 60, menu_item_height)
+        # 연속 뽑기 버튼
+        multi_btn = pygame.Rect(dialog_x + 30, menu_start_y + menu_item_height + menu_item_spacing, dialog_width - 60, menu_item_height)
+        # 취소 버튼
+        cancel_btn = pygame.Rect(dialog_x + 30, menu_start_y + (menu_item_height + menu_item_spacing) * 2, dialog_width - 60, 50)
+
+        while running:
+            dt = clock.tick(60) / 1000.0
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+                        result = None
+                    elif event.key == pygame.K_UP:
+                        selected = (selected - 1) % 3
+                    elif event.key == pygame.K_DOWN:
+                        selected = (selected + 1) % 3
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        if selected == 0:  # 1회 뽑기
+                            if current_gold >= self.gacha_cost and remaining_count > 0:
+                                result = "single"
+                                running = False
+                        elif selected == 1:  # 연속 뽑기
+                            if max_multi_count >= 2:  # 최소 2회 이상이어야 연속 뽑기 가능
+                                result = "multi"
+                                running = False
+                        else:  # 취소
+                            running = False
+                            result = None
+
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    mx, my = event.pos
+                    if single_btn.collidepoint(mx, my):
+                        if current_gold >= self.gacha_cost and remaining_count > 0:
+                            result = "single"
+                            running = False
+                    elif multi_btn.collidepoint(mx, my):
+                        if max_multi_count >= 2:
+                            result = "multi"
+                            running = False
+                    elif cancel_btn.collidepoint(mx, my):
+                        running = False
+                        result = None
+
+                if event.type == pygame.MOUSEMOTION:
+                    mx, my = event.pos
+                    if single_btn.collidepoint(mx, my):
+                        selected = 0
+                    elif multi_btn.collidepoint(mx, my):
+                        selected = 1
+                    elif cancel_btn.collidepoint(mx, my):
+                        selected = 2
+
+            # 배경 그리기 (현재 인테리어)
+            interior.draw(self.screen)
+
+            # 오버레이
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            self.screen.blit(overlay, (0, 0))
+
+            # 다이얼로그 박스
+            dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_width, dialog_height)
+            pygame.draw.rect(self.screen, (20, 25, 40), dialog_rect, border_radius=12)
+            pygame.draw.rect(self.screen, (0, 200, 255), dialog_rect, 3, border_radius=12)
+
+            # 폰트 가져오기
+            font_large = self._freetype_fonts.get('large')
+            font_medium = self._freetype_fonts.get('medium')
+            font_small = self._freetype_fonts.get('small')
+
+            # 제목
+            if font_large:
+                title_surf, title_rect = font_large.render("가챠 뽑기", (255, 255, 255))
+                self.screen.blit(title_surf, (dialog_x + (dialog_width - title_rect.width) // 2, dialog_y + 20))
+
+            # 현재 골드 표시
+            if font_small:
+                gold_text = f"보유 골드: {current_gold:,}"
+                gold_surf, gold_rect = font_small.render(gold_text, (255, 220, 100))
+                coin_size = 18
+                total_w = gold_rect.width + 6 + coin_size
+                gx = dialog_x + (dialog_width - total_w) // 2
+                gy = dialog_y + 55
+                self.screen.blit(gold_surf, (gx, gy))
+                self._draw_gold_coin(self.screen, gx + gold_rect.width + 6 + coin_size // 2, gy + coin_size // 2, coin_size)
+
+            # 남은 횟수 표시
+            if font_small:
+                count_text = f"남은 횟수: {remaining_count}/{self.gacha_max_count}"
+                count_color = (255, 100, 100) if remaining_count <= 0 else (180, 180, 200)
+                count_surf, count_rect = font_small.render(count_text, count_color)
+                self.screen.blit(count_surf, (dialog_x + (dialog_width - count_rect.width) // 2, dialog_y + 78))
+
+            # === 1회 뽑기 버튼 ===
+            can_single = current_gold >= self.gacha_cost and remaining_count > 0
+            if selected == 0 and can_single:
+                btn_color = (0, 120, 180)
+                border_color = (0, 220, 255)
+            elif can_single:
+                btn_color = (30, 50, 70)
+                border_color = (60, 100, 140)
+            else:
+                btn_color = (40, 40, 50)
+                border_color = (60, 60, 70)
+
+            pygame.draw.rect(self.screen, btn_color, single_btn, border_radius=10)
+            pygame.draw.rect(self.screen, border_color, single_btn, 2, border_radius=10)
+
+            if font_medium:
+                single_title = "1회 뽑기"
+                title_color = (255, 255, 255) if can_single else (100, 100, 100)
+                single_surf, single_rect = font_medium.render(single_title, title_color)
+                self.screen.blit(single_surf, (single_btn.centerx - single_rect.width // 2, single_btn.y + 12))
+
+            if font_small:
+                cost_text = f"비용: {self.gacha_cost}"
+                cost_color = (255, 220, 100) if can_single else (100, 100, 80)
+                cost_surf, cost_rect = font_small.render(cost_text, cost_color)
+                coin_size = 16
+                total_w = cost_rect.width + 4 + coin_size
+                cx = single_btn.centerx - total_w // 2
+                cy = single_btn.y + 42
+                self.screen.blit(cost_surf, (cx, cy))
+                if can_single:
+                    self._draw_gold_coin(self.screen, cx + cost_rect.width + 4 + coin_size // 2, cy + coin_size // 2, coin_size)
+
+            # === 연속 뽑기 버튼 ===
+            can_multi = max_multi_count >= 2
+            total_multi_cost = max_multi_count * self.gacha_cost
+
+            if selected == 1 and can_multi:
+                btn_color = (120, 80, 0)
+                border_color = (255, 200, 0)
+            elif can_multi:
+                btn_color = (50, 40, 20)
+                border_color = (140, 120, 60)
+            else:
+                btn_color = (40, 40, 50)
+                border_color = (60, 60, 70)
+
+            pygame.draw.rect(self.screen, btn_color, multi_btn, border_radius=10)
+            pygame.draw.rect(self.screen, border_color, multi_btn, 2, border_radius=10)
+
+            if font_medium:
+                multi_title = f"{max_multi_count}연속 뽑기" if can_multi else "연속 뽑기"
+                title_color = (255, 255, 255) if can_multi else (100, 100, 100)
+                multi_surf, multi_rect = font_medium.render(multi_title, title_color)
+                self.screen.blit(multi_surf, (multi_btn.centerx - multi_rect.width // 2, multi_btn.y + 12))
+
+            if font_small:
+                if can_multi:
+                    cost_text = f"비용: {total_multi_cost:,}"
+                    cost_color = (255, 220, 100)
+                else:
+                    cost_text = "골드 부족 또는 횟수 부족"
+                    cost_color = (150, 100, 100)
+                cost_surf, cost_rect = font_small.render(cost_text, cost_color)
+                if can_multi:
+                    coin_size = 16
+                    total_w = cost_rect.width + 4 + coin_size
+                    cx = multi_btn.centerx - total_w // 2
+                    cy = multi_btn.y + 42
+                    self.screen.blit(cost_surf, (cx, cy))
+                    self._draw_gold_coin(self.screen, cx + cost_rect.width + 4 + coin_size // 2, cy + coin_size // 2, coin_size)
+                else:
+                    self.screen.blit(cost_surf, (multi_btn.centerx - cost_rect.width // 2, multi_btn.y + 42))
+
+            # === 취소 버튼 ===
+            if selected == 2:
+                cancel_color = (100, 40, 40)
+                cancel_border = (200, 80, 80)
+            else:
+                cancel_color = (50, 30, 30)
+                cancel_border = (100, 60, 60)
+
+            pygame.draw.rect(self.screen, cancel_color, cancel_btn, border_radius=8)
+            pygame.draw.rect(self.screen, cancel_border, cancel_btn, 2, border_radius=8)
+
+            if font_medium:
+                cancel_surf, cancel_rect = font_medium.render("취소", (255, 255, 255))
+                self.screen.blit(cancel_surf, (cancel_btn.centerx - cancel_rect.width // 2, cancel_btn.centery - cancel_rect.height // 2))
+
+            pygame.display.flip()
+
+        # 이벤트 클리어
+        pygame.event.clear()
+        return result
+
+    def _execute_multi_gacha(self, interior):
+        """연속 가챠 실행"""
+        try:
+            import gacha
+            import pingfighter
+            import items
+
+            current_gold = self.player_data.get('gold', 0)
+            remaining_count = self.gacha_max_count - self.gacha_used_count
+
+            # 연속 뽑기 횟수 계산
+            gacha_count = min(current_gold // self.gacha_cost, remaining_count)
+
+            if gacha_count < 2:
+                return
+
+            # 총 비용 계산 및 골드 차감
+            total_cost = gacha_count * self.gacha_cost
+            self.player_data['gold'] = current_gold - total_cost
+            self.gacha_used_count += gacha_count
+
+            # pingfighter에서 필요한 함수들 가져오기
+            get_item_name_korean = getattr(pingfighter, 'get_item_name_korean', lambda x: x)
+            store_passive_item = getattr(pingfighter, 'store_passive_item', lambda x: None)
+            store_active_item = getattr(pingfighter, 'store_active_item', lambda x: None)
+            get_item_description = getattr(pingfighter, 'get_item_description', lambda x: "")
+
+            # 스타포인트 관련 함수 정의
+            def get_star_count():
+                return self.player_data.get('star_points', 0)
+
+            def spend_stars(amount):
+                return False
+
+            # 가챠 시스템 초기화
+            available_items = []
+            for item_data in items.ITEM_TYPES:
+                item_name = item_data.get("name", "")
+                if items.unlocked_items.get(item_name, False):
+                    available_items.append(item_data)
+
+            if not available_items:
+                available_items = list(items.ITEM_TYPES)
+
+            # 가챠 초기화
+            gacha.init_gacha(available_items, legendary_bonus=0.0)
+
+            print(f"[가챠] 연속 뽑기 {gacha_count}회 실행 - 총 비용: {total_cost}G")
+
+            # 연속 가챠 실행
+            gacha.run_multi_gacha(
+                self.screen,
+                SCREEN_WIDTH,
+                SCREEN_HEIGHT,
+                gacha_count,
+                get_item_name_korean,
+                store_passive_item,
+                store_active_item,
+                get_item_description,
+                get_star_count=get_star_count,
+                spend_stars=spend_stars
+            )
+
+            # 가챠 종료 후 이벤트 큐 클리어
+            pygame.event.clear()
+
+            # 상호작용 플래그 리셋
+            self._reset_interaction_flags()
+
+        except Exception as e:
+            print(f"연속 가챠 실행 오류: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _show_gacha_confirm_dialog(self, interior):
-        """가챠 확인 다이얼로그 표시"""
+        """가챠 확인 다이얼로그 표시 (레거시 호환용)"""
         clock = pygame.time.Clock()
         running = True
         result = False
@@ -2173,6 +2522,96 @@ class DowntownManager:
         self.screen.blit(overlay, (0, SCREEN_HEIGHT // 2 - 40))
         pygame.display.flip()
 
+    def _show_closed_building_message(self, building_name):
+        """영업정지 건물 메시지 표시 (확인 버튼으로 닫기)"""
+        clock = pygame.time.Clock()
+        running = True
+
+        # 메시지 박스 크기
+        box_width = 450
+        box_height = 180
+        box_x = SCREEN_WIDTH // 2 - box_width // 2
+        box_y = SCREEN_HEIGHT // 2 - box_height // 2
+
+        # 확인 버튼 영역
+        button_width = 100
+        button_height = 40
+        button_x = SCREEN_WIDTH // 2 - button_width // 2
+        button_y = box_y + box_height - 60
+        button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
+
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return
+                if event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_RETURN, pygame.K_ESCAPE, pygame.K_SPACE):
+                        running = False
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if button_rect.collidepoint(event.pos):
+                        running = False
+
+            # 배경 그리기
+            self._draw()
+
+            # 반투명 오버레이
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            self.screen.blit(overlay, (0, 0))
+
+            # 메시지 박스
+            box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+            # 박스 배경 (어두운 빨간색 계열)
+            pygame.draw.rect(box_surface, (60, 20, 20, 240), (0, 0, box_width, box_height), border_radius=15)
+            # 박스 테두리 (경고 색상)
+            pygame.draw.rect(box_surface, (255, 100, 100), (0, 0, box_width, box_height), 3, border_radius=15)
+            self.screen.blit(box_surface, (box_x, box_y))
+
+            # 건물 이름 (상단)
+            font_medium = self._freetype_fonts.get('medium')
+            font_small = self._freetype_fonts.get('small')
+
+            if font_medium:
+                # 건물 이름
+                title_surf, title_rect = font_medium.render(f"[ {building_name} ]", (255, 200, 100))
+                title_x = SCREEN_WIDTH // 2 - title_rect.width // 2
+                self.screen.blit(title_surf, (title_x, box_y + 25))
+
+                # 영업정지 메시지 (2줄)
+                msg1 = "현재 해당 건물은 아직 개발중이라"
+                msg2 = "영업정지 중입니다. 죄송합니다."
+
+                msg1_surf, msg1_rect = font_small.render(msg1, (255, 220, 220))
+                msg1_x = SCREEN_WIDTH // 2 - msg1_rect.width // 2
+                self.screen.blit(msg1_surf, (msg1_x, box_y + 65))
+
+                msg2_surf, msg2_rect = font_small.render(msg2, (255, 220, 220))
+                msg2_x = SCREEN_WIDTH // 2 - msg2_rect.width // 2
+                self.screen.blit(msg2_surf, (msg2_x, box_y + 95))
+
+            # 확인 버튼
+            mouse_pos = pygame.mouse.get_pos()
+            button_color = (100, 60, 60) if button_rect.collidepoint(mouse_pos) else (80, 40, 40)
+            pygame.draw.rect(self.screen, button_color, button_rect, border_radius=8)
+            pygame.draw.rect(self.screen, (200, 150, 150), button_rect, 2, border_radius=8)
+
+            if font_small:
+                btn_surf, btn_rect = font_small.render("확인", (255, 255, 255))
+                btn_x = button_x + button_width // 2 - btn_rect.width // 2
+                btn_y = button_y + button_height // 2 - btn_rect.height // 2
+                self.screen.blit(btn_surf, (btn_x, btn_y))
+
+            pygame.display.flip()
+            clock.tick(60)
+
+        # 루프 종료 후 이벤트 큐 정리 및 플레이어 입력 상태 리셋
+        pygame.event.clear()
+        # 플레이어의 이동 입력 상태 초기화 (핵심!)
+        if hasattr(self, 'player') and self.player:
+            self.player.reset_input_state()
+        pygame.time.delay(50)
+        pygame.event.clear()
+
     def _show_confirm(self, message):
         """확인 다이얼로그"""
         # 임시 구현 - 항상 True 반환
@@ -2259,16 +2698,24 @@ class DowntownManager:
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                         action = menu_options[selected][1]
                         if action == "character":
-                            # 인게임 캐릭터 정보 화면 호출
-                            bg_snapshot = self.screen.copy() if self.screen else None
+                            # 인게임 캐릭터 정보 화면 호출 (SCREEN에 광장 화면 복사)
+                            try:
+                                import pingfighter
+                                SCREEN = pingfighter.SCREEN
+                                if self.screen and SCREEN:
+                                    SCREEN.blit(self.screen, (0, 0))
+                                pygame.display.flip()
+                                bg_snapshot = SCREEN.copy()
+                            except Exception:
+                                bg_snapshot = self.screen.copy() if self.screen else None
                             if bg_snapshot is not None:
                                 show_character_info_fn(background_surface=bg_snapshot)
                             else:
                                 show_character_info_fn()
                             self._reset_player_input_state()
                         elif action == "options":
-                            # 인게임 옵션 메뉴 호출
-                            show_pause_options_fn()
+                            # 광장 전용 옵션 메뉴 (보스 배경 버그 방지)
+                            self._show_downtown_options()
                             self._reset_player_input_state()
                         elif action == "quit":
                             # 번화가 종료
@@ -2292,16 +2739,24 @@ class DowntownManager:
                             option_rect = pygame.Rect(box_x + 50, option_y - 5, box_width - 100, 40)
                             if option_rect.collidepoint(event.pos):
                                 if action == "character":
-                                    # 인게임 캐릭터 정보 화면 호출
-                                    bg_snapshot = self.screen.copy() if self.screen else None
+                                    # 인게임 캐릭터 정보 화면 호출 (SCREEN에 광장 화면 복사)
+                                    try:
+                                        import pingfighter
+                                        SCREEN = pingfighter.SCREEN
+                                        if self.screen and SCREEN:
+                                            SCREEN.blit(self.screen, (0, 0))
+                                        pygame.display.flip()
+                                        bg_snapshot = SCREEN.copy()
+                                    except Exception:
+                                        bg_snapshot = self.screen.copy() if self.screen else None
                                     if bg_snapshot is not None:
                                         show_character_info_fn(background_surface=bg_snapshot)
                                     else:
                                         show_character_info_fn()
                                     self._reset_player_input_state()
                                 elif action == "options":
-                                    # 인게임 옵션 메뉴 호출
-                                    show_pause_options_fn()
+                                    # 광장 전용 옵션 메뉴 (보스 배경 버그 방지)
+                                    self._show_downtown_options()
                                     self._reset_player_input_state()
                                 elif action == "quit":
                                     self.state = DowntownState.EXITING
@@ -2314,6 +2769,242 @@ class DowntownManager:
     def _show_inventory(self):
         """인벤토리"""
         pass
+
+    def _show_downtown_options(self):
+        """광장 전용 옵션 메뉴 (볼륨 조절) - 메인 게임과 연동"""
+        # 메인 게임과 동일한 오디오 시스템 사용
+        try:
+            from bgm_manager import bgm_manager as bgm_mgr
+        except ImportError:
+            bgm_mgr = None
+
+        try:
+            from game_state.audio import (
+                get_bgm_volume, get_sfx_volume,
+                set_bgm_volume as audio_set_bgm, set_sfx_volume as audio_set_sfx,
+                get_bgm_muted, set_bgm_muted, get_sfx_muted, set_sfx_muted
+            )
+        except ImportError:
+            get_bgm_volume = lambda: 0.4
+            get_sfx_volume = lambda: 0.7
+            audio_set_bgm = lambda v: v
+            audio_set_sfx = lambda v: v
+            get_bgm_muted = lambda: False
+            set_bgm_muted = lambda v: v
+            get_sfx_muted = lambda: False
+            set_sfx_muted = lambda v: v
+
+        clock = pygame.time.Clock()
+        running = True
+
+        # 현재 볼륨 값 가져오기 (메인 게임 상태와 동기화)
+        bgm_volume = bgm_mgr.volume if bgm_mgr else get_bgm_volume()
+        sfx_volume = get_sfx_volume()
+        # 음소거 상태
+        bgm_muted = get_bgm_muted()
+        sfx_muted = get_sfx_muted()
+
+        # UI 레이아웃
+        panel_width = 450
+        panel_height = 250
+        panel_x = (SCREEN_WIDTH - panel_width) // 2
+        panel_y = (SCREEN_HEIGHT - panel_height) // 2
+
+        slider_width = 180
+        slider_height = 10
+        handle_size = 16
+        checkbox_size = 20
+
+        bgm_slider_x = panel_x + 100
+        bgm_slider_y = panel_y + 90
+        sfx_slider_x = panel_x + 100
+        sfx_slider_y = panel_y + 140
+
+        # 체크박스 위치
+        bgm_checkbox_x = bgm_slider_x + slider_width + 55
+        bgm_checkbox_y = bgm_slider_y + slider_height // 2 - checkbox_size // 2
+        sfx_checkbox_x = sfx_slider_x + slider_width + 55
+        sfx_checkbox_y = sfx_slider_y + slider_height // 2 - checkbox_size // 2
+
+        back_button_rect = pygame.Rect(
+            panel_x + (panel_width - 100) // 2,
+            panel_y + panel_height - 60,
+            100, 40
+        )
+
+        dragging = None  # 'bgm' or 'sfx'
+
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        mx, my = event.pos
+
+                        # BGM 체크박스 클릭
+                        bgm_checkbox_rect = pygame.Rect(bgm_checkbox_x, bgm_checkbox_y, checkbox_size, checkbox_size)
+                        if bgm_checkbox_rect.collidepoint((mx, my)):
+                            bgm_muted = not bgm_muted
+                            set_bgm_muted(bgm_muted)
+                            if bgm_muted:
+                                pygame.mixer.music.set_volume(0)
+                            else:
+                                if bgm_mgr:
+                                    bgm_mgr.set_volume(bgm_volume)
+                                pygame.mixer.music.set_volume(bgm_volume)
+                            continue
+
+                        # SFX 체크박스 클릭
+                        sfx_checkbox_rect = pygame.Rect(sfx_checkbox_x, sfx_checkbox_y, checkbox_size, checkbox_size)
+                        if sfx_checkbox_rect.collidepoint((mx, my)):
+                            sfx_muted = not sfx_muted
+                            set_sfx_muted(sfx_muted)
+                            if sfx_muted:
+                                for i in range(pygame.mixer.get_num_channels()):
+                                    pygame.mixer.Channel(i).set_volume(0)
+                            else:
+                                for i in range(pygame.mixer.get_num_channels()):
+                                    pygame.mixer.Channel(i).set_volume(sfx_volume)
+                            continue
+
+                        # BGM 슬라이더 체크
+                        if bgm_slider_y - 10 <= my <= bgm_slider_y + slider_height + 10:
+                            if bgm_slider_x <= mx <= bgm_slider_x + slider_width:
+                                dragging = 'bgm'
+                        # SFX 슬라이더 체크
+                        if sfx_slider_y - 10 <= my <= sfx_slider_y + slider_height + 10:
+                            if sfx_slider_x <= mx <= sfx_slider_x + slider_width:
+                                dragging = 'sfx'
+                        # 뒤로가기 버튼
+                        if back_button_rect.collidepoint(event.pos):
+                            running = False
+
+                if event.type == pygame.MOUSEBUTTONUP:
+                    dragging = None
+
+                if event.type == pygame.MOUSEMOTION and dragging:
+                    mx = event.pos[0]
+                    ratio = max(0, min(1, (mx - bgm_slider_x) / slider_width))
+                    if dragging == 'bgm':
+                        bgm_volume = ratio
+                        audio_set_bgm(bgm_volume)
+                        if not bgm_muted:
+                            if bgm_mgr:
+                                bgm_mgr.set_volume(bgm_volume)
+                            pygame.mixer.music.set_volume(bgm_volume)
+                    elif dragging == 'sfx':
+                        sfx_volume = ratio
+                        audio_set_sfx(sfx_volume)
+                        if not sfx_muted:
+                            for i in range(pygame.mixer.get_num_channels()):
+                                pygame.mixer.Channel(i).set_volume(sfx_volume)
+
+            # 배경 그리기 (광장 화면)
+            self._draw()
+
+            # 반투명 오버레이
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            self.screen.blit(overlay, (0, 0))
+
+            # 패널
+            panel_surf = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+            pygame.draw.rect(panel_surf, (25, 30, 40, 230), (0, 0, panel_width, panel_height), border_radius=12)
+            pygame.draw.rect(panel_surf, (0, 255, 255), (0, 0, panel_width, panel_height), 3, border_radius=12)
+            self.screen.blit(panel_surf, (panel_x, panel_y))
+
+            font_large = self._freetype_fonts.get('large')
+            font_medium = self._freetype_fonts.get('medium')
+            font_small = self._freetype_fonts.get('small')
+
+            # 제목
+            if font_large:
+                title_surf, title_rect = font_large.render("옵션", (255, 255, 255))
+                self.screen.blit(title_surf, (SCREEN_WIDTH // 2 - title_rect.width // 2, panel_y + 25))
+
+            # BGM 볼륨
+            if font_medium:
+                label_surf, _ = font_medium.render("BGM", (200, 200, 200) if not bgm_muted else (100, 100, 100))
+                self.screen.blit(label_surf, (panel_x + 30, bgm_slider_y - 5))
+
+            # BGM 슬라이더
+            slider_color = (60, 60, 80) if not bgm_muted else (40, 40, 50)
+            fill_color = (0, 200, 255) if not bgm_muted else (60, 80, 100)
+            pygame.draw.rect(self.screen, slider_color, (bgm_slider_x, bgm_slider_y, slider_width, slider_height), border_radius=5)
+            filled_width = int(slider_width * bgm_volume)
+            pygame.draw.rect(self.screen, fill_color, (bgm_slider_x, bgm_slider_y, filled_width, slider_height), border_radius=5)
+            handle_x = bgm_slider_x + filled_width - handle_size // 2
+            pygame.draw.circle(self.screen, (255, 255, 255) if not bgm_muted else (150, 150, 150), (handle_x + handle_size // 2, bgm_slider_y + slider_height // 2), handle_size // 2)
+
+            # BGM 퍼센트
+            if font_small:
+                pct_color = (180, 180, 180) if not bgm_muted else (100, 100, 100)
+                pct_surf, _ = font_small.render(f"{int(bgm_volume * 100)}%", pct_color)
+                self.screen.blit(pct_surf, (bgm_slider_x + slider_width + 10, bgm_slider_y - 3))
+
+            # BGM 체크박스
+            pygame.draw.rect(self.screen, (80, 80, 100), (bgm_checkbox_x, bgm_checkbox_y, checkbox_size, checkbox_size), border_radius=4)
+            pygame.draw.rect(self.screen, (0, 200, 255) if bgm_muted else (150, 150, 150), (bgm_checkbox_x, bgm_checkbox_y, checkbox_size, checkbox_size), 2, border_radius=4)
+            if bgm_muted:
+                pygame.draw.line(self.screen, (255, 80, 80), (bgm_checkbox_x + 4, bgm_checkbox_y + 4), (bgm_checkbox_x + checkbox_size - 4, bgm_checkbox_y + checkbox_size - 4), 3)
+                pygame.draw.line(self.screen, (255, 80, 80), (bgm_checkbox_x + checkbox_size - 4, bgm_checkbox_y + 4), (bgm_checkbox_x + 4, bgm_checkbox_y + checkbox_size - 4), 3)
+            if font_small:
+                off_surf, _ = font_small.render("OFF", (255, 80, 80) if bgm_muted else (120, 120, 120))
+                self.screen.blit(off_surf, (bgm_checkbox_x + checkbox_size + 5, bgm_checkbox_y + 2))
+
+            # SFX 볼륨
+            if font_medium:
+                label_surf, _ = font_medium.render("효과음", (200, 200, 200) if not sfx_muted else (100, 100, 100))
+                self.screen.blit(label_surf, (panel_x + 30, sfx_slider_y - 5))
+
+            # SFX 슬라이더
+            slider_color = (60, 60, 80) if not sfx_muted else (40, 40, 50)
+            fill_color = (0, 255, 100) if not sfx_muted else (60, 100, 60)
+            pygame.draw.rect(self.screen, slider_color, (sfx_slider_x, sfx_slider_y, slider_width, slider_height), border_radius=5)
+            filled_width = int(slider_width * sfx_volume)
+            pygame.draw.rect(self.screen, fill_color, (sfx_slider_x, sfx_slider_y, filled_width, slider_height), border_radius=5)
+            handle_x = sfx_slider_x + filled_width - handle_size // 2
+            pygame.draw.circle(self.screen, (255, 255, 255) if not sfx_muted else (150, 150, 150), (handle_x + handle_size // 2, sfx_slider_y + slider_height // 2), handle_size // 2)
+
+            # SFX 퍼센트
+            if font_small:
+                pct_color = (180, 180, 180) if not sfx_muted else (100, 100, 100)
+                pct_surf, _ = font_small.render(f"{int(sfx_volume * 100)}%", pct_color)
+                self.screen.blit(pct_surf, (sfx_slider_x + slider_width + 10, sfx_slider_y - 3))
+
+            # SFX 체크박스
+            pygame.draw.rect(self.screen, (80, 80, 100), (sfx_checkbox_x, sfx_checkbox_y, checkbox_size, checkbox_size), border_radius=4)
+            pygame.draw.rect(self.screen, (0, 255, 100) if sfx_muted else (150, 150, 150), (sfx_checkbox_x, sfx_checkbox_y, checkbox_size, checkbox_size), 2, border_radius=4)
+            if sfx_muted:
+                pygame.draw.line(self.screen, (255, 80, 80), (sfx_checkbox_x + 4, sfx_checkbox_y + 4), (sfx_checkbox_x + checkbox_size - 4, sfx_checkbox_y + checkbox_size - 4), 3)
+                pygame.draw.line(self.screen, (255, 80, 80), (sfx_checkbox_x + checkbox_size - 4, sfx_checkbox_y + 4), (sfx_checkbox_x + 4, sfx_checkbox_y + checkbox_size - 4), 3)
+            if font_small:
+                off_surf, _ = font_small.render("OFF", (255, 80, 80) if sfx_muted else (120, 120, 120))
+                self.screen.blit(off_surf, (sfx_checkbox_x + checkbox_size + 5, sfx_checkbox_y + 2))
+
+            # 뒤로가기 버튼
+            mouse_pos = pygame.mouse.get_pos()
+            btn_color = (60, 80, 100) if back_button_rect.collidepoint(mouse_pos) else (40, 60, 80)
+            pygame.draw.rect(self.screen, btn_color, back_button_rect, border_radius=8)
+            pygame.draw.rect(self.screen, (0, 200, 255), back_button_rect, 2, border_radius=8)
+
+            if font_medium:
+                btn_surf, btn_rect = font_medium.render("뒤로", (255, 255, 255))
+                btn_x = back_button_rect.centerx - btn_rect.width // 2
+                btn_y = back_button_rect.centery - btn_rect.height // 2
+                self.screen.blit(btn_surf, (btn_x, btn_y))
+
+            pygame.display.flip()
+            clock.tick(60)
+
+        # 입력 상태 초기화
+        pygame.event.clear()
+        if hasattr(self, 'player') and self.player:
+            self.player.reset_input_state()
 
     # ==========================================================================
     # 개발자 건물 소환 시스템

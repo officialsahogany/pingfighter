@@ -48,8 +48,10 @@ def draw_premium_led(surface, x, y, color, size=5, intensity=1.0, is_on=True):
         pygame.draw.circle(surface, (30, 30, 35), (x - size//4, y - size//4), size // 4)
 
 
-def draw_slim_digit(surface, x, y, digit, color, size=110, dot_radius=3):
-    """슬림 도트 매트릭스 숫자 - 7x11 해상도 (더 얇고 세련된 디자인)"""
+def draw_slim_digit(surface, x, y, digit, color, size=110, dot_radius=3, intensity=1.0):
+    """슬림 도트 매트릭스 숫자 - 7x11 해상도 (더 얇고 세련된 디자인)
+    intensity: LED 글로우 강도 (0.5~1.5)
+    """
     patterns = {
         '0': [
             " 11111 ",
@@ -192,7 +194,7 @@ def draw_slim_digit(surface, x, y, digit, color, size=110, dot_radius=3):
         for col_idx, char in enumerate(row):
             dot_x = x + col_idx * spacing + spacing // 2
             dot_y = y + row_idx * spacing + spacing // 2
-            draw_premium_led(surface, dot_x, dot_y, color, dot_radius, 1.0, char == '1')
+            draw_premium_led(surface, dot_x, dot_y, color, dot_radius, intensity, char == '1')
 
 
 def draw_brushed_metal(surface, rect, base_color=(70, 75, 85), direction='horizontal'):
@@ -255,12 +257,29 @@ def draw_premium_frame(surface, rect, frame_color=(75, 80, 90), thickness=18):
 class HUDDisplay:
     """HUD 표시 시스템"""
 
-    def __init__(self, screen, width, height, draw_field_func=None, draw_objects_func=None):
+    # 스테이지별 보스 이름 (디스플레이 스테이지 번호 기준)
+    BOSS_NAMES = {
+        1: "풍악보이",
+        2: "악어장군",
+        3: "멘헤라걸",
+        4: "퐁크",
+        5: "네메시스",
+        6: "홍련",
+        7: "???",
+        8: "???",
+        50: "튜토리얼",
+    }
+
+    # 스테이지 5, 6 스왑 맵 (로직 스테이지 → 디스플레이 스테이지)
+    STAGE_SWAP_MAP = {5: 6, 6: 5}
+
+    def __init__(self, screen, width, height, draw_field_func=None, draw_objects_func=None, current_stage=1):
         self.screen = screen
         self.width = width
         self.height = height
         self.draw_field_func = draw_field_func
         self.draw_objects_func = draw_objects_func
+        self.current_stage = current_stage
 
         # 폰트 초기화 - 네오둥근모 픽셀 폰트 사용
         self.font_title = FontStyle.title()  # 48pt 픽셀 폰트
@@ -268,13 +287,22 @@ class HUDDisplay:
         self.font_subtitle = FontStyle.menu()  # 28pt 픽셀 폰트 (PLAYER, BOSS)
         self.font_vs = get_font(36)  # 36pt 픽셀 폰트 (VS)
         self.font_medal = FontStyle.body()  # 24pt 픽셀 폰트 (메달 점수)
-        self.font_large = get_font(60)  # 60pt 폰트 (팀 이름)
-        self.font_medium = get_font(36)  # 36pt 폰트
-        self.font_small = get_font(24)  # 24pt 폰트
+        self.font_large = get_font(48)  # 48pt 폰트 (팀 이름) - 20% 감소: 60 → 48
+        self.font_medium = get_font(29)  # 29pt 폰트 - 20% 감소: 36 → 29
+        self.font_small = get_font(19)  # 19pt 폰트 - 20% 감소: 24 → 19
 
         # 색상 정의
         self.WHITE = (255, 255, 255)
         self.BLACK = (0, 0, 0)
+
+    def set_stage(self, stage):
+        """현재 스테이지 설정"""
+        self.current_stage = stage
+
+    def get_boss_name(self):
+        """현재 스테이지의 보스 이름 반환 (로직 스테이지 → 디스플레이 스테이지 변환)"""
+        display_stage = self.STAGE_SWAP_MAP.get(self.current_stage, self.current_stage)
+        return self.BOSS_NAMES.get(display_stage, "보스")
 
     def show_score(self, player_score, ai_score):
         """KBO 프리미엄 야구 전광판 스타일 점수판"""
@@ -334,11 +362,11 @@ class HUDDisplay:
         # 메인 점수판 서피스
         board_surface = pygame.Surface((board_width + 40, board_height + 40), pygame.SRCALPHA)
 
-        # 네이비 배경
-        pygame.draw.rect(board_surface, (8, 12, 30), (20, 20, board_width, board_height))
+        # 딥 네이비 블루 배경
+        pygame.draw.rect(board_surface, (5, 15, 35), (20, 20, board_width, board_height))
 
-        # 골드 프레임
-        draw_premium_frame(board_surface, (20, 20, board_width, board_height), (90, 80, 60), 18)
+        # 블루 메탈릭 프레임 (골드 → 블루 메탈릭)
+        draw_premium_frame(board_surface, (20, 20, board_width, board_height), (40, 80, 140), 18)
 
         # 내부 LED 패널
         pygame.draw.rect(board_surface, (5, 8, 22), (44, 44, inner_w, inner_h))
@@ -348,8 +376,8 @@ class HUDDisplay:
         header_y = 52
         header_w = inner_w - 20
         header_h = 60
-        pygame.draw.rect(board_surface, (12, 18, 40), (header_x, header_y, header_w, header_h))
-        pygame.draw.rect(board_surface, (200, 170, 80), (header_x, header_y, header_w, header_h), 2)
+        pygame.draw.rect(board_surface, (10, 25, 50), (header_x, header_y, header_w, header_h))
+        pygame.draw.rect(board_surface, (80, 140, 220), (header_x, header_y, header_w, header_h), 2)  # 블루 메탈릭 테두리
 
         # 플레이어 로고 (파란색 원) - 글로우 효과 추가
         p_logo_x = header_x + 50
@@ -387,8 +415,9 @@ class HUDDisplay:
         b_icon_rect = b_icon.get_rect(center=(b_logo_x, b_logo_y))
         board_surface.blit(b_icon, b_icon_rect)
 
-        # 보스 이름
-        b_name = self.font_large.render("보스", True, (255, 120, 120))
+        # 보스 이름 - 현재 스테이지 보스 이름 표시
+        boss_name = self.get_boss_name()
+        b_name = self.font_large.render(boss_name, True, (255, 120, 120))
         b_name_rect = b_name.get_rect(right=header_x + header_w - 85, top=header_y + 12)
         board_surface.blit(b_name, b_name_rect)
 
@@ -397,22 +426,35 @@ class HUDDisplay:
         score_area_y = header_y + header_h + 15
         score_area_w = header_w - 10
         score_area_h = inner_h - header_h - 70
-        pygame.draw.rect(board_surface, (8, 12, 28), (score_area_x, score_area_y, score_area_w, score_area_h))
-        pygame.draw.rect(board_surface, (180, 150, 70), (score_area_x, score_area_y, score_area_w, score_area_h), 3)
+        pygame.draw.rect(board_surface, (5, 12, 30), (score_area_x, score_area_y, score_area_w, score_area_h))
+        pygame.draw.rect(board_surface, (60, 120, 200), (score_area_x, score_area_y, score_area_w, score_area_h), 3)  # 블루 메탈릭
 
-        # 중앙 분리선
+        # 중앙 분리선 - 블루 메탈릭
         center_x = 20 + board_width // 2
-        pygame.draw.line(board_surface, (180, 150, 70),
+        pygame.draw.line(board_surface, (60, 120, 200),
                         (center_x, score_area_y + 5), (center_x, score_area_y + score_area_h - 5), 3)
 
-        # LED 점수 (펄스 애니메이션)
-        pulse = 0.85 + 0.15 * math.sin(animation_timer * 0.1)
-        blue_led = (80, 180, 255)
-        red_led = (255, 100, 100)
+        # LED 점수 (느린 깜빡임 + 강한 밝기 대비)
+        # 느리고 부드러운 호흡 효과 (약 2초 사이클)
+        breath_pulse = 0.4 + 0.6 * math.sin(animation_timer * 0.08)  # 느린 호흡 (0.4 ~ 1.0)
 
-        # 슬림 LED 크기 계산 (7x11 패턴)
-        led_size = min(100, score_area_h - 25)
-        dot_radius = max(2, led_size // 35)
+        # 가끔 번쩍이는 효과 (약 3초마다)
+        flash_cycle = (animation_timer % 180) / 180.0  # 3초 사이클 (60fps 기준)
+        flash = 1.0
+        if flash_cycle > 0.9:  # 마지막 10%에서만 번쩍
+            flash = 1.0 + 0.5 * math.sin((flash_cycle - 0.9) * 10 * math.pi)  # 최대 1.5배 밝기
+
+        # 최종 밝기 조합 (더 큰 대비: 0.3 ~ 1.5)
+        combined_pulse = breath_pulse * flash
+        combined_pulse = max(0.3, min(1.5, combined_pulse))  # 어두울 때 더 어둡게, 밝을 때 더 밝게
+
+        # LED 기본 색상 (더 밝게 - 최대 밝기 시 눈부시게)
+        blue_led_base = (120, 220, 255)
+        red_led_base = (255, 130, 130)
+
+        # 슬림 LED 크기 계산 (7x11 패턴) - 20% 증가
+        led_size = int(min(100, score_area_h - 25) * 1.2)  # 20% 크기 증가
+        dot_radius = max(3, led_size // 30)  # 도트도 약간 크게
 
         # 슬림 도트 매트릭스 숫자의 실제 크기 계산 (7열 x 11행)
         digit_width = 7 * (led_size // 11)
@@ -423,36 +465,48 @@ class HUDDisplay:
         # 오른쪽 영역 (보스): center_x ~ score_area_x + score_area_w
         right_area_width = (score_area_x + score_area_w) - center_x
 
-        # 플레이어 점수 - 왼쪽 영역 중앙
+        # 플레이어 점수 - 왼쪽 영역 중앙 (파란색 깜빡임)
         p_score_x = score_area_x + (left_area_width - digit_width) // 2
         p_score_y = score_area_y + (score_area_h - digit_height) // 2
-        p_color = (int(blue_led[0]*pulse), int(blue_led[1]*pulse), int(blue_led[2]*pulse))
-        draw_slim_digit(board_surface, p_score_x, p_score_y, player_score, p_color, led_size, dot_radius)
+        p_color = (
+            int(min(255, blue_led_base[0] * combined_pulse)),
+            int(min(255, blue_led_base[1] * combined_pulse)),
+            int(min(255, blue_led_base[2] * combined_pulse))
+        )
+        # 글로우 강도 - 밝을 때 훨씬 강하게
+        p_intensity = 0.4 + 1.0 * combined_pulse  # 0.4 ~ 1.9 범위
+        draw_slim_digit(board_surface, p_score_x, p_score_y, player_score, p_color, led_size, dot_radius, p_intensity)
 
-        # 보스 점수 - 오른쪽 영역 중앙
+        # 보스 점수 - 오른쪽 영역 중앙 (빨간색 깜빡임, 동일한 타이밍)
         b_score_x = center_x + (right_area_width - digit_width) // 2
         b_score_y = score_area_y + (score_area_h - digit_height) // 2
-        b_color = (int(red_led[0]*pulse), int(red_led[1]*pulse), int(red_led[2]*pulse))
-        draw_slim_digit(board_surface, b_score_x, b_score_y, ai_score, b_color, led_size, dot_radius)
+        b_color = (
+            int(min(255, red_led_base[0] * combined_pulse)),
+            int(min(255, red_led_base[1] * combined_pulse)),
+            int(min(255, red_led_base[2] * combined_pulse))
+        )
+        # 보스 글로우 강도
+        b_intensity = 0.4 + 1.0 * combined_pulse
+        draw_slim_digit(board_surface, b_score_x, b_score_y, ai_score, b_color, led_size, dot_radius, b_intensity)
 
-        # VS 배지
+        # VS 배지 - 블루 메탈릭
         vs_bg_x = center_x - 28
         vs_bg_y = score_area_y + score_area_h // 2 - 22
-        pygame.draw.rect(board_surface, (50, 40, 20), (vs_bg_x, vs_bg_y, 56, 44))
-        pygame.draw.rect(board_surface, (200, 170, 80), (vs_bg_x, vs_bg_y, 56, 44), 2)
-        vs_text = self.font_medium.render("VS", True, (255, 220, 120))
+        pygame.draw.rect(board_surface, (15, 35, 70), (vs_bg_x, vs_bg_y, 56, 44))
+        pygame.draw.rect(board_surface, (80, 160, 255), (vs_bg_x, vs_bg_y, 56, 44), 2)
+        vs_text = self.font_medium.render("VS", True, (120, 200, 255))  # 블루 계열 텍스트
         vs_rect = vs_text.get_rect(center=(center_x, score_area_y + score_area_h // 2))
         board_surface.blit(vs_text, vs_rect)
 
-        # 하단 정보
+        # 하단 정보 - 블루 메탈릭
         footer_x = header_x + 5
         footer_y = inner_y + inner_h - 52
         footer_w = header_w - 10
         footer_h = 36
-        pygame.draw.rect(board_surface, (15, 22, 45), (footer_x, footer_y, footer_w, footer_h))
-        pygame.draw.rect(board_surface, (150, 130, 60), (footer_x, footer_y, footer_w, footer_h), 2)
+        pygame.draw.rect(board_surface, (10, 25, 55), (footer_x, footer_y, footer_w, footer_h))
+        pygame.draw.rect(board_surface, (60, 130, 210), (footer_x, footer_y, footer_w, footer_h), 2)
 
-        info_text = self.font_medium.render("◆ 3점 선취 승리 ◆", True, (255, 220, 120))
+        info_text = self.font_medium.render("◆ 3점 선취 승리 ◆", True, (100, 180, 255))  # 블루 계열 텍스트
         info_rect = info_text.get_rect(center=(20 + board_width // 2, footer_y + footer_h // 2))
         board_surface.blit(info_text, info_rect)
 
@@ -583,24 +637,33 @@ class HUDDisplay:
 # 싱글톤 인스턴스
 _hud_display = None
 
-def init_hud_display(screen, width, height, draw_field_func=None, draw_objects_func=None):
+def init_hud_display(screen, width, height, draw_field_func=None, draw_objects_func=None, current_stage=1):
     """HUD 디스플레이 초기화"""
     global _hud_display
-    _hud_display = HUDDisplay(screen, width, height, draw_field_func, draw_objects_func)
+    _hud_display = HUDDisplay(screen, width, height, draw_field_func, draw_objects_func, current_stage)
     return _hud_display
 
+def set_hud_stage(stage):
+    """HUD 현재 스테이지 설정"""
+    global _hud_display
+    if _hud_display is not None:
+        _hud_display.set_stage(stage)
+
 # 호환성을 위한 래퍼 함수들
-def show_score(screen, player_score, ai_score, width=600, height=750, draw_field_func=None, draw_objects_func=None):
+def show_score(screen, player_score, ai_score, width=600, height=750, draw_field_func=None, draw_objects_func=None, current_stage=None):
     """점수 표시 (호환성 래퍼)"""
     global _hud_display
     if _hud_display is None:
-        _hud_display = HUDDisplay(screen, width, height, draw_field_func, draw_objects_func)
+        _hud_display = HUDDisplay(screen, width, height, draw_field_func, draw_objects_func, current_stage or 1)
     else:
         # 함수가 전달되면 업데이트
         if draw_field_func is not None:
             _hud_display.draw_field_func = draw_field_func
         if draw_objects_func is not None:
             _hud_display.draw_objects_func = draw_objects_func
+        # 스테이지가 전달되면 업데이트
+        if current_stage is not None:
+            _hud_display.set_stage(current_stage)
     _hud_display.show_score(player_score, ai_score)
 
 def draw_medal_score(screen, medal_score, width=600, height=750):

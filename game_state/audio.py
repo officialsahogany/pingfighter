@@ -17,6 +17,10 @@ __all__ = [
     "get_sfx_volume",
     "set_bgm_volume",
     "set_sfx_volume",
+    "get_bgm_muted",
+    "set_bgm_muted",
+    "get_sfx_muted",
+    "set_sfx_muted",
     "export_audio_state",
     "load_audio_state",
     "resolve_runtime_bgm_volume",
@@ -29,6 +33,8 @@ class AudioSettings:
 
     bgm_volume: float = 0.4
     sfx_volume: float = 0.7
+    bgm_muted: bool = False
+    sfx_muted: bool = False
 
     def set_bgm(self, value: float) -> float:
         self.bgm_volume = clamp_volume(value)
@@ -76,22 +82,50 @@ def set_sfx_volume(value: float) -> float:
     return audio_settings.set_sfx(value)
 
 
-def export_audio_state() -> Dict[str, float]:
+def get_bgm_muted() -> bool:
+    """BGM 음소거 상태."""
+    return audio_settings.bgm_muted
+
+
+def set_bgm_muted(muted: bool) -> bool:
+    """BGM 음소거 상태 설정."""
+    audio_settings.bgm_muted = muted
+    return muted
+
+
+def get_sfx_muted() -> bool:
+    """SFX 음소거 상태."""
+    return audio_settings.sfx_muted
+
+
+def set_sfx_muted(muted: bool) -> bool:
+    """SFX 음소거 상태 설정."""
+    audio_settings.sfx_muted = muted
+    return muted
+
+
+def export_audio_state() -> Dict[str, Any]:
     """외부 저장용 딕셔너리로 직렬화."""
 
     return {
         "bgm_volume": audio_settings.bgm_volume,
         "sfx_volume": audio_settings.sfx_volume,
+        "bgm_muted": audio_settings.bgm_muted,
+        "sfx_muted": audio_settings.sfx_muted,
     }
 
 
-def load_audio_state(data: Dict[str, float]) -> AudioSettings:
+def load_audio_state(data: Dict[str, Any]) -> AudioSettings:
     """저장된 볼륨 값을 불러와 상태를 복원."""
 
     if "bgm_volume" in data:
         audio_settings.set_bgm(data["bgm_volume"])
     if "sfx_volume" in data:
         audio_settings.set_sfx(data["sfx_volume"])
+    if "bgm_muted" in data:
+        audio_settings.bgm_muted = bool(data["bgm_muted"])
+    if "sfx_muted" in data:
+        audio_settings.sfx_muted = bool(data["sfx_muted"])
     return audio_settings
 
 

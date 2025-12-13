@@ -22,7 +22,8 @@ class AmmoBox:
             "ak47",
             "net_gun",
             "fire_support",
-        ]  # 권총, 바주카포, AK-47, 그물덫총, 화력지원 재장전 가능
+            "bowling_trap",
+        ]  # 권총, 바주카포, AK-47, 그물덫총, 화력지원, 볼링트랩 재장전 가능
         
     def activate(self, game_state, current_stage):
         """탄약상자 사용 - 플레이어가 소지한 모든 화기류의 탄약을 100% 충전"""
@@ -173,6 +174,32 @@ class AmmoBox:
                         self.reloaded_weapons.append("fire_support")
                 else:
                     print("   ✈️ 화력지원은 이미 탄약이 가득 찼습니다.")
+
+        # 볼링트랩 재장전
+        try:
+            from item_effects.bowling_trap import get_bowling_trap_instance
+
+            bowling_trap = get_bowling_trap_instance()
+        except ImportError:
+            bowling_trap = None
+
+        if bowling_trap:
+            if is_degraded("bowling_trap"):
+                print("   🚫 볼링트랩은 노후화되어 재장전되지 않습니다.")
+            elif bowling_trap.installing:
+                print("   🚫 볼링트랩 설치 중에는 탄약상자로 재장전할 수 없습니다.")
+            else:
+                prev_ammo = getattr(bowling_trap, "ammo_count", 0)
+                max_ammo = getattr(bowling_trap, "MAX_AMMO", 3)
+                if prev_ammo < max_ammo:
+                    bowling_trap.reload(track_reload=True)
+                    if current_weapon_name == "bowling_trap":
+                        bowling_trap.equip()
+                    print(f"   🎳 볼링트랩 재장전: {prev_ammo} → {bowling_trap.ammo_count}")
+                    if "bowling_trap" not in self.reloaded_weapons:
+                        self.reloaded_weapons.append("bowling_trap")
+                else:
+                    print("   🎳 볼링트랩은 이미 탄약이 가득 찼습니다.")
 
         # 재장전된 무기가 있는지 확인
         if self.reloaded_weapons:

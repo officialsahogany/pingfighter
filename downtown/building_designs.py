@@ -60,17 +60,20 @@ class BuildingDesigner:
         screen.blit(ao_surf, (x, y))
 
     def _draw_3d_shadow(self, screen, x, y, w, h, depth=8):
-        """3D 입체 그림자"""
-        shadow_surf = pygame.Surface((w + depth * 2, h + depth * 2), pygame.SRCALPHA)
+        """3D 입체 그림자 - 건물 아래에만 그리기"""
+        # 그림자는 건물 아래 영역에만 그림 (사각형 아티팩트 방지)
+        shadow_h = depth * 2 + 5
+        shadow_surf = pygame.Surface((w + depth * 2, shadow_h), pygame.SRCALPHA)
 
-        # 다층 그림자
+        # 다층 그림자 (건물 바닥 아래에 ellipse로)
         for i in range(depth, 0, -1):
-            alpha = int(80 * (i / depth))
+            alpha = int(60 * (i / depth))  # 살짝 연하게
             offset = depth - i
+            ellipse_h = max(4, depth * 2 - offset - i)
             pygame.draw.ellipse(shadow_surf, (0, 0, 0, alpha),
-                              (offset, h + offset, w, depth * 2 - offset))
+                              (offset, offset, w + (depth - offset) * 2, ellipse_h))
 
-        screen.blit(shadow_surf, (x - depth, y))
+        screen.blit(shadow_surf, (x - depth, y + h - 3))
 
     def _draw_highlight_edge(self, screen, x, y, w, h, color, intensity=0.5):
         """하이라이트 엣지 (상단/좌측 밝게)"""
@@ -548,12 +551,14 @@ class BuildingDesigner:
         # 1. 고급 3D 그림자
         self._draw_3d_shadow(screen, x, y, w, h, depth=10)
 
-        # 2. 배경 글로우 (웅장한 분위기)
+        # 2. 배경 바닥 글로우 (웅장한 분위기 - 사각형 아티팩트 방지)
         glow_pulse = 0.5 + 0.3 * abs(math.sin(self.animation_timer * 1.5))
-        ambient_glow = pygame.Surface((w + 30, h + 30), pygame.SRCALPHA)
-        pygame.draw.rect(ambient_glow, (255, 200, 100, int(25 * glow_pulse)),
-                        (0, 0, w + 30, h + 30), border_radius=10)
-        screen.blit(ambient_glow, (x - 15, y - 15))
+        glow_h = 16
+        glow_w = w + 25
+        ambient_glow = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(ambient_glow, (255, 200, 100, int(30 * glow_pulse)),
+                        (0, 0, glow_w, glow_h))
+        screen.blit(ambient_glow, (x - 12, y + h - 3))
 
         # 3. 기단 (계단) - 고품질 그라데이션
         for i in range(4):
@@ -576,15 +581,14 @@ class BuildingDesigner:
             pygame.draw.line(screen, (220, 200, 180), (step_x, step_y), (step_x + step_w, step_y))
             pygame.draw.line(screen, (140, 120, 100), (step_x, step_y + 7), (step_x + step_w, step_y + 7))
 
-        # 4. 메인 건물 (대리석 텍스처)
+        # 4. 메인 건물 (대리석 텍스처) - 직접 screen에 그리기
         main_h = max(1, h - 40)
-        main_surf = safe_surface(w, main_h)
+        main_y = y + 25
         for my in range(main_h):
             grad = 0.85 + 0.15 * (1 - my / max(1, main_h))
             base = (210, 195, 175)
             color = tuple(int(c * grad) for c in base)
-            pygame.draw.line(main_surf, color, (0, my), (w, my))
-        screen.blit(main_surf, (x, y + 25))
+            pygame.draw.line(screen, color, (x, main_y + my), (x + w, main_y + my))
 
         # 대리석 결 텍스처
         vein_range = max(1, h - 80)
@@ -837,12 +841,14 @@ class BuildingDesigner:
         # 1. 고급 3D 그림자
         self._draw_3d_shadow(screen, x, y, w, h, depth=10)
 
-        # 2. 배경 글로우 (불꽃 분위기)
+        # 2. 배경 바닥 글로우 (불꽃 분위기 - 사각형 아티팩트 방지)
         fire_pulse = 0.6 + 0.4 * abs(math.sin(self.animation_timer * 4))
-        ambient_glow = pygame.Surface((w + 40, h + 40), pygame.SRCALPHA)
-        pygame.draw.ellipse(ambient_glow, (255, 100, 30, int(35 * fire_pulse)),
-                           (0, 10, w + 40, h + 20))
-        screen.blit(ambient_glow, (x - 20, y - 20))
+        glow_h = 18
+        glow_w = w + 30
+        ambient_glow = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(ambient_glow, (255, 100, 30, int(40 * fire_pulse)),
+                           (0, 0, glow_w, glow_h))
+        screen.blit(ambient_glow, (x - 15, y + h - 6))
 
         # 연기 파티클 (고품질)
         if random.random() < 0.25:
@@ -1065,14 +1071,17 @@ class BuildingDesigner:
         # 1. 고급 3D 그림자
         self._draw_3d_shadow(screen, x, y, w, h, depth=10)
 
-        # 2. 배경 마법 글로우 (다층)
+        # 2. 배경 마법 바닥 글로우 (사각형 아티팩트 방지)
         pulse = 0.5 + 0.5 * abs(math.sin(self.animation_timer * 2))
+        glow_h = 16
         for i in range(3):
-            glow_surf = pygame.Surface((w + 50 + i * 15, h + 50 + i * 15), pygame.SRCALPHA)
-            alpha = int((40 - i * 10) * pulse)
+            glow_w = w + 35 - i * 8
+            alpha = int((45 - i * 12) * pulse)
             color = (100 + i * 30, 120 + i * 20, 255)
-            pygame.draw.ellipse(glow_surf, (*color, alpha), (0, 0, w + 50 + i * 15, h + 50 + i * 15))
-            screen.blit(glow_surf, (x - 25 - i * 7, y - 25 - i * 7))
+            if alpha > 0:
+                glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf, (*color, alpha), (0, 0, glow_w, glow_h))
+                screen.blit(glow_surf, (x - 17 + i * 4, y + h - 5))
 
         # 3. 메인 건물 (마법 보라색 그라데이션)
         main_surf = pygame.Surface((w, h - 12), pygame.SRCALPHA)
@@ -1422,12 +1431,14 @@ class BuildingDesigner:
         # 1. 고급 3D 그림자
         self._draw_3d_shadow(screen, x, y, w, h, depth=10)
 
-        # 2. 배경 자연 글로우
+        # 2. 배경 자연 바닥 글로우 (사각형 아티팩트 방지)
         nature_pulse = 0.5 + 0.3 * abs(math.sin(self.animation_timer * 1.5))
-        ambient_glow = pygame.Surface((w + 40, h + 40), pygame.SRCALPHA)
-        pygame.draw.ellipse(ambient_glow, (100, 180, 80, int(30 * nature_pulse)),
-                           (0, 0, w + 40, h + 40))
-        screen.blit(ambient_glow, (x - 20, y - 20))
+        glow_h = 16
+        glow_w = w + 30
+        ambient_glow = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(ambient_glow, (100, 180, 80, int(35 * nature_pulse)),
+                           (0, 0, glow_w, glow_h))
+        screen.blit(ambient_glow, (x - 15, y + h - 5))
 
         # 3. 풀/덩굴 배경 (고품질)
         for i in range(8):
@@ -1698,16 +1709,17 @@ class BuildingDesigner:
         # 3D 그림자
         self._draw_3d_shadow(screen, x, y, w, h, depth=10)
 
-        # 신비로운 다중 글로우
+        # 신비로운 바닥 글로우 (금빛 - 사각형 아티팩트 방지)
         glow_pulse = abs(math.sin(self.animation_timer * 1.5))
-        # 외부 글로우 (금빛)
-        glow_surf = pygame.Surface((w + 80, h + 80), pygame.SRCALPHA)
+        glow_h = 18
         for i in range(3):
-            alpha = int((30 - i * 8) * glow_pulse)
-            size_offset = i * 15
-            pygame.draw.ellipse(glow_surf, (255, 215, 0, alpha),
-                               (size_offset, size_offset, w + 80 - size_offset * 2, h + 80 - size_offset * 2))
-        screen.blit(glow_surf, (x - 40, y - 40))
+            glow_w = w + 40 - i * 10
+            alpha = int((40 - i * 10) * glow_pulse)
+            if alpha > 0:
+                glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf, (255, 215, 0, alpha),
+                                   (0, 0, glow_w, glow_h))
+                screen.blit(glow_surf, (x - 20 + i * 5, y + h - 6))
 
         # 피라미드 형태 (그라데이션)
         pyramid_points = [
@@ -1970,15 +1982,18 @@ class BuildingDesigner:
         # 3D 그림자
         self._draw_3d_shadow(screen, x, y + 10, w, h - 10, depth=8)
 
-        # 다중 네온 글로우 배경
-        glow_surf = pygame.Surface((w + 60, h + 40), pygame.SRCALPHA)
+        # 다중 네온 바닥 글로우 배경 (사각형 아티팩트 방지)
         glow_pulse = abs(math.sin(self.animation_timer * 2))
-        for i, color in enumerate([Colors.NEON_PINK, Colors.NEON_CYAN, Colors.NEON_PURPLE]):
-            alpha = int((25 + i * 5) * glow_pulse)
-            offset = i * 10
-            pygame.draw.ellipse(glow_surf, (*color, alpha),
-                               (offset, offset, w + 60 - offset * 2, h + 40 - offset * 2))
-        screen.blit(glow_surf, (x - 30, y - 15))
+        glow_h = 16
+        neon_colors = [Colors.NEON_PINK, Colors.NEON_CYAN, Colors.NEON_PURPLE]
+        for i, color in enumerate(neon_colors):
+            glow_w = w + 35 - i * 8
+            alpha = int((35 + i * 5) * glow_pulse)
+            if alpha > 0:
+                glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf, (*color, alpha),
+                                   (0, 0, glow_w, glow_h))
+                screen.blit(glow_surf, (x - 17 + i * 4, y + h - 8))
 
         # 메인 건물 (그라데이션)
         building_surf = pygame.Surface((w, h - 10), pygame.SRCALPHA)
@@ -2233,14 +2248,17 @@ class BuildingDesigner:
         # 3D 그림자 (더 깊게)
         self._draw_3d_shadow(screen, x - 12, y + 12, w + 24, h - 10, depth=14)
 
-        # 따뜻한 분위기 글로우 (다중 레이어 - 더 화려하게)
-        for i in range(4):
-            glow_surf = pygame.Surface((w + 80 - i * 18, h + 50 - i * 12), pygame.SRCALPHA)
+        # 따뜻한 분위기 바닥 글로우 (사각형 아티팩트 방지)
+        glow_h = 18
+        for i in range(3):
+            glow_w = w + 45 - i * 10
             pulse = 0.5 + 0.5 * abs(math.sin(self.animation_timer * 1.8 + i * 0.4))
-            alpha = int((50 - i * 10) * pulse)
-            pygame.draw.ellipse(glow_surf, (255, 160, 60, alpha),
-                               (0, 0, w + 80 - i * 18, h + 50 - i * 12))
-            screen.blit(glow_surf, (x - 40 + i * 9, y - 15 + i * 6))
+            alpha = int((50 - i * 12) * pulse)
+            if alpha > 0:
+                glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf, (255, 160, 60, alpha),
+                                   (0, 0, glow_w, glow_h))
+                screen.blit(glow_surf, (x - 22 + i * 5, y + h - 6))
 
         # 색상 팔레트 (고급 목재 톤)
         wood_dark = (50, 28, 15)
@@ -3000,24 +3018,26 @@ class BuildingDesigner:
         magic_glow = abs(math.sin(self.animation_timer * 2))
         float_offset = 5 * math.sin(self.animation_timer * 1.2)
 
-        # 1. 마법 오라
-        for i in range(4):
-            aura_size = 35 - i * 8
-            aura_alpha = int((70 - i * 15) * pulse)
-            aura_surf = pygame.Surface((w + aura_size * 2, h + aura_size * 2), pygame.SRCALPHA)
-            pygame.draw.ellipse(aura_surf, (*MAGIC_PURPLE, aura_alpha),
-                               (0, 0, w + aura_size * 2, h + aura_size * 2))
-            screen.blit(aura_surf, (x - aura_size, y - aura_size))
+        # 1. 마법 오라 (건물 아래쪽에 바닥 글로우로 - 사각형 아티팩트 방지)
+        glow_h = 20
+        for i in range(3):
+            glow_w = w + 30 - i * 8
+            aura_alpha = int((50 - i * 12) * pulse)
+            if aura_alpha > 0:
+                aura_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+                pygame.draw.ellipse(aura_surf, (*MAGIC_PURPLE, aura_alpha),
+                                   (0, 0, glow_w, glow_h))
+                screen.blit(aura_surf, (x - 15 + i * 4, y + h - 8))
 
-        # 2. 돌 성벽 (메인 건물)
-        castle_surf = pygame.Surface((w, h - 20), pygame.SRCALPHA)
-        for i in range(h - 20):
+        # 2. 돌 성벽 (메인 건물) - 직접 screen에 그리기
+        castle_rect_h = h - 35  # 탑 아래쪽 영역만
+        castle_rect_y = y + 30
+        for i in range(castle_rect_h):
             grad = 0.7 + 0.3 * math.sin(i * 0.1)
             r = int(STONE_GRAY[0] * grad)
             g = int(STONE_GRAY[1] * grad)
             b = int(STONE_GRAY[2] * grad)
-            pygame.draw.line(castle_surf, (r, g, b), (0, i), (w, i))
-        screen.blit(castle_surf, (x, y + 15))
+            pygame.draw.line(screen, (r, g, b), (x, castle_rect_y + i), (x + w, castle_rect_y + i))
 
         # 돌 블록 텍스처
         for row in range(3):
@@ -3195,28 +3215,32 @@ class BuildingDesigner:
         """가챠샵 - 화려한 가챠 머신 (고품질)"""
         w, h = building.width, building.height
 
-        # 1. 3D 그림자 (무지개빛 틴트)
-        shadow_surf = pygame.Surface((w + 15, h + 15), pygame.SRCALPHA)
-        for i in range(8):
-            alpha = 60 - i * 7
-            color_shift = int(i * 10)
-            pygame.draw.rect(shadow_surf, (50 + color_shift, 30, 60 + color_shift, max(0, alpha)),
-                           (8 - i, 8 - i, w + i, h + i), border_radius=12)
-        screen.blit(shadow_surf, (x + 5, y + 5))
+        # 1. 3D 바닥 그림자 (사각형 아티팩트 방지)
+        shadow_h = 14
+        shadow_w = w + 20
+        shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+        for i in range(5):
+            alpha = 50 - i * 10
+            if alpha > 0:
+                pygame.draw.ellipse(shadow_surf, (50, 30, 60, alpha),
+                                   (i, i, shadow_w - i * 2, shadow_h - i))
+        screen.blit(shadow_surf, (x - 10, y + h - 2))
 
-        # 2. 다중 레이어 무지개 글로우
+        # 2. 다중 레이어 무지개 바닥 글로우 (사각형 아티팩트 방지)
         glow_pulse = abs(math.sin(self.animation_timer * 3))
-        for layer in range(4):
-            glow_size = (w + 60 - layer * 10, h + 60 - layer * 10)
-            glow_surf = pygame.Surface(glow_size, pygame.SRCALPHA)
+        glow_h = 16
+        for layer in range(3):
+            glow_w = w + 35 - layer * 8
             # 무지개 색상 순환
             hue = (self.animation_timer * 50 + layer * 30) % 360
             r = int(127 + 127 * math.sin(math.radians(hue)))
             g = int(127 + 127 * math.sin(math.radians(hue + 120)))
             b = int(127 + 127 * math.sin(math.radians(hue + 240)))
-            alpha = int((50 - layer * 10) * glow_pulse)
-            pygame.draw.ellipse(glow_surf, (r, g, b, alpha), (0, 0, *glow_size))
-            screen.blit(glow_surf, (x - 30 + layer * 5, y - 30 + layer * 5))
+            alpha = int((45 - layer * 12) * glow_pulse)
+            if alpha > 0:
+                glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf, (r, g, b, alpha), (0, 0, glow_w, glow_h))
+                screen.blit(glow_surf, (x - 17 + layer * 4, y + h - 6))
 
         # 3. 건물 본체 (레드-골드 그라데이션)
         for i in range(h):

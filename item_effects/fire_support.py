@@ -137,138 +137,316 @@ class FireSupportAircraft:
         if not self.active and not self.crashing:
             return
 
+        import math
+        current_time = pygame.time.get_ticks()
+
         base_x = self.x
         base_y = self.y
         w = self.width
         h = self.height
 
-        # B-2 폭격기의 특징적인 삼각형/다이아몬드 날개 형태
+        # === 지면 그림자 (입체감) ===
+        shadow_y = min(base_y + 80, self.screen_height - 20)
+        shadow_scale = max(0.4, 1 - (shadow_y - base_y) / 150)
+        shadow_width = int(w * 1.1 * shadow_scale)
+        shadow_height = int(h * 0.3 * shadow_scale)
+        shadow_surface = pygame.Surface((shadow_width + 20, shadow_height + 10), pygame.SRCALPHA)
+        shadow_alpha = int(40 * shadow_scale)
+        pygame.draw.ellipse(shadow_surface, (0, 0, 0, shadow_alpha), (10, 5, shadow_width, shadow_height))
+        surface.blit(shadow_surface, (int(base_x + w // 2 - shadow_width // 2 - 10), int(shadow_y)))
+
+        # B-2 스텔스 폭격기 - 고퀄리티 검정색 디자인
+        # 색상 팔레트 (사진 참조 - 매우 어두운 회색/검정)
+        if not self.crashing:
+            main_dark = (18, 18, 22)       # 가장 어두운 부분
+            main_mid = (28, 28, 32)        # 중간 톤
+            main_light = (38, 38, 45)      # 밝은 부분 (반사광)
+            highlight = (55, 55, 65)       # 하이라이트
+            outline = (8, 8, 10)           # 외곽선
+            panel_line = (22, 22, 26)      # 패널 라인
+        else:
+            main_dark = (45, 35, 30)
+            main_mid = (60, 50, 40)
+            main_light = (75, 60, 50)
+            highlight = (90, 75, 60)
+            outline = (30, 25, 20)
+            panel_line = (40, 32, 28)
+
+        # B-2 Spirit 스텔스 폭격기 - 실제 사진 참고
+        # 특징: 앞=뾰족한 노즈, 뒤=W자 형태 (중앙이 앞으로 튀어나옴)
+        # 날개가 매우 넓고 얇은 형태
         if self.direction == "left_to_right":
+            # 오른쪽으로 날아감 (오른쪽=앞, 왼쪽=뒤)
             body_points = [
-                # 노즈 (전방)
-                self._to_screen_point(base_x, base_y, w, h, 0.95, 0.50),
-                # 우측 날개 끝
-                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.05),
-                # 우측 날개 중간
-                self._to_screen_point(base_x, base_y, w, h, 0.50, 0.15),
-                # 중앙 뒤쪽
-                self._to_screen_point(base_x, base_y, w, h, 0.05, 0.50),
-                # 좌측 날개 중간
-                self._to_screen_point(base_x, base_y, w, h, 0.50, 0.85),
-                # 좌측 날개 끝
-                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.95),
+                # === 노즈 (앞부분 - 뾰족한 삼각형) ===
+                self._to_screen_point(base_x, base_y, w, h, 1.00, 0.50),  # 노즈 끝
+
+                # === 상단 날개 leading edge (앞전) ===
+                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.20),  # 노즈에서 날개로
+                self._to_screen_point(base_x, base_y, w, h, 0.55, 0.00),  # 상단 날개 끝
+
+                # === 상단 날개 trailing edge (뒷전) - W자의 상단 부분 ===
+                self._to_screen_point(base_x, base_y, w, h, 0.35, 0.08),  # 날개 뒤쪽 시작
+                self._to_screen_point(base_x, base_y, w, h, 0.18, 0.25),  # W자 외측 끝 (상단)
+
+                # === W자 중앙 돌출부 (상단) ===
+                self._to_screen_point(base_x, base_y, w, h, 0.28, 0.38),  # W자 안쪽 (상단)
+
+                # === 중앙 후방 (W자의 가운데 튀어나온 부분) ===
+                self._to_screen_point(base_x, base_y, w, h, 0.08, 0.50),  # 중앙 꼬리
+
+                # === W자 중앙 돌출부 (하단) ===
+                self._to_screen_point(base_x, base_y, w, h, 0.28, 0.62),  # W자 안쪽 (하단)
+
+                # === 하단 날개 trailing edge - W자의 하단 부분 ===
+                self._to_screen_point(base_x, base_y, w, h, 0.18, 0.75),  # W자 외측 끝 (하단)
+                self._to_screen_point(base_x, base_y, w, h, 0.35, 0.92),  # 날개 뒤쪽 끝
+
+                # === 하단 날개 leading edge (앞전) ===
+                self._to_screen_point(base_x, base_y, w, h, 0.55, 1.00),  # 하단 날개 끝
+                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.80),  # 날개에서 노즈로
             ]
         else:
+            # 왼쪽으로 날아감 (왼쪽=앞, 오른쪽=뒤)
             body_points = [
-                # 노즈 (전방)
-                self._to_screen_point(base_x, base_y, w, h, 0.05, 0.50),
-                # 좌측 날개 끝
-                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.05),
-                # 좌측 날개 중간
-                self._to_screen_point(base_x, base_y, w, h, 0.50, 0.15),
-                # 중앙 뒤쪽
-                self._to_screen_point(base_x, base_y, w, h, 0.95, 0.50),
-                # 우측 날개 중간
-                self._to_screen_point(base_x, base_y, w, h, 0.50, 0.85),
-                # 우측 날개 끝
-                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.95),
+                # === 노즈 (앞부분 - 뾰족한 삼각형) ===
+                self._to_screen_point(base_x, base_y, w, h, 0.00, 0.50),  # 노즈 끝
+
+                # === 상단 날개 leading edge ===
+                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.20),
+                self._to_screen_point(base_x, base_y, w, h, 0.45, 0.00),  # 상단 날개 끝
+
+                # === 상단 날개 trailing edge - W자 ===
+                self._to_screen_point(base_x, base_y, w, h, 0.65, 0.08),
+                self._to_screen_point(base_x, base_y, w, h, 0.82, 0.25),  # W자 외측 끝 (상단)
+
+                # === W자 중앙 돌출부 (상단) ===
+                self._to_screen_point(base_x, base_y, w, h, 0.72, 0.38),
+
+                # === 중앙 후방 ===
+                self._to_screen_point(base_x, base_y, w, h, 0.92, 0.50),  # 중앙 꼬리
+
+                # === W자 중앙 돌출부 (하단) ===
+                self._to_screen_point(base_x, base_y, w, h, 0.72, 0.62),
+
+                # === 하단 날개 trailing edge - W자 ===
+                self._to_screen_point(base_x, base_y, w, h, 0.82, 0.75),  # W자 외측 끝 (하단)
+                self._to_screen_point(base_x, base_y, w, h, 0.65, 0.92),
+
+                # === 하단 날개 leading edge ===
+                self._to_screen_point(base_x, base_y, w, h, 0.45, 1.00),  # 하단 날개 끝
+                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.80),
             ]
 
-        # B-2의 특징적인 검은색
-        main_color = (25, 25, 28) if not self.crashing else (60, 45, 35)
-        outline_color = (10, 10, 12)
-        highlight_color = (40, 40, 45)
-        panel_color = (35, 35, 40)
+        # === 메인 동체 (다층 레이어로 입체감) ===
+        # 1. 베이스 레이어 (가장 어두운)
+        pygame.draw.polygon(surface, main_dark, body_points)
 
-        # 메인 동체 그리기
-        pygame.draw.polygon(surface, main_color, body_points)
-        pygame.draw.polygon(surface, outline_color, body_points, 2)
-
-        # 날개 패널 라인과 디테일
+        # 2. 중앙 볼록한 부분 (동체 중심부)
         if self.direction == "left_to_right":
-            # 우측 날개 패널
-            panel_lines_right = [
-                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.25),
-                self._to_screen_point(base_x, base_y, w, h, 0.60, 0.35),
+            center_body = [
+                self._to_screen_point(base_x, base_y, w, h, 0.92, 0.50),  # 노즈 쪽
+                self._to_screen_point(base_x, base_y, w, h, 0.75, 0.35),  # 상단
+                self._to_screen_point(base_x, base_y, w, h, 0.40, 0.40),  # 후방 상단
+                self._to_screen_point(base_x, base_y, w, h, 0.18, 0.50),  # 후방 중앙
+                self._to_screen_point(base_x, base_y, w, h, 0.40, 0.60),  # 후방 하단
+                self._to_screen_point(base_x, base_y, w, h, 0.75, 0.65),  # 하단
             ]
-            # 좌측 날개 패널
-            panel_lines_left = [
-                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.75),
-                self._to_screen_point(base_x, base_y, w, h, 0.60, 0.65),
-            ]
-            # 엔진 벌지 위치
-            engine_center_right = self._to_screen_point(base_x, base_y, w, h, 0.30, 0.30)
-            engine_center_left = self._to_screen_point(base_x, base_y, w, h, 0.30, 0.70)
         else:
-            # 좌측 날개 패널
-            panel_lines_right = [
-                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.25),
-                self._to_screen_point(base_x, base_y, w, h, 0.40, 0.35),
+            center_body = [
+                self._to_screen_point(base_x, base_y, w, h, 0.08, 0.50),  # 노즈 쪽
+                self._to_screen_point(base_x, base_y, w, h, 0.25, 0.35),  # 상단
+                self._to_screen_point(base_x, base_y, w, h, 0.60, 0.40),  # 후방 상단
+                self._to_screen_point(base_x, base_y, w, h, 0.82, 0.50),  # 후방 중앙
+                self._to_screen_point(base_x, base_y, w, h, 0.60, 0.60),  # 후방 하단
+                self._to_screen_point(base_x, base_y, w, h, 0.25, 0.65),  # 하단
             ]
-            # 우측 날개 패널
-            panel_lines_left = [
-                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.75),
-                self._to_screen_point(base_x, base_y, w, h, 0.40, 0.65),
-            ]
-            # 엔진 벌지 위치
-            engine_center_right = self._to_screen_point(base_x, base_y, w, h, 0.70, 0.30)
-            engine_center_left = self._to_screen_point(base_x, base_y, w, h, 0.70, 0.70)
+        pygame.draw.polygon(surface, main_mid, center_body)
 
-        # 날개 패널 라인
-        pygame.draw.line(surface, panel_color, panel_lines_right[0], panel_lines_right[1], 2)
-        pygame.draw.line(surface, panel_color, panel_lines_left[0], panel_lines_left[1], 2)
-
-        # 엔진 벌지 (B-2의 특징적인 엔진 흡입구)
-        engine_radius = int(h * 0.16)
-        pygame.draw.circle(surface, (20, 20, 23), engine_center_right, engine_radius)
-        pygame.draw.circle(surface, (20, 20, 23), engine_center_left, engine_radius)
-        pygame.draw.circle(surface, outline_color, engine_center_right, engine_radius, 1)
-        pygame.draw.circle(surface, outline_color, engine_center_left, engine_radius, 1)
-
-        # 콕핏 위치 (중앙 상단)
+        # 3. 상단 반사광 (광원 효과)
         if self.direction == "left_to_right":
-            cockpit_center = self._to_screen_point(base_x, base_y, w, h, 0.70, 0.50)
+            highlight_body = [
+                self._to_screen_point(base_x, base_y, w, h, 0.88, 0.48),
+                self._to_screen_point(base_x, base_y, w, h, 0.70, 0.40),
+                self._to_screen_point(base_x, base_y, w, h, 0.45, 0.44),
+                self._to_screen_point(base_x, base_y, w, h, 0.45, 0.50),
+                self._to_screen_point(base_x, base_y, w, h, 0.70, 0.48),
+            ]
         else:
-            cockpit_center = self._to_screen_point(base_x, base_y, w, h, 0.30, 0.50)
-        
-        cockpit_width = int(w * 0.08)
-        cockpit_height = int(h * 0.20)
+            highlight_body = [
+                self._to_screen_point(base_x, base_y, w, h, 0.12, 0.48),
+                self._to_screen_point(base_x, base_y, w, h, 0.30, 0.40),
+                self._to_screen_point(base_x, base_y, w, h, 0.55, 0.44),
+                self._to_screen_point(base_x, base_y, w, h, 0.55, 0.50),
+                self._to_screen_point(base_x, base_y, w, h, 0.30, 0.48),
+            ]
+        pygame.draw.polygon(surface, main_light, highlight_body)
+
+        # === 외곽선 (선명한 실루엣) ===
+        pygame.draw.polygon(surface, outline, body_points, 2)
+
+        # === 패널 라인 디테일 (스텔스 코팅 패널) ===
+        if self.direction == "left_to_right":
+            # 상단 날개 패널 라인들
+            panel_sets = [
+                (0.80, 0.25, 0.50, 0.15),   # 상단 날개 앞쪽
+                (0.70, 0.20, 0.45, 0.12),   # 상단 날개 중간
+                (0.60, 0.15, 0.40, 0.10),   # 상단 날개 끝쪽
+                # 하단 날개 패널 라인들 (대칭)
+                (0.80, 0.75, 0.50, 0.85),   # 하단 날개 앞쪽
+                (0.70, 0.80, 0.45, 0.88),   # 하단 날개 중간
+                (0.60, 0.85, 0.40, 0.90),   # 하단 날개 끝쪽
+            ]
+        else:
+            panel_sets = [
+                (0.20, 0.25, 0.50, 0.15),
+                (0.30, 0.20, 0.55, 0.12),
+                (0.40, 0.15, 0.60, 0.10),
+                (0.20, 0.75, 0.50, 0.85),
+                (0.30, 0.80, 0.55, 0.88),
+                (0.40, 0.85, 0.60, 0.90),
+            ]
+
+        for px1, py1, px2, py2 in panel_sets:
+            p1 = self._to_screen_point(base_x, base_y, w, h, px1, py1)
+            p2 = self._to_screen_point(base_x, base_y, w, h, px2, py2)
+            pygame.draw.line(surface, panel_line, p1, p2, 1)
+
+        # === 엔진 배기구 (4개 - B-2 특징, 동체 후방에 위치) ===
+        if self.direction == "left_to_right":
+            engine_positions = [
+                (0.25, 0.40), (0.25, 0.46),
+                (0.25, 0.54), (0.25, 0.60),
+            ]
+        else:
+            engine_positions = [
+                (0.75, 0.40), (0.75, 0.46),
+                (0.75, 0.54), (0.75, 0.60),
+            ]
+
+        for ex, ey in engine_positions:
+            engine_pos = self._to_screen_point(base_x, base_y, w, h, ex, ey)
+            # 엔진 노즐 (어두운 원)
+            pygame.draw.circle(surface, (5, 5, 8), engine_pos, 5)
+            pygame.draw.circle(surface, (15, 15, 20), engine_pos, 4)
+            pygame.draw.circle(surface, outline, engine_pos, 5, 1)
+
+            # 엔진 열기 효과 (추진 중)
+            if not self.crashing:
+                heat_glow = pygame.Surface((16, 16), pygame.SRCALPHA)
+                heat_alpha = int(60 + 30 * math.sin(current_time * 0.01))
+                pygame.draw.circle(heat_glow, (255, 150, 80, heat_alpha), (8, 8), 6)
+                if self.direction == "left_to_right":
+                    surface.blit(heat_glow, (engine_pos[0] - 16, engine_pos[1] - 8))
+                else:
+                    surface.blit(heat_glow, (engine_pos[0] + 2, engine_pos[1] - 8))
+
+        # === 콕핏 (유리창 반사 - 노즈 근처에 위치) ===
+        if self.direction == "left_to_right":
+            cockpit_center = self._to_screen_point(base_x, base_y, w, h, 0.78, 0.50)
+        else:
+            cockpit_center = self._to_screen_point(base_x, base_y, w, h, 0.22, 0.50)
+
+        cockpit_w = int(w * 0.08)
+        cockpit_h = int(h * 0.18)
+
+        # 콕핏 베이스 (어두운 유리)
         cockpit_rect = pygame.Rect(
-            cockpit_center[0] - cockpit_width // 2,
-            cockpit_center[1] - cockpit_height // 2,
-            cockpit_width,
-            cockpit_height,
+            cockpit_center[0] - cockpit_w // 2,
+            cockpit_center[1] - cockpit_h // 2,
+            cockpit_w,
+            cockpit_h,
         )
-        pygame.draw.ellipse(surface, (50, 60, 70), cockpit_rect)
-        pygame.draw.ellipse(surface, outline_color, cockpit_rect, 1)
+        pygame.draw.ellipse(surface, (15, 20, 30), cockpit_rect)
 
-        # 날개 엣지 하이라이트 (스텔스 코팅 효과)
-        edge_alpha = 80
-        edge_surface = pygame.Surface((2, 2), pygame.SRCALPHA)
+        # 콕핏 유리 반사 (밝은 부분)
+        reflection_rect = pygame.Rect(
+            cockpit_center[0] - cockpit_w // 3,
+            cockpit_center[1] - cockpit_h // 3,
+            cockpit_w // 2,
+            cockpit_h // 3,
+        )
+        pygame.draw.ellipse(surface, (40, 50, 70), reflection_rect)
+
+        # 콕핏 하이라이트 (작은 반사점)
+        pygame.draw.circle(surface, (70, 85, 110), (cockpit_center[0] - 2, cockpit_center[1] - 3), 2)
+
+        pygame.draw.ellipse(surface, outline, cockpit_rect, 1)
+
+        # === 날개 앞전 하이라이트 (스텔스 코팅 반사) ===
         if self.direction == "left_to_right":
-            # 앞쪽 엣지
-            edge_line = [
-                self._to_screen_point(base_x, base_y, w, h, 0.95, 0.50),
-                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.05),
-            ]
-            pygame.draw.line(surface, (*highlight_color, edge_alpha), edge_line[0], edge_line[1], 2)
-            edge_line2 = [
-                self._to_screen_point(base_x, base_y, w, h, 0.95, 0.50),
-                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.95),
-            ]
-            pygame.draw.line(surface, (*highlight_color, edge_alpha), edge_line2[0], edge_line2[1], 2)
+            # 노즈에서 상단 날개 끝까지 (leading edge)
+            edge_start = self._to_screen_point(base_x, base_y, w, h, 1.00, 0.50)
+            edge_mid = self._to_screen_point(base_x, base_y, w, h, 0.85, 0.20)
+            edge_end = self._to_screen_point(base_x, base_y, w, h, 0.55, 0.00)
+            pygame.draw.line(surface, highlight, edge_start, edge_mid, 2)
+            pygame.draw.line(surface, highlight, edge_mid, edge_end, 1)
+            # 노즈에서 하단 날개 끝까지
+            edge_mid2 = self._to_screen_point(base_x, base_y, w, h, 0.85, 0.80)
+            edge_end2 = self._to_screen_point(base_x, base_y, w, h, 0.55, 1.00)
+            pygame.draw.line(surface, highlight, edge_start, edge_mid2, 2)
+            pygame.draw.line(surface, highlight, edge_mid2, edge_end2, 1)
         else:
-            # 앞쪽 엣지
-            edge_line = [
-                self._to_screen_point(base_x, base_y, w, h, 0.05, 0.50),
-                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.05),
-            ]
-            pygame.draw.line(surface, (*highlight_color, edge_alpha), edge_line[0], edge_line[1], 2)
-            edge_line2 = [
-                self._to_screen_point(base_x, base_y, w, h, 0.05, 0.50),
-                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.95),
-            ]
-            pygame.draw.line(surface, (*highlight_color, edge_alpha), edge_line2[0], edge_line2[1], 2)
+            edge_start = self._to_screen_point(base_x, base_y, w, h, 0.00, 0.50)
+            edge_mid = self._to_screen_point(base_x, base_y, w, h, 0.15, 0.20)
+            edge_end = self._to_screen_point(base_x, base_y, w, h, 0.45, 0.00)
+            pygame.draw.line(surface, highlight, edge_start, edge_mid, 2)
+            pygame.draw.line(surface, highlight, edge_mid, edge_end, 1)
+            edge_mid2 = self._to_screen_point(base_x, base_y, w, h, 0.15, 0.80)
+            edge_end2 = self._to_screen_point(base_x, base_y, w, h, 0.45, 1.00)
+            pygame.draw.line(surface, highlight, edge_start, edge_mid2, 2)
+            pygame.draw.line(surface, highlight, edge_mid2, edge_end2, 1)
+
+        # === 항법등 (깜빡임) - 날개 끝에 위치 ===
+        nav_blink = (current_time // 500) % 2 == 0
+
+        if self.direction == "left_to_right":
+            # 상단 날개 끝 (녹색 - 우현)
+            right_nav = self._to_screen_point(base_x, base_y, w, h, 0.55, 0.02)
+            # 하단 날개 끝 (빨간 - 좌현)
+            left_nav = self._to_screen_point(base_x, base_y, w, h, 0.55, 0.98)
+        else:
+            right_nav = self._to_screen_point(base_x, base_y, w, h, 0.45, 0.02)
+            left_nav = self._to_screen_point(base_x, base_y, w, h, 0.45, 0.98)
+
+        if nav_blink:
+            # 빨간 항법등 (좌측)
+            nav_glow_r = pygame.Surface((12, 12), pygame.SRCALPHA)
+            pygame.draw.circle(nav_glow_r, (255, 50, 50, 100), (6, 6), 5)
+            surface.blit(nav_glow_r, (left_nav[0] - 6, left_nav[1] - 6))
+            pygame.draw.circle(surface, (255, 80, 80), left_nav, 2)
+
+            # 녹색 항법등 (우측)
+            nav_glow_g = pygame.Surface((12, 12), pygame.SRCALPHA)
+            pygame.draw.circle(nav_glow_g, (50, 255, 50, 100), (6, 6), 5)
+            surface.blit(nav_glow_g, (right_nav[0] - 6, right_nav[1] - 6))
+            pygame.draw.circle(surface, (80, 255, 80), right_nav, 2)
+
+        # === 꼬리 부분 안티 콜리전 라이트 (흰색 깜빡임 - 중앙 후방) ===
+        if self.direction == "left_to_right":
+            tail_light = self._to_screen_point(base_x, base_y, w, h, 0.10, 0.50)
+        else:
+            tail_light = self._to_screen_point(base_x, base_y, w, h, 0.90, 0.50)
+
+        strobe_blink = (current_time // 200) % 4 == 0
+        if strobe_blink:
+            strobe_glow = pygame.Surface((16, 16), pygame.SRCALPHA)
+            pygame.draw.circle(strobe_glow, (255, 255, 255, 150), (8, 8), 6)
+            surface.blit(strobe_glow, (tail_light[0] - 8, tail_light[1] - 8))
+            pygame.draw.circle(surface, (255, 255, 255), tail_light, 3)
+        else:
+            pygame.draw.circle(surface, (100, 100, 100), tail_light, 2)
+
+        # === "USAF" 마킹 (미세한 디테일) ===
+        # 작은 크기로 마킹 표시 (선택적)
+        if self.direction == "left_to_right":
+            marking_pos = self._to_screen_point(base_x, base_y, w, h, 0.50, 0.50)
+        else:
+            marking_pos = self._to_screen_point(base_x, base_y, w, h, 0.50, 0.50)
+
+        # 작은 별 마크 (미 공군 표시)
+        star_size = 3
+        pygame.draw.circle(surface, (45, 45, 55), marking_pos, star_size)
 
     def _ratio_to_x(self, base_x: float, width: float, ratio: float) -> float:
         if self.direction == "left_to_right":

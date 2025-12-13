@@ -48,6 +48,20 @@ GAME_HEIGHT = INTERNAL_HEIGHT
 GAME_OFFSET_X = 0
 GAME_OFFSET_Y = 0
 
+# ============= 전체화면 설정 =============
+FULLSCREEN_MODE = True  # 전체화면 모드 활성화
+FULLSCREEN_WIDTH = 0    # 모니터 전체 너비 (런타임에 설정)
+FULLSCREEN_HEIGHT = 0   # 모니터 전체 높이 (런타임에 설정)
+
+# 필러(Pillar) 배경 타입
+PILLAR_BG_ARTWORK = "artwork"   # 핑파이터 아트워크 (메뉴/로비)
+PILLAR_BG_DYNAMIC = "dynamic"   # 스테이지별 동적 배경
+PILLAR_BG_SOLID = "solid"       # 단색 배경
+current_pillar_bg_type = PILLAR_BG_ARTWORK  # 현재 필러 배경 타입
+
+# 필러 배경 색상 (단색 모드용)
+PILLAR_BG_COLOR = (15, 15, 25)  # 어두운 남색
+
 # FPS 설정
 TARGET_FPS = 60
 MIN_FPS = 30

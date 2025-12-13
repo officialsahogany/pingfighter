@@ -497,6 +497,44 @@ def load_item_icons():
             except Exception as exc:
                 print(f"[WARN] Poseidon icon animation sync failed: {exc}")
 
+        # angel_blessing: legendary_manager에서 주사위+날개 프레임 사용
+        if item_name == "angel_blessing":
+            try:
+                if legendary_manager is None:
+                    from legendary_items import get_legendary_manager
+                    legendary_manager = get_legendary_manager()
+
+                angel = legendary_manager.get_item("angel_blessing") if legendary_manager else None
+                frames = getattr(angel, "animation_frames", None)
+
+                if frames:
+                    copied_frames = [frame.copy() for frame in frames if frame]
+                    if copied_frames:
+                        ITEM_ICON_ANIMATIONS[item_name] = copied_frames
+                        ITEM_ICONS[item_name] = pygame.transform.smoothscale(copied_frames[0], (32, 32))
+                        continue
+            except Exception as exc:
+                print(f"[WARN] Angel Blessing icon animation sync failed: {exc}")
+
+        # sacred_laurel: legendary_manager에서 프레임 사용
+        if item_name == "sacred_laurel":
+            try:
+                if legendary_manager is None:
+                    from legendary_items import get_legendary_manager
+                    legendary_manager = get_legendary_manager()
+
+                laurel = legendary_manager.get_item("sacred_laurel") if legendary_manager else None
+                frames = getattr(laurel, "animation_frames", None)
+
+                if frames:
+                    copied_frames = [frame.copy() for frame in frames if frame]
+                    if copied_frames:
+                        ITEM_ICON_ANIMATIONS[item_name] = copied_frames
+                        ITEM_ICONS[item_name] = pygame.transform.smoothscale(copied_frames[0], (32, 32))
+                        continue
+            except Exception as exc:
+                print(f"[WARN] Sacred Laurel icon animation sync failed: {exc}")
+
         try:
             icon_path = resource_path(os.path.join("items", icon_file))
             icon = pygame.image.load(icon_path)
@@ -932,7 +970,7 @@ ITEM_TYPES = [
         "color": (220, 240, 255),  # 옅은 하늘색
         "effect": "angel_blessing",
         "icon": None,
-        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.08% 확률 (다른 전설과 동일)
         "duration": 600,
         "unlock_condition": None
     },
@@ -941,7 +979,7 @@ ITEM_TYPES = [
         "color": (100, 200, 100),  # 연두색
         "effect": "sacred_laurel",
         "icon": None,
-        "chance": 0.0008,  # 전설 아이템 필드 드랍 0.04% 확률
+        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -1114,7 +1152,9 @@ unlocked_items = {
     "ragnarok_hammer": True,
     "hermes_shoes": True,
     "poseidon_trident": True,
-    
+    "angel_blessing": True,
+    "sacred_laurel": True,
+
     # 패시브 아이템
     "knee_pads": True
     
@@ -1219,7 +1259,7 @@ def reset_items():
 # 아이템 생성
 def spawn_random_item():
     # 전역 변수 참조
-    global ragnarok_hammer_obtained, poseidon_trident_obtained, foul_whistle_obtained, angel_blessing_obtained
+    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, angel_blessing_obtained, sacred_laurel_obtained, foul_whistle_obtained
     
     debug_spawn = os.environ.get("PINGF_DEBUG_ITEMS", "0").lower() in ("1", "true", "yes", "on")
     if debug_spawn:
@@ -1355,8 +1395,13 @@ def spawn_random_item():
                 print(f"[DEBUG] poseidon_trident can spawn (not obtained yet)")
 
         # 천사의 가호는 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "angel_blessing" and angel_blessing_obtained:
-            continue
+        if item["name"] == "angel_blessing":
+            print(f"[DEBUG] Checking angel_blessing: obtained = {angel_blessing_obtained}")
+            if angel_blessing_obtained:
+                print(f"[DEBUG] Skipping angel_blessing spawn (already obtained)")
+                continue
+            else:
+                print(f"[DEBUG] angel_blessing can spawn (not obtained yet)")
         
         # 신성 월계수는 한 번 획득하면 더 이상 스폰 안함
         if item["name"] == "sacred_laurel" and sacred_laurel_obtained:
@@ -1397,7 +1442,7 @@ def spawn_random_item():
         "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt",
         "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
-        "hermes_shoes", "poseidon_trident", "angel_blessing", "bulletproof_hat", "spiked_helmet"
+        "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "bulletproof_hat", "spiked_helmet"
     }
 
     for item in available_items:
@@ -1507,7 +1552,7 @@ def spawn_random_item():
         # 신성 월계수도 동일하게 초기화만 수행해 아이콘 애니메이션이 가능하도록 함
 
 def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None):
-    global item_list
+    global item_list, angel_blessing_obtained, ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, sacred_laurel_obtained
     new_items = []
 
     for item in item_list:
@@ -1549,8 +1594,31 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             
             item_name = item["type"]["name"]
             print(f"🔍 DEBUG: 아이템 획득 감지: {item_name}")
+
+            # 전설 아이템 중복 획득 방지 체크
+            legendary_already_obtained = False
+            if item_name == "angel_blessing" and angel_blessing_obtained:
+                print(f"⚠️ 천사의 가호 중복 획득 방지: 이미 획득했으므로 스킵")
+                legendary_already_obtained = True
+            elif item_name == "ragnarok_hammer" and ragnarok_hammer_obtained:
+                print(f"⚠️ 라그나로크 해머 중복 획득 방지: 이미 획득했으므로 스킵")
+                legendary_already_obtained = True
+            elif item_name == "hermes_shoes" and hermes_shoes_obtained:
+                print(f"⚠️ 헤르메스의 신발 중복 획득 방지: 이미 획득했으므로 스킵")
+                legendary_already_obtained = True
+            elif item_name == "poseidon_trident" and poseidon_trident_obtained:
+                print(f"⚠️ 포세이돈의 삼지창 중복 획득 방지: 이미 획득했으므로 스킵")
+                legendary_already_obtained = True
+            elif item_name == "sacred_laurel" and sacred_laurel_obtained:
+                print(f"⚠️ 신성 월계수 중복 획득 방지: 이미 획득했으므로 스킵")
+                legendary_already_obtained = True
+
+            if legendary_already_obtained:
+                # 이미 획득한 전설 아이템은 필드에서 제거하고 다음 아이템으로
+                continue
+
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "bulletproof_hat", "spiked_helmet"]:
                 # 패시브 아이템 처리
                 print(f"🔍 DEBUG: {item_name}을(를) 패시브 아이템으로 처리 중...")
                 if store_passive_func:
@@ -1789,11 +1857,10 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
             item_name = item.get("name", item.get("effect", ""))
             if item_name in throwing_items and time_since_round_start < 5000:
                 remaining_seconds = int((5000 - time_since_round_start) / 1000) + 1  # 5, 4, 3, 2, 1
-                
-                # 반투명 검은색 오버레이
-                overlay = pygame.Surface((SLOT_W, SLOT_H))
-                overlay.set_alpha(180)
-                overlay.fill((0, 0, 0))
+
+                # 반투명 검은색 오버레이 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
+                overlay = pygame.Surface((SLOT_W, SLOT_H), pygame.SRCALPHA)
+                overlay.fill((0, 0, 0, 180))
                 screen.blit(overlay, (x, y))
                 
                 # 카운트다운 숫자 표시 (크고 굵게)

@@ -18,9 +18,14 @@ class BlacksmithController:
     namespace: Any
     state: BlacksmithState = field(default_factory=lambda: blacksmith_state)
 
-    def sync_from_globals(self, attrs: Optional[Iterable[str]] = None) -> None:
+    def sync_from_globals(
+        self,
+        attrs: Optional[Iterable[str]] = None,
+        *,
+        exclude_attrs: Optional[Iterable[str]] = None,
+    ) -> None:
         """pingfighter 전역 상태를 내부 상태로 동기화."""
-        self.state.sync_from_globals(self.namespace, attrs=attrs)
+        self.state.sync_from_globals(self.namespace, attrs=attrs, exclude_attrs=exclude_attrs)
 
     def apply_to_globals(self, attrs: Optional[Iterable[str]] = None) -> None:
         """내부 상태를 pingfighter 전역에 반영."""

@@ -4,8 +4,19 @@
 """
 
 import pygame
+import os
+import sys
 from typing import Optional, Dict, Any
 from .legendary_acquisition import LegendaryAcquisitionEffect
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    relative_path = relative_path.replace('/', os.sep).replace('\\', os.sep)
+    return os.path.join(base_path, relative_path)
 
 # 싱글톤 인스턴스
 _legendary_effect = None
@@ -31,21 +42,13 @@ def trigger_legendary_acquisition(item_name: str, korean_name: str, item_icon: A
     
     # 전설 아이템 획득 사운드 재생
     try:
-        import pygame
-        import os
-        # 절대 경로 사용
-        sound_path = "/Volumes/T7/윈도우용최신/game/bosspong/sounds/legendopen.wav"
+        sound_path = resource_path(os.path.join("sounds", "legendopen.wav"))
         if os.path.exists(sound_path):
             sound = pygame.mixer.Sound(sound_path)
             sound.play()
-            print(f"🔊 전설 아이템 사운드 재생: legendopen.wav")
+            print(f"🔊 전설 아이템 사운드 재생: {sound_path}")
         else:
-            # 상대 경로 시도
-            sound_path = "sounds/legendopen.wav"
-            if os.path.exists(sound_path):
-                sound = pygame.mixer.Sound(sound_path)
-                sound.play()
-                print(f"🔊 전설 아이템 사운드 재생: legendopen.wav")
+            print(f"⚠️ 전설 아이템 사운드 파일 없음: {sound_path}")
     except Exception as e:
         print(f"사운드 재생 실패: {e}")
     
@@ -53,20 +56,32 @@ def trigger_legendary_acquisition(item_name: str, korean_name: str, item_icon: A
 
 def update_legendary_effect(dt: float, paddle_pos: tuple = None) -> bool:
     """전설 아이템 획득 효과 업데이트
-    
+
     Args:
         dt: 델타 타임 (밀리초)
         paddle_pos: 플레이어 패들 위치 (x, y) 튜플 (선택사항)
-        
+
     Returns:
         애니메이션 활성 상태
     """
     effect = get_legendary_effect()
+    was_active = effect.is_active()
     # 패들 위치 업데이트
     if paddle_pos:
         effect.paddle_x = paddle_pos[0]
         effect.paddle_y = paddle_pos[1]
-    return effect.update(dt)
+    is_active = effect.update(dt)
+
+    # 애니메이션이 방금 종료되었으면 대기 중인 천사의 가호 처리
+    if was_active and not is_active:
+        try:
+            from legendary_items import process_pending_angel_blessing
+            if process_pending_angel_blessing():
+                print("[LegendaryIntegration] 대기 중인 천사의 가호 활성화 처리 완료")
+        except Exception as e:
+            print(f"[LegendaryIntegration] 천사의 가호 대기열 처리 실패: {e}")
+
+    return is_active
 
 def draw_legendary_effect(screen: pygame.Surface, font_large: pygame.font.Font, 
                          font_huge: Optional[pygame.font.Font] = None):

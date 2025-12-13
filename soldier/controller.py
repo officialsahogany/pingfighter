@@ -109,6 +109,7 @@ class SoldierWeaponController:
         get_ak47_instance: Callable[[], object | None],
         get_net_gun_instance: Callable[[], object | None],
         get_fire_support_instance: Callable[[], object | None],
+        get_bowling_trap_instance: Callable[[], object | None] | None = None,
     ) -> None:
         if "bazooka" in self.degraded:
             bazooka = get_bazooka_instance()
@@ -164,6 +165,20 @@ class SoldierWeaponController:
             except Exception:
                 # 상태 조회 실패 시 제거는 건너뛴다 (런타임 안전 가드)
                 pass
+
+        if "bowling_trap" in self.degraded and get_bowling_trap_instance is not None:
+            bowling_trap = get_bowling_trap_instance()
+            if bowling_trap:
+                ammo_empty = getattr(bowling_trap, "ammo_count", 0) <= 0
+                not_installing = not getattr(bowling_trap, "installing", False)
+                # 노후화 상태에서 탄약이 0이고 설치 중이 아니면 즉시 파괴
+                # (설치된 트랩 설치물들은 유지 - 스테이지 전환 시에만 초기화)
+                if ammo_empty and not_installing:
+                    if hasattr(bowling_trap, "unequip"):
+                        bowling_trap.unequip()
+                    # reset() 호출 제거 - 설치된 트랩들은 유지
+                    self.remove_weapon("bowling_trap")
+                    print("⚠️ 볼링트랩 노후화로 파괴되었습니다. (설치된 트랩은 유지)")
 
     def set_current_weapon(self, index: int) -> None:
         if not self.weapons:

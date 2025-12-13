@@ -29,6 +29,7 @@ class SupplyDropConfig:
         "fire_support",
         "suicide_drone",
         "doping_potion",
+        "bowling_trap",
     )
 
 

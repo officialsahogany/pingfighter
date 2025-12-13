@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>발토르 - 핑파이터 위키</title>
+    <style>
+        /* 나무위키 스타일 CSS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', 'Nanum Gothic', sans-serif;
+            line-height: 1.8;
+            color: #373a3c;
+            background-color: #fff;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 문서 제목 */
+        .doc-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #0275d8;
+            border-bottom: 2px solid #0275d8;
+            padding-bottom: 10px;
+            margin-bottom: 5px;
+        }
+
+        .doc-subtitle {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+
+        /* 정보 박스 (문서 상단) */
+        .info-box {
+            float: right;
+            width: 280px;
+            border: 1px solid #dee2e6;
+            margin: 0 0 20px 20px;
+            background: #fff;
+        }
+
+        .info-box-title {
+            background: linear-gradient(135deg, #ff6432, #cc4020);
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .info-box table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .info-box td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 13px;
+        }
+
+        .info-box td:first-child {
+            background: #f8f9fa;
+            font-weight: bold;
+            width: 90px;
+        }
+
+        /* 목차 */
+        .toc {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px 20px;
+            margin: 20px 0;
+            display: inline-block;
+            min-width: 350px;
+        }
+
+        .toc-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 14px;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 8px;
+        }
+
+        .toc ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .toc li {
+            padding: 3px 0;
+        }
+
+        .toc a {
+            color: #0275d8;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .toc .sub {
+            padding-left: 20px;
+            font-size: 12px;
+        }
+
+        .toc .sub2 {
+            padding-left: 40px;
+            font-size: 12px;
+        }
+
+        /* 섹션 헤딩 */
+        h2 {
+            font-size: 20px;
+            color: #373a3c;
+            border-bottom: 2px solid #ff6432;
+            padding: 10px 0;
+            margin: 30px 0 15px 0;
+            clear: both;
+        }
+
+        h3 {
+            font-size: 16px;
+            color: #373a3c;
+            border-left: 4px solid #ff6432;
+            padding-left: 10px;
+            margin: 25px 0 12px 0;
+        }
+
+        h4 {
+            font-size: 14px;
+            color: #373a3c;
+            margin: 20px 0 10px 0;
+            padding-left: 15px;
+            border-left: 2px solid #dee2e6;
+        }
+
+        /* 본문 */
+        p {
+            margin: 10px 0;
+            text-align: justify;
+        }
+
+        /* 테이블 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        /* 키보드 키 스타일 */
+        kbd {
+            background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #adb5bd;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: monospace;
+            font-size: 12px;
+            box-shadow: 0 2px 0 #adb5bd;
+        }
+
+        /* 강조 박스 */
+        .important-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 12px 15px;
+            margin: 15px 0;
+        }
+
+        .warning-box {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            padding: 12px 15px;
+            margin: 15px 0;
+        }
+
+        .tip-box {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            padding: 12px 15px;
+            margin: 15px 0;
+        }
+
+        .info-highlight {
+            background: #cce5ff;
+            border: 1px solid #b8daff;
+            border-radius: 4px;
+            padding: 12px 15px;
+            margin: 15px 0;
+        }
+
+        /* 접기 스타일 */
+        details {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        summary {
+            background: #e9ecef;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        summary:hover {
+            background: #dee2e6;
+        }
+
+        details > div {
+            padding: 15px;
+        }
+
+        /* 인용문 */
+        blockquote {
+            border-left: 4px solid #ff6432;
+            margin: 15px 0;
+            padding: 10px 15px;
+            background: #fff5f0;
+            color: #555;
+            font-style: italic;
+        }
+
+        /* 리스트 */
+        ul, ol {
+            margin: 10px 0 10px 25px;
+        }
+
+        li {
+            margin: 5px 0;
+        }
+
+        /* 링크 */
+        a {
+            color: #0275d8;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* 뱃지 */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .badge-orange {
+            background: #ff6432;
+            color: white;
+        }
+
+        .badge-blue {
+            background: #0275d8;
+            color: white;
+        }
+
+        .badge-green {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-red {
+            background: #dc3545;
+            color: white;
+        }
+
+        /* 게이지 표시 */
+        .gauge-display {
+            display: inline-block;
+            background: linear-gradient(90deg, #ff6432 var(--fill), #e9ecef var(--fill));
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            padding: 2px 8px;
+            font-size: 12px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        /* 스탯 카드 */
+        .stat-card {
+            display: inline-block;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px 15px;
+            margin: 5px;
+            text-align: center;
+            min-width: 80px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ff6432;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #6c757d;
+        }
+
+        /* 플로우 차트 */
+        .flow-chart {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .flow-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px 15px;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .flow-arrow {
+            color: #ff6432;
+            font-weight: bold;
+        }
+
+        /* 버서크 효과 */
+        .berserk-box {
+            background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
+            border: 2px solid #ff6666;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        /* 푸터 */
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            text-align: center;
+            color: #6c757d;
+            font-size: 12px;
+        }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .info-box {
+                float: none;
+                width: 100%;
+                margin: 0 0 20px 0;
+            }
+
+            .toc {
+                width: 100%;
+            }
+
+            .flow-chart {
+                flex-direction: column;
+            }
+
+            .flow-arrow {
+                transform: rotate(90deg);
+            }
+        }
+
+        /* 스무스 스크롤 */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* 프린트 스타일 */
+        @media print {
+            body {
+                max-width: 100%;
+            }
+
+            .info-box {
+                float: none;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 상단 정보 박스 -->
+<div class="info-box">
+    <div class="info-box-title">🔨 발토르 (Baltor)</div>
+    <table>
+        <tr>
+            <td>클래스</td>
+            <td>대장장이 (Blacksmith)</td>
+        </tr>
+        <tr>
+            <td>난이도</td>
+            <td>★★★★☆ (어려움)</td>
+        </tr>
+        <tr>
+            <td>스타일</td>
+            <td>건설/방어형</td>
+        </tr>
+        <tr>
+            <td>장점</td>
+            <td>강력한 방어막, 구조물 건설</td>
+        </tr>
+        <tr>
+            <td>단점</td>
+            <td>게이지 관리, 높은 숙련도 필요</td>
+        </tr>
+        <tr>
+            <td>전용 아이템</td>
+            <td>수리키트, 광폭물약</td>
+        </tr>
+        <tr>
+            <td>핵심 스킬</td>
+            <td>토르쉴드, 해머쇼크</td>
+        </tr>
+    </table>
+</div>
+
+<h1 class="doc-title">발토르</h1>
+<p class="doc-subtitle">핑파이터 캐릭터 공략 가이드</p>
+
+<blockquote>
+    "강철의 의지로 단조한다, 승리의 병기를!"
+</blockquote>
+
+<p>
+    <strong>발토르</strong>는 핑파이터의 <span class="badge badge-orange">건설형</span> 캐릭터입니다.
+    토르쉴드를 활용한 방어와 포탑·디바인스톤 건설을 통해 점진적으로 화력을 증강하는 플레이가 특징입니다.
+    높은 게이지 관리 능력과 멀티태스킹이 요구되어 숙련도가 중요한 고난이도 캐릭터입니다.
+</p>
+
+<!-- 목차 -->
+<div class="toc">
+    <div class="toc-title">목차</div>
+    <ul>
+        <li><a href="#section1">1. 개요</a></li>
+        <li><a href="#section2">2. 조작법</a></li>
+        <li class="sub"><a href="#section2-1">2.1. 기본 조작</a></li>
+        <li class="sub"><a href="#section2-2">2.2. 건설 시스템</a></li>
+        <li><a href="#section3">3. 게이지 시스템</a></li>
+        <li class="sub"><a href="#section3-1">3.1. 기본 게이지 획득량</a></li>
+        <li class="sub"><a href="#section3-2">3.2. 디바인쉴드</a></li>
+        <li><a href="#section4">4. 토르쉴드 (Thor Shield)</a></li>
+        <li><a href="#section5">5. 건설 시스템</a></li>
+        <li class="sub"><a href="#section5-1">5.1. 자동 포탑</a></li>
+        <li class="sub"><a href="#section5-2">5.2. 디바인스톤</a></li>
+        <li class="sub"><a href="#section5-3">5.3. 검기 (Divine Slash)</a></li>
+        <li class="sub"><a href="#section5-4">5.4. 번개 요격</a></li>
+        <li><a href="#section6">6. 해머쇼크 (Hammer Shock)</a></li>
+        <li class="sub"><a href="#section6-1">6.1. 지면 크랙 시스템</a></li>
+        <li><a href="#section7">7. 발토르 전용 아이템</a></li>
+        <li class="sub"><a href="#section7-1">7.1. 수리키트</a></li>
+        <li class="sub"><a href="#section7-2">7.2. 벽돌 (전용 효과)</a></li>
+        <li class="sub"><a href="#section7-3">7.3. 광폭물약</a></li>
+        <li><a href="#section8">8. 전략 가이드</a></li>
+        <li class="sub"><a href="#section8-1">8.1. 운영 페이즈</a></li>
+        <li class="sub"><a href="#section8-2">8.2. 구조물 우선순위</a></li>
+        <li class="sub"><a href="#section8-3">8.3. 전투 운영법</a></li>
+        <li><a href="#section9">9. 고급 테크닉</a></li>
+        <li class="sub"><a href="#section9-1">9.1. 게이지 손익 계산</a></li>
+        <li class="sub"><a href="#section9-2">9.2. 멀티태스킹</a></li>
+    </ul>
+</div>
+
+<div style="clear: both;"></div>
+
+<!-- 1. 개요 -->
+<h2 id="section1">1. 개요</h2>
+
+<p>
+    발토르는 <strong>건설과 방어</strong>에 특화된 캐릭터입니다. 토르쉴드라는 우산형 방어막을 펼쳐 공을 막으면서 높은 게이지를 획득하고,
+    이 게이지로 포탑과 디바인스톤을 건설하여 점점 강력해지는 플레이 스타일을 가집니다.
+</p>
+
+<div class="info-highlight">
+    <strong>💡 발토르의 핵심 컨셉</strong><br>
+    • 토르쉴드로 공 방어 → 게이지 축적 → 구조물 건설 → 더 강한 공격력<br>
+    • 게임이 진행될수록 점점 강해지는 "성장형" 캐릭터<br>
+    • 게이지 관리와 멀티태스킹이 핵심
+</div>
+
+<!-- 2. 조작법 -->
+<h2 id="section2">2. 조작법</h2>
+
+<h3 id="section2-1">2.1. 기본 조작</h3>
+
+<table>
+    <tr>
+        <th>입력</th>
+        <th>동작</th>
+        <th>설명</th>
+    </tr>
+    <tr>
+        <td><kbd>A</kbd> <kbd>D</kbd></td>
+        <td>좌우 이동</td>
+        <td>패들(망치) 좌우 이동</td>
+    </tr>
+    <tr>
+        <td><kbd>W</kbd></td>
+        <td>토르쉴드 전개</td>
+        <td>우산형 방어막 펼치기</td>
+    </tr>
+    <tr>
+        <td><kbd>S</kbd> / <kbd>마우스 우클릭</kbd></td>
+        <td>건설 모드</td>
+        <td>포탑/디바인스톤 건설</td>
+    </tr>
+    <tr>
+        <td><kbd>마우스 좌클릭</kbd></td>
+        <td>필살기</td>
+        <td>해머쇼크 발동</td>
+    </tr>
+    <tr>
+        <td><kbd>A</kbd>/<kbd>D</kbd> + <kbd>S</kbd> 또는 <kbd>우클릭</kbd></td>
+        <td>대시</td>
+        <td>좌우 이동 중 아래키로 대시</td>
+    </tr>
+</table>
+
+<h3 id="section2-2">2.2. 건설 시스템</h3>
+
+<table>
+    <tr>
+        <th>입력</th>
+        <th>동작</th>
+        <th>설명</th>
+    </tr>
+    <tr>
+        <td><kbd>S</kbd> / <kbd>우클릭</kbd> 길게</td>
+        <td>건설 메뉴</td>
+        <td>포탑/디바인스톤 선택 UI</td>
+    </tr>
+    <tr>
+        <td><kbd>S</kbd> / <kbd>우클릭</kbd> + 망치질</td>
+        <td>건설 진행</td>
+        <td>청사진 위에서 게이지 소모하며 건설</td>
+    </tr>
+    <tr>
+        <td>포탑 근처 <kbd>S</kbd> / <kbd>우클릭</kbd></td>
+        <td>포탑 충전</td>
+        <td>기존 포탑 업그레이드/오버드라이브</td>
+    </tr>
+</table>
+
+<!-- 3. 게이지 시스템 -->
+<h2 id="section3">3. 게이지 시스템</h2>
+
+<p>
+    발토르는 상황에 따라 게이지 획득량이 달라집니다. 토르쉴드 사용 여부, 디바인스톤 건설 여부에 따라 획득량이 크게 차이납니다.
+</p>
+
+<h3 id="section3-1">3.1. 기본 게이지 획득량</h3>
+
+<table>
+    <tr>
+        <th>상태</th>
+        <th>획득 게이지</th>
+        <th>설명</th>
+    </tr>
+    <tr>
+        <td>기본 패들 (망치)</td>
+        <td><strong>30</strong></td>
+        <td>토르쉴드 미사용 시</td>
+    </tr>
+    <tr>
+        <td>토르쉴드 기본</td>
+        <td><strong>60</strong></td>
+        <td>디바인스톤 없음</td>
+    </tr>
+    <tr>
+        <td>토르쉴드 + 디바인스톤</td>
+        <td><strong>80</strong></td>
+        <td>디바인스톤 활성</td>
+    </tr>
+    <tr style="background: #d4edda;">
+        <td>토르쉴드 + 강화 디바인스톤</td>
+        <td><strong>100</strong></td>
+        <td>최대 효율</td>
+    </tr>
+</table>
+
+<div class="tip-box">
+    <strong>💡 TIP:</strong> 토르쉴드를 적극 활용하면 기본 패들 대비 2~3배 이상의 게이지를 획득할 수 있습니다. 디바인스톤을 먼저 건설하면 게이지 효율이 크게 향상됩니다.
+</div>
+
+<h3 id="section3-2">3.2. 디바인쉴드 (Divine Shield)</h3>
+
+<div class="warning-box">
+    <strong>⚠️ 강화 디바인 스톤 전용 기능</strong> - 일반 디바인 스톤에서는 사용 불가!
+</div>
+
+<p>
+    <strong>강화 디바인 스톤</strong>을 건설하면 사용할 수 있는 강력한 방어 시스템입니다.
+    디바인스톤 주변에 4겹의 보호막을 생성하여 건물을 지킵니다.
+</p>
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0;">
+    <div class="stat-card">
+        <div class="stat-value">400</div>
+        <div class="stat-label">필요 게이지</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">6초</div>
+        <div class="stat-label">충전 시간</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">4</div>
+        <div class="stat-label">보호막 레이어</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">25초</div>
+        <div class="stat-label">최대 지속시간</div>
+    </div>
+</div>
+
+<table>
+    <tr>
+        <th>항목</th>
+        <th>수치</th>
+        <th>설명</th>
+    </tr>
+    <tr>
+        <td>충전 방법</td>
+        <td><kbd>S</kbd> / <kbd>우클릭</kbd> 유지</td>
+        <td>강화 디바인스톤 근처에서 키 유지</td>
+    </tr>
+    <tr>
+        <td>게이지 소모 속도</td>
+        <td>~67/초</td>
+        <td>400게이지 ÷ 6초 = 초당 66.7 소모</td>
+    </tr>
+    <tr>
+        <td>피격당 효과</td>
+        <td>레이어 -1</td>
+        <td>4회 피격 시 쉴드 파괴</td>
+    </tr>
+    <tr>
+        <td>과부하 시간</td>
+        <td>30초</td>
+        <td>쉴드 파괴 후 비활성화 시간</td>
+    </tr>
+</table>
+
+<details>
+    <summary>📌 디바인쉴드 효과 상세</summary>
+    <div>
+        <ul>
+            <li><strong>디바인스톤 HP 보호</strong>: 쉴드 활성 동안 건물 HP 피해 무효</li>
+            <li><strong>공 반사 부스트</strong>: 쉴드에 맞은 공은 속도 증가 반사</li>
+            <li><strong>4겹 동심원</strong>: 피격마다 바깥 레이어부터 소멸</li>
+            <li><strong>시각 효과</strong>: 남은 레이어 수에 따라 링 표시</li>
+        </ul>
+    </div>
+</details>
+
+<div class="warning-box">
+    <strong>🔴 디바인쉴드 과부하 (Overheat)</strong><br><br>
+    4회 피격으로 쉴드가 파괴되면 <strong>30초간 과부하 상태</strong>가 됩니다.<br>
+    과부하 동안 비활성화되는 기능:
+    <ul>
+        <li>검기 (Divine Slash) 발사 불가</li>
+        <li>해머쇼크 3단계 불가 (1~2단계만 가능)</li>
+        <li>디바인 라이트닝 비활성화</li>
+        <li>디바인쉴드 재충전 불가</li>
+    </ul>
+</div>
+
+<!-- 4. 토르쉴드 -->
+<h2 id="section4">4. 토르쉴드 (Thor Shield) 🛡️</h2>
+
+<p>
+    <kbd>W</kbd>키를 눌러 펼치는 우산형 방어막입니다. 공을 막으면서 동시에 높은 게이지를 획득할 수 있습니다.
+</p>
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0;">
+    <div class="stat-card">
+        <div class="stat-value">5</div>
+        <div class="stat-label">최대 내구도</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">6초</div>
+        <div class="stat-label">기본 회복 주기</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">60~100</div>
+        <div class="stat-label">게이지 획득량</div>
+    </div>
+</div>
+
+<table>
+    <tr>
+        <th>상태</th>
+        <th>내구도 회복 주기</th>
+        <th>비고</th>
+    </tr>
+    <tr>
+        <td>기본</td>
+        <td>6초</td>
+        <td>디바인스톤 없음</td>
+    </tr>
+    <tr>
+        <td>디바인스톤 활성</td>
+        <td>5초</td>
+        <td>-1초 단축</td>
+    </tr>
+    <tr style="background: #d4edda;">
+        <td>강화 디바인스톤</td>
+        <td>4초</td>
+        <td>-2초 단축</td>
+    </tr>
+</table>
+
+<div class="warning-box">
+    <strong>⚠️ 주의:</strong> 토르쉴드 전개 중에는 이동 속도가 <strong>25%로 감소</strong>합니다. 또한 건설/망치질 입력이 차단됩니다.
+</div>
+
+<div class="tip-box">
+    <strong>💡 TIP:</strong> 내구도가 0이 되면 토르쉴드를 사용할 수 없습니다. 내구도 게이지를 항상 확인하세요!
+</div>
+
+<!-- 5. 건설 시스템 -->
+<h2 id="section5">5. 건설 시스템 🏗️</h2>
+
+<p>
+    발토르의 핵심 시스템입니다. 게이지를 소모하여 포탑과 디바인스톤을 건설할 수 있습니다.
+</p>
+
+<div class="flow-chart">
+    <div class="flow-item"><kbd>S</kbd> 길게 누르기<br><small>건설 메뉴</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-item">구조물 선택<br><small>포탑/디바인스톤</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-item">청사진 배치<br><small>위치 지정</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-item">망치질<br><small>게이지 소모</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-item">완성!</div>
+</div>
+
+<h3 id="section5-1">5.1. 자동 포탑 🗼</h3>
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0;">
+    <div class="stat-card">
+        <div class="stat-value">220</div>
+        <div class="stat-label">건설 게이지</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">~4.9초</div>
+        <div class="stat-label">건설 시간</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">45/초</div>
+        <div class="stat-label">게이지 소모</div>
+    </div>
+</div>
+
+<h4>포탑 레벨 시스템</h4>
+
+<table>
+    <tr>
+        <th>레벨</th>
+        <th>특징</th>
+        <th>업그레이드 비용</th>
+    </tr>
+    <tr>
+        <td>레벨 1</td>
+        <td>기본 자동 사격 (5초 간격)</td>
+        <td>-</td>
+    </tr>
+    <tr style="background: #fff3cd;">
+        <td>레벨 2 (강화)</td>
+        <td>사격 속도 증가, 오버드라이브 가능, <strong>유도탄 발사</strong></td>
+        <td>250 게이지</td>
+    </tr>
+</table>
+
+<h4>🚀 강화 포탑 유도탄 시스템</h4>
+
+<p>레벨 2 강화 포탑은 일정 시간마다 보스를 추적하는 <strong>유도 미사일 3발</strong>을 연속 발사합니다.</p>
+
+<table>
+    <tr>
+        <th>항목</th>
+        <th>수치</th>
+    </tr>
+    <tr>
+        <td>발사 개수</td>
+        <td><strong>3발</strong> (연속 발사)</td>
+    </tr>
+    <tr>
+        <td>발사 간격</td>
+        <td>0.2초</td>
+    </tr>
+    <tr>
+        <td>재발사 쿨타임</td>
+        <td>15~20초</td>
+    </tr>
+    <tr>
+        <td>스턴 시간</td>
+        <td>0.4초</td>
+    </tr>
+    <tr>
+        <td>미사일 크기</td>
+        <td>기본 미사일의 70%</td>
+    </tr>
+</table>
+
+<h4>🎯 포탑 수동 발사</h4>
+
+<p>포탑이 건설되어 있을 때 <strong>마우스 좌클릭 더블클릭</strong>으로 즉시 포탑을 발사할 수 있습니다!</p>
+
+<table>
+    <tr>
+        <th>항목</th>
+        <th>수치</th>
+    </tr>
+    <tr>
+        <td>발동 조건</td>
+        <td>포탑 건설 완료 + 마우스 좌클릭 더블클릭</td>
+    </tr>
+    <tr>
+        <td>게이지 소모</td>
+        <td><strong style="color:#dc3545;">60</strong></td>
+    </tr>
+    <tr>
+        <td>쿨타임</td>
+        <td>0.6초</td>
+    </tr>
+    <tr style="background: #d4edda;">
+        <td>광폭물약 사용 시</td>
+        <td>쿨타임 <strong>75% 감소</strong> (0.15초)</td>
+    </tr>
+</table>
+
+<div class="warning-box">
+    <strong>수동 발사 불가 조건:</strong><br>
+    • 토르쉴드가 전개된 상태에서는 수동 발사 불가<br>
+    • 게이지 60 미만일 때<br>
+    • 쿨타임 중일 때
+</div>
+
+<h3 id="section5-2">5.2. 디바인스톤 💎</h3>
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0;">
+    <div class="stat-card">
+        <div class="stat-value">330</div>
+        <div class="stat-label">건설 게이지</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">~7.3초</div>
+        <div class="stat-label">건설 시간</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">HP 3</div>
+        <div class="stat-label">내구도</div>
+    </div>
+</div>
+
+<table>
+    <tr>
+        <th>단계</th>
+        <th>토르쉴드 게이지</th>
+        <th>회복 주기</th>
+        <th>추가 효과</th>
+    </tr>
+    <tr>
+        <td>기본</td>
+        <td>60 → 80</td>
+        <td>6초 → 5초</td>
+        <td>-</td>
+    </tr>
+    <tr style="background: #fff3cd;">
+        <td>강화 (업그레이드)</td>
+        <td>80 → 100</td>
+        <td>5초 → 4초</td>
+        <td><strong>디바인쉴드, 검기 사용 가능</strong></td>
+    </tr>
+</table>
+
+<h3 id="section5-3">5.3. 검기 (Divine Slash) ⚔️</h3>
+
+<p><strong>강화 디바인스톤</strong>이 있을 때 토르쉴드로 스윙하면 <strong>검기(Slash)</strong>가 발사됩니다!</p>
+
+<table>
+    <tr>
+        <th>항목</th>
+        <th>수치</th>
+    </tr>
+    <tr>
+        <td>발동 조건</td>
+        <td>강화 디바인스톤 활성 + 토르쉴드 스윙</td>
+    </tr>
+    <tr>
+        <td>게이지 소모</td>
+        <td><strong style="color:#dc3545;">50</strong> (게이지 50 미만 시 발사 불가)</td>
+    </tr>
+    <tr>
+        <td>발사 딜레이</td>
+        <td>0.4초 (스윙 후)</td>
+    </tr>
+    <tr>
+        <td>비행 속도</td>
+        <td>15</td>
+    </tr>
+    <tr>
+        <td>지속 시간</td>
+        <td>1.6초</td>
+    </tr>
+    <tr>
+        <td>동시 발사체 제한</td>
+        <td>최대 6개</td>
+    </tr>
+</table>
+
+<h4>검기 효과</h4>
+
+<table>
+    <tr>
+        <th>대상</th>
+        <th>효과</th>
+    </tr>
+    <tr>
+        <td>공 타격</td>
+        <td>공을 검기 방향으로 가속 + <strong style="color:#28a745;">게이지 +30</strong> 회수</td>
+    </tr>
+    <tr>
+        <td>보스 타격</td>
+        <td><strong>넉백 + 추가 밀침(32픽셀) + 0.3초 스턴</strong> + 다크 폭발 이펙트</td>
+    </tr>
+</table>
+
+<div class="tip-box">
+    <strong>💡 TIP:</strong> 검기로 공을 맞추면 게이지 30을 돌려받습니다. 소모 50 - 회수 30 = <strong>실질 소모 20!</strong> 공격과 수비를 동시에 할 수 있는 강력한 기술입니다.
+</div>
+
+<div class="warning-box">
+    <strong>검기 발사 불가 조건:</strong><br>
+    • 게이지가 50 미만일 때<br>
+    • 디바인쉴드 과부하 상태일 때<br>
+    • 강화 디바인스톤이 없을 때 (기본 디바인스톤은 불가)
+</div>
+
+<h3 id="section5-4">5.4. 번개 요격 ⚡</h3>
+
+<p>디바인스톤은 일정 시간마다 자동으로 번개를 발사하여 보스의 공을 요격합니다.</p>
+
+<table>
+    <tr>
+        <th>구분</th>
+        <th>디바인스톤</th>
+        <th>강화 디바인스톤</th>
+    </tr>
+    <tr>
+        <td>번개 쿨타임</td>
+        <td>15~25초</td>
+        <td>13~23초</td>
+    </tr>
+    <tr>
+        <td>게이지 획득</td>
+        <td>+40</td>
+        <td>+50</td>
+    </tr>
+    <tr>
+        <td>발동 조건 (HP)</td>
+        <td><strong style="color:#dc3545;">HP 최대일 때만</strong> (3/3)</td>
+        <td><strong style="color:#28a745;">HP 2 이상</strong> (2/3 이상)</td>
+    </tr>
+</table>
+
+<div class="warning-box">
+    <strong>번개 비활성화 조건:</strong><br>
+    • 기본 디바인스톤: HP가 최대(3/3)가 아니면 번개가 발사되지 않음<br>
+    • 강화 디바인스톤: HP가 1 이하가 되면 번개가 발사되지 않음<br>
+    • 디바인쉴드 과부하 상태에서도 번개 비활성화
+</div>
+
+<!-- 6. 해머쇼크 -->
+<h2 id="section6">6. 해머쇼크 (Hammer Shock) ⚡</h2>
+
+<p>
+    <kbd>마우스 좌클릭</kbd>을 길게 눌러 충전하고, 놓으면 발동됩니다. 충전 시간에 따라 단계가 올라가며 더 강력한 효과를 발휘합니다.
+</p>
+
+<div class="warning-box">
+    <strong>⚠️ 발동 조건:</strong> 해머쇼크는 <strong>디바인스톤이 건설되어 있어야만</strong> 사용할 수 있습니다. 디바인스톤을 먼저 건설하세요!
+</div>
+
+<table>
+    <tr>
+        <th>단계</th>
+        <th>충전 시간</th>
+        <th>소모 게이지</th>
+        <th>비고</th>
+    </tr>
+    <tr>
+        <td>1단계</td>
+        <td>1초</td>
+        <td>200</td>
+        <td>기본 충격파</td>
+    </tr>
+    <tr>
+        <td>2단계</td>
+        <td>2초</td>
+        <td>260</td>
+        <td>강화 충격파 (범위 증가)</td>
+    </tr>
+    <tr style="background: #fff3cd;">
+        <td><strong>3단계 (MAX)</strong></td>
+        <td>3초</td>
+        <td>320</td>
+        <td><strong>강화 디바인스톤 필요!</strong></td>
+    </tr>
+</table>
+
+<div class="important-box">
+    <strong>📌 3단계 해금 조건:</strong><br>
+    • 기본 디바인스톤: 1~2단계까지만 사용 가능<br>
+    • 강화 디바인스톤: 3단계까지 사용 가능<br>
+    • 디바인쉴드 과부하 상태: 1단계만 사용 가능
+</div>
+
+<h3 id="section6-1">6.1. 지면 크랙 (Ground Crack) 시스템</h3>
+
+<p>해머쇼크가 폭발하면 그 자리에 <strong>지면 크랙(균열)</strong>이 생성됩니다. 크랙은 보스에게 지속적인 위협이 됩니다.</p>
+
+<table>
+    <tr>
+        <th>단계</th>
+        <th>크랙 개수</th>
+        <th>보스 필요 타격 횟수</th>
+        <th>스턴 시간</th>
+    </tr>
+    <tr>
+        <td>1단계</td>
+        <td>12개</td>
+        <td>2회</td>
+        <td>0.4초</td>
+    </tr>
+    <tr>
+        <td>2단계</td>
+        <td>19개</td>
+        <td>4회</td>
+        <td>0.7초</td>
+    </tr>
+    <tr style="background: #fff3cd;">
+        <td><strong>3단계</strong></td>
+        <td><strong>25개</strong></td>
+        <td>6회</td>
+        <td><strong>1.0초</strong></td>
+    </tr>
+</table>
+
+<div class="tip-box">
+    <strong>💡 크랙 효과:</strong><br>
+    • 크랙 지속시간: 3초<br>
+    • 보스가 크랙 위를 지나가면 크랙이 부서지면서 보스에게 넉백 적용<br>
+    • 단계가 높을수록 더 많은 크랙이 생성되어 보스 이동을 방해
+</div>
+
+<!-- 7. 전용 아이템 -->
+<h2 id="section7">7. 발토르 전용 아이템 🎒</h2>
+
+<p>발토르만 사용할 수 있는 특수 아이템입니다. 다른 캐릭터가 획득해도 사용할 수 없습니다.</p>
+
+<h3 id="section7-1">7.1. 수리키트 🔧</h3>
+
+<p>건설한 포탑이나 디바인스톤의 HP를 회복합니다. 손상된 구조물을 신속하게 수리할 수 있습니다.</p>
+
+<div class="info-highlight">
+    수리키트는 발토르 전용입니다. 다른 캐릭터가 이 아이템을 사용하려 하면 "수리키트는 발토르 전용 아이템입니다" 메시지가 표시됩니다.
+</div>
+
+<h3 id="section7-2">7.2. 벽돌 (발토르 전용 효과) 🧱</h3>
+
+<p>
+    일반적으로 벽돌은 바닥에 설치되지만, <strong>발토르가 건물(포탑/디바인스톤) 위에서 사용하면</strong>
+    건물 3면(위/좌/우)을 감싸는 <strong>방어진</strong>이 구축됩니다!
+</p>
+
+<table>
+    <tr>
+        <th>항목</th>
+        <th>일반 사용</th>
+        <th>건물 위에서 사용</th>
+    </tr>
+    <tr>
+        <td>설치 형태</td>
+        <td>바닥에 단일 벽돌</td>
+        <td><strong style="color:#ff6432;">건물 3면 방어진</strong></td>
+    </tr>
+    <tr>
+        <td>내구도</td>
+        <td>2히트</td>
+        <td><strong style="color:#28a745;">3히트 (공유)</strong></td>
+    </tr>
+    <tr>
+        <td>파괴 시</td>
+        <td>해당 벽돌만 파괴</td>
+        <td>3면 동시 파괴</td>
+    </tr>
+</table>
+
+<div class="tip-box">
+    <strong>발동 조건:</strong> 발토르가 포탑 또는 디바인스톤과 겹친 상태에서 벽돌 아이템 사용<br>
+    <strong>보호 범위:</strong> 건물의 위, 좌, 우 3면을 감싸는 ㄷ자 형태의 방어벽 생성<br>
+    <strong>활용:</strong> 디바인스톤이나 포탑을 공격으로부터 보호하여 내구도 유지
+</div>
+
+<div class="important-box">
+    발토르는 게임 시작 시 <strong>방어용 벽돌 1개를 기본 보유</strong>합니다. 초반에 디바인스톤을 건설한 직후 방어진을 구축하면 안정적입니다.
+</div>
+
+<h3 id="section7-3">7.3. 광폭물약 🧪</h3>
+
+<div class="berserk-box">
+    <p><strong>🔴 광폭물약</strong> - 사용 즉시 15초간 강력한 버프 효과!</p>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0;">
+        <div class="stat-card" style="background: #ffe5e5; border-color: #ff6666;">
+            <div class="stat-value" style="color: #dc3545;">x3</div>
+            <div class="stat-label">건설 속도</div>
+        </div>
+        <div class="stat-card" style="background: #ffe5e5; border-color: #ff6666;">
+            <div class="stat-value" style="color: #dc3545;">x3</div>
+            <div class="stat-label">게이지 획득</div>
+        </div>
+        <div class="stat-card" style="background: #ffe5e5; border-color: #ff6666;">
+            <div class="stat-value" style="color: #dc3545;">x4</div>
+            <div class="stat-label">포탑 연사 속도</div>
+        </div>
+    </div>
+</div>
+
+<table>
+    <tr>
+        <th>아이템</th>
+        <th>효과</th>
+        <th>지속시간</th>
+    </tr>
+    <tr>
+        <td>🔧 수리키트</td>
+        <td>구조물 HP 회복, 과열 제거</td>
+        <td>즉시 사용</td>
+    </tr>
+    <tr>
+        <td>🧱 벽돌 (건물 위)</td>
+        <td>건물 3면 방어진 (3히트 공유)</td>
+        <td>즉시 설치</td>
+    </tr>
+    <tr style="background: #ffe5e5;">
+        <td>🧪 광폭물약</td>
+        <td>건설속도 3배, 게이지 3배, 연사 4배</td>
+        <td>15초</td>
+    </tr>
+</table>
+
+<!-- 8. 전략 가이드 -->
+<h2 id="section8">8. 전략 가이드 📋</h2>
+
+<h3 id="section8-1">8.1. 운영 페이즈 (게임 진행 단계)</h3>
+
+<p>발토르의 게임은 크게 4단계로 나뉩니다. 각 단계별 목표를 명확히 하세요.</p>
+
+<div class="flow-chart">
+    <div class="flow-item" style="background: #fff8e1;">
+        <strong>1. 축적기</strong><br>
+        <small>토르쉴드로<br>게이지 330+ 확보</small>
+    </div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-item" style="background: #e3f2fd;">
+        <strong>2. 기반 구축</strong><br>
+        <small>디바인스톤<br>우선 건설</small>
+    </div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-item" style="background: #ffebee;">
+        <strong>3. 화력 증강</strong><br>
+        <small>포탑 건설 &<br>강화</small>
+    </div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-item" style="background: #e8f5e9;">
+        <strong>4. 완성형</strong><br>
+        <small>검기+해머쇼크<br>공세 운영</small>
+    </div>
+</div>
+
+<details>
+    <summary>📌 Phase 1: 축적기 (0~330 게이지)</summary>
+    <div>
+        <strong>목표:</strong> 디바인스톤 건설 비용(330) 확보<br>
+        <strong>핵심:</strong> 토르쉴드를 최대한 활용하여 게이지 60씩 획득<br>
+        <strong>주의:</strong> 이 단계에서는 포탑이나 해머쇼크를 자제하고 오직 게이지 축적에 집중
+    </div>
+</details>
+
+<details>
+    <summary>📌 Phase 2: 기반 구축 (디바인스톤 건설)</summary>
+    <div>
+        <strong>목표:</strong> 디바인스톤 완성 → 토르쉴드 효율 60→80 상승<br>
+        <strong>핵심:</strong> 청사진 배치 후 공 막으면서 틈틈이 망치질<br>
+        <strong>효과:</strong> 이후 모든 게이지 획득량 +33% 증가, 번개 자동 요격 시작
+    </div>
+</details>
+
+<details>
+    <summary>📌 Phase 3: 화력 증강 (포탑 + 강화)</summary>
+    <div>
+        <strong>목표:</strong> 포탑(220) → 강화 포탑(+250) → 강화 디바인스톤<br>
+        <strong>핵심:</strong> 포탑의 자동 사격 + 유도탄으로 보스 압박<br>
+        <strong>우선순위:</strong> 강화 디바인스톤 > 포탑 강화 (검기 해금이 더 강력)
+    </div>
+</details>
+
+<details>
+    <summary>📌 Phase 4: 완성형 (공세 운영)</summary>
+    <div>
+        <strong>목표:</strong> 강화 디바인스톤 + 강화 포탑 완성 상태<br>
+        <strong>핵심:</strong> 토르쉴드 스윙마다 검기 발사 + 해머쇼크 3단계 활용<br>
+        <strong>운영:</strong> 게이지 100 획득 + 검기(-50+30) + 포탑 수동 발사(-60)로 공격적 플레이
+    </div>
+</details>
+
+<h3 id="section8-2">8.2. 구조물 우선순위</h3>
+
+<table>
+    <tr>
+        <th>순위</th>
+        <th>구조물</th>
+        <th>비용</th>
+        <th>이유</th>
+    </tr>
+    <tr style="background: #fff3cd;">
+        <td><strong>1순위</strong></td>
+        <td>디바인스톤</td>
+        <td>330</td>
+        <td>게이지 효율 +33%, 번개 요격, 해머쇼크 해금</td>
+    </tr>
+    <tr>
+        <td>2순위</td>
+        <td>강화 디바인스톤</td>
+        <td>+250</td>
+        <td><strong>검기 해금</strong>, 게이지 100, 해머쇼크 3단계</td>
+    </tr>
+    <tr>
+        <td>3순위</td>
+        <td>포탑</td>
+        <td>220</td>
+        <td>자동 사격으로 보스 견제</td>
+    </tr>
+    <tr>
+        <td>4순위</td>
+        <td>강화 포탑</td>
+        <td>+250</td>
+        <td>유도탄 3발 + 오버드라이브</td>
+    </tr>
+</table>
+
+<div class="warning-box">
+    <strong>⚠️ 흔한 실수:</strong> 포탑을 먼저 짓는 것. 디바인스톤 없이 포탑만 있으면 게이지 효율이 낮아 유지가 어렵습니다. <strong>반드시 디바인스톤 먼저!</strong>
+</div>
+
+<h3 id="section8-3">8.3. 전투 운영법</h3>
+
+<h4>공격 콤보: 검기 + 해머쇼크</h4>
+
+<div class="info-highlight">
+    <strong>강화 디바인스톤 완성 후 가능한 콤보:</strong>
+    <ol>
+        <li><strong>토르쉴드 스윙</strong>으로 공을 막음 → 게이지 +100, 검기 발사 (게이지 -50)</li>
+        <li><strong>검기가 공 타격</strong> → 게이지 +30 회수 (실질 -20)</li>
+        <li>게이지가 320 이상이면 <strong>해머쇼크 3단계</strong> 충전</li>
+        <li>해머쇼크 폭발 → 크랙 25개 생성, 보스 1초 스턴</li>
+        <li>스턴 동안 <strong>포탑 수동 발사</strong> 연타 (광폭물약 시 0.15초 쿨)</li>
+    </ol>
+</div>
+
+<h4>방어 운영: 토르쉴드 + 번개</h4>
+
+<div class="tip-box">
+    <strong>게이지가 부족하거나 위기 상황에서의 운영법:</strong>
+    <ul>
+        <li>토르쉴드를 상시 전개하여 공 방어 + 게이지 축적</li>
+        <li>디바인스톤 번개가 13~25초마다 자동으로 공 요격</li>
+        <li>내구도 5 소진 시 토르쉴드 접고 대시로 회피</li>
+        <li>4~6초 후 내구도 회복되면 다시 토르쉴드 전개</li>
+    </ul>
+</div>
+
+<details>
+    <summary>💊 광폭물약 활용 전략</summary>
+    <div>
+        <p><strong>광폭물약 15초를 최대한 활용하는 방법:</strong></p>
+        <table>
+            <tr>
+                <th>타이밍</th>
+                <th>활용법</th>
+                <th>효과</th>
+            </tr>
+            <tr>
+                <td>게이지 550+ 확보 후</td>
+                <td>디바인스톤 + 포탑 연속 건설</td>
+                <td>15초 내 두 구조물 완성 가능</td>
+            </tr>
+            <tr>
+                <td>강화 포탑 완성 후</td>
+                <td>포탑 수동 발사 연타</td>
+                <td>쿨타임 0.15초로 <strong>초당 6발</strong> 발사</td>
+            </tr>
+            <tr>
+                <td>보스 체력 위험 시</td>
+                <td>해머쇼크 + 수동 발사 콤보</td>
+                <td>최대 DPS로 마무리</td>
+            </tr>
+        </table>
+        <div class="tip-box">
+            광폭물약 사용 시 <strong>토르쉴드 게이지 획득도 3배</strong>! 100 → 300 획득으로 게이지가 급속히 찹니다.
+        </div>
+    </div>
+</details>
+
+<details>
+    <summary>🎮 상황별 대처법</summary>
+    <div>
+        <div class="warning-box">
+            <strong>🔴 게이지가 100 이하로 떨어졌을 때:</strong><br>
+            모든 공격 행동을 중단하고 토르쉴드 방어에만 집중. 검기/해머쇼크/수동발사 자제. 디바인스톤이 있다면 80~100씩 빠르게 회복됩니다.
+        </div>
+
+        <div class="warning-box">
+            <strong>🔴 토르쉴드 내구도 0일 때:</strong><br>
+            4~6초간 내구도 회복을 기다려야 합니다. 이 동안 대시로 회피하거나, 포탑이 있다면 수동 발사로 시간을 벌어주세요.
+        </div>
+
+        <div class="warning-box">
+            <strong>🔴 디바인스톤 HP가 1일 때 (강화 전):</strong><br>
+            번개가 발사되지 않습니다! 수리키트가 있으면 즉시 사용하고, 없다면 빠르게 강화하여 HP 조건을 완화하세요.
+        </div>
+
+        <div class="warning-box">
+            <strong>🔴 디바인쉴드 과부하 상태:</strong><br>
+            검기 발사 불가, 해머쇼크 1단계만 가능, 번개 발사 불가. 과부하가 풀릴 때까지 기본 방어 플레이만 하세요.
+        </div>
+    </div>
+</details>
+
+<!-- 9. 고급 테크닉 -->
+<h2 id="section9">9. 고급 테크닉 🎓</h2>
+
+<h3 id="section9-1">9.1. 게이지 손익 계산표</h3>
+
+<p>발토르의 모든 행동은 게이지와 직결됩니다. 효율을 계산하여 운영하세요.</p>
+
+<table>
+    <tr>
+        <th>행동</th>
+        <th>게이지 변화</th>
+        <th>효율</th>
+        <th>사용 시점</th>
+    </tr>
+    <tr style="background: #d4edda;">
+        <td>토르쉴드 히트 (강화 디바인)</td>
+        <td><strong>+100</strong></td>
+        <td>⭐⭐⭐</td>
+        <td>항상 최우선</td>
+    </tr>
+    <tr style="background: #e8f5e9;">
+        <td>토르쉴드 히트 (디바인)</td>
+        <td><strong>+80</strong></td>
+        <td>⭐⭐⭐</td>
+        <td>디바인스톤 완성 후</td>
+    </tr>
+    <tr>
+        <td>토르쉴드 히트 (기본)</td>
+        <td>+60</td>
+        <td>⭐⭐</td>
+        <td>초반 축적기</td>
+    </tr>
+    <tr>
+        <td>기본 패들 히트</td>
+        <td>+30</td>
+        <td>⭐</td>
+        <td>최후의 수단</td>
+    </tr>
+    <tr>
+        <td>번개 요격 (강화 디바인)</td>
+        <td>+50</td>
+        <td>⭐⭐⭐</td>
+        <td>자동 (13~23초)</td>
+    </tr>
+    <tr style="background: #fff3cd;">
+        <td>검기 (공 타격 시)</td>
+        <td>-50 +30 = <strong>-20</strong></td>
+        <td>⭐⭐⭐</td>
+        <td>공격+방어 동시</td>
+    </tr>
+    <tr style="background: #f8d7da;">
+        <td>검기 (공 미스)</td>
+        <td><strong>-50</strong></td>
+        <td>⭐</td>
+        <td>피해야 함</td>
+    </tr>
+    <tr style="background: #ffebee;">
+        <td>포탑 수동 발사</td>
+        <td><strong>-60</strong></td>
+        <td>⭐⭐</td>
+        <td>보스 스턴 중, 여유 시</td>
+    </tr>
+    <tr style="background: #ffebee;">
+        <td>해머쇼크 1단계</td>
+        <td><strong>-200</strong></td>
+        <td>⭐⭐</td>
+        <td>빠른 견제</td>
+    </tr>
+    <tr style="background: #f8d7da;">
+        <td>해머쇼크 3단계</td>
+        <td><strong>-320</strong></td>
+        <td>⭐⭐⭐</td>
+        <td>결정타, 크랙 25개</td>
+    </tr>
+</table>
+
+<div class="info-highlight">
+    <strong>🔄 이상적인 게이지 사이클:</strong><br>
+    토르쉴드(+100) → 검기 공타격(-20) → 토르쉴드(+100) → 검기(-20) → ... → 게이지 충분 → 해머쇼크 3단계(-320)
+</div>
+
+<h3 id="section9-2">9.2. 멀티태스킹 마스터</h3>
+
+<p>숙련된 발토르 플레이어는 <strong>방어, 건설, 공격을 동시에</strong> 수행합니다.</p>
+
+<details>
+    <summary>🔧 건설하면서 방어하기</summary>
+    <div>
+        <ol>
+            <li>청사진을 <strong>플레이어 이동 경로 근처</strong>에 배치</li>
+            <li>토르쉴드로 공을 막아 게이지 획득</li>
+            <li>공이 반대편으로 날아가는 <strong>~2초 여유</strong> 동안</li>
+            <li>청사진 위치로 이동 → <kbd>S</kbd> 눌러 망치질 (게이지 소모)</li>
+            <li>공이 돌아오면 즉시 토르쉴드 전개</li>
+            <li>반복하여 건설 완료</li>
+        </ol>
+        <div class="tip-box">
+            디바인스톤(330게이지, ~7.3초)은 약 4~5회 사이클, 포탑(220게이지, ~4.9초)은 약 3회 사이클로 완성됩니다.
+        </div>
+    </div>
+</details>
+
+<details>
+    <summary>⚔️ 공격하면서 방어하기 (완성형)</summary>
+    <div>
+        <ol>
+            <li>토르쉴드 <strong>스윙</strong>으로 공 방어 (게이지 +100)</li>
+            <li>스윙 0.4초 후 <strong>검기 자동 발사</strong></li>
+            <li>검기가 공 타격 시 추가 게이지 +30</li>
+            <li>공이 보스에게 날아가는 동안 <strong>더블클릭으로 포탑 수동 발사</strong></li>
+            <li>게이지 320+ 확보 시 해머쇼크 3단계 충전</li>
+        </ol>
+        <div class="warning-box">
+            토르쉴드 전개 중에는 포탑 수동 발사가 차단됩니다. <strong>스윙 후 쉴드를 접은 상태</strong>에서 더블클릭하세요!
+        </div>
+    </div>
+</details>
+
+<details>
+    <summary>🎯 포탑 수동 발사 마스터</summary>
+    <div>
+        <table>
+            <tr>
+                <th>상황</th>
+                <th>추천도</th>
+                <th>이유</th>
+            </tr>
+            <tr>
+                <td>보스 스턴 중</td>
+                <td>⭐⭐⭐ 적극 추천</td>
+                <td>확정 타격, 피해 극대화</td>
+            </tr>
+            <tr>
+                <td>광폭물약 발동 중</td>
+                <td>⭐⭐⭐ 적극 추천</td>
+                <td>0.15초 쿨타임, 초당 6발</td>
+            </tr>
+            <tr>
+                <td>게이지 400+ 여유</td>
+                <td>⭐⭐ 추천</td>
+                <td>추가 딜링 기회</td>
+            </tr>
+            <tr>
+                <td>게이지 200 이하</td>
+                <td>⭐ 비추천</td>
+                <td>게이지 보존 우선</td>
+            </tr>
+            <tr>
+                <td>토르쉴드 전개 중</td>
+                <td>❌ 불가</td>
+                <td>시스템상 차단됨</td>
+            </tr>
+        </table>
+    </div>
+</details>
+
+<details>
+    <summary>💎 디바인스톤 HP 관리</summary>
+    <div>
+        <p>디바인스톤 HP에 따라 번개 발사 여부가 결정됩니다. HP 관리가 중요합니다!</p>
+        <table>
+            <tr>
+                <th>상태</th>
+                <th>HP 조건</th>
+                <th>번개 발사</th>
+                <th>대응</th>
+            </tr>
+            <tr style="background: #d4edda;">
+                <td>기본 디바인스톤</td>
+                <td>3/3 (최대)</td>
+                <td>✅ 가능</td>
+                <td>정상 운영</td>
+            </tr>
+            <tr style="background: #f8d7da;">
+                <td>기본 디바인스톤</td>
+                <td>2/3 이하</td>
+                <td>❌ 불가</td>
+                <td>수리키트 사용 or 강화 우선</td>
+            </tr>
+            <tr style="background: #d4edda;">
+                <td>강화 디바인스톤</td>
+                <td>2/4 이상</td>
+                <td>✅ 가능</td>
+                <td>정상 운영</td>
+            </tr>
+            <tr style="background: #f8d7da;">
+                <td>강화 디바인스톤</td>
+                <td>1/4 이하</td>
+                <td>❌ 불가</td>
+                <td>수리키트 필수</td>
+            </tr>
+        </table>
+        <div class="tip-box">
+            기본 디바인스톤은 HP가 1이라도 떨어지면 번개가 멈춥니다. <strong>빠르게 강화하면</strong> HP 2까지 번개가 유지되어 훨씬 안정적입니다!
+        </div>
+    </div>
+</details>
+
+<!-- 10. 조작 요약표 -->
+<h2 id="section10">10. 조작 요약표 ⌨️</h2>
+
+<table>
+    <tr>
+        <th>키</th>
+        <th>기능</th>
+        <th>상세</th>
+    </tr>
+    <tr>
+        <td><kbd>A</kbd> <kbd>D</kbd></td>
+        <td>이동</td>
+        <td>좌우 이동</td>
+    </tr>
+    <tr>
+        <td><kbd>W</kbd></td>
+        <td>토르쉴드</td>
+        <td>우산형 방어막 전개</td>
+    </tr>
+    <tr>
+        <td><kbd>S</kbd> / <kbd>우클릭</kbd></td>
+        <td>건설</td>
+        <td>포탑/디바인스톤 건설</td>
+    </tr>
+    <tr>
+        <td><kbd>S</kbd> / <kbd>우클릭</kbd> 길게</td>
+        <td>건설 메뉴</td>
+        <td>구조물 선택 UI</td>
+    </tr>
+    <tr>
+        <td><kbd>마우스 좌클릭</kbd></td>
+        <td>해머쇼크</td>
+        <td>길게 눌러 충전, 놓으면 발동</td>
+    </tr>
+    <tr>
+        <td><kbd>좌클릭</kbd> 더블클릭</td>
+        <td>포탑 수동 발사</td>
+        <td>포탑 건설 시 즉시 발사 (게이지 60)</td>
+    </tr>
+    <tr>
+        <td><kbd>A</kbd>/<kbd>D</kbd> + <kbd>S</kbd> 또는 <kbd>우클릭</kbd></td>
+        <td>대시</td>
+        <td>좌우 이동 중 아래키로 대시</td>
+    </tr>
+    <tr>
+        <td><kbd>Tab</kbd></td>
+        <td>아이템 메뉴</td>
+        <td>보유 아이템 확인</td>
+    </tr>
+    <tr>
+        <td><kbd>1</kbd>~<kbd>5</kbd></td>
+        <td>아이템 사용</td>
+        <td>해당 슬롯 아이템 사용</td>
+    </tr>
+</table>
+
+<div class="warning-box">
+    <strong>절대 하지 말 것:</strong><br>
+    • 디바인스톤 없이 해머쇼크 충전 시도 (발동 불가)<br>
+    • 게이지 50 미만에서 토르쉴드 스윙 (검기 발사 안됨)<br>
+    • 토르쉴드 전개 중 포탑 수동 발사 시도 (차단됨)
+</div>
+
+<!-- 푸터 -->
+<div class="footer">
+    <p>핑파이터 위키 - 발토르 캐릭터 공략 가이드</p>
+    <p>최종 수정: 2024년</p>
+</div>
+
+</body>
+</html>

@@ -195,10 +195,9 @@ def draw_outlined_text(text, x, y, font_size=24, text_color=WHITE, outline_color
 
 def show_winner_text(winner_name):
     """승자 텍스트 표시"""
-    # 배경 어둡게
-    overlay = pygame.Surface((WIDTH, HEIGHT))
-    overlay.set_alpha(180)
-    overlay.fill((0, 0, 0))
+    # 배경 어둡게 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 180))
     SCREEN.blit(overlay, (0, 0))
     
     # 승자 텍스트

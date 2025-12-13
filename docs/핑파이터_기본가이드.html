@@ -1,0 +1,1913 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>핑파이터 - 기본 조작법 및 게임 팁 가이드</title>
+    <style>
+        /* 나무위키 스타일 CSS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', 'Nanum Gothic', sans-serif;
+            line-height: 1.8;
+            color: #373a3c;
+            background-color: #fff;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 문서 제목 */
+        .doc-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #0275d8;
+            border-bottom: 2px solid #0275d8;
+            padding-bottom: 10px;
+            margin-bottom: 5px;
+        }
+
+        .doc-subtitle {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+
+        /* 정보 박스 (문서 상단) */
+        .info-box {
+            float: right;
+            width: 300px;
+            border: 1px solid #dee2e6;
+            margin: 0 0 20px 20px;
+            background: #fff;
+        }
+
+        .info-box-title {
+            background: #00a86b;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .info-box table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .info-box td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 13px;
+        }
+
+        .info-box td:first-child {
+            background: #f8f9fa;
+            font-weight: bold;
+            width: 80px;
+        }
+
+        /* 목차 */
+        .toc {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px 20px;
+            margin: 20px 0;
+            display: inline-block;
+        }
+
+        .toc-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .toc ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .toc li {
+            padding: 3px 0;
+        }
+
+        .toc a {
+            color: #0275d8;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .toc .sub {
+            padding-left: 20px;
+            font-size: 12px;
+        }
+
+        /* 섹션 헤딩 */
+        h2 {
+            font-size: 20px;
+            color: #373a3c;
+            border-bottom: 2px solid #00a86b;
+            padding: 10px 0;
+            margin: 30px 0 15px 0;
+            clear: both;
+        }
+
+        h3 {
+            font-size: 16px;
+            color: #373a3c;
+            border-left: 4px solid #00a86b;
+            padding-left: 10px;
+            margin: 25px 0 12px 0;
+        }
+
+        h4 {
+            font-size: 14px;
+            color: #373a3c;
+            margin: 20px 0 10px 0;
+            padding-left: 15px;
+            border-left: 2px solid #dee2e6;
+        }
+
+        /* 본문 */
+        p {
+            margin: 10px 0;
+            text-align: justify;
+        }
+
+        /* 테이블 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+
+        table th {
+            background: #e9ecef;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            font-weight: bold;
+            text-align: left;
+        }
+
+        table td {
+            padding: 10px;
+            border: 1px solid #dee2e6;
+        }
+
+        table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        /* 인용 박스 */
+        .quote-box {
+            background: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            padding: 15px;
+            margin: 15px 0;
+            color: #6c757d;
+        }
+
+        /* 팁 박스 */
+        .tip-box {
+            background: #e7f5ff;
+            border-left: 4px solid #17a2b8;
+            padding: 12px 15px;
+            margin: 15px 0;
+        }
+
+        .tip-box::before {
+            content: "💡 팁: ";
+            font-weight: bold;
+            color: #17a2b8;
+        }
+
+        /* 주의 박스 */
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px 15px;
+            margin: 15px 0;
+        }
+
+        .warning-box::before {
+            content: "⚠️ 주의: ";
+            font-weight: bold;
+            color: #856404;
+        }
+
+        /* 정보 박스 (인라인) */
+        .info-inline {
+            background: #e8f4f8;
+            border-left: 4px solid #0275d8;
+            padding: 12px 15px;
+            margin: 15px 0;
+        }
+
+        .info-inline::before {
+            content: "ℹ️ ";
+        }
+
+        /* 리스트 */
+        ul, ol {
+            margin: 10px 0 10px 25px;
+        }
+
+        li {
+            margin: 5px 0;
+        }
+
+        /* 키보드 키 스타일 */
+        kbd {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+        }
+
+        /* 구분선 */
+        hr {
+            border: none;
+            border-top: 1px solid #dee2e6;
+            margin: 20px 0;
+        }
+
+        /* 푸터 */
+        .footer {
+            text-align: center;
+            color: #6c757d;
+            font-size: 12px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+        }
+
+        /* 접기 기능 */
+        details {
+            margin: 10px 0;
+        }
+
+        summary {
+            cursor: pointer;
+            padding: 10px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            font-weight: bold;
+        }
+
+        details[open] summary {
+            border-bottom: none;
+        }
+
+        details > div {
+            border: 1px solid #dee2e6;
+            border-top: none;
+            padding: 15px;
+        }
+
+        /* 뱃지 */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .badge-active {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-passive {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .badge-legendary {
+            background: #dc3545;
+            color: white;
+        }
+
+        .badge-blue {
+            background: #0275d8;
+            color: white;
+        }
+
+        .badge-orange {
+            background: #fd7e14;
+            color: white;
+        }
+
+        .badge-green {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-gold {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .badge-star {
+            background: #6f42c1;
+            color: white;
+        }
+
+        /* 건물 카드 */
+        .building-card {
+            border: 1px solid #dee2e6;
+            margin: 15px 0;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .building-header {
+            background: linear-gradient(135deg, #00a86b, #17a2b8);
+            color: white;
+            padding: 12px 15px;
+            font-weight: bold;
+            font-size: 15px;
+        }
+
+        .building-content {
+            padding: 15px;
+        }
+
+        /* 보스 카드 */
+        .boss-card {
+            border: 2px solid #dc3545;
+            margin: 10px 0;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .boss-header {
+            background: linear-gradient(135deg, #dc3545, #fd7e14);
+            color: white;
+            padding: 10px 15px;
+            font-weight: bold;
+        }
+
+        .boss-content {
+            padding: 12px 15px;
+            background: #fff5f5;
+        }
+
+        /* 클리어픽스 */
+        .clearfix::after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+
+        /* 인쇄용 스타일 */
+        @media print {
+            body {
+                max-width: 100%;
+            }
+            .info-box {
+                float: none;
+                width: 100%;
+                margin: 20px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 문서 제목 -->
+    <h1 class="doc-title">핑파이터</h1>
+    <p class="doc-subtitle">PingFighter - 기본 조작법 및 게임 팁 가이드 (v2.0)</p>
+
+    <!-- 정보 박스 -->
+    <div class="info-box">
+        <div class="info-box-title">핑파이터 (PingFighter)</div>
+        <table>
+            <tr><td>장르</td><td>아케이드 / 액션 / 탁구</td></tr>
+            <tr><td>플랫폼</td><td>Windows, macOS</td></tr>
+            <tr><td>개발</td><td>Sahogany Studio</td></tr>
+            <tr><td>엔진</td><td>Python + Pygame</td></tr>
+            <tr><td>해상도</td><td>600 x 750</td></tr>
+            <tr><td>출시</td><td>2024년</td></tr>
+        </table>
+    </div>
+
+    <p>
+        <strong>핑파이터</strong>는 보스전 중심의 아케이드 스타일 탁구 게임입니다.
+        플레이어는 패들을 조작하여 공을 튕기고, 다양한 아이템과 스킬을 활용해
+        각 스테이지의 개성 넘치는 보스들을 물리쳐야 합니다.
+        광장에서는 스타포인트와 골드를 사용하여 스킬을 강화하고, 가챠를 돌리고, 아이템을 구매할 수 있습니다.
+    </p>
+
+    <!-- 목차 -->
+    <div class="toc">
+        <div class="toc-title">[ 목차 ]</div>
+        <ul>
+            <li><a href="#section1">1. 기본 조작법</a></li>
+            <li class="sub"><a href="#section1-1">1.1. 키보드 조작</a></li>
+            <li class="sub"><a href="#section1-2">1.2. 마우스 조작</a></li>
+            <li><a href="#section2">2. 대시 시스템</a></li>
+            <li><a href="#section3">3. 아이템 시스템</a></li>
+            <li><a href="#section4">4. 전설 아이템</a></li>
+            <li><a href="#section5">5. 스테이지 및 보스</a></li>
+            <li class="sub"><a href="#section5-1">5.1. 스테이지별 보스</a></li>
+            <li class="sub"><a href="#section5-2">5.2. 보스 AI 난이도</a></li>
+            <li><a href="#section6">6. 게임 팁 및 전략</a></li>
+            <li><a href="#section7">7. 광장 시스템</a></li>
+            <li class="sub"><a href="#section7-1">7.1. 화폐 종류</a></li>
+            <li class="sub"><a href="#section7-2">7.2. 환전 시스템</a></li>
+            <li><a href="#section8">8. 광장 건물</a></li>
+            <li class="sub"><a href="#section8-0">8.0. 행동포인트 (열쇠)</a></li>
+            <li class="sub"><a href="#section8-1">8.1. 스타뱅크 (은행)</a></li>
+            <li class="sub"><a href="#section8-2">8.2. 아카데미</a></li>
+            <li class="sub"><a href="#section8-3">8.3. 네온 카지노</a></li>
+            <li class="sub"><a href="#section8-4">8.4. 스타 가챠샵</a></li>
+            <li class="sub"><a href="#section8-5">8.5. 상점</a></li>
+        </ul>
+    </div>
+
+    <div class="clearfix"></div>
+
+    <!-- 1. 기본 조작법 -->
+    <h2 id="section1">1. 기본 조작법</h2>
+
+    <p>
+        핑파이터는 <strong>키보드와 마우스를 함께</strong> 사용하는 게임입니다.
+        인게임에서는 <strong>마우스 왼쪽 클릭</strong>을 주로 사용하며,
+        키보드는 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>로 이동합니다.
+    </p>
+
+    <h3 id="section1-1">1.1. 키보드 조작</h3>
+
+    <h4>이동 조작</h4>
+    <table>
+        <tr>
+            <th>키</th>
+            <th>동작</th>
+            <th>설명</th>
+        </tr>
+        <tr>
+            <td><kbd>A</kbd></td>
+            <td>왼쪽 이동</td>
+            <td>패들을 왼쪽으로 이동합니다</td>
+        </tr>
+        <tr>
+            <td><kbd>D</kbd></td>
+            <td>오른쪽 이동</td>
+            <td>패들을 오른쪽으로 이동합니다</td>
+        </tr>
+        <tr>
+            <td><kbd>S</kbd> 또는 <kbd>우클릭</kbd></td>
+            <td>대시</td>
+            <td><kbd>A</kbd>/<kbd>D</kbd> 누른 상태에서 입력 시 대시 발동</td>
+        </tr>
+    </table>
+
+    <h4>기타 조작</h4>
+    <table>
+        <tr>
+            <th>키</th>
+            <th>동작</th>
+            <th>설명</th>
+        </tr>
+        <tr>
+            <td><kbd>ESC</kbd></td>
+            <td>일시정지 / 뒤로</td>
+            <td>게임 메뉴를 열거나 이전으로 돌아갑니다</td>
+        </tr>
+        <tr>
+            <td><kbd>TAB</kbd></td>
+            <td>상태창</td>
+            <td>보유 아이템, 스킬 트리, 플레이어 능력치 확인</td>
+        </tr>
+        <tr>
+            <td><kbd>B</kbd></td>
+            <td>BGM 토글</td>
+            <td>배경음악 켜기/끄기</td>
+        </tr>
+    </table>
+
+    <h3 id="section1-2">1.2. 마우스 조작</h3>
+
+    <table>
+        <tr>
+            <th>입력</th>
+            <th>동작</th>
+            <th>설명</th>
+        </tr>
+        <tr>
+            <td><strong>좌클릭</strong></td>
+            <td>서브 / 주요 액션</td>
+            <td><strong>서브 공 발사</strong>, 메뉴 선택, 건물 클릭</td>
+        </tr>
+        <tr>
+            <td><strong>우클릭</strong></td>
+            <td>대시</td>
+            <td><kbd>A</kbd>/<kbd>D</kbd> 누른 상태에서 우클릭 시 대시 발동</td>
+        </tr>
+        <tr>
+            <td>마우스 휠</td>
+            <td>무기 교체</td>
+            <td>코만도 캐릭터 전용 - 무기 슬롯 전환</td>
+        </tr>
+    </table>
+
+    <div class="warning-box" style="background: #d4edda; border-color: #28a745;">
+        <span style="color: #155724;">🎮 <strong>핵심 조작</strong>: 이동은 <kbd>A</kbd><kbd>D</kbd>, 서브는 <strong>마우스 왼쪽 클릭</strong>!</span>
+    </div>
+
+    <!-- 2. 대시 시스템 -->
+    <h2 id="section2">2. 대시 시스템</h2>
+
+    <p>
+        대시는 핑파이터의 핵심 <strong>회피 및 이동 메커니즘</strong>입니다.
+        적절한 타이밍의 대시는 위기 상황에서 벗어나고, 유리한 위치를 선점하는 데 필수적입니다.
+    </p>
+
+    <h3>2.1. 대시 발동 방법</h3>
+
+    <div class="warning-box">
+        <strong>중요!</strong> 반드시 <kbd>A</kbd> 또는 <kbd>D</kbd>를 <strong>먼저 누른 상태</strong>에서 대시 키를 입력해야 합니다.
+        <kbd>S</kbd>를 먼저 누른 상태에서 방향키를 누르면 대시가 발동되지 않습니다.
+    </div>
+
+    <table>
+        <tr>
+            <th>조작</th>
+            <th>설명</th>
+        </tr>
+        <tr>
+            <td><kbd>A</kbd> 누른 상태 → <kbd>S</kbd> 또는 <kbd>우클릭</kbd></td>
+            <td>왼쪽 대시</td>
+        </tr>
+        <tr>
+            <td><kbd>D</kbd> 누른 상태 → <kbd>S</kbd> 또는 <kbd>우클릭</kbd></td>
+            <td>오른쪽 대시</td>
+        </tr>
+    </table>
+
+    <h3>2.2. 대시 스펙</h3>
+
+    <table>
+        <tr>
+            <th>항목</th>
+            <th>기본값</th>
+            <th>비고</th>
+        </tr>
+        <tr>
+            <td>쿨타임</td>
+            <td>8초</td>
+            <td>경량화 스킬로 감소 가능</td>
+        </tr>
+        <tr>
+            <td>게이지 소모</td>
+            <td>있음</td>
+            <td>배터리팩 스킬로 감소 가능</td>
+        </tr>
+        <tr>
+            <td>기본 토큰</td>
+            <td>1개</td>
+            <td>증폭 스킬로 +1 가능</td>
+        </tr>
+        <tr>
+            <td>속도 배율 (단거리)</td>
+            <td>1.30배</td>
+            <td>하프 대시 시</td>
+        </tr>
+    </table>
+
+    <div class="tip-box">
+        버스트업 스킬을 배우면 대시할 때 패들 크기가 60% 커집니다. 공을 받아치기 훨씬 수월해집니다!
+    </div>
+
+    <!-- 3. 아이템 시스템 -->
+    <h2 id="section3">3. 아이템 시스템</h2>
+
+    <p>
+        핑파이터에는 <strong>45종 이상</strong>의 다양한 아이템이 존재합니다.
+        아이템은 크게 <strong>액티브</strong>, <strong>패시브</strong>, <strong>전설</strong>로 구분됩니다.
+    </p>
+
+    <h3>3.1. 아이템 분류</h3>
+
+    <table>
+        <tr>
+            <th>분류</th>
+            <th>설명</th>
+            <th>슬롯</th>
+        </tr>
+        <tr>
+            <td><span class="badge badge-active">액티브</span></td>
+            <td>사용 시 효과 발동, 쿨타임 존재</td>
+            <td>액티브 슬롯에 저장</td>
+        </tr>
+        <tr>
+            <td><span class="badge badge-passive">패시브</span></td>
+            <td>획득 즉시 상시 효과 적용</td>
+            <td>자동 적용 (일부 중복 가능)</td>
+        </tr>
+        <tr>
+            <td><span class="badge badge-legendary">전설</span></td>
+            <td>매우 희귀, 강력한 효과</td>
+            <td>게임당 1회만 획득</td>
+        </tr>
+    </table>
+
+    <h3>3.2. 주요 액티브 아이템</h3>
+
+    <details>
+        <summary>📦 액티브 아이템 목록 (클릭하여 펼치기)</summary>
+        <div>
+            <table>
+                <tr>
+                    <th>아이템명</th>
+                    <th>효과</th>
+                    <th>드랍률</th>
+                </tr>
+                <tr>
+                    <td>롱부스트</td>
+                    <td>공 속도 증가</td>
+                    <td>2.8%</td>
+                </tr>
+                <tr>
+                    <td>게이지 충전</td>
+                    <td>게이지 즉시 충전</td>
+                    <td>4.2%</td>
+                </tr>
+                <tr>
+                    <td>벽돌</td>
+                    <td>필드에 벽돌 설치</td>
+                    <td>3.5%</td>
+                </tr>
+                <tr>
+                    <td>수류탄</td>
+                    <td>폭발 데미지</td>
+                    <td>일반</td>
+                </tr>
+                <tr>
+                    <td>화염병 (몰로토프)</td>
+                    <td>화염 지역 생성</td>
+                    <td>일반</td>
+                </tr>
+                <tr>
+                    <td>연막탄</td>
+                    <td>연막 생성</td>
+                    <td>일반</td>
+                </tr>
+                <tr>
+                    <td>스탑워치</td>
+                    <td>시간 일시 정지</td>
+                    <td>일반</td>
+                </tr>
+                <tr>
+                    <td>조명탄</td>
+                    <td>플레어 효과</td>
+                    <td>일반</td>
+                </tr>
+                <tr>
+                    <td>판도라의 상자</td>
+                    <td>무작위 효과</td>
+                    <td>일반</td>
+                </tr>
+                <tr>
+                    <td>AI 필</td>
+                    <td>일시적 AI 보조</td>
+                    <td>일반</td>
+                </tr>
+                <tr>
+                    <td>생명수</td>
+                    <td>즉시 HP 회복</td>
+                    <td>희귀</td>
+                </tr>
+                <tr>
+                    <td>악마의 주사위</td>
+                    <td>무작위 능력 부여</td>
+                    <td>희귀</td>
+                </tr>
+                <tr>
+                    <td>비타민약</td>
+                    <td>일시적 버프</td>
+                    <td>일반</td>
+                </tr>
+                <tr>
+                    <td>레이저스코프</td>
+                    <td>조준 보조 (25초)</td>
+                    <td>희귀</td>
+                </tr>
+                <tr>
+                    <td>수리키트</td>
+                    <td>벽 수리 (발토르 전용)</td>
+                    <td>전용</td>
+                </tr>
+                <tr>
+                    <td>광폭물약</td>
+                    <td>공격력 증가 (발토르 전용)</td>
+                    <td>전용</td>
+                </tr>
+            </table>
+        </div>
+    </details>
+
+    <h3>3.3. 주요 패시브 아이템</h3>
+
+    <details>
+        <summary>🛡️ 패시브 아이템 목록 (클릭하여 펼치기)</summary>
+        <div>
+            <table>
+                <tr>
+                    <th>아이템명</th>
+                    <th>효과</th>
+                    <th>중복</th>
+                </tr>
+                <tr>
+                    <td>충전가방</td>
+                    <td>연쇄 충전 효과</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>스피드부츠</td>
+                    <td>이동 속도 증가</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>스피드기어</td>
+                    <td>속도 장비 효과</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>배터리</td>
+                    <td>게이지 유지력 향상</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>슬롯 추가</td>
+                    <td>아이템 슬롯 +1</td>
+                    <td>O (카운트)</td>
+                </tr>
+                <tr>
+                    <td>부활</td>
+                    <td>사망 시 1회 부활</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>장인</td>
+                    <td>특수 효과</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>쿨타임</td>
+                    <td>쿨타임 감소</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>스파이크부츠</td>
+                    <td>이동 시 피해</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>대시기어</td>
+                    <td>대시 성능 향상</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>벌크업</td>
+                    <td>패들 크기 증가</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>감지센서</td>
+                    <td>볼 추적 능력 향상</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>대시홀더</td>
+                    <td>대시 횟수 보너스</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>무중력벨트</td>
+                    <td>무중력 상태</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>다우징팬들럼</td>
+                    <td>아이템 탐지</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>테크니컬조끼</td>
+                    <td>방어력 증가</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>연료파우치</td>
+                    <td>연료 효율 증가</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>블루투스링</td>
+                    <td>원격 효과</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>별탐지기</td>
+                    <td>스타 탐지</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>반칙호루라기</td>
+                    <td>반칙 판정</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>스마트폰</td>
+                    <td>정보 표시</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>무릎보호대</td>
+                    <td>킥차져 능력</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>수리키트</td>
+                    <td>수리 기능</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>생명수</td>
+                    <td>체력 회복</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>방탄모자</td>
+                    <td>피해 감소</td>
+                    <td>X</td>
+                </tr>
+                <tr>
+                    <td>가시투구</td>
+                    <td>반격 피해</td>
+                    <td>X</td>
+                </tr>
+            </table>
+        </div>
+    </details>
+
+    <!-- 4. 전설 아이템 -->
+    <h2 id="section4">4. 전설 아이템</h2>
+
+    <p>
+        전설 아이템은 <strong>매우 희귀</strong>하지만 강력한 효과를 가진 특별한 아이템입니다.
+        필드 스폰 확률은 약 <strong>0.08%</strong>로, 보물지도 스킬로 확률을 높일 수 있습니다.
+    </p>
+
+    <h3>4.1. 전설 아이템 목록</h3>
+
+    <table>
+        <tr>
+            <th>아이템명</th>
+            <th>효과</th>
+            <th>특징</th>
+        </tr>
+        <tr>
+            <td>🔨 라그나로크 해머</td>
+            <td>강력한 넉백 공격</td>
+            <td>애니메이션 프레임 효과</td>
+        </tr>
+        <tr>
+            <td>👟 헤르메스의 신발</td>
+            <td>초고속 이동, 대시 강화</td>
+            <td>속도 부스트</td>
+        </tr>
+        <tr>
+            <td>🔱 포세이돈의 삼지창</td>
+            <td>수파 생성, 궤적 영향</td>
+            <td>수파 이펙트</td>
+        </tr>
+        <tr>
+            <td>👼 천사의 가호</td>
+            <td>다중 버프 옵션</td>
+            <td>신성 효과</td>
+        </tr>
+        <tr>
+            <td>🌿 신성 월계수</td>
+            <td>신성한 능력 부여</td>
+            <td>월계관 이펙트</td>
+        </tr>
+    </table>
+
+    <h3>4.2. 전설 아이템 특징</h3>
+
+    <ul>
+        <li>붉은색 테두리와 <strong>애니메이션 아이콘</strong></li>
+        <li>모든 전설 아이템은 <span class="badge badge-passive">패시브</span>로 분류</li>
+        <li><strong>게임당 1회만</strong> 획득 가능 (중복 불가)</li>
+        <li>게임 오버 또는 메인 메뉴 복귀 시 효과 리셋</li>
+    </ul>
+
+    <div class="tip-box">
+        '보물지도' 스킬(누적 ★12)로 전설 필드 확률 +350%, 가챠 전설 +7%를 얻을 수 있습니다!
+    </div>
+
+    <!-- 5. 스테이지 및 보스 -->
+    <h2 id="section5">5. 스테이지 및 보스</h2>
+
+    <p>
+        핑파이터는 여러 개의 스테이지로 구성되어 있으며,
+        각 스테이지마다 <strong>개성 있는 보스</strong>가 등장합니다.
+        보스마다 고유한 패턴과 특수 능력을 가지고 있어 각각 다른 전략이 필요합니다.
+    </p>
+
+    <h3 id="section5-1">5.1. 스테이지별 보스</h3>
+
+    <div class="boss-card">
+        <div class="boss-header">Stage 1 - 풍악보이</div>
+        <div class="boss-content">
+            <p><strong>특징:</strong> 🎭 한국 전통 풍물패 테마, 초보자용 튜토리얼 역할</p>
+            <p><strong>스킬:</strong></p>
+            <ul>
+                <li><strong>🎐 상모돌리기</strong> - 상모를 돌려 공을 끌어당기며, 발동 중 보스가 회전</li>
+                <li><strong>🌀 팽이치기</strong> - 채찍을 휘둘러 팽이 2개를 소환, 팽이는 필드를 돌아다니며 공과 충돌</li>
+            </ul>
+            <p><strong>팁:</strong> 상모돌리기는 공을 위로 끌어올리므로 대시로 위치 조정하세요. 팽이는 충돌 후 튕겨나갑니다.</p>
+        </div>
+    </div>
+
+    <div class="boss-card">
+        <div class="boss-header">Stage 2 - 악어장군</div>
+        <div class="boss-content">
+            <p><strong>특징:</strong> 🐊 정글 테마, 공격적인 움직임</p>
+            <p><strong>스킬:</strong></p>
+            <ul>
+                <li><strong>🌋 정글지진</strong> - 강력한 지진을 발생시켜 화면 전체가 흔들리고, 공의 속도가 빨라지며 바위가 낙하</li>
+            </ul>
+            <p><strong>특수 메커니즘:</strong></p>
+            <ul>
+                <li>지진 발동 시 바위 1~2개 즉시 소환</li>
+                <li>공 속도 1.6배 증가</li>
+                <li>플레이어 이동속도 일시적 감소</li>
+            </ul>
+            <p><strong>팁:</strong> 정글지진 발동 시 바위를 피하며 빨라진 공에 대응하세요. 대시를 적극 활용하세요.</p>
+        </div>
+    </div>
+
+    <div class="boss-card">
+        <div class="boss-header">Stage 3 - 멘헤라걸</div>
+        <div class="boss-content">
+            <p><strong>특징:</strong> 💔 감정 기반 패턴, 정서적으로 불안정한 캐릭터</p>
+            <p><strong>스킬:</strong></p>
+            <ul>
+                <li><strong>💢 사이코볼</strong> - 감정 오버드라이브 발동, 공이 붉게 변하며 추적 능력 강화</li>
+                <li><strong>💧 눈물샤워</strong> - 하늘에서 눈물이 비처럼 내려와 플레이어 이동속도 감소</li>
+            </ul>
+            <p><strong>특수 메커니즘:</strong></p>
+            <ul>
+                <li>사이코볼 발동 시 화면에 붉은 오버레이</li>
+                <li>눈물에 맞으면 2초간 슬로우 디버프</li>
+                <li>연막탄 연기 안에 있으면 눈물샤워 면역</li>
+            </ul>
+            <p><strong>팁:</strong> 연막탄이 있다면 눈물샤워에 대비하세요. 사이코볼은 연막으로 강제 해제 가능합니다.</p>
+        </div>
+    </div>
+
+    <div class="boss-card">
+        <div class="boss-header">Stage 4 - 퐁크</div>
+        <div class="boss-content">
+            <p><strong>특징:</strong> 🧲 소림사 승려 테마, 자기장 능력 보유</p>
+            <p><strong>스킬:</strong></p>
+            <ul>
+                <li><strong>🧲 굴절 자기장</strong> - 자기장을 발생시켜 공의 궤적을 휘게 만듦</li>
+            </ul>
+            <p><strong>특수 메커니즘:</strong></p>
+            <ul>
+                <li>자기장 활성화 시 공이 보스 방향으로 휘어짐</li>
+                <li>발동 중 특수 사운드와 시각 이펙트</li>
+                <li>배경에 소림사 사원 파괴 연출 (플레이어 3점 획득 시)</li>
+            </ul>
+            <p><strong>팁:</strong> 공의 휘어지는 방향을 예측하고 미리 포지셔닝하세요.</p>
+        </div>
+    </div>
+
+    <div class="boss-card">
+        <div class="boss-header">Stage 5 - 네메시스</div>
+        <div class="boss-content">
+            <p><strong>특징:</strong> ⚡ 미래형 무기 장착, <span class="badge badge-legendary">체력 게이지 시스템</span></p>
+            <p><strong>스킬:</strong></p>
+            <ul>
+                <li><strong>⚡ 레이저 캐논</strong> - 충전 후 직선 레이저 발사, 등대 모드에서는 회전하며 발사</li>
+                <li><strong>🚀 인터셉터</strong> - 격납고 문이 열리며 유도 미사일 출격 (스타크래프트 캐리어 스타일)</li>
+                <li><strong>🛡️ 쉴드 안테나</strong> - 일시적으로 방어막 생성, 공을 튕겨냄</li>
+            </ul>
+            <p><strong>특수 메커니즘:</strong></p>
+            <ul>
+                <li>레이저에 맞으면 플레이어 감전 스턴</li>
+                <li>미사일에 맞으면 넉백 + 스턴</li>
+                <li>보스 피격 시 0.5초 깜빡임</li>
+                <li>레이저 쿨타임 12~15초, 인터셉터 쿨타임 10~12초</li>
+            </ul>
+            <p><strong>팁:</strong> 레이저 충전 시 미리 회피 준비. 인터셉터는 대시로 회피하세요.</p>
+        </div>
+    </div>
+
+    <div class="boss-card">
+        <div class="boss-header">Stage 6 - 홍련</div>
+        <div class="boss-content">
+            <p><strong>특징:</strong> 🔥 화염 속성 보스, <span class="badge badge-legendary">체력 게이지 시스템</span></p>
+            <p><strong>스킬:</strong></p>
+            <ul>
+                <li><strong>🔥 화염탄</strong> - 불덩이를 플레이어 방향으로 발사, 맞으면 넉백 + 스턴</li>
+                <li><strong>🌋 홍련폭염</strong> - 게이지가 차면 발동, 강력한 광역 화염 공격</li>
+            </ul>
+            <p><strong>특수 메커니즘:</strong></p>
+            <ul>
+                <li>용의 신비로운 구슬 형태의 특수 게이지 표시</li>
+                <li>라운드 시작 2.5초 지연 후 본격 전투</li>
+                <li>라운드 지속시간 9초 (다른 스테이지보다 김)</li>
+                <li>화염탄 쿨타임 5초</li>
+                <li>토르쉴드로 홍련폭염 가드 시 특수 보상</li>
+            </ul>
+            <p><strong>팁:</strong> 화염탄은 대시로 회피하고, 홍련폭염 게이지를 주시하며 미리 준비하세요.</p>
+        </div>
+    </div>
+
+    <div class="boss-card">
+        <div class="boss-header">Stage 7 - 테트리서</div>
+        <div class="boss-content">
+            <p><strong>특징:</strong> 🧱 블록 기반 보스, 테트리스 스타일</p>
+            <p><strong>스킬:</strong></p>
+            <ul>
+                <li><strong>🧱 테트로미노 투하</strong> - T(ㅗ) 블록을 필드에 떨어뜨림, 블록에 맞으면 폭발 + 스턴</li>
+                <li><strong>🏰 가드 블록</strong> - 보스 뒤에 1자 방어 블록 생성</li>
+                <li><strong>🧱 테트로 벽</strong> - 양쪽 벽에 10개씩 블록을 쌓아 필드 압박</li>
+            </ul>
+            <p><strong>🔥 초인테트리서 (특수 상태):</strong></p>
+            <ul>
+                <li>일정 조건 충족 시 <span class="badge badge-legendary">초인발동</span> 상태 돌입</li>
+                <li>지속시간 15초</li>
+                <li>테트로미노 투하 속도와 빈도 대폭 증가</li>
+                <li>패턴이 더욱 복잡해지고 공격적으로 변화</li>
+                <li>이펙트와 함께 보스의 외형이 변화</li>
+            </ul>
+            <p><strong>특수 메커니즘:</strong></p>
+            <ul>
+                <li>테트로미노 폭발 시 넉백 + 0.5초 스턴</li>
+                <li>블록은 대시나 무기로 파괴 가능</li>
+                <li>테트로 벽 쿨타임 30초</li>
+            </ul>
+            <p><strong>팁:</strong> 초인발동 시 방어에 집중하고, 블록은 적극적으로 파괴하여 공간을 확보하세요.</p>
+        </div>
+    </div>
+
+    <div class="boss-card">
+        <div class="boss-header">Stage 8 - 탁닌자</div>
+        <div class="boss-content">
+            <p><strong>특징:</strong> 🥷 닌자 테마 보스, 고속 이동과 분신</p>
+            <p><strong>스킬:</strong></p>
+            <ul>
+                <li><strong>👥 그림자 분신</strong> - 여러 분신을 생성하여 혼란 유발, 분신은 홀로그램처럼 소멸</li>
+                <li><strong>☁️ 연막 대시</strong> - 연막을 남기며 순간이동, 연막 위치에 구름 이펙트</li>
+                <li><strong>🔪 수리검 게이지</strong> - 게이지 축적으로 특수 공격 발동</li>
+            </ul>
+            <p><strong>⚡ 초각성 상태 (특수 상태):</strong></p>
+            <ul>
+                <li>플레이어 3점 이상 획득 시 <span class="badge badge-legendary">초각성</span> 상태 돌입</li>
+                <li>바람 오오라가 보스 주변에 발생</li>
+                <li>분신 수가 대폭 증가하여 구분이 더 어려워짐</li>
+                <li>연막 대시가 더 빠르고 빈번해짐</li>
+                <li>착지 후 잠시 머무르는 시간 추가</li>
+                <li><strong>🌀 극정호신</strong> - 초각성 전용 필살기. 어둠 기운 파티클과 잔상을 남기며 극한의 속도로 공격</li>
+            </ul>
+            <p><strong>특수 메커니즘:</strong></p>
+            <ul>
+                <li>초각성 바람 오오라로 공을 막으면 보스 게이지 +90</li>
+                <li>극정호신 발동 중 화면에 어둠 오버레이</li>
+                <li>스턴 상태에서 탈출 가능 (스턴 회피)</li>
+            </ul>
+            <p><strong>팁:</strong> 초각성 상태에서는 본체를 구분하고, 극정호신 발동 시 대시로 회피에 집중하세요.</p>
+        </div>
+    </div>
+
+    <h3 id="section5-2">5.2. 보스 AI 난이도</h3>
+
+    <p>스테이지가 올라갈수록 보스의 AI가 강화됩니다:</p>
+
+    <table>
+        <tr>
+            <th>항목</th>
+            <th>Stage 1</th>
+            <th>이후 스테이지</th>
+        </tr>
+        <tr>
+            <td>예측 확률</td>
+            <td>45%</td>
+            <td>+5% / 스테이지</td>
+        </tr>
+        <tr>
+            <td>예측 오류</td>
+            <td>95px</td>
+            <td>-5px / 스테이지</td>
+        </tr>
+        <tr>
+            <td>실패 확률</td>
+            <td>1%</td>
+            <td>-0.1% / 스테이지</td>
+        </tr>
+        <tr>
+            <td>가속도</td>
+            <td>0.798</td>
+            <td>점차 증가</td>
+        </tr>
+    </table>
+
+    <div class="warning-box">
+        Stage 5는 특수 보스로서 체력형 보스입니다.
+    </div>
+
+    <!-- 6. 게임 팁 및 전략 -->
+    <h2 id="section6">6. 게임 팁 및 전략</h2>
+
+    <h3>6.1. 초보자 팁</h3>
+
+    <ul>
+        <li><strong>마우스 좌클릭 + WASD</strong> 조합에 익숙해지세요</li>
+        <li>Stage 1에서 기본 조작과 대시 타이밍을 충분히 연습하세요</li>
+        <li>초반에는 <strong>슬롯 추가</strong>, <strong>부활</strong> 아이템을 우선 확보하세요</li>
+        <li>보스의 공격 패턴을 몇 라운드 동안 관찰하세요</li>
+        <li>게이지 관리가 중요합니다 - 대시용 게이지를 항상 확보하세요</li>
+    </ul>
+
+    <h3>6.2. 스킬 투자 가이드</h3>
+
+    <table>
+        <tr>
+            <th>단계</th>
+            <th>추천 스킬</th>
+            <th>이유</th>
+        </tr>
+        <tr>
+            <td>초반</td>
+            <td>경량화, 행운</td>
+            <td>대시 쿨타임 감소, 아이템 획득률 증가</td>
+        </tr>
+        <tr>
+            <td>중반</td>
+            <td>버스트업, 숙달</td>
+            <td>대시 시 패들 확대, 게이지 보너스</td>
+        </tr>
+        <tr>
+            <td>후반</td>
+            <td>보물지도, 대시 스피릿</td>
+            <td>전설 확률 증가, 추가 공격 수단</td>
+        </tr>
+    </table>
+
+    <h3>6.3. 아이템 조합 빌드</h3>
+
+    <table>
+        <tr>
+            <th>빌드명</th>
+            <th>핵심 아이템</th>
+            <th>플레이 스타일</th>
+        </tr>
+        <tr>
+            <td>🗡️ 공격형</td>
+            <td>벌크업 + 스파이크부츠</td>
+            <td>적극적인 공격</td>
+        </tr>
+        <tr>
+            <td>🎯 추적형</td>
+            <td>무중력벨트 + 스마트폰 + 감지센서</td>
+            <td>공 추적에 집중</td>
+        </tr>
+        <tr>
+            <td>🛡️ 생존형</td>
+            <td>부활 + 생명수 + 방탄모자</td>
+            <td>안정적인 클리어</td>
+        </tr>
+        <tr>
+            <td>⚡ 대시형</td>
+            <td>대시홀더 + 대시기어 + 버스트업</td>
+            <td>기동력 극대화</td>
+        </tr>
+    </table>
+
+    <h3>6.4. 스테이지별 공략</h3>
+
+    <table>
+        <tr>
+            <th>스테이지</th>
+            <th>핵심 전략</th>
+        </tr>
+        <tr>
+            <td>1~2</td>
+            <td>기본기 연습, 아이템 수집에 집중</td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>멘헤라걸의 감정 패턴 변화 타이밍 파악</td>
+        </tr>
+        <tr>
+            <td>4</td>
+            <td>자기장 활성화 시 공의 휘는 방향 예측</td>
+        </tr>
+        <tr>
+            <td>5 (네메시스)</td>
+            <td>레이저 빔 패턴 암기, 미사일 넉백 활용</td>
+        </tr>
+        <tr>
+            <td>6 (홍련)</td>
+            <td>화염탄 회피 우선, 홍련폭염 게이지 주시</td>
+        </tr>
+        <tr>
+            <td>7 (테트리서)</td>
+            <td>블록 패턴 파악, 공간 관리 중요</td>
+        </tr>
+        <tr>
+            <td>8 (탁닌자)</td>
+            <td>분신 구분, 빠른 반응 필수</td>
+        </tr>
+    </table>
+
+    <h3>6.5. 고급 팁</h3>
+
+    <ul>
+        <li><strong>연금술 스킬</strong>로 강력한 아이템을 반복 사용하세요 (20% 유지 확률)</li>
+        <li><strong>도박 스킬</strong>로 가챠 효율을 극대화하세요 (25% 추가 뽑기)</li>
+        <li>드라이브 보너스 (12초)를 활용한 딜 극대화</li>
+        <li>전설 아이템 파밍: <strong>보물지도 스킬 + 반복 플레이</strong></li>
+        <li>Stage 5~6의 체력 게이지 보스는 장기전 준비 필수</li>
+    </ul>
+
+    <!-- 7. 광장 시스템 -->
+    <h2 id="section7">7. 광장 시스템</h2>
+
+    <p>
+        광장(Plaza)은 게임의 <strong>허브</strong> 역할을 하는 공간입니다.
+        스테이지 사이에 방문하여 스킬을 강화하고, 가챠를 돌리고, 아이템을 구매할 수 있습니다.
+        광장에는 4개의 건물이 있으며, 각 건물에서 다양한 서비스를 이용할 수 있습니다.
+    </p>
+
+    <h3 id="section7-1">7.1. 화폐 종류</h3>
+
+    <table>
+        <tr>
+            <th>화폐</th>
+            <th>표시</th>
+            <th>획득 방법</th>
+            <th>주요 사용처</th>
+        </tr>
+        <tr>
+            <td><strong>스타 포인트</strong></td>
+            <td><span class="badge badge-star">★</span></td>
+            <td>스테이지 클리어 시 1점, 스테이지 내 수집</td>
+            <td>아카데미 스킬 구매, 가챠샵</td>
+        </tr>
+        <tr>
+            <td><strong>골드</strong></td>
+            <td><span class="badge badge-gold">G</span></td>
+            <td>필드 아이템 수집, 보스 처치</td>
+            <td>상점 아이템 구매</td>
+        </tr>
+    </table>
+
+    <h3 id="section7-2">7.2. 환전 시스템</h3>
+
+    <p>
+        광장에서는 화폐 간 환전이 가능합니다.
+        골드와 스타 포인트 간 교환이 가능합니다.
+    </p>
+
+    <div class="tip-box">
+        스테이지 내에서 별(★)을 수집하면 스타 포인트를 추가로 획득할 수 있습니다!
+    </div>
+
+    <!-- 8. 광장 건물 -->
+    <h2 id="section8">8. 광장 건물</h2>
+
+    <p>광장에는 총 <strong>5개의 건물</strong>이 있습니다. 각 건물을 마우스로 클릭하여 입장할 수 있습니다.</p>
+
+    <h3 id="section8-0">8.0. 행동포인트 (열쇠) 시스템</h3>
+
+    <div class="building-card">
+        <div class="building-header">🔑 행동포인트 - 건물 입장 제한</div>
+        <div class="building-content">
+            <p>
+                광장에서는 <strong>행동포인트(열쇠)</strong>를 소모하여 건물에 입장합니다.
+                건물 입장 시 열쇠 1개가 소모되며, <strong>한 번 입장한 건물은 해당 광장에서 재입장이 불가능</strong>합니다.
+            </p>
+
+            <table>
+                <tr>
+                    <th>항목</th>
+                    <th>내용</th>
+                </tr>
+                <tr>
+                    <td>열쇠 획득</td>
+                    <td>스테이지 클리어 시 <strong>1개</strong> 추가</td>
+                </tr>
+                <tr>
+                    <td>입장 비용</td>
+                    <td>건물당 열쇠 1개 소모</td>
+                </tr>
+                <tr>
+                    <td>재입장</td>
+                    <td><span style="color:#dc3545;">불가능</span> (같은 광장 내)</td>
+                </tr>
+            </table>
+
+            <div class="warning-box">
+                <strong>주의!</strong> 열쇠는 제한되어 있으므로, 어떤 건물에 입장할지 신중하게 선택하세요.<br>
+                초반에는 <strong>아카데미</strong>(스킬 강화)나 <strong>상점</strong>(패시브 아이템)을 우선 방문하는 것이 좋습니다.
+            </div>
+        </div>
+    </div>
+
+    <h3 id="section8-1">8.1. 스타뱅크 (StarBank)</h3>
+
+    <div class="building-card">
+        <div class="building-header">🏦 스타뱅크 - 환전 및 예금 시스템</div>
+        <div class="building-content">
+            <p>
+                광장에서 <strong>가장 중요한 건물</strong>입니다. 은행에서는 화폐 환전과 예금 서비스를 이용할 수 있습니다.
+                입장 시 NPC 기준 <strong>왼쪽에는 환율 전광판</strong>, <strong>오른쪽에는 예금 이자율 전광판</strong>이 표시됩니다.
+            </p>
+
+            <h4>📊 환율 전광판 (왼쪽)</h4>
+            <p>주식 전광판 스타일로 현재 환율 정보를 실시간 표시합니다.</p>
+            <table>
+                <tr>
+                    <th>항목</th>
+                    <th>내용</th>
+                </tr>
+                <tr>
+                    <td>기본 환율</td>
+                    <td>1 스타포인트(★) = 500 골드(G)</td>
+                </tr>
+                <tr>
+                    <td>일일 변동률</td>
+                    <td>-15% ~ +15% (매일 랜덤 변동)</td>
+                </tr>
+                <tr>
+                    <td>실제 환율 범위</td>
+                    <td>425G ~ 575G per ★</td>
+                </tr>
+            </table>
+
+            <h4>💰 예금 이자율 전광판 (오른쪽)</h4>
+            <table>
+                <tr>
+                    <th>항목</th>
+                    <th>내용</th>
+                </tr>
+                <tr>
+                    <td>일일 이자율</td>
+                    <td>5% ~ 20% (랜덤 결정)</td>
+                </tr>
+                <tr>
+                    <td>이자 지급</td>
+                    <td>매일 자정 기준 계산</td>
+                </tr>
+            </table>
+
+            <h4>🔄 환전 시스템</h4>
+            <ul>
+                <li><strong>스타포인트 → 골드</strong>: 현재 환율에 따라 변환</li>
+                <li><strong>골드 → 스타포인트</strong>: 현재 환율의 역방향으로 변환</li>
+                <li>환율이 높을 때 스타포인트를 골드로 바꾸고, 낮을 때 다시 사는 것이 이득!</li>
+            </ul>
+
+            <h4>💵 예금 시스템</h4>
+            <ul>
+                <li><strong>예금</strong>: 골드를 예금하여 이자 수익 획득</li>
+                <li><strong>출금</strong>: 예금한 골드와 이자를 인출</li>
+                <li>이자율이 높은 날 예금하면 더 많은 수익!</li>
+            </ul>
+
+            <h4>메뉴 구성</h4>
+            <ul>
+                <li>환전</li>
+                <li>예금/출금</li>
+                <li>나가기</li>
+            </ul>
+
+            <div class="tip-box">
+                환율과 이자율은 매일 변동됩니다. 환율이 낮을 때 스타포인트를 사고, 높을 때 팔아 시세차익을 노려보세요!
+            </div>
+        </div>
+    </div>
+
+    <h3 id="section8-2">8.2. 아카데미 (Academy)</h3>
+
+    <div class="building-card">
+        <div class="building-header">🏫 아카데미 - 스킬 트리 시스템</div>
+        <div class="building-content">
+            <p>
+                아카데미 건물에 입장한 후 <strong>NPC에게 말을 걸면</strong> 스킬 트리 화면으로 진입합니다.
+                <strong>스타 포인트(★)</strong>를 사용하여 다양한 스킬을 배울 수 있으며,
+                스킬은 <strong>트리 구조</strong>로 되어 있어, 하위 스킬을 먼저 배워야 상위 스킬을 해금할 수 있습니다.
+            </p>
+
+            <h4>대시 스킬 트리 <span class="badge badge-blue">파란색</span></h4>
+            <table>
+                <tr>
+                    <th>스킬명</th>
+                    <th>최대 Lv</th>
+                    <th>효과</th>
+                    <th>해금 조건</th>
+                </tr>
+                <tr>
+                    <td>경량화</td>
+                    <td>5</td>
+                    <td>대시 쿨타임 7% 감소</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>모듈제어</td>
+                    <td>5</td>
+                    <td>대시 후딜 10% 감소</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>도약</td>
+                    <td>5</td>
+                    <td>대시 거리 4% 증가</td>
+                    <td>경량화 + 누적 ★4</td>
+                </tr>
+                <tr>
+                    <td>배터리팩</td>
+                    <td>5</td>
+                    <td>게이지 소모 8% 감소</td>
+                    <td>모듈제어 + 누적 ★4</td>
+                </tr>
+                <tr>
+                    <td>버스트업</td>
+                    <td>5</td>
+                    <td>대시 시 패들 세로 크기 60% 증가</td>
+                    <td>도약/배터리팩 + 누적 ★8</td>
+                </tr>
+                <tr>
+                    <td>증폭</td>
+                    <td>2</td>
+                    <td>대시 토큰 1개 추가</td>
+                    <td>배터리팩 + 누적 ★8</td>
+                </tr>
+                <tr>
+                    <td>대시 스피릿</td>
+                    <td>2</td>
+                    <td>대시 시 30~50% 확률로 레이저 잔상</td>
+                    <td>버스트업 + 누적 ★12</td>
+                </tr>
+            </table>
+
+            <h4>아이템 스킬 트리 <span class="badge badge-orange">주황색</span></h4>
+            <table>
+                <tr>
+                    <th>스킬명</th>
+                    <th>최대 Lv</th>
+                    <th>효과</th>
+                    <th>해금 조건</th>
+                </tr>
+                <tr>
+                    <td>행운</td>
+                    <td>5</td>
+                    <td>아이템 스폰 대기시간 6% 감소</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>숙련</td>
+                    <td>5</td>
+                    <td>액티브 아이템 쿨타임 8% 감소</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>숙달</td>
+                    <td>5</td>
+                    <td>액티브 아이템 사용 시 게이지 +7</td>
+                    <td>행운 + 누적 ★4</td>
+                </tr>
+                <tr>
+                    <td>가방 확장</td>
+                    <td>3</td>
+                    <td>액티브 아이템 슬롯 +1칸</td>
+                    <td>숙련 + 누적 ★4</td>
+                </tr>
+                <tr>
+                    <td>도박</td>
+                    <td>3</td>
+                    <td>25% 확률로 가챠 추가 1회</td>
+                    <td>숙달 + 누적 ★8</td>
+                </tr>
+                <tr>
+                    <td>연금술</td>
+                    <td>3</td>
+                    <td>사용 아이템 20% 확률 유지</td>
+                    <td>가방 확장 + 누적 ★8</td>
+                </tr>
+                <tr>
+                    <td>보물지도</td>
+                    <td>2</td>
+                    <td>전설 필드 확률 +350%, 가챠 전설 +7%</td>
+                    <td>누적 ★12</td>
+                </tr>
+            </table>
+
+            <div class="tip-box">
+                "누적 ★N"은 해당 스킬 트리에 투자한 총 포인트를 의미합니다.
+            </div>
+        </div>
+    </div>
+
+    <h3 id="section8-3">8.3. 네온 카지노 (Neon Casino)</h3>
+
+    <div class="building-card">
+        <div class="building-header">🎰 네온 카지노 - 미니게임</div>
+        <div class="building-content">
+            <p>
+                네온 불빛 아래서 행운을 시험하는 곳입니다.
+                <strong>골드(G)</strong>를 배팅하여 <strong>포커</strong>와 <strong>빠칭코(슬롯머신)</strong> 두 가지 미니게임을 즐길 수 있습니다.
+            </p>
+
+            <h4>🃏 포커 (Texas Hold'em)</h4>
+            <table>
+                <tr>
+                    <th>항목</th>
+                    <th>내용</th>
+                </tr>
+                <tr>
+                    <td>최소 배팅</td>
+                    <td><strong>10 골드(G)</strong></td>
+                </tr>
+                <tr>
+                    <td>최대 배팅</td>
+                    <td><strong>100 골드(G)</strong></td>
+                </tr>
+            </table>
+            <ul>
+                <li>4인 텍사스 홀덤 형식 (플레이어 + NPC 3명)</li>
+                <li>고퀄리티 카드 애니메이션</li>
+                <li>전용 BGM 4곡 랜덤 재생</li>
+                <li>승리 시 팟(pot)의 골드 획득</li>
+            </ul>
+
+            <h4>🎰 빠칭코 (슬롯머신)</h4>
+            <table>
+                <tr>
+                    <th>항목</th>
+                    <th>내용</th>
+                </tr>
+                <tr>
+                    <td>배팅 범위</td>
+                    <td><strong>1 ~ 30 골드(G)</strong></td>
+                </tr>
+                <tr>
+                    <td>기본 배팅</td>
+                    <td>5 골드(G)</td>
+                </tr>
+            </table>
+            <p><strong>심볼 배당률:</strong></p>
+            <table>
+                <tr>
+                    <th>심볼</th>
+                    <th>배당률</th>
+                    <th>확률</th>
+                </tr>
+                <tr>
+                    <td>🍎 사과</td>
+                    <td>x3</td>
+                    <td>높음</td>
+                </tr>
+                <tr>
+                    <td>🔑 열쇠</td>
+                    <td>x5</td>
+                    <td>중상</td>
+                </tr>
+                <tr>
+                    <td>🥇 금괴</td>
+                    <td>x7</td>
+                    <td>중</td>
+                </tr>
+                <tr>
+                    <td>💎 진주</td>
+                    <td>x10</td>
+                    <td>중하</td>
+                </tr>
+                <tr>
+                    <td>💠 다이아몬드</td>
+                    <td>x20</td>
+                    <td>낮음</td>
+                </tr>
+                <tr>
+                    <td>📦 판도라 상자</td>
+                    <td>x30</td>
+                    <td>희귀</td>
+                </tr>
+                <tr>
+                    <td>7️⃣ 럭키 7</td>
+                    <td>보너스 라운드</td>
+                    <td>매우 희귀</td>
+                </tr>
+            </table>
+
+            <h4>조작법</h4>
+            <ul>
+                <li><strong>마우스 클릭</strong> - 슬롯 정지</li>
+                <li><strong>마우스 휠</strong> - 배팅 금액 조절</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3 id="section8-4">8.4. 스타 가챠샵 (Star Gacha Shop)</h3>
+
+    <div class="building-card">
+        <div class="building-header">🎰 스타 가챠샵 - 골드로 아이템 뽑기</div>
+        <div class="building-content">
+            <p>
+                <strong>골드(G)</strong>를 사용하여 랜덤 아이템을 획득하는 곳입니다.
+                <strong>가챠 뽑기</strong>와 <strong>인형뽑기</strong> 두 가지 미니게임을 즐길 수 있습니다.
+            </p>
+
+            <h4>🎱 가챠 뽑기</h4>
+            <table>
+                <tr>
+                    <th>항목</th>
+                    <th>내용</th>
+                </tr>
+                <tr>
+                    <td>1회 비용</td>
+                    <td><strong>800 골드(G)</strong></td>
+                </tr>
+                <tr>
+                    <td>스테이지당 제한</td>
+                    <td>최대 5회</td>
+                </tr>
+                <tr>
+                    <td>보상</td>
+                    <td>액티브/패시브/전설 아이템 랜덤</td>
+                </tr>
+            </table>
+
+            <p><strong>가챠 확률 (아카데미 보물지도 스킬 미적용 시):</strong></p>
+            <ul>
+                <li>일반 아이템: 대부분</li>
+                <li>희귀 아이템: 낮음</li>
+                <li>전설 아이템: 매우 희귀 (보물지도 스킬로 +7% 가능)</li>
+            </ul>
+
+            <h4>🎮 인형뽑기 (크레인 게임)</h4>
+            <table>
+                <tr>
+                    <th>항목</th>
+                    <th>내용</th>
+                </tr>
+                <tr>
+                    <td>1회 비용</td>
+                    <td><strong>300 골드(G)</strong></td>
+                </tr>
+                <tr>
+                    <td>시도 횟수</td>
+                    <td>5회</td>
+                </tr>
+                <tr>
+                    <td>제한 시간</td>
+                    <td>20초</td>
+                </tr>
+            </table>
+
+            <p><strong>인형뽑기 캡슐 종류:</strong></p>
+            <table>
+                <tr>
+                    <th>캡슐 색상</th>
+                    <th>등급</th>
+                    <th>확률</th>
+                </tr>
+                <tr>
+                    <td>🔵 파란색</td>
+                    <td>커먼 (액티브)</td>
+                    <td>약 70%</td>
+                </tr>
+                <tr>
+                    <td>🟡 금색</td>
+                    <td>레어 (패시브)</td>
+                    <td>약 28%</td>
+                </tr>
+                <tr>
+                    <td>🟣 보라색</td>
+                    <td>에픽</td>
+                    <td>약 6%</td>
+                </tr>
+                <tr>
+                    <td>🔴 빨간색</td>
+                    <td>전설</td>
+                    <td>약 2%</td>
+                </tr>
+            </table>
+
+            <h4>조작법</h4>
+            <p><strong>▶ 키보드 조작</strong></p>
+            <ul>
+                <li><strong>A / D</strong> - 크레인 좌우 이동 (또는 자동 이동)</li>
+                <li><strong>W / S</strong> - 크레인 Y축 목표 위치 조절 (상하)</li>
+                <li><strong>스페이스바 / 엔터</strong> - 크레인 내리기</li>
+                <li><strong>ESC</strong> - 게임 종료</li>
+            </ul>
+            <p><strong>▶ 마우스 조작</strong></p>
+            <ul>
+                <li><strong>마우스 휠</strong> - 크레인 Y축 목표 위치 조절 (상하 이동)</li>
+                <li><strong>마우스 좌클릭</strong> - 크레인 내리기</li>
+            </ul>
+
+            <div class="tip-box">
+                인형뽑기가 가챠보다 비용이 저렴하고 전설 아이템 확률(2%)도 나쁘지 않습니다! 단, 크레인 조작 실력이 필요합니다.
+            </div>
+        </div>
+    </div>
+
+    <h3 id="section8-5">8.5. 상점 (Store)</h3>
+
+    <div class="building-card">
+        <div class="building-header">🏪 상점 - 패시브 아이템 전문점</div>
+        <div class="building-content">
+            <p>
+                골드(G)를 사용하여 <strong>패시브 아이템</strong>을 구매할 수 있는 상점입니다.<br>
+                방문할 때마다 <strong>랜덤 1~7개</strong>의 아이템이 진열되며, <strong>5% 확률</strong>로 전설 아이템도 등장합니다!
+            </p>
+
+            <h4>📦 판매 품목 및 가격</h4>
+
+            <p><strong>▶ 일반 패시브 아이템 (25종)</strong></p>
+            <table>
+                <tr>
+                    <th>아이템명</th>
+                    <th>기본가</th>
+                    <th>아이템명</th>
+                    <th>기본가</th>
+                </tr>
+                <tr>
+                    <td>스피드부츠</td>
+                    <td>1,100G</td>
+                    <td>스피드기어</td>
+                    <td>800G</td>
+                </tr>
+                <tr>
+                    <td>배터리</td>
+                    <td>1,300G</td>
+                    <td>부활</td>
+                    <td>3,000G</td>
+                </tr>
+                <tr>
+                    <td>토르의 망치</td>
+                    <td>900G</td>
+                    <td>쿨타임</td>
+                    <td>700G</td>
+                </tr>
+                <tr>
+                    <td>충전가방</td>
+                    <td>1,500G</td>
+                    <td>스파이크부츠</td>
+                    <td>1,200G</td>
+                </tr>
+                <tr>
+                    <td>대쉬기어</td>
+                    <td>1,200G</td>
+                    <td>벌크업</td>
+                    <td>1,100G</td>
+                </tr>
+                <tr>
+                    <td>위험감지센서</td>
+                    <td>1,800G</td>
+                    <td>무중력벨트</td>
+                    <td>2,800G</td>
+                </tr>
+                <tr>
+                    <td>대쉬홀더</td>
+                    <td>1,800G</td>
+                    <td>다우징팬들럼</td>
+                    <td>700G</td>
+                </tr>
+                <tr>
+                    <td>스마트폰</td>
+                    <td>800G</td>
+                    <td>코만도암</td>
+                    <td>1,100G</td>
+                </tr>
+                <tr>
+                    <td>테크니컬조끼</td>
+                    <td>1,200G</td>
+                    <td>연료파우치</td>
+                    <td>700G</td>
+                </tr>
+                <tr>
+                    <td>가방 (슬롯추가)</td>
+                    <td>900G</td>
+                    <td>블루투스링</td>
+                    <td>1,200G</td>
+                </tr>
+                <tr>
+                    <td>별탐지기</td>
+                    <td>900G</td>
+                    <td>반칙호루라기</td>
+                    <td>1,300G</td>
+                </tr>
+                <tr>
+                    <td>방탄모자</td>
+                    <td>800G</td>
+                    <td>가시투구</td>
+                    <td>1,000G</td>
+                </tr>
+                <tr>
+                    <td>킥차져</td>
+                    <td>800G</td>
+                    <td colspan="2" style="text-align:center;">-</td>
+                </tr>
+            </table>
+
+            <p><strong>▶ 전설 아이템 (5종) - 5% 확률로 등장</strong></p>
+            <table>
+                <tr>
+                    <th>아이템명</th>
+                    <th>기본가</th>
+                    <th>효과</th>
+                </tr>
+                <tr>
+                    <td style="color:#FFD700;">⭐ 라그나로크 해머</td>
+                    <td>6,500G</td>
+                    <td>강력한 스매시 공격</td>
+                </tr>
+                <tr>
+                    <td style="color:#FFD700;">⭐ 헤르메스의 신발</td>
+                    <td>5,500G</td>
+                    <td>이동속도 대폭 증가</td>
+                </tr>
+                <tr>
+                    <td style="color:#FFD700;">⭐ 포세이돈의 삼지창</td>
+                    <td>5,500G</td>
+                    <td>물결 파동 효과</td>
+                </tr>
+                <tr>
+                    <td style="color:#FFD700;">⭐ 천사의 가호</td>
+                    <td>6,000G</td>
+                    <td>보호 효과</td>
+                </tr>
+                <tr>
+                    <td style="color:#FFD700;">⭐ 신성 월계수</td>
+                    <td>5,800G</td>
+                    <td>특수 버프 효과</td>
+                </tr>
+            </table>
+
+            <h4>💰 가격 책정 시스템</h4>
+            <p>
+                상점 아이템 가격은 <strong>기본가 + 품질/롤옵션 보너스</strong>로 결정됩니다.
+            </p>
+            <ul>
+                <li><strong>품질 등급</strong>: 아이템의 품질에 따라 가격이 추가됩니다</li>
+                <li><strong>롤옵션</strong>: 아이템의 세부 수치(롤)가 좋을수록 가격이 올라갑니다</li>
+                <li>같은 아이템이라도 품질과 롤에 따라 가격이 다를 수 있습니다</li>
+            </ul>
+
+            <h4>🛒 상점 이용 팁</h4>
+            <ul>
+                <li>방문할 때마다 인벤토리가 <strong>랜덤으로 갱신</strong>됩니다</li>
+                <li>전설 아이템은 <strong>5% 확률</strong>로 등장하니 자주 방문하세요!</li>
+                <li>부활(3,000G), 무중력벨트(2,800G) 등 고가 아이템은 효과가 강력합니다</li>
+                <li>저렴한 아이템(쿨타임, 다우징팬들럼, 연료파우치 - 각 700G)으로 시작하세요</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="info-box blue">
+        <strong>💡 상점 공략</strong><br>
+        상점은 패시브 아이템만 판매하며, 액티브 아이템은 필드에서 획득해야 합니다.<br>
+        전설 아이템이 진열되어 있다면 놓치지 말고 구매하세요! 상점에서 확정적으로 살 수 있는 기회입니다.
+    </div>
+
+    <hr>
+
+    <div class="quote-box">
+        이 가이드는 핑파이터 게임의 핵심 시스템과 팁을 정리한 문서입니다.<br>
+        실제 플레이를 통해 자신만의 전략을 개발해 보세요!<br><br>
+        <strong>마우스 좌클릭 + WASD</strong>로 시작하고, <strong>대시</strong>를 마스터하세요!
+    </div>
+
+    <!-- 푸터 -->
+    <div class="footer">
+        <p>ⓒ 2024 Sahogany Studio - PingFighter</p>
+        <p>이 문서는 나무위키 스타일로 제작되었습니다. (v2.0)</p>
+    </div>
+
+</body>
+</html>

@@ -129,6 +129,160 @@ class AnimatedBackgroundStage8:
                 "alpha": random.randint(20, 40),
             })
 
+        # 족자 캐시 생성 (마지막 창문 오른쪽에 배치)
+        self._scroll_cache: pygame.Surface | None = None
+        self._create_scroll_cache()
+
+    def _create_scroll_cache(self) -> None:
+        """족자(카게무노) 캐시 생성 - 마지막 창문 오른쪽에 배치."""
+        # 마지막(5번째) 창문 위치 가져오기
+        if not self.window_positions_top or len(self.window_positions_top) < 5:
+            return
+
+        last_win = self.window_positions_top[4]  # 5번째 창문 (0-indexed)
+        last_win_x, last_win_y, last_win_w, last_win_h = last_win
+        last_win_right = last_win_x + last_win_w
+
+        # 족자 위치: 마지막 창문 오른쪽 + 여백
+        scroll_x = last_win_right + 8
+        # 게임 영역 오른쪽 끝 (width - 60)까지 남은 공간
+        game_right_edge = self.width - 60
+        available_width = game_right_edge - scroll_x - 5
+
+        if available_width < 25:
+            return
+
+        # 족자 크기 (창문과 같은 높이)
+        scroll_width = min(available_width - 4, 45)
+        scroll_height = last_win_h  # 창문 높이와 동일 (85)
+        scroll_y = last_win_y  # 창문 Y와 동일 (25)
+
+        # 족자 캐시 생성
+        cache_w = scroll_width + 20  # 여유 공간
+        cache_h = scroll_height + 30
+        self._scroll_cache = pygame.Surface((cache_w, cache_h), pygame.SRCALPHA)
+        self._scroll_x = scroll_x
+        self._scroll_y = scroll_y - 10  # 걸이 끈 공간
+
+        # 족자 그리기 (캐시 내 로컬 좌표)
+        local_x = 10  # 캐시 내 여백
+        local_y = 10
+
+        self._draw_hanging_scroll(self._scroll_cache, local_x, local_y,
+                                  scroll_width, scroll_height)
+
+    def _draw_hanging_scroll(self, surface: pygame.Surface, x: int, y: int,
+                             width: int, height: int) -> None:
+        """족자(카게무노) 그리기."""
+        # 색상 정의
+        wood_dark = (85, 65, 32)
+        wood_mid = (120, 95, 48)
+        scroll_border = (60, 45, 25)
+        scroll_paper = (220, 210, 185)
+        scroll_paper_dark = (180, 170, 145)
+        scroll_gold = (180, 150, 80)
+        scroll_red = (140, 45, 35)
+        ink_black = (20, 18, 15)
+
+        center_x = x + width // 2
+
+        # === 상단 나무 봉 (축봉) ===
+        rod_height = 6
+        rod_extend = 4
+        pygame.draw.rect(surface, wood_dark,
+                        (x - rod_extend, y, width + rod_extend * 2, rod_height))
+        pygame.draw.rect(surface, wood_mid,
+                        (x - rod_extend, y + 1, width + rod_extend * 2, rod_height - 2))
+        # 봉 끝 장식
+        pygame.draw.circle(surface, scroll_gold,
+                          (x - rod_extend + 2, y + rod_height // 2), 3)
+        pygame.draw.circle(surface, scroll_gold,
+                          (x + width + rod_extend - 2, y + rod_height // 2), 3)
+
+        # 걸이 끈
+        rope_y = y - 8
+        pygame.draw.line(surface, scroll_border,
+                        (center_x, rope_y), (center_x - 5, y), 1)
+        pygame.draw.line(surface, scroll_border,
+                        (center_x, rope_y), (center_x + 5, y), 1)
+        pygame.draw.circle(surface, scroll_gold, (center_x, rope_y), 2)
+
+        # === 족자 본체 ===
+        body_y = y + rod_height
+        border_width = 3
+
+        # 테두리
+        pygame.draw.rect(surface, scroll_border,
+                        (x - border_width, body_y,
+                         width + border_width * 2, height))
+
+        # 종이 영역
+        paper_margin = 2
+        paper_rect = pygame.Rect(
+            x - border_width + paper_margin,
+            body_y + paper_margin,
+            width + border_width * 2 - paper_margin * 2,
+            height - paper_margin * 2
+        )
+        pygame.draw.rect(surface, scroll_paper, paper_rect)
+
+        # 종이 그라데이션 (오래된 느낌)
+        for i in range(0, paper_rect.height, 2):
+            alpha = random.randint(3, 8)
+            pygame.draw.line(surface, (*scroll_paper_dark, alpha),
+                           (paper_rect.left, paper_rect.top + i),
+                           (paper_rect.right, paper_rect.top + i), 1)
+
+        # === 수묵화 대나무 ===
+        bamboo_x = paper_rect.centerx - 2
+        bamboo_bottom = paper_rect.bottom - 12
+        bamboo_top = paper_rect.top + 13
+
+        # 줄기
+        pygame.draw.line(surface, ink_black,
+                        (bamboo_x, bamboo_bottom), (bamboo_x, bamboo_top), 2)
+
+        # 마디 (2개)
+        bamboo_height = bamboo_bottom - bamboo_top
+        for i in range(1, 3):
+            node_y = bamboo_bottom - (bamboo_height * i) // 3
+            pygame.draw.line(surface, ink_black,
+                           (bamboo_x - 3, node_y), (bamboo_x + 2, node_y), 1)
+
+        # 잎
+        leaves = [
+            (bamboo_x, bamboo_top + 5, 10, -0.6),
+            (bamboo_x, bamboo_top + 10, 8, 0.5),
+            (bamboo_x, bamboo_top + 20, 9, -0.4),
+        ]
+        for lx, ly, length, angle in leaves:
+            end_x = lx + math.cos(angle) * length
+            end_y = ly + math.sin(angle) * length * 0.3
+            pygame.draw.line(surface, ink_black,
+                           (lx, int(ly)), (int(end_x), int(end_y)), 2)
+
+        # === 빨간 인장 ===
+        seal_x = paper_rect.right - 8
+        seal_y = paper_rect.bottom - 10
+        seal_size = 6
+        pygame.draw.rect(surface, scroll_red,
+                        (seal_x - seal_size // 2, seal_y - seal_size // 2,
+                         seal_size, seal_size))
+
+        # === 하단 나무 봉 ===
+        bottom_rod_y = body_y + height
+        pygame.draw.rect(surface, wood_dark,
+                        (x - rod_extend, bottom_rod_y,
+                         width + rod_extend * 2, rod_height))
+        pygame.draw.rect(surface, wood_mid,
+                        (x - rod_extend, bottom_rod_y + 1,
+                         width + rod_extend * 2, rod_height - 2))
+        # 봉 끝 장식
+        pygame.draw.circle(surface, scroll_gold,
+                          (x - rod_extend + 2, bottom_rod_y + rod_height // 2), 3)
+        pygame.draw.circle(surface, scroll_gold,
+                          (x + width + rod_extend - 2, bottom_rod_y + rod_height // 2), 3)
+
     def _spawn_shuriken(self) -> None:
         """새 수리검 생성."""
         side = random.choice(["left", "right", "top"])
@@ -266,29 +420,37 @@ class AnimatedBackgroundStage8:
         # 1. 연기 효과 (뒤쪽)
         self._draw_smoke(overlay)
 
-        # 2. 창문 빛 효과
+        # 2. 족자 (창문 옆에 배치 - 다른 요소 뒤에)
+        self._draw_scroll(overlay)
+
+        # 3. 창문 빛 효과
         self._draw_window_glow(overlay)
 
-        # 3. 등불 빛 효과
+        # 4. 등불 빛 효과
         self._draw_lantern_glow(overlay)
 
-        # 4. 벚꽃잎
+        # 5. 벚꽃잎
         self._draw_petals(overlay)
 
-        # 5. 먼지 입자
+        # 6. 먼지 입자
         self._draw_dust(overlay)
 
-        # 6. 수리검
+        # 7. 수리검
         self._draw_shurikens(overlay)
 
-        # 7. 닌자 그림자
+        # 8. 닌자 그림자
         if self.ninja_shadow_active:
             self._draw_ninja_shadow(overlay)
 
-        # 8. 스타디움 펄스
+        # 9. 스타디움 펄스
         self._draw_stadium_pulse(overlay)
 
         surface.blit(overlay, (ox, oy))
+
+    def _draw_scroll(self, overlay: pygame.Surface) -> None:
+        """족자 캐시를 화면에 그리기."""
+        if self._scroll_cache is not None and hasattr(self, '_scroll_x'):
+            overlay.blit(self._scroll_cache, (self._scroll_x - 10, self._scroll_y))
 
     def _draw_smoke(self, overlay: pygame.Surface) -> None:
         """연기/안개 효과."""

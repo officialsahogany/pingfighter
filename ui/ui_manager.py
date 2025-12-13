@@ -91,10 +91,9 @@ class UIManager:
                 self.global_manager.get('HEIGHT', 750) // 2
             ))
             
-            # 배경 어둡게
-            overlay = pygame.Surface(screen.get_size())
-            overlay.set_alpha(128)
-            overlay.fill((0, 0, 0))
+            # 배경 어둡게 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
+            overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 128))
             screen.blit(overlay, (0, 0))
             
             # 텍스트 표시

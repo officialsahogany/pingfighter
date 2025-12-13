@@ -5,6 +5,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 PingFighter (핑파이터) is a Python-based arcade-style table tennis game with boss battles, power-ups, and special abilities. Built with Pygame framework and runs on both Windows and macOS.
 
+## ⚠️ CRITICAL: Stage Order Reference (스테이지 순서 - 절대 헷갈리지 말 것!)
+**과거에 스테이지 5와 6의 순서가 바뀌었음! 코드 변수명과 실제 스테이지 번호가 다름!**
+
+| Stage | Boss Name | Theme | Pillar | 코드 내 변수명 (주의!) |
+|-------|-----------|-------|--------|----------------------|
+| 1 | 풍악보이 | 한국 전통 | pillar_stadium | stage1 |
+| 2 | 악어장군 | 정글/늪지 | pillar_jungle | stage2 |
+| 3 | 멘헤라걸 | 멘헤라/인형 | pillar_menhera | stage3 |
+| 4 | 퐁크 | 사원 | pillar_temple | stage4 |
+| **5** | **네메시스** | **해상전투 (Ocean/Battleship)** | pillar_nemesis_ocean | **animated_bg_stage6** (주의!) |
+| **6** | **홍련** | **중국/화염 (Chinese Fire)** | (추가 예정) | **animated_bg_stage5** (주의!) |
+
+### ⚠️ 매우 중요: 코드 변수명 vs 실제 스테이지
+- 코드에서 `stage5`, `animated_bg_stage5`, `Stage5ChineseMarket` = **실제 스테이지 6 홍련**
+- 코드에서 `stage6`, `animated_bg_stage6`, `AnimatedBackgroundStage6` = **실제 스테이지 5 네메시스**
+- **유저가 "스테이지 5 작업해줘" → 네메시스(해상) 관련 코드 수정**
+- **유저가 "스테이지 6 작업해줘" → 홍련(화염) 관련 코드 수정**
+
+### 스테이지 작업 시 주의사항
+- **스테이지 5 = 네메시스 (해상전투/바다 테마)** - 전함, 바다, 레이더, 파도
+- **스테이지 6 = 홍련 (중국/화염 테마)** - 중국 전통, 불꽃, 등롱
+
 ## Architecture & Code Structure
 
 ### Core Files

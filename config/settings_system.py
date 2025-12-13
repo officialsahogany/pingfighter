@@ -420,15 +420,28 @@ class SettingsManager:
             
     def _apply_graphics_setting(self, key: str, value: Any):
         """그래픽 설정 적용"""
+        # 전체화면 모드 체크 (game_settings에서 가져옴)
+        try:
+            from config.game_settings import FULLSCREEN_MODE
+            is_fullscreen_mode = FULLSCREEN_MODE
+        except ImportError:
+            is_fullscreen_mode = False
+
         if key == 'resolution':
+            # 전체화면 모드에서는 해상도 변경 무시 (게임 영역 크기 고정)
+            if is_fullscreen_mode:
+                return  # 전체화면 모드에서는 해상도 변경하지 않음
             # 해상도 변경
             if not self.get_setting('graphics', 'fullscreen'):
                 screen = pygame.display.set_mode(value)
                 self.global_manager.set('screen', screen)
                 self.global_manager.set('WIDTH', value[0])
                 self.global_manager.set('HEIGHT', value[1])
-                
+
         elif key == 'fullscreen':
+            # 전체화면 모드에서는 전체화면 토글 무시 (이미 전체화면)
+            if is_fullscreen_mode:
+                return  # 전체화면 모드에서는 토글하지 않음
             # 전체화면 토글
             resolution = self.get_setting('graphics', 'resolution')
             if value:
@@ -498,6 +511,12 @@ class SettingsManager:
                 sound_manager.mute()
             else:
                 sound_manager.unmute()
+            # BGM 매니저에도 시스템 음소거 상태 전달
+            try:
+                import bgm_manager
+                bgm_manager.set_system_mute(value)
+            except Exception as e:
+                print(f"BGM 시스템 음소거 설정 실패: {e}")
                 
     def _apply_gameplay_setting(self, key: str, value: Any):
         """게임플레이 설정 적용"""

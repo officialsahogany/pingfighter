@@ -139,8 +139,20 @@ class BlacksmithState:
         if "blacksmith_construction_channel" in selected:
             setattr(namespace, "blacksmith_construction_channel", construction.channel)
 
-    def sync_from_globals(self, namespace: Any, *, attrs: Optional[Sequence[str]] = None) -> None:
-        """pingfighter 전역 상태를 현재 객체에 반영한다."""
+    def sync_from_globals(
+        self,
+        namespace: Any,
+        *,
+        attrs: Optional[Sequence[str]] = None,
+        exclude_attrs: Optional[Sequence[str]] = None,
+    ) -> None:
+        """pingfighter 전역 상태를 현재 객체에 반영한다.
+
+        Args:
+            namespace: pingfighter 모듈 네임스페이스
+            attrs: 동기화할 속성 목록 (None이면 전체)
+            exclude_attrs: 제외할 속성 목록
+        """
         selected = set(attrs or (
             "blacksmith_turret_active",
             "blacksmith_turret_blueprint_active",
@@ -165,6 +177,9 @@ class BlacksmithState:
             "blacksmith_construction_sound_playing",
             "blacksmith_construction_channel",
         ))
+        # 제외할 속성 처리
+        if exclude_attrs:
+            selected -= set(exclude_attrs)
 
         turret = self.turret
         divine = self.divine

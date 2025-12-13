@@ -52,7 +52,10 @@ class DowntownRenderer:
 
         # 미니맵
         self.minimap_size = 90  # 150에서 40% 축소
+        self.minimap_size_expanded = 180  # 확대된 미니맵 크기 (2배)
+        self.minimap_expanded = False  # 미니맵 확대 상태
         self.minimap_surface = None
+        self.minimap_hovered_building = None  # 마우스 호버 중인 건물
 
         # ========================================
         # 고급 조명 시스템
@@ -412,7 +415,8 @@ class DowntownRenderer:
         y = ty * TILE_SIZE - int(self.camera_y)
 
         if tile_type == TileType.EMPTY:
-            return  # 빈 타일은 건너뜀
+            # 빈 타일도 바닥으로 채워서 화면 가장자리 빈 공간 방지
+            self._draw_ground_tile(screen, x, y, tx, ty)
 
         elif tile_type == TileType.GROUND:
             self._draw_ground_tile(screen, x, y, tx, ty)
@@ -431,7 +435,9 @@ class DowntownRenderer:
             self._draw_decoration_tile(screen, x, y, tx, ty)  # 꽃/장식 추가
 
         elif tile_type == TileType.BUILDING:
-            pass  # 건물은 별도 레이어에서 처리
+            # 건물 뒤에도 바닥 타일을 그려서 배경이 비치는 것을 방지
+            self._draw_ground_tile(screen, x, y, tx, ty)
+            # 건물 자체는 별도 레이어에서 처리
 
     def _draw_ground_tile(self, screen, x, y, tx=None, ty=None):
         """바닥 타일 - 잔디/풀밭 스타일 (캐싱 적용)"""
@@ -1023,20 +1029,209 @@ class DowntownRenderer:
         pygame.draw.circle(surf, (r, g, b, a), (size, size), size)
         screen.blit(surf, (px - size, py - size))
 
-    def draw_minimap(self, screen, downtown_map, player, buildings):
-        """미니맵 그리기 (우측 하단)"""
-        minimap_x = SCREEN_WIDTH - self.minimap_size - 20
-        minimap_y = SCREEN_HEIGHT - self.minimap_size - 20
+    def toggle_minimap_expanded(self):
+        """미니맵 확대/축소 토글"""
+        self.minimap_expanded = not self.minimap_expanded
+        return self.minimap_expanded
 
-        # 미니맵 배경
-        minimap_rect = pygame.Rect(minimap_x, minimap_y,
-                                   self.minimap_size, self.minimap_size)
-        pygame.draw.rect(screen, (20, 20, 40, 200), minimap_rect, border_radius=10)
-        pygame.draw.rect(screen, Colors.NEON_CYAN, minimap_rect, 2, border_radius=10)
+    def get_minimap_rect(self):
+        """현재 미니맵의 영역 반환 (클릭 감지용)"""
+        current_size = self.minimap_size_expanded if self.minimap_expanded else self.minimap_size
+        minimap_x = SCREEN_WIDTH - current_size - 20
+        minimap_y = SCREEN_HEIGHT - current_size - 20
+        return pygame.Rect(minimap_x, minimap_y, current_size, current_size)
+
+    def get_building_at_minimap_pos(self, mouse_pos, buildings):
+        """미니맵에서 마우스 위치에 해당하는 건물 반환"""
+        minimap_rect = self.get_minimap_rect()
+        if not minimap_rect.collidepoint(mouse_pos):
+            return None
+
+        current_size = self.minimap_size_expanded if self.minimap_expanded else self.minimap_size
+        minimap_x = minimap_rect.x
+        minimap_y = minimap_rect.y
 
         # 스케일 계산
-        scale_x = self.minimap_size / (MAP_WIDTH * TILE_SIZE)
-        scale_y = self.minimap_size / (MAP_HEIGHT * TILE_SIZE)
+        scale_x = current_size / (MAP_WIDTH * TILE_SIZE)
+        scale_y = current_size / (MAP_HEIGHT * TILE_SIZE)
+
+        # 마우스 위치를 미니맵 내 상대 좌표로 변환
+        rel_x = mouse_pos[0] - minimap_x
+        rel_y = mouse_pos[1] - minimap_y
+
+        # 각 건물과 충돌 검사
+        for building in buildings.buildings:
+            bx = building.x * scale_x
+            by = building.y * scale_y
+            bw = building.width * scale_x
+            bh = building.height * scale_y
+
+            if bx <= rel_x <= bx + bw and by <= rel_y <= by + bh:
+                return building
+
+        return None
+
+    def _draw_minimap_building_icon(self, screen, building, x, y, w, h, is_expanded):
+        """미니맵에 건물별 미니 아이콘 그리기"""
+        building_type = building.type
+        color = building.info.get('color', (100, 100, 100))
+
+        # 크기 스케일 (확대 시 더 세밀하게)
+        scale = 1.8 if is_expanded else 1.0
+        cx, cy = x + w / 2, y + h / 2  # 중심점
+
+        # 건물 타입별 미니 아이콘 그리기
+        if building_type == "casino":
+            # 카지노: 네온 빛나는 다이아몬드/카드 모양
+            pygame.draw.rect(screen, color, (x, y, w, h), border_radius=2)
+            # 중앙에 작은 다이아몬드
+            diamond_size = max(3, int(4 * scale))
+            points = [(cx, cy - diamond_size), (cx + diamond_size, cy),
+                     (cx, cy + diamond_size), (cx - diamond_size, cy)]
+            pygame.draw.polygon(screen, (255, 255, 100), points)
+
+        elif building_type == "colosseum":
+            # 콜로세움: 원형 경기장
+            pygame.draw.ellipse(screen, color, (x, y, w, h))
+            inner_margin = max(1, int(2 * scale))
+            pygame.draw.ellipse(screen, (60, 50, 40),
+                              (x + inner_margin, y + inner_margin,
+                               w - inner_margin * 2, h - inner_margin * 2))
+
+        elif building_type == "blacksmith":
+            # 대장간: 모루/망치 모양 (삼각형 지붕 + 굴뚝)
+            pygame.draw.rect(screen, color, (x, y + h * 0.3, w, h * 0.7))
+            # 삼각형 지붕
+            roof_points = [(x, y + h * 0.3), (cx, y), (x + w, y + h * 0.3)]
+            pygame.draw.polygon(screen, (80, 40, 20), roof_points)
+            # 굴뚝
+            chimney_w = max(2, int(3 * scale))
+            pygame.draw.rect(screen, (50, 50, 50),
+                           (x + w * 0.7, y - h * 0.2, chimney_w, h * 0.4))
+
+        elif building_type == "magic_store":
+            # 마법 성소: 별/달 모양
+            pygame.draw.rect(screen, color, (x, y, w, h), border_radius=3)
+            # 중앙에 달 모양
+            moon_r = max(2, int(3 * scale))
+            pygame.draw.circle(screen, (200, 200, 255), (int(cx), int(cy)), moon_r)
+
+        elif building_type == "pet_shop":
+            # 펫샵: 집 모양 + 발자국
+            pygame.draw.rect(screen, color, (x, y + h * 0.35, w, h * 0.65))
+            # 삼각형 지붕
+            roof_points = [(x - 1, y + h * 0.35), (cx, y), (x + w + 1, y + h * 0.35)]
+            pygame.draw.polygon(screen, (80, 140, 60), roof_points)
+            # 작은 발자국 점
+            paw_r = max(1, int(2 * scale))
+            pygame.draw.circle(screen, (255, 255, 255), (int(cx), int(cy + h * 0.15)), paw_r)
+
+        elif building_type == "elder":
+            # 현자/피라미드: 삼각형 피라미드
+            pyramid_points = [(x, y + h), (cx, y), (x + w, y + h)]
+            pygame.draw.polygon(screen, color, pyramid_points)
+            # 눈 모양
+            eye_y = y + h * 0.4
+            pygame.draw.circle(screen, (255, 255, 200), (int(cx), int(eye_y)), max(1, int(2 * scale)))
+
+        elif building_type == "minigame":
+            # 아케이드: 게임기 모양
+            pygame.draw.rect(screen, color, (x, y, w, h), border_radius=2)
+            # 화면 부분
+            screen_margin = max(1, int(2 * scale))
+            pygame.draw.rect(screen, (0, 50, 0),
+                           (x + screen_margin, y + screen_margin,
+                            w - screen_margin * 2, h * 0.5))
+
+        elif building_type == "tavern":
+            # 선술집: 집 모양 + 간판
+            pygame.draw.rect(screen, color, (x, y + h * 0.3, w, h * 0.7))
+            # 삼각형 지붕
+            roof_points = [(x - 1, y + h * 0.3), (cx, y), (x + w + 1, y + h * 0.3)]
+            pygame.draw.polygon(screen, (139, 90, 43), roof_points)
+            # 문
+            door_w = max(2, int(3 * scale))
+            pygame.draw.rect(screen, (80, 50, 20),
+                           (cx - door_w / 2, y + h * 0.6, door_w, h * 0.4))
+
+        elif building_type == "bank":
+            # 은행: 기둥이 있는 건물
+            pygame.draw.rect(screen, color, (x, y, w, h))
+            # 기둥들
+            pillar_count = 2 if is_expanded else 1
+            pillar_w = max(1, int(2 * scale))
+            for i in range(pillar_count + 1):
+                px = x + (w / (pillar_count + 1)) * (i + 0.5)
+                pygame.draw.line(screen, (255, 255, 200),
+                               (int(px), int(y + 2)), (int(px), int(y + h - 2)), pillar_w)
+
+        elif building_type == "mystery":
+            # 미스터리: 물음표/소용돌이
+            pygame.draw.circle(screen, color, (int(cx), int(cy)), int(min(w, h) / 2))
+            # 물음표 점
+            pygame.draw.circle(screen, (255, 255, 255), (int(cx), int(cy)), max(1, int(2 * scale)))
+
+        elif building_type == "gacha":
+            # 가챠샵: 캡슐머신 모양
+            pygame.draw.rect(screen, color, (x, y + h * 0.2, w, h * 0.8), border_radius=2)
+            # 둥근 상단
+            pygame.draw.ellipse(screen, (255, 200, 50), (x, y, w, h * 0.4))
+            # 별
+            star_r = max(1, int(2 * scale))
+            pygame.draw.circle(screen, (255, 255, 255), (int(cx), int(cy - h * 0.1)), star_r)
+
+        elif building_type == "academy":
+            # 아카데미: 탑/성 모양
+            # 메인 건물
+            pygame.draw.rect(screen, color, (x + w * 0.2, y + h * 0.3, w * 0.6, h * 0.7))
+            # 3개의 탑
+            tower_w = w * 0.25
+            pygame.draw.rect(screen, (130, 80, 220), (x, y + h * 0.15, tower_w, h * 0.85))
+            pygame.draw.rect(screen, (140, 90, 230), (cx - tower_w / 2, y, tower_w, h))
+            pygame.draw.rect(screen, (130, 80, 220), (x + w - tower_w, y + h * 0.15, tower_w, h * 0.85))
+
+        elif building_type == "item_shop":
+            # 아이템 상점: 상점 모양 + 검 아이콘
+            pygame.draw.rect(screen, color, (x, y + h * 0.25, w, h * 0.75))
+            # 지붕
+            roof_points = [(x - 1, y + h * 0.25), (cx, y), (x + w + 1, y + h * 0.25)]
+            pygame.draw.polygon(screen, (180, 140, 80), roof_points)
+            # 작은 검 모양
+            sword_len = max(2, int(4 * scale))
+            pygame.draw.line(screen, (200, 200, 200),
+                           (int(cx), int(cy - sword_len / 2)),
+                           (int(cx), int(cy + sword_len / 2)), max(1, int(scale)))
+
+        else:
+            # 기본: 단순 사각형
+            pygame.draw.rect(screen, color, (x, y, w, h), border_radius=1)
+
+    def draw_minimap(self, screen, downtown_map, player, buildings, mouse_pos=None):
+        """미니맵 그리기 (우측 하단) - 확대/축소 및 툴팁 지원"""
+        # 현재 미니맵 크기 결정
+        current_size = self.minimap_size_expanded if self.minimap_expanded else self.minimap_size
+
+        minimap_x = SCREEN_WIDTH - current_size - 20
+        minimap_y = SCREEN_HEIGHT - current_size - 20
+
+        # 미니맵 배경
+        minimap_rect = pygame.Rect(minimap_x, minimap_y, current_size, current_size)
+
+        # 확대 상태일 때 반투명 배경 추가
+        if self.minimap_expanded:
+            bg_surf = pygame.Surface((current_size, current_size), pygame.SRCALPHA)
+            pygame.draw.rect(bg_surf, (15, 15, 35, 230), (0, 0, current_size, current_size), border_radius=15)
+            screen.blit(bg_surf, (minimap_x, minimap_y))
+            pygame.draw.rect(screen, Colors.NEON_CYAN, minimap_rect, 3, border_radius=15)
+        else:
+            bg_surf = pygame.Surface((current_size, current_size), pygame.SRCALPHA)
+            pygame.draw.rect(bg_surf, (20, 20, 40, 200), (0, 0, current_size, current_size), border_radius=10)
+            screen.blit(bg_surf, (minimap_x, minimap_y))
+            pygame.draw.rect(screen, Colors.NEON_CYAN, minimap_rect, 2, border_radius=10)
+
+        # 스케일 계산
+        scale_x = current_size / (MAP_WIDTH * TILE_SIZE)
+        scale_y = current_size / (MAP_HEIGHT * TILE_SIZE)
 
         # 도로 표시
         for y in range(MAP_HEIGHT):
@@ -1048,26 +1243,183 @@ class DowntownRenderer:
                     pygame.draw.rect(screen, (80, 80, 100),
                                    (mx, my, TILE_SIZE * scale_x, TILE_SIZE * scale_y))
 
-        # 건물 표시
+        # 마우스 호버 중인 건물 확인 (확대 상태에서만)
+        hovered_building = None
+        if self.minimap_expanded and mouse_pos:
+            hovered_building = self.get_building_at_minimap_pos(mouse_pos, buildings)
+            self.minimap_hovered_building = hovered_building
+
+        # 건물 표시 (미니 아이콘으로)
         for building in buildings.buildings:
             mx = minimap_x + building.x * scale_x
             my = minimap_y + building.y * scale_y
             mw = building.width * scale_x
             mh = building.height * scale_y
             color = building.info['color']
-            pygame.draw.rect(screen, color, (mx, my, mw, mh))
+
+            # 호버 중인 건물은 하이라이트
+            if hovered_building and building == hovered_building:
+                highlight_rect = pygame.Rect(mx - 2, my - 2, mw + 4, mh + 4)
+                pygame.draw.rect(screen, Colors.NEON_YELLOW, highlight_rect, 2, border_radius=2)
+
+            # 건물 미니 아이콘 그리기
+            self._draw_minimap_building_icon(screen, building, mx, my, mw, mh, self.minimap_expanded)
 
         # 플레이어 표시
+        player_size = 6 if self.minimap_expanded else 4
         px = minimap_x + player.x * scale_x
         py = minimap_y + player.y * scale_y
-        pygame.draw.circle(screen, Colors.NEON_GREEN, (int(px), int(py)), 4)
+        pygame.draw.circle(screen, Colors.NEON_GREEN, (int(px), int(py)), player_size)
 
         # 출구 표시
+        exit_size = 5 if self.minimap_expanded else 3
         exit_pos = downtown_map.get_exit_pixel_pos()
         ex = minimap_x + exit_pos[0] * scale_x
         ey = minimap_y + exit_pos[1] * scale_y
         pulse = abs(math.sin(self.animation_timer * 3))
-        pygame.draw.circle(screen, Colors.NEON_ORANGE, (int(ex), int(ey)), int(3 + 2 * pulse))
+        pygame.draw.circle(screen, Colors.NEON_ORANGE, (int(ex), int(ey)), int(exit_size + 2 * pulse))
+
+        # 확대 상태 표시 (M키 힌트)
+        if not self.minimap_expanded:
+            korean_font = self._get_korean_font(10)
+            if korean_font:
+                hint_surf, _ = korean_font.render("M", (150, 150, 150))
+                screen.blit(hint_surf, (minimap_x + current_size - 15, minimap_y + 5))
+        else:
+            korean_font = self._get_korean_font(12)
+            if korean_font:
+                hint_surf, _ = korean_font.render("M키: 닫기", (150, 150, 150))
+                screen.blit(hint_surf, (minimap_x + 5, minimap_y + current_size - 18))
+
+        # 툴팁 그리기 (확대 상태에서 건물 호버 시)
+        if self.minimap_expanded and hovered_building and mouse_pos:
+            self._draw_minimap_tooltip(screen, hovered_building, mouse_pos)
+
+    def _get_emoji_font(self, size=18):
+        """이모지 지원 폰트 로드 (시스템 폰트 사용)"""
+        cache_key = f'emoji_font_{size}'
+        if not hasattr(self, '_font_cache'):
+            self._font_cache = {}
+
+        if cache_key in self._font_cache:
+            return self._font_cache[cache_key]
+
+        font = None
+        import sys
+
+        # 시스템별 이모지 지원 폰트
+        if sys.platform == 'darwin':  # macOS
+            emoji_fonts = [
+                '/System/Library/Fonts/Apple Color Emoji.ttc',
+                '/System/Library/Fonts/AppleSDGothicNeo.ttc',
+                '/Library/Fonts/Arial Unicode.ttf',
+            ]
+        else:  # Windows
+            emoji_fonts = [
+                'C:/Windows/Fonts/seguiemj.ttf',  # Segoe UI Emoji
+                'C:/Windows/Fonts/segoeui.ttf',
+                'C:/Windows/Fonts/malgun.ttf',
+            ]
+
+        for font_path in emoji_fonts:
+            try:
+                if os.path.exists(font_path):
+                    font = pygame.freetype.Font(font_path, size)
+                    break
+            except Exception:
+                continue
+
+        # 폴백: 기본 시스템 폰트
+        if font is None:
+            try:
+                font = pygame.freetype.SysFont('Arial', size)
+            except Exception:
+                pass
+
+        self._font_cache[cache_key] = font
+        return font
+
+    def _draw_minimap_tooltip(self, screen, building, mouse_pos):
+        """미니맵에서 건물 호버 시 툴팁 표시"""
+        if not building or not building.info:
+            return
+
+        # 폰트 크기 증가
+        title_font = self._get_korean_font(18)  # 14 → 18
+        desc_font = self._get_korean_font(14)   # 12 → 14
+        emoji_font = self._get_emoji_font(20)   # 이모지용 폰트
+
+        if not title_font:
+            return
+
+        building_info = building.info
+        name = building_info.get('name', '???')
+        description = building_info.get('description', '')
+        color = building_info.get('color', Colors.NEON_CYAN)
+        icon = building_info.get('icon', '')
+
+        # 이름 렌더링 (이모지 없이)
+        name_surf, name_rect = title_font.render(name, Colors.TEXT_WHITE)
+
+        # 이모지 렌더링 (별도)
+        icon_width = 0
+        icon_surf = None
+        if icon and emoji_font:
+            try:
+                icon_surf, icon_rect = emoji_font.render(icon, Colors.TEXT_WHITE)
+                icon_width = icon_rect.width + 8  # 아이콘과 텍스트 사이 간격
+            except Exception:
+                icon_surf = None
+                icon_width = 0
+
+        # 설명이 길면 줄바꿈 (18자마다)
+        desc_lines = []
+        if description:
+            words = description
+            if len(words) > 18:
+                for i in range(0, len(words), 18):
+                    desc_lines.append(words[i:i+18])
+            else:
+                desc_lines.append(words)
+
+        # 툴팁 크기 계산
+        tooltip_width = max(name_rect.width + icon_width + 30, 220)
+        tooltip_height = 45 + len(desc_lines) * 20
+
+        # 툴팁 위치 (마우스 옆, 화면 밖으로 나가지 않게)
+        tooltip_x = mouse_pos[0] + 15
+        tooltip_y = mouse_pos[1] - tooltip_height - 10
+
+        # 화면 경계 체크
+        if tooltip_x + tooltip_width > SCREEN_WIDTH:
+            tooltip_x = mouse_pos[0] - tooltip_width - 15
+        if tooltip_y < 0:
+            tooltip_y = mouse_pos[1] + 20
+
+        # 툴팁 배경
+        tooltip_surf = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
+        pygame.draw.rect(tooltip_surf, (20, 20, 40, 245),
+                        (0, 0, tooltip_width, tooltip_height), border_radius=10)
+        pygame.draw.rect(tooltip_surf, color,
+                        (0, 0, tooltip_width, tooltip_height), 2, border_radius=10)
+        screen.blit(tooltip_surf, (tooltip_x, tooltip_y))
+
+        # 이모지 그리기
+        text_start_x = tooltip_x + 12
+        if icon_surf:
+            screen.blit(icon_surf, (text_start_x, tooltip_y + 10))
+            text_start_x += icon_width
+
+        # 건물 이름
+        screen.blit(name_surf, (text_start_x, tooltip_y + 12))
+
+        # 설명
+        desc_y = tooltip_y + 38
+        if desc_font:
+            for line in desc_lines:
+                desc_surf, _ = desc_font.render(line, Colors.TEXT_GRAY)
+                screen.blit(desc_surf, (tooltip_x + 12, desc_y))
+                desc_y += 18
 
     def draw_interaction_hint(self, screen, building_info, font=None):
         """상호작용 힌트 UI (한글 폰트 지원)"""
