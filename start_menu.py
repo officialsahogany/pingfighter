@@ -776,6 +776,46 @@ def _play_rainbow_transition(screen: pygame.Surface, duration_ms: int = 1000):
         pygame.display.flip()
         clock.tick(60)
 
+    # === 페이드아웃 효과 (검은 화면으로 전환) ===
+    fade_duration = 500  # 0.5초 페이드아웃
+    fade_start = pygame.time.get_ticks()
+
+    # 현재 화면 캡처 (페이드아웃 시작점)
+    fade_surface = screen.copy()
+
+    while True:
+        fade_elapsed = pygame.time.get_ticks() - fade_start
+        fade_progress = min(1.0, fade_elapsed / fade_duration)
+
+        if fade_elapsed >= fade_duration:
+            break
+
+        # 이벤트 처리
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                # ESC로 스킵 시 즉시 검은 화면
+                screen.fill((0, 0, 0))
+                pygame.display.flip()
+                return
+
+        # 캡처된 화면 그리기
+        screen.blit(fade_surface, (0, 0))
+
+        # 검은 오버레이 (점점 어두워짐)
+        fade_alpha = int(255 * fade_progress)
+        fade_overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+        fade_overlay.fill((0, 0, 0, fade_alpha))
+        screen.blit(fade_overlay, (0, 0))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+    # 완전히 검은 화면으로 마무리
+    screen.fill((0, 0, 0))
+    pygame.display.flip()
+
 
 def _draw_transition_star(surface: pygame.Surface, x: int, y: int, size: int, color: Tuple, rotation: float):
     """트랜지션용 별 그리기"""
