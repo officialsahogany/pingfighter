@@ -628,14 +628,12 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
 
 def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bool:
     if choice == "경기장 입장":
-        if ctx.show_tutorial_dialog():
-            ctx.start_tutorial_game()
-        else:
-            character = ctx.show_character_selection()
-            if character is not None:
-                difficulty = ctx.show_difficulty_selection()
-                if difficulty is not None:
-                    ctx.start_game_with_difficulty(character, difficulty)
+        # 튜토리얼 확인 창 없이 바로 캐릭터 선택으로 진행
+        character = ctx.show_character_selection()
+        if character is not None:
+            difficulty = ctx.show_difficulty_selection()
+            if difficulty is not None:
+                ctx.start_game_with_difficulty(character, difficulty)
         return True
     if choice == "멀티플레이":
         return _show_multiplayer_menu(ctx, state)
