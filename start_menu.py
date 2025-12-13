@@ -867,6 +867,25 @@ def _hsv_to_rgb_transition(h: float, s: float, v: float) -> Tuple[int, int, int]
 
 def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bool:
     if choice == "경기장 입장":
+        # 입장 버튼 클릭 사운드 재생
+        try:
+            import os
+            def _resource_path(relative_path):
+                try:
+                    import sys
+                    base_path = sys._MEIPASS
+                except Exception:
+                    base_path = os.path.dirname(os.path.abspath(__file__))
+                return os.path.join(base_path, relative_path.replace('/', os.sep).replace('\\', os.sep))
+
+            start_sound_path = _resource_path(os.path.join("sounds", "startbutton.wav"))
+            if os.path.exists(start_sound_path):
+                start_sound = pygame.mixer.Sound(start_sound_path)
+                start_sound.set_volume(0.7)
+                start_sound.play()
+        except Exception:
+            pass  # 사운드 재생 실패 시 무시
+
         # 무지개 파티클 트랜지션 효과 재생
         _play_rainbow_transition(ctx.get_screen(), 1000)
         # 캐릭터 선택으로 진행
