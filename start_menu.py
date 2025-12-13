@@ -828,7 +828,7 @@ def _hsv_to_rgb_transition(h: float, s: float, v: float) -> Tuple[int, int, int]
 def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bool:
     if choice == "경기장 입장":
         # 무지개 파티클 트랜지션 효과 재생
-        _play_rainbow_transition(ctx.screen, 1000)
+        _play_rainbow_transition(ctx.get_screen(), 1000)
         # 캐릭터 선택으로 진행
         character = ctx.show_character_selection()
         if character is not None:
