@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Sequence, Tuple
 
 import math
+import random
 import pygame
 
 from start_menu_decorations import (
@@ -626,9 +627,209 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
         pygame.display.flip()
 
 
+def _play_rainbow_transition(screen: pygame.Surface, duration_ms: int = 1000):
+    """무지개 파티클이 쏟아지며 화면이 깜빡이는 트랜지션 효과"""
+    clock = pygame.time.Clock()
+    width, height = screen.get_size()
+    start_time = pygame.time.get_ticks()
+
+    # 무지개 색상 팔레트
+    rainbow_colors = [
+        (255, 100, 150),   # 핑크
+        (255, 150, 100),   # 오렌지
+        (255, 255, 100),   # 옐로우
+        (150, 255, 150),   # 그린
+        (100, 200, 255),   # 시안
+        (150, 150, 255),   # 블루
+        (200, 100, 255),   # 퍼플
+        (255, 100, 200),   # 마젠타
+    ]
+
+    # 파티클 생성 (위에서 쏟아지는 느낌)
+    particles = []
+    for _ in range(150):
+        particles.append({
+            'x': random.randint(0, width),
+            'y': random.randint(-height, 0),
+            'vx': random.uniform(-2, 2),
+            'vy': random.uniform(8, 20),
+            'size': random.randint(4, 12),
+            'color': random.choice(rainbow_colors),
+            'type': random.choice(['circle', 'star', 'heart']),
+            'rotation': random.uniform(0, math.pi * 2),
+            'rot_speed': random.uniform(-0.2, 0.2),
+            'alpha': 255
+        })
+
+    # 스파크/별똥별 효과
+    sparks = []
+    for _ in range(30):
+        sparks.append({
+            'x': random.randint(0, width),
+            'y': random.randint(0, height),
+            'size': random.randint(2, 6),
+            'color': random.choice(rainbow_colors),
+            'life': 1.0,
+            'phase': random.uniform(0, math.pi * 2)
+        })
+
+    # 기존 화면 캡처 (배경으로 사용)
+    bg_surface = screen.copy()
+
+    while True:
+        elapsed = pygame.time.get_ticks() - start_time
+        progress = min(1.0, elapsed / duration_ms)
+
+        if elapsed >= duration_ms:
+            break
+
+        # 이벤트 처리 (ESC로 스킵 가능)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return
+
+        # 배경 그리기 (점점 밝아짐)
+        screen.blit(bg_surface, (0, 0))
+
+        # 화면 깜빡임 효과 (화이트 플래시)
+        flash_alpha = 0
+        if progress < 0.15:
+            # 초반 강한 플래시
+            flash_alpha = int(200 * (1 - progress / 0.15))
+        elif progress > 0.85:
+            # 후반 페이드 아웃 플래시
+            flash_alpha = int(255 * ((progress - 0.85) / 0.15))
+
+        # 중간중간 깜빡임
+        flicker = abs(math.sin(progress * math.pi * 8))
+        if flicker > 0.9:
+            flash_alpha = max(flash_alpha, int(100 * (flicker - 0.9) * 10))
+
+        # 파티클 업데이트 및 그리기
+        for p in particles:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['rotation'] += p['rot_speed']
+            p['vy'] += 0.3  # 중력
+
+            # 화면 밖으로 나가면 위에서 다시 시작
+            if p['y'] > height + 20:
+                p['y'] = random.randint(-50, -10)
+                p['x'] = random.randint(0, width)
+                p['vy'] = random.uniform(8, 15)
+
+            # 파티클 그리기
+            if p['type'] == 'circle':
+                pygame.draw.circle(screen, p['color'], (int(p['x']), int(p['y'])), p['size'])
+                # 글로우
+                glow_surf = pygame.Surface((p['size'] * 4, p['size'] * 4), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (*p['color'], 80),
+                                 (p['size'] * 2, p['size'] * 2), p['size'] * 2)
+                screen.blit(glow_surf, (int(p['x'] - p['size'] * 2), int(p['y'] - p['size'] * 2)))
+            elif p['type'] == 'star':
+                # 별 모양
+                _draw_transition_star(screen, int(p['x']), int(p['y']), p['size'], p['color'], p['rotation'])
+            else:  # heart
+                # 하트 모양
+                _draw_transition_heart(screen, int(p['x']), int(p['y']), p['size'], p['color'])
+
+        # 스파크 효과
+        for spark in sparks:
+            spark['phase'] += 0.3
+            spark['life'] -= 0.02
+            if spark['life'] <= 0:
+                spark['life'] = 1.0
+                spark['x'] = random.randint(0, width)
+                spark['y'] = random.randint(0, height)
+                spark['color'] = random.choice(rainbow_colors)
+
+            pulse = abs(math.sin(spark['phase']))
+            size = int(spark['size'] * pulse)
+            alpha = int(255 * spark['life'] * pulse)
+            if size > 0 and alpha > 0:
+                # 십자가 모양 반짝임
+                pygame.draw.line(screen, (*spark['color'], alpha),
+                               (spark['x'] - size * 2, spark['y']),
+                               (spark['x'] + size * 2, spark['y']), 2)
+                pygame.draw.line(screen, (*spark['color'], alpha),
+                               (spark['x'], spark['y'] - size * 2),
+                               (spark['x'], spark['y'] + size * 2), 2)
+
+        # 무지개빛 테두리 효과
+        border_alpha = int(150 * (0.5 + abs(math.sin(progress * math.pi * 4)) * 0.5))
+        for i in range(3):
+            hue = (progress * 360 + i * 40) % 360
+            border_color = _hsv_to_rgb_transition(hue, 0.8, 1.0)
+            border_rect = pygame.Rect(i * 3, i * 3, width - i * 6, height - i * 6)
+            border_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+            pygame.draw.rect(border_surf, (*border_color, border_alpha - i * 30), border_rect, 4)
+            screen.blit(border_surf, (0, 0))
+
+        # 화이트 플래시 오버레이
+        if flash_alpha > 0:
+            flash_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+            flash_surf.fill((255, 255, 255, min(255, flash_alpha)))
+            screen.blit(flash_surf, (0, 0))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+
+def _draw_transition_star(surface: pygame.Surface, x: int, y: int, size: int, color: Tuple, rotation: float):
+    """트랜지션용 별 그리기"""
+    points = []
+    for i in range(10):
+        r = size if i % 2 == 0 else size * 0.4
+        angle = i * math.pi / 5 - math.pi / 2 + rotation
+        px = x + math.cos(angle) * r
+        py = y + math.sin(angle) * r
+        points.append((px, py))
+    if len(points) > 2:
+        pygame.draw.polygon(surface, color, points)
+
+
+def _draw_transition_heart(surface: pygame.Surface, x: int, y: int, size: int, color: Tuple):
+    """트랜지션용 하트 그리기"""
+    points = []
+    for i in range(20):
+        t = i / 20 * 2 * math.pi
+        hx = 16 * (math.sin(t) ** 3)
+        hy = -(13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t))
+        points.append((x + hx * size / 18, y + hy * size / 18))
+    if len(points) > 2:
+        pygame.draw.polygon(surface, color, points)
+
+
+def _hsv_to_rgb_transition(h: float, s: float, v: float) -> Tuple[int, int, int]:
+    """HSV를 RGB로 변환 (트랜지션용)"""
+    h = h % 360
+    c = v * s
+    x = c * (1 - abs((h / 60) % 2 - 1))
+    m = v - c
+
+    if h < 60:
+        r, g, b = c, x, 0
+    elif h < 120:
+        r, g, b = x, c, 0
+    elif h < 180:
+        r, g, b = 0, c, x
+    elif h < 240:
+        r, g, b = 0, x, c
+    elif h < 300:
+        r, g, b = x, 0, c
+    else:
+        r, g, b = c, 0, x
+
+    return (int((r + m) * 255), int((g + m) * 255), int((b + m) * 255))
+
+
 def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bool:
     if choice == "경기장 입장":
-        # 튜토리얼 확인 창 없이 바로 캐릭터 선택으로 진행
+        # 무지개 파티클 트랜지션 효과 재생
+        _play_rainbow_transition(ctx.screen, 1000)
+        # 캐릭터 선택으로 진행
         character = ctx.show_character_selection()
         if character is not None:
             difficulty = ctx.show_difficulty_selection()
