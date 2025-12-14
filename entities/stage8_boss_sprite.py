@@ -169,7 +169,7 @@ class Stage8BossSprite:
             self.frames_dash_right = self.frames_right[:2] if len(self.frames_right) >= 2 else self.frames_right.copy()
 
         # 방향 전환 스프라이트 시트 로드 시도
-        turn_path = resource_path(os.path.join("assets", "stage8movechange2.png"))
+        turn_path = resource_path(os.path.join("assets", "stage8movechange3.png"))
         if os.path.exists(turn_path):
             self.load_turn_sprite_sheet(turn_path)
 
@@ -493,9 +493,9 @@ class Stage8BossSprite:
         """
         방향 전환 스프라이트 시트 로드 및 프레임 분할
 
-        스프라이트 시트 구조 (stage8movechange2.png):
-        - 1열 (상단): 4프레임 - 맨 오른쪽(인덱스 3) 정면 프레임 1개만 사용
-        - 2열 (하단): 사용 안함
+        스프라이트 시트 구조 (stage8movechange3.png):
+        - 1열 (상단): 사용 안함
+        - 2열 (하단): 4프레임 - 3번째(인덱스 2) 정면 프레임 1개만 사용
 
         Args:
             path: 방향 전환 스프라이트 시트 이미지 경로
@@ -510,7 +510,7 @@ class Stage8BossSprite:
 
             print(f"🔄 아카무 리고 방향 전환 스프라이트 시트 로드: {sheet_width}x{sheet_height}")
 
-            # 2행 구조 - 1열(상단)의 4번째(맨 오른쪽) 프레임만 사용
+            # 2행 구조 - 2열(하단)의 3번째 프레임 사용 (정면 이미지)
             row_height = sheet_height // 2  # 약 518px
             frame_width_float = sheet_width / 4  # 4프레임, 약 271px
 
@@ -520,21 +520,21 @@ class Stage8BossSprite:
             actual_frame_width = int(frame_width_float) - (margin_x * 2)
             actual_frame_height = row_height - (margin_y * 2)
 
-            print(f"🔄 방향 전환 프레임 크기: {actual_frame_width}x{actual_frame_height} (1열 4번째 프레임)")
+            print(f"🔄 방향 전환 프레임 크기: {actual_frame_width}x{actual_frame_height} (2열 3번째 프레임)")
 
-            # 1열 (상단) - 4번째 프레임 (인덱스 3, 맨 오른쪽 정면) 1개만 추출
+            # 2열 (하단) - 3번째 프레임 (인덱스 2, 정면) 1개만 추출
             self.frames_turn = []
             try:
-                # 4번째 프레임 (인덱스 3)
-                frame_x = int(frame_width_float * 3) + margin_x
-                frame_y = margin_y  # 1열 상단
+                # 3번째 프레임 (인덱스 2)
+                frame_x = int(frame_width_float * 2) + margin_x
+                frame_y = row_height + margin_y  # 2열 하단
                 frame_rect = pygame.Rect(frame_x, frame_y, actual_frame_width, actual_frame_height)
 
                 # 경계 체크
                 if frame_rect.right > sheet_width:
                     frame_rect.width = sheet_width - frame_rect.x
-                if frame_rect.bottom > row_height:
-                    frame_rect.height = row_height - frame_rect.y
+                if frame_rect.bottom > sheet_height:
+                    frame_rect.height = sheet_height - frame_rect.y
 
                 frame = sprite_sheet.subsurface(frame_rect).copy()
                 # 기준 크기로 스케일링 (걷기 애니메이션과 동일)
@@ -543,7 +543,7 @@ class Stage8BossSprite:
             except Exception as e:
                 print(f"⚠️ 방향 전환 프레임 추출 실패: {e}")
 
-            print(f"✅ 아카무 리고 방향 전환 프레임 로드 완료: {len(self.frames_turn)}개 (1열 4번째 정면 프레임)")
+            print(f"✅ 아카무 리고 방향 전환 프레임 로드 완료: {len(self.frames_turn)}개 (2열 3번째 정면 프레임)")
             return True
 
         except Exception as e:
