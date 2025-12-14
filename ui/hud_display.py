@@ -395,9 +395,9 @@ class HUDDisplay:
         p_icon_rect = p_icon.get_rect(center=(p_logo_x, p_logo_y))
         board_surface.blit(p_icon, p_icon_rect)
 
-        # 플레이어 이름
-        p_name = self.font_large.render("플레이어", True, (100, 180, 255))
-        board_surface.blit(p_name, (header_x + 85, header_y + 12))
+        # 플레이어 이름 (작은 폰트 사용 - 긴 이름 겹침 방지)
+        p_name = self.font_medium.render("플레이어", True, (100, 180, 255))
+        board_surface.blit(p_name, (header_x + 85, header_y + 18))
 
         # 보스 로고 (빨간색 원) - 글로우 효과 추가
         b_logo_x = header_x + header_w - 50
@@ -415,10 +415,10 @@ class HUDDisplay:
         b_icon_rect = b_icon.get_rect(center=(b_logo_x, b_logo_y))
         board_surface.blit(b_icon, b_icon_rect)
 
-        # 보스 이름 - 현재 스테이지 보스 이름 표시
+        # 보스 이름 - 현재 스테이지 보스 이름 표시 (작은 폰트 사용 - 긴 이름 겹침 방지)
         boss_name = self.get_boss_name()
-        b_name = self.font_large.render(boss_name, True, (255, 120, 120))
-        b_name_rect = b_name.get_rect(right=header_x + header_w - 85, top=header_y + 12)
+        b_name = self.font_medium.render(boss_name, True, (255, 120, 120))
+        b_name_rect = b_name.get_rect(right=header_x + header_w - 85, top=header_y + 18)
         board_surface.blit(b_name, b_name_rect)
 
         # 점수 영역
