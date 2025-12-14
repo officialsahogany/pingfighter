@@ -1,0 +1,3 @@
+([('누끼따기',
+   '/Volumes/isatra/백업/1129/윈도우용최신/game/bosspong/background_remover/dist2/누끼따기',
+   'EXECUTABLE')],)

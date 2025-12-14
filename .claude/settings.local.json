@@ -29,7 +29,11 @@
       "Bash(cmd.exe /c \"cd /d C:\\temp_build && C:\\temp_build\\build.bat\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(chmod:*)",
+      "Bash(pkill:*)",
+      "Bash(open /Volumes/isatra/백업/1129/윈도우용최신/game/bosspong/background_remover/dist/누끼따기.app)",
+      "Bash(open /Volumes/isatra/백업/1129/윈도우용최신/game/bosspong/background_remover/dist2/누끼따기.app)"
     ],
     "deny": [],
     "ask": [],

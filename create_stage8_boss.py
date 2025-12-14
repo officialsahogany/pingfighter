@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a top-down chibi ninja boss (탁닌자): full mask, sharp eyes, slim arms (single frame)."""
+"""Generate a top-down chibi ninja boss (아카무 리고): full mask, sharp eyes, slim arms (single frame)."""
 
 from math import pi, cos, sin
 from typing import Iterable, List, Tuple

@@ -128,7 +128,7 @@ BOSS_CONFIGS = {
         "dash_max_distance": 300,
     },
     8: {
-        "name": "탁닌자",
+        "name": "아카무 리고",
         "color": (60, 80, 120),
         "accel": 1.11,
         "decel": 1.11,

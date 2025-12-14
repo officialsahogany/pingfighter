@@ -31,12 +31,24 @@ ICE_FRICTION = 0.985  # 마찰계수 (1에 가까울수록 미끄러움)
 ICE_DASH_SLIDE_DURATION = 45  # 대쉬 후 미끄러지는 프레임 수
 
 # 소나기 (Rain) - 둔화 효과
-RAIN_SPEED_PENALTY = 0.15  # 이동속도 15% 감소 (기존 30%에서 완화)
+RAIN_SPEED_PENALTY = 0.40  # 이동속도 40% 감소
 RAIN_PARTICLE_COUNT = 150  # 빗방울 개수
 RAIN_PARTICLE_SPEED_MIN = 12  # 빗방울 최소 속도
 RAIN_PARTICLE_SPEED_MAX = 18  # 빗방울 최대 속도
 RAIN_PARTICLE_LENGTH_MIN = 10  # 빗방울 최소 길이
 RAIN_PARTICLE_LENGTH_MAX = 25  # 빗방울 최대 길이
+
+# 우박 (Hail) - 넉백 효과 (화염탄과 동일한 수치)
+HAIL_PARTICLE_COUNT = 25  # 우박 개수 (빗방울보다 적음)
+HAIL_SPAWN_INTERVAL = 30  # 우박 생성 간격 (프레임)
+HAIL_FALL_SPEED_MIN = 6  # 우박 최소 낙하 속도
+HAIL_FALL_SPEED_MAX = 10  # 우박 최대 낙하 속도
+HAIL_SIZE_MIN = 8  # 우박 최소 크기
+HAIL_SIZE_MAX = 16  # 우박 최대 크기
+HAIL_KNOCKBACK_DURATION = 18  # 넉백 지속 프레임 (0.3초 - 화염탄과 동일)
+HAIL_KNOCKBACK_STRENGTH = 12  # 넉백 강도 (화염탄과 동일)
+HAIL_STUN_DURATION = 0.3  # 스턴 지속 시간 (초) - 화염탄과 동일
+HAIL_HIT_COOLDOWN = 45  # 같은 우박에 연속 피격 방지 쿨다운 (프레임)
 
 WIND_MIN_DURATION = 2
 WIND_MAX_DURATION = 3
@@ -46,10 +58,12 @@ ICE_MIN_DURATION = 2
 ICE_MAX_DURATION = 3
 RAIN_MIN_DURATION = 2
 RAIN_MAX_DURATION = 3
+HAIL_MIN_DURATION = 2
+HAIL_MAX_DURATION = 3
 
 # ============== Global State ==============
 weather_event_active = False
-weather_event_type = None  # "breeze", "gust", "fire", "ice", or "rain"
+weather_event_type = None  # "breeze", "gust", "fire", "ice", "rain", or "hail"
 weather_event_direction = 0  # -1 = left, 1 = right (바람용)
 weather_event_remaining_rounds = 0
 weather_event_just_started = False
@@ -82,7 +96,16 @@ ice_dash_particles = []  # 대쉬 시 튀는 얼음 가루
 # 소나기 이벤트 전용 상태
 rain_particles = []  # 빗방울 파티클
 rain_splash_particles = []  # 빗방울이 바닥에 튀는 효과
+rain_paddle_splash_particles = []  # 패들에 비가 맞아서 튀는 효과
+rain_floor_splash_particles = []  # 바닥에 비가 맞아서 튀는 효과 (향상된 버전)
 rain_initialized = False  # 빗방울 초기화 여부
+
+# 우박 이벤트 전용 상태
+hail_particles = []  # 우박 파티클 [(x, y, size, speed, hit_cooldown), ...]
+hail_impact_particles = []  # 우박 충돌 파티클 [(x, y, vx, vy, life, max_life), ...]
+hail_spawn_timer = 0  # 우박 생성 타이머
+hail_initialized = False  # 우박 초기화 여부
+hail_player_hit_cooldown = 0  # 플레이어 피격 쿨다운
 
 # 폰트 캐시
 _cached_font_large = None
@@ -254,6 +277,8 @@ def reset_weather_state():
     # 소나기 관련 초기화
     rain_particles = []
     rain_splash_particles = []
+    rain_paddle_splash_particles = []
+    rain_floor_splash_particles = []
     rain_initialized = False
 
 
@@ -311,6 +336,8 @@ def check_weather_event_on_round_start():
                 # 소나기 파티클 초기화
                 rain_particles = []
                 rain_splash_particles = []
+                rain_paddle_splash_particles = []
+                rain_floor_splash_particles = []
                 rain_initialized = False
 
             weather_end_timer = 180  # 3 seconds at 60fps
@@ -1082,6 +1109,268 @@ def update_rain_particles(screen_width, screen_height):
             rain_splash_particles.remove(splash)
 
 
+def create_rain_paddle_splash(x, y, is_player=True):
+    """패들에 비가 맞았을 때 튀기는 이펙트 생성
+
+    Args:
+        x: 충돌 x 좌표
+        y: 충돌 y 좌표
+        is_player: 플레이어 패들인지 여부 (True: 플레이어, False: 보스)
+    """
+    global rain_paddle_splash_particles
+
+    if not is_rain_active():
+        return
+
+    # 튀기는 방향 (플레이어는 위로, 보스는 아래로 + 좌우로 퍼짐)
+    splash_dir = -1 if is_player else 1
+
+    # 메인 물방울 튀김 (큰 입자들)
+    for _ in range(6):
+        angle = random.uniform(-math.pi/3, math.pi/3)  # 부채꼴 모양으로 퍼짐
+        speed = random.uniform(3, 7)
+
+        rain_paddle_splash_particles.append({
+            "x": x + random.uniform(-8, 8),
+            "y": y,
+            "vx": math.sin(angle) * speed,
+            "vy": splash_dir * abs(math.cos(angle)) * speed,
+            "size": random.uniform(2, 5),
+            "lifetime": 0,
+            "max_lifetime": random.randint(15, 30),
+            "alpha": random.uniform(0.6, 1.0),
+            "type": "droplet",
+            "gravity": 0.3
+        })
+
+    # 작은 물방울 스프레이 (미세 입자들)
+    for _ in range(10):
+        angle = random.uniform(-math.pi/2, math.pi/2)
+        speed = random.uniform(2, 5)
+
+        rain_paddle_splash_particles.append({
+            "x": x + random.uniform(-5, 5),
+            "y": y + random.uniform(-3, 3),
+            "vx": math.sin(angle) * speed,
+            "vy": splash_dir * abs(math.cos(angle)) * speed * 0.8,
+            "size": random.uniform(1, 2.5),
+            "lifetime": 0,
+            "max_lifetime": random.randint(10, 20),
+            "alpha": random.uniform(0.4, 0.8),
+            "type": "mist",
+            "gravity": 0.15
+        })
+
+    # 물방울 링 효과 (충돌 지점에 원형 파동)
+    rain_paddle_splash_particles.append({
+        "x": x,
+        "y": y,
+        "vx": 0,
+        "vy": 0,
+        "size": 3,
+        "lifetime": 0,
+        "max_lifetime": 20,
+        "alpha": 0.7,
+        "type": "ring",
+        "gravity": 0
+    })
+
+
+def create_rain_floor_splash(x, y):
+    """바닥에 비가 맞았을 때 튀기는 이펙트 생성 (향상된 버전)
+
+    Args:
+        x: 충돌 x 좌표
+        y: 충돌 y 좌표 (바닥)
+    """
+    global rain_floor_splash_particles
+
+    if not is_rain_active():
+        return
+
+    # 위로 튀어오르는 물방울들
+    for _ in range(4):
+        angle = random.uniform(-math.pi/4, math.pi/4)  # 위쪽으로 퍼짐
+        speed = random.uniform(2, 5)
+
+        rain_floor_splash_particles.append({
+            "x": x + random.uniform(-3, 3),
+            "y": y,
+            "vx": math.sin(angle) * speed,
+            "vy": -abs(math.cos(angle)) * speed,  # 항상 위로
+            "size": random.uniform(1.5, 3),
+            "lifetime": 0,
+            "max_lifetime": random.randint(12, 22),
+            "alpha": random.uniform(0.5, 0.9),
+            "type": "droplet",
+            "gravity": 0.4
+        })
+
+    # 작은 미스트/스프레이
+    for _ in range(6):
+        angle = random.uniform(-math.pi/2, math.pi/2)
+        speed = random.uniform(1, 3)
+
+        rain_floor_splash_particles.append({
+            "x": x + random.uniform(-2, 2),
+            "y": y,
+            "vx": math.sin(angle) * speed,
+            "vy": -abs(math.cos(angle)) * speed * 0.5,
+            "size": random.uniform(0.8, 1.8),
+            "lifetime": 0,
+            "max_lifetime": random.randint(8, 15),
+            "alpha": random.uniform(0.3, 0.6),
+            "type": "mist",
+            "gravity": 0.2
+        })
+
+    # 바닥 원형 파동
+    rain_floor_splash_particles.append({
+        "x": x,
+        "y": y,
+        "vx": 0,
+        "vy": 0,
+        "size": 2,
+        "lifetime": 0,
+        "max_lifetime": 15,
+        "alpha": 0.5,
+        "type": "ring",
+        "gravity": 0
+    })
+
+
+def update_rain_particles_with_collision(screen_width, screen_height, player_rect=None, player_image_rect=None):
+    """빗방울 파티클 업데이트 - 패들 및 바닥 충돌 감지 포함
+
+    Args:
+        screen_width: 화면 너비
+        screen_height: 화면 높이
+        player_rect: 플레이어 패들 박스 rect (선택적)
+        player_image_rect: 플레이어 패들 이미지 rect (선택적, 이것을 사용하여 충돌 감지)
+    """
+    global rain_particles, rain_splash_particles, rain_paddle_splash_particles, rain_floor_splash_particles
+
+    if not is_rain_active():
+        rain_particles = []
+        rain_splash_particles = []
+        rain_paddle_splash_particles = []
+        rain_floor_splash_particles = []
+        return
+
+    # 빗방울 업데이트
+    for p in rain_particles:
+        old_y = p["y"]
+
+        # 아래로 떨어짐 + 약간의 바람 효과
+        p["y"] += p["speed"]
+        p["x"] += p["wind_offset"]
+
+        # 플레이어 패들 이미지와 충돌 체크
+        if player_image_rect is not None:
+            # 빗방울이 패들 영역 안에 있는지 확인
+            if (player_image_rect.left <= p["x"] <= player_image_rect.right and
+                old_y < player_image_rect.top <= p["y"]):
+                # 패들 상단에 충돌!
+                create_rain_paddle_splash(p["x"], player_image_rect.top, is_player=True)
+                # 빗방울 리셋
+                p["y"] = random.uniform(-50, -10)
+                p["x"] = random.uniform(0, screen_width)
+                p["speed"] = random.uniform(RAIN_PARTICLE_SPEED_MIN, RAIN_PARTICLE_SPEED_MAX)
+                continue
+
+        # 화면 아래로 벗어나면 상단에서 다시 생성
+        if p["y"] > screen_height + 10:
+            p["y"] = random.uniform(-50, -10)
+            p["x"] = random.uniform(0, screen_width)
+            p["speed"] = random.uniform(RAIN_PARTICLE_SPEED_MIN, RAIN_PARTICLE_SPEED_MAX)
+
+            # 바닥에 물방울 튀는 효과 생성 (확률적)
+            if random.random() < 0.4:
+                floor_x = random.uniform(0, screen_width)
+                create_rain_floor_splash(floor_x, screen_height - 5)
+
+                # 기존 간단한 스플래시도 추가 (원형 파동)
+                rain_splash_particles.append({
+                    "x": floor_x,
+                    "y": screen_height - 5,
+                    "radius": random.uniform(2, 5),
+                    "lifetime": 0,
+                    "max_lifetime": random.randint(8, 15),
+                    "alpha": 0.6
+                })
+
+        # 화면 좌우로 벗어나면 반대편으로
+        if p["x"] < -10:
+            p["x"] = screen_width + 5
+        elif p["x"] > screen_width + 10:
+            p["x"] = -5
+
+    # 기존 물방울 튀는 효과 업데이트
+    for splash in rain_splash_particles[:]:
+        splash["lifetime"] += 1
+        splash["radius"] += 0.5  # 점점 커지며 퍼짐
+        splash["alpha"] *= 0.85  # 점점 투명해짐
+
+        if splash["lifetime"] >= splash["max_lifetime"]:
+            rain_splash_particles.remove(splash)
+
+    # 패들 스플래시 파티클 업데이트
+    for p in rain_paddle_splash_particles[:]:
+        p["lifetime"] += 1
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+
+        # 중력 적용
+        p["vy"] += p["gravity"]
+
+        # 공기 저항
+        p["vx"] *= 0.98
+        p["vy"] *= 0.99
+
+        # 타입별 처리
+        if p["type"] == "ring":
+            # 링은 커지면서 사라짐
+            p["size"] += 1.5
+            p["alpha"] *= 0.88
+        else:
+            # 물방울은 크기 유지하다가 사라짐
+            lifetime_ratio = p["lifetime"] / p["max_lifetime"]
+            p["alpha"] = (1.0 - lifetime_ratio) * p.get("alpha", 1.0) * 1.5
+            if lifetime_ratio > 0.7:
+                p["size"] *= 0.95
+
+        # 수명 종료
+        if p["lifetime"] >= p["max_lifetime"] or p["alpha"] < 0.05:
+            rain_paddle_splash_particles.remove(p)
+
+    # 바닥 스플래시 파티클 업데이트
+    for p in rain_floor_splash_particles[:]:
+        p["lifetime"] += 1
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+
+        # 중력 적용
+        p["vy"] += p["gravity"]
+
+        # 공기 저항
+        p["vx"] *= 0.97
+        p["vy"] *= 0.98
+
+        # 타입별 처리
+        if p["type"] == "ring":
+            p["size"] += 1.2
+            p["alpha"] *= 0.85
+        else:
+            lifetime_ratio = p["lifetime"] / p["max_lifetime"]
+            p["alpha"] = (1.0 - lifetime_ratio) * p.get("alpha", 1.0) * 1.3
+            if lifetime_ratio > 0.6:
+                p["size"] *= 0.93
+
+        # 수명 종료
+        if p["lifetime"] >= p["max_lifetime"] or p["alpha"] < 0.05:
+            rain_floor_splash_particles.remove(p)
+
+
 def draw_rain_particles(screen, screen_width, screen_height):
     """빗방울 파티클 그리기"""
     if not is_rain_active():
@@ -1108,7 +1397,7 @@ def draw_rain_particles(screen, screen_width, screen_height):
         pygame.draw.line(rain_surf, rain_color, (2, 0), (2 + (end_x - start_x), int(p["length"])), 2)
         screen.blit(rain_surf, (min(start_x, end_x) - 2, start_y))
 
-    # 물방울 튀는 효과 그리기
+    # 물방울 튀는 효과 그리기 (기존)
     for splash in rain_splash_particles:
         alpha = int(255 * splash["alpha"])
         if alpha < 10:
@@ -1122,6 +1411,294 @@ def draw_rain_particles(screen, screen_width, screen_height):
         splash_surf = pygame.Surface((radius * 2 + 4, radius + 4), pygame.SRCALPHA)
         pygame.draw.ellipse(splash_surf, splash_color, (0, 0, radius * 2, radius // 2 + 2), 1)
         screen.blit(splash_surf, (x - radius, y - radius // 4))
+
+    # 패들 스플래시 파티클 그리기
+    for p in rain_paddle_splash_particles:
+        alpha_val = min(1.0, p.get("alpha", 0.5))
+        alpha = int(255 * alpha_val)
+        if alpha < 10:
+            continue
+
+        x, y = int(p["x"]), int(p["y"])
+        size = max(1, int(p["size"]))
+
+        if p["type"] == "ring":
+            # 원형 파동 - 타원형으로 그림
+            ring_size = int(p["size"])
+            if ring_size > 1:
+                ring_surf = pygame.Surface((ring_size * 2 + 4, ring_size + 4), pygame.SRCALPHA)
+                ring_color = (180, 210, 240, alpha)
+                pygame.draw.ellipse(ring_surf, ring_color, (0, 0, ring_size * 2, ring_size // 2 + 2), 2)
+                screen.blit(ring_surf, (x - ring_size, y - ring_size // 4))
+        elif p["type"] == "droplet":
+            # 큰 물방울 - 타원형
+            droplet_surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
+            # 외곽 글로우
+            glow_color = (150, 190, 230, alpha // 3)
+            pygame.draw.circle(droplet_surf, glow_color, (size + 1, size + 1), size + 1)
+            # 메인 물방울
+            droplet_color = (180, 210, 240, alpha)
+            pygame.draw.circle(droplet_surf, droplet_color, (size + 1, size + 1), size)
+            # 하이라이트
+            if size > 2:
+                highlight_color = (220, 240, 255, min(255, alpha + 50))
+                pygame.draw.circle(droplet_surf, highlight_color, (size, size), max(1, size // 3))
+            screen.blit(droplet_surf, (x - size - 1, y - size - 1))
+        else:  # mist
+            # 작은 미스트 - 흐릿한 원
+            mist_surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
+            mist_color = (170, 200, 230, alpha)
+            pygame.draw.circle(mist_surf, mist_color, (size + 1, size + 1), size)
+            screen.blit(mist_surf, (x - size - 1, y - size - 1))
+
+    # 바닥 스플래시 파티클 그리기
+    for p in rain_floor_splash_particles:
+        alpha_val = min(1.0, p.get("alpha", 0.5))
+        alpha = int(255 * alpha_val)
+        if alpha < 10:
+            continue
+
+        x, y = int(p["x"]), int(p["y"])
+        size = max(1, int(p["size"]))
+
+        if p["type"] == "ring":
+            # 바닥 원형 파동 - 더 납작한 타원
+            ring_size = int(p["size"])
+            if ring_size > 1:
+                ring_surf = pygame.Surface((ring_size * 2 + 4, ring_size // 2 + 4), pygame.SRCALPHA)
+                ring_color = (160, 195, 230, alpha)
+                pygame.draw.ellipse(ring_surf, ring_color, (0, 0, ring_size * 2, ring_size // 3 + 2), 1)
+                screen.blit(ring_surf, (x - ring_size, y - ring_size // 6))
+        elif p["type"] == "droplet":
+            # 튀어오르는 물방울
+            droplet_surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
+            droplet_color = (175, 205, 235, alpha)
+            pygame.draw.circle(droplet_surf, droplet_color, (size + 1, size + 1), size)
+            # 밝은 하이라이트
+            if size > 1:
+                highlight_color = (210, 235, 255, min(255, alpha + 40))
+                pygame.draw.circle(droplet_surf, highlight_color, (size, size), max(1, size // 2))
+            screen.blit(droplet_surf, (x - size - 1, y - size - 1))
+        else:  # mist
+            # 작은 미스트
+            mist_surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
+            mist_color = (165, 195, 225, alpha)
+            pygame.draw.circle(mist_surf, mist_color, (size + 1, size + 1), size)
+            screen.blit(mist_surf, (x - size - 1, y - size - 1))
+
+
+# ============== 우박 (Hail) 이벤트 함수 ==============
+
+def is_hail_active():
+    """우박 이벤트가 활성화되어 있는지 확인"""
+    return weather_event_active and weather_event_type == "hail"
+
+
+def init_hail_particles(screen_width, screen_height):
+    """우박 파티클 초기화"""
+    global hail_particles, hail_initialized, hail_spawn_timer
+
+    if hail_initialized:
+        return
+
+    hail_particles = []
+    hail_spawn_timer = 0
+    hail_initialized = True
+    print(f"[Weather] Hail system initialized")
+
+
+def spawn_hail_particle(screen_width):
+    """새 우박 파티클 생성"""
+    global hail_particles
+
+    size = random.uniform(HAIL_SIZE_MIN, HAIL_SIZE_MAX)
+    hail_particles.append({
+        "x": random.uniform(50, screen_width - 50),
+        "y": random.uniform(-100, -20),
+        "size": size,
+        "speed": random.uniform(HAIL_FALL_SPEED_MIN, HAIL_FALL_SPEED_MAX),
+        "rotation": random.uniform(0, 360),
+        "rotation_speed": random.uniform(-5, 5),
+        "wobble": random.uniform(0, math.pi * 2),
+        "wobble_speed": random.uniform(0.1, 0.3),
+        "alpha": random.uniform(0.7, 1.0)
+    })
+
+
+def update_hail_particles(screen_width, screen_height, player_rect=None):
+    """우박 파티클 업데이트 및 플레이어 충돌 체크
+
+    Returns:
+        dict or None: 충돌 시 넉백 정보 {"knockback_vel": float, "stun_duration": float}
+    """
+    global hail_particles, hail_impact_particles, hail_spawn_timer, hail_player_hit_cooldown
+
+    if not is_hail_active():
+        hail_particles = []
+        hail_impact_particles = []
+        return None
+
+    # 새 우박 생성
+    hail_spawn_timer += 1
+    if hail_spawn_timer >= HAIL_SPAWN_INTERVAL:
+        hail_spawn_timer = 0
+        # 한 번에 1-3개 생성
+        for _ in range(random.randint(1, 3)):
+            if len(hail_particles) < HAIL_PARTICLE_COUNT:
+                spawn_hail_particle(screen_width)
+
+    # 플레이어 피격 쿨다운 감소
+    if hail_player_hit_cooldown > 0:
+        hail_player_hit_cooldown -= 1
+
+    hit_result = None
+
+    # 우박 업데이트
+    for hail in hail_particles[:]:
+        # 낙하
+        hail["y"] += hail["speed"]
+        # 좌우 흔들림
+        hail["wobble"] += hail["wobble_speed"]
+        hail["x"] += math.sin(hail["wobble"]) * 0.5
+        # 회전
+        hail["rotation"] += hail["rotation_speed"]
+
+        # 플레이어 충돌 체크
+        if player_rect is not None and hail_player_hit_cooldown <= 0:
+            hail_rect = pygame.Rect(
+                hail["x"] - hail["size"] / 2,
+                hail["y"] - hail["size"] / 2,
+                hail["size"],
+                hail["size"]
+            )
+            if hail_rect.colliderect(player_rect):
+                # 충돌! 넉백 정보 반환 (화염탄과 동일한 방식)
+                # 화염탄: random.choice([-12, 12]) 방식 사용
+                hit_result = {
+                    "knockback_vel": random.choice([-12, 12]),  # 화염탄과 동일한 넉백 강도
+                    "stun_duration": HAIL_STUN_DURATION
+                }
+                hail_player_hit_cooldown = HAIL_HIT_COOLDOWN
+
+                # 충돌 이펙트 생성
+                create_hail_impact(hail["x"], hail["y"], hail["size"])
+
+                # 이 우박 제거
+                hail_particles.remove(hail)
+                continue
+
+        # 화면 아래로 벗어나면 제거 및 바닥 충돌 효과
+        if hail["y"] > screen_height + 10:
+            create_hail_impact(hail["x"], screen_height - 5, hail["size"] * 0.7)
+            hail_particles.remove(hail)
+            continue
+
+    # 충돌 파티클 업데이트
+    for p in hail_impact_particles[:]:
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+        p["vy"] += 0.3  # 중력
+        p["life"] -= 1
+
+        if p["life"] <= 0:
+            hail_impact_particles.remove(p)
+
+    return hit_result
+
+
+def create_hail_impact(x, y, size):
+    """우박 충돌 이펙트 생성"""
+    global hail_impact_particles
+
+    particle_count = int(size * 2)
+    for _ in range(particle_count):
+        angle = random.uniform(0, math.pi * 2)
+        speed = random.uniform(2, 6)
+        hail_impact_particles.append({
+            "x": x,
+            "y": y,
+            "vx": math.cos(angle) * speed,
+            "vy": math.sin(angle) * speed - 2,  # 위쪽으로 튀어오름
+            "life": random.randint(10, 25),
+            "max_life": 25,
+            "size": random.uniform(2, 5)
+        })
+
+
+def draw_hail_particles(screen, screen_width, screen_height):
+    """우박 파티클 그리기"""
+    if not is_hail_active():
+        return
+
+    # 어두운 오버레이 (폭풍 분위기)
+    overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+    overlay.fill((40, 50, 70, 50))  # 어두운 회색-파란 오버레이
+    screen.blit(overlay, (0, 0))
+
+    # 우박 그리기
+    for hail in hail_particles:
+        x, y = int(hail["x"]), int(hail["y"])
+        size = int(hail["size"])
+        alpha = int(255 * hail["alpha"])
+
+        # 우박 표면 생성 (불규칙한 다각형으로 표현)
+        hail_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+
+        # 외곽 (어두운 파란색-회색)
+        outer_color = (180, 200, 220, alpha)
+        # 내부 (밝은 흰색-파란색)
+        inner_color = (230, 240, 255, alpha)
+        # 하이라이트
+        highlight_color = (255, 255, 255, min(255, alpha + 30))
+
+        center = size
+
+        # 불규칙한 우박 모양 (6-8각형)
+        num_points = random.randint(6, 8)
+        points = []
+        for i in range(num_points):
+            angle = (i / num_points) * math.pi * 2 + math.radians(hail["rotation"])
+            radius = size * random.uniform(0.7, 1.0)
+            px = center + math.cos(angle) * radius
+            py = center + math.sin(angle) * radius
+            points.append((px, py))
+
+        if len(points) >= 3:
+            pygame.draw.polygon(hail_surf, outer_color, points)
+            # 내부 밝은 부분
+            inner_points = [(center + (p[0] - center) * 0.6, center + (p[1] - center) * 0.6) for p in points]
+            pygame.draw.polygon(hail_surf, inner_color, inner_points)
+            # 하이라이트
+            pygame.draw.circle(hail_surf, highlight_color, (center - size // 4, center - size // 4), size // 4)
+
+        screen.blit(hail_surf, (x - size, y - size))
+
+    # 충돌 파티클 그리기
+    for p in hail_impact_particles:
+        life_ratio = p["life"] / p["max_life"]
+        alpha = int(200 * life_ratio)
+        size = int(p["size"] * life_ratio)
+
+        if size < 1 or alpha < 10:
+            continue
+
+        # 얼음 파편 색상 (밝은 흰색-파란색)
+        color = (220, 235, 255, alpha)
+        particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+        pygame.draw.circle(particle_surf, color, (size, size), size)
+        screen.blit(particle_surf, (int(p["x"]) - size, int(p["y"]) - size))
+
+
+def reset_hail_state():
+    """우박 이벤트 상태 초기화"""
+    global hail_particles, hail_impact_particles, hail_spawn_timer
+    global hail_initialized, hail_player_hit_cooldown
+
+    hail_particles = []
+    hail_impact_particles = []
+    hail_spawn_timer = 0
+    hail_initialized = False
+    hail_player_hit_cooldown = 0
 
 
 def update_fire_ball_trail(ball_x, ball_y, ball_vel_x, ball_vel_y):
@@ -1654,3 +2231,47 @@ def force_start_ice_event(duration=None):
     weather_warning_timer = 180
 
     print(f"[Weather] Forced ice start! Duration: {weather_event_remaining_rounds}")
+
+
+def force_start_rain_event(duration=None):
+    """Force start a rain event for testing"""
+    global weather_event_active, weather_event_type, weather_event_direction
+    global weather_event_remaining_rounds, weather_event_just_started
+    global weather_warning_timer, weather_warning_text
+    global rain_initialized
+
+    weather_event_active = True
+    weather_event_type = "rain"
+    weather_event_direction = 0
+    weather_event_remaining_rounds = duration if duration else random.randint(2, 3)
+    weather_event_just_started = True
+    weather_warning_text = "소나기 발생!"
+    weather_warning_timer = 180
+    rain_initialized = False  # 빗방울 다시 초기화
+
+    # 소나기 사운드 재생
+    play_weather_sound("rain")
+
+    print(f"[Weather] Forced rain start! Duration: {weather_event_remaining_rounds}")
+
+
+def force_start_hail_event(duration=None):
+    """Force start a hail event for testing"""
+    global weather_event_active, weather_event_type, weather_event_direction
+    global weather_event_remaining_rounds, weather_event_just_started
+    global weather_warning_timer, weather_warning_text
+    global hail_initialized
+
+    weather_event_active = True
+    weather_event_type = "hail"
+    weather_event_direction = 0
+    weather_event_remaining_rounds = duration if duration else random.randint(2, 3)
+    weather_event_just_started = True
+    weather_warning_text = "우박 발생!"
+    weather_warning_timer = 180
+    hail_initialized = False  # 우박 다시 초기화
+
+    # 우박 사운드 재생 (소나기 사운드 재사용)
+    play_weather_sound("rain")
+
+    print(f"[Weather] Forced hail start! Duration: {weather_event_remaining_rounds}")

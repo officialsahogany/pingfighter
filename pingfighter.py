@@ -289,7 +289,25 @@ from events.weather_event import (
     get_rain_speed_penalty,
     init_rain_particles,
     update_rain_particles,
+    update_rain_particles_with_collision,
+    create_rain_paddle_splash,
+    create_rain_floor_splash,
     draw_rain_particles,
+    # 우박 이벤트
+    is_hail_active,
+    init_hail_particles,
+    update_hail_particles,
+    draw_hail_particles,
+    reset_hail_state,
+    HAIL_KNOCKBACK_STRENGTH,
+    HAIL_STUN_DURATION,
+    # 디버그용 강제 이벤트 발동
+    force_start_breeze_event,
+    force_start_gust_event,
+    force_start_fire_event,
+    force_start_ice_event,
+    force_start_rain_event,
+    force_start_hail_event,
 )
 from game_logic.checkmate_system import get_checkmate_system
 from game_logic.game_loop import LegacyHooks, create_game_loop
@@ -2308,7 +2326,7 @@ boss_names = {
     5: "네메시스",
     6: "홍련",
     7: "테트리서",
-    8: "탁닌자",
+    8: "아카무 리고",
 }
 
 # 스테이지 5, 6 스왑 맵 (로직 스테이지 → 디스플레이 스테이지)
@@ -20138,6 +20156,11 @@ stage8_awaken_intro_pending: bool = False  # 3점 달성 후 연출 진행 여�
 stage8_awaken_intro_done: bool = False     # 연출 완료 여부
 stage8_awaken_freeze_end_ms: int = 0
 
+# === 스테이지 8 보스 대화 시스템 ===
+stage8_boss_dialogue_shown: bool = False  # 스테이지 시작 대화 표시 여부
+stage8_boss_dialogue_pending: bool = False  # 대화 표시 대기 중
+stage8_boss_portrait: pygame.Surface = None  # 보스 초상화 이미지
+
 # === 공 에너지볼 시스템 (상시 활성) ===
 # 고퀄리티 에너지볼 + 궤적 + 벽 충돌 이펙트
 rainbow_ball_trail: list = []  # 트레일 포인트들 [{x, y, alpha, size, age}]
@@ -26044,6 +26067,21 @@ except Exception as e:
     stage2_boss_sprite = None
     STAGE2_BOSS_ANIMATION_AVAILABLE = False
 
+# Stage 8 보스 (아카무 리고) 걷기 애니메이션 초기화
+try:
+    from entities.stage8_boss_sprite import (
+        get_stage8_boss_sprite,
+        init_stage8_boss_sprite,
+        Stage8BossSprite
+    )
+    stage8_boss_sprite = init_stage8_boss_sprite()
+    STAGE8_BOSS_ANIMATION_AVAILABLE = True
+    print("🥷 Stage 8 보스 걷기 애니메이션 로드 완료")
+except Exception as e:
+    print(f"⚠️ Stage 8 보스 애니메이션 로드 실패: {e}")
+    stage8_boss_sprite = None
+    STAGE8_BOSS_ANIMATION_AVAILABLE = False
+
 try:
     BOSS_IMG_STAGE2 = pygame.image.load(resource_path("boss_stage2.png")).convert_alpha()
     BOSS_IMG_STAGE2 = pygame.transform.scale(BOSS_IMG_STAGE2, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
@@ -26471,8 +26509,16 @@ def go_to_next_round():
         globals()["stage8_awaken_intro_pending"] = False
         globals()["stage8_awaken_intro_done"] = False
         globals()["stage8_awaken_freeze_end_ms"] = 0
+        globals()["stage8_boss_dialogue_shown"] = False  # 보스 대화 상태 리셋
         # 바람 오오라 효과도 리셋
         reset_stage8_wind_effects()
+
+    # Stage 8: 다음 라운드 시작 시 패배/승리 애니메이션 리셋
+    # NOTE: 애니메이션 리셋은 reset_ball() 또는 실제 공이 재설정될 때 하도록 변경
+    # go_to_next_round() 호출 직후에 리셋하면 승리/패배 애니메이션이 보이지 않음
+    # 대신 서브 대기 상태로 전환될 때 리셋하도록 함
+    pass  # 여기서 리셋하지 않음 - reset_ball()에서 처리
+
     # Stage 8: 플레이어가 3점 이상이면 다음 라운드에 한 번만 연출 예약
     if current_stage == 8 and round_wins >= 3:
         if not globals().get("stage8_awaken_intro_done", False) and not globals().get("stage8_awaken_intro_pending", False):
@@ -36084,9 +36130,12 @@ def handle_player(keys):
     #  스턴 상태 처리
     if player_stunned_timer > 0:
         player_stunned_timer -= 1
-        # 넉백 적용
-        PLAYER.x += player_knockback_vel
-        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        # 넉백 적용 (스턴 중 감속 이동)
+        if abs(player_knockback_vel) > 0.5:
+            old_x = PLAYER.x
+            PLAYER.x += player_knockback_vel
+            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+            print(f"🔧 [STUN] 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, timer={player_stunned_timer})")
         # 감속
         player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
         if fire_support_slot_restore_pending:
@@ -36102,9 +36151,12 @@ def handle_player(keys):
     # 미사일/폭발 넉백 처리 (물자보급 비행기 폭발 포함)
     if player_missile_stunned_timer > 0:
         player_missile_stunned_timer -= 1
-        # 넉백 적용
-        PLAYER.x += player_missile_knockback_vel
-        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        # 넉백 적용 (감속 이동)
+        if abs(player_missile_knockback_vel) > 0.5:
+            old_x = PLAYER.x
+            PLAYER.x += player_missile_knockback_vel
+            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+            print(f"🚀 [MISSILE STUN] 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_missile_knockback_vel:.2f}, timer={player_missile_stunned_timer})")
         # 감속 (화염탄과 동일한 0.85)
         player_missile_knockback_vel *= 0.85 * _get_knockback_resist_scale()
         _prev_center = PLAYER.centerx
@@ -37741,6 +37793,11 @@ def handle_player(keys):
                 elif blacksmith_hammer_shock_stage >= 1:
                     effective_max_speed *= 0.80  # 20% 감소
 
+            # 🌧️ 소나기 이벤트 시 이동속도 40% 감소
+            if is_rain_active():
+                rain_penalty = get_rain_speed_penalty()
+                effective_max_speed *= (1.0 - rain_penalty)
+
             # 일반 이동 키 처리 (키보드 + 마우스 조작 통합)
             # 후딜 상태에서는 일반 이동 불가 (더블대쉬 아이템 소지 시에도)
             # Stage 4 사원 파괴 애니메이션 중에도 이동 불가
@@ -38319,10 +38376,7 @@ def handle_player(keys):
         if ice_dash_sliding:
             current_speed = 0
 
-        # 🌧️ 소나기 둔화 효과 적용 (이동속도 30% 감소)
-        if is_rain_active():
-            rain_penalty = get_rain_speed_penalty()
-            current_speed *= (1.0 - rain_penalty)
+        # 🌧️ 소나기 효과는 effective_max_speed에서 이미 적용됨 (37750라인)
 
         # 후딜 상태가 아닐 때만 이동 가능
         # 🧊 얼음 미끄러짐 중에는 일반 이동을 무시 (미끄러짐 코드에서 이동 처리)
@@ -45977,7 +46031,7 @@ def draw_stage2_boss_gauge_bar():
 
 
 def draw_stage8_boss_gauge_bar():
-    """Stage 8 탁닌자 보스 스킬 게이지 - 수리검/연막 테마"""
+    """Stage 8 아카무 리고 보스 스킬 게이지 - 수리검/연막 테마"""
     global current_stage, boss_special_gauge, displayed_boss_gauge
 
     if current_stage != 8:
@@ -46673,7 +46727,7 @@ def draw_stage8_afterimage_ghosts(surface: pygame.Surface) -> None:
 
 
 def _spawn_stage8_shadows(now: int) -> None:
-    """탁닌자 그림자분신 생성 (일반 2개, 초각성 시 4개)."""
+    """아카무 리고 그림자분신 생성 (일반 2개, 초각성 시 4개)."""
     global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms, stage8_awakened
     base_x = stage8_shadow_freeze_posx or BOSS.centerx
     base_y = (stage8_shadow_freeze_posy or BOSS.centery) + STAGE8_SHADOW_Y_OFFSET
@@ -46717,6 +46771,12 @@ def _spawn_stage8_shuriken(now: int) -> None:
     stage8_shurikens.append(
         {"rect": rect, "vx": vx, "vy": vy, "spawn_ms": now}
     )
+    # 표창 던질 때 히트 애니메이션 트리거 (플레이어 방향으로)
+    try:
+        if stage8_boss_sprite:
+            stage8_boss_sprite.trigger_hit(target_x, BOSS.centerx)
+    except Exception:
+        pass
     try:
         play_sound_with_volume(SOUND_SHURIKEN_SHOOT)
     except Exception:
@@ -46962,6 +47022,13 @@ def _stage8_superspeed_dash(now: int) -> None:
 
     boss_dashing = True
     boss_dash_cooldown_until_ms = 0
+
+    # 대쉬 애니메이션 트리거
+    try:
+        if stage8_boss_sprite:
+            stage8_boss_sprite.trigger_dash(direction)
+    except Exception:
+        pass
     # 대쉬 후 경직은 STAGE8_SUPERSPEED_DASH_STUN_FRAMES로 상단에서 처리
 
 
@@ -47349,7 +47416,7 @@ def update_stage8_cloud(now: int | None = None) -> None:
 
 
 def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
-    """그림자분신 렌더링."""
+    """그림자분신 렌더링 - 보스와 동일한 스프라이트 애니메이션 사용."""
     if current_stage != 8:
         return
     now = pygame.time.get_ticks()
@@ -47361,15 +47428,30 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         emerge = min(1.0, elapsed / STAGE8_SHADOW_EMERGE_MS)
         remaining = max(0, STAGE8_SHADOW_DURATION_MS - elapsed)
         fade = min(1.0, remaining / 1500)  # 마지막 1.5초 페이드아웃
-        alpha = int(180 * emerge * fade)
+        alpha = int(200 * emerge * fade)  # 캐릭터가 보이도록 알파값 높임
 
         # 보스 이미지와 동일한 크기로 렌더링 (폴짝 모션)
         hop = int(6 * math.sin(now * 0.012 + rect.x * 0.02))  # 폴짝폴짝 위아래
         draw_rect = rect.copy()
         draw_rect.y += hop
 
+        # 보스와 동일한 스프라이트 애니메이션 프레임 사용
+        try:
+            if stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
+                # 현재 보스의 애니메이션 프레임 가져오기
+                boss_frame = stage8_boss_sprite.get_current_frame((rect.width, rect.height))
+                if boss_frame:
+                    shadow_surface = boss_frame.copy()
+                    # 살짝 어둡고 반투명하게 (캐릭터가 보이도록)
+                    shadow_surface.fill((150, 150, 180, alpha), special_flags=pygame.BLEND_RGBA_MULT)
+                    surface.blit(shadow_surface, draw_rect)
+                    continue
+        except Exception:
+            pass
+
+        # 폴백: 기존 정적 이미지 사용
         shadow_surface = BOSS_IMG_STAGE8.copy()
-        shadow_surface.fill((40, 40, 60, alpha), special_flags=pygame.BLEND_RGBA_MULT)
+        shadow_surface.fill((150, 150, 180, alpha), special_flags=pygame.BLEND_RGBA_MULT)
         surface.blit(shadow_surface, draw_rect)
 
     # 소멸 중인 분신 그리기 (홀로그램 증발 효과)
@@ -47378,16 +47460,28 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         death_elapsed = now - dying["death_start_ms"]
         death_progress = min(1.0, death_elapsed / STAGE8_SHADOW_DEATH_MS)  # 0.0 ~ 1.0
 
-        # 보스 이미지와 동일한 크기로 렌더링
-        img_w = BOSS_IMG_STAGE8_WIDTH
-        img_h = BOSS_IMG_STAGE8_HEIGHT
-        pose_surface = BOSS_IMG_STAGE8.copy()
+        # 보스와 동일한 스프라이트 애니메이션 프레임 사용
+        pose_surface = None
+        try:
+            if stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
+                boss_frame = stage8_boss_sprite.get_current_frame((rect.width, rect.height))
+                if boss_frame:
+                    pose_surface = boss_frame.copy()
+        except Exception:
+            pass
+
+        # 폴백: 기존 정적 이미지 사용
+        if pose_surface is None:
+            pose_surface = BOSS_IMG_STAGE8.copy()
+
+        img_w = pose_surface.get_width()
+        img_h = pose_surface.get_height()
 
         draw_rect = rect.copy()
 
         # 홀로그램 증발 효과
-        # 1. 전체 알파 감소 (180 → 0)
-        base_alpha = int(180 * (1.0 - death_progress))
+        # 1. 전체 알파 감소 (200 → 0, 캐릭터가 보이도록)
+        base_alpha = int(200 * (1.0 - death_progress))
 
         # 2. 위쪽부터 서서히 사라지는 효과 (스캔라인)
         scanline_progress = death_progress * img_h
@@ -47424,7 +47518,7 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
                 line_rect = pygame.Rect(0, y, img_w, 1)
                 try:
                     line_surface = shadow_base.subsurface(line_rect).copy()
-                    line_surface.fill((40, 40, 60, line_alpha), special_flags=pygame.BLEND_RGBA_MULT)
+                    line_surface.fill((150, 150, 180, line_alpha), special_flags=pygame.BLEND_RGBA_MULT)
                     dying_surface.blit(line_surface, (10, y))
                 except ValueError:
                     pass
@@ -51355,8 +51449,22 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
     return carrier_surface
 
 def _build_stage8_walk_pose(base_img, boss_rect):
-    """스테이지8 닌자 보스의 걸음 모션을 절차적으로 생성한다."""
+    """스테이지8 닌자 보스의 걸음 모션을 스프라이트 시트 기반으로 생성한다."""
     global stage8_prev_x, stage8_walk_cycle, stage8_idle_phase
+    global stage8_boss_sprite, STAGE8_BOSS_ANIMATION_AVAILABLE
+
+    # 스프라이트 애니메이션 사용 가능한 경우
+    if STAGE8_BOSS_ANIMATION_AVAILABLE and stage8_boss_sprite is not None:
+        # 보스 위치로 애니메이션 업데이트
+        boss_x_pos = float(boss_rect.centerx)
+        stage8_boss_sprite.update(boss_x_pos, 1/60)
+
+        # 현재 프레임 가져오기 (스케일 적용)
+        boss_w, boss_h = BOSS_IMG_STAGE8_WIDTH, BOSS_IMG_STAGE8_HEIGHT
+        boss_img = stage8_boss_sprite.get_current_frame((boss_w, boss_h))
+        return boss_img, boss_w, boss_h
+
+    # 폴백: 기존 절차적 애니메이션
     base_w, base_h = base_img.get_size()
     dx = 0.0
     if stage8_prev_x is not None:
@@ -51439,6 +51547,8 @@ def draw_objects():
     global stage7_prev_x, stage7_lean_value
     global foul_whistle_pending_round_reset
     global ball_spawn_animation_active, ball_spawn_animation_stage_start
+    global player_knockback_vel  # 우박 넉백용
+    global player_missile_knockback_vel  # 미사일 넉백용
     new_tear_particles = []  #  함수 시작 시 초기화
     
     # 전설 아이템 물결 효과 그리기 (업데이트는 물리 루프에서 이미 처리됨)
@@ -55332,8 +55442,31 @@ def draw_objects():
     # 🌧️ 소나기 이벤트 파티클 업데이트 및 그리기
     if is_rain_active():
         init_rain_particles(WIDTH, HEIGHT)
-        update_rain_particles(WIDTH, HEIGHT)
+        # 비는 플레이어를 그냥 통과함 (패들 충돌 없음, 바닥 튀김만 적용)
+        update_rain_particles_with_collision(WIDTH, HEIGHT, None, None)
         draw_rain_particles(SCREEN, WIDTH, HEIGHT)
+
+    # 🧊 우박 이벤트 파티클 업데이트 및 그리기
+    if is_hail_active():
+        init_hail_particles(WIDTH, HEIGHT)
+        # 플레이어 충돌 체크 포함
+        hail_hit = update_hail_particles(WIDTH, HEIGHT, PLAYER)
+        if hail_hit is not None:
+            # 우박에 맞음! 넉백 적용 (화염탄과 동일한 방식)
+            if player_stun_immunity_timer <= 0:
+                stun_applied = try_apply_player_stun(hail_hit["stun_duration"], source="hail", knockback_scaled=True)
+                if stun_applied > 0:
+                    # 화염탄과 동일: 넉백 속도 설정 (급가속 → 부드러운 감속)
+                    old_x = PLAYER.x
+                    knockback_dir = random.choice([-12, 12])
+                    player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
+                    # 첫 프레임 이동 + 즉시 감속 (실행 순서 문제 해결)
+                    PLAYER.x += player_knockback_vel
+                    PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+                    print(f"🧊 [HAIL HIT] 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, dir={knockback_dir})")
+                    # 즉시 감속 적용 (다음 프레임과의 갭 제거)
+                    player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
+        draw_hail_particles(SCREEN, WIDTH, HEIGHT)
 
     # 🌪️ 날씨 UI 타이머 업데이트 및 경고/상태 표시
     update_weather_ui_timers()
@@ -55369,15 +55502,22 @@ def draw_objects():
                 and not is_player_in_smoke()
             )
             if collided_with_player:
-                # 스테이지 5 화염탄 대비 50% 짧은 스턴 + 가벼운 넉백
+                # 스테이지 5 네메시스 미사일 넉백 (화염탄과 동일한 구조)
                 missile_speed = math.sqrt(missile['vx']**2 + missile['vy']**2)
                 if missile_speed > 0:
                     knockback_direction = missile['vx'] / abs(missile['vx']) if missile['vx'] != 0 else random.choice([-1, 1])
-                    # 약간 더 강한 넉백으로 조정
-                    player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_direction * 14))
-                    stun_applied = try_apply_player_stun(0.15, source="stage6_missile", knockback_scaled=True)  # 기존 0.3s → 0.15s
+                    stun_applied = try_apply_player_stun(0.15, source="stage5_missile", knockback_scaled=True)
                     if stun_applied > 0:
-                        player_missile_stunned_timer = int(stun_applied * FPS)  # 실제 적용 시간 반영
+                        # 화염탄/우박과 동일: 넉백 속도 설정 (급가속 → 부드러운 감속)
+                        old_x = PLAYER.x
+                        player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_direction * 14))
+                        player_missile_stunned_timer = int(stun_applied * FPS)
+                        # 첫 프레임 이동 + 즉시 감속 (실행 순서 문제 해결)
+                        PLAYER.x += player_missile_knockback_vel
+                        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+                        print(f"🚀 [MISSILE HIT] 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_missile_knockback_vel:.2f})")
+                        # 즉시 감속 적용 (다음 프레임과의 갭 제거)
+                        player_missile_knockback_vel *= 0.85 * _get_knockback_resist_scale()
                 # 충돌 효과 및 파티클
                 # 불꽃 느낌의 얇은 입자를 위해 주황 계열(플레이어 색)로 렌더
                 effects_manager.create_impact_effect(missile['x'], missile['y'], 10, is_player=True)
@@ -70332,7 +70472,7 @@ def show_stage7_intro():
 
 def show_stage8_intro():
     stage_text = "STAGE 8"
-    boss_name = "탁닌자"
+    boss_name = "아카무 리고"
 
     played_video = False
     if STAGE8_INTRO_VIDEO_PATH:
@@ -70446,6 +70586,284 @@ def show_stage8_intro():
         SCREEN.blit(wind_overlay, (0, 0))
         pygame.display.flip()
         pygame.time.delay(25)
+
+
+def show_stage8_boss_dialogue():
+    """
+    스테이지 8 보스 대화 시스템 (JRPG 스타일)
+    캐릭터가 오른쪽에 크게 표시되고, 대화창은 하단 전체에 위치
+    """
+    global stage8_boss_dialogue_shown, stage8_boss_portrait
+
+    clock = pygame.time.Clock()
+
+    # 폰트 설정
+    font_name = FontStyle.subtitle()   # 28pt 화자 이름용
+    font_text = FontStyle.body()       # 22pt 대사용
+    font_small = FontStyle.small()     # 16pt 안내용
+
+    # 보스 초상화 이미지 로드 (크게 표시)
+    portrait_path = resource_path(os.path.join("chat", "stage8.png"))
+    angry_portrait_path = resource_path(os.path.join("chat", "stage8angry.png"))
+    boss_portrait = None
+    boss_portrait_angry = None
+
+    # 일반 초상화 로드
+    try:
+        boss_portrait = pygame.image.load(portrait_path).convert_alpha()
+        # JRPG 스타일: 화면 오른쪽에 크게 표시 (화면 높이의 70% 정도)
+        target_height = int(HEIGHT * 0.75)
+        aspect_ratio = boss_portrait.get_width() / boss_portrait.get_height()
+        target_width = int(target_height * aspect_ratio)
+        boss_portrait = pygame.transform.smoothscale(boss_portrait, (target_width, target_height))
+        print(f"✅ 스테이지 8 보스 초상화 로드 (JRPG): {target_width}x{target_height}")
+    except Exception as e:
+        print(f"⚠️ 스테이지 8 보스 초상화 로드 실패: {e}")
+        # 폴백 초상화
+        boss_portrait = pygame.Surface((300, 450), pygame.SRCALPHA)
+        pygame.draw.ellipse(boss_portrait, (60, 80, 120), (30, 30, 240, 380))
+        pygame.draw.circle(boss_portrait, (100, 130, 180), (150, 100), 70)
+
+    # 화난 초상화 로드
+    try:
+        boss_portrait_angry = pygame.image.load(angry_portrait_path).convert_alpha()
+        target_height = int(HEIGHT * 0.75)
+        aspect_ratio = boss_portrait_angry.get_width() / boss_portrait_angry.get_height()
+        target_width = int(target_height * aspect_ratio)
+        boss_portrait_angry = pygame.transform.smoothscale(boss_portrait_angry, (target_width, target_height))
+        print(f"✅ 스테이지 8 보스 화난 초상화 로드: {target_width}x{target_height}")
+    except Exception as e:
+        print(f"⚠️ 스테이지 8 보스 화난 초상화 로드 실패: {e}")
+        # 폴백: 일반 초상화 사용
+        boss_portrait_angry = boss_portrait
+
+    # 대화 시퀀스
+    dialogues = [
+        {
+            "speaker": "아카무 리고",
+            "text": "여기까지 온 것도 용케 대단한데? 흐흐흐",
+            "name_color": (120, 180, 255),  # 밝은 청색
+            "is_boss": True,
+            "use_angry_portrait": False  # 일반 표정
+        },
+        {
+            "speaker": "주인공",
+            "text": "시끄러 이 망할 요상한 닌자녀석",
+            "name_color": (255, 220, 100),  # 황금색
+            "is_boss": False,
+            "use_angry_portrait": False
+        },
+        {
+            "speaker": "아카무 리고",
+            "text": "너도 멘헤라걸 곁으로 보내주지",
+            "name_color": (255, 100, 100),  # 붉은색 (화남)
+            "is_boss": True,
+            "use_angry_portrait": True  # 화난 표정 사용
+        }
+    ]
+
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
+
+    # 대화창 디자인 설정 (JRPG 스타일)
+    dialogue_height = 150
+    dialogue_margin = 20
+    name_box_width = 160
+    name_box_height = 40
+
+    for dialogue in dialogues:
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 30  # 밀리초당 한 글자 (약간 빠르게)
+        last_char_time = pygame.time.get_ticks()
+
+        # 캐릭터 등장 애니메이션
+        slide_progress = 0.0
+        slide_duration = 0.3  # 0.3초 슬라이드 인
+
+        running = True
+        start_time = pygame.time.get_ticks()
+
+        while running:
+            current_time = pygame.time.get_ticks()
+            dt = clock.tick(60) / 1000.0
+
+            # 슬라이드 애니메이션 진행
+            if slide_progress < 1.0:
+                slide_progress = min(1.0, (current_time - start_time) / 1000.0 / slide_duration)
+                # 이징 함수 (ease out)
+                slide_progress = 1.0 - (1.0 - slide_progress) ** 2
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
+                        if text_complete:
+                            running = False
+                        else:
+                            displayed_text = dialogue["text"]
+                            text_complete = True
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if text_complete:
+                        running = False
+                    else:
+                        displayed_text = dialogue["text"]
+                        text_complete = True
+
+            # 타이핑 효과 (슬라이드 완료 후 시작)
+            if slide_progress >= 1.0:
+                if not text_complete and current_time - last_char_time >= typing_speed:
+                    if len(displayed_text) < len(dialogue["text"]):
+                        displayed_text += dialogue["text"][len(displayed_text)]
+                        last_char_time = current_time
+                    else:
+                        text_complete = True
+
+            # === 배경 그리기 ===
+            SCREEN.blit(background, (0, 0))
+
+            # 어두운 오버레이 (상단 부분만)
+            overlay = pygame.Surface((WIDTH, HEIGHT - dialogue_height - dialogue_margin), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 120))
+            SCREEN.blit(overlay, (0, 0))
+
+            # === 캐릭터 초상화 (오른쪽에 크게) ===
+            if dialogue["is_boss"] and boss_portrait:
+                # 화난 표정 여부에 따라 초상화 선택
+                current_portrait = boss_portrait_angry if dialogue.get("use_angry_portrait", False) else boss_portrait
+
+                # 슬라이드 인 애니메이션 (오른쪽에서 들어옴)
+                final_x = WIDTH - current_portrait.get_width() + 30  # 약간 오른쪽으로 걸쳐서
+                start_x = WIDTH + 50
+                portrait_x = int(start_x + (final_x - start_x) * slide_progress)
+                portrait_y = HEIGHT - dialogue_height - current_portrait.get_height() + 40
+
+                # 그림자 효과
+                shadow = pygame.Surface((current_portrait.get_width(), current_portrait.get_height()), pygame.SRCALPHA)
+                shadow.fill((0, 0, 0, 80))
+                SCREEN.blit(shadow, (portrait_x + 8, portrait_y + 8))
+
+                # 초상화 그리기
+                SCREEN.blit(current_portrait, (portrait_x, portrait_y))
+
+            # === 대화창 (하단 전체, JRPG 스타일) ===
+            dialogue_y = HEIGHT - dialogue_height - dialogue_margin
+
+            # 대화창 배경 (그라데이션 효과)
+            dialogue_bg = pygame.Surface((WIDTH - dialogue_margin * 2, dialogue_height), pygame.SRCALPHA)
+
+            # 어두운 반투명 배경
+            for y in range(dialogue_height):
+                alpha = 220 - int(y * 0.3)  # 상단이 약간 더 투명
+                pygame.draw.line(dialogue_bg, (15, 20, 35, alpha), (0, y), (WIDTH - dialogue_margin * 2, y))
+
+            # 테두리 (금색 스타일)
+            border_color = (180, 150, 80)  # 금색
+            inner_border = (220, 190, 120)  # 밝은 금색
+
+            # 외곽 테두리
+            pygame.draw.rect(dialogue_bg, border_color, (0, 0, WIDTH - dialogue_margin * 2, dialogue_height), 3)
+            # 내부 테두리 (하이라이트)
+            pygame.draw.rect(dialogue_bg, inner_border, (3, 3, WIDTH - dialogue_margin * 2 - 6, dialogue_height - 6), 1)
+
+            # 모서리 장식 (JRPG 스타일)
+            corner_size = 12
+            # 좌상단
+            pygame.draw.lines(dialogue_bg, inner_border, False, [(0, corner_size), (0, 0), (corner_size, 0)], 2)
+            # 우상단
+            pygame.draw.lines(dialogue_bg, inner_border, False,
+                            [(WIDTH - dialogue_margin * 2 - corner_size, 0),
+                             (WIDTH - dialogue_margin * 2, 0),
+                             (WIDTH - dialogue_margin * 2, corner_size)], 2)
+            # 좌하단
+            pygame.draw.lines(dialogue_bg, inner_border, False,
+                            [(0, dialogue_height - corner_size),
+                             (0, dialogue_height),
+                             (corner_size, dialogue_height)], 2)
+            # 우하단
+            pygame.draw.lines(dialogue_bg, inner_border, False,
+                            [(WIDTH - dialogue_margin * 2 - corner_size, dialogue_height),
+                             (WIDTH - dialogue_margin * 2, dialogue_height),
+                             (WIDTH - dialogue_margin * 2, dialogue_height - corner_size)], 2)
+
+            SCREEN.blit(dialogue_bg, (dialogue_margin, dialogue_y))
+
+            # === 이름 박스 (대화창 위에 겹쳐서) ===
+            name_box_x = dialogue_margin + 25
+            name_box_y = dialogue_y - name_box_height // 2
+
+            # 이름 박스 배경
+            name_box = pygame.Surface((name_box_width, name_box_height), pygame.SRCALPHA)
+            name_box.fill((25, 30, 50, 240))
+
+            # 이름 박스 테두리 (화자 색상)
+            pygame.draw.rect(name_box, dialogue["name_color"], (0, 0, name_box_width, name_box_height), 2)
+            # 내부 하이라이트
+            highlight_color = tuple(min(255, c + 40) for c in dialogue["name_color"])
+            pygame.draw.rect(name_box, highlight_color, (2, 2, name_box_width - 4, name_box_height - 4), 1)
+
+            SCREEN.blit(name_box, (name_box_x, name_box_y))
+
+            # 화자 이름 (이름 박스 중앙)
+            speaker_surface = font_name.render(dialogue["speaker"], True, dialogue["name_color"])
+            speaker_rect = speaker_surface.get_rect(center=(name_box_x + name_box_width // 2, name_box_y + name_box_height // 2))
+            SCREEN.blit(speaker_surface, speaker_rect)
+
+            # === 대사 텍스트 ===
+            text_x = dialogue_margin + 35
+            text_y = dialogue_y + 30
+            max_text_width = WIDTH - dialogue_margin * 2 - 70
+
+            # 텍스트 줄바꿈 처리
+            lines = []
+            current_line = ""
+            for char in displayed_text:
+                test_line = current_line + char
+                test_surface = font_text.render(test_line, True, WHITE)
+                if test_surface.get_width() <= max_text_width:
+                    current_line = test_line
+                else:
+                    lines.append(current_line)
+                    current_line = char
+            if current_line:
+                lines.append(current_line)
+
+            # 텍스트 렌더링 (그림자 포함)
+            line_height = font_text.get_linesize() + 4
+            for i, line in enumerate(lines[:3]):  # 최대 3줄
+                # 그림자
+                shadow_surface = font_text.render(line, True, (0, 0, 0))
+                SCREEN.blit(shadow_surface, (text_x + 2, text_y + i * line_height + 2))
+                # 메인 텍스트
+                text_surface = font_text.render(line, True, (255, 255, 255))
+                SCREEN.blit(text_surface, (text_x, text_y + i * line_height))
+
+            # === 계속 표시 (삼각형 아이콘) ===
+            if text_complete:
+                indicator_x = WIDTH - dialogue_margin - 40
+                indicator_y = dialogue_y + dialogue_height - 30
+
+                # 깜빡임 효과
+                blink = (current_time // 400) % 2 == 0
+                if blink:
+                    # 아래 방향 삼각형
+                    triangle_points = [
+                        (indicator_x, indicator_y),
+                        (indicator_x + 16, indicator_y),
+                        (indicator_x + 8, indicator_y + 12)
+                    ]
+                    pygame.draw.polygon(SCREEN, (255, 220, 100), triangle_points)
+                    pygame.draw.polygon(SCREEN, (180, 150, 80), triangle_points, 2)
+
+            pygame.display.flip()
+
+    # 대화 완료
+    stage8_boss_dialogue_shown = True
+    print("✅ 스테이지 8 보스 대화 완료 (JRPG 스타일)")
+    return True
 
 
 def draw_stage3_border():
@@ -72049,6 +72467,18 @@ def reset_round():
         stage8_shurikens.clear()
         stage8_shuriken_gauge_ticks_left = 0
         stage8_shuriken_gauge_tick_timer = 0
+    else:
+        # Stage 8: 라운드 리셋 시 보스 패배/승리 애니메이션 리셋
+        # (새 서브 시작 전에 애니메이션 상태 초기화)
+        if stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
+            stage8_boss_sprite.is_defeated = False
+            stage8_boss_sprite.defeat_frame = 0
+            stage8_boss_sprite.defeat_timer = 0.0
+            stage8_boss_sprite.defeat_finished = False
+            stage8_boss_sprite.is_victorious = False
+            stage8_boss_sprite.victory_frame = 0
+            stage8_boss_sprite.victory_timer = 0.0
+            stage8_boss_sprite.victory_finished = False
 
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
@@ -77182,7 +77612,11 @@ def handle_ball():
             if current_stage == 2:
                 checkmate_system = get_checkmate_system()
                 checkmate_system.check_checkmate(round_wins, round_losses)
-            
+
+            # Stage 8에서 플레이어 득점 시 아카무 리고 패배 애니메이션
+            if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
+                stage8_boss_sprite.trigger_defeat()
+
             # Stage 4에서 플레이어가 4점 획득 시 플래그 설정 (다음 라운드에서 애니메이션 시작)
             # 애니메이션은 go_to_next_round()에서 실행됨
 
@@ -77234,6 +77668,9 @@ def handle_ball():
             # 스테이지 2에서 플레이어 패배 시 악어 활짝 웃기
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('happy')
+            # Stage 8에서 보스 승리 시 아카무 리고 승리 애니메이션
+            if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
+                stage8_boss_sprite.trigger_victory()
             show_result(False)
             return
         elif result == "deuce_started" or result == "deuce_restart":
@@ -77559,6 +77996,9 @@ def handle_ball():
                 return
 
             boss_name = get_boss_name(current_stage, "보스")
+            # Stage 8에서 보스가 라운드 이길 때 아카무 리고 승리 애니메이션 (show_winner_text 전에 트리거)
+            if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
+                stage8_boss_sprite.trigger_victory()
             show_winner_text(boss_name)
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage)
             # 코만도 권총 UI 표시
@@ -77591,6 +78031,9 @@ def handle_ball():
             game_state.round_losses = round_losses
             emit_event(EventType.ROUND_LOSE, {'stage': current_stage, 'score': round_losses})
             boss_name = get_boss_name(current_stage, "보스")
+            # Stage 8에서 보스가 라운드 이길 때 아카무 리고 승리 애니메이션 (show_winner_text 전에 트리거)
+            if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
+                stage8_boss_sprite.trigger_victory()
             show_winner_text(boss_name)
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage)
             # 코만도 권총 UI 표시
@@ -77611,6 +78054,9 @@ def handle_ball():
             # 스테이지 2에서 플레이어 패배 시 악어 활짝 웃기
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('happy')
+            # Stage 8에서 보스 승리 시 아카무 리고 승리 애니메이션
+            if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
+                stage8_boss_sprite.trigger_victory()
             show_result(False)
             return
         elif result == "deuce_started" or result == "deuce_restart":
@@ -78135,6 +78581,13 @@ def handle_ball():
                 gain = 80
             boss_special_gauge = min(boss_special_gauge + gain, 500)
             print(f"스테이지{current_stage} 보스 게이지 충전: +{gain} (현재: {boss_special_gauge}/500)")
+            # 스테이지 8 보스 히트 애니메이션 트리거
+            if current_stage == 8:
+                try:
+                    if stage8_boss_sprite:
+                        stage8_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
+                except Exception as e:
+                    print(f"⚠️ 스테이지8 히트 애니메이션 트리거 실패: {e}")
             # 스테이지 8: 패들 피격 시 25% 확률 그림자분신 / 35% 확률 구름장막 (조건 만족 시)
             if current_stage == 8:
                 if (
@@ -81441,6 +81894,12 @@ def handle_boss():
 
         if boss_dash_timer <= 0:
             boss_dashing = False
+            # 대쉬 애니메이션 종료 (스테이지 8)
+            try:
+                if current_stage == 8 and stage8_boss_sprite:
+                    stage8_boss_sprite.stop_dash()
+            except Exception:
+                pass
             # 대쉬 종료 후 후딜 시간 설정 (스테이지별 설정 기반)
             try:
                 stage_cfg = BOSS_CONFIGS.get(current_stage, {})
@@ -82603,6 +83062,7 @@ def show_result(won):
 
     # 날씨 이벤트 상태 리셋 (스테이지 종료 시 날씨 사운드 정지 포함)
     reset_weather_state()
+    reset_hail_state()  # 우박 상태도 리셋
 
     # 필살기 초기화 (Aipill 활성화 시 또는 배터리 보유 시에는 게이지 유지)
     if not aipill_active and not battery_obtained:
@@ -83416,6 +83876,7 @@ def main(stage_num, new_boss_mode=False):
 
     # 🌪️ 날씨 이벤트 상태 초기화 (새 스테이지 시작 시)
     reset_weather_state()
+    reset_hail_state()  # 우박 상태도 리셋
 
     # 🎳 볼링트랩 설치물 초기화 (새 스테이지 시작 시)
     try:
@@ -84726,6 +85187,14 @@ def main(stage_num, new_boss_mode=False):
                     boss_fake_start_time = pygame.time.get_ticks()
                 print(f"🎮 공 생성 애니메이션 완료 - 서브 대기 (플레이어 서브: {is_player_serve}, wait_delay: {wait_delay})")
 
+                # 스테이지 8: 공 생성 애니메이션 완료 후 보스 대화 표시
+                if current_stage == 8 and not stage8_boss_dialogue_shown:
+                    show_stage8_boss_dialogue()
+                    # 대화 후 서브 타이머 다시 리셋
+                    waiting_start_time = pygame.time.get_ticks()
+                    if not is_player_serve:
+                        wait_delay = random.randint(800, 1200)  # 대화 후 약간 더 긴 딜레이
+
         if current_stage == 8 and stage8_awaken_intro_pending and now_ms >= stage8_awaken_freeze_end_ms:
             stage8_awaken_intro_pending = False
             stage8_awaken_intro_done = True
@@ -84760,7 +85229,13 @@ def main(stage_num, new_boss_mode=False):
             capture_screenshot()
         _screenshot_key_pressed = keys[pygame.K_RIGHTBRACKET]
 
-        # 8번키로 튜토리얼에서 현재 챕터 완료하고 다음 챕터로 이동 (스테이지 50에서만)
+        # 8번키: 튜토리얼(스테이지50)에서는 챕터 스킵, 일반 스테이지에서는 날씨 디버그 메뉴
+        if keys[pygame.K_8] and not getattr(main, 'key8_pressed', False):
+            if current_stage != 50:
+                # 일반 스테이지: 날씨 이벤트 디버그 메뉴
+                print("🌤️ 8번 키: 날씨 이벤트 디버그 메뉴")
+                show_weather_debug_menu()
+                main.key8_pressed = keys[pygame.K_8]
         if current_stage == 50 and keys[pygame.K_8] and not getattr(main, 'key8_pressed', False):
             print("🎮 8번 키: 현재 챕터 완료 및 다음 챕터로 이동")
             
@@ -89369,6 +89844,216 @@ def show_player_info():
             SCREEN.blit(detail_text, detail_rect)
         pygame.display.flip()
 
+
+def show_weather_debug_menu():
+    """디버그용 날씨 이벤트 선택 메뉴 (8번 키)"""
+    global SCREEN, WIDTH, HEIGHT
+
+    font_title = FontStyle.subtitle()  # 32pt
+    font_body = FontStyle.body()  # 24pt
+    font_small = FontStyle.small()  # 20pt
+
+    # 날씨 이벤트 목록
+    weather_options = [
+        ("1. 미풍 (Breeze)", "breeze", "약한 바람이 불어옵니다"),
+        ("2. 강풍 (Gust)", "gust", "강한 바람이 불어옵니다"),
+        ("3. 화재 (Fire)", "fire", "불꽃이 일어납니다"),
+        ("4. 빙판 (Ice)", "ice", "바닥이 미끄러워집니다"),
+        ("5. 소나기 (Rain)", "rain", "이동속도가 40% 감소합니다"),
+        ("6. 우박 (Hail)", "hail", "우박에 맞으면 짧은 넉백"),
+        ("7. 날씨 해제", "clear", "현재 날씨 효과를 해제합니다"),
+        ("ESC. 취소", "cancel", "메뉴를 닫습니다"),
+    ]
+
+    selected_index = 0
+    menu_running = True
+    option_rects = []  # 마우스 클릭 영역 저장
+
+    def execute_weather_option(weather_type):
+        """날씨 이벤트 실행"""
+        if weather_type == "breeze":
+            force_start_breeze_event(duration=3)
+            print("🌬️ [DEBUG] 미풍 이벤트 강제 발동!")
+        elif weather_type == "gust":
+            force_start_gust_event(duration=2)
+            print("💨 [DEBUG] 강풍 이벤트 강제 발동!")
+        elif weather_type == "fire":
+            force_start_fire_event(duration=3)
+            print("🔥 [DEBUG] 화재 이벤트 강제 발동!")
+        elif weather_type == "ice":
+            force_start_ice_event(duration=3)
+            print("🧊 [DEBUG] 빙판 이벤트 강제 발동!")
+        elif weather_type == "rain":
+            force_start_rain_event(duration=3)
+            print("🌧️ [DEBUG] 소나기 이벤트 강제 발동!")
+        elif weather_type == "hail":
+            force_start_hail_event(duration=3)
+            print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
+        elif weather_type == "clear":
+            reset_weather_state()
+            reset_hail_state()
+            print("☀️ [DEBUG] 날씨 효과 해제!")
+
+    while menu_running:
+        # 마우스 위치
+        mouse_pos = pygame.mouse.get_pos()
+
+        # 배경 어둡게
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        SCREEN.blit(overlay, (0, 0))
+
+        # 메뉴 패널
+        panel_width = 400
+        panel_height = 420  # 우박 옵션 추가로 높이 증가
+        panel_x = (WIDTH - panel_width) // 2
+        panel_y = (HEIGHT - panel_height) // 2
+
+        # 패널 배경
+        pygame.draw.rect(SCREEN, (30, 30, 50), (panel_x, panel_y, panel_width, panel_height))
+        pygame.draw.rect(SCREEN, (100, 150, 255), (panel_x, panel_y, panel_width, panel_height), 3)
+
+        # 제목
+        title_text = font_title.render("🌤️ 날씨 이벤트 디버그", True, (255, 255, 255))
+        title_rect = title_text.get_rect(center=(WIDTH // 2, panel_y + 35))
+        SCREEN.blit(title_text, title_rect)
+
+        # 현재 날씨 상태 표시
+        current_weather = "없음"
+        if is_weather_active() or is_hail_active():
+            if is_fire_active():
+                current_weather = "🔥 화재"
+            elif is_ice_active():
+                current_weather = "🧊 빙판"
+            elif is_rain_active():
+                current_weather = "🌧️ 소나기"
+            elif is_hail_active():
+                current_weather = "🧊 우박"
+            else:
+                direction = get_weather_direction()
+                if direction != 0:
+                    dir_text = "←" if direction < 0 else "→"
+                    current_weather = f"💨 바람 {dir_text}"
+
+        status_text = font_small.render(f"현재 날씨: {current_weather}", True, (200, 200, 100))
+        status_rect = status_text.get_rect(center=(WIDTH // 2, panel_y + 70))
+        SCREEN.blit(status_text, status_rect)
+
+        # 옵션 목록 및 마우스 호버 처리
+        option_y = panel_y + 110
+        option_rects = []  # 매 프레임 갱신
+        for i, (label, _, desc) in enumerate(weather_options):
+            option_rect = pygame.Rect(panel_x + 20, option_y - 5, panel_width - 40, 35)
+            option_rects.append(option_rect)
+
+            # 마우스 호버 시 선택 인덱스 변경
+            if option_rect.collidepoint(mouse_pos):
+                selected_index = i
+
+            # 선택된 항목 하이라이트
+            if i == selected_index:
+                pygame.draw.rect(SCREEN, (60, 80, 120), option_rect)
+                pygame.draw.rect(SCREEN, (100, 150, 255), option_rect, 2)
+                text_color = (255, 255, 255)
+            else:
+                text_color = (180, 180, 180)
+
+            option_text = font_body.render(label, True, text_color)
+            SCREEN.blit(option_text, (panel_x + 30, option_y))
+            option_y += 38
+
+        # 선택된 항목 설명
+        desc_text = font_small.render(weather_options[selected_index][2], True, (150, 200, 255))
+        desc_rect = desc_text.get_rect(center=(WIDTH // 2, panel_y + panel_height - 30))
+        SCREEN.blit(desc_text, desc_rect)
+
+        pygame.display.flip()
+
+        # 이벤트 처리
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            # 마우스 클릭 처리
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for i, rect in enumerate(option_rects):
+                    if rect.collidepoint(event.pos):
+                        weather_type = weather_options[i][1]
+                        if weather_type != "cancel":
+                            execute_weather_option(weather_type)
+                        menu_running = False
+                        break
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    menu_running = False
+                elif event.key == pygame.K_UP:
+                    selected_index = (selected_index - 1) % len(weather_options)
+                elif event.key == pygame.K_DOWN:
+                    selected_index = (selected_index + 1) % len(weather_options)
+                elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                    # 선택된 날씨 이벤트 발동
+                    weather_type = weather_options[selected_index][1]
+                    if weather_type == "breeze":
+                        force_start_breeze_event(duration=3)
+                        print("🌬️ [DEBUG] 미풍 이벤트 강제 발동!")
+                    elif weather_type == "gust":
+                        force_start_gust_event(duration=2)
+                        print("💨 [DEBUG] 강풍 이벤트 강제 발동!")
+                    elif weather_type == "fire":
+                        force_start_fire_event(duration=3)
+                        print("🔥 [DEBUG] 화재 이벤트 강제 발동!")
+                    elif weather_type == "ice":
+                        force_start_ice_event(duration=3)
+                        print("🧊 [DEBUG] 빙판 이벤트 강제 발동!")
+                    elif weather_type == "rain":
+                        force_start_rain_event(duration=3)
+                        print("🌧️ [DEBUG] 소나기 이벤트 강제 발동!")
+                    elif weather_type == "hail":
+                        force_start_hail_event(duration=3)
+                        print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
+                    elif weather_type == "clear":
+                        reset_weather_state()
+                        reset_hail_state()
+                        print("☀️ [DEBUG] 날씨 효과 해제!")
+                    elif weather_type == "cancel":
+                        pass
+                    menu_running = False
+                # 숫자키로 직접 선택
+                elif event.key == pygame.K_1:
+                    force_start_breeze_event(duration=3)
+                    print("🌬️ [DEBUG] 미풍 이벤트 강제 발동!")
+                    menu_running = False
+                elif event.key == pygame.K_2:
+                    force_start_gust_event(duration=2)
+                    print("💨 [DEBUG] 강풍 이벤트 강제 발동!")
+                    menu_running = False
+                elif event.key == pygame.K_3:
+                    force_start_fire_event(duration=3)
+                    print("🔥 [DEBUG] 화재 이벤트 강제 발동!")
+                    menu_running = False
+                elif event.key == pygame.K_4:
+                    force_start_ice_event(duration=3)
+                    print("🧊 [DEBUG] 빙판 이벤트 강제 발동!")
+                    menu_running = False
+                elif event.key == pygame.K_5:
+                    force_start_rain_event(duration=3)
+                    print("🌧️ [DEBUG] 소나기 이벤트 강제 발동!")
+                    menu_running = False
+                elif event.key == pygame.K_6:
+                    force_start_hail_event(duration=3)
+                    print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
+                    menu_running = False
+                elif event.key == pygame.K_7:
+                    reset_weather_state()
+                    reset_hail_state()
+                    print("☀️ [DEBUG] 날씨 효과 해제!")
+                    menu_running = False
+
+        pygame.time.Clock().tick(60)
+
+    return
+
+
 def show_character_info(background_surface=None):
     """일시정지 메뉴 → 캐릭터정보 화면.
 
@@ -89967,6 +90652,11 @@ def show_character_info(background_surface=None):
             move_speed *= get_optimus_gauge_ratio()
             move_speed = max(1.0, move_speed)
 
+        # 🌧️ 소나기 이벤트 시 이동속도 감소 반영
+        if is_rain_active():
+            rain_penalty = get_rain_speed_penalty()
+            move_speed *= (1.0 - rain_penalty)
+
         def estimate_dash_distance(base_timer: float) -> float:
             """대쉬 타이머(프레임)로 예상 이동거리를 근사한다."""
             try:
@@ -90532,8 +91222,16 @@ def show_character_info(background_surface=None):
             current = stat["current"]
             higher_better = stat.get("higher_is_better", True)
             delta = current - base
+            # 버프/디버프 판정: higher_is_better에 따라 delta 방향으로 판단
             is_boosted = delta > 0.001 if higher_better else delta < -0.001
-            value_color = (120, 255, 170) if is_boosted else WHITE
+            is_debuffed = delta < -0.001 if higher_better else delta > 0.001
+            # 색상: 버프=녹색, 디버프=빨간색, 변화없음=흰색
+            if is_boosted:
+                value_color = (120, 255, 170)  # 녹색 (버프)
+            elif is_debuffed:
+                value_color = (255, 120, 120)  # 빨간색 (디버프)
+            else:
+                value_color = WHITE
 
             unit = stat.get("unit", "")
             if unit in ("x", "s", "초"):
@@ -90992,6 +91690,36 @@ def show_game_info():
             base_speed_info = MAX_SPEED
         turn_speed_info = base_speed_info * (1.5 if speedgear_obtained else 1.0)
         paddle_width_info = PADDLE_WIDTH
+
+        # 🌧️ 소나기 이벤트 시 이동속도 감소 반영
+        current_speed_info = base_speed_info
+        rain_debuff_text = ""
+        rain_active = is_rain_active()
+        if rain_active:
+            rain_penalty = get_rain_speed_penalty()
+            current_speed_info = base_speed_info * (1.0 - rain_penalty)
+            rain_debuff_text = f" (🌧️-{int(rain_penalty * 100)}%)"
+
+        # 🧊 얼음 이벤트 시 방향전환속도 감소 반영
+        current_turn_speed = turn_speed_info
+        ice_debuff_text = ""
+        ice_active = is_ice_active()
+        if ice_active:
+            ice_penalty = get_ice_direction_change_multiplier()  # 0.20 = 80% 감소
+            current_turn_speed = turn_speed_info * ice_penalty
+            ice_debuff_text = f" (🧊-{int((1 - ice_penalty) * 100)}%)"
+
+        # 이동속도/방향전환속도 표시 문자열 구성
+        if rain_active:
+            speed_display = f"이동속도: {current_speed_info:.1f}{rain_debuff_text}"
+        else:
+            speed_display = f"기본 이동속도: {base_speed_info}"
+
+        if ice_active:
+            turn_display = f"방향전환속도: {current_turn_speed:.1f}{ice_debuff_text}"
+        else:
+            turn_display = f"방향전환속도: {turn_speed_info:.1f}"
+
         info_items = [
             f"게임 모드: {mode_info}",
             f"현재 스테이지: {current_stage}",
@@ -90999,8 +91727,8 @@ def show_game_info():
             f"획득한 메달: {session_medal_earned}",
             f"총 메달: {medal_score}",
             f"캐릭터: {character_info}",
-            f"기본 이동속도: {base_speed_info}",
-            f"방향전환속도: {turn_speed_info:.1f}",
+            speed_display,
+            turn_display,
             f"패들 폭: {paddle_width_info}",
             "",
             ("조작법:" if not new_boss_mode_active else "AI 조작 (NEW BOSS BATTLE):"),
@@ -92633,7 +93361,7 @@ def show_stage_selection(show_character_hint=True):
         {"num": 5, "name": "스테이지 5", "desc": "울트라 배틀크루저", "color": (80, 180, 255)},
         {"num": 6, "name": "스테이지 6", "desc": "홍련폭염", "color": (255, 50, 50)},
         {"num": 7, "name": "스테이지 7", "desc": "테트리서", "color": (120, 170, 255)},
-        {"num": 8, "name": "스테이지 8", "desc": "탁닌자", "color": (70, 90, 140)},
+        {"num": 8, "name": "스테이지 8", "desc": "아카무 리고", "color": (70, 90, 140)},
         {"num": 50, "name": "튜토리얼", "desc": "게임 방법 익히기", "color": (100, 255, 100)},
     ]
     

@@ -1,0 +1,6 @@
+# 누끼 따기 프로그램 의존성
+rembg[gpu]>=2.0.50    # GPU 가속 (CUDA 필요)
+# rembg>=2.0.50       # CPU만 사용시 이걸로 대체
+Pillow>=10.0.0
+onnxruntime-gpu>=1.16.0  # GPU 가속 (CUDA 필요)
+# onnxruntime>=1.16.0    # CPU만 사용시 이걸로 대체
