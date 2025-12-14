@@ -178,3 +178,8 @@ auto_save.pid
 
 # Auto-commit state
 .autocommit/
+
+# Background remover build files (too large for GitHub)
+background_remover/dist/
+background_remover/dist2/
+background_remover/build/

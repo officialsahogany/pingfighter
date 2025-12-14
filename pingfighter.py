@@ -70655,7 +70655,7 @@ def show_stage8_boss_dialogue():
         },
         {
             "speaker": "아카무 리고",
-            "text": "너도 멘헤라걸 곁으로 보내주지",
+            "text": "너도 멘헤라걸 곁으로 보내주지 (쑻)",
             "name_color": (255, 100, 100),  # 붉은색 (화남)
             "is_boss": True,
             "use_angry_portrait": True  # 화난 표정 사용
