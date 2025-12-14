@@ -70749,61 +70749,129 @@ def show_stage8_boss_dialogue():
                 # 초상화 그리기
                 SCREEN.blit(current_portrait, (portrait_x, portrait_y))
 
-            # === 대화창 (하단 전체, JRPG 스타일) ===
+            # === 대화창 (하단 전체, 닌자/일본풍 프리미엄 스타일) ===
             dialogue_y = HEIGHT - dialogue_height - dialogue_margin
+            box_width = WIDTH - dialogue_margin * 2
 
             # 대화창 배경 (그라데이션 효과)
-            dialogue_bg = pygame.Surface((WIDTH - dialogue_margin * 2, dialogue_height), pygame.SRCALPHA)
+            dialogue_bg = pygame.Surface((box_width, dialogue_height), pygame.SRCALPHA)
 
-            # 어두운 반투명 배경
+            # 어두운 닌자풍 배경 (짙은 남색/검정 그라데이션)
             for y in range(dialogue_height):
-                alpha = 220 - int(y * 0.3)  # 상단이 약간 더 투명
-                pygame.draw.line(dialogue_bg, (15, 20, 35, alpha), (0, y), (WIDTH - dialogue_margin * 2, y))
+                progress = y / dialogue_height
+                r = int(10 + 15 * progress)
+                g = int(15 + 20 * progress)
+                b = int(30 + 25 * progress)
+                alpha = 235 - int(y * 0.2)
+                pygame.draw.line(dialogue_bg, (r, g, b, alpha), (0, y), (box_width, y))
 
-            # 테두리 (금색 스타일)
-            border_color = (180, 150, 80)  # 금색
-            inner_border = (220, 190, 120)  # 밝은 금색
+            # === 프리미엄 다중 테두리 시스템 ===
+            # 색상 정의 (붉은 금색 닌자 테마)
+            outer_dark = (80, 40, 30)      # 외곽 어두운 갈색
+            main_gold = (200, 160, 80)     # 메인 금색
+            bright_gold = (255, 220, 140)  # 밝은 금색
+            red_accent = (180, 60, 40)     # 붉은 악센트
+            inner_glow = (255, 240, 200, 80)  # 내부 글로우
 
-            # 외곽 테두리
-            pygame.draw.rect(dialogue_bg, border_color, (0, 0, WIDTH - dialogue_margin * 2, dialogue_height), 3)
-            # 내부 테두리 (하이라이트)
-            pygame.draw.rect(dialogue_bg, inner_border, (3, 3, WIDTH - dialogue_margin * 2 - 6, dialogue_height - 6), 1)
+            # 1단계: 외곽 어두운 테두리 (그림자 효과)
+            pygame.draw.rect(dialogue_bg, outer_dark, (0, 0, box_width, dialogue_height), 5)
 
-            # 모서리 장식 (JRPG 스타일)
-            corner_size = 12
-            # 좌상단
-            pygame.draw.lines(dialogue_bg, inner_border, False, [(0, corner_size), (0, 0), (corner_size, 0)], 2)
-            # 우상단
-            pygame.draw.lines(dialogue_bg, inner_border, False,
-                            [(WIDTH - dialogue_margin * 2 - corner_size, 0),
-                             (WIDTH - dialogue_margin * 2, 0),
-                             (WIDTH - dialogue_margin * 2, corner_size)], 2)
-            # 좌하단
-            pygame.draw.lines(dialogue_bg, inner_border, False,
-                            [(0, dialogue_height - corner_size),
-                             (0, dialogue_height),
-                             (corner_size, dialogue_height)], 2)
-            # 우하단
-            pygame.draw.lines(dialogue_bg, inner_border, False,
-                            [(WIDTH - dialogue_margin * 2 - corner_size, dialogue_height),
-                             (WIDTH - dialogue_margin * 2, dialogue_height),
-                             (WIDTH - dialogue_margin * 2, dialogue_height - corner_size)], 2)
+            # 2단계: 메인 금색 테두리
+            pygame.draw.rect(dialogue_bg, main_gold, (3, 3, box_width - 6, dialogue_height - 6), 3)
+
+            # 3단계: 내부 밝은 하이라이트
+            pygame.draw.rect(dialogue_bg, bright_gold, (7, 7, box_width - 14, dialogue_height - 14), 1)
+
+            # === 일본풍 모서리 장식 (대형 코너 브래킷) ===
+            corner_size = 25
+            corner_inner = 18
+
+            # 코너 장식 그리기 함수
+            def draw_corner_decoration(surf, cx, cy, dx, dy):
+                # 외곽 L자 (금색)
+                pygame.draw.line(surf, main_gold, (cx, cy), (cx + corner_size * dx, cy), 3)
+                pygame.draw.line(surf, main_gold, (cx, cy), (cx, cy + corner_size * dy), 3)
+                # 내부 L자 (밝은 금색)
+                pygame.draw.line(surf, bright_gold, (cx + 4 * dx, cy + 4 * dy), (cx + corner_inner * dx, cy + 4 * dy), 2)
+                pygame.draw.line(surf, bright_gold, (cx + 4 * dx, cy + 4 * dy), (cx + 4 * dx, cy + corner_inner * dy), 2)
+                # 코너 점 장식 (붉은 악센트)
+                pygame.draw.circle(surf, red_accent, (cx + 2 * dx, cy + 2 * dy), 3)
+
+            # 네 모서리 장식
+            draw_corner_decoration(dialogue_bg, 2, 2, 1, 1)  # 좌상단
+            draw_corner_decoration(dialogue_bg, box_width - 3, 2, -1, 1)  # 우상단
+            draw_corner_decoration(dialogue_bg, 2, dialogue_height - 3, 1, -1)  # 좌하단
+            draw_corner_decoration(dialogue_bg, box_width - 3, dialogue_height - 3, -1, -1)  # 우하단
+
+            # === 상단/하단 중앙 장식 (일본풍 패턴) ===
+            center_x = box_width // 2
+
+            # 상단 중앙 다이아몬드 장식
+            diamond_size = 8
+            top_diamond = [
+                (center_x, 6),
+                (center_x + diamond_size, 6 + diamond_size),
+                (center_x, 6 + diamond_size * 2),
+                (center_x - diamond_size, 6 + diamond_size)
+            ]
+            pygame.draw.polygon(dialogue_bg, red_accent, top_diamond)
+            pygame.draw.polygon(dialogue_bg, bright_gold, top_diamond, 1)
+
+            # 상단 좌우 가로선 장식
+            line_length = 60
+            pygame.draw.line(dialogue_bg, main_gold, (center_x - line_length - 15, 10), (center_x - 15, 10), 2)
+            pygame.draw.line(dialogue_bg, main_gold, (center_x + 15, 10), (center_x + line_length + 15, 10), 2)
+
+            # 하단 중앙 삼각형 장식
+            bottom_tri = [
+                (center_x - 10, dialogue_height - 8),
+                (center_x + 10, dialogue_height - 8),
+                (center_x, dialogue_height - 18)
+            ]
+            pygame.draw.polygon(dialogue_bg, red_accent, bottom_tri)
+            pygame.draw.polygon(dialogue_bg, bright_gold, bottom_tri, 1)
+
+            # === 측면 세로 장식선 ===
+            side_margin = 15
+            pygame.draw.line(dialogue_bg, (main_gold[0], main_gold[1], main_gold[2], 120),
+                           (side_margin, 35), (side_margin, dialogue_height - 35), 1)
+            pygame.draw.line(dialogue_bg, (main_gold[0], main_gold[1], main_gold[2], 120),
+                           (box_width - side_margin, 35), (box_width - side_margin, dialogue_height - 35), 1)
+
+            # === 내부 글로우 효과 ===
+            glow_surf = pygame.Surface((box_width - 20, dialogue_height - 20), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, inner_glow, (0, 0, box_width - 20, dialogue_height - 20), 2)
+            dialogue_bg.blit(glow_surf, (10, 10))
 
             SCREEN.blit(dialogue_bg, (dialogue_margin, dialogue_y))
 
-            # === 이름 박스 (대화창 위에 겹쳐서) ===
+            # === 이름 박스 (대화창 위에 겹쳐서, 프리미엄 스타일) ===
             name_box_x = dialogue_margin + 25
             name_box_y = dialogue_y - name_box_height // 2
 
-            # 이름 박스 배경
+            # 이름 박스 배경 (그라데이션)
             name_box = pygame.Surface((name_box_width, name_box_height), pygame.SRCALPHA)
-            name_box.fill((25, 30, 50, 240))
+            for ny in range(name_box_height):
+                progress = ny / name_box_height
+                r = int(20 + 15 * progress)
+                g = int(25 + 15 * progress)
+                b = int(45 + 15 * progress)
+                pygame.draw.line(name_box, (r, g, b, 245), (0, ny), (name_box_width, ny))
 
-            # 이름 박스 테두리 (화자 색상)
-            pygame.draw.rect(name_box, dialogue["name_color"], (0, 0, name_box_width, name_box_height), 2)
+            # 이름 박스 외곽 테두리 (어두운 색)
+            pygame.draw.rect(name_box, outer_dark, (0, 0, name_box_width, name_box_height), 3)
+
+            # 이름 박스 메인 테두리 (화자 색상 + 금색 혼합)
+            name_border = tuple(int((dialogue["name_color"][i] + main_gold[i]) / 2) for i in range(3))
+            pygame.draw.rect(name_box, name_border, (2, 2, name_box_width - 4, name_box_height - 4), 2)
+
             # 내부 하이라이트
-            highlight_color = tuple(min(255, c + 40) for c in dialogue["name_color"])
-            pygame.draw.rect(name_box, highlight_color, (2, 2, name_box_width - 4, name_box_height - 4), 1)
+            highlight_color = tuple(min(255, c + 50) for c in dialogue["name_color"])
+            pygame.draw.rect(name_box, highlight_color, (4, 4, name_box_width - 8, name_box_height - 8), 1)
+
+            # 좌우 작은 장식
+            pygame.draw.circle(name_box, red_accent, (8, name_box_height // 2), 3)
+            pygame.draw.circle(name_box, red_accent, (name_box_width - 8, name_box_height // 2), 3)
 
             SCREEN.blit(name_box, (name_box_x, name_box_y))
 
@@ -70841,22 +70909,40 @@ def show_stage8_boss_dialogue():
                 text_surface = font_text.render(line, True, (255, 255, 255))
                 SCREEN.blit(text_surface, (text_x, text_y + i * line_height))
 
-            # === 계속 표시 (삼각형 아이콘) ===
+            # === 계속 표시 (프리미엄 애니메이션 아이콘) ===
             if text_complete:
-                indicator_x = WIDTH - dialogue_margin - 40
-                indicator_y = dialogue_y + dialogue_height - 30
+                indicator_x = WIDTH - dialogue_margin - 45
+                indicator_y = dialogue_y + dialogue_height - 35
 
-                # 깜빡임 효과
-                blink = (current_time // 400) % 2 == 0
-                if blink:
-                    # 아래 방향 삼각형
-                    triangle_points = [
-                        (indicator_x, indicator_y),
-                        (indicator_x + 16, indicator_y),
-                        (indicator_x + 8, indicator_y + 12)
-                    ]
-                    pygame.draw.polygon(SCREEN, (255, 220, 100), triangle_points)
-                    pygame.draw.polygon(SCREEN, (180, 150, 80), triangle_points, 2)
+                # 부드러운 바운스 효과
+                bounce = math.sin(current_time * 0.008) * 4
+                indicator_y += int(bounce)
+
+                # 글로우 효과 (깜빡임)
+                glow_alpha = int(150 + 100 * math.sin(current_time * 0.01))
+                glow_surf = pygame.Surface((40, 30), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (255, 200, 100, glow_alpha // 3), (20, 15), 18)
+                SCREEN.blit(glow_surf, (indicator_x - 12, indicator_y - 8))
+
+                # 이중 삼각형 (외곽 + 내부)
+                # 외곽 삼각형 (금색 테두리)
+                outer_tri = [
+                    (indicator_x, indicator_y - 2),
+                    (indicator_x + 20, indicator_y - 2),
+                    (indicator_x + 10, indicator_y + 14)
+                ]
+                pygame.draw.polygon(SCREEN, main_gold, outer_tri, 2)
+
+                # 내부 삼각형 (밝은 금색 채움)
+                inner_tri = [
+                    (indicator_x + 3, indicator_y + 1),
+                    (indicator_x + 17, indicator_y + 1),
+                    (indicator_x + 10, indicator_y + 11)
+                ]
+                pygame.draw.polygon(SCREEN, bright_gold, inner_tri)
+
+                # 중앙 작은 점 (붉은 악센트)
+                pygame.draw.circle(SCREEN, red_accent, (indicator_x + 10, indicator_y + 5), 2)
 
             pygame.display.flip()
 
