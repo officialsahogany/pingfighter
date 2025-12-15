@@ -67035,25 +67035,6 @@ def show_item_manager_menu():
                   "cooltime", "battery", "speedgear", "revival"]),
     ]
 
-    def get_passive_items_by_slot():
-        """패시브 아이템을 부위별로 정렬하여 반환"""
-        ordered = []
-        for slot_name, item_names in PASSIVE_SLOT_ORDER:
-            for name in item_names:
-                for item in passive_items:
-                    if item["name"] == name:
-                        item["slot"] = slot_name
-                        ordered.append(item)
-                        break
-        # 분류되지 않은 아이템 추가
-        ordered_names = [item["name"] for item in ordered]
-        for item in passive_items:
-            if item["name"] not in ordered_names:
-                item["slot"] = "기타"
-                ordered.append(item)
-        return ordered
-
-    passive_items_sorted = get_passive_items_by_slot()
     # 모든 아이템 목록 - 동적으로 아이콘 가져오기
     def get_icon_safe(icon_var_name, item_name):
         """아이콘을 안전하게 가져오는 함수"""
@@ -67250,6 +67231,28 @@ def show_item_manager_menu():
     active_items = [item for item in all_items if item["type"] == "active"]
     passive_items = [item for item in all_items if item["type"] == "passive"]
     firearm_items = [item for item in all_items if item["type"] == "firearm"]
+
+    # 패시브 아이템 부위별 정렬 함수
+    def get_passive_items_by_slot():
+        """패시브 아이템을 부위별로 정렬하여 반환"""
+        ordered = []
+        for slot_name, item_names in PASSIVE_SLOT_ORDER:
+            for name in item_names:
+                for item in passive_items:
+                    if item["name"] == name:
+                        item["slot"] = slot_name
+                        ordered.append(item)
+                        break
+        # 분류되지 않은 아이템 추가
+        ordered_names = [item["name"] for item in ordered]
+        for item in passive_items:
+            if item["name"] not in ordered_names:
+                item["slot"] = "기타"
+                ordered.append(item)
+        return ordered
+
+    passive_items_sorted = get_passive_items_by_slot()
+
     font_large = FontStyle.subtitle()  # 32pt 픽셀 폰트
     font_medium = FontStyle.body()  # 24pt 픽셀 폰트
     font_small = get_font(18)  # 18pt 픽셀 폰트
