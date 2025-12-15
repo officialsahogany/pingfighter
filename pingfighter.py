@@ -67008,13 +67008,52 @@ def show_item_manager_menu():
     custom_passive_rolls: dict[str, list[dict]] = {}  # 아이템별 사용자 지정 롤 옵션
 
     MAX_PASSIVE_STACK = 5  # 패시브 수량 선택 한도
-    # 아이템 그리드 설정
+    # 아이템 그리드 설정 (기본값 - 엑티브/화기류/전설용)
     grid_cols = 6
     grid_rows = 4
     item_size = 60
     item_spacing = 20
     grid_start_x = (WIDTH - (grid_cols * item_size + (grid_cols - 1) * item_spacing)) // 2
     grid_start_y = 200
+
+    # 패시브 탭 전용 설정 (작은 아이콘 + 부위별 정리)
+    passive_item_size = 36  # 40% 축소 (화면에 모두 표시되도록)
+    passive_item_spacing = 5
+    passive_slot_gap = 3  # 부위 간 간격
+
+    # 패시브 아이템 부위별 분류
+    PASSIVE_SLOT_ORDER = [
+        ("머리", ["bulletproof_hat", "spiked_helmet"]),
+        ("상의", ["technical_vest", "bulkup"]),
+        ("팔", ["commando_arm", "master"]),
+        ("벨트", ["gravitybelt"]),
+        ("무릎", ["knee_pads", "dashgear"]),
+        ("신발", ["speedboots", "spikeboots"]),
+        ("가방", ["slot_add", "chargebag"]),
+        ("장신구", ["sensor", "star_detector", "fuel_pouch", "bluetooth_ring",
+                  "foul_whistle", "smartphone", "dashholder", "dowsing_pendulum",
+                  "cooltime", "battery", "speedgear", "revival"]),
+    ]
+
+    def get_passive_items_by_slot():
+        """패시브 아이템을 부위별로 정렬하여 반환"""
+        ordered = []
+        for slot_name, item_names in PASSIVE_SLOT_ORDER:
+            for name in item_names:
+                for item in passive_items:
+                    if item["name"] == name:
+                        item["slot"] = slot_name
+                        ordered.append(item)
+                        break
+        # 분류되지 않은 아이템 추가
+        ordered_names = [item["name"] for item in ordered]
+        for item in passive_items:
+            if item["name"] not in ordered_names:
+                item["slot"] = "기타"
+                ordered.append(item)
+        return ordered
+
+    passive_items_sorted = get_passive_items_by_slot()
     # 모든 아이템 목록 - 동적으로 아이콘 가져오기
     def get_icon_safe(icon_var_name, item_name):
         """아이콘을 안전하게 가져오는 함수"""
@@ -67369,6 +67408,9 @@ def show_item_manager_menu():
     # 우측 하단 기준: 기존보다 100px 위, 크기 30% 축소
     skill_tree_button_rect = pygame.Rect(WIDTH - 180, HEIGHT - 196, 140, 45)
 
+    # 패시브 탭 아이템 위치 캐시 (부위별 레이아웃용)
+    passive_item_rects = []
+
     def open_skill_tree_test_mode() -> None:
         """스킬 포인트 소모 없이 테스트용 스킬트리 진입."""
         import academy
@@ -67447,97 +67489,203 @@ def show_item_manager_menu():
         if selected_category == 0:
             current_items = active_items
         elif selected_category == 1:
-            current_items = passive_items
+            current_items = passive_items_sorted  # 부위별 정렬된 패시브 사용
         elif selected_category == 2:
             current_items = firearm_items
         else:  # selected_category == 3
             current_items = legendary_items
-        for i, item in enumerate(current_items):
-            row = i // grid_cols
-            col = i % grid_cols
-            x = grid_start_x + col * (item_size + item_spacing)
-            y = grid_start_y + row * (item_size + item_spacing)
-            # 아이템 배경
-            item_rect = pygame.Rect(x, y, item_size, item_size)
-            # 드래그 선택: 액티브/패시브/화기류/전설에서 마우스 드래그 시 선택/증가
-            if is_drag_select and selected_category in (0, 1, 2, 3) and item_rect.collidepoint(mouse_pos):
-                item_name = item["name"]
-                drag_key = f"{selected_category}:{item_name}"
-                if drag_key not in drag_toggled_items:
-                    if selected_category == 0:
-                        adjust_active_count(item_name, 1)
-                    elif selected_category == 1:
+
+        # 패시브 탭: 부위별 레이아웃으로 렌더링
+        if selected_category == 1:
+            # 패시브 탭 전용 렌더링 (부위별 정리)
+            font_slot = get_font(14)
+            passive_start_y = 175
+            current_y = passive_start_y
+            current_slot = None
+            item_index = 0
+            col_in_slot = 0
+            max_cols_per_slot = 6  # 부위당 최대 열 수
+            slot_label_width = 50  # 부위 라벨 너비
+            passive_grid_start_x = 65
+
+            # 부위별 색상
+            slot_colors = {
+                "머리": (180, 100, 100),
+                "상의": (100, 180, 100),
+                "팔": (180, 140, 80),
+                "벨트": (100, 100, 180),
+                "무릎": (180, 100, 180),
+                "신발": (100, 180, 180),
+                "가방": (150, 130, 100),
+                "장신구": (140, 140, 160),
+                "기타": (120, 120, 120),
+            }
+
+            # 패시브 아이템 위치 캐시 (클릭/키보드 처리용)
+            passive_item_rects = []
+
+            for i, item in enumerate(current_items):
+                item_slot = item.get("slot", "기타")
+
+                # 새로운 부위 시작
+                if item_slot != current_slot:
+                    current_slot = item_slot
+                    col_in_slot = 0
+                    if i > 0:
+                        current_y += passive_item_size + passive_slot_gap  # 부위 간 간격
+
+                    # 부위 라벨 표시
+                    slot_color = slot_colors.get(current_slot, (120, 120, 120))
+                    slot_label = font_slot.render(current_slot, True, slot_color)
+                    SCREEN.blit(slot_label, (15, current_y + (passive_item_size - slot_label.get_height()) // 2))
+
+                # 아이템 위치 계산
+                x = passive_grid_start_x + col_in_slot * (passive_item_size + passive_item_spacing)
+                y = current_y
+
+                # 줄바꿈 처리
+                if col_in_slot >= max_cols_per_slot:
+                    col_in_slot = 0
+                    current_y += passive_item_size + passive_item_spacing
+                    x = passive_grid_start_x
+                    y = current_y
+
+                item_rect = pygame.Rect(x, y, passive_item_size, passive_item_size)
+                passive_item_rects.append((i, item_rect, item))
+
+                # 드래그 선택
+                if is_drag_select and item_rect.collidepoint(mouse_pos):
+                    item_name = item["name"]
+                    drag_key = f"1:{item_name}"
+                    if drag_key not in drag_toggled_items:
                         if item_name in selected_passive_items:
                             selected_passive_items.remove(item_name)
                         else:
                             selected_passive_items.append(item_name)
-                    elif selected_category == 2:
-                        if item_name in selected_firearm_items:
-                            selected_firearm_items.remove(item_name)
-                        else:
-                            selected_firearm_items.append(item_name)
-                    else:
-                        if item_name in selected_legendary_items:
-                            selected_legendary_items.remove(item_name)
-                        else:
-                            selected_legendary_items.append(item_name)
-                    drag_toggled_items.add(drag_key)
-            # 선택된 아이템인지 확인
-            is_selected = False
-            if selected_category == 0:
-                is_selected = selected_active_counts.get(item["name"], 0) > 0
-            elif selected_category == 1:
+                        drag_toggled_items.add(drag_key)
+
+                # 선택/커서 상태
                 is_selected = get_passive_count(item["name"]) > 0
-            elif selected_category == 2:
-                is_selected = item["name"] in selected_firearm_items
-            else:  # 전설 탭
-                is_selected = item["name"] in selected_legendary_items
-            # 현재 커서 위치인지 확인
-            is_cursor = (i == selected_item_index)
-            # 배경 색상
-            if is_selected:
-                draw.rect(YELLOW, item_rect)  # 선택된 아이템은 노란색
-            elif is_cursor:
-                draw.rect((100, 150, 255), item_rect)  # 현재 커서는 파란색
-            else:
-                draw.rect((60, 60, 80), item_rect)
-            # 테두리 색상
-            if is_cursor:
-                draw.rect(WHITE, item_rect, 3)  # 커서는 굵은 흰색 테두리
-            else:
-                draw.rect(WHITE, item_rect, 2)
-            # 아이템 아이콘
-            if selected_category == 3 and "item_obj" in item:
-                # 전설 아이템은 자체 draw_icon 메서드 사용
-                item["item_obj"].draw_icon(SCREEN, x + 5, y + 5, item_size - 10)
-            elif item["icon"]:
-                icon_surface = pygame.transform.scale(item["icon"], (item_size - 10, item_size - 10))
-                icon_rect = icon_surface.get_rect(center=item_rect.center)
-                SCREEN.blit(icon_surface, icon_rect)
-            if selected_category == 0:
-                count = selected_active_counts.get(item["name"], 0)
-            elif selected_category == 1:
+                is_cursor = (i == selected_item_index)
+
+                # 배경색
+                slot_bg = slot_colors.get(current_slot, (60, 60, 80))
+                if is_selected:
+                    draw.rect(YELLOW, item_rect)
+                elif is_cursor:
+                    draw.rect((100, 150, 255), item_rect)
+                else:
+                    # 부위별 배경색 (어둡게)
+                    dark_bg = tuple(max(20, c // 3) for c in slot_bg)
+                    draw.rect(dark_bg, item_rect)
+
+                # 테두리
+                if is_cursor:
+                    draw.rect(WHITE, item_rect, 3)
+                else:
+                    draw.rect(slot_bg, item_rect, 2)
+
+                # 아이콘
+                if item["icon"]:
+                    icon_surface = pygame.transform.scale(item["icon"], (passive_item_size - 8, passive_item_size - 8))
+                    icon_rect = icon_surface.get_rect(center=item_rect.center)
+                    SCREEN.blit(icon_surface, icon_rect)
+
+                # 수량 배지
                 count = get_passive_count(item["name"])
-            else:
-                count = 0
-            if count > 0:
-                badge_text = font_small.render(str(count), True, WHITE)
-                padding_x = 6
-                padding_y = 3
-                badge_width = badge_text.get_width() + padding_x
-                badge_height = badge_text.get_height() + padding_y
-                badge_surface = pygame.Surface((badge_width, badge_height), pygame.SRCALPHA)
-                pygame.draw.rect(badge_surface, (40, 40, 40, 220), badge_surface.get_rect(), border_radius=6)
-                pygame.draw.rect(badge_surface, (255, 220, 120), badge_surface.get_rect(), 1, border_radius=6)
-                badge_rect = badge_surface.get_rect()
-                badge_rect.right = item_rect.right - 4
-                badge_rect.bottom = item_rect.bottom - 4
-                badge_surface.blit(badge_text, (
-                    (badge_width - badge_text.get_width()) // 2,
-                    (badge_height - badge_text.get_height()) // 2,
-                ))
-                SCREEN.blit(badge_surface, badge_rect.topleft)
-            # 기존에는 아이콘 하단에 이름을 렌더링했으나 UX 요청으로 숨김 처리
+                if count > 0:
+                    badge_text = font_small.render(str(count), True, WHITE)
+                    badge_width = badge_text.get_width() + 6
+                    badge_height = badge_text.get_height() + 3
+                    badge_surface = pygame.Surface((badge_width, badge_height), pygame.SRCALPHA)
+                    pygame.draw.rect(badge_surface, (40, 40, 40, 220), badge_surface.get_rect(), border_radius=4)
+                    pygame.draw.rect(badge_surface, (255, 220, 120), badge_surface.get_rect(), 1, border_radius=4)
+                    badge_rect = badge_surface.get_rect()
+                    badge_rect.right = item_rect.right - 2
+                    badge_rect.bottom = item_rect.bottom - 2
+                    badge_surface.blit(badge_text, ((badge_width - badge_text.get_width()) // 2, (badge_height - badge_text.get_height()) // 2))
+                    SCREEN.blit(badge_surface, badge_rect.topleft)
+
+                col_in_slot += 1
+
+        else:
+            # 기존 그리드 레이아웃 (액티브/화기류/전설)
+            for i, item in enumerate(current_items):
+                row = i // grid_cols
+                col = i % grid_cols
+                x = grid_start_x + col * (item_size + item_spacing)
+                y = grid_start_y + row * (item_size + item_spacing)
+                item_rect = pygame.Rect(x, y, item_size, item_size)
+
+                # 드래그 선택
+                if is_drag_select and item_rect.collidepoint(mouse_pos):
+                    item_name = item["name"]
+                    drag_key = f"{selected_category}:{item_name}"
+                    if drag_key not in drag_toggled_items:
+                        if selected_category == 0:
+                            adjust_active_count(item_name, 1)
+                        elif selected_category == 2:
+                            if item_name in selected_firearm_items:
+                                selected_firearm_items.remove(item_name)
+                            else:
+                                selected_firearm_items.append(item_name)
+                        else:
+                            if item_name in selected_legendary_items:
+                                selected_legendary_items.remove(item_name)
+                            else:
+                                selected_legendary_items.append(item_name)
+                        drag_toggled_items.add(drag_key)
+
+                # 선택 상태
+                is_selected = False
+                if selected_category == 0:
+                    is_selected = selected_active_counts.get(item["name"], 0) > 0
+                elif selected_category == 2:
+                    is_selected = item["name"] in selected_firearm_items
+                else:
+                    is_selected = item["name"] in selected_legendary_items
+
+                is_cursor = (i == selected_item_index)
+
+                # 배경색
+                if is_selected:
+                    draw.rect(YELLOW, item_rect)
+                elif is_cursor:
+                    draw.rect((100, 150, 255), item_rect)
+                else:
+                    draw.rect((60, 60, 80), item_rect)
+
+                # 테두리
+                if is_cursor:
+                    draw.rect(WHITE, item_rect, 3)
+                else:
+                    draw.rect(WHITE, item_rect, 2)
+
+                # 아이콘
+                if selected_category == 3 and "item_obj" in item:
+                    item["item_obj"].draw_icon(SCREEN, x + 5, y + 5, item_size - 10)
+                elif item["icon"]:
+                    icon_surface = pygame.transform.scale(item["icon"], (item_size - 10, item_size - 10))
+                    icon_rect = icon_surface.get_rect(center=item_rect.center)
+                    SCREEN.blit(icon_surface, icon_rect)
+
+                # 수량 배지 (액티브만)
+                if selected_category == 0:
+                    count = selected_active_counts.get(item["name"], 0)
+                    if count > 0:
+                        badge_text = font_small.render(str(count), True, WHITE)
+                        padding_x = 6
+                        padding_y = 3
+                        badge_width = badge_text.get_width() + padding_x
+                        badge_height = badge_text.get_height() + padding_y
+                        badge_surface = pygame.Surface((badge_width, badge_height), pygame.SRCALPHA)
+                        pygame.draw.rect(badge_surface, (40, 40, 40, 220), badge_surface.get_rect(), border_radius=6)
+                        pygame.draw.rect(badge_surface, (255, 220, 120), badge_surface.get_rect(), 1, border_radius=6)
+                        badge_rect = badge_surface.get_rect()
+                        badge_rect.right = item_rect.right - 4
+                        badge_rect.bottom = item_rect.bottom - 4
+                        badge_surface.blit(badge_text, ((badge_width - badge_text.get_width()) // 2, (badge_height - badge_text.get_height()) // 2))
+                        SCREEN.blit(badge_surface, badge_rect.topleft)
         # 선택된 아이템 정보 표시
         info_y = grid_start_y + (grid_rows * (item_size + item_spacing)) + LARGE_SIZE
         info_text = font_medium.render("선택된 아이템:", True, WHITE)
@@ -67858,17 +68006,28 @@ def show_item_manager_menu():
             if event.type == pygame.MOUSEWHEEL:
                 if selected_category in (0, 1):
                     # 액티브/패시브 탭 수량 조절 (휠)
-                    current_items = active_items if selected_category == 0 else passive_items
+                    current_items = active_items if selected_category == 0 else passive_items_sorted
                     hovered_idx = None
-                    for i, item in enumerate(current_items):
-                        row = i // grid_cols
-                        col = i % grid_cols
-                        x = grid_start_x + col * (item_size + item_spacing)
-                        y = grid_start_y + row * (item_size + item_spacing)
-                        item_rect = pygame.Rect(x, y, item_size, item_size)
-                        if item_rect.collidepoint(mouse_pos):
-                            hovered_idx = i
-                            break
+
+                    if selected_category == 1:
+                        # 패시브 탭: 부위별 레이아웃에서 마우스 위치로 아이템 찾기
+                        if 'passive_item_rects' in dir():
+                            for idx, rect, item in passive_item_rects:
+                                if rect.collidepoint(mouse_pos):
+                                    hovered_idx = idx
+                                    break
+                    else:
+                        # 기존 그리드 레이아웃
+                        for i, item in enumerate(current_items):
+                            row = i // grid_cols
+                            col = i % grid_cols
+                            x = grid_start_x + col * (item_size + item_spacing)
+                            y = grid_start_y + row * (item_size + item_spacing)
+                            item_rect = pygame.Rect(x, y, item_size, item_size)
+                            if item_rect.collidepoint(mouse_pos):
+                                hovered_idx = i
+                                break
+
                     if hovered_idx is None:
                         hovered_idx = selected_item_index if 0 <= selected_item_index < len(current_items) else None
                     if hovered_idx is not None and hovered_idx < len(current_items):
@@ -67921,25 +68080,37 @@ def show_item_manager_menu():
                     if selected_category == 0:
                         current_items = active_items
                     elif selected_category == 1:
-                        current_items = passive_items
+                        current_items = passive_items_sorted  # 부위별 정렬된 패시브 사용
                     elif selected_category == 2:
                         current_items = firearm_items
                     else:  # 전설
                         current_items = legendary_items
                     if current_items:
-                        current_row = selected_item_index // grid_cols
-                        current_col = selected_item_index % grid_cols
-                        if event.key == pygame.K_RIGHT:
-                            current_col = (current_col + 1) % grid_cols
-                        elif event.key == pygame.K_LEFT:
-                            current_col = (current_col - 1) % grid_cols
-                        elif event.key == pygame.K_DOWN:
-                            current_row = (current_row + 1) % ((len(current_items) + grid_cols - 1) // grid_cols)
-                        elif event.key == pygame.K_UP:
-                            current_row = (current_row - 1) % ((len(current_items) + grid_cols - 1) // grid_cols)
-                        new_index = current_row * grid_cols + current_col
-                        if new_index < len(current_items):
-                            selected_item_index = new_index
+                        # 패시브 탭은 단순 인덱스 이동 (부위별 레이아웃)
+                        if selected_category == 1:
+                            if event.key == pygame.K_RIGHT:
+                                selected_item_index = (selected_item_index + 1) % len(current_items)
+                            elif event.key == pygame.K_LEFT:
+                                selected_item_index = (selected_item_index - 1) % len(current_items)
+                            elif event.key == pygame.K_DOWN:
+                                selected_item_index = min(selected_item_index + 6, len(current_items) - 1)
+                            elif event.key == pygame.K_UP:
+                                selected_item_index = max(selected_item_index - 6, 0)
+                        else:
+                            # 기존 그리드 탐색 (액티브/화기류/전설)
+                            current_row = selected_item_index // grid_cols
+                            current_col = selected_item_index % grid_cols
+                            if event.key == pygame.K_RIGHT:
+                                current_col = (current_col + 1) % grid_cols
+                            elif event.key == pygame.K_LEFT:
+                                current_col = (current_col - 1) % grid_cols
+                            elif event.key == pygame.K_DOWN:
+                                current_row = (current_row + 1) % ((len(current_items) + grid_cols - 1) // grid_cols)
+                            elif event.key == pygame.K_UP:
+                                current_row = (current_row - 1) % ((len(current_items) + grid_cols - 1) // grid_cols)
+                            new_index = current_row * grid_cols + current_col
+                            if new_index < len(current_items):
+                                selected_item_index = new_index
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
                 # 스킬트리(테스트) 버튼 클릭 처리
@@ -67956,40 +68127,57 @@ def show_item_manager_menu():
                 if selected_category == 0:
                     current_items = active_items
                 elif selected_category == 1:
-                    current_items = passive_items
+                    current_items = passive_items_sorted  # 부위별 정렬된 패시브 사용
                 elif selected_category == 2:
                     current_items = firearm_items
                 else:  # 전설 탭
                     current_items = legendary_items
-                for i, item in enumerate(current_items):
-                    row = i // grid_cols
-                    col = i % grid_cols
-                    x = grid_start_x + col * (item_size + item_spacing)
-                    y = grid_start_y + row * (item_size + item_spacing)
-                    item_rect = pygame.Rect(x, y, item_size, item_size)
-                    if item_rect.collidepoint(mx, my):
-                        item_name = item["name"]
-                        if selected_category == 0:
-                            enter_quantity_mode(item_name)
-                        elif selected_category == 1 and event.button == 3:
-                            enter_roll_edit(item_name)
-                        elif event.button == 1:  # 좌클릭: 카테고리 1~3 토글 (드래그 첫 클릭 포함)
-                            drag_key = f"{selected_category}:{item_name}"
-                            if drag_key not in drag_toggled_items:
-                                if selected_category == 1:
-                                    # 좌클릭 토글: 0 ↔ 1
-                                    adjust_passive_count(item_name, 1 if get_passive_count(item_name) == 0 else -MAX_PASSIVE_STACK)
-                                elif selected_category == 2:
-                                    if item_name in selected_firearm_items:
-                                        selected_firearm_items.remove(item_name)
-                                    else:
-                                        selected_firearm_items.append(item_name)
-                                else:  # 전설 탭
-                                    if item_name in selected_legendary_items:
-                                        selected_legendary_items.remove(item_name)
-                                    else:
-                                        selected_legendary_items.append(item_name)
-                                drag_toggled_items.add(drag_key)
+
+                # 패시브 탭: 부위별 레이아웃에서 클릭 처리
+                if selected_category == 1:
+                    # passive_item_rects 사용
+                    clicked = False
+                    if 'passive_item_rects' in dir():
+                        for idx, rect, item in passive_item_rects:
+                            if rect.collidepoint(mx, my):
+                                item_name = item["name"]
+                                selected_item_index = idx
+                                if event.button == 3:  # 우클릭: 롤 편집
+                                    enter_roll_edit(item_name)
+                                elif event.button == 1:  # 좌클릭: 토글
+                                    drag_key = f"1:{item_name}"
+                                    if drag_key not in drag_toggled_items:
+                                        adjust_passive_count(item_name, 1 if get_passive_count(item_name) == 0 else -MAX_PASSIVE_STACK)
+                                        drag_toggled_items.add(drag_key)
+                                clicked = True
+                                break
+                else:
+                    # 기존 그리드 레이아웃 클릭 처리
+                    for i, item in enumerate(current_items):
+                        row = i // grid_cols
+                        col = i % grid_cols
+                        x = grid_start_x + col * (item_size + item_spacing)
+                        y = grid_start_y + row * (item_size + item_spacing)
+                        item_rect = pygame.Rect(x, y, item_size, item_size)
+                        if item_rect.collidepoint(mx, my):
+                            item_name = item["name"]
+                            if selected_category == 0:
+                                enter_quantity_mode(item_name)
+                            elif event.button == 1:  # 좌클릭: 카테고리 2~3 토글
+                                drag_key = f"{selected_category}:{item_name}"
+                                if drag_key not in drag_toggled_items:
+                                    if selected_category == 2:
+                                        if item_name in selected_firearm_items:
+                                            selected_firearm_items.remove(item_name)
+                                        else:
+                                            selected_firearm_items.append(item_name)
+                                    else:  # 전설 탭
+                                        if item_name in selected_legendary_items:
+                                            selected_legendary_items.remove(item_name)
+                                        else:
+                                            selected_legendary_items.append(item_name)
+                                    drag_toggled_items.add(drag_key)
+                            break
 def apply_selected_items(
     selected_active_items,
     selected_passive_items,

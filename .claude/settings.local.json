@@ -33,7 +33,12 @@
       "Bash(chmod:*)",
       "Bash(pkill:*)",
       "Bash(open /Volumes/isatra/백업/1129/윈도우용최신/game/bosspong/background_remover/dist/누끼따기.app)",
-      "Bash(open /Volumes/isatra/백업/1129/윈도우용최신/game/bosspong/background_remover/dist2/누끼따기.app)"
+      "Bash(open /Volumes/isatra/백업/1129/윈도우용최신/game/bosspong/background_remover/dist2/누끼따기.app)",
+      "Bash(git push:*)",
+      "Bash(git filter-branch:*)",
+      "Bash(git stash:*)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch:*)",
+      "Bash(timeout 5 python3:*)"
     ],
     "deny": [],
     "ask": [],
