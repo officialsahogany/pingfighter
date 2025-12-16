@@ -247,7 +247,7 @@ TREE_SUMMARIES = {
     "dash": "대쉬 속도와 통제력을 끌어올려 공격 템포를 높이는 스킬입니다.",
     "item": "필드 드랍률과 가챠, 아이템 쿨타임을 다뤄 보조 능력을 강화합니다.",
     "paddle": "패들 스킬 트리는 재구성 준비 중입니다.",
-    "downtown": "광장에서 획득하는 특수 스킬입니다."
+    "downtown": "가챠 추가 실행과 전설 아이템 확률을 높이는 광장 스킬입니다."
 }
 
 class SkillSystem:
@@ -2122,11 +2122,7 @@ class AcademyUI:
             self.screen.blit(num_text, num_rect)
         
         # 선택된 스킬 트리 표시
-        if self.selected_tree == "downtown":
-            # 광장 스킬탭 그리기 (비어있음)
-            self.draw_downtown_skill_tree()
-        else:
-            self.draw_skill_tree()
+        self.draw_skill_tree()
 
     def draw_downtown_skill_tree(self):
         """광장 전용 스킬트리 그리기 - 빈 상태로 표시"""
@@ -2200,21 +2196,18 @@ class AcademyUI:
 
     def draw_skill_tree(self):
         """선택된 스킬트리 그리기"""
-        if self.selected_tree == "downtown":
-            # 광장 탭은 별도 처리
-            return
         tree_data = SKILL_TREES[self.selected_tree]
         self.draw_tree_summary_text(self.selected_tree)
 
-        # 모든 스킬트리를 트리 구조로 표시 (아이템과 패들도 포함)
+        # 모든 스킬트리를 트리 구조로 표시 (아이템, 패들, 광장 포함)
         if self.selected_tree == "dash":
             self.draw_dash_skill_tree(tree_data)
-        elif self.selected_tree in ["item", "paddle"]:
+        elif self.selected_tree in ["item", "paddle", "downtown"]:
             self.draw_tree_skill_tree(tree_data)
         else:
             self.draw_linear_skill_tree(tree_data)
 
-        if self.selected_tree in {"dash", "item", "paddle"}:
+        if self.selected_tree in {"dash", "item", "paddle", "downtown"}:
             self.draw_skill_description(tree_data)
     
 
