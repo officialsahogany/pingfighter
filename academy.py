@@ -168,12 +168,12 @@ SKILL_TREES = {
                 "col": 1
             },
             {
-                "id": "item_gamble",
-                "name": "도박",
-                "description": "가챠 후 25% 확률로 추가 1회 자동 실행\n(누적 ★8 필요)",
-                "max_level": 3,
-                "cost": 3,
-                "icon_color": (255, 205, 160),
+                "id": "item_caffeine",
+                "name": "카페인",
+                "description": "타이머형 액티브 아이템 지속시간 15% 증가\n(거대화포션, 비타민약, 레이저스코프, 도핑물약 등)\n(누적 ★8 필요)",
+                "max_level": 5,
+                "cost": 2,
+                "icon_color": (255, 180, 120),
                 "requires": "item_gauge_mastery",
                 "total_tp_required": 8,
                 "row": 2,
@@ -192,13 +192,13 @@ SKILL_TREES = {
                 "col": 1
             },
             {
-                "id": "item_treasure_map",
-                "name": "보물지도",
-                "description": "전설 필드 확률 +350%, 가챠 전설 +7%\n(누적 ★12 필요)",
-                "max_level": 2,
-                "cost": 4,
-                "icon_color": (255, 220, 120),
-                "requires_or": ["item_gamble", "item_recycle"],
+                "id": "item_polish",
+                "name": "연마",
+                "description": "패시브 아이템 롤옵션 효율 20% 증가\n(추가 투자당 +10%씩 증가)\n(누적 ★12 필요)",
+                "max_level": 5,
+                "cost": 3,
+                "icon_color": (255, 220, 140),
+                "requires_or": ["item_caffeine", "item_recycle"],
                 "total_tp_required": 12,
                 "row": 3,
                 "col": 0.5
@@ -210,10 +210,33 @@ SKILL_TREES = {
         "color": (100, 255, 150),  # 초록색
         "skills": []  # 재구성 준비를 위해 일시적으로 비워둠
     },
-    "smasher": {
-        "name": "스매셔 스킬",
-        "color": (255, 100, 100),  # 빨간색
-        "skills": []  # 더미 데이터 - 실제로는 smasher_skills 모듈 사용
+    "downtown": {
+        "name": "광장 스킬",
+        "color": (255, 200, 100),  # 금색/주황색 (광장 테마)
+        "skills": [
+            {
+                "id": "downtown_gamble",
+                "name": "도박",
+                "description": "가챠 후 25% 확률로 추가 1회 자동 실행",
+                "max_level": 3,
+                "cost": 3,
+                "icon_color": (255, 205, 160),
+                "requires": None,
+                "row": 0,
+                "col": 0
+            },
+            {
+                "id": "downtown_treasure_map",
+                "name": "보물지도",
+                "description": "전설 필드 확률 +350%, 가챠 전설 +7%",
+                "max_level": 2,
+                "cost": 4,
+                "icon_color": (255, 220, 120),
+                "requires": None,
+                "row": 0,
+                "col": 1
+            }
+        ]
     }
 }
 
@@ -224,7 +247,7 @@ TREE_SUMMARIES = {
     "dash": "대쉬 속도와 통제력을 끌어올려 공격 템포를 높이는 스킬입니다.",
     "item": "필드 드랍률과 가챠, 아이템 쿨타임을 다뤄 보조 능력을 강화합니다.",
     "paddle": "패들 스킬 트리는 재구성 준비 중입니다.",
-    "smasher": "스매셔 전용 스킬로 특수 공격 루프를 확장합니다."
+    "downtown": "광장에서 획득하는 특수 스킬입니다."
 }
 
 class SkillSystem:
@@ -410,14 +433,8 @@ class AcademyUI:
         
         # 강제로 스매셔 캐릭터로 설정 (테스트)
         self.selected_character = "smasher"
-        
+
         print(f" AcademyUI  -  : {self.selected_character}")
-        
-        # 스매셔 스킬 시스템 임포트
-        if self.selected_character == "smasher":
-            from skills.smasher_skills import get_smasher_skills
-            self.smasher_skills = get_smasher_skills()
-            print("")
         
         # 애니메이션 관련 변수
         self.unlock_animations = {}  # {skill_id: {"start_time": time, "duration": 1000}}
@@ -514,7 +531,7 @@ class AcademyUI:
         preferred_tree = ACADEMY_LAST_SELECTED_TREE
         allowed_trees = {"dash", "item", "paddle"}
         if selected_character == "smasher":
-            allowed_trees.add("smasher")
+            allowed_trees.add("downtown")
         if preferred_tree not in allowed_trees:
             return "dash"
         return preferred_tree
@@ -522,7 +539,7 @@ class AcademyUI:
     def _get_available_trees(self) -> list[str]:
         """현재 캐릭터가 접근 가능한 스킬 트리 순서를 반환"""
         if self.selected_character == "smasher":
-            return ["dash", "item", "paddle", "smasher"]
+            return ["dash", "item", "paddle", "downtown"]
         return ["dash", "item", "paddle"]
 
     def _cycle_tree(self, forward: bool = True):
@@ -541,9 +558,9 @@ class AcademyUI:
 
     def _focus_first_skill_in_current_tree(self):
         """현재 탭에서 기본으로 보여줄 스킬을 선택"""
-        if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
-            if len(self.smasher_skills.skills) > 0:
-                self.selected_skill_index = 0
+        if self.selected_tree == "downtown":
+            # 광장 스킬 탭은 비어있음
+            self.selected_skill_index = 0
         else:
             available_skills = self.get_available_skills()
             if available_skills:
@@ -1098,38 +1115,11 @@ class AcademyUI:
     def update_skill_positions(self):
         """현재 스킬트리의 스킬 위치 정보 업데이트"""
         self.skill_positions.clear()
-        
-        # 스매셔 탭 처리
-        if self.selected_tree == "smasher":
-            # 스매셔도 대쉬와 동일한 트리 구조 사용
-            skill_size = 60
-            row_spacing = 140
-            col_spacing = 200
-            available_width = self.width - 190
-            start_x = (available_width - col_spacing * 2) // 2 + 30
-            start_y = 160
-            
-            if hasattr(self, 'smasher_skills'):
-                for skill in self.smasher_skills.skills:
-                    row = skill["row"]
-                    col = skill["col"]
-                    
-                    # col이 0.5인 경우 중앙 배치
-                    if col == 0.5:
-                        skill_x = start_x + col_spacing // 2
-                    else:
-                        skill_x = start_x + int(col) * col_spacing
-                    
-                    skill_y = start_y + row * row_spacing
-                    
-                    self.skill_positions[skill["id"]] = {
-                        "x": skill_x,
-                        "y": skill_y,
-                        "row": row,
-                        "col": col
-                    }
+
+        # 광장 탭 처리 (스킬 없음)
+        if self.selected_tree == "downtown":
             return
-        
+
         tree_data = SKILL_TREES[self.selected_tree]
         
         if self.selected_tree in ["dash", "item", "paddle"]:
@@ -1179,35 +1169,11 @@ class AcademyUI:
     def get_available_skills(self):
         """현재 선택 가능한 스킬 목록 반환 (해금된 스킬만)"""
         available_skills = []
-        
-        # 스매셔 스킬트리 처리
-        if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
-            for skill in self.smasher_skills.skills:
-                is_available = False
-                
-                # 선행 스킬이 없으면 항상 선택 가능
-                if skill.get("requires") is None and skill.get("requires_or") is None:
-                    is_available = True
-                else:
-                    # AND 조건 선행 스킬 확인
-                    if skill.get("requires"):
-                        required_skill = self.smasher_skills.skills_dict.get(skill["requires"])
-                        if required_skill and required_skill["current_level"] > 0:
-                            is_available = True
-                    
-                    # OR 조건 선행 스킬 확인
-                    if skill.get("requires_or") and not is_available:
-                        for req_id in skill.get("requires_or"):
-                            required_skill = self.smasher_skills.skills_dict.get(req_id)
-                            if required_skill and required_skill["current_level"] > 0:
-                                is_available = True
-                                break
-                
-                if is_available:
-                    available_skills.append(skill["id"])
-            
+
+        # 광장 스킬트리 처리 (스킬 없음)
+        if self.selected_tree == "downtown":
             return available_skills
-        
+
         # 기존 스킬트리 처리
         tree_data = SKILL_TREES[self.selected_tree]
         tree_tp_total = self.skill_system.get_tree_total(self.selected_tree)
@@ -1257,12 +1223,12 @@ class AcademyUI:
         best_skill = None
         best_distance = float('inf')
         
-        # 스매셔 스킬트리 처리
-        if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
-            skills_to_check = self.smasher_skills.skills
-        else:
-            tree_data = SKILL_TREES[self.selected_tree]
-            skills_to_check = tree_data["skills"]
+        # 광장 스킬트리 처리 (스킬 없음)
+        if self.selected_tree == "downtown":
+            return None
+
+        tree_data = SKILL_TREES[self.selected_tree]
+        skills_to_check = tree_data["skills"]
         
         # 해금 여부에 상관없이 모든 스킬을 대상으로 검색
         for skill in skills_to_check:
@@ -1296,12 +1262,10 @@ class AcademyUI:
 
     def get_current_skill_id(self):
         """현재 선택된 스킬 ID 반환"""
-        # 스매셔 탭 처리
-        if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
-            if 0 <= self.selected_skill_index < len(self.smasher_skills.skills):
-                return self.smasher_skills.skills[self.selected_skill_index]["id"]
+        # 광장 탭 처리 (스킬 없음)
+        if self.selected_tree == "downtown":
             return None
-        
+
         tree_data = SKILL_TREES[self.selected_tree]
         if 0 <= self.selected_skill_index < len(tree_data["skills"]):
             return tree_data["skills"][self.selected_skill_index]["id"]
@@ -1309,14 +1273,10 @@ class AcademyUI:
 
     def set_selected_skill_by_id(self, skill_id):
         """스킬 ID로 선택된 스킬 설정"""
-        # 스매셔 탭 처리
-        if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
-            for i, skill in enumerate(self.smasher_skills.skills):
-                if skill["id"] == skill_id:
-                    self.selected_skill_index = i
-                    return True
+        # 광장 탭 처리 (스킬 없음)
+        if self.selected_tree == "downtown":
             return False
-            
+
         tree_data = SKILL_TREES[self.selected_tree]
         for i, skill in enumerate(tree_data["skills"]):
             if skill["id"] == skill_id:
@@ -1328,11 +1288,13 @@ class AcademyUI:
 
     def _clamp_selection_to_current_tree(self):
         """현재 선택된 스킬 인덱스를 해당 탭 범위로 보정"""
-        if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
-            skill_count = len(self.smasher_skills.skills)
-        else:
-            tree_data = SKILL_TREES.get(self.selected_tree)
-            skill_count = len(tree_data["skills"]) if tree_data else 0
+        # 광장 탭 처리 (스킬 없음)
+        if self.selected_tree == "downtown":
+            self.selected_skill_index = 0
+            return
+
+        tree_data = SKILL_TREES.get(self.selected_tree)
+        skill_count = len(tree_data["skills"]) if tree_data else 0
 
         if skill_count == 0:
             self.selected_skill_index = 0
@@ -1668,10 +1630,9 @@ class AcademyUI:
         
         # 초기 선택 설정
         self.update_skill_positions()
-        # 스매셔 스킬트리는 첫 번째 스킬 선택
-        if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
-            if len(self.smasher_skills.skills) > 0:
-                self.selected_skill_index = 0
+        # 광장 스킬트리는 스킬이 없음
+        if self.selected_tree == "downtown":
+            self.selected_skill_index = 0
         else:
             # 기존 스킬트리는 선택 가능한 스킬로 설정
             available_skills = self.get_available_skills()
@@ -1712,16 +1673,16 @@ class AcademyUI:
                             # 탭 선택 모드에서의 키 처리
                             if event.key == pygame.K_LEFT:
                                 # 왼쪽 탭으로 이동
-                                # 스매셔 캐릭터일 때는 스매셔 탭도 포함
+                                # 스매셔 캐릭터일 때는 광장 탭도 포함
                                 if self.selected_character == "smasher":
                                     if self.selected_tree == "item":
                                         self.selected_tree = "dash"
                                     elif self.selected_tree == "paddle":
                                         self.selected_tree = "item"
-                                    elif self.selected_tree == "smasher":
+                                    elif self.selected_tree == "downtown":
                                         self.selected_tree = "paddle"
                                     else:  # dash
-                                        self.selected_tree = "smasher"
+                                        self.selected_tree = "downtown"
                                 else:
                                     # 일반 캐릭터
                                     if self.selected_tree == "item":
@@ -1734,15 +1695,15 @@ class AcademyUI:
                                 self.update_skill_positions()
                             elif event.key == pygame.K_RIGHT:
                                 # 오른쪽 탭으로 이동
-                                # 스매셔 캐릭터일 때는 스매셔 탭도 포함
+                                # 스매셔 캐릭터일 때는 광장 탭도 포함
                                 if self.selected_character == "smasher":
                                     if self.selected_tree == "dash":
                                         self.selected_tree = "item"
                                     elif self.selected_tree == "item":
                                         self.selected_tree = "paddle"
                                     elif self.selected_tree == "paddle":
-                                        self.selected_tree = "smasher"
-                                    else:  # smasher
+                                        self.selected_tree = "downtown"
+                                    else:  # downtown
                                         self.selected_tree = "dash"
                                 else:
                                     # 일반 캐릭터
@@ -1758,10 +1719,9 @@ class AcademyUI:
                                 # 탭 선택 모드 종료하고 스킬로 이동
                                 self.tab_selection_mode = False
                                 self.update_skill_positions()
-                                # 스매셔 스킬트리는 첫 번째 스킬 선택
-                                if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
-                                    if len(self.smasher_skills.skills) > 0:
-                                        self.selected_skill_index = 0
+                                # 광장 스킬트리는 스킬이 없음
+                                if self.selected_tree == "downtown":
+                                    self.selected_skill_index = 0
                                 else:
                                     # 기존 스킬트리는 선택 가능한 스킬로 이동
                                     available_skills = self.get_available_skills()
@@ -1795,18 +1755,13 @@ class AcademyUI:
                                     self.set_selected_skill_by_id(next_skill_id)
                                 elif event.key == pygame.K_UP:
                                     # 위쪽 방향키로 탭 선택 모드로 이동 (최상단 스킬에서만)
-                                    # 스매셔 스킬트리 처리
-                                    if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
-                                        if self.selected_skill_index < len(self.smasher_skills.skills):
-                                            current_skill = self.smasher_skills.skills[self.selected_skill_index]
-                                            # 최상단 스킬인지 확인 (row 0)
-                                            if current_skill.get("row") == 0:
-                                                # 탭 선택 모드로 전환
-                                                self.tab_selection_mode = True
+                                    # 광장 스킬트리 처리 (스킬 없음 - 바로 탭 선택 모드로)
+                                    if self.selected_tree == "downtown":
+                                        self.tab_selection_mode = True
                                     else:
                                         # 기존 스킬트리 처리
                                         current_skill = tree_data["skills"][self.selected_skill_index]
-                                        
+
                                         # 대쉬 스킬트리에서 최상단 스킬인지 확인 (row 0)
                                         if (self.selected_tree == "dash" and current_skill.get("row") == 0) or \
                                            (self.selected_tree != "dash" and self.selected_skill_index == 0):
@@ -1820,30 +1775,9 @@ class AcademyUI:
                             continue  # 세션 투자 제한에 도달하면 투자 불가
                         # 탭 선택 모드가 아닐 때만 스킬 업그레이드
                         if not self.tab_selection_mode:
-                            # 스매셔 스킬트리 처리
-                            if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
-                                if self.selected_skill_index < len(self.smasher_skills.skills):
-                                    skill = self.smasher_skills.skills[self.selected_skill_index]
-                                    if self.smasher_skills.can_upgrade(skill["id"], self.skill_system.skill_points):
-                                        # 스킬 업그레이드
-                                        old_level = skill["current_level"]
-                                        cost = self.smasher_skills.upgrade_skill(skill["id"])
-                                        new_level = skill["current_level"]
-
-                                        # 스킬 포인트 차감
-                                        if cost > 0:
-                                            self.skill_system.skill_points -= cost
-                                            self.skill_system.save_skill_points()
-                                            self.increment_session_invest()  # 세션 투자 횟수 증가
-
-                                        # 레벨업 애니메이션 시작
-                                        if new_level > old_level:
-                                            self.start_levelup_animation(skill["id"])
-                                            self.play_skill_invest_sound()
-
-                                        # 0→1 전환시 언락 애니메이션
-                                        if old_level == 0 and new_level == 1:
-                                            self.start_unlock_animation(skill["id"])
+                            # 광장 스킬트리 처리 (스킬 없음)
+                            if self.selected_tree == "downtown":
+                                pass  # 광장 탭에는 스킬이 없음
                             else:
                                 # 기존 스킬트리 처리
                                 tree_data = SKILL_TREES[self.selected_tree]
@@ -1885,11 +1819,11 @@ class AcademyUI:
         
         # 스매셔 캐릭터일 경우 탭 개수 조정
         if self.selected_character == "smasher":
-            # 스매셔 캐릭터일 때는 모든 탭 표시 (스매셔 포함)
+            # 스매셔 캐릭터일 때는 모든 탭 표시 (광장 포함)
             tabs_to_show = list(SKILL_TREES.items())
         else:
-            # 일반 캐릭터일 때는 스매셔 탭 제외
-            tabs_to_show = [(k, v) for k, v in SKILL_TREES.items() if k != "smasher"]
+            # 일반 캐릭터일 때는 광장 탭 제외
+            tabs_to_show = [(k, v) for k, v in SKILL_TREES.items() if k != "downtown"]
         
         total_tab_width = len(tabs_to_show) * tab_width + (len(tabs_to_show) - 1) * 10
         start_x = (self.width - total_tab_width) // 2
@@ -1904,26 +1838,9 @@ class AcademyUI:
                 return None
         
         # 스킬 아이콘 클릭 확인
-        if self.selected_tree == "smasher" and self.selected_character == "smasher":
-            # 스매셔 스킬 클릭 처리
-            if hasattr(self, 'smasher_skills'):
-                clicked_skill = self.smasher_skills.handle_click(pos, 50, 110, self.skill_system.skill_points)
-                if clicked_skill:
-                    # 보기 전용일 땐 선택만 유지하고 투자하지 않는다
-                    self.set_selected_skill_by_id(clicked_skill)
-                    if self.read_only:
-                        return None
-                    # 세션 투자 제한 확인
-                    if not self.can_invest_in_session():
-                        return None  # 세션 투자 제한에 도달하면 투자 불가
-                    # 스킬 업그레이드
-                    cost = self.smasher_skills.upgrade_skill(clicked_skill)
-                    if cost > 0:
-                        self.skill_system.skill_points -= cost
-                        self.skill_system.register_manual_investment("smasher", cost)
-                        self.play_skill_invest_sound()
-                        self.increment_session_invest()  # 세션 투자 횟수 증가
-                    return None
+        if self.selected_tree == "downtown":
+            # 광장 스킬 탭 클릭 처리 (스킬 없음)
+            return None
         elif self.selected_tree in SKILL_TREES:
             # 아카데미 화면에서 실제로 그려진 아이콘 좌표(self.skill_positions)를 기준으로
             # 클릭된 스킬을 판정한다. 이렇게 해야 마우스로 찍은 아이콘과 업그레이드되는
@@ -2134,13 +2051,13 @@ class AcademyUI:
         # 스매셔 캐릭터일 경우 탭 개수 조정
         # 강제로 스매셔 모드로 설정 (테스트)
         self.selected_character = "smasher"
-        
+
         if self.selected_character == "smasher":
-            # 스매셔 캐릭터일 때는 모든 탭 표시 (스매셔 포함)
+            # 스매셔 캐릭터일 때는 모든 탭 표시 (광장 포함)
             tabs_to_show = list(SKILL_TREES.items())
         else:
-            # 일반 캐릭터일 때는 스매셔 탭 제외
-            tabs_to_show = [(k, v) for k, v in SKILL_TREES.items() if k != "smasher"]
+            # 일반 캐릭터일 때는 광장 탭 제외
+            tabs_to_show = [(k, v) for k, v in SKILL_TREES.items() if k != "downtown"]
         
         total_tab_width = len(tabs_to_show) * tab_width + (len(tabs_to_show) - 1) * 10
         start_x = (self.width - total_tab_width) // 2
@@ -2186,149 +2103,67 @@ class AcademyUI:
             self.screen.blit(num_text, num_rect)
         
         # 선택된 스킬 트리 표시
-        if self.selected_tree == "smasher" and self.selected_character == "smasher":
-            # 스매셔 스킬탭 그리기
-            self.draw_smasher_skill_tree()
+        if self.selected_tree == "downtown":
+            # 광장 스킬탭 그리기 (비어있음)
+            self.draw_downtown_skill_tree()
         else:
             self.draw_skill_tree()
-    
-    def draw_smasher_skill_tree(self):
-        """스매셔 전용 스킬트리 그리기 - 아이콘과 화살표를 모두 제거하고 설명 패널만 표시"""
-        if not hasattr(self, 'smasher_skills'):
-            return
-        
-        # 우측 설명 패널만 그리기
-        self.draw_smasher_skill_description_panel()
-    
-    def create_smasher_skill_icon(self, skill_data, level, max_level, size=60):
-        """스매셔 스킬 아이콘 생성 - 빈 아이콘만 반환"""
-        icon = pygame.Surface((size, size), pygame.SRCALPHA)
-        # 아무것도 그리지 않고 빈 Surface 반환
-        return icon
-    
-    def draw_smasher_skill_symbol(self, icon, skill_id, size, active):
-        """스매셔 스킬 심볼 그리기 - 아무것도 그리지 않음"""
-        pass  # 스킬 아이콘 내부를 비워둠
-    
-    def draw_smasher_skill_description_panel(self):
-        """스매셔 스킬 설명 패널 그리기 - 대쉬와 동일한 스타일"""
-        if not self.tab_selection_mode and self.selected_skill_index < len(self.smasher_skills.skills):
-            selected_skill = self.smasher_skills.skills[self.selected_skill_index]
-            
-            # 우측 패널 영역
-            panel_x = self.width - 180
-            panel_y = 150
-            panel_width = 160
-            panel_height = 400
-            
-            # 패널 배경 (사이버펑크 스타일)
-            panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-            pygame.draw.rect(panel_surface, (0, 20, 40, 200), (0, 0, panel_width, panel_height))
-            pygame.draw.rect(panel_surface, (0, 255, 255, 100), (0, 0, panel_width, panel_height), 2)
-            
-            # 코너 장식
-            corner_size = 10
-            corners = [
-                (0, 0), (panel_width - corner_size, 0),
-                (0, panel_height - corner_size), (panel_width - corner_size, panel_height - corner_size)
-            ]
-            for cx, cy in corners:
-                pygame.draw.lines(panel_surface, (0, 255, 255), False, 
-                                [(cx, cy + corner_size), (cx, cy), (cx + corner_size, cy)], 2)
-            
-            self.screen.blit(panel_surface, (panel_x, panel_y))
-            
-            # 스킬 이름
-            name_color = selected_skill["icon_color"]
-            name_surf = self.font_large.render(selected_skill["name"], True, name_color)
-            name_rect = name_surf.get_rect(centerx=panel_x + panel_width//2, y=panel_y + 20)
-            self.screen.blit(name_surf, name_rect)
-            
-            # 레벨 게이지 표시 (이름 아래)
-            gauge_y = panel_y + 55
-            gauge_x = panel_x + (panel_width - 120) // 2  # 중앙 정렬
-            self.draw_skill_level_gauge(selected_skill, gauge_x, gauge_y, 120, 20)
-            
-            # 구분선 (게이지 아래로 이동)
-            pygame.draw.line(self.screen, (0, 255, 255, 100), 
-                           (panel_x + 10, panel_y + 85), 
-                           (panel_x + panel_width - 10, panel_y + 85), 1)
-            
-            # 스킬 설명
-            desc_y = panel_y + 105
-            desc_lines = selected_skill["description"].split("\n")
-            for line in desc_lines:
-                # 줄 바꿈 처리
-                words = line.split()
-                current_line = ""
-                for word in words:
-                    test_line = current_line + " " + word if current_line else word
-                    if self.font_small.size(test_line)[0] <= panel_width - 20:
-                        current_line = test_line
-                    else:
-                        if current_line:
-                            desc_surf = self.font_small.render(current_line, True, (230, 230, 230))
-                            self.screen.blit(desc_surf, (panel_x + 10, desc_y))
-                            desc_y += 20
-                        current_line = word
-                
-                if current_line:
-                    desc_surf = self.font_small.render(current_line, True, (230, 230, 230))
-                    self.screen.blit(desc_surf, (panel_x + 10, desc_y))
-                    desc_y += 25
-            
-            # 현재 효과
-            current_level = selected_skill["current_level"]
-            if current_level > 0:
-                pygame.draw.line(self.screen, (0, 255, 255, 100), 
-                               (panel_x + 10, desc_y + 10), 
-                               (panel_x + panel_width - 10, desc_y + 10), 1)
-                
-                effect_value = current_level * selected_skill["effect_per_level"]
-                
-                # 스킬별 효과 표시
-                if selected_skill["id"] in ["smash_power", "smash_charge", "smash_critical", "smash_speed", "smash_shield", "mega_smash"]:
-                    effect_text = f"현재: {effect_value*100:.0f}%"
-                else:
-                    effect_text = f"현재: {effect_value:.0f}"
-                
-                effect_surf = self.font_medium.render(effect_text, True, (100, 255, 100))
-                self.screen.blit(effect_surf, (panel_x + 10, desc_y + 25))
-            
-            # 업그레이드 정보
-            if current_level < selected_skill["max_level"]:
-                cost_y = panel_y + panel_height - 80
-                
-                # 비용
-                cost_text = f"비용: {selected_skill['cost']} TP"
-                can_upgrade = self.smasher_skills.can_upgrade(selected_skill["id"], self.skill_system.skill_points)
-                cost_color = (255, 255, 100) if can_upgrade else (150, 150, 150)
-                cost_surf = self.font_medium.render(cost_text, True, cost_color)
-                self.screen.blit(cost_surf, (panel_x + 10, cost_y))
-                
-                # 다음 레벨 효과
-                next_effect = (current_level + 1) * selected_skill["effect_per_level"]
-                if selected_skill["id"] in ["smash_power", "smash_charge", "smash_critical", "smash_speed", "smash_shield", "mega_smash"]:
-                    next_text = f"다음: {next_effect*100:.0f}%"
-                else:
-                    next_text = f"다음: {next_effect:.0f}"
-                
-                next_surf = self.font_small.render(next_text, True, (150, 150, 255))
-                self.screen.blit(next_surf, (panel_x + 10, cost_y + 25))
-                
-                # Space 키 안내
-                if can_upgrade:
-                    space_text = "[SPACE] 업그레이드"
-                    space_surf = self.font_small.render(space_text, True, (255, 255, 100))
-                    space_rect = space_surf.get_rect(centerx=panel_x + panel_width//2, y=cost_y + 50)
-                    self.screen.blit(space_surf, space_rect)
-            else:
-                # MAX 레벨 표시
-                max_text = "MAX LEVEL"
-                max_color = (255, 215, 0) if selected_skill["max_level"] == 5 else (220, 220, 220)
-                max_surf = self.font_large.render(max_text, True, max_color)
-                max_rect = max_surf.get_rect(centerx=panel_x + panel_width//2, y=panel_y + panel_height - 50)
-                self.screen.blit(max_surf, max_rect)
+
+    def draw_downtown_skill_tree(self):
+        """광장 전용 스킬트리 그리기 - 빈 상태로 표시"""
+        # 광장 스킬 설명 패널 그리기
+        self.draw_downtown_skill_description_panel()
+
+    def draw_downtown_skill_description_panel(self):
+        """광장 스킬 설명 패널 그리기 - 빈 탭 안내 표시"""
+        # 중앙 패널 영역
+        panel_width = 400
+        panel_height = 200
+        panel_x = (self.width - panel_width) // 2
+        panel_y = (self.height - panel_height) // 2
+
+        # 패널 배경 (광장 테마 - 따뜻한 금색)
+        panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        pygame.draw.rect(panel_surface, (40, 30, 20, 200), (0, 0, panel_width, panel_height))
+        pygame.draw.rect(panel_surface, (255, 200, 100, 150), (0, 0, panel_width, panel_height), 3)
+
+        # 코너 장식
+        corner_size = 15
+        corners = [
+            (0, 0), (panel_width - corner_size, 0),
+            (0, panel_height - corner_size), (panel_width - corner_size, panel_height - corner_size)
+        ]
+        for cx, cy in corners:
+            pygame.draw.lines(panel_surface, (255, 200, 100), False,
+                            [(cx, cy + corner_size), (cx, cy), (cx + corner_size, cy)], 3)
+
+        self.screen.blit(panel_surface, (panel_x, panel_y))
+
+        # 안내 메시지 표시
+        title_text = "광장 스킬"
+        title_surf = self.font_large.render(title_text, True, (255, 200, 100))
+        title_rect = title_surf.get_rect(centerx=panel_x + panel_width // 2, y=panel_y + 30)
+        self.screen.blit(title_surf, title_rect)
+
+        # 구분선
+        pygame.draw.line(self.screen, (255, 200, 100, 100),
+                       (panel_x + 30, panel_y + 70),
+                       (panel_x + panel_width - 30, panel_y + 70), 2)
+
+        # 설명 텍스트
+        desc_lines = [
+            "광장에서 획득할 수 있는",
+            "특수 스킬입니다.",
+            "",
+            "추후 업데이트 예정"
+        ]
+        desc_y = panel_y + 90
+        for line in desc_lines:
+            if line:
+                desc_surf = self.font_medium.render(line, True, (200, 200, 200))
+                desc_rect = desc_surf.get_rect(centerx=panel_x + panel_width // 2, y=desc_y)
+                self.screen.blit(desc_surf, desc_rect)
+            desc_y += 25
 
     def draw_tree_summary_text(self, tree_id: str):
         """현재 선택된 탭에 대한 요약 문구 표시"""
@@ -2346,10 +2181,9 @@ class AcademyUI:
 
     def draw_skill_tree(self):
         """선택된 스킬트리 그리기"""
-        if self.selected_tree == "smasher":
-            # 스매셔 탭이 선택되었지만 스매셔 캐릭터가 아닌 경우 대시 탭으로 변경
-            self.selected_tree = "dash"
-            self._clamp_selection_to_current_tree()
+        if self.selected_tree == "downtown":
+            # 광장 탭은 별도 처리
+            return
         tree_data = SKILL_TREES[self.selected_tree]
         self.draw_tree_summary_text(self.selected_tree)
 
@@ -3896,6 +3730,31 @@ def get_treasure_map_gacha_bonus():
     """보물지도 스킬이 가챠 전설 확률에 주는 추가치"""
     level = get_skill_level("item_treasure_map")
     return 0.07 * level
+
+
+def get_caffeine_duration_multiplier():
+    """
+    카페인 스킬이 타이머형 액티브 아이템 지속시간에 주는 배율
+    레벨당 15% 증가 (1/5)
+    Lv1: 1.15, Lv2: 1.30, Lv3: 1.45, Lv4: 1.60, Lv5: 1.75
+    """
+    level = get_skill_level("item_caffeine")
+    if level <= 0:
+        return 1.0
+    return 1.0 + 0.15 * level
+
+
+def get_polish_efficiency_multiplier():
+    """
+    연마 스킬이 패시브 아이템 롤옵션에 주는 효율 배율
+    Lv1: 1.20 (+20%), Lv2: 1.30 (+30%), Lv3: 1.40 (+40%), Lv4: 1.50 (+50%), Lv5: 1.60 (+60%)
+    """
+    level = get_skill_level("item_polish")
+    if level <= 0:
+        return 1.0
+    # Lv1은 20%, 이후 레벨당 10%씩 증가
+    return 1.0 + 0.20 + 0.10 * (level - 1)
+
 
 def add_skill_points(points):
     """스킬 포인트 추가 (스테이지 클리어 시 호출)"""

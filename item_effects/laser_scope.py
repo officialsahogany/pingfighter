@@ -27,7 +27,13 @@ class LaserScope:
     def activate(self):
         """레이저스코프 활성화"""
         self.active = True
-        self.timer = self.duration
+        # 카페인 스킬 효과 적용 (타이머형 아이템 지속시간 증가)
+        try:
+            import academy
+            caffeine_multiplier = academy.get_caffeine_duration_multiplier()
+            self.timer = int(self.duration * caffeine_multiplier)
+        except (ImportError, AttributeError):
+            self.timer = self.duration
         self.trajectory_segments = []
 
     def deactivate(self):

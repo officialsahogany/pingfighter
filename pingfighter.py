@@ -1326,6 +1326,7 @@ from item_effects.ak47 import get_ak47_instance
 from item_effects.net_gun import get_net_gun_instance
 from item_effects.fire_support import get_fire_support_instance
 from item_effects.bowling_trap import get_bowling_trap_instance
+from item_effects.cleanse_skill import get_cleanse_skill, check_player_has_status_effect, reset_cleanse_skill, is_cleanse_immune
 from supply_drop import (
     SupplyDropRuntime,
     SupplyDropState,
@@ -3945,7 +3946,7 @@ EQUIPMENT_SLOT_DEFINITIONS = [
 ]
 
 ITEM_SLOT_BASE_MAP = {
-    "sensor": "accessory",
+    "sensor": "belt",
     "star_detector": "accessory",
     "aipill": "head",
     "technical_vest": "top",
@@ -3959,14 +3960,14 @@ ITEM_SLOT_BASE_MAP = {
     "bazooka": "arm",
     "knee_pads": "knee",
     "gravitybelt": "belt",
-    "speedgear": "accessory",
+    "speedgear": "belt",
     "dashgear": "knee",
     "dashholder": "accessory",
     "slot_add": "가방",
     "bulletproof_hat": "head",
     "spiked_helmet": "head",
     "chargebag": "가방",
-    "battery": "accessory",
+    "battery": "가방",
     "fuel_pouch": "accessory",
     "molotov": "belt",
     "grenade": "belt",
@@ -3981,10 +3982,10 @@ ITEM_SLOT_BASE_MAP = {
     "angel_blessing": "accessory",
     "bluetooth_ring": "accessory",
     "foul_whistle": "accessory",
-    "smartphone": "accessory",
+    "smartphone": "arm",
     "cooltime": "accessory",
     "revival": "accessory",
-    "dowsing_pendulum": "accessory",
+    "dowsing_pendulum": "가방",
     "stopwatch": "accessory",
     "devil_dice": "accessory",
     "repair_kit": "accessory",
@@ -4050,6 +4051,9 @@ PASSIVE_OPTION_RANGES = {
     "technical_vest": [
         {"label": "연막 생성확률", "min": 10, "max": 20, "unit": "%", "prefix": "+", "key": "smoke_trigger_pct"},
         {"label": "연막 지속시간", "min": 3, "max": 6, "unit": "초", "prefix": "", "key": "smoke_duration_sec"},
+    ],
+    "dowsing_pendulum": [
+        {"label": "끌어당기는 범위", "min": 150, "max": 250, "unit": "px", "prefix": "", "key": "attraction_range"},
     ],
 }
 
@@ -4273,6 +4277,11 @@ def _get_knockback_resist_scale() -> float:
 
 def apply_knockback_resist(value: float) -> float:
     """플레이어 넉백 속도/거리 값을 저항만큼 줄여 반환."""
+    # 클렌즈 면역 상태 체크
+    if is_cleanse_immune():
+        _kb_debug(f"apply_knockback_resist: 클렌즈 면역으로 넉백 무시 (원래값: {value:.2f})")
+        return 0.0
+
     scale = _get_knockback_resist_scale()
     out = value * scale
     _kb_debug(f"apply_knockback_resist: in={value:.2f}, scale={scale:.3f}, out={out:.2f}")
@@ -4304,6 +4313,13 @@ def try_apply_player_stun(stun_seconds: float, *, source: str = "", knockback_sc
         적용된 스턴 지속시간(초). 0이면 스턴 미적용.
     """
     global player_stunned_timer
+
+    # 클렌즈 면역 상태 체크
+    if is_cleanse_immune():
+        if source:
+            print(f"[STUN-IMMUNE] {source} 무시 (클렌즈 면역 상태)")
+        return 0.0
+
     resist_pct = get_player_stun_resist_pct()
     final_seconds = max(0.0, stun_seconds * (1.0 - resist_pct / 100.0))
     if knockback_scaled:
@@ -4318,10 +4334,19 @@ def try_apply_player_stun(stun_seconds: float, *, source: str = "", knockback_sc
     return final_seconds
 
 
-def _get_roll_value(item: dict, key: str) -> int | None:
+def _get_roll_value(item: dict, key: str, apply_polish: bool = True) -> int | None:
+    """롤 옵션 값을 가져온다. apply_polish=True면 연마 스킬 효과 적용."""
     for opt in item.get("rolled_options") or []:
         if opt.get("key") == key:
-            return int(opt.get("value", 0))
+            base_value = int(opt.get("value", 0))
+            # 연마 스킬 효과 적용 (패시브 아이템 롤옵션 효율 증가)
+            if apply_polish and base_value > 0:
+                try:
+                    polish_multiplier = academy.get_polish_efficiency_multiplier()
+                    return int(base_value * polish_multiplier)
+                except (ImportError, AttributeError):
+                    pass
+            return base_value
     return None
 
 
@@ -4641,6 +4666,10 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         val = _get_roll_value(item, "chargebag_pct")
         if val is not None:
             globals()["chargebag_bonus_pct"] = val
+    elif name == "dowsing_pendulum":
+        val = _get_roll_value(item, "attraction_range")
+        if val is not None:
+            dowsing_pendulum_effect.attraction_range = val
 
 
 def apply_dashgear_distance(base_timer: float) -> float:
@@ -25157,6 +25186,12 @@ def activate_doping_potion(duration_frames: int | None = None, *, play_sound: bo
     """도핑물약 효과 활성화"""
     global doping_potion_active, doping_potion_timer, doping_potion_toast_timer, doping_potion_use_count
     frames = duration_frames if duration_frames is not None else DOPING_POTION_DURATION_FRAMES
+    # 카페인 스킬 효과 적용 (타이머형 아이템 지속시간 증가)
+    try:
+        caffeine_multiplier = academy.get_caffeine_duration_multiplier()
+        frames = int(frames * caffeine_multiplier)
+    except (ImportError, AttributeError):
+        pass
     frames = max(0, frames)
     doping_potion_active = True
     doping_potion_timer = frames
@@ -25231,6 +25266,12 @@ def activate_vitamin_pill(duration_frames: int | None = None, *, play_sound: boo
     """비타민약 효과 활성화"""
     global vitamin_pill_active, vitamin_pill_timer
     frames = duration_frames if duration_frames is not None else VITAMIN_PILL_DURATION_FRAMES
+    # 카페인 스킬 효과 적용 (타이머형 아이템 지속시간 증가)
+    try:
+        caffeine_multiplier = academy.get_caffeine_duration_multiplier()
+        frames = int(frames * caffeine_multiplier)
+    except (ImportError, AttributeError):
+        pass
     frames = max(0, frames)
     vitamin_pill_active = True
     vitamin_pill_timer = frames
@@ -27052,9 +27093,13 @@ def check_tear_collisions():
                 continue  # 충돌한 눈물 제거 (데미지는 없음)
             else:
                 # 연막 밖에서는 정상적으로 데미지 받음
-                player_slow_timer = 130  # 2초간 느려짐 (60fps 기준)
-                player_slow_timer_max = player_slow_timer
-                
+                # 클렌즈 면역 상태 체크
+                if not is_cleanse_immune():
+                    player_slow_timer = 130  # 2초간 느려짐 (60fps 기준)
+                    player_slow_timer_max = player_slow_timer
+                else:
+                    print("[SLOW-IMMUNE] 눈물 샤워 무시 (클렌즈 면역 상태)")
+
                 # 눈물 맞았을 때 사운드 재생
                 try:
                     tears_sound = pygame.mixer.Sound(resource_path("sounds/tears.wav"))
@@ -27295,11 +27340,17 @@ def activate_long_boost():
     global LONG_BOOST_DURATION
     if not long_boost_active:
         long_boost_active = True
-        long_boost_timer = LONG_BOOST_DURATION  # 8초 지속
+        # 카페인 스킬 효과 적용 (타이머형 아이템 지속시간 증가)
+        try:
+            caffeine_multiplier = academy.get_caffeine_duration_multiplier()
+            long_boost_timer = int(LONG_BOOST_DURATION * caffeine_multiplier)
+        except (ImportError, AttributeError):
+            long_boost_timer = LONG_BOOST_DURATION  # 8초 지속
         long_boost_target_scale = 1.5  # 목표 크기: 1.5배
         #  엑티브 아이템 사용 효과음 재생
         play_active_item_sound()
-        print("🍄 거대화포션 발동! 8초간 패들 크기 1.5배 증가")
+        duration_seconds = long_boost_timer / 60.0
+        print(f"🍄 거대화포션 발동! {duration_seconds:.1f}초간 패들 크기 1.5배 증가")
         try:
             _hg_on_activate('long_boost')
         except Exception:
@@ -36111,21 +36162,23 @@ def handle_player(keys):
     
     # Stage 4 화상 효과 처리
     global player_burn_timer, player_burn_effect, player_knockback_y
-    if player_burn_timer > 0:
-        player_burn_timer -= 1
-        if player_burn_timer <= 0:
-            player_burn_effect = False
-        _prev_center = PLAYER.centerx
-        PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 화상 중에도 거대화포션 효과 적용
-        PLAYER.centerx = _prev_center  # 크기 변경 시에도 중심 유지해 강제 이동 방지
-        return  # 화상 중에는 조작 불가
-    
-    # 넉백 Y 위치 복구 (화상이 아닐 때도 계속 적용)
+
+    # 넉백 Y 위치 복구 (화상 여부와 관계없이 항상 적용 - return 전에 처리해야 함)
     if player_knockback_y != 0:
         # 부드럽게 원래 위치로 복구
         player_knockback_y *= 0.9
         if abs(player_knockback_y) < 1:
             player_knockback_y = 0
+
+    if player_burn_timer > 0:
+        player_burn_timer -= 1
+        if player_burn_timer <= 0:
+            player_burn_effect = False
+            player_knockback_y = 0  # 화상 종료 시 Y 넉백 즉시 리셋
+        _prev_center = PLAYER.centerx
+        PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 화상 중에도 거대화포션 효과 적용
+        PLAYER.centerx = _prev_center  # 크기 변경 시에도 중심 유지해 강제 이동 방지
+        return  # 화상 중에는 조작 불가
     
     #  스턴 상태 처리
     if player_stunned_timer > 0:
@@ -47323,16 +47376,20 @@ def update_stage8_shurikens() -> None:
                 play_sound_with_volume(SOUND_SHURIKEN_HIT)
             except Exception:
                 pass
-            player_slow_timer = STAGE8_SHURIKEN_SLOW_FRAMES
-            player_slow_timer_max = STAGE8_SHURIKEN_SLOW_FRAMES
-            player_slow_factor = STAGE8_SHURIKEN_SLOW_FACTOR
-            # 이미 이동 중이었다면 현재 속도에도 즉시 감속을 반영해 체감 지연을 없앤다.
-            try:
-                current_speed *= STAGE8_SHURIKEN_SLOW_FACTOR
-            except Exception:
-                pass
-            stage8_shuriken_gauge_ticks_left = 4  # 0.5초 간격 4회(총 2초)
-            stage8_shuriken_gauge_tick_timer = STAGE8_SHURIKEN_GAUGE_TICK_FRAMES
+            # 클렌즈 면역 상태 체크
+            if not is_cleanse_immune():
+                player_slow_timer = STAGE8_SHURIKEN_SLOW_FRAMES
+                player_slow_timer_max = STAGE8_SHURIKEN_SLOW_FRAMES
+                player_slow_factor = STAGE8_SHURIKEN_SLOW_FACTOR
+                # 이미 이동 중이었다면 현재 속도에도 즉시 감속을 반영해 체감 지연을 없앤다.
+                try:
+                    current_speed *= STAGE8_SHURIKEN_SLOW_FACTOR
+                except Exception:
+                    pass
+                stage8_shuriken_gauge_ticks_left = 4  # 0.5초 간격 4회(총 2초)
+                stage8_shuriken_gauge_tick_timer = STAGE8_SHURIKEN_GAUGE_TICK_FRAMES
+            else:
+                print("[SLOW-IMMUNE] 표창 무시 (클렌즈 면역 상태)")
             # 피 튀기는 파티클 효과 생성
             create_blood_particles(rect.centerx, rect.centery, sh["vx"], sh["vy"])
             continue
@@ -55410,6 +55467,12 @@ def draw_objects():
     # 모든 이펙트 업데이트 및 그리기
     effects_manager.update_all_effects()
     effects_manager.draw_all_effects(SCREEN)
+    
+    # ✨ 스매셔 클렌즈 스킬 이펙트 업데이트 및 그리기
+    if selected_character_type == 'smasher':
+        cleanse = get_cleanse_skill()
+        cleanse.update()
+        cleanse.draw(SCREEN, screen_shake_offset_x, screen_shake_offset_y)
 
     # 🌪️ 날씨 파티클 업데이트 및 그리기
     update_weather_particles(WIDTH, HEIGHT)
@@ -67016,23 +67079,23 @@ def show_item_manager_menu():
     grid_start_x = (WIDTH - (grid_cols * item_size + (grid_cols - 1) * item_spacing)) // 2
     grid_start_y = 200
 
-    # 패시브 탭 전용 설정 (작은 아이콘 + 부위별 정리)
-    passive_item_size = 36  # 40% 축소 (화면에 모두 표시되도록)
-    passive_item_spacing = 5
-    passive_slot_gap = 3  # 부위 간 간격
+    # 패시브 탭 전용 설정 (부위별 정리)
+    passive_item_size = 44
+    passive_item_spacing = 6
+    passive_slot_gap = 4  # 부위 간 간격
 
     # 패시브 아이템 부위별 분류
     PASSIVE_SLOT_ORDER = [
         ("머리", ["bulletproof_hat", "spiked_helmet"]),
         ("상의", ["technical_vest", "bulkup"]),
-        ("팔", ["commando_arm", "master"]),
-        ("벨트", ["gravitybelt"]),
+        ("팔", ["commando_arm", "master", "smartphone"]),
+        ("벨트", ["gravitybelt", "speedgear", "sensor"]),
         ("무릎", ["knee_pads", "dashgear"]),
         ("신발", ["speedboots", "spikeboots"]),
-        ("가방", ["slot_add", "chargebag"]),
-        ("장신구", ["sensor", "star_detector", "fuel_pouch", "bluetooth_ring",
-                  "foul_whistle", "smartphone", "dashholder", "dowsing_pendulum",
-                  "cooltime", "battery", "speedgear", "revival"]),
+        ("가방", ["slot_add", "chargebag", "dowsing_pendulum", "battery"]),
+        ("장신구", ["star_detector", "fuel_pouch", "bluetooth_ring",
+                  "foul_whistle", "dashholder",
+                  "cooltime", "revival"]),
     ]
 
     # 모든 아이템 목록 - 동적으로 아이콘 가져오기
@@ -67252,6 +67315,42 @@ def show_item_manager_menu():
         return ordered
 
     passive_items_sorted = get_passive_items_by_slot()
+
+    # 전설 아이템 부위별 분류
+    LEGENDARY_SLOT_ORDER = [
+        ("팔", ["ragnarok_hammer", "poseidon_trident"]),
+        ("신발", ["hermes_shoes"]),
+        ("장신구", ["angel_blessing", "sacred_laurel"]),
+    ]
+
+    # 전설 아이템 부위별 정렬 함수
+    def get_legendary_items_by_slot():
+        """전설 아이템을 부위별로 정렬하여 반환"""
+        ordered = []
+        for slot_name, item_names in LEGENDARY_SLOT_ORDER:
+            for name in item_names:
+                for item in legendary_items:
+                    if item["name"] == name:
+                        item["slot"] = slot_name
+                        ordered.append(item)
+                        break
+        # 분류되지 않은 아이템 추가
+        ordered_names = [item["name"] for item in ordered]
+        for item in legendary_items:
+            if item["name"] not in ordered_names:
+                item["slot"] = "기타"
+                ordered.append(item)
+        return ordered
+
+    legendary_items_sorted = get_legendary_items_by_slot()
+
+    # 전설 탭 전용 설정 (패시브보다 큰 아이콘)
+    legendary_item_size = 52
+    legendary_item_spacing = 8
+    legendary_slot_gap = 6
+
+    # 전설 탭 아이템 위치 캐시
+    legendary_item_rects = []
 
     font_large = FontStyle.subtitle()  # 32pt 픽셀 폰트
     font_medium = FontStyle.body()  # 24pt 픽셀 폰트
@@ -67496,7 +67595,7 @@ def show_item_manager_menu():
         elif selected_category == 2:
             current_items = firearm_items
         else:  # selected_category == 3
-            current_items = legendary_items
+            current_items = legendary_items_sorted  # 부위별 정렬된 전설 사용
 
         # 패시브 탭: 부위별 레이아웃으로 렌더링
         if selected_category == 1:
@@ -67611,8 +67710,99 @@ def show_item_manager_menu():
 
                 col_in_slot += 1
 
+        elif selected_category == 3:
+            # 전설 탭 전용 렌더링 (부위별 정리)
+            font_slot = get_font(14)
+            legendary_start_y = 175
+            current_y = legendary_start_y
+            current_slot = None
+            item_index = 0
+            col_in_slot = 0
+            max_cols_per_slot = 6
+            slot_label_width = 50
+            legendary_grid_start_x = 65
+
+            # 부위별 색상 (전설 아이템용 - 황금빛 계열)
+            slot_colors = {
+                "팔": (255, 200, 100),
+                "신발": (200, 180, 255),
+                "장신구": (255, 180, 200),
+                "기타": (180, 180, 180),
+            }
+
+            # 전설 아이템 위치 캐시 초기화
+            legendary_item_rects = []
+
+            for i, item in enumerate(current_items):
+                item_slot = item.get("slot", "기타")
+
+                # 새로운 부위 시작
+                if item_slot != current_slot:
+                    current_slot = item_slot
+                    col_in_slot = 0
+                    if i > 0:
+                        current_y += legendary_item_size + legendary_slot_gap
+
+                    # 부위 라벨 표시
+                    slot_color = slot_colors.get(current_slot, (180, 180, 180))
+                    slot_label = font_slot.render(current_slot, True, slot_color)
+                    SCREEN.blit(slot_label, (15, current_y + (legendary_item_size - slot_label.get_height()) // 2))
+
+                # 아이템 위치 계산
+                x = legendary_grid_start_x + col_in_slot * (legendary_item_size + legendary_item_spacing)
+                y = current_y
+
+                # 줄바꿈 처리
+                if col_in_slot >= max_cols_per_slot:
+                    col_in_slot = 0
+                    current_y += legendary_item_size + legendary_item_spacing
+                    x = legendary_grid_start_x
+                    y = current_y
+
+                item_rect = pygame.Rect(x, y, legendary_item_size, legendary_item_size)
+                legendary_item_rects.append((i, item_rect, item))
+
+                # 드래그 선택
+                if is_drag_select and item_rect.collidepoint(mouse_pos):
+                    item_name = item["name"]
+                    drag_key = f"3:{item_name}"
+                    if drag_key not in drag_toggled_items:
+                        if item_name in selected_legendary_items:
+                            selected_legendary_items.remove(item_name)
+                        else:
+                            selected_legendary_items.append(item_name)
+                        drag_toggled_items.add(drag_key)
+
+                # 선택/커서 상태
+                is_selected = item["name"] in selected_legendary_items
+                is_cursor = (i == selected_item_index)
+
+                # 배경색 (전설 아이템은 황금 테두리)
+                if is_selected:
+                    draw.rect((255, 215, 0), item_rect)  # 황금색
+                elif is_cursor:
+                    draw.rect((180, 140, 80), item_rect)
+                else:
+                    draw.rect((80, 60, 40), item_rect)
+
+                # 테두리 (전설 아이템 전용 스타일)
+                if is_cursor:
+                    draw.rect((255, 215, 0), item_rect, 3)  # 황금 테두리
+                else:
+                    draw.rect((200, 160, 80), item_rect, 2)
+
+                # 아이콘 (전설 아이템은 애니메이션)
+                if "item_obj" in item:
+                    item["item_obj"].draw_icon(SCREEN, x + 2, y + 2, legendary_item_size - 4)
+                elif item["icon"]:
+                    icon_surface = pygame.transform.scale(item["icon"], (legendary_item_size - 4, legendary_item_size - 4))
+                    icon_rect = icon_surface.get_rect(center=item_rect.center)
+                    SCREEN.blit(icon_surface, icon_rect)
+
+                col_in_slot += 1
+
         else:
-            # 기존 그리드 레이아웃 (액티브/화기류/전설)
+            # 기존 그리드 레이아웃 (액티브/화기류)
             for i, item in enumerate(current_items):
                 row = i // grid_cols
                 col = i % grid_cols
@@ -67740,11 +67930,11 @@ def show_item_manager_menu():
         if selected_category == 0:
             hovered_items = active_items
         elif selected_category == 1:
-            hovered_items = passive_items
+            hovered_items = passive_items_sorted
         elif selected_category == 2:
             hovered_items = firearm_items
         else:
-            hovered_items = legendary_items
+            hovered_items = legendary_items_sorted
 
         if hovered_items and 0 <= selected_item_index < len(hovered_items):
             hovered_item = hovered_items[selected_item_index]
@@ -68087,10 +68277,10 @@ def show_item_manager_menu():
                     elif selected_category == 2:
                         current_items = firearm_items
                     else:  # 전설
-                        current_items = legendary_items
+                        current_items = legendary_items_sorted  # 부위별 정렬된 전설 사용
                     if current_items:
-                        # 패시브 탭은 단순 인덱스 이동 (부위별 레이아웃)
-                        if selected_category == 1:
+                        # 패시브/전설 탭은 단순 인덱스 이동 (부위별 레이아웃)
+                        if selected_category in (1, 3):
                             if event.key == pygame.K_RIGHT:
                                 selected_item_index = (selected_item_index + 1) % len(current_items)
                             elif event.key == pygame.K_LEFT:
@@ -68134,7 +68324,7 @@ def show_item_manager_menu():
                 elif selected_category == 2:
                     current_items = firearm_items
                 else:  # 전설 탭
-                    current_items = legendary_items
+                    current_items = legendary_items_sorted  # 부위별 정렬된 전설 사용
 
                 # 패시브 탭: 부위별 레이아웃에서 클릭 처리
                 if selected_category == 1:
@@ -68151,6 +68341,24 @@ def show_item_manager_menu():
                                     drag_key = f"1:{item_name}"
                                     if drag_key not in drag_toggled_items:
                                         adjust_passive_count(item_name, 1 if get_passive_count(item_name) == 0 else -MAX_PASSIVE_STACK)
+                                        drag_toggled_items.add(drag_key)
+                                clicked = True
+                                break
+                elif selected_category == 3:
+                    # 전설 탭: 부위별 레이아웃에서 클릭 처리
+                    clicked = False
+                    if 'legendary_item_rects' in dir():
+                        for idx, rect, item in legendary_item_rects:
+                            if rect.collidepoint(mx, my):
+                                item_name = item["name"]
+                                selected_item_index = idx
+                                if event.button == 1:  # 좌클릭: 토글
+                                    drag_key = f"3:{item_name}"
+                                    if drag_key not in drag_toggled_items:
+                                        if item_name in selected_legendary_items:
+                                            selected_legendary_items.remove(item_name)
+                                        else:
+                                            selected_legendary_items.append(item_name)
                                         drag_toggled_items.add(drag_key)
                                 clicked = True
                                 break
@@ -77444,7 +77652,23 @@ def handle_ball():
                 
                 if smoke_protected:
                     # 연막에 의해 보호됨 - 파편이 막힘 (테크니컬 조끼 또는 연막탄)
+                    # 파편 제거 (다단히트 방지)
+                    for bg_fragment in animated_bg_stage4.moon_fragments:
+                        if (abs(bg_fragment['x'] - fragment['x']) < 5 and
+                            abs(bg_fragment['y'] - fragment['y']) < 5):
+                            bg_fragment['impact'] = True
+                            break
                     print(f"연막이 달의 파편을 막았습니다!")
+                    print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f})")
+                elif is_cleanse_immune():
+                    # 클렌즈 면역 상태 - 파편 효과 무시
+                    # 파편 제거 (다단히트 방지)
+                    for bg_fragment in animated_bg_stage4.moon_fragments:
+                        if (abs(bg_fragment['x'] - fragment['x']) < 5 and
+                            abs(bg_fragment['y'] - fragment['y']) < 5):
+                            bg_fragment['impact'] = True
+                            break
+                    print(f"✨ 클렌즈 면역으로 달의 파편을 무시했습니다!")
                     print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f})")
                 elif rolling_active:
                     # 🦵 대쉬 중일 때 - 파편을 보스에게 반사!
@@ -77461,19 +77685,26 @@ def handle_ball():
                     # 일반 상황 - 화상 효과 적용
                     player_burn_timer = 30  # 0.5초 (60 FPS 기준)
                     player_burn_effect = True
-                    
+
                     # 넉백 효과 - 부드러운 넉백을 위한 오프셋 설정
                     player_knockback_y = apply_knockback_resist(_scale_knockback(-20))  # 20픽셀 위로 넉백
-                    
+
                     # 게이지 감소 (붉은 달 파편: 50 -> 2로 대폭 완화)
                     special_gauge = max(0, special_gauge - 2)
-                    
+
+                    # 파편 제거 (다단히트 방지)
+                    for bg_fragment in animated_bg_stage4.moon_fragments:
+                        if (abs(bg_fragment['x'] - fragment['x']) < 5 and
+                            abs(bg_fragment['y'] - fragment['y']) < 5):
+                            bg_fragment['impact'] = True
+                            break
+
                     # 화상 효과음 재생
                     try:
                         play_sound_with_volume(SOUND_BIRDKILL)  # 임시로 새 죽는 소리 사용
                     except:
                         pass
-                    
+
                     print(f"플레이어 화상! 게이지 -2, 0.5초 후딜 + 넉백")
                     print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}), 패들: ({PLAYER.centerx}, {PLAYER.centery})")
                 break  # 한 프레임에 하나의 파편만 처리
@@ -83640,6 +83871,7 @@ def show_result(won):
         show_death_evaluation()
         #  아카데미 스킬 완전 초기화 (게임 종료 시)
         academy.reset_all_skills()
+        reset_cleanse_skill()  # 클렌즈 스킬 초기화
         # 아이템 관련 전부 초기화
         items.reset_items()
         try:
@@ -85296,6 +85528,7 @@ def main(stage_num, new_boss_mode=False):
             # 스테이지4 중력자기장 사운드 정지 (ESC 종료 시)
             stop_stage4_magnetic_sound()
             academy.reset_all_skills()  # 스킬 초기화
+            reset_cleanse_skill()  # 클렌즈 스킬 초기화
             game_session_active = False  #  게임 세션 종료
             # 테크니컬조끼 비활성화
             deactivate_technical_vest()
@@ -86875,6 +87108,51 @@ def main(stage_num, new_boss_mode=False):
                 #  AI 모드 전환 (N키)
                 elif event.key == pygame.K_n:
                     toggle_ai_mode()
+                # ✨ 스매셔 클렌즈 스킬 (S키/ㄴ키 더블탭)
+                # 한글 'ㄴ' = S키 위치, event.unicode로 한글 입력도 감지
+                elif (event.key == pygame.K_s or getattr(event, 'unicode', '') in ('ㄴ', 'ㄴ')) and selected_character_type == "smasher" and not game_paused:
+                    cleanse = get_cleanse_skill()
+                    current_time = pygame.time.get_ticks()
+                    if cleanse.check_double_tap(current_time):
+                        # 더블탭 감지 - 클렌즈 발동 시도
+                        has_status = check_player_has_status_effect(
+                            player_stunned_timer=player_stunned_timer,
+                            player_missile_stunned_timer=player_missile_stunned_timer,
+                            player_slow_timer=player_slow_timer,
+                            player_knockback_vel=player_knockback_vel,
+                            player_missile_knockback_vel=player_missile_knockback_vel if 'player_missile_knockback_vel' in dir() else 0,
+                            player_flame_zone_knockback_vel=player_flame_zone_knockback_vel if 'player_flame_zone_knockback_vel' in dir() else 0,
+                            smasher_power_recoil_timer=smasher_power_recoil_timer if 'smasher_power_recoil_timer' in dir() else 0,
+                            spider_mine_slow_active=spider_mine_slow_active if 'spider_mine_slow_active' in dir() else False,
+                            player_burn_timer=player_burn_timer if 'player_burn_timer' in dir() else 0,
+                            player_knockback_y=player_knockback_y if 'player_knockback_y' in dir() else 0
+                        )
+                        if cleanse.can_activate(special_gauge, has_status):
+                            # 클렌즈 발동!
+                            cleanse.activate(PLAYER.centerx, PLAYER.centery)
+                            special_gauge -= 100  # 게이지 소모
+                            # 모든 상태이상 해제
+                            player_stunned_timer = 0
+                            player_missile_stunned_timer = 0
+                            player_slow_timer = 0
+                            player_knockback_vel = 0
+                            if 'player_missile_knockback_vel' in dir():
+                                player_missile_knockback_vel = 0
+                            if 'player_flame_zone_knockback_vel' in dir():
+                                player_flame_zone_knockback_vel = 0
+                            if 'smasher_power_recoil_timer' in dir():
+                                smasher_power_recoil_timer = 0
+                            if 'spider_mine_slow_active' in dir():
+                                spider_mine_slow_active = False
+                            # 스테이지4 붉은달 파편 화상/넉백 해제
+                            if 'player_burn_timer' in dir():
+                                player_burn_timer = 0
+                            if 'player_burn_effect' in dir():
+                                player_burn_effect = False
+                            if 'player_knockback_y' in dir():
+                                player_knockback_y = 0
+                            print("✨ [CLEANSE] 클렌즈 발동! 모든 상태이상 해제!")
+                    continue
                 # 인게임 캐릭터 정보 표시 (Tab)
                 elif event.key == pygame.K_TAB:
                     show_character_info()
@@ -87098,6 +87376,7 @@ def main(stage_num, new_boss_mode=False):
                         dash.update_bonuses(False, False, False)  # 모든 아이템 비활성화
                         dash.reset_to_base()  # 기본 상태로 리셋
                     academy.reset_all_skills()  # 아카데미 스킬 초기화
+                    reset_cleanse_skill()  # 클렌즈 스킬 초기화
                     game_session_active = False  #  게임 세션 종료
                     # 스테이지4 중력자기장 사운드 정지 (ESC 메뉴에서 종료 시)
                     stop_stage4_magnetic_sound()
@@ -87626,7 +87905,12 @@ def main(stage_num, new_boss_mode=False):
         from item_effects.devil_dice import update_devil_dice, is_devil_dice_active, is_devil_dice_rolling
         if is_devil_dice_active():
             update_devil_dice(current_stage)
-        
+
+        # ✨ 스매셔 클렌즈 스킬 업데이트
+        if selected_character_type == "smasher":
+            cleanse_skill = get_cleanse_skill()
+            cleanse_skill.update()
+
         # 테크니컬조끼 업데이트 (플레이어 패들 위치 전달)
         update_technical_vest(PLAYER)
         # 레이저스코프 업데이트
@@ -88737,6 +89021,15 @@ def main(stage_num, new_boss_mode=False):
         from item_effects.devil_dice import draw_devil_dice_effects, is_devil_dice_active
         if is_devil_dice_active():
             draw_devil_dice_effects(SCREEN, PLAYER)  # 패들 효과와 주사위 애니메이션 모두 그리기
+
+        # ✨ 스매셔 클렌즈 스킬 효과 그리기
+        if selected_character_type == "smasher":
+            cleanse_skill = get_cleanse_skill()
+            if cleanse_skill.active:
+                cleanse_skill.draw(SCREEN, screen_shake_offset_x, screen_shake_offset_y)
+            # 면역 보호막 이펙트 그리기 (1초간 지속)
+            if cleanse_skill.is_immune():
+                cleanse_skill.draw_immunity_shield(SCREEN, PLAYER.x, PLAYER.y, PLAYER.height, screen_shake_offset_x, screen_shake_offset_y)
 
         # 😇 천사의 가호 주사위 애니메이션 그리기 (스테이지 시작 시)
         try:
@@ -92481,8 +92774,8 @@ def get_item_name_korean(item_name):
         "wall": "벽돌",
         "speedboots": "스피드부츠",
         "gravitybelt": "무중력벨트",
-        "speedgear": "스피드기어",
-        "battery": "배터리",
+        "speedgear": "보정벨트",
+        "battery": "배터리팩",
         "slot_add": "배낭",
         "revival": "부활",
     "master": "토르의 망치",
@@ -92491,7 +92784,7 @@ def get_item_name_korean(item_name):
         "spikeboots": "스파이크부츠",
         "dashgear": "대쉬기어",
         "bulkup": "벌크업슈트",
-        "sensor": "위험감지센서",
+        "sensor": "위험감지벨트",
         "dashholder": "대쉬홀더",
         "dowsing_pendulum": "다우징팬들럼",
         "commando_arm": "코만도암",
@@ -92587,8 +92880,8 @@ def get_item_description(item_name):
         "wall": "벽돌: 공을 막아주는 방어용 벽돌을 바닥에 설치합니다. ",
         "speedboots": "스피드부츠: 플레이어의 이동 속도를 증가시켜줍니다.",
         "gravitybelt": "무중력벨트: 이동 시 즉각적인 방향 전환이 가능한 첨단벨트",
-        "speedgear": "스피드기어: 좌,우 방향 전환 속도가 증가합니다.",
-        "battery": "배터리: 다음 스테이지로 넘어가도 게이지가 유지됩니다.",
+        "speedgear": "보정벨트: 좌,우 방향 전환 속도가 증가합니다.",
+        "battery": "배터리팩: 다음 스테이지로 넘어가도 게이지가 유지됩니다.",
         "slot_add": "배낭: 엑티브아이템 슬롯을 1칸 추가합니다",
         "revival": "부활: 패배 시 한 번의 재경기 기회를 제공합니다. 발동시 해당 아이템은 소모되며 한 게임 당 한번만 스폰되는 귀중한 아이템입니다",
         "master": "토르의 망치: 벽돌 액티브 아이템 사용시 벽돌의 길이를 늘려주며, 아이템 쿨타임도 조금 줄여주는 고마운 망치.",
@@ -92597,9 +92890,9 @@ def get_item_description(item_name):
         "spikeboots": "스파이크부츠: 대쉬를 조금더 능숙하게 사용할 수 있게 도와주는 하이테크 장비.",
         "dashgear": "대쉬기어: 대쉬의 효율성을 극대화 시켜줍니다.",
         "bulkup": "벌크업슈트: 티타늄으로 제작된 슈트 , 플레이어의 몸집이 영구적으로 증가합니다.",
-        "sensor": "위험감지센서: 때때로 위험한 상황에 직면하면 자동으로 대쉬를 시전합니다. 자동대쉬는 게이지를 소모하지 않으며 보라색 전용대쉬토큰이 추가됩니다",
+        "sensor": "위험감지벨트: 때때로 위험한 상황에 직면하면 자동으로 대쉬를 시전합니다. 자동대쉬는 게이지를 소모하지 않으며 보라색 전용대쉬토큰이 추가됩니다",
         "dashholder": "대쉬홀더: 대쉬토큰을 추가로 얻습니다.",
-        "dowsing_pendulum": "다우징팬들럼: 강력한 자기장을 발산하여 플레이어 주위에 아이템을 끌어당깁니다.",
+        "dowsing_pendulum": "다우징팬들럼: 강력한 자기장을 발산하여 플레이어 주위 150~250px 범위 내 아이템을 끌어당깁니다.",
         "molotov": "화염병: 상대방의 이동경로를 차단하는 화염병을 던집니다.",
         "grenade": "수류탄: 명중 시 폭발 범위내에 상대방이 튕겨나가고 일정기간 스턴 시킵니다.",
         "spider_mine": "스파이더지뢰: 플레이어 위치 기준 좌·우 바닥과 벽을 타고 보스 진영 모서리에 매설됩니다. 보스가 밟으면 폭발과 동시에 둔화에 걸리게 됩니다.",
