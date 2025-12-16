@@ -4209,9 +4209,39 @@ def ensure_passive_rolls(item_data: dict) -> None:
     except Exception:
         # 롤링 실패 시 조용히 패스
         pass
-    except Exception:
-        # 롤링 실패 시 조용히 패스
-        pass
+
+
+def format_roll_option_with_polish(opt: dict) -> str:
+    """롤 옵션 텍스트에 연마 스킬 보너스를 추가하여 반환.
+
+    예: "이동속도 +6%" → "이동속도 +6% (+1%)" (연마 Lv1, 20% 보너스)
+    """
+    base_text = opt.get("text") or ""
+    base_value = opt.get("value")
+
+    # 값이 없거나 0이면 원본 텍스트 반환
+    if base_value is None or base_value == 0:
+        return base_text
+
+    # 연마 스킬 배율 확인
+    try:
+        polish_multiplier = academy.get_polish_efficiency_multiplier()
+    except (ImportError, AttributeError):
+        polish_multiplier = 1.0
+
+    # 연마 스킬이 없으면 원본 텍스트 반환
+    if polish_multiplier <= 1.0:
+        return base_text
+
+    # 보너스 값 계산
+    boosted_value = int(base_value * polish_multiplier)
+    bonus_value = boosted_value - base_value
+
+    if bonus_value <= 0:
+        return base_text
+
+    # 보너스 텍스트 추가 (초록색으로 표시될 예정)
+    return f"{base_text} (+{bonus_value})"
 
 
 def _reset_roll_bonuses_to_default():
@@ -33252,7 +33282,8 @@ def draw_soldier_weapon_ui(screen):
         screen.blit(weapon_surface, (name_x, name_y))
 
         if selected_character_type == "soldier" and doping_potion_active and doping_potion_timer > 0:
-            doping_ratio = doping_potion_timer / max(1, DOPING_POTION_DURATION_FRAMES)
+            # 카페인 스킬로 인해 타이머가 기본 duration보다 길어질 수 있으므로 min(1.0)으로 제한
+            doping_ratio = min(1.0, doping_potion_timer / max(1, DOPING_POTION_DURATION_FRAMES))
             buff_text = FontStyle.tiny().render(f"도핑 x2 ({doping_potion_use_count})", True, (190, 255, 210))
             buff_rect = buff_text.get_rect(center=(weapon_rect.centerx, weapon_rect.bottom + 12))
             screen.blit(buff_text, buff_rect)
@@ -49064,7 +49095,8 @@ def draw_player_gauge():
         hg_stack_any = True
         hg_top_y = min(hg_top_y, dp_y)
 
-        remaining_ratio = doping_potion_timer / max(1, DOPING_POTION_DURATION_FRAMES)
+        # 카페인 스킬로 인해 타이머가 기본 duration보다 길어질 수 있으므로 min(1.0)으로 제한
+        remaining_ratio = min(1.0, doping_potion_timer / max(1, DOPING_POTION_DURATION_FRAMES))
         remaining_seconds = doping_potion_timer / 60.0
 
         outer_rect = pygame.Rect(dp_x - 5, dp_y - 6, v_width + 10, v_height + 12)
@@ -49168,7 +49200,8 @@ def draw_player_gauge():
         v_y = base_y - max(0, idx) * spacing
         hg_stack_any = True
         hg_top_y = min(hg_top_y, v_y)
-        remaining_ratio = vitamin_pill_timer / max(1, VITAMIN_PILL_DURATION_FRAMES)
+        # 카페인 스킬로 인해 타이머가 기본 duration보다 길어질 수 있으므로 min(1.0)으로 제한
+        remaining_ratio = min(1.0, vitamin_pill_timer / max(1, VITAMIN_PILL_DURATION_FRAMES))
         remaining_seconds = vitamin_pill_timer / 60.0
 
         # 세련된 프레임(멀티 레이어 베벨 + 내부 섀도우)
@@ -49489,7 +49522,8 @@ def draw_player_gauge():
         hg_stack_any = True
         hg_top_y = min(hg_top_y, lb_y)
 
-        remaining_ratio = long_boost_timer / max(1, LONG_BOOST_DURATION)
+        # 카페인 스킬로 인해 타이머가 기본 duration보다 길어질 수 있으므로 min(1.0)으로 제한
+        remaining_ratio = min(1.0, long_boost_timer / max(1, LONG_BOOST_DURATION))
         remaining_seconds = long_boost_timer / 60.0
 
         outer_rect = pygame.Rect(lb_x - 5, lb_y - 6, v_width + 10, v_height + 12)
@@ -90957,7 +90991,8 @@ def show_character_info(background_surface=None):
                 rolled = item.get("rolled_options") or []
                 if rolled:
                     for opt in rolled:
-                        opt_text = opt.get("text") or ""
+                        # 연마 스킬 보너스가 있으면 (+N) 형태로 표시
+                        opt_text = format_roll_option_with_polish(opt)
                         opt_lines.append({"text": opt_text, "color": opt.get("color", (200, 210, 230))})
                 hover_info = {
                     "rect": cell_rect,
@@ -91163,7 +91198,9 @@ def show_character_info(background_surface=None):
                 rolled = item.get("rolled_options") or []
                 opt_lines = []
                 for opt in rolled:
-                    opt_lines.append({"text": opt.get("text", ""), "color": opt.get("color", (200, 210, 230))})
+                    # 연마 스킬 보너스가 있으면 (+N) 형태로 표시
+                    opt_text = format_roll_option_with_polish(opt)
+                    opt_lines.append({"text": opt_text, "color": opt.get("color", (200, 210, 230))})
                 desc_lines = wrap_text(get_item_description(item.get("name", "")), font_tiny, 300)
                 hover_info = {
                     "rect": cell_rect,

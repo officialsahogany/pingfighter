@@ -315,7 +315,8 @@ class LaserScope:
         """게이지 비율 반환 (0.0 ~ 1.0)"""
         if self.max_duration <= 0:
             return 0.0
-        return self.timer / self.max_duration
+        # 카페인 스킬로 인해 타이머가 기본 duration보다 길어질 수 있으므로 min(1.0)으로 제한
+        return min(1.0, self.timer / self.max_duration)
 
 
 # 싱글톤 인스턴스
