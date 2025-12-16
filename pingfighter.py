@@ -5630,6 +5630,7 @@ for item in items.ITEM_TYPES:
 # === 롱부스트 관련 ===
 long_boost_active = False
 long_boost_timer = 0
+long_boost_initial_timer = 0  # 카페인 스킬 적용 후 실제 시작 타이머 (점진적 크기 변화 계산용)
 long_boost_scale = 1.0  # 현재 패들 크기 배율
 long_boost_target_scale = 1.0  # 목표 패들 크기 배율
 LONG_BOOST_DURATION = 480  # 8초 (60fps * 8)
@@ -24965,6 +24966,7 @@ DOPING_POTION_PISTOL_COOLDOWN_FRAMES = 30  # 총 0.5초 쿨타임
 DOPING_POTION_PISTOL_LOCK_FRAMES = 9      # 발사 직후 0.15초 컨트롤락
 doping_potion_active = False
 doping_potion_timer = 0
+doping_potion_initial_timer = 0  # 카페인 스킬 적용 후 실제 시작 타이머 (게이지 계산용)
 doping_potion_toast_timer = 0
 doping_potion_use_count = 0
 
@@ -24973,6 +24975,7 @@ VITAMIN_PILL_DURATION_FRAMES = 600  # 10초 (60fps * 10)
 VITAMIN_PILL_SPEED_MULTIPLIER = 1.5
 vitamin_pill_active = False
 vitamin_pill_timer = 0
+vitamin_pill_initial_timer = 0  # 카페인 스킬 적용 후 실제 시작 타이머 (게이지 계산용)
 
 # 가로형 게이지 스택(활성 순서: 오래된 것이 아래, 최근 것이 위)
 horizontal_gauge_stack: list[str] = []  # 예: ['vitamin_pill', 'long_boost']
@@ -25214,7 +25217,7 @@ def trigger_soldier_emergency_supply() -> bool:
 
 def activate_doping_potion(duration_frames: int | None = None, *, play_sound: bool = True) -> None:
     """도핑물약 효과 활성화"""
-    global doping_potion_active, doping_potion_timer, doping_potion_toast_timer, doping_potion_use_count
+    global doping_potion_active, doping_potion_timer, doping_potion_initial_timer, doping_potion_toast_timer, doping_potion_use_count
     frames = duration_frames if duration_frames is not None else DOPING_POTION_DURATION_FRAMES
     # 카페인 스킬 효과 적용 (타이머형 아이템 지속시간 증가)
     try:
@@ -25225,6 +25228,7 @@ def activate_doping_potion(duration_frames: int | None = None, *, play_sound: bo
     frames = max(0, frames)
     doping_potion_active = True
     doping_potion_timer = frames
+    doping_potion_initial_timer = frames  # 게이지 계산용 초기값 저장
     doping_potion_toast_timer = 120
     doping_potion_use_count += 1
     # 가로형 게이지 스택 등록
@@ -25294,7 +25298,7 @@ def sync_doping_potion_from_global_manager() -> None:
 # ------------------------------------------------------------
 def activate_vitamin_pill(duration_frames: int | None = None, *, play_sound: bool = True) -> None:
     """비타민약 효과 활성화"""
-    global vitamin_pill_active, vitamin_pill_timer
+    global vitamin_pill_active, vitamin_pill_timer, vitamin_pill_initial_timer
     frames = duration_frames if duration_frames is not None else VITAMIN_PILL_DURATION_FRAMES
     # 카페인 스킬 효과 적용 (타이머형 아이템 지속시간 증가)
     try:
@@ -25305,6 +25309,7 @@ def activate_vitamin_pill(duration_frames: int | None = None, *, play_sound: boo
     frames = max(0, frames)
     vitamin_pill_active = True
     vitamin_pill_timer = frames
+    vitamin_pill_initial_timer = frames  # 게이지 계산용 초기값 저장
     _hg_on_activate('vitamin_pill')
     if play_sound:
         try:
@@ -27366,7 +27371,7 @@ def apply_effect(effect_name):
             ammo_box.activate(None, current_stage)
 # === 벌크업 발동 함수 ===
 def activate_long_boost():
-    global long_boost_active, long_boost_timer, long_boost_scale, long_boost_target_scale
+    global long_boost_active, long_boost_timer, long_boost_initial_timer, long_boost_scale, long_boost_target_scale
     global LONG_BOOST_DURATION
     if not long_boost_active:
         long_boost_active = True
@@ -27376,6 +27381,7 @@ def activate_long_boost():
             long_boost_timer = int(LONG_BOOST_DURATION * caffeine_multiplier)
         except (ImportError, AttributeError):
             long_boost_timer = LONG_BOOST_DURATION  # 8초 지속
+        long_boost_initial_timer = long_boost_timer  # 점진적 크기 변화 계산용 초기값 저장
         long_boost_target_scale = 1.5  # 목표 크기: 1.5배
         #  엑티브 아이템 사용 효과음 재생
         play_active_item_sound()
@@ -33282,8 +33288,8 @@ def draw_soldier_weapon_ui(screen):
         screen.blit(weapon_surface, (name_x, name_y))
 
         if selected_character_type == "soldier" and doping_potion_active and doping_potion_timer > 0:
-            # 카페인 스킬로 인해 타이머가 기본 duration보다 길어질 수 있으므로 min(1.0)으로 제한
-            doping_ratio = min(1.0, doping_potion_timer / max(1, DOPING_POTION_DURATION_FRAMES))
+            # 게이지 계산: 실제 시작 타이머 기준으로 계산 (카페인 스킬 적용됨)
+            doping_ratio = doping_potion_timer / max(1, doping_potion_initial_timer)
             buff_text = FontStyle.tiny().render(f"도핑 x2 ({doping_potion_use_count})", True, (190, 255, 210))
             buff_rect = buff_text.get_rect(center=(weapon_rect.centerx, weapon_rect.bottom + 12))
             screen.blit(buff_text, buff_rect)
@@ -36350,17 +36356,19 @@ def handle_player(keys):
     if long_boost_active:
         if long_boost_timer > 0:
             long_boost_timer -= 1
+            # 경과 시간 = 초기 타이머 - 현재 타이머
+            elapsed = long_boost_initial_timer - long_boost_timer
             # 시작 단계 (1초간 점진적 확대)
-            if long_boost_timer > LONG_BOOST_DURATION - LONG_BOOST_TRANSITION_TIME:
-                progress = (LONG_BOOST_DURATION - long_boost_timer) / LONG_BOOST_TRANSITION_TIME
+            if elapsed < LONG_BOOST_TRANSITION_TIME:
+                progress = elapsed / LONG_BOOST_TRANSITION_TIME
                 long_boost_scale = 1.0 + (1.5 - 1.0) * progress
-            # 유지 단계
-            elif long_boost_timer > LONG_BOOST_TRANSITION_TIME:
-                long_boost_scale = 1.5
-            # 종료 단계 (1초간 점진적 축소)
-            else:
+            # 종료 단계 (남은 시간이 1초 이하)
+            elif long_boost_timer <= LONG_BOOST_TRANSITION_TIME:
                 progress = long_boost_timer / LONG_BOOST_TRANSITION_TIME
                 long_boost_scale = 1.0 + (1.5 - 1.0) * progress
+            # 유지 단계
+            else:
+                long_boost_scale = 1.5
             # 타이머 종료 시
             if long_boost_timer == 0:
                 long_boost_active = False
@@ -49095,8 +49103,8 @@ def draw_player_gauge():
         hg_stack_any = True
         hg_top_y = min(hg_top_y, dp_y)
 
-        # 카페인 스킬로 인해 타이머가 기본 duration보다 길어질 수 있으므로 min(1.0)으로 제한
-        remaining_ratio = min(1.0, doping_potion_timer / max(1, DOPING_POTION_DURATION_FRAMES))
+        # 게이지 계산: 실제 시작 타이머 기준으로 계산 (카페인 스킬 적용됨)
+        remaining_ratio = doping_potion_timer / max(1, doping_potion_initial_timer)
         remaining_seconds = doping_potion_timer / 60.0
 
         outer_rect = pygame.Rect(dp_x - 5, dp_y - 6, v_width + 10, v_height + 12)
@@ -49200,8 +49208,8 @@ def draw_player_gauge():
         v_y = base_y - max(0, idx) * spacing
         hg_stack_any = True
         hg_top_y = min(hg_top_y, v_y)
-        # 카페인 스킬로 인해 타이머가 기본 duration보다 길어질 수 있으므로 min(1.0)으로 제한
-        remaining_ratio = min(1.0, vitamin_pill_timer / max(1, VITAMIN_PILL_DURATION_FRAMES))
+        # 게이지 계산: 실제 시작 타이머 기준으로 계산 (카페인 스킬 적용됨)
+        remaining_ratio = vitamin_pill_timer / max(1, vitamin_pill_initial_timer)
         remaining_seconds = vitamin_pill_timer / 60.0
 
         # 세련된 프레임(멀티 레이어 베벨 + 내부 섀도우)
@@ -49522,8 +49530,8 @@ def draw_player_gauge():
         hg_stack_any = True
         hg_top_y = min(hg_top_y, lb_y)
 
-        # 카페인 스킬로 인해 타이머가 기본 duration보다 길어질 수 있으므로 min(1.0)으로 제한
-        remaining_ratio = min(1.0, long_boost_timer / max(1, LONG_BOOST_DURATION))
+        # 게이지 계산: 실제 시작 타이머 기준으로 계산 (카페인 스킬 적용됨)
+        remaining_ratio = long_boost_timer / max(1, long_boost_initial_timer)
         remaining_seconds = long_boost_timer / 60.0
 
         outer_rect = pygame.Rect(lb_x - 5, lb_y - 6, v_width + 10, v_height + 12)
@@ -52810,9 +52818,9 @@ def draw_objects():
     global paddle_scale_ratio
     paddle_scale_ratio = scale_ratio
     
-    if scale_ratio != 1.0:
-        new_width = int(base_ufo_img.get_width() * scale_ratio)
-        new_height = int(base_ufo_img.get_height() * scale_ratio)
+    if scale_ratio != 1.0 and scale_ratio > 0:
+        new_width = max(1, int(base_ufo_img.get_width() * scale_ratio))
+        new_height = max(1, int(base_ufo_img.get_height() * scale_ratio))
         base_ufo_img = pygame.transform.scale(base_ufo_img, (new_width, new_height))
         if (
             selected_character_type == "blacksmith"

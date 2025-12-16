@@ -25,7 +25,8 @@ def show_credits_screen():
     credits_data = [
         {"role": "Game Director", "name": "동네게임즈", "color": (255, 215, 0)},
         {"role": "BGM Sound Director", "name": "BK22", "color": (100, 200, 255)},
-        {"role": "AI Programming", "name": "Jaeyeob Woo", "color": (0, 255, 150)},
+        {"role": "Character Art", "name": "흑쌍쌍바", "color": (255, 100, 150)},
+        {"role": "Story Scenario", "name": "흑쌍쌍바", "color": (200, 150, 255)},
         {"role": "Special Thanks", "name": "All Players", "color": (255, 150, 200)},
     ]
 
@@ -132,18 +133,10 @@ def show_credits_screen():
             name_rect = name_surf.get_rect(center=(WIDTH // 2, y_pos + 35))
             SCREEN.blit(name_surf, name_rect)
 
-        # 하단 안내 메시지
-        footer_y = HEIGHT - 50
-        footer_text = "Press ESC or SPACE to return"
-        footer_surf = font_small.render(footer_text, True, (100, 100, 100))
-        footer_rect = footer_surf.get_rect(center=(WIDTH // 2, footer_y))
-        if int(animation_timer * 2) % 2 == 0:
-            SCREEN.blit(footer_surf, footer_rect)
-
-        # Copyright
+        # Copyright (우측 하단)
         copyright_text = "© 2025 PingFighter"
         copyright_surf = font_small.render(copyright_text, True, (80, 80, 80))
-        copyright_rect = copyright_surf.get_rect(center=(WIDTH // 2, footer_y + 25))
+        copyright_rect = copyright_surf.get_rect(bottomright=(WIDTH - 20, HEIGHT - 15))
         SCREEN.blit(copyright_surf, copyright_rect)
 
         pygame.display.flip()

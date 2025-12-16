@@ -8,10 +8,10 @@ import pygame
 
 class DowsingPendulumEffect:
     """다우징팬들럼 효과 클래스"""
-    
+
     def __init__(self):
         self.enabled = False
-        self.attraction_range = 180  # 끌어당기는 범위 (픽셀)
+        self.attraction_range = 200  # 끌어당기는 범위 (픽셀) - 롤옵션: 150~250px
         self.attraction_force = 3.5   # 끌어당기는 힘
         self.min_distance = 30       # 최소 거리 (너무 가까우면 끌어당기지 않음)
         

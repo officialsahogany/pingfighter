@@ -34,6 +34,8 @@ class LaserScope:
             self.timer = int(self.duration * caffeine_multiplier)
         except (ImportError, AttributeError):
             self.timer = self.duration
+        # 게이지 계산을 위해 max_duration을 실제 시작 타이머로 설정
+        self.max_duration = self.timer
         self.trajectory_segments = []
 
     def deactivate(self):
@@ -315,8 +317,8 @@ class LaserScope:
         """게이지 비율 반환 (0.0 ~ 1.0)"""
         if self.max_duration <= 0:
             return 0.0
-        # 카페인 스킬로 인해 타이머가 기본 duration보다 길어질 수 있으므로 min(1.0)으로 제한
-        return min(1.0, self.timer / self.max_duration)
+        # max_duration은 activate 시 카페인 스킬이 적용된 실제 시작 타이머 값으로 설정됨
+        return self.timer / self.max_duration
 
 
 # 싱글톤 인스턴스

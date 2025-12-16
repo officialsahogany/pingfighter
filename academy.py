@@ -180,25 +180,25 @@ SKILL_TREES = {
                 "col": 0
             },
             {
-                "id": "item_recycle",
-                "name": "연금술",
-                "description": "연금술로 사용한 아이템이 유지될 확률 20%\n(누적 ★8 필요)",
-                "max_level": 3,
+                "id": "item_polish",
+                "name": "연마",
+                "description": "패시브 아이템 롤옵션 효율 20% 증가\n(추가 투자당 +10%씩 증가)\n(누적 ★8 필요)",
+                "max_level": 5,
                 "cost": 3,
-                "icon_color": (255, 205, 170),
+                "icon_color": (255, 220, 140),
                 "requires": "item_bag_expansion",
                 "total_tp_required": 8,
                 "row": 2,
                 "col": 1
             },
             {
-                "id": "item_polish",
-                "name": "연마",
-                "description": "패시브 아이템 롤옵션 효율 20% 증가\n(추가 투자당 +10%씩 증가)\n(누적 ★12 필요)",
-                "max_level": 5,
+                "id": "item_recycle",
+                "name": "연금술",
+                "description": "연금술로 사용한 아이템이 유지될 확률 20%\n(누적 ★12 필요)",
+                "max_level": 3,
                 "cost": 3,
-                "icon_color": (255, 220, 140),
-                "requires_or": ["item_caffeine", "item_recycle"],
+                "icon_color": (255, 205, 170),
+                "requires_or": ["item_caffeine", "item_polish"],
                 "total_tp_required": 12,
                 "row": 3,
                 "col": 0.5
@@ -558,15 +558,11 @@ class AcademyUI:
 
     def _focus_first_skill_in_current_tree(self):
         """현재 탭에서 기본으로 보여줄 스킬을 선택"""
-        if self.selected_tree == "downtown":
-            # 광장 스킬 탭은 비어있음
-            self.selected_skill_index = 0
+        available_skills = self.get_available_skills()
+        if available_skills:
+            self.set_selected_skill_by_id(available_skills[0])
         else:
-            available_skills = self.get_available_skills()
-            if available_skills:
-                self.set_selected_skill_by_id(available_skills[0])
-            else:
-                self.selected_skill_index = 0
+            self.selected_skill_index = 0
 
     
     def _create_glow_cache(self):
@@ -1116,13 +1112,9 @@ class AcademyUI:
         """현재 스킬트리의 스킬 위치 정보 업데이트"""
         self.skill_positions.clear()
 
-        # 광장 탭 처리 (스킬 없음)
-        if self.selected_tree == "downtown":
-            return
-
         tree_data = SKILL_TREES[self.selected_tree]
-        
-        if self.selected_tree in ["dash", "item", "paddle"]:
+
+        if self.selected_tree in ["dash", "item", "paddle", "downtown"]:
             # 트리 구조 스킬트리 (대쉬, 아이템, 패들)
             skill_size = 60
             row_spacing = 140
@@ -1170,11 +1162,6 @@ class AcademyUI:
         """현재 선택 가능한 스킬 목록 반환 (해금된 스킬만)"""
         available_skills = []
 
-        # 광장 스킬트리 처리 (스킬 없음)
-        if self.selected_tree == "downtown":
-            return available_skills
-
-        # 기존 스킬트리 처리
         tree_data = SKILL_TREES[self.selected_tree]
         tree_tp_total = self.skill_system.get_tree_total(self.selected_tree)
 
@@ -1222,10 +1209,6 @@ class AcademyUI:
         
         best_skill = None
         best_distance = float('inf')
-        
-        # 광장 스킬트리 처리 (스킬 없음)
-        if self.selected_tree == "downtown":
-            return None
 
         tree_data = SKILL_TREES[self.selected_tree]
         skills_to_check = tree_data["skills"]
@@ -1262,10 +1245,6 @@ class AcademyUI:
 
     def get_current_skill_id(self):
         """현재 선택된 스킬 ID 반환"""
-        # 광장 탭 처리 (스킬 없음)
-        if self.selected_tree == "downtown":
-            return None
-
         tree_data = SKILL_TREES[self.selected_tree]
         if 0 <= self.selected_skill_index < len(tree_data["skills"]):
             return tree_data["skills"][self.selected_skill_index]["id"]
@@ -1273,10 +1252,6 @@ class AcademyUI:
 
     def set_selected_skill_by_id(self, skill_id):
         """스킬 ID로 선택된 스킬 설정"""
-        # 광장 탭 처리 (스킬 없음)
-        if self.selected_tree == "downtown":
-            return False
-
         tree_data = SKILL_TREES[self.selected_tree]
         for i, skill in enumerate(tree_data["skills"]):
             if skill["id"] == skill_id:
@@ -1288,11 +1263,6 @@ class AcademyUI:
 
     def _clamp_selection_to_current_tree(self):
         """현재 선택된 스킬 인덱스를 해당 탭 범위로 보정"""
-        # 광장 탭 처리 (스킬 없음)
-        if self.selected_tree == "downtown":
-            self.selected_skill_index = 0
-            return
-
         tree_data = SKILL_TREES.get(self.selected_tree)
         skill_count = len(tree_data["skills"]) if tree_data else 0
 
@@ -1557,6 +1527,41 @@ class AcademyUI:
             # 가방 끈 (손잡이)
             pygame.draw.arc(surface, color, (center_x - 5, center_y - 16, 10, 8), 0, math.pi, 2)
 
+        elif skill_id == "item_caffeine":
+            # ☕ 카페인 - 커피잔 (단색 라인 스타일)
+            # 컵 본체
+            pygame.draw.rect(surface, color, (center_x - 8, center_y - 4, 16, 12), 2)
+            # 컵 손잡이 (반원)
+            pygame.draw.arc(surface, color, (center_x + 8, center_y - 1, 6, 8), -math.pi/2, math.pi/2, 2)
+            # 커피 수면
+            pygame.draw.line(surface, color, (center_x - 6, center_y), (center_x + 6, center_y), 1)
+            # 김 효과 (증기)
+            pygame.draw.arc(surface, color, (center_x - 4, center_y - 11, 4, 6), 0, math.pi, 1)
+            pygame.draw.arc(surface, color, (center_x + 1, center_y - 13, 4, 6), 0, math.pi, 1)
+
+        elif skill_id == "item_polish":
+            # ✨ 연마 - 보석/다이아몬드 광택 (단색 라인 스타일)
+            # 다이아몬드 상단 삼각형
+            diamond_top = [
+                (center_x, center_y - 10),
+                (center_x - 8, center_y - 2),
+                (center_x + 8, center_y - 2)
+            ]
+            pygame.draw.polygon(surface, color, diamond_top, 2)
+            # 다이아몬드 하단 역삼각형
+            diamond_bottom = [
+                (center_x - 8, center_y - 2),
+                (center_x + 8, center_y - 2),
+                (center_x, center_y + 10)
+            ]
+            pygame.draw.polygon(surface, color, diamond_bottom, 2)
+            # 광택 라인
+            pygame.draw.line(surface, color, (center_x - 5, center_y - 2), (center_x, center_y + 4), 1)
+            pygame.draw.line(surface, color, (center_x + 5, center_y - 2), (center_x, center_y + 4), 1)
+            # 반짝임 효과
+            pygame.draw.circle(surface, color, (center_x - 10, center_y - 8), 2, 1)
+            pygame.draw.circle(surface, color, (center_x + 10, center_y - 6), 1)
+
         elif skill_id == "item_gamble":
             # 🎲 도박 - 주사위 (단색 라인 스타일)
             # 첫 번째 주사위
@@ -1615,12 +1620,47 @@ class AcademyUI:
                 dot_y = center_y - 4 + i * 4
                 pygame.draw.circle(surface, color, (center_x - 6, dot_y), 1)
 
+        elif skill_id == "downtown_gamble":
+            # 🎲 도박 - 주사위 (단색 라인 스타일) - item_gamble과 동일
+            # 첫 번째 주사위
+            pygame.draw.rect(surface, color, (center_x - 11, center_y - 7, 10, 10), 2)
+            # 첫 번째 주사위 점 (3)
+            pygame.draw.circle(surface, color, (center_x - 8, center_y - 4), 1)
+            pygame.draw.circle(surface, color, (center_x - 6, center_y - 2), 1)
+            pygame.draw.circle(surface, color, (center_x - 4, center_y), 1)
+            # 두 번째 주사위
+            pygame.draw.rect(surface, color, (center_x + 1, center_y - 3, 10, 10), 2)
+            # 두 번째 주사위 점 (4)
+            pygame.draw.circle(surface, color, (center_x + 3, center_y - 1), 1)
+            pygame.draw.circle(surface, color, (center_x + 9, center_y - 1), 1)
+            pygame.draw.circle(surface, color, (center_x + 3, center_y + 5), 1)
+            pygame.draw.circle(surface, color, (center_x + 9, center_y + 5), 1)
+
+        elif skill_id == "downtown_treasure_map":
+            # 🗺️ 보물지도 - 지도와 X표시 (단색 라인 스타일) - item_treasure_map과 동일
+            # 지도 본체 (펼쳐진 두루마리 형태)
+            pygame.draw.rect(surface, color, (center_x - 10, center_y - 7, 20, 14), 2)
+            # 지도 롤 (양쪽 끝)
+            pygame.draw.line(surface, color, (center_x - 10, center_y - 7), (center_x - 10, center_y + 7), 3)
+            pygame.draw.line(surface, color, (center_x + 10, center_y - 7), (center_x + 10, center_y + 7), 3)
+            # X 표시 (보물 위치)
+            pygame.draw.line(surface, color, (center_x - 3, center_y - 3), (center_x + 3, center_y + 3), 2)
+            pygame.draw.line(surface, color, (center_x - 3, center_y + 3), (center_x + 3, center_y - 3), 2)
+            # 점선 경로 (보물까지의 길)
+            for i in range(3):
+                dot_y = center_y - 4 + i * 4
+                pygame.draw.circle(surface, color, (center_x - 6, dot_y), 1)
+
         elif "item" in skill_id:
             # 기타 아이템 스킬은 아직 전용 아이콘이 없음
             return
-        
+
         elif "paddle" in skill_id:
             # 패들 스킬은 아이콘을 그리지 않고 빈 상태로 둠
+            return
+
+        elif "downtown" in skill_id:
+            # 기타 광장 스킬은 아직 전용 아이콘이 없음
             return
     
     def show_academy(self):
@@ -1630,14 +1670,11 @@ class AcademyUI:
         
         # 초기 선택 설정
         self.update_skill_positions()
-        # 광장 스킬트리는 스킬이 없음
-        if self.selected_tree == "downtown":
-            self.selected_skill_index = 0
+        available_skills = self.get_available_skills()
+        if available_skills:
+            self.set_selected_skill_by_id(available_skills[0])
         else:
-            # 기존 스킬트리는 선택 가능한 스킬로 설정
-            available_skills = self.get_available_skills()
-            if available_skills:
-                self.set_selected_skill_by_id(available_skills[0])
+            self.selected_skill_index = 0
         
         while running:
             # 애니메이션 업데이트
@@ -1719,16 +1756,11 @@ class AcademyUI:
                                 # 탭 선택 모드 종료하고 스킬로 이동
                                 self.tab_selection_mode = False
                                 self.update_skill_positions()
-                                # 광장 스킬트리는 스킬이 없음
-                                if self.selected_tree == "downtown":
-                                    self.selected_skill_index = 0
+                                available_skills = self.get_available_skills()
+                                if available_skills:
+                                    self.set_selected_skill_by_id(available_skills[0])
                                 else:
-                                    # 기존 스킬트리는 선택 가능한 스킬로 이동
-                                    available_skills = self.get_available_skills()
-                                    if available_skills:
-                                        self.set_selected_skill_by_id(available_skills[0])
-                                    else:
-                                        self.selected_skill_index = 0
+                                    self.selected_skill_index = 0
                         else:
                             # 스킬 선택 모드에서의 키 처리
                             # 스킬 위치 정보 업데이트
@@ -1755,18 +1787,13 @@ class AcademyUI:
                                     self.set_selected_skill_by_id(next_skill_id)
                                 elif event.key == pygame.K_UP:
                                     # 위쪽 방향키로 탭 선택 모드로 이동 (최상단 스킬에서만)
-                                    # 광장 스킬트리 처리 (스킬 없음 - 바로 탭 선택 모드로)
-                                    if self.selected_tree == "downtown":
-                                        self.tab_selection_mode = True
-                                    else:
-                                        # 기존 스킬트리 처리
-                                        current_skill = tree_data["skills"][self.selected_skill_index]
-
-                                        # 대쉬 스킬트리에서 최상단 스킬인지 확인 (row 0)
-                                        if (self.selected_tree == "dash" and current_skill.get("row") == 0) or \
-                                           (self.selected_tree != "dash" and self.selected_skill_index == 0):
-                                            # 탭 선택 모드로 전환
+                                    current_skill = tree_data["skills"][self.selected_skill_index]
+                                    # 트리 구조 스킬트리에서 최상단 스킬인지 확인 (row 0)
+                                    if self.selected_tree in ["dash", "item", "paddle", "downtown"]:
+                                        if current_skill.get("row") == 0:
                                             self.tab_selection_mode = True
+                                    elif self.selected_skill_index == 0:
+                                        self.tab_selection_mode = True
                     elif event.key in [pygame.K_SPACE, pygame.K_RETURN] and not self.is_animating:
                         if self.read_only:
                             continue
@@ -1775,31 +1802,26 @@ class AcademyUI:
                             continue  # 세션 투자 제한에 도달하면 투자 불가
                         # 탭 선택 모드가 아닐 때만 스킬 업그레이드
                         if not self.tab_selection_mode:
-                            # 광장 스킬트리 처리 (스킬 없음)
-                            if self.selected_tree == "downtown":
-                                pass  # 광장 탭에는 스킬이 없음
-                            else:
-                                # 기존 스킬트리 처리
-                                tree_data = SKILL_TREES[self.selected_tree]
-                                if self.selected_skill_index < len(tree_data["skills"]):
-                                    skill = tree_data["skills"][self.selected_skill_index]
-                                    if self.skill_system.can_upgrade_skill(skill["id"]):
-                                        # 스킬 업그레이드 전 레벨 확인
-                                        old_level = self.skill_system.get_skill_level(skill["id"])
-                                        self.skill_system.upgrade_skill(skill["id"])
-                                        new_level = self.skill_system.get_skill_level(skill["id"])
+                            tree_data = SKILL_TREES[self.selected_tree]
+                            if self.selected_skill_index < len(tree_data["skills"]):
+                                skill = tree_data["skills"][self.selected_skill_index]
+                                if self.skill_system.can_upgrade_skill(skill["id"]):
+                                    # 스킬 업그레이드 전 레벨 확인
+                                    old_level = self.skill_system.get_skill_level(skill["id"])
+                                    self.skill_system.upgrade_skill(skill["id"])
+                                    new_level = self.skill_system.get_skill_level(skill["id"])
 
-                                        # 레벨업 애니메이션 시작 (모든 레벨업에서)
-                                        if new_level > old_level:
-                                            self.start_levelup_animation(skill["id"])
-                                            self.play_skill_invest_sound()
-                                            self.increment_session_invest()  # 세션 투자 횟수 증가
+                                    # 레벨업 애니메이션 시작 (모든 레벨업에서)
+                                    if new_level > old_level:
+                                        self.start_levelup_animation(skill["id"])
+                                        self.play_skill_invest_sound()
+                                        self.increment_session_invest()  # 세션 투자 횟수 증가
 
-                                        # 0→1 전환시에만 언락 애니메이션
-                                        if old_level == 0 and new_level == 1:
-                                            self.start_unlock_animation(skill["id"])  # 내부에서 화살표 애니메이션 포함
+                                    # 0→1 전환시에만 언락 애니메이션
+                                    if old_level == 0 and new_level == 1:
+                                        self.start_unlock_animation(skill["id"])  # 내부에서 화살표 애니메이션 포함
 
-                                        # 누적 TP 업데이트 후 추가 해금 체크 및 애니메이션
+                                    # 누적 TP 업데이트 후 추가 해금 체크 및 애니메이션
                                         self.check_and_animate_unlocked_skills(skill["id"])
             
             self.draw_academy_screen()
@@ -1838,17 +1860,14 @@ class AcademyUI:
                 return None
         
         # 스킬 아이콘 클릭 확인
-        if self.selected_tree == "downtown":
-            # 광장 스킬 탭 클릭 처리 (스킬 없음)
-            return None
-        elif self.selected_tree in SKILL_TREES:
+        if self.selected_tree in SKILL_TREES:
             # 아카데미 화면에서 실제로 그려진 아이콘 좌표(self.skill_positions)를 기준으로
             # 클릭된 스킬을 판정한다. 이렇게 해야 마우스로 찍은 아이콘과 업그레이드되는
             # 스킬이 정확히 일치한다.
             self.update_skill_positions()
 
-            # 브랜치형 트리(dash/item/paddle)는 아이콘 크기 60, 선형 트리는 50을 사용
-            if self.selected_tree in ("dash", "item", "paddle"):
+            # 브랜치형 트리(dash/item/paddle/downtown)는 아이콘 크기 60, 선형 트리는 50을 사용
+            if self.selected_tree in ("dash", "item", "paddle", "downtown"):
                 skill_size = 60
             else:
                 skill_size = 50
@@ -2970,6 +2989,12 @@ class AcademyUI:
             lines.append(f"현재: 게이지 +{bonus}")
         elif skill_id == "item_bag_expansion":
             lines.append(f"현재: 슬롯 +{display_level}칸")
+        elif skill_id == "item_caffeine":
+            caffeine_bonus = 15 * display_level
+            lines.append(f"현재: 지속시간 +{caffeine_bonus}%")
+        elif skill_id == "item_polish":
+            polish_bonus = 20 + 10 * (display_level - 1) if display_level > 0 else 0
+            lines.append(f"현재: 롤옵션 효율 +{polish_bonus}%")
         elif skill_id == "item_gamble":
             chance = min(0.95, 0.25 + 0.15 * (display_level - 1))
             max_extra = 1 if display_level < 3 else 2
@@ -3001,6 +3026,14 @@ class AcademyUI:
             lines.append(f"현재: 최대치 +{display_level * 30}")
         elif skill_id == "paddle_bio":
             lines.append("현재: 활성화")
+        elif skill_id == "downtown_gamble":
+            chance = min(0.95, 0.25 + 0.15 * (display_level - 1))
+            max_extra = 1 if display_level < 3 else 2
+            lines.append(f"현재: 추가 가챠 {int(chance * 100)}%")
+            lines.append(f"현재: 최대 {max_extra}회")
+        elif skill_id == "downtown_treasure_map":
+            lines.append(f"현재: 필드 전설 +{display_level * 350}%")
+            lines.append(f"현재: 가챠 전설 +{display_level * 7}%")
 
         return lines
 
@@ -3046,6 +3079,12 @@ class AcademyUI:
             lines.append(f"다음: 게이지 +{bonus}")
         elif skill_id == "item_bag_expansion":
             lines.append(f"다음: 슬롯 +{display_level}칸")
+        elif skill_id == "item_caffeine":
+            caffeine_bonus = 15 * display_level
+            lines.append(f"다음: 지속시간 +{caffeine_bonus}%")
+        elif skill_id == "item_polish":
+            polish_bonus = 20 + 10 * (display_level - 1) if display_level > 0 else 0
+            lines.append(f"다음: 롤옵션 효율 +{polish_bonus}%")
         elif skill_id == "item_gamble":
             chance = min(0.95, 0.25 + 0.15 * (display_level - 1))
             max_extra = 1 if display_level < 3 else 2
@@ -3077,6 +3116,14 @@ class AcademyUI:
             lines.append(f"다음: 최대치 +{display_level * 30}")
         elif skill_id == "paddle_bio":
             lines.append("다음: 활성화")
+        elif skill_id == "downtown_gamble":
+            chance = min(0.95, 0.25 + 0.15 * (display_level - 1))
+            max_extra = 1 if display_level < 3 else 2
+            lines.append(f"다음: 추가 가챠 {int(chance * 100)}%")
+            lines.append(f"다음: 최대 {max_extra}회")
+        elif skill_id == "downtown_treasure_map":
+            lines.append(f"다음: 필드 전설 +{display_level * 350}%")
+            lines.append(f"다음: 가챠 전설 +{display_level * 7}%")
 
         return lines
 
@@ -3253,11 +3300,14 @@ class AcademyUI:
             pass
 
     def draw_linear_skill_tree(self, tree_data):
-        """기존 방식의 선형 스킬트리 그리기 (item, paddle용)"""
+        """기존 방식의 선형 스킬트리 그리기 (item, paddle, downtown용)"""
         start_y = 120
         skill_size = 50  # 크기 축소
         margin = 15     # 마진 축소
-        
+
+        # 누적 TP 계산 (잠금 조건 확인용)
+        tree_tp_total = self.skill_system.get_tree_total(self.selected_tree)
+
         # 스킬 목록이 화면을 벗어나지 않도록 조정
         available_height = self.height - start_y - 60  # 하단 여백 고려
         total_skills_height = len(tree_data["skills"]) * (skill_size + margin) - margin
@@ -3631,10 +3681,14 @@ def get_skill_bonus(skill_id):
         "item_cooldown_mastery": level,
         "item_gauge_mastery": level * 7,    # 게이지 +7 per level
         "item_bag_expansion": level,        # 슬롯 +1 per level
-        "item_gamble": level,               # 레벨 정보 (도박 설정용)
         "item_recycle": level,              # 레벨 정보 (연금술 확률용)
-        "item_treasure_map": level,         # 레벨 정보 (전설 확률용)
-        
+        "item_caffeine": level,             # 카페인 레벨 정보
+        "item_polish": level,               # 연마 레벨 정보
+
+        # 광장 스킬 (downtown)
+        "downtown_gamble": level,           # 레벨 정보 (도박 설정용)
+        "downtown_treasure_map": level,     # 레벨 정보 (전설 확률용)
+
         "paddle_gauge": level * 5,      # 5 per level
         "paddle_speed": level * 0.5,    # 0.5 per level
         "paddle_size": level * 0.02,    # 2% per level
@@ -3711,8 +3765,8 @@ def get_item_recycle_chance():
 
 
 def get_item_gamble_settings():
-    """도박 스킬 확률과 최대 추가 횟수"""
-    level = get_skill_level("item_gamble")
+    """도박 스킬 확률과 최대 추가 횟수 (광장 스킬탭)"""
+    level = get_skill_level("downtown_gamble")
     if level <= 0:
         return 0.0, 0
     chance = min(0.95, 0.25 + 0.15 * (level - 1))
@@ -3720,16 +3774,31 @@ def get_item_gamble_settings():
     return chance, max_extra
 
 
+def get_downtown_gamble_settings():
+    """도박 스킬 확률과 최대 추가 횟수 (광장 스킬탭) - 별칭"""
+    return get_item_gamble_settings()
+
+
 def get_treasure_map_field_multiplier():
-    """보물지도 스킬이 전설 필드 확률에 주는 배율"""
-    level = get_skill_level("item_treasure_map")
+    """보물지도 스킬이 전설 필드 확률에 주는 배율 (광장 스킬탭)"""
+    level = get_skill_level("downtown_treasure_map")
     return 1.0 + 3.5 * level
 
 
 def get_treasure_map_gacha_bonus():
-    """보물지도 스킬이 가챠 전설 확률에 주는 추가치"""
-    level = get_skill_level("item_treasure_map")
+    """보물지도 스킬이 가챠 전설 확률에 주는 추가치 (광장 스킬탭)"""
+    level = get_skill_level("downtown_treasure_map")
     return 0.07 * level
+
+
+def get_downtown_treasure_map_field_multiplier():
+    """보물지도 스킬이 전설 필드 확률에 주는 배율 - 별칭"""
+    return get_treasure_map_field_multiplier()
+
+
+def get_downtown_treasure_map_gacha_bonus():
+    """보물지도 스킬이 가챠 전설 확률에 주는 추가치 - 별칭"""
+    return get_treasure_map_gacha_bonus()
 
 
 def get_caffeine_duration_multiplier():
