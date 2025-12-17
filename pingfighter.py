@@ -79425,7 +79425,7 @@ def handle_ball():
             # 화염 폭발 이펙트 생성
             create_fire_explosion(BALL.centerx, BALL.centery)
             # 플레이어 넉백 (좌우 방향 - 강한 초기 속도로 점진적 감속)
-            knockback_dir = random.choice([-15, 15])  # 초기 넉백 강도 증가 (더 강한 느낌)
+            knockback_dir = random.choice([-22, 22])  # 넉백 강도 50% 증가 (15 → 22)
             player_fire_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
             print(f"🔥 [FIRE BALL HIT - handle_ball] 플레이어 넉백 시작! vel={player_fire_knockback_vel:.2f}")
 
@@ -79931,15 +79931,25 @@ def handle_ball():
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
 
-        # 🔥 화재 이벤트: 공에 맞으면 화염 폭발 + 순간 강한 넉백 (점진적 감속)
+        # 🔥 화재 이벤트: 공에 맞으면 화염 폭발 + 강한 넉백 (발토르 미사일 방식)
         if is_fire_active():
-            global boss_fire_knockback_vel
+            # global boss_knockback_timer, boss_knockback_vel - 함수 상단에서 이미 선언됨 (76233)
             # 화염 폭발 이펙트 생성
             create_fire_explosion(BALL.centerx, BALL.centery)
-            # 보스 넉백 (좌우 방향 - 강한 초기 속도로 점진적 감속)
-            knockback_dir = random.choice([-15, 15])  # 초기 넉백 강도 증가 (더 강한 느낌)
-            boss_fire_knockback_vel = _apply_boss_knockback_velocity(knockback_dir)
-            print(f"🔥 [FIRE BALL HIT - handle_ball] 보스 넉백 시작! vel={boss_fire_knockback_vel:.2f}")
+            # 보스 넉백 (발토르 포탑 미사일과 동일한 방식)
+            base_power = 22  # 넉백 강도 (코만도 14보다 강함)
+            center_x = WIDTH // 2
+            if BOSS.x + 50 < center_x:
+                horizontal_velocity = base_power  # 오른쪽으로 넉백
+            else:
+                horizontal_velocity = -base_power  # 왼쪽으로 넉백
+            # 랜덤 추가 넉백 (10-20%)
+            random_factor = 1.0 + random.uniform(0.1, 0.2)
+            horizontal_velocity *= random_factor
+            # 기존 boss_knockback 시스템 사용 (18프레임 = 0.3초)
+            boss_knockback_timer = 18
+            boss_knockback_vel = _apply_boss_knockback_velocity(horizontal_velocity)
+            print(f"🔥 [FIRE BALL HIT - handle_ball] 보스 넉백 시작! vel={boss_knockback_vel:.2f}, timer={boss_knockback_timer}")
 
         # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
         # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
@@ -80952,19 +80962,7 @@ def handle_boss_pro():
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
 
-    # 🔥 화재 날씨 이벤트 보스 넉백 처리 (스턴 없이 점진적 감속 - AI 유지)
-    global boss_fire_knockback_vel
-    if abs(boss_fire_knockback_vel) > 0.3:
-        old_x = BOSS.x
-        BOSS.x += boss_fire_knockback_vel
-        BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
-        # 감속 (0.85 → 매 프레임 15% 감소, 급감 효과)
-        boss_fire_knockback_vel *= 0.85
-        if abs(boss_fire_knockback_vel) <= 0.3:
-            boss_fire_knockback_vel = 0.0
-        # 디버그 로그 (첫 프레임만 출력 방지를 위해 큰 값만)
-        if abs(boss_fire_knockback_vel) > 1.0:
-            print(f"🔥 [FIRE KNOCKBACK] 보스 감속이동: {old_x:.1f} → {BOSS.x:.1f} (vel={boss_fire_knockback_vel:.2f})")
+    # 🔥 화재 날씨 이벤트 보스 넉백은 boss_knockback_timer 시스템으로 처리됨 (라인 83037)
 
     # 헤드샷 스턴 상태 처리
     global head_shot_active, head_shot_timer
