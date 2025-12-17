@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """PingFighter (핑파이터) - 아케이드 스타일 탁구 보스 배틀 게임
 
 보스 배틀, 파워업, 특수 능력이 포함된 Python/Pygame 기반 게임.
@@ -1312,6 +1312,16 @@ from item_effects.fuel_pouch import (
     activate_fuel_pouch,
     deactivate_fuel_pouch,
     get_fuel_pouch_gauge_bonus
+)
+from item_effects.holy_barrier import (
+    activate_holy_barrier,
+    deactivate_holy_barrier,
+    update_holy_barrier,
+    draw_holy_barrier_effects,
+    check_holy_barrier_collision,
+    is_holy_barrier_active,
+    get_holy_barrier_remaining_time,
+    get_holy_barrier_remaining_ratio,
 )
 from item_effects.bluetooth_ring import (
     activate_bluetooth_ring,
@@ -3218,6 +3228,23 @@ player_collision_cooldown = 0  # 플레이어 패들 충돌 쿨다운
 boss_collision_cooldown = 0    # 보스 패들 충돌 쿨다운
 player_collision_handled = False  # 플레이어 충돌이 이미 처리되었는지 플래그
 player_sound_cooldown = 0  # 플레이어 패들 사운드 재생 쿨다운
+
+# ⚡ 스매셔 콤보 시스템 (대시/스킬 없이 기본 이동으로 연속 반격 시 보너스)
+smasher_combo_count = 0              # 현재 콤보 수 (2부터 표시)
+smasher_combo_gauge_bonus = {        # 콤보별 게이지 보너스 퍼센트
+    2: 30,   # 2콤보: +30%
+    3: 60,   # 3콤보: +60%
+    4: 90,   # 4콤보: +90%
+    5: 120,  # 5콤보: +120%
+}
+SMASHER_COMBO_MAX_BONUS = 150        # 6콤보 이상: +150% (최대)
+smasher_combo_effect_active = False  # 콤보 이펙트 표시 중
+smasher_combo_effect_timer = 0       # 콤보 이펙트 타이머
+smasher_combo_effect_x = 0           # 콤보 이펙트 X 위치
+smasher_combo_effect_y = 0           # 콤보 이펙트 Y 위치
+smasher_combo_effect_count = 0       # 표시할 콤보 수
+smasher_combo_particles = []         # 콤보 파티클 효과
+
 # ️ 무한 수평 왕복 방지 시스템 변수들
 horizontal_movement_timer = 0   # 수평 움직임 지속 시간 카운터
 horizontal_threshold = 0.3      # 수평 판정 임계값 (Y속도가 이 값보다 작으면 수평으로 판정)
@@ -25436,6 +25463,183 @@ def _apply_blacksmith_berserk_gauge_bonus(amount: int) -> int:
     return amount
 
 
+def _get_combo_color(combo_count: int) -> tuple:
+    """스매셔 콤보 수에 따른 색상 반환 (콤보가 높을수록 화려한 색상)"""
+    combo_colors = {
+        2: (255, 255, 100),    # 노란색 - 2콤보
+        3: (255, 180, 50),     # 주황색 - 3콤보
+        4: (255, 100, 100),    # 빨간색 - 4콤보
+        5: (255, 50, 150),     # 핑크색 - 5콤보
+    }
+    if combo_count in combo_colors:
+        return combo_colors[combo_count]
+    # 6콤보 이상: 무지개 색상 (랜덤)
+    return (
+        random.randint(200, 255),
+        random.randint(100, 255),
+        random.randint(200, 255)
+    )
+
+
+def _reset_smasher_combo(reason="unknown"):
+    """스매셔 콤보 초기화 (대시/스킬 사용 시 호출)"""
+    global smasher_combo_count
+    smasher_combo_count = 0
+
+
+def update_smasher_combo_effect():
+    """스매셔 콤보 이펙트 업데이트 (매 프레임 호출)"""
+    global smasher_combo_effect_timer, smasher_combo_effect_active, smasher_combo_particles
+
+    # 이펙트 타이머 감소
+    if smasher_combo_effect_timer > 0:
+        smasher_combo_effect_timer -= 1
+    else:
+        smasher_combo_effect_active = False
+
+    # 파티클 업데이트
+    for particle in smasher_combo_particles[:]:
+        particle["x"] += particle["vx"]
+        particle["y"] += particle["vy"]
+        particle["vy"] += 0.1  # 약간의 중력
+        particle["life"] -= 1
+        if particle["life"] <= 0:
+            smasher_combo_particles.remove(particle)
+
+
+def draw_smasher_combo_effect(screen):
+    """스매셔 콤보 이펙트 그리기 (WHAM 스타일)"""
+    if not smasher_combo_effect_active:
+        return
+
+    combo = smasher_combo_effect_count
+    x, y = smasher_combo_effect_x, smasher_combo_effect_y
+    timer = smasher_combo_effect_timer
+
+    # 애니메이션 진행률 (0.0 ~ 1.0)
+    progress = 1.0 - (timer / 60.0)
+
+    # 콤보에 따른 기본 색상
+    base_color = _get_combo_color(combo)
+
+    # 스케일 애니메이션 (처음에 크게 나타났다가 줄어듦)
+    if progress < 0.2:
+        scale = 1.0 + (1.0 - progress / 0.2) * 0.5  # 1.5 → 1.0
+    else:
+        scale = 1.0
+
+    # 투명도 (마지막에 페이드아웃)
+    if progress > 0.7:
+        alpha = int(255 * (1.0 - (progress - 0.7) / 0.3))
+    else:
+        alpha = 255
+
+    # 흔들림 효과 (콤보가 높을수록 더 강하게)
+    shake_intensity = min(combo - 1, 5) * 2
+    shake_x = random.randint(-shake_intensity, shake_intensity) if timer > 30 else 0
+    shake_y = random.randint(-shake_intensity, shake_intensity) if timer > 30 else 0
+
+    # 폭발 광선 효과 (콤보가 높을수록 더 많이)
+    if combo >= 3 and timer > 40:
+        ray_count = min(combo * 2, 12)
+        for i in range(ray_count):
+            angle = (i / ray_count) * math.pi * 2 + progress * 2
+            ray_length = 30 + combo * 10 + math.sin(progress * 10 + i) * 10
+            end_x = x + math.cos(angle) * ray_length
+            end_y = y + math.sin(angle) * ray_length
+            ray_color = (
+                min(255, base_color[0] + random.randint(0, 50)),
+                min(255, base_color[1] + random.randint(0, 50)),
+                min(255, base_color[2] + random.randint(0, 50))
+            )
+            pygame.draw.line(screen, ray_color, (x + shake_x, y + shake_y), (end_x, end_y), 2 + combo // 2)
+
+    # 원형 충격파 (콤보가 높을수록 더 많은 원)
+    if combo >= 4:
+        ring_count = min(combo - 2, 4)
+        for i in range(ring_count):
+            ring_progress = (progress + i * 0.1) % 1.0
+            ring_radius = int(20 + ring_progress * 80)
+            ring_alpha = int(max(0, 200 - ring_progress * 200))
+            ring_surface = pygame.Surface((ring_radius * 2 + 4, ring_radius * 2 + 4), pygame.SRCALPHA)
+            ring_color = (*base_color, ring_alpha)
+            pygame.draw.circle(ring_surface, ring_color, (ring_radius + 2, ring_radius + 2), ring_radius, 3)
+            screen.blit(ring_surface, (x - ring_radius - 2 + shake_x, y - ring_radius - 2 + shake_y))
+
+    # 콤보 텍스트 - 메인
+    try:
+        font_size = int(36 * scale + combo * 4)
+        combo_font = pygame.font.Font(resource_path("PFStardust.ttf"), font_size)
+    except:
+        combo_font = pygame.font.Font(None, int(36 * scale + combo * 4))
+
+    combo_text = f"{combo}COMBO!"
+    bonus_pct = smasher_combo_gauge_bonus.get(combo, SMASHER_COMBO_MAX_BONUS)
+
+    # 텍스트 표면 생성 (그림자 + 외곽선 + 메인)
+    text_surface = combo_font.render(combo_text, True, base_color)
+    shadow_surface = combo_font.render(combo_text, True, (0, 0, 0))
+    text_rect = text_surface.get_rect(center=(x + shake_x, y + shake_y))
+    shadow_rect = shadow_surface.get_rect(center=(x + shake_x + 3, y + shake_y + 3))
+
+    # 투명도 적용
+    if alpha < 255:
+        text_surface.set_alpha(alpha)
+        shadow_surface.set_alpha(alpha // 2)
+
+    # 그림자
+    screen.blit(shadow_surface, shadow_rect)
+
+    # 외곽선 효과 (콤보가 높을수록 두꺼운 외곽선)
+    if combo >= 3:
+        outline_offsets = [(-2, 0), (2, 0), (0, -2), (0, 2)]
+        if combo >= 5:
+            outline_offsets += [(-2, -2), (2, -2), (-2, 2), (2, 2)]
+        outline_color = (255, 255, 255)
+        outline_surface = combo_font.render(combo_text, True, outline_color)
+        if alpha < 255:
+            outline_surface.set_alpha(alpha)
+        for ox, oy in outline_offsets:
+            outline_rect = outline_surface.get_rect(center=(x + shake_x + ox, y + shake_y + oy))
+            screen.blit(outline_surface, outline_rect)
+
+    # 메인 텍스트
+    screen.blit(text_surface, text_rect)
+
+    # 보너스 퍼센트 표시
+    try:
+        bonus_font = pygame.font.Font(resource_path("PFStardust.ttf"), 18)
+    except:
+        bonus_font = pygame.font.Font(None, 18)
+
+    bonus_text = f"+{bonus_pct}% GAUGE!"
+    bonus_surface = bonus_font.render(bonus_text, True, (255, 255, 200))
+    if alpha < 255:
+        bonus_surface.set_alpha(alpha)
+    bonus_rect = bonus_surface.get_rect(center=(x + shake_x, y + shake_y + font_size // 2 + 15))
+    screen.blit(bonus_surface, bonus_rect)
+
+    # 파티클 그리기
+    for particle in smasher_combo_particles:
+        p_alpha = int(255 * (particle["life"] / 60))
+        p_surface = pygame.Surface((int(particle["size"] * 2), int(particle["size"] * 2)), pygame.SRCALPHA)
+        p_color = (*particle["color"], p_alpha)
+        pygame.draw.circle(p_surface, p_color, (int(particle["size"]), int(particle["size"])), int(particle["size"]))
+        screen.blit(p_surface, (int(particle["x"] - particle["size"]), int(particle["y"] - particle["size"])))
+
+    # 6콤보 이상: 무지개 테두리 효과
+    if combo >= 6:
+        rainbow_colors = [
+            (255, 0, 0), (255, 127, 0), (255, 255, 0),
+            (0, 255, 0), (0, 0, 255), (75, 0, 130), (148, 0, 211)
+        ]
+        for i, color in enumerate(rainbow_colors):
+            angle = progress * 5 + i * (math.pi * 2 / 7)
+            orbit_x = x + math.cos(angle) * (50 + combo * 5)
+            orbit_y = y + math.sin(angle) * (30 + combo * 3)
+            pygame.draw.circle(screen, color, (int(orbit_x), int(orbit_y)), 5 + combo // 2)
+
+
 def draw_berserk_aura(surface: pygame.Surface, center: tuple[int, int]) -> None:
     """광폭물약 활성화 시 붉은 화염 오오라를 그린다."""
     aura_surface = _ensure_berserk_aura_surface()
@@ -27369,6 +27573,14 @@ def apply_effect(effect_name):
             
             # 나머지 무기 재장전 (바주카포, AK-47 등)
             ammo_box.activate(None, current_stage)
+    elif effect_name == "holy_barrier":  # 홀리베리어 액티브 아이템
+        activate_holy_barrier(None, current_stage, WIDTH, HEIGHT)
+        try:
+            _hg_on_activate('holy_barrier')
+        except Exception:
+            pass
+        play_active_item_sound()
+        print("✨ 홀리베리어 발동! 6초간 플레이어 뒤쪽에 공을 반사하는 방벽 소환")
 # === 벌크업 발동 함수 ===
 def activate_long_boost():
     global long_boost_active, long_boost_timer, long_boost_initial_timer, long_boost_scale, long_boost_target_scale
@@ -34880,6 +35092,8 @@ def handle_player(keys):
     global bazooka_recoil_timer, bazooka_recoil_direction, bazooka_recoil_strength  # 바주카포 반동
     global smasher_power_recoil_timer, smasher_power_recoil_vel  # 스매셔 파워스매싱 반동
     global smasher_power_recoil_pending_dir, smasher_power_recoil_stun_pending
+    global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer  # ⚡ 스매셔 콤보 시스템
+    global smasher_combo_effect_x, smasher_combo_effect_y, smasher_combo_effect_count, smasher_combo_particles
     global round_start_time
     # 이벤트 기반 이동 플래그(포커스 상실 대비)
     global MOVE_EVENT_LEFT, MOVE_EVENT_RIGHT, MOVE_EVENT_DOWN, MOVE_EVENT_UP
@@ -37254,6 +37468,9 @@ def handle_player(keys):
                             rolling_active = True
                             # 디버그: 하프대쉬 발동 경로 기록
                             is_half_dash_active = True  # 하프대쉬 플래그 설정
+                            # ⚡ 스매셔 콤보 리셋 (대시 사용 시)
+                            if selected_character_type == "smasher":
+                                _reset_smasher_combo("하프대쉬")
                             half_dash_effect_timer = 20  # 하프대쉬 효과 지속 시간 (약 0.33초)
                             # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                             if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
@@ -37460,6 +37677,9 @@ def handle_player(keys):
                 if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge and not optimus_drain_locked:
                     # 아래키 + 왼쪽 - 대쉬 실행
                     rolling_active = True
+                    # ⚡ 스매셔 콤보 리셋 (대시 사용 시)
+                    if selected_character_type == "smasher":
+                        _reset_smasher_combo("왼쪽대쉬")
                     # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성
                     if is_ice_active():
                         create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, -1, is_player=True)
@@ -37654,6 +37874,9 @@ def handle_player(keys):
                 elif right_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and special_gauge >= required_gauge and not optimus_drain_locked:
                     # 아래키 + 오른쪽 - 대쉬 실행
                     rolling_active = True
+                    # ⚡ 스매셔 콤보 리셋 (대시 사용 시)
+                    if selected_character_type == "smasher":
+                        _reset_smasher_combo("오른쪽대쉬")
                     # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성
                     if is_ice_active():
                         create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, 1, is_player=True)
@@ -38668,6 +38891,15 @@ def handle_player(keys):
     # 서브 대기 중에는 충돌 체크하지 않음
     global player_collision_handled, player_collision_cooldown, player_sound_cooldown, last_hit_by
     global mega_smashing_active, mega_smashing_meteor_trail, mega_smashing_ghosts, mega_smashing_ghost_scatter
+
+    # ⚡ 버그 수정: 충돌 쿨다운 감소를 handle_player 시작에서 처리
+    # handle_player가 handle_ball보다 먼저 실행되므로, 쿨다운 감소를 여기서 해야
+    # 이전 프레임에서 설정된 쿨다운이 적절히 감소된 후 충돌 검사가 진행됨
+    if player_collision_cooldown > 0:
+        player_collision_cooldown -= 1
+    # 매 프레임 충돌 플래그도 리셋
+    player_collision_handled = False
+
     # Y속도와 관계없이 충돌 감지 (고스트샷 등 특수 상황 대응)
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
     player_collision_rect = PLAYER.copy()
@@ -38880,9 +39112,6 @@ def handle_player(keys):
 
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     # ⚠️ 버그 수정: player_collision_cooldown 체크 추가 - handle_ball과 중복 충돌 처리 방지
-    # 🔍 디버그: 충돌 조건 확인
-    if collision_with_player:
-        print(f"🔍 [handle_player 충돌체크] collision={collision_with_player}, cooldown={player_collision_cooldown}, wait_serve={is_waiting_for_serve}, stopwatch={stopwatch_active and stopwatch_timer > 0}, kuromi={ball_in_kuromi}")
     if collision_with_player and player_collision_cooldown <= 0 and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
         # 발토르 토르쉴드 방패 충격 효과
         shield_guarding = (
@@ -39114,6 +39343,36 @@ def handle_player(keys):
         # ⚠️ 버그 수정: 쿨다운 설정 추가 - handle_ball 백업 충돌과 중복 처리 방지
         player_collision_cooldown = 15
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
+
+        # ⚡ 스매셔 콤보 시스템: 패들 충돌 직후 콤보 처리
+        # rolling_active가 False일 때만 콤보 증가 (대시로 친 게 아닐 때)
+        if selected_character_type == "smasher":
+            if not rolling_active:
+                # 대시 없이 반격 → 콤보 증가!
+                smasher_combo_count += 1
+
+                # 2콤보 이상일 때 이펙트 활성화
+                if smasher_combo_count >= 2:
+                    smasher_combo_effect_active = True
+                    smasher_combo_effect_timer = 60  # 1초간 표시
+                    smasher_combo_effect_x = BALL.centerx
+                    smasher_combo_effect_y = BALL.centery - 50
+                    smasher_combo_effect_count = smasher_combo_count
+
+                    # 콤보 파티클 생성
+                    particle_count = min(smasher_combo_count * 5, 30)
+                    for _ in range(particle_count):
+                        angle = random.uniform(0, math.pi * 2)
+                        spd = random.uniform(2, 5 + smasher_combo_count)
+                        smasher_combo_particles.append({
+                            "x": BALL.centerx,
+                            "y": BALL.centery,
+                            "vx": math.cos(angle) * spd,
+                            "vy": math.sin(angle) * spd,
+                            "life": random.randint(20, 40 + smasher_combo_count * 5),
+                            "color": _get_combo_color(smasher_combo_count),
+                            "size": random.uniform(3, 6 + smasher_combo_count * 0.5)
+                        })
         game_vars.ball.last_hit_by = "player"  # game_vars에도 업데이트
 
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
@@ -39538,7 +39797,9 @@ def handle_player(keys):
 
         # ⚠️ 수정: player_collision_cooldown 체크 제거 - handle_player 충돌 블록 내부이므로 중복 체크 불필요
         # (쿨다운은 이 블록 앞에서 이미 설정되었으므로, 여기서 체크하면 게이지 충전이 안됨)
+        print(f"🔍 [게이지충전 진입체크] aipill={aipill_active}, special={special_active}, rolling={rolling_active}, stun={rolling_stun_timer}, drive={drive_blocks_charge}")
         if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and not drive_blocks_charge:
+            print(f"🔍 [게이지충전 블록 진입!] 게이지 충전 로직 실행")
             # 스킬 효과 적용: 게이지 충전 증가
             # Chapter 4는 나중에 오버라이드하므로 여기서는 제외
             # 튜토리얼 Chapter 4에서는 패들 히트 시 500 고정
@@ -39610,6 +39871,20 @@ def handle_player(keys):
                     print(" DEBUG:  handle_player   (optimus - no gauge charge)")
             else:
                 total_gauge_gain = _apply_blacksmith_berserk_gauge_bonus(total_gauge_gain)
+
+                # ⚡ 스매셔 콤보 게이지 보너스 적용 (콤보 증가는 위에서 처리됨)
+                if selected_character_type == "smasher" and smasher_combo_count >= 2:
+                    # 콤보별 보너스 퍼센트 결정
+                    if smasher_combo_count in smasher_combo_gauge_bonus:
+                        combo_bonus_pct = smasher_combo_gauge_bonus[smasher_combo_count]
+                    else:
+                        combo_bonus_pct = SMASHER_COMBO_MAX_BONUS  # 6콤보 이상
+
+                    # 보너스 게이지 계산
+                    bonus_gauge = int(total_gauge_gain * combo_bonus_pct / 100)
+                    total_gauge_gain += bonus_gauge
+                    print(f"⚡ [콤보 보너스!] {smasher_combo_count}콤보! +{combo_bonus_pct}% = +{bonus_gauge} 게이지")
+
                 old_gauge = special_gauge  # 이전 게이지 저장
                 special_gauge += total_gauge_gain
                 # 🔍 디버그: 게이지 실제 충전
@@ -49305,7 +49580,99 @@ def draw_player_gauge():
 
         # (요청) 비타민약 남은 시간 숫자 표시는 제거
 
-    if soldier_weapon_menu_active and selected_character_type == "soldier" and soldier_controller.weapons:
+
+    # 홀리베리어 가로형 타이머 게이지 (금색/신성한 톤)
+    if is_holy_barrier_active():
+        v_width = 150
+        v_height = 12
+        base_x = WIDTH - v_width - 16
+        base_y = HEIGHT - 28
+        idx = _hg_index('holy_barrier')
+        if idx < 0:
+            _hg_on_activate('holy_barrier')
+            idx = _hg_index('holy_barrier')
+        spacing = 18
+        hb_x = base_x
+        hb_y = base_y - max(0, idx) * spacing
+        hg_stack_any = True
+        hg_top_y = min(hg_top_y, hb_y)
+
+        remaining_ratio = get_holy_barrier_remaining_ratio()
+        remaining_seconds = get_holy_barrier_remaining_time()
+
+        outer_rect = pygame.Rect(hb_x - 5, hb_y - 6, v_width + 10, v_height + 12)
+        mid_rect   = pygame.Rect(hb_x - 3, hb_y - 4, v_width + 6,  v_height + 8)
+        frame_rect = pygame.Rect(hb_x - 2, hb_y - 2, v_width + 4,  v_height + 4)
+        inner_rect = pygame.Rect(hb_x,     hb_y,     v_width,      v_height)
+
+        shadow_surf = pygame.Surface((outer_rect.width, outer_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (0, 0, 0, 70), shadow_surf.get_rect(), border_radius=8)
+        SCREEN.blit(shadow_surf, (outer_rect.x, outer_rect.y))
+
+        draw.rect((40, 35, 20), outer_rect, border_radius=8)
+        draw.rect((180, 150, 80), mid_rect, border_radius=7)
+        draw.rect((255, 220, 150), mid_rect, 2, border_radius=7)
+        draw.rect((35, 30, 18), frame_rect, border_radius=6)
+
+        inner_shadow = pygame.Surface((inner_rect.width, inner_rect.height), pygame.SRCALPHA)
+        for i in range(4):
+            alpha = 40 - i * 8
+            pygame.draw.rect(inner_shadow, (0, 0, 0, alpha), (0, i, inner_rect.width, 1))
+        SCREEN.blit(inner_shadow, (inner_rect.x, inner_rect.y))
+
+        fill_w = max(1, int((v_width - 4) * remaining_ratio))
+        if fill_w > 0:
+            if remaining_seconds > 4.0:
+                base = (255, 220, 100)
+                hi = (255, 245, 180)
+            elif remaining_seconds > 2.0:
+                base = (255, 180, 80)
+                hi = (255, 210, 130)
+            else:
+                p = abs(math.sin(pygame.time.get_ticks() * 0.015))
+                base = (255, int(140 + 60 * p), int(60 + 40 * p))
+                hi = (255, int(180 + 50 * p), int(100 + 50 * p))
+
+            fill_rect = pygame.Rect(hb_x + 2, hb_y + 2, fill_w, v_height - 4)
+            grad = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+            for x in range(fill_rect.width):
+                t = x / max(1, fill_rect.width - 1)
+                col = (int(base[0] + (hi[0] - base[0]) * t), int(base[1] + (hi[1] - base[1]) * t), int(base[2] + (hi[2] - base[2]) * t), 255)
+                pygame.draw.line(grad, col, (x, 0), (x, fill_rect.height - 1))
+            mask = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=3)
+            grad.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            SCREEN.blit(grad, (fill_rect.x, fill_rect.y))
+
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.02))
+            glow = (int(hi[0] * (0.6 + 0.4 * pulse)), int(hi[1] * (0.6 + 0.4 * pulse)), int(hi[2] * (0.6 + 0.4 * pulse)))
+            draw.rect(glow, (hb_x + 2, hb_y + 2, fill_w, 2), border_radius=2)
+
+            for i in range(1, 10):
+                tx = hb_x + 2 + int((v_width - 4) * (i / 10))
+                pygame.draw.line(SCREEN, (220, 200, 160), (tx, hb_y + v_height - 4), (tx, hb_y + v_height - 1), 1)
+
+            end_x = hb_x + 2 + fill_w
+            if 2 < fill_w < (v_width - 4):
+                glint = pygame.Surface((8, v_height), pygame.SRCALPHA)
+                pygame.draw.line(glint, (255, 255, 255, 120), (0, 0), (0, v_height - 3), 2)
+                SCREEN.blit(glint, (end_x - 1, hb_y + 2))
+
+        emblem_size = int(v_height * 1.5)
+        emblem_x = hb_x - emblem_size - 6
+        emblem_y = hb_y
+        icon = get_item_icon("holy_barrier")
+        if icon:
+            scaled = pygame.transform.smoothscale(icon, (emblem_size, emblem_size))
+            rrect = scaled.get_rect(topleft=(emblem_x, emblem_y))
+            glow_surface = pygame.Surface((emblem_size + 14, emblem_size + 14), pygame.SRCALPHA)
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.01))
+            pygame.draw.circle(glow_surface, (255, 255, 150, int(100 + 80 * pulse)), ((emblem_size + 14)//2, (emblem_size + 14)//2), (emblem_size + 8)//2, 3)
+            SCREEN.blit(glow_surface, (rrect.centerx - (emblem_size + 14)//2, rrect.centery - (emblem_size + 14)//2))
+            SCREEN.blit(scaled, rrect)
+
+
+    if selected_character_type == "soldier" and soldier_controller.weapons:
         player_rect = PLAYER if 'PLAYER' in globals() else None
         if player_rect:
             slot_count = len(soldier_controller.weapons)
@@ -51682,6 +52049,11 @@ def draw_objects():
     except Exception as e:
         print(f"[ERROR] 킥차져 이펙트 그리기 오류: {e}")
 
+    # ⚡ 스매셔 콤보 이펙트 업데이트 및 그리기
+    if selected_character_type == "smasher":
+        update_smasher_combo_effect()
+        draw_smasher_combo_effect(SCREEN)
+
     try:
         from item_effects.foul_whistle import get_foul_whistle_instance
 
@@ -53366,6 +53738,10 @@ def draw_objects():
 
     # 테크니컬조끼 연막 효과 그리기 (플레이어 패들보다 먼저 그려서 패들이 위에 보이도록)
     draw_technical_vest_effects(SCREEN)
+
+    # 홀리베리어 효과 그리기 (플레이어 뒤쪽 방벽)
+    if is_holy_barrier_active():
+        draw_holy_barrier_effects(SCREEN)
 
     # 레이저스코프 궤적 그리기
     if is_laser_scope_active():
@@ -67278,6 +67654,7 @@ def show_item_manager_menu():
         {"name": "stopwatch", "type": "active", "icon": get_icon_safe("stopwatch_icon", "stopwatch")},
         {"name": "devil_dice", "type": "active", "icon": get_icon_safe("devil_dice_icon", "devil_dice")},
         {"name": "laser_scope", "type": "active", "icon": get_item_icon("laser_scope")},
+        {"name": "holy_barrier", "type": "active", "icon": get_item_icon("holy_barrier")},
         # 화기류 아이템들
         {"name": "bazooka", "type": "firearm", "icon": get_icon_safe("bazooka_icon", "bazooka")},
         {"name": "ak47", "type": "firearm", "icon": get_icon_safe("ak47_icon", "ak47")},
@@ -72948,6 +73325,12 @@ def reset_round():
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
+    global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer  # ⚡ 스매셔 콤보
+
+    # ⚡ 스매셔 콤보 리셋 (라운드 시작 시)
+    smasher_combo_count = 0
+    smasher_combo_effect_active = False
+    smasher_combo_effect_timer = 0
 
     # 라운드 전환 시 건설 중인 발토르 청사진을 보존하기 위한 스냅샷
     preserved_blacksmith_blueprints = None
@@ -74058,6 +74441,9 @@ def calculate_bounce(paddle):
             if speed < BALL_BASE_SPEED * 0.6:
                 speed = BALL_BASE_SPEED * 0.6
             short_shot_active = True
+            # ⚡ 스매셔 콤보 리셋 (쇼트스킬 사용 시)
+            if selected_character_type == "smasher":
+                _reset_smasher_combo("쇼트스킬")
             consume_special_gauge(100)
             short_shot_timer = SMASHER_SHOT_TOTAL_FRAMES
             short_shot_vertical_timer = SMASHER_SHOT_VERTICAL_FRAMES
@@ -75053,9 +75439,8 @@ def handle_ball():
 
     if selected_character_type == "blacksmith":
         _sync_blacksmith_hammer_projectiles_to_frame(frame_counter)
-    # 충돌 쿨다운 감소
-    if player_collision_cooldown > 0:
-        player_collision_cooldown -= 1
+    # 충돌 쿨다운 감소 (player_collision_cooldown은 handle_player에서 처리)
+    # player_collision_cooldown -= 1  # ⚡ handle_player로 이동됨
     if boss_collision_cooldown > 0:
         boss_collision_cooldown -= 1
     if player_sound_cooldown > 0:
@@ -75066,8 +75451,8 @@ def handle_ball():
         if short_shot_counter_window == 0 and prev_counter > 0:
             print("[SHOT-BONUS] 카운터 윈도우 만료")
         refresh_perfect_timing_indicator()
-    # 프레임 시작 시 충돌 플래그 리셋 (매 프레임마다 리셋)
-    player_collision_handled = False
+    # 프레임 시작 시 충돌 플래그 리셋 (handle_player에서 처리)
+    # player_collision_handled = False  # ⚡ handle_player로 이동됨
     # 드라이브 & 파워스매싱 시스템
     global drive_ball_active, drive_hit_boss, ball_spin_strength, drive_speed_increase
     global drive_active, drive_spin_speed
@@ -75686,15 +76071,14 @@ def handle_ball():
     # 한 프레임 동안 벽돌/그룹별 중복 피격을 방지하기 위한 집합
     frame_wall_hit_groups = set()
     frame_single_wall_hits = set()
-    # 충돌 쿨다운 감소
-    if player_collision_cooldown > 0:
-        player_collision_cooldown -= 1
+    # 충돌 쿨다운 감소 (player_collision_cooldown은 handle_player에서 처리)
+    # player_collision_cooldown -= 1  # ⚡ handle_player로 이동됨
     if boss_collision_cooldown > 0:
         boss_collision_cooldown -= 1
     if player_sound_cooldown > 0:
         player_sound_cooldown -= 1
-    # 프레임 시작 시 충돌 플래그 리셋 (매 프레임마다 리셋)
-    player_collision_handled = False
+    # 프레임 시작 시 충돌 플래그 리셋 (handle_player에서 처리)
+    # player_collision_handled = False  # ⚡ handle_player로 이동됨
     # 드라이브 & 파워스매싱 시스템
     global drive_ball_active, drive_hit_boss, ball_spin_strength, drive_speed_increase
     global drive_active, drive_spin_speed
@@ -77805,7 +78189,18 @@ def handle_ball():
                         print(f"퐁크 피격! 달의 파편 반사 성공! 게이지 -50, 0.5초 스턴 + 넉백")
                         print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}) → 보스: ({BOSS.centerx}, {BOSS.centery})")
                         break  # 한 프레임에 하나의 파편만 처리
-    
+
+    # --- 홀리베리어 충돌 처리 (바닥에 닿기 전에 공 반사) ---
+    if is_holy_barrier_active():
+        if check_holy_barrier_collision(BALL, ball_vel):
+            # 공이 홀리베리어에 반사됨 - last_hit_by 변경 없음 (보스가 친 공 그대로 유지)
+            # ball_vel은 holy_barrier.py에서 이미 반전됨
+            print("✨ 홀리베리어가 공을 반사했습니다!")
+            try:
+                play_sound_with_volume(SOUND_WALL)
+            except:
+                pass
+
     # --- 벽 충돌 처리 ---
     if BALL.left <= 0:
         BALL.left = 0
@@ -78906,6 +79301,11 @@ def handle_ball():
         is_chapter3_tutorial = ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None)
         drive_blocks_charge = drive_ball_active and not is_chapter3_tutorial
         
+        # ⚡ 스매셔 콤보 시스템: handle_ball 백업 경로 (handle_player가 놓친 충돌만)
+        # handle_player가 이미 처리한 경우 콤보 중복 증가 방지
+        # 참고: handle_ball의 이 블록은 player_collision_handled=False일 때만 진입됨 (위 라인 79269)
+        # → 중복 체크 불필요, handle_player가 처리했다면 이 블록에 들어오지 않음
+
         if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_blocks_charge:
             # 스킬 효과 적용: 게이지 충전 증가
             # Chapter 3 드라이브 튜토리얼에서는 게이지 증가율을 200으로 설정
@@ -83874,6 +84274,12 @@ def show_result(won):
         deactivate_technical_vest()
         # 스테이지 전환 시 레이저스코프 비활성화
         deactivate_laser_scope()
+        # 스테이지 전환 시 홀리베리어 비활성화
+        deactivate_holy_barrier()
+        try:
+            _hg_on_deactivate('holy_barrier')
+        except Exception:
+            pass
     else:
         # 부활 아이템이 있고 아직 사용하지 않았다면 부활 기회 제공
         if revival_obtained and not revival_used:
@@ -83926,6 +84332,12 @@ def show_result(won):
         deactivate_technical_vest()
         # 레이저스코프 비활성화
         deactivate_laser_scope()
+        # 홀리베리어 비활성화
+        deactivate_holy_barrier()
+        try:
+            _hg_on_deactivate('holy_barrier')
+        except Exception:
+            pass
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
         acceleration_skill_level = 0
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
@@ -85576,6 +85988,12 @@ def main(stage_num, new_boss_mode=False):
             deactivate_technical_vest()
             # 레이저스코프 비활성화
             deactivate_laser_scope()
+            # 홀리베리어 비활성화
+            deactivate_holy_barrier()
+            try:
+                _hg_on_deactivate('holy_barrier')
+            except Exception:
+                pass
             #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
             acceleration_skill_level = 0
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
@@ -86694,6 +87112,9 @@ def main(stage_num, new_boss_mode=False):
                     # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
                     if not mega_smashing_active:
                         special_active = True
+                    # ⚡ 스매셔 콤보 리셋 (스킬 사용 시)
+                    if selected_character_type == "smasher":
+                        _reset_smasher_combo("파워스매시")
                     special_ready = False
                     special_gauge = max(0, special_gauge - 350)
                     # 고스트샷 보너스: +50 게이지
@@ -87173,6 +87594,9 @@ def main(stage_num, new_boss_mode=False):
                             # 클렌즈 발동!
                             cleanse.activate(PLAYER.centerx, PLAYER.centery)
                             special_gauge -= 100  # 게이지 소모
+                            # ⚡ 스매셔 콤보 리셋 (클렌즈 사용 시)
+                            if selected_character_type == "smasher":
+                                _reset_smasher_combo("클렌즈")
                             # 모든 상태이상 해제
                             player_stunned_timer = 0
                             player_missile_stunned_timer = 0
@@ -87363,6 +87787,12 @@ def main(stage_num, new_boss_mode=False):
                     items.reset_items()
                     try:
                         deactivate_vitamin_pill()
+                    except Exception:
+                        pass
+                    # 홀리베리어 비활성화 (기권 시)
+                    deactivate_holy_barrier()
+                    try:
+                        _hg_on_deactivate('holy_barrier')
                     except Exception:
                         pass
                     # 듀스 시스템 리셋 (기권 시)
@@ -87957,6 +88387,8 @@ def main(stage_num, new_boss_mode=False):
         update_technical_vest(PLAYER)
         # 레이저스코프 업데이트
         update_laser_scope()
+        # 홀리베리어 업데이트
+        update_holy_barrier(current_stage)
         # Stage 7: 테크니컬조끼 연막이 테트로미노에 닿으면 증발 처리
         # - 기존 연막탄 파괴 경로(destroy_stage7_tetrominoes_in_smoke)를 재사용해 성능/일관성 유지
         if current_stage == 7:
@@ -92867,6 +93299,7 @@ def get_item_name_korean(item_name):
         "angel_blessing": "천사의 가호",
         "sacred_laurel": "신성 월계수",
         "laser_scope": "레이저스코프",
+        "holy_barrier": "홀리베리어",
         # 전설탭 전용: baby (헤르메스 아이콘과 동일)
         "baby": "베이비",
         "empty_legendary": "빈전설",
@@ -92966,6 +93399,7 @@ def get_item_description(item_name):
         "ak47": "AK-47: 강력한 자동소총. 90발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
         "suicide_drone": "자폭드론: 보급요청 스킬을 통해 투입되는 코만도 전용 드론 슬롯. 추후 성능이 정의되기 전까지는 장비 슬롯 표시 및 전환만 지원합니다.",
         "laser_scope": "레이저스코프: 25초간 보스의 모든 공의 궤적을 레이저 선으로 표시합니다. 공의 최종 도달 지점을 정확히 예측하여 플레이어에게 알려줍니다. 벽 반사와 장애물을 계산하여 오차 없이 궤적을 추적합니다.",
+        "holy_barrier": "홀리베리어: 6초간 플레이어 뒤쪽 화면 하단에 신성한 방벽을 소환합니다. 방벽은 보스가 친 공이 바닥에 닿기 전에 반사시켜 실점을 방지합니다. 금빛 파티클과 신성한 문양이 방벽을 장식합니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",

@@ -507,10 +507,8 @@ class AcademyUI:
                 print(f"[ACADEMY] 투자 사운드 재생 실패: {exc}")
 
     def can_invest_in_session(self):
-        """현재 세션에서 추가 투자가 가능한지 확인 (개발자 모드에서는 무제한)"""
-        if is_admin_mode_enabled():
-            return True  # 개발자 모드에서는 제한 없음
-        return self.session_invested_count < self.session_invest_limit
+        """현재 세션에서 추가 투자가 가능한지 확인 (제한 없음)"""
+        return True  # 세션 투자 제한 제거됨 - 항상 투자 가능
 
     def get_remaining_session_invests(self):
         """현재 세션에서 남은 투자 가능 횟수 반환"""
@@ -2038,20 +2036,8 @@ class AcademyUI:
             ro_rect = ro_text.get_rect(topright=(self.width - 20, tree_sp_rect.bottom + 5))
             self.screen.blit(ro_text, ro_rect)
         else:
-            # 세션 투자 제한 표시
-            if is_admin_mode_enabled():
-                # 개발자 모드: 무제한
-                invest_color = (255, 200, 100)  # 주황색 - 개발자 모드
-                invest_text = self.font_small.render("투자 횟수: 무제한 [DEV]", True, invest_color)
-            else:
-                remaining_invests = self.get_remaining_session_invests()
-                if remaining_invests > 0:
-                    invest_color = (100, 255, 150)  # 녹색 - 투자 가능
-                else:
-                    invest_color = (255, 100, 100)  # 빨간색 - 투자 제한
-                invest_text = self.font_small.render(f"남은 투자 횟수: {remaining_invests}/{self.session_invest_limit}", True, invest_color)
-            invest_rect = invest_text.get_rect(topright=(self.width - 20, tree_sp_rect.bottom + 5))
-            self.screen.blit(invest_text, invest_rect)
+            # 투자 제한 없음 표시 (세션 투자 제한 제거됨)
+            pass  # 제한 없으므로 별도 표시하지 않음
 
         # 조작 안내
         if self.read_only:

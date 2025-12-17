@@ -39,7 +39,11 @@
       "Bash(git stash:*)",
       "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch:*)",
       "Bash(timeout 5 python3:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(timeout 10 python3:*)",
+      "Bash(xxd:*)",
+      "Bash(LC_ALL=C sed:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": [],

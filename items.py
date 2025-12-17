@@ -293,6 +293,75 @@ def _draw_laser_scope_icon(size: int = 32) -> pygame.Surface:
     return s
 
 
+def _draw_holy_barrier_icon(size: int = 32) -> pygame.Surface:
+    """홀리베리어 아이콘 그리기 - 신성한 방벽 + 빛나는 효과"""
+    s = pygame.Surface((size, size), pygame.SRCALPHA)
+    cx, cy = size // 2, size // 2
+    k = size / 32.0
+
+    # 배경 글로우 (금색)
+    for i in range(4):
+        radius = int((14 - i * 3) * k)
+        alpha = 50 - i * 12
+        pygame.draw.circle(s, (255, 255, 150, alpha), (cx, cy), radius)
+
+    # 방벽 기본 형태 (하단에 가로 방벽)
+    barrier_y = int(22 * k)
+    barrier_h = int(6 * k)
+    barrier_rect = pygame.Rect(int(3 * k), barrier_y, int(26 * k), barrier_h)
+
+    # 방벽 그라데이션 효과
+    for i in range(barrier_h):
+        alpha_ratio = 1 - (i / barrier_h) * 0.3
+        color = (int(255 * alpha_ratio), int(255 * alpha_ratio), int(150 * alpha_ratio))
+        pygame.draw.line(s, color, (barrier_rect.left, barrier_y + i),
+                        (barrier_rect.right, barrier_y + i))
+
+    # 방벽 테두리 (밝은 금색)
+    pygame.draw.rect(s, (255, 215, 0), barrier_rect, 2)
+
+    # 상단 십자가/별 문양
+    cross_cx = cx
+    cross_cy = int(10 * k)
+    cross_len = int(6 * k)
+
+    # 십자가 글로우
+    glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    pygame.draw.line(glow_surf, (255, 255, 200, 80), (cross_cx - cross_len, cross_cy),
+                    (cross_cx + cross_len, cross_cy), 4)
+    pygame.draw.line(glow_surf, (255, 255, 200, 80), (cross_cx, cross_cy - cross_len),
+                    (cross_cx, cross_cy + int(4 * k)), 4)
+    s.blit(glow_surf, (0, 0))
+
+    # 십자가 본체
+    pygame.draw.line(s, (255, 255, 255), (cross_cx - cross_len + 1, cross_cy),
+                    (cross_cx + cross_len - 1, cross_cy), 2)
+    pygame.draw.line(s, (255, 255, 255), (cross_cx, cross_cy - cross_len + 1),
+                    (cross_cx, cross_cy + int(3 * k)), 2)
+
+    # 중앙 빛나는 점
+    pygame.draw.circle(s, (255, 255, 255), (cross_cx, cross_cy), int(2 * k))
+
+    # 빛줄기 효과 (대각선)
+    ray_color = (255, 255, 200, 60)
+    ray_len = int(5 * k)
+    for angle in [45, 135, 225, 315]:
+        rad = math.radians(angle)
+        end_x = cross_cx + math.cos(rad) * ray_len
+        end_y = cross_cy + math.sin(rad) * ray_len
+        pygame.draw.line(glow_surf, ray_color, (cross_cx, cross_cy),
+                        (int(end_x), int(end_y)), 1)
+    s.blit(glow_surf, (0, 0))
+
+    # 방벽 위 작은 빛 파티클
+    particle_positions = [(int(8 * k), int(18 * k)), (int(16 * k), int(17 * k)),
+                         (int(24 * k), int(18 * k))]
+    for px, py in particle_positions:
+        pygame.draw.circle(s, (255, 255, 200), (px, py), int(1.5 * k))
+
+    return s
+
+
 def _render_legendary_icon_frames(item_name, target_size):
     """legendary_item.draw_icon을 사용해 지정 크기의 프레임을 생성"""
 
@@ -438,6 +507,7 @@ def load_item_icons():
         "repair_kit": "repair_kit.png",  # 수리키트 아이콘
         "vitamin_pill": "vitamin_pill.png",  # 비타민약 아이콘 (없을 시 코드로 그립니다)
         "laser_scope": "laser_scope.png",  # 레이저스코프 아이콘
+        "holy_barrier": "holy_barrier.png",  # 홀리베리어 아이콘
         # "knee_pads": "knee_pads.png",  # 킥차져 - pingfighter.py의 create_knee_pads_icon() 사용
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
@@ -571,6 +641,19 @@ def load_item_icons():
                     pygame.draw.circle(icon, (255, 50, 50), (16, 16), 12)
                     pygame.draw.line(icon, (255, 100, 100), (4, 16), (28, 16), 2)
                     pygame.draw.line(icon, (255, 100, 100), (16, 4), (16, 28), 2)
+                    ITEM_ICONS[item_name] = icon
+            elif item_name == "holy_barrier":
+                # 홀리베리어 아이콘 프로시저럴 생성
+                try:
+                    ITEM_ICONS[item_name] = _draw_holy_barrier_icon(32)
+                except Exception:
+                    icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                    # 금색 방벽 모양
+                    pygame.draw.rect(icon, (255, 255, 150), (4, 20, 24, 6))
+                    pygame.draw.rect(icon, (255, 215, 0), (4, 20, 24, 6), 2)
+                    # 신성한 광선
+                    pygame.draw.line(icon, (255, 255, 200), (16, 4), (16, 18), 2)
+                    pygame.draw.line(icon, (255, 255, 200), (8, 10), (24, 10), 2)
                     ITEM_ICONS[item_name] = icon
             else:
                 icon = pygame.Surface((32, 32), pygame.SRCALPHA)
@@ -1045,6 +1128,15 @@ ITEM_TYPES = [
         "chance": 0.004,  # 확률 0.4%
         "duration": 1500,  # 25초
         "unlock_condition": None
+    },
+    {
+        "name": "holy_barrier",  # 홀리베리어 액티브 아이템
+        "color": (255, 255, 150),  # 밝은 금색 (신성한 느낌)
+        "effect": "holy_barrier",
+        "icon": None,
+        "chance": 0.006,  # 확률 0.6%
+        "duration": 360,  # 6초 (60fps * 6)
+        "unlock_condition": None
     }
 ]
 
@@ -1147,6 +1239,7 @@ unlocked_items = {
     "berserk_potion": True,
     "vitamin_pill": True,
     "laser_scope": True,
+    "holy_barrier": True,
 
     # 전설 아이템 해금 상태
     "ragnarok_hammer": True,
