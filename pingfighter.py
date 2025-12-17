@@ -39345,10 +39345,11 @@ def handle_player(keys):
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
 
         # ⚡ 스매셔 콤보 시스템: 패들 충돌 직후 콤보 처리
-        # rolling_active가 False일 때만 콤보 증가 (대시로 친 게 아닐 때)
+        # 대시/드라이브 없이 순수 반격만 콤보 인정
         if selected_character_type == "smasher":
-            if not rolling_active:
-                # 대시 없이 반격 → 콤보 증가!
+            # 콤보 조건: 대시도 안 쓰고, 드라이브도 안 쓴 순수 반격만 인정
+            if not rolling_active and not drive_ball_active:
+                # 대시/드라이브 없이 반격 → 콤보 증가!
                 smasher_combo_count += 1
 
                 # 2콤보 이상일 때 이펙트 활성화
@@ -39373,6 +39374,9 @@ def handle_player(keys):
                             "color": _get_combo_color(smasher_combo_count),
                             "size": random.uniform(3, 6 + smasher_combo_count * 0.5)
                         })
+            elif drive_ball_active:
+                # 드라이브 사용 → 콤보 리셋
+                _reset_smasher_combo("드라이브")
         game_vars.ball.last_hit_by = "player"  # game_vars에도 업데이트
 
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
