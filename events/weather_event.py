@@ -432,32 +432,55 @@ def update_weather_capsule_fadeout():
     return result
 
 
-def _apply_fadeout_alpha_to_particles(alpha):
-    """페이드아웃 알파값을 파티클에 적용"""
+def _apply_fadeout_alpha_to_particles(alpha_255):
+    """페이드아웃 알파값을 파티클에 적용
+
+    Args:
+        alpha_255: 0-255 범위의 알파값 (페이드아웃 진행도)
+    """
     global weather_particles, fire_ball_trail, fire_floor_particles_player, fire_floor_particles_boss
     global ice_floor_particles, ice_sparkle_particles
     global rain_particles, hail_particles
 
+    # 알파 비율 계산 (0.0 ~ 1.0)
+    alpha_ratio = alpha_255 / 255.0
+
     # 바람 파티클 페이드아웃
     for particle in weather_particles:
         if isinstance(particle, dict) and 'alpha' in particle:
-            particle['alpha'] = min(particle.get('original_alpha', 255), alpha)
-        elif isinstance(particle, dict):
-            particle['alpha'] = alpha
+            # original_alpha가 없으면 현재 alpha를 원본으로 저장
+            if 'original_alpha' not in particle:
+                particle['original_alpha'] = particle['alpha']
+            particle['alpha'] = particle['original_alpha'] * alpha_ratio
 
     # 불 파티클 페이드아웃
     for trail in fire_ball_trail:
         if isinstance(trail, dict) and 'alpha' in trail:
-            trail['alpha'] = min(trail.get('original_alpha', 255), alpha)
+            if 'original_alpha' not in trail:
+                trail['original_alpha'] = trail['alpha']
+            trail['alpha'] = trail['original_alpha'] * alpha_ratio
 
     for particle in fire_floor_particles_player + fire_floor_particles_boss:
         if isinstance(particle, dict) and 'alpha' in particle:
-            particle['alpha'] = min(particle.get('original_alpha', 255), alpha)
+            if 'original_alpha' not in particle:
+                particle['original_alpha'] = particle['alpha']
+            particle['alpha'] = particle['original_alpha'] * alpha_ratio
 
-    # 얼음 파티클 페이드아웃
+    # 얼음 파티클 페이드아웃 (alpha는 0.0-1.0 float)
     for particle in ice_floor_particles + ice_sparkle_particles:
         if isinstance(particle, dict) and 'alpha' in particle:
-            particle['alpha'] = min(particle.get('original_alpha', 255), alpha)
+            if 'original_alpha' not in particle:
+                particle['original_alpha'] = particle['alpha']
+            particle['alpha'] = particle['original_alpha'] * alpha_ratio
+
+    # 소나기 파티클 페이드아웃
+    for particle in rain_particles:
+        if isinstance(particle, dict) and 'alpha' in particle:
+            if 'original_alpha' not in particle:
+                particle['original_alpha'] = particle['alpha']
+            particle['alpha'] = particle['original_alpha'] * alpha_ratio
+
+    # 우박 파티클 페이드아웃 (튜플 구조이므로 직접 수정 불가, 스킵)
 
 
 def _fade_weather_sound_volume(volume_ratio):

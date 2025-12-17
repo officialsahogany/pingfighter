@@ -73757,9 +73757,12 @@ def reset_round():
     global player_stun_text_hidden_until_ms
     global player_stun_text_hidden_until_ms
     global player_burn_timer, player_burn_effect
+    global player_fire_knockback_vel, boss_fire_knockback_vel
     player_stunned_timer = 0
     player_knockback_vel = 0
     player_missile_knockback_vel = 0
+    player_fire_knockback_vel = 0.0
+    boss_fire_knockback_vel = 0.0
     player_missile_stunned_timer = 0
     player_stunned = False
     player_stun_end_time = 0
@@ -79416,20 +79419,15 @@ def handle_ball():
         # ⚡ 에너지 폭발 이펙트 (20% 작게 - handle_ball)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
 
-        # 🔥 화재 이벤트: 공에 맞으면 화염 폭발 + 순간 강한 넉백 (우박과 동일한 X축 넉백)
+        # 🔥 화재 이벤트: 공에 맞으면 화염 폭발 + 순간 강한 넉백 (점진적 감속)
         if is_fire_active():
+            global player_fire_knockback_vel
             # 화염 폭발 이펙트 생성
             create_fire_explosion(BALL.centerx, BALL.centery)
-            # 플레이어 넉백 (좌우 방향 - 우박과 동일한 방식)
-            old_x = PLAYER.x
-            knockback_dir = random.choice([-12, 12])  # 우박과 동일한 넉백 강도
-            player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
-            # 첫 프레임 이동 + 즉시 감속
-            PLAYER.x += player_knockback_vel
-            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
-            print(f"🔥 [FIRE BALL HIT - handle_ball] 플레이어 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f})")
-            # 즉시 감속 적용
-            player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
+            # 플레이어 넉백 (좌우 방향 - 강한 초기 속도로 점진적 감속)
+            knockback_dir = random.choice([-15, 15])  # 초기 넉백 강도 증가 (더 강한 느낌)
+            player_fire_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
+            print(f"🔥 [FIRE BALL HIT - handle_ball] 플레이어 넉백 시작! vel={player_fire_knockback_vel:.2f}")
 
         # 라그나로크 효과는 이미 calculate_bounce에서 처리됨
 
@@ -79933,20 +79931,15 @@ def handle_ball():
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
 
-        # 🔥 화재 이벤트: 공에 맞으면 화염 폭발 + 순간 강한 넉백 (우박과 동일한 X축 넉백)
+        # 🔥 화재 이벤트: 공에 맞으면 화염 폭발 + 순간 강한 넉백 (점진적 감속)
         if is_fire_active():
+            global boss_fire_knockback_vel
             # 화염 폭발 이펙트 생성
             create_fire_explosion(BALL.centerx, BALL.centery)
-            # 보스 넉백 (좌우 방향 - 우박과 동일한 방식)
-            old_x = BOSS.x
-            knockback_dir = random.choice([-12, 12])  # 우박과 동일한 넉백 강도
-            boss_knockback_vel = _apply_boss_knockback_velocity(knockback_dir)
-            # 첫 프레임 이동 + 즉시 감속
-            BOSS.x += boss_knockback_vel
-            BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
-            print(f"🔥 [FIRE BALL HIT - handle_ball] 보스 넉백! {old_x:.1f} → {BOSS.x:.1f} (vel={boss_knockback_vel:.2f})")
-            # 즉시 감속 적용
-            boss_knockback_vel *= 0.85
+            # 보스 넉백 (좌우 방향 - 강한 초기 속도로 점진적 감속)
+            knockback_dir = random.choice([-15, 15])  # 초기 넉백 강도 증가 (더 강한 느낌)
+            boss_fire_knockback_vel = _apply_boss_knockback_velocity(knockback_dir)
+            print(f"🔥 [FIRE BALL HIT - handle_ball] 보스 넉백 시작! vel={boss_fire_knockback_vel:.2f}")
 
         # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
         # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
@@ -85351,9 +85344,12 @@ def main(stage_num, new_boss_mode=False):
     align_player_to_floor()
     
     # 모든 움직임 관련 변수 초기화
+    global player_fire_knockback_vel, boss_fire_knockback_vel
     player_stunned_timer = 0
     player_knockback_vel = 0
     player_missile_knockback_vel = 0
+    player_fire_knockback_vel = 0.0
+    boss_fire_knockback_vel = 0.0
     player_missile_stunned_timer = 0
     player_stunned = False
     player_stun_end_time = 0
@@ -85685,7 +85681,11 @@ def main(stage_num, new_boss_mode=False):
     # 화염탄 스턴 초기화
     player_stunned_timer = 0
     player_knockback_vel = 0
-    
+
+    # 🔥 화재 날씨 이벤트 넉백 초기화 (global 선언은 함수 상단에 이미 있음)
+    player_fire_knockback_vel = 0.0
+    boss_fire_knockback_vel = 0.0
+
     # 레이저 캐논 감전 초기화
     player_stunned = False
     player_stun_end_time = 0
