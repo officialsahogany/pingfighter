@@ -209,7 +209,7 @@ def init_gacha(available_items, legendary_bonus=0.0):
         "phantom_cloak", "bulletproof_hat", "spiked_helmet",
         # 추가 패시브 아이템들 (store_active_item 필터에 있는 것들)
         "dowsing_pendulum", "fuel_pouch", "bluetooth_ring", "foul_whistle",
-        "star_detector", "smartphone", "knee_pads",
+        "star_detector", "smartphone", "knee_pads", "gold_bar",
         # 전설 아이템들
         "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"
     }
@@ -278,6 +278,9 @@ def init_gacha(available_items, legendary_bonus=0.0):
             continue
         # 가시투구 중복 획득 방지
         if item_name == "spiked_helmet" and getattr(items, 'spiked_helmet_obtained', False):
+            continue
+        # 금괴 중복 획득 방지
+        if item_name == "gold_bar" and getattr(items, 'gold_bar_obtained', False):
             continue
 
         # 이미 획득한 패시브 아이템은 제외

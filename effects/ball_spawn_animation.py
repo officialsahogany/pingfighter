@@ -512,26 +512,29 @@ class Spark:
         life_ratio = self.lifetime / self.max_lifetime
         alpha = int(255 * life_ratio * alpha_mult)
 
-        # 꼬리 그리기
-        for i, (tx, ty) in enumerate(self.trail):
-            trail_alpha = int(alpha * (i / len(self.trail)) * 0.5)
+        # 꼬리 그리기 - 최적화: 2개만 그리기 (기존 전체 → 짝수 인덱스만)
+        for i in range(0, len(self.trail), 2):
+            tx, ty = self.trail[i]
             trail_size = self.size * (i / len(self.trail))
-            if trail_alpha > 0 and trail_size > 0:
-                pygame.draw.circle(surface, (*self.color[:3],),
+            if trail_size > 0.5:
+                pygame.draw.circle(surface, self.color[:3],
                                    (int(tx), int(ty)), int(trail_size))
 
-        # 메인 스파크
-        if alpha > 0:
-            # 글로우
-            glow_surf = pygame.Surface((int(self.size * 6), int(self.size * 6)), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*self.color, int(alpha * 0.3)),
-                               (int(self.size * 3), int(self.size * 3)), int(self.size * 2))
-            surface.blit(glow_surf, (int(self.x - self.size * 3), int(self.y - self.size * 3)))
+        # 메인 스파크 - 최적화: Surface 생성 제거, 직접 그리기
+        if alpha > 0 and self.size > 0:
+            # 외부 글로우 (단순화)
+            glow_size = int(self.size * 1.5)
+            if glow_size > 1:
+                glow_color = tuple(min(255, c + 30) for c in self.color[:3])
+                pygame.draw.circle(surface, glow_color,
+                                   (int(self.x), int(self.y)), glow_size)
 
             # 코어
             pygame.draw.circle(surface, self.color, (int(self.x), int(self.y)), int(self.size))
-            pygame.draw.circle(surface, (255, 255, 255), (int(self.x), int(self.y)),
-                               int(self.size * 0.5))
+            # 밝은 중심
+            if self.size > 1:
+                pygame.draw.circle(surface, (255, 255, 255), (int(self.x), int(self.y)),
+                                   max(1, int(self.size * 0.4)))
 
 
 class HologramRing:
@@ -555,7 +558,7 @@ class HologramRing:
         ])
 
         self.thickness = random.randint(1, 2)
-        self.segments = random.randint(16, 32)
+        self.segments = random.randint(8, 12)  # 최적화: 16-32 → 8-12
 
         # 왜곡 효과
         self.distortion = [random.uniform(-3, 3) for _ in range(self.segments)]
@@ -594,16 +597,20 @@ class HologramRing:
         if alpha <= 0:
             return
 
-        # 세그먼트별로 원 그리기
+        # 세그먼트별로 원 그리기 - 최적화: 색상 변조 단순화
         angle_step = (math.pi * 2) / self.segments
 
+        # 기본 색상 한 번만 계산
+        color_shift = math.sin(self.flicker_phase) * 20
+        base_shifted_color = tuple(max(0, min(255, int(c + color_shift))) for c in self.base_color)
+
         for i in range(self.segments):
-            # 일부 세그먼트 스킵 (글리치 효과)
-            if random.random() < 0.05:
+            # 글리치 스킵 확률 줄임 (5% → 10%, 더 빠른 조건 체크)
+            if (i & 1) == 0 and random.random() < 0.15:
                 continue
 
             start_angle = i * angle_step
-            end_angle = (i + 0.8) * angle_step  # 살짝 갭
+            end_angle = (i + 0.8) * angle_step
 
             r = self.radius + self.distortion[i]
 
@@ -612,11 +619,7 @@ class HologramRing:
             ex = self.center_x + math.cos(end_angle) * r
             ey = self.center_y + math.sin(end_angle) * r
 
-            # 색상 변조 (홀로그램 느낌)
-            color_shift = math.sin(self.flicker_phase + i * 0.5) * 30
-            color = tuple(max(0, min(255, int(c + color_shift))) for c in self.base_color)
-
-            pygame.draw.line(surface, color, (int(sx), int(sy)), (int(ex), int(ey)),
+            pygame.draw.line(surface, base_shifted_color, (int(sx), int(sy)), (int(ex), int(ey)),
                              self.thickness)
 
 
@@ -744,6 +747,13 @@ class BallSpawnAnimation:
     PHASE_3_DURATION = 2.5      # 서브 이동
 
     TOTAL_DURATION = PHASE_1_DURATION + PHASE_2_DURATION + PHASE_3_DURATION  # 8초
+
+    # 파티클 최대 개수 제한 (성능 최적화)
+    MAX_HOLOGRAM_RINGS = 15
+    MAX_SPARKS = 60
+    MAX_ELECTRIC_ARCS = 10
+    MAX_ENERGY_RINGS = 5
+    MAX_QUANTUM_PARTICLES_PHASE3 = 30  # Phase 3에서의 최대 양자 파티클
 
     def __init__(self, screen_width: int, screen_height: int):
         self.screen_width = screen_width
@@ -1072,12 +1082,12 @@ class BallSpawnAnimation:
         self.ball_alpha = 255
         self.ball_scale = 1.0
 
-        # 홀로그램 링 효과 (깜빡이며 따라다님)
+        # 홀로그램 링 효과 (깜빡이며 따라다님) - 최적화: 간격 늘리고 개수 제한
         self.hologram_spawn_timer += dt
-        if self.hologram_spawn_timer >= 0.15:
+        if self.hologram_spawn_timer >= 0.25 and len(self.hologram_rings) < self.MAX_HOLOGRAM_RINGS:
             self.hologram_spawn_timer = 0
-            # 여러 크기의 홀로그램 링
-            for radius_mult in [1.5, 2.5, 3.5]:
+            # 2개만 생성 (기존 3개에서 감소)
+            for radius_mult in [1.8, 3.0]:
                 self.hologram_rings.append(
                     HologramRing(self.ball_x, self.ball_y,
                                  self.ball_radius * radius_mult)
@@ -1087,15 +1097,15 @@ class BallSpawnAnimation:
         self.hologram_rings = [ring for ring in self.hologram_rings
                                if ring.update(dt, (self.ball_x, self.ball_y))]
 
-        # 스파크 생성 (이동 중)
+        # 스파크 생성 (이동 중) - 최적화: 간격 늘리고 개수 제한
         speed = abs(self.ball_y - prev_ball_y) / dt if dt > 0 else 0
         self.spark_spawn_timer += dt
 
-        if self.spark_spawn_timer >= 0.05 and speed > 10:
+        if self.spark_spawn_timer >= 0.08 and speed > 10 and len(self.sparks) < self.MAX_SPARKS:
             self.spark_spawn_timer = 0
-            # 이동 방향 반대로 스파크 튀김
+            # 이동 방향 반대로 스파크 튀김 (1-2개로 감소)
             move_direction = math.pi / 2 if self.ball_y > prev_ball_y else -math.pi / 2
-            for _ in range(random.randint(2, 5)):
+            for _ in range(random.randint(1, 2)):
                 spark_direction = move_direction + math.pi + random.uniform(-0.8, 0.8)
                 self.sparks.append(
                     Spark(self.ball_x + random.uniform(-10, 10),
@@ -1106,9 +1116,9 @@ class BallSpawnAnimation:
         # 스파크 업데이트
         self.sparks = [spark for spark in self.sparks if spark.update(dt)]
 
-        # 전기 아크 (공 주변, 계속 유지)
+        # 전기 아크 (공 주변, 계속 유지) - 최적화: 간격 늘리고 개수 제한
         self.arc_spawn_timer += dt
-        if self.arc_spawn_timer >= 0.12:
+        if self.arc_spawn_timer >= 0.2 and len(self.electric_arcs) < self.MAX_ELECTRIC_ARCS:
             self.arc_spawn_timer = 0
             self.electric_arcs.append(
                 ElectricArc(self.ball_x, self.ball_y, self.ball_radius * 2)
@@ -1117,9 +1127,9 @@ class BallSpawnAnimation:
         self.electric_arcs = [arc for arc in self.electric_arcs
                               if arc.update(dt, (self.ball_x, self.ball_y))]
 
-        # 에너지 링 (가끔)
+        # 에너지 링 (가끔) - 최적화: 개수 제한
         self.energy_ring_timer += dt
-        if self.energy_ring_timer >= 0.4:
+        if self.energy_ring_timer >= 0.5 and len(self.energy_rings) < self.MAX_ENERGY_RINGS:
             self.energy_ring_timer = 0
             self.energy_rings.append(
                 EnergyRing(self.ball_x, self.ball_y, self.ball_radius)
@@ -1128,9 +1138,12 @@ class BallSpawnAnimation:
         self.energy_rings = [ring for ring in self.energy_rings
                              if ring.update(dt, (self.ball_x, self.ball_y))]
 
-        # 파티클 페이드아웃
+        # 파티클 페이드아웃 - 최적화: 더 빠르게 제거 (8% → 15%)
         self.quantum_particles = [p for p in self.quantum_particles
-                                   if random.random() > 0.08]
+                                   if random.random() > 0.15]
+        # 최대 개수 제한
+        if len(self.quantum_particles) > self.MAX_QUANTUM_PARTICLES_PHASE3:
+            self.quantum_particles = self.quantum_particles[:self.MAX_QUANTUM_PARTICLES_PHASE3]
 
         # 코어 글로우 페이드아웃
         self.core_glow_alpha = int(100 * (1 - progress))

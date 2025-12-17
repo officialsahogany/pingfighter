@@ -1342,6 +1342,17 @@ from item_effects.weather_capsule import (
     activate_weather_capsule,
     get_weather_name_korean,
 )
+from item_effects.gold_bar import (
+    get_gold_bar_instance,
+    get_gold_bar_speed_multiplier,
+    is_gold_bar_active,
+    is_gold_bar_equipped,
+    activate_gold_bar,
+    deactivate_gold_bar,
+    equip_gold_bar,
+    unequip_gold_bar,
+    reset_gold_bar,
+)
 from item_effects.bluetooth_ring import (
     activate_bluetooth_ring,
     deactivate_bluetooth_ring,
@@ -30385,15 +30396,15 @@ rolling_charges = 1  # 구르기 사용 가능 횟수 (기본값 1개)
 token_states = [True]  # 각 토큰의 상태 (True=사용가능, False=소진) - 왼쪽부터 소진/충전
 rolling_charge_timer = 0  # 구르기 충전 타이머
 charging_token_index = -1  # 현재 충전 중인 토큰 인덱스 (-1 = 충전 중 아님)
-max_rolling_charge_time = 90  # 현재 충전에 필요한 최대 시간 (UI 진행률 계산용)
+max_rolling_charge_time = 180  # 현재 충전에 필요한 최대 시간 (UI 진행률 계산용) - 3초
 # 순차 충전 전용 상태 저장소 (다른 코드에서 덮어쓰기 방지)
-_charging_state = {"timer": 0, "index": -1, "max_time": 90}
+_charging_state = {"timer": 0, "index": -1, "max_time": 180}
 # 각 토큰별 개별 충전 상태 (균등 애니메이션용)
-# timer: UI용 타이머 (90에서 시작, ratio만큼 감소)
-# max_time: 90 고정 (균등 애니메이션용)
-# ratio: 실제타이머 대비 UI타이머 감소 비율 (90 / actual_timer)
+# timer: UI용 타이머 (180에서 시작, ratio만큼 감소)
+# max_time: 180 고정 (균등 애니메이션용)
+# ratio: 실제타이머 대비 UI타이머 감소 비율 (180 / actual_timer)
 _token_charge_states = []  # 토큰 수에 맞게 동적으로 초기화됨
-_UI_CHARGE_MAX = 90  # UI 애니메이션용 고정 max_time
+_UI_CHARGE_MAX = 180  # UI 애니메이션용 고정 max_time (3초)
 _token_flash_timers = []  # 각 토큰별 충전 완료 플래시 타이머 (반짝임 효과용)
 _TOKEN_FLASH_DURATION = 30  # 플래시 지속 시간 (프레임, 약 0.5초)
 rolling_consecutive_count = 0  #  연속 대쉬 사용 횟수 (할인 계산용)
@@ -35696,7 +35707,7 @@ def handle_player(keys):
         dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
         cooldown_reduction = int(dash_cooldown_bonus * FPS)
         # 모든 토큰에 동일한 쿨타임 적용 (일관성 - 캐릭터 대쉬쿨타임 능력치 기준)
-        base_cooldown = 90  # 1.5초 (90프레임) - 기본 대쉬 쿨타임
+        base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
         if spikeboots_obtained:
             base_cooldown = int(base_cooldown * 0.85)
         base_timer = max(6, base_cooldown - cooldown_reduction)
@@ -37040,7 +37051,7 @@ def handle_player(keys):
                     dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
                     cooldown_reduction = int(dash_cooldown_bonus * FPS)  # 초 단위를 프레임으로 변환
                     # 모든 토큰에 동일한 쿨타임 적용 (일관성 - 캐릭터 대쉬쿨타임 능력치 기준)
-                    base_cooldown = 90  # 1.5초 (90프레임) - 기본 대쉬 쿨타임
+                    base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
                     # 스파이크부츠 효과: 쿨타임 감소 (롤 옵션 적용)
                     base_cooldown = apply_spikeboots_cooldown(base_cooldown)
                     base_timer = max(6, base_cooldown - cooldown_reduction)  # 최소 0.1초
@@ -37224,7 +37235,7 @@ def handle_player(keys):
                     dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
                     cooldown_reduction = int(dash_cooldown_bonus * FPS)  # 초 단위를 프레임으로 변환
                     # 모든 토큰에 동일한 쿨타임 적용 (일관성 - 캐릭터 대쉬쿨타임 능력치 기준)
-                    base_cooldown = 90  # 1.5초 (90프레임) - 기본 대쉬 쿨타임
+                    base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
                     # 스파이크부츠 효과: 쿨타임 감소 (롤 옵션 적용)
                     base_cooldown = apply_spikeboots_cooldown(base_cooldown)
                     base_timer = max(6, base_cooldown - cooldown_reduction)  # 최소 0.1초
@@ -37410,7 +37421,7 @@ def handle_player(keys):
                         dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
                         cooldown_reduction = int(dash_cooldown_bonus * FPS)
                         # 모든 토큰에 동일한 쿨타임 적용 (캐릭터 대쉬쿨타임 능력치 기준)
-                        base_cooldown = 90  # 1.5초 (90프레임) - 기본 대쉬 쿨타임
+                        base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
                         # 스파이크부츠 효과: 쿨타임 감소 (롤 옵션 적용)
                         base_cooldown = apply_spikeboots_cooldown(base_cooldown)
                         base_charge_time = max(6, base_cooldown - cooldown_reduction)
@@ -37679,7 +37690,7 @@ def handle_player(keys):
                                 # 경량화 스킬 효과 적용
                                 lightweight_bonus = academy.get_skill_bonus("dash_lightweight") if 'academy' in globals() else 0
                                 charge_time_reduction = lightweight_bonus
-                                base_charge_time = 90  # 1.5초
+                                base_charge_time = 180  # 3초
                                 base_timer = int(base_charge_time * (1 - charge_time_reduction))
                                 
                                 #  악마의 주사위 대쉬 쿨타임 배율 적용 (하프대쉬)
@@ -37875,7 +37886,7 @@ def handle_player(keys):
                     dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
                     cooldown_reduction = int(dash_cooldown_bonus * FPS)  # 초 단위를 프레임으로 변환
                     # 모든 토큰에 동일한 쿨타임 적용 (일관성 - 캐릭터 대쉬쿨타임 능력치 기준)
-                    base_cooldown = 90  # 1.5초 (90프레임) - 기본 대쉬 쿨타임
+                    base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
                     # 스파이크부츠 효과: 쿨타임 감소 (롤 옵션 적용)
                     base_cooldown = apply_spikeboots_cooldown(base_cooldown)
                     base_timer = max(6, base_cooldown - cooldown_reduction)  # 최소 0.1초
@@ -38077,7 +38088,7 @@ def handle_player(keys):
                     dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
                     cooldown_reduction = int(dash_cooldown_bonus * FPS)  # 초 단위를 프레임으로 변환
                     # 모든 토큰에 동일한 쿨타임 적용 (일관성 - 캐릭터 대쉬쿨타임 능력치 기준)
-                    base_cooldown = 90  # 1.5초 (90프레임) - 기본 대쉬 쿨타임
+                    base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
                     # 스파이크부츠 효과: 쿨타임 감소 (롤 옵션 적용)
                     base_cooldown = apply_spikeboots_cooldown(base_cooldown)
                     base_timer = max(6, base_cooldown - cooldown_reduction)  # 최소 0.1초
@@ -38201,6 +38212,11 @@ def handle_player(keys):
             # 비타민약 효과 적용 (10초간 50% 증가)
             if vitamin_pill_active and vitamin_pill_timer > 0:
                 speed_multiplier *= VITAMIN_PILL_SPEED_MULTIPLIER
+
+            # 금괴 미착용 페널티 적용 (소지 중이지만 미착용 시 -30% 감소)
+            gold_bar_speed_mult = get_gold_bar_speed_multiplier()
+            if gold_bar_speed_mult < 1.0:
+                speed_multiplier *= gold_bar_speed_mult
 
             # 그물덫총 포획 시 속도 감소 적용
             net_gun = get_net_gun_instance()
@@ -39430,7 +39446,7 @@ def handle_player(keys):
                     # 경량화 스킬 효과 적용
                     lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
                     charge_time_reduction = lightweight_bonus  # 5% per level
-                    base_charge_time = 90  # 1.5초
+                    base_charge_time = 180  # 3초
                     new_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
                     # 천사의 가호 대쉬 쿨타임 버프 적용
                     if dash is not None:
@@ -40298,7 +40314,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -40809,6 +40825,17 @@ def store_passive_item(item_data):
         else:
             print("이미 신성 월계수를 보유 중입니다.")
             skip_append = True  # 중복 추가 방지
+    elif item_data["name"] == "gold_bar":
+        # 금괴 패시브 아이템 획득
+        if not items.gold_bar_obtained:
+            items.gold_bar_obtained = True
+            item_data["type"] = "passive"
+            # 금괴 효과 활성화 (미착용 시 이동속도 -30%)
+            activate_gold_bar()
+            print("💰 금괴 획득! 상점에서 2000골드+에 판매 가능! 미착용 시 이동속도 -30%")
+        else:
+            print("이미 금괴를 보유 중입니다.")
+            skip_append = True
     else:
         # 알 수 없는 패시브 아이템 처리
         print(f"     : {item_data['name']}")
@@ -49855,7 +49882,7 @@ def draw_player_gauge():
             SCREEN.blit(glow_surface, (rrect.centerx - (emblem_size + 14)//2, rrect.centery - (emblem_size + 14)//2))
             SCREEN.blit(scaled, rrect)
 
-    if selected_character_type == "soldier" and soldier_controller.weapons:
+    if selected_character_type == "soldier" and soldier_controller.weapons and soldier_weapon_menu_active:
         player_rect = PLAYER if 'PLAYER' in globals() else None
         if player_rect:
             slot_count = len(soldier_controller.weapons)
@@ -67895,7 +67922,8 @@ def show_item_manager_menu():
         {"name": "smartphone", "type": "passive", "icon": get_icon_safe("smartphone_icon", "smartphone")},
         {"name": "knee_pads", "type": "passive", "icon": get_icon_safe("knee_pads_icon", "knee_pads")},
         {"name": "bulletproof_hat", "type": "passive", "icon": get_icon_safe("bulletproof_hat_icon", "bulletproof_hat")},
-        {"name": "spiked_helmet", "type": "passive", "icon": get_icon_safe("spiked_helmet_icon", "spiked_helmet")}
+        {"name": "spiked_helmet", "type": "passive", "icon": get_icon_safe("spiked_helmet_icon", "spiked_helmet")},
+        {"name": "gold_bar", "type": "passive", "icon": get_item_icon("gold_bar")}
     ]
     
     # 전설 아이템 추가
@@ -74155,11 +74183,11 @@ def choose_server(show_text=True):
     rolling_charges = max_charges
     rolling_charge_timer = 0
     charging_token_index = -1  # 충전 중인 토큰 없음
-    max_rolling_charge_time = 90  # 기본값
+    max_rolling_charge_time = 180  # 기본값 (3초)
     # _charging_state 초기화
     _charging_state["timer"] = 0
     _charging_state["index"] = -1
-    _charging_state["max_time"] = 90
+    _charging_state["max_time"] = 180
     # 플래시 타이머 초기화 (충전 완료 반짝임 효과)
     global _token_flash_timers
     _token_flash_timers = []
@@ -79329,7 +79357,7 @@ def handle_ball():
                     # 경량화 스킬 효과 적용
                     lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
                     charge_time_reduction = lightweight_bonus
-                    base_charge_time = 90  # 1.5초
+                    base_charge_time = 180  # 3초
                     new_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
                     # 천사의 가호 대쉬 쿨타임 버프 적용
                     if dash is not None:
@@ -84358,11 +84386,11 @@ def show_result(won):
     rolling_charges = 1  # 기본값으로 리셋
     rolling_charge_timer = 0
     charging_token_index = -1  # 충전 중인 토큰 없음
-    max_rolling_charge_time = 90  # 기본값
+    max_rolling_charge_time = 180  # 기본값 (3초)
     # _charging_state 초기화
     _charging_state["timer"] = 0
     _charging_state["index"] = -1
-    _charging_state["max_time"] = 90
+    _charging_state["max_time"] = 180
     # 플래시 타이머 초기화 (충전 완료 반짝임 효과)
     global _token_flash_timers
     _token_flash_timers = []
@@ -84731,6 +84759,8 @@ def show_result(won):
         items.hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
         items.sacred_laurel_obtained = False  # 신성 월계수 초기화
         items.angel_blessing_obtained = False  # 천사의 가호 초기화
+        items.gold_bar_obtained = False  # 금괴 초기화
+        reset_gold_bar()  # 금괴 효과 초기화
         items.foul_whistle_obtained = False
         try:
             from item_effects.foul_whistle import get_foul_whistle_instance
@@ -88137,7 +88167,9 @@ def main(stage_num, new_boss_mode=False):
                     items.sensor_obtained = False
                     items.hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
                     items.knee_pads_obtained = False  # 킥차져 초기화
-                    
+                    items.gold_bar_obtained = False  # 금괴 초기화
+                    reset_gold_bar()  # 금괴 효과 초기화
+
                     # 킥차져 효과 초기화 (강제 종료 시)
                     try:
                         from item_effects.knee_pads import get_knee_pads_instance
@@ -92225,7 +92257,7 @@ def show_character_info(background_surface=None):
         cooldown_base_s, cooldown_now_s = compute_item_cooldown_seconds()
         dash_cost_base, dash_cost_now = compute_dash_cost()
         def compute_dash_cooldown_seconds() -> tuple[float, float]:
-            base_frames = 90  # 1.5초 기본
+            base_frames = 180  # 3초 기본
             current_frames = apply_spikeboots_cooldown(base_frames)
             try:
                 lw_bonus = academy.get_skill_bonus("dash_lightweight")
@@ -92292,7 +92324,7 @@ def show_character_info(background_surface=None):
                 "label": "대쉬쿨타임",
                 "base": dash_cd_base_s,
                 "current": dash_cd_now_s,
-                "max_hint": 2.5,
+                "max_hint": 5.0,
                 "unit": "초",
                 "higher_is_better": False,
             },
@@ -93617,6 +93649,7 @@ def get_item_name_korean(item_name):
         "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트",
         "weather_capsule": "기상조절캡슐",
+        "gold_bar": "금괴",
         # 전설탭 전용: baby (헤르메스 아이콘과 동일)
         "baby": "베이비",
         "empty_legendary": "빈전설",
@@ -93719,6 +93752,7 @@ def get_item_description(item_name):
         "holy_barrier": "홀리베리어: 4초간 플레이어 뒤쪽 화면 하단에 신성한 방벽을 소환합니다. 방벽은 보스가 친 공이 바닥에 닿기 전에 반사시켜 실점을 방지합니다. 금빛 파티클과 신성한 문양이 방벽을 장식합니다.",
         "dash_boost": "대쉬부스트: 8초간 대쉬 비용이 70% 할인됩니다. 저렴한 비용으로 연속 대쉬를 사용하여 보스의 공격을 회피하세요!",
         "weather_capsule": "기상조절캡슐: 현재 진행 중인 날씨 이벤트를 즉시 강제 종료시킵니다. 미풍, 강풍, 불, 얼음, 소나기, 우박 등 모든 날씨 효과를 제거합니다. 활성화된 날씨가 없으면 사용되지 않습니다.",
+        "gold_bar": "금괴: 상점에서 2000골드+에 판매 가능한 고가의 장신구입니다. 착용하면 장신구 2슬롯을 차지하지만 페널티가 없습니다. 인벤토리에 소지만 하고 미착용 시 이동속도가 30% 감소합니다. 상점에서 구매할 수 없으며 가챠로만 획득 가능합니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",

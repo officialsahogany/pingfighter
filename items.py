@@ -484,6 +484,90 @@ def _draw_weather_capsule_icon(size: int = 32) -> pygame.Surface:
     return s
 
 
+def _draw_gold_bar_icon(size: int = 32) -> pygame.Surface:
+    """금괴 아이콘 그리기 - 빛나는 금괴"""
+    import math
+    s = pygame.Surface((size, size), pygame.SRCALPHA)
+    cx, cy = size // 2, size // 2
+    k = size / 32.0
+
+    # 배경 글로우 (금색)
+    for i in range(4):
+        radius = int((14 - i * 3) * k)
+        alpha = 50 - i * 12
+        pygame.draw.circle(s, (255, 215, 0, max(0, alpha)), (cx, cy), radius)
+
+    # 금괴 본체 (3D 사다리꼴 형태)
+    # 상단면 (밝은 금색)
+    top_points = [
+        (int(8 * k), int(10 * k)),
+        (int(24 * k), int(10 * k)),
+        (int(22 * k), int(8 * k)),
+        (int(10 * k), int(8 * k)),
+    ]
+    pygame.draw.polygon(s, (255, 235, 130), top_points)
+
+    # 정면 (금색)
+    front_points = [
+        (int(8 * k), int(10 * k)),
+        (int(24 * k), int(10 * k)),
+        (int(26 * k), int(22 * k)),
+        (int(6 * k), int(22 * k)),
+    ]
+    pygame.draw.polygon(s, (255, 200, 50), front_points)
+
+    # 측면 (어두운 금색)
+    left_points = [
+        (int(6 * k), int(22 * k)),
+        (int(8 * k), int(10 * k)),
+        (int(10 * k), int(8 * k)),
+        (int(8 * k), int(20 * k)),
+    ]
+    pygame.draw.polygon(s, (200, 150, 30), left_points)
+
+    right_points = [
+        (int(26 * k), int(22 * k)),
+        (int(24 * k), int(10 * k)),
+        (int(22 * k), int(8 * k)),
+        (int(24 * k), int(20 * k)),
+    ]
+    pygame.draw.polygon(s, (200, 150, 30), right_points)
+
+    # 금괴 외곽선
+    outline_points = [
+        (int(10 * k), int(8 * k)),
+        (int(22 * k), int(8 * k)),
+        (int(24 * k), int(10 * k)),
+        (int(26 * k), int(22 * k)),
+        (int(6 * k), int(22 * k)),
+        (int(8 * k), int(10 * k)),
+    ]
+    pygame.draw.polygon(s, (180, 130, 20), outline_points, 2)
+
+    # 반짝임 효과 (하이라이트)
+    pygame.draw.line(s, (255, 255, 200),
+                     (int(12 * k), int(11 * k)),
+                     (int(18 * k), int(11 * k)), 2)
+
+    # 작은 반짝임 파티클
+    sparkle_positions = [
+        (int(5 * k), int(6 * k)),
+        (int(27 * k), int(5 * k)),
+        (int(28 * k), int(18 * k)),
+        (int(4 * k), int(19 * k)),
+    ]
+    for px, py in sparkle_positions:
+        # 십자 형태 반짝임
+        pygame.draw.line(s, (255, 255, 220), (px - int(2 * k), py), (px + int(2 * k), py), 1)
+        pygame.draw.line(s, (255, 255, 220), (px, py - int(2 * k)), (px, py + int(2 * k)), 1)
+
+    # 중앙에 "G" 마크 (선택적)
+    # font_size = max(8, int(8 * k))
+    # (글꼴 렌더링은 생략 - 심플하게 유지)
+
+    return s
+
+
 def _render_legendary_icon_frames(item_name, target_size):
     """legendary_item.draw_icon을 사용해 지정 크기의 프레임을 생성"""
 
@@ -615,6 +699,7 @@ def load_item_icons():
         "life_elixir": "life_elixir.png",  # 생명수 아이콘
         "technical_vest": "technical_vest.png",  # 테크니컬조끼 아이콘
         "fuel_pouch": "fuel_pouch.png",  # 연료파우치 아이콘
+        "gold_bar": "gold_bar.png",  # 금괴 아이콘
         "bluetooth_ring": "bluetooth_ring.png",  # 블루투스링 아이콘
         "star_detector": "star_detector.png",  # 별탐지기 아이콘
         "foul_whistle": "foul_whistle.png",  # 반칙호루라기 아이콘
@@ -807,6 +892,18 @@ def load_item_icons():
                     # 구름 심볼
                     pygame.draw.circle(icon, (200, 220, 240), (14, 20), 3)
                     pygame.draw.circle(icon, (200, 220, 240), (18, 20), 3)
+                    ITEM_ICONS[item_name] = icon
+            elif item_name == "gold_bar":
+                # 금괴 아이콘 프로시저럴 생성
+                try:
+                    ITEM_ICONS[item_name] = _draw_gold_bar_icon(32)
+                except Exception:
+                    icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                    # 간단한 금괴 폴백
+                    pygame.draw.rect(icon, (255, 215, 0), (6, 10, 20, 12))
+                    pygame.draw.rect(icon, (218, 165, 32), (6, 10, 20, 12), 2)
+                    # 하이라이트
+                    pygame.draw.line(icon, (255, 255, 200), (8, 12), (14, 12), 2)
                     ITEM_ICONS[item_name] = icon
             else:
                 icon = pygame.Surface((32, 32), pygame.SRCALPHA)
@@ -1124,9 +1221,22 @@ ITEM_TYPES = [
         "color": (180, 100, 40),  # 갈색 (가죽 파우치 색상)
         "effect": "fuel_pouch",
         "icon": None,
-        "chance": 0.005,  # 
+        "chance": 0.005,  #
         "duration": 600,
         "unlock_condition": None
+    },
+    {
+        "name": "gold_bar",  # 금괴 패시브 아이템 (판매 전용)
+        "color": (255, 215, 0),  # 금색
+        "effect": "gold_bar",
+        "icon": None,
+        "chance": 0.0,  # 상점에 스폰되지 않음 (unknown_item에서만 획득)
+        "duration": 600,
+        "unlock_condition": None,
+        "sell_price": 2000,  # 판매 가격
+        "slots_required": 2,  # 장신구 2칸 차지
+        "body_part": "accessory",  # 장신구 부위
+        "shop_spawnable": False  # 상점에 스폰되지 않음
     },
     {
         "name": "bluetooth_ring",  # 블루투스링 패시브 아이템
@@ -1358,6 +1468,7 @@ angel_blessing_obtained = False  # 천사의 가호 획득 여부
 sacred_laurel_obtained = False  # 신성 월계수 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
+gold_bar_obtained = False  # 금괴 아이템 획득 여부
 
 
 active_item_slot = None
@@ -1398,6 +1509,7 @@ unlocked_items = {
     "devil_dice": True,
     "technical_vest": True,
     "fuel_pouch": True,
+    "gold_bar": True,
     "bluetooth_ring": True,
     "star_detector": True,
     "foul_whistle": True,
