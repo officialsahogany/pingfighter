@@ -388,17 +388,17 @@ def update_weather_capsule_fadeout():
         # 종료 텍스트 설정 (기상조절캡슐 전용 메시지)
         weather_type = weather_capsule_fadeout_type
         if weather_type == "breeze":
-            weather_end_text = "🌤️ 기상조절로 미풍이 잦아들었습니다!"
+            weather_end_text = "🌤️ 미풍이 잦아들었습니다!"
         elif weather_type == "gust":
-            weather_end_text = "🌤️ 기상조절로 강풍이 잠잠해졌습니다!"
+            weather_end_text = "🌤️ 강풍이 잠잠해졌습니다!"
         elif weather_type == "fire":
-            weather_end_text = "🌤️ 기상조절로 불이 사그라들었습니다!"
+            weather_end_text = "🌤️ 불이 사그라들었습니다!"
         elif weather_type == "ice":
-            weather_end_text = "🌤️ 기상조절로 얼음이 녹아내렸습니다!"
+            weather_end_text = "🌤️ 얼음이 녹아내렸습니다!"
         elif weather_type == "rain":
-            weather_end_text = "🌤️ 기상조절로 소나기가 그쳤습니다!"
+            weather_end_text = "🌤️ 소나기가 그쳤습니다!"
         elif weather_type == "hail":
-            weather_end_text = "🌤️ 기상조절로 우박이 멎었습니다!"
+            weather_end_text = "🌤️ 우박이 멎었습니다!"
         else:
             weather_end_text = "🌤️ 날씨가 정상으로 돌아왔습니다!"
 
