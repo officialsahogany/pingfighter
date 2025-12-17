@@ -1,6 +1,6 @@
 """
 홀리베리어 아이템 효과
-6초동안 플레이어 뒤쪽 벽에 공을 반사하는 방벽을 소환합니다.
+4초동안 플레이어 뒤쪽 벽에 공을 반사하는 방벽을 소환합니다.
 타이머형 액티브 아이템
 """
 
@@ -9,7 +9,7 @@ import pygame
 import math
 
 # 상수
-HOLY_BARRIER_DURATION_FRAMES = 360  # 6초 (60fps * 6)
+HOLY_BARRIER_DURATION_FRAMES = 240  # 4초 (60fps * 4)
 HOLY_BARRIER_HEIGHT = 20  # 방벽 높이
 HOLY_BARRIER_Y_OFFSET = 5  # 화면 하단으로부터의 오프셋
 

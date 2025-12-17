@@ -362,6 +362,128 @@ def _draw_holy_barrier_icon(size: int = 32) -> pygame.Surface:
     return s
 
 
+def _draw_dash_boost_icon(size: int = 32) -> pygame.Surface:
+    """대쉬부스트 아이콘 그리기 - 속도감 + 무한 대쉬 느낌"""
+    s = pygame.Surface((size, size), pygame.SRCALPHA)
+    cx, cy = size // 2, size // 2
+    k = size / 32.0
+
+    # 배경 글로우 (시안색)
+    for i in range(4):
+        radius = int((14 - i * 3) * k)
+        alpha = 50 - i * 12
+        pygame.draw.circle(s, (100, 200, 255, max(0, alpha)), (cx, cy), radius)
+
+    # 속도선 (여러 개의 수평선)
+    line_color = (100, 200, 255)
+    line_positions = [
+        (int(4 * k), int(10 * k), int(20 * k)),
+        (int(6 * k), int(16 * k), int(24 * k)),
+        (int(4 * k), int(22 * k), int(18 * k)),
+    ]
+    for start_x, y, length in line_positions:
+        # 그라데이션 속도선
+        for i in range(length):
+            alpha = int(200 * (1 - i / length))
+            pygame.draw.line(s, (*line_color, alpha), (start_x + i, y), (start_x + i, y), 2)
+
+    # 중앙 무한대 심볼 (∞)
+    inf_cx, inf_cy = cx, cy
+    inf_w = int(10 * k)
+    inf_h = int(5 * k)
+
+    # 무한대 심볼 그리기 (두 개의 원)
+    pygame.draw.circle(s, (150, 255, 200), (inf_cx - int(4 * k), inf_cy), int(4 * k), 2)
+    pygame.draw.circle(s, (150, 255, 200), (inf_cx + int(4 * k), inf_cy), int(4 * k), 2)
+
+    # 부스트 화살표 (오른쪽 방향)
+    arrow_x = int(22 * k)
+    arrow_y = cy
+    arrow_points = [
+        (arrow_x, arrow_y - int(5 * k)),
+        (arrow_x + int(6 * k), arrow_y),
+        (arrow_x, arrow_y + int(5 * k)),
+    ]
+    pygame.draw.polygon(s, (255, 200, 100), arrow_points)
+    pygame.draw.polygon(s, (255, 255, 150), arrow_points, 1)
+
+    # 빛나는 파티클
+    particle_positions = [
+        (int(8 * k), int(8 * k)),
+        (int(24 * k), int(8 * k)),
+        (int(6 * k), int(26 * k)),
+        (int(26 * k), int(24 * k)),
+    ]
+    for px, py in particle_positions:
+        pygame.draw.circle(s, (200, 255, 255), (px, py), int(1.5 * k))
+
+    return s
+
+
+def _draw_weather_capsule_icon(size: int = 32) -> pygame.Surface:
+    """기상조절캡슐 아이콘 그리기 - 캡슐 + 날씨 심볼"""
+    s = pygame.Surface((size, size), pygame.SRCALPHA)
+    cx, cy = size // 2, size // 2
+    k = size / 32.0
+
+    # 배경 글로우 (하늘색)
+    for i in range(3):
+        radius = int((13 - i * 3) * k)
+        alpha = 40 - i * 12
+        pygame.draw.circle(s, (150, 200, 230, max(0, alpha)), (cx, cy), radius)
+
+    # 캡슐 본체 (타원형)
+    capsule_rect = pygame.Rect(
+        int(6 * k), int(8 * k),
+        int(20 * k), int(16 * k)
+    )
+    pygame.draw.ellipse(s, (180, 220, 240), capsule_rect)
+    pygame.draw.ellipse(s, (100, 150, 200), capsule_rect, 2)
+
+    # 캡슐 중앙선 (두 가지 색상 분리)
+    pygame.draw.line(s, (100, 150, 200),
+                     (int(6 * k), cy), (int(26 * k), cy), 1)
+
+    # 상단: 해 심볼 (노란색)
+    sun_cx, sun_cy = cx, int(12 * k)
+    pygame.draw.circle(s, (255, 220, 100), (sun_cx, sun_cy), int(3 * k))
+    # 햇살
+    for angle in range(0, 360, 45):
+        import math
+        rad = math.radians(angle)
+        x1 = sun_cx + int(math.cos(rad) * 4 * k)
+        y1 = sun_cy + int(math.sin(rad) * 4 * k)
+        x2 = sun_cx + int(math.cos(rad) * 6 * k)
+        y2 = sun_cy + int(math.sin(rad) * 6 * k)
+        pygame.draw.line(s, (255, 200, 80), (x1, y1), (x2, y2), 1)
+
+    # 하단: 구름 + 번개 심볼
+    cloud_y = int(20 * k)
+    pygame.draw.circle(s, (200, 220, 240), (cx - int(3 * k), cloud_y), int(3 * k))
+    pygame.draw.circle(s, (200, 220, 240), (cx + int(2 * k), cloud_y), int(4 * k))
+
+    # 번개 (노란색 작은 지그재그)
+    lightning_points = [
+        (cx, cloud_y + int(3 * k)),
+        (cx - int(2 * k), cloud_y + int(6 * k)),
+        (cx, cloud_y + int(5 * k)),
+        (cx - int(1 * k), cloud_y + int(8 * k)),
+    ]
+    pygame.draw.lines(s, (255, 230, 100), False, lightning_points, 1)
+
+    # 빛나는 파티클 (4개 모서리)
+    particle_positions = [
+        (int(4 * k), int(4 * k)),
+        (int(28 * k), int(4 * k)),
+        (int(4 * k), int(28 * k)),
+        (int(28 * k), int(28 * k)),
+    ]
+    for px, py in particle_positions:
+        pygame.draw.circle(s, (200, 230, 255), (px, py), int(1 * k))
+
+    return s
+
+
 def _render_legendary_icon_frames(item_name, target_size):
     """legendary_item.draw_icon을 사용해 지정 크기의 프레임을 생성"""
 
@@ -508,6 +630,8 @@ def load_item_icons():
         "vitamin_pill": "vitamin_pill.png",  # 비타민약 아이콘 (없을 시 코드로 그립니다)
         "laser_scope": "laser_scope.png",  # 레이저스코프 아이콘
         "holy_barrier": "holy_barrier.png",  # 홀리베리어 아이콘
+        "dash_boost": "dash_boost.png",  # 대쉬부스트 아이콘
+        "weather_capsule": "weather_capsule.png",  # 기상조절캡슐 아이콘
         # "knee_pads": "knee_pads.png",  # 킥차져 - pingfighter.py의 create_knee_pads_icon() 사용
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
@@ -654,6 +778,35 @@ def load_item_icons():
                     # 신성한 광선
                     pygame.draw.line(icon, (255, 255, 200), (16, 4), (16, 18), 2)
                     pygame.draw.line(icon, (255, 255, 200), (8, 10), (24, 10), 2)
+                    ITEM_ICONS[item_name] = icon
+            elif item_name == "dash_boost":
+                # 대쉬부스트 아이콘 프로시저럴 생성
+                try:
+                    ITEM_ICONS[item_name] = _draw_dash_boost_icon(32)
+                except Exception:
+                    icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                    # 시안색 속도선
+                    pygame.draw.line(icon, (100, 200, 255), (4, 12), (24, 12), 2)
+                    pygame.draw.line(icon, (100, 200, 255), (6, 16), (26, 16), 2)
+                    pygame.draw.line(icon, (100, 200, 255), (4, 20), (22, 20), 2)
+                    # 무한대 심볼
+                    pygame.draw.circle(icon, (150, 255, 200), (12, 16), 4, 1)
+                    pygame.draw.circle(icon, (150, 255, 200), (20, 16), 4, 1)
+                    ITEM_ICONS[item_name] = icon
+            elif item_name == "weather_capsule":
+                # 기상조절캡슐 아이콘 프로시저럴 생성
+                try:
+                    ITEM_ICONS[item_name] = _draw_weather_capsule_icon(32)
+                except Exception:
+                    icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                    # 하늘색 캡슐
+                    pygame.draw.ellipse(icon, (180, 220, 240), (6, 8, 20, 16))
+                    pygame.draw.ellipse(icon, (100, 150, 200), (6, 8, 20, 16), 2)
+                    # 해 심볼
+                    pygame.draw.circle(icon, (255, 220, 100), (16, 12), 3)
+                    # 구름 심볼
+                    pygame.draw.circle(icon, (200, 220, 240), (14, 20), 3)
+                    pygame.draw.circle(icon, (200, 220, 240), (18, 20), 3)
                     ITEM_ICONS[item_name] = icon
             else:
                 icon = pygame.Surface((32, 32), pygame.SRCALPHA)
@@ -1137,6 +1290,24 @@ ITEM_TYPES = [
         "chance": 0.006,  # 확률 0.6%
         "duration": 360,  # 6초 (60fps * 6)
         "unlock_condition": None
+    },
+    {
+        "name": "dash_boost",  # 대쉬부스트 액티브 아이템
+        "color": (100, 200, 255),  # 시안색 (속도/대쉬 느낌)
+        "effect": "dash_boost",
+        "icon": None,
+        "chance": 0.005,  # 확률 0.5%
+        "duration": 480,  # 8초 (60fps * 8)
+        "unlock_condition": None
+    },
+    {
+        "name": "weather_capsule",  # 기상조절캡슐 액티브 아이템
+        "color": (150, 200, 230),  # 하늘색 (날씨 느낌)
+        "effect": "weather_capsule",
+        "icon": None,
+        "chance": 0.004,  # 확률 0.4%
+        "duration": 0,  # 즉발형 (지속시간 없음)
+        "unlock_condition": None
     }
 ]
 
@@ -1240,6 +1411,8 @@ unlocked_items = {
     "vitamin_pill": True,
     "laser_scope": True,
     "holy_barrier": True,
+    "dash_boost": True,
+    "weather_capsule": True,
 
     # 전설 아이템 해금 상태
     "ragnarok_hammer": True,

@@ -308,6 +308,10 @@ from events.weather_event import (
     force_start_ice_event,
     force_start_rain_event,
     force_start_hail_event,
+    # 기상조절캡슐 페이드아웃
+    is_weather_capsule_fadeout_active,
+    update_weather_capsule_fadeout,
+    get_weather_capsule_fadeout_alpha,
 )
 from game_logic.checkmate_system import get_checkmate_system
 from game_logic.game_loop import LegacyHooks, create_game_loop
@@ -1322,6 +1326,21 @@ from item_effects.holy_barrier import (
     is_holy_barrier_active,
     get_holy_barrier_remaining_time,
     get_holy_barrier_remaining_ratio,
+)
+from item_effects.dash_boost import (
+    activate_dash_boost,
+    deactivate_dash_boost,
+    update_dash_boost,
+    draw_dash_boost_effects,
+    is_dash_boost_active,
+    is_dash_unlimited,
+    get_dash_cost_multiplier,
+    get_dash_boost_remaining_time,
+    get_dash_boost_remaining_ratio,
+)
+from item_effects.weather_capsule import (
+    activate_weather_capsule,
+    get_weather_name_korean,
 )
 from item_effects.bluetooth_ring import (
     activate_bluetooth_ring,
@@ -3232,12 +3251,12 @@ player_sound_cooldown = 0  # 플레이어 패들 사운드 재생 쿨다운
 # ⚡ 스매셔 콤보 시스템 (대시/스킬 없이 기본 이동으로 연속 반격 시 보너스)
 smasher_combo_count = 0              # 현재 콤보 수 (2부터 표시)
 smasher_combo_gauge_bonus = {        # 콤보별 게이지 보너스 퍼센트
-    2: 30,   # 2콤보: +30%
-    3: 60,   # 3콤보: +60%
-    4: 90,   # 4콤보: +90%
-    5: 120,  # 5콤보: +120%
+    2: 20,   # 2콤보: +20%
+    3: 40,   # 3콤보: +40%
+    4: 60,   # 4콤보: +60%
+    5: 80,   # 5콤보: +80%
 }
-SMASHER_COMBO_MAX_BONUS = 150        # 6콤보 이상: +150% (최대)
+SMASHER_COMBO_MAX_BONUS = 100        # 6콤보 이상: +100% (최대)
 smasher_combo_effect_active = False  # 콤보 이펙트 표시 중
 smasher_combo_effect_timer = 0       # 콤보 이펙트 타이머
 smasher_combo_effect_x = 0           # 콤보 이펙트 X 위치
@@ -25621,11 +25640,26 @@ def draw_smasher_combo_effect(screen):
 
     # 파티클 그리기
     for particle in smasher_combo_particles:
-        p_alpha = int(255 * (particle["life"] / 60))
-        p_surface = pygame.Surface((int(particle["size"] * 2), int(particle["size"] * 2)), pygame.SRCALPHA)
-        p_color = (*particle["color"], p_alpha)
-        pygame.draw.circle(p_surface, p_color, (int(particle["size"]), int(particle["size"])), int(particle["size"]))
-        screen.blit(p_surface, (int(particle["x"] - particle["size"]), int(particle["y"] - particle["size"])))
+        try:
+            p_life = particle.get("life", 1)
+            if p_life <= 0:
+                continue
+            p_alpha = max(0, min(255, int(255 * (p_life / 60))))
+            p_size = max(1, int(particle.get("size", 3)))
+            p_surface = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+            # 색상 유효성 검사
+            p_base_color = particle.get("color")
+            if p_base_color is None or not isinstance(p_base_color, (tuple, list)) or len(p_base_color) < 3:
+                p_base_color = (255, 255, 100)  # 기본 노란색
+            # 모든 색상 값을 0-255 범위 정수로 변환
+            r = max(0, min(255, int(p_base_color[0])))
+            g = max(0, min(255, int(p_base_color[1])))
+            b = max(0, min(255, int(p_base_color[2])))
+            p_color = (r, g, b, p_alpha)
+            pygame.draw.circle(p_surface, p_color, (p_size, p_size), p_size)
+            screen.blit(p_surface, (int(particle["x"] - p_size), int(particle["y"] - p_size)))
+        except Exception:
+            continue  # 문제 있는 파티클은 건너뛰기
 
     # 6콤보 이상: 무지개 테두리 효과
     if combo >= 6:
@@ -27580,7 +27614,29 @@ def apply_effect(effect_name):
         except Exception:
             pass
         play_active_item_sound()
-        print("✨ 홀리베리어 발동! 6초간 플레이어 뒤쪽에 공을 반사하는 방벽 소환")
+        print("✨ 홀리베리어 발동! 4초간 플레이어 뒤쪽에 공을 반사하는 방벽 소환")
+    elif effect_name == "dash_boost":  # 대쉬부스트 액티브 아이템
+        activate_dash_boost(None, current_stage, WIDTH, HEIGHT)
+        try:
+            _hg_on_activate('dash_boost')
+        except Exception:
+            pass
+        play_active_item_sound()
+        print("⚡ 대쉬부스트 발동! 8초간 대쉬비용 70% 할인")
+    elif effect_name == "weather_capsule":  # 기상조절캡슐 액티브 아이템
+        success, weather_type = activate_weather_capsule(None, current_stage, WIDTH, HEIGHT)
+        try:
+            _hg_on_activate('weather_capsule')
+        except Exception:
+            pass
+        if success:
+            weather_name = get_weather_name_korean(weather_type)
+            play_active_item_sound()
+            print(f"🌤️ 기상조절캡슐 발동! {weather_name} 날씨가 사라지는 중...")
+        else:
+            # 날씨가 없거나 이미 페이드아웃 중일 때는 아이템을 소모하지 않음
+            print("🌤️ 기상조절캡슐: 현재 활성화된 날씨 이벤트가 없습니다.")
+            return  # 아이템 소모 안 함
 # === 벌크업 발동 함수 ===
 def activate_long_boost():
     global long_boost_active, long_boost_timer, long_boost_initial_timer, long_boost_scale, long_boost_target_scale
@@ -35241,7 +35297,6 @@ def handle_player(keys):
         soldier_controller.switch_cooldown -= 1
     global long_boost_scale, long_boost_target_scale, LONG_BOOST_TRANSITION_TIME, LONG_BOOST_DURATION
     global player_flame_zone_knockback_vel, player_flame_zone_knockback_cooldown, player_in_flame_zone  #  Stage 5 화염 넉백
-    global player_fire_ball_knockback_vel  # 🔥 화재 이벤트 공 충돌 넉백
     global PLAYER, speedboots_obtained, speedgear_obtained
     global acceleration_active, acceleration_height_bonus, acceleration_skill_level, acceleration_flash_particles  #  가속화 스킬 변수
     global aipill_active  #  AI 필 변수 추가
@@ -35551,6 +35606,15 @@ def handle_player(keys):
             external_cost_mul = getattr(dm_inst, 'external_cost_multiplier', 1.0)
             if external_cost_mul != 1.0:
                 required_gauge = int(required_gauge * external_cost_mul)
+
+        # 대쉬부스트 효과: 70% 할인 (활성화 시)
+        _dash_boost_active = is_dash_boost_active()
+        _before_boost_gauge = required_gauge
+        if _dash_boost_active:
+            required_gauge = int(required_gauge * get_dash_cost_multiplier())  # 0.3배 (70% 할인)
+
+        # 🔧 디버그: 대쉬 발동 조건 체크
+        print(f"[DASH_DEBUG] _do_dash_common: special_gauge={special_gauge}, required_gauge={required_gauge}, dash_boost={_dash_boost_active}, before_boost={_before_boost_gauge}, pass={special_gauge >= required_gauge}")
 
         if special_gauge < required_gauge:
             return False
@@ -36467,6 +36531,21 @@ def handle_player(keys):
         PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 스턴 중에도 거대화포션 효과 적용
         PLAYER.centerx = _prev_center
         return  # 넉백 중에는 조작 불가
+
+    # 🔥 화재 날씨 이벤트 넉백 처리 (스턴 없이 점진적 감속 - 조작 가능)
+    global player_fire_knockback_vel
+    if abs(player_fire_knockback_vel) > 0.3:
+        old_x = PLAYER.x
+        PLAYER.x += player_fire_knockback_vel
+        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        # 감속 (0.85 → 매 프레임 15% 감소, 급감 효과)
+        player_fire_knockback_vel *= 0.85 * _get_knockback_resist_scale()
+        if abs(player_fire_knockback_vel) <= 0.3:
+            player_fire_knockback_vel = 0.0
+        # 디버그 로그 (첫 프레임만 출력 방지를 위해 큰 값만)
+        if abs(player_fire_knockback_vel) > 1.0:
+            print(f"🔥 [FIRE KNOCKBACK] 플레이어 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_fire_knockback_vel:.2f})")
+
     #  벽돌 설치 중에는 움직이지 못함
     if wall_installing:
         return
@@ -36872,6 +36951,10 @@ def handle_player(keys):
                     if external_cost_mul != 1.0:
                         required_gauge = int(required_gauge * external_cost_mul)
 
+                # 대쉬부스트 효과: 70% 할인 (활성화 시)
+                if is_dash_boost_active():
+                    required_gauge = int(required_gauge * get_dash_cost_multiplier())  # 0.3배 (70% 할인)
+
                 # 좌/우는 컨트롤 스킴/IME 여부와 무관하게 인식 (스냅샷+이벤트+스캔코드)
                 # 현재 방향키가 눌려 있고 ↓가 눌려 있으면 "방향+↓ 조합"으로 인정한다.
                 left_before_down = (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
@@ -36933,24 +37016,26 @@ def handle_player(keys):
                     holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
                     amplification_bonus = academy.get_skill_bonus("dash_amplification")
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
-                    # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
-                    if 'token_states' in globals() and len(token_states) > 0:
-                        token_states_local = list(token_states)
-                        for idx in range(min(len(token_states_local), max_charges) - 1, -1, -1):
-                            if idx < len(token_states_local) and token_states_local[idx]:
-                                token_states_local[idx] = False
-                                break
-                        token_states[:] = token_states_local
-                        if rolling_state is not None:
-                            rolling_state.token_states = list(token_states_local)
-                    else:
-                        token_states = [True] * max(0, current_charges - 1) + [False] * (max_charges - max(0, current_charges - 1))
-                        if rolling_state is not None:
-                            rolling_state.token_states = list(token_states)
-                    # token_states에서 current_charges 동기화 (핵심!)
-                    current_charges = sum(1 for s in token_states if s)
-                    set_roll("rolling_charges", current_charges)
-                    _rolling_set("rolling_charges", current_charges)
+                    # 대쉬부스트 활성화 시 토큰 소모하지 않음
+                    if not is_dash_unlimited():
+                        # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
+                        if 'token_states' in globals() and len(token_states) > 0:
+                            token_states_local = list(token_states)
+                            for idx in range(min(len(token_states_local), max_charges) - 1, -1, -1):
+                                if idx < len(token_states_local) and token_states_local[idx]:
+                                    token_states_local[idx] = False
+                                    break
+                            token_states[:] = token_states_local
+                            if rolling_state is not None:
+                                rolling_state.token_states = list(token_states_local)
+                        else:
+                            token_states = [True] * max(0, current_charges - 1) + [False] * (max_charges - max(0, current_charges - 1))
+                            if rolling_state is not None:
+                                rolling_state.token_states = list(token_states)
+                        # token_states에서 current_charges 동기화 (핵심!)
+                        current_charges = sum(1 for s in token_states if s)
+                        set_roll("rolling_charges", current_charges)
+                        _rolling_set("rolling_charges", current_charges)
                     # 아카데미 스킬 효과: 쿨타임 감소
                     dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
                     cooldown_reduction = int(dash_cooldown_bonus * FPS)  # 초 단위를 프레임으로 변환
@@ -37042,6 +37127,9 @@ def handle_player(keys):
                     # 아카데미 스킬 효과 적용: 게이지 소모 감소 (배터리팩)
                     battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                     final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))  # 최소 10은 소모
+                    # 대쉬부스트 효과: 대쉬 비용 70% 할인
+                    if is_dash_boost_active():
+                        final_gauge_cost = int(final_gauge_cost * get_dash_cost_multiplier())  # 0.3배 (70% 할인)
                     # 천사의 가호 대쉬 비용 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
                     dm_inst = dash_manager._GLOBAL_DASH_INST
                     if dm_inst is not None:
@@ -37112,24 +37200,26 @@ def handle_player(keys):
                     holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
                     amplification_bonus = academy.get_skill_bonus("dash_amplification")
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
-                    # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
-                    if 'token_states' in globals() and len(token_states) > 0:
-                        token_states_local = list(token_states)
-                        for idx in range(min(len(token_states_local), max_charges) - 1, -1, -1):
-                            if idx < len(token_states_local) and token_states_local[idx]:
-                                token_states_local[idx] = False
-                                break
-                        token_states[:] = token_states_local
-                        if rolling_state is not None:
-                            rolling_state.token_states = list(token_states_local)
-                    else:
-                        token_states = [True] * max(0, current_charges - 1) + [False] * (max_charges - max(0, current_charges - 1))
-                        if rolling_state is not None:
-                            rolling_state.token_states = list(token_states)
-                    # token_states에서 current_charges 동기화 (핵심!)
-                    current_charges = sum(1 for s in token_states if s)
-                    set_roll("rolling_charges", current_charges)
-                    _rolling_set("rolling_charges", current_charges)
+                    # 대쉬부스트 활성화 시 토큰 소모하지 않음
+                    if not is_dash_unlimited():
+                        # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
+                        if 'token_states' in globals() and len(token_states) > 0:
+                            token_states_local = list(token_states)
+                            for idx in range(min(len(token_states_local), max_charges) - 1, -1, -1):
+                                if idx < len(token_states_local) and token_states_local[idx]:
+                                    token_states_local[idx] = False
+                                    break
+                            token_states[:] = token_states_local
+                            if rolling_state is not None:
+                                rolling_state.token_states = list(token_states_local)
+                        else:
+                            token_states = [True] * max(0, current_charges - 1) + [False] * (max_charges - max(0, current_charges - 1))
+                            if rolling_state is not None:
+                                rolling_state.token_states = list(token_states)
+                        # token_states에서 current_charges 동기화 (핵심!)
+                        current_charges = sum(1 for s in token_states if s)
+                        set_roll("rolling_charges", current_charges)
+                        _rolling_set("rolling_charges", current_charges)
                     # 아카데미 스킬 효과: 쿨타임 감소
                     dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
                     cooldown_reduction = int(dash_cooldown_bonus * FPS)  # 초 단위를 프레임으로 변환
@@ -37211,6 +37301,9 @@ def handle_player(keys):
                     # 아카데미 스킬 효과 적용: 게이지 소모 감소 (배터리팩)
                     battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                     final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))  # 최소 10은 소모
+                    # 대쉬부스트 효과: 대쉬 비용 70% 할인
+                    if is_dash_boost_active():
+                        final_gauge_cost = int(final_gauge_cost * get_dash_cost_multiplier())  # 0.3배 (70% 할인)
                     # 천사의 가호 대쉬 비용 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
                     dm_inst = dash_manager._GLOBAL_DASH_INST
                     if dm_inst is not None:
@@ -37370,10 +37463,12 @@ def handle_player(keys):
                 _rolling_set("rolling_charges", rolling_charges)
 
             # 기본 대쉬 조건 (일반 상태에서만 + 서브 완료 후 3초 경과)
-            if rolling_charges > 0 and not is_waiting_for_serve and rolling_stun_timer <= 0 and serve_completed_timer <= 0:
+            # 대쉬부스트 활성화 시 토큰 체크 우회
+            _has_token_or_unlimited = rolling_charges > 0 or is_dash_unlimited()
+            if _has_token_or_unlimited and not is_waiting_for_serve and rolling_stun_timer <= 0 and serve_completed_timer <= 0:
                 can_use_rolling = True
             # 플레이어 서브 상태에서는 6초 후에만 대쉬 가능
-            elif is_player_serve and is_waiting_for_serve and rolling_charges > 0:
+            elif is_player_serve and is_waiting_for_serve and _has_token_or_unlimited:
                 serve_wait_time = pygame.time.get_ticks() - waiting_start_time
                 if serve_wait_time >= 6000:  # 6초 이상 대기했을 때만
                     can_use_rolling = True
@@ -37382,9 +37477,9 @@ def handle_player(keys):
             half_dash_executed = False  # 플래그 초기화
             # 하프 대쉬도 서브 대기 상태를 고려
             can_use_half_dash = False
-            if rolling_charges > 0 and not is_waiting_for_serve and rolling_stun_timer <= 0 and serve_completed_timer <= 0:
+            if _has_token_or_unlimited and not is_waiting_for_serve and rolling_stun_timer <= 0 and serve_completed_timer <= 0:
                 can_use_half_dash = True
-            elif is_player_serve and is_waiting_for_serve and rolling_charges > 0 and rolling_stun_timer <= 0:
+            elif is_player_serve and is_waiting_for_serve and _has_token_or_unlimited and rolling_stun_timer <= 0:
                 serve_wait_time = pygame.time.get_ticks() - waiting_start_time
                 if serve_wait_time >= 6000:  # 6초 이상 대기
                     can_use_half_dash = True
@@ -37418,6 +37513,15 @@ def handle_player(keys):
                         external_cost_mul = getattr(dm_inst, 'external_cost_multiplier', 1.0)
                         if external_cost_mul != 1.0:
                             required_gauge = int(required_gauge * external_cost_mul)
+
+                    # 대쉬부스트 효과: 70% 할인 (활성화 시)
+                    _dash_boost_active_cmd = is_dash_boost_active()
+                    _before_boost_cmd = required_gauge
+                    if _dash_boost_active_cmd:
+                        required_gauge = int(required_gauge * get_dash_cost_multiplier())  # 0.3배 (70% 할인)
+
+                    # 🔧 디버그: 코만도 대쉬 발동 조건 체크
+                    print(f"[DASH_DEBUG] commando: special_gauge={special_gauge}, required_gauge={required_gauge}, dash_boost={_dash_boost_active_cmd}, before_boost={_before_boost_cmd}")
 
                     # 게이지가 부족한 경우 하프 대쉬 체크
                     # 또는 옵션상 RMB(우클릭) 사용 시 하프대쉬를 우선하도록 강제
@@ -37549,20 +37653,22 @@ def handle_player(keys):
 
                             #  토큰 상태 UI 업데이트 (하프대쉬도 토큰 소모 반영)
                             # 🔧 버그 수정: 일반 대쉬와 동일한 패턴으로 직접 token_states 수정
-                            # 오른쪽부터 토큰 소모 (가장 마지막 활성 토큰을 비활성화)
-                            if 'token_states' in globals() and len(token_states) > 0:
-                                # 오른쪽부터 검색하여 소진 (일반 대쉬와 동일한 패턴)
-                                for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
-                                    if idx < len(token_states) and token_states[idx]:
-                                        token_states[idx] = False
-                                        break
-                                if rolling_state is not None:
-                                    rolling_state.token_states = list(token_states)
-                            else:
-                                # token_states가 없으면 초기화
-                                token_states = [True] * current_charges + [False] * (max_charges - current_charges)
-                                if rolling_state is not None:
-                                    rolling_state.token_states = list(token_states)
+                            # 대쉬부스트 활성화 시 토큰 소모하지 않음
+                            if not is_dash_unlimited():
+                                # 오른쪽부터 토큰 소모 (가장 마지막 활성 토큰을 비활성화)
+                                if 'token_states' in globals() and len(token_states) > 0:
+                                    # 오른쪽부터 검색하여 소진 (일반 대쉬와 동일한 패턴)
+                                    for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
+                                        if idx < len(token_states) and token_states[idx]:
+                                            token_states[idx] = False
+                                            break
+                                    if rolling_state is not None:
+                                        rolling_state.token_states = list(token_states)
+                                else:
+                                    # token_states가 없으면 초기화
+                                    token_states = [True] * current_charges + [False] * (max_charges - current_charges)
+                                    if rolling_state is not None:
+                                        rolling_state.token_states = list(token_states)
                             
                             # 대쉬 후 스턴 타이머 설정 (일반 대쉬와 동일)
                             rolling_stun_timer = 20  # 일반 대쉬와 동일한 쿨다운
@@ -37639,7 +37745,7 @@ def handle_player(keys):
                 if 'half_dash_executed' not in locals() or not half_dash_executed:
                     pass  # 일반 대쉬 처리 계속
             
-            if down_pressed and not globals().get('dash_down_first_lock', False) and can_use_rolling and rolling_charges > 0 and not rolling_active:
+            if down_pressed and not globals().get('dash_down_first_lock', False) and can_use_rolling and _has_token_or_unlimited and not rolling_active:
                 #  연속 대쉬 할인을 고려한 실제 게이지 요구량 계산
                 base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                 
@@ -37664,6 +37770,14 @@ def handle_player(keys):
                     external_cost_mul = getattr(dm_inst, 'external_cost_multiplier', 1.0)
                     if external_cost_mul != 1.0:
                         required_gauge = int(required_gauge * external_cost_mul)
+
+                # 대쉬부스트 효과: 70% 할인 (활성화 시) - 실제 발동 조건용
+                if is_dash_boost_active():
+                    required_gauge = int(required_gauge * get_dash_cost_multiplier())  # 0.3배 (70% 할인)
+
+                # 🔧 디버그: 실제 대쉬 발동 조건 체크
+                print(f"[DASH_DEBUG] actual_trigger: special_gauge={special_gauge}, required_gauge={required_gauge}, dash_boost={is_dash_boost_active()}")
+
                 # A/D도 왼/오 입력으로 인정 (마우스+키보드 스킴 포함)
                 # 현재 방향키가 눌려 있고 ↓가 눌려 있으면 조합으로 인정한다.
                 left_before_down = (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
@@ -37739,19 +37853,21 @@ def handle_player(keys):
                     holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
                     amplification_bonus = academy.get_skill_bonus("dash_amplification")
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
-                    # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
-                    if 'token_states' in globals() and len(token_states) > 0:
-                        # 오른쪽부터 검색하여 소진
-                        for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
-                            if idx < len(token_states) and token_states[idx]:
-                                token_states[idx] = False
-                                break
-                    else:
-                        # token_states가 없으면 초기화
-                        token_states = [True] * max(0, rolling_charges - 1) + [False] * (max_charges - max(0, rolling_charges - 1))
-                    # token_states에서 rolling_charges 동기화 (핵심!)
-                    rolling_charges = sum(1 for s in token_states if s)
-                    _rolling_set("rolling_charges", rolling_charges)
+                    # 대쉬부스트 활성화 시 토큰 소모하지 않음
+                    if not is_dash_unlimited():
+                        # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
+                        if 'token_states' in globals() and len(token_states) > 0:
+                            # 오른쪽부터 검색하여 소진
+                            for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
+                                if idx < len(token_states) and token_states[idx]:
+                                    token_states[idx] = False
+                                    break
+                        else:
+                            # token_states가 없으면 초기화
+                            token_states = [True] * max(0, rolling_charges - 1) + [False] * (max_charges - max(0, rolling_charges - 1))
+                        # token_states에서 rolling_charges 동기화 (핵심!)
+                        rolling_charges = sum(1 for s in token_states if s)
+                        _rolling_set("rolling_charges", rolling_charges)
                     # 충전 중인 토큰 인덱스 리셋 (새 충전 시작을 위해) - 왼쪽 대쉬
                     _charging_state["index"] = -1
                     _charging_state["timer"] = 0
@@ -37849,6 +37965,9 @@ def handle_player(keys):
                     # 아카데미 스킬 효과 적용: 게이지 소모 감소 (배터리팩)
                     battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                     final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))  # 최소 10은 소모
+                    # 대쉬부스트 효과: 대쉬 비용 70% 할인
+                    if is_dash_boost_active():
+                        final_gauge_cost = int(final_gauge_cost * get_dash_cost_multiplier())  # 0.3배 (70% 할인)
                     # 천사의 가호 대쉬 비용 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
                     dm_inst = dash_manager._GLOBAL_DASH_INST
                     if dm_inst is not None:
@@ -37936,19 +38055,21 @@ def handle_player(keys):
                     holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
                     amplification_bonus = academy.get_skill_bonus("dash_amplification")
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
-                    # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
-                    if 'token_states' in globals() and len(token_states) > 0:
-                        # 오른쪽부터 검색하여 소진
-                        for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
-                            if idx < len(token_states) and token_states[idx]:
-                                token_states[idx] = False
-                                break
-                    else:
-                        # token_states가 없으면 초기화
-                        token_states = [True] * max(0, rolling_charges - 1) + [False] * (max_charges - max(0, rolling_charges - 1))
-                    # token_states에서 rolling_charges 동기화 (핵심!)
-                    rolling_charges = sum(1 for s in token_states if s)
-                    _rolling_set("rolling_charges", rolling_charges)
+                    # 대쉬부스트 활성화 시 토큰 소모하지 않음
+                    if not is_dash_unlimited():
+                        # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
+                        if 'token_states' in globals() and len(token_states) > 0:
+                            # 오른쪽부터 검색하여 소진
+                            for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
+                                if idx < len(token_states) and token_states[idx]:
+                                    token_states[idx] = False
+                                    break
+                        else:
+                            # token_states가 없으면 초기화
+                            token_states = [True] * max(0, rolling_charges - 1) + [False] * (max_charges - max(0, rolling_charges - 1))
+                        # token_states에서 rolling_charges 동기화 (핵심!)
+                        rolling_charges = sum(1 for s in token_states if s)
+                        _rolling_set("rolling_charges", rolling_charges)
                     # 충전 중인 토큰 인덱스 리셋 (새 충전 시작을 위해) - 오른쪽 대쉬
                     _charging_state["index"] = -1
                     _charging_state["timer"] = 0
@@ -38045,6 +38166,9 @@ def handle_player(keys):
                     # 아카데미 스킬 효과 적용: 게이지 소모 감소 (배터리팩)
                     battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                     final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))  # 최소 10은 소모
+                    # 대쉬부스트 효과: 대쉬 비용 70% 할인
+                    if is_dash_boost_active():
+                        final_gauge_cost = int(final_gauge_cost * get_dash_cost_multiplier())  # 0.3배 (70% 할인)
                     # 천사의 가호 대쉬 비용 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
                     dm_inst = dash_manager._GLOBAL_DASH_INST
                     if dm_inst is not None:
@@ -38409,21 +38533,8 @@ def handle_player(keys):
         if abs(player_flame_zone_knockback_vel) < 0.5:
             player_flame_zone_knockback_vel = 0
 
-    # 🔥 화재 이벤트 공 충돌 넉백 처리 (플레이어 - Y축)
-    if player_fire_ball_knockback_vel != 0:
-        old_y = PLAYER.y
-        # 넉백 적용
-        new_y = PLAYER.y + player_fire_ball_knockback_vel
-        # 화면 경계 체크
-        max_y = HEIGHT - PLAYER.height - 5
-        min_y = HEIGHT // 2  # 화면 중간 아래로만 이동 가능
-        PLAYER.y = max(min_y, min(new_y, max_y))
-        print(f"[FIRE_KNOCKBACK] vel={player_fire_ball_knockback_vel:.1f}, old_y={old_y:.0f}, new_y={PLAYER.y:.0f}, min={min_y}, max={max_y}")
-        # 빠른 감속 (순간적인 넉백 효과)
-        player_fire_ball_knockback_vel *= 0.7
-        # 속도가 충분히 작아지면 0으로 설정
-        if abs(player_fire_ball_knockback_vel) < 1.0:
-            player_fire_ball_knockback_vel = 0
+    # 🔥 화재 이벤트 공 충돌 넉백 - 이제 X축으로 처리됨 (player_knockback_vel 사용)
+    # Y축 넉백 코드 제거됨 - 우박과 동일한 방식으로 충돌 시점에 즉시 적용
 
     # Stage 4 사원 파괴 애니메이션 중에는 감속 적용
     if temple_destruction_active and abs(current_speed) > 0.1:
@@ -39344,51 +39455,28 @@ def handle_player(keys):
         player_collision_cooldown = 15
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
 
-        # ⚡ 스매셔 콤보 시스템: 패들 충돌 직후 콤보 처리
-        # 대시/드라이브 없이 순수 반격만 콤보 인정
-        if selected_character_type == "smasher":
-            # 콤보 조건: 대시도 안 쓰고, 드라이브도 안 쓴 순수 반격만 인정
-            if not rolling_active and not drive_ball_active:
-                # 대시/드라이브 없이 반격 → 콤보 증가!
-                smasher_combo_count += 1
-
-                # 2콤보 이상일 때 이펙트 활성화
-                if smasher_combo_count >= 2:
-                    smasher_combo_effect_active = True
-                    smasher_combo_effect_timer = 60  # 1초간 표시
-                    smasher_combo_effect_x = BALL.centerx
-                    smasher_combo_effect_y = BALL.centery - 50
-                    smasher_combo_effect_count = smasher_combo_count
-
-                    # 콤보 파티클 생성
-                    particle_count = min(smasher_combo_count * 5, 30)
-                    for _ in range(particle_count):
-                        angle = random.uniform(0, math.pi * 2)
-                        spd = random.uniform(2, 5 + smasher_combo_count)
-                        smasher_combo_particles.append({
-                            "x": BALL.centerx,
-                            "y": BALL.centery,
-                            "vx": math.cos(angle) * spd,
-                            "vy": math.sin(angle) * spd,
-                            "life": random.randint(20, 40 + smasher_combo_count * 5),
-                            "color": _get_combo_color(smasher_combo_count),
-                            "size": random.uniform(3, 6 + smasher_combo_count * 0.5)
-                        })
-            elif drive_ball_active:
-                # 드라이브 사용 → 콤보 리셋
-                _reset_smasher_combo("드라이브")
+        # ⚡ 스매셔 콤보 시스템: handle_player 백업 경로
+        # 메인 처리는 handle_ball에서 수행됨. 여기서는 handle_ball이 놓친 경우만 처리
+        # (일반적으로 이 코드는 실행되지 않음 - handle_ball이 먼저 처리하고 cooldown 설정)
         game_vars.ball.last_hit_by = "player"  # game_vars에도 업데이트
 
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
 
-        # 🔥 화재 이벤트: 공에 맞으면 화염 폭발 + 순간 강한 넉백
+        # 🔥 화재 이벤트: 공에 맞으면 화염 폭발 + 순간 강한 넉백 (우박과 동일한 X축 넉백)
         if is_fire_active():
             # 화염 폭발 이펙트 생성
             create_fire_explosion(BALL.centerx, BALL.centery)
-            # 플레이어 넉백 (아래 방향으로 - 빠르고 강한 속도 기반 넉백)
-            player_fire_ball_knockback_vel = 25  # 초기 넉백 속도 (아래로)
-            print(f"[Fire] Player ball knockback SET! vel={player_fire_ball_knockback_vel}, PLAYER.y={PLAYER.y}")
+            # 플레이어 넉백 (좌우 방향 - 우박과 동일한 방식)
+            old_x = PLAYER.x
+            knockback_dir = random.choice([-12, 12])  # 우박과 동일한 넉백 강도
+            player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
+            # 첫 프레임 이동 + 즉시 감속
+            PLAYER.x += player_knockback_vel
+            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+            print(f"🔥 [FIRE BALL HIT] 플레이어 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f})")
+            # 즉시 감속 적용
+            player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
 
         # 볼링트랩 발사 상태 리셋 (플레이어가 공을 받으면 더 이상 볼링트랩 공이 아님)
         try:
@@ -39837,6 +39925,8 @@ def handle_player(keys):
                         base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 80, 강화 디바인스톤 100
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
+                elif selected_character_type == "smasher":
+                    base_gauge_gain = 60  # 스매셔: 게이지 충전 60 (콤보 보너스로 보완)
                 else:
                     base_gauge_gain = 80  # 기타 캐릭터 기본 충전량
             skill_gauge_boost = skill.apply_gauge_boost(0)
@@ -49675,6 +49765,95 @@ def draw_player_gauge():
             SCREEN.blit(glow_surface, (rrect.centerx - (emblem_size + 14)//2, rrect.centery - (emblem_size + 14)//2))
             SCREEN.blit(scaled, rrect)
 
+    # 대쉬부스트 가로형 타이머 게이지 (시안/속도감)
+    if is_dash_boost_active():
+        v_width = 150
+        v_height = 12
+        base_x = WIDTH - v_width - 16
+        base_y = HEIGHT - 28
+        idx = _hg_index('dash_boost')
+        if idx < 0:
+            _hg_on_activate('dash_boost')
+            idx = _hg_index('dash_boost')
+        spacing = 18
+        db_x = base_x
+        db_y = base_y - max(0, idx) * spacing
+        hg_stack_any = True
+        hg_top_y = min(hg_top_y, db_y)
+
+        remaining_ratio = get_dash_boost_remaining_ratio()
+        remaining_seconds = get_dash_boost_remaining_time()
+
+        outer_rect = pygame.Rect(db_x - 5, db_y - 6, v_width + 10, v_height + 12)
+        mid_rect   = pygame.Rect(db_x - 3, db_y - 4, v_width + 6,  v_height + 8)
+        frame_rect = pygame.Rect(db_x - 2, db_y - 2, v_width + 4,  v_height + 4)
+        inner_rect = pygame.Rect(db_x,     db_y,     v_width,      v_height)
+
+        shadow_surf = pygame.Surface((outer_rect.width, outer_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (0, 0, 0, 70), shadow_surf.get_rect(), border_radius=8)
+        SCREEN.blit(shadow_surf, (outer_rect.x, outer_rect.y))
+
+        draw.rect((20, 40, 50), outer_rect, border_radius=8)
+        draw.rect((60, 140, 180), mid_rect, border_radius=7)
+        draw.rect((100, 200, 255), mid_rect, 2, border_radius=7)
+        draw.rect((15, 35, 45), frame_rect, border_radius=6)
+
+        inner_shadow = pygame.Surface((inner_rect.width, inner_rect.height), pygame.SRCALPHA)
+        for i in range(4):
+            alpha = 40 - i * 8
+            pygame.draw.rect(inner_shadow, (0, 0, 0, alpha), (0, i, inner_rect.width, 1))
+        SCREEN.blit(inner_shadow, (inner_rect.x, inner_rect.y))
+
+        fill_w = max(1, int((v_width - 4) * remaining_ratio))
+        if fill_w > 0:
+            if remaining_seconds > 4.0:
+                base = (80, 180, 255)
+                hi = (150, 220, 255)
+            elif remaining_seconds > 2.0:
+                base = (100, 150, 220)
+                hi = (150, 200, 255)
+            else:
+                p = abs(math.sin(pygame.time.get_ticks() * 0.015))
+                base = (int(80 + 40 * p), int(140 + 40 * p), int(200 + 55 * p))
+                hi = (int(120 + 50 * p), int(180 + 50 * p), 255)
+
+            fill_rect = pygame.Rect(db_x + 2, db_y + 2, fill_w, v_height - 4)
+            grad = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+            for x in range(fill_rect.width):
+                t = x / max(1, fill_rect.width - 1)
+                col = (int(base[0] + (hi[0] - base[0]) * t), int(base[1] + (hi[1] - base[1]) * t), int(base[2] + (hi[2] - base[2]) * t), 255)
+                pygame.draw.line(grad, col, (x, 0), (x, fill_rect.height - 1))
+            mask = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=3)
+            grad.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            SCREEN.blit(grad, (fill_rect.x, fill_rect.y))
+
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.02))
+            glow = (int(hi[0] * (0.6 + 0.4 * pulse)), int(hi[1] * (0.6 + 0.4 * pulse)), int(hi[2] * (0.6 + 0.4 * pulse)))
+            draw.rect(glow, (db_x + 2, db_y + 2, fill_w, 2), border_radius=2)
+
+            for i in range(1, 10):
+                tx = db_x + 2 + int((v_width - 4) * (i / 10))
+                pygame.draw.line(SCREEN, (100, 180, 220), (tx, db_y + v_height - 4), (tx, db_y + v_height - 1), 1)
+
+            end_x = db_x + 2 + fill_w
+            if 2 < fill_w < (v_width - 4):
+                glint = pygame.Surface((8, v_height), pygame.SRCALPHA)
+                pygame.draw.line(glint, (255, 255, 255, 120), (0, 0), (0, v_height - 3), 2)
+                SCREEN.blit(glint, (end_x - 1, db_y + 2))
+
+        emblem_size = int(v_height * 1.5)
+        emblem_x = db_x - emblem_size - 6
+        emblem_y = db_y
+        icon = get_item_icon("dash_boost")
+        if icon:
+            scaled = pygame.transform.smoothscale(icon, (emblem_size, emblem_size))
+            rrect = scaled.get_rect(topleft=(emblem_x, emblem_y))
+            glow_surface = pygame.Surface((emblem_size + 14, emblem_size + 14), pygame.SRCALPHA)
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.01))
+            pygame.draw.circle(glow_surface, (100, 200, 255, int(100 + 80 * pulse)), ((emblem_size + 14)//2, (emblem_size + 14)//2), (emblem_size + 8)//2, 3)
+            SCREEN.blit(glow_surface, (rrect.centerx - (emblem_size + 14)//2, rrect.centery - (emblem_size + 14)//2))
+            SCREEN.blit(scaled, rrect)
 
     if selected_character_type == "soldier" and soldier_controller.weapons:
         player_rect = PLAYER if 'PLAYER' in globals() else None
@@ -54214,12 +54393,21 @@ def draw_objects():
             except:
                 pass
 
+            # 대쉬부스트 효과: 70% 할인 (활성화 시)
+            try:
+                if is_dash_boost_active():
+                    _required = int(_required * get_dash_cost_multiplier())  # 0.3배 (70% 할인)
+            except:
+                pass
+
             # 일반 대쉬 게이지 부족 여부
             _normal_dash_insufficient = special_gauge < _required
 
             # 하프대쉬 가능 여부 체크 (게이지 부족 + 토큰 있음 + 스턴 없음 + 하프대쉬 시스템 활성화)
             # 하프대쉬는 게이지 소모 없이 토큰만 소모하므로, 게이지 부족해도 토큰 있으면 사용 가능
-            if _normal_dash_insufficient and _rolling_charges > 0 and _rolling_stun <= 0:
+            # 대쉬부스트 활성화 시 토큰 무제한
+            _has_token_available = _rolling_charges > 0 or is_dash_unlimited()
+            if _normal_dash_insufficient and _has_token_available and _rolling_stun <= 0:
                 # 하프대쉬 시스템이 활성화되어 있는지 확인
                 if globals().get("HALF_DASH_ENABLED", False):
                     _half_dash_available = True
@@ -54238,13 +54426,15 @@ def draw_objects():
                 print(f"[DASH_WARNING_DEBUG] 게이지 계산 실패: {_e}")
 
         # 대쉬 불가 조건: 후딜, 쿨다운, 스턴, 슬로우, 토큰 없음, 게이지 부족
+        # 대쉬부스트 활성화 시 토큰 무제한
+        _no_token_and_not_boosted = _rolling_charges <= 0 and not is_dash_unlimited()
         dash_disabled = (
             _rolling_stun > 0 or           # 대쉬 후딜
             _rolling_cooldown > 0 or       # 쿨다운 중
             _player_slow > 0 or            # 슬로우 디버프
             _player_stunned > 0 or         # 스턴 상태
             _player_missile_stunned > 0 or # 미사일 스턴
-            _rolling_charges <= 0 or       # 토큰 없음
+            _no_token_and_not_boosted or   # 토큰 없음 (대쉬부스트 비활성화 시)
             _gauge_insufficient            # 게이지 부족
         )
 
@@ -54256,7 +54446,7 @@ def draw_objects():
             if _player_slow > 0: reasons.append(f"slow={_player_slow}")
             if _player_stunned > 0: reasons.append(f"stunned={_player_stunned}")
             if _player_missile_stunned > 0: reasons.append(f"missile_stun={_player_missile_stunned}")
-            if _rolling_charges <= 0: reasons.append(f"charges={_rolling_charges}")
+            if _no_token_and_not_boosted: reasons.append(f"charges={_rolling_charges}(boosted={is_dash_unlimited()})")
             if _gauge_insufficient: reasons.append(f"gauge_low(gauge={special_gauge},하프대쉬불가)")
             print(f"[DASH_WARNING_DEBUG] dash_disabled=True | 이유: {', '.join(reasons)}")
 
@@ -55955,6 +56145,19 @@ def draw_objects():
 
     # 🌪️ 날씨 UI 타이머 업데이트 및 경고/상태 표시
     update_weather_ui_timers()
+
+    # 🌤️ 기상조절캡슐 페이드아웃 업데이트 및 화면 플래시 효과
+    if is_weather_capsule_fadeout_active():
+        fadeout_result = update_weather_capsule_fadeout()
+
+        # 화면 플래시 효과 (흰색 오버레이)
+        if fadeout_result.get("flash_active", False):
+            flash_alpha = fadeout_result.get("flash_alpha", 0)
+            if flash_alpha > 0:
+                flash_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                flash_surface.fill((255, 255, 255, flash_alpha))
+                SCREEN.blit(flash_surface, (0, 0))
+
     draw_weather_warning(SCREEN, WIDTH, HEIGHT)  # 경고/종료 메시지
 
     # 디바인쉴드 어둠의 오오라 그리기
@@ -67659,6 +67862,8 @@ def show_item_manager_menu():
         {"name": "devil_dice", "type": "active", "icon": get_icon_safe("devil_dice_icon", "devil_dice")},
         {"name": "laser_scope", "type": "active", "icon": get_item_icon("laser_scope")},
         {"name": "holy_barrier", "type": "active", "icon": get_item_icon("holy_barrier")},
+        {"name": "dash_boost", "type": "active", "icon": get_item_icon("dash_boost")},
+        {"name": "weather_capsule", "type": "active", "icon": get_item_icon("weather_capsule")},
         # 화기류 아이템들
         {"name": "bazooka", "type": "firearm", "icon": get_icon_safe("bazooka_icon", "bazooka")},
         {"name": "ak47", "type": "firearm", "icon": get_icon_safe("ak47_icon", "ak47")},
@@ -75030,6 +75235,9 @@ boss_knockback_vel = 0        # 좌우 튕김 속도
 #  화염 지대 내 보스 속도 감소 효과
 boss_speed_reduction_active = False  # 보스가 화염 지대 안에 있는지
 boss_speed_reduction_factor = 1.0    # 속도 감소 배율 (1.0 = 정상속도)
+#  🔥 화재 날씨 이벤트 넉백 전용 변수 (스턴 없이 점진적 감속)
+player_fire_knockback_vel = 0.0      # 플레이어 화재 넉백 속도
+boss_fire_knockback_vel = 0.0        # 보스 화재 넉백 속도
 #  고스트샷 보스 넉백 관련 변수 (고스트샷 제거로 사용 안 함)
 boss_knockback_timer = 0      # 넉백 지속 시간
 boss_knockback_distance = 0   # 넉백 거리
@@ -75054,9 +75262,8 @@ player_flame_zone_knockback_vel = 0  # 화염 지대 넉백 속도
 player_flame_zone_knockback_cooldown = 0  # 넉백 쿨다운 (재진입 시 다시 넉백 받기 위함)
 player_in_flame_zone = False  # 화염 지대 내부에 있는지 추적
 
-# 🔥 화재 이벤트 공 충돌 넉백 관련 변수
-player_fire_ball_knockback_vel = 0  # Y축 넉백 속도 (플레이어는 아래로)
-boss_fire_ball_knockback_vel = 0    # Y축 넉백 속도 (보스는 위로)
+# 🔥 화재 이벤트 공 충돌 넉백 - X축 넉백으로 변경됨 (우박과 동일한 방식)
+# player_knockback_vel, boss_knockback_vel 사용 - 별도 변수 불필요
 
 #  화염탄 폭발 이펙트 관련 변수  
 fireball_explosion_particles = []  # [(x, y, vx, vy, life, max_life), ...]
@@ -76056,6 +76263,9 @@ def handle_ball():
     global short_shot_target_y, short_shot_extra_vertical_frames, short_shot_curve_started
     global short_shot_curve_elapsed_frames
     global short_shot_counter_window, short_shot_counter_pending
+    # ⚡ 스매셔 콤보 시스템 변수
+    global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer
+    global smasher_combo_effect_x, smasher_combo_effect_y, smasher_combo_effect_count, smasher_combo_particles
     # 블랙스미스 해머쇼크 관련
     global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
     global wall_group_hits
@@ -77492,7 +77702,7 @@ def handle_ball():
                             else:
                                 base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                         else:
-                            base_gauge_gain = 80  # 스매셔: 게이지 충전 80
+                            base_gauge_gain = 60  # 스매셔: 게이지 충전 60 (콤보 보너스로 보완)
                         if base_gauge_gain > 0:
                             # 충전가방: 현재 게이지 획득량(블루투스링 등 적용)을 기반으로 추가 충전
                             bonus_pct = globals().get("chargebag_bonus_pct", 20)
@@ -79168,8 +79378,58 @@ def handle_ball():
                     last_tears_cast_time = time_now
         calculate_bounce(PLAYER)  # handle_ball에서는 반환값 사용 안함 (게이지 처리가 handle_player에서 이미 됨)
 
+        # ⚡ 스매셔 콤보 시스템: handle_ball 충돌 처리 (메인 경로)
+        # handle_player보다 먼저 실행되므로 여기서 콤보 처리
+        if selected_character_type == "smasher":
+            # 콤보 조건: 대시도 안 쓰고, 드라이브도 안 쓴 순수 반격만 인정
+            if not rolling_active and not drive_ball_active:
+                # 대시/드라이브 없이 반격 → 콤보 증가!
+                smasher_combo_count += 1
+                print(f"⚡ [콤보 증가!] 현재 콤보: {smasher_combo_count} (handle_ball)")
+
+                # 2콤보 이상일 때 이펙트 활성화
+                if smasher_combo_count >= 2:
+                    smasher_combo_effect_active = True
+                    smasher_combo_effect_timer = 60  # 1초간 표시
+                    smasher_combo_effect_x = BALL.centerx
+                    smasher_combo_effect_y = BALL.centery - 50
+                    smasher_combo_effect_count = smasher_combo_count
+
+                    # 콤보 파티클 생성
+                    particle_count = min(smasher_combo_count * 5, 30)
+                    for _ in range(particle_count):
+                        angle = random.uniform(0, math.pi * 2)
+                        spd = random.uniform(2, 5 + smasher_combo_count)
+                        smasher_combo_particles.append({
+                            "x": BALL.centerx,
+                            "y": BALL.centery,
+                            "vx": math.cos(angle) * spd,
+                            "vy": math.sin(angle) * spd,
+                            "life": random.randint(20, 40 + smasher_combo_count * 5),
+                            "color": _get_combo_color(smasher_combo_count),
+                            "size": random.uniform(3, 6 + smasher_combo_count * 0.5)
+                        })
+            elif drive_ball_active:
+                # 드라이브 사용 → 콤보 리셋
+                _reset_smasher_combo("드라이브(handle_ball)")
+
         # ⚡ 에너지 폭발 이펙트 (20% 작게 - handle_ball)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
+
+        # 🔥 화재 이벤트: 공에 맞으면 화염 폭발 + 순간 강한 넉백 (우박과 동일한 X축 넉백)
+        if is_fire_active():
+            # 화염 폭발 이펙트 생성
+            create_fire_explosion(BALL.centerx, BALL.centery)
+            # 플레이어 넉백 (좌우 방향 - 우박과 동일한 방식)
+            old_x = PLAYER.x
+            knockback_dir = random.choice([-12, 12])  # 우박과 동일한 넉백 강도
+            player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
+            # 첫 프레임 이동 + 즉시 감속
+            PLAYER.x += player_knockback_vel
+            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+            print(f"🔥 [FIRE BALL HIT - handle_ball] 플레이어 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f})")
+            # 즉시 감속 적용
+            player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
 
         # 라그나로크 효과는 이미 calculate_bounce에서 처리됨
 
@@ -79343,7 +79603,7 @@ def handle_ball():
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                 else:
-                    base_gauge_gain = 80  # 스매셔: 게이지 충전 80
+                    base_gauge_gain = 60  # 스매셔: 게이지 충전 60 (콤보 보너스로 보완)
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
@@ -79383,6 +79643,20 @@ def handle_ball():
                     print(" DEBUG:  handle_ball    (optimus - no gauge charge)")
             else:
                 total_gauge_gain = _apply_blacksmith_berserk_gauge_bonus(total_gauge_gain)
+
+                # ⚡ 스매셔 콤보 게이지 보너스 적용
+                if selected_character_type == "smasher" and smasher_combo_count >= 2:
+                    # 콤보별 보너스 퍼센트 결정
+                    if smasher_combo_count in smasher_combo_gauge_bonus:
+                        combo_bonus_pct = smasher_combo_gauge_bonus[smasher_combo_count]
+                    else:
+                        combo_bonus_pct = SMASHER_COMBO_MAX_BONUS  # 6콤보 이상
+
+                    # 보너스 게이지 계산
+                    bonus_gauge = int(total_gauge_gain * combo_bonus_pct / 100)
+                    total_gauge_gain += bonus_gauge
+                    print(f"⚡ [콤보 보너스!] {smasher_combo_count}콤보! +{combo_bonus_pct}% = +{bonus_gauge} 게이지")
+
                 special_gauge += total_gauge_gain
                 #  동적 최대치 제한 적용
                 current_max = get_max_gauge()
@@ -79659,14 +79933,20 @@ def handle_ball():
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
 
-        # 🔥 화재 이벤트: 공에 맞으면 화염 폭발 + 순간 강한 넉백
+        # 🔥 화재 이벤트: 공에 맞으면 화염 폭발 + 순간 강한 넉백 (우박과 동일한 X축 넉백)
         if is_fire_active():
-            global boss_fire_ball_knockback_vel
             # 화염 폭발 이펙트 생성
             create_fire_explosion(BALL.centerx, BALL.centery)
-            # 보스 넉백 (위 방향으로 - 빠르고 강한 속도 기반 넉백)
-            boss_fire_ball_knockback_vel = -25  # 초기 넉백 속도 (위로, 음수)
-            print(f"[Fire] Boss ball knockback! vel={boss_fire_ball_knockback_vel}")
+            # 보스 넉백 (좌우 방향 - 우박과 동일한 방식)
+            old_x = BOSS.x
+            knockback_dir = random.choice([-12, 12])  # 우박과 동일한 넉백 강도
+            boss_knockback_vel = _apply_boss_knockback_velocity(knockback_dir)
+            # 첫 프레임 이동 + 즉시 감속
+            BOSS.x += boss_knockback_vel
+            BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
+            print(f"🔥 [FIRE BALL HIT - handle_ball] 보스 넉백! {old_x:.1f} → {BOSS.x:.1f} (vel={boss_knockback_vel:.2f})")
+            # 즉시 감속 적용
+            boss_knockback_vel *= 0.85
 
         # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
         # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
@@ -80678,6 +80958,20 @@ def handle_boss_pro():
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
+
+    # 🔥 화재 날씨 이벤트 보스 넉백 처리 (스턴 없이 점진적 감속 - AI 유지)
+    global boss_fire_knockback_vel
+    if abs(boss_fire_knockback_vel) > 0.3:
+        old_x = BOSS.x
+        BOSS.x += boss_fire_knockback_vel
+        BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
+        # 감속 (0.85 → 매 프레임 15% 감소, 급감 효과)
+        boss_fire_knockback_vel *= 0.85
+        if abs(boss_fire_knockback_vel) <= 0.3:
+            boss_fire_knockback_vel = 0.0
+        # 디버그 로그 (첫 프레임만 출력 방지를 위해 큰 값만)
+        if abs(boss_fire_knockback_vel) > 1.0:
+            print(f"🔥 [FIRE KNOCKBACK] 보스 감속이동: {old_x:.1f} → {BOSS.x:.1f} (vel={boss_fire_knockback_vel:.2f})")
 
     # 헤드샷 스턴 상태 처리
     global head_shot_active, head_shot_timer
@@ -82638,7 +82932,6 @@ def handle_boss():
     global ball_vel, boss_special_gauge
     global ragnarok_shock_playing  #  라그나로크 전기 감전 사운드 상태
     global boss_stunned_timer, boss_knockback_vel  #  화염병 스턴 관련 변수
-    global boss_fire_ball_knockback_vel  # 🔥 화재 이벤트 공 충돌 넉백
     global stopwatch_active, stopwatch_timer  # ️ 스탑워치 관련 변수
     global whip_deactivation_active, boss_stunned_after_whip  #  상모돌리기 강제 해제 관련 변수
     global boss_knockback_timer, boss_knockback_distance  #  라그나로크 해머 넉백 관련 변수
@@ -82797,19 +83090,8 @@ def handle_boss():
         boss_current_speed = 0
         return
 
-    # 🔥 화재 이벤트 공 충돌 넉백 처리 (보스 - Y축)
-    if boss_fire_ball_knockback_vel != 0:
-        # 넉백 적용
-        new_y = BOSS.y + boss_fire_ball_knockback_vel
-        # 화면 경계 체크
-        min_y = 5
-        max_y = HEIGHT // 2 - BOSS.height  # 화면 중간 위로만 이동 가능
-        BOSS.y = max(min_y, min(new_y, max_y))
-        # 빠른 감속 (순간적인 넉백 효과)
-        boss_fire_ball_knockback_vel *= 0.7
-        # 속도가 충분히 작아지면 0으로 설정
-        if abs(boss_fire_ball_knockback_vel) < 1.0:
-            boss_fire_ball_knockback_vel = 0
+    # 🔥 화재 이벤트 공 충돌 넉백 - 이제 X축으로 처리됨 (boss_knockback_vel 사용)
+    # Y축 넉백 코드 제거됨 - 우박과 동일한 방식으로 충돌 시점에 즉시 적용
 
     #  보스 대쉬 모션 처리 (플레이어 대쉬와 유사: 초반 고속, 이후 감속)
     #  스테이지8 그림자분신 주문 중에는 패들을 고정
@@ -84284,6 +84566,12 @@ def show_result(won):
             _hg_on_deactivate('holy_barrier')
         except Exception:
             pass
+        # 스테이지 전환 시 대쉬부스트 비활성화
+        deactivate_dash_boost()
+        try:
+            _hg_on_deactivate('dash_boost')
+        except Exception:
+            pass
     else:
         # 부활 아이템이 있고 아직 사용하지 않았다면 부활 기회 제공
         if revival_obtained and not revival_used:
@@ -84340,6 +84628,12 @@ def show_result(won):
         deactivate_holy_barrier()
         try:
             _hg_on_deactivate('holy_barrier')
+        except Exception:
+            pass
+        # 대쉬부스트 비활성화
+        deactivate_dash_boost()
+        try:
+            _hg_on_deactivate('dash_boost')
         except Exception:
             pass
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
@@ -85405,10 +85699,8 @@ def main(stage_num, new_boss_mode=False):
     player_flame_zone_knockback_cooldown = 0
     player_in_flame_zone = False
 
-    # 🔥 화재 이벤트 공 충돌 넉백 초기화
-    player_fire_ball_knockback_vel = 0
-    boss_fire_ball_knockback_vel = 0
-    
+    # 🔥 화재 이벤트 공 충돌 넉백 - X축 넉백 사용 (별도 변수 초기화 불필요)
+
     # AI 알약 상태 초기화 (스테이지 전환 시 비활성화)
     if aipill_active:
         print("AI")
@@ -85996,6 +86288,12 @@ def main(stage_num, new_boss_mode=False):
             deactivate_holy_barrier()
             try:
                 _hg_on_deactivate('holy_barrier')
+            except Exception:
+                pass
+            # 대쉬부스트 비활성화
+            deactivate_dash_boost()
+            try:
+                _hg_on_deactivate('dash_boost')
             except Exception:
                 pass
             #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
@@ -87799,6 +88097,12 @@ def main(stage_num, new_boss_mode=False):
                         _hg_on_deactivate('holy_barrier')
                     except Exception:
                         pass
+                    # 대쉬부스트 비활성화 (기권 시)
+                    deactivate_dash_boost()
+                    try:
+                        _hg_on_deactivate('dash_boost')
+                    except Exception:
+                        pass
                     # 듀스 시스템 리셋 (기권 시)
                     reset_deuce_system()
                     # 패시브 아이템 효과 초기화
@@ -88393,6 +88697,8 @@ def main(stage_num, new_boss_mode=False):
         update_laser_scope()
         # 홀리베리어 업데이트
         update_holy_barrier(current_stage)
+        # 대쉬부스트 업데이트
+        update_dash_boost(current_stage)
         # Stage 7: 테크니컬조끼 연막이 테트로미노에 닿으면 증발 처리
         # - 기존 연막탄 파괴 경로(destroy_stage7_tetrominoes_in_smoke)를 재사용해 성능/일관성 유지
         if current_stage == 7:
@@ -91907,6 +92213,13 @@ def show_character_info(background_surface=None):
             except Exception:
                 pass
 
+            # 대쉬부스트 효과: 70% 할인 (활성화 시)
+            try:
+                if is_dash_boost_active():
+                    current_cost = int(current_cost * get_dash_cost_multiplier())  # 0.3배 (70% 할인)
+            except Exception:
+                pass
+
             return base_cost, current_cost
 
         gauge_base, gauge_now = compute_gauge_gain_per_hit()
@@ -93304,6 +93617,8 @@ def get_item_name_korean(item_name):
         "sacred_laurel": "신성 월계수",
         "laser_scope": "레이저스코프",
         "holy_barrier": "홀리베리어",
+        "dash_boost": "대쉬부스트",
+        "weather_capsule": "기상조절캡슐",
         # 전설탭 전용: baby (헤르메스 아이콘과 동일)
         "baby": "베이비",
         "empty_legendary": "빈전설",
@@ -93403,7 +93718,9 @@ def get_item_description(item_name):
         "ak47": "AK-47: 강력한 자동소총. 90발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
         "suicide_drone": "자폭드론: 보급요청 스킬을 통해 투입되는 코만도 전용 드론 슬롯. 추후 성능이 정의되기 전까지는 장비 슬롯 표시 및 전환만 지원합니다.",
         "laser_scope": "레이저스코프: 25초간 보스의 모든 공의 궤적을 레이저 선으로 표시합니다. 공의 최종 도달 지점을 정확히 예측하여 플레이어에게 알려줍니다. 벽 반사와 장애물을 계산하여 오차 없이 궤적을 추적합니다.",
-        "holy_barrier": "홀리베리어: 6초간 플레이어 뒤쪽 화면 하단에 신성한 방벽을 소환합니다. 방벽은 보스가 친 공이 바닥에 닿기 전에 반사시켜 실점을 방지합니다. 금빛 파티클과 신성한 문양이 방벽을 장식합니다.",
+        "holy_barrier": "홀리베리어: 4초간 플레이어 뒤쪽 화면 하단에 신성한 방벽을 소환합니다. 방벽은 보스가 친 공이 바닥에 닿기 전에 반사시켜 실점을 방지합니다. 금빛 파티클과 신성한 문양이 방벽을 장식합니다.",
+        "dash_boost": "대쉬부스트: 8초간 대쉬 비용이 70% 할인됩니다. 저렴한 비용으로 연속 대쉬를 사용하여 보스의 공격을 회피하세요!",
+        "weather_capsule": "기상조절캡슐: 현재 진행 중인 날씨 이벤트를 즉시 강제 종료시킵니다. 미풍, 강풍, 불, 얼음, 소나기, 우박 등 모든 날씨 효과를 제거합니다. 활성화된 날씨가 없으면 사용되지 않습니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",

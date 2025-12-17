@@ -11,17 +11,17 @@ WEATHER_EVENT_PROBABILITY = 0.10  # 10% 확률
 # 미풍 (Breeze) - 약한 바람
 BREEZE_WIND_FORCE_PLAYER = 1.2
 BREEZE_WIND_FORCE_BOSS = 1.0
-BREEZE_WIND_FORCE_BALL = 0.08
+BREEZE_WIND_FORCE_BALL = 0.096  # 0.08 * 1.2 (20% 증가 - 더 옆으로 휘게)
 
 # 강풍 (Strong Gust) - 강한 바람 (미풍보다 세고 기존보다 약하게 조정)
 GUST_WIND_FORCE_PLAYER = 1.8
 GUST_WIND_FORCE_BOSS = 1.5
-GUST_WIND_FORCE_BALL = 0.12
+GUST_WIND_FORCE_BALL = 0.168  # 0.12 * 1.4 (40% 증가 - 더 옆으로 휘게)
 
-# 불 (Fire) - 공 속도 증가
-FIRE_BASE_SPEED_BOOST = 1.20  # 기본 공 속도 20% 증가
-FIRE_HIT_SPEED_BOOST_MIN = 1.15  # 패들 타격 시 15% 추가 증가
-FIRE_HIT_SPEED_BOOST_MAX = 1.20  # 패들 타격 시 20% 추가 증가
+# 불 (Fire) - 공 속도 증가 (50% 감소 적용됨)
+FIRE_BASE_SPEED_BOOST = 1.10  # 기본 공 속도 10% 증가 (기존 20% → 50% 감소)
+FIRE_HIT_SPEED_BOOST_MIN = 1.075  # 패들 타격 시 7.5% 추가 증가 (기존 15% → 50% 감소)
+FIRE_HIT_SPEED_BOOST_MAX = 1.10  # 패들 타격 시 10% 추가 증가 (기존 20% → 50% 감소)
 FIRE_GAUGE_DRAIN_PER_SECOND = 5  # 초당 게이지 5 감소
 
 # 얼음 (Ice) - 미끄러움 효과
@@ -106,6 +106,18 @@ hail_impact_particles = []  # 우박 충돌 파티클 [(x, y, vx, vy, life, max_
 hail_spawn_timer = 0  # 우박 생성 타이머
 hail_initialized = False  # 우박 초기화 여부
 hail_player_hit_cooldown = 0  # 플레이어 피격 쿨다운
+
+# 기상조절캡슐 페이드아웃 상태
+weather_capsule_fadeout_active = False  # 페이드아웃 진행 중 여부
+weather_capsule_fadeout_timer = 0  # 페이드아웃 타이머 (프레임)
+weather_capsule_fadeout_type = None  # 페이드아웃 중인 날씨 타입
+weather_capsule_flash_timer = 0  # 화면 플래시 타이머
+weather_capsule_flash_count = 0  # 플래시 횟수
+weather_capsule_fadeout_alpha = 255  # 파티클 알파값 (255 -> 0)
+
+WEATHER_CAPSULE_FADEOUT_DURATION = 90  # 1.5초 (60fps)
+WEATHER_CAPSULE_FLASH_COUNT = 3  # 플래시 횟수
+WEATHER_CAPSULE_FLASH_DURATION = 8  # 각 플래시 지속 프레임
 
 # 폰트 캐시
 _cached_font_large = None
@@ -280,6 +292,197 @@ def reset_weather_state():
     rain_paddle_splash_particles = []
     rain_floor_splash_particles = []
     rain_initialized = False
+
+
+def start_weather_capsule_fadeout():
+    """기상조절캡슐로 날씨를 점진적으로 종료하기 시작
+
+    Returns:
+        tuple: (success: bool, weather_type: str or None)
+    """
+    global weather_capsule_fadeout_active, weather_capsule_fadeout_timer
+    global weather_capsule_fadeout_type, weather_capsule_flash_timer
+    global weather_capsule_flash_count, weather_capsule_fadeout_alpha
+    global weather_event_active, weather_event_type
+    global weather_end_timer, weather_end_text
+
+    if not weather_event_active:
+        return False, None
+
+    # 이미 페이드아웃 중이면 무시
+    if weather_capsule_fadeout_active:
+        return False, None
+
+    # 페이드아웃 시작
+    weather_capsule_fadeout_active = True
+    weather_capsule_fadeout_timer = WEATHER_CAPSULE_FADEOUT_DURATION
+    weather_capsule_fadeout_type = weather_event_type
+    weather_capsule_flash_timer = WEATHER_CAPSULE_FLASH_DURATION
+    weather_capsule_flash_count = WEATHER_CAPSULE_FLASH_COUNT
+    weather_capsule_fadeout_alpha = 255
+
+    # 사운드 볼륨 점진적 감소 시작 (볼륨은 update에서 처리)
+
+    return True, weather_event_type
+
+
+def update_weather_capsule_fadeout():
+    """기상조절캡슐 페이드아웃 상태 업데이트
+
+    Returns:
+        dict: 상태 정보 (flash_active, fadeout_progress, completed, weather_type)
+    """
+    global weather_capsule_fadeout_active, weather_capsule_fadeout_timer
+    global weather_capsule_fadeout_type, weather_capsule_flash_timer
+    global weather_capsule_flash_count, weather_capsule_fadeout_alpha
+    global weather_event_active, weather_event_type, weather_event_direction
+    global weather_event_remaining_rounds, weather_event_just_ended
+    global weather_end_timer, weather_end_text
+    global fire_ball_trail, fire_floor_particles_player, fire_floor_particles_boss
+    global ice_floor_particles, ice_sparkle_particles
+    global rain_particles, rain_splash_particles, rain_paddle_splash_particles, rain_floor_splash_particles
+    global hail_particles, hail_impact_particles
+
+    result = {
+        "flash_active": False,
+        "flash_alpha": 0,
+        "fadeout_progress": 0.0,
+        "completed": False,
+        "weather_type": weather_capsule_fadeout_type
+    }
+
+    if not weather_capsule_fadeout_active:
+        return result
+
+    # 플래시 타이머 업데이트
+    if weather_capsule_flash_count > 0:
+        weather_capsule_flash_timer -= 1
+        if weather_capsule_flash_timer <= 0:
+            weather_capsule_flash_count -= 1
+            weather_capsule_flash_timer = WEATHER_CAPSULE_FLASH_DURATION
+
+        # 플래시 활성화 (홀수 프레임에서 플래시)
+        if weather_capsule_flash_timer > WEATHER_CAPSULE_FLASH_DURATION // 2:
+            result["flash_active"] = True
+            result["flash_alpha"] = int(150 * (weather_capsule_flash_timer / WEATHER_CAPSULE_FLASH_DURATION))
+
+    # 페이드아웃 타이머 업데이트
+    weather_capsule_fadeout_timer -= 1
+
+    # 알파값 감소 (점진적 페이드아웃)
+    fadeout_progress = 1.0 - (weather_capsule_fadeout_timer / WEATHER_CAPSULE_FADEOUT_DURATION)
+    weather_capsule_fadeout_alpha = int(255 * (1.0 - fadeout_progress))
+    result["fadeout_progress"] = fadeout_progress
+
+    # 사운드 볼륨 점진적 감소
+    _fade_weather_sound_volume(1.0 - fadeout_progress)
+
+    # 파티클 알파값 적용 (각 날씨 타입별로)
+    _apply_fadeout_alpha_to_particles(weather_capsule_fadeout_alpha)
+
+    # 페이드아웃 완료
+    if weather_capsule_fadeout_timer <= 0:
+        weather_capsule_fadeout_active = False
+        result["completed"] = True
+
+        # 종료 텍스트 설정 (기상조절캡슐 전용 메시지)
+        weather_type = weather_capsule_fadeout_type
+        if weather_type == "breeze":
+            weather_end_text = "🌤️ 기상조절로 미풍이 잦아들었습니다!"
+        elif weather_type == "gust":
+            weather_end_text = "🌤️ 기상조절로 강풍이 잠잠해졌습니다!"
+        elif weather_type == "fire":
+            weather_end_text = "🌤️ 기상조절로 불이 사그라들었습니다!"
+        elif weather_type == "ice":
+            weather_end_text = "🌤️ 기상조절로 얼음이 녹아내렸습니다!"
+        elif weather_type == "rain":
+            weather_end_text = "🌤️ 기상조절로 소나기가 그쳤습니다!"
+        elif weather_type == "hail":
+            weather_end_text = "🌤️ 기상조절로 우박이 멎었습니다!"
+        else:
+            weather_end_text = "🌤️ 날씨가 정상으로 돌아왔습니다!"
+
+        weather_end_timer = 180  # 3초
+
+        # 사운드 정지
+        stop_weather_sound()
+
+        # 날씨 상태 완전히 리셋
+        weather_event_active = False
+        weather_event_type = None
+        weather_event_direction = 0
+        weather_event_remaining_rounds = 0
+        weather_event_just_ended = True
+
+        # 모든 파티클 초기화
+        fire_ball_trail = []
+        fire_floor_particles_player = []
+        fire_floor_particles_boss = []
+        ice_floor_particles = []
+        ice_sparkle_particles = []
+        rain_particles = []
+        rain_splash_particles = []
+        rain_paddle_splash_particles = []
+        rain_floor_splash_particles = []
+        hail_particles = []
+        hail_impact_particles = []
+
+        weather_capsule_fadeout_type = None
+
+    return result
+
+
+def _apply_fadeout_alpha_to_particles(alpha):
+    """페이드아웃 알파값을 파티클에 적용"""
+    global weather_particles, fire_ball_trail, fire_floor_particles_player, fire_floor_particles_boss
+    global ice_floor_particles, ice_sparkle_particles
+    global rain_particles, hail_particles
+
+    # 바람 파티클 페이드아웃
+    for particle in weather_particles:
+        if isinstance(particle, dict) and 'alpha' in particle:
+            particle['alpha'] = min(particle.get('original_alpha', 255), alpha)
+        elif isinstance(particle, dict):
+            particle['alpha'] = alpha
+
+    # 불 파티클 페이드아웃
+    for trail in fire_ball_trail:
+        if isinstance(trail, dict) and 'alpha' in trail:
+            trail['alpha'] = min(trail.get('original_alpha', 255), alpha)
+
+    for particle in fire_floor_particles_player + fire_floor_particles_boss:
+        if isinstance(particle, dict) and 'alpha' in particle:
+            particle['alpha'] = min(particle.get('original_alpha', 255), alpha)
+
+    # 얼음 파티클 페이드아웃
+    for particle in ice_floor_particles + ice_sparkle_particles:
+        if isinstance(particle, dict) and 'alpha' in particle:
+            particle['alpha'] = min(particle.get('original_alpha', 255), alpha)
+
+
+def _fade_weather_sound_volume(volume_ratio):
+    """날씨 사운드 볼륨 점진적 감소"""
+    global _weather_wind_sound, _weather_fire_sound, _weather_rain_sound
+
+    try:
+        if _weather_wind_sound:
+            _weather_wind_sound.set_volume(0.5 * volume_ratio)
+        if _weather_fire_sound:
+            _weather_fire_sound.set_volume(0.5 * volume_ratio)
+        if _weather_rain_sound:
+            _weather_rain_sound.set_volume(0.5 * volume_ratio)
+    except:
+        pass
+
+
+def is_weather_capsule_fadeout_active():
+    """기상조절캡슐 페이드아웃 진행 중인지 확인"""
+    return weather_capsule_fadeout_active
+
+
+def get_weather_capsule_fadeout_alpha():
+    """현재 페이드아웃 알파값 반환 (0-255)"""
+    return weather_capsule_fadeout_alpha
 
 
 def check_weather_event_on_round_start():
@@ -478,26 +681,18 @@ def apply_weather_effects_to_ball(ball_vel):
 
     if weather_event_type == "breeze":
         wind_force_x = BREEZE_WIND_FORCE_BALL
-        vertical_boost = 0.03  # 미풍: 약한 수직 보정
     elif weather_event_type == "gust":
         wind_force_x = GUST_WIND_FORCE_BALL
-        vertical_boost = 0.06  # 강풍: 강한 수직 보정
     else:
         return (0.0, 0.0)  # 불/얼음은 별도 처리
 
-    # 수평 바람 효과
+    # 수평 바람 효과만 적용 (수직 보정 제거 - 속도 급증 방지)
     dx = wind_force_x * weather_event_direction
 
-    # 수직 보정: 공의 진행 방향에 따라 수직 힘 추가
-    # ball_vel[1] < 0: 공이 위로 이동 중 (플레이어가 친 공) -> 위로 더 밀어줌 (dy 음수)
-    # ball_vel[1] > 0: 공이 아래로 이동 중 (보스가 친 공) -> 아래로 더 밀어줌 (dy 양수)
+    # 수직 보정 제거: 기존에는 매 프레임마다 수직 속도에도 값을 더해서
+    # 공을 주고받을 때 속도가 너무 빨리 증가했음
+    # 이제 바람은 순수하게 횡방향으로만 공을 밀어줌
     dy = 0.0
-    if ball_vel[1] < 0:
-        # 플레이어가 친 공 -> 위로 가는 힘 강화
-        dy = -vertical_boost
-    elif ball_vel[1] > 0:
-        # 보스가 친 공 -> 아래로 가는 힘 강화
-        dy = vertical_boost
 
     return (dx, dy)
 
