@@ -2790,203 +2790,625 @@ def get_elec_pad_stats() -> tuple:
     return stats.get(level, (0, 0))
 
 
-def draw_optimus_skill_icon(surface: pygame.Surface, skill_id: str, x: int, y: int, size: int, frame: int = 0) -> None:
-    """각 스킬별 옵티머스 컨셉틱한 아이콘을 그립니다."""
-    # 아이콘 서피스 생성
-    icon = pygame.Surface((size, size), pygame.SRCALPHA)
-    center = size // 2
+# ========== 옵티머스 스킬 타입 정의 ==========
+OPTIMUS_SKILL_TYPES = {
+    "mecha_chain": "passive",
+    "mecha_charge": "passive",
+    "mecha_bulk": "passive",
+    "emergency_charge": "passive",
+    "reboot_enhance": "passive",
+    "star_change": "passive",
+    "bug_update": "passive",
+    "elec_pad": "passive",
+    "optimus_arm": "active",  # 액티브 스킬
+}
+
+# 패시브/액티브 색상 테마
+PASSIVE_THEME = {
+    "border_base": (80, 180, 255),      # 시안/블루 계열
+    "border_glow": (120, 220, 255),
+    "border_highlight": (200, 240, 255),
+    "inner_glow": (60, 140, 200, 80),
+}
+ACTIVE_THEME = {
+    "border_base": (255, 160, 60),      # 오렌지/골드 계열
+    "border_glow": (255, 200, 100),
+    "border_highlight": (255, 240, 180),
+    "inner_glow": (200, 120, 40, 80),
+}
+
+# 레벨별 테두리 스타일
+LEVEL_BORDER_STYLES = {
+    0: {"thickness": 2, "corners": 0, "particles": 0, "glow_intensity": 0.3},
+    1: {"thickness": 2, "corners": 0, "particles": 2, "glow_intensity": 0.5},
+    2: {"thickness": 3, "corners": 4, "particles": 4, "glow_intensity": 0.7},
+    3: {"thickness": 3, "corners": 8, "particles": 6, "glow_intensity": 0.85},
+    4: {"thickness": 4, "corners": 12, "particles": 8, "glow_intensity": 1.0},
+}
+
+
+def draw_optimus_skill_icon(surface: pygame.Surface, skill_id: str, x: int, y: int, size: int, frame: int = 0, level: int = 0) -> None:
+    """각 스킬별 고퀄리티 옵티머스 컨셉 아이콘을 그립니다.
+    - 패시브: 블루/시안 계열
+    - 액티브: 오렌지/골드 계열
+    - 레벨별 테두리 화려함 차이
+    - 천천히 회전하는 애니메이션
+    """
+    # 스킬 레벨 가져오기
+    if level == 0:
+        level = optimus_skill_levels.get(skill_id, 0)
+
+    # 스킬 타입에 따른 테마 선택
+    skill_type = OPTIMUS_SKILL_TYPES.get(skill_id, "passive")
+    theme = ACTIVE_THEME if skill_type == "active" else PASSIVE_THEME
+
+    # 레벨별 스타일
+    style = LEVEL_BORDER_STYLES.get(min(level, 4), LEVEL_BORDER_STYLES[0])
+
+    # 회전 각도 (천천히 회전)
+    rotation_angle = (frame * 0.3) % 360
+    rotation_rad = math.radians(rotation_angle)
+
+    # 아이콘 서피스 생성 (여유 공간 포함)
+    margin = 8
+    full_size = size + margin * 2
+    icon = pygame.Surface((full_size, full_size), pygame.SRCALPHA)
+    center = full_size // 2
+    inner_size = size - 8  # 내부 아이콘 영역
+
+    # ========== 배경 글로우 효과 ==========
+    glow_intensity = style["glow_intensity"]
+    pulse = 0.8 + 0.2 * math.sin(frame * 0.08)  # 부드러운 펄스
+    glow_radius = int(size // 2 * (1.0 + glow_intensity * 0.2 * pulse))
+
+    # 외부 글로우 (레벨이 높을수록 밝음)
+    for i in range(3):
+        glow_alpha = int(30 * glow_intensity * pulse * (3 - i) / 3)
+        if glow_alpha > 0:
+            glow_surf = pygame.Surface((full_size, full_size), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*theme["border_glow"], glow_alpha),
+                             (center, center), glow_radius + i * 4)
+            icon.blit(glow_surf, (0, 0))
+
+    # ========== 메인 배경 원 ==========
+    # 그라데이션 효과를 위한 여러 레이어
+    bg_colors = [
+        (30, 35, 50, 220),   # 어두운 배경
+        (40, 50, 70, 180),   # 중간 레이어
+        (*theme["inner_glow"][:3], int(theme["inner_glow"][3] * glow_intensity)),  # 내부 글로우
+    ]
+    for i, color in enumerate(bg_colors):
+        radius = size // 2 - i * 2
+        if radius > 0:
+            pygame.draw.circle(icon, color, (center, center), radius)
+
+    # ========== 회전하는 장식 요소 ==========
+    # 레벨별 코너 장식 (회전)
+    num_corners = style["corners"]
+    if num_corners > 0:
+        for i in range(num_corners):
+            angle = rotation_rad + (i * 2 * math.pi / num_corners)
+            corner_dist = size // 2 - 4
+            cx = center + int(math.cos(angle) * corner_dist)
+            cy = center + int(math.sin(angle) * corner_dist)
+
+            # 코너 점 (레벨이 높을수록 더 밝고 큼)
+            dot_size = 2 + level // 2
+            alpha = int(150 + 80 * math.sin(frame * 0.15 + i))
+            pygame.draw.circle(icon, (*theme["border_highlight"], alpha), (cx, cy), dot_size)
+
+    # ========== 파티클 효과 ==========
+    num_particles = style["particles"]
+    for i in range(num_particles):
+        # 파티클 궤도 회전
+        particle_angle = rotation_rad * 0.5 + (i * 2 * math.pi / max(1, num_particles)) + math.sin(frame * 0.05 + i) * 0.3
+        particle_dist = size // 3 + int(math.sin(frame * 0.1 + i * 0.5) * 5)
+        px = center + int(math.cos(particle_angle) * particle_dist)
+        py = center + int(math.sin(particle_angle) * particle_dist)
+
+        # 파티클 크기와 알파 (깜빡임)
+        p_alpha = int(100 + 100 * abs(math.sin(frame * 0.12 + i * 0.7)))
+        p_size = 2 + int(math.sin(frame * 0.08 + i) * 1)
+        pygame.draw.circle(icon, (*theme["border_glow"], p_alpha), (px, py), max(1, p_size))
+
+    # ========== 스킬별 아이콘 그리기 ==========
+    icon_area = pygame.Surface((inner_size, inner_size), pygame.SRCALPHA)
+    ic = inner_size // 2  # 아이콘 중앙
 
     if skill_id == "mecha_chain":
-        # 메카체인: 기계 체인 고리들
-        chain_color = (100, 200, 255)
-        dark_color = (50, 100, 150)
-        # 3개의 체인 고리 연결
-        for i, offset in enumerate([-size//4, 0, size//4]):
-            ring_x = center + offset
-            ring_y = center + (i % 2) * 4
-            pygame.draw.ellipse(icon, dark_color, (ring_x - size//6, ring_y - size//8, size//3, size//4), 0)
-            pygame.draw.ellipse(icon, chain_color, (ring_x - size//6, ring_y - size//8, size//3, size//4), 2)
-        # 기계 너트
-        pygame.draw.circle(icon, (180, 180, 200), (center, center), size//6)
-        pygame.draw.circle(icon, chain_color, (center, center), size//8)
-
+        _draw_mecha_chain_icon(icon_area, ic, inner_size, frame, theme, level)
     elif skill_id == "mecha_charge":
-        # 메카차지: 번개 충전 심볼
-        charge_color = (255, 220, 50)
-        glow_color = (255, 255, 150)
-        # 번개 모양
-        points = [
-            (center + size//4, size//6),
-            (center - size//8, center - size//10),
-            (center + size//8, center),
-            (center - size//4, size - size//6),
-            (center, center + size//10),
-            (center - size//8, center - size//6),
-        ]
-        pygame.draw.polygon(icon, glow_color, points)
-        pygame.draw.polygon(icon, charge_color, points, 2)
-        # 주변 에너지 파동
-        pulse = abs(math.sin(frame * 0.15)) * 0.3 + 0.7
-        for r in range(3):
-            alpha = int(80 * pulse - r * 20)
-            if alpha > 0:
-                pygame.draw.circle(icon, (*charge_color[:3], alpha), (center, center), size//3 + r*4, 1)
-
+        _draw_mecha_charge_icon(icon_area, ic, inner_size, frame, theme, level)
     elif skill_id == "mecha_bulk":
-        # 메카벌크: 기계 근육/확장 심볼
-        bulk_color = (180, 100, 255)
-        metal_color = (200, 180, 220)
-        # 확장 화살표 패턴
-        arrow_size = size // 5
-        for angle in [0, 90, 180, 270]:
-            rad = math.radians(angle)
-            ax = center + int(math.cos(rad) * size//4)
-            ay = center + int(math.sin(rad) * size//4)
-            # 화살표 머리
-            dx, dy = int(math.cos(rad) * arrow_size), int(math.sin(rad) * arrow_size)
-            pygame.draw.line(icon, bulk_color, (ax, ay), (ax + dx, ay + dy), 3)
-            # 화살표 날개
-            perp = math.radians(angle + 135)
-            perp2 = math.radians(angle - 135)
-            px1 = ax + dx + int(math.cos(perp) * arrow_size//2)
-            py1 = ay + dy + int(math.sin(perp) * arrow_size//2)
-            px2 = ax + dx + int(math.cos(perp2) * arrow_size//2)
-            py2 = ay + dy + int(math.sin(perp2) * arrow_size//2)
-            pygame.draw.line(icon, bulk_color, (ax + dx, ay + dy), (px1, py1), 2)
-            pygame.draw.line(icon, bulk_color, (ax + dx, ay + dy), (px2, py2), 2)
-        # 중앙 기어
-        pygame.draw.circle(icon, metal_color, (center, center), size//5)
-        pygame.draw.circle(icon, bulk_color, (center, center), size//7)
-
+        _draw_mecha_bulk_icon(icon_area, ic, inner_size, frame, theme, level)
     elif skill_id == "emergency_charge":
-        # 비상충전: 빨간 경고등 + 배터리
-        emergency_color = (255, 100, 100)
-        flash = abs(math.sin(frame * 0.2)) > 0.5
-        blink_color = (255, 50, 50) if flash else (200, 50, 50)
-        # 배터리 모양
-        bat_w, bat_h = size//2, size//3
-        bat_x, bat_y = center - bat_w//2, center - bat_h//2 + size//8
-        pygame.draw.rect(icon, (80, 80, 80), (bat_x, bat_y, bat_w, bat_h), border_radius=3)
-        pygame.draw.rect(icon, emergency_color, (bat_x + 2, bat_y + 2, bat_w - 4, bat_h - 4), border_radius=2)
-        # 배터리 양극
-        pygame.draw.rect(icon, (100, 100, 100), (bat_x + bat_w//3, bat_y - 4, bat_w//3, 5))
-        # 경고 느낌표
-        pygame.draw.circle(icon, blink_color, (center, size//4), size//8)
-        pygame.draw.line(icon, (255, 255, 255), (center, size//6), (center, size//4 + 2), 2)
-        pygame.draw.circle(icon, (255, 255, 255), (center, size//4 + 6), 2)
-
+        _draw_emergency_charge_icon(icon_area, ic, inner_size, frame, theme, level)
     elif skill_id == "reboot_enhance":
-        # 재부팅강화: 새로고침/회전 화살표
-        reboot_color = (100, 255, 150)
-        # 원형 회전 화살표
-        pygame.draw.arc(icon, reboot_color, (center - size//3, center - size//3, size*2//3, size*2//3),
-                       0.5, 5.0, 3)
-        # 화살표 머리
-        arrow_x = center + size//4
-        arrow_y = center - size//6
-        pygame.draw.polygon(icon, reboot_color, [
-            (arrow_x, arrow_y - 6),
-            (arrow_x + 8, arrow_y + 2),
-            (arrow_x - 2, arrow_y + 6)
-        ])
-        # 중앙 전원 심볼
-        pygame.draw.circle(icon, reboot_color, (center, center), size//6, 2)
-        pygame.draw.line(icon, reboot_color, (center, center - size//4), (center, center - size//8), 3)
-
+        _draw_reboot_enhance_icon(icon_area, ic, inner_size, frame, theme, level)
     elif skill_id == "star_change":
-        # 스타체인지: 빛나는 별
-        star_color = (255, 255, 100)
-        glow = abs(math.sin(frame * 0.1)) * 0.4 + 0.6
-        # 별 그리기
-        points = []
-        for i in range(10):
-            angle = math.pi / 2 + i * math.pi / 5
-            r = size//3 if i % 2 == 0 else size//6
-            px = center + int(math.cos(angle) * r)
-            py = center + int(math.sin(angle) * r)
-            points.append((px, py))
-        pygame.draw.polygon(icon, (255, 255, 200), points)
-        pygame.draw.polygon(icon, star_color, points, 2)
-        # 빛줄기
-        for i in range(4):
-            angle = i * math.pi / 2 + frame * 0.02
-            lx = center + int(math.cos(angle) * size//2.5 * glow)
-            ly = center + int(math.sin(angle) * size//2.5 * glow)
-            pygame.draw.line(icon, (*star_color, 150), (center, center), (lx, ly), 1)
-
+        _draw_star_change_icon(icon_area, ic, inner_size, frame, theme, level)
     elif skill_id == "bug_update":
-        # 버그업데이트: 코드/버그 심볼
-        bug_color = (150, 255, 50)
-        code_color = (100, 200, 50)
-        # 코드 라인들 (마치 코드가 날아다니는 것처럼)
-        for i in range(4):
-            line_y = size//5 + i * size//5
-            line_w = size//3 + (i % 2) * size//4
-            line_x = center - line_w//2 + (frame + i * 10) % 20 - 10
-            pygame.draw.rect(icon, code_color, (line_x, line_y, line_w, 3), border_radius=1)
-        # 벌레 모양
-        bug_x, bug_y = center, center
-        pygame.draw.ellipse(icon, bug_color, (bug_x - size//8, bug_y - size//6, size//4, size//3))
-        # 더듬이
-        pygame.draw.line(icon, bug_color, (bug_x - 4, bug_y - size//6), (bug_x - 8, bug_y - size//4), 2)
-        pygame.draw.line(icon, bug_color, (bug_x + 4, bug_y - size//6), (bug_x + 8, bug_y - size//4), 2)
-
+        _draw_bug_update_icon(icon_area, ic, inner_size, frame, theme, level)
     elif skill_id == "elec_pad":
-        # 일렉패드: 전기 패들
-        elec_color = (50, 200, 255)
-        spark_color = (150, 230, 255)
-        # 패들 모양
-        pad_w, pad_h = size//2, size//4
-        pad_x, pad_y = center - pad_w//2, center - pad_h//2
-        pygame.draw.rect(icon, (60, 60, 80), (pad_x, pad_y, pad_w, pad_h), border_radius=4)
-        pygame.draw.rect(icon, elec_color, (pad_x + 2, pad_y + 2, pad_w - 4, pad_h - 4), border_radius=3)
-        # 전기 스파크
-        spark_frame = frame % 20
-        for i in range(3):
-            sx = pad_x + pad_w//4 + i * pad_w//3
-            sy = pad_y - 4
-            # 지그재그 전기
-            points = [(sx, sy)]
-            for j in range(3):
-                sx += random.randint(-4, 4) if spark_frame > 10 else 0
-                sy -= size//8
-                points.append((sx, sy))
-            if len(points) > 1:
-                pygame.draw.lines(icon, spark_color, False, points, 2)
-        # 패들 손잡이
-        pygame.draw.rect(icon, (80, 80, 100), (center - 3, pad_y + pad_h, 6, size//4))
-
+        _draw_elec_pad_icon(icon_area, ic, inner_size, frame, theme, level)
     elif skill_id == "optimus_arm":
-        # 옵티머스 암: 기계 팔
-        arm_color = (255, 180, 50)
-        metal_color = (200, 160, 80)
-        # 팔 관절
-        joint1 = (center - size//4, center + size//6)
-        joint2 = (center, center - size//6)
-        joint3 = (center + size//4, center - size//4)
-        # 팔 세그먼트
-        pygame.draw.line(icon, metal_color, joint1, joint2, 6)
-        pygame.draw.line(icon, metal_color, joint2, joint3, 6)
-        # 관절 원
-        for jx, jy in [joint1, joint2, joint3]:
-            pygame.draw.circle(icon, arm_color, (jx, jy), 5)
-            pygame.draw.circle(icon, (255, 220, 150), (jx, jy), 3)
-        # 집게 손
-        pygame.draw.line(icon, arm_color, joint3, (joint3[0] + 8, joint3[1] - 8), 3)
-        pygame.draw.line(icon, arm_color, joint3, (joint3[0] + 8, joint3[1] + 4), 3)
-        # 에너지 글로우
-        glow_alpha = int(100 + 50 * math.sin(frame * 0.15))
-        glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (*arm_color, glow_alpha), joint3, size//5)
-        icon.blit(glow_surf, (0, 0))
-
+        _draw_optimus_arm_icon(icon_area, ic, inner_size, frame, theme, level)
     else:
-        # 기본 아이콘: 물음표
-        pygame.draw.circle(icon, (100, 100, 100), (center, center), size//3)
-        pygame.draw.circle(icon, (150, 150, 150), (center, center), size//4)
+        # 기본 아이콘
+        pygame.draw.circle(icon_area, (100, 100, 100), (ic, ic), inner_size // 3)
+        pygame.draw.circle(icon_area, theme["border_base"], (ic, ic), inner_size // 4, 2)
+
+    # 아이콘을 메인 서피스에 블릿
+    icon.blit(icon_area, (margin + 4, margin + 4))
+
+    # ========== 테두리 그리기 ==========
+    border_thickness = style["thickness"]
+
+    # 외부 테두리 글로우
+    for i in range(2):
+        glow_alpha = int(60 * glow_intensity * (2 - i) / 2)
+        pygame.draw.circle(icon, (*theme["border_glow"], glow_alpha),
+                         (center, center), size // 2 + i, border_thickness)
+
+    # 메인 테두리
+    pygame.draw.circle(icon, theme["border_base"], (center, center),
+                      size // 2 - 1, border_thickness)
+
+    # 하이라이트 (상단)
+    highlight_rect = pygame.Rect(center - size//3, margin + 2, size*2//3, size//6)
+    highlight_surf = pygame.Surface((size*2//3, size//6), pygame.SRCALPHA)
+    for i in range(size//6):
+        alpha = int(40 * (1 - i / (size//6)) * glow_intensity)
+        pygame.draw.line(highlight_surf, (*theme["border_highlight"], alpha),
+                        (0, i), (size*2//3, i))
+    icon.blit(highlight_surf, highlight_rect.topleft)
+
+    # ========== 레벨 표시 (작은 점들) ==========
+    if level > 0:
+        dot_y = center + size // 2 - 8
+        total_dots = min(level, 4)
+        dot_spacing = 6
+        start_x = center - (total_dots - 1) * dot_spacing // 2
+        for i in range(total_dots):
+            dot_x = start_x + i * dot_spacing
+            pygame.draw.circle(icon, theme["border_highlight"], (dot_x, dot_y), 2)
+            pygame.draw.circle(icon, (255, 255, 255, 200), (dot_x, dot_y), 1)
 
     # 서피스에 그리기
-    surface.blit(icon, (x, y))
+    surface.blit(icon, (x - margin, y - margin))
+
+
+def _draw_mecha_chain_icon(surf: pygame.Surface, c: int, size: int, frame: int, theme: dict, level: int) -> None:
+    """메카체인: 연결된 기계 체인 + 에너지 흐름"""
+    # 체인 색상 (레벨별 밝기)
+    brightness = 0.6 + level * 0.1
+    chain_color = tuple(int(v * brightness) for v in (100, 200, 255))
+    glow_color = tuple(int(v * brightness) for v in (150, 230, 255))
+
+    # 체인 고리 3개 (부드럽게 연결)
+    chain_positions = []
+    for i in range(3):
+        offset_x = (i - 1) * size // 4
+        offset_y = int(math.sin(frame * 0.1 + i * 0.5) * 3)  # 살짝 출렁임
+        chain_positions.append((c + offset_x, c + offset_y))
+
+    # 체인 연결선 (에너지 흐름)
+    if len(chain_positions) >= 2:
+        energy_alpha = int(100 + 80 * math.sin(frame * 0.15))
+        for i in range(len(chain_positions) - 1):
+            pygame.draw.line(surf, (*glow_color, energy_alpha),
+                           chain_positions[i], chain_positions[i + 1], 2)
+
+    # 체인 고리들
+    for i, (rx, ry) in enumerate(chain_positions):
+        ring_w, ring_h = size // 4, size // 5
+        # 외부 고리
+        pygame.draw.ellipse(surf, (40, 60, 80),
+                          (rx - ring_w//2, ry - ring_h//2, ring_w, ring_h))
+        pygame.draw.ellipse(surf, chain_color,
+                          (rx - ring_w//2, ry - ring_h//2, ring_w, ring_h), 2)
+        # 내부 구멍
+        inner_w, inner_h = ring_w - 6, ring_h - 6
+        if inner_w > 0 and inner_h > 0:
+            pygame.draw.ellipse(surf, (20, 25, 35),
+                              (rx - inner_w//2, ry - inner_h//2, inner_w, inner_h))
+
+    # 중앙 에너지 코어
+    core_pulse = 0.8 + 0.2 * math.sin(frame * 0.12)
+    core_size = int(size // 6 * core_pulse)
+    pygame.draw.circle(surf, glow_color, (c, c), core_size)
+    pygame.draw.circle(surf, (255, 255, 255), (c, c), core_size // 2)
+
+
+def _draw_mecha_charge_icon(surf: pygame.Surface, c: int, size: int, frame: int, theme: dict, level: int) -> None:
+    """메카차지: 번개 + 에너지 충전"""
+    charge_color = (255, 220, 80)
+    glow_color = (255, 255, 150)
+
+    # 배경 에너지 링
+    ring_pulse = 0.7 + 0.3 * math.sin(frame * 0.1)
+    for i in range(2 + level):
+        ring_alpha = int(40 * ring_pulse * (1 - i * 0.2))
+        ring_radius = size // 3 + i * 4
+        if ring_alpha > 0:
+            pygame.draw.circle(surf, (*charge_color, ring_alpha), (c, c), ring_radius, 1)
+
+    # 번개 모양 (약간 회전)
+    rot = math.sin(frame * 0.05) * 0.1
+    bolt_points = [
+        (c + int(size * 0.15 * math.cos(rot)), c - int(size * 0.35)),
+        (c - int(size * 0.05), c - int(size * 0.05)),
+        (c + int(size * 0.08), c),
+        (c - int(size * 0.15 * math.cos(rot)), c + int(size * 0.35)),
+        (c + int(size * 0.02), c + int(size * 0.08)),
+        (c - int(size * 0.05), c - int(size * 0.02)),
+    ]
+
+    # 번개 글로우
+    glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    pygame.draw.polygon(glow_surf, (*glow_color, 100), bolt_points)
+    surf.blit(glow_surf, (0, 0))
+
+    # 메인 번개
+    pygame.draw.polygon(surf, charge_color, bolt_points)
+    pygame.draw.polygon(surf, (255, 255, 255), bolt_points, 1)
+
+    # 스파크 효과
+    for i in range(3 + level):
+        spark_angle = frame * 0.2 + i * 2.1
+        spark_dist = size // 4 + int(math.sin(frame * 0.15 + i) * 5)
+        sx = c + int(math.cos(spark_angle) * spark_dist)
+        sy = c + int(math.sin(spark_angle) * spark_dist)
+        spark_alpha = int(150 + 80 * math.sin(frame * 0.2 + i * 0.5))
+        pygame.draw.circle(surf, (*charge_color, spark_alpha), (sx, sy), 2)
+
+
+def _draw_mecha_bulk_icon(surf: pygame.Surface, c: int, size: int, frame: int, theme: dict, level: int) -> None:
+    """메카벌크: 확장하는 기계 근육"""
+    bulk_color = (180, 120, 255)
+    metal_color = (200, 180, 220)
+
+    # 확장 효과 (펄스)
+    expand_pulse = 1.0 + 0.1 * math.sin(frame * 0.08)
+
+    # 4방향 확장 화살표
+    arrow_count = 4 + level
+    for i in range(min(arrow_count, 8)):
+        angle = (i * 2 * math.pi / min(arrow_count, 8)) + frame * 0.01
+        arrow_dist = int(size // 4 * expand_pulse)
+        ax = c + int(math.cos(angle) * arrow_dist)
+        ay = c + int(math.sin(angle) * arrow_dist)
+
+        # 화살표 방향
+        end_x = c + int(math.cos(angle) * (arrow_dist + size // 6))
+        end_y = c + int(math.sin(angle) * (arrow_dist + size // 6))
+
+        # 화살표 라인
+        pygame.draw.line(surf, bulk_color, (ax, ay), (end_x, end_y), 2)
+
+        # 화살표 머리
+        head_angle1 = angle + 2.5
+        head_angle2 = angle - 2.5
+        head_len = size // 10
+        hx1 = end_x - int(math.cos(head_angle1) * head_len)
+        hy1 = end_y - int(math.sin(head_angle1) * head_len)
+        hx2 = end_x - int(math.cos(head_angle2) * head_len)
+        hy2 = end_y - int(math.sin(head_angle2) * head_len)
+        pygame.draw.line(surf, bulk_color, (end_x, end_y), (hx1, hy1), 2)
+        pygame.draw.line(surf, bulk_color, (end_x, end_y), (hx2, hy2), 2)
+
+    # 중앙 기어
+    gear_radius = int(size // 5 * expand_pulse)
+    pygame.draw.circle(surf, metal_color, (c, c), gear_radius)
+    pygame.draw.circle(surf, bulk_color, (c, c), gear_radius - 2, 2)
+
+    # 기어 톱니
+    teeth_count = 6 + level
+    for i in range(teeth_count):
+        tooth_angle = (i * 2 * math.pi / teeth_count) + frame * 0.02
+        tx = c + int(math.cos(tooth_angle) * (gear_radius + 3))
+        ty = c + int(math.sin(tooth_angle) * (gear_radius + 3))
+        pygame.draw.circle(surf, metal_color, (tx, ty), 3)
+
+
+def _draw_emergency_charge_icon(surf: pygame.Surface, c: int, size: int, frame: int, theme: dict, level: int) -> None:
+    """비상충전: 경고등 + 배터리"""
+    # 깜빡임 효과 (레벨이 높을수록 빠름)
+    blink_speed = 0.15 + level * 0.05
+    flash = math.sin(frame * blink_speed) > 0
+
+    emergency_red = (255, 80, 80) if flash else (180, 50, 50)
+    warning_yellow = (255, 200, 50)
+
+    # 경고 삼각형 배경
+    tri_size = size // 2
+    tri_points = [
+        (c, c - tri_size // 2),
+        (c - tri_size // 2, c + tri_size // 3),
+        (c + tri_size // 2, c + tri_size // 3),
+    ]
+    pygame.draw.polygon(surf, emergency_red, tri_points)
+    pygame.draw.polygon(surf, warning_yellow, tri_points, 2)
+
+    # 느낌표
+    pygame.draw.rect(surf, (255, 255, 255), (c - 2, c - size // 5, 4, size // 4))
+    pygame.draw.circle(surf, (255, 255, 255), (c, c + size // 6), 3)
+
+    # 배터리 아이콘 (오른쪽 하단)
+    bat_x, bat_y = c + size // 5, c + size // 6
+    bat_w, bat_h = size // 4, size // 6
+    pygame.draw.rect(surf, (60, 60, 70), (bat_x, bat_y, bat_w, bat_h), border_radius=2)
+
+    # 배터리 충전량 (레벨에 따라)
+    fill_w = int((bat_w - 4) * (0.3 + level * 0.2))
+    fill_color = (100, 255, 100) if level >= 2 else (255, 200, 50)
+    pygame.draw.rect(surf, fill_color, (bat_x + 2, bat_y + 2, fill_w, bat_h - 4), border_radius=1)
+
+    # 플래시 효과
+    if flash and level >= 2:
+        flash_alpha = int(100 * abs(math.sin(frame * blink_speed)))
+        flash_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        pygame.draw.circle(flash_surf, (*emergency_red, flash_alpha), (c, c), size // 3)
+        surf.blit(flash_surf, (0, 0))
+
+
+def _draw_reboot_enhance_icon(surf: pygame.Surface, c: int, size: int, frame: int, theme: dict, level: int) -> None:
+    """재부팅강화: 회전하는 새로고침 아이콘"""
+    reboot_color = (100, 255, 150)
+    glow_color = (150, 255, 200)
+
+    # 회전 각도
+    rotation = frame * 0.05 * (1 + level * 0.2)
+
+    # 회전하는 원호
+    arc_radius = size // 3
+    arc_start = rotation
+    arc_end = rotation + math.pi * 1.5
+
+    # 원호 그리기 (두꺼운 선으로 시뮬레이션)
+    arc_points = []
+    for i in range(20):
+        t = arc_start + (arc_end - arc_start) * i / 19
+        px = c + int(math.cos(t) * arc_radius)
+        py = c + int(math.sin(t) * arc_radius)
+        arc_points.append((px, py))
+
+    if len(arc_points) > 1:
+        pygame.draw.lines(surf, reboot_color, False, arc_points, 3)
+
+        # 화살표 머리
+        end_angle = arc_end
+        arrow_x = c + int(math.cos(end_angle) * arc_radius)
+        arrow_y = c + int(math.sin(end_angle) * arc_radius)
+
+        head_angle1 = end_angle + 2.3
+        head_angle2 = end_angle - 0.7
+        head_len = size // 8
+        pygame.draw.line(surf, reboot_color, (arrow_x, arrow_y),
+                        (arrow_x - int(math.cos(head_angle1) * head_len),
+                         arrow_y - int(math.sin(head_angle1) * head_len)), 3)
+        pygame.draw.line(surf, reboot_color, (arrow_x, arrow_y),
+                        (arrow_x - int(math.cos(head_angle2) * head_len),
+                         arrow_y - int(math.sin(head_angle2) * head_len)), 3)
+
+    # 중앙 전원 심볼
+    power_radius = size // 7
+    pygame.draw.circle(surf, reboot_color, (c, c), power_radius, 2)
+    pygame.draw.line(surf, reboot_color, (c, c - power_radius - 2), (c, c - 2), 3)
+
+    # 레벨별 추가 링
+    for i in range(level):
+        ring_alpha = int(60 - i * 15)
+        if ring_alpha > 0:
+            pygame.draw.circle(surf, (*glow_color, ring_alpha), (c, c),
+                             arc_radius + 5 + i * 4, 1)
+
+
+def _draw_star_change_icon(surf: pygame.Surface, c: int, size: int, frame: int, theme: dict, level: int) -> None:
+    """스타체인지: 빛나는 별"""
+    star_color = (255, 255, 100)
+    glow_color = (255, 255, 200)
+
+    # 별 회전
+    rotation = frame * 0.02
+
+    # 별 크기 펄스
+    pulse = 1.0 + 0.1 * math.sin(frame * 0.1)
+    star_radius = int(size // 3 * pulse)
+    inner_radius = int(size // 6 * pulse)
+
+    # 별 포인트 계산 (5각 별)
+    points = []
+    for i in range(10):
+        angle = rotation + math.pi / 2 + i * math.pi / 5
+        r = star_radius if i % 2 == 0 else inner_radius
+        px = c + int(math.cos(angle) * r)
+        py = c + int(math.sin(angle) * r)
+        points.append((px, py))
+
+    # 별 글로우
+    glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    glow_alpha = int(80 + 40 * math.sin(frame * 0.08))
+    pygame.draw.polygon(glow_surf, (*glow_color, glow_alpha), points)
+    surf.blit(glow_surf, (0, 0))
+
+    # 메인 별
+    pygame.draw.polygon(surf, star_color, points)
+    pygame.draw.polygon(surf, (255, 255, 255), points, 1)
+
+    # 빛줄기 (레벨에 따라 증가)
+    ray_count = 4 + level * 2
+    for i in range(ray_count):
+        ray_angle = rotation + (i * 2 * math.pi / ray_count)
+        ray_length = size // 2.5 + int(math.sin(frame * 0.1 + i * 0.5) * 5)
+        ray_alpha = int(80 + 60 * math.sin(frame * 0.12 + i * 0.3))
+
+        rx = c + int(math.cos(ray_angle) * ray_length)
+        ry = c + int(math.sin(ray_angle) * ray_length)
+        pygame.draw.line(surf, (*star_color, ray_alpha), (c, c), (rx, ry), 1)
+
+
+def _draw_bug_update_icon(surf: pygame.Surface, c: int, size: int, frame: int, theme: dict, level: int) -> None:
+    """버그업데이트: 코드 + 버그"""
+    bug_color = (150, 255, 50)
+    code_color = (100, 220, 50)
+
+    # 스크롤링 코드 라인
+    code_scroll = (frame * 0.5) % size
+    line_count = 4 + level
+    for i in range(line_count):
+        line_y = (size // 6 + i * size // 5 + int(code_scroll)) % size
+        line_w = size // 3 + ((i * 7) % (size // 4))
+        line_x = c - line_w // 2 + int(math.sin(frame * 0.05 + i) * 5)
+        line_alpha = int(150 - abs(line_y - c) * 2)
+        if line_alpha > 0:
+            pygame.draw.rect(surf, (*code_color, line_alpha),
+                           (line_x, line_y, line_w, 2), border_radius=1)
+
+    # 버그 (벌레 아이콘)
+    bug_x, bug_y = c, c
+    body_w, body_h = size // 5, size // 4
+
+    # 몸통
+    pygame.draw.ellipse(surf, bug_color,
+                       (bug_x - body_w // 2, bug_y - body_h // 2, body_w, body_h))
+
+    # 머리
+    head_y = bug_y - body_h // 2 - 4
+    pygame.draw.circle(surf, bug_color, (bug_x, head_y), size // 10)
+
+    # 더듬이
+    antenna_wiggle = math.sin(frame * 0.15) * 3
+    pygame.draw.line(surf, bug_color, (bug_x - 3, head_y - 2),
+                    (bug_x - 8 + antenna_wiggle, head_y - 10), 2)
+    pygame.draw.line(surf, bug_color, (bug_x + 3, head_y - 2),
+                    (bug_x + 8 - antenna_wiggle, head_y - 10), 2)
+
+    # 다리
+    leg_wiggle = math.sin(frame * 0.2) * 2
+    for i in range(3):
+        leg_y = bug_y - body_h // 4 + i * body_h // 3
+        # 왼쪽 다리
+        pygame.draw.line(surf, bug_color,
+                        (bug_x - body_w // 2, leg_y),
+                        (bug_x - body_w // 2 - 6 + leg_wiggle, leg_y + 4), 1)
+        # 오른쪽 다리
+        pygame.draw.line(surf, bug_color,
+                        (bug_x + body_w // 2, leg_y),
+                        (bug_x + body_w // 2 + 6 - leg_wiggle, leg_y + 4), 1)
+
+
+def _draw_elec_pad_icon(surf: pygame.Surface, c: int, size: int, frame: int, theme: dict, level: int) -> None:
+    """일렉패드: 전기가 흐르는 패들"""
+    elec_color = (50, 200, 255)
+    spark_color = (150, 230, 255)
+
+    # 패들 본체
+    pad_w, pad_h = int(size * 0.6), int(size * 0.25)
+    pad_x, pad_y = c - pad_w // 2, c - pad_h // 2
+
+    # 패들 배경
+    pygame.draw.rect(surf, (50, 60, 80), (pad_x, pad_y, pad_w, pad_h), border_radius=4)
+
+    # 전기 충전 효과 (레벨별)
+    charge_width = int((pad_w - 4) * (0.5 + level * 0.125))
+    pygame.draw.rect(surf, elec_color,
+                    (pad_x + 2, pad_y + 2, charge_width, pad_h - 4), border_radius=3)
+
+    # 전기 스파크
+    spark_count = 3 + level
+    for i in range(spark_count):
+        sx = pad_x + pad_w // (spark_count + 1) * (i + 1)
+        sy = pad_y - 2
+
+        # 지그재그 전기
+        spark_points = [(sx, sy)]
+        current_x, current_y = sx, sy
+        for j in range(3):
+            jitter = int(math.sin(frame * 0.3 + i * 0.5 + j) * 4)
+            current_x += jitter
+            current_y -= size // 10
+            spark_points.append((current_x, current_y))
+
+        spark_alpha = int(180 + 60 * math.sin(frame * 0.25 + i * 0.7))
+        if len(spark_points) > 1:
+            for k in range(len(spark_points) - 1):
+                pygame.draw.line(surf, (*spark_color, spark_alpha),
+                               spark_points[k], spark_points[k + 1], 2)
+
+    # 패들 손잡이
+    handle_x = c - 3
+    handle_y = pad_y + pad_h
+    pygame.draw.rect(surf, (70, 80, 100), (handle_x, handle_y, 6, size // 4), border_radius=2)
+
+    # 전기 글로우
+    glow_alpha = int(50 + 30 * math.sin(frame * 0.15))
+    glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    pygame.draw.rect(glow_surf, (*elec_color, glow_alpha),
+                    (pad_x - 4, pad_y - 4, pad_w + 8, pad_h + 8), border_radius=6)
+    surf.blit(glow_surf, (0, 0))
+
+
+def _draw_optimus_arm_icon(surf: pygame.Surface, c: int, size: int, frame: int, theme: dict, level: int) -> None:
+    """옵티머스 암: 기계 팔 (액티브 스킬)"""
+    arm_color = theme["border_base"]  # 액티브 테마 색상
+    metal_color = (200, 160, 100)
+    glow_color = theme["border_glow"]
+
+    # 팔 움직임 애니메이션
+    arm_swing = math.sin(frame * 0.08) * 0.2
+
+    # 관절 위치
+    base_joint = (c - size // 4, c + size // 5)
+    mid_joint = (c + int(math.cos(arm_swing) * size // 6),
+                 c - size // 8 + int(math.sin(arm_swing) * 5))
+    end_joint = (c + size // 4 + int(math.cos(arm_swing) * 5),
+                 c - size // 4 + int(math.sin(arm_swing) * 8))
+
+    # 팔 세그먼트 (메카닉 스타일)
+    # 첫 번째 세그먼트
+    pygame.draw.line(surf, metal_color, base_joint, mid_joint, 8)
+    pygame.draw.line(surf, (150, 130, 80), base_joint, mid_joint, 4)
+
+    # 두 번째 세그먼트
+    pygame.draw.line(surf, metal_color, mid_joint, end_joint, 7)
+    pygame.draw.line(surf, (150, 130, 80), mid_joint, end_joint, 3)
+
+    # 관절 볼트
+    for joint in [base_joint, mid_joint]:
+        pygame.draw.circle(surf, (80, 80, 90), joint, 6)
+        pygame.draw.circle(surf, arm_color, joint, 4)
+        pygame.draw.circle(surf, glow_color, joint, 2)
+
+    # 집게 손 (열리고 닫히는 애니메이션)
+    claw_open = 0.3 + 0.2 * math.sin(frame * 0.1)
+    claw_angle1 = -0.5 - claw_open
+    claw_angle2 = 0.5 + claw_open
+    claw_len = size // 5
+
+    claw1_end = (end_joint[0] + int(math.cos(claw_angle1) * claw_len),
+                 end_joint[1] + int(math.sin(claw_angle1) * claw_len))
+    claw2_end = (end_joint[0] + int(math.cos(claw_angle2) * claw_len),
+                 end_joint[1] + int(math.sin(claw_angle2) * claw_len))
+
+    pygame.draw.line(surf, arm_color, end_joint, claw1_end, 4)
+    pygame.draw.line(surf, arm_color, end_joint, claw2_end, 4)
+
+    # 집게 끝 볼트
+    pygame.draw.circle(surf, glow_color, claw1_end, 3)
+    pygame.draw.circle(surf, glow_color, claw2_end, 3)
+
+    # 에너지 글로우 (손 끝)
+    glow_pulse = 0.7 + 0.3 * math.sin(frame * 0.12)
+    glow_alpha = int(100 * glow_pulse)
+    glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surf, (*arm_color, glow_alpha), end_joint, int(size // 4 * glow_pulse))
+    surf.blit(glow_surf, (0, 0))
+
+    # "ACTIVE" 표시 효과 - 모서리 에너지 링
+    if level >= 1:
+        ring_alpha = int(60 + 40 * math.sin(frame * 0.15))
+        pygame.draw.circle(surf, (*arm_color, ring_alpha), (c, c), size // 2 - 5, 1)
 
 
 def check_optimus_gauge_skill_trigger() -> bool:
@@ -3086,9 +3508,12 @@ def apply_equipment_paddle_modifiers() -> None:
 
     equipment_scale = _get_bulkup_scale()
     gauge_scale = 1.0
+    mecha_bulk_scale = 1.0
     if globals().get("selected_character_type") == "optimus":
         gauge_scale = globals().get("optimus_gauge_scale", 1.0)
-    effective_scale = CURRENT_PADDLE_SIZE_SCALE * equipment_scale * ANGEL_PADDLE_SCALE * gauge_scale
+        # 메카벌크 스킬 적용: 패들 크기 증가
+        mecha_bulk_scale = get_mecha_bulk_scale()
+    effective_scale = CURRENT_PADDLE_SIZE_SCALE * equipment_scale * ANGEL_PADDLE_SCALE * gauge_scale * mecha_bulk_scale
     CURRENT_PADDLE_EFFECTIVE_SCALE = effective_scale
 
     prev_centerx = PLAYER.centerx
@@ -7247,7 +7672,10 @@ def update_optimus_energy() -> None:
 
     # 충전 중에는 기본 배터리 소모를 일시 정지
     if not globals().get("optimus_charge_active", False):
-        optimus_gauge_drain_buffer += (OPTIMUS_GAUGE_DRAIN_PER_SEC * elapsed_ms) / 1000.0
+        # 메카체인 스킬 적용: 게이지 감소율 감소
+        drain_reduction = get_mecha_chain_drain_reduction()
+        effective_drain_rate = OPTIMUS_GAUGE_DRAIN_PER_SEC * (1.0 - drain_reduction)
+        optimus_gauge_drain_buffer += (effective_drain_rate * elapsed_ms) / 1000.0
         if optimus_gauge_drain_buffer >= 1.0:
             drain_units = int(optimus_gauge_drain_buffer)
             optimus_gauge_drain_buffer -= drain_units
@@ -27652,6 +28080,20 @@ def go_to_next_round():
     
     # 라운드 시작 시간 초기화 (화기류 3초 제한용)
     round_start_time = pygame.time.get_ticks()
+
+    # 옵티머스 비상충전 스킬: 라운드 시작 시 게이지가 50% 미만이면 즉시 충전 (스테이지당 1회)
+    if selected_character_type == "optimus":
+        emergency_amount = get_emergency_charge_amount()
+        if emergency_amount > 0 and not globals().get("emergency_charge_used_this_stage", False):
+            current_max = get_max_gauge() if 'get_max_gauge' in dir() else special_gauge_max
+            gauge_ratio = special_gauge / max(1, current_max)
+            if gauge_ratio < 0.5:  # 게이지가 50% 미만일 때만 발동
+                charge_amount = int(current_max * emergency_amount)
+                old_gauge = special_gauge
+                special_gauge = min(current_max, special_gauge + charge_amount)
+                globals()["emergency_charge_used_this_stage"] = True
+                print(f"[Optimus] 비상충전 발동! {old_gauge} → {special_gauge} (+{charge_amount})")
+
     drive_speed_increase = 0.0
     # ️ 스핀 상태 완전히 초기화 (스테이지 전환 시 드라이브 효과 제거)
     global ball_spin_strength, ball_spin_direction
@@ -35760,7 +36202,10 @@ def handle_player(keys):
                 _start_optimus_charge_sound()
 
             if optimus_charge_active and delta_ms > 0:
-                charge_gain = OPTIMUS_CHARGE_RATE_PER_SEC * (delta_ms / 1000.0)
+                # 메카차지 스킬 적용: 게이지 충전량 증가
+                charge_bonus = get_mecha_charge_bonus()
+                effective_charge_rate = OPTIMUS_CHARGE_RATE_PER_SEC * (1.0 + charge_bonus)
+                charge_gain = effective_charge_rate * (delta_ms / 1000.0)
                 current_max = get_max_gauge()
                 new_gauge = min(current_max, special_gauge + charge_gain)
                 if new_gauge != special_gauge:
@@ -39944,12 +40389,21 @@ def handle_player(keys):
             kuromi_spit_trail_active = False
             kuromi_spit_trail_positions.clear()
             print("쿠로미 뱉기 궤적 종료 - 플레이어 패들 충돌")
-        
+
         # 무승부 판정 시스템: 패들 충돌 시 벽 카운트 리셋
         wall_bounce_count = 0
         last_paddle_hit_time = pygame.time.get_ticks()
         last_wall_hit = None
-        
+
+        # 옵티머스 일렉패드 스킬: 패들 충돌 시 확률적으로 게이지 충전
+        if selected_character_type == "optimus":
+            elec_chance, elec_charge = get_elec_pad_stats()
+            if elec_chance > 0 and random.random() < elec_chance:
+                current_max = get_max_gauge() if 'get_max_gauge' in dir() else special_gauge_max
+                old_gauge = special_gauge
+                special_gauge = min(current_max, special_gauge + elec_charge)
+                print(f"[Optimus] 일렉패드 발동! {old_gauge} → {special_gauge} (+{elec_charge})")
+
         # 디버그: 충돌 위치 정보
         collision_x = BALL.centerx - effective_centerx
         collision_side = "LEFT" if collision_x < 0 else "RIGHT"
