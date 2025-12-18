@@ -58734,8 +58734,8 @@ def _handle_mouse_hover(pos: tuple) -> None:
     """마우스 호버 처리"""
     global stage_clear_selected_index
     mx, my = pos
-    card_width, card_height = 230, 120
-    card_gap = 20
+    card_width, card_height = 180, 110
+    card_gap = 15
     total_width = card_width * 3 + card_gap * 2
     start_x = (WIDTH - total_width) // 2
     vertical_y = HEIGHT // 2 - card_height // 2
@@ -58757,8 +58757,8 @@ def _handle_mouse_hover(pos: tuple) -> None:
 def _handle_mouse_click(pos: tuple) -> None:
     """마우스 클릭 처리"""
     mx, my = pos
-    card_width, card_height = 230, 120
-    card_gap = 20
+    card_width, card_height = 180, 110
+    card_gap = 15
     total_width = card_width * 3 + card_gap * 2
     start_x = (WIDTH - total_width) // 2
     vertical_y = HEIGHT // 2 - card_height // 2
@@ -58796,9 +58796,9 @@ def draw_stage_choice_overlay(screen: pygame.Surface, background: pygame.Surface
             screen.blit(particle_surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
 
     # 카드 설정
-    card_width, card_height = 230, 120
-    icon_size = 72
-    card_gap = 20
+    card_width, card_height = 180, 110
+    icon_size = 56
+    card_gap = 15
     total_width = card_width * 3 + card_gap * 2
     start_x = (WIDTH - total_width) // 2
     vertical_y = HEIGHT // 2 - card_height // 2
@@ -59006,9 +59006,9 @@ def show_stage_clear_choices() -> str | None:
         })
 
     # 카드 설정
-    card_width, card_height = 230, 120
-    icon_size = 72
-    card_gap = 20
+    card_width, card_height = 180, 110
+    icon_size = 56
+    card_gap = 15
     total_width = card_width * 3 + card_gap * 2
     start_x = (WIDTH - total_width) // 2
     vertical_y = HEIGHT // 2 - card_height // 2
