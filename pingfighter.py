@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """PingFighter (핑파이터) - 아케이드 스타일 탁구 보스 배틀 게임
 
 보스 배틀, 파워업, 특수 능력이 포함된 Python/Pygame 기반 게임.
@@ -1317,6 +1317,7 @@ from item_effects.fuel_pouch import (
     deactivate_fuel_pouch,
     get_fuel_pouch_gauge_bonus
 )
+from item_effects import holy_barrier as holy_barrier_module
 from item_effects.holy_barrier import (
     activate_holy_barrier,
     deactivate_holy_barrier,
@@ -2458,30 +2459,573 @@ optimus_mech_arm_upgrade_timer = 0  # 애니메이션 시작 시간
 optimus_mech_arm_upgrade_complete = False  # 강화 완료 상태 (더 강력한 기계손으로 유지)
 optimus_mech_arm_particles = []  # 조립/강화 파티클
 
-# ========== 옵티머스 초크슬램 스킬 (기계손 강화 후 활성화) ==========
-CHOKESLAM_GAUGE_COST = 30                # 게이지 소모량
-CHOKESLAM_COOLDOWN_MS = 5000            # 쿨타임 15초
-CHOKESLAM_WINDUP_MS = 500                # 팔 젖히기 시간 0.5초
-CHOKESLAM_REACH_SPEED = 25               # 팔 뻗기 속도 (픽셀/프레임)
-CHOKESLAM_GRAB_TIMEOUT_MS = 800          # 그랩 시도 최대 시간
-CHOKESLAM_THROW_POWER = 400              # 던지기 파워 (보스 이동 거리)
-CHOKESLAM_THROW_STUN_MS = 1500           # 던지기 후 보스 스턴 시간 (1.5초)
-CHOKESLAM_ARM_WIDTH = 24                 # 팔 너비 (픽셀)
-CHOKESLAM_HAND_SIZE = 60                 # 손바닥 크기 (픽셀)
+# ========== 옵티머스 암 스킬 (스테이지 클리어 시 선택으로 해금) ==========
+OPTIMUS_ARM_GAUGE_COST = 30              # 게이지 소모량
+OPTIMUS_ARM_COOLDOWN_MS = 5000           # 쿨타임 5초
+OPTIMUS_ARM_WINDUP_MS = 500              # 팔 젖히기 시간 0.5초
+OPTIMUS_ARM_REACH_SPEED = 25             # 팔 뻗기 속도 (픽셀/프레임)
+OPTIMUS_ARM_GRAB_TIMEOUT_MS = 800        # 그랩 시도 최대 시간
+OPTIMUS_ARM_THROW_POWER = 400            # 던지기 파워 (보스 이동 거리)
+OPTIMUS_ARM_THROW_STUN_MS = 1500         # 던지기 후 보스 스턴 시간 (1.5초)
+OPTIMUS_ARM_WIDTH = 24                   # 팔 너비 (픽셀)
+OPTIMUS_ARM_HAND_SIZE = 60               # 손바닥 크기 (픽셀)
 
-# 초크슬램 상태 변수
-chokeslam_available = False              # 스킬 사용 가능 여부 (기계손 강화 완료 시 True)
-chokeslam_cooldown_until_ms = 0          # 쿨타임 종료 시각
-chokeslam_state = "idle"                 # idle, windup, reaching, grabbing, throwing, returning
-chokeslam_start_ms = 0                   # 현재 상태 시작 시각
-chokeslam_arm_length = 0                 # 현재 팔 길이
-chokeslam_target_x = 0                   # 목표 X 좌표 (보스 위치)
-chokeslam_target_y = 0                   # 목표 Y 좌표 (보스 위치)
-chokeslam_grabbed_boss = False           # 보스 잡기 성공 여부
-chokeslam_throw_direction = 0            # 던지기 방향 (-1: 왼쪽, 1: 오른쪽)
-chokeslam_boss_grabbed_x = 0             # 잡힌 보스의 X 위치
-chokeslam_throw_start_ms = 0             # 던지기 시작 시각
-chokeslam_particles = []                 # 초크슬램 이펙트 파티클
+# 옵티머스 암 상태 변수
+optimus_arm_available = False            # 스킬 사용 가능 여부 (스테이지 클리어 시 선택으로 해금)
+optimus_arm_cooldown_until_ms = 0        # 쿨타임 종료 시각
+optimus_arm_state = "idle"               # idle, windup, reaching, grabbing, throwing, returning
+optimus_arm_start_ms = 0                 # 현재 상태 시작 시각
+optimus_arm_length = 0                   # 현재 팔 길이
+optimus_arm_target_x = 0                 # 목표 X 좌표 (보스 위치)
+optimus_arm_target_y = 0                 # 목표 Y 좌표 (보스 위치)
+optimus_arm_grabbed_boss = False         # 보스 잡기 성공 여부
+optimus_arm_throw_direction = 0          # 던지기 방향 (-1: 왼쪽, 1: 오른쪽)
+optimus_arm_boss_grabbed_x = 0           # 잡힌 보스의 X 위치
+optimus_arm_throw_start_ms = 0           # 던지기 시작 시각
+optimus_arm_particles = []               # 옵티머스 암 이펙트 파티클
+
+# ========== 스테이지 클리어 선택지 시스템 (뱀파이어 서바이벌 스타일) ==========
+# 선택지 UI 상태
+stage_clear_choices_active = False       # 선택지 UI 활성화 여부
+stage_clear_choices_shown = False        # 현재 스테이지에서 선택지를 이미 보여줬는지
+stage_clear_selected_index = 0           # 현재 선택된 선택지 인덱스 (0, 1, 2)
+stage_clear_choices_list = []            # 현재 표시 중인 선택지 리스트
+
+# ========== 옵티머스 스킬 레벨 시스템 ==========
+# 각 스킬의 현재 레벨 (0 = 미획득, 1~max_level = 획득 후 레벨)
+optimus_skill_levels = {
+    "mecha_chain": 0,       # 메카체인 (max 4)
+    "mecha_charge": 0,      # 메카차지 (max 4)
+    "mecha_bulk": 0,        # 메카벌크 (max 4)
+    "emergency_charge": 0,  # 비상충전 (max 3)
+    "reboot_enhance": 0,    # 재부팅강화 (max 3)
+    "star_change": 0,       # 스타체인지 (레벨 없음, 획득 횟수)
+    "bug_update": 0,        # 버그업데이트 (max 3)
+    "elec_pad": 0,          # 일렉패드 (max 4)
+}
+emergency_charge_used_this_stage = False  # 비상충전 이번 스테이지 사용 여부
+
+# ========== 옵티머스 게이지 기반 스킬 선택 트리거 시스템 ==========
+# 최대 게이지가 400, 300에 도달했을 때 각각 1회씩 스킬 선택창 표시
+OPTIMUS_SKILL_TRIGGER_THRESHOLDS = [400, 300]  # 내림차순 (400 먼저, 300 나중)
+optimus_skill_triggers_used = []  # 이미 사용된 트리거 목록 (예: [400] → 400은 이미 발동됨)
+optimus_skill_choice_pending = False  # 스킬 선택창 대기 중 여부
+optimus_skill_choice_threshold = 0  # 현재 발동된 트리거의 게이지 값
+
+# 옵티머스 스킬 풀 정의
+OPTIMUS_SKILL_POOL = [
+    {
+        "id": "mecha_chain",
+        "name": "메카체인",
+        "max_level": 4,
+        "descriptions": {
+            1: "게이지 감소율 10% 감소",
+            2: "게이지 감소율 20% 감소",
+            3: "게이지 감소율 30% 감소",
+            4: "게이지 감소율 40% 감소",
+        },
+        "icon_color": (100, 200, 255),  # 하늘색 (체인)
+        "character_restriction": "optimus"
+    },
+    {
+        "id": "mecha_charge",
+        "name": "메카차지",
+        "max_level": 4,
+        "descriptions": {
+            1: "게이지 충전량 10% 증가",
+            2: "게이지 충전량 20% 증가",
+            3: "게이지 충전량 30% 증가",
+            4: "게이지 충전량 40% 증가",
+        },
+        "icon_color": (255, 220, 50),  # 금색 (충전)
+        "character_restriction": "optimus"
+    },
+    {
+        "id": "mecha_bulk",
+        "name": "메카벌크",
+        "max_level": 4,
+        "descriptions": {
+            1: "패들 사이즈 5% 증가",
+            2: "패들 사이즈 10% 증가",
+            3: "패들 사이즈 15% 증가",
+            4: "패들 사이즈 20% 증가",
+        },
+        "icon_color": (180, 100, 255),  # 보라색 (벌크)
+        "character_restriction": "optimus"
+    },
+    {
+        "id": "emergency_charge",
+        "name": "비상충전",
+        "max_level": 3,
+        "descriptions": {
+            1: "ㄴ키 더블탭: 즉시 50% 충전 (스테이지당 1회)",
+            2: "ㄴ키 더블탭: 즉시 70% 충전 (스테이지당 1회)",
+            3: "ㄴ키 더블탭: 즉시 100% 충전 (스테이지당 1회)",
+        },
+        "icon_color": (255, 100, 100),  # 빨강 (비상)
+        "character_restriction": "optimus"
+    },
+    {
+        "id": "reboot_enhance",
+        "name": "재부팅강화",
+        "max_level": 3,
+        "descriptions": {
+            1: "충전 후 이동불가 시간 30% 단축",
+            2: "충전 후 이동불가 시간 60% 단축",
+            3: "충전 후 이동불가 시간 90% 단축",
+        },
+        "icon_color": (100, 255, 150),  # 민트 (재부팅)
+        "character_restriction": "optimus"
+    },
+    {
+        "id": "star_change",
+        "name": "스타체인지",
+        "max_level": -1,  # 무제한 (레벨업 없음)
+        "descriptions": {
+            1: "스타포인트 2개 즉시 획득",
+        },
+        "icon_color": (255, 255, 100),  # 노랑 (스타)
+        "character_restriction": "optimus"
+    },
+    {
+        "id": "bug_update",
+        "name": "버그업데이트",
+        "max_level": 3,
+        "descriptions": {
+            1: "25% 확률로 선택지 한 번 더",
+            2: "35% 확률로 선택지 한 번 더",
+            3: "45% 확률로 선택지 한 번 더",
+        },
+        "icon_color": (150, 255, 50),  # 라임 (버그)
+        "character_restriction": "optimus"
+    },
+    {
+        "id": "elec_pad",
+        "name": "일렉패드",
+        "max_level": 4,
+        "descriptions": {
+            1: "5% 확률 공 타격 시 게이지 +40",
+            2: "7% 확률 공 타격 시 게이지 +50",
+            3: "9% 확률 공 타격 시 게이지 +60",
+            4: "11% 확률 공 타격 시 게이지 +70",
+        },
+        "icon_color": (50, 200, 255),  # 전기 파랑
+        "character_restriction": "optimus"
+    },
+    {
+        "id": "optimus_arm",
+        "name": "옵티머스 암",
+        "max_level": 1,
+        "descriptions": {
+            1: "강력한 기계팔로 보스를 잡아 던집니다",
+        },
+        "icon_color": (255, 180, 50),  # 금색
+        "character_restriction": "optimus"
+    },
+]
+
+def get_available_stage_choices(character_type: str) -> list:
+    """현재 캐릭터에게 가능한 선택지 3개를 반환 (레벨 시스템 적용)"""
+    global optimus_skill_levels, optimus_arm_available
+    import random
+
+    available = []
+
+    for skill in OPTIMUS_SKILL_POOL:
+        # 캐릭터 제한 체크
+        restriction = skill.get("character_restriction")
+        if restriction and restriction != character_type:
+            continue
+
+        skill_id = skill["id"]
+        current_level = optimus_skill_levels.get(skill_id, 0)
+        max_level = skill["max_level"]
+
+        # 옵티머스 암 특별 처리 (이미 해금되면 제외)
+        if skill_id == "optimus_arm" and optimus_arm_available:
+            continue
+
+        # 최대 레벨 도달 시 제외 (스타체인지는 무제한이므로 -1)
+        if max_level != -1 and current_level >= max_level:
+            continue
+
+        # 다음 레벨 계산
+        next_level = current_level + 1
+        if max_level == -1:  # 스타체인지
+            next_level = 1
+
+        # 선택지 생성
+        choice = {
+            "id": skill_id,
+            "name": skill["name"],
+            "description": skill["descriptions"].get(next_level, skill["descriptions"].get(1, "")),
+            "icon_color": skill["icon_color"],
+            "current_level": current_level,
+            "next_level": next_level,
+            "max_level": max_level,
+            "character_restriction": restriction
+        }
+        available.append(choice)
+
+    # 3개까지 랜덤 선택
+    if len(available) > 3:
+        available = random.sample(available, 3)
+
+    # 3개 미만이면 빈 슬롯으로 채움
+    while len(available) < 3:
+        placeholder = {
+            "id": f"empty_{len(available)}",
+            "name": "빈 슬롯",
+            "description": "선택 가능한 스킬이 없습니다",
+            "icon_color": (80, 80, 80),
+            "current_level": 0,
+            "next_level": 0,
+            "max_level": 0,
+            "character_restriction": None
+        }
+        available.append(placeholder)
+
+    return available[:3]
+
+def apply_stage_choice_effect(choice_id: str) -> bool:
+    """선택지 효과 적용 (레벨업). 성공 시 True 반환"""
+    global optimus_skill_levels, optimus_arm_available
+    import items
+
+    # 빈 슬롯 무시
+    if choice_id.startswith("empty_"):
+        return True
+
+    # 옵티머스 암 특별 처리
+    if choice_id == "optimus_arm":
+        optimus_arm_available = True
+        optimus_skill_levels["optimus_arm"] = 1
+        print("[StageChoice] 옵티머스 암 해금!")
+        return True
+
+    # 스타체인지 특별 처리 (레벨업 없이 스타포인트 지급)
+    if choice_id == "star_change":
+        optimus_skill_levels["star_change"] += 1  # 획득 횟수만 기록
+        # 스타포인트 2개 지급
+        if hasattr(items, 'star_points'):
+            items.star_points = getattr(items, 'star_points', 0) + 2
+        print(f"[StageChoice] 스타체인지! 스타포인트 +2 (총 {getattr(items, 'star_points', 0)})")
+        return True
+
+    # 일반 스킬 레벨업
+    if choice_id in optimus_skill_levels:
+        old_level = optimus_skill_levels[choice_id]
+        optimus_skill_levels[choice_id] = old_level + 1
+        print(f"[StageChoice] {choice_id} 레벨업! Lv.{old_level} → Lv.{optimus_skill_levels[choice_id]}")
+        return True
+
+    print(f"[StageChoice] 알 수 없는 스킬: {choice_id}")
+    return False
+
+def reset_stage_clear_choices():
+    """스테이지 클리어 선택지 상태 리셋 (새 게임 시작 시)"""
+    global stage_clear_choices_active, stage_clear_choices_shown
+    global stage_clear_selected_index, stage_clear_choices_list
+    global optimus_skill_levels, emergency_charge_used_this_stage
+
+    stage_clear_choices_active = False
+    stage_clear_choices_shown = False
+    stage_clear_selected_index = 0
+    stage_clear_choices_list = []
+
+    # 모든 스킬 레벨 초기화
+    for key in optimus_skill_levels:
+        optimus_skill_levels[key] = 0
+    emergency_charge_used_this_stage = False
+
+def reset_emergency_charge_for_new_stage():
+    """새 스테이지 시작 시 비상충전 사용 가능하게 리셋"""
+    global emergency_charge_used_this_stage
+    emergency_charge_used_this_stage = False
+
+# ========== 옵티머스 스킬 효과 헬퍼 함수들 ==========
+def get_mecha_chain_drain_reduction() -> float:
+    """메카체인: 게이지 감소율 감소 비율 반환 (0.0 ~ 0.4)"""
+    level = optimus_skill_levels.get("mecha_chain", 0)
+    return level * 0.10  # 10% per level
+
+def get_mecha_charge_bonus() -> float:
+    """메카차지: 게이지 충전량 증가 비율 반환 (0.0 ~ 0.4)"""
+    level = optimus_skill_levels.get("mecha_charge", 0)
+    return level * 0.10  # 10% per level
+
+def get_mecha_bulk_scale() -> float:
+    """메카벌크: 패들 크기 증가 비율 반환 (1.0 ~ 1.2)"""
+    level = optimus_skill_levels.get("mecha_bulk", 0)
+    return 1.0 + (level * 0.05)  # 5% per level
+
+def get_emergency_charge_amount() -> float:
+    """비상충전: 즉시 충전 비율 반환 (0.5, 0.7, 1.0)"""
+    level = optimus_skill_levels.get("emergency_charge", 0)
+    amounts = {0: 0, 1: 0.5, 2: 0.7, 3: 1.0}
+    return amounts.get(level, 0)
+
+def get_reboot_time_reduction() -> float:
+    """재부팅강화: 이동불가 시간 단축 비율 반환 (0.0 ~ 0.9)"""
+    level = optimus_skill_levels.get("reboot_enhance", 0)
+    reductions = {0: 0, 1: 0.3, 2: 0.6, 3: 0.9}
+    return reductions.get(level, 0)
+
+def get_bug_update_chance() -> float:
+    """버그업데이트: 추가 선택지 확률 반환 (0.0 ~ 0.45)"""
+    level = optimus_skill_levels.get("bug_update", 0)
+    chances = {0: 0, 1: 0.25, 2: 0.35, 3: 0.45}
+    return chances.get(level, 0)
+
+def get_elec_pad_stats() -> tuple:
+    """일렉패드: (확률, 충전량) 튜플 반환"""
+    level = optimus_skill_levels.get("elec_pad", 0)
+    stats = {
+        0: (0, 0),
+        1: (0.05, 40),   # 5%, +40
+        2: (0.07, 50),   # 7%, +50
+        3: (0.09, 60),   # 9%, +60
+        4: (0.11, 70),   # 11%, +70
+    }
+    return stats.get(level, (0, 0))
+
+
+def draw_optimus_skill_icon(surface: pygame.Surface, skill_id: str, x: int, y: int, size: int, frame: int = 0) -> None:
+    """각 스킬별 옵티머스 컨셉틱한 아이콘을 그립니다."""
+    # 아이콘 서피스 생성
+    icon = pygame.Surface((size, size), pygame.SRCALPHA)
+    center = size // 2
+
+    if skill_id == "mecha_chain":
+        # 메카체인: 기계 체인 고리들
+        chain_color = (100, 200, 255)
+        dark_color = (50, 100, 150)
+        # 3개의 체인 고리 연결
+        for i, offset in enumerate([-size//4, 0, size//4]):
+            ring_x = center + offset
+            ring_y = center + (i % 2) * 4
+            pygame.draw.ellipse(icon, dark_color, (ring_x - size//6, ring_y - size//8, size//3, size//4), 0)
+            pygame.draw.ellipse(icon, chain_color, (ring_x - size//6, ring_y - size//8, size//3, size//4), 2)
+        # 기계 너트
+        pygame.draw.circle(icon, (180, 180, 200), (center, center), size//6)
+        pygame.draw.circle(icon, chain_color, (center, center), size//8)
+
+    elif skill_id == "mecha_charge":
+        # 메카차지: 번개 충전 심볼
+        charge_color = (255, 220, 50)
+        glow_color = (255, 255, 150)
+        # 번개 모양
+        points = [
+            (center + size//4, size//6),
+            (center - size//8, center - size//10),
+            (center + size//8, center),
+            (center - size//4, size - size//6),
+            (center, center + size//10),
+            (center - size//8, center - size//6),
+        ]
+        pygame.draw.polygon(icon, glow_color, points)
+        pygame.draw.polygon(icon, charge_color, points, 2)
+        # 주변 에너지 파동
+        pulse = abs(math.sin(frame * 0.15)) * 0.3 + 0.7
+        for r in range(3):
+            alpha = int(80 * pulse - r * 20)
+            if alpha > 0:
+                pygame.draw.circle(icon, (*charge_color[:3], alpha), (center, center), size//3 + r*4, 1)
+
+    elif skill_id == "mecha_bulk":
+        # 메카벌크: 기계 근육/확장 심볼
+        bulk_color = (180, 100, 255)
+        metal_color = (200, 180, 220)
+        # 확장 화살표 패턴
+        arrow_size = size // 5
+        for angle in [0, 90, 180, 270]:
+            rad = math.radians(angle)
+            ax = center + int(math.cos(rad) * size//4)
+            ay = center + int(math.sin(rad) * size//4)
+            # 화살표 머리
+            dx, dy = int(math.cos(rad) * arrow_size), int(math.sin(rad) * arrow_size)
+            pygame.draw.line(icon, bulk_color, (ax, ay), (ax + dx, ay + dy), 3)
+            # 화살표 날개
+            perp = math.radians(angle + 135)
+            perp2 = math.radians(angle - 135)
+            px1 = ax + dx + int(math.cos(perp) * arrow_size//2)
+            py1 = ay + dy + int(math.sin(perp) * arrow_size//2)
+            px2 = ax + dx + int(math.cos(perp2) * arrow_size//2)
+            py2 = ay + dy + int(math.sin(perp2) * arrow_size//2)
+            pygame.draw.line(icon, bulk_color, (ax + dx, ay + dy), (px1, py1), 2)
+            pygame.draw.line(icon, bulk_color, (ax + dx, ay + dy), (px2, py2), 2)
+        # 중앙 기어
+        pygame.draw.circle(icon, metal_color, (center, center), size//5)
+        pygame.draw.circle(icon, bulk_color, (center, center), size//7)
+
+    elif skill_id == "emergency_charge":
+        # 비상충전: 빨간 경고등 + 배터리
+        emergency_color = (255, 100, 100)
+        flash = abs(math.sin(frame * 0.2)) > 0.5
+        blink_color = (255, 50, 50) if flash else (200, 50, 50)
+        # 배터리 모양
+        bat_w, bat_h = size//2, size//3
+        bat_x, bat_y = center - bat_w//2, center - bat_h//2 + size//8
+        pygame.draw.rect(icon, (80, 80, 80), (bat_x, bat_y, bat_w, bat_h), border_radius=3)
+        pygame.draw.rect(icon, emergency_color, (bat_x + 2, bat_y + 2, bat_w - 4, bat_h - 4), border_radius=2)
+        # 배터리 양극
+        pygame.draw.rect(icon, (100, 100, 100), (bat_x + bat_w//3, bat_y - 4, bat_w//3, 5))
+        # 경고 느낌표
+        pygame.draw.circle(icon, blink_color, (center, size//4), size//8)
+        pygame.draw.line(icon, (255, 255, 255), (center, size//6), (center, size//4 + 2), 2)
+        pygame.draw.circle(icon, (255, 255, 255), (center, size//4 + 6), 2)
+
+    elif skill_id == "reboot_enhance":
+        # 재부팅강화: 새로고침/회전 화살표
+        reboot_color = (100, 255, 150)
+        # 원형 회전 화살표
+        pygame.draw.arc(icon, reboot_color, (center - size//3, center - size//3, size*2//3, size*2//3),
+                       0.5, 5.0, 3)
+        # 화살표 머리
+        arrow_x = center + size//4
+        arrow_y = center - size//6
+        pygame.draw.polygon(icon, reboot_color, [
+            (arrow_x, arrow_y - 6),
+            (arrow_x + 8, arrow_y + 2),
+            (arrow_x - 2, arrow_y + 6)
+        ])
+        # 중앙 전원 심볼
+        pygame.draw.circle(icon, reboot_color, (center, center), size//6, 2)
+        pygame.draw.line(icon, reboot_color, (center, center - size//4), (center, center - size//8), 3)
+
+    elif skill_id == "star_change":
+        # 스타체인지: 빛나는 별
+        star_color = (255, 255, 100)
+        glow = abs(math.sin(frame * 0.1)) * 0.4 + 0.6
+        # 별 그리기
+        points = []
+        for i in range(10):
+            angle = math.pi / 2 + i * math.pi / 5
+            r = size//3 if i % 2 == 0 else size//6
+            px = center + int(math.cos(angle) * r)
+            py = center + int(math.sin(angle) * r)
+            points.append((px, py))
+        pygame.draw.polygon(icon, (255, 255, 200), points)
+        pygame.draw.polygon(icon, star_color, points, 2)
+        # 빛줄기
+        for i in range(4):
+            angle = i * math.pi / 2 + frame * 0.02
+            lx = center + int(math.cos(angle) * size//2.5 * glow)
+            ly = center + int(math.sin(angle) * size//2.5 * glow)
+            pygame.draw.line(icon, (*star_color, 150), (center, center), (lx, ly), 1)
+
+    elif skill_id == "bug_update":
+        # 버그업데이트: 코드/버그 심볼
+        bug_color = (150, 255, 50)
+        code_color = (100, 200, 50)
+        # 코드 라인들 (마치 코드가 날아다니는 것처럼)
+        for i in range(4):
+            line_y = size//5 + i * size//5
+            line_w = size//3 + (i % 2) * size//4
+            line_x = center - line_w//2 + (frame + i * 10) % 20 - 10
+            pygame.draw.rect(icon, code_color, (line_x, line_y, line_w, 3), border_radius=1)
+        # 벌레 모양
+        bug_x, bug_y = center, center
+        pygame.draw.ellipse(icon, bug_color, (bug_x - size//8, bug_y - size//6, size//4, size//3))
+        # 더듬이
+        pygame.draw.line(icon, bug_color, (bug_x - 4, bug_y - size//6), (bug_x - 8, bug_y - size//4), 2)
+        pygame.draw.line(icon, bug_color, (bug_x + 4, bug_y - size//6), (bug_x + 8, bug_y - size//4), 2)
+
+    elif skill_id == "elec_pad":
+        # 일렉패드: 전기 패들
+        elec_color = (50, 200, 255)
+        spark_color = (150, 230, 255)
+        # 패들 모양
+        pad_w, pad_h = size//2, size//4
+        pad_x, pad_y = center - pad_w//2, center - pad_h//2
+        pygame.draw.rect(icon, (60, 60, 80), (pad_x, pad_y, pad_w, pad_h), border_radius=4)
+        pygame.draw.rect(icon, elec_color, (pad_x + 2, pad_y + 2, pad_w - 4, pad_h - 4), border_radius=3)
+        # 전기 스파크
+        spark_frame = frame % 20
+        for i in range(3):
+            sx = pad_x + pad_w//4 + i * pad_w//3
+            sy = pad_y - 4
+            # 지그재그 전기
+            points = [(sx, sy)]
+            for j in range(3):
+                sx += random.randint(-4, 4) if spark_frame > 10 else 0
+                sy -= size//8
+                points.append((sx, sy))
+            if len(points) > 1:
+                pygame.draw.lines(icon, spark_color, False, points, 2)
+        # 패들 손잡이
+        pygame.draw.rect(icon, (80, 80, 100), (center - 3, pad_y + pad_h, 6, size//4))
+
+    elif skill_id == "optimus_arm":
+        # 옵티머스 암: 기계 팔
+        arm_color = (255, 180, 50)
+        metal_color = (200, 160, 80)
+        # 팔 관절
+        joint1 = (center - size//4, center + size//6)
+        joint2 = (center, center - size//6)
+        joint3 = (center + size//4, center - size//4)
+        # 팔 세그먼트
+        pygame.draw.line(icon, metal_color, joint1, joint2, 6)
+        pygame.draw.line(icon, metal_color, joint2, joint3, 6)
+        # 관절 원
+        for jx, jy in [joint1, joint2, joint3]:
+            pygame.draw.circle(icon, arm_color, (jx, jy), 5)
+            pygame.draw.circle(icon, (255, 220, 150), (jx, jy), 3)
+        # 집게 손
+        pygame.draw.line(icon, arm_color, joint3, (joint3[0] + 8, joint3[1] - 8), 3)
+        pygame.draw.line(icon, arm_color, joint3, (joint3[0] + 8, joint3[1] + 4), 3)
+        # 에너지 글로우
+        glow_alpha = int(100 + 50 * math.sin(frame * 0.15))
+        glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (*arm_color, glow_alpha), joint3, size//5)
+        icon.blit(glow_surf, (0, 0))
+
+    else:
+        # 기본 아이콘: 물음표
+        pygame.draw.circle(icon, (100, 100, 100), (center, center), size//3)
+        pygame.draw.circle(icon, (150, 150, 150), (center, center), size//4)
+
+    # 서피스에 그리기
+    surface.blit(icon, (x, y))
+
+
+def check_optimus_gauge_skill_trigger() -> bool:
+    """옵티머스 게이지가 특정 임계값에 도달했는지 확인하고, 도달 시 스킬 선택창 트리거."""
+    global optimus_skill_triggers_used, optimus_skill_choice_pending, optimus_skill_choice_threshold
+
+    # 옵티머스 캐릭터만 적용
+    character_type = globals().get("selected_character_type", "normal")
+    if character_type != "optimus":
+        return False
+
+    # 이미 선택창 대기 중이면 무시
+    if optimus_skill_choice_pending:
+        return False
+
+    # 현재 최대 게이지 확인
+    special_gauge_max = globals().get("special_gauge_max", 500)
+
+    # 트리거 확인 (내림차순으로 체크: 400 먼저, 그 다음 300)
+    for threshold in OPTIMUS_SKILL_TRIGGER_THRESHOLDS:
+        if threshold not in optimus_skill_triggers_used:
+            # 최대 게이지가 임계값 이하로 내려갔으면 트리거
+            if special_gauge_max <= threshold:
+                optimus_skill_triggers_used.append(threshold)
+                optimus_skill_choice_pending = True
+                optimus_skill_choice_threshold = threshold
+                print(f"[Optimus] 게이지 트리거 발동! 최대게이지={special_gauge_max}, 임계값={threshold}")
+                return True
+
+    return False
+
+
+def reset_optimus_skill_triggers() -> None:
+    """옵티머스 스킬 트리거 상태 초기화 (게임 오버/메인메뉴 복귀 시)."""
+    global optimus_skill_triggers_used, optimus_skill_choice_pending, optimus_skill_choice_threshold
+    optimus_skill_triggers_used = []
+    optimus_skill_choice_pending = False
+    optimus_skill_choice_threshold = 0
+
 
 # 옵티머스 궁극의 탁구채 강화 애니메이션 (300 이하 시 트리거)
 optimus_paddle_upgrade_active = False  # 탁구채 강화 애니메이션 진행 중
@@ -6406,22 +6950,22 @@ MARINE_COLORS = {
 
 # 옵티머스(optimus ID) – 테슬라 사이버 로봇 스타일
 # 고해상도 렌더링을 위해 처음부터 2배 캔버스에서 그림 (스케일링 없이 원본 품질 유지)
-MECHA_SPRITE_SIZE = (520, 900)  # 기존 260x160의 2배 (고해상도)
-MECHA_CENTER_X = 260            # 중앙 X (520/2)
-MECHA_CENTER_Y = 720            # 중앙 Y (기존 70의 2배)
+MECHA_SPRITE_SIZE = (416, 720)  # 기존 520x900에서 -20% 축소 (고해상도)
+MECHA_CENTER_X = 208            # 중앙 X (416/2)
+MECHA_CENTER_Y = 576            # 중앙 Y (720 * 0.8)
 OPTIMUS_SCALE_MULT = 1.0        # 이미 고해상도이므로 스케일링 불필요
-OPTIMUS_HITBOX_SCALE = 0.575                     # 히트박스는 15%만 축소(0.5 → 0.575)
-# 옵티머스 기본 스펙 - 고해상도 캔버스(520x320)에 맞게 조정
-OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_HITBOX_SCALE)   # 520 * 0.575 ≈ 299px
-OPTIMUS_PADDLE_TARGET_WIDTH = int(560 * OPTIMUS_HITBOX_SCALE)                   # 560 * 0.575 ≈ 322px (기존 280*2)
-OPTIMUS_PADDLE_BASE_HEIGHT = 184  # 고정값 (기존 320 * 0.575 ≈ 184px, 캔버스 확장과 무관하게 유지)
+OPTIMUS_HITBOX_SCALE = 0.52                      # 패들 가로 +13% 확장 (0.46 * 1.13 ≈ 0.52)
+# 옵티머스 기본 스펙 - 고해상도 캔버스에 맞게 조정 (-20% 축소 후 패들 가로 +13%)
+OPTIMUS_PADDLE_BASE_WIDTH = int(MECHA_SPRITE_SIZE[0] * OPTIMUS_HITBOX_SCALE)   # 416 * 0.52 ≈ 216px
+OPTIMUS_PADDLE_TARGET_WIDTH = int(448 * OPTIMUS_HITBOX_SCALE)                   # 448 * 0.52 ≈ 233px
+OPTIMUS_PADDLE_BASE_HEIGHT = 147  # 고정값 (184 * 0.8 ≈ 147px, -20% 축소)
 OPTIMUS_BASE_MAX_SPEED = 4                       # 기본 이동 속도(캐릭터 능력치 기준)
 OPTIMUS_DECELERATION_MULT = 0.5                  # 감속을 절반으로(2배 느리게)
 OPTIMUS_TURN_DECEL_MULT = 0.2                    # 좌우 방향 전환 감속 속도 80% 감소 (현행 대비 2배 더 둔하게)
-OPTIMUS_FLOOR_ADJUST = 72                        # 렌더링 시 발 위치 하향 보정 (36→72, 고해상도)
+OPTIMUS_FLOOR_ADJUST = 58                        # 렌더링 시 발 위치 하향 보정 (72 * 0.8 ≈ 58, -20% 축소)
 OPTIMUS_MAX_GAUGE = 500                          # 시작/최대 배터리 용량
 OPTIMUS_GAUGE_DRAIN_PER_SEC = 7                  # 초당 배터리 소모량
-OPTIMUS_MIN_PADDLE_WIDTH = 250                   # 방전 시 패들 최소 너비
+OPTIMUS_MIN_PADDLE_WIDTH = 160                   # 방전 시 패들 최소 너비 (200 * 0.8 = 160, -20% 축소 적용)
 OPTIMUS_CHARGE_HOLD_MS = 500                     # 충전 시작까지 누르고 있을 시간
 OPTIMUS_CHARGE_RATE_PER_SEC = 60                 # 충전 중 초당 게이지 회복량
 
@@ -6447,7 +6991,7 @@ OPTIMUS_MECHA_PALETTE = {
     "at_field": (100, 200, 255),
 }
 
-OPTIMUS_EMBLEM_RADIUS = 11  # 추가 -20% 축소 (이전 14 → 11, 원본 17 대비 약 -35%)
+OPTIMUS_EMBLEM_RADIUS = 9  # 추가 -20% 축소 (11 * 0.8 ≈ 9)
 
 
 def _compute_optimus_base_width() -> int:
@@ -6524,10 +7068,10 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     optimus_paddle_upgrade_timer = 0
     optimus_paddle_upgrade_complete = False
     optimus_paddle_upgrade_particles = []
-    # 초크슬램 스킬 초기화
-    reset_chokeslam_state()
-    globals()["chokeslam_available"] = False
-    globals()["chokeslam_cooldown_until_ms"] = 0
+    # 옵티머스 암 스킬 초기화
+    reset_optimus_arm_state()
+    globals()["optimus_arm_available"] = False
+    globals()["optimus_arm_cooldown_until_ms"] = 0
     special_gauge_max = get_max_gauge()
     if full_gauge:
         special_gauge = special_gauge_max
@@ -6640,26 +7184,12 @@ def update_optimus_energy() -> None:
                     'spawn_time': now
                 })
 
-            # 기계손 강화 애니메이션도 동시에 트리거
-            optimus_mech_arm_upgrade_active = True
-            optimus_mech_arm_upgrade_timer = now
-            optimus_mech_arm_particles = []
-            # 조립 파티클 생성 (플레이어 오른팔 주변)
-            for i in range(20):
-                angle = random.uniform(0, math.pi * 2)
-                dist = random.uniform(30, 80)
-                lifetime = random.randint(800, 1600)
-                optimus_mech_arm_particles.append({
-                    'angle': angle,
-                    'dist': dist,
-                    'target_dist': 0,  # 중심으로 수렴
-                    'life': lifetime,
-                    'max_life': lifetime,
-                    'size': random.uniform(3, 7),
-                    'spawn_time': now,
-                    'type': 'converge',  # 수렴형 파티클
-                    'color_idx': random.randint(0, 2)  # 색상 인덱스 (파랑, 시안, 흰색)
-                })
+            # 게이지 400 도달 시 스킬 선택창 트리거
+            if 400 not in optimus_skill_triggers_used:
+                optimus_skill_triggers_used.append(400)
+                globals()['optimus_skill_choice_pending'] = True
+                globals()['optimus_skill_choice_threshold'] = 400
+                print(f"[Optimus] 게이지 400 트리거 발동! 스킬 선택창 대기")
 
         # 최대 게이지가 300 이하로 떨어지면 위험 경고 애니메이션 1회 트리거 (더 화려함)
         if current_max_gauge is not None and current_max_gauge <= 300 and not optimus_critical_gauge_warning_triggered:
@@ -6707,6 +7237,13 @@ def update_optimus_energy() -> None:
                     'type': 'converge',
                     'color_idx': random.randint(0, 3)  # 색상 인덱스 (레드, 오렌지, 골드, 흰색)
                 })
+
+            # 게이지 300 도달 시 스킬 선택창 트리거
+            if 300 not in optimus_skill_triggers_used:
+                optimus_skill_triggers_used.append(300)
+                globals()['optimus_skill_choice_pending'] = True
+                globals()['optimus_skill_choice_threshold'] = 300
+                print(f"[Optimus] 게이지 300 트리거 발동! 스킬 선택창 대기")
 
     # 충전 중에는 기본 배터리 소모를 일시 정지
     if not globals().get("optimus_charge_active", False):
@@ -7097,16 +7634,16 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
         """포물선 휘두름 후 자연스럽게 원위치 (고해상도)"""
         shoulder = (cx + side * 60, shoulder_y + 4)  # 30→60, 2→4
         
-        # ========== 오른팔 초크슬램 로직 (early return) ==========
+        # ========== 오른팔 옵티머스 암 로직 (early return) ==========
         if side > 0:
-            cs_state = globals().get("chokeslam_state", "idle")
+            cs_state = globals().get("optimus_arm_state", "idle")
             if cs_state != "idle":
-                # 초크슬램 활성화 시 오른팔을 보스 방향으로 확장
-                cs_arm_length = globals().get("chokeslam_arm_length", 0)
-                cs_target_x = globals().get("chokeslam_target_x", 0)
-                cs_target_y = globals().get("chokeslam_target_y", 0)
-                cs_start_ms = globals().get("chokeslam_start_ms", 0)
-                cs_grabbed = globals().get("chokeslam_grabbed_boss", False)
+                # 옵티머스 암 활성화 시 오른팔을 보스 방향으로 확장
+                cs_arm_length = globals().get("optimus_arm_length", 0)
+                cs_target_x = globals().get("optimus_arm_target_x", 0)
+                cs_target_y = globals().get("optimus_arm_target_y", 0)
+                cs_start_ms = globals().get("optimus_arm_start_ms", 0)
+                cs_grabbed = globals().get("optimus_arm_grabbed_boss", False)
                 now_ms = pygame.time.get_ticks()
                 
                 # 강화된 기계손 색상
@@ -7128,7 +7665,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                     if cs_state == "windup":
                         # 윈드업: 팔을 뒤로 젖히기
                         elapsed = now_ms - cs_start_ms
-                        progress = min(1.0, elapsed / 500.0)  # CHOKESLAM_WINDUP_MS = 500
+                        progress = min(1.0, elapsed / 500.0)  # OPTIMUS_ARM_WINDUP_MS = 500
                         
                         windup_offset_x = int(25 * progress)
                         windup_offset_y = int(20 * progress)
@@ -7197,7 +7734,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                             
                             # 손바닥
                             hand_x, hand_y = int(prev_x), int(prev_y)
-                            hand_size = 60  # CHOKESLAM_HAND_SIZE
+                            hand_size = 60  # OPTIMUS_ARM_HAND_SIZE
                             
                             if cs_state == "grabbing" and cs_grabbed:
                                 # 닫힌 손
@@ -7221,7 +7758,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                                     pygame.draw.circle(surface, arm_accent_color, (finger_end_x, finger_end_y), 4)
                                 pygame.draw.ellipse(surface, arm_accent_color,
                                                   (hand_x - hand_size//2, hand_y - hand_size//3, hand_size, int(hand_size * 0.6)), 3)
-                        return  # early return - 초크슬램 중에는 일반 오른팔 그리지 않음
+                        return  # early return - 옵티머스 암 중에는 일반 오른팔 그리지 않음
         base_upper_len = 64   # 32→64
         base_fore_len = 60    # 30→60
 
@@ -7573,10 +8110,10 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                     # 애니메이션 완료 → 강화 완료 상태로 전환
                     globals()["optimus_mech_arm_upgrade_active"] = False
                     globals()["optimus_mech_arm_upgrade_complete"] = True
-                    globals()["chokeslam_available"] = True  # 초크슬램 스킬 활성화!
+                    globals()["optimus_arm_available"] = True  # 옵티머스 암 스킬 활성화!
                     mech_arm_upgraded = True
                     mech_arm_anim_active = False
-                    print("🦾 기계손 강화 완료! 초크슬램 스킬 사용 가능!")
+                    print("🦾 기계손 강화 완료! 옵티머스 암 스킬 사용 가능!")
 
             # 강화 애니메이션 진행 중일 때 조립 이펙트
             if mech_arm_anim_active and anim_progress > 0:
@@ -8424,9 +8961,9 @@ SMASHER_PADDLE_IMG = create_smasher_paddle_surface()
 OPTIMUS_PADDLE_IMG = create_optimus_paddle_surface()
 
 
-# ========== 초크슬램 스킬 UI 아이콘 및 핵심 함수들 ==========
-def create_chokeslam_skill_icon(size: int = 64) -> pygame.Surface:
-    """초크슬램 스킬 아이콘 생성 (기계팔 그림)"""
+# ========== 옵티머스 암 스킬 UI 아이콘 및 핵심 함수들 ==========
+def create_optimus_arm_skill_icon(size: int = 64) -> pygame.Surface:
+    """옵티머스 암 스킬 아이콘 생성 (기계팔 그림)"""
     icon = pygame.Surface((size, size), pygame.SRCALPHA)
     
     # 배경 원 (네온 청록색 테두리)
@@ -8485,9 +9022,9 @@ def create_chokeslam_skill_icon(size: int = 64) -> pygame.Surface:
     return icon
 
 
-def create_chokeslam_skill_icon_cooldown(size: int = 64, cooldown_ratio: float = 0.0) -> pygame.Surface:
-    """쿨타임 오버레이가 적용된 초크슬램 스킬 아이콘"""
-    icon = create_chokeslam_skill_icon(size)
+def create_optimus_arm_skill_icon_cooldown(size: int = 64, cooldown_ratio: float = 0.0) -> pygame.Surface:
+    """쿨타임 오버레이가 적용된 옵티머스 암 스킬 아이콘"""
+    icon = create_optimus_arm_skill_icon(size)
     
     if cooldown_ratio > 0:
         # 쿨타임 오버레이 (어두운 반투명 + 시계방향 sweep)
@@ -8520,7 +9057,7 @@ def create_chokeslam_skill_icon_cooldown(size: int = 64, cooldown_ratio: float =
         
         # 쿨타임 남은 시간 표시
         if cooldown_ratio > 0:
-            remaining_sec = int(CHOKESLAM_COOLDOWN_MS * cooldown_ratio / 1000) + 1
+            remaining_sec = int(OPTIMUS_ARM_COOLDOWN_MS * cooldown_ratio / 1000) + 1
             try:
                 cooldown_font = pygame.font.Font(None, 24)
                 text = cooldown_font.render(str(remaining_sec), True, (255, 255, 255))
@@ -8532,152 +9069,152 @@ def create_chokeslam_skill_icon_cooldown(size: int = 64, cooldown_ratio: float =
     return icon
 
 
-# 초크슬램 스킬 아이콘 캐시
-_chokeslam_icon_cache = None
-_chokeslam_icon_size = 64
+# 옵티머스 암 스킬 아이콘 캐시
+_optimus_arm_icon_cache = None
+_optimus_arm_icon_size = 64
 
 
-def get_chokeslam_skill_icon(size: int = 64) -> pygame.Surface:
-    """캐시된 초크슬램 스킬 아이콘 반환"""
-    global _chokeslam_icon_cache, _chokeslam_icon_size
-    if _chokeslam_icon_cache is None or _chokeslam_icon_size != size:
-        _chokeslam_icon_cache = create_chokeslam_skill_icon(size)
-        _chokeslam_icon_size = size
-    return _chokeslam_icon_cache
+def get_optimus_arm_skill_icon(size: int = 64) -> pygame.Surface:
+    """캐시된 옵티머스 암 스킬 아이콘 반환"""
+    global _optimus_arm_icon_cache, _optimus_arm_icon_size
+    if _optimus_arm_icon_cache is None or _optimus_arm_icon_size != size:
+        _optimus_arm_icon_cache = create_optimus_arm_skill_icon(size)
+        _optimus_arm_icon_size = size
+    return _optimus_arm_icon_cache
 
 
-def reset_chokeslam_state() -> None:
-    """초크슬램 상태 초기화"""
-    global chokeslam_available, chokeslam_cooldown_until_ms, chokeslam_state
-    global chokeslam_start_ms, chokeslam_arm_length, chokeslam_target_x, chokeslam_target_y
-    global chokeslam_grabbed_boss, chokeslam_throw_direction, chokeslam_boss_grabbed_x
-    global chokeslam_throw_start_ms, chokeslam_particles
+def reset_optimus_arm_state() -> None:
+    """옵티머스 암 상태 초기화"""
+    global optimus_arm_available, optimus_arm_cooldown_until_ms, optimus_arm_state
+    global optimus_arm_start_ms, optimus_arm_length, optimus_arm_target_x, optimus_arm_target_y
+    global optimus_arm_grabbed_boss, optimus_arm_throw_direction, optimus_arm_boss_grabbed_x
+    global optimus_arm_throw_start_ms, optimus_arm_particles
     
-    chokeslam_state = "idle"
-    chokeslam_start_ms = 0
-    chokeslam_arm_length = 0
-    chokeslam_target_x = 0
-    chokeslam_target_y = 0
-    chokeslam_grabbed_boss = False
-    chokeslam_throw_direction = 0
-    chokeslam_boss_grabbed_x = 0
-    chokeslam_throw_start_ms = 0
-    chokeslam_particles = []
+    optimus_arm_state = "idle"
+    optimus_arm_start_ms = 0
+    optimus_arm_length = 0
+    optimus_arm_target_x = 0
+    optimus_arm_target_y = 0
+    optimus_arm_grabbed_boss = False
+    optimus_arm_throw_direction = 0
+    optimus_arm_boss_grabbed_x = 0
+    optimus_arm_throw_start_ms = 0
+    optimus_arm_particles = []
 
 
-def can_use_chokeslam() -> bool:
-    """초크슬램 사용 가능 여부 확인"""
-    global chokeslam_available, chokeslam_cooldown_until_ms, chokeslam_state
-    
+def can_use_optimus_arm() -> bool:
+    """옵티머스 암 사용 가능 여부 확인"""
+    global optimus_arm_available, optimus_arm_cooldown_until_ms, optimus_arm_state
+
     # 옵티머스가 아니면 불가
     if globals().get("selected_character_type") != "optimus":
         return False
-    
-    # 기계손 강화가 완료되지 않았으면 불가
-    if not globals().get("optimus_mech_arm_upgrade_complete", False):
+
+    # 옵티머스 암이 해금되지 않았으면 불가 (스테이지 클리어 선택으로 해금)
+    if not optimus_arm_available:
         return False
-    
+
     # 이미 스킬 사용 중이면 불가
-    if chokeslam_state != "idle":
+    if optimus_arm_state != "idle":
         return False
     
     # 쿨타임 중이면 불가
     now_ms = pygame.time.get_ticks()
-    if now_ms < chokeslam_cooldown_until_ms:
+    if now_ms < optimus_arm_cooldown_until_ms:
         return False
     
     # 게이지 부족하면 불가
     current_gauge = globals().get("special_gauge", 0)
-    if current_gauge < CHOKESLAM_GAUGE_COST:
+    if current_gauge < OPTIMUS_ARM_GAUGE_COST:
         return False
     
     return True
 
 
-def start_chokeslam() -> bool:
-    """초크슬램 스킬 시전 시작"""
-    global chokeslam_state, chokeslam_start_ms, chokeslam_target_x, chokeslam_target_y
-    global chokeslam_arm_length, special_gauge, displayed_gauge
+def start_optimus_arm() -> bool:
+    """옵티머스 암 스킬 시전 시작"""
+    global optimus_arm_state, optimus_arm_start_ms, optimus_arm_target_x, optimus_arm_target_y
+    global optimus_arm_length, special_gauge, displayed_gauge
     
-    if not can_use_chokeslam():
+    if not can_use_optimus_arm():
         return False
     
     # 게이지 소모
     special_gauge = globals().get("special_gauge", 0)
-    special_gauge = max(0, special_gauge - CHOKESLAM_GAUGE_COST)
+    special_gauge = max(0, special_gauge - OPTIMUS_ARM_GAUGE_COST)
     globals()["special_gauge"] = special_gauge
     globals()["displayed_gauge"] = special_gauge
     
     # 보스 위치 저장 (시전 시점)
     boss_rect = globals().get("BOSS")
     if boss_rect:
-        chokeslam_target_x = boss_rect.centerx
-        chokeslam_target_y = boss_rect.centery
+        optimus_arm_target_x = boss_rect.centerx
+        optimus_arm_target_y = boss_rect.centery
     else:
-        chokeslam_target_x = WIDTH // 2
-        chokeslam_target_y = 100
+        optimus_arm_target_x = WIDTH // 2
+        optimus_arm_target_y = 100
     
     # 윈드업 시작
-    chokeslam_state = "windup"
-    chokeslam_start_ms = pygame.time.get_ticks()
-    chokeslam_arm_length = 0
+    optimus_arm_state = "windup"
+    optimus_arm_start_ms = pygame.time.get_ticks()
+    optimus_arm_length = 0
     
-    print(f"🦾 초크슬램 시전! 목표: ({chokeslam_target_x}, {chokeslam_target_y})")
+    print(f"🦾 옵티머스 암 시전! 목표: ({optimus_arm_target_x}, {optimus_arm_target_y})")
     return True
 
 
-def update_chokeslam() -> None:
-    """초크슬램 상태 업데이트 (매 프레임 호출)"""
-    global chokeslam_state, chokeslam_start_ms, chokeslam_arm_length
-    global chokeslam_grabbed_boss, chokeslam_throw_direction, chokeslam_boss_grabbed_x
-    global chokeslam_cooldown_until_ms, chokeslam_particles, chokeslam_throw_start_ms
+def update_optimus_arm() -> None:
+    """옵티머스 암 상태 업데이트 (매 프레임 호출)"""
+    global optimus_arm_state, optimus_arm_start_ms, optimus_arm_length
+    global optimus_arm_grabbed_boss, optimus_arm_throw_direction, optimus_arm_boss_grabbed_x
+    global optimus_arm_cooldown_until_ms, optimus_arm_particles, optimus_arm_throw_start_ms
     global boss_stunned_timer, boss_knockback_vel
     
-    if chokeslam_state == "idle":
+    if optimus_arm_state == "idle":
         return
     
     now_ms = pygame.time.get_ticks()
-    elapsed_ms = now_ms - chokeslam_start_ms
+    elapsed_ms = now_ms - optimus_arm_start_ms
     player_rect = globals().get("PLAYER")
     boss_rect = globals().get("BOSS")
     
-    if chokeslam_state == "windup":
+    if optimus_arm_state == "windup":
         # 0.5초 동안 팔 젖히기
-        if elapsed_ms >= CHOKESLAM_WINDUP_MS:
-            chokeslam_state = "reaching"
-            chokeslam_start_ms = now_ms
-            chokeslam_arm_length = 0
-            print("🦾 초크슬램: 팔 뻗기 시작!")
+        if elapsed_ms >= OPTIMUS_ARM_WINDUP_MS:
+            optimus_arm_state = "reaching"
+            optimus_arm_start_ms = now_ms
+            optimus_arm_length = 0
+            print("🦾 옵티머스 암: 팔 뻗기 시작!")
     
-    elif chokeslam_state == "reaching":
+    elif optimus_arm_state == "reaching":
         # 팔 뻗기 - 보스 위치를 향해
         if player_rect:
             start_y = player_rect.top
-            target_distance = abs(chokeslam_target_y - start_y)
-            chokeslam_arm_length += CHOKESLAM_REACH_SPEED
+            target_distance = abs(optimus_arm_target_y - start_y)
+            optimus_arm_length += OPTIMUS_ARM_REACH_SPEED
             
             # 보스와 충돌 체크
-            if boss_rect and chokeslam_arm_length >= target_distance * 0.8:
+            if boss_rect and optimus_arm_length >= target_distance * 0.8:
                 # 손이 보스 위치에 도달
-                hand_y = start_y - chokeslam_arm_length
+                hand_y = start_y - optimus_arm_length
                 hand_rect = pygame.Rect(
-                    player_rect.centerx - CHOKESLAM_HAND_SIZE // 2,
-                    hand_y - CHOKESLAM_HAND_SIZE // 2,
-                    CHOKESLAM_HAND_SIZE,
-                    CHOKESLAM_HAND_SIZE
+                    player_rect.centerx - OPTIMUS_ARM_HAND_SIZE // 2,
+                    hand_y - OPTIMUS_ARM_HAND_SIZE // 2,
+                    OPTIMUS_ARM_HAND_SIZE,
+                    OPTIMUS_ARM_HAND_SIZE
                 )
                 
                 if hand_rect.colliderect(boss_rect):
                     # 보스 잡기 성공!
-                    chokeslam_state = "grabbing"
-                    chokeslam_start_ms = now_ms
-                    chokeslam_grabbed_boss = True
-                    chokeslam_boss_grabbed_x = boss_rect.centerx
-                    print("🦾 초크슬램: 보스 잡기 성공!")
+                    optimus_arm_state = "grabbing"
+                    optimus_arm_start_ms = now_ms
+                    optimus_arm_grabbed_boss = True
+                    optimus_arm_boss_grabbed_x = boss_rect.centerx
+                    print("🦾 옵티머스 암: 보스 잡기 성공!")
                     
                     # 잡기 파티클 생성
                     for _ in range(15):
-                        chokeslam_particles.append({
+                        optimus_arm_particles.append({
                             'x': boss_rect.centerx,
                             'y': boss_rect.centery,
                             'vx': random.uniform(-5, 5),
@@ -8688,23 +9225,23 @@ def update_chokeslam() -> None:
                     return
             
             # 그랩 실패 (타임아웃)
-            if elapsed_ms >= CHOKESLAM_GRAB_TIMEOUT_MS:
-                chokeslam_state = "returning"
-                chokeslam_start_ms = now_ms
-                print("🦾 초크슬램: 그랩 실패, 팔 복귀")
+            if elapsed_ms >= OPTIMUS_ARM_GRAB_TIMEOUT_MS:
+                optimus_arm_state = "returning"
+                optimus_arm_start_ms = now_ms
+                print("🦾 옵티머스 암: 그랩 실패, 팔 복귀")
     
-    elif chokeslam_state == "grabbing":
+    elif optimus_arm_state == "grabbing":
         # 보스를 잡고 있는 상태 - 좌우키 입력 대기
         # 3초 이상 아무 입력 없으면 자동 해제
         if elapsed_ms >= 3000:
-            chokeslam_state = "returning"
-            chokeslam_start_ms = now_ms
-            chokeslam_grabbed_boss = False
-            print("🦾 초크슬램: 그랩 타임아웃")
+            optimus_arm_state = "returning"
+            optimus_arm_start_ms = now_ms
+            optimus_arm_grabbed_boss = False
+            print("🦾 옵티머스 암: 그랩 타임아웃")
     
-    elif chokeslam_state == "throwing":
+    elif optimus_arm_state == "throwing":
         # 던지기 애니메이션
-        throw_elapsed = now_ms - chokeslam_throw_start_ms
+        throw_elapsed = now_ms - optimus_arm_throw_start_ms
         throw_duration = 400  # 던지기 애니메이션 0.4초
         
         if throw_elapsed < throw_duration and boss_rect:
@@ -8712,7 +9249,7 @@ def update_chokeslam() -> None:
             progress = throw_elapsed / throw_duration
             eased = 1 - (1 - progress) ** 3  # ease-out cubic
             
-            target_x = chokeslam_boss_grabbed_x + (chokeslam_throw_direction * CHOKESLAM_THROW_POWER * eased)
+            target_x = optimus_arm_boss_grabbed_x + (optimus_arm_throw_direction * OPTIMUS_ARM_THROW_POWER * eased)
             target_x = max(50, min(WIDTH - 50, target_x))
             
             boss_rect.centerx = int(target_x)
@@ -8720,10 +9257,10 @@ def update_chokeslam() -> None:
             
             # 던지기 파티클
             if random.random() < 0.5:
-                chokeslam_particles.append({
+                optimus_arm_particles.append({
                     'x': boss_rect.centerx,
                     'y': boss_rect.centery,
-                    'vx': -chokeslam_throw_direction * random.uniform(2, 6),
+                    'vx': -optimus_arm_throw_direction * random.uniform(2, 6),
                     'vy': random.uniform(-2, 2),
                     'life': 20,
                     'color': (255, 200, 100)
@@ -8731,13 +9268,13 @@ def update_chokeslam() -> None:
         else:
             # 던지기 완료 - 보스 스턴
             boss_stunned_timer = globals().get("boss_stunned_timer", 0)
-            stun_frames = int(CHOKESLAM_THROW_STUN_MS / 1000 * 60)
+            stun_frames = int(OPTIMUS_ARM_THROW_STUN_MS / 1000 * 60)
             globals()["boss_stunned_timer"] = max(boss_stunned_timer, stun_frames)
             
             # 충격 파티클
             if boss_rect:
                 for _ in range(25):
-                    chokeslam_particles.append({
+                    optimus_arm_particles.append({
                         'x': boss_rect.centerx,
                         'y': boss_rect.centery,
                         'vx': random.uniform(-8, 8),
@@ -8746,87 +9283,87 @@ def update_chokeslam() -> None:
                         'color': (255, 100, 50)
                     })
             
-            chokeslam_state = "returning"
-            chokeslam_start_ms = now_ms
-            print(f"🦾 초크슬램: 던지기 완료! 보스 {stun_frames}프레임 스턴!")
+            optimus_arm_state = "returning"
+            optimus_arm_start_ms = now_ms
+            print(f"🦾 옵티머스 암: 던지기 완료! 보스 {stun_frames}프레임 스턴!")
     
-    elif chokeslam_state == "returning":
+    elif optimus_arm_state == "returning":
         # 팔 복귀
-        chokeslam_arm_length -= CHOKESLAM_REACH_SPEED * 1.5
-        if chokeslam_arm_length <= 0:
+        optimus_arm_length -= OPTIMUS_ARM_REACH_SPEED * 1.5
+        if optimus_arm_length <= 0:
             # 스킬 종료
-            chokeslam_state = "idle"
-            chokeslam_cooldown_until_ms = now_ms + CHOKESLAM_COOLDOWN_MS
-            chokeslam_grabbed_boss = False
-            print(f"🦾 초크슬램: 스킬 종료, 쿨타임 {CHOKESLAM_COOLDOWN_MS}ms")
+            optimus_arm_state = "idle"
+            optimus_arm_cooldown_until_ms = now_ms + OPTIMUS_ARM_COOLDOWN_MS
+            optimus_arm_grabbed_boss = False
+            print(f"🦾 옵티머스 암: 스킬 종료, 쿨타임 {OPTIMUS_ARM_COOLDOWN_MS}ms")
     
     # 파티클 업데이트
-    for p in chokeslam_particles[:]:
+    for p in optimus_arm_particles[:]:
         p['x'] += p['vx']
         p['y'] += p['vy']
         p['life'] -= 1
         if p['life'] <= 0:
-            chokeslam_particles.remove(p)
+            optimus_arm_particles.remove(p)
 
 
-def handle_chokeslam_throw_input(direction: int) -> bool:
-    """초크슬램 던지기 입력 처리 (direction: -1=왼쪽, 1=오른쪽)"""
-    global chokeslam_state, chokeslam_throw_direction, chokeslam_throw_start_ms
+def handle_optimus_arm_throw_input(direction: int) -> bool:
+    """옵티머스 암 던지기 입력 처리 (direction: -1=왼쪽, 1=오른쪽)"""
+    global optimus_arm_state, optimus_arm_throw_direction, optimus_arm_throw_start_ms
     
-    if chokeslam_state != "grabbing" or not chokeslam_grabbed_boss:
+    if optimus_arm_state != "grabbing" or not optimus_arm_grabbed_boss:
         return False
     
-    chokeslam_throw_direction = direction
-    chokeslam_throw_start_ms = pygame.time.get_ticks()
-    chokeslam_state = "throwing"
+    optimus_arm_throw_direction = direction
+    optimus_arm_throw_start_ms = pygame.time.get_ticks()
+    optimus_arm_state = "throwing"
     
     direction_name = "왼쪽" if direction < 0 else "오른쪽"
-    print(f"🦾 초크슬램: {direction_name}으로 던지기!")
+    print(f"🦾 옵티머스 암: {direction_name}으로 던지기!")
     return True
 
 
-def draw_chokeslam_skill_ui(surface: pygame.Surface) -> None:
-    """초크슬램 스킬 UI 렌더링 (좌측 하단)"""
+def draw_optimus_arm_skill_ui(surface: pygame.Surface) -> None:
+    """옵티머스 암 스킬 UI 렌더링 (좌측 하단)"""
     # 디버그: 함수 호출 확인
-    global _chokeslam_ui_debug_counter
-    if '_chokeslam_ui_debug_counter' not in dir():
-        _chokeslam_ui_debug_counter = 0
-    _chokeslam_ui_debug_counter = globals().get("_chokeslam_ui_debug_counter", 0) + 1
-    if _chokeslam_ui_debug_counter % 60 == 1:  # 1초마다 출력
+    global _optimus_arm_ui_debug_counter
+    if '_optimus_arm_ui_debug_counter' not in dir():
+        _optimus_arm_ui_debug_counter = 0
+    _optimus_arm_ui_debug_counter = globals().get("_optimus_arm_ui_debug_counter", 0) + 1
+    if _optimus_arm_ui_debug_counter % 60 == 1:  # 1초마다 출력
         char_type = globals().get("selected_character_type", "unknown")
         mech_complete = globals().get("optimus_mech_arm_upgrade_complete", False)
-        print(f"[DEBUG] draw_chokeslam_skill_ui 호출됨 - char:{char_type}, mech_arm:{mech_complete}, HEIGHT:{HEIGHT}")
-    globals()["_chokeslam_ui_debug_counter"] = _chokeslam_ui_debug_counter
+        print(f"[DEBUG] draw_optimus_arm_skill_ui 호출됨 - char:{char_type}, mech_arm:{mech_complete}, HEIGHT:{HEIGHT}")
+    globals()["_optimus_arm_ui_debug_counter"] = _optimus_arm_ui_debug_counter
     
     # 옵티머스가 아니면 표시 안 함
     if globals().get("selected_character_type") != "optimus":
         return
     
-    # 기계손 강화 완료 여부 체크
-    mech_arm_complete = globals().get("optimus_mech_arm_upgrade_complete", False)
-    
+    # 옵티머스 암 해금 여부 체크 (스테이지 클리어 선택으로 해금)
+    arm_unlocked = optimus_arm_available
+
     # UI 위치 (좌측 하단) - 코만도 화기류 UI와 유사한 위치
     slot_size = 60
     slot_margin = 10
     bottom_margin = 80  # 화면 하단에서 여백
-    
+
     icon_size = int(slot_size * 0.8)  # 48px
     ui_x = slot_margin
     ui_y = HEIGHT - bottom_margin - slot_size - icon_size + 15  # 코만도와 동일한 계산
-    
+
     # 디버그: UI 위치 확인
-    if _chokeslam_ui_debug_counter % 60 == 1:
-        print(f"[DEBUG] 초크슬램 UI 위치: x={ui_x}, y={ui_y}, icon_size={icon_size}")
-    
+    if _optimus_arm_ui_debug_counter % 60 == 1:
+        print(f"[DEBUG] 옵티머스 암 UI 위치: x={ui_x}, y={ui_y}, icon_size={icon_size}")
+
     now_ms = pygame.time.get_ticks()
-    
+
     # 쿨타임 계산
-    cooldown_remaining = max(0, chokeslam_cooldown_until_ms - now_ms)
-    cooldown_ratio = cooldown_remaining / CHOKESLAM_COOLDOWN_MS if CHOKESLAM_COOLDOWN_MS > 0 else 0
-    
+    cooldown_remaining = max(0, optimus_arm_cooldown_until_ms - now_ms)
+    cooldown_ratio = cooldown_remaining / OPTIMUS_ARM_COOLDOWN_MS if OPTIMUS_ARM_COOLDOWN_MS > 0 else 0
+
     # 아이콘 그리기
-    if not mech_arm_complete:
-        # 기계손 강화 전: 잠금 상태 아이콘
+    if not arm_unlocked:
+        # 옵티머스 암 미해금: 잠금 상태 아이콘
         icon = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
         pygame.draw.rect(icon, (40, 40, 50), (0, 0, icon_size, icon_size), border_radius=8)
         pygame.draw.rect(icon, (80, 80, 90), (0, 0, icon_size, icon_size), 3, border_radius=8)
@@ -8835,37 +9372,37 @@ def draw_chokeslam_skill_ui(surface: pygame.Surface) -> None:
         pygame.draw.rect(icon, (100, 100, 110), (lock_x - 10, lock_y - 5, 20, 18), border_radius=3)
         pygame.draw.arc(icon, (100, 100, 110), (lock_x - 8, lock_y - 18, 16, 20), 0, 3.14, 3)
     elif cooldown_ratio > 0:
-        icon = create_chokeslam_skill_icon_cooldown(icon_size, cooldown_ratio)
+        icon = create_optimus_arm_skill_icon_cooldown(icon_size, cooldown_ratio)
     else:
-        icon = get_chokeslam_skill_icon(icon_size)
-        
+        icon = get_optimus_arm_skill_icon(icon_size)
+
         # 사용 가능할 때 글로우 효과
-        if can_use_chokeslam():
+        if can_use_optimus_arm():
             glow = pygame.Surface((icon_size + 10, icon_size + 10), pygame.SRCALPHA)
-            pygame.draw.circle(glow, (120, 235, 255, 80), 
+            pygame.draw.circle(glow, (120, 235, 255, 80),
                              (icon_size // 2 + 5, icon_size // 2 + 5), icon_size // 2 + 5)
             surface.blit(glow, (ui_x - 5, ui_y - 5))
-    
+
     surface.blit(icon, (ui_x, ui_y))
-    
+
     # 스킬 이름 표시
     try:
         skill_font = pygame.font.Font(None, 18)
-        if not mech_arm_complete:
+        if not arm_unlocked:
             name_text = skill_font.render("???", True, (100, 100, 100))
         else:
-            name_text = skill_font.render("초크슬램", True, (255, 255, 255))
+            name_text = skill_font.render("옵티머스 암", True, (255, 255, 255))
         name_rect = name_text.get_rect(centerx=ui_x + icon_size // 2, top=ui_y + icon_size + 4)
         surface.blit(name_text, name_rect)
         
         # 키 힌트
-        hint_color = (200, 200, 200) if can_use_chokeslam() else (100, 100, 100)
+        hint_color = (200, 200, 200) if can_use_optimus_arm() else (100, 100, 100)
         hint_text = skill_font.render("[클릭]", True, hint_color)
         hint_rect = hint_text.get_rect(centerx=ui_x + icon_size // 2, top=name_rect.bottom + 2)
         surface.blit(hint_text, hint_rect)
         
         # 그랩 중일 때 방향키 힌트
-        if chokeslam_state == "grabbing" and chokeslam_grabbed_boss:
+        if optimus_arm_state == "grabbing" and optimus_arm_grabbed_boss:
             grab_hint = skill_font.render("←/→ 던지기!", True, (255, 200, 50))
             grab_rect = grab_hint.get_rect(centerx=ui_x + icon_size // 2, top=hint_rect.bottom + 2)
             surface.blit(grab_hint, grab_rect)
@@ -8874,19 +9411,19 @@ def draw_chokeslam_skill_ui(surface: pygame.Surface) -> None:
     
     # 게이지 부족 표시
     current_gauge = globals().get("special_gauge", 0)
-    if current_gauge < CHOKESLAM_GAUGE_COST and cooldown_ratio <= 0:
+    if current_gauge < OPTIMUS_ARM_GAUGE_COST and cooldown_ratio <= 0:
         try:
             warn_font = pygame.font.Font(None, 14)
-            warn_text = warn_font.render(f"게이지 {CHOKESLAM_GAUGE_COST} 필요", True, (255, 100, 100))
+            warn_text = warn_font.render(f"게이지 {OPTIMUS_ARM_GAUGE_COST} 필요", True, (255, 100, 100))
             warn_rect = warn_text.get_rect(centerx=ui_x + icon_size // 2, top=ui_y - 16)
             surface.blit(warn_text, warn_rect)
         except:
             pass
 
 
-def draw_chokeslam_arm(surface: pygame.Surface) -> None:
-    """초크슬램 팔 애니메이션 렌더링 (화면 좌표계에 직접 그림)"""
-    if chokeslam_state == "idle":
+def draw_optimus_arm(surface: pygame.Surface) -> None:
+    """옵티머스 암 팔 애니메이션 렌더링 (화면 좌표계에 직접 그림)"""
+    if optimus_arm_state == "idle":
         return
     
     player_rect = globals().get("PLAYER")
@@ -8898,8 +9435,8 @@ def draw_chokeslam_arm(surface: pygame.Surface) -> None:
     start_y = player_rect.top + 15
     
     # 목표 지점 (보스 위치)
-    target_x = chokeslam_target_x
-    target_y = chokeslam_target_y
+    target_x = optimus_arm_target_x
+    target_y = optimus_arm_target_y
     
     now_ms = pygame.time.get_ticks()
     
@@ -8908,10 +9445,10 @@ def draw_chokeslam_arm(surface: pygame.Surface) -> None:
     arm_accent_color = (255, 180, 100)  # 오렌지
     arm_glow_color = (120, 235, 255)    # 시안
     
-    if chokeslam_state == "windup":
+    if optimus_arm_state == "windup":
         # 윈드업: 팔을 뒤로 젖히는 애니메이션
-        elapsed = now_ms - chokeslam_start_ms
-        progress = min(1.0, elapsed / CHOKESLAM_WINDUP_MS)
+        elapsed = now_ms - optimus_arm_start_ms
+        progress = min(1.0, elapsed / OPTIMUS_ARM_WINDUP_MS)
         
         # 팔이 뒤로 젖혀지는 효과 (오른쪽 아래로)
         windup_offset_x = int(35 * progress)
@@ -8921,17 +9458,17 @@ def draw_chokeslam_arm(surface: pygame.Surface) -> None:
         arm_end_y = start_y + windup_offset_y
         
         # 팔 그리기
-        pygame.draw.line(surface, arm_base_color, (start_x, start_y), (arm_end_x, arm_end_y), CHOKESLAM_ARM_WIDTH)
+        pygame.draw.line(surface, arm_base_color, (start_x, start_y), (arm_end_x, arm_end_y), OPTIMUS_ARM_WIDTH)
         pygame.draw.line(surface, arm_accent_color, (start_x, start_y), (arm_end_x, arm_end_y), 6)
         
         # 손
-        hand_size = CHOKESLAM_HAND_SIZE // 2
+        hand_size = OPTIMUS_ARM_HAND_SIZE // 2
         pygame.draw.circle(surface, arm_base_color, (arm_end_x, arm_end_y), hand_size)
         pygame.draw.circle(surface, arm_accent_color, (arm_end_x, arm_end_y), hand_size, 3)
     
-    elif chokeslam_state in ("reaching", "returning", "grabbing", "throwing"):
+    elif optimus_arm_state in ("reaching", "returning", "grabbing", "throwing"):
         # 팔 뻗기/복귀
-        arm_length = max(0, chokeslam_arm_length)
+        arm_length = max(0, optimus_arm_length)
         
         if arm_length > 0:
             # 어깨에서 목표까지의 방향 계산
@@ -8965,7 +9502,7 @@ def draw_chokeslam_arm(surface: pygame.Surface) -> None:
                 if i > 0:
                     # 팔 세그먼트
                     pygame.draw.line(surface, arm_base_color, 
-                                   (int(prev_x), int(prev_y)), (int(seg_x), int(seg_y)), CHOKESLAM_ARM_WIDTH)
+                                   (int(prev_x), int(prev_y)), (int(seg_x), int(seg_y)), OPTIMUS_ARM_WIDTH)
                     pygame.draw.line(surface, arm_accent_color, 
                                    (int(prev_x), int(prev_y)), (int(seg_x), int(seg_y)), 6)
                     
@@ -8978,9 +9515,9 @@ def draw_chokeslam_arm(surface: pygame.Surface) -> None:
             
             # 손바닥 그리기
             hand_x, hand_y = int(prev_x), int(prev_y)
-            hand_size = CHOKESLAM_HAND_SIZE
+            hand_size = OPTIMUS_ARM_HAND_SIZE
             
-            if chokeslam_state == "grabbing" and chokeslam_grabbed_boss:
+            if optimus_arm_state == "grabbing" and optimus_arm_grabbed_boss:
                 # 잡고 있는 상태 - 닫힌 손
                 pygame.draw.ellipse(surface, arm_base_color, 
                                   (hand_x - hand_size//2, hand_y - hand_size//2, hand_size, int(hand_size * 0.8)))
@@ -9006,7 +9543,7 @@ def draw_chokeslam_arm(surface: pygame.Surface) -> None:
                                   (hand_x - hand_size//2, hand_y - hand_size//3, hand_size, int(hand_size * 0.6)), 3)
     
     # 파티클 렌더링
-    for p in chokeslam_particles:
+    for p in optimus_arm_particles:
         alpha = int(255 * (p['life'] / 40))
         if alpha > 0:
             color = (*p['color'][:3], min(255, alpha))
@@ -35434,8 +35971,8 @@ def handle_player(keys):
     set_roll = _rolling_set
 
     update_optimus_energy()
-    # 초크슬램 스킬 업데이트
-    update_chokeslam()
+    # 옵티머스 암 스킬 업데이트
+    update_optimus_arm()
     
     optimus_drain_locked = globals().get("optimus_drained", False)
     if optimus_drain_locked:
@@ -35998,12 +36535,12 @@ def handle_player(keys):
                 pass
             optimus_charge_shockwave_at_ms = 0
     
-    # 옵티머스 초크슬램 던지기 입력 처리 (잡기 상태에서 좌/우 방향키)
-    if selected_character_type == "optimus" and chokeslam_state == "grabbing" and chokeslam_grabbed_boss:
+    # 옵티머스 옵티머스 암 던지기 입력 처리 (잡기 상태에서 좌/우 방향키)
+    if selected_character_type == "optimus" and optimus_arm_state == "grabbing" and optimus_arm_grabbed_boss:
         if left_pressed_raw and not right_pressed_raw:
-            handle_chokeslam_throw_input(-1)  # 왼쪽으로 던지기
+            handle_optimus_arm_throw_input(-1)  # 왼쪽으로 던지기
         elif right_pressed_raw and not left_pressed_raw:
-            handle_chokeslam_throw_input(1)   # 오른쪽으로 던지기
+            handle_optimus_arm_throw_input(1)   # 오른쪽으로 던지기
     
     # 물자보급 스킬 처리 (코만도 캐릭터 전용)
     
@@ -38838,18 +39375,18 @@ def handle_player(keys):
         if bazooka_recoil_timer > 0:
             bazooka_recoil_timer -= 1
 
-    # 옵티머스 초크슬램 마우스 좌클릭 발동 처리
+    # 옵티머스 옵티머스 암 마우스 좌클릭 발동 처리
     if selected_character_type == "optimus":
         try:
-            _chokeslam_mb = pygame.mouse.get_pressed()
-            if _chokeslam_mb and _chokeslam_mb[0]:  # 좌클릭
+            _optimus_arm_mb = pygame.mouse.get_pressed()
+            if _optimus_arm_mb and _optimus_arm_mb[0]:  # 좌클릭
                 # 이전 프레임에 클릭이 없었고 지금 클릭이 있으면 발동
-                if not globals().get("_chokeslam_mb_prev", False):
-                    if can_use_chokeslam():
-                        start_chokeslam()
-                globals()["_chokeslam_mb_prev"] = True
+                if not globals().get("_optimus_arm_mb_prev", False):
+                    if can_use_optimus_arm():
+                        start_optimus_arm()
+                globals()["_optimus_arm_mb_prev"] = True
             else:
-                globals()["_chokeslam_mb_prev"] = False
+                globals()["_optimus_arm_mb_prev"] = False
         except Exception as e:
             pass
     
@@ -43360,7 +43897,7 @@ def draw_overlay_ui() -> None:
             if _optimus_ui_debug_cnt % 60 == 1:
                 print(f"[DEBUG] draw_overlay_ui: optimus 조건 진입, new_boss_mode={new_boss_mode_active}")
             globals()["_optimus_ui_debug_cnt"] = _optimus_ui_debug_cnt
-            draw_chokeslam_skill_ui(SCREEN)
+            draw_optimus_arm_skill_ui(SCREEN)
 
         if selected_character_type == "soldier":
             draw_supply_drop_system(SCREEN)
@@ -49703,7 +50240,7 @@ def draw_player_gauge():
 
 
     # 홀리베리어 가로형 타이머 게이지 (금색/신성한 톤)
-    if is_holy_barrier_active():
+    if holy_barrier_module.is_holy_barrier_active():
         v_width = 150
         v_height = 12
         base_x = WIDTH - v_width - 16
@@ -53950,7 +54487,7 @@ def draw_objects():
     draw_technical_vest_effects(SCREEN)
 
     # 홀리베리어 효과 그리기 (플레이어 뒤쪽 방벽)
-    if is_holy_barrier_active():
+    if holy_barrier_module.is_holy_barrier_active():
         draw_holy_barrier_effects(SCREEN)
 
     # 레이저스코프 궤적 그리기
@@ -57481,6 +58018,771 @@ def run_downtown_hub(next_stage_display: int) -> None:
     except Exception as err:  # 방어적: 광장 모듈 문제 시 다음 스테이지로 바로 이동
         print(f"[WARN] downtown hub skipped: {err}")
 
+
+# ========== 스테이지 클리어 선택지 UI (뱀파이어 서바이벌 스타일) ==========
+# 오버레이 방식 - 메인 화면 위에 멋있게 등장
+stage_choice_overlay_active = False
+stage_choice_overlay_frame = 0
+stage_choice_overlay_phase = "waiting"  # waiting, appearing, active, selected
+stage_choice_overlay_start_time = 0
+stage_choice_selected_result = None
+stage_choice_card_offsets = [0, 0, 0]  # 카드 슬라이드 오프셋
+stage_choice_particles = []  # 파티클 이펙트
+
+def init_stage_choice_overlay(background_surface: pygame.Surface) -> None:
+    """스테이지 클리어 선택지 오버레이 초기화 (점수 표시 후 1초 뒤 호출)"""
+    global stage_clear_choices_active, stage_clear_selected_index
+    global stage_clear_choices_list, stage_clear_choices_shown
+    global stage_choice_overlay_active, stage_choice_overlay_frame
+    global stage_choice_overlay_phase, stage_choice_overlay_start_time
+    global stage_choice_selected_result, stage_choice_card_offsets
+    global stage_choice_particles, stage_choice_background
+
+    # 현재 캐릭터 타입 확인
+    character_type = globals().get("selected_character_type", "normal")
+
+    # 사용 가능한 선택지 가져오기
+    stage_clear_choices_list = get_available_stage_choices(character_type)
+
+    if not stage_clear_choices_list:
+        return
+
+    # 배경 저장
+    stage_choice_background = background_surface.copy()
+
+    stage_clear_choices_active = True
+    stage_clear_selected_index = 1  # 가운데 카드 기본 선택
+    stage_clear_choices_shown = True
+    stage_choice_overlay_active = True
+    stage_choice_overlay_frame = 0
+    stage_choice_overlay_phase = "appearing"
+    stage_choice_overlay_start_time = pygame.time.get_ticks()
+    stage_choice_selected_result = None
+    stage_choice_card_offsets = [-400, 600, -400]  # 왼쪽/아래/오른쪽에서 등장
+    stage_choice_particles = []
+
+    # 등장 파티클 생성
+    for _ in range(30):
+        stage_choice_particles.append({
+            'x': random.randint(0, WIDTH),
+            'y': random.randint(0, HEIGHT),
+            'vx': random.uniform(-1, 1),
+            'vy': random.uniform(-2, -0.5),
+            'size': random.uniform(2, 5),
+            'alpha': random.randint(100, 200),
+            'color': random.choice([(100, 200, 255), (255, 220, 100), (150, 255, 150)])
+        })
+
+
+def update_stage_choice_overlay() -> str | None:
+    """선택지 오버레이 업데이트 및 입력 처리. 선택 완료 시 choice_id 반환."""
+    global stage_clear_choices_active, stage_clear_selected_index
+    global stage_choice_overlay_active, stage_choice_overlay_frame
+    global stage_choice_overlay_phase, stage_choice_selected_result
+    global stage_choice_card_offsets, stage_choice_particles
+
+    if not stage_choice_overlay_active:
+        return None
+
+    stage_choice_overlay_frame += 1
+
+    # 파티클 업데이트
+    for p in stage_choice_particles:
+        p['x'] += p['vx']
+        p['y'] += p['vy']
+        p['alpha'] = max(0, p['alpha'] - 1)
+    stage_choice_particles = [p for p in stage_choice_particles if p['alpha'] > 0]
+
+    # 등장 애니메이션 (카드가 위치로 슬라이드)
+    if stage_choice_overlay_phase == "appearing":
+        # 부드러운 이징으로 카드 등장
+        easing = 0.15
+        stage_choice_card_offsets[0] += (0 - stage_choice_card_offsets[0]) * easing  # 왼쪽에서
+        stage_choice_card_offsets[1] += (0 - stage_choice_card_offsets[1]) * easing  # 아래에서
+        stage_choice_card_offsets[2] += (0 - stage_choice_card_offsets[2]) * easing  # 오른쪽에서
+
+        # 모든 카드가 거의 제자리에 도착하면 active 상태로
+        if all(abs(offset) < 5 for offset in stage_choice_card_offsets):
+            stage_choice_card_offsets = [0, 0, 0]
+            stage_choice_overlay_phase = "active"
+
+    # 선택 완료 애니메이션
+    elif stage_choice_overlay_phase == "selected":
+        # 선택된 카드는 확대, 나머지는 페이드아웃
+        if stage_choice_overlay_frame > 30:  # 0.5초 후 종료
+            stage_choice_overlay_active = False
+            stage_clear_choices_active = False
+            return stage_choice_selected_result
+
+    # 이벤트 처리 (active 상태일 때만)
+    if stage_choice_overlay_phase == "active":
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                if event.key in [pygame.K_LEFT, pygame.K_a]:
+                    stage_clear_selected_index = (stage_clear_selected_index - 1) % 3
+                    try:
+                        if sound_effects.get("MENU_SELECT"):
+                            sound_effects["MENU_SELECT"].play()
+                    except Exception:
+                        pass
+
+                elif event.key in [pygame.K_RIGHT, pygame.K_d]:
+                    stage_clear_selected_index = (stage_clear_selected_index + 1) % 3
+                    try:
+                        if sound_effects.get("MENU_SELECT"):
+                            sound_effects["MENU_SELECT"].play()
+                    except Exception:
+                        pass
+
+                elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
+                    _select_stage_choice()
+
+            elif event.type == pygame.MOUSEMOTION:
+                _handle_mouse_hover(event.pos)
+
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                _handle_mouse_click(event.pos)
+    else:
+        # appearing/selected 상태에서는 이벤트만 소비
+        pygame.event.get()
+
+    return None
+
+
+def _select_stage_choice() -> None:
+    """현재 선택된 선택지 확정"""
+    global stage_choice_overlay_phase, stage_choice_overlay_frame
+    global stage_choice_selected_result, stage_choice_particles
+
+    selected_choice = stage_clear_choices_list[stage_clear_selected_index]
+
+    # 빈 슬롯은 선택 불가
+    if selected_choice["id"].startswith("empty_"):
+        return
+
+    try:
+        if sound_effects.get("MENU_CONFIRM"):
+            sound_effects["MENU_CONFIRM"].play()
+    except Exception:
+        pass
+
+    apply_stage_choice_effect(selected_choice["id"])
+    stage_choice_selected_result = selected_choice["id"]
+    stage_choice_overlay_phase = "selected"
+    stage_choice_overlay_frame = 0
+
+    # 선택 파티클 폭발 효과
+    card_center_x = WIDTH // 2 + (stage_clear_selected_index - 1) * 250
+    card_center_y = HEIGHT // 2
+    for _ in range(50):
+        angle = random.uniform(0, math.pi * 2)
+        speed = random.uniform(3, 10)
+        stage_choice_particles.append({
+            'x': card_center_x,
+            'y': card_center_y,
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'size': random.uniform(3, 8),
+            'alpha': 255,
+            'color': selected_choice["icon_color"]
+        })
+
+
+def _handle_mouse_hover(pos: tuple) -> None:
+    """마우스 호버 처리"""
+    global stage_clear_selected_index
+    mx, my = pos
+    card_width, card_height = 230, 120
+    card_gap = 20
+    total_width = card_width * 3 + card_gap * 2
+    start_x = (WIDTH - total_width) // 2
+    vertical_y = HEIGHT // 2 - card_height // 2
+
+    for i in range(3):
+        card_x = start_x + i * (card_width + card_gap)
+        card_rect = pygame.Rect(card_x, vertical_y, card_width, card_height)
+        if card_rect.collidepoint(mx, my):
+            if stage_clear_selected_index != i:
+                stage_clear_selected_index = i
+                try:
+                    if sound_effects.get("MENU_SELECT"):
+                        sound_effects["MENU_SELECT"].play()
+                except Exception:
+                    pass
+            break
+
+
+def _handle_mouse_click(pos: tuple) -> None:
+    """마우스 클릭 처리"""
+    mx, my = pos
+    card_width, card_height = 230, 120
+    card_gap = 20
+    total_width = card_width * 3 + card_gap * 2
+    start_x = (WIDTH - total_width) // 2
+    vertical_y = HEIGHT // 2 - card_height // 2
+
+    for i in range(3):
+        card_x = start_x + i * (card_width + card_gap)
+        card_rect = pygame.Rect(card_x, vertical_y, card_width, card_height)
+        if card_rect.collidepoint(mx, my):
+            global stage_clear_selected_index
+            stage_clear_selected_index = i
+            _select_stage_choice()
+            break
+
+
+def draw_stage_choice_overlay(screen: pygame.Surface, background: pygame.Surface = None) -> None:
+    """선택지 오버레이 렌더링 (메인 화면 위에 그리기)"""
+    global stage_choice_overlay_frame, stage_choice_card_offsets
+    global stage_choice_particles, stage_choice_overlay_phase
+
+    if not stage_choice_overlay_active:
+        return
+
+    # 배경 위에 반투명 오버레이
+    overlay_alpha = min(180, stage_choice_overlay_frame * 8)  # 점진적 어두워짐
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 20, overlay_alpha))
+    screen.blit(overlay, (0, 0))
+
+    # 파티클 렌더링
+    for p in stage_choice_particles:
+        if p['alpha'] > 0:
+            particle_surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
+            pygame.draw.circle(particle_surf, (*p['color'], int(p['alpha'])),
+                             (int(p['size']), int(p['size'])), int(p['size']))
+            screen.blit(particle_surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
+
+    # 카드 설정
+    card_width, card_height = 230, 120
+    icon_size = 72
+    card_gap = 20
+    total_width = card_width * 3 + card_gap * 2
+    start_x = (WIDTH - total_width) // 2
+    vertical_y = HEIGHT // 2 - card_height // 2
+
+    # 폰트 설정
+    try:
+        title_font = FontStyle.title()
+        name_font = FontStyle.menu()
+        level_font = FontStyle.small()
+        desc_font = FontStyle.small()
+    except Exception:
+        title_font = pygame.font.Font(None, 48)
+        name_font = pygame.font.Font(None, 28)
+        level_font = pygame.font.Font(None, 20)
+        desc_font = pygame.font.Font(None, 18)
+
+    # 타이틀 (위에서 페이드인)
+    title_alpha = min(255, stage_choice_overlay_frame * 12)
+    title_y_offset = max(0, 30 - stage_choice_overlay_frame * 2)
+    title_text = "강화를 선택하세요"
+    title_surface = title_font.render(title_text, True, (255, 220, 100))
+    title_surface.set_alpha(title_alpha)
+    title_rect = title_surface.get_rect(center=(WIDTH // 2, vertical_y - 60 - title_y_offset))
+    screen.blit(title_surface, title_rect)
+
+    # 3개의 카드 렌더링
+    for i, choice in enumerate(stage_clear_choices_list):
+        # 카드 위치 계산 (애니메이션 오프셋 적용)
+        if i == 0:  # 왼쪽 카드 - 왼쪽에서 슬라이드
+            card_x = start_x + stage_choice_card_offsets[0]
+        elif i == 1:  # 가운데 카드 - 아래에서 슬라이드
+            card_x = start_x + card_width + card_gap
+        else:  # 오른쪽 카드 - 오른쪽에서 슬라이드
+            card_x = start_x + 2 * (card_width + card_gap) - stage_choice_card_offsets[2]
+
+        card_y_anim = vertical_y
+        if i == 1:  # 가운데 카드는 아래에서 올라옴
+            card_y_anim = vertical_y + stage_choice_card_offsets[1]
+
+        is_selected = (i == stage_clear_selected_index)
+
+        # 선택 완료 애니메이션
+        scale = 1.0
+        card_alpha = 255
+        if stage_choice_overlay_phase == "selected":
+            if is_selected:
+                # 선택된 카드 확대
+                scale = 1.0 + stage_choice_overlay_frame * 0.02
+            else:
+                # 비선택 카드 페이드아웃
+                card_alpha = max(0, 255 - stage_choice_overlay_frame * 15)
+
+        # 카드 서피스 생성
+        scaled_width = int(card_width * scale)
+        scaled_height = int(card_height * scale)
+        card_surface = pygame.Surface((scaled_width, scaled_height), pygame.SRCALPHA)
+
+        # 선택 여부에 따른 스타일
+        if is_selected:
+            # 글로우 효과
+            glow_intensity = int(30 + 25 * math.sin(stage_choice_overlay_frame * 0.12))
+            glow_color = (
+                min(255, choice["icon_color"][0] + glow_intensity),
+                min(255, choice["icon_color"][1] + glow_intensity),
+                min(255, choice["icon_color"][2] + glow_intensity)
+            )
+            # 외곽 글로우
+            for offset in range(6, 0, -1):
+                glow_rect = pygame.Rect(offset, offset, scaled_width - offset * 2, scaled_height - offset * 2)
+                alpha = min(card_alpha, 100 - offset * 15)
+                glow_surf = pygame.Surface((scaled_width, scaled_height), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (*glow_color, alpha), glow_rect, border_radius=12)
+                card_surface.blit(glow_surf, (0, 0))
+
+            bg_color = (40, 50, 90, min(card_alpha, 250))
+            border_color = choice["icon_color"]
+            border_width = 3
+        else:
+            bg_color = (25, 30, 50, min(card_alpha, 220))
+            border_color = (60, 70, 90)
+            border_width = 2
+
+        # 카드 배경
+        card_rect = pygame.Rect(0, 0, scaled_width, scaled_height)
+        pygame.draw.rect(card_surface, bg_color, card_rect, border_radius=12)
+        pygame.draw.rect(card_surface, border_color, card_rect, border_width, border_radius=12)
+
+        # 아이콘
+        icon_margin = 12
+        icon_scaled = int(icon_size * scale)
+        icon_rect = pygame.Rect(icon_margin, (scaled_height - icon_scaled) // 2, icon_scaled, icon_scaled)
+        icon_bg_color = (*choice["icon_color"], min(card_alpha, 230))
+        pygame.draw.rect(card_surface, icon_bg_color, icon_rect, border_radius=10)
+        pygame.draw.rect(card_surface, (255, 255, 255, min(card_alpha, 120)), icon_rect, 2, border_radius=10)
+
+        # 아이콘 심볼
+        icon_center = (icon_rect.centerx, icon_rect.centery)
+        inner_radius = icon_scaled // 4
+        pygame.draw.circle(card_surface, (255, 255, 255, min(card_alpha, 220)),
+                         icon_center, inner_radius, 2)
+
+        # 텍스트 영역
+        text_x = icon_margin + icon_scaled + 15
+        text_scale = scale
+
+        # 능력 이름 + 레벨
+        current_level = choice.get("current_level", 0)
+        next_level = choice.get("next_level", 1)
+        max_level = choice.get("max_level", 1)
+        name_text = choice["name"]
+
+        if max_level == -1:
+            level_text = ""
+        elif current_level == 0:
+            level_text = "NEW"
+        else:
+            level_text = f"Lv.{current_level}→{next_level}"
+
+        # 이름 렌더링
+        name_surface = name_font.render(name_text, True, (255, 255, 255))
+        name_surface.set_alpha(card_alpha)
+        name_y = int(18 * scale)
+        card_surface.blit(name_surface, (text_x, name_y))
+
+        # 레벨 렌더링
+        if level_text:
+            if level_text == "NEW":
+                level_color = (100, 255, 150)
+            else:
+                level_color = (255, 200, 100)
+            level_surface = level_font.render(level_text, True, level_color)
+            level_surface.set_alpha(card_alpha)
+            level_x = text_x + name_surface.get_width() + 10
+            level_y = name_y + (name_surface.get_height() - level_surface.get_height()) // 2
+            card_surface.blit(level_surface, (level_x, level_y))
+
+        # 설명
+        desc_text = choice["description"]
+        max_desc_len = 18
+        if len(desc_text) > max_desc_len:
+            desc_text = desc_text[:max_desc_len-2] + ".."
+        desc_surface = desc_font.render(desc_text, True, (170, 180, 210))
+        desc_surface.set_alpha(card_alpha)
+        desc_y = name_y + name_surface.get_height() + int(10 * scale)
+        card_surface.blit(desc_surface, (text_x, desc_y))
+
+        # 카드 화면에 그리기
+        draw_x = card_x - (scaled_width - card_width) // 2
+        draw_y = card_y_anim - (scaled_height - card_height) // 2
+        screen.blit(card_surface, (draw_x, draw_y))
+
+    # 조작 안내 (active 상태에서만)
+    if stage_choice_overlay_phase == "active":
+        hint_y = vertical_y + card_height + 50
+        hint_text = "← → 선택  |  SPACE 확정"
+        hint_surface = desc_font.render(hint_text, True, (130, 140, 170))
+        hint_rect = hint_surface.get_rect(center=(WIDTH // 2, hint_y))
+        screen.blit(hint_surface, hint_rect)
+
+
+def show_stage_clear_choices() -> str | None:
+    """
+    스테이지 클리어 후 3개 선택지를 표시하고 선택된 choice_id를 반환.
+    메인 화면 위에 오버레이로 등장하는 애니메이션과 함께 표시.
+    """
+    global stage_clear_choices_active, stage_clear_selected_index
+    global stage_clear_choices_list, stage_clear_choices_shown
+
+    # 현재 캐릭터 타입 확인
+    character_type = globals().get("selected_character_type", "normal")
+
+    # 사용 가능한 선택지 가져오기
+    stage_clear_choices_list = get_available_stage_choices(character_type)
+
+    if not stage_clear_choices_list:
+        return None
+
+    # 현재 화면 캡처 (배경으로 사용)
+    base_background = SCREEN.copy()
+
+    stage_clear_choices_active = True
+    stage_clear_selected_index = 1  # 가운데 카드 기본 선택
+    stage_clear_choices_shown = True
+
+    # UI 설정
+    clock = pygame.time.Clock()
+
+    # 애니메이션 변수
+    frame_count = 0
+    phase = "appearing"  # appearing, active, selected
+    card_offsets = [-400, 600, -400]  # 왼쪽/아래/오른쪽에서 등장
+    particles = []
+    selected_result = None
+
+    # 등장 파티클 생성
+    for _ in range(40):
+        particles.append({
+            'x': random.randint(0, WIDTH),
+            'y': random.randint(0, HEIGHT),
+            'vx': random.uniform(-1.5, 1.5),
+            'vy': random.uniform(-3, -0.5),
+            'size': random.uniform(2, 6),
+            'alpha': random.randint(100, 220),
+            'color': random.choice([(100, 200, 255), (255, 220, 100), (150, 255, 150), (255, 150, 200)])
+        })
+
+    # 카드 설정
+    card_width, card_height = 230, 120
+    icon_size = 72
+    card_gap = 20
+    total_width = card_width * 3 + card_gap * 2
+    start_x = (WIDTH - total_width) // 2
+    vertical_y = HEIGHT // 2 - card_height // 2
+
+    # 폰트 설정
+    try:
+        title_font = FontStyle.title()
+        name_font = FontStyle.menu()
+        level_font = FontStyle.small()
+        desc_font = FontStyle.small()
+    except Exception:
+        title_font = pygame.font.Font(None, 48)
+        name_font = pygame.font.Font(None, 28)
+        level_font = pygame.font.Font(None, 20)
+        desc_font = pygame.font.Font(None, 18)
+
+    while stage_clear_choices_active:
+        frame_count += 1
+
+        # 배경 그리기 (게임 화면 유지)
+        SCREEN.blit(base_background, (0, 0))
+
+        # 파티클 업데이트
+        for p in particles:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['alpha'] = max(0, p['alpha'] - 0.8)
+        particles = [p for p in particles if p['alpha'] > 0]
+
+        # 반투명 오버레이 (점진적 어두워짐)
+        overlay_alpha = min(160, frame_count * 6)
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 20, overlay_alpha))
+        SCREEN.blit(overlay, (0, 0))
+
+        # 파티클 렌더링
+        for p in particles:
+            if p['alpha'] > 0:
+                particle_surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
+                pygame.draw.circle(particle_surf, (*p['color'], int(p['alpha'])),
+                                 (int(p['size']), int(p['size'])), int(p['size']))
+                SCREEN.blit(particle_surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
+
+        # 등장 애니메이션
+        if phase == "appearing":
+            easing = 0.12
+            card_offsets[0] += (0 - card_offsets[0]) * easing
+            card_offsets[1] += (0 - card_offsets[1]) * easing
+            card_offsets[2] += (0 - card_offsets[2]) * easing
+
+            if all(abs(offset) < 3 for offset in card_offsets):
+                card_offsets = [0, 0, 0]
+                phase = "active"
+
+        # 선택 완료 애니메이션
+        elif phase == "selected":
+            if frame_count > 25:
+                stage_clear_choices_active = False
+                return selected_result
+
+        # 타이틀
+        title_alpha = min(255, frame_count * 10)
+        title_y_offset = max(0, 40 - frame_count * 2)
+        title_text = "강화를 선택하세요"
+        title_surface = title_font.render(title_text, True, (255, 220, 100))
+        title_surface.set_alpha(title_alpha)
+        title_rect = title_surface.get_rect(center=(WIDTH // 2, vertical_y - 70 - title_y_offset))
+        SCREEN.blit(title_surface, title_rect)
+
+        # 3개의 카드 렌더링
+        for i, choice in enumerate(stage_clear_choices_list):
+            # 카드 위치 계산
+            if i == 0:
+                card_x = start_x + card_offsets[0]
+            elif i == 1:
+                card_x = start_x + card_width + card_gap
+            else:
+                card_x = start_x + 2 * (card_width + card_gap) - card_offsets[2]
+
+            card_y_anim = vertical_y
+            if i == 1:
+                card_y_anim = vertical_y + card_offsets[1]
+
+            is_selected = (i == stage_clear_selected_index)
+
+            # 선택 완료 애니메이션
+            scale = 1.0
+            card_alpha = 255
+            if phase == "selected":
+                if is_selected:
+                    scale = 1.0 + frame_count * 0.015
+                else:
+                    card_alpha = max(0, 255 - frame_count * 12)
+
+            # 카드 서피스 생성
+            scaled_width = int(card_width * scale)
+            scaled_height = int(card_height * scale)
+            card_surface = pygame.Surface((scaled_width, scaled_height), pygame.SRCALPHA)
+
+            # 스타일
+            if is_selected:
+                glow_intensity = int(30 + 25 * math.sin(frame_count * 0.12))
+                glow_color = (
+                    min(255, choice["icon_color"][0] + glow_intensity),
+                    min(255, choice["icon_color"][1] + glow_intensity),
+                    min(255, choice["icon_color"][2] + glow_intensity)
+                )
+                for offset in range(6, 0, -1):
+                    glow_rect = pygame.Rect(offset, offset, scaled_width - offset * 2, scaled_height - offset * 2)
+                    alpha = min(card_alpha, 100 - offset * 15)
+                    glow_surf = pygame.Surface((scaled_width, scaled_height), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_surf, (*glow_color, alpha), glow_rect, border_radius=12)
+                    card_surface.blit(glow_surf, (0, 0))
+
+                bg_color = (40, 50, 90, min(card_alpha, 250))
+                border_color = choice["icon_color"]
+                border_width = 3
+            else:
+                bg_color = (25, 30, 50, min(card_alpha, 220))
+                border_color = (60, 70, 90)
+                border_width = 2
+
+            # 카드 배경
+            card_rect = pygame.Rect(0, 0, scaled_width, scaled_height)
+            pygame.draw.rect(card_surface, bg_color, card_rect, border_radius=12)
+            pygame.draw.rect(card_surface, border_color, card_rect, border_width, border_radius=12)
+
+            # 아이콘 (옵티머스 컨셉 아이콘 사용)
+            icon_margin = 12
+            icon_scaled = int(icon_size * scale)
+            icon_rect = pygame.Rect(icon_margin, (scaled_height - icon_scaled) // 2, icon_scaled, icon_scaled)
+            # 아이콘 배경 (어두운 배경)
+            icon_bg_color = (30, 35, 50, min(card_alpha, 230))
+            pygame.draw.rect(card_surface, icon_bg_color, icon_rect, border_radius=10)
+            pygame.draw.rect(card_surface, (*choice["icon_color"], min(card_alpha, 180)), icon_rect, 2, border_radius=10)
+            # 옵티머스 컨셉 아이콘 그리기
+            skill_id = choice.get("id", "")
+            if not skill_id.startswith("empty_"):
+                draw_optimus_skill_icon(card_surface, skill_id,
+                                       icon_rect.x + 4, icon_rect.y + 4,
+                                       icon_scaled - 8, frame_count)
+
+            # 텍스트
+            text_x = icon_margin + icon_scaled + 15
+            current_level = choice.get("current_level", 0)
+            next_level = choice.get("next_level", 1)
+            max_level = choice.get("max_level", 1)
+            name_text = choice["name"]
+
+            if max_level == -1:
+                level_text = ""
+            elif current_level == 0:
+                level_text = "NEW"
+            else:
+                level_text = f"Lv.{current_level}→{next_level}"
+
+            name_surface = name_font.render(name_text, True, (255, 255, 255))
+            name_surface.set_alpha(card_alpha)
+            name_y = int(20 * scale)
+            card_surface.blit(name_surface, (text_x, name_y))
+
+            if level_text:
+                level_color = (100, 255, 150) if level_text == "NEW" else (255, 200, 100)
+                level_surface = level_font.render(level_text, True, level_color)
+                level_surface.set_alpha(card_alpha)
+                level_x = text_x + name_surface.get_width() + 10
+                level_y = name_y + (name_surface.get_height() - level_surface.get_height()) // 2
+                card_surface.blit(level_surface, (level_x, level_y))
+
+            desc_text = choice["description"]
+            max_desc_len = 18
+            if len(desc_text) > max_desc_len:
+                desc_text = desc_text[:max_desc_len-2] + ".."
+            desc_surface = desc_font.render(desc_text, True, (170, 180, 210))
+            desc_surface.set_alpha(card_alpha)
+            desc_y = name_y + name_surface.get_height() + int(12 * scale)
+            card_surface.blit(desc_surface, (text_x, desc_y))
+
+            # 카드 그리기
+            draw_x = card_x - (scaled_width - card_width) // 2
+            draw_y = card_y_anim - (scaled_height - card_height) // 2
+            SCREEN.blit(card_surface, (draw_x, draw_y))
+
+        # 조작 안내
+        if phase == "active":
+            hint_y = vertical_y + card_height + 55
+            hint_text = "← → 선택  |  SPACE 확정"
+            hint_surface = desc_font.render(hint_text, True, (130, 140, 170))
+            hint_rect = hint_surface.get_rect(center=(WIDTH // 2, hint_y))
+            SCREEN.blit(hint_surface, hint_rect)
+
+        # 이벤트 처리
+        if phase == "active":
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key in [pygame.K_LEFT, pygame.K_a]:
+                        stage_clear_selected_index = (stage_clear_selected_index - 1) % 3
+                        try:
+                            if sound_effects.get("MENU_SELECT"):
+                                sound_effects["MENU_SELECT"].play()
+                        except Exception:
+                            pass
+
+                    elif event.key in [pygame.K_RIGHT, pygame.K_d]:
+                        stage_clear_selected_index = (stage_clear_selected_index + 1) % 3
+                        try:
+                            if sound_effects.get("MENU_SELECT"):
+                                sound_effects["MENU_SELECT"].play()
+                        except Exception:
+                            pass
+
+                    elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
+                        selected_choice = stage_clear_choices_list[stage_clear_selected_index]
+                        if not selected_choice["id"].startswith("empty_"):
+                            try:
+                                if sound_effects.get("MENU_CONFIRM"):
+                                    sound_effects["MENU_CONFIRM"].play()
+                            except Exception:
+                                pass
+                            apply_stage_choice_effect(selected_choice["id"])
+                            selected_result = selected_choice["id"]
+                            phase = "selected"
+                            frame_count = 0
+                            # 파티클 폭발
+                            card_center_x = start_x + stage_clear_selected_index * (card_width + card_gap) + card_width // 2
+                            for _ in range(60):
+                                angle = random.uniform(0, math.pi * 2)
+                                speed = random.uniform(4, 12)
+                                particles.append({
+                                    'x': card_center_x,
+                                    'y': vertical_y + card_height // 2,
+                                    'vx': math.cos(angle) * speed,
+                                    'vy': math.sin(angle) * speed,
+                                    'size': random.uniform(3, 8),
+                                    'alpha': 255,
+                                    'color': selected_choice["icon_color"]
+                                })
+
+                elif event.type == pygame.MOUSEMOTION:
+                    mx, my = event.pos
+                    for i in range(3):
+                        cx = start_x + i * (card_width + card_gap)
+                        cy = vertical_y
+                        if i == 0:
+                            cx += card_offsets[0]
+                        elif i == 2:
+                            cx -= card_offsets[2]
+                        if i == 1:
+                            cy += card_offsets[1]
+                        crect = pygame.Rect(cx, cy, card_width, card_height)
+                        if crect.collidepoint(mx, my):
+                            if stage_clear_selected_index != i:
+                                stage_clear_selected_index = i
+                                try:
+                                    if sound_effects.get("MENU_SELECT"):
+                                        sound_effects["MENU_SELECT"].play()
+                                except Exception:
+                                    pass
+                            break
+
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    mx, my = event.pos
+                    for i in range(3):
+                        cx = start_x + i * (card_width + card_gap)
+                        cy = vertical_y
+                        if i == 0:
+                            cx += card_offsets[0]
+                        elif i == 2:
+                            cx -= card_offsets[2]
+                        if i == 1:
+                            cy += card_offsets[1]
+                        crect = pygame.Rect(cx, cy, card_width, card_height)
+                        if crect.collidepoint(mx, my):
+                            selected_choice = stage_clear_choices_list[i]
+                            if not selected_choice["id"].startswith("empty_"):
+                                stage_clear_selected_index = i
+                                try:
+                                    if sound_effects.get("MENU_CONFIRM"):
+                                        sound_effects["MENU_CONFIRM"].play()
+                                except Exception:
+                                    pass
+                                apply_stage_choice_effect(selected_choice["id"])
+                                selected_result = selected_choice["id"]
+                                phase = "selected"
+                                frame_count = 0
+                                card_center_x = start_x + i * (card_width + card_gap) + card_width // 2
+                                for _ in range(60):
+                                    angle = random.uniform(0, math.pi * 2)
+                                    speed = random.uniform(4, 12)
+                                    particles.append({
+                                        'x': card_center_x,
+                                        'y': vertical_y + card_height // 2,
+                                        'vx': math.cos(angle) * speed,
+                                        'vy': math.sin(angle) * speed,
+                                        'size': random.uniform(3, 8),
+                                        'alpha': 255,
+                                        'color': selected_choice["icon_color"]
+                                    })
+                            break
+        else:
+            pygame.event.get()  # 이벤트 버퍼 비우기
+
+        pygame.display.flip()
+        clock.tick(60)
+
+    return None
+
+
 def show_victory_screen(stage_cleared, reward):
     global trade_point_collected, trade_point_system
     global stage3_hearts_collected, stage4_crows_collected
@@ -57498,6 +58800,13 @@ def show_victory_screen(stage_cleared, reward):
 
     logic_stage_cleared = stage_cleared
     display_stage_cleared = stage_logic_to_display(logic_stage_cleared)
+
+    # ========== 스테이지 클리어 시 선택지 UI는 더 이상 표시하지 않음 ==========
+    # 옵티머스 스킬 선택은 게이지가 400/300에 도달했을 때 게임 중 표시됨
+    choice_ui_state = {
+        'ui_shown': True,             # 스테이지 클리어 시에는 항상 완료 상태로 설정
+        'selected_choice': None       # 선택된 강화
+    }
 
     if display_stage_cleared == 1:
         preload_stage_intro_resources(STAGE2_INTRO_VIDEO_PATH)
@@ -58209,6 +59518,8 @@ def show_victory_screen(stage_cleared, reward):
         all_stages_shown = all(state['show'] for state in animation_states.values())
         animation_complete = star_animation_finished and all_stages_shown
 
+        # (옵티머스 스킬 선택은 게이지 400/300 도달 시 게임 중 표시됨 - 스테이지 클리어 시 표시 안 함)
+
         if not animation_complete and not animation_states['total']['show']:
             skip_hint_font = FontStyle.tiny()  # 18pt 폰트
             skip_alpha = int(abs(math.sin(frame_count * 0.05)) * 150 + 105)  # 105~255 깜빡임
@@ -58236,7 +59547,8 @@ def show_victory_screen(stage_cleared, reward):
                 except Exception:
                     pass
 
-                if animation_complete and not ai_victory_done:
+                # 선택지 UI 완료 후에만 다음 스테이지로 진행
+                if animation_complete and choice_ui_state['ui_shown'] and not ai_victory_done:
                     # 다음 스테이지로 자동 진입
                     final_stage_reached = display_stage_cleared >= TOTAL_STAGES
                     transition_state['active'] = True
@@ -58247,15 +59559,15 @@ def show_victory_screen(stage_cleared, reward):
                     transition_state['mode'] = 'start' if final_stage_reached else 'downtown'
                     selected = 0
                     ai_victory_done = True
-        
-        # 버튼들 (더 현대적인 스타일) - 애니메이션 완료 후에만 표시
+
+        # 버튼들 (더 현대적인 스타일) - 애니메이션 및 선택지 UI 완료 후에만 표시
         buttons = [
             (next_stage_rect, "광장으로 이동", 0),
             (rest_rect, "복귀", 1)
         ]
         
-        # 애니메이션 완료 여부에 따라 버튼 표시 방식 변경
-        if animation_complete:
+        # 애니메이션 및 선택지 UI 완료 여부에 따라 버튼 표시 방식 변경
+        if animation_complete and choice_ui_state['ui_shown']:
             # 애니메이션 완료 시 버튼 표시
             for rect, text, idx in buttons:
                 transition_highlight = transition_state['active'] and idx == 0
@@ -58329,6 +59641,7 @@ def show_victory_screen(stage_cleared, reward):
                 continue
 
             if event.type == pygame.KEYDOWN:
+                # 애니메이션이 완료되지 않았으면 스킵 가능
                 if not animation_complete:
                     if event.key == pygame.K_SPACE:
                         advanced = force_show_next_stage()
@@ -58336,7 +59649,12 @@ def show_victory_screen(stage_cleared, reward):
                             pass
                     continue
 
-                if animation_complete:
+                # 선택지 UI가 아직 표시되지 않았으면 입력 무시
+                if not choice_ui_state['ui_shown']:
+                    continue
+
+                # 애니메이션 완료 및 선택지 UI 완료 후 버튼 조작 가능
+                if animation_complete and choice_ui_state['ui_shown']:
                     button_count = len(buttons)
                     if event.key in [pygame.K_UP, pygame.K_w]:
                         selected = (selected - 1) % button_count
@@ -58357,14 +59675,14 @@ def show_victory_screen(stage_cleared, reward):
                         elif selected == 1:
                             confirm_rest(stage_cleared, reward)
                             return
-            elif event.type == pygame.MOUSEMOTION and animation_complete:
+            elif event.type == pygame.MOUSEMOTION and animation_complete and choice_ui_state['ui_shown']:
                 # 마우스 오버 시 버튼 하이라이트
                 mx, my = event.pos
                 for rect, _text, idx in buttons:
                     if rect.collidepoint(mx, my):
                         selected = idx
                         break
-            elif event.type == pygame.MOUSEBUTTONDOWN and animation_complete:
+            elif event.type == pygame.MOUSEBUTTONDOWN and animation_complete and choice_ui_state['ui_shown']:
                 if event.button == 1:
                     mx, my = event.pos
                     clicked = None
@@ -77505,7 +78823,7 @@ def handle_ball():
                         elif selected_character_type == "blacksmith":
                             base_charge = 30  # 발토르 기본 충전량
                         else:
-                            base_charge = 80  # 스매셔/기타 기본 충전량
+                            base_charge = 60  # 스매셔/기타 기본 충전량
                         bonus_pct = globals().get("knee_pads_charge_pct", 50)
                         charge_amount = base_charge * (bonus_pct / 100.0)
                         
@@ -78436,7 +79754,7 @@ def handle_ball():
                         break  # 한 프레임에 하나의 파편만 처리
 
     # --- 홀리베리어 충돌 처리 (바닥에 닿기 전에 공 반사) ---
-    if is_holy_barrier_active():
+    if holy_barrier_module.is_holy_barrier_active():
         if check_holy_barrier_collision(BALL, ball_vel):
             # 공이 홀리베리어에 반사됨 - last_hit_by 변경 없음 (보스가 친 공 그대로 유지)
             # ball_vel은 holy_barrier.py에서 이미 반전됨
@@ -78546,7 +79864,7 @@ def handle_ball():
                 else:
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
-                base_gauge_gain = 80  # 스매셔: 게이지 충전 80
+                base_gauge_gain = 60  # 스매셔: 게이지 충전 60
             if base_gauge_gain > 0:
                 # 충전가방은 현재 게이지 획득량(블루투스링 등 적용)에 롤 보너스를 곱해 추가 충전
                 bonus_pct = globals().get("chargebag_bonus_pct", 20)
@@ -78587,7 +79905,7 @@ def handle_ball():
                 else:
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
-                base_gauge_gain = 80  # 스매셔: 게이지 충전 80
+                base_gauge_gain = 60  # 스매셔: 게이지 충전 60
             if base_gauge_gain > 0:
                 # 충전가방은 현재 게이지 획득량(블루투스링 등 적용)에 롤 보너스를 곱해 추가 충전
                 bonus_pct = globals().get("chargebag_bonus_pct", 20)
@@ -79075,25 +80393,33 @@ def handle_ball():
         try:
             import items as _items_mod
             if hasattr(_items_mod, 'smartphone_obtained') and _items_mod.smartphone_obtained:
-                smartphone = get_smartphone_instance()
-                stopwatch_slot_index = next(
-                    (idx for idx, it in enumerate(active_item_slot or []) if it and isinstance(it, dict) and it.get('name') == 'stopwatch'),
-                    None,
-                )
-                has_stopwatch = stopwatch_slot_index is not None
-                if has_stopwatch:
-                    PRE_ACTIVATE_MARGIN = 16  # 바닥까지 16px 남았을 때
-                    MIN_PLAYABLE_MARGIN = 28  # 공 중심이 바닥에서 최소 28px 위 (민감도 상향)
-                    dist_to_floor = HEIGHT - BALL.bottom
-                    if 0 <= dist_to_floor <= PRE_ACTIVATE_MARGIN and BALL.centery <= HEIGHT - MIN_PLAYABLE_MARGIN:
-                        phone_state = {'current_stage': current_stage, 'active_items': active_item_slot}
-                        try:
-                            smartphone.last_activation_time = 0
-                            smartphone.urgent_override = True
-                        except Exception:
-                            pass
-                        smartphone.activate_stopwatch(phone_state, current_stage, slot_index_hint=stopwatch_slot_index)
-                        return
+                # 홀리베리어 활성화 중인지 체크 (활성화 중이면 스톱워치 자동 사용 안함)
+                holy_barrier_blocking = False
+                try:
+                    holy_barrier_blocking = holy_barrier_module.is_holy_barrier_active()
+                except Exception:
+                    pass
+
+                if not holy_barrier_blocking:
+                    smartphone = get_smartphone_instance()
+                    stopwatch_slot_index = next(
+                        (idx for idx, it in enumerate(active_item_slot or []) if it and isinstance(it, dict) and it.get('name') == 'stopwatch'),
+                        None,
+                    )
+                    has_stopwatch = stopwatch_slot_index is not None
+                    if has_stopwatch:
+                        PRE_ACTIVATE_MARGIN = 16  # 바닥까지 16px 남았을 때
+                        MIN_PLAYABLE_MARGIN = 28  # 공 중심이 바닥에서 최소 28px 위 (민감도 상향)
+                        dist_to_floor = HEIGHT - BALL.bottom
+                        if 0 <= dist_to_floor <= PRE_ACTIVATE_MARGIN and BALL.centery <= HEIGHT - MIN_PLAYABLE_MARGIN:
+                            phone_state = {'current_stage': current_stage, 'active_items': active_item_slot}
+                            try:
+                                smartphone.last_activation_time = 0
+                                smartphone.urgent_override = True
+                            except Exception:
+                                pass
+                            smartphone.activate_stopwatch(phone_state, current_stage, slot_index_hint=stopwatch_slot_index)
+                            return
         except Exception as e:
             print(f"⚠️ 스마트폰 사전 발동(거리) 실패: {e}")
 
@@ -79111,38 +80437,46 @@ def handle_ball():
         try:
             import items as _items_mod
             if hasattr(_items_mod, 'smartphone_obtained') and _items_mod.smartphone_obtained:
-                smartphone = get_smartphone_instance()
-                stopwatch_slot_index = next(
-                    (idx for idx, it in enumerate(active_item_slot or []) if it and isinstance(it, dict) and it.get('name') == 'stopwatch'),
-                    None,
-                )
-                has_stopwatch = stopwatch_slot_index is not None
-                # 바닥에 거의 닿았지만 아직 약간의 여유가 있을 때만 강제 발동
-                # 너무 아래(플레이어가 닿기 힘든 위치)에서는 강제 발동하지 않음
-                SAFE_MARGIN_FROM_FLOOR = 28  # px (민감도 상향)
-                # 발동 높이 가드: 공이 패들 중심보다 너무 아래면 강제 발동하지 않음
-                activation_height_ok = (BALL.centery <= (PLAYER.centery + PADDLE_HEIGHT // 4))
-                
-                # 패들과 공 사이의 최소 안전 거리 확인
-                # 공과 패들이 충돌하지 않을 정도의 거리에서만 발동
-                MIN_SAFE_DISTANCE = 35  # 패들과 공이 충돌하지 않을 최소 거리 (픽셀)
-                x_distance = abs(BALL.centerx - PLAYER.centerx)
-                y_distance = abs(BALL.centery - PLAYER.centery)
-                
-                # X축과 Y축 모두 안전 거리 확보
-                safe_distance_ok = (x_distance > MIN_SAFE_DISTANCE) or (y_distance > MIN_SAFE_DISTANCE)
-                
-                if (not stopwatch_active) and has_stopwatch and (BALL.centery <= HEIGHT - SAFE_MARGIN_FROM_FLOOR) and activation_height_ok and safe_distance_ok:
-                    # 쿨타임과 무관하게 즉시 발동하도록 플래그 설정 후 발동
-                    phone_state = {'current_stage': current_stage, 'active_items': active_item_slot}
-                    try:
-                        smartphone.last_activation_time = 0
-                        smartphone.urgent_override = True
-                    except Exception:
-                        pass
-                    smartphone.activate_stopwatch(phone_state, current_stage, slot_index_hint=stopwatch_slot_index)
-                    # 스톱워치 발동 후에는 패배 처리를 중단하고 한 프레임 유예
-                    return
+                # 홀리베리어 활성화 중인지 체크 (활성화 중이면 스톱워치 자동 사용 안함)
+                holy_barrier_blocking = False
+                try:
+                    holy_barrier_blocking = holy_barrier_module.is_holy_barrier_active()
+                except Exception:
+                    pass
+
+                if not holy_barrier_blocking:
+                    smartphone = get_smartphone_instance()
+                    stopwatch_slot_index = next(
+                        (idx for idx, it in enumerate(active_item_slot or []) if it and isinstance(it, dict) and it.get('name') == 'stopwatch'),
+                        None,
+                    )
+                    has_stopwatch = stopwatch_slot_index is not None
+                    # 바닥에 거의 닿았지만 아직 약간의 여유가 있을 때만 강제 발동
+                    # 너무 아래(플레이어가 닿기 힘든 위치)에서는 강제 발동하지 않음
+                    SAFE_MARGIN_FROM_FLOOR = 28  # px (민감도 상향)
+                    # 발동 높이 가드: 공이 패들 중심보다 너무 아래면 강제 발동하지 않음
+                    activation_height_ok = (BALL.centery <= (PLAYER.centery + PADDLE_HEIGHT // 4))
+
+                    # 패들과 공 사이의 최소 안전 거리 확인
+                    # 공과 패들이 충돌하지 않을 정도의 거리에서만 발동
+                    MIN_SAFE_DISTANCE = 35  # 패들과 공이 충돌하지 않을 최소 거리 (픽셀)
+                    x_distance = abs(BALL.centerx - PLAYER.centerx)
+                    y_distance = abs(BALL.centery - PLAYER.centery)
+
+                    # X축과 Y축 모두 안전 거리 확보
+                    safe_distance_ok = (x_distance > MIN_SAFE_DISTANCE) or (y_distance > MIN_SAFE_DISTANCE)
+
+                    if (not stopwatch_active) and has_stopwatch and (BALL.centery <= HEIGHT - SAFE_MARGIN_FROM_FLOOR) and activation_height_ok and safe_distance_ok:
+                        # 쿨타임과 무관하게 즉시 발동하도록 플래그 설정 후 발동
+                        phone_state = {'current_stage': current_stage, 'active_items': active_item_slot}
+                        try:
+                            smartphone.last_activation_time = 0
+                            smartphone.urgent_override = True
+                        except Exception:
+                            pass
+                        smartphone.activate_stopwatch(phone_state, current_stage, slot_index_hint=stopwatch_slot_index)
+                        # 스톱워치 발동 후에는 패배 처리를 중단하고 한 프레임 유예
+                        return
         except Exception as e:
             print(f"⚠️ 스마트폰 사전 발동 실패: {e}")
         # 튜토리얼 스테이지 특별 처리 (모든 챕터에서 적용)
@@ -84575,6 +85909,8 @@ def show_result(won):
 
         show_victory_screen(stage_cleared=current_stage, reward=reward)
         current_stage += 1
+        # 스테이지 전환 시 비상충전 사용 가능하게 리셋
+        reset_emergency_charge_for_new_stage()
         # 스테이지 전환 시 테크니컬조끼 비활성화
         deactivate_technical_vest()
         # 스테이지 전환 시 레이저스코프 비활성화
@@ -84718,6 +86054,14 @@ def show_result(won):
         items.knee_pads_obtained = False
         
         #  패시브 아이템 효과 초기화 (게임 오버 시)
+        # 스테이지 클리어 선택지로 획득한 능력 초기화 (게임 오버 시에만 리셋)
+        global optimus_arm_available
+        optimus_arm_available = False
+        reset_stage_clear_choices()
+
+        # 옵티머스 게이지 기반 스킬 트리거 초기화 (게임 오버 시)
+        reset_optimus_skill_triggers()
+
         speedboots_obtained = False
         speedgear_obtained = False
         battery_obtained = False
@@ -86273,6 +87617,21 @@ def main(stage_num, new_boss_mode=False):
                 if __debug__:
                     print(f"⚠️ 마이그레이션 동기화 오류: {e}")
 
+        # ========== 옵티머스 게이지 기반 스킬 선택창 체크 ==========
+        # 게이지가 400 또는 300에 도달했을 때 스킬 선택창 표시
+        if globals().get('optimus_skill_choice_pending', False):
+            # 선택창 표시 (화면 정지 상태로 선택할 때까지 대기)
+            selected_skill = show_stage_clear_choices()
+
+            # 선택 완료 후 플래그 해제
+            globals()['optimus_skill_choice_pending'] = False
+
+            if selected_skill:
+                print(f"[Optimus] 스킬 선택 완료: {selected_skill} (게이지 {globals().get('optimus_skill_choice_threshold', 0)}에서 발동)")
+
+            # 이벤트 큐 클리어 (선택 중 쌓인 입력 제거)
+            pygame.event.clear()
+
         # 스테이지 7 크리스탈 실드 애니메이션 중 화면 정지 체크
         crystal_shield_frozen = False
         if current_stage == 7:
@@ -86389,6 +87748,14 @@ def main(stage_num, new_boss_mode=False):
                     _pillar_renderer.reset_crystal_shield()
             except Exception:
                 pass
+
+            # 스테이지 클리어 선택지로 획득한 능력 초기화 (ESC 메뉴로 메인 복귀 시)
+            global optimus_arm_available
+            optimus_arm_available = False
+            reset_stage_clear_choices()
+
+            # 옵티머스 게이지 기반 스킬 트리거 초기화
+            reset_optimus_skill_triggers()
 
             return "main_menu"
         # 프로파일러 프레임 시작
@@ -89294,7 +90661,7 @@ def main(stage_num, new_boss_mode=False):
 
                                         # 월계수 잎 충돌 시 플레이어 게이지 획득량만큼 게이지 획득
                                         try:
-                                            _laurel_base_gain = 80  # 기본 게이지 획득량
+                                            _laurel_base_gain = 60  # 스매셔/기타 기본 게이지 획득량 60
                                             # 캐릭터별 게이지 획득량 적용
                                             if selected_character_type == "optimus":
                                                 _laurel_base_gain = 0  # 옵티머스는 게이지 획득 불가
@@ -92112,7 +93479,7 @@ def show_character_info(background_surface=None):
             ):
                 return 200, 200
 
-            base_gain = 80
+            base_gain = 60  # 스매셔/기타 기본 충전량 60
             if char_type == "soldier":
                 base_gain = 50
                 try:

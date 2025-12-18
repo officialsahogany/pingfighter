@@ -986,13 +986,24 @@ class Smartphone:
                             
                 # Auto-activate appropriate item (스톱워치 우선)
                 can_fire = ((self.last_activation_time <= 0) and allow_persistent) or self.urgent_override
-                if stopwatch_available and can_fire:
+
+                # 홀리베리어 활성화 중인지 체크 (활성화 중이면 스톱워치 자동 사용 안함)
+                holy_barrier_active = False
+                try:
+                    from item_effects.holy_barrier import is_holy_barrier_active
+                    holy_barrier_active = is_holy_barrier_active()
+                except (ImportError, Exception):
+                    pass
+
+                if stopwatch_available and can_fire and not holy_barrier_active:
                     print("🚨 스마트폰: 위험 감지! 스탑워치 자동 사용!")
                     self.activate_stopwatch(game_state, current_stage, slot_index_hint=stopwatch_slot_index)
                     self.auto_activated = True
                     # 긴급 발동 후에도 기본 쿨타임 설정
                     self.last_activation_time = self.activation_cooldown
                     self.urgent_override = False
+                elif stopwatch_available and can_fire and holy_barrier_active:
+                    print("📱 스마트폰: 홀리베리어 활성화 중 - 스톱워치 자동 사용 대기")
                 elif ai_pill_available and can_fire and SMARTPHONE_ALLOW_AI_PILL_AUTOUSE:
                     print("🚨 스마트폰: 위험 감지! AI알약 자동 사용!")
                     self.activate_ai_pill(game_state, current_stage, slot_index_hint=aipill_slot_index)
