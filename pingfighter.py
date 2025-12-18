@@ -2505,6 +2505,95 @@ optimus_skill_levels = {
 }
 emergency_charge_used_this_stage = False  # 비상충전 이번 스테이지 사용 여부
 
+# ========== 비상충전 더블탭 감지 시스템 ==========
+class EmergencyChargeDoubleTap:
+    """옵티머스 비상충전 스킬의 ㄴ키 더블탭 감지 클래스"""
+    def __init__(self):
+        self.last_tap_time = 0
+        self.double_tap_threshold = 300  # 300ms 이내 더블탭 감지
+        self.cooldown = 500  # 발동 후 500ms 쿨다운
+        self.last_activation_time = 0
+
+    def check_double_tap(self, current_time: int) -> bool:
+        """더블탭 감지 - True 반환 시 발동"""
+        # 쿨다운 체크
+        if current_time - self.last_activation_time < self.cooldown:
+            return False
+
+        # 더블탭 감지
+        time_since_last = current_time - self.last_tap_time
+        self.last_tap_time = current_time
+
+        if time_since_last < self.double_tap_threshold:
+            return True
+        return False
+
+    def mark_activated(self, current_time: int):
+        """발동 시 호출 - 쿨다운 시작"""
+        self.last_activation_time = current_time
+        self.last_tap_time = 0  # 탭 타이머 리셋
+
+    def reset(self):
+        """리셋"""
+        self.last_tap_time = 0
+        self.last_activation_time = 0
+
+# 비상충전 더블탭 인스턴스
+_emergency_charge_double_tap = None
+
+# 비상충전 시각 효과 변수
+emergency_charge_flash_timer = 0  # 화면 플래시 타이머
+emergency_charge_flash_duration = 30  # 플래시 지속시간 (0.5초)
+emergency_charge_particles = []  # 파티클 리스트
+
+def get_emergency_charge_double_tap() -> EmergencyChargeDoubleTap:
+    """비상충전 더블탭 인스턴스 반환"""
+    global _emergency_charge_double_tap
+    if _emergency_charge_double_tap is None:
+        _emergency_charge_double_tap = EmergencyChargeDoubleTap()
+    return _emergency_charge_double_tap
+
+def update_emergency_charge_effects():
+    """비상충전 시각 효과 업데이트"""
+    global emergency_charge_flash_timer, emergency_charge_particles
+
+    # 플래시 타이머 감소
+    if emergency_charge_flash_timer > 0:
+        emergency_charge_flash_timer -= 1
+
+    # 파티클 업데이트
+    for p in emergency_charge_particles[:]:
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+        p["vy"] += 0.3  # 중력
+        p["life"] -= 1
+        if p["life"] <= 0:
+            emergency_charge_particles.remove(p)
+
+def draw_emergency_charge_effects(screen: pygame.Surface):
+    """비상충전 시각 효과 렌더링"""
+    global emergency_charge_flash_timer, emergency_charge_particles
+
+    # 화면 플래시 효과
+    if emergency_charge_flash_timer > 0:
+        flash_alpha = int(150 * (emergency_charge_flash_timer / emergency_charge_flash_duration))
+        flash_surf = pygame.Surface((screen.get_width(), screen.get_height()), pygame.SRCALPHA)
+        flash_surf.fill((255, 220, 100, flash_alpha))  # 금색 플래시
+        screen.blit(flash_surf, (0, 0))
+
+    # 전기 파티클 렌더링
+    for p in emergency_charge_particles:
+        alpha = min(255, int(255 * (p["life"] / 40)))
+        color = (*p["color"][:3], alpha) if len(p["color"]) == 3 else p["color"]
+        # 전기 효과 (작은 번개 라인)
+        gfxdraw.filled_circle(screen, int(p["x"]), int(p["y"]), p["size"], color)
+        # 글로우 효과
+        if p["size"] > 4:
+            glow_surf = pygame.Surface((p["size"]*4, p["size"]*4), pygame.SRCALPHA)
+            glow_color = (*p["color"][:3], alpha // 4)
+            pygame.draw.circle(glow_surf, glow_color, (p["size"]*2, p["size"]*2), p["size"]*2)
+            screen.blit(glow_surf, (int(p["x"]) - p["size"]*2, int(p["y"]) - p["size"]*2), special_flags=pygame.BLEND_ADD)
+
 # ========== 옵티머스 게이지 기반 스킬 선택 트리거 시스템 ==========
 # 최대 게이지가 400, 300에 도달했을 때 각각 1회씩 스킬 선택창 표시
 OPTIMUS_SKILL_TRIGGER_THRESHOLDS = [400, 300]  # 내림차순 (400 먼저, 300 나중)
@@ -28081,18 +28170,7 @@ def go_to_next_round():
     # 라운드 시작 시간 초기화 (화기류 3초 제한용)
     round_start_time = pygame.time.get_ticks()
 
-    # 옵티머스 비상충전 스킬: 라운드 시작 시 게이지가 50% 미만이면 즉시 충전 (스테이지당 1회)
-    if selected_character_type == "optimus":
-        emergency_amount = get_emergency_charge_amount()
-        if emergency_amount > 0 and not globals().get("emergency_charge_used_this_stage", False):
-            current_max = get_max_gauge() if 'get_max_gauge' in dir() else special_gauge_max
-            gauge_ratio = special_gauge / max(1, current_max)
-            if gauge_ratio < 0.5:  # 게이지가 50% 미만일 때만 발동
-                charge_amount = int(current_max * emergency_amount)
-                old_gauge = special_gauge
-                special_gauge = min(current_max, special_gauge + charge_amount)
-                globals()["emergency_charge_used_this_stage"] = True
-                print(f"[Optimus] 비상충전 발동! {old_gauge} → {special_gauge} (+{charge_amount})")
+    # 비상충전은 ㄴ키 더블탭으로만 수동 발동됨 (자동 발동 로직 제거)
 
     drive_speed_increase = 0.0
     # ️ 스핀 상태 완전히 초기화 (스테이지 전환 시 드라이브 효과 제거)
@@ -36418,7 +36496,9 @@ def handle_player(keys):
     update_optimus_energy()
     # 옵티머스 암 스킬 업데이트
     update_optimus_arm()
-    
+    # 비상충전 시각 효과 업데이트
+    update_emergency_charge_effects()
+
     optimus_drain_locked = globals().get("optimus_drained", False)
     if optimus_drain_locked:
         current_speed = 0
@@ -53232,6 +53312,10 @@ def draw_objects():
                 laurel.draw_effects(SCREEN)
     except:
         pass
+
+    # 옵티머스 비상충전 시각 효과 그리기
+    if selected_character_type == "optimus":
+        draw_emergency_charge_effects(SCREEN)
 
     draw_blacksmith_turret_elements(SCREEN)
 
@@ -89769,6 +89853,41 @@ def main(stage_num, new_boss_mode=False):
                             if 'player_knockback_y' in dir():
                                 player_knockback_y = 0
                             print("✨ [CLEANSE] 클렌즈 발동! 모든 상태이상 해제!")
+                    continue
+                # ⚡ 옵티머스 비상충전 스킬 (S키/ㄴ키 더블탭)
+                elif (event.key == pygame.K_s or getattr(event, 'unicode', '') in ('ㄴ', 'ㄴ')) and selected_character_type == "optimus" and not game_paused:
+                    emergency_level = optimus_skill_levels.get("emergency_charge", 0)
+                    if emergency_level > 0:  # 비상충전 스킬 보유 시에만
+                        emergency_tap = get_emergency_charge_double_tap()
+                        current_time = pygame.time.get_ticks()
+                        if emergency_tap.check_double_tap(current_time):
+                            # 더블탭 감지 - 비상충전 발동 시도
+                            if not globals().get("emergency_charge_used_this_stage", False):
+                                # 비상충전 발동!
+                                charge_amount = get_emergency_charge_amount()
+                                current_max = get_max_gauge() if 'get_max_gauge' in dir() else special_gauge_max
+                                charge_value = int(current_max * charge_amount)
+                                old_gauge = special_gauge
+                                special_gauge = min(current_max, special_gauge + charge_value)
+                                globals()["emergency_charge_used_this_stage"] = True
+                                emergency_tap.mark_activated(current_time)
+                                # 시각 효과 시작
+                                global emergency_charge_flash_timer, emergency_charge_particles
+                                emergency_charge_flash_timer = emergency_charge_flash_duration
+                                # 패들 위치에서 전기 파티클 생성
+                                for _ in range(20):
+                                    emergency_charge_particles.append({
+                                        "x": PLAYER.centerx + random.randint(-30, 30),
+                                        "y": PLAYER.centery + random.randint(-20, 20),
+                                        "vx": random.uniform(-5, 5),
+                                        "vy": random.uniform(-8, -2),
+                                        "life": random.randint(20, 40),
+                                        "size": random.randint(3, 8),
+                                        "color": random.choice([(255, 255, 100), (100, 200, 255), (255, 180, 50)])
+                                    })
+                                print(f"⚡ [Optimus] 비상충전 발동! {old_gauge} → {special_gauge} (+{charge_value}, {int(charge_amount*100)}%)")
+                            else:
+                                print("⚠️ [Optimus] 비상충전 이미 사용됨 (스테이지당 1회)")
                     continue
                 # 인게임 캐릭터 정보 표시 (Tab)
                 elif event.key == pygame.K_TAB:
