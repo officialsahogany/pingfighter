@@ -53,6 +53,26 @@ class IntroCutscene:
             self.font_small = pygame.freetype.SysFont("Arial", 20)
             self.font_hint = pygame.freetype.SysFont("Arial", 14)
 
+        # 명언 데이터 (두 명언을 한 화면에 표시)
+        self.combined_quotes = [
+            {"english": "To live is to choose.", "korean": "사는 것은 선택하는 것이다."},
+            {"english": "Life is a series of choices.", "korean": "인생은 선택의 연속이다."}
+        ]
+
+        # 추가 명언 (여러 줄 텍스트)
+        self.additional_quotes = [
+            "어느 유명한 위인이나 인물들이 하는 여러 말들이",
+            "하나의 본질로 조합해서 떠돌아다니는 말.",
+            "",
+            "그것이 모두의 마음을 울리며",
+            "시대가 바뀌어도 계속 떠돌아 남아있는 말.",
+            "",
+            "사람들은, 기본적으로 선택이라는 자유를 누린다."
+        ]
+
+        # 스토리 컷씬 데이터 (나중에 이미지 경로와 텍스트 추가)
+        self.story_scenes = []
+
     def _check_skip_all(self, event):
         """Ctrl 키로 전체 스킵 체크"""
         if event.type == pygame.KEYDOWN:
@@ -75,26 +95,6 @@ class IntroCutscene:
         self.screen.blit(bg_surface, (hint_x - bg_padding, hint_y - bg_padding))
 
         self.screen.blit(hint_surface, (hint_x, hint_y))
-
-        # 명언 데이터 (두 명언을 한 화면에 표시)
-        self.combined_quotes = [
-            {"english": "To live is to choose.", "korean": "사는 것은 선택하는 것이다."},
-            {"english": "Life is a series of choices.", "korean": "인생은 선택의 연속이다."}
-        ]
-
-        # 추가 명언 (여러 줄 텍스트)
-        self.additional_quotes = [
-            "어느 유명한 위인이나 인물들이 하는 여러 말들이",
-            "하나의 본질로 조합해서 떠돌아다니는 말.",
-            "",
-            "그것이 모두의 마음을 울리며",
-            "시대가 바뀌어도 계속 떠돌아 남아있는 말.",
-            "",
-            "사람들은, 기본적으로 선택이라는 자유를 누린다."
-        ]
-
-        # 스토리 컷씬 데이터 (나중에 이미지 경로와 텍스트 추가)
-        self.story_scenes = []
 
     def show_combined_quotes_screen(self, duration=9.0):
         """검은 배경에 두 명언을 한 화면에 페이드인/아웃으로 표시
