@@ -28979,7 +28979,7 @@ def go_to_next_round():
     global rolling_charges, rolling_charge_timer, rolling_consecutive_count, rolling_cooldown
     base_charges = 1  # 기본 1개
     holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
-    amplification_bonus = academy.get_skill_bonus("dash_amplification")
+    amplification_bonus = get_runtime_skill_bonus("dash_amplification")
     rolling_charges = int(base_charges + holder_bonus + amplification_bonus)
     rolling_charge_timer = 0  # 충전 타이머 초기화
     rolling_consecutive_count = 0  # 연속 대쉬 카운터 초기화
@@ -37581,7 +37581,7 @@ def handle_player(keys):
         discounted_cost = apply_dashgear_gauge_discount(discounted_cost)
         if globals().get("selected_character_type") == "optimus":
             discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
-        battery_bonus = academy.get_skill_bonus("dash_battery_pack")
+        battery_bonus = get_runtime_skill_bonus("dash_battery_pack")
         required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))
 
         # 천사의 가호 대쉬 비용 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
@@ -37633,7 +37633,7 @@ def handle_player(keys):
             pass
 
         # 버스트업(가속화) 스킬 처리
-        acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
+        acceleration_bonus = get_runtime_skill_bonus("dash_acceleration")
         if acceleration_bonus > 0:
             acceleration_skill_level = int(acceleration_bonus * 10 / 3)
             acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)
@@ -37644,12 +37644,12 @@ def handle_player(keys):
 
         # 대쉬 진행 시간 및 거리 계산
         base_rolling_timer = apply_dashgear_distance(15.0)
-        jump_bonus = academy.get_skill_bonus("dash_jump")
+        jump_bonus = get_runtime_skill_bonus("dash_jump")
         base_rolling_timer *= (1 + jump_bonus)
         skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
         set_roll("rolling_timer", int(skill_distance_boost))
 
-        dash_spirit_level = academy.get_skill_bonus("dash_spirit")
+        dash_spirit_level = get_runtime_skill_bonus("dash_spirit")
         if dash_spirit_level > 0:
             spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
             if random.random() < spirit_chance:
@@ -37660,7 +37660,7 @@ def handle_player(keys):
         # 토큰 차감 및 UI 동기화
         base_charges = 1
         holder_bonus = _get_dashholder_count()
-        amplification_bonus = academy.get_skill_bonus("dash_amplification")
+        amplification_bonus = get_runtime_skill_bonus("dash_amplification")
         max_charges = int(base_charges + holder_bonus + amplification_bonus)
 
         current_charges = max(0, charges_available - 1)
@@ -37677,7 +37677,7 @@ def handle_player(keys):
         set_roll("token_states", token_states_local)
 
         # 쿨타임 및 충전 타이머 계산
-        dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
+        dash_cooldown_bonus = get_runtime_skill_bonus("dash_cooldown")
         cooldown_reduction = int(dash_cooldown_bonus * FPS)
         # 모든 토큰에 동일한 쿨타임 적용 (일관성 - 캐릭터 대쉬쿨타임 능력치 기준)
         base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
@@ -38752,7 +38752,7 @@ def handle_player(keys):
                 else:
                     # 일반 대쉬의 경우 기존 로직 적용
                     # 아카데미 스킬 효과: 후딜 시간 감소 (모듈제어)
-                    module_control_bonus = academy.get_skill_bonus("dash_module_control")
+                    module_control_bonus = get_runtime_skill_bonus("dash_module_control")
                     stun_reduction = int(module_control_bonus * 30)  # 기본 30프레임에서 10%씩 감소
                     # 스파이크부츠 효과: 후딜 시간 감소 (롤 옵션 적용)
                     base_stun_time = apply_spikeboots_afterdelay(30)  # 0.5초 (60fps * 0.5)
@@ -38901,7 +38901,7 @@ def handle_player(keys):
             #  하프대쉬 사용 시 연속 대쉬 금지
             base_charges = 1  # 기본 1개
             holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
-            amplification_bonus = academy.get_skill_bonus("dash_amplification")
+            amplification_bonus = get_runtime_skill_bonus("dash_amplification")
             max_charges = int(base_charges + holder_bonus + amplification_bonus)
             # 하프대쉬를 사용한 경우 연속 대쉬를 차단
             half_dash_used_in_sequence = 'half_dash_used_flag' in globals() and half_dash_used_flag
@@ -38925,7 +38925,7 @@ def handle_player(keys):
                 discounted_cost = apply_dashgear_gauge_discount(discounted_cost)
                 if selected_character_type == "optimus":
                     discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
-                battery_bonus = academy.get_skill_bonus("dash_battery_pack")
+                battery_bonus = get_runtime_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
 
                 # 천사의 가호 대쉬 비용 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
@@ -38967,7 +38967,7 @@ def handle_player(keys):
                     except:
                         pass  # 전설 아이템 접근 실패 시 무시
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
-                    acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
+                    acceleration_bonus = get_runtime_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
                         acceleration_skill_level = int(acceleration_bonus * 10 / 3)  # 레벨 계산 (0.3 -> 1레벨)
                         acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
@@ -38980,14 +38980,14 @@ def handle_player(keys):
                     # 대쉬기어 효과: 대쉬 거리 증가 (롤 옵션 적용)
                     base_rolling_timer = apply_dashgear_distance(15.0)  # 기본 대쉬 시간
                     #  아카데미 스킬 효과 적용: 대쉬 거리 증가 (도약)
-                    jump_bonus = academy.get_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
+                    jump_bonus = get_runtime_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
                     total_distance_bonus = jump_bonus
                     base_rolling_timer *= (1 + total_distance_bonus)
                     # 스킬 효과 적용: 대쉬 거리 증가
                     skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
                     set_roll("rolling_timer", int(skill_distance_boost))
                     #  대쉬 스피릿 스킬: 확률적 레이저 생성
-                    dash_spirit_level = academy.get_skill_bonus("dash_spirit")
+                    dash_spirit_level = get_runtime_skill_bonus("dash_spirit")
                     if dash_spirit_level > 0:
                         dash_spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
                         if random.random() < dash_spirit_chance:
@@ -38998,7 +38998,7 @@ def handle_player(keys):
                     # 최대 토큰 수 계산 (먼저 계산해야 함)
                     base_charges = 1  # 기본 1개
                     holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
-                    amplification_bonus = academy.get_skill_bonus("dash_amplification")
+                    amplification_bonus = get_runtime_skill_bonus("dash_amplification")
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
                     # 대쉬부스트 활성화 시 토큰 소모하지 않음
                     if not is_dash_unlimited():
@@ -39021,7 +39021,7 @@ def handle_player(keys):
                         set_roll("rolling_charges", current_charges)
                         _rolling_set("rolling_charges", current_charges)
                     # 아카데미 스킬 효과: 쿨타임 감소
-                    dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
+                    dash_cooldown_bonus = get_runtime_skill_bonus("dash_cooldown")
                     cooldown_reduction = int(dash_cooldown_bonus * FPS)  # 초 단위를 프레임으로 변환
                     # 모든 토큰에 동일한 쿨타임 적용 (일관성 - 캐릭터 대쉬쿨타임 능력치 기준)
                     base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
@@ -39029,7 +39029,7 @@ def handle_player(keys):
                     base_cooldown = apply_spikeboots_cooldown(base_cooldown)
                     base_timer = max(6, base_cooldown - cooldown_reduction)  # 최소 0.1초
                     # 경량화 스킬 효과 적용
-                    lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
+                    lightweight_bonus = get_runtime_skill_bonus("dash_lightweight")
                     if lightweight_bonus > 0:
                         base_timer = int(base_timer * (1 - lightweight_bonus))
                         base_timer = max(6, base_timer)
@@ -39109,7 +39109,7 @@ def handle_player(keys):
                     # 대쉬기어 효과: 게이지 소모 감소 (롤 옵션 적용)
                     discounted_cost = apply_dashgear_gauge_discount(discounted_cost)
                     # 아카데미 스킬 효과 적용: 게이지 소모 감소 (배터리팩)
-                    battery_bonus = academy.get_skill_bonus("dash_battery_pack")
+                    battery_bonus = get_runtime_skill_bonus("dash_battery_pack")
                     final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))  # 최소 10은 소모
                     # 대쉬부스트 효과: 대쉬 비용 70% 할인
                     if is_dash_boost_active():
@@ -39146,7 +39146,7 @@ def handle_player(keys):
                     except:
                         pass  # 전설 아이템 접근 실패 시 무시
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
-                    acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
+                    acceleration_bonus = get_runtime_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
                         acceleration_skill_level = int(acceleration_bonus * 10 / 3)  # 레벨 계산 (0.3 -> 1레벨)
                         acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
@@ -39159,7 +39159,7 @@ def handle_player(keys):
                     # 대쉬기어 효과: 대쉬 거리 증가 (롤 옵션 적용)
                     base_rolling_timer = apply_dashgear_distance(15.0)  # 기본 대쉬 시간
                     #  아카데미 스킬 효과 적용: 대쉬 거리 증가 (도약)
-                    jump_bonus = academy.get_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
+                    jump_bonus = get_runtime_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
                     total_distance_bonus = jump_bonus
                     base_rolling_timer *= (1 + total_distance_bonus)
                     # 스킬 효과 적용: 대쉬 거리 증가
@@ -39167,7 +39167,7 @@ def handle_player(keys):
                     set_roll("rolling_timer", int(skill_distance_boost))
                     set_roll("rolling_direction", 1)
                     #  대쉬 스피릿 스킬: 확률적 레이저 생성
-                    dash_spirit_level = academy.get_skill_bonus("dash_spirit")
+                    dash_spirit_level = get_runtime_skill_bonus("dash_spirit")
                     if dash_spirit_level > 0:
                         # 확률 계산: 레벨1=30%, 레벨2=50%
                         dash_spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
@@ -39182,7 +39182,7 @@ def handle_player(keys):
                     # 최대 토큰 수 계산 (먼저 계산해야 함)
                     base_charges = 1  # 기본 1개
                     holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
-                    amplification_bonus = academy.get_skill_bonus("dash_amplification")
+                    amplification_bonus = get_runtime_skill_bonus("dash_amplification")
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
                     # 대쉬부스트 활성화 시 토큰 소모하지 않음
                     if not is_dash_unlimited():
@@ -39205,7 +39205,7 @@ def handle_player(keys):
                         set_roll("rolling_charges", current_charges)
                         _rolling_set("rolling_charges", current_charges)
                     # 아카데미 스킬 효과: 쿨타임 감소
-                    dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
+                    dash_cooldown_bonus = get_runtime_skill_bonus("dash_cooldown")
                     cooldown_reduction = int(dash_cooldown_bonus * FPS)  # 초 단위를 프레임으로 변환
                     # 모든 토큰에 동일한 쿨타임 적용 (일관성 - 캐릭터 대쉬쿨타임 능력치 기준)
                     base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
@@ -39213,7 +39213,7 @@ def handle_player(keys):
                     base_cooldown = apply_spikeboots_cooldown(base_cooldown)
                     base_timer = max(6, base_cooldown - cooldown_reduction)  # 최소 0.1초
                     # 경량화 스킬 효과 적용
-                    lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
+                    lightweight_bonus = get_runtime_skill_bonus("dash_lightweight")
                     if lightweight_bonus > 0:
                         base_timer = int(base_timer * (1 - lightweight_bonus))
                         base_timer = max(6, base_timer)
@@ -39283,7 +39283,7 @@ def handle_player(keys):
                     # 대쉬기어 효과: 게이지 소모 감소 (롤 옵션 적용)
                     discounted_cost = apply_dashgear_gauge_discount(discounted_cost)
                     # 아카데미 스킬 효과 적용: 게이지 소모 감소 (배터리팩)
-                    battery_bonus = academy.get_skill_bonus("dash_battery_pack")
+                    battery_bonus = get_runtime_skill_bonus("dash_battery_pack")
                     final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))  # 최소 10은 소모
                     # 대쉬부스트 효과: 대쉬 비용 70% 할인
                     if is_dash_boost_active():
@@ -39309,7 +39309,7 @@ def handle_player(keys):
             # 최대 토큰 수 계산
             base_charges = 1
             holder_bonus = _get_dashholder_count()
-            amplification_bonus = academy.get_skill_bonus("dash_amplification")
+            amplification_bonus = get_runtime_skill_bonus("dash_amplification")
             max_charges = int(base_charges + holder_bonus + amplification_bonus)
 
             # _charging_state 딕셔너리에서 상태 읽기 (다른 코드에서 덮어쓰기 방지)
@@ -39391,7 +39391,7 @@ def handle_player(keys):
                         pass
                     else:
                         # 충전 시간 계산 - 모든 토큰에 동일한 쿨타임 적용 (일관성)
-                        dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
+                        dash_cooldown_bonus = get_runtime_skill_bonus("dash_cooldown")
                         cooldown_reduction = int(dash_cooldown_bonus * FPS)
                         # 모든 토큰에 동일한 쿨타임 적용 (캐릭터 대쉬쿨타임 능력치 기준)
                         base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
@@ -39399,7 +39399,7 @@ def handle_player(keys):
                         base_cooldown = apply_spikeboots_cooldown(base_cooldown)
                         base_charge_time = max(6, base_cooldown - cooldown_reduction)
                         # 경량화 스킬 효과 적용
-                        lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
+                        lightweight_bonus = get_runtime_skill_bonus("dash_lightweight")
                         if lightweight_bonus > 0:
                             base_charge_time = int(base_charge_time * (1 - lightweight_bonus))
                         new_timer = max(6, base_charge_time)
@@ -39489,7 +39489,7 @@ def handle_player(keys):
                         discounted_cost = int(discounted_cost * 0.8)
                     if selected_character_type == "optimus":
                         discounted_cost = int(discounted_cost * 0.2)
-                    battery_bonus = academy.get_skill_bonus("dash_battery_pack") if 'academy' in globals() else 0
+                    battery_bonus = get_runtime_skill_bonus("dash_battery_pack") if 'academy' in globals() else 0
                     required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))
                     # 천사의 가호 대쉬 비용 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
                     dm_inst = dash_manager._GLOBAL_DASH_INST
@@ -39526,7 +39526,7 @@ def handle_player(keys):
 
                     if (special_gauge < required_gauge) or (_force_half_rmb and _is_rmb):
                         #  아카데미 스킬 효과 계산: 도약 스킬 보너스
-                        jump_bonus = academy.get_skill_bonus("dash_jump") if 'academy' in globals() else 0
+                        jump_bonus = get_runtime_skill_bonus("dash_jump") if 'academy' in globals() else 0
 
                         if optimus_drain_locked:
                             half_dash_activated = False
@@ -39583,7 +39583,7 @@ def handle_player(keys):
                             recent_half_dash_time = pygame.time.get_ticks()
                             
                             #  가속화 스킬: 대쉬 시작 시 패들 세로 타격 범위만 증가 및 섬광 효과
-                            acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
+                            acceleration_bonus = get_runtime_skill_bonus("dash_acceleration")
                             if acceleration_bonus > 0:
                                 acceleration_skill_level = int(acceleration_bonus * 10 / 6)  # 레벨 계산 (0.6 -> 1레벨)
                                 acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
@@ -39632,7 +39632,7 @@ def handle_player(keys):
                             # 최대 토큰 수 계산
                             base_charges = 1
                             holder_bonus = _get_dashholder_count()
-                            amplification_bonus = academy.get_skill_bonus("dash_amplification") if 'academy' in globals() else 0
+                            amplification_bonus = get_runtime_skill_bonus("dash_amplification") if 'academy' in globals() else 0
                             max_charges = int(base_charges + holder_bonus + amplification_bonus)
 
                             #  토큰 상태 UI 업데이트 (하프대쉬도 토큰 소모 반영)
@@ -39661,7 +39661,7 @@ def handle_player(keys):
                             # max_charges는 위에서 이미 계산됨, current_charges는 감소된 토큰 수
                             if current_charges < max_charges:
                                 # 경량화 스킬 효과 적용
-                                lightweight_bonus = academy.get_skill_bonus("dash_lightweight") if 'academy' in globals() else 0
+                                lightweight_bonus = get_runtime_skill_bonus("dash_lightweight") if 'academy' in globals() else 0
                                 charge_time_reduction = lightweight_bonus
                                 base_charge_time = 180  # 3초
                                 base_timer = int(base_charge_time * (1 - charge_time_reduction))
@@ -39746,7 +39746,7 @@ def handle_player(keys):
                 discounted_cost = apply_dashgear_gauge_discount(discounted_cost)
                 if selected_character_type == "optimus":
                     discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
-                battery_bonus = academy.get_skill_bonus("dash_battery_pack")
+                battery_bonus = get_runtime_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
                 # 천사의 가호 대쉬 비용 버프 적용 (dash_manager._GLOBAL_DASH_INST 직접 참조)
                 dm_inst = dash_manager._GLOBAL_DASH_INST
@@ -39797,7 +39797,7 @@ def handle_player(keys):
                     except:
                         pass  # 전설 아이템 접근 실패 시 무시
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
-                    acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
+                    acceleration_bonus = get_runtime_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
                         acceleration_skill_level = int(acceleration_bonus * 10 / 3)  # 레벨 계산 (0.3 -> 1레벨)
                         acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
@@ -39813,14 +39813,14 @@ def handle_player(keys):
                     # 대쉬기어 효과: 대쉬 거리 증가 (롤 옵션 적용)
                     base_rolling_timer = apply_dashgear_distance(15.0)  # 기본 대쉬 시간
                     # 아카데미 스킬 효과 적용: 대쉬 거리 증가 (도약)
-                    jump_bonus = academy.get_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
+                    jump_bonus = get_runtime_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
                     total_distance_bonus = jump_bonus
                     base_rolling_timer *= (1 + total_distance_bonus)
                     # 스킬 효과 적용: 대쉬 거리 증가 (기존 시스템 유지)
                     skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
                     rolling_timer = int(skill_distance_boost)
                     #  대쉬 스피릿 스킬: 확률적 레이저 생성
-                    dash_spirit_level = academy.get_skill_bonus("dash_spirit")
+                    dash_spirit_level = get_runtime_skill_bonus("dash_spirit")
                     if dash_spirit_level > 0:
                         # 확률 계산: 레벨1=30%, 레벨2=50%
                         dash_spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
@@ -39835,7 +39835,7 @@ def handle_player(keys):
                     # 최대 토큰 수 계산 (먼저 계산해야 함)
                     base_charges = 1  # 기본 1개
                     holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
-                    amplification_bonus = academy.get_skill_bonus("dash_amplification")
+                    amplification_bonus = get_runtime_skill_bonus("dash_amplification")
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
                     # 대쉬부스트 활성화 시 토큰 소모하지 않음
                     if not is_dash_unlimited():
@@ -39856,7 +39856,7 @@ def handle_player(keys):
                     _charging_state["index"] = -1
                     _charging_state["timer"] = 0
                     # 아카데미 스킬 효과: 쿨타임 감소
-                    dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
+                    dash_cooldown_bonus = get_runtime_skill_bonus("dash_cooldown")
                     cooldown_reduction = int(dash_cooldown_bonus * FPS)  # 초 단위를 프레임으로 변환
                     # 모든 토큰에 동일한 쿨타임 적용 (일관성 - 캐릭터 대쉬쿨타임 능력치 기준)
                     base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
@@ -39864,7 +39864,7 @@ def handle_player(keys):
                     base_cooldown = apply_spikeboots_cooldown(base_cooldown)
                     base_timer = max(6, base_cooldown - cooldown_reduction)  # 최소 0.1초
                     # 경량화 스킬 효과 적용
-                    lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
+                    lightweight_bonus = get_runtime_skill_bonus("dash_lightweight")
                     if lightweight_bonus > 0:
                         base_timer = int(base_timer * (1 - lightweight_bonus))
                         base_timer = max(6, base_timer)
@@ -39947,7 +39947,7 @@ def handle_player(keys):
                     if selected_character_type == "optimus":
                         discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
                     # 아카데미 스킬 효과 적용: 게이지 소모 감소 (배터리팩)
-                    battery_bonus = academy.get_skill_bonus("dash_battery_pack")
+                    battery_bonus = get_runtime_skill_bonus("dash_battery_pack")
                     final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))  # 최소 10은 소모
                     # 대쉬부스트 효과: 대쉬 비용 70% 할인
                     if is_dash_boost_active():
@@ -40001,7 +40001,7 @@ def handle_player(keys):
                     except:
                         pass  # 전설 아이템 접근 실패 시 무시
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
-                    acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
+                    acceleration_bonus = get_runtime_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
                         acceleration_skill_level = int(acceleration_bonus * 10 / 3)  # 레벨 계산 (0.3 -> 1레벨)
                         acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
@@ -40015,14 +40015,14 @@ def handle_player(keys):
                     # 대쉬기어 효과: 대쉬 거리 증가 (롤 옵션 적용)
                     base_rolling_timer = apply_dashgear_distance(15.0)  # 기본 대쉬 시간
                     # 아카데미 스킬 효과 적용: 대쉬 거리 증가 (도약)
-                    jump_bonus = academy.get_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
+                    jump_bonus = get_runtime_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
                     total_distance_bonus = jump_bonus
                     base_rolling_timer *= (1 + total_distance_bonus)
                     # 스킬 효과 적용: 대쉬 거리 증가 (기존 시스템 유지)
                     skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
                     rolling_timer = int(skill_distance_boost)
                     #  대쉬 스피릿 스킬: 확률적 레이저 생성
-                    dash_spirit_level = academy.get_skill_bonus("dash_spirit")
+                    dash_spirit_level = get_runtime_skill_bonus("dash_spirit")
                     if dash_spirit_level > 0:
                         # 확률 계산: 레벨1=30%, 레벨2=50%
                         dash_spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
@@ -40037,7 +40037,7 @@ def handle_player(keys):
                     # 최대 토큰 수 계산 (먼저 계산해야 함)
                     base_charges = 1  # 기본 1개
                     holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
-                    amplification_bonus = academy.get_skill_bonus("dash_amplification")
+                    amplification_bonus = get_runtime_skill_bonus("dash_amplification")
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
                     # 대쉬부스트 활성화 시 토큰 소모하지 않음
                     if not is_dash_unlimited():
@@ -40058,7 +40058,7 @@ def handle_player(keys):
                     _charging_state["index"] = -1
                     _charging_state["timer"] = 0
                     # 아카데미 스킬 효과: 쿨타임 감소
-                    dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
+                    dash_cooldown_bonus = get_runtime_skill_bonus("dash_cooldown")
                     cooldown_reduction = int(dash_cooldown_bonus * FPS)  # 초 단위를 프레임으로 변환
                     # 모든 토큰에 동일한 쿨타임 적용 (일관성 - 캐릭터 대쉬쿨타임 능력치 기준)
                     base_cooldown = 180  # 3초 (180프레임) - 기본 대쉬 쿨타임
@@ -40066,7 +40066,7 @@ def handle_player(keys):
                     base_cooldown = apply_spikeboots_cooldown(base_cooldown)
                     base_timer = max(6, base_cooldown - cooldown_reduction)  # 최소 0.1초
                     # 경량화 스킬 효과 적용
-                    lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
+                    lightweight_bonus = get_runtime_skill_bonus("dash_lightweight")
                     if lightweight_bonus > 0:
                         base_timer = int(base_timer * (1 - lightweight_bonus))
                         base_timer = max(6, base_timer)
@@ -40148,7 +40148,7 @@ def handle_player(keys):
                     if selected_character_type == "optimus":
                         discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
                     # 아카데미 스킬 효과 적용: 게이지 소모 감소 (배터리팩)
-                    battery_bonus = academy.get_skill_bonus("dash_battery_pack")
+                    battery_bonus = get_runtime_skill_bonus("dash_battery_pack")
                     final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))  # 최소 10은 소모
                     # 대쉬부스트 효과: 대쉬 비용 70% 할인
                     if is_dash_boost_active():
@@ -41421,12 +41421,12 @@ def handle_player(keys):
                 #  고스트샷 종료 시 토큰 충전 타이머 초기화
                 base_charges = 1
                 holder_bonus = _get_dashholder_count()
-                amplification_bonus = academy.get_skill_bonus("dash_amplification")
+                amplification_bonus = get_runtime_skill_bonus("dash_amplification")
                 max_charges = int(base_charges + holder_bonus + amplification_bonus)
                 # 토큰이 부족한 경우 무조건 충전 타이머 설정
                 if rolling_charges < max_charges:
                     # 경량화 스킬 효과 적용
-                    lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
+                    lightweight_bonus = get_runtime_skill_bonus("dash_lightweight")
                     charge_time_reduction = lightweight_bonus  # 5% per level
                     base_charge_time = 180  # 3초
                     new_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
@@ -52509,7 +52509,7 @@ def draw_player_gauge():
     #  정확한 최대 토큰 수 계산 (대쉬홀더 + 증폭 스킬)
     base_charges = 1  # 기본 1개
     holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
-    amplification_bonus = academy.get_skill_bonus("dash_amplification")
+    amplification_bonus = get_runtime_skill_bonus("dash_amplification")
     max_tokens = int(base_charges + holder_bonus + amplification_bonus)
     # 새로 증가한 토큰은 즉시 충전되도록 동기화
     global last_max_dash_tokens, rolling_charges, rolling_charge_timer, token_states, charging_token_index, max_rolling_charge_time
@@ -56392,7 +56392,7 @@ def draw_objects():
             _battery_bonus = 0
             if 'academy' in globals():
                 try:
-                    _battery_bonus = academy.get_skill_bonus("dash_battery_pack")
+                    _battery_bonus = get_runtime_skill_bonus("dash_battery_pack")
                 except:
                     pass
             _required = max(10, int(_discounted * (1 - _battery_bonus)))
@@ -56524,7 +56524,7 @@ def draw_objects():
             _max_tokens = 1
             try:
                 _holder_bonus = _get_dashholder_count() if callable(globals().get('_get_dashholder_count')) else 0
-                _amp_bonus = academy.get_skill_bonus("dash_amplification") if 'academy' in globals() else 0
+                _amp_bonus = get_runtime_skill_bonus("dash_amplification") if 'academy' in globals() else 0
                 _max_tokens = int(1 + _holder_bonus + _amp_bonus)
             except:
                 _max_tokens = max(1, _rolling_charges)
@@ -76744,7 +76744,7 @@ def reset_round():
     # 기존 시스템 - 증폭 스킬 적용
     base_charges = 1  # 기본 1개
     holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
-    amplification_bonus = academy.get_skill_bonus("dash_amplification")
+    amplification_bonus = get_runtime_skill_bonus("dash_amplification")
     rolling_charges = int(base_charges + holder_bonus + amplification_bonus)
     rolling_charge_timer = 0
     rolling_consecutive_count = 0  #  연속 대쉬 카운터 초기화
@@ -76954,7 +76954,7 @@ def choose_server(show_text=True):
     #  새 라운드 시작 시 토큰 시스템 초기화
     base_charges = 1
     holder_bonus = _get_dashholder_count()
-    amplification_bonus = academy.get_skill_bonus("dash_amplification") if 'academy' in globals() else 0
+    amplification_bonus = get_runtime_skill_bonus("dash_amplification") if 'academy' in globals() else 0
     max_charges = int(base_charges + holder_bonus + amplification_bonus)
     rolling_charges = max_charges
     rolling_charge_timer = 0
@@ -79694,7 +79694,7 @@ def handle_ball():
                         pass  # 전설 아이템 접근 실패 시 무시
                     
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
-                    acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
+                    acceleration_bonus = get_runtime_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
                         acceleration_skill_level = int(acceleration_bonus * 10 / 3)  # 레벨 계산 (0.3 -> 1레벨)
                         acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
@@ -79706,7 +79706,7 @@ def handle_ball():
                     # 대시기어 효과: 대시 거리 증가 (롤 옵션 적용)
                     base_rolling_timer = apply_dashgear_distance(15.0)  # 기본 대쉬 시간
                     # 아카데미 스킬 효과 적용: 대쉬 거리 증가 (도약)
-                    jump_bonus = academy.get_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
+                    jump_bonus = get_runtime_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
                     total_distance_bonus = jump_bonus
                     base_rolling_timer *= (1 + total_distance_bonus)
                     # 스킬 효과 적용: 대쉬 거리 증가 (기존 시스템 유지)
@@ -82140,14 +82140,14 @@ def handle_ball():
                 #  고스트샷 종료 시 토큰 충전 타이머 초기화 (handle_ball에서도 처리)
                 base_charges = 1
                 holder_bonus = _get_dashholder_count()
-                amplification_bonus = academy.get_skill_bonus("dash_amplification")
+                amplification_bonus = get_runtime_skill_bonus("dash_amplification")
                 max_charges = int(base_charges + holder_bonus + amplification_bonus)
                 if DEBUG_HANDLE_BALL_VERBOSE:
                     print(f"[DEBUG] (handle_ball)   -  : {rolling_charges}/{max_charges}, : {rolling_charge_timer}")
                 # 토큰이 부족한 경우 무조건 충전 타이머 설정
                 if rolling_charges < max_charges:
                     # 경량화 스킬 효과 적용
-                    lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
+                    lightweight_bonus = get_runtime_skill_bonus("dash_lightweight")
                     charge_time_reduction = lightweight_bonus
                     base_charge_time = 180  # 3초
                     new_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
