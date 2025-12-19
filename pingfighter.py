@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """PingFighter (핑파이터) - 아케이드 스타일 탁구 보스 배틀 게임
 
 보스 배틀, 파워업, 특수 능력이 포함된 Python/Pygame 기반 게임.
@@ -2594,7 +2594,342 @@ def draw_emergency_charge_effects(screen: pygame.Surface):
             pygame.draw.circle(glow_surf, glow_color, (p["size"]*2, p["size"]*2), p["size"]*2)
             screen.blit(glow_surf, (int(p["x"]) - p["size"]*2, int(p["y"]) - p["size"]*2), special_flags=pygame.BLEND_ADD)
 
-# ========== 옵티머스 게이지 기반 스킬 선택 트리거 시스템 ==========
+# ========== RUNTIME SKILL SYSTEM (All Characters) ==========
+# Starpoint-based skill selection system for all characters
+STARPOINT_PER_SKILL_CHOICE = 1  # 1 starpoint = 1 skill choice
+
+# Runtime skill state variables
+runtime_skill_levels = {}  # Current run's skill levels (reset on new game)
+starpoint_for_skills = 0   # Accumulated starpoints for skill selection (0~2)
+pending_skill_choices = 0  # Pending skill choice count
+runtime_skill_choice_pending = False  # Skill selection pending flag
+
+# Common skill pool (all characters)
+RUNTIME_SKILL_POOL = {
+    # ===== Dash Tree (5 skills) =====
+    "dash_lightweight": {
+        "name": "경량화",
+        "max_level": 3,
+        "descriptions": {
+            1: "대쉬 쿨타임 12% 감소",
+            2: "대쉬 쿨타임 24% 감소",
+            3: "대쉬 쿨타임 36% 감소",
+        },
+        "detail": "대쉬 시스템을 경량화하여 쿨타임이 감소합니다.",
+        "icon_color": (100, 200, 255),
+        "tree": "dash"
+    },
+    "dash_module_control": {
+        "name": "모듈제어",
+        "max_level": 3,
+        "descriptions": {
+            1: "대쉬 후딜 17% 감소",
+            2: "대쉬 후딜 34% 감소",
+            3: "대쉬 후딜 51% 감소",
+        },
+        "detail": "대쉬 후 경직 시간을 줄여 더 빠르게 다음 행동을 할 수 있습니다.",
+        "icon_color": (150, 100, 255),
+        "tree": "dash"
+    },
+    "dash_jump": {
+        "name": "도약",
+        "max_level": 3,
+        "descriptions": {
+            1: "대쉬 거리 7% 증가",
+            2: "대쉬 거리 14% 증가",
+            3: "대쉬 거리 21% 증가",
+        },
+        "detail": "대쉬 거리가 증가하여 더 넓은 범위를 커버할 수 있습니다.",
+        "icon_color": (100, 255, 150),
+        "tree": "dash"
+    },
+    "dash_battery_pack": {
+        "name": "배터리팩",
+        "max_level": 3,
+        "descriptions": {
+            1: "대쉬 게이지 소모 14% 감소",
+            2: "대쉬 게이지 소모 28% 감소",
+            3: "대쉬 게이지 소모 42% 감소",
+        },
+        "detail": "에너지 효율을 높여 대쉬 시 소모되는 게이지가 줄어듭니다.",
+        "icon_color": (50, 255, 100),
+        "tree": "dash"
+    },
+    "dash_amplification": {
+        "name": "증폭",
+        "max_level": 2,
+        "descriptions": {
+            1: "대쉬 토큰 +1",
+            2: "대쉬 토큰 +2",
+        },
+        "detail": "대쉬 토큰을 추가로 획득하여 연속 대쉬가 가능합니다.",
+        "icon_color": (255, 200, 50),
+        "tree": "dash"
+    },
+
+    # ===== Item Tree (7 skills) =====
+    "item_luck": {
+        "name": "행운",
+        "max_level": 3,
+        "descriptions": {
+            1: "아이템 스폰 대기 10% 감소",
+            2: "아이템 스폰 대기 20% 감소",
+            3: "아이템 스폰 대기 30% 감소",
+        },
+        "detail": "행운의 기운으로 아이템이 더 자주 나타납니다.",
+        "icon_color": (255, 215, 0),
+        "tree": "item"
+    },
+    "item_cooldown_mastery": {
+        "name": "숙련",
+        "max_level": 3,
+        "descriptions": {
+            1: "액티브 아이템 쿨타임 14% 감소",
+            2: "액티브 아이템 쿨타임 28% 감소",
+            3: "액티브 아이템 쿨타임 42% 감소",
+        },
+        "detail": "아이템 사용에 숙련되어 쿨타임이 줄어듭니다.",
+        "icon_color": (100, 150, 255),
+        "tree": "item"
+    },
+    "item_gauge_mastery": {
+        "name": "숙달",
+        "max_level": 3,
+        "descriptions": {
+            1: "액티브 사용시 게이지 +12",
+            2: "액티브 사용시 게이지 +24",
+            3: "액티브 사용시 게이지 +36",
+        },
+        "detail": "아이템 사용 시 보너스 게이지를 획득합니다.",
+        "icon_color": (150, 255, 100),
+        "tree": "item"
+    },
+    "item_bag_expansion": {
+        "name": "가방 확장",
+        "max_level": 3,
+        "descriptions": {
+            1: "액티브 슬롯 +1",
+            2: "액티브 슬롯 +2",
+            3: "액티브 슬롯 +3",
+        },
+        "detail": "가방을 확장하여 더 많은 액티브 아이템을 보관할 수 있습니다.",
+        "icon_color": (180, 120, 80),
+        "tree": "item"
+    },
+    "item_caffeine": {
+        "name": "카페인",
+        "max_level": 3,
+        "descriptions": {
+            1: "타이머형 아이템 지속 25% 증가",
+            2: "타이머형 아이템 지속 50% 증가",
+            3: "타이머형 아이템 지속 75% 증가",
+        },
+        "detail": "카페인 부스트로 아이템 효과가 더 오래 지속됩니다.",
+        "icon_color": (139, 69, 19),
+        "tree": "item"
+    },
+    "item_polish": {
+        "name": "연마",
+        "max_level": 3,
+        "descriptions": {
+            1: "패시브 롤옵션 효율 30% 증가",
+            2: "패시브 롤옵션 효율 60% 증가",
+            3: "패시브 롤옵션 효율 90% 증가",
+        },
+        "detail": "아이템을 연마하여 패시브 효과가 강화됩니다.",
+        "icon_color": (200, 200, 200),
+        "tree": "item"
+    },
+    "item_recycle": {
+        "name": "연금술",
+        "max_level": 3,
+        "descriptions": {
+            1: "아이템 유지 확률 20%",
+            2: "아이템 유지 확률 40%",
+            3: "아이템 유지 확률 60%",
+        },
+        "detail": "연금술로 사용한 아이템이 확률적으로 유지됩니다.",
+        "icon_color": (148, 0, 211),
+        "tree": "item"
+    },
+
+    # ===== Downtown Tree (2 skills) =====
+    "downtown_gamble": {
+        "name": "도박",
+        "max_level": 3,
+        "descriptions": {
+            1: "가챠 추가 1회 확률 25%",
+            2: "가챠 추가 1회 확률 50%",
+            3: "가챠 추가 1회 확률 75%",
+        },
+        "detail": "도박꾼의 행운으로 가챠가 추가로 돌아갈 수 있습니다.",
+        "icon_color": (255, 0, 0),
+        "tree": "downtown"
+    },
+    "downtown_treasure_map": {
+        "name": "보물지도",
+        "max_level": 2,
+        "descriptions": {
+            1: "전설 확률 +175%",
+            2: "전설 확률 +350%",
+        },
+        "detail": "보물지도로 전설 아이템을 더 쉽게 찾을 수 있습니다.",
+        "icon_color": (255, 223, 0),
+        "tree": "downtown"
+    },
+}
+
+# Smasher exclusive skills
+SMASHER_EXCLUSIVE_SKILLS = {
+    "dash_acceleration": {
+        "name": "버스트업",
+        "max_level": 3,
+        "descriptions": {
+            1: "대쉬시 패들 크기 100% 증가",
+            2: "대쉬시 패들 크기 200% 증가",
+            3: "대쉬시 패들 크기 300% 증가",
+        },
+        "detail": "대쉬할 때 패들 크기가 크게 증가하여 강력한 리턴이 가능합니다.",
+        "icon_color": (255, 100, 50),
+        "tree": "dash",
+        "character_restriction": "smasher"
+    },
+    "dash_spirit": {
+        "name": "대쉬 스피릿",
+        "max_level": 2,
+        "descriptions": {
+            1: "대쉬시 35% 확률로 레이저 잔상",
+            2: "대쉬시 50% 확률로 레이저 잔상",
+        },
+        "detail": "대쉬 시 확률적으로 레이저 잔상이 생성되어 추가 데미지를 줍니다.",
+        "icon_color": (0, 255, 255),
+        "tree": "dash",
+        "character_restriction": "smasher"
+    },
+}
+
+# Optimus exclusive skills (dictionary format for runtime system)
+OPTIMUS_EXCLUSIVE_SKILLS = {
+    "mecha_chain": {
+        "name": "메카체인",
+        "max_level": 4,
+        "descriptions": {
+            1: "게이지 감소율 10% 감소",
+            2: "게이지 감소율 20% 감소",
+            3: "게이지 감소율 30% 감소",
+            4: "게이지 감소율 40% 감소",
+        },
+        "detail": "옵티머스의 에너지 효율을 높여 게이지 감소율이 줄어듭니다.",
+        "icon_color": (100, 200, 255),
+        "tree": "optimus",
+        "character_restriction": "optimus"
+    },
+    "mecha_charge": {
+        "name": "메카차지",
+        "max_level": 4,
+        "descriptions": {
+            1: "충전량 +10%",
+            2: "충전량 +20%",
+            3: "충전량 +30%",
+            4: "충전량 +40%",
+        },
+        "detail": "옵티머스의 핵심 시스템을 업그레이드하여 ㄴ키 홀드 시 게이지 충전 속도가 증가합니다.",
+        "icon_color": (255, 220, 50),
+        "tree": "optimus",
+        "character_restriction": "optimus"
+    },
+    "mecha_bulk": {
+        "name": "메카벌크",
+        "max_level": 4,
+        "descriptions": {
+            1: "패들 +5%",
+            2: "패들 +10%",
+            3: "패들 +15%",
+            4: "패들 +20%",
+        },
+        "detail": "옵티머스의 프레임을 강화하여 패들 크기가 증가합니다.",
+        "icon_color": (180, 100, 255),
+        "tree": "optimus",
+        "character_restriction": "optimus"
+    },
+    "emergency_charge": {
+        "name": "비상충전",
+        "max_level": 3,
+        "descriptions": {
+            1: "ㄴ더블탭 50%",
+            2: "ㄴ더블탭 70%",
+            3: "ㄴ더블탭 100%",
+        },
+        "detail": "위기 상황에서 ㄴ키를 빠르게 두 번 누르면 즉시 게이지를 충전합니다. 스테이지당 1회만 사용 가능합니다.",
+        "icon_color": (255, 100, 100),
+        "tree": "optimus",
+        "character_restriction": "optimus"
+    },
+    "reboot_enhance": {
+        "name": "재부팅강화",
+        "max_level": 3,
+        "descriptions": {
+            1: "스턴 -30%",
+            2: "스턴 -60%",
+            3: "스턴 -90%",
+        },
+        "detail": "충전 완료 후 발생하는 시스템 재부팅 시간을 단축합니다.",
+        "icon_color": (100, 255, 150),
+        "tree": "optimus",
+        "character_restriction": "optimus"
+    },
+    "star_change": {
+        "name": "스타체인지",
+        "max_level": -1,
+        "descriptions": {
+            1: "스타포인트 +3",
+        },
+        "detail": "여분의 에너지를 스타포인트로 변환합니다. 즉시 스타포인트 3개를 획득합니다.",
+        "icon_color": (255, 255, 100),
+        "tree": "optimus",
+        "character_restriction": "optimus"
+    },
+    "bug_update": {
+        "name": "버그업데이트",
+        "max_level": 3,
+        "descriptions": {
+            1: "25% 재선택",
+            2: "35% 재선택",
+            3: "45% 재선택",
+        },
+        "detail": "시스템의 예기치 않은 버그로 인해 스킬 선택 후 확률적으로 한 번 더 선택창이 나타납니다.",
+        "icon_color": (150, 255, 50),
+        "tree": "optimus",
+        "character_restriction": "optimus"
+    },
+    "elec_pad": {
+        "name": "일렉패드",
+        "max_level": 4,
+        "descriptions": {
+            1: "5% 게이지+40",
+            2: "7% 게이지+50",
+            3: "9% 게이지+60",
+            4: "11% 게이지+70",
+        },
+        "detail": "패들에 전기 충격 패드를 장착합니다. 공을 타격할 때마다 확률적으로 게이지가 즉시 충전됩니다.",
+        "icon_color": (50, 200, 255),
+        "tree": "optimus",
+        "character_restriction": "optimus"
+    },
+    "optimus_arm": {
+        "name": "옵티머스암",
+        "max_level": 1,
+        "descriptions": {
+            1: "기계팔 해금",
+        },
+        "detail": "강력한 기계팔을 장착합니다. 스페셜 게이지가 가득 차면 보스를 직접 잡아 던지는 강력한 기술을 사용할 수 있습니다.",
+        "icon_color": (255, 180, 50),
+        "tree": "optimus",
+        "character_restriction": "optimus"
+    },
+}
+
+# ==========옵티머스 게이지 기반 스킬 선택 트리거 시스템 ==========
 # 최대 게이지가 400, 300에 도달했을 때 각각 1회씩 스킬 선택창 표시
 OPTIMUS_SKILL_TRIGGER_THRESHOLDS = [400, 300]  # 내림차순 (400 먼저, 300 나중)
 optimus_skill_triggers_used = []  # 이미 사용된 트리거 목록 (예: [400] → 400은 이미 발동됨)
@@ -3536,6 +3871,582 @@ def reset_optimus_skill_triggers() -> None:
     optimus_skill_triggers_used = []
     optimus_skill_choice_pending = False
     optimus_skill_choice_threshold = 0
+
+
+# ========== RUNTIME SKILL SYSTEM FUNCTIONS ==========
+
+def reset_runtime_skill_system():
+    """런타임 스킬 시스템 초기화 (새 게임 시작 시)"""
+    global runtime_skill_levels, starpoint_for_skills, pending_skill_choices, runtime_skill_choice_pending
+
+    runtime_skill_levels = {}
+    starpoint_for_skills = 0
+    pending_skill_choices = 0
+    runtime_skill_choice_pending = False
+
+    print("[RuntimeSkill] 런타임 스킬 시스템 초기화")
+
+
+def on_starpoint_collected(amount: int = 1):
+    """스타포인트 수집 시 호출 - 선택지 트리거 체크"""
+    global starpoint_for_skills, pending_skill_choices, runtime_skill_choice_pending
+
+    print(f"[RuntimeSkill] on_starpoint_collected! amount={amount}")
+    starpoint_for_skills += amount
+    print(f"[RuntimeSkill] starpoint_for_skills = {starpoint_for_skills}")
+
+    # N포인트당 선택지 1회
+    while starpoint_for_skills >= STARPOINT_PER_SKILL_CHOICE:
+        starpoint_for_skills -= STARPOINT_PER_SKILL_CHOICE
+        pending_skill_choices += 1
+        print(f"[RuntimeSkill] 스킬 선택지 획득! 대기: {pending_skill_choices}")
+
+    # 대기 중인 선택이 있으면 플래그 설정
+    if pending_skill_choices > 0:
+        runtime_skill_choice_pending = True
+
+
+def get_runtime_skill_choices(character_type: str) -> list:
+    """캐릭터에 맞는 3개 스킬 선택지 생성"""
+    global runtime_skill_levels
+    import random
+
+    available = []
+
+    # 공용 스킬 풀에서 선택 가능한 것들
+    for skill_id, skill_data in RUNTIME_SKILL_POOL.items():
+        current_level = runtime_skill_levels.get(skill_id, 0)
+        max_level = skill_data["max_level"]
+
+        # 최대 레벨 미달인 것만
+        if current_level < max_level:
+            next_level = current_level + 1
+            choice = {
+                "id": skill_id,
+                "name": skill_data["name"],
+                "description": skill_data["descriptions"].get(next_level, ""),
+                "detail": skill_data.get("detail", ""),
+                "icon_color": skill_data["icon_color"],
+                "current_level": current_level,
+                "next_level": next_level,
+                "max_level": max_level,
+                "tree": skill_data.get("tree", ""),
+                "character_restriction": None
+            }
+            available.append(choice)
+
+    # 스매셔 전용 스킬 추가
+    if character_type == "smasher":
+        for skill_id, skill_data in SMASHER_EXCLUSIVE_SKILLS.items():
+            current_level = runtime_skill_levels.get(skill_id, 0)
+            max_level = skill_data["max_level"]
+
+            if current_level < max_level:
+                next_level = current_level + 1
+                choice = {
+                    "id": skill_id,
+                    "name": skill_data["name"],
+                    "description": skill_data["descriptions"].get(next_level, ""),
+                    "detail": skill_data.get("detail", ""),
+                    "icon_color": skill_data["icon_color"],
+                    "current_level": current_level,
+                    "next_level": next_level,
+                    "max_level": max_level,
+                    "tree": skill_data.get("tree", ""),
+                    "character_restriction": "smasher"
+                }
+                available.append(choice)
+
+    # 옵티머스 전용 스킬 추가
+    if character_type == "optimus":
+        for skill_id, skill_data in OPTIMUS_EXCLUSIVE_SKILLS.items():
+            current_level = runtime_skill_levels.get(skill_id, 0)
+            max_level = skill_data["max_level"]
+
+            # 무제한 스킬 (-1)이거나 최대 레벨 미달인 것만
+            if max_level == -1 or current_level < max_level:
+                next_level = 1 if max_level == -1 else current_level + 1
+                choice = {
+                    "id": skill_id,
+                    "name": skill_data["name"],
+                    "description": skill_data["descriptions"].get(next_level, ""),
+                    "detail": skill_data.get("detail", ""),
+                    "icon_color": skill_data["icon_color"],
+                    "current_level": current_level,
+                    "next_level": next_level,
+                    "max_level": max_level,
+                    "tree": skill_data.get("tree", ""),
+                    "character_restriction": "optimus"
+                }
+                available.append(choice)
+
+    # 3개 랜덤 선택
+    if len(available) > 3:
+        available = random.sample(available, 3)
+
+    # 3개 미만이면 빈 슬롯으로 채움
+    while len(available) < 3:
+        placeholder = {
+            "id": f"empty_{len(available)}",
+            "name": "빈 슬롯",
+            "description": "선택 가능한 스킬이 없습니다",
+            "detail": "",
+            "icon_color": (80, 80, 80),
+            "current_level": 0,
+            "next_level": 0,
+            "max_level": 0,
+            "tree": "",
+            "character_restriction": None
+        }
+        available.append(placeholder)
+
+    return available[:3]
+
+
+def apply_runtime_skill_effect(choice_id: str) -> bool:
+    """런타임 스킬 효과 적용 (레벨업). 성공 시 True 반환"""
+    global runtime_skill_levels, starpoint_for_skills, pending_skill_choices
+
+    # 빈 슬롯 무시
+    if choice_id.startswith("empty_"):
+        return True
+
+    # 스타체인지 특별 처리 (스타포인트 추가)
+    if choice_id == "star_change":
+        starpoint_for_skills += 3  # 스타포인트 3개 추가
+        runtime_skill_levels["star_change"] = runtime_skill_levels.get("star_change", 0) + 1
+        print(f"[RuntimeSkill] 스타체인지! 스타포인트 +3 (총: {starpoint_for_skills})")
+        # 추가된 스타포인트로 선택지 트리거 체크
+        while starpoint_for_skills >= STARPOINT_PER_SKILL_CHOICE:
+            starpoint_for_skills -= STARPOINT_PER_SKILL_CHOICE
+            pending_skill_choices += 1
+        return True
+
+    # 일반 스킬 레벨업
+    old_level = runtime_skill_levels.get(choice_id, 0)
+    runtime_skill_levels[choice_id] = old_level + 1
+    print(f"[RuntimeSkill] {choice_id} 레벨업! Lv.{old_level} -> Lv.{runtime_skill_levels[choice_id]}")
+    return True
+
+
+def get_runtime_skill_bonus(skill_id: str) -> float:
+    """런타임 스킬 레벨에 따른 효과값 반환 (아카데미 보너스와 합산)"""
+    global runtime_skill_levels
+
+    level = runtime_skill_levels.get(skill_id, 0)
+    runtime_bonus = 0.0
+
+    # 런타임 스킬 레벨이 있으면 해당 효과 계산
+    if level > 0:
+        # 스킬별 효과 계산
+        effects = {
+            # 대쉬 트리
+            "dash_lightweight": level * 0.12,       # 쿨타임 12%/레벨 감소
+            "dash_module_control": level * 0.17,    # 후딜 17%/레벨 감소
+            "dash_jump": level * 0.07,              # 거리 7%/레벨 증가
+            "dash_battery_pack": level * 0.14,      # 게이지 소모 14%/레벨 감소
+            "dash_amplification": level,            # 토큰 +1/레벨
+
+            # 아이템 트리
+            "item_luck": level * 0.10,              # 스폰 대기 10%/레벨 감소
+            "item_cooldown_mastery": level * 0.14,  # 쿨타임 14%/레벨 감소
+            "item_gauge_mastery": level * 12,       # 게이지 +12/레벨
+            "item_bag_expansion": level,            # 슬롯 +1/레벨
+            "item_caffeine": level * 0.25,          # 지속시간 25%/레벨 증가
+            "item_polish": level * 0.30,            # 롤옵션 효율 30%/레벨 증가
+            "item_recycle": level * 0.20,           # 유지 확률 20%/레벨
+
+            # 광장 트리
+            "downtown_gamble": level * 0.25,        # 추가 가챠 확률 25%/레벨
+            "downtown_treasure_map": level * 1.75,  # 전설 확률 +175%/레벨
+
+            # 스매셔 전용
+            "dash_acceleration": level * 1.0,       # 패들 크기 100%/레벨 증가
+            "dash_spirit": 0.35 + (level - 1) * 0.15 if level > 0 else 0,  # 35%/50%
+
+            # 옵티머스 전용
+            "mecha_chain": level * 0.10,            # 게이지 감소율 10%/레벨 감소
+            "mecha_charge": level * 0.10,           # 충전량 10%/레벨 증가
+            "mecha_bulk": level * 0.05,             # 패들 5%/레벨 증가
+            "emergency_charge": 0.5 + (level - 1) * 0.25 if level > 0 else 0,  # 50%/70%/100%
+            "reboot_enhance": level * 0.30,         # 스턴 30%/레벨 감소
+            "bug_update": 0.25 + (level - 1) * 0.10 if level > 0 else 0,  # 25%/35%/45%
+            "elec_pad": (0.05 + (level - 1) * 0.02, 40 + (level - 1) * 10) if level > 0 else (0, 0),  # (확률, 게이지)
+        }
+        runtime_bonus = effects.get(skill_id, 0.0)
+
+    # 아카데미 시스템 보너스도 합산 (기존 호환성 + 합산)
+    academy_bonus = 0.0
+    try:
+        academy_bonus = academy.get_skill_bonus(skill_id)
+    except:
+        pass
+
+    return runtime_bonus + academy_bonus
+
+
+def draw_starpoint_skill_gauge(screen: pygame.Surface):
+    """스타포인트 스킬 게이지 UI 그리기"""
+    global starpoint_for_skills, pending_skill_choices
+
+    # 게이지 위치 및 크기
+    gauge_x = 20
+    gauge_y = 120
+    gauge_width = 100
+    gauge_height = 10
+
+    # 배경
+    pygame.draw.rect(screen, (40, 40, 40), (gauge_x, gauge_y, gauge_width, gauge_height))
+
+    # 진행률
+    gauge_ratio = starpoint_for_skills / STARPOINT_PER_SKILL_CHOICE
+    fill_width = int(gauge_width * gauge_ratio)
+    if fill_width > 0:
+        pygame.draw.rect(screen, (255, 215, 0), (gauge_x, gauge_y, fill_width, gauge_height))
+
+    # 테두리
+    pygame.draw.rect(screen, (100, 100, 100), (gauge_x, gauge_y, gauge_width, gauge_height), 1)
+
+    # 대기 중인 선택이 있으면 반짝임 효과
+    if pending_skill_choices > 0:
+        # 반짝임 애니메이션
+        import time
+        blink = (int(time.time() * 4) % 2) == 0
+        if blink:
+            glow_color = (255, 255, 100, 100)
+            glow_surf = pygame.Surface((gauge_width + 10, gauge_height + 10), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, glow_color, (0, 0, gauge_width + 10, gauge_height + 10), border_radius=3)
+            screen.blit(glow_surf, (gauge_x - 5, gauge_y - 5))
+
+def show_runtime_skill_choices() -> str | None:
+    """
+    Runtime skill choice UI - shows 3 skill options when starpoints trigger a choice.
+    Similar to show_stage_clear_choices() but for all characters.
+    """
+    global runtime_skill_choice_pending, pending_skill_choices
+    global runtime_skill_levels
+
+    # Get current character type
+    character_type = globals().get("selected_character_type", "normal")
+
+    # Get available choices
+    choices = get_runtime_skill_choices(character_type)
+
+    if not choices:
+        pending_skill_choices = max(0, pending_skill_choices - 1)
+        runtime_skill_choice_pending = pending_skill_choices > 0
+        return None
+
+    # Capture current screen as background
+    base_background = SCREEN.copy()
+
+    # UI setup
+    local_clock = pygame.time.Clock()
+
+    # Animation variables
+    frame_count = 0
+    phase = "appearing"  # appearing, active, selected
+    card_offsets = [-400, 600, -400]
+    particles = []
+    selected_result = None
+    selected_index = 1  # Middle card default
+    active = True
+
+    # Create particles
+    for _ in range(40):
+        particles.append({
+            'x': random.randint(0, WIDTH),
+            'y': random.randint(0, HEIGHT),
+            'vx': random.uniform(-1.5, 1.5),
+            'vy': random.uniform(-3, -0.5),
+            'size': random.uniform(2, 6),
+            'alpha': random.randint(100, 220),
+            'color': random.choice([(100, 200, 255), (255, 220, 100), (150, 255, 150), (255, 150, 200)])
+        })
+
+    # Card settings
+    card_width, card_height = 180, 130
+    icon_size = 56
+    card_gap = 15
+    total_width = card_width * 3 + card_gap * 2
+    start_x = (WIDTH - total_width) // 2
+    vertical_y = HEIGHT // 2 - card_height // 2
+
+    # Font setup
+    try:
+        title_font = FontStyle.title()
+        name_font = FontStyle.menu()
+        level_font = FontStyle.small()
+        desc_font = FontStyle.small()
+    except Exception:
+        title_font = pygame.font.Font(None, 48)
+        name_font = pygame.font.Font(None, 28)
+        level_font = pygame.font.Font(None, 20)
+        desc_font = pygame.font.Font(None, 18)
+
+    # Card hitbox rectangles for mouse interaction
+    card_rects = []
+    hovered_index = -1  # Currently hovered card index
+
+    while active:
+        frame_count += 1
+
+        # Update card hitbox rectangles based on current positions
+        card_rects = []
+        for i in range(min(3, len(choices))):
+            if i == 0:
+                card_x = start_x + card_offsets[0]
+            elif i == 1:
+                card_x = start_x + card_width + card_gap
+            else:
+                card_x = start_x + 2 * (card_width + card_gap) - card_offsets[2]
+
+            card_y_anim = vertical_y
+            if i == 1:
+                card_y_anim = vertical_y + card_offsets[1]
+
+            card_rects.append(pygame.Rect(int(card_x), int(card_y_anim), card_width, card_height))
+
+        # Get mouse position for hover detection
+        mouse_pos = pygame.mouse.get_pos()
+        hovered_index = -1
+        if phase == "active":
+            for i, rect in enumerate(card_rects):
+                if rect.collidepoint(mouse_pos):
+                    hovered_index = i
+                    break
+
+        # Event handling
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if phase == "active" and event.button == 1:  # Left click
+                    for i, rect in enumerate(card_rects):
+                        if rect.collidepoint(event.pos):
+                            if i < len(choices):
+                                selected_index = i
+                                selected_result = choices[i].get("id", "")
+                                phase = "selected"
+                                frame_count = 0
+                            break
+            elif event.type == pygame.MOUSEMOTION:
+                # Update selection based on hover
+                if phase == "active":
+                    for i, rect in enumerate(card_rects):
+                        if rect.collidepoint(event.pos):
+                            selected_index = i
+                            break
+            elif event.type == pygame.KEYDOWN:
+                if phase == "active":
+                    if event.key == pygame.K_LEFT:
+                        selected_index = (selected_index - 1) % 3
+                    elif event.key == pygame.K_RIGHT:
+                        selected_index = (selected_index + 1) % 3
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_z):
+                        # Select skill
+                        if selected_index < len(choices):
+                            selected_result = choices[selected_index].get("id", "")
+                            phase = "selected"
+                            frame_count = 0
+
+        # Draw background
+        SCREEN.blit(base_background, (0, 0))
+
+        # Update particles
+        for p in particles:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['alpha'] = max(0, p['alpha'] - 0.8)
+        particles = [p for p in particles if p['alpha'] > 0]
+
+        # Semi-transparent overlay
+        overlay_alpha = min(160, frame_count * 6)
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 20, overlay_alpha))
+        SCREEN.blit(overlay, (0, 0))
+
+        # Draw particles
+        for p in particles:
+            if p['alpha'] > 0:
+                particle_surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
+                pygame.draw.circle(particle_surf, (*p['color'], int(p['alpha'])),
+                                 (int(p['size']), int(p['size'])), int(p['size']))
+                SCREEN.blit(particle_surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
+
+        # Appearing animation
+        if phase == "appearing":
+            easing = 0.12
+            card_offsets[0] += (0 - card_offsets[0]) * easing
+            card_offsets[1] += (0 - card_offsets[1]) * easing
+            card_offsets[2] += (0 - card_offsets[2]) * easing
+
+            if all(abs(offset) < 3 for offset in card_offsets):
+                card_offsets = [0, 0, 0]
+                phase = "active"
+
+        # Selected animation - exit after delay
+        elif phase == "selected":
+            if frame_count > 25:
+                active = False
+
+        # Title
+        title_alpha = min(255, frame_count * 10)
+        title_y_offset = max(0, 40 - frame_count * 2)
+        title_text = "SKILL UP!"
+        title_surface = title_font.render(title_text, True, (255, 220, 100))
+        title_surface.set_alpha(title_alpha)
+        title_rect = title_surface.get_rect(center=(WIDTH // 2, vertical_y - 70 - title_y_offset))
+        SCREEN.blit(title_surface, title_rect)
+
+        # Render 3 cards
+        for i, choice in enumerate(choices):
+            if i == 0:
+                card_x = start_x + card_offsets[0]
+            elif i == 1:
+                card_x = start_x + card_width + card_gap
+            else:
+                card_x = start_x + 2 * (card_width + card_gap) - card_offsets[2]
+
+            card_y_anim = vertical_y
+            if i == 1:
+                card_y_anim = vertical_y + card_offsets[1]
+
+            is_selected = (i == selected_index)
+
+            # Selection animation
+            scale = 1.0
+            card_alpha = 255
+            if phase == "selected":
+                if is_selected:
+                    scale = 1.0 + frame_count * 0.015
+                else:
+                    card_alpha = max(0, 255 - frame_count * 12)
+
+            # Create card surface
+            scaled_width = int(card_width * scale)
+            scaled_height = int(card_height * scale)
+            card_surface = pygame.Surface((scaled_width, scaled_height), pygame.SRCALPHA)
+
+            # Card style
+            icon_color = choice.get("icon_color", (100, 150, 255))
+            if is_selected:
+                glow_intensity = int(30 + 25 * math.sin(frame_count * 0.12))
+                glow_color = (
+                    min(255, icon_color[0] + glow_intensity),
+                    min(255, icon_color[1] + glow_intensity),
+                    min(255, icon_color[2] + glow_intensity)
+                )
+                for offset in range(6, 0, -1):
+                    glow_rect = pygame.Rect(offset, offset, scaled_width - offset * 2, scaled_height - offset * 2)
+                    alpha = min(card_alpha, 100 - offset * 15)
+                    glow_surf = pygame.Surface((scaled_width, scaled_height), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_surf, (*glow_color, alpha), glow_rect, border_radius=12)
+                    card_surface.blit(glow_surf, (0, 0))
+
+                bg_color = (40, 50, 90, min(card_alpha, 250))
+                border_color = icon_color
+                border_width = 3
+            else:
+                bg_color = (25, 30, 50, min(card_alpha, 220))
+                border_color = (60, 70, 90)
+                border_width = 2
+
+            # Card background
+            card_rect = pygame.Rect(0, 0, scaled_width, scaled_height)
+            pygame.draw.rect(card_surface, bg_color, card_rect, border_radius=12)
+            pygame.draw.rect(card_surface, border_color, card_rect, border_width, border_radius=12)
+
+            # Icon area
+            icon_margin = 12
+            icon_scaled = int(icon_size * scale)
+            icon_rect = pygame.Rect(icon_margin, 15, icon_scaled, icon_scaled)
+            icon_bg_color = (30, 35, 50, min(card_alpha, 230))
+            pygame.draw.rect(card_surface, icon_bg_color, icon_rect, border_radius=10)
+            pygame.draw.rect(card_surface, (*icon_color, min(card_alpha, 180)), icon_rect, 2, border_radius=10)
+
+            # Draw skill icon
+            skill_id = choice.get("id", "")
+            if not skill_id.startswith("empty_"):
+                # Simple icon - colored circle with first letter
+                pygame.draw.circle(card_surface, icon_color,
+                                 (icon_margin + icon_scaled // 2, 15 + icon_scaled // 2),
+                                 icon_scaled // 3)
+
+            # Text
+            text_x = icon_margin + icon_scaled + 15
+            current_level = choice.get("current_level", 0)
+            next_level = choice.get("next_level", 1)
+            max_level = choice.get("max_level", 1)
+            name_text = choice.get("name", "Unknown")
+
+            # Level display
+            if max_level == -1:
+                level_text = "STACK"
+            else:
+                level_text = f"Lv.{current_level} -> {next_level}"
+
+            # Name
+            name_surface = name_font.render(name_text, True, (255, 255, 255))
+            name_surface.set_alpha(card_alpha)
+            card_surface.blit(name_surface, (text_x, 18))
+
+            # Level
+            level_color = (255, 200, 100) if next_level <= max_level or max_level == -1 else (150, 150, 150)
+            level_surface = level_font.render(level_text, True, level_color)
+            level_surface.set_alpha(card_alpha)
+            card_surface.blit(level_surface, (text_x, 42))
+
+            # Description
+            desc_text = choice.get("description", "")
+            if len(desc_text) > 25:
+                desc_text = desc_text[:25] + "..."
+            desc_surface = desc_font.render(desc_text, True, (180, 180, 180))
+            desc_surface.set_alpha(card_alpha)
+            card_surface.blit(desc_surface, (icon_margin, 80))
+
+            # Blit card
+            card_surface.set_alpha(card_alpha)
+            final_x = int(card_x - (scaled_width - card_width) // 2)
+            final_y = int(card_y_anim - (scaled_height - card_height) // 2)
+            SCREEN.blit(card_surface, (final_x, final_y))
+
+        # Pending choices indicator
+        if pending_skill_choices > 1:
+            remaining_text = f"+{pending_skill_choices - 1} more"
+            remaining_surface = level_font.render(remaining_text, True, (255, 220, 100))
+            SCREEN.blit(remaining_surface, (WIDTH // 2 - 30, vertical_y + card_height + 30))
+
+        # Mouse/keyboard hint text
+        if phase == "active":
+            hint_text = "마우스 클릭 또는 ← → 키로 선택"
+            hint_surface = desc_font.render(hint_text, True, (160, 170, 200))
+            hint_rect = hint_surface.get_rect(center=(WIDTH // 2, vertical_y + card_height + 55))
+            SCREEN.blit(hint_surface, hint_rect)
+
+            # Change cursor when hovering over cards
+            if hovered_index >= 0:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+            else:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
+        pygame.display.flip()
+        local_clock.tick(60)
+
+    # Reset cursor to default
+    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
+    # Apply selected skill
+    if selected_result:
+        apply_runtime_skill_effect(selected_result)
+        pending_skill_choices = max(0, pending_skill_choices - 1)
+        runtime_skill_choice_pending = pending_skill_choices > 0
+
+    # Clear event queue
+    pygame.event.clear()
+
+    return selected_result
 
 
 # 옵티머스 궁극의 탁구채 강화 애니메이션 (300 이하 시 트리거)
@@ -74017,6 +74928,9 @@ def update_trade_point_stars():
             
         print(f"   ! : {trade_point_collected}")
         
+        # Runtime skill system: starpoint collected
+        on_starpoint_collected(1)
+        
         # 획득 효과음
         try:
             coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
@@ -74050,7 +74964,13 @@ def update_trade_point_stars():
         if star_rect.colliderect(PLAYER) and star['life'] > 0:
             # 트레이드 포인트 획득
             trade_point_collected += 1
-            
+
+            # Runtime skill system: starpoint collected notification
+            try:
+                on_starpoint_collected(1)
+            except Exception as e:
+                print(f"[RuntimeSkill ERROR] {e}")
+
             # 레거시 변수 업데이트 (호환성)
             if current_stage == 3:
                 stage3_hearts_collected += 1
@@ -88169,7 +89089,16 @@ def main(stage_num, new_boss_mode=False):
 
             # 이벤트 큐 클리어 (선택 중 쌓인 입력 제거)
             pygame.event.clear()
+        # ========== Runtime Skill Choice Check (Starpoint-based) ==========
+        if runtime_skill_choice_pending:
+            # Show selection screen (game pauses until selection is made)
+            selected_runtime_skill = show_runtime_skill_choices()
 
+            if selected_runtime_skill:
+                print(f"[RuntimeSkill] Skill selected: {selected_runtime_skill}")
+
+            # Clear event queue (remove inputs accumulated during selection)
+            pygame.event.clear()
         # 스테이지 7 크리스탈 실드 애니메이션 중 화면 정지 체크
         crystal_shield_frozen = False
         if current_stage == 7:
@@ -94002,7 +94931,7 @@ def show_character_info(background_surface=None):
 
         dash_timer_with_gear = apply_dashgear_distance(raw_dash_timer)
         try:
-            jump_bonus = academy.get_skill_bonus("dash_jump")
+            jump_bonus = get_runtime_skill_bonus("dash_jump")
         except Exception:
             jump_bonus = 0.0
         dash_timer_with_gear *= (1 + jump_bonus)
@@ -94105,7 +95034,7 @@ def show_character_info(background_surface=None):
             current_stun_frames = base_stun_frames
             current_stun_frames = apply_spikeboots_afterdelay(current_stun_frames)
             try:
-                module_control_bonus = academy.get_skill_bonus("dash_module_control")
+                module_control_bonus = get_runtime_skill_bonus("dash_module_control")
             except Exception:
                 module_control_bonus = 0.0
             stun_reduction = int(module_control_bonus * 30)
@@ -94168,7 +95097,7 @@ def show_character_info(background_surface=None):
             if char_type == "optimus":
                 current_cost = int(current_cost * 0.2)  # 80% 할인 적용
             try:
-                battery_bonus = academy.get_skill_bonus("dash_battery_pack")
+                battery_bonus = get_runtime_skill_bonus("dash_battery_pack")
             except Exception:
                 battery_bonus = 0.0
             current_cost = max(10, int(current_cost * (1 - battery_bonus)))
@@ -94200,13 +95129,13 @@ def show_character_info(background_surface=None):
             base_frames = 180  # 3초 기본
             current_frames = apply_spikeboots_cooldown(base_frames)
             try:
-                lw_bonus = academy.get_skill_bonus("dash_lightweight")
+                lw_bonus = get_runtime_skill_bonus("dash_lightweight")
             except Exception:
                 lw_bonus = 0.0
             if lw_bonus:
                 current_frames = int(current_frames * max(0.05, 1 - lw_bonus))
             try:
-                dash_cd_skill = academy.get_skill_bonus("dash_cooldown")
+                dash_cd_skill = get_runtime_skill_bonus("dash_cooldown")
             except Exception:
                 dash_cd_skill = 0.0
             current_frames = max(1, current_frames - int(dash_cd_skill * FPS))
@@ -97637,7 +98566,9 @@ def _show_multiplayer_result(winner: str, p1_score: int, p2_score: int):
 
 
 if __name__ == "__main__":
-    # 무조건 오프닝 애니메이션 표시
+    # 인트로 컷씬 표시 (명언 + 스토리)
+    opening.show_intro_cutscene(SCREEN, WIDTH, HEIGHT)
+    # 오프닝 애니메이션 표시
     opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
     game_loop()            
     
