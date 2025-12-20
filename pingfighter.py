@@ -4573,25 +4573,25 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.circle(surface, (255, 150, 150), (icon_cx - 1, icon_cy - 1), int(1*scale))
 
     elif skill_id == "special_lucky":
-        # 네잎 클로버 - 입체감 있는 잎사귀
+        # 네잎 클로버 - 입체감 있는 잎사귀 (크기 축소)
         # 잎사귀들
         for angle in [0, 90, 180, 270]:
             rad = math.radians(angle)
-            lx = icon_cx + int(math.cos(rad) * 5 * scale)
-            ly = icon_cy + int(math.sin(rad) * 5 * scale)
+            lx = icon_cx + int(math.cos(rad) * 4 * scale)
+            ly = icon_cy + int(math.sin(rad) * 4 * scale)
             # 그림자
-            pygame.draw.circle(surface, (60, 130, 60), (int(lx) + 1, int(ly) + 1), int(6*scale))
+            pygame.draw.circle(surface, (60, 130, 60), (int(lx) + 1, int(ly) + 1), int(4*scale))
             # 잎
-            pygame.draw.circle(surface, (80, 180, 80), (int(lx), int(ly)), int(6*scale))
-            pygame.draw.circle(surface, (120, 220, 120), (int(lx) - 1, int(ly) - 1), int(4*scale))
+            pygame.draw.circle(surface, (80, 180, 80), (int(lx), int(ly)), int(4*scale))
+            pygame.draw.circle(surface, (120, 220, 120), (int(lx) - 1, int(ly) - 1), int(3*scale))
             # 잎맥
             pygame.draw.line(surface, (60, 150, 60), (icon_cx, icon_cy), (int(lx), int(ly)), 1)
         # 중앙
-        pygame.draw.circle(surface, (60, 140, 60), (icon_cx, icon_cy), int(3*scale))
-        pygame.draw.circle(surface, (100, 180, 100), (icon_cx - 1, icon_cy - 1), int(2*scale))
+        pygame.draw.circle(surface, (60, 140, 60), (icon_cx, icon_cy), int(2*scale))
+        pygame.draw.circle(surface, (100, 180, 100), (icon_cx - 1, icon_cy - 1), max(1, int(1*scale)))
         # 줄기
-        pygame.draw.line(surface, (80, 120, 60), (icon_cx, icon_cy + int(3*scale)), (icon_cx, icon_cy + int(10*scale)), max(1, int(2*scale)))
-        pygame.draw.line(surface, (100, 140, 80), (icon_cx - 1, icon_cy + int(3*scale)), (icon_cx - 1, icon_cy + int(9*scale)), 1)
+        pygame.draw.line(surface, (80, 120, 60), (icon_cx, icon_cy + int(2*scale)), (icon_cx, icon_cy + int(8*scale)), max(1, int(2*scale)))
+        pygame.draw.line(surface, (100, 140, 80), (icon_cx - 1, icon_cy + int(2*scale)), (icon_cx - 1, icon_cy + int(7*scale)), 1)
 
     elif skill_id == "special_combo":
         # 콤보 숫자들 - 화려한 효과
