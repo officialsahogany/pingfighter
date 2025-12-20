@@ -200,6 +200,7 @@ if _splash_screen:
 # ============================================================
 import pygame
 import pygame.freetype
+from pygame import gfxdraw
 import numpy as np
 
 if _splash_screen:
