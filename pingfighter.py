@@ -4130,13 +4130,15 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0):
     icon_cx = x + size // 2
     icon_cy = y + size // 2
 
-    # 그림 크기를 박스 크기에 맞게 직접 조정
-    # 아이콘 그림은 약 ±10*scale 범위를 사용하므로, size의 35%를 기본으로 사용
-    # scale_multiplier로 조정 가능 (기본 1.0)
-    scale = (size * 0.035) * scale_multiplier
+    # 그림 크기를 박스 크기에 맞게 조정
+    # 원본 draw_skill_icon()은 고정 픽셀값(8, 12, 16 등)을 사용
+    # 여기서는 박스 크기에 비례하여 scale 조정
+    # size=48일 때 scale=1.0이 되도록 (원본 아이콘이 약 ±12픽셀 범위 사용)
+    base_size = 48.0
+    scale = (size / base_size) * scale_multiplier
 
     # 최소값 보장 (너무 작으면 그림이 안보임)
-    scale = max(0.5, scale)
+    scale = max(0.8, scale)
 
     # 스킬별 아이콘 그림 그리기
     if skill_id == "dash_lightweight":
