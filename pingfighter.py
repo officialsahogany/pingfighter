@@ -4239,25 +4239,25 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
 
     # 스킬별 아이콘 그림 그리기 (고퀄리티 버전)
     if skill_id == "dash_lightweight":
-        # 깃털 모양 (가벼움) - 그라데이션 효과
-        feather_surf = pygame.Surface((int(14*scale), int(20*scale)), pygame.SRCALPHA)
-        for j in range(int(20*scale)):
-            ratio = j / int(20*scale)
+        # 깃털 모양 (가벼움) - 그라데이션 효과 (크기 축소)
+        feather_surf = pygame.Surface((int(10*scale), int(14*scale)), pygame.SRCALPHA)
+        for j in range(int(14*scale)):
+            ratio = j / int(14*scale)
             c = int(255 - ratio * 40)
-            pygame.draw.line(feather_surf, (c, c, c, 220), (0, j), (int(14*scale), j))
+            pygame.draw.line(feather_surf, (c, c, c, 220), (0, j), (int(10*scale), j))
         # 깃털 마스크 적용
-        pygame.draw.ellipse(feather_surf, (255, 255, 255, 0), (0, 0, int(14*scale), int(20*scale)))
-        surface.blit(feather_surf, (icon_cx - int(7*scale), icon_cy - int(10*scale)))
-        pygame.draw.ellipse(surface, (255, 255, 255), (icon_cx - int(6*scale), icon_cy - int(9*scale), int(12*scale), int(18*scale)), max(1, int(1*scale)))
+        pygame.draw.ellipse(feather_surf, (255, 255, 255, 0), (0, 0, int(10*scale), int(14*scale)))
+        surface.blit(feather_surf, (icon_cx - int(5*scale), icon_cy - int(7*scale)))
+        pygame.draw.ellipse(surface, (255, 255, 255), (icon_cx - int(4*scale), icon_cy - int(6*scale), int(8*scale), int(12*scale)), max(1, int(1*scale)))
         # 깃털 줄기
-        pygame.draw.line(surface, darker(icon_color), (icon_cx, icon_cy - int(8*scale)), (icon_cx, icon_cy + int(8*scale)), max(1, int(2*scale)))
-        pygame.draw.line(surface, icon_color, (icon_cx - 1, icon_cy - int(8*scale)), (icon_cx - 1, icon_cy + int(8*scale)), 1)
+        pygame.draw.line(surface, darker(icon_color), (icon_cx, icon_cy - int(5*scale)), (icon_cx, icon_cy + int(5*scale)), max(1, int(2*scale)))
+        pygame.draw.line(surface, icon_color, (icon_cx - 1, icon_cy - int(5*scale)), (icon_cx - 1, icon_cy + int(5*scale)), 1)
         # 깃털 결
-        for dy in range(-int(6*scale), int(7*scale), max(1, int(3*scale))):
-            pygame.draw.line(surface, lighter(icon_color, 30), (icon_cx, icon_cy + dy), (icon_cx + int(5*scale), icon_cy + dy + int(2*scale)), 1)
-            pygame.draw.line(surface, darker(icon_color, 30), (icon_cx, icon_cy + dy), (icon_cx - int(4*scale), icon_cy + dy + int(1*scale)), 1)
+        for dy in range(-int(4*scale), int(5*scale), max(1, int(2*scale))):
+            pygame.draw.line(surface, lighter(icon_color, 30), (icon_cx, icon_cy + dy), (icon_cx + int(3*scale), icon_cy + dy + int(1*scale)), 1)
+            pygame.draw.line(surface, darker(icon_color, 30), (icon_cx, icon_cy + dy), (icon_cx - int(3*scale), icon_cy + dy + int(1*scale)), 1)
         # 하이라이트
-        pygame.draw.ellipse(surface, (255, 255, 255, 150), (icon_cx - int(3*scale), icon_cy - int(6*scale), int(4*scale), int(6*scale)))
+        pygame.draw.ellipse(surface, (255, 255, 255, 150), (icon_cx - int(2*scale), icon_cy - int(4*scale), int(3*scale), int(4*scale)))
 
     elif skill_id == "dash_battery_pack":
         # 배터리 모양 - 3D 효과
@@ -4885,34 +4885,33 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.circle(surface, (255, 255, 255), (icon_cx - int(2*scale), icon_cy - int(2*scale)), max(1, int(2*scale)))
 
     elif skill_id == "item_recycle":
-        # 연금술 (순환 화살표) - 3D 효과
+        # 연금술 (순환 화살표) - 3D 효과 (크기 축소)
         # 외곽 글로우
-        for i in range(3):
-            glow_size = int((10+i)*scale)
-            glow_alpha = 80 - i*25
+        for i in range(2):
+            glow_size = int((7+i)*scale)
             pygame.draw.circle(surface, (100, 255, 100), (icon_cx, icon_cy), glow_size, 1)
         # 메인 순환 화살표 (두꺼운 선)
-        arc_rect = (icon_cx - int(9*scale), icon_cy - int(9*scale), int(18*scale), int(18*scale))
-        pygame.draw.arc(surface, (80, 200, 80), arc_rect, 0.5, 2.5, max(2, int(4*scale)))
-        pygame.draw.arc(surface, (80, 200, 80), arc_rect, 3.6, 5.6, max(2, int(4*scale)))
+        arc_rect = (icon_cx - int(6*scale), icon_cy - int(6*scale), int(12*scale), int(12*scale))
+        pygame.draw.arc(surface, (80, 200, 80), arc_rect, 0.5, 2.5, max(2, int(3*scale)))
+        pygame.draw.arc(surface, (80, 200, 80), arc_rect, 3.6, 5.6, max(2, int(3*scale)))
         # 하이라이트 아크
         pygame.draw.arc(surface, (150, 255, 150), arc_rect, 0.5, 2.5, max(1, int(2*scale)))
         pygame.draw.arc(surface, (150, 255, 150), arc_rect, 3.6, 5.6, max(1, int(2*scale)))
         # 화살표 머리 (3D 효과)
         pygame.draw.polygon(surface, (60, 180, 60), [
-            (icon_cx + int(7*scale), icon_cy - int(5*scale)), (icon_cx + int(10*scale), icon_cy - int(1*scale)), (icon_cx + int(5*scale), icon_cy - int(1*scale))
+            (icon_cx + int(5*scale), icon_cy - int(3*scale)), (icon_cx + int(7*scale), icon_cy), (icon_cx + int(3*scale), icon_cy)
         ])
         pygame.draw.polygon(surface, (120, 255, 120), [
-            (icon_cx + int(6*scale), icon_cy - int(5*scale)), (icon_cx + int(9*scale), icon_cy - int(2*scale)), (icon_cx + int(5*scale), icon_cy - int(2*scale))
+            (icon_cx + int(4*scale), icon_cy - int(3*scale)), (icon_cx + int(6*scale), icon_cy - int(1*scale)), (icon_cx + int(3*scale), icon_cy - int(1*scale))
         ])
         pygame.draw.polygon(surface, (60, 180, 60), [
-            (icon_cx - int(7*scale), icon_cy + int(5*scale)), (icon_cx - int(10*scale), icon_cy + int(1*scale)), (icon_cx - int(5*scale), icon_cy + int(1*scale))
+            (icon_cx - int(5*scale), icon_cy + int(3*scale)), (icon_cx - int(7*scale), icon_cy), (icon_cx - int(3*scale), icon_cy)
         ])
         pygame.draw.polygon(surface, (120, 255, 120), [
-            (icon_cx - int(6*scale), icon_cy + int(5*scale)), (icon_cx - int(9*scale), icon_cy + int(2*scale)), (icon_cx - int(5*scale), icon_cy + int(2*scale))
+            (icon_cx - int(4*scale), icon_cy + int(3*scale)), (icon_cx - int(6*scale), icon_cy + int(1*scale)), (icon_cx - int(3*scale), icon_cy + int(1*scale))
         ])
         # 중앙 빛나는 점
-        pygame.draw.circle(surface, (200, 255, 200), (icon_cx, icon_cy), max(1, int(3*scale)))
+        pygame.draw.circle(surface, (200, 255, 200), (icon_cx, icon_cy), max(1, int(2*scale)))
         pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), max(1, int(1*scale)))
 
     # ===== 다운타운 트리 스킬 아이콘 =====
