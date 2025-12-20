@@ -4449,6 +4449,226 @@ def show_runtime_skill_choices() -> str | None:
     return selected_result
 
 
+def show_runtime_skill_status():
+    """
+    런타임 스킬 현황 화면 - 획득한 스킬을 레벨 스택 형태로 순차 표시
+    기존 아카데미 스킬트리를 대체하는 새로운 UI
+    """
+    global runtime_skill_levels
+
+    clock = pygame.time.Clock()
+    running = True
+
+    # 폰트 설정
+    try:
+        font_title = pygame.font.Font(resource_path("NanumSquareB.ttf"), 32)
+        font_skill = pygame.font.Font(resource_path("NanumSquareB.ttf"), 20)
+        font_desc = pygame.font.Font(resource_path("NanumSquareR.ttf"), 14)
+        font_hint = pygame.font.Font(resource_path("NanumSquareR.ttf"), 12)
+    except:
+        font_title = pygame.font.SysFont("Arial", 32)
+        font_skill = pygame.font.SysFont("Arial", 20)
+        font_desc = pygame.font.SysFont("Arial", 14)
+        font_hint = pygame.font.SysFont("Arial", 12)
+
+    # 스크롤 변수
+    scroll_y = 0
+    max_scroll = 0
+
+    # 획득한 스킬 목록 생성 (레벨이 1 이상인 것만)
+    def get_acquired_skills():
+        acquired = []
+        # 모든 스킬 풀에서 확인
+        all_pools = [RUNTIME_SKILL_POOL, SMASHER_EXCLUSIVE_SKILLS, OPTIMUS_EXCLUSIVE_SKILLS]
+        for pool in all_pools:
+            for skill_id, skill_data in pool.items():
+                level = runtime_skill_levels.get(skill_id, 0)
+                if level > 0:
+                    acquired.append({
+                        "id": skill_id,
+                        "name": skill_data["name"],
+                        "level": level,
+                        "max_level": skill_data["max_level"],
+                        "description": skill_data["descriptions"].get(level, ""),
+                        "detail": skill_data.get("detail", ""),
+                        "icon_color": skill_data["icon_color"],
+                        "tree": skill_data.get("tree", ""),
+                        "character_restriction": skill_data.get("character_restriction", None)
+                    })
+        return acquired
+
+    while running:
+        mouse_pos = pygame.mouse.get_pos()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE or event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                    running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  # 좌클릭
+                    # 닫기 버튼 확인
+                    close_btn_rect = pygame.Rect(WIDTH - 60, 20, 40, 40)
+                    if close_btn_rect.collidepoint(event.pos):
+                        running = False
+                elif event.button == 4:  # 스크롤 업
+                    scroll_y = max(0, scroll_y - 40)
+                elif event.button == 5:  # 스크롤 다운
+                    scroll_y = min(max_scroll, scroll_y + 40)
+
+        # 배경 그리기
+        SCREEN.fill((15, 15, 35))
+
+        # 배경 그라데이션 효과
+        for i in range(HEIGHT // 4):
+            alpha = int(20 * (1 - i / (HEIGHT // 4)))
+            pygame.draw.line(SCREEN, (30, 30, 60), (0, i * 4), (WIDTH, i * 4), 4)
+
+        # 제목
+        title_text = font_title.render("스킬 현황", True, (255, 255, 255))
+        title_rect = title_text.get_rect(center=(WIDTH // 2, 50))
+        SCREEN.blit(title_text, title_rect)
+
+        # 닫기 버튼
+        close_btn_rect = pygame.Rect(WIDTH - 60, 20, 40, 40)
+        close_btn_color = (100, 100, 120) if close_btn_rect.collidepoint(mouse_pos) else (60, 60, 80)
+        pygame.draw.rect(SCREEN, close_btn_color, close_btn_rect, border_radius=8)
+        pygame.draw.rect(SCREEN, (150, 150, 170), close_btn_rect, 2, border_radius=8)
+        # X 표시
+        pygame.draw.line(SCREEN, (255, 255, 255), (close_btn_rect.x + 12, close_btn_rect.y + 12),
+                        (close_btn_rect.x + 28, close_btn_rect.y + 28), 3)
+        pygame.draw.line(SCREEN, (255, 255, 255), (close_btn_rect.x + 28, close_btn_rect.y + 12),
+                        (close_btn_rect.x + 12, close_btn_rect.y + 28), 3)
+
+        # 획득한 스킬 목록
+        acquired_skills = get_acquired_skills()
+
+        if not acquired_skills:
+            # 스킬이 없을 때
+            empty_text = font_skill.render("획득한 스킬이 없습니다", True, (150, 150, 150))
+            empty_rect = empty_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+            SCREEN.blit(empty_text, empty_rect)
+
+            hint_text = font_hint.render("스타포인트를 모아 스킬을 획득하세요", True, (100, 100, 100))
+            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
+            SCREEN.blit(hint_text, hint_rect)
+        else:
+            # 스킬 카드 그리기 영역
+            content_y = 100
+            card_height = 80
+            card_margin = 10
+            card_width = WIDTH - 80
+            card_x = 40
+
+            # 최대 스크롤 계산
+            total_height = len(acquired_skills) * (card_height + card_margin)
+            visible_height = HEIGHT - content_y - 60
+            max_scroll = max(0, total_height - visible_height)
+
+            # 클리핑 영역 설정
+            clip_rect = pygame.Rect(0, content_y, WIDTH, visible_height)
+            SCREEN.set_clip(clip_rect)
+
+            for i, skill in enumerate(acquired_skills):
+                card_y = content_y + i * (card_height + card_margin) - scroll_y
+
+                # 화면 밖이면 스킵
+                if card_y + card_height < content_y or card_y > HEIGHT - 60:
+                    continue
+
+                # 카드 배경
+                card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+
+                # 트리별 배경 색상
+                tree_colors = {
+                    "dash": (30, 50, 70),
+                    "item": (50, 40, 30),
+                    "downtown": (50, 30, 50),
+                    "optimus": (40, 50, 60),
+                }
+                bg_color = tree_colors.get(skill["tree"], (40, 40, 50))
+
+                pygame.draw.rect(SCREEN, bg_color, card_rect, border_radius=10)
+                pygame.draw.rect(SCREEN, skill["icon_color"], card_rect, 2, border_radius=10)
+
+                # 아이콘 (원형)
+                icon_x = card_x + 40
+                icon_y = card_y + card_height // 2
+                icon_radius = 25
+                pygame.draw.circle(SCREEN, skill["icon_color"], (icon_x, icon_y), icon_radius)
+                pygame.draw.circle(SCREEN, (255, 255, 255), (icon_x, icon_y), icon_radius, 2)
+
+                # 스킬 이름 첫 글자
+                first_char = skill["name"][0] if skill["name"] else "?"
+                char_surface = font_skill.render(first_char, True, (255, 255, 255))
+                char_rect = char_surface.get_rect(center=(icon_x, icon_y))
+                SCREEN.blit(char_surface, char_rect)
+
+                # 스킬 이름
+                name_x = card_x + 80
+                name_y = card_y + 15
+                name_text = font_skill.render(skill["name"], True, (255, 255, 255))
+                SCREEN.blit(name_text, (name_x, name_y))
+
+                # 레벨 표시
+                if skill["max_level"] == -1:
+                    level_str = f"Lv.{skill['level']}"  # 무제한
+                else:
+                    level_str = f"Lv.{skill['level']}/{skill['max_level']}"
+                level_text = font_skill.render(level_str, True, skill["icon_color"])
+                level_x = card_x + card_width - 80
+                SCREEN.blit(level_text, (level_x, name_y))
+
+                # 효과 설명
+                desc_y = card_y + 45
+                desc_text = font_desc.render(skill["description"], True, (200, 200, 200))
+                SCREEN.blit(desc_text, (name_x, desc_y))
+
+                # 캐릭터 전용 표시
+                if skill.get("character_restriction"):
+                    restriction_text = {
+                        "smasher": "[스매셔]",
+                        "optimus": "[옵티머스]"
+                    }.get(skill["character_restriction"], "")
+                    if restriction_text:
+                        restr_surface = font_hint.render(restriction_text, True, (180, 180, 100))
+                        restr_x = card_x + card_width - 160
+                        SCREEN.blit(restr_surface, (restr_x, card_y + 60))
+
+            # 클리핑 해제
+            SCREEN.set_clip(None)
+
+            # 스크롤바 (스킬이 많을 때만)
+            if max_scroll > 0:
+                scrollbar_x = WIDTH - 25
+                scrollbar_height = visible_height
+                scrollbar_y = content_y
+
+                # 스크롤바 배경
+                pygame.draw.rect(SCREEN, (40, 40, 50),
+                               (scrollbar_x, scrollbar_y, 10, scrollbar_height), border_radius=5)
+
+                # 스크롤바 핸들
+                handle_height = max(30, int(scrollbar_height * visible_height / total_height))
+                handle_y = scrollbar_y + int((scrollbar_height - handle_height) * scroll_y / max_scroll)
+                pygame.draw.rect(SCREEN, (100, 100, 120),
+                               (scrollbar_x, handle_y, 10, handle_height), border_radius=5)
+
+        # 하단 힌트
+        hint_text = font_hint.render("ESC / Enter / 클릭으로 닫기", True, (100, 100, 120))
+        hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - 25))
+        SCREEN.blit(hint_text, hint_rect)
+
+        # 스킬 개수 표시
+        skill_count_text = font_hint.render(f"획득 스킬: {len(acquired_skills)}개", True, (150, 150, 170))
+        SCREEN.blit(skill_count_text, (40, HEIGHT - 30))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+
 # 옵티머스 궁극의 탁구채 강화 애니메이션 (300 이하 시 트리거)
 optimus_paddle_upgrade_active = False  # 탁구채 강화 애니메이션 진행 중
 optimus_paddle_upgrade_timer = 0  # 애니메이션 시작 시간
@@ -70937,20 +71157,8 @@ def show_item_manager_menu():
     passive_item_rects = []
 
     def open_skill_tree_test_mode() -> None:
-        """스킬 포인트 소모 없이 테스트용 스킬트리 진입."""
-        import academy
-        global selected_character_type
-
-        skill_system = academy.skill_system
-        original_points = skill_system.skill_points
-
-        # 충분한 포인트를 채워 소모 검증을 우회 (별 포인트 영향 없음)
-        skill_system.skill_points = max(skill_system.skill_points, 99999)
-        try:
-            academy.show_academy_menu(SCREEN, WIDTH, HEIGHT, selected_character_type)
-        finally:
-            # 테스트 경로는 실제 포인트를 차감하지 않도록 복구
-            skill_system.skill_points = original_points
+        """런타임 스킬 현황 화면 표시 (기존 아카데미 스킬트리 대체)."""
+        show_runtime_skill_status()
     
     while True:
         arrow_up_rect_screen = None
@@ -71395,7 +71603,7 @@ def show_item_manager_menu():
         pygame.draw.rect(SCREEN, button_fill, skill_tree_button_rect, border_radius=12)
         pygame.draw.rect(SCREEN, button_border, skill_tree_button_rect, 3, border_radius=12)
 
-        btn_title = font_small.render("스킬트리", True, WHITE)
+        btn_title = font_small.render("스킬 현황", True, WHITE)
         SCREEN.blit(btn_title, btn_title.get_rect(center=skill_tree_button_rect.center))
 
         if quantity_selection_mode and quantity_target_item:
@@ -94349,18 +94557,8 @@ def show_character_info(background_surface=None):
         return clamp01(value / max_hint) if max_hint > 0 else 0.0
 
     def try_skill_tree():
-        """스킬트리 뷰어로 진입 (실패 시 조용히 무시)."""
-        try:
-            import academy
-            academy.show_academy_menu(
-                SCREEN,
-                WIDTH,
-                HEIGHT,
-                globals().get("selected_character_type", "smasher"),
-                read_only=True,  # 캐릭터정보 경로에서는 보기 전용
-            )
-        except Exception as exc:
-            print(f"[WARN] 스킬트리 진입 실패: {exc}")
+        """런타임 스킬 현황 화면 표시 (기존 아카데미 스킬트리 대체)."""
+        show_runtime_skill_status()
 
     def wrap_text(text: str, font, max_width: int) -> list[str]:
         """폰트 폭 기반 단어 단위 줄바꿈 + 긴 단어 강제 분리."""
@@ -95557,7 +95755,7 @@ def show_character_info(background_surface=None):
         btn_border = (255, 220, 120) if hovered else (200, 200, 200)
         pygame.draw.rect(SCREEN, btn_fill, skill_button_rect, border_radius=12)
         pygame.draw.rect(SCREEN, btn_border, skill_button_rect, 3, border_radius=12)
-        btn_title = font_small.render("스킬트리", True, WHITE)
+        btn_title = font_small.render("스킬 현황", True, WHITE)
         SCREEN.blit(btn_title, btn_title.get_rect(center=skill_button_rect.center))
 
         # 툴팁
