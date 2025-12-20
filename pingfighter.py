@@ -4119,19 +4119,28 @@ def draw_starpoint_skill_gauge(screen: pygame.Surface):
             screen.blit(glow_surf, (gauge_x - 5, gauge_y - 5))
 
 
-def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=2.0):
+def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0):
     """미니 스킬 아이콘 그리기 - 스킬현황과 동일한 그림 (이름 없이 그림만)
-    scale_multiplier: 그림 크기 배율 (기본 2.0 = 2배 크기)
+    scale_multiplier: 그림 크기 배율 (기본 1.0 = 박스에 맞춤)
     """
     icon_color = skill["icon_color"]
     skill_id = skill["id"]
 
-    # 아이콘 중심 좌표 (레벨 게이지 영역 제외)
+    # 아이콘 중심 좌표
     icon_cx = x + size // 2
-    icon_cy = y + size // 2  # 스킬 선택 카드용으로 중앙 정렬
+    icon_cy = y + size // 2
 
-    # 축소 비율 * scale_multiplier로 그림 크기 조정
-    scale = (size / 90.0) * scale_multiplier
+    # 그림 크기를 박스 크기에 맞게 조정
+    # 원본 스킬현황 화면 기준 크기는 90px
+    # scale = 1.0이면 원본과 동일한 비율
+    base_size = 90.0  # 원본 스킬현황 화면의 박스 크기
+    scale = (size / base_size) * scale_multiplier
+
+    # scale이 너무 크면 박스를 벗어나므로 최대값 제한
+    # 아이콘 그림의 최대 반경이 약 10*scale이므로, size/2 > 10*scale 필요
+    # 즉, scale < size/20 정도가 안전 (여유 있게 size/25)
+    max_scale = size / 25.0
+    scale = min(scale, max_scale)
 
     # 스킬별 아이콘 그림 그리기
     if skill_id == "dash_lightweight":
@@ -96290,8 +96299,8 @@ def show_character_info(background_surface=None):
                 pygame.draw.line(icon_surface, (r, g, b, 200), (0, j), (box_size - 4, j))
             SCREEN.blit(icon_surface, (box_x + 2, box_y + 2))
 
-            # 스킬 아이콘 그림 그리기 (미니 버전 - 스킬현황과 동일한 그림)
-            draw_skill_icon_mini(SCREEN, skill, box_x, box_y, box_size)
+            # 스킬 아이콘 그림 그리기 (미니 버전 - 스킬현황과 동일한 그림, 2배 크기)
+            draw_skill_icon_mini(SCREEN, skill, box_x, box_y, box_size, scale_multiplier=2.0)
 
             # 레벨 게이지 (하단)
             gauge_y = box_y + box_size - 12
