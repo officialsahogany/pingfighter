@@ -2944,27 +2944,11 @@ INSTANT_RUNTIME_SKILLS = {
         "tree": "instant",
         "is_instant": True  # 단발성 스킬 표시
     },
-    "instant_hp_restore": {
-        "name": "응급처치",
-        "description": "즉시 HP를 2 회복합니다",
-        "detail": "응급 의료 키트로 즉시 체력을 회복합니다.",
-        "icon_color": (255, 100, 150),
-        "tree": "instant",
-        "is_instant": True
-    },
-    "instant_item_spawn": {
-        "name": "보급요청",
-        "description": "즉시 랜덤 아이템 1개를 스폰합니다",
-        "detail": "긴급 보급을 요청하여 즉시 필드에 아이템이 생성됩니다.",
-        "icon_color": (255, 200, 50),
-        "tree": "instant",
-        "is_instant": True
-    },
-    "instant_slow_boss": {
-        "name": "방해공작",
-        "description": "3초간 보스 속도를 50% 감소시킵니다",
-        "detail": "보스의 시스템에 잠시 간섭하여 움직임을 둔화시킵니다.",
-        "icon_color": (150, 100, 255),
+    "instant_dimension_gate": {
+        "name": "차원개방",
+        "description": "3초간 아이템 스폰이 대폭 증가합니다",
+        "detail": "차원의 문을 열어 아이템이 쏟아집니다. 판도라의 상자와 동일한 효과입니다.",
+        "icon_color": (255, 100, 255),
         "tree": "instant",
         "is_instant": True
     },
@@ -4064,7 +4048,6 @@ def get_runtime_skill_choices(character_type: str) -> list:
 def apply_runtime_skill_effect(choice_id: str) -> bool:
     """런타임 스킬 효과 적용 (레벨업 또는 단발성). 성공 시 True 반환"""
     global runtime_skill_levels, starpoint_for_skills, pending_skill_choices
-    global rolling_gauge, player_hp, instant_slow_boss_active, instant_slow_boss_timer
 
     # 빈 슬롯 무시
     if choice_id.startswith("empty_"):
@@ -4092,13 +4075,9 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     return True
 
 
-# 단발성 스킬 효과용 글로벌 변수
-instant_slow_boss_active = False
-instant_slow_boss_timer = 0
-
 def apply_instant_skill_effect(skill_id: str) -> bool:
     """단발성 스킬 효과 즉시 적용"""
-    global rolling_gauge, player_hp, instant_slow_boss_active, instant_slow_boss_timer
+    global rolling_gauge
 
     if skill_id == "instant_gauge_full":
         # 대쉬 게이지 최대로 회복
@@ -4106,29 +4085,10 @@ def apply_instant_skill_effect(skill_id: str) -> bool:
         print(f"[InstantSkill] 비상충전! 게이지 100% 회복")
         return True
 
-    elif skill_id == "instant_hp_restore":
-        # HP 2 회복 (최대 HP 초과 불가)
-        max_hp = globals().get("player_max_hp", 5)
-        old_hp = player_hp
-        player_hp = min(player_hp + 2, max_hp)
-        print(f"[InstantSkill] 응급처치! HP {old_hp} -> {player_hp}")
-        return True
-
-    elif skill_id == "instant_item_spawn":
-        # 랜덤 아이템 스폰
-        try:
-            import items
-            items.spawn_random_item(force_spawn=True)
-            print(f"[InstantSkill] 보급요청! 아이템 스폰")
-        except Exception as e:
-            print(f"[InstantSkill] 아이템 스폰 실패: {e}")
-        return True
-
-    elif skill_id == "instant_slow_boss":
-        # 보스 속도 50% 감소 (3초간)
-        instant_slow_boss_active = True
-        instant_slow_boss_timer = 180  # 60 FPS * 3초
-        print(f"[InstantSkill] 방해공작! 보스 속도 50% 감소 (3초)")
+    elif skill_id == "instant_dimension_gate":
+        # 차원개방 - 판도라의 상자와 동일한 효과
+        activate_pandora_box()
+        print(f"[InstantSkill] 차원개방! 판도라의 상자 효과 발동")
         return True
 
     return False
@@ -5412,76 +5372,34 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
             (icon_cx, icon_cy - int(2*scale))
         ])
 
-    elif skill_id == "instant_hp_restore":
-        # 응급처치 (하트 + 십자가) - 3D 힐링 효과
-        # 외곽 글로우
-        for i in range(2):
-            glow_color = (255, 120 + i*30, 150 + i*30)
-            pygame.draw.circle(surface, glow_color, (icon_cx, icon_cy), int((10-i)*scale), 1)
-        # 하트 모양 배경
-        pygame.draw.circle(surface, (200, 60, 80), (icon_cx - int(3*scale), icon_cy - int(3*scale)), int(4*scale))
-        pygame.draw.circle(surface, (200, 60, 80), (icon_cx + int(3*scale), icon_cy - int(3*scale)), int(4*scale))
-        pygame.draw.polygon(surface, (200, 60, 80), [
-            (icon_cx, icon_cy + int(6*scale)), (icon_cx - int(7*scale), icon_cy - int(2*scale)),
-            (icon_cx + int(7*scale), icon_cy - int(2*scale))
-        ])
-        # 하트 하이라이트
-        pygame.draw.circle(surface, (255, 100, 130), (icon_cx - int(3*scale), icon_cy - int(4*scale)), int(3*scale))
-        pygame.draw.circle(surface, (255, 100, 130), (icon_cx + int(3*scale), icon_cy - int(4*scale)), int(3*scale))
-        # 십자가 (흰색)
-        pygame.draw.rect(surface, (255, 255, 255), (icon_cx - int(1*scale), icon_cy - int(4*scale), int(2*scale), int(6*scale)))
-        pygame.draw.rect(surface, (255, 255, 255), (icon_cx - int(3*scale), icon_cy - int(2*scale), int(6*scale), int(2*scale)))
-        # +2 텍스트 효과
-        pygame.draw.circle(surface, (255, 255, 200), (icon_cx + int(5*scale), icon_cy - int(5*scale)), int(2*scale))
-
-    elif skill_id == "instant_item_spawn":
-        # 보급요청 (상자 + 낙하산) - 3D 보급 효과
-        # 낙하산
-        pygame.draw.arc(surface, (200, 200, 220), (icon_cx - int(8*scale), icon_cy - int(10*scale), int(16*scale), int(12*scale)), 3.14, 0, max(2, int(3*scale)))
-        pygame.draw.arc(surface, (255, 255, 255), (icon_cx - int(7*scale), icon_cy - int(9*scale), int(14*scale), int(10*scale)), 3.14, 0, max(1, int(2*scale)))
-        # 줄
-        pygame.draw.line(surface, (150, 150, 160), (icon_cx - int(6*scale), icon_cy - int(4*scale)), (icon_cx - int(3*scale), icon_cy + int(2*scale)), 1)
-        pygame.draw.line(surface, (150, 150, 160), (icon_cx + int(6*scale), icon_cy - int(4*scale)), (icon_cx + int(3*scale), icon_cy + int(2*scale)), 1)
-        pygame.draw.line(surface, (150, 150, 160), (icon_cx, icon_cy - int(4*scale)), (icon_cx, icon_cy + int(2*scale)), 1)
-        # 상자 그림자
-        pygame.draw.rect(surface, (180, 140, 40), (icon_cx - int(4*scale) + 1, icon_cy + int(2*scale) + 1, int(8*scale), int(6*scale)), border_radius=max(1, int(1*scale)))
-        # 상자
-        pygame.draw.rect(surface, (255, 200, 50), (icon_cx - int(4*scale), icon_cy + int(2*scale), int(8*scale), int(6*scale)), border_radius=max(1, int(1*scale)))
-        # 상자 하이라이트
-        pygame.draw.rect(surface, (255, 230, 100), (icon_cx - int(3*scale), icon_cy + int(3*scale), int(6*scale), int(4*scale)), border_radius=max(1, int(1*scale)))
-        # 테이프
-        pygame.draw.rect(surface, (200, 160, 40), (icon_cx - int(1*scale), icon_cy + int(2*scale), int(2*scale), int(6*scale)))
-        # 별 마크
-        pygame.draw.circle(surface, (255, 255, 200), (icon_cx, icon_cy + int(5*scale)), int(2*scale))
-
-    elif skill_id == "instant_slow_boss":
-        # 방해공작 (시계 + 느림 표시) - 3D 슬로우 효과
-        # 외곽 글로우
-        for i in range(2):
-            glow_color = (130 + i*20, 80 + i*20, 220 + i*20)
-            pygame.draw.circle(surface, glow_color, (icon_cx, icon_cy), int((10-i)*scale), 1)
-        # 시계 배경 (그림자)
-        pygame.draw.circle(surface, (100, 60, 160), (icon_cx + 1, icon_cy + 1), int(8*scale))
-        # 시계 배경
-        pygame.draw.circle(surface, (140, 90, 200), (icon_cx, icon_cy), int(8*scale))
-        pygame.draw.circle(surface, (170, 120, 230), (icon_cx, icon_cy), int(7*scale))
-        # 시계 눈금
-        for angle in range(0, 360, 30):
-            rad = math.radians(angle)
-            x1 = icon_cx + int(math.cos(rad) * 6 * scale)
-            y1 = icon_cy + int(math.sin(rad) * 6 * scale)
-            x2 = icon_cx + int(math.cos(rad) * 7 * scale)
-            y2 = icon_cy + int(math.sin(rad) * 7 * scale)
-            pygame.draw.line(surface, (200, 160, 255), (x1, y1), (x2, y2), 1)
-        # 시계 바늘
-        pygame.draw.line(surface, (255, 255, 255), (icon_cx, icon_cy), (icon_cx, icon_cy - int(5*scale)), max(1, int(2*scale)))
-        pygame.draw.line(surface, (255, 255, 255), (icon_cx, icon_cy), (icon_cx + int(4*scale), icon_cy), max(1, int(1*scale)))
-        # 중앙 점
-        pygame.draw.circle(surface, (255, 200, 255), (icon_cx, icon_cy), int(2*scale))
-        # 느림 표시 (물결)
+    elif skill_id == "instant_dimension_gate":
+        # 차원개방 (포털 + 아이템들) - 3D 차원문 효과
+        # 외곽 글로우 (마젠타/보라)
         for i in range(3):
-            wave_x = icon_cx + int(4*scale) + i * int(2*scale)
-            pygame.draw.arc(surface, (200, 150, 255), (wave_x, icon_cy - int(3*scale), int(3*scale), int(6*scale)), 1.57, 4.71, 1)
+            glow_color = (200 + i*20, 80 + i*30, 200 + i*20)
+            pygame.draw.circle(surface, glow_color, (icon_cx, icon_cy), int((11-i)*scale), 1)
+        # 포털 외곽 (그림자)
+        pygame.draw.ellipse(surface, (100, 40, 120), (icon_cx - int(9*scale) + 1, icon_cy - int(8*scale) + 1, int(18*scale), int(16*scale)), max(2, int(3*scale)))
+        # 포털 외곽 (메인)
+        pygame.draw.ellipse(surface, (200, 80, 220), (icon_cx - int(9*scale), icon_cy - int(8*scale), int(18*scale), int(16*scale)), max(2, int(3*scale)))
+        pygame.draw.ellipse(surface, (255, 120, 255), (icon_cx - int(8*scale), icon_cy - int(7*scale), int(16*scale), int(14*scale)), max(1, int(2*scale)))
+        # 포털 내부 (어두운 소용돌이)
+        pygame.draw.ellipse(surface, (40, 10, 60), (icon_cx - int(6*scale), icon_cy - int(5*scale), int(12*scale), int(10*scale)))
+        pygame.draw.ellipse(surface, (60, 20, 80), (icon_cx - int(5*scale), icon_cy - int(4*scale), int(10*scale), int(8*scale)))
+        # 소용돌이 효과
+        for angle in range(0, 360, 45):
+            rad = math.radians(angle)
+            x1 = icon_cx + int(math.cos(rad) * 2 * scale)
+            y1 = icon_cy + int(math.sin(rad) * 2 * scale)
+            x2 = icon_cx + int(math.cos(rad + 0.5) * 5 * scale)
+            y2 = icon_cy + int(math.sin(rad + 0.5) * 4 * scale)
+            pygame.draw.line(surface, (180, 100, 200), (x1, y1), (x2, y2), 1)
+        # 빛나는 파티클 (아이템 상징)
+        pygame.draw.circle(surface, (255, 200, 100), (icon_cx - int(2*scale), icon_cy - int(2*scale)), int(2*scale))  # 금색
+        pygame.draw.circle(surface, (100, 255, 200), (icon_cx + int(3*scale), icon_cy + int(1*scale)), int(1.5*scale))  # 청록
+        pygame.draw.circle(surface, (255, 100, 150), (icon_cx, icon_cy + int(3*scale)), int(1.5*scale))  # 핑크
+        # 중앙 빛
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), int(1.5*scale))
 
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
@@ -87957,21 +87875,8 @@ def handle_boss():
     global stage8_awakened, player_score, round_wins
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
     global stage8_awaken_intro_pending, stage8_awaken_intro_done, stage8_awaken_freeze_end_ms
-    global instant_slow_boss_active, instant_slow_boss_timer  # 단발성 스킬 - 보스 속도 감소
-    global boss_speed_reduction_active, boss_speed_reduction_factor  # 보스 속도 감소 효과
 
     now_ms = pygame.time.get_ticks()
-
-    # 단발성 스킬 - 보스 속도 감소 타이머 업데이트
-    if instant_slow_boss_active and instant_slow_boss_timer > 0:
-        instant_slow_boss_timer -= 1
-        boss_speed_reduction_active = True
-        boss_speed_reduction_factor = 0.5  # 50% 속도
-        if instant_slow_boss_timer <= 0:
-            instant_slow_boss_active = False
-            boss_speed_reduction_active = False
-            boss_speed_reduction_factor = 1.0
-            print("[InstantSkill] 방해공작 효과 종료 - 보스 속도 복구")
     stage8_in_superspeed = False
 
     # 공 생성 애니메이션 중에는 보스 AI 정지
