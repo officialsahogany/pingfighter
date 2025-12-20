@@ -97910,8 +97910,12 @@ def show_character_info(background_surface=None):
 
     def draw_skill_tooltip_mini(skill, mouse_x, mouse_y):
         """런타임 스킬 미니 툴팁"""
-        padding = 10
-        line_height = 18
+        padding = 12
+        line_height = 24  # 폰트 크기 증가에 맞춰 줄 높이도 증가
+
+        # 더 큰 폰트 사용
+        tooltip_title_font = get_font(18, style="bold")  # 제목용 큰 폰트
+        tooltip_body_font = get_font(16, style="regular")  # 설명용 폰트
 
         lines = []
         # 스킬 이름 + 레벨 (최대 레벨은 비공개)
@@ -97925,7 +97929,10 @@ def show_character_info(background_surface=None):
         # 툴팁 크기 계산
         max_width = 0
         for line_type, text in lines:
-            text_surface = stats_tiny_font.render(text, True, (255, 255, 255))
+            if line_type == "title":
+                text_surface = tooltip_title_font.render(text, True, (255, 255, 255))
+            else:
+                text_surface = tooltip_body_font.render(text, True, (255, 255, 255))
             max_width = max(max_width, text_surface.get_width())
 
         tooltip_width = max_width + padding * 2
@@ -97942,16 +97949,16 @@ def show_character_info(background_surface=None):
 
         # 배경
         tooltip_surface = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
-        pygame.draw.rect(tooltip_surface, (15, 18, 30, 240), (0, 0, tooltip_width, tooltip_height), border_radius=6)
-        pygame.draw.rect(tooltip_surface, skill["icon_color"], (0, 0, tooltip_width, tooltip_height), 1, border_radius=6)
+        pygame.draw.rect(tooltip_surface, (15, 18, 30, 240), (0, 0, tooltip_width, tooltip_height), border_radius=8)
+        pygame.draw.rect(tooltip_surface, skill["icon_color"], (0, 0, tooltip_width, tooltip_height), 2, border_radius=8)
 
         # 텍스트
         current_y = padding
         for line_type, text in lines:
             if line_type == "title":
-                text_surface = stats_tiny_font.render(text, True, skill["icon_color"])
+                text_surface = tooltip_title_font.render(text, True, skill["icon_color"])
             else:
-                text_surface = stats_tiny_font.render(text, True, (180, 255, 180))
+                text_surface = tooltip_body_font.render(text, True, (180, 255, 180))
             tooltip_surface.blit(text_surface, (padding, current_y))
             current_y += line_height
 
