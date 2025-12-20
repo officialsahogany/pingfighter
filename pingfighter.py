@@ -691,7 +691,7 @@ def _apply_global_hotkeys(events):
             uni = getattr(ev, "unicode", "")
             is_b_toggle = (key == pygame.K_b) or (uni == "ㅠ")
 
-            # F12 스크린샷 기능
+            # F12 스크린샷 기능 (필러 포함 전체화면 캡처)
             if ev.type == pygame.KEYDOWN and key == pygame.K_F12:
                 try:
                     # 스크린샷 저장 폴더 (게임 폴더 내 screenshots)
@@ -704,8 +704,12 @@ def _apply_global_hotkeys(events):
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = os.path.join(screenshot_dir, f"screenshot_{timestamp}.png")
 
-                    # 현재 화면 저장
-                    screen_surface = pygame.display.get_surface()
+                    # 전체화면 모드면 REAL_SCREEN 캡처 (필러 포함)
+                    if _is_fullscreen_active and REAL_SCREEN is not None:
+                        screen_surface = REAL_SCREEN
+                    else:
+                        screen_surface = pygame.display.get_surface()
+
                     if screen_surface:
                         pygame.image.save(screen_surface, filename)
                         print(f"[Screenshot] 저장됨: {filename}")
