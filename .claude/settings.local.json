@@ -47,7 +47,8 @@
       "Bash(git config:*)",
       "Bash(git checkout:*)",
       "Bash(timeout 25 python:*)",
-      "Bash(timeout 40 python:*)"
+      "Bash(timeout 40 python:*)",
+      "Bash(Lv.1\" 형식 대신 \"Lv.1\" 형식으로 변경\n   - 이미 투자한 스킬은 다음 레벨로 표시 (next_level 사용)\n   - 3군데 (런타임 스킬 선택, 옵티머스 스킬 선택 등) 모두 적용\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": [],

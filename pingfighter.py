@@ -4130,17 +4130,13 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0):
     icon_cx = x + size // 2
     icon_cy = y + size // 2
 
-    # 그림 크기를 박스 크기에 맞게 조정
-    # 원본 스킬현황 화면 기준 크기는 90px
-    # scale = 1.0이면 원본과 동일한 비율
-    base_size = 90.0  # 원본 스킬현황 화면의 박스 크기
-    scale = (size / base_size) * scale_multiplier
+    # 그림 크기를 박스 크기에 맞게 직접 조정
+    # 아이콘 그림은 약 ±10*scale 범위를 사용하므로, size의 35%를 기본으로 사용
+    # scale_multiplier로 조정 가능 (기본 1.0)
+    scale = (size * 0.035) * scale_multiplier
 
-    # scale이 너무 크면 박스를 벗어나므로 최대값 제한
-    # 아이콘 그림의 최대 반경이 약 10*scale이므로, size/2 > 10*scale 필요
-    # 즉, scale < size/20 정도가 안전 (여유 있게 size/25)
-    max_scale = size / 25.0
-    scale = min(scale, max_scale)
+    # 최소값 보장 (너무 작으면 그림이 안보임)
+    scale = max(0.5, scale)
 
     # 스킬별 아이콘 그림 그리기
     if skill_id == "dash_lightweight":
@@ -4671,11 +4667,11 @@ def show_runtime_skill_choices() -> str | None:
             max_level = choice.get("max_level", 1)
             name_text = choice.get("name", "Unknown")
 
-            # Level display
+            # Level display - 선택 시 적용될 레벨만 표시
             if max_level == -1:
                 level_text = "STACK"
             else:
-                level_text = f"Lv.{current_level} -> {next_level}"
+                level_text = f"Lv.{next_level}"
 
             # Name
             name_surface = name_font.render(name_text, True, (255, 255, 255))
@@ -60692,12 +60688,11 @@ def draw_stage_choice_overlay(screen: pygame.Surface, background: pygame.Surface
         max_level = choice.get("max_level", 1)
         name_text = choice["name"]
 
+        # 선택 시 적용될 레벨만 표시
         if max_level == -1:
             level_text = ""
-        elif current_level == 0:
-            level_text = "NEW"
         else:
-            level_text = f"Lv.{current_level}→{next_level}"
+            level_text = f"Lv.{next_level}"
 
         # 이름 렌더링
         name_surface = name_font.render(name_text, True, (255, 255, 255))
@@ -60707,10 +60702,7 @@ def draw_stage_choice_overlay(screen: pygame.Surface, background: pygame.Surface
 
         # 레벨 렌더링
         if level_text:
-            if level_text == "NEW":
-                level_color = (100, 255, 150)
-            else:
-                level_color = (255, 200, 100)
+            level_color = (255, 200, 100)
             level_surface = level_font.render(level_text, True, level_color)
             level_surface.set_alpha(card_alpha)
             level_x = text_x + name_surface.get_width() + 10
@@ -60940,12 +60932,11 @@ def show_stage_clear_choices() -> str | None:
             max_level = choice.get("max_level", 1)
             name_text = choice["name"]
 
+            # 선택 시 적용될 레벨만 표시
             if max_level == -1:
                 level_text = ""
-            elif current_level == 0:
-                level_text = "NEW"
             else:
-                level_text = f"Lv.{current_level}→{next_level}"
+                level_text = f"Lv.{next_level}"
 
             name_surface = name_font.render(name_text, True, (255, 255, 255))
             name_surface.set_alpha(card_alpha)
@@ -60953,7 +60944,7 @@ def show_stage_clear_choices() -> str | None:
             card_surface.blit(name_surface, (text_x, name_y))
 
             if level_text:
-                level_color = (100, 255, 150) if level_text == "NEW" else (255, 200, 100)
+                level_color = (255, 200, 100)
                 level_surface = level_font.render(level_text, True, level_color)
                 level_surface.set_alpha(card_alpha)
                 level_x = text_x + name_surface.get_width() + 10
