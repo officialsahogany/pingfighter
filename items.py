@@ -1397,7 +1397,7 @@ ITEM_TYPES = [
         "color": (255, 255, 150),  # 밝은 금색 (신성한 느낌)
         "effect": "holy_barrier",
         "icon": None,
-        "chance": 0.006,  # 확률 0.6%
+        "chance": 0.003,  # 확률 0.6%
         "duration": 360,  # 6초 (60fps * 6)
         "unlock_condition": None
     },

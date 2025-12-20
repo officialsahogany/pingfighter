@@ -25,5 +25,41 @@
     "claude-code.personas": {
         "default": "refactorer",
         "secondary": "analyzer"
-    }
+    },
+    "files.watcherExclude": {
+        "**/._*": true,
+        "**/.git/**": true,
+        "**/.venv/**": true,
+        "**/env/**": true,
+        "**/dist/**": true,
+        "**/build/**": true,
+        "**/__pycache__/**": true,
+        "**/images/**": true,
+        "**/bgm/**": true,
+        "**/sounds/**": true,
+        "**/fonts/**": true
+    },
+    "files.exclude": {
+        "**/._*": true,
+        "**/__pycache__": true
+    },
+    "search.exclude": {
+        "**/._*": true,
+        "**/images/**": true,
+        "**/bgm/**": true,
+        "**/sounds/**": true,
+        "**/fonts/**": true,
+        "**/dist/**": true,
+        "**/build/**": true
+    },
+    "python.analysis.exclude": [
+        "**/images/**",
+        "**/bgm/**",
+        "**/sounds/**",
+        "**/fonts/**",
+        "**/dist/**",
+        "**/build/**",
+        "**/__pycache__/**"
+    ]
+}
 }
