@@ -4077,12 +4077,36 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
 
 def apply_instant_skill_effect(skill_id: str) -> bool:
     """단발성 스킬 효과 즉시 적용"""
-    global rolling_gauge
+    global rolling_charges, token_states, charging_token_index, _token_charge_states
 
     if skill_id == "instant_gauge_full":
-        # 대쉬 게이지 최대로 회복
-        rolling_gauge = 100
-        print(f"[InstantSkill] 비상충전! 게이지 100% 회복")
+        # 대쉬 토큰 모두 충전
+        try:
+            # 최대 토큰 수 계산
+            base_charges = 1
+            holder_bonus = globals().get("rolling_holder_bonus", 0)
+            amplification_bonus = get_runtime_skill_bonus("dash_amplification") if 'get_runtime_skill_bonus' in dir() else 0
+            max_charges = int(base_charges + holder_bonus + amplification_bonus)
+
+            # 토큰 상태 모두 True로 설정
+            token_states = [True] * max_charges
+            rolling_charges = max_charges
+
+            # 충전 중인 토큰 인덱스 초기화
+            charging_token_index = -1
+
+            # 토큰 충전 상태 초기화
+            if '_token_charge_states' in globals():
+                _token_charge_states.clear()
+                for i in range(max_charges):
+                    _token_charge_states.append(1.0)
+
+            print(f"[InstantSkill] 비상충전! 대쉬 토큰 {max_charges}개 모두 충전!")
+        except Exception as e:
+            print(f"[InstantSkill] 비상충전 오류: {e}")
+            # 폴백: 기본 1개라도 충전
+            rolling_charges = 1
+            token_states = [True]
         return True
 
     elif skill_id == "instant_dimension_gate":
