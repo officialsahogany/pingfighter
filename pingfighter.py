@@ -10592,6 +10592,18 @@ serve_completed_timer = 0  # 서브 완료 후 3초간 물자보급/대시 금�
 ball_spawn_animation_active = False
 ball_spawn_animation_stage_start = False
 BALL_SPAWN_ANIMATION_ENABLED = True
+
+def is_ball_spawn_animation_paused() -> bool:
+    """공 생성 애니메이션 중인지 확인 - 게임 시스템 일시정지에 사용
+
+    공 생성 애니메이션 동안에는 다음 시스템들이 일시정지됩니다:
+    - 옵티머스 게이지 드레인
+    - 날씨 이벤트 효과 (바람, 우박, 화재 등)
+    - 플레이어 이동 및 넉백
+    - 코만도 무기 타이머
+    - 보스 AI 및 공격
+    """
+    return ball_spawn_animation_active and is_ball_spawn_animation_active()
 POWER_SMASH_SERVE_LOCKOUT_FRAMES = int(0.5 * FPS)  # 서브 직후 파워스매싱 금지 시간 (약 0.5초)
 serve_power_smash_lockout = 0  # 서브 직후 파워스매싱 입력 잠금 (스매셔 전용)
 # === 무승부 판정 시스템 ===
@@ -10889,12 +10901,21 @@ def update_optimus_energy() -> None:
     # 일시정지/정보창 등 게임 멈춤 상태에서는 배터리 소모/최대치 감소를 중단한다.
     # ESC/P 일시정지, 툴팁 강제정지는 game_paused 플래그로 처리되며
     # Tab 캐릭터정보창은 별도 프리즈 가드(_freeze_optimus_energy_timers)로 보호된다.
-    if globals().get("game_paused", False):
+    # 공 생성 애니메이션 중에도 배터리 소모/최대치 감소를 중단한다.
+    # 또한 애니메이션이 막 완료되었을 때도 타임스탬프를 리셋하여 누적 시간이 적용되지 않도록 한다.
+    if globals().get("game_paused", False) or is_ball_spawn_animation_paused():
         optimus_last_gauge_tick_ms = now
         optimus_max_decay_last_ms = now
         return
-    if optimus_last_gauge_tick_ms == 0:
+
+    # 애니메이션이 막 완료되었을 때 (is_complete() True, is_active() False) 첫 프레임 보호
+    # elapsed_ms가 애니메이션 전체 시간만큼 누적되는 것을 방지
+    if optimus_last_gauge_tick_ms == 0 or (now - optimus_last_gauge_tick_ms) > 1000:
+        # 1초 이상 경과했으면 타임스탬프 리셋 (애니메이션 종료 후 첫 프레임일 가능성)
         optimus_last_gauge_tick_ms = now
+        optimus_max_decay_last_ms = now
+        return  # 이번 프레임은 게이지 감소 스킵
+
     elapsed_ms = max(0, now - optimus_last_gauge_tick_ms)
     optimus_last_gauge_tick_ms = now
 
@@ -60418,7 +60439,10 @@ def draw_objects():
         cleanse.draw(SCREEN, screen_shake_offset_x, screen_shake_offset_y)
 
     # 🌪️ 날씨 파티클 업데이트 및 그리기
-    update_weather_particles(WIDTH, HEIGHT)
+    # 공 생성 애니메이션 중에는 날씨 효과 업데이트를 건너뜀 (그리기만 수행)
+    _spawn_anim_paused = is_ball_spawn_animation_paused()
+    if not _spawn_anim_paused:
+        update_weather_particles(WIDTH, HEIGHT)
     draw_weather_particles(SCREEN)
 
     # 🔥 불 이벤트 파티클 업데이트 및 그리기
@@ -93886,19 +93910,23 @@ def main(stage_num, new_boss_mode=False):
         if is_devil_dice_active():
             update_devil_dice(current_stage)
 
-        # ✨ 스매셔 클렌즈 스킬 업데이트
-        if selected_character_type == "smasher":
+        # ✨ 스매셔 클렌즈 스킬 업데이트 - 공 생성 애니메이션 중 일시정지
+        if selected_character_type == "smasher" and not is_ball_spawn_animation_paused():
             cleanse_skill = get_cleanse_skill()
             cleanse_skill.update()
 
-        # 테크니컬조끼 업데이트 (플레이어 패들 위치 전달)
-        update_technical_vest(PLAYER)
-        # 레이저스코프 업데이트
-        update_laser_scope()
-        # 홀리베리어 업데이트
-        update_holy_barrier(current_stage)
-        # 대쉬부스트 업데이트
-        update_dash_boost(current_stage)
+        # 테크니컬조끼 업데이트 (플레이어 패들 위치 전달) - 공 생성 애니메이션 중 일시정지
+        if not is_ball_spawn_animation_paused():
+            update_technical_vest(PLAYER)
+        # 레이저스코프 업데이트 - 공 생성 애니메이션 중 일시정지
+        if not is_ball_spawn_animation_paused():
+            update_laser_scope()
+        # 홀리베리어 업데이트 - 공 생성 애니메이션 중 일시정지
+        if not is_ball_spawn_animation_paused():
+            update_holy_barrier(current_stage)
+        # 대쉬부스트 업데이트 - 공 생성 애니메이션 중 일시정지
+        if not is_ball_spawn_animation_paused():
+            update_dash_boost(current_stage)
         # Stage 7: 테크니컬조끼 연막이 테트로미노에 닿으면 증발 처리
         # - 기존 연막탄 파괴 경로(destroy_stage7_tetrominoes_in_smoke)를 재사용해 성능/일관성 유지
         if current_stage == 7:
@@ -93915,10 +93943,11 @@ def main(stage_num, new_boss_mode=False):
             except Exception:
                 pass
         
-        # 📦 탄약상자 업데이트
-        ammo_box = get_ammo_box_instance()
-        if ammo_box and ammo_box.active:
-            ammo_box.update(current_stage)
+        # 📦 탄약상자 업데이트 - 공 생성 애니메이션 중 일시정지
+        if not is_ball_spawn_animation_paused():
+            ammo_box = get_ammo_box_instance()
+            if ammo_box and ammo_box.active:
+                ammo_box.update(current_stage)
         
         # 악마의 주사위 굴리는 중인지 확인
         devil_dice_paused = is_devil_dice_rolling()
@@ -93993,6 +94022,7 @@ def main(stage_num, new_boss_mode=False):
             and not legendary_effect_paused
             and not temple_destruction_paused
             and not kuromi_awakening_paused
+            and not is_ball_spawn_animation_paused()
         ):
             # 아이템 스폰 처리 (템스폰) - 전설 애니메이션 중에는 스폰 정지
             # 튜토리얼 스테이지(50)에서는 아이템 스폰 비활성화
@@ -94062,26 +94092,30 @@ def main(stage_num, new_boss_mode=False):
             #  Stage 1 이벤트 업데이트 (항상 업데이트하여 풍선 유지)
             balloon_event_paused = False
             if BALLOON_EVENT_AVAILABLE and stage1_events and current_stage == 1:
-                # 타이머 기반 이벤트를 위해 screen과 sound 인자 전달
-                stage1_events.update(SCREEN, SOUND_BALLOON_BOOM, SOUND_STAGE1_DOOR, SOUND_STAGE1_MACHINE)  # 이벤트가 끝나도 풍선 업데이트를 위해 계속 호출
+                # 공 생성 애니메이션 중에는 풍선 이벤트 타이머 일시정지
+                if not is_ball_spawn_animation_paused():
+                    # 타이머 기반 이벤트를 위해 screen과 sound 인자 전달
+                    stage1_events.update(SCREEN, SOUND_BALLOON_BOOM, SOUND_STAGE1_DOOR, SOUND_STAGE1_MACHINE)  # 이벤트가 끝나도 풍선 업데이트를 위해 계속 호출
                 if stage1_events.should_pause_game():
                     balloon_event_paused = True
-            
+
             #  Stage 5 화염 이벤트 업데이트
             fire_event_paused = False
             if FIRE_EVENT_AVAILABLE and stage5_events and current_stage == 5:
-                # 스테이지 5 시작 시 타이머 시작
-                stage5_events.start_timer(current_stage)
-                
-                # 타이머 체크하여 이벤트 발동
-                if stage5_events.check_timer_event(current_stage):
-                    # 이벤트를 즉시 발동
-                    stage5_events.trigger_event(SCREEN, current_stage, 
-                                               SOUND_STAGE1_DOOR, SOUND_STAGE1_MACHINE, SOUND_FIREBALL)
-                    print(f"  !     !")
-                
-                # 이벤트 업데이트 (타이머도 여기서 감소됨)
-                stage5_events.update()  # 이벤트가 끝나도 화염탄 업데이트를 위해 계속 호출
+                # 공 생성 애니메이션 중에는 화염 이벤트 타이머 일시정지
+                if not is_ball_spawn_animation_paused():
+                    # 스테이지 5 시작 시 타이머 시작
+                    stage5_events.start_timer(current_stage)
+
+                    # 타이머 체크하여 이벤트 발동
+                    if stage5_events.check_timer_event(current_stage):
+                        # 이벤트를 즉시 발동
+                        stage5_events.trigger_event(SCREEN, current_stage,
+                                                   SOUND_STAGE1_DOOR, SOUND_STAGE1_MACHINE, SOUND_FIREBALL)
+                        print(f"  !     !")
+
+                    # 이벤트 업데이트 (타이머도 여기서 감소됨)
+                    stage5_events.update()  # 이벤트가 끝나도 화염탄 업데이트를 위해 계속 호출
                 if stage5_events.should_pause_game():
                     fire_event_paused = True
             
@@ -94545,10 +94579,85 @@ def main(stage_num, new_boss_mode=False):
                     keys_now = pygame.key.get_pressed()
 
             # 초각성/극정호신 연출 중이면 입력/로직을 잠시 정지
+            # 공 생성 애니메이션 중에도 게임 로직 정지
             now_tick = pygame.time.get_ticks()
             freeze_awaken = current_stage == 8 and stage8_awaken_intro_pending and now_tick < stage8_awaken_freeze_end_ms
             freeze_superspeed = current_stage == 8 and stage8_superspeed_active and now_tick < stage8_superspeed_freeze_end_ms
-            freeze_now = freeze_awaken or freeze_superspeed
+            freeze_spawn_anim = is_ball_spawn_animation_paused()
+            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim
+
+            # 일시정지 중에도 옵티머스 에너지 타임스탬프 동기화 필요
+            # (handle_player 내부의 update_optimus_energy가 호출되지 않으므로)
+            if freeze_now and selected_character_type == "optimus":
+                update_optimus_energy()  # 함수 내부에서 freeze 체크 후 타임스탬프만 업데이트
+
+            # 공 생성 애니메이션 중에도 옵티머스 수동 충전은 허용
+            # (라운드 끝나고 서브 전 충전 가능하게)
+            if freeze_spawn_anim and selected_character_type == "optimus":
+                # ㄴ키(S키) 홀드 상태 확인
+                down_held = keys_now[pygame.K_DOWN] or keys_now[pygame.K_s]
+                # 한글 'ㄴ' 키 확인 (스냅샷에서)
+                if not down_held:
+                    try:
+                        down_held = SNAP_down_held
+                    except Exception:
+                        pass
+                if down_held:
+                    # 충전 처리를 위해 직접 로직 실행
+                    now_ms = pygame.time.get_ticks()
+                    # 충전 불가 조건 체크 (간소화 버전)
+                    block_active = now_ms < optimus_charge_block_until_ms
+                    can_charge = (
+                        not rolling_active
+                        and rolling_stun_timer <= 0
+                        and not player_stunned
+                        and not half_dash_used_flag
+                        and not long_boost_active
+                        and not block_active
+                    )
+                    if can_charge:
+                        if optimus_charge_last_update_ms == 0:
+                            optimus_charge_last_update_ms = now_ms
+                        delta_ms = max(0, now_ms - optimus_charge_last_update_ms)
+                        optimus_charge_hold_ms += delta_ms
+
+                        if (not optimus_charge_active) and optimus_charge_hold_ms >= OPTIMUS_CHARGE_HOLD_MS:
+                            optimus_charge_active = True
+                            optimus_charge_anim_tick_ms = now_ms
+                            _start_optimus_charge_sound()
+
+                        if optimus_charge_active and delta_ms > 0:
+                            charge_bonus = get_mecha_charge_bonus()
+                            effective_charge_rate = OPTIMUS_CHARGE_RATE_PER_SEC * (1.0 + charge_bonus)
+                            charge_gain = effective_charge_rate * (delta_ms / 1000.0)
+                            current_max = get_max_gauge()
+                            new_gauge = min(current_max, special_gauge + charge_gain)
+                            if new_gauge != special_gauge:
+                                special_gauge = new_gauge
+                                special_ready = special_gauge >= 350
+
+                        # 스파크 이펙트 (애니메이션 중에도 표시)
+                        if optimus_charge_active and now_ms - optimus_charge_anim_tick_ms >= 120:
+                            try:
+                                effects_manager.spawn_star_particles(
+                                    PLAYER.centerx, PLAYER.centery,
+                                    count=14, color=(120, 235, 255),
+                                    spread=90, speed_range=(4, 9),
+                                )
+                            except Exception:
+                                pass
+
+                        optimus_charge_last_update_ms = now_ms
+                    else:
+                        optimus_charge_hold_ms = 0
+                        optimus_charge_last_update_ms = 0
+                else:
+                    optimus_charge_hold_ms = 0
+                    optimus_charge_last_update_ms = 0
+                    if optimus_charge_active:
+                        optimus_charge_active = False
+                        _stop_optimus_charge_sound()
+
             if not freeze_now:
                 handle_player(keys_now)
             update_blacksmith_hammer_shock(keys_now)
