@@ -3193,42 +3193,43 @@ def reset_emergency_charge_for_new_stage():
     emergency_charge_used_this_stage = False
 
 # ========== 옵티머스 스킬 효과 헬퍼 함수들 ==========
+# NOTE: runtime_skill_levels를 사용하여 스타포인트로 선택한 스킬 효과 적용
 def get_mecha_chain_drain_reduction() -> float:
     """메카체인: 게이지 감소율 감소 비율 반환 (0.0 ~ 0.4)"""
-    level = optimus_skill_levels.get("mecha_chain", 0)
+    level = runtime_skill_levels.get("mecha_chain", 0)
     return level * 0.10  # 10% per level
 
 def get_mecha_charge_bonus() -> float:
     """메카차지: 게이지 충전량 증가 비율 반환 (0.0 ~ 0.4)"""
-    level = optimus_skill_levels.get("mecha_charge", 0)
+    level = runtime_skill_levels.get("mecha_charge", 0)
     return level * 0.10  # 10% per level
 
 def get_mecha_bulk_scale() -> float:
     """메카벌크: 패들 크기 증가 비율 반환 (1.0 ~ 1.2)"""
-    level = optimus_skill_levels.get("mecha_bulk", 0)
+    level = runtime_skill_levels.get("mecha_bulk", 0)
     return 1.0 + (level * 0.05)  # 5% per level
 
 def get_emergency_charge_amount() -> float:
     """비상충전: 즉시 충전 비율 반환 (0.5, 0.7, 1.0)"""
-    level = optimus_skill_levels.get("emergency_charge", 0)
+    level = runtime_skill_levels.get("emergency_charge", 0)
     amounts = {0: 0, 1: 0.5, 2: 0.7, 3: 1.0}
     return amounts.get(level, 0)
 
 def get_reboot_time_reduction() -> float:
     """재부팅강화: 이동불가 시간 단축 비율 반환 (0.0 ~ 0.9)"""
-    level = optimus_skill_levels.get("reboot_enhance", 0)
+    level = runtime_skill_levels.get("reboot_enhance", 0)
     reductions = {0: 0, 1: 0.3, 2: 0.6, 3: 0.9}
     return reductions.get(level, 0)
 
 def get_bug_update_chance() -> float:
     """버그업데이트: 추가 선택지 확률 반환 (0.0 ~ 0.45)"""
-    level = optimus_skill_levels.get("bug_update", 0)
+    level = runtime_skill_levels.get("bug_update", 0)
     chances = {0: 0, 1: 0.25, 2: 0.35, 3: 0.45}
     return chances.get(level, 0)
 
 def get_elec_pad_stats() -> tuple:
     """일렉패드: (확률, 충전량) 튜플 반환"""
-    level = optimus_skill_levels.get("elec_pad", 0)
+    level = runtime_skill_levels.get("elec_pad", 0)
     stats = {
         0: (0, 0),
         1: (0.05, 40),   # 5%, +40
@@ -3283,9 +3284,9 @@ def draw_optimus_skill_icon(surface: pygame.Surface, skill_id: str, x: int, y: i
     - 레벨별 테두리 화려함 차이
     - 천천히 회전하는 애니메이션
     """
-    # 스킬 레벨 가져오기
+    # 스킬 레벨 가져오기 (runtime_skill_levels 사용)
     if level == 0:
-        level = optimus_skill_levels.get(skill_id, 0)
+        level = runtime_skill_levels.get(skill_id, 0)
 
     # 스킬 타입에 따른 테마 선택
     skill_type = OPTIMUS_SKILL_TYPES.get(skill_id, "passive")
@@ -3903,11 +3904,13 @@ def reset_optimus_skill_triggers() -> None:
 def reset_runtime_skill_system():
     """런타임 스킬 시스템 초기화 (새 게임 시작 시)"""
     global runtime_skill_levels, starpoint_for_skills, pending_skill_choices, runtime_skill_choice_pending
+    global optimus_arm_available
 
     runtime_skill_levels = {}
     starpoint_for_skills = 0
     pending_skill_choices = 0
     runtime_skill_choice_pending = False
+    optimus_arm_available = False  # 옵티머스 암도 초기화
 
     print("[RuntimeSkill] 런타임 스킬 시스템 초기화")
 
@@ -3988,6 +3991,10 @@ def get_runtime_skill_choices(character_type: str) -> list:
             current_level = runtime_skill_levels.get(skill_id, 0)
             max_level = skill_data["max_level"]
 
+            # 옵티머스 암 특별 처리 (이미 해금되면 제외)
+            if skill_id == "optimus_arm" and optimus_arm_available:
+                continue
+
             # 무제한 스킬 (-1)이거나 최대 레벨 미달인 것만
             if max_level == -1 or current_level < max_level:
                 next_level = 1 if max_level == -1 else current_level + 1
@@ -4048,6 +4055,7 @@ def get_runtime_skill_choices(character_type: str) -> list:
 def apply_runtime_skill_effect(choice_id: str) -> bool:
     """런타임 스킬 효과 적용 (레벨업 또는 단발성). 성공 시 True 반환"""
     global runtime_skill_levels, starpoint_for_skills, pending_skill_choices
+    global optimus_arm_available
 
     # 빈 슬롯 무시
     if choice_id.startswith("empty_"):
@@ -4056,6 +4064,13 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     # 단발성 스킬 처리
     if choice_id.startswith("instant_"):
         return apply_instant_skill_effect(choice_id)
+
+    # 옵티머스 암 특별 처리
+    if choice_id == "optimus_arm":
+        optimus_arm_available = True
+        runtime_skill_levels["optimus_arm"] = 1
+        print("[RuntimeSkill] 옵티머스 암 해금!")
+        return True
 
     # 스타체인지 특별 처리 (스타포인트 추가)
     if choice_id == "star_change":
@@ -6213,82 +6228,264 @@ def show_runtime_skill_status():
 
         # 옵티머스 전용 스킬
         elif skill_id == "mecha_chain":
-            # 체인 연결
+            # 메카체인: 연결된 기계 체인 + 에너지 코어
+            chain_color = (100, 200, 255)
+            glow_color = (150, 230, 255)
+
+            # 체인 고리 3개
             for i in range(3):
                 ox = icon_cx - 8 + i * 8
-                pygame.draw.circle(surface, (200, 200, 220), (ox, icon_cy), 5, 2)
-            pygame.draw.line(surface, (180, 180, 200), (icon_cx - 8, icon_cy), (icon_cx + 8, icon_cy), 2)
+                ring_w, ring_h = 8, 6
+                # 외부 고리
+                pygame.draw.ellipse(surface, (40, 60, 80),
+                                  (ox - ring_w//2, icon_cy - ring_h//2, ring_w, ring_h))
+                pygame.draw.ellipse(surface, chain_color,
+                                  (ox - ring_w//2, icon_cy - ring_h//2, ring_w, ring_h), 2)
+                # 내부 구멍
+                inner_w, inner_h = ring_w - 4, ring_h - 4
+                if inner_w > 0 and inner_h > 0:
+                    pygame.draw.ellipse(surface, (20, 25, 35),
+                                      (ox - inner_w//2, icon_cy - inner_h//2, inner_w, inner_h))
+
+            # 체인 연결선 (에너지 흐름)
+            pygame.draw.line(surface, glow_color, (icon_cx - 8, icon_cy), (icon_cx + 8, icon_cy), 2)
+
+            # 중앙 에너지 코어
+            pygame.draw.circle(surface, glow_color, (icon_cx, icon_cy), 4)
+            pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), 2)
 
         elif skill_id == "mecha_charge":
-            # 충전 (번개)
-            pygame.draw.polygon(surface, (255, 255, 100), [
-                (icon_cx + 2, icon_cy - 12), (icon_cx - 6, icon_cy), (icon_cx, icon_cy),
-                (icon_cx - 2, icon_cy + 12), (icon_cx + 6, icon_cy), (icon_cx, icon_cy)
-            ])
-            pygame.draw.polygon(surface, (255, 200, 50), [
-                (icon_cx + 1, icon_cy - 8), (icon_cx - 3, icon_cy), (icon_cx, icon_cy),
-                (icon_cx - 1, icon_cy + 8), (icon_cx + 3, icon_cy), (icon_cx, icon_cy)
-            ])
+            # 메카차지: 번개 + 에너지 충전
+            charge_color = (255, 220, 80)
+
+            # 배경 에너지 링
+            pygame.draw.circle(surface, (255, 200, 50), (icon_cx, icon_cy), 12, 1)
+
+            # 번개 모양
+            bolt_points = [
+                (icon_cx + 3, icon_cy - 12),
+                (icon_cx - 3, icon_cy - 2),
+                (icon_cx + 1, icon_cy - 2),
+                (icon_cx - 3, icon_cy + 12),
+                (icon_cx + 3, icon_cy + 2),
+                (icon_cx - 1, icon_cy + 2),
+            ]
+            pygame.draw.polygon(surface, charge_color, bolt_points)
+            pygame.draw.polygon(surface, (255, 255, 255), bolt_points, 1)
+
+            # 스파크 효과
+            for i in range(3):
+                spark_angle = i * 2.1
+                spark_dist = 10
+                sx = icon_cx + int(math.cos(spark_angle) * spark_dist)
+                sy = icon_cy + int(math.sin(spark_angle) * spark_dist)
+                pygame.draw.circle(surface, charge_color, (sx, sy), 2)
 
         elif skill_id == "mecha_bulk":
-            # 벌크 (근육/방패)
-            pygame.draw.polygon(surface, (150, 150, 200), [
-                (icon_cx, icon_cy - 12), (icon_cx - 10, icon_cy - 6), (icon_cx - 10, icon_cy + 6),
-                (icon_cx, icon_cy + 12), (icon_cx + 10, icon_cy + 6), (icon_cx + 10, icon_cy - 6)
-            ])
-            pygame.draw.polygon(surface, (180, 180, 220), [
-                (icon_cx, icon_cy - 8), (icon_cx - 6, icon_cy - 4), (icon_cx - 6, icon_cy + 4),
-                (icon_cx, icon_cy + 8), (icon_cx + 6, icon_cy + 4), (icon_cx + 6, icon_cy - 4)
-            ])
+            # 메카벌크: 확장하는 기계 기어
+            bulk_color = (180, 120, 255)
+            metal_color = (200, 180, 220)
+
+            # 중앙 기어
+            gear_radius = 8
+            pygame.draw.circle(surface, metal_color, (icon_cx, icon_cy), gear_radius)
+            pygame.draw.circle(surface, bulk_color, (icon_cx, icon_cy), gear_radius - 2, 2)
+
+            # 기어 톱니
+            for i in range(6):
+                tooth_angle = i * math.pi / 3
+                tx = icon_cx + int(math.cos(tooth_angle) * (gear_radius + 3))
+                ty = icon_cy + int(math.sin(tooth_angle) * (gear_radius + 3))
+                pygame.draw.circle(surface, metal_color, (tx, ty), 3)
+
+            # 4방향 확장 화살표
+            for i in range(4):
+                angle = i * math.pi / 2
+                arrow_dist = 12
+                ax = icon_cx + int(math.cos(angle) * arrow_dist)
+                ay = icon_cy + int(math.sin(angle) * arrow_dist)
+                # 화살표 머리
+                pygame.draw.polygon(surface, bulk_color, [
+                    (ax + int(math.cos(angle) * 4), ay + int(math.sin(angle) * 4)),
+                    (ax + int(math.cos(angle + 2.5) * 4), ay + int(math.sin(angle + 2.5) * 4)),
+                    (ax + int(math.cos(angle - 2.5) * 4), ay + int(math.sin(angle - 2.5) * 4))
+                ])
 
         elif skill_id == "emergency_charge":
-            # 비상 충전 (경고 + 배터리)
-            pygame.draw.polygon(surface, (255, 200, 50), [
-                (icon_cx, icon_cy - 12), (icon_cx - 10, icon_cy + 8), (icon_cx + 10, icon_cy + 8)
-            ])
-            pygame.draw.polygon(surface, (255, 255, 200), [
-                (icon_cx, icon_cy - 6), (icon_cx - 5, icon_cy + 4), (icon_cx + 5, icon_cy + 4)
-            ])
-            pygame.draw.rect(surface, (50, 50, 50), (icon_cx - 2, icon_cy - 3, 4, 6))
+            # 비상충전: 경고등 + 배터리
+            emergency_red = (255, 80, 80)
+            warning_yellow = (255, 200, 50)
+
+            # 경고 삼각형 배경
+            tri_size = 12
+            tri_points = [
+                (icon_cx, icon_cy - tri_size // 2 - 4),
+                (icon_cx - tri_size // 2, icon_cy + tri_size // 3 - 4),
+                (icon_cx + tri_size // 2, icon_cy + tri_size // 3 - 4),
+            ]
+            pygame.draw.polygon(surface, emergency_red, tri_points)
+            pygame.draw.polygon(surface, warning_yellow, tri_points, 2)
+
+            # 느낌표
+            pygame.draw.rect(surface, (255, 255, 255), (icon_cx - 1, icon_cy - 6, 2, 5))
+            pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy + 2), 1)
+
+            # 배터리 아이콘 (하단)
+            bat_x, bat_y = icon_cx - 6, icon_cy + 5
+            bat_w, bat_h = 12, 6
+            pygame.draw.rect(surface, (60, 60, 70), (bat_x, bat_y, bat_w, bat_h), border_radius=1)
+            pygame.draw.rect(surface, (100, 255, 100), (bat_x + 1, bat_y + 1, bat_w - 2, bat_h - 2), border_radius=1)
 
         elif skill_id == "reboot_enhance":
-            # 리부트 강화 (재시작 아이콘)
-            pygame.draw.arc(surface, (100, 200, 255), (icon_cx - 10, icon_cy - 10, 20, 20), 0.5, 5.5, 3)
-            pygame.draw.polygon(surface, (100, 200, 255), [
-                (icon_cx + 8, icon_cy - 8), (icon_cx + 12, icon_cy - 3), (icon_cx + 5, icon_cy - 3)
-            ])
-            pygame.draw.circle(surface, (150, 220, 255), (icon_cx, icon_cy), 4)
+            # 재부팅강화: 회전하는 새로고침 아이콘
+            reboot_color = (100, 255, 150)
+
+            # 회전하는 원호
+            arc_radius = 10
+            arc_points = []
+            for i in range(15):
+                t = i * math.pi * 1.5 / 14
+                px = icon_cx + int(math.cos(t) * arc_radius)
+                py = icon_cy + int(math.sin(t) * arc_radius)
+                arc_points.append((px, py))
+
+            if len(arc_points) > 1:
+                pygame.draw.lines(surface, reboot_color, False, arc_points, 3)
+
+                # 화살표 머리
+                end_angle = math.pi * 1.5
+                arrow_x = icon_cx + int(math.cos(end_angle) * arc_radius)
+                arrow_y = icon_cy + int(math.sin(end_angle) * arc_radius)
+                pygame.draw.polygon(surface, reboot_color, [
+                    (arrow_x, arrow_y),
+                    (arrow_x - 6, arrow_y - 4),
+                    (arrow_x - 4, arrow_y + 5)
+                ])
+
+            # 중앙 전원 심볼
+            power_radius = 5
+            pygame.draw.circle(surface, reboot_color, (icon_cx, icon_cy), power_radius, 2)
+            pygame.draw.line(surface, reboot_color, (icon_cx, icon_cy - power_radius - 1), (icon_cx, icon_cy - 1), 2)
 
         elif skill_id == "star_change":
-            # 스타 체인지 (별 변환)
-            # 별 그리기
-            star_points = []
-            for i in range(5):
-                angle = math.radians(-90 + i * 72)
-                star_points.append((icon_cx + int(10 * math.cos(angle)), icon_cy + int(10 * math.sin(angle))))
-                angle = math.radians(-90 + i * 72 + 36)
-                star_points.append((icon_cx + int(5 * math.cos(angle)), icon_cy + int(5 * math.sin(angle))))
-            pygame.draw.polygon(surface, (255, 220, 100), star_points)
-            pygame.draw.circle(surface, (255, 255, 200), (icon_cx, icon_cy), 3)
+            # 스타체인지: 빛나는 별
+            star_color = (255, 255, 100)
+
+            # 5각 별
+            star_radius = 10
+            inner_radius = 5
+            points = []
+            for i in range(10):
+                angle = -math.pi / 2 + i * math.pi / 5
+                r = star_radius if i % 2 == 0 else inner_radius
+                px = icon_cx + int(math.cos(angle) * r)
+                py = icon_cy + int(math.sin(angle) * r)
+                points.append((px, py))
+
+            pygame.draw.polygon(surface, star_color, points)
+            pygame.draw.polygon(surface, (255, 255, 255), points, 1)
+
+            # 중앙 빛
+            pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), 3)
+
+            # 빛줄기
+            for i in range(4):
+                ray_angle = i * math.pi / 2 + math.pi / 4
+                ray_length = 14
+                rx = icon_cx + int(math.cos(ray_angle) * ray_length)
+                ry = icon_cy + int(math.sin(ray_angle) * ray_length)
+                pygame.draw.line(surface, (255, 255, 200), (icon_cx, icon_cy), (rx, ry), 1)
 
         elif skill_id == "bug_update":
-            # 버그 업데이트 (버그 아이콘)
-            pygame.draw.ellipse(surface, (100, 200, 100), (icon_cx - 8, icon_cy - 6, 16, 12))
-            pygame.draw.circle(surface, (80, 180, 80), (icon_cx, icon_cy - 8), 5)
+            # 버그업데이트: 코드 + 버그
+            bug_color = (150, 255, 50)
+            code_color = (100, 220, 50)
+
+            # 스크롤링 코드 라인 (배경)
+            for i in range(3):
+                line_y = icon_cy - 6 + i * 6
+                line_w = 12 + (i * 3) % 6
+                pygame.draw.rect(surface, code_color,
+                               (icon_cx - line_w // 2, line_y, line_w, 2), border_radius=1)
+
+            # 버그 (벌레 아이콘)
+            body_w, body_h = 10, 12
+            # 몸통
+            pygame.draw.ellipse(surface, bug_color,
+                               (icon_cx - body_w // 2, icon_cy - body_h // 2, body_w, body_h))
+            # 머리
+            head_y = icon_cy - body_h // 2 - 3
+            pygame.draw.circle(surface, bug_color, (icon_cx, head_y), 4)
+            # 더듬이
+            pygame.draw.line(surface, bug_color, (icon_cx - 2, head_y - 2), (icon_cx - 5, head_y - 8), 1)
+            pygame.draw.line(surface, bug_color, (icon_cx + 2, head_y - 2), (icon_cx + 5, head_y - 8), 1)
             # 다리
-            pygame.draw.line(surface, (60, 150, 60), (icon_cx - 8, icon_cy - 2), (icon_cx - 12, icon_cy - 6), 2)
-            pygame.draw.line(surface, (60, 150, 60), (icon_cx + 8, icon_cy - 2), (icon_cx + 12, icon_cy - 6), 2)
-            pygame.draw.line(surface, (60, 150, 60), (icon_cx - 8, icon_cy + 2), (icon_cx - 12, icon_cy + 6), 2)
-            pygame.draw.line(surface, (60, 150, 60), (icon_cx + 8, icon_cy + 2), (icon_cx + 12, icon_cy + 6), 2)
+            for i in range(3):
+                leg_y = icon_cy - body_h // 4 + i * body_h // 3
+                pygame.draw.line(surface, bug_color, (icon_cx - body_w // 2, leg_y), (icon_cx - body_w // 2 - 4, leg_y + 3), 1)
+                pygame.draw.line(surface, bug_color, (icon_cx + body_w // 2, leg_y), (icon_cx + body_w // 2 + 4, leg_y + 3), 1)
 
         elif skill_id == "elec_pad":
-            # 일렉 패드 (전기 패드)
-            pygame.draw.rect(surface, (80, 80, 100), (icon_cx - 10, icon_cy - 8, 20, 16), border_radius=3)
-            pygame.draw.rect(surface, (60, 60, 80), (icon_cx - 8, icon_cy - 6, 16, 12), border_radius=2)
-            # 전기 효과
-            pygame.draw.line(surface, (255, 255, 100), (icon_cx - 4, icon_cy - 4), (icon_cx, icon_cy), 2)
-            pygame.draw.line(surface, (255, 255, 100), (icon_cx, icon_cy), (icon_cx + 4, icon_cy - 2), 2)
-            pygame.draw.line(surface, (255, 255, 100), (icon_cx + 4, icon_cy - 2), (icon_cx, icon_cy + 4), 2)
+            # 일렉패드: 전기가 흐르는 패들
+            elec_color = (50, 200, 255)
+            spark_color = (150, 230, 255)
+
+            # 패들 본체
+            pad_w, pad_h = 18, 8
+            pad_x, pad_y = icon_cx - pad_w // 2, icon_cy - pad_h // 2
+
+            # 패들 배경
+            pygame.draw.rect(surface, (50, 60, 80), (pad_x, pad_y, pad_w, pad_h), border_radius=3)
+
+            # 전기 충전 효과
+            pygame.draw.rect(surface, elec_color, (pad_x + 1, pad_y + 1, pad_w - 2, pad_h - 2), border_radius=2)
+
+            # 전기 스파크 (상단)
+            spark_count = 3
+            for i in range(spark_count):
+                sx = pad_x + pad_w // (spark_count + 1) * (i + 1)
+                sy = pad_y - 2
+                pygame.draw.line(surface, spark_color, (sx, sy), (sx - 2, sy - 6), 2)
+                pygame.draw.line(surface, spark_color, (sx - 2, sy - 6), (sx + 2, sy - 10), 2)
+
+            # 패들 손잡이
+            pygame.draw.rect(surface, (70, 80, 100), (icon_cx - 2, pad_y + pad_h, 4, 8), border_radius=1)
+
+            # 글로우 효과
+            pygame.draw.rect(surface, (elec_color[0], elec_color[1], elec_color[2], 100),
+                            (pad_x - 2, pad_y - 2, pad_w + 4, pad_h + 4), border_radius=4, width=1)
+
+        elif skill_id == "optimus_arm":
+            # 옵티머스 암: 기계 팔 (액티브 스킬)
+            arm_color = (255, 180, 50)
+            metal_color = (200, 160, 100)
+            glow_color = (255, 220, 100)
+
+            # 관절 위치
+            base_joint = (icon_cx - 8, icon_cy + 6)
+            mid_joint = (icon_cx + 2, icon_cy - 3)
+            end_joint = (icon_cx + 8, icon_cy - 8)
+
+            # 팔 세그먼트
+            pygame.draw.line(surface, metal_color, base_joint, mid_joint, 6)
+            pygame.draw.line(surface, (150, 130, 80), base_joint, mid_joint, 3)
+            pygame.draw.line(surface, metal_color, mid_joint, end_joint, 5)
+            pygame.draw.line(surface, (150, 130, 80), mid_joint, end_joint, 2)
+
+            # 관절 볼트
+            for joint in [base_joint, mid_joint]:
+                pygame.draw.circle(surface, (80, 80, 90), joint, 4)
+                pygame.draw.circle(surface, arm_color, joint, 3)
+                pygame.draw.circle(surface, glow_color, joint, 1)
+
+            # 집게 손
+            claw_len = 6
+            pygame.draw.line(surface, arm_color, end_joint, (end_joint[0] + 4, end_joint[1] - 4), 3)
+            pygame.draw.line(surface, arm_color, end_joint, (end_joint[0] + 6, end_joint[1] + 2), 3)
+
+            # 집게 끝 글로우
+            pygame.draw.circle(surface, glow_color, (end_joint[0] + 4, end_joint[1] - 4), 2)
+            pygame.draw.circle(surface, glow_color, (end_joint[0] + 6, end_joint[1] + 2), 2)
 
         else:
             # 기본 아이콘 (알 수 없는 스킬)
