@@ -93138,6 +93138,7 @@ def main(stage_num, new_boss_mode=False):
                             # 더블탭 감지 - 비상충전 발동 시도
                             if not globals().get("emergency_charge_used_this_stage", False):
                                 # 비상충전 발동!
+                                global special_gauge  # 글로벌 게이지 수정을 위해 필수!
                                 charge_amount = get_emergency_charge_amount()
                                 current_max = get_max_gauge() if 'get_max_gauge' in dir() else special_gauge_max
                                 charge_value = int(current_max * charge_amount)
@@ -93159,7 +93160,7 @@ def main(stage_num, new_boss_mode=False):
                                         "size": random.randint(3, 8),
                                         "color": random.choice([(255, 255, 100), (100, 200, 255), (255, 180, 50)])
                                     })
-                                print(f"⚡ [Optimus] 비상충전 발동! {old_gauge} → {special_gauge} (+{charge_value}, {int(charge_amount*100)}%)")
+                                print(f"⚡ [Optimus] 비상충전 발동! {old_gauge} → {special_gauge} (+{charge_value}, {int(charge_amount*100)}%) [max={current_max}]")
                             else:
                                 print("⚠️ [Optimus] 비상충전 이미 사용됨 (스테이지당 1회)")
                     continue
