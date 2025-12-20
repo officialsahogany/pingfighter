@@ -4474,9 +4474,9 @@ def show_runtime_skill_status():
         font_hint = pygame.font.SysFont("Arial", 12)
 
     # 그리드 설정
-    box_size = 80  # 스킬 박스 크기
-    box_margin = 12  # 박스 간격
-    cols = 6  # 한 줄에 6개
+    box_size = 90  # 스킬 박스 크기 (아이콘+이름 공간 확보)
+    box_margin = 10  # 박스 간격
+    cols = 5  # 한 줄에 5개 (더 큰 박스를 위해)
     start_x = (WIDTH - (cols * box_size + (cols - 1) * box_margin)) // 2
     start_y = 100
 
@@ -4512,70 +4512,270 @@ def show_runtime_skill_status():
         return acquired
 
     def draw_skill_icon(surface, skill, x, y, size):
-        """스킬 아이콘 그리기 (심볼 + 색상)"""
+        """스킬 아이콘 그리기 - 스킬 그림 + 상단에 스킬 이름"""
         icon_color = skill["icon_color"]
-
-        # 트리별 심볼
-        tree_symbols = {
-            "dash": "⚡",
-            "item": "★",
-            "downtown": "♦",
-            "optimus": "⚙",
-        }
-
-        # 스킬별 특수 심볼
-        skill_symbols = {
-            "dash_lightweight": "↓",
-            "dash_module_control": "◈",
-            "dash_jump": "↑",
-            "dash_battery_pack": "▣",
-            "dash_amplification": "+",
-            "dash_acceleration": "▲",
-            "dash_spirit": "◇",
-            "item_luck": "★",
-            "item_cooldown_mastery": "◎",
-            "item_gauge_mastery": "●",
-            "item_bag_expansion": "▤",
-            "item_caffeine": "♨",
-            "item_polish": "◆",
-            "item_recycle": "♻",
-            "downtown_gamble": "♠",
-            "downtown_treasure_map": "✦",
-            "mecha_chain": "⛓",
-            "mecha_charge": "⚡",
-            "mecha_bulk": "■",
-            "emergency_charge": "⚠",
-            "reboot_enhance": "↻",
-            "star_change": "☆",
-            "bug_update": "♦",
-            "elec_pad": "⚡",
-        }
+        skill_id = skill["id"]
 
         # 아이콘 배경 (그라데이션 효과)
-        icon_surface = pygame.Surface((size - 4, size - 4), pygame.SRCALPHA)
+        icon_surface = pygame.Surface((size - 4, size - 20), pygame.SRCALPHA)
 
         # 베이스 색상
         base_r, base_g, base_b = icon_color
-        dark_color = (max(0, base_r - 60), max(0, base_g - 60), max(0, base_b - 60))
+        dark_color = (max(0, base_r - 80), max(0, base_g - 80), max(0, base_b - 80))
 
         # 그라데이션 배경
-        for i in range(size - 4):
-            ratio = i / (size - 4)
-            r = int(dark_color[0] + (base_r - dark_color[0]) * (1 - ratio * 0.5))
-            g = int(dark_color[1] + (base_g - dark_color[1]) * (1 - ratio * 0.5))
-            b = int(dark_color[2] + (base_b - dark_color[2]) * (1 - ratio * 0.5))
-            pygame.draw.line(icon_surface, (r, g, b, 220), (0, i), (size - 4, i))
+        icon_height = size - 20
+        for i in range(icon_height):
+            ratio = i / icon_height
+            r = int(dark_color[0] + (base_r - dark_color[0]) * (1 - ratio * 0.6))
+            g = int(dark_color[1] + (base_g - dark_color[1]) * (1 - ratio * 0.6))
+            b = int(dark_color[2] + (base_b - dark_color[2]) * (1 - ratio * 0.6))
+            pygame.draw.line(icon_surface, (r, g, b, 230), (0, i), (size - 4, i))
 
-        surface.blit(icon_surface, (x + 2, y + 2))
+        surface.blit(icon_surface, (x + 2, y + 16))
 
-        # 심볼 그리기 (스킬 이름 첫 글자 사용)
-        symbol = skill["name"][0] if skill["name"] else "?"
+        # 상단에 스킬 이름 표시
+        skill_name = skill["name"]
+        # 이름이 길면 줄임
+        if len(skill_name) > 6:
+            skill_name = skill_name[:5] + ".."
         try:
-            symbol_surface = font_tooltip_title.render(symbol, True, (255, 255, 255))
-            symbol_rect = symbol_surface.get_rect(center=(x + size // 2, y + size // 2 - 8))
-            surface.blit(symbol_surface, symbol_rect)
+            name_surface = font_skill.render(skill_name, True, (255, 255, 255))
+            name_rect = name_surface.get_rect(center=(x + size // 2, y + 8))
+            surface.blit(name_surface, name_rect)
         except:
             pass
+
+        # 스킬별 아이콘 그림 그리기
+        icon_cx = x + size // 2
+        icon_cy = y + 16 + (size - 20) // 2
+
+        # 대쉬 관련 스킬
+        if skill_id == "dash_lightweight":
+            # 깃털 모양 (가벼움)
+            pygame.draw.ellipse(surface, (255, 255, 255), (icon_cx - 8, icon_cy - 12, 16, 24))
+            pygame.draw.line(surface, (200, 200, 200), (icon_cx, icon_cy - 12), (icon_cx, icon_cy + 12), 2)
+            pygame.draw.line(surface, (180, 180, 180), (icon_cx - 6, icon_cy - 6), (icon_cx, icon_cy - 2), 1)
+            pygame.draw.line(surface, (180, 180, 180), (icon_cx + 6, icon_cy - 6), (icon_cx, icon_cy - 2), 1)
+
+        elif skill_id == "dash_module_control":
+            # 컨트롤러/조이스틱 모양
+            pygame.draw.rect(surface, (255, 255, 255), (icon_cx - 12, icon_cy - 6, 24, 12), border_radius=3)
+            pygame.draw.circle(surface, (100, 200, 255), (icon_cx - 5, icon_cy), 4)
+            pygame.draw.circle(surface, (255, 100, 100), (icon_cx + 5, icon_cy), 4)
+
+        elif skill_id == "dash_jump":
+            # 위로 향하는 화살표 (점프)
+            pygame.draw.polygon(surface, (255, 255, 255), [
+                (icon_cx, icon_cy - 12), (icon_cx - 10, icon_cy), (icon_cx - 4, icon_cy),
+                (icon_cx - 4, icon_cy + 10), (icon_cx + 4, icon_cy + 10), (icon_cx + 4, icon_cy),
+                (icon_cx + 10, icon_cy)
+            ])
+
+        elif skill_id == "dash_battery_pack":
+            # 배터리 모양
+            pygame.draw.rect(surface, (255, 255, 255), (icon_cx - 8, icon_cy - 10, 16, 20), border_radius=2)
+            pygame.draw.rect(surface, (150, 255, 150), (icon_cx - 6, icon_cy - 8, 12, 8))
+            pygame.draw.rect(surface, (100, 200, 100), (icon_cx - 6, icon_cy + 2, 12, 6))
+            pygame.draw.rect(surface, (255, 255, 255), (icon_cx - 3, icon_cy - 14, 6, 4))
+
+        elif skill_id == "dash_amplification":
+            # 증폭 (+ 심볼과 파동)
+            pygame.draw.circle(surface, (255, 255, 150), (icon_cx, icon_cy), 10, 2)
+            pygame.draw.circle(surface, (255, 255, 100), (icon_cx, icon_cy), 14, 1)
+            pygame.draw.line(surface, (255, 255, 255), (icon_cx - 6, icon_cy), (icon_cx + 6, icon_cy), 3)
+            pygame.draw.line(surface, (255, 255, 255), (icon_cx, icon_cy - 6), (icon_cx, icon_cy + 6), 3)
+
+        elif skill_id == "dash_acceleration":
+            # 가속 (스피드 라인)
+            pygame.draw.polygon(surface, (255, 200, 100), [
+                (icon_cx + 10, icon_cy), (icon_cx - 5, icon_cy - 8), (icon_cx - 2, icon_cy),
+                (icon_cx - 5, icon_cy + 8)
+            ])
+            pygame.draw.line(surface, (255, 255, 200), (icon_cx - 12, icon_cy - 5), (icon_cx - 6, icon_cy - 5), 2)
+            pygame.draw.line(surface, (255, 255, 200), (icon_cx - 14, icon_cy), (icon_cx - 6, icon_cy), 2)
+            pygame.draw.line(surface, (255, 255, 200), (icon_cx - 12, icon_cy + 5), (icon_cx - 6, icon_cy + 5), 2)
+
+        elif skill_id == "dash_spirit":
+            # 영혼/에너지 (오오라)
+            pygame.draw.circle(surface, (150, 200, 255), (icon_cx, icon_cy), 8)
+            pygame.draw.circle(surface, (100, 150, 255), (icon_cx, icon_cy), 12, 2)
+            pygame.draw.circle(surface, (80, 120, 255), (icon_cx, icon_cy), 16, 1)
+            # 중앙에 빛
+            pygame.draw.circle(surface, (255, 255, 255), (icon_cx - 2, icon_cy - 2), 3)
+
+        elif skill_id == "dash_cooldown":
+            # 쿨다운 (시계)
+            pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), 12, 2)
+            pygame.draw.line(surface, (255, 255, 255), (icon_cx, icon_cy), (icon_cx, icon_cy - 8), 2)
+            pygame.draw.line(surface, (255, 200, 100), (icon_cx, icon_cy), (icon_cx + 5, icon_cy + 3), 2)
+            pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), 2)
+
+        # 아이템 관련 스킬
+        elif skill_id == "item_luck":
+            # 행운 (네잎클로버/별)
+            for i in range(4):
+                angle = i * 90 + 45
+                dx = int(8 * math.cos(math.radians(angle)))
+                dy = int(8 * math.sin(math.radians(angle)))
+                pygame.draw.circle(surface, (100, 255, 100), (icon_cx + dx, icon_cy + dy), 5)
+            pygame.draw.circle(surface, (150, 255, 150), (icon_cx, icon_cy), 4)
+
+        elif skill_id == "item_cooldown_mastery":
+            # 쿨다운 마스터리 (빠른 시계)
+            pygame.draw.circle(surface, (200, 150, 255), (icon_cx, icon_cy), 11, 2)
+            pygame.draw.arc(surface, (255, 200, 100), (icon_cx - 11, icon_cy - 11, 22, 22), 0, math.pi, 3)
+            pygame.draw.line(surface, (255, 255, 255), (icon_cx, icon_cy), (icon_cx + 4, icon_cy - 6), 2)
+
+        elif skill_id == "item_gauge_mastery":
+            # 게이지 마스터리 (게이지 바)
+            pygame.draw.rect(surface, (80, 80, 100), (icon_cx - 12, icon_cy - 4, 24, 8), border_radius=2)
+            pygame.draw.rect(surface, (100, 255, 200), (icon_cx - 11, icon_cy - 3, 18, 6), border_radius=2)
+            pygame.draw.polygon(surface, (255, 255, 100), [
+                (icon_cx + 8, icon_cy - 8), (icon_cx + 12, icon_cy), (icon_cx + 8, icon_cy + 8)
+            ])
+
+        elif skill_id == "item_bag_expansion":
+            # 가방 확장 (가방)
+            pygame.draw.rect(surface, (180, 140, 100), (icon_cx - 10, icon_cy - 6, 20, 14), border_radius=3)
+            pygame.draw.rect(surface, (150, 110, 70), (icon_cx - 8, icon_cy - 10, 16, 6), border_radius=2)
+            pygame.draw.rect(surface, (255, 220, 150), (icon_cx - 6, icon_cy - 2, 12, 8))
+
+        elif skill_id == "item_caffeine":
+            # 카페인 (커피컵)
+            pygame.draw.rect(surface, (255, 255, 255), (icon_cx - 7, icon_cy - 6, 14, 14), border_radius=2)
+            pygame.draw.arc(surface, (255, 255, 255), (icon_cx + 5, icon_cy - 4, 8, 10), -1.5, 1.5, 2)
+            pygame.draw.rect(surface, (139, 90, 43), (icon_cx - 5, icon_cy - 4, 10, 10))
+            # 김
+            pygame.draw.arc(surface, (200, 200, 200), (icon_cx - 4, icon_cy - 14, 4, 8), 0, math.pi, 1)
+            pygame.draw.arc(surface, (200, 200, 200), (icon_cx, icon_cy - 16, 4, 8), 0, math.pi, 1)
+
+        elif skill_id == "item_polish":
+            # 광택 (반짝이는 다이아)
+            pygame.draw.polygon(surface, (100, 200, 255), [
+                (icon_cx, icon_cy - 10), (icon_cx + 10, icon_cy), (icon_cx, icon_cy + 10), (icon_cx - 10, icon_cy)
+            ])
+            pygame.draw.polygon(surface, (150, 220, 255), [
+                (icon_cx, icon_cy - 6), (icon_cx + 6, icon_cy), (icon_cx, icon_cy + 6), (icon_cx - 6, icon_cy)
+            ])
+            pygame.draw.circle(surface, (255, 255, 255), (icon_cx - 3, icon_cy - 3), 2)
+
+        elif skill_id == "item_recycle":
+            # 재활용 (순환 화살표)
+            pygame.draw.arc(surface, (100, 255, 100), (icon_cx - 10, icon_cy - 10, 20, 20), 0.5, 2.5, 3)
+            pygame.draw.arc(surface, (100, 255, 100), (icon_cx - 10, icon_cy - 10, 20, 20), 3.6, 5.6, 3)
+            # 화살표 머리
+            pygame.draw.polygon(surface, (100, 255, 100), [
+                (icon_cx + 8, icon_cy - 6), (icon_cx + 12, icon_cy - 2), (icon_cx + 6, icon_cy - 2)
+            ])
+            pygame.draw.polygon(surface, (100, 255, 100), [
+                (icon_cx - 8, icon_cy + 6), (icon_cx - 12, icon_cy + 2), (icon_cx - 6, icon_cy + 2)
+            ])
+
+        # 다운타운 관련 스킬
+        elif skill_id == "downtown_gamble":
+            # 도박 (카드/다이스)
+            pygame.draw.rect(surface, (255, 255, 255), (icon_cx - 8, icon_cy - 10, 12, 16), border_radius=2)
+            pygame.draw.rect(surface, (255, 50, 50), (icon_cx - 6, icon_cy - 8, 8, 12))
+            # 스페이드
+            pygame.draw.circle(surface, (0, 0, 0), (icon_cx - 2, icon_cy - 3), 3)
+            pygame.draw.polygon(surface, (0, 0, 0), [
+                (icon_cx - 2, icon_cy - 6), (icon_cx - 5, icon_cy - 2), (icon_cx + 1, icon_cy - 2)
+            ])
+
+        elif skill_id == "downtown_treasure_map":
+            # 보물지도
+            pygame.draw.rect(surface, (220, 190, 140), (icon_cx - 10, icon_cy - 8, 20, 16), border_radius=2)
+            pygame.draw.line(surface, (139, 90, 43), (icon_cx - 6, icon_cy - 4), (icon_cx + 6, icon_cy + 4), 2)
+            pygame.draw.line(surface, (139, 90, 43), (icon_cx - 4, icon_cy + 2), (icon_cx + 2, icon_cy - 2), 1)
+            pygame.draw.circle(surface, (255, 50, 50), (icon_cx + 4, icon_cy + 2), 3)
+            # X 표시
+            pygame.draw.line(surface, (255, 50, 50), (icon_cx + 2, icon_cy), (icon_cx + 6, icon_cy + 4), 2)
+            pygame.draw.line(surface, (255, 50, 50), (icon_cx + 6, icon_cy), (icon_cx + 2, icon_cy + 4), 2)
+
+        # 옵티머스 전용 스킬
+        elif skill_id == "mecha_chain":
+            # 체인 연결
+            for i in range(3):
+                ox = icon_cx - 8 + i * 8
+                pygame.draw.circle(surface, (200, 200, 220), (ox, icon_cy), 5, 2)
+            pygame.draw.line(surface, (180, 180, 200), (icon_cx - 8, icon_cy), (icon_cx + 8, icon_cy), 2)
+
+        elif skill_id == "mecha_charge":
+            # 충전 (번개)
+            pygame.draw.polygon(surface, (255, 255, 100), [
+                (icon_cx + 2, icon_cy - 12), (icon_cx - 6, icon_cy), (icon_cx, icon_cy),
+                (icon_cx - 2, icon_cy + 12), (icon_cx + 6, icon_cy), (icon_cx, icon_cy)
+            ])
+            pygame.draw.polygon(surface, (255, 200, 50), [
+                (icon_cx + 1, icon_cy - 8), (icon_cx - 3, icon_cy), (icon_cx, icon_cy),
+                (icon_cx - 1, icon_cy + 8), (icon_cx + 3, icon_cy), (icon_cx, icon_cy)
+            ])
+
+        elif skill_id == "mecha_bulk":
+            # 벌크 (근육/방패)
+            pygame.draw.polygon(surface, (150, 150, 200), [
+                (icon_cx, icon_cy - 12), (icon_cx - 10, icon_cy - 6), (icon_cx - 10, icon_cy + 6),
+                (icon_cx, icon_cy + 12), (icon_cx + 10, icon_cy + 6), (icon_cx + 10, icon_cy - 6)
+            ])
+            pygame.draw.polygon(surface, (180, 180, 220), [
+                (icon_cx, icon_cy - 8), (icon_cx - 6, icon_cy - 4), (icon_cx - 6, icon_cy + 4),
+                (icon_cx, icon_cy + 8), (icon_cx + 6, icon_cy + 4), (icon_cx + 6, icon_cy - 4)
+            ])
+
+        elif skill_id == "emergency_charge":
+            # 비상 충전 (경고 + 배터리)
+            pygame.draw.polygon(surface, (255, 200, 50), [
+                (icon_cx, icon_cy - 12), (icon_cx - 10, icon_cy + 8), (icon_cx + 10, icon_cy + 8)
+            ])
+            pygame.draw.polygon(surface, (255, 255, 200), [
+                (icon_cx, icon_cy - 6), (icon_cx - 5, icon_cy + 4), (icon_cx + 5, icon_cy + 4)
+            ])
+            pygame.draw.rect(surface, (50, 50, 50), (icon_cx - 2, icon_cy - 3, 4, 6))
+
+        elif skill_id == "reboot_enhance":
+            # 리부트 강화 (재시작 아이콘)
+            pygame.draw.arc(surface, (100, 200, 255), (icon_cx - 10, icon_cy - 10, 20, 20), 0.5, 5.5, 3)
+            pygame.draw.polygon(surface, (100, 200, 255), [
+                (icon_cx + 8, icon_cy - 8), (icon_cx + 12, icon_cy - 3), (icon_cx + 5, icon_cy - 3)
+            ])
+            pygame.draw.circle(surface, (150, 220, 255), (icon_cx, icon_cy), 4)
+
+        elif skill_id == "star_change":
+            # 스타 체인지 (별 변환)
+            # 별 그리기
+            star_points = []
+            for i in range(5):
+                angle = math.radians(-90 + i * 72)
+                star_points.append((icon_cx + int(10 * math.cos(angle)), icon_cy + int(10 * math.sin(angle))))
+                angle = math.radians(-90 + i * 72 + 36)
+                star_points.append((icon_cx + int(5 * math.cos(angle)), icon_cy + int(5 * math.sin(angle))))
+            pygame.draw.polygon(surface, (255, 220, 100), star_points)
+            pygame.draw.circle(surface, (255, 255, 200), (icon_cx, icon_cy), 3)
+
+        elif skill_id == "bug_update":
+            # 버그 업데이트 (버그 아이콘)
+            pygame.draw.ellipse(surface, (100, 200, 100), (icon_cx - 8, icon_cy - 6, 16, 12))
+            pygame.draw.circle(surface, (80, 180, 80), (icon_cx, icon_cy - 8), 5)
+            # 다리
+            pygame.draw.line(surface, (60, 150, 60), (icon_cx - 8, icon_cy - 2), (icon_cx - 12, icon_cy - 6), 2)
+            pygame.draw.line(surface, (60, 150, 60), (icon_cx + 8, icon_cy - 2), (icon_cx + 12, icon_cy - 6), 2)
+            pygame.draw.line(surface, (60, 150, 60), (icon_cx - 8, icon_cy + 2), (icon_cx - 12, icon_cy + 6), 2)
+            pygame.draw.line(surface, (60, 150, 60), (icon_cx + 8, icon_cy + 2), (icon_cx + 12, icon_cy + 6), 2)
+
+        elif skill_id == "elec_pad":
+            # 일렉 패드 (전기 패드)
+            pygame.draw.rect(surface, (80, 80, 100), (icon_cx - 10, icon_cy - 8, 20, 16), border_radius=3)
+            pygame.draw.rect(surface, (60, 60, 80), (icon_cx - 8, icon_cy - 6, 16, 12), border_radius=2)
+            # 전기 효과
+            pygame.draw.line(surface, (255, 255, 100), (icon_cx - 4, icon_cy - 4), (icon_cx, icon_cy), 2)
+            pygame.draw.line(surface, (255, 255, 100), (icon_cx, icon_cy), (icon_cx + 4, icon_cy - 2), 2)
+            pygame.draw.line(surface, (255, 255, 100), (icon_cx + 4, icon_cy - 2), (icon_cx, icon_cy + 4), 2)
+
+        else:
+            # 기본 아이콘 (알 수 없는 스킬)
+            pygame.draw.circle(surface, (200, 200, 200), (icon_cx, icon_cy), 10, 2)
+            pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), 4)
 
     def draw_level_gauge(surface, x, y, width, current_level, max_level, color):
         """레벨 게이지 그리기 (ㅁㅁㅁㅁ 형태)"""
