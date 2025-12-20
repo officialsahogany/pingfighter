@@ -96226,9 +96226,9 @@ def show_character_info(background_surface=None):
             return None, 0, 0
 
         # 그리드 설정
-        cols = 4
-        box_size = 48
-        box_margin = 6
+        cols = 3
+        box_size = 72  # 48 → 72 (1.5배 증가, 아이콘 그림 2배 크게 보임)
+        box_margin = 8
         grid_start_x = area_rect.x + (area_rect.width - (cols * box_size + (cols - 1) * box_margin)) // 2
         grid_start_y = area_rect.y + 24
 
