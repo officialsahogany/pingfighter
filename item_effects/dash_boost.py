@@ -31,12 +31,21 @@ class DashBoost:
         self.width = width
         self.height = height
 
-        # 카페인 스킬 효과 적용 (타이머형 아이템 지속시간 증가)
+        # 카페인 스킬 효과 적용 (타이머형 아이템 지속시간 증가) - 아카데미 + 런타임 스킬
         frames = DASH_BOOST_DURATION_FRAMES
         try:
             import academy
             caffeine_multiplier = academy.get_caffeine_duration_multiplier()
             frames = int(frames * caffeine_multiplier)
+        except (ImportError, AttributeError):
+            pass
+        # 런타임 스킬 보너스 추가 적용
+        try:
+            import pingfighter
+            runtime_level = pingfighter.runtime_skill_levels.get("item_caffeine", 0)
+            if runtime_level > 0:
+                runtime_bonus = runtime_level * 0.25
+                frames = int(frames * (1 + runtime_bonus))
         except (ImportError, AttributeError):
             pass
 
