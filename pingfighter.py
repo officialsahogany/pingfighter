@@ -95617,6 +95617,13 @@ def show_character_info(background_surface=None):
                 current_ms = int(current_ms * academy.get_active_item_cooldown_multiplier())
             except Exception:
                 pass
+            # 런타임 스킬: 아이템 쿨타임 숙련 (item_cooldown_mastery)
+            try:
+                cooldown_mastery_bonus = get_runtime_skill_bonus("item_cooldown_mastery")
+                if cooldown_mastery_bonus > 0:
+                    current_ms = int(current_ms * (1 - cooldown_mastery_bonus))
+            except Exception:
+                pass
             try:
                 from item_effects.devil_dice import (
                     get_devil_dice_multipliers,
