@@ -8472,7 +8472,7 @@ def roll_passive_options(item_name: str) -> list[dict]:
         else:
             color = _OPTION_COLOR_HIGH
         text = f"{opt['label']} {opt.get('prefix','')}{val}{opt.get('unit','')}"
-        rolled.append({"text": text, "color": color, "key": opt.get("key"), "value": val})
+        rolled.append({"text": text, "color": color, "key": opt.get("key"), "value": val, "unit": opt.get("unit", "")})
     return rolled
 
 
@@ -8524,8 +8524,11 @@ def format_roll_option_with_polish(opt: dict) -> str:
     if bonus_value <= 0:
         return base_text
 
-    # 보너스 텍스트 추가 (초록색으로 표시될 예정)
-    return f"{base_text} (+{bonus_value})"
+    # 단위 가져오기 (%, pt, 초, px 등)
+    unit = opt.get("unit", "")
+
+    # 보너스 텍스트 추가 (단위 포함)
+    return f"{base_text} (+{bonus_value}{unit})"
 
 
 def _reset_roll_bonuses_to_default():
