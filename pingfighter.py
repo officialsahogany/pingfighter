@@ -2955,11 +2955,11 @@ INSTANT_RUNTIME_SKILLS = {
 }
 
 # ==========옵티머스 게이지 기반 스킬 선택 트리거 시스템 ==========
-# 최대 게이지가 400, 300에 도달했을 때 각각 1회씩 스킬 선택창 표시
-OPTIMUS_SKILL_TRIGGER_THRESHOLDS = [400, 300]  # 내림차순 (400 먼저, 300 나중)
-optimus_skill_triggers_used = []  # 이미 사용된 트리거 목록 (예: [400] → 400은 이미 발동됨)
-optimus_skill_choice_pending = False  # 스킬 선택창 대기 중 여부
-optimus_skill_choice_threshold = 0  # 현재 발동된 트리거의 게이지 값
+# (게이지 기반 스킬 트리거는 스타포인트 시스템으로 대체됨)
+OPTIMUS_SKILL_TRIGGER_THRESHOLDS = [400, 300]  # 더 이상 사용 안 함
+optimus_skill_triggers_used = []  # 더 이상 사용 안 함
+optimus_skill_choice_pending = False  # 스킬 선택창 대기 중 여부 (스타포인트 시스템에서 사용)
+optimus_skill_choice_threshold = 0  # 더 이상 사용 안 함
 
 # 옵티머스 스킬 풀 정의
 OPTIMUS_SKILL_POOL = [
@@ -3862,32 +3862,8 @@ def _draw_optimus_arm_icon(surf: pygame.Surface, c: int, size: int, frame: int, 
 
 
 def check_optimus_gauge_skill_trigger() -> bool:
-    """옵티머스 게이지가 특정 임계값에 도달했는지 확인하고, 도달 시 스킬 선택창 트리거."""
-    global optimus_skill_triggers_used, optimus_skill_choice_pending, optimus_skill_choice_threshold
-
-    # 옵티머스 캐릭터만 적용
-    character_type = globals().get("selected_character_type", "normal")
-    if character_type != "optimus":
-        return False
-
-    # 이미 선택창 대기 중이면 무시
-    if optimus_skill_choice_pending:
-        return False
-
-    # 현재 최대 게이지 확인
-    special_gauge_max = globals().get("special_gauge_max", 500)
-
-    # 트리거 확인 (내림차순으로 체크: 400 먼저, 그 다음 300)
-    for threshold in OPTIMUS_SKILL_TRIGGER_THRESHOLDS:
-        if threshold not in optimus_skill_triggers_used:
-            # 최대 게이지가 임계값 이하로 내려갔으면 트리거
-            if special_gauge_max <= threshold:
-                optimus_skill_triggers_used.append(threshold)
-                optimus_skill_choice_pending = True
-                optimus_skill_choice_threshold = threshold
-                print(f"[Optimus] 게이지 트리거 발동! 최대게이지={special_gauge_max}, 임계값={threshold}")
-                return True
-
+    """(더 이상 사용 안 함) 게이지 기반 스킬 트리거는 스타포인트 시스템으로 대체됨."""
+    # 스타포인트 시스템으로 대체됨 - 항상 False 반환
     return False
 
 
@@ -10963,12 +10939,7 @@ def update_optimus_energy() -> None:
                     'spawn_time': now
                 })
 
-            # 게이지 400 도달 시 스킬 선택창 트리거
-            if 400 not in optimus_skill_triggers_used:
-                optimus_skill_triggers_used.append(400)
-                globals()['optimus_skill_choice_pending'] = True
-                globals()['optimus_skill_choice_threshold'] = 400
-                print(f"[Optimus] 게이지 400 트리거 발동! 스킬 선택창 대기")
+            # (게이지 기반 스킬 트리거는 스타포인트 시스템으로 대체됨)
 
         # 최대 게이지가 300 이하로 떨어지면 위험 경고 애니메이션 1회 트리거 (더 화려함)
         if current_max_gauge is not None and current_max_gauge <= 300 and not optimus_critical_gauge_warning_triggered:
@@ -11017,12 +10988,7 @@ def update_optimus_energy() -> None:
                     'color_idx': random.randint(0, 3)  # 색상 인덱스 (레드, 오렌지, 골드, 흰색)
                 })
 
-            # 게이지 300 도달 시 스킬 선택창 트리거
-            if 300 not in optimus_skill_triggers_used:
-                optimus_skill_triggers_used.append(300)
-                globals()['optimus_skill_choice_pending'] = True
-                globals()['optimus_skill_choice_threshold'] = 300
-                print(f"[Optimus] 게이지 300 트리거 발동! 스킬 선택창 대기")
+            # (게이지 기반 스킬 트리거는 스타포인트 시스템으로 대체됨)
 
     # 충전 중에는 기본 배터리 소모를 일시 정지
     if not globals().get("optimus_charge_active", False):
