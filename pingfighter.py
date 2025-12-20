@@ -2938,9 +2938,9 @@ OPTIMUS_EXCLUSIVE_SKILLS = {
 # 단발성 런타임 스킬 (레벨 없음, 즉시 효과)
 INSTANT_RUNTIME_SKILLS = {
     "instant_gauge_full": {
-        "name": "비상충전",
+        "name": "풀게이징",
         "description": "즉시 대쉬 게이지를 모두 회복합니다",
-        "detail": "긴급 상황에서 사용할 수 있는 비상 에너지 팩입니다. 즉시 대쉬 게이지를 최대로 채웁니다.",
+        "detail": "긴급 상황에서 사용할 수 있는 에너지 팩입니다. 즉시 대쉬 게이지를 최대로 채웁니다.",
         "icon_color": (100, 255, 200),
         "tree": "instant",
         "is_instant": True  # 단발성 스킬 표시
@@ -4098,9 +4098,9 @@ def apply_instant_skill_effect(skill_id: str) -> bool:
                 for i in range(max_charges):
                     _token_charge_states.append(1.0)
 
-            print(f"[InstantSkill] 비상충전! 대쉬 토큰 {max_charges}개 모두 충전!")
+            print(f"[InstantSkill] 풀게이징! 대쉬 토큰 {max_charges}개 모두 충전!")
         except Exception as e:
-            print(f"[InstantSkill] 비상충전 오류: {e}")
+            print(f"[InstantSkill] 풀게이징 오류: {e}")
             # 폴백: 기본 1개라도 충전
             rolling_charges = 1
             token_states = [True]
