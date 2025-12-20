@@ -4064,6 +4064,11 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     old_level = runtime_skill_levels.get(choice_id, 0)
     runtime_skill_levels[choice_id] = old_level + 1
     print(f"[RuntimeSkill] {choice_id} 레벨업! Lv.{old_level} -> Lv.{runtime_skill_levels[choice_id]}")
+
+    # 메카벌크: 패들 크기 즉시 적용
+    if choice_id == "mecha_bulk":
+        apply_equipment_paddle_modifiers()
+
     return True
 
 
@@ -10763,9 +10768,10 @@ OPTIMUS_EMBLEM_RADIUS = 9  # 추가 -20% 축소 (11 * 0.8 ≈ 9)
 
 
 def _compute_optimus_base_width() -> int:
-    """게이지 스케일을 제외한 현재 기준 패들 너비(장비/리그 배율 반영)를 반환."""
+    """게이지 스케일을 제외한 현재 기준 패들 너비(장비/리그/메카벌크 배율 반영)를 반환."""
     angel_scale = globals().get("ANGEL_PADDLE_SCALE", 1.0)
-    base_scale = CURRENT_PADDLE_SIZE_SCALE * _get_bulkup_scale() * angel_scale
+    mecha_bulk_scale = get_mecha_bulk_scale()  # 메카벌크 스킬 반영
+    base_scale = CURRENT_PADDLE_SIZE_SCALE * _get_bulkup_scale() * angel_scale * mecha_bulk_scale
     return max(1, int(round(PADDLE_BASE_WIDTH * base_scale)))
 
 
@@ -11043,7 +11049,8 @@ def update_optimus_energy() -> None:
     special_ready = special_gauge >= 350
     # 외부 패들 크기 변형(롱패들 등)을 보존하기 위해 현재 게이지 스케일 기준 기대 크기 대비 배율을 계산
     angel_scale = globals().get("ANGEL_PADDLE_SCALE", 1.0)
-    base_scale = CURRENT_PADDLE_SIZE_SCALE * _get_bulkup_scale() * angel_scale
+    mecha_bulk_scale = get_mecha_bulk_scale()  # 메카벌크 스킬도 기대 크기에 포함
+    base_scale = CURRENT_PADDLE_SIZE_SCALE * _get_bulkup_scale() * angel_scale * mecha_bulk_scale
     expected_width = max(1, int(round(PADDLE_BASE_WIDTH * base_scale * optimus_gauge_scale)))
     expected_height = max(1, int(round(PADDLE_BASE_HEIGHT * base_scale * optimus_gauge_scale)))
     width_factor = PADDLE_WIDTH / expected_width if expected_width else 1.0
