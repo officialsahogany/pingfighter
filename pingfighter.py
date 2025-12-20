@@ -4034,12 +4034,15 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     global runtime_skill_levels, starpoint_for_skills, pending_skill_choices
     global optimus_arm_available
 
+    print(f"[DEBUG] apply_runtime_skill_choice 호출됨: choice_id={choice_id}")
+
     # 빈 슬롯 무시
     if choice_id.startswith("empty_"):
         return True
 
     # 단발성 스킬 처리
     if choice_id.startswith("instant_"):
+        print(f"[DEBUG] instant_ 스킬 감지, apply_instant_skill_effect 호출 예정")
         return apply_instant_skill_effect(choice_id)
 
     # 옵티머스 암 특별 처리
@@ -4076,14 +4079,22 @@ def apply_instant_skill_effect(skill_id: str) -> bool:
     """단발성 스킬 효과 즉시 적용"""
     global rolling_charges, token_states, charging_token_index, _token_charge_states
 
+    print(f"[DEBUG] apply_instant_skill_effect 호출됨: skill_id={skill_id}")
+
     if skill_id == "instant_gauge_full":
         # 대쉬 토큰 모두 충전
         try:
+            # 디버그: 충전 전 상태
+            old_charges = rolling_charges
+            old_token_states = token_states.copy() if isinstance(token_states, list) else token_states
+            print(f"[DEBUG] 풀게이징 - 충전 전: rolling_charges={old_charges}, token_states={old_token_states}")
+
             # 최대 토큰 수 계산
             base_charges = 1
             holder_bonus = globals().get("rolling_holder_bonus", 0)
             amplification_bonus = get_runtime_skill_bonus("dash_amplification") if 'get_runtime_skill_bonus' in dir() else 0
             max_charges = int(base_charges + holder_bonus + amplification_bonus)
+            print(f"[DEBUG] 풀게이징 - max_charges 계산: base={base_charges}, holder={holder_bonus}, amp={amplification_bonus}, total={max_charges}")
 
             # 토큰 상태 모두 True로 설정
             token_states = [True] * max_charges
@@ -4098,6 +4109,8 @@ def apply_instant_skill_effect(skill_id: str) -> bool:
                 for i in range(max_charges):
                     _token_charge_states.append(1.0)
 
+            # 디버그: 충전 후 상태
+            print(f"[DEBUG] 풀게이징 - 충전 후: rolling_charges={rolling_charges}, token_states={token_states}")
             print(f"[InstantSkill] 풀게이징! 대쉬 토큰 {max_charges}개 모두 충전!")
         except Exception as e:
             print(f"[InstantSkill] 풀게이징 오류: {e}")
