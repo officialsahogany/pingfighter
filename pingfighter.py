@@ -97961,8 +97961,6 @@ def show_character_info(background_surface=None):
     character_name = get_character_name(character_id)
     preview_img = build_character_preview_surface(character_id, scale=0.88, max_width=220, max_height=190)
 
-    # 스킬트리 버튼: 상단 우측 정렬 (제목과 같은 y 라인)
-    skill_button_rect = pygame.Rect(panel_x + panel_width - 160, panel_y + 12, 130, 46)
     PASSIVE_VISIBLE_ROWS = 2  # 패시브 영역은 최대 2줄만 보여주고 나머지는 스크롤
     passive_scroll_row = 0
     active_dragging = None  # {"index": int, "item": dict}
@@ -98171,15 +98169,6 @@ def show_character_info(background_surface=None):
                 SCREEN.blit(preview_icon, (mouse_pos[0] - 27, mouse_pos[1] - 27))
                 pygame.draw.rect(SCREEN, (200, 200, 200), (mouse_pos[0] - 27, mouse_pos[1] - 27, 54, 54), 1)
 
-        # 스킬트리 버튼 (툴팁보다 먼저 그려 레이어 문제 예방)
-        hovered = skill_button_rect.collidepoint(mouse_pos)
-        btn_fill = (55, 90, 150) if hovered else (40, 70, 120)
-        btn_border = (255, 220, 120) if hovered else (200, 200, 200)
-        pygame.draw.rect(SCREEN, btn_fill, skill_button_rect, border_radius=12)
-        pygame.draw.rect(SCREEN, btn_border, skill_button_rect, 3, border_radius=12)
-        btn_title = font_small.render("스킬 현황", True, WHITE)
-        SCREEN.blit(btn_title, btn_title.get_rect(center=skill_button_rect.center))
-
         # 런타임 스킬 툴팁 (아이템 툴팁보다 먼저 그려 레이어 문제 예방)
         if skill_hover:
             draw_skill_tooltip_mini(skill_hover, mouse_pos[0], mouse_pos[1])
@@ -98284,10 +98273,6 @@ def show_character_info(background_surface=None):
                         tooltip_y = max(8, HEIGHT - max_height - 4)
                     desc_rect = pygame.Rect(tooltip_x, tooltip_y, desc_width, desc_height)
                     roll_rect = pygame.Rect(tooltip_x + desc_width + gap, tooltip_y, roll_width, roll_height)
-                    if desc_rect.colliderect(skill_button_rect) or roll_rect.colliderect(skill_button_rect):
-                        tooltip_y = max(8, skill_button_rect.top - max_height - 8)
-                        desc_rect.y = tooltip_y
-                        roll_rect.y = tooltip_y
 
                     # Left box
                     pygame.draw.rect(SCREEN, (16, 20, 34, 235), desc_rect, border_radius=8)
@@ -98365,9 +98350,6 @@ def show_character_info(background_surface=None):
                     # 위에 공간이 부족하면 아래쪽으로 폴백
                     tooltip_y = hover_info["rect"].bottom + 12
                 tooltip_rect = pygame.Rect(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
-                # 스킬트리 버튼과 겹치면 버튼 위로 올려 가림 방지
-                if tooltip_rect.colliderect(skill_button_rect):
-                    tooltip_rect.y = max(8, skill_button_rect.top - tooltip_height - 8)
                 # 화면 밖 보정
                 if tooltip_rect.bottom > HEIGHT - 4:
                     tooltip_rect.y = max(8, HEIGHT - tooltip_height - 4)
@@ -98418,53 +98400,50 @@ def show_character_info(background_surface=None):
                     skill_dragging[0] = True
                     skill_drag_start_y[0] = my
                     skill_scroll_start[0] = runtime_skill_scroll_y[0]
-                if skill_button_rect.collidepoint(mx, my):
-                    try_skill_tree()
-                else:
-                    if event.button == 3:  # 오른쪽 클릭: 액티브 아이템 사용
-                        # 광장/건물 내부에서는 액티브 아이템 사용 불가
-                        if background_surface is None:  # 전투 모드에서만 사용 가능
-                            for idx, rect in active_rects.items():
-                                if rect.collidepoint(event.pos):
-                                    try_use_active_item_from_info(idx)
-                                    break
-                    if event.button == 1:
-                        # 액티브 아이템 드래그 시작 (슬롯 스왑)
+                if event.button == 3:  # 오른쪽 클릭: 액티브 아이템 사용
+                    # 광장/건물 내부에서는 액티브 아이템 사용 불가
+                    if background_surface is None:  # 전투 모드에서만 사용 가능
                         for idx, rect in active_rects.items():
-                            if rect.collidepoint(event.pos) and idx < len(active_item_slot):
-                                active_dragging = {"index": idx, "item": active_item_slot[idx]}
+                            if rect.collidepoint(event.pos):
+                                try_use_active_item_from_info(idx)
                                 break
-                    if event.button == 1 and scroll_track and scroll_track.collidepoint(event.pos):
-                        if scroll_thumb and scroll_track.height > scroll_thumb.height:
-                            relative = max(0, min(scroll_track.height - scroll_thumb.height, event.pos[1] - scroll_track.y - scroll_thumb.height // 2))
-                            ratio = relative / (scroll_track.height - scroll_thumb.height)
-                            passive_scroll_row = min(passive_scroll_max, max(0, int(round(ratio * passive_scroll_max))))
-                        continue
-                    if event.button == 1:
-                        # 인벤토리 클릭 → 드래그 시작
-                        for idx, rect in bag_rects.items():
-                            if rect.collidepoint(event.pos) and idx < len(bag_items):
-                                dragging_item = {"item": bag_items[idx], "source": "bag"}
-                                break
-                        # 슬롯 클릭 → 드래그 시작
-                        if dragging_item is None:
-                            for key, rect in slot_rects.items():
-                                if rect.collidepoint(event.pos) and slot_state.get(key):
-                                    dragging_item = {"item": slot_state.get(key), "source": "slot", "slot": key}
-                                    break
-                    elif event.button == 3:
-                        handled = False
+                if event.button == 1:
+                    # 액티브 아이템 드래그 시작 (슬롯 스왑)
+                    for idx, rect in active_rects.items():
+                        if rect.collidepoint(event.pos) and idx < len(active_item_slot):
+                            active_dragging = {"index": idx, "item": active_item_slot[idx]}
+                            break
+                if event.button == 1 and scroll_track and scroll_track.collidepoint(event.pos):
+                    if scroll_thumb and scroll_track.height > scroll_thumb.height:
+                        relative = max(0, min(scroll_track.height - scroll_thumb.height, event.pos[1] - scroll_track.y - scroll_thumb.height // 2))
+                        ratio = relative / (scroll_track.height - scroll_thumb.height)
+                        passive_scroll_row = min(passive_scroll_max, max(0, int(round(ratio * passive_scroll_max))))
+                    continue
+                if event.button == 1:
+                    # 인벤토리 클릭 → 드래그 시작
+                    for idx, rect in bag_rects.items():
+                        if rect.collidepoint(event.pos) and idx < len(bag_items):
+                            dragging_item = {"item": bag_items[idx], "source": "bag"}
+                            break
+                    # 슬롯 클릭 → 드래그 시작
+                    if dragging_item is None:
                         for key, rect in slot_rects.items():
                             if rect.collidepoint(event.pos) and slot_state.get(key):
-                                unequip_slot(key, slot_state)
-                                handled = True
+                                dragging_item = {"item": slot_state.get(key), "source": "slot", "slot": key}
                                 break
-                        if not handled:
-                            for idx, rect in bag_rects.items():
-                                if rect.collidepoint(event.pos) and idx < len(bag_items):
-                                    target_slot = find_slot_for_item(bag_items[idx], slot_state)
-                                    if target_slot:
-                                        equip_item_to_slot(bag_items[idx], target_slot, slot_state)
+                elif event.button == 3:
+                    handled = False
+                    for key, rect in slot_rects.items():
+                        if rect.collidepoint(event.pos) and slot_state.get(key):
+                            unequip_slot(key, slot_state)
+                            handled = True
+                            break
+                    if not handled:
+                        for idx, rect in bag_rects.items():
+                            if rect.collidepoint(event.pos) and idx < len(bag_items):
+                                target_slot = find_slot_for_item(bag_items[idx], slot_state)
+                                if target_slot:
+                                    equip_item_to_slot(bag_items[idx], target_slot, slot_state)
                                     break
             if event.type == pygame.MOUSEMOTION:
                 # 스킬 영역 드래그 스크롤
