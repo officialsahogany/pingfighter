@@ -1812,6 +1812,14 @@ def spawn_random_item():
     except Exception:
         legendary_multiplier = 1.0
 
+    # 런타임 스킬 보너스 (downtown_treasure_map: 레벨당 +175%)
+    try:
+        import pingfighter
+        runtime_treasure_bonus = pingfighter.get_runtime_skill_bonus("downtown_treasure_map")
+        legendary_multiplier += runtime_treasure_bonus  # 추가 배율 적용
+    except Exception:
+        pass
+
     # 1) 기본 가중치 계산 (스킬/전설 배수 적용)
     base_weights: list[tuple[dict, float]] = []
     active_sum = passive_sum = 0.0
