@@ -9975,9 +9975,8 @@ def get_effective_item_recycle_chance():
             chance = academy.get_item_recycle_chance()
         except Exception:
             chance = 0.0
-    # 런타임 스킬 보너스 (item_recycle: 레벨당 +20%)
-    runtime_level = runtime_skill_levels.get("item_recycle", 0)
-    runtime_bonus = runtime_level * 0.20
+    # 런타임 스킬 보너스 (item_recycle: 레벨당 +10%)
+    runtime_bonus = get_runtime_skill_bonus("item_recycle")
     return min(0.9, chance + runtime_bonus)  # 최대 90%
 
 
@@ -10018,9 +10017,8 @@ def get_effective_caffeine_multiplier():
             multiplier = academy.get_caffeine_duration_multiplier()
         except Exception:
             multiplier = 1.0
-    # 런타임 스킬 보너스 (item_caffeine: 레벨당 +25%)
-    runtime_level = runtime_skill_levels.get("item_caffeine", 0)
-    runtime_bonus = runtime_level * 0.25
+    # 런타임 스킬 보너스 (item_caffeine: 레벨당 +20%)
+    runtime_bonus = get_runtime_skill_bonus("item_caffeine")
     return multiplier + runtime_bonus
 
 
@@ -40643,10 +40641,9 @@ def handle_player(keys):
         skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
         set_roll("rolling_timer", int(skill_distance_boost))
 
-        dash_spirit_level = get_runtime_skill_bonus("dash_spirit")
-        if dash_spirit_level > 0:
-            spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
-            if random.random() < spirit_chance:
+        dash_spirit_chance = get_runtime_skill_bonus("dash_spirit")  # 레벨당 10%
+        if dash_spirit_chance > 0:
+            if random.random() < dash_spirit_chance:
                 actual_dash_distance = int(get_roll("rolling_timer") * 40 * 0.7)
                 dash_distance = int(actual_dash_distance * 0.5)
                 create_dash_spirit_laser(PLAYER.centerx, PLAYER.centery, direction, dash_distance)
@@ -41981,9 +41978,8 @@ def handle_player(keys):
                     skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
                     set_roll("rolling_timer", int(skill_distance_boost))
                     #  대쉬 스피릿 스킬: 확률적 레이저 생성
-                    dash_spirit_level = get_runtime_skill_bonus("dash_spirit")
-                    if dash_spirit_level > 0:
-                        dash_spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
+                    dash_spirit_chance = get_runtime_skill_bonus("dash_spirit")  # 레벨당 10%
+                    if dash_spirit_chance > 0:
                         if random.random() < dash_spirit_chance:
                             actual_dash_distance = int(get_roll("rolling_timer") * 40 * 0.7)
                             dash_distance = int(actual_dash_distance * 0.5)
@@ -42161,10 +42157,8 @@ def handle_player(keys):
                     set_roll("rolling_timer", int(skill_distance_boost))
                     set_roll("rolling_direction", 1)
                     #  대쉬 스피릿 스킬: 확률적 레이저 생성
-                    dash_spirit_level = get_runtime_skill_bonus("dash_spirit")
-                    if dash_spirit_level > 0:
-                        # 확률 계산: 레벨1=30%, 레벨2=50%
-                        dash_spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
+                    dash_spirit_chance = get_runtime_skill_bonus("dash_spirit")  # 레벨당 10%
+                    if dash_spirit_chance > 0:
                         if random.random() < dash_spirit_chance:
                             #  플레이어를 따라오다가 대쉬 거리의 50% 지점에서 스피릿 생성 종료
                             # 대쉬 중 속도는 40, 첫 20프레임은 최대 속도, 이후 감속
@@ -42814,10 +42808,8 @@ def handle_player(keys):
                     skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
                     rolling_timer = int(skill_distance_boost)
                     #  대쉬 스피릿 스킬: 확률적 레이저 생성
-                    dash_spirit_level = get_runtime_skill_bonus("dash_spirit")
-                    if dash_spirit_level > 0:
-                        # 확률 계산: 레벨1=30%, 레벨2=50%
-                        dash_spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
+                    dash_spirit_chance = get_runtime_skill_bonus("dash_spirit")  # 레벨당 10%
+                    if dash_spirit_chance > 0:
                         if random.random() < dash_spirit_chance:
                             #  플레이어를 따라오다가 대쉬 거리의 50% 지점에서 스피릿 생성 종료
                             # 대쉬 중 속도는 40, 첫 20프레임은 최대 속도, 이후 감속
@@ -43016,10 +43008,8 @@ def handle_player(keys):
                     skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
                     rolling_timer = int(skill_distance_boost)
                     #  대쉬 스피릿 스킬: 확률적 레이저 생성
-                    dash_spirit_level = get_runtime_skill_bonus("dash_spirit")
-                    if dash_spirit_level > 0:
-                        # 확률 계산: 레벨1=30%, 레벨2=50%
-                        dash_spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
+                    dash_spirit_chance = get_runtime_skill_bonus("dash_spirit")  # 레벨당 10%
+                    if dash_spirit_chance > 0:
                         if random.random() < dash_spirit_chance:
                             #  플레이어를 따라오다가 대쉬 거리의 50% 지점에서 스피릿 생성 종료
                             # 대쉬 중 속도는 40, 첫 20프레임은 최대 속도, 이후 감속
