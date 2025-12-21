@@ -4212,6 +4212,28 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     return True
 
 
+def recalculate_skill_effects(skill_id: str):
+    """스킬 레벨 감소 시 효과 재계산 (디버그 메뉴용)"""
+    global runtime_swiftness_bonus, runtime_accessory_slot_bonus
+
+    # 신속: 이동속도 보너스 재계산
+    if skill_id == "common_swiftness":
+        runtime_swiftness_bonus = runtime_skill_levels.get("common_swiftness", 0) * 0.04
+        print(f"[RuntimeSkill] 신속 레벨 감소 - 이동속도 +{int(runtime_swiftness_bonus*100)}%")
+
+    # 확장: 장신구 슬롯 보너스 재계산
+    elif skill_id == "common_expansion":
+        runtime_accessory_slot_bonus = runtime_skill_levels.get("common_expansion", 0)
+        print(f"[RuntimeSkill] 확장 레벨 감소 - 장신구 슬롯 +{runtime_accessory_slot_bonus}")
+
+    # 메카벌크: 패들 크기 재계산
+    elif skill_id == "mecha_bulk":
+        apply_equipment_paddle_modifiers()
+        print(f"[RuntimeSkill] 메카벌크 레벨 감소 - 패들 크기 재계산")
+
+    # 기타 스킬들은 별도 재계산 불필요 (get_runtime_skill_bonus에서 실시간 조회)
+
+
 def apply_instant_skill_effect(skill_id: str) -> bool:
     """단발성 스킬 효과 즉시 적용"""
     global rolling_charges, token_states, charging_token_index, _token_charge_states
@@ -6423,12 +6445,53 @@ def show_all_runtime_skills_menu() -> str | None:
                             selected_skill = skill
                             running = False
                             break
-                elif event.button == 4:  # 스크롤 업
-                    scroll_offset = max(0, scroll_offset - 30)
-                elif event.button == 5:  # 스크롤 다운
-                    scroll_offset = min(max_scroll, scroll_offset + 30)
+                elif event.button == 4:  # 스크롤 업 (호버된 스킬 없을 때만)
+                    if hovered_index < 0:
+                        scroll_offset = max(0, scroll_offset - 30)
+                    else:
+                        # 호버된 스킬 레벨업
+                        hovered_skill = all_skills[hovered_index]
+                        if not hovered_skill.get("is_instant"):
+                            skill_id = hovered_skill["id"]
+                            max_lvl = hovered_skill.get("max_level", 5)
+                            current_lvl = runtime_skill_levels.get(skill_id, 0)
+                            if max_lvl == -1 or current_lvl < max_lvl:
+                                apply_runtime_skill_effect(skill_id)
+                                hovered_skill["current_level"] = runtime_skill_levels.get(skill_id, 0)
+                elif event.button == 5:  # 스크롤 다운 (호버된 스킬 없을 때만)
+                    if hovered_index < 0:
+                        scroll_offset = min(max_scroll, scroll_offset + 30)
+                    else:
+                        # 호버된 스킬 레벨 다운
+                        hovered_skill = all_skills[hovered_index]
+                        if not hovered_skill.get("is_instant"):
+                            skill_id = hovered_skill["id"]
+                            current_lvl = runtime_skill_levels.get(skill_id, 0)
+                            if current_lvl > 0:
+                                runtime_skill_levels[skill_id] = current_lvl - 1
+                                hovered_skill["current_level"] = runtime_skill_levels[skill_id]
+                                # 레벨 감소 시 효과 재계산
+                                recalculate_skill_effects(skill_id)
             elif event.type == pygame.MOUSEWHEEL:
-                scroll_offset = max(0, min(max_scroll, scroll_offset - event.y * 30))
+                if hovered_index >= 0:
+                    # 호버된 스킬 레벨 조절
+                    hovered_skill = all_skills[hovered_index]
+                    if not hovered_skill.get("is_instant"):
+                        skill_id = hovered_skill["id"]
+                        max_lvl = hovered_skill.get("max_level", 5)
+                        current_lvl = runtime_skill_levels.get(skill_id, 0)
+                        if event.y > 0:  # 휠 업 = 레벨업
+                            if max_lvl == -1 or current_lvl < max_lvl:
+                                apply_runtime_skill_effect(skill_id)
+                                hovered_skill["current_level"] = runtime_skill_levels.get(skill_id, 0)
+                        elif event.y < 0:  # 휠 다운 = 레벨 다운
+                            if current_lvl > 0:
+                                runtime_skill_levels[skill_id] = current_lvl - 1
+                                hovered_skill["current_level"] = runtime_skill_levels[skill_id]
+                                recalculate_skill_effects(skill_id)
+                else:
+                    # 스크롤
+                    scroll_offset = max(0, min(max_scroll, scroll_offset - event.y * 30))
 
         # 배경 그리기
         SCREEN.blit(base_background, (0, 0))
@@ -6592,7 +6655,7 @@ def show_all_runtime_skills_menu() -> str | None:
             SCREEN.blit(tooltip_surf, (tooltip_x, tooltip_y))
 
         # 힌트 텍스트
-        hint_text = "방향키로 이동 | Enter/Z로 선택 | ESC로 취소 | 마우스 휠로 스크롤"
+        hint_text = "방향키로 이동 | Enter/Z로 선택 | ESC로 취소 | 휠: 스킬 위=레벨 조절, 빈 곳=스크롤"
         hint_surface = font_hint.render(hint_text, True, (150, 150, 150))
         hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - 30))
         SCREEN.blit(hint_surface, hint_rect)
