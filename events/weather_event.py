@@ -548,6 +548,12 @@ def check_weather_event_on_round_start():
                 rain_paddle_splash_particles = []
                 rain_floor_splash_particles = []
                 rain_initialized = False
+            elif weather_event_type == "hail":
+                weather_end_text = "우박이 그쳤습니다!"
+                # 우박 파티클 초기화
+                hail_particles = []
+                hail_impact_particles = []
+                hail_initialized = False
 
             weather_end_timer = 180  # 3 seconds at 60fps
             result["ended"] = True
@@ -567,33 +573,38 @@ def check_weather_event_on_round_start():
         weather_event_active = True
         weather_event_just_started = True
 
-        # 20% 확률로 미풍, 강풍, 불, 얼음, 소나기 중 하나 (5가지)
+        # 약 16.67% 확률로 미풍, 강풍, 불, 얼음, 소나기, 우박 중 하나 (6가지)
         event_roll = random.random()
-        if event_roll < 0.20:
+        if event_roll < 0.167:
             weather_event_type = "breeze"
             weather_event_direction = random.choice([-1, 1])
             weather_event_remaining_rounds = random.randint(WIND_MIN_DURATION, WIND_MAX_DURATION)
             weather_warning_text = "미풍이 불어옴!"
-        elif event_roll < 0.40:
+        elif event_roll < 0.333:
             weather_event_type = "gust"
             weather_event_direction = random.choice([-1, 1])
             weather_event_remaining_rounds = 1  # 강풍은 딱 1턴만 지속
             weather_warning_text = "강풍이 불어옴!"
-        elif event_roll < 0.60:
+        elif event_roll < 0.500:
             weather_event_type = "fire"
             weather_event_direction = 0  # 불은 방향 없음
             weather_event_remaining_rounds = random.randint(FIRE_MIN_DURATION, FIRE_MAX_DURATION)
             weather_warning_text = "화재 발생!"
-        elif event_roll < 0.80:
+        elif event_roll < 0.667:
             weather_event_type = "ice"
             weather_event_direction = 0  # 얼음은 방향 없음
             weather_event_remaining_rounds = random.randint(ICE_MIN_DURATION, ICE_MAX_DURATION)
             weather_warning_text = "빙판 발생!"
-        else:
+        elif event_roll < 0.833:
             weather_event_type = "rain"
             weather_event_direction = 0  # 소나기는 방향 없음
             weather_event_remaining_rounds = random.randint(RAIN_MIN_DURATION, RAIN_MAX_DURATION)
             weather_warning_text = "소나기 발생!"
+        else:
+            weather_event_type = "hail"
+            weather_event_direction = 0  # 우박은 방향 없음
+            weather_event_remaining_rounds = random.randint(HAIL_MIN_DURATION, HAIL_MAX_DURATION)
+            weather_warning_text = "우박 발생!"
 
         weather_warning_timer = 180  # 3 seconds
 
@@ -611,6 +622,8 @@ def check_weather_event_on_round_start():
             print(f"[Weather] Ice started! Duration: {weather_event_remaining_rounds} round(s)")
         elif weather_event_type == "rain":
             print(f"[Weather] Rain started! Duration: {weather_event_remaining_rounds} round(s)")
+        elif weather_event_type == "hail":
+            print(f"[Weather] Hail started! Duration: {weather_event_remaining_rounds} round(s)")
         else:
             dir_text = "Left" if weather_event_direction < 0 else "Right"
             type_text = "Breeze" if weather_event_type == "breeze" else "Strong Gust"
