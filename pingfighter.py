@@ -9991,10 +9991,10 @@ def sync_equipped_passive_effects():
     sync_bool("angel_blessing", "items.angel_blessing_obtained")
     sync_bool("sacred_laurel", "items.sacred_laurel_obtained")
 
-    # 장비 슬롯 확장 (slot_add) - 장착 수만큼 적용
+    # 장비 슬롯 확장 (slot_add) - 배낭 1개당 2칸 추가
     slot_add_count = sum(1 for item in equipped_items if item.get("name") == "slot_add")
     base_slots = 3
-    _set_max_item_slots(min(5, base_slots + slot_add_count))
+    _set_max_item_slots(min(5, base_slots + slot_add_count * 2))
     _set_flag_safe(items, "slot_add_obtained", slot_add_count > 0)
 
     # 롤 옵션 기반 보너스 갱신
