@@ -1759,24 +1759,26 @@ def run_multi_gacha(
     except Exception:
         pass
 
-    # 연속 뽑기 결과 저장 리스트
-    multi_results = []
-    bonus_count = 0  # 도박으로 추가된 뽑기 수
+    # 연속 뽑기 결과 저장 리스트 (기본 + 도박 보너스 분리)
+    base_results = []  # 기본 뽑기 결과
+    bonus_results = []  # 도박 보너스 결과
 
     # gacha_count 만큼 아이템 뽑기 (애니메이션 없이 즉시 결정)
     for _ in range(gacha_count):
         if gacha_items:
             result = random.choice(gacha_items)
-            multi_results.append(result)
+            base_results.append(result)
 
             # 도박 스킬: 각 뽑기마다 추가 뽑기 확률 체크
             if gamble_chance > 0 and random.random() < gamble_chance:
                 bonus_result = random.choice(gacha_items)
-                multi_results.append(bonus_result)
-                bonus_count += 1
+                bonus_results.append(bonus_result)
 
-    if bonus_count > 0:
-        print(f"[가챠] 도박 스킬로 추가 뽑기 {bonus_count}회 획득!")
+    if bonus_results:
+        print(f"[가챠] 도박 스킬로 추가 뽑기 {len(bonus_results)}회 획득!")
+
+    # 전체 결과 합치기 (표시용)
+    multi_results = base_results + bonus_results
 
     # 연속 뽑기 결과 페이지 표시
     if multi_results:
@@ -1792,6 +1794,8 @@ def run_multi_gacha(
             store_active_item,
             get_star_count,
             legendary_bonus=legendary_bonus,
+            base_count=len(base_results),  # 기본 뽑기 횟수
+            bonus_count=len(bonus_results),  # 도박 보너스 횟수
         )
 
 
@@ -1806,6 +1810,8 @@ def show_multi_gacha_result_page(
     store_active_item,
     get_star_count=None,
     legendary_bonus=0.0,
+    base_count=None,  # 기본 뽑기 횟수 (도박 보너스 제외)
+    bonus_count=0,    # 도박 보너스 횟수
 ):
     """연속 뽑기 결과 전용 페이지 - 여러 아이템을 한 화면에 표시"""
     clock = pygame.time.Clock()
@@ -1813,6 +1819,11 @@ def show_multi_gacha_result_page(
     animation_timer = 0
 
     result_count = len(gacha_results)
+
+    # base_count가 전달되지 않은 경우 (기존 호출 호환성)
+    if base_count is None:
+        base_count = result_count
+        bonus_count = 0
 
     # 폰트 캐시
     if not hasattr(show_multi_gacha_result_page, "_fonts"):
@@ -1970,8 +1981,8 @@ def show_multi_gacha_result_page(
         pygame.draw.rect(screen, (0, 255, 255), (container_x, container_y, container_width, container_height), 3, border_radius=15)
         pygame.draw.rect(screen, (255, 0, 255), (container_x + 4, container_y + 4, container_width - 8, container_height - 8), 2, border_radius=12)
 
-        # 타이틀
-        title_text = f"◆ {result_count}연속 뽑기 결과! ◆"
+        # 타이틀 (기본 뽑기 횟수만 표시)
+        title_text = f"◆ {base_count}연속 뽑기 결과! ◆"
         title_surf = fonts["congrats"].render(title_text, True, (255, 255, 255))
         # 글로우 효과
         for i in range(3):
@@ -1980,48 +1991,64 @@ def show_multi_gacha_result_page(
             screen.blit(glow_surf, (width // 2 - glow_surf.get_width() // 2 + i, container_y + 30 + i))
         screen.blit(title_surf, (width // 2 - title_surf.get_width() // 2, container_y + 30))
 
-        # 캡슐 레이아웃 계산 (동그란 캡슐 스타일)
-        # 뽑기 개수별 레이아웃 정의: 각 줄에 몇 개씩 배치할지
-        # 2개: [2], 3개: [3], 4개: [2,2], 5개: [2,1,2]
-        layout_map = {
-            1: [1],
-            2: [2],
-            3: [3],
-            4: [2, 2],
-            5: [2, 1, 2],
-        }
-        # 6개 이상은 기본 3개씩
-        if result_count in layout_map:
-            row_layout = layout_map[result_count]
+        # 레이아웃 계산 헬퍼 함수
+        def get_row_layout(count):
+            layout_map = {
+                1: [1],
+                2: [2],
+                3: [3],
+                4: [2, 2],
+                5: [2, 1, 2],
+            }
+            if count in layout_map:
+                return layout_map[count]
+            else:
+                layout = []
+                remaining = count
+                while remaining > 0:
+                    layout.append(min(3, remaining))
+                    remaining -= min(3, remaining)
+                return layout
+
+        # 기본 뽑기 레이아웃
+        base_row_layout = get_row_layout(base_count)
+        # 도박 보너스 레이아웃
+        bonus_row_layout = get_row_layout(bonus_count) if bonus_count > 0 else []
+
+        # 캡슐 크기 설정 (도박 보너스가 있으면 작게)
+        has_bonus = bonus_count > 0
+        if has_bonus:
+            capsule_radius = 45  # 보너스가 있으면 캡슐을 조금 작게
+            capsule_spacing = 20
+            icon_size = 40
         else:
-            row_layout = []
-            remaining = result_count
-            while remaining > 0:
-                row_layout.append(min(3, remaining))
-                remaining -= min(3, remaining)
+            capsule_radius = 55  # 기본 크기
+            capsule_spacing = 30
+            icon_size = 48
 
-        # 캡슐 크기 설정
-        capsule_radius = 55  # 캡슐 반지름
-        capsule_spacing = 30  # 캡슐 간격
-        icon_size = 48  # 아이콘 크기
-
-        # 전체 높이 계산하여 세로 중앙 정렬
-        total_rows = len(row_layout)
         row_height = capsule_radius * 2 + capsule_spacing + 30
-        total_height = total_rows * row_height
-        start_y = container_y + 110 + max(0, (container_height - 180 - total_height) // 2)
+
+        # 전체 높이 계산 (기본 뽑기 + 도박 보너스)
+        base_total_rows = len(base_row_layout)
+        bonus_total_rows = len(bonus_row_layout)
+
+        # 도박 보너스 섹션을 위한 추가 공간 (타이틀 + 여백)
+        bonus_section_header = 50 if has_bonus else 0
+
+        total_height = (base_total_rows * row_height) + (bonus_total_rows * row_height) + bonus_section_header
+        start_y = container_y + 100 + max(0, (container_height - 160 - total_height) // 2)
 
         legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
 
-        # 각 아이템 캡슐 그리기
+        # === 기본 뽑기 아이템 캡슐 그리기 ===
         item_idx = 0
-        for row_num, items_in_row in enumerate(row_layout):
+        for row_num, items_in_row in enumerate(base_row_layout):
             # 이 줄의 너비 계산
             row_width = items_in_row * (capsule_radius * 2) + (items_in_row - 1) * capsule_spacing
             row_start_x = container_x + (container_width - row_width) // 2
 
             for col in range(items_in_row):
-                if item_idx >= result_count:
+                if item_idx >= base_count:  # 기본 뽑기만 처리
                     break
                 result = gacha_results[item_idx]
                 idx = item_idx  # 애니메이션 위상용
@@ -2178,6 +2205,147 @@ def show_multi_gacha_result_page(
                     screen.blit(name_surf, (name_x, name_y))
 
                 item_idx += 1
+
+        # === 도박 보너스 섹션 ===
+        if bonus_count > 0 and item_idx < result_count:
+            # 도박 보너스 시작 Y 위치
+            bonus_start_y = start_y + base_total_rows * row_height + 15
+
+            # 도박! 타이틀 그리기
+            gamble_title = "🎲 도박!"
+            gamble_surf = fonts["count"].render(gamble_title, True, (255, 200, 50))
+            # 글로우 효과
+            for i in range(2):
+                glow_surf = fonts["count"].render(gamble_title, True, (255, 150, 0))
+                glow_surf.set_alpha(80 - i * 30)
+                screen.blit(glow_surf, (width // 2 - glow_surf.get_width() // 2 + i, bonus_start_y + i))
+            screen.blit(gamble_surf, (width // 2 - gamble_surf.get_width() // 2, bonus_start_y))
+
+            # 도박 보너스 아이템 캡슐 그리기
+            bonus_item_start_y = bonus_start_y + 35
+            bonus_item_idx = 0
+            for row_num, items_in_row in enumerate(bonus_row_layout):
+                # 이 줄의 너비 계산
+                row_width = items_in_row * (capsule_radius * 2) + (items_in_row - 1) * capsule_spacing
+                row_start_x = container_x + (container_width - row_width) // 2
+
+                for col in range(items_in_row):
+                    if bonus_item_idx >= bonus_count:
+                        break
+                    result = gacha_results[base_count + bonus_item_idx]  # 보너스 아이템은 base_count 이후부터
+                    idx = base_count + bonus_item_idx  # 애니메이션 위상용
+
+                    # 캡슐 중심 좌표
+                    capsule_cx = row_start_x + col * (capsule_radius * 2 + capsule_spacing) + capsule_radius
+                    capsule_cy = bonus_item_start_y + row_num * row_height + capsule_radius
+
+                    # 각 캡슐마다 다른 위상의 떠다니는 효과
+                    float_offset = math.sin(animation_timer * 0.08 + idx * 0.7) * 6
+
+                    # 아이템 색상 및 타입
+                    item_color = result.get("color", (200, 200, 200))
+                    item_type = result.get("type", "active")
+                    item_name = result.get("name", "")
+
+                    # 도박 보너스는 황금색 테두리
+                    if item_name in legendary_names:
+                        border_color = (255, 215, 0)
+                        glow_color = (255, 200, 50)
+                    else:
+                        border_color = (255, 180, 50)  # 도박 보너스 - 황금색
+                        glow_color = (255, 150, 0)
+
+                    # 1. 외곽 글로우 효과 (펄스)
+                    pulse_scale = 1 + 0.08 * math.sin(animation_timer * 0.06 + idx * 0.5)
+                    for i in range(8):
+                        glow_alpha = 60 - i * 7
+                        glow_r = int((capsule_radius + 5) * pulse_scale + i * 3)
+                        glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(glow_surf, (*glow_color, max(0, glow_alpha)), (glow_r, glow_r), glow_r)
+                        screen.blit(glow_surf, (capsule_cx - glow_r, capsule_cy + float_offset - glow_r))
+
+                    # 2. 캡슐 배경 (반투명 원)
+                    capsule_surf = pygame.Surface((capsule_radius * 2, capsule_radius * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(capsule_surf, (*item_color[:3], 60), (capsule_radius, capsule_radius), capsule_radius)
+                    screen.blit(capsule_surf, (capsule_cx - capsule_radius, capsule_cy + float_offset - capsule_radius))
+
+                    # 3. 캡슐 테두리 (네온 효과)
+                    pygame.draw.circle(screen, border_color, (capsule_cx, int(capsule_cy + float_offset)), capsule_radius, 3)
+                    pygame.draw.circle(screen, (255, 255, 255), (capsule_cx, int(capsule_cy + float_offset)), capsule_radius, 1)
+
+                    # 4. 홀로그램 링 애니메이션
+                    ring_phase = (animation_timer * 0.04 + idx * 0.3) % (2 * math.pi)
+                    ring_radius = capsule_radius + 8 * abs(math.sin(ring_phase))
+                    ring_alpha = int(60 * (1 - abs(math.sin(ring_phase))))
+                    if ring_alpha > 5:
+                        ring_surf = pygame.Surface((int(ring_radius * 2 + 4), int(ring_radius * 2 + 4)), pygame.SRCALPHA)
+                        pygame.draw.circle(ring_surf, (*border_color, ring_alpha), (int(ring_radius + 2), int(ring_radius + 2)), int(ring_radius), 2)
+                        screen.blit(ring_surf, (capsule_cx - ring_radius - 2, capsule_cy + float_offset - ring_radius - 2))
+
+                    # 5. 아이콘 그리기 (떠다니는 효과 적용)
+                    icon_x = capsule_cx - icon_size // 2
+                    icon_y = capsule_cy + float_offset - icon_size // 2
+
+                    drew_legendary = False
+                    if item_name in legendary_names:
+                        try:
+                            from legendary_items import get_legendary_manager
+                            legendary_manager = get_legendary_manager()
+                            legendary_item = legendary_manager.get_item(item_name) if legendary_manager else None
+                            if legendary_item:
+                                legendary_item.update(1 / 60.0, ui_mode=True)
+                                icon_surface = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+                                legendary_item.draw_icon(icon_surface, 0, 0, icon_size)
+                                screen.blit(icon_surface, (icon_x, icon_y))
+                                drew_legendary = True
+                        except Exception:
+                            pass
+
+                    if not drew_legendary and result.get("icon"):
+                        icon = pygame.transform.scale(result["icon"], (icon_size, icon_size))
+                        screen.blit(icon, (icon_x, icon_y))
+                    elif not drew_legendary:
+                        # 아이콘이 없으면 색상 원으로 대체
+                        pygame.draw.circle(screen, item_color, (capsule_cx, int(capsule_cy + float_offset)), icon_size // 2 - 4)
+
+                    # 6. 하이라이트 효과 (캡슐 상단)
+                    highlight_surf = pygame.Surface((capsule_radius * 2, capsule_radius * 2), pygame.SRCALPHA)
+                    pygame.draw.arc(highlight_surf, (255, 255, 255, 80),
+                                  (10, 8, capsule_radius * 2 - 20, capsule_radius - 10),
+                                  math.radians(30), math.radians(150), 3)
+                    screen.blit(highlight_surf, (capsule_cx - capsule_radius, capsule_cy + float_offset - capsule_radius))
+
+                    # 7. 아이템 이름 (캡슐 아래)
+                    item_korean_name = get_item_name_korean(item_name)
+                    if result.get("name_prefix"):
+                        display_name = f"{result['name_prefix']} {item_korean_name}"
+                    else:
+                        display_name = item_korean_name
+
+                    name_color = result.get("quality_color", (255, 255, 255))
+
+                    # 이름 길이에 따라 폰트 크기 동적 조절
+                    max_width = capsule_radius * 2 + 20
+                    name_surf = fonts["desc"].render(display_name, True, name_color)
+
+                    if name_surf.get_width() > max_width:
+                        if not hasattr(show_multi_gacha_result_page, "_small_font"):
+                            show_multi_gacha_result_page._small_font = pygame.font.Font(resource_path("NanumSquareR.ttf"), 12)
+                        small_font = show_multi_gacha_result_page._small_font
+                        name_surf = small_font.render(display_name, True, name_color)
+                        name_x = capsule_cx - name_surf.get_width() // 2
+                        name_y = capsule_cy + float_offset + capsule_radius + 8
+                        shadow_surf = small_font.render(display_name, True, (30, 30, 30))
+                        screen.blit(shadow_surf, (name_x + 1, name_y + 1))
+                        screen.blit(name_surf, (name_x, name_y))
+                    else:
+                        name_x = capsule_cx - name_surf.get_width() // 2
+                        name_y = capsule_cy + float_offset + capsule_radius + 8
+                        shadow_surf = fonts["desc"].render(display_name, True, (30, 30, 30))
+                        screen.blit(shadow_surf, (name_x + 1, name_y + 1))
+                        screen.blit(name_surf, (name_x, name_y))
+
+                    bonus_item_idx += 1
 
         # 클릭/키 입력 안내 텍스트
         hint_text = "아이템받기"
