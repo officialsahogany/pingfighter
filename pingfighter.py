@@ -9901,6 +9901,12 @@ def sync_equipped_passive_effects():
                     except Exception as e:
                         print(f"[sync_equipped_passive_effects] 대기열 설정 실패: {e}")
                     continue
+                # 천사의 가호: 이미 활성화되어 있으면 다시 활성화하지 않음
+                # (다른 전설 아이템 획득 시 주사위 애니메이션 재발동 방지)
+                if legend_name == "angel_blessing":
+                    if legend_name in legendary_manager.active_items:
+                        # 이미 active_items에 있으면 스킵 (주사위 재발동 방지)
+                        continue
                 legendary_manager.activate_item(legend_name, gs)
             else:
                 legendary_manager.deactivate_item(legend_name)
