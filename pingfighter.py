@@ -6124,6 +6124,364 @@ def show_runtime_skill_choices(exclude_instant: bool = False) -> str | None:
     return selected_result
 
 
+def show_all_runtime_skills_menu() -> str | None:
+    """
+    모든 런타임 스킬을 보여주고 선택할 수 있는 메뉴 (디버그용)
+    스크롤 가능한 그리드 형태로 모든 스킬 표시
+    """
+    global runtime_skill_levels
+
+    clock = pygame.time.Clock()
+    running = True
+    selected_skill = None
+
+    # 모든 스킬 수집 (공용 + 캐릭터 전용 + 인스턴트)
+    all_skills = []
+
+    # 공용 스킬
+    for skill_id, skill_data in RUNTIME_SKILL_POOL.items():
+        skill_info = {
+            "id": skill_id,
+            "name": skill_data.get("name", skill_id),
+            "icon_color": skill_data.get("icon_color", (100, 150, 255)),
+            "max_level": skill_data.get("max_level", 5),
+            "current_level": runtime_skill_levels.get(skill_id, 0),
+            "descriptions": skill_data.get("descriptions", {}),
+            "category": "공용"
+        }
+        all_skills.append(skill_info)
+
+    # 스매셔 전용 스킬
+    for skill_id, skill_data in SMASHER_EXCLUSIVE_SKILLS.items():
+        skill_info = {
+            "id": skill_id,
+            "name": skill_data.get("name", skill_id),
+            "icon_color": skill_data.get("icon_color", (255, 100, 100)),
+            "max_level": skill_data.get("max_level", 5),
+            "current_level": runtime_skill_levels.get(skill_id, 0),
+            "descriptions": skill_data.get("descriptions", {}),
+            "category": "스매셔"
+        }
+        all_skills.append(skill_info)
+
+    # 옵티머스 전용 스킬
+    for skill_id, skill_data in OPTIMUS_EXCLUSIVE_SKILLS.items():
+        skill_info = {
+            "id": skill_id,
+            "name": skill_data.get("name", skill_id),
+            "icon_color": skill_data.get("icon_color", (100, 200, 255)),
+            "max_level": skill_data.get("max_level", 5),
+            "current_level": runtime_skill_levels.get(skill_id, 0),
+            "descriptions": skill_data.get("descriptions", {}),
+            "category": "옵티머스"
+        }
+        all_skills.append(skill_info)
+
+    # 인스턴트 스킬
+    for skill_id, skill_data in INSTANT_RUNTIME_SKILLS.items():
+        skill_info = {
+            "id": skill_id,
+            "name": skill_data.get("name", skill_id),
+            "icon_color": skill_data.get("icon_color", (200, 255, 200)),
+            "max_level": 1,
+            "current_level": 0,
+            "description": skill_data.get("description", ""),
+            "is_instant": True,
+            "is_unique": skill_data.get("is_unique", False),
+            "rarity": skill_data.get("rarity", "common"),
+            "category": "인스턴트"
+        }
+        all_skills.append(skill_info)
+
+    # 그리드 설정
+    cols = 6  # 한 줄에 6개
+    rows_per_page = 5  # 한 페이지에 5줄
+    box_size = 70
+    box_gap = 10
+    grid_width = cols * (box_size + box_gap) - box_gap
+    grid_start_x = (WIDTH - grid_width) // 2
+    grid_start_y = 100
+
+    # 스크롤
+    scroll_offset = 0
+    total_rows = (len(all_skills) + cols - 1) // cols
+    max_scroll = max(0, (total_rows - rows_per_page) * (box_size + box_gap))
+
+    # 선택된 인덱스
+    selected_index = 0
+    hovered_index = -1
+
+    # 폰트 설정
+    try:
+        font_title = pygame.font.Font(resource_path("NanumSquareB.ttf"), 28)
+        font_name = pygame.font.Font(resource_path("NanumSquareB.ttf"), 11)
+        font_level = pygame.font.Font(resource_path("NanumSquareR.ttf"), 10)
+        font_tooltip_title = pygame.font.Font(resource_path("NanumSquareB.ttf"), 16)
+        font_tooltip = pygame.font.Font(resource_path("NanumSquareR.ttf"), 13)
+        font_hint = pygame.font.Font(resource_path("NanumSquareR.ttf"), 14)
+        font_category = pygame.font.Font(resource_path("NanumSquareB.ttf"), 12)
+    except:
+        font_title = pygame.font.SysFont("Arial", 28)
+        font_name = pygame.font.SysFont("Arial", 11)
+        font_level = pygame.font.SysFont("Arial", 10)
+        font_tooltip_title = pygame.font.SysFont("Arial", 16)
+        font_tooltip = pygame.font.SysFont("Arial", 13)
+        font_hint = pygame.font.SysFont("Arial", 14)
+        font_category = pygame.font.SysFont("Arial", 12)
+
+    # 배경 캡처
+    base_background = SCREEN.copy()
+
+    while running:
+        mouse_pos = pygame.mouse.get_pos()
+        hovered_index = -1
+
+        # 이벤트 처리
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                elif event.key == pygame.K_LEFT:
+                    selected_index = max(0, selected_index - 1)
+                elif event.key == pygame.K_RIGHT:
+                    selected_index = min(len(all_skills) - 1, selected_index + 1)
+                elif event.key == pygame.K_UP:
+                    selected_index = max(0, selected_index - cols)
+                elif event.key == pygame.K_DOWN:
+                    selected_index = min(len(all_skills) - 1, selected_index + cols)
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_z):
+                    # 스킬 선택
+                    if 0 <= selected_index < len(all_skills):
+                        selected_skill = all_skills[selected_index]
+                        running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  # 좌클릭
+                    # 클릭된 스킬 찾기
+                    for i, skill in enumerate(all_skills):
+                        row = i // cols
+                        col = i % cols
+                        box_x = grid_start_x + col * (box_size + box_gap)
+                        box_y = grid_start_y + row * (box_size + box_gap) - scroll_offset
+                        box_rect = pygame.Rect(box_x, box_y, box_size, box_size)
+                        if box_rect.collidepoint(event.pos) and grid_start_y <= box_y <= grid_start_y + rows_per_page * (box_size + box_gap):
+                            selected_skill = skill
+                            running = False
+                            break
+                elif event.button == 4:  # 스크롤 업
+                    scroll_offset = max(0, scroll_offset - 30)
+                elif event.button == 5:  # 스크롤 다운
+                    scroll_offset = min(max_scroll, scroll_offset + 30)
+            elif event.type == pygame.MOUSEWHEEL:
+                scroll_offset = max(0, min(max_scroll, scroll_offset - event.y * 30))
+
+        # 배경 그리기
+        SCREEN.blit(base_background, (0, 0))
+
+        # 반투명 오버레이
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        SCREEN.blit(overlay, (0, 0))
+
+        # 타이틀
+        title_text = font_title.render("🎯 런타임 스킬 선택 (디버그)", True, (255, 215, 0))
+        title_rect = title_text.get_rect(center=(WIDTH // 2, 50))
+        SCREEN.blit(title_text, title_rect)
+
+        # 스킬 그리드 그리기
+        visible_area = pygame.Rect(0, grid_start_y - 10, WIDTH, rows_per_page * (box_size + box_gap) + 20)
+
+        for i, skill in enumerate(all_skills):
+            row = i // cols
+            col = i % cols
+            box_x = grid_start_x + col * (box_size + box_gap)
+            box_y = grid_start_y + row * (box_size + box_gap) - scroll_offset
+
+            # 화면 밖이면 스킵
+            if box_y + box_size < grid_start_y - 10 or box_y > grid_start_y + rows_per_page * (box_size + box_gap):
+                continue
+
+            box_rect = pygame.Rect(box_x, box_y, box_size, box_size)
+
+            # 호버 체크
+            if box_rect.collidepoint(mouse_pos):
+                hovered_index = i
+
+            # 선택/호버 상태에 따른 색상
+            is_selected = (i == selected_index)
+            is_hovered = (i == hovered_index)
+            is_unique = skill.get("is_unique", False) or skill.get("rarity") == "legendary"
+
+            # 배경색
+            if is_unique:
+                if is_selected or is_hovered:
+                    bg_color = (60, 50, 20)
+                    border_color = (255, 215, 0)
+                    border_width = 3
+                else:
+                    bg_color = (40, 35, 15)
+                    border_color = (200, 170, 50)
+                    border_width = 2
+            elif is_selected or is_hovered:
+                bg_color = (50, 60, 100)
+                border_color = skill["icon_color"]
+                border_width = 3
+            else:
+                bg_color = (30, 35, 50)
+                border_color = (60, 70, 90)
+                border_width = 1
+
+            # 박스 그리기
+            pygame.draw.rect(SCREEN, bg_color, box_rect, border_radius=8)
+            pygame.draw.rect(SCREEN, border_color, box_rect, border_width, border_radius=8)
+
+            # 유니크 스킬 글로우 효과
+            if is_unique:
+                pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.005)
+                for offset in range(3, 0, -1):
+                    glow_rect = box_rect.inflate(offset * 2, offset * 2)
+                    glow_alpha = int(50 - offset * 10 + pulse * 30)
+                    glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_surf, (255, 200, 50, max(0, glow_alpha)), (0, 0, glow_rect.width, glow_rect.height), border_radius=10)
+                    SCREEN.blit(glow_surf, glow_rect.topleft)
+
+            # 스킬 아이콘 그리기
+            icon_x = box_x + 10
+            icon_y = box_y + 5
+            icon_size_small = 35
+            skill_for_icon = {
+                "id": skill["id"],
+                "name": skill["name"],
+                "icon_color": skill["icon_color"]
+            }
+            draw_skill_icon_mini(SCREEN, skill_for_icon, icon_x, icon_y, icon_size_small, scale_multiplier=1.2)
+
+            # 스킬 이름 (짧게)
+            name_text = skill["name"]
+            if len(name_text) > 4:
+                name_text = name_text[:4] + ".."
+            name_surface = font_name.render(name_text, True, (255, 255, 255) if not is_unique else (255, 215, 0))
+            SCREEN.blit(name_surface, (box_x + 5, box_y + box_size - 28))
+
+            # 레벨/카테고리 표시
+            if skill.get("is_instant"):
+                level_text = "즉시" if not is_unique else "★전설"
+                level_color = (100, 255, 200) if not is_unique else (255, 200, 50)
+            else:
+                current_lvl = skill.get("current_level", 0)
+                max_lvl = skill.get("max_level", 5)
+                level_text = f"Lv.{current_lvl}/{max_lvl}"
+                level_color = (150, 200, 255)
+            level_surface = font_level.render(level_text, True, level_color)
+            SCREEN.blit(level_surface, (box_x + 5, box_y + box_size - 14))
+
+            # 카테고리 표시 (우측 상단)
+            category = skill.get("category", "")
+            cat_colors = {
+                "공용": (150, 150, 150),
+                "스매셔": (255, 100, 100),
+                "옵티머스": (100, 200, 255),
+                "인스턴트": (100, 255, 150)
+            }
+            cat_color = cat_colors.get(category, (150, 150, 150))
+            # 작은 점으로 카테고리 표시
+            pygame.draw.circle(SCREEN, cat_color, (box_x + box_size - 8, box_y + 8), 4)
+
+        # 툴팁 (호버된 스킬 정보)
+        tooltip_index = hovered_index if hovered_index >= 0 else selected_index
+        if 0 <= tooltip_index < len(all_skills):
+            tooltip_skill = all_skills[tooltip_index]
+            tooltip_width = 280
+            tooltip_height = 100
+            tooltip_x = min(mouse_pos[0] + 15, WIDTH - tooltip_width - 10)
+            tooltip_y = min(mouse_pos[1] + 15, HEIGHT - tooltip_height - 10)
+
+            # 툴팁 배경
+            tooltip_surf = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
+            pygame.draw.rect(tooltip_surf, (20, 25, 40, 240), (0, 0, tooltip_width, tooltip_height), border_radius=8)
+            pygame.draw.rect(tooltip_surf, tooltip_skill["icon_color"], (0, 0, tooltip_width, tooltip_height), 2, border_radius=8)
+
+            # 스킬 이름
+            name_surf = font_tooltip_title.render(tooltip_skill["name"], True, (255, 255, 255))
+            tooltip_surf.blit(name_surf, (10, 8))
+
+            # 카테고리
+            cat_surf = font_category.render(f"[{tooltip_skill.get('category', '')}]", True, cat_colors.get(tooltip_skill.get('category', ''), (150, 150, 150)))
+            tooltip_surf.blit(cat_surf, (tooltip_width - cat_surf.get_width() - 10, 10))
+
+            # 설명
+            if tooltip_skill.get("is_instant"):
+                desc_text = tooltip_skill.get("description", "즉시 효과 발동")
+            else:
+                current_lvl = tooltip_skill.get("current_level", 0)
+                next_lvl = min(current_lvl + 1, tooltip_skill.get("max_level", 5))
+                descriptions = tooltip_skill.get("descriptions", {})
+                desc_text = descriptions.get(next_lvl, descriptions.get(1, "효과 없음"))
+
+            # 설명 줄바꿈
+            desc_lines = []
+            words = desc_text
+            max_chars = 25
+            while len(words) > max_chars:
+                desc_lines.append(words[:max_chars])
+                words = words[max_chars:]
+            if words:
+                desc_lines.append(words)
+
+            y_offset = 35
+            for line in desc_lines[:3]:
+                desc_surf = font_tooltip.render(line, True, (200, 200, 200))
+                tooltip_surf.blit(desc_surf, (10, y_offset))
+                y_offset += 18
+
+            SCREEN.blit(tooltip_surf, (tooltip_x, tooltip_y))
+
+        # 힌트 텍스트
+        hint_text = "방향키로 이동 | Enter/Z로 선택 | ESC로 취소 | 마우스 휠로 스크롤"
+        hint_surface = font_hint.render(hint_text, True, (150, 150, 150))
+        hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - 30))
+        SCREEN.blit(hint_surface, hint_rect)
+
+        # 스크롤바
+        if max_scroll > 0:
+            scrollbar_height = 200
+            scrollbar_x = grid_start_x + grid_width + 20
+            scrollbar_y = grid_start_y
+            thumb_height = max(30, scrollbar_height * rows_per_page / total_rows)
+            thumb_y = scrollbar_y + (scroll_offset / max_scroll) * (scrollbar_height - thumb_height)
+
+            pygame.draw.rect(SCREEN, (40, 45, 60), (scrollbar_x, scrollbar_y, 8, scrollbar_height), border_radius=4)
+            pygame.draw.rect(SCREEN, (100, 120, 160), (scrollbar_x, thumb_y, 8, thumb_height), border_radius=4)
+
+        # 커서 변경
+        if hovered_index >= 0:
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+        else:
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
+        pygame.display.flip()
+        clock.tick(60)
+
+    # 커서 복원
+    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
+    # 선택된 스킬 적용
+    if selected_skill:
+        skill_id = selected_skill["id"]
+        if selected_skill.get("is_instant"):
+            # 인스턴트 스킬은 즉시 효과 적용
+            apply_instant_skill_effect(skill_id)
+        else:
+            # 일반 스킬은 레벨업
+            apply_runtime_skill_effect(skill_id)
+        return skill_id
+
+    pygame.event.clear()
+    return None
+
+
 def show_runtime_skill_status():
     """
     런타임 스킬 현황 화면 - 사각형 박스 그리드 형태로 스킬 표시
@@ -92433,12 +92791,10 @@ def main(stage_num, new_boss_mode=False):
             capture_screenshot()
         _screenshot_key_pressed = keys[pygame.K_RIGHTBRACKET]
 
-        # 0번키: 런타임 스킬 선택창 (디버그용 - 스킬 선택 테스트)
+        # 0번키: 모든 런타임 스킬 선택창 (디버그용 - 원하는 스킬 선택)
         if keys[pygame.K_0] and not _key0_pressed:
-            print("🎯 0번 키: 런타임 스킬 선택창 표시")
-            # 스킬 선택지 1개 추가하고 선택창 표시
-            pending_skill_choices += 1
-            runtime_skill_choice_pending = True
+            print("🎯 0번 키: 모든 런타임 스킬 선택창 표시")
+            show_all_runtime_skills_menu()
         _key0_pressed = keys[pygame.K_0]
 
         # 8번키: 튜토리얼(스테이지50)에서는 챕터 스킵, 일반 스테이지에서는 날씨 디버그 메뉴
