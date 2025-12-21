@@ -9990,9 +9990,8 @@ def get_effective_polish_multiplier():
             multiplier = academy.get_polish_efficiency_multiplier()
         except Exception:
             multiplier = 1.0
-    # 런타임 스킬 보너스 (item_polish: 레벨당 +30%)
-    runtime_level = runtime_skill_levels.get("item_polish", 0)
-    runtime_bonus = runtime_level * 0.30
+    # 런타임 스킬 보너스 (item_polish: 레벨당 +5%)
+    runtime_bonus = get_runtime_skill_bonus("item_polish")
     return multiplier + runtime_bonus
 
 
