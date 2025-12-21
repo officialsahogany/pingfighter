@@ -3744,13 +3744,31 @@ def get_item_recycle_chance():
 
 
 def get_item_gamble_settings():
-    """도박 스킬 확률과 최대 추가 횟수 (광장 스킬탭)"""
-    level = get_skill_level("downtown_gamble")
-    if level <= 0:
+    """도박 스킬 확률과 최대 추가 횟수 (광장 스킬탭 + 런타임 스킬)"""
+    # 아카데미 스킬 레벨
+    academy_level = get_skill_level("downtown_gamble")
+
+    # 런타임 스킬 보너스 가져오기
+    runtime_bonus = 0.0
+    try:
+        from pingfighter import get_runtime_skill_bonus
+        runtime_bonus = get_runtime_skill_bonus("downtown_gamble")
+    except Exception:
+        pass
+
+    # 총 확률 계산 (아카데미 + 런타임)
+    academy_chance = 0.0
+    if academy_level > 0:
+        academy_chance = min(0.95, 0.25 + 0.15 * (academy_level - 1))
+
+    total_chance = min(0.95, academy_chance + runtime_bonus)  # 최대 95%
+
+    if total_chance <= 0:
         return 0.0, 0
-    chance = min(0.95, 0.25 + 0.15 * (level - 1))
-    max_extra = 1 if level < 3 else 2
-    return chance, max_extra
+
+    # 최대 추가 횟수 (아카데미 레벨 기준)
+    max_extra = 1 if academy_level < 3 else 2
+    return total_chance, max_extra
 
 
 def get_downtown_gamble_settings():

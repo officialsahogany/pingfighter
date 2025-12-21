@@ -2615,11 +2615,13 @@ RUNTIME_SKILL_POOL = {
     # ===== Dash Tree (5 skills) =====
     "dash_lightweight": {
         "name": "경량화",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
             1: "대쉬 쿨타임 12% 감소",
             2: "대쉬 쿨타임 24% 감소",
             3: "대쉬 쿨타임 36% 감소",
+            4: "대쉬 쿨타임 48% 감소",
+            5: "대쉬 쿨타임 60% 감소",
         },
         "detail": "대쉬 시스템을 경량화하여 쿨타임이 감소합니다.",
         "icon_color": (100, 200, 255),
@@ -2627,11 +2629,13 @@ RUNTIME_SKILL_POOL = {
     },
     "dash_module_control": {
         "name": "모듈제어",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
             1: "대쉬 후딜 17% 감소",
             2: "대쉬 후딜 34% 감소",
             3: "대쉬 후딜 51% 감소",
+            4: "대쉬 후딜 68% 감소",
+            5: "대쉬 후딜 85% 감소",
         },
         "detail": "대쉬 후 경직 시간을 줄여 더 빠르게 다음 행동을 할 수 있습니다.",
         "icon_color": (150, 100, 255),
@@ -2639,11 +2643,13 @@ RUNTIME_SKILL_POOL = {
     },
     "dash_jump": {
         "name": "도약",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
             1: "대쉬 거리 7% 증가",
             2: "대쉬 거리 14% 증가",
             3: "대쉬 거리 21% 증가",
+            4: "대쉬 거리 28% 증가",
+            5: "대쉬 거리 35% 증가",
         },
         "detail": "대쉬 거리가 증가하여 더 넓은 범위를 커버할 수 있습니다.",
         "icon_color": (100, 255, 150),
@@ -2651,11 +2657,13 @@ RUNTIME_SKILL_POOL = {
     },
     "dash_battery_pack": {
         "name": "배터리팩",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
             1: "대쉬 게이지 소모 14% 감소",
             2: "대쉬 게이지 소모 28% 감소",
             3: "대쉬 게이지 소모 42% 감소",
+            4: "대쉬 게이지 소모 56% 감소",
+            5: "대쉬 게이지 소모 70% 감소",
         },
         "detail": "에너지 효율을 높여 대쉬 시 소모되는 게이지가 줄어듭니다.",
         "icon_color": (50, 255, 100),
@@ -2663,10 +2671,13 @@ RUNTIME_SKILL_POOL = {
     },
     "dash_amplification": {
         "name": "증폭",
-        "max_level": 2,
+        "max_level": 5,
         "descriptions": {
             1: "대쉬 토큰 +1",
             2: "대쉬 토큰 +2",
+            3: "대쉬 토큰 +3",
+            4: "대쉬 토큰 +4",
+            5: "대쉬 토큰 +5",
         },
         "detail": "대쉬 토큰을 추가로 획득하여 연속 대쉬가 가능합니다.",
         "icon_color": (255, 200, 50),
@@ -2676,11 +2687,13 @@ RUNTIME_SKILL_POOL = {
     # ===== Item Tree (7 skills) =====
     "item_luck": {
         "name": "행운",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
             1: "아이템 스폰 대기 10% 감소",
             2: "아이템 스폰 대기 20% 감소",
             3: "아이템 스폰 대기 30% 감소",
+            4: "아이템 스폰 대기 40% 감소",
+            5: "아이템 스폰 대기 50% 감소",
         },
         "detail": "행운의 기운으로 아이템이 더 자주 나타납니다.",
         "icon_color": (255, 215, 0),
@@ -2688,11 +2701,13 @@ RUNTIME_SKILL_POOL = {
     },
     "item_cooldown_mastery": {
         "name": "숙련",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
             1: "액티브 아이템 쿨타임 14% 감소",
             2: "액티브 아이템 쿨타임 28% 감소",
             3: "액티브 아이템 쿨타임 42% 감소",
+            4: "액티브 아이템 쿨타임 56% 감소",
+            5: "액티브 아이템 쿨타임 70% 감소",
         },
         "detail": "아이템 사용에 숙련되어 쿨타임이 줄어듭니다.",
         "icon_color": (100, 150, 255),
@@ -2700,11 +2715,13 @@ RUNTIME_SKILL_POOL = {
     },
     "item_gauge_mastery": {
         "name": "숙달",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
             1: "액티브 사용시 게이지 +12",
             2: "액티브 사용시 게이지 +24",
             3: "액티브 사용시 게이지 +36",
+            4: "액티브 사용시 게이지 +48",
+            5: "액티브 사용시 게이지 +60",
         },
         "detail": "아이템 사용 시 보너스 게이지를 획득합니다.",
         "icon_color": (150, 255, 100),
@@ -2712,11 +2729,13 @@ RUNTIME_SKILL_POOL = {
     },
     "item_bag_expansion": {
         "name": "가방 확장",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
             1: "액티브 슬롯 +1",
             2: "액티브 슬롯 +2",
             3: "액티브 슬롯 +3",
+            4: "액티브 슬롯 +4",
+            5: "액티브 슬롯 +5",
         },
         "detail": "가방을 확장하여 더 많은 액티브 아이템을 보관할 수 있습니다.",
         "icon_color": (180, 120, 80),
@@ -2724,11 +2743,13 @@ RUNTIME_SKILL_POOL = {
     },
     "item_caffeine": {
         "name": "카페인",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
-            1: "타이머형 아이템 지속 25% 증가",
-            2: "타이머형 아이템 지속 50% 증가",
-            3: "타이머형 아이템 지속 75% 증가",
+            1: "타이머형 아이템 지속 20% 증가",
+            2: "타이머형 아이템 지속 40% 증가",
+            3: "타이머형 아이템 지속 60% 증가",
+            4: "타이머형 아이템 지속 80% 증가",
+            5: "타이머형 아이템 지속 100% 증가",
         },
         "detail": "카페인 부스트로 아이템 효과가 더 오래 지속됩니다.",
         "icon_color": (139, 69, 19),
@@ -2736,11 +2757,13 @@ RUNTIME_SKILL_POOL = {
     },
     "item_polish": {
         "name": "연마",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
-            1: "패시브 롤옵션 효율 30% 증가",
-            2: "패시브 롤옵션 효율 60% 증가",
-            3: "패시브 롤옵션 효율 90% 증가",
+            1: "패시브 롤옵션 효율 5% 증가",
+            2: "패시브 롤옵션 효율 10% 증가",
+            3: "패시브 롤옵션 효율 15% 증가",
+            4: "패시브 롤옵션 효율 20% 증가",
+            5: "패시브 롤옵션 효율 25% 증가",
         },
         "detail": "아이템을 연마하여 패시브 효과가 강화됩니다.",
         "icon_color": (200, 200, 200),
@@ -2748,11 +2771,13 @@ RUNTIME_SKILL_POOL = {
     },
     "item_recycle": {
         "name": "연금술",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
-            1: "아이템 유지 확률 20%",
-            2: "아이템 유지 확률 40%",
-            3: "아이템 유지 확률 60%",
+            1: "아이템 유지 확률 10%",
+            2: "아이템 유지 확률 20%",
+            3: "아이템 유지 확률 30%",
+            4: "아이템 유지 확률 40%",
+            5: "아이템 유지 확률 50%",
         },
         "detail": "연금술로 사용한 아이템이 확률적으로 유지됩니다.",
         "icon_color": (148, 0, 211),
@@ -2762,22 +2787,27 @@ RUNTIME_SKILL_POOL = {
     # ===== Downtown Tree (2 skills) =====
     "downtown_gamble": {
         "name": "도박",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
-            1: "가챠 추가 1회 확률 25%",
-            2: "가챠 추가 1회 확률 50%",
-            3: "가챠 추가 1회 확률 75%",
+            1: "가챠 추가 1회 확률 10%",
+            2: "가챠 추가 1회 확률 20%",
+            3: "가챠 추가 1회 확률 30%",
+            4: "가챠 추가 1회 확률 40%",
+            5: "가챠 추가 1회 확률 50%",
         },
-        "detail": "도박꾼의 행운으로 가챠가 추가로 돌아갈 수 있습니다.",
+        "detail": "도박꾼의 행운으로 각 가챠마다 추가 뽑기 확률이 생깁니다. 연속뽑기시 각각 적용됩니다.",
         "icon_color": (255, 0, 0),
         "tree": "downtown"
     },
     "downtown_treasure_map": {
         "name": "보물지도",
-        "max_level": 2,
+        "max_level": 5,
         "descriptions": {
             1: "전설 확률 +175%",
             2: "전설 확률 +350%",
+            3: "전설 확률 +525%",
+            4: "전설 확률 +700%",
+            5: "전설 확률 +875%",
         },
         "detail": "보물지도로 전설 아이템을 더 쉽게 찾을 수 있습니다.",
         "icon_color": (255, 223, 0),
@@ -2789,11 +2819,13 @@ RUNTIME_SKILL_POOL = {
 SMASHER_EXCLUSIVE_SKILLS = {
     "dash_acceleration": {
         "name": "버스트업",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
             1: "대쉬시 패들 크기 100% 증가",
             2: "대쉬시 패들 크기 200% 증가",
             3: "대쉬시 패들 크기 300% 증가",
+            4: "대쉬시 패들 크기 400% 증가",
+            5: "대쉬시 패들 크기 500% 증가",
         },
         "detail": "대쉬할 때 패들 크기가 크게 증가하여 강력한 리턴이 가능합니다.",
         "icon_color": (255, 100, 50),
@@ -2802,10 +2834,13 @@ SMASHER_EXCLUSIVE_SKILLS = {
     },
     "dash_spirit": {
         "name": "대쉬 스피릿",
-        "max_level": 2,
+        "max_level": 5,
         "descriptions": {
-            1: "대쉬시 35% 확률로 레이저 잔상",
-            2: "대쉬시 50% 확률로 레이저 잔상",
+            1: "대쉬시 10% 확률로 레이저 잔상",
+            2: "대쉬시 20% 확률로 레이저 잔상",
+            3: "대쉬시 30% 확률로 레이저 잔상",
+            4: "대쉬시 40% 확률로 레이저 잔상",
+            5: "대쉬시 50% 확률로 레이저 잔상",
         },
         "detail": "대쉬 시 확률적으로 레이저 잔상이 생성되어 추가 데미지를 줍니다.",
         "icon_color": (0, 255, 255),
@@ -2818,12 +2853,13 @@ SMASHER_EXCLUSIVE_SKILLS = {
 OPTIMUS_EXCLUSIVE_SKILLS = {
     "mecha_chain": {
         "name": "메카체인",
-        "max_level": 4,
+        "max_level": 5,
         "descriptions": {
             1: "게이지 감소율 10% 감소",
             2: "게이지 감소율 20% 감소",
             3: "게이지 감소율 30% 감소",
             4: "게이지 감소율 40% 감소",
+            5: "게이지 감소율 50% 감소",
         },
         "detail": "옵티머스의 에너지 효율을 높여 게이지 감소율이 줄어듭니다.",
         "icon_color": (100, 200, 255),
@@ -2832,12 +2868,13 @@ OPTIMUS_EXCLUSIVE_SKILLS = {
     },
     "mecha_charge": {
         "name": "메카차지",
-        "max_level": 4,
+        "max_level": 5,
         "descriptions": {
             1: "충전량 +10%",
             2: "충전량 +20%",
             3: "충전량 +30%",
             4: "충전량 +40%",
+            5: "충전량 +50%",
         },
         "detail": "옵티머스의 핵심 시스템을 업그레이드하여 ㄴ키 홀드 시 게이지 충전 속도가 증가합니다.",
         "icon_color": (255, 220, 50),
@@ -2846,12 +2883,13 @@ OPTIMUS_EXCLUSIVE_SKILLS = {
     },
     "mecha_bulk": {
         "name": "메카벌크",
-        "max_level": 4,
+        "max_level": 5,
         "descriptions": {
             1: "패들 +5%",
             2: "패들 +10%",
             3: "패들 +15%",
             4: "패들 +20%",
+            5: "패들 +25%",
         },
         "detail": "옵티머스의 프레임을 강화하여 패들 크기가 증가합니다.",
         "icon_color": (180, 100, 255),
@@ -2860,11 +2898,13 @@ OPTIMUS_EXCLUSIVE_SKILLS = {
     },
     "emergency_charge": {
         "name": "비상충전",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
-            1: "ㄴ더블탭 50%",
-            2: "ㄴ더블탭 70%",
-            3: "ㄴ더블탭 100%",
+            1: "ㄴ더블탭 20%",
+            2: "ㄴ더블탭 40%",
+            3: "ㄴ더블탭 60%",
+            4: "ㄴ더블탭 80%",
+            5: "ㄴ더블탭 100%",
         },
         "detail": "위기 상황에서 ㄴ키를 빠르게 두 번 누르면 즉시 게이지를 충전합니다. 스테이지당 1회만 사용 가능합니다.",
         "icon_color": (255, 100, 100),
@@ -2873,11 +2913,13 @@ OPTIMUS_EXCLUSIVE_SKILLS = {
     },
     "reboot_enhance": {
         "name": "재부팅강화",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
-            1: "스턴 -30%",
-            2: "스턴 -60%",
-            3: "스턴 -90%",
+            1: "스턴 -18%",
+            2: "스턴 -36%",
+            3: "스턴 -54%",
+            4: "스턴 -72%",
+            5: "스턴 -90%",
         },
         "detail": "충전 완료 후 발생하는 시스템 재부팅 시간을 단축합니다.",
         "icon_color": (100, 255, 150),
@@ -2897,11 +2939,13 @@ OPTIMUS_EXCLUSIVE_SKILLS = {
     },
     "bug_update": {
         "name": "버그업데이트",
-        "max_level": 3,
+        "max_level": 5,
         "descriptions": {
-            1: "25% 재선택",
-            2: "35% 재선택",
-            3: "45% 재선택",
+            1: "9% 재선택",
+            2: "18% 재선택",
+            3: "27% 재선택",
+            4: "36% 재선택",
+            5: "45% 재선택",
         },
         "detail": "시스템의 예기치 않은 버그로 인해 스킬 선택 후 확률적으로 한 번 더 선택창이 나타납니다.",
         "icon_color": (150, 255, 50),
@@ -2910,12 +2954,13 @@ OPTIMUS_EXCLUSIVE_SKILLS = {
     },
     "elec_pad": {
         "name": "일렉패드",
-        "max_level": 4,
+        "max_level": 5,
         "descriptions": {
             1: "5% 게이지+40",
             2: "7% 게이지+50",
             3: "9% 게이지+60",
             4: "11% 게이지+70",
+            5: "13% 게이지+80",
         },
         "detail": "패들에 전기 충격 패드를 장착합니다. 공을 타격할 때마다 확률적으로 게이지가 즉시 충전됩니다.",
         "icon_color": (50, 200, 255),
@@ -2939,8 +2984,8 @@ OPTIMUS_EXCLUSIVE_SKILLS = {
 INSTANT_RUNTIME_SKILLS = {
     "instant_gauge_full": {
         "name": "풀게이징",
-        "description": "즉시 대쉬 게이지를 모두 회복합니다",
-        "detail": "긴급 상황에서 사용할 수 있는 에너지 팩입니다. 즉시 대쉬 게이지를 최대로 채웁니다.",
+        "description": "모든 게이지/쿨타임 즉시 회복",
+        "detail": "긴급 상황에서 사용할 수 있는 만능 에너지 팩입니다. 스페셜 게이지, 대쉬 토큰, 아이템 쿨타임을 모두 초기화합니다.",
         "icon_color": (100, 255, 200),
         "tree": "instant",
         "is_instant": True  # 단발성 스킬 표시
@@ -2952,6 +2997,16 @@ INSTANT_RUNTIME_SKILLS = {
         "icon_color": (255, 100, 255),
         "tree": "instant",
         "is_instant": True
+    },
+    "instant_treasure_hunt": {
+        "name": "보물탐색",
+        "description": "전설 아이템 1개를 즉시 획득합니다",
+        "detail": "고대의 보물지도를 따라 전설의 아이템을 발견합니다! 랜덤한 전설 아이템 1개를 즉시 획득합니다.",
+        "icon_color": (255, 215, 0),  # 금색
+        "tree": "instant",
+        "is_instant": True,
+        "is_unique": True,  # 유니크 스킬 (화려한 아이콘)
+        "rarity": "legendary"  # 희귀도
     },
 }
 
@@ -3911,8 +3966,13 @@ def on_starpoint_collected(amount: int = 1):
         runtime_skill_choice_pending = True
 
 
-def get_runtime_skill_choices(character_type: str) -> list:
-    """캐릭터에 맞는 3개 스킬 선택지 생성"""
+def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False) -> list:
+    """캐릭터에 맞는 3개 스킬 선택지 생성
+
+    Args:
+        character_type: 캐릭터 타입 (smasher, optimus 등)
+        exclude_instant: True면 즉시형 스킬(풀게이징, 차원개방 등) 제외 (스테이지 클리어 보상용)
+    """
     global runtime_skill_levels
     import random
 
@@ -3990,21 +4050,23 @@ def get_runtime_skill_choices(character_type: str) -> list:
                 available.append(choice)
 
     # 단발성 스킬 추가 (모든 캐릭터 공용, 항상 선택 가능)
-    for skill_id, skill_data in INSTANT_RUNTIME_SKILLS.items():
-        choice = {
-            "id": skill_id,
-            "name": skill_data["name"],
-            "description": skill_data["description"],
-            "detail": skill_data.get("detail", ""),
-            "icon_color": skill_data["icon_color"],
-            "current_level": 0,
-            "next_level": 0,
-            "max_level": 0,
-            "tree": skill_data.get("tree", "instant"),
-            "character_restriction": None,
-            "is_instant": True  # 단발성 스킬 표시
-        }
-        available.append(choice)
+    # exclude_instant=True면 스테이지 클리어 보상이므로 즉시형 스킬 제외
+    if not exclude_instant:
+        for skill_id, skill_data in INSTANT_RUNTIME_SKILLS.items():
+            choice = {
+                "id": skill_id,
+                "name": skill_data["name"],
+                "description": skill_data["description"],
+                "detail": skill_data.get("detail", ""),
+                "icon_color": skill_data["icon_color"],
+                "current_level": 0,
+                "next_level": 0,
+                "max_level": 0,
+                "tree": skill_data.get("tree", "instant"),
+                "character_restriction": None,
+                "is_instant": True  # 단발성 스킬 표시
+            }
+            available.append(choice)
 
     # 3개 랜덤 선택
     if len(available) > 3:
@@ -4075,10 +4137,10 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
 def apply_instant_skill_effect(skill_id: str) -> bool:
     """단발성 스킬 효과 즉시 적용"""
     global rolling_charges, token_states, charging_token_index, _token_charge_states
-    global special_gauge
+    global special_gauge, last_item_use_time, active_item_slot
 
     if skill_id == "instant_gauge_full":
-        # 풀게이징: 스페셜 게이지 최대 충전 + 대쉬 토큰 전부 충전
+        # 풀게이징: 스페셜 게이지 최대 충전 + 대쉬 토큰 전부 충전 + 아이템 쿨타임 초기화
         try:
             # 1. 스페셜 게이지 최대치로 충전
             current_max = get_max_gauge() if 'get_max_gauge' in dir() else globals().get("special_gauge_max", 500)
@@ -4100,9 +4162,19 @@ def apply_instant_skill_effect(skill_id: str) -> bool:
             if '_token_charge_states' in globals():
                 _token_charge_states.clear()
                 for i in range(max_charges):
-                    _token_charge_states.append(1.0)
+                    _token_charge_states.append({"timer": 0, "max_time": _UI_CHARGE_MAX, "ratio": 1.0})
 
             print(f"[InstantSkill] 풀게이징! 대쉬 토큰 {old_tokens} → {max_charges}개 충전!")
+
+            # 3. 엑티브 아이템 쿨타임 초기화
+            last_item_use_time = 0  # 전역 쿨타임 리셋
+            # 개별 아이템 쿨타임도 리셋
+            if 'active_item_slot' in globals() and active_item_slot:
+                for item in active_item_slot:
+                    if item and "last_use" in item:
+                        item["last_use"] = 0
+            print(f"[InstantSkill] 풀게이징! 엑티브 아이템 쿨타임 초기화!")
+
         except Exception as e:
             print(f"[InstantSkill] 풀게이징 오류: {e}")
         return True
@@ -4111,6 +4183,71 @@ def apply_instant_skill_effect(skill_id: str) -> bool:
         # 차원개방 - 판도라의 상자와 동일한 효과
         activate_pandora_box()
         print(f"[InstantSkill] 차원개방! 판도라의 상자 효과 발동")
+        return True
+
+    elif skill_id == "instant_treasure_hunt":
+        # 보물탐색 - 랜덤 전설 아이템 1개 획득
+        try:
+            # 전설 아이템 목록 (아직 획득하지 않은 것만)
+            legendary_pool = []
+            all_legendaries = ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel"]
+
+            for legend_name in all_legendaries:
+                # 이미 획득한 전설인지 확인
+                obtained_flag = f"{legend_name}_obtained"
+                already_obtained = False
+
+                # items 모듈에서 확인
+                if hasattr(items, obtained_flag):
+                    already_obtained = getattr(items, obtained_flag, False)
+
+                # 전역 변수에서도 확인
+                if not already_obtained and obtained_flag in globals():
+                    already_obtained = globals()[obtained_flag]
+
+                if not already_obtained:
+                    legendary_pool.append(legend_name)
+
+            if legendary_pool:
+                # 랜덤 선택
+                selected_legend = random.choice(legendary_pool)
+                print(f"[InstantSkill] 보물탐색! 전설 아이템 '{selected_legend}' 발견!")
+
+                # 전설 아이템 데이터 생성
+                legend_item_data = {
+                    "name": selected_legend,
+                    "type": "legendary",
+                    "color": (255, 215, 0),  # 금색
+                    "effect": selected_legend,
+                }
+
+                # 패시브 아이템으로 저장 (store_passive_item 호출)
+                store_passive_item(legend_item_data)
+
+                # 획득 플래그 설정
+                obtained_flag = f"{selected_legend}_obtained"
+                if hasattr(items, obtained_flag):
+                    setattr(items, obtained_flag, True)
+                globals()[obtained_flag] = True
+
+                # 전설 획득 이펙트 표시
+                try:
+                    from effects.legendary_acquisition import show_legendary_acquisition_effect
+                    show_legendary_acquisition_effect(screen, selected_legend)
+                except Exception as e:
+                    print(f"[InstantSkill] 전설 획득 이펙트 오류: {e}")
+
+            else:
+                print(f"[InstantSkill] 보물탐색! 모든 전설 아이템을 이미 보유 중입니다.")
+                # 대신 스타포인트 보상
+                global starpoint_for_skills
+                starpoint_for_skills += 5
+                print(f"[InstantSkill] 대신 스타포인트 +5 획득! (총: {starpoint_for_skills})")
+
+        except Exception as e:
+            print(f"[InstantSkill] 보물탐색 오류: {e}")
+            import traceback
+            traceback.print_exc()
         return True
 
     return False
@@ -4139,26 +4276,26 @@ def get_runtime_skill_bonus(skill_id: str) -> float:
             "item_cooldown_mastery": level * 0.14,  # 쿨타임 14%/레벨 감소
             "item_gauge_mastery": level * 12,       # 게이지 +12/레벨
             "item_bag_expansion": level,            # 슬롯 +1/레벨
-            "item_caffeine": level * 0.25,          # 지속시간 25%/레벨 증가
-            "item_polish": level * 0.30,            # 롤옵션 효율 30%/레벨 증가
-            "item_recycle": level * 0.20,           # 유지 확률 20%/레벨
+            "item_caffeine": level * 0.20,          # 지속시간 20%/레벨 증가
+            "item_polish": level * 0.05,            # 롤옵션 효율 5%/레벨 증가
+            "item_recycle": level * 0.10,           # 유지 확률 10%/레벨
 
             # 광장 트리
-            "downtown_gamble": level * 0.25,        # 추가 가챠 확률 25%/레벨
+            "downtown_gamble": level * 0.10,        # 추가 가챠 확률 10%/레벨
             "downtown_treasure_map": level * 1.75,  # 전설 확률 +175%/레벨
 
             # 스매셔 전용
             "dash_acceleration": level * 1.0,       # 패들 크기 100%/레벨 증가
-            "dash_spirit": 0.35 + (level - 1) * 0.15 if level > 0 else 0,  # 35%/50%
+            "dash_spirit": level * 0.10,            # 레이저 잔상 10%/레벨
 
             # 옵티머스 전용
             "mecha_chain": level * 0.10,            # 게이지 감소율 10%/레벨 감소
             "mecha_charge": level * 0.10,           # 충전량 10%/레벨 증가
             "mecha_bulk": level * 0.05,             # 패들 5%/레벨 증가
-            "emergency_charge": 0.5 + (level - 1) * 0.25 if level > 0 else 0,  # 50%/70%/100%
-            "reboot_enhance": level * 0.30,         # 스턴 30%/레벨 감소
-            "bug_update": 0.25 + (level - 1) * 0.10 if level > 0 else 0,  # 25%/35%/45%
-            "elec_pad": (0.05 + (level - 1) * 0.02, 40 + (level - 1) * 10) if level > 0 else (0, 0),  # (확률, 게이지)
+            "emergency_charge": level * 0.20,       # 더블탭 충전량 20%/레벨
+            "reboot_enhance": level * 0.18,         # 스턴 18%/레벨 감소
+            "bug_update": level * 0.09,             # 재선택 9%/레벨
+            "elec_pad": (0.03 + level * 0.02, 30 + level * 10) if level > 0 else (0, 0),  # (확률, 게이지)
         }
         runtime_bonus = effects.get(skill_id, 0.0)
 
@@ -5422,6 +5559,88 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         # 중앙 빛
         pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), int(1.5*scale))
 
+    elif skill_id == "instant_treasure_hunt":
+        # 보물탐색 (유니크 스킬) - 화려한 보물지도 + 전설 아이템 효과
+        import time as time_module
+        anim_time = time_module.time() * 3  # 애니메이션 시간
+
+        # 외곽 황금빛 글로우 (펄스 애니메이션)
+        pulse = 0.5 + 0.5 * math.sin(anim_time)
+        for i in range(4):
+            glow_alpha = int(150 - i * 30 + pulse * 50)
+            glow_color = (255, 200 + int(55 * pulse), 50 + i * 20)
+            pygame.draw.circle(surface, glow_color, (icon_cx, icon_cy), int((12-i)*scale), max(1, int(2*scale)))
+
+        # 보물지도 배경 (오래된 양피지)
+        map_points = [
+            (icon_cx - int(8*scale), icon_cy - int(6*scale)),
+            (icon_cx + int(8*scale), icon_cy - int(6*scale)),
+            (icon_cx + int(7*scale), icon_cy + int(7*scale)),
+            (icon_cx - int(7*scale), icon_cy + int(7*scale))
+        ]
+        # 지도 그림자
+        shadow_points = [(p[0]+2, p[1]+2) for p in map_points]
+        pygame.draw.polygon(surface, (80, 60, 30), shadow_points)
+        # 지도 본체
+        pygame.draw.polygon(surface, (220, 190, 140), map_points)
+        pygame.draw.polygon(surface, (180, 140, 80), map_points, max(1, int(2*scale)))
+
+        # 지도 위 점선 경로
+        for i in range(5):
+            x1 = icon_cx - int(5*scale) + i * int(2*scale)
+            y1 = icon_cy - int(3*scale) + int(math.sin(i * 1.5) * 2 * scale)
+            if i < 4:
+                x2 = icon_cx - int(5*scale) + (i+1) * int(2*scale)
+                y2 = icon_cy - int(3*scale) + int(math.sin((i+1) * 1.5) * 2 * scale)
+                pygame.draw.line(surface, (100, 60, 40), (x1, y1), (x2, y2), 1)
+
+        # X 마크 (보물 위치) - 반짝임 효과
+        x_brightness = int(200 + 55 * math.sin(anim_time * 2))
+        pygame.draw.line(surface, (x_brightness, 50, 50),
+                        (icon_cx + int(2*scale), icon_cy + int(1*scale)),
+                        (icon_cx + int(5*scale), icon_cy + int(4*scale)), max(1, int(2*scale)))
+        pygame.draw.line(surface, (x_brightness, 50, 50),
+                        (icon_cx + int(5*scale), icon_cy + int(1*scale)),
+                        (icon_cx + int(2*scale), icon_cy + int(4*scale)), max(1, int(2*scale)))
+
+        # 전설 아이템 상징 - 회전하는 별 (애니메이션)
+        star_angle = anim_time * 0.5
+        star_cx = icon_cx - int(3*scale)
+        star_cy = icon_cy - int(1*scale)
+        star_size = int(4*scale)
+
+        # 별 모양 그리기 (5각 별)
+        star_points = []
+        for i in range(10):
+            angle = star_angle + i * math.pi / 5
+            r = star_size if i % 2 == 0 else star_size // 2
+            px = star_cx + int(math.cos(angle - math.pi/2) * r)
+            py = star_cy + int(math.sin(angle - math.pi/2) * r)
+            star_points.append((px, py))
+
+        if len(star_points) >= 3:
+            # 별 글로우
+            pygame.draw.polygon(surface, (255, 255, 200), star_points)
+            pygame.draw.polygon(surface, (255, 215, 0), star_points, 1)
+
+        # 반짝이는 파티클 (랜덤 위치에 작은 빛)
+        sparkle_phase = int(anim_time * 2) % 4
+        sparkle_positions = [
+            (icon_cx - int(6*scale), icon_cy - int(4*scale)),
+            (icon_cx + int(6*scale), icon_cy - int(3*scale)),
+            (icon_cx - int(4*scale), icon_cy + int(5*scale)),
+            (icon_cx + int(5*scale), icon_cy + int(6*scale))
+        ]
+        for idx, pos in enumerate(sparkle_positions):
+            if (idx + sparkle_phase) % 4 < 2:
+                sparkle_size = int(2*scale) if idx == sparkle_phase else int(1*scale)
+                pygame.draw.circle(surface, (255, 255, 220), pos, sparkle_size)
+
+        # 중앙 빛나는 보석 효과
+        gem_glow = int(200 + 55 * math.sin(anim_time * 1.5))
+        pygame.draw.circle(surface, (gem_glow, gem_glow, 150), (icon_cx, icon_cy + int(2*scale)), int(2*scale))
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx - int(1*scale), icon_cy + int(1*scale)), int(1*scale))
+
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
         symbol = skill.get("name", "?")[0] if skill.get("name") else "?"
@@ -5434,10 +5653,13 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
             pass
 
 
-def show_runtime_skill_choices() -> str | None:
+def show_runtime_skill_choices(exclude_instant: bool = False) -> str | None:
     """
     Runtime skill choice UI - shows 3 skill options when starpoints trigger a choice.
     Similar to show_stage_clear_choices() but for all characters.
+
+    Args:
+        exclude_instant: True면 즉시형 스킬(풀게이징, 차원개방 등) 제외 (스테이지 클리어 보상용)
     """
     global runtime_skill_choice_pending, pending_skill_choices
     global runtime_skill_levels
@@ -5446,7 +5668,7 @@ def show_runtime_skill_choices() -> str | None:
     character_type = globals().get("selected_character_type", "normal")
 
     # Get available choices
-    choices = get_runtime_skill_choices(character_type)
+    choices = get_runtime_skill_choices(character_type, exclude_instant=exclude_instant)
 
     if not choices:
         pending_skill_choices = max(0, pending_skill_choices - 1)
@@ -5655,7 +5877,42 @@ def show_runtime_skill_choices() -> str | None:
 
             # Card style
             icon_color = choice.get("icon_color", (100, 150, 255))
-            if is_selected:
+            is_unique_skill = choice.get("is_unique", False)
+            skill_rarity = choice.get("rarity", "common")
+
+            # 유니크/전설 스킬 특별 효과
+            if is_unique_skill or skill_rarity == "legendary":
+                # 황금빛 펄스 글로우 효과
+                pulse = 0.5 + 0.5 * math.sin(frame_count * 0.08)
+                gold_glow = int(180 + 75 * pulse)
+
+                # 외곽 황금빛 글로우 (항상 표시)
+                for offset in range(8, 0, -1):
+                    glow_rect = pygame.Rect(offset-2, offset-2, scaled_width - (offset-2) * 2, scaled_height - (offset-2) * 2)
+                    alpha = int(min(card_alpha, 60 - offset * 5 + pulse * 30))
+                    glow_surf = pygame.Surface((scaled_width, scaled_height), pygame.SRCALPHA)
+                    glow_color = (255, gold_glow, 50, max(0, alpha))
+                    pygame.draw.rect(glow_surf, glow_color, glow_rect, border_radius=14)
+                    card_surface.blit(glow_surf, (0, 0))
+
+                if is_selected:
+                    # 선택 시 더 강렬한 황금빛 글로우
+                    glow_intensity = int(50 + 40 * math.sin(frame_count * 0.15))
+                    for offset in range(6, 0, -1):
+                        glow_rect = pygame.Rect(offset, offset, scaled_width - offset * 2, scaled_height - offset * 2)
+                        alpha = min(card_alpha, 120 - offset * 15)
+                        glow_surf = pygame.Surface((scaled_width, scaled_height), pygame.SRCALPHA)
+                        pygame.draw.rect(glow_surf, (255, 215 + glow_intensity//2, 0, alpha), glow_rect, border_radius=12)
+                        card_surface.blit(glow_surf, (0, 0))
+
+                    bg_color = (50, 45, 20, min(card_alpha, 250))  # 황금빛 배경
+                    border_color = (255, 215, 0)  # 금색 테두리
+                    border_width = 4
+                else:
+                    bg_color = (40, 38, 20, min(card_alpha, 220))  # 어두운 황금빛 배경
+                    border_color = (200, 170, 50)
+                    border_width = 3
+            elif is_selected:
                 glow_intensity = int(30 + 25 * math.sin(frame_count * 0.12))
                 glow_color = (
                     min(255, icon_color[0] + glow_intensity),
@@ -5681,6 +5938,23 @@ def show_runtime_skill_choices() -> str | None:
             card_rect = pygame.Rect(0, 0, scaled_width, scaled_height)
             pygame.draw.rect(card_surface, bg_color, card_rect, border_radius=12)
             pygame.draw.rect(card_surface, border_color, card_rect, border_width, border_radius=12)
+
+            # 유니크 스킬 반짝이는 파티클 효과
+            if is_unique_skill or skill_rarity == "legendary":
+                sparkle_phase = int(frame_count * 0.15) % 8
+                sparkle_positions = [
+                    (5, 5), (scaled_width - 8, 8),
+                    (8, scaled_height - 8), (scaled_width - 5, scaled_height - 5),
+                    (scaled_width // 2, 3), (3, scaled_height // 2),
+                    (scaled_width - 3, scaled_height // 2), (scaled_width // 2, scaled_height - 3)
+                ]
+                for idx, pos in enumerate(sparkle_positions):
+                    if (idx + sparkle_phase) % 8 < 3:
+                        sparkle_size = 3 if idx == sparkle_phase else 2
+                        sparkle_alpha = 200 if idx == sparkle_phase else 120
+                        sparkle_surf = pygame.Surface((sparkle_size*2, sparkle_size*2), pygame.SRCALPHA)
+                        pygame.draw.circle(sparkle_surf, (255, 255, 220, sparkle_alpha), (sparkle_size, sparkle_size), sparkle_size)
+                        card_surface.blit(sparkle_surf, (pos[0] - sparkle_size, pos[1] - sparkle_size))
 
             # Icon area
             icon_margin = 12
@@ -5711,7 +5985,12 @@ def show_runtime_skill_choices() -> str | None:
             is_instant = choice.get("is_instant", False)
 
             # Level display - 선택 시 적용될 레벨만 표시 (단발성은 "즉시" 표시)
-            if is_instant:
+            is_unique_display = choice.get("is_unique", False)
+            rarity_display = choice.get("rarity", "common")
+
+            if is_unique_display or rarity_display == "legendary":
+                level_text = "★전설"  # 유니크/전설 스킬 특별 표시
+            elif is_instant:
                 level_text = "즉시"
             elif max_level == -1:
                 level_text = "STACK"
@@ -5721,12 +6000,21 @@ def show_runtime_skill_choices() -> str | None:
             # Name (이름이 길면 축소)
             if len(name_text) > 5:
                 name_text = name_text[:5] + ".."
-            name_surface = name_font.render(name_text, True, (255, 255, 255))
+
+            # 유니크 스킬 이름은 금색으로 표시
+            if is_unique_display or rarity_display == "legendary":
+                name_color = (255, 215, 0)  # 금색
+            else:
+                name_color = (255, 255, 255)  # 흰색
+
+            name_surface = name_font.render(name_text, True, name_color)
             name_surface.set_alpha(card_alpha)
             card_surface.blit(name_surface, (text_x, 25))
 
             # Level
-            if is_instant:
+            if is_unique_display or rarity_display == "legendary":
+                level_color = (255, 200, 50)  # 황금색 (유니크/전설)
+            elif is_instant:
                 level_color = (100, 255, 200)  # 단발성은 청록색
             elif next_level <= max_level or max_level == -1:
                 level_color = (255, 200, 100)
@@ -9359,10 +9647,9 @@ def get_effective_item_spawn_multiplier():
             multiplier = academy.get_item_spawn_delay_multiplier()
         except Exception:
             multiplier = 1.0
-    # 런타임 스킬 보너스 (item_luck: 레벨당 -10%)
-    runtime_level = runtime_skill_levels.get("item_luck", 0)
-    runtime_bonus = runtime_level * 0.10
-    return max(0.3, multiplier - runtime_bonus)  # 최소 30%
+    # 런타임 스킬 보너스 (item_luck: get_runtime_skill_bonus 사용)
+    runtime_bonus = get_runtime_skill_bonus("item_luck")
+    return max(0.30, multiplier - runtime_bonus)  # 최소 30%
 
 
 def get_effective_caffeine_multiplier():
@@ -62580,6 +62867,418 @@ def show_stage_clear_choices() -> str | None:
     return None
 
 
+def show_perfect_victory_effect():
+    """
+    완벽한 승리 (5:0) 시 화려한 이펙트를 보여주는 함수
+    골든 파티클, 폭죽, 빛나는 텍스트 애니메이션
+    """
+    base_background = SCREEN.copy()
+    clock = pygame.time.Clock()
+
+    # 파티클 시스템
+    particles = []
+    fireworks = []
+    stars = []
+
+    # 초기 파티클 생성 (골든 빛)
+    for _ in range(80):
+        particles.append({
+            'x': random.randint(0, WIDTH),
+            'y': random.randint(HEIGHT, HEIGHT + 200),
+            'vx': random.uniform(-2, 2),
+            'vy': random.uniform(-8, -4),
+            'size': random.uniform(3, 8),
+            'alpha': random.randint(180, 255),
+            'color': random.choice([
+                (255, 215, 0),    # 골드
+                (255, 200, 50),   # 밝은 골드
+                (255, 180, 0),    # 오렌지 골드
+                (255, 255, 150),  # 밝은 노랑
+                (255, 100, 100),  # 빨강
+            ]),
+            'glow': random.randint(5, 15)
+        })
+
+    # 별 파티클 생성
+    for _ in range(30):
+        stars.append({
+            'x': random.randint(50, WIDTH - 50),
+            'y': random.randint(50, HEIGHT - 50),
+            'size': random.uniform(10, 25),
+            'alpha': 0,
+            'rotation': random.uniform(0, 360),
+            'rotation_speed': random.uniform(-3, 3),
+            'scale_phase': random.uniform(0, 6.28),
+            'delay': random.randint(0, 40)
+        })
+
+    # 폰트 설정
+    try:
+        title_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 72)
+        sub_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 36)
+    except Exception:
+        title_font = pygame.font.Font(None, 80)
+        sub_font = pygame.font.Font(None, 40)
+
+    # 사운드 효과
+    try:
+        victory_sound = sound_effects.get("VICTORY_FANFARE")
+        if victory_sound:
+            victory_sound.play()
+    except Exception:
+        pass
+
+    frame_count = 0
+    duration = 180  # 3초 (60fps)
+
+    while frame_count < duration:
+        frame_count += 1
+
+        # 이벤트 처리 (스킵 가능)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_z):
+                    frame_count = duration  # 스킵
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                frame_count = duration  # 클릭으로 스킵
+
+        # 배경 그리기
+        SCREEN.blit(base_background, (0, 0))
+
+        # 반투명 오버레이
+        overlay_alpha = min(180, frame_count * 4)
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 30, overlay_alpha))
+        SCREEN.blit(overlay, (0, 0))
+
+        # 폭죽 생성 (주기적으로)
+        if frame_count % 20 == 0 and frame_count < 120:
+            firework_x = random.randint(100, WIDTH - 100)
+            firework_y = random.randint(100, HEIGHT // 2)
+            firework_color = random.choice([
+                (255, 50, 50), (50, 255, 50), (50, 50, 255),
+                (255, 255, 50), (255, 50, 255), (50, 255, 255),
+                (255, 215, 0)
+            ])
+            for _ in range(40):
+                angle = random.uniform(0, 6.28)
+                speed = random.uniform(3, 10)
+                fireworks.append({
+                    'x': firework_x,
+                    'y': firework_y,
+                    'vx': math.cos(angle) * speed,
+                    'vy': math.sin(angle) * speed,
+                    'size': random.uniform(2, 5),
+                    'alpha': 255,
+                    'color': firework_color,
+                    'gravity': 0.15
+                })
+
+        # 파티클 업데이트 및 그리기
+        new_particles = []
+        for p in particles:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['vy'] += 0.05  # 약간의 중력
+            p['alpha'] -= 1.5
+
+            if p['alpha'] > 0 and p['y'] < HEIGHT + 50:
+                new_particles.append(p)
+
+                # 글로우 효과
+                glow_surf = pygame.Surface((int(p['glow'] * 4), int(p['glow'] * 4)), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (*p['color'][:3], int(p['alpha'] * 0.3)),
+                                 (int(p['glow'] * 2), int(p['glow'] * 2)), int(p['glow'] * 2))
+                SCREEN.blit(glow_surf, (int(p['x'] - p['glow'] * 2), int(p['y'] - p['glow'] * 2)))
+
+                # 파티클 본체
+                pygame.draw.circle(SCREEN, p['color'], (int(p['x']), int(p['y'])), int(p['size']))
+
+        particles = new_particles
+
+        # 새 파티클 추가 (지속적으로)
+        if frame_count < 120 and frame_count % 2 == 0:
+            for _ in range(3):
+                particles.append({
+                    'x': random.randint(0, WIDTH),
+                    'y': HEIGHT + 10,
+                    'vx': random.uniform(-1, 1),
+                    'vy': random.uniform(-6, -3),
+                    'size': random.uniform(2, 6),
+                    'alpha': random.randint(150, 255),
+                    'color': random.choice([
+                        (255, 215, 0), (255, 200, 50), (255, 180, 0)
+                    ]),
+                    'glow': random.randint(4, 10)
+                })
+
+        # 폭죽 업데이트 및 그리기
+        new_fireworks = []
+        for f in fireworks:
+            f['x'] += f['vx']
+            f['y'] += f['vy']
+            f['vy'] += f['gravity']
+            f['alpha'] -= 4
+
+            if f['alpha'] > 0:
+                new_fireworks.append(f)
+                pygame.draw.circle(SCREEN, (*f['color'][:3], int(f['alpha'])),
+                                 (int(f['x']), int(f['y'])), int(f['size']))
+        fireworks = new_fireworks
+
+        # 별 그리기
+        for star in stars:
+            if frame_count > star['delay']:
+                star['alpha'] = min(255, star['alpha'] + 8)
+                star['rotation'] += star['rotation_speed']
+                star['scale_phase'] += 0.1
+
+                scale = 1.0 + 0.3 * math.sin(star['scale_phase'])
+                size = int(star['size'] * scale)
+
+                if star['alpha'] > 0:
+                    # 별 모양 그리기
+                    star_surface = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
+                    cx, cy = size * 1.5, size * 1.5
+
+                    # 8각 별
+                    points = []
+                    for i in range(8):
+                        angle = math.radians(star['rotation'] + i * 45)
+                        r = size if i % 2 == 0 else size * 0.4
+                        points.append((cx + math.cos(angle) * r, cy + math.sin(angle) * r))
+
+                    pygame.draw.polygon(star_surface, (255, 215, 0, int(star['alpha'])), points)
+
+                    # 글로우
+                    glow_size = int(size * 1.5)
+                    pygame.draw.circle(star_surface, (255, 255, 200, int(star['alpha'] * 0.3)),
+                                     (int(cx), int(cy)), glow_size)
+
+                    SCREEN.blit(star_surface, (int(star['x'] - size * 1.5), int(star['y'] - size * 1.5)))
+
+        # 메인 텍스트
+        text_alpha = min(255, frame_count * 6)
+        text_scale = 1.0 + 0.05 * math.sin(frame_count * 0.1)
+
+        # 글로우 효과를 위한 여러 레이어
+        title_text = "완벽한 승리!"
+
+        # 외곽 글로우 (여러 번 그려서 효과)
+        for offset in range(3, 0, -1):
+            glow_alpha = int((text_alpha * 0.3) / offset)
+            glow_color = (255, 200, 50, glow_alpha)
+            for dx, dy in [(-offset, 0), (offset, 0), (0, -offset), (0, offset)]:
+                glow_surface = title_font.render(title_text, True, glow_color[:3])
+                glow_surface.set_alpha(glow_alpha)
+                glow_rect = glow_surface.get_rect(center=(WIDTH // 2 + dx, HEIGHT // 2 - 50 + dy))
+                SCREEN.blit(glow_surface, glow_rect)
+
+        # 메인 텍스트
+        title_surface = title_font.render(title_text, True, (255, 215, 0))
+        title_surface.set_alpha(text_alpha)
+        title_rect = title_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 50))
+        SCREEN.blit(title_surface, title_rect)
+
+        # 서브 텍스트
+        if frame_count > 30:
+            sub_alpha = min(255, (frame_count - 30) * 8)
+            sub_text = "PERFECT VICTORY"
+            sub_surface = sub_font.render(sub_text, True, (255, 255, 255))
+            sub_surface.set_alpha(sub_alpha)
+            sub_rect = sub_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
+            SCREEN.blit(sub_surface, sub_rect)
+
+            # 스킬 선택 횟수 안내
+            if frame_count > 60:
+                bonus_alpha = min(255, (frame_count - 60) * 6)
+                bonus_text = "런타임 스킬 3회 선택!"
+                bonus_surface = sub_font.render(bonus_text, True, (100, 255, 100))
+                bonus_surface.set_alpha(bonus_alpha)
+                bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 90))
+                SCREEN.blit(bonus_surface, bonus_rect)
+
+        pygame.display.flip()
+        clock.tick(60)
+
+
+def show_excellent_victory_effect():
+    """
+    우수한 승리 (5:1) 시 이펙트를 보여주는 함수
+    """
+    base_background = SCREEN.copy()
+    clock = pygame.time.Clock()
+
+    particles = []
+
+    # 파티클 생성 (파란색 계열)
+    for _ in range(50):
+        particles.append({
+            'x': random.randint(0, WIDTH),
+            'y': random.randint(HEIGHT, HEIGHT + 100),
+            'vx': random.uniform(-1.5, 1.5),
+            'vy': random.uniform(-6, -3),
+            'size': random.uniform(2, 6),
+            'alpha': random.randint(150, 255),
+            'color': random.choice([
+                (100, 200, 255),  # 하늘색
+                (50, 150, 255),   # 파랑
+                (150, 220, 255),  # 밝은 파랑
+                (200, 230, 255),  # 연한 파랑
+            ])
+        })
+
+    try:
+        title_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 60)
+        sub_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 32)
+    except Exception:
+        title_font = pygame.font.Font(None, 68)
+        sub_font = pygame.font.Font(None, 36)
+
+    frame_count = 0
+    duration = 120  # 2초
+
+    while frame_count < duration:
+        frame_count += 1
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+                frame_count = duration
+
+        SCREEN.blit(base_background, (0, 0))
+
+        overlay_alpha = min(150, frame_count * 4)
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 20, 40, overlay_alpha))
+        SCREEN.blit(overlay, (0, 0))
+
+        # 파티클 업데이트
+        new_particles = []
+        for p in particles:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['vy'] += 0.03
+            p['alpha'] -= 2
+
+            if p['alpha'] > 0 and p['y'] < HEIGHT + 50:
+                new_particles.append(p)
+                pygame.draw.circle(SCREEN, (*p['color'][:3], int(p['alpha'])),
+                                 (int(p['x']), int(p['y'])), int(p['size']))
+        particles = new_particles
+
+        # 새 파티클 추가
+        if frame_count < 80 and frame_count % 3 == 0:
+            for _ in range(2):
+                particles.append({
+                    'x': random.randint(0, WIDTH),
+                    'y': HEIGHT + 10,
+                    'vx': random.uniform(-1, 1),
+                    'vy': random.uniform(-5, -2),
+                    'size': random.uniform(2, 5),
+                    'alpha': random.randint(120, 220),
+                    'color': random.choice([
+                        (100, 200, 255), (50, 150, 255), (150, 220, 255)
+                    ])
+                })
+
+        # 텍스트
+        text_alpha = min(255, frame_count * 6)
+
+        title_text = "우수한 승리!"
+        title_surface = title_font.render(title_text, True, (100, 200, 255))
+        title_surface.set_alpha(text_alpha)
+        title_rect = title_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 40))
+        SCREEN.blit(title_surface, title_rect)
+
+        if frame_count > 20:
+            sub_alpha = min(255, (frame_count - 20) * 8)
+            sub_text = "EXCELLENT VICTORY"
+            sub_surface = sub_font.render(sub_text, True, (200, 230, 255))
+            sub_surface.set_alpha(sub_alpha)
+            sub_rect = sub_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 20))
+            SCREEN.blit(sub_surface, sub_rect)
+
+            if frame_count > 40:
+                bonus_alpha = min(255, (frame_count - 40) * 6)
+                bonus_text = "런타임 스킬 2회 선택!"
+                bonus_surface = sub_font.render(bonus_text, True, (150, 255, 200))
+                bonus_surface.set_alpha(bonus_alpha)
+                bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 70))
+                SCREEN.blit(bonus_surface, bonus_rect)
+
+        pygame.display.flip()
+        clock.tick(60)
+
+
+def show_normal_victory_effect():
+    """
+    일반 승리 (5:2) 시 간단한 이펙트
+    """
+    base_background = SCREEN.copy()
+    clock = pygame.time.Clock()
+
+    try:
+        title_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 52)
+        sub_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 28)
+    except Exception:
+        title_font = pygame.font.Font(None, 58)
+        sub_font = pygame.font.Font(None, 32)
+
+    frame_count = 0
+    duration = 90  # 1.5초
+
+    while frame_count < duration:
+        frame_count += 1
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+                frame_count = duration
+
+        SCREEN.blit(base_background, (0, 0))
+
+        overlay_alpha = min(120, frame_count * 4)
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((20, 30, 20, overlay_alpha))
+        SCREEN.blit(overlay, (0, 0))
+
+        # 텍스트
+        text_alpha = min(255, frame_count * 6)
+
+        title_text = "승리!"
+        title_surface = title_font.render(title_text, True, (150, 255, 150))
+        title_surface.set_alpha(text_alpha)
+        title_rect = title_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 30))
+        SCREEN.blit(title_surface, title_rect)
+
+        if frame_count > 15:
+            sub_alpha = min(255, (frame_count - 15) * 8)
+            sub_text = "VICTORY"
+            sub_surface = sub_font.render(sub_text, True, (200, 255, 200))
+            sub_surface.set_alpha(sub_alpha)
+            sub_rect = sub_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 20))
+            SCREEN.blit(sub_surface, sub_rect)
+
+            if frame_count > 30:
+                bonus_alpha = min(255, (frame_count - 30) * 6)
+                bonus_text = "런타임 스킬 1회 선택!"
+                bonus_surface = sub_font.render(bonus_text, True, (180, 255, 180))
+                bonus_surface.set_alpha(bonus_alpha)
+                bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 60))
+                SCREEN.blit(bonus_surface, bonus_rect)
+
+        pygame.display.flip()
+        clock.tick(60)
+
+
 def show_victory_screen(stage_cleared, reward):
     global trade_point_collected, trade_point_system
     global stage3_hearts_collected, stage4_crows_collected
@@ -89541,6 +90240,39 @@ def show_result(won):
         SCREEN.fill(BLACK)
         pygame.display.flip()
         pygame.time.delay(300)
+
+        # ========== 승리 타입에 따른 이펙트 및 런타임 스킬 선택 ==========
+        # 스킬 선택 횟수 결정 (점수에 따라)
+        skill_selection_count = 0
+        if final_round_wins == 5 and final_round_losses == 0:
+            # 완벽한 승리 (5:0) - 3회 선택
+            skill_selection_count = 3
+            show_perfect_victory_effect()
+            print(f"[Victory] 완벽한 승리! 런타임 스킬 {skill_selection_count}회 선택")
+        elif final_round_wins == 5 and final_round_losses == 1:
+            # 우수한 승리 (5:1) - 2회 선택
+            skill_selection_count = 2
+            show_excellent_victory_effect()
+            print(f"[Victory] 우수한 승리! 런타임 스킬 {skill_selection_count}회 선택")
+        elif final_round_wins == 5 and final_round_losses == 2:
+            # 일반 승리 (5:2) - 1회 선택
+            skill_selection_count = 1
+            show_normal_victory_effect()
+            print(f"[Victory] 일반 승리! 런타임 스킬 {skill_selection_count}회 선택")
+        else:
+            # 그 외 (듀스 등) - 1회 선택
+            skill_selection_count = 1
+            print(f"[Victory] 승리! 런타임 스킬 {skill_selection_count}회 선택")
+
+        # 런타임 스킬 선택 화면 호출 (횟수만큼 반복)
+        # exclude_instant=True: 스테이지 클리어 보상이므로 즉시형 스킬(풀게이징, 차원개방) 제외
+        # 주의: show_runtime_skill_choices 내부에서 이미 apply_runtime_skill_effect를 호출함
+        for i in range(skill_selection_count):
+            print(f"[Victory] 런타임 스킬 선택 {i + 1}/{skill_selection_count}")
+            selected_skill = show_runtime_skill_choices(exclude_instant=True)
+            if selected_skill:
+                print(f"[Victory] 스킬 선택됨: {selected_skill}")
+
         #  뽑기 시작
         # 사용 가능한 아이템들 생성
         available_items = []
@@ -97783,12 +98515,22 @@ def show_character_info(background_surface=None):
             for skill_id, skill_data in pool.items():
                 level = runtime_skill_levels.get(skill_id, 0)
                 if level > 0:
+                    # 레벨이 max_level을 초과하면 max_level의 description 사용
+                    max_lvl = skill_data["max_level"]
+                    desc_level = level if level <= max_lvl or max_lvl == -1 else max_lvl
+                    description = skill_data["descriptions"].get(desc_level, "")
+                    # 레벨이 max_level 초과 시 동적으로 설명 생성
+                    if level > max_lvl and max_lvl > 0 and not description:
+                        # descriptions에서 가장 큰 키의 값을 사용
+                        if skill_data["descriptions"]:
+                            max_key = max(skill_data["descriptions"].keys())
+                            description = skill_data["descriptions"].get(max_key, "")
                     acquired_skills.append({
                         "id": skill_id,
                         "name": skill_data["name"],
                         "level": level,
                         "max_level": skill_data["max_level"],
-                        "description": skill_data["descriptions"].get(level, ""),
+                        "description": description,
                         "detail": skill_data.get("detail", ""),
                         "icon_color": skill_data["icon_color"],
                     })

@@ -1742,20 +1742,41 @@ def run_multi_gacha(
     spend_stars=None,
     legendary_bonus=None,
 ):
-    """연속 뽑기 실행 함수 - 여러 번 뽑기를 한 번에 실행하고 결과를 한꺼번에 표시"""
+    """연속 뽑기 실행 함수 - 여러 번 뽑기를 한 번에 실행하고 결과를 한꺼번에 표시
+
+    도박 스킬: 각 뽑기마다 도박 확률로 추가 뽑기를 얻을 수 있음
+    """
     global gacha_phase, gacha_spinning, gacha_result, gacha_start_time, gacha_active, gacha_spin_timer
 
     if legendary_bonus is None:
         legendary_bonus = gacha_legendary_bonus
 
+    # 도박 스킬 확률 가져오기
+    gamble_chance = 0.0
+    try:
+        from pingfighter import get_runtime_skill_bonus
+        gamble_chance = get_runtime_skill_bonus("downtown_gamble")
+    except Exception:
+        pass
+
     # 연속 뽑기 결과 저장 리스트
     multi_results = []
+    bonus_count = 0  # 도박으로 추가된 뽑기 수
 
     # gacha_count 만큼 아이템 뽑기 (애니메이션 없이 즉시 결정)
     for _ in range(gacha_count):
         if gacha_items:
             result = random.choice(gacha_items)
             multi_results.append(result)
+
+            # 도박 스킬: 각 뽑기마다 추가 뽑기 확률 체크
+            if gamble_chance > 0 and random.random() < gamble_chance:
+                bonus_result = random.choice(gacha_items)
+                multi_results.append(bonus_result)
+                bonus_count += 1
+
+    if bonus_count > 0:
+        print(f"[가챠] 도박 스킬로 추가 뽑기 {bonus_count}회 획득!")
 
     # 연속 뽑기 결과 페이지 표시
     if multi_results:
