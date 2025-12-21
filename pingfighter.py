@@ -5719,6 +5719,81 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.circle(surface, (gem_glow, gem_glow, 150), (icon_cx, icon_cy + int(2*scale)), int(2*scale))
         pygame.draw.circle(surface, (255, 255, 255), (icon_cx - int(1*scale), icon_cy + int(1*scale)), int(1*scale))
 
+    elif skill_id == "common_swiftness":
+        # 신속: 빠른 발 + 스피드 라인
+        swift_color = (100, 255, 180)
+
+        # 신발/발 모양
+        pygame.draw.ellipse(surface, swift_color, (icon_cx - int(8*scale), icon_cy - int(1*scale), int(16*scale), int(10*scale)))
+        pygame.draw.ellipse(surface, (80, 220, 150), (icon_cx - int(6*scale), icon_cy + int(1*scale), int(12*scale), int(6*scale)))
+
+        # 발목 부분
+        pygame.draw.rect(surface, swift_color, (icon_cx - int(3*scale), icon_cy - int(6*scale), int(6*scale), int(6*scale)), border_radius=max(1, int(2*scale)))
+
+        # 스피드 라인 (왼쪽)
+        pygame.draw.line(surface, (255, 255, 255), (icon_cx - int(11*scale), icon_cy - int(3*scale)), (icon_cx - int(8*scale), icon_cy - int(3*scale)), max(1, int(2*scale)))
+        pygame.draw.line(surface, (200, 255, 220), (icon_cx - int(12*scale), icon_cy), (icon_cx - int(8*scale), icon_cy), max(1, int(2*scale)))
+        pygame.draw.line(surface, (255, 255, 255), (icon_cx - int(11*scale), icon_cy + int(3*scale)), (icon_cx - int(8*scale), icon_cy + int(3*scale)), max(1, int(2*scale)))
+
+        # 바람 효과
+        pygame.draw.arc(surface, (200, 255, 230), (icon_cx - int(14*scale), icon_cy - int(5*scale), int(6*scale), int(10*scale)), -0.5, 0.5, 1)
+
+        # 반짝임
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx + int(5*scale), icon_cy - int(5*scale)), max(1, int(2*scale)))
+
+    elif skill_id == "common_expansion":
+        # 확장: 잠금 해제 + 확장 화살표
+        expand_color = (200, 150, 255)
+
+        # 자물쇠 모양 (열린 상태)
+        # 자물쇠 본체
+        pygame.draw.rect(surface, expand_color, (icon_cx - int(5*scale), icon_cy - int(1*scale), int(10*scale), int(9*scale)), border_radius=max(1, int(2*scale)))
+        pygame.draw.rect(surface, (160, 120, 220), (icon_cx - int(4*scale), icon_cy + int(1*scale), int(8*scale), int(6*scale)), border_radius=max(1, int(1*scale)))
+
+        # 열린 고리
+        pygame.draw.arc(surface, expand_color, (icon_cx - int(4*scale), icon_cy - int(9*scale), int(8*scale), int(10*scale)), 0, math.pi, max(2, int(3*scale)))
+        pygame.draw.line(surface, expand_color, (icon_cx + int(4*scale), icon_cy - int(4*scale)), (icon_cx + int(4*scale), icon_cy - int(1*scale)), max(2, int(3*scale)))
+
+        # 열쇠 구멍
+        pygame.draw.circle(surface, (100, 80, 150), (icon_cx, icon_cy + int(2*scale)), max(1, int(2*scale)))
+        pygame.draw.rect(surface, (100, 80, 150), (icon_cx - int(1*scale), icon_cy + int(3*scale), int(2*scale), int(3*scale)))
+
+        # 확장 화살표 (우측)
+        pygame.draw.polygon(surface, (255, 255, 255), [
+            (icon_cx + int(9*scale), icon_cy), (icon_cx + int(7*scale), icon_cy - int(2*scale)), (icon_cx + int(7*scale), icon_cy + int(2*scale))
+        ])
+        pygame.draw.line(surface, (255, 255, 255), (icon_cx + int(5*scale), icon_cy), (icon_cx + int(7*scale), icon_cy), max(1, int(2*scale)))
+
+        # + 표시
+        pygame.draw.line(surface, (255, 220, 100), (icon_cx + int(7*scale), icon_cy - int(6*scale)), (icon_cx + int(11*scale), icon_cy - int(6*scale)), max(1, int(2*scale)))
+        pygame.draw.line(surface, (255, 220, 100), (icon_cx + int(9*scale), icon_cy - int(8*scale)), (icon_cx + int(9*scale), icon_cy - int(4*scale)), max(1, int(2*scale)))
+
+    elif skill_id == "common_refresh":
+        # 새로고침: 회전 화살표
+        refresh_color = (150, 220, 255)
+
+        # 원형 화살표 (새로고침 아이콘)
+        pygame.draw.arc(surface, refresh_color, (icon_cx - int(8*scale), icon_cy - int(8*scale), int(16*scale), int(16*scale)), 0.5, 5.0, max(2, int(3*scale)))
+
+        # 화살표 머리 (위쪽)
+        arrow_x = icon_cx + int(6*scale)
+        arrow_y = icon_cy - int(4*scale)
+        pygame.draw.polygon(surface, refresh_color, [
+            (arrow_x + int(3*scale), arrow_y), (arrow_x - int(1*scale), arrow_y - int(3*scale)), (arrow_x - int(1*scale), arrow_y + int(3*scale))
+        ])
+
+        # 두 번째 화살표 (반대편)
+        pygame.draw.arc(surface, (120, 190, 230), (icon_cx - int(6*scale), icon_cy - int(6*scale), int(12*scale), int(12*scale)), 3.6, 8.0, max(1, int(2*scale)))
+        arrow_x2 = icon_cx - int(5*scale)
+        arrow_y2 = icon_cy + int(3*scale)
+        pygame.draw.polygon(surface, (120, 190, 230), [
+            (arrow_x2 - int(3*scale), arrow_y2), (arrow_x2 + int(1*scale), arrow_y2 - int(3*scale)), (arrow_x2 + int(1*scale), arrow_y2 + int(3*scale))
+        ])
+
+        # 중앙 반짝임
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), max(2, int(3*scale)))
+        pygame.draw.circle(surface, (200, 240, 255), (icon_cx, icon_cy), max(3, int(4*scale)), 1)
+
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
         symbol = skill.get("name", "?")[0] if skill.get("name") else "?"
@@ -7193,6 +7268,81 @@ def show_runtime_skill_status():
             # 집게 끝 글로우
             pygame.draw.circle(surface, glow_color, (end_joint[0] + 4, end_joint[1] - 4), 2)
             pygame.draw.circle(surface, glow_color, (end_joint[0] + 6, end_joint[1] + 2), 2)
+
+        elif skill_id == "common_swiftness":
+            # 신속: 빠른 발 + 스피드 라인
+            swift_color = (100, 255, 180)
+
+            # 신발/발 모양
+            pygame.draw.ellipse(surface, swift_color, (icon_cx - 10, icon_cy - 2, 20, 12))
+            pygame.draw.ellipse(surface, (80, 220, 150), (icon_cx - 8, icon_cy, 16, 8))
+
+            # 발목 부분
+            pygame.draw.rect(surface, swift_color, (icon_cx - 4, icon_cy - 8, 8, 8), border_radius=2)
+
+            # 스피드 라인 (왼쪽)
+            pygame.draw.line(surface, (255, 255, 255), (icon_cx - 14, icon_cy - 4), (icon_cx - 10, icon_cy - 4), 2)
+            pygame.draw.line(surface, (200, 255, 220), (icon_cx - 16, icon_cy), (icon_cx - 10, icon_cy), 2)
+            pygame.draw.line(surface, (255, 255, 255), (icon_cx - 14, icon_cy + 4), (icon_cx - 10, icon_cy + 4), 2)
+
+            # 바람 효과
+            pygame.draw.arc(surface, (200, 255, 230), (icon_cx - 18, icon_cy - 6, 8, 12), -0.5, 0.5, 1)
+
+            # 반짝임
+            pygame.draw.circle(surface, (255, 255, 255), (icon_cx + 6, icon_cy - 6), 2)
+
+        elif skill_id == "common_expansion":
+            # 확장: 잠금 해제 + 확장 화살표
+            expand_color = (200, 150, 255)
+
+            # 자물쇠 모양 (열린 상태)
+            # 자물쇠 본체
+            pygame.draw.rect(surface, expand_color, (icon_cx - 7, icon_cy - 2, 14, 12), border_radius=2)
+            pygame.draw.rect(surface, (160, 120, 220), (icon_cx - 5, icon_cy, 10, 8), border_radius=1)
+
+            # 열린 고리
+            pygame.draw.arc(surface, expand_color, (icon_cx - 5, icon_cy - 12, 10, 12), 0, math.pi, 3)
+            pygame.draw.line(surface, expand_color, (icon_cx + 5, icon_cy - 6), (icon_cx + 5, icon_cy - 2), 3)
+
+            # 열쇠 구멍
+            pygame.draw.circle(surface, (100, 80, 150), (icon_cx, icon_cy + 2), 2)
+            pygame.draw.rect(surface, (100, 80, 150), (icon_cx - 1, icon_cy + 3, 2, 3))
+
+            # 확장 화살표 (우측)
+            pygame.draw.polygon(surface, (255, 255, 255), [
+                (icon_cx + 12, icon_cy), (icon_cx + 9, icon_cy - 3), (icon_cx + 9, icon_cy + 3)
+            ])
+            pygame.draw.line(surface, (255, 255, 255), (icon_cx + 7, icon_cy), (icon_cx + 9, icon_cy), 2)
+
+            # + 표시
+            pygame.draw.line(surface, (255, 220, 100), (icon_cx + 10, icon_cy - 8), (icon_cx + 14, icon_cy - 8), 2)
+            pygame.draw.line(surface, (255, 220, 100), (icon_cx + 12, icon_cy - 10), (icon_cx + 12, icon_cy - 6), 2)
+
+        elif skill_id == "common_refresh":
+            # 새로고침: 회전 화살표
+            refresh_color = (150, 220, 255)
+
+            # 원형 화살표 (새로고침 아이콘)
+            pygame.draw.arc(surface, refresh_color, (icon_cx - 10, icon_cy - 10, 20, 20), 0.5, 5.0, 3)
+
+            # 화살표 머리 (위쪽)
+            arrow_x = icon_cx + 8
+            arrow_y = icon_cy - 5
+            pygame.draw.polygon(surface, refresh_color, [
+                (arrow_x + 4, arrow_y), (arrow_x - 2, arrow_y - 4), (arrow_x - 2, arrow_y + 4)
+            ])
+
+            # 두 번째 화살표 (반대편)
+            pygame.draw.arc(surface, (120, 190, 230), (icon_cx - 8, icon_cy - 8, 16, 16), 3.6, 8.0, 2)
+            arrow_x2 = icon_cx - 7
+            arrow_y2 = icon_cy + 4
+            pygame.draw.polygon(surface, (120, 190, 230), [
+                (arrow_x2 - 4, arrow_y2), (arrow_x2 + 2, arrow_y2 - 4), (arrow_x2 + 2, arrow_y2 + 4)
+            ])
+
+            # 중앙 반짝임
+            pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), 3)
+            pygame.draw.circle(surface, (200, 240, 255), (icon_cx, icon_cy), 5, 1)
 
         else:
             # 기본 아이콘 (알 수 없는 스킬)
@@ -99808,11 +99958,16 @@ def show_game_info():
             base_speed_info = 3
         else:
             base_speed_info = MAX_SPEED
-        turn_speed_info = base_speed_info * (1.5 if speedgear_obtained else 1.0)
+
+        # 🏃 신속 스킬 보너스 반영
+        swiftness_bonus = runtime_swiftness_bonus if runtime_swiftness_bonus > 0 else 0
+        effective_speed_info = base_speed_info * (1.0 + swiftness_bonus)
+
+        turn_speed_info = effective_speed_info * (1.5 if speedgear_obtained else 1.0)
         paddle_width_info = PADDLE_WIDTH
 
         # 🌧️ 소나기 이벤트 시 이동속도 감소 반영
-        current_speed_info = base_speed_info
+        current_speed_info = effective_speed_info
         rain_debuff_text = ""
         rain_active = is_rain_active()
         if rain_active:
@@ -99830,10 +99985,14 @@ def show_game_info():
             ice_debuff_text = f" (🧊-{int((1 - ice_penalty) * 100)}%)"
 
         # 이동속도/방향전환속도 표시 문자열 구성
+        swiftness_buff_text = f" (🏃+{int(swiftness_bonus * 100)}%)" if swiftness_bonus > 0 else ""
         if rain_active:
-            speed_display = f"이동속도: {current_speed_info:.1f}{rain_debuff_text}"
+            speed_display = f"이동속도: {current_speed_info:.1f}{swiftness_buff_text}{rain_debuff_text}"
         else:
-            speed_display = f"기본 이동속도: {base_speed_info}"
+            if swiftness_bonus > 0:
+                speed_display = f"이동속도: {effective_speed_info:.1f}{swiftness_buff_text}"
+            else:
+                speed_display = f"기본 이동속도: {base_speed_info}"
 
         if ice_active:
             turn_display = f"방향전환속도: {current_turn_speed:.1f}{ice_debuff_text}"
