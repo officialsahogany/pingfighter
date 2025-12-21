@@ -2610,6 +2610,14 @@ starpoint_for_skills = 0   # Accumulated starpoints for skill selection (0~2)
 pending_skill_choices = 0  # Pending skill choice count
 runtime_skill_choice_pending = False  # Skill selection pending flag
 
+# 장신구 슬롯 활성화 시스템 (기본 2개, 최대 4개)
+BASE_ACCESSORY_SLOTS = 2  # 기본 활성화된 장신구 슬롯 개수
+MAX_ACCESSORY_SLOTS = 4   # 최대 장신구 슬롯 개수
+runtime_accessory_slot_bonus = 0  # 런타임 스킬로 추가된 장신구 슬롯 개수
+
+# 신속 스킬 이동속도 보너스
+runtime_swiftness_bonus = 0  # 신속 스킬로 추가된 이동속도 (4% 단위)
+
 # Common skill pool (all characters)
 RUNTIME_SKILL_POOL = {
     # ===== Dash Tree (5 skills) =====
@@ -2812,6 +2820,43 @@ RUNTIME_SKILL_POOL = {
         "detail": "보물지도로 전설 아이템을 더 쉽게 찾을 수 있습니다.",
         "icon_color": (255, 223, 0),
         "tree": "downtown"
+    },
+
+    # ===== Common Tree (공용 스킬) =====
+    "common_swiftness": {
+        "name": "신속",
+        "max_level": 5,
+        "descriptions": {
+            1: "이동속도 4% 증가",
+            2: "이동속도 8% 증가",
+            3: "이동속도 12% 증가",
+            4: "이동속도 16% 증가",
+            5: "이동속도 20% 증가",
+        },
+        "detail": "발걸음이 가벼워져 이동 속도가 증가합니다.",
+        "icon_color": (100, 255, 180),
+        "tree": "common"
+    },
+    "common_expansion": {
+        "name": "확장",
+        "max_level": 2,
+        "descriptions": {
+            1: "장신구 슬롯 +1",
+            2: "장신구 슬롯 +2",
+        },
+        "detail": "장신구 슬롯을 추가로 활성화합니다. 처음에는 4개 중 2개만 사용 가능합니다.",
+        "icon_color": (200, 150, 255),
+        "tree": "common"
+    },
+    "common_refresh": {
+        "name": "새로고침",
+        "max_level": -1,
+        "descriptions": {
+            1: "스킬 선택창 새로고침",
+        },
+        "detail": "런타임 스킬 선택창을 한 번 더 새로고침합니다. 현재 선택지가 마음에 들지 않을 때 사용하세요.",
+        "icon_color": (150, 220, 255),
+        "tree": "common"
     },
 }
 
@@ -3282,6 +3327,17 @@ def get_bug_update_chance() -> float:
     level = runtime_skill_levels.get("bug_update", 0)
     chances = {0: 0, 1: 0.25, 2: 0.35, 3: 0.45}
     return chances.get(level, 0)
+
+def get_active_accessory_slot_count() -> int:
+    """현재 활성화된 장신구 슬롯 개수 반환 (기본 2개, 최대 4개)"""
+    base_slots = BASE_ACCESSORY_SLOTS  # 2
+    bonus_slots = runtime_accessory_slot_bonus  # 확장 스킬로 추가된 슬롯
+    return min(MAX_ACCESSORY_SLOTS, base_slots + bonus_slots)
+
+def is_accessory_slot_active(slot_index: int) -> bool:
+    """해당 장신구 슬롯이 활성화되어 있는지 확인 (0-indexed, 0~3)"""
+    active_count = get_active_accessory_slot_count()
+    return slot_index < active_count
 
 def get_elec_pad_stats() -> tuple:
     """일렉패드: (확률, 충전량) 튜플 반환"""
@@ -3937,12 +3993,15 @@ def reset_runtime_skill_system():
     """런타임 스킬 시스템 초기화 (새 게임 시작 시)"""
     global runtime_skill_levels, starpoint_for_skills, pending_skill_choices, runtime_skill_choice_pending
     global optimus_arm_available
+    global runtime_accessory_slot_bonus, runtime_swiftness_bonus
 
     runtime_skill_levels = {}
     starpoint_for_skills = 0
     pending_skill_choices = 0
     runtime_skill_choice_pending = False
     optimus_arm_available = False  # 옵티머스 암도 초기화
+    runtime_accessory_slot_bonus = 0  # 장신구 슬롯 보너스 초기화
+    runtime_swiftness_bonus = 0  # 신속 스킬 보너스 초기화
 
     print("[RuntimeSkill] 런타임 스킬 시스템 초기화")
 
@@ -4122,6 +4181,13 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
             pending_skill_choices += 1
         return True
 
+    # 새로고침 특별 처리 (스킬 선택창 새로고침)
+    if choice_id == "common_refresh":
+        pending_skill_choices += 1  # 선택권 1회 추가
+        runtime_skill_levels["common_refresh"] = runtime_skill_levels.get("common_refresh", 0) + 1
+        print(f"[RuntimeSkill] 새로고침! 스킬 선택창 추가 (pending: {pending_skill_choices})")
+        return True
+
     # 일반 스킬 레벨업
     old_level = runtime_skill_levels.get(choice_id, 0)
     runtime_skill_levels[choice_id] = old_level + 1
@@ -4130,6 +4196,18 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     # 메카벌크: 패들 크기 즉시 적용
     if choice_id == "mecha_bulk":
         apply_equipment_paddle_modifiers()
+
+    # 신속: 이동속도 보너스 즉시 적용
+    if choice_id == "common_swiftness":
+        global runtime_swiftness_bonus
+        runtime_swiftness_bonus = runtime_skill_levels.get("common_swiftness", 0) * 0.04  # 레벨당 4%
+        print(f"[RuntimeSkill] 신속 Lv.{runtime_skill_levels[choice_id]} - 이동속도 +{int(runtime_swiftness_bonus*100)}%")
+
+    # 확장: 장신구 슬롯 보너스 즉시 적용
+    if choice_id == "common_expansion":
+        global runtime_accessory_slot_bonus
+        runtime_accessory_slot_bonus = runtime_skill_levels.get("common_expansion", 0)  # 레벨당 +1
+        print(f"[RuntimeSkill] 확장 Lv.{runtime_skill_levels[choice_id]} - 장신구 슬롯 +{runtime_accessory_slot_bonus}")
 
     return True
 
@@ -9935,6 +10013,15 @@ def auto_equip_passive_item(item_data) -> bool:
         if equipped is not None and equipped not in current_items:
             state[slot_key] = None
     for slot_key in candidates:
+        # 비활성화된 장신구 슬롯은 건너뛰기
+        if slot_key.startswith("accessory"):
+            try:
+                slot_num = int(slot_key[-1])  # accessory1 -> 1
+                slot_index = slot_num - 1  # 0-indexed
+                if not is_accessory_slot_active(slot_index):
+                    continue  # 비활성화된 슬롯 건너뛰기
+            except (ValueError, IndexError):
+                pass
         if state.get(slot_key) is None:
             state[slot_key] = item_data
             item_data["_equipped_slot"] = slot_key
@@ -43160,7 +43247,10 @@ def handle_player(keys):
                     record_dash_usage(success=False)  # 일단 사용만 기록, 성공은 공 충돌 시 체크
             #  스피드부츠 효과 적용 (6% 증가)
             speed_multiplier = (1.0 + PERMANENT_SPEED_BOOST) if speedboots_obtained else 1.0
-            
+
+            # 신속 스킬 효과 적용 (레벨당 4% 증가)
+            speed_multiplier *= (1.0 + runtime_swiftness_bonus)
+
             # 헤르메스의 신발 효과 적용 (50% 증가)
             # 안전성 향상: items 모듈의 플래그도 함께 참조하여 적용 누락 방지
             try:
@@ -45352,9 +45442,9 @@ def store_passive_item(item_data):
     item_icon = item_data.get("icon")
     
     if item_data["name"] == "slot_add":
-        # 최대 슬롯 5개 제한 (기본 3개 + 배낭 2개)
-        _set_max_item_slots(min(5, MAX_ITEM_SLOTS + 1))
-        print("+1 !")
+        # 최대 슬롯 5개 제한 (기본 3개 + 배낭 2개) - 배낭 1개당 +2칸
+        _set_max_item_slots(min(5, MAX_ITEM_SLOTS + 2))
+        print("액티브 슬롯 +2 !")
         # 획득 개수 카운트 증가
         items.slot_add_obtained += 1
     elif item_data["name"] == "speedboots":
@@ -73668,10 +73758,18 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     global player_ai_enabled
     global PADDLE_BASE_WIDTH, PADDLE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_HEIGHT
     global optimus_gauge_scale, CURRENT_PADDLE_SIZE_SCALE, CURRENT_PADDLE_EFFECTIVE_SCALE
+    global special_gauge, displayed_gauge  # 플레이어 게이지 초기화용
     # 메뉴에서 수동 진입하면 AI 자동조종은 끈다.
     player_ai_enabled = False
     global active_item_slot, selected_item_index, master_obtained, last_item_use_time
     global passive_item_list
+
+    # 새 게임 시작 시 플레이어 게이지 초기화
+    special_gauge = 0
+    displayed_gauge = 0
+
+    # 새 게임 시작 시 런타임 스킬 시스템 초기화
+    reset_runtime_skill_system()
 
     # 캐릭터 전환 전 패들 크기를 기본값으로 초기화 (옵티머스 → 다른 캐릭터 버그 방지)
     optimus_gauge_scale = 1.0
@@ -98019,6 +98117,15 @@ def show_character_info(background_surface=None):
             return False
         if not is_slot_compatible(target_slot, item):
             return False
+        # 비활성화된 장신구 슬롯에는 장착 불가
+        if target_slot.startswith("accessory"):
+            try:
+                slot_num = int(target_slot[-1])  # accessory1 -> 1
+                slot_index = slot_num - 1  # 0-indexed
+                if not is_accessory_slot_active(slot_index):
+                    return False  # 비활성화된 슬롯에는 장착 불가
+            except (ValueError, IndexError):
+                pass
         # 동일 아이템이 다른 슬롯에 있을 경우 해제
         current_slot = item.get("_equipped_slot")
         if current_slot and current_slot in slot_state and current_slot != target_slot:
@@ -98310,31 +98417,62 @@ def show_character_info(background_surface=None):
             if isinstance(item, list):
                 item = item[0] if item else None
             has_item = item is not None
-            bg_color = (38, 46, 72) if has_item else (30, 34, 50)
-            border_color = (120, 255, 190) if has_item else (90, 130, 200)
-            pygame.draw.rect(SCREEN, bg_color, cell_rect, border_radius=10)
-            pygame.draw.rect(SCREEN, border_color, cell_rect, 2, border_radius=10)
 
-            if has_item:
-                icon = item.get("icon") or get_item_icon(item.get("name"))
-                if item.get("type") == "legendary" and legendary_manager:
-                    try:
-                        legendary_item = legendary_manager.get_item(item.get("name", ""))
-                    except Exception:
-                        legendary_item = None
-                    if legendary_item:
-                        legendary_item.update(0.016, ui_mode=True)  # 60fps 기준 16ms
-                        legendary_item.draw_icon(SCREEN, cell_rect.x + 6, cell_rect.y + 6, slot_size - 12)
+            # 장신구 슬롯 비활성화 체크 (accessory1~4)
+            is_locked_accessory = False
+            if key.startswith("accessory"):
+                try:
+                    slot_num = int(key[-1])  # accessory1 -> 1, accessory2 -> 2, etc.
+                    slot_index = slot_num - 1  # 0-indexed
+                    is_locked_accessory = not is_accessory_slot_active(slot_index)
+                except (ValueError, IndexError):
+                    pass
+
+            if is_locked_accessory:
+                # 비활성화된 장신구 슬롯 - 어둡게 표시
+                bg_color = (20, 22, 30)
+                border_color = (50, 55, 70)
+                pygame.draw.rect(SCREEN, bg_color, cell_rect, border_radius=10)
+                pygame.draw.rect(SCREEN, border_color, cell_rect, 2, border_radius=10)
+                # 잠금 아이콘 표시 (X 표시)
+                lock_color = (80, 85, 100)
+                pygame.draw.line(SCREEN, lock_color,
+                               (cell_rect.centerx - slot_size // 4, cell_rect.centery - slot_size // 4),
+                               (cell_rect.centerx + slot_size // 4, cell_rect.centery + slot_size // 4), 2)
+                pygame.draw.line(SCREEN, lock_color,
+                               (cell_rect.centerx + slot_size // 4, cell_rect.centery - slot_size // 4),
+                               (cell_rect.centerx - slot_size // 4, cell_rect.centery + slot_size // 4), 2)
+                # 라벨 어둡게
+                label_surface = slot_label_font.render(definition["label"], True, (100, 100, 110))
+                label_rect = label_surface.get_rect(center=(cell_rect.centerx, cell_rect.bottom + 10))
+                SCREEN.blit(label_surface, label_rect)
+            else:
+                # 일반 슬롯 렌더링
+                bg_color = (38, 46, 72) if has_item else (30, 34, 50)
+                border_color = (120, 255, 190) if has_item else (90, 130, 200)
+                pygame.draw.rect(SCREEN, bg_color, cell_rect, border_radius=10)
+                pygame.draw.rect(SCREEN, border_color, cell_rect, 2, border_radius=10)
+
+                if has_item:
+                    icon = item.get("icon") or get_item_icon(item.get("name"))
+                    if item.get("type") == "legendary" and legendary_manager:
+                        try:
+                            legendary_item = legendary_manager.get_item(item.get("name", ""))
+                        except Exception:
+                            legendary_item = None
+                        if legendary_item:
+                            legendary_item.update(0.016, ui_mode=True)  # 60fps 기준 16ms
+                            legendary_item.draw_icon(SCREEN, cell_rect.x + 6, cell_rect.y + 6, slot_size - 12)
+                        elif icon:
+                            SCREEN.blit(pygame.transform.scale(icon, (slot_size - 12, slot_size - 12)), (cell_rect.x + 6, cell_rect.y + 6))
                     elif icon:
                         SCREEN.blit(pygame.transform.scale(icon, (slot_size - 12, slot_size - 12)), (cell_rect.x + 6, cell_rect.y + 6))
-                elif icon:
-                    SCREEN.blit(pygame.transform.scale(icon, (slot_size - 12, slot_size - 12)), (cell_rect.x + 6, cell_rect.y + 6))
-            else:
-                pygame.draw.circle(SCREEN, (70, 80, 110), cell_rect.center, slot_size // 2 - 6, 1)
+                else:
+                    pygame.draw.circle(SCREEN, (70, 80, 110), cell_rect.center, slot_size // 2 - 6, 1)
 
-            label_surface = slot_label_font.render(definition["label"], True, (210, 210, 220))
-            label_rect = label_surface.get_rect(center=(cell_rect.centerx, cell_rect.bottom + 10))
-            SCREEN.blit(label_surface, label_rect)
+                label_surface = slot_label_font.render(definition["label"], True, (210, 210, 220))
+                label_rect = label_surface.get_rect(center=(cell_rect.centerx, cell_rect.bottom + 10))
+                SCREEN.blit(label_surface, label_rect)
 
             if mouse_pos and cell_rect.collidepoint(mouse_pos) and item:
                 rolled = item.get("rolled_options") or []
@@ -100298,7 +100436,7 @@ def get_item_description(item_name):
         "gravitybelt": "무중력벨트: 이동 시 즉각적인 방향 전환이 가능한 첨단벨트",
         "speedgear": "보정벨트: 좌,우 방향 전환 속도가 증가합니다.",
         "battery": "배터리팩: 다음 스테이지로 넘어가도 게이지가 유지됩니다.",
-        "slot_add": "배낭: 엑티브아이템 슬롯을 1칸 추가합니다",
+        "slot_add": "배낭: 엑티브아이템 슬롯을 2칸 추가합니다",
         "revival": "부활: 패배 시 한 번의 재경기 기회를 제공합니다. 발동시 해당 아이템은 소모되며 한 게임 당 한번만 스폰되는 귀중한 아이템입니다",
         "master": "토르의 망치: 벽돌 액티브 아이템 사용시 벽돌의 길이를 늘려주며, 아이템 쿨타임도 조금 줄여주는 고마운 망치.",
         "cooltime": "쿨링볼: 아이템 재사용 쿨타임을 감소시켜줍니다.",
