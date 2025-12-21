@@ -2803,11 +2803,11 @@ RUNTIME_SKILL_POOL = {
         "name": "보물지도",
         "max_level": 5,
         "descriptions": {
-            1: "전설 확률 +175%",
-            2: "전설 확률 +350%",
-            3: "전설 확률 +525%",
-            4: "전설 확률 +700%",
-            5: "전설 확률 +875%",
+            1: "전설 확률 +400%",
+            2: "전설 확률 +800%",
+            3: "전설 확률 +1200%",
+            4: "전설 확률 +1600%",
+            5: "전설 확률 +2000%",
         },
         "detail": "보물지도로 전설 아이템을 더 쉽게 찾을 수 있습니다.",
         "icon_color": (255, 223, 0),
@@ -4282,7 +4282,7 @@ def get_runtime_skill_bonus(skill_id: str) -> float:
 
             # 광장 트리
             "downtown_gamble": level * 0.10,        # 추가 가챠 확률 10%/레벨
-            "downtown_treasure_map": level * 1.75,  # 전설 확률 +175%/레벨
+            "downtown_treasure_map": level * 4.00,  # 전설 확률 +400%/레벨
 
             # 스매셔 전용
             "dash_acceleration": level * 1.0,       # 패들 크기 100%/레벨 증가
