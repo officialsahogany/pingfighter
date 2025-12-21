@@ -84628,12 +84628,12 @@ def handle_ball():
                     print(f" !  {DRAW_BOUNCE_LIMIT}  + {DRAW_TIME_LIMIT/1000}  !")
                     # 무승부 처리: 점수는 그대로, 라운드만 재시작
                     go_to_next_round()
-                    # 무승부 메시지 표시 (선택적)
+                    # 재대결 메시지 표시
                     try:
                         draw_font = pygame.font.Font(resource_path("PFStardust.ttf"), 48)
                     except:
                         draw_font = pygame.font.Font(None, 48)
-                    draw_text = draw_font.render("무승부!", True, YELLOW)
+                    draw_text = draw_font.render("재대결!", True, YELLOW)
                     SCREEN.blit(draw_text, (WIDTH // 2 - draw_text.get_width() // 2, HEIGHT // 2 - 50))
                     pygame.display.flip()
                     pygame.time.delay(1000)  # 1초 대기
@@ -84777,12 +84777,12 @@ def handle_ball():
                     print(f" !  {DRAW_BOUNCE_LIMIT}  + {DRAW_TIME_LIMIT/1000}  !")
                     # 무승부 처리: 점수는 그대로, 라운드만 재시작
                     go_to_next_round()
-                    # 무승부 메시지 표시 (선택적)
+                    # 재대결 메시지 표시
                     try:
                         draw_font = pygame.font.Font(resource_path("PFStardust.ttf"), 48)
                     except:
                         draw_font = pygame.font.Font(None, 48)
-                    draw_text = draw_font.render("무승부!", True, YELLOW)
+                    draw_text = draw_font.render("재대결!", True, YELLOW)
                     SCREEN.blit(draw_text, (WIDTH // 2 - draw_text.get_width() // 2, HEIGHT // 2 - 50))
                     pygame.display.flip()
                     pygame.time.delay(1000)  # 1초 대기
@@ -84847,7 +84847,7 @@ def handle_ball():
         horizontal_bounce_count = 0
     # --- 무승부 처리 ---
     if horizontal_bounce_count >= 6:
-        show_fade_text("무승부! 다시 대결!")
+        show_fade_text("재대결!")
         reset_round()
         return
     # --- 천장 충돌 (플레이어 점수) ---
