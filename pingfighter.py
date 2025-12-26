@@ -5828,13 +5828,114 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
             pass
 
 
-def show_runtime_skill_choices(exclude_instant: bool = False) -> str | None:
+def _render_stage_background_for_overlay(draw_entities: bool = True):
+    """스킬 선택 오버레이용 배경 렌더링 - 현재 스테이지의 애니메이션 배경을 실시간 갱신
+
+    Args:
+        draw_entities: True면 패들, 공 등 게임 엔티티도 함께 그림
+    """
+    global animated_bg_stage2, animated_bg_stage3, animated_bg_stage4
+    global animated_bg_stage5, animated_bg_stage6, animated_bg_stage7, animated_bg_stage8
+    global clock, BALL, BOSS, PLAYER, round_wins, round_losses
+    global screen_shake_offset_x, screen_shake_offset_y
+    global STAGE7_BG, STAGE8_BG, CURRENT_BG, emotional_overdrive_active
+    global player_surface, boss_surface
+
+    try:
+        elapsed_ms = clock.get_time() if 'clock' in dir() else 16
+    except:
+        elapsed_ms = 16
+
+    try:
+        ball_cx = BALL.centerx if BALL else WIDTH // 2
+        ball_cy = BALL.centery if BALL else HEIGHT // 2
+        boss_cx = BOSS.centerx if BOSS else WIDTH // 2
+        player_cx = PLAYER.centerx if PLAYER else WIDTH // 2
+    except:
+        ball_cx, ball_cy = WIDTH // 2, HEIGHT // 2
+        boss_cx, player_cx = WIDTH // 2, WIDTH // 2
+
+    try:
+        r_wins = round_wins
+        r_losses = round_losses
+    except:
+        r_wins, r_losses = 0, 0
+
+    try:
+        shake_x = screen_shake_offset_x
+        shake_y = screen_shake_offset_y
+    except:
+        shake_x, shake_y = 0, 0
+
+    # 배경 렌더링
+    if current_stage == 1:
+        SCREEN.blit(CURRENT_BG, (shake_x, shake_y))
+    elif current_stage == 2 and animated_bg_stage2 is not None:
+        animated_bg_stage2.update(elapsed_ms, ball_cx, ball_cy, boss_cx, player_cx, r_wins, r_losses)
+        animated_bg_stage2.draw(SCREEN)
+    elif current_stage == 3 and animated_bg_stage3 is not None:
+        animated_bg_stage3.update(elapsed_ms, r_wins + r_losses)
+        animated_bg_stage3.draw(SCREEN, ball_pos=(ball_cx, ball_cy))
+    elif current_stage == 4 and animated_bg_stage4 is not None:
+        dt = elapsed_ms / 1000.0
+        animated_bg_stage4.update(dt)
+        animated_bg_stage4.draw(SCREEN)
+    elif current_stage == 5 and animated_bg_stage5 is not None:
+        animated_bg_stage5.update(elapsed_ms)
+        animated_bg_stage5.draw(SCREEN)
+    elif current_stage == 6 and animated_bg_stage6 is not None:
+        animated_bg_stage6.update()
+        animated_bg_stage6.draw(SCREEN)
+    elif current_stage == 7 and animated_bg_stage7 is not None:
+        animated_bg_stage7.update(elapsed_ms)
+        try:
+            SCREEN.blit(STAGE7_BG, (shake_x, shake_y))
+        except:
+            pass
+        animated_bg_stage7.draw(SCREEN, offset=(shake_x, shake_y))
+    elif current_stage == 8 and animated_bg_stage8 is not None:
+        animated_bg_stage8.update(elapsed_ms)
+        try:
+            SCREEN.blit(STAGE8_BG, (shake_x, shake_y))
+        except:
+            pass
+        animated_bg_stage8.draw(SCREEN, offset=(shake_x, shake_y))
+    else:
+        try:
+            SCREEN.blit(CURRENT_BG, (shake_x, shake_y))
+        except:
+            SCREEN.fill((20, 25, 40))
+
+    # 게임 엔티티 렌더링 (패들, 공)
+    if draw_entities:
+        try:
+            # 플레이어 패들
+            if PLAYER is not None and player_surface is not None:
+                SCREEN.blit(player_surface, PLAYER)
+            elif PLAYER is not None:
+                pygame.draw.rect(SCREEN, (100, 200, 255), PLAYER)
+
+            # 보스 패들
+            if BOSS is not None and boss_surface is not None:
+                SCREEN.blit(boss_surface, BOSS)
+            elif BOSS is not None:
+                pygame.draw.rect(SCREEN, (255, 100, 100), BOSS)
+
+            # 공
+            if BALL is not None:
+                pygame.draw.ellipse(SCREEN, (255, 255, 255), BALL)
+        except:
+            pass
+
+
+def show_runtime_skill_choices(exclude_instant: bool = False, live_background: bool = True) -> str | None:
     """
     Runtime skill choice UI - shows 3 skill options when starpoints trigger a choice.
     Similar to show_stage_clear_choices() but for all characters.
 
     Args:
         exclude_instant: True면 즉시형 스킬(풀게이징, 차원개방 등) 제외 (스테이지 클리어 보상용)
+        live_background: True면 게임 배경을 실시간 렌더링, False면 정적 스크린샷 사용
     """
     global runtime_skill_choice_pending, pending_skill_choices
     global runtime_skill_levels
@@ -5850,8 +5951,12 @@ def show_runtime_skill_choices(exclude_instant: bool = False) -> str | None:
         runtime_skill_choice_pending = pending_skill_choices > 0
         return None
 
-    # Capture current screen as background
-    base_background = SCREEN.copy()
+    # 실시간 배경 렌더링 모드인지 정적 배경 모드인지 결정
+    use_live_bg = live_background
+    base_background = None
+    if not use_live_bg:
+        # 정적 배경 캡처 (폴백용)
+        base_background = SCREEN.copy()
 
     # UI setup
     local_clock = pygame.time.Clock()
@@ -5972,8 +6077,11 @@ def show_runtime_skill_choices(exclude_instant: bool = False) -> str | None:
                             phase = "selected"
                             frame_count = 0
 
-        # Draw background
-        SCREEN.blit(base_background, (0, 0))
+        # Draw background - 실시간 렌더링 또는 정적 배경
+        if use_live_bg:
+            _render_stage_background_for_overlay()
+        else:
+            SCREEN.blit(base_background, (0, 0))
 
         # Update particles
         for p in particles:
@@ -6404,12 +6512,25 @@ def show_all_runtime_skills_menu() -> str | None:
         font_hint = pygame.font.SysFont("Arial", 14)
         font_category = pygame.font.SysFont("Arial", 12)
 
-    # 배경 캡처
-    base_background = SCREEN.copy()
+    # 실시간 배경 렌더링 사용
+    use_live_bg = True
 
     while running:
         mouse_pos = pygame.mouse.get_pos()
+
+        # 호버 감지 (이벤트 처리 전에 수행)
         hovered_index = -1
+        for i, skill in enumerate(all_skills):
+            row = i // cols
+            col = i % cols
+            box_x = grid_start_x + col * (box_size + box_gap)
+            box_y = grid_start_y + row * (box_size + box_gap) - scroll_offset
+            # 화면 내에 있는 스킬만 호버 체크
+            if grid_start_y - 10 <= box_y <= grid_start_y + rows_per_page * (box_size + box_gap):
+                box_rect = pygame.Rect(box_x, box_y, box_size, box_size)
+                if box_rect.collidepoint(mouse_pos):
+                    hovered_index = i
+                    break
 
         # 이벤트 처리
         for event in pygame.event.get():
@@ -6456,8 +6577,10 @@ def show_all_runtime_skills_menu() -> str | None:
                             max_lvl = hovered_skill.get("max_level", 5)
                             current_lvl = runtime_skill_levels.get(skill_id, 0)
                             if max_lvl == -1 or current_lvl < max_lvl:
-                                apply_runtime_skill_effect(skill_id)
-                                hovered_skill["current_level"] = runtime_skill_levels.get(skill_id, 0)
+                                # 직접 레벨 증가 (최대 레벨 초과 방지)
+                                runtime_skill_levels[skill_id] = current_lvl + 1
+                                hovered_skill["current_level"] = runtime_skill_levels[skill_id]
+                                recalculate_skill_effects(skill_id)
                 elif event.button == 5:  # 스크롤 다운 (호버된 스킬 없을 때만)
                     if hovered_index < 0:
                         scroll_offset = min(max_scroll, scroll_offset + 30)
@@ -6479,30 +6602,42 @@ def show_all_runtime_skills_menu() -> str | None:
                     if not hovered_skill.get("is_instant"):
                         skill_id = hovered_skill["id"]
                         max_lvl = hovered_skill.get("max_level", 5)
+                        # 실시간 레벨 동기화
                         current_lvl = runtime_skill_levels.get(skill_id, 0)
+                        hovered_skill["current_level"] = current_lvl
+
                         if event.y > 0:  # 휠 업 = 레벨업
+                            # 최대 레벨 체크 (max_lvl == -1이면 무제한)
                             if max_lvl == -1 or current_lvl < max_lvl:
-                                apply_runtime_skill_effect(skill_id)
-                                hovered_skill["current_level"] = runtime_skill_levels.get(skill_id, 0)
+                                # 직접 레벨 증가 (apply_runtime_skill_effect는 최대 레벨 체크 안 함)
+                                runtime_skill_levels[skill_id] = current_lvl + 1
+                                hovered_skill["current_level"] = runtime_skill_levels[skill_id]
+                                # 스킬별 효과 적용
+                                recalculate_skill_effects(skill_id)
+                                print(f"[SkillMenu] {skill_id} 레벨업: {current_lvl} → {runtime_skill_levels[skill_id]}")
                         elif event.y < 0:  # 휠 다운 = 레벨 다운
                             if current_lvl > 0:
                                 runtime_skill_levels[skill_id] = current_lvl - 1
                                 hovered_skill["current_level"] = runtime_skill_levels[skill_id]
                                 recalculate_skill_effects(skill_id)
+                                print(f"[SkillMenu] {skill_id} 레벨다운: {current_lvl} → {runtime_skill_levels[skill_id]}")
                 else:
                     # 스크롤
                     scroll_offset = max(0, min(max_scroll, scroll_offset - event.y * 30))
 
-        # 배경 그리기
-        SCREEN.blit(base_background, (0, 0))
+        # 배경 그리기 (실시간 렌더링)
+        if use_live_bg:
+            _render_stage_background_for_overlay()
+        else:
+            SCREEN.fill((20, 25, 40))
 
         # 반투명 오버레이
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 200))
+        overlay.fill((0, 0, 0, 180))
         SCREEN.blit(overlay, (0, 0))
 
         # 타이틀
-        title_text = font_title.render("🎯 런타임 스킬 선택 (디버그)", True, (255, 215, 0))
+        title_text = font_title.render("🎯 런타임 스킬 선택", True, (255, 215, 0))
         title_rect = title_text.get_rect(center=(WIDTH // 2, 50))
         SCREEN.blit(title_text, title_rect)
 
@@ -6520,10 +6655,6 @@ def show_all_runtime_skills_menu() -> str | None:
                 continue
 
             box_rect = pygame.Rect(box_x, box_y, box_size, box_size)
-
-            # 호버 체크
-            if box_rect.collidepoint(mouse_pos):
-                hovered_index = i
 
             # 선택/호버 상태에 따른 색상
             is_selected = (i == selected_index)
@@ -6655,8 +6786,13 @@ def show_all_runtime_skills_menu() -> str | None:
             SCREEN.blit(tooltip_surf, (tooltip_x, tooltip_y))
 
         # 힌트 텍스트
-        hint_text = "방향키로 이동 | Enter/Z로 선택 | ESC로 취소 | 휠: 스킬 위=레벨 조절, 빈 곳=스크롤"
-        hint_surface = font_hint.render(hint_text, True, (150, 150, 150))
+        if hovered_index >= 0 and not all_skills[hovered_index].get("is_instant"):
+            hint_text = "🎮 마우스 휠 ↑↓ 로 레벨 조절  |  클릭: 레벨업 후 닫기  |  ESC: 취소"
+            hint_color = (100, 200, 255)
+        else:
+            hint_text = "방향키/마우스로 이동  |  Enter/클릭: 선택  |  ESC: 취소  |  스킬 위에서 휠: 레벨 조절"
+            hint_color = (150, 150, 150)
+        hint_surface = font_hint.render(hint_text, True, hint_color)
         hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - 30))
         SCREEN.blit(hint_surface, hint_rect)
 
@@ -63527,8 +63663,10 @@ def show_perfect_victory_effect():
     """
     완벽한 승리 (5:0) 시 화려한 이펙트를 보여주는 함수
     골든 파티클, 폭죽, 빛나는 텍스트 애니메이션
+    라이브 스테이지 배경 위에 오버레이로 표시
     """
-    base_background = SCREEN.copy()
+    # 라이브 배경 사용 (정적 캡처 대신)
+    use_live_bg = True
     clock = pygame.time.Clock()
 
     # 파티클 시스템
@@ -63601,8 +63739,11 @@ def show_perfect_victory_effect():
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 frame_count = duration  # 클릭으로 스킵
 
-        # 배경 그리기
-        SCREEN.blit(base_background, (0, 0))
+        # 배경 그리기 - 라이브 스테이지 배경 사용
+        if use_live_bg:
+            _render_stage_background_for_overlay(draw_entities=False)
+        else:
+            pass  # 폴백 불필요
 
         # 반투명 오버레이
         overlay_alpha = min(180, frame_count * 4)
@@ -63764,8 +63905,9 @@ def show_perfect_victory_effect():
 def show_excellent_victory_effect():
     """
     우수한 승리 (5:1) 시 이펙트를 보여주는 함수
+    라이브 스테이지 배경 위에 오버레이로 표시
     """
-    base_background = SCREEN.copy()
+    use_live_bg = True
     clock = pygame.time.Clock()
 
     particles = []
@@ -63807,7 +63949,9 @@ def show_excellent_victory_effect():
             elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
                 frame_count = duration
 
-        SCREEN.blit(base_background, (0, 0))
+        # 배경 그리기 - 라이브 스테이지 배경 사용
+        if use_live_bg:
+            _render_stage_background_for_overlay(draw_entities=False)
 
         overlay_alpha = min(150, frame_count * 4)
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -63875,8 +64019,9 @@ def show_excellent_victory_effect():
 def show_normal_victory_effect():
     """
     일반 승리 (5:2) 시 간단한 이펙트
+    라이브 스테이지 배경 위에 오버레이로 표시
     """
-    base_background = SCREEN.copy()
+    use_live_bg = True
     clock = pygame.time.Clock()
 
     try:
@@ -63899,7 +64044,9 @@ def show_normal_victory_effect():
             elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
                 frame_count = duration
 
-        SCREEN.blit(base_background, (0, 0))
+        # 배경 그리기 - 라이브 스테이지 배경 사용
+        if use_live_bg:
+            _render_stage_background_for_overlay(draw_entities=False)
 
         overlay_alpha = min(120, frame_count * 4)
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -90901,9 +91048,9 @@ def show_result(won):
         #  스테이지 클리어 기록
         record_stage_result(current_stage, cleared=True)
         show_fade_text(f"Stage {stage_logic_to_display(current_stage)} 클리어!")
-        SCREEN.fill(BLACK)
+        # 검은 화면 채우기 제거 - 승리 이펙트와 스킬 선택이 현재 스테이지 배경을 사용하도록
         pygame.display.flip()
-        pygame.time.delay(300)
+        pygame.time.delay(100)  # 딜레이도 짧게
 
         # ========== 승리 타입에 따른 이펙트 및 런타임 스킬 선택 ==========
         # 스킬 선택 횟수 결정 (점수에 따라)
@@ -98747,7 +98894,9 @@ def show_character_info(background_surface=None):
             skill_speed_boost = skill.apply_paddle_speed_boost(0)
         except Exception:
             skill_speed_boost = 0.0
-        move_speed = (base_max_speed + skill_speed_boost) * speed_multiplier
+        # 🏃 신속 스킬 보너스 반영 (레벨당 4% 이동속도 증가)
+        swiftness_bonus = globals().get("runtime_swiftness_bonus", 0)
+        move_speed = (base_max_speed + skill_speed_boost) * speed_multiplier * (1.0 + swiftness_bonus)
         if char_type == "optimus":
             move_speed *= get_optimus_gauge_ratio()
             move_speed = max(1.0, move_speed)
