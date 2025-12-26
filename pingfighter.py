@@ -64161,7 +64161,7 @@ def show_excellent_victory_effect():
         if frame_count > 15:
             sub_alpha = min(255, (frame_count - 15) * 10)
 
-            sub_text = "✦ EXCELLENT VICTORY ✦"
+            sub_text = "- EXCELLENT VICTORY -"
             # 글로우
             sub_glow = sub_font.render(sub_text, True, (0, 150, 200))
             sub_glow.set_alpha(int(sub_alpha * 0.5))
