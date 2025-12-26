@@ -63634,58 +63634,47 @@ def show_stage_clear_choices() -> str | None:
 
 def show_perfect_victory_effect():
     """
-    완벽한 승리 (5:0) 시 화려한 이펙트를 보여주는 함수
-    골든 파티클, 폭죽, 빛나는 텍스트 애니메이션
+    완벽한 승리 (5:0) 시 핑파이터 게이밍 스타일 이펙트
     라이브 스테이지 배경 위에 오버레이로 표시
+    골드 테마의 아케이드/격투 게임 스타일
     """
-    # 라이브 배경 사용 (정적 캡처 대신)
     use_live_bg = True
     clock = pygame.time.Clock()
 
-    # 파티클 시스템
-    particles = []
-    fireworks = []
-    stars = []
+    center_x, center_y = WIDTH // 2, HEIGHT // 2
 
-    # 초기 파티클 생성 (골든 빛)
-    for _ in range(80):
-        particles.append({
-            'x': random.randint(0, WIDTH),
-            'y': random.randint(HEIGHT, HEIGHT + 200),
-            'vx': random.uniform(-2, 2),
-            'vy': random.uniform(-8, -4),
-            'size': random.uniform(3, 8),
-            'alpha': random.randint(180, 255),
-            'color': random.choice([
-                (255, 215, 0),    # 골드
-                (255, 200, 50),   # 밝은 골드
-                (255, 180, 0),    # 오렌지 골드
-                (255, 255, 150),  # 밝은 노랑
-                (255, 100, 100),  # 빨강
-            ]),
-            'glow': random.randint(5, 15)
+    # 화면 플래시 효과
+    flash_alpha = 255
+
+    # 스피드 라인 (집중선) - 골드 테마
+    speed_lines = []
+    for _ in range(32):  # 더 많은 집중선
+        angle = random.uniform(0, 2 * math.pi)
+        speed_lines.append({
+            'angle': angle,
+            'length': random.randint(100, 250),
+            'offset': random.randint(80, 220),
+            'width': random.randint(2, 6),
+            'alpha': random.randint(120, 220)
         })
 
-    # 별 파티클 생성
-    for _ in range(30):
-        stars.append({
-            'x': random.randint(50, WIDTH - 50),
-            'y': random.randint(50, HEIGHT - 50),
-            'size': random.uniform(10, 25),
-            'alpha': 0,
-            'rotation': random.uniform(0, 360),
-            'rotation_speed': random.uniform(-3, 3),
-            'scale_phase': random.uniform(0, 6.28),
-            'delay': random.randint(0, 40)
-        })
+    # 임팩트 링 (충격파)
+    impact_rings = []
 
-    # 폰트 설정
+    # 에너지 스파크 (골드)
+    sparks = []
+
+    # 골드 파티클 (상승)
+    gold_particles = []
+
     try:
         title_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 72)
         sub_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 36)
+        bonus_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 30)
     except Exception:
         title_font = pygame.font.Font(None, 80)
         sub_font = pygame.font.Font(None, 40)
+        bonus_font = pygame.font.Font(None, 34)
 
     # 사운드 효과
     try:
@@ -63696,180 +63685,248 @@ def show_perfect_victory_effect():
         pass
 
     frame_count = 0
-    duration = 180  # 3초 (60fps)
+    duration = 140  # 2.3초
+
+    # 텍스트 슬라이드 인 위치
+    title_x_offset = -WIDTH
+    sub_y_offset = 100
 
     while frame_count < duration:
         frame_count += 1
 
-        # 이벤트 처리 (스킵 가능)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_z):
-                    frame_count = duration  # 스킵
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                frame_count = duration  # 클릭으로 스킵
+            elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+                frame_count = duration
 
         # 배경 그리기 - 라이브 스테이지 배경 사용
         if use_live_bg:
             _render_stage_background_for_overlay(draw_entities=False)
-        else:
-            pass  # 폴백 불필요
 
-        # 반투명 오버레이
-        overlay_alpha = min(180, frame_count * 4)
+        # 반투명 오버레이 (골드 톤)
+        overlay_alpha = min(180, frame_count * 8)
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 30, overlay_alpha))
+        overlay.fill((20, 15, 5, overlay_alpha))
         SCREEN.blit(overlay, (0, 0))
 
-        # 폭죽 생성 (주기적으로)
-        if frame_count % 20 == 0 and frame_count < 120:
-            firework_x = random.randint(100, WIDTH - 100)
-            firework_y = random.randint(100, HEIGHT // 2)
-            firework_color = random.choice([
-                (255, 50, 50), (50, 255, 50), (50, 50, 255),
-                (255, 255, 50), (255, 50, 255), (50, 255, 255),
-                (255, 215, 0)
-            ])
-            for _ in range(40):
-                angle = random.uniform(0, 6.28)
-                speed = random.uniform(3, 10)
-                fireworks.append({
-                    'x': firework_x,
-                    'y': firework_y,
-                    'vx': math.cos(angle) * speed,
-                    'vy': math.sin(angle) * speed,
-                    'size': random.uniform(2, 5),
+        # ========== 화면 플래시 (초반 - 더 강렬하게) ==========
+        if frame_count < 10:
+            flash_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            flash_alpha = max(0, 255 - frame_count * 28)
+            flash_surf.fill((255, 230, 150, flash_alpha))
+            SCREEN.blit(flash_surf, (0, 0))
+
+        # ========== 임팩트 링 생성 (더 많이) ==========
+        if frame_count == 5:
+            for i in range(5):
+                impact_rings.append({
+                    'radius': 20,
                     'alpha': 255,
-                    'color': firework_color,
-                    'gravity': 0.15
+                    'width': 5 - i,
+                    'speed': 10 + i * 4,
+                    'color': (255, 215, 0)
                 })
 
-        # 파티클 업데이트 및 그리기
-        new_particles = []
-        for p in particles:
+        # ========== 스피드 라인 (집중선) 렌더링 - 골드 ==========
+        if frame_count > 3 and frame_count < 90:
+            line_alpha = min(180, (frame_count - 3) * 10)
+            if frame_count > 70:
+                line_alpha = max(0, line_alpha - (frame_count - 70) * 10)
+
+            for line in speed_lines:
+                start_dist = line['offset']
+                end_dist = line['offset'] + line['length']
+
+                start_x = center_x + math.cos(line['angle']) * start_dist
+                start_y = center_y + math.sin(line['angle']) * start_dist
+                end_x = center_x + math.cos(line['angle']) * end_dist
+                end_y = center_y + math.sin(line['angle']) * end_dist
+
+                # 골드 집중선
+                line_color = (255, 200, 80)
+                pygame.draw.line(SCREEN, line_color, (start_x, start_y), (end_x, end_y), line['width'])
+
+        # ========== 임팩트 링 렌더링 ==========
+        new_rings = []
+        for ring in impact_rings:
+            ring['radius'] += ring['speed']
+            ring['alpha'] = max(0, ring['alpha'] - 5)
+
+            if ring['alpha'] > 0 and ring['radius'] < 450:
+                new_rings.append(ring)
+                ring_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                pygame.draw.circle(ring_surf, (*ring['color'], int(ring['alpha'])),
+                                 (center_x, center_y), int(ring['radius']), ring['width'])
+                SCREEN.blit(ring_surf, (0, 0))
+
+        impact_rings = new_rings
+
+        # ========== 골드 파티클 생성 (상승) ==========
+        if frame_count > 5 and frame_count < 80 and frame_count % 2 == 0:
+            for _ in range(4):
+                gold_particles.append({
+                    'x': random.randint(50, WIDTH - 50),
+                    'y': HEIGHT + 20,
+                    'vx': random.uniform(-1.5, 1.5),
+                    'vy': random.uniform(-7, -4),
+                    'life': 60,
+                    'size': random.randint(3, 6)
+                })
+
+        # 골드 파티클 업데이트
+        new_gold = []
+        for p in gold_particles:
             p['x'] += p['vx']
             p['y'] += p['vy']
-            p['vy'] += 0.05  # 약간의 중력
-            p['alpha'] -= 1.5
+            p['vy'] += 0.08
+            p['life'] -= 1
 
-            if p['alpha'] > 0 and p['y'] < HEIGHT + 50:
-                new_particles.append(p)
+            if p['life'] > 0:
+                new_gold.append(p)
+                alpha = int(255 * p['life'] / 60)
+                pygame.draw.circle(SCREEN, (255, 215, 0),
+                                 (int(p['x']), int(p['y'])), p['size'])
+        gold_particles = new_gold
 
-                # 글로우 효과
-                glow_surf = pygame.Surface((int(p['glow'] * 4), int(p['glow'] * 4)), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (*p['color'][:3], int(p['alpha'] * 0.3)),
-                                 (int(p['glow'] * 2), int(p['glow'] * 2)), int(p['glow'] * 2))
-                SCREEN.blit(glow_surf, (int(p['x'] - p['glow'] * 2), int(p['y'] - p['glow'] * 2)))
-
-                # 파티클 본체
-                pygame.draw.circle(SCREEN, p['color'], (int(p['x']), int(p['y'])), int(p['size']))
-
-        particles = new_particles
-
-        # 새 파티클 추가 (지속적으로)
-        if frame_count < 120 and frame_count % 2 == 0:
-            for _ in range(3):
-                particles.append({
-                    'x': random.randint(0, WIDTH),
-                    'y': HEIGHT + 10,
-                    'vx': random.uniform(-1, 1),
-                    'vy': random.uniform(-6, -3),
-                    'size': random.uniform(2, 6),
-                    'alpha': random.randint(150, 255),
-                    'color': random.choice([
-                        (255, 215, 0), (255, 200, 50), (255, 180, 0)
-                    ]),
-                    'glow': random.randint(4, 10)
+        # ========== 에너지 스파크 생성 ==========
+        if frame_count > 5 and frame_count < 70 and frame_count % 2 == 0:
+            for _ in range(5):
+                angle = random.uniform(0, 2 * math.pi)
+                dist = random.randint(50, 140)
+                sparks.append({
+                    'x': center_x + math.cos(angle) * dist,
+                    'y': center_y + math.sin(angle) * dist - 40,
+                    'vx': random.uniform(-4, 4),
+                    'vy': random.uniform(-6, -2),
+                    'life': 25,
+                    'size': random.randint(2, 5)
                 })
 
-        # 폭죽 업데이트 및 그리기
-        new_fireworks = []
-        for f in fireworks:
-            f['x'] += f['vx']
-            f['y'] += f['vy']
-            f['vy'] += f['gravity']
-            f['alpha'] -= 4
+        # 스파크 업데이트 및 렌더링
+        new_sparks = []
+        for spark in sparks:
+            spark['x'] += spark['vx']
+            spark['y'] += spark['vy']
+            spark['vy'] += 0.25
+            spark['life'] -= 1
 
-            if f['alpha'] > 0:
-                new_fireworks.append(f)
-                pygame.draw.circle(SCREEN, (*f['color'][:3], int(f['alpha'])),
-                                 (int(f['x']), int(f['y'])), int(f['size']))
-        fireworks = new_fireworks
+            if spark['life'] > 0:
+                new_sparks.append(spark)
+                alpha = int(255 * spark['life'] / 25)
+                pygame.draw.circle(SCREEN, (255, 230, 100),
+                                 (int(spark['x']), int(spark['y'])), spark['size'])
+        sparks = new_sparks
 
-        # 별 그리기
-        for star in stars:
-            if frame_count > star['delay']:
-                star['alpha'] = min(255, star['alpha'] + 8)
-                star['rotation'] += star['rotation_speed']
-                star['scale_phase'] += 0.1
+        # ========== 메인 텍스트 "완벽한 승리!" ==========
+        # 슬라이드 인 애니메이션
+        if frame_count < 15:
+            ease = 1 - math.pow(1 - frame_count / 15, 3)
+            title_x_offset = -WIDTH * (1 - ease)
+        else:
+            title_x_offset = 0
 
-                scale = 1.0 + 0.3 * math.sin(star['scale_phase'])
-                size = int(star['size'] * scale)
-
-                if star['alpha'] > 0:
-                    # 별 모양 그리기
-                    star_surface = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
-                    cx, cy = size * 1.5, size * 1.5
-
-                    # 8각 별
-                    points = []
-                    for i in range(8):
-                        angle = math.radians(star['rotation'] + i * 45)
-                        r = size if i % 2 == 0 else size * 0.4
-                        points.append((cx + math.cos(angle) * r, cy + math.sin(angle) * r))
-
-                    pygame.draw.polygon(star_surface, (255, 215, 0, int(star['alpha'])), points)
-
-                    # 글로우
-                    glow_size = int(size * 1.5)
-                    pygame.draw.circle(star_surface, (255, 255, 200, int(star['alpha'] * 0.3)),
-                                     (int(cx), int(cy)), glow_size)
-
-                    SCREEN.blit(star_surface, (int(star['x'] - size * 1.5), int(star['y'] - size * 1.5)))
-
-        # 메인 텍스트
-        text_alpha = min(255, frame_count * 6)
-        text_scale = 1.0 + 0.05 * math.sin(frame_count * 0.1)
-
-        # 글로우 효과를 위한 여러 레이어
         title_text = "완벽한 승리!"
+        text_alpha = min(255, frame_count * 15)
 
-        # 외곽 글로우 (여러 번 그려서 효과)
-        for offset in range(3, 0, -1):
-            glow_alpha = int((text_alpha * 0.3) / offset)
-            glow_color = (255, 200, 50, glow_alpha)
-            for dx, dy in [(-offset, 0), (offset, 0), (0, -offset), (0, offset)]:
-                glow_surface = title_font.render(title_text, True, glow_color[:3])
-                glow_surface.set_alpha(glow_alpha)
-                glow_rect = glow_surface.get_rect(center=(WIDTH // 2 + dx, HEIGHT // 2 - 50 + dy))
-                SCREEN.blit(glow_surface, glow_rect)
+        # 그림자 (오른쪽 아래)
+        shadow_surface = title_font.render(title_text, True, (80, 50, 0))
+        shadow_surface.set_alpha(int(text_alpha * 0.6))
+        shadow_rect = shadow_surface.get_rect(center=(WIDTH // 2 + title_x_offset + 4, HEIGHT // 2 - 45 + 4))
+        SCREEN.blit(shadow_surface, shadow_rect)
 
-        # 메인 텍스트
+        # 외곽선 효과 (어두운 골드)
+        outline_color = (120, 80, 0)
+        for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-2, -2), (2, -2), (-2, 2), (2, 2)]:
+            outline_surface = title_font.render(title_text, True, outline_color)
+            outline_surface.set_alpha(text_alpha)
+            outline_rect = outline_surface.get_rect(center=(WIDTH // 2 + title_x_offset + dx, HEIGHT // 2 - 45 + dy))
+            SCREEN.blit(outline_surface, outline_rect)
+
+        # 메인 텍스트 (골드)
         title_surface = title_font.render(title_text, True, (255, 215, 0))
         title_surface.set_alpha(text_alpha)
-        title_rect = title_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 50))
+        title_rect = title_surface.get_rect(center=(WIDTH // 2 + title_x_offset, HEIGHT // 2 - 45))
         SCREEN.blit(title_surface, title_rect)
 
-        # 서브 텍스트
-        if frame_count > 30:
-            sub_alpha = min(255, (frame_count - 30) * 8)
-            sub_text = "PERFECT VICTORY"
-            sub_surface = sub_font.render(sub_text, True, (255, 255, 255))
+        # 하이라이트 (상단)
+        highlight_surface = title_font.render(title_text, True, (255, 255, 200))
+        highlight_surface.set_alpha(int(text_alpha * 0.5))
+        SCREEN.blit(highlight_surface, (title_rect.x, title_rect.y - 1))
+
+        # ========== 서브 텍스트 "PERFECT" ==========
+        if frame_count > 12:
+            sub_progress = min(1, (frame_count - 12) / 12)
+            ease_sub = 1 - math.pow(1 - sub_progress, 3)
+            sub_y_offset = 80 * (1 - ease_sub)
+
+            sub_alpha = min(255, (frame_count - 12) * 18)
+
+            sub_text = "PERFECT"
+
+            # 서브 텍스트 그림자
+            sub_shadow = sub_font.render(sub_text, True, (80, 50, 0))
+            sub_shadow.set_alpha(int(sub_alpha * 0.5))
+            sub_shadow_rect = sub_shadow.get_rect(center=(WIDTH // 2 + 3, HEIGHT // 2 + 15 + sub_y_offset + 3))
+            SCREEN.blit(sub_shadow, sub_shadow_rect)
+
+            # 서브 텍스트 메인
+            sub_surface = sub_font.render(sub_text, True, (255, 230, 150))
             sub_surface.set_alpha(sub_alpha)
-            sub_rect = sub_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
+            sub_rect = sub_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 15 + sub_y_offset))
             SCREEN.blit(sub_surface, sub_rect)
 
-            # 스킬 선택 횟수 안내
-            if frame_count > 60:
-                bonus_alpha = min(255, (frame_count - 60) * 6)
-                bonus_text = "런타임 스킬 3회 선택!"
-                bonus_surface = sub_font.render(bonus_text, True, (100, 255, 100))
-                bonus_surface.set_alpha(bonus_alpha)
-                bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 90))
-                SCREEN.blit(bonus_surface, bonus_rect)
+        # ========== 보너스 텍스트 "런타임 스킬 3회 선택!" ==========
+        if frame_count > 30:
+            bonus_alpha = min(255, (frame_count - 30) * 12)
+
+            bonus_text = "런타임 스킬 3회 선택!"
+            bonus_surface = bonus_font.render(bonus_text, True, (255, 255, 255))
+            bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 65))
+
+            # 배경 바
+            bar_padding = 12
+            bar_rect = pygame.Rect(bonus_rect.x - bar_padding, bonus_rect.y - 5,
+                                  bonus_rect.width + bar_padding * 2, bonus_rect.height + 10)
+            bar_surface = pygame.Surface((bar_rect.width, bar_rect.height), pygame.SRCALPHA)
+
+            # 골드 배경
+            bar_surface.fill((60, 45, 10, int(bonus_alpha * 0.7)))
+
+            # 좌우 엣지 라인 (골드)
+            pygame.draw.line(bar_surface, (255, 200, 50, int(bonus_alpha)),
+                           (0, 0), (0, bar_rect.height), 3)
+            pygame.draw.line(bar_surface, (255, 200, 50, int(bonus_alpha)),
+                           (bar_rect.width - 1, 0), (bar_rect.width - 1, bar_rect.height), 3)
+
+            SCREEN.blit(bar_surface, bar_rect.topleft)
+
+            # 텍스트
+            bonus_surface.set_alpha(bonus_alpha)
+            SCREEN.blit(bonus_surface, bonus_rect)
+
+        # ========== 코너 데코레이션 (골드) ==========
+        if frame_count > 20:
+            deco_alpha = min(220, (frame_count - 20) * 12)
+            corner_color = (255, 200, 50)
+            corner_len = 50
+
+            # 좌상단
+            pygame.draw.line(SCREEN, corner_color, (30, 30), (30 + corner_len, 30), 3)
+            pygame.draw.line(SCREEN, corner_color, (30, 30), (30, 30 + corner_len), 3)
+
+            # 우상단
+            pygame.draw.line(SCREEN, corner_color, (WIDTH - 30, 30), (WIDTH - 30 - corner_len, 30), 3)
+            pygame.draw.line(SCREEN, corner_color, (WIDTH - 30, 30), (WIDTH - 30, 30 + corner_len), 3)
+
+            # 좌하단
+            pygame.draw.line(SCREEN, corner_color, (30, HEIGHT - 30), (30 + corner_len, HEIGHT - 30), 3)
+            pygame.draw.line(SCREEN, corner_color, (30, HEIGHT - 30), (30, HEIGHT - 30 - corner_len), 3)
+
+            # 우하단
+            pygame.draw.line(SCREEN, corner_color, (WIDTH - 30, HEIGHT - 30), (WIDTH - 30 - corner_len, HEIGHT - 30), 3)
+            pygame.draw.line(SCREEN, corner_color, (WIDTH - 30, HEIGHT - 30), (WIDTH - 30, HEIGHT - 30 - corner_len), 3)
 
         pygame.display.flip()
         clock.tick(60)
@@ -64136,21 +64193,68 @@ def show_excellent_victory_effect():
 
 def show_normal_victory_effect():
     """
-    일반 승리 (5:2) 시 간단한 이펙트
-    라이브 스테이지 배경 위에 오버레이로 표시
+    일반 승리 (5:2) 시 핑파이터 게이밍 스타일 이펙트
+    녹색 테마 - 5:1, 5:0보다 간소화된 버전
     """
     use_live_bg = True
     clock = pygame.time.Clock()
 
     try:
-        title_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 52)
-        sub_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 28)
+        title_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 56)
+        sub_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 32)
+        bonus_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 24)
     except Exception:
-        title_font = pygame.font.Font(None, 58)
-        sub_font = pygame.font.Font(None, 32)
+        title_font = pygame.font.Font(None, 62)
+        sub_font = pygame.font.Font(None, 36)
+        bonus_font = pygame.font.Font(None, 28)
 
     frame_count = 0
-    duration = 90  # 1.5초
+    duration = 100  # 1.7초
+
+    # ========== 녹색 테마 컬러 ==========
+    main_color = (100, 255, 130)      # 밝은 녹색
+    accent_color = (50, 200, 80)      # 짙은 녹색
+    highlight_color = (180, 255, 200) # 하이라이트
+
+    # ========== 집중선 (스피드 라인) - 16개로 간소화 ==========
+    speed_lines = []
+    for i in range(16):
+        angle = (i / 16) * math.pi * 2
+        speed = random.uniform(6, 12)
+        length = random.uniform(80, 150)
+        speed_lines.append({
+            'angle': angle,
+            'speed': speed,
+            'length': length,
+            'offset': random.uniform(0, 50),
+            'thickness': random.randint(1, 2)
+        })
+
+    # ========== 충격파 링 - 2개로 간소화 ==========
+    impact_rings = []
+    for i in range(2):
+        impact_rings.append({
+            'radius': 0,
+            'max_radius': 200 + i * 80,
+            'start_frame': i * 12,
+            'speed': 6 + i * 2,
+            'thickness': 3 - i
+        })
+
+    # ========== 스파크 파티클 - 12개로 간소화 ==========
+    sparks = []
+    for _ in range(12):
+        angle = random.uniform(0, math.pi * 2)
+        speed = random.uniform(3, 8)
+        sparks.append({
+            'x': WIDTH // 2,
+            'y': HEIGHT // 2,
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': random.randint(40, 70),
+            'max_life': 70,
+            'size': random.randint(2, 4)
+        })
 
     while frame_count < duration:
         frame_count += 1
@@ -64162,39 +64266,166 @@ def show_normal_victory_effect():
             elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
                 frame_count = duration
 
-        # 배경 그리기 - 라이브 스테이지 배경 사용
+        # ========== 배경 ==========
         if use_live_bg:
             _render_stage_background_for_overlay(draw_entities=False)
 
-        overlay_alpha = min(120, frame_count * 4)
+        # ========== 녹색 오버레이 ==========
+        overlay_alpha = min(100, frame_count * 3)
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((20, 30, 20, overlay_alpha))
+        overlay.fill((20, 40, 25, overlay_alpha))
         SCREEN.blit(overlay, (0, 0))
 
-        # 텍스트
-        text_alpha = min(255, frame_count * 6)
+        # ========== 첫 프레임 플래시 ==========
+        if frame_count <= 6:
+            flash_alpha = int((1 - frame_count / 6) * 120)
+            flash = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            flash.fill((180, 255, 200, flash_alpha))
+            SCREEN.blit(flash, (0, 0))
 
-        title_text = "승리!"
-        title_surface = title_font.render(title_text, True, (150, 255, 150))
-        title_surface.set_alpha(text_alpha)
-        title_rect = title_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 30))
-        SCREEN.blit(title_surface, title_rect)
+        # ========== 집중선 그리기 ==========
+        if frame_count > 3:
+            line_alpha = min(80, (frame_count - 3) * 6)
+            center_x, center_y = WIDTH // 2, HEIGHT // 2
 
-        if frame_count > 15:
-            sub_alpha = min(255, (frame_count - 15) * 8)
-            sub_text = "VICTORY"
-            sub_surface = sub_font.render(sub_text, True, (200, 255, 200))
-            sub_surface.set_alpha(sub_alpha)
-            sub_rect = sub_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 20))
+            for line in speed_lines:
+                current_offset = line['offset'] + frame_count * line['speed'] * 0.3
+                start_dist = 100 + current_offset
+                end_dist = start_dist + line['length']
+
+                start_x = center_x + math.cos(line['angle']) * start_dist
+                start_y = center_y + math.sin(line['angle']) * start_dist
+                end_x = center_x + math.cos(line['angle']) * end_dist
+                end_y = center_y + math.sin(line['angle']) * end_dist
+
+                # 화면 내에서만 그리기
+                if 0 <= end_x <= WIDTH and 0 <= end_y <= HEIGHT:
+                    line_color = (main_color[0], main_color[1], main_color[2])
+                    pygame.draw.line(SCREEN, line_color,
+                                   (int(start_x), int(start_y)),
+                                   (int(end_x), int(end_y)),
+                                   line['thickness'])
+
+        # ========== 충격파 링 ==========
+        for ring in impact_rings:
+            if frame_count > ring['start_frame']:
+                elapsed = frame_count - ring['start_frame']
+                ring['radius'] = min(ring['max_radius'], elapsed * ring['speed'])
+
+                if ring['radius'] < ring['max_radius']:
+                    ring_alpha = int(255 * (1 - ring['radius'] / ring['max_radius']))
+                    ring_color = (main_color[0], main_color[1], main_color[2])
+
+                    # 링 그리기
+                    pygame.draw.circle(SCREEN, ring_color,
+                                     (WIDTH // 2, HEIGHT // 2),
+                                     int(ring['radius']),
+                                     ring['thickness'])
+
+        # ========== 스파크 파티클 ==========
+        for spark in sparks:
+            if spark['life'] > 0:
+                spark['x'] += spark['vx']
+                spark['y'] += spark['vy']
+                spark['vy'] += 0.1  # 약한 중력
+                spark['life'] -= 1
+
+                alpha = int(255 * (spark['life'] / spark['max_life']))
+                if alpha > 0:
+                    spark_color = highlight_color
+                    pygame.draw.circle(SCREEN, spark_color,
+                                     (int(spark['x']), int(spark['y'])),
+                                     spark['size'])
+
+        # ========== 메인 텍스트 "승리!" ==========
+        if frame_count > 5:
+            # 슬라이드 인 애니메이션
+            slide_progress = min(1.0, (frame_count - 5) / 15)
+            eased_progress = 1 - math.pow(1 - slide_progress, 3)
+
+            title_x = int(-150 + (WIDTH // 2 + 150) * eased_progress)
+            title_y = HEIGHT // 2 - 35
+
+            title_text = "승리!"
+
+            # 텍스트 쉐도우
+            shadow_surface = title_font.render(title_text, True, (0, 0, 0))
+            shadow_rect = shadow_surface.get_rect(center=(title_x + 3, title_y + 3))
+            SCREEN.blit(shadow_surface, shadow_rect)
+
+            # 텍스트 아웃라인
+            outline_color = accent_color
+            for ox, oy in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
+                outline_surface = title_font.render(title_text, True, outline_color)
+                outline_rect = outline_surface.get_rect(center=(title_x + ox, title_y + oy))
+                SCREEN.blit(outline_surface, outline_rect)
+
+            # 메인 텍스트
+            title_surface = title_font.render(title_text, True, main_color)
+            title_rect = title_surface.get_rect(center=(title_x, title_y))
+            SCREEN.blit(title_surface, title_rect)
+
+            # 하이라이트
+            highlight_surface = title_font.render(title_text, True, highlight_color)
+            highlight_surface.set_alpha(80)
+            highlight_rect = highlight_surface.get_rect(center=(title_x, title_y - 2))
+            SCREEN.blit(highlight_surface, highlight_rect)
+
+        # ========== 서브 텍스트 "VICTORY" ==========
+        if frame_count > 18:
+            sub_progress = min(1.0, (frame_count - 18) / 12)
+            sub_eased = 1 - math.pow(1 - sub_progress, 3)
+
+            sub_x = int(WIDTH + 100 - (WIDTH // 2 + 100) * sub_eased)
+            sub_y = HEIGHT // 2 + 15
+
+            sub_text = "- VICTORY -"
+
+            # 쉐도우
+            sub_shadow = sub_font.render(sub_text, True, (0, 0, 0))
+            sub_shadow_rect = sub_shadow.get_rect(center=(sub_x + 2, sub_y + 2))
+            SCREEN.blit(sub_shadow, sub_shadow_rect)
+
+            # 메인
+            sub_surface = sub_font.render(sub_text, True, (180, 255, 200))
+            sub_rect = sub_surface.get_rect(center=(sub_x, sub_y))
             SCREEN.blit(sub_surface, sub_rect)
 
-            if frame_count > 30:
-                bonus_alpha = min(255, (frame_count - 30) * 6)
-                bonus_text = "런타임 스킬 1회 선택!"
-                bonus_surface = sub_font.render(bonus_text, True, (180, 255, 180))
-                bonus_surface.set_alpha(bonus_alpha)
-                bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 60))
-                SCREEN.blit(bonus_surface, bonus_rect)
+        # ========== 보너스 텍스트 "런타임 스킬 1회 선택!" ==========
+        if frame_count > 35:
+            bonus_alpha = min(255, (frame_count - 35) * 10)
+
+            bonus_text = "런타임 스킬 1회 선택!"
+            bonus_surface = bonus_font.render(bonus_text, True, (255, 255, 255))
+            bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 60))
+
+            # 배경 바
+            bar_padding = 10
+            bar_rect = pygame.Rect(bonus_rect.x - bar_padding, bonus_rect.y - 4,
+                                  bonus_rect.width + bar_padding * 2, bonus_rect.height + 8)
+            bar_surface = pygame.Surface((bar_rect.width, bar_rect.height), pygame.SRCALPHA)
+            bar_surface.fill((20, 60, 30, int(bonus_alpha * 0.7)))
+
+            # 좌우 엣지 라인
+            pygame.draw.line(bar_surface, (100, 255, 150, int(bonus_alpha)),
+                           (0, 0), (0, bar_rect.height), 2)
+            pygame.draw.line(bar_surface, (100, 255, 150, int(bonus_alpha)),
+                           (bar_rect.width - 1, 0), (bar_rect.width - 1, bar_rect.height), 2)
+
+            SCREEN.blit(bar_surface, bar_rect.topleft)
+
+            bonus_surface.set_alpha(bonus_alpha)
+            SCREEN.blit(bonus_surface, bonus_rect)
+
+        # ========== 코너 데코레이션 (좌상단만) ==========
+        if frame_count > 25:
+            deco_alpha = min(180, (frame_count - 25) * 8)
+            corner_color = (80, 200, 120)
+            corner_len = 35
+
+            # 좌상단만
+            pygame.draw.line(SCREEN, corner_color, (30, 30), (30 + corner_len, 30), 2)
+            pygame.draw.line(SCREEN, corner_color, (30, 30), (30, 30 + corner_len), 2)
 
         pygame.display.flip()
         clock.tick(60)
