@@ -6566,35 +6566,8 @@ def show_all_runtime_skills_menu() -> str | None:
                             selected_skill = skill
                             running = False
                             break
-                elif event.button == 4:  # 스크롤 업 (호버된 스킬 없을 때만)
-                    if hovered_index < 0:
-                        scroll_offset = max(0, scroll_offset - 30)
-                    else:
-                        # 호버된 스킬 레벨업
-                        hovered_skill = all_skills[hovered_index]
-                        if not hovered_skill.get("is_instant"):
-                            skill_id = hovered_skill["id"]
-                            max_lvl = hovered_skill.get("max_level", 5)
-                            current_lvl = runtime_skill_levels.get(skill_id, 0)
-                            if max_lvl == -1 or current_lvl < max_lvl:
-                                # 직접 레벨 증가 (최대 레벨 초과 방지)
-                                runtime_skill_levels[skill_id] = current_lvl + 1
-                                hovered_skill["current_level"] = runtime_skill_levels[skill_id]
-                                recalculate_skill_effects(skill_id)
-                elif event.button == 5:  # 스크롤 다운 (호버된 스킬 없을 때만)
-                    if hovered_index < 0:
-                        scroll_offset = min(max_scroll, scroll_offset + 30)
-                    else:
-                        # 호버된 스킬 레벨 다운
-                        hovered_skill = all_skills[hovered_index]
-                        if not hovered_skill.get("is_instant"):
-                            skill_id = hovered_skill["id"]
-                            current_lvl = runtime_skill_levels.get(skill_id, 0)
-                            if current_lvl > 0:
-                                runtime_skill_levels[skill_id] = current_lvl - 1
-                                hovered_skill["current_level"] = runtime_skill_levels[skill_id]
-                                # 레벨 감소 시 효과 재계산
-                                recalculate_skill_effects(skill_id)
+                # button 4/5 (구식 휠 이벤트)는 MOUSEWHEEL과 중복되므로 제거
+                # MOUSEWHEEL 이벤트에서만 휠 처리
             elif event.type == pygame.MOUSEWHEEL:
                 if hovered_index >= 0:
                     # 호버된 스킬 레벨 조절
