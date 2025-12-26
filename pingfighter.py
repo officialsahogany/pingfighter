@@ -63904,40 +63904,98 @@ def show_perfect_victory_effect():
 
 def show_excellent_victory_effect():
     """
-    우수한 승리 (5:1) 시 이펙트를 보여주는 함수
+    우수한 승리 (5:1) 시 화려한 프리미엄 이펙트
     라이브 스테이지 배경 위에 오버레이로 표시
+    다이아몬드 파티클, 빛줄기, 글로우 이펙트, 물결 효과
     """
     use_live_bg = True
     clock = pygame.time.Clock()
 
-    particles = []
+    # 파티클 시스템들
+    particles = []          # 기본 파티클
+    diamond_particles = []  # 다이아몬드 파티클
+    light_rays = []         # 빛줄기
+    ring_waves = []         # 물결 링
+    sparkles = []           # 반짝이는 별
 
-    # 파티클 생성 (파란색 계열)
-    for _ in range(50):
+    # 색상 팔레트 (청록색/시안/아쿠아 계열 프리미엄)
+    color_palette = [
+        (0, 255, 255),      # 시안
+        (100, 255, 255),    # 밝은 시안
+        (0, 200, 255),      # 스카이 블루
+        (50, 180, 255),     # 아쿠아 블루
+        (150, 255, 255),    # 아이스 블루
+        (200, 255, 255),    # 페일 시안
+        (0, 255, 200),      # 민트
+        (100, 255, 220),    # 아쿠아마린
+    ]
+
+    # 초기 다이아몬드 파티클 생성 (화면 중앙에서 폭발)
+    center_x, center_y = WIDTH // 2, HEIGHT // 2
+    for _ in range(60):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(4, 12)
         particles.append({
-            'x': random.randint(0, WIDTH),
-            'y': random.randint(HEIGHT, HEIGHT + 100),
-            'vx': random.uniform(-1.5, 1.5),
-            'vy': random.uniform(-6, -3),
+            'x': center_x,
+            'y': center_y,
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'size': random.uniform(3, 8),
+            'alpha': 255,
+            'color': random.choice(color_palette),
+            'glow': random.randint(8, 20),
+            'rotation': random.uniform(0, 360),
+            'rotation_speed': random.uniform(-8, 8)
+        })
+
+    # 빛줄기 생성 (중앙에서 방사형)
+    for i in range(12):
+        angle = (i / 12) * 2 * math.pi
+        light_rays.append({
+            'angle': angle,
+            'length': 0,
+            'max_length': random.randint(250, 400),
+            'width': random.randint(3, 8),
+            'alpha': 0,
+            'color': random.choice(color_palette),
+            'speed': random.uniform(8, 15)
+        })
+
+    # 물결 링 초기화
+    for i in range(4):
+        ring_waves.append({
+            'radius': 0,
+            'alpha': 0,
+            'width': 3,
+            'delay': i * 15,
+            'color': color_palette[i % len(color_palette)]
+        })
+
+    # 반짝이는 별 생성
+    for _ in range(40):
+        sparkles.append({
+            'x': random.randint(50, WIDTH - 50),
+            'y': random.randint(50, HEIGHT - 50),
             'size': random.uniform(2, 6),
-            'alpha': random.randint(150, 255),
-            'color': random.choice([
-                (100, 200, 255),  # 하늘색
-                (50, 150, 255),   # 파랑
-                (150, 220, 255),  # 밝은 파랑
-                (200, 230, 255),  # 연한 파랑
-            ])
+            'alpha': 0,
+            'max_alpha': random.randint(150, 255),
+            'phase': random.uniform(0, 2 * math.pi),
+            'speed': random.uniform(0.1, 0.3),
+            'delay': random.randint(0, 60),
+            'color': random.choice(color_palette)
         })
 
     try:
-        title_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 60)
-        sub_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 32)
+        title_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 72)
+        sub_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 36)
+        bonus_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 32)
     except Exception:
-        title_font = pygame.font.Font(None, 68)
-        sub_font = pygame.font.Font(None, 36)
+        title_font = pygame.font.Font(None, 80)
+        sub_font = pygame.font.Font(None, 40)
+        bonus_font = pygame.font.Font(None, 36)
 
     frame_count = 0
-    duration = 120  # 2초
+    duration = 150  # 2.5초
 
     while frame_count < duration:
         frame_count += 1
@@ -63953,63 +64011,197 @@ def show_excellent_victory_effect():
         if use_live_bg:
             _render_stage_background_for_overlay(draw_entities=False)
 
-        overlay_alpha = min(150, frame_count * 4)
+        # 반투명 오버레이 (깊은 청색)
+        overlay_alpha = min(160, frame_count * 5)
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 20, 40, overlay_alpha))
+        overlay.fill((0, 15, 35, overlay_alpha))
         SCREEN.blit(overlay, (0, 0))
 
-        # 파티클 업데이트
+        # ========== 빛줄기 렌더링 ==========
+        for ray in light_rays:
+            if ray['length'] < ray['max_length']:
+                ray['length'] += ray['speed']
+            ray['alpha'] = min(180, frame_count * 4) if frame_count < 80 else max(0, ray['alpha'] - 3)
+
+            if ray['alpha'] > 0:
+                end_x = center_x + math.cos(ray['angle']) * ray['length']
+                end_y = center_y + math.sin(ray['angle']) * ray['length']
+
+                # 글로우 효과가 있는 빛줄기
+                for w in range(ray['width'], 0, -1):
+                    alpha = int(ray['alpha'] * (w / ray['width']) * 0.5)
+                    color = (*ray['color'], alpha)
+                    pygame.draw.line(SCREEN, color, (center_x, center_y), (end_x, end_y), w * 2)
+
+        # ========== 물결 링 렌더링 ==========
+        for ring in ring_waves:
+            if frame_count > ring['delay']:
+                actual_frame = frame_count - ring['delay']
+                ring['radius'] = actual_frame * 4
+                ring['alpha'] = max(0, 200 - actual_frame * 2)
+
+                if ring['alpha'] > 0 and ring['radius'] < 500:
+                    ring_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                    pygame.draw.circle(ring_surface, (*ring['color'], int(ring['alpha'])),
+                                     (center_x, center_y), int(ring['radius']), ring['width'])
+                    # 글로우 효과
+                    pygame.draw.circle(ring_surface, (*ring['color'], int(ring['alpha'] * 0.3)),
+                                     (center_x, center_y), int(ring['radius']), ring['width'] + 4)
+                    SCREEN.blit(ring_surface, (0, 0))
+
+        # ========== 반짝이는 별 렌더링 ==========
+        for sparkle in sparkles:
+            if frame_count > sparkle['delay']:
+                sparkle['phase'] += sparkle['speed']
+                sparkle['alpha'] = int(sparkle['max_alpha'] * (0.5 + 0.5 * math.sin(sparkle['phase'])))
+
+                if sparkle['alpha'] > 20:
+                    # 십자 모양 별
+                    spark_surf = pygame.Surface((int(sparkle['size'] * 4), int(sparkle['size'] * 4)), pygame.SRCALPHA)
+                    cx, cy = sparkle['size'] * 2, sparkle['size'] * 2
+                    color = (*sparkle['color'], int(sparkle['alpha']))
+
+                    # 가로선
+                    pygame.draw.line(spark_surf, color,
+                                   (cx - sparkle['size'] * 1.5, cy), (cx + sparkle['size'] * 1.5, cy), 2)
+                    # 세로선
+                    pygame.draw.line(spark_surf, color,
+                                   (cx, cy - sparkle['size'] * 1.5), (cx, cy + sparkle['size'] * 1.5), 2)
+                    # 중앙 글로우
+                    pygame.draw.circle(spark_surf, (*sparkle['color'], int(sparkle['alpha'] * 0.6)),
+                                     (int(cx), int(cy)), int(sparkle['size'] * 0.8))
+
+                    SCREEN.blit(spark_surf, (sparkle['x'] - sparkle['size'] * 2, sparkle['y'] - sparkle['size'] * 2))
+
+        # ========== 파티클 업데이트 및 렌더링 ==========
         new_particles = []
         for p in particles:
             p['x'] += p['vx']
             p['y'] += p['vy']
-            p['vy'] += 0.03
+            p['vx'] *= 0.98  # 감속
+            p['vy'] *= 0.98
+            p['vy'] += 0.05  # 약한 중력
             p['alpha'] -= 2
+            p['rotation'] += p['rotation_speed']
 
-            if p['alpha'] > 0 and p['y'] < HEIGHT + 50:
+            if p['alpha'] > 0:
                 new_particles.append(p)
-                pygame.draw.circle(SCREEN, (*p['color'][:3], int(p['alpha'])),
-                                 (int(p['x']), int(p['y'])), int(p['size']))
+
+                # 글로우 효과가 있는 다이아몬드 파티클
+                particle_surf = pygame.Surface((int(p['glow'] * 2), int(p['glow'] * 2)), pygame.SRCALPHA)
+                glow_center = p['glow']
+
+                # 외부 글로우
+                for r in range(int(p['glow']), int(p['size']), -2):
+                    glow_alpha = int(p['alpha'] * (r / p['glow']) * 0.3)
+                    pygame.draw.circle(particle_surf, (*p['color'], glow_alpha),
+                                     (int(glow_center), int(glow_center)), r)
+
+                # 내부 밝은 코어
+                pygame.draw.circle(particle_surf, (*p['color'], int(p['alpha'])),
+                                 (int(glow_center), int(glow_center)), int(p['size']))
+                pygame.draw.circle(particle_surf, (255, 255, 255, int(p['alpha'] * 0.7)),
+                                 (int(glow_center), int(glow_center)), int(p['size'] * 0.5))
+
+                SCREEN.blit(particle_surf, (int(p['x'] - p['glow']), int(p['y'] - p['glow'])))
+
         particles = new_particles
 
-        # 새 파티클 추가
-        if frame_count < 80 and frame_count % 3 == 0:
-            for _ in range(2):
+        # 추가 파티클 생성 (화면 하단에서 상승)
+        if frame_count < 100 and frame_count % 2 == 0:
+            for _ in range(3):
                 particles.append({
-                    'x': random.randint(0, WIDTH),
-                    'y': HEIGHT + 10,
+                    'x': random.randint(50, WIDTH - 50),
+                    'y': HEIGHT + 20,
                     'vx': random.uniform(-1, 1),
-                    'vy': random.uniform(-5, -2),
-                    'size': random.uniform(2, 5),
-                    'alpha': random.randint(120, 220),
-                    'color': random.choice([
-                        (100, 200, 255), (50, 150, 255), (150, 220, 255)
-                    ])
+                    'vy': random.uniform(-8, -4),
+                    'size': random.uniform(3, 6),
+                    'alpha': random.randint(180, 255),
+                    'color': random.choice(color_palette),
+                    'glow': random.randint(10, 18),
+                    'rotation': 0,
+                    'rotation_speed': random.uniform(-5, 5)
                 })
 
-        # 텍스트
-        text_alpha = min(255, frame_count * 6)
+        # ========== 메인 텍스트 렌더링 ==========
+        text_alpha = min(255, frame_count * 8)
 
+        # 텍스트 스케일 애니메이션
+        if frame_count < 20:
+            text_scale = 0.5 + (frame_count / 20) * 0.5
+        else:
+            text_scale = 1.0 + math.sin(frame_count * 0.1) * 0.03  # 미세한 펄스
+
+        # "우수한 승리!" 메인 타이틀 (글로우 효과)
         title_text = "우수한 승리!"
-        title_surface = title_font.render(title_text, True, (100, 200, 255))
+
+        # 글로우 레이어들
+        for glow_offset in range(3, 0, -1):
+            glow_alpha = int(text_alpha * 0.2)
+            glow_color = (0, 200, 255)
+            glow_surface = title_font.render(title_text, True, glow_color)
+            glow_surface.set_alpha(glow_alpha)
+            glow_rect = glow_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 50))
+            for dx in range(-glow_offset, glow_offset + 1):
+                for dy in range(-glow_offset, glow_offset + 1):
+                    SCREEN.blit(glow_surface, (glow_rect.x + dx, glow_rect.y + dy))
+
+        # 메인 텍스트 (그라데이션 효과 시뮬레이션)
+        title_surface = title_font.render(title_text, True, (150, 255, 255))
         title_surface.set_alpha(text_alpha)
-        title_rect = title_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 40))
+        title_rect = title_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 50))
         SCREEN.blit(title_surface, title_rect)
 
-        if frame_count > 20:
-            sub_alpha = min(255, (frame_count - 20) * 8)
-            sub_text = "EXCELLENT VICTORY"
-            sub_surface = sub_font.render(sub_text, True, (200, 230, 255))
+        # 하이라이트 텍스트
+        highlight_surface = title_font.render(title_text, True, (255, 255, 255))
+        highlight_surface.set_alpha(int(text_alpha * 0.4))
+        SCREEN.blit(highlight_surface, (title_rect.x, title_rect.y - 2))
+
+        # "EXCELLENT VICTORY" 서브 타이틀
+        if frame_count > 15:
+            sub_alpha = min(255, (frame_count - 15) * 10)
+
+            sub_text = "✦ EXCELLENT VICTORY ✦"
+            # 글로우
+            sub_glow = sub_font.render(sub_text, True, (0, 150, 200))
+            sub_glow.set_alpha(int(sub_alpha * 0.5))
+            sub_glow_rect = sub_glow.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 15))
+            SCREEN.blit(sub_glow, (sub_glow_rect.x - 2, sub_glow_rect.y - 2))
+            SCREEN.blit(sub_glow, (sub_glow_rect.x + 2, sub_glow_rect.y + 2))
+
+            sub_surface = sub_font.render(sub_text, True, (200, 255, 255))
             sub_surface.set_alpha(sub_alpha)
-            sub_rect = sub_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 20))
+            sub_rect = sub_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 15))
             SCREEN.blit(sub_surface, sub_rect)
 
-            if frame_count > 40:
-                bonus_alpha = min(255, (frame_count - 40) * 6)
+            # "런타임 스킬 2회 선택!" 보너스 텍스트
+            if frame_count > 35:
+                bonus_alpha = min(255, (frame_count - 35) * 8)
+
+                # 배경 박스
                 bonus_text = "런타임 스킬 2회 선택!"
-                bonus_surface = sub_font.render(bonus_text, True, (150, 255, 200))
+                bonus_surface = bonus_font.render(bonus_text, True, (255, 255, 255))
+                bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 75))
+
+                # 글로우 박스
+                box_padding = 15
+                box_rect = pygame.Rect(bonus_rect.x - box_padding, bonus_rect.y - 8,
+                                      bonus_rect.width + box_padding * 2, bonus_rect.height + 16)
+                box_surface = pygame.Surface((box_rect.width, box_rect.height), pygame.SRCALPHA)
+
+                # 그라데이션 박스 배경
+                for i in range(box_rect.height):
+                    alpha = int(bonus_alpha * 0.4 * (1 - abs(i - box_rect.height/2) / (box_rect.height/2)))
+                    pygame.draw.line(box_surface, (0, 200, 255, alpha), (0, i), (box_rect.width, i))
+
+                # 테두리
+                pygame.draw.rect(box_surface, (100, 255, 255, int(bonus_alpha * 0.8)),
+                               (0, 0, box_rect.width, box_rect.height), 2, border_radius=5)
+
+                SCREEN.blit(box_surface, box_rect.topleft)
+
+                # 텍스트
                 bonus_surface.set_alpha(bonus_alpha)
-                bonus_rect = bonus_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 70))
                 SCREEN.blit(bonus_surface, bonus_rect)
 
         pygame.display.flip()
