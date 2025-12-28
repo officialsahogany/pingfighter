@@ -56994,13 +56994,28 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
                             (carrier_width - 13, vent_y + 1, 6, 1))
 
     # === 9단계: 하부 글로우 효과 ===
-    # 하부 엔진 글로우 (은은한 청록색)
+    # 하부 엔진 글로우 (엔진 노즐에서 퍼지는 곡선형 글로우)
     glow_pulse = abs(math.sin(time_now * 0.002))
-    for i in range(4):
-        glow_alpha = int(80 - i * 15 + glow_pulse * 30)
-        glow_y = 75 + i * 2
-        pygame.draw.line(carrier_surface, (int(50 + glow_pulse * 30), int(120 + glow_pulse * 40), int(180 + glow_pulse * 40)),
-                        (30, glow_y), (carrier_width - 30, glow_y), 3 - i)
+
+    # 3개의 엔진 노즐 위치
+    engine_glow_points = [
+        (cx - 55, 76),  # 좌측 엔진
+        (cx, 78),       # 중앙 엔진 (살짝 더 아래)
+        (cx + 55, 76),  # 우측 엔진
+    ]
+
+    for ex, ey in engine_glow_points:
+        # 다층 타원형 글로우 (안쪽이 밝고 바깥이 어두움)
+        for radius in range(10, 2, -2):
+            intensity = (10 - radius) / 8.0
+            glow_color = (
+                int(30 + intensity * 50 + glow_pulse * 25),
+                int(70 + intensity * 70 + glow_pulse * 35),
+                int(130 + intensity * 70 + glow_pulse * 30)
+            )
+            # 타원형으로 아래로 퍼지는 느낌
+            pygame.draw.ellipse(carrier_surface, glow_color,
+                               (ex - radius, ey - radius//3, radius * 2, int(radius * 0.7)))
 
     # === 10단계: 표면 텍스처 (미세한 패턴) ===
     # 미세한 장갑 패턴 라인
