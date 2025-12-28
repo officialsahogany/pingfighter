@@ -26591,9 +26591,28 @@ def draw_rainbow_ball_trail(surface: pygame.Surface) -> None:
 
 
 def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> None:
-    """고퀄리티 에너지볼 그리기 - 자기장처럼 회전하는 고리와 파티클이 있는 애니메이션 버전"""
+    """고퀄리티 에너지볼 그리기 - 자기장처럼 회전하는 고리와 파티클이 있는 애니메이션 버전
+    인텐시티에 따라 공 색상이 변경됨"""
     global energy_ball_rotation_angle, energy_ball_pulse_phase
     global energy_ball_particles, energy_ball_ring_particles
+
+    # 인텐시티 색상 가져오기
+    intensity_colors = get_intensity_colors()
+    intensity_level = get_display_intensity_level()
+
+    # 인텐시티에 따른 색상 설정 (기본 파란색 → 인텐시티 색상으로 보간)
+    if intensity_level > 0 and len(intensity_colors) >= 3:
+        # 인텐시티 색상 사용
+        ball_outer_color = intensity_colors[2]  # 가장 어두운 색상
+        ball_inner_color = intensity_colors[1]  # 중간 색상
+        ball_ring_color = intensity_colors[0]   # 밝은 색상
+        ball_core_color = (255, 255, 255)       # 코어는 항상 흰색
+    else:
+        # 기본 파란색 사용
+        ball_outer_color = ENERGY_BALL_OUTER_COLOR
+        ball_inner_color = ENERGY_BALL_INNER_COLOR
+        ball_ring_color = ENERGY_BALL_RING_COLOR
+        ball_core_color = ENERGY_BALL_CORE_COLOR
 
     # 시간 기반 애니메이션
     current_time = pygame.time.get_ticks()
@@ -26629,7 +26648,7 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
         glow_radius = int(radius * (0.795 - i * 0.11) * pulse)  # 0.935 * 0.85
         glow_alpha = int(8 - i * 2)
         if glow_alpha > 0 and glow_radius > 0:
-            pygame.draw.circle(ball_surf, (*ENERGY_BALL_OUTER_COLOR, glow_alpha),
+            pygame.draw.circle(ball_surf, (*ball_outer_color, glow_alpha),
                              (center, center), glow_radius)
 
     # === Layer 2: 회전하는 외부 고리 (3개의 타원형 궤도 - 자기장처럼 독립 회전) ===
@@ -26663,10 +26682,11 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
             point_size = max(1, int(1.7 + depth_factor * 1.3))
             point_alpha = int(15 + depth_factor * 35)
 
-            # 고리 색상 (각 고리별 약간 다른 색조)
-            r = int(40 + depth_factor * 25 + ring_idx * 5)
-            g = int(100 + depth_factor * 35 + ring_idx * 10)
-            b = 255
+            # 고리 색상 (인텐시티 색상 기반)
+            base_r, base_g, base_b = ball_ring_color
+            r = int(min(255, base_r * 0.3 + depth_factor * base_r * 0.7 + ring_idx * 5))
+            g = int(min(255, base_g * 0.3 + depth_factor * base_g * 0.7 + ring_idx * 10))
+            b = int(min(255, base_b * 0.3 + depth_factor * base_b * 0.7))
 
             pygame.draw.circle(ball_surf, (r, g, b, point_alpha),
                              (int(px), int(py)), point_size)
@@ -26692,31 +26712,36 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
             for i in range(len(points)):
                 start = points[i]
                 end = points[(i + 1) % len(points)]
-                pygame.draw.line(ball_surf, (*ENERGY_BALL_RING_COLOR, 10), start, end, 1)
+                pygame.draw.line(ball_surf, (*ball_ring_color, 10), start, end, 1)
 
     # === Layer 4: 내부 에너지 구체 (추가 15% 축소) ===
     # 외부 글로우 (0.425 * 0.85 = 0.361)
     outer_glow = int(radius * 0.361 * pulse2)
-    pygame.draw.circle(ball_surf, (*ENERGY_BALL_INNER_COLOR, 25),
+    pygame.draw.circle(ball_surf, (*ball_inner_color, 25),
                       (center, center), outer_glow)
 
     # 중간 글로우 (0.34 * 0.85 = 0.289)
     mid_glow = int(radius * 0.289 * pulse)
-    pygame.draw.circle(ball_surf, (150, 200, 255, 40),
+    # 중간 글로우 색상도 인텐시티 반영
+    mid_glow_color = tuple(int(c * 0.8 + 50) for c in ball_inner_color)
+    pygame.draw.circle(ball_surf, (*mid_glow_color, 40),
                       (center, center), mid_glow)
 
     # 내부 구체 (0.3 * 0.85 = 0.255)
     inner_sphere = int(radius * 0.255)
-    pygame.draw.circle(ball_surf, (180, 220, 255, 60),
+    # 내부 구체 색상도 인텐시티 반영
+    inner_sphere_color = tuple(int(min(255, c * 0.7 + 80)) for c in ball_inner_color)
+    pygame.draw.circle(ball_surf, (*inner_sphere_color, 60),
                       (center, center), inner_sphere)
 
     # === Layer 5: 밝은 코어 (추가 15% 축소) ===
     core_size = int(radius * 0.178)  # 0.21 * 0.85
-    # 코어 외부 글로우
-    pygame.draw.circle(ball_surf, (220, 240, 255, 80),
+    # 코어 외부 글로우 (인텐시티 색상 반영)
+    core_glow_color = tuple(int(min(255, c * 0.5 + 128)) for c in ball_ring_color)
+    pygame.draw.circle(ball_surf, (*core_glow_color, 80),
                       (center, center), core_size + 2)
     # 코어 중심
-    pygame.draw.circle(ball_surf, (*ENERGY_BALL_CORE_COLOR, 150),
+    pygame.draw.circle(ball_surf, (*ball_core_color, 150),
                       (center, center), core_size)
     # 코어 하이라이트
     pygame.draw.circle(ball_surf, (255, 255, 255, 200),
@@ -26732,6 +26757,13 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
                       (highlight_x - 1, highlight_y - 1), highlight_size + 1)
 
     # === Layer 7: 떠다니는 에너지 파티클들 (추가 15% 축소) ===
+    # 인텐시티에 따른 파티클 색상 선택
+    if intensity_level > 0:
+        # 인텐시티 색상 기반 파티클 색상
+        particle_colors = [ball_ring_color, ball_inner_color, ball_outer_color]
+    else:
+        particle_colors = ENERGY_BALL_PARTICLE_COLORS
+
     if random.random() < 0.4:
         angle = random.uniform(0, 2 * math.pi)
         dist = radius * random.uniform(0.867, 1.445)  # 1.02*0.85, 1.7*0.85
@@ -26743,7 +26775,7 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
             'life': random.randint(20, 40),
             'max_life': 40,
             'size': random.uniform(0.42, 1.02),  # 0.5*0.85, 1.2*0.85
-            'color': random.choice(ENERGY_BALL_PARTICLE_COLORS)
+            'color': random.choice(particle_colors)
         })
 
     # 파티클 제한
