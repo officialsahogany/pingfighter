@@ -9,7 +9,8 @@
       "Bash(git push:*)",
       "Bash(PINGF_QUIET_DEBUG=0 timeout 5 python3:*)",
       "Bash(PINGF_QUIET_DEBUG=0 python3:*)",
-      "Bash(timeout 5 python3:*)"
+      "Bash(timeout 5 python3:*)",
+      "Bash(timeout 30 python3:*)"
     ],
     "deny": [],
     "ask": [],

@@ -569,7 +569,8 @@ def check_weather_event_on_round_start():
         return result
 
     # Check for new weather event
-    if random.random() < WEATHER_EVENT_PROBABILITY:
+    roll = random.random()
+    if roll < WEATHER_EVENT_PROBABILITY:
         weather_event_active = True
         weather_event_just_started = True
 

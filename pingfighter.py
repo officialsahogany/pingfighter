@@ -1800,12 +1800,36 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     if _current_platform == 'Darwin' and (actual_width != FULLSCREEN_WIDTH or actual_height != FULLSCREEN_HEIGHT):
         print(f"[macOS] Retina 스케일링 감지됨", flush=True)
 
-    # 실제 화면 크기 기준으로 오프셋 재계산
+    # 실제 화면 크기 기준으로 스케일 계산
     FULLSCREEN_WIDTH = actual_width
     FULLSCREEN_HEIGHT = actual_height
-    GAME_OFFSET_X = (FULLSCREEN_WIDTH - WIDTH) // 2
-    GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - HEIGHT) // 2
-    print(f"[전체화면] 게임영역: {WIDTH}x{HEIGHT}, 오프셋: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
+
+    # ============================================================
+    # 고해상도 디스플레이 스케일링 (2560x1440, 3264x1836 등)
+    # 화면 높이를 기준으로 게임 화면을 스케일링하여 표시
+    # ============================================================
+    # 최대 스케일: 화면 높이의 95%를 게임 영역으로 사용 (상하 여백 확보)
+    _max_game_height = int(FULLSCREEN_HEIGHT * 0.95)
+    # 높이 기준 스케일 계산
+    _scale_by_height = _max_game_height / HEIGHT
+    # 너비 기준 스케일 계산 (화면 너비의 80%까지만 사용 - 필러 영역 확보)
+    _max_game_width = int(FULLSCREEN_WIDTH * 0.6)  # 양쪽 필러 20%씩 확보
+    _scale_by_width = _max_game_width / WIDTH
+    # 두 스케일 중 작은 값 선택 (화면 밖으로 나가지 않도록)
+    GAME_SCALE = min(_scale_by_height, _scale_by_width)
+    # 최소 스케일 1.0 (원본보다 작아지지 않도록)
+    GAME_SCALE = max(1.0, GAME_SCALE)
+
+    # 스케일된 게임 화면 크기
+    SCALED_WIDTH = int(WIDTH * GAME_SCALE)
+    SCALED_HEIGHT = int(HEIGHT * GAME_SCALE)
+
+    # 중앙 정렬 오프셋 (스케일된 크기 기준)
+    GAME_OFFSET_X = (FULLSCREEN_WIDTH - SCALED_WIDTH) // 2
+    GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - SCALED_HEIGHT) // 2
+
+    print(f"[전체화면] 게임영역: {WIDTH}x{HEIGHT}, 스케일: {GAME_SCALE:.2f}x", flush=True)
+    print(f"[전체화면] 스케일된 크기: {SCALED_WIDTH}x{SCALED_HEIGHT}, 오프셋: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
 
     # 게임 렌더링용 Surface (기존 코드와 호환성 유지)
     # macOS: 알파 블렌딩이 제대로 작동하려면 convert_alpha() 사용
@@ -1813,9 +1837,9 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
     print(f"[{_current_platform}] SCREEN Surface에 convert_alpha() 적용", flush=True)
 
-    # 필러 배경 렌더러 초기화 (실제 화면 크기 사용)
+    # 필러 배경 렌더러 초기화 (실제 화면 크기와 스케일된 게임 크기 사용)
     from pillar_background import init_pillar_background, get_pillar_renderer
-    pillar_renderer = init_pillar_background(FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT, WIDTH, HEIGHT)
+    pillar_renderer = init_pillar_background(FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT, SCALED_WIDTH, SCALED_HEIGHT)
 
     # display_manager에 전체화면 모드 설정 전달
     from display_manager import set_fullscreen_mode
@@ -26070,6 +26094,93 @@ def get_display_intensity_level() -> int:
     """현재 표시되는 인텐시티 레벨 반환 (점진적 전환 적용)"""
     return int(ball_display_level)
 
+# === 🏓 인텐시티 기반 패들 충돌 넉백 시스템 ===
+# 화재 넉백의 20%를 기본 넉백으로 사용, 인텐시티 레벨에 따라 증가
+# 기본: 화재 넉백 12의 20% = 2.4
+# 레벨 1-2: +30% → 3.12
+# 레벨 3-4: +50% → 3.6
+# 레벨 5: +70% → 4.08
+PADDLE_HIT_KNOCKBACK_BASE = 2.4  # 화재 넉백(12)의 20%
+PADDLE_HIT_KNOCKBACK_INTENSITY_SCALE = {
+    0: 1.5,   # 기본 (파란색) - 150%
+    1: 2.2,   # 레벨 1 (청록) - 220%
+    2: 2.2,   # 레벨 2 (녹색) - 220%
+    3: 3.8,   # 레벨 3 (노랑) - 380%
+    4: 3.8,   # 레벨 4 (주황) - 380%
+    5: 5.5,   # 레벨 5 (빨강) - 550%
+}
+
+def get_paddle_hit_knockback_strength() -> float:
+    """패들 충돌 시 인텐시티 기반 넉백 강도 반환
+
+    Returns:
+        넉백 강도 (화재 넉백 방식과 동일한 스케일)
+    """
+    intensity_level = get_display_intensity_level()
+    scale = PADDLE_HIT_KNOCKBACK_INTENSITY_SCALE.get(intensity_level, 1.0)
+    knockback = PADDLE_HIT_KNOCKBACK_BASE * scale
+    return knockback
+
+def apply_paddle_hit_knockback_player(ball_x: float = None) -> None:
+    """플레이어 패들 충돌 시 넉백 적용 (공 위치 기반 방향 결정)
+
+    화재 이벤트가 활성화되어 있으면 화재 넉백이 이미 처리되므로 이 함수는 호출하지 않음
+
+    Args:
+        ball_x: 공의 x 좌표 (None이면 랜덤 방향)
+    """
+    global player_fire_knockback_vel
+
+    knockback_strength = get_paddle_hit_knockback_strength()
+
+    # 공 위치 기반 넉백 방향 결정
+    # 패들 중심 오른쪽에 공이 맞으면 왼쪽으로, 왼쪽에 맞으면 오른쪽으로
+    if ball_x is not None:
+        paddle_center = PLAYER.centerx
+        if ball_x > paddle_center:
+            knockback_dir = -1  # 공이 오른쪽에 맞음 → 왼쪽으로 넉백
+        else:
+            knockback_dir = 1   # 공이 왼쪽에 맞음 → 오른쪽으로 넉백
+    else:
+        knockback_dir = random.choice([-1, 1])
+
+    raw_knockback = knockback_dir * knockback_strength
+    player_fire_knockback_vel = apply_knockback_resist(_scale_knockback(raw_knockback))
+
+    intensity_level = get_display_intensity_level()
+    if abs(player_fire_knockback_vel) > 0.5:
+        print(f"🏓 [PADDLE HIT] 플레이어 넉백! 인텐시티 레벨={intensity_level}, 강도={knockback_strength:.2f}, vel={player_fire_knockback_vel:.2f}, 방향={'←' if knockback_dir < 0 else '→'}")
+
+def apply_paddle_hit_knockback_boss(ball_x: float = None) -> None:
+    """보스 패들 충돌 시 넉백 적용 (공 위치 기반 방향 결정)
+
+    화재 이벤트가 활성화되어 있으면 화재 넉백이 이미 처리되므로 이 함수는 호출하지 않음
+
+    Args:
+        ball_x: 공의 x 좌표 (None이면 랜덤 방향)
+    """
+    global boss_fire_knockback_vel
+
+    knockback_strength = get_paddle_hit_knockback_strength()
+
+    # 공 위치 기반 넉백 방향 결정
+    # 패들 중심 오른쪽에 공이 맞으면 왼쪽으로, 왼쪽에 맞으면 오른쪽으로
+    if ball_x is not None:
+        paddle_center = BOSS.centerx
+        if ball_x > paddle_center:
+            knockback_dir = -1  # 공이 오른쪽에 맞음 → 왼쪽으로 넉백
+        else:
+            knockback_dir = 1   # 공이 왼쪽에 맞음 → 오른쪽으로 넉백
+    else:
+        knockback_dir = random.choice([-1, 1])
+
+    raw_knockback = knockback_dir * knockback_strength
+    boss_fire_knockback_vel = _scale_knockback(raw_knockback)
+
+    intensity_level = get_display_intensity_level()
+    if abs(boss_fire_knockback_vel) > 0.5:
+        print(f"🏓 [PADDLE HIT] 보스 넉백! 인텐시티 레벨={intensity_level}, 강도={knockback_strength:.2f}, vel={boss_fire_knockback_vel:.2f}, 방향={'←' if knockback_dir < 0 else '→'}")
+
 def update_ball_rally(hit_by: str) -> None:
     """공이 맞았을 때 랠리 카운트 업데이트
 
@@ -26122,10 +26233,18 @@ def update_intensity_particles(ball_x: float, ball_y: float) -> None:
     colors = get_intensity_colors()
     level = min(5, int(intensity * 5))
 
-    # 화염 파티클 생성 (인텐시티에 비례)
-    particle_count = int(1 + intensity * 4)  # 1~5개
+    # 화염 파티클 생성 (고속에서는 파티클 수 감소)
+    # intensity 0.0~0.5: 기존처럼 증가, 0.5 이상: 점점 감소
+    if intensity <= 0.5:
+        particle_count = int(1 + intensity * 4)  # 1~3개
+    else:
+        # 고속에서 파티클 수 감소 (intensity 0.5일때 3개 → 1.0일때 1개)
+        particle_count = max(1, int(3 - (intensity - 0.5) * 4))  # 3~1개
+
+    # 고속에서 생성 확률도 감소
+    spawn_chance = 0.3 + intensity * 0.3 if intensity <= 0.5 else 0.45 - (intensity - 0.5) * 0.3
     for _ in range(particle_count):
-        if random.random() < 0.3 + intensity * 0.5:  # 30%~80% 확률
+        if random.random() < spawn_chance:  # 30%~45%~15%
             # 공 이동 반대 방향으로 파티클 생성
             angle = math.atan2(-ball_vel[1], -ball_vel[0]) + random.uniform(-0.5, 0.5)
             speed = random.uniform(1, 3) * (1 + intensity)
@@ -26186,9 +26305,11 @@ def update_intensity_particles(ball_x: float, ball_y: float) -> None:
 
     ball_intensity_particles = new_particles
 
-    # 파티클 수 제한
-    if len(ball_intensity_particles) > 150:
-        ball_intensity_particles = ball_intensity_particles[-150:]
+    # 파티클 수 제한 (고속에서는 더 적게 유지)
+    # intensity 0.0: 최대 150개, intensity 1.0: 최대 60개
+    max_particles = int(150 - intensity * 90) if intensity > 0.5 else 150
+    if len(ball_intensity_particles) > max_particles:
+        ball_intensity_particles = ball_intensity_particles[-max_particles:]
 
 def draw_intensity_effects(surface: pygame.Surface, ball_x: int, ball_y: int, ball_radius: int) -> None:
     """인텐시티 기반 화염/글로우 이펙트 그리기"""
@@ -26314,26 +26435,21 @@ def create_energy_explosion(x: int, y: int, scale: float = 1.0) -> None:
     """
     global energy_explosion_particles
 
-    # 인텐시티에 따른 파티클 수 조절 (기본의 50%에서 시작, 최대 150%까지)
+    # 인텐시티에 따른 파티클 수 조절 (고속에서는 감소)
     intensity = calculate_ball_intensity()
-    intensity_multiplier = 0.5 + intensity * 1.0  # 0.5 ~ 1.5 배율
+    # intensity 0.0~0.5: 기존처럼 증가, 0.5 이상: 점점 감소
+    if intensity <= 0.5:
+        intensity_multiplier = 0.5 + intensity * 1.0  # 0.5 ~ 1.0 배율
+    else:
+        # 고속에서 파티클 수 감소 (intensity 0.5: 1.0배 → 1.0: 0.5배)
+        intensity_multiplier = 1.0 - (intensity - 0.5) * 1.0  # 1.0 ~ 0.5 배율
 
     # 파티클 수도 스케일과 인텐시티에 비례
     explosion_count = int(25 * scale * intensity_multiplier)
     spark_count = int(15 * scale * intensity_multiplier)
 
-    # 인텐시티에 따른 색상 선택
-    intensity_colors = get_intensity_colors()
-    if intensity > 0.1 and len(intensity_colors) >= 3:
-        # 인텐시티 색상 기반 폭발 색상
-        explosion_colors = [
-            intensity_colors[0],  # 밝은 색
-            intensity_colors[1],  # 중간 색
-            tuple(min(255, c + 50) for c in intensity_colors[0]),  # 더 밝은 색
-            (255, 255, 255),  # 흰색 하이라이트
-        ]
-    else:
-        explosion_colors = ENERGY_EXPLOSION_COLORS
+    # 폭발 색상은 항상 기본 파란색 사용 (인텐시티와 무관)
+    explosion_colors = ENERGY_EXPLOSION_COLORS
 
     # 인텐시티에 따른 속도 증가 (기본 1.0 ~ 최대 1.3)
     speed_multiplier = 1.0 + intensity * 0.3
@@ -26355,8 +26471,8 @@ def create_energy_explosion(x: int, y: int, scale: float = 1.0) -> None:
             "type": "explosion"
         })
 
-    # 에너지 스파크 (밝은 입자들)
-    spark_color = tuple(min(255, c + 80) for c in intensity_colors[0]) if intensity > 0.1 else (200, 230, 255)
+    # 에너지 스파크 (밝은 입자들) - 항상 기본 파란색/흰색 계열 사용
+    spark_color = (200, 230, 255)  # 밝은 하늘색
     for _ in range(spark_count):
         angle = random.uniform(0, math.pi * 2)
         speed = random.uniform(6, 14) * scale * speed_multiplier
@@ -26646,27 +26762,19 @@ def draw_rainbow_ball_trail(surface: pygame.Surface) -> None:
 
 def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> None:
     """고퀄리티 에너지볼 그리기 - 자기장처럼 회전하는 고리와 파티클이 있는 애니메이션 버전
-    인텐시티에 따라 공 색상이 변경됨"""
+    공 색상은 항상 기본 파란색 유지 (인텐시티와 무관)"""
     global energy_ball_rotation_angle, energy_ball_pulse_phase
     global energy_ball_particles, energy_ball_ring_particles
 
-    # 인텐시티 색상 가져오기
+    # 인텐시티 색상 가져오기 (파티클용)
     intensity_colors = get_intensity_colors()
     intensity_level = get_display_intensity_level()
 
-    # 인텐시티에 따른 색상 설정 (기본 파란색 → 인텐시티 색상으로 보간)
-    if intensity_level > 0 and len(intensity_colors) >= 3:
-        # 인텐시티 색상 사용
-        ball_outer_color = intensity_colors[2]  # 가장 어두운 색상
-        ball_inner_color = intensity_colors[1]  # 중간 색상
-        ball_ring_color = intensity_colors[0]   # 밝은 색상
-        ball_core_color = (255, 255, 255)       # 코어는 항상 흰색
-    else:
-        # 기본 파란색 사용
-        ball_outer_color = ENERGY_BALL_OUTER_COLOR
-        ball_inner_color = ENERGY_BALL_INNER_COLOR
-        ball_ring_color = ENERGY_BALL_RING_COLOR
-        ball_core_color = ENERGY_BALL_CORE_COLOR
+    # 공 색상은 항상 기본 파란색 사용 (인텐시티에 따라 색상 변경 안 함)
+    ball_outer_color = ENERGY_BALL_OUTER_COLOR
+    ball_inner_color = ENERGY_BALL_INNER_COLOR
+    ball_ring_color = ENERGY_BALL_RING_COLOR
+    ball_core_color = ENERGY_BALL_CORE_COLOR
 
     # 시간 기반 애니메이션
     current_time = pygame.time.get_ticks()
@@ -26811,12 +26919,8 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
                       (highlight_x - 1, highlight_y - 1), highlight_size + 1)
 
     # === Layer 7: 떠다니는 에너지 파티클들 (추가 15% 축소) ===
-    # 인텐시티에 따른 파티클 색상 선택
-    if intensity_level > 0:
-        # 인텐시티 색상 기반 파티클 색상
-        particle_colors = [ball_ring_color, ball_inner_color, ball_outer_color]
-    else:
-        particle_colors = ENERGY_BALL_PARTICLE_COLORS
+    # 공 주변 파티클은 항상 기본 파란색 사용 (인텐시티와 무관)
+    particle_colors = ENERGY_BALL_PARTICLE_COLORS
 
     if random.random() < 0.4:
         angle = random.uniform(0, 2 * math.pi)
@@ -42565,19 +42669,36 @@ def handle_player(keys):
         PLAYER.centerx = _prev_center
         return  # 넉백 중에는 조작 불가
 
-    # 🔥 화재 날씨 이벤트 넉백 처리 (스턴 없이 점진적 감속 - 조작 가능)
+    # 🔥 화재 날씨 이벤트 및 🏓 패들 충돌 넉백 처리 (스턴 없이 점진적 감속 - 조작 가능)
     global player_fire_knockback_vel
     if abs(player_fire_knockback_vel) > 0.3:
         old_x = PLAYER.x
-        PLAYER.x += player_fire_knockback_vel
-        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        new_x = PLAYER.x + player_fire_knockback_vel
+
+        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김
+        if new_x <= 0:
+            # 왼쪽 벽에 충돌 → 오른쪽으로 반사
+            PLAYER.x = 0
+            player_fire_knockback_vel = abs(player_fire_knockback_vel) * 0.7  # 반사 시 30% 에너지 손실
+        elif new_x >= WIDTH - PADDLE_WIDTH:
+            # 오른쪽 벽에 충돌 → 왼쪽으로 반사
+            PLAYER.x = WIDTH - PADDLE_WIDTH
+            player_fire_knockback_vel = -abs(player_fire_knockback_vel) * 0.7  # 반사 시 30% 에너지 손실
+        else:
+            PLAYER.x = new_x
+
         # 감속 (0.85 → 매 프레임 15% 감소, 급감 효과)
-        player_fire_knockback_vel *= 0.85 * _get_knockback_resist_scale()
+        # 🧊 빙판 이벤트: 감속이 적어서 더 길게 미끄러짐 (0.85 → 0.94)
+        if is_ice_active():
+            ice_decay = 0.94  # 빙판에서는 6%만 감속 → 더 길게 미끄러짐
+        else:
+            ice_decay = 0.85  # 일반: 15% 감속
+        player_fire_knockback_vel *= ice_decay * _get_knockback_resist_scale()
         if abs(player_fire_knockback_vel) <= 0.3:
             player_fire_knockback_vel = 0.0
         # 디버그 로그 (첫 프레임만 출력 방지를 위해 큰 값만)
         if abs(player_fire_knockback_vel) > 1.0:
-            print(f"🔥 [FIRE KNOCKBACK] 플레이어 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_fire_knockback_vel:.2f})")
+            print(f"{'🧊' if is_ice_active() else '🔥'} [KNOCKBACK] 플레이어 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_fire_knockback_vel:.2f})")
 
     #  벽돌 설치 중에는 움직이지 못함
     if wall_installing:
@@ -45523,6 +45644,11 @@ def handle_player(keys):
             print(f"🔥 [FIRE BALL HIT] 플레이어 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f})")
             # 즉시 감속 적용
             player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
+        else:
+            # 🏓 인텐시티 기반 패들 충돌 넉백 (화재 이벤트가 아닐 때)
+            # 화재 넉백의 20%를 기본으로, 공이 빨라질수록 +30%/+50%/+70% 증가
+            # 공의 x 좌표 전달하여 충돌 위치 기반 넉백 방향 결정
+            apply_paddle_hit_knockback_player(BALL.centerx)
 
         # 볼링트랩 발사 상태 리셋 (플레이어가 공을 받으면 더 이상 볼링트랩 공이 아님)
         try:
@@ -86110,7 +86236,11 @@ def handle_ball():
                                 mino["hit_flash_until"] = pygame.time.get_ticks() + 130
                             except Exception:
                                 pass
-                            destroy_stage7_tetromino(mino, by_player=(last_hit_by == "player"), by_ball=True, ball_pos=(BALL.centerx, BALL.centery))
+
+                            # 폭발형(super) 테트로미노는 공에 맞아도 파괴되지 않고 계속 낙하
+                            # 공만 튕겨내고 테트로미노는 그대로 진행
+                            if not mino.get("super", False):
+                                destroy_stage7_tetromino(mino, by_player=(last_hit_by == "player"), by_ball=True, ball_pos=(BALL.centerx, BALL.centery))
                             create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
                             stage7_tetro_hit = True
                             break
@@ -87704,6 +87834,11 @@ def handle_ball():
             knockback_dir = random.choice([-22, 22])  # 넉백 강도 50% 증가 (15 → 22)
             player_fire_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
             print(f"🔥 [FIRE BALL HIT - handle_ball] 플레이어 넉백 시작! vel={player_fire_knockback_vel:.2f}")
+        else:
+            # 🏓 인텐시티 기반 패들 충돌 넉백 (화재 이벤트가 아닐 때 - handle_ball 백업 경로)
+            # 화재 넉백의 20%를 기본으로, 공이 빨라질수록 +30%/+50%/+70% 증가
+            # 공의 x 좌표 전달하여 충돌 위치 기반 넉백 방향 결정
+            apply_paddle_hit_knockback_player(BALL.centerx)
 
         # 라그나로크 효과는 이미 calculate_bounce에서 처리됨
 
@@ -88370,12 +88505,23 @@ def handle_ball():
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
 
-        # 🔥 불 이벤트: 보스 패들 타격 시 속도 15%~20% 추가 증가
+        # 🔥 불 이벤트: 보스 패들 타격 시 속도 15%~20% 추가 증가 + 보스 넉백
         if is_fire_active():
+            global boss_fire_knockback_vel
             fire_boost = get_fire_hit_speed_multiplier()
             ball_vel[0] *= fire_boost
             ball_vel[1] *= fire_boost
-            print(f"🔥 [불 이벤트] 보스 타격 - 속도 {(fire_boost-1)*100:.0f}% 증가")
+            # 🔥 화염 폭발 이펙트 생성
+            create_fire_explosion(BALL.centerx, BALL.centery)
+            # 🔥 보스 넉백 (좌우 방향 - 강한 초기 속도로 점진적 감속)
+            knockback_dir = random.choice([-22, 22])  # 넉백 강도
+            boss_fire_knockback_vel = _scale_knockback(knockback_dir)
+            print(f"🔥 [불 이벤트] 보스 타격 - 속도 {(fire_boost-1)*100:.0f}% 증가, 넉백 vel={boss_fire_knockback_vel:.2f}")
+        else:
+            # 🏓 인텐시티 기반 패들 충돌 넉백 (화재 이벤트가 아닐 때)
+            # 화재 넉백의 20%를 기본으로, 공이 빨라질수록 +30%/+50%/+70% 증가
+            # 공의 x 좌표 전달하여 충돌 위치 기반 넉백 방향 결정
+            apply_paddle_hit_knockback_boss(BALL.centerx)
 
         # 자폭드론 부스트가 적용된 공이라면 반사 계산 후 최종 속도를 강제 복원(약 3배 느리게)
         try:
@@ -88993,14 +89139,15 @@ def _boss_try_emergency_dash() -> bool:
         return False
 
     # 공이 보스 라인 아래 특정 Y 구간에 있을 때만 대쉬 고려
+    # dy가 작을수록 공이 보스에 가까움 (180px = 더 가까워졌을 때 발동)
     dy = BALL.centery - BOSS.bottom
-    if dy <= 0 or dy > 260:
+    if dy <= 0 or dy > 180:  # 260 → 180: 공이 더 가까워졌을 때만 대쉬 발동
         return False
 
     time_to_boss = dy / max(1.0, abs(ball_vel[1]))  # 프레임 단위 예상 시간
 
     # 공이 아직 너무 멀리 있을 때는 일반 이동으로 대응 가능하므로 대쉬 사용 안 함
-    if time_to_boss > 40.0:  # 약 0.66초 이상 남으면 굳이 대쉬 안 씀
+    if time_to_boss > 28.0:  # 40 → 28: 약 0.47초 이상 남으면 대쉬 안 씀 (더 긴박할 때만 사용)
         return False
 
     # 스테이지/리그 설정 기반 보스 최대 속도 추정 (일반 이동 성능을 낙관적으로 계산)
@@ -89259,6 +89406,7 @@ def handle_boss_pro():
     global boss_crack_stuck_timer, boss_crack_last_release
     global stopwatch_active, stopwatch_timer
     global whip_deactivation_active, whip_deactivation_timer, whip_deactivation_duration, current_stage
+    global boss_fire_knockback_vel
 
     # 공 생성 애니메이션 중에는 AI 정지
     if ball_spawn_animation_active:
@@ -89293,7 +89441,31 @@ def handle_boss_pro():
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
 
-    # 🔥 화재 날씨 이벤트 보스 넉백은 boss_knockback_timer 시스템으로 처리됨 (라인 83037)
+    # 🏓 인텐시티 기반 패들 충돌 넉백 처리 (화재 넉백과 동일한 방식 - 스턴 없이 점진적 감속)
+    if abs(boss_fire_knockback_vel) > 0.3:
+        old_x = BOSS.x
+        new_x = BOSS.x + boss_fire_knockback_vel
+
+        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김
+        if new_x <= 0:
+            # 왼쪽 벽에 충돌 → 오른쪽으로 반사
+            BOSS.x = 0
+            boss_fire_knockback_vel = abs(boss_fire_knockback_vel) * 0.7  # 반사 시 30% 에너지 손실
+        elif new_x >= WIDTH - PADDLE_WIDTH:
+            # 오른쪽 벽에 충돌 → 왼쪽으로 반사
+            BOSS.x = WIDTH - PADDLE_WIDTH
+            boss_fire_knockback_vel = -abs(boss_fire_knockback_vel) * 0.7  # 반사 시 30% 에너지 손실
+        else:
+            BOSS.x = new_x
+
+        # 감속 (0.85 → 매 프레임 15% 감소, 급감 효과)
+        # 🧊 빙판 이벤트: 감속이 적어서 더 길게 미끄러짐 (0.85 → 0.94)
+        if is_ice_active():
+            boss_fire_knockback_vel *= 0.94  # 빙판에서는 6%만 감속
+        else:
+            boss_fire_knockback_vel *= 0.85  # 일반: 15% 감속
+        if abs(boss_fire_knockback_vel) <= 0.3:
+            boss_fire_knockback_vel = 0.0
 
     # 헤드샷 스턴 상태 처리
     global head_shot_active, head_shot_timer
@@ -89564,6 +89736,7 @@ def handle_boss_champion():
     global boss_stunned_timer, boss_knockback_vel, boss_stun_timer
     global stopwatch_active, stopwatch_timer
     global whip_deactivation_active, whip_deactivation_timer, whip_deactivation_duration, current_stage
+    global boss_fire_knockback_vel
 
     # 공 생성 애니메이션 중에는 AI 정지
     if ball_spawn_animation_active:
@@ -89581,13 +89754,13 @@ def handle_boss_champion():
                 return
         except Exception:
             pass
-    
+
     #  라그나로크 해머 스턴 처리 (넉백 후 스턴)
     if boss_stun_timer > 0:
         boss_stun_timer -= 1
         boss_current_speed = 0  # 스턴 중에는 속도를 0으로
         return  # 스턴 중에는 AI 완전 정지
-    
+
     #  보스 스턴 상태 처리 (화염병 효과)
     if boss_stunned_timer > 0:
         boss_stunned_timer -= 1
@@ -89597,7 +89770,33 @@ def handle_boss_champion():
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
-    
+
+    # 🏓 인텐시티 기반 패들 충돌 넉백 처리 (화재 넉백과 동일한 방식 - 스턴 없이 점진적 감속)
+    if abs(boss_fire_knockback_vel) > 0.3:
+        old_x = BOSS.x
+        new_x = BOSS.x + boss_fire_knockback_vel
+
+        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김
+        if new_x <= 0:
+            # 왼쪽 벽에 충돌 → 오른쪽으로 반사
+            BOSS.x = 0
+            boss_fire_knockback_vel = abs(boss_fire_knockback_vel) * 0.7  # 반사 시 30% 에너지 손실
+        elif new_x >= WIDTH - PADDLE_WIDTH:
+            # 오른쪽 벽에 충돌 → 왼쪽으로 반사
+            BOSS.x = WIDTH - PADDLE_WIDTH
+            boss_fire_knockback_vel = -abs(boss_fire_knockback_vel) * 0.7  # 반사 시 30% 에너지 손실
+        else:
+            BOSS.x = new_x
+
+        # 감속 (0.85 → 매 프레임 15% 감소, 급감 효과)
+        # 🧊 빙판 이벤트: 감속이 적어서 더 길게 미끄러짐 (0.85 → 0.94)
+        if is_ice_active():
+            boss_fire_knockback_vel *= 0.94  # 빙판에서는 6%만 감속
+        else:
+            boss_fire_knockback_vel *= 0.85  # 일반: 15% 감속
+        if abs(boss_fire_knockback_vel) <= 0.3:
+            boss_fire_knockback_vel = 0.0
+
     # 헤드샷 스턴 상태 처리
     global head_shot_active, head_shot_timer
     if head_shot_active and head_shot_timer > 0:
@@ -89882,6 +90081,7 @@ def handle_boss_mythic():
     global stopwatch_active, stopwatch_timer
     global whip_deactivation_active, whip_deactivation_timer, whip_deactivation_duration
     global leg_shot_active, LEG_SHOT_SPEED_REDUCTION
+    global boss_fire_knockback_vel
 
     # 공 생성 애니메이션 중에는 AI 정지
     if ball_spawn_animation_active:
@@ -89924,6 +90124,33 @@ def handle_boss_mythic():
         if head_shot_timer <= 0:
             head_shot_active = False
         return  # 헤드샷 스턴 중에는 AI 완전 정지
+
+    # 🏓 인텐시티 기반 패들 충돌 넉백 처리 (화재 넉백과 동일한 방식 - 스턴 없이 점진적 감속)
+    if abs(boss_fire_knockback_vel) > 0.3:
+        old_x = BOSS.x
+        new_x = BOSS.x + boss_fire_knockback_vel
+
+        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김
+        if new_x <= 0:
+            # 왼쪽 벽에 충돌 → 오른쪽으로 반사
+            BOSS.x = 0
+            boss_fire_knockback_vel = abs(boss_fire_knockback_vel) * 0.7  # 반사 시 30% 에너지 손실
+        elif new_x >= WIDTH - PADDLE_WIDTH:
+            # 오른쪽 벽에 충돌 → 왼쪽으로 반사
+            BOSS.x = WIDTH - PADDLE_WIDTH
+            boss_fire_knockback_vel = -abs(boss_fire_knockback_vel) * 0.7  # 반사 시 30% 에너지 손실
+        else:
+            BOSS.x = new_x
+
+        # 감속 (0.85 → 매 프레임 15% 감소, 급감 효과)
+        # 🧊 빙판 이벤트: 감속이 적어서 더 길게 미끄러짐 (0.85 → 0.94)
+        if is_ice_active():
+            boss_fire_knockback_vel *= 0.94  # 빙판에서는 6%만 감속
+        else:
+            boss_fire_knockback_vel *= 0.85  # 일반: 15% 감속
+        if abs(boss_fire_knockback_vel) <= 0.3:
+            boss_fire_knockback_vel = 0.0
+
     # 서브 대기 상태에서는 기본 AI 사용
     if is_waiting_for_serve:
         # 서브 중에는 미세한 패들 움직임만
@@ -90324,6 +90551,7 @@ def handle_boss_junior():
     global stopwatch_active, stopwatch_timer
     global whip_deactivation_active, whip_deactivation_timer, whip_deactivation_duration, current_stage
     global leg_shot_active, LEG_SHOT_SPEED_REDUCTION
+    global boss_fire_knockback_vel
 
     # 공 생성 애니메이션 중에는 AI 정지
     if ball_spawn_animation_active:
@@ -90357,7 +90585,7 @@ def handle_boss_junior():
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
-    
+
     # 헤드샷 스턴 상태 처리
     global head_shot_active, head_shot_timer
     if head_shot_active and head_shot_timer > 0:
@@ -90366,6 +90594,33 @@ def handle_boss_junior():
         if head_shot_timer <= 0:
             head_shot_active = False
         return  # 헤드샷 스턴 중에는 AI 완전 정지
+
+    # 🏓 인텐시티 기반 패들 충돌 넉백 처리 (화재 넉백과 동일한 방식 - 스턴 없이 점진적 감속)
+    if abs(boss_fire_knockback_vel) > 0.3:
+        old_x = BOSS.x
+        new_x = BOSS.x + boss_fire_knockback_vel
+
+        # 🧱 벽 반사 처리: 벽에 닿으면 반대 방향으로 튕김
+        if new_x <= 0:
+            # 왼쪽 벽에 충돌 → 오른쪽으로 반사
+            BOSS.x = 0
+            boss_fire_knockback_vel = abs(boss_fire_knockback_vel) * 0.7  # 반사 시 30% 에너지 손실
+        elif new_x >= WIDTH - PADDLE_WIDTH:
+            # 오른쪽 벽에 충돌 → 왼쪽으로 반사
+            BOSS.x = WIDTH - PADDLE_WIDTH
+            boss_fire_knockback_vel = -abs(boss_fire_knockback_vel) * 0.7  # 반사 시 30% 에너지 손실
+        else:
+            BOSS.x = new_x
+
+        # 감속 (0.85 → 매 프레임 15% 감소, 급감 효과)
+        # 🧊 빙판 이벤트: 감속이 적어서 더 길게 미끄러짐 (0.85 → 0.94)
+        if is_ice_active():
+            boss_fire_knockback_vel *= 0.94  # 빙판에서는 6%만 감속
+        else:
+            boss_fire_knockback_vel *= 0.85  # 일반: 15% 감속
+        if abs(boss_fire_knockback_vel) <= 0.3:
+            boss_fire_knockback_vel = 0.0
+
     #  서브 대기 상태 처리 (기존 로직과 동일)
     if is_waiting_for_serve:
         time_now = pygame.time.get_ticks()

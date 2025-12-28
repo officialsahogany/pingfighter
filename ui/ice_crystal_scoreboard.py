@@ -89,6 +89,7 @@ def draw_ice_crystal_scoreboard(surface, player_score, boss_score, screen_width,
         sparkle_alpha = int(80 * max(0, math.sin(sparkle_phase)))
         if sparkle_alpha > 20:
             pygame.draw.circle(sparkle_surf, (220, 240, 255, sparkle_alpha), (sx, sy), 1)
+    random.seed()  # 시드 리셋 (다른 랜덤 로직에 영향 방지)
     surface.blit(sparkle_surf, (x, y))
 
     # 이동하는 광택 효과

@@ -510,6 +510,8 @@ class PillarBackgroundRenderer:
                 size = random.randint(1, 3)
                 pygame.draw.circle(screen, (brightness, brightness, brightness), (x, y), size)
 
+        random.seed()  # 시드 리셋 (다른 랜덤 로직에 영향 방지)
+
     def _draw_fire_particles(self, screen: pygame.Surface):
         """불꽃 파티클 효과"""
         import random
@@ -537,6 +539,8 @@ class PillarBackgroundRenderer:
                 b = random.randint(0, 50)
                 size = random.randint(2, 5)
                 pygame.draw.circle(screen, (r, g, b), (x, y), size)
+
+        random.seed()  # 시드 리셋 (다른 랜덤 로직에 영향 방지)
 
     def _draw_solid(self, screen: pygame.Surface):
         """단색 배경 그리기"""

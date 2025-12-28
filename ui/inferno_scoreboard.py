@@ -88,6 +88,8 @@ def draw_ember_particles(surface, rect, animation_frame, count=30):
             pygame.draw.circle(glow_surf, (*color, alpha), (10, 10), int(size))
             surface.blit(glow_surf, (px - 10, py - 10))
 
+    random.seed()  # 시드 리셋 (다른 랜덤 로직에 영향 방지)
+
 
 def draw_lava_flow(surface, rect, animation_frame):
     """용암 흐름 효과"""

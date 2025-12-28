@@ -2511,6 +2511,7 @@ class ThrownBanana:
             spot_size = random.uniform(1, 2) * scale
             pygame.draw.circle(banana_surf, colors['spots'],
                              (int(spot_x), int(spot_y)), int(spot_size))
+        random.seed()  # 시드 리셋 (다른 랜덤 로직에 영향 방지)
 
         # 투명도 적용
         if alpha < 255:
