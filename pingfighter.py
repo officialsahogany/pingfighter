@@ -5988,13 +5988,19 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     card_gap = 12
     total_width = card_width * 3 + card_gap * 2
     start_x = (WIDTH - total_width) // 2
-    vertical_y = HEIGHT // 2 - card_height // 2 - 50  # 위로 올려서 아래 설명 박스 공간 확보
+    vertical_y = HEIGHT // 2 - card_height // 2 - 90  # 더 위로 올려서 하단 패널 공간 확보
 
     # 설명 박스 설정
     desc_box_width = total_width
-    desc_box_height = 80
+    desc_box_height = 70  # 약간 축소
     desc_box_x = start_x
-    desc_box_y = vertical_y + card_height + 20
+    desc_box_y = vertical_y + card_height + 15
+
+    # 하단 능력치+스킬 패널 설정
+    bottom_panel_y = desc_box_y + desc_box_height + 15
+    bottom_panel_height = 95
+    bottom_panel_width = total_width + 60  # 약간 더 넓게
+    bottom_panel_x = (WIDTH - bottom_panel_width) // 2
 
     # Font setup
     try:
@@ -6003,12 +6009,19 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         level_font = FontStyle.small()
         desc_font = FontStyle.small()
         detail_font = pygame.font.Font(resource_path("NanumSquareR.ttf"), 14)  # 상세 설명 폰트
+        # 하단 패널용 폰트
+        panel_title_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 11)
+        panel_value_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 10)
+        panel_small_font = pygame.font.Font(resource_path("NanumSquareR.ttf"), 9)
     except Exception:
         title_font = pygame.font.Font(None, 48)
         name_font = pygame.font.Font(None, 20)  # 축소
         level_font = pygame.font.Font(None, 20)
         desc_font = pygame.font.Font(None, 18)
         detail_font = pygame.font.Font(None, 16)
+        panel_title_font = pygame.font.Font(None, 13)
+        panel_value_font = pygame.font.Font(None, 12)
+        panel_small_font = pygame.font.Font(None, 11)
 
     # Card hitbox rectangles for mouse interaction
     card_rects = []
@@ -6370,17 +6383,203 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
 
             SCREEN.blit(desc_box_surface, (desc_box_x, desc_box_y))
 
+        # ========== 하단 패널: 캐릭터 능력치 + 보유 런타임 스킬 ==========
+        bottom_panel_surface = pygame.Surface((bottom_panel_width, bottom_panel_height), pygame.SRCALPHA)
+
+        # 패널 배경 (고급스러운 그라데이션)
+        for i in range(bottom_panel_height):
+            alpha = 180 - int(i * 0.3)
+            pygame.draw.line(bottom_panel_surface, (15, 20, 35, alpha),
+                           (0, i), (bottom_panel_width, i))
+
+        # 패널 테두리 (골드 악센트)
+        pygame.draw.rect(bottom_panel_surface, (80, 70, 50),
+                        (0, 0, bottom_panel_width, bottom_panel_height), 2, border_radius=8)
+        pygame.draw.rect(bottom_panel_surface, (60, 55, 40),
+                        (1, 1, bottom_panel_width - 2, bottom_panel_height - 2), 1, border_radius=7)
+
+        # 상단 골드 라인
+        pygame.draw.line(bottom_panel_surface, (120, 100, 60), (10, 2), (bottom_panel_width - 10, 2), 1)
+
+        # === 좌측: 캐릭터 능력치 ===
+        stats_section_width = 155
+        stats_x = 12
+        stats_y = 8
+
+        # 섹션 타이틀
+        stats_title = panel_title_font.render("◆ 현재 능력치", True, (255, 215, 100))
+        bottom_panel_surface.blit(stats_title, (stats_x, stats_y))
+
+        # 능력치 계산 (런타임 스킬 보너스 포함)
+        dash_tokens = int(1 + get_runtime_skill_bonus("dash_amplification"))
+        item_slots = get_total_item_slots()
+        item_gauge = get_total_item_gauge_bonus()
+        item_keep_chance = get_total_item_keep_chance()
+        caffeine_bonus = get_total_caffeine_bonus()
+        dash_cooldown_reduction = get_runtime_skill_bonus("dash_lightweight")
+        dash_distance_bonus = get_runtime_skill_bonus("dash_jump")
+
+        # 능력치 항목들 (2열 그리드)
+        stats_items = [
+            ("대쉬토큰", f"{dash_tokens}개", (150, 200, 255)),
+            ("아이템슬롯", f"{item_slots}칸", (200, 255, 150)),
+            ("게이지보너스", f"+{int(item_gauge)}", (255, 200, 100)),
+            ("아이템유지", f"{int(item_keep_chance)}%", (255, 150, 200)),
+            ("카페인효과", f"+{int(caffeine_bonus * 100)}%", (200, 180, 255)),
+            ("대쉬쿨감소", f"-{int(dash_cooldown_reduction * 100)}%", (100, 220, 255)),
+        ]
+
+        col1_x = stats_x + 2
+        col2_x = stats_x + 78
+        row_y_start = stats_y + 18
+        row_height = 12
+
+        for idx, (label, value, color) in enumerate(stats_items):
+            col_x = col1_x if idx % 2 == 0 else col2_x
+            row_y = row_y_start + (idx // 2) * row_height
+
+            # 라벨
+            label_surf = panel_small_font.render(label, True, (160, 160, 170))
+            bottom_panel_surface.blit(label_surf, (col_x, row_y))
+
+            # 값 (라벨 오른쪽에)
+            value_surf = panel_small_font.render(value, True, color)
+            bottom_panel_surface.blit(value_surf, (col_x + 48, row_y))
+
+        # === 구분선 ===
+        divider_x = stats_section_width + 5
+        pygame.draw.line(bottom_panel_surface, (60, 55, 50),
+                        (divider_x, 8), (divider_x, bottom_panel_height - 8), 1)
+        pygame.draw.line(bottom_panel_surface, (80, 70, 55),
+                        (divider_x + 1, 8), (divider_x + 1, bottom_panel_height - 8), 1)
+
+        # === 우측: 보유 런타임 스킬 ===
+        skills_x = divider_x + 10
+        skills_y = 8
+
+        # 섹션 타이틀
+        skills_title = panel_title_font.render("◆ 보유 스킬", True, (255, 215, 100))
+        bottom_panel_surface.blit(skills_title, (skills_x, skills_y))
+
+        # 보유 스킬 수집
+        acquired_skills = []
+        all_skill_pools = [RUNTIME_SKILL_POOL, SMASHER_EXCLUSIVE_SKILLS, OPTIMUS_EXCLUSIVE_SKILLS]
+        for pool in all_skill_pools:
+            for skill_id, skill_data in pool.items():
+                skill_level = runtime_skill_levels.get(skill_id, 0)
+                if skill_level > 0:
+                    acquired_skills.append({
+                        "id": skill_id,
+                        "name": skill_data.get("name", skill_id),
+                        "level": skill_level,
+                        "max_level": skill_data.get("max_level", 5),
+                        "icon_color": skill_data.get("icon_color", (100, 150, 255))
+                    })
+
+        # 스킬 아이콘 그리드 (미니 아이콘) - 고급스러운 정렬
+        skill_icon_size = 24
+        skill_gap = 5
+        skills_per_row = 8
+        skills_start_x = skills_x
+        skills_start_y = skills_y + 16
+
+        if acquired_skills:
+            # 스킬들을 레벨 높은 순으로 정렬
+            sorted_skills = sorted(acquired_skills, key=lambda s: s["level"], reverse=True)
+
+            for idx, skill in enumerate(sorted_skills[:16]):  # 최대 16개 표시 (2줄)
+                row = idx // skills_per_row
+                col = idx % skills_per_row
+                icon_x = skills_start_x + col * (skill_icon_size + skill_gap)
+                icon_y = skills_start_y + row * (skill_icon_size + skill_gap + 6)
+
+                icon_color = skill["icon_color"]
+
+                # 세련된 아이콘 배경
+                icon_bg = pygame.Surface((skill_icon_size, skill_icon_size), pygame.SRCALPHA)
+
+                # 그라데이션 배경
+                dark_color = (max(0, icon_color[0] - 100), max(0, icon_color[1] - 100), max(0, icon_color[2] - 100))
+                mid_color = (max(0, icon_color[0] - 60), max(0, icon_color[1] - 60), max(0, icon_color[2] - 60))
+                for gy in range(skill_icon_size):
+                    ratio = gy / skill_icon_size
+                    gr = int(dark_color[0] + (mid_color[0] - dark_color[0]) * ratio)
+                    gg = int(dark_color[1] + (mid_color[1] - dark_color[1]) * ratio)
+                    gb = int(dark_color[2] + (mid_color[2] - dark_color[2]) * ratio)
+                    pygame.draw.line(icon_bg, (gr, gg, gb, 220), (0, gy), (skill_icon_size, gy))
+
+                pygame.draw.rect(icon_bg, (*icon_color, 180), (0, 0, skill_icon_size, skill_icon_size), 1, border_radius=5)
+
+                # 하이라이트 (상단)
+                pygame.draw.line(icon_bg, (255, 255, 255, 40), (3, 1), (skill_icon_size - 3, 1), 1)
+
+                bottom_panel_surface.blit(icon_bg, (icon_x, icon_y))
+
+                # 스킬 그림 (미니 버전)
+                skill_for_draw = {"id": skill["id"], "name": skill["name"], "icon_color": icon_color}
+                draw_skill_icon_mini(bottom_panel_surface, skill_for_draw, icon_x, icon_y, skill_icon_size, scale_multiplier=0.85, center_in_box=True)
+
+                # 레벨 뱃지 (우하단) - 더 세련된 스타일
+                level_text = str(skill["level"])
+                badge_size = 10
+                badge_x = icon_x + skill_icon_size - badge_size - 1
+                badge_y = icon_y + skill_icon_size - badge_size - 1
+
+                # 레벨에 따른 뱃지 색상
+                if skill["level"] >= skill.get("max_level", 5):
+                    badge_color = (255, 200, 50)  # 만렙은 골드
+                    text_color = (60, 40, 0)
+                elif skill["level"] >= 3:
+                    badge_color = (100, 180, 255)  # 고렙은 블루
+                    text_color = (10, 30, 60)
+                else:
+                    badge_color = (80, 80, 90)  # 저렙은 그레이
+                    text_color = (255, 255, 255)
+
+                # 뱃지 배경
+                pygame.draw.circle(bottom_panel_surface, badge_color, (badge_x + badge_size // 2, badge_y + badge_size // 2), badge_size // 2 + 1)
+                pygame.draw.circle(bottom_panel_surface, (0, 0, 0, 100), (badge_x + badge_size // 2, badge_y + badge_size // 2), badge_size // 2 + 2, 1)
+
+                # 레벨 텍스트
+                level_surf = panel_small_font.render(level_text, True, text_color)
+                lx = badge_x + (badge_size - level_surf.get_width()) // 2
+                ly = badge_y + (badge_size - level_surf.get_height()) // 2
+                bottom_panel_surface.blit(level_surf, (lx, ly))
+
+            # 더 많은 스킬이 있으면 표시
+            if len(acquired_skills) > 16:
+                more_count = len(acquired_skills) - 16
+                more_text = f"+{more_count}"
+                more_surf = panel_small_font.render(more_text, True, (150, 150, 160))
+                more_x = skills_start_x + skills_per_row * (skill_icon_size + skill_gap) + 3
+                more_y = skills_start_y + skill_icon_size + 10
+                bottom_panel_surface.blit(more_surf, (more_x, more_y))
+        else:
+            # 보유 스킬 없음 - 더 세련된 안내 메시지
+            no_skill_bg = pygame.Surface((180, 40), pygame.SRCALPHA)
+            pygame.draw.rect(no_skill_bg, (40, 45, 55, 150), (0, 0, 180, 40), border_radius=6)
+            pygame.draw.rect(no_skill_bg, (60, 65, 75), (0, 0, 180, 40), 1, border_radius=6)
+            bottom_panel_surface.blit(no_skill_bg, (skills_x, skills_start_y + 8))
+
+            no_skill_text = "획득한 스킬 없음"
+            no_skill_surf = panel_value_font.render(no_skill_text, True, (120, 120, 140))
+            text_x = skills_x + (180 - no_skill_surf.get_width()) // 2
+            text_y = skills_start_y + 8 + (40 - no_skill_surf.get_height()) // 2
+            bottom_panel_surface.blit(no_skill_surf, (text_x, text_y))
+
+        SCREEN.blit(bottom_panel_surface, (bottom_panel_x, bottom_panel_y))
+
         # Pending choices indicator
         if pending_skill_choices > 1:
             remaining_text = f"+{pending_skill_choices - 1} more"
             remaining_surface = level_font.render(remaining_text, True, (255, 220, 100))
-            SCREEN.blit(remaining_surface, (WIDTH // 2 - 30, desc_box_y + desc_box_height + 10))
+            SCREEN.blit(remaining_surface, (WIDTH // 2 - 30, bottom_panel_y + bottom_panel_height + 5))
 
         # Mouse/keyboard hint text
         if phase == "active":
             hint_text = "마우스 클릭 또는 ← → 키로 선택"
             hint_surface = desc_font.render(hint_text, True, (160, 170, 200))
-            hint_rect = hint_surface.get_rect(center=(WIDTH // 2, desc_box_y + desc_box_height + 30))
+            hint_rect = hint_surface.get_rect(center=(WIDTH // 2, bottom_panel_y + bottom_panel_height + 20))
             SCREEN.blit(hint_surface, hint_rect)
 
             # Change cursor when hovering over cards
@@ -25857,29 +26056,30 @@ def update_intensity_particles(ball_x: float, ball_y: float) -> None:
                 'type': 'flame' if random.random() < 0.7 else 'spark'
             })
 
-    # 궤적 포인트 추가 (화염 꼬리)
+    # 궤적 포인트 추가 (화염 꼬리) - 포인트 간격을 넓혀서 끊어지는 느낌
+    min_distance = 12 + intensity * 8  # 12~20 픽셀 간격 (더 넓게)
     if len(ball_intensity_trail) == 0 or \
        math.hypot(ball_x - ball_intensity_trail[-1]['x'],
-                  ball_y - ball_intensity_trail[-1]['y']) > 4:
-        trail_length = int(10 + intensity * 20)  # 10~30개
+                  ball_y - ball_intensity_trail[-1]['y']) > min_distance:
+        trail_length = int(6 + intensity * 10)  # 6~16개 (줄임)
         ball_intensity_trail.append({
-            'x': ball_x,
-            'y': ball_y,
-            'alpha': 255,
-            'size': 8 + intensity * 12,  # 8~20
+            'x': ball_x + random.uniform(-2, 2),  # 약간의 랜덤 오프셋
+            'y': ball_y + random.uniform(-2, 2),
+            'alpha': 200 + random.randint(0, 55),  # 약간의 랜덤 알파
+            'size': 6 + intensity * 8 + random.uniform(-1, 1),  # 6~14 + 랜덤
             'color': colors[0]
         })
         while len(ball_intensity_trail) > trail_length:
             ball_intensity_trail.pop(0)
 
-    # 궤적 페이드 및 크기 감소
+    # 궤적 페이드 및 크기 감소 (더 빠르게 사라짐)
     for i, point in enumerate(ball_intensity_trail):
-        # 인텐시티가 높을수록 천천히 사라짐
-        fade_speed = 0.85 + intensity * 0.1  # 0.85~0.95
+        # 빠르게 페이드
+        fade_speed = 0.75 + intensity * 0.1  # 0.75~0.85 (더 빠르게)
         point['alpha'] *= fade_speed
-        point['size'] *= 0.97
+        point['size'] *= 0.92  # 크기도 더 빠르게 감소
 
-    ball_intensity_trail = [p for p in ball_intensity_trail if p['alpha'] > 5]
+    ball_intensity_trail = [p for p in ball_intensity_trail if p['alpha'] > 10]
 
     # 파티클 업데이트
     new_particles = []
