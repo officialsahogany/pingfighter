@@ -87013,7 +87013,8 @@ def handle_ball():
             print(f"스테이지2 악어장군 게이지 충전: +70 (현재: {boss_special_gauge}/500)")
 
         # 스테이지 6 (네메시스) 방어막 해제 로직 - 보스 패들에 공이 닿으면 확률적으로 방어막 해제
-        if current_stage == 6:
+        # 방어막이 활성화 상태일 때만 해제 (이미 해제 중이면 무시)
+        if current_stage == 6 and nemesis_barrier_active:
             global nemesis_barrier_warning_channel, nemesis_barrier_current_duration
             globals()['nemesis_barrier_active'] = False
             globals()['nemesis_barrier_disabled_time'] = pygame.time.get_ticks()
