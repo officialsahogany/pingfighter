@@ -5996,10 +5996,10 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     desc_box_x = start_x
     desc_box_y = vertical_y + card_height + 15
 
-    # 하단 능력치+스킬 패널 설정 (확대)
-    bottom_panel_y = desc_box_y + desc_box_height + 12
-    bottom_panel_height = 130  # 높이 증가
-    bottom_panel_width = total_width + 100  # 더 넓게
+    # 하단 능력치+스킬 패널 설정 (가로 넓은 형태)
+    bottom_panel_y = desc_box_y + desc_box_height + 10
+    bottom_panel_height = 110  # 2행 레이아웃에 맞게 조정
+    bottom_panel_width = total_width + 300  # 능력치 5열 + 스킬 섹션 공간
     bottom_panel_x = (WIDTH - bottom_panel_width) // 2
 
     # Font setup
@@ -6402,7 +6402,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         pygame.draw.line(bottom_panel_surface, (140, 115, 65), (12, 2), (bottom_panel_width - 12, 2), 1)
 
         # === 좌측: 캐릭터 능력치 ===
-        stats_section_width = 220  # 넓힘
+        stats_section_width = 480  # 5열 레이아웃에 맞게 확장
         stats_x = 14
         stats_y = 8
 
@@ -6447,35 +6447,26 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             ("카페인", f"+{int(caffeine_bonus * 100)}%", (200, 180, 255)),
         ]
 
-        # 3열 레이아웃
-        col_width = 70
-        col1_x = stats_x
-        col2_x = stats_x + col_width
-        col3_x = stats_x + col_width * 2
+        # 5열 가로 레이아웃 (라벨:값 같은 줄)
+        col_width = 95
+        row_height = 28
         row_y_start = stats_y + 22
-        row_height = 15
 
+        # 2행 5열 배치 (총 10개 항목)
         for idx, (label, value, color) in enumerate(stats_items):
-            # 3열 배치
-            if idx < 4:
-                col_x = col1_x
-                row_idx = idx
-            elif idx < 6:
-                col_x = col2_x
-                row_idx = idx - 4
-            else:
-                col_x = col3_x
-                row_idx = idx - 6
+            row_idx = idx // 5  # 0~4는 1행, 5~9는 2행
+            col_idx = idx % 5   # 0~4 열 위치
 
+            col_x = stats_x + col_idx * col_width
             row_y = row_y_start + row_idx * row_height
 
-            # 라벨
-            label_surf = panel_small_font.render(label, True, (150, 155, 165))
+            # 라벨:값 같은 줄에 표시
+            label_surf = panel_small_font.render(f"{label}:", True, (150, 155, 165))
             bottom_panel_surface.blit(label_surf, (col_x, row_y))
 
-            # 값 (라벨 아래)
+            # 값 (라벨 오른쪽)
             value_surf = panel_value_font.render(value, True, color)
-            bottom_panel_surface.blit(value_surf, (col_x, row_y + 14))
+            bottom_panel_surface.blit(value_surf, (col_x + label_surf.get_width() + 4, row_y))
 
         # === 구분선 ===
         divider_x = stats_section_width + 8
