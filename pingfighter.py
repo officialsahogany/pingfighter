@@ -25933,6 +25933,13 @@ ball_intensity_particles: list = []  # 인텐시티 파티클들
 ball_intensity_trail: list = []  # 인텐시티 화염 궤적
 ball_last_hit_by: str = ""  # 마지막으로 공을 친 주체 ("player" 또는 "boss")
 
+# 🎨 점진적 색상 전환 시스템 (0.5초 그라데이션)
+ball_current_display_colors: list = [(100, 180, 255), (80, 160, 255), (60, 140, 255)]  # 현재 표시 색상
+ball_current_glow_color: tuple = (60, 100, 180, 30)  # 현재 글로우 색상
+ball_target_level: int = 0  # 목표 레벨
+ball_display_level: float = 0.0  # 현재 표시 레벨 (부드러운 전환용)
+INTENSITY_TRANSITION_SPEED: float = 0.033  # 0.5초에 1레벨 전환 (60fps 기준: 1/30)
+
 # 인텐시티 레벨별 색상 (저강도 → 고강도)
 INTENSITY_COLORS = {
     0: [(100, 180, 255), (80, 160, 255), (60, 140, 255)],  # 파란색 (기본)
@@ -25978,17 +25985,55 @@ def calculate_ball_intensity() -> float:
 
     return ball_intensity_level
 
-def get_intensity_colors() -> tuple:
-    """현재 인텐시티에 맞는 색상들 반환"""
+def lerp_color(color1: tuple, color2: tuple, t: float) -> tuple:
+    """두 색상 사이를 선형 보간"""
+    t = max(0.0, min(1.0, t))
+    return tuple(int(color1[i] + (color2[i] - color1[i]) * t) for i in range(len(color1)))
+
+def lerp_color_list(colors1: list, colors2: list, t: float) -> list:
+    """색상 리스트 사이를 선형 보간"""
+    return [lerp_color(colors1[i], colors2[i], t) for i in range(min(len(colors1), len(colors2)))]
+
+def update_intensity_transition() -> None:
+    """인텐시티 색상/레벨 점진적 전환 업데이트 (매 프레임 호출)"""
+    global ball_display_level, ball_target_level, ball_current_display_colors, ball_current_glow_color
+
+    # 목표 레벨 계산
     intensity = calculate_ball_intensity()
-    level = min(5, int(intensity * 5))
-    return INTENSITY_COLORS.get(level, INTENSITY_COLORS[0])
+    ball_target_level = min(5, int(intensity * 5))
+
+    # 현재 표시 레벨을 목표 레벨 방향으로 점진적 전환
+    if ball_display_level < ball_target_level:
+        ball_display_level = min(ball_target_level, ball_display_level + INTENSITY_TRANSITION_SPEED)
+    elif ball_display_level > ball_target_level:
+        ball_display_level = max(ball_target_level, ball_display_level - INTENSITY_TRANSITION_SPEED)
+
+    # 현재 레벨과 다음 레벨 사이 보간
+    current_level = int(ball_display_level)
+    next_level = min(5, current_level + 1)
+    blend_factor = ball_display_level - current_level  # 0.0 ~ 1.0
+
+    # 색상 보간
+    current_colors = INTENSITY_COLORS.get(current_level, INTENSITY_COLORS[0])
+    next_colors = INTENSITY_COLORS.get(next_level, INTENSITY_COLORS[0])
+    ball_current_display_colors = lerp_color_list(current_colors, next_colors, blend_factor)
+
+    # 글로우 색상 보간
+    current_glow = INTENSITY_GLOW_COLORS.get(current_level, INTENSITY_GLOW_COLORS[0])
+    next_glow = INTENSITY_GLOW_COLORS.get(next_level, INTENSITY_GLOW_COLORS[0])
+    ball_current_glow_color = lerp_color(current_glow, next_glow, blend_factor)
+
+def get_intensity_colors() -> tuple:
+    """현재 인텐시티에 맞는 색상들 반환 (점진적 전환 적용)"""
+    return ball_current_display_colors
 
 def get_intensity_glow_color() -> tuple:
-    """현재 인텐시티에 맞는 글로우 색상 반환"""
-    intensity = calculate_ball_intensity()
-    level = min(5, int(intensity * 5))
-    return INTENSITY_GLOW_COLORS.get(level, INTENSITY_GLOW_COLORS[0])
+    """현재 인텐시티에 맞는 글로우 색상 반환 (점진적 전환 적용)"""
+    return ball_current_glow_color
+
+def get_display_intensity_level() -> int:
+    """현재 표시되는 인텐시티 레벨 반환 (점진적 전환 적용)"""
+    return int(ball_display_level)
 
 def update_ball_rally(hit_by: str) -> None:
     """공이 맞았을 때 랠리 카운트 업데이트
@@ -26006,10 +26051,16 @@ def update_ball_rally(hit_by: str) -> None:
 
 def reset_ball_rally() -> None:
     """랠리 카운트 초기화 (득점 시)"""
-    global ball_rally_count, ball_last_hit_by, ball_intensity_level
+    global ball_rally_count, ball_last_hit_by, ball_intensity_level, ball_display_level
+    global ball_current_display_colors, ball_current_glow_color, ball_intensity_trail, ball_intensity_particles
     ball_rally_count = 0
     ball_last_hit_by = ""
     ball_intensity_level = 0.0
+    ball_display_level = 0.0  # 표시 레벨도 초기화
+    ball_current_display_colors = INTENSITY_COLORS[0].copy()  # 파란색으로 초기화
+    ball_current_glow_color = INTENSITY_GLOW_COLORS[0]
+    ball_intensity_trail = []  # 궤적 클리어
+    ball_intensity_particles = []  # 파티클 클리어
 
 def update_intensity_particles(ball_x: float, ball_y: float) -> None:
     """인텐시티 파티클 업데이트 및 생성"""
@@ -26108,13 +26159,17 @@ def draw_intensity_effects(surface: pygame.Surface, ball_x: int, ball_y: int, ba
     """인텐시티 기반 화염/글로우 이펙트 그리기"""
     global ball_intensity_particles, ball_intensity_trail
 
+    # 점진적 전환 업데이트 (매 프레임)
+    update_intensity_transition()
+
     intensity = calculate_ball_intensity()
 
     # 인텐시티가 낮으면 그리지 않음
     if intensity < 0.05:
         return
 
-    level = min(5, int(intensity * 5))
+    # 점진적 전환 레벨 사용
+    level = get_display_intensity_level()
     colors = get_intensity_colors()
     glow_color = get_intensity_glow_color()
 
@@ -26187,24 +26242,22 @@ def draw_intensity_effects(surface: pygame.Surface, ball_x: int, ball_y: int, ba
                     (int(p['x']) - size, int(p['y']) - size),
                     special_flags=pygame.BLEND_ADD)
 
-    # === 3. 공 주위 글로우/아우라 ===
+    # === 3. 공 주위 글로우/아우라 (공 크기와 비슷하게 유지) ===
     if intensity > 0.2:
-        # 글로우 크기 (인텐시티에 비례)
-        glow_size = int(ball_radius * (1.5 + intensity * 1.5))  # 1.5x ~ 3x
-        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+        # 글로우 크기 (공 크기와 비슷하게 - 최대 1.3배)
+        glow_size = int(ball_radius * (1.0 + intensity * 0.3))  # 1.0x ~ 1.3x (더 작게)
+        glow_surf = pygame.Surface((glow_size * 2 + 4, glow_size * 2 + 4), pygame.SRCALPHA)
+        center = glow_size + 2
 
-        # 다층 글로우
-        for i in range(3):
-            layer_size = glow_size - i * int(glow_size * 0.2)
-            layer_alpha = int(glow_color[3] * (1 - i * 0.25) * intensity)
-
-            if layer_size > 0 and layer_alpha > 0:
-                pygame.draw.circle(glow_surf,
-                                 (glow_color[0], glow_color[1], glow_color[2], layer_alpha),
-                                 (glow_size, glow_size), layer_size)
+        # 부드러운 글로우 (알파값 낮게)
+        glow_alpha = int(glow_color[3] * 0.5 * intensity)  # 알파값 절반으로
+        if glow_alpha > 5:
+            pygame.draw.circle(glow_surf,
+                             (glow_color[0], glow_color[1], glow_color[2], glow_alpha),
+                             (center, center), glow_size)
 
         surface.blit(glow_surf,
-                    (ball_x - glow_size, ball_y - glow_size),
+                    (ball_x - center, ball_y - center),
                     special_flags=pygame.BLEND_ADD)
 
     # === 4. 고 인텐시티 추가 효과 (레벨 4 이상 - 빨간색부터) ===
