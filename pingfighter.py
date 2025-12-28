@@ -6392,7 +6392,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
 
             SCREEN.blit(desc_box_surface, (desc_box_x, desc_box_y))
 
-        # ========== 하단 패널: 캐릭터 능력치 + 보유 런타임 스킬 ==========
+        # ========== 하단 패널: 캐릭터 능력치 (상단) + 보유 런타임 스킬 (하단) ==========
         bottom_panel_surface = pygame.Surface((bottom_panel_width, bottom_panel_height), pygame.SRCALPHA)
 
         # 패널 배경 (고급스러운 그라데이션)
@@ -6410,10 +6410,9 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         # 상단 골드 라인
         pygame.draw.line(bottom_panel_surface, (140, 115, 65), (12, 2), (bottom_panel_width - 12, 2), 1)
 
-        # === 좌측: 캐릭터 능력치 ===
-        stats_section_width = 420  # 4열 레이아웃
+        # === 상단: 캐릭터 능력치 ===
         stats_x = 14
-        stats_y = 8
+        stats_y = 6
 
         # 섹션 타이틀
         stats_title = panel_title_font.render("◆ 캐릭터 능력치", True, (255, 215, 100))
@@ -6452,58 +6451,53 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         if swiftness_bonus > 0:
             speed_display = f"{actual_player_speed:.1f} (+{int(swiftness_bonus*100)}%)"
 
-        # 능력치 항목들 (4열 3행 그리드)
+        # 능력치 항목들 (2행 가로 배치)
         stats_items = [
             # 1행: 기본 정보
             ("스테이지", f"{current_stg}", (255, 220, 100)),
             ("라운드", f"{r_wins}:{r_losses}", (150, 255, 150)),
             ("패들폭", f"{actual_paddle_width}px", (180, 200, 255)),
             ("이동속도", speed_display, (100, 220, 255)),
-            # 2행: 대쉬 관련
             ("대쉬토큰", f"{dash_tokens}개", (150, 200, 255)),
             ("대쉬쿨감", f"-{int(dash_cooldown_reduction * 100)}%", (120, 200, 180)),
+            # 2행: 게이지/아이템 정보
             ("게이지", f"{int(special_gauge_val)}/{int(special_gauge_max_val)}", (255, 180, 100)),
             ("카페인", f"+{int(caffeine_bonus * 100)}%", (200, 180, 255)),
-            # 3행: 아이템 관련
             ("아이템슬롯", f"{item_slots}칸", (200, 255, 150)),
             ("게이지보너스", f"+{int(item_gauge)}", (255, 200, 100)),
             ("아이템유지", f"{int(item_keep_chance)}%", (255, 150, 200)),
-            ("", "", (0, 0, 0)),  # 빈 칸
         ]
 
-        # 4열 가로 레이아웃 (라벨:값 같은 줄)
-        col_width = 105
-        row_height = 32
-        row_y_start = stats_y + 24
+        # 가로 배치 (6열 2행)
+        items_per_row = 6
+        col_width = (bottom_panel_width - 28) // items_per_row
+        row_height = 28
+        row_y_start = stats_y + 18
 
-        # 3행 4열 배치 (총 12개 항목)
         for idx, (label, value, color) in enumerate(stats_items):
-            if not label:  # 빈 항목 건너뛰기
-                continue
-            row_idx = idx // 4  # 0~3은 1행, 4~7은 2행, 8~11은 3행
-            col_idx = idx % 4   # 0~3 열 위치
+            row_idx = idx // items_per_row
+            col_idx = idx % items_per_row
 
             col_x = stats_x + col_idx * col_width
             row_y = row_y_start + row_idx * row_height
 
-            # 라벨:값 같은 줄에 표시
+            # 라벨:값 한 줄에 표시
             label_surf = panel_small_font.render(f"{label}:", True, (150, 155, 165))
             bottom_panel_surface.blit(label_surf, (col_x, row_y))
 
-            # 값 (라벨 아래)
             value_surf = panel_value_font.render(value, True, color)
-            bottom_panel_surface.blit(value_surf, (col_x, row_y + 14))
+            bottom_panel_surface.blit(value_surf, (col_x, row_y + 12))
 
-        # === 구분선 ===
-        divider_x = stats_section_width + 8
+        # === 구분선 (가로) ===
+        divider_y = row_y_start + row_height * 2 + 8
         pygame.draw.line(bottom_panel_surface, (55, 50, 45),
-                        (divider_x, 10), (divider_x, bottom_panel_height - 10), 1)
+                        (12, divider_y), (bottom_panel_width - 12, divider_y), 1)
         pygame.draw.line(bottom_panel_surface, (85, 75, 58),
-                        (divider_x + 1, 10), (divider_x + 1, bottom_panel_height - 10), 1)
+                        (12, divider_y + 1), (bottom_panel_width - 12, divider_y + 1), 1)
 
-        # === 우측: 보유 런타임 스킬 ===
-        skills_x = divider_x + 10
-        skills_y = 8
+        # === 하단: 보유 런타임 스킬 ===
+        skills_x = 14
+        skills_y = divider_y + 6
 
         # 섹션 타이틀
         skills_title = panel_title_font.render("◆ 보유 스킬", True, (255, 215, 100))
@@ -6524,22 +6518,22 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                         "icon_color": skill_data.get("icon_color", (100, 150, 255))
                     })
 
-        # 스킬 아이콘 그리드 (미니 아이콘) - 30% 확대
-        skill_icon_size = 30  # 24 -> 30 (약 25% 증가)
-        skill_gap = 6
-        skills_per_row = 6  # 더 큰 아이콘으로 6개씩
-        skills_start_x = skills_x
-        skills_start_y = skills_y + 20
+        # 스킬 아이콘 그리드 (가로 한 줄 배치)
+        skill_icon_size = 26
+        skill_gap = 5
+        # 패널 너비에 맞게 최대 개수 계산
+        max_skills_in_row = (bottom_panel_width - 28) // (skill_icon_size + skill_gap)
+        skills_start_x = skills_x + 90  # "◆ 보유 스킬" 타이틀 옆에 배치
+        skills_start_y = skills_y + 2
 
         if acquired_skills:
             # 스킬들을 레벨 높은 순으로 정렬
             sorted_skills = sorted(acquired_skills, key=lambda s: s["level"], reverse=True)
 
-            for idx, skill in enumerate(sorted_skills[:12]):  # 최대 12개 표시 (2줄 x 6개)
-                row = idx // skills_per_row
-                col = idx % skills_per_row
+            for idx, skill in enumerate(sorted_skills[:max_skills_in_row]):  # 가로 한 줄만 표시
+                col = idx
                 icon_x = skills_start_x + col * (skill_icon_size + skill_gap)
-                icon_y = skills_start_y + row * (skill_icon_size + skill_gap + 8)
+                icon_y = skills_start_y
 
                 icon_color = skill["icon_color"]
 
@@ -6595,25 +6589,18 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                 bottom_panel_surface.blit(level_surf, (lx, ly))
 
             # 더 많은 스킬이 있으면 표시
-            if len(acquired_skills) > 12:
-                more_count = len(acquired_skills) - 12
+            if len(acquired_skills) > max_skills_in_row:
+                more_count = len(acquired_skills) - max_skills_in_row
                 more_text = f"+{more_count}"
                 more_surf = panel_value_font.render(more_text, True, (150, 150, 160))
-                more_x = skills_start_x + skills_per_row * (skill_icon_size + skill_gap) + 5
-                more_y = skills_start_y + skill_icon_size + 15
+                more_x = skills_start_x + max_skills_in_row * (skill_icon_size + skill_gap) + 3
+                more_y = skills_start_y + (skill_icon_size - more_surf.get_height()) // 2
                 bottom_panel_surface.blit(more_surf, (more_x, more_y))
         else:
-            # 보유 스킬 없음 - 더 세련된 안내 메시지 (30% 확대)
-            no_skill_bg = pygame.Surface((200, 50), pygame.SRCALPHA)
-            pygame.draw.rect(no_skill_bg, (40, 45, 55, 150), (0, 0, 200, 50), border_radius=8)
-            pygame.draw.rect(no_skill_bg, (60, 65, 75), (0, 0, 200, 50), 1, border_radius=8)
-            bottom_panel_surface.blit(no_skill_bg, (skills_x, skills_start_y + 15))
-
+            # 보유 스킬 없음 - 간결한 안내 메시지
             no_skill_text = "획득한 스킬 없음"
-            no_skill_surf = panel_title_font.render(no_skill_text, True, (120, 120, 140))
-            text_x = skills_x + (200 - no_skill_surf.get_width()) // 2
-            text_y = skills_start_y + 15 + (50 - no_skill_surf.get_height()) // 2
-            bottom_panel_surface.blit(no_skill_surf, (text_x, text_y))
+            no_skill_surf = panel_small_font.render(no_skill_text, True, (100, 100, 120))
+            bottom_panel_surface.blit(no_skill_surf, (skills_start_x, skills_start_y + 5))
 
         SCREEN.blit(bottom_panel_surface, (bottom_panel_x, bottom_panel_y))
 
