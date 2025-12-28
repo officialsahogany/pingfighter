@@ -25727,6 +25727,339 @@ wall_impact_particles: list = []  # 벽 충돌 파티클들
 wall_impact_flash_timer: int = 0  # 충돌 플래시 타이머
 wall_impact_position: tuple = (0, 0)  # 충돌 위치
 
+# === 🔥 속도/랠리 기반 인텐시티 이펙트 시스템 ===
+ball_intensity_level: float = 0.0  # 공 인텐시티 레벨 (0.0 ~ 1.0)
+ball_rally_count: int = 0  # 현재 랠리 카운트 (플레이어-보스 간 주고받기 횟수)
+ball_intensity_particles: list = []  # 인텐시티 파티클들
+ball_intensity_trail: list = []  # 인텐시티 화염 궤적
+ball_last_hit_by: str = ""  # 마지막으로 공을 친 주체 ("player" 또는 "boss")
+
+# 인텐시티 레벨별 색상 (저강도 → 고강도)
+INTENSITY_COLORS = {
+    0: [(100, 180, 255), (80, 160, 255), (60, 140, 255)],  # 파란색 (기본)
+    1: [(180, 220, 100), (160, 200, 80), (140, 180, 60)],  # 연두색 (약간 빠름)
+    2: [(255, 220, 100), (255, 200, 80), (255, 180, 60)],  # 노란색 (빠름)
+    3: [(255, 160, 80), (255, 140, 60), (255, 120, 40)],   # 주황색 (매우 빠름)
+    4: [(255, 100, 80), (255, 80, 60), (255, 60, 40)],     # 빨간색 (위험)
+    5: [(255, 80, 150), (255, 60, 130), (255, 40, 110)],   # 핑크/마젠타 (극한)
+}
+
+# 인텐시티별 글로우 색상 (배경 글로우)
+INTENSITY_GLOW_COLORS = {
+    0: (60, 100, 180, 30),    # 파란색 글로우
+    1: (100, 150, 50, 40),    # 연두 글로우
+    2: (180, 150, 30, 50),    # 노란 글로우
+    3: (200, 100, 30, 60),    # 주황 글로우
+    4: (200, 50, 30, 70),     # 빨간 글로우
+    5: (200, 40, 100, 80),    # 핑크 글로우
+}
+
+# 인텐시티 속도 임계값
+INTENSITY_SPEED_THRESHOLDS = [8, 12, 16, 22, 28, 35]  # 각 레벨로 올라가는 속도 기준
+
+def calculate_ball_intensity() -> float:
+    """공의 현재 속도와 랠리 카운트를 기반으로 인텐시티 계산"""
+    global ball_intensity_level
+
+    # 현재 공 속도 계산
+    current_speed = math.hypot(ball_vel[0], ball_vel[1])
+
+    # 속도 기반 레벨 (0~5)
+    speed_level = 0
+    for i, threshold in enumerate(INTENSITY_SPEED_THRESHOLDS):
+        if current_speed >= threshold:
+            speed_level = i
+
+    # 랠리 카운트 보너스 (랠리가 높을수록 인텐시티 증가)
+    rally_bonus = min(ball_rally_count * 0.1, 0.5)  # 최대 0.5 보너스
+
+    # 최종 인텐시티 레벨 (0.0 ~ 1.0)
+    base_intensity = speed_level / 5.0
+    ball_intensity_level = min(1.0, base_intensity + rally_bonus)
+
+    return ball_intensity_level
+
+def get_intensity_colors() -> tuple:
+    """현재 인텐시티에 맞는 색상들 반환"""
+    intensity = calculate_ball_intensity()
+    level = min(5, int(intensity * 5))
+    return INTENSITY_COLORS.get(level, INTENSITY_COLORS[0])
+
+def get_intensity_glow_color() -> tuple:
+    """현재 인텐시티에 맞는 글로우 색상 반환"""
+    intensity = calculate_ball_intensity()
+    level = min(5, int(intensity * 5))
+    return INTENSITY_GLOW_COLORS.get(level, INTENSITY_GLOW_COLORS[0])
+
+def update_ball_rally(hit_by: str) -> None:
+    """공이 맞았을 때 랠리 카운트 업데이트
+
+    Args:
+        hit_by: "player" 또는 "boss"
+    """
+    global ball_rally_count, ball_last_hit_by
+
+    # 다른 쪽에서 받아쳤을 때만 랠리 증가
+    if ball_last_hit_by != "" and ball_last_hit_by != hit_by:
+        ball_rally_count += 1
+
+    ball_last_hit_by = hit_by
+
+def reset_ball_rally() -> None:
+    """랠리 카운트 초기화 (득점 시)"""
+    global ball_rally_count, ball_last_hit_by, ball_intensity_level
+    ball_rally_count = 0
+    ball_last_hit_by = ""
+    ball_intensity_level = 0.0
+
+def update_intensity_particles(ball_x: float, ball_y: float) -> None:
+    """인텐시티 파티클 업데이트 및 생성"""
+    global ball_intensity_particles, ball_intensity_trail
+
+    intensity = calculate_ball_intensity()
+    current_speed = math.hypot(ball_vel[0], ball_vel[1])
+
+    # 인텐시티가 낮으면 파티클 최소화
+    if intensity < 0.1:
+        # 기존 파티클만 업데이트
+        new_particles = []
+        for p in ball_intensity_particles:
+            p['life'] -= 1
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['vy'] += 0.1  # 중력
+            p['size'] *= 0.95
+            if p['life'] > 0:
+                new_particles.append(p)
+        ball_intensity_particles = new_particles
+        return
+
+    colors = get_intensity_colors()
+    level = min(5, int(intensity * 5))
+
+    # 화염 파티클 생성 (인텐시티에 비례)
+    particle_count = int(1 + intensity * 4)  # 1~5개
+    for _ in range(particle_count):
+        if random.random() < 0.3 + intensity * 0.5:  # 30%~80% 확률
+            # 공 이동 반대 방향으로 파티클 생성
+            angle = math.atan2(-ball_vel[1], -ball_vel[0]) + random.uniform(-0.5, 0.5)
+            speed = random.uniform(1, 3) * (1 + intensity)
+
+            ball_intensity_particles.append({
+                'x': ball_x + random.uniform(-5, 5),
+                'y': ball_y + random.uniform(-5, 5),
+                'vx': math.cos(angle) * speed + random.uniform(-0.5, 0.5),
+                'vy': math.sin(angle) * speed + random.uniform(-0.5, 0.5),
+                'size': random.uniform(3, 8) * (0.5 + intensity * 0.5),
+                'life': int(15 + intensity * 25),
+                'max_life': int(15 + intensity * 25),
+                'color': random.choice(colors),
+                'type': 'flame' if random.random() < 0.7 else 'spark'
+            })
+
+    # 궤적 포인트 추가 (화염 꼬리)
+    if len(ball_intensity_trail) == 0 or \
+       math.hypot(ball_x - ball_intensity_trail[-1]['x'],
+                  ball_y - ball_intensity_trail[-1]['y']) > 4:
+        trail_length = int(10 + intensity * 20)  # 10~30개
+        ball_intensity_trail.append({
+            'x': ball_x,
+            'y': ball_y,
+            'alpha': 255,
+            'size': 8 + intensity * 12,  # 8~20
+            'color': colors[0]
+        })
+        while len(ball_intensity_trail) > trail_length:
+            ball_intensity_trail.pop(0)
+
+    # 궤적 페이드 및 크기 감소
+    for i, point in enumerate(ball_intensity_trail):
+        # 인텐시티가 높을수록 천천히 사라짐
+        fade_speed = 0.85 + intensity * 0.1  # 0.85~0.95
+        point['alpha'] *= fade_speed
+        point['size'] *= 0.97
+
+    ball_intensity_trail = [p for p in ball_intensity_trail if p['alpha'] > 5]
+
+    # 파티클 업데이트
+    new_particles = []
+    for p in ball_intensity_particles:
+        p['life'] -= 1
+        p['x'] += p['vx']
+        p['y'] += p['vy']
+
+        if p['type'] == 'flame':
+            p['vy'] -= 0.15  # 화염은 위로 올라감
+            p['size'] *= 0.96
+        else:
+            p['vy'] += 0.05  # 스파크는 약간 아래로
+            p['size'] *= 0.93
+
+        if p['life'] > 0 and p['size'] > 0.5:
+            new_particles.append(p)
+
+    ball_intensity_particles = new_particles
+
+    # 파티클 수 제한
+    if len(ball_intensity_particles) > 150:
+        ball_intensity_particles = ball_intensity_particles[-150:]
+
+def draw_intensity_effects(surface: pygame.Surface, ball_x: int, ball_y: int, ball_radius: int) -> None:
+    """인텐시티 기반 화염/글로우 이펙트 그리기"""
+    global ball_intensity_particles, ball_intensity_trail
+
+    intensity = calculate_ball_intensity()
+
+    # 인텐시티가 낮으면 그리지 않음
+    if intensity < 0.05:
+        return
+
+    level = min(5, int(intensity * 5))
+    colors = get_intensity_colors()
+    glow_color = get_intensity_glow_color()
+
+    # === 1. 화염 궤적 그리기 (공 뒤의 불꽃 꼬리) ===
+    if ball_intensity_trail:
+        total_points = len(ball_intensity_trail)
+        for i, point in enumerate(ball_intensity_trail):
+            if point['alpha'] < 5:
+                continue
+
+            # 위치 비율에 따른 색상 보간
+            position_ratio = i / max(1, total_points - 1)
+
+            # 인텐시티에 따른 크기 조절
+            size = int(point['size'] * (0.3 + position_ratio * 0.7))
+            if size < 1:
+                continue
+
+            # 색상 선택 (뒤로 갈수록 진한 색)
+            color_idx = min(2, int((1 - position_ratio) * 3))
+            base_color = colors[color_idx]
+
+            # 서피스 생성
+            trail_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            alpha = int(point['alpha'] * (0.5 + intensity * 0.5))
+
+            # 외곽 글로우
+            if size > 3:
+                pygame.draw.circle(trail_surf, (*base_color, alpha // 3),
+                                 (size, size), size)
+
+            # 내부 밝은 부분
+            inner_size = max(1, int(size * 0.6))
+            inner_color = tuple(min(255, c + 50) for c in base_color)
+            pygame.draw.circle(trail_surf, (*inner_color, alpha),
+                             (size, size), inner_size)
+
+            surface.blit(trail_surf,
+                        (int(point['x']) - size, int(point['y']) - size),
+                        special_flags=pygame.BLEND_ADD)
+
+    # === 2. 파티클 그리기 ===
+    for p in ball_intensity_particles:
+        if p['life'] <= 0 or p['size'] < 0.5:
+            continue
+
+        life_ratio = p['life'] / p['max_life']
+        alpha = int(255 * life_ratio * (0.5 + intensity * 0.5))
+        size = max(1, int(p['size']))
+
+        if alpha < 5:
+            continue
+
+        particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+
+        if p['type'] == 'flame':
+            # 화염 파티클 (부드러운 글로우)
+            pygame.draw.circle(particle_surf, (*p['color'], alpha // 2),
+                             (size, size), size)
+            inner_size = max(1, size // 2)
+            inner_color = tuple(min(255, c + 80) for c in p['color'])
+            pygame.draw.circle(particle_surf, (*inner_color, alpha),
+                             (size, size), inner_size)
+        else:
+            # 스파크 파티클 (밝은 점)
+            pygame.draw.circle(particle_surf, (255, 255, 200, alpha),
+                             (size, size), size)
+
+        surface.blit(particle_surf,
+                    (int(p['x']) - size, int(p['y']) - size),
+                    special_flags=pygame.BLEND_ADD)
+
+    # === 3. 공 주위 글로우/아우라 ===
+    if intensity > 0.2:
+        # 글로우 크기 (인텐시티에 비례)
+        glow_size = int(ball_radius * (1.5 + intensity * 1.5))  # 1.5x ~ 3x
+        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+
+        # 다층 글로우
+        for i in range(3):
+            layer_size = glow_size - i * int(glow_size * 0.2)
+            layer_alpha = int(glow_color[3] * (1 - i * 0.25) * intensity)
+
+            if layer_size > 0 and layer_alpha > 0:
+                pygame.draw.circle(glow_surf,
+                                 (glow_color[0], glow_color[1], glow_color[2], layer_alpha),
+                                 (glow_size, glow_size), layer_size)
+
+        surface.blit(glow_surf,
+                    (ball_x - glow_size, ball_y - glow_size),
+                    special_flags=pygame.BLEND_ADD)
+
+    # === 4. 고 인텐시티 추가 효과 (레벨 3 이상) ===
+    if level >= 3:
+        current_time = pygame.time.get_ticks()
+
+        # 회전하는 화염 링
+        num_flames = 4 + level
+        for i in range(num_flames):
+            angle = (current_time * 0.005 + i * (2 * math.pi / num_flames)) % (2 * math.pi)
+
+            # 펄스 효과
+            pulse = math.sin(current_time * 0.01 + i) * 0.2 + 1.0
+            radius = (ball_radius + 8 + level * 3) * pulse
+
+            fx = ball_x + math.cos(angle) * radius
+            fy = ball_y + math.sin(angle) * radius
+
+            flame_size = int(3 + level)
+            flame_surf = pygame.Surface((flame_size * 2, flame_size * 2), pygame.SRCALPHA)
+            flame_alpha = int(150 + math.sin(current_time * 0.02 + i * 0.5) * 50)
+
+            pygame.draw.circle(flame_surf, (*colors[0], flame_alpha),
+                             (flame_size, flame_size), flame_size)
+            pygame.draw.circle(flame_surf, (255, 255, 200, flame_alpha // 2),
+                             (flame_size, flame_size), max(1, flame_size // 2))
+
+            surface.blit(flame_surf,
+                        (int(fx) - flame_size, int(fy) - flame_size),
+                        special_flags=pygame.BLEND_ADD)
+
+    # === 5. 극한 인텐시티 효과 (레벨 5) ===
+    if level >= 5:
+        current_time = pygame.time.get_ticks()
+
+        # 방사형 광선 효과
+        num_rays = 8
+        for i in range(num_rays):
+            angle = (current_time * 0.003 + i * (2 * math.pi / num_rays)) % (2 * math.pi)
+
+            ray_length = ball_radius * 2 + math.sin(current_time * 0.008 + i) * 10
+
+            start_x = ball_x + math.cos(angle) * ball_radius
+            start_y = ball_y + math.sin(angle) * ball_radius
+            end_x = ball_x + math.cos(angle) * ray_length
+            end_y = ball_y + math.sin(angle) * ray_length
+
+            ray_alpha = int(100 + math.sin(current_time * 0.015 + i * 0.7) * 50)
+            ray_color = (*colors[0], ray_alpha)
+
+            # 광선 그리기
+            pygame.draw.line(surface, ray_color[:3],
+                           (int(start_x), int(start_y)),
+                           (int(end_x), int(end_y)), 2)
+
 # ⚡ 에너지 폭발 이펙트 변수 (패들 충돌 시)
 energy_explosion_particles: list = []  # 에너지 폭발 파티클들
 ENERGY_EXPLOSION_COLORS = [
@@ -44879,6 +45212,9 @@ def handle_player(keys):
         player_collision_cooldown = 15
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
 
+        # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
+        update_ball_rally("player")
+
         # ⚡ 스매셔 콤보 시스템: handle_player 백업 경로
         # 메인 처리는 handle_ball에서 수행됨. 여기서는 handle_ball이 놓친 경우만 처리
         # (일반적으로 이 코드는 실행되지 않음 - handle_ball이 먼저 처리하고 cooldown 설정)
@@ -61483,6 +61819,13 @@ def draw_objects():
             update_ball_ghost_trail(ball_rect.centerx, ball_rect.centery, BALL.width // 2)
             # 잔상을 공 뒤에 그리기 (공보다 먼저 그려야 뒤에 보임)
             draw_ball_ghost_trail(SCREEN, screen_shake_offset_x, screen_shake_offset_y)
+
+            # 🔥 인텐시티 이펙트 업데이트 및 그리기 (공 뒤에)
+            update_intensity_particles(ball_rect.centerx, ball_rect.centery)
+            draw_intensity_effects(SCREEN,
+                                  ball_rect.centerx + screen_shake_offset_x,
+                                  ball_rect.centery + screen_shake_offset_y,
+                                  BALL.width // 2)
 
         # 기본 공 그리기 (아직 그려지지 않은 경우에만, 그리고 쿠로미가 먹지 않았을 때)
         if not ball_already_drawn and not ball_in_kuromi:
@@ -86338,6 +86681,10 @@ def handle_ball():
                 print(f"⚡ [네메시스] 방어막 해제 중! 공이 통과!")
                 # 아래의 일반 득점 로직으로 진행 (return 안함)
         #  AI 학습: 보스가 공을 놓쳤음 (제거됨)
+
+        # 🔥 랠리 카운트 초기화 (득점 시)
+        reset_ball_rally()
+
         if deuce_mode:
             deuce_wins += 1
             print(f" [ ]  ! deuce_wins: {deuce_wins}, round_wins: {round_wins}")
@@ -86783,6 +87130,10 @@ def handle_ball():
                 player_analyzer.record_miss()
         except:
             pass
+
+        # 🔥 랠리 카운트 초기화 (득점 시)
+        reset_ball_rally()
+
         # 벽돌이 없거나 벽돌을 맞지 않았으면 보스 점수
         if deuce_mode:
             deuce_losses += 1
@@ -87596,6 +87947,9 @@ def handle_ball():
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
+
+        # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
+        update_ball_rally("boss")
 
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
