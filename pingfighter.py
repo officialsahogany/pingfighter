@@ -9011,6 +9011,7 @@ nemesis_barrier_active = True  # 방어막 활성화 여부
 nemesis_barrier_disabled_time = 0  # 방어막 비활성화 시작 시간 (밀리초)
 NEMESIS_BARRIER_DISABLE_DURATION = 2500  # 방어막 비활성화 지속 시간 (2.5초)
 nemesis_barrier_warning_shown = False  # 방어막 해제 경고 표시 여부
+nemesis_barrier_warning_channel = None  # 방어막 해제 경고 사운드 채널
 
 # 스테이지 6: 홍련폭염 가드 보상 플래그
 stage6_hongryun_guarded_during_inferno = False  # 홍련폭염 활성 중 토르쉴드 가드 성공 여부
@@ -80122,11 +80123,16 @@ def draw_field():
         barrier_height = 10
         barrier_y = 0
 
-        # 방어막 타이머 체크 - 2초 지나면 다시 활성화
+        # 방어막 타이머 체크 - 2.5초 지나면 다시 활성화
         if not nemesis_barrier_active:
             elapsed = time_now - nemesis_barrier_disabled_time
             if elapsed >= NEMESIS_BARRIER_DISABLE_DURATION:
                 globals()['nemesis_barrier_active'] = True
+                # 방어막 재활성화 시 경고 사운드 중지
+                global nemesis_barrier_warning_channel
+                if nemesis_barrier_warning_channel:
+                    nemesis_barrier_warning_channel.stop()
+                    nemesis_barrier_warning_channel = None
                 print(f"🛡️ [네메시스] 방어막 재활성화!")
             else:
                 # 방어막 비활성화 중 - 빨간색 경고 깜빡임
@@ -87006,10 +87012,13 @@ def handle_ball():
 
         # 스테이지 6 (네메시스) 방어막 해제 로직 - 보스 패들에 공이 닿으면 2.5초간 방어막 해제
         if current_stage == 6:
+            global nemesis_barrier_warning_channel
             globals()['nemesis_barrier_active'] = False
             globals()['nemesis_barrier_disabled_time'] = pygame.time.get_ticks()
             globals()['nemesis_barrier_warning_shown'] = False
-            play_sound_with_volume(SOUND_STAGE5_WARNING)  # 스테이지5 방어막 해제 경고 사운드
+            # 방어막 해제 경고 사운드 - 루프 재생 (방어막 재활성화 시 중지)
+            if SOUND_STAGE5_WARNING:
+                nemesis_barrier_warning_channel = SOUND_STAGE5_WARNING.play(loops=-1)  # 무한 루프
             print(f"🛡️ [네메시스] 방어막 해제! (2.5초간 공이 통과 가능)")
 
         # 스테이지 3~6, 8 공통: 대쉬/필살기 겸용 게이지 충전 (중간값 60 사용)
