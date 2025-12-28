@@ -5982,11 +5982,19 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             'color': random.choice([(100, 200, 255), (255, 220, 100), (150, 255, 150), (255, 150, 200)])
         })
 
-    # Card settings
-    card_width, card_height = 150, 100  # 카드 크기 축소
-    icon_size = 48
-    card_gap = 12
+    # Card settings - 화면 너비에 맞게 조절
+    card_width, card_height = 130, 90  # 카드 크기 축소
+    icon_size = 44
+    card_gap = 10
     total_width = card_width * 3 + card_gap * 2
+    # 화면 너비 초과 방지
+    if total_width > WIDTH * 0.85:
+        scale_factor = (WIDTH * 0.85) / total_width
+        card_width = int(card_width * scale_factor)
+        card_height = int(card_height * scale_factor)
+        icon_size = int(icon_size * scale_factor)
+        card_gap = int(card_gap * scale_factor)
+        total_width = card_width * 3 + card_gap * 2
     start_x = (WIDTH - total_width) // 2
     vertical_y = HEIGHT // 2 - card_height // 2 - 90  # 더 위로 올려서 하단 패널 공간 확보
 
@@ -5999,7 +6007,8 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     # 하단 능력치+스킬 패널 설정 (세로로 더 긴 형태)
     bottom_panel_y = desc_box_y + desc_box_height + 10
     bottom_panel_height = 160  # 세로로 더 크게 (3행 레이아웃)
-    bottom_panel_width = total_width + 200  # 능력치 + 스킬 섹션 공간
+    # 화면 너비에 맞게 패널 너비 제한 (최대 화면의 90%)
+    bottom_panel_width = min(total_width + 100, int(WIDTH * 0.9))
     bottom_panel_x = (WIDTH - bottom_panel_width) // 2
 
     # Font setup
