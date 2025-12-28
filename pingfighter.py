@@ -6412,10 +6412,10 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
 
         # 능력치 계산 (런타임 스킬 보너스 포함)
         dash_tokens = int(1 + get_runtime_skill_bonus("dash_amplification"))
-        item_slots = get_total_item_slots()
-        item_gauge = get_total_item_gauge_bonus()
-        item_keep_chance = get_total_item_keep_chance()
-        caffeine_bonus = get_total_caffeine_bonus()
+        item_slots = get_effective_max_item_slots()
+        item_gauge = get_effective_item_gauge_bonus()
+        item_keep_chance = get_effective_item_recycle_chance() * 100  # 백분율로 변환
+        caffeine_bonus = get_effective_caffeine_multiplier() - 1.0  # 기본값 1.0 제외한 보너스
         dash_cooldown_reduction = get_runtime_skill_bonus("dash_lightweight")
         dash_distance_bonus = get_runtime_skill_bonus("dash_jump")
 
@@ -26259,59 +26259,6 @@ def draw_intensity_effects(surface: pygame.Surface, ball_x: int, ball_y: int, ba
         surface.blit(glow_surf,
                     (ball_x - center, ball_y - center),
                     special_flags=pygame.BLEND_ADD)
-
-    # === 4. 고 인텐시티 추가 효과 (레벨 4 이상 - 빨간색부터) ===
-    if level >= 4:
-        current_time = pygame.time.get_ticks()
-
-        # 회전하는 화염 링
-        num_flames = 4 + level
-        for i in range(num_flames):
-            angle = (current_time * 0.005 + i * (2 * math.pi / num_flames)) % (2 * math.pi)
-
-            # 펄스 효과
-            pulse = math.sin(current_time * 0.01 + i) * 0.2 + 1.0
-            radius = (ball_radius + 8 + level * 3) * pulse
-
-            fx = ball_x + math.cos(angle) * radius
-            fy = ball_y + math.sin(angle) * radius
-
-            flame_size = int(3 + level)
-            flame_surf = pygame.Surface((flame_size * 2, flame_size * 2), pygame.SRCALPHA)
-            flame_alpha = int(150 + math.sin(current_time * 0.02 + i * 0.5) * 50)
-
-            pygame.draw.circle(flame_surf, (*colors[0], flame_alpha),
-                             (flame_size, flame_size), flame_size)
-            pygame.draw.circle(flame_surf, (255, 255, 200, flame_alpha // 2),
-                             (flame_size, flame_size), max(1, flame_size // 2))
-
-            surface.blit(flame_surf,
-                        (int(fx) - flame_size, int(fy) - flame_size),
-                        special_flags=pygame.BLEND_ADD)
-
-    # === 5. 극한 인텐시티 효과 (레벨 5) ===
-    if level >= 5:
-        current_time = pygame.time.get_ticks()
-
-        # 방사형 광선 효과
-        num_rays = 8
-        for i in range(num_rays):
-            angle = (current_time * 0.003 + i * (2 * math.pi / num_rays)) % (2 * math.pi)
-
-            ray_length = ball_radius * 2 + math.sin(current_time * 0.008 + i) * 10
-
-            start_x = ball_x + math.cos(angle) * ball_radius
-            start_y = ball_y + math.sin(angle) * ball_radius
-            end_x = ball_x + math.cos(angle) * ray_length
-            end_y = ball_y + math.sin(angle) * ray_length
-
-            ray_alpha = int(100 + math.sin(current_time * 0.015 + i * 0.7) * 50)
-            ray_color = (*colors[0], ray_alpha)
-
-            # 광선 그리기
-            pygame.draw.line(surface, ray_color[:3],
-                           (int(start_x), int(start_y)),
-                           (int(end_x), int(end_y)), 2)
 
 # ⚡ 에너지 폭발 이펙트 변수 (패들 충돌 시)
 energy_explosion_particles: list = []  # 에너지 폭발 파티클들
