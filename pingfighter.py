@@ -9006,10 +9006,12 @@ NEMESIS_POST_DELAY = 5000  # 대폭발 후 화면 정지 시간 (5초)
 # 스테이지 6 장막 충돌 효과
 stage6_barrier_flash_timer = 0  # 장막 깜빡임 타이머
 
-# 스테이지 6 (네메시스) 방어막 시스템 - 보스 뒤 방어막 (보스 패들에 공이 닿으면 2.5초간 해제)
+# 스테이지 6 (네메시스) 방어막 시스템 - 보스 뒤 방어막 (보스 패들에 공이 닿으면 확률적으로 해제)
 nemesis_barrier_active = True  # 방어막 활성화 여부
 nemesis_barrier_disabled_time = 0  # 방어막 비활성화 시작 시간 (밀리초)
-NEMESIS_BARRIER_DISABLE_DURATION = 2500  # 방어막 비활성화 지속 시간 (2.5초)
+NEMESIS_BARRIER_DISABLE_DURATION_SHORT = 2500  # 방어막 비활성화 지속 시간 - 짧음 (2.5초, 60% 확률)
+NEMESIS_BARRIER_DISABLE_DURATION_LONG = 3300   # 방어막 비활성화 지속 시간 - 김 (3.3초, 40% 확률)
+nemesis_barrier_current_duration = 2500  # 현재 적용 중인 방어막 해제 시간
 nemesis_barrier_warning_shown = False  # 방어막 해제 경고 표시 여부
 nemesis_barrier_warning_channel = None  # 방어막 해제 경고 사운드 채널
 
@@ -80123,10 +80125,10 @@ def draw_field():
         barrier_height = 10
         barrier_y = 0
 
-        # 방어막 타이머 체크 - 2.5초 지나면 다시 활성화
+        # 방어막 타이머 체크 - 현재 적용된 시간 지나면 다시 활성화 (2.5초 또는 3.3초)
         if not nemesis_barrier_active:
             elapsed = time_now - nemesis_barrier_disabled_time
-            if elapsed >= NEMESIS_BARRIER_DISABLE_DURATION:
+            if elapsed >= nemesis_barrier_current_duration:
                 globals()['nemesis_barrier_active'] = True
                 # 방어막 재활성화 시 경고 사운드 중지
                 global nemesis_barrier_warning_channel
@@ -80136,7 +80138,7 @@ def draw_field():
                 print(f"🛡️ [네메시스] 방어막 재활성화!")
             else:
                 # 방어막 비활성화 중 - 빨간색 경고 깜빡임
-                remaining = (NEMESIS_BARRIER_DISABLE_DURATION - elapsed) / 1000.0
+                remaining = (nemesis_barrier_current_duration - elapsed) / 1000.0
                 flash_speed = 0.1  # 빠른 깜빡임
                 if int(time_now * flash_speed) % 2 == 0:
                     # 얇은 빨간색 경고선
@@ -87010,16 +87012,23 @@ def handle_ball():
             boss_special_gauge = min(boss_special_gauge + 70, 500)
             print(f"스테이지2 악어장군 게이지 충전: +70 (현재: {boss_special_gauge}/500)")
 
-        # 스테이지 6 (네메시스) 방어막 해제 로직 - 보스 패들에 공이 닿으면 2.5초간 방어막 해제
+        # 스테이지 6 (네메시스) 방어막 해제 로직 - 보스 패들에 공이 닿으면 확률적으로 방어막 해제
         if current_stage == 6:
-            global nemesis_barrier_warning_channel
+            global nemesis_barrier_warning_channel, nemesis_barrier_current_duration
             globals()['nemesis_barrier_active'] = False
             globals()['nemesis_barrier_disabled_time'] = pygame.time.get_ticks()
             globals()['nemesis_barrier_warning_shown'] = False
+            # 60% 확률로 2.5초, 40% 확률로 3.3초 해제
+            if random.random() < 0.6:
+                nemesis_barrier_current_duration = NEMESIS_BARRIER_DISABLE_DURATION_SHORT  # 2.5초
+                duration_text = "2.5초"
+            else:
+                nemesis_barrier_current_duration = NEMESIS_BARRIER_DISABLE_DURATION_LONG  # 3.3초
+                duration_text = "3.3초"
             # 방어막 해제 경고 사운드 - 루프 재생 (방어막 재활성화 시 중지)
             if SOUND_STAGE5_WARNING:
                 nemesis_barrier_warning_channel = SOUND_STAGE5_WARNING.play(loops=-1)  # 무한 루프
-            print(f"🛡️ [네메시스] 방어막 해제! (2.5초간 공이 통과 가능)")
+            print(f"🛡️ [네메시스] 방어막 해제! ({duration_text}간 공이 통과 가능)")
 
         # 스테이지 3~6, 8 공통: 대쉬/필살기 겸용 게이지 충전 (중간값 60 사용)
         # 스테이지 7은 초인테트리서 전용 게이지 체계가 별도로 동작하므로 충전 없음
