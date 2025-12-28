@@ -5996,10 +5996,10 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     desc_box_x = start_x
     desc_box_y = vertical_y + card_height + 15
 
-    # 하단 능력치+스킬 패널 설정 (가로 넓은 형태)
+    # 하단 능력치+스킬 패널 설정 (세로로 더 긴 형태)
     bottom_panel_y = desc_box_y + desc_box_height + 10
-    bottom_panel_height = 110  # 2행 레이아웃에 맞게 조정
-    bottom_panel_width = total_width + 300  # 능력치 5열 + 스킬 섹션 공간
+    bottom_panel_height = 160  # 세로로 더 크게 (3행 레이아웃)
+    bottom_panel_width = total_width + 200  # 능력치 + 스킬 섹션 공간
     bottom_panel_x = (WIDTH - bottom_panel_width) // 2
 
     # Font setup
@@ -6402,7 +6402,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         pygame.draw.line(bottom_panel_surface, (140, 115, 65), (12, 2), (bottom_panel_width - 12, 2), 1)
 
         # === 좌측: 캐릭터 능력치 ===
-        stats_section_width = 480  # 5열 레이아웃에 맞게 확장
+        stats_section_width = 420  # 4열 레이아웃
         stats_x = 14
         stats_y = 8
 
@@ -6410,17 +6410,25 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         stats_title = panel_title_font.render("◆ 캐릭터 능력치", True, (255, 215, 100))
         bottom_panel_surface.blit(stats_title, (stats_x, stats_y))
 
-        # 캐릭터 정보 가져오기
+        # 실제 게임 변수에서 캐릭터 정보 가져오기
         try:
-            player_speed = globals().get("player_speed", 0)
-            player_turn = globals().get("player_turn", 0)
-            paddle_width = PLAYER.width if PLAYER else 0
+            # 실제 전역 변수 참조
+            actual_player_speed = globals().get("PLAYER_SPEED", 1)
+            actual_paddle_width = PLAYER.width if PLAYER else 80
             current_stg = globals().get("current_stage", 1)
             r_wins = globals().get("round_wins", 0)
             r_losses = globals().get("round_losses", 0)
+            # 신속 스킬 보너스
+            swiftness_bonus = globals().get("runtime_swiftness_bonus", 0)
+            # 특수 게이지
+            special_gauge_val = globals().get("special_gauge", 0)
+            special_gauge_max_val = globals().get("special_gauge_max", 400)
         except:
-            player_speed, player_turn, paddle_width = 0, 0, 0
+            actual_player_speed = 1
+            actual_paddle_width = 80
             current_stg, r_wins, r_losses = 1, 0, 0
+            swiftness_bonus = 0
+            special_gauge_val, special_gauge_max_val = 0, 400
 
         # 런타임 스킬 보너스 계산
         dash_tokens = int(1 + get_runtime_skill_bonus("dash_amplification"))
@@ -6430,32 +6438,41 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         caffeine_bonus = get_effective_caffeine_multiplier() - 1.0
         dash_cooldown_reduction = get_runtime_skill_bonus("dash_lightweight")
 
-        # 능력치 항목들 (3열 그리드) - 캐릭터 기본 + 스킬 보너스
+        # 이동속도 표시 (기본 + 신속 보너스)
+        speed_display = f"{actual_player_speed:.1f}"
+        if swiftness_bonus > 0:
+            speed_display = f"{actual_player_speed:.1f} (+{int(swiftness_bonus*100)}%)"
+
+        # 능력치 항목들 (4열 3행 그리드)
         stats_items = [
-            # 1열: 기본 정보
+            # 1행: 기본 정보
             ("스테이지", f"{current_stg}", (255, 220, 100)),
             ("라운드", f"{r_wins}:{r_losses}", (150, 255, 150)),
-            ("패들폭", f"{paddle_width}px", (180, 200, 255)),
-            ("이동속도", f"{player_speed:.1f}", (100, 220, 255)),
-            # 2열: 대쉬 관련
+            ("패들폭", f"{actual_paddle_width}px", (180, 200, 255)),
+            ("이동속도", speed_display, (100, 220, 255)),
+            # 2행: 대쉬 관련
             ("대쉬토큰", f"{dash_tokens}개", (150, 200, 255)),
-            ("쿨타임", f"-{int(dash_cooldown_reduction * 100)}%", (120, 200, 180)),
-            # 3열: 아이템 관련
-            ("슬롯", f"{item_slots}칸", (200, 255, 150)),
-            ("게이지+", f"{int(item_gauge)}", (255, 200, 100)),
-            ("유지율", f"{int(item_keep_chance)}%", (255, 150, 200)),
+            ("대쉬쿨감", f"-{int(dash_cooldown_reduction * 100)}%", (120, 200, 180)),
+            ("게이지", f"{int(special_gauge_val)}/{int(special_gauge_max_val)}", (255, 180, 100)),
             ("카페인", f"+{int(caffeine_bonus * 100)}%", (200, 180, 255)),
+            # 3행: 아이템 관련
+            ("아이템슬롯", f"{item_slots}칸", (200, 255, 150)),
+            ("게이지보너스", f"+{int(item_gauge)}", (255, 200, 100)),
+            ("아이템유지", f"{int(item_keep_chance)}%", (255, 150, 200)),
+            ("", "", (0, 0, 0)),  # 빈 칸
         ]
 
-        # 5열 가로 레이아웃 (라벨:값 같은 줄)
-        col_width = 95
-        row_height = 28
-        row_y_start = stats_y + 22
+        # 4열 가로 레이아웃 (라벨:값 같은 줄)
+        col_width = 105
+        row_height = 32
+        row_y_start = stats_y + 24
 
-        # 2행 5열 배치 (총 10개 항목)
+        # 3행 4열 배치 (총 12개 항목)
         for idx, (label, value, color) in enumerate(stats_items):
-            row_idx = idx // 5  # 0~4는 1행, 5~9는 2행
-            col_idx = idx % 5   # 0~4 열 위치
+            if not label:  # 빈 항목 건너뛰기
+                continue
+            row_idx = idx // 4  # 0~3은 1행, 4~7은 2행, 8~11은 3행
+            col_idx = idx % 4   # 0~3 열 위치
 
             col_x = stats_x + col_idx * col_width
             row_y = row_y_start + row_idx * row_height
@@ -6464,9 +6481,9 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             label_surf = panel_small_font.render(f"{label}:", True, (150, 155, 165))
             bottom_panel_surface.blit(label_surf, (col_x, row_y))
 
-            # 값 (라벨 오른쪽)
+            # 값 (라벨 아래)
             value_surf = panel_value_font.render(value, True, color)
-            bottom_panel_surface.blit(value_surf, (col_x + label_surf.get_width() + 4, row_y))
+            bottom_panel_surface.blit(value_surf, (col_x, row_y + 14))
 
         # === 구분선 ===
         divider_x = stats_section_width + 8
