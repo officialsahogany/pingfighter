@@ -8955,11 +8955,15 @@ player_stunned = False  # 플레이어 감전 상태
 player_stun_end_time = 0  # 감전 종료 시간
 laser_cannon_angle = QUARTER_ROTATION  # 레이저 캐논 현재 각도 (기본 6시 방향)
 laser_target_angle = QUARTER_ROTATION  # 레이저 캐논 목표 각도
+laser_display_angle = QUARTER_ROTATION  # 레이저 캐논 표시 각도 (부드러운 회전용)
 laser_rotating_mode = False  # 레이저 회전 모드 (등대 모드)
 laser_rotation_direction = 1  # 레이저 회전 방향 (1: 시계방향, -1: 반시계방향)
 laser_cooldown = 12000  # 레이저 쿨타임 (12~15초 랜덤)
 laser_rotation_range = 60  # 레이저 회전 범위 (랜덤으로 설정됨)
 laser_rotation_speed = 1.0  # 레이저 회전 속도 배율 (랜덤으로 설정됨)
+laser_pre_aiming = False  # 발사 전 조준 중 여부
+laser_pre_aim_start = 0  # 조준 시작 시간
+LASER_PRE_AIM_DURATION = 1000  # 조준 시간 (1초)
 # 쉴드 안테나 시스템 변수
 shield_antenna_active = False  # 쉴드 활성화 여부
 shield_antenna_timer = 0  # 쉴드 타이머
@@ -9014,6 +9018,16 @@ NEMESIS_BARRIER_DISABLE_DURATION_LONG = 3300   # 방어막 비활성화 지속 �
 nemesis_barrier_current_duration = 2500  # 현재 적용 중인 방어막 해제 시간
 nemesis_barrier_warning_shown = False  # 방어막 해제 경고 표시 여부
 nemesis_barrier_warning_channel = None  # 방어막 해제 경고 사운드 채널
+nemesis_barrier_trigger_cooldown = 0  # 방어막 해제 트리거 쿨다운 (중복 방지)
+
+# 네메시스 방어막 무지개 모드 (스타포인트 드랍 기회)
+nemesis_barrier_rainbow_active = False  # 무지개 모드 활성화 여부
+nemesis_barrier_rainbow_start_time = 0  # 무지개 모드 시작 시간
+NEMESIS_BARRIER_RAINBOW_DURATION = 2000  # 무지개 모드 지속 시간 (2초)
+nemesis_barrier_rainbow_cooldown = 0  # 무지개 모드 쿨타임 (밀리초)
+NEMESIS_BARRIER_RAINBOW_COOLDOWN_MIN = 10000  # 최소 쿨타임 (10초)
+NEMESIS_BARRIER_RAINBOW_COOLDOWN_MAX = 15000  # 최대 쿨타임 (15초)
+nemesis_barrier_rainbow_hit = False  # 무지개 모드 중 공에 맞았는지 여부
 
 # 스테이지 6: 홍련폭염 가드 보상 플래그
 stage6_hongryun_guarded_during_inferno = False  # 홍련폭염 활성 중 토르쉴드 가드 성공 여부
@@ -57414,7 +57428,8 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
             pygame.draw.circle(carrier_surface, (120, 130, 140), (barrel_end_x, barrel_end_y), 3)
             pygame.draw.circle(carrier_surface, (100, 110, 120), (barrel_end_x, barrel_end_y), 2)
             # 미사일 발사 (터렛별로 다른 타이밍)
-            if boss_current_health > 0 and random.random() < 0.0015 and boss_confused_timer == 0:  # 0.15% 확률로 매 프레임 발사 (발사 빈도 더 줄임, 혼란 상태가 아닐 때만)
+            # 공 생성 애니메이션 중에는 미사일 발사 안함
+            if boss_current_health > 0 and random.random() < 0.0015 and boss_confused_timer == 0 and not ball_spawn_animation_active:  # 0.15% 확률로 매 프레임 발사 (발사 빈도 더 줄임, 혼란 상태가 아닐 때만)
                 # 미사일 발사 위치 (보스 패들 절대 좌표로 변환)
                 missile_x = boss_x + dx
                 missile_y = BOSS_Y + dy + 10  # 포신 끝에서 발사
@@ -57593,53 +57608,149 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
                 debris_y = explosion_y + random.randint(-20, 20)
                 debris_color = (random.randint(150, 255), random.randint(50, 150), 0)
                 pygame.draw.circle(carrier_surface, debris_color, (debris_x, debris_y), random.randint(1, 3))
-    # === 플라즈마 레이저 캐논 ===
-    # 글로벌 변수는 이미 draw_objects에서 선언됨
+    # === 고퀄리티 플라즈마 레이저 캐논 ===
     current_time = pygame.time.get_ticks()
     # 캐논 위치 (함선 전면 중앙)
     cannon_x = carrier_width // 2
     cannon_y = 15
-    # 캐논 각도는 충전 시작할 때 이미 설정됨
-    # laser_cannon_angle은 draw_objects에서 충전 시 설정
-    # 캐논 베이스 그리기
-    pygame.draw.circle(carrier_surface, (80, 90, 100), (cannon_x, cannon_y), 12)
-    pygame.draw.circle(carrier_surface, (100, 110, 120), (cannon_x, cannon_y), 10)
-    # 회전하는 캐논 포신
-    cannon_barrel_length = 20
-    angle_rad = math.radians(laser_cannon_angle)
+
+    # 표시용 각도 사용 (조준 중일 때 부드러운 회전)
+    display_angle = laser_display_angle if laser_pre_aiming or laser_charging or laser_cannon_active else laser_cannon_angle
+    angle_rad = math.radians(display_angle)
+
+    # 포신 길이 증가 (20 → 28)
+    cannon_barrel_length = 28
+
+    # 포신 끝 좌표
     cannon_barrel_end_x = cannon_x + int(math.cos(angle_rad) * cannon_barrel_length)
     cannon_barrel_end_y = cannon_y + int(math.sin(angle_rad) * cannon_barrel_length)
-    # 포신 그리기 (두께 좋 표현)
-    pygame.draw.line(carrier_surface, (90, 100, 110), 
+
+    # === 캐논 베이스 (회전 터렛) ===
+    # 메탈릭 베이스 플레이트
+    pygame.draw.circle(carrier_surface, (50, 55, 65), (cannon_x, cannon_y), 16)  # 그림자
+    pygame.draw.circle(carrier_surface, (80, 90, 105), (cannon_x, cannon_y), 14)  # 외곽
+    pygame.draw.circle(carrier_surface, (100, 115, 130), (cannon_x, cannon_y), 12)  # 중간
+    pygame.draw.circle(carrier_surface, (120, 135, 150), (cannon_x, cannon_y), 10)  # 내부
+    # 하이라이트
+    pygame.draw.arc(carrier_surface, (160, 175, 190),
+                   (cannon_x - 10, cannon_y - 10, 20, 20),
+                   math.radians(200), math.radians(340), 2)
+
+    # === 포신 (다중 레이어 고퀄리티) ===
+    # 포신 중간 지점들
+    barrel_mid1_x = cannon_x + int(math.cos(angle_rad) * 10)
+    barrel_mid1_y = cannon_y + int(math.sin(angle_rad) * 10)
+    barrel_mid2_x = cannon_x + int(math.cos(angle_rad) * 20)
+    barrel_mid2_y = cannon_y + int(math.sin(angle_rad) * 20)
+
+    # 포신 외곽 (어두운 색)
+    pygame.draw.line(carrier_surface, (60, 70, 85),
+                     (cannon_x, cannon_y), (cannon_barrel_end_x, cannon_barrel_end_y), 10)
+    # 포신 중간층
+    pygame.draw.line(carrier_surface, (85, 100, 115),
                      (cannon_x, cannon_y), (cannon_barrel_end_x, cannon_barrel_end_y), 8)
-    pygame.draw.line(carrier_surface, (110, 120, 130), 
-                     (cannon_x, cannon_y), (cannon_barrel_end_x, cannon_barrel_end_y), 6)
-    # 캐논 끝부분 (발사구)
-    pygame.draw.circle(carrier_surface, (120, 130, 140), 
+    # 포신 내부 (밝은 색)
+    pygame.draw.line(carrier_surface, (110, 125, 145),
+                     (cannon_x + int(math.cos(angle_rad) * 3), cannon_y + int(math.sin(angle_rad) * 3)),
+                     (cannon_barrel_end_x, cannon_barrel_end_y), 6)
+    # 포신 하이라이트 (상단)
+    perp_x = -math.sin(angle_rad) * 3
+    perp_y = math.cos(angle_rad) * 3
+    pygame.draw.line(carrier_surface, (140, 155, 175),
+                     (cannon_x + perp_x, cannon_y + perp_y),
+                     (cannon_barrel_end_x + perp_x * 0.7, cannon_barrel_end_y + perp_y * 0.7), 1)
+
+    # === 포신 디테일 (세그먼트/링) ===
+    # 포신 중간 링들
+    for ring_dist in [8, 16, 24]:
+        ring_x = cannon_x + int(math.cos(angle_rad) * ring_dist)
+        ring_y = cannon_y + int(math.sin(angle_rad) * ring_dist)
+        pygame.draw.circle(carrier_surface, (70, 80, 95), (ring_x, ring_y), 5)
+        pygame.draw.circle(carrier_surface, (95, 110, 125), (ring_x, ring_y), 4)
+
+    # === 발사구 (머즐) ===
+    # 외곽 링
+    pygame.draw.circle(carrier_surface, (90, 105, 120),
+                      (cannon_barrel_end_x, cannon_barrel_end_y), 8)
+    pygame.draw.circle(carrier_surface, (110, 125, 145),
                       (cannon_barrel_end_x, cannon_barrel_end_y), 6)
-    pygame.draw.circle(carrier_surface, (140, 150, 160), 
-                      (cannon_barrel_end_x, cannon_barrel_end_y), 4)
-    # 충전 효과
+    # 내부 구멍 (발사 시 빛남)
+    if laser_charging or laser_cannon_active:
+        pygame.draw.circle(carrier_surface, (150, 200, 255),
+                          (cannon_barrel_end_x, cannon_barrel_end_y), 4)
+        pygame.draw.circle(carrier_surface, (200, 230, 255),
+                          (cannon_barrel_end_x, cannon_barrel_end_y), 2)
+    else:
+        pygame.draw.circle(carrier_surface, (40, 50, 60),
+                          (cannon_barrel_end_x, cannon_barrel_end_y), 4)
+        pygame.draw.circle(carrier_surface, (30, 35, 45),
+                          (cannon_barrel_end_x, cannon_barrel_end_y), 2)
+
+    # === 조준 중 이펙트 ===
+    if laser_pre_aiming:
+        aim_progress = min(1.0, (current_time - laser_pre_aim_start) / LASER_PRE_AIM_DURATION)
+        # 조준 인디케이터 (깜빡이는 레이저 포인터)
+        if (current_time // 100) % 2 == 0:
+            # 레이저 조준선 (짧은 점선)
+            aim_line_length = 40 + int(aim_progress * 30)
+            for i in range(0, aim_line_length, 8):
+                dot_x = cannon_barrel_end_x + int(math.cos(angle_rad) * i)
+                dot_y = cannon_barrel_end_y + int(math.sin(angle_rad) * i)
+                dot_alpha = int(100 * (1 - i / aim_line_length))
+                pygame.draw.circle(carrier_surface, (255, 100, 100), (dot_x, dot_y), 1)
+        # 발사구 경고 글로우
+        glow_intensity = int(50 + 50 * aim_progress)
+        pygame.draw.circle(carrier_surface, (255, glow_intensity, glow_intensity),
+                          (cannon_barrel_end_x, cannon_barrel_end_y), int(5 + aim_progress * 3))
+
+    # === 충전 효과 (강화됨) ===
     if laser_charging:
         charge_time = current_time - laser_charge_start
-        charge_ratio = min(1.0, charge_time / MILLISECONDS_PER_SECOND)  # 1초 충전
-        # 충전 파티클 효과
-        for _ in range(int(10 * charge_ratio)):
+        charge_ratio = min(1.0, charge_time / 1500)  # 1.5초 충전
+
+        # 에너지 수집 파티클 (포신 끝으로 모이는 효과)
+        num_particles = int(15 * charge_ratio)
+        for _ in range(num_particles):
             particle_angle = random.uniform(0, math.pi * 2)
-            particle_dist = random.uniform(10, 30 * (1 - charge_ratio))
+            particle_dist = random.uniform(15, 40 * (1 - charge_ratio * 0.7))
             particle_x = cannon_barrel_end_x + int(math.cos(particle_angle) * particle_dist)
             particle_y = cannon_barrel_end_y + int(math.sin(particle_angle) * particle_dist)
-            # 파란색 에너지 파티클
-            particle_color = (100, 150 + int(100 * charge_ratio), 255)
-            pygame.draw.circle(carrier_surface, particle_color, 
-                             (particle_x, particle_y), random.randint(1, 3))
-        # 충전 코어
-        core_size = int(4 + 6 * charge_ratio)
-        core_color = (150, 200, 255)
-        pygame.draw.circle(carrier_surface, core_color, 
+            # 파란색/흰색 에너지 파티클
+            if random.random() < 0.3:
+                particle_color = (200, 230, 255)
+            else:
+                particle_color = (100, 150 + int(100 * charge_ratio), 255)
+            particle_size = random.randint(1, 2 + int(charge_ratio * 2))
+            pygame.draw.circle(carrier_surface, particle_color,
+                             (particle_x, particle_y), particle_size)
+
+        # 충전 코어 (펄스 효과)
+        pulse = abs(math.sin(current_time * 0.01)) * 0.3 + 0.7
+        core_size = int((5 + 8 * charge_ratio) * pulse)
+        # 글로우 레이어
+        for i in range(3):
+            glow_size = core_size + (3 - i) * 3
+            glow_alpha = 100 - i * 30
+            glow_color = (100 + i * 30, 150 + i * 30, 255)
+            pygame.draw.circle(carrier_surface, glow_color,
+                             (cannon_barrel_end_x, cannon_barrel_end_y), glow_size)
+        # 코어 중심
+        pygame.draw.circle(carrier_surface, (180, 220, 255),
                          (cannon_barrel_end_x, cannon_barrel_end_y), core_size)
-        pygame.draw.circle(carrier_surface, WHITE, 
-                         (cannon_barrel_end_x, cannon_barrel_end_y), core_size - 2)
+        pygame.draw.circle(carrier_surface, WHITE,
+                         (cannon_barrel_end_x, cannon_barrel_end_y), max(1, core_size - 3))
+
+        # 전기 스파크 효과
+        if charge_ratio > 0.5:
+            for _ in range(int(5 * (charge_ratio - 0.5) * 2)):
+                spark_angle = random.uniform(0, math.pi * 2)
+                spark_start = 5
+                spark_end = 12 + random.randint(0, 8)
+                sx1 = cannon_barrel_end_x + int(math.cos(spark_angle) * spark_start)
+                sy1 = cannon_barrel_end_y + int(math.sin(spark_angle) * spark_start)
+                sx2 = cannon_barrel_end_x + int(math.cos(spark_angle) * spark_end)
+                sy2 = cannon_barrel_end_y + int(math.sin(spark_angle) * spark_end)
+                pygame.draw.line(carrier_surface, (200, 230, 255), (sx1, sy1), (sx2, sy2), 1)
     # === 쉴드 안테나 시스템 ===
     # 안테나 위치 (함선 전면 좌우)
     antenna_left_x = 30
@@ -58182,6 +58293,16 @@ def draw_objects():
     if current_stage == 5 and boss_throwing:
         boss_offset_y = -10  # 살짝 위로 올림
         tilt_angle_boss = -15 if (pygame.time.get_ticks() // 100) % 2 == 0 else 15
+
+    # === 스테이지 6 (네메시스) 공중 부유 모션 ===
+    # 항공모함이 천천히 위아래로 흔들리는 효과
+    if current_stage == 6:
+        float_time = pygame.time.get_ticks()
+        # 느린 사인파로 부드러운 부유 효과 (약 4초 주기)
+        float_offset = math.sin(float_time * 0.0015) * 6  # 위아래 6픽셀 범위
+        # 약간의 2차 진동 추가 (더 자연스러운 부유감)
+        float_offset += math.sin(float_time * 0.003) * 2  # 빠른 미세 진동
+        boss_offset_y = float_offset
     # 좌우 기울기 효과 제거 (사용자 요청)
     # elif not is_waiting_for_serve and not (current_stage == 2 and speed_defense_active):
     #     # 평상시 좌우 기울기
@@ -61872,31 +61993,53 @@ def draw_objects():
         global laser_cannon_active, last_laser_time, laser_charging, laser_charge_start
         global player_stunned, player_stun_end_time, laser_beam_duration, laser_rotating_mode, laser_rotation_direction, laser_cooldown
         global laser_rotation_range, laser_rotation_speed
+        global laser_display_angle, laser_pre_aiming, laser_pre_aim_start, laser_target_angle
         current_time = pygame.time.get_ticks()
         # 플레이어 득점 기반 해금 시스템 (체력 기반에서 변경)
         # 2점 획득 시: 고정 방향 레이저 해금
         # 3점 획득 시: 등대 회전 모드 해금
         laser_unlocked = round_wins >= 2  # 2점 이상이면 레이저 해금
         rotating_unlocked = round_wins >= 3  # 3점 이상이면 회전 모드 해금
-        # 5~9초마다 레이저 충전 시작 (2점 이상 획득 시만, 혼란 상태가 아닐 때만)
-        if laser_unlocked and not laser_charging and not laser_cannon_active and current_time - last_laser_time > laser_cooldown and boss_confused_timer == 0:
-            laser_charging = True
-            laser_charge_start = current_time
-            # 레이저 충전 사운드 재생
-            play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
-            # 점수에 따른 레이저 패턴 결정
+
+        # === 1단계: 조준 시작 (쿨타임 종료 후) ===
+        if laser_unlocked and not laser_pre_aiming and not laser_charging and not laser_cannon_active and current_time - last_laser_time > laser_cooldown and boss_confused_timer == 0:
+            laser_pre_aiming = True
+            laser_pre_aim_start = current_time
+            # 목표 각도 결정
             if rotating_unlocked:
-                # 3점 이상: 등대처럼 회전하는 레이저 (모든 요소 랜덤)
-                laser_cannon_angle = random.choice([120, QUARTER_ROTATION, 60])  # 시작 방향
-                laser_rotating_mode = True  # 회전 모드 활성화
-                laser_rotation_direction = random.choice([1, -1])  # 50% 확률로 시계방향/반시계방향
-                laser_rotation_range = random.randint(TILE_SIZE, 90)  # 회전 범위 TILE_SIZE~90도 랜덤
-                laser_rotation_speed = random.uniform(0.7, 1.5)  # 회전 속도 0.7~1.5배 랜덤
+                laser_target_angle = random.choice([120, QUARTER_ROTATION, 60])
+                laser_rotating_mode = True
+                laser_rotation_direction = random.choice([1, -1])
+                laser_rotation_range = random.randint(TILE_SIZE, 90)
+                laser_rotation_speed = random.uniform(0.7, 1.5)
             else:
-                # 2점: 고정 방향 레이저
-                laser_cannon_angle = random.choice([120, QUARTER_ROTATION, 60])  # 4시(120도), 6시(90도), 8시(60도) 방향
-                laser_rotating_mode = False  # 고정 모드
-        # 충전 완료 후 발사
+                laser_target_angle = random.choice([120, QUARTER_ROTATION, 60])
+                laser_rotating_mode = False
+
+        # === 2단계: 조준 중 - 총구 천천히 회전 ===
+        if laser_pre_aiming:
+            aim_progress = min(1.0, (current_time - laser_pre_aim_start) / LASER_PRE_AIM_DURATION)
+            # 이징 함수로 부드러운 회전 (ease-out)
+            eased_progress = 1 - (1 - aim_progress) ** 2
+            # 현재 각도에서 목표 각도로 보간
+            angle_diff = laser_target_angle - laser_display_angle
+            # 최단 경로로 회전 (-180 ~ 180 범위로 조정)
+            if angle_diff > 180:
+                angle_diff -= 360
+            elif angle_diff < -180:
+                angle_diff += 360
+            laser_display_angle = laser_display_angle + angle_diff * eased_progress
+            # 조준 완료 시 충전 시작
+            if aim_progress >= 1.0:
+                laser_pre_aiming = False
+                laser_charging = True
+                laser_charge_start = current_time
+                laser_cannon_angle = laser_target_angle
+                laser_display_angle = laser_target_angle
+                # 레이저 충전 사운드 재생
+                play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
+
+        # === 3단계: 충전 완료 후 발사 ===
         if laser_charging and current_time - laser_charge_start > 1500:  # 1.5초 충전
             laser_charging = False
             laser_cannon_active = True
@@ -61916,96 +62059,152 @@ def draw_objects():
                 # 회전 모드인 경우 등대처럼 천천히 회전
                 if laser_rotating_mode:
                     # 진정한 등대 효과: 사인파를 이용한 왕복 운동
-                    # 주기적으로 왕복하는 속도 (laser_rotation_speed로 조절)
-                    oscillation_period = 2000 / laser_rotation_speed  # 기본 2초 주기, 속도 배율 적용
-                    # 시간에 따른 진동 위치 (-1 ~ 1)
+                    oscillation_period = 2000 / laser_rotation_speed
                     oscillation_factor = math.sin((beam_time / oscillation_period) * 2 * math.pi)
-                    # 회전 범위의 절반만큼 좌우로 움직임
                     rotation_offset = (laser_rotation_range / 2) * oscillation_factor * laser_rotation_direction
-                    # 최종 각도 계산
                     current_angle = laser_cannon_angle + rotation_offset
                     angle_rad = math.radians(current_angle)
                 else:
                     # 고정 모드
                     angle_rad = math.radians(laser_cannon_angle)
-                beam_start_x = BOSS.centerx
-                beam_start_y = BOSS.bottom + 35  # 캐논 끝에서 시작
+
+                # 🎯 레이저 발사 위치를 대포 위치로 수정!
+                # carrier_surface 기준 대포 위치: cannon_x=110, cannon_y=15, 포신 길이=28 (업그레이드됨)
+                carrier_width_half = 110  # carrier_width // 2
+                cannon_barrel_length = 28  # 고퀄리티 대포 포신 길이
+                # 보스 이미지가 BOSS.center에서 블릿되므로:
+                # 함선 상단(y=0)은 BOSS.centery - 85/2 = BOSS.centery - 42.5
+                cannon_base_screen_x = BOSS.centerx  # 대포는 함선 중앙
+                cannon_base_screen_y = BOSS.centery - 42 + 15  # 함선 상단(BOSS.centery - 42) + cannon_y(15)
+                # 포신 끝 위치 계산
+                beam_start_x = cannon_base_screen_x + int(math.cos(angle_rad) * cannon_barrel_length)
+                beam_start_y = cannon_base_screen_y + int(math.sin(angle_rad) * cannon_barrel_length)
+                # 발사 중에도 display_angle 업데이트 (회전 모드 시)
+                if laser_rotating_mode:
+                    laser_display_angle = current_angle
+                else:
+                    laser_display_angle = laser_cannon_angle
+
                 # 빔 끝점 계산 (각도에 따라)
                 beam_length = HEIGHT
                 beam_end_x = beam_start_x + int(math.cos(angle_rad) * beam_length)
                 beam_end_y = beam_start_y + int(math.sin(angle_rad) * beam_length)
-                # 레이저 빔 그리기 (파란색 플라즈마)
-                # 빔이 끝날 때 점점 얇아지는 효과 (마지막 0.5초 동안)
-                fade_start_time = laser_beam_duration - 500  # 마지막 0.5초
+
+                # === 🔥 세련된 플라즈마 레이저 디자인 ===
+                # 페이드아웃 효과 (마지막 0.8초 동안 불꽃이 사라지듯이)
+                fade_start_time = laser_beam_duration - 800  # 마지막 0.8초
                 if beam_time > fade_start_time:
-                    fade_progress = (beam_time - fade_start_time) / 500  # 0~1
-                    beam_width = int(20 * (1 - fade_progress))  # 20에서 0으로 감소
-                    beam_width = max(1, beam_width)  # 최소 1픽셀
+                    fade_progress = (beam_time - fade_start_time) / 800  # 0~1
+                    # 빔이 흩어지듯 사라짐 (불꽃 dissipation 효과)
+                    base_beam_width = 16
+                    beam_width = int(base_beam_width * (1 - fade_progress * 0.7))  # 완전히 사라지지 않고 흩어짐
+                    beam_alpha = int(255 * (1 - fade_progress))
+                    # 불꽃 흩어짐 파티클 효과
+                    num_dissipate_particles = int(25 * fade_progress)
+                    for _ in range(num_dissipate_particles):
+                        t = random.random()
+                        px = beam_start_x + (beam_end_x - beam_start_x) * t
+                        py = beam_start_y + (beam_end_y - beam_start_y) * t
+                        # 불꽃이 사방으로 흩어지는 효과
+                        scatter_range = int(30 * fade_progress)
+                        scatter_x = random.randint(-scatter_range, scatter_range)
+                        scatter_y = random.randint(-scatter_range, scatter_range)
+                        particle_size = random.randint(2, 5)
+                        # 불꽃 색상 (파랑→청록→흰색 그라데이션)
+                        color_choice = random.choice([
+                            (100, 180, 255, beam_alpha),  # 하늘색
+                            (150, 220, 255, beam_alpha),  # 밝은 파랑
+                            (80, 150, 230, beam_alpha),   # 진한 파랑
+                            (200, 240, 255, beam_alpha),  # 흰색에 가까운
+                        ])
+                        particle_surf = pygame.Surface((particle_size * 2, particle_size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(particle_surf, color_choice[:3], (particle_size, particle_size), particle_size)
+                        particle_surf.set_alpha(color_choice[3])
+                        SCREEN.blit(particle_surf, (int(px + scatter_x - particle_size), int(py + scatter_y - particle_size)))
                 else:
-                    beam_width = 20
-                #  나선형 파장 애니메이션 (못 모양)
-                # 빔 주위를 감싸고 도는 나선형 파장들
-                num_spirals = 3  # 나선 개수
-                for spiral_idx in range(num_spirals):
-                    spiral_offset = (spiral_idx * 2 * math.pi / num_spirals) + (beam_time * 0.01)  # 시간에 따라 회전
-                    # 빔을 따라 나선형 그리기
-                    points_per_spiral = 30
-                    for i in range(points_per_spiral):
-                        t = i / points_per_spiral  # 0~1 사이의 빔 위치
-                        # 빔 상의 위치
-                        base_x = beam_start_x + (beam_end_x - beam_start_x) * t
-                        base_y = beam_start_y + (beam_end_y - beam_start_y) * t
-                        # 나선형 오프셋 계산
-                        spiral_angle = spiral_offset + t * 8 * math.pi  # 빔을 따라 8회전
-                        spiral_radius = beam_width + 10 + math.sin(t * math.pi) * 5  # 중간이 더 넓은 나선
-                        # 빔에 수직인 방향으로 오프셋 적용
-                        perpendicular_angle = angle_rad + math.pi/2
-                        spiral_x = base_x + math.cos(perpendicular_angle) * math.cos(spiral_angle) * spiral_radius
-                        spiral_y = base_y + math.sin(perpendicular_angle) * math.cos(spiral_angle) * spiral_radius
-                        # 나선 입자 그리기
-                        wave_alpha = int(DEFAULT_ALPHA * (1 - t))  # 끝으로 갈수록 투명
-                        wave_size = 3 + int(2 * math.sin(spiral_angle))
-                        wave_color = (100 + int(50 * math.sin(spiral_angle)), 
-                                    150 + int(50 * math.cos(spiral_angle)), 
-                                    255)
-                        draw.circle(wave_color, (int(spiral_x), int(spiral_y)), wave_size)
-                        # 연결선 그리기 (나선 흐름 표현)
-                        if i > 0:
-                            prev_t = (i-1) / points_per_spiral
-                            prev_base_x = beam_start_x + (beam_end_x - beam_start_x) * prev_t
-                            prev_base_y = beam_start_y + (beam_end_y - beam_start_y) * prev_t
-                            prev_spiral_angle = spiral_offset + prev_t * 8 * math.pi
-                            prev_spiral_x = prev_base_x + math.cos(perpendicular_angle) * math.cos(prev_spiral_angle) * spiral_radius
-                            prev_spiral_y = prev_base_y + math.sin(perpendicular_angle) * math.cos(prev_spiral_angle) * spiral_radius
-                            draw.line((*wave_color, wave_alpha//2), (int(prev_spiral_x), int(prev_spiral_y)), 
-                                           (int(spiral_x), int(spiral_y)), 1)
-                # 외곽 글로우 효과 - 여러 개의 선으로 글로우 표현
-                for i in range(5):
-                    glow_alpha = 50 - i * 10
-                    glow_width = beam_width + i * 8
-                    glow_color = (50, 100, 255)
-                    draw.line((*glow_color, glow_alpha), (beam_start_x, beam_start_y),
-                                   (beam_end_x, beam_end_y), 
-                                   glow_width)
-                # 메인 빔
-                draw.line((100, 150, 255), 
-                               (beam_start_x, beam_start_y), (beam_end_x, beam_end_y), beam_width)
-                draw.line((150, 200, 255), 
-                               (beam_start_x, beam_start_y), (beam_end_x, beam_end_y), beam_width - 6)
-                draw.line((200, 230, 255), 
-                               (beam_start_x, beam_start_y), (beam_end_x, beam_end_y), beam_width - 12)
-                # 전기 스파크 효과
-                for _ in range(10):
-                    t = random.random()  # 0~1 사이의 빔 위치
-                    spark_x = beam_start_x + int((beam_end_x - beam_start_x) * t)
-                    spark_y = beam_start_y + int((beam_end_y - beam_start_y) * t)
-                    spark_offset = random.randint(-beam_width, beam_width)
-                    spark_x += int(math.sin(angle_rad) * spark_offset)
-                    spark_y -= int(math.cos(angle_rad) * spark_offset)
-                    spark_length = random.randint(10, 30)
-                    spark_end_x = spark_x + random.randint(-spark_length, spark_length)
-                    draw.line(WHITE, 
-                                   (spark_x, spark_y), (spark_end_x, spark_y), 1)
+                    beam_width = 16
+                    beam_alpha = 255
+
+                # === 외곽 플라즈마 코어 글로우 (부드러운 그라데이션) ===
+                for glow_layer in range(6):
+                    glow_radius = beam_width + glow_layer * 6
+                    glow_alpha = max(0, int((60 - glow_layer * 10) * (beam_alpha / 255)))
+                    if glow_alpha > 0:
+                        glow_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                        pygame.draw.line(glow_surf, (30 + glow_layer * 15, 80 + glow_layer * 20, 200 + glow_layer * 10, glow_alpha),
+                                        (beam_start_x, beam_start_y), (beam_end_x, beam_end_y), glow_radius)
+                        SCREEN.blit(glow_surf, (0, 0))
+
+                # === 메인 에너지 코어 (3중 레이어 빔) ===
+                if beam_alpha > 50:
+                    # 외곽 빔 (진한 파랑)
+                    core_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                    pygame.draw.line(core_surf, (80, 140, 230, beam_alpha),
+                                    (beam_start_x, beam_start_y), (beam_end_x, beam_end_y), beam_width)
+                    SCREEN.blit(core_surf, (0, 0))
+
+                    # 중간 빔 (밝은 파랑)
+                    if beam_width > 6:
+                        mid_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                        pygame.draw.line(mid_surf, (120, 180, 255, beam_alpha),
+                                        (beam_start_x, beam_start_y), (beam_end_x, beam_end_y), beam_width - 4)
+                        SCREEN.blit(mid_surf, (0, 0))
+
+                    # 중심 코어 (거의 흰색)
+                    if beam_width > 10:
+                        inner_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                        pygame.draw.line(inner_surf, (200, 230, 255, beam_alpha),
+                                        (beam_start_x, beam_start_y), (beam_end_x, beam_end_y), max(2, beam_width - 10))
+                        SCREEN.blit(inner_surf, (0, 0))
+
+                # === 에너지 파동 이펙트 (빔을 따라 흐르는 파동) ===
+                wave_speed = 0.008
+                num_waves = 4
+                for wave_idx in range(num_waves):
+                    wave_phase = (beam_time * wave_speed + wave_idx * 0.25) % 1.0
+                    wave_x = beam_start_x + (beam_end_x - beam_start_x) * wave_phase
+                    wave_y = beam_start_y + (beam_end_y - beam_start_y) * wave_phase
+                    wave_size = int(beam_width * 1.5)
+                    wave_alpha_local = int(beam_alpha * 0.6 * (1 - abs(wave_phase - 0.5) * 2))
+                    if wave_alpha_local > 0:
+                        wave_surf = pygame.Surface((wave_size * 2, wave_size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(wave_surf, (180, 220, 255, wave_alpha_local),
+                                          (wave_size, wave_size), wave_size)
+                        SCREEN.blit(wave_surf, (int(wave_x - wave_size), int(wave_y - wave_size)))
+
+                # === 플라즈마 스파크 (전기 효과) ===
+                if beam_alpha > 100:
+                    num_sparks = 8 if beam_time < fade_start_time else int(8 * (1 - fade_progress))
+                    for _ in range(num_sparks):
+                        t = random.random()
+                        spark_base_x = beam_start_x + (beam_end_x - beam_start_x) * t
+                        spark_base_y = beam_start_y + (beam_end_y - beam_start_y) * t
+                        # 빔에 수직 방향으로 스파크
+                        perp_angle = angle_rad + math.pi / 2
+                        spark_offset = random.uniform(-beam_width * 1.2, beam_width * 1.2)
+                        spark_x = spark_base_x + math.cos(perp_angle) * spark_offset
+                        spark_y = spark_base_y + math.sin(perp_angle) * spark_offset
+                        # 번개 모양 스파크
+                        spark_length = random.randint(8, 20)
+                        spark_angle = random.uniform(0, math.pi * 2)
+                        spark_end_x = spark_x + math.cos(spark_angle) * spark_length
+                        spark_end_y = spark_y + math.sin(spark_angle) * spark_length
+                        spark_surf = pygame.Surface((50, 50), pygame.SRCALPHA)
+                        pygame.draw.line(spark_surf, (200, 230, 255, int(beam_alpha * 0.8)),
+                                        (25, 25), (25 + int(math.cos(spark_angle) * spark_length),
+                                                   25 + int(math.sin(spark_angle) * spark_length)), 1)
+                        SCREEN.blit(spark_surf, (int(spark_x - 25), int(spark_y - 25)))
+
+                # === 발사구 발광 이펙트 ===
+                muzzle_glow_size = int(beam_width * 1.8)
+                muzzle_alpha = int(beam_alpha * 0.9)
+                for i in range(3):
+                    muzzle_surf = pygame.Surface((muzzle_glow_size * 4, muzzle_glow_size * 4), pygame.SRCALPHA)
+                    glow_r = muzzle_glow_size - i * 4
+                    if glow_r > 0:
+                        pygame.draw.circle(muzzle_surf, (150 + i * 30, 200 + i * 20, 255, muzzle_alpha // (i + 1)),
+                                          (muzzle_glow_size * 2, muzzle_glow_size * 2), glow_r)
+                        SCREEN.blit(muzzle_surf, (beam_start_x - muzzle_glow_size * 2, beam_start_y - muzzle_glow_size * 2))
                 # 플레이어와 충돌 체크 (선분과 사각형 충돌)
                 player_center_x = PLAYER.centerx
                 player_center_y = PLAYER.centery
@@ -62516,24 +62715,24 @@ def draw_objects():
                     })
                 # 다음 출격 쿨다운 설정 (시간도 늘려서 빈도 감소)
                 interceptor_cooldown = random.randint(15000, 18000)
-            # 격납고 문 애니메이션
-            if hangar_door_open:
-                door_elapsed = current_time - hangar_door_timer
-                if door_elapsed < 1000:  # 1초간 열림
-                    # 격납고 문 그리기
-                    door_width = int(40 * (door_elapsed / 1000))
-                    door_x = BOSS.centerx - 20
-                    door_y = BOSS.bottom - 10
-                    draw.rect((40, 40, LARGE_SIZE), (door_x, door_y, door_width, 15))
-                    draw.rect((20, 20, 30), (door_x, door_y, door_width, 15), 2)
-                    # 내부 빛
-                    draw.rect((100, 150, 200), (door_x + 2, door_y + 2, door_width - 4, 11))
-                else:
-                    # 문 완전 열림
-                    door_x = BOSS.centerx - 20
-                    door_y = BOSS.bottom - 10
-                    draw.rect((40, 40, 50), (door_x, door_y, 40, 15))
-                    draw.rect((100, 150, 200), (door_x + 2, door_y + 2, 36, 11))
+            # 격납고 문 애니메이션 (제거됨 - 게이지바 제거 요청)
+            # if hangar_door_open:
+            #     door_elapsed = current_time - hangar_door_timer
+            #     if door_elapsed < 1000:  # 1초간 열림
+            #         # 격납고 문 그리기
+            #         door_width = int(40 * (door_elapsed / 1000))
+            #         door_x = BOSS.centerx - 20
+            #         door_y = BOSS.bottom - 10
+            #         draw.rect((40, 40, LARGE_SIZE), (door_x, door_y, door_width, 15))
+            #         draw.rect((20, 20, 30), (door_x, door_y, door_width, 15), 2)
+            #         # 내부 빛
+            #         draw.rect((100, 150, 200), (door_x + 2, door_y + 2, door_width - 4, 11))
+            #     else:
+            #         # 문 완전 열림
+            #         door_x = BOSS.centerx - 20
+            #         door_y = BOSS.bottom - 10
+            #         draw.rect((40, 40, 50), (door_x, door_y, 40, 15))
+            #         draw.rect((100, 150, 200), (door_x + 2, door_y + 2, 36, 11))
             # 인터셉터 출격
             if interceptor_launch_queue:
                 to_launch = []
@@ -62633,49 +62832,178 @@ def draw_objects():
                     # 공이 멀어지면 다시 순찰
                     if dist > 150 or ball_vel[1] > 0:
                         interceptor['state'] = 'patrolling'
-                # 인터셉터 그리기
+                # === 고퀄리티 인터셉터 그리기 ===
                 interceptor['glow_timer'] += 0.1
                 glow = abs(math.sin(interceptor['glow_timer'])) * 50
-                # 본체 (삼각형 모양)
-                points = []
-                for angle in range(3):
-                    angle_rad = math.radians(angle * 120 + interceptor['angle'] * 50)
-                    px = interceptor['x'] + math.cos(angle_rad) * 8
-                    py = interceptor['y'] + math.sin(angle_rad) * 8
-                    points.append((px, py))
-                # 그림자
-                shadow_points = [(p[0] + 2, p[1] + 2) for p in points]
-                draw.polygon((30, 30, 40), shadow_points)
-                # 본체 색상: 일반은 청록, 황금 인터셉터는 금색 계열
-                if interceptor.get('golden'):
-                    body_color = (220, 170, 40)
-                    rim_color = (255, 215, 80)
-                    core_color = (255, 230, 140 + int(glow))
+                time_now = pygame.time.get_ticks()
+
+                # 인터셉터 이동 방향 계산 (전투기가 바라보는 방향)
+                if interceptor['state'] == 'launching':
+                    face_dx = interceptor['target_x'] - interceptor['x']
+                    face_dy = interceptor['target_y'] - interceptor['y']
+                elif interceptor['state'] == 'intercepting':
+                    face_dx = BALL.centerx - interceptor['x']
+                    face_dy = BALL.centery - interceptor['y']
                 else:
-                    body_color = (100, 120, 140)
-                    rim_color = (150, 170, 190)
-                    core_color = (100 + glow, 150 + glow, 255)
-                draw.polygon(body_color, points)
-                draw.polygon(rim_color, points, 2)
-                # 에너지 코어
-                draw.circle(core_color, (int(interceptor['x']), int(interceptor['y'])), 3)
-                draw.circle(WHITE, (int(interceptor['x']), int(interceptor['y'])), 1)
-                # 추진 효과
+                    # 순찰 중: 원형 순찰 방향
+                    face_dx = math.cos(interceptor['angle'] + math.pi/2)
+                    face_dy = math.sin(interceptor['angle'] + math.pi/2)
+
+                face_dist = math.sqrt(face_dx**2 + face_dy**2)
+                if face_dist > 0:
+                    face_dx /= face_dist
+                    face_dy /= face_dist
+                else:
+                    face_dx, face_dy = 0, 1
+
+                # 전투기 회전 각도 (라디안)
+                fighter_angle = math.atan2(face_dy, face_dx)
+
+                ix, iy = interceptor['x'], interceptor['y']
+
+                # 색상 설정: 일반 vs 황금 인터셉터
+                if interceptor.get('golden'):
+                    # 황금 인터셉터 (프리미엄)
+                    body_main = (200, 160, 50)
+                    body_light = (240, 200, 80)
+                    body_dark = (150, 110, 30)
+                    cockpit_color = (255, 240, 150)
+                    wing_color = (180, 140, 40)
+                    engine_color = (255, 200, 100)
+                    trail_color = (255, 220, 120)
+                else:
+                    # 일반 인터셉터 (하이테크 실버/블루)
+                    body_main = (90, 105, 125)
+                    body_light = (130, 150, 175)
+                    body_dark = (60, 70, 85)
+                    cockpit_color = (120, 180, 255)
+                    wing_color = (75, 90, 110)
+                    engine_color = (100, 180, 255)
+                    trail_color = (120, 180, 240)
+
+                # === 전투기 본체 그리기 (스텔스 전투기 스타일) ===
+                # 사이즈: 약 16x12 픽셀 (기존과 비슷)
+
+                # 그림자 먼저 그리기
+                shadow_offset = 2
+                shadow_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
+                # 그림자 동체
+                shadow_points = [
+                    (15 + 8 * face_dx, 15 + 8 * face_dy),  # 기수
+                    (15 - 6 * face_dx + 5 * face_dy, 15 - 6 * face_dy - 5 * face_dx),  # 좌날개 끝
+                    (15 - 3 * face_dx, 15 - 3 * face_dy),  # 꼬리 중앙
+                    (15 - 6 * face_dx - 5 * face_dy, 15 - 6 * face_dy + 5 * face_dx),  # 우날개 끝
+                ]
+                pygame.draw.polygon(shadow_surf, (20, 25, 35, 80), shadow_points)
+                SCREEN.blit(shadow_surf, (int(ix - 15 + shadow_offset), int(iy - 15 + shadow_offset)))
+
+                # === 메인 동체 ===
+                # 날개 (먼저 그려서 동체 아래로)
+                left_wing = [
+                    (ix - 2 * face_dx + 2 * face_dy, iy - 2 * face_dy - 2 * face_dx),
+                    (ix - 5 * face_dx + 7 * face_dy, iy - 5 * face_dy - 7 * face_dx),
+                    (ix - 6 * face_dx + 4 * face_dy, iy - 6 * face_dy - 4 * face_dx),
+                    (ix - 4 * face_dx + 1 * face_dy, iy - 4 * face_dy - 1 * face_dx),
+                ]
+                right_wing = [
+                    (ix - 2 * face_dx - 2 * face_dy, iy - 2 * face_dy + 2 * face_dx),
+                    (ix - 5 * face_dx - 7 * face_dy, iy - 5 * face_dy + 7 * face_dx),
+                    (ix - 6 * face_dx - 4 * face_dy, iy - 6 * face_dy + 4 * face_dx),
+                    (ix - 4 * face_dx - 1 * face_dy, iy - 4 * face_dy + 1 * face_dx),
+                ]
+                draw.polygon(wing_color, left_wing)
+                draw.polygon(wing_color, right_wing)
+                # 날개 하이라이트
+                draw.line(body_light, left_wing[0], left_wing[1], 1)
+                draw.line(body_light, right_wing[0], right_wing[1], 1)
+
+                # 동체 (삼각형 기반 스텔스)
+                fuselage = [
+                    (ix + 8 * face_dx, iy + 8 * face_dy),  # 기수 (뾰족)
+                    (ix - 2 * face_dx + 3 * face_dy, iy - 2 * face_dy - 3 * face_dx),  # 좌측
+                    (ix - 5 * face_dx, iy - 5 * face_dy),  # 꼬리
+                    (ix - 2 * face_dx - 3 * face_dy, iy - 2 * face_dy + 3 * face_dx),  # 우측
+                ]
+                draw.polygon(body_main, fuselage)
+                # 동체 하이라이트 (상단)
+                highlight_line = [
+                    (ix + 6 * face_dx, iy + 6 * face_dy),
+                    (ix - 3 * face_dx, iy - 3 * face_dy),
+                ]
+                draw.line(body_light, highlight_line[0], highlight_line[1], 1)
+                # 동체 다크라인 (하단)
+                draw.line(body_dark, fuselage[1], fuselage[2], 1)
+                draw.line(body_dark, fuselage[2], fuselage[3], 1)
+
+                # 콕핏 (조종석) - 빛나는 효과
+                cockpit_x = ix + 3 * face_dx
+                cockpit_y = iy + 3 * face_dy
+                cockpit_glow = int(glow * 0.5)
+                glow_color = (min(255, cockpit_color[0] + cockpit_glow),
+                             min(255, cockpit_color[1] + cockpit_glow),
+                             min(255, cockpit_color[2] + cockpit_glow))
+                # 콕핏 글로우
+                cockpit_surf = pygame.Surface((10, 10), pygame.SRCALPHA)
+                pygame.draw.circle(cockpit_surf, (*glow_color, 150), (5, 5), 4)
+                pygame.draw.circle(cockpit_surf, (*cockpit_color, 255), (5, 5), 2)
+                pygame.draw.circle(cockpit_surf, (255, 255, 255, 200), (5, 5), 1)
+                SCREEN.blit(cockpit_surf, (int(cockpit_x - 5), int(cockpit_y - 5)))
+
+                # 꼬리 날개 (수직 안정판)
+                tail_base_x = ix - 4 * face_dx
+                tail_base_y = iy - 4 * face_dy
+                # 수직 꼬리날개 2개 (좌우)
+                for side in [-1, 1]:
+                    tail_x = tail_base_x + side * 2 * face_dy
+                    tail_y = tail_base_y - side * 2 * face_dx
+                    tail_points = [
+                        (tail_x, tail_y),
+                        (tail_x - 2 * face_dx + side * 1 * face_dy, tail_y - 2 * face_dy - side * 1 * face_dx),
+                        (tail_x - 3 * face_dx, tail_y - 3 * face_dy),
+                    ]
+                    draw.polygon(body_dark, tail_points)
+
+                # === 엔진 글로우 효과 ===
+                engine_x = ix - 5 * face_dx
+                engine_y = iy - 5 * face_dy
+                engine_pulse = 0.7 + 0.3 * abs(math.sin(time_now * 0.015))
+
+                # 엔진 글로우 (원형)
+                for r in range(5, 0, -1):
+                    engine_alpha = int(100 * engine_pulse * (r / 5))
+                    engine_surf = pygame.Surface((r * 4, r * 4), pygame.SRCALPHA)
+                    pygame.draw.circle(engine_surf, (*engine_color, engine_alpha), (r * 2, r * 2), r)
+                    SCREEN.blit(engine_surf, (int(engine_x - r * 2), int(engine_y - r * 2)))
+
+                # 추진 효과 (이동 중일 때 더 강하게)
                 if interceptor['state'] in ['launching', 'intercepting']:
-                    # 이동 방향 계산
-                    if interceptor['state'] == 'launching':
-                        move_dx = interceptor['target_x'] - interceptor['x']
-                        move_dy = interceptor['target_y'] - interceptor['y']
-                    else:  # intercepting
-                        move_dx = BALL.centerx - interceptor['x']
-                        move_dy = BALL.centery - interceptor['y']
-                    move_dist = math.sqrt(move_dx**2 + move_dy**2)
-                    for i in range(3):
-                        trail_x = interceptor['x'] - (move_dx/move_dist if move_dist > 0 else 0) * i * 5
-                        trail_y = interceptor['y'] - (move_dy/move_dist if move_dist > 0 else 0) * i * 5
-                        trail_alpha = 100 - i * 30
-                        draw.circle((100, 150, 200), 
-                                         (int(trail_x), int(trail_y)), 4 - i)
+                    # 제트 화염 효과
+                    num_flames = 5
+                    for i in range(num_flames):
+                        flame_dist = 3 + i * 3
+                        flame_x = engine_x - face_dx * flame_dist + random.uniform(-2, 2)
+                        flame_y = engine_y - face_dy * flame_dist + random.uniform(-2, 2)
+                        flame_size = max(1, 4 - i)
+                        flame_alpha = int(180 * (1 - i / num_flames))
+                        flame_surf = pygame.Surface((flame_size * 2 + 4, flame_size * 2 + 4), pygame.SRCALPHA)
+                        # 화염 색상 그라데이션 (안쪽 흰색 → 바깥쪽 파랑/금색)
+                        if i < 2:
+                            flame_color = (255, 255, 255, flame_alpha)
+                        else:
+                            flame_color = (*trail_color, flame_alpha)
+                        pygame.draw.circle(flame_surf, flame_color, (flame_size + 2, flame_size + 2), flame_size)
+                        SCREEN.blit(flame_surf, (int(flame_x - flame_size - 2), int(flame_y - flame_size - 2)))
+
+                    # 트레일 이펙트 (잔상)
+                    for i in range(4):
+                        trail_dist = 8 + i * 5
+                        trail_x = ix - face_dx * trail_dist
+                        trail_y = iy - face_dy * trail_dist
+                        trail_alpha = int(80 * (1 - i / 4))
+                        trail_size = max(1, 3 - i)
+                        trail_surf = pygame.Surface((trail_size * 2 + 2, trail_size * 2 + 2), pygame.SRCALPHA)
+                        pygame.draw.circle(trail_surf, (*trail_color, trail_alpha), (trail_size + 1, trail_size + 1), trail_size)
+                        SCREEN.blit(trail_surf, (int(trail_x - trail_size - 1), int(trail_y - trail_size - 1)))
     # 목성 띠 애니메이션 그리기 (무중력벨트 + 스피드기어 시너지)
     if False:
         draw_jupiter_ring(SCREEN, PLAYER)
@@ -80150,34 +80478,97 @@ def draw_field():
                 text_rect = warning_text.get_rect(center=(WIDTH // 2, barrier_height + 12))
                 SCREEN.blit(warning_text, text_rect)
         else:
-            # 방어막 활성화 중 - 청록색 에너지 장벽
+            # 방어막 활성화 중
+            global nemesis_barrier_rainbow_active, nemesis_barrier_rainbow_start_time
+            global nemesis_barrier_rainbow_cooldown, nemesis_barrier_rainbow_hit
+
+            # 무지개 모드 타이머 체크 및 활성화
+            if not nemesis_barrier_rainbow_active:
+                # 쿨타임 체크 - 쿨타임이 지나면 무지개 모드 활성화
+                if nemesis_barrier_rainbow_cooldown > 0:
+                    nemesis_barrier_rainbow_cooldown -= 16  # 약 60fps 기준 프레임당 감소
+                else:
+                    # 무지개 모드 시작!
+                    nemesis_barrier_rainbow_active = True
+                    nemesis_barrier_rainbow_start_time = time_now
+                    nemesis_barrier_rainbow_hit = False
+                    print(f"🌈 [네메시스] 무지개 모드 활성화! (1초간 공에 맞으면 스타포인트 드랍)")
+            else:
+                # 무지개 모드 지속 시간 체크
+                rainbow_elapsed = time_now - nemesis_barrier_rainbow_start_time
+                if rainbow_elapsed >= NEMESIS_BARRIER_RAINBOW_DURATION:
+                    # 무지개 모드 종료
+                    nemesis_barrier_rainbow_active = False
+                    # 다음 쿨타임 설정 (10~40초)
+                    nemesis_barrier_rainbow_cooldown = random.randint(NEMESIS_BARRIER_RAINBOW_COOLDOWN_MIN, NEMESIS_BARRIER_RAINBOW_COOLDOWN_MAX)
+                    print(f"🌈 [네메시스] 무지개 모드 종료! (다음까지 {nemesis_barrier_rainbow_cooldown/1000:.1f}초)")
+
             pulse = abs(math.sin(time_now * 0.008)) * 0.5 + 0.5
 
             # 메인 방어막 바
             for i in range(0, WIDTH, 16):
                 bar_width = 12
-                # 방어막 그라데이션 효과 (청록색)
+                # 방어막 그라데이션 효과
                 for y_offset in range(barrier_height):
                     intensity = 1.0 - (y_offset / barrier_height) * 0.5
                     glow = pulse * 0.3 + 0.7
-                    color = (
-                        int(50 * intensity * glow),
-                        int(200 * intensity * glow),
-                        int(255 * intensity * glow)
-                    )
+
+                    if nemesis_barrier_rainbow_active:
+                        # 무지개 모드 - 화려한 무지개색
+                        # 위치와 시간에 따라 색상 변화 (더 빠르고 화려하게)
+                        hue_offset = (i / WIDTH + time_now * 0.003) % 1.0
+                        # HSV to RGB 변환 (간단한 버전)
+                        h = hue_offset * 6.0
+                        x_val = 1 - abs(h % 2 - 1)
+                        if h < 1:
+                            r, g, b = 1.0, x_val, 0
+                        elif h < 2:
+                            r, g, b = x_val, 1.0, 0
+                        elif h < 3:
+                            r, g, b = 0, 1.0, x_val
+                        elif h < 4:
+                            r, g, b = 0, x_val, 1.0
+                        elif h < 5:
+                            r, g, b = x_val, 0, 1.0
+                        else:
+                            r, g, b = 1.0, 0, x_val
+                        color = (
+                            int(r * 255 * intensity * glow),
+                            int(g * 255 * intensity * glow),
+                            int(b * 255 * intensity * glow)
+                        )
+                    else:
+                        # 일반 모드 - 청록색 에너지 장벽
+                        color = (
+                            int(50 * intensity * glow),
+                            int(200 * intensity * glow),
+                            int(255 * intensity * glow)
+                        )
                     pygame.draw.rect(SCREEN, color, (i, barrier_y + y_offset, bar_width, 1))
                 # 전기 스파크 효과
                 if random.random() < 0.15:
                     spark_x = i + random.randint(0, bar_width)
                     spark_y = barrier_y + random.randint(0, barrier_height)
-                    spark_color = (100, 255, 255) if random.random() > 0.5 else (255, 255, 255)
+                    if nemesis_barrier_rainbow_active:
+                        # 무지개 모드 스파크 - 다양한 색상
+                        spark_color = random.choice([(255, 100, 100), (100, 255, 100), (100, 100, 255), (255, 255, 100), (255, 100, 255), (100, 255, 255)])
+                    else:
+                        spark_color = (100, 255, 255) if random.random() > 0.5 else (255, 255, 255)
                     draw.circle(spark_color, (spark_x, spark_y), 1)
 
             # 방어막 상태 텍스트
             font_barrier = get_font(11)
-            barrier_text = font_barrier.render("◆ NEMESIS BARRIER ◆", True, (100, 220, 255))
-            text_rect = barrier_text.get_rect(center=(WIDTH // 2, barrier_height + 12))
-            shadow_text = font_barrier.render("◆ NEMESIS BARRIER ◆", True, (0, 50, 100))
+            if nemesis_barrier_rainbow_active:
+                # 무지개 모드 텍스트 - 깜빡이는 효과
+                rainbow_text_colors = [(255, 100, 100), (255, 200, 100), (255, 255, 100), (100, 255, 100), (100, 200, 255), (200, 100, 255)]
+                text_color = rainbow_text_colors[int(time_now * 0.01) % len(rainbow_text_colors)]
+                barrier_text = font_barrier.render("★ RAINBOW CHANCE! ★", True, text_color)
+                text_rect = barrier_text.get_rect(center=(WIDTH // 2, barrier_height + 12))
+                shadow_text = font_barrier.render("★ RAINBOW CHANCE! ★", True, (50, 50, 50))
+            else:
+                barrier_text = font_barrier.render("◆ NEMESIS BARRIER ◆", True, (100, 220, 255))
+                text_rect = barrier_text.get_rect(center=(WIDTH // 2, barrier_height + 12))
+                shadow_text = font_barrier.render("◆ NEMESIS BARRIER ◆", True, (0, 50, 100))
             SCREEN.blit(shadow_text, (text_rect.x + 1, text_rect.y + 1))
             SCREEN.blit(barrier_text, text_rect)
 def check_deuce_system():
@@ -80759,9 +81150,17 @@ def reset_round():
     smasher_combo_effect_timer = 0
 
     # 🛡️ 네메시스 방어막 리셋 (라운드 시작 시 활성화)
+    global nemesis_barrier_trigger_cooldown
+    global nemesis_barrier_rainbow_active, nemesis_barrier_rainbow_start_time
+    global nemesis_barrier_rainbow_cooldown, nemesis_barrier_rainbow_hit
     nemesis_barrier_active = True
     nemesis_barrier_disabled_time = 0
     nemesis_barrier_warning_shown = False
+    nemesis_barrier_trigger_cooldown = 0  # 쿨다운도 리셋
+    nemesis_barrier_rainbow_active = False  # 무지개 모드 리셋
+    nemesis_barrier_rainbow_start_time = 0
+    nemesis_barrier_rainbow_cooldown = random.randint(NEMESIS_BARRIER_RAINBOW_COOLDOWN_MIN, NEMESIS_BARRIER_RAINBOW_COOLDOWN_MAX)
+    nemesis_barrier_rainbow_hit = False
 
     # 라운드 전환 시 건설 중인 발토르 청사진을 보존하기 위한 스냅샷
     preserved_blacksmith_blueprints = None
@@ -82881,6 +83280,10 @@ def handle_ball():
         boss_collision_cooldown -= 1
     if player_sound_cooldown > 0:
         player_sound_cooldown -= 1
+    # 네메시스 방어막 트리거 쿨다운 감소 (중복 트리거 방지)
+    global nemesis_barrier_trigger_cooldown
+    if nemesis_barrier_trigger_cooldown > 0:
+        nemesis_barrier_trigger_cooldown -= 1
     if short_shot_counter_window > 0:
         prev_counter = short_shot_counter_window
         short_shot_counter_window -= 1
@@ -83516,6 +83919,10 @@ def handle_ball():
         boss_collision_cooldown -= 1
     if player_sound_cooldown > 0:
         player_sound_cooldown -= 1
+    # 네메시스 방어막 트리거 쿨다운 감소 (중복 트리거 방지)
+    global nemesis_barrier_trigger_cooldown
+    if nemesis_barrier_trigger_cooldown > 0:
+        nemesis_barrier_trigger_cooldown -= 1
     # 프레임 시작 시 충돌 플래그 리셋 (handle_player에서 처리)
     # player_collision_handled = False  # ⚡ handle_player로 이동됨
     # 드라이브 & 파워스매싱 시스템
@@ -85912,7 +86319,19 @@ def handle_ball():
                 play_sound_with_volume(SOUND_BARRIER)
                 globals()['stage6_barrier_flash_timer'] = 12  # 약 0.2초간 깜빡임 (60fps 기준)
                 effects_manager.spawn_star_particles(BALL.centerx, 10, count=8)
-                print(f"🛡️ [네메시스] 방어막에 공이 막힘!")
+
+                # 🌈 무지개 모드 중 방어막에 공이 맞으면 스타포인트 드랍!
+                global nemesis_barrier_rainbow_hit
+                if nemesis_barrier_rainbow_active and not nemesis_barrier_rainbow_hit:
+                    nemesis_barrier_rainbow_hit = True  # 중복 드랍 방지
+                    # 스타포인트 생성 (공 위치 근처에)
+                    trade_point_system.spawn_star(BALL.centerx, 50, "rainbow_barrier")
+                    play_sound_with_volume(SOUND_ITEM_GET)
+                    # 무지개 이펙트 파티클 추가
+                    effects_manager.spawn_star_particles(BALL.centerx, 30, count=15)
+                    print(f"🌈⭐ [네메시스] 무지개 방어막 히트! 스타포인트 드랍!")
+                else:
+                    print(f"🛡️ [네메시스] 방어막에 공이 막힘!")
                 return
             else:
                 # 방어막 비활성화 상태 - 공이 통과하여 플레이어 득점!
@@ -87013,9 +87432,12 @@ def handle_ball():
             print(f"스테이지2 악어장군 게이지 충전: +70 (현재: {boss_special_gauge}/500)")
 
         # 스테이지 6 (네메시스) 방어막 해제 로직 - 보스 패들에 공이 닿으면 확률적으로 방어막 해제
-        # 방어막이 활성화 상태일 때만 해제 (이미 해제 중이면 무시)
-        if current_stage == 6 and nemesis_barrier_active:
+        # 방어막이 활성화 상태이고 트리거 쿨다운이 0일 때만 해제 (중복 방지)
+        # (nemesis_barrier_trigger_cooldown은 쿨다운 감소 코드에서 이미 global 선언됨)
+        if current_stage == 6 and nemesis_barrier_active and nemesis_barrier_trigger_cooldown <= 0:
             global nemesis_barrier_warning_channel, nemesis_barrier_current_duration
+            # 즉시 쿨다운 설정 (중복 트리거 방지 - 30프레임 = 0.5초)
+            nemesis_barrier_trigger_cooldown = 30
             globals()['nemesis_barrier_active'] = False
             globals()['nemesis_barrier_disabled_time'] = pygame.time.get_ticks()
             globals()['nemesis_barrier_warning_shown'] = False
@@ -87027,6 +87449,13 @@ def handle_ball():
                 nemesis_barrier_current_duration = NEMESIS_BARRIER_DISABLE_DURATION_LONG  # 3.3초
                 duration_text = "3.3초"
             # 방어막 해제 경고 사운드 - 루프 재생 (방어막 재활성화 시 중지)
+            # 기존 사운드가 재생 중이면 먼저 중지 (중복 재생 방지)
+            if nemesis_barrier_warning_channel:
+                try:
+                    nemesis_barrier_warning_channel.stop()
+                except:
+                    pass
+                nemesis_barrier_warning_channel = None
             if SOUND_STAGE5_WARNING:
                 nemesis_barrier_warning_channel = SOUND_STAGE5_WARNING.play(loops=-1)  # 무한 루프
             print(f"🛡️ [네메시스] 방어막 해제! ({duration_text}간 공이 통과 가능)")

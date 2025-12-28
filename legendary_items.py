@@ -4173,7 +4173,9 @@ class AngelBlessing(LegendaryItem):
     def _draw_dice_to_surface(self, surf, size, rot_x, rot_y):
         """주사위를 서피스에 그리기 - 천사 날개 포함"""
         dice_size = int(size * 0.5)  # 주사위 크기 확대
-        cx, cy = size // 2, size // 2
+        # 서피스 크기를 기준으로 정확한 중앙 계산
+        surf_w, surf_h = surf.get_size()
+        cx, cy = surf_w // 2, surf_h // 2
 
         # 천사 날개 그리기 (주사위 뒤에)
         wing_color = (255, 255, 255, 180)
@@ -4184,22 +4186,25 @@ class AngelBlessing(LegendaryItem):
         # 날개 펄럭임 효과
         wing_flap = math.sin(rot_y * 0.1) * 3
 
-        # 왼쪽 날개
+        # 왼쪽/오른쪽 대칭을 위한 공통 오프셋
+        wing_attach_offset = 3  # 주사위에 붙는 지점
+
+        # 왼쪽 날개 - 대칭 좌표
         left_wing_points = [
-            (cx - 3, cy - 2),  # 중앙 연결점
+            (cx - wing_attach_offset, cy - 2),  # 중앙 연결점
             (cx - wing_width, cy - wing_height + wing_flap),  # 상단
             (cx - wing_width - 3, cy + wing_flap),  # 중간 끝
             (cx - wing_width + 5, cy + wing_height//2 + wing_flap),  # 하단
-            (cx - 3, cy + 3),  # 중앙 하단 연결점
+            (cx - wing_attach_offset, cy + 3),  # 중앙 하단 연결점
         ]
 
-        # 오른쪽 날개
+        # 오른쪽 날개 - 완벽히 대칭
         right_wing_points = [
-            (cx + 3, cy - 2),  # 중앙 연결점
+            (cx + wing_attach_offset, cy - 2),  # 중앙 연결점
             (cx + wing_width, cy - wing_height + wing_flap),  # 상단
             (cx + wing_width + 3, cy + wing_flap),  # 중간 끝
             (cx + wing_width - 5, cy + wing_height//2 + wing_flap),  # 하단
-            (cx + 3, cy + 3),  # 중앙 하단 연결점
+            (cx + wing_attach_offset, cy + 3),  # 중앙 하단 연결점
         ]
 
         # 날개 글로우 효과
@@ -4210,16 +4215,19 @@ class AngelBlessing(LegendaryItem):
         pygame.draw.polygon(surf, wing_color, left_wing_points)
         pygame.draw.polygon(surf, wing_color, right_wing_points)
 
-        # 날개 깃털 라인
+        # 날개 깃털 라인 - 대칭으로 수정
         feather_color = (220, 230, 255, 150)
+        feather_start_offset = 5
         for i in range(3):
             offset = (i + 1) * wing_width // 4
+            # 왼쪽 깃털
             pygame.draw.line(surf, feather_color,
-                           (cx - 5, cy),
-                           (cx - offset - 5, cy - wing_height//2 + i*3 + wing_flap), 1)
+                           (cx - feather_start_offset, cy),
+                           (cx - offset - feather_start_offset, cy - wing_height//2 + i*3 + wing_flap), 1)
+            # 오른쪽 깃털 - 대칭
             pygame.draw.line(surf, feather_color,
-                           (cx + 5, cy),
-                           (cx + offset + 5, cy - wing_height//2 + i*3 + wing_flap), 1)
+                           (cx + feather_start_offset, cy),
+                           (cx + offset + feather_start_offset, cy - wing_height//2 + i*3 + wing_flap), 1)
 
         sin_x, cos_x = math.sin(math.radians(rot_x)), math.cos(math.radians(rot_x))
         sin_y, cos_y = math.sin(math.radians(rot_y)), math.cos(math.radians(rot_y))
@@ -4336,13 +4344,15 @@ class AngelBlessing(LegendaryItem):
             # 맥동 값 (다른 효과에서 사용)
             pulse = math.sin(self.animation_time * 3) * 0.15 + 0.85  # 0.7 ~ 1.0
 
-            # 1. 빛나는 광선 (회전하는 신성한 빛줄기)
+            # 1. 빛나는 광선 (회전하는 신성한 빛줄기) - 대칭 배치
             ray_count = 8
+            # 모든 광선에 동일한 길이 적용 (대칭 유지)
+            ray_length = int(size * 0.38 + math.sin(self.animation_time * 5) * 3)
+            inner_r = int(size * 0.22)
             for ray_i in range(ray_count):
+                # 정확히 균등한 각도 간격으로 배치
                 ray_angle = (self.animation_time * 40 + ray_i * (360 / ray_count)) % 360
                 ray_rad = math.radians(ray_angle)
-                ray_length = int(size * 0.38 + math.sin(self.animation_time * 5 + ray_i) * 3)
-                inner_r = int(size * 0.22)
 
                 # 빛줄기 시작점과 끝점
                 start_x = aura_cx + int(math.cos(ray_rad) * inner_r)
@@ -4361,20 +4371,21 @@ class AngelBlessing(LegendaryItem):
                 pygame.draw.line(aura_surf, (255, 255, 240, int(ray_alpha * 0.8)),
                                (start_x, start_y), (mid_end_x, mid_end_y), 1)
 
-            # 3. 반짝이는 별 파티클 (주사위 주변을 도는 작은 별들)
+            # 3. 반짝이는 별 파티클 (주사위 주변을 도는 작은 별들) - 대칭 배치
             star_count = 6
+            # 모든 별에 동일한 궤도 반경 적용 (대칭 유지)
+            orbit_radius = int(size * 0.32 + math.sin(self.animation_time * 2) * 4)
             for star_i in range(star_count):
-                # 각 별이 다른 속도와 궤도로 회전
-                star_angle = (self.animation_time * (60 + star_i * 10) + star_i * 60) % 360
+                # 정확히 균등한 각도 간격으로 회전
+                star_angle = (self.animation_time * 60 + star_i * (360 / star_count)) % 360
                 star_rad = math.radians(star_angle)
-                orbit_radius = int(size * 0.32 + math.sin(self.animation_time * 2 + star_i) * 4)
 
                 star_x = aura_cx + int(math.cos(star_rad) * orbit_radius)
                 star_y = aura_cy + int(math.sin(star_rad) * orbit_radius)
 
-                # 별 크기 맥동
-                star_size = int(2 + math.sin(self.animation_time * 8 + star_i * 1.5) * 1.5)
-                star_alpha = int(180 + math.sin(self.animation_time * 6 + star_i) * 60)
+                # 별 크기 맥동 - 모든 별에 동일한 크기 적용 (대칭)
+                star_size = int(2 + math.sin(self.animation_time * 8) * 1.5)
+                star_alpha = int(180 + math.sin(self.animation_time * 6) * 60)
 
                 # 별 모양 (4각 별)
                 star_points = []
@@ -4500,40 +4511,45 @@ class AngelBlessing(LegendaryItem):
         """
         half = size // 2
 
-        # 천사 날개 (주사위 뒤에)
+        # 천사 날개 (주사위 뒤에) - 대칭 좌표
         wing_color = (255, 255, 255, 220)
         wing_width = int(size * 0.35)
         wing_height = int(size * 0.25)
         wing_flap = math.sin(pygame.time.get_ticks() * 0.005) * 3
 
-        # 왼쪽 날개
+        # 날개 연결점 (주사위 가장자리)
+        wing_attach = half // 2
+
+        # 왼쪽 날개 - 대칭 좌표
         left_wing = [
-            (cx - half//2, cy),
+            (cx - wing_attach, cy),
             (cx - half - wing_width, cy - wing_height + wing_flap),
             (cx - half - wing_width - 5, cy + wing_flap),
             (cx - half - wing_width + 10, cy + wing_height//2 + wing_flap),
-            (cx - half//2, cy + 5),
+            (cx - wing_attach, cy + 5),
         ]
-        # 오른쪽 날개
+        # 오른쪽 날개 - 완벽히 대칭
         right_wing = [
-            (cx + half//2, cy),
+            (cx + wing_attach, cy),
             (cx + half + wing_width, cy - wing_height + wing_flap),
             (cx + half + wing_width + 5, cy + wing_flap),
             (cx + half + wing_width - 10, cy + wing_height//2 + wing_flap),
-            (cx + half//2, cy + 5),
+            (cx + wing_attach, cy + 5),
         ]
         pygame.draw.polygon(screen, wing_color, left_wing)
         pygame.draw.polygon(screen, wing_color, right_wing)
 
-        # 깃털 디테일
+        # 깃털 디테일 - 대칭
         feather_color = (230, 240, 255, 180)
         for i in range(3):
             offset = (i + 1) * wing_width // 3
+            # 왼쪽 깃털
             pygame.draw.line(screen, feather_color,
-                           (cx - half//2, cy),
+                           (cx - wing_attach, cy),
                            (cx - half - offset, cy - wing_height//2 + i*4 + wing_flap), 1)
+            # 오른쪽 깃털 - 대칭
             pygame.draw.line(screen, feather_color,
-                           (cx + half//2, cy),
+                           (cx + wing_attach, cy),
                            (cx + half + offset, cy - wing_height//2 + i*4 + wing_flap), 1)
 
         # 주사위 배경 (흰색 사각형)
@@ -4566,7 +4582,9 @@ class AngelBlessing(LegendaryItem):
     def _draw_angel_dice(self, surf: pygame.Surface, size: int, rot_x: float, rot_y: float):
         """중앙에 천사의 주사위 그리기 (천사 날개 + 3D 주사위)"""
         dice_size = int(size * 0.45)  # 주사위 크기 증가 (더 잘 보이도록)
-        cx, cy = size // 2, size // 2
+        # 서피스 크기를 기준으로 정확한 중앙 계산
+        surf_w, surf_h = surf.get_size()
+        cx, cy = surf_w // 2, surf_h // 2
 
         # 천사 날개 그리기 (주사위 뒤에)
         wing_color = (255, 255, 255, 200)
@@ -4577,22 +4595,23 @@ class AngelBlessing(LegendaryItem):
         # 날개 펄럭임 효과
         wing_flap = math.sin(rot_y * 0.1) * 3
 
-        # 왼쪽 날개
+        # 왼쪽 날개 - 대칭 좌표
+        wing_attach_offset = 3  # 주사위에 붙는 지점
         left_wing_points = [
-            (cx - 3, cy - 2),
+            (cx - wing_attach_offset, cy - 2),
             (cx - wing_width, cy - wing_height + wing_flap),
             (cx - wing_width - 3, cy + wing_flap),
             (cx - wing_width + 5, cy + wing_height//2 + wing_flap),
-            (cx - 3, cy + 3),
+            (cx - wing_attach_offset, cy + 3),
         ]
 
-        # 오른쪽 날개
+        # 오른쪽 날개 - 완벽히 대칭으로 수정
         right_wing_points = [
-            (cx + 3, cy - 2),
+            (cx + wing_attach_offset, cy - 2),
             (cx + wing_width, cy - wing_height + wing_flap),
             (cx + wing_width + 3, cy + wing_flap),
             (cx + wing_width - 5, cy + wing_height//2 + wing_flap),
-            (cx + 3, cy + 3),
+            (cx + wing_attach_offset, cy + 3),
         ]
 
         # 날개 글로우 효과
@@ -4603,16 +4622,19 @@ class AngelBlessing(LegendaryItem):
         pygame.draw.polygon(surf, wing_color, left_wing_points)
         pygame.draw.polygon(surf, wing_color, right_wing_points)
 
-        # 날개 깃털 라인
+        # 날개 깃털 라인 - 대칭으로 수정
         feather_color = (230, 240, 255, 180)
+        feather_start_offset = 5
         for i in range(3):
             offset = (i + 1) * wing_width // 4
+            # 왼쪽 깃털
             pygame.draw.line(surf, feather_color,
-                           (cx - 5, cy),
-                           (cx - offset - 5, cy - wing_height//2 + i*3 + wing_flap), 1)
+                           (cx - feather_start_offset, cy),
+                           (cx - offset - feather_start_offset, cy - wing_height//2 + i*3 + wing_flap), 1)
+            # 오른쪽 깃털 - 대칭
             pygame.draw.line(surf, feather_color,
-                           (cx + 5, cy),
-                           (cx + offset + 5, cy - wing_height//2 + i*3 + wing_flap), 1)
+                           (cx + feather_start_offset, cy),
+                           (cx + offset + feather_start_offset, cy - wing_height//2 + i*3 + wing_flap), 1)
 
         # 3D 주사위 그리기
         sin_x, cos_x = math.sin(math.radians(rot_x)), math.cos(math.radians(rot_x))
@@ -4965,17 +4987,19 @@ class AngelBlessing(LegendaryItem):
             actual_dice_x = dice_center_x + bounce_x
             actual_dice_y = dice_center_y + bounce_y
 
-            # 회전하는 천사 깃털 파티클 (주사위 뒤에 먼저 그리기)
+            # 회전하는 천사 깃털 파티클 (주사위 뒤에 먼저 그리기) - 중앙 대칭
             num_feathers = 8
             for i in range(num_feathers):
+                # 정확히 균등한 각도 간격으로 배치
                 feather_angle = (i / num_feathers) * math.pi * 2 + anim_time * 3
-                feather_dist = 60 + 30 * math.sin(anim_time * 4 + i * 0.5)
-                # 주사위 바운스 위치를 따라감
+                # 모든 깃털에 동일한 거리 적용 (대칭 유지)
+                feather_dist = 60 + 30 * math.sin(anim_time * 4)
+                # 주사위 바운스 위치를 중심으로 대칭 배치
                 feather_x = actual_dice_x + math.cos(feather_angle) * feather_dist
                 feather_y = actual_dice_y + math.sin(feather_angle) * feather_dist
 
-                # 깃털 모양 (대칭 타원) - 깃털이 궤도 방향으로 회전
-                feather_size = 4 + int(3 * math.sin(anim_time * 6 + i))
+                # 깃털 모양 (대칭 타원) - 모든 깃털 동일한 크기
+                feather_size = 4 + int(3 * math.sin(anim_time * 6))
                 feather_height = max(1, feather_size)
                 feather_width = feather_size * 2
 
@@ -4989,20 +5013,23 @@ class AngelBlessing(LegendaryItem):
                 feather_rect = rotated_feather.get_rect(center=(int(feather_x), int(feather_y)))
                 screen.blit(rotated_feather, feather_rect)
 
-            # 3D 주사위 그리기 (깃털 위에)
-            dice_surf = pygame.Surface((dice_size + 40, dice_size + 40), pygame.SRCALPHA)
+            # 3D 주사위 그리기 (깃털 위에) - 서피스 크기를 충분히 확보하여 중앙 정렬
+            dice_surf_size = dice_size + 40
+            dice_surf = pygame.Surface((dice_surf_size, dice_surf_size), pygame.SRCALPHA)
             self._draw_angel_dice(dice_surf, dice_size, rot_x, rot_y)
             dice_rect = dice_surf.get_rect(center=(int(actual_dice_x), int(actual_dice_y)))
             screen.blit(dice_surf, dice_rect)
 
-            # 반짝이는 별 파티클 (주사위 주변, 바운스 따라감)
-            for _ in range(3):
-                star_offset_x = random.randint(-80, 80)
-                star_offset_y = random.randint(-80, 80)
-                star_x = int(actual_dice_x + star_offset_x)
-                star_y = int(actual_dice_y + star_offset_y)
-                star_size = random.randint(2, 5)
-                star_alpha = random.randint(150, 255)
+            # 반짝이는 별 파티클 (주사위 주변, 대칭 배치)
+            num_stars = 6
+            for star_i in range(num_stars):
+                # 시간 기반으로 결정적인 위치 계산 (랜덤 대신)
+                star_angle = (star_i / num_stars) * math.pi * 2 + anim_time * 2
+                star_dist = 50 + 30 * math.sin(anim_time * 3 + star_i * 0.5)
+                star_x = int(actual_dice_x + math.cos(star_angle) * star_dist)
+                star_y = int(actual_dice_y + math.sin(star_angle) * star_dist)
+                star_size = 2 + int(2 * abs(math.sin(anim_time * 5 + star_i)))
+                star_alpha = 150 + int(100 * abs(math.sin(anim_time * 4 + star_i * 0.7)))
                 pygame.draw.circle(screen, (255, 255, 200, star_alpha), (star_x, star_y), star_size)
 
         # ========== ✨ Phase 3: 결과 확정 연출 (75% ~ 90%) ==========
