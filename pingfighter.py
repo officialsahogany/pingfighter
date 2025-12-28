@@ -9005,6 +9005,12 @@ NEMESIS_POST_DELAY = 5000  # 대폭발 후 화면 정지 시간 (5초)
 # 스테이지 6 장막 충돌 효과
 stage6_barrier_flash_timer = 0  # 장막 깜빡임 타이머
 
+# 스테이지 6 (네메시스) 방어막 시스템 - 보스 뒤 방어막 (보스 패들에 공이 닿으면 2초간 해제)
+nemesis_barrier_active = True  # 방어막 활성화 여부
+nemesis_barrier_disabled_time = 0  # 방어막 비활성화 시작 시간 (밀리초)
+NEMESIS_BARRIER_DISABLE_DURATION = 2000  # 방어막 비활성화 지속 시간 (2초)
+nemesis_barrier_warning_shown = False  # 방어막 해제 경고 표시 여부
+
 # 스테이지 6: 홍련폭염 가드 보상 플래그
 stage6_hongryun_guarded_during_inferno = False  # 홍련폭염 활성 중 토르쉴드 가드 성공 여부
 # 스매셔 쇼트 기술 관련 변수
@@ -45554,7 +45560,7 @@ stage3_hearts_collected = 0  # Stage 3에서 수집한 하트 개수 (레거시)
 stage3_trade_point_texts = []  # Stage 3 하트 획득 시 표시할 텍스트 효과 (레거시)
 stage4_crows_collected = 0  # Stage 4에서 수집한 까마귀 개수 (레거시)
 # 체력형 보스 시스템 (스테이지 6, 11, 16, 21)
-boss_health_stages = [6, 11, 16, 21]  # 체력형 보스가 등장하는 스테이지
+boss_health_stages = [11, 16, 21]  # 체력형 보스가 등장하는 스테이지 (스테이지 6 = 네메시스는 방어막형으로 변경)
 boss_max_health = 15  # 보스 최대 체력
 boss_current_health = 15  # 보스 현재 체력
 boss_health_bar_width = 200  # 체력바 너비
@@ -79912,24 +79918,15 @@ def draw_field():
     else:
         # 기본 배경 (화면 흔들림 오프셋 적용)
         SCREEN.blit(CURRENT_BG, (screen_shake_offset_x, screen_shake_offset_y))
-    #  체력형 보스전 바리케이트 그리기
+    #  체력형 보스전 바리케이트 그리기 (스테이지 11, 16, 21)
     if current_stage in boss_health_stages:
         global stage6_barrier_flash_timer
         barrier_height = 8
         barrier_y = 0
-        
-        # 스테이지 6 장막 충돌 깜빡임 효과
-        if current_stage == 6 and stage6_barrier_flash_timer > 0:
-            stage6_barrier_flash_timer -= 1
-            # 깜빡임 효과 - 빠르게 흰색과 원래 색상 사이를 전환
-            if stage6_barrier_flash_timer % 4 < 2:
-                barrier_color = (255, 255, 255)  # 흰색으로 번쩍
-            else:
-                barrier_color = (100, 200, 255)  # 밝은 청색
-        else:
-            # 바리케이트 기본 색상 (전기 청색)
-            barrier_color = (50, 150, 255)
-        
+
+        # 바리케이트 기본 색상 (전기 청색)
+        barrier_color = (50, 150, 255)
+
         # 애니메이션 효과 (깜빡임)
         time_now = pygame.time.get_ticks()
         pulse = abs(math.sin(time_now * 0.01)) * 0.5 + 0.5
@@ -79942,7 +79939,7 @@ def draw_field():
                 intensity = 1.0 - (y_offset / barrier_height) * 0.6
                 color = (
                     int(barrier_color[0] * intensity),
-                    int(barrier_color[1] * intensity), 
+                    int(barrier_color[1] * intensity),
                     int(barrier_color[2] * intensity)
                 )
                 pygame.draw.rect(SCREEN, color, (i, barrier_y + y_offset, bar_width, 1))
@@ -79959,6 +79956,63 @@ def draw_field():
         shadow_text = font_barrier.render(" ENERGY BARRIER ", True, BLACK)
         SCREEN.blit(shadow_text, (text_rect.x + 1, text_rect.y + 1))
         SCREEN.blit(barrier_text, text_rect)
+
+    # 스테이지 6 (네메시스) 전용 방어막 시스템 렌더링
+    if current_stage == 6:
+        time_now = pygame.time.get_ticks()
+        barrier_height = 10
+        barrier_y = 0
+
+        # 방어막 타이머 체크 - 2초 지나면 다시 활성화
+        if not nemesis_barrier_active:
+            elapsed = time_now - nemesis_barrier_disabled_time
+            if elapsed >= NEMESIS_BARRIER_DISABLE_DURATION:
+                globals()['nemesis_barrier_active'] = True
+                print(f"🛡️ [네메시스] 방어막 재활성화!")
+            else:
+                # 방어막 비활성화 중 - 빨간색 경고 깜빡임
+                remaining = (NEMESIS_BARRIER_DISABLE_DURATION - elapsed) / 1000.0
+                flash_speed = 0.1  # 빠른 깜빡임
+                if int(time_now * flash_speed) % 2 == 0:
+                    # 얇은 빨간색 경고선
+                    for i in range(0, WIDTH, 4):
+                        pygame.draw.rect(SCREEN, (255, 50, 50), (i, barrier_y, 2, 3))
+                # 경고 텍스트 표시
+                font_warning = get_font(14)
+                warning_text = font_warning.render(f"⚠ BARRIER DOWN - {remaining:.1f}s ⚠", True, (255, 100, 100))
+                text_rect = warning_text.get_rect(center=(WIDTH // 2, barrier_height + 12))
+                SCREEN.blit(warning_text, text_rect)
+        else:
+            # 방어막 활성화 중 - 청록색 에너지 장벽
+            pulse = abs(math.sin(time_now * 0.008)) * 0.5 + 0.5
+
+            # 메인 방어막 바
+            for i in range(0, WIDTH, 16):
+                bar_width = 12
+                # 방어막 그라데이션 효과 (청록색)
+                for y_offset in range(barrier_height):
+                    intensity = 1.0 - (y_offset / barrier_height) * 0.5
+                    glow = pulse * 0.3 + 0.7
+                    color = (
+                        int(50 * intensity * glow),
+                        int(200 * intensity * glow),
+                        int(255 * intensity * glow)
+                    )
+                    pygame.draw.rect(SCREEN, color, (i, barrier_y + y_offset, bar_width, 1))
+                # 전기 스파크 효과
+                if random.random() < 0.15:
+                    spark_x = i + random.randint(0, bar_width)
+                    spark_y = barrier_y + random.randint(0, barrier_height)
+                    spark_color = (100, 255, 255) if random.random() > 0.5 else (255, 255, 255)
+                    draw.circle(spark_color, (spark_x, spark_y), 1)
+
+            # 방어막 상태 텍스트
+            font_barrier = get_font(11)
+            barrier_text = font_barrier.render("◆ NEMESIS BARRIER ◆", True, (100, 220, 255))
+            text_rect = barrier_text.get_rect(center=(WIDTH // 2, barrier_height + 12))
+            shadow_text = font_barrier.render("◆ NEMESIS BARRIER ◆", True, (0, 50, 100))
+            SCREEN.blit(shadow_text, (text_rect.x + 1, text_rect.y + 1))
+            SCREEN.blit(barrier_text, text_rect)
 def check_deuce_system():
     """핑파이터 스타일 듀스 시스템을 체크하고 업데이트합니다."""
     global deuce_mode, deuce_wins, deuce_losses, deuce_goal
@@ -80259,9 +80313,6 @@ def draw_boss_health_bar():
     global boss_displayed_health, boss_damage_preview_health
     if current_stage not in boss_health_stages:
         return
-    # 네메시스 사망 애니메이션 중에는 체력바 숨기기
-    if current_stage == 6 and nemesis_death_active:
-        return
     # 스무스한 체력 감소 애니메이션
     if boss_displayed_health > boss_current_health:
         boss_displayed_health -= 0.3  # 부드럽게 감소
@@ -80530,6 +80581,7 @@ def reset_round():
     global blacksmith_blocking_skill_timer, blacksmith_blocking_bonus_pending
     global ai_mode
     global smasher_power_recoil_timer, smasher_power_recoil_vel
+    global nemesis_barrier_active, nemesis_barrier_disabled_time, nemesis_barrier_warning_shown  # 네메시스 방어막
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
@@ -80539,6 +80591,11 @@ def reset_round():
     smasher_combo_count = 0
     smasher_combo_effect_active = False
     smasher_combo_effect_timer = 0
+
+    # 🛡️ 네메시스 방어막 리셋 (라운드 시작 시 활성화)
+    nemesis_barrier_active = True
+    nemesis_barrier_disabled_time = 0
+    nemesis_barrier_warning_shown = False
 
     # 라운드 전환 시 건설 중인 발토르 청사진을 보존하기 위한 스냅샷
     preserved_blacksmith_blueprints = None
@@ -85671,49 +85728,30 @@ def handle_ball():
             ball_vel[1] = abs(ball_vel[1])  # 아래로 향하도록
             BALL.top = 0
             return
-        #  체력형 보스전에서는 공이 보스 뒤로 나가지 않도록 바리케이트 적용
+        #  체력형 보스전에서는 공이 보스 뒤로 나가지 않도록 바리케이트 적용 (스테이지 11, 16, 21)
         if current_stage in boss_health_stages:
-            #  스테이지 6에서 파워 스킬들이 벽에 맞으면 종료
-            if current_stage == 6:
-                # 드라이브 종료
-                if drive_ball_active:
-                    drive_ball_active = False
-                    drive_hit_boss = False
-                    drive_speed_increase = 0.0
-                    ball_spin_strength = 0.0
-                    ball_spin_direction = 0
-                    print("6:    !")
-                # 파워스매싱 종료
-                if power_smashing_parabola_active:
-                    power_smashing_parabola_active = False
-                    power_smashing_rng = None
-                    power_smashing_direction = None
-                    power_smashing_trails.clear()
-                    power_smashing_particles.clear()
-                    print("6:    !")
-                # 고스트샷 종료
-                if mega_smashing_active:
-                    mega_smashing_active = False
-                    mega_smashing_bonus_applied = False
-                    mega_smashing_meteor_trail.clear()
-                    # 양자 이펙트 정리
-                    quantum_explosion_active = False
-                    quantum_balls.clear()
-                    quantum_wave_function.clear()
-                    quantum_entanglement_pairs.clear()
-                    quantum_collapse_timer = 0
-                    print("6:    !")
             # 공을 경계에서 튕겨냄 (바리케이트 효과)
             BALL.top = 0
             ball_vel[1] = abs(ball_vel[1])  # 아래쪽으로 방향 전환
-            # 스테이지 6에서는 바리어 사운드 재생 및 깜빡임 효과
-            if current_stage == 6:
-                play_sound_with_volume(SOUND_BARRIER)
-                global stage6_barrier_flash_timer
-                stage6_barrier_flash_timer = 12  # 약 0.2초간 깜빡임 (60fps 기준)
             # 바리케이트 충돌 이펙트 (텍스트 없이 파티클만)
             effects_manager.spawn_star_particles(BALL.centerx, 10, count=8)
             return
+
+        # 스테이지 6 (네메시스) 방어막 시스템 - 방어막 활성화 시 튕김, 비활성화 시 통과
+        if current_stage == 6:
+            if nemesis_barrier_active:
+                # 방어막 활성화 상태 - 공이 튕겨나감
+                BALL.top = 0
+                ball_vel[1] = abs(ball_vel[1])  # 아래쪽으로 방향 전환
+                play_sound_with_volume(SOUND_BARRIER)
+                globals()['stage6_barrier_flash_timer'] = 12  # 약 0.2초간 깜빡임 (60fps 기준)
+                effects_manager.spawn_star_particles(BALL.centerx, 10, count=8)
+                print(f"🛡️ [네메시스] 방어막에 공이 막힘!")
+                return
+            else:
+                # 방어막 비활성화 상태 - 공이 통과하여 플레이어 득점!
+                print(f"⚡ [네메시스] 방어막 해제 중! 공이 통과!")
+                # 아래의 일반 득점 로직으로 진행 (return 안함)
         #  AI 학습: 보스가 공을 놓쳤음 (제거됨)
         if deuce_mode:
             deuce_wins += 1
@@ -86042,7 +86080,8 @@ def handle_ball():
                     break
     # --- 바닥 충돌 (보스 점수) - 바위에 맞지 않았을 때만 ---
     # 패배 직전 '미리' 스톱워치 발동: 바닥과의 거리 기준으로 선제 발동해 바로 아래에서 멈추는 문제를 방지
-    if not rock_hit and not stopwatch_active:
+    # 공 생성 애니메이션 중에는 스마트폰 자동 발동 안함
+    if not rock_hit and not stopwatch_active and not ball_spawn_animation_active:
         try:
             import items as _items_mod
             if hasattr(_items_mod, 'smartphone_obtained') and _items_mod.smartphone_obtained:
@@ -86085,7 +86124,7 @@ def handle_ball():
         bowling_trap_holding = get_bowling_trap_instance().is_ball_captured()
     except Exception:
         pass
-    if BALL.bottom >= HEIGHT and not rock_hit and not stopwatch_active and not ball_in_kuromi and not bowling_trap_holding:
+    if BALL.bottom >= HEIGHT and not rock_hit and not stopwatch_active and not ball_in_kuromi and not bowling_trap_holding and not ball_spawn_animation_active:
         # 스마트폰 사전 방어: 패배 직전 스톱워치 자동 발동 시도
         try:
             import items as _items_mod
@@ -86806,6 +86845,15 @@ def handle_ball():
         elif current_stage == 2:
             boss_special_gauge = min(boss_special_gauge + 70, 500)
             print(f"스테이지2 악어장군 게이지 충전: +70 (현재: {boss_special_gauge}/500)")
+
+        # 스테이지 6 (네메시스) 방어막 해제 로직 - 보스 패들에 공이 닿으면 2초간 방어막 해제
+        if current_stage == 6:
+            globals()['nemesis_barrier_active'] = False
+            globals()['nemesis_barrier_disabled_time'] = pygame.time.get_ticks()
+            globals()['nemesis_barrier_warning_shown'] = False
+            play_sound_with_volume(SOUND_BARRIER)  # 방어막 해제 사운드
+            print(f"🛡️ [네메시스] 방어막 해제! (2초간 공이 통과 가능)")
+
         # 스테이지 3~6, 8 공통: 대쉬/필살기 겸용 게이지 충전 (중간값 60 사용)
         # 스테이지 7은 초인테트리서 전용 게이지 체계가 별도로 동작하므로 충전 없음
         elif current_stage in (3, 4, 5, 6, 8):
@@ -87855,6 +87903,18 @@ def _boss_try_emergency_dash() -> bool:
         # 설정이 없으면 스테이지 1 기본값 사용
         min_s, max_s = 40.0, 55.0
 
+    # 리그별 쿨타임 감소 적용
+    # 프로리그: -20%, 챔피언리그: -40%, 신화리그: -60%
+    league_cooldown_multiplier = {
+        "junior": 1.0,    # 주니어리그: 기본값
+        "pro": 0.8,       # 프로리그: 20% 감소
+        "champion": 0.6,  # 챔피언리그: 40% 감소
+        "mythic": 0.4     # 신화리그: 60% 감소
+    }
+    cooldown_mult = league_cooldown_multiplier.get(ai_mode, 1.0)
+    min_s *= cooldown_mult
+    max_s *= cooldown_mult
+
     min_ms = int(min_s * 1000)
     max_ms = int(max_s * 1000)
     if max_ms < min_ms:
@@ -87866,9 +87926,10 @@ def _boss_try_emergency_dash() -> bool:
         boss_dash_cooldown_until_ms = now_ms + random.randint(min_ms, max_ms)
 
     if not QUIET_DEBUG:
+        cooldown_sec = (boss_dash_cooldown_until_ms - now_ms) / 1000.0 if boss_dash_cooldown_until_ms > now_ms else 0
         print(
-            f"[BossDash] Stage {current_stage} emergency dash start → target={boss_dash_target_x:.1f} "
-            f"(dist={dash_distance:.1f}, gauge={boss_special_gauge})"
+            f"[BossDash] Stage {current_stage} ({ai_mode}) dash → target={boss_dash_target_x:.1f} "
+            f"(dist={dash_distance:.1f}, gauge={boss_special_gauge}, next_cooldown={cooldown_sec:.1f}s)"
         )
     return True
 
@@ -95490,6 +95551,7 @@ def main(stage_num, new_boss_mode=False):
                 and active_item_slot
                 and not blacksmith_build_menu_active
                 and not umbrella_blocks_active_items
+                and not ball_spawn_animation_active  # 공 생성 애니메이션 중 아이템 사용 불가
             ):
                 use_item = False
                 target_index = -1
@@ -95565,6 +95627,8 @@ def main(stage_num, new_boss_mode=False):
             if aipill_active:
                 return
             if blacksmith_build_menu_active:
+                return
+            if ball_spawn_animation_active:  # 공 생성 애니메이션 중 아이템 사용 불가
                 return
             umbrella_block = (
                 selected_character_type == "blacksmith"
@@ -99917,6 +99981,9 @@ def show_character_info(background_surface=None):
     def try_use_active_item_from_info(idx: int) -> bool:
         """캐릭터정보 화면에서 액티브 아이템을 즉시 사용 (쿨타임/재활용 반영)."""
         global selected_item_index, last_item_use_time, special_gauge, special_ready, active_item_cooldown_ms, special_gauge_max
+        # 공 생성 애니메이션 중에는 아이템 사용 불가
+        if ball_spawn_animation_active:
+            return False
         if idx < 0 or idx >= len(active_item_slot):
             return False
         item = active_item_slot[idx]
