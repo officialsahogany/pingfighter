@@ -9005,10 +9005,10 @@ NEMESIS_POST_DELAY = 5000  # 대폭발 후 화면 정지 시간 (5초)
 # 스테이지 6 장막 충돌 효과
 stage6_barrier_flash_timer = 0  # 장막 깜빡임 타이머
 
-# 스테이지 6 (네메시스) 방어막 시스템 - 보스 뒤 방어막 (보스 패들에 공이 닿으면 2초간 해제)
+# 스테이지 6 (네메시스) 방어막 시스템 - 보스 뒤 방어막 (보스 패들에 공이 닿으면 2.5초간 해제)
 nemesis_barrier_active = True  # 방어막 활성화 여부
 nemesis_barrier_disabled_time = 0  # 방어막 비활성화 시작 시간 (밀리초)
-NEMESIS_BARRIER_DISABLE_DURATION = 2000  # 방어막 비활성화 지속 시간 (2초)
+NEMESIS_BARRIER_DISABLE_DURATION = 2500  # 방어막 비활성화 지속 시간 (2.5초)
 nemesis_barrier_warning_shown = False  # 방어막 해제 경고 표시 여부
 
 # 스테이지 6: 홍련폭염 가드 보상 플래그
@@ -56842,7 +56842,7 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
     #     for i in range(3):
     #         pygame.draw.rect(carrier_surface, shield_color, 
     #                        (3-i, 3-i, carrier_width-6+i*2, carrier_height-6+i*2), 1)
-    # === 메인 선체 (5단계 레이어드 구조로 입체감 강화) ===
+    # === 메인 선체 (SF 우주전함 스타일 - 고급스러운 디자인) ===
     #  소닉 스타일 피격 효과 적용 (붉은색 오버레이)
     def apply_hit_effect(color):
         if stage6_boss_hit_flash:
@@ -56850,28 +56850,166 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
             r, g, b = color
             return (min(255, r + 120), max(0, g - 30), max(0, b - 30))
         return color
-    # 최하부 그림자 레이어
-    shadow_color = apply_hit_effect((35, 40, 45))
-    pygame.draw.rect(carrier_surface, shadow_color, (6, 48, carrier_width-12, 34))
-    # 하부 선체 (진한 금속색 + 그라데이션 효과)
-    hull_base_color = apply_hit_effect((65, 75, 85) if damage_ratio < 0.7 else (55, 60, 70))
-    pygame.draw.rect(carrier_surface, hull_base_color, (8, 45, carrier_width-16, 32))
-    # 하부 하이라이트
-    pygame.draw.line(carrier_surface, apply_hit_effect((75, 85, 95)), (8, 46), (carrier_width-8, 46), 1)
-    # 중하부 전환 레이어
-    trans_color = apply_hit_effect((72, 82, 95) if damage_ratio < 0.6 else (62, 70, 78))
-    pygame.draw.rect(carrier_surface, trans_color, (10, 40, carrier_width-20, 28))
-    # 중부 선체 (조금 밝은 색)
-    hull_mid_color = apply_hit_effect((80, 90, 105) if damage_ratio < 0.5 else (70, 75, 85))
-    pygame.draw.rect(carrier_surface, hull_mid_color, (12, 35, carrier_width-24, 25))
-    # 중부 하이라이트
-    pygame.draw.line(carrier_surface, apply_hit_effect((90, 100, 115)), (12, 36), (carrier_width-12, 36), 1)
-    # 상부 선체 (가장 밝은 색 + 메탈릭 효과)
-    hull_top_color = apply_hit_effect((95, 110, 125) if damage_ratio < 0.3 else (85, 95, 110))
-    pygame.draw.rect(carrier_surface, hull_top_color, (16, 25, carrier_width-32, 20))
-    # 상부 메탈릭 하이라이트
-    pygame.draw.line(carrier_surface, (115, 130, 145), (16, 26), (carrier_width-16, 26), 1)
-    pygame.draw.line(carrier_surface, (105, 120, 135), (16, 28), (carrier_width-16, 28), 1)
+
+    # 함선 중심 좌표
+    cx = carrier_width // 2
+
+    # === 1단계: 외곽 그림자 및 베이스 ===
+    # 최하부 그림자 (은은한 글로우 효과)
+    for i in range(3):
+        shadow_alpha = 180 - i * 40
+        shadow_color = apply_hit_effect((25 + i*5, 30 + i*5, 40 + i*5))
+        pygame.draw.ellipse(carrier_surface, shadow_color,
+                           (4 + i*2, 50 + i, carrier_width - 8 - i*4, 30 - i*2))
+
+    # === 2단계: 메인 선체 - 유선형 우주전함 디자인 ===
+    # 하부 선체 (곡선형 + 그라데이션)
+    hull_points_bottom = [
+        (10, 75),  # 좌하단
+        (25, 78),  # 좌측 곡선
+        (cx - 40, 80),  # 좌측 중앙
+        (cx, 82),  # 중앙 (가장 낮은 점)
+        (cx + 40, 80),  # 우측 중앙
+        (carrier_width - 25, 78),  # 우측 곡선
+        (carrier_width - 10, 75),  # 우하단
+        (carrier_width - 8, 65),  # 우측
+        (carrier_width - 12, 55),  # 우상단
+        (12, 55),  # 좌상단
+        (8, 65),  # 좌측
+    ]
+    hull_base = apply_hit_effect((55, 65, 80) if damage_ratio < 0.7 else (45, 50, 60))
+    pygame.draw.polygon(carrier_surface, hull_base, hull_points_bottom)
+
+    # 선체 외곽 하이라이트 (메탈릭 느낌)
+    hull_highlight = apply_hit_effect((85, 100, 120))
+    pygame.draw.polygon(carrier_surface, hull_highlight, hull_points_bottom, 2)
+
+    # === 3단계: 중앙 장갑 플레이트 (레이어드 구조) ===
+    # 중앙 메인 플레이트 (위쪽으로 갈수록 밝아지는 그라데이션)
+    for layer in range(5):
+        layer_y = 55 - layer * 6
+        layer_width = carrier_width - 24 - layer * 8
+        layer_x = 12 + layer * 4
+        layer_height = 22 - layer * 2
+
+        # 레이어별 색상 (위로 갈수록 밝게)
+        brightness = 70 + layer * 12
+        layer_color = apply_hit_effect((brightness, brightness + 10, brightness + 20)
+                                       if damage_ratio < 0.5 else (brightness - 10, brightness, brightness + 10))
+
+        # 레이어 그리기 (둥근 모서리 효과)
+        pygame.draw.rect(carrier_surface, layer_color,
+                        (layer_x, layer_y, layer_width, layer_height), border_radius=3)
+
+        # 레이어 상단 하이라이트
+        highlight_color = apply_hit_effect((brightness + 25, brightness + 35, brightness + 45))
+        pygame.draw.line(carrier_surface, highlight_color,
+                        (layer_x + 3, layer_y + 1), (layer_x + layer_width - 3, layer_y + 1), 1)
+
+    # === 4단계: 좌우 날개형 장갑판 (우주전함 느낌) ===
+    # 좌측 윙 아머
+    wing_left = [
+        (5, 55), (8, 48), (20, 42), (35, 40), (40, 45),
+        (35, 55), (20, 60), (8, 62)
+    ]
+    wing_color = apply_hit_effect((65, 75, 90))
+    pygame.draw.polygon(carrier_surface, wing_color, wing_left)
+    pygame.draw.polygon(carrier_surface, apply_hit_effect((95, 110, 130)), wing_left, 1)
+
+    # 우측 윙 아머
+    wing_right = [
+        (carrier_width - 5, 55), (carrier_width - 8, 48),
+        (carrier_width - 20, 42), (carrier_width - 35, 40), (carrier_width - 40, 45),
+        (carrier_width - 35, 55), (carrier_width - 20, 60), (carrier_width - 8, 62)
+    ]
+    pygame.draw.polygon(carrier_surface, wing_color, wing_right)
+    pygame.draw.polygon(carrier_surface, apply_hit_effect((95, 110, 130)), wing_right, 1)
+
+    # === 5단계: 상부 구조물 (브릿지 연결부) ===
+    # 상단 플레이트
+    top_plate = [
+        (40, 28), (60, 24), (cx - 20, 22), (cx + 20, 22),
+        (carrier_width - 60, 24), (carrier_width - 40, 28),
+        (carrier_width - 45, 35), (45, 35)
+    ]
+    top_color = apply_hit_effect((90, 105, 125) if damage_ratio < 0.3 else (75, 85, 100))
+    pygame.draw.polygon(carrier_surface, top_color, top_plate)
+    pygame.draw.polygon(carrier_surface, apply_hit_effect((120, 140, 160)), top_plate, 1)
+
+    # === 6단계: 세부 장식 - 에너지 라인 ===
+    # 중앙 에너지 채널 (파란색 글로우)
+    energy_pulse = abs(math.sin(time_now * 0.004))
+    energy_color = (int(80 + energy_pulse * 40), int(150 + energy_pulse * 60), int(220 + energy_pulse * 35))
+
+    # 중앙 수평 에너지 라인
+    pygame.draw.line(carrier_surface, energy_color, (45, 45), (carrier_width - 45, 45), 2)
+    pygame.draw.line(carrier_surface, (min(255, energy_color[0] + 50), min(255, energy_color[1] + 30), 255),
+                    (50, 45), (carrier_width - 50, 45), 1)
+
+    # 좌우 대각선 에너지 라인
+    for offset in range(3):
+        line_alpha = 180 - offset * 40
+        # 좌측
+        pygame.draw.line(carrier_surface, apply_hit_effect((60 + offset*10, 100 + offset*15, 160 + offset*20)),
+                        (15 + offset*3, 52 + offset*3), (40 + offset*5, 38 + offset*2), 2 - offset//2)
+        # 우측
+        pygame.draw.line(carrier_surface, apply_hit_effect((60 + offset*10, 100 + offset*15, 160 + offset*20)),
+                        (carrier_width - 15 - offset*3, 52 + offset*3),
+                        (carrier_width - 40 - offset*5, 38 + offset*2), 2 - offset//2)
+
+    # === 7단계: 장갑 리벳 및 볼트 (디테일) ===
+    rivet_positions = [
+        (25, 50), (50, 48), (75, 46), (100, 45), (125, 45),
+        (150, 46), (175, 48), (195, 50)
+    ]
+    for rx, ry in rivet_positions:
+        if rx < carrier_width - 10:
+            # 외곽 링
+            pygame.draw.circle(carrier_surface, apply_hit_effect((50, 55, 65)), (rx, ry), 4)
+            # 내부 볼트
+            pygame.draw.circle(carrier_surface, apply_hit_effect((80, 90, 105)), (rx, ry), 3)
+            # 하이라이트
+            pygame.draw.circle(carrier_surface, apply_hit_effect((110, 125, 145)), (rx - 1, ry - 1), 1)
+
+    # === 8단계: 측면 벤트/배기구 ===
+    # 좌측 벤트
+    for i in range(4):
+        vent_y = 52 + i * 6
+        pygame.draw.rect(carrier_surface, apply_hit_effect((35, 40, 50)), (6, vent_y, 8, 3))
+        # 벤트 내부 글로우 (체력에 따라)
+        if boss_current_health > boss_max_health * 0.3:
+            vent_glow = abs(math.sin(time_now * 0.003 + i * 0.5))
+            vent_color = (int(60 + vent_glow * 40), int(80 + vent_glow * 50), int(120 + vent_glow * 60))
+            pygame.draw.rect(carrier_surface, vent_color, (7, vent_y + 1, 6, 1))
+
+    # 우측 벤트
+    for i in range(4):
+        vent_y = 52 + i * 6
+        pygame.draw.rect(carrier_surface, apply_hit_effect((35, 40, 50)),
+                        (carrier_width - 14, vent_y, 8, 3))
+        if boss_current_health > boss_max_health * 0.3:
+            vent_glow = abs(math.sin(time_now * 0.003 + i * 0.5))
+            vent_color = (int(60 + vent_glow * 40), int(80 + vent_glow * 50), int(120 + vent_glow * 60))
+            pygame.draw.rect(carrier_surface, vent_color,
+                            (carrier_width - 13, vent_y + 1, 6, 1))
+
+    # === 9단계: 하부 글로우 효과 ===
+    # 하부 엔진 글로우 (은은한 청록색)
+    glow_pulse = abs(math.sin(time_now * 0.002))
+    for i in range(4):
+        glow_alpha = int(80 - i * 15 + glow_pulse * 30)
+        glow_y = 75 + i * 2
+        pygame.draw.line(carrier_surface, (int(50 + glow_pulse * 30), int(120 + glow_pulse * 40), int(180 + glow_pulse * 40)),
+                        (30, glow_y), (carrier_width - 30, glow_y), 3 - i)
+
+    # === 10단계: 표면 텍스처 (미세한 패턴) ===
+    # 미세한 장갑 패턴 라인
+    for i in range(5):
+        pattern_y = 35 + i * 8
+        pattern_alpha = 40 + i * 5
+        pattern_color = apply_hit_effect((85 + i*3, 95 + i*3, 110 + i*3))
+        pygame.draw.line(carrier_surface, pattern_color,
+                        (25 + i*5, pattern_y), (carrier_width - 25 - i*5, pattern_y), 1)
     # === 배틀크루저 특유의 고급 장갑판 시스템 ===
     # 반응형 장갑판 패널들 (체력에 따라 색상 변화)
     panel_base = (110, 125, 140) if boss_current_health > 10 else (90, 100, 115)
@@ -57591,6 +57729,7 @@ def draw_objects():
     global interceptors, interceptor_launch_time, interceptor_cooldown
     global interceptor_launching, interceptor_launch_queue, hangar_door_open, hangar_door_timer
     global player_missile_invulnerable_time  # 미사일 무적 시간
+    global round_wins  # 플레이어 득점 (레이저/인터셉터 해금 조건용)
     global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
     global frame_count  # 프레임 카운터 추가
     global player_missile_stunned_timer  # 미사일 스턴 타이머 추가
@@ -58032,8 +58171,8 @@ def draw_objects():
     #     elif BOSS.x < WIDTH // 2:
     #         tilt_angle_boss = 10
     # === 보스 회전 처리 ===
-    # 보스 패들 충돌 애니메이션 처리
-    if boss_hit_animation_active:
+    # 보스 패들 충돌 애니메이션 처리 (스테이지 6 = 네메시스는 기울어지는 애니메이션 비활성화)
+    if boss_hit_animation_active and current_stage != 6:
         # 스테이지별 기본 지속시간 계산
         if current_stage == 1:
             base_duration = 5
@@ -61715,24 +61854,27 @@ def draw_objects():
         global player_stunned, player_stun_end_time, laser_beam_duration, laser_rotating_mode, laser_rotation_direction, laser_cooldown
         global laser_rotation_range, laser_rotation_speed
         current_time = pygame.time.get_ticks()
-        # 체력이 60% 이하일 때만 레이저 작동
-        health_percent = (boss_current_health / boss_max_health) * 100
-        # 5~9초마다 레이저 충전 시작 (체력 60% 이하일 때만, 혼란 상태가 아닐 때만)
-        if health_percent <= 60 and not laser_charging and not laser_cannon_active and current_time - last_laser_time > laser_cooldown and boss_confused_timer == 0:
+        # 플레이어 득점 기반 해금 시스템 (체력 기반에서 변경)
+        # 2점 획득 시: 고정 방향 레이저 해금
+        # 3점 획득 시: 등대 회전 모드 해금
+        laser_unlocked = round_wins >= 2  # 2점 이상이면 레이저 해금
+        rotating_unlocked = round_wins >= 3  # 3점 이상이면 회전 모드 해금
+        # 5~9초마다 레이저 충전 시작 (2점 이상 획득 시만, 혼란 상태가 아닐 때만)
+        if laser_unlocked and not laser_charging and not laser_cannon_active and current_time - last_laser_time > laser_cooldown and boss_confused_timer == 0:
             laser_charging = True
             laser_charge_start = current_time
             # 레이저 충전 사운드 재생
             play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
-            # 체력에 따른 레이저 패턴 결정
-            if health_percent <= 40:
-                # 40% 이하: 등대처럼 회전하는 레이저 (모든 요소 랜덤)
+            # 점수에 따른 레이저 패턴 결정
+            if rotating_unlocked:
+                # 3점 이상: 등대처럼 회전하는 레이저 (모든 요소 랜덤)
                 laser_cannon_angle = random.choice([120, QUARTER_ROTATION, 60])  # 시작 방향
                 laser_rotating_mode = True  # 회전 모드 활성화
                 laser_rotation_direction = random.choice([1, -1])  # 50% 확률로 시계방향/반시계방향
                 laser_rotation_range = random.randint(TILE_SIZE, 90)  # 회전 범위 TILE_SIZE~90도 랜덤
                 laser_rotation_speed = random.uniform(0.7, 1.5)  # 회전 속도 0.7~1.5배 랜덤
             else:
-                # 60% ~ 41%: 기존 고정 방향 레이저
+                # 2점: 고정 방향 레이저
                 laser_cannon_angle = random.choice([120, QUARTER_ROTATION, 60])  # 4시(120도), 6시(90도), 8시(60도) 방향
                 laser_rotating_mode = False  # 고정 모드
         # 충전 완료 후 발사
@@ -61740,11 +61882,11 @@ def draw_objects():
             laser_charging = False
             laser_cannon_active = True
             last_laser_time = current_time
-            # 체력에 따른 레이저 지속시간 설정
-            if health_percent <= 40:
-                laser_beam_duration = 2500  # 40% 이하: 2.5초
+            # 점수에 따른 레이저 지속시간 설정
+            if rotating_unlocked:
+                laser_beam_duration = 2500  # 3점 이상 (회전 모드): 2.5초
             else:
-                laser_beam_duration = 1500  # 기본: 1.5초
+                laser_beam_duration = 1500  # 2점 (고정 모드): 1.5초
             # 레이저 빔 사운드 재생
             play_sound_with_volume(SOUND_STAGE6_BEAM)
         # 레이저 빔 그리기 및 충돌 체크
@@ -62336,9 +62478,10 @@ def draw_objects():
     # === 인터셉터 시스템 (스타크래프트 캐리어 스타일) ===
     if current_stage == 6:
         current_time = pygame.time.get_ticks()
-        health_percent = (boss_current_health / boss_max_health) * 100
-        # 체력이 30% 이하일 때만 작동
-        if health_percent <= 30:
+        # 플레이어 4점 획득 시 인터셉터 해금 (체력 기반에서 변경)
+        interceptor_unlocked = round_wins >= 4
+        # 4점 이상 획득 시에만 작동
+        if interceptor_unlocked:
             # 인터셉터 출격 체크 (혼란 상태가 아닐 때만)
             if not interceptor_launching and current_time - interceptor_launch_time > interceptor_cooldown and boss_confused_timer == 0:
                 # 출격 준비
@@ -80204,9 +80347,8 @@ def draw_laser_cannon_gauge():
     """ 레이저 캐논 쿨타임 게이지바 (야마토포 스타일)"""
     if current_stage != 6:
         return
-    # 체력이 60% 이하일 때만 표시
-    health_percent = (boss_current_health / boss_max_health) * 100
-    if health_percent > 60:
+    # 플레이어 2점 이상 획득 시에만 표시 (체력 기반에서 변경)
+    if round_wins < 2:
         return
     current_time = pygame.time.get_ticks()
     # 게이지바 크기와 위치 (오른쪽 상단)
@@ -86852,7 +86994,7 @@ def handle_ball():
             globals()['nemesis_barrier_disabled_time'] = pygame.time.get_ticks()
             globals()['nemesis_barrier_warning_shown'] = False
             play_sound_with_volume(SOUND_BARRIER)  # 방어막 해제 사운드
-            print(f"🛡️ [네메시스] 방어막 해제! (2초간 공이 통과 가능)")
+            print(f"🛡️ [네메시스] 방어막 해제! (3초간 공이 통과 가능)")
 
         # 스테이지 3~6, 8 공통: 대쉬/필살기 겸용 게이지 충전 (중간값 60 사용)
         # 스테이지 7은 초인테트리서 전용 게이지 체계가 별도로 동작하므로 충전 없음
@@ -87419,7 +87561,9 @@ def handle_ball():
         elif current_stage == 4:
             base_duration = 6  # 스테이지 4: 기본 회복
         elif current_stage == 5:
-            base_duration = 9  # 스테이지 5: 가장 느린 회복
+            base_duration = 9  # 스테이지 5 (홍련): 가장 느린 회복
+        elif current_stage == 6:
+            base_duration = 7  # 스테이지 6 (네메시스): 중간 회복 (기울어짐 애니메이션은 별도 비활성화)
         else:
             base_duration = BOSS_HIT_ANIMATION_DURATION
         boss_hit_animation_timer = base_duration
@@ -87439,7 +87583,14 @@ def handle_ball():
             hongryun_hit_count = 0
         # 보스 충돌 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
         if not ball_in_kuromi:
-            if current_stage == 2 and speed_defense_active:
+            if current_stage == 6:
+                # 스테이지 6 (네메시스) 전용 피격 사운드 및 이펙트
+                globals()['stage6_boss_hit_timer'] = HALF_SECOND_FRAMES  # 0.5초간 깜빡임
+                globals()['stage6_boss_hit_flash'] = True
+                if SOUND_STAGE6_BOSS_HIT:
+                    SOUND_STAGE6_BOSS_HIT.play()
+                print(f"🛡️ [네메시스] 보스 피격 이펙트 발동!")
+            elif current_stage == 2 and speed_defense_active:
                 play_sound_with_volume(SOUND_DEFENSE_HIT)
             else:
                 play_paddle_sound()
@@ -87925,12 +88076,12 @@ def _boss_try_emergency_dash() -> bool:
     else:
         boss_dash_cooldown_until_ms = now_ms + random.randint(min_ms, max_ms)
 
-    if not QUIET_DEBUG:
-        cooldown_sec = (boss_dash_cooldown_until_ms - now_ms) / 1000.0 if boss_dash_cooldown_until_ms > now_ms else 0
-        print(
-            f"[BossDash] Stage {current_stage} ({ai_mode}) dash → target={boss_dash_target_x:.1f} "
-            f"(dist={dash_distance:.1f}, gauge={boss_special_gauge}, next_cooldown={cooldown_sec:.1f}s)"
-        )
+    # 항상 디버그 출력 (쿨타임 테스트용)
+    cooldown_sec = (boss_dash_cooldown_until_ms - now_ms) / 1000.0 if boss_dash_cooldown_until_ms > now_ms else 0
+    print(
+        f"[BossDash] Stage {current_stage} ({ai_mode}) dash → "
+        f"cooldown={cooldown_sec:.1f}s (base:{min_s:.1f}~{max_s:.1f}s, mult:{cooldown_mult})"
+    )
     return True
 
 
