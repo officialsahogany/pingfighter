@@ -8716,6 +8716,7 @@ SOUND_OPTIMUS_CHARGE = sound_effects.get('OPTIMUS_CHARGE')
 SOUND_BAZOOKA_GOING = sound_effects['BAZOOKA_GOING']
 SOUND_THROWING_BANANA = sound_effects['THROWING_BANANA']
 SOUND_STEP_BANANA = sound_effects['STEP_BANANA']
+SOUND_STAGE5_WARNING = sound_effects['STAGE5_WARNING']
 
 # 바나나 사운드를 pillar_jungle 모듈에 설정
 set_throwing_banana_sound(SOUND_THROWING_BANANA)
@@ -87003,13 +87004,13 @@ def handle_ball():
             boss_special_gauge = min(boss_special_gauge + 70, 500)
             print(f"스테이지2 악어장군 게이지 충전: +70 (현재: {boss_special_gauge}/500)")
 
-        # 스테이지 6 (네메시스) 방어막 해제 로직 - 보스 패들에 공이 닿으면 2초간 방어막 해제
+        # 스테이지 6 (네메시스) 방어막 해제 로직 - 보스 패들에 공이 닿으면 2.5초간 방어막 해제
         if current_stage == 6:
             globals()['nemesis_barrier_active'] = False
             globals()['nemesis_barrier_disabled_time'] = pygame.time.get_ticks()
             globals()['nemesis_barrier_warning_shown'] = False
-            play_sound_with_volume(SOUND_BARRIER)  # 방어막 해제 사운드
-            print(f"🛡️ [네메시스] 방어막 해제! (3초간 공이 통과 가능)")
+            play_sound_with_volume(SOUND_STAGE5_WARNING)  # 스테이지5 방어막 해제 경고 사운드
+            print(f"🛡️ [네메시스] 방어막 해제! (2.5초간 공이 통과 가능)")
 
         # 스테이지 3~6, 8 공통: 대쉬/필살기 겸용 게이지 충전 (중간값 60 사용)
         # 스테이지 7은 초인테트리서 전용 게이지 체계가 별도로 동작하므로 충전 없음

@@ -89,6 +89,7 @@ SOUND_PATHS = {
     "DASH_CHARGE": "sounds/dashcharge.wav",
     "THROWING_BANANA": "sounds/throwingbanana.wav",
     "STEP_BANANA": "sounds/bananastep.wav",
+    "STAGE5_WARNING": "sounds/stage5warning.wav",
 }
 
 
