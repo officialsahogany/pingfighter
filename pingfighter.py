@@ -26207,8 +26207,8 @@ def draw_intensity_effects(surface: pygame.Surface, ball_x: int, ball_y: int, ba
                     (ball_x - glow_size, ball_y - glow_size),
                     special_flags=pygame.BLEND_ADD)
 
-    # === 4. 고 인텐시티 추가 효과 (레벨 3 이상) ===
-    if level >= 3:
+    # === 4. 고 인텐시티 추가 효과 (레벨 4 이상 - 빨간색부터) ===
+    if level >= 4:
         current_time = pygame.time.get_ticks()
 
         # 회전하는 화염 링
