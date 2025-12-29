@@ -12026,12 +12026,14 @@ water_cannon_start_y = 0  # 물대포 시작 Y
 water_cannon_target_x = 0  # 물대포 목표 X
 water_cannon_target_y = 0  # 물대포 목표 Y
 water_cannon_progress = 0.0  # 물대포 이동 진행도 (0~1)
-water_cannon_speed = 0.025  # 물대포 이동 속도 (약 40프레임 = 0.67초 소요)
+water_cannon_speed = 0.05  # 물대포 이동 속도 (0.025 → 0.05, 100% 증가, 약 20프레임 = 0.33초 소요)
 water_cannon_last_used_time = -9999  # 마지막 물대포 발동 시간
 WATER_CANNON_COOLDOWN_MIN = 10000  # 물대포 최소 쿨타임 (10초)
 WATER_CANNON_COOLDOWN_MAX = 20000  # 물대포 최대 쿨타임 (20초)
 water_cannon_current_cooldown = 10000  # 현재 쿨타임 (10~20초 랜덤)
 water_cannon_trail = []  # 물대포 궤적 효과
+water_cannon_boss_freeze_timer = 0  # 물대포 발사 시 보스 정지 타이머 (0.7초 = 42프레임)
+WATER_CANNON_BOSS_FREEZE_FRAMES = 42  # 0.7초 (60fps 기준)
 # 물대포 파편 시스템 (플레이어 넉백용)
 water_cannon_fragments = []  # 물대포로 파괴된 바위 파편들
 horizontal_bounce_count = 0
@@ -35819,10 +35821,13 @@ def activate_quake(animated_bg=None):
         print(f"정글지진 발동 방지 - 서브 유예 기간 중 (남은 시간: {serve_grace_period/60:.1f}초)")
         return False
 
-    # Stage 2 정글지진 발동 시 게이지 200 소모
+    # Stage 2 정글지진 발동 시 게이지 150 소모 (최소 200 이상 필요)
     if current_stage == 2:
-        boss_special_gauge = max(0, boss_special_gauge - 200)
-        print(f"정글지진 발동! 게이지 200 소모 (현재: {boss_special_gauge}/500)")
+        if boss_special_gauge < 200:
+            print(f"정글지진 발동 실패 - 게이지 부족 (현재: {boss_special_gauge}/200)")
+            return False
+        boss_special_gauge = max(0, boss_special_gauge - 150)
+        print(f"정글지진 발동! 게이지 150 소모 (현재: {boss_special_gauge}/500)")
 
     print(f" activate_quake ! quake_duration={quake_duration}, animated_bg={animated_bg is not None}")
     quake_active = True
@@ -35914,18 +35919,26 @@ def activate_water_cannon():
     water_cannon_last_used_time = pygame.time.get_ticks()
     water_cannon_current_cooldown = random.randint(WATER_CANNON_COOLDOWN_MIN, WATER_CANNON_COOLDOWN_MAX)
 
+    # 보스 정지 타이머 설정 (0.7초)
+    global water_cannon_boss_freeze_timer
+    water_cannon_boss_freeze_timer = WATER_CANNON_BOSS_FREEZE_FRAMES
+
     # 말풍선 표시
     show_speech("물대포!", duration=60)
 
-    print(f"💦 물대포 발사! 목표 바위: ({water_cannon_target_x}, {water_cannon_target_y})")
+    print(f"💦 물대포 발사! 목표 바위: ({water_cannon_target_x}, {water_cannon_target_y}), 보스 0.7초 정지")
     return True
 
 
 def update_water_cannon():
-    """물대포 업데이트 - 이동, 충돌, 파편 생성"""
+    """물대포 업데이트 - 이동, 충돌, 파편 생성, 보스 정지 타이머"""
     global water_cannon_active, water_cannon_x, water_cannon_y, water_cannon_progress
     global water_cannon_target_rock, water_cannon_trail, water_cannon_fragments
-    global player_knockback_vel
+    global player_knockback_vel, water_cannon_boss_freeze_timer
+
+    # 보스 정지 타이머 감소 (물대포 발사 중이든 아니든)
+    if water_cannon_boss_freeze_timer > 0:
+        water_cannon_boss_freeze_timer -= 1
 
     if not water_cannon_active:
         return
@@ -35953,13 +35966,25 @@ def update_water_cannon():
     # 목표 도달 시 바위 파괴
     if water_cannon_progress >= 1.0:
         if water_cannon_target_rock and animated_bg_stage2:
+            # 바위 크기에 따른 효과음 재생
+            rock_size = water_cannon_target_rock.get('size', 40)
+            try:
+                if rock_size <= 45:
+                    play_sound_with_volume(SOUND_STONEBREAK_SMALL)
+                elif rock_size <= 65:
+                    play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
+                else:
+                    play_sound_with_volume(SOUND_STONEBREAK_LARGE)
+            except Exception:
+                pass
+
             # 바위 파괴 및 파편 생성
             _create_water_cannon_fragments(water_cannon_target_rock)
 
             # 바위 리스트에서 제거
             try:
                 animated_bg_stage2.crisis_rocks.remove(water_cannon_target_rock)
-                print(f"💥 물대포로 바위 파괴! 파편 생성됨")
+                print(f"💥 물대포로 바위 파괴! 파편 생성됨 (크기: {rock_size})")
             except ValueError:
                 pass
 
@@ -86727,14 +86752,12 @@ def handle_ball():
             # ball_rally_count > 0이면 플레이어가 최소 한 번 공을 쳤다는 의미
             stage7_ball_penetrates_tetromino = (ball_rally_count == 0 and (last_hit_by == "boss" or last_hit_by == ""))
 
-            # DEBUG: 테트로미노 충돌 디버깅
-            if current_stage == 7:
-                mino_count = len(stage7_tetrominoes) if 'stage7_tetrominoes' in globals() else 0
-                mino_states = []
-                if mino_count > 0:
-                    for m in stage7_tetrominoes:
-                        mino_states.append(m.get("state", "unknown"))
-                print(f"[DEBUG TETRO] stage={current_stage}, rally={ball_rally_count}, last_hit={last_hit_by}, penetrate={stage7_ball_penetrates_tetromino}, minos={mino_count}, states={mino_states}")
+            # DEBUG: 테트로미노 충돌 디버깅 (falling/installed 있을 때만)
+            if current_stage == 7 and 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+                falling_count = sum(1 for m in stage7_tetrominoes if m.get("state") == "falling")
+                installed_count = sum(1 for m in stage7_tetrominoes if m.get("state") == "installed")
+                if falling_count > 0 or installed_count > 0:
+                    print(f"[DEBUG TETRO] rally={ball_rally_count}, last_hit={last_hit_by}, penetrate={stage7_ball_penetrates_tetromino}, falling={falling_count}, installed={installed_count}")
 
             if current_stage == 7 and 'stage7_tetrominoes' in globals() and stage7_tetrominoes and not stage7_ball_penetrates_tetromino:
                 print(f"[DEBUG TETRO] 충돌검사 진입! minos={len(stage7_tetrominoes)}")
@@ -105414,10 +105437,10 @@ def main_multiplayer():
     # 사운드 함수들
     play_sound_funcs = {
         "click": play_button_click_sound,
-        "hit": play_hit_sound,
-        "wall": play_wall_hit_sound,
-        "score": play_score_sound,
-        "short_shot": play_short_shot_sound,
+        "hit": play_paddle_sound,
+        "wall": play_wall_sound,
+        "score": play_notification_sound,
+        "short_shot": play_dash_sound,
     }
 
     # 새 멀티플레이어 모듈 호출
@@ -105566,14 +105589,14 @@ def _legacy_main_multiplayer():
                 ball_x = ball_radius
                 ball_speed_x = abs(ball_speed_x)
                 try:
-                    play_wall_hit_sound()
+                    play_wall_sound()
                 except Exception:
                     pass
             elif ball_x + ball_radius >= WIDTH:
                 ball_x = WIDTH - ball_radius
                 ball_speed_x = -abs(ball_speed_x)
                 try:
-                    play_wall_hit_sound()
+                    play_wall_sound()
                 except Exception:
                     pass
 
@@ -105595,7 +105618,7 @@ def _legacy_main_multiplayer():
                     ball_speed_x *= factor
                     ball_speed_y *= factor
                 try:
-                    play_hit_sound()
+                    play_paddle_sound()
                 except Exception:
                     pass
 
@@ -105617,7 +105640,7 @@ def _legacy_main_multiplayer():
                     ball_speed_x *= factor
                     ball_speed_y *= factor
                 try:
-                    play_hit_sound()
+                    play_paddle_sound()
                 except Exception:
                     pass
 
@@ -105628,7 +105651,7 @@ def _legacy_main_multiplayer():
                 p1_score += 1
                 scored = True
                 try:
-                    play_score_sound()
+                    play_notification_sound()
                 except Exception:
                     pass
             elif ball_y + ball_radius >= HEIGHT:
@@ -105636,7 +105659,7 @@ def _legacy_main_multiplayer():
                 p2_score += 1
                 scored = True
                 try:
-                    play_score_sound()
+                    play_notification_sound()
                 except Exception:
                     pass
 
