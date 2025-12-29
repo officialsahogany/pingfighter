@@ -19,6 +19,22 @@ import time
 os.environ.setdefault("IMAGEIO_NO_IMPORTLIB_METADATA", "1")
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
+# Windows DPI 인식 설정 (pygame import 전에 설정 필요!)
+# DPI 스케일링으로 인해 전체화면 해상도가 잘못 감지되는 문제 해결
+if sys.platform == 'win32':
+    try:
+        import ctypes
+        # Per-Monitor DPI Aware 설정 (Windows 8.1+)
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
+            print("[Windows] DPI Awareness: Per-Monitor DPI Aware", flush=True)
+        except Exception:
+            # Windows 8 이하: System DPI Aware
+            ctypes.windll.user32.SetProcessDPIAware()
+            print("[Windows] DPI Awareness: System DPI Aware", flush=True)
+    except Exception as e:
+        print(f"[Windows] DPI 설정 실패: {e}", flush=True)
+
 # macOS Retina 디스플레이 대응 (pygame import 전에 설정 필요!)
 if sys.platform == 'darwin':
     # SDL이 Retina 스케일링을 하지 않도록 설정
@@ -146,8 +162,50 @@ def _restore_windows_resolution():
     except Exception as e:
         print(f"해상도 복원 오류: {e}")
 
+def _get_matching_resolution(original_width, original_height):
+    """모니터 비율에 맞는 낮은 해상도 찾기 (레터박스 방지)"""
+    original_ratio = original_width / original_height
+
+    # 비율별 해상도 옵션 (낮은 순서대로)
+    resolution_options = [
+        # 16:10 비율
+        (1280, 800),
+        (1440, 900),
+        (1680, 1050),
+        (1920, 1200),
+        # 16:9 비율
+        (1280, 720),
+        (1366, 768),
+        (1600, 900),
+        (1920, 1080),
+        # 4:3 비율
+        (1024, 768),
+        (1152, 864),
+        (1280, 960),
+        (1400, 1050),
+    ]
+
+    # 원본 비율과 가장 가까운 해상도 찾기
+    best_match = None
+    best_ratio_diff = float('inf')
+
+    for w, h in resolution_options:
+        # 원본보다 작은 해상도만 고려
+        if w >= original_width or h >= original_height:
+            continue
+
+        ratio = w / h
+        ratio_diff = abs(ratio - original_ratio)
+
+        # 비율 차이가 1% 이내면 매칭으로 간주
+        if ratio_diff < 0.01 and ratio_diff < best_ratio_diff:
+            best_ratio_diff = ratio_diff
+            best_match = (w, h)
+
+    return best_match
+
 def _setup_game_resolution():
-    """게임 시작 시 해상도를 1152x864로 변경하고, 종료 시 복원되도록 설정합니다"""
+    """게임 시작 시 모니터 비율에 맞는 낮은 해상도로 변경하고, 종료 시 복원되도록 설정합니다"""
     global _original_resolution
 
     if sys.platform != 'win32':
@@ -158,7 +216,16 @@ def _setup_game_resolution():
     if _original_resolution is None:
         return
 
-    target_width, target_height = 1152, 864
+    # 모니터 비율에 맞는 해상도 찾기
+    target_res = _get_matching_resolution(_original_resolution[0], _original_resolution[1])
+
+    if target_res is None:
+        # 매칭되는 해상도 없으면 기본값 사용 (레터박스 발생 가능)
+        target_width, target_height = 1152, 864
+        print(f"[해상도] 매칭 해상도 없음, 기본값 사용: {target_width}x{target_height}")
+    else:
+        target_width, target_height = target_res
+        print(f"[해상도] 모니터 비율 매칭: {_original_resolution[0]}x{_original_resolution[1]} -> {target_width}x{target_height}")
 
     # 이미 원하는 해상도면 변경하지 않음
     if _original_resolution == (target_width, target_height):
@@ -170,16 +237,145 @@ def _setup_game_resolution():
         # 프로그램 종료 시 해상도 복원 등록
         atexit.register(_restore_windows_resolution)
 
-# 게임 시작 시 해상도 설정 (Windows 전용) - 전체화면 모드 사용으로 비활성화
-# _setup_game_resolution()  # 전체화면 모드에서는 불필요
 # ============================================================
-# 1.2 Fullscreen Mode Setup
+# 1.2 Display Mode Selection (게임 시작 전 화면 모드 선택)
 # ============================================================
-FULLSCREEN_MODE = True
+FULLSCREEN_MODE = True  # 기본값: 전체화면
+WINDOWED_MODE_WITH_PILLAR = False  # 창모드 + 필러 표시
 FULLSCREEN_WIDTH = 0
 FULLSCREEN_HEIGHT = 0
 GAME_OFFSET_X = 0
 GAME_OFFSET_Y = 0
+
+def _show_display_mode_dialog():
+    """게임 시작 전 화면 모드 선택 대화상자 표시"""
+    global FULLSCREEN_MODE, WINDOWED_MODE_WITH_PILLAR
+
+    try:
+        import tkinter as tk
+        from tkinter import ttk
+
+        selected_mode = [None]  # 결과 저장용
+
+        root = tk.Tk()
+        root.title("PingFighter - 화면 모드 선택")
+
+        # 창 크기 및 중앙 배치
+        window_width = 400
+        window_height = 280
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        root.resizable(False, False)
+
+        # 스타일 설정
+        style = ttk.Style()
+        style.configure('Title.TLabel', font=('맑은 고딕', 16, 'bold'))
+        style.configure('Desc.TLabel', font=('맑은 고딕', 9))
+        style.configure('Mode.TRadiobutton', font=('맑은 고딕', 11))
+        style.configure('Start.TButton', font=('맑은 고딕', 12, 'bold'))
+
+        # 배경색
+        root.configure(bg='#1a1a2e')
+
+        # 제목
+        title_frame = tk.Frame(root, bg='#1a1a2e')
+        title_frame.pack(pady=15)
+        title_label = tk.Label(title_frame, text="🏓 PingFighter",
+                               font=('맑은 고딕', 18, 'bold'),
+                               fg='#ffd700', bg='#1a1a2e')
+        title_label.pack()
+        subtitle_label = tk.Label(title_frame, text="화면 모드를 선택하세요",
+                                  font=('맑은 고딕', 10),
+                                  fg='#aaaaaa', bg='#1a1a2e')
+        subtitle_label.pack()
+
+        # 모드 선택
+        mode_var = tk.StringVar(value="fullscreen")
+
+        mode_frame = tk.Frame(root, bg='#1a1a2e')
+        mode_frame.pack(pady=10, padx=20, fill='x')
+
+        # 전체화면 옵션
+        fullscreen_frame = tk.Frame(mode_frame, bg='#252540', relief='ridge', bd=1)
+        fullscreen_frame.pack(fill='x', pady=5)
+        fullscreen_radio = tk.Radiobutton(fullscreen_frame, text="🖥️ 전체화면 모드",
+                                          variable=mode_var, value="fullscreen",
+                                          font=('맑은 고딕', 11, 'bold'),
+                                          fg='#ffffff', bg='#252540',
+                                          selectcolor='#3a3a5c', activebackground='#252540',
+                                          activeforeground='#ffffff')
+        fullscreen_radio.pack(anchor='w', padx=10, pady=5)
+        fullscreen_desc = tk.Label(fullscreen_frame,
+                                   text="  해상도 변경 + 전체화면 (현재 설정과 동일)",
+                                   font=('맑은 고딕', 9), fg='#888888', bg='#252540')
+        fullscreen_desc.pack(anchor='w', padx=10, pady=(0, 8))
+
+        # 창모드 옵션
+        windowed_frame = tk.Frame(mode_frame, bg='#252540', relief='ridge', bd=1)
+        windowed_frame.pack(fill='x', pady=5)
+        windowed_radio = tk.Radiobutton(windowed_frame, text="🪟 창모드 (필러 포함)",
+                                        variable=mode_var, value="windowed",
+                                        font=('맑은 고딕', 11, 'bold'),
+                                        fg='#ffffff', bg='#252540',
+                                        selectcolor='#3a3a5c', activebackground='#252540',
+                                        activeforeground='#ffffff')
+        windowed_radio.pack(anchor='w', padx=10, pady=5)
+        windowed_desc = tk.Label(windowed_frame,
+                                 text="  창모드로 실행 (필러 배경 포함, 해상도 변경 없음)",
+                                 font=('맑은 고딕', 9), fg='#888888', bg='#252540')
+        windowed_desc.pack(anchor='w', padx=10, pady=(0, 8))
+
+        def on_start():
+            selected_mode[0] = mode_var.get()
+            root.destroy()
+
+        def on_close():
+            selected_mode[0] = "fullscreen"  # 기본값
+            root.destroy()
+
+        root.protocol("WM_DELETE_WINDOW", on_close)
+
+        # 시작 버튼
+        button_frame = tk.Frame(root, bg='#1a1a2e')
+        button_frame.pack(pady=15)
+        start_button = tk.Button(button_frame, text="🎮 게임 시작",
+                                 command=on_start,
+                                 font=('맑은 고딕', 12, 'bold'),
+                                 fg='#1a1a2e', bg='#ffd700',
+                                 activebackground='#ffed4a',
+                                 width=15, height=1,
+                                 cursor='hand2')
+        start_button.pack()
+
+        # Enter 키로 시작
+        root.bind('<Return>', lambda e: on_start())
+
+        root.mainloop()
+
+        # 선택 결과 적용
+        if selected_mode[0] == "windowed":
+            FULLSCREEN_MODE = False
+            WINDOWED_MODE_WITH_PILLAR = True
+            print("[화면 모드] 창모드 (필러 포함) 선택됨")
+        else:
+            FULLSCREEN_MODE = True
+            WINDOWED_MODE_WITH_PILLAR = False
+            print("[화면 모드] 전체화면 모드 선택됨")
+
+    except Exception as e:
+        print(f"[화면 모드] 대화상자 표시 실패, 전체화면 모드로 진행: {e}")
+        FULLSCREEN_MODE = True
+        WINDOWED_MODE_WITH_PILLAR = False
+
+# 화면 모드 선택 대화상자 표시 (pygame 초기화 전에 실행)
+_show_display_mode_dialog()
+
+# 게임 시작 시 해상도 설정 (Windows 전용, 전체화면 모드일 때만)
+if FULLSCREEN_MODE:
+    _setup_game_resolution()  # 고해상도 모니터에서 게임 화면이 작게 보이는 문제 해결
 
 def _setup_fullscreen_mode():
     global FULLSCREEN_MODE, FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
@@ -694,12 +890,18 @@ def _apply_global_hotkeys(events):
 
             # F12 스크린샷 기능 (필러 포함 전체화면 캡처)
             if ev.type == pygame.KEYDOWN and key == pygame.K_F12:
+                print("[Screenshot] F12 키 감지됨")
                 try:
-                    # 스크린샷 저장 폴더 (게임 폴더 내 screenshots)
-                    screenshot_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screenshots")
-                    if hasattr(sys, '_MEIPASS'):
-                        # PyInstaller 빌드 시 사용자 문서 폴더에 저장
-                        screenshot_dir = os.path.join(os.path.expanduser("~"), "Documents", "PingFighter", "screenshots")
+                    # 스크린샷 저장 폴더 (EXE 파일 위치 또는 게임 폴더 내 screenshots)
+                    if getattr(sys, 'frozen', False):
+                        # PyInstaller 빌드 시 EXE 파일이 있는 디렉토리에 저장
+                        exe_dir = os.path.dirname(sys.executable)
+                        screenshot_dir = os.path.join(exe_dir, "screenshots")
+                    else:
+                        # 개발 환경에서는 게임 폴더에 저장
+                        screenshot_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screenshots")
+
+                    print(f"[Screenshot] 저장 경로: {screenshot_dir}")
                     os.makedirs(screenshot_dir, exist_ok=True)
 
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -714,8 +916,12 @@ def _apply_global_hotkeys(events):
                     if screen_surface:
                         pygame.image.save(screen_surface, filename)
                         print(f"[Screenshot] 저장됨: {filename}")
+                    else:
+                        print("[Screenshot] screen_surface가 None입니다")
                 except Exception as e:
+                    import traceback
                     print(f"[Screenshot] 저장 실패: {e}")
+                    traceback.print_exc()
                 continue
 
             if ev.type == pygame.KEYDOWN and is_b_toggle:
@@ -1768,16 +1974,16 @@ import platform
 _current_platform = platform.system()  # 'Windows', 'Darwin' (macOS), 'Linux'
 print(f"[플랫폼] 운영체제: {_current_platform}", flush=True)
 
+# 전역 변수 선언
+REAL_SCREEN = None
+pillar_renderer = None
+
 if FULLSCREEN_MODE:
     # pygame으로 모니터 정보 가져오기
     display_info = pygame.display.Info()
     FULLSCREEN_WIDTH = display_info.current_w
     FULLSCREEN_HEIGHT = display_info.current_h
     print(f"[전체화면] pygame 감지 해상도: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
-
-# 전역 변수 선언
-REAL_SCREEN = None
-pillar_renderer = None
 
 if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     # 플랫폼별 전체화면 플래그 설정
@@ -1800,36 +2006,12 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     if _current_platform == 'Darwin' and (actual_width != FULLSCREEN_WIDTH or actual_height != FULLSCREEN_HEIGHT):
         print(f"[macOS] Retina 스케일링 감지됨", flush=True)
 
-    # 실제 화면 크기 기준으로 스케일 계산
+    # 실제 화면 크기 기준으로 오프셋 재계산
     FULLSCREEN_WIDTH = actual_width
     FULLSCREEN_HEIGHT = actual_height
-
-    # ============================================================
-    # 고해상도 디스플레이 스케일링 (2560x1440, 3264x1836 등)
-    # 화면 높이를 기준으로 게임 화면을 스케일링하여 표시
-    # ============================================================
-    # 최대 스케일: 화면 높이의 95%를 게임 영역으로 사용 (상하 여백 확보)
-    _max_game_height = int(FULLSCREEN_HEIGHT * 0.95)
-    # 높이 기준 스케일 계산
-    _scale_by_height = _max_game_height / HEIGHT
-    # 너비 기준 스케일 계산 (화면 너비의 80%까지만 사용 - 필러 영역 확보)
-    _max_game_width = int(FULLSCREEN_WIDTH * 0.6)  # 양쪽 필러 20%씩 확보
-    _scale_by_width = _max_game_width / WIDTH
-    # 두 스케일 중 작은 값 선택 (화면 밖으로 나가지 않도록)
-    GAME_SCALE = min(_scale_by_height, _scale_by_width)
-    # 최소 스케일 1.0 (원본보다 작아지지 않도록)
-    GAME_SCALE = max(1.0, GAME_SCALE)
-
-    # 스케일된 게임 화면 크기
-    SCALED_WIDTH = int(WIDTH * GAME_SCALE)
-    SCALED_HEIGHT = int(HEIGHT * GAME_SCALE)
-
-    # 중앙 정렬 오프셋 (스케일된 크기 기준)
-    GAME_OFFSET_X = (FULLSCREEN_WIDTH - SCALED_WIDTH) // 2
-    GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - SCALED_HEIGHT) // 2
-
-    print(f"[전체화면] 게임영역: {WIDTH}x{HEIGHT}, 스케일: {GAME_SCALE:.2f}x", flush=True)
-    print(f"[전체화면] 스케일된 크기: {SCALED_WIDTH}x{SCALED_HEIGHT}, 오프셋: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
+    GAME_OFFSET_X = (FULLSCREEN_WIDTH - WIDTH) // 2
+    GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - HEIGHT) // 2
+    print(f"[전체화면] 게임영역: {WIDTH}x{HEIGHT}, 오프셋: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
 
     # 게임 렌더링용 Surface (기존 코드와 호환성 유지)
     # macOS: 알파 블렌딩이 제대로 작동하려면 convert_alpha() 사용
@@ -1837,16 +2019,76 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
     print(f"[{_current_platform}] SCREEN Surface에 convert_alpha() 적용", flush=True)
 
-    # 필러 배경 렌더러 초기화 (실제 화면 크기와 스케일된 게임 크기 사용)
+    # 필러 배경 렌더러 초기화 (실제 화면 크기 사용)
     from pillar_background import init_pillar_background, get_pillar_renderer
-    pillar_renderer = init_pillar_background(FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT, SCALED_WIDTH, SCALED_HEIGHT)
+    pillar_renderer = init_pillar_background(FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT, WIDTH, HEIGHT)
 
     # display_manager에 전체화면 모드 설정 전달
     from display_manager import set_fullscreen_mode
     set_fullscreen_mode(True, SCREEN)
     print(f"[전체화면] display_manager에 전체화면 모드 설정 완료 (SCREEN Surface 전달)", flush=True)
+
+elif WINDOWED_MODE_WITH_PILLAR:
+    # 창모드 + 필러 포함 모드
+    # 모니터 해상도의 80%를 창 크기로 사용 (16:9 비율 유지)
+    display_info = pygame.display.Info()
+    monitor_width = display_info.current_w
+    monitor_height = display_info.current_h
+
+    # 창 크기 계산 (모니터의 85% 크기, 최소 게임 영역 + 필러 여백 확보)
+    window_scale = 0.85
+    max_window_width = int(monitor_width * window_scale)
+    max_window_height = int(monitor_height * window_scale)
+
+    # 게임 영역 비율 (WIDTH:HEIGHT) 기준으로 필러 포함 창 크기 계산
+    # 필러가 양쪽에 표시되도록 가로 여백 추가 (좌우 각 150px 이상)
+    min_pillar_width = 150  # 필러 최소 너비
+    min_window_width = WIDTH + (min_pillar_width * 2)  # 게임 영역 + 양쪽 필러
+
+    # 세로 기준으로 창 크기 결정 (게임 영역이 잘리지 않도록)
+    scale_factor = min(max_window_height / HEIGHT, max_window_width / min_window_width)
+
+    # 최종 창 크기 계산
+    FULLSCREEN_HEIGHT = int(HEIGHT * scale_factor)
+    # 가로는 16:9 비율 또는 게임영역+필러 비율 중 더 큰 값
+    aspect_ratio = monitor_width / monitor_height
+    FULLSCREEN_WIDTH = max(int(FULLSCREEN_HEIGHT * aspect_ratio), int(min_window_width * scale_factor))
+
+    # 창 크기가 모니터보다 크지 않도록 제한
+    if FULLSCREEN_WIDTH > max_window_width:
+        FULLSCREEN_WIDTH = max_window_width
+    if FULLSCREEN_HEIGHT > max_window_height:
+        FULLSCREEN_HEIGHT = max_window_height
+
+    print(f"[창모드+필러] 모니터: {monitor_width}x{monitor_height}", flush=True)
+    print(f"[창모드+필러] 창 크기: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+
+    # 게임 영역 오프셋 계산 (중앙 배치)
+    GAME_OFFSET_X = (FULLSCREEN_WIDTH - WIDTH) // 2
+    GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - HEIGHT) // 2
+    print(f"[창모드+필러] 게임영역: {WIDTH}x{HEIGHT}, 오프셋: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
+
+    # 창모드로 화면 생성 (RESIZABLE 플래그 제거 - 고정 크기 창)
+    if _current_platform == 'Darwin':
+        REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), pygame.DOUBLEBUF)
+    else:
+        REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT))
+
+    # 게임 렌더링용 Surface
+    SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
+    print(f"[창모드+필러] SCREEN Surface 생성: {WIDTH}x{HEIGHT}", flush=True)
+
+    # 필러 배경 렌더러 초기화
+    from pillar_background import init_pillar_background, get_pillar_renderer
+    pillar_renderer = init_pillar_background(FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT, WIDTH, HEIGHT)
+
+    # display_manager에 전체화면 모드와 동일하게 설정 (필러 사용)
+    from display_manager import set_fullscreen_mode
+    set_fullscreen_mode(True, SCREEN)
+    print(f"[창모드+필러] display_manager에 설정 완료", flush=True)
+
 else:
-    # 일반 창 모드
+    # 일반 창 모드 (필러 없음)
     if _current_platform == 'Darwin':
         # macOS: DOUBLEBUF로 깜빡임 방지
         REAL_SCREEN = pygame.display.set_mode((WIDTH, HEIGHT), pygame.DOUBLEBUF)
@@ -1876,10 +2118,11 @@ def _tracked_set_mode(*args, **kwargs):
 if FULLSCREEN_MODE:
     pygame.display.set_mode = _tracked_set_mode
 
-# 전체화면 모드에서 pygame.display.flip()을 래핑하여 SCREEN을 REAL_SCREEN에 blit
+# 전체화면 모드 또는 창모드+필러에서 pygame.display.flip()을 래핑하여 SCREEN을 REAL_SCREEN에 blit
 _original_flip = pygame.display.flip
 _original_update = pygame.display.update
-_is_fullscreen_active = FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0
+# 창모드+필러도 전체화면과 동일하게 처리 (SCREEN을 REAL_SCREEN에 blit)
+_is_fullscreen_active = (FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0) or WINDOWED_MODE_WITH_PILLAR
 
 _flip_count = 0
 _last_real_screen_size = None
@@ -1909,11 +2152,12 @@ def _fullscreen_flip():
         # 처음 몇 번만 디버그 출력
         if _flip_count <= 3:
             print(f"[FLIP #{_flip_count}] REAL_SCREEN: {REAL_SCREEN.get_size()}, SCREEN: {SCREEN.get_size()}, OFFSET: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
-        # 전체 화면을 검은색으로 채우기 (필러 배경 전에)
-        REAL_SCREEN.fill((0, 0, 0))
-        # 필러 배경 그리기
+        # 전체 화면을 필러 배경색으로 채우기 (레터박스 제거)
         if pillar_renderer is not None:
+            REAL_SCREEN.fill(pillar_renderer.bg_color)
             pillar_renderer.draw(REAL_SCREEN)
+        else:
+            REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
         # 게임 Surface를 중앙에 blit
         REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
         # 크리스탈 실드 그리기 (게임 화면 위에)
@@ -1925,11 +2169,12 @@ def _fullscreen_update(*args, **kwargs):
     """전체화면 모드에서 게임 Surface를 실제 화면에 blit 후 update"""
     global REAL_SCREEN, SCREEN, pillar_renderer
     if _is_fullscreen_active and REAL_SCREEN is not None:
-        # 전체 화면을 검은색으로 채우기 (필러 배경 전에)
-        REAL_SCREEN.fill((0, 0, 0))
-        # 필러 배경 그리기
+        # 전체 화면을 필러 배경색으로 채우기 (레터박스 제거)
         if pillar_renderer is not None:
+            REAL_SCREEN.fill(pillar_renderer.bg_color)
             pillar_renderer.draw(REAL_SCREEN)
+        else:
+            REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
         # 게임 Surface를 중앙에 blit
         REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
         # 크리스탈 실드 그리기 (게임 화면 위에)
@@ -1937,7 +2182,7 @@ def _fullscreen_update(*args, **kwargs):
             pillar_renderer.draw_crystal_shield(REAL_SCREEN)
     _original_update(*args, **kwargs)
 
-# pygame.display.flip/update를 래핑된 버전으로 교체
+# pygame.display.flip/update를 래핑된 버전으로 교체 (전체화면 모드만)
 if _is_fullscreen_active:
     pygame.display.flip = _fullscreen_flip
     pygame.display.update = _fullscreen_update
@@ -1957,9 +2202,15 @@ def capture_screenshot():
     global REAL_SCREEN, SCREEN, pillar_renderer, _is_fullscreen_active
 
     try:
-        # 스크린샷 폴더 생성
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        screenshot_dir = os.path.join(script_dir, "screenshots")
+        # 스크린샷 폴더 생성 (EXE 파일 위치 또는 게임 폴더)
+        if getattr(sys, 'frozen', False):
+            # PyInstaller 빌드 시 EXE 파일이 있는 디렉토리에 저장
+            exe_dir = os.path.dirname(sys.executable)
+            screenshot_dir = os.path.join(exe_dir, "screenshots")
+        else:
+            # 개발 환경에서는 게임 폴더에 저장
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            screenshot_dir = os.path.join(script_dir, "screenshots")
         if not os.path.exists(screenshot_dir):
             os.makedirs(screenshot_dir)
 
@@ -2735,11 +2986,11 @@ RUNTIME_SKILL_POOL = {
         "name": "숙련",
         "max_level": 5,
         "descriptions": {
-            1: "액티브 아이템 쿨타임 14% 감소",
-            2: "액티브 아이템 쿨타임 28% 감소",
-            3: "액티브 아이템 쿨타임 42% 감소",
-            4: "액티브 아이템 쿨타임 56% 감소",
-            5: "액티브 아이템 쿨타임 70% 감소",
+            1: "액티브 아이템 쿨타임 12% 감소",
+            2: "액티브 아이템 쿨타임 24% 감소",
+            3: "액티브 아이템 쿨타임 36% 감소",
+            4: "액티브 아이템 쿨타임 48% 감소",
+            5: "액티브 아이템 쿨타임 60% 감소",
         },
         "detail": "아이템 사용에 숙련되어 쿨타임이 줄어듭니다.",
         "icon_color": (100, 150, 255),
@@ -2791,11 +3042,11 @@ RUNTIME_SKILL_POOL = {
         "name": "연마",
         "max_level": 5,
         "descriptions": {
-            1: "패시브 롤옵션 효율 5% 증가",
-            2: "패시브 롤옵션 효율 10% 증가",
-            3: "패시브 롤옵션 효율 15% 증가",
-            4: "패시브 롤옵션 효율 20% 증가",
-            5: "패시브 롤옵션 효율 25% 증가",
+            1: "패시브 롤옵션 효율 10% 증가",
+            2: "패시브 롤옵션 효율 20% 증가",
+            3: "패시브 롤옵션 효율 30% 증가",
+            4: "패시브 롤옵션 효율 40% 증가",
+            5: "패시브 롤옵션 효율 50% 증가",
         },
         "detail": "아이템을 연마하여 패시브 효과가 강화됩니다.",
         "icon_color": (200, 200, 200),
@@ -4233,27 +4484,41 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         runtime_accessory_slot_bonus = runtime_skill_levels.get("common_expansion", 0)  # 레벨당 +1
         print(f"[RuntimeSkill] 확장 Lv.{runtime_skill_levels[choice_id]} - 장신구 슬롯 +{runtime_accessory_slot_bonus}")
 
+    # 연마: 패시브 아이템 롤옵션 보너스 즉시 재계산
+    if choice_id == "item_polish":
+        apply_roll_bonuses_from_equipped()
+        new_level = runtime_skill_levels.get("item_polish", 0)
+        multiplier = get_effective_polish_multiplier()
+        print(f"[RuntimeSkill] 연마 Lv.{new_level} - 롤옵션 배율 {multiplier:.2f}x, 장착 아이템 보너스 재계산 완료")
+
     return True
 
 
 def recalculate_skill_effects(skill_id: str):
-    """스킬 레벨 감소 시 효과 재계산 (디버그 메뉴용)"""
+    """스킬 레벨 변경 시 효과 재계산 (디버그 메뉴용)"""
     global runtime_swiftness_bonus, runtime_accessory_slot_bonus
 
     # 신속: 이동속도 보너스 재계산
     if skill_id == "common_swiftness":
         runtime_swiftness_bonus = runtime_skill_levels.get("common_swiftness", 0) * 0.04
-        print(f"[RuntimeSkill] 신속 레벨 감소 - 이동속도 +{int(runtime_swiftness_bonus*100)}%")
+        print(f"[RuntimeSkill] 신속 레벨 변경 - 이동속도 +{int(runtime_swiftness_bonus*100)}%")
 
     # 확장: 장신구 슬롯 보너스 재계산
     elif skill_id == "common_expansion":
         runtime_accessory_slot_bonus = runtime_skill_levels.get("common_expansion", 0)
-        print(f"[RuntimeSkill] 확장 레벨 감소 - 장신구 슬롯 +{runtime_accessory_slot_bonus}")
+        print(f"[RuntimeSkill] 확장 레벨 변경 - 장신구 슬롯 +{runtime_accessory_slot_bonus}")
 
     # 메카벌크: 패들 크기 재계산
     elif skill_id == "mecha_bulk":
         apply_equipment_paddle_modifiers()
-        print(f"[RuntimeSkill] 메카벌크 레벨 감소 - 패들 크기 재계산")
+        print(f"[RuntimeSkill] 메카벌크 레벨 변경 - 패들 크기 재계산")
+
+    # 연마: 패시브 아이템 롤옵션 보너스 재계산
+    elif skill_id == "item_polish":
+        apply_roll_bonuses_from_equipped()
+        new_level = runtime_skill_levels.get("item_polish", 0)
+        multiplier = get_effective_polish_multiplier()
+        print(f"[RuntimeSkill] 연마 레벨 변경 Lv.{new_level} - 롤옵션 배율 {multiplier:.2f}x, 장착 아이템 보너스 재계산 완료")
 
     # 기타 스킬들은 별도 재계산 불필요 (get_runtime_skill_bonus에서 실시간 조회)
 
@@ -4397,11 +4662,11 @@ def get_runtime_skill_bonus(skill_id: str) -> float:
 
             # 아이템 트리
             "item_luck": level * 0.10,              # 스폰 대기 10%/레벨 감소
-            "item_cooldown_mastery": level * 0.14,  # 쿨타임 14%/레벨 감소
+            "item_cooldown_mastery": level * 0.12,  # 쿨타임 12%/레벨 감소
             "item_gauge_mastery": level * 12,       # 게이지 +12/레벨
             "item_bag_expansion": level,            # 슬롯 +1/레벨
             "item_caffeine": level * 0.20,          # 지속시간 20%/레벨 증가
-            "item_polish": level * 0.05,            # 롤옵션 효율 5%/레벨 증가
+            "item_polish": level * 0.10,            # 롤옵션 효율 10%/레벨 증가
             "item_recycle": level * 0.10,           # 유지 확률 10%/레벨
 
             # 광장 트리
@@ -8720,7 +8985,11 @@ last_space_press_time = 0            # 마지막 스페이스바 입력 시간 (
 
 def refresh_perfect_timing_indicator():
     global perfect_timing_indicator_active, perfect_timing_active, short_shot_counter_window
-    perfect_timing_indicator_active = perfect_timing_active or short_shot_counter_window > 0
+    global drive_indicator_early_active  # 드라이브 모니터 일찍 표시용
+    perfect_timing_indicator_active = perfect_timing_active or short_shot_counter_window > 0 or drive_indicator_early_active
+
+# 드라이브 모니터 일찍 표시용 플래그
+drive_indicator_early_active = False
 
 # 캐릭터 선택 정보 저장
 selected_character_type = "normal"  # 기본값: 일반 캐릭터
@@ -9323,7 +9592,7 @@ active_item_icon_size = (28, 28)     # 화면에 표시할 크기
 last_item_use_time = 0               # 마지막 아이템 사용 시간 (전역 쿨타임용)
 foul_whistle_pending_round_reset = False  # 반칙호루라기 발동 후 라운드 리셋 대기 플래그
 # 기본 액티브 쿨타임(ms) 초기값 – 캐릭터정보 화면 등에서 참조할 때 NameError 방지
-active_item_cooldown_ms = 8000
+active_item_cooldown_ms = 10000
 
 # 연금술 텍스트 이펙트
 
@@ -9828,6 +10097,7 @@ def format_roll_option_with_polish(opt: dict) -> str:
     """롤 옵션 텍스트에 연마 스킬 보너스를 추가하여 반환.
 
     예: "이동속도 +6%" → "이동속도 +6% (+1%)" (연마 Lv1, 30% 보너스)
+    예: "대쉬쿨타임 -20%" → "대쉬쿨타임 -20% (-5%)" (음수 효과는 음수로 표시)
     """
     base_text = opt.get("text") or ""
     base_value = opt.get("value")
@@ -9846,18 +10116,26 @@ def format_roll_option_with_polish(opt: dict) -> str:
     if polish_multiplier <= 1.0:
         return base_text
 
-    # 보너스 값 계산
+    # 보너스 값 계산 (음수 값도 절대값으로 증가)
     boosted_value = int(base_value * polish_multiplier)
     bonus_value = boosted_value - base_value
 
-    if bonus_value <= 0:
+    # 보너스가 없으면 원본 반환
+    if bonus_value == 0:
         return base_text
 
     # 단위 가져오기 (%, pt, 초, px 등)
     unit = opt.get("unit", "")
 
-    # 보너스 텍스트 추가 (단위 포함)
-    return f"{base_text} (+{bonus_value}{unit})"
+    # 보너스 텍스트 추가 (원본 값의 부호에 따라 +/- 결정)
+    # 음수 효과(예: -20%)는 보너스도 음수로 표시 (예: -5%)
+    # 양수 효과(예: +6%)는 보너스도 양수로 표시 (예: +1%)
+    if base_value < 0:
+        # 음수 효과: bonus_value도 음수이므로 그대로 표시
+        return f"{base_text} ({bonus_value}{unit})"
+    else:
+        # 양수 효과: + 기호 명시
+        return f"{base_text} (+{bonus_value}{unit})"
 
 
 def _reset_roll_bonuses_to_default():
@@ -9986,7 +10264,8 @@ def _get_roll_value(item: dict, key: str, apply_polish: bool = True) -> int | No
         if opt.get("key") == key:
             base_value = int(opt.get("value", 0))
             # 연마 스킬 효과 적용 (패시브 아이템 롤옵션 효율 증가) - 아카데미 + 런타임
-            if apply_polish and base_value > 0:
+            # 양수/음수 모두 절대값이 증가해야 함 (예: -20% → -30%, +20% → +30%)
+            if apply_polish and base_value != 0:
                 try:
                     polish_multiplier = get_effective_polish_multiplier()
                     return int(base_value * polish_multiplier)
@@ -10686,7 +10965,7 @@ def get_effective_polish_multiplier():
             multiplier = academy.get_polish_efficiency_multiplier()
         except Exception:
             multiplier = 1.0
-    # 런타임 스킬 보너스 (item_polish: 레벨당 +5%)
+    # 런타임 스킬 보너스 (item_polish: 레벨당 +10%)
     runtime_bonus = get_runtime_skill_bonus("item_polish")
     return multiplier + runtime_bonus
 
@@ -11480,7 +11759,7 @@ def trigger_grenade_style_explosion(
 ) -> None:
     """수류탄과 동일한 폭발 효과를 발생시킨다."""
 
-    global grenade_shake_timer, boss_stunned_timer, boss_knockback_vel
+    global grenade_shake_timer, boss_stunned_timer, boss_knockback_vel, boss_knockback_timer
     global special_gauge, special_ready, explosion_zones
     # NOTE(backup-restore): 백업본(0926)과 동일하게 "폭발 발생 시점"에 보스에게
     # 1회성 스턴/넉백을 즉시 적용한다. (zone 업데이트 루프 중복 적용 방지)
@@ -11517,7 +11796,13 @@ def trigger_grenade_style_explosion(
                 direction = 1 if bx >= x else -1
                 # 넉백 세기(백업값 복구: 40)
                 power = 40.0
+                # 넉백 타이머 설정 (즉시 넉백 적용을 위해 필수!)
+                boss_knockback_timer = max(boss_knockback_timer, 36)
                 boss_knockback_vel = _apply_boss_knockback_velocity(direction * power)
+                # 대쉬/후딜 상태 강제 해제 (넉백 즉시 적용)
+                globals()["boss_dashing"] = False
+                globals()["boss_dash_timer"] = 0
+                globals()["boss_dash_stun_timer"] = 0
                 # 이후 zone 루프에서 재적용되지 않도록 플래그 부여
                 explosion_zone["boss_applied"] = True
     except Exception:
@@ -45618,6 +45903,9 @@ def handle_player(keys):
         # ⚠️ 버그 수정: 쿨다운 설정 추가 - handle_ball 백업 충돌과 중복 처리 방지
         player_collision_cooldown = 15
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
+        # 🔍 디버그: 스테이지 7에서 플레이어 충돌 시 last_hit_by 변경 확인
+        if current_stage == 7:
+            print(f"[PLAYER HIT] last_hit_by='player' (handle_player)")
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("player")
@@ -62879,6 +63167,7 @@ def draw_objects():
                 else:
                     beam_width = 16
                     beam_alpha = 255
+                    fade_progress = 0  # 페이드 시작 전이므로 0
 
                 # === 외곽 플라즈마 코어 글로우 (부드러운 그라데이션) ===
                 for glow_layer in range(6):
@@ -66768,14 +67057,21 @@ def show_start_screen():
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
 
     effects_manager.clear_all_effects()
-    # 새 세션 시작 시 스냅샷 폐기
+    # 새 세션 시작 시 스냅샷 및 청사진 캐시 폐기 (발토르 건물 완전 초기화)
     globals()["blacksmith_persist_structures"] = None
+    globals()["blacksmith_persist_lock_pos"] = None
+    globals()["blacksmith_round_blueprint_cache"] = None
     reset_damage_manager()
     globals()["blacksmith_divine_stone_state"] = None
     globals()["blacksmith_divine_stage_owner"] = None
     controller = globals().get("BLACKSMITH_CONTROLLER")
     if controller is not None:
         controller.state.divine.state = None
+        controller.state.turret.state = None  # 포탑 상태도 초기화
+        controller.state.turret.blueprint_active = False
+        controller.state.turret.blueprint_rect = None
+        controller.state.divine.blueprint_active = False
+        controller.state.divine.blueprint_rect = None
 
     game_should_exit = False
     frame_count = 0
@@ -82495,7 +82791,10 @@ def choose_server(show_text=True):
     # 서브하는 사람에 따라 last_hit_by 초기화
     last_hit_by = "player" if is_player_serve else "boss"
     game_vars.ball.last_hit_by = last_hit_by  # game_vars에도 업데이트
-    
+    # 🔍 디버그: 스테이지 7에서 서브 시작 시 last_hit_by 초기화 확인
+    if current_stage == 7:
+        print(f"[SERVE START] last_hit_by='{last_hit_by}' (is_player_serve={is_player_serve})")
+
     # 스테이지 3에서 플레이어 서브일 때 꼬리 채찍 5초 지연
     global stage3_tail_whip_cooldown
     if current_stage == 3 and is_player_serve:
@@ -83389,6 +83688,7 @@ def calculate_bounce(paddle):
         # 퍼펙트 타이밍 상태 리셋
         perfect_timing_active = False
         perfect_direction = None
+        drive_indicator_early_active = False
         refresh_perfect_timing_indicator()
         # 일반 충돌과 동일한 속도 처리
         #  속도에 관계없이 일정한 가속 적용 (완화된 증가율)
@@ -86111,7 +86411,9 @@ def handle_ball():
                     break  # 한 번에 하나의 벽돌만 처리
 
             stage7_guard_hit = False
-            if current_stage == 7 and stage7_guard_blocks:
+            # 보스 서브 직후, 플레이어가 아직 반격하지 않은 상태에서는 가드 블록도 관통
+            stage7_guard_penetrate = (last_hit_by == "boss" or last_hit_by == "")
+            if current_stage == 7 and stage7_guard_blocks and not stage7_guard_penetrate:
                 for guard_block in stage7_guard_blocks:
                     if guard_block.get("state") not in ("active", "deploy"):
                         continue
@@ -86173,7 +86475,12 @@ def handle_ball():
             
             # Stage 7: 테트로미노(ㅗ) 낙하체와 충돌 처리 (플레이어/보스 모두 반응)
             stage7_tetro_hit = False
-            if current_stage == 7 and 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+            # 보스 서브 직후, 플레이어가 아직 공을 반격하지 않은 상태에서는 테트로미노 관통
+            stage7_ball_penetrates_tetromino = (last_hit_by == "boss" or last_hit_by == "")
+            # 🔍 디버그: 테트로미노 충돌 판정 상태 (스테이지 7에서만) - 매 100프레임마다 출력
+            if current_stage == 7 and stage7_tetrominoes and frame_counter % 100 == 0:
+                print(f"[TETRO DEBUG] last_hit_by='{last_hit_by}', penetrates={stage7_ball_penetrates_tetromino}, ball_vel=({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
+            if current_stage == 7 and 'stage7_tetrominoes' in globals() and stage7_tetrominoes and not stage7_ball_penetrates_tetromino:
                 for mino in stage7_tetrominoes:
                     if mino.get("state") not in ("falling",):
                         continue
@@ -86248,7 +86555,8 @@ def handle_ball():
                         break
 
             # Stage 7: 대량 테트로 벽과 충돌 처리 (플레이어/보스 모두 반응)
-            if current_stage == 7 and (stage7_tetro_wall_left or stage7_tetro_wall_right):
+            # 보스 서브 직후, 플레이어가 아직 반격하지 않은 상태에서는 벽도 관통
+            if current_stage == 7 and (stage7_tetro_wall_left or stage7_tetro_wall_right) and not stage7_ball_penetrates_tetromino:
                 wall_hit = False
                 for blocks in (stage7_tetro_wall_left, stage7_tetro_wall_right):
                     for cell_rect in list(blocks):
@@ -87927,6 +88235,14 @@ def handle_ball():
         if ball_vel[0] != 0:
             direction = math.copysign(1, ball_vel[0])
             ball_angle += direction * 10
+        # ⚠️ 버그 수정: handle_ball에서도 last_hit_by 설정!
+        # handle_player가 놓친 충돌을 handle_ball이 백업으로 처리할 때도 last_hit_by를 설정해야
+        # 스테이지 7 테트로미노 충돌 판정이 정상 동작함
+        last_hit_by = "player"
+        game_vars.ball.last_hit_by = "player"
+        # 🔍 디버그: 스테이지 7에서 handle_ball 백업 충돌 시 last_hit_by 변경 확인
+        if current_stage == 7:
+            print(f"[PLAYER HIT] last_hit_by='player' (handle_ball backup)")
         # ⚠️ 버그 수정: handle_ball에서는 쿨다운 설정 안함!
         # handle_ball이 handle_player보다 먼저 실행되므로, 여기서 쿨다운을 설정하면
         # handle_player가 게이지 충전을 할 수 없음. 플래그만 설정하고 쿨다운은 handle_player에서 설정
@@ -88368,6 +88684,9 @@ def handle_ball():
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
+        # 🔍 디버그: 스테이지 7에서 보스 충돌 시 last_hit_by 변경 확인
+        if current_stage == 7:
+            print(f"[BOSS HIT] last_hit_by='boss' (handle_ball)")
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
@@ -93293,6 +93612,14 @@ def show_result(won):
         except Exception:
             pass
 
+        # 발토르 건물/청사진 완전 초기화 (게임 오버 시)
+        globals()["blacksmith_persist_structures"] = None
+        globals()["blacksmith_persist_lock_pos"] = None
+        globals()["blacksmith_round_blueprint_cache"] = None
+        controller = globals().get("BLACKSMITH_CONTROLLER")
+        if controller is not None:
+            controller.reset()
+
         # 물자보급 비행기 사운드 정지 (게임 오버 시)
         if supply_drop_state.aircraft and hasattr(supply_drop_state.aircraft, 'stop_sound'):
             supply_drop_state.aircraft.stop_sound()
@@ -95025,6 +95352,14 @@ def main(stage_num, new_boss_mode=False):
             # 옵티머스 게이지 기반 스킬 트리거 초기화
             reset_optimus_skill_triggers()
 
+            # 발토르 건물/청사진 완전 초기화 (ESC 메뉴로 메인 복귀 시)
+            globals()["blacksmith_persist_structures"] = None
+            globals()["blacksmith_persist_lock_pos"] = None
+            globals()["blacksmith_round_blueprint_cache"] = None
+            controller = globals().get("BLACKSMITH_CONTROLLER")
+            if controller is not None:
+                controller.reset()
+
             return "main_menu"
         # 프로파일러 프레임 시작
         if profiler:
@@ -95961,14 +96296,43 @@ def main(stage_num, new_boss_mode=False):
         ball_to_paddle_distance = PLAYER.top - BALL.centery  # 양수 = 공이 패들 위쪽에 있음
         #  개선된 퍼펙트 타이밍 윈도우: 실제 충돌 가능 범위와 일치시키기
         # 공이 패들과 실제로 충돌할 수 있는 범위 내에서만 활성화
-        # 드라이브 선입력 방지: 거리를 더 짧게 설정
-        ball_will_hit_paddle = (
-            ball_to_paddle_distance <= 20 and  # 더 정확한 거리 (30 → 20) - 선입력 방지
-            ball_to_paddle_distance > -10 and  # 약간의 여유 (0 → -10)
+
+        # 드라이브 모니터 표시용 거리 (일찍 표시 - 약 0.2초 전부터)
+        # 공이 빠를수록 더 먼 거리에서 모니터가 표시되어야 함
+        drive_indicator_distance = max(40, min(80, ball_vel[1] * 0.2 * 60))  # 0.2초 * 60fps
+
+        # 실제 입력 처리용 거리 (기존 조건 유지 - 파워스매싱 버그 방지)
+        drive_input_distance = 20  # 기존 값 유지
+
+        # 모니터 표시 조건 (일찍 표시)
+        ball_in_indicator_range = (
+            ball_to_paddle_distance <= drive_indicator_distance and
+            ball_to_paddle_distance > -10 and
             ball_vel[1] > 0 and
-            #  추가 조건: 공의 X좌표가 패들 범위 내 또는 근처에 있는지 확인
-            abs(BALL.centerx - PLAYER.centerx) <= (PADDLE_WIDTH / 2 + BALL_RADIUS + 15)  # 패들 범위 + 약간의 여유 (DEFAULT_RADIUS → 15)
+            abs(BALL.centerx - PLAYER.centerx) <= (PADDLE_WIDTH / 2 + BALL_RADIUS + 15)
         )
+
+        # 실제 입력 처리 조건 (기존 조건 - 파워스매싱/드라이브 발동)
+        ball_will_hit_paddle = (
+            ball_to_paddle_distance <= drive_input_distance and  # 기존 거리 20 유지
+            ball_to_paddle_distance > -10 and
+            ball_vel[1] > 0 and
+            abs(BALL.centerx - PLAYER.centerx) <= (PADDLE_WIDTH / 2 + BALL_RADIUS + 15)
+        )
+
+        # 모니터 표시용 인디케이터 활성화 (일찍) - 파워스매싱 제외 (드라이브만)
+        global drive_indicator_early_active
+        if ball_in_indicator_range and selected_character_type == "smasher" and not special_ready:
+            if not drive_indicator_early_active:
+                drive_indicator_early_active = True
+                refresh_perfect_timing_indicator()
+        elif not ball_in_indicator_range or ball_vel[1] <= 0:
+            # 범위를 벗어나면 일찍 표시 플래그 해제
+            if drive_indicator_early_active:
+                drive_indicator_early_active = False
+                refresh_perfect_timing_indicator()
+
+        # 실제 입력 처리 윈도우 활성화 (기존 조건)
         if ball_will_hit_paddle and selected_character_type == "smasher":
             if not perfect_timing_active:
                 perfect_timing_active = True
@@ -96002,8 +96366,8 @@ def main(stage_num, new_boss_mode=False):
                         right_press_frame = frame_counter
             #  퍼펙트 타이밍 입력 체크 (방향키 + 스페이스 동시 입력 필요)
             #  드라이브와 파워스매싱을 동일한 타이밍 윈도우에서 처리
-            if (perfect_timing_frame_count <= perfect_timing_window and 
-                perfect_timing_cooldown == 0 and not perfect_timing_input_used and 
+            if (perfect_timing_frame_count <= perfect_timing_window and
+                perfect_timing_cooldown == 0 and not perfect_timing_input_used and
                 drive_global_cooldown == 0):
                 #  개선된 동시 입력 감지 (여유 있게 4프레임 허용) - 선입력 방지 완화
                 max_frame_gap = 4   # 최대 4프레임(약 0.07초) 차이까지 동시 입력으로 인정
@@ -96447,9 +96811,9 @@ def main(stage_num, new_boss_mode=False):
             print("")
         #  개선된 윈도우 비활성화 조건: X축 범위도 체크
         ball_x_out_of_range = abs(BALL.centerx - PLAYER.centerx) > (PADDLE_WIDTH / 2 + BALL_RADIUS + 30)
-        if (ball_to_paddle_distance > 100 or 
-            ball_vel[1] <= 0 or 
-            ball_to_paddle_distance < 0 or 
+        if (ball_to_paddle_distance > 100 or
+            ball_vel[1] <= 0 or
+            ball_to_paddle_distance < 0 or
             ball_x_out_of_range):  #  X축 범위 벗어남도 체크
             perfect_timing_active = False
             perfect_timing_frame_count = 0
@@ -96477,7 +96841,7 @@ def main(stage_num, new_boss_mode=False):
             profiler.start_section("Events")
 
         # 악마의 주사위 배율을 포함한 아이템 쿨타임 계산
-            base_ms = 8000
+            base_ms = 10000
             cooldown_ms = base_ms
             # 장인의 망치 롤/기본 감소
             if globals().get("master_obtained", False):
@@ -96492,6 +96856,13 @@ def main(stage_num, new_boss_mode=False):
                     cooldown_ms = int(cooldown_ms * academy.get_active_item_cooldown_multiplier())
                 except Exception:
                     pass
+            # 런타임 스킬: 숙련 (item_cooldown_mastery)
+            try:
+                cooldown_mastery_bonus = get_runtime_skill_bonus("item_cooldown_mastery")
+                if cooldown_mastery_bonus > 0:
+                    cooldown_ms = int(cooldown_ms * (1 - cooldown_mastery_bonus))
+            except Exception:
+                pass
             # 악마의 주사위 배율
             from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
             if is_devil_dice_active():
@@ -100567,7 +100938,11 @@ def show_character_info(background_surface=None):
         tiny_font = tiny_font or font_tiny
         pygame.draw.rect(SCREEN, (24, 28, 46), area_rect, border_radius=10)
         pygame.draw.rect(SCREEN, (120, 170, 255), area_rect, 2, border_radius=10)
-        label = label_font.render("ACTIVE", True, WHITE)
+        # ACTIVE 라벨 + 현재/최대 슬롯 수 표시 (가방확장, 아카데미 스킬 반영)
+        current_count = len(items) if items else 0
+        max_slots = get_effective_max_item_slots()
+        label_text = f"ACTIVE ({current_count}/{max_slots})"
+        label = label_font.render(label_text, True, WHITE)
         SCREEN.blit(label, (area_rect.x + 10, area_rect.y + 6))
 
         hover_info = None
@@ -100961,8 +101336,8 @@ def show_character_info(background_surface=None):
             return base_stun_frames / fps_value, current_stun_frames / fps_value
 
         def compute_item_cooldown_seconds() -> tuple[float, float]:
-            """아이템 쿨타임 (기본 8초, 현재 적용값)."""
-            base_ms = 8000
+            """아이템 쿨타임 (기본 10초, 현재 적용값)."""
+            base_ms = 10000
             current_ms = base_ms
             # 장인의 망치 쿨타임 감소
             if globals().get("master_obtained", False):
