@@ -27,7 +27,8 @@
       "Bash(timeout 15 python:*)",
       "Bash(timeout 10 python:*)",
       "Bash(git config:*)",
-      "Bash(timeout 5 python:*)"
+      "Bash(timeout 5 python:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "ask": [],

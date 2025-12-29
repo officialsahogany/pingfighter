@@ -100737,11 +100737,11 @@ def show_character_info(background_surface=None):
         # ACTIVE 라벨과 슬롯 카운트 표시
         label = label_font.render("ACTIVE", True, WHITE)
         slot_count_text = f"({current_count}/{max_slots})"
-        slot_count_surface = tiny_font.render(slot_count_text, True, (180, 200, 255))
+        slot_count_surface = label_font.render(slot_count_text, True, (180, 200, 255))
 
         SCREEN.blit(label, (area_rect.x + 10, area_rect.y + 6))
         # 슬롯 카운트를 ACTIVE 라벨 오른쪽에 표시
-        SCREEN.blit(slot_count_surface, (area_rect.x + 10 + label.get_width() + 8, area_rect.y + 8))
+        SCREEN.blit(slot_count_surface, (area_rect.x + 10 + label.get_width() + 8, area_rect.y + 6))
 
         hover_info = None
         rect_map = {}
