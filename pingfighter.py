@@ -295,8 +295,9 @@ import items
 import gacha
 import opening
 import skill
-import academy                      
+import academy
 import cinematic
+import multiplayer_mode
 
 if _splash_screen:
     update_splash(0.30, "UI 시스템 로딩 중...")
@@ -2260,7 +2261,7 @@ except:
     pygame.draw.circle(slot_add_icon, (0, 40, 80), (10, 10), 10, 2)
 
 # 연금술 텍스트 이펙트 설정
-ALCHEMY_NOTICE_DURATION = 72  # 1.2초 동안 유지
+ALCHEMY_NOTICE_DURATION = 60  # 1초 동안 유지
 
 for item in items.ITEM_TYPES:
     if item["name"] == "slot_add":
@@ -5972,6 +5973,9 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
     elif current_stage == 2 and animated_bg_stage2 is not None:
         animated_bg_stage2.update(elapsed_ms, ball_cx, ball_cy, boss_cx, player_cx, r_wins, r_losses)
         animated_bg_stage2.draw(SCREEN)
+        # Stage 2 물대포 및 파편 렌더링
+        draw_water_cannon(SCREEN)
+        draw_water_cannon_fragments(SCREEN)
     elif current_stage == 3 and animated_bg_stage3 is not None:
         animated_bg_stage3.update(elapsed_ms, r_wins + r_losses)
         animated_bg_stage3.draw(SCREEN, ball_pos=(ball_cx, ball_cy))
@@ -12011,6 +12015,25 @@ BOSS_INSTANT_STOP_DECELERATION = BOSS_INSTANT_STOP_DECELERATION_DEFAULT
 CURRENT_BG = STAGE1_BG  # 기본값
 quake_last_used_time = -9999  # 마지막 정글지진 발동 시간
 QUAKE_COOLDOWN = 4000         # 쿨타임: 7000ms (7초 예시)
+
+# === Stage 2 악어장군 물대포 스킬 ===
+water_cannon_active = False  # 물대포 활성화 상태
+water_cannon_x = 0  # 물대포 현재 X 좌표
+water_cannon_y = 0  # 물대포 현재 Y 좌표
+water_cannon_target_rock = None  # 물대포 목표 바위
+water_cannon_start_x = 0  # 물대포 시작 X
+water_cannon_start_y = 0  # 물대포 시작 Y
+water_cannon_target_x = 0  # 물대포 목표 X
+water_cannon_target_y = 0  # 물대포 목표 Y
+water_cannon_progress = 0.0  # 물대포 이동 진행도 (0~1)
+water_cannon_speed = 0.025  # 물대포 이동 속도 (약 40프레임 = 0.67초 소요)
+water_cannon_last_used_time = -9999  # 마지막 물대포 발동 시간
+WATER_CANNON_COOLDOWN_MIN = 10000  # 물대포 최소 쿨타임 (10초)
+WATER_CANNON_COOLDOWN_MAX = 20000  # 물대포 최대 쿨타임 (20초)
+water_cannon_current_cooldown = 10000  # 현재 쿨타임 (10~20초 랜덤)
+water_cannon_trail = []  # 물대포 궤적 효과
+# 물대포 파편 시스템 (플레이어 넉백용)
+water_cannon_fragments = []  # 물대포로 파괴된 바위 파편들
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
 long_boost_growing = False
@@ -33205,6 +33228,11 @@ def go_to_next_round():
     quake_timer = 0
     PLAYER_SPEED = 1
     ball_angle = 0
+    # Stage 2 물대포 스킬 초기화 (라운드 전환 시)
+    global water_cannon_active, water_cannon_fragments, water_cannon_trail
+    water_cannon_active = False
+    water_cannon_fragments.clear()
+    water_cannon_trail.clear()
     #  홍련폭염 상태 초기화
     flame_trail_active = False
     flame_trail_positions.clear()
@@ -35784,13 +35812,18 @@ def handle_meditation():
         ball_vel = [speed * math.sin(rad), abs(speed * math.cos(rad))]
 def activate_quake(animated_bg=None):
     global quake_active, quake_timer, PLAYER_SPEED, original_ball_speed_quake, quake_rng
-    global serve_grace_period, current_stage  # 난이도 하향
-    
+    global serve_grace_period, current_stage, boss_special_gauge  # 난이도 하향 + 게이지 추가
+
     # Stage 2에서 서브 유예 기간 중에는 정글지진 발동 방지 (난이도 하향)
     if current_stage == 2 and serve_grace_period > 0:
         print(f"정글지진 발동 방지 - 서브 유예 기간 중 (남은 시간: {serve_grace_period/60:.1f}초)")
         return False
-    
+
+    # Stage 2 정글지진 발동 시 게이지 200 소모
+    if current_stage == 2:
+        boss_special_gauge = max(0, boss_special_gauge - 200)
+        print(f"정글지진 발동! 게이지 200 소모 (현재: {boss_special_gauge}/500)")
+
     print(f" activate_quake ! quake_duration={quake_duration}, animated_bg={animated_bg is not None}")
     quake_active = True
     quake_timer = quake_duration
@@ -35831,6 +35864,385 @@ def activate_quake(animated_bg=None):
         eq_active=getattr(animated_bg_stage2, "earthquake_active", False) if animated_bg_stage2 is not None else False,
     )
     return True
+
+# === Stage 2 악어장군 물대포 스킬 함수 ===
+def activate_water_cannon():
+    """악어장군의 물대포 스킬 발동 - 맵의 바위 중 하나를 물대포로 파괴"""
+    global water_cannon_active, water_cannon_x, water_cannon_y
+    global water_cannon_target_rock, water_cannon_start_x, water_cannon_start_y
+    global water_cannon_target_x, water_cannon_target_y, water_cannon_progress
+    global water_cannon_last_used_time, water_cannon_current_cooldown, water_cannon_trail
+    global boss_special_gauge
+
+    # 게이지 100 필요
+    if boss_special_gauge < 100:
+        print(f"물대포 발동 실패 - 게이지 부족 (현재: {boss_special_gauge}/100)")
+        return False
+
+    # 맵에 바위가 있는지 확인
+    if animated_bg_stage2 is None or len(animated_bg_stage2.crisis_rocks) == 0:
+        print("물대포 발동 실패 - 맵에 바위가 없음")
+        return False
+
+    # 떨어진 바위 중에서 선택 (falling=False인 바위만)
+    available_rocks = [rock for rock in animated_bg_stage2.crisis_rocks if not rock.get('falling', True)]
+    if len(available_rocks) == 0:
+        print("물대포 발동 실패 - 떨어진 바위가 없음")
+        return False
+
+    # 랜덤으로 바위 하나 선택
+    water_cannon_target_rock = random.choice(available_rocks)
+
+    # 게이지 100 소모
+    boss_special_gauge = max(0, boss_special_gauge - 100)
+    print(f"물대포 발동! 게이지 100 소모 (현재: {boss_special_gauge}/500)")
+
+    # 보스 패들 위치에서 발사
+    water_cannon_start_x = BOSS.centerx
+    water_cannon_start_y = BOSS.centery + 30  # 보스 패들 아래에서 발사
+    water_cannon_target_x = water_cannon_target_rock['x']
+    water_cannon_target_y = water_cannon_target_rock.get('fall_y', water_cannon_target_rock['y'])
+
+    # 물대포 초기화
+    water_cannon_x = water_cannon_start_x
+    water_cannon_y = water_cannon_start_y
+    water_cannon_progress = 0.0
+    water_cannon_active = True
+    water_cannon_trail = []
+
+    # 쿨타임 설정 (10~20초 랜덤)
+    water_cannon_last_used_time = pygame.time.get_ticks()
+    water_cannon_current_cooldown = random.randint(WATER_CANNON_COOLDOWN_MIN, WATER_CANNON_COOLDOWN_MAX)
+
+    # 말풍선 표시
+    show_speech("물대포!", duration=60)
+
+    print(f"💦 물대포 발사! 목표 바위: ({water_cannon_target_x}, {water_cannon_target_y})")
+    return True
+
+
+def update_water_cannon():
+    """물대포 업데이트 - 이동, 충돌, 파편 생성"""
+    global water_cannon_active, water_cannon_x, water_cannon_y, water_cannon_progress
+    global water_cannon_target_rock, water_cannon_trail, water_cannon_fragments
+    global player_knockback_vel
+
+    if not water_cannon_active:
+        return
+
+    # 물대포 이동 진행
+    water_cannon_progress += water_cannon_speed
+
+    # 보간으로 위치 계산
+    water_cannon_x = water_cannon_start_x + (water_cannon_target_x - water_cannon_start_x) * water_cannon_progress
+    water_cannon_y = water_cannon_start_y + (water_cannon_target_y - water_cannon_start_y) * water_cannon_progress
+
+    # 궤적 효과 추가
+    water_cannon_trail.append({
+        'x': water_cannon_x,
+        'y': water_cannon_y,
+        'alpha': 255,
+        'size': random.randint(8, 15)
+    })
+
+    # 궤적 페이드아웃
+    for trail in water_cannon_trail:
+        trail['alpha'] -= 15
+    water_cannon_trail = [t for t in water_cannon_trail if t['alpha'] > 0]
+
+    # 목표 도달 시 바위 파괴
+    if water_cannon_progress >= 1.0:
+        if water_cannon_target_rock and animated_bg_stage2:
+            # 바위 파괴 및 파편 생성
+            _create_water_cannon_fragments(water_cannon_target_rock)
+
+            # 바위 리스트에서 제거
+            try:
+                animated_bg_stage2.crisis_rocks.remove(water_cannon_target_rock)
+                print(f"💥 물대포로 바위 파괴! 파편 생성됨")
+            except ValueError:
+                pass
+
+        # 물대포 비활성화
+        water_cannon_active = False
+        water_cannon_target_rock = None
+
+
+def _create_water_cannon_fragments(rock):
+    """물대포로 파괴된 바위의 파편 생성 (사방으로 튀어 플레이어 넉백 가능)"""
+    global water_cannon_fragments
+
+    # 바위 파편 20-25개 생성 (플레이어 쪽으로 더 많이)
+    num_rock_fragments = random.randint(20, 25)
+
+    rock_x = rock['x']
+    rock_y = rock.get('fall_y', rock['y'])
+    rock_size = rock.get('size', 40)
+
+    # 바위 파편 생성
+    for i in range(num_rock_fragments):
+        # 사방으로 튀되, 아래쪽(플레이어 방향)으로 더 많이
+        if random.random() < 0.65:  # 65% 확률로 아래쪽
+            angle = random.uniform(math.pi * 0.15, math.pi * 0.85)  # 아래쪽 방향
+        else:
+            angle = random.uniform(0, math.pi * 2)  # 전 방향
+
+        speed = random.uniform(10, 18)  # 빠른 속도로 튐
+
+        fragment = {
+            'x': rock_x + random.uniform(-rock_size/3, rock_size/3),
+            'y': rock_y + random.uniform(-rock_size/3, rock_size/3),
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'size': random.randint(10, 22),
+            'color': random.choice([
+                (139, 119, 101),  # 진한 갈색
+                (160, 140, 120),  # 밝은 갈색
+                (120, 100, 80),   # 어두운 갈색
+                (100, 80, 60),    # 더 어두운 갈색
+                (90, 70, 50),     # 진한 암갈색
+            ]),
+            'type': 'rock',  # 바위 파편
+            'rotation': random.uniform(0, 360),
+            'rotation_speed': random.uniform(-25, 25),
+            'gravity': 0.5,
+            'life': 100,  # 1.67초
+            'can_hit_player': True,  # 플레이어와 충돌 가능
+            'hit_cooldown': 0  # 중복 히트 방지 쿨다운
+        }
+        water_cannon_fragments.append(fragment)
+
+    # 물 튀김 파편 15-20개 생성 (바위 파편과 함께 튀어오름)
+    num_water_splashes = random.randint(15, 20)
+    for i in range(num_water_splashes):
+        angle = random.uniform(0, math.pi * 2)  # 전 방향
+        speed = random.uniform(6, 14)
+
+        splash = {
+            'x': rock_x + random.uniform(-rock_size/2, rock_size/2),
+            'y': rock_y + random.uniform(-rock_size/2, rock_size/2),
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed - random.uniform(2, 5),  # 위로 약간 더
+            'size': random.randint(5, 12),
+            'color': random.choice([
+                (100, 180, 255),  # 밝은 파란색
+                (80, 160, 240),   # 중간 파란색
+                (120, 200, 255),  # 하늘색
+                (150, 210, 255),  # 연한 파란색
+            ]),
+            'type': 'water',  # 물 튀김
+            'rotation': 0,
+            'rotation_speed': 0,
+            'gravity': 0.3,
+            'life': 60,  # 1초
+            'can_hit_player': False,  # 물은 넉백 안함
+            'hit_cooldown': 0
+        }
+        water_cannon_fragments.append(splash)
+
+    print(f"💥 물대포로 바위 산산조각! 바위 파편 {num_rock_fragments}개 + 물 튀김 {num_water_splashes}개 생성!")
+
+
+def update_water_cannon_fragments():
+    """물대포 파편 업데이트 - 이동, 플레이어 충돌 체크"""
+    global water_cannon_fragments, player_knockback_vel
+
+    fragments_to_remove = []
+
+    for i, fragment in enumerate(water_cannon_fragments):
+        # 물리 업데이트
+        fragment['x'] += fragment['vx']
+        fragment['y'] += fragment['vy']
+        fragment['vy'] += fragment['gravity']
+        fragment['rotation'] += fragment['rotation_speed']
+        fragment['life'] -= 1
+
+        # 쿨다운 감소
+        if fragment['hit_cooldown'] > 0:
+            fragment['hit_cooldown'] -= 1
+
+        # 플레이어와 충돌 체크 (넉백 적용)
+        if fragment['can_hit_player'] and fragment['hit_cooldown'] <= 0:
+            fragment_rect = pygame.Rect(
+                fragment['x'] - fragment['size']/2,
+                fragment['y'] - fragment['size']/2,
+                fragment['size'],
+                fragment['size']
+            )
+
+            if PLAYER.colliderect(fragment_rect):
+                # 넉백 방향 결정 (파편 이동 방향)
+                knockback_dir = 1 if fragment['vx'] > 0 else -1
+                raw_knockback = knockback_dir * 12  # 넉백 강도
+
+                # 넉백 저항 적용
+                player_knockback_vel = apply_knockback_resist(_scale_knockback(raw_knockback))
+
+                print(f"💥 물대포 파편에 맞음! 넉백: {player_knockback_vel:.1f}")
+
+                # 파편은 한 번만 히트
+                fragment['can_hit_player'] = False
+                fragment['hit_cooldown'] = 30
+
+        # 화면 밖으로 나가거나 수명 종료 시 제거
+        if fragment['life'] <= 0 or fragment['y'] > HEIGHT + 50:
+            fragments_to_remove.append(i)
+
+    # 오래된 파편 제거
+    for i in reversed(fragments_to_remove):
+        water_cannon_fragments.pop(i)
+
+
+def draw_water_cannon(screen):
+    """물대포 렌더링 - 보스에서 바위까지 이어지는 물줄기"""
+    if not water_cannon_active:
+        return
+
+    # 시작점 (보스 패들)
+    start_x = water_cannon_start_x
+    start_y = water_cannon_start_y
+
+    # 현재 물줄기 끝점 (진행도에 따라)
+    end_x = water_cannon_x
+    end_y = water_cannon_y
+
+    # 물줄기 두께 (시작점에서 끝점으로 갈수록 약간 가늘어짐)
+    base_thickness = 18
+    end_thickness = 12
+
+    # 물줄기 메인 라인 (여러 겹으로 깊이감 표현)
+    # 1. 가장 바깥쪽 - 어두운 파란색
+    pygame.draw.line(screen, (30, 80, 160),
+                     (int(start_x), int(start_y)),
+                     (int(end_x), int(end_y)), base_thickness + 6)
+
+    # 2. 중간층 - 중간 파란색
+    pygame.draw.line(screen, (50, 120, 200),
+                     (int(start_x), int(start_y)),
+                     (int(end_x), int(end_y)), base_thickness + 2)
+
+    # 3. 메인 물줄기 - 밝은 파란색
+    pygame.draw.line(screen, (80, 160, 240),
+                     (int(start_x), int(start_y)),
+                     (int(end_x), int(end_y)), base_thickness - 2)
+
+    # 4. 하이라이트 - 가장 밝은 파란색/흰색
+    pygame.draw.line(screen, (150, 210, 255),
+                     (int(start_x), int(start_y)),
+                     (int(end_x), int(end_y)), base_thickness - 8)
+
+    # 물줄기 위에 물방울/거품 효과 (물줄기를 따라)
+    num_bubbles = int(water_cannon_progress * 15) + 5
+    for i in range(num_bubbles):
+        t = i / max(1, num_bubbles - 1)  # 0 ~ 1
+        bubble_x = start_x + (end_x - start_x) * t
+        bubble_y = start_y + (end_y - start_y) * t
+
+        # 물줄기 주변에 약간 흔들리는 거품
+        offset_x = random.uniform(-8, 8)
+        offset_y = random.uniform(-8, 8)
+        bubble_size = random.randint(3, 7)
+
+        # 거품 (반투명 흰색/밝은 파란색)
+        bubble_surface = pygame.Surface((bubble_size * 2 + 4, bubble_size * 2 + 4), pygame.SRCALPHA)
+        bubble_alpha = random.randint(150, 220)
+        pygame.draw.circle(bubble_surface, (200, 230, 255, bubble_alpha),
+                          (bubble_size + 2, bubble_size + 2), bubble_size)
+        screen.blit(bubble_surface, (int(bubble_x + offset_x - bubble_size - 2),
+                                      int(bubble_y + offset_y - bubble_size - 2)))
+
+    # 물줄기 끝부분 (목표 지점 근처) - 물 튀김 효과
+    if water_cannon_progress > 0.7:
+        splash_intensity = (water_cannon_progress - 0.7) / 0.3  # 0 ~ 1
+        num_splashes = int(splash_intensity * 12) + 3
+
+        for _ in range(num_splashes):
+            # 물줄기 끝에서 퍼지는 물방울
+            angle = random.uniform(0, math.pi * 2)
+            dist = random.uniform(5, 25) * splash_intensity
+            splash_x = end_x + math.cos(angle) * dist
+            splash_y = end_y + math.sin(angle) * dist
+            splash_size = random.randint(2, 6)
+
+            splash_surface = pygame.Surface((splash_size * 2 + 4, splash_size * 2 + 4), pygame.SRCALPHA)
+            splash_alpha = random.randint(180, 255)
+            pygame.draw.circle(splash_surface, (120, 180, 255, splash_alpha),
+                              (splash_size + 2, splash_size + 2), splash_size)
+            screen.blit(splash_surface, (int(splash_x - splash_size - 2),
+                                          int(splash_y - splash_size - 2)))
+
+    # 시작점 (보스 입 부분) - 물 분출 효과
+    for _ in range(5):
+        spray_angle = math.atan2(end_y - start_y, end_x - start_x) + random.uniform(-0.3, 0.3)
+        spray_dist = random.uniform(10, 25)
+        spray_x = start_x + math.cos(spray_angle) * spray_dist
+        spray_y = start_y + math.sin(spray_angle) * spray_dist
+        spray_size = random.randint(4, 8)
+
+        spray_surface = pygame.Surface((spray_size * 2 + 4, spray_size * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(spray_surface, (100, 180, 255, 200),
+                          (spray_size + 2, spray_size + 2), spray_size)
+        screen.blit(spray_surface, (int(spray_x - spray_size - 2),
+                                     int(spray_y - spray_size - 2)))
+
+
+def draw_water_cannon_fragments(screen):
+    """물대포 파편 렌더링 - 바위 파편과 물 튀김을 다르게 그림"""
+    for fragment in water_cannon_fragments:
+        size = fragment['size']
+        color = fragment['color']
+        frag_type = fragment.get('type', 'rock')
+
+        if frag_type == 'water':
+            # 물 튀김 - 원형, 투명하게
+            alpha = int(255 * min(1.0, fragment['life'] / 40))
+            water_surface = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+
+            # 물방울 (반투명 원)
+            pygame.draw.circle(water_surface, (*color, alpha),
+                              (size + 2, size + 2), size)
+            # 하이라이트
+            highlight_size = max(2, size // 3)
+            pygame.draw.circle(water_surface, (200, 230, 255, min(alpha, 180)),
+                              (size + 2 - size//4, size + 2 - size//4), highlight_size)
+
+            screen.blit(water_surface, (int(fragment['x'] - size - 2),
+                                         int(fragment['y'] - size - 2)))
+        else:
+            # 바위 파편 - 불규칙한 다각형
+            alpha = int(255 * min(1.0, fragment['life'] / 50))
+            fragment_surface = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+
+            # 파편마다 고정된 모양 (시드 기반)
+            seed = hash((fragment['x'], fragment['y'], size)) % 1000
+            rng = random.Random(seed)
+
+            # 불규칙한 다각형으로 파편 표현
+            points = []
+            num_points = rng.randint(5, 8)
+            for j in range(num_points):
+                angle = (j / num_points) * math.pi * 2 + math.radians(fragment['rotation'])
+                radius = size * rng.uniform(0.5, 1.0)
+                px = size + 2 + math.cos(angle) * radius
+                py = size + 2 + math.sin(angle) * radius
+                points.append((px, py))
+
+            if len(points) >= 3:
+                # 파편 본체
+                pygame.draw.polygon(fragment_surface, (*color, alpha), points)
+                # 어두운 테두리
+                border_color = (max(0, color[0] - 40), max(0, color[1] - 40), max(0, color[2] - 40))
+                pygame.draw.polygon(fragment_surface, (*border_color, alpha), points, 2)
+                # 하이라이트 (밝은 부분)
+                if len(points) >= 3:
+                    highlight_color = (min(255, color[0] + 30), min(255, color[1] + 30), min(255, color[2] + 30))
+                    pygame.draw.line(fragment_surface, (*highlight_color, alpha // 2),
+                                    points[0], points[1], 1)
+
+            screen.blit(fragment_surface, (int(fragment['x'] - size - 2),
+                                            int(fragment['y'] - size - 2)))
+
+
 # 정글지진 효과음 멈추기
 def stop_quake_sound():
     SOUND_QUAKE.stop()
@@ -81111,7 +81523,30 @@ def draw_field():
             pillar_renderer.set_stage(current_stage)
         else:
             pillar_renderer.set_type('artwork')
+        # 스테이지 1: 나비 흡수 이벤트용 플레이어 위치 전달 (update 전에 호출해야 함)
+        if current_stage == 1:
+            pillar_renderer.set_player_rect(PLAYER)
         pillar_renderer.update(1/60)  # 애니메이션 업데이트
+        # 스테이지 1: 나비 흡수로 인한 게이지 회복 처리
+        if current_stage == 1 and pillar_renderer.check_butterfly_gauge_recovery():
+            # 나비가 플레이어에게 흡수됨 - 게이지 200 회복
+            current_max = get_max_gauge()
+            old_gauge = special_gauge
+            special_gauge = min(current_max, special_gauge + 200)
+            actual_gain = special_gauge - old_gauge
+            if actual_gain > 0:
+                # 게이지 회복 애니메이션 트리거
+                gauge_charge_animation_timer = 60  # 1초간 표시
+                gauge_charge_animation_amount = actual_gain
+                # 효과음 재생
+                try:
+                    play_sound_with_volume(SOUND_ITEM_GET)
+                except:
+                    pass
+                # 게이지가 400 이상이면 special_ready 활성화
+                if special_gauge >= 350:
+                    special_ready = True
+                print(f"[Stage1] 나비 흡수! 게이지 +{int(actual_gain)} (현재: {int(special_gauge)}/{int(current_max)})")
         # 스테이지 7: 보스 위치 포함 업데이트 (크리스탈 실드용)
         # REAL_SCREEN 좌표계로 변환 (게임 영역 오프셋 추가)
         if current_stage == 7:
@@ -81188,6 +81623,9 @@ def draw_field():
                                 BOSS.centerx, PLAYER.centerx, round_wins, round_losses)
         # 직접 SCREEN에 그리기 (메인 루프가 흔들림 처리)
         animated_bg_stage2.draw(SCREEN)
+        # Stage 2 물대포 및 파편 렌더링
+        draw_water_cannon(SCREEN)
+        draw_water_cannon_fragments(SCREEN)
         # 원숭이가 던진 바나나를 인게임 화면에 그리기
         if pillar_renderer is not None:
             pillar_renderer.draw_bananas_ingame(SCREEN)
@@ -82398,6 +82836,10 @@ def reset_round():
         stop_quake_sound()
     quake_active = False
     quake_timer = 0
+    # Stage 2 물대포 스킬 초기화
+    water_cannon_active = False
+    water_cannon_fragments.clear()
+    water_cannon_trail.clear()
     speed_defense_active = False
     speed_defense_timer = 0
     horizontal_bounce_count = 0
@@ -82500,9 +82942,9 @@ def reset_round():
             pass
         print(f"Stage 1 보스 게이지 30% 감소 적용 (현재: {boss_special_gauge}/500)")
     elif current_stage == 2:
-        # Stage 2: 매 라운드 시작 시 게이지 초기화
-        boss_special_gauge = 0
-        print(f"Stage 2 보스 게이지 초기화 (현재: {boss_special_gauge}/500)")
+        # Stage 2: 라운드 전환 시 게이지 20% 감소 (초기화 대신 이월)
+        boss_special_gauge = max(0, int(boss_special_gauge * 0.8))
+        print(f"Stage 2 보스 게이지 20% 감소 적용 (현재: {boss_special_gauge}/500)")
     elif current_stage == 8:
         # Stage 8: 라운드 전환 시 30% 감소만 적용 (닌자 기운 유지)
         boss_special_gauge = max(0, int(boss_special_gauge * 0.7))
@@ -86216,7 +86658,8 @@ def handle_ball():
 
             stage7_guard_hit = False
             # 보스 서브 직후, 플레이어가 아직 반격하지 않은 상태에서는 가드 블록도 관통
-            stage7_guard_penetrate = (last_hit_by == "boss" or last_hit_by == "")
+            # 수정: ball_rally_count를 확인하여 플레이어가 한 번이라도 공을 쳤으면 관통하지 않음
+            stage7_guard_penetrate = (ball_rally_count == 0 and (last_hit_by == "boss" or last_hit_by == ""))
             if current_stage == 7 and stage7_guard_blocks and not stage7_guard_penetrate:
                 for guard_block in stage7_guard_blocks:
                     if guard_block.get("state") not in ("active", "deploy"):
@@ -86280,8 +86723,21 @@ def handle_ball():
             # Stage 7: 테트로미노(ㅗ) 낙하체와 충돌 처리 (플레이어/보스 모두 반응)
             stage7_tetro_hit = False
             # 보스 서브 직후, 플레이어가 아직 공을 반격하지 않은 상태에서는 테트로미노 관통
-            stage7_ball_penetrates_tetromino = (last_hit_by == "boss" or last_hit_by == "")
+            # 수정: ball_rally_count를 확인하여 플레이어가 한 번이라도 공을 쳤으면 관통하지 않음
+            # ball_rally_count > 0이면 플레이어가 최소 한 번 공을 쳤다는 의미
+            stage7_ball_penetrates_tetromino = (ball_rally_count == 0 and (last_hit_by == "boss" or last_hit_by == ""))
+
+            # DEBUG: 테트로미노 충돌 디버깅
+            if current_stage == 7:
+                mino_count = len(stage7_tetrominoes) if 'stage7_tetrominoes' in globals() else 0
+                mino_states = []
+                if mino_count > 0:
+                    for m in stage7_tetrominoes:
+                        mino_states.append(m.get("state", "unknown"))
+                print(f"[DEBUG TETRO] stage={current_stage}, rally={ball_rally_count}, last_hit={last_hit_by}, penetrate={stage7_ball_penetrates_tetromino}, minos={mino_count}, states={mino_states}")
+
             if current_stage == 7 and 'stage7_tetrominoes' in globals() and stage7_tetrominoes and not stage7_ball_penetrates_tetromino:
+                print(f"[DEBUG TETRO] 충돌검사 진입! minos={len(stage7_tetrominoes)}")
                 for mino in stage7_tetrominoes:
                     # falling(낙하 중)과 installed(설치됨) 상태 모두 충돌 검사
                     if mino.get("state") not in ("falling", "installed"):
@@ -86290,7 +86746,14 @@ def handle_ball():
                         # AK-47 등에 의해 제거된 셀은 충돌에서 제외
                         if cell.get("evaporated", False):
                             continue
-                        if BALL.colliderect(cell["rect"]):
+                        # DEBUG: 충돌 검사 거리 확인
+                        cell_rect = cell["rect"]
+                        ball_cx, ball_cy = BALL.centerx, BALL.centery
+                        cell_cx, cell_cy = cell_rect.centerx, cell_rect.centery
+                        dist = ((ball_cx - cell_cx)**2 + (ball_cy - cell_cy)**2)**0.5
+                        if dist < 100:  # 가까울 때만 로그
+                            print(f"[DEBUG TETRO] BALL({ball_cx},{ball_cy}) vs CELL({cell_cx},{cell_cy}) dist={dist:.1f} collide={BALL.colliderect(cell_rect)}")
+                        if BALL.colliderect(cell_rect):
                             cell_rect = cell["rect"]
                             prev_rect = pygame.Rect(old_x, old_y, BALL.width, BALL.height)
 
@@ -87800,11 +88263,16 @@ def handle_ball():
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장 (player_collision_rect 재사용)
     # 스톱워치 정지 중에는 백업 충돌 처리도 수행하지 않음
     if BALL.colliderect(player_collision_rect) and player_collision_cooldown <= 0 and not player_collision_handled and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
+        # ⚠️ 버그 수정: last_hit_by와 랠리 카운트 업데이트 (테트로미노 충돌 판정용)
+        last_hit_by = "player"
+        game_vars.ball.last_hit_by = "player"
+        update_ball_rally("player")
+
         # 무승부 판정 시스템: 패들 충돌 시 벽 카운트 리셋
         wall_bounce_count = 0
         last_paddle_hit_time = pygame.time.get_ticks()
         last_wall_hit = None
-        
+
         # 디버그: 충돌 위치 정보
         collision_x = BALL.centerx - PLAYER.centerx
         collision_side = "LEFT" if collision_x < 0 else "RIGHT"
@@ -89006,10 +89474,15 @@ def handle_ball():
             pass
         elif not new_boss_mode_active and current_stage == 2:
             time_now = pygame.time.get_ticks()
+            # 정글지진 스킬 발동 체크
             if (time_now - quake_last_used_time >= QUAKE_COOLDOWN) and random.random() <= 0.15:
                 if activate_quake(animated_bg_stage2):
                     show_speech("정글지진!", duration=quake_duration)
                     quake_last_used_time = time_now
+            # 물대포 스킬 발동 체크 (쿨타임: 10~20초, 게이지 100 필요, 바위 있어야 함)
+            if (time_now - water_cannon_last_used_time >= water_cannon_current_cooldown) and not water_cannon_active:
+                if boss_special_gauge >= 100 and random.random() <= 0.35:  # 35% 확률로 발동
+                    activate_water_cannon()
         elif not new_boss_mode_active and current_stage == 3:
             # 패들 충돌 시 충전된 게이지가 500 이상이 되었을 때만 필살기 준비 상태로 전환
             if not boss_special_ready and boss_special_gauge >= 500:
@@ -96704,53 +97177,52 @@ def main(stage_num, new_boss_mode=False):
                 #  AI 모드 전환 (N키)
                 elif event.key == pygame.K_n:
                     toggle_ai_mode()
-                # ✨ 스매셔 클렌즈 스킬 (S키/ㄴ키 더블탭)
-                # 한글 'ㄴ' = S키 위치, event.unicode로 한글 입력도 감지
-                elif (event.key == pygame.K_s or getattr(event, 'unicode', '') in ('ㄴ', 'ㄴ')) and selected_character_type == "smasher" and not game_paused:
+                # ✨ 스매셔 클렌즈 스킬 (J키/ㅈ키 - 상키 1번)
+                # 한글 'ㅈ' = J키 위치, event.unicode로 한글 입력도 감지
+                elif (event.key == pygame.K_j or getattr(event, 'unicode', '') in ('ㅈ', 'ㅈ')) and selected_character_type == "smasher" and not game_paused:
                     cleanse = get_cleanse_skill()
-                    current_time = pygame.time.get_ticks()
-                    if cleanse.check_double_tap(current_time):
-                        # 더블탭 감지 - 클렌즈 발동 시도
-                        has_status = check_player_has_status_effect(
-                            player_stunned_timer=player_stunned_timer,
-                            player_missile_stunned_timer=player_missile_stunned_timer,
-                            player_slow_timer=player_slow_timer,
-                            player_knockback_vel=player_knockback_vel,
-                            player_missile_knockback_vel=player_missile_knockback_vel if 'player_missile_knockback_vel' in dir() else 0,
-                            player_flame_zone_knockback_vel=player_flame_zone_knockback_vel if 'player_flame_zone_knockback_vel' in dir() else 0,
-                            smasher_power_recoil_timer=smasher_power_recoil_timer if 'smasher_power_recoil_timer' in dir() else 0,
-                            spider_mine_slow_active=spider_mine_slow_active if 'spider_mine_slow_active' in dir() else False,
-                            player_burn_timer=player_burn_timer if 'player_burn_timer' in dir() else 0,
-                            player_knockback_y=player_knockback_y if 'player_knockback_y' in dir() else 0
-                        )
-                        if cleanse.can_activate(special_gauge, has_status):
-                            # 클렌즈 발동!
-                            cleanse.activate(PLAYER.centerx, PLAYER.centery)
-                            special_gauge -= 100  # 게이지 소모
-                            # ⚡ 스매셔 콤보 리셋 (클렌즈 사용 시)
-                            if selected_character_type == "smasher":
-                                _reset_smasher_combo("클렌즈")
-                            # 모든 상태이상 해제
-                            player_stunned_timer = 0
-                            player_missile_stunned_timer = 0
-                            player_slow_timer = 0
-                            player_knockback_vel = 0
-                            if 'player_missile_knockback_vel' in dir():
-                                player_missile_knockback_vel = 0
-                            if 'player_flame_zone_knockback_vel' in dir():
-                                player_flame_zone_knockback_vel = 0
-                            if 'smasher_power_recoil_timer' in dir():
-                                smasher_power_recoil_timer = 0
-                            if 'spider_mine_slow_active' in dir():
-                                spider_mine_slow_active = False
-                            # 스테이지4 붉은달 파편 화상/넉백 해제
-                            if 'player_burn_timer' in dir():
-                                player_burn_timer = 0
-                            if 'player_burn_effect' in dir():
-                                player_burn_effect = False
-                            if 'player_knockback_y' in dir():
-                                player_knockback_y = 0
-                            print("✨ [CLEANSE] 클렌즈 발동! 모든 상태이상 해제!")
+                    # 단일 키 입력으로 클렌즈 발동 시도
+                    has_status = check_player_has_status_effect(
+                        player_stunned_timer=player_stunned_timer,
+                        player_missile_stunned_timer=player_missile_stunned_timer,
+                        player_slow_timer=player_slow_timer,
+                        player_knockback_vel=player_knockback_vel,
+                        player_missile_knockback_vel=player_missile_knockback_vel if 'player_missile_knockback_vel' in dir() else 0,
+                        player_flame_zone_knockback_vel=player_flame_zone_knockback_vel if 'player_flame_zone_knockback_vel' in dir() else 0,
+                        smasher_power_recoil_timer=smasher_power_recoil_timer if 'smasher_power_recoil_timer' in dir() else 0,
+                        spider_mine_slow_active=spider_mine_slow_active if 'spider_mine_slow_active' in dir() else False,
+                        player_burn_timer=player_burn_timer if 'player_burn_timer' in dir() else 0,
+                        player_knockback_y=player_knockback_y if 'player_knockback_y' in dir() else 0
+                    )
+                    print(f"[CLEANSE-DEBUG] J키 감지! gauge={special_gauge}, has_status={has_status}, cooldown={cleanse.cooldown_timer}, active={cleanse.active}")
+                    if cleanse.can_activate(special_gauge, has_status):
+                        # 클렌즈 발동!
+                        cleanse.activate(PLAYER.centerx, PLAYER.centery)
+                        special_gauge -= 100  # 게이지 소모
+                        # ⚡ 스매셔 콤보 리셋 (클렌즈 사용 시)
+                        if selected_character_type == "smasher":
+                            _reset_smasher_combo("클렌즈")
+                        # 모든 상태이상 해제
+                        player_stunned_timer = 0
+                        player_missile_stunned_timer = 0
+                        player_slow_timer = 0
+                        player_knockback_vel = 0
+                        if 'player_missile_knockback_vel' in dir():
+                            player_missile_knockback_vel = 0
+                        if 'player_flame_zone_knockback_vel' in dir():
+                            player_flame_zone_knockback_vel = 0
+                        if 'smasher_power_recoil_timer' in dir():
+                            smasher_power_recoil_timer = 0
+                        if 'spider_mine_slow_active' in dir():
+                            spider_mine_slow_active = False
+                        # 스테이지4 붉은달 파편 화상/넉백 해제
+                        if 'player_burn_timer' in dir():
+                            player_burn_timer = 0
+                        if 'player_burn_effect' in dir():
+                            player_burn_effect = False
+                        if 'player_knockback_y' in dir():
+                            player_knockback_y = 0
+                        print("✨ [CLEANSE] 클렌즈 발동! 모든 상태이상 해제!")
                     continue
                 # ⚡ 옵티머스 비상충전 스킬 (S키/ㄴ키 더블탭)
                 elif (event.key == pygame.K_s or getattr(event, 'unicode', '') in ('ㄴ', 'ㄴ')) and selected_character_type == "optimus" and not game_paused:
@@ -97796,6 +98268,10 @@ def main(stage_num, new_boss_mode=False):
                 # handle_balloon()  # Stage 1 보스 풍선파티 스킬 제거됨
                 handle_spinning_top()  # Stage 1 보스 팽이치기 스킬
                 handle_quake()
+                # Stage 2 악어장군 물대포 스킬 업데이트
+                if current_stage == 2:
+                    update_water_cannon()
+                    update_water_cannon_fragments()
                 handle_new_boss_skills_timer()  #  새로운 보스들 스킬 타이머 처리
                 handle_emotional_overdrive()
                 update_neutralize_particles()  # 사이코볼 무효화 파티클 업데이트
@@ -104531,13 +105007,439 @@ P1_KEY_LEFT = pygame.K_LEFT
 P1_KEY_RIGHT = pygame.K_RIGHT
 P1_KEY_DASH = pygame.K_RSHIFT
 
+# ============================================================================
+# 멀티플레이어 스킬 상수
+# ============================================================================
+MP_GAUGE_MAX = 500
+MP_GAUGE_HIT_CHARGE = 30
+MP_SHOT_GAUGE_COST = 100
+MP_SHOT_SPEED_MULTIPLIER = 1.3
+MP_POWER_SMASH_GAUGE_COST = 350
+MP_POWER_SMASH_SPEED_MULT = 1.5
+MP_DRIVE_CURVE_STRENGTH = 0.4
+MP_DRIVE_SPEED_BOOST = 1.2
+MP_COMBO_GAUGE_BONUS = {2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8}
+MP_COMBO_MAX_BONUS = 1.0  # 6콤보 이상: 100% 보너스
+
+# ============================================================================
+# 멀티플레이어 헬퍼 함수들
+# ============================================================================
+
+def _create_mp_player(is_top: bool, player_num: int) -> dict:
+    """멀티플레이어용 플레이어 데이터 생성"""
+    y_pos = 60 if is_top else HEIGHT - 80
+    return {
+        "num": player_num,
+        "is_top": is_top,
+        "x": WIDTH // 2 - 50,
+        "y": y_pos,
+        "width": 100,
+        "height": 20,
+        "speed": 8,
+        "character": "smasher",
+        # 게이지 시스템
+        "gauge": 0,
+        "gauge_max": MP_GAUGE_MAX,
+        # 콤보 시스템
+        "combo": 0,
+        "combo_timer": 0,
+        "combo_display_timer": 0,
+        # 대시 시스템
+        "dash_cooldown": 0,
+        "dash_active": False,
+        # 스킬 상태
+        "short_shot_active": False,
+        "short_shot_timer": 0,
+        "power_smash_active": False,
+        "power_smash_timer": 0,
+        "drive_active": False,
+        "drive_direction": 0,  # -1: 좌, 1: 우
+        # 클렌즈 (상태이상 해제)
+        "cleanse_cooldown": 0,
+        "status_effects": [],  # 상태이상 목록
+        # 애니메이션
+        "walking_timer": 0,
+        "hit_pose_timer": 0,
+        "facing_left": False,
+        # 넉백
+        "knockback_x": 0,
+        "knockback_timer": 0,
+    }
+
+
+def _draw_mp_smasher_sprite(screen, player: dict, step_phase: float = 0):
+    """멀티플레이어 스매셔 스프라이트 그리기"""
+    try:
+        # 기존 스매셔 스프라이트 함수 활용
+        is_left = player["facing_left"]
+        is_hit = player["hit_pose_timer"] > 0
+
+        # 걷기 애니메이션 프레임
+        walk_frame = int(step_phase * 4) % 4 if player["walking_timer"] > 0 else 0
+
+        # 스매셔 스프라이트 생성 (create_smasher_paddle_surface 사용)
+        paddle_surf = create_smasher_paddle_surface(
+            player["width"],
+            player["height"],
+            is_left_pose=is_left,
+            is_hit_pose=is_hit,
+            walk_frame=walk_frame
+        )
+
+        # 상단 플레이어는 180도 회전
+        if player["is_top"]:
+            paddle_surf = pygame.transform.rotate(paddle_surf, 180)
+
+        # 넉백 적용
+        draw_x = player["x"] + player["knockback_x"]
+        draw_y = player["y"]
+
+        # 스프라이트 중앙 정렬
+        sprite_rect = paddle_surf.get_rect()
+        sprite_rect.centerx = draw_x + player["width"] // 2
+        sprite_rect.centery = draw_y + player["height"] // 2
+
+        screen.blit(paddle_surf, sprite_rect)
+
+    except Exception:
+        # 폴백: 단순 사각형
+        color = (0, 150, 255) if player["num"] == 1 else (255, 100, 100)
+        pygame.draw.rect(screen, color,
+                        (player["x"], player["y"], player["width"], player["height"]),
+                        border_radius=5)
+
+
+def _draw_mp_gauge(screen, player: dict):
+    """멀티플레이어 게이지 바 그리기"""
+    gauge_width = 150
+    gauge_height = 12
+    border = 2
+
+    # 위치 설정
+    if player["is_top"]:
+        # 상단 플레이어: 우측 상단
+        gauge_x = WIDTH - gauge_width - 20
+        gauge_y = 20
+    else:
+        # 하단 플레이어: 우측 하단
+        gauge_x = WIDTH - gauge_width - 20
+        gauge_y = HEIGHT - gauge_height - 20
+
+    # 배경
+    pygame.draw.rect(screen, (40, 40, 50),
+                    (gauge_x - border, gauge_y - border,
+                     gauge_width + border * 2, gauge_height + border * 2),
+                    border_radius=3)
+
+    # 게이지 바
+    fill_ratio = player["gauge"] / player["gauge_max"]
+    fill_width = int(gauge_width * fill_ratio)
+
+    # 게이지 색상 (충전량에 따라)
+    if fill_ratio >= 0.7:
+        gauge_color = (100, 255, 100)  # 녹색 (충분)
+    elif fill_ratio >= 0.35:
+        gauge_color = (255, 200, 50)   # 노란색 (중간)
+    else:
+        gauge_color = (200, 100, 100)  # 빨간색 (부족)
+
+    if fill_width > 0:
+        pygame.draw.rect(screen, gauge_color,
+                        (gauge_x, gauge_y, fill_width, gauge_height),
+                        border_radius=2)
+
+    # 스킬 코스트 마커
+    shot_pos = int(gauge_width * (MP_SHOT_GAUGE_COST / MP_GAUGE_MAX))
+    smash_pos = int(gauge_width * (MP_POWER_SMASH_GAUGE_COST / MP_GAUGE_MAX))
+
+    # 쇼트 마커 (100)
+    pygame.draw.line(screen, (150, 150, 150),
+                    (gauge_x + shot_pos, gauge_y - 2),
+                    (gauge_x + shot_pos, gauge_y + gauge_height + 2), 1)
+
+    # 파워스매싱 마커 (350)
+    pygame.draw.line(screen, (255, 100, 100),
+                    (gauge_x + smash_pos, gauge_y - 2),
+                    (gauge_x + smash_pos, gauge_y + gauge_height + 2), 1)
+
+    # 플레이어 표시
+    try:
+        label_font = get_font(14)
+    except:
+        label_font = pygame.font.Font(None, 14)
+
+    label = f"P{player['num']}"
+    label_surf = label_font.render(label, True, (200, 200, 200))
+    label_x = gauge_x - label_surf.get_width() - 8
+    label_y = gauge_y + (gauge_height - label_surf.get_height()) // 2
+    screen.blit(label_surf, (label_x, label_y))
+
+
+def _draw_mp_combo_effect(screen, player: dict):
+    """콤보 이펙트 표시"""
+    if player["combo_display_timer"] <= 0 or player["combo"] < 2:
+        return
+
+    combo = player["combo"]
+
+    # 위치
+    if player["is_top"]:
+        x = WIDTH - 100
+        y = 50
+    else:
+        x = WIDTH - 100
+        y = HEIGHT - 60
+
+    # 색상 (콤보 수에 따라)
+    if combo >= 6:
+        color = (255, 50, 50)    # 빨강 (최대)
+    elif combo >= 4:
+        color = (255, 150, 50)   # 주황
+    else:
+        color = (255, 255, 100)  # 노랑
+
+    # 크기 애니메이션
+    scale = 1.0 + (player["combo_display_timer"] / 60) * 0.3
+
+    try:
+        combo_font = get_font(int(24 * scale))
+    except:
+        combo_font = pygame.font.Font(None, int(24 * scale))
+
+    combo_text = combo_font.render(f"{combo} COMBO!", True, color)
+    text_rect = combo_text.get_rect(center=(x, y))
+    screen.blit(combo_text, text_rect)
+
+
+def show_multiplayer_character_select() -> tuple:
+    """멀티플레이어 캐릭터 선택 화면
+
+    Returns:
+        tuple: ((p1_char, p1_is_top), (p2_char, p2_is_top)) or None if cancelled
+    """
+    clock = pygame.time.Clock()
+
+    characters = [
+        {"id": "smasher", "name": "스매셔", "available": True, "color": (0, 150, 255)},
+        {"id": "commando", "name": "코만도", "available": False, "color": (100, 100, 100)},
+        {"id": "baltor", "name": "발토르", "available": False, "color": (100, 100, 100)},
+        {"id": "optimus", "name": "옵티머스", "available": False, "color": (100, 100, 100)},
+    ]
+
+    # 선택 상태
+    current_player = 1  # 1 또는 2
+    p1_selection = None
+    p2_selection = None
+    hover_index = 0
+
+    # 위치 랜덤 결정 (P1이 위인지 아래인지)
+    p1_is_top = random.choice([True, False])
+
+    while True:
+        dt = clock.tick(60) / 1000.0
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return None
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return None
+                elif event.key == pygame.K_LEFT:
+                    hover_index = (hover_index - 1) % len(characters)
+                    play_button_click_sound()
+                elif event.key == pygame.K_RIGHT:
+                    hover_index = (hover_index + 1) % len(characters)
+                    play_button_click_sound()
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    if characters[hover_index]["available"]:
+                        if current_player == 1:
+                            p1_selection = characters[hover_index]["id"]
+                            current_player = 2
+                            play_button_click_sound()
+                        else:
+                            p2_selection = characters[hover_index]["id"]
+                            play_button_click_sound()
+                            # 선택 완료
+                            return (
+                                (p1_selection, p1_is_top),
+                                (p2_selection, not p1_is_top)
+                            )
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mx, my = pygame.mouse.get_pos()
+                # 카드 클릭 체크
+                card_width = 140
+                card_height = 180
+                start_x = (WIDTH - (len(characters) * (card_width + 20) - 20)) // 2
+                card_y = HEIGHT // 2 - card_height // 2
+
+                for idx, char in enumerate(characters):
+                    card_x = start_x + idx * (card_width + 20)
+                    card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+                    if card_rect.collidepoint(mx, my) and char["available"]:
+                        if current_player == 1:
+                            p1_selection = char["id"]
+                            current_player = 2
+                            play_button_click_sound()
+                        else:
+                            p2_selection = char["id"]
+                            play_button_click_sound()
+                            return (
+                                (p1_selection, p1_is_top),
+                                (p2_selection, not p1_is_top)
+                            )
+
+        # 마우스 호버
+        mx, my = pygame.mouse.get_pos()
+        card_width = 140
+        card_height = 180
+        start_x = (WIDTH - (len(characters) * (card_width + 20) - 20)) // 2
+        card_y = HEIGHT // 2 - card_height // 2
+
+        for idx, char in enumerate(characters):
+            card_x = start_x + idx * (card_width + 20)
+            card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+            if card_rect.collidepoint(mx, my):
+                hover_index = idx
+
+        # 렌더링
+        SCREEN.fill((20, 25, 40))
+
+        # 제목
+        try:
+            title_font = get_font(48)
+            sub_font = get_font(24)
+            card_font = get_font(20)
+            hint_font = get_font(16)
+        except:
+            title_font = pygame.font.Font(None, 48)
+            sub_font = pygame.font.Font(None, 24)
+            card_font = pygame.font.Font(None, 20)
+            hint_font = pygame.font.Font(None, 16)
+
+        title = f"P{current_player} 캐릭터 선택"
+        title_color = (0, 150, 255) if current_player == 1 else (255, 100, 100)
+        title_surf = title_font.render(title, True, title_color)
+        SCREEN.blit(title_surf, (WIDTH // 2 - title_surf.get_width() // 2, 60))
+
+        # 위치 정보
+        if current_player == 1:
+            pos_text = "상단" if p1_is_top else "하단"
+        else:
+            pos_text = "하단" if p1_is_top else "상단"
+        pos_surf = sub_font.render(f"위치: {pos_text}", True, (180, 180, 180))
+        SCREEN.blit(pos_surf, (WIDTH // 2 - pos_surf.get_width() // 2, 120))
+
+        # 캐릭터 카드들
+        for idx, char in enumerate(characters):
+            card_x = start_x + idx * (card_width + 20)
+            is_hover = idx == hover_index
+            is_available = char["available"]
+
+            # 카드 배경
+            if is_hover and is_available:
+                bg_color = (60, 70, 90)
+                border_color = title_color
+                border_width = 3
+            elif is_available:
+                bg_color = (40, 45, 60)
+                border_color = (80, 90, 110)
+                border_width = 2
+            else:
+                bg_color = (30, 30, 40)
+                border_color = (50, 50, 60)
+                border_width = 1
+
+            pygame.draw.rect(SCREEN, bg_color,
+                           (card_x, card_y, card_width, card_height),
+                           border_radius=10)
+            pygame.draw.rect(SCREEN, border_color,
+                           (card_x, card_y, card_width, card_height),
+                           border_width, border_radius=10)
+
+            # 캐릭터 이름
+            name_color = char["color"] if is_available else (80, 80, 80)
+            name_surf = card_font.render(char["name"], True, name_color)
+            name_x = card_x + (card_width - name_surf.get_width()) // 2
+            SCREEN.blit(name_surf, (name_x, card_y + card_height - 40))
+
+            # Coming Soon 표시
+            if not is_available:
+                soon_surf = hint_font.render("Coming Soon", True, (100, 100, 100))
+                soon_x = card_x + (card_width - soon_surf.get_width()) // 2
+                SCREEN.blit(soon_surf, (soon_x, card_y + card_height - 20))
+
+            # 스매셔 미리보기 스프라이트 (간단히)
+            if char["id"] == "smasher" and is_available:
+                try:
+                    preview_surf = create_smasher_paddle_surface(60, 12, False, False, 0)
+                    preview_x = card_x + (card_width - 60) // 2
+                    preview_y = card_y + 60
+                    SCREEN.blit(preview_surf, (preview_x, preview_y))
+                except:
+                    pygame.draw.rect(SCREEN, (0, 150, 255),
+                                   (card_x + 40, card_y + 60, 60, 12),
+                                   border_radius=3)
+
+        # P1 선택 완료 표시
+        if p1_selection:
+            p1_info = f"P1: {p1_selection} ({'상단' if p1_is_top else '하단'})"
+            p1_surf = sub_font.render(p1_info, True, (0, 150, 255))
+            SCREEN.blit(p1_surf, (20, HEIGHT - 60))
+
+        # 조작 안내
+        hint1 = hint_font.render("← → 선택, Enter 확정, ESC 취소", True, (120, 120, 120))
+        SCREEN.blit(hint1, (WIDTH // 2 - hint1.get_width() // 2, HEIGHT - 40))
+
+        pygame.display.flip()
+
+    return None
+
 
 def main_multiplayer():
-    """로컬 2인용 멀티플레이 게임 모드
+    """로컬 2인용 멀티플레이 게임 모드 (스매셔 스킬 시스템 포함)
 
-    P1 (하단): 방향키 + 오른쪽 Shift (대시)
-    P2 (상단): WASD + Space (대시)
+    P1: 방향키 + Shift (대시)
+        - 쇼트: ↑ + 히트 (100 게이지)
+        - 드라이브: ← or → + 히트
+        - 파워스매싱: ↓ + 히트 (350 게이지)
+
+    P2: WASD + Space (대시)
+        - 쇼트: W + 히트 (100 게이지)
+        - 드라이브: A or D + 히트
+        - 파워스매싱: S + 히트 (350 게이지)
     """
+    global multiplayer_mode
+
+    # 사운드 함수들
+    play_sound_funcs = {
+        "click": play_button_click_sound,
+        "hit": play_hit_sound,
+        "wall": play_wall_hit_sound,
+        "score": play_score_sound,
+        "short_shot": play_short_shot_sound,
+    }
+
+    # 새 멀티플레이어 모듈 호출
+    multiplayer_mode.run_multiplayer_game(
+        screen=SCREEN,
+        width=WIDTH,
+        height=HEIGHT,
+        get_font_func=get_font,
+        play_sound_funcs=play_sound_funcs,
+        create_smasher_func=create_smasher_paddle_surface,
+        bgm_manager=bgm_manager
+    )
+
+    multiplayer_mode = False
+    return
+
+
+# ============================================================================
+# 기존 멀티플레이어 코드 (레거시 - 새 모듈로 대체됨)
+# ============================================================================
+def _legacy_main_multiplayer():
+    """[레거시] 기존 로컬 2인용 멀티플레이 - 사용하지 않음"""
     global multiplayer_mode, player2_score, player2_x, player2_y
     global player2_width, player2_height
     global PLAYER, ball, ball_vel, player_score, boss_score
