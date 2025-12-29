@@ -237,145 +237,16 @@ def _setup_game_resolution():
         # 프로그램 종료 시 해상도 복원 등록
         atexit.register(_restore_windows_resolution)
 
+# 게임 시작 시 해상도 설정 (Windows 전용)
+_setup_game_resolution()  # 고해상도 모니터에서 게임 화면이 작게 보이는 문제 해결
 # ============================================================
-# 1.2 Display Mode Selection (게임 시작 전 화면 모드 선택)
+# 1.2 Fullscreen Mode Setup
 # ============================================================
-FULLSCREEN_MODE = True  # 기본값: 전체화면
-WINDOWED_MODE_WITH_PILLAR = False  # 창모드 + 필러 표시
+FULLSCREEN_MODE = True
 FULLSCREEN_WIDTH = 0
 FULLSCREEN_HEIGHT = 0
 GAME_OFFSET_X = 0
 GAME_OFFSET_Y = 0
-
-def _show_display_mode_dialog():
-    """게임 시작 전 화면 모드 선택 대화상자 표시"""
-    global FULLSCREEN_MODE, WINDOWED_MODE_WITH_PILLAR
-
-    try:
-        import tkinter as tk
-        from tkinter import ttk
-
-        selected_mode = [None]  # 결과 저장용
-
-        root = tk.Tk()
-        root.title("PingFighter - 화면 모드 선택")
-
-        # 창 크기 및 중앙 배치 (더 크게)
-        window_width = 550
-        window_height = 420
-        screen_width = root.winfo_screenwidth()
-        screen_height = root.winfo_screenheight()
-        x = (screen_width - window_width) // 2
-        y = (screen_height - window_height) // 2
-        root.geometry(f"{window_width}x{window_height}+{x}+{y}")
-        root.resizable(False, False)
-
-        # 스타일 설정
-        style = ttk.Style()
-        style.configure('Title.TLabel', font=('맑은 고딕', 20, 'bold'))
-        style.configure('Desc.TLabel', font=('맑은 고딕', 12))
-        style.configure('Mode.TRadiobutton', font=('맑은 고딕', 14))
-        style.configure('Start.TButton', font=('맑은 고딕', 16, 'bold'))
-
-        # 배경색
-        root.configure(bg='#1a1a2e')
-
-        # 제목
-        title_frame = tk.Frame(root, bg='#1a1a2e')
-        title_frame.pack(pady=25)
-        title_label = tk.Label(title_frame, text="PingFighter",
-                               font=('맑은 고딕', 28, 'bold'),
-                               fg='#ffd700', bg='#1a1a2e')
-        title_label.pack()
-        subtitle_label = tk.Label(title_frame, text="화면 모드를 선택하세요",
-                                  font=('맑은 고딕', 14),
-                                  fg='#aaaaaa', bg='#1a1a2e')
-        subtitle_label.pack(pady=(5, 0))
-
-        # 모드 선택
-        mode_var = tk.StringVar(value="fullscreen")
-
-        mode_frame = tk.Frame(root, bg='#1a1a2e')
-        mode_frame.pack(pady=15, padx=30, fill='x')
-
-        # 전체화면 옵션
-        fullscreen_frame = tk.Frame(mode_frame, bg='#252540', relief='ridge', bd=2)
-        fullscreen_frame.pack(fill='x', pady=8)
-        fullscreen_radio = tk.Radiobutton(fullscreen_frame, text="전체화면 모드",
-                                          variable=mode_var, value="fullscreen",
-                                          font=('맑은 고딕', 16, 'bold'),
-                                          fg='#ffffff', bg='#252540',
-                                          selectcolor='#3a3a5c', activebackground='#252540',
-                                          activeforeground='#ffffff')
-        fullscreen_radio.pack(anchor='w', padx=15, pady=8)
-        fullscreen_desc = tk.Label(fullscreen_frame,
-                                   text="해상도 변경 + 전체화면 (현재 설정과 동일)",
-                                   font=('맑은 고딕', 12), fg='#888888', bg='#252540')
-        fullscreen_desc.pack(anchor='w', padx=15, pady=(0, 12))
-
-        # 창모드 옵션
-        windowed_frame = tk.Frame(mode_frame, bg='#252540', relief='ridge', bd=2)
-        windowed_frame.pack(fill='x', pady=8)
-        windowed_radio = tk.Radiobutton(windowed_frame, text="창모드 (필러 포함)",
-                                        variable=mode_var, value="windowed",
-                                        font=('맑은 고딕', 16, 'bold'),
-                                        fg='#ffffff', bg='#252540',
-                                        selectcolor='#3a3a5c', activebackground='#252540',
-                                        activeforeground='#ffffff')
-        windowed_radio.pack(anchor='w', padx=15, pady=8)
-        windowed_desc = tk.Label(windowed_frame,
-                                 text="창모드로 실행 (필러 배경 포함, 해상도 변경 없음)",
-                                 font=('맑은 고딕', 12), fg='#888888', bg='#252540')
-        windowed_desc.pack(anchor='w', padx=15, pady=(0, 12))
-
-        def on_start():
-            selected_mode[0] = mode_var.get()
-            root.destroy()
-
-        def on_close():
-            selected_mode[0] = "fullscreen"  # 기본값
-            root.destroy()
-
-        root.protocol("WM_DELETE_WINDOW", on_close)
-
-        # 시작 버튼
-        button_frame = tk.Frame(root, bg='#1a1a2e')
-        button_frame.pack(pady=25)
-        start_button = tk.Button(button_frame, text="게임 시작",
-                                 command=on_start,
-                                 font=('맑은 고딕', 18, 'bold'),
-                                 fg='#1a1a2e', bg='#ffd700',
-                                 activebackground='#ffed4a',
-                                 width=18, height=2,
-                                 cursor='hand2')
-        start_button.pack()
-
-        # Enter 키로 시작
-        root.bind('<Return>', lambda e: on_start())
-
-        root.mainloop()
-
-        # 선택 결과 적용
-        if selected_mode[0] == "windowed":
-            FULLSCREEN_MODE = False
-            WINDOWED_MODE_WITH_PILLAR = True
-            print("[화면 모드] 창모드 (필러 포함) 선택됨")
-        else:
-            FULLSCREEN_MODE = True
-            WINDOWED_MODE_WITH_PILLAR = False
-            print("[화면 모드] 전체화면 모드 선택됨")
-
-    except Exception as e:
-        print(f"[화면 모드] 대화상자 표시 실패, 전체화면 모드로 진행: {e}")
-        FULLSCREEN_MODE = True
-        WINDOWED_MODE_WITH_PILLAR = False
-
-# 화면 모드 선택 대화상자 표시 (pygame 초기화 전에 실행)
-_show_display_mode_dialog()
-
-# 게임 시작 시 해상도 설정 (Windows 전용, 전체화면 모드일 때만)
-if FULLSCREEN_MODE:
-    _setup_game_resolution()  # 고해상도 모니터에서 게임 화면이 작게 보이는 문제 해결
 
 def _setup_fullscreen_mode():
     global FULLSCREEN_MODE, FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
@@ -1974,16 +1845,16 @@ import platform
 _current_platform = platform.system()  # 'Windows', 'Darwin' (macOS), 'Linux'
 print(f"[플랫폼] 운영체제: {_current_platform}", flush=True)
 
-# 전역 변수 선언
-REAL_SCREEN = None
-pillar_renderer = None
-
 if FULLSCREEN_MODE:
     # pygame으로 모니터 정보 가져오기
     display_info = pygame.display.Info()
     FULLSCREEN_WIDTH = display_info.current_w
     FULLSCREEN_HEIGHT = display_info.current_h
     print(f"[전체화면] pygame 감지 해상도: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+
+# 전역 변수 선언
+REAL_SCREEN = None
+pillar_renderer = None
 
 if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     # 플랫폼별 전체화면 플래그 설정
@@ -2027,68 +1898,8 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     from display_manager import set_fullscreen_mode
     set_fullscreen_mode(True, SCREEN)
     print(f"[전체화면] display_manager에 전체화면 모드 설정 완료 (SCREEN Surface 전달)", flush=True)
-
-elif WINDOWED_MODE_WITH_PILLAR:
-    # 창모드 + 필러 포함 모드
-    # 모니터 해상도의 80%를 창 크기로 사용 (16:9 비율 유지)
-    display_info = pygame.display.Info()
-    monitor_width = display_info.current_w
-    monitor_height = display_info.current_h
-
-    # 창 크기 계산 (모니터의 85% 크기, 최소 게임 영역 + 필러 여백 확보)
-    window_scale = 0.85
-    max_window_width = int(monitor_width * window_scale)
-    max_window_height = int(monitor_height * window_scale)
-
-    # 게임 영역 비율 (WIDTH:HEIGHT) 기준으로 필러 포함 창 크기 계산
-    # 필러가 양쪽에 표시되도록 가로 여백 추가 (좌우 각 150px 이상)
-    min_pillar_width = 150  # 필러 최소 너비
-    min_window_width = WIDTH + (min_pillar_width * 2)  # 게임 영역 + 양쪽 필러
-
-    # 세로 기준으로 창 크기 결정 (게임 영역이 잘리지 않도록)
-    scale_factor = min(max_window_height / HEIGHT, max_window_width / min_window_width)
-
-    # 최종 창 크기 계산
-    FULLSCREEN_HEIGHT = int(HEIGHT * scale_factor)
-    # 가로는 16:9 비율 또는 게임영역+필러 비율 중 더 큰 값
-    aspect_ratio = monitor_width / monitor_height
-    FULLSCREEN_WIDTH = max(int(FULLSCREEN_HEIGHT * aspect_ratio), int(min_window_width * scale_factor))
-
-    # 창 크기가 모니터보다 크지 않도록 제한
-    if FULLSCREEN_WIDTH > max_window_width:
-        FULLSCREEN_WIDTH = max_window_width
-    if FULLSCREEN_HEIGHT > max_window_height:
-        FULLSCREEN_HEIGHT = max_window_height
-
-    print(f"[창모드+필러] 모니터: {monitor_width}x{monitor_height}", flush=True)
-    print(f"[창모드+필러] 창 크기: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
-
-    # 게임 영역 오프셋 계산 (중앙 배치)
-    GAME_OFFSET_X = (FULLSCREEN_WIDTH - WIDTH) // 2
-    GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - HEIGHT) // 2
-    print(f"[창모드+필러] 게임영역: {WIDTH}x{HEIGHT}, 오프셋: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
-
-    # 창모드로 화면 생성 (RESIZABLE 플래그 제거 - 고정 크기 창)
-    if _current_platform == 'Darwin':
-        REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), pygame.DOUBLEBUF)
-    else:
-        REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT))
-
-    # 게임 렌더링용 Surface
-    SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
-    print(f"[창모드+필러] SCREEN Surface 생성: {WIDTH}x{HEIGHT}", flush=True)
-
-    # 필러 배경 렌더러 초기화
-    from pillar_background import init_pillar_background, get_pillar_renderer
-    pillar_renderer = init_pillar_background(FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT, WIDTH, HEIGHT)
-
-    # display_manager에 전체화면 모드와 동일하게 설정 (필러 사용)
-    from display_manager import set_fullscreen_mode
-    set_fullscreen_mode(True, SCREEN)
-    print(f"[창모드+필러] display_manager에 설정 완료", flush=True)
-
 else:
-    # 일반 창 모드 (필러 없음)
+    # 일반 창 모드
     if _current_platform == 'Darwin':
         # macOS: DOUBLEBUF로 깜빡임 방지
         REAL_SCREEN = pygame.display.set_mode((WIDTH, HEIGHT), pygame.DOUBLEBUF)
@@ -2118,11 +1929,10 @@ def _tracked_set_mode(*args, **kwargs):
 if FULLSCREEN_MODE:
     pygame.display.set_mode = _tracked_set_mode
 
-# 전체화면 모드 또는 창모드+필러에서 pygame.display.flip()을 래핑하여 SCREEN을 REAL_SCREEN에 blit
+# 전체화면 모드에서 pygame.display.flip()을 래핑하여 SCREEN을 REAL_SCREEN에 blit
 _original_flip = pygame.display.flip
 _original_update = pygame.display.update
-# 창모드+필러도 전체화면과 동일하게 처리 (SCREEN을 REAL_SCREEN에 blit)
-_is_fullscreen_active = (FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0) or WINDOWED_MODE_WITH_PILLAR
+_is_fullscreen_active = FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0
 
 _flip_count = 0
 _last_real_screen_size = None
