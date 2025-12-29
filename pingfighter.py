@@ -297,7 +297,7 @@ import opening
 import skill
 import academy
 import cinematic
-import multiplayer_mode
+import multiplayer_mode as mp_module
 
 if _splash_screen:
     update_splash(0.30, "UI 시스템 로딩 중...")
@@ -12039,10 +12039,10 @@ WATER_CANNON_FIRE_FRAMES = 18     # 0.3초 발사 애니메이션 (60fps)
 water_cannon_phase = "idle"       # "idle", "charging", "firing"
 water_cannon_phase_timer = 0      # 현재 페이즈 타이머
 water_cannon_charging = False     # 차징 중인지 여부
-# 물대포는 정글지진 발동 후 5~8초 사이에 발동
+# 물대포는 정글지진 발동 후 7~12초 사이에 발동
 last_quake_time = 0               # 마지막 정글지진 발동 시간
-WATER_CANNON_AFTER_QUAKE_MIN = 5000  # 정글지진 후 최소 5초
-WATER_CANNON_AFTER_QUAKE_MAX = 8000  # 정글지진 후 최대 8초
+WATER_CANNON_AFTER_QUAKE_MIN = 7000  # 정글지진 후 최소 7초
+WATER_CANNON_AFTER_QUAKE_MAX = 12000  # 정글지진 후 최대 12초
 water_cannon_quake_delay = 0      # 정글지진 후 물대포 발동까지 대기시간 (랜덤)
 # 물대포 파편 시스템 (플레이어 넉백용)
 water_cannon_fragments = []  # 물대포로 파괴된 바위 파편들
@@ -35842,15 +35842,21 @@ def activate_quake(animated_bg=None):
         print(f"정글지진 발동 방지 - 서브 유예 기간 중 (남은 시간: {serve_grace_period/60:.1f}초)")
         return False
 
-    # Stage 2 정글지진 발동 시 게이지 150 소모 (최소 200 이상 필요)
+    # Stage 2 정글지진 발동: 게이지 500이면 100% 발동 + 500 소모, 그 외 300 이상이면 300 소모
     if current_stage == 2:
         global last_quake_time, water_cannon_quake_delay
-        if boss_special_gauge < 200:
-            print(f"정글지진 발동 실패 - 게이지 부족 (현재: {boss_special_gauge}/200)")
+        if boss_special_gauge >= 500:
+            # 게이지 만땅이면 100% 발동, 500 소모
+            boss_special_gauge = 0
+            print(f"정글지진 100% 발동! 게이지 500 소모 (현재: {boss_special_gauge}/500)")
+        elif boss_special_gauge >= 300:
+            # 게이지 300 이상이면 확률적 발동, 300 소모
+            boss_special_gauge = max(0, boss_special_gauge - 300)
+            print(f"정글지진 발동! 게이지 300 소모 (현재: {boss_special_gauge}/500)")
+        else:
+            print(f"정글지진 발동 실패 - 게이지 부족 (현재: {boss_special_gauge}/300)")
             return False
-        boss_special_gauge = max(0, boss_special_gauge - 150)
-        print(f"정글지진 발동! 게이지 150 소모 (현재: {boss_special_gauge}/500)")
-        # 정글지진 발동 시간 기록 및 물대포 대기시간 설정 (5~8초 랜덤)
+        # 정글지진 발동 시간 기록 및 물대포 대기시간 설정 (7~12초 랜덤)
         last_quake_time = pygame.time.get_ticks()
         water_cannon_quake_delay = random.randint(WATER_CANNON_AFTER_QUAKE_MIN, WATER_CANNON_AFTER_QUAKE_MAX)
         print(f"💦 물대포 {water_cannon_quake_delay/1000:.1f}초 후 발동 예정")
@@ -35911,7 +35917,10 @@ def activate_water_cannon():
     if water_cannon_phase != "idle":
         return False
 
-    # 물대포는 게이지 소모 없이 발동 (쿨타임만 체크)
+    # 물대포 발동에 게이지 100 필요 (소모는 모든 조건 체크 후)
+    if boss_special_gauge < 100:
+        print(f"물대포 발동 실패 - 게이지 부족 (현재: {boss_special_gauge}/100)")
+        return False
 
     # 맵에 바위가 있는지 확인
     if animated_bg_stage2 is None or len(animated_bg_stage2.crisis_rocks) == 0:
@@ -35927,8 +35936,9 @@ def activate_water_cannon():
     # 랜덤으로 바위 하나 선택
     water_cannon_target_rock = random.choice(available_rocks)
 
-    # 물대포는 게이지를 소모하지 않음 (정글지진과 게이지 경쟁 방지)
-    print(f"물대포 발동! 게이지 유지 (현재: {boss_special_gauge}/500)")
+    # 모든 조건 통과 후 게이지 100 소모
+    boss_special_gauge -= 100
+    print(f"물대포 발동! 게이지 100 소모 (현재: {boss_special_gauge}/500)")
 
     # 보스 패들 위치에서 발사 준비
     water_cannon_start_x = BOSS.centerx
@@ -36074,7 +36084,7 @@ def _create_water_cannon_fragments(rock):
         else:
             angle = random.uniform(0, math.pi * 2)  # 전 방향
 
-        speed = random.uniform(10, 18)  # 빠른 속도로 튐
+        speed = random.uniform(7, 12.6)  # 속도 30% 감소 (기존 10~18)
 
         fragment = {
             'x': rock_x + random.uniform(-rock_size/3, rock_size/3),
@@ -36103,7 +36113,7 @@ def _create_water_cannon_fragments(rock):
     num_water_splashes = random.randint(15, 20)
     for i in range(num_water_splashes):
         angle = random.uniform(0, math.pi * 2)  # 전 방향
-        speed = random.uniform(6, 14)
+        speed = random.uniform(4.2, 9.8)  # 속도 30% 감소 (기존 6~14)
 
         splash = {
             'x': rock_x + random.uniform(-rock_size/2, rock_size/2),
@@ -54189,17 +54199,13 @@ def _stage8_superspeed_dash(now: int) -> None:
         return
 
     boss_dash_direction = direction
-    boss_dash_duration_frames = int(max(10.0, min(24.0, dash_distance / 20.0)))
-    boss_dash_timer = boss_dash_duration_frames
     boss_dash_target_x = float(target_centerx)
 
-    high_phase_frames = min(20, boss_dash_duration_frames)
-    pattern_sum = 0.0
-    for i in range(boss_dash_duration_frames):
-        t = boss_dash_duration_frames - (i + 1)
-        factor = 1.0 if t > high_phase_frames else max(0.0, t / float(high_phase_frames))
-        pattern_sum += factor
-    boss_dash_speed = (dash_distance / pattern_sum) * 1.1 if pattern_sum > 0 else dash_distance
+    # 플레이어와 동일한 고정 속도 40 픽셀/프레임 사용
+    estimated_duration = dash_distance / 30.0
+    boss_dash_duration_frames = int(max(10.0, min(estimated_duration, 40.0)))
+    boss_dash_timer = boss_dash_duration_frames
+    boss_dash_speed = 40.0
 
     boss_dashing = True
     boss_dash_cooldown_until_ms = 0
@@ -54246,17 +54252,13 @@ def _stage8_superspeed_dash(now: int) -> None:
         return
 
     boss_dash_direction = direction
-    boss_dash_duration_frames = int(max(10.0, min(24.0, dash_distance / 20.0)))
-    boss_dash_timer = boss_dash_duration_frames
     boss_dash_target_x = float(target_centerx)
 
-    high_phase_frames = min(20, boss_dash_duration_frames)
-    pattern_sum = 0.0
-    for i in range(boss_dash_duration_frames):
-        t = boss_dash_duration_frames - (i + 1)
-        factor = 1.0 if t > high_phase_frames else max(0.0, t / float(high_phase_frames))
-        pattern_sum += factor
-    boss_dash_speed = (dash_distance / pattern_sum) * 1.1 if pattern_sum > 0 else dash_distance
+    # 플레이어와 동일한 고정 속도 40 픽셀/프레임 사용
+    estimated_duration = dash_distance / 30.0
+    boss_dash_duration_frames = int(max(10.0, min(estimated_duration, 40.0)))
+    boss_dash_timer = boss_dash_duration_frames
+    boss_dash_speed = 40.0
 
     boss_dashing = True
     boss_dash_cooldown_until_ms = 0
@@ -89897,34 +89899,21 @@ def _boss_try_emergency_dash() -> bool:
     if random.random() >= trigger_chance:
         return False
 
-    # 보스 대쉬 상태 설정 (플레이어 rolling 대쉬와 유사한 속도 곡선)
+    # 보스 대쉬 상태 설정 (플레이어 rolling 대쉬와 동일한 속도)
     boss_dash_direction = direction
-    # 공이 도달하기 전에 미리 도착하도록 80% 정도 시간만 사용 (5~30프레임 범위)
-    time_to_boss_frames = max(1.0, time_to_boss)
-    boss_dash_duration_frames = int(
-        max(5.0, min(time_to_boss_frames * 0.8, 30.0))
-    )
-    boss_dash_timer = boss_dash_duration_frames
     boss_dash_target_x = float(target_centerx)
 
-    # 플레이어 rolling 대쉬 패턴과 비슷한 가속/감속 곡선을 사용하기 위해
-    # 프레임별 이동 계수 합을 계산한 뒤, 그에 맞춰 속도를 결정
-    high_phase_frames = min(20, boss_dash_duration_frames)
-    pattern_sum = 0.0
-    # timer가 boss_dash_duration_frames → 0 으로 감소한다고 가정하고 계수 합산
-    for i in range(boss_dash_duration_frames):
-        t = boss_dash_duration_frames - (i + 1)
-        if t > high_phase_frames:
-            factor = 1.0
-        else:
-            factor = max(0.0, t / float(high_phase_frames)) if high_phase_frames > 0 else 0.0
-        pattern_sum += factor
+    # 플레이어와 동일한 고정 속도 40 픽셀/프레임 사용
+    # 대쉬 지속 시간은 거리에 따라 계산 (속도 40 기준)
+    # 플레이어: 처음 20프레임 최대속도, 이후 20프레임 감속
+    # 평균 속도 = 40 * (20 + 20*0.5) / 40 = 30 픽셀/프레임
+    # 따라서 duration = dash_distance / 30 (대략적 계산)
+    estimated_duration = dash_distance / 30.0
+    boss_dash_duration_frames = int(max(10.0, min(estimated_duration, 40.0)))
+    boss_dash_timer = boss_dash_duration_frames
 
-    if pattern_sum <= 0:
-        boss_dash_speed = dash_distance  # 안전 가드
-    else:
-        # 약간 여유 있게 10% 더 빠르게 설정
-        boss_dash_speed = (dash_distance / pattern_sum) * 1.1
+    # 플레이어와 동일한 고정 속도 40 사용
+    boss_dash_speed = 40.0
 
     boss_dashing = True
 
@@ -93122,7 +93111,12 @@ def handle_boss():
                                 else:
                                     boss_current_speed = BOSS_MAX_SPEED * 0.2   # 오른쪽으로 초기 속도 부여 (최대속도의 20%) - 난이도 하향
                                 play_sound_with_volume(SOUND_DEFENSE_START)
-                                print(f"스피드 디펜스 발동! 거리 차이: {distance_to_predicted:.1f}, 최대 이동 가능: {boss_max_move:.1f}")
+                                # Stage 2 악어장군: 스피드디펜스 발동 시 게이지 80 소모
+                                if current_stage == 2:
+                                    boss_special_gauge = max(0, boss_special_gauge - 80)
+                                    print(f"스피드 디펜스 발동! 게이지 80 소모 (현재: {boss_special_gauge}/500)")
+                                else:
+                                    print(f"스피드 디펜스 발동! 거리 차이: {distance_to_predicted:.1f}, 최대 이동 가능: {boss_max_move:.1f}")
         if speed_defense_timer > 0:
             speed_defense_timer -= 1
         if speed_defense_active and speed_defense_timer <= 0:
@@ -105556,7 +105550,7 @@ def main_multiplayer():
     }
 
     # 새 멀티플레이어 모듈 호출
-    multiplayer_mode.run_multiplayer_game(
+    mp_module.run_multiplayer_game(
         screen=SCREEN,
         width=WIDTH,
         height=HEIGHT,
@@ -105566,7 +105560,7 @@ def main_multiplayer():
         bgm_manager=bgm_manager
     )
 
-    multiplayer_mode = False
+    multiplayer_mode = False  # 변수 (모듈 아님)
     return
 
 
