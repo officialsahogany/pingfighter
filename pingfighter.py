@@ -1992,7 +1992,7 @@ def _fullscreen_update(*args, **kwargs):
             pillar_renderer.draw_crystal_shield(REAL_SCREEN)
     _original_update(*args, **kwargs)
 
-# pygame.display.flip/update를 래핑된 버전으로 교체 (전체화면 모드만)
+# pygame.display.flip/update를 래핑된 버전으로 교체
 if _is_fullscreen_active:
     pygame.display.flip = _fullscreen_flip
     pygame.display.update = _fullscreen_update
@@ -45713,9 +45713,6 @@ def handle_player(keys):
         # ⚠️ 버그 수정: 쿨다운 설정 추가 - handle_ball 백업 충돌과 중복 처리 방지
         player_collision_cooldown = 15
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
-        # 🔍 디버그: 스테이지 7에서 플레이어 충돌 시 last_hit_by 변경 확인
-        if current_stage == 7:
-            print(f"[PLAYER HIT] last_hit_by='player' (handle_player)")
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("player")
@@ -82601,10 +82598,7 @@ def choose_server(show_text=True):
     # 서브하는 사람에 따라 last_hit_by 초기화
     last_hit_by = "player" if is_player_serve else "boss"
     game_vars.ball.last_hit_by = last_hit_by  # game_vars에도 업데이트
-    # 🔍 디버그: 스테이지 7에서 서브 시작 시 last_hit_by 초기화 확인
-    if current_stage == 7:
-        print(f"[SERVE START] last_hit_by='{last_hit_by}' (is_player_serve={is_player_serve})")
-
+    
     # 스테이지 3에서 플레이어 서브일 때 꼬리 채찍 5초 지연
     global stage3_tail_whip_cooldown
     if current_stage == 3 and is_player_serve:
@@ -86287,12 +86281,10 @@ def handle_ball():
             stage7_tetro_hit = False
             # 보스 서브 직후, 플레이어가 아직 공을 반격하지 않은 상태에서는 테트로미노 관통
             stage7_ball_penetrates_tetromino = (last_hit_by == "boss" or last_hit_by == "")
-            # 🔍 디버그: 테트로미노 충돌 판정 상태 (스테이지 7에서만) - 매 100프레임마다 출력
-            if current_stage == 7 and stage7_tetrominoes and frame_counter % 100 == 0:
-                print(f"[TETRO DEBUG] last_hit_by='{last_hit_by}', penetrates={stage7_ball_penetrates_tetromino}, ball_vel=({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
             if current_stage == 7 and 'stage7_tetrominoes' in globals() and stage7_tetrominoes and not stage7_ball_penetrates_tetromino:
                 for mino in stage7_tetrominoes:
-                    if mino.get("state") not in ("falling",):
+                    # falling(낙하 중)과 installed(설치됨) 상태 모두 충돌 검사
+                    if mino.get("state") not in ("falling", "installed"):
                         continue
                     for cell in mino["cells"]:
                         # AK-47 등에 의해 제거된 셀은 충돌에서 제외
@@ -88045,14 +88037,6 @@ def handle_ball():
         if ball_vel[0] != 0:
             direction = math.copysign(1, ball_vel[0])
             ball_angle += direction * 10
-        # ⚠️ 버그 수정: handle_ball에서도 last_hit_by 설정!
-        # handle_player가 놓친 충돌을 handle_ball이 백업으로 처리할 때도 last_hit_by를 설정해야
-        # 스테이지 7 테트로미노 충돌 판정이 정상 동작함
-        last_hit_by = "player"
-        game_vars.ball.last_hit_by = "player"
-        # 🔍 디버그: 스테이지 7에서 handle_ball 백업 충돌 시 last_hit_by 변경 확인
-        if current_stage == 7:
-            print(f"[PLAYER HIT] last_hit_by='player' (handle_ball backup)")
         # ⚠️ 버그 수정: handle_ball에서는 쿨다운 설정 안함!
         # handle_ball이 handle_player보다 먼저 실행되므로, 여기서 쿨다운을 설정하면
         # handle_player가 게이지 충전을 할 수 없음. 플래그만 설정하고 쿨다운은 handle_player에서 설정
@@ -88494,9 +88478,6 @@ def handle_ball():
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
-        # 🔍 디버그: 스테이지 7에서 보스 충돌 시 last_hit_by 변경 확인
-        if current_stage == 7:
-            print(f"[BOSS HIT] last_hit_by='boss' (handle_ball)")
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
@@ -100748,12 +100729,19 @@ def show_character_info(background_surface=None):
         tiny_font = tiny_font or font_tiny
         pygame.draw.rect(SCREEN, (24, 28, 46), area_rect, border_radius=10)
         pygame.draw.rect(SCREEN, (120, 170, 255), area_rect, 2, border_radius=10)
-        # ACTIVE 라벨 + 현재/최대 슬롯 수 표시 (가방확장, 아카데미 스킬 반영)
+
+        # 현재 아이템 수와 최대 슬롯 수 계산
         current_count = len(items) if items else 0
         max_slots = get_effective_max_item_slots()
-        label_text = f"ACTIVE ({current_count}/{max_slots})"
-        label = label_font.render(label_text, True, WHITE)
+
+        # ACTIVE 라벨과 슬롯 카운트 표시
+        label = label_font.render("ACTIVE", True, WHITE)
+        slot_count_text = f"({current_count}/{max_slots})"
+        slot_count_surface = tiny_font.render(slot_count_text, True, (180, 200, 255))
+
         SCREEN.blit(label, (area_rect.x + 10, area_rect.y + 6))
+        # 슬롯 카운트를 ACTIVE 라벨 오른쪽에 표시
+        SCREEN.blit(slot_count_surface, (area_rect.x + 10 + label.get_width() + 8, area_rect.y + 8))
 
         hover_info = None
         rect_map = {}

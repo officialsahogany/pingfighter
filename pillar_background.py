@@ -123,10 +123,27 @@ class PillarBackgroundRenderer:
                 self._artwork_surface = pygame.image.load(artwork_path).convert()
                 print(f"[PillarBG] 아트워크 로드 완료: {artwork_path} - {self._artwork_surface.get_size()}")
             else:
-                print(f"[PillarBG] 아트워크 파일 없음")
-                self._artwork_surface = None
+                print(f"[PillarBG] 아트워크 파일 없음 - 폴백 배경 생성")
+                self._create_fallback_artwork()
         except Exception as e:
-            print(f"[PillarBG] 아트워크 로드 실패: {e}")
+            print(f"[PillarBG] 아트워크 로드 실패: {e} - 폴백 배경 생성")
+            self._create_fallback_artwork()
+
+    def _create_fallback_artwork(self):
+        """아트워크 로드 실패 시 그라데이션 폴백 배경 생성"""
+        try:
+            # 그라데이션 배경 생성 (어두운 보라-파랑 계열)
+            self._artwork_surface = pygame.Surface((self.screen_width, self.screen_height))
+            for y in range(self.screen_height):
+                # 상단: 어두운 보라, 하단: 어두운 파랑
+                ratio = y / self.screen_height
+                r = int(25 + 10 * ratio)
+                g = int(15 + 20 * ratio)
+                b = int(40 + 30 * ratio)
+                pygame.draw.line(self._artwork_surface, (r, g, b), (0, y), (self.screen_width, y))
+            print(f"[PillarBG] 폴백 그라데이션 배경 생성 완료")
+        except Exception as e:
+            print(f"[PillarBG] 폴백 배경 생성도 실패: {e}")
             self._artwork_surface = None
 
     def _create_pillar_surfaces(self):
@@ -411,6 +428,11 @@ class PillarBackgroundRenderer:
         # 캐시된 서피스가 없으면 생성
         if self._left_pillar_surface is None:
             self._create_pillar_surfaces()
+
+        # 아트워크 서피스 생성 실패 시 단색 배경으로 폴백
+        if self._left_pillar_surface is None and self._artwork_surface is None:
+            self._draw_solid(screen)
+            return
 
         # 왼쪽 필러
         if self._left_pillar_surface and self.left_pillar_width > 0:

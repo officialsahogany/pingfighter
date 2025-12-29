@@ -84,10 +84,15 @@ a = Analysis(
         
         # 이미지 파일
         ('*.png', '.'),
+        ('*.jpg', '.'),  # main.jpg 포함
         ('\uB2E4\uC6B4\uB85C\uB4DC.jpeg', '.'),
         ('items/*.png', 'items'),
         ('items/legendary/*.png', 'items/legendary'),
         ('backgrounds/*.png', 'backgrounds'),
+        # 대화창 초상화 이미지
+        ('chat/*.png', 'chat'),
+        # 인트로 스토리 이미지
+        ('introstory/*.png', 'introstory'),
         # 스프라이트 시트 (보스 애니메이션)
         ('assets/*.png', 'assets'),
         # 스테이지 배경 이미지
@@ -213,7 +218,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,  # 디버그용 콘솔 창 활성화
+    console=False,  # 콘솔 창 비활성화 (로그 없음)
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

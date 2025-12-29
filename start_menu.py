@@ -43,7 +43,7 @@ ITEM_CODE = [2]
 ADMIN_MODE_ENABLED = False  # 관리자 모드 활성화 여부
 ADMIN_KEY_SEQUENCE = []  # 7키 입력 시퀀스 추적
 ADMIN_KEY_LAST_TIME = 0  # 마지막 7키 입력 시간
-ADMIN_KEY_TIMEOUT = 1.0  # 연타 제한 시간 (1초 이내에 3번)
+ADMIN_KEY_TIMEOUT = 1.0  # 연타 제한 시간 (1초 이내에 2번)
 ADMIN_MODE_MESSAGE_TIMER = 0  # 활성화 메시지 표시 타이머
 ADMIN_MODE_MESSAGE_DURATION = 2.0  # 메시지 표시 시간 (2초)
 
@@ -72,8 +72,8 @@ def check_admin_key_sequence(current_time: float) -> bool:
     ADMIN_KEY_SEQUENCE.append(7)
     ADMIN_KEY_LAST_TIME = current_time
 
-    # 777 입력 확인
-    if len(ADMIN_KEY_SEQUENCE) >= 3 and ADMIN_KEY_SEQUENCE[-3:] == [7, 7, 7]:
+    # 77 입력 확인 (2번)
+    if len(ADMIN_KEY_SEQUENCE) >= 2 and ADMIN_KEY_SEQUENCE[-2:] == [7, 7]:
         activate_admin_mode()
         ADMIN_KEY_SEQUENCE = []
         return True
