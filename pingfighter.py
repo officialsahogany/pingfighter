@@ -260,9 +260,9 @@ def _show_display_mode_dialog():
         root = tk.Tk()
         root.title("PingFighter - 화면 모드 선택")
 
-        # 창 크기 및 중앙 배치
-        window_width = 400
-        window_height = 280
+        # 창 크기 및 중앙 배치 (더 크게)
+        window_width = 550
+        window_height = 420
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
         x = (screen_width - window_width) // 2
@@ -272,61 +272,61 @@ def _show_display_mode_dialog():
 
         # 스타일 설정
         style = ttk.Style()
-        style.configure('Title.TLabel', font=('맑은 고딕', 16, 'bold'))
-        style.configure('Desc.TLabel', font=('맑은 고딕', 9))
-        style.configure('Mode.TRadiobutton', font=('맑은 고딕', 11))
-        style.configure('Start.TButton', font=('맑은 고딕', 12, 'bold'))
+        style.configure('Title.TLabel', font=('맑은 고딕', 20, 'bold'))
+        style.configure('Desc.TLabel', font=('맑은 고딕', 12))
+        style.configure('Mode.TRadiobutton', font=('맑은 고딕', 14))
+        style.configure('Start.TButton', font=('맑은 고딕', 16, 'bold'))
 
         # 배경색
         root.configure(bg='#1a1a2e')
 
         # 제목
         title_frame = tk.Frame(root, bg='#1a1a2e')
-        title_frame.pack(pady=15)
-        title_label = tk.Label(title_frame, text="🏓 PingFighter",
-                               font=('맑은 고딕', 18, 'bold'),
+        title_frame.pack(pady=25)
+        title_label = tk.Label(title_frame, text="PingFighter",
+                               font=('맑은 고딕', 28, 'bold'),
                                fg='#ffd700', bg='#1a1a2e')
         title_label.pack()
         subtitle_label = tk.Label(title_frame, text="화면 모드를 선택하세요",
-                                  font=('맑은 고딕', 10),
+                                  font=('맑은 고딕', 14),
                                   fg='#aaaaaa', bg='#1a1a2e')
-        subtitle_label.pack()
+        subtitle_label.pack(pady=(5, 0))
 
         # 모드 선택
         mode_var = tk.StringVar(value="fullscreen")
 
         mode_frame = tk.Frame(root, bg='#1a1a2e')
-        mode_frame.pack(pady=10, padx=20, fill='x')
+        mode_frame.pack(pady=15, padx=30, fill='x')
 
         # 전체화면 옵션
-        fullscreen_frame = tk.Frame(mode_frame, bg='#252540', relief='ridge', bd=1)
-        fullscreen_frame.pack(fill='x', pady=5)
-        fullscreen_radio = tk.Radiobutton(fullscreen_frame, text="🖥️ 전체화면 모드",
+        fullscreen_frame = tk.Frame(mode_frame, bg='#252540', relief='ridge', bd=2)
+        fullscreen_frame.pack(fill='x', pady=8)
+        fullscreen_radio = tk.Radiobutton(fullscreen_frame, text="전체화면 모드",
                                           variable=mode_var, value="fullscreen",
-                                          font=('맑은 고딕', 11, 'bold'),
+                                          font=('맑은 고딕', 16, 'bold'),
                                           fg='#ffffff', bg='#252540',
                                           selectcolor='#3a3a5c', activebackground='#252540',
                                           activeforeground='#ffffff')
-        fullscreen_radio.pack(anchor='w', padx=10, pady=5)
+        fullscreen_radio.pack(anchor='w', padx=15, pady=8)
         fullscreen_desc = tk.Label(fullscreen_frame,
-                                   text="  해상도 변경 + 전체화면 (현재 설정과 동일)",
-                                   font=('맑은 고딕', 9), fg='#888888', bg='#252540')
-        fullscreen_desc.pack(anchor='w', padx=10, pady=(0, 8))
+                                   text="해상도 변경 + 전체화면 (현재 설정과 동일)",
+                                   font=('맑은 고딕', 12), fg='#888888', bg='#252540')
+        fullscreen_desc.pack(anchor='w', padx=15, pady=(0, 12))
 
         # 창모드 옵션
-        windowed_frame = tk.Frame(mode_frame, bg='#252540', relief='ridge', bd=1)
-        windowed_frame.pack(fill='x', pady=5)
-        windowed_radio = tk.Radiobutton(windowed_frame, text="🪟 창모드 (필러 포함)",
+        windowed_frame = tk.Frame(mode_frame, bg='#252540', relief='ridge', bd=2)
+        windowed_frame.pack(fill='x', pady=8)
+        windowed_radio = tk.Radiobutton(windowed_frame, text="창모드 (필러 포함)",
                                         variable=mode_var, value="windowed",
-                                        font=('맑은 고딕', 11, 'bold'),
+                                        font=('맑은 고딕', 16, 'bold'),
                                         fg='#ffffff', bg='#252540',
                                         selectcolor='#3a3a5c', activebackground='#252540',
                                         activeforeground='#ffffff')
-        windowed_radio.pack(anchor='w', padx=10, pady=5)
+        windowed_radio.pack(anchor='w', padx=15, pady=8)
         windowed_desc = tk.Label(windowed_frame,
-                                 text="  창모드로 실행 (필러 배경 포함, 해상도 변경 없음)",
-                                 font=('맑은 고딕', 9), fg='#888888', bg='#252540')
-        windowed_desc.pack(anchor='w', padx=10, pady=(0, 8))
+                                 text="창모드로 실행 (필러 배경 포함, 해상도 변경 없음)",
+                                 font=('맑은 고딕', 12), fg='#888888', bg='#252540')
+        windowed_desc.pack(anchor='w', padx=15, pady=(0, 12))
 
         def on_start():
             selected_mode[0] = mode_var.get()
@@ -340,13 +340,13 @@ def _show_display_mode_dialog():
 
         # 시작 버튼
         button_frame = tk.Frame(root, bg='#1a1a2e')
-        button_frame.pack(pady=15)
-        start_button = tk.Button(button_frame, text="🎮 게임 시작",
+        button_frame.pack(pady=25)
+        start_button = tk.Button(button_frame, text="게임 시작",
                                  command=on_start,
-                                 font=('맑은 고딕', 12, 'bold'),
+                                 font=('맑은 고딕', 18, 'bold'),
                                  fg='#1a1a2e', bg='#ffd700',
                                  activebackground='#ffed4a',
-                                 width=15, height=1,
+                                 width=18, height=2,
                                  cursor='hand2')
         start_button.pack()
 
