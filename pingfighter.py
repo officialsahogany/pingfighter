@@ -12028,12 +12028,22 @@ water_cannon_target_y = 0  # 물대포 목표 Y
 water_cannon_progress = 0.0  # 물대포 이동 진행도 (0~1)
 water_cannon_speed = 0.05  # 물대포 이동 속도 (0.025 → 0.05, 100% 증가, 약 20프레임 = 0.33초 소요)
 water_cannon_last_used_time = -9999  # 마지막 물대포 발동 시간
-WATER_CANNON_COOLDOWN_MIN = 10000  # 물대포 최소 쿨타임 (10초)
-WATER_CANNON_COOLDOWN_MAX = 20000  # 물대포 최대 쿨타임 (20초)
-water_cannon_current_cooldown = 10000  # 현재 쿨타임 (10~20초 랜덤)
+WATER_CANNON_COOLDOWN_MIN = 3000   # 물대포 최소 쿨타임 (3초)
+WATER_CANNON_COOLDOWN_MAX = 5000   # 물대포 최대 쿨타임 (5초)
+water_cannon_current_cooldown = 3000  # 현재 쿨타임 (3~5초 랜덤)
 water_cannon_trail = []  # 물대포 궤적 효과
-water_cannon_boss_freeze_timer = 0  # 물대포 발사 시 보스 정지 타이머 (0.7초 = 42프레임)
-WATER_CANNON_BOSS_FREEZE_FRAMES = 42  # 0.7초 (60fps 기준)
+water_cannon_boss_freeze_timer = 0  # 물대포 발사 시 보스 정지 타이머
+# 물대포 발사 시퀀스: 0.5초 대기 → 0.3초 발사 애니메이션
+WATER_CANNON_CHARGE_FRAMES = 30   # 0.5초 대기 (60fps)
+WATER_CANNON_FIRE_FRAMES = 18     # 0.3초 발사 애니메이션 (60fps)
+water_cannon_phase = "idle"       # "idle", "charging", "firing"
+water_cannon_phase_timer = 0      # 현재 페이즈 타이머
+water_cannon_charging = False     # 차징 중인지 여부
+# 물대포는 정글지진 발동 후 5~8초 사이에 발동
+last_quake_time = 0               # 마지막 정글지진 발동 시간
+WATER_CANNON_AFTER_QUAKE_MIN = 5000  # 정글지진 후 최소 5초
+WATER_CANNON_AFTER_QUAKE_MAX = 8000  # 정글지진 후 최대 8초
+water_cannon_quake_delay = 0      # 정글지진 후 물대포 발동까지 대기시간 (랜덤)
 # 물대포 파편 시스템 (플레이어 넉백용)
 water_cannon_fragments = []  # 물대포로 파괴된 바위 파편들
 horizontal_bounce_count = 0
@@ -33308,9 +33318,20 @@ def go_to_next_round():
         boss_special_ready = False
         boss_special_waiting = False
         boss_red_intensity = (boss_special_gauge / 500) * 220 if boss_special_gauge > 0 else 0
+    elif current_stage == 2:
+        # Stage 2: 라운드 전환 시 게이지 20% 감소 (초기화 대신 이월)
+        boss_special_gauge = max(0, int(boss_special_gauge * 0.8))
+        boss_special_ready = False if boss_special_gauge < 500 else boss_special_ready
+        boss_special_waiting = False if boss_special_gauge < 500 else boss_special_waiting
+        boss_red_intensity = (boss_special_gauge / 500) * 220 if boss_special_gauge > 0 else 0
+    elif current_stage == 1:
+        # Stage 1: 라운드 전환 시 게이지 30% 감소 (초기화 대신 이월)
+        boss_special_gauge = max(0, int(boss_special_gauge * 0.7))
+        boss_special_ready = False if boss_special_gauge < 500 else boss_special_ready
+        boss_special_waiting = False if boss_special_gauge < 500 else boss_special_waiting
+        boss_red_intensity = (boss_special_gauge / 500) * 220 if boss_special_gauge > 0 else 0
     else:
-        # 스테이지 1과 3이 아닌 경우 게이지 초기화
-        # 스테이지 2로 넘어갈 때도 보스 게이지를 초기화해야 함
+        # 그 외 스테이지는 게이지 초기화
         boss_special_gauge = 0
         boss_special_ready = False
         boss_special_waiting = False
@@ -35823,11 +35844,16 @@ def activate_quake(animated_bg=None):
 
     # Stage 2 정글지진 발동 시 게이지 150 소모 (최소 200 이상 필요)
     if current_stage == 2:
+        global last_quake_time, water_cannon_quake_delay
         if boss_special_gauge < 200:
             print(f"정글지진 발동 실패 - 게이지 부족 (현재: {boss_special_gauge}/200)")
             return False
         boss_special_gauge = max(0, boss_special_gauge - 150)
         print(f"정글지진 발동! 게이지 150 소모 (현재: {boss_special_gauge}/500)")
+        # 정글지진 발동 시간 기록 및 물대포 대기시간 설정 (5~8초 랜덤)
+        last_quake_time = pygame.time.get_ticks()
+        water_cannon_quake_delay = random.randint(WATER_CANNON_AFTER_QUAKE_MIN, WATER_CANNON_AFTER_QUAKE_MAX)
+        print(f"💦 물대포 {water_cannon_quake_delay/1000:.1f}초 후 발동 예정")
 
     print(f" activate_quake ! quake_duration={quake_duration}, animated_bg={animated_bg is not None}")
     quake_active = True
@@ -35872,125 +35898,161 @@ def activate_quake(animated_bg=None):
 
 # === Stage 2 악어장군 물대포 스킬 함수 ===
 def activate_water_cannon():
-    """악어장군의 물대포 스킬 발동 - 맵의 바위 중 하나를 물대포로 파괴"""
+    """악어장군의 물대포 스킬 발동 - 0.5초 대기 후 0.3초간 물줄기 발사"""
     global water_cannon_active, water_cannon_x, water_cannon_y
     global water_cannon_target_rock, water_cannon_start_x, water_cannon_start_y
     global water_cannon_target_x, water_cannon_target_y, water_cannon_progress
     global water_cannon_last_used_time, water_cannon_current_cooldown, water_cannon_trail
     global boss_special_gauge
+    global water_cannon_phase, water_cannon_phase_timer, water_cannon_charging
+    global last_quake_time
 
-    # 게이지 100 필요
-    if boss_special_gauge < 100:
-        print(f"물대포 발동 실패 - 게이지 부족 (현재: {boss_special_gauge}/100)")
+    # 이미 차징 중이거나 발사 중이면 무시
+    if water_cannon_phase != "idle":
         return False
+
+    # 물대포는 게이지 소모 없이 발동 (쿨타임만 체크)
 
     # 맵에 바위가 있는지 확인
     if animated_bg_stage2 is None or len(animated_bg_stage2.crisis_rocks) == 0:
         print("물대포 발동 실패 - 맵에 바위가 없음")
         return False
 
-    # 떨어진 바위 중에서 선택 (falling=False인 바위만)
-    available_rocks = [rock for rock in animated_bg_stage2.crisis_rocks if not rock.get('falling', True)]
+    # 모든 바위 중에서 선택 (떨어지는 중인 바위도 포함)
+    available_rocks = animated_bg_stage2.crisis_rocks
     if len(available_rocks) == 0:
-        print("물대포 발동 실패 - 떨어진 바위가 없음")
+        print("물대포 발동 실패 - 바위가 없음")
         return False
 
     # 랜덤으로 바위 하나 선택
     water_cannon_target_rock = random.choice(available_rocks)
 
-    # 게이지 100 소모
-    boss_special_gauge = max(0, boss_special_gauge - 100)
-    print(f"물대포 발동! 게이지 100 소모 (현재: {boss_special_gauge}/500)")
+    # 물대포는 게이지를 소모하지 않음 (정글지진과 게이지 경쟁 방지)
+    print(f"물대포 발동! 게이지 유지 (현재: {boss_special_gauge}/500)")
 
-    # 보스 패들 위치에서 발사
+    # 보스 패들 위치에서 발사 준비
     water_cannon_start_x = BOSS.centerx
     water_cannon_start_y = BOSS.centery + 30  # 보스 패들 아래에서 발사
     water_cannon_target_x = water_cannon_target_rock['x']
-    water_cannon_target_y = water_cannon_target_rock.get('fall_y', water_cannon_target_rock['y'])
+    # 바위 현재 위치 사용 (떨어지는 중이면 현재 y, 아니면 fall_y)
+    if water_cannon_target_rock.get('falling', False):
+        water_cannon_target_y = water_cannon_target_rock['y']
+    else:
+        water_cannon_target_y = water_cannon_target_rock.get('fall_y', water_cannon_target_rock['y'])
 
     # 물대포 초기화
     water_cannon_x = water_cannon_start_x
     water_cannon_y = water_cannon_start_y
     water_cannon_progress = 0.0
-    water_cannon_active = True
     water_cannon_trail = []
 
-    # 쿨타임 설정 (10~20초 랜덤)
+    # 차징 페이즈 시작 (0.5초 대기)
+    water_cannon_phase = "charging"
+    water_cannon_phase_timer = WATER_CANNON_CHARGE_FRAMES
+    water_cannon_charging = True
+    water_cannon_active = False  # 아직 물줄기 안 나감
+
+    # 쿨타임 설정 (3~5초 랜덤)
     water_cannon_last_used_time = pygame.time.get_ticks()
     water_cannon_current_cooldown = random.randint(WATER_CANNON_COOLDOWN_MIN, WATER_CANNON_COOLDOWN_MAX)
-
-    # 보스 정지 타이머 설정 (0.7초)
-    global water_cannon_boss_freeze_timer
-    water_cannon_boss_freeze_timer = WATER_CANNON_BOSS_FREEZE_FRAMES
 
     # 말풍선 표시
     show_speech("물대포!", duration=60)
 
-    print(f"💦 물대포 발사! 목표 바위: ({water_cannon_target_x}, {water_cannon_target_y}), 보스 0.7초 정지")
+    # 발동 성공 시 last_quake_time 리셋 (다음 정글지진까지 발동 안 함)
+    last_quake_time = 0
+
+    print(f"💦 물대포 차징 시작! 0.5초 대기 후 발사, 목표 바위: ({water_cannon_target_x}, {water_cannon_target_y})")
     return True
 
 
 def update_water_cannon():
-    """물대포 업데이트 - 이동, 충돌, 파편 생성, 보스 정지 타이머"""
+    """물대포 업데이트 - 페이즈 관리, 이동, 충돌, 파편 생성"""
     global water_cannon_active, water_cannon_x, water_cannon_y, water_cannon_progress
     global water_cannon_target_rock, water_cannon_trail, water_cannon_fragments
-    global player_knockback_vel, water_cannon_boss_freeze_timer
+    global player_knockback_vel
+    global water_cannon_phase, water_cannon_phase_timer, water_cannon_charging
+    global water_cannon_start_x, water_cannon_start_y
 
-    # 보스 정지 타이머 감소 (물대포 발사 중이든 아니든)
-    if water_cannon_boss_freeze_timer > 0:
-        water_cannon_boss_freeze_timer -= 1
+    # 페이즈 관리
+    if water_cannon_phase == "charging":
+        # 0.5초 대기 (차징 중)
+        water_cannon_phase_timer -= 1
+        # 차징 중에도 보스 위치 업데이트 (보스가 움직이면 발사 위치도 갱신)
+        water_cannon_start_x = BOSS.centerx
+        water_cannon_start_y = BOSS.centery + 30
+        water_cannon_x = water_cannon_start_x
+        water_cannon_y = water_cannon_start_y
 
-    if not water_cannon_active:
+        if water_cannon_phase_timer <= 0:
+            # 발사 페이즈로 전환
+            water_cannon_phase = "firing"
+            water_cannon_phase_timer = WATER_CANNON_FIRE_FRAMES
+            water_cannon_active = True
+            water_cannon_progress = 0.0
+            print(f"💦 물대포 발사!")
         return
 
-    # 물대포 이동 진행
-    water_cannon_progress += water_cannon_speed
+    elif water_cannon_phase == "firing":
+        # 0.3초간 발사 애니메이션
+        water_cannon_phase_timer -= 1
+        # 물줄기 진행 (0.3초 = 18프레임 동안 progress 0 → 1)
+        water_cannon_progress = 1.0 - (water_cannon_phase_timer / WATER_CANNON_FIRE_FRAMES)
+        water_cannon_progress = min(1.0, water_cannon_progress)
 
-    # 보간으로 위치 계산
-    water_cannon_x = water_cannon_start_x + (water_cannon_target_x - water_cannon_start_x) * water_cannon_progress
-    water_cannon_y = water_cannon_start_y + (water_cannon_target_y - water_cannon_start_y) * water_cannon_progress
+        # 보간으로 위치 계산
+        water_cannon_x = water_cannon_start_x + (water_cannon_target_x - water_cannon_start_x) * water_cannon_progress
+        water_cannon_y = water_cannon_start_y + (water_cannon_target_y - water_cannon_start_y) * water_cannon_progress
 
-    # 궤적 효과 추가
-    water_cannon_trail.append({
-        'x': water_cannon_x,
-        'y': water_cannon_y,
-        'alpha': 255,
-        'size': random.randint(8, 15)
-    })
+        # 궤적 효과 추가
+        water_cannon_trail.append({
+            'x': water_cannon_x,
+            'y': water_cannon_y,
+            'alpha': 255,
+            'size': random.randint(8, 15)
+        })
 
-    # 궤적 페이드아웃
-    for trail in water_cannon_trail:
-        trail['alpha'] -= 15
-    water_cannon_trail = [t for t in water_cannon_trail if t['alpha'] > 0]
+        # 궤적 페이드아웃
+        for trail in water_cannon_trail:
+            trail['alpha'] -= 15
+        water_cannon_trail = [t for t in water_cannon_trail if t['alpha'] > 0]
 
-    # 목표 도달 시 바위 파괴
-    if water_cannon_progress >= 1.0:
-        if water_cannon_target_rock and animated_bg_stage2:
-            # 바위 크기에 따른 효과음 재생
-            rock_size = water_cannon_target_rock.get('size', 40)
-            try:
-                if rock_size <= 45:
-                    play_sound_with_volume(SOUND_STONEBREAK_SMALL)
-                elif rock_size <= 65:
-                    play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
-                else:
-                    play_sound_with_volume(SOUND_STONEBREAK_LARGE)
-            except Exception:
-                pass
+        if water_cannon_phase_timer <= 0:
+            # 발사 완료 - 바위 파괴
+            _finish_water_cannon()
+            water_cannon_phase = "idle"
+            water_cannon_charging = False
+            water_cannon_active = False
+        return
 
-            # 바위 파괴 및 파편 생성
-            _create_water_cannon_fragments(water_cannon_target_rock)
+def _finish_water_cannon():
+    """물대포 발사 완료 - 바위 파괴 및 파편 생성"""
+    global water_cannon_target_rock
 
-            # 바위 리스트에서 제거
-            try:
-                animated_bg_stage2.crisis_rocks.remove(water_cannon_target_rock)
-                print(f"💥 물대포로 바위 파괴! 파편 생성됨 (크기: {rock_size})")
-            except ValueError:
-                pass
+    if water_cannon_target_rock and animated_bg_stage2:
+        # 바위 크기에 따른 효과음 재생
+        rock_size = water_cannon_target_rock.get('size', 40)
+        try:
+            if rock_size <= 45:
+                play_sound_with_volume(SOUND_STONEBREAK_SMALL)
+            elif rock_size <= 65:
+                play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
+            else:
+                play_sound_with_volume(SOUND_STONEBREAK_LARGE)
+        except Exception:
+            pass
 
-        # 물대포 비활성화
-        water_cannon_active = False
-        water_cannon_target_rock = None
+        # 바위 파괴 및 파편 생성
+        _create_water_cannon_fragments(water_cannon_target_rock)
+
+        # 바위 리스트에서 제거
+        try:
+            animated_bg_stage2.crisis_rocks.remove(water_cannon_target_rock)
+            print(f"💥 물대포로 바위 파괴! 파편 생성됨 (크기: {rock_size})")
+        except ValueError:
+            pass
+
+    water_cannon_target_rock = None
 
 
 def _create_water_cannon_fragments(rock):
@@ -36070,7 +36132,7 @@ def _create_water_cannon_fragments(rock):
 
 def update_water_cannon_fragments():
     """물대포 파편 업데이트 - 이동, 플레이어 충돌 체크"""
-    global water_cannon_fragments, player_knockback_vel
+    global water_cannon_fragments, player_fire_knockback_vel
 
     fragments_to_remove = []
 
@@ -36098,12 +36160,12 @@ def update_water_cannon_fragments():
             if PLAYER.colliderect(fragment_rect):
                 # 넉백 방향 결정 (파편 이동 방향)
                 knockback_dir = 1 if fragment['vx'] > 0 else -1
-                raw_knockback = knockback_dir * 12  # 넉백 강도
+                raw_knockback = knockback_dir * 25  # 넉백 강도 크게 증가 (12 → 25)
 
-                # 넉백 저항 적용
-                player_knockback_vel = apply_knockback_resist(_scale_knockback(raw_knockback))
+                # 넉백 저항 적용 - 화재 넉백과 동일한 시스템 사용 (스턴 없이 점진적 감속)
+                player_fire_knockback_vel = apply_knockback_resist(_scale_knockback(raw_knockback))
 
-                print(f"💥 물대포 파편에 맞음! 넉백: {player_knockback_vel:.1f}")
+                print(f"💥 물대포 파편에 맞음! 넉백: {player_fire_knockback_vel:.1f}")
 
                 # 파편은 한 번만 히트
                 fragment['can_hit_player'] = False
@@ -56002,18 +56064,18 @@ def draw_player_gauge():
             draw.circle(corner_color, (gauge_x + gauge_width, gauge_y + gauge_height), 3)
     # 킥차져 충전 애니메이션 - 황금빛 테두리 효과
     if gauge_charge_animation_timer > 0:
-        # 충전 효과 강도
-        glow_strength = gauge_charge_animation_timer / 30.0
+        # 충전 효과 강도 (최대 1.0으로 제한)
+        glow_strength = min(1.0, gauge_charge_animation_timer / 30.0)
         pulse_effect = abs(math.sin(pygame.time.get_ticks() * 0.01)) * glow_strength
-        
+
         # 황금빛 외곽 글로우 (여러 겹)
         for i in range(3):
             glow_alpha = int((3 - i) * 85 * glow_strength)
             glow_size = 3 - i
             glow_color = (
-                min(255, 255),
+                255,
                 min(255, 215 + i * 10),
-                min(255, int(50 * (1 - pulse_effect)))
+                max(0, min(255, int(50 * (1 - pulse_effect))))
             )
             
             # 외곽 테두리 그리기
@@ -81539,6 +81601,7 @@ def draw_tutorial_practice_room():
 
 def draw_field():
     global psycho_bg_timer, earthquake_offset_x, earthquake_offset_y
+    global special_gauge, gauge_charge_animation_timer, gauge_charge_animation_amount, special_ready
 
     # 전체화면 모드: 필러 배경 타입 설정 (실제 그리기는 _fullscreen_flip에서)
     if FULLSCREEN_MODE and pillar_renderer is not None:
@@ -81561,17 +81624,16 @@ def draw_field():
             actual_gain = special_gauge - old_gauge
             if actual_gain > 0:
                 # 게이지 회복 애니메이션 트리거
-                gauge_charge_animation_timer = 60  # 1초간 표시
+                gauge_charge_animation_timer = 30  # 0.5초간 표시
                 gauge_charge_animation_amount = actual_gain
                 # 효과음 재생
                 try:
                     play_sound_with_volume(SOUND_ITEM_GET)
                 except:
                     pass
-                # 게이지가 400 이상이면 special_ready 활성화
+                # 게이지가 350 이상이면 special_ready 활성화
                 if special_gauge >= 350:
                     special_ready = True
-                print(f"[Stage1] 나비 흡수! 게이지 +{int(actual_gain)} (현재: {int(special_gauge)}/{int(current_max)})")
         # 스테이지 7: 보스 위치 포함 업데이트 (크리스탈 실드용)
         # REAL_SCREEN 좌표계로 변환 (게임 영역 오프셋 추가)
         if current_stage == 7:
@@ -81641,6 +81703,9 @@ def draw_field():
         # 우측 단청 패턴
         pygame.draw.rect(SCREEN, (50, 50, 220), (WIDTH-6, 8, 2, HEIGHT-16), 0)  # 파랑
         pygame.draw.rect(SCREEN, (50, 180, 50), (WIDTH-8, 8, 2, HEIGHT-16), 0)  # 초록
+        # 스테이지 1: 필러에서 날아오는 나비를 게임 화면에 그리기
+        if pillar_renderer is not None:
+            pillar_renderer.draw_butterfly_ingame(SCREEN, WIDTH, HEIGHT)
     elif current_stage == 2 and animated_bg_stage2 is not None:
         # 스테이지2에서는 정글 사이버펑크 애니메이션 배경 사용
         # 공 위치, 패들 위치, 점수를 배경에 전달 (눈동자 추적 + 덤불 흔들림 + 위기 상황용)
@@ -82957,28 +83022,14 @@ def reset_round():
     ai_frame_counter = 0
     
     # 보스 게이지 관리 (라운드 전환 시)
-    if current_stage == 1:
-        # Stage 1: 라운드 간 게이지를 유지하되 30%만 감소시키며 다음 라운드로 이월
-        boss_special_gauge = max(0, int(boss_special_gauge * 0.7))
+    # NOTE: 게이지 감소 로직은 go_to_next_round()에서 처리됨
+    # 여기서는 displayed_boss_gauge 동기화만 수행
+    if current_stage in (1, 2, 8):
         displayed_boss_gauge = boss_special_gauge
         try:
             game_state.displayed_boss_gauge = displayed_boss_gauge
         except Exception:
             pass
-        print(f"Stage 1 보스 게이지 30% 감소 적용 (현재: {boss_special_gauge}/500)")
-    elif current_stage == 2:
-        # Stage 2: 라운드 전환 시 게이지 20% 감소 (초기화 대신 이월)
-        boss_special_gauge = max(0, int(boss_special_gauge * 0.8))
-        print(f"Stage 2 보스 게이지 20% 감소 적용 (현재: {boss_special_gauge}/500)")
-    elif current_stage == 8:
-        # Stage 8: 라운드 전환 시 30% 감소만 적용 (닌자 기운 유지)
-        boss_special_gauge = max(0, int(boss_special_gauge * 0.7))
-        displayed_boss_gauge = boss_special_gauge
-        try:
-            game_state.displayed_boss_gauge = displayed_boss_gauge
-        except Exception:
-            pass
-        print(f"Stage 8 보스 게이지 30% 감소 적용 (현재: {boss_special_gauge}/500)")
     # Stage 3과 4는 각자의 게이지 관리 시스템이 있으므로 여기서는 처리하지 않음
     if current_stage == 7:
         stage7_persistent_boss_gauge = boss_special_gauge
@@ -89502,10 +89553,7 @@ def handle_ball():
                 if activate_quake(animated_bg_stage2):
                     show_speech("정글지진!", duration=quake_duration)
                     quake_last_used_time = time_now
-            # 물대포 스킬 발동 체크 (쿨타임: 10~20초, 게이지 100 필요, 바위 있어야 함)
-            if (time_now - water_cannon_last_used_time >= water_cannon_current_cooldown) and not water_cannon_active:
-                if boss_special_gauge >= 100 and random.random() <= 0.35:  # 35% 확률로 발동
-                    activate_water_cannon()
+            # 물대포는 게임 루프에서 매 프레임 체크 (98343줄 참조)
         elif not new_boss_mode_active and current_stage == 3:
             # 패들 충돌 시 충전된 게이지가 500 이상이 되었을 때만 필살기 준비 상태로 전환
             if not boss_special_ready and boss_special_gauge >= 500:
@@ -90021,6 +90069,12 @@ def handle_boss_pro():
     # ️ 스탑워치로 시간이 멈춘 경우 보스도 정지
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
+
+    # Stage 2 물대포 차징/발사 시 보스 정지 (0.5초 대기 + 0.3초 발사)
+    if current_stage == 2 and water_cannon_phase in ("charging", "firing"):
+        boss_current_speed = 0
+        return  # 물대포 차징/발사 중에는 AI 정지
+
     # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
     if current_stage == 7:
         try:
@@ -90351,6 +90405,12 @@ def handle_boss_champion():
     # ️ 스탑워치로 시간이 멈춘 경우 보스도 정지
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
+
+    # Stage 2 물대포 차징/발사 시 보스 정지 (0.5초 대기 + 0.3초 발사)
+    if current_stage == 2 and water_cannon_phase in ("charging", "firing"):
+        boss_current_speed = 0
+        return  # 물대포 차징/발사 중에는 AI 정지
+
     # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
     if current_stage == 7:
         try:
@@ -90696,6 +90756,12 @@ def handle_boss_mythic():
     # ️ 스탑워치로 시간이 멈춘 경우 보스도 정지
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
+
+    # Stage 2 물대포 차징/발사 시 보스 정지 (0.5초 대기 + 0.3초 발사)
+    if current_stage == 2 and water_cannon_phase in ("charging", "firing"):
+        boss_current_speed = 0
+        return  # 물대포 차징/발사 중에는 AI 정지
+
     # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
     if current_stage == 7:
         try:
@@ -90705,7 +90771,7 @@ def handle_boss_mythic():
                 return
         except Exception:
             pass
-    
+
     #  라그나로크 해머 스턴 처리 (넉백 후 스턴)
     if boss_stun_timer > 0:
         boss_stun_timer -= 1
@@ -91166,6 +91232,12 @@ def handle_boss_junior():
     # ️ 스탑워치로 시간이 멈춘 경우 보스도 정지
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
+
+    # Stage 2 물대포 차징/발사 시 보스 정지 (0.5초 대기 + 0.3초 발사)
+    if current_stage == 2 and water_cannon_phase in ("charging", "firing"):
+        boss_current_speed = 0
+        return  # 물대포 차징/발사 중에는 AI 정지
+
     # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
     if current_stage == 7:
         try:
@@ -93037,12 +93109,13 @@ def handle_boss():
                                 # 현재 보스 속도의 200% (+100%)로 스피드디펜스 설정
                                 # 리그와 스테이지에 따른 현재 보스 속도 가져오기
                                 current_config = get_final_boss_config(current_stage, ai_mode if ai_enabled else "pro")
-                                # 스피드디펜스: 현재 속도의 200% 적용
-                                speed_multiplier = 1.5  # 50% 증가 (1.5배속) - 난이도 하향
+                                # 스피드디펜스: 이동속도 200% 증가 (3배), 방향전환속도 100% 증가 (2배)
+                                speed_multiplier = 3.0  # 200% 증가 (3배속)
+                                direction_change_multiplier = 2.0  # 방향전환 100% 증가 (2배)
                                 BOSS_ACCELERATION = current_config["accel"] * speed_multiplier
                                 BOSS_DECELERATION = current_config["decel"] * speed_multiplier
                                 BOSS_MAX_SPEED = current_config["max_speed"] * speed_multiplier
-                                BOSS_INSTANT_STOP_DECELERATION = current_config["instant_stop"] * speed_multiplier
+                                BOSS_INSTANT_STOP_DECELERATION = current_config["instant_stop"] * direction_change_multiplier
                                 # 즉시 목표 지점으로 가속 시작
                                 if predicted_x < BOSS.centerx:
                                     boss_current_speed = -BOSS_MAX_SPEED * 0.2  # 왼쪽으로 초기 속도 부여 (최대속도의 20%) - 난이도 하향
@@ -97158,6 +97231,12 @@ def main(stage_num, new_boss_mode=False):
         active_item_cooldown_ms = max(0, cooldown_ms)
 
         for event in pygame.event.get():
+            # 🔍 모든 KEYDOWN 디버그 (키 확인용)
+            if event.type == pygame.KEYDOWN:
+                scancode = getattr(event, 'scancode', 0)
+                # 🔍 모든 키 입력 디버그 출력 (스캔코드 확인용)
+                print(f"[ANY-KEY] key={event.key}, scancode={scancode}, unicode='{getattr(event, 'unicode', '')}', name={pygame.key.name(event.key)}")
+
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
@@ -97188,65 +97267,28 @@ def main(stage_num, new_boss_mode=False):
 
             # 키보드 이벤트 처리
             if event.type == pygame.KEYDOWN:
+                # J키/ㅈ키 감지 (다양한 방식으로 감지 - 한글 입력 모드 포함)
+                # scancode: Windows=36, macOS=38 (J키 물리적 위치)
+                scancode = getattr(event, 'scancode', 0)
+                j_key_pressed = (scancode in (36, 38) or  # J키 스캔코드 (Windows/macOS)
+                                 event.key == pygame.K_j or  # 영문 J키
+                                 event.key == 106 or  # J키 코드값 (ASCII)
+                                 getattr(event, 'unicode', '').lower() in ('j', 'ㅈ'))
+                if j_key_pressed:
+                    print(f"[J-KEY-RAW] J/ㅈ키 KEYDOWN 감지! scancode={scancode}, key={event.key}, unicode='{getattr(event, 'unicode', '')}', character={selected_character_type}, paused={game_paused}")
                 if event.key == pygame.K_t:
                     genie_assistant.activate(SCREEN, selected_character_type)
                     continue
                 #  일시정지 토글 (P키)
                 if event.key == pygame.K_p:
-                    global game_paused
                     game_paused = not game_paused
                     print(f"   : {'ON' if game_paused else 'OFF'}")
                     continue  # 일시정지 토글 후 다른 키 처리 건너뛰기
                 #  AI 모드 전환 (N키)
                 elif event.key == pygame.K_n:
                     toggle_ai_mode()
-                # ✨ 스매셔 클렌즈 스킬 (J키/ㅈ키 - 상키 1번)
-                # 한글 'ㅈ' = J키 위치, event.unicode로 한글 입력도 감지
-                elif (event.key == pygame.K_j or getattr(event, 'unicode', '') in ('ㅈ', 'ㅈ')) and selected_character_type == "smasher" and not game_paused:
-                    cleanse = get_cleanse_skill()
-                    # 단일 키 입력으로 클렌즈 발동 시도
-                    has_status = check_player_has_status_effect(
-                        player_stunned_timer=player_stunned_timer,
-                        player_missile_stunned_timer=player_missile_stunned_timer,
-                        player_slow_timer=player_slow_timer,
-                        player_knockback_vel=player_knockback_vel,
-                        player_missile_knockback_vel=player_missile_knockback_vel if 'player_missile_knockback_vel' in dir() else 0,
-                        player_flame_zone_knockback_vel=player_flame_zone_knockback_vel if 'player_flame_zone_knockback_vel' in dir() else 0,
-                        smasher_power_recoil_timer=smasher_power_recoil_timer if 'smasher_power_recoil_timer' in dir() else 0,
-                        spider_mine_slow_active=spider_mine_slow_active if 'spider_mine_slow_active' in dir() else False,
-                        player_burn_timer=player_burn_timer if 'player_burn_timer' in dir() else 0,
-                        player_knockback_y=player_knockback_y if 'player_knockback_y' in dir() else 0
-                    )
-                    print(f"[CLEANSE-DEBUG] J키 감지! gauge={special_gauge}, has_status={has_status}, cooldown={cleanse.cooldown_timer}, active={cleanse.active}")
-                    if cleanse.can_activate(special_gauge, has_status):
-                        # 클렌즈 발동!
-                        cleanse.activate(PLAYER.centerx, PLAYER.centery)
-                        special_gauge -= 100  # 게이지 소모
-                        # ⚡ 스매셔 콤보 리셋 (클렌즈 사용 시)
-                        if selected_character_type == "smasher":
-                            _reset_smasher_combo("클렌즈")
-                        # 모든 상태이상 해제
-                        player_stunned_timer = 0
-                        player_missile_stunned_timer = 0
-                        player_slow_timer = 0
-                        player_knockback_vel = 0
-                        if 'player_missile_knockback_vel' in dir():
-                            player_missile_knockback_vel = 0
-                        if 'player_flame_zone_knockback_vel' in dir():
-                            player_flame_zone_knockback_vel = 0
-                        if 'smasher_power_recoil_timer' in dir():
-                            smasher_power_recoil_timer = 0
-                        if 'spider_mine_slow_active' in dir():
-                            spider_mine_slow_active = False
-                        # 스테이지4 붉은달 파편 화상/넉백 해제
-                        if 'player_burn_timer' in dir():
-                            player_burn_timer = 0
-                        if 'player_burn_effect' in dir():
-                            player_burn_effect = False
-                        if 'player_knockback_y' in dir():
-                            player_knockback_y = 0
-                        print("✨ [CLEANSE] 클렌즈 발동! 모든 상태이상 해제!")
-                    continue
+                # ✨ 스매셔 클렌즈 스킬은 이벤트 루프 밖에서 폴링 방식으로 처리
+                # (한글 IME 문제로 KEYDOWN 이벤트가 발생하지 않을 수 있음)
                 # ⚡ 옵티머스 비상충전 스킬 (S키/ㄴ키 더블탭)
                 elif (event.key == pygame.K_s or getattr(event, 'unicode', '') in ('ㄴ', 'ㄴ')) and selected_character_type == "optimus" and not game_paused:
                     emergency_level = optimus_skill_levels.get("emergency_charge", 0)
@@ -97785,6 +97827,66 @@ def main(stage_num, new_boss_mode=False):
                         if not global_cooldown_ok:
                             remaining_time = (active_item_cooldown_ms - (current_time - last_item_use_time)) / MILLISECONDS_PER_SECOND
                             print(f"  ... {remaining_time:.1f}")
+
+        # ✨ 스매셔 클렌즈 스킬 - 폴링 방식 (한글 IME 호환)
+        # pygame.key.get_pressed()는 IME와 관계없이 물리적 키 상태를 확인
+        if selected_character_type == "smasher" and not game_paused:
+            keys_poll = pygame.key.get_pressed()
+            # W키 (pygame.K_w) = 한글 ㅈ키 위치
+            w_key_poll = keys_poll[pygame.K_w]
+
+            # 클렌즈 인스턴스의 키 상태 추적 (중복 발동 방지)
+            cleanse_poll = get_cleanse_skill()
+            if not hasattr(cleanse_poll, '_w_key_was_pressed'):
+                cleanse_poll._w_key_was_pressed = False
+
+            # W키(ㅈ키)가 새로 눌렸을 때만 발동 (키가 떼졌다가 다시 눌렸을 때)
+            if w_key_poll and not cleanse_poll._w_key_was_pressed:
+                print(f"[CLEANSE-POLL] W키(ㅈ키) 폴링 감지! character={selected_character_type}")
+                has_status = check_player_has_status_effect(
+                    player_stunned_timer=player_stunned_timer,
+                    player_missile_stunned_timer=player_missile_stunned_timer,
+                    player_slow_timer=player_slow_timer,
+                    player_knockback_vel=player_knockback_vel,
+                    player_missile_knockback_vel=player_missile_knockback_vel if 'player_missile_knockback_vel' in dir() else 0,
+                    player_flame_zone_knockback_vel=player_flame_zone_knockback_vel if 'player_flame_zone_knockback_vel' in dir() else 0,
+                    smasher_power_recoil_timer=smasher_power_recoil_timer if 'smasher_power_recoil_timer' in dir() else 0,
+                    spider_mine_slow_active=spider_mine_slow_active if 'spider_mine_slow_active' in dir() else False,
+                    player_burn_timer=player_burn_timer if 'player_burn_timer' in dir() else 0,
+                    player_knockback_y=player_knockback_y if 'player_knockback_y' in dir() else 0
+                )
+                print(f"[CLEANSE-POLL] gauge={special_gauge}, has_status={has_status}, cooldown={cleanse_poll.cooldown_timer}, active={cleanse_poll.active}")
+                if cleanse_poll.can_activate(special_gauge, has_status):
+                    # 클렌즈 발동!
+                    cleanse_poll.activate(PLAYER.centerx, PLAYER.centery)
+                    special_gauge -= 100  # 게이지 소모
+                    # ⚡ 스매셔 콤보 리셋 (클렌즈 사용 시)
+                    _reset_smasher_combo("클렌즈")
+                    # 모든 상태이상 해제
+                    player_stunned_timer = 0
+                    player_missile_stunned_timer = 0
+                    player_slow_timer = 0
+                    player_knockback_vel = 0
+                    if 'player_missile_knockback_vel' in dir():
+                        player_missile_knockback_vel = 0
+                    if 'player_flame_zone_knockback_vel' in dir():
+                        player_flame_zone_knockback_vel = 0
+                    if 'smasher_power_recoil_timer' in dir():
+                        smasher_power_recoil_timer = 0
+                    if 'spider_mine_slow_active' in dir():
+                        spider_mine_slow_active = False
+                    # 스테이지4 붉은달 파편 화상/넉백 해제
+                    if 'player_burn_timer' in dir():
+                        player_burn_timer = 0
+                    if 'player_burn_effect' in dir():
+                        player_burn_effect = False
+                    if 'player_knockback_y' in dir():
+                        player_knockback_y = 0
+                    print("✨ [CLEANSE] 클렌즈 발동! 모든 상태이상 해제!")
+
+            # 키 상태 업데이트 (다음 프레임에서 중복 발동 방지)
+            cleanse_poll._w_key_was_pressed = w_key_poll
+
         # 플레이어 AI 전용: 이벤트와 무관하게 액티브 아이템 자동 사용
         def _player_ai_try_use_active_item():
             """AI가 쿨타임이 끝난 첫 번째 액티브 아이템을 자동 사용."""
@@ -98291,8 +98393,18 @@ def main(stage_num, new_boss_mode=False):
                 # handle_balloon()  # Stage 1 보스 풍선파티 스킬 제거됨
                 handle_spinning_top()  # Stage 1 보스 팽이치기 스킬
                 handle_quake()
-                # Stage 2 악어장군 물대포 스킬 업데이트
+                # Stage 2 악어장군 물대포 스킬 발동 및 업데이트
                 if current_stage == 2:
+                    # 물대포 발동 체크: 정글지진 발동 후 5~8초 사이에 발동
+                    time_now = pygame.time.get_ticks()
+                    time_since_quake = time_now - last_quake_time
+                    quake_delay_passed = (last_quake_time > 0 and time_since_quake >= water_cannon_quake_delay)
+                    # 디버그: 5초마다 상태 출력
+                    if time_now % 5000 < 20:
+                        print(f"[물대포DEBUG] phase={water_cannon_phase}, quake_delay={water_cannon_quake_delay}ms, since_quake={time_since_quake}ms, rocks={len(animated_bg_stage2.crisis_rocks) if animated_bg_stage2 else 'None'}")
+                    if quake_delay_passed and water_cannon_phase == "idle":
+                        print(f"💦 물대포 발동! 정글지진 후 {time_since_quake/1000:.1f}초 경과")
+                        activate_water_cannon()
                     update_water_cannon()
                     update_water_cannon_fragments()
                 handle_new_boss_skills_timer()  #  새로운 보스들 스킬 타이머 처리

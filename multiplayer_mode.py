@@ -1,211 +1,793 @@
+# -*- coding: utf-8 -*-
 """
-멀티플레이어 모드 - 스매셔 스킬 시스템 포함
-캐릭터 선택, 게이지, 콤보, 스킬(쇼트/드라이브/파워스매싱) 구현
+로컬 멀티플레이어 모드 - 스매셔 스킬 시스템 완전 구현
+싱글플레이어와 동일한 스킬/게이지/콤보 시스템 적용
+
+스킬 목록 (싱글플레이어 기준 완전 동일):
+- 쇼트 (Short Shot): 자동 발동, 공 속도 1.3배
+- 드라이브 (Drive): 150 게이지, 퍼펙트 타이밍 시 커브
+- 파워스매싱 (Power Smashing): 350 게이지, 포물선 궤적
+- 클렌즈 (Cleanse): 100 게이지, 상태이상 해제 (멀티에서는 간소화)
 """
 
 import pygame
 import random
 import math
+from typing import Dict, List, Tuple, Optional, Callable, Any
 
 # ============================================================================
-# 멀티플레이어 스킬 상수
+# 상수 정의 (싱글플레이어 pingfighter.py 기준 동일)
 # ============================================================================
-MP_GAUGE_MAX = 500
-MP_GAUGE_HIT_CHARGE = 30
-MP_SHOT_GAUGE_COST = 100
-MP_SHOT_SPEED_MULTIPLIER = 1.3
-MP_POWER_SMASH_GAUGE_COST = 350
-MP_POWER_SMASH_SPEED_MULT = 1.5
-MP_DRIVE_CURVE_STRENGTH = 0.4
-MP_DRIVE_SPEED_BOOST = 1.2
-MP_COMBO_GAUGE_BONUS = {2: 0.2, 3: 0.4, 4: 0.6, 5: 0.8}
-MP_COMBO_MAX_BONUS = 1.0  # 6콤보 이상: 100% 보너스
 
-# P2 키 바인딩 (WASD + Space)
-P2_KEY_UP = pygame.K_w
-P2_KEY_DOWN = pygame.K_s
-P2_KEY_LEFT = pygame.K_a
-P2_KEY_RIGHT = pygame.K_d
-P2_KEY_DASH = pygame.K_SPACE
+# 게이지 시스템
+GAUGE_MAX = 500
+GAUGE_HIT_CHARGE = 60  # 스매셔 기본 충전량
 
-# P1 키 바인딩 (방향키 + Shift)
-P1_KEY_UP = pygame.K_UP
-P1_KEY_DOWN = pygame.K_DOWN
-P1_KEY_LEFT = pygame.K_LEFT
-P1_KEY_RIGHT = pygame.K_RIGHT
-P1_KEY_DASH = pygame.K_RSHIFT
+# 콤보 보너스 (%)
+COMBO_GAUGE_BONUS = {
+    2: 30,   # 2콤보: +30%
+    3: 50,   # 3콤보: +50%
+    4: 70,   # 4콤보: +70%
+    5: 85,   # 5콤보: +85%
+    6: 100,  # 6콤보+: +100%
+}
+COMBO_MAX_BONUS = 100
+
+# 쇼트 (Short Shot) - 자동 발동
+SHORT_SHOT_SPEED_MULTIPLIER = 1.3
+SHORT_SHOT_DURATION = 36  # 프레임
+
+# 드라이브 (Drive) - 150 게이지
+DRIVE_GAUGE_COST = 150
+DRIVE_CURVE_STRENGTH = 0.4
+DRIVE_SPEED_BOOST = 1.2
+
+# 파워스매싱 (Power Smashing) - 350 게이지
+POWER_SMASH_GAUGE_COST = 350
+POWER_SMASH_SPEED_MULT = 1.5
+POWER_SMASH_GRAVITY = 0.035
+POWER_SMASH_BOOST_DURATION = 30  # 0.5초 (프레임)
+
+# 클렌즈 (Cleanse) - 100 게이지
+CLEANSE_GAUGE_COST = 100
+CLEANSE_COOLDOWN = 60
+CLEANSE_IMMUNITY_DURATION = 60
+
+# 물리
+BALL_BASE_SPEED = 6.0
+BALL_MAX_SPEED = 20.0
+PADDLE_SPEED = 8
+DASH_SPEED_BOOST = 4
+DASH_COOLDOWN = 30
+
+# 키 바인딩
+class KeyBindings:
+    """플레이어별 키 바인딩"""
+    def __init__(self, is_p1: bool, is_top: bool):
+        if is_p1:
+            # P1: 방향키 + Shift
+            self.left = pygame.K_LEFT
+            self.right = pygame.K_RIGHT
+            self.up = pygame.K_UP      # 쇼트/클렌즈
+            self.down = pygame.K_DOWN  # 파워스매싱
+            self.dash = pygame.K_RSHIFT
+            self.skill = pygame.K_RCTRL  # 드라이브 강화
+        else:
+            # P2: WASD + Space
+            self.left = pygame.K_a
+            self.right = pygame.K_d
+            self.up = pygame.K_w      # 쇼트/클렌즈
+            self.down = pygame.K_s    # 파워스매싱
+            self.dash = pygame.K_SPACE
+            self.skill = pygame.K_LCTRL  # 드라이브 강화
 
 
-def create_mp_player(is_top, player_num, width, height):
-    """멀티플레이어용 플레이어 데이터 생성"""
-    y_pos = 60 if is_top else height - 80
-    return {
-        "num": player_num,
-        "is_top": is_top,
-        "x": width // 2 - 50,
-        "y": y_pos,
-        "width": 100,
-        "height": 20,
-        "speed": 8,
-        "character": "smasher",
-        "gauge": 0,
-        "gauge_max": MP_GAUGE_MAX,
-        "combo": 0,
-        "combo_timer": 0,
-        "combo_display_timer": 0,
-        "dash_cooldown": 0,
-        "dash_active": False,
-        "short_shot_active": False,
-        "short_shot_timer": 0,
-        "power_smash_active": False,
-        "power_smash_timer": 0,
-        "drive_active": False,
-        "drive_direction": 0,
-        "cleanse_cooldown": 0,
-        "status_effects": [],
-        "walking_timer": 0,
-        "hit_pose_timer": 0,
-        "facing_left": False,
-        "knockback_x": 0,
-        "knockback_timer": 0,
-    }
+# ============================================================================
+# 플레이어 클래스
+# ============================================================================
+
+class SmasherPlayer:
+    """스매셔 캐릭터 플레이어"""
+
+    def __init__(self, player_num: int, is_top: bool, screen_width: int, screen_height: int):
+        self.num = player_num
+        self.is_top = is_top
+        self.screen_width = screen_width
+        self.screen_height = screen_height
+
+        # 위치/크기
+        self.width = 100
+        self.height = 20
+        self.x = screen_width // 2 - self.width // 2
+        self.y = 60 if is_top else screen_height - 80
+        self.speed = PADDLE_SPEED
+
+        # 키 바인딩
+        self.keys = KeyBindings(player_num == 1, is_top)
+
+        # 게이지 시스템
+        self.gauge = 0
+        self.gauge_max = GAUGE_MAX
+
+        # 콤보 시스템
+        self.combo = 0
+        self.combo_timer = 0
+        self.combo_display_timer = 0
+
+        # 대시 시스템
+        self.dash_cooldown = 0
+        self.dash_active = False
+
+        # 스킬 상태
+        self.short_shot_active = False
+        self.short_shot_timer = 0
+
+        self.drive_active = False
+        self.drive_direction = 0
+        self.drive_text_timer = 0
+
+        self.power_smash_active = False
+        self.power_smash_timer = 0
+        self.power_smash_ready = False
+
+        self.cleanse_cooldown = 0
+        self.cleanse_immunity = 0
+
+        # 애니메이션
+        self.walking_timer = 0
+        self.hit_pose_timer = 0
+        self.facing_left = False
+        self.step_phase = 0.0
+
+        # 넉백
+        self.knockback_x = 0
+        self.knockback_timer = 0
+
+        # 점수
+        self.score = 0
+
+    def reset_for_round(self):
+        """라운드 시작 시 위치/상태 리셋"""
+        self.x = self.screen_width // 2 - self.width // 2
+        self.combo = 0
+        self.combo_timer = 0
+        self.short_shot_active = False
+        self.drive_active = False
+        self.power_smash_active = False
+
+    def update_keys(self, keys: pygame.key.ScancodeWrapper) -> Tuple[bool, int]:
+        """키 입력 처리, 반환: (이동 중 여부, 이동 방향)"""
+        moving = False
+        move_dir = 0
+
+        # 대시 처리
+        move_speed = self.speed
+        if self.dash_cooldown <= 0 and keys[self.keys.dash]:
+            move_speed += DASH_SPEED_BOOST
+            self.dash_cooldown = DASH_COOLDOWN
+            self.dash_active = True
+
+        # 이동 처리
+        if keys[self.keys.left]:
+            self.x -= move_speed
+            self.facing_left = True
+            moving = True
+            move_dir = -1
+        if keys[self.keys.right]:
+            self.x += move_speed
+            self.facing_left = False
+            moving = True
+            move_dir = 1
+
+        # 경계 제한
+        self.x = max(0, min(self.screen_width - self.width, self.x))
+
+        if moving:
+            self.walking_timer = 10
+            self.step_phase = (self.step_phase + 0.1) % 1.0
+
+        return moving, move_dir
+
+    def update_timers(self):
+        """타이머 업데이트"""
+        # 콤보 타이머
+        if self.combo_timer > 0:
+            self.combo_timer -= 1
+            if self.combo_timer <= 0:
+                self.combo = 0
+
+        if self.combo_display_timer > 0:
+            self.combo_display_timer -= 1
+
+        # 애니메이션 타이머
+        if self.hit_pose_timer > 0:
+            self.hit_pose_timer -= 1
+        if self.walking_timer > 0:
+            self.walking_timer -= 1
+
+        # 대시 쿨다운
+        if self.dash_cooldown > 0:
+            self.dash_cooldown -= 1
+
+        # 스킬 타이머
+        if self.short_shot_timer > 0:
+            self.short_shot_timer -= 1
+            if self.short_shot_timer <= 0:
+                self.short_shot_active = False
+
+        if self.drive_text_timer > 0:
+            self.drive_text_timer -= 1
+
+        if self.power_smash_timer > 0:
+            self.power_smash_timer -= 1
+            if self.power_smash_timer <= 0:
+                self.power_smash_active = False
+
+        # 클렌즈 쿨다운/면역
+        if self.cleanse_cooldown > 0:
+            self.cleanse_cooldown -= 1
+        if self.cleanse_immunity > 0:
+            self.cleanse_immunity -= 1
+
+        # 넉백
+        if self.knockback_timer > 0:
+            self.knockback_timer -= 1
+            self.knockback_x *= 0.85
+            if self.knockback_timer <= 0:
+                self.knockback_x = 0
+
+        # 파워스매싱 준비 상태
+        self.power_smash_ready = self.gauge >= POWER_SMASH_GAUGE_COST
+
+    def charge_gauge(self, is_hit: bool = True):
+        """게이지 충전 (콤보 보너스 포함)"""
+        if not is_hit:
+            return
+
+        base_charge = GAUGE_HIT_CHARGE
+
+        # 콤보 보너스 계산
+        if self.combo >= 6:
+            bonus_pct = COMBO_MAX_BONUS
+        else:
+            bonus_pct = COMBO_GAUGE_BONUS.get(self.combo, 0)
+
+        total_charge = base_charge + int(base_charge * bonus_pct / 100)
+        self.gauge = min(self.gauge + total_charge, self.gauge_max)
+
+    def add_combo(self):
+        """콤보 추가"""
+        self.combo += 1
+        self.combo_timer = 180  # 3초
+        self.combo_display_timer = 60
+
+    def apply_knockback(self, direction: int, strength: float = 15):
+        """넉백 적용"""
+        self.knockback_x = direction * strength
+        self.knockback_timer = 10
+
+    def get_rect(self) -> pygame.Rect:
+        """충돌 박스 반환"""
+        return pygame.Rect(self.x, self.y, self.width, self.height)
+
+    def get_center(self) -> Tuple[float, float]:
+        """중심점 반환"""
+        return (self.x + self.width / 2, self.y + self.height / 2)
 
 
-def draw_mp_smasher_sprite(screen, player, step_phase, create_smasher_func):
-    """멀티플레이어 스매셔 스프라이트 그리기"""
-    try:
-        is_left = player["facing_left"]
-        is_hit = player["hit_pose_timer"] > 0
-        walk_frame = int(step_phase * 4) % 4 if player["walking_timer"] > 0 else 0
+# ============================================================================
+# 공 클래스
+# ============================================================================
 
-        paddle_surf = create_smasher_func(
-            player["width"],
-            player["height"],
-            is_left_pose=is_left,
-            is_hit_pose=is_hit,
-            walk_frame=walk_frame
+class Ball:
+    """게임 공"""
+
+    def __init__(self, screen_width: int, screen_height: int):
+        self.screen_width = screen_width
+        self.screen_height = screen_height
+        self.radius = 10
+        self.reset()
+
+    def reset(self, direction: int = 0):
+        """공 리셋"""
+        self.x = float(self.screen_width // 2)
+        self.y = float(self.screen_height // 2)
+        self.speed_x = BALL_BASE_SPEED * (1 if random.random() > 0.5 else -1)
+        self.speed_y = BALL_BASE_SPEED * (direction if direction != 0 else (1 if random.random() > 0.5 else -1))
+        self.curve_x = 0.0
+
+        # 효과 상태 초기화
+        self.short_shot_active = False
+        self.power_smash_active = False
+        self.power_smash_gravity = 0.0
+        self.last_hitter: Optional[SmasherPlayer] = None
+
+    def update(self) -> Optional[str]:
+        """공 업데이트, 반환: 득점 방향 ('top', 'bottom', None)"""
+        # 이동
+        self.x += self.speed_x
+        self.y += self.speed_y
+
+        # 커브 적용
+        if self.curve_x != 0:
+            self.speed_x += self.curve_x * 0.5
+            self.curve_x *= 0.98
+            if abs(self.curve_x) < 0.01:
+                self.curve_x = 0
+
+        # 파워스매싱 중력 적용
+        if self.power_smash_active and self.power_smash_gravity > 0:
+            self.speed_y += self.power_smash_gravity
+
+        # 좌우 벽 충돌
+        if self.x - self.radius <= 0:
+            self.x = self.radius
+            self.speed_x = abs(self.speed_x)
+            return 'wall'
+        elif self.x + self.radius >= self.screen_width:
+            self.x = self.screen_width - self.radius
+            self.speed_x = -abs(self.speed_x)
+            return 'wall'
+
+        # 득점 체크
+        if self.y - self.radius <= 0:
+            return 'top'  # 하단 플레이어 득점
+        elif self.y + self.radius >= self.screen_height:
+            return 'bottom'  # 상단 플레이어 득점
+
+        return None
+
+    def apply_paddle_bounce(self, player: SmasherPlayer, hit_pos: float):
+        """패들 반사 물리 적용"""
+        # 기본 반사
+        if player.is_top:
+            self.speed_y = abs(self.speed_y)
+        else:
+            self.speed_y = -abs(self.speed_y)
+
+        # 패들 위치에 따른 각도
+        self.speed_x = (hit_pos - 0.5) * 12
+
+    def apply_speed_limit(self):
+        """속도 제한 적용"""
+        speed = math.sqrt(self.speed_x**2 + self.speed_y**2)
+        if speed > BALL_MAX_SPEED:
+            factor = BALL_MAX_SPEED / speed
+            self.speed_x *= factor
+            self.speed_y *= factor
+
+    def get_rect(self) -> pygame.Rect:
+        """충돌 박스 반환"""
+        return pygame.Rect(
+            self.x - self.radius,
+            self.y - self.radius,
+            self.radius * 2,
+            self.radius * 2
         )
 
-        if player["is_top"]:
-            paddle_surf = pygame.transform.rotate(paddle_surf, 180)
 
-        draw_x = player["x"] + player["knockback_x"]
-        draw_y = player["y"]
+# ============================================================================
+# 이펙트 시스템
+# ============================================================================
 
-        sprite_rect = paddle_surf.get_rect()
-        sprite_rect.centerx = draw_x + player["width"] // 2
-        sprite_rect.centery = draw_y + player["height"] // 2
+class EffectManager:
+    """시각 효과 관리"""
 
-        screen.blit(paddle_surf, sprite_rect)
+    def __init__(self):
+        self.text_effects: List[Dict] = []  # 텍스트 이펙트
+        self.screen_shake = 0
+        self.shake_x = 0
+        self.shake_y = 0
 
-    except Exception:
-        color = (0, 150, 255) if player["num"] == 1 else (255, 100, 100)
-        pygame.draw.rect(screen, color,
-                        (player["x"], player["y"], player["width"], player["height"]),
-                        border_radius=5)
+    def add_text_effect(self, x: float, y: float, text: str, color: Tuple[int, int, int], duration: int = 30):
+        """텍스트 이펙트 추가"""
+        self.text_effects.append({
+            'x': x, 'y': y, 'text': text, 'color': color,
+            'timer': duration, 'max_timer': duration
+        })
 
+    def add_screen_shake(self, intensity: int):
+        """화면 흔들림 추가"""
+        self.screen_shake = max(self.screen_shake, intensity)
 
-def draw_mp_gauge(screen, player, width, height, get_font_func):
-    """멀티플레이어 게이지 바 그리기"""
-    gauge_width = 150
-    gauge_height = 12
-    border = 2
+    def update(self):
+        """이펙트 업데이트"""
+        # 텍스트 이펙트
+        new_effects = []
+        for eff in self.text_effects:
+            eff['timer'] -= 1
+            eff['y'] -= 1  # 위로 떠오름
+            if eff['timer'] > 0:
+                new_effects.append(eff)
+        self.text_effects = new_effects
 
-    if player["is_top"]:
-        gauge_x = width - gauge_width - 20
-        gauge_y = 20
-    else:
-        gauge_x = width - gauge_width - 20
-        gauge_y = height - gauge_height - 20
-
-    pygame.draw.rect(screen, (40, 40, 50),
-                    (gauge_x - border, gauge_y - border,
-                     gauge_width + border * 2, gauge_height + border * 2),
-                    border_radius=3)
-
-    fill_ratio = player["gauge"] / player["gauge_max"]
-    fill_width = int(gauge_width * fill_ratio)
-
-    if fill_ratio >= 0.7:
-        gauge_color = (100, 255, 100)
-    elif fill_ratio >= 0.35:
-        gauge_color = (255, 200, 50)
-    else:
-        gauge_color = (200, 100, 100)
-
-    if fill_width > 0:
-        pygame.draw.rect(screen, gauge_color,
-                        (gauge_x, gauge_y, fill_width, gauge_height),
-                        border_radius=2)
-
-    shot_pos = int(gauge_width * (MP_SHOT_GAUGE_COST / MP_GAUGE_MAX))
-    smash_pos = int(gauge_width * (MP_POWER_SMASH_GAUGE_COST / MP_GAUGE_MAX))
-
-    pygame.draw.line(screen, (150, 150, 150),
-                    (gauge_x + shot_pos, gauge_y - 2),
-                    (gauge_x + shot_pos, gauge_y + gauge_height + 2), 1)
-    pygame.draw.line(screen, (255, 100, 100),
-                    (gauge_x + smash_pos, gauge_y - 2),
-                    (gauge_x + smash_pos, gauge_y + gauge_height + 2), 1)
-
-    try:
-        label_font = get_font_func(14)
-    except:
-        label_font = pygame.font.Font(None, 14)
-
-    label = f"P{player['num']}"
-    label_surf = label_font.render(label, True, (200, 200, 200))
-    label_x = gauge_x - label_surf.get_width() - 8
-    label_y = gauge_y + (gauge_height - label_surf.get_height()) // 2
-    screen.blit(label_surf, (label_x, label_y))
+        # 화면 흔들림
+        if self.screen_shake > 0:
+            self.screen_shake -= 1
+            self.shake_x = random.randint(-3, 3)
+            self.shake_y = random.randint(-3, 3)
+        else:
+            self.shake_x = 0
+            self.shake_y = 0
 
 
-def draw_mp_combo_effect(screen, player, width, height, get_font_func):
-    """콤보 이펙트 표시"""
-    if player["combo_display_timer"] <= 0 or player["combo"] < 2:
-        return
+# ============================================================================
+# 스킬 처리 시스템
+# ============================================================================
 
-    combo = player["combo"]
+class SkillSystem:
+    """스킬 발동 및 처리"""
 
-    if player["is_top"]:
-        x, y = width - 100, 50
-    else:
-        x, y = width - 100, height - 60
+    @staticmethod
+    def check_and_apply_skills(player: SmasherPlayer, ball: Ball, keys: pygame.key.ScancodeWrapper,
+                               effects: EffectManager, play_sounds: Dict[str, Callable]) -> bool:
+        """
+        히트 시 스킬 체크 및 적용
+        반환: 스킬 발동 여부
+        """
+        skill_used = False
+        center_x, center_y = player.get_center()
 
-    if combo >= 6:
-        color = (255, 50, 50)
-    elif combo >= 4:
-        color = (255, 150, 50)
-    else:
-        color = (255, 255, 100)
+        # 1. 파워스매싱 체크 (↓/S + 히트, 350 게이지)
+        if keys[player.keys.down] and player.gauge >= POWER_SMASH_GAUGE_COST:
+            player.gauge -= POWER_SMASH_GAUGE_COST
+            player.power_smash_active = True
+            player.power_smash_timer = POWER_SMASH_BOOST_DURATION
 
-    scale = 1.0 + (player["combo_display_timer"] / 60) * 0.3
+            # 공에 파워스매싱 효과 적용
+            ball.speed_x *= POWER_SMASH_SPEED_MULT
+            ball.speed_y *= POWER_SMASH_SPEED_MULT
+            ball.power_smash_active = True
+            ball.power_smash_gravity = POWER_SMASH_GRAVITY
 
-    try:
-        combo_font = get_font_func(int(24 * scale))
-    except:
-        combo_font = pygame.font.Font(None, int(24 * scale))
+            effects.add_text_effect(center_x, center_y - 30, "POWER SMASH!", (255, 100, 50), 45)
+            effects.add_screen_shake(15)
 
-    combo_text = combo_font.render(f"{combo} COMBO!", True, color)
-    text_rect = combo_text.get_rect(center=(x, y))
-    screen.blit(combo_text, text_rect)
+            try:
+                play_sounds.get('power_smash', lambda: None)()
+            except:
+                pass
+
+            skill_used = True
+
+        # 2. 드라이브 체크 (←→/AD + 히트, 150 게이지)
+        elif (keys[player.keys.left] or keys[player.keys.right]) and player.gauge >= DRIVE_GAUGE_COST:
+            player.gauge -= DRIVE_GAUGE_COST
+            player.drive_active = True
+            player.drive_text_timer = 30
+
+            # 커브 방향 결정
+            if keys[player.keys.left]:
+                ball.curve_x = -DRIVE_CURVE_STRENGTH
+                player.drive_direction = -1
+            else:
+                ball.curve_x = DRIVE_CURVE_STRENGTH
+                player.drive_direction = 1
+
+            ball.speed_x *= DRIVE_SPEED_BOOST
+            ball.speed_y *= DRIVE_SPEED_BOOST
+
+            effects.add_text_effect(center_x, center_y - 30, "DRIVE!", (255, 255, 100), 30)
+
+            try:
+                play_sounds.get('drive', lambda: None)()
+            except:
+                pass
+
+            skill_used = True
+
+        # 3. 쇼트 체크 (↑/W + 히트, 게이지 무료)
+        elif keys[player.keys.up]:
+            player.short_shot_active = True
+            player.short_shot_timer = SHORT_SHOT_DURATION
+
+            ball.speed_x *= SHORT_SHOT_SPEED_MULTIPLIER
+            ball.speed_y *= SHORT_SHOT_SPEED_MULTIPLIER
+            ball.short_shot_active = True
+
+            effects.add_text_effect(center_x, center_y - 30, "SHORT!", (100, 200, 255), 25)
+
+            try:
+                play_sounds.get('short_shot', lambda: None)()
+            except:
+                pass
+
+            skill_used = True
+
+        return skill_used
+
+    @staticmethod
+    def check_cleanse(player: SmasherPlayer, keys: pygame.key.ScancodeWrapper,
+                      effects: EffectManager, play_sounds: Dict[str, Callable]) -> bool:
+        """클렌즈 체크 (별도 키로 발동)"""
+        # 멀티플레이어에서는 상태이상이 없으므로 간소화
+        # 추후 상태이상 시스템 추가 시 확장
+        return False
 
 
-def show_character_select(screen, width, height, get_font_func, play_sound_func, create_smasher_func):
-    """멀티플레이어 캐릭터 선택 화면"""
+# ============================================================================
+# 렌더러
+# ============================================================================
+
+class MultiplayerRenderer:
+    """멀티플레이어 렌더링"""
+
+    def __init__(self, screen: pygame.Surface, width: int, height: int,
+                 get_font: Callable, create_smasher_sprite: Callable):
+        self.screen = screen
+        self.width = width
+        self.height = height
+        self.get_font = get_font
+        self.create_smasher_sprite = create_smasher_sprite
+
+    def draw_background(self, shake_x: int = 0, shake_y: int = 0):
+        """배경 그리기"""
+        self.screen.fill((20, 25, 35))
+
+        # 중앙선
+        pygame.draw.line(self.screen, (60, 70, 90),
+                        (shake_x, self.height // 2 + shake_y),
+                        (self.width + shake_x, self.height // 2 + shake_y), 2)
+        for i in range(0, self.width, 30):
+            pygame.draw.circle(self.screen, (80, 90, 110),
+                             (i + shake_x, self.height // 2 + shake_y), 3)
+
+    def draw_player(self, player: SmasherPlayer, shake_x: int = 0, shake_y: int = 0):
+        """플레이어 스프라이트 그리기"""
+        try:
+            sprite = self.create_smasher_sprite(player.step_phase)
+
+            # 상단 플레이어는 180도 회전
+            if player.is_top:
+                sprite = pygame.transform.rotate(sprite, 180)
+
+            # 위치 계산 (넉백 포함)
+            draw_x = player.x + player.knockback_x + shake_x
+            draw_y = player.y + shake_y
+
+            # 스프라이트 중앙 정렬
+            rect = sprite.get_rect()
+            rect.centerx = draw_x + player.width // 2
+            rect.centery = draw_y + player.height // 2
+
+            self.screen.blit(sprite, rect)
+
+        except Exception:
+            # 폴백: 단순 사각형
+            color = (0, 150, 255) if player.num == 1 else (255, 100, 100)
+            pygame.draw.rect(self.screen, color,
+                           (player.x + shake_x, player.y + shake_y,
+                            player.width, player.height),
+                           border_radius=5)
+
+    def draw_ball(self, ball: Ball, shake_x: int = 0, shake_y: int = 0):
+        """공 그리기"""
+        x = int(ball.x) + shake_x
+        y = int(ball.y) + shake_y
+
+        # 스킬 효과 표시
+        if ball.short_shot_active:
+            pygame.draw.circle(self.screen, (100, 200, 255), (x, y), ball.radius + 4, 2)
+        if ball.power_smash_active:
+            pygame.draw.circle(self.screen, (255, 100, 50), (x, y), ball.radius + 6, 3)
+
+        # 공 본체
+        pygame.draw.circle(self.screen, (255, 255, 255), (x, y), ball.radius)
+        pygame.draw.circle(self.screen, (200, 200, 200), (x, y), ball.radius, 2)
+
+    def draw_gauge(self, player: SmasherPlayer):
+        """게이지 바 그리기"""
+        gauge_width = 160
+        gauge_height = 14
+        border = 2
+
+        # 위치
+        if player.is_top:
+            gauge_x = self.width - gauge_width - 20
+            gauge_y = 45
+        else:
+            gauge_x = self.width - gauge_width - 20
+            gauge_y = self.height - gauge_height - 45
+
+        # 배경
+        pygame.draw.rect(self.screen, (30, 30, 40),
+                        (gauge_x - border, gauge_y - border,
+                         gauge_width + border * 2, gauge_height + border * 2),
+                        border_radius=4)
+
+        # 게이지 채움
+        fill_ratio = player.gauge / player.gauge_max
+        fill_width = int(gauge_width * fill_ratio)
+
+        # 색상 (충전량에 따라)
+        if player.power_smash_ready:
+            gauge_color = (255, 200, 50)  # 파워스매싱 준비
+        elif fill_ratio >= 0.7:
+            gauge_color = (100, 255, 100)
+        elif fill_ratio >= 0.3:
+            gauge_color = (200, 200, 100)
+        else:
+            gauge_color = (200, 100, 100)
+
+        if fill_width > 0:
+            pygame.draw.rect(self.screen, gauge_color,
+                           (gauge_x, gauge_y, fill_width, gauge_height),
+                           border_radius=3)
+
+        # 스킬 코스트 마커
+        markers = [
+            (DRIVE_GAUGE_COST, (150, 150, 150)),      # 드라이브: 150
+            (POWER_SMASH_GAUGE_COST, (255, 100, 100)) # 파워스매싱: 350
+        ]
+        for cost, color in markers:
+            pos = int(gauge_width * (cost / GAUGE_MAX))
+            pygame.draw.line(self.screen, color,
+                           (gauge_x + pos, gauge_y - 2),
+                           (gauge_x + pos, gauge_y + gauge_height + 2), 2)
+
+        # 플레이어 라벨
+        try:
+            font = self.get_font(16)
+        except:
+            font = pygame.font.Font(None, 16)
+
+        p_color = (0, 150, 255) if player.num == 1 else (255, 100, 100)
+        label = font.render(f"P{player.num}", True, p_color)
+        self.screen.blit(label, (gauge_x - label.get_width() - 8,
+                                gauge_y + (gauge_height - label.get_height()) // 2))
+
+        # 게이지 수치
+        gauge_text = font.render(f"{player.gauge}/{player.gauge_max}", True, (180, 180, 180))
+        self.screen.blit(gauge_text, (gauge_x + gauge_width + 8,
+                                     gauge_y + (gauge_height - gauge_text.get_height()) // 2))
+
+    def draw_combo(self, player: SmasherPlayer):
+        """콤보 표시"""
+        if player.combo_display_timer <= 0 or player.combo < 2:
+            return
+
+        # 위치
+        if player.is_top:
+            x, y = self.width - 100, 80
+        else:
+            x, y = self.width - 100, self.height - 90
+
+        # 색상 (콤보에 따라)
+        if player.combo >= 6:
+            color = (255, 50, 50)
+        elif player.combo >= 4:
+            color = (255, 150, 50)
+        else:
+            color = (255, 255, 100)
+
+        # 크기 애니메이션
+        scale = 1.0 + (player.combo_display_timer / 60) * 0.3
+
+        try:
+            font = self.get_font(int(28 * scale))
+        except:
+            font = pygame.font.Font(None, int(28 * scale))
+
+        text = font.render(f"{player.combo} COMBO!", True, color)
+        rect = text.get_rect(center=(x, y))
+        self.screen.blit(text, rect)
+
+        # 보너스 표시
+        if player.combo >= 2:
+            bonus = COMBO_GAUGE_BONUS.get(player.combo, COMBO_MAX_BONUS)
+            try:
+                bonus_font = self.get_font(14)
+            except:
+                bonus_font = pygame.font.Font(None, 14)
+            bonus_text = bonus_font.render(f"+{bonus}% 게이지", True, (150, 255, 150))
+            bonus_rect = bonus_text.get_rect(center=(x, y + 20))
+            self.screen.blit(bonus_text, bonus_rect)
+
+    def draw_score(self, p1: SmasherPlayer, p2: SmasherPlayer):
+        """점수 표시"""
+        try:
+            font = self.get_font(40)
+        except:
+            font = pygame.font.Font(None, 40)
+
+        p1_color = (0, 150, 255)
+        p2_color = (255, 100, 100)
+
+        # 상단 점수
+        top_player = p1 if p1.is_top else p2
+        top_color = p1_color if top_player.num == 1 else p2_color
+        top_text = font.render(f"P{top_player.num}: {top_player.score}", True, top_color)
+        self.screen.blit(top_text, (20, 10))
+
+        # 하단 점수
+        bottom_player = p2 if p1.is_top else p1
+        bottom_color = p1_color if bottom_player.num == 1 else p2_color
+        bottom_text = font.render(f"P{bottom_player.num}: {bottom_player.score}", True, bottom_color)
+        self.screen.blit(bottom_text, (20, self.height - 45))
+
+    def draw_effects(self, effects: EffectManager):
+        """이펙트 그리기"""
+        try:
+            font = self.get_font(22)
+        except:
+            font = pygame.font.Font(None, 22)
+
+        for eff in effects.text_effects:
+            alpha = int(255 * (eff['timer'] / eff['max_timer']))
+            text = font.render(eff['text'], True, eff['color'])
+            self.screen.blit(text, (eff['x'] - text.get_width() // 2, eff['y']))
+
+    def draw_countdown(self, count: int):
+        """카운트다운 표시"""
+        try:
+            font = self.get_font(80)
+        except:
+            font = pygame.font.Font(None, 80)
+
+        text = font.render(str(count), True, (255, 255, 0))
+        rect = text.get_rect(center=(self.width // 2, self.height // 2))
+        self.screen.blit(text, rect)
+
+    def draw_help(self, p1: SmasherPlayer, p2: SmasherPlayer):
+        """조작법 안내"""
+        try:
+            font = self.get_font(12)
+        except:
+            font = pygame.font.Font(None, 12)
+
+        # 상단 플레이어 도움말
+        top = p1 if p1.is_top else p2
+        if top.num == 1:
+            help_text = "P1: ←→ 이동 | ↑+히트:쇼트 | ←→+히트:드라이브(150) | ↓+히트:파워스매싱(350)"
+        else:
+            help_text = "P2: A/D 이동 | W+히트:쇼트 | A/D+히트:드라이브(150) | S+히트:파워스매싱(350)"
+        text = font.render(help_text, True, (100, 100, 100))
+        self.screen.blit(text, (self.width // 2 - text.get_width() // 2, 3))
+
+        # 하단 플레이어 도움말
+        bottom = p2 if p1.is_top else p1
+        if bottom.num == 1:
+            help_text = "P1: ←→ 이동 | ↑+히트:쇼트 | ←→+히트:드라이브(150) | ↓+히트:파워스매싱(350)"
+        else:
+            help_text = "P2: A/D 이동 | W+히트:쇼트 | A/D+히트:드라이브(150) | S+히트:파워스매싱(350)"
+        text = font.render(help_text, True, (100, 100, 100))
+        self.screen.blit(text, (self.width // 2 - text.get_width() // 2, self.height - 15))
+
+        # ESC 안내
+        esc_text = font.render("ESC: 메뉴", True, (80, 80, 80))
+        self.screen.blit(esc_text, (self.width - esc_text.get_width() - 10, self.height // 2 - 6))
+
+
+# ============================================================================
+# 캐릭터 선택 화면
+# ============================================================================
+
+def show_character_select(screen: pygame.Surface, width: int, height: int,
+                          get_font: Callable, play_click: Callable,
+                          create_smasher: Callable) -> Optional[Tuple[Tuple[str, bool], Tuple[str, bool]]]:
+    """
+    캐릭터 선택 화면
+    반환: ((p1_char, p1_is_top), (p2_char, p2_is_top)) 또는 None (취소)
+    """
     clock = pygame.time.Clock()
 
     characters = [
-        {"id": "smasher", "name": "스매셔", "available": True, "color": (0, 150, 255)},
-        {"id": "commando", "name": "코만도", "available": False, "color": (100, 100, 100)},
-        {"id": "baltor", "name": "발토르", "available": False, "color": (100, 100, 100)},
-        {"id": "optimus", "name": "옵티머스", "available": False, "color": (100, 100, 100)},
+        {"id": "smasher", "name": "스매셔", "available": True, "color": (0, 150, 255),
+         "desc": "균형잡힌 올라운더\n쇼트/드라이브/파워스매싱"},
+        {"id": "commando", "name": "코만도", "available": False, "color": (100, 100, 100),
+         "desc": "Coming Soon"},
+        {"id": "baltor", "name": "발토르", "available": False, "color": (100, 100, 100),
+         "desc": "Coming Soon"},
+        {"id": "optimus", "name": "옵티머스", "available": False, "color": (100, 100, 100),
+         "desc": "Coming Soon"},
     ]
 
     current_player = 1
     p1_selection = None
     p2_selection = None
     hover_index = 0
+
+    # 위치 완전 랜덤
     p1_is_top = random.choice([True, False])
 
     while True:
@@ -220,13 +802,13 @@ def show_character_select(screen, width, height, get_font_func, play_sound_func,
                 elif event.key == pygame.K_LEFT:
                     hover_index = (hover_index - 1) % len(characters)
                     try:
-                        play_sound_func()
+                        play_click()
                     except:
                         pass
                 elif event.key == pygame.K_RIGHT:
                     hover_index = (hover_index + 1) % len(characters)
                     try:
-                        play_sound_func()
+                        play_click()
                     except:
                         pass
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
@@ -234,361 +816,256 @@ def show_character_select(screen, width, height, get_font_func, play_sound_func,
                         if current_player == 1:
                             p1_selection = characters[hover_index]["id"]
                             current_player = 2
-                            try:
-                                play_sound_func()
-                            except:
-                                pass
                         else:
                             p2_selection = characters[hover_index]["id"]
-                            try:
-                                play_sound_func()
-                            except:
-                                pass
                             return ((p1_selection, p1_is_top), (p2_selection, not p1_is_top))
+                        try:
+                            play_click()
+                        except:
+                            pass
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
-                card_width = 140
-                card_height = 180
-                start_x = (width - (len(characters) * (card_width + 20) - 20)) // 2
-                card_y = height // 2 - card_height // 2
+                card_w, card_h = 150, 200
+                start_x = (width - len(characters) * (card_w + 15) + 15) // 2
+                card_y = height // 2 - card_h // 2
 
-                for idx, char in enumerate(characters):
-                    card_x = start_x + idx * (card_width + 20)
-                    card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
-                    if card_rect.collidepoint(mx, my) and char["available"]:
-                        if current_player == 1:
-                            p1_selection = char["id"]
-                            current_player = 2
+                for i, char in enumerate(characters):
+                    card_x = start_x + i * (card_w + 15)
+                    if pygame.Rect(card_x, card_y, card_w, card_h).collidepoint(mx, my):
+                        if char["available"]:
+                            if current_player == 1:
+                                p1_selection = char["id"]
+                                current_player = 2
+                            else:
+                                p2_selection = char["id"]
+                                return ((p1_selection, p1_is_top), (p2_selection, not p1_is_top))
                             try:
-                                play_sound_func()
+                                play_click()
                             except:
                                 pass
-                        else:
-                            p2_selection = char["id"]
-                            try:
-                                play_sound_func()
-                            except:
-                                pass
-                            return ((p1_selection, p1_is_top), (p2_selection, not p1_is_top))
 
+        # 마우스 호버
         mx, my = pygame.mouse.get_pos()
-        card_width = 140
-        card_height = 180
-        start_x = (width - (len(characters) * (card_width + 20) - 20)) // 2
-        card_y = height // 2 - card_height // 2
+        card_w, card_h = 150, 200
+        start_x = (width - len(characters) * (card_w + 15) + 15) // 2
+        card_y = height // 2 - card_h // 2
 
-        for idx, char in enumerate(characters):
-            card_x = start_x + idx * (card_width + 20)
-            card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
-            if card_rect.collidepoint(mx, my):
-                hover_index = idx
+        for i, char in enumerate(characters):
+            card_x = start_x + i * (card_w + 15)
+            if pygame.Rect(card_x, card_y, card_w, card_h).collidepoint(mx, my):
+                hover_index = i
 
-        screen.fill((20, 25, 40))
+        # 렌더링
+        screen.fill((15, 20, 35))
 
         try:
-            title_font = get_font_func(48)
-            sub_font = get_font_func(24)
-            card_font = get_font_func(20)
-            hint_font = get_font_func(16)
+            title_font = get_font(52)
+            sub_font = get_font(24)
+            card_font = get_font(22)
+            desc_font = get_font(14)
+            hint_font = get_font(16)
         except:
-            title_font = pygame.font.Font(None, 48)
+            title_font = pygame.font.Font(None, 52)
             sub_font = pygame.font.Font(None, 24)
-            card_font = pygame.font.Font(None, 20)
+            card_font = pygame.font.Font(None, 22)
+            desc_font = pygame.font.Font(None, 14)
             hint_font = pygame.font.Font(None, 16)
 
-        title = f"P{current_player} 캐릭터 선택"
+        # 제목
         title_color = (0, 150, 255) if current_player == 1 else (255, 100, 100)
-        title_surf = title_font.render(title, True, title_color)
-        screen.blit(title_surf, (width // 2 - title_surf.get_width() // 2, 60))
+        title = title_font.render(f"P{current_player} 캐릭터 선택", True, title_color)
+        screen.blit(title, (width // 2 - title.get_width() // 2, 50))
 
-        if current_player == 1:
-            pos_text = "상단" if p1_is_top else "하단"
-        else:
-            pos_text = "하단" if p1_is_top else "상단"
-        pos_surf = sub_font.render(f"위치: {pos_text}", True, (180, 180, 180))
-        screen.blit(pos_surf, (width // 2 - pos_surf.get_width() // 2, 120))
+        # 위치 정보
+        pos_text = "상단" if (current_player == 1 and p1_is_top) or (current_player == 2 and not p1_is_top) else "하단"
+        pos_surf = sub_font.render(f"배정 위치: {pos_text}", True, (180, 180, 180))
+        screen.blit(pos_surf, (width // 2 - pos_surf.get_width() // 2, 110))
 
-        for idx, char in enumerate(characters):
-            card_x = start_x + idx * (card_width + 20)
-            is_hover = idx == hover_index
+        # 캐릭터 카드
+        for i, char in enumerate(characters):
+            card_x = start_x + i * (card_w + 15)
+            is_hover = i == hover_index
             is_available = char["available"]
 
+            # 카드 배경
             if is_hover and is_available:
-                bg_color = (60, 70, 90)
-                border_color = title_color
-                border_w = 3
+                bg = (50, 60, 80)
+                border = title_color
+                bw = 3
             elif is_available:
-                bg_color = (40, 45, 60)
-                border_color = (80, 90, 110)
-                border_w = 2
+                bg = (35, 40, 55)
+                border = (70, 80, 100)
+                bw = 2
             else:
-                bg_color = (30, 30, 40)
-                border_color = (50, 50, 60)
-                border_w = 1
+                bg = (25, 28, 38)
+                border = (45, 50, 60)
+                bw = 1
 
-            pygame.draw.rect(screen, bg_color, (card_x, card_y, card_width, card_height), border_radius=10)
-            pygame.draw.rect(screen, border_color, (card_x, card_y, card_width, card_height), border_w, border_radius=10)
+            pygame.draw.rect(screen, bg, (card_x, card_y, card_w, card_h), border_radius=12)
+            pygame.draw.rect(screen, border, (card_x, card_y, card_w, card_h), bw, border_radius=12)
 
-            name_color = char["color"] if is_available else (80, 80, 80)
-            name_surf = card_font.render(char["name"], True, name_color)
-            name_x = card_x + (card_width - name_surf.get_width()) // 2
-            screen.blit(name_surf, (name_x, card_y + card_height - 40))
-
-            if not is_available:
-                soon_surf = hint_font.render("Coming Soon", True, (100, 100, 100))
-                soon_x = card_x + (card_width - soon_surf.get_width()) // 2
-                screen.blit(soon_surf, (soon_x, card_y + card_height - 20))
-
+            # 스프라이트 미리보기
             if char["id"] == "smasher" and is_available:
                 try:
-                    preview_surf = create_smasher_func(60, 12, False, False, 0)
-                    preview_x = card_x + (card_width - 60) // 2
-                    preview_y = card_y + 60
-                    screen.blit(preview_surf, (preview_x, preview_y))
+                    preview = create_smasher(0.0)
+                    preview = pygame.transform.scale(preview, (80, 40))
+                    screen.blit(preview, (card_x + (card_w - 80) // 2, card_y + 40))
                 except:
-                    pygame.draw.rect(screen, (0, 150, 255), (card_x + 40, card_y + 60, 60, 12), border_radius=3)
+                    pygame.draw.rect(screen, char["color"],
+                                   (card_x + 35, card_y + 50, 80, 20), border_radius=5)
+            else:
+                pygame.draw.rect(screen, (60, 60, 70),
+                               (card_x + 35, card_y + 50, 80, 40), border_radius=5)
 
+            # 캐릭터 이름
+            name_color = char["color"] if is_available else (70, 70, 70)
+            name = card_font.render(char["name"], True, name_color)
+            screen.blit(name, (card_x + (card_w - name.get_width()) // 2, card_y + card_h - 60))
+
+            # 설명
+            desc_lines = char["desc"].split('\n')
+            for j, line in enumerate(desc_lines):
+                desc_color = (140, 140, 140) if is_available else (60, 60, 60)
+                desc = desc_font.render(line, True, desc_color)
+                screen.blit(desc, (card_x + (card_w - desc.get_width()) // 2, card_y + card_h - 35 + j * 16))
+
+        # P1 선택 완료 표시
         if p1_selection:
-            p1_info = f"P1: {p1_selection} ({'상단' if p1_is_top else '하단'})"
-            p1_surf = sub_font.render(p1_info, True, (0, 150, 255))
-            screen.blit(p1_surf, (20, height - 60))
+            info = f"P1: {p1_selection} ({'상단' if p1_is_top else '하단'})"
+            info_surf = sub_font.render(info, True, (0, 150, 255))
+            screen.blit(info_surf, (20, height - 70))
 
-        hint1 = hint_font.render("← → 선택, Enter 확정, ESC 취소", True, (120, 120, 120))
-        screen.blit(hint1, (width // 2 - hint1.get_width() // 2, height - 40))
+        # 조작 안내
+        hint = hint_font.render("← → 선택 | Enter 확정 | ESC 취소", True, (100, 100, 100))
+        screen.blit(hint, (width // 2 - hint.get_width() // 2, height - 35))
 
         pygame.display.flip()
 
     return None
 
 
-def run_multiplayer_game(screen, width, height, get_font_func, play_sound_funcs,
-                         create_smasher_func, bgm_manager):
-    """멀티플레이어 게임 실행
+# ============================================================================
+# 결과 화면
+# ============================================================================
+
+def show_result(screen: pygame.Surface, width: int, height: int,
+                winner: SmasherPlayer, p1: SmasherPlayer, p2: SmasherPlayer,
+                get_font: Callable):
+    """결과 화면 표시"""
+    clock = pygame.time.Clock()
+    timer = 0
+
+    while True:
+        dt = clock.tick(60) / 1000.0
+        timer += dt
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
+                    return
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                return
+
+        screen.fill((15, 20, 35))
+
+        try:
+            title_font = get_font(72)
+            score_font = get_font(40)
+            hint_font = get_font(24)
+        except:
+            title_font = pygame.font.Font(None, 72)
+            score_font = pygame.font.Font(None, 40)
+            hint_font = pygame.font.Font(None, 24)
+
+        # 승자 표시
+        win_color = (0, 150, 255) if winner.num == 1 else (255, 100, 100)
+
+        # 펄스 효과
+        pulse = 1.0 + math.sin(timer * 4) * 0.1
+
+        title = title_font.render(f"P{winner.num} 승리!", True, win_color)
+        title = pygame.transform.scale(title,
+                                       (int(title.get_width() * pulse),
+                                        int(title.get_height() * pulse)))
+        rect = title.get_rect(center=(width // 2, height // 2 - 80))
+        screen.blit(title, rect)
+
+        # 점수
+        score_text = score_font.render(f"P1: {p1.score}  -  P2: {p2.score}", True, (200, 200, 200))
+        score_rect = score_text.get_rect(center=(width // 2, height // 2 + 10))
+        screen.blit(score_text, score_rect)
+
+        # 안내
+        hint = hint_font.render("아무 키나 눌러 메뉴로", True, (120, 120, 120))
+        hint_rect = hint.get_rect(center=(width // 2, height // 2 + 80))
+        screen.blit(hint, hint_rect)
+
+        pygame.display.flip()
+
+
+# ============================================================================
+# 메인 게임 루프
+# ============================================================================
+
+def run_multiplayer_game(screen: pygame.Surface, width: int, height: int,
+                         get_font_func: Callable, play_sound_funcs: Dict[str, Callable],
+                         create_smasher_func: Callable, bgm_manager: Any) -> bool:
+    """
+    멀티플레이어 게임 실행
 
     Args:
         screen: pygame 화면
         width, height: 화면 크기
         get_font_func: 폰트 가져오기 함수
-        play_sound_funcs: dict {"click": func, "hit": func, "wall": func, "score": func, "short_shot": func}
+        play_sound_funcs: 사운드 함수 딕셔너리
         create_smasher_func: 스매셔 스프라이트 생성 함수
         bgm_manager: BGM 관리자
+
+    Returns:
+        True: 정상 종료, False: 강제 종료
     """
     # 캐릭터 선택
     selection = show_character_select(
         screen, width, height, get_font_func,
-        play_sound_funcs.get("click", lambda: None),
+        play_sound_funcs.get('click', lambda: None),
         create_smasher_func
     )
 
     if selection is None:
-        return False
+        return True  # 취소
 
     (p1_char, p1_is_top), (p2_char, p2_is_top) = selection
 
+    # 게임 객체 생성
     clock = pygame.time.Clock()
 
-    p1_score = 0
-    p2_score = 0
+    p1 = SmasherPlayer(1, p1_is_top, width, height)
+    p2 = SmasherPlayer(2, p2_is_top, width, height)
+    ball = Ball(width, height)
+    effects = EffectManager()
+    renderer = MultiplayerRenderer(screen, width, height, get_font_func, create_smasher_func)
+
+    # 게임 상태
     win_score = 5
-
-    p1 = create_mp_player(p1_is_top, 1, width, height)
-    p2 = create_mp_player(p2_is_top, 2, width, height)
-
-    top_player = p1 if p1_is_top else p2
-    bottom_player = p2 if p1_is_top else p1
-
-    ball_radius = 10
-    ball_x = float(width // 2)
-    ball_y = float(height // 2)
-    ball_speed_x = 5.0
-    ball_speed_y = 5.0 * (1 if random.random() > 0.5 else -1)
-    ball_base_speed = 5.0
-    ball_max_speed = 18.0
-    ball_curve_x = 0.0
-
-    ball_short_shot = False
-    ball_power_smash = False
-    ball_last_hitter = None
-
-    round_start_delay = 60
-    round_timer = round_start_delay
+    round_delay = 60
+    round_timer = round_delay
     game_paused = True
 
-    hit_effects = []
-    screen_shake = 0
-    screen_shake_x = 0
-    screen_shake_y = 0
-
-    walk_animation_timer = 0.0
-
+    # BGM
     try:
         bgm_manager.play_stage_bgm(1)
     except:
         pass
 
-    def reset_ball(scorer_is_top):
-        nonlocal ball_x, ball_y, ball_speed_x, ball_speed_y
-        nonlocal ball_curve_x, ball_short_shot, ball_power_smash
-        ball_x = float(width // 2)
-        ball_y = float(height // 2)
-        ball_speed_x = ball_base_speed * (1 if random.random() > 0.5 else -1)
-        ball_speed_y = ball_base_speed * (1 if scorer_is_top else -1)
-        ball_curve_x = 0.0
-        ball_short_shot = False
-        ball_power_smash = False
-
-    def apply_skill_on_hit(player, keys, is_p1):
-        nonlocal ball_speed_x, ball_speed_y, ball_curve_x
-        nonlocal ball_short_shot, ball_power_smash, hit_effects, screen_shake
-
-        speed_mult = 1.0
-        applied_curve = 0.0
-        is_short = False
-        is_power = False
-
-        if is_p1:
-            key_up, key_down = P1_KEY_UP, P1_KEY_DOWN
-            key_left, key_right = P1_KEY_LEFT, P1_KEY_RIGHT
-        else:
-            key_up, key_down = P2_KEY_UP, P2_KEY_DOWN
-            key_left, key_right = P2_KEY_LEFT, P2_KEY_RIGHT
-
-        if keys[key_down] and player["gauge"] >= MP_POWER_SMASH_GAUGE_COST:
-            player["gauge"] -= MP_POWER_SMASH_GAUGE_COST
-            speed_mult = MP_POWER_SMASH_SPEED_MULT
-            is_power = True
-            ball_power_smash = True
-            player["power_smash_active"] = True
-            player["power_smash_timer"] = 30
-            screen_shake = 15
-            hit_effects.append((player["x"] + player["width"]//2, player["y"], 45, (255, 100, 50), "POWER SMASH!"))
-            try:
-                play_sound_funcs.get("short_shot", lambda: None)()
-            except:
-                pass
-        elif keys[key_up] and player["gauge"] >= MP_SHOT_GAUGE_COST:
-            player["gauge"] -= MP_SHOT_GAUGE_COST
-            speed_mult = MP_SHOT_SPEED_MULTIPLIER
-            is_short = True
-            ball_short_shot = True
-            player["short_shot_active"] = True
-            player["short_shot_timer"] = 30
-            hit_effects.append((player["x"] + player["width"]//2, player["y"], 30, (100, 200, 255), "SHORT!"))
-            try:
-                play_sound_funcs.get("short_shot", lambda: None)()
-            except:
-                pass
-        elif keys[key_left]:
-            applied_curve = -MP_DRIVE_CURVE_STRENGTH
-            speed_mult = MP_DRIVE_SPEED_BOOST
-            player["drive_active"] = True
-            player["drive_direction"] = -1
-            hit_effects.append((player["x"] + player["width"]//2, player["y"], 20, (255, 255, 100), "DRIVE!"))
-        elif keys[key_right]:
-            applied_curve = MP_DRIVE_CURVE_STRENGTH
-            speed_mult = MP_DRIVE_SPEED_BOOST
-            player["drive_active"] = True
-            player["drive_direction"] = 1
-            hit_effects.append((player["x"] + player["width"]//2, player["y"], 20, (255, 255, 100), "DRIVE!"))
-
-        ball_curve_x = applied_curve
-        return speed_mult, applied_curve, is_short, is_power
-
-    def charge_gauge(player):
-        base_charge = MP_GAUGE_HIT_CHARGE
-        combo = player["combo"]
-        if combo >= 6:
-            bonus = MP_COMBO_MAX_BONUS
-        else:
-            bonus = MP_COMBO_GAUGE_BONUS.get(combo, 0)
-        total_charge = int(base_charge * (1 + bonus))
-        player["gauge"] = min(player["gauge"] + total_charge, player["gauge_max"])
-
-    def update_player_timers(player):
-        if player["combo_timer"] > 0:
-            player["combo_timer"] -= 1
-            if player["combo_timer"] <= 0:
-                player["combo"] = 0
-        if player["combo_display_timer"] > 0:
-            player["combo_display_timer"] -= 1
-        if player["hit_pose_timer"] > 0:
-            player["hit_pose_timer"] -= 1
-        if player["walking_timer"] > 0:
-            player["walking_timer"] -= 1
-        if player["dash_cooldown"] > 0:
-            player["dash_cooldown"] -= 1
-        if player["short_shot_timer"] > 0:
-            player["short_shot_timer"] -= 1
-            if player["short_shot_timer"] <= 0:
-                player["short_shot_active"] = False
-        if player["power_smash_timer"] > 0:
-            player["power_smash_timer"] -= 1
-            if player["power_smash_timer"] <= 0:
-                player["power_smash_active"] = False
-        if player["knockback_timer"] > 0:
-            player["knockback_timer"] -= 1
-            player["knockback_x"] *= 0.85
-            if player["knockback_timer"] <= 0:
-                player["knockback_x"] = 0
-
-    def apply_knockback(player, direction, strength=15):
-        player["knockback_x"] = direction * strength
-        player["knockback_timer"] = 10
-
-    def show_result(winner, p1_sc, p2_sc):
-        result_clock = pygame.time.Clock()
-        animation_timer = 0
-        while True:
-            dt = result_clock.tick(60) / 1000.0
-            animation_timer += dt
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return
-                if event.type == pygame.KEYDOWN:
-                    if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
-                        return
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    return
-
-            screen.fill((15, 20, 30))
-            try:
-                title_font = get_font_func(64)
-                score_font = get_font_func(36)
-                hint_font = get_font_func(24)
-            except:
-                title_font = pygame.font.Font(None, 64)
-                score_font = pygame.font.Font(None, 36)
-                hint_font = pygame.font.Font(None, 24)
-
-            winner_color = (0, 150, 255) if winner == "P1" else (255, 100, 100)
-            title_text = title_font.render(f"{winner} 승리!", True, winner_color)
-            title_rect = title_text.get_rect(center=(width // 2, height // 2 - 80))
-            screen.blit(title_text, title_rect)
-
-            score_text = score_font.render(f"P1: {p1_sc}  -  P2: {p2_sc}", True, (200, 200, 200))
-            score_rect = score_text.get_rect(center=(width // 2, height // 2))
-            screen.blit(score_text, score_rect)
-
-            hint_text = hint_font.render("아무 키나 눌러 메뉴로 돌아가기", True, (150, 150, 150))
-            hint_rect = hint_text.get_rect(center=(width // 2, height // 2 + 80))
-            screen.blit(hint_text, hint_rect)
-
-            pygame.display.flip()
-
+    # 메인 루프
     running = True
     while running:
         dt = clock.tick(60)
-        walk_animation_timer += dt / 1000.0
 
-        if screen_shake > 0:
-            screen_shake -= 1
-            screen_shake_x = random.randint(-3, 3)
-            screen_shake_y = random.randint(-3, 3)
-        else:
-            screen_shake_x = 0
-            screen_shake_y = 0
-
+        # 이벤트 처리
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
@@ -600,6 +1077,7 @@ def run_multiplayer_game(screen, width, height, get_font_func, play_sound_funcs,
                         pass
                     return True
 
+        # 라운드 대기
         if game_paused:
             round_timer -= 1
             if round_timer <= 0:
@@ -608,263 +1086,130 @@ def run_multiplayer_game(screen, width, height, get_font_func, play_sound_funcs,
         keys = pygame.key.get_pressed()
 
         if not game_paused:
-            # P1 이동
-            p1_moving = False
-            p1_move_speed = p1["speed"]
-            if p1["dash_cooldown"] <= 0 and keys[P1_KEY_DASH]:
-                p1_move_speed += 3
-                p1["dash_cooldown"] = 30
-            if keys[P1_KEY_LEFT]:
-                p1["x"] -= p1_move_speed
-                p1["facing_left"] = True
-                p1_moving = True
-            if keys[P1_KEY_RIGHT]:
-                p1["x"] += p1_move_speed
-                p1["facing_left"] = False
-                p1_moving = True
-            if p1_moving:
-                p1["walking_timer"] = 10
-            p1["x"] = max(0, min(width - p1["width"], p1["x"]))
+            # 플레이어 입력 처리
+            p1.update_keys(keys)
+            p2.update_keys(keys)
 
-            # P2 이동
-            p2_moving = False
-            p2_move_speed = p2["speed"]
-            if p2["dash_cooldown"] <= 0 and keys[P2_KEY_DASH]:
-                p2_move_speed += 3
-                p2["dash_cooldown"] = 30
-            if keys[P2_KEY_LEFT]:
-                p2["x"] -= p2_move_speed
-                p2["facing_left"] = True
-                p2_moving = True
-            if keys[P2_KEY_RIGHT]:
-                p2["x"] += p2_move_speed
-                p2["facing_left"] = False
-                p2_moving = True
-            if p2_moving:
-                p2["walking_timer"] = 10
-            p2["x"] = max(0, min(width - p2["width"], p2["x"]))
+            # 타이머 업데이트
+            p1.update_timers()
+            p2.update_timers()
 
-            update_player_timers(p1)
-            update_player_timers(p2)
+            # 공 업데이트
+            ball_result = ball.update()
 
-            ball_x += ball_speed_x
-            ball_y += ball_speed_y
-
-            if ball_curve_x != 0:
-                ball_speed_x += ball_curve_x * 0.5
-                ball_curve_x *= 0.98
-                if abs(ball_curve_x) < 0.01:
-                    ball_curve_x = 0
-
-            if ball_x - ball_radius <= 0:
-                ball_x = ball_radius
-                ball_speed_x = abs(ball_speed_x)
+            if ball_result == 'wall':
                 try:
-                    play_sound_funcs.get("wall", lambda: None)()
-                except:
-                    pass
-            elif ball_x + ball_radius >= width:
-                ball_x = width - ball_radius
-                ball_speed_x = -abs(ball_speed_x)
-                try:
-                    play_sound_funcs.get("wall", lambda: None)()
+                    play_sound_funcs.get('wall', lambda: None)()
                 except:
                     pass
 
-            # 하단 플레이어 충돌
-            bp = bottom_player
-            if (ball_y + ball_radius >= bp["y"] and
-                ball_y - ball_radius <= bp["y"] + bp["height"] and
-                ball_x >= bp["x"] and ball_x <= bp["x"] + bp["width"] and
-                ball_speed_y > 0):
-                ball_speed_y = -abs(ball_speed_y)
-                hit_pos = (ball_x - bp["x"]) / bp["width"]
-                ball_speed_x = (hit_pos - 0.5) * 10
-                is_p1 = (bp["num"] == 1)
-                speed_mult, curve, is_short, is_power = apply_skill_on_hit(bp, keys, is_p1)
-                ball_speed_x *= speed_mult
-                ball_speed_y *= speed_mult
-                speed = math.sqrt(ball_speed_x**2 + ball_speed_y**2)
-                if speed > ball_max_speed:
-                    factor = ball_max_speed / speed
-                    ball_speed_x *= factor
-                    ball_speed_y *= factor
-                bp["combo"] += 1
-                bp["combo_timer"] = 180
-                bp["combo_display_timer"] = 60
-                charge_gauge(bp)
-                bp["hit_pose_timer"] = 15
-                ball_last_hitter = bp
-                top_player["combo"] = 0
-                if is_power and ball_power_smash:
-                    direction = 1 if ball_x > top_player["x"] + top_player["width"]//2 else -1
-                    apply_knockback(top_player, direction, 20)
-                try:
-                    play_sound_funcs.get("hit", lambda: None)()
-                except:
-                    pass
+            # 플레이어 충돌 체크
+            for player in [p1, p2]:
+                opponent = p2 if player == p1 else p1
 
-            # 상단 플레이어 충돌
-            tp = top_player
-            if (ball_y - ball_radius <= tp["y"] + tp["height"] and
-                ball_y + ball_radius >= tp["y"] and
-                ball_x >= tp["x"] and ball_x <= tp["x"] + tp["width"] and
-                ball_speed_y < 0):
-                ball_speed_y = abs(ball_speed_y)
-                hit_pos = (ball_x - tp["x"]) / tp["width"]
-                ball_speed_x = (hit_pos - 0.5) * 10
-                is_p1 = (tp["num"] == 1)
-                speed_mult, curve, is_short, is_power = apply_skill_on_hit(tp, keys, is_p1)
-                ball_speed_x *= speed_mult
-                ball_speed_y *= speed_mult
-                speed = math.sqrt(ball_speed_x**2 + ball_speed_y**2)
-                if speed > ball_max_speed:
-                    factor = ball_max_speed / speed
-                    ball_speed_x *= factor
-                    ball_speed_y *= factor
-                tp["combo"] += 1
-                tp["combo_timer"] = 180
-                tp["combo_display_timer"] = 60
-                charge_gauge(tp)
-                tp["hit_pose_timer"] = 15
-                ball_last_hitter = tp
-                bottom_player["combo"] = 0
-                if is_power and ball_power_smash:
-                    direction = 1 if ball_x > bottom_player["x"] + bottom_player["width"]//2 else -1
-                    apply_knockback(bottom_player, direction, 20)
-                try:
-                    play_sound_funcs.get("hit", lambda: None)()
-                except:
-                    pass
+                # 충돌 조건
+                ball_going_toward = (player.is_top and ball.speed_y < 0) or \
+                                   (not player.is_top and ball.speed_y > 0)
+
+                if not ball_going_toward:
+                    continue
+
+                p_rect = player.get_rect()
+                b_rect = ball.get_rect()
+
+                # 충돌 판정
+                if p_rect.colliderect(b_rect):
+                    # 히트 위치 계산
+                    hit_pos = (ball.x - player.x) / player.width
+                    hit_pos = max(0, min(1, hit_pos))
+
+                    # 이전 효과 초기화
+                    ball.short_shot_active = False
+                    ball.power_smash_active = False
+                    ball.power_smash_gravity = 0
+                    ball.curve_x = 0
+
+                    # 기본 반사
+                    ball.apply_paddle_bounce(player, hit_pos)
+
+                    # 스킬 체크 및 적용
+                    SkillSystem.check_and_apply_skills(
+                        player, ball, keys, effects, play_sound_funcs
+                    )
+
+                    # 속도 제한
+                    ball.apply_speed_limit()
+
+                    # 콤보 및 게이지
+                    player.add_combo()
+                    player.charge_gauge(True)
+                    player.hit_pose_timer = 15
+                    ball.last_hitter = player
+
+                    # 상대방 콤보 리셋
+                    opponent.combo = 0
+
+                    # 파워스매싱 넉백
+                    if ball.power_smash_active:
+                        direction = 1 if ball.x > opponent.x + opponent.width / 2 else -1
+                        opponent.apply_knockback(direction, 20)
+
+                    try:
+                        play_sound_funcs.get('hit', lambda: None)()
+                    except:
+                        pass
 
             # 득점 체크
-            scored = False
-            scorer_is_top = False
-            if ball_y - ball_radius <= 0:
-                if bottom_player["num"] == 1:
-                    p1_score += 1
+            if ball_result in ('top', 'bottom'):
+                # 득점자 결정
+                if ball_result == 'top':
+                    # 하단 플레이어 득점
+                    scorer = p1 if not p1.is_top else p2
                 else:
-                    p2_score += 1
-                scored = True
-                scorer_is_top = False
+                    # 상단 플레이어 득점
+                    scorer = p1 if p1.is_top else p2
+
+                scorer.score += 1
+
                 try:
-                    play_sound_funcs.get("score", lambda: None)()
-                except:
-                    pass
-            elif ball_y + ball_radius >= height:
-                if top_player["num"] == 1:
-                    p1_score += 1
-                else:
-                    p2_score += 1
-                scored = True
-                scorer_is_top = True
-                try:
-                    play_sound_funcs.get("score", lambda: None)()
+                    play_sound_funcs.get('score', lambda: None)()
                 except:
                     pass
 
-            if scored:
-                reset_ball(scorer_is_top)
-                game_paused = True
-                round_timer = round_start_delay
-                p1["combo"] = 0
-                p2["combo"] = 0
-                if p1_score >= win_score or p2_score >= win_score:
-                    winner = "P1" if p1_score >= win_score else "P2"
-                    show_result(winner, p1_score, p2_score)
+                # 승리 체크
+                if scorer.score >= win_score:
+                    show_result(screen, width, height, scorer, p1, p2, get_font_func)
                     try:
                         bgm_manager.play_menu_bgm()
                     except:
                         pass
                     return True
 
+                # 라운드 리셋
+                ball.reset(1 if ball_result == 'top' else -1)
+                p1.reset_for_round()
+                p2.reset_for_round()
+                game_paused = True
+                round_timer = round_delay
+
         # 이펙트 업데이트
-        new_effects = []
-        for eff in hit_effects:
-            x, y, timer, color, text = eff
-            if timer > 0:
-                new_effects.append((x, y - 1, timer - 1, color, text))
-        hit_effects = new_effects
+        effects.update()
 
         # 렌더링
-        screen.fill((20, 25, 35))
-        offset_x, offset_y = screen_shake_x, screen_shake_y
-
-        pygame.draw.line(screen, (60, 70, 90),
-                        (offset_x, height // 2 + offset_y),
-                        (width + offset_x, height // 2 + offset_y), 2)
-        for i in range(0, width, 30):
-            pygame.draw.circle(screen, (80, 90, 110), (i + offset_x, height // 2 + offset_y), 3)
-
-        draw_mp_smasher_sprite(screen, p1, walk_animation_timer, create_smasher_func)
-        draw_mp_smasher_sprite(screen, p2, walk_animation_timer, create_smasher_func)
-
-        ball_draw_x = int(ball_x) + offset_x
-        ball_draw_y = int(ball_y) + offset_y
-        if ball_short_shot:
-            pygame.draw.circle(screen, (100, 200, 255), (ball_draw_x, ball_draw_y), ball_radius + 4, 2)
-        if ball_power_smash:
-            pygame.draw.circle(screen, (255, 100, 50), (ball_draw_x, ball_draw_y), ball_radius + 6, 3)
-        pygame.draw.circle(screen, (255, 255, 255), (ball_draw_x, ball_draw_y), ball_radius)
-        pygame.draw.circle(screen, (200, 200, 200), (ball_draw_x, ball_draw_y), ball_radius, 2)
-
-        draw_mp_gauge(screen, p1, width, height, get_font_func)
-        draw_mp_gauge(screen, p2, width, height, get_font_func)
-        draw_mp_combo_effect(screen, p1, width, height, get_font_func)
-        draw_mp_combo_effect(screen, p2, width, height, get_font_func)
-
-        try:
-            effect_font = get_font_func(20)
-        except:
-            effect_font = pygame.font.Font(None, 20)
-        for eff in hit_effects:
-            x, y, timer, color, text = eff
-            eff_surf = effect_font.render(text, True, color)
-            screen.blit(eff_surf, (x - eff_surf.get_width()//2, y))
-
-        try:
-            score_font = get_font_func(36)
-        except:
-            score_font = pygame.font.Font(None, 36)
-        p1c, p2c = (0, 150, 255), (255, 100, 100)
-        tp_label = "P1" if top_player["num"] == 1 else "P2"
-        tp_clr = p1c if top_player["num"] == 1 else p2c
-        tp_scr = p1_score if top_player["num"] == 1 else p2_score
-        tp_text = score_font.render(f"{tp_label}: {tp_scr}", True, tp_clr)
-        screen.blit(tp_text, (20, 15))
-        bp_label = "P1" if bottom_player["num"] == 1 else "P2"
-        bp_clr = p1c if bottom_player["num"] == 1 else p2c
-        bp_scr = p1_score if bottom_player["num"] == 1 else p2_score
-        bp_text = score_font.render(f"{bp_label}: {bp_scr}", True, bp_clr)
-        screen.blit(bp_text, (20, height - 40))
+        renderer.draw_background(effects.shake_x, effects.shake_y)
+        renderer.draw_player(p1, effects.shake_x, effects.shake_y)
+        renderer.draw_player(p2, effects.shake_x, effects.shake_y)
+        renderer.draw_ball(ball, effects.shake_x, effects.shake_y)
+        renderer.draw_gauge(p1)
+        renderer.draw_gauge(p2)
+        renderer.draw_combo(p1)
+        renderer.draw_combo(p2)
+        renderer.draw_score(p1, p2)
+        renderer.draw_effects(effects)
+        renderer.draw_help(p1, p2)
 
         if game_paused and round_timer > 0:
-            countdown = (round_timer // 20) + 1
-            try:
-                countdown_font = get_font_func(72)
-            except:
-                countdown_font = pygame.font.Font(None, 72)
-            countdown_text = countdown_font.render(str(countdown), True, (255, 255, 0))
-            screen.blit(countdown_text, (width//2 - countdown_text.get_width()//2, height//2 - countdown_text.get_height()//2))
-
-        try:
-            help_font = get_font_func(14)
-        except:
-            help_font = pygame.font.Font(None, 14)
-        if top_player["num"] == 1:
-            top_help = "P1: ←→ | ↑+히트:쇼트 | ↓+히트:파워스매싱 | ←→+히트:드라이브"
-        else:
-            top_help = "P2: A/D | W+히트:쇼트 | S+히트:파워스매싱 | A/D+히트:드라이브"
-        top_help_surf = help_font.render(top_help, True, (120, 120, 120))
-        screen.blit(top_help_surf, (width//2 - top_help_surf.get_width()//2, 5))
-        if bottom_player["num"] == 1:
-            bot_help = "P1: ←→ | ↑+히트:쇼트 | ↓+히트:파워스매싱 | ←→+히트:드라이브"
-        else:
-            bot_help = "P2: A/D | W+히트:쇼트 | S+히트:파워스매싱 | A/D+히트:드라이브"
-        bot_help_surf = help_font.render(bot_help, True, (120, 120, 120))
-        screen.blit(bot_help_surf, (width//2 - bot_help_surf.get_width()//2, height - 18))
-        esc_help = help_font.render("ESC: 메뉴", True, (100, 100, 100))
-        screen.blit(esc_help, (width - esc_help.get_width() - 10, height // 2 - 8))
+            renderer.draw_countdown((round_timer // 20) + 1)
 
         pygame.display.flip()
 
