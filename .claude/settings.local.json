@@ -28,7 +28,15 @@
       "Bash(timeout 10 python:*)",
       "Bash(git config:*)",
       "Bash(timeout 5 python:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(timeout 8 python:*)",
+      "Bash(python -c \"print\\(''test''\\)\")",
+      "Bash(python:*)",
+      "Bash(python.exe:*)",
+      "Bash(C:UserswoduqAppDataLocalMicrosoftWindowsAppspython.exe \"d:\\\\bosspong\\\\update_multiplayer.py\")",
+      "Bash(D:/bosspong/.venv_win/Scripts/python.exe -m py_compile:*)",
+      "Bash(timeout 5 D:/bosspong/.venv_win/Scripts/python.exe:*)",
+      "Bash(D:/bosspong/.venv_win/Scripts/python.exe:*)"
     ],
     "deny": [],
     "ask": [],

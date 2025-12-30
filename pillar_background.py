@@ -757,8 +757,11 @@ class PillarBackgroundRenderer:
             self._tetriser_bg.clear_tetris_boards()
 
     def set_player_rect(self, player_rect):
-        """플레이어 위치 설정 (원숭이-바나나 이벤트용)"""
+        """플레이어 위치 설정 (원숭이-바나나 이벤트용 + 스테이지1 나비 흡수용)"""
         self._player_rect = player_rect
+        # 스테이지 1: 스타디움 배경에도 플레이어 위치 전달 (나비 흡수용)
+        if self.current_stage == 1 and self._stadium_bg is not None:
+            self._stadium_bg.set_player_rect(player_rect)
 
     def set_boss_rect(self, boss_rect):
         """보스 위치 설정 (원숭이-바나나 이벤트용)"""
@@ -826,6 +829,29 @@ class PillarBackgroundRenderer:
             monkey_mgr = get_monkey_event_manager()
             if monkey_mgr:
                 monkey_mgr.draw_ingame(screen)
+
+    def check_butterfly_gauge_recovery(self) -> bool:
+        """스테이지 1 나비 흡수로 인한 게이지 회복 여부 확인
+
+        Returns:
+            bool: 게이지 회복이 필요하면 True, 아니면 False (한 번 호출하면 리셋됨)
+        """
+        if self.current_stage == 1 and self._stadium_bg is not None:
+            return self._stadium_bg.check_gauge_recovered()
+        return False
+
+    def draw_butterfly_ingame(self, screen, game_width, game_height):
+        """스테이지 1에서 날아가는 나비를 게임 화면에 그리기
+
+        Args:
+            screen: 게임 화면 surface
+            game_width: 게임 영역 너비
+            game_height: 게임 영역 높이
+        """
+        if self.current_stage == 1 and self._stadium_bg is not None:
+            self._stadium_bg.draw_flying_butterfly_ingame(screen, game_width, game_height)
+            self._stadium_bg.draw_absorbing_butterfly_ingame(screen, game_width, game_height)
+            self._stadium_bg.draw_absorption_particles_ingame(screen)
 
 # 전역 인스턴스
 _pillar_renderer = None

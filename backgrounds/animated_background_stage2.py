@@ -349,7 +349,7 @@ class AnimatedBackgroundStage2:
             {'type': 'mixed_stone', 'colors': [(95, 85, 80), (115, 105, 100), (135, 125, 120)]} # 혼합 바위
         ]
         
-        num_rocks = random.randint(1, 2)  # 1-2개 바위 생성
+        num_rocks = random.randint(2, 4)  # 2-4개 바위 생성
         for i in range(num_rocks):
             # 맵 전체 랜덤 위치
             x = random.randint(map_x_min, map_x_max)

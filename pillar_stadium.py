@@ -52,6 +52,20 @@ class TraditionalFrame:
         self._frame_surface = None
         self._create_frame()
 
+        # 나비 -> 플레이어 흡수 시스템
+        self._player_rect = None  # 플레이어 위치 (게임 좌표)
+        self._butterfly_flying_to_player = None  # 플레이어에게 날아가는 나비
+        self._butterfly_absorbed = False  # 나비가 흡수되었는지
+        self._butterfly_cooldown = random.uniform(20.0, 40.0)  # 첫 나비는 20~40초 후 등장
+        self._butterfly_cooldown_max = 40.0  # 쿨타임 20~40초 사이 랜덤
+        self._absorption_particles = []  # 흡수 빛 파티클
+        self._gauge_recovered = False  # 게이지 회복 완료 플래그 (pingfighter.py에서 확인)
+        self._butterflies_absorbed_count = 0  # 흡수된 나비 수 (최대 4마리)
+        # 나비 흡수 애니메이션 (1초간 신비한 빛)
+        self._absorbing_butterfly = None  # 흡수 중인 나비 정보
+        self._absorbing_timer = 0.0  # 흡수 애니메이션 타이머 (1초)
+        self._absorbing_duration = 1.0  # 흡수 애니메이션 지속 시간
+
     def _create_butterflies(self):
         """나비 생성"""
         num_butterflies = 4
@@ -464,14 +478,168 @@ class TraditionalFrame:
                 ])
             })
 
+    def set_player_rect(self, player_rect):
+        """플레이어 위치 설정 (게임 좌표 -> 전체화면 좌표 변환)"""
+        self._player_rect = player_rect
+
+    def check_gauge_recovered(self) -> bool:
+        """게이지 회복이 완료되었는지 확인하고 플래그 리셋"""
+        if self._gauge_recovered:
+            self._gauge_recovered = False
+            return True
+        return False
+
+    def _select_butterfly_for_flight(self):
+        """플레이어에게 날아갈 나비 선택"""
+        if not self.butterflies:
+            return None
+        # 랜덤으로 나비 하나 선택
+        return random.choice(self.butterflies)
+
+    def _create_absorption_particles(self, x: float, y: float):
+        """흡수 빛 파티클 생성"""
+        for _ in range(12):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(30, 80)
+            self._absorption_particles.append({
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'life': 1.0,
+                'color': random.choice([
+                    (255, 255, 200),  # 밝은 노랑
+                    (255, 220, 150),  # 금빛
+                    (200, 255, 255),  # 하늘색
+                    (255, 200, 255),  # 분홍
+                ])
+            })
+
+    def _create_mystical_light_particle(self, x: float, y: float):
+        """신비한 빛 파티클 생성 (흡수 애니메이션용)"""
+        # 랜덤 방향으로 천천히 퍼지는 파티클
+        angle = random.uniform(0, math.pi * 2)
+        speed = random.uniform(20, 60)
+        self._absorption_particles.append({
+            'x': x + random.uniform(-10, 10),
+            'y': y + random.uniform(-10, 10),
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': random.uniform(0.6, 1.0),
+            'color': random.choice([
+                (255, 255, 220),  # 밝은 금빛
+                (220, 255, 255),  # 신비한 하늘색
+                (255, 230, 180),  # 따뜻한 노랑
+                (200, 220, 255),  # 신비한 파랑
+                (255, 210, 255),  # 신비한 분홍
+            ])
+        })
+
     def update(self, dt: float):
         """업데이트"""
         self.time += dt
 
-        # 나비 움직임
+        # 나비 흡수 쿨타임 감소
+        if self._butterfly_cooldown > 0:
+            self._butterfly_cooldown -= dt
+
+        # 흡수 애니메이션 업데이트 (1초간 신비한 빛)
+        if self._absorbing_butterfly is not None:
+            self._absorbing_timer -= dt
+            # 애니메이션 중 지속적으로 빛 파티클 생성
+            if random.random() < 0.5:  # 50% 확률로 파티클 추가
+                self._create_mystical_light_particle(
+                    self._absorbing_butterfly['x'],
+                    self._absorbing_butterfly['y']
+                )
+            # 애니메이션 완료
+            if self._absorbing_timer <= 0:
+                self._absorbing_butterfly = None
+                # 아직 남은 나비가 있으면 쿨타임 설정 (20~40초 랜덤)
+                if len(self.butterflies) > 0:
+                    self._butterfly_cooldown = random.uniform(20.0, 40.0)
+                    self._butterfly_cooldown_max = self._butterfly_cooldown
+
+        # 나비 -> 플레이어 흡수 로직
+        if self._butterfly_flying_to_player is not None:
+            # 플레이어 위치로 날아가기 (전체화면 좌표로 변환)
+            if self._player_rect is not None:
+                # 플레이어 위치 유효성 검사 (게임 영역 내에 있는지)
+                player_cx = self._player_rect.centerx
+                player_cy = self._player_rect.centery
+
+                # 플레이어가 유효한 위치에 있는지 확인 (게임 영역 내)
+                if player_cx < 0 or player_cx > self.game_width or player_cy < 0 or player_cy > self.game_height:
+                    # 플레이어 위치가 비정상 - 나비 비행 취소
+                    self._butterfly_flying_to_player = None
+                    self._butterfly_cooldown = 1.0  # 1초 후 재시도
+                    return
+
+                # 전체화면 좌표로 변환
+                target_x = self.game_x + player_cx
+                target_y = self.game_y + player_cy
+
+                butterfly = self._butterfly_flying_to_player
+                dx = target_x - butterfly['x']
+                dy = target_y - butterfly['y']
+                dist = math.sqrt(dx * dx + dy * dy)
+
+                if dist > 10:
+                    # 빠르게 플레이어에게 이동 (일정 속도)
+                    speed = 300  # 초당 300픽셀로 고정
+                    move_x = (dx / dist) * speed * dt
+                    move_y = (dy / dist) * speed * dt
+                    butterfly['x'] += move_x
+                    butterfly['y'] += move_y
+                    # 날개 펄럭임 가속 (거리가 가까울수록 빠르게)
+                    butterfly['wing_speed'] = 12 + max(0, (1.0 - dist / 500) * 8)
+                else:
+                    # 플레이어에 도달 - 흡수 애니메이션 시작
+                    self._butterfly_absorbed = True
+                    self._gauge_recovered = True  # 게이지 회복 트리거
+                    self._butterflies_absorbed_count += 1  # 흡수된 나비 카운트 증가
+                    # 흡수 애니메이션 시작 (1초간)
+                    self._absorbing_butterfly = {
+                        'x': butterfly['x'],
+                        'y': butterfly['y'],
+                        'phase': butterfly['phase'],
+                        'wing_speed': butterfly['wing_speed'],
+                        'size': butterfly['size'],
+                        'color': butterfly['color'],
+                    }
+                    self._absorbing_timer = self._absorbing_duration
+                    # 초기 빛 파티클 폭발
+                    self._create_absorption_particles(butterfly['x'], butterfly['y'])
+                    # 나비 제거 (재생성하지 않음)
+                    if butterfly in self.butterflies:
+                        self.butterflies.remove(butterfly)
+                    self._butterfly_flying_to_player = None
+        elif self._absorbing_butterfly is None:
+            # 쿨타임이 끝나면 새 나비 선택 (흡수 애니메이션 중이 아닐 때만)
+            if self._butterfly_cooldown <= 0 and self._player_rect is not None and len(self.butterflies) > 0:
+                # 플레이어가 유효한 위치에 있는지 먼저 확인
+                player_cx = self._player_rect.centerx
+                player_cy = self._player_rect.centery
+                if 0 <= player_cx <= self.game_width and 0 <= player_cy <= self.game_height:
+                    self._butterfly_flying_to_player = self._select_butterfly_for_flight()
+                    if self._butterfly_flying_to_player:
+                        self._butterfly_absorbed = False
+
+        # 흡수 파티클 업데이트
+        for p in self._absorption_particles[:]:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['vx'] *= 0.95  # 감속
+            p['vy'] *= 0.95
+            p['life'] -= dt * 2
+            if p['life'] <= 0:
+                self._absorption_particles.remove(p)
+
+        # 일반 나비 움직임 (날아가는 나비 제외)
         for b in self.butterflies:
-            b['x'] = b['base_x'] + math.sin(self.time * 0.5 + b['phase']) * 15
-            b['y'] = b['base_y'] + math.cos(self.time * 0.3 + b['phase']) * 10
+            if b != self._butterfly_flying_to_player:
+                b['x'] = b['base_x'] + math.sin(self.time * 0.5 + b['phase']) * 15
+                b['y'] = b['base_y'] + math.cos(self.time * 0.3 + b['phase']) * 10
 
         # 꽃잎 파티클
         self._spawn_petal()
@@ -483,6 +651,19 @@ class TraditionalFrame:
             if p['y'] > self.screen_height + 20:
                 self.petals.remove(p)
 
+    def _respawn_butterfly(self, old_butterfly: dict):
+        """나비 다시 생성 (기존 위치에)"""
+        self.butterflies.append({
+            'x': old_butterfly['base_x'],
+            'y': old_butterfly['base_y'],
+            'base_x': old_butterfly['base_x'],
+            'base_y': old_butterfly['base_y'],
+            'phase': random.uniform(0, math.pi * 2),
+            'wing_speed': random.uniform(8, 12),
+            'color': random.choice(['blue', 'gold', 'red']),
+            'size': random.uniform(0.8, 1.2),
+        })
+
     def _draw_petal(self, surface: pygame.Surface, petal: dict):
         """꽃잎 파티클 그리기"""
         petal_surf = pygame.Surface((petal['size'] * 2, petal['size']), pygame.SRCALPHA)
@@ -492,6 +673,156 @@ class TraditionalFrame:
         rotated = pygame.transform.rotate(petal_surf, petal['rotation'])
         rect = rotated.get_rect(center=(int(petal['x']), int(petal['y'])))
         surface.blit(rotated, rect)
+
+    def _draw_absorption_particle(self, surface: pygame.Surface, particle: dict):
+        """흡수 빛 파티클 그리기"""
+        alpha = int(255 * particle['life'])
+        size = int(6 * particle['life'] + 2)
+        color = particle['color']
+
+        # 빛나는 효과
+        glow_surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+        for i in range(3):
+            glow_alpha = int(alpha * (0.3 - i * 0.1))
+            if glow_alpha > 0:
+                pygame.draw.circle(glow_surf, (*color, glow_alpha),
+                                 (size * 2, size * 2), size + i * 2)
+        pygame.draw.circle(glow_surf, (*color, alpha), (size * 2, size * 2), size)
+
+        rect = glow_surf.get_rect(center=(int(particle['x']), int(particle['y'])))
+        surface.blit(glow_surf, rect)
+
+    def _draw_flying_butterfly_trail(self, surface: pygame.Surface, butterfly: dict):
+        """날아가는 나비의 빛나는 꼬리 그리기"""
+        if butterfly is None:
+            return
+
+        # 나비 좌표 검증
+        try:
+            bx = butterfly.get('x', 0)
+            by = butterfly.get('y', 0)
+            if bx is None or by is None:
+                return
+            bx = int(bx)
+            by = int(by)
+            # 화면 범위 검증
+            if not (-1000 < bx < 10000 and -1000 < by < 10000):
+                return
+        except (TypeError, ValueError):
+            return
+
+        # 빛나는 꼬리 효과
+        trail_colors = [
+            (255, 255, 200, 100),
+            (255, 220, 150, 80),
+            (200, 255, 255, 60),
+        ]
+        for i, color in enumerate(trail_colors):
+            offset = (i + 1) * 8
+            trail_x = bx - int(offset * 0.5)
+            trail_y = by
+            size = 10 - i * 2
+            if size <= 0:
+                continue
+            trail_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(trail_surf, color, (size, size), size)
+            surface.blit(trail_surf, (trail_x - size, trail_y - size))
+
+    def _draw_absorbing_butterfly(self, surface: pygame.Surface):
+        """흡수 중인 나비 그리기 (1초간 신비한 빛과 함께 사라짐)"""
+        if self._absorbing_butterfly is None:
+            return
+
+        # 남은 시간 비율 (1.0 -> 0.0)
+        progress = self._absorbing_timer / self._absorbing_duration
+        if progress <= 0:
+            return
+
+        butterfly = self._absorbing_butterfly
+        x = int(butterfly['x'])
+        y = int(butterfly['y'])
+        phase = butterfly['phase']
+        wing_speed = butterfly['wing_speed']
+        size = butterfly['size']
+        color_name = butterfly['color']
+
+        # 날개 펄럭임 (점점 빨라짐)
+        accelerated_wing_speed = wing_speed * (2.0 - progress)  # 빨라지는 날개
+        wing_angle = math.sin(self.time * accelerated_wing_speed + phase) * 0.4
+
+        # 색상
+        if color_name == 'blue':
+            wing_color = (60, 100, 160)
+            accent = (80, 130, 200)
+        elif color_name == 'gold':
+            wing_color = (200, 160, 80)
+            accent = (230, 190, 100)
+        else:
+            wing_color = (180, 80, 80)
+            accent = (220, 120, 100)
+
+        # 페이드아웃 알파값 (점점 투명해짐)
+        alpha = int(255 * progress)
+
+        wing_size = int(18 * size)
+        body_length = int(12 * size)
+
+        # 신비한 빛 후광 효과 (여러 레이어)
+        glow_colors = [
+            (255, 255, 220),  # 밝은 금빛
+            (220, 255, 255),  # 신비한 하늘색
+            (255, 230, 180),  # 따뜻한 노랑
+        ]
+
+        # 맥동하는 빛 효과 (점점 커지면서 사라짐)
+        pulse = 1.0 + math.sin(self.time * 10) * 0.2  # 빠른 맥동
+        glow_size = int(40 * (2.0 - progress) * pulse)  # 점점 커지는 후광
+
+        for i, glow_color in enumerate(glow_colors):
+            layer_size = glow_size + i * 15
+            glow_alpha = int(alpha * (0.4 - i * 0.1))
+            if glow_alpha > 0 and layer_size > 0:
+                glow_surf = pygame.Surface((layer_size * 2, layer_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (*glow_color, glow_alpha),
+                                 (layer_size, layer_size), layer_size)
+                surface.blit(glow_surf, (x - layer_size, y - layer_size))
+
+        # 회전하는 빛 입자들
+        num_light_particles = 8
+        for i in range(num_light_particles):
+            angle = (self.time * 3 + i * (math.pi * 2 / num_light_particles))
+            radius = 25 * (2.0 - progress)  # 점점 커지는 반경
+            px = x + int(math.cos(angle) * radius)
+            py = y + int(math.sin(angle) * radius)
+            particle_size = int(4 * progress)
+            if particle_size > 0:
+                particle_alpha = int(200 * progress)
+                particle_surf = pygame.Surface((particle_size * 2, particle_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(particle_surf, (255, 255, 255, particle_alpha),
+                                 (particle_size, particle_size), particle_size)
+                surface.blit(particle_surf, (px - particle_size, py - particle_size))
+
+        # 나비 본체 (페이드아웃)
+        # 왼쪽 날개
+        left_wing = pygame.Surface((wing_size, wing_size), pygame.SRCALPHA)
+        pygame.draw.ellipse(left_wing, (*wing_color, alpha), (0, 0, wing_size, int(wing_size * 0.7)))
+        pygame.draw.ellipse(left_wing, (*accent, int(alpha * 0.8)), (wing_size // 4, wing_size // 6, wing_size // 2, wing_size // 3))
+
+        # 오른쪽 날개
+        right_wing = pygame.transform.flip(left_wing, True, False)
+
+        # 날개 회전
+        left_rotated = pygame.transform.rotate(left_wing, math.degrees(wing_angle) * 30)
+        right_rotated = pygame.transform.rotate(right_wing, -math.degrees(wing_angle) * 30)
+
+        # 배치
+        surface.blit(left_rotated, (x - wing_size - 2, y - wing_size // 2))
+        surface.blit(right_rotated, (x + 2, y - wing_size // 2))
+
+        # 몸통
+        body_surf = pygame.Surface((10, body_length + 4), pygame.SRCALPHA)
+        pygame.draw.ellipse(body_surf, (40, 35, 30, alpha), (2, 2, 6, body_length))
+        surface.blit(body_surf, (x - 5, y - body_length // 2 - 2))
 
     def draw(self, surface: pygame.Surface):
         """전체 렌더링"""
@@ -506,6 +837,17 @@ class TraditionalFrame:
         # 나비 애니메이션
         for butterfly in self.butterflies:
             self._draw_butterfly(surface, butterfly, self.time)
+
+        # 날아가는 나비의 빛나는 꼬리
+        if self._butterfly_flying_to_player is not None:
+            self._draw_flying_butterfly_trail(surface, self._butterfly_flying_to_player)
+
+        # 흡수 중인 나비 (신비한 빛과 함께 사라짐)
+        self._draw_absorbing_butterfly(surface)
+
+        # 흡수 빛 파티클
+        for particle in self._absorption_particles:
+            self._draw_absorption_particle(surface, particle)
 
         # 게임 영역 테두리 광택
         self._draw_game_border_shine(surface)
@@ -549,6 +891,287 @@ class TraditionalFrame:
         # 꽃잎 대량 생성
         for _ in range(8):
             self._spawn_petal()
+
+    def get_flying_butterfly_for_ingame(self):
+        """게임 화면에 그릴 날아가는 나비 정보 반환 (게임 좌표계)
+
+        Returns:
+            dict or None: 나비 정보 (게임 좌표로 변환됨) 또는 None
+        """
+        if self._butterfly_flying_to_player is None:
+            return None
+
+        butterfly = self._butterfly_flying_to_player
+        # 전체화면 좌표 -> 게임 좌표로 변환
+        game_x = butterfly['x'] - self.game_x
+        game_y = butterfly['y'] - self.game_y
+
+        # 게임 영역 안에 들어왔을 때만 반환
+        if game_x >= -50 and game_x <= self.game_width + 50:
+            return {
+                'x': game_x,
+                'y': game_y,
+                'phase': butterfly['phase'],
+                'wing_speed': butterfly['wing_speed'],
+                'size': butterfly['size'],
+                'color': butterfly['color'],
+            }
+        return None
+
+    def draw_flying_butterfly_ingame(self, screen, game_width, game_height):
+        """게임 화면에 날아가는 나비 그리기 (게임 좌표계)
+
+        Args:
+            screen: 게임 화면 surface
+            game_width: 게임 영역 너비
+            game_height: 게임 영역 높이
+        """
+        butterfly_info = self.get_flying_butterfly_for_ingame()
+        if butterfly_info is None:
+            return
+
+        x = butterfly_info['x']
+        y = butterfly_info['y']
+
+        # 화면 밖이면 그리지 않음
+        if x < -50 or x > game_width + 50 or y < -50 or y > game_height + 50:
+            return
+
+        # 나비 그리기
+        phase = butterfly_info['phase']
+        wing_speed = butterfly_info['wing_speed']
+        size = butterfly_info['size']
+        color_name = butterfly_info['color']
+
+        # 날개 펄럭임
+        wing_angle = math.sin(self.time * wing_speed + phase) * 0.4
+
+        # 색상
+        if color_name == 'blue':
+            wing_color = (60, 100, 160)
+            accent = (80, 130, 200)
+        elif color_name == 'gold':
+            wing_color = (200, 160, 80)
+            accent = (230, 190, 100)
+        else:
+            wing_color = (180, 80, 80)
+            accent = (220, 120, 100)
+
+        wing_size = int(18 * size)
+        body_length = int(12 * size)
+
+        # 왼쪽 날개
+        left_wing = pygame.Surface((wing_size, wing_size), pygame.SRCALPHA)
+        pygame.draw.ellipse(left_wing, (*wing_color, 220), (0, 0, wing_size, wing_size * 0.7))
+        pygame.draw.ellipse(left_wing, (*accent, 180), (wing_size // 4, wing_size // 6, wing_size // 2, wing_size // 3))
+
+        # 오른쪽 날개
+        right_wing = pygame.transform.flip(left_wing, True, False)
+
+        # 날개 회전
+        left_rotated = pygame.transform.rotate(left_wing, math.degrees(wing_angle) * 30)
+        right_rotated = pygame.transform.rotate(right_wing, -math.degrees(wing_angle) * 30)
+
+        # 빛나는 꼬리 효과
+        trail_colors = [
+            (255, 255, 200, 100),
+            (255, 220, 150, 80),
+            (200, 255, 255, 60),
+        ]
+        for i, color in enumerate(trail_colors):
+            offset = (i + 1) * 8
+            trail_x = int(x) - int(offset * 0.5)
+            trail_y = int(y)
+            trail_size = 10 - i * 2
+            if trail_size > 0:
+                trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(trail_surf, color, (trail_size, trail_size), trail_size)
+                screen.blit(trail_surf, (trail_x - trail_size, trail_y - trail_size))
+
+        # 나비 배치
+        screen.blit(left_rotated, (int(x) - wing_size - 2, int(y) - wing_size // 2))
+        screen.blit(right_rotated, (int(x) + 2, int(y) - wing_size // 2))
+
+        # 몸통
+        pygame.draw.ellipse(screen, (40, 35, 30, 255),
+                           (int(x) - 3, int(y) - body_length // 2, 6, body_length))
+
+        # 더듬이
+        pygame.draw.line(screen, (40, 35, 30, 200),
+                        (int(x) - 1, int(y) - body_length // 2),
+                        (int(x) - 6, int(y) - body_length // 2 - 8), 1)
+        pygame.draw.line(screen, (40, 35, 30, 200),
+                        (int(x) + 1, int(y) - body_length // 2),
+                        (int(x) + 6, int(y) - body_length // 2 - 8), 1)
+
+    def get_absorption_particles_for_ingame(self):
+        """게임 화면에 그릴 흡수 파티클 정보 반환 (게임 좌표계)
+
+        Returns:
+            list: 파티클 정보 리스트 (게임 좌표로 변환됨)
+        """
+        particles = []
+        for p in self._absorption_particles:
+            game_x = p['x'] - self.game_x
+            game_y = p['y'] - self.game_y
+            particles.append({
+                'x': game_x,
+                'y': game_y,
+                'life': p['life'],
+                'color': p['color'],
+            })
+        return particles
+
+    def draw_absorption_particles_ingame(self, screen):
+        """게임 화면에 흡수 파티클 그리기 (게임 좌표계)"""
+        for p in self.get_absorption_particles_for_ingame():
+            alpha = int(255 * p['life'])
+            size = int(6 * p['life'] + 2)
+            color = p['color']
+
+            if size <= 0 or alpha <= 0:
+                continue
+
+            # 빛나는 효과
+            glow_surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+            for i in range(3):
+                glow_alpha = int(alpha * (0.3 - i * 0.1))
+                if glow_alpha > 0:
+                    pygame.draw.circle(glow_surf, (*color, glow_alpha),
+                                     (size * 2, size * 2), size + i * 2)
+            pygame.draw.circle(glow_surf, (*color, alpha), (size * 2, size * 2), size)
+
+            rect = glow_surf.get_rect(center=(int(p['x']), int(p['y'])))
+            screen.blit(glow_surf, rect)
+
+    def get_absorbing_butterfly_for_ingame(self):
+        """게임 화면에 그릴 흡수 중인 나비 정보 반환 (게임 좌표계)
+
+        Returns:
+            dict or None: 흡수 중인 나비 정보 (게임 좌표로 변환됨) 또는 None
+        """
+        if self._absorbing_butterfly is None:
+            return None
+
+        butterfly = self._absorbing_butterfly
+        # 전체화면 좌표 -> 게임 좌표로 변환
+        game_x = butterfly['x'] - self.game_x
+        game_y = butterfly['y'] - self.game_y
+
+        return {
+            'x': game_x,
+            'y': game_y,
+            'phase': butterfly['phase'],
+            'wing_speed': butterfly['wing_speed'],
+            'size': butterfly['size'],
+            'color': butterfly['color'],
+            'progress': self._absorbing_timer / self._absorbing_duration,
+        }
+
+    def draw_absorbing_butterfly_ingame(self, screen, game_width, game_height):
+        """게임 화면에 흡수 중인 나비 그리기 (게임 좌표계, 신비한 빛과 함께)
+
+        Args:
+            screen: 게임 화면 surface
+            game_width: 게임 영역 너비
+            game_height: 게임 영역 높이
+        """
+        butterfly_info = self.get_absorbing_butterfly_for_ingame()
+        if butterfly_info is None:
+            return
+
+        progress = butterfly_info['progress']
+        if progress <= 0:
+            return
+
+        x = int(butterfly_info['x'])
+        y = int(butterfly_info['y'])
+        phase = butterfly_info['phase']
+        wing_speed = butterfly_info['wing_speed']
+        size = butterfly_info['size']
+        color_name = butterfly_info['color']
+
+        # 화면 밖이면 그리지 않음
+        if x < -100 or x > game_width + 100 or y < -100 or y > game_height + 100:
+            return
+
+        # 날개 펄럭임 (점점 빨라짐)
+        accelerated_wing_speed = wing_speed * (2.0 - progress)
+        wing_angle = math.sin(self.time * accelerated_wing_speed + phase) * 0.4
+
+        # 색상
+        if color_name == 'blue':
+            wing_color = (60, 100, 160)
+            accent = (80, 130, 200)
+        elif color_name == 'gold':
+            wing_color = (200, 160, 80)
+            accent = (230, 190, 100)
+        else:
+            wing_color = (180, 80, 80)
+            accent = (220, 120, 100)
+
+        # 페이드아웃 알파값 (점점 투명해짐)
+        alpha = int(255 * progress)
+
+        wing_size = int(18 * size)
+        body_length = int(12 * size)
+
+        # 신비한 빛 후광 효과 (여러 레이어)
+        glow_colors = [
+            (255, 255, 220),  # 밝은 금빛
+            (220, 255, 255),  # 신비한 하늘색
+            (255, 230, 180),  # 따뜻한 노랑
+        ]
+
+        # 맥동하는 빛 효과 (점점 커지면서 사라짐)
+        pulse = 1.0 + math.sin(self.time * 10) * 0.2
+        glow_size = int(40 * (2.0 - progress) * pulse)
+
+        for i, glow_color in enumerate(glow_colors):
+            layer_size = glow_size + i * 15
+            glow_alpha = int(alpha * (0.4 - i * 0.1))
+            if glow_alpha > 0 and layer_size > 0:
+                glow_surf = pygame.Surface((layer_size * 2, layer_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (*glow_color, glow_alpha),
+                                 (layer_size, layer_size), layer_size)
+                screen.blit(glow_surf, (x - layer_size, y - layer_size))
+
+        # 회전하는 빛 입자들
+        num_light_particles = 8
+        for i in range(num_light_particles):
+            angle = (self.time * 3 + i * (math.pi * 2 / num_light_particles))
+            radius = 25 * (2.0 - progress)
+            px = x + int(math.cos(angle) * radius)
+            py = y + int(math.sin(angle) * radius)
+            particle_size = int(4 * progress)
+            if particle_size > 0:
+                particle_alpha = int(200 * progress)
+                particle_surf = pygame.Surface((particle_size * 2, particle_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(particle_surf, (255, 255, 255, particle_alpha),
+                                 (particle_size, particle_size), particle_size)
+                screen.blit(particle_surf, (px - particle_size, py - particle_size))
+
+        # 나비 본체 (페이드아웃)
+        # 왼쪽 날개
+        left_wing = pygame.Surface((wing_size, wing_size), pygame.SRCALPHA)
+        pygame.draw.ellipse(left_wing, (*wing_color, alpha), (0, 0, wing_size, int(wing_size * 0.7)))
+        pygame.draw.ellipse(left_wing, (*accent, int(alpha * 0.8)), (wing_size // 4, wing_size // 6, wing_size // 2, wing_size // 3))
+
+        # 오른쪽 날개
+        right_wing = pygame.transform.flip(left_wing, True, False)
+
+        # 날개 회전
+        left_rotated = pygame.transform.rotate(left_wing, math.degrees(wing_angle) * 30)
+        right_rotated = pygame.transform.rotate(right_wing, -math.degrees(wing_angle) * 30)
+
+        # 배치
+        screen.blit(left_rotated, (x - wing_size - 2, y - wing_size // 2))
+        screen.blit(right_rotated, (x + 2, y - wing_size // 2))
+
+        # 몸통
+        body_surf = pygame.Surface((10, body_length + 4), pygame.SRCALPHA)
+        pygame.draw.ellipse(body_surf, (40, 35, 30, alpha), (2, 2, 6, body_length))
+        screen.blit(body_surf, (x - 5, y - body_length // 2 - 2))
 
 
 # 호환성을 위한 클래스 별칭

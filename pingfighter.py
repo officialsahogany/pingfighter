@@ -2561,11 +2561,13 @@ OPTIMUS_ARM_THROW_POWER = 400            # 던지기 파워 (보스 이동 거�
 OPTIMUS_ARM_THROW_STUN_MS = 1500         # 던지기 후 보스 스턴 시간 (1.5초)
 OPTIMUS_ARM_WIDTH = 24                   # 팔 너비 (픽셀)
 OPTIMUS_ARM_HAND_SIZE = 60               # 손바닥 크기 (픽셀)
+OPTIMUS_ARM_WALL_IMPACT_SHAKE_MS = 600   # 벽 충돌 시 화면 흔들림 시간 (0.6초)
+OPTIMUS_ARM_PLASMA_DURATION_MS = 1200    # 플라즈마 이펙트 지속 시간
 
 # 옵티머스 암 상태 변수
 optimus_arm_available = False            # 스킬 사용 가능 여부 (스테이지 클리어 시 선택으로 해금)
 optimus_arm_cooldown_until_ms = 0        # 쿨타임 종료 시각
-optimus_arm_state = "idle"               # idle, windup, reaching, grabbing, throwing, returning
+optimus_arm_state = "idle"               # idle, windup, reaching, grabbing, throwing, returning, wall_impact
 optimus_arm_start_ms = 0                 # 현재 상태 시작 시각
 optimus_arm_length = 0                   # 현재 팔 길이
 optimus_arm_target_x = 0                 # 목표 X 좌표 (보스 위치)
@@ -2575,6 +2577,12 @@ optimus_arm_throw_direction = 0          # 던지기 방향 (-1: 왼쪽, 1: 오�
 optimus_arm_boss_grabbed_x = 0           # 잡힌 보스의 X 위치
 optimus_arm_throw_start_ms = 0           # 던지기 시작 시각
 optimus_arm_particles = []               # 옵티머스 암 이펙트 파티클
+optimus_arm_wall_impact_active = False   # 벽 충돌 이펙트 활성화
+optimus_arm_wall_impact_start_ms = 0     # 벽 충돌 시작 시각
+optimus_arm_wall_impact_x = 0            # 벽 충돌 X 위치 (주먹이 꽂힌 곳)
+optimus_arm_wall_impact_y = 0            # 벽 충돌 Y 위치
+optimus_arm_plasma_sparks = []           # 플라즈마 스파크 파티클
+optimus_arm_trail_particles = []         # 팔 이동 궤적 파티클
 
 # ========== 스테이지 클리어 선택지 시스템 (뱀파이어 서바이벌 스타일) ==========
 # 선택지 UI 상태
@@ -2702,7 +2710,7 @@ MAX_ACCESSORY_SLOTS = 4   # 최대 장신구 슬롯 개수
 runtime_accessory_slot_bonus = 0  # 런타임 스킬로 추가된 장신구 슬롯 개수
 
 # 신속 스킬 이동속도 보너스
-runtime_swiftness_bonus = 0  # 신속 스킬로 추가된 이동속도 (4% 단위)
+runtime_swiftness_bonus = 0  # 신속 스킬로 추가된 이동속도 (5% 단위)
 
 # Common skill pool (all characters)
 RUNTIME_SKILL_POOL = {
@@ -2913,11 +2921,11 @@ RUNTIME_SKILL_POOL = {
         "name": "신속",
         "max_level": 5,
         "descriptions": {
-            1: "이동속도 4% 증가",
-            2: "이동속도 8% 증가",
-            3: "이동속도 12% 증가",
-            4: "이동속도 16% 증가",
-            5: "이동속도 20% 증가",
+            1: "이동속도 5% 증가",
+            2: "이동속도 10% 증가",
+            3: "이동속도 15% 증가",
+            4: "이동속도 20% 증가",
+            5: "이동속도 25% 증가",
         },
         "detail": "발걸음이 가벼워져 이동 속도가 증가합니다.",
         "icon_color": (100, 255, 180),
@@ -4286,7 +4294,7 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
     # 신속: 이동속도 보너스 즉시 적용
     if choice_id == "common_swiftness":
         global runtime_swiftness_bonus
-        runtime_swiftness_bonus = runtime_skill_levels.get("common_swiftness", 0) * 0.04  # 레벨당 4%
+        runtime_swiftness_bonus = runtime_skill_levels.get("common_swiftness", 0) * 0.05  # 레벨당 5%
         print(f"[RuntimeSkill] 신속 Lv.{runtime_skill_levels[choice_id]} - 이동속도 +{int(runtime_swiftness_bonus*100)}%")
 
     # 확장: 장신구 슬롯 보너스 즉시 적용
@@ -4311,7 +4319,7 @@ def recalculate_skill_effects(skill_id: str):
 
     # 신속: 이동속도 보너스 재계산
     if skill_id == "common_swiftness":
-        runtime_swiftness_bonus = runtime_skill_levels.get("common_swiftness", 0) * 0.04
+        runtime_swiftness_bonus = runtime_skill_levels.get("common_swiftness", 0) * 0.05
         print(f"[RuntimeSkill] 신속 레벨 변경 - 이동속도 +{int(runtime_swiftness_bonus*100)}%")
 
     # 확장: 장신구 슬롯 보너스 재계산
@@ -9700,7 +9708,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "대쉬 쿨타임", "min": 10, "max": 25, "unit": "%", "prefix": "-", "key": "dash_cooldown_pct"},
     ],
     "speedboots": [
-        {"label": "이동 속도", "min": 4, "max": 10, "unit": "%", "prefix": "+", "key": "speed_bonus_pct"},
+        {"label": "이동 속도", "min": 7, "max": 15, "unit": "%", "prefix": "+", "key": "speed_bonus_pct"},
     ],
     "master": [
         {"label": "벽돌 길이", "min": 20, "max": 40, "unit": "%", "prefix": "+", "key": "wall_length_pct"},
@@ -14339,7 +14347,10 @@ def reset_optimus_arm_state() -> None:
     global optimus_arm_start_ms, optimus_arm_length, optimus_arm_target_x, optimus_arm_target_y
     global optimus_arm_grabbed_boss, optimus_arm_throw_direction, optimus_arm_boss_grabbed_x
     global optimus_arm_throw_start_ms, optimus_arm_particles
-    
+    global optimus_arm_wall_impact_active, optimus_arm_wall_impact_start_ms
+    global optimus_arm_wall_impact_x, optimus_arm_wall_impact_y
+    global optimus_arm_plasma_sparks, optimus_arm_trail_particles
+
     optimus_arm_state = "idle"
     optimus_arm_start_ms = 0
     optimus_arm_length = 0
@@ -14350,6 +14361,12 @@ def reset_optimus_arm_state() -> None:
     optimus_arm_boss_grabbed_x = 0
     optimus_arm_throw_start_ms = 0
     optimus_arm_particles = []
+    optimus_arm_wall_impact_active = False
+    optimus_arm_wall_impact_start_ms = 0
+    optimus_arm_wall_impact_x = 0
+    optimus_arm_wall_impact_y = 0
+    optimus_arm_plasma_sparks = []
+    optimus_arm_trail_particles = []
 
 
 def can_use_optimus_arm() -> bool:
@@ -14419,10 +14436,17 @@ def update_optimus_arm() -> None:
     global optimus_arm_grabbed_boss, optimus_arm_throw_direction, optimus_arm_boss_grabbed_x
     global optimus_arm_cooldown_until_ms, optimus_arm_particles, optimus_arm_throw_start_ms
     global boss_stunned_timer, boss_knockback_vel
-    
+    global optimus_arm_wall_impact_active, optimus_arm_wall_impact_start_ms
+    global optimus_arm_wall_impact_x, optimus_arm_wall_impact_y
+    global optimus_arm_plasma_sparks, optimus_arm_trail_particles
+    global screen_shake_timer, screen_shake_intensity
+
+    # 벽 충돌 이펙트 업데이트 (idle 상태에서도 실행)
+    _update_optimus_arm_wall_impact_effects()
+
     if optimus_arm_state == "idle":
         return
-    
+
     now_ms = pygame.time.get_ticks()
     elapsed_ms = now_ms - optimus_arm_start_ms
     player_rect = globals().get("PLAYER")
@@ -14520,7 +14544,13 @@ def update_optimus_arm() -> None:
             boss_stunned_timer = globals().get("boss_stunned_timer", 0)
             stun_frames = int(OPTIMUS_ARM_THROW_STUN_MS / 1000 * 60)
             globals()["boss_stunned_timer"] = max(boss_stunned_timer, stun_frames)
-            
+
+            # 벽 충돌 이펙트 트리거 (보스가 화면 가장자리에 도달했을 때)
+            if boss_rect:
+                wall_x = boss_rect.centerx
+                wall_y = 30  # 보스 진영 뒤쪽 벽 위치 (상단)
+                _trigger_optimus_arm_wall_impact(wall_x, wall_y, optimus_arm_throw_direction)
+
             # 충격 파티클
             if boss_rect:
                 for _ in range(25):
@@ -14532,7 +14562,7 @@ def update_optimus_arm() -> None:
                         'life': 40,
                         'color': (255, 100, 50)
                     })
-            
+
             optimus_arm_state = "returning"
             optimus_arm_start_ms = now_ms
             print(f"🦾 옵티머스 암: 던지기 완료! 보스 {stun_frames}프레임 스턴!")
@@ -14554,6 +14584,124 @@ def update_optimus_arm() -> None:
         p['life'] -= 1
         if p['life'] <= 0:
             optimus_arm_particles.remove(p)
+
+    # 궤적 파티클 업데이트
+    for p in optimus_arm_trail_particles[:]:
+        p['x'] += p['vx']
+        p['y'] += p['vy']
+        p['life'] -= 1
+        p['size'] *= 0.95  # 점점 작아짐
+        if p['life'] <= 0:
+            optimus_arm_trail_particles.remove(p)
+
+
+def _trigger_optimus_arm_wall_impact(x: float, y: float, direction: int) -> None:
+    """벽 충돌 이펙트 트리거 (주먹이 벽에 꽂힐 때)"""
+    global optimus_arm_wall_impact_active, optimus_arm_wall_impact_start_ms
+    global optimus_arm_wall_impact_x, optimus_arm_wall_impact_y
+    global optimus_arm_plasma_sparks
+    global screen_shake_timer, screen_shake_intensity
+
+    now_ms = pygame.time.get_ticks()
+
+    # 벽 충돌 위치 설정
+    optimus_arm_wall_impact_active = True
+    optimus_arm_wall_impact_start_ms = now_ms
+    optimus_arm_wall_impact_x = x
+    optimus_arm_wall_impact_y = y
+
+    # 화면 흔들림 (0.6초 = 36프레임)
+    shake_frames = int(OPTIMUS_ARM_WALL_IMPACT_SHAKE_MS / 1000 * 60)
+    screen_shake_timer = max(screen_shake_timer, shake_frames)
+    screen_shake_intensity = max(screen_shake_intensity, 25)  # 강력한 지진 효과
+
+    # 초기 플라즈마 스파크 생성
+    optimus_arm_plasma_sparks = []
+    for _ in range(40):
+        angle = random.uniform(0, math.tau)
+        speed = random.uniform(2, 12)
+        spark_type = random.choice(['spark', 'arc', 'plasma'])
+        optimus_arm_plasma_sparks.append({
+            'x': x,
+            'y': y,
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': random.randint(30, 80),
+            'max_life': random.randint(30, 80),
+            'type': spark_type,
+            'size': random.uniform(3, 8),
+            'color_phase': random.uniform(0, math.tau),
+            'branch_timer': random.randint(5, 15) if spark_type == 'arc' else 0,
+        })
+
+    print(f"⚡ 옵티머스 암 벽 충돌! 위치: ({x}, {y}), 화면 흔들림 {shake_frames}프레임")
+
+
+def _update_optimus_arm_wall_impact_effects() -> None:
+    """벽 충돌 이펙트 업데이트 (플라즈마 스파크, 전기 파장)"""
+    global optimus_arm_wall_impact_active, optimus_arm_plasma_sparks
+
+    if not optimus_arm_wall_impact_active:
+        return
+
+    now_ms = pygame.time.get_ticks()
+    elapsed = now_ms - optimus_arm_wall_impact_start_ms
+
+    # 이펙트 종료 체크
+    if elapsed > OPTIMUS_ARM_PLASMA_DURATION_MS:
+        optimus_arm_wall_impact_active = False
+        optimus_arm_plasma_sparks = []
+        return
+
+    # 플라즈마 스파크 업데이트
+    for spark in optimus_arm_plasma_sparks[:]:
+        spark['x'] += spark['vx']
+        spark['y'] += spark['vy']
+        spark['vx'] *= 0.96  # 감속
+        spark['vy'] *= 0.96
+        spark['vy'] += 0.1  # 약간의 중력
+        spark['life'] -= 1
+        spark['color_phase'] += 0.3
+
+        # 아크 타입은 분기 생성
+        if spark['type'] == 'arc' and spark['branch_timer'] > 0:
+            spark['branch_timer'] -= 1
+            if spark['branch_timer'] == 0 and random.random() < 0.5:
+                # 새 분기 생성
+                branch_angle = random.uniform(-0.8, 0.8)
+                speed = random.uniform(1, 4)
+                optimus_arm_plasma_sparks.append({
+                    'x': spark['x'],
+                    'y': spark['y'],
+                    'vx': math.cos(branch_angle) * speed + spark['vx'] * 0.3,
+                    'vy': math.sin(branch_angle) * speed + spark['vy'] * 0.3,
+                    'life': random.randint(10, 25),
+                    'max_life': random.randint(10, 25),
+                    'type': 'branch',
+                    'size': spark['size'] * 0.6,
+                    'color_phase': spark['color_phase'],
+                    'branch_timer': 0,
+                })
+
+        if spark['life'] <= 0:
+            optimus_arm_plasma_sparks.remove(spark)
+
+    # 지속적으로 새 스파크 추가 (초반에만)
+    if elapsed < 400 and random.random() < 0.4:
+        angle = random.uniform(0, math.tau)
+        speed = random.uniform(1, 6)
+        optimus_arm_plasma_sparks.append({
+            'x': optimus_arm_wall_impact_x + random.uniform(-20, 20),
+            'y': optimus_arm_wall_impact_y + random.uniform(-15, 15),
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': random.randint(20, 50),
+            'max_life': random.randint(20, 50),
+            'type': random.choice(['spark', 'plasma']),
+            'size': random.uniform(2, 5),
+            'color_phase': random.uniform(0, math.tau),
+            'branch_timer': 0,
+        })
 
 
 def handle_optimus_arm_throw_input(direction: int) -> bool:
@@ -14672,134 +14820,648 @@ def draw_optimus_arm_skill_ui(surface: pygame.Surface) -> None:
 
 
 def draw_optimus_arm(surface: pygame.Surface) -> None:
-    """옵티머스 암 팔 애니메이션 렌더링 (화면 좌표계에 직접 그림)"""
+    """옵티머스 암 팔 애니메이션 렌더링 - 영화급 고퀄리티 버전"""
+    global optimus_arm_trail_particles
+
+    # 벽 충돌 이펙트는 항상 렌더링 (idle 상태에서도)
+    _draw_optimus_arm_wall_impact_effects(surface)
+
     if optimus_arm_state == "idle":
         return
-    
+
     player_rect = globals().get("PLAYER")
     if not player_rect:
         return
-    
+
     # 팔 시작점 (플레이어 오른쪽 어깨 - 화면 좌표)
     start_x = player_rect.centerx + 25
     start_y = player_rect.top + 15
-    
+
     # 목표 지점 (보스 위치)
     target_x = optimus_arm_target_x
     target_y = optimus_arm_target_y
-    
+
     now_ms = pygame.time.get_ticks()
-    
-    # 강화된 기계손 색상
-    arm_base_color = (80, 60, 50)      # 브론즈
-    arm_accent_color = (255, 180, 100)  # 오렌지
-    arm_glow_color = (120, 235, 255)    # 시안
-    
+    time_phase = now_ms / 1000.0  # 초 단위 시간
+
+    # ========== 영화급 컬러 팔레트 ==========
+    # 메인 암 색상 (티타늄/크롬 느낌)
+    arm_chrome = (180, 185, 195)       # 크롬 실버
+    arm_dark_metal = (60, 65, 75)      # 다크 메탈
+    arm_gold_accent = (255, 200, 80)   # 골드 악센트
+    arm_blue_energy = (80, 180, 255)   # 에너지 블루
+    arm_orange_heat = (255, 120, 40)   # 열기 오렌지
+    arm_cyan_glow = (0, 255, 255)      # 시안 글로우
+
     if optimus_arm_state == "windup":
-        # 윈드업: 팔을 뒤로 젖히는 애니메이션
+        # ========== 윈드업: 파워 차징 애니메이션 ==========
         elapsed = now_ms - optimus_arm_start_ms
         progress = min(1.0, elapsed / OPTIMUS_ARM_WINDUP_MS)
-        
-        # 팔이 뒤로 젖혀지는 효과 (오른쪽 아래로)
-        windup_offset_x = int(35 * progress)
-        windup_offset_y = int(25 * progress)
-        
-        arm_end_x = start_x + windup_offset_x
-        arm_end_y = start_y + windup_offset_y
-        
-        # 팔 그리기
-        pygame.draw.line(surface, arm_base_color, (start_x, start_y), (arm_end_x, arm_end_y), OPTIMUS_ARM_WIDTH)
-        pygame.draw.line(surface, arm_accent_color, (start_x, start_y), (arm_end_x, arm_end_y), 6)
-        
-        # 손
-        hand_size = OPTIMUS_ARM_HAND_SIZE // 2
-        pygame.draw.circle(surface, arm_base_color, (arm_end_x, arm_end_y), hand_size)
-        pygame.draw.circle(surface, arm_accent_color, (arm_end_x, arm_end_y), hand_size, 3)
-    
+
+        # 에너지 차징 효과 (progress에 따라 점점 강해짐)
+        charge_intensity = progress ** 0.5
+
+        # 팔이 뒤로 젖혀지면서 회전하는 효과
+        windup_angle = math.radians(-30 * progress)  # 뒤로 30도
+        windup_dist = 50 * progress
+
+        arm_end_x = start_x + math.cos(windup_angle + math.pi/4) * windup_dist
+        arm_end_y = start_y + math.sin(windup_angle + math.pi/4) * windup_dist
+
+        # 어깨 관절 (회전하는 기어 효과)
+        _draw_mech_shoulder_joint(surface, start_x, start_y, progress, time_phase)
+
+        # 팔 본체 (윈드업)
+        _draw_mech_arm_segment(surface, start_x, start_y, arm_end_x, arm_end_y,
+                               arm_chrome, arm_dark_metal, progress, time_phase, is_charging=True)
+
+        # 주먹 (에너지 차징 중)
+        _draw_mech_fist_charging(surface, int(arm_end_x), int(arm_end_y), charge_intensity, time_phase)
+
+        # 차징 에너지 파티클
+        if random.random() < 0.7 * progress:
+            angle = random.uniform(0, math.tau)
+            dist = random.uniform(20, 50)
+            optimus_arm_trail_particles.append({
+                'x': arm_end_x + math.cos(angle) * dist,
+                'y': arm_end_y + math.sin(angle) * dist,
+                'vx': -math.cos(angle) * 3,
+                'vy': -math.sin(angle) * 3,
+                'life': 20,
+                'size': random.uniform(4, 10),
+                'color': arm_blue_energy if random.random() < 0.5 else arm_cyan_glow
+            })
+
     elif optimus_arm_state in ("reaching", "returning", "grabbing", "throwing"):
-        # 팔 뻗기/복귀
+        # ========== 팔 뻗기/복귀 - 로켓 펀치 스타일 ==========
         arm_length = max(0, optimus_arm_length)
-        
+
         if arm_length > 0:
-            # 어깨에서 목표까지의 방향 계산
+            # 방향 계산
             dx = target_x - start_x
             dy = target_y - start_y
             dist = math.sqrt(dx*dx + dy*dy) if (dx*dx + dy*dy) > 0 else 1
             dir_x = dx / dist
             dir_y = dy / dist
-            
+
             # 현재 팔 끝 위치
             current_reach = min(arm_length, dist)
             end_x = start_x + dir_x * current_reach
             end_y = start_y + dir_y * current_reach
-            
-            # 팔 본체 (세그먼트로 나눠서 그리기)
-            segments = max(1, int(arm_length / 35))
+
+            # 어깨 관절
+            _draw_mech_shoulder_joint(surface, start_x, start_y, 1.0, time_phase)
+
+            # ========== 팔 본체 (세그먼트 + 유압 실린더) ==========
+            num_segments = max(3, int(arm_length / 60))
+            segment_length = current_reach / num_segments
+
             prev_x, prev_y = start_x, start_y
-            
-            for i in range(segments + 1):
-                ratio = i / segments
+            for i in range(num_segments):
+                ratio = (i + 1) / num_segments
                 seg_x = start_x + (end_x - start_x) * ratio
                 seg_y = start_y + (end_y - start_y) * ratio
-                
-                # 약간의 웨이브 효과 (수직 방향)
+
+                # 약간의 관성/웨이브 효과
                 perp_x = -dir_y
                 perp_y = dir_x
-                wave = math.sin(ratio * math.pi * 3 + now_ms / 80) * 4
+                is_reaching = optimus_arm_state == "reaching"
+                wave_amp = 6 if is_reaching else 3
+                wave = math.sin(ratio * math.pi * 2.5 + time_phase * 8) * wave_amp * (1 - ratio * 0.5)
                 seg_x += perp_x * wave
                 seg_y += perp_y * wave
-                
-                if i > 0:
-                    # 팔 세그먼트
-                    pygame.draw.line(surface, arm_base_color, 
-                                   (int(prev_x), int(prev_y)), (int(seg_x), int(seg_y)), OPTIMUS_ARM_WIDTH)
-                    pygame.draw.line(surface, arm_accent_color, 
-                                   (int(prev_x), int(prev_y)), (int(seg_x), int(seg_y)), 6)
-                    
-                    # 관절
-                    if i % 2 == 0:
-                        pygame.draw.circle(surface, arm_accent_color, (int(seg_x), int(seg_y)), 10)
-                        pygame.draw.circle(surface, arm_glow_color, (int(seg_x), int(seg_y)), 6)
-                
+
+                # 팔 세그먼트 렌더링
+                _draw_mech_arm_segment(surface, prev_x, prev_y, seg_x, seg_y,
+                                       arm_chrome, arm_dark_metal, 1.0, time_phase,
+                                       segment_index=i, is_reaching=is_reaching)
+
+                # 관절 렌더링
+                if i < num_segments - 1:
+                    _draw_mech_joint(surface, int(seg_x), int(seg_y), i, time_phase)
+
                 prev_x, prev_y = seg_x, seg_y
-            
-            # 손바닥 그리기
+
+                # 추진 파티클 (뻗을 때만)
+                if is_reaching and random.random() < 0.6:
+                    thrust_x = prev_x - dir_x * 15 + random.uniform(-10, 10)
+                    thrust_y = prev_y - dir_y * 15 + random.uniform(-10, 10)
+                    optimus_arm_trail_particles.append({
+                        'x': thrust_x,
+                        'y': thrust_y,
+                        'vx': -dir_x * random.uniform(5, 15) + random.uniform(-2, 2),
+                        'vy': -dir_y * random.uniform(5, 15) + random.uniform(-2, 2),
+                        'life': random.randint(10, 25),
+                        'size': random.uniform(6, 14),
+                        'color': arm_orange_heat if random.random() < 0.7 else arm_gold_accent
+                    })
+
+            # ========== 주먹 렌더링 ==========
             hand_x, hand_y = int(prev_x), int(prev_y)
-            hand_size = OPTIMUS_ARM_HAND_SIZE
-            
+
             if optimus_arm_state == "grabbing" and optimus_arm_grabbed_boss:
-                # 잡고 있는 상태 - 닫힌 손
-                pygame.draw.ellipse(surface, arm_base_color, 
-                                  (hand_x - hand_size//2, hand_y - hand_size//2, hand_size, int(hand_size * 0.8)))
-                pygame.draw.ellipse(surface, arm_accent_color, 
-                                  (hand_x - hand_size//2, hand_y - hand_size//2, hand_size, int(hand_size * 0.8)), 4)
-                
-                # 잡기 에너지 글로우
-                glow = pygame.Surface((hand_size * 2, hand_size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(glow, (*arm_glow_color, 100), (hand_size, hand_size), hand_size)
-                surface.blit(glow, (hand_x - hand_size, hand_y - hand_size))
+                # 잡고 있는 상태 - 닫힌 주먹 + 에너지 그립
+                _draw_mech_fist_grabbing(surface, hand_x, hand_y, time_phase)
             else:
-                # 열린 손 (잡으려는 형태)
-                pygame.draw.ellipse(surface, arm_base_color, 
-                                  (hand_x - hand_size//2, hand_y - hand_size//3, hand_size, int(hand_size * 0.6)))
-                # 손가락
-                for angle in [-0.5, -0.2, 0.2, 0.5]:
-                    finger_end_x = hand_x + int(hand_size * 0.5 * math.sin(angle))
-                    finger_end_y = hand_y - int(hand_size * 0.4)
-                    pygame.draw.line(surface, arm_base_color, (hand_x, hand_y - 8), 
-                                   (finger_end_x, finger_end_y), 8)
-                    pygame.draw.circle(surface, arm_accent_color, (finger_end_x, finger_end_y), 4)
-                pygame.draw.ellipse(surface, arm_accent_color, 
-                                  (hand_x - hand_size//2, hand_y - hand_size//3, hand_size, int(hand_size * 0.6)), 3)
-    
-    # 파티클 렌더링
+                # 날아가는 주먹 (로켓 펀치)
+                is_flying = optimus_arm_state in ("reaching", "throwing")
+                _draw_mech_fist_flying(surface, hand_x, hand_y, dir_x, dir_y, time_phase, is_flying)
+
+    # ========== 궤적 파티클 렌더링 ==========
+    for p in optimus_arm_trail_particles:
+        alpha = int(255 * (p['life'] / 30))
+        if alpha > 0:
+            size = max(2, int(p['size']))
+            color = p['color']
+
+            # 그라데이션 글로우 효과
+            glow_surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+            for r in range(3, 0, -1):
+                glow_alpha = alpha // (4 - r)
+                pygame.draw.circle(glow_surf, (*color[:3], glow_alpha),
+                                   (size * 2, size * 2), size * r // 2)
+            surface.blit(glow_surf, (int(p['x']) - size * 2, int(p['y']) - size * 2))
+
+    # ========== 기존 파티클 렌더링 ==========
     for p in optimus_arm_particles:
         alpha = int(255 * (p['life'] / 40))
         if alpha > 0:
             color = (*p['color'][:3], min(255, alpha))
-            particle_surf = pygame.Surface((12, 12), pygame.SRCALPHA)
-            pygame.draw.circle(particle_surf, color, (6, 6), 5)
-            surface.blit(particle_surf, (int(p['x']) - 6, int(p['y']) - 6))
+            particle_surf = pygame.Surface((16, 16), pygame.SRCALPHA)
+            pygame.draw.circle(particle_surf, color, (8, 8), 6)
+            pygame.draw.circle(particle_surf, (255, 255, 255, alpha // 2), (8, 8), 3)
+            surface.blit(particle_surf, (int(p['x']) - 8, int(p['y']) - 8))
+
+
+def _draw_mech_shoulder_joint(surface: pygame.Surface, x: float, y: float,
+                               progress: float, time_phase: float) -> None:
+    """기계 어깨 관절 렌더링 (회전 기어 효과)"""
+    cx, cy = int(x), int(y)
+
+    # 외부 링
+    pygame.draw.circle(surface, (70, 75, 85), (cx, cy), 22)
+    pygame.draw.circle(surface, (140, 145, 155), (cx, cy), 20)
+    pygame.draw.circle(surface, (90, 95, 105), (cx, cy), 18)
+
+    # 회전하는 기어 톱니
+    num_teeth = 8
+    gear_rotation = time_phase * 3 + progress * math.pi
+    for i in range(num_teeth):
+        angle = gear_rotation + i * math.tau / num_teeth
+        inner_r = 14
+        outer_r = 20
+        tooth_x1 = cx + math.cos(angle) * inner_r
+        tooth_y1 = cy + math.sin(angle) * inner_r
+        tooth_x2 = cx + math.cos(angle) * outer_r
+        tooth_y2 = cy + math.sin(angle) * outer_r
+        pygame.draw.line(surface, (180, 185, 195), (tooth_x1, tooth_y1), (tooth_x2, tooth_y2), 3)
+
+    # 중앙 코어 (에너지)
+    core_pulse = 0.7 + 0.3 * math.sin(time_phase * 6)
+    core_color = (int(80 + 100 * core_pulse), int(180 + 50 * core_pulse), 255)
+    pygame.draw.circle(surface, core_color, (cx, cy), 8)
+    pygame.draw.circle(surface, (200, 230, 255), (cx, cy), 4)
+
+
+def _draw_mech_arm_segment(surface: pygame.Surface, x1: float, y1: float,
+                            x2: float, y2: float, chrome_color: tuple, dark_color: tuple,
+                            progress: float, time_phase: float,
+                            segment_index: int = 0, is_charging: bool = False,
+                            is_reaching: bool = False) -> None:
+    """기계 팔 세그먼트 렌더링 (유압 실린더 스타일)"""
+    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+
+    # 세그먼트 길이와 각도
+    dx = x2 - x1
+    dy = y2 - y1
+    length = math.sqrt(dx*dx + dy*dy)
+    if length < 1:
+        return
+    angle = math.atan2(dy, dx)
+
+    # 수직 방향
+    perp_x = -dy / length
+    perp_y = dx / length
+
+    # ========== 메인 실린더 (외부) ==========
+    outer_width = 18
+    points = [
+        (x1 + perp_x * outer_width/2, y1 + perp_y * outer_width/2),
+        (x2 + perp_x * outer_width/2, y2 + perp_y * outer_width/2),
+        (x2 - perp_x * outer_width/2, y2 - perp_y * outer_width/2),
+        (x1 - perp_x * outer_width/2, y1 - perp_y * outer_width/2),
+    ]
+    pygame.draw.polygon(surface, dark_color, [(int(px), int(py)) for px, py in points])
+
+    # ========== 내부 실린더 (메탈릭) ==========
+    inner_width = 12
+    inner_points = [
+        (x1 + perp_x * inner_width/2, y1 + perp_y * inner_width/2),
+        (x2 + perp_x * inner_width/2, y2 + perp_y * inner_width/2),
+        (x2 - perp_x * inner_width/2, y2 - perp_y * inner_width/2),
+        (x1 - perp_x * inner_width/2, y1 - perp_y * inner_width/2),
+    ]
+    pygame.draw.polygon(surface, chrome_color, [(int(px), int(py)) for px, py in inner_points])
+
+    # ========== 하이라이트 라인 ==========
+    highlight_offset = 4
+    hl_x1 = x1 + perp_x * highlight_offset
+    hl_y1 = y1 + perp_y * highlight_offset
+    hl_x2 = x2 + perp_x * highlight_offset
+    hl_y2 = y2 + perp_y * highlight_offset
+    pygame.draw.line(surface, (220, 225, 235), (int(hl_x1), int(hl_y1)), (int(hl_x2), int(hl_y2)), 2)
+
+    # ========== 유압 피스톤 디테일 ==========
+    if length > 40:
+        num_bands = int(length / 25)
+        for b in range(num_bands):
+            band_ratio = (b + 1) / (num_bands + 1)
+            band_x = x1 + dx * band_ratio
+            band_y = y1 + dy * band_ratio
+
+            # 금속 밴드
+            band_p1 = (int(band_x + perp_x * outer_width/2), int(band_y + perp_y * outer_width/2))
+            band_p2 = (int(band_x - perp_x * outer_width/2), int(band_y - perp_y * outer_width/2))
+            pygame.draw.line(surface, (100, 105, 115), band_p1, band_p2, 3)
+            pygame.draw.line(surface, (160, 165, 175), band_p1, band_p2, 1)
+
+    # ========== 에너지 라인 (추진 시) ==========
+    if is_reaching or is_charging:
+        energy_pulse = 0.5 + 0.5 * math.sin(time_phase * 12 + segment_index)
+        energy_alpha = int(100 * energy_pulse)
+        energy_color = (80, 180, 255, energy_alpha)
+
+        energy_surf = pygame.Surface((int(length) + 10, 30), pygame.SRCALPHA)
+        pygame.draw.line(energy_surf, energy_color, (5, 15), (int(length) + 5, 15), 4)
+
+        # 회전하여 블릿
+        rotated = pygame.transform.rotate(energy_surf, -math.degrees(angle))
+        rot_rect = rotated.get_rect(center=((x1 + x2) // 2, (y1 + y2) // 2))
+        surface.blit(rotated, rot_rect)
+
+
+def _draw_mech_joint(surface: pygame.Surface, x: int, y: int,
+                      joint_index: int, time_phase: float) -> None:
+    """기계 관절 렌더링"""
+    # 외부 링
+    pygame.draw.circle(surface, (60, 65, 75), (x, y), 14)
+    pygame.draw.circle(surface, (120, 125, 135), (x, y), 12)
+
+    # 볼트 디테일
+    num_bolts = 4
+    bolt_dist = 9
+    for i in range(num_bolts):
+        bolt_angle = time_phase * 2 + i * math.tau / num_bolts + joint_index * 0.5
+        bolt_x = x + int(math.cos(bolt_angle) * bolt_dist)
+        bolt_y = y + int(math.sin(bolt_angle) * bolt_dist)
+        pygame.draw.circle(surface, (80, 85, 95), (bolt_x, bolt_y), 3)
+        pygame.draw.circle(surface, (160, 165, 175), (bolt_x, bolt_y), 2)
+
+    # 중앙 허브
+    pygame.draw.circle(surface, (90, 95, 105), (x, y), 6)
+    pygame.draw.circle(surface, (150, 155, 165), (x, y), 4)
+
+
+def _draw_mech_fist_charging(surface: pygame.Surface, x: int, y: int,
+                              charge: float, time_phase: float) -> None:
+    """차징 중인 주먹 렌더링"""
+    # 에너지 글로우 (차징 레벨에 따라)
+    glow_radius = int(40 + 20 * charge)
+    glow_surf = pygame.Surface((glow_radius * 2 + 20, glow_radius * 2 + 20), pygame.SRCALPHA)
+    for r in range(5, 0, -1):
+        alpha = int(30 * charge * r / 5)
+        color = (80, 180, 255, alpha) if r % 2 == 0 else (0, 255, 255, alpha)
+        pygame.draw.circle(glow_surf, color,
+                           (glow_radius + 10, glow_radius + 10), glow_radius * r // 5)
+    surface.blit(glow_surf, (x - glow_radius - 10, y - glow_radius - 10))
+
+    # 주먹 본체
+    fist_size = 35
+    pygame.draw.circle(surface, (70, 75, 85), (x, y), fist_size)
+    pygame.draw.circle(surface, (150, 155, 165), (x, y), fist_size - 4)
+    pygame.draw.circle(surface, (180, 185, 195), (x, y), fist_size - 8)
+
+    # 손가락 마디 (접힌 상태)
+    for i, angle_offset in enumerate([-0.4, -0.15, 0.15, 0.4]):
+        knuckle_angle = -math.pi/2 + angle_offset
+        knuckle_x = x + int(math.cos(knuckle_angle) * (fist_size - 5))
+        knuckle_y = y + int(math.sin(knuckle_angle) * (fist_size - 5))
+        pygame.draw.circle(surface, (100, 105, 115), (knuckle_x, knuckle_y), 8)
+        pygame.draw.circle(surface, (140, 145, 155), (knuckle_x, knuckle_y), 6)
+
+    # 차징 에너지 코어
+    core_pulse = 0.5 + 0.5 * math.sin(time_phase * 10)
+    core_alpha = int(200 * charge * core_pulse)
+    pygame.draw.circle(surface, (100, 200, 255), (x, y), int(15 * charge))
+    pygame.draw.circle(surface, (200, 240, 255), (x, y), int(8 * charge))
+
+
+def _draw_mech_fist_flying(surface: pygame.Surface, x: int, y: int,
+                            dir_x: float, dir_y: float, time_phase: float,
+                            is_flying: bool) -> None:
+    """날아가는 로켓 펀치 렌더링"""
+    fist_size = 45
+
+    # 속도감 모션 블러 (뒤에 잔상)
+    if is_flying:
+        for blur in range(4, 0, -1):
+            blur_x = x - int(dir_x * blur * 12)
+            blur_y = y - int(dir_y * blur * 12)
+            blur_alpha = 60 - blur * 12
+            blur_size = fist_size - blur * 4
+            if blur_size > 0:
+                blur_surf = pygame.Surface((blur_size * 2 + 10, blur_size * 2 + 10), pygame.SRCALPHA)
+                pygame.draw.circle(blur_surf, (180, 185, 195, blur_alpha),
+                                   (blur_size + 5, blur_size + 5), blur_size)
+                surface.blit(blur_surf, (blur_x - blur_size - 5, blur_y - blur_size - 5))
+
+    # 추진 화염 (뒤쪽)
+    if is_flying:
+        flame_base_x = x - int(dir_x * fist_size)
+        flame_base_y = y - int(dir_y * fist_size)
+
+        for f in range(8):
+            flame_phase = time_phase * 20 + f * 0.5
+            flame_len = 30 + 20 * math.sin(flame_phase)
+            flame_spread = (f - 3.5) * 4
+
+            perp_x = -dir_y
+            perp_y = dir_x
+
+            flame_end_x = flame_base_x - dir_x * flame_len + perp_x * flame_spread
+            flame_end_y = flame_base_y - dir_y * flame_len + perp_y * flame_spread
+
+            # 화염 색상 그라데이션
+            flame_ratio = f / 7
+            r = int(255 - 80 * flame_ratio)
+            g = int(180 - 100 * flame_ratio)
+            b = int(50 + 100 * flame_ratio)
+
+            pygame.draw.line(surface, (r, g, b),
+                             (flame_base_x, flame_base_y),
+                             (int(flame_end_x), int(flame_end_y)), 4 - f // 3)
+
+    # 주먹 외부 (다크 메탈)
+    pygame.draw.circle(surface, (50, 55, 65), (x, y), fist_size)
+
+    # 주먹 메인 바디
+    pygame.draw.circle(surface, (130, 135, 145), (x, y), fist_size - 3)
+    pygame.draw.circle(surface, (170, 175, 185), (x, y), fist_size - 7)
+
+    # 너클 플레이트 (전면)
+    knuckle_y_offset = int(dir_y * 15)
+    knuckle_x_offset = int(dir_x * 15)
+    plate_x = x + knuckle_x_offset
+    plate_y = y + knuckle_y_offset
+
+    pygame.draw.ellipse(surface, (90, 95, 105),
+                        (plate_x - 30, plate_y - 15, 60, 30))
+    pygame.draw.ellipse(surface, (140, 145, 155),
+                        (plate_x - 26, plate_y - 11, 52, 22))
+
+    # 손가락 마디 (접힌 상태로 전면에)
+    for i, offset in enumerate([-18, -6, 6, 18]):
+        perp_x = -dir_y
+        perp_y = dir_x
+        knuckle_x = plate_x + int(perp_x * offset)
+        knuckle_y = plate_y + int(perp_y * offset)
+
+        pygame.draw.circle(surface, (80, 85, 95), (knuckle_x, knuckle_y), 10)
+        pygame.draw.circle(surface, (130, 135, 145), (knuckle_x, knuckle_y), 7)
+        pygame.draw.circle(surface, (180, 185, 195), (knuckle_x, knuckle_y), 4)
+
+    # 하이라이트
+    hl_x = x + int(-dir_x * 10 + dir_y * 15)
+    hl_y = y + int(-dir_y * 10 - dir_x * 15)
+    pygame.draw.circle(surface, (220, 225, 235), (hl_x, hl_y), 8)
+    pygame.draw.circle(surface, (255, 255, 255), (hl_x, hl_y), 4)
+
+
+def _draw_mech_fist_grabbing(surface: pygame.Surface, x: int, y: int,
+                              time_phase: float) -> None:
+    """보스를 잡고 있는 주먹 렌더링"""
+    fist_size = 50
+
+    # 에너지 그립 글로우
+    glow_pulse = 0.7 + 0.3 * math.sin(time_phase * 6)
+    glow_radius = int(60 * glow_pulse)
+
+    glow_surf = pygame.Surface((glow_radius * 2 + 20, glow_radius * 2 + 20), pygame.SRCALPHA)
+    for r in range(4, 0, -1):
+        alpha = int(40 * r)
+        pygame.draw.circle(glow_surf, (255, 180, 80, alpha),
+                           (glow_radius + 10, glow_radius + 10), glow_radius * r // 4)
+    surface.blit(glow_surf, (x - glow_radius - 10, y - glow_radius - 10))
+
+    # 주먹 외부
+    pygame.draw.circle(surface, (60, 55, 50), (x, y), fist_size)
+    pygame.draw.circle(surface, (140, 135, 130), (x, y), fist_size - 4)
+    pygame.draw.circle(surface, (180, 175, 170), (x, y), fist_size - 8)
+
+    # 닫힌 손가락 (측면)
+    for i in range(4):
+        finger_angle = -0.8 + i * 0.4 + math.sin(time_phase * 3) * 0.05
+        finger_x = x + int(math.cos(finger_angle) * (fist_size - 5))
+        finger_y = y + int(math.sin(finger_angle) * (fist_size - 5))
+
+        # 손가락 세그먼트
+        pygame.draw.circle(surface, (100, 95, 90), (finger_x, finger_y), 12)
+        pygame.draw.circle(surface, (150, 145, 140), (finger_x, finger_y), 9)
+        pygame.draw.circle(surface, (180, 175, 170), (finger_x, finger_y), 6)
+
+    # 그립 에너지 링
+    ring_phase = time_phase * 4
+    for r in range(3):
+        ring_radius = fist_size + 15 + r * 12
+        ring_alpha = int(120 - r * 35)
+        ring_color = (255, 200, 100, ring_alpha)
+
+        ring_surf = pygame.Surface((ring_radius * 2 + 10, ring_radius * 2 + 10), pygame.SRCALPHA)
+        pygame.draw.circle(ring_surf, ring_color,
+                           (ring_radius + 5, ring_radius + 5), ring_radius, 2)
+        surface.blit(ring_surf, (x - ring_radius - 5, y - ring_radius - 5))
+
+
+def _draw_optimus_arm_wall_impact_effects(surface: pygame.Surface) -> None:
+    """벽 충돌 이펙트 렌더링 (플라즈마 파장, 스파크)"""
+    if not optimus_arm_wall_impact_active:
+        return
+
+    now_ms = pygame.time.get_ticks()
+    elapsed = now_ms - optimus_arm_wall_impact_start_ms
+    impact_x = optimus_arm_wall_impact_x
+    impact_y = optimus_arm_wall_impact_y
+
+    # 진행도 (0~1)
+    progress = min(1.0, elapsed / OPTIMUS_ARM_PLASMA_DURATION_MS)
+
+    # ========== 1. 충격 플래시 (초반) ==========
+    if elapsed < 150:
+        flash_alpha = int(200 * (1 - elapsed / 150))
+        flash_radius = int(80 + elapsed * 0.8)
+        flash_surf = pygame.Surface((flash_radius * 2, flash_radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(flash_surf, (255, 255, 255, flash_alpha),
+                           (flash_radius, flash_radius), flash_radius)
+        surface.blit(flash_surf, (int(impact_x) - flash_radius, int(impact_y) - flash_radius))
+
+    # ========== 2. 플라즈마 파장 링 ==========
+    num_rings = 4
+    for r in range(num_rings):
+        ring_delay = r * 80  # 각 링마다 딜레이
+        ring_elapsed = elapsed - ring_delay
+        if ring_elapsed < 0:
+            continue
+
+        ring_progress = min(1.0, ring_elapsed / 600)
+        ring_radius = int(30 + ring_progress * 180)
+        ring_alpha = int(180 * (1 - ring_progress))
+
+        if ring_alpha > 0:
+            # 플라즈마 색상 (시안 + 보라)
+            color_phase = ring_progress * math.pi + r * 0.5
+            r_val = int(100 + 100 * math.sin(color_phase))
+            g_val = int(150 + 80 * math.sin(color_phase + 1))
+            b_val = 255
+
+            ring_surf = pygame.Surface((ring_radius * 2 + 20, ring_radius * 2 + 20), pygame.SRCALPHA)
+
+            # 외부 글로우
+            pygame.draw.circle(ring_surf, (r_val, g_val, b_val, ring_alpha // 3),
+                               (ring_radius + 10, ring_radius + 10), ring_radius + 5, 8)
+            # 메인 링
+            pygame.draw.circle(ring_surf, (r_val, g_val, b_val, ring_alpha),
+                               (ring_radius + 10, ring_radius + 10), ring_radius, 3)
+            # 내부 밝은 링
+            pygame.draw.circle(ring_surf, (200, 230, 255, ring_alpha),
+                               (ring_radius + 10, ring_radius + 10), ring_radius - 2, 1)
+
+            surface.blit(ring_surf, (int(impact_x) - ring_radius - 10, int(impact_y) - ring_radius - 10))
+
+    # ========== 3. 전기 아크 (번개) ==========
+    if elapsed < 800:
+        arc_intensity = 1 - elapsed / 800
+        num_arcs = int(6 * arc_intensity) + 2
+
+        for a in range(num_arcs):
+            arc_angle = random.uniform(0, math.tau)
+            arc_length = random.uniform(60, 150) * arc_intensity
+
+            # 번개 경로 생성 (지그재그)
+            points = [(impact_x, impact_y)]
+            current_x, current_y = impact_x, impact_y
+            num_segments = random.randint(4, 8)
+
+            for s in range(num_segments):
+                seg_progress = (s + 1) / num_segments
+                target_x = impact_x + math.cos(arc_angle) * arc_length * seg_progress
+                target_y = impact_y + math.sin(arc_angle) * arc_length * seg_progress
+
+                # 랜덤 오프셋 추가
+                offset = random.uniform(-20, 20) * (1 - seg_progress)
+                perp_x = -math.sin(arc_angle)
+                perp_y = math.cos(arc_angle)
+
+                current_x = target_x + perp_x * offset
+                current_y = target_y + perp_y * offset
+                points.append((current_x, current_y))
+
+            # 번개 그리기
+            if len(points) >= 2:
+                arc_alpha = int(200 * arc_intensity)
+                # 외부 글로우
+                for i in range(len(points) - 1):
+                    pygame.draw.line(surface, (100, 150, 255),
+                                     (int(points[i][0]), int(points[i][1])),
+                                     (int(points[i+1][0]), int(points[i+1][1])), 5)
+                # 코어
+                for i in range(len(points) - 1):
+                    pygame.draw.line(surface, (200, 230, 255),
+                                     (int(points[i][0]), int(points[i][1])),
+                                     (int(points[i+1][0]), int(points[i+1][1])), 2)
+                # 밝은 코어
+                for i in range(len(points) - 1):
+                    pygame.draw.line(surface, (255, 255, 255),
+                                     (int(points[i][0]), int(points[i][1])),
+                                     (int(points[i+1][0]), int(points[i+1][1])), 1)
+
+    # ========== 4. 플라즈마 스파크 파티클 ==========
+    for spark in optimus_arm_plasma_sparks:
+        life_ratio = spark['life'] / spark['max_life']
+        alpha = int(255 * life_ratio)
+        size = max(1, int(spark['size'] * life_ratio))
+
+        # 색상 결정
+        color_phase = spark['color_phase']
+        if spark['type'] == 'spark':
+            # 밝은 흰색-시안 스파크
+            r = int(200 + 55 * math.sin(color_phase))
+            g = int(220 + 35 * math.sin(color_phase + 1))
+            b = 255
+        elif spark['type'] == 'plasma':
+            # 보라-시안 플라즈마
+            r = int(150 + 80 * math.sin(color_phase))
+            g = int(100 + 100 * math.sin(color_phase + 2))
+            b = int(200 + 55 * math.sin(color_phase + 1))
+        elif spark['type'] == 'arc':
+            # 밝은 전기 아크
+            r = int(180 + 75 * math.sin(color_phase * 3))
+            g = int(200 + 55 * math.sin(color_phase * 3 + 1))
+            b = 255
+        else:  # branch
+            r = 200
+            g = 220
+            b = 255
+
+        # 글로우 효과
+        glow_size = size * 3
+        spark_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+
+        # 외부 글로우
+        pygame.draw.circle(spark_surf, (r, g, b, alpha // 4),
+                           (glow_size, glow_size), glow_size)
+        # 중간 글로우
+        pygame.draw.circle(spark_surf, (r, g, b, alpha // 2),
+                           (glow_size, glow_size), size * 2)
+        # 코어
+        pygame.draw.circle(spark_surf, (min(255, r + 50), min(255, g + 30), 255, alpha),
+                           (glow_size, glow_size), size)
+        # 밝은 중심
+        if size > 2:
+            pygame.draw.circle(spark_surf, (255, 255, 255, alpha),
+                               (glow_size, glow_size), max(1, size // 2))
+
+        surface.blit(spark_surf, (int(spark['x']) - glow_size, int(spark['y']) - glow_size))
+
+    # ========== 5. 충격점에 꽂힌 주먹 흔적 ==========
+    if elapsed < 600:
+        crater_alpha = int(180 * (1 - elapsed / 600))
+        crater_size = 35
+
+        # 균열 효과
+        num_cracks = 8
+        for c in range(num_cracks):
+            crack_angle = c * math.tau / num_cracks + elapsed / 200
+            crack_length = 40 + 30 * math.sin(elapsed / 100 + c)
+
+            crack_end_x = impact_x + math.cos(crack_angle) * crack_length
+            crack_end_y = impact_y + math.sin(crack_angle) * crack_length
+
+            pygame.draw.line(surface, (60, 60, 80),
+                             (int(impact_x), int(impact_y)),
+                             (int(crack_end_x), int(crack_end_y)), 3)
+            pygame.draw.line(surface, (100, 100, 120),
+                             (int(impact_x), int(impact_y)),
+                             (int(crack_end_x), int(crack_end_y)), 1)
+
+        # 충격 크레이터
+        crater_surf = pygame.Surface((crater_size * 2, crater_size * 2), pygame.SRCALPHA)
+        pygame.draw.circle(crater_surf, (40, 45, 60, crater_alpha),
+                           (crater_size, crater_size), crater_size)
+        pygame.draw.circle(crater_surf, (80, 85, 100, crater_alpha),
+                           (crater_size, crater_size), crater_size - 5)
+        pygame.draw.circle(crater_surf, (60, 65, 80, crater_alpha),
+                           (crater_size, crater_size), crater_size, 3)
+        surface.blit(crater_surf, (int(impact_x) - crater_size, int(impact_y) - crater_size))
 
 
 # UFO 플레이어 이미지 로드 (기본 이미지)
@@ -35842,20 +36504,15 @@ def activate_quake(animated_bg=None):
         print(f"정글지진 발동 방지 - 서브 유예 기간 중 (남은 시간: {serve_grace_period/60:.1f}초)")
         return False
 
-    # Stage 2 정글지진 발동: 게이지 500이면 100% 발동 + 500 소모, 그 외 300 이상이면 300 소모
+    # Stage 2 정글지진 발동: 게이지 500 만땅일 때만 발동 + 500 소모
     if current_stage == 2:
         global last_quake_time, water_cannon_quake_delay
-        if boss_special_gauge >= 500:
-            # 게이지 만땅이면 100% 발동, 500 소모
-            boss_special_gauge = 0
-            print(f"정글지진 100% 발동! 게이지 500 소모 (현재: {boss_special_gauge}/500)")
-        elif boss_special_gauge >= 300:
-            # 게이지 300 이상이면 확률적 발동, 300 소모
-            boss_special_gauge = max(0, boss_special_gauge - 300)
-            print(f"정글지진 발동! 게이지 300 소모 (현재: {boss_special_gauge}/500)")
-        else:
-            print(f"정글지진 발동 실패 - 게이지 부족 (현재: {boss_special_gauge}/300)")
+        if boss_special_gauge < 500:
+            print(f"정글지진 발동 실패 - 게이지 부족 (현재: {boss_special_gauge}/500)")
             return False
+        # 게이지 만땅이면 발동, 500 소모
+        boss_special_gauge = 0
+        print(f"정글지진 발동! 게이지 500 소모 (현재: {boss_special_gauge}/500)")
         # 정글지진 발동 시간 기록 및 물대포 대기시간 설정 (7~12초 랜덤)
         last_quake_time = pygame.time.get_ticks()
         water_cannon_quake_delay = random.randint(WATER_CANNON_AFTER_QUAKE_MIN, WATER_CANNON_AFTER_QUAKE_MAX)
@@ -35883,7 +36540,7 @@ def activate_quake(animated_bg=None):
     except:
         pass  # 사운드 오류 발생 시 무시하고 계속 진행
     
-    #  정글지진 스킬 발동 시 바위 1-2개 즉시 소환
+    #  정글지진 스킬 발동 시 바위 2-4개 즉시 소환
     if current_stage == 2 and animated_bg_stage2 is not None:
         print("Stage 2 spawn_skill_rocks")
         animated_bg_stage2.spawn_skill_rocks()
@@ -36084,7 +36741,7 @@ def _create_water_cannon_fragments(rock):
         else:
             angle = random.uniform(0, math.pi * 2)  # 전 방향
 
-        speed = random.uniform(7, 12.6)  # 속도 30% 감소 (기존 10~18)
+        speed = random.uniform(5.6, 10.1)  # 속도 50% 감소 (기존 10~18)
 
         fragment = {
             'x': rock_x + random.uniform(-rock_size/3, rock_size/3),
@@ -36113,7 +36770,7 @@ def _create_water_cannon_fragments(rock):
     num_water_splashes = random.randint(15, 20)
     for i in range(num_water_splashes):
         angle = random.uniform(0, math.pi * 2)  # 전 방향
-        speed = random.uniform(4.2, 9.8)  # 속도 30% 감소 (기존 6~14)
+        speed = random.uniform(3.4, 7.8)  # 속도 50% 감소 (기존 6~14)
 
         splash = {
             'x': rock_x + random.uniform(-rock_size/2, rock_size/2),
@@ -44938,7 +45595,7 @@ def handle_player(keys):
             #  스피드부츠 효과 적용 (6% 증가)
             speed_multiplier = (1.0 + PERMANENT_SPEED_BOOST) if speedboots_obtained else 1.0
 
-            # 신속 스킬 효과 적용 (레벨당 4% 증가)
+            # 신속 스킬 효과 적용 (레벨당 5% 증가)
             speed_multiplier *= (1.0 + runtime_swiftness_bonus)
 
             # 헤르메스의 신발 효과 적용 (50% 증가)
@@ -87362,32 +88019,45 @@ def handle_ball():
                     except:
                         pass
                 else:
-                    # 일반 상황 - 화상 효과 적용
-                    player_burn_timer = 30  # 0.5초 (60 FPS 기준)
-                    player_burn_effect = True
+                    # 일반 상황 - 다단히트 시스템 (파편이 플레이어를 관통하며 계속 히트)
+                    # 파편별 히트 쿨다운 체크 (0.1초 간격으로 히트)
+                    fragment_id = fragment.get('fragment_id', id(fragment))  # 파편 고유 ID
+                    current_time = pygame.time.get_ticks()
 
-                    # 넉백 효과 - 부드러운 넉백을 위한 오프셋 설정
-                    player_knockback_y = apply_knockback_resist(_scale_knockback(-20))  # 20픽셀 위로 넉백
+                    # 히트 쿨다운 딕셔너리 초기화 (없으면 생성)
+                    if not hasattr(animated_bg_stage4, 'fragment_hit_cooldowns'):
+                        animated_bg_stage4.fragment_hit_cooldowns = {}
 
-                    # 게이지 감소 (붉은 달 파편: 50 -> 2로 대폭 완화)
-                    special_gauge = max(0, special_gauge - 2)
+                    # 마지막 히트 시간 확인
+                    last_hit_time = animated_bg_stage4.fragment_hit_cooldowns.get(fragment_id, 0)
+                    hit_cooldown_ms = 100  # 0.1초 (100ms) 간격으로 다단히트
 
-                    # 파편 제거 (다단히트 방지)
-                    for bg_fragment in animated_bg_stage4.moon_fragments:
-                        if (abs(bg_fragment['x'] - fragment['x']) < 5 and
-                            abs(bg_fragment['y'] - fragment['y']) < 5):
-                            bg_fragment['impact'] = True
-                            break
+                    if current_time - last_hit_time >= hit_cooldown_ms:
+                        # 쿨다운 완료 - 히트 적용!
+                        animated_bg_stage4.fragment_hit_cooldowns[fragment_id] = current_time
 
-                    # 화상 효과음 재생
-                    try:
-                        play_sound_with_volume(SOUND_BIRDKILL)  # 임시로 새 죽는 소리 사용
-                    except:
-                        pass
+                        # 화상 효과 적용
+                        player_burn_timer = 30  # 0.5초 (60 FPS 기준)
+                        player_burn_effect = True
 
-                    print(f"플레이어 화상! 게이지 -2, 0.5초 후딜 + 넉백")
-                    print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}), 패들: ({PLAYER.centerx}, {PLAYER.centery})")
-                break  # 한 프레임에 하나의 파편만 처리
+                        # 넉백 효과 - 부드러운 넉백을 위한 오프셋 설정
+                        player_knockback_y = apply_knockback_resist(_scale_knockback(-20))  # 20픽셀 위로 넉백
+
+                        # 게이지 감소 (다단히트이므로 데미지 유지)
+                        special_gauge = max(0, special_gauge - 2)
+
+                        # 파편 제거하지 않음 - 관통하며 계속 히트!
+                        # (파편은 화면 밖으로 나가거나 수명이 다하면 자연 소멸)
+
+                        # 화상 효과음 재생
+                        try:
+                            play_sound_with_volume(SOUND_BIRDKILL)  # 임시로 새 죽는 소리 사용
+                        except:
+                            pass
+
+                        print(f"🔥 플레이어 다단히트! 게이지 -2, 화상 + 넉백")
+                        print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}), 패들: ({PLAYER.centerx}, {PLAYER.centery})")
+                # break 제거 - 다단히트를 위해 모든 파편 검사 (관통 시스템)
 
         # 4. 보스와 반사된 달 크레이터 파편 충돌 (스테이지 4 대쉬 반사 시스템)
         if current_stage == 4 and animated_bg_stage4:
@@ -89550,11 +90220,13 @@ def handle_ball():
             pass
         elif not new_boss_mode_active and current_stage == 2:
             time_now = pygame.time.get_ticks()
-            # 정글지진 스킬 발동 체크
-            if (time_now - quake_last_used_time >= QUAKE_COOLDOWN) and random.random() <= 0.15:
-                if activate_quake(animated_bg_stage2):
-                    show_speech("정글지진!", duration=quake_duration)
-                    quake_last_used_time = time_now
+            # 정글지진 스킬 발동 체크: 게이지 500이면 100% 발동
+            if time_now - quake_last_used_time >= QUAKE_COOLDOWN:
+                # 게이지 500이면 100% 확률, 그 외는 발동 안 함 (activate_quake에서 체크)
+                if boss_special_gauge >= 500:
+                    if activate_quake(animated_bg_stage2):
+                        show_speech("정글지진!", duration=quake_duration)
+                        quake_last_used_time = time_now
             # 물대포는 게임 루프에서 매 프레임 체크 (98343줄 참조)
         elif not new_boss_mode_active and current_stage == 3:
             # 패들 충돌 시 충전된 게이지가 500 이상이 되었을 때만 필살기 준비 상태로 전환

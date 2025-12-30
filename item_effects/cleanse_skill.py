@@ -1,6 +1,6 @@
 """
 클렌즈 스킬 - 스매셔 전용 상태이상 해제 스킬
-N키를 빠르게 2번 누르면 발동
+W키(ㅈ키) 1번 누르면 발동
 게이지 소모: 100
 효과: 모든 상태이상(스턴, 둔화, 넉백) 즉시 해제
 """
@@ -11,7 +11,6 @@ import random
 
 # 클렌즈 스킬 설정
 CLEANSE_GAUGE_COST = 100           # 게이지 소모량
-CLEANSE_DOUBLE_TAP_WINDOW = 300    # 더블탭 인식 시간 (ms)
 CLEANSE_COOLDOWN = 60              # 쿨다운 (프레임, 1초)
 CLEANSE_IMMUNITY_DURATION = 60     # 면역 지속 시간 (프레임, 1초)
 
@@ -19,8 +18,7 @@ class CleanseSkill:
     """스매셔 클렌즈 스킬 - 플라즈마 파동으로 상태이상 해제"""
 
     def __init__(self):
-        # 더블탭 감지
-        self.last_n_press_time = 0
+        # 쿨다운
         self.cooldown_timer = 0
 
         # 면역 상태 (클렌즈 발동 후 1초간 상태이상 면역)
@@ -55,16 +53,9 @@ class CleanseSkill:
             return False
         return True
 
-    def check_double_tap(self, current_time):
-        """N키 더블탭 감지"""
-        if current_time - self.last_n_press_time <= CLEANSE_DOUBLE_TAP_WINDOW:
-            # 더블탭 성공
-            self.last_n_press_time = 0
-            return True
-        else:
-            # 첫 번째 탭 기록
-            self.last_n_press_time = current_time
-            return False
+    def check_key_press(self):
+        """J키 단일 입력 감지 (항상 True 반환, 발동 가능 여부는 can_activate에서 체크)"""
+        return True
 
     def activate(self, player_x, player_y):
         """클렌즈 스킬 발동"""
@@ -347,7 +338,6 @@ class CleanseSkill:
 
     def reset(self):
         """스킬 상태 초기화"""
-        self.last_n_press_time = 0
         self.cooldown_timer = 0
         self.immunity_timer = 0
         self.active = False

@@ -39,7 +39,7 @@ RAIN_PARTICLE_LENGTH_MIN = 10  # 빗방울 최소 길이
 RAIN_PARTICLE_LENGTH_MAX = 25  # 빗방울 최대 길이
 
 # 우박 (Hail) - 넉백 효과 (화염탄과 동일한 수치)
-HAIL_PARTICLE_COUNT = 25  # 우박 개수 (빗방울보다 적음)
+HAIL_PARTICLE_COUNT = 18  # 우박 개수 (빗방울보다 적음)
 HAIL_SPAWN_INTERVAL = 30  # 우박 생성 간격 (프레임)
 HAIL_FALL_SPEED_MIN = 6  # 우박 최소 낙하 속도
 HAIL_FALL_SPEED_MAX = 10  # 우박 최대 낙하 속도
@@ -50,15 +50,15 @@ HAIL_KNOCKBACK_STRENGTH = 12  # 넉백 강도 (화염탄과 동일)
 HAIL_STUN_DURATION = 0.3  # 스턴 지속 시간 (초) - 화염탄과 동일
 HAIL_HIT_COOLDOWN = 45  # 같은 우박에 연속 피격 방지 쿨다운 (프레임)
 
-WIND_MIN_DURATION = 2
+WIND_MIN_DURATION = 1
 WIND_MAX_DURATION = 3
-FIRE_MIN_DURATION = 2
+FIRE_MIN_DURATION = 1
 FIRE_MAX_DURATION = 3
-ICE_MIN_DURATION = 2
+ICE_MIN_DURATION = 1
 ICE_MAX_DURATION = 3
-RAIN_MIN_DURATION = 2
+RAIN_MIN_DURATION = 1
 RAIN_MAX_DURATION = 3
-HAIL_MIN_DURATION = 2
+HAIL_MIN_DURATION = 1
 HAIL_MAX_DURATION = 3
 
 # ============== Global State ==============

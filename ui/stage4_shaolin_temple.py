@@ -60,6 +60,7 @@ class ShaolinTempleBackground:
         self.moon_fragment_timer = 0  # Timer for spawning fragments
         self.moon_fragment_interval = random.randint(120, 900)  # 2-15 seconds at 60 FPS
         self.moon_fragment_active = False  # Only active after moon turns red
+        self.fragment_hit_cooldowns = {}  # 다단히트용 파편별 히트 쿨다운 (fragment_id -> last_hit_time)
         
         # Moon pulsing effect when firing fragments
         self.moon_pulse_timer = 0  # Timer for pulsing animation
@@ -5093,7 +5094,11 @@ class ShaolinTempleBackground:
             vx = (dx / distance) * speed
             vy = (dy / distance) * speed
             
+            # 다단히트용 고유 ID 생성 (타임스탬프 + 랜덤)
+            fragment_id = pygame.time.get_ticks() * 1000 + random.randint(0, 999)
+
             fragment = {
+                'fragment_id': fragment_id,  # 다단히트 쿨다운 추적용 고유 ID
                 'x': moon_x + random.randint(-30, 30),  # Start near moon
                 'y': moon_y + random.randint(-30, 30),
                 'vx': vx,
@@ -5211,6 +5216,10 @@ class ShaolinTempleBackground:
                     fragment['shockwave_radius'] = (30 - fragment['impact_timer']) * 3
                 else:
                     # Remove fragment after impact
+                    # 다단히트 쿨다운 딕셔너리에서도 정리
+                    fragment_id = fragment.get('fragment_id', id(fragment))
+                    if fragment_id in self.fragment_hit_cooldowns:
+                        del self.fragment_hit_cooldowns[fragment_id]
                     self.moon_fragments.remove(fragment)
 
     def _get_temple_hitbox(self) -> pygame.Rect:
@@ -5462,11 +5471,21 @@ class ShaolinTempleBackground:
         # Reset destruction wave
         self.destruction_wave = None
         self.destruction_wave_charging = False
-        
+
+        # Reset building sink/crush animation variables (건물 찌그러짐/가라앉음)
+        self.building_sink_amount = 0.0
+        self.building_crush_factor = 1.0
+        self.level_crush_offsets = [0, 0, 0, 0, 0]
+        self.roof_fragments = []
+        self.wall_cracks = []
+        self.dust_clouds = []
+        self.spire_fallen = False
+        self.spire_fall_angle = 0
+
         # Reset performance mode
         self.performance_mode = False
         self.fps_counter = 0
-        
+
         # Clear caches
         self.red_moon_cache = None
         self.red_moon_cache_intensity = -1
@@ -5634,6 +5653,7 @@ class ShaolinTempleBackground:
                     'x': fragment['x'],
                     'y': fragment['y'],
                     'radius': fragment['size'],
+                    'fragment_id': fragment.get('fragment_id', id(fragment)),  # 다단히트용 고유 ID
                 })
         return active_fragments
 

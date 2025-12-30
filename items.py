@@ -1828,7 +1828,8 @@ def spawn_random_item():
         "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt",
         "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
-        "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "bulletproof_hat", "spiked_helmet"
+        "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "bulletproof_hat", "spiked_helmet",
+        "gold_bar"
     }
 
     for item in available_items:
@@ -2004,7 +2005,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                 continue
 
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "bulletproof_hat", "spiked_helmet"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "bulletproof_hat", "spiked_helmet", "gold_bar"]:
                 # 패시브 아이템 처리
                 print(f"🔍 DEBUG: {item_name}을(를) 패시브 아이템으로 처리 중...")
                 if store_passive_func:
@@ -2267,8 +2268,88 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                 # 메인 숫자
                 screen.blit(countdown_text, text_rect)
 
-            # 선택 슬롯 강조
-            if i == selected_index:
+            # ✨ 연금술 발동 시 화려한 반짝이는 테두리 효과
+            alchemy_glow_active = False
+            if alchemy_notices:
+                for notice in alchemy_notices:
+                    if notice.get("slot_index") == i:
+                        remaining = notice.get("timer", 0)
+                        duration = max(1, notice.get("duration", 60))
+                        if remaining > 0:
+                            alchemy_glow_active = True
+                            ratio = remaining / duration
+                            # 빠른 반짝임 (초당 8회)
+                            time_ms = pygame.time.get_ticks()
+                            pulse = math.sin(time_ms * 0.05) * 0.5 + 0.5  # 0~1 진동
+
+                            # 무지개 색상 변화 (시간에 따라)
+                            hue_shift = (time_ms * 0.3) % 360
+                            # HSV to RGB 간이 변환
+                            h = hue_shift / 60.0
+                            c = 1.0
+                            x_c = c * (1 - abs(h % 2 - 1))
+                            if h < 1:
+                                r, g, b = c, x_c, 0
+                            elif h < 2:
+                                r, g, b = x_c, c, 0
+                            elif h < 3:
+                                r, g, b = 0, c, x_c
+                            elif h < 4:
+                                r, g, b = 0, x_c, c
+                            elif h < 5:
+                                r, g, b = x_c, 0, c
+                            else:
+                                r, g, b = c, 0, x_c
+
+                            base_color = (int(r * 255), int(g * 255), int(b * 255))
+
+                            # 글로우 강도 (펄스 + 페이드아웃)
+                            glow_intensity = pulse * ratio
+
+                            # 바깥쪽 글로우 (넓은 영역)
+                            glow_margin = 6
+                            glow_surface = pygame.Surface(
+                                (SLOT_W + glow_margin * 2, SLOT_H + glow_margin * 2),
+                                pygame.SRCALPHA
+                            )
+                            glow_alpha = int(150 * glow_intensity)
+                            glow_color = (*base_color, glow_alpha)
+                            pygame.draw.rect(glow_surface, glow_color, glow_surface.get_rect(),
+                                           border_radius=6)
+                            screen.blit(glow_surface, (x - glow_margin, y - glow_margin))
+
+                            # 중간 글로우 레이어
+                            mid_margin = 4
+                            mid_surface = pygame.Surface(
+                                (SLOT_W + mid_margin * 2, SLOT_H + mid_margin * 2),
+                                pygame.SRCALPHA
+                            )
+                            mid_alpha = int(200 * glow_intensity)
+                            # 흰색과 베이스 색상 혼합
+                            mixed_r = min(255, base_color[0] + 100)
+                            mixed_g = min(255, base_color[1] + 100)
+                            mixed_b = min(255, base_color[2] + 100)
+                            mid_color = (mixed_r, mixed_g, mixed_b, mid_alpha)
+                            pygame.draw.rect(mid_surface, mid_color, mid_surface.get_rect(),
+                                           width=3, border_radius=4)
+                            screen.blit(mid_surface, (x - mid_margin, y - mid_margin))
+
+                            # 화려한 테두리 (두께 변화)
+                            border_width = int(2 + pulse * 2)
+                            bright_color = (
+                                min(255, base_color[0] + int(pulse * 100)),
+                                min(255, base_color[1] + int(pulse * 100)),
+                                min(255, base_color[2] + int(pulse * 100))
+                            )
+                            pygame.draw.rect(screen, bright_color,
+                                           (x - border_margin, y - border_margin,
+                                            SLOT_W + border_margin * 2, SLOT_H + border_margin * 2),
+                                           border_width)
+
+                        break
+
+            # 선택 슬롯 강조 (연금술 효과가 없을 때만)
+            if i == selected_index and not alchemy_glow_active:
                 pygame.draw.rect(screen, (255, 100, 100),
                                  (x - border_margin, y - border_margin,
                                   SLOT_W + border_margin * 2, SLOT_H + border_margin * 2), 3)
