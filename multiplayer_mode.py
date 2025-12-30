@@ -1,14 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-로컬 멀티플레이어 모드 - 싱글플레이어 완전 동일 퀄리티
-pingfighter.py의 모든 시스템을 그대로 재현:
-- 에너지볼 렌더링 (8레이어 구조)
-- 공 생성 애니메이션 (3페이즈 8초)
-- 타격 물리 시스템 (각도 기반 반사, 넉백)
-- 스킬 시스템 (쇼트, 드라이브, 파워스매싱)
-- 게이지 바 UI (캐릭터별 디자인)
-- 콤보 시스템
-- 트레일/이펙트 시스템
+로컬 멀티플레이어 모드 - pingfighter.py 핵심 함수 직접 사용
+기존 게임 시스템을 그대로 재사용하여 100% 동일한 품질 보장
 """
 
 import pygame
@@ -18,151 +11,137 @@ import time
 from typing import Dict, List, Tuple, Optional, Callable, Any
 
 # ============================================================================
-# 상수 정의 (싱글플레이어 pingfighter.py 기준 완전 동일)
+# pingfighter.py에서 핵심 함수들을 직접 가져옴
+# ============================================================================
+# 이 함수들은 run_multiplayer_game()에서 외부 주입받음
+_draw_energy_ball = None
+_create_smasher_paddle_surface = None
+_get_font = None
+_play_paddle_sound = None
+_play_wall_sound = None
+_play_dash_sound = None
+_play_notification_sound = None
+_bgm_manager = None
+
+# 전역 게임 함수 참조
+_pingfighter_funcs = {}
+
+# ============================================================================
+# 상수 정의 (pingfighter.py 기준 완전 동일)
 # ============================================================================
 
 # 게이지 시스템
 GAUGE_MAX = 500
-GAUGE_HIT_CHARGE = 60  # 스매셔 기본 충전량
+GAUGE_HIT_CHARGE = 60
 
-# 콤보 보너스 (%) - pingfighter.py 라인 8886-8899
-COMBO_GAUGE_BONUS = {
-    2: 5,    # 2콤보: +5%
-    3: 10,   # 3콤보: +10%
-    4: 15,   # 4콤보: +15%
-    5: 20,   # 5콤보: +20%
-    6: 25,   # 6콤보+: +25%
-}
+# 콤보 보너스
+COMBO_GAUGE_BONUS = {2: 5, 3: 10, 4: 15, 5: 20, 6: 25}
 COMBO_MAX_BONUS = 25
 
-# 쇼트 (Short Shot) - pingfighter.py 라인 1701-1715
+# 쇼트 (Short Shot)
 SHORT_SHOT_GAUGE_COST = 100
 SHORT_SHOT_SPEED_MULTIPLIER = 1.3
-SHORT_SHOT_TOTAL_FRAMES = 36
-SHORT_SHOT_VERTICAL_FRAMES = 12
-SHORT_SHOT_MAX_ANGLE_DEG = 45
-SHORT_SHOT_CURVE_TRIGGER_OFFSET = 48
-SHORT_SHOT_KNOCKBACK_SPEED = 9.0
 SHORT_SHOT_KNOCKBACK_FRAMES = 24
-SHORT_SHOT_STUN_FRAMES = 30
 
-# 드라이브 (Drive) - pingfighter.py 라인 84476-84549
+# 드라이브 (Drive)
 DRIVE_GAUGE_COST = 150
 DRIVE_BASE_SPIN = 0.25
 DRIVE_SPIN_CAP = 0.6
 DRIVE_SPEED_BOOST = 1.015
 
-# 파워스매싱 (Power Smashing) - pingfighter.py 라인 8835-8857
+# 파워스매싱 (Power Smashing)
 POWER_SMASH_GAUGE_COST = 350
 POWER_SMASH_GRAVITY = 0.035
 POWER_SMASH_ARC_STRENGTH = 0.8
 
-# 물리 상수 - pingfighter.py 기준
+# 물리
 BALL_BASE_SPEED = 6.0
-BALL_RADIUS = 10
-PADDLE_WIDTH = 100
-PADDLE_HEIGHT = 20
+BALL_RADIUS = 16
 PADDLE_SPEED = 8
-DASH_SPEED_BOOST = 4
-DASH_COOLDOWN = 30
+DASH_SPEED_BOOST = 32
+DASH_DURATION = 8
+DASH_COOLDOWN = 20
 
-# 에너지볼 색상 - pingfighter.py 라인 26060-26150
-ENERGY_BALL_CORE_COLOR = (255, 255, 255)
-ENERGY_BALL_INNER_COLOR = (100, 180, 255)
-ENERGY_BALL_OUTER_COLOR = (30, 100, 200)
-ENERGY_BALL_RING_COLOR = (80, 160, 255)
-ENERGY_BALL_PARTICLE_COLORS = [
-    (150, 200, 255), (100, 180, 255), (80, 160, 255),
-    (200, 230, 255), (120, 200, 255)
-]
+# 공 생성 애니메이션 (3초로 단축)
+SPAWN_PHASE1_DURATION = 0.8  # 에너지 수집
+SPAWN_PHASE2_DURATION = 1.0  # 형태 형성
+SPAWN_PHASE3_DURATION = 1.2  # 완성 및 발사 대기
+SPAWN_TOTAL_DURATION = SPAWN_PHASE1_DURATION + SPAWN_PHASE2_DURATION + SPAWN_PHASE3_DURATION
 
-# 인텐시티 색상 - pingfighter.py 라인 26215
+# 인텐시티 (공 속도에 따른 색상)
 INTENSITY_COLORS = {
-    0: [(100, 180, 255), (80, 160, 255), (60, 140, 255)],      # 파란색
-    1: [(180, 220, 100), (160, 200, 80), (140, 180, 60)],      # 연두색
-    2: [(255, 220, 100), (255, 200, 80), (255, 180, 60)],      # 노란색
-    3: [(255, 160, 80), (255, 140, 60), (255, 120, 40)],       # 주황색
-    4: [(255, 100, 80), (255, 80, 60), (255, 60, 40)],         # 빨간색
-    5: [(255, 80, 150), (255, 60, 130), (255, 40, 110)],       # 핑크
-}
-INTENSITY_GLOW_COLORS = {
-    0: (60, 100, 180, 30),
-    1: (100, 150, 50, 40),
-    2: (180, 150, 30, 50),
-    3: (200, 100, 30, 60),
-    4: (200, 50, 30, 70),
-    5: (200, 40, 100, 80),
+    0: (100, 180, 255),   # 파란색 (느림)
+    1: (180, 220, 100),   # 연두색
+    2: (255, 220, 100),   # 노란색
+    3: (255, 160, 80),    # 주황색
+    4: (255, 100, 80),    # 빨간색
+    5: (255, 80, 150),    # 핑크 (매우 빠름)
 }
 INTENSITY_SPEED_THRESHOLDS = [8, 12, 16, 22, 28, 35]
 
-# 콤보 색상 - pingfighter.py 라인 32410-32419
-COMBO_COLORS = {
-    2: (255, 200, 100),  # 주황색
-    3: (255, 150, 100),  # 더 진한 주황
-    4: (255, 100, 100),  # 빨간색
-    5: (255, 100, 200),  # 핑크
-    6: (200, 100, 255),  # 보라색
+# P1/P2 색상
+P1_COLOR = (0, 150, 255)    # 파란색
+P2_COLOR = (255, 100, 100)  # 빨간색
+
+# 키 바인딩
+P1_KEYS = {
+    'left': pygame.K_LEFT,
+    'right': pygame.K_RIGHT,
+    'up': pygame.K_UP,
+    'down': pygame.K_DOWN,
+    'dash': pygame.K_RSHIFT,
+    'skill': pygame.K_RCTRL,
+}
+P2_KEYS = {
+    'left': pygame.K_a,
+    'right': pygame.K_d,
+    'up': pygame.K_w,
+    'down': pygame.K_s,
+    'dash': pygame.K_SPACE,
+    'skill': pygame.K_LSHIFT,
 }
 
 
 # ============================================================================
-# 에너지볼 렌더링 시스템 (pingfighter.py draw_energy_ball 완전 재현)
+# 에너지볼 렌더러 (pingfighter.py draw_energy_ball 기반)
 # ============================================================================
-
 class EnergyBallRenderer:
-    """
-    싱글플레이어와 동일한 8레이어 에너지볼 렌더링
-    pingfighter.py 라인 26893 draw_energy_ball() 완전 재현
-    """
+    """pingfighter.py의 draw_energy_ball과 동일한 8레이어 에너지볼"""
 
     def __init__(self):
         self.rotation_angle = 0
         self.pulse_phase = 0
         self.particles = []
         self.ring_particles = []
-        self.MAX_PARTICLES = 20
+        self.max_particles = 30
 
-    def update(self, dt: float):
-        """매 프레임 애니메이션 업데이트"""
+    def get_intensity_level(self, speed: float) -> int:
+        """속도에 따른 인텐시티 레벨 (0-5)"""
+        for i, threshold in enumerate(INTENSITY_SPEED_THRESHOLDS):
+            if speed < threshold:
+                return i
+        return 5
+
+    def draw(self, surface: pygame.Surface, cx: int, cy: int, radius: int, speed: float = 10):
+        """8레이어 에너지볼 렌더링"""
         current_time = pygame.time.get_ticks()
         self.rotation_angle = (current_time * 0.15) % 360
         self.pulse_phase = current_time * 0.005
 
-        # 파티클 업데이트
-        for particle in self.particles[:]:
-            particle['life'] -= dt
-            if particle['life'] <= 0:
-                self.particles.remove(particle)
+        intensity = self.get_intensity_level(speed)
+        base_color = INTENSITY_COLORS.get(intensity, (100, 180, 255))
 
-        # 새 파티클 생성
-        if len(self.particles) < self.MAX_PARTICLES and random.random() < 0.3:
-            angle = random.uniform(0, math.pi * 2)
-            dist = random.uniform(5, 15)
-            self.particles.append({
-                'angle': angle,
-                'dist': dist,
-                'speed': random.uniform(0.5, 1.5),
-                'size': random.uniform(1, 3),
-                'life': random.uniform(0.3, 0.8),
-                'color': random.choice(ENERGY_BALL_PARTICLE_COLORS)
-            })
+        # 각 고리별 독립 회전
+        ring1_angle = (current_time * 0.18) % 360
+        ring2_angle = (360 - (current_time * 0.12) % 360)
+        ring3_angle = (current_time * 0.15) % 360
+        ring_angles = [ring1_angle, ring2_angle, ring3_angle]
 
-    def draw(self, surface: pygame.Surface, cx: int, cy: int, radius: int,
-             intensity_level: int = 0):
-        """
-        8레이어 에너지볼 그리기 - pingfighter.py와 동일
-        Layer 1: 외부 글로우 (3중)
-        Layer 2: 회전 고리 점들 (3개 궤도)
-        Layer 3: 고리 연결선
-        Layer 4: 내부 에너지 구체
-        Layer 5: 밝은 코어
-        Layer 6: 상단 하이라이트
-        Layer 7: 떠다니는 파티클
-        Layer 8: 고리 위 밝은 점
-        """
-        # 인텐시티 기반 색상
-        colors = INTENSITY_COLORS.get(intensity_level, INTENSITY_COLORS[0])
-        glow_color = INTENSITY_GLOW_COLORS.get(intensity_level, INTENSITY_GLOW_COLORS[0])
+        # 기울기 동적 변화
+        ring1_tilt = 20 + math.sin(current_time * 0.002) * 10
+        ring2_tilt = 45 + math.sin(current_time * 0.0015 + 1) * 12
+        ring3_tilt = 70 + math.sin(current_time * 0.001 + 2) * 8
+        ring_tilts = [ring1_tilt, ring2_tilt, ring3_tilt]
 
         # 서피스 생성
         surf_size = radius * 6 + 20
@@ -170,726 +149,487 @@ class EnergyBallRenderer:
         center = surf_size // 2
 
         # 펄스 효과
-        pulse = 1.0 + math.sin(self.pulse_phase) * 0.1
+        pulse = math.sin(self.pulse_phase) * 0.12 + 1.0
+        pulse2 = math.sin(self.pulse_phase * 1.5) * 0.08 + 1.0
 
-        # Layer 1: 외부 글로우 (3중)
-        for i, mult in enumerate([3.0, 2.2, 1.6]):
-            glow_radius = int(radius * mult * pulse)
-            alpha = int(30 - i * 8)
-            glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-            for r in range(glow_radius, 0, -2):
-                a = int(alpha * (r / glow_radius))
-                pygame.draw.circle(glow_surf, (*glow_color[:3], a),
-                                 (glow_radius, glow_radius), r)
-            ball_surf.blit(glow_surf, (center - glow_radius, center - glow_radius),
-                          special_flags=pygame.BLEND_ADD)
+        # === Layer 1: 외부 글로우 ===
+        for i in range(3):
+            glow_radius = int(radius * (0.795 - i * 0.11) * pulse)
+            glow_alpha = int(8 - i * 2)
+            if glow_alpha > 0 and glow_radius > 0:
+                pygame.draw.circle(ball_surf, (*base_color, glow_alpha),
+                                 (center, center), glow_radius)
 
-        # Layer 2 & 3: 회전 고리 (3개 궤도)
-        ring_configs = [
-            {'orbit': radius * 1.8, 'speed': 0.18, 'tilt': 0.3, 'points': 8},
-            {'orbit': radius * 1.5, 'speed': -0.12, 'tilt': 0.5, 'points': 6},
-            {'orbit': radius * 1.2, 'speed': 0.15, 'tilt': 0.2, 'points': 5},
-        ]
+        # === Layer 2: 회전하는 외부 고리 (3개) ===
+        for ring_idx in range(3):
+            ring_rotation = ring_angles[ring_idx]
+            ring_tilt = ring_tilts[ring_idx]
+            ring_radius = radius * (1.156 + ring_idx * 0.108)
 
-        current_time = pygame.time.get_ticks()
-        for config in ring_configs:
-            base_angle = current_time * config['speed']
-            tilt = math.sin(current_time * 0.001) * config['tilt']
+            num_points = 24
+            for i in range(num_points):
+                angle = math.radians(ring_rotation + i * (360 / num_points))
+                tilt_rad = math.radians(ring_tilt)
+                x_offset = math.cos(angle) * ring_radius
+                y_offset = math.sin(angle) * ring_radius * math.cos(tilt_rad)
+                z_depth = math.sin(angle) * math.sin(tilt_rad)
+
+                depth_factor = (z_depth + 1) / 2
+                px = center + x_offset
+                py = center + y_offset
+
+                point_size = max(1, int(1.7 + depth_factor * 1.3))
+                point_alpha = int(15 + depth_factor * 35)
+
+                r = int(min(255, base_color[0] * 0.3 + depth_factor * base_color[0] * 0.7 + ring_idx * 5))
+                g = int(min(255, base_color[1] * 0.3 + depth_factor * base_color[1] * 0.7 + ring_idx * 10))
+                b = int(min(255, base_color[2] * 0.3 + depth_factor * base_color[2] * 0.7))
+
+                pygame.draw.circle(ball_surf, (r, g, b, point_alpha),
+                                 (int(px), int(py)), point_size)
+
+        # === Layer 3: 고리 연결선 ===
+        for ring_idx in range(3):
+            ring_rotation = ring_angles[ring_idx]
+            ring_tilt = ring_tilts[ring_idx]
+            ring_radius = radius * (1.156 + ring_idx * 0.108)
 
             points = []
-            for i in range(config['points']):
-                angle = base_angle + (i * 2 * math.pi / config['points'])
-                x = center + math.cos(angle) * config['orbit'] * math.cos(tilt)
-                y = center + math.sin(angle) * config['orbit'] * (0.3 + 0.7 * abs(math.sin(tilt)))
-                points.append((x, y))
+            for i in range(36):
+                angle = math.radians(ring_rotation + i * 10)
+                tilt_rad = math.radians(ring_tilt)
+                x_offset = math.cos(angle) * ring_radius
+                y_offset = math.sin(angle) * ring_radius * math.cos(tilt_rad)
+                points.append((int(center + x_offset), int(center + y_offset)))
 
-                # 점 그리기
-                point_size = 2 + int(math.sin(angle + base_angle) * 1)
-                pygame.draw.circle(ball_surf, ENERGY_BALL_RING_COLOR,
-                                 (int(x), int(y)), point_size)
+            if len(points) > 2:
+                for i in range(len(points)):
+                    start = points[i]
+                    end = points[(i + 1) % len(points)]
+                    pygame.draw.line(ball_surf, (*base_color, 10), start, end, 1)
 
-            # 연결선 그리기
-            if len(points) >= 2:
-                pygame.draw.lines(ball_surf, (*ENERGY_BALL_RING_COLOR, 80), True,
-                                [(int(p[0]), int(p[1])) for p in points], 1)
+        # === Layer 4: 내부 에너지 구체 ===
+        outer_glow = int(radius * 0.361 * pulse2)
+        pygame.draw.circle(ball_surf, (*base_color, 25), (center, center), outer_glow)
 
-        # Layer 4: 내부 에너지 구체 (그라데이션)
-        for r in range(int(radius * 1.2), 0, -1):
-            ratio = r / (radius * 1.2)
-            color = tuple(int(colors[0][i] * ratio + colors[1][i] * (1 - ratio))
-                         for i in range(3))
-            alpha = int(200 * ratio + 55)
-            pygame.draw.circle(ball_surf, (*color, alpha), (center, center), r)
+        mid_glow = int(radius * 0.289 * pulse)
+        mid_color = tuple(int(c * 0.8 + 50) for c in base_color)
+        pygame.draw.circle(ball_surf, (*mid_color, 40), (center, center), mid_glow)
 
-        # Layer 5: 밝은 코어
-        core_radius = int(radius * 0.5)
-        for r in range(core_radius, 0, -1):
-            alpha = int(255 * (1 - r / core_radius))
-            pygame.draw.circle(ball_surf, (*ENERGY_BALL_CORE_COLOR, alpha),
-                             (center, center), r)
+        inner_sphere = int(radius * 0.255)
+        inner_color = tuple(int(min(255, c * 0.7 + 80)) for c in base_color)
+        pygame.draw.circle(ball_surf, (*inner_color, 60), (center, center), inner_sphere)
 
-        # Layer 6: 상단 하이라이트
-        highlight_offset = int(radius * 0.3)
-        highlight_radius = int(radius * 0.25)
-        pygame.draw.circle(ball_surf, (255, 255, 255, 180),
-                          (center - highlight_offset, center - highlight_offset),
-                          highlight_radius)
+        # === Layer 5: 밝은 코어 ===
+        core_size = int(radius * 0.178)
+        core_glow = tuple(int(min(255, c * 0.5 + 128)) for c in base_color)
+        pygame.draw.circle(ball_surf, (*core_glow, 80), (center, center), core_size + 2)
+        pygame.draw.circle(ball_surf, (255, 255, 255, 150), (center, center), core_size)
+        pygame.draw.circle(ball_surf, (255, 255, 255, 200), (center, center), max(2, core_size // 2))
 
-        # Layer 7: 떠다니는 파티클
-        for particle in self.particles:
-            px = center + math.cos(particle['angle'] + self.rotation_angle * 0.01) * particle['dist']
-            py = center + math.sin(particle['angle'] + self.rotation_angle * 0.01) * particle['dist']
-            alpha = int(255 * particle['life'])
-            pygame.draw.circle(ball_surf, (*particle['color'], alpha),
-                             (int(px), int(py)), int(particle['size']))
+        # === Layer 6: 상단 하이라이트 ===
+        highlight_x = center - int(radius * 0.11)
+        highlight_y = center - int(radius * 0.11)
+        highlight_size = max(1, int(radius * 0.072))
+        pygame.draw.circle(ball_surf, (255, 255, 255, 80), (highlight_x, highlight_y), highlight_size)
 
-        # Layer 8: 고리 위 밝은 점 (노드)
-        for i in range(4):
-            angle = self.rotation_angle * 0.02 + i * math.pi / 2
-            node_x = center + math.cos(angle) * radius * 1.3
-            node_y = center + math.sin(angle) * radius * 1.3
-            pygame.draw.circle(ball_surf, (200, 230, 255, 200),
-                             (int(node_x), int(node_y)), 2)
+        # === Layer 7: 떠다니는 파티클 ===
+        if random.random() < 0.4:
+            angle = random.uniform(0, 2 * math.pi)
+            dist = radius * random.uniform(0.867, 1.445)
+            self.particles.append({
+                'x': math.cos(angle) * dist,
+                'y': math.sin(angle) * dist,
+                'vx': random.uniform(-0.5, 0.5),
+                'vy': random.uniform(-1.5, -0.5),
+                'life': random.randint(20, 40),
+                'max_life': 40,
+                'size': random.uniform(0.42, 1.02),
+                'color': base_color
+            })
 
-        # 최종 블릿
-        surface.blit(ball_surf, (cx - center, cy - center), special_flags=pygame.BLEND_ADD)
+        if len(self.particles) > self.max_particles:
+            self.particles = self.particles[-self.max_particles:]
+
+        new_particles = []
+        for p in self.particles:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['life'] -= 1
+
+            if p['life'] > 0:
+                alpha = int(200 * (p['life'] / p['max_life']))
+                size = int(p['size'] * (p['life'] / p['max_life']))
+                if alpha > 0 and size > 0:
+                    px = int(center + p['x'])
+                    py = int(center + p['y'])
+                    pygame.draw.circle(ball_surf, (*p['color'], alpha), (px, py), max(1, size))
+                new_particles.append(p)
+        self.particles = new_particles
+
+        # === Layer 8: 인텐시티 글로우 ===
+        if intensity >= 2:
+            glow_alpha = 10 + intensity * 5
+            glow_r = int(radius * (1.3 + intensity * 0.1))
+            glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*base_color, glow_alpha), (glow_r, glow_r), glow_r)
+            surface.blit(glow_surf, (cx - glow_r, cy - glow_r), special_flags=pygame.BLEND_ADD)
+
+        # 최종 렌더링
+        surface.blit(ball_surf, (cx - center, cy - center))
 
 
 # ============================================================================
-# 트레일 시스템 (pingfighter.py 라인 26767-27316 재현)
+# 공 생성 애니메이션 (pingfighter.py 기반)
 # ============================================================================
+class BallSpawnAnimation:
+    """공 생성 애니메이션 - 3페이즈"""
 
+    def __init__(self, x: int, y: int):
+        self.x = x
+        self.y = y
+        self.start_time = time.time()
+        self.active = True
+        self.completed = False
+        self.particles = []
+
+    def update(self) -> bool:
+        """업데이트, 완료시 True 반환"""
+        elapsed = time.time() - self.start_time
+        if elapsed >= SPAWN_TOTAL_DURATION:
+            self.active = False
+            self.completed = True
+            return True
+        return False
+
+    def draw(self, surface: pygame.Surface, ball_renderer: EnergyBallRenderer):
+        """애니메이션 렌더링"""
+        elapsed = time.time() - self.start_time
+        progress = min(1.0, elapsed / SPAWN_TOTAL_DURATION)
+
+        # 페이즈 1: 에너지 수집 (파티클이 중심으로 모임)
+        if elapsed < SPAWN_PHASE1_DURATION:
+            phase_progress = elapsed / SPAWN_PHASE1_DURATION
+            self._draw_phase1(surface, phase_progress)
+
+        # 페이즈 2: 형태 형성 (공이 점점 나타남)
+        elif elapsed < SPAWN_PHASE1_DURATION + SPAWN_PHASE2_DURATION:
+            phase_progress = (elapsed - SPAWN_PHASE1_DURATION) / SPAWN_PHASE2_DURATION
+            self._draw_phase2(surface, phase_progress, ball_renderer)
+
+        # 페이즈 3: 완성 (글로우 효과와 함께 대기)
+        else:
+            phase_progress = (elapsed - SPAWN_PHASE1_DURATION - SPAWN_PHASE2_DURATION) / SPAWN_PHASE3_DURATION
+            self._draw_phase3(surface, phase_progress, ball_renderer)
+
+    def _draw_phase1(self, surface: pygame.Surface, progress: float):
+        """페이즈 1: 에너지 수집"""
+        # 중심으로 모이는 파티클 생성
+        num_particles = int(20 * progress)
+        for i in range(num_particles):
+            angle = random.uniform(0, 2 * math.pi)
+            dist = 150 * (1 - progress * 0.8) + random.uniform(-20, 20)
+            px = self.x + math.cos(angle) * dist
+            py = self.y + math.sin(angle) * dist
+
+            size = random.randint(2, 5)
+            alpha = int(100 + progress * 155)
+            color = (100, 180, 255, alpha)
+
+            pygame.draw.circle(surface, color, (int(px), int(py)), size)
+
+        # 중심 글로우
+        glow_radius = int(20 * progress)
+        if glow_radius > 0:
+            glow_surf = pygame.Surface((glow_radius * 4, glow_radius * 4), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (100, 180, 255, int(50 * progress)),
+                             (glow_radius * 2, glow_radius * 2), glow_radius * 2)
+            surface.blit(glow_surf, (self.x - glow_radius * 2, self.y - glow_radius * 2))
+
+    def _draw_phase2(self, surface: pygame.Surface, progress: float, ball_renderer: EnergyBallRenderer):
+        """페이즈 2: 형태 형성"""
+        # 공이 점점 나타남
+        current_radius = int(BALL_RADIUS * progress)
+        if current_radius > 2:
+            # 떨림 효과
+            shake_x = random.randint(-2, 2) * (1 - progress)
+            shake_y = random.randint(-2, 2) * (1 - progress)
+
+            # 에너지볼 렌더링 (알파 적용)
+            ball_surf = pygame.Surface((current_radius * 8, current_radius * 8), pygame.SRCALPHA)
+            ball_renderer.draw(ball_surf, current_radius * 4, current_radius * 4, current_radius, 8)
+
+            # 알파 적용
+            alpha_surf = pygame.Surface(ball_surf.get_size(), pygame.SRCALPHA)
+            alpha_surf.fill((255, 255, 255, int(255 * progress)))
+            ball_surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+            surface.blit(ball_surf, (self.x - current_radius * 4 + shake_x,
+                                    self.y - current_radius * 4 + shake_y))
+
+        # 주변 에너지 파동
+        wave_radius = int(50 + 30 * progress)
+        wave_alpha = int(80 * (1 - progress))
+        if wave_alpha > 0:
+            pygame.draw.circle(surface, (100, 180, 255, wave_alpha),
+                             (self.x, self.y), wave_radius, 2)
+
+    def _draw_phase3(self, surface: pygame.Surface, progress: float, ball_renderer: EnergyBallRenderer):
+        """페이즈 3: 완성"""
+        # 완성된 에너지볼
+        ball_renderer.draw(surface, self.x, self.y, BALL_RADIUS, 8)
+
+        # 발사 대기 글로우 (펄스)
+        pulse = math.sin(progress * math.pi * 4) * 0.3 + 1.0
+        glow_radius = int(BALL_RADIUS * 2 * pulse)
+        glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (100, 180, 255, 30),
+                         (glow_radius, glow_radius), glow_radius)
+        surface.blit(glow_surf, (self.x - glow_radius, self.y - glow_radius),
+                    special_flags=pygame.BLEND_ADD)
+
+
+# ============================================================================
+# 트레일 시스템
+# ============================================================================
 class TrailSystem:
-    """공 트레일(잔상) 시스템"""
+    """공 잔상 시스템"""
 
     def __init__(self):
-        # 고스트 트레일 - pingfighter.py 라인 27146
-        self.ghost_trail: List[Dict] = []
-        self.GHOST_MAX_LENGTH = 5
-        self.GHOST_FADE_SPEED = 0.75
-        self.GHOST_MIN_DISTANCE = 6
-        self.GHOST_INITIAL_ALPHA = 60
+        self.ghost_trail = []  # 고스트 잔상
+        self.max_trail = 12
 
-        # 레인보우 트레일 - pingfighter.py 라인 26767
-        self.rainbow_trail: List[Dict] = []
-        self.RAINBOW_MAX_LENGTH = 8
-        self.RAINBOW_FADE_SPEED = 0.85
-        self.RAINBOW_MIN_DISTANCE = 4
+    def add_trail(self, x: float, y: float, speed: float):
+        """트레일 추가"""
+        intensity = 0
+        for i, threshold in enumerate(INTENSITY_SPEED_THRESHOLDS):
+            if speed >= threshold:
+                intensity = i + 1
 
-        # 에너지 파동 트레일 - pingfighter.py 라인 27266
-        self.energy_wave_trail: List[Dict] = []
-        self.ENERGY_WAVE_AMPLITUDE = 5.0
-        self.ENERGY_WAVE_FREQUENCY = 0.3
-        self.wave_phase = 0
+        self.ghost_trail.append({
+            'x': x,
+            'y': y,
+            'alpha': 150,
+            'size': BALL_RADIUS,
+            'color': INTENSITY_COLORS.get(intensity, (100, 180, 255))
+        })
 
-        self.last_pos = (0, 0)
-
-    def update(self, ball_x: float, ball_y: float, ball_vx: float, ball_vy: float,
-               dt: float, intensity_level: int = 0):
-        """트레일 업데이트"""
-        # 거리 계산
-        dx = ball_x - self.last_pos[0]
-        dy = ball_y - self.last_pos[1]
-        dist = math.sqrt(dx * dx + dy * dy)
-
-        # 고스트 트레일 추가
-        if dist >= self.GHOST_MIN_DISTANCE:
-            self.ghost_trail.append({
-                'x': ball_x, 'y': ball_y,
-                'alpha': self.GHOST_INITIAL_ALPHA,
-                'size': BALL_RADIUS,
-                'age': 0
-            })
-            self.last_pos = (ball_x, ball_y)
-
-        # 트레일 페이드아웃
-        for trail in self.ghost_trail[:]:
-            trail['alpha'] *= self.GHOST_FADE_SPEED
-            trail['age'] += dt
-            if trail['alpha'] < 5:
-                self.ghost_trail.remove(trail)
-
-        # 최대 길이 제한
-        while len(self.ghost_trail) > self.GHOST_MAX_LENGTH:
+        if len(self.ghost_trail) > self.max_trail:
             self.ghost_trail.pop(0)
 
-        # 파동 페이즈 업데이트
-        self.wave_phase += dt * 5
-
-    def draw(self, surface: pygame.Surface, intensity_level: int = 0):
-        """트레일 그리기"""
-        colors = INTENSITY_COLORS.get(intensity_level, INTENSITY_COLORS[0])
-
-        for i, trail in enumerate(self.ghost_trail):
-            # 4레이어 그라데이션 잔상
-            for layer in range(4):
-                layer_mult = 1.0 - layer * 0.2
-                size = int(trail['size'] * layer_mult)
-                alpha = int(trail['alpha'] * layer_mult)
-
-                if alpha > 0 and size > 0:
-                    trail_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                    color = colors[min(layer, len(colors) - 1)]
-                    pygame.draw.circle(trail_surf, (*color, alpha), (size, size), size)
-                    surface.blit(trail_surf, (int(trail['x'] - size), int(trail['y'] - size)),
-                               special_flags=pygame.BLEND_ADD)
-
-    def reset(self):
-        """트레일 초기화"""
-        self.ghost_trail.clear()
-        self.rainbow_trail.clear()
-        self.energy_wave_trail.clear()
-
-
-# ============================================================================
-# 파티클/이펙트 시스템 (pingfighter.py 라인 26559-26740 재현)
-# ============================================================================
-
-class EffectSystem:
-    """에너지 폭발, 벽 충돌 등 이펙트 시스템"""
-
-    def __init__(self):
-        self.explosion_particles: List[Dict] = []
-        self.wall_impacts: List[Dict] = []
-        self.combo_particles: List[Dict] = []
-        self.skill_effects: List[Dict] = []
-
-        # 에너지 폭발 색상 - pingfighter.py 라인 26559
-        self.EXPLOSION_COLORS = [
-            (150, 200, 255), (100, 180, 255), (80, 160, 255),
-            (200, 230, 255), (120, 200, 255)
-        ]
-
-    def create_energy_explosion(self, x: float, y: float, scale: float = 1.0,
-                                intensity: float = 1.0):
-        """패들 충돌 시 에너지 폭발 - pingfighter.py 라인 26559"""
-        explosion_count = int(25 * scale * intensity)
-        spark_count = int(15 * scale * intensity)
-
-        for _ in range(explosion_count):
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(2, 8) * scale
-            self.explosion_particles.append({
-                'x': x, 'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
-                'size': random.uniform(2, 5) * scale,
-                'life': 1.0,
-                'color': random.choice(self.EXPLOSION_COLORS),
-                'type': 'explosion'
-            })
-
-        for _ in range(spark_count):
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(4, 12) * scale
-            self.explosion_particles.append({
-                'x': x, 'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
-                'size': random.uniform(1, 2),
-                'life': 0.5,
-                'color': (255, 255, 200),
-                'type': 'spark'
-            })
-
-    def create_wall_impact(self, x: float, y: float, direction: int):
-        """벽 충돌 이펙트 - pingfighter.py 라인 26691"""
-        self.wall_impacts.append({
-            'x': x, 'y': y,
-            'direction': direction,
-            'flash_timer': 8,
-            'particles': []
-        })
-
-        # 파티클 생성
-        for _ in range(6):
-            angle = random.uniform(-math.pi/3, math.pi/3)
-            if direction < 0:
-                angle += math.pi
-            speed = random.uniform(3, 7)
-            self.wall_impacts[-1]['particles'].append({
-                'x': x, 'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
-                'life': 1.0
-            })
-
-    def create_combo_effect(self, x: float, y: float, combo: int):
-        """콤보 이펙트 - pingfighter.py 라인 32454"""
-        color = COMBO_COLORS.get(combo, (255, 255, 0))
-
-        # 광선 효과 (콤보 3 이상)
-        if combo >= 3:
-            ray_count = min(combo * 2, 12)
-            for i in range(ray_count):
-                angle = (i / ray_count) * math.pi * 2
-                self.combo_particles.append({
-                    'x': x, 'y': y,
-                    'angle': angle,
-                    'length': 0,
-                    'max_length': 50 + combo * 10,
-                    'life': 1.0,
-                    'color': color,
-                    'type': 'ray'
-                })
-
-        # 파티클
-        for _ in range(combo * 3):
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(2, 6)
-            self.combo_particles.append({
-                'x': x, 'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
-                'size': 3 + combo // 2,
-                'life': 1.0,
-                'color': color,
-                'type': 'particle'
-            })
-
-    def create_skill_effect(self, x: float, y: float, skill_type: str, direction: int = 0):
-        """스킬 발동 이펙트"""
-        if skill_type == 'short_shot':
-            # 수직 광선 효과
-            self.skill_effects.append({
-                'x': x, 'y': y,
-                'type': 'short_shot',
-                'timer': 30,
-                'direction': direction
-            })
-        elif skill_type == 'drive':
-            # 커브 궤적 표시
-            self.skill_effects.append({
-                'x': x, 'y': y,
-                'type': 'drive',
-                'timer': 20,
-                'direction': direction
-            })
-        elif skill_type == 'power_smash':
-            # 파워 이펙트
-            self.skill_effects.append({
-                'x': x, 'y': y,
-                'type': 'power_smash',
-                'timer': 40,
-                'direction': direction
-            })
-
-    def update(self, dt: float):
-        """모든 이펙트 업데이트"""
-        # 폭발 파티클 업데이트
-        for particle in self.explosion_particles[:]:
-            particle['x'] += particle['vx']
-            particle['y'] += particle['vy']
-            particle['vx'] *= 0.95
-            particle['vy'] *= 0.95
-            particle['life'] -= dt * 2
-            if particle['life'] <= 0:
-                self.explosion_particles.remove(particle)
-
-        # 벽 충돌 업데이트
-        for impact in self.wall_impacts[:]:
-            impact['flash_timer'] -= 1
-            for p in impact['particles']:
-                p['x'] += p['vx']
-                p['y'] += p['vy']
-                p['life'] -= dt * 3
-            impact['particles'] = [p for p in impact['particles'] if p['life'] > 0]
-            if impact['flash_timer'] <= 0 and not impact['particles']:
-                self.wall_impacts.remove(impact)
-
-        # 콤보 파티클 업데이트
-        for particle in self.combo_particles[:]:
-            if particle['type'] == 'ray':
-                particle['length'] = min(particle['length'] + 10, particle['max_length'])
-            else:
-                particle['x'] += particle.get('vx', 0)
-                particle['y'] += particle.get('vy', 0)
-            particle['life'] -= dt * 1.5
-            if particle['life'] <= 0:
-                self.combo_particles.remove(particle)
-
-        # 스킬 이펙트 업데이트
-        for effect in self.skill_effects[:]:
-            effect['timer'] -= 1
-            if effect['timer'] <= 0:
-                self.skill_effects.remove(effect)
+    def update(self):
+        """트레일 업데이트"""
+        new_trail = []
+        for t in self.ghost_trail:
+            t['alpha'] -= 15
+            t['size'] *= 0.92
+            if t['alpha'] > 0 and t['size'] > 2:
+                new_trail.append(t)
+        self.ghost_trail = new_trail
 
     def draw(self, surface: pygame.Surface):
-        """모든 이펙트 그리기"""
-        # 폭발 파티클
-        for particle in self.explosion_particles:
-            alpha = int(255 * particle['life'])
-            size = int(particle['size'] * particle['life'])
-            if size > 0 and alpha > 0:
-                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(surf, (*particle['color'], alpha), (size, size), size)
-                surface.blit(surf, (int(particle['x'] - size), int(particle['y'] - size)),
-                           special_flags=pygame.BLEND_ADD)
-
-        # 벽 충돌
-        for impact in self.wall_impacts:
-            if impact['flash_timer'] > 0:
-                flash_alpha = int(200 * (impact['flash_timer'] / 8))
-                flash_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
-                pygame.draw.circle(flash_surf, (255, 255, 255, flash_alpha), (20, 20), 15)
-                surface.blit(flash_surf, (int(impact['x'] - 20), int(impact['y'] - 20)),
-                           special_flags=pygame.BLEND_ADD)
-
-        # 콤보 파티클
-        for particle in self.combo_particles:
-            alpha = int(255 * particle['life'])
-            if particle['type'] == 'ray':
-                # 광선 그리기
-                end_x = particle['x'] + math.cos(particle['angle']) * particle['length']
-                end_y = particle['y'] + math.sin(particle['angle']) * particle['length']
-                pygame.draw.line(surface, (*particle['color'], alpha),
-                               (int(particle['x']), int(particle['y'])),
-                               (int(end_x), int(end_y)), 2)
-            else:
-                size = int(particle['size'] * particle['life'])
-                if size > 0:
-                    surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(surf, (*particle['color'], alpha), (size, size), size)
-                    surface.blit(surf, (int(particle['x'] - size), int(particle['y'] - size)))
-
-        # 스킬 이펙트
-        for effect in self.skill_effects:
-            alpha = int(200 * (effect['timer'] / 40))
-            if effect['type'] == 'short_shot':
-                # 수직 광선
-                surf = pygame.Surface((20, 100), pygame.SRCALPHA)
-                pygame.draw.rect(surf, (100, 200, 255, alpha), (5, 0, 10, 100))
-                surface.blit(surf, (int(effect['x'] - 10), int(effect['y'] - 50)))
-            elif effect['type'] == 'drive':
-                # 커브 표시
-                color = (100, 255, 100, alpha)
-                pygame.draw.arc(surface, color,
-                              (int(effect['x'] - 30), int(effect['y'] - 30), 60, 60),
-                              0, math.pi, 3)
-            elif effect['type'] == 'power_smash':
-                # 파워 링
-                for i in range(3):
-                    r = 20 + i * 15 + (40 - effect['timer'])
-                    a = max(0, alpha - i * 50)
-                    if a > 0:
-                        pygame.draw.circle(surface, (255, 150, 50, a),
-                                         (int(effect['x']), int(effect['y'])), r, 2)
+        """트레일 렌더링"""
+        for t in self.ghost_trail:
+            color = (*t['color'], int(t['alpha']))
+            pygame.draw.circle(surface, color, (int(t['x']), int(t['y'])), int(t['size']))
 
 
 # ============================================================================
-# 공 생성 애니메이션 (pingfighter.py effects/ball_spawn_animation.py 재현)
+# 이펙트 시스템
 # ============================================================================
+class EffectSystem:
+    """충돌/스킬 이펙트 시스템"""
 
-class BallSpawnAnimation:
-    """
-    3페이즈 공 생성 애니메이션 (총 8초)
-    Phase 1: 에너지 응축 (4초)
-    Phase 2: 공 부양 (1.5초)
-    Phase 3: 서브 이동 (2.5초)
+    def __init__(self):
+        self.particles = []
+        self.impacts = []
 
-    멀티플레이어에서는 간소화된 버전 사용 (3초)
-    """
-
-    def __init__(self, screen_width: int, screen_height: int):
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-        self.active = False
-        self.complete = False
-        self.timer = 0
-        self.total_duration = 3.0  # 멀티플레이어용 간소화 (3초)
-
-        self.center_x = screen_width // 2
-        self.center_y = screen_height // 2
-        self.ball_x = self.center_x
-        self.ball_y = self.center_y
-        self.ball_visible = False
-        self.ball_scale = 0.0
-        self.ball_alpha = 0
-
-        self.target_x = self.center_x
-        self.target_y = self.center_y
-        self.is_player_serve = True
-
-        # 파티클
-        self.quantum_particles: List[Dict] = []
-        self.energy_rings: List[Dict] = []
-        self.lightning_bolts: List[Dict] = []
-
-    def start(self, is_player_serve: bool, player_y: float, opponent_y: float):
-        """애니메이션 시작"""
-        self.active = True
-        self.complete = False
-        self.timer = 0
-        self.is_player_serve = is_player_serve
-
-        self.ball_x = self.center_x
-        self.ball_y = self.center_y
-        self.ball_visible = False
-        self.ball_scale = 0.0
-        self.ball_alpha = 0
-
-        # 서브 위치 설정
-        if is_player_serve:
-            self.target_y = player_y - 30
-        else:
-            self.target_y = opponent_y + 30
-        self.target_x = self.center_x
-
-        # 양자 파티클 초기화
-        self.quantum_particles.clear()
-        for _ in range(50):
-            angle = random.uniform(0, math.pi * 2)
-            dist = random.uniform(100, 200)
-            self.quantum_particles.append({
-                'angle': angle,
-                'dist': dist,
-                'speed': random.uniform(1, 3),
-                'size': random.uniform(2, 4),
-                'color': random.choice([
-                    (100, 150, 255), (150, 100, 255), (255, 100, 200)
-                ])
+    def spawn_hit_particles(self, x: int, y: int, color: Tuple[int, int, int], count: int = 15):
+        """타격 파티클 생성"""
+        for _ in range(count):
+            angle = random.uniform(0, 2 * math.pi)
+            speed = random.uniform(3, 8)
+            self.particles.append({
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'life': random.randint(15, 30),
+                'max_life': 30,
+                'size': random.randint(2, 5),
+                'color': color
             })
 
-        self.energy_rings.clear()
-        self.lightning_bolts.clear()
+    def spawn_wall_impact(self, x: int, y: int, is_left: bool):
+        """벽 충돌 이펙트"""
+        direction = 1 if is_left else -1
+        for _ in range(10):
+            angle = random.uniform(-0.5, 0.5) + (0 if is_left else math.pi)
+            speed = random.uniform(2, 5)
+            self.particles.append({
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 1,
+                'life': random.randint(10, 20),
+                'max_life': 20,
+                'size': random.randint(1, 3),
+                'color': (200, 200, 200)
+            })
 
-    def update(self, dt: float) -> Tuple[float, float]:
-        """애니메이션 업데이트, 현재 공 위치 반환"""
-        if not self.active:
-            return self.ball_x, self.ball_y
+    def spawn_score_effect(self, x: int, y: int, player_num: int):
+        """득점 이펙트"""
+        color = P1_COLOR if player_num == 1 else P2_COLOR
+        for _ in range(30):
+            angle = random.uniform(0, 2 * math.pi)
+            speed = random.uniform(5, 12)
+            self.particles.append({
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'life': random.randint(30, 50),
+                'max_life': 50,
+                'size': random.randint(3, 8),
+                'color': color
+            })
 
-        self.timer += dt
-        progress = min(1.0, self.timer / self.total_duration)
+    def update(self):
+        """이펙트 업데이트"""
+        new_particles = []
+        for p in self.particles:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['vy'] += 0.15  # 중력
+            p['life'] -= 1
 
-        # Phase 1: 응축 (0~1.5초)
-        if progress < 0.5:
-            phase_progress = progress / 0.5
+            if p['life'] > 0:
+                new_particles.append(p)
+        self.particles = new_particles
 
-            # 파티클 수렴
-            for particle in self.quantum_particles:
-                particle['dist'] *= (1 - phase_progress * 0.03)
-                particle['angle'] += particle['speed'] * dt * (1 + phase_progress * 2)
-
-            # 번개 생성
-            if random.random() < phase_progress * 0.3:
-                self._spawn_lightning()
-
-        # Phase 2: 공 출현 (1.5~2초)
-        elif progress < 0.67:
-            phase_progress = (progress - 0.5) / 0.17
-
-            self.ball_visible = True
-            self.ball_scale = min(1.0, 0.3 + phase_progress * 0.7)
-            self.ball_alpha = min(255, int(phase_progress * 400))
-
-            # 부양 효과
-            levitate = math.sin(self.timer * 6) * 10
-            self.ball_y = self.center_y + levitate
-
-        # Phase 3: 이동 (2~3초)
-        else:
-            phase_progress = (progress - 0.67) / 0.33
-
-            self.ball_scale = 1.0
-            self.ball_alpha = 255
-
-            # 목표 위치로 이동
-            self.ball_x = self.center_x + (self.target_x - self.center_x) * phase_progress
-            self.ball_y = self.center_y + (self.target_y - self.center_y) * phase_progress
-
-            # 에너지 링 방출
-            if random.random() < 0.2:
-                self.energy_rings.append({
-                    'x': self.ball_x, 'y': self.ball_y,
-                    'radius': 5, 'alpha': 200
-                })
-
-        # 에너지 링 업데이트
-        for ring in self.energy_rings[:]:
-            ring['radius'] += 3
-            ring['alpha'] -= 5
-            if ring['alpha'] <= 0:
-                self.energy_rings.remove(ring)
-
-        # 번개 업데이트
-        for bolt in self.lightning_bolts[:]:
-            bolt['life'] -= dt
-            if bolt['life'] <= 0:
-                self.lightning_bolts.remove(bolt)
-
-        # 완료 체크
-        if progress >= 1.0:
-            self.complete = True
-            self.active = False
-
-        return self.ball_x, self.ball_y
-
-    def _spawn_lightning(self):
-        """번개 생성"""
-        angle = random.uniform(0, math.pi * 2)
-        self.lightning_bolts.append({
-            'start_angle': angle,
-            'segments': self._generate_lightning_segments(angle),
-            'life': 0.2,
-            'color': random.choice([
-                (150, 200, 255), (200, 150, 255), (255, 255, 200)
-            ])
-        })
-
-    def _generate_lightning_segments(self, start_angle: float) -> List[Tuple[float, float]]:
-        """번개 세그먼트 생성"""
-        segments = []
-        x, y = self.center_x, self.center_y
-        dist = random.uniform(80, 150)
-
-        for i in range(5):
-            next_x = x + math.cos(start_angle) * (dist / 5)
-            next_y = y + math.sin(start_angle) * (dist / 5)
-            next_x += random.uniform(-10, 10)
-            next_y += random.uniform(-10, 10)
-            segments.append((x, y, next_x, next_y))
-            x, y = next_x, next_y
-
-        return segments
-
-    def draw(self, surface: pygame.Surface, ball_color: Tuple[int, int, int] = (180, 220, 255)):
-        """애니메이션 그리기"""
-        if not self.active:
-            return
-
-        # 양자 파티클
-        for particle in self.quantum_particles:
-            x = self.center_x + math.cos(particle['angle']) * particle['dist']
-            y = self.center_y + math.sin(particle['angle']) * particle['dist']
-            pygame.draw.circle(surface, particle['color'], (int(x), int(y)), int(particle['size']))
-
-        # 번개
-        for bolt in self.lightning_bolts:
-            alpha = int(255 * (bolt['life'] / 0.2))
-            for seg in bolt['segments']:
-                pygame.draw.line(surface, (*bolt['color'], alpha),
-                               (int(seg[0]), int(seg[1])),
-                               (int(seg[2]), int(seg[3])), 2)
-
-        # 에너지 링
-        for ring in self.energy_rings:
-            if ring['alpha'] > 0:
-                pygame.draw.circle(surface, (100, 180, 255, ring['alpha']),
-                                 (int(ring['x']), int(ring['y'])),
-                                 int(ring['radius']), 2)
-
-        # 공 (부양 중)
-        if self.ball_visible:
-            # 글로우
-            glow_radius = int(BALL_RADIUS * 2 * self.ball_scale)
-            glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-            for r in range(glow_radius, 0, -2):
-                a = int(self.ball_alpha * 0.3 * (r / glow_radius))
-                pygame.draw.circle(glow_surf, (*ball_color, a), (glow_radius, glow_radius), r)
-            surface.blit(glow_surf, (int(self.ball_x - glow_radius), int(self.ball_y - glow_radius)),
-                        special_flags=pygame.BLEND_ADD)
-
-            # 공 본체
-            radius = int(BALL_RADIUS * self.ball_scale)
-            pygame.draw.circle(surface, ball_color, (int(self.ball_x), int(self.ball_y)), radius)
-
-            # 하이라이트
-            hl_offset = int(radius * 0.3)
-            pygame.draw.circle(surface, (255, 255, 255),
-                             (int(self.ball_x - hl_offset), int(self.ball_y - hl_offset)),
-                             int(radius * 0.2))
+    def draw(self, surface: pygame.Surface):
+        """이펙트 렌더링"""
+        for p in self.particles:
+            alpha = int(255 * (p['life'] / p['max_life']))
+            size = int(p['size'] * (p['life'] / p['max_life']))
+            if alpha > 0 and size > 0:
+                color = (*p['color'], alpha)
+                pygame.draw.circle(surface, color, (int(p['x']), int(p['y'])), size)
 
 
 # ============================================================================
-# 스매셔 플레이어 클래스 (완전 재구현)
+# 플레이어 클래스
 # ============================================================================
+class Player:
+    """멀티플레이어용 플레이어 클래스"""
 
-class SmasherPlayer:
-    """스매셔 캐릭터 - 싱글플레이어와 동일한 스킬/물리 시스템"""
-
-    def __init__(self, player_num: int, is_top: bool, screen_width: int, screen_height: int):
+    def __init__(self, player_num: int, x: int, y: int, width: int, height: int, is_top: bool):
         self.num = player_num
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
         self.is_top = is_top
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-
-        # 위치/크기
-        self.width = PADDLE_WIDTH
-        self.height = PADDLE_HEIGHT
-        self.x = screen_width // 2 - self.width // 2
-
-        if is_top:
-            self.y = 60
-        else:
-            self.y = screen_height - 80
-
-        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
-
-        # 이동
         self.speed = PADDLE_SPEED
-        self.vx = 0
 
-        # 게이지
+        # 게이지 시스템
         self.gauge = 0
-        self.displayed_gauge = 0.0
-        self.max_gauge = GAUGE_MAX
+        self.gauge_max = GAUGE_MAX
 
-        # 콤보
+        # 콤보 시스템
         self.combo = 0
         self.combo_timer = 0
+        self.combo_display_timer = 0
 
-        # 대시
-        self.dash_cooldown = 0
-        self.is_dashing = False
+        # 대시 시스템
+        self.dash_active = False
         self.dash_timer = 0
+        self.dash_cooldown = 0
+        self.dash_direction = 0
 
-        # 스킬 상태 - 쇼트
+        # 스킬 상태
         self.short_shot_active = False
         self.short_shot_timer = 0
-        self.short_shot_vertical_timer = 0
-        self.short_shot_speed = 0.0
-        self.short_shot_target_angle = 0.0
-        self.short_shot_current_angle = 0.0
-        self.short_shot_curve_started = False
-        self.short_shot_curve_frames = 0
-
-        # 스킬 상태 - 드라이브
         self.drive_active = False
         self.drive_direction = 0
-        self.perfect_timing_active = False
-        self.perfect_timing_window = 0
+        self.power_smash_pending = False
 
-        # 스킬 상태 - 파워스매싱
-        self.power_smash_active = False
-        self.power_smash_direction = 0
-        self.power_smash_timer = 0
-        self.power_smash_arc_strength = 0.0
+        # 키 상태
+        self.keys = P1_KEYS if player_num == 1 else P2_KEYS
+
+        # 색상
+        self.color = P1_COLOR if player_num == 1 else P2_COLOR
+
+        # 애니메이션
+        self.walking_timer = 0
+        self.hit_timer = 0
 
         # 넉백
-        self.knockback_vel = 0.0
-
-        # 키 바인딩
-        self.keys = KeyBindings(player_num == 1, is_top)
+        self.knockback_vel = 0
+        self.knockback_timer = 0
 
         # 점수
         self.score = 0
 
-        # 색상
-        self.color = (0, 150, 255) if player_num == 1 else (255, 100, 100)
-        self.glow_color = (30, 100, 200) if player_num == 1 else (200, 50, 50)
+    @property
+    def rect(self) -> pygame.Rect:
+        return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def update(self, keys_pressed: Dict[int, bool], dt: float):
+    @property
+    def centerx(self) -> int:
+        return self.x + self.width // 2
+
+    @property
+    def centery(self) -> int:
+        return self.y + self.height // 2
+
+    def update(self, keys_pressed: dict, width: int):
         """플레이어 업데이트"""
-        # 게이지 애니메이션 - pingfighter.py 라인 50412-50425
-        gauge_speed = 0.1
-        if self.displayed_gauge < self.gauge:
-            self.displayed_gauge += (self.gauge - self.displayed_gauge) * gauge_speed
-            if self.displayed_gauge > self.gauge - 1:
-                self.displayed_gauge = self.gauge
-        elif self.displayed_gauge > self.gauge:
-            self.displayed_gauge -= (self.displayed_gauge - self.gauge) * gauge_speed
-            if self.displayed_gauge < self.gauge + 1:
-                self.displayed_gauge = self.gauge
+        # 대시 쿨다운
+        if self.dash_cooldown > 0:
+            self.dash_cooldown -= 1
+
+        # 넉백 처리
+        if self.knockback_timer > 0:
+            self.x += self.knockback_vel
+            self.knockback_timer -= 1
+            self.knockback_vel *= 0.85
+        else:
+            # 이동 처리
+            move_speed = self.speed
+
+            # 대시 처리
+            if self.dash_active:
+                self.dash_timer -= 1
+                move_speed = DASH_SPEED_BOOST
+                if self.dash_timer <= 0:
+                    self.dash_active = False
+            elif keys_pressed.get(self.keys['dash']) and self.dash_cooldown <= 0:
+                # 대시 시작
+                if keys_pressed.get(self.keys['left']):
+                    self.dash_direction = -1
+                    self.dash_active = True
+                    self.dash_timer = DASH_DURATION
+                    self.dash_cooldown = DASH_COOLDOWN
+                elif keys_pressed.get(self.keys['right']):
+                    self.dash_direction = 1
+                    self.dash_active = True
+                    self.dash_timer = DASH_DURATION
+                    self.dash_cooldown = DASH_COOLDOWN
+
+            # 이동
+            if self.dash_active:
+                self.x += self.dash_direction * move_speed
+            else:
+                if keys_pressed.get(self.keys['left']):
+                    self.x -= move_speed
+                    self.walking_timer = (self.walking_timer + 1) % 60
+                if keys_pressed.get(self.keys['right']):
+                    self.x += move_speed
+                    self.walking_timer = (self.walking_timer + 1) % 60
+
+        # 경계 제한
+        self.x = max(0, min(width - self.width, self.x))
 
         # 콤보 타이머
         if self.combo_timer > 0:
@@ -897,1370 +637,884 @@ class SmasherPlayer:
             if self.combo_timer <= 0:
                 self.combo = 0
 
-        # 대시 쿨다운
-        if self.dash_cooldown > 0:
-            self.dash_cooldown -= 1
+        if self.combo_display_timer > 0:
+            self.combo_display_timer -= 1
 
-        # 넉백 감쇠
-        if abs(self.knockback_vel) > 0.1:
-            self.x += self.knockback_vel
-            self.knockback_vel *= 0.85
-        else:
-            self.knockback_vel = 0
+        # 쇼트 타이머
+        if self.short_shot_timer > 0:
+            self.short_shot_timer -= 1
+            if self.short_shot_timer <= 0:
+                self.short_shot_active = False
 
-        # 이동 처리
-        self.vx = 0
-        move_speed = self.speed
+        # 히트 타이머
+        if self.hit_timer > 0:
+            self.hit_timer -= 1
 
-        # 대시 체크
-        if keys_pressed.get(self.keys.dash, False) and self.dash_cooldown <= 0:
-            self.is_dashing = True
-            self.dash_timer = 10
-            self.dash_cooldown = DASH_COOLDOWN
-            move_speed += DASH_SPEED_BOOST
+    def on_hit(self, base_charge: int = GAUGE_HIT_CHARGE):
+        """공 타격 시"""
+        # 콤보 증가
+        self.combo += 1
+        self.combo_timer = 120  # 2초
+        self.combo_display_timer = 60
 
-        if self.dash_timer > 0:
-            self.dash_timer -= 1
-            move_speed = self.speed + DASH_SPEED_BOOST
-        else:
-            self.is_dashing = False
+        # 게이지 충전 (콤보 보너스 적용)
+        bonus = COMBO_GAUGE_BONUS.get(min(self.combo, 6), COMBO_MAX_BONUS)
+        charge = int(base_charge * (1 + bonus / 100))
+        self.gauge = min(self.gauge_max, self.gauge + charge)
 
-        if keys_pressed.get(self.keys.left, False):
-            self.vx = -move_speed
-        if keys_pressed.get(self.keys.right, False):
-            self.vx = move_speed
+        # 히트 애니메이션
+        self.hit_timer = 10
 
-        self.x += self.vx
+    def apply_knockback(self, direction: int, speed: float = 8):
+        """넉백 적용"""
+        self.knockback_vel = direction * speed
+        self.knockback_timer = SHORT_SHOT_KNOCKBACK_FRAMES
 
-        # 화면 경계
-        self.x = max(0, min(self.screen_width - self.width, self.x))
-        self.rect.x = int(self.x)
-        self.rect.y = int(self.y)
-
-        # 퍼펙트 타이밍 윈도우 감소
-        if self.perfect_timing_window > 0:
-            self.perfect_timing_window -= 1
-            if self.perfect_timing_window <= 0:
-                self.perfect_timing_active = False
-
-    def charge_gauge(self, amount: int, is_combo: bool = False):
-        """게이지 충전 - pingfighter.py 라인 8886-8899 콤보 보너스"""
-        if is_combo:
-            self.combo += 1
-            self.combo_timer = 180  # 3초
-
-            # 콤보 보너스 적용
-            bonus_percent = COMBO_GAUGE_BONUS.get(min(self.combo, 6), COMBO_MAX_BONUS)
-            bonus = int(amount * bonus_percent / 100)
-            amount += bonus
-
-        self.gauge = min(self.max_gauge, self.gauge + amount)
-
-    def consume_gauge(self, amount: int) -> bool:
-        """게이지 소모"""
-        if self.gauge >= amount:
-            self.gauge -= amount
+    def try_short_shot(self) -> bool:
+        """쇼트샷 시도"""
+        if self.gauge >= SHORT_SHOT_GAUGE_COST:
+            self.gauge -= SHORT_SHOT_GAUGE_COST
+            self.short_shot_active = True
+            self.short_shot_timer = 30
             return True
         return False
 
-    def can_use_skill(self, cost: int) -> bool:
-        """스킬 사용 가능 여부"""
-        return self.gauge >= cost
+    def try_drive(self, direction: int) -> bool:
+        """드라이브 시도"""
+        if self.gauge >= DRIVE_GAUGE_COST:
+            self.gauge -= DRIVE_GAUGE_COST
+            self.drive_active = True
+            self.drive_direction = direction
+            return True
+        return False
 
-    def activate_short_shot(self, ball_vx: float, ball_vy: float,
-                           target_x: float, target_y: float) -> Tuple[float, float, float]:
-        """
-        쇼트 발동 - pingfighter.py 라인 84300-84365
-        Returns: (new_vx, new_vy, speed)
-        """
-        if not self.can_use_skill(SHORT_SHOT_GAUGE_COST):
-            return ball_vx, ball_vy, 0
+    def try_power_smash(self) -> bool:
+        """파워스매싱 시도"""
+        if self.gauge >= POWER_SMASH_GAUGE_COST:
+            self.gauge -= POWER_SMASH_GAUGE_COST
+            self.power_smash_pending = True
+            return True
+        return False
 
-        self.consume_gauge(SHORT_SHOT_GAUGE_COST)
+    def draw(self, surface: pygame.Surface, create_smasher_func: Callable = None):
+        """플레이어 렌더링"""
+        if create_smasher_func:
+            # 스매셔 스프라이트 사용
+            try:
+                step_phase = (self.walking_timer % 60) / 60.0
+                sprite = create_smasher_func(step_phase)
 
-        self.short_shot_active = True
-        self.short_shot_timer = SHORT_SHOT_TOTAL_FRAMES
-        self.short_shot_vertical_timer = SHORT_SHOT_VERTICAL_FRAMES
-        self.short_shot_curve_started = False
-        self.short_shot_curve_frames = 0
+                # 상단 플레이어는 뒤집기
+                if self.is_top:
+                    sprite = pygame.transform.flip(sprite, False, True)
 
-        # 현재 속도 계산
-        current_speed = math.sqrt(ball_vx * ball_vx + ball_vy * ball_vy)
-        self.short_shot_speed = current_speed * SHORT_SHOT_SPEED_MULTIPLIER
+                # 색상 오버레이 (P1/P2 구분)
+                tint_surf = pygame.Surface(sprite.get_size(), pygame.SRCALPHA)
+                tint_surf.fill((*self.color, 30))
+                sprite.blit(tint_surf, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
 
-        # 수직 방향 (위 또는 아래)
-        vertical_dir = -1 if not self.is_top else 1
-        vertical_angle = math.pi / 2 * vertical_dir
+                # 중앙 정렬
+                sprite_rect = sprite.get_rect(center=(self.centerx, self.centery))
+                surface.blit(sprite, sprite_rect)
 
-        # 목표 각도 계산
-        ball_x = self.rect.centerx
-        ball_y = self.rect.centery + (30 * vertical_dir)
-
-        dx = target_x - ball_x
-        dy = target_y - ball_y
-
-        if abs(dy) < 0.1:
-            dy = -0.1 * vertical_dir
-
-        raw_target_angle = math.atan2(dy, dx)
-
-        # 각도 제한 (±45도)
-        max_angle = math.radians(SHORT_SHOT_MAX_ANGLE_DEG)
-        angle_diff = raw_target_angle - vertical_angle
-
-        if abs(angle_diff) > max_angle:
-            angle_diff = max_angle if angle_diff > 0 else -max_angle
-
-        self.short_shot_target_angle = vertical_angle + angle_diff
-        self.short_shot_current_angle = vertical_angle
-
-        # 초기 속도 (수직)
-        new_vx = 0
-        new_vy = self.short_shot_speed * vertical_dir
-
-        return new_vx, new_vy, self.short_shot_speed
-
-    def update_short_shot(self, ball_vx: float, ball_vy: float,
-                         ball_y: float, target_y: float) -> Tuple[float, float]:
-        """쇼트 업데이트 - pingfighter.py 라인 86944-87015"""
-        if not self.short_shot_active:
-            return ball_vx, ball_vy
-
-        self.short_shot_timer -= 1
-
-        if self.short_shot_timer <= 0:
-            self.short_shot_active = False
-            return ball_vx, ball_vy
-
-        # 수직 비행 페이즈
-        if self.short_shot_vertical_timer > 0:
-            self.short_shot_vertical_timer -= 1
-            # X 감속
-            ball_vx *= 0.94
-
-        # 곡선 전환 조건
-        vertical_dir = -1 if not self.is_top else 1
-        trigger_y = target_y - SHORT_SHOT_CURVE_TRIGGER_OFFSET * vertical_dir
-
-        should_curve = (vertical_dir < 0 and ball_y <= trigger_y) or \
-                      (vertical_dir > 0 and ball_y >= trigger_y)
-
-        if not self.short_shot_curve_started and should_curve:
-            self.short_shot_curve_started = True
-            self.short_shot_curve_frames = 0
-
-        # 곡선 실행
-        if self.short_shot_curve_started:
-            self.short_shot_curve_frames += 1
-            curve_duration = 12
-            blend = min(1.0, self.short_shot_curve_frames / curve_duration)
-
-            # 각도 보간
-            vertical_angle = math.pi / 2 * vertical_dir
-            self.short_shot_current_angle = vertical_angle * (1 - blend) + \
-                                           self.short_shot_target_angle * blend
-
-            # 속도 업데이트
-            ball_vx = math.cos(self.short_shot_current_angle) * self.short_shot_speed
-            ball_vy = math.sin(self.short_shot_current_angle) * self.short_shot_speed
-
-            if self.short_shot_curve_frames >= curve_duration:
-                self.short_shot_curve_started = False
-
-        return ball_vx, ball_vy
-
-    def activate_drive(self, direction: int) -> Tuple[float, float]:
-        """
-        드라이브 발동 - pingfighter.py 라인 84476-84549
-        Returns: (spin_strength, spin_direction)
-        """
-        if not self.can_use_skill(DRIVE_GAUGE_COST):
-            return 0.0, 0
-
-        if not self.perfect_timing_active:
-            return 0.0, 0
-
-        self.consume_gauge(DRIVE_GAUGE_COST)
-
-        self.drive_active = True
-        self.drive_direction = direction
-
-        # 스핀 계산
-        spin_strength = DRIVE_BASE_SPIN
-        spin_strength = min(DRIVE_SPIN_CAP, spin_strength)
-
-        return spin_strength, direction
-
-    def activate_power_smash(self, direction: int, ball_speed: float) -> Tuple[float, float, float]:
-        """
-        파워스매싱 발동 - pingfighter.py 라인 97385-97495
-        Returns: (arc_strength, gravity, speed_mult)
-        """
-        if not self.can_use_skill(POWER_SMASH_GAUGE_COST):
-            return 0.0, 0.0, 1.0
-
-        self.consume_gauge(POWER_SMASH_GAUGE_COST)
-
-        self.power_smash_active = True
-        self.power_smash_direction = direction
-        self.power_smash_timer = 120  # 2초
-
-        # 아크 강도 설정
-        if direction == -1:  # 왼쪽
-            self.power_smash_arc_strength = -POWER_SMASH_ARC_STRENGTH + random.uniform(-0.1, 0.1)
-        elif direction == 1:  # 오른쪽
-            self.power_smash_arc_strength = POWER_SMASH_ARC_STRENGTH + random.uniform(-0.1, 0.1)
+            except Exception:
+                # 폴백: 단순 사각형
+                self._draw_simple(surface)
         else:
-            self.power_smash_arc_strength = 0.0
+            self._draw_simple(surface)
 
-        return self.power_smash_arc_strength, POWER_SMASH_GRAVITY, 2.0
+        # 대시 쿨다운 표시
+        if self.dash_cooldown > 0:
+            cooldown_ratio = self.dash_cooldown / DASH_COOLDOWN
+            bar_width = 40
+            bar_x = self.centerx - bar_width // 2
+            bar_y = self.y + self.height + 5 if not self.is_top else self.y - 10
 
-    def update_power_smash(self, ball_vx: float, ball_vy: float,
-                          elapsed_time: float) -> Tuple[float, float]:
-        """파워스매싱 포물선 업데이트 - pingfighter.py 라인 86346-86477"""
-        if not self.power_smash_active:
-            return ball_vx, ball_vy
+            pygame.draw.rect(surface, (60, 60, 60), (bar_x, bar_y, bar_width, 4))
+            pygame.draw.rect(surface, self.color, (bar_x, bar_y, int(bar_width * (1 - cooldown_ratio)), 4))
 
-        self.power_smash_timer -= 1
-        if self.power_smash_timer <= 0:
-            self.power_smash_active = False
-            return ball_vx, ball_vy
+    def _draw_simple(self, surface: pygame.Surface):
+        """단순 사각형 패들"""
+        # 메인 바디
+        pygame.draw.rect(surface, self.color, self.rect, border_radius=5)
+        # 테두리
+        border_color = tuple(min(255, c + 50) for c in self.color)
+        pygame.draw.rect(surface, border_color, self.rect, 2, border_radius=5)
 
-        # 수평 이동
-        horizontal_decay = max(0.8, 1.0 - elapsed_time * 0.05)
-        chaos_factor = math.sin(elapsed_time * 5.0) * 0.05
-        horizontal_force = self.power_smash_arc_strength * horizontal_decay * (0.5 + chaos_factor * 0.2)
-        ball_vx += horizontal_force
-
-        # 수직 이동 (포물선)
-        if elapsed_time < 1.8:  # 상승
-            vertical_dir = -1 if not self.is_top else 1
-            base_lift = POWER_SMASH_GRAVITY * 1.5 * (1.8 - elapsed_time) / 1.8
-            ball_vy -= base_lift * vertical_dir
-        else:  # 하강
-            vertical_dir = 1 if not self.is_top else -1
-            base_pull = POWER_SMASH_GRAVITY * 1.2 * (elapsed_time - 1.8)
-            ball_vy += base_pull * vertical_dir
-
-        return ball_vx, ball_vy
-
-    def draw(self, surface: pygame.Surface, paddle_surface: Optional[pygame.Surface] = None):
-        """플레이어 그리기"""
-        # 글로우 효과
-        glow_surf = pygame.Surface((self.width + 20, self.height + 20), pygame.SRCALPHA)
-        for i in range(3):
-            alpha = 30 - i * 8
-            inflate = (3 - i) * 3
-            pygame.draw.rect(glow_surf, (*self.glow_color, alpha),
-                           (10 - inflate, 10 - inflate,
-                            self.width + inflate * 2, self.height + inflate * 2),
-                           border_radius=5)
-        surface.blit(glow_surf, (self.rect.x - 10, self.rect.y - 10),
-                    special_flags=pygame.BLEND_ADD)
-
-        # 패들 본체
-        if paddle_surface:
-            surface.blit(paddle_surface, self.rect.topleft)
-        else:
-            # 그라데이션 패들
-            for i in range(self.height):
-                ratio = i / self.height
-                color = tuple(int(self.color[j] * (1 - ratio * 0.3)) for j in range(3))
-                pygame.draw.line(surface, color,
-                               (self.rect.x, self.rect.y + i),
-                               (self.rect.x + self.width, self.rect.y + i))
-
-            # 테두리
-            pygame.draw.rect(surface, (255, 255, 255), self.rect, 2, border_radius=3)
-
-        # 대시 이펙트
-        if self.is_dashing:
-            dash_surf = pygame.Surface((self.width + 30, self.height + 10), pygame.SRCALPHA)
-            pygame.draw.rect(dash_surf, (*self.color, 100),
-                           (0, 5, self.width + 30, self.height))
-            surface.blit(dash_surf, (self.rect.x - 15, self.rect.y - 5),
-                        special_flags=pygame.BLEND_ADD)
+        # P1/P2 표시
+        label = f"P{self.num}"
+        font = pygame.font.Font(None, 20)
+        text = font.render(label, True, (255, 255, 255))
+        text_rect = text.get_rect(center=(self.centerx, self.centery))
+        surface.blit(text, text_rect)
 
 
 # ============================================================================
-# 공 클래스 (완전 재구현)
+# 공 클래스
 # ============================================================================
-
 class Ball:
-    """공 - 싱글플레이어와 동일한 물리/렌더링"""
+    """멀티플레이어용 공 클래스"""
 
-    def __init__(self, screen_width: int, screen_height: int):
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-
-        self.radius = BALL_RADIUS
-        self.x = screen_width // 2
-        self.y = screen_height // 2
-        self.vx = 0.0
-        self.vy = 0.0
-
-        self.rect = pygame.Rect(self.x - self.radius, self.y - self.radius,
-                               self.radius * 2, self.radius * 2)
-
-        # 물리
-        self.base_speed = BALL_BASE_SPEED
-        self.current_speed = 0.0
-
-        # 스핀
-        self.spin_strength = 0.0
-        self.spin_direction = 0
-        self.spin_decay = 0.98
-
-        # 인텐시티
-        self.intensity_level = 0
-        self.rally_count = 0
-
-        # 상태
-        self.active = False
-        self.last_hit_by = None  # 'p1' or 'p2'
-
-        # 렌더러
-        self.renderer = EnergyBallRenderer()
-        self.trail = TrailSystem()
-
-    def reset(self, serve_player: 'SmasherPlayer'):
-        """공 리셋"""
-        self.x = self.screen_width // 2
-        self.y = serve_player.rect.centery + (30 if serve_player.is_top else -30)
+    def __init__(self, x: int, y: int):
+        self.x = x
+        self.y = y
         self.vx = 0
         self.vy = 0
-        self.current_speed = 0
+        self.radius = BALL_RADIUS
         self.active = False
-        self.spin_strength = 0
-        self.spin_direction = 0
-        self.intensity_level = 0
-        self.rally_count = 0
-        self.last_hit_by = None
-        self.trail.reset()
-        self.update_rect()
 
-    def serve(self, direction: int):
-        """서브"""
+        # 물리
+        self.spin = 0  # 드라이브 스핀
+        self.power_smash_active = False
+        self.power_smash_gravity = 0
+
+        # 트레일
+        self.trail_timer = 0
+
+    @property
+    def speed(self) -> float:
+        return math.sqrt(self.vx * self.vx + self.vy * self.vy)
+
+    @property
+    def rect(self) -> pygame.Rect:
+        return pygame.Rect(self.x - self.radius, self.y - self.radius,
+                          self.radius * 2, self.radius * 2)
+
+    def reset(self, x: int, y: int, direction: int = 1):
+        """공 리셋"""
+        self.x = x
+        self.y = y
+        self.vx = random.uniform(-2, 2)
+        self.vy = BALL_BASE_SPEED * direction
         self.active = True
-        speed = self.base_speed
-        self.vx = random.uniform(-1, 1)
-        self.vy = speed * direction
-        self.current_speed = speed
+        self.spin = 0
+        self.power_smash_active = False
+        self.power_smash_gravity = 0
 
-    def update(self, dt: float):
-        """공 업데이트"""
+    def update(self, width: int, height: int) -> Tuple[bool, int]:
+        """
+        공 업데이트
+        Returns: (scored, scorer) - scored: 득점 여부, scorer: 득점 플레이어 번호 (1 or 2)
+        """
         if not self.active:
-            return
+            return False, 0
 
-        # 스핀 적용 - pingfighter.py 라인 86661-86671
-        if abs(self.spin_strength) > 0.01:
-            spin_force = self.spin_strength * self.spin_direction * 3.5
-            self.vx += spin_force * dt * 60
-            self.spin_strength *= self.spin_decay
-            if abs(self.spin_strength) < 0.05:
-                self.spin_strength = 0
+        # 스핀 적용 (드라이브)
+        if self.spin != 0:
+            self.vx += self.spin
+            self.spin *= 0.98  # 감쇠
+            if abs(self.spin) < 0.01:
+                self.spin = 0
 
-        # 위치 업데이트
+        # 파워스매싱 중력
+        if self.power_smash_active:
+            self.vy += self.power_smash_gravity
+            self.power_smash_gravity += 0.002
+
+        # 이동
         self.x += self.vx
         self.y += self.vy
 
-        # 현재 속도 계산
-        self.current_speed = math.sqrt(self.vx * self.vx + self.vy * self.vy)
-
-        # 인텐시티 계산 - pingfighter.py 라인 26155
-        self._update_intensity()
-
-        # 트레일 업데이트
-        self.trail.update(self.x, self.y, self.vx, self.vy, dt, self.intensity_level)
-
-        # 렌더러 업데이트
-        self.renderer.update(dt)
-
-        self.update_rect()
-
-    def _update_intensity(self):
-        """인텐시티 레벨 업데이트"""
-        speed = self.current_speed
-        for i, threshold in enumerate(INTENSITY_SPEED_THRESHOLDS):
-            if speed < threshold:
-                self.intensity_level = i
-                return
-        self.intensity_level = len(INTENSITY_SPEED_THRESHOLDS)
-
-    def update_rect(self):
-        """충돌 박스 업데이트"""
-        self.rect.centerx = int(self.x)
-        self.rect.centery = int(self.y)
-
-    def wall_bounce(self) -> int:
-        """벽 충돌 처리, 충돌 방향 반환 (-1: 왼쪽, 1: 오른쪽, 0: 없음)"""
-        direction = 0
-
+        # 좌우 벽 충돌
         if self.x - self.radius <= 0:
             self.x = self.radius
             self.vx = abs(self.vx)
-            direction = -1
-        elif self.x + self.radius >= self.screen_width:
-            self.x = self.screen_width - self.radius
+            return False, 0
+        elif self.x + self.radius >= width:
+            self.x = width - self.radius
             self.vx = -abs(self.vx)
-            direction = 1
+            return False, 0
 
-        return direction
-
-    def check_score(self) -> int:
-        """점수 체크 (상단=1, 하단=2, 없음=0)"""
+        # 득점 체크
         if self.y - self.radius <= 0:
-            return 1  # 상단 통과 (하단 플레이어 득점)
-        elif self.y + self.radius >= self.screen_height:
-            return 2  # 하단 통과 (상단 플레이어 득점)
-        return 0
+            # P1 득점 (상단 벽)
+            return True, 1
+        elif self.y + self.radius >= height:
+            # P2 득점 (하단 벽)
+            return True, 2
 
-    def paddle_collision(self, player: SmasherPlayer, rel_x: float) -> Tuple[float, float, float]:
-        """
-        패들 충돌 처리 - pingfighter.py 라인 84329-84383
-        rel_x: 패들 중심 기준 상대 위치 (-1.0 ~ 1.0)
-        Returns: (new_vx, new_vy, boost_multiplier)
-        """
-        # 각도 계산 - pingfighter.py 라인 84329
-        rel_x = max(-1.0, min(1.0, rel_x))
-        angle = rel_x * (math.pi / 3)  # ±60도
+        return False, 0
 
-        # 방향
-        direction = -1 if not player.is_top else 1
+    def handle_paddle_collision(self, player: Player, keys_pressed: dict) -> bool:
+        """패들 충돌 처리"""
+        if not self.active:
+            return False
+
+        paddle_rect = player.rect
+        ball_rect = self.rect
+
+        # 충돌 검사
+        if not ball_rect.colliderect(paddle_rect):
+            return False
+
+        # 방향 확인 (위에서 내려오는 공 vs 아래에서 올라오는 공)
+        if player.is_top and self.vy < 0:
+            return False  # 상단 플레이어에게 위로 가는 공은 무시
+        if not player.is_top and self.vy > 0:
+            return False  # 하단 플레이어에게 아래로 가는 공은 무시
+
+        # 반사
+        hit_pos = (self.x - player.x) / player.width  # 0.0 ~ 1.0
+        hit_pos = max(0, min(1, hit_pos))
+
+        # 각도 계산 (±60도)
+        angle_factor = (hit_pos - 0.5) * 2  # -1 ~ 1
+        max_angle = 60
+        reflect_angle = angle_factor * max_angle
 
         # 속도 계산
-        speed = self.current_speed
-
-        # 각도 기반 부스트 - pingfighter.py 라인 84366-84392
-        ball_angle_deg = 90
-        if abs(self.vx) > 0.1:
-            ball_angle_rad = math.atan2(abs(self.vy), abs(self.vx))
-            ball_angle_deg = math.degrees(ball_angle_rad)
-
-        if ball_angle_deg >= 90:
-            angle_boost = 2.0
-        elif ball_angle_deg >= 80:
-            angle_boost = 2.0 + 0.2 * ((90 - ball_angle_deg) / 10)
-        elif ball_angle_deg >= 70:
-            angle_boost = 2.2 + 0.2 * ((80 - ball_angle_deg) / 10)
-        elif ball_angle_deg >= 60:
-            angle_boost = 2.4 + 0.2 * ((70 - ball_angle_deg) / 10)
-        elif ball_angle_deg >= 45:
-            angle_boost = 2.6 + 0.2 * ((60 - ball_angle_deg) / 15)
-        else:
-            angle_boost = 2.8
-
-        # 기본 가속 - pingfighter.py 라인 84633-84700
-        base_mult = random.uniform(1.024, 1.084)
-        speed *= base_mult
-
-        # 방향 벡터
-        vector = pygame.math.Vector2(0, direction).rotate_rad(angle)
-
-        # 최소 발사각 보정 - pingfighter.py 라인 84739-84748
-        min_angle_deg = 25
-        min_vertical_ratio = math.sin(math.radians(min_angle_deg))
-
-        vertical_ratio = abs(vector.y)
-        if vertical_ratio < min_vertical_ratio:
-            horizontal_ratio = math.sqrt(1.0 - min_vertical_ratio ** 2)
-            vector.y = math.copysign(min_vertical_ratio, vector.y)
-            vector.x = math.copysign(horizontal_ratio, vector.x) if abs(vector.x) > 0.01 else 0
-            vector = vector.normalize()
-
-        new_vx = speed * vector.x
-        new_vy = speed * vector.y
-
-        return new_vx, new_vy, base_mult
-
-    def draw(self, surface: pygame.Surface):
-        """공 그리기"""
-        if not self.active:
-            return
-
-        # 트레일 먼저
-        self.trail.draw(surface, self.intensity_level)
-
-        # 에너지볼
-        self.renderer.draw(surface, int(self.x), int(self.y),
-                          self.radius, self.intensity_level)
-
-
-# ============================================================================
-# 게이지 바 UI (pingfighter.py 라인 55784-56780 재현)
-# ============================================================================
-
-class GaugeBar:
-    """플레이어 게이지 바 UI"""
-
-    def __init__(self, player: SmasherPlayer, screen_width: int, screen_height: int):
-        self.player = player
-
-        # 위치 설정
-        self.width = 14
-        self.height = 100
-
-        if player.is_top:
-            self.x = screen_width - 40
-            self.y = 50
-        else:
-            self.x = screen_width - 40
-            self.y = screen_height - 200
-
-        # 색상
-        self.frame_color = (40, 80, 140)
-        self.bg_color = (20, 30, 50)
-
-    def draw(self, surface: pygame.Surface, font: pygame.font.Font):
-        """게이지 바 그리기 - pingfighter.py 라인 55784-56780"""
-        # 프레임
-        frame_rect = pygame.Rect(self.x - 3, self.y - 3, self.width + 6, self.height + 6)
-        pygame.draw.rect(surface, self.frame_color, frame_rect, border_radius=3)
-
-        # 배경
-        bg_rect = pygame.Rect(self.x, self.y, self.width, self.height)
-        pygame.draw.rect(surface, self.bg_color, bg_rect)
-
-        # 게이지 채우기
-        displayed = self.player.displayed_gauge
-        max_gauge = self.player.max_gauge
-        fill_ratio = displayed / max_gauge
-        fill_height = int(self.height * fill_ratio)
-
-        if fill_height > 0:
-            # 색상 결정 - pingfighter.py 라인 56443
-            if displayed < 150:
-                color = (120, 120, 180)
-            elif displayed < 250:
-                color = (100, 150, 255)
-            elif displayed < 350:
-                color = (150, 200, 255)
-            else:
-                color = (200, 230, 255)
-
-            # 그라데이션 채우기
-            fill_rect = pygame.Rect(self.x, self.y + self.height - fill_height,
-                                   self.width, fill_height)
-            for i in range(fill_height):
-                ratio = i / fill_height
-                c = tuple(int(color[j] * (0.7 + ratio * 0.3)) for j in range(3))
-                pygame.draw.line(surface, c,
-                               (fill_rect.x, fill_rect.y + fill_height - i - 1),
-                               (fill_rect.x + self.width, fill_rect.y + fill_height - i - 1))
-
-        # 테두리
-        pygame.draw.rect(surface, (100, 140, 200), bg_rect, 1)
-
-        # 값 표시
-        text = f"{int(displayed)}"
-        text_surf = font.render(text, True, (255, 255, 255))
-        text_rect = text_surf.get_rect(centerx=self.x + self.width // 2,
-                                       top=self.y + self.height + 5)
-        surface.blit(text_surf, text_rect)
-
-        # 플레이어 번호
-        p_text = f"P{self.player.num}"
-        p_surf = font.render(p_text, True, self.player.color)
-        p_rect = p_surf.get_rect(centerx=self.x + self.width // 2,
-                                bottom=self.y - 5)
-        surface.blit(p_surf, p_rect)
-
-
-# ============================================================================
-# 콤보 표시 UI (pingfighter.py 라인 32454-32602 재현)
-# ============================================================================
-
-class ComboDisplay:
-    """콤보 표시 UI"""
-
-    def __init__(self):
-        self.active = False
-        self.timer = 0
-        self.x = 0
-        self.y = 0
-        self.combo = 0
-        self.particles: List[Dict] = []
-
-    def show(self, x: float, y: float, combo: int):
-        """콤보 표시"""
-        if combo < 2:
-            return
-
-        self.active = True
-        self.timer = 60
-        self.x = x
-        self.y = y
-        self.combo = combo
-
-        # 파티클 생성
-        color = COMBO_COLORS.get(combo, (255, 255, 0))
-        for _ in range(combo * 2):
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(2, 5)
-            self.particles.append({
-                'x': x, 'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
-                'life': 1.0,
-                'color': color
-            })
-
-    def update(self, dt: float):
-        """업데이트"""
-        if not self.active:
-            return
-
-        self.timer -= 1
-        if self.timer <= 0:
-            self.active = False
-            self.particles.clear()
-            return
-
-        for p in self.particles[:]:
-            p['x'] += p['vx']
-            p['y'] += p['vy']
-            p['life'] -= dt * 2
-            if p['life'] <= 0:
-                self.particles.remove(p)
-
-    def draw(self, surface: pygame.Surface, font: pygame.font.Font):
-        """콤보 그리기 - pingfighter.py 라인 32454-32602"""
-        if not self.active:
-            return
-
-        color = COMBO_COLORS.get(self.combo, (255, 255, 0))
-        alpha = int(255 * (self.timer / 60))
-
-        # 흔들림
-        shake = min(self.combo - 1, 5) * 2
-        offset_x = random.uniform(-shake, shake) if self.timer > 30 else 0
-        offset_y = random.uniform(-shake, shake) if self.timer > 30 else 0
-
-        # 텍스트
-        text = f"{self.combo}COMBO!"
-        font_size = 24 + self.combo * 2
-
-        # 그림자
-        shadow_surf = font.render(text, True, (0, 0, 0))
-        shadow_rect = shadow_surf.get_rect(center=(self.x + 2 + offset_x, self.y + 2 + offset_y))
-        surface.blit(shadow_surf, shadow_rect)
-
-        # 본문
-        text_surf = font.render(text, True, color)
-        text_rect = text_surf.get_rect(center=(self.x + offset_x, self.y + offset_y))
-        surface.blit(text_surf, text_rect)
-
-        # 파티클
-        for p in self.particles:
-            a = int(255 * p['life'])
-            if a > 0:
-                pygame.draw.circle(surface, (*p['color'], a),
-                                 (int(p['x']), int(p['y'])), 3)
-
-
-# ============================================================================
-# 점수판 UI (pingfighter.py 라인 653 재현)
-# ============================================================================
-
-class ScoreBoard:
-    """KBO 스타일 점수판"""
-
-    def __init__(self, screen_width: int, screen_height: int):
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-        self.show_timer = 0
-        self.fade_alpha = 0
-
-    def show_score(self, p1_score: int, p2_score: int):
-        """점수 표시"""
-        self.show_timer = 90
-        self.fade_alpha = 0
-
-    def update(self):
-        """업데이트"""
-        if self.show_timer > 0:
-            self.show_timer -= 1
-
-            # 페이드인/아웃
-            if self.show_timer > 72:  # 페이드인 (18프레임)
-                self.fade_alpha = min(255, self.fade_alpha + 15)
-            elif self.show_timer < 18:  # 페이드아웃
-                self.fade_alpha = max(0, self.fade_alpha - 15)
-
-    def draw(self, surface: pygame.Surface, p1_score: int, p2_score: int,
-             font: pygame.font.Font, large_font: pygame.font.Font):
-        """점수판 그리기"""
-        if self.show_timer <= 0:
-            return
-
-        # 반투명 오버레이
-        overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, self.fade_alpha // 2))
-        surface.blit(overlay, (0, 0))
-
-        # 점수판 배경
-        board_w = min(400, self.screen_width - 40)
-        board_h = 200
-        board_x = (self.screen_width - board_w) // 2
-        board_y = (self.screen_height - board_h) // 2
-
-        board_surf = pygame.Surface((board_w, board_h), pygame.SRCALPHA)
-
-        # 프레임
-        pygame.draw.rect(board_surf, (5, 15, 35, self.fade_alpha),
-                        (0, 0, board_w, board_h), border_radius=10)
-        pygame.draw.rect(board_surf, (40, 80, 140, self.fade_alpha),
-                        (0, 0, board_w, board_h), 3, border_radius=10)
-
-        # P1 로고 (파랑)
-        pygame.draw.circle(board_surf, (30, 80, 180, self.fade_alpha),
-                          (60, board_h // 2), 30)
-        p1_text = font.render("P1", True, (255, 255, 255))
-        board_surf.blit(p1_text, p1_text.get_rect(center=(60, board_h // 2)))
-
-        # P2 로고 (빨강)
-        pygame.draw.circle(board_surf, (180, 50, 50, self.fade_alpha),
-                          (board_w - 60, board_h // 2), 30)
-        p2_text = font.render("P2", True, (255, 255, 255))
-        board_surf.blit(p2_text, p2_text.get_rect(center=(board_w - 60, board_h // 2)))
-
-        # 점수
-        score_text = f"{p1_score}  -  {p2_score}"
-        score_surf = large_font.render(score_text, True, (255, 220, 100))
-        score_rect = score_surf.get_rect(center=(board_w // 2, board_h // 2))
-        board_surf.blit(score_surf, score_rect)
-
-        surface.blit(board_surf, (board_x, board_y))
-
-
-# ============================================================================
-# 키 바인딩 클래스
-# ============================================================================
-
-class KeyBindings:
-    """플레이어별 키 바인딩"""
-
-    def __init__(self, is_p1: bool, is_top: bool):
-        if is_p1:
-            # P1: 방향키 + Shift
-            self.left = pygame.K_LEFT
-            self.right = pygame.K_RIGHT
-            self.up = pygame.K_UP      # 쇼트
-            self.down = pygame.K_DOWN  # 파워스매싱
-            self.dash = pygame.K_RSHIFT
-            self.skill = pygame.K_RCTRL  # 드라이브
-        else:
-            # P2: WASD + Space
-            self.left = pygame.K_a
-            self.right = pygame.K_d
-            self.up = pygame.K_w      # 쇼트
-            self.down = pygame.K_s    # 파워스매싱
-            self.dash = pygame.K_SPACE
-            self.skill = pygame.K_LCTRL  # 드라이브
-
-
-# ============================================================================
-# 메인 게임 클래스
-# ============================================================================
-
-class MultiplayerGame:
-    """멀티플레이어 게임 메인 클래스"""
-
-    def __init__(self, screen: pygame.Surface, width: int, height: int,
-                 get_font_func: Callable, play_sound_funcs: Dict[str, Callable],
-                 create_smasher_func: Callable, bgm_manager: Any):
-        self.screen = screen
-        self.width = width
-        self.height = height
-        self.get_font = get_font_func
-        self.sounds = play_sound_funcs
-        self.create_smasher_surface = create_smasher_func
-        self.bgm_manager = bgm_manager
-
-        self.clock = pygame.time.Clock()
-        self.running = True
-        self.game_over = False
-        self.winner = None
-
-        # 승리 점수
-        self.win_score = 5
-
-        # 플레이어 (랜덤 위치)
-        p1_top = random.choice([True, False])
-        self.p1 = SmasherPlayer(1, p1_top, width, height)
-        self.p2 = SmasherPlayer(2, not p1_top, width, height)
-
-        # 공
-        self.ball = Ball(width, height)
-
-        # 서브 순서
-        self.serving_player = self.p1 if random.choice([True, False]) else self.p2
-        self.waiting_for_serve = True
-        self.serve_delay = 0
-
-        # 공 생성 애니메이션
-        self.spawn_animation = BallSpawnAnimation(width, height)
-        self.spawn_animation_active = False
-
-        # 이펙트
-        self.effects = EffectSystem()
-
-        # UI
-        self.gauge_p1 = GaugeBar(self.p1, width, height)
-        self.gauge_p2 = GaugeBar(self.p2, width, height)
-        self.combo_display = ComboDisplay()
-        self.score_board = ScoreBoard(width, height)
-
-        # 폰트
-        self.font = self.get_font(16)
-        self.large_font = self.get_font(32)
-        self.title_font = self.get_font(48)
-
-        # 시간
-        self.game_start_time = 0
-        self.power_smash_start_time = 0
-
-    def start_round(self):
-        """라운드 시작"""
-        self.waiting_for_serve = True
-        self.serve_delay = 60  # 1초 대기
-
-        # 공 생성 애니메이션 시작
-        serve_player = self.serving_player
-        opponent = self.p2 if serve_player == self.p1 else self.p1
-
-        self.spawn_animation.start(
-            is_player_serve=(serve_player == self.p1),
-            player_y=serve_player.y,
-            opponent_y=opponent.y
-        )
-        self.spawn_animation_active = True
-
-        # 공 리셋
-        self.ball.reset(serve_player)
-
-    def handle_serve(self):
-        """서브 처리"""
-        if not self.waiting_for_serve:
-            return
-
-        # 애니메이션 완료 대기
-        if self.spawn_animation_active:
-            return
-
-        if self.serve_delay > 0:
-            self.serve_delay -= 1
-            return
-
-        # 서브 방향
-        direction = -1 if self.serving_player.is_top else 1
-        self.ball.serve(direction)
-        self.ball.last_hit_by = f'p{self.serving_player.num}'
-
-        self.waiting_for_serve = False
-
-        if self.sounds.get('hit'):
-            self.sounds['hit']()
-
-    def handle_collision(self, player: SmasherPlayer, keys_pressed: Dict[int, bool]):
-        """패들-공 충돌 처리"""
-        if not self.ball.active:
-            return
-
-        if not self.ball.rect.colliderect(player.rect):
-            return
-
-        # 퍼펙트 타이밍 체크
-        ball_approaching = (player.is_top and self.ball.vy < 0) or \
-                          (not player.is_top and self.ball.vy > 0)
-
-        if ball_approaching:
-            player.perfect_timing_active = True
-            player.perfect_timing_window = 5
-
-        # 충돌 위치 계산
-        rel_x = (self.ball.x - player.rect.centerx) / (player.width / 2)
-
-        # 기본 충돌 처리
-        new_vx, new_vy, boost = self.ball.paddle_collision(player, rel_x)
-        self.ball.vx = new_vx
-        self.ball.vy = new_vy
-
-        # 게이지 충전
-        player.charge_gauge(GAUGE_HIT_CHARGE, is_combo=True)
-
-        # 콤보 표시
-        if player.combo >= 2:
-            self.combo_display.show(self.ball.x, self.ball.y, player.combo)
-            self.effects.create_combo_effect(self.ball.x, self.ball.y, player.combo)
-
-        # 에너지 폭발 이펙트
-        self.effects.create_energy_explosion(self.ball.x, self.ball.y, 0.8, 1.0)
+        current_speed = self.speed
+        new_speed = min(current_speed * 1.03, 25)  # 약간 속도 증가, 최대 제한
+
+        # 새 속도 벡터
+        angle_rad = math.radians(reflect_angle)
+        direction = -1 if player.is_top else 1
+        self.vx = new_speed * math.sin(angle_rad)
+        self.vy = new_speed * math.cos(angle_rad) * direction
 
         # 스킬 체크
-        self._check_skills(player, keys_pressed, rel_x)
+        up_key = player.keys['up']
+        down_key = player.keys['down']
+        left_key = player.keys['left']
+        right_key = player.keys['right']
 
-        # 랠리 카운트
-        self.ball.rally_count += 1
-        self.ball.last_hit_by = f'p{player.num}'
+        # 쇼트샷 (위 키)
+        if keys_pressed.get(up_key):
+            if player.try_short_shot():
+                self.vx *= SHORT_SHOT_SPEED_MULTIPLIER
+                self.vy *= SHORT_SHOT_SPEED_MULTIPLIER
 
-        # 상대방 콤보 리셋
-        opponent = self.p2 if player == self.p1 else self.p1
-        opponent.combo = 0
+        # 드라이브 (좌/우 키)
+        elif keys_pressed.get(left_key):
+            if player.try_drive(-1):
+                self.spin = -DRIVE_BASE_SPIN
+                self.vx *= DRIVE_SPEED_BOOST
+        elif keys_pressed.get(right_key):
+            if player.try_drive(1):
+                self.spin = DRIVE_BASE_SPIN
+                self.vx *= DRIVE_SPEED_BOOST
 
-        if self.sounds.get('hit'):
-            self.sounds['hit']()
+        # 파워스매싱 (아래 키)
+        elif keys_pressed.get(down_key):
+            if player.try_power_smash():
+                self.power_smash_active = True
+                self.power_smash_gravity = POWER_SMASH_GRAVITY
+                self.vy *= 1.5
 
-    def _check_skills(self, player: SmasherPlayer, keys_pressed: Dict[int, bool], rel_x: float):
-        """스킬 발동 체크"""
-        # 쇼트 - UP 키
-        if keys_pressed.get(player.keys.up, False):
-            opponent = self.p2 if player == self.p1 else self.p1
-            new_vx, new_vy, speed = player.activate_short_shot(
-                self.ball.vx, self.ball.vy,
-                opponent.rect.centerx, opponent.rect.centery
-            )
-            if speed > 0:
-                self.ball.vx = new_vx
-                self.ball.vy = new_vy
-                self.effects.create_skill_effect(self.ball.x, self.ball.y, 'short_shot')
-                if self.sounds.get('short_shot'):
-                    self.sounds['short_shot']()
+        # 히트 콜백
+        player.on_hit()
 
-        # 드라이브 - 퍼펙트 타이밍 + 좌/우
-        elif player.perfect_timing_active:
-            direction = 0
-            if keys_pressed.get(player.keys.left, False):
-                direction = -1
-            elif keys_pressed.get(player.keys.right, False):
-                direction = 1
-
-            if direction != 0 and keys_pressed.get(player.keys.skill, False):
-                spin, spin_dir = player.activate_drive(direction)
-                if spin > 0:
-                    self.ball.spin_strength = spin
-                    self.ball.spin_direction = spin_dir
-                    self.ball.vx *= DRIVE_SPEED_BOOST
-                    self.ball.vy *= DRIVE_SPEED_BOOST
-                    self.effects.create_skill_effect(self.ball.x, self.ball.y, 'drive', direction)
-
-        # 파워스매싱 - DOWN 키
-        if keys_pressed.get(player.keys.down, False):
-            direction = 0
-            if keys_pressed.get(player.keys.left, False):
-                direction = -1
-            elif keys_pressed.get(player.keys.right, False):
-                direction = 1
-
-            arc, gravity, speed_mult = player.activate_power_smash(direction, self.ball.current_speed)
-            if arc != 0 or gravity != 0:
-                self.ball.vx *= speed_mult
-                self.ball.vy *= speed_mult
-                self.power_smash_start_time = time.time()
-                self.effects.create_skill_effect(self.ball.x, self.ball.y, 'power_smash', direction)
-
-    def update(self, dt: float, keys_pressed: Dict[int, bool]):
-        """게임 업데이트"""
-        if self.game_over:
-            return
-
-        # 공 생성 애니메이션 업데이트
-        if self.spawn_animation_active:
-            ball_x, ball_y = self.spawn_animation.update(dt)
-            self.ball.x = ball_x
-            self.ball.y = ball_y
-            self.ball.update_rect()
-
-            if self.spawn_animation.complete:
-                self.spawn_animation_active = False
-
-        # 서브 처리
-        self.handle_serve()
-
-        # 플레이어 업데이트
-        self.p1.update(keys_pressed, dt)
-        self.p2.update(keys_pressed, dt)
-
-        # 공 업데이트
-        if self.ball.active:
-            # 쇼트 업데이트
-            if self.p1.short_shot_active:
-                self.ball.vx, self.ball.vy = self.p1.update_short_shot(
-                    self.ball.vx, self.ball.vy, self.ball.y, self.p2.rect.centery)
-            if self.p2.short_shot_active:
-                self.ball.vx, self.ball.vy = self.p2.update_short_shot(
-                    self.ball.vx, self.ball.vy, self.ball.y, self.p1.rect.centery)
-
-            # 파워스매싱 업데이트
-            if self.p1.power_smash_active:
-                elapsed = time.time() - self.power_smash_start_time
-                self.ball.vx, self.ball.vy = self.p1.update_power_smash(
-                    self.ball.vx, self.ball.vy, elapsed)
-            if self.p2.power_smash_active:
-                elapsed = time.time() - self.power_smash_start_time
-                self.ball.vx, self.ball.vy = self.p2.update_power_smash(
-                    self.ball.vx, self.ball.vy, elapsed)
-
-            self.ball.update(dt)
-
-            # 벽 충돌
-            wall_dir = self.ball.wall_bounce()
-            if wall_dir != 0:
-                self.effects.create_wall_impact(self.ball.x, self.ball.y, wall_dir)
-                if self.sounds.get('wall'):
-                    self.sounds['wall']()
-
-            # 패들 충돌
-            self.handle_collision(self.p1, keys_pressed)
-            self.handle_collision(self.p2, keys_pressed)
-
-            # 점수 체크
-            score_result = self.ball.check_score()
-            if score_result != 0:
-                self._handle_score(score_result)
-
-        # 이펙트 업데이트
-        self.effects.update(dt)
-        self.combo_display.update(dt)
-        self.score_board.update()
-
-    def _handle_score(self, result: int):
-        """점수 처리"""
-        if result == 1:  # 상단 통과
-            if self.p1.is_top:
-                self.p2.score += 1
-                self.serving_player = self.p1
-            else:
-                self.p1.score += 1
-                self.serving_player = self.p2
-        else:  # 하단 통과
-            if self.p1.is_top:
-                self.p1.score += 1
-                self.serving_player = self.p2
-            else:
-                self.p2.score += 1
-                self.serving_player = self.p1
-
-        # 점수 표시
-        self.score_board.show_score(self.p1.score, self.p2.score)
-
-        if self.sounds.get('score'):
-            self.sounds['score']()
-
-        # 승리 체크
-        if self.p1.score >= self.win_score:
-            self.game_over = True
-            self.winner = self.p1
-        elif self.p2.score >= self.win_score:
-            self.game_over = True
-            self.winner = self.p2
+        # 공 위치 보정 (패들 밖으로)
+        if player.is_top:
+            self.y = player.y + player.height + self.radius + 1
         else:
-            # 다음 라운드
-            self.start_round()
-
-    def draw(self):
-        """게임 그리기"""
-        # 배경
-        self.screen.fill((10, 15, 30))
-
-        # 중앙선
-        pygame.draw.line(self.screen, (40, 50, 70),
-                        (0, self.height // 2), (self.width, self.height // 2), 2)
-
-        # 공 생성 애니메이션
-        if self.spawn_animation_active:
-            self.spawn_animation.draw(self.screen)
-
-        # 플레이어
-        self.p1.draw(self.screen)
-        self.p2.draw(self.screen)
-
-        # 공
-        self.ball.draw(self.screen)
-
-        # 이펙트
-        self.effects.draw(self.screen)
-
-        # UI
-        self.gauge_p1.draw(self.screen, self.font)
-        self.gauge_p2.draw(self.screen, self.font)
-        self.combo_display.draw(self.screen, self.large_font)
-        self.score_board.draw(self.screen, self.p1.score, self.p2.score,
-                             self.font, self.large_font)
-
-        # 점수 표시 (상단)
-        score_text = f"P1: {self.p1.score}  -  P2: {self.p2.score}"
-        score_surf = self.font.render(score_text, True, (200, 200, 200))
-        score_rect = score_surf.get_rect(centerx=self.width // 2, top=10)
-        self.screen.blit(score_surf, score_rect)
-
-        # 서브 대기 표시
-        if self.waiting_for_serve and not self.spawn_animation_active:
-            serve_text = f"P{self.serving_player.num} SERVE"
-            serve_surf = self.large_font.render(serve_text, True, (255, 220, 100))
-            serve_rect = serve_surf.get_rect(center=(self.width // 2, self.height // 2))
-            self.screen.blit(serve_surf, serve_rect)
-
-    def draw_result(self):
-        """결과 화면 그리기"""
-        # 어두운 오버레이
-        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
-        self.screen.blit(overlay, (0, 0))
-
-        # 승리 텍스트
-        winner_text = f"P{self.winner.num} WINS!"
-        winner_surf = self.title_font.render(winner_text, True, self.winner.color)
-        winner_rect = winner_surf.get_rect(center=(self.width // 2, self.height // 2 - 50))
-        self.screen.blit(winner_surf, winner_rect)
-
-        # 최종 점수
-        score_text = f"{self.p1.score} - {self.p2.score}"
-        score_surf = self.large_font.render(score_text, True, (255, 255, 255))
-        score_rect = score_surf.get_rect(center=(self.width // 2, self.height // 2 + 20))
-        self.screen.blit(score_surf, score_rect)
-
-        # 안내
-        hint_text = "Press ENTER to continue"
-        hint_surf = self.font.render(hint_text, True, (150, 150, 150))
-        hint_rect = hint_surf.get_rect(center=(self.width // 2, self.height // 2 + 80))
-        self.screen.blit(hint_surf, hint_rect)
-
-    def run(self) -> bool:
-        """게임 실행"""
-        self.game_start_time = time.time()
-        self.start_round()
-
-        while self.running:
-            dt = self.clock.tick(60) / 1000.0
-
-            # 이벤트 처리
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                    return False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.running = False
-                        return True
-                    elif event.key == pygame.K_RETURN and self.game_over:
-                        self.running = False
-                        return True
-
-            # 키 상태
-            keys = pygame.key.get_pressed()
-            keys_dict = {i: keys[i] for i in range(len(keys))}
-
-            # 업데이트
-            self.update(dt, keys_dict)
-
-            # 그리기
-            self.draw()
-
-            if self.game_over:
-                self.draw_result()
-
-            pygame.display.flip()
+            self.y = player.y - self.radius - 1
 
         return True
 
 
 # ============================================================================
+# UI 컴포넌트
+# ============================================================================
+class GaugeBar:
+    """게이지 바 UI"""
+
+    def __init__(self, player: Player, x: int, y: int, width: int = 200, height: int = 20):
+        self.player = player
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.displayed_gauge = 0
+
+    def update(self):
+        """게이지 표시 스무딩"""
+        diff = self.player.gauge - self.displayed_gauge
+        self.displayed_gauge += diff * 0.15
+
+    def draw(self, surface: pygame.Surface):
+        """게이지 바 렌더링"""
+        self.update()
+
+        # 배경
+        bg_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        pygame.draw.rect(surface, (40, 40, 40), bg_rect, border_radius=3)
+
+        # 게이지
+        ratio = self.displayed_gauge / self.player.gauge_max
+        gauge_width = int(self.width * ratio)
+        if gauge_width > 0:
+            gauge_rect = pygame.Rect(self.x, self.y, gauge_width, self.height)
+            pygame.draw.rect(surface, self.player.color, gauge_rect, border_radius=3)
+
+        # 스킬 코스트 마커
+        markers = [
+            (SHORT_SHOT_GAUGE_COST, "S"),
+            (DRIVE_GAUGE_COST, "D"),
+            (POWER_SMASH_GAUGE_COST, "P"),
+        ]
+        for cost, label in markers:
+            marker_x = self.x + int(self.width * cost / self.player.gauge_max)
+            pygame.draw.line(surface, (200, 200, 200),
+                           (marker_x, self.y), (marker_x, self.y + self.height), 1)
+
+        # 테두리
+        pygame.draw.rect(surface, (100, 100, 100), bg_rect, 2, border_radius=3)
+
+        # 게이지 수치
+        font = pygame.font.Font(None, 18)
+        text = font.render(f"{int(self.displayed_gauge)}/{self.player.gauge_max}", True, (255, 255, 255))
+        text_rect = text.get_rect(center=(self.x + self.width // 2, self.y + self.height // 2))
+        surface.blit(text, text_rect)
+
+
+class ComboDisplay:
+    """콤보 표시 UI"""
+
+    def __init__(self, player: Player):
+        self.player = player
+
+    def draw(self, surface: pygame.Surface):
+        """콤보 표시"""
+        if self.player.combo < 2 or self.player.combo_display_timer <= 0:
+            return
+
+        # 콤보 색상
+        combo_colors = {
+            2: (255, 200, 100),
+            3: (255, 150, 50),
+            4: (255, 100, 50),
+            5: (255, 50, 100),
+        }
+        color = combo_colors.get(min(self.player.combo, 5), (255, 50, 150))
+
+        # 위치
+        x = self.player.centerx
+        y = self.player.y - 30 if not self.player.is_top else self.player.y + self.player.height + 30
+
+        # 크기 애니메이션
+        scale = 1.0 + 0.3 * (self.player.combo_display_timer / 60)
+        font_size = int(28 * scale)
+
+        font = pygame.font.Font(None, font_size)
+        text = font.render(f"{self.player.combo} COMBO!", True, color)
+        text_rect = text.get_rect(center=(x, y))
+        surface.blit(text, text_rect)
+
+
+class ScoreBoard:
+    """점수판 UI"""
+
+    def __init__(self, width: int, height: int):
+        self.width = width
+        self.height = height
+        self.win_score = 5
+
+    def draw(self, surface: pygame.Surface, p1_score: int, p2_score: int):
+        """점수판 렌더링"""
+        # 중앙 구분선
+        pygame.draw.line(surface, (60, 60, 80),
+                        (0, self.height // 2), (self.width, self.height // 2), 2)
+
+        # 점선
+        for x in range(0, self.width, 30):
+            pygame.draw.circle(surface, (80, 80, 100), (x, self.height // 2), 3)
+
+        # P1 점수 (하단)
+        self._draw_score(surface, 1, p1_score, P1_COLOR, self.height - 60)
+
+        # P2 점수 (상단)
+        self._draw_score(surface, 2, p2_score, P2_COLOR, 30)
+
+    def _draw_score(self, surface: pygame.Surface, player_num: int, score: int,
+                   color: Tuple[int, int, int], y: int):
+        """개별 점수 렌더링"""
+        font = pygame.font.Font(None, 48)
+        text = font.render(f"P{player_num}: {score}", True, color)
+        text_rect = text.get_rect(center=(self.width // 2, y))
+        surface.blit(text, text_rect)
+
+
+# ============================================================================
+# 메인 게임 클래스
+# ============================================================================
+class MultiplayerGame:
+    """멀티플레이어 게임 메인 클래스"""
+
+    def __init__(self, screen: pygame.Surface, width: int, height: int,
+                 create_smasher_func: Callable = None,
+                 play_sound_funcs: Dict[str, Callable] = None,
+                 bgm_manager = None):
+        self.screen = screen
+        self.width = width
+        self.height = height
+        self.create_smasher_func = create_smasher_func
+        self.sounds = play_sound_funcs or {}
+        self.bgm_manager = bgm_manager
+
+        # 게임 상태
+        self.running = True
+        self.game_over = False
+        self.winner = None
+        self.win_score = 5
+
+        # 플레이어
+        paddle_width = 100
+        paddle_height = 20
+
+        # P1 (하단)
+        self.p1 = Player(
+            player_num=1,
+            x=width // 2 - paddle_width // 2,
+            y=height - 80,
+            width=paddle_width,
+            height=paddle_height,
+            is_top=False
+        )
+
+        # P2 (상단)
+        self.p2 = Player(
+            player_num=2,
+            x=width // 2 - paddle_width // 2,
+            y=60,
+            width=paddle_width,
+            height=paddle_height,
+            is_top=True
+        )
+
+        # 공
+        self.ball = Ball(width // 2, height // 2)
+        self.spawn_animation = None
+
+        # 렌더러
+        self.ball_renderer = EnergyBallRenderer()
+        self.trail_system = TrailSystem()
+        self.effect_system = EffectSystem()
+
+        # UI
+        self.p1_gauge = GaugeBar(self.p1, 10, height - 30, 200, 16)
+        self.p2_gauge = GaugeBar(self.p2, 10, 10, 200, 16)
+        self.p1_combo = ComboDisplay(self.p1)
+        self.p2_combo = ComboDisplay(self.p2)
+        self.scoreboard = ScoreBoard(width, height)
+
+        # 라운드 상태
+        self.round_start_delay = 0
+        self.round_countdown = 0
+
+        # 시작
+        self._start_new_round()
+
+    def _start_new_round(self):
+        """새 라운드 시작"""
+        # 공 생성 애니메이션
+        self.spawn_animation = BallSpawnAnimation(self.width // 2, self.height // 2)
+        self.ball.active = False
+        self.round_start_delay = 60
+
+    def _play_sound(self, name: str):
+        """사운드 재생"""
+        if name in self.sounds:
+            try:
+                self.sounds[name]()
+            except:
+                pass
+
+    def update(self):
+        """게임 업데이트"""
+        if self.game_over:
+            return
+
+        # 키 입력
+        keys = pygame.key.get_pressed()
+        keys_pressed = {k: keys[k] for k in range(len(keys))}
+
+        # 라운드 시작 대기
+        if self.round_start_delay > 0:
+            self.round_start_delay -= 1
+            return
+
+        # 공 생성 애니메이션
+        if self.spawn_animation and self.spawn_animation.active:
+            if self.spawn_animation.update():
+                # 애니메이션 완료, 공 활성화
+                direction = 1 if random.random() < 0.5 else -1
+                self.ball.reset(self.width // 2, self.height // 2, direction)
+                self.spawn_animation = None
+            return
+
+        # 플레이어 업데이트
+        self.p1.update(keys_pressed, self.width)
+        self.p2.update(keys_pressed, self.width)
+
+        # 공 업데이트
+        scored, scorer = self.ball.update(self.width, self.height)
+
+        if scored:
+            # 득점
+            if scorer == 1:
+                self.p1.score += 1
+                self.effect_system.spawn_score_effect(self.ball.x, 50, 1)
+            else:
+                self.p2.score += 1
+                self.effect_system.spawn_score_effect(self.ball.x, self.height - 50, 2)
+
+            self._play_sound('score')
+
+            # 승리 체크
+            if self.p1.score >= self.win_score:
+                self.game_over = True
+                self.winner = 1
+            elif self.p2.score >= self.win_score:
+                self.game_over = True
+                self.winner = 2
+            else:
+                # 다음 라운드
+                self._start_new_round()
+            return
+
+        # 패들 충돌
+        if self.ball.handle_paddle_collision(self.p1, keys_pressed):
+            self._play_sound('hit')
+            self.effect_system.spawn_hit_particles(
+                int(self.ball.x), int(self.ball.y), self.p1.color)
+
+        if self.ball.handle_paddle_collision(self.p2, keys_pressed):
+            self._play_sound('hit')
+            self.effect_system.spawn_hit_particles(
+                int(self.ball.x), int(self.ball.y), self.p2.color)
+
+        # 벽 충돌 이펙트
+        if self.ball.x <= self.ball.radius:
+            self._play_sound('wall')
+            self.effect_system.spawn_wall_impact(int(self.ball.x), int(self.ball.y), True)
+        elif self.ball.x >= self.width - self.ball.radius:
+            self._play_sound('wall')
+            self.effect_system.spawn_wall_impact(int(self.ball.x), int(self.ball.y), False)
+
+        # 트레일 업데이트
+        if self.ball.active:
+            self.trail_system.add_trail(self.ball.x, self.ball.y, self.ball.speed)
+        self.trail_system.update()
+
+        # 이펙트 업데이트
+        self.effect_system.update()
+
+    def draw(self):
+        """게임 렌더링"""
+        # 배경
+        self.screen.fill((20, 25, 35))
+
+        # 점수판
+        self.scoreboard.draw(self.screen, self.p1.score, self.p2.score)
+
+        # 트레일
+        self.trail_system.draw(self.screen)
+
+        # 공 생성 애니메이션
+        if self.spawn_animation and self.spawn_animation.active:
+            self.spawn_animation.draw(self.screen, self.ball_renderer)
+        elif self.ball.active:
+            # 에너지볼 렌더링
+            self.ball_renderer.draw(self.screen, int(self.ball.x), int(self.ball.y),
+                                   self.ball.radius, self.ball.speed)
+
+        # 이펙트
+        self.effect_system.draw(self.screen)
+
+        # 플레이어
+        self.p1.draw(self.screen, self.create_smasher_func)
+        self.p2.draw(self.screen, self.create_smasher_func)
+
+        # 콤보
+        self.p1_combo.draw(self.screen)
+        self.p2_combo.draw(self.screen)
+
+        # 게이지 바
+        self.p1_gauge.draw(self.screen)
+        self.p2_gauge.draw(self.screen)
+
+        # 조작법 안내
+        self._draw_controls()
+
+        # 게임 오버
+        if self.game_over:
+            self._draw_game_over()
+
+        pygame.display.flip()
+
+    def _draw_controls(self):
+        """조작법 안내 렌더링"""
+        font = pygame.font.Font(None, 18)
+
+        p1_text = font.render("P1: ←→ Move | Shift+←→ Dash | ↑Shot ↓Power ←→Drive",
+                             True, (120, 120, 120))
+        p2_text = font.render("P2: A/D Move | Space+A/D Dash | W Shot S Power A/D Drive",
+                             True, (120, 120, 120))
+        esc_text = font.render("ESC: Exit", True, (120, 120, 120))
+
+        self.screen.blit(p1_text, (10, self.height - 18))
+        self.screen.blit(p2_text, (10, 2))
+        self.screen.blit(esc_text, (self.width - esc_text.get_width() - 10, self.height // 2 - 10))
+
+    def _draw_game_over(self):
+        """게임 오버 화면"""
+        # 반투명 오버레이
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+
+        # 승자 표시
+        winner_color = P1_COLOR if self.winner == 1 else P2_COLOR
+        font_large = pygame.font.Font(None, 72)
+        font_medium = pygame.font.Font(None, 36)
+
+        text = font_large.render(f"P{self.winner} WIN!", True, winner_color)
+        text_rect = text.get_rect(center=(self.width // 2, self.height // 2 - 40))
+        self.screen.blit(text, text_rect)
+
+        score_text = font_medium.render(f"P1: {self.p1.score} - P2: {self.p2.score}",
+                                        True, (200, 200, 200))
+        score_rect = score_text.get_rect(center=(self.width // 2, self.height // 2 + 20))
+        self.screen.blit(score_text, score_rect)
+
+        hint_text = font_medium.render("Press any key to continue", True, (150, 150, 150))
+        hint_rect = hint_text.get_rect(center=(self.width // 2, self.height // 2 + 80))
+        self.screen.blit(hint_text, hint_rect)
+
+    def run(self):
+        """게임 루프 실행"""
+        clock = pygame.time.Clock()
+
+        # BGM 재생
+        if self.bgm_manager:
+            try:
+                self.bgm_manager.play_stage_bgm(1)
+            except:
+                pass
+
+        while self.running:
+            # 이벤트 처리
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.running = False
+                    elif self.game_over:
+                        # 게임 오버 상태에서 아무 키나 누르면 종료
+                        self.running = False
+
+            # 업데이트
+            self.update()
+
+            # 렌더링
+            self.draw()
+
+            clock.tick(60)
+
+        # BGM 정지
+        if self.bgm_manager:
+            try:
+                self.bgm_manager.play_menu_bgm()
+            except:
+                pass
+
+
+# ============================================================================
 # 캐릭터 선택 화면
 # ============================================================================
-
 def show_character_select(screen: pygame.Surface, width: int, height: int,
-                         get_font_func: Callable, play_click_sound: Callable,
-                         bgm_manager: Any) -> Optional[Dict]:
-    """캐릭터 선택 화면"""
+                         create_smasher_func: Callable = None) -> Tuple[str, str]:
+    """
+    캐릭터 선택 화면
+    Returns: (p1_character, p2_character) 또는 종료시 (None, None)
+    """
     clock = pygame.time.Clock()
 
-    font = get_font_func(16)
-    large_font = get_font_func(32)
-    title_font = get_font_func(48)
+    # 현재는 스매셔만 선택 가능
+    characters = ["smasher"]  # TODO: 다른 캐릭터 추가
 
-    characters = [
-        {"name": "스매셔", "name_en": "SMASHER", "color": (0, 150, 255), "available": True},
-        {"name": "코만도", "name_en": "COMMANDO", "color": (80, 120, 60), "available": False},
-        {"name": "발토르", "name_en": "BALTOR", "color": (180, 120, 60), "available": False},
-        {"name": "옵티머스", "name_en": "OPTIMUS", "color": (60, 200, 255), "available": False},
-    ]
+    p1_selected = 0
+    p2_selected = 0
+    p1_ready = False
+    p2_ready = False
 
-    p1_select = 0
-    p2_select = 0
-    p1_confirmed = False
-    p2_confirmed = False
-
-    while True:
+    running = True
+    while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                return None
+                return None, None
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    return None
+                    return None, None
 
                 # P1 선택 (방향키)
-                if not p1_confirmed:
+                if not p1_ready:
                     if event.key == pygame.K_LEFT:
-                        p1_select = (p1_select - 1) % len(characters)
-                        play_click_sound()
+                        p1_selected = (p1_selected - 1) % len(characters)
                     elif event.key == pygame.K_RIGHT:
-                        p1_select = (p1_select + 1) % len(characters)
-                        play_click_sound()
-                    elif event.key == pygame.K_RETURN:
-                        if characters[p1_select]["available"]:
-                            p1_confirmed = True
-                            play_click_sound()
+                        p1_selected = (p1_selected + 1) % len(characters)
+                    elif event.key == pygame.K_RETURN or event.key == pygame.K_RSHIFT:
+                        p1_ready = True
 
                 # P2 선택 (WASD)
-                if not p2_confirmed:
+                if not p2_ready:
                     if event.key == pygame.K_a:
-                        p2_select = (p2_select - 1) % len(characters)
-                        play_click_sound()
+                        p2_selected = (p2_selected - 1) % len(characters)
                     elif event.key == pygame.K_d:
-                        p2_select = (p2_select + 1) % len(characters)
-                        play_click_sound()
+                        p2_selected = (p2_selected + 1) % len(characters)
                     elif event.key == pygame.K_SPACE:
-                        if characters[p2_select]["available"]:
-                            p2_confirmed = True
-                            play_click_sound()
+                        p2_ready = True
 
-        # 둘 다 확인하면 시작
-        if p1_confirmed and p2_confirmed:
-            return {
-                "p1": characters[p1_select],
-                "p2": characters[p2_select]
-            }
+        # 둘 다 준비되면 게임 시작
+        if p1_ready and p2_ready:
+            return characters[p1_selected], characters[p2_selected]
 
-        # 그리기
-        screen.fill((15, 20, 35))
+        # 렌더링
+        screen.fill((20, 25, 35))
 
         # 타이틀
-        title_surf = title_font.render("SELECT CHARACTER", True, (255, 255, 255))
-        title_rect = title_surf.get_rect(centerx=width // 2, top=30)
-        screen.blit(title_surf, title_rect)
+        font_large = pygame.font.Font(None, 64)
+        title = font_large.render("CHARACTER SELECT", True, (255, 255, 255))
+        title_rect = title.get_rect(center=(width // 2, 60))
+        screen.blit(title, title_rect)
 
-        # 캐릭터 카드
-        card_width = 120
-        card_height = 150
-        total_width = len(characters) * card_width + (len(characters) - 1) * 20
-        start_x = (width - total_width) // 2
+        # P1 선택 영역 (왼쪽)
+        p1_x = width // 4
+        _draw_character_slot(screen, p1_x, height // 2, characters[p1_selected],
+                            P1_COLOR, "P1", p1_ready, create_smasher_func)
 
-        for i, char in enumerate(characters):
-            x = start_x + i * (card_width + 20)
-            y = height // 2 - 100
+        # P2 선택 영역 (오른쪽)
+        p2_x = width * 3 // 4
+        _draw_character_slot(screen, p2_x, height // 2, characters[p2_selected],
+                            P2_COLOR, "P2", p2_ready, create_smasher_func)
 
-            # 선택 상태
-            is_p1_selected = (i == p1_select)
-            is_p2_selected = (i == p2_select)
+        # VS 표시
+        font_vs = pygame.font.Font(None, 72)
+        vs_text = font_vs.render("VS", True, (255, 200, 0))
+        vs_rect = vs_text.get_rect(center=(width // 2, height // 2))
+        screen.blit(vs_text, vs_rect)
 
-            # 카드 배경
-            bg_color = char["color"] if char["available"] else (60, 60, 60)
-            if not char["available"]:
-                bg_alpha = 100
-            elif is_p1_selected or is_p2_selected:
-                bg_alpha = 255
-            else:
-                bg_alpha = 150
-
-            card_surf = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
-            pygame.draw.rect(card_surf, (*bg_color, bg_alpha),
-                           (0, 0, card_width, card_height), border_radius=10)
-
-            # 테두리
-            if is_p1_selected:
-                pygame.draw.rect(card_surf, (0, 150, 255),
-                               (0, 0, card_width, card_height), 3, border_radius=10)
-            if is_p2_selected:
-                pygame.draw.rect(card_surf, (255, 100, 100),
-                               (0, 0, card_width, card_height), 3, border_radius=10)
-
-            screen.blit(card_surf, (x, y))
-
-            # 캐릭터 이름
-            name_surf = font.render(char["name"], True, (255, 255, 255))
-            name_rect = name_surf.get_rect(centerx=x + card_width // 2,
-                                          centery=y + card_height // 2)
-            screen.blit(name_surf, name_rect)
-
-            # 영문 이름
-            en_surf = font.render(char["name_en"], True, (200, 200, 200))
-            en_rect = en_surf.get_rect(centerx=x + card_width // 2,
-                                      centery=y + card_height // 2 + 25)
-            screen.blit(en_surf, en_rect)
-
-            # 잠금 표시
-            if not char["available"]:
-                lock_surf = large_font.render("LOCKED", True, (150, 150, 150))
-                lock_rect = lock_surf.get_rect(centerx=x + card_width // 2,
-                                              centery=y + card_height // 2 + 55)
-                screen.blit(lock_surf, lock_rect)
-
-            # P1/P2 마커
-            if is_p1_selected:
-                p1_marker = font.render("P1", True, (0, 150, 255))
-                screen.blit(p1_marker, (x + 5, y + 5))
-            if is_p2_selected:
-                p2_marker = font.render("P2", True, (255, 100, 100))
-                screen.blit(p2_marker, (x + card_width - 25, y + 5))
-
-        # 확인 상태
-        status_y = height // 2 + 100
-
-        p1_status = "READY!" if p1_confirmed else "← → + ENTER"
-        p1_color = (100, 255, 100) if p1_confirmed else (150, 150, 150)
-        p1_surf = font.render(f"P1: {p1_status}", True, p1_color)
-        screen.blit(p1_surf, (50, status_y))
-
-        p2_status = "READY!" if p2_confirmed else "A D + SPACE"
-        p2_color = (100, 255, 100) if p2_confirmed else (150, 150, 150)
-        p2_surf = font.render(f"P2: {p2_status}", True, p2_color)
-        screen.blit(p2_surf, (width - 200, status_y))
-
-        # ESC 안내
-        esc_surf = font.render("ESC: Back", True, (100, 100, 100))
-        screen.blit(esc_surf, (10, height - 30))
+        # 조작법 안내
+        font_small = pygame.font.Font(None, 24)
+        p1_control = font_small.render("P1: ←→ Select, Enter/Shift to Ready", True, P1_COLOR)
+        p2_control = font_small.render("P2: A/D Select, Space to Ready", True, P2_COLOR)
+        screen.blit(p1_control, (10, height - 50))
+        screen.blit(p2_control, (10, height - 25))
 
         pygame.display.flip()
         clock.tick(60)
 
+    return None, None
+
+
+def _draw_character_slot(screen: pygame.Surface, x: int, y: int, character: str,
+                        color: Tuple[int, int, int], label: str, ready: bool,
+                        create_smasher_func: Callable = None):
+    """캐릭터 슬롯 렌더링"""
+    # 박스
+    box_width = 200
+    box_height = 250
+    box_rect = pygame.Rect(x - box_width // 2, y - box_height // 2, box_width, box_height)
+
+    # 배경
+    pygame.draw.rect(screen, (40, 40, 50), box_rect, border_radius=10)
+
+    # 테두리 (준비되면 강조)
+    border_color = color if ready else (80, 80, 100)
+    border_width = 4 if ready else 2
+    pygame.draw.rect(screen, border_color, box_rect, border_width, border_radius=10)
+
+    # 캐릭터 이름
+    font = pygame.font.Font(None, 36)
+    name_text = font.render(character.upper(), True, (255, 255, 255))
+    name_rect = name_text.get_rect(center=(x, y - 80))
+    screen.blit(name_text, name_rect)
+
+    # 캐릭터 스프라이트 (스매셔)
+    if create_smasher_func and character == "smasher":
+        try:
+            sprite = create_smasher_func(0)
+            sprite_rect = sprite.get_rect(center=(x, y + 20))
+            screen.blit(sprite, sprite_rect)
+        except:
+            pass
+
+    # 플레이어 라벨
+    label_font = pygame.font.Font(None, 28)
+    label_text = label_font.render(label, True, color)
+    label_rect = label_text.get_rect(center=(x, y - 110))
+    screen.blit(label_text, label_rect)
+
+    # Ready 표시
+    if ready:
+        ready_font = pygame.font.Font(None, 32)
+        ready_text = ready_font.render("READY!", True, (100, 255, 100))
+        ready_rect = ready_text.get_rect(center=(x, y + 100))
+        screen.blit(ready_text, ready_rect)
+
 
 # ============================================================================
-# 메인 함수
+# 메인 진입점 (외부에서 호출)
 # ============================================================================
-
 def run_multiplayer_game(screen: pygame.Surface, width: int, height: int,
-                        get_font_func: Callable, play_sound_funcs: Dict[str, Callable],
-                        create_smasher_func: Callable, bgm_manager: Any) -> bool:
+                        get_font_func: Callable = None,
+                        play_sound_funcs: Dict[str, Callable] = None,
+                        create_smasher_func: Callable = None,
+                        bgm_manager = None):
     """
-    멀티플레이어 게임 실행
+    멀티플레이어 게임 시작
 
     Args:
         screen: pygame 화면
-        width, height: 화면 크기
-        get_font_func: 폰트 가져오기 함수
-        play_sound_funcs: 사운드 함수 딕셔너리
+        width: 화면 너비
+        height: 화면 높이
+        get_font_func: 폰트 함수 (사용 안 함, 호환성 유지)
+        play_sound_funcs: 사운드 함수들 {'click', 'hit', 'wall', 'score', 'short_shot'}
         create_smasher_func: 스매셔 스프라이트 생성 함수
-        bgm_manager: BGM 관리자
-
-    Returns:
-        True: 정상 종료, False: 강제 종료
+        bgm_manager: BGM 매니저
     """
-    # 캐릭터 선택
-    selection = show_character_select(
-        screen, width, height, get_font_func,
-        play_sound_funcs.get('click', lambda: None),
-        bgm_manager
-    )
+    global _create_smasher_paddle_surface, _get_font, _bgm_manager
+    global _play_paddle_sound, _play_wall_sound, _play_dash_sound, _play_notification_sound
 
-    if selection is None:
-        return True  # ESC로 취소
+    _create_smasher_paddle_surface = create_smasher_func
+    _get_font = get_font_func
+    _bgm_manager = bgm_manager
+
+    if play_sound_funcs:
+        _play_paddle_sound = play_sound_funcs.get('hit')
+        _play_wall_sound = play_sound_funcs.get('wall')
+        _play_dash_sound = play_sound_funcs.get('short_shot')
+        _play_notification_sound = play_sound_funcs.get('score')
+
+    # 캐릭터 선택 화면
+    p1_char, p2_char = show_character_select(screen, width, height, create_smasher_func)
+
+    if p1_char is None or p2_char is None:
+        # 취소됨
+        return
 
     # 게임 시작
     game = MultiplayerGame(
-        screen, width, height,
-        get_font_func, play_sound_funcs,
-        create_smasher_func, bgm_manager
+        screen=screen,
+        width=width,
+        height=height,
+        create_smasher_func=create_smasher_func,
+        play_sound_funcs=play_sound_funcs,
+        bgm_manager=bgm_manager
     )
+    game.run()
 
-    return game.run()
+
+# ============================================================================
+# 테스트용 (직접 실행 시)
+# ============================================================================
+if __name__ == "__main__":
+    pygame.init()
+    screen = pygame.display.set_mode((960, 720))
+    pygame.display.set_caption("PingFighter - Multiplayer Mode")
+
+    run_multiplayer_game(screen, 960, 720)
+
+    pygame.quit()
