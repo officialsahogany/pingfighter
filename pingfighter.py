@@ -82667,6 +82667,11 @@ def draw_field():
         earthquake_offset_y = 0
         # 스테이지1에서는 애니메이션 배경 사용
         animated_bg.update(clock.get_time())
+        # [DEBUG] 나비 시스템 디버깅
+        if pillar_renderer is not None and hasattr(pillar_renderer, '_stadium_bg') and pillar_renderer._stadium_bg is not None:
+            stadium = pillar_renderer._stadium_bg
+            if frame_count % 180 == 0:  # 3초마다 디버그 출력
+                print(f"[나비DEBUG] 쿨타임: {stadium._butterfly_cooldown:.1f}s, 날아가는중: {stadium._butterfly_flying_to_player is not None}, 흡수중: {stadium._absorbing_butterfly is not None}, 남은 나비: {len(stadium.butterflies)}개")
         # 배경을 화면 전체에 맞게 스케일링
         temp_surface = pygame.Surface((animated_bg.width, animated_bg.height), pygame.SRCALPHA)
         animated_bg.draw(temp_surface)
@@ -106949,14 +106954,40 @@ if __name__ == "__main__":
     import datetime
 
     # 로그 파일 경로 설정
-    log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "error_log.txt")
+    if getattr(sys, 'frozen', False):
+        # 패키징된 실행 파일
+        log_dir = os.path.dirname(sys.executable)
+    else:
+        # 개발 환경
+        log_dir = os.path.dirname(os.path.abspath(__file__))
+
+    log_file = os.path.join(log_dir, "error_log.txt")
+    startup_log = os.path.join(log_dir, "startup_log.txt")
+
+    # 시작 로그 기록
+    try:
+        with open(startup_log, "a", encoding="utf-8") as f:
+            f.write(f"\n{'='*80}\n")
+            f.write(f"게임 시작: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"실행 경로: {sys.executable if getattr(sys, 'frozen', False) else __file__}\n")
+            f.write(f"{'='*80}\n")
+    except Exception as e:
+        print(f"[시작 로그 기록 실패]: {e}")
 
     try:
+        print("[게임 시작] 인트로 컷씬 시작...")
         # 인트로 컷씬 표시 (명언 + 스토리)
         opening.show_intro_cutscene(SCREEN, WIDTH, HEIGHT)
+        print("[게임 시작] 인트로 컷씬 완료")
+
+        print("[게임 시작] 오프닝 애니메이션 시작...")
         # 오프닝 애니메이션 표시
         opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
+        print("[게임 시작] 오프닝 애니메이션 완료")
+
+        print("[게임 시작] 메인 게임 루프 시작...")
         game_loop()
+        print("[게임 종료] 정상 종료")
     except Exception as e:
         # 오류 정보 수집
         error_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

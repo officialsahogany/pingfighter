@@ -76,6 +76,9 @@ class TraditionalFrame:
             (self.screen_width - self.game_x // 2, self.screen_height * 2 // 3),
         ]
 
+        # [DEBUG] 나비 생성 디버그
+        print(f"[나비생성] screen: {self.screen_width}x{self.screen_height}, game: {self.game_width}x{self.game_height}, offset: ({self.game_x}, {self.game_y})")
+
         for i, (x, y) in enumerate(positions):
             if self.game_x > 80:  # 충분한 공간이 있을 때만
                 self.butterflies.append({
@@ -88,6 +91,10 @@ class TraditionalFrame:
                     'color': random.choice(['blue', 'gold', 'red']),
                     'size': random.uniform(0.8, 1.2),
                 })
+            else:
+                print(f"[나비생성] 실패! game_x={self.game_x} <= 80 (공간 부족)")
+
+        print(f"[나비생성] 완료: {len(self.butterflies)}마리 생성됨")
 
     def _create_frame(self):
         """전통 액자 프레임 생성"""
@@ -481,6 +488,10 @@ class TraditionalFrame:
     def set_player_rect(self, player_rect):
         """플레이어 위치 설정 (게임 좌표 -> 전체화면 좌표 변환)"""
         self._player_rect = player_rect
+        # [DEBUG] 플레이어 위치 확인
+        if player_rect and hasattr(player_rect, 'centerx'):
+            if random.random() < 0.01:  # 1% 확률로 출력
+                print(f"[플레이어위치] x={player_rect.centerx}, y={player_rect.centery}, game_w={self.game_width}, game_h={self.game_height}")
 
     def check_gauge_recovered(self) -> bool:
         """게이지 회복이 완료되었는지 확인하고 플래그 리셋"""
@@ -617,13 +628,15 @@ class TraditionalFrame:
         elif self._absorbing_butterfly is None:
             # 쿨타임이 끝나면 새 나비 선택 (흡수 애니메이션 중이 아닐 때만)
             if self._butterfly_cooldown <= 0 and self._player_rect is not None and len(self.butterflies) > 0:
-                # 플레이어가 유효한 위치에 있는지 먼저 확인
+                # 플레이어가 유효한 위치에 있는지 확인 (여유 있게 체크)
                 player_cx = self._player_rect.centerx
                 player_cy = self._player_rect.centery
-                if 0 <= player_cx <= self.game_width and 0 <= player_cy <= self.game_height:
+                # 플레이어가 게임 영역 근처에만 있으면 OK (±50픽셀 여유)
+                if -50 <= player_cx <= self.game_width + 50 and -50 <= player_cy <= self.game_height + 50:
                     self._butterfly_flying_to_player = self._select_butterfly_for_flight()
                     if self._butterfly_flying_to_player:
                         self._butterfly_absorbed = False
+                        print(f"[나비비행] 시작! 플레이어: ({player_cx}, {player_cy}), 나비: ({self._butterfly_flying_to_player['x']:.0f}, {self._butterfly_flying_to_player['y']:.0f})")
 
         # 흡수 파티클 업데이트
         for p in self._absorption_particles[:]:
