@@ -281,15 +281,15 @@ class BaroqueFrame:
             )
             pygame.draw.rect(surface, color, frame_rect, 1)
 
-        # === 내부 그루브 라인 ===
-        groove_offset = 4
-        groove_rect = pygame.Rect(
-            self.game_x - groove_offset,
-            self.game_y - groove_offset,
-            self.game_width + groove_offset * 2,
-            self.game_height + groove_offset * 2
-        )
-        pygame.draw.rect(surface, self.COLORS['groove'], groove_rect, 2)
+        # === 내부 그루브 라인 (제거됨) ===
+        # groove_offset = 4
+        # groove_rect = pygame.Rect(
+        #     self.game_x - groove_offset,
+        #     self.game_y - groove_offset,
+        #     self.game_width + groove_offset * 2,
+        #     self.game_height + groove_offset * 2
+        # )
+        # pygame.draw.rect(surface, self.COLORS['groove'], groove_rect, 2)
 
         # === 내부 크롬 엣지 ===
         inner_rect = pygame.Rect(
