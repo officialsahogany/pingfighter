@@ -106907,10 +106907,25 @@ def _show_multiplayer_result(winner: str, p1_score: int, p2_score: int):
 
 
 if __name__ == "__main__":
-    # 인트로 컷씬 표시 (명언 + 스토리)
-    opening.show_intro_cutscene(SCREEN, WIDTH, HEIGHT)
-    # 오프닝 애니메이션 표시
-    opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
-    game_loop()            
+    try:
+        # 인트로 컷씬 표시 (명언 + 스토리)
+        opening.show_intro_cutscene(SCREEN, WIDTH, HEIGHT)
+        # 오프닝 애니메이션 표시
+        opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
+        game_loop()
+    except Exception as e:
+        print("\n" + "="*80)
+        print("오류가 발생했습니다!")
+        print("="*80)
+        print(f"\n오류 메시지: {str(e)}")
+        print(f"\n오류 타입: {type(e).__name__}")
+        import traceback
+        print("\n상세 오류 정보:")
+        traceback.print_exc()
+        print("\n" + "="*80)
+        print("이 창을 스크린샷으로 찍어주세요.")
+        print("아무 키나 누르면 종료됩니다...")
+        print("="*80)
+        input()            
     
  
