@@ -1907,19 +1907,19 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     FULLSCREEN_WIDTH = actual_width
     FULLSCREEN_HEIGHT = actual_height
 
-    # 게임 Surface가 화면보다 클 경우 자동 스케일링
-    GAME_SCALE_FACTOR = 1.0
-    GAME_SCALED_WIDTH = WIDTH
-    GAME_SCALED_HEIGHT = HEIGHT
+    # 게임 Surface 스케일링 (항상 여백 확보)
+    # 최소 상하좌우 60px 여백 확보
+    MARGIN = 60
+    scale_x = (FULLSCREEN_WIDTH - MARGIN * 2) / WIDTH
+    scale_y = (FULLSCREEN_HEIGHT - MARGIN * 2) / HEIGHT
+    GAME_SCALE_FACTOR = min(scale_x, scale_y, 1.0)  # 최대 1배까지만 확대
+    GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
+    GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
 
-    if WIDTH > FULLSCREEN_WIDTH or HEIGHT > FULLSCREEN_HEIGHT:
-        # 화면에 맞추기 위한 스케일 계산 (상하 여백 각 45px 확보)
-        scale_x = (FULLSCREEN_WIDTH - 90) / WIDTH
-        scale_y = (FULLSCREEN_HEIGHT - 90) / HEIGHT
-        GAME_SCALE_FACTOR = min(scale_x, scale_y)
-        GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
-        GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
+    if GAME_SCALE_FACTOR < 1.0:
         print(f"[전체화면] 자동 스케일링: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} -> {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
+    else:
+        print(f"[전체화면] 원본 크기 유지: {WIDTH}x{HEIGHT} (여백: {MARGIN}px)", flush=True)
 
     GAME_OFFSET_X = (FULLSCREEN_WIDTH - GAME_SCALED_WIDTH) // 2
     # Y 오프셋: 화면 중앙 정렬 (상하 동일 여백)
