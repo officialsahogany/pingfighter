@@ -139,7 +139,7 @@ class IntroCutscene:
                 alpha = int(255 * (1.0 - fade_progress))
 
             # 검은 배경
-            self.screen.fill((0, 0, 0))
+            self.screen.fill((15, 15, 25))
 
             # 알파 적용을 위한 임시 서페이스
             text_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
@@ -226,7 +226,7 @@ class IntroCutscene:
                 alpha = int(255 * (1.0 - fade_progress))
 
             # 검은 배경
-            self.screen.fill((0, 0, 0))
+            self.screen.fill((15, 15, 25))
 
             # 알파 적용을 위한 임시 서페이스
             text_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
@@ -281,7 +281,7 @@ class IntroCutscene:
                         return  # ESC로만 스킵 (드라마틱 연출 유지)
 
             # 검은 배경
-            self.screen.fill((0, 0, 0))
+            self.screen.fill((15, 15, 25))
 
             # 스킵 힌트 표시
             self._draw_skip_hint()
@@ -358,7 +358,7 @@ class IntroCutscene:
                         return
 
                 alpha = int(255 * (frame / fade_in_frames))
-                self.screen.fill((0, 0, 0))
+                self.screen.fill((15, 15, 25))
 
                 # 이미지에 알파 적용
                 temp_surface = image.copy()
@@ -383,7 +383,7 @@ class IntroCutscene:
                     if self._check_skip_all(event):
                         return
 
-                self.screen.fill((0, 0, 0))
+                self.screen.fill((15, 15, 25))
                 self.screen.blit(image, (image_x, image_y))
                 self._draw_skip_hint()
                 pygame.display.flip()
@@ -483,7 +483,7 @@ class IntroCutscene:
                     return
 
             alpha = int(255 * (frame / fade_in_frames))
-            self.screen.fill((0, 0, 0))
+            self.screen.fill((15, 15, 25))
 
             temp_surface = image.copy()
             temp_surface.set_alpha(alpha)
@@ -777,7 +777,7 @@ class IntroCutscene:
                     typing_done = True
 
             # 그리기
-            self.screen.fill((0, 0, 0))
+            self.screen.fill((15, 15, 25))
             self.screen.blit(image, (image_x, image_y))
 
             # 화자 이름 박스 (대화 박스 위에) - 화이트톤 디자인
@@ -865,7 +865,7 @@ class IntroCutscene:
         """페이드아웃 (검은색으로)"""
         # Ctrl 스킵 체크
         if self.skip_all:
-            self.screen.fill((0, 0, 0))
+            self.screen.fill((15, 15, 25))
             pygame.display.flip()
             return
 
@@ -897,7 +897,7 @@ class IntroCutscene:
             pygame.display.flip()
             self.clock.tick(fps)
 
-        self.screen.fill((0, 0, 0))
+        self.screen.fill((15, 15, 25))
         pygame.display.flip()
 
     def run_intro_sequence(self):
@@ -1195,8 +1195,8 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
         
         # 추가 이벤트 처리는 위 단일 루프에서 처리함 (중복 소비 방지)
 
-        # 화면 그리기
-        SCREEN.fill((0, 0, 0))  # BLACK
+        # 화면 그리기 (필러 배경과 비슷한 어두운 색으로 채움)
+        SCREEN.fill((15, 15, 25))  # 어두운 남색 (필러 배경 기본색)
 
         # 배경 이미지 그리기 (main.jpg)
         if background_image is not None:

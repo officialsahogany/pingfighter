@@ -1860,13 +1860,10 @@ class JungleMonkey:
         target_player = random.random() < 0.4
 
         if target_player:
-            # 플레이어 진영 (하단) - 바닥에 떨어지도록 (바닥 = game_y + game_height)
-            # 일단 여러 값을 테스트
-            actual_bottom = self.game_y + self.game_height
-            target_y = actual_bottom - 70  # 더 아래로
-            print(f"[BANANA DEBUG] 바나나 투척 위치 계산")
-            print(f"  game_y={self.game_y}, game_height={self.game_height}")
-            print(f"  actual_bottom={actual_bottom}, target_y={target_y}")
+            # 플레이어 진영 (하단) - 인게임 화면 내부 바닥에 떨어지도록
+            # 인게임 화면: game_y ~ game_y + game_height
+            # 플레이어는 인게임 바닥 근처에 있음
+            target_y = self.game_y + self.game_height - 40  # 인게임 화면 내 플레이어가 밟을 수 있는 바닥
         else:
             # 보스 진영 (상단)
             target_y = self.game_y + 50
