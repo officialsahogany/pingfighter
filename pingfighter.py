@@ -2082,6 +2082,10 @@ def _fullscreen_flip():
             # 필러 렌더러 없을 때만 전체 화면 단색 채우기
             REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
 
+        # 게임 영역을 먼저 검은색으로 채워 스케일링 가장자리 문제 방지
+        pygame.draw.rect(REAL_SCREEN, (0, 0, 0),
+                        (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
+
         # 게임 Surface를 중앙에 blit (스케일링 적용)
         if GAME_SCALE_FACTOR != 1.0:
             # 스케일링이 필요한 경우 pygame.transform.smoothscale 사용
@@ -2123,6 +2127,10 @@ def _fullscreen_update(*args, **kwargs):
         else:
             # 필러 렌더러 없을 때만 전체 화면 단색 채우기
             REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
+
+        # 게임 영역을 먼저 검은색으로 채워 스케일링 가장자리 문제 방지
+        pygame.draw.rect(REAL_SCREEN, (0, 0, 0),
+                        (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
 
         # 게임 Surface를 중앙에 blit (스케일링 적용)
         if GAME_SCALE_FACTOR != 1.0:

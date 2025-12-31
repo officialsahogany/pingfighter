@@ -40,6 +40,13 @@ WIDTH, HEIGHT = 760, 750  # 화면 크기 (Pillar UI 적용)
 # 연금술 텍스트 이펙트 폰트 캐시
 _alchemy_font = None
 
+# === OPTIMIZATION: Active item slot rendering caches ===
+_scaled_icon_cache = {}  # {(icon_id, size): scaled_surface}
+_number_font_cache = None  # Cached number font for slot hints
+_countdown_font_cache = None  # Cached countdown font
+_number_text_cache = {}  # {(number, color): rendered_surface}
+_overlay_surface_cache = {}  # {(width, height): surface}
+
 
 def get_alchemy_font():
     global _alchemy_font
@@ -2168,8 +2175,73 @@ def draw_cooldown_overlay(screen, x, y, size, last_use_time, cooldown_ms):
     screen.blit(overlay, (x, y))
 
 
+def _get_scaled_icon(icon, size):
+    """OPTIMIZATION: Cache scaled icons to avoid repeated pygame.transform.scale calls"""
+    global _scaled_icon_cache
+    if icon is None:
+        return None
+    # Use icon's id as cache key (unique per surface object)
+    cache_key = (id(icon), size[0], size[1])
+    if cache_key not in _scaled_icon_cache:
+        _scaled_icon_cache[cache_key] = pygame.transform.scale(icon, size)
+        # Limit cache size to prevent memory leak
+        if len(_scaled_icon_cache) > 100:
+            # Remove oldest entries
+            keys = list(_scaled_icon_cache.keys())
+            for k in keys[:20]:
+                del _scaled_icon_cache[k]
+    return _scaled_icon_cache[cache_key]
+
+
+def _get_number_font():
+    """OPTIMIZATION: Cache number font"""
+    global _number_font_cache
+    if _number_font_cache is None:
+        try:
+            _number_font_cache = pygame.font.Font("NanumSquareB.ttf", 11)
+        except:
+            _number_font_cache = pygame.font.Font(None, 16)
+    return _number_font_cache
+
+
+def _get_countdown_font():
+    """OPTIMIZATION: Cache countdown font"""
+    global _countdown_font_cache
+    if _countdown_font_cache is None:
+        try:
+            _countdown_font_cache = pygame.font.Font(resource_path("PFStardust.ttf"), 32)
+        except:
+            _countdown_font_cache = pygame.font.Font(None, 40)
+    return _countdown_font_cache
+
+
+def _get_number_text(number, font, color):
+    """OPTIMIZATION: Cache rendered number text"""
+    global _number_text_cache
+    cache_key = (number, color)
+    if cache_key not in _number_text_cache:
+        _number_text_cache[cache_key] = font.render(str(number), True, color)
+        # Limit cache size
+        if len(_number_text_cache) > 50:
+            keys = list(_number_text_cache.keys())
+            for k in keys[:10]:
+                del _number_text_cache[k]
+    return _number_text_cache[cache_key]
+
+
+def _get_overlay_surface(width, height):
+    """OPTIMIZATION: Cache overlay surfaces"""
+    global _overlay_surface_cache
+    cache_key = (width, height)
+    if cache_key not in _overlay_surface_cache:
+        overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        _overlay_surface_cache[cache_key] = overlay
+    return _overlay_surface_cache[cache_key]
+
+
 def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cooldown_ms=10000, round_start_time=None, alchemy_notices=None):
-    """엑티브 아이템 슬롯 + 쿨타임 표시 + 툴팁."""
+    """엑티브 아이템 슬롯 + 쿨타임 표시 + 툴팁. (OPTIMIZED)"""
     if not active_item_slot:
         return
 
@@ -2178,11 +2250,10 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
     slot_y = HEIGHT - icon_size[1] - 10
     SLOT_W, SLOT_H = icon_size
     border_margin = 2  # 선택 테두리용
-    
+
     # 라운드 시작 시간 체크 (투척류 아이템 5초 제한용)
-    import pygame
     current_time = pygame.time.get_ticks()
-    
+
     # round_start_time이 전달되지 않은 경우 충분한 시간이 지난 것으로 간주
     if round_start_time is None:
         time_since_round_start = 10000
@@ -2194,6 +2265,13 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
 
     mouse_pos = pygame.mouse.get_pos()
     tooltip = None
+
+    # OPTIMIZATION: Pre-cache fonts
+    number_font = _get_number_font()
+    countdown_font = _get_countdown_font()
+
+    # OPTIMIZATION: Pre-define throwing items set (faster lookup)
+    throwing_items = {"molotov", "grenade", "flare", "spider_mine"}
 
     if isinstance(active_item_slot, list):
         for i, item in enumerate(active_item_slot):
@@ -2223,7 +2301,8 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                     legendary_item.draw_icon(legend_surface, 0, 0, icon_size[0])
                     screen.blit(legend_surface, (x, y))
                 elif item.get("icon"):
-                    icon = pygame.transform.scale(item["icon"], icon_size)
+                    # OPTIMIZATION: Use cached scaled icon
+                    icon = _get_scaled_icon(item["icon"], icon_size)
                     screen.blit(icon, (x, y))
                 else:
                     radius = int(SLOT_W * 0.28)
@@ -2231,7 +2310,8 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                     center_y = y + SLOT_H // 2
                     pygame.draw.circle(screen, item["color"], (center_x, center_y), radius)
             elif "icon" in item and item["icon"]:
-                icon = pygame.transform.scale(item["icon"], icon_size)
+                # OPTIMIZATION: Use cached scaled icon
+                icon = _get_scaled_icon(item["icon"], icon_size)
                 screen.blit(icon, (x, y))
             else:
                 radius = int(SLOT_W * 0.28)
@@ -2242,33 +2322,26 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
             # ✅ 쿨타임 그림자 표시 (워크래프트3 스타일)
             if "last_use" in item:
                 draw_cooldown_overlay(screen, x, y, SLOT_W, item["last_use"], cooldown_ms)
-            
+
             # 🎯 투척류 아이템 5초 카운트다운 표시
-            throwing_items = ["molotov", "grenade", "flare", "spider_mine"]
             item_name = item.get("name", item.get("effect", ""))
             if item_name in throwing_items and time_since_round_start < 5000:
                 remaining_seconds = int((5000 - time_since_round_start) / 1000) + 1  # 5, 4, 3, 2, 1
 
-                # 반투명 검은색 오버레이 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
-                overlay = pygame.Surface((SLOT_W, SLOT_H), pygame.SRCALPHA)
-                overlay.fill((0, 0, 0, 180))
+                # OPTIMIZATION: Use cached overlay surface
+                overlay = _get_overlay_surface(SLOT_W, SLOT_H)
                 screen.blit(overlay, (x, y))
-                
-                # 카운트다운 숫자 표시 (크고 굵게)
-                try:
-                    countdown_font = pygame.font.Font(resource_path("PFStardust.ttf"), 32)
-                except:
-                    countdown_font = pygame.font.Font(None, 40)
-                
-                countdown_text = countdown_font.render(str(remaining_seconds), True, (255, 100, 100))
+
+                # OPTIMIZATION: Use cached font and text
+                countdown_text = _get_number_text(remaining_seconds, countdown_font, (255, 100, 100))
                 text_rect = countdown_text.get_rect(center=(x + SLOT_W // 2, y + SLOT_H // 2))
-                
-                # 테두리 효과
-                outline_text = countdown_font.render(str(remaining_seconds), True, (0, 0, 0))
-                for dx, dy in [(-2, -2), (-2, 2), (2, -2), (2, 2)]:
+
+                # 테두리 효과 - OPTIMIZATION: reduced from 4 to 2 offsets
+                outline_text = _get_number_text(remaining_seconds, countdown_font, (0, 0, 0))
+                for dx, dy in [(-2, -2), (2, 2)]:
                     outline_rect = outline_text.get_rect(center=(x + SLOT_W // 2 + dx, y + SLOT_H // 2 + dy))
                     screen.blit(outline_text, outline_rect)
-                
+
                 # 메인 숫자
                 screen.blit(countdown_text, text_rect)
 
@@ -2357,28 +2430,19 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                 pygame.draw.rect(screen, (255, 100, 100),
                                  (x - border_margin, y - border_margin,
                                   SLOT_W + border_margin * 2, SLOT_H + border_margin * 2), 3)
-            
-            # 🔢 숫자키 힌트 표시 (1~6) - 왼쪽 상단, 밝은 테두리 추가
+
+            # 🔢 숫자키 힌트 표시 (1~6) - OPTIMIZATION: Use cached font and text
             if i < 6:  # 최대 6개까지만 숫자키 지원
-                try:
-                    number_font = pygame.font.Font("NanumSquareB.ttf", 11)
-                    # 흰색 텍스트에 검은 테두리
-                    number_text = number_font.render(str(i + 1), True, (255, 255, 255))
-                    
-                    # 테두리 효과를 위한 검은색 텍스트
-                    outline_text = number_font.render(str(i + 1), True, (0, 0, 0))
-                    
-                    # 테두리 그리기 (4방향)
-                    for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1), (0, -1), (0, 1), (-1, 0), (1, 0)]:
-                        screen.blit(outline_text, (x + 2 + dx, y + 1 + dy))
-                    
-                    # 메인 텍스트
-                    screen.blit(number_text, (x + 2, y + 1))
-                except:
-                    # 폰트 로드 실패 시 기본 폰트 사용
-                    number_font = pygame.font.Font(None, 16)
-                    number_text = number_font.render(str(i + 1), True, (255, 255, 255))
-                    screen.blit(number_text, (x + 2, y + 2))
+                # OPTIMIZATION: Use pre-cached font
+                number_text = _get_number_text(i + 1, number_font, (255, 255, 255))
+                outline_text = _get_number_text(i + 1, number_font, (0, 0, 0))
+
+                # 테두리 그리기 - OPTIMIZATION: reduced from 8 to 4 offsets
+                for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                    screen.blit(outline_text, (x + 2 + dx, y + 1 + dy))
+
+                # 메인 텍스트
+                screen.blit(number_text, (x + 2, y + 1))
 
             if alchemy_notices and notice_font:
                 for notice in alchemy_notices:
@@ -2421,9 +2485,9 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
         if active_item_slot is None:
             return
 
-        # 아이콘 표시
+        # 아이콘 표시 - OPTIMIZATION: Use cached scaled icon
         if "icon" in active_item_slot and active_item_slot["icon"]:
-            icon = pygame.transform.scale(active_item_slot["icon"], icon_size)
+            icon = _get_scaled_icon(active_item_slot["icon"], icon_size)
             screen.blit(icon, (x, y))
         else:
             radius = int(SLOT_W * 0.28)
