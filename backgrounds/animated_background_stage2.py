@@ -435,27 +435,27 @@ class AnimatedBackgroundStage2:
         print(f"⚡ 정글지진 스킬로 바위 {num_rocks}개 생성!")
     
     def spawn_crisis_rocks(self):
-        """위기 상황 바위 3-4개 생성 (보스 패들 뒤쪽 방어벽)"""
+        """위기 상황 바위 4-6개 생성 (보스 패들 뒤쪽 방어벽)"""
         print("🔥🔥🔥 spawn_crisis_rocks() 함수 시작!")
         # 🛡️ 보스 패들 뒤쪽 영역만 지정 (방어벽 형태)
         # 보스 패들은 y=90 위치, 바위는 그 뒤쪽(위쪽) y=20~80 영역에 생성
-        map_x_min = 80   # 왼쪽 여유
-        map_x_max = 520  # 오른쪽 여유
+        map_x_min = 50   # 왼쪽 여유 (넓어진 화면에 맞춰 조정)
+        map_x_max = 550  # 오른쪽 여유 (넓어진 화면에 맞춰 조정)
         map_y_min = 20   # 보스 뒤쪽 상단 (화면 상단 근처)
         map_y_max = 80   # 보스 패들 바로 뒤 (보스 패들 y=90)
-        
+
         # 실제 바위 스타일 (참조 이미지 기반 자연 바위)
         rock_styles = [
             {'type': 'dark_granite', 'colors': [(35, 35, 40), (55, 55, 60), (75, 75, 80)]},     # 어두운 화강암
-            {'type': 'light_granite', 'colors': [(120, 115, 110), (140, 135, 130), (160, 155, 150)]}, # 밝은 화강암  
+            {'type': 'light_granite', 'colors': [(120, 115, 110), (140, 135, 130), (160, 155, 150)]}, # 밝은 화강암
             {'type': 'reddish_stone', 'colors': [(85, 65, 55), (105, 85, 75), (125, 105, 95)]}, # 적갈색 바위
             {'type': 'yellowish_stone', 'colors': [(140, 120, 85), (160, 140, 105), (180, 160, 125)]}, # 황갈색 바위
             {'type': 'gray_stone', 'colors': [(70, 70, 75), (90, 90, 95), (110, 110, 115)]},    # 회색 바위
             {'type': 'mixed_stone', 'colors': [(95, 85, 80), (115, 105, 100), (135, 125, 120)]} # 혼합 바위
         ]
-        
-        # 🛡️ 방어벽 형태로 3-4개 바위 생성
-        num_rocks = random.randint(3, 4)
+
+        # 🛡️ 방어벽 형태로 4-6개 바위 생성
+        num_rocks = random.randint(4, 6)
         
         # 가로 방향으로 균등하게 배치 (방어벽 형태)
         x_spacing = (map_x_max - map_x_min) / (num_rocks + 1)

@@ -2070,11 +2070,8 @@ def _fullscreen_flip():
         if _flip_count <= 3:
             print(f"[FLIP #{_flip_count}] REAL_SCREEN: {REAL_SCREEN.get_size()}, SCREEN: {SCREEN.get_size()}, OFFSET: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
 
-        # 디버그용: 처음 5초간 화면 경계 표시
-        if _flip_count <= 300:  # 60 FPS * 5초
-            show_debug_border = True
-        else:
-            show_debug_border = False
+        # 디버그용: 화면 경계 표시 (비활성화됨)
+        show_debug_border = False
         # 필러 배경 그리기
         if pillar_renderer is not None:
             # 필러 배경 먼저 그리기 (상하좌우 여백 모두 포함)

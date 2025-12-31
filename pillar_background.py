@@ -211,21 +211,41 @@ class PillarBackgroundRenderer:
             if _is_macos:
                 self._right_pillar_surface = self._right_pillar_surface.convert()
 
-        # 상단 필러
+        # 상단 필러 (아트워크 상단 부분 사용)
         if self.top_pillar_height > 0:
             self._top_pillar_surface = pygame.Surface(
                 (self.game_width, self.top_pillar_height)
             )
-            self._top_pillar_surface.fill(self.bg_color)
+            # 아트워크의 상단 부분 추출
+            # 게임 영역에 해당하는 아트워크 중앙 부분의 상단을 사용
+            center_x = (scaled_w - self.game_width) // 2
+            self._top_pillar_surface.blit(scaled_artwork, (0, 0),
+                (center_x, 0, self.game_width, self.top_pillar_height))
+            # 어둡게 처리
+            dark_overlay = pygame.Surface(
+                (self.game_width, self.top_pillar_height), pygame.SRCALPHA
+            )
+            dark_overlay.fill((0, 0, 0, 150))
+            self._top_pillar_surface.blit(dark_overlay, (0, 0))
             if _is_macos:
                 self._top_pillar_surface = self._top_pillar_surface.convert()
 
-        # 하단 필러
+        # 하단 필러 (아트워크 하단 부분 사용)
         if self.bottom_pillar_height > 0:
             self._bottom_pillar_surface = pygame.Surface(
                 (self.game_width, self.bottom_pillar_height)
             )
-            self._bottom_pillar_surface.fill(self.bg_color)
+            # 아트워크의 하단 부분 추출
+            center_x = (scaled_w - self.game_width) // 2
+            src_y = max(0, scaled_h - self.bottom_pillar_height)
+            self._bottom_pillar_surface.blit(scaled_artwork, (0, 0),
+                (center_x, src_y, self.game_width, self.bottom_pillar_height))
+            # 어둡게 처리
+            dark_overlay = pygame.Surface(
+                (self.game_width, self.bottom_pillar_height), pygame.SRCALPHA
+            )
+            dark_overlay.fill((0, 0, 0, 150))
+            self._bottom_pillar_surface.blit(dark_overlay, (0, 0))
             if _is_macos:
                 self._bottom_pillar_surface = self._bottom_pillar_surface.convert()
 
