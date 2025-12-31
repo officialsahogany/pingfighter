@@ -656,6 +656,10 @@ def show_score(screen, player_score, ai_score, width=600, height=750, draw_field
     if _hud_display is None:
         _hud_display = HUDDisplay(screen, width, height, draw_field_func, draw_objects_func, current_stage or 1)
     else:
+        # 화면 크기 업데이트
+        _hud_display.screen = screen
+        _hud_display.width = width
+        _hud_display.height = height
         # 함수가 전달되면 업데이트
         if draw_field_func is not None:
             _hud_display.draw_field_func = draw_field_func

@@ -14,6 +14,15 @@ import pygame
 
 Color = Tuple[int, int, int]
 
+# 화면 크기 - config에서 가져오기
+try:
+    from config.constants import PILLAR_UI_WIDTH, GAME_PLAY_WIDTH
+    PILLAR_OFFSET = PILLAR_UI_WIDTH  # 80px
+    GAME_WIDTH = GAME_PLAY_WIDTH  # 600px
+except ImportError:
+    PILLAR_OFFSET = 80
+    GAME_WIDTH = 600
+
 
 class AnimatedBackgroundStage7:
     """Stage 7 배경 위에 얹는 경량 애니메이션 오버레이."""
@@ -220,6 +229,54 @@ class AnimatedBackgroundStage7:
         surface.blit(overlay, (ox, oy))
         if self.cube_enabled and self._is_visible():
             self._draw_center_cube(surface, base_offset=(ox, oy))
+
+        # 테두리 (마지막에 그려서 위에 표시)
+        self._draw_border(surface)
+
+    def _draw_border(self, surface: pygame.Surface) -> None:
+        """중세 요새 테마 테두리 그리기"""
+        border_thickness = 10
+        # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
+        x_off = 0
+        game_w = self.width
+        h = self.height
+
+        # 기본 테두리 색상 (진한 보라/청색 - 테트리스 테마)
+        base_color = (40, 50, 80)  # 어두운 청보라
+        inner_color = (60, 80, 120)  # 밝은 청보라
+        glow_accent = (120, 170, 255)  # 밝은 파란색 악센트
+
+        # 메인 테두리
+        pygame.draw.rect(surface, base_color, (x_off, 0, game_w, border_thickness))
+        pygame.draw.rect(surface, base_color, (x_off, h - border_thickness, game_w, border_thickness))
+        pygame.draw.rect(surface, base_color, (x_off, 0, border_thickness, h))
+        pygame.draw.rect(surface, base_color, (x_off + game_w - border_thickness, 0, border_thickness, h))
+
+        # 내부 테두리 (깊이감)
+        inner_thickness = 2
+        pygame.draw.rect(surface, inner_color,
+                        (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(surface, inner_color,
+                        (x_off + border_thickness - inner_thickness, h - border_thickness,
+                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(surface, inner_color,
+                        (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                         inner_thickness, h - 2*(border_thickness - inner_thickness)))
+        pygame.draw.rect(surface, inner_color,
+                        (x_off + game_w - border_thickness, border_thickness - inner_thickness,
+                         inner_thickness, h - 2*(border_thickness - inner_thickness)))
+
+        # 코너 장식
+        corner_radius = 5
+        # 좌상단
+        pygame.draw.circle(surface, glow_accent, (x_off + border_thickness//2, border_thickness//2), corner_radius)
+        # 우상단
+        pygame.draw.circle(surface, glow_accent, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
+        # 좌하단
+        pygame.draw.circle(surface, glow_accent, (x_off + border_thickness//2, h - border_thickness//2), corner_radius)
+        # 우하단
+        pygame.draw.circle(surface, glow_accent, (x_off + game_w - border_thickness//2, h - border_thickness//2), corner_radius)
 
     # ------------------------------------------------------------------
     # 내부 헬퍼

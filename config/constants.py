@@ -22,22 +22,32 @@ PURPLE = (128, 0, 128)
 PINK = (255, 192, 203)
 
 # ============= 화면 설정 =============
-# 기본 내부 해상도 (게임 로직이 사용하는 해상도)
-INTERNAL_WIDTH = 600
+# 필러 UI 박스 크기
+PILLAR_UI_WIDTH = 80  # 좌우 필러 UI 박스 너비
+
+# 기본 내부 해상도 (게임 로직이 사용하는 해상도) - 필러 UI 포함
+INTERNAL_WIDTH = 600 + PILLAR_UI_WIDTH * 2  # 760px (게임 600 + 좌우 80씩)
 INTERNAL_HEIGHT = 750
 
 # 실제 창 크기 (화면에 표시되는 크기)
-SCREEN_WIDTH = 600
-SCREEN_HEIGHT = 750
+SCREEN_WIDTH = INTERNAL_WIDTH  # 760px
+SCREEN_HEIGHT = INTERNAL_HEIGHT  # 750px
 WIDTH = SCREEN_WIDTH  # 호환성 유지
 HEIGHT = SCREEN_HEIGHT  # 호환성 유지
 
+# 게임 플레이 영역 (필러 제외한 중앙 영역)
+GAME_PLAY_WIDTH = 600  # 실제 게임 플레이 영역 너비
+GAME_PLAY_HEIGHT = 750
+
+# 게임 영역 오프셋 (필러 UI 때문에 게임이 중앙에 위치)
+GAME_AREA_OFFSET_X = PILLAR_UI_WIDTH  # 80px
+
 # 사용 가능한 해상도 옵션
 RESOLUTION_OPTIONS = [
-    (600, 750),    # 1x (기본)
-    (900, 1125),   # 1.5x
-    (1200, 1500),  # 2x
-    (1800, 2250),  # 3x
+    (760, 750),    # 1x (기본) - 필러 UI 포함
+    (1140, 1125),  # 1.5x
+    (1520, 1500),  # 2x
+    (2280, 2250),  # 3x
 ]
 
 # 현재 선택된 해상도 인덱스

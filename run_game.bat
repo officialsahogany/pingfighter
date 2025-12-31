@@ -7,7 +7,13 @@ echo    보스 배틀 아케이드 탁구 게임
 echo ========================================
 echo.
 echo 게임을 시작합니다...
-python pingfighter.py
+if exist .venv_win\Scripts\python.exe (
+    echo 가상환경 사용: .venv_win
+    .venv_win\Scripts\python.exe pingfighter.py
+) else (
+    echo 시스템 Python 사용
+    python pingfighter.py
+)
 if errorlevel 1 (
     echo.
     echo ❌ 게임 실행 중 오류가 발생했습니다.

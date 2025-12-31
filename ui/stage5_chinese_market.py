@@ -9,9 +9,18 @@ import math
 import random
 from typing import Tuple, List
 
-# 화면 크기
-WIDTH = 600
-HEIGHT = 750
+# 화면 크기 - config에서 가져오기
+try:
+    from config.constants import SCREEN_WIDTH, SCREEN_HEIGHT, PILLAR_UI_WIDTH, GAME_PLAY_WIDTH
+    WIDTH = SCREEN_WIDTH  # 760px
+    HEIGHT = SCREEN_HEIGHT  # 750px
+    PILLAR_OFFSET = PILLAR_UI_WIDTH  # 80px
+    GAME_WIDTH = GAME_PLAY_WIDTH  # 600px
+except ImportError:
+    WIDTH = 760
+    HEIGHT = 750
+    PILLAR_OFFSET = 80
+    GAME_WIDTH = 600
 
 # 색상 정의 - 중국 전통 색상 팔레트
 CHINA_RED = (220, 38, 38)          # 중국 붉은색
@@ -24,7 +33,9 @@ WHITE = (255, 255, 255)             # 흰색
 FIRE_GRADIENT = [(255, 0, 0), (255, 100, 0), (255, 200, 0), (255, 255, 100)]
 
 class Stage5ChineseMarket:
-    def __init__(self):
+    def __init__(self, width: int = None, height: int = None):
+        self.width = width if width is not None else WIDTH
+        self.height = height if height is not None else HEIGHT
         self.time = 0
         self.fire_particles = []  # 이제 충돌 시에만 생성됨
         self.lanterns = []
@@ -156,52 +167,56 @@ class Stage5ChineseMarket:
     def draw_border(self, screen):
         """Stage 2와 동일한 두께의 중국 전통 테두리"""
         border_thickness = 10  # Stage 2와 동일
-        
-        # 기본 테두리 - 진한 붉은색
-        pygame.draw.rect(screen, DARK_RED, (0, 0, WIDTH, border_thickness))
-        pygame.draw.rect(screen, DARK_RED, (0, HEIGHT - border_thickness, WIDTH, border_thickness))
-        pygame.draw.rect(screen, DARK_RED, (0, 0, border_thickness, HEIGHT))
-        pygame.draw.rect(screen, DARK_RED, (WIDTH - border_thickness, 0, border_thickness, HEIGHT))
-        
+        # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
+        x_offset = 0
+        game_w = self.width
+        game_h = self.height
+
+        # 기본 테두리 - 진한 붉은색 (게임 영역에만)
+        pygame.draw.rect(screen, DARK_RED, (x_offset, 0, game_w, border_thickness))
+        pygame.draw.rect(screen, DARK_RED, (x_offset, game_h - border_thickness, game_w, border_thickness))
+        pygame.draw.rect(screen, DARK_RED, (x_offset, 0, border_thickness, game_h))
+        pygame.draw.rect(screen, DARK_RED, (x_offset + game_w - border_thickness, 0, border_thickness, game_h))
+
         # 내부 금색 테두리
         inner_thickness = 2
-        pygame.draw.rect(screen, GOLD, 
-                        (border_thickness - inner_thickness, border_thickness - inner_thickness,
-                         WIDTH - 2*(border_thickness - inner_thickness), inner_thickness))
         pygame.draw.rect(screen, GOLD,
-                        (border_thickness - inner_thickness, HEIGHT - border_thickness,
-                         WIDTH - 2*(border_thickness - inner_thickness), inner_thickness))
+                        (x_offset + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
         pygame.draw.rect(screen, GOLD,
-                        (border_thickness - inner_thickness, border_thickness - inner_thickness,
-                         inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
+                        (x_offset + border_thickness - inner_thickness, game_h - border_thickness,
+                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
         pygame.draw.rect(screen, GOLD,
-                        (WIDTH - border_thickness, border_thickness - inner_thickness,
-                         inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-        
+                        (x_offset + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                         inner_thickness, game_h - 2*(border_thickness - inner_thickness)))
+        pygame.draw.rect(screen, GOLD,
+                        (x_offset + game_w - border_thickness, border_thickness - inner_thickness,
+                         inner_thickness, game_h - 2*(border_thickness - inner_thickness)))
+
         # 중국 전통 문양 (간단한 기하학 패턴)
         pattern_size = 20
-        for i in range(0, WIDTH, pattern_size * 2):
+        for i in range(0, game_w, pattern_size * 2):
             # 상단 문양
-            self.draw_chinese_pattern(screen, i + pattern_size//2, border_thickness//2, 4, GOLD)
+            self.draw_chinese_pattern(screen, x_offset + i + pattern_size//2, border_thickness//2, 4, GOLD)
             # 하단 문양
-            self.draw_chinese_pattern(screen, i + pattern_size//2, HEIGHT - border_thickness//2, 4, GOLD)
-        
-        for i in range(0, HEIGHT, pattern_size * 2):
+            self.draw_chinese_pattern(screen, x_offset + i + pattern_size//2, game_h - border_thickness//2, 4, GOLD)
+
+        for i in range(0, game_h, pattern_size * 2):
             # 좌측 문양
-            self.draw_chinese_pattern(screen, border_thickness//2, i + pattern_size//2, 4, GOLD)
+            self.draw_chinese_pattern(screen, x_offset + border_thickness//2, i + pattern_size//2, 4, GOLD)
             # 우측 문양
-            self.draw_chinese_pattern(screen, WIDTH - border_thickness//2, i + pattern_size//2, 4, GOLD)
-        
+            self.draw_chinese_pattern(screen, x_offset + game_w - border_thickness//2, i + pattern_size//2, 4, GOLD)
+
         # 코너 장식 (중국 동전 모양)
         corner_radius = 6
         # 좌상단
-        self.draw_chinese_coin(screen, border_thickness//2, border_thickness//2, corner_radius, GOLD)
+        self.draw_chinese_coin(screen, x_offset + border_thickness//2, border_thickness//2, corner_radius, GOLD)
         # 우상단
-        self.draw_chinese_coin(screen, WIDTH - border_thickness//2, border_thickness//2, corner_radius, GOLD)
+        self.draw_chinese_coin(screen, x_offset + game_w - border_thickness//2, border_thickness//2, corner_radius, GOLD)
         # 좌하단
-        self.draw_chinese_coin(screen, border_thickness//2, HEIGHT - border_thickness//2, corner_radius, GOLD)
+        self.draw_chinese_coin(screen, x_offset + border_thickness//2, game_h - border_thickness//2, corner_radius, GOLD)
         # 우하단
-        self.draw_chinese_coin(screen, WIDTH - border_thickness//2, HEIGHT - border_thickness//2, corner_radius, GOLD)
+        self.draw_chinese_coin(screen, x_offset + game_w - border_thickness//2, game_h - border_thickness//2, corner_radius, GOLD)
     
     def draw_chinese_pattern(self, screen, x, y, size, color):
         """간단한 중국 전통 문양"""
@@ -262,34 +277,38 @@ class Stage5ChineseMarket:
     def draw_stadium_line_background(self, screen):
         """중앙 스타디움 라인 - 배경 부분만 (공 아래에 그려짐)"""
         center_y = HEIGHT // 2
-        center_x = WIDTH // 2
-        
+        # 게임 영역 중앙 (필러 오프셋 적용)
+        center_x = PILLAR_OFFSET + GAME_WIDTH // 2
+        game_left = PILLAR_OFFSET
+        game_right = PILLAR_OFFSET + GAME_WIDTH
+
         # 메인 중앙선 (점선) - 원 밖에서만 그리기
         dash_length = 20
         gap_length = 15
-        
+
         # 왼쪽 선 (원 밖)
-        for x in range(0, center_x - 120, dash_length + gap_length):
+        for x in range(game_left, center_x - 120, dash_length + gap_length):
             end_x = min(x + dash_length, center_x - 120)
             pygame.draw.line(screen, WHITE, (x, center_y), (end_x, center_y), 3)
-        
+
         # 오른쪽 선 (원 밖)
-        for x in range(center_x + 120, WIDTH, dash_length + gap_length):
-            end_x = min(x + dash_length, WIDTH)
+        for x in range(center_x + 120, game_right, dash_length + gap_length):
+            end_x = min(x + dash_length, game_right)
             pygame.draw.line(screen, WHITE, (x, center_y), (end_x, center_y), 3)
-        
+
         # 중앙 점
         pygame.draw.circle(screen, CHINA_RED, (center_x, center_y), 8)
         pygame.draw.circle(screen, GOLD, (center_x, center_y), 5)
-    
+
     def draw_stadium_line(self, screen):
         """중앙 스타디움 라인 - 전체 (호환성 유지)"""
         center_y = HEIGHT // 2
-        center_x = WIDTH // 2
-        
+        # 게임 영역 중앙 (필러 오프셋 적용)
+        center_x = PILLAR_OFFSET + GAME_WIDTH // 2
+
         # 불타는 애니메이션 효과 그리기
         self._draw_fire_lines(screen, center_x, center_y)
-        
+
         # 중앙 점
         pygame.draw.circle(screen, CHINA_RED, (center_x, center_y), 8)
         pygame.draw.circle(screen, GOLD, (center_x, center_y), 5)
@@ -360,8 +379,8 @@ class Stage5ChineseMarket:
         
         # 중앙 부분은 깨끗하게 (Stage 3처럼)
         center_y = HEIGHT // 2
-        center_x = WIDTH // 2
-        
+        center_x = PILLAR_OFFSET + GAME_WIDTH // 2
+
         # 동전 문양 제거됨 - 배경이 더 깨끗하게 표시됩니다
     
     def add_fire_impact(self, x, y):
@@ -407,24 +426,26 @@ class Stage5ChineseMarket:
         """불타는 라인 애니메이션 업데이트"""
         # 새로운 불꽃 파티클 생성 (원형 라인과 가로 라인에서)
         if random.random() < 0.3:  # 30% 확률로 생성
-            center_x = WIDTH // 2
+            center_x = PILLAR_OFFSET + GAME_WIDTH // 2
             center_y = HEIGHT // 2
-            
+            game_left = PILLAR_OFFSET
+            game_right = PILLAR_OFFSET + GAME_WIDTH
+
             # 중앙 원형 라인에서 불꽃 생성
             angle = random.uniform(0, math.pi * 2)
             x = center_x + math.cos(angle) * 120  # 반지름 120
             y = center_y + math.sin(angle) * 120
             self._create_fire_particle(x, y)
-            
+
             # 가로 스타디움 라인에서 불꽃 생성 (점선 부분에서만)
             if random.random() < 0.5:
                 # 왼쪽 또는 오른쪽 선택
                 if random.random() < 0.5:
                     # 왼쪽 선
-                    x = random.randint(0, center_x - 120)
+                    x = random.randint(game_left, center_x - 120)
                 else:
                     # 오른쪽 선
-                    x = random.randint(center_x + 120, WIDTH)
+                    x = random.randint(center_x + 120, game_right)
                 self._create_fire_particle(x, center_y)
         
         # 파티클 업데이트
@@ -454,9 +475,9 @@ class Stage5ChineseMarket:
     
     def draw_lotus_hologram(self, screen):
         """중앙 원 안에 일루미나티 스타일 신비로운 홀로그램 그리기"""
-        center_x = WIDTH // 2
+        center_x = PILLAR_OFFSET + GAME_WIDTH // 2
         center_y = HEIGHT // 2
-        
+
         # spiral_burst_intensity가 복소수가 아닌지 확인하고 수정
         if isinstance(self.spiral_burst_intensity, complex):
             self.spiral_burst_intensity = 0

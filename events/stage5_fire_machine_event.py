@@ -11,17 +11,26 @@ from typing import List, Dict, Tuple, Optional, Any
 
 class Stage5FireMachineEvent:
     """스테이지 5 - 바닥 화염 방사 기계 이벤트"""
-    
-    def __init__(self, screen_width: int = 600, screen_height: int = 750):
+
+    def __init__(self, screen_width: int = 760, screen_height: int = 750):
+        # 필러 UI 오프셋 (좌우 80px씩)
+        try:
+            from config.constants import PILLAR_UI_WIDTH, GAME_PLAY_WIDTH
+            self.pillar_offset = PILLAR_UI_WIDTH  # 80px
+            self.game_play_width = GAME_PLAY_WIDTH  # 600px
+        except ImportError:
+            self.pillar_offset = 80
+            self.game_play_width = 600
+
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.screen = None
-        
+
         # Event state
         self.active = False
         self.phase = "idle"
         self.timer = 0
-        
+
         # Timing constants (스테이지 1과 동일)
         self.DOOR_OPEN_TIME = 60  # 1초 (바닥 열림)
         self.DOOR_OPEN_DELAY = 30  # 0.5초 대기
@@ -32,16 +41,16 @@ class Stage5FireMachineEvent:
         self.MACHINE_LOWER_TIME = 90  # 1.5초 (기계 하강)
         self.MACHINE_LOWER_DELAY = 30  # 0.5초 대기
         self.DOOR_CLOSE_TIME = 60  # 1초 (바닥 닫힘)
-        
-        # Machine properties
+
+        # Machine properties - 게임 플레이 영역 중앙에 배치 (필러 오프셋 적용)
         self.machine_scale = 0.0
-        self.machine_x = screen_width // 2  # 기계 X 위치 (맵 중앙)
+        self.machine_x = self.pillar_offset + self.game_play_width // 2  # 기계 X 위치 (게임 영역 중앙)
         self.machine_y = screen_height // 2  # 기계 Y 위치 (맵 중앙)
-        
-        # Door properties (원형 바닥 - 맵 중앙에 위치)
+
+        # Door properties (원형 바닥 - 게임 영역 중앙에 위치)
         self.door_open_percent = 0.0
         self.door_radius = 100  # 원형 바닥의 반지름
-        self.door_center_x = screen_width // 2
+        self.door_center_x = self.pillar_offset + self.game_play_width // 2
         self.door_center_y = screen_height // 2
         
         # Fire zones (화염 지대)

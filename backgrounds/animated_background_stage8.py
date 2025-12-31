@@ -13,6 +13,15 @@ import pygame
 
 Color = Tuple[int, int, int]
 
+# 화면 크기 - config에서 가져오기
+try:
+    from config.constants import PILLAR_UI_WIDTH, GAME_PLAY_WIDTH
+    PILLAR_OFFSET = PILLAR_UI_WIDTH  # 80px
+    GAME_WIDTH = GAME_PLAY_WIDTH  # 600px
+except ImportError:
+    PILLAR_OFFSET = 80
+    GAME_WIDTH = 600
+
 
 class AnimatedBackgroundStage8:
     """Stage 8 배경 위에 얹는 애니메이션 오버레이."""
@@ -446,6 +455,54 @@ class AnimatedBackgroundStage8:
         self._draw_stadium_pulse(overlay)
 
         surface.blit(overlay, (ox, oy))
+
+        # 테두리 (마지막에 그려서 위에 표시)
+        self._draw_border(surface)
+
+    def _draw_border(self, surface: pygame.Surface) -> None:
+        """닌자 저택 테마 테두리 그리기"""
+        border_thickness = 10
+        # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
+        x_off = 0
+        game_w = self.width
+        h = self.height
+
+        # 기본 테두리 색상 (진한 나무색/갈색 - 일본 저택 테마)
+        base_color = (35, 25, 20)  # 어두운 갈색
+        inner_color = (60, 45, 35)  # 밝은 갈색
+        red_accent = (140, 50, 50)  # 붉은색 악센트
+
+        # 메인 테두리
+        pygame.draw.rect(surface, base_color, (x_off, 0, game_w, border_thickness))
+        pygame.draw.rect(surface, base_color, (x_off, h - border_thickness, game_w, border_thickness))
+        pygame.draw.rect(surface, base_color, (x_off, 0, border_thickness, h))
+        pygame.draw.rect(surface, base_color, (x_off + game_w - border_thickness, 0, border_thickness, h))
+
+        # 내부 테두리 (깊이감)
+        inner_thickness = 2
+        pygame.draw.rect(surface, inner_color,
+                        (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(surface, inner_color,
+                        (x_off + border_thickness - inner_thickness, h - border_thickness,
+                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(surface, inner_color,
+                        (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                         inner_thickness, h - 2*(border_thickness - inner_thickness)))
+        pygame.draw.rect(surface, inner_color,
+                        (x_off + game_w - border_thickness, border_thickness - inner_thickness,
+                         inner_thickness, h - 2*(border_thickness - inner_thickness)))
+
+        # 코너 장식 (붉은색 악센트)
+        corner_radius = 5
+        # 좌상단
+        pygame.draw.circle(surface, red_accent, (x_off + border_thickness//2, border_thickness//2), corner_radius)
+        # 우상단
+        pygame.draw.circle(surface, red_accent, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
+        # 좌하단
+        pygame.draw.circle(surface, red_accent, (x_off + border_thickness//2, h - border_thickness//2), corner_radius)
+        # 우하단
+        pygame.draw.circle(surface, red_accent, (x_off + game_w - border_thickness//2, h - border_thickness//2), corner_radius)
 
     def _draw_scroll(self, overlay: pygame.Surface) -> None:
         """족자 캐시를 화면에 그리기."""

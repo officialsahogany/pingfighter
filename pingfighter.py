@@ -779,7 +779,8 @@ def _apply_global_hotkeys(events):
                     print(f"[Screenshot] 저장 경로: {screenshot_dir}")
                     os.makedirs(screenshot_dir, exist_ok=True)
 
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    from datetime import datetime as dt
+                    timestamp = dt.now().strftime("%Y%m%d_%H%M%S")
                     filename = os.path.join(screenshot_dir, f"screenshot_{timestamp}.png")
 
                     # 전체화면 모드면 REAL_SCREEN 캡처 (필러 포함)
@@ -794,13 +795,13 @@ def _apply_global_hotkeys(events):
                         # 로그 파일에도 기록
                         log_file = os.path.join(os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)), "screenshot_log.txt")
                         with open(log_file, "a", encoding="utf-8") as f:
-                            f.write(f"✅ 스크린샷 저장 성공: {filename} ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})\n")
+                            f.write(f"✅ 스크린샷 저장 성공: {filename} ({dt.now().strftime('%Y-%m-%d %H:%M:%S')})\n")
                     else:
                         print("[Screenshot] screen_surface가 None입니다")
                         # 로그 파일에 오류 기록
                         log_file = os.path.join(os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)), "screenshot_log.txt")
                         with open(log_file, "a", encoding="utf-8") as f:
-                            f.write(f"❌ 스크린샷 실패: screen_surface가 None ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})\n")
+                            f.write(f"❌ 스크린샷 실패: screen_surface가 None ({dt.now().strftime('%Y-%m-%d %H:%M:%S')})\n")
                 except Exception as e:
                     import traceback
                     error_msg = traceback.format_exc()
@@ -808,10 +809,11 @@ def _apply_global_hotkeys(events):
                     print(error_msg)
                     # 로그 파일에 오류 기록
                     try:
+                        from datetime import datetime as dt
                         log_file = os.path.join(os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)), "screenshot_log.txt")
                         with open(log_file, "a", encoding="utf-8") as f:
                             f.write(f"\n{'='*80}\n")
-                            f.write(f"❌ 스크린샷 오류 발생: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                            f.write(f"❌ 스크린샷 오류 발생: {dt.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                             f.write(f"오류 메시지: {str(e)}\n")
                             f.write(f"상세 정보:\n{error_msg}\n")
                             f.write(f"{'='*80}\n\n")
@@ -2170,7 +2172,8 @@ def capture_screenshot():
             os.makedirs(screenshot_dir)
 
         # 파일명 생성 (타임스탬프)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        from datetime import datetime as dt
+        timestamp = dt.now().strftime("%Y%m%d_%H%M%S")
         filename = f"pingfighter_{timestamp}.png"
         filepath = os.path.join(screenshot_dir, filename)
 
@@ -2189,6 +2192,7 @@ def capture_screenshot():
 
     except Exception as e:
         import traceback
+        from datetime import datetime as dt
         error_msg = traceback.format_exc()
         print(f"❌ 스크린샷 저장 실패: {e}")
         print(error_msg)
@@ -2197,7 +2201,7 @@ def capture_screenshot():
             log_file = os.path.join(os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)), "screenshot_log.txt")
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"\n{'='*80}\n")
-                f.write(f"❌ 스크린샷 오류 발생 (] 키): {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"❌ 스크린샷 오류 발생 (] 키): {dt.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 f.write(f"오류 메시지: {str(e)}\n")
                 f.write(f"상세 정보:\n{error_msg}\n")
                 f.write(f"{'='*80}\n\n")

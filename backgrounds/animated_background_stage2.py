@@ -1065,46 +1065,91 @@ class AnimatedBackgroundStage2:
         else:
             surface.blit(leaf_surface, (x - size * 2, y - size * 2))
     
+    def draw_vine_scaled(self, surface, vine, scale_x, scale_y):
+        """스케일 적용된 덩굴 그리기"""
+        x = vine['x'] * scale_x
+        base_y = vine['base_y'] * scale_y
+        length_scaled = vine['length'] * scale_y
+        thickness_scaled = max(1, int(vine['thickness'] * min(scale_x, scale_y)))
+
+        # 덩굴 그림자 (완전 정적)
+        for i, segment in enumerate(vine['segments']):
+            segment_y = base_y + (i * length_scaled / 10)
+            shadow_x = x + segment['offset_x'] * scale_x + 3
+            shadow_y = segment_y + 3
+
+            thickness = max(1, int(thickness_scaled * segment['size']))
+            pygame.draw.circle(surface, (0, 0, 0, 30),
+                             (int(shadow_x), int(shadow_y)), thickness)
+
+        # 덩굴 본체 (완전 정적)
+        points = []
+        for i, segment in enumerate(vine['segments']):
+            segment_y = base_y + (i * length_scaled / 10)
+            segment_x = x + segment['offset_x'] * scale_x
+            points.append((segment_x, segment_y))
+
+            # 덩굴 마디 그리기
+            thickness = max(1, int(thickness_scaled * segment['size']))
+            color_variation = 20 + i * 2
+            color = (color_variation, 60 + color_variation, color_variation)
+            pygame.draw.circle(surface, color,
+                             (int(segment_x), int(segment_y)), thickness)
+
+        # 덩굴 연결선
+        if len(points) > 1:
+            pygame.draw.lines(surface, (40, 80, 40), False, points, thickness_scaled)
+
+        # 덩굴에 작은 잎 추가
+        for i in range(0, len(points), 3):
+            if i < len(points):
+                leaf_x, leaf_y = points[i]
+                leaf_offset = int(10 * scale_x)
+                pygame.draw.circle(surface, (50, 150, 50),
+                                 (int(leaf_x + leaf_offset), int(leaf_y)), max(2, int(4 * min(scale_x, scale_y))))
+                pygame.draw.circle(surface, (50, 150, 50),
+                                 (int(leaf_x - leaf_offset), int(leaf_y)), max(2, int(4 * min(scale_x, scale_y))))
+
     def draw_vine(self, surface, vine):
         """자연스러운 덩굴 그리기"""
         x = vine['x']
         base_y = vine['base_y']
-        
+
         # 덩굴 그림자 (완전 정적)
         for i, segment in enumerate(vine['segments']):
             segment_y = base_y + (i * vine['length'] / 10)
             shadow_x = x + segment['offset_x'] + 3  # 흔들림 제거
             shadow_y = segment_y + 3
-            
+
             thickness = int(vine['thickness'] * segment['size'])
             pygame.draw.circle(surface, (0, 0, 0, 30),
                              (int(shadow_x), int(shadow_y)), thickness)
-        
+
         # 덩굴 본체 (완전 정적)
         points = []
         for i, segment in enumerate(vine['segments']):
             segment_y = base_y + (i * vine['length'] / 10)
             segment_x = x + segment['offset_x']  # 흔들림 제거
             points.append((segment_x, segment_y))
-            
+
             # 덩굴 마디 그리기
             thickness = int(vine['thickness'] * segment['size'])
             color_variation = 20 + i * 2
             color = (color_variation, 60 + color_variation, color_variation)
             pygame.draw.circle(surface, color,
                              (int(segment_x), int(segment_y)), thickness)
-        
+
         # 덩굴 연결선
         if len(points) > 1:
             pygame.draw.lines(surface, (40, 80, 40), False, points, vine['thickness'])
-        
+
         # 덩굴에 작은 잎 추가
         for i in range(0, len(points), 3):
             if i < len(points):
                 leaf_x, leaf_y = points[i]
-                pygame.draw.circle(surface, (50, 150, 50), 
+                pygame.draw.circle(surface, (50, 150, 50),
                                  (int(leaf_x + 10), int(leaf_y)), 4)
-                pygame.draw.circle(surface, (50, 150, 50), 
+                pygame.draw.circle(surface, (50, 150, 50),
                                  (int(leaf_x - 10), int(leaf_y)), 4)
     
     def draw_boss_bush(self, surface, bush):
@@ -1227,6 +1272,43 @@ class AnimatedBackgroundStage2:
                                        min(255, bright_color[2] + 10)), 
                              (int(spot_x), int(spot_y)), spot_size//2)
     
+    def draw_realistic_bush_scaled(self, surface, bush, scale_x, scale_y):
+        """스케일 적용된 덤불 렌더링"""
+        # 임시로 스케일된 값으로 덤불 그리기
+        scaled_bush = {
+            'x': bush['x'] * scale_x,
+            'y': bush['y'] * scale_y,
+            'base_size': bush['base_size'] * min(scale_x, scale_y),
+            'variant': bush['variant'],
+            'rustle_amount': bush['rustle_amount'] * min(scale_x, scale_y),
+            'rustle_angle': bush['rustle_angle'],
+            'area': bush['area'],
+            'clusters': [],
+            'leaves': []
+        }
+        # 클러스터 스케일링
+        for cluster in bush['clusters']:
+            scaled_cluster = {
+                'offset_x': cluster['offset_x'] * scale_x,
+                'offset_y': cluster['offset_y'] * scale_y,
+                'size': cluster['size'] * min(scale_x, scale_y),
+                'darkness': cluster['darkness'],
+                'static_points': [(p[0] * scale_x, p[1] * scale_y) for p in cluster['static_points']]
+            }
+            scaled_bush['clusters'].append(scaled_cluster)
+        # 잎사귀 스케일링
+        for leaf in bush['leaves']:
+            scaled_leaf = {
+                'offset_x': leaf['offset_x'] * scale_x,
+                'offset_y': leaf['offset_y'] * scale_y,
+                'size': int(leaf['size'] * min(scale_x, scale_y)),
+                'color_variant': leaf.get('color_variant', 0),
+                'type': leaf.get('type', 'oval'),
+                'angle': leaf.get('angle', 0)
+            }
+            scaled_bush['leaves'].append(scaled_leaf)
+        self.draw_realistic_bush(surface, scaled_bush)
+
     def draw_realistic_bush(self, surface, bush):
         """스크린샷 스타일의 리얼리스틱 덤불 렌더링"""
         x = bush['x']
@@ -1778,28 +1860,41 @@ class AnimatedBackgroundStage2:
         pass
     
     def draw(self, screen):
-        screen.blit(self.base_image, (0, 0))
-        
-        # 덩굴 그리기
+        # 배경 이미지를 화면 크기에 맞게 스케일
+        screen_w, screen_h = screen.get_size()
+        scale_x = screen_w / self.width  # 스케일 비율
+        scale_y = screen_h / self.height
+
+        if screen_w != self.width or screen_h != self.height:
+            scaled_bg = pygame.transform.scale(self.base_image, (screen_w, screen_h))
+            screen.blit(scaled_bg, (0, 0))
+        else:
+            screen.blit(self.base_image, (0, 0))
+
+        # 덩굴 그리기 (스케일 적용)
         for vine in self.vines:
-            self.draw_vine(screen, vine)
-        
-        # 🌿 리얼리스틱 덤불 시스템 렌더링
+            self.draw_vine_scaled(screen, vine, scale_x, scale_y)
+
+        # 🌿 리얼리스틱 덤불 시스템 렌더링 (스케일 적용)
         for bush in self.realistic_bushes:
-            self.draw_realistic_bush(screen, bush)
-        
+            self.draw_realistic_bush_scaled(screen, bush, scale_x, scale_y)
+
         # 돌맹이 그리기 제거 (사용자 요청)
         # for rock in self.rocks:
         #     self.draw_3d_rock(screen, rock['x'], rock['y'], rock['size'],
         #                     rock['color_base'], rock['moss_coverage'])
-        
-        # 눈동자 그리기
+
+        # 눈동자 그리기 - eye_surface를 화면 크기에 맞게 재생성
+        if self.eye_surface.get_width() != screen_w or self.eye_surface.get_height() != screen_h:
+            self.eye_surface = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
         self.eye_surface.fill((0, 0, 0, 0))
-        
-        # 눈 위치 (맵 중앙 악어 엠블럼)
-        left_eye_x = self.center_x - 27
-        right_eye_x = self.center_x + 27
-        eye_y = self.center_y - 12
+
+        # 눈 위치 (맵 중앙 악어 엠블럼) - 스케일 적용
+        center_x_scaled = int(self.center_x * scale_x)
+        center_y_scaled = int(self.center_y * scale_y)
+        left_eye_x = center_x_scaled - int(27 * scale_x)
+        right_eye_x = center_x_scaled + int(27 * scale_x)
+        eye_y = center_y_scaled - int(12 * scale_y)
         
         # 눈 크기
         eye_radius = 12
@@ -1858,65 +1953,80 @@ class AnimatedBackgroundStage2:
                           (int(right_eye_x + right_pupil_x - 2), 
                            int(eye_y + right_pupil_y - 2)), 2)
         
-        # 표정 그리기
-        mouth_y = self.center_y + 20
-        
+        # 표정 그리기 - 스케일 적용
+        mouth_y = center_y_scaled + int(20 * scale_y)
+        mouth_scale = min(scale_x, scale_y)
+
         if self.expression == 'happy':
             # 활짝 웃는 표정 (플레이어 패배 시)
             # 큰 웃는 입
+            arc_w = int(60 * scale_x)
+            arc_h = int(40 * scale_y)
             pygame.draw.arc(self.eye_surface, (0, 0, 0),
-                           (self.center_x - 30, mouth_y - 10, 60, 40),
-                           0, math.pi, 8)
+                           (center_x_scaled - arc_w // 2, mouth_y - int(10 * scale_y), arc_w, arc_h),
+                           0, math.pi, max(1, int(8 * mouth_scale)))
             # 입 안 채우기 (빨간색)
+            ellipse_w = int(50 * scale_x)
+            ellipse_h = int(20 * scale_y)
             pygame.draw.ellipse(self.eye_surface, (200, 50, 50),
-                              (self.center_x - 25, mouth_y, 50, 20))
+                              (center_x_scaled - ellipse_w // 2, mouth_y, ellipse_w, ellipse_h))
             # 이빨 그리기
+            tooth_w = int(8 * scale_x)
+            tooth_h = int(10 * scale_y)
+            tooth_gap = int(10 * scale_x)
             for i in range(4):
-                tooth_x = self.center_x - 15 + i * 10
+                tooth_x = center_x_scaled - int(15 * scale_x) + i * tooth_gap
                 pygame.draw.rect(self.eye_surface, (255, 255, 255),
-                                (tooth_x, mouth_y, 8, 10))
-            
+                                (tooth_x, mouth_y, tooth_w, tooth_h))
+
             # 눈이 웃는 모양 (초승달 모양)
             pygame.draw.arc(self.eye_surface, (0, 0, 0),
-                           (left_eye_x - eye_radius, eye_y - eye_radius - 5, 
+                           (left_eye_x - eye_radius, eye_y - eye_radius - int(5 * scale_y),
                             eye_radius * 2, eye_radius * 2),
                            0, math.pi, 3)
             pygame.draw.arc(self.eye_surface, (0, 0, 0),
-                           (right_eye_x - eye_radius, eye_y - eye_radius - 5,
+                           (right_eye_x - eye_radius, eye_y - eye_radius - int(5 * scale_y),
                             eye_radius * 2, eye_radius * 2),
                            0, math.pi, 3)
-                           
+
         elif self.expression == 'sad':
             # 울상 표정 (플레이어 승리 시)
             # 처진 입
+            sad_w = int(50 * scale_x)
+            sad_h = int(30 * scale_y)
             pygame.draw.arc(self.eye_surface, (0, 0, 0),
-                           (self.center_x - 25, mouth_y - 5, 50, 30),
-                           math.pi * 0.2, math.pi * 0.8, 5)
-            
+                           (center_x_scaled - sad_w // 2, mouth_y - int(5 * scale_y), sad_w, sad_h),
+                           math.pi * 0.2, math.pi * 0.8, max(1, int(5 * mouth_scale)))
+
             # 눈물 그리기
             for tear_x in [left_eye_x, right_eye_x]:
-                tear_y = eye_y + eye_radius + 5
+                tear_y = eye_y + eye_radius + int(5 * scale_y)
                 # 눈물 방울
                 pygame.draw.circle(self.eye_surface, (100, 150, 255),
-                                 (tear_x, tear_y), 4)
+                                 (tear_x, tear_y), max(2, int(4 * mouth_scale)))
                 pygame.draw.circle(self.eye_surface, (150, 200, 255),
-                                 (tear_x, tear_y + 8), 3)
+                                 (tear_x, tear_y + int(8 * scale_y)), max(2, int(3 * mouth_scale)))
                 pygame.draw.circle(self.eye_surface, (200, 220, 255),
-                                 (tear_x, tear_y + 14), 2)
-            
+                                 (tear_x, tear_y + int(14 * scale_y)), max(1, int(2 * mouth_scale)))
+
             # 눈썹이 처진 모양
+            brow_offset = int(15 * scale_x)
+            brow_y_offset = int(20 * scale_y)
             pygame.draw.line(self.eye_surface, (0, 50, 0),
-                           (left_eye_x - 15, eye_y - 20),
-                           (left_eye_x + 10, eye_y - 25), 3)
+                           (left_eye_x - brow_offset, eye_y - brow_y_offset),
+                           (left_eye_x + int(10 * scale_x), eye_y - int(25 * scale_y)), 3)
             pygame.draw.line(self.eye_surface, (0, 50, 0),
-                           (right_eye_x - 10, eye_y - 25),
-                           (right_eye_x + 15, eye_y - 20), 3)
+                           (right_eye_x - int(10 * scale_x), eye_y - int(25 * scale_y)),
+                           (right_eye_x + brow_offset, eye_y - brow_y_offset), 3)
         else:
             # 중립 표정 - 입을 그리지 않음 (또는 매우 작은 입만)
             pass  # 입을 그리지 않음
         
         screen.blit(self.eye_surface, (0, 0))
-        
+
+        # glow_surface도 화면 크기에 맞게 재생성
+        if self.glow_surface.get_width() != screen_w or self.glow_surface.get_height() != screen_h:
+            self.glow_surface = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
         self.glow_surface.fill((0, 0, 0, 0))
         pulse = math.sin(self.time * 0.003) * 0.5 + 0.5
         
@@ -1934,8 +2044,10 @@ class AnimatedBackgroundStage2:
                              eye_radius + 5)
         
         screen.blit(self.glow_surface, (0, 0), special_flags=pygame.BLEND_ADD)
-        
-        # 떨어지는 잎사귀 (디테일하게)
+
+        # 떨어지는 잎사귀 (디테일하게) - particle_surface도 화면 크기에 맞게 재생성
+        if self.particle_surface.get_width() != screen_w or self.particle_surface.get_height() != screen_h:
+            self.particle_surface = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
         self.particle_surface.fill((0, 0, 0, 0))
         for leaf in self.falling_leaves:
             # 깊이감에 따른 투명도 조절
@@ -1961,9 +2073,9 @@ class AnimatedBackgroundStage2:
         # 💥 파편 렌더링 (원형 효과 제거)
         self.draw_rock_fragments(screen)
         
-        # 🔥 보스 분노 빨간색 틴트 효과
+        # 🔥 보스 분노 빨간색 틴트 효과 (화면 크기에 맞게)
         if self.boss_red_tint > 0:
-            red_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            red_surface = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
             red_surface.fill((255, 0, 0, min(100, self.boss_red_tint // 2)))
             screen.blit(red_surface, (0, 0))
         

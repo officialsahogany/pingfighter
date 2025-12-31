@@ -25,25 +25,34 @@ def resource_path(relative_path):
 
 class BalloonMachineEvent:
     """스테이지 1 - 10~30초마다 랜덤하게 풍선 발사 기계 이벤트"""
-    
-    def __init__(self, screen_width: int = 600, screen_height: int = 750):
+
+    def __init__(self, screen_width: int = 760, screen_height: int = 750):
+        # 필러 UI 오프셋 (좌우 80px씩)
+        try:
+            from config.constants import PILLAR_UI_WIDTH, GAME_PLAY_WIDTH
+            self.pillar_offset = PILLAR_UI_WIDTH  # 80px
+            self.game_play_width = GAME_PLAY_WIDTH  # 600px
+        except ImportError:
+            self.pillar_offset = 80
+            self.game_play_width = 600
+
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.screen = None  # Will be set when activated
-        
+
         # Event state
         self.active = False
-        
+
         # Timer-based triggering
         self.cooldown_timer = 0  # 다음 이벤트까지 대기 시간
         self.MIN_COOLDOWN = 1200  # 20초 (60 FPS * 20)
         self.MAX_COOLDOWN = 2100  # 35초 (60 FPS * 35)
         self._set_next_cooldown()  # 초기 쿨다운 설정
-        # Phases: idle, door_opening, door_open_wait, machine_rising, machine_rise_wait, 
+        # Phases: idle, door_opening, door_open_wait, machine_rising, machine_rise_wait,
         #         shooting, shooting_wait, machine_lowering, machine_lower_wait, door_closing
         self.phase = "idle"
         self.timer = 0
-        
+
         # Timing constants (in frames, 60 FPS) - 실시간 진행
         self.DOOR_OPEN_TIME = 60  # 1초 (바닥 열림)
         self.DOOR_OPEN_DELAY = 30  # 0.5초 대기
@@ -54,17 +63,17 @@ class BalloonMachineEvent:
         self.MACHINE_LOWER_TIME = 90  # 1.5초 (기계 하강)
         self.MACHINE_LOWER_DELAY = 30  # 0.5초 대기
         self.DOOR_CLOSE_TIME = 60  # 1초 (바닥 닫힘)
-        
-        # Machine properties
+
+        # Machine properties - 게임 플레이 영역 중앙에 배치 (필러 오프셋 적용)
         self.machine_scale = 0.0  # 0 = invisible, 1 = full size (등장 애니메이션용)
-        self.machine_x = screen_width // 2  # 기계 X 위치 (맵 중앙)
+        self.machine_x = self.pillar_offset + self.game_play_width // 2  # 기계 X 위치 (게임 영역 중앙)
         self.machine_y = screen_height // 2  # 기계 Y 위치 (맵 중앙)
-        
-        # Door properties (맵 중앙에 위치)
+
+        # Door properties (게임 영역 중앙에 위치)
         self.door_open_percent = 0.0  # 0 = closed, 1 = fully open
         self.door_width = 200
         self.door_height = 200  # 더 큰 문
-        self.door_x = (screen_width - self.door_width) // 2
+        self.door_x = self.pillar_offset + (self.game_play_width - self.door_width) // 2
         self.door_y = (screen_height - self.door_height) // 2  # 맵 중앙
         
         # Balloons

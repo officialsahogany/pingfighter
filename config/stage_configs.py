@@ -27,7 +27,7 @@ BOSS_CONFIGS = {
         # 보스 대쉬 후 통제불능 시간(초)
         "dash_stun_duration": 0.60,
         # 보스 대쉬 최대 이동 거리(px)
-        "dash_max_distance": 240,
+        "dash_max_distance": 288,  # 20% 증가 (240 → 288)
     },
     2: {
         "name": "악어장군",
@@ -44,7 +44,7 @@ BOSS_CONFIGS = {
         "dash_cooldown_range": (38.0, 53.0),
         "dash_trigger_chance": 0.33,
         "dash_stun_duration": 0.56,
-        "dash_max_distance": 250,
+        "dash_max_distance": 300,  # 20% 증가 (250 → 300)
     },
     3: {
         "name": "멘헤라걸",
@@ -61,7 +61,7 @@ BOSS_CONFIGS = {
         "dash_cooldown_range": (36.0, 51.0),
         "dash_trigger_chance": 0.36,
         "dash_stun_duration": 0.52,
-        "dash_max_distance": 260,
+        "dash_max_distance": 312,  # 20% 증가 (260 → 312)
     },
     4: {
         "name": "퐁크",
@@ -76,7 +76,7 @@ BOSS_CONFIGS = {
         "special_skill": "grenade",  # 수류탄
         # 스테이지 4: 조금 더 짧은 대쉬 쿨타임
         "dash_cooldown_range": (34.0, 48.0),
-        "dash_max_distance": 270,
+        "dash_max_distance": 324,  # 20% 증가 (270 → 324)
     },
     5: {
         "name": "홍련",
@@ -93,7 +93,7 @@ BOSS_CONFIGS = {
         "dash_cooldown_range": (32.0, 46.0),
         # 홍련은 대쉬 가능 (네메시스와 구분)
         "dash_enabled": True,
-        "dash_max_distance": 280,
+        "dash_max_distance": 336,  # 20% 증가 (280 → 336)
     },
     6: {
         "name": "보스러시",
@@ -110,7 +110,7 @@ BOSS_CONFIGS = {
         "max_health": 15,
         # 스테이지 6: 체력형 보스, 더 자주 대쉬
         "dash_cooldown_range": (26.0, 38.0),
-        "dash_max_distance": 290,
+        "dash_max_distance": 348,  # 20% 증가 (290 → 348)
     },
     7: {
         "name": "테트리서",
@@ -125,7 +125,7 @@ BOSS_CONFIGS = {
         "special_skill": "tetris_field",
         # 스테이지 7: 최종 보스, 가장 짧은 대쉬 쿨타임
         "dash_cooldown_range": (28.0, 40.0),
-        "dash_max_distance": 300,
+        "dash_max_distance": 360,  # 20% 증가 (300 → 360)
     },
     8: {
         "name": "아카무 리고",
@@ -139,7 +139,7 @@ BOSS_CONFIGS = {
         "fail_error": 180,
         "special_skill": None,  # 스킬은 추후 구현 예정
         "dash_cooldown_range": (26.0, 38.0),
-        "dash_max_distance": 310,
+        "dash_max_distance": 372,  # 20% 증가 (310 → 372)
     },
 }
 

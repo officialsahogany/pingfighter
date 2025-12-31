@@ -86,7 +86,7 @@ class Stage2BossSprite:
             sheet_width = sprite_sheet.get_width()
             sheet_height = sprite_sheet.get_height()
 
-            print(f"🐊 스테이지2 스프라이트 시트 로드: {sheet_width}x{sheet_height}")
+            print(f"[Stage2] Sprite sheet loaded: {sheet_width}x{sheet_height}")
 
             # 스프라이트 시트 구조:
             # - 2행 × 4프레임 구조
@@ -96,7 +96,7 @@ class Stage2BossSprite:
             row_height = sheet_height // 2
             frame_width = sheet_width // self.total_frames
 
-            print(f"🐊 프레임 크기: {frame_width}x{row_height}, 총 프레임: {self.total_frames}")
+            print(f"[Stage2] Frame size: {frame_width}x{row_height}, total frames: {self.total_frames}")
 
             # 첫 번째 행 (왼쪽 이동) 프레임 추출
             self.frames_left = []
@@ -112,7 +112,7 @@ class Stage2BossSprite:
                     frame = sprite_sheet.subsurface(frame_rect).copy()
                     self.frames_left.append(frame)
                 except Exception as e:
-                    print(f"⚠️ 왼쪽 프레임 {i} 추출 실패: {e}")
+                    print(f"[WARN] Left frame {i} extraction failed: {e}")
 
             # 두 번째 행 (오른쪽 이동) 프레임 추출
             self.frames_right = []
@@ -131,7 +131,7 @@ class Stage2BossSprite:
                     frame = sprite_sheet.subsurface(frame_rect).copy()
                     self.frames_right.append(frame)
                 except Exception as e:
-                    print(f"⚠️ 오른쪽 프레임 {i} 추출 실패: {e}")
+                    print(f"[WARN] Right frame {i} extraction failed: {e}")
 
             # 정지 프레임 - 첫 번째 프레임 사용
             if self.frames_right:
@@ -141,11 +141,11 @@ class Stage2BossSprite:
             else:
                 self.idle_frame = None
 
-            print(f"✅ 프레임 로드 완료: 왼쪽 {len(self.frames_left)}개, 오른쪽 {len(self.frames_right)}개")
+            print(f"[OK] Frames loaded: left {len(self.frames_left)}, right {len(self.frames_right)}")
             return True
 
         except Exception as e:
-            print(f"❌ 스프라이트 시트 로드 실패: {e}")
+            print(f"[ERROR] Sprite sheet load failed: {e}")
             import traceback
             traceback.print_exc()
             self._create_fallback_frames()
@@ -162,7 +162,7 @@ class Stage2BossSprite:
         self.frames_right = [base_frame.copy() for _ in range(self.total_frames)]
         self.idle_frame = base_frame.copy()
 
-        print("⚠️ 폴백 프레임 생성됨")
+        print("[WARN] Fallback frames created")
 
     def update(self, current_x: float, dt: float = 1/60):
         """

@@ -8,6 +8,17 @@ import pygame
 import math
 import random
 
+# 화면 크기 - config에서 가져오기
+try:
+    from config.constants import PILLAR_UI_WIDTH, GAME_PLAY_WIDTH, SCREEN_HEIGHT
+    PILLAR_OFFSET = PILLAR_UI_WIDTH  # 80px
+    GAME_WIDTH = GAME_PLAY_WIDTH  # 600px
+    HEIGHT = SCREEN_HEIGHT  # 750px
+except ImportError:
+    PILLAR_OFFSET = 80
+    GAME_WIDTH = 600
+    HEIGHT = 750
+
 class AnimatedBackgroundStage6:
     def __init__(self, width, height):
         self.width = width
@@ -117,9 +128,57 @@ class AnimatedBackgroundStage6:
         
         # 불타는 스타디움 라인 그리기
         self._draw_fire_lines(screen)
-        
+
         # 경기장 중앙 원형 라인 (비활성화됨)
         # self._draw_arena_circle(screen)
+
+        # 테두리 (마지막에 그려서 위에 표시)
+        self._draw_border(screen)
+
+    def _draw_border(self, screen):
+        """해상 사이버펑크 테마 테두리 그리기"""
+        border_thickness = 10
+        # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
+        x_off = 0
+        game_w = self.width
+        h = self.height
+
+        # 기본 테두리 색상 (진한 청록색/해양색)
+        base_color = (0, 60, 80)  # 어두운 바다색
+        cyan_color = (0, 120, 150)  # 청록색
+        glow_accent = (0, 200, 220)  # 네온 청록 악센트
+
+        # 메인 테두리
+        pygame.draw.rect(screen, base_color, (x_off, 0, game_w, border_thickness))
+        pygame.draw.rect(screen, base_color, (x_off, h - border_thickness, game_w, border_thickness))
+        pygame.draw.rect(screen, base_color, (x_off, 0, border_thickness, h))
+        pygame.draw.rect(screen, base_color, (x_off + game_w - border_thickness, 0, border_thickness, h))
+
+        # 내부 테두리 (깊이감)
+        inner_thickness = 2
+        pygame.draw.rect(screen, cyan_color,
+                        (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(screen, cyan_color,
+                        (x_off + border_thickness - inner_thickness, h - border_thickness,
+                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(screen, cyan_color,
+                        (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                         inner_thickness, h - 2*(border_thickness - inner_thickness)))
+        pygame.draw.rect(screen, cyan_color,
+                        (x_off + game_w - border_thickness, border_thickness - inner_thickness,
+                         inner_thickness, h - 2*(border_thickness - inner_thickness)))
+
+        # 코너 장식 (네온 글로우)
+        corner_radius = 5
+        # 좌상단
+        pygame.draw.circle(screen, glow_accent, (x_off + border_thickness//2, border_thickness//2), corner_radius)
+        # 우상단
+        pygame.draw.circle(screen, glow_accent, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
+        # 좌하단
+        pygame.draw.circle(screen, glow_accent, (x_off + border_thickness//2, h - border_thickness//2), corner_radius)
+        # 우하단
+        pygame.draw.circle(screen, glow_accent, (x_off + game_w - border_thickness//2, h - border_thickness//2), corner_radius)
     
     def _draw_arena_circle(self, screen):
         """중앙 경기장 원형 라인 그리기"""

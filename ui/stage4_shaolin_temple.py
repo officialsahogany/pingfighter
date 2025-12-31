@@ -25,10 +25,27 @@ def resource_path(relative_path):
 # 픽셀 폰트 경로
 PIXEL_FONT = resource_path("PFStardust.ttf")
 
+# 화면 크기 - config에서 가져오기
+try:
+    from config.constants import SCREEN_WIDTH, SCREEN_HEIGHT, PILLAR_UI_WIDTH, GAME_PLAY_WIDTH
+    DEFAULT_WIDTH = SCREEN_WIDTH  # 760px
+    DEFAULT_HEIGHT = SCREEN_HEIGHT  # 750px
+    PILLAR_OFFSET = PILLAR_UI_WIDTH  # 80px
+    GAME_WIDTH = GAME_PLAY_WIDTH  # 600px
+except ImportError:
+    DEFAULT_WIDTH = 760
+    DEFAULT_HEIGHT = 750
+    PILLAR_OFFSET = 80
+    GAME_WIDTH = 600
+
 class ShaolinTempleBackground:
-    def __init__(self, width: int = 600, height: int = 750):
-        self.width = width
-        self.height = height
+    def __init__(self, width: int = None, height: int = None):
+        self.width = width if width is not None else DEFAULT_WIDTH
+        self.height = height if height is not None else DEFAULT_HEIGHT
+        self.pillar_offset = PILLAR_OFFSET
+        self.game_width = GAME_WIDTH
+        # 게임 영역 중앙 X 좌표
+        self.game_center_x = self.pillar_offset + self.game_width // 2
         self.frame_count = 0
         
         # Temple destruction state
@@ -91,7 +108,7 @@ class ShaolinTempleBackground:
         # Approximate temple hitbox used for moon-fragment collision
         temple_width = 280
         temple_height = 380
-        temple_x = self.width // 2 - temple_width // 2
+        temple_x = self.game_center_x - temple_width // 2  # 게임 영역 중앙 기준
         temple_y = max(0, 450 - temple_height)  # top of temple
         self.temple_hitbox = pygame.Rect(temple_x, temple_y, temple_width, temple_height + 60)  # include stairs
         
@@ -190,20 +207,22 @@ class ShaolinTempleBackground:
         self.door_trigger_distance = 30  # 문 열림을 트리거하는 거리
         
         # Background surface for static elements (with transparency support)
-        self.static_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        self.static_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self._draw_static_background()
         # Reusable working surfaces to avoid per-frame allocations
-        self._temp_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-        self._red_overlay_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        self._temp_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self._red_overlay_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         
     def _create_lanterns(self) -> List[Dict[str, Any]]:
         """Create hanging lanterns"""
         lanterns = []
+        # 필러 오프셋 적용
+        offset = self.pillar_offset
         positions = [
             # (100, 150), (500, 150),  # 상단 좌우 - 제거됨
-            (50, 300), (550, 300),   # 중단 좌우
-            (150, 250), (450, 250),  # 중앙 좌우
-            (250, 180), (350, 180),  # 중앙 상단
+            (offset + 50, 300), (offset + 550, 300),   # 중단 좌우
+            (offset + 150, 250), (offset + 450, 250),  # 중앙 좌우
+            (offset + 250, 180), (offset + 350, 180),  # 중앙 상단
         ]
         
         for x, y in positions:
@@ -266,23 +285,25 @@ class ShaolinTempleBackground:
     def _create_dragon_ornaments(self) -> List[Dict[str, Any]]:
         """Create dragon decorations on temple roof"""
         dragons = []
-        positions = [(200, 280), (400, 280)]  # 좌우 용 장식
-        
+        offset = self.pillar_offset
+        positions = [(offset + 200, 280), (offset + 400, 280)]  # 좌우 용 장식
+
         for x, y in positions:
             dragons.append({
                 'x': x,
                 'y': y,
                 'eye_glow': 0,
                 'eye_glow_speed': random.uniform(0.02, 0.03),
-                'facing': 'left' if x < self.width / 2 else 'right',
+                'facing': 'left' if x < self.game_center_x else 'right',
             })
         return dragons
-    
+
     def _create_training_dummies(self) -> List[Dict[str, Any]]:
         """Create martial arts training dummies"""
         dummies = []
-        positions = [(120, 500), (480, 500)]  # 가운데 더미 제거
-        
+        offset = self.pillar_offset
+        positions = [(offset + 120, 500), (offset + 480, 500)]  # 가운데 더미 제거
+
         for x, y in positions:
             dummies.append({
                 'x': x,
@@ -295,7 +316,7 @@ class ShaolinTempleBackground:
     
     def _draw_red_moon(self, surface: pygame.Surface):
         """Draw red moon overlay during destruction with gradient and pulsing"""
-        moon_x, moon_y = self.width - 120, 100
+        moon_x, moon_y = self.pillar_offset + self.game_width - 120, 100
         
         # Add pulsing effect
         pulse = 0.0
@@ -423,7 +444,7 @@ class ShaolinTempleBackground:
             pygame.draw.line(self.static_surface, color, (0, y), (self.width, y))
         
         # Moon with natural glow effect
-        moon_x, moon_y = self.width - 120, 100
+        moon_x, moon_y = self.pillar_offset + self.game_width - 120, 100
         
         # Create softer, more natural glow layers
         for i in range(8, 0, -1):
@@ -464,7 +485,7 @@ class ShaolinTempleBackground:
     def _draw_temple(self, surface: pygame.Surface):
         """Draw the main temple structure - Ultra High Quality version"""
         # Base temple building
-        temple_x = self.width // 2
+        temple_x = self.game_center_x
         temple_base_y = 450
 
         # Apply gradual collapse offset if destruction is active
@@ -1289,17 +1310,20 @@ class ShaolinTempleBackground:
     
     def _draw_bamboo_trees(self, surface: pygame.Surface):
         """Draw bamboo silhouettes"""
+        offset = self.pillar_offset
+        game_right = offset + self.game_width
+
         # Left side bamboo grove
         for i in range(5):
-            x = 20 + i * 15
+            x = offset + 20 + i * 15
             height = 400 + random.randint(-50, 50)
             sway = math.sin(self.frame_count * 0.01 + i) * 3
-            
+
             # Bamboo segments
             segment_height = 40
             current_y = self.height
             current_x = x
-            
+
             while current_y > self.height - height:
                 # Draw segment
                 pygame.draw.line(surface, self.colors['tree_dark'],
@@ -1310,24 +1334,24 @@ class ShaolinTempleBackground:
                                  (current_x + int(sway), current_y - segment_height), 5)
                 current_y -= segment_height
                 current_x += sway / 10
-            
+
             # Leaves at top
             for j in range(3):
                 leaf_x = current_x + random.randint(-20, 20)
                 leaf_y = current_y + random.randint(-20, 0)
                 pygame.draw.ellipse(surface, self.colors['tree_dark'],
                                   (leaf_x, leaf_y, 15, 5))
-        
+
         # Right side bamboo grove (similar)
         for i in range(5):
-            x = self.width - 20 - i * 15
+            x = game_right - 20 - i * 15
             height = 400 + random.randint(-50, 50)
             sway = math.sin(self.frame_count * 0.01 + i + 5) * 3
-            
+
             segment_height = 40
             current_y = self.height
             current_x = x
-            
+
             while current_y > self.height - height:
                 pygame.draw.line(surface, self.colors['tree_dark'],
                                (current_x, current_y),
@@ -2128,7 +2152,7 @@ class ShaolinTempleBackground:
             return
         
         # Spawn from temple entrance
-        temple_x = self.width // 2
+        temple_x = self.game_center_x
         entrance_y = 450  # Temple entrance position
         
         monk = {
@@ -2173,7 +2197,7 @@ class ShaolinTempleBackground:
 
         # === 문 열림 상태 업데이트 ===
         # 입구 근처에 있는 몽크 확인 (나가거나 들어오는 중)
-        temple_x = self.width // 2
+        temple_x = self.game_center_x
         entrance_y = self.door_entrance_y
 
         monk_near_entrance = False
@@ -3156,8 +3180,9 @@ class ShaolinTempleBackground:
                 self._red_overlay_surface = red_overlay
             red_overlay.fill((255, 50, 50, self.red_light_alpha))
             surface.blit(red_overlay, (0, 0))
-        
+
         # Note: update() should be called separately from the main game loop, not here
+        # 테두리는 pillar_background.py에서 그려짐
     
     def check_smoke_touches_brazier(self, smoke_x: float, smoke_y: float, smoke_radius: float) -> bool:
         """연막탄 연기가 화로에 닿았는지 체크
@@ -3856,11 +3881,11 @@ class ShaolinTempleBackground:
     def _fire_destruction_wave(self):
         """Fire a destruction wave from the moon towards the temple"""
         # Get moon position
-        moon_x = self.width // 2 + 100
+        moon_x = self.game_center_x + 100
         moon_y = 70
         
         # Get temple position (target)
-        temple_x = self.width // 2
+        temple_x = self.game_center_x
         temple_y = 350
         
         # Create destruction wave with enhanced properties
@@ -4175,7 +4200,7 @@ class ShaolinTempleBackground:
         self.wall_cracks = []
         self.dust_clouds = []
 
-        temple_x = self.width // 2
+        temple_x = self.game_center_x
         temple_base_y = 450
 
         # === 상륜부(첨탑) 파편 - 가장 먼저 떨어짐 ===
@@ -4346,7 +4371,7 @@ class ShaolinTempleBackground:
 
     def _create_additional_crush_debris(self):
         """Create additional debris during building crush/sink animation"""
-        temple_x = self.width // 2
+        temple_x = self.game_center_x
         temple_base_y = 450
 
         # 현재 가라앉음 상태에 맞춰 파편 생성 위치 조정
@@ -5067,7 +5092,7 @@ class ShaolinTempleBackground:
         num_fragments = random.randint(3, 5)
         
         # Moon position (top-right area, same as where moon is drawn)
-        moon_x = self.width - 120
+        moon_x = self.pillar_offset + self.game_width - 120
         moon_y = 100
         
         # Activate moon pulsing effect

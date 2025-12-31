@@ -198,7 +198,7 @@ class Stage8BossSprite:
             sheet_width = sprite_sheet.get_width()
             sheet_height = sprite_sheet.get_height()
 
-            print(f"🥷 스테이지 8 스프라이트 시트 로드: {sheet_width}x{sheet_height}")
+            print(f"[Stage8] Sprite sheet loaded: {sheet_width}x{sheet_height}")
 
             # 스프라이트 시트 구조 분석:
             # - 2행 × 4프레임 구조
@@ -219,7 +219,7 @@ class Stage8BossSprite:
             margin = 2
             actual_frame_width = int(frame_width_float) - (margin * 2)
 
-            print(f"🥷 프레임 크기: {actual_frame_width}x{row_height}, 총 프레임: {self.total_frames}")
+            print(f"[Stage8] Frame size: {actual_frame_width}x{row_height}, total frames: {self.total_frames}")
 
             # 첫 번째 행 (오른쪽 이동) 프레임 추출
             self.frames_right = []
@@ -242,7 +242,7 @@ class Stage8BossSprite:
                     frame = pygame.transform.smoothscale(frame, (self.standard_frame_width, self.standard_frame_height))
                     self.frames_right.append(frame)
                 except Exception as e:
-                    print(f"⚠️ 오른쪽 프레임 {i} 추출 실패: {e}")
+                    print(f"[WARN] Right frame {i} extraction failed: {e}")
 
             # 두 번째 행 (왼쪽 이동) 프레임 추출
             self.frames_left = []
@@ -266,7 +266,7 @@ class Stage8BossSprite:
                     frame = pygame.transform.smoothscale(frame, (self.standard_frame_width, self.standard_frame_height))
                     self.frames_left.append(frame)
                 except Exception as e:
-                    print(f"⚠️ 왼쪽 프레임 {i} 추출 실패: {e}")
+                    print(f"[WARN] Left frame {i} extraction failed: {e}")
 
             # 프레임 크기를 기준 크기로 업데이트
             self.frame_width = self.standard_frame_width
@@ -280,11 +280,11 @@ class Stage8BossSprite:
             else:
                 self.idle_frame = None
 
-            print(f"✅ 아카무 리고 프레임 로드 완료: 오른쪽 {len(self.frames_right)}개, 왼쪽 {len(self.frames_left)}개 (크기: {self.frame_width}x{self.frame_height})")
+            print(f"[OK] Akamu Rigo frames loaded: right {len(self.frames_right)}, left {len(self.frames_left)} (size: {self.frame_width}x{self.frame_height})")
             return True
 
         except Exception as e:
-            print(f"❌ 스테이지 8 스프라이트 시트 로드 실패: {e}")
+            print(f"[ERROR] Stage 8 sprite sheet load failed: {e}")
             import traceback
             traceback.print_exc()
             self._create_fallback_frames()
@@ -325,7 +325,7 @@ class Stage8BossSprite:
         self.frames_right = [base_frame.copy() for _ in range(self.total_frames)]
         self.idle_frame = base_frame.copy()
 
-        print("⚠️ 아카무 리고 폴백 프레임 생성됨")
+        print("[WARN] Akamu Rigo fallback frames created")
 
     def load_hit_sprite_sheet(self, path: str) -> bool:
         """
@@ -346,7 +346,7 @@ class Stage8BossSprite:
             sheet_width = sprite_sheet.get_width()
             sheet_height = sprite_sheet.get_height()
 
-            print(f"🥊 아카무 리고 히트 스프라이트 시트 로드: {sheet_width}x{sheet_height}")
+            print(f"[Hit] Akamu Rigo hit sprite sheet loaded: {sheet_width}x{sheet_height}")
 
             # 2행 구조로 가정 (1086x1037 → 2행x4열)
             row_height = sheet_height // 2  # 약 518px
@@ -359,7 +359,7 @@ class Stage8BossSprite:
             actual_frame_width = int(frame_width_float) - (margin_x * 2)
             actual_frame_height = row_height - margin_y_top - margin_y_bottom
 
-            print(f"🥊 히트 프레임 크기: {actual_frame_width}x{actual_frame_height}, 총 프레임: {self.hit_total_frames}")
+            print(f"[Hit] Frame size: {actual_frame_width}x{actual_frame_height}, total frames: {self.hit_total_frames}")
 
             # 1열 (상단) - 히트 애니메이션 프레임 추출
             # 좌우 방향 상관없이 동일한 프레임 사용
@@ -384,17 +384,17 @@ class Stage8BossSprite:
                     frame = pygame.transform.smoothscale(frame, (self.standard_frame_width, self.standard_frame_height))
                     frames_hit.append(frame)
                 except Exception as e:
-                    print(f"⚠️ 히트 프레임 {i} 추출 실패: {e}")
+                    print(f"[WARN] Hit frame {i} extraction failed: {e}")
 
             # 좌우 모두 동일한 프레임 사용
             self.frames_hit_right = frames_hit.copy()
             self.frames_hit_left = frames_hit.copy()
 
-            print(f"✅ 아카무 리고 히트 프레임 로드 완료: {len(frames_hit)}개 (좌우 동일)")
+            print(f"[OK] Akamu Rigo hit frames loaded: {len(frames_hit)} (same for left/right)")
             return True
 
         except Exception as e:
-            print(f"⚠️ 아카무 리고 히트 스프라이트 시트 로드 실패 (폴백 사용): {e}")
+            print(f"[WARN] Akamu Rigo hit sprite sheet load failed (using fallback): {e}")
             self.frames_hit_left = self.frames_left.copy() if self.frames_left else []
             self.frames_hit_right = self.frames_right.copy() if self.frames_right else []
             return False
@@ -455,7 +455,7 @@ class Stage8BossSprite:
                     frame = pygame.transform.smoothscale(frame, (self.standard_frame_width, self.standard_frame_height))
                     self.frames_dash_right.append(frame)
                 except Exception as e:
-                    print(f"⚠️ 오른쪽 대쉬 프레임 {i} 추출 실패: {e}")
+                    print(f"[WARN] Right dash frame {i} extraction failed: {e}")
 
             # 3열 (마지막 행) - 오른쪽 2프레임 (왼쪽 대쉬 - 캐릭터가 왼쪽을 향함)
             self.frames_dash_left = []
@@ -478,13 +478,13 @@ class Stage8BossSprite:
                     frame = pygame.transform.smoothscale(frame, (self.standard_frame_width, self.standard_frame_height))
                     self.frames_dash_left.append(frame)
                 except Exception as e:
-                    print(f"⚠️ 왼쪽 대쉬 프레임 {i} 추출 실패: {e}")
+                    print(f"[WARN] Left dash frame {i} extraction failed: {e}")
 
-            print(f"✅ 아카무 리고 대쉬 프레임 로드 완료: 왼쪽 {len(self.frames_dash_left)}개, 오른쪽 {len(self.frames_dash_right)}개")
+            print(f"[OK] Akamu Rigo dash frames loaded: left {len(self.frames_dash_left)}, right {len(self.frames_dash_right)}")
             return True
 
         except Exception as e:
-            print(f"⚠️ 아카무 리고 대쉬 스프라이트 시트 로드 실패 (폴백 사용): {e}")
+            print(f"[WARN] Akamu Rigo dash sprite sheet load failed (using fallback): {e}")
             self.frames_dash_left = self.frames_left[:2] if len(self.frames_left) >= 2 else self.frames_left.copy()
             self.frames_dash_right = self.frames_right[:2] if len(self.frames_right) >= 2 else self.frames_right.copy()
             return False
@@ -508,7 +508,7 @@ class Stage8BossSprite:
             sheet_width = sprite_sheet.get_width()
             sheet_height = sprite_sheet.get_height()
 
-            print(f"🔄 아카무 리고 방향 전환 스프라이트 시트 로드: {sheet_width}x{sheet_height}")
+            print(f"[Turn] Akamu Rigo turn sprite sheet loaded: {sheet_width}x{sheet_height}")
 
             # 2행 구조 - 2열(하단)의 3번째 프레임 사용 (정면 이미지)
             row_height = sheet_height // 2  # 약 518px
@@ -520,7 +520,7 @@ class Stage8BossSprite:
             actual_frame_width = int(frame_width_float) - (margin_x * 2)
             actual_frame_height = row_height - (margin_y * 2)
 
-            print(f"🔄 방향 전환 프레임 크기: {actual_frame_width}x{actual_frame_height} (2열 3번째 프레임)")
+            print(f"[Turn] Frame size: {actual_frame_width}x{actual_frame_height} (row 2, frame 3)")
 
             # 2열 (하단) - 3번째 프레임 (인덱스 2, 정면) 1개만 추출
             self.frames_turn = []
@@ -541,13 +541,13 @@ class Stage8BossSprite:
                 frame = pygame.transform.smoothscale(frame, (self.standard_frame_width, self.standard_frame_height))
                 self.frames_turn.append(frame)
             except Exception as e:
-                print(f"⚠️ 방향 전환 프레임 추출 실패: {e}")
+                print(f"[WARN] Turn frame extraction failed: {e}")
 
-            print(f"✅ 아카무 리고 방향 전환 프레임 로드 완료: {len(self.frames_turn)}개 (2열 3번째 정면 프레임)")
+            print(f"[OK] Akamu Rigo turn frames loaded: {len(self.frames_turn)} (row 2, frame 3 front)")
             return True
 
         except Exception as e:
-            print(f"⚠️ 아카무 리고 방향 전환 스프라이트 시트 로드 실패: {e}")
+            print(f"[WARN] Akamu Rigo turn sprite sheet load failed: {e}")
             return False
 
     def load_defeat_sprite_sheet(self, path: str) -> bool:
@@ -569,7 +569,7 @@ class Stage8BossSprite:
             sheet_width = sprite_sheet.get_width()
             sheet_height = sprite_sheet.get_height()
 
-            print(f"😵 아카무 리고 패배 스프라이트 시트 로드: {sheet_width}x{sheet_height}")
+            print(f"[Defeat] Akamu Rigo defeat sprite sheet loaded: {sheet_width}x{sheet_height}")
 
             # 2행 구조 - 2열(하단) 사용 (패배 포즈)
             row_height = sheet_height // 2
@@ -581,7 +581,7 @@ class Stage8BossSprite:
             actual_frame_width = frame_width - (margin_x * 2)
             actual_frame_height = row_height - (margin_y * 2)
 
-            print(f"😵 패배 프레임 크기: {actual_frame_width}x{actual_frame_height}")
+            print(f"[Defeat] Frame size: {actual_frame_width}x{actual_frame_height}")
 
             # 2열 (하단) - 4프레임 추출
             self.frames_defeat = []
@@ -603,13 +603,13 @@ class Stage8BossSprite:
                     frame = pygame.transform.smoothscale(frame, (self.standard_frame_width, self.standard_frame_height))
                     self.frames_defeat.append(frame)
                 except Exception as e:
-                    print(f"⚠️ 패배 프레임 {i} 추출 실패: {e}")
+                    print(f"[WARN] Defeat frame {i} extraction failed: {e}")
 
-            print(f"✅ 아카무 리고 패배 프레임 로드 완료: {len(self.frames_defeat)}개")
+            print(f"[OK] Akamu Rigo defeat frames loaded: {len(self.frames_defeat)}")
             return True
 
         except Exception as e:
-            print(f"⚠️ 아카무 리고 패배 스프라이트 시트 로드 실패: {e}")
+            print(f"[WARN] Akamu Rigo defeat sprite sheet load failed: {e}")
             return False
 
     def load_victory_sprite_sheet(self, path: str) -> bool:
@@ -631,7 +631,7 @@ class Stage8BossSprite:
             sheet_width = sprite_sheet.get_width()
             sheet_height = sprite_sheet.get_height()
 
-            print(f"🎉 아카무 리고 승리 스프라이트 시트 로드: {sheet_width}x{sheet_height}")
+            print(f"[Victory] Akamu Rigo victory sprite sheet loaded: {sheet_width}x{sheet_height}")
 
             # 2행 구조 - 2열(하단) 사용 (승리 포즈)
             row_height = sheet_height // 2
@@ -643,7 +643,7 @@ class Stage8BossSprite:
             actual_frame_width = frame_width - (margin_x * 2)
             actual_frame_height = row_height - (margin_y * 2)
 
-            print(f"🎉 승리 프레임 크기: {actual_frame_width}x{actual_frame_height}")
+            print(f"[Victory] Frame size: {actual_frame_width}x{actual_frame_height}")
 
             # 2열 (하단) - 4프레임 추출
             self.frames_victory = []
@@ -665,19 +665,19 @@ class Stage8BossSprite:
                     frame = pygame.transform.smoothscale(frame, (self.standard_frame_width, self.standard_frame_height))
                     self.frames_victory.append(frame)
                 except Exception as e:
-                    print(f"⚠️ 승리 프레임 {i} 추출 실패: {e}")
+                    print(f"[WARN] Victory frame {i} extraction failed: {e}")
 
-            print(f"✅ 아카무 리고 승리 프레임 로드 완료: {len(self.frames_victory)}개")
+            print(f"[OK] Akamu Rigo victory frames loaded: {len(self.frames_victory)}")
             return True
 
         except Exception as e:
-            print(f"⚠️ 아카무 리고 승리 스프라이트 시트 로드 실패: {e}")
+            print(f"[WARN] Akamu Rigo victory sprite sheet load failed: {e}")
             return False
 
     def trigger_victory(self):
         """승리 애니메이션 시작"""
         if not self.frames_victory:
-            print("⚠️ 승리 프레임이 없음")
+            print("[WARN] No victory frames")
             return
 
         self.is_victorious = True
@@ -689,12 +689,12 @@ class Stage8BossSprite:
         self.is_dashing = False
         self.is_turning = False
         self.is_defeated = False
-        print("🎉 아카무 리고 승리 애니메이션 시작")
+        print("[Victory] Akamu Rigo victory animation start")
 
     def trigger_defeat(self):
         """패배 애니메이션 시작"""
         if not self.frames_defeat:
-            print("⚠️ 패배 프레임이 없음")
+            print("[WARN] No defeat frames")
             return
 
         self.is_defeated = True

@@ -11,9 +11,18 @@ import random
 import os
 from typing import Tuple, List
 
-# 화면 크기
-WIDTH = 600
-HEIGHT = 750
+# 화면 크기 - config에서 가져오기
+try:
+    from config.constants import SCREEN_WIDTH, SCREEN_HEIGHT, PILLAR_UI_WIDTH, GAME_PLAY_WIDTH
+    WIDTH = SCREEN_WIDTH  # 760px
+    HEIGHT = SCREEN_HEIGHT  # 750px
+    PILLAR_OFFSET = PILLAR_UI_WIDTH  # 80px
+    GAME_WIDTH = GAME_PLAY_WIDTH  # 600px
+except ImportError:
+    WIDTH = 760
+    HEIGHT = 750
+    PILLAR_OFFSET = 80
+    GAME_WIDTH = 600
 
 # 색상 정의 - 멘헤라 파스텔 색상 팔레트
 PASTEL_PINK = (255, 182, 193)      # 파스텔 핑크
@@ -28,7 +37,9 @@ SOFT_YELLOW = (255, 255, 200)      # 부드러운 노란색
 MINT_GREEN = (152, 255, 152)       # 민트 그린
 
 class Stage3MenheraWorld:
-    def __init__(self):
+    def __init__(self, width: int = None, height: int = None):
+        self.width = width if width is not None else WIDTH
+        self.height = height if height is not None else HEIGHT
         self.time = 0
         self.heart_particles = []
         self.star_particles = []
@@ -77,8 +88,8 @@ class Stage3MenheraWorld:
         # 초기 하트 생성
         for _ in range(5):
             self.heart_particles.append({
-                'x': random.randint(50, WIDTH - 50),
-                'y': random.randint(100, HEIGHT - 100),
+                'x': random.randint(50, self.width - 50),
+                'y': random.randint(100, self.height - 100),
                 'vx': random.uniform(-0.5, 0.5),
                 'vy': random.uniform(-1, -0.5),
                 'size': random.randint(10, 20),
@@ -105,8 +116,8 @@ class Stage3MenheraWorld:
             # 정확히 3초 후에 폭발적인 돌 파편 생성 (각성 완료 순간)
             if self.kuromi_awakening_timer == 1:  # 3초 후 (마지막 프레임)
                 # 화면을 향해 날아가는 큰 돌 파편들 생성
-                center_x = WIDTH // 2
-                center_y = HEIGHT // 2
+                center_x = self.width // 2
+                center_y = self.height // 2
                 
                 # 많은 돌 파편 생성 (60-80개로 대폭 증가)
                 for _ in range(random.randint(60, 80)):
@@ -259,8 +270,8 @@ class Stage3MenheraWorld:
         # 하트 파티클 생성 (더 적게)
         if random.random() < 0.01:  # 빈도 감소
             self.heart_particles.append({
-                'x': random.randint(100, WIDTH - 100),
-                'y': HEIGHT + 20,
+                'x': random.randint(100, self.width - 100),
+                'y': self.height + 20,
                 'vx': random.uniform(-0.3, 0.3),
                 'vy': random.uniform(-1.5, -0.8),
                 'size': random.randint(8, 15),
@@ -268,12 +279,12 @@ class Stage3MenheraWorld:
                 'color': self.get_emotional_color(),
                 'life': 400
             })
-        
+
         # 별 파티클 생성 (더 적게)
         if random.random() < 0.015:  # 빈도 감소
             self.star_particles.append({
-                'x': random.randint(50, WIDTH - 50),
-                'y': random.randint(50, HEIGHT - 50),
+                'x': random.randint(50, self.width - 50),
+                'y': random.randint(50, self.height - 50),
                 'size': random.randint(2, 4),
                 'twinkle': random.random() * math.pi,
                 'speed': random.uniform(0.03, 0.08),
@@ -379,67 +390,70 @@ class Stage3MenheraWorld:
     def draw_border(self, screen):
         """Stage 2와 동일한 두께의 멘헤라 테두리"""
         border_thickness = 10  # Stage 2와 동일
-        
+        # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
+        x_offset = 0
+        game_w = self.width
+
         # 기본 테두리 - 파스텔 핑크
         base_color = self.get_emotional_color()
-        pygame.draw.rect(screen, base_color, (0, 0, WIDTH, border_thickness))
-        pygame.draw.rect(screen, base_color, (0, HEIGHT - border_thickness, WIDTH, border_thickness))
-        pygame.draw.rect(screen, base_color, (0, 0, border_thickness, HEIGHT))
-        pygame.draw.rect(screen, base_color, (WIDTH - border_thickness, 0, border_thickness, HEIGHT))
-        
+        pygame.draw.rect(screen, base_color, (x_offset, 0, game_w, border_thickness))
+        pygame.draw.rect(screen, base_color, (x_offset, self.height - border_thickness, game_w, border_thickness))
+        pygame.draw.rect(screen, base_color, (x_offset, 0, border_thickness, self.height))
+        pygame.draw.rect(screen, base_color, (x_offset + game_w - border_thickness, 0, border_thickness, self.height))
+
         # 내부 흰색 레이스 테두리
         inner_thickness = 2
-        pygame.draw.rect(screen, WHITE, 
-                        (border_thickness - inner_thickness, border_thickness - inner_thickness,
-                         WIDTH - 2*(border_thickness - inner_thickness), inner_thickness))
         pygame.draw.rect(screen, WHITE,
-                        (border_thickness - inner_thickness, HEIGHT - border_thickness,
-                         WIDTH - 2*(border_thickness - inner_thickness), inner_thickness))
+                        (x_offset + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
         pygame.draw.rect(screen, WHITE,
-                        (border_thickness - inner_thickness, border_thickness - inner_thickness,
-                         inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
+                        (x_offset + border_thickness - inner_thickness, self.height - border_thickness,
+                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
         pygame.draw.rect(screen, WHITE,
-                        (WIDTH - border_thickness, border_thickness - inner_thickness,
-                         inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-        
+                        (x_offset + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                         inner_thickness, self.height - 2*(border_thickness - inner_thickness)))
+        pygame.draw.rect(screen, WHITE,
+                        (x_offset + game_w - border_thickness, border_thickness - inner_thickness,
+                         inner_thickness, self.height - 2*(border_thickness - inner_thickness)))
+
         # 하트와 별 패턴 장식
         pattern_size = 15
-        for i in range(0, WIDTH, pattern_size * 2):
+        for i in range(0, game_w, pattern_size * 2):
             # 상단 장식
             if i % (pattern_size * 4) == 0:
-                self.draw_mini_heart(screen, i + pattern_size//2, border_thickness//2, 4, WHITE)
+                self.draw_mini_heart(screen, x_offset + i + pattern_size//2, border_thickness//2, 4, WHITE)
             else:
-                self.draw_mini_star(screen, i + pattern_size//2, border_thickness//2, 3, WHITE)
-            
+                self.draw_mini_star(screen, x_offset + i + pattern_size//2, border_thickness//2, 3, WHITE)
+
             # 하단 장식
             if i % (pattern_size * 4) == 0:
-                self.draw_mini_heart(screen, i + pattern_size//2, HEIGHT - border_thickness//2, 4, WHITE)
+                self.draw_mini_heart(screen, x_offset + i + pattern_size//2, self.height - border_thickness//2, 4, WHITE)
             else:
-                self.draw_mini_star(screen, i + pattern_size//2, HEIGHT - border_thickness//2, 3, WHITE)
-        
-        for i in range(0, HEIGHT, pattern_size * 2):
+                self.draw_mini_star(screen, x_offset + i + pattern_size//2, self.height - border_thickness//2, 3, WHITE)
+
+        for i in range(0, self.height, pattern_size * 2):
             # 좌측 장식
             if i % (pattern_size * 4) == 0:
-                self.draw_mini_heart(screen, border_thickness//2, i + pattern_size//2, 4, WHITE)
+                self.draw_mini_heart(screen, x_offset + border_thickness//2, i + pattern_size//2, 4, WHITE)
             else:
-                self.draw_mini_star(screen, border_thickness//2, i + pattern_size//2, 3, WHITE)
-            
+                self.draw_mini_star(screen, x_offset + border_thickness//2, i + pattern_size//2, 3, WHITE)
+
             # 우측 장식
             if i % (pattern_size * 4) == 0:
-                self.draw_mini_heart(screen, WIDTH - border_thickness//2, i + pattern_size//2, 4, WHITE)
+                self.draw_mini_heart(screen, x_offset + game_w - border_thickness//2, i + pattern_size//2, 4, WHITE)
             else:
-                self.draw_mini_star(screen, WIDTH - border_thickness//2, i + pattern_size//2, 3, WHITE)
-        
+                self.draw_mini_star(screen, x_offset + game_w - border_thickness//2, i + pattern_size//2, 3, WHITE)
+
         # 코너 장식 (붕대 리본)
         corner_size = 8
         # 좌상단
-        self.draw_bandage_ribbon(screen, border_thickness//2, border_thickness//2, corner_size, PASTEL_PINK)
+        self.draw_bandage_ribbon(screen, x_offset + border_thickness//2, border_thickness//2, corner_size, PASTEL_PINK)
         # 우상단
-        self.draw_bandage_ribbon(screen, WIDTH - border_thickness//2, border_thickness//2, corner_size, PASTEL_PINK)
+        self.draw_bandage_ribbon(screen, x_offset + game_w - border_thickness//2, border_thickness//2, corner_size, PASTEL_PINK)
         # 좌하단
-        self.draw_bandage_ribbon(screen, border_thickness//2, HEIGHT - border_thickness//2, corner_size, PASTEL_PINK)
+        self.draw_bandage_ribbon(screen, x_offset + border_thickness//2, self.height - border_thickness//2, corner_size, PASTEL_PINK)
         # 우하단
-        self.draw_bandage_ribbon(screen, WIDTH - border_thickness//2, HEIGHT - border_thickness//2, corner_size, PASTEL_PINK)
+        self.draw_bandage_ribbon(screen, x_offset + game_w - border_thickness//2, self.height - border_thickness//2, corner_size, PASTEL_PINK)
     
     def draw_mini_heart(self, screen, x, y, size, color):
         """작은 하트 그리기"""
@@ -478,9 +492,11 @@ class Stage3MenheraWorld:
     
     def draw_stadium_line(self, screen, ball_pos=None):
         """중앙 스타디움 라인 - Stage 2와 동일한 구조"""
-        center_y = HEIGHT // 2
-        center_x = WIDTH // 2
-        
+        # 화면 크기 가져오기 (동적으로 대응)
+        screen_w, screen_h = screen.get_size()
+        center_y = screen_h // 2
+        center_x = screen_w // 2  # 화면 중앙
+
         # 중앙 원 (Stage 2와 동일한 크기 - 반지름 120)
         # 외부 큰 원
         pygame.draw.circle(screen, WHITE, (center_x, center_y), 120, 3)
@@ -488,22 +504,22 @@ class Stage3MenheraWorld:
         pygame.draw.circle(screen, self.get_emotional_color(), (center_x, center_y), 115, 2)
         # 내부 원 (은은한 색상)
         pygame.draw.circle(screen, (*LAVENDER, 100), (center_x, center_y), 110, 1)
-        
+
         # 메인 중앙선 (점선) - 원 밖에서만 그리기
         dash_length = 20
         gap_length = 15
         line_color = self.get_emotional_color()
-        
+
         # 왼쪽 선 (원 밖)
         for x in range(0, center_x - 120, dash_length + gap_length):
             end_x = min(x + dash_length, center_x - 120)
             pygame.draw.line(screen, line_color, (x, center_y), (end_x, center_y), 3)
-        
+
         # 오른쪽 선 (원 밖)
-        for x in range(center_x + 120, WIDTH, dash_length + gap_length):
-            end_x = min(x + dash_length, WIDTH)
+        for x in range(center_x + 120, screen_w, dash_length + gap_length):
+            end_x = min(x + dash_length, screen_w)
             pygame.draw.line(screen, line_color, (x, center_y), (end_x, center_y), 3)
-        
+
         # 중앙에 쿠로미 그리기 (공 위치 전달)
         self.draw_kuromi(screen, center_x, center_y, 60, ball_pos)
         
@@ -1909,7 +1925,10 @@ class Stage3MenheraWorld:
     def draw_background_pattern(self, screen):
         """배경 패턴 - Stage 5 스타일로 깔끔하게"""
         tile_size = 50
-        
+
+        # 화면 크기 가져오기 (동적으로 대응)
+        screen_w, screen_h = screen.get_size()
+
         # 기본 배경 색상 (감정에 따라 변화)
         if self.emotional_phase == 0:  # 평온
             base_color = (55, 45, 65)  # 보라빛 어둠
@@ -1917,17 +1936,17 @@ class Stage3MenheraWorld:
             base_color = (65, 40, 55)  # 핑크빛 어둠
         else:  # 슬픔
             base_color = (40, 50, 70)  # 블루빛 어둠
-        
-        # 체크무늬 패턴 (전체, 은은하게)
-        for x in range(0, WIDTH, tile_size):
-            for y in range(0, HEIGHT, tile_size):
+
+        # 체크무늬 패턴 (화면 전체, 은은하게)
+        for x in range(0, screen_w, tile_size):
+            for y in range(0, screen_h, tile_size):
                 if (x // tile_size + y // tile_size) % 2 == 0:
                     color = base_color
                 else:
                     color = (base_color[0] + 10, base_color[1] + 8, base_color[2] + 10)
-                
+
                 pygame.draw.rect(screen, color, (x, y, tile_size, tile_size))
-                
+
                 # 타일 테두리 (매우 은은하게)
                 border_color = (base_color[0] - 5, base_color[1] - 5, base_color[2] - 5)
                 pygame.draw.rect(screen, border_color, (x, y, tile_size, tile_size), 1)
@@ -2075,7 +2094,7 @@ class Stage3MenheraWorld:
     
     def draw_emotional_indicator(self, screen):
         """감정 상태 인디케이터"""
-        x, y = WIDTH - 50, 30
+        x, y = self.width - 50, 30
         
         # 배경 원
         pygame.draw.circle(screen, WHITE, (x, y), 20, 2)
@@ -2108,8 +2127,8 @@ class Stage3MenheraWorld:
             return False
         
         # 중앙 캐릭터 위치
-        center_x = WIDTH // 2
-        center_y = HEIGHT // 2
+        center_x = self.width // 2
+        center_y = self.height // 2
         kuromi_rect = pygame.Rect(center_x - 60, center_y - 60, 120, 120)
         
         # 공이 쿠로미와 충돌하면 10% 확률로 먹기
@@ -2142,15 +2161,15 @@ class Stage3MenheraWorld:
         
         # 공 위치를 향한 혀 방향 계산
         if ball_pos:
-            center_x = WIDTH // 2
-            center_y = HEIGHT // 2
+            center_x = self.width // 2
+            center_y = self.height // 2
             dx = ball_pos[0] - center_x
             dy = ball_pos[1] - center_y
             self.tongue_angle = math.atan2(dy, dx)
             self.ball_tongue_pos = ball_pos
         else:
             self.tongue_angle = 0
-            self.ball_tongue_pos = (WIDTH // 2, HEIGHT // 2 + 30)
+            self.ball_tongue_pos = (self.width // 2, self.height // 2 + 30)
     
     def update_eating(self, dt):
         """공 먹기 애니메이션 업데이트 - 혀로 낼름거리면서 공 가져오기"""
@@ -2200,8 +2219,8 @@ class Stage3MenheraWorld:
             
             # 공을 입으로 빠르게 가져오기
             if self.ball_tongue_pos:
-                center_x = WIDTH // 2
-                center_y = HEIGHT // 2 + 20
+                center_x = self.width // 2
+                center_y = self.height // 2 + 20
                 target_x = center_x
                 target_y = center_y
                 
@@ -2252,8 +2271,8 @@ class Stage3MenheraWorld:
             # 1. 침/타액 떨어지는 효과 (더 많이)
             if random.random() < 0.6:
                 for _ in range(3):
-                    particle_x = WIDTH // 2 + random.randint(-20, 20)
-                    particle_y = HEIGHT // 2 + 25 + random.randint(-5, 10)
+                    particle_x = self.width // 2 + random.randint(-20, 20)
+                    particle_y = self.height // 2 + 25 + random.randint(-5, 10)
                     self.chewing_particles.append({
                         'x': particle_x,
                         'y': particle_y,
@@ -2269,8 +2288,8 @@ class Stage3MenheraWorld:
             if 42 < self.eating_timer < 48:
                 wave_intensity = math.sin((self.eating_timer - 42) * math.pi / 6)
                 for _ in range(2):
-                    particle_x = WIDTH // 2 + random.randint(-10, 10)
-                    particle_y = HEIGHT // 2 + 40 + int(wave_intensity * 10)
+                    particle_x = self.width // 2 + random.randint(-10, 10)
+                    particle_y = self.height // 2 + 40 + int(wave_intensity * 10)
                     self.chewing_particles.append({
                         'x': particle_x,
                         'y': particle_y,
@@ -2285,8 +2304,8 @@ class Stage3MenheraWorld:
             # 3. 삼키는 순간 작은 충격파
             if 44 < self.eating_timer < 46:
                 self.chewing_particles.append({
-                    'x': WIDTH // 2,
-                    'y': HEIGHT // 2 + 20,
+                    'x': self.width // 2,
+                    'y': self.height // 2 + 20,
                     'vx': 0,
                     'vy': 0,
                     'life': 15,
@@ -2300,8 +2319,8 @@ class Stage3MenheraWorld:
             if self.eating_timer > 46 and random.random() < 0.5:
                 sparkle_angle = random.uniform(0, math.pi * 2)
                 sparkle_dist = random.uniform(25, 40)
-                sparkle_x = WIDTH // 2 + math.cos(sparkle_angle) * sparkle_dist
-                sparkle_y = HEIGHT // 2 + 20 + math.sin(sparkle_angle) * sparkle_dist
+                sparkle_x = self.width // 2 + math.cos(sparkle_angle) * sparkle_dist
+                sparkle_y = self.height // 2 + 20 + math.sin(sparkle_angle) * sparkle_dist
                 self.chewing_particles.append({
                     'x': sparkle_x,
                     'y': sparkle_y,
@@ -2327,8 +2346,8 @@ class Stage3MenheraWorld:
             # 씹는 파티클 효과 (간소화 - 실제 움직임에 집중)
             if random.random() < 0.3:  # 빈도 감소
                 # 음식 조각 (적게)
-                particle_x = WIDTH // 2 + random.randint(-20, 20)
-                particle_y = HEIGHT // 2 + random.randint(-10, 10)
+                particle_x = self.width // 2 + random.randint(-20, 20)
+                particle_y = self.height // 2 + random.randint(-10, 10)
                 particle_color = random.choice([PASTEL_PINK, WHITE])
                 self.chewing_particles.append({
                     'x': particle_x,
@@ -2345,8 +2364,8 @@ class Stage3MenheraWorld:
             
             # 증기 효과 (간소화)
             if random.random() < 0.1:  # 빈도 대폭 감소
-                particle_x = WIDTH // 2 + random.randint(-15, 15)
-                particle_y = HEIGHT // 2 - 10
+                particle_x = self.width // 2 + random.randint(-15, 15)
+                particle_y = self.height // 2 - 10
                 self.chewing_particles.append({
                     'x': particle_x,
                     'y': particle_y,
