@@ -1860,12 +1860,13 @@ class JungleMonkey:
         target_player = random.random() < 0.4
 
         if target_player:
-            # 플레이어 진영 (하단) - 바닥에 떨어지도록
-            target_y = self.game_y + self.game_height - 10  # 바닥 바로 위
-            print(f"[BANANA DEBUG] 플레이어 진영 바나나 투척")
-            print(f"  game_y: {self.game_y}, game_height: {self.game_height}")
-            print(f"  target_y: {target_y} (game_y + game_height - 10)")
-            print(f"  계산: {self.game_y} + {self.game_height} - 10 = {target_y}")
+            # 플레이어 진영 (하단) - 바닥에 떨어지도록 (바닥 = game_y + game_height)
+            # 일단 여러 값을 테스트
+            actual_bottom = self.game_y + self.game_height
+            target_y = actual_bottom - 70  # 더 아래로
+            print(f"[BANANA DEBUG] 바나나 투척 위치 계산")
+            print(f"  game_y={self.game_y}, game_height={self.game_height}")
+            print(f"  actual_bottom={actual_bottom}, target_y={target_y}")
         else:
             # 보스 진영 (상단)
             target_y = self.game_y + 50
@@ -2249,11 +2250,6 @@ class ThrownBanana:
                 self.state = 'landed'
                 self.x = self.target_x
                 self.y = self.target_y
-                if self.target_player:
-                    print(f"[BANANA DEBUG] 바나나 착지!")
-                    print(f"  최종 위치 - x: {self.x}, y: {self.y}")
-                    print(f"  게임 영역 - game_y: {self.game_y}, game_height: {self.game_height}")
-                    print(f"  게임 바닥: {self.game_y + self.game_height}")
             else:
                 # 포물선 운동
                 t = self.flight_progress

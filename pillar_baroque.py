@@ -291,14 +291,14 @@ class BaroqueFrame:
         # )
         # pygame.draw.rect(surface, self.COLORS['groove'], groove_rect, 2)
 
-        # === 내부 크롬 엣지 ===
-        inner_rect = pygame.Rect(
-            self.game_x - 1,
-            self.game_y - 1,
-            self.game_width + 2,
-            self.game_height + 2
-        )
-        pygame.draw.rect(surface, self.COLORS['chrome'], inner_rect, 1)
+        # === 내부 크롬 엣지 (제거됨) ===
+        # inner_rect = pygame.Rect(
+        #     self.game_x - 1,
+        #     self.game_y - 1,
+        #     self.game_width + 2,
+        #     self.game_height + 2
+        # )
+        # pygame.draw.rect(surface, self.COLORS['chrome'], inner_rect, 1)
 
         # === 패널 라인 (수평 분할선) ===
         panel_y_top = self.game_y - thickness // 2
