@@ -2075,13 +2075,14 @@ def _fullscreen_flip():
             show_debug_border = True
         else:
             show_debug_border = False
-        # 전체 화면을 필러 배경색으로 채우기 (레터박스 제거)
+        # 필러 배경 그리기
         if pillar_renderer is not None:
-            REAL_SCREEN.fill(pillar_renderer.bg_color)
+            # 필러 배경 먼저 그리기 (상하좌우 여백 모두 포함)
             pillar_renderer.draw(REAL_SCREEN)
             # 필러 UI 박스 그리기
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
         else:
+            # 필러 렌더러 없을 때만 전체 화면 단색 채우기
             REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
 
         # 게임 Surface를 중앙에 blit (스케일링 적용)
@@ -2116,13 +2117,14 @@ def _fullscreen_update(*args, **kwargs):
     """전체화면 모드에서 게임 Surface를 실제 화면에 blit 후 update"""
     global REAL_SCREEN, SCREEN, pillar_renderer
     if _is_fullscreen_active and REAL_SCREEN is not None:
-        # 전체 화면을 필러 배경색으로 채우기 (레터박스 제거)
+        # 필러 배경 그리기
         if pillar_renderer is not None:
-            REAL_SCREEN.fill(pillar_renderer.bg_color)
+            # 필러 배경 먼저 그리기 (상하좌우 여백 모두 포함)
             pillar_renderer.draw(REAL_SCREEN)
             # 필러 UI 박스 그리기
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
         else:
+            # 필러 렌더러 없을 때만 전체 화면 단색 채우기
             REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
 
         # 게임 Surface를 중앙에 blit (스케일링 적용)
@@ -82667,11 +82669,6 @@ def draw_field():
         earthquake_offset_y = 0
         # 스테이지1에서는 애니메이션 배경 사용
         animated_bg.update(clock.get_time())
-        # [DEBUG] 나비 시스템 디버깅
-        if pillar_renderer is not None and hasattr(pillar_renderer, '_stadium_bg') and pillar_renderer._stadium_bg is not None:
-            stadium = pillar_renderer._stadium_bg
-            if frame_count % 180 == 0:  # 3초마다 디버그 출력
-                print(f"[나비DEBUG] 쿨타임: {stadium._butterfly_cooldown:.1f}s, 날아가는중: {stadium._butterfly_flying_to_player is not None}, 흡수중: {stadium._absorbing_butterfly is not None}, 남은 나비: {len(stadium.butterflies)}개")
         # 배경을 화면 전체에 맞게 스케일링
         temp_surface = pygame.Surface((animated_bg.width, animated_bg.height), pygame.SRCALPHA)
         animated_bg.draw(temp_surface)

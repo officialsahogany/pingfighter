@@ -575,16 +575,9 @@ class TraditionalFrame:
         if self._butterfly_flying_to_player is not None:
             # 플레이어 위치로 날아가기 (전체화면 좌표로 변환)
             if self._player_rect is not None:
-                # 플레이어 위치 유효성 검사 (게임 영역 내에 있는지)
+                # 플레이어 위치 가져오기
                 player_cx = self._player_rect.centerx
                 player_cy = self._player_rect.centery
-
-                # 플레이어가 유효한 위치에 있는지 확인 (게임 영역 내)
-                if player_cx < 0 or player_cx > self.game_width or player_cy < 0 or player_cy > self.game_height:
-                    # 플레이어 위치가 비정상 - 나비 비행 취소
-                    self._butterfly_flying_to_player = None
-                    self._butterfly_cooldown = 1.0  # 1초 후 재시도
-                    return
 
                 # 전체화면 좌표로 변환
                 target_x = self.game_x + player_cx
@@ -628,15 +621,14 @@ class TraditionalFrame:
         elif self._absorbing_butterfly is None:
             # 쿨타임이 끝나면 새 나비 선택 (흡수 애니메이션 중이 아닐 때만)
             if self._butterfly_cooldown <= 0 and self._player_rect is not None and len(self.butterflies) > 0:
-                # 플레이어가 유효한 위치에 있는지 확인 (여유 있게 체크)
+                # 플레이어 위치 가져오기
                 player_cx = self._player_rect.centerx
                 player_cy = self._player_rect.centery
-                # 플레이어가 게임 영역 근처에만 있으면 OK (±50픽셀 여유)
-                if -50 <= player_cx <= self.game_width + 50 and -50 <= player_cy <= self.game_height + 50:
-                    self._butterfly_flying_to_player = self._select_butterfly_for_flight()
-                    if self._butterfly_flying_to_player:
-                        self._butterfly_absorbed = False
-                        print(f"[나비비행] 시작! 플레이어: ({player_cx}, {player_cy}), 나비: ({self._butterfly_flying_to_player['x']:.0f}, {self._butterfly_flying_to_player['y']:.0f})")
+                # 나비 선택 및 비행 시작 (위치 검증 제거 - 항상 날림)
+                self._butterfly_flying_to_player = self._select_butterfly_for_flight()
+                if self._butterfly_flying_to_player:
+                    self._butterfly_absorbed = False
+                    print(f"[나비비행] 시작! 플레이어: ({player_cx}, {player_cy}), 나비: ({self._butterfly_flying_to_player['x']:.0f}, {self._butterfly_flying_to_player['y']:.0f})")
 
         # 흡수 파티클 업데이트
         for p in self._absorption_particles[:]:
