@@ -1922,8 +1922,8 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
         print(f"[전체화면] 자동 스케일링: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} -> {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
 
     GAME_OFFSET_X = (FULLSCREEN_WIDTH - GAME_SCALED_WIDTH) // 2
-    # Y 오프셋: 위쪽 여백 45px, 나머지는 아래쪽에 배치
-    GAME_OFFSET_Y = 45
+    # Y 오프셋: 화면 중앙 정렬 (상하 동일 여백)
+    GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - GAME_SCALED_HEIGHT) // 2
     print(f"[전체화면] 게임영역: {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT}, 오프셋: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
     print(f"[DEBUG] 실제 화면: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
     print(f"[DEBUG] 게임 Surface: {WIDTH}x{HEIGHT} (스케일: {GAME_SCALE_FACTOR:.2f}x)", flush=True)
