@@ -86,23 +86,37 @@ class DashManager:
             'gauge_sufficient': True,  # 나중에 계산
             'result': False
         }
-        
-        # 게이지 충분 여부 확인
-        if self.get_gauge:
+
+        # 게이지 충분 여부 확인 (대쉬부스트 활성화 시 무시)
+        dash_cost_free = False
+        try:
+            from item_effects.dash_boost import get_dash_cost_multiplier
+            cost_multiplier = get_dash_cost_multiplier()
+            if cost_multiplier == 0.0:  # 대쉬 무료
+                dash_cost_free = True
+        except ImportError:
+            pass
+
+        if dash_cost_free:
+            # 대쉬부스트로 무료일 때는 게이지 체크 안함
+            conditions['gauge_sufficient'] = True
+            conditions['required_gauge'] = 0
+            conditions['current_gauge'] = self.get_gauge() if self.get_gauge else 0
+        elif self.get_gauge:
             required_gauge = self.calculate_dash_cost()
             current_gauge = self.get_gauge()
             conditions['gauge_sufficient'] = current_gauge >= required_gauge
             conditions['required_gauge'] = required_gauge
             conditions['current_gauge'] = current_gauge
-        
+
         # 최종 결과
         conditions['result'] = all([
             conditions['has_tokens'],
-            conditions['not_active'], 
+            conditions['not_active'],
             conditions['not_stunned'],
             conditions['gauge_sufficient']
         ])
-        
+
         return conditions
     
     def calculate_dash_cost(self) -> int:
@@ -219,44 +233,71 @@ class DashManager:
     
     def update(self):
         """매 프레임 업데이트"""
+        # 대쉬부스트 효과 확인
+        cooldown_decrement = 1
+        try:
+            from item_effects.dash_boost import get_dash_cooldown_multiplier
+            cooldown_multiplier = get_dash_cooldown_multiplier()
+            if cooldown_multiplier < 1.0:
+                # 쿨타임이 99% 감소하면 100배 빠르게 감소
+                cooldown_decrement = int(1 / cooldown_multiplier) if cooldown_multiplier > 0 else 100
+        except ImportError:
+            pass
+
         # 대쉬 타이머 감소
         if self.timer > 0:
             self.timer -= 1
             if self.timer <= 0:
                 self._end_dash()
-        
+
         # 통제불능 타이머 감소
         elif self.stun_timer > 0:
-            self.stun_timer -= 1
-        
-        # 쿨다운 타이머 감소
+            self.stun_timer -= cooldown_decrement
+            if self.stun_timer < 0:
+                self.stun_timer = 0
+
+        # 쿨다운 타이머 감소 (대쉬부스트 효과 적용)
         if self.cooldown_timer > 0:
-            self.cooldown_timer -= 1
+            self.cooldown_timer -= cooldown_decrement
+            if self.cooldown_timer < 0:
+                self.cooldown_timer = 0
         
-        # 충전 타이머 처리
+        # 충전 타이머 처리 (대쉬부스트 효과 적용)
         if self.charge_timer > 0:
-            self.charge_timer -= 1
+            self.charge_timer -= cooldown_decrement
             if self.charge_timer <= 0:
+                self.charge_timer = 0
                 self._charge_token()
     
     def _end_dash(self):
         """대쉬 종료 처리"""
         self.is_active = False
-        
+
         # 통제불능 시간 설정
         base_stun = 30  # 0.5초
-        
+
         # 아카데미 모듈제어 스킬 (통제불능 시간 감소)
         stun_reduction = 0
         if self.get_skill_bonus:
             module_control_bonus = self.get_skill_bonus("dash_module_control")
             stun_reduction = int(module_control_bonus * 30)  # 10%씩 감소
-        
+
         # 스파이크부츠 효과 (15% 감소)
         if self.has_spikeboots:
             base_stun = int(base_stun * 0.85)
-        
-        self.stun_timer = max(1, base_stun - stun_reduction)
+
+        # 대쉬부스트 효과: 통제불능 시간도 감소
+        stun_time = max(1, base_stun - stun_reduction)
+        try:
+            from item_effects.dash_boost import get_dash_cooldown_multiplier
+            cooldown_multiplier = get_dash_cooldown_multiplier()
+            if cooldown_multiplier < 1.0:
+                # 대쉬부스트 활성화 시 통제불능 시간도 거의 즉시 해제
+                stun_time = max(1, int(stun_time * cooldown_multiplier))
+        except ImportError:
+            pass
+
+        self.stun_timer = stun_time
     
     def _charge_token(self):
         """토큰 충전 (왼쪽부터)"""

@@ -6755,6 +6755,16 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         caffeine_bonus = get_effective_caffeine_multiplier() - 1.0
         dash_cooldown_reduction = get_runtime_skill_bonus("dash_lightweight")
 
+        # 대쉬부스트 아이템 쿨타임 할인 계산
+        dash_boost_cooldown_reduction = 0.0
+        try:
+            from item_effects.dash_boost import get_dash_cooldown_multiplier
+            dash_boost_multiplier = get_dash_cooldown_multiplier()
+            if dash_boost_multiplier < 1.0:
+                dash_boost_cooldown_reduction = 1.0 - dash_boost_multiplier
+        except ImportError:
+            pass
+
         # 이동속도 표시 (기본 + 신속 보너스 + 금괴 페널티)
         gold_bar_penalty = get_gold_bar_speed_multiplier()
         speed_modifiers = []
@@ -6768,6 +6778,27 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         # 이동속도 색상: 페널티가 있으면 빨간색 계열로
         speed_color = (255, 100, 100) if gold_bar_penalty < 1.0 else (100, 220, 255)
 
+        # 대쉬쿨타임 표시 (경량화 스킬 + 대쉬부스트 아이템)
+        # 대쉬부스트가 활성화되면 무조건 99%, 아니면 경량화 스킬만 적용
+        if dash_boost_cooldown_reduction > 0:
+            total_dash_cooldown_reduction = dash_boost_cooldown_reduction  # 99%
+        else:
+            total_dash_cooldown_reduction = dash_cooldown_reduction
+        dash_cooldown_display = f"-{int(total_dash_cooldown_reduction * 100)}%"
+        # 대쉬부스트가 활성화되어 있으면 색상 강조
+        dash_cooldown_color = (255, 100, 255) if dash_boost_cooldown_reduction > 0 else (120, 200, 180)
+
+        # 대쉬후딜 표시 (모듈제어 스킬 + 대쉬부스트 아이템)
+        # 대쉬부스트가 활성화되면 무조건 99%, 아니면 모듈제어 스킬만 적용
+        module_control_bonus = get_runtime_skill_bonus("dash_module_control")
+        if dash_boost_cooldown_reduction > 0:
+            total_dash_stun_reduction = dash_boost_cooldown_reduction  # 99%
+        else:
+            total_dash_stun_reduction = module_control_bonus
+        dash_stun_display = f"-{int(total_dash_stun_reduction * 100)}%"
+        # 대쉬부스트가 활성화되어 있으면 색상 강조
+        dash_stun_color = (255, 100, 255) if dash_boost_cooldown_reduction > 0 else (180, 150, 200)
+
         # 능력치 항목들 (2행 가로 배치)
         stats_items = [
             # 1행: 기본 정보
@@ -6776,13 +6807,14 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             ("패들폭", f"{actual_paddle_width}px", (180, 200, 255)),
             ("이동속도", speed_display, speed_color),
             ("대쉬토큰", f"{dash_tokens}개", (150, 200, 255)),
-            ("대쉬쿨감", f"-{int(dash_cooldown_reduction * 100)}%", (120, 200, 180)),
+            ("대쉬쿨감", dash_cooldown_display, dash_cooldown_color),
             # 2행: 게이지/아이템 정보
             ("게이지", f"{int(special_gauge_val)}/{int(special_gauge_max_val)}", (255, 180, 100)),
             ("카페인", f"+{int(caffeine_bonus * 100)}%", (200, 180, 255)),
             ("아이템슬롯", f"{item_slots}칸", (200, 255, 150)),
             ("게이지보너스", f"+{int(item_gauge)}", (255, 200, 100)),
             ("아이템유지", f"{int(item_keep_chance)}%", (255, 150, 200)),
+            ("대쉬후딜감", dash_stun_display, dash_stun_color),
         ]
 
         # 가로 배치 (6열 2행)
@@ -44418,6 +44450,17 @@ def handle_player(keys):
                     # 스파이크부츠 효과: 후딜 시간 감소 (롤 옵션 적용)
                     base_stun_time = apply_spikeboots_afterdelay(30)  # 0.5초 (60fps * 0.5)
                     final_stun_time = max(1, base_stun_time - stun_reduction)  # 최소 1프레임
+
+                    # 대쉬부스트 효과: 후딜 시간 99% 감소
+                    try:
+                        from item_effects.dash_boost import get_dash_cooldown_multiplier
+                        cooldown_multiplier = get_dash_cooldown_multiplier()
+                        if cooldown_multiplier < 1.0:
+                            # 대쉬부스트 활성화 시 후딜 시간도 99% 감소
+                            final_stun_time = max(1, int(final_stun_time * cooldown_multiplier))
+                    except ImportError:
+                        pass
+
                     _rolling_set("rolling_stun_timer", final_stun_time)
                     _rolling_set("rolling_dash_available_timer", final_stun_time)
                     
@@ -44958,10 +45001,20 @@ def handle_player(keys):
                         special_ready = False
                     print(f"    ! ( {rolling_consecutive_count},  : {final_gauge_cost},  : {rolling_charges}, : {special_gauge})")
         else:
-            #  구르기 쿨타임 감소
+            #  구르기 쿨타임 감소 (대쉬부스트 효과 적용)
             rolling_cooldown_value = _rolling_get("rolling_cooldown")
             if rolling_cooldown_value > 0:
-                rolling_cooldown_value -= 1
+                cooldown_decrement = 1
+                try:
+                    from item_effects.dash_boost import get_dash_cooldown_multiplier
+                    cooldown_multiplier = get_dash_cooldown_multiplier()
+                    if cooldown_multiplier < 1.0:
+                        # 쿨타임이 99% 감소하면 100배 빠르게 감소
+                        cooldown_decrement = int(1 / cooldown_multiplier) if cooldown_multiplier > 0 else 100
+                except ImportError:
+                    pass
+                rolling_cooldown_value -= cooldown_decrement
+                rolling_cooldown_value = max(0, rolling_cooldown_value)  # 음수 방지
                 _rolling_set("rolling_cooldown", rolling_cooldown_value)
             #  구르기 충전 타이머 처리 (순차 충전 시스템)
             # 최대 토큰 수 계산
@@ -45003,14 +45056,23 @@ def handle_player(keys):
                 charge_max = _charging_state["max_time"]
                 # 현재 충전 중인 토큰과 같은 토큰이고 타이머가 남아있으면 계속 충전
                 if charge_index == need_charge_index and charge_timer > 0:
-                    # 충전 타이머 감소
-                    charge_timer -= 1
+                    # 충전 타이머 감소 (대쉬부스트 효과 적용)
+                    charge_decrement = 1
+                    try:
+                        from item_effects.dash_boost import get_dash_cooldown_multiplier
+                        cooldown_multiplier = get_dash_cooldown_multiplier()
+                        if cooldown_multiplier < 1.0:
+                            # 쿨타임이 99% 감소하면 100배 빠르게 충전 (1/0.01 = 100)
+                            charge_decrement = int(1 / cooldown_multiplier) if cooldown_multiplier > 0 else 100
+                    except ImportError:
+                        pass
+                    charge_timer -= charge_decrement
                     _charging_state["timer"] = charge_timer
                     # _token_charge_states도 함께 감소 (균등 애니메이션용) - ratio 적용
                     if charge_index < len(_token_charge_states):
                         if _token_charge_states[charge_index]["timer"] > 0:
                             ui_ratio = _token_charge_states[charge_index].get("ratio", 1.0)
-                            _token_charge_states[charge_index]["timer"] -= ui_ratio
+                            _token_charge_states[charge_index]["timer"] -= ui_ratio * charge_decrement
 
                     # 충전 완료
                     if charge_timer <= 0:
@@ -45066,6 +45128,14 @@ def handle_player(keys):
                             external_cooldown_mul = getattr(dash, 'external_cooldown_multiplier', 1.0)
                             if external_cooldown_mul != 1.0:
                                 new_timer = max(6, int(new_timer * external_cooldown_mul))
+                        # 대쉬부스트 아이템 쿨타임 감소 적용 (99% 감소)
+                        try:
+                            from item_effects.dash_boost import get_dash_cooldown_multiplier
+                            cooldown_multiplier = get_dash_cooldown_multiplier()
+                            if cooldown_multiplier < 1.0:
+                                new_timer = max(1, int(new_timer * cooldown_multiplier))
+                        except ImportError:
+                            pass
                         # _charging_state에 저장 (전역 변수 덮어쓰기 방지)
                         _charging_state["timer"] = new_timer
                         _charging_state["index"] = need_charge_index
@@ -45312,8 +45382,17 @@ def handle_player(keys):
                                     if rolling_state is not None:
                                         rolling_state.token_states = list(token_states)
                             
-                            # 대쉬 후 스턴 타이머 설정 (일반 대쉬와 동일)
-                            rolling_stun_timer = 20  # 일반 대쉬와 동일한 쿨다운
+                            # 대쉬 후 스턴 타이머 설정 (일반 대쉬와 동일, 대쉬부스트 효과 적용)
+                            base_stun = 20  # 일반 대쉬와 동일한 쿨다운
+                            try:
+                                from item_effects.dash_boost import get_dash_cooldown_multiplier
+                                cooldown_multiplier = get_dash_cooldown_multiplier()
+                                if cooldown_multiplier < 1.0:
+                                    # 대쉬부스트 활성화 시 통제불능 시간도 99% 감소
+                                    base_stun = max(1, int(base_stun * cooldown_multiplier))
+                            except ImportError:
+                                pass
+                            rolling_stun_timer = base_stun
 
                             #  하프대쉬 후 토큰 충전 타이머 설정 (중요!)
                             # max_charges는 위에서 이미 계산됨, current_charges는 감소된 토큰 수

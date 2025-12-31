@@ -1860,10 +1860,11 @@ class JungleMonkey:
         target_player = random.random() < 0.4
 
         if target_player:
-            # 플레이어 진영 (하단) - 게임 맵 바닥에 떨어지도록
-            # 게임 맵 크기: 760x750, 플레이어는 바닥 근처
-            target_y = self.game_y + self.game_height - 30  # 맵 바닥에서 30px 위
-            print(f"[BANANA] target_y={target_y} (game_y={self.game_y} + game_height={self.game_height} - 30)")
+            # 플레이어 진영 (하단) - 바닥에 착지하는 느낌으로
+            # 바나나는 화면 전체 좌표계 사용
+            # 플레이어 화면 좌표 y=740 (인게임 y=680 + game_y=60)
+            # 바닥에 완전히 붙도록
+            target_y = self.game_y + 700  # 바닥에 착지
         else:
             # 보스 진영 (상단)
             target_y = self.game_y + 50
@@ -2344,11 +2345,6 @@ class ThrownBanana:
                 20
             )
 
-            # 디버그: 한 번만 출력
-            if not hasattr(self, '_debug_printed'):
-                print(f"[BANANA] 플레이어 y={player_rect.y}, 화면 y={player_screen_rect.y}, 바나나 y={self.y}")
-                self._debug_printed = True
-
             if player_screen_rect.colliderect(banana_ground_rect):
                 self.slip_triggered = True
                 self.trigger_burst()  # 바나나 터지기!
@@ -2528,11 +2524,13 @@ class ThrownBanana:
         return banana_surf
 
     def is_in_game_area(self):
-        """바나나가 인게임 영역 안에 있는지"""
+        """바나나가 인게임 영역 안에 있는지 (플레이어 영역 포함)"""
+        # 플레이어가 game_height 밖에 있을 수 있으므로 여유 공간 추가
+        margin = 100  # 플레이어 패들이 있는 영역까지 포함
         return (self.x >= self.game_x and
                 self.x <= self.game_x + self.game_width and
                 self.y >= self.game_y and
-                self.y <= self.game_y + self.game_height)
+                self.y <= self.game_y + self.game_height + margin)
 
     def draw(self, screen):
         """바나나 그리기 (필러 화면용 - 전체 화면 좌표)"""

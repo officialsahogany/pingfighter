@@ -1,6 +1,6 @@
 """
 대쉬부스트 아이템 효과
-8초동안 대쉬비용이 70% 할인됩니다.
+8초동안 대쉬비용이 100% 할인(무료)되고 대쉬토큰 쿨타임이 99% 감소(거의 즉시충전)됩니다.
 타이머형 액티브 아이템
 """
 
@@ -10,7 +10,8 @@ import math
 
 # 상수
 DASH_BOOST_DURATION_FRAMES = 480  # 8초 (60fps * 8)
-DASH_BOOST_COST_DISCOUNT = 0.70  # 70% 할인 (비용의 30%만 소모)
+DASH_BOOST_COST_DISCOUNT = 1.00  # 100% 할인 (대쉬 무료)
+DASH_BOOST_COOLDOWN_REDUCTION = 0.99  # 99% 쿨타임 감소 (거의 즉시충전)
 
 
 class DashBoost:
@@ -116,9 +117,15 @@ class DashBoost:
         return False  # 토큰 무제한 기능 제거
 
     def get_cost_multiplier(self):
-        """대쉬 비용 배율 반환 (활성화시 0.3, 비활성화시 1.0)"""
+        """대쉬 비용 배율 반환 (활성화시 0.0, 비활성화시 1.0)"""
         if self.active:
-            return 1.0 - DASH_BOOST_COST_DISCOUNT  # 70% 할인 = 0.3배
+            return 1.0 - DASH_BOOST_COST_DISCOUNT  # 100% 할인 = 0.0배 (무료)
+        return 1.0
+
+    def get_cooldown_multiplier(self):
+        """대쉬 쿨타임 배율 반환 (활성화시 0.01, 비활성화시 1.0)"""
+        if self.active:
+            return 1.0 - DASH_BOOST_COOLDOWN_REDUCTION  # 99% 감소 = 0.01배 (거의 즉시)
         return 1.0
 
     def draw_effects(self, screen, player_rect=None, **kwargs):
@@ -259,9 +266,15 @@ def is_dash_unlimited():
 
 
 def get_dash_cost_multiplier():
-    """대쉬 비용 배율 반환 (0.3 = 70% 할인)"""
+    """대쉬 비용 배율 반환 (0.0 = 100% 할인, 무료)"""
     boost = get_dash_boost_instance()
     return boost.get_cost_multiplier()
+
+
+def get_dash_cooldown_multiplier():
+    """대쉬 쿨타임 배율 반환 (0.01 = 99% 감소, 거의 즉시충전)"""
+    boost = get_dash_boost_instance()
+    return boost.get_cooldown_multiplier()
 
 
 def configure_dash_boost(duration_sec: float = None, discount_pct: float = None) -> None:
