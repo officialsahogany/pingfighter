@@ -273,27 +273,33 @@ def clear_font_cache():
 # 기본 폰트 상태 확인
 def check_font_status():
     """폰트 상태 확인 (디버깅용)"""
-    print("🎮 폰트 상태:")
-    if os.path.exists(PIXEL_FONT):
-        print(f"  ✅ 픽셀 폰트: {os.path.basename(PIXEL_FONT)}")
-    else:
-        print(f"  ❌ 픽셀 폰트 없음: {PIXEL_FONT}")
+    try:
+        print("[Font] Font status:")
+        if os.path.exists(PIXEL_FONT):
+            print(f"  [OK] Pixel font: {os.path.basename(PIXEL_FONT)}")
+        else:
+            print(f"  [X] Pixel font missing: {PIXEL_FONT}")
 
-    if os.path.exists(FALLBACK_FONT_BOLD):
-        print(f"  ✅ 폴백 Bold: {os.path.basename(FALLBACK_FONT_BOLD)}")
-    else:
-        print(f"  ❌ 폴백 Bold 없음")
+        if os.path.exists(FALLBACK_FONT_BOLD):
+            print(f"  [OK] Fallback Bold: {os.path.basename(FALLBACK_FONT_BOLD)}")
+        else:
+            print(f"  [X] Fallback Bold missing")
 
-    if os.path.exists(FALLBACK_FONT_REGULAR):
-        print(f"  ✅ 폴백 Regular: {os.path.basename(FALLBACK_FONT_REGULAR)}")
-    else:
-        print(f"  ❌ 폴백 Regular 없음")
+        if os.path.exists(FALLBACK_FONT_REGULAR):
+            print(f"  [OK] Fallback Regular: {os.path.basename(FALLBACK_FONT_REGULAR)}")
+        else:
+            print(f"  [X] Fallback Regular missing")
+    except UnicodeEncodeError:
+        pass  # Skip on encoding issues
 
 # 프로그램 시작 시 상태 체크
 check_font_status()
 
 # 픽셀 폰트 가용 여부 확인
-if os.path.exists(PIXEL_FONT):
-    print(f"🎮 도트 폰트 활성화: {os.path.basename(PIXEL_FONT).replace('.ttf', '')}")
-else:
-    print("⚠️ 도트 폰트 없음, 폴백 폰트 사용")
+try:
+    if os.path.exists(PIXEL_FONT):
+        print(f"[Font] Dot font enabled: {os.path.basename(PIXEL_FONT).replace('.ttf', '')}")
+    else:
+        print("[Font] Dot font missing, using fallback")
+except UnicodeEncodeError:
+    pass

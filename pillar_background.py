@@ -44,22 +44,25 @@ class PillarBackgroundRenderer:
     TYPE_SOLID = "solid"
 
     def __init__(self, screen_width: int, screen_height: int,
-                 game_width: int, game_height: int):
+                 game_width: int, game_height: int,
+                 offset_x: int = None, offset_y: int = None):
         """
         Args:
             screen_width: 전체화면 너비
             screen_height: 전체화면 높이
-            game_width: 게임 영역 너비
-            game_height: 게임 영역 높이
+            game_width: 게임 영역 너비 (스케일링된 크기)
+            game_height: 게임 영역 높이 (스케일링된 크기)
+            offset_x: 게임 영역 X 오프셋 (None이면 자동 계산)
+            offset_y: 게임 영역 Y 오프셋 (None이면 자동 계산)
         """
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.game_width = game_width
         self.game_height = game_height
 
-        # 게임 영역 오프셋 계산 (중앙 배치)
-        self.game_offset_x = (screen_width - game_width) // 2
-        self.game_offset_y = (screen_height - game_height) // 2
+        # 게임 영역 오프셋 (전달되면 사용, 없으면 중앙 배치로 계산)
+        self.game_offset_x = offset_x if offset_x is not None else (screen_width - game_width) // 2
+        self.game_offset_y = offset_y if offset_y is not None else (screen_height - game_height) // 2
 
         # 필러 영역 크기
         self.left_pillar_width = self.game_offset_x
@@ -853,16 +856,236 @@ class PillarBackgroundRenderer:
             self._stadium_bg.draw_absorbing_butterfly_ingame(screen, game_width, game_height)
             self._stadium_bg.draw_absorption_particles_ingame(screen)
 
+    # ===== 필러 UI 박스 시스템 =====
+
+    def draw_pillar_ui_box(self, screen, x, y, width, height, alpha=180):
+        """반투명 어두운 UI 박스 그리기
+
+        Args:
+            screen: 그릴 surface
+            x, y: 박스 위치
+            width, height: 박스 크기
+            alpha: 투명도 (0-255)
+        """
+        # 반투명 서피스 생성
+        box_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+
+        # 배경 (반투명 어두운색)
+        bg_color = (20, 20, 30, alpha)
+        pygame.draw.rect(box_surface, bg_color, (0, 0, width, height), border_radius=6)
+
+        # 테두리 (약간 밝은 색)
+        border_color = (60, 60, 80, alpha)
+        pygame.draw.rect(box_surface, border_color, (0, 0, width, height), 2, border_radius=6)
+
+        screen.blit(box_surface, (x, y))
+
+    def draw_left_pillar_ui(self, screen, active_items=None, icon_size=(28, 28)):
+        """왼쪽 필러 UI 그리기 (액티브 아이템 슬롯)
+
+        Args:
+            screen: 그릴 surface
+            active_items: 액티브 아이템 리스트
+            icon_size: 아이콘 크기 튜플
+        """
+        if self.left_pillar_width < 60:
+            return  # 필러가 너무 좁으면 그리지 않음
+
+        # 왼쪽 하단에 액티브 아이템 박스
+        box_width = 60
+        box_height = 120  # 최대 3슬롯 세로 배치
+        box_x = (self.left_pillar_width - box_width) // 2
+        box_y = self.screen_height - box_height - 20
+
+        self.draw_pillar_ui_box(screen, box_x, box_y, box_width, box_height)
+
+        # "ITEMS" 레이블
+        try:
+            font = pygame.font.Font(None, 14)
+            label = font.render("ITEMS", True, (150, 150, 180))
+            label_x = box_x + (box_width - label.get_width()) // 2
+            screen.blit(label, (label_x, box_y + 5))
+        except:
+            pass
+
+    def draw_right_pillar_ui(self, screen, player_score=0, boss_score=0,
+                             boss_gauge=0, boss_gauge_max=500,
+                             player_gauge=0, player_gauge_max=100,
+                             player_tokens=1, player_max_tokens=3):
+        """오른쪽 필러 UI 그리기 (스코어 + 보스게이지 상단, 플레이어 게이지 하단)
+
+        Args:
+            screen: 그릴 surface
+            player_score: 플레이어 점수
+            boss_score: 보스 점수
+            boss_gauge: 보스 게이지 현재값
+            boss_gauge_max: 보스 게이지 최대값
+            player_gauge: 플레이어 게이지 현재값
+            player_gauge_max: 플레이어 게이지 최대값
+            player_tokens: 플레이어 토큰 수
+            player_max_tokens: 플레이어 최대 토큰 수
+        """
+        if self.right_pillar_width < 60:
+            return  # 필러가 너무 좁으면 그리지 않음
+
+        right_x = self.game_offset_x + self.game_width
+
+        # === 상단: 스코어 + 보스 게이지 박스 ===
+        top_box_width = 60
+        top_box_height = 140
+        top_box_x = right_x + (self.right_pillar_width - top_box_width) // 2
+        top_box_y = 20
+
+        self.draw_pillar_ui_box(screen, top_box_x, top_box_y, top_box_width, top_box_height)
+
+        # 스코어 표시 (상단)
+        self._draw_score_in_box(screen, top_box_x, top_box_y, top_box_width,
+                                player_score, boss_score)
+
+        # 보스 게이지 표시 (스코어 아래)
+        gauge_y = top_box_y + 50
+        self._draw_boss_gauge_in_box(screen, top_box_x, gauge_y, top_box_width,
+                                     boss_gauge, boss_gauge_max)
+
+        # === 하단: 플레이어 게이지 박스 ===
+        bottom_box_width = 60
+        bottom_box_height = 160
+        bottom_box_x = right_x + (self.right_pillar_width - bottom_box_width) // 2
+        bottom_box_y = self.screen_height - bottom_box_height - 20
+
+        self.draw_pillar_ui_box(screen, bottom_box_x, bottom_box_y, bottom_box_width, bottom_box_height)
+
+        # 플레이어 게이지 표시
+        self._draw_player_gauge_in_box(screen, bottom_box_x, bottom_box_y,
+                                       bottom_box_width, bottom_box_height,
+                                       player_gauge, player_gauge_max,
+                                       player_tokens, player_max_tokens)
+
+    def _draw_score_in_box(self, screen, box_x, box_y, box_width, player_score, boss_score):
+        """박스 내부에 스코어 표시"""
+        try:
+            # 스코어 폰트
+            score_font = pygame.font.Font(None, 28)
+
+            # "SCORE" 레이블
+            label_font = pygame.font.Font(None, 12)
+            label = label_font.render("SCORE", True, (150, 150, 180))
+            label_x = box_x + (box_width - label.get_width()) // 2
+            screen.blit(label, (label_x, box_y + 5))
+
+            # 점수 (플레이어 : 보스)
+            score_text = f"{player_score}:{boss_score}"
+            score_surface = score_font.render(score_text, True, (255, 255, 255))
+            score_x = box_x + (box_width - score_surface.get_width()) // 2
+            screen.blit(score_surface, (score_x, box_y + 20))
+        except:
+            pass
+
+    def _draw_boss_gauge_in_box(self, screen, box_x, gauge_y, box_width,
+                                 boss_gauge, boss_gauge_max):
+        """박스 내부에 보스 게이지 표시"""
+        try:
+            # "BOSS" 레이블
+            label_font = pygame.font.Font(None, 12)
+            label = label_font.render("BOSS", True, (150, 150, 180))
+            label_x = box_x + (box_width - label.get_width()) // 2
+            screen.blit(label, (label_x, gauge_y))
+
+            # 게이지 바 (세로)
+            bar_width = 14
+            bar_height = 70
+            bar_x = box_x + (box_width - bar_width) // 2
+            bar_y = gauge_y + 15
+
+            # 배경
+            pygame.draw.rect(screen, (40, 40, 50),
+                           (bar_x, bar_y, bar_width, bar_height), border_radius=3)
+
+            # 게이지 채우기
+            if boss_gauge_max > 0:
+                fill_ratio = min(boss_gauge / boss_gauge_max, 1.0)
+                fill_height = int(bar_height * fill_ratio)
+                if fill_height > 0:
+                    # 게이지 색상 (빨간색 계열)
+                    gauge_color = (200, 60, 60) if boss_gauge < boss_gauge_max else (255, 100, 100)
+                    pygame.draw.rect(screen, gauge_color,
+                                   (bar_x, bar_y + bar_height - fill_height,
+                                    bar_width, fill_height), border_radius=3)
+
+            # 테두리
+            pygame.draw.rect(screen, (80, 80, 100),
+                           (bar_x, bar_y, bar_width, bar_height), 1, border_radius=3)
+        except:
+            pass
+
+    def _draw_player_gauge_in_box(self, screen, box_x, box_y, box_width, box_height,
+                                   player_gauge, player_gauge_max,
+                                   player_tokens, player_max_tokens):
+        """박스 내부에 플레이어 게이지 표시"""
+        try:
+            # "PLAYER" 레이블
+            label_font = pygame.font.Font(None, 12)
+            label = label_font.render("PLAYER", True, (150, 150, 180))
+            label_x = box_x + (box_width - label.get_width()) // 2
+            screen.blit(label, (label_x, box_y + 5))
+
+            # 게이지 바 (세로)
+            bar_width = 14
+            bar_height = 100
+            bar_x = box_x + (box_width - bar_width) // 2
+            bar_y = box_y + 20
+
+            # 배경
+            pygame.draw.rect(screen, (40, 40, 50),
+                           (bar_x, bar_y, bar_width, bar_height), border_radius=3)
+
+            # 게이지 채우기
+            if player_gauge_max > 0:
+                fill_ratio = min(player_gauge / player_gauge_max, 1.0)
+                fill_height = int(bar_height * fill_ratio)
+                if fill_height > 0:
+                    # 게이지 색상 (파란색/녹색 계열)
+                    gauge_color = (60, 150, 200) if player_gauge < player_gauge_max else (100, 200, 255)
+                    pygame.draw.rect(screen, gauge_color,
+                                   (bar_x, bar_y + bar_height - fill_height,
+                                    bar_width, fill_height), border_radius=3)
+
+            # 테두리
+            pygame.draw.rect(screen, (80, 80, 100),
+                           (bar_x, bar_y, bar_width, bar_height), 1, border_radius=3)
+
+            # 토큰 표시 (게이지 바 아래)
+            token_y = bar_y + bar_height + 10
+            token_radius = 5
+            token_spacing = 14
+            total_width = player_max_tokens * token_spacing
+            token_start_x = box_x + (box_width - total_width) // 2 + token_spacing // 2
+
+            for i in range(player_max_tokens):
+                tx = token_start_x + i * token_spacing
+                if i < player_tokens:
+                    # 활성 토큰 (빨간색)
+                    pygame.draw.circle(screen, (255, 80, 80), (tx, token_y), token_radius)
+                    pygame.draw.circle(screen, (255, 150, 150), (tx, token_y), token_radius, 1)
+                else:
+                    # 비활성 토큰 (어두운 색)
+                    pygame.draw.circle(screen, (60, 40, 40), (tx, token_y), token_radius)
+                    pygame.draw.circle(screen, (100, 80, 80), (tx, token_y), token_radius, 1)
+        except:
+            pass
+
 # 전역 인스턴스
 _pillar_renderer = None
 
 
 def init_pillar_background(screen_width: int, screen_height: int,
-                           game_width: int, game_height: int) -> PillarBackgroundRenderer:
+                           game_width: int, game_height: int,
+                           offset_x: int = None, offset_y: int = None) -> PillarBackgroundRenderer:
     """필러 배경 렌더러 초기화"""
     global _pillar_renderer
     _pillar_renderer = PillarBackgroundRenderer(
-        screen_width, screen_height, game_width, game_height
+        screen_width, screen_height, game_width, game_height,
+        offset_x, offset_y
     )
     return _pillar_renderer
 

@@ -35,7 +35,7 @@ ACTIVE_COOLDOWN_MS = 8000  # 8초 쿨타임
 TARGET_ACTIVE_DROP_SHARE = 0.75
 TARGET_PASSIVE_DROP_SHARE = 0.25
 
-WIDTH, HEIGHT = 600, 750  # 화면 크기
+WIDTH, HEIGHT = 760, 750  # 화면 크기 (Pillar UI 적용)
 
 # 연금술 텍스트 이펙트 폰트 캐시
 _alchemy_font = None
@@ -1747,7 +1747,11 @@ def spawn_random_item():
         # knee_pads 아이템 중복 허용
         if item["name"] == "knee_pads" and knee_pads_obtained and not _allow_duplicate_passive("knee_pads"):
             continue
-        
+
+        # gold_bar 중복 스폰 방지
+        if item["name"] == "gold_bar" and gold_bar_obtained:
+            continue
+
         # 라그나로크 해머는 한 번 획득하면 더 이상 스폰 안함
         if item["name"] == "ragnarok_hammer" and ragnarok_hammer_obtained:
             continue
@@ -1897,7 +1901,7 @@ def spawn_random_item():
             "type": item_type_copy,
             "timer": selected_item["duration"],
             "bounce_count": 0,
-            "max_bounces": random.randint(3, 6),
+            "max_bounces": random.randint(6, 9),
             "angle": 0  # 회전각도
         }
         item_list.append(new_item)
@@ -2169,7 +2173,7 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
     if not active_item_slot:
         return
 
-    HEIGHT = 750
+    # 전역 HEIGHT 사용
     slot_x = 10
     slot_y = HEIGHT - icon_size[1] - 10
     SLOT_W, SLOT_H = icon_size

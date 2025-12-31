@@ -247,6 +247,9 @@ FULLSCREEN_WIDTH = 0
 FULLSCREEN_HEIGHT = 0
 GAME_OFFSET_X = 0
 GAME_OFFSET_Y = 0
+GAME_SCALE_FACTOR = 1.0  # 전체화면 자동 스케일링 비율
+GAME_SCALED_WIDTH = 0    # 스케일링된 게임 화면 너비
+GAME_SCALED_HEIGHT = 0   # 스케일링된 게임 화면 높이
 
 def _setup_fullscreen_mode():
     global FULLSCREEN_MODE, FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
@@ -1881,9 +1884,29 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     # 실제 화면 크기 기준으로 오프셋 재계산
     FULLSCREEN_WIDTH = actual_width
     FULLSCREEN_HEIGHT = actual_height
-    GAME_OFFSET_X = (FULLSCREEN_WIDTH - WIDTH) // 2
-    GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - HEIGHT) // 2
-    print(f"[전체화면] 게임영역: {WIDTH}x{HEIGHT}, 오프셋: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
+
+    # 게임 Surface가 화면보다 클 경우 자동 스케일링
+    GAME_SCALE_FACTOR = 1.0
+    GAME_SCALED_WIDTH = WIDTH
+    GAME_SCALED_HEIGHT = HEIGHT
+
+    if WIDTH > FULLSCREEN_WIDTH or HEIGHT > FULLSCREEN_HEIGHT:
+        # 화면에 맞추기 위한 스케일 계산 (상하 여백 각 45px 확보)
+        scale_x = (FULLSCREEN_WIDTH - 90) / WIDTH
+        scale_y = (FULLSCREEN_HEIGHT - 90) / HEIGHT
+        GAME_SCALE_FACTOR = min(scale_x, scale_y)
+        GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
+        GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
+        print(f"[전체화면] 자동 스케일링: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} -> {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
+
+    GAME_OFFSET_X = (FULLSCREEN_WIDTH - GAME_SCALED_WIDTH) // 2
+    # Y 오프셋: 위쪽 여백 45px, 나머지는 아래쪽에 배치
+    GAME_OFFSET_Y = 45
+    print(f"[전체화면] 게임영역: {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT}, 오프셋: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
+    print(f"[DEBUG] 실제 화면: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+    print(f"[DEBUG] 게임 Surface: {WIDTH}x{HEIGHT} (스케일: {GAME_SCALE_FACTOR:.2f}x)", flush=True)
+    print(f"[DEBUG] 렌더링 위치: X={GAME_OFFSET_X} ~ {GAME_OFFSET_X + GAME_SCALED_WIDTH}, Y={GAME_OFFSET_Y} ~ {GAME_OFFSET_Y + GAME_SCALED_HEIGHT}", flush=True)
+    print(f"[DEBUG] 화면 여백: 위={GAME_OFFSET_Y}px, 아래={FULLSCREEN_HEIGHT - (GAME_OFFSET_Y + GAME_SCALED_HEIGHT)}px", flush=True)
 
     # 게임 렌더링용 Surface (기존 코드와 호환성 유지)
     # macOS: 알파 블렌딩이 제대로 작동하려면 convert_alpha() 사용
@@ -1892,8 +1915,13 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     print(f"[{_current_platform}] SCREEN Surface에 convert_alpha() 적용", flush=True)
 
     # 필러 배경 렌더러 초기화 (실제 화면 크기 사용)
+    # 스케일링된 게임 크기와 오프셋을 전달하여 프레임이 정확히 맞도록 함
     from pillar_background import init_pillar_background, get_pillar_renderer
-    pillar_renderer = init_pillar_background(FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT, WIDTH, HEIGHT)
+    pillar_renderer = init_pillar_background(
+        FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT,
+        GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
+        offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y
+    )
 
     # display_manager에 전체화면 모드 설정 전달
     from display_manager import set_fullscreen_mode
@@ -1939,6 +1967,62 @@ _flip_count = 0
 _last_real_screen_size = None
 _last_screen_size = None
 _stage_entered_flip_threshold = 0  # 스테이지 진입 후 flip 횟수 추적용
+
+# 필러 UI 활성화 플래그 (게임 플레이 중에만 표시)
+_pillar_ui_enabled = False
+
+def _draw_pillar_ui(screen, renderer):
+    """필러 UI 박스 그리기 헬퍼 함수
+
+    Args:
+        screen: 그릴 surface (REAL_SCREEN)
+        renderer: PillarBackgroundRenderer 인스턴스
+    """
+    global _pillar_ui_enabled
+
+    # 필러 UI가 비활성화 상태면 그리지 않음
+    if not _pillar_ui_enabled:
+        return
+
+    # 게임 상태 변수 가져오기
+    try:
+        # 점수
+        p_score = globals().get('round_wins', 0)
+        b_score = globals().get('round_losses', 0)
+
+        # 보스 게이지
+        boss_gauge = globals().get('displayed_boss_gauge', 0)
+        boss_gauge_max = 500
+
+        # 플레이어 게이지
+        player_gauge = globals().get('displayed_gauge', 0)
+        player_gauge_max = globals().get('special_gauge_max', 100)
+
+        # 대쉬 토큰
+        tokens = globals().get('rolling_charges', 1)
+        max_tokens = globals().get('max_rolling_charges', 3)
+
+        # 오른쪽 필러 UI 그리기 (스코어 + 보스게이지 상단, 플레이어게이지 하단)
+        renderer.draw_right_pillar_ui(
+            screen,
+            player_score=p_score,
+            boss_score=b_score,
+            boss_gauge=boss_gauge,
+            boss_gauge_max=boss_gauge_max,
+            player_gauge=player_gauge,
+            player_gauge_max=player_gauge_max,
+            player_tokens=tokens,
+            player_max_tokens=max_tokens
+        )
+
+        # 왼쪽 필러 UI 그리기 (액티브 아이템)
+        active_items = globals().get('active_item_slot', [])
+        renderer.draw_left_pillar_ui(screen, active_items=active_items)
+
+    except Exception as e:
+        # 오류 발생 시 조용히 무시 (게임 초기화 전에 호출될 수 있음)
+        pass
+
 def _fullscreen_flip():
     """전체화면 모드에서 게임 Surface를 실제 화면에 blit 후 flip"""
     global REAL_SCREEN, SCREEN, pillar_renderer, _flip_count, _last_real_screen_size, _last_screen_size
@@ -1963,14 +2047,44 @@ def _fullscreen_flip():
         # 처음 몇 번만 디버그 출력
         if _flip_count <= 3:
             print(f"[FLIP #{_flip_count}] REAL_SCREEN: {REAL_SCREEN.get_size()}, SCREEN: {SCREEN.get_size()}, OFFSET: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
+
+        # 디버그용: 처음 5초간 화면 경계 표시
+        if _flip_count <= 300:  # 60 FPS * 5초
+            show_debug_border = True
+        else:
+            show_debug_border = False
         # 전체 화면을 필러 배경색으로 채우기 (레터박스 제거)
         if pillar_renderer is not None:
             REAL_SCREEN.fill(pillar_renderer.bg_color)
             pillar_renderer.draw(REAL_SCREEN)
+            # 필러 UI 박스 그리기
+            _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
         else:
             REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
-        # 게임 Surface를 중앙에 blit
-        REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+
+        # 게임 Surface를 중앙에 blit (스케일링 적용)
+        if GAME_SCALE_FACTOR != 1.0:
+            # 스케일링이 필요한 경우 pygame.transform.smoothscale 사용
+            scaled_surface = pygame.transform.smoothscale(SCREEN, (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
+            REAL_SCREEN.blit(scaled_surface, (GAME_OFFSET_X, GAME_OFFSET_Y))
+        else:
+            # 스케일링 불필요 시 원본 그대로 blit
+            REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+
+        # 디버그용: 게임 영역 경계 표시
+        if show_debug_border:
+            # 빨간색 테두리로 게임 영역 표시
+            pygame.draw.rect(REAL_SCREEN, (255, 0, 0),
+                           (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT), 3)
+            # 상하단 여백 표시 (노란색)
+            if GAME_OFFSET_Y > 0:
+                pygame.draw.line(REAL_SCREEN, (255, 255, 0),
+                               (0, GAME_OFFSET_Y), (FULLSCREEN_WIDTH, GAME_OFFSET_Y), 2)
+            if GAME_OFFSET_Y + GAME_SCALED_HEIGHT < FULLSCREEN_HEIGHT:
+                pygame.draw.line(REAL_SCREEN, (255, 255, 0),
+                               (0, GAME_OFFSET_Y + GAME_SCALED_HEIGHT),
+                               (FULLSCREEN_WIDTH, GAME_OFFSET_Y + GAME_SCALED_HEIGHT), 2)
+
         # 크리스탈 실드 그리기 (게임 화면 위에)
         if pillar_renderer is not None:
             pillar_renderer.draw_crystal_shield(REAL_SCREEN)
@@ -1984,10 +2098,20 @@ def _fullscreen_update(*args, **kwargs):
         if pillar_renderer is not None:
             REAL_SCREEN.fill(pillar_renderer.bg_color)
             pillar_renderer.draw(REAL_SCREEN)
+            # 필러 UI 박스 그리기
+            _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
         else:
             REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
-        # 게임 Surface를 중앙에 blit
-        REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+
+        # 게임 Surface를 중앙에 blit (스케일링 적용)
+        if GAME_SCALE_FACTOR != 1.0:
+            # 스케일링이 필요한 경우 pygame.transform.smoothscale 사용
+            scaled_surface = pygame.transform.smoothscale(SCREEN, (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
+            REAL_SCREEN.blit(scaled_surface, (GAME_OFFSET_X, GAME_OFFSET_Y))
+        else:
+            # 스케일링 불필요 시 원본 그대로 blit
+            REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+
         # 크리스탈 실드 그리기 (게임 화면 위에)
         if pillar_renderer is not None:
             pillar_renderer.draw_crystal_shield(REAL_SCREEN)
@@ -2052,16 +2176,25 @@ _original_mouse_get_pos = pygame.mouse.get_pos
 _mouse_debug_count = 0
 
 def _fullscreen_mouse_get_pos():
-    """전체화면 모드에서 마우스 좌표를 게임 좌표로 변환"""
+    """전체화면 모드에서 마우스 좌표를 게임 좌표로 변환 (스케일링 고려)"""
     global _mouse_debug_count
     x, y = _original_mouse_get_pos()
     if _is_fullscreen_active:
-        # 화면 좌표에서 게임 오프셋을 빼서 게임 좌표로 변환
-        game_x = x - GAME_OFFSET_X
-        game_y = y - GAME_OFFSET_Y
+        # 1. 화면 좌표에서 게임 오프셋을 뺌
+        scaled_x = x - GAME_OFFSET_X
+        scaled_y = y - GAME_OFFSET_Y
+
+        # 2. 스케일링 역변환 (화면에 표시된 크기 -> 원본 게임 크기)
+        if GAME_SCALE_FACTOR != 1.0:
+            game_x = int(scaled_x / GAME_SCALE_FACTOR)
+            game_y = int(scaled_y / GAME_SCALE_FACTOR)
+        else:
+            game_x = scaled_x
+            game_y = scaled_y
+
         _mouse_debug_count += 1
         if _mouse_debug_count <= 10 or _mouse_debug_count % 300 == 0:
-            print(f"[MOUSE #{_mouse_debug_count}] 원본: ({x}, {y}), 오프셋: ({GAME_OFFSET_X}, {GAME_OFFSET_Y}), 변환: ({game_x}, {game_y})", flush=True)
+            print(f"[MOUSE #{_mouse_debug_count}] 원본: ({x}, {y}), 스케일링후: ({scaled_x}, {scaled_y}), 게임좌표: ({game_x}, {game_y}), 스케일: {GAME_SCALE_FACTOR:.2f}x", flush=True)
         return (game_x, game_y)
     return (x, y)
 
@@ -2074,15 +2207,27 @@ if _is_fullscreen_active:
 _original_event_get = pygame.event.get
 
 def _fullscreen_event_get(*args, **kwargs):
-    """전체화면 모드에서 마우스 이벤트 좌표를 게임 좌표로 변환"""
+    """전체화면 모드에서 마우스 이벤트 좌표를 게임 좌표로 변환 (스케일링 고려)"""
     events = _original_event_get(*args, **kwargs)
     if _is_fullscreen_active:
         for event in events:
             # 마우스 이벤트의 pos 속성 변환
             if hasattr(event, 'pos'):
                 x, y = event.pos
+                # 1. 오프셋 제거
+                scaled_x = x - GAME_OFFSET_X
+                scaled_y = y - GAME_OFFSET_Y
+
+                # 2. 스케일링 역변환
+                if GAME_SCALE_FACTOR != 1.0:
+                    game_x = int(scaled_x / GAME_SCALE_FACTOR)
+                    game_y = int(scaled_y / GAME_SCALE_FACTOR)
+                else:
+                    game_x = scaled_x
+                    game_y = scaled_y
+
                 # event 객체의 속성은 직접 수정 불가하므로 dict를 통해 새 이벤트 생성
-                event.__dict__['pos'] = (x - GAME_OFFSET_X, y - GAME_OFFSET_Y)
+                event.__dict__['pos'] = (game_x, game_y)
     return events
 
 if _is_fullscreen_active:
@@ -4225,21 +4370,34 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
     if len(available) > 3:
         available = random.sample(available, 3)
 
-    # 3개 미만이면 빈 슬롯으로 채움
-    while len(available) < 3:
-        placeholder = {
-            "id": f"empty_{len(available)}",
-            "name": "빈 슬롯",
-            "description": "선택 가능한 스킬이 없습니다",
-            "detail": "",
-            "icon_color": (80, 80, 80),
-            "current_level": 0,
-            "next_level": 0,
-            "max_level": 0,
-            "tree": "",
-            "character_restriction": None
-        }
-        available.append(placeholder)
+    # 3개 미만이면 즉시 사용형 스킬로 채움 (exclude_instant 여부와 관계없이)
+    if len(available) < 3:
+        # 이미 선택된 즉시 스킬 ID 목록
+        selected_instant_ids = {c["id"] for c in available if c.get("is_instant")}
+
+        # 사용 가능한 즉시 스킬 수집
+        instant_fillers = []
+        for skill_id, skill_data in INSTANT_RUNTIME_SKILLS.items():
+            if skill_id not in selected_instant_ids:
+                choice = {
+                    "id": skill_id,
+                    "name": skill_data["name"],
+                    "description": skill_data["description"],
+                    "detail": skill_data.get("detail", ""),
+                    "icon_color": skill_data["icon_color"],
+                    "current_level": 0,
+                    "next_level": 0,
+                    "max_level": 0,
+                    "tree": skill_data.get("tree", "instant"),
+                    "character_restriction": None,
+                    "is_instant": True
+                }
+                instant_fillers.append(choice)
+
+        # 부족한 슬롯을 즉시 스킬로 채움
+        random.shuffle(instant_fillers)
+        while len(available) < 3 and instant_fillers:
+            available.append(instant_fillers.pop())
 
     return available[:3]
 
@@ -4486,7 +4644,7 @@ def get_runtime_skill_bonus(skill_id: str) -> float:
             "item_bag_expansion": level,            # 슬롯 +1/레벨
             "item_caffeine": level * 0.20,          # 지속시간 20%/레벨 증가
             "item_polish": level * 0.10,            # 롤옵션 효율 10%/레벨 증가
-            "item_recycle": level * 0.10,           # 유지 확률 10%/레벨
+            "item_recycle": level * 0.07,           # 유지 확률 10%/레벨
 
             # 광장 트리
             "downtown_gamble": level * 0.10,        # 추가 가챠 확률 10%/레벨
@@ -5975,6 +6133,9 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
     except:
         shake_x, shake_y = 0, 0
 
+    # 화면 초기화 (배경이 600px이므로 나머지 영역을 검은색으로 채움)
+    SCREEN.fill((10, 10, 20))
+
     # 배경 렌더링
     if current_stage == 1:
         SCREEN.blit(CURRENT_BG, (shake_x, shake_y))
@@ -6557,10 +6718,18 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         caffeine_bonus = get_effective_caffeine_multiplier() - 1.0
         dash_cooldown_reduction = get_runtime_skill_bonus("dash_lightweight")
 
-        # 이동속도 표시 (기본 + 신속 보너스)
-        speed_display = f"{actual_player_speed:.1f}"
+        # 이동속도 표시 (기본 + 신속 보너스 + 금괴 페널티)
+        gold_bar_penalty = get_gold_bar_speed_multiplier()
+        speed_modifiers = []
         if swiftness_bonus > 0:
-            speed_display = f"{actual_player_speed:.1f} (+{int(swiftness_bonus*100)}%)"
+            speed_modifiers.append(f"+{int(swiftness_bonus*100)}%")
+        if gold_bar_penalty < 1.0:
+            speed_modifiers.append(f"-{int((1.0 - gold_bar_penalty)*100)}%")
+        speed_display = f"{actual_player_speed:.1f}"
+        if speed_modifiers:
+            speed_display = f"{actual_player_speed:.1f} ({', '.join(speed_modifiers)})"
+        # 이동속도 색상: 페널티가 있으면 빨간색 계열로
+        speed_color = (255, 100, 100) if gold_bar_penalty < 1.0 else (100, 220, 255)
 
         # 능력치 항목들 (2행 가로 배치)
         stats_items = [
@@ -6568,7 +6737,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             ("스테이지", f"{current_stg}", (255, 220, 100)),
             ("라운드", f"{r_wins}:{r_losses}", (150, 255, 150)),
             ("패들폭", f"{actual_paddle_width}px", (180, 200, 255)),
-            ("이동속도", speed_display, (100, 220, 255)),
+            ("이동속도", speed_display, speed_color),
             ("대쉬토큰", f"{dash_tokens}개", (150, 200, 255)),
             ("대쉬쿨감", f"-{int(dash_cooldown_reduction * 100)}%", (120, 200, 180)),
             # 2행: 게이지/아이템 정보
@@ -9689,6 +9858,7 @@ ITEM_SLOT_BASE_MAP = {
     "smartphone": "arm",
     "cooltime": "accessory",
     "revival": "accessory",
+    "gold_bar": "accessory",
     "dowsing_pendulum": "가방",
     "stopwatch": "accessory",
     "devil_dice": "accessory",
@@ -10541,6 +10711,8 @@ def sync_equipped_passive_effects():
     sync_bool("star_detector", "items.star_detector_obtained")
     sync_bool("smartphone", "items.smartphone_obtained")
     sync_bool("knee_pads", "items.knee_pads_obtained")
+    # 금괴는 별도 처리 (소지만 해도 페널티, 장착하면 페널티 없음)
+    # gold_bar_obtained는 인벤토리에 있는지로 결정
     sync_bool("ragnarok_hammer", "items.ragnarok_hammer_obtained")
     sync_bool("poseidon_trident", "items.poseidon_trident_obtained")
     sync_bool("angel_blessing", "items.angel_blessing_obtained")
@@ -10651,6 +10823,25 @@ def sync_equipped_passive_effects():
                 knee_pads.deactivate()
     except Exception:
         pass
+
+    # 금괴: 장착 상태에 따라 이동속도 페널티 동기화
+    # 금괴는 특별함: 소지만 해도 페널티(-30%), 장착하면 페널티 없음
+    try:
+        gold_bar = get_gold_bar_instance()
+        if gold_bar:
+            # 인벤토리에 금괴가 있는지 확인
+            has_gold_bar = any(item.get("name") == "gold_bar" for item in passive_item_list)
+            if has_gold_bar:
+                gold_bar.active = True
+                items.gold_bar_obtained = True
+                # 장착 여부에 따라 equipped 상태 설정
+                gold_bar.equipped = "gold_bar" in equipped_names
+            else:
+                gold_bar.active = False
+                gold_bar.equipped = False
+                items.gold_bar_obtained = False
+    except Exception as e:
+        print(f"[GOLD_BAR_SYNC] 예외 발생: {e}")
 
     # 전설 아이템 활성/비활성
     try:
@@ -33286,9 +33477,9 @@ try:
     )
     stage1_boss_sprite = init_stage1_boss_sprite()
     STAGE1_BOSS_ANIMATION_AVAILABLE = True
-    print("🎭 Stage 1 보스 걷기 애니메이션 로드 완료")
+    print("[Stage1] Boss walking animation loaded")
 except Exception as e:
-    print(f"⚠️ Stage 1 보스 애니메이션 로드 실패: {e}")
+    print(f"[WARN] Stage 1 boss animation load failed: {e}")
     stage1_boss_sprite = None
     STAGE1_BOSS_ANIMATION_AVAILABLE = False
 # Stage 2 보스 (악어장군) 걷기 애니메이션 초기화
@@ -33300,9 +33491,9 @@ try:
     )
     stage2_boss_sprite = init_stage2_boss_sprite()
     STAGE2_BOSS_ANIMATION_AVAILABLE = True
-    print("🐊 Stage 2 보스 걷기 애니메이션 로드 완료")
+    print("[Stage2] Boss walking animation loaded")
 except Exception as e:
-    print(f"⚠️ Stage 2 보스 애니메이션 로드 실패: {e}")
+    print(f"[WARN] Stage 2 boss animation load failed: {e}")
     stage2_boss_sprite = None
     STAGE2_BOSS_ANIMATION_AVAILABLE = False
 
@@ -33315,9 +33506,9 @@ try:
     )
     stage8_boss_sprite = init_stage8_boss_sprite()
     STAGE8_BOSS_ANIMATION_AVAILABLE = True
-    print("🥷 Stage 8 보스 걷기 애니메이션 로드 완료")
+    print("[Stage8] Boss walking animation loaded")
 except Exception as e:
-    print(f"⚠️ Stage 8 보스 애니메이션 로드 실패: {e}")
+    print(f"[WARN] Stage 8 boss animation load failed: {e}")
     stage8_boss_sprite = None
     STAGE8_BOSS_ANIMATION_AVAILABLE = False
 
@@ -33578,6 +33769,8 @@ def show_winner_text(winner_name):
     font_small = FontStyle.small()  # 24pt 픽셀 폰트
     result_surface = font_large.render(result_text, True, main_color)
     winner_surface = font_small.render(winner_name if show_winner_name else "", True, accent_color)
+    # 게임 영역 중앙 X 좌표 (필러 오프셋 적용)
+    game_center_x = PILLAR_UI_WIDTH + GAME_PLAY_WIDTH // 2
     #  빠른 페이드인 (0.4초)
     for alpha in range(0, 256, 25):
         draw_field()
@@ -33588,24 +33781,24 @@ def show_winner_text(winner_name):
         SCREEN.blit(overlay, (0, 0))
         # 메인 텍스트 위치 (패배 시에는 중앙에만 표시)
         if show_winner_name:
-            result_rect = result_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
-            winner_rect = winner_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
+            result_rect = result_surface.get_rect(center=(game_center_x, HEIGHT // 2 - 20))
+            winner_rect = winner_surface.get_rect(center=(game_center_x, HEIGHT // 2 + 40))
         else:
-            result_rect = result_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-            winner_rect = winner_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
+            result_rect = result_surface.get_rect(center=(game_center_x, HEIGHT // 2))
+            winner_rect = winner_surface.get_rect(center=(game_center_x, HEIGHT // 2 + 40))
         # 액센트 라인 (위쪽)
         top_line_width = result_rect.width + 40
         top_line_y = result_rect.top - 15
         top_line_surface = pygame.Surface((top_line_width, 3), pygame.SRCALPHA)
         top_line_surface.fill((*accent_color, min(255, alpha + 50)))
-        SCREEN.blit(top_line_surface, ((WIDTH - top_line_width) // 2, top_line_y))
+        SCREEN.blit(top_line_surface, (game_center_x - top_line_width // 2, top_line_y))
         # 액센트 라인 (아래쪽) - 승리 시에만 표시
         if show_winner_name:
             bottom_line_width = winner_rect.width + 20
             bottom_line_y = winner_rect.bottom + 10
             bottom_line_surface = pygame.Surface((bottom_line_width, 2), pygame.SRCALPHA)
             bottom_line_surface.fill((*accent_color, min(255, alpha + 50)))
-            SCREEN.blit(bottom_line_surface, ((WIDTH - bottom_line_width) // 2, bottom_line_y))
+            SCREEN.blit(bottom_line_surface, (game_center_x - bottom_line_width // 2, bottom_line_y))
         # 텍스트
         result_surface.set_alpha(alpha)
         SCREEN.blit(result_surface, result_rect)
@@ -33627,11 +33820,11 @@ def show_winner_text(winner_name):
         SCREEN.blit(overlay, (0, 0))
         # 텍스트 위치
         if show_winner_name:
-            result_rect = result_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
-            winner_rect = winner_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
+            result_rect = result_surface.get_rect(center=(game_center_x, HEIGHT // 2 - 20))
+            winner_rect = winner_surface.get_rect(center=(game_center_x, HEIGHT // 2 + 40))
         else:
-            result_rect = result_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-            winner_rect = winner_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
+            result_rect = result_surface.get_rect(center=(game_center_x, HEIGHT // 2))
+            winner_rect = winner_surface.get_rect(center=(game_center_x, HEIGHT // 2 + 40))
         # 액센트 라인 (미세한 펄스)
         time_elapsed = pygame.time.get_ticks() - hold_start
         pulse = int(3 * math.sin(time_elapsed * 0.008))
@@ -33640,14 +33833,14 @@ def show_winner_text(winner_name):
         top_line_y = result_rect.top - 15
         top_line_surface = pygame.Surface((top_line_width, 3), pygame.SRCALPHA)
         top_line_surface.fill(accent_color)
-        SCREEN.blit(top_line_surface, ((WIDTH - top_line_width) // 2, top_line_y))
+        SCREEN.blit(top_line_surface, (game_center_x - top_line_width // 2, top_line_y))
         # 아래쪽 라인 - 승리 시에만 표시
         if show_winner_name:
             bottom_line_width = winner_rect.width + 20 + pulse
             bottom_line_y = winner_rect.bottom + 10
             bottom_line_surface = pygame.Surface((bottom_line_width, 2), pygame.SRCALPHA)
             bottom_line_surface.fill(accent_color)
-            SCREEN.blit(bottom_line_surface, ((WIDTH - bottom_line_width) // 2, bottom_line_y))
+            SCREEN.blit(bottom_line_surface, (game_center_x - bottom_line_width // 2, bottom_line_y))
         # 텍스트
         SCREEN.blit(result_surface, result_rect)
         # 승리 시에만 승자 이름 표시
@@ -33665,24 +33858,24 @@ def show_winner_text(winner_name):
         SCREEN.blit(overlay, (0, 0))
         # 텍스트 위치
         if show_winner_name:
-            result_rect = result_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
-            winner_rect = winner_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
+            result_rect = result_surface.get_rect(center=(game_center_x, HEIGHT // 2 - 20))
+            winner_rect = winner_surface.get_rect(center=(game_center_x, HEIGHT // 2 + 40))
         else:
-            result_rect = result_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-            winner_rect = winner_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
+            result_rect = result_surface.get_rect(center=(game_center_x, HEIGHT // 2))
+            winner_rect = winner_surface.get_rect(center=(game_center_x, HEIGHT // 2 + 40))
         # 액센트 라인
         top_line_width = result_rect.width + 40
         top_line_y = result_rect.top - 15
         top_line_surface = pygame.Surface((top_line_width, 3), pygame.SRCALPHA)
         top_line_surface.fill((*accent_color, max(0, alpha)))
-        SCREEN.blit(top_line_surface, ((WIDTH - top_line_width) // 2, top_line_y))
+        SCREEN.blit(top_line_surface, (game_center_x - top_line_width // 2, top_line_y))
         # 아래쪽 라인 - 승리 시에만 표시
         if show_winner_name:
             bottom_line_width = winner_rect.width + 20
             bottom_line_y = winner_rect.bottom + 10
             bottom_line_surface = pygame.Surface((bottom_line_width, 2), pygame.SRCALPHA)
             bottom_line_surface.fill((*accent_color, max(0, alpha)))
-            SCREEN.blit(bottom_line_surface, ((WIDTH - bottom_line_width) // 2, bottom_line_y))
+            SCREEN.blit(bottom_line_surface, (game_center_x - bottom_line_width // 2, bottom_line_y))
         # 텍스트
         result_surface.set_alpha(max(0, alpha))
         SCREEN.blit(result_surface, result_rect)
@@ -59401,9 +59594,20 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
                 ])
                 pygame.draw.circle(carrier_surface, spark_color, (spark_x, spark_y), spark_size)
     # === 포인트 디펜스 미사일 시스템 ===
-    # 자동 방어 미사일 터렛
-    defense_positions = [(25, 22), (45, 20), (65, 22), (85, 20), 
-                        (105, 22), (125, 20), (145, 22), (165, 20)]
+    # 자동 방어 미사일 터렛 (플레이어 점수에 따라 터렛 수 증가)
+    # 기본 8개 터렛, 플레이어 1~3점 획득 시 각각 15%씩 증가
+    base_defense_positions = [(25, 22), (45, 20), (65, 22), (85, 20),
+                              (105, 22), (125, 20), (145, 22), (165, 20)]
+    # 추가 터렛 위치 (점수에 따라 활성화)
+    extra_turret_positions = [
+        (15, 24), (55, 18), (95, 24),   # 1점: +3개 (약 15% = 1.2개 → 반올림 1~2개씩)
+        (115, 18), (155, 24), (175, 20) # 2~3점: 추가
+    ]
+    # 플레이어 점수에 따른 추가 터렛 수 계산 (최대 3점까지)
+    score_bonus = min(round_wins, 3)  # 0~3점
+    # 0점: 8개, 1점: 9개(+15%), 2점: 10개(+30%), 3점: 12개(+45%)
+    extra_turret_count = int(len(base_defense_positions) * 0.15 * score_bonus)
+    defense_positions = base_defense_positions + extra_turret_positions[:extra_turret_count]
     global turret_angles, turret_missiles, last_missile_time
     current_time = pygame.time.get_ticks()
     for idx, (dx, dy) in enumerate(defense_positions):
@@ -61927,6 +62131,45 @@ def draw_objects():
     ):
         rotated_player = apply_optimus_charge_overlay(rotated_player, time_now)
 
+    # 🔴 대쉬 불가능 상태 체크 (게이지 부족 + 토큰 없음)
+    _dash_warn_blink_active = False
+    try:
+        _dash_charges = globals().get("rolling_charges", 1)
+        _dash_stun = globals().get("rolling_stun_timer", 0)
+        _is_rolling = globals().get("rolling_active", False)
+        _is_serving = globals().get("is_waiting_for_serve", False)
+
+        # 대쉬부스트 활성화 여부 확인 (토큰 무제한 모드)
+        _dash_unlimited = False
+        try:
+            _dash_unlimited = is_dash_unlimited()
+        except:
+            pass
+
+        # 토큰이 없고 대쉬부스트도 비활성화 상태
+        _no_token = _dash_charges <= 0 and not _dash_unlimited
+
+        # 게이지 부족 여부 확인
+        _base_dash_cost = 140
+        try:
+            # 옵티머스는 대쉬 비용 80% 할인
+            if globals().get("selected_character_type") == "optimus":
+                _base_dash_cost = int(_base_dash_cost * 0.2)
+        except:
+            pass
+        _gauge_low = special_gauge < _base_dash_cost
+
+        # 대쉬 불가능: 게이지 부족 OR 토큰 없음 (둘 중 하나라도 부족하면 대쉬 불가)
+        # 대쉬 중이거나 서브 대기 중에는 깜빡임 효과 미적용
+        _cannot_dash = _gauge_low or _no_token  # 게이지 부족 또는 토큰 없음
+        _dash_warn_blink_active = (
+            _cannot_dash and
+            not _is_rolling and
+            not _is_serving
+        )
+    except:
+        pass
+
     # UFO 이미지 그리기 (화면 흔들림 효과 적용 - 최적화 버전)
     if special_ready:
         if (time_now // 250) % 2 == 0:
@@ -61954,6 +62197,15 @@ def draw_objects():
             # 미사일 무적 시간이면 반투명 처리
             if is_missile_invulnerable and (time_now // 100) % 2 == 0:
                 bright_ufo.set_alpha(100)
+            # 🔴 대쉬 불가능 경고 효과 (펄싱)
+            if _dash_warn_blink_active:
+                # 사인파로 펄싱 (더 눈에 띄게)
+                _pulse = 0.5 + 0.5 * math.sin(time_now * 0.015)  # 빠른 펄싱
+                _r_tint = 255
+                _gb_tint = int(80 + 120 * _pulse)  # 80 ~ 200
+                _red_warn = pygame.Surface(bright_ufo.get_size(), pygame.SRCALPHA)
+                _red_warn.fill((_r_tint, _gb_tint, _gb_tint, 255))
+                bright_ufo.blit(_red_warn, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
             draw_with_shake(bright_ufo, player_rect.topleft)
         else:
             player_to_draw = rotated_player.copy()
@@ -61973,6 +62225,14 @@ def draw_objects():
                     player_to_draw.blit(_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
             except Exception:
                 pass
+            # 🔴 대쉬 불가능 경고 효과 (펄싱)
+            if _dash_warn_blink_active:
+                _pulse = 0.5 + 0.5 * math.sin(time_now * 0.015)
+                _r_tint = 255
+                _gb_tint = int(80 + 120 * _pulse)
+                _red_warn = pygame.Surface(player_to_draw.get_size(), pygame.SRCALPHA)
+                _red_warn.fill((_r_tint, _gb_tint, _gb_tint, 255))
+                player_to_draw.blit(_red_warn, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
             draw_with_shake(player_to_draw, player_rect.topleft)
     else:
         player_to_draw = rotated_player.copy()
@@ -61997,6 +62257,15 @@ def draw_objects():
         # 미사일 무적 시간이면 반투명 처리
         elif is_missile_invulnerable and (time_now // 100) % 2 == 0:
             player_to_draw.set_alpha(100)
+
+        # 🔴 대쉬 불가능 경고 효과 (펄싱, 화상 효과 중 아닐 때만)
+        if _dash_warn_blink_active and not (player_burn_effect and player_burn_timer > 0):
+            _pulse = 0.5 + 0.5 * math.sin(time_now * 0.015)
+            _r_tint = 255
+            _gb_tint = int(80 + 120 * _pulse)
+            _red_warn = pygame.Surface(player_to_draw.get_size(), pygame.SRCALPHA)
+            _red_warn.fill((_r_tint, _gb_tint, _gb_tint, 255))
+            player_to_draw.blit(_red_warn, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
 
         if aipill_active:
             player_to_draw = apply_ai_glitch_effect(player_to_draw, time_now)
@@ -64590,13 +64859,13 @@ def draw_objects():
         except Exception as e:
             print(f"그물덫총 포즈 애니메이션 오류: {e}")
     
-    # === 쉴드 안테나 시스템 (스테이지 6) ===
+    # === 쉴드 안테나 시스템 (스테이지 6 = 실제 스테이지 5 네메시스) ===
     if current_stage == 6:
         current_time = pygame.time.get_ticks()
-        # 체력이 70% 이하일 때만 쉴드 작동
-        health_percent = (boss_current_health / boss_max_health) * 100
-        # 쉴드 활성화 체크 (체력 70% 이하일 때만)
-        if health_percent <= 70 and not shield_antenna_active and current_time - last_shield_time > shield_antenna_cooldown:
+        # 라운드 2부터 쉴드 작동 (플레이어가 2점 이상 획득 시)
+        shield_unlocked = round_wins >= 2
+        # 쉴드 활성화 체크 (라운드 2부터)
+        if shield_unlocked and not shield_antenna_active and current_time - last_shield_time > shield_antenna_cooldown:
             shield_antenna_active = True
             shield_antenna_timer = current_time
             shield_fade_alpha = 255
@@ -67127,25 +67396,27 @@ def show_victory_screen(stage_cleared, reward):
     font_info = FontStyle.small()     # 정보용 20pt 픽셀 폰트
     button_width = 280
     button_height = 70
+    # 게임 영역 중앙 X 좌표 (필러 오프셋 적용)
+    game_center_x = PILLAR_UI_WIDTH + GAME_PLAY_WIDTH // 2
     # 전체를 중앙으로 이동 (y 좌표 조정) - 패널 높이 증가로 버튼 위치 추가 조정
-    next_stage_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 440, button_width, button_height)
-    rest_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 540, button_width, button_height)
+    next_stage_rect = pygame.Rect(game_center_x - button_width // 2, 440, button_width, button_height)
+    rest_rect = pygame.Rect(game_center_x - button_width // 2, 540, button_width, button_height)
 
     # 정적인 UI 요소는 미리 만들어서 프레임 부하를 줄인다.
     title_text = f"Stage {display_stage_cleared} 클리어!"
     title_surface = font_title.render(title_text, True, (220, 220, 120))
     title_shadow_surface = font_title.render(title_text, True, (50, 50, 80))
-    title_rect = title_surface.get_rect(center=(WIDTH // 2, 150))
-    title_shadow_rect = title_shadow_surface.get_rect(center=(WIDTH // 2 + 3, 153))
+    title_rect = title_surface.get_rect(center=(game_center_x, 150))
+    title_shadow_rect = title_shadow_surface.get_rect(center=(game_center_x + 3, 153))
 
-    info_panel_rect = pygame.Rect(WIDTH // 2 - 200, 220, 400, 200)  # 높이를 150에서 200으로 증가
+    info_panel_rect = pygame.Rect(game_center_x - 200, 220, 400, 200)  # 높이를 150에서 200으로 증가
     info_panel_surface = pygame.Surface(info_panel_rect.size, pygame.SRCALPHA)
     info_panel_surface.fill((30, 30, 60, 180))
     pygame.draw.rect(info_panel_surface, (100, 150, 255), info_panel_surface.get_rect(), 2)
 
     total_medals = calculate_total_earned_medals(stage_cleared)
     medal_y = 265
-    medal_x = WIDTH // 2 - 70
+    medal_x = game_center_x - 70
     medal_count_surface = font_info.render(f"{total_medals}", True, WHITE)
     reward_surface = font_info.render(f"(+ {reward})", True, (100, 255, 100))
 
@@ -67157,8 +67428,8 @@ def show_victory_screen(stage_cleared, reward):
         pygame.draw.circle(medal_icon_surface, (255, 215, 0), (17, 17), 17)
         pygame.draw.circle(medal_icon_surface, (200, 170, 0), (17, 17), 15, 2)
 
-    medal_count_pos = (WIDTH // 2 - 25, medal_y - 10)
-    reward_pos = (WIDTH // 2 + 15, medal_y - 10)
+    medal_count_pos = (game_center_x - 25, medal_y - 10)
+    reward_pos = (game_center_x + 15, medal_y - 10)
 
     victory_background = pygame.Surface((WIDTH, HEIGHT))
     for y in range(HEIGHT):
@@ -67181,7 +67452,7 @@ def show_victory_screen(stage_cleared, reward):
         confirmation_clock = pygame.time.Clock()
         base_surface = SCREEN.copy()
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        panel_rect = pygame.Rect(WIDTH // 2 - 260, HEIGHT // 2 - 140, 520, 240)
+        panel_rect = pygame.Rect(game_center_x - 260, HEIGHT // 2 - 140, 520, 240)
         yes_rect = pygame.Rect(panel_rect.centerx - 140, panel_rect.bottom - 80, 120, 56)
         no_rect = pygame.Rect(panel_rect.centerx + 20, panel_rect.bottom - 80, 120, 56)
         selection = 0  # 0: 네, 1: 아니오
@@ -67353,9 +67624,9 @@ def show_victory_screen(stage_cleared, reward):
         # 장식용 라인
         line_y = 190
         line_color = (120, 150, 200)
-        draw.line(line_color, (WIDTH // 2 - 120, line_y), (WIDTH // 2 + 120, line_y), 2)
-        draw.circle(line_color, (WIDTH // 2 - 120, line_y), 4)
-        draw.circle(line_color, (WIDTH // 2 + 120, line_y), 4)
+        draw.line(line_color, (game_center_x - 120, line_y), (game_center_x + 120, line_y), 2)
+        draw.circle(line_color, (game_center_x - 120, line_y), 4)
+        draw.circle(line_color, (game_center_x + 120, line_y), 4)
         # 정보 패널 배경 (중앙으로 이동) - 높이 증가
         SCREEN.blit(info_panel_surface, info_panel_rect.topleft)
         # 메달 정보 출력 (메달 아이콘 + 숫자 + 보상)
@@ -67364,7 +67635,7 @@ def show_victory_screen(stage_cleared, reward):
         SCREEN.blit(reward_surface, reward_pos)
         # Star Point 표시 (아카데미 UI와 동일 스타일)
         if star_badge_visible and star_animation_finished:
-            star_x = WIDTH - 80
+            star_x = PILLAR_UI_WIDTH + GAME_PLAY_WIDTH - 80  # 게임 영역 우측 끝에서 80px
             star_y = 30
             if star_badge_glow_timer > 0:
                 glow_ratio = star_badge_glow_timer / star_badge_glow_duration
@@ -67384,9 +67655,9 @@ def show_victory_screen(stage_cleared, reward):
         skill_point_y = medal_y + 40
         total_points = 1 + bonus_points + score_bonus  # 기본 1점 + 별 보너스 + 점수 보너스
 
-        star_spawn_x = WIDTH // 2
+        star_spawn_x = game_center_x
         star_spawn_y = skill_point_y + 30
-        badge_star_x = WIDTH - 80
+        badge_star_x = PILLAR_UI_WIDTH + GAME_PLAY_WIDTH - 80  # 게임 영역 우측 끝에서 80px
         badge_star_y = 30
 
         if not star_animation_finished and animation_states['total']['show']:
@@ -67451,7 +67722,7 @@ def show_victory_screen(stage_cleared, reward):
                 base_text = pygame.transform.scale(base_text, 
                     (int(base_text.get_width() * scale), int(base_text.get_height() * scale)))
             base_text.set_alpha(alpha)
-            base_rect = base_text.get_rect(center=(WIDTH // 2, detail_y))
+            base_rect = base_text.get_rect(center=(game_center_x, detail_y))
             SCREEN.blit(base_text, base_rect)
             detail_y += line_height
         
@@ -67485,15 +67756,15 @@ def show_victory_screen(stage_cleared, reward):
                                         text_width + offset*2, text_height + offset*2),
                                        border_radius=10)
                     
-                    glow_rect = glow_surface.get_rect(center=(WIDTH // 2, detail_y))
+                    glow_rect = glow_surface.get_rect(center=(game_center_x, detail_y))
                     SCREEN.blit(glow_surface, glow_rect)
-            
+
             star_text = font_info.render(f" 별 수집: +{bonus_points}", True, (255, 215, 0))
             if scale != 1.0:
                 star_text = pygame.transform.scale(star_text,
                     (int(star_text.get_width() * scale), int(star_text.get_height() * scale)))
             star_text.set_alpha(alpha)
-            star_rect = star_text.get_rect(center=(WIDTH // 2, detail_y))
+            star_rect = star_text.get_rect(center=(game_center_x, detail_y))
             SCREEN.blit(star_text, star_rect)
 
             if not star_animation_finished and star_animation_state in ("text", "fly"):
@@ -67587,21 +67858,21 @@ def show_victory_screen(stage_cleared, reward):
                                         text_width + offset*2, text_height + offset*2),
                                        border_radius=12)
                     
-                    glow_rect = glow_surface.get_rect(center=(WIDTH // 2, detail_y))
+                    glow_rect = glow_surface.get_rect(center=(game_center_x, detail_y))
                     SCREEN.blit(glow_surface, glow_rect)
-            
+
             if score_bonus == 3:
                 score_text = font_info.render(f"완벽한 승리 (5:0): +{score_bonus}", True, (255, 100, 100))
             elif score_bonus == 2:
                 score_text = font_info.render(f"우수한 승리 (5:1): +{score_bonus}", True, (100, 200, 255))
             else:
                 score_text = font_info.render(f"소소한 승리 (5:2): +{score_bonus}", True, (100, 255, 200))
-            
+
             if scale != 1.0:
                 score_text = pygame.transform.scale(score_text,
                     (int(score_text.get_width() * scale), int(score_text.get_height() * scale)))
             score_text.set_alpha(alpha)
-            score_rect = score_text.get_rect(center=(WIDTH // 2, detail_y))
+            score_rect = score_text.get_rect(center=(game_center_x, detail_y))
             SCREEN.blit(score_text, score_rect)
             detail_y += line_height + 10  # 최종 결과와 간격 띄우기
         
@@ -67655,9 +67926,9 @@ def show_victory_screen(stage_cleared, reward):
                                         text_width + 10, text_height + 10),
                                        border_radius=8)
                     
-                    glow_rect = glow_surface.get_rect(center=(WIDTH // 2, detail_y))
+                    glow_rect = glow_surface.get_rect(center=(game_center_x, detail_y))
                     SCREEN.blit(glow_surface, glow_rect)
-            
+
             # 폰트 크기 증가
             font_final = FontStyle.menu()  # 더 큰 폰트 사용
             total_text = font_final.render(f"Star Point + {total_points} !", True, (150, 200, 255))
@@ -67665,7 +67936,7 @@ def show_victory_screen(stage_cleared, reward):
                 total_text = pygame.transform.scale(total_text,
                     (int(total_text.get_width() * scale), int(total_text.get_height() * scale)))
             total_text.set_alpha(alpha)
-            total_rect = total_text.get_rect(center=(WIDTH // 2, detail_y))
+            total_rect = total_text.get_rect(center=(game_center_x, detail_y))
             SCREEN.blit(total_text, total_rect)
         # 애니메이션 완료 여부 확인
         all_stages_shown = all(state['show'] for state in animation_states.values())
@@ -67678,7 +67949,7 @@ def show_victory_screen(stage_cleared, reward):
             skip_alpha = int(abs(math.sin(frame_count * 0.05)) * 150 + 105)  # 105~255 깜빡임
             skip_hint = skip_hint_font.render("Space: 다음 정보 보기", True, (200, 200, 200))
             skip_hint.set_alpha(skip_alpha)
-            skip_rect = skip_hint.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+            skip_rect = skip_hint.get_rect(center=(game_center_x, HEIGHT - 100))
             SCREEN.blit(skip_hint, skip_rect)
         
         # ---------------- AI 자동 처리 (승리 화면) ----------------
@@ -67953,8 +68224,10 @@ def confirm_rest(stage_cleared, reward):
     # 메달 정산 전역은 함수 초기에 선언
     global medal_score, session_medal_earned
     font_small = FontStyle.menu()  # 26pt 픽셀 폰트
-    yes_rect = pygame.Rect(WIDTH // 2 - 130, 420, 100, LARGE_SIZE)
-    no_rect = pygame.Rect(WIDTH // 2 + 30, 420, 100, LARGE_SIZE)
+    # 게임 영역 중앙 X 좌표 (필러 오프셋 적용)
+    game_center_x = PILLAR_UI_WIDTH + GAME_PLAY_WIDTH // 2
+    yes_rect = pygame.Rect(game_center_x - 130, 420, 100, LARGE_SIZE)
+    no_rect = pygame.Rect(game_center_x + 30, 420, 100, LARGE_SIZE)
     selected = 0
     while True:
         SCREEN.fill((30, 0, 0))
@@ -68136,6 +68409,9 @@ def show_start_screen():
         player_ai_enabled = False
         previous_character_type = selected_character_type
         apply_character_selection("ufo_player")
+        # 필러 UI 활성화
+        global _pillar_ui_enabled
+        _pillar_ui_enabled = True
         try:
             return main(50)
         finally:
@@ -68148,7 +68424,7 @@ def show_start_screen():
         Args:
             character: "smasher" | "soldier" | "blacksmith"
         """
-        global player_ai_enabled
+        global player_ai_enabled, _pillar_ui_enabled
         player_ai_enabled = True
         apply_character_selection(character)
         # 새 스테이지 진입 전에 컨트롤러 상태를 리셋
@@ -68158,6 +68434,8 @@ def show_start_screen():
             get_player_ai_controller().on_stage_start()
         except Exception:
             pass
+        # 필러 UI 활성화
+        _pillar_ui_enabled = True
         return main(1)
 
     # 개발자용 광장 직접 입장 함수
@@ -77129,6 +77407,11 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     difficulty_name = difficulty_names.get(difficulty_mode, difficulty_mode)
     # 게임 시작 (스테이지 1부터)
     print(f"  ! : {character_id}, : {difficulty_mode}")
+
+    # 필러 UI 활성화
+    global _pillar_ui_enabled
+    _pillar_ui_enabled = True
+
     main(1)
 def show_developer_stage_select():
     # 개발자 모드 진입 시 자동으로 신화리그 설정
@@ -77182,12 +77465,17 @@ def show_developer_stage_select():
                 selected_index = max(0, min(selected_index, len(stage_buttons) - 1))
                 if event.key == pygame.K_SPACE:
                     _, stage_num = stage_buttons[selected_index]
+                    # 필러 UI 활성화
+                    global _pillar_ui_enabled
+                    _pillar_ui_enabled = True
                     main(stage_num)
                     return
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
                 for idx, (rect, num) in enumerate(stage_buttons):
                     if rect.collidepoint(mx, my):
+                        # 필러 UI 활성화
+                        _pillar_ui_enabled = True
                         main(num)
                         return
 def show_item_manager_menu():
@@ -77233,7 +77521,7 @@ def show_item_manager_menu():
         ("가방", ["slot_add", "chargebag", "dowsing_pendulum", "battery"]),
         ("장신구", ["star_detector", "fuel_pouch", "bluetooth_ring",
                   "foul_whistle", "dashholder",
-                  "cooltime", "revival"]),
+                  "cooltime", "revival", "gold_bar"]),
     ]
 
     # 모든 아이템 목록 - 동적으로 아이콘 가져오기
@@ -78396,6 +78684,9 @@ def show_item_manager_menu():
                     if character_id is None:
                         continue
                     apply_character_selection(character_id)
+                    # 필러 UI 활성화
+                    global _pillar_ui_enabled
+                    _pillar_ui_enabled = True
                     main(stage_num)
                     return
                 elif event.key in [pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN]:
@@ -81485,39 +81776,42 @@ def draw_stage3_border():
     """스테이지 3 멘헤라 테두리 그리기"""
     if current_stage == 3:
         border_thickness = 10  # 스테이지 2와 동일한 두께
+        # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
+        x_off = 0
+        game_w = WIDTH
         # 스테이지 3 색상 (멘헤라 테마 - 핑크/보라색 계열)
         base_color = (60, 20, 60)  # 어두운 보라색 (베이스)
         mid_color = (100, 40, 100)  # 중간 보라색
         light_color = (140, 60, 140)  # 밝은 보라색
         accent_color = (200, 100, 150)  # 핑크 악센트
-        
+
         # 메인 테두리
-        pygame.draw.rect(SCREEN, base_color, (0, 0, WIDTH, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (0, HEIGHT - border_thickness, WIDTH, border_thickness))
-        pygame.draw.rect(SCREEN, base_color, (0, 0, border_thickness, HEIGHT))
-        pygame.draw.rect(SCREEN, base_color, (WIDTH - border_thickness, 0, border_thickness, HEIGHT))
-        
+        pygame.draw.rect(SCREEN, base_color, (x_off, 0, game_w, border_thickness))
+        pygame.draw.rect(SCREEN, base_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness))
+        pygame.draw.rect(SCREEN, base_color, (x_off, 0, border_thickness, HEIGHT))
+        pygame.draw.rect(SCREEN, base_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
+
         # 내부 테두리 (깊이감 추가)
         inner_thickness = 2
-        pygame.draw.rect(SCREEN, light_color, (border_thickness - inner_thickness, border_thickness - inner_thickness, 
-                                              WIDTH - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (border_thickness - inner_thickness, HEIGHT - border_thickness, 
-                                              WIDTH - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, light_color, (border_thickness - inner_thickness, border_thickness - inner_thickness, 
+        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, HEIGHT - border_thickness,
+                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(SCREEN, light_color, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
                                               inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-        pygame.draw.rect(SCREEN, light_color, (WIDTH - border_thickness, border_thickness - inner_thickness, 
+        pygame.draw.rect(SCREEN, light_color, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
                                               inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-        
+
         # 코너에 하트 장식 (멘헤라 느낌)
         corner_size = 4
         # 좌상단
-        draw.circle(accent_color, (border_thickness//2, border_thickness//2), corner_size)
+        draw.circle(accent_color, (x_off + border_thickness//2, border_thickness//2), corner_size)
         # 우상단
-        draw.circle(accent_color, (WIDTH - border_thickness//2, border_thickness//2), corner_size)
+        draw.circle(accent_color, (x_off + game_w - border_thickness//2, border_thickness//2), corner_size)
         # 좌하단
-        draw.circle(accent_color, (border_thickness//2, HEIGHT - border_thickness//2), corner_size)
+        draw.circle(accent_color, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_size)
         # 우하단
-        draw.circle(accent_color, (WIDTH - border_thickness//2, HEIGHT - border_thickness//2), corner_size)
+        draw.circle(accent_color, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_size)
 
 def draw_stage2_jungle_border():
     """스테이지 2 정글 테두리 그리기"""
@@ -81525,6 +81819,9 @@ def draw_stage2_jungle_border():
     # 기본 정글 테두리 (고정, 스테이지 1과 동일한 두께)
     if current_stage == 2:
         border_thickness = 10  # 스테이지 1과 동일한 두께
+        # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
+        x_off = 0
+        game_w = WIDTH
         # 기본 정글 색상 (진한 녹색 계열)
         base_green = (25, 51, 25)  # 매우 어두운 녹색 (베이스)
         jungle_green = (34, 70, 34)  # 어두운 녹색
@@ -81533,59 +81830,59 @@ def draw_stage2_jungle_border():
         highlight_green = (76, 122, 76)  # 하이라이트 녹색
         # 메인 테두리 (그라데이션 효과를 위한 레이어링)
         # 베이스 레이어
-        pygame.draw.rect(SCREEN, base_green, (0, 0, WIDTH, border_thickness))
-        pygame.draw.rect(SCREEN, base_green, (0, HEIGHT - border_thickness, WIDTH, border_thickness))
-        pygame.draw.rect(SCREEN, base_green, (0, 0, border_thickness, HEIGHT))
-        pygame.draw.rect(SCREEN, base_green, (WIDTH - border_thickness, 0, border_thickness, HEIGHT))
+        pygame.draw.rect(SCREEN, base_green, (x_off, 0, game_w, border_thickness))
+        pygame.draw.rect(SCREEN, base_green, (x_off, HEIGHT - border_thickness, game_w, border_thickness))
+        pygame.draw.rect(SCREEN, base_green, (x_off, 0, border_thickness, HEIGHT))
+        pygame.draw.rect(SCREEN, base_green, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT))
         # 내부 테두리 (더 밝은 색으로 깊이감 추가)
         inner_thickness = 2
-        pygame.draw.rect(SCREEN, vine_green, (border_thickness - inner_thickness, border_thickness - inner_thickness, 
-                                              WIDTH - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, vine_green, (border_thickness - inner_thickness, HEIGHT - border_thickness, 
-                                              WIDTH - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(SCREEN, vine_green, (border_thickness - inner_thickness, border_thickness - inner_thickness, 
+        pygame.draw.rect(SCREEN, vine_green, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
+                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(SCREEN, vine_green, (x_off + border_thickness - inner_thickness, HEIGHT - border_thickness,
+                                              game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(SCREEN, vine_green, (x_off + border_thickness - inner_thickness, border_thickness - inner_thickness,
                                               inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
-        pygame.draw.rect(SCREEN, vine_green, (WIDTH - border_thickness, border_thickness - inner_thickness, 
+        pygame.draw.rect(SCREEN, vine_green, (x_off + game_w - border_thickness, border_thickness - inner_thickness,
                                               inner_thickness, HEIGHT - 2*(border_thickness - inner_thickness)))
         # 테두리 장식 패턴 (정글 느낌)
         # 나뭇가지 패턴
-        for i in range(0, WIDTH, 30):
+        for i in range(0, game_w, 30):
             # 상단 나뭇가지
-            draw.line(jungle_green, (i, 2), (i + 15, 8), 1)
-            draw.line(jungle_green, (i + 15, 2), (i, 8), 1)
+            draw.line(jungle_green, (x_off + i, 2), (x_off + i + 15, 8), 1)
+            draw.line(jungle_green, (x_off + i + 15, 2), (x_off + i, 8), 1)
             # 하단 나뭇가지
-            draw.line(jungle_green, (i, HEIGHT - 8), (i + 15, HEIGHT - 2), 1)
-            draw.line(jungle_green, (i + 15, HEIGHT - 8), (i, HEIGHT - 2), 1)
+            draw.line(jungle_green, (x_off + i, HEIGHT - 8), (x_off + i + 15, HEIGHT - 2), 1)
+            draw.line(jungle_green, (x_off + i + 15, HEIGHT - 8), (x_off + i, HEIGHT - 2), 1)
         for i in range(0, HEIGHT, 30):
             # 좌측 나뭇가지
-            draw.line(jungle_green, (2, i), (8, i + 15), 1)
-            draw.line(jungle_green, (2, i + 15), (8, i), 1)
+            draw.line(jungle_green, (x_off + 2, i), (x_off + 8, i + 15), 1)
+            draw.line(jungle_green, (x_off + 2, i + 15), (x_off + 8, i), 1)
             # 우측 나뭇가지
-            draw.line(jungle_green, (WIDTH - 8, i), (WIDTH - 2, i + 15), 1)
-            draw.line(jungle_green, (WIDTH - 8, i + 15), (WIDTH - 2, i), 1)
+            draw.line(jungle_green, (x_off + game_w - 8, i), (x_off + game_w - 2, i + 15), 1)
+            draw.line(jungle_green, (x_off + game_w - 8, i + 15), (x_off + game_w - 2, i), 1)
         # 코너 장식 (덩굴 매듭)
         corner_radius = 4
         # 좌상단
-        draw.circle(highlight_green, (border_thickness//2, border_thickness//2), corner_radius)
+        draw.circle(highlight_green, (x_off + border_thickness//2, border_thickness//2), corner_radius)
         # 우상단
-        draw.circle(highlight_green, (WIDTH - border_thickness//2, border_thickness//2), corner_radius)
+        draw.circle(highlight_green, (x_off + game_w - border_thickness//2, border_thickness//2), corner_radius)
         # 좌하단
-        draw.circle(highlight_green, (border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
+        draw.circle(highlight_green, (x_off + border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
         # 우하단
-        draw.circle(highlight_green, (WIDTH - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
+        draw.circle(highlight_green, (x_off + game_w - border_thickness//2, HEIGHT - border_thickness//2), corner_radius)
         # 벽 충돌 시 깜빡임 효과
         if stage2_border_flash_timer > 0:
             flash_alpha = stage2_border_flash_timer / stage2_border_flash_duration
             flash_color = (
                 int(100 + 155 * flash_alpha),
-                int(200 + 55 * flash_alpha), 
+                int(200 + 55 * flash_alpha),
                 int(100 + 155 * flash_alpha)
             )
             # 테두리 하이라이트 (스테이지 1과 동일한 두께)
-            pygame.draw.rect(SCREEN, flash_color, (0, 0, WIDTH, border_thickness), 0)
-            pygame.draw.rect(SCREEN, flash_color, (0, HEIGHT - border_thickness, WIDTH, border_thickness), 0)
-            pygame.draw.rect(SCREEN, flash_color, (0, 0, border_thickness, HEIGHT), 0)
-            pygame.draw.rect(SCREEN, flash_color, (WIDTH - border_thickness, 0, border_thickness, HEIGHT), 0)
+            pygame.draw.rect(SCREEN, flash_color, (x_off, 0, game_w, border_thickness), 0)
+            pygame.draw.rect(SCREEN, flash_color, (x_off, HEIGHT - border_thickness, game_w, border_thickness), 0)
+            pygame.draw.rect(SCREEN, flash_color, (x_off, 0, border_thickness, HEIGHT), 0)
+            pygame.draw.rect(SCREEN, flash_color, (x_off + game_w - border_thickness, 0, border_thickness, HEIGHT), 0)
             stage2_border_flash_timer -= 1
 def update_stage2_leaves():
     """떨어지는 잎사귀 업데이트"""
@@ -82347,21 +82644,24 @@ def draw_field():
         pygame.draw.circle(SCREEN, (200, 200, 200), (taegeuk_center_x, taegeuk_center_y), taegeuk_radius + 2, 4)
 
         # Stage 1 필드 전체에 8픽셀 단청 스타일 테두리 추가
+        # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
+        border_x = 0
+        border_width = WIDTH
         # 외곽선 (진한 갈색)
-        pygame.draw.rect(SCREEN, (101, 67, 33), (0, 0, WIDTH, HEIGHT), 8)
+        pygame.draw.rect(SCREEN, (101, 67, 33), (border_x, 0, border_width, HEIGHT), 8)
         # 단청 패턴을 위한 내부 장식
         # 상단 단청 패턴
-        pygame.draw.rect(SCREEN, (220, 50, 50), (8, 4, WIDTH-16, 2), 0)  # 빨강
-        pygame.draw.rect(SCREEN, (255, 215, 0), (8, 6, WIDTH-16, 2), 0)  # 노랑
+        pygame.draw.rect(SCREEN, (220, 50, 50), (border_x + 8, 4, border_width - 16, 2), 0)  # 빨강
+        pygame.draw.rect(SCREEN, (255, 215, 0), (border_x + 8, 6, border_width - 16, 2), 0)  # 노랑
         # 하단 단청 패턴
-        pygame.draw.rect(SCREEN, (50, 50, 220), (8, HEIGHT-6, WIDTH-16, 2), 0)  # 파랑
-        pygame.draw.rect(SCREEN, (50, 180, 50), (8, HEIGHT-8, WIDTH-16, 2), 0)  # 초록
+        pygame.draw.rect(SCREEN, (50, 50, 220), (border_x + 8, HEIGHT - 6, border_width - 16, 2), 0)  # 파랑
+        pygame.draw.rect(SCREEN, (50, 180, 50), (border_x + 8, HEIGHT - 8, border_width - 16, 2), 0)  # 초록
         # 좌측 단청 패턴
-        pygame.draw.rect(SCREEN, (220, 50, 50), (4, 8, 2, HEIGHT-16), 0)  # 빨강
-        pygame.draw.rect(SCREEN, (255, 215, 0), (6, 8, 2, HEIGHT-16), 0)  # 노랑
+        pygame.draw.rect(SCREEN, (220, 50, 50), (border_x + 4, 8, 2, HEIGHT - 16), 0)  # 빨강
+        pygame.draw.rect(SCREEN, (255, 215, 0), (border_x + 6, 8, 2, HEIGHT - 16), 0)  # 노랑
         # 우측 단청 패턴
-        pygame.draw.rect(SCREEN, (50, 50, 220), (WIDTH-6, 8, 2, HEIGHT-16), 0)  # 파랑
-        pygame.draw.rect(SCREEN, (50, 180, 50), (WIDTH-8, 8, 2, HEIGHT-16), 0)  # 초록
+        pygame.draw.rect(SCREEN, (50, 50, 220), (border_x + border_width - 6, 8, 2, HEIGHT - 16), 0)  # 파랑
+        pygame.draw.rect(SCREEN, (50, 180, 50), (border_x + border_width - 8, 8, 2, HEIGHT - 16), 0)  # 초록
         # 스테이지 1: 필러에서 날아오는 나비를 게임 화면에 그리기
         if pillar_renderer is not None:
             pillar_renderer.draw_butterfly_ingame(SCREEN, WIDTH, HEIGHT)
@@ -90467,15 +90767,15 @@ def _boss_try_emergency_dash() -> bool:
         return False
 
     # 공이 보스 라인 아래 특정 Y 구간에 있을 때만 대쉬 고려
-    # dy가 작을수록 공이 보스에 가까움 (180px = 더 가까워졌을 때 발동)
+    # dy가 작을수록 공이 보스에 가까움 (100px = 더 가까워졌을 때만 발동)
     dy = BALL.centery - BOSS.bottom
-    if dy <= 0 or dy > 180:  # 260 → 180: 공이 더 가까워졌을 때만 대쉬 발동
+    if dy <= 0 or dy > 100:  # 180 → 100: 공이 훨씬 더 가까워졌을 때만 대쉬 발동
         return False
 
     time_to_boss = dy / max(1.0, abs(ball_vel[1]))  # 프레임 단위 예상 시간
 
     # 공이 아직 너무 멀리 있을 때는 일반 이동으로 대응 가능하므로 대쉬 사용 안 함
-    if time_to_boss > 28.0:  # 40 → 28: 약 0.47초 이상 남으면 대쉬 안 씀 (더 긴박할 때만 사용)
+    if time_to_boss > 18.0:  # 28 → 18: 약 0.3초 이상 남으면 대쉬 안 씀 (더 긴박할 때만 사용)
         return False
 
     # 스테이지/리그 설정 기반 보스 최대 속도 추정 (일반 이동 성능을 낙관적으로 계산)
@@ -90539,17 +90839,18 @@ def _boss_try_emergency_dash() -> bool:
     direction = 1 if predicted_x > BOSS.centerx else -1
 
     # 스테이지별 최대 대쉬 거리(px) 적용
+    # 이제 예측 위치까지가 아닌, 항상 최대 대쉬 거리만큼 대쉬함
     try:
         stage_cfg = BOSS_CONFIGS.get(current_stage, {})
-        max_dash_distance = float(stage_cfg.get("dash_max_distance", 9999))
+        max_dash_distance = float(stage_cfg.get("dash_max_distance", 240))  # 기본값 240px
     except Exception:
-        max_dash_distance = 9999.0
+        max_dash_distance = 240.0
 
-    raw_distance = abs(predicted_x - BOSS.centerx)
+    # 극정호신 상태에서는 거리 제한 해제, 그 외에는 항상 최대 거리로 대쉬
     if stage8_superspeed_active:
-        dash_distance = raw_distance  # 극정호신: 거리 제한 해제
+        dash_distance = abs(predicted_x - BOSS.centerx)  # 극정호신: 예측 위치까지
     else:
-        dash_distance = min(raw_distance, max_dash_distance)
+        dash_distance = max_dash_distance  # 항상 최대 대쉬 거리 사용
 
     if direction > 0:
         target_centerx = BOSS.centerx + dash_distance
@@ -95320,6 +95621,9 @@ def main(stage_num, new_boss_mode=False):
     global rolling_active, rolling_timer, rolling_direction, rolling_speed, rolling_stun_timer
     global player_flame_zone_knockback_vel, player_flame_zone_knockback_cooldown, player_in_flame_zone
     global aipill_active, current_speed
+    # 클렌즈 관련 추가 전역 변수
+    global spider_mine_slow_active, smasher_power_recoil_timer
+    global player_burn_timer, player_burn_effect, player_knockback_y
     
     # 플레이어 위치 가운데로 고정
     PLAYER.centerx = WIDTH // 2
@@ -98497,6 +98801,8 @@ def main(stage_num, new_boss_mode=False):
         # ✨ 스매셔 클렌즈 스킬 - 폴링 방식 (한글 IME 호환)
         # pygame.key.get_pressed()는 IME와 관계없이 물리적 키 상태를 확인
         if selected_character_type == "smasher" and not game_paused:
+            # 참고: 클렌즈 관련 전역 변수들은 함수 상단(95442~95446)에서 이미 global 선언됨
+
             keys_poll = pygame.key.get_pressed()
             # W키 (pygame.K_w) = 한글 ㅈ키 위치
             w_key_poll = keys_poll[pygame.K_w]
@@ -98514,12 +98820,12 @@ def main(stage_num, new_boss_mode=False):
                     player_missile_stunned_timer=player_missile_stunned_timer,
                     player_slow_timer=player_slow_timer,
                     player_knockback_vel=player_knockback_vel,
-                    player_missile_knockback_vel=player_missile_knockback_vel if 'player_missile_knockback_vel' in dir() else 0,
-                    player_flame_zone_knockback_vel=player_flame_zone_knockback_vel if 'player_flame_zone_knockback_vel' in dir() else 0,
-                    smasher_power_recoil_timer=smasher_power_recoil_timer if 'smasher_power_recoil_timer' in dir() else 0,
-                    spider_mine_slow_active=spider_mine_slow_active if 'spider_mine_slow_active' in dir() else False,
-                    player_burn_timer=player_burn_timer if 'player_burn_timer' in dir() else 0,
-                    player_knockback_y=player_knockback_y if 'player_knockback_y' in dir() else 0
+                    player_missile_knockback_vel=player_missile_knockback_vel,
+                    player_flame_zone_knockback_vel=player_flame_zone_knockback_vel,
+                    smasher_power_recoil_timer=smasher_power_recoil_timer,
+                    spider_mine_slow_active=spider_mine_slow_active,
+                    player_burn_timer=player_burn_timer,
+                    player_knockback_y=player_knockback_y
                 )
                 print(f"[CLEANSE-POLL] gauge={special_gauge}, has_status={has_status}, cooldown={cleanse_poll.cooldown_timer}, active={cleanse_poll.active}")
                 if cleanse_poll.can_activate(special_gauge, has_status):
@@ -98533,21 +98839,14 @@ def main(stage_num, new_boss_mode=False):
                     player_missile_stunned_timer = 0
                     player_slow_timer = 0
                     player_knockback_vel = 0
-                    if 'player_missile_knockback_vel' in dir():
-                        player_missile_knockback_vel = 0
-                    if 'player_flame_zone_knockback_vel' in dir():
-                        player_flame_zone_knockback_vel = 0
-                    if 'smasher_power_recoil_timer' in dir():
-                        smasher_power_recoil_timer = 0
-                    if 'spider_mine_slow_active' in dir():
-                        spider_mine_slow_active = False
+                    player_missile_knockback_vel = 0
+                    player_flame_zone_knockback_vel = 0
+                    smasher_power_recoil_timer = 0
+                    spider_mine_slow_active = False
                     # 스테이지4 붉은달 파편 화상/넉백 해제
-                    if 'player_burn_timer' in dir():
-                        player_burn_timer = 0
-                    if 'player_burn_effect' in dir():
-                        player_burn_effect = False
-                    if 'player_knockback_y' in dir():
-                        player_knockback_y = 0
+                    player_burn_timer = 0
+                    player_burn_effect = False
+                    player_knockback_y = 0
                     print("✨ [CLEANSE] 클렌즈 발동! 모든 상태이상 해제!")
 
             # 키 상태 업데이트 (다음 프레임에서 중복 발동 방지)
@@ -102274,6 +102573,11 @@ def show_character_info(background_surface=None):
             move_speed *= get_optimus_gauge_ratio()
             move_speed = max(1.0, move_speed)
 
+        # 💰 금괴 미착용 시 이동속도 페널티 반영
+        gold_bar_mult = get_gold_bar_speed_multiplier()
+        if gold_bar_mult < 1.0:
+            move_speed *= gold_bar_mult
+
         # 🌧️ 소나기 이벤트 시 이동속도 감소 반영
         if is_rain_active():
             rain_penalty = get_rain_speed_penalty()
@@ -103551,6 +103855,13 @@ def show_game_info():
         swiftness_bonus = runtime_swiftness_bonus if runtime_swiftness_bonus > 0 else 0
         effective_speed_info = base_speed_info * (1.0 + swiftness_bonus)
 
+        # 💰 금괴 미착용 시 이동속도 페널티 반영
+        gold_bar_mult = get_gold_bar_speed_multiplier()
+        gold_bar_debuff_text = ""
+        if gold_bar_mult < 1.0:
+            effective_speed_info *= gold_bar_mult
+            gold_bar_debuff_text = f" (💰-{int((1.0 - gold_bar_mult) * 100)}%)"
+
         turn_speed_info = effective_speed_info * (1.5 if speedgear_obtained else 1.0)
         paddle_width_info = PADDLE_WIDTH
 
@@ -103560,7 +103871,7 @@ def show_game_info():
         rain_active = is_rain_active()
         if rain_active:
             rain_penalty = get_rain_speed_penalty()
-            current_speed_info = base_speed_info * (1.0 - rain_penalty)
+            current_speed_info = effective_speed_info * (1.0 - rain_penalty)
             rain_debuff_text = f" (🌧️-{int(rain_penalty * 100)}%)"
 
         # 🧊 얼음 이벤트 시 방향전환속도 감소 반영
@@ -103575,10 +103886,10 @@ def show_game_info():
         # 이동속도/방향전환속도 표시 문자열 구성
         swiftness_buff_text = f" (🏃+{int(swiftness_bonus * 100)}%)" if swiftness_bonus > 0 else ""
         if rain_active:
-            speed_display = f"이동속도: {current_speed_info:.1f}{swiftness_buff_text}{rain_debuff_text}"
+            speed_display = f"이동속도: {current_speed_info:.1f}{swiftness_buff_text}{gold_bar_debuff_text}{rain_debuff_text}"
         else:
-            if swiftness_bonus > 0:
-                speed_display = f"이동속도: {effective_speed_info:.1f}{swiftness_buff_text}"
+            if swiftness_bonus > 0 or gold_bar_mult < 1.0:
+                speed_display = f"이동속도: {effective_speed_info:.1f}{swiftness_buff_text}{gold_bar_debuff_text}"
             else:
                 speed_display = f"기본 이동속도: {base_speed_info}"
 
@@ -106602,3 +106913,4 @@ if __name__ == "__main__":
     opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
     game_loop()            
     
+ 
