@@ -121,7 +121,7 @@ class ShaolinTempleBackground:
         # OPTIMIZATION: Performance mode for low FPS
         self.performance_mode = False  # Enable reduced quality for better FPS
         self.fps_counter = 0
-        self.low_fps_threshold = 50  # Enable performance mode below 50 FPS
+        self.low_fps_threshold = 55  # Enable performance mode below 55 FPS (increased from 50)
         
         # Colors - Muted night palette (불 꺼진 밤 느낌)
         self.colors = {
@@ -1165,12 +1165,12 @@ class ShaolinTempleBackground:
         dragon['eye_glow'] += dragon['eye_glow_speed']
     
     def _draw_lantern(self, surface: pygame.Surface, lantern: Dict[str, Any]):
-        """Draw a hanging lantern"""
+        """Draw a hanging lantern (optimized)"""
         # Calculate swing
         swing = math.sin(self.frame_count * lantern['swing_speed'] + lantern['swing_offset']) * 5
         x = lantern['x'] + swing
         y = lantern['y']
-        
+
         # Lantern size
         sizes = {
             'small': (15, 20),
@@ -1178,23 +1178,38 @@ class ShaolinTempleBackground:
             'large': (25, 30),
         }
         width, height = sizes[lantern['size']]
-        
-        # Glow effect
+
+        # OPTIMIZATION: Cache glow surfaces by size
+        if not hasattr(self, '_lantern_glow_cache'):
+            self._lantern_glow_cache = {}
+
+        # Glow effect - quantize alpha to reduce cache variations
         glow_alpha = abs(math.sin(lantern['glow_pulse'])) * 0.3 + 0.7
         glow_radius = int(lantern['glow_radius'] * glow_alpha)
-        
-        glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-        for i in range(glow_radius, 0, -2):
-            alpha = int(60 * (i / glow_radius) * glow_alpha)
-            color = (*self.colors['lantern_glow'][:3], alpha)
-            pygame.draw.circle(glow_surface, color, (glow_radius, glow_radius), i)
-        surface.blit(glow_surface, (x - glow_radius, y - glow_radius))
-        
+        cache_key = (glow_radius, int(glow_alpha * 10))  # Quantized alpha
+
+        if cache_key not in self._lantern_glow_cache:
+            glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+            # OPTIMIZATION: Draw fewer circles (step by 4 instead of 2)
+            for i in range(glow_radius, 0, -4):
+                alpha = int(60 * (i / glow_radius) * glow_alpha)
+                color = (*self.colors['lantern_glow'][:3], alpha)
+                pygame.draw.circle(glow_surface, color, (glow_radius, glow_radius), i)
+            self._lantern_glow_cache[cache_key] = glow_surface
+            # Limit cache size
+            if len(self._lantern_glow_cache) > 30:
+                # Remove oldest entries
+                keys = list(self._lantern_glow_cache.keys())
+                for k in keys[:10]:
+                    del self._lantern_glow_cache[k]
+
+        surface.blit(self._lantern_glow_cache[cache_key], (x - glow_radius, y - glow_radius))
+
         # Lantern string
         pygame.draw.line(surface, self.colors['temple_dark'],
                         (lantern['x'], lantern['base_y'] - 30),
                         (x, y - height // 2), 1)
-        
+
         # Lantern body
         points = [
             (x - width // 2, y - height // 2),
@@ -1204,20 +1219,23 @@ class ShaolinTempleBackground:
         ]
         pygame.draw.polygon(surface, self.colors['lantern_red'], points)
         pygame.draw.polygon(surface, self.colors['temple_dark'], points, 1)
-        
+
         # Decorative lines
         for i in range(3):
             line_y = y - height // 2 + (i + 1) * (height // 4)
             pygame.draw.line(surface, self.colors['gold_dim'],
                            (x - width // 2 + 2, line_y),
                            (x + width // 2 - 2, line_y), 1)
-        
+
         lantern['glow_pulse'] += 0.03
     
     def _draw_incense(self, surface: pygame.Surface):
-        """Draw incense smoke particles"""
-        # Spawn new incense particles
-        if self.frame_count % 3 == 0:
+        """Draw incense smoke particles (optimized)"""
+        # OPTIMIZATION: Limit max particles and spawn less frequently
+        MAX_INCENSE_PARTICLES = 60  # Reduced from unlimited
+
+        # Spawn new incense particles (every 6 frames instead of 3)
+        if self.frame_count % 6 == 0 and len(self.incense_particles) < MAX_INCENSE_PARTICLES:
             # Three incense burner positions
             positions = [(150, 480), (300, 480), (450, 480)]
             for px, py in positions:
@@ -1229,29 +1247,45 @@ class ShaolinTempleBackground:
                     'life': 120,
                     'size': random.randint(3, 6),
                 })
-        
+
+        # OPTIMIZATION: Cache smoke surfaces by size
+        if not hasattr(self, '_smoke_surf_cache'):
+            self._smoke_surf_cache = {}
+
         # Update and draw particles
-        for particle in self.incense_particles[:]:
+        new_particles = []
+        for particle in self.incense_particles:
             particle['x'] += particle['vx']
             particle['y'] += particle['vy']
             particle['life'] -= 1
-            
+
             # Wave motion
             particle['vx'] += math.sin(self.frame_count * 0.05) * 0.02
-            
+
             if particle['life'] <= 0:
-                self.incense_particles.remove(particle)
                 continue
-            
-            # Draw smoke
+
+            new_particles.append(particle)
+
+            # Draw smoke using cached surface
             alpha = int((particle['life'] / 120) * 40)
-            color = (*self.colors['incense_smoke'][:3], alpha)
-            smoke_surface = pygame.Surface((particle['size'] * 2, particle['size'] * 2), pygame.SRCALPHA)
-            pygame.draw.circle(smoke_surface, color, 
-                             (particle['size'], particle['size']), 
-                             particle['size'])
-            surface.blit(smoke_surface, (particle['x'] - particle['size'], 
-                                        particle['y'] - particle['size']))
+            size = particle['size']
+            cache_key = (size, alpha // 10)  # Quantized alpha
+
+            if cache_key not in self._smoke_surf_cache:
+                smoke_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                color = (*self.colors['incense_smoke'][:3], alpha)
+                pygame.draw.circle(smoke_surface, color, (size, size), size)
+                self._smoke_surf_cache[cache_key] = smoke_surface
+                # Limit cache size
+                if len(self._smoke_surf_cache) > 20:
+                    keys = list(self._smoke_surf_cache.keys())
+                    del self._smoke_surf_cache[keys[0]]
+
+            surface.blit(self._smoke_surf_cache[cache_key],
+                        (particle['x'] - size, particle['y'] - size))
+
+        self.incense_particles = new_particles
         
         # Draw incense burners (darker colors)
         positions = [(150, 480), (300, 480), (450, 480)]
@@ -1803,14 +1837,23 @@ class ShaolinTempleBackground:
         return False
     
     def _create_crow_explosion(self, x, y, size):
-        """Create explosion fragments when crow is hit"""
-        # Create 8-12 feather fragments
-        num_fragments = random.randint(8, 12)
-        
+        """Create explosion fragments when crow is hit (optimized)"""
+        # OPTIMIZATION: Reduce fragment count from 8-12 to 6-8
+        num_fragments = random.randint(6, 8)
+
         for i in range(num_fragments):
             angle = (i / num_fragments) * 2 * math.pi + random.uniform(-0.3, 0.3)
             speed = random.uniform(2, 6)
-            
+            frag_type = random.choice(['feather', 'fragment'])
+
+            # Pre-generate shape offsets for rendering (avoid per-frame random calls)
+            if frag_type == 'fragment':
+                num_points = random.randint(5, 7)
+                shape_offsets = [random.uniform(0.6, 1.0) for _ in range(num_points)]
+            else:
+                num_points = 6
+                shape_offsets = None  # Feathers use fixed pattern
+
             fragment = {
                 'x': x,
                 'y': y,
@@ -1822,16 +1865,18 @@ class ShaolinTempleBackground:
                 'gravity': 0.15,
                 'life': random.randint(60, 90),  # 1-1.5 seconds
                 'color': random.choice([(20, 15, 25), (30, 25, 35), (15, 10, 20)]),  # Dark feather colors
-                'type': random.choice(['feather', 'fragment']),
-                'opacity': 255
+                'type': frag_type,
+                'opacity': 255,
+                'num_points': num_points,
+                'shape_offsets': shape_offsets,  # Pre-cached for rendering
             }
             self.crow_fragments.append(fragment)
-        
-        # Create some small particles for effect
-        for _ in range(15):
+
+        # OPTIMIZATION: Reduce particle count from 15 to 8
+        for _ in range(8):
             particle_angle = random.uniform(0, 2 * math.pi)
             particle_speed = random.uniform(1, 4)
-            
+
             particle = {
                 'x': x,
                 'y': y,
@@ -1840,7 +1885,9 @@ class ShaolinTempleBackground:
                 'size': random.randint(1, 3),
                 'life': random.randint(20, 40),
                 'color': (40, 35, 45),
-                'opacity': 200
+                'opacity': 200,
+                'rotation': random.uniform(0, 360),  # Pre-cache rotation
+                'shape_offsets': [random.uniform(0.7, 1.0) for _ in range(4)],  # Pre-cache shape
             }
             self.crow_particles.append(particle)
     
@@ -2757,29 +2804,23 @@ class ShaolinTempleBackground:
                 print(f"Error drawing body part: {e}")
     
     def _draw_monk_hit_effects(self, surface: pygame.Surface):
-        """Draw monk hit effects"""
+        """Draw monk hit effects (optimized)"""
         for effect in self.monk_hit_effects:
             if effect['type'] == 'shockwave':
                 if effect['alpha'] > 0:
-                    # Draw expanding ring
-                    color = (*effect['color'], int(effect['alpha']))
-                    # Create temporary surface for alpha
-                    temp_surface = pygame.Surface((effect['radius'] * 2 + 4, effect['radius'] * 2 + 4), pygame.SRCALPHA)
-                    pygame.draw.circle(temp_surface, color, 
-                                     (effect['radius'] + 2, effect['radius'] + 2), 
+                    # OPTIMIZATION: Draw directly to surface instead of creating temp surface
+                    color = (*effect['color'][:3], int(effect['alpha']))
+                    pygame.draw.circle(surface, color,
+                                     (int(effect['x']), int(effect['y'])),
                                      int(effect['radius']), 3)
-                    surface.blit(temp_surface, 
-                               (effect['x'] - effect['radius'] - 2, 
-                                effect['y'] - effect['radius'] - 2))
-                    
+
             elif effect['type'] == 'spark':
-                # Draw spark particle
+                # Draw spark particle directly
                 alpha = int(255 * (effect['life'] / 20))
                 if alpha > 0:
-                    color = (*effect['color'], alpha)
-                    temp_surface = pygame.Surface((6, 6), pygame.SRCALPHA)
-                    pygame.draw.circle(temp_surface, color, (3, 3), 2)
-                    surface.blit(temp_surface, (int(effect['x'] - 3), int(effect['y'] - 3)))
+                    color = (*effect['color'][:3], alpha)
+                    pygame.draw.circle(surface, color,
+                                     (int(effect['x']), int(effect['y'])), 2)
     
     def _draw_monk(self, surface: pygame.Surface, monk: Dict[str, Any]):
         """Draw a wandering monk with unique appearance"""
@@ -3322,78 +3363,75 @@ class ShaolinTempleBackground:
         return self.brazier_lit
     
     def _draw_crow_fragments(self, surface: pygame.Surface):
-        """Draw crow explosion fragments"""
+        """Draw crow explosion fragments (optimized)"""
         for fragment in self.crow_fragments:
-            # Create a surface for the fragment with alpha
-            frag_surface = pygame.Surface((fragment['size'] * 2, fragment['size'] * 2), pygame.SRCALPHA)
-            
+            size = fragment['size']
+            center = size
+            color = (*fragment['color'], fragment['opacity'])
+
             if fragment['type'] == 'feather':
-                # Draw feather-like shape
+                # Draw feather-like shape with fixed pattern
                 points = []
                 for i in range(6):
                     angle = (i / 6) * 2 * math.pi + math.radians(fragment['rotation'])
-                    if i % 2 == 0:
-                        r = fragment['size']
-                    else:
-                        r = fragment['size'] * 0.5
-                    x = fragment['size'] + r * math.cos(angle)
-                    y = fragment['size'] + r * math.sin(angle)
+                    r = size if i % 2 == 0 else size * 0.5
+                    x = center + r * math.cos(angle)
+                    y = center + r * math.sin(angle)
                     points.append((x, y))
-                
-                # Draw with opacity
-                color = (*fragment['color'], fragment['opacity'])
-                if len(points) >= 3:
-                    pygame.draw.polygon(frag_surface, color, points)
+
+                # Draw directly to surface (avoid creating temp surface for small fragments)
+                offset_x = int(fragment['x'] - size)
+                offset_y = int(fragment['y'] - size)
+                offset_points = [(x + offset_x, y + offset_y) for x, y in points]
+                if len(offset_points) >= 3:
+                    pygame.draw.polygon(surface, color, offset_points)
             else:
-                # Draw fragment as irregular body chunk
-                color = (*fragment['color'], fragment['opacity'])
-                
-                # Create irregular fragment shape (not circle)
+                # Draw fragment with pre-cached shape offsets
+                num_points = fragment.get('num_points', 6)
+                shape_offsets = fragment.get('shape_offsets', [0.8] * num_points)
+
                 points = []
-                num_points = random.randint(5, 7)  # Irregular shape with 5-7 points
                 for i in range(num_points):
                     angle = (i * 2 * math.pi / num_points) + math.radians(fragment['rotation'])
-                    # Random radius for irregular look
-                    radius = fragment['size'] * random.uniform(0.6, 1.0)
-                    x = fragment['size'] + radius * math.cos(angle)
-                    y = fragment['size'] + radius * math.sin(angle)
+                    radius = size * shape_offsets[i]
+                    x = center + radius * math.cos(angle)
+                    y = center + radius * math.sin(angle)
                     points.append((x, y))
-                
-                if len(points) >= 3:
-                    pygame.draw.polygon(frag_surface, color, points)
-                    # Add darker outline for definition
-                    darker_color = tuple(max(0, c - 40) for c in fragment['color']) + (fragment['opacity'],)
-                    pygame.draw.polygon(frag_surface, darker_color, points, 1)
-            
-            # Blit to main surface
-            surface.blit(frag_surface, 
-                        (int(fragment['x'] - fragment['size']), 
-                         int(fragment['y'] - fragment['size'])))
+
+                # Draw directly to surface
+                offset_x = int(fragment['x'] - size)
+                offset_y = int(fragment['y'] - size)
+                offset_points = [(x + offset_x, y + offset_y) for x, y in points]
+                if len(offset_points) >= 3:
+                    pygame.draw.polygon(surface, color, offset_points)
     
     def _draw_crow_particles(self, surface: pygame.Surface):
-        """Draw crow explosion particles as small debris"""
+        """Draw crow explosion particles as small debris (optimized)"""
         for particle in self.crow_particles:
-            # Draw small debris particle with irregular shape
-            particle_surface = pygame.Surface((particle['size'] * 2, particle['size'] * 2), pygame.SRCALPHA)
             color = (*particle['color'], particle['opacity'])
-            
+            size = particle['size']
+            center = size
+
+            # Use pre-cached shape offsets
+            shape_offsets = particle.get('shape_offsets', [0.85] * 4)
+            rotation = particle.get('rotation', 0)
+
             # Create small irregular debris shape
-            center = particle['size']
             points = []
             num_points = 4  # Small triangular/diamond debris
             for i in range(num_points):
-                angle = (i * 2 * math.pi / num_points) + math.radians(particle.get('rotation', 0))
-                radius = particle['size'] * random.uniform(0.7, 1.0)
+                angle = (i * 2 * math.pi / num_points) + math.radians(rotation)
+                radius = size * shape_offsets[i]
                 x = center + radius * math.cos(angle)
                 y = center + radius * math.sin(angle)
                 points.append((x, y))
-            
+
+            # Draw directly to surface (optimized - no temp surface needed)
             if len(points) >= 3:
-                pygame.draw.polygon(particle_surface, color, points)
-            
-            surface.blit(particle_surface,
-                        (int(particle['x'] - particle['size']), 
-                         int(particle['y'] - particle['size'])))
+                offset_x = int(particle['x'] - size)
+                offset_y = int(particle['y'] - size)
+                offset_points = [(x + offset_x, y + offset_y) for x, y in points]
+                pygame.draw.polygon(surface, color, offset_points)
     
     def _draw_stage_title(self, surface: pygame.Surface):
         """Draw stage title"""
@@ -5122,6 +5160,12 @@ class ShaolinTempleBackground:
             # 다단히트용 고유 ID 생성 (타임스탬프 + 랜덤)
             fragment_id = pygame.time.get_ticks() * 1000 + random.randint(0, 999)
 
+            # Pre-generate random values for rendering (optimization)
+            frag_size = random.randint(8, 15)
+            glow_offsets = [(random.uniform(0.8, 1.2), random.uniform(0.8, 1.2)) for _ in range(12)]
+            middle_glow_offsets = [(random.uniform(0.9, 1.1), random.uniform(0.9, 1.1)) for _ in range(10)]
+            core_offsets = [random.uniform(0.8, 1.0) for _ in range(8)]
+
             fragment = {
                 'fragment_id': fragment_id,  # 다단히트 쿨다운 추적용 고유 ID
                 'x': moon_x + random.randint(-30, 30),  # Start near moon
@@ -5130,13 +5174,17 @@ class ShaolinTempleBackground:
                 'vy': vy,
                 'target_x': target_x,
                 'target_y': target_y,
-                'size': random.randint(8, 15),
+                'size': frag_size,
                 'rotation': 0,
                 'rotation_speed': random.uniform(-10, 10),
                 'lifetime': 300,  # 5 seconds - increased for better reach
                 'trail': [],  # Trail effect
                 'impact': False,
                 'glow_phase': random.uniform(0, math.pi * 2),
+                # Pre-cached random offsets for rendering (avoid per-frame random calls)
+                'glow_offsets': glow_offsets,
+                'middle_glow_offsets': middle_glow_offsets,
+                'core_offsets': core_offsets,
             }
             self.moon_fragments.append(fragment)
         
@@ -5554,120 +5602,108 @@ class ShaolinTempleBackground:
         print("Stage 4: Shaolin Temple background reset to initial state")
     
     def _draw_moon_fragments(self, surface: pygame.Surface):
-        """Draw moon crater fragments"""
+        """Draw moon crater fragments (optimized)"""
+        # OPTIMIZATION: Get cached trail surface or create once
+        if not hasattr(self, '_trail_surf_cache'):
+            self._trail_surf_cache = {}
+
         for fragment in self.moon_fragments:
             if not fragment['impact']:
-                # Draw trail
-                for trail_point in fragment['trail']:
-                    trail_surf = pygame.Surface((trail_point['size'] * 2, trail_point['size'] * 2), pygame.SRCALPHA)
-                    # Glowing trail
-                    for i in range(3):
-                        radius = trail_point['size'] - i * 2
-                        if radius > 0:
-                            alpha = trail_point['alpha'] // (i + 1)
-                            color = (*self.colors['fragment_trail'][:3], alpha)
-                            pygame.draw.circle(trail_surf, color,
-                                             (trail_point['size'], trail_point['size']),
-                                             radius)
-                    surface.blit(trail_surf,
-                               (int(trail_point['x'] - trail_point['size']),
-                                int(trail_point['y'] - trail_point['size'])))
-                
+                # Draw trail (optimized - skip every other trail point)
+                trail_len = len(fragment['trail'])
+                for idx, trail_point in enumerate(fragment['trail']):
+                    # Skip every other point for performance
+                    if idx % 2 == 0 and idx < trail_len - 1:
+                        continue
+
+                    trail_size = int(trail_point['size'])
+                    cache_key = (trail_size, trail_point['alpha'] // 30)  # Group by size and alpha range
+
+                    if cache_key not in self._trail_surf_cache:
+                        trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                        # Simplified trail - single circle instead of 3 layers
+                        alpha = trail_point['alpha']
+                        color = (*self.colors['fragment_trail'][:3], alpha)
+                        pygame.draw.circle(trail_surf, color, (trail_size, trail_size), trail_size)
+                        self._trail_surf_cache[cache_key] = trail_surf
+
+                    surface.blit(self._trail_surf_cache[cache_key],
+                               (int(trail_point['x'] - trail_size),
+                                int(trail_point['y'] - trail_size)))
+
                 # Draw main fragment with glow
                 fragment_surf = pygame.Surface((fragment['size'] * 4, fragment['size'] * 4), pygame.SRCALPHA)
                 center = fragment['size'] * 2
-                
-                # Outer glow (pulsing) - irregular shape instead of circle
+
+                # Outer glow (pulsing) - use pre-cached random offsets
                 glow_intensity = abs(math.sin(fragment['glow_phase'])) * 0.5 + 0.5
                 glow_size = fragment['size'] * 2 * glow_intensity
-                
-                # Create irregular glow points
+
+                # Use pre-cached offsets instead of random.uniform() per frame
+                glow_offsets = fragment.get('glow_offsets', [(1.0, 1.0)] * 12)
                 glow_points = []
                 for i in range(12):
                     angle = (i * 2 * math.pi / 12) + math.radians(fragment['rotation'])
-                    radius = glow_size * random.uniform(0.8, 1.2)  # Irregular glow
+                    radius = glow_size * glow_offsets[i][0]
                     x = center + radius * math.cos(angle)
                     y = center + radius * math.sin(angle)
                     glow_points.append((x, y))
-                
+
                 if len(glow_points) >= 3:
                     pygame.draw.polygon(fragment_surf, (*self.colors['fragment_glow'], 50), glow_points)
-                
-                # Middle glow - also irregular
+
+                # Middle glow - use pre-cached offsets
+                middle_glow_offsets = fragment.get('middle_glow_offsets', [(1.0, 1.0)] * 10)
                 middle_glow_points = []
                 for i in range(10):
                     angle = (i * 2 * math.pi / 10) + math.radians(fragment['rotation'])
-                    radius = fragment['size'] * 1.5 * random.uniform(0.9, 1.1)
+                    radius = fragment['size'] * 1.5 * middle_glow_offsets[i][0]
                     x = center + radius * math.cos(angle)
                     y = center + radius * math.sin(angle)
                     middle_glow_points.append((x, y))
-                
+
                 if len(middle_glow_points) >= 3:
                     pygame.draw.polygon(fragment_surf, (*self.colors['fragment_glow'], 100), middle_glow_points)
-                
-                # Core (rocky texture)
+
+                # Core (rocky texture) - use pre-cached offsets
+                core_offsets = fragment.get('core_offsets', [0.9] * 8)
                 points = []
                 num_points = 8
                 for i in range(num_points):
                     angle = (i * 2 * math.pi / num_points) + math.radians(fragment['rotation'])
-                    radius = fragment['size'] * random.uniform(0.8, 1.0)
+                    radius = fragment['size'] * core_offsets[i]
                     x = center + radius * math.cos(angle)
                     y = center + radius * math.sin(angle)
                     points.append((x, y))
-                
+
                 if len(points) >= 3:
                     pygame.draw.polygon(fragment_surf, self.colors['fragment_core'], points)
                     pygame.draw.polygon(fragment_surf, (255, 255, 200), points, 2)  # Bright edge
-                
+
                 surface.blit(fragment_surf,
                            (int(fragment['x'] - center),
                             int(fragment['y'] - center)))
             else:
                 # Draw impact effect
                 if fragment.get('impact_timer', 0) > 0:
-                    # Shockwave - jagged instead of circular
-                    if fragment.get('shockwave_radius', 0) > 0:
-                        shockwave_surf = pygame.Surface((fragment['shockwave_radius'] * 2, 
-                                                        fragment['shockwave_radius'] * 2), pygame.SRCALPHA)
+                    # Shockwave - use simpler circle instead of jagged polygon
+                    shockwave_radius = fragment.get('shockwave_radius', 0)
+                    if shockwave_radius > 0:
                         alpha = int(150 * (fragment['impact_timer'] / 30))
-                        
-                        # Create jagged shockwave
-                        center = fragment['shockwave_radius']
-                        shockwave_points = []
-                        num_points = 16
-                        for i in range(num_points):
-                            angle = (i * 2 * math.pi / num_points)
-                            radius = fragment['shockwave_radius'] * random.uniform(0.8, 1.2)
-                            x = center + radius * math.cos(angle)
-                            y = center + radius * math.sin(angle)
-                            shockwave_points.append((x, y))
-                        
-                        if len(shockwave_points) >= 3:
-                            pygame.draw.polygon(shockwave_surf, (*self.colors['fragment_glow'], alpha), shockwave_points, 3)
-                        
-                        surface.blit(shockwave_surf,
-                                   (int(fragment['x'] - fragment['shockwave_radius']),
-                                    int(fragment['y'] - fragment['shockwave_radius'])))
-                    
-                    # Impact sparks as small debris instead of circles
-                    for i in range(5):
-                        spark_angle = (i * 72 + fragment['rotation']) * math.pi / 180
-                        spark_dist = fragment.get('shockwave_radius', 0) * 0.5
+                        # OPTIMIZATION: Draw directly to surface instead of creating new surface
+                        pygame.draw.circle(surface, (*self.colors['fragment_glow'][:3], alpha),
+                                         (int(fragment['x']), int(fragment['y'])),
+                                         int(shockwave_radius), 3)
+
+                    # Impact sparks - reduced from 5 to 3 and simplified
+                    for i in range(3):
+                        spark_angle = (i * 120 + fragment['rotation']) * math.pi / 180
+                        spark_dist = shockwave_radius * 0.5
                         spark_x = fragment['x'] + math.cos(spark_angle) * spark_dist
                         spark_y = fragment['y'] + math.sin(spark_angle) * spark_dist
-                        spark_size = random.randint(2, 4)
-                        
-                        # Draw spark as small triangular debris
-                        spark_points = []
-                        for j in range(3):
-                            s_angle = (j * 2 * math.pi / 3) + spark_angle
-                            s_radius = spark_size
-                            s_x = spark_x + s_radius * math.cos(s_angle)
-                            s_y = spark_y + s_radius * math.sin(s_angle)
-                            spark_points.append((s_x, s_y))
-                        
-                        if len(spark_points) >= 3:
-                            pygame.draw.polygon(surface, self.colors['fragment_core'], spark_points)
+                        # Draw simple circle instead of polygon
+                        pygame.draw.circle(surface, self.colors['fragment_core'],
+                                         (int(spark_x), int(spark_y)), 3)
     
     def get_moon_fragments(self):
         """Get current moon fragments for collision detection"""

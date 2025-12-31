@@ -102822,6 +102822,13 @@ def show_character_info(background_surface=None):
                 module_control_bonus = 0.0
             stun_reduction = int(module_control_bonus * 30)
             current_stun_frames = max(1, current_stun_frames - stun_reduction)
+            # 대쉬부스트 효과: 후딜시간 99% 감소
+            try:
+                if is_dash_boost_active():
+                    from item_effects.dash_boost import get_dash_cooldown_multiplier
+                    current_stun_frames = max(1, int(current_stun_frames * get_dash_cooldown_multiplier()))
+            except Exception:
+                pass
             fps_value = float(globals().get("FPS", 60))
             if fps_value <= 0:
                 fps_value = 60.0
@@ -102936,6 +102943,13 @@ def show_character_info(background_surface=None):
                     external_cooldown_mul = getattr(dm_inst, 'external_cooldown_multiplier', 1.0)
                     if external_cooldown_mul != 1.0:
                         current_frames = max(6, int(current_frames * external_cooldown_mul))
+            except Exception:
+                pass
+            # 대쉬부스트 효과: 쿨타임 99% 감소
+            try:
+                if is_dash_boost_active():
+                    from item_effects.dash_boost import get_dash_cooldown_multiplier
+                    current_frames = max(1, int(current_frames * get_dash_cooldown_multiplier()))
             except Exception:
                 pass
             fps_value = float(globals().get("FPS", 60) or 60)
