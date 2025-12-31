@@ -791,12 +791,32 @@ def _apply_global_hotkeys(events):
                     if screen_surface:
                         pygame.image.save(screen_surface, filename)
                         print(f"[Screenshot] 저장됨: {filename}")
+                        # 로그 파일에도 기록
+                        log_file = os.path.join(os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)), "screenshot_log.txt")
+                        with open(log_file, "a", encoding="utf-8") as f:
+                            f.write(f"✅ 스크린샷 저장 성공: {filename} ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})\n")
                     else:
                         print("[Screenshot] screen_surface가 None입니다")
+                        # 로그 파일에 오류 기록
+                        log_file = os.path.join(os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)), "screenshot_log.txt")
+                        with open(log_file, "a", encoding="utf-8") as f:
+                            f.write(f"❌ 스크린샷 실패: screen_surface가 None ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})\n")
                 except Exception as e:
                     import traceback
+                    error_msg = traceback.format_exc()
                     print(f"[Screenshot] 저장 실패: {e}")
-                    traceback.print_exc()
+                    print(error_msg)
+                    # 로그 파일에 오류 기록
+                    try:
+                        log_file = os.path.join(os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)), "screenshot_log.txt")
+                        with open(log_file, "a", encoding="utf-8") as f:
+                            f.write(f"\n{'='*80}\n")
+                            f.write(f"❌ 스크린샷 오류 발생: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                            f.write(f"오류 메시지: {str(e)}\n")
+                            f.write(f"상세 정보:\n{error_msg}\n")
+                            f.write(f"{'='*80}\n\n")
+                    except:
+                        pass
                 continue
 
             if ev.type == pygame.KEYDOWN and is_b_toggle:
@@ -2168,7 +2188,21 @@ def capture_screenshot():
         return True
 
     except Exception as e:
+        import traceback
+        error_msg = traceback.format_exc()
         print(f"❌ 스크린샷 저장 실패: {e}")
+        print(error_msg)
+        # 로그 파일에 오류 기록
+        try:
+            log_file = os.path.join(os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)), "screenshot_log.txt")
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(f"\n{'='*80}\n")
+                f.write(f"❌ 스크린샷 오류 발생 (] 키): {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"오류 메시지: {str(e)}\n")
+                f.write(f"상세 정보:\n{error_msg}\n")
+                f.write(f"{'='*80}\n\n")
+        except:
+            pass
         return False
 
 # 전체화면 모드에서 마우스 좌표 변환 (화면 좌표 -> 게임 좌표)
