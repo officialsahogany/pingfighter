@@ -106907,6 +106907,12 @@ def _show_multiplayer_result(winner: str, p1_score: int, p2_score: int):
 
 
 if __name__ == "__main__":
+    import traceback
+    import datetime
+
+    # 로그 파일 경로 설정
+    log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "error_log.txt")
+
     try:
         # 인트로 컷씬 표시 (명언 + 스토리)
         opening.show_intro_cutscene(SCREEN, WIDTH, HEIGHT)
@@ -106914,18 +106920,38 @@ if __name__ == "__main__":
         opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
         game_loop()
     except Exception as e:
-        print("\n" + "="*80)
-        print("오류가 발생했습니다!")
-        print("="*80)
-        print(f"\n오류 메시지: {str(e)}")
-        print(f"\n오류 타입: {type(e).__name__}")
-        import traceback
-        print("\n상세 오류 정보:")
-        traceback.print_exc()
-        print("\n" + "="*80)
-        print("이 창을 스크린샷으로 찍어주세요.")
-        print("아무 키나 누르면 종료됩니다...")
-        print("="*80)
-        input()            
+        # 오류 정보 수집
+        error_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        error_msg = f"""
+{'='*80}
+오류 발생 시간: {error_time}
+{'='*80}
+
+오류 타입: {type(e).__name__}
+오류 메시지: {str(e)}
+
+상세 스택 트레이스:
+{traceback.format_exc()}
+
+{'='*80}
+"""
+
+        # 콘솔에 출력
+        print(error_msg)
+
+        # 파일에 저장
+        try:
+            with open(log_file, "w", encoding="utf-8") as f:
+                f.write(error_msg)
+            print(f"\n로그 파일이 저장되었습니다: {log_file}")
+            print("\n이 파일을 열어서 내용을 복사해주세요.")
+        except Exception as log_error:
+            print(f"\n로그 파일 저장 실패: {log_error}")
+
+        print("\n아무 키나 누르면 종료됩니다...")
+        try:
+            input()
+        except:
+            pass            
     
  
