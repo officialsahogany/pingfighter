@@ -6755,14 +6755,11 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         caffeine_bonus = get_effective_caffeine_multiplier() - 1.0
         dash_cooldown_reduction = get_runtime_skill_bonus("dash_lightweight")
 
-        # 대쉬부스트 아이템 쿨타임 할인 계산
-        dash_boost_cooldown_reduction = 0.0
+        # 대쉬부스트 아이템 활성화 여부 확인
+        dash_boost_active = False
         try:
-            from item_effects.dash_boost import get_dash_cooldown_multiplier
-            dash_boost_multiplier = get_dash_cooldown_multiplier()
-            if dash_boost_multiplier < 1.0:
-                dash_boost_cooldown_reduction = 1.0 - dash_boost_multiplier
-        except ImportError:
+            dash_boost_active = is_dash_boost_active()
+        except:
             pass
 
         # 이동속도 표시 (기본 + 신속 보너스 + 금괴 페널티)
@@ -6780,24 +6777,24 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
 
         # 대쉬쿨타임 표시 (경량화 스킬 + 대쉬부스트 아이템)
         # 대쉬부스트가 활성화되면 무조건 99%, 아니면 경량화 스킬만 적용
-        if dash_boost_cooldown_reduction > 0:
-            total_dash_cooldown_reduction = dash_boost_cooldown_reduction  # 99%
+        if dash_boost_active:
+            total_dash_cooldown_reduction = 0.99  # 99%
         else:
             total_dash_cooldown_reduction = dash_cooldown_reduction
         dash_cooldown_display = f"-{int(total_dash_cooldown_reduction * 100)}%"
         # 대쉬부스트가 활성화되어 있으면 색상 강조
-        dash_cooldown_color = (255, 100, 255) if dash_boost_cooldown_reduction > 0 else (120, 200, 180)
+        dash_cooldown_color = (255, 100, 255) if dash_boost_active else (120, 200, 180)
 
         # 대쉬후딜 표시 (모듈제어 스킬 + 대쉬부스트 아이템)
         # 대쉬부스트가 활성화되면 무조건 99%, 아니면 모듈제어 스킬만 적용
         module_control_bonus = get_runtime_skill_bonus("dash_module_control")
-        if dash_boost_cooldown_reduction > 0:
-            total_dash_stun_reduction = dash_boost_cooldown_reduction  # 99%
+        if dash_boost_active:
+            total_dash_stun_reduction = 0.99  # 99%
         else:
             total_dash_stun_reduction = module_control_bonus
         dash_stun_display = f"-{int(total_dash_stun_reduction * 100)}%"
         # 대쉬부스트가 활성화되어 있으면 색상 강조
-        dash_stun_color = (255, 100, 255) if dash_boost_cooldown_reduction > 0 else (180, 150, 200)
+        dash_stun_color = (255, 100, 255) if dash_boost_active else (180, 150, 200)
 
         # 능력치 항목들 (2행 가로 배치)
         stats_items = [
