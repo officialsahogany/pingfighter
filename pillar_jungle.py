@@ -1627,7 +1627,7 @@ class MossyStoneFrame:
         # 동적 요소만 그리기
         self._draw_falling_leaves(screen)
         self._draw_fireflies(screen)
-        self._draw_inner_border(screen)
+        # self._draw_inner_border(screen)  # 검은 테두리 제거
 
     def _draw_falling_leaves(self, screen):
         """떨어지는 잎 (최적화)"""
@@ -1860,10 +1860,10 @@ class JungleMonkey:
         target_player = random.random() < 0.4
 
         if target_player:
-            # 플레이어 진영 (하단) - 인게임 화면 내부 바닥에 떨어지도록
-            # 인게임 화면: game_y ~ game_y + game_height
-            # 플레이어는 인게임 바닥 근처에 있음
-            target_y = self.game_y + self.game_height - 40  # 인게임 화면 내 플레이어가 밟을 수 있는 바닥
+            # 플레이어 진영 (하단) - 게임 맵 바닥에 떨어지도록
+            # 게임 맵 크기: 760x750, 플레이어는 바닥 근처
+            target_y = self.game_y + self.game_height - 30  # 맵 바닥에서 30px 위
+            print(f"[BANANA] target_y={target_y} (game_y={self.game_y} + game_height={self.game_height} - 30)")
         else:
             # 보스 진영 (상단)
             target_y = self.game_y + 50
@@ -2343,6 +2343,12 @@ class ThrownBanana:
                 self.size * 2,
                 20
             )
+
+            # 디버그: 한 번만 출력
+            if not hasattr(self, '_debug_printed'):
+                print(f"[BANANA] 플레이어 y={player_rect.y}, 화면 y={player_screen_rect.y}, 바나나 y={self.y}")
+                self._debug_printed = True
+
             if player_screen_rect.colliderect(banana_ground_rect):
                 self.slip_triggered = True
                 self.trigger_burst()  # 바나나 터지기!

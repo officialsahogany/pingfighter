@@ -1056,9 +1056,19 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
         bg_path = resource_path("main.jpg")
         if os.path.exists(bg_path):
             background_image = pygame.image.load(bg_path).convert()
-            # 화면 크기에 맞게 스케일
-            background_image = pygame.transform.smoothscale(background_image, (WIDTH, HEIGHT))
-            print(f"[Opening] 배경 이미지 로드 완료: {bg_path}")
+            # 화면 크기에 맞게 스케일 (전체 너비를 확실히 채우도록)
+            orig_w, orig_h = background_image.get_size()
+            aspect_ratio = orig_h / orig_w
+            new_w = WIDTH
+            new_h = int(WIDTH * aspect_ratio)
+
+            # 높이가 화면보다 작으면 높이를 기준으로 재조정
+            if new_h < HEIGHT:
+                new_h = HEIGHT
+                new_w = int(HEIGHT / aspect_ratio)
+
+            background_image = pygame.transform.smoothscale(background_image, (new_w, new_h))
+            print(f"[Opening] 배경 이미지 로드 완료: {bg_path} ({new_w}x{new_h})")
     except Exception as e:
         print(f"[Opening] 배경 이미지 로드 실패: {e}")
         background_image = None
@@ -1205,12 +1215,16 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
         
         # 추가 이벤트 처리는 위 단일 루프에서 처리함 (중복 소비 방지)
 
-        # 화면 그리기 (필러 배경과 비슷한 어두운 색으로 채움)
-        SCREEN.fill((15, 15, 25))  # 어두운 남색 (필러 배경 기본색)
+        # 화면 그리기 (검은색 배경)
+        SCREEN.fill((0, 0, 0))  # 검은색 배경
 
         # 배경 이미지 그리기 (main.jpg)
         if background_image is not None:
-            SCREEN.blit(background_image, (0, 0))
+            # 이미지가 화면보다 크면 중앙 정렬
+            bg_w, bg_h = background_image.get_size()
+            bg_x = (WIDTH - bg_w) // 2
+            bg_y = (HEIGHT - bg_h) // 2
+            SCREEN.blit(background_image, (bg_x, bg_y))
             # 어두운 오버레이 (텍스트 가독성)
             dark_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             dark_overlay.fill((0, 0, 0, 120))

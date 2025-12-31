@@ -60,6 +60,8 @@
         "**/dist/**",
         "**/build/**",
         "**/__pycache__/**"
-    ]
+    ],
+    "python.defaultInterpreterPath": "E:\\bosspong\\.venv_win\\Scripts\\python.exe",
+    "python.terminal.activateEnvironment": true
 }
 }
