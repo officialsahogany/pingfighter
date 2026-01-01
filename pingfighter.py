@@ -11073,7 +11073,8 @@ def sync_equipped_passive_effects():
         return 1  # 롤 옵션이 없는 경우 기본값
     slot_bonus = sum(_get_slot_add_value(item) for item in slot_add_items)
     base_slots = 3
-    _set_max_item_slots(min(5, base_slots + slot_bonus))
+    # 배낭 롤옵션 + 런타임 스킬로 최대 8칸까지 확장 가능하므로 하드코딩 제한 제거
+    _set_max_item_slots(base_slots + slot_bonus)
     _set_flag_safe(items, "slot_add_obtained", len(slot_add_items) > 0)
 
     # 롤 옵션 기반 보너스 갱신
@@ -29430,10 +29431,33 @@ def check_divine_shield_ball_collision():
             ball_vel[0] = ball_vel[0] - 2 * dot * normal_x
             ball_vel[1] = ball_vel[1] - 2 * dot * normal_y
 
-            # 공을 보호막 바깥으로 밀어냄
+            # === 핵심 수정: 공이 아래로 가는 것을 방지 ===
+            # 반사 후 공이 아래(양수 Y)로 향하면 위(음수 Y)로 강제 전환
+            if ball_vel[1] > 0:
+                # 현재 속력 유지하면서 방향만 위로 변경
+                speed = math.hypot(ball_vel[0], ball_vel[1])
+                # Y 속도를 반전시키고, 최소한의 상향 속도 보장
+                ball_vel[1] = -abs(ball_vel[1])
+                # 측면에서 맞은 경우 너무 수평으로 가지 않도록 최소 상향 속도 보장
+                min_upward_speed = speed * 0.5  # 속력의 최소 50%는 위로
+                if abs(ball_vel[1]) < min_upward_speed:
+                    ball_vel[1] = -min_upward_speed
+                    # X 속도 재조정하여 전체 속력 유지
+                    remaining_speed = math.sqrt(max(0, speed * speed - ball_vel[1] * ball_vel[1]))
+                    ball_vel[0] = remaining_speed if ball_vel[0] >= 0 else -remaining_speed
+
+            # 공을 보호막 바깥으로 밀어냄 (항상 위쪽으로)
             push_dist = shield_ring_radius + ball_radius + 5
-            BALL.centerx = int(group_cx + normal_x * push_dist)
-            BALL.centery = int(group_cy + normal_y * push_dist)
+            # 위쪽으로 밀어내도록 Y 방향 조정
+            push_normal_y = min(normal_y, -0.3)  # 최소한 위쪽 방향 보장
+            push_normal_x = normal_x
+            # 정규화
+            push_len = math.hypot(push_normal_x, push_normal_y)
+            if push_len > 0:
+                push_normal_x /= push_len
+                push_normal_y /= push_len
+            BALL.centerx = int(group_cx + push_normal_x * push_dist)
+            BALL.centery = int(group_cy + push_normal_y * push_dist)
 
             # 속도 부스트 효과 적용 (0.6초간 빠르게 튕겨나감)
             divine_shield_boost_original_speed = [ball_vel[0], ball_vel[1]]
@@ -101260,6 +101284,11 @@ def main(stage_num, new_boss_mode=False):
 
                 # 폭발 이벤트 처리 - 보스 넉백 및 스턴 적용 (수류탄과 동일한 방식)
                 if explosion_events:
+                    # 다이너마이트 폭발 화면 흔들림 (수류탄보다 더 강하게)
+                    global screen_shake_timer, screen_shake_intensity
+                    screen_shake_timer = max(screen_shake_timer, 40)  # 40프레임
+                    screen_shake_intensity = max(screen_shake_intensity, 35)  # 매우 강한 흔들림
+
                     for exp in explosion_events:
                         knockback_info = dynamite.check_boss_in_explosion(boss_rect_for_dynamite)
                         if knockback_info:
