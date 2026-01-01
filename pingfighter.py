@@ -34583,6 +34583,14 @@ def go_to_next_round():
     #  수류탄 관련 초기화
     grenades.clear()  # 날아가는 수류탄 제거
     explosion_zones.clear()  # 폭발 지역 제거
+    # 🧨 다이너마이트 관련 초기화
+    global dynamite_throwing, dynamite_throw_timer
+    from item_effects.dynamite import get_dynamite_instance
+    dynamite = get_dynamite_instance()
+    if dynamite:
+        dynamite.reset()  # 투척체, 설치된 다이너마이트, 폭발 모두 제거
+    dynamite_throwing = False  # 투척 모션 초기화
+    dynamite_throw_timer = 0
     spider_mines.clear()  # 설치된 스파이더지뢰 제거
     _stop_spider_mine_walk_sound()
     spider_mine_slow_active = False
@@ -84856,6 +84864,14 @@ def reset_round():
     #  수류탄 관련 초기화
     grenades.clear()  # 날아가는 수류탄 제거
     explosion_zones.clear()  # 폭발 지역 제거
+    # 🧨 다이너마이트 관련 초기화
+    global dynamite_throwing, dynamite_throw_timer
+    from item_effects.dynamite import get_dynamite_instance
+    dynamite = get_dynamite_instance()
+    if dynamite:
+        dynamite.reset()  # 투척체, 설치된 다이너마이트, 폭발 모두 제거
+    dynamite_throwing = False  # 투척 모션 초기화
+    dynamite_throw_timer = 0
     spider_mines.clear()
     _stop_spider_mine_walk_sound()
     spider_mine_slow_active = False
@@ -91901,6 +91917,10 @@ def _boss_try_emergency_dash() -> bool:
 
     # 네메시스(현 Stage 6) 미사일/레이저 기계 콘셉트 → 대쉬 금지
     if current_stage == 6:
+        return False
+
+    # 보스가 스턴 상태일 때 대쉬 불가
+    if globals().get("boss_stunned_timer", 0) > 0:
         return False
 
     # 스테이지 설정에서 대쉬가 비활성화된 경우 즉시 종료
