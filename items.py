@@ -2284,6 +2284,8 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
 
     # OPTIMIZATION: Pre-define throwing items set (faster lookup)
     throwing_items = {"molotov", "grenade", "flare", "spider_mine"}
+    # 다이너마이트는 3초 제한 (다른 투척류는 5초)
+    throwing_items_3sec = {"dynamite"}
 
     if isinstance(active_item_slot, list):
         for i, item in enumerate(active_item_slot):
@@ -2335,10 +2337,11 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
             if "last_use" in item:
                 draw_cooldown_overlay(screen, x, y, SLOT_W, item["last_use"], cooldown_ms)
 
-            # 🎯 투척류 아이템 5초 카운트다운 표시
+            # 🎯 투척류 아이템 카운트다운 표시 (다이너마이트 포함, 모두 동일한 3초)
             item_name = item.get("name", item.get("effect", ""))
-            if item_name in throwing_items and time_since_round_start < 5000:
-                remaining_seconds = int((5000 - time_since_round_start) / 1000) + 1  # 5, 4, 3, 2, 1
+            all_throwing_items = throwing_items | throwing_items_3sec
+            if item_name in all_throwing_items and time_since_round_start < 3000:
+                remaining_seconds = int((3000 - time_since_round_start) / 1000) + 1  # 3, 2, 1
 
                 # OPTIMIZATION: Use cached overlay surface
                 overlay = _get_overlay_surface(SLOT_W, SLOT_H)

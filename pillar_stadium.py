@@ -584,13 +584,13 @@ class TraditionalFrame:
         if self._butterfly_flying_to_player is not None:
             # 플레이어 위치로 날아가기 (전체화면 좌표로 변환)
             if self._player_rect is not None:
-                # 플레이어 위치 가져오기
+                # 플레이어 위치 가져오기 (원본 게임 좌표)
                 player_cx = self._player_rect.centerx
                 player_cy = self._player_rect.centery
 
-                # 전체화면 좌표로 변환
-                target_x = self.game_x + player_cx
-                target_y = self.game_y + player_cy
+                # 전체화면 좌표로 변환 (원본 좌표 * 스케일 팩터 + 오프셋)
+                target_x = self.game_x + (player_cx * self.scale_factor)
+                target_y = self.game_y + (player_cy * self.scale_factor)
 
                 butterfly = self._butterfly_flying_to_player
                 dx = target_x - butterfly['x']

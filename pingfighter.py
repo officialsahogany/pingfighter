@@ -101284,11 +101284,6 @@ def main(stage_num, new_boss_mode=False):
 
                 # 폭발 이벤트 처리 - 보스 넉백 및 스턴 적용 (수류탄과 동일한 방식)
                 if explosion_events:
-                    # 다이너마이트 폭발 화면 흔들림 (수류탄보다 더 강하게)
-                    global screen_shake_timer, screen_shake_intensity
-                    screen_shake_timer = max(screen_shake_timer, 40)  # 40프레임
-                    screen_shake_intensity = max(screen_shake_intensity, 35)  # 매우 강한 흔들림
-
                     for exp in explosion_events:
                         knockback_info = dynamite.check_boss_in_explosion(boss_rect_for_dynamite)
                         if knockback_info:
@@ -101300,10 +101295,10 @@ def main(stage_num, new_boss_mode=False):
                             ex, ey = exp["x"], exp["y"]
                             direction = 1 if bx >= ex else -1
 
-                            # 넉백 세기 (수류탄: 40, 다이너마이트: 동일하게 40 사용)
-                            power = 40.0
+                            # 넉백 세기 (dynamite.py의 KNOCKBACK_SPEED 사용)
+                            power = float(knockback_info["knockback_speed"])
 
-                            # 넉백 타이머 설정 (수류탄: 36프레임)
+                            # 넉백 타이머 설정 (넉백 속도에 비례)
                             boss_knockback_timer = max(boss_knockback_timer, 36)
                             boss_knockback_vel = _apply_boss_knockback_velocity(direction * power)
 

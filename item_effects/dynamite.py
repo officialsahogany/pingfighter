@@ -2,7 +2,6 @@
 
 보스쪽 진영에 도달하면 7초 카운트 후 폭발.
 폭발 시 범위 350, 보스 넉백 속도 13, 스턴 3초.
-보스가 발사한 공에 닿아도 즉시 폭발.
 """
 from __future__ import annotations
 
@@ -31,7 +30,6 @@ class Dynamite:
     - 폭발 범위: 350px
     - 보스 넉백 속도: 13
     - 스턴 시간: 3초 (180프레임)
-    - 공과 충돌 시 즉시 폭발
     - 벽에 부딪힌 경우 반대로 튕겨남
     """
 
@@ -209,17 +207,6 @@ class Dynamite:
             # 카운트다운 감소
             placed["countdown"] -= 1
             placed["pulse_timer"] += 1
-
-            # 공과 충돌 체크 - 즉시 폭발
-            if ball_rect:
-                placed_rect = pygame.Rect(placed["x"] - 15, placed["y"] - 15, 30, 30)
-                if placed_rect.colliderect(ball_rect):
-                    explosion = self._create_explosion(placed["x"], placed["y"])
-                    explosion_events.append(explosion)
-                    placed["active"] = False
-                    self._debug(f"placed dynamite hit by ball → explosion")
-                    _safe_print("[Dynamite] 설치된 다이너마이트가 공에 맞아 폭발!")
-                    continue
 
             # 카운트다운 완료 - 폭발
             if placed["countdown"] <= 0:
