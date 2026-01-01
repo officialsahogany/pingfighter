@@ -1698,6 +1698,19 @@ DARK_GRAY = (64, 64, 64)
 # 타이머 및 시간 관련
 FPS = 60
 MILLISECONDS_PER_SECOND = 1000
+
+# === 프레임 시간 캐싱 (성능 최적화) ===
+# 매 프레임 시작 시 한 번만 get_ticks() 호출하고 재사용
+_current_frame_ticks = 0  # 현재 프레임의 pygame.time.get_ticks() 값
+_frame_counter = 0  # 프레임 카운터 (get_ticks() 대체용)
+
+def get_frame_ticks():
+    """현재 프레임의 캐시된 시간 반환 (get_ticks() 대신 사용)"""
+    return _current_frame_ticks
+
+def get_frame_counter():
+    """현재 프레임 카운터 반환 (시간 기반 애니메이션 대체용)"""
+    return _frame_counter
 HALF_SECOND_FRAMES = 30
 ONE_SECOND_FRAMES = 60
 TWO_SECONDS_FRAMES = 120
@@ -1998,6 +2011,39 @@ _stage_entered_flip_threshold = 0  # 스테이지 진입 후 flip 횟수 추적�
 _pillar_ui_enabled = False
 
 # ============================================================
+# 스케일링 최적화: smoothscale 사용 및 캐싱
+# ============================================================
+_scaled_surface_cache = None  # 캐시된 스케일 서피스
+_scaled_surface_size = None   # 캐시된 서피스의 원본 크기
+_scale_cache_dirty = True     # 캐시 무효화 플래그
+
+def invalidate_scale_cache():
+    """스케일 캐시를 무효화 (화면 내용 변경 시 호출)"""
+    global _scale_cache_dirty
+    _scale_cache_dirty = True
+
+def _get_scaled_screen():
+    """최적화된 스케일링: smoothscale 사용 및 서피스 재사용"""
+    global _scaled_surface_cache, _scaled_surface_size, _scale_cache_dirty, SCREEN, GAME_SCALE_FACTOR
+
+    screen_size = SCREEN.get_size()
+    target_w = int(screen_size[0] * GAME_SCALE_FACTOR)
+    target_h = int(screen_size[1] * GAME_SCALE_FACTOR)
+
+    # 캐시된 서피스가 없거나 크기가 다르면 새로 생성
+    if _scaled_surface_cache is None or _scaled_surface_size != (target_w, target_h):
+        _scaled_surface_cache = pygame.Surface((target_w, target_h))
+        _scaled_surface_size = (target_w, target_h)
+        _scale_cache_dirty = True
+
+    # 캐시가 무효화되었으면 스케일링 수행
+    if _scale_cache_dirty:
+        pygame.transform.smoothscale(SCREEN, (target_w, target_h), _scaled_surface_cache)
+        _scale_cache_dirty = False
+
+    return _scaled_surface_cache
+
+# ============================================================
 # UI 오버레이 시스템 (선명한 텍스트 렌더링)
 # REAL_SCREEN에 직접 그려서 스케일링으로 인한 번짐 방지
 # ============================================================
@@ -2133,8 +2179,9 @@ def _draw_pillar_ui(screen, renderer):
 
 def _fullscreen_flip():
     """전체화면 모드에서 게임 Surface를 실제 화면에 blit 후 flip"""
-    global REAL_SCREEN, SCREEN, pillar_renderer, _flip_count, _last_real_screen_size, _last_screen_size
+    global REAL_SCREEN, SCREEN, pillar_renderer, _flip_count, _last_real_screen_size, _last_screen_size, _scale_cache_dirty
     _flip_count += 1
+    _scale_cache_dirty = True  # 매 프레임 스케일 캐시 무효화
     if _is_fullscreen_active and REAL_SCREEN is not None:
         # REAL_SCREEN 크기 변화 감지
         current_real_size = REAL_SCREEN.get_size()
@@ -2174,8 +2221,8 @@ def _fullscreen_flip():
 
         # 게임 Surface를 중앙에 blit (스케일링 적용)
         if GAME_SCALE_FACTOR != 1.0:
-            # rotozoom으로 스케일링 (smoothscale보다 격자 아티팩트 없고 고화질)
-            scaled_surface = pygame.transform.rotozoom(SCREEN, 0, GAME_SCALE_FACTOR)
+            # 최적화: smoothscale + 서피스 재사용 (rotozoom보다 빠름)
+            scaled_surface = _get_scaled_screen()
             sw, sh = scaled_surface.get_size()
             offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
             offset_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - sh) // 2
@@ -2226,8 +2273,8 @@ def _fullscreen_update(*args, **kwargs):
 
         # 게임 Surface를 중앙에 blit (스케일링 적용)
         if GAME_SCALE_FACTOR != 1.0:
-            # rotozoom으로 스케일링 (smoothscale보다 격자 아티팩트 없고 고화질)
-            scaled_surface = pygame.transform.rotozoom(SCREEN, 0, GAME_SCALE_FACTOR)
+            # 최적화: smoothscale + 서피스 재사용 (rotozoom보다 빠름)
+            scaled_surface = _get_scaled_screen()
             sw, sh = scaled_surface.get_size()
             offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
             offset_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - sh) // 2
@@ -2949,14 +2996,18 @@ def update_emergency_charge_effects():
     if emergency_charge_flash_timer > 0:
         emergency_charge_flash_timer -= 1
 
-    # 파티클 업데이트
-    for p in emergency_charge_particles[:]:
+    # 파티클 업데이트 (최적화: remove() 대신 인덱스 순회)
+    i = 0
+    while i < len(emergency_charge_particles):
+        p = emergency_charge_particles[i]
         p["x"] += p["vx"]
         p["y"] += p["vy"]
         p["vy"] += 0.3  # 중력
         p["life"] -= 1
         if p["life"] <= 0:
-            emergency_charge_particles.remove(p)
+            emergency_charge_particles.pop(i)
+        else:
+            i += 1
 
 def draw_emergency_charge_effects(screen: pygame.Surface):
     """비상충전 시각 효과 렌더링"""
@@ -6913,7 +6964,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             if char_type == "optimus":
                 actual_player_speed = OPTIMUS_BASE_MAX_SPEED
             elif char_type == "blacksmith":
-                actual_player_speed = 3
+                actual_player_speed = 4
             elif char_type == "smasher":
                 actual_player_speed = 6  # 스매셔 기본 이동속도 6
             else:
@@ -8669,6 +8720,9 @@ BALL_SPEED_X = game_vars.ball.speed_x
 BALL_BASE_SPEED = game_vars.ball.base_speed
 ball_vel = game_vars.ball.vel
 last_hit_by = game_vars.ball.last_hit_by
+# 이전 프레임 공 위치 (관통 충돌 검사용)
+ball_prev_x = BALL.x
+ball_prev_y = BALL.y
 # 물리 매니저 초기화 (BALL, PLAYER, BOSS 객체 생성 후)
 physics_manager.init_physics_manager(SCREEN, BALL, PLAYER, BOSS, WIDTH, HEIGHT)
 # 대쉬 매니저 초기화
@@ -11010,7 +11064,13 @@ def sync_equipped_passive_effects():
 
     # 장비 슬롯 확장 (slot_add) - 배낭의 롤옵션 slot_add_count 값을 합산
     slot_add_items = [item for item in equipped_items if item.get("name") == "slot_add"]
-    slot_bonus = sum(item.get("roll_options", {}).get("slot_add_count", 1) for item in slot_add_items)
+    # rolled_options는 리스트 형태: [{"key": "slot_add_count", "value": N}, ...]
+    def _get_slot_add_value(item):
+        for opt in item.get("rolled_options") or []:
+            if opt.get("key") == "slot_add_count":
+                return opt.get("value", 1)
+        return 1  # 롤 옵션이 없는 경우 기본값
+    slot_bonus = sum(_get_slot_add_value(item) for item in slot_add_items)
     base_slots = 3
     _set_max_item_slots(min(5, base_slots + slot_bonus))
     _set_flag_safe(items, "slot_add_obtained", len(slot_add_items) > 0)
@@ -12245,22 +12305,27 @@ def spawn_stage7_super_particles(boss_rect: pygame.Rect) -> None:
             'x': float(px), 'y': float(py), 'vx': vx, 'vy': vy,
             'size': float(size), 'life': int(life), 'color': color
         })
-    # 개수 상한 (성능 보호)
-    if len(stage7_super_particles) > 140:
-        del stage7_super_particles[: len(stage7_super_particles) - 140]
+    # 개수 상한 (성능 보호) - pop(0) 대신 슬라이스 할당 사용
+    while len(stage7_super_particles) > 140:
+        stage7_super_particles.pop(0)
 
 
 def update_stage7_super_particles() -> None:
     if not stage7_super_particles:
         return
-    for p in stage7_super_particles[:]:
+    # 리스트 순회 중 제거 대신 필터링 (더 효율적)
+    i = 0
+    while i < len(stage7_super_particles):
+        p = stage7_super_particles[i]
         p['x'] += p['vx']
         p['y'] += p['vy']
         p['vy'] *= 0.96
         p['size'] *= 0.96
         p['life'] -= 1
         if p['life'] <= 0 or p['size'] < 1.0:
-            stage7_super_particles.remove(p)
+            stage7_super_particles.pop(i)
+        else:
+            i += 1
 
 
 def draw_stage7_super_particles(surface: pygame.Surface) -> None:
@@ -12311,9 +12376,9 @@ def spawn_stage8_superspeed_dark_particles(boss_rect: pygame.Rect) -> None:
             'x': float(px), 'y': float(py), 'vx': vx, 'vy': vy,
             'size': float(size), 'life': int(life), 'max_life': int(life), 'color': color
         })
-    # 개수 상한
-    if len(stage8_superspeed_dark_particles) > STAGE8_SUPERSPEED_DARK_PARTICLE_MAX:
-        del stage8_superspeed_dark_particles[:len(stage8_superspeed_dark_particles) - STAGE8_SUPERSPEED_DARK_PARTICLE_MAX]
+    # 개수 상한 (성능 최적화 - slice 삭제 대신 pop 사용)
+    while len(stage8_superspeed_dark_particles) > STAGE8_SUPERSPEED_DARK_PARTICLE_MAX:
+        stage8_superspeed_dark_particles.pop(0)
 
 
 def update_stage8_superspeed_dark_particles() -> None:
@@ -12321,7 +12386,10 @@ def update_stage8_superspeed_dark_particles() -> None:
     global stage8_superspeed_dark_particles
     if not stage8_superspeed_dark_particles:
         return
-    for p in stage8_superspeed_dark_particles[:]:
+    # 리스트 순회 중 제거 최적화 (remove() 대신 인덱스 사용)
+    i = 0
+    while i < len(stage8_superspeed_dark_particles):
+        p = stage8_superspeed_dark_particles[i]
         p['x'] += p['vx']
         p['y'] += p['vy']
         p['vx'] *= 0.98  # 약간의 마찰
@@ -12329,7 +12397,9 @@ def update_stage8_superspeed_dark_particles() -> None:
         p['size'] *= 0.97
         p['life'] -= 1
         if p['life'] <= 0 or p['size'] < 1.0:
-            stage8_superspeed_dark_particles.remove(p)
+            stage8_superspeed_dark_particles.pop(i)
+        else:
+            i += 1
 
 
 def draw_stage8_superspeed_dark_particles(surface: pygame.Surface) -> None:
@@ -22699,22 +22769,73 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
         # 디바인스톤 앞에 벽돌이 있을 경우, 벽돌이 먼저 공을 막도록 하고
         # 이 프레임에서는 디바인스톤 충돌 처리를 건너뛴다.
         wall_blocked = False
+
+        # 관통 검사를 위한 헬퍼 함수
+        def _line_intersects_rect_divine(x1, y1, x2, y2, rect):
+            """선분이 사각형과 교차하는지 확인 (관통 검사용)"""
+            r = BALL.width // 2
+            left = rect.left - r
+            right = rect.right + r
+            top = rect.top - r
+            bottom = rect.bottom + r
+            dx = x2 - x1
+            dy = y2 - y1
+            t_min, t_max = 0.0, 1.0
+            if dx != 0:
+                t1 = (left - x1) / dx
+                t2 = (right - x1) / dx
+                if dx < 0:
+                    t1, t2 = t2, t1
+                t_min = max(t_min, t1)
+                t_max = min(t_max, t2)
+            elif x1 < left or x1 > right:
+                return False
+            if dy != 0:
+                t1 = (top - y1) / dy
+                t2 = (bottom - y1) / dy
+                if dy < 0:
+                    t1, t2 = t2, t1
+                t_min = max(t_min, t1)
+                t_max = min(t_max, t2)
+            elif y1 < top or y1 > bottom:
+                return False
+            return t_min <= t_max
+
         try:
             try:
                 ball_owner = getattr(game_vars.ball, "last_hit_by", None)
             except Exception:
                 ball_owner = globals().get("last_hit_by", None)
+            # 이전 공 위치 가져오기
+            prev_x = globals().get("ball_prev_x", BALL.x)
+            prev_y = globals().get("ball_prev_y", BALL.y)
             for wall in walls:
                 # 플레이어가 친 공(서브 포함)에 대해서는 건물 보호용(group_id) 벽돌은 디바인스톤을 막지 않는다.
                 if ball_owner == "player" and wall.get("group_id") is not None:
                     continue
-                if BALL.colliderect(wall["rect"]):
+                wall_rect = wall["rect"]
+                # 현재 충돌 또는 관통 체크
+                if BALL.colliderect(wall_rect):
                     wall_blocked = True
+                    break
+                # 관통 체크
+                if _line_intersects_rect_divine(prev_x + BALL.width//2, prev_y + BALL.height//2,
+                                                BALL.centerx, BALL.centery, wall_rect):
+                    wall_blocked = True
+                    print(f"[DEBUG] 벽돌 관통 감지 (디바인스톤 보호)!")
                     break
         except Exception:
             wall_blocked = False
 
-        if (not wall_blocked) and hit_rect.colliderect(BALL) and divine_state.get("cooldown", 0) == 0:
+        # 디바인스톤 충돌 체크: 현재 충돌 또는 관통
+        prev_x = globals().get("ball_prev_x", BALL.x)
+        prev_y = globals().get("ball_prev_y", BALL.y)
+        divine_collision = hit_rect.colliderect(BALL) or _line_intersects_rect_divine(
+            prev_x + BALL.width//2, prev_y + BALL.height//2,
+            BALL.centerx, BALL.centery, hit_rect
+        )
+
+        if (not wall_blocked) and divine_collision and divine_state.get("cooldown", 0) == 0:
             BALL.bottom = min(BALL.bottom, rect.top - 2)
             ball_vel[1] = -abs(ball_vel[1]) - 4
             ball_vel[0] *= 0.6
@@ -22994,142 +23115,140 @@ def _divine_draw_effects(surface, divine_state):
                         pygame.draw.circle(base_surf, ring_color, shield_center, ring_radius, 2)
                     _divine_shield_base_cache[cache_key] = base_surf
 
+                # === 디바인쉴드 렌더링 최적화 ===
+                # 동적 요소(룬, 구체, 스파클)는 프레임 스킵으로 성능 향상
+                global _divine_shield_frame_counter, _divine_shield_last_dynamic_surf
+                global _divine_shield_dynamic_cache_key
+
+                _divine_shield_frame_counter += 1
+                dynamic_cache_key = (int(group_radius), shield_hits, reinforced, int(group_cx), int(group_cy))
+                need_dynamic_update = (
+                    _divine_shield_frame_counter % DIVINE_SHIELD_DYNAMIC_SKIP_FRAMES == 0
+                    or _divine_shield_last_dynamic_surf is None
+                    or _divine_shield_dynamic_cache_key != dynamic_cache_key
+                )
+
                 shield_surf = divine_state.get("_shield_work")
                 if shield_surf is None or shield_surf.get_size() != base_surf.get_size():
                     shield_surf = pygame.Surface(base_surf.get_size(), pygame.SRCALPHA)
                     divine_state["_shield_work"] = shield_surf
-                shield_surf.fill((0, 0, 0, 0))
-                shield_surf.blit(base_surf, (0, 0))
+                    need_dynamic_update = True  # 새 서피스면 반드시 갱신
 
-                # 파장 출렁임 이펙트 (피격 시 발생)
+                # 파장 출렁임 이펙트 (피격 시 발생) - 항상 업데이트
                 ripple_effects = divine_state.get("shield_ripple_effects", [])
-                for ripple in ripple_effects[:]:
-                    ripple_progress = ripple["progress"]
-                    ripple_radius = int(group_radius * (0.8 + 0.4 * ripple_progress))
-                    ripple_alpha = int(200 * (1 - ripple_progress))
-                    ripple_thickness = max(1, int(4 * (1 - ripple_progress)))
-                    pygame.draw.circle(shield_surf, (255, 255, 255, ripple_alpha),
-                                     shield_center, ripple_radius, ripple_thickness)
-                    # 진행 업데이트
-                    ripple["progress"] += 0.05
-                    if ripple["progress"] >= 1.0:
-                        ripple_effects.remove(ripple)
-                divine_state["shield_ripple_effects"] = ripple_effects
+                has_ripples = bool(ripple_effects)
 
-                # 2. 회전하는 룬 심볼들 (고대 드워프 문자)
-                rune_count = 8
-                rune_orbit_radius = group_radius + 5
-                rune_rotation_speed = 0.8
-                for i in range(rune_count):
-                    base_angle = (2 * math.pi * i / rune_count) + t * rune_rotation_speed
-                    rx = shield_center[0] + math.cos(base_angle) * rune_orbit_radius
-                    ry = shield_center[1] + math.sin(base_angle) * rune_orbit_radius
+                if need_dynamic_update or has_ripples:
+                    shield_surf.fill((0, 0, 0, 0))
+                    shield_surf.blit(base_surf, (0, 0))
 
-                    # 룬 심볼 (작은 다이아몬드 형태)
-                    rune_size = 4
-                    rune_alpha = int(180 + 50 * math.sin(t * 3 + i))
-                    rune_color = (255, 230, 150, rune_alpha)
+                    # 리플 이펙트는 항상 렌더링
+                    for ripple in ripple_effects[:]:
+                        ripple_progress = ripple["progress"]
+                        ripple_radius = int(group_radius * (0.8 + 0.4 * ripple_progress))
+                        ripple_alpha = int(200 * (1 - ripple_progress))
+                        ripple_thickness = max(1, int(4 * (1 - ripple_progress)))
+                        pygame.draw.circle(shield_surf, (255, 255, 255, ripple_alpha),
+                                         shield_center, ripple_radius, ripple_thickness)
+                        ripple["progress"] += 0.05
+                        if ripple["progress"] >= 1.0:
+                            ripple_effects.remove(ripple)
+                    divine_state["shield_ripple_effects"] = ripple_effects
 
-                    # 다이아몬드 형태의 룬
-                    rune_points = [
-                        (rx, ry - rune_size),
-                        (rx + rune_size, ry),
-                        (rx, ry + rune_size),
-                        (rx - rune_size, ry)
-                    ]
-                    pygame.draw.polygon(shield_surf, rune_color, rune_points)
+                    if need_dynamic_update:
+                        # 2. 회전하는 룬 심볼들 (고대 드워프 문자) - 개수 줄임
+                        rune_count = 6  # 8 -> 6으로 최적화
+                        rune_orbit_radius = group_radius + 5
+                        rune_rotation_speed = 0.8
+                        for i in range(rune_count):
+                            base_angle = (2 * math.pi * i / rune_count) + t * rune_rotation_speed
+                            rx = shield_center[0] + math.cos(base_angle) * rune_orbit_radius
+                            ry = shield_center[1] + math.sin(base_angle) * rune_orbit_radius
+                            rune_size = 4
+                            rune_alpha = int(180 + 50 * math.sin(t * 3 + i))
+                            rune_color = (255, 230, 150, rune_alpha)
+                            rune_points = [
+                                (rx, ry - rune_size),
+                                (rx + rune_size, ry),
+                                (rx, ry + rune_size),
+                                (rx - rune_size, ry)
+                            ]
+                            pygame.draw.polygon(shield_surf, rune_color, rune_points)
+                            # 글로우 생략 (성능)
 
-                    # 룬 글로우
-                    pygame.draw.circle(shield_surf, (255, 200, 100, 40), (int(rx), int(ry)), rune_size + 3)
+                        # 3. 회전하는 에너지 구체들 - 개수 및 글로우 최적화
+                        orb_count = 4  # 6 -> 4로 최적화
+                        orb_orbit_radius = group_radius - 5
+                        orb_rotation_speed = 1.2
+                        for i in range(orb_count):
+                            orb_angle = (2 * math.pi * i / orb_count) + t * orb_rotation_speed * (1 + i * 0.1)
+                            orb_y_offset = math.sin(t * 2 + i * 0.5) * 8
+                            ox = shield_center[0] + math.cos(orb_angle) * orb_orbit_radius
+                            oy = shield_center[1] + math.sin(orb_angle) * (orb_orbit_radius * 0.6) + orb_y_offset
+                            depth = math.sin(orb_angle)
+                            orb_size = int(6 + 3 * depth)
+                            orb_alpha = int(200 + 55 * depth)
+                            if i % 3 == 0:
+                                orb_base_color = (100, 255, 230)
+                            elif i % 3 == 1:
+                                orb_base_color = (255, 220, 100)
+                            else:
+                                orb_base_color = (180, 200, 255)
+                            orb_color = (*orb_base_color, orb_alpha)
+                            pygame.draw.circle(shield_surf, orb_color, (int(ox), int(oy)), orb_size)
+                            # 글로우 1개만 (3 -> 1로 최적화)
+                            glow_alpha = max(10, orb_alpha // 2)
+                            pygame.draw.circle(shield_surf, (*orb_base_color, glow_alpha), (int(ox), int(oy)), orb_size + 3)
 
-                # 3. 회전하는 에너지 구체들 (건물을 감싸며 공전)
-                orb_count = 6
-                orb_orbit_radius = group_radius - 5
-                orb_rotation_speed = 1.2
-                for i in range(orb_count):
-                    # 각 구체는 다른 속도와 궤도로 회전
-                    orb_angle = (2 * math.pi * i / orb_count) + t * orb_rotation_speed * (1 + i * 0.1)
-                    # 3D 효과를 위한 상하 움직임
-                    orb_y_offset = math.sin(t * 2 + i * 0.5) * 8
+                        # 5. 에너지 파동 효과
+                        wave_period = 2.0
+                        wave_progress = (t % wave_period) / wave_period
+                        wave_radius = int(group_radius * 0.3 + group_radius * 0.7 * wave_progress)
+                        wave_alpha = int(80 * (1 - wave_progress))
+                        pygame.draw.circle(shield_surf, (200, 255, 255, wave_alpha), shield_center, wave_radius, 2)
 
-                    ox = shield_center[0] + math.cos(orb_angle) * orb_orbit_radius
-                    oy = shield_center[1] + math.sin(orb_angle) * (orb_orbit_radius * 0.6) + orb_y_offset
+                        # 6. 마법 입자들 (스파클) - 개수 줄임
+                        spark_pattern_key = cache_key
+                        spark_pattern = divine_state.get("shield_spark_pattern")
+                        if (
+                            not spark_pattern
+                            or divine_state.get("shield_spark_pattern_key") != spark_pattern_key
+                        ):
+                            rng_seed = divine_state.get("shield_seed", random.randint(1, 1_000_000))
+                            divine_state["shield_seed"] = rng_seed
+                            rng = random.Random(rng_seed)
+                            spark_pattern = []
+                            colors = [(255, 255, 200), (200, 255, 255), (255, 200, 255)]
+                            for _ in range(6):  # 8 -> 6으로 최적화
+                                spark_pattern.append(
+                                    (
+                                        rng.uniform(0, 2 * math.pi),
+                                        rng.uniform(group_radius * 0.3, group_radius * 0.9),
+                                        rng.randint(1, 2),
+                                        colors[rng.randrange(len(colors))],
+                                        rng.random(),
+                                    )
+                                )
+                            divine_state["shield_spark_pattern"] = spark_pattern
+                            divine_state["shield_spark_pattern_key"] = spark_pattern_key
 
-                    # 구체 크기 (원근감)
-                    depth = math.sin(orb_angle)
-                    orb_size = int(6 + 3 * depth)
-                    orb_alpha = int(200 + 55 * depth)
-
-                    # 구체 색상 (시안-청록-금색 그라데이션)
-                    if i % 3 == 0:
-                        orb_base_color = (100, 255, 230)  # 시안
-                    elif i % 3 == 1:
-                        orb_base_color = (255, 220, 100)  # 금색
-                    else:
-                        orb_base_color = (180, 200, 255)  # 연청색
-
-                    orb_color = (*orb_base_color, orb_alpha)
-
-                    # 구체 본체
-                    pygame.draw.circle(shield_surf, orb_color, (int(ox), int(oy)), orb_size)
-                    # 구체 글로우
-                    for glow in range(3):
-                        glow_alpha = max(10, orb_alpha // (glow + 2))
-                        glow_color = (*orb_base_color, glow_alpha)
-                        pygame.draw.circle(shield_surf, glow_color, (int(ox), int(oy)), orb_size + glow * 3)
-                    # 구체 하이라이트
-                    pygame.draw.circle(shield_surf, (255, 255, 255, 150),
-                                     (int(ox - orb_size * 0.3), int(oy - orb_size * 0.3)), max(1, orb_size // 3))
-
-                # 4. 내부 에너지 필드 (반투명 구체)
-                #    └ 디자인 변경: 가운데 원형 에너지 필드는
-                #       시야를 가려 게임 플레이에 방해가 되어 비활성화한다.
-                #       (외곽 링 / 룬 / 구체 / 스파클 등 나머지 디바인쉴드
-                #        연출은 그대로 유지)
-
-                # 5. 에너지 파동 효과 (확장되는 링)
-                wave_period = 2.0
-                wave_progress = (t % wave_period) / wave_period
-                wave_radius = int(group_radius * 0.3 + group_radius * 0.7 * wave_progress)
-                wave_alpha = int(80 * (1 - wave_progress))
-                pygame.draw.circle(shield_surf, (200, 255, 255, wave_alpha), shield_center, wave_radius, 2)
-
-                # 6. 마법 입자들 (스파클)
-                spark_pattern_key = cache_key
-                spark_pattern = divine_state.get("shield_spark_pattern")
-                if (
-                    not spark_pattern
-                    or divine_state.get("shield_spark_pattern_key") != spark_pattern_key
-                ):
-                    rng_seed = divine_state.get("shield_seed", random.randint(1, 1_000_000))
-                    divine_state["shield_seed"] = rng_seed
-                    rng = random.Random(rng_seed)
-                    spark_pattern = []
-                    colors = [(255, 255, 200), (200, 255, 255), (255, 200, 255)]
-                    for _ in range(DIVINE_SHIELD_SPARK_COUNT):
-                        spark_pattern.append(
-                            (
-                                rng.uniform(0, 2 * math.pi),
-                                rng.uniform(group_radius * 0.3, group_radius * 0.9),
-                                rng.randint(1, 2),
-                                colors[rng.randrange(len(colors))],
-                                rng.random(),
+                        for angle_base, spark_dist, spark_size, spark_rgb, phase in spark_pattern:
+                            spark_angle = angle_base + t * 0.7
+                            sx = shield_center[0] + math.cos(spark_angle) * spark_dist
+                            sy = shield_center[1] + math.sin(spark_angle) * spark_dist
+                            spark_alpha = int(120 + 80 * (0.5 + 0.5 * math.sin(t * 2 + phase * 6)))
+                            pygame.draw.circle(
+                                shield_surf,
+                                (*spark_rgb, spark_alpha),
+                                (int(sx), int(sy)),
+                                spark_size,
                             )
-                        )
-                    divine_state["shield_spark_pattern"] = spark_pattern
-                    divine_state["shield_spark_pattern_key"] = spark_pattern_key
 
-                for angle_base, spark_dist, spark_size, spark_rgb, phase in spark_pattern:
-                    spark_angle = angle_base + t * 0.7
-                    sx = shield_center[0] + math.cos(spark_angle) * spark_dist
-                    sy = shield_center[1] + math.sin(spark_angle) * spark_dist
-                    spark_alpha = int(120 + 80 * (0.5 + 0.5 * math.sin(t * 2 + phase * 6)))
-                    pygame.draw.circle(
-                        shield_surf,
-                        (*spark_rgb, spark_alpha),
-                        (int(sx), int(sy)),
-                        spark_size,
-                    )
+                        _divine_shield_last_dynamic_surf = shield_surf.copy()
+                        _divine_shield_dynamic_cache_key = dynamic_cache_key
+                elif _divine_shield_last_dynamic_surf is not None:
+                    # 프레임 스킵 시 이전 프레임 재사용
+                    shield_surf = _divine_shield_last_dynamic_surf
 
                 # 서피스를 화면에 그리기
                 surface.blit(
@@ -23720,22 +23839,73 @@ def update_blacksmith_turret():
     # 포탑 앞에 벽돌(발토르 방어벽 포함)이 있을 경우, 우선 벽돌이 공을 막도록 하고
     # 이 프레임에서는 포탑 충돌 처리를 건너뛴다.
     wall_blocked = False
+
+    # 관통 검사를 위한 헬퍼 함수
+    def _line_intersects_rect_turret(x1, y1, x2, y2, rect):
+        """선분이 사각형과 교차하는지 확인 (관통 검사용)"""
+        r = BALL.width // 2
+        left = rect.left - r
+        right = rect.right + r
+        top = rect.top - r
+        bottom = rect.bottom + r
+        dx = x2 - x1
+        dy = y2 - y1
+        t_min, t_max = 0.0, 1.0
+        if dx != 0:
+            t1 = (left - x1) / dx
+            t2 = (right - x1) / dx
+            if dx < 0:
+                t1, t2 = t2, t1
+            t_min = max(t_min, t1)
+            t_max = min(t_max, t2)
+        elif x1 < left or x1 > right:
+            return False
+        if dy != 0:
+            t1 = (top - y1) / dy
+            t2 = (bottom - y1) / dy
+            if dy < 0:
+                t1, t2 = t2, t1
+            t_min = max(t_min, t1)
+            t_max = min(t_max, t2)
+        elif y1 < top or y1 > bottom:
+            return False
+        return t_min <= t_max
+
     try:
         try:
             ball_owner = getattr(game_vars.ball, "last_hit_by", None)
         except Exception:
             ball_owner = globals().get("last_hit_by", None)
+        # 이전 공 위치 가져오기
+        prev_x = globals().get("ball_prev_x", BALL.x)
+        prev_y = globals().get("ball_prev_y", BALL.y)
         for wall in walls:
             # 플레이어가 친 공(서브 포함)에 대해서는 건물 보호용(group_id) 벽돌은 포탑을 막지 않는다.
             if ball_owner == "player" and wall.get("group_id") is not None:
                 continue
-            if BALL.colliderect(wall["rect"]):
+            wall_rect = wall["rect"]
+            # 현재 충돌 또는 관통 체크
+            if BALL.colliderect(wall_rect):
                 wall_blocked = True
+                break
+            # 관통 체크: 이전 위치에서 현재 위치로 이동하며 벽돌을 지나쳤는지
+            if _line_intersects_rect_turret(prev_x + BALL.width//2, prev_y + BALL.height//2,
+                                            BALL.centerx, BALL.centery, wall_rect):
+                wall_blocked = True
+                print(f"[DEBUG] 벽돌 관통 감지 (포탑 보호)!")
                 break
     except Exception:
         wall_blocked = False
 
-    if not time_frozen and not wall_blocked and turret_hit_rect.colliderect(BALL):
+    # 포탑 충돌 체크: 현재 충돌 또는 관통
+    prev_x = globals().get("ball_prev_x", BALL.x)
+    prev_y = globals().get("ball_prev_y", BALL.y)
+    turret_collision = turret_hit_rect.colliderect(BALL) or _line_intersects_rect_turret(
+        prev_x + BALL.width//2, prev_y + BALL.height//2,
+        BALL.centerx, BALL.centery, turret_hit_rect
+    )
+
+    if not time_frozen and not wall_blocked and turret_collision:
         ball_owner = getattr(game_vars.ball, "last_hit_by", "player")
         if ball_owner != "player" and turret_state.get("hp", 0) > 0:
             smoke_protected = is_rect_in_smoke(turret_hit_rect)
@@ -29153,6 +29323,11 @@ BLACKSMITH_DIVINE_SHIELD_LAYERS = 4
 # 디바인쉴드 그리기 최적화 캐시
 DIVINE_SHIELD_SPARK_COUNT = 8
 _divine_shield_base_cache: dict[tuple[int, int, bool], pygame.Surface] = {}
+# 디바인쉴드 동적 요소 프레임 스킵 (성능 최적화)
+_divine_shield_frame_counter = 0
+_divine_shield_last_dynamic_surf: pygame.Surface | None = None
+_divine_shield_dynamic_cache_key: tuple | None = None
+DIVINE_SHIELD_DYNAMIC_SKIP_FRAMES = 2  # 2프레임마다 1회 동적 요소 갱신 (30fps 수준)
 
 # 디바인쉴드 반사 부스트 효과 변수
 divine_shield_boost_active = False
@@ -29375,7 +29550,7 @@ def deactivate_divine_shield_boost():
 
 
 def update_divine_shield_dark_aura():
-    """디바인쉴드 어둠의 오오라 효과를 업데이트한다."""
+    """디바인쉴드 어둠의 오오라 효과를 업데이트한다. (최적화 버전)"""
     global divine_shield_dark_aura_active, divine_shield_dark_aura_trail
 
     if not divine_shield_dark_aura_active:
@@ -29385,84 +29560,124 @@ def update_divine_shield_dark_aura():
     ball_cx, ball_cy = BALL.center
     divine_shield_dark_aura_trail.append({"x": ball_cx, "y": ball_cy, "alpha": 255})
 
-    # 궤적의 알파값 감소 (페이드 아웃)
-    for trail in divine_shield_dark_aura_trail:
-        trail["alpha"] -= 12  # 빠르게 페이드
+    # 궤적의 알파값 감소 및 제거를 한 번의 순회로 처리 (in-place)
+    write_idx = 0
+    for read_idx in range(len(divine_shield_dark_aura_trail)):
+        trail = divine_shield_dark_aura_trail[read_idx]
+        trail["alpha"] -= 12
+        if trail["alpha"] > 0:
+            divine_shield_dark_aura_trail[write_idx] = trail
+            write_idx += 1
+    # 불필요한 요소 제거
+    del divine_shield_dark_aura_trail[write_idx:]
 
-    # 알파값이 0 이하인 궤적 제거
-    divine_shield_dark_aura_trail = [t for t in divine_shield_dark_aura_trail if t["alpha"] > 0]
-
-    # 최대 궤적 개수 제한
+    # 최대 궤적 개수 제한 (슬라이싱 대신 del 사용)
     if len(divine_shield_dark_aura_trail) > 30:
-        divine_shield_dark_aura_trail = divine_shield_dark_aura_trail[-30:]
+        del divine_shield_dark_aura_trail[:-30]
+
+
+# 디바인쉴드 어둠의 오오라 캐시된 Surface들
+_divine_aura_trail_cache: dict[int, pygame.Surface] = {}
+_divine_aura_ball_cache: dict[int, pygame.Surface] = {}
+_divine_aura_particle_cache: dict[int, pygame.Surface] = {}
+_divine_aura_particle_pool: list[dict] = []  # 파티클 풀링
+
+
+def _get_divine_aura_trail_surface(size: int, alpha: int) -> pygame.Surface:
+    """캐시된 궤적 Surface를 반환한다."""
+    cache_key = (size, alpha // 20)  # alpha를 20단위로 양자화해서 캐시 키 최소화
+    if cache_key not in _divine_aura_trail_cache:
+        surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+        pygame.draw.circle(surf, (80, 20, 120, int(alpha * 0.3)), (size, size), size)
+        pygame.draw.circle(surf, (60, 10, 100, int(alpha * 0.5)), (size, size), int(size * 0.7))
+        _divine_aura_trail_cache[cache_key] = surf
+        # 캐시 크기 제한
+        if len(_divine_aura_trail_cache) > 50:
+            _divine_aura_trail_cache.pop(next(iter(_divine_aura_trail_cache)))
+    return _divine_aura_trail_cache[cache_key]
+
+
+def _get_divine_aura_ball_surface(aura_size: int) -> pygame.Surface:
+    """캐시된 공 주변 오오라 Surface를 반환한다."""
+    if aura_size not in _divine_aura_ball_cache:
+        surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+        for i in range(4):
+            layer_size = int(aura_size * (1 - i * 0.15))
+            layer_alpha = int(180 - i * 40)
+            r = 100 - i * 15
+            g = 20 - i * 5
+            b = 150 - i * 20
+            pygame.draw.circle(surf, (r, g, b, layer_alpha), (aura_size, aura_size), layer_size)
+        _divine_aura_ball_cache[aura_size] = surf
+        # 캐시 크기 제한
+        if len(_divine_aura_ball_cache) > 20:
+            _divine_aura_ball_cache.pop(next(iter(_divine_aura_ball_cache)))
+    return _divine_aura_ball_cache[aura_size]
+
+
+def _get_divine_aura_particle_surface(particle_size: int) -> pygame.Surface:
+    """캐시된 파티클 Surface를 반환한다."""
+    if particle_size not in _divine_aura_particle_cache:
+        surf = pygame.Surface((particle_size * 2, particle_size * 2), pygame.SRCALPHA)
+        pygame.draw.circle(surf, (80, 10, 130, 140), (particle_size, particle_size), particle_size)
+        _divine_aura_particle_cache[particle_size] = surf
+    return _divine_aura_particle_cache[particle_size]
 
 
 def draw_divine_shield_dark_aura(screen):
-    """디바인쉴드 어둠의 오오라를 그린다."""
+    """디바인쉴드 어둠의 오오라를 그린다. (최적화 버전)"""
     global divine_shield_dark_aura_active, divine_shield_dark_aura_trail
+    global _divine_aura_particle_pool
 
     if not divine_shield_dark_aura_active:
         return
 
-    # 궤적 그리기 (어두운 보라색 그라데이션)
+    # 궤적 그리기 (캐시된 Surface 사용)
     for trail in divine_shield_dark_aura_trail:
         alpha = max(0, min(255, trail["alpha"]))
-        size = int(12 + (alpha / 255) * 8)  # 알파값에 따라 크기 변화
-
-        # 어둠의 오오라 색상 (어두운 보라색)
-        trail_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-
-        # 외곽 글로우
-        pygame.draw.circle(trail_surf, (80, 20, 120, int(alpha * 0.3)),
-                          (size, size), size)
-        # 내부 코어
-        pygame.draw.circle(trail_surf, (60, 10, 100, int(alpha * 0.5)),
-                          (size, size), int(size * 0.7))
-
+        if alpha < 10:  # 너무 투명한 건 스킵
+            continue
+        size = int(12 + (alpha / 255) * 8)
+        trail_surf = _get_divine_aura_trail_surface(size, alpha)
         screen.blit(trail_surf, (trail["x"] - size, trail["y"] - size))
 
-    # 공 주변 어둠의 오오라 그리기
+    # 공 주변 어둠의 오오라 그리기 (캐시된 Surface 사용)
     ball_cx, ball_cy = BALL.center
     ball_radius = BALL.width // 2
 
-    # 외곽 어둠 오오라 (맥동 효과)
+    # 맥동 효과 - 프레임당 1회만 계산
     pulse = math.sin(pygame.time.get_ticks() * 0.01) * 0.3 + 0.7
     aura_size = int(ball_radius * 2.5 * pulse)
-    aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
-
-    # 다중 레이어 오오라
-    for i in range(4):
-        layer_size = int(aura_size * (1 - i * 0.15))
-        layer_alpha = int(180 - i * 40)
-        # 어두운 보라색 계열
-        r = 100 - i * 15
-        g = 20 - i * 5
-        b = 150 - i * 20
-        pygame.draw.circle(aura_surf, (r, g, b, layer_alpha),
-                          (aura_size, aura_size), layer_size)
-
+    aura_surf = _get_divine_aura_ball_surface(aura_size)
     screen.blit(aura_surf, (ball_cx - aura_size, ball_cy - aura_size))
 
-    # 어둠 파티클 효과
-    for _ in range(2):
-        particle_angle = random.uniform(0, math.pi * 2)
-        particle_dist = random.uniform(ball_radius * 1.2, ball_radius * 2.2)
-        px = int(ball_cx + math.cos(particle_angle) * particle_dist)
-        py = int(ball_cy + math.sin(particle_angle) * particle_dist)
-        particle_size = random.randint(2, 4)
-        particle_alpha = random.randint(100, 180)
+    # 어둠 파티클 효과 (풀링 + 캐시 사용, 매 프레임 생성 대신 기존 파티클 업데이트)
+    # 파티클 풀이 비어있거나 너무 적으면 보충
+    if len(_divine_aura_particle_pool) < 4:
+        for _ in range(4 - len(_divine_aura_particle_pool)):
+            _divine_aura_particle_pool.append({
+                "angle": random.uniform(0, math.pi * 2),
+                "dist": random.uniform(ball_radius * 1.2, ball_radius * 2.2),
+                "size": random.randint(2, 4),
+                "speed": random.uniform(0.05, 0.15),
+            })
 
-        particle_surf = pygame.Surface((particle_size * 2, particle_size * 2), pygame.SRCALPHA)
-        pygame.draw.circle(particle_surf, (80, 10, 130, particle_alpha),
-                          (particle_size, particle_size), particle_size)
-        screen.blit(particle_surf, (px - particle_size, py - particle_size))
+    # 기존 파티클 업데이트 및 렌더링
+    for p in _divine_aura_particle_pool:
+        p["angle"] += p["speed"]
+        px = int(ball_cx + math.cos(p["angle"]) * p["dist"])
+        py = int(ball_cy + math.sin(p["angle"]) * p["dist"])
+        particle_surf = _get_divine_aura_particle_surface(p["size"])
+        screen.blit(particle_surf, (px - p["size"], py - p["size"]))
 
 
 def deactivate_divine_shield_dark_aura():
     """디바인쉴드 어둠의 오오라를 비활성화한다."""
     global divine_shield_dark_aura_active, divine_shield_dark_aura_trail
+    global _divine_aura_particle_pool
     divine_shield_dark_aura_active = False
-    divine_shield_dark_aura_trail = []
+    divine_shield_dark_aura_trail.clear()  # 메모리 재할당 없이 리스트 비우기
+    _divine_aura_particle_pool.clear()  # 파티클 풀도 초기화
 
 
 BLACKSMITH_HAMMER_SHOCK_STAGE_COST = {
@@ -46527,7 +46742,7 @@ def handle_player(keys):
             skill_speed_boost = skill.apply_paddle_speed_boost(0)
             # 캐릭터별 기본 최대 속도 분기
             if selected_character_type == "blacksmith":
-                base_max_speed = 3
+                base_max_speed = 4
             elif selected_character_type == "optimus":
                 base_max_speed = OPTIMUS_BASE_MAX_SPEED
             elif selected_character_type == "smasher":
@@ -60747,6 +60962,31 @@ def _build_stage8_walk_pose(base_img, boss_rect):
     )
     pose_surface.blit(body_surface, body_rect)
     return pose_surface, pose_surface.get_width(), pose_surface.get_height()
+
+# ============================================================
+# draw_objects 내 소형 Surface 캐싱 (최적화)
+# ============================================================
+_serve_line_surfaces = {}  # 서브 라인 서피스 캐시 {width: surface}
+_timing_surface_cache = None  # 타이밍 인디케이터 서피스 캐시
+_timing_surface_size = 0
+
+def _get_serve_line_surface(width, color):
+    """서브 라인 서피스 캐싱"""
+    key = (width, color)
+    if key not in _serve_line_surfaces:
+        surf = pygame.Surface((width, 2), pygame.SRCALPHA)
+        surf.fill(color)
+        _serve_line_surfaces[key] = surf
+    return _serve_line_surfaces[key]
+
+def _get_timing_surface(radius):
+    """타이밍 인디케이터 서피스 캐싱"""
+    global _timing_surface_cache, _timing_surface_size
+    if _timing_surface_cache is None or _timing_surface_size < radius * 2:
+        _timing_surface_size = radius * 2 + 20  # 여유 공간
+        _timing_surface_cache = pygame.Surface((_timing_surface_size, _timing_surface_size), pygame.SRCALPHA)
+    return _timing_surface_cache
+
 def draw_objects():
     global quake_offset_y, rainbow_index, ball_angle
     global hit_animation_active, hit_animation_timer
@@ -60872,11 +61112,10 @@ def draw_objects():
                 serve_text = serve_font.render("Player Serve", True, WHITE)
                 serve_rect = serve_text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
                 SCREEN.blit(serve_text, serve_rect)
-                # 액센트 라인
+                # 액센트 라인 (캐싱된 서피스 사용)
                 line_width = serve_rect.width + 20
                 line_y = serve_rect.bottom + 5
-                line_surface = pygame.Surface((line_width, 2), pygame.SRCALPHA)
-                line_surface.fill((0, 200, 100))
+                line_surface = _get_serve_line_surface(line_width, (0, 200, 100))
                 SCREEN.blit(line_surface, ((WIDTH - line_width) // 2, line_y))
                 # 3초 후 자동 서브 카운트다운
                 if wait_time >= MILLISECONDS_PER_SECOND:
@@ -60898,11 +61137,10 @@ def draw_objects():
                 serve_text = serve_font.render(f"{boss_name} Serve", True, WHITE)
                 serve_rect = serve_text.get_rect(center=(WIDTH // 2, 80))
                 SCREEN.blit(serve_text, serve_rect)
-                # 액센트 라인
+                # 액센트 라인 (캐싱된 서피스 사용)
                 line_width = serve_rect.width + 20
                 line_y = serve_rect.bottom + 5
-                line_surface = pygame.Surface((line_width, 2), pygame.SRCALPHA)
-                line_surface.fill((200, 80, 80))
+                line_surface = _get_serve_line_surface(line_width, (200, 80, 80))
                 SCREEN.blit(line_surface, ((WIDTH - line_width) // 2, line_y))
                 # 상태 텍스트
                 if boss_fake_move and wait_delay > 0:
@@ -60921,18 +61159,19 @@ def draw_objects():
         and special_gauge >= 150
         and selected_character_type == "smasher"
     ):
-        # 공 주변에 퍼펙트 타이밍 인디케이터 그리기
+        # 공 주변에 퍼펙트 타이밍 인디케이터 그리기 (캐싱된 서피스 사용)
         timing_alpha = 255
         timing_radius = 30 + int(5 * math.sin(pygame.time.get_ticks() * 0.2))
         # 반투명 원 그리기 - 파워스매싱 준비 상태에 따라 색상 변경
-        timing_surface = pygame.Surface((timing_radius*2, timing_radius*2), pygame.SRCALPHA)
+        timing_surface = _get_timing_surface(timing_radius)
+        timing_surface.fill((0, 0, 0, 0))  # 클리어
         if special_ready:
             # 파워스매싱 준비 상태일 때 - 빨간색 원
             pygame.draw.circle(timing_surface, (255, 80, 80, timing_alpha), (timing_radius, timing_radius), timing_radius, 3)
         else:
             # 일반 드라이브 상태일 때 - 노란색 원
             pygame.draw.circle(timing_surface, (255, 255, 0, timing_alpha), (timing_radius, timing_radius), timing_radius, 3)
-        SCREEN.blit(timing_surface, (BALL.centerx - timing_radius, BALL.centery - timing_radius))
+        SCREEN.blit(timing_surface, (BALL.centerx - timing_radius, BALL.centery - timing_radius), (0, 0, timing_radius*2, timing_radius*2))
         # 텍스트 표시 - 파워스매싱 준비 상태에 따라 다르게 표시
         timing_font = FontStyle.body()  # 24pt 픽셀 폰트
         if short_shot_counter_window > 0:
@@ -83277,6 +83516,40 @@ def draw_tutorial_practice_room():
     # 메인 원
     pygame.draw.circle(SCREEN, line_color, (center_x, center_y), circle_radius, line_width)
 
+# ============================================================
+# 단청 패턴 사전 렌더링 캐싱 (Stage 1 최적화)
+# ============================================================
+_danjeong_surface = None  # 단청 패턴 캐시
+_danjeong_size = None     # 캐시된 크기
+
+def _get_danjeong_surface(width, height):
+    """단청 패턴 서피스를 캐싱하여 반환 (매 프레임 그리기 방지)"""
+    global _danjeong_surface, _danjeong_size
+
+    if _danjeong_surface is None or _danjeong_size != (width, height):
+        _danjeong_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        _danjeong_size = (width, height)
+
+        border_x = 0
+        border_width = width
+        # 외곽선 (진한 갈색)
+        pygame.draw.rect(_danjeong_surface, (101, 67, 33), (border_x, 0, border_width, height), 8)
+        # 단청 패턴을 위한 내부 장식
+        # 상단 단청 패턴
+        pygame.draw.rect(_danjeong_surface, (220, 50, 50), (border_x + 8, 4, border_width - 16, 2), 0)  # 빨강
+        pygame.draw.rect(_danjeong_surface, (255, 215, 0), (border_x + 8, 6, border_width - 16, 2), 0)  # 노랑
+        # 하단 단청 패턴
+        pygame.draw.rect(_danjeong_surface, (50, 50, 220), (border_x + 8, height - 6, border_width - 16, 2), 0)  # 파랑
+        pygame.draw.rect(_danjeong_surface, (50, 180, 50), (border_x + 8, height - 8, border_width - 16, 2), 0)  # 초록
+        # 좌측 단청 패턴
+        pygame.draw.rect(_danjeong_surface, (220, 50, 50), (border_x + 4, 8, 2, height - 16), 0)  # 빨강
+        pygame.draw.rect(_danjeong_surface, (255, 215, 0), (border_x + 6, 8, 2, height - 16), 0)  # 노랑
+        # 우측 단청 패턴
+        pygame.draw.rect(_danjeong_surface, (50, 50, 220), (border_x + border_width - 6, 8, 2, height - 16), 0)  # 파랑
+        pygame.draw.rect(_danjeong_surface, (50, 180, 50), (border_x + border_width - 8, 8, 2, height - 16), 0)  # 초록
+
+    return _danjeong_surface
+
 def draw_field():
     global psycho_bg_timer, earthquake_offset_x, earthquake_offset_y
     global special_gauge, gauge_charge_animation_timer, gauge_charge_animation_amount, special_ready
@@ -83361,25 +83634,9 @@ def draw_field():
         # 밝은 회색 테두리 (백업 이미지 분석 결과)
         pygame.draw.circle(SCREEN, (200, 200, 200), (taegeuk_center_x, taegeuk_center_y), taegeuk_radius + 2, 4)
 
-        # Stage 1 필드 전체에 8픽셀 단청 스타일 테두리 추가
-        # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
-        border_x = 0
-        border_width = WIDTH
-        # 외곽선 (진한 갈색)
-        pygame.draw.rect(SCREEN, (101, 67, 33), (border_x, 0, border_width, HEIGHT), 8)
-        # 단청 패턴을 위한 내부 장식
-        # 상단 단청 패턴
-        pygame.draw.rect(SCREEN, (220, 50, 50), (border_x + 8, 4, border_width - 16, 2), 0)  # 빨강
-        pygame.draw.rect(SCREEN, (255, 215, 0), (border_x + 8, 6, border_width - 16, 2), 0)  # 노랑
-        # 하단 단청 패턴
-        pygame.draw.rect(SCREEN, (50, 50, 220), (border_x + 8, HEIGHT - 6, border_width - 16, 2), 0)  # 파랑
-        pygame.draw.rect(SCREEN, (50, 180, 50), (border_x + 8, HEIGHT - 8, border_width - 16, 2), 0)  # 초록
-        # 좌측 단청 패턴
-        pygame.draw.rect(SCREEN, (220, 50, 50), (border_x + 4, 8, 2, HEIGHT - 16), 0)  # 빨강
-        pygame.draw.rect(SCREEN, (255, 215, 0), (border_x + 6, 8, 2, HEIGHT - 16), 0)  # 노랑
-        # 우측 단청 패턴
-        pygame.draw.rect(SCREEN, (50, 50, 220), (border_x + border_width - 6, 8, 2, HEIGHT - 16), 0)  # 파랑
-        pygame.draw.rect(SCREEN, (50, 180, 50), (border_x + border_width - 8, 8, 2, HEIGHT - 16), 0)  # 초록
+        # Stage 1 필드 전체에 8픽셀 단청 스타일 테두리 추가 (캐싱된 서피스 사용)
+        danjeong = _get_danjeong_surface(WIDTH, HEIGHT)
+        SCREEN.blit(danjeong, (0, 0))
         # 스테이지 1: 필러에서 날아오는 나비를 게임 화면에 그리기
         if pillar_renderer is not None:
             pillar_renderer.draw_butterfly_ingame(SCREEN, WIDTH, HEIGHT)
@@ -87754,7 +88011,12 @@ def handle_ball():
     # --- 공 이동 (Sub-stepping으로 터널링 방지) ---
     # 스탑워치 활성화 시 공 이동 중지
     rock_hit = False  # 바위 충돌 플래그 초기화
-    
+
+    # 이전 프레임 공 위치 저장 (관통 충돌 검사용)
+    global ball_prev_x, ball_prev_y
+    ball_prev_x = BALL.x
+    ball_prev_y = BALL.y
+
     if not (stopwatch_active and stopwatch_timer > 0):
         # Sub-stepping: 빠른 공의 경우 여러 단계로 나누어 이동
         total_vel_x = ball_vel[0] * ball_impact_boost
@@ -88268,14 +88530,68 @@ def handle_ball():
                 # 이전 위치에서는 충돌하지 않았고, 현재 위치에서만 충돌하는 경우에만
                 # 새로운 피격으로 간주한다(지속 접촉에 의한 중복 카운트 방지).
                 prev_ball_rect = pygame.Rect(old_x, old_y, BALL.width, BALL.height)
-                if not prev_ball_rect.colliderect(wall_rect) and not BALL.colliderect(wall_rect):
-                    continue
-                if prev_ball_rect.colliderect(wall_rect):
-                    # 이미 이전 위치에서 겹쳐 있었으면 이번 스텝은 지속 접촉으로 간주하고 스킵
+
+                # 관통 케이스 체크: 공의 이동 경로가 벽돌을 가로지르는지 확인
+                # (이전/현재 모두 충돌 안 하더라도 빠르게 관통할 수 있음)
+                def line_intersects_rect(x1, y1, x2, y2, rect):
+                    """선분이 사각형과 교차하는지 확인 (Liang-Barsky 알고리즘 간소화)"""
+                    # 사각형 확장 (공의 반지름 고려)
+                    r = BALL.width // 2
+                    left = rect.left - r
+                    right = rect.right + r
+                    top = rect.top - r
+                    bottom = rect.bottom + r
+
+                    dx = x2 - x1
+                    dy = y2 - y1
+
+                    # 선분이 사각형 경계를 가로지르는지 확인
+                    t_min, t_max = 0.0, 1.0
+
+                    # X축 체크
+                    if dx != 0:
+                        t1 = (left - x1) / dx
+                        t2 = (right - x1) / dx
+                        if dx < 0:
+                            t1, t2 = t2, t1
+                        t_min = max(t_min, t1)
+                        t_max = min(t_max, t2)
+                    elif x1 < left or x1 > right:
+                        return False
+
+                    # Y축 체크
+                    if dy != 0:
+                        t1 = (top - y1) / dy
+                        t2 = (bottom - y1) / dy
+                        if dy < 0:
+                            t1, t2 = t2, t1
+                        t_min = max(t_min, t1)
+                        t_max = min(t_max, t2)
+                    elif y1 < top or y1 > bottom:
+                        return False
+
+                    return t_min <= t_max
+
+                # 충돌 판정: 현재 충돌, 또는 이동 경로가 벽돌을 관통
+                prev_collides = prev_ball_rect.colliderect(wall_rect)
+                curr_collides = BALL.colliderect(wall_rect)
+
+                # 이전에 이미 접촉 중이면 스킵 (지속 접촉)
+                if prev_collides:
                     continue
 
-                # 여기까지 왔으면 이번 스텝에서 새로 벽돌에 진입한 것
-                if BALL.colliderect(wall_rect):
+                # 현재 충돌하지 않고, 관통도 없으면 스킵
+                if not curr_collides:
+                    # 관통 체크: 이전 위치에서 현재 위치로 이동하며 벽돌을 지나쳤는지
+                    if not line_intersects_rect(old_x + BALL.width//2, old_y + BALL.height//2,
+                                                BALL.centerx, BALL.centery, wall_rect):
+                        continue
+                    # 관통 발생! 공을 벽돌 표면으로 되돌림
+                    print(f"[DEBUG] 벽돌 관통 감지! 공 위치 보정")
+
+                # 여기까지 왔으면 이번 스텝에서 새로 벽돌에 진입한 것 (또는 관통)
+                if curr_collides or line_intersects_rect(old_x + BALL.width//2, old_y + BALL.height//2,
+                                                          BALL.centerx, BALL.centery, wall_rect):
                     # 중복 피격 방지를 위해 프레임 히트 기록
                     if group_id is not None:
                         frame_wall_hit_groups.add(group_id)
@@ -97421,6 +97737,10 @@ def main(stage_num, new_boss_mode=False):
             profiler.begin_frame()
         dt_ms = clock.tick(FPS)
         now_ms = pygame.time.get_ticks()
+        # 프레임 시간 캐싱 업데이트 (성능 최적화)
+        global _current_frame_ticks, _frame_counter
+        _current_frame_ticks = now_ms
+        _frame_counter += 1
 
         # === 첫 프레임 dt 강제 제한 (EXE 패키징 시 초기 지연 문제 해결) ===
         # 패키징된 EXE에서는 게임 루프 첫 프레임에 리소스 로딩 지연으로 인해
@@ -101949,25 +102269,41 @@ def show_pause_menu():
                                 return result
     finally:
         _pop_stage7_ui_pause()
+# 그라데이션 캐시 (성능 최적화)
+_gradient_cache = {}
+
 def draw_gradient_background(surface, rect, color1, color2, horizontal=False):
-    """그라데이션 배경 그리기"""
-    for i in range(rect.height if not horizontal else rect.width):
+    """그라데이션 배경 그리기 (캐싱 적용)"""
+    # 캐시 키 생성
+    cache_key = (rect.width, rect.height, color1, color2, horizontal)
+
+    if cache_key not in _gradient_cache:
+        # 캐시에 없으면 새로 생성
+        grad_surf = pygame.Surface((rect.width, rect.height))
         if horizontal:
-            ratio = i / rect.width
-            r = int(color1[0] + (color2[0] - color1[0]) * ratio)
-            g = int(color1[1] + (color2[1] - color1[1]) * ratio)
-            b = int(color1[2] + (color2[2] - color1[2]) * ratio)
-            pygame.draw.line(surface, (r, g, b), 
-                           (rect.x + i, rect.y), 
-                           (rect.x + i, rect.y + rect.height))
+            for i in range(rect.width):
+                ratio = i / rect.width
+                r = int(color1[0] + (color2[0] - color1[0]) * ratio)
+                g = int(color1[1] + (color2[1] - color1[1]) * ratio)
+                b = int(color1[2] + (color2[2] - color1[2]) * ratio)
+                pygame.draw.line(grad_surf, (r, g, b), (i, 0), (i, rect.height))
         else:
-            ratio = i / rect.height
-            r = int(color1[0] + (color2[0] - color1[0]) * ratio)
-            g = int(color1[1] + (color2[1] - color1[1]) * ratio)
-            b = int(color1[2] + (color2[2] - color1[2]) * ratio)
-            pygame.draw.line(surface, (r, g, b), 
-                           (rect.x, rect.y + i), 
-                           (rect.x + rect.width, rect.y + i))
+            for i in range(rect.height):
+                ratio = i / rect.height
+                r = int(color1[0] + (color2[0] - color1[0]) * ratio)
+                g = int(color1[1] + (color2[1] - color1[1]) * ratio)
+                b = int(color1[2] + (color2[2] - color1[2]) * ratio)
+                pygame.draw.line(grad_surf, (r, g, b), (0, i), (rect.width, i))
+        _gradient_cache[cache_key] = grad_surf
+
+        # 캐시 크기 제한 (메모리 보호)
+        if len(_gradient_cache) > 50:
+            # 가장 오래된 항목 제거
+            oldest_key = next(iter(_gradient_cache))
+            del _gradient_cache[oldest_key]
+
+    # 캐시된 그라데이션 blit
+    surface.blit(_gradient_cache[cache_key], (rect.x, rect.y))
 def draw_modern_panel(surface, rect, title="", title_color=(255, 215, 0)):
     """현대적인 패널 그리기"""
     # 메인 배경 (어두운 그라데이션)
@@ -103255,7 +103591,7 @@ def show_character_info(background_surface=None):
         char_type = globals().get("selected_character_type", "normal")
         # 캐릭터별 기본 이동속도: 옵티머스는 자체 상수(OPTIMUS_BASE_MAX_SPEED) 사용
         if char_type == "blacksmith":
-            base_max_speed = 3.0
+            base_max_speed = 4.0
         elif char_type == "optimus":
             base_max_speed = float(globals().get("OPTIMUS_BASE_MAX_SPEED", 2.0))
         elif char_type == "smasher":
