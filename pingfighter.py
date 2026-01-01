@@ -92232,7 +92232,15 @@ def handle_boss_pro():
         boss_stunned_timer -= 1
         # 넉백 적용
         BOSS.x += boss_knockback_vel
-        BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
+
+        # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+        if BOSS.x <= 0:
+            BOSS.x = 0
+            boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+        elif BOSS.x >= WIDTH - PADDLE_WIDTH:
+            BOSS.x = WIDTH - PADDLE_WIDTH
+            boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
@@ -92568,7 +92576,15 @@ def handle_boss_champion():
         boss_stunned_timer -= 1
         # 넉백 적용
         BOSS.x += boss_knockback_vel
-        BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
+
+        # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+        if BOSS.x <= 0:
+            BOSS.x = 0
+            boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+        elif BOSS.x >= WIDTH - PADDLE_WIDTH:
+            BOSS.x = WIDTH - PADDLE_WIDTH
+            boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
@@ -92919,7 +92935,15 @@ def handle_boss_mythic():
         boss_stunned_timer -= 1
         # 넉백 적용
         BOSS.x += boss_knockback_vel
-        BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
+
+        # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+        if BOSS.x <= 0:
+            BOSS.x = 0
+            boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+        elif BOSS.x >= WIDTH - PADDLE_WIDTH:
+            BOSS.x = WIDTH - PADDLE_WIDTH
+            boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
@@ -93395,7 +93419,15 @@ def handle_boss_junior():
         boss_stunned_timer -= 1
         # 넉백 적용
         BOSS.x += boss_knockback_vel
-        BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
+
+        # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+        if BOSS.x <= 0:
+            BOSS.x = 0
+            boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+        elif BOSS.x >= WIDTH - PADDLE_WIDTH:
+            BOSS.x = WIDTH - PADDLE_WIDTH
+            boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
@@ -94451,7 +94483,14 @@ def handle_boss():
         # 수평 넉백 속도 적용 (라그나로크 해머, 코만도 총알, 수류탄/화력지원)
         if abs(boss_knockback_vel) > 0.1:
             BOSS.x += boss_knockback_vel
-            BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
+
+            # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+            if BOSS.x <= 0:
+                BOSS.x = 0
+                boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+            elif BOSS.x >= WIDTH - PADDLE_WIDTH:
+                BOSS.x = WIDTH - PADDLE_WIDTH
+                boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
 
             # 넉백 감속 처리
             if boss_knockback_timer <= 18:  # 짧은 넉백 (코만도 총알 등)
@@ -94802,7 +94841,15 @@ def handle_boss():
         boss_stunned_timer -= 1
         # 넉백 적용
         BOSS.x += boss_knockback_vel
-        BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
+
+        # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+        if BOSS.x <= 0:
+            BOSS.x = 0
+            boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+        elif BOSS.x >= WIDTH - PADDLE_WIDTH:
+            BOSS.x = WIDTH - PADDLE_WIDTH
+            boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+
         # 감속
         boss_knockback_vel *= 0.85
 
