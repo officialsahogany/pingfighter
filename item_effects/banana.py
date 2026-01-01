@@ -239,11 +239,13 @@ class Banana:
 
             # 보스와 충돌 체크
             if boss_rect and not landed["slip_triggered"]:
+                # 바나나 히트박스: 보스 패들이 지나가는 영역과 겹치도록 설정
+                # 보스 패들 Y=25~65 범위이므로 바나나 히트박스를 위로 확장
                 banana_rect = pygame.Rect(
-                    landed["x"] - 25,
-                    landed["y"] - 10,
-                    50,
-                    20
+                    landed["x"] - 30,
+                    landed["y"] - 30,  # 위쪽으로 더 확장
+                    60,
+                    50  # 높이 증가
                 )
                 if boss_rect.colliderect(banana_rect):
                     landed["slip_triggered"] = True
