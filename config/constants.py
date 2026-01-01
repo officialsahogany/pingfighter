@@ -42,6 +42,30 @@ GAME_PLAY_HEIGHT = 750
 # 게임 영역 오프셋 (필러 UI 때문에 게임이 중앙에 위치)
 GAME_AREA_OFFSET_X = PILLAR_UI_WIDTH  # 80px
 
+# ============= 게임 객체 Y 좌표 표준 (매우 중요!) =============
+# 보스 관련
+BOSS_Y_POSITION = 25          # 보스 패들 Y 좌표
+BOSS_PADDLE_DEFAULT_HEIGHT = 40  # 보스 패들 높이
+BOSS_HITBOX_BOTTOM = BOSS_Y_POSITION + BOSS_PADDLE_DEFAULT_HEIGHT  # 65px
+
+# 진영 경계선 (투사체, 아이템 판정용)
+BOSS_AREA_BOUNDARY_Y = 120    # 보스 진영 하단 경계 (Y < 120 = 보스 진영)
+NEUTRAL_ZONE_TOP_Y = 120      # 중립 지대 시작 Y
+NEUTRAL_ZONE_BOTTOM_Y = 630   # 중립 지대 끝 Y
+PLAYER_AREA_BOUNDARY_Y = 630  # 플레이어 진영 상단 경계 (Y >= 630 = 플레이어 진영)
+
+# 플레이어 관련
+PLAYER_FLOOR_OFFSET = 40      # 플레이어 패들이 화면 하단에서 떨어진 거리
+PLAYER_Y_POSITION = INTERNAL_HEIGHT - PLAYER_FLOOR_OFFSET  # 710px
+
+# 중앙선
+SCREEN_CENTER_Y = INTERNAL_HEIGHT // 2  # 375px
+
+# 게임 영역 X 좌표 범위
+GAME_AREA_LEFT_X = GAME_AREA_OFFSET_X     # 80px (게임 영역 왼쪽 경계)
+GAME_AREA_RIGHT_X = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH  # 680px (게임 영역 오른쪽 경계)
+GAME_AREA_CENTER_X = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2  # 380px (게임 영역 중앙)
+
 # 사용 가능한 해상도 옵션
 RESOLUTION_OPTIONS = [
     (760, 750),    # 1x (기본) - 필러 UI 포함

@@ -41,7 +41,9 @@ class Dynamite:
     EXPLOSION_RADIUS = 350  # 폭발 범위
     KNOCKBACK_SPEED = 13  # 넉백 속도
     STUN_DURATION = 180  # 스턴 시간 3초 (60fps * 3)
-    BOSS_AREA_Y = 250  # 보스 진영 기준 Y 좌표 (화면 상단 1/3)
+    # 보스 진영 경계선 (config/constants.py의 BOSS_AREA_BOUNDARY_Y 참조)
+    # 화면 규격: 760x750, 보스 Y=25, 보스 진영은 Y < 120
+    BOSS_AREA_Y = 120  # 보스 진영 하단 경계 Y 좌표
 
     def __init__(self) -> None:
         self.active: bool = False

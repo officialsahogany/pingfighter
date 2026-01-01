@@ -65494,10 +65494,15 @@ def draw_objects():
                     spark_size = random.randint(3, 8)
                     draw.circle((150, 200, 255), (spark_x, spark_y), spark_size)
                     draw.circle(WHITE, (spark_x, spark_y), spark_size - 2)
+    # === 다이너마이트 그리기 (모든 캐릭터 공용) ===
+    from item_effects.dynamite import get_dynamite_instance
+    dynamite = get_dynamite_instance()
+    dynamite.draw(SCREEN)
+
     # === 코만도 총알 그리기 ===
     if selected_character_type == "soldier" and soldier_bullets:
         draw_soldier_bullets(SCREEN)
-    
+
     # === 바주카포 발사체 그리기 ===
     if selected_character_type == "soldier":
         from item_effects.bazooka import get_bazooka_instance
@@ -65528,11 +65533,6 @@ def draw_objects():
                 bowling_trap.draw_install_pose(SCREEN, PLAYER)
         # 볼링트랩 이펙트 그리기 (폭발, 화염 궤적) - 항상 그리기
         bowling_trap.draw_effects(SCREEN)
-
-        # === 다이너마이트 그리기 ===
-        from item_effects.dynamite import get_dynamite_instance
-        dynamite = get_dynamite_instance()
-        dynamite.draw(SCREEN)
 
         # === 자폭드론 표시 (고퀄리티 3D 스타일) ===
         if suicide_drone_active and suicide_drone_rect:
@@ -95864,6 +95864,9 @@ def show_result(won):
         # 레이저스코프 아이콘 추가 - 보스의 공 궤적을 표시
         laser_scope_icon = get_item_icon("laser_scope")
         available_items.append({"name": "laser_scope", "color": (255, 50, 50), "type": "active", "icon": laser_scope_icon})
+        # 다이너마이트 아이콘 추가 - 투척형 폭발물
+        dynamite_icon_gacha = get_item_icon("dynamite")
+        available_items.append({"name": "dynamite", "color": (200, 50, 50), "type": "active", "icon": dynamite_icon_gacha})
         if selected_character_type == "blacksmith":
             repair_kit_icon = get_item_icon("repair_kit")
             available_items.append({"name": "repair_kit", "color": (220, 210, 140), "type": "active", "icon": repair_kit_icon})
@@ -101062,56 +101065,6 @@ def main(stage_num, new_boss_mode=False):
                             deactivate_whip()
                             print("🎳 볼링트랩 발사로 상모돌리기 강제 종료!")
 
-                    # 🧨 다이너마이트 시스템 업데이트
-                    from item_effects.dynamite import get_dynamite_instance
-                    dynamite = get_dynamite_instance()
-                    ball_rect_for_dynamite = pygame.Rect(BALL.x, BALL.y, BALL.width, BALL.height) if BALL else None
-                    boss_rect_for_dynamite = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height) if BOSS else None
-                    explosion_events = dynamite.update(ball_rect_for_dynamite, boss_rect_for_dynamite, WIDTH)
-
-                    # 폭발 이벤트 처리 - 보스 넉백 및 스턴 적용
-                    for exp in explosion_events:
-                        knockback_info = dynamite.check_boss_in_explosion(boss_rect_for_dynamite)
-                        if knockback_info:
-                            # 보스 스턴 적용
-                            boss_stunned = True
-                            boss_stun_timer = knockback_info["stun_duration"]
-
-                            # 보스 넉백 적용 (벽 반사 포함)
-                            knockback_speed = knockback_info["knockback_speed"]
-                            knockback_dir_x = knockback_info["knockback_dir_x"]
-                            knockback_dir_y = knockback_info["knockback_dir_y"]
-                            remaining_distance = knockback_info["remaining_distance"]
-
-                            # 넉백 이동 (프레임당 처리)
-                            move_x = knockback_dir_x * knockback_speed
-                            move_y = knockback_dir_y * knockback_speed
-
-                            # 보스 위치 업데이트 (벽 반사 처리)
-                            new_boss_x = BOSS.x + move_x
-                            new_boss_y = BOSS.y + move_y
-
-                            # 좌우 벽 반사
-                            if new_boss_x < 0:
-                                new_boss_x = 0
-                                knockback_dir_x = -knockback_dir_x
-                            elif new_boss_x + BOSS.width > WIDTH:
-                                new_boss_x = WIDTH - BOSS.width
-                                knockback_dir_x = -knockback_dir_x
-
-                            # 상하 벽 반사
-                            if new_boss_y < 0:
-                                new_boss_y = 0
-                                knockback_dir_y = -knockback_dir_y
-                            elif new_boss_y > HEIGHT // 2:
-                                new_boss_y = HEIGHT // 2
-                                knockback_dir_y = -knockback_dir_y
-
-                            BOSS.x = new_boss_x
-                            BOSS.y = new_boss_y
-
-                            print(f"💥 다이너마이트 폭발! 보스 스턴 {knockback_info['stun_duration'] / 60:.1f}초")
-
                     fire_support_weapon = get_fire_support_instance()
                     fire_support_weapon.update(
                         boss_rect=pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height),
@@ -101172,7 +101125,57 @@ def main(stage_num, new_boss_mode=False):
                         blacksmith_shield_swing_timer -= 1
                         if blacksmith_shield_swing_timer <= 0:
                             blacksmith_shield_swing_active = False
-                
+
+                # 🧨 다이너마이트 시스템 업데이트 (모든 캐릭터 공용)
+                from item_effects.dynamite import get_dynamite_instance
+                dynamite = get_dynamite_instance()
+                ball_rect_for_dynamite = pygame.Rect(BALL.x, BALL.y, BALL.width, BALL.height) if BALL else None
+                boss_rect_for_dynamite = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height) if BOSS else None
+                explosion_events = dynamite.update(ball_rect_for_dynamite, boss_rect_for_dynamite, WIDTH)
+
+                # 폭발 이벤트 처리 - 보스 넉백 및 스턴 적용
+                for exp in explosion_events:
+                    knockback_info = dynamite.check_boss_in_explosion(boss_rect_for_dynamite)
+                    if knockback_info:
+                        # 보스 스턴 적용
+                        boss_stunned = True
+                        boss_stun_timer = knockback_info["stun_duration"]
+
+                        # 보스 넉백 적용 (벽 반사 포함)
+                        knockback_speed = knockback_info["knockback_speed"]
+                        knockback_dir_x = knockback_info["knockback_dir_x"]
+                        knockback_dir_y = knockback_info["knockback_dir_y"]
+                        remaining_distance = knockback_info["remaining_distance"]
+
+                        # 넉백 이동 (프레임당 처리)
+                        move_x = knockback_dir_x * knockback_speed
+                        move_y = knockback_dir_y * knockback_speed
+
+                        # 보스 위치 업데이트 (벽 반사 처리)
+                        new_boss_x = BOSS.x + move_x
+                        new_boss_y = BOSS.y + move_y
+
+                        # 좌우 벽 반사
+                        if new_boss_x < 0:
+                            new_boss_x = 0
+                            knockback_dir_x = -knockback_dir_x
+                        elif new_boss_x + BOSS.width > WIDTH:
+                            new_boss_x = WIDTH - BOSS.width
+                            knockback_dir_x = -knockback_dir_x
+
+                        # 상하 벽 반사
+                        if new_boss_y < 0:
+                            new_boss_y = 0
+                            knockback_dir_y = -knockback_dir_y
+                        elif new_boss_y > HEIGHT // 2:
+                            new_boss_y = HEIGHT // 2
+                            knockback_dir_y = -knockback_dir_y
+
+                        BOSS.x = new_boss_x
+                        BOSS.y = new_boss_y
+
+                        print(f"💥 다이너마이트 폭발! 보스 스턴 {knockback_info['stun_duration'] / 60:.1f}초")
+
                 #  대쉬 스피릿 레이저 시스템 업데이트
                 update_dash_spirit_lasers()
                 check_laser_ball_collision()
