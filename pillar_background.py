@@ -163,15 +163,10 @@ class PillarBackgroundRenderer:
         scaled_h = self.screen_height
 
         # 스케일된 아트워크
-        # macOS에서는 smoothscale이 깨질 수 있으므로 scale 사용
-        if _is_macos:
-            scaled_artwork = pygame.transform.scale(
-                self._artwork_surface, (scaled_w, scaled_h)
-            )
-        else:
-            scaled_artwork = pygame.transform.smoothscale(
-                self._artwork_surface, (scaled_w, scaled_h)
-            )
+        # smoothscale이 세로 줄무늬 아티팩트를 생성할 수 있으므로 scale 사용
+        scaled_artwork = pygame.transform.scale(
+            self._artwork_surface, (scaled_w, scaled_h)
+        )
 
         # 왼쪽 필러 (아트워크 왼쪽 부분)
         if self.left_pillar_width > 0:
@@ -273,9 +268,10 @@ class PillarBackgroundRenderer:
         if stage == 1 and self._stadium_bg is None:
             self._stadium_bg = StadiumPillarBackground(
                 self.screen_width, self.screen_height,
-                self.game_width, self.game_height
+                self.game_width, self.game_height,
+                self.game_offset_x, self.game_offset_y
             )
-            print(f"[PillarBG] 스테이지 1 스타디움 배경 초기화 완료")
+            print(f"[PillarBG] 스테이지 1 스타디움 배경 초기화 완료 (offset: {self.game_offset_x}, {self.game_offset_y})")
 
         # 스테이지 2: 정글 늪지대 배경 초기화 (원숭이-바나나 이벤트 매니저 포함)
         if stage == 2 and self._jungle_bg is None:
@@ -642,9 +638,10 @@ class PillarBackgroundRenderer:
         if self._baroque_bg is not None:
             self._baroque_bg = BaroqueFrame(screen_width, screen_height, game_width, game_height)
 
-        # 스타디움 배경 리사이즈
+        # 스타디움 배경 리사이즈 (offset 전달)
         if self._stadium_bg is not None:
-            self._stadium_bg.resize(screen_width, screen_height, game_width, game_height)
+            self._stadium_bg.resize(screen_width, screen_height, game_width, game_height,
+                                    self.game_offset_x, self.game_offset_y)
 
         # 정글 배경 리사이즈 (원숭이 이벤트 매니저도 재초기화)
         if self._jungle_bg is not None:

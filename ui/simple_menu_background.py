@@ -439,22 +439,30 @@ class SimpleMenuBackground:
     
     def draw(self, surface: pygame.Surface):
         """배경 그리기"""
+
+        # 1. 그라데이션 배경 (세로 줄무늬 방지를 위해 fill + blit 방식 사용)
+        # 먼저 전체 배경을 단색으로 채우기
+        surface.fill(self.colors['bg_top'])
+
+        # 그라데이션 오버레이 생성 (캐시하여 재사용)
+        if not hasattr(self, '_gradient_surface') or self._gradient_surface is None:
+            self._gradient_surface = pygame.Surface((self.width, self.height))
+            for y in range(self.height):
+                ratio = y / self.height
+                r = int(self.colors['bg_top'][0] + ratio * (self.colors['bg_bottom'][0] - self.colors['bg_top'][0]))
+                g = int(self.colors['bg_top'][1] + ratio * (self.colors['bg_bottom'][1] - self.colors['bg_top'][1]))
+                b = int(self.colors['bg_top'][2] + ratio * (self.colors['bg_bottom'][2] - self.colors['bg_top'][2]))
+                pygame.draw.rect(self._gradient_surface, (r, g, b), (0, y, self.width, 1))
+
+        surface.blit(self._gradient_surface, (0, 0))
         
-        # 1. 그라데이션 배경
-        for y in range(self.height):
-            ratio = y / self.height
-            r = int(self.colors['bg_top'][0] + ratio * (self.colors['bg_bottom'][0] - self.colors['bg_top'][0]))
-            g = int(self.colors['bg_top'][1] + ratio * (self.colors['bg_bottom'][1] - self.colors['bg_top'][1]))
-            b = int(self.colors['bg_top'][2] + ratio * (self.colors['bg_bottom'][2] - self.colors['bg_top'][2]))
-            pygame.draw.line(surface, (r, g, b), (0, y), (self.width, y))
-        
-        # 2. 은은한 격자 패턴
-        grid_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        for x in range(0, self.width, 40):
-            pygame.draw.line(grid_surface, self.colors['grid'], (x, 0), (x, self.height))
-        for y in range(0, self.height, 40):
-            pygame.draw.line(grid_surface, self.colors['grid'], (0, y), (self.width, y))
-        surface.blit(grid_surface, (0, 0))
+        # 2. 은은한 격자 패턴 (비활성화 - 세로줄 아티팩트 확인용)
+        # grid_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        # for x in range(0, self.width, 40):
+        #     pygame.draw.line(grid_surface, self.colors['grid'], (x, 0), (x, self.height))
+        # for y in range(0, self.height, 40):
+        #     pygame.draw.line(grid_surface, self.colors['grid'], (0, y), (self.width, y))
+        # surface.blit(grid_surface, (0, 0))
         
         # 3. 배경 파티클
         for particle in self.particles:

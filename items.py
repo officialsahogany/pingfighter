@@ -2218,7 +2218,8 @@ def _get_countdown_font():
 def _get_number_text(number, font, color):
     """OPTIMIZATION: Cache rendered number text"""
     global _number_text_cache
-    cache_key = (number, color)
+    # Include font id in cache key to prevent different fonts from sharing cache
+    cache_key = (number, color, id(font))
     if cache_key not in _number_text_cache:
         _number_text_cache[cache_key] = font.render(str(number), True, color)
         # Limit cache size

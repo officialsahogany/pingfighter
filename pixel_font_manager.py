@@ -68,6 +68,17 @@ else:
 # 폰트 캐시 (성능 최적화)
 _font_cache = {}
 
+# 전체화면 스케일링 보정 비율 (rotozoom 축소로 인한 글자 번짐 방지)
+# 비활성화됨 - 폰트 크기 변경 시 UI 레이아웃 문제 발생
+_fullscreen_font_scale = 1.0
+
+def set_fullscreen_font_scale(scale_factor):
+    """전체화면 스케일링 비율 설정 - 현재 비활성화됨"""
+    global _fullscreen_font_scale
+    # 비활성화: 폰트 크기 변경 시 UI 요소들이 잘리는 문제 발생
+    # rotozoom 화질로 유지
+    _fullscreen_font_scale = 1.0
+
 # PixelColors 클래스 추가
 class PixelColors:
     """픽셀 게임용 색상 팔레트"""
@@ -162,7 +173,7 @@ class FontStyle:
         """아이템 획득 메시지 폰트 (26pt)"""
         return get_font(26, style="bold")
 
-def get_font(size, style="regular", force_pixel=None):
+def get_font(size, style="regular", force_pixel=None, no_scale=False):
     """
     폰트 가져오기 (캐싱 지원)
 
@@ -170,11 +181,16 @@ def get_font(size, style="regular", force_pixel=None):
         size: 폰트 크기
         style: "bold", "regular", "small" 등 (픽셀 폰트는 모두 같은 폰트 사용)
         force_pixel: True면 픽셀 폰트 강제, False면 기본 폰트 강제, None이면 설정 따름
+        no_scale: True면 전체화면 스케일 보정 안함 (REAL_SCREEN에 직접 그릴 때)
     """
     use_pixel = force_pixel if force_pixel is not None else USE_PIXEL_FONT
 
+    # 전체화면 스케일 보정 적용 (축소로 인한 번짐 방지)
+    if not no_scale and _fullscreen_font_scale > 1.0:
+        size = int(size * _fullscreen_font_scale)
+
     # 캐시 키 생성
-    cache_key = (size, style, use_pixel)
+    cache_key = (size, style, use_pixel, no_scale)
 
     # 캐시에 있으면 반환
     if cache_key in _font_cache:
@@ -227,33 +243,37 @@ def get_font(size, style="regular", force_pixel=None):
         return font
 
 def adjust_pixel_size(size):
-    """픽셀 폰트용 크기 조정 (크기 감소 - 더 작고 얇게)"""
+    """픽셀 폰트용 크기 조정 (rotozoom 스케일링 보정 포함)
+
+    rotozoom 0.8x 스케일링 후 선명도 유지를 위해 폰트 크기를 약간 증가
+    (기존 대비 +10% 정도로 레이아웃 영향 최소화)
+    """
     size_map = {
-        # 원본 크기: 픽셀 폰트 크기 (기존보다 20-30% 작게)
-        9: 9,
-        12: 11,
-        14: 13,
-        16: 15,
-        18: 17,
-        20: 19,
-        24: 22,
-        26: 24,
-        28: 26,
-        32: 29,
-        36: 32,
-        40: 36,
-        48: 42,
-        64: 56,
-        72: 64,
-        140: 110,  # 점수 표시용 특별 조정
+        # 원본 크기: 픽셀 폰트 크기 (rotozoom 보정 적용)
+        9: 10,
+        12: 13,
+        14: 15,
+        16: 17,
+        18: 19,
+        20: 21,
+        24: 25,
+        26: 27,
+        28: 29,
+        32: 33,
+        36: 37,
+        40: 41,
+        48: 50,
+        64: 66,
+        72: 74,
+        140: 130,  # 점수 표시용 특별 조정
     }
-    
+
     # 매핑에 없으면 크기 조정
     if size in size_map:
         return size_map[size]
     else:
-        # 기본적으로 15% 감소
-        return int(size * 0.85)
+        # 기본적으로 원본 크기 유지 + 약간 증가 (rotozoom 보정)
+        return int(size * 1.05)
 
 def set_pixel_font_enabled(enabled):
     """픽셀 폰트 사용 여부 설정"""

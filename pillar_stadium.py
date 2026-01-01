@@ -28,15 +28,16 @@ class TraditionalFrame:
     }
 
     def __init__(self, screen_width: int, screen_height: int,
-                 game_width: int, game_height: int):
+                 game_width: int, game_height: int,
+                 offset_x: int = None, offset_y: int = None):
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.game_width = game_width
         self.game_height = game_height
 
-        # 게임 영역 위치
-        self.game_x = (screen_width - game_width) // 2
-        self.game_y = (screen_height - game_height) // 2
+        # 게임 영역 위치 (offset이 전달되면 사용, 아니면 중앙 배치로 계산)
+        self.game_x = offset_x if offset_x is not None else (screen_width - game_width) // 2
+        self.game_y = offset_y if offset_y is not None else (screen_height - game_height) // 2
 
         # 애니메이션
         self.time = 0.0
@@ -875,15 +876,17 @@ class TraditionalFrame:
                 pygame.draw.rect(surface, (*gold, alpha), rect, 1)
 
     def resize(self, screen_width: int, screen_height: int,
-               game_width: int, game_height: int):
+               game_width: int, game_height: int,
+               offset_x: int = None, offset_y: int = None):
         """화면 크기 변경"""
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.game_width = game_width
         self.game_height = game_height
 
-        self.game_x = (screen_width - game_width) // 2
-        self.game_y = (screen_height - game_height) // 2
+        # offset이 전달되면 사용, 아니면 중앙 배치로 계산
+        self.game_x = offset_x if offset_x is not None else (screen_width - game_width) // 2
+        self.game_y = offset_y if offset_y is not None else (screen_height - game_height) // 2
 
         self.butterflies = []
         self._create_butterflies()

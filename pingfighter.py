@@ -1510,7 +1510,7 @@ from effects.item_acquisition import (
     draw_item_effects
 )
 #  픽셀 폰트 매니저 - 네오둥근모
-from pixel_font_manager import get_font, FontStyle, PixelColors
+from pixel_font_manager import get_font, FontStyle, PixelColors, set_fullscreen_font_scale
 #  건물 손상 효과 시스템
 from effects.building_damage_effects import get_damage_manager
 
@@ -1916,8 +1916,12 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
     GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
 
+    # 폰트 스케일 보정 설정 (rotozoom 축소로 인한 글자 번짐 방지)
+    set_fullscreen_font_scale(GAME_SCALE_FACTOR)
+
     if GAME_SCALE_FACTOR < 1.0:
         print(f"[전체화면] 자동 스케일링: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} -> {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
+        print(f"[전체화면] 폰트 스케일 보정: {1.0/GAME_SCALE_FACTOR:.2f}x", flush=True)
     else:
         print(f"[전체화면] 원본 크기 유지: {WIDTH}x{HEIGHT} (여백: {MARGIN}px)", flush=True)
 
@@ -1992,6 +1996,88 @@ _stage_entered_flip_threshold = 0  # 스테이지 진입 후 flip 횟수 추적�
 
 # 필러 UI 활성화 플래그 (게임 플레이 중에만 표시)
 _pillar_ui_enabled = False
+
+# ============================================================
+# UI 오버레이 시스템 (선명한 텍스트 렌더링)
+# REAL_SCREEN에 직접 그려서 스케일링으로 인한 번짐 방지
+# ============================================================
+_ui_overlay_surface = None  # REAL_SCREEN 크기의 투명 Surface
+_ui_overlay_items = []  # 오버레이에 그릴 항목들 [(surface, real_x, real_y), ...]
+
+def _init_ui_overlay():
+    """UI 오버레이 Surface 초기화"""
+    global _ui_overlay_surface
+    if REAL_SCREEN is not None:
+        _ui_overlay_surface = pygame.Surface(REAL_SCREEN.get_size(), pygame.SRCALPHA)
+
+def screen_to_real_coords(x, y):
+    """SCREEN 좌표를 REAL_SCREEN 좌표로 변환
+
+    Args:
+        x, y: SCREEN(760x750) 기준 좌표
+
+    Returns:
+        (real_x, real_y): REAL_SCREEN 좌표
+    """
+    real_x = GAME_OFFSET_X + int(x * GAME_SCALE_FACTOR)
+    real_y = GAME_OFFSET_Y + int(y * GAME_SCALE_FACTOR)
+    return real_x, real_y
+
+def add_ui_overlay_text(text, x, y, font, color, anchor="topleft"):
+    """UI 오버레이에 텍스트 추가 (스케일링 없이 선명하게)
+
+    Args:
+        text: 렌더링할 텍스트
+        x, y: SCREEN 좌표 (자동으로 REAL_SCREEN 좌표로 변환됨)
+        font: pygame 폰트 객체
+        color: 텍스트 색상 (R, G, B) 또는 (R, G, B, A)
+        anchor: 정렬 기준점 ("topleft", "center", "topright" 등)
+    """
+    global _ui_overlay_items
+
+    # 텍스트 렌더링
+    text_surface = font.render(text, True, color)
+
+    # SCREEN 좌표를 REAL_SCREEN 좌표로 변환
+    real_x, real_y = screen_to_real_coords(x, y)
+
+    # 앵커에 따라 위치 조정
+    if anchor == "center":
+        real_x -= text_surface.get_width() // 2
+        real_y -= text_surface.get_height() // 2
+    elif anchor == "topright":
+        real_x -= text_surface.get_width()
+    elif anchor == "bottomleft":
+        real_y -= text_surface.get_height()
+    elif anchor == "bottomright":
+        real_x -= text_surface.get_width()
+        real_y -= text_surface.get_height()
+    elif anchor == "midtop":
+        real_x -= text_surface.get_width() // 2
+    elif anchor == "midbottom":
+        real_x -= text_surface.get_width() // 2
+        real_y -= text_surface.get_height()
+
+    _ui_overlay_items.append((text_surface, real_x, real_y))
+
+def clear_ui_overlay():
+    """UI 오버레이 항목들 초기화"""
+    global _ui_overlay_items
+    _ui_overlay_items = []
+
+def _render_ui_overlay(target_screen):
+    """UI 오버레이를 대상 화면에 렌더링
+
+    Args:
+        target_screen: 렌더링 대상 (REAL_SCREEN)
+    """
+    global _ui_overlay_items
+
+    for surface, x, y in _ui_overlay_items:
+        target_screen.blit(surface, (x, y))
+
+    # 렌더링 후 항목 초기화
+    _ui_overlay_items = []
 
 def _draw_pillar_ui(screen, renderer):
     """필러 UI 박스 그리기 헬퍼 함수
@@ -2088,9 +2174,12 @@ def _fullscreen_flip():
 
         # 게임 Surface를 중앙에 blit (스케일링 적용)
         if GAME_SCALE_FACTOR != 1.0:
-            # 스케일링이 필요한 경우 pygame.transform.smoothscale 사용
-            scaled_surface = pygame.transform.smoothscale(SCREEN, (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
-            REAL_SCREEN.blit(scaled_surface, (GAME_OFFSET_X, GAME_OFFSET_Y))
+            # rotozoom으로 스케일링 (smoothscale보다 격자 아티팩트 없고 고화질)
+            scaled_surface = pygame.transform.rotozoom(SCREEN, 0, GAME_SCALE_FACTOR)
+            sw, sh = scaled_surface.get_size()
+            offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
+            offset_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - sh) // 2
+            REAL_SCREEN.blit(scaled_surface, (offset_x, offset_y))
         else:
             # 스케일링 불필요 시 원본 그대로 blit
             REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
@@ -2108,6 +2197,9 @@ def _fullscreen_flip():
                 pygame.draw.line(REAL_SCREEN, (255, 255, 0),
                                (0, GAME_OFFSET_Y + GAME_SCALED_HEIGHT),
                                (FULLSCREEN_WIDTH, GAME_OFFSET_Y + GAME_SCALED_HEIGHT), 2)
+
+        # UI 오버레이 렌더링 (선명한 텍스트)
+        _render_ui_overlay(REAL_SCREEN)
 
         # 크리스탈 실드 그리기 (게임 화면 위에)
         if pillar_renderer is not None:
@@ -2134,12 +2226,18 @@ def _fullscreen_update(*args, **kwargs):
 
         # 게임 Surface를 중앙에 blit (스케일링 적용)
         if GAME_SCALE_FACTOR != 1.0:
-            # 스케일링이 필요한 경우 pygame.transform.smoothscale 사용
-            scaled_surface = pygame.transform.smoothscale(SCREEN, (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
-            REAL_SCREEN.blit(scaled_surface, (GAME_OFFSET_X, GAME_OFFSET_Y))
+            # rotozoom으로 스케일링 (smoothscale보다 격자 아티팩트 없고 고화질)
+            scaled_surface = pygame.transform.rotozoom(SCREEN, 0, GAME_SCALE_FACTOR)
+            sw, sh = scaled_surface.get_size()
+            offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
+            offset_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - sh) // 2
+            REAL_SCREEN.blit(scaled_surface, (offset_x, offset_y))
         else:
             # 스케일링 불필요 시 원본 그대로 blit
             REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+
+        # UI 오버레이 렌더링 (선명한 텍스트)
+        _render_ui_overlay(REAL_SCREEN)
 
         # 크리스탈 실드 그리기 (게임 화면 위에)
         if pillar_renderer is not None:
@@ -2368,7 +2466,7 @@ profiler.visible = False  # 7번키로 토글
 # 입력 관련 함수들은 input_manager로 이동됨
 background_factories = BackgroundFactory(
     resource_path=resource_path,
-    animated_stage1=lambda path: AnimatedBackground(path),
+    animated_stage1=lambda path: AnimatedBackground(path, target_width=WIDTH, target_height=HEIGHT),
     animated_stage2=lambda path: AnimatedBackgroundStage2(path),
     animated_stage3=lambda: Stage3MenheraWorld(),
     animated_stage4=lambda: ShaolinTempleBackground(),
@@ -3142,6 +3240,20 @@ RUNTIME_SKILL_POOL = {
         "icon_color": (150, 220, 255),
         "tree": "common"
     },
+    "common_bulk_up": {
+        "name": "벌크업",
+        "max_level": 5,
+        "descriptions": {
+            1: "패들 크기 10% 증가",
+            2: "패들 크기 20% 증가",
+            3: "패들 크기 30% 증가",
+            4: "패들 크기 40% 증가",
+            5: "패들 크기 50% 증가",
+        },
+        "detail": "패들의 크기가 영구적으로 증가합니다. 볼을 받아치기 더 쉬워집니다.",
+        "icon_color": (255, 150, 80),
+        "tree": "common"
+    },
 }
 
 # Smasher exclusive skills
@@ -3611,6 +3723,11 @@ def get_bug_update_chance() -> float:
     level = runtime_skill_levels.get("bug_update", 0)
     chances = {0: 0, 1: 0.25, 2: 0.35, 3: 0.45}
     return chances.get(level, 0)
+
+def get_bulk_up_scale() -> float:
+    """벌크업: 패들 크기 증가 비율 반환 (1.0 ~ 1.5)"""
+    level = runtime_skill_levels.get("common_bulk_up", 0)
+    return 1.0 + (level * 0.10)  # 10% per level
 
 def get_active_accessory_slot_count() -> int:
     """현재 활성화된 장신구 슬롯 개수 반환 (기본 2개, 최대 4개)"""
@@ -4513,6 +4630,12 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         multiplier = get_effective_polish_multiplier()
         print(f"[RuntimeSkill] 연마 Lv.{new_level} - 롤옵션 배율 {multiplier:.2f}x, 장착 아이템 보너스 재계산 완료")
 
+    # 벌크업: 패들 크기 즉시 재계산
+    if choice_id == "common_bulk_up":
+        apply_equipment_paddle_modifiers()
+        new_level = runtime_skill_levels.get("common_bulk_up", 0)
+        print(f"[RuntimeSkill] 벌크업 Lv.{new_level} - 패들 크기 +{new_level * 10}%")
+
     return True
 
 
@@ -4534,6 +4657,12 @@ def recalculate_skill_effects(skill_id: str):
     elif skill_id == "mecha_bulk":
         apply_equipment_paddle_modifiers()
         print(f"[RuntimeSkill] 메카벌크 레벨 변경 - 패들 크기 재계산")
+
+    # 벌크업: 패들 크기 재계산
+    elif skill_id == "common_bulk_up":
+        apply_equipment_paddle_modifiers()
+        new_level = runtime_skill_levels.get("common_bulk_up", 0)
+        print(f"[RuntimeSkill] 벌크업 Lv.{new_level} - 패들 크기 +{new_level * 10}%")
 
     # 연마: 패시브 아이템 롤옵션 보너스 재계산
     elif skill_id == "item_polish":
@@ -4694,6 +4823,9 @@ def get_runtime_skill_bonus(skill_id: str) -> float:
             # 광장 트리
             "downtown_gamble": level * 0.10,        # 추가 가챠 확률 10%/레벨
             "downtown_treasure_map": level * 2.00,  # 전설 확률 +200%/레벨
+
+            # 공통 트리
+            "common_bulk_up": level * 0.10,         # 패들 크기 10%/레벨 증가
 
             # 스매셔 전용
             "dash_acceleration": level * 1.0,       # 패들 크기 100%/레벨 증가
@@ -6127,6 +6259,40 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), max(2, int(3*scale)))
         pygame.draw.circle(surface, (200, 240, 255), (icon_cx, icon_cy), max(3, int(4*scale)), 1)
 
+    elif skill_id == "common_bulk_up":
+        # 벌크업: 커지는 패들 + 근육 이미지
+        bulk_color = (255, 150, 80)
+        muscle_color = (255, 180, 120)
+
+        # 패들 모양 (확대되는 느낌)
+        # 작은 패들 (안쪽)
+        pygame.draw.rect(surface, (180, 100, 60), (icon_cx - int(3*scale), icon_cy - int(4*scale), int(6*scale), int(10*scale)), border_radius=max(1, int(2*scale)))
+        # 큰 패들 (바깥쪽, 투명하게)
+        pygame.draw.rect(surface, bulk_color, (icon_cx - int(6*scale), icon_cy - int(6*scale), int(12*scale), int(14*scale)), max(1, int(2*scale)), border_radius=max(1, int(3*scale)))
+
+        # 확대 화살표들 (4방향)
+        arrow_dist = int(9*scale)
+        arrow_size = int(3*scale)
+        # 위
+        pygame.draw.polygon(surface, (255, 255, 255), [
+            (icon_cx, icon_cy - arrow_dist), (icon_cx - arrow_size, icon_cy - arrow_dist + arrow_size), (icon_cx + arrow_size, icon_cy - arrow_dist + arrow_size)
+        ])
+        # 아래
+        pygame.draw.polygon(surface, (255, 255, 255), [
+            (icon_cx, icon_cy + arrow_dist), (icon_cx - arrow_size, icon_cy + arrow_dist - arrow_size), (icon_cx + arrow_size, icon_cy + arrow_dist - arrow_size)
+        ])
+        # 좌
+        pygame.draw.polygon(surface, (255, 255, 255), [
+            (icon_cx - arrow_dist, icon_cy), (icon_cx - arrow_dist + arrow_size, icon_cy - arrow_size), (icon_cx - arrow_dist + arrow_size, icon_cy + arrow_size)
+        ])
+        # 우
+        pygame.draw.polygon(surface, (255, 255, 255), [
+            (icon_cx + arrow_dist, icon_cy), (icon_cx + arrow_dist - arrow_size, icon_cy - arrow_size), (icon_cx + arrow_dist - arrow_size, icon_cy + arrow_size)
+        ])
+
+        # 반짝임 효과
+        pygame.draw.circle(surface, (255, 255, 200), (icon_cx + int(4*scale), icon_cy - int(5*scale)), max(1, int(2*scale)))
+
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
         symbol = skill.get("name", "?")[0] if skill.get("name") else "?"
@@ -6188,8 +6354,12 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         animated_bg_stage2.update(elapsed_ms, ball_cx, ball_cy, boss_cx, player_cx, r_wins, r_losses)
         animated_bg_stage2.draw(SCREEN)
         # Stage 2 물대포 및 파편 렌더링
+        draw_water_cannon_target_highlight(SCREEN)  # 물대포 차징 시 목표 바위 강조
+        draw_water_cannon_charging(SCREEN)  # 물대포 차징 시 입에 물 모으기 애니메이션
         draw_water_cannon(SCREEN)
+        draw_water_cannon_fragment_danger_glow(SCREEN)  # 위험한 파편 빨간 글로우
         draw_water_cannon_fragments(SCREEN)
+        draw_fragment_hit_effect(SCREEN)  # 파편 피격 시 화면 효과
     elif current_stage == 3 and animated_bg_stage3 is not None:
         animated_bg_stage3.update(elapsed_ms, r_wins + r_losses)
         animated_bg_stage3.draw(SCREEN, ball_pos=(ball_cx, ball_cy))
@@ -6738,7 +6908,16 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         # 실제 게임 변수에서 캐릭터 정보 가져오기
         try:
             # 실제 전역 변수 참조
-            actual_player_speed = globals().get("PLAYER_SPEED", 1)
+            # 캐릭터별 기본 이동속도 (MAX_SPEED 대신 캐릭터별 값 사용)
+            char_type = globals().get("selected_character_type", "ufo_player")
+            if char_type == "optimus":
+                actual_player_speed = OPTIMUS_BASE_MAX_SPEED
+            elif char_type == "blacksmith":
+                actual_player_speed = 3
+            elif char_type == "smasher":
+                actual_player_speed = 6  # 스매셔 기본 이동속도 6
+            else:
+                actual_player_speed = MAX_SPEED
             actual_paddle_width = PLAYER.width if PLAYER else 80
             current_stg = globals().get("current_stage", 1)
             r_wins = globals().get("round_wins", 0)
@@ -6749,7 +6928,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             special_gauge_val = globals().get("special_gauge", 0)
             special_gauge_max_val = globals().get("special_gauge_max", 400)
         except:
-            actual_player_speed = 1
+            actual_player_speed = 5
             actual_paddle_width = 80
             current_stg, r_wins, r_losses = 1, 0, 0
             swiftness_bonus = 0
@@ -8104,6 +8283,39 @@ def show_runtime_skill_status():
             pygame.draw.circle(surface, (255, 255, 255), (icon_cx, icon_cy), 3)
             pygame.draw.circle(surface, (200, 240, 255), (icon_cx, icon_cy), 5, 1)
 
+        elif skill_id == "common_bulk_up":
+            # 벌크업: 커지는 패들 + 확대 화살표
+            bulk_color = (255, 150, 80)
+
+            # 패들 모양 (확대되는 느낌)
+            # 작은 패들 (안쪽)
+            pygame.draw.rect(surface, (180, 100, 60), (icon_cx - 4, icon_cy - 6, 8, 14), border_radius=2)
+            # 큰 패들 (바깥쪽, 테두리만)
+            pygame.draw.rect(surface, bulk_color, (icon_cx - 8, icon_cy - 8, 16, 18), 2, border_radius=3)
+
+            # 확대 화살표들 (4방향)
+            arrow_dist = 12
+            arrow_size = 4
+            # 위
+            pygame.draw.polygon(surface, (255, 255, 255), [
+                (icon_cx, icon_cy - arrow_dist), (icon_cx - arrow_size, icon_cy - arrow_dist + arrow_size), (icon_cx + arrow_size, icon_cy - arrow_dist + arrow_size)
+            ])
+            # 아래
+            pygame.draw.polygon(surface, (255, 255, 255), [
+                (icon_cx, icon_cy + arrow_dist), (icon_cx - arrow_size, icon_cy + arrow_dist - arrow_size), (icon_cx + arrow_size, icon_cy + arrow_dist - arrow_size)
+            ])
+            # 좌
+            pygame.draw.polygon(surface, (255, 255, 255), [
+                (icon_cx - arrow_dist, icon_cy), (icon_cx - arrow_dist + arrow_size, icon_cy - arrow_size), (icon_cx - arrow_dist + arrow_size, icon_cy + arrow_size)
+            ])
+            # 우
+            pygame.draw.polygon(surface, (255, 255, 255), [
+                (icon_cx + arrow_dist, icon_cy), (icon_cx + arrow_dist - arrow_size, icon_cy - arrow_size), (icon_cx + arrow_dist - arrow_size, icon_cy + arrow_size)
+            ])
+
+            # 반짝임 효과
+            pygame.draw.circle(surface, (255, 255, 200), (icon_cx + 5, icon_cy - 7), 2)
+
         else:
             # 기본 아이콘 (알 수 없는 스킬)
             pygame.draw.circle(surface, (200, 200, 200), (icon_cx, icon_cy), 10, 2)
@@ -8402,11 +8614,12 @@ def apply_equipment_paddle_modifiers() -> None:
     equipment_scale = _get_bulkup_scale()
     gauge_scale = 1.0
     mecha_bulk_scale = 1.0
+    bulk_up_scale = get_bulk_up_scale()  # 런타임 스킬 벌크업 적용
     if globals().get("selected_character_type") == "optimus":
         gauge_scale = globals().get("optimus_gauge_scale", 1.0)
         # 메카벌크 스킬 적용: 패들 크기 증가
         mecha_bulk_scale = get_mecha_bulk_scale()
-    effective_scale = CURRENT_PADDLE_SIZE_SCALE * equipment_scale * ANGEL_PADDLE_SCALE * gauge_scale * mecha_bulk_scale
+    effective_scale = CURRENT_PADDLE_SIZE_SCALE * equipment_scale * ANGEL_PADDLE_SCALE * gauge_scale * mecha_bulk_scale * bulk_up_scale
     CURRENT_PADDLE_EFFECTIVE_SCALE = effective_scale
 
     prev_centerx = PLAYER.centerx
@@ -9991,7 +10204,7 @@ PASSIVE_OPTION_RANGES = {
         {"label": "최대 게이지", "min": 60, "max": 120, "unit": "", "prefix": "+", "key": "fuel_bonus_flat"},
     ],
     "bulkup": [
-        {"label": "몸집크기", "min": 7, "max": 13, "unit": "%", "prefix": "+", "key": "body_size_pct"},
+        {"label": "몸집크기", "min": 10, "max": 20, "unit": "%", "prefix": "+", "key": "body_size_pct"},
     ],
     "sensor": [
         {"label": "자동대쉬 쿨타임", "min": 13, "max": 20, "unit": "초", "prefix": "", "key": "sensor_cooldown_sec", "reverse": True},
@@ -10002,6 +10215,9 @@ PASSIVE_OPTION_RANGES = {
     ],
     "dowsing_pendulum": [
         {"label": "끌어당기는 범위", "min": 150, "max": 250, "unit": "px", "prefix": "", "key": "attraction_range"},
+    ],
+    "slot_add": [
+        {"label": "슬롯 추가", "min": 1, "max": 3, "unit": "칸", "prefix": "+", "key": "slot_add_count"},
     ],
 }
 
@@ -10792,11 +11008,12 @@ def sync_equipped_passive_effects():
     sync_bool("angel_blessing", "items.angel_blessing_obtained")
     sync_bool("sacred_laurel", "items.sacred_laurel_obtained")
 
-    # 장비 슬롯 확장 (slot_add) - 배낭 1개당 2칸 추가
-    slot_add_count = sum(1 for item in equipped_items if item.get("name") == "slot_add")
+    # 장비 슬롯 확장 (slot_add) - 배낭의 롤옵션 slot_add_count 값을 합산
+    slot_add_items = [item for item in equipped_items if item.get("name") == "slot_add"]
+    slot_bonus = sum(item.get("roll_options", {}).get("slot_add_count", 1) for item in slot_add_items)
     base_slots = 3
-    _set_max_item_slots(min(5, base_slots + slot_add_count * 2))
-    _set_flag_safe(items, "slot_add_obtained", slot_add_count > 0)
+    _set_max_item_slots(min(5, base_slots + slot_bonus))
+    _set_flag_safe(items, "slot_add_obtained", len(slot_add_items) > 0)
 
     # 롤 옵션 기반 보너스 갱신
     apply_roll_bonuses_from_equipped()
@@ -12306,9 +12523,9 @@ WATER_CANNON_COOLDOWN_MAX = 5000   # 물대포 최대 쿨타임 (5초)
 water_cannon_current_cooldown = 3000  # 현재 쿨타임 (3~5초 랜덤)
 water_cannon_trail = []  # 물대포 궤적 효과
 water_cannon_boss_freeze_timer = 0  # 물대포 발사 시 보스 정지 타이머
-# 물대포 발사 시퀀스: 0.5초 대기 → 0.3초 발사 애니메이션
-WATER_CANNON_CHARGE_FRAMES = 30   # 0.5초 대기 (60fps)
-WATER_CANNON_FIRE_FRAMES = 18     # 0.3초 발사 애니메이션 (60fps)
+# 물대포 발사 시퀀스: 0.8초 대기 → 0.5초 발사 애니메이션
+WATER_CANNON_CHARGE_FRAMES = 48   # 0.8초 대기 (60fps)
+WATER_CANNON_FIRE_FRAMES = 30     # 0.5초 발사 애니메이션 (60fps)
 water_cannon_phase = "idle"       # "idle", "charging", "firing"
 water_cannon_phase_timer = 0      # 현재 페이즈 타이머
 water_cannon_charging = False     # 차징 중인지 여부
@@ -12319,6 +12536,10 @@ WATER_CANNON_AFTER_QUAKE_MAX = 12000  # 정글지진 후 최대 12초
 water_cannon_quake_delay = 0      # 정글지진 후 물대포 발동까지 대기시간 (랜덤)
 # 물대포 파편 시스템 (플레이어 넉백용)
 water_cannon_fragments = []  # 물대포로 파괴된 바위 파편들
+# 물대포 파편 피격 이펙트 시스템
+water_cannon_fragment_hit_timer = 0  # 파편 피격 시 빨간 플래시 타이머
+water_cannon_fragment_hit_shake = 0  # 파편 피격 시 화면 셰이크
+water_cannon_target_highlight_timer = 0  # 목표 바위 강조 펄스 타이머
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
 long_boost_growing = False
@@ -12514,10 +12735,11 @@ OPTIMUS_EMBLEM_RADIUS = 9  # 추가 -20% 축소 (11 * 0.8 ≈ 9)
 
 
 def _compute_optimus_base_width() -> int:
-    """게이지 스케일을 제외한 현재 기준 패들 너비(장비/리그/메카벌크 배율 반영)를 반환."""
+    """게이지 스케일을 제외한 현재 기준 패들 너비(장비/리그/메카벌크/벌크업 배율 반영)를 반환."""
     angel_scale = globals().get("ANGEL_PADDLE_SCALE", 1.0)
     mecha_bulk_scale = get_mecha_bulk_scale()  # 메카벌크 스킬 반영
-    base_scale = CURRENT_PADDLE_SIZE_SCALE * _get_bulkup_scale() * angel_scale * mecha_bulk_scale
+    bulk_up_scale = get_bulk_up_scale()  # 런타임 스킬 벌크업 반영
+    base_scale = CURRENT_PADDLE_SIZE_SCALE * _get_bulkup_scale() * angel_scale * mecha_bulk_scale * bulk_up_scale
     return max(1, int(round(PADDLE_BASE_WIDTH * base_scale)))
 
 
@@ -12796,7 +13018,8 @@ def update_optimus_energy() -> None:
     # 외부 패들 크기 변형(롱패들 등)을 보존하기 위해 현재 게이지 스케일 기준 기대 크기 대비 배율을 계산
     angel_scale = globals().get("ANGEL_PADDLE_SCALE", 1.0)
     mecha_bulk_scale = get_mecha_bulk_scale()  # 메카벌크 스킬도 기대 크기에 포함
-    base_scale = CURRENT_PADDLE_SIZE_SCALE * _get_bulkup_scale() * angel_scale * mecha_bulk_scale
+    bulk_up_scale = get_bulk_up_scale()  # 런타임 스킬 벌크업도 기대 크기에 포함
+    base_scale = CURRENT_PADDLE_SIZE_SCALE * _get_bulkup_scale() * angel_scale * mecha_bulk_scale * bulk_up_scale
     expected_width = max(1, int(round(PADDLE_BASE_WIDTH * base_scale * optimus_gauge_scale)))
     expected_height = max(1, int(round(PADDLE_BASE_HEIGHT * base_scale * optimus_gauge_scale)))
     width_factor = PADDLE_WIDTH / expected_width if expected_width else 1.0
@@ -34419,7 +34642,7 @@ def activate_tears_of_pain():
     falling_tears = []
     tear_count = random.randint(4, 7)  # 4~7개 랜덤 생성
     for _ in range(tear_count):  # 눈물 개수
-        x = random.randint(0, WIDTH - 20)
+        x = random.randint(0, WIDTH - 20)  # 전체 게임 영역 범위 (760px)
         y = random.randint(-200, -20)
         speed = random.uniform(2, 5)
         falling_tears.append([x, y, speed, y])  # ← 이전 y값도 저장
@@ -34436,10 +34659,17 @@ def handle_tears():
     # 스탑워치 활성화 시 눈물 업데이트 중지
     if stopwatch_active and stopwatch_timer > 0:
         return
-    
+
     for tear in falling_tears:
         tear[3] = tear[1]  # 이전 y 저장
         tear[1] += tear[2]
+
+        # 화면 아래로 벗어나면 위에서 다시 리셋 (넓어진 맵에 맞춰 전체 WIDTH 범위로)
+        if tear[1] > HEIGHT + 50:
+            tear[0] = random.randint(0, WIDTH - 20)  # 전체 맵 너비 범위
+            tear[1] = random.randint(-100, -20)
+            tear[3] = tear[1]
+            tear[2] = random.uniform(2, 5)  # 속도도 랜덤하게 재설정
 # === 눈물의 비 그리기 함수 ===
 def draw_stage3_tail_whip():
     """Stage 3 멘헤라걸 꼬리 채찍 애니메이션 그리기"""
@@ -37092,12 +37322,22 @@ def update_water_cannon_fragments():
             )
 
             if PLAYER.colliderect(fragment_rect):
+                # 연막 안에 있으면 넉백 무시
+                if is_player_in_smoke():
+                    # 파편은 소멸하지만 넉백 없음
+                    fragment['can_hit_player'] = False
+                    fragment['hit_cooldown'] = 30
+                    continue
+
                 # 넉백 방향 결정 (파편 이동 방향)
                 knockback_dir = 1 if fragment['vx'] > 0 else -1
-                raw_knockback = knockback_dir * 25  # 넉백 강도 크게 증가 (12 → 25)
+                raw_knockback = knockback_dir * 20  # 넉백 강도 (25 → 20, -20% 감소)
 
                 # 넉백 저항 적용 - 화재 넉백과 동일한 시스템 사용 (스턴 없이 점진적 감속)
                 player_fire_knockback_vel = apply_knockback_resist(_scale_knockback(raw_knockback))
+
+                # 파편 피격 시 화면 이펙트 트리거 (빨간 플래시 + 셰이크)
+                trigger_fragment_hit_effect()
 
                 print(f"💥 물대포 파편에 맞음! 넉백: {player_fire_knockback_vel:.1f}")
 
@@ -37112,6 +37352,141 @@ def update_water_cannon_fragments():
     # 오래된 파편 제거
     for i in reversed(fragments_to_remove):
         water_cannon_fragments.pop(i)
+
+
+def draw_water_cannon_charging(screen):
+    """물대포 차징 중 보스 입에 물 모으기 애니메이션"""
+    if water_cannon_phase != "charging":
+        return
+
+    # 차징 진행도 (0 ~ 1)
+    charge_progress = 1.0 - (water_cannon_phase_timer / WATER_CANNON_CHARGE_FRAMES)
+
+    # 보스 입 위치 (패들 아래쪽)
+    mouth_x = BOSS.centerx
+    mouth_y = BOSS.centery + 30
+
+    # === 1. 주변에서 물방울이 모여드는 효과 ===
+    num_gathering_drops = int(charge_progress * 20) + 5
+    current_time = pygame.time.get_ticks()
+
+    for i in range(num_gathering_drops):
+        # 각 물방울의 고유 시드 (일관된 애니메이션을 위해)
+        seed = i * 137 + int(current_time / 50)
+        random.seed(seed)
+
+        # 시작 각도 (원형으로 배치)
+        base_angle = (i / num_gathering_drops) * math.pi * 2
+        angle_offset = math.sin(current_time * 0.005 + i) * 0.3
+        angle = base_angle + angle_offset
+
+        # 거리: 차징 진행에 따라 가까워짐 (멀리서 → 입으로)
+        max_dist = 80 + random.uniform(0, 40)
+        min_dist = 5
+        # 각 물방울마다 다른 속도로 모여듦
+        drop_progress = min(1.0, charge_progress * (1.2 + i * 0.05))
+        current_dist = max_dist - (max_dist - min_dist) * drop_progress
+
+        if current_dist < min_dist:
+            continue  # 이미 도착한 물방울은 그리지 않음
+
+        drop_x = mouth_x + math.cos(angle) * current_dist
+        drop_y = mouth_y + math.sin(angle) * current_dist
+
+        # 물방울 크기 (가까워질수록 작아짐 - 흡수되는 느낌)
+        base_size = random.randint(4, 10)
+        size = max(2, int(base_size * (current_dist / max_dist)))
+
+        # 물방울 투명도 (가까워질수록 진해짐)
+        alpha = int(150 + 105 * (1 - current_dist / max_dist))
+
+        # 물방울 그리기 (파란색 계열)
+        drop_surface = pygame.Surface((size * 2 + 6, size * 2 + 6), pygame.SRCALPHA)
+        # 외곽 글로우
+        pygame.draw.circle(drop_surface, (50, 150, 255, alpha // 2),
+                          (size + 3, size + 3), size + 2)
+        # 메인 물방울
+        pygame.draw.circle(drop_surface, (100, 180, 255, alpha),
+                          (size + 3, size + 3), size)
+        # 하이라이트
+        pygame.draw.circle(drop_surface, (200, 230, 255, alpha),
+                          (size + 1, size + 1), max(1, size // 2))
+
+        screen.blit(drop_surface, (int(drop_x - size - 3), int(drop_y - size - 3)))
+
+    random.seed()  # 시드 리셋
+
+    # === 2. 입 앞에 모이는 물 덩어리 (점점 커짐) ===
+    water_ball_size = int(10 + charge_progress * 35)  # 10 → 45
+
+    # 펄스 효과 (출렁임)
+    pulse = math.sin(current_time * 0.015) * 3
+    water_ball_size += int(pulse)
+
+    # 물 덩어리 위치 (입 바로 앞)
+    ball_x = mouth_x
+    ball_y = mouth_y + 5
+
+    # 여러 겹으로 물 덩어리 그리기
+    ball_surface = pygame.Surface((water_ball_size * 2 + 20, water_ball_size * 2 + 20), pygame.SRCALPHA)
+    center = water_ball_size + 10
+
+    # 외곽 글로우 (어두운 파란)
+    glow_alpha = int(100 + charge_progress * 100)
+    pygame.draw.circle(ball_surface, (30, 100, 200, glow_alpha),
+                      (center, center), water_ball_size + 8)
+
+    # 중간층 (중간 파란)
+    pygame.draw.circle(ball_surface, (60, 140, 220, glow_alpha + 30),
+                      (center, center), water_ball_size + 4)
+
+    # 메인 물 덩어리 (밝은 파란)
+    pygame.draw.circle(ball_surface, (80, 170, 250, 220),
+                      (center, center), water_ball_size)
+
+    # 내부 하이라이트 (가장 밝은 부분)
+    highlight_offset = int(water_ball_size * 0.3)
+    pygame.draw.circle(ball_surface, (150, 210, 255, 200),
+                      (center - highlight_offset, center - highlight_offset),
+                      int(water_ball_size * 0.5))
+
+    # 반짝임 효과
+    sparkle_alpha = int(abs(math.sin(current_time * 0.02)) * 200)
+    pygame.draw.circle(ball_surface, (255, 255, 255, sparkle_alpha),
+                      (center - highlight_offset - 2, center - highlight_offset - 2),
+                      max(2, int(water_ball_size * 0.15)))
+
+    screen.blit(ball_surface, (int(ball_x - center), int(ball_y - center)))
+
+    # === 3. 물 입자 회오리 효과 (물 덩어리 주변) ===
+    num_swirl_particles = int(charge_progress * 12) + 3
+    for i in range(num_swirl_particles):
+        swirl_angle = (current_time * 0.008 + i * (math.pi * 2 / num_swirl_particles)) % (math.pi * 2)
+        swirl_dist = water_ball_size + 8 + math.sin(current_time * 0.01 + i) * 5
+
+        particle_x = ball_x + math.cos(swirl_angle) * swirl_dist
+        particle_y = ball_y + math.sin(swirl_angle) * swirl_dist
+        particle_size = random.randint(2, 5)
+
+        particle_surface = pygame.Surface((particle_size * 2 + 4, particle_size * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(particle_surface, (120, 200, 255, 180),
+                          (particle_size + 2, particle_size + 2), particle_size)
+        screen.blit(particle_surface, (int(particle_x - particle_size - 2),
+                                        int(particle_y - particle_size - 2)))
+
+    # === 4. 차징 완료 직전 경고 효과 (마지막 20%) ===
+    if charge_progress > 0.8:
+        warning_intensity = (charge_progress - 0.8) / 0.2  # 0 ~ 1
+        warning_pulse = abs(math.sin(current_time * 0.03)) * warning_intensity
+
+        # 빛나는 링
+        ring_size = water_ball_size + 15 + int(warning_pulse * 10)
+        ring_alpha = int(150 * warning_pulse)
+
+        ring_surface = pygame.Surface((ring_size * 2 + 10, ring_size * 2 + 10), pygame.SRCALPHA)
+        pygame.draw.circle(ring_surface, (200, 230, 255, ring_alpha),
+                          (ring_size + 5, ring_size + 5), ring_size, 3)
+        screen.blit(ring_surface, (int(ball_x - ring_size - 5), int(ball_y - ring_size - 5)))
 
 
 def draw_water_cannon(screen):
@@ -37262,6 +37637,217 @@ def draw_water_cannon_fragments(screen):
 
             screen.blit(fragment_surface, (int(fragment['x'] - size - 2),
                                             int(fragment['y'] - size - 2)))
+
+
+def draw_water_cannon_target_highlight(screen):
+    """물대포 차징 중 목표 바위 강조 효과 - 위험 경고!"""
+    global water_cannon_target_highlight_timer
+
+    if water_cannon_phase != "charging" or water_cannon_target_rock is None:
+        water_cannon_target_highlight_timer = 0
+        return
+
+    # 펄스 타이머 업데이트
+    water_cannon_target_highlight_timer += 1
+
+    rock = water_cannon_target_rock
+    rock_x = rock['x']
+    rock_y = rock.get('fall_y', rock['y'])
+    rock_size = rock.get('size', 40)
+
+    # 차징 진행도 (0 ~ 1)
+    charge_progress = 1.0 - (water_cannon_phase_timer / WATER_CANNON_CHARGE_FRAMES)
+
+    # 펄스 효과 - 빠르게 깜빡임 (위험 느낌)
+    pulse = math.sin(water_cannon_target_highlight_timer * 0.5) * 0.5 + 0.5
+
+    # === 1. 외곽 경고 링 (빨간색, 확장되는 원) ===
+    for i in range(3):
+        ring_radius = rock_size + 20 + (i * 15) + (pulse * 10)
+        ring_alpha = int((200 - i * 50) * (1 - charge_progress * 0.3))
+        ring_thickness = max(2, 4 - i)
+
+        ring_surface = pygame.Surface((int(ring_radius * 2 + 10), int(ring_radius * 2 + 10)), pygame.SRCALPHA)
+        pygame.draw.circle(ring_surface, (255, 50, 50, ring_alpha),
+                          (int(ring_radius + 5), int(ring_radius + 5)), int(ring_radius), ring_thickness)
+        screen.blit(ring_surface, (int(rock_x - ring_radius - 5), int(rock_y - ring_radius - 5)))
+
+    # === 2. 타겟 마크 (X 표시) ===
+    target_size = rock_size + 30 + pulse * 5
+    target_alpha = int(200 + pulse * 55)
+
+    # X 표시
+    line_length = target_size * 0.6
+    line_width = 4
+
+    target_surface = pygame.Surface((int(target_size * 2), int(target_size * 2)), pygame.SRCALPHA)
+    center = int(target_size)
+
+    # 빨간색 X
+    pygame.draw.line(target_surface, (255, 80, 80, target_alpha),
+                    (center - int(line_length), center - int(line_length)),
+                    (center + int(line_length), center + int(line_length)), line_width)
+    pygame.draw.line(target_surface, (255, 80, 80, target_alpha),
+                    (center + int(line_length), center - int(line_length)),
+                    (center - int(line_length), center + int(line_length)), line_width)
+
+    screen.blit(target_surface, (int(rock_x - target_size), int(rock_y - target_size)))
+
+    # === 3. 조준선 (보스에서 바위까지 점선) ===
+    start_x = BOSS.centerx
+    start_y = BOSS.centery + 30
+
+    num_dots = 15
+    for i in range(num_dots):
+        t = i / num_dots
+        dot_x = start_x + (rock_x - start_x) * t
+        dot_y = start_y + (rock_y - start_y) * t
+
+        # 점 깜빡임
+        dot_visible = (water_cannon_target_highlight_timer + i * 3) % 12 < 8
+        if dot_visible:
+            dot_alpha = int(180 * (1 - t * 0.5))  # 멀수록 흐려짐
+            dot_size = max(2, 4 - int(t * 2))
+
+            dot_surface = pygame.Surface((dot_size * 2 + 4, dot_size * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(dot_surface, (255, 100, 50, dot_alpha), (dot_size + 2, dot_size + 2), dot_size)
+            screen.blit(dot_surface, (int(dot_x - dot_size - 2), int(dot_y - dot_size - 2)))
+
+    # === 4. 경고 텍스트 (위험! 파편 주의!) ===
+    if pulse > 0.7:  # 깜빡임 효과
+        try:
+            warning_font = pygame.font.Font(None, 28)
+            warning_text = "!"
+            text_surface = warning_font.render(warning_text, True, (255, 80, 80))
+            text_rect = text_surface.get_rect(center=(int(rock_x), int(rock_y - rock_size - 35)))
+            screen.blit(text_surface, text_rect)
+        except:
+            pass
+
+    # === 5. 바위 자체에 빨간 테두리 ===
+    glow_alpha = int(150 + pulse * 105)
+    glow_surface = pygame.Surface((rock_size * 2 + 20, rock_size * 2 + 20), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surface, (255, 50, 50, glow_alpha),
+                      (rock_size + 10, rock_size + 10), rock_size + 5, 4)
+    screen.blit(glow_surface, (int(rock_x - rock_size - 10), int(rock_y - rock_size - 10)))
+
+
+def draw_water_cannon_fragment_danger_glow(screen):
+    """위험한 파편에 빨간 경고 글로우 추가 - 플레이어에게 위험 강조"""
+    for fragment in water_cannon_fragments:
+        # 바위 파편만 위험 표시 (물 튀김은 안전)
+        if fragment.get('type', 'rock') != 'rock':
+            continue
+
+        # 아직 플레이어에게 피해를 줄 수 있는 파편만
+        if not fragment.get('can_hit_player', True):
+            continue
+
+        size = fragment['size']
+        frag_x = fragment['x']
+        frag_y = fragment['y']
+        life_ratio = fragment['life'] / 100  # 남은 수명 비율
+
+        # 위험 펄스 (빠른 깜빡임)
+        pulse = math.sin(pygame.time.get_ticks() * 0.02 + fragment['rotation']) * 0.5 + 0.5
+
+        # === 빨간 경고 글로우 ===
+        glow_size = size + 8 + pulse * 6
+        glow_alpha = int((120 + pulse * 80) * life_ratio)
+
+        glow_surface = pygame.Surface((int(glow_size * 2 + 8), int(glow_size * 2 + 8)), pygame.SRCALPHA)
+
+        # 다중 레이어 글로우 (외곽에서 안쪽으로)
+        for layer in range(3):
+            layer_size = glow_size - layer * 3
+            layer_alpha = glow_alpha // (layer + 1)
+            layer_color = (255, 50 + layer * 30, 50 + layer * 20, layer_alpha)
+            pygame.draw.circle(glow_surface, layer_color,
+                             (int(glow_size + 4), int(glow_size + 4)), int(layer_size))
+
+        screen.blit(glow_surface, (int(frag_x - glow_size - 4), int(frag_y - glow_size - 4)))
+
+        # === 작은 경고 삼각형 (파편 위) ===
+        if pulse > 0.6 and fragment['life'] > 30:
+            tri_size = 8
+            tri_y_offset = -size - 12
+            tri_points = [
+                (int(frag_x), int(frag_y + tri_y_offset - tri_size)),
+                (int(frag_x - tri_size * 0.7), int(frag_y + tri_y_offset + tri_size * 0.5)),
+                (int(frag_x + tri_size * 0.7), int(frag_y + tri_y_offset + tri_size * 0.5))
+            ]
+            pygame.draw.polygon(screen, (255, 80, 50), tri_points)
+            # 느낌표
+            pygame.draw.line(screen, (255, 255, 200),
+                           (int(frag_x), int(frag_y + tri_y_offset - tri_size + 3)),
+                           (int(frag_x), int(frag_y + tri_y_offset + 1)), 2)
+            pygame.draw.circle(screen, (255, 255, 200),
+                             (int(frag_x), int(frag_y + tri_y_offset + 4)), 1)
+
+
+def trigger_fragment_hit_effect():
+    """파편에 맞았을 때 화면 이펙트 트리거"""
+    global water_cannon_fragment_hit_timer, water_cannon_fragment_hit_shake
+    global screen_shake_timer, screen_shake_intensity
+    water_cannon_fragment_hit_timer = 15  # 0.25초간 빨간 플래시
+    water_cannon_fragment_hit_shake = 12  # 화면 셰이크 강도
+    # 기존 화면 셰이크 시스템도 활용
+    screen_shake_timer = max(screen_shake_timer, 10)
+    screen_shake_intensity = max(screen_shake_intensity, 8)
+
+
+def update_fragment_hit_effect():
+    """파편 피격 이펙트 업데이트"""
+    global water_cannon_fragment_hit_timer, water_cannon_fragment_hit_shake
+
+    if water_cannon_fragment_hit_timer > 0:
+        water_cannon_fragment_hit_timer -= 1
+
+    if water_cannon_fragment_hit_shake > 0:
+        water_cannon_fragment_hit_shake -= 1
+
+
+def draw_fragment_hit_effect(screen):
+    """파편 피격 시 화면 빨간 플래시 효과"""
+    if water_cannon_fragment_hit_timer <= 0:
+        return
+
+    # 빨간 플래시 강도 (시간에 따라 감소)
+    intensity = water_cannon_fragment_hit_timer / 15.0
+    flash_alpha = int(80 * intensity)
+
+    # 화면 전체에 빨간 오버레이
+    flash_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    flash_surface.fill((255, 50, 50, flash_alpha))
+    screen.blit(flash_surface, (0, 0))
+
+    # 화면 가장자리에 빨간 비네팅 효과
+    vignette_alpha = int(120 * intensity)
+    vignette_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+    # 상단 비네팅
+    for i in range(30):
+        alpha = int(vignette_alpha * (1 - i / 30))
+        pygame.draw.line(vignette_surface, (255, 30, 30, alpha),
+                        (0, i), (WIDTH, i), 1)
+    # 하단 비네팅
+    for i in range(30):
+        alpha = int(vignette_alpha * (1 - i / 30))
+        pygame.draw.line(vignette_surface, (255, 30, 30, alpha),
+                        (0, HEIGHT - 1 - i), (WIDTH, HEIGHT - 1 - i), 1)
+
+    screen.blit(vignette_surface, (0, 0))
+
+
+def get_fragment_hit_shake():
+    """파편 피격 시 화면 셰이크 오프셋 반환"""
+    if water_cannon_fragment_hit_shake <= 0:
+        return 0, 0
+
+    intensity = water_cannon_fragment_hit_shake / 12.0
+    shake_x = random.uniform(-6, 6) * intensity
+    shake_y = random.uniform(-4, 4) * intensity
+    return shake_x, shake_y
 
 
 # 정글지진 효과음 멈추기
@@ -45944,6 +46530,8 @@ def handle_player(keys):
                 base_max_speed = 3
             elif selected_character_type == "optimus":
                 base_max_speed = OPTIMUS_BASE_MAX_SPEED
+            elif selected_character_type == "smasher":
+                base_max_speed = 6  # 스매셔 기본 이동속도 6
             else:
                 base_max_speed = MAX_SPEED
             effective_max_speed = (base_max_speed + skill_speed_boost) * speed_multiplier
@@ -46673,7 +47261,7 @@ def handle_player(keys):
                 effective_max_speed = OPTIMUS_BASE_MAX_SPEED * get_optimus_gauge_ratio()
                 effective_max_speed = max(1.0, effective_max_speed)
             elif selected_character_type == "smasher":
-                effective_max_speed = 3.0
+                effective_max_speed = 6.0  # 스매셔 기본 이동속도 6
             else:
                 effective_max_speed = MAX_SPEED
         walking = abs(current_speed) > 1.0
@@ -65097,8 +65685,8 @@ def draw_objects():
         current_time = pygame.time.get_ticks()
         # 플레이어 4점 획득 시 인터셉터 해금 (체력 기반에서 변경)
         interceptor_unlocked = round_wins >= 4
-        # 4점 이상 획득 시에만 작동
-        if interceptor_unlocked:
+        # 4점 이상 획득 시에만 작동 (TAB 메뉴로 게임 정지 시 인터셉터 생산 중지)
+        if interceptor_unlocked and not game_paused:
             # 인터셉터 출격 체크 (혼란 상태가 아닐 때만)
             if not interceptor_launching and current_time - interceptor_launch_time > interceptor_cooldown and boss_confused_timer == 0:
                 # 출격 준비
@@ -65207,20 +65795,33 @@ def draw_objects():
                         interceptor['y'] += (dy / dist) * interceptor['speed'] * 2
                     # 공과 충돌 체크
                     if dist < 20:
-                        # 공 튀김
-                        ball_vel[1] = abs(ball_vel[1])
-                        ball_vel[0] += random.uniform(-2, 2)
+                        # 파워스매싱 중이면 공이 관통하면서 인터셉터 파괴 (공 튕김 없음)
+                        is_power_smashing_now = power_smashing_parabola_active or power_smashing_freeze_active
+
+                        if not is_power_smashing_now:
+                            # 일반 상태: 공 튕김
+                            ball_vel[1] = abs(ball_vel[1])
+                            ball_vel[0] += random.uniform(-2, 2)
+                        # else: 파워스매싱 중 - 공은 그대로 진행 (관통)
+
                         # 인터셉터 파괴
                         interceptors.remove(interceptor)
-                        # 폭발 이펙트 (불꽃 느낌, 황금 색상 유지)
+
+                        # 폭발 이펙트 (파워스매싱 시 더 화려한 이펙트)
                         play_sound_with_volume(SOUND_STAGE6_INTERCEPTOR_HIT)
-                        for _ in range(18):
+                        explosion_particles = 30 if is_power_smashing_now else 18
+                        for _ in range(explosion_particles):
                             spark_angle = random.uniform(0, math.pi * 2)
-                            spark_dist = random.uniform(0, 25)
+                            spark_dist = random.uniform(0, 35 if is_power_smashing_now else 25)
                             spark_x = interceptor['x'] + math.cos(spark_angle) * spark_dist
                             spark_y = interceptor['y'] + math.sin(spark_angle) * spark_dist
-                            color = (255, 215, 120) if interceptor.get('golden') else (255, 200, 100)
-                            draw.circle(color, (int(spark_x), int(spark_y)), random.randint(2, 4))
+                            if is_power_smashing_now:
+                                # 파워스매싱 관통 시 붉은 폭발 이펙트
+                                color = (255, 100 + random.randint(0, 50), 50)
+                            else:
+                                color = (255, 215, 120) if interceptor.get('golden') else (255, 200, 100)
+                            draw.circle(color, (int(spark_x), int(spark_y)), random.randint(2, 5 if is_power_smashing_now else 4))
+
                         # 황금 인터셉터 보상: 스타포인트 드랍
                         try:
                             if interceptor.get('golden') and 'trade_point_system' in globals() and trade_point_system:
@@ -82750,12 +83351,8 @@ def draw_field():
         earthquake_offset_y = 0
         # 스테이지1에서는 애니메이션 배경 사용
         animated_bg.update(clock.get_time())
-        # 배경을 화면 전체에 맞게 스케일링
-        temp_surface = pygame.Surface((animated_bg.width, animated_bg.height), pygame.SRCALPHA)
-        animated_bg.draw(temp_surface)
-        # 배경 이미지를 화면 크기에 맞게 스케일
-        scaled_bg = pygame.transform.scale(temp_surface, (WIDTH, HEIGHT))
-        SCREEN.blit(scaled_bg, (0, 0))
+        # 배경을 화면에 직접 그리기 (이미 WIDTH x HEIGHT로 초기화됨)
+        animated_bg.draw(SCREEN)
 
         # Stage 1 필드 중앙 태극문양에 회색 테두리 추가 (백업 이미지와 동일)
         taegeuk_center_x = WIDTH // 2
@@ -82794,8 +83391,12 @@ def draw_field():
         # 직접 SCREEN에 그리기 (메인 루프가 흔들림 처리)
         animated_bg_stage2.draw(SCREEN)
         # Stage 2 물대포 및 파편 렌더링
+        draw_water_cannon_target_highlight(SCREEN)
+        draw_water_cannon_charging(SCREEN)
         draw_water_cannon(SCREEN)
+        draw_water_cannon_fragment_danger_glow(SCREEN)
         draw_water_cannon_fragments(SCREEN)
+        draw_fragment_hit_effect(SCREEN)
         # 원숭이가 던진 바나나를 인게임 화면에 그리기
         if pillar_renderer is not None:
             pillar_renderer.draw_bananas_ingame(SCREEN)
@@ -89943,10 +90544,10 @@ def handle_ball():
                     stage1_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
             except Exception as e:
                 print(f"⚠️ 히트 애니메이션 트리거 실패: {e}")
-        # 스테이지 2 악어장군 게이지 충전 (+70)
+        # 스테이지 2 악어장군 게이지 충전 (+60)
         elif current_stage == 2:
-            boss_special_gauge = min(boss_special_gauge + 70, 500)
-            print(f"스테이지2 악어장군 게이지 충전: +70 (현재: {boss_special_gauge}/500)")
+            boss_special_gauge = min(boss_special_gauge + 60, 500)
+            print(f"스테이지2 악어장군 게이지 충전: +60 (현재: {boss_special_gauge}/500)")
 
         # 스테이지 6 (네메시스) 방어막 해제 로직 - 보스 패들에 공이 닿으면 확률적으로 방어막 해제
         # 방어막이 활성화 상태이고 트리거 쿨다운이 0일 때만 해제 (중복 방지)
@@ -89988,7 +90589,7 @@ def handle_ball():
                 else:
                     gain = 80
             elif current_stage == 3:
-                gain = 60  # 멘헤라걸 게이지 충전량
+                gain = 50  # 멘헤라걸 게이지 충전량
             else:
                 gain = 80
             boss_special_gauge = min(boss_special_gauge + gain, 500)
@@ -91153,10 +91754,10 @@ def handle_boss_pro():
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
 
-    # Stage 2 물대포 차징/발사 시 보스 정지 (0.5초 대기 + 0.3초 발사)
+    # Stage 2 물대포 차징/발사 시 보스 통제불능 (0.8초 차징 + 0.5초 발사 = 1.3초)
     if current_stage == 2 and water_cannon_phase in ("charging", "firing"):
         boss_current_speed = 0
-        return  # 물대포 차징/발사 중에는 AI 정지
+        return  # 물대포 차징/발사 중에는 보스 이동 불가
 
     # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
     if current_stage == 7:
@@ -91489,10 +92090,10 @@ def handle_boss_champion():
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
 
-    # Stage 2 물대포 차징/발사 시 보스 정지 (0.5초 대기 + 0.3초 발사)
+    # Stage 2 물대포 차징/발사 시 보스 통제불능 (0.8초 차징 + 0.5초 발사 = 1.3초)
     if current_stage == 2 and water_cannon_phase in ("charging", "firing"):
         boss_current_speed = 0
-        return  # 물대포 차징/발사 중에는 AI 정지
+        return  # 물대포 차징/발사 중에는 보스 이동 불가
 
     # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
     if current_stage == 7:
@@ -91840,10 +92441,10 @@ def handle_boss_mythic():
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
 
-    # Stage 2 물대포 차징/발사 시 보스 정지 (0.5초 대기 + 0.3초 발사)
+    # Stage 2 물대포 차징/발사 시 보스 통제불능 (0.8초 차징 + 0.5초 발사 = 1.3초)
     if current_stage == 2 and water_cannon_phase in ("charging", "firing"):
         boss_current_speed = 0
-        return  # 물대포 차징/발사 중에는 AI 정지
+        return  # 물대포 차징/발사 중에는 보스 이동 불가
 
     # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
     if current_stage == 7:
@@ -92316,10 +92917,10 @@ def handle_boss_junior():
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
 
-    # Stage 2 물대포 차징/발사 시 보스 정지 (0.5초 대기 + 0.3초 발사)
+    # Stage 2 물대포 차징/발사 시 보스 통제불능 (0.8초 차징 + 0.5초 발사 = 1.3초)
     if current_stage == 2 and water_cannon_phase in ("charging", "firing"):
         boss_current_speed = 0
-        return  # 물대포 차징/발사 중에는 AI 정지
+        return  # 물대포 차징/발사 중에는 보스 이동 불가
 
     # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
     if current_stage == 7:
@@ -95411,6 +96012,7 @@ def main(stage_num, new_boss_mode=False):
     global current_stage, round_wins, round_losses, new_boss_mode_active
     global FIELD_GREEN, CURRENT_BG, BOSS_COLOR, SCREEN
     global game_should_exit  #  게임 종료 플래그
+    global player_score, boss_score  # 점수 변수 (스테이지 시작 시 초기화)
     global game_session_active  #  게임 세션 활성화 여부
     global rolling_charges, rolling_charge_timer, acceleration_skill_level, acceleration_height_bonus  #  대쉬 & 스킬 관련
     global smasher_pending_contact_offset
@@ -95531,6 +96133,8 @@ def main(stage_num, new_boss_mode=False):
     soldier_down_tap_suppress_timer = 0
     round_wins = 0
     round_losses = 0
+    player_score = 0  # 플레이어 점수 초기화
+    boss_score = 0    # 보스 점수 초기화
 
     # 🌪️ 날씨 이벤트 상태 초기화 (새 스테이지 시작 시)
     reset_weather_state()
@@ -96933,9 +97537,6 @@ def main(stage_num, new_boss_mode=False):
         # 키 입력 처리 (항상 pump 후 읽어 키 상태가 stale 되지 않도록)
         pygame.event.pump()
         keys = pygame.key.get_pressed()
-        
-        # 점수 관련 전역 변수 선언 (8번, 9번 키에서 사용)
-        global boss_score, player_score
         
         # 7번키로 프로파일러 표시 토글
         if keys[pygame.K_7] and not getattr(main, 'key7_pressed', False):
@@ -99481,18 +100082,19 @@ def main(stage_num, new_boss_mode=False):
                 handle_quake()
                 # Stage 2 악어장군 물대포 스킬 발동 및 업데이트
                 if current_stage == 2:
-                    # 물대포 발동 체크: 정글지진 발동 후 5~8초 사이에 발동
+                    # 물대포 발동 체크: 정글지진 발동 후 5~8초 사이에 발동 (플레이어 3점 이상일 때만 해금)
                     time_now = pygame.time.get_ticks()
                     time_since_quake = time_now - last_quake_time
                     quake_delay_passed = (last_quake_time > 0 and time_since_quake >= water_cannon_quake_delay)
                     # 디버그: 5초마다 상태 출력
                     if time_now % 5000 < 20:
                         print(f"[물대포DEBUG] phase={water_cannon_phase}, quake_delay={water_cannon_quake_delay}ms, since_quake={time_since_quake}ms, rocks={len(animated_bg_stage2.crisis_rocks) if animated_bg_stage2 else 'None'}")
-                    if quake_delay_passed and water_cannon_phase == "idle":
+                    if quake_delay_passed and water_cannon_phase == "idle" and player_score >= 3:
                         print(f"💦 물대포 발동! 정글지진 후 {time_since_quake/1000:.1f}초 경과")
                         activate_water_cannon()
                     update_water_cannon()
                     update_water_cannon_fragments()
+                    update_fragment_hit_effect()  # 파편 피격 이펙트 업데이트
                 handle_new_boss_skills_timer()  #  새로운 보스들 스킬 타이머 처리
                 handle_emotional_overdrive()
                 update_neutralize_particles()  # 사이코볼 무효화 파티클 업데이트
@@ -102656,6 +103258,8 @@ def show_character_info(background_surface=None):
             base_max_speed = 3.0
         elif char_type == "optimus":
             base_max_speed = float(globals().get("OPTIMUS_BASE_MAX_SPEED", 2.0))
+        elif char_type == "smasher":
+            base_max_speed = 6.0  # 스매셔 기본 이동속도 6
         else:
             base_max_speed = float(globals().get("MAX_SPEED", 5.0))
         speed_multiplier = 1.0
@@ -103983,6 +104587,8 @@ def show_game_info():
             base_speed_info = OPTIMUS_BASE_MAX_SPEED
         elif selected_character_type == "blacksmith":
             base_speed_info = 3
+        elif selected_character_type == "smasher":
+            base_speed_info = 6  # 스매셔 기본 이동속도 6
         else:
             base_speed_info = MAX_SPEED
 
@@ -104629,7 +105235,7 @@ def get_item_description(item_name):
         "gravitybelt": "무중력벨트: 이동 시 즉각적인 방향 전환이 가능한 첨단벨트",
         "speedgear": "보정벨트: 좌,우 방향 전환 속도가 증가합니다.",
         "battery": "배터리팩: 다음 스테이지로 넘어가도 게이지가 유지됩니다.",
-        "slot_add": "배낭: 엑티브아이템 슬롯을 2칸 추가합니다",
+        "slot_add": "배낭: 엑티브아이템 슬롯을 1~3칸 추가합니다.",
         "revival": "부활: 패배 시 한 번의 재경기 기회를 제공합니다. 발동시 해당 아이템은 소모되며 한 게임 당 한번만 스폰되는 귀중한 아이템입니다",
         "master": "토르의 망치: 벽돌 액티브 아이템 사용시 벽돌의 길이를 늘려주며, 아이템 쿨타임도 조금 줄여주는 고마운 망치.",
         "cooltime": "쿨링볼: 아이템 재사용 쿨타임을 감소시켜줍니다.",

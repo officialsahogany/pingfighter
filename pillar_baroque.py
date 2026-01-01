@@ -247,39 +247,33 @@ class BaroqueFrame:
         )
         pygame.draw.rect(surface, self.COLORS['metal_shadow'], shadow_rect, 4)
 
-        # === 메인 메탈 베이스 - 베벨 효과 ===
-        for layer in range(thickness, 0, -1):
-            ratio = layer / thickness
+        # === 메인 메탈 베이스 - 베벨 효과 (채워진 rect로 줄무늬 아티팩트 방지) ===
+        # 상단 프레임
+        top_rect = pygame.Rect(self.game_x - thickness, self.game_y - thickness,
+                               self.game_width + thickness * 2, thickness)
+        # 하단 프레임
+        bottom_rect = pygame.Rect(self.game_x - thickness, self.game_y + self.game_height,
+                                  self.game_width + thickness * 2, thickness)
+        # 좌측 프레임
+        left_rect = pygame.Rect(self.game_x - thickness, self.game_y,
+                                thickness, self.game_height)
+        # 우측 프레임
+        right_rect = pygame.Rect(self.game_x + self.game_width, self.game_y,
+                                 thickness, self.game_height)
 
-            if ratio > 0.8:
-                # 외곽 - 가장 어두운 메탈
-                color = self.COLORS['metal_shadow']
-            elif ratio > 0.6:
-                # 베벨 다운
-                t = (ratio - 0.6) / 0.2
-                color = self._lerp_color(self.COLORS['metal_dark'],
-                                        self.COLORS['metal_shadow'], t)
-            elif ratio > 0.4:
-                # 메인 메탈 면
-                color = self.COLORS['metal']
-            elif ratio > 0.2:
-                # 베벨 업
-                t = (ratio - 0.2) / 0.2
-                color = self._lerp_color(self.COLORS['metal_light'],
-                                        self.COLORS['metal'], t)
-            else:
-                # 내부 하이라이트
-                t = ratio / 0.2
-                color = self._lerp_color(self.COLORS['chrome'],
-                                        self.COLORS['metal_light'], t)
+        # 메인 메탈 색상으로 채우기
+        for rect in [top_rect, bottom_rect, left_rect, right_rect]:
+            pygame.draw.rect(surface, self.COLORS['metal'], rect)
 
-            frame_rect = pygame.Rect(
-                self.game_x - layer,
-                self.game_y - layer,
-                self.game_width + layer * 2,
-                self.game_height + layer * 2
-            )
-            pygame.draw.rect(surface, color, frame_rect, 1)
+        # 베벨 효과 (테두리만)
+        outer_rect = pygame.Rect(self.game_x - thickness, self.game_y - thickness,
+                                 self.game_width + thickness * 2, self.game_height + thickness * 2)
+        inner_rect = pygame.Rect(self.game_x, self.game_y, self.game_width, self.game_height)
+
+        # 외곽 어두운 테두리
+        pygame.draw.rect(surface, self.COLORS['metal_shadow'], outer_rect, 3)
+        # 내곽 밝은 테두리
+        pygame.draw.rect(surface, self.COLORS['metal_light'], inner_rect, 2)
 
         # === 내부 그루브 라인 (제거됨) ===
         # groove_offset = 4

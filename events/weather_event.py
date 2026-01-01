@@ -18,10 +18,10 @@ GUST_WIND_FORCE_PLAYER = 1.8
 GUST_WIND_FORCE_BOSS = 1.5
 GUST_WIND_FORCE_BALL = 0.168  # 0.12 * 1.4 (40% 증가 - 더 옆으로 휘게)
 
-# 불 (Fire) - 공 속도 증가 (50% 감소 적용됨)
-FIRE_BASE_SPEED_BOOST = 1.10  # 기본 공 속도 10% 증가 (기존 20% → 50% 감소)
-FIRE_HIT_SPEED_BOOST_MIN = 1.075  # 패들 타격 시 7.5% 추가 증가 (기존 15% → 50% 감소)
-FIRE_HIT_SPEED_BOOST_MAX = 1.10  # 패들 타격 시 10% 추가 증가 (기존 20% → 50% 감소)
+# 불 (Fire) - 공 속도 증가 (추가 30% 너프 적용)
+FIRE_BASE_SPEED_BOOST = 1.07  # 기본 공 속도 7% 증가
+FIRE_HIT_SPEED_BOOST_MIN = 1.05  # 패들 타격 시 5% 추가 증가
+FIRE_HIT_SPEED_BOOST_MAX = 1.07  # 패들 타격 시 7% 추가 증가
 FIRE_GAUGE_DRAIN_PER_SECOND = 5  # 초당 게이지 5 감소
 
 # 얼음 (Ice) - 미끄러움 효과
@@ -31,7 +31,7 @@ ICE_FRICTION = 0.985  # 마찰계수 (1에 가까울수록 미끄러움)
 ICE_DASH_SLIDE_DURATION = 45  # 대쉬 후 미끄러지는 프레임 수
 
 # 소나기 (Rain) - 둔화 효과
-RAIN_SPEED_PENALTY = 0.40  # 이동속도 40% 감소
+RAIN_SPEED_PENALTY = 0.30  # 이동속도 30% 감소
 RAIN_PARTICLE_COUNT = 150  # 빗방울 개수
 RAIN_PARTICLE_SPEED_MIN = 12  # 빗방울 최소 속도
 RAIN_PARTICLE_SPEED_MAX = 18  # 빗방울 최대 속도
@@ -39,7 +39,7 @@ RAIN_PARTICLE_LENGTH_MIN = 10  # 빗방울 최소 길이
 RAIN_PARTICLE_LENGTH_MAX = 25  # 빗방울 최대 길이
 
 # 우박 (Hail) - 넉백 효과 (화염탄과 동일한 수치)
-HAIL_PARTICLE_COUNT = 18  # 우박 개수 (빗방울보다 적음)
+HAIL_PARTICLE_COUNT = 9  # 우박 개수 (빗방울보다 적음) - 추가 30% 감소
 HAIL_SPAWN_INTERVAL = 30  # 우박 생성 간격 (프레임)
 HAIL_FALL_SPEED_MIN = 6  # 우박 최소 낙하 속도
 HAIL_FALL_SPEED_MAX = 10  # 우박 최대 낙하 속도
