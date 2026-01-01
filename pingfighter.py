@@ -101134,33 +101134,31 @@ def main(stage_num, new_boss_mode=False):
                 explosion_events = dynamite.update(ball_rect_for_dynamite, boss_rect_for_dynamite, WIDTH)
 
                 # 폭발 이벤트 처리 - 보스 넉백 및 스턴 적용 (수류탄과 동일한 방식)
-                for exp in explosion_events:
-                    knockback_info = dynamite.check_boss_in_explosion(boss_rect_for_dynamite)
-                    if knockback_info:
-                        # 전역 변수 선언 (수류탄 방식)
-                        global boss_stunned_timer, boss_knockback_vel, boss_knockback_timer
+                if explosion_events:
+                    for exp in explosion_events:
+                        knockback_info = dynamite.check_boss_in_explosion(boss_rect_for_dynamite)
+                        if knockback_info:
+                            # 보스 스턴 적용 (수류탄: 126프레임=2.1초, 다이너마이트: 180프레임=3초)
+                            boss_stunned_timer = max(boss_stunned_timer, knockback_info["stun_duration"])
 
-                        # 보스 스턴 적용 (수류탄: 126프레임=2.1초, 다이너마이트: 180프레임=3초)
-                        boss_stunned_timer = max(boss_stunned_timer, knockback_info["stun_duration"])
+                            # 폭심지로부터 멀어지는 방향 계산 (수류탄 방식)
+                            bx, by = get_center_pos(BOSS)
+                            ex, ey = exp["x"], exp["y"]
+                            direction = 1 if bx >= ex else -1
 
-                        # 폭심지로부터 멀어지는 방향 계산 (수류탄 방식)
-                        bx, by = get_center_pos(BOSS)
-                        ex, ey = exp["x"], exp["y"]
-                        direction = 1 if bx >= ex else -1
+                            # 넉백 세기 (수류탄: 40, 다이너마이트: 동일하게 40 사용)
+                            power = 40.0
 
-                        # 넉백 세기 (수류탄: 40, 다이너마이트: 동일하게 40 사용)
-                        power = 40.0
+                            # 넉백 타이머 설정 (수류탄: 36프레임)
+                            boss_knockback_timer = max(boss_knockback_timer, 36)
+                            boss_knockback_vel = _apply_boss_knockback_velocity(direction * power)
 
-                        # 넉백 타이머 설정 (수류탄: 36프레임)
-                        boss_knockback_timer = max(boss_knockback_timer, 36)
-                        boss_knockback_vel = _apply_boss_knockback_velocity(direction * power)
+                            # 대쉬/후딜 상태 강제 해제 (넉백 즉시 적용)
+                            globals()["boss_dashing"] = False
+                            globals()["boss_dash_timer"] = 0
+                            globals()["boss_dash_stun_timer"] = 0
 
-                        # 대쉬/후딜 상태 강제 해제 (넉백 즉시 적용)
-                        globals()["boss_dashing"] = False
-                        globals()["boss_dash_timer"] = 0
-                        globals()["boss_dash_stun_timer"] = 0
-
-                        print(f"[Dynamite] 폭발! 보스 스턴 {knockback_info['stun_duration'] / 60:.1f}초, 넉백 방향={direction}, 파워={power}")
+                            print(f"[Dynamite] 폭발! 보스 스턴 {knockback_info['stun_duration'] / 60:.1f}초, 넉백 방향={direction}, 파워={power}")
 
                 #  대쉬 스피릿 레이저 시스템 업데이트
                 update_dash_spirit_lasers()
