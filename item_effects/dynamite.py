@@ -250,22 +250,50 @@ class Dynamite:
         for explosion in self.explosions[:]:
             explosion["timer"] -= 1
             explosion["progress"] = 1.0 - (explosion["timer"] / explosion["max_timer"])
+            frames_elapsed = explosion["max_timer"] - explosion["timer"]
 
-            # 쇼크웨이브 업데이트
+            # 메인 쇼크웨이브 업데이트 (더 빠르게 퍼짐)
             if explosion["shockwave_radius"] < self.EXPLOSION_RADIUS:
-                explosion["shockwave_radius"] += 15
+                explosion["shockwave_radius"] += 30  # 2배 빠르게
 
-            # 파티클 업데이트
+            # 2차 쇼크웨이브 업데이트
+            for wave in explosion.get("secondary_waves", []):
+                if frames_elapsed >= wave["delay"]:
+                    wave["radius"] += wave["speed"]
+
+            # 메인 파티클 업데이트
             for particle in explosion["particles"][:]:
                 particle["x"] += particle["vx"]
                 particle["y"] += particle["vy"]
-                particle["vy"] += 0.2  # 중력
-                particle["vx"] *= 0.98
+                particle["vy"] += 0.4  # 강한 중력
+                particle["vx"] *= 0.95  # 빠른 감속
+                particle["vy"] *= 0.97
                 particle["life"] -= 1
-                particle["size"] = max(1, particle["size"] - 0.15)
+                particle["size"] = max(0.5, particle["size"] - 0.3)
 
                 if particle["life"] <= 0:
                     explosion["particles"].remove(particle)
+
+            # 스파크 업데이트
+            for spark in explosion.get("sparks", [])[:]:
+                spark["x"] += spark["vx"]
+                spark["y"] += spark["vy"]
+                spark["vy"] += 0.8  # 매우 강한 중력
+                spark["vx"] *= 0.92
+                spark["life"] -= 1
+
+                if spark["life"] <= 0:
+                    explosion["sparks"].remove(spark)
+
+            # 연기 구름 업데이트
+            for cloud in explosion.get("smoke_clouds", [])[:]:
+                cloud["x"] += cloud["vx"]
+                cloud["y"] += cloud["vy"]
+                cloud["size"] += 0.8  # 점점 커짐
+                cloud["life"] -= 1
+
+                if cloud["life"] <= 0:
+                    explosion["smoke_clouds"].remove(cloud)
 
             if explosion["timer"] <= 0:
                 self.explosions.remove(explosion)
@@ -273,33 +301,72 @@ class Dynamite:
         return explosion_events
 
     def _create_explosion(self, x: float, y: float) -> Dict:
-        """폭발 생성."""
+        """폭발 생성 - 고퀄리티 빠른 폭발."""
         explosion = {
             "x": x,
             "y": y,
-            "timer": 60,  # 1초 지속
-            "max_timer": 60,
+            "timer": 36,  # 0.6초 지속 (더 빠르게)
+            "max_timer": 36,
             "progress": 0,
             "shockwave_radius": 0,
             "particles": [],
             "knockback_power": self.KNOCKBACK_SPEED,
             "knockback_radius": self.EXPLOSION_RADIUS,
             "stun_duration": self.STUN_DURATION,
+            # 추가 이펙트용
+            "secondary_waves": [],
+            "sparks": [],
+            "smoke_clouds": [],
         }
 
-        # 폭발 파티클 생성
-        for _ in range(60):
+        # 메인 폭발 파티클 (더 많이, 더 빠르게)
+        for _ in range(100):
             angle = random.uniform(0, 2 * math.pi)
-            speed = random.uniform(5, 18)
+            speed = random.uniform(12, 35)  # 더 빠른 속도
             explosion["particles"].append({
                 "x": x,
                 "y": y,
                 "vx": math.cos(angle) * speed,
-                "vy": math.sin(angle) * speed - 3,  # 위로 퍼짐
-                "size": random.randint(4, 12),
-                "color_type": random.choice(["fire", "spark", "smoke", "debris"]),
-                "life": random.randint(30, 60),
+                "vy": math.sin(angle) * speed - 5,  # 더 강한 상승
+                "size": random.uniform(3, 14),
+                "color_type": random.choice(["fire", "fire", "spark", "ember"]),  # 불꽃 위주
+                "life": random.randint(15, 30),  # 더 짧은 수명
+                "max_life": 30,
             })
+
+        # 스파크 파티클 (빠르게 튀는 불꽃)
+        for _ in range(40):
+            angle = random.uniform(0, 2 * math.pi)
+            speed = random.uniform(25, 50)
+            explosion["sparks"].append({
+                "x": x,
+                "y": y,
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed - 8,
+                "life": random.randint(10, 20),
+                "max_life": 20,
+            })
+
+        # 연기 구름 (느리게 퍼지는)
+        for _ in range(15):
+            angle = random.uniform(0, 2 * math.pi)
+            dist = random.uniform(20, 60)
+            explosion["smoke_clouds"].append({
+                "x": x + math.cos(angle) * dist,
+                "y": y + math.sin(angle) * dist,
+                "vx": math.cos(angle) * 2,
+                "vy": -random.uniform(1, 3),  # 위로 상승
+                "size": random.uniform(20, 40),
+                "life": random.randint(20, 36),
+                "max_life": 36,
+            })
+
+        # 2차 쇼크웨이브들
+        explosion["secondary_waves"] = [
+            {"radius": 0, "speed": 25, "delay": 0},
+            {"radius": 0, "speed": 20, "delay": 3},
+            {"radius": 0, "speed": 15, "delay": 6},
+        ]
 
         # 폭발 사운드 재생
         self._play_explosion_sound()
@@ -482,69 +549,143 @@ class Dynamite:
             screen.blit(dynamite_surface, (x - 20, y - 20))
 
     def _draw_explosions(self, screen: pygame.Surface) -> None:
-        """폭발 이펙트 그리기."""
+        """고퀄리티 폭발 이펙트 그리기."""
         for explosion in self.explosions:
             ex, ey = int(explosion["x"]), int(explosion["y"])
             progress = explosion["progress"]
             shockwave_radius = int(explosion["shockwave_radius"])
 
-            # 쇼크웨이브
-            if shockwave_radius > 0 and progress < 0.7:
-                wave_alpha = int(200 * (1 - progress))
-                wave_width = max(3, int(15 * (1 - progress)))
-
-                wave_surface = pygame.Surface((shockwave_radius * 2 + 20, shockwave_radius * 2 + 20), pygame.SRCALPHA)
-                # 외부 쇼크웨이브 (주황색)
-                pygame.draw.circle(wave_surface, (255, 150, 50, wave_alpha),
-                                 (shockwave_radius + 10, shockwave_radius + 10), shockwave_radius, wave_width)
-                # 내부 링 (노란색)
-                inner_radius = max(1, shockwave_radius - 20)
-                pygame.draw.circle(wave_surface, (255, 255, 100, wave_alpha // 2),
-                                 (shockwave_radius + 10, shockwave_radius + 10), inner_radius, max(2, wave_width - 3))
-                screen.blit(wave_surface, (ex - shockwave_radius - 10, ey - shockwave_radius - 10))
-
-            # 중심 플래시
-            if progress < 0.3:
-                flash_progress = progress / 0.3
-                flash_radius = int(100 * (1 - flash_progress * 0.5))
-                flash_alpha = int(255 * (1 - flash_progress))
-
-                flash_surface = pygame.Surface((flash_radius * 2 + 20, flash_radius * 2 + 20), pygame.SRCALPHA)
-                pygame.draw.circle(flash_surface, (255, 200, 100, flash_alpha),
-                                 (flash_radius + 10, flash_radius + 10), flash_radius)
-                pygame.draw.circle(flash_surface, (255, 255, 220, min(255, flash_alpha + 50)),
-                                 (flash_radius + 10, flash_radius + 10), int(flash_radius * 0.5))
-                screen.blit(flash_surface, (ex - flash_radius - 10, ey - flash_radius - 10))
-
-            # 파티클
-            for particle in explosion["particles"]:
-                life_ratio = particle["life"] / 60
-                size = int(particle["size"])
-                color_type = particle["color_type"]
-
-                # 색상 결정
-                if color_type == "fire":
-                    r = 255
-                    g = int(180 * life_ratio)
-                    b = int(50 * life_ratio)
-                elif color_type == "spark":
-                    r = 255
-                    g = 255
-                    b = int(150 + 105 * life_ratio)
-                elif color_type == "smoke":
-                    gray = int(80 + 80 * life_ratio)
-                    r = g = b = gray
-                else:  # debris
-                    r = int(100 + 50 * life_ratio)
-                    g = int(60 + 30 * life_ratio)
-                    b = int(40 + 20 * life_ratio)
-
-                alpha = int(255 * life_ratio)
+            # 연기 구름 (먼저 그려서 뒤에 배치)
+            for cloud in explosion.get("smoke_clouds", []):
+                life_ratio = cloud["life"] / cloud["max_life"]
+                size = int(cloud["size"])
+                alpha = int(120 * life_ratio)
 
                 if size > 0 and alpha > 0:
-                    particle_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(particle_surface, (r, g, b, alpha), (size, size), size)
-                    screen.blit(particle_surface, (int(particle["x"]) - size, int(particle["y"]) - size))
+                    cloud_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                    # 그라데이션 연기 (바깥 어둡고 안쪽 밝게)
+                    for i in range(3):
+                        r = size - i * size // 3
+                        if r > 0:
+                            gray = 60 + i * 25
+                            a = alpha // (i + 1)
+                            pygame.draw.circle(cloud_surface, (gray, gray, gray, a), (size, size), r)
+                    screen.blit(cloud_surface, (int(cloud["x"]) - size, int(cloud["y"]) - size))
+
+            # 2차 쇼크웨이브들
+            for wave in explosion.get("secondary_waves", []):
+                if wave["radius"] > 0 and wave["radius"] < self.EXPLOSION_RADIUS:
+                    wave_alpha = int(150 * (1 - wave["radius"] / self.EXPLOSION_RADIUS))
+                    if wave_alpha > 0:
+                        r = int(wave["radius"])
+                        wave_surface = pygame.Surface((r * 2 + 10, r * 2 + 10), pygame.SRCALPHA)
+                        pygame.draw.circle(wave_surface, (255, 180, 80, wave_alpha),
+                                         (r + 5, r + 5), r, max(2, 8 - int(wave["radius"] / 40)))
+                        screen.blit(wave_surface, (ex - r - 5, ey - r - 5))
+
+            # 메인 쇼크웨이브 (더 굵고 화려하게)
+            if shockwave_radius > 0 and progress < 0.6:
+                wave_alpha = int(220 * (1 - progress / 0.6))
+                wave_width = max(4, int(20 * (1 - progress)))
+
+                wave_surface = pygame.Surface((shockwave_radius * 2 + 30, shockwave_radius * 2 + 30), pygame.SRCALPHA)
+                center = shockwave_radius + 15
+
+                # 외부 글로우
+                pygame.draw.circle(wave_surface, (255, 100, 30, wave_alpha // 3),
+                                 (center, center), shockwave_radius + 8, wave_width + 8)
+                # 메인 쇼크웨이브 (주황)
+                pygame.draw.circle(wave_surface, (255, 150, 50, wave_alpha),
+                                 (center, center), shockwave_radius, wave_width)
+                # 내부 링 (노란-흰)
+                inner_radius = max(1, shockwave_radius - 30)
+                pygame.draw.circle(wave_surface, (255, 230, 120, wave_alpha),
+                                 (center, center), inner_radius, max(2, wave_width - 5))
+
+                screen.blit(wave_surface, (ex - shockwave_radius - 15, ey - shockwave_radius - 15))
+
+            # 중심 플래시 (더 밝고 빠르게)
+            if progress < 0.25:
+                flash_progress = progress / 0.25
+                flash_radius = int(150 * (1 - flash_progress * 0.7))
+                flash_alpha = int(255 * (1 - flash_progress))
+
+                flash_surface = pygame.Surface((flash_radius * 2 + 30, flash_radius * 2 + 30), pygame.SRCALPHA)
+                center = flash_radius + 15
+
+                # 외부 글로우 (주황)
+                pygame.draw.circle(flash_surface, (255, 150, 50, flash_alpha // 2),
+                                 (center, center), flash_radius)
+                # 중간층 (노란)
+                pygame.draw.circle(flash_surface, (255, 220, 100, flash_alpha),
+                                 (center, center), int(flash_radius * 0.7))
+                # 중심 (흰색)
+                pygame.draw.circle(flash_surface, (255, 255, 240, min(255, flash_alpha + 30)),
+                                 (center, center), int(flash_radius * 0.35))
+
+                screen.blit(flash_surface, (ex - flash_radius - 15, ey - flash_radius - 15))
+
+            # 스파크 (빠르게 튀는 작은 불꽃)
+            for spark in explosion.get("sparks", []):
+                life_ratio = spark["life"] / spark["max_life"]
+                # 스파크는 밝은 노란-흰색으로 깜빡임
+                intensity = 0.7 + 0.3 * math.sin(spark["life"] * 0.8)
+                r = int(255 * intensity)
+                g = int(220 * intensity)
+                b = int(150 * intensity)
+                alpha = int(255 * life_ratio)
+
+                if alpha > 0:
+                    # 스파크는 선으로 그림 (속도 방향)
+                    sx, sy = int(spark["x"]), int(spark["y"])
+                    tail_x = sx - int(spark["vx"] * 0.3)
+                    tail_y = sy - int(spark["vy"] * 0.3)
+
+                    spark_surface = pygame.Surface((abs(spark["vx"]) + 10, abs(spark["vy"]) + 10), pygame.SRCALPHA)
+                    # 간단한 점으로 표현
+                    pygame.draw.circle(spark_surface, (r, g, b, alpha), (5, 5), 2)
+                    screen.blit(spark_surface, (sx - 5, sy - 5))
+
+            # 메인 파티클 (불꽃)
+            for particle in explosion["particles"]:
+                max_life = particle.get("max_life", 30)
+                life_ratio = particle["life"] / max_life
+                size = max(1, int(particle["size"]))
+                color_type = particle["color_type"]
+
+                # 색상 결정 (더 화려하게)
+                if color_type == "fire":
+                    # 주황-빨강 불꽃
+                    r = 255
+                    g = int(120 + 100 * life_ratio)
+                    b = int(30 * life_ratio)
+                elif color_type == "spark":
+                    # 밝은 노란-흰색
+                    r = 255
+                    g = int(230 + 25 * life_ratio)
+                    b = int(180 + 75 * life_ratio)
+                elif color_type == "ember":
+                    # 빨간 잔불
+                    r = int(200 + 55 * life_ratio)
+                    g = int(60 + 60 * life_ratio)
+                    b = int(20 * life_ratio)
+                else:
+                    # 기본 불꽃
+                    r = 255
+                    g = int(150 * life_ratio)
+                    b = int(50 * life_ratio)
+
+                alpha = int(255 * life_ratio * life_ratio)  # 페이드아웃 가속
+
+                if size > 0 and alpha > 0:
+                    particle_surface = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+                    center = size + 2
+                    # 글로우 효과
+                    if size > 2:
+                        pygame.draw.circle(particle_surface, (r, g // 2, b // 2, alpha // 3),
+                                         (center, center), size + 2)
+                    pygame.draw.circle(particle_surface, (r, g, b, alpha), (center, center), size)
+                    screen.blit(particle_surface, (int(particle["x"]) - size - 2, int(particle["y"]) - size - 2))
 
     # -------------------------------------------------------------------------
     # 사운드
