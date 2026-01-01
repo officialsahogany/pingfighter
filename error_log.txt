@@ -1,6 +1,6 @@
 
 ================================================================================
-오류 발생 시간: 2026-01-01 18:23:31
+오류 발생 시간: 2026-01-01 18:32:48
 ================================================================================
 
 오류 타입: UnboundLocalError
@@ -8,9 +8,9 @@
 
 상세 스택 트레이스:
 Traceback (most recent call last):
-  File "e:\bosspong\pingfighter.py", line 108148, in <module>
+  File "e:\bosspong\pingfighter.py", line 108132, in <module>
     game_loop()
-  File "e:\bosspong\pingfighter.py", line 102274, in game_loop
+  File "e:\bosspong\pingfighter.py", line 102258, in game_loop
     show_start_screen()
   File "e:\bosspong\pingfighter.py", line 69525, in show_start_screen
     show_start_menu(ctx)
@@ -24,7 +24,7 @@ Traceback (most recent call last):
     ctx.show_item_manager_menu()
   File "e:\bosspong\pingfighter.py", line 79688, in show_item_manager_menu
     main(stage_num)
-  File "e:\bosspong\pingfighter.py", line 101141, in main
+  File "e:\bosspong\pingfighter.py", line 101142, in main
     boss_stunned_timer = max(boss_stunned_timer, knockback_info["stun_duration"])
                              ^^^^^^^^^^^^^^^^^^
 UnboundLocalError: cannot access local variable 'boss_stunned_timer' where it is not associated with a value
