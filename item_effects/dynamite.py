@@ -123,7 +123,6 @@ class Dynamite:
             "rotation_speed": random.uniform(5, 15),  # 회전 속도
             "active": True,
             "fuse_lit": False,  # 심지 점화 여부
-            "immune_frames": 30,  # 투척 직후 30프레임(0.5초) 동안 공과 충돌 무시
         }
 
         self.projectiles.append(projectile)
@@ -178,22 +177,6 @@ class Dynamite:
             elif proj["x"] >= right_boundary:
                 proj["x"] = right_boundary
                 proj["vel_x"] = -abs(proj["vel_x"]) * 0.8
-
-            # 면역 프레임 감소
-            if proj.get("immune_frames", 0) > 0:
-                proj["immune_frames"] -= 1
-
-            # 공과 충돌 체크 - 즉시 폭발 (면역 프레임 동안은 무시)
-            if ball_rect and proj.get("immune_frames", 0) <= 0:
-                proj_rect = pygame.Rect(proj["x"] - 12, proj["y"] - 12, 24, 24)
-                if proj_rect.colliderect(ball_rect):
-                    # 즉시 폭발
-                    explosion = self._create_explosion(proj["x"], proj["y"])
-                    explosion_events.append(explosion)
-                    proj["active"] = False
-                    self._debug(f"ball collision → immediate explosion at ({proj['x']:.1f}, {proj['y']:.1f})")
-                    _safe_print("[Dynamite] 다이너마이트가 공에 맞아 즉시 폭발!")
-                    continue
 
             # 보스 진영 도달 체크 (화면 상단)
             if proj["y"] <= self.BOSS_AREA_Y:
