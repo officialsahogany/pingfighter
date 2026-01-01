@@ -32,11 +32,12 @@ class Banana:
     """
 
     # 기본 상수
-    THROW_SPEED = 16  # 투척 속도
+    THROW_SPEED = 20  # 투척 속도 (증가)
     SLIP_DURATION = 90  # 미끄러짐 지속 시간 (1.5초 = 90프레임)
     SLIP_SPEED = 8  # 미끄러짐 속도
     LAND_DURATION = 180  # 착지 후 유지 시간 (3초 = 180프레임)
     PREPARE_TIME = 18  # 준비 동작 시간 (0.3초 = 18프레임)
+    GRAVITY = 0.0  # 중력 없음 - 직선 비행
 
     # 보스 진영 경계선
     BOSS_AREA_Y = 120  # 보스 진영 하단 경계 Y 좌표
@@ -188,8 +189,8 @@ class Banana:
                 self.projectiles.remove(proj)
                 continue
 
-            # 중력 적용
-            proj["vel_y"] += 0.3
+            # 중력 적용 (0이면 직선 비행)
+            proj["vel_y"] += self.GRAVITY
 
             # 위치 업데이트
             proj["x"] += proj["vel_x"]
