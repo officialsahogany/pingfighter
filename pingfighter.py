@@ -2024,25 +2024,12 @@ def invalidate_scale_cache():
     _scale_cache_dirty = True
 
 def _get_scaled_screen():
-    """최적화된 스케일링: smoothscale 사용 및 서피스 재사용"""
-    global _scaled_surface_cache, _scaled_surface_size, _scale_cache_dirty, SCREEN, GAME_SCALE_FACTOR
+    """최적화된 스케일링: rotozoom 사용 (격자 아티팩트 방지)"""
+    global SCREEN, GAME_SCALE_FACTOR
 
-    screen_size = SCREEN.get_size()
-    target_w = int(screen_size[0] * GAME_SCALE_FACTOR)
-    target_h = int(screen_size[1] * GAME_SCALE_FACTOR)
-
-    # 캐시된 서피스가 없거나 크기가 다르면 새로 생성
-    if _scaled_surface_cache is None or _scaled_surface_size != (target_w, target_h):
-        _scaled_surface_cache = pygame.Surface((target_w, target_h))
-        _scaled_surface_size = (target_w, target_h)
-        _scale_cache_dirty = True
-
-    # 캐시가 무효화되었으면 스케일링 수행
-    if _scale_cache_dirty:
-        pygame.transform.smoothscale(SCREEN, (target_w, target_h), _scaled_surface_cache)
-        _scale_cache_dirty = False
-
-    return _scaled_surface_cache
+    # rotozoom은 격자 아티팩트가 없고 고품질
+    # smoothscale은 특정 스케일 비율(0.8x 등)에서 격자 무늬 발생
+    return pygame.transform.rotozoom(SCREEN, 0, GAME_SCALE_FACTOR)
 
 # ============================================================
 # UI 오버레이 시스템 (선명한 텍스트 렌더링)
@@ -2222,7 +2209,7 @@ def _fullscreen_flip():
 
         # 게임 Surface를 중앙에 blit (스케일링 적용)
         if GAME_SCALE_FACTOR != 1.0:
-            # 최적화: smoothscale + 서피스 재사용 (rotozoom보다 빠름)
+            # rotozoom으로 스케일링 (smoothscale은 격자 아티팩트 발생)
             scaled_surface = _get_scaled_screen()
             sw, sh = scaled_surface.get_size()
             offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
@@ -2274,7 +2261,7 @@ def _fullscreen_update(*args, **kwargs):
 
         # 게임 Surface를 중앙에 blit (스케일링 적용)
         if GAME_SCALE_FACTOR != 1.0:
-            # 최적화: smoothscale + 서피스 재사용 (rotozoom보다 빠름)
+            # rotozoom으로 스케일링 (smoothscale은 격자 아티팩트 발생)
             scaled_surface = _get_scaled_screen()
             sw, sh = scaled_surface.get_size()
             offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
@@ -10932,6 +10919,18 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
         val = _get_roll_value(item, "attraction_range")
         if val is not None:
             dowsing_pendulum_effect.attraction_range = val
+    elif name == "technical_vest":
+        # 테크니컬조끼 롤옵션 적용
+        trigger_pct = _get_roll_value(item, "smoke_trigger_pct")
+        duration_sec = _get_roll_value(item, "smoke_duration_sec")
+        try:
+            from item_effects.technical_vest import configure_technical_vest
+            configure_technical_vest(
+                chance_pct=trigger_pct if trigger_pct is not None else 15,
+                duration_sec=duration_sec if duration_sec is not None else 5,
+            )
+        except Exception:
+            pass
 
 
 def apply_dashgear_distance(base_timer: float) -> float:
@@ -12077,6 +12076,10 @@ grenade_target_y = 0  # 수류탄 목표 Y 좌표
 dynamite_throwing = False  # 다이너마이트 투척 모션 중
 dynamite_throw_timer = 0  # 투척 모션 타이머
 dynamite_target_x = 0  # 다이너마이트 목표 X 좌표
+# === 바나나 관련 ===
+banana_throwing = False  # 바나나 투척 모션 중
+banana_throw_timer = 0  # 투척 모션 타이머
+banana_target_x = 0  # 바나나 목표 X 좌표
 
 
 def _destroy_stage2_rocks_in_radius(
@@ -12136,8 +12139,8 @@ def trigger_grenade_style_explosion(
     # 기존 코드의 지연 적용으로 넉백 속도/지속이 어색해지는 문제를 방지.
     import items
 
-    # 기본 반경: 백업 메인 기준 150 유지 (화력지원은 호출부에서 radius_scale=0.8 적용)
-    base_radius = 150
+    # 기본 반경: 180px (화력지원은 호출부에서 radius_scale=0.8 적용)
+    base_radius = 180
     base_radius = max(10, int(base_radius * radius_scale))
     if apply_commando_bonus and items.commando_arm_obtained:
         explosion_radius = int(base_radius * 1.1)
@@ -12164,11 +12167,11 @@ def trigger_grenade_style_explosion(
                 boss_stunned_timer = max(boss_stunned_timer, 126)
                 # 폭심지로부터 멀어지는 방향
                 direction = 1 if bx >= x else -1
-                # 넉백 세기(백업값 복구: 40)
-                power = 40.0
-                # 넉백 타이머 설정 (즉시 넉백 적용을 위해 필수!)
-                boss_knockback_timer = max(boss_knockback_timer, 36)
-                boss_knockback_vel = _apply_boss_knockback_velocity(direction * power)
+                # 넉백 세기 (20% 증가: 16 → 19.2)
+                power = 19.2
+                # 넉백 타이머 설정 (짧게 하여 빠른 순간 속도)
+                boss_knockback_timer = max(boss_knockback_timer, 18)  # 36 → 18 (절반)
+                boss_knockback_vel = _apply_boss_knockback_velocity(direction * power * 2.0)  # 순간 속도 2배
                 # 대쉬/후딜 상태 강제 해제 (넉백 즉시 적용)
                 globals()["boss_dashing"] = False
                 globals()["boss_dash_timer"] = 0
@@ -34548,6 +34551,14 @@ def go_to_next_round():
         dynamite.reset()  # 투척체, 설치된 다이너마이트, 폭발 모두 제거
     dynamite_throwing = False  # 투척 모션 초기화
     dynamite_throw_timer = 0
+    # 🍌 바나나 관련 초기화
+    global banana_throwing, banana_throw_timer
+    from item_effects.banana import get_banana_instance
+    banana = get_banana_instance()
+    if banana:
+        banana.reset()  # 투척체, 착지 바나나, 파티클 모두 제거
+    banana_throwing = False  # 투척 모션 초기화
+    banana_throw_timer = 0
     spider_mines.clear()  # 설치된 스파이더지뢰 제거
     _stop_spider_mine_walk_sound()
     spider_mine_slow_active = False
@@ -35282,6 +35293,15 @@ def apply_effect(effect_name):
             return False
         # 투척 준비 동작 시작 (수류탄/화염병/조명탄과 동일)
         activate_dynamite()
+    elif effect_name == "banana":  # 🍌 바나나 액티브 아이템
+        # 라운드 시작 5초 제한 체크 (다른 투척류와 동일)
+        current_time = pygame.time.get_ticks()
+        if current_time - round_start_time < 5000:  # 5초 미만
+            remaining_time = (5000 - (current_time - round_start_time)) / 1000
+            print(f"🍌 바나나 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+            return False
+        # 투척 준비 동작 시작
+        activate_banana()
 # === 벌크업 발동 함수 ===
 def activate_long_boost():
     global long_boost_active, long_boost_timer, long_boost_initial_timer, long_boost_scale, long_boost_target_scale
@@ -35328,6 +35348,40 @@ def activate_dynamite():
     # 효과음 재생 (투척 시작)
     play_active_item_sound()
     print(f"🧨 다이너마이트 투척 준비! {dynamite_throw_timer/60:.1f}초 후 투척.")
+
+def activate_banana():
+    """바나나 투척 함수 - 0.5초 투척 모션 후 발사"""
+    global banana_throwing, banana_throw_timer, banana_target_x
+    import items
+
+    # 목표 지점 미리 계산 (보스 중심 방향)
+    banana_target_x = BOSS.centerx + random.uniform(-50, 50)
+
+    # 투척 모션 시작
+    banana_throwing = True
+
+    # 코만도암 효과 적용 (준비시간 단축, 스택 반영)
+    base_timer = 30  # 0.5초 (60fps * 0.5)
+    banana_throw_timer = _commando_timer_reduction(base_timer)
+    if items.commando_arm_obtained:
+        print(f"🍌 코만도암 적용! 투척 준비시간: {banana_throw_timer/60:.2f}초")
+        SOUND_THROW_BEFORE.play(maxtime=200)
+    else:
+        print(f"🍌 바나나 투척 준비: {banana_throw_timer/60:.2f}초")
+        play_sound_with_volume(SOUND_THROW_BEFORE)
+    # 효과음 재생 (투척 시작)
+    play_active_item_sound()
+    print(f"🍌 바나나 투척 준비! {banana_throw_timer/60:.1f}초 후 투척.")
+
+def throw_banana():
+    """실제 바나나 투척 (모션 후 실행)"""
+    global PLAYER, banana_target_x
+    from item_effects.banana import get_banana_instance
+
+    banana = get_banana_instance()
+    if banana:
+        banana.start_throw(PLAYER, banana_target_x)
+        print("🍌 바나나 투척! 보스가 밟으면 미끄러집니다!")
 
 def throw_dynamite():
     """실제 다이너마이트 투척 (모션 후 실행)"""
@@ -43595,6 +43649,7 @@ def handle_player(keys):
     global grenade_throwing, grenade_throw_timer  # 수류탄 투척 모션
     global flare_throwing, flare_throw_timer  # 조명탄 투척 모션
     global dynamite_throwing, dynamite_throw_timer  # 다이너마이트 투척 모션
+    global banana_throwing, banana_throw_timer  # 바나나 투척 모션
     global stopwatch_active, stopwatch_recovery_timer, stopwatch_original_ball_vel  # 스탑워치 관련 변수
     global tutorial_current_chapter  # 튜토리얼 현재 챕터 - Chapter 4 전환을 위해 필요
     global soldier_walking_active, soldier_walking_timer  # 코만도 걷기 애니메이션 변수
@@ -45099,6 +45154,16 @@ def handle_player(keys):
         if dynamite_throw_timer <= 0:
             dynamite_throwing = False
             throw_dynamite()  # 실제 투척
+        return  # 투척 모션 중에는 조작 불가
+    # 🍌 바나나 투척 모션 중 처리
+    if banana_throwing:
+        banana_throw_timer -= 1
+        # 투척 완료 직후 throw.wav 재생
+        if banana_throw_timer == 0:  # 투척 완료 시점
+            play_sound_with_volume(SOUND_THROW)
+        if banana_throw_timer <= 0:
+            banana_throwing = False
+            throw_banana()  # 실제 투척
         return  # 투척 모션 중에는 조작 불가
     # 연막탄 투척 모션 제거 (즉시 발동으로 변경됨)
     #  디버프 적용: 느려지는 효과
@@ -49126,6 +49191,7 @@ def store_passive_item(item_data):
         # 테크니컬조끼 아이템 획득 (패시브)
         import items
         items.technical_vest_obtained = True
+        apply_roll_bonuses_from_item(item_data)  # 롤옵션 먼저 적용
         vest_state = {'current_stage': current_stage}
         activate_technical_vest(vest_state, current_stage)
         print("!      30%  3  !")
@@ -62330,7 +62396,7 @@ def draw_objects():
         optimus_arm_swing_left_timer = 0
         optimus_arm_swing_right_timer = 0
     #  투척 모션 중일 때 특별한 회전 각도 적용
-    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing:
+    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing:
         throw_progress = 0
         if molotov_throwing:
             throw_progress = 1.0 - (molotov_throw_timer / 30.0)  # 0에서 1로 진행
@@ -63647,7 +63713,7 @@ def draw_objects():
             except Exception:
                 pass
     #  투척 모션 중 아이템 표시
-    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing:
+    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing or banana_throwing:
         throw_progress = 0
         item_icon = None
         if molotov_throwing:
@@ -63686,6 +63752,16 @@ def draw_objects():
                 # 다이너마이트 기본 아이콘
                 item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
                 pygame.draw.circle(item_icon, (180, 60, 60), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
+        elif banana_throwing:
+            throw_progress = 1.0 - (banana_throw_timer / 30.0)
+            # 바나나 아이콘 그리기 (get_item_icon 사용)
+            item_icon = get_item_icon("banana")
+            if item_icon:
+                item_icon = pygame.transform.scale(item_icon, (40, 40))
+            else:
+                # 바나나 기본 아이콘
+                item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
+                pygame.draw.circle(item_icon, (255, 220, 50), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
         # 연막탄은 즉시 발동으로 변경되어 투척 모션 제거됨
         if item_icon:
             # 투척 모션에 따른 아이템 위치 계산
@@ -65099,7 +65175,7 @@ def draw_objects():
     if is_hail_active():
         init_hail_particles(WIDTH, HEIGHT)
         # 플레이어 충돌 체크 포함
-        hail_hit = update_hail_particles(WIDTH, HEIGHT, PLAYER)
+        hail_hit = update_hail_particles(WIDTH, HEIGHT, PLAYER, is_player_in_smoke)
         if hail_hit is not None:
             # 우박에 맞음! 넉백 적용 (화염탄과 동일한 방식)
             if player_stun_immunity_timer <= 0:
@@ -65520,6 +65596,11 @@ def draw_objects():
     from item_effects.dynamite import get_dynamite_instance
     dynamite = get_dynamite_instance()
     dynamite.draw(SCREEN)
+
+    # === 바나나 그리기 (모든 캐릭터 공용) ===
+    from item_effects.banana import get_banana_instance
+    banana_inst = get_banana_instance()
+    banana_inst.draw(SCREEN)
 
     # === 코만도 총알 그리기 ===
     if selected_character_type == "soldier" and soldier_bullets:
@@ -69305,6 +69386,13 @@ def show_start_screen():
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained
     global game_should_exit, smoke_zones, frame_count
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
+    # 버그 수정: 메인 메뉴로 돌아올 때 스테이지 관련 변수 초기화
+    # 이전 스테이지의 점수가 남아있으면 다음 게임에서 즉시 승리 처리될 수 있음
+    global current_stage, final_round_wins, final_round_losses, game_session_active
+    current_stage = 1
+    final_round_wins = 0
+    final_round_losses = 0
+    game_session_active = False  # 새 게임 세션 시작 감지용
 
     effects_manager.clear_all_effects()
     # 새 세션 시작 시 스냅샷 및 청사진 캐시 폐기 (발토르 건물 완전 초기화)
@@ -78685,6 +78773,7 @@ def show_item_manager_menu():
         {"name": "dash_boost", "type": "active", "icon": get_item_icon("dash_boost")},
         {"name": "weather_capsule", "type": "active", "icon": get_item_icon("weather_capsule")},
         {"name": "dynamite", "type": "active", "icon": get_item_icon("dynamite")},
+        {"name": "banana", "type": "active", "icon": get_item_icon("banana")},
         # 화기류 아이템들
         {"name": "bazooka", "type": "firearm", "icon": get_icon_safe("bazooka_icon", "bazooka")},
         {"name": "ak47", "type": "firearm", "icon": get_icon_safe("ak47_icon", "ak47")},
@@ -80027,6 +80116,7 @@ def apply_selected_items(
             items.commando_arm_obtained = True
         elif item_name == "technical_vest":
             # 테크니컬조끼 아이템 적용
+            apply_roll_bonuses_from_item(item_data)  # 롤옵션 먼저 적용
             vest_game_state = {'current_stage': 1}
             activate_technical_vest(vest_game_state, 1)
         elif item_name == "fuel_pouch":
@@ -80856,6 +80946,75 @@ def get_item_icon(item_name):
         icon = create_knee_pads_icon(ICON_SIZE)
         icon_cache[item_name] = icon
         return icon
+
+    if item_name == "banana":
+        # 바나나 아이콘 코드로 그리기
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))
+
+        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+        scale = ICON_SIZE / 48
+
+        # 바나나 색상 팔레트
+        peel_dark = (198, 156, 41)
+        peel_mid = (227, 189, 52)
+        peel_light = (247, 220, 89)
+        peel_highlight = (255, 239, 143)
+        stem_green = (154, 165, 67)
+        tip_dark = (89, 60, 31)
+
+        # 바나나 본체 (초승달 모양)
+        body_points = []
+        for i in range(15):
+            t = i / 14
+            x = cx - 15 * scale + t * 30 * scale
+            curve = -10 * scale * math.sin(t * math.pi)
+            y = cy + curve
+            body_points.append((x, y))
+
+        # 아래쪽 곡선
+        for i in range(14, -1, -1):
+            t = i / 14
+            x = cx - 15 * scale + t * 30 * scale
+            curve = -5 * scale * math.sin(t * math.pi) + 6 * scale
+            y = cy + curve
+            body_points.append((x, y))
+
+        if len(body_points) >= 3:
+            # 어두운 부분
+            pygame.draw.polygon(icon_surface, peel_dark, body_points)
+            # 메인 색상
+            inner_points = [(p[0], p[1] - scale) for p in body_points]
+            pygame.draw.polygon(icon_surface, peel_mid, inner_points)
+            # 밝은 부분
+            highlight_points = []
+            for i in range(8):
+                t = i / 7
+                x = cx - 10 * scale + t * 20 * scale
+                y = cy - 7 * scale * math.sin(t * math.pi)
+                highlight_points.append((x, y))
+            for i in range(7, -1, -1):
+                t = i / 7
+                x = cx - 10 * scale + t * 20 * scale
+                y = cy - 4 * scale * math.sin(t * math.pi) + 2 * scale
+                highlight_points.append((x, y))
+            if len(highlight_points) >= 3:
+                pygame.draw.polygon(icon_surface, peel_light, highlight_points)
+
+        # 꼭지 (녹색)
+        stem_x = cx - 16 * scale
+        stem_y = cy
+        pygame.draw.ellipse(icon_surface, stem_green,
+                           (stem_x - 3 * scale, stem_y - 2 * scale, 5 * scale, 4 * scale))
+
+        # 끝부분 (갈색)
+        tip_x = cx + 16 * scale
+        tip_y = cy + 2 * scale
+        pygame.draw.ellipse(icon_surface, tip_dark,
+                           (tip_x - 2 * scale, tip_y - 2 * scale, 4 * scale, 3 * scale))
+
+        icon_cache[item_name] = icon_surface
+        return icon_surface
 
     if item_name == "laser_scope":
         try:
@@ -84829,6 +84988,14 @@ def reset_round():
         dynamite.reset()  # 투척체, 설치된 다이너마이트, 폭발 모두 제거
     dynamite_throwing = False  # 투척 모션 초기화
     dynamite_throw_timer = 0
+    # 🍌 바나나 관련 초기화
+    global banana_throwing, banana_throw_timer
+    from item_effects.banana import get_banana_instance
+    banana_item = get_banana_instance()
+    if banana_item:
+        banana_item.reset()  # 투척체, 착지 바나나, 파티클 모두 제거
+    banana_throwing = False  # 투척 모션 초기화
+    banana_throw_timer = 0
     spider_mines.clear()
     _stop_spider_mine_walk_sound()
     spider_mine_slow_active = False
@@ -90538,6 +90705,9 @@ def handle_ball():
                     last_tears_cast_time = time_now
         calculate_bounce(PLAYER)  # handle_ball에서는 반환값 사용 안함 (게이지 처리가 handle_player에서 이미 됨)
 
+        # 테크니컬조끼 효과 발동 (handle_ball에서 처리 - 실제 충돌이 여기서 처리됨)
+        on_ball_paddle_collision_technical_vest(PLAYER)
+
         # ⚡ 스매셔 콤보 시스템: handle_ball 충돌 처리 (메인 경로)
         # handle_player보다 먼저 실행되므로 여기서 콤보 처리
         if selected_character_type == "smasher":
@@ -92190,13 +92360,13 @@ def handle_boss_pro():
         # 넉백 적용
         BOSS.x += boss_knockback_vel
 
-        # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+        # 벽 충돌 시 멈춤 (튕기지 않음)
         if BOSS.x <= 0:
             BOSS.x = 0
-            boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+            boss_knockback_vel = 0
         elif BOSS.x >= WIDTH - PADDLE_WIDTH:
             BOSS.x = WIDTH - PADDLE_WIDTH
-            boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+            boss_knockback_vel = 0
 
         # 감속
         boss_knockback_vel *= 0.85
@@ -92534,13 +92704,13 @@ def handle_boss_champion():
         # 넉백 적용
         BOSS.x += boss_knockback_vel
 
-        # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+        # 벽 충돌 시 멈춤 (튕기지 않음)
         if BOSS.x <= 0:
             BOSS.x = 0
-            boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+            boss_knockback_vel = 0
         elif BOSS.x >= WIDTH - PADDLE_WIDTH:
             BOSS.x = WIDTH - PADDLE_WIDTH
-            boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+            boss_knockback_vel = 0
 
         # 감속
         boss_knockback_vel *= 0.85
@@ -92893,18 +93063,18 @@ def handle_boss_mythic():
         # 넉백 적용
         BOSS.x += boss_knockback_vel
 
-        # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+        # 벽 충돌 시 멈춤 (튕기지 않음)
         if BOSS.x <= 0:
             BOSS.x = 0
-            boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+            boss_knockback_vel = 0
         elif BOSS.x >= WIDTH - PADDLE_WIDTH:
             BOSS.x = WIDTH - PADDLE_WIDTH
-            boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+            boss_knockback_vel = 0
 
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
-    
+
     # 헤드샷 스턴 상태 처리
     global head_shot_active, head_shot_timer
     if head_shot_active and head_shot_timer > 0:
@@ -93377,13 +93547,13 @@ def handle_boss_junior():
         # 넉백 적용
         BOSS.x += boss_knockback_vel
 
-        # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+        # 벽 충돌 시 멈춤 (튕기지 않음)
         if BOSS.x <= 0:
             BOSS.x = 0
-            boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+            boss_knockback_vel = 0
         elif BOSS.x >= WIDTH - PADDLE_WIDTH:
             BOSS.x = WIDTH - PADDLE_WIDTH
-            boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+            boss_knockback_vel = 0
 
         # 감속
         boss_knockback_vel *= 0.85
@@ -94441,13 +94611,13 @@ def handle_boss():
         if abs(boss_knockback_vel) > 0.1:
             BOSS.x += boss_knockback_vel
 
-            # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+            # 벽 충돌 시 멈춤 (튕기지 않음)
             if BOSS.x <= 0:
                 BOSS.x = 0
-                boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+                boss_knockback_vel = 0
             elif BOSS.x >= WIDTH - PADDLE_WIDTH:
                 BOSS.x = WIDTH - PADDLE_WIDTH
-                boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+                boss_knockback_vel = 0
 
             # 넉백 감속 처리
             if boss_knockback_timer <= 18:  # 짧은 넉백 (코만도 총알 등)
@@ -94799,13 +94969,13 @@ def handle_boss():
         # 넉백 적용
         BOSS.x += boss_knockback_vel
 
-        # 벽 충돌 시 반대로 튕김 (남은 넉백만큼)
+        # 벽 충돌 시 멈춤 (튕기지 않음)
         if BOSS.x <= 0:
             BOSS.x = 0
-            boss_knockback_vel = abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+            boss_knockback_vel = 0
         elif BOSS.x >= WIDTH - PADDLE_WIDTH:
             BOSS.x = WIDTH - PADDLE_WIDTH
-            boss_knockback_vel = -abs(boss_knockback_vel) * 0.7  # 반대 방향으로, 30% 에너지 손실
+            boss_knockback_vel = 0
 
         # 감속
         boss_knockback_vel *= 0.85
@@ -95948,6 +96118,9 @@ def show_result(won):
         # 다이너마이트 아이콘 추가 - 투척형 폭발물
         dynamite_icon_gacha = get_item_icon("dynamite")
         available_items.append({"name": "dynamite", "color": (200, 50, 50), "type": "active", "icon": dynamite_icon_gacha})
+        # 바나나 아이콘 추가 - 투척형 슬립 아이템
+        banana_icon_gacha = get_item_icon("banana")
+        available_items.append({"name": "banana", "color": (255, 220, 50), "type": "active", "icon": banana_icon_gacha})
         if selected_character_type == "blacksmith":
             repair_kit_icon = get_item_icon("repair_kit")
             available_items.append({"name": "repair_kit", "color": (220, 210, 140), "type": "active", "icon": repair_kit_icon})
@@ -101245,6 +101418,19 @@ def main(stage_num, new_boss_mode=False):
 
                             print(f"[Dynamite] 폭발! 보스 스턴 {knockback_info['stun_duration'] / 60:.1f}초, 넉백 방향={direction}, 파워={power}")
 
+                # 🍌 바나나 시스템 업데이트 (모든 캐릭터 공용)
+                from item_effects.banana import get_banana_instance
+                banana_inst = get_banana_instance()
+                boss_rect_for_banana = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height) if BOSS else None
+                banana_status = banana_inst.update(boss_rect_for_banana, WIDTH)
+
+                # 바나나 미끄러짐 효과 적용 (보스에게)
+                if banana_status["slipping"]:
+                    slip_offset = banana_status["slip_speed"] * banana_status["slip_direction"]
+                    BOSS.x += slip_offset
+                    # 화면 경계 처리
+                    BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+
                 #  대쉬 스피릿 레이저 시스템 업데이트
                 update_dash_spirit_lasers()
                 check_laser_ball_collision()
@@ -105807,6 +105993,7 @@ def get_item_description(item_name):
         "dash_boost": "대쉬부스트: 8초간 대쉬 비용이 70% 할인됩니다. 저렴한 비용으로 연속 대쉬를 사용하여 보스의 공격을 회피하세요!",
         "weather_capsule": "기상조절캡슐: 현재 진행 중인 날씨 이벤트를 즉시 강제 종료시킵니다. 미풍, 강풍, 불, 얼음, 소나기, 우박 등 모든 날씨 효과를 제거합니다. 활성화된 날씨가 없으면 사용되지 않습니다.",
         "dynamite": "다이너마이트: 보스 진영을 향해 투척하는 폭발물입니다. 보스 진영(화면 상단)에 도달하면 7초 카운트다운 후 폭발합니다. 폭발 범위 350px, 보스를 속도 13으로 넉백시키고 3초간 스턴시킵니다. 넉백으로 벽에 부딪히면 반대 방향으로 튕깁니다. 보스가 발사한 공에 다이너마이트가 닿으면 즉시 폭발합니다.",
+        "banana": "바나나: 보스 진영을 향해 투척하는 바나나입니다. 보스 진영에 도달하면 바닥에 떨어지고, 보스가 밟으면 1.5초간 미끄러지며 통제 불능 상태가 됩니다. 착지 후 3초간 유지되다가 사라집니다.",
         "gold_bar": "금괴: 상점에서 2000골드+에 판매 가능한 고가의 장신구입니다. 착용하면 장신구 2슬롯을 차지하지만 페널티가 없습니다. 인벤토리에 소지만 하고 미착용 시 이동속도가 30% 감소합니다. 상점에서 구매할 수 없으며 가챠로만 획득 가능합니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
