@@ -8,9 +8,11 @@ class AnimatedBackgroundStage3:
         self.width = self.base_image.get_width()
         self.height = self.base_image.get_height()
         self.time = 0
-        
+
+        # 서피스 재사용 (최적화)
         self.glow_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self.particle_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self._transparent = (0, 0, 0, 0)  # fill용 투명 색상 캐시
         
         self.center_x = self.width // 2
         self.center_y = self.height // 2
@@ -60,13 +62,13 @@ class AnimatedBackgroundStage3:
     
     def draw(self, screen, ball_pos=None):
         screen.blit(self.base_image, (0, 0))
-        
-        self.glow_surface.fill((0, 0, 0, 0))
-        
+
+        self.glow_surface.fill(self._transparent)
+
         # 가운데 효과 제거 - 깔끔한 배경 유지
-        
+
         # 떨어지는 벚꽃 잎
-        self.particle_surface.fill((0, 0, 0, 0))
+        self.particle_surface.fill(self._transparent)
         for petal in self.sakura_petals:
             # 5개 꽃잎 그리기
             for i in range(5):

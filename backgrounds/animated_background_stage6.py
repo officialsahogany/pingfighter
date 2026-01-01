@@ -24,7 +24,7 @@ class AnimatedBackgroundStage6:
         self.width = width
         self.height = height
         self.time = 0
-        
+
         # 색상 팔레트 (바다 위 + 하늘)
         self.sky_blue = (135, 206, 235)  # 하늘색
         self.horizon_color = (255, 200, 150)  # 수평선 노을색
@@ -33,6 +33,16 @@ class AnimatedBackgroundStage6:
         self.wave_foam = (255, 255, 255)  # 파도 거품
         self.cyan_glow = (0, 200, 220)  # 네온 청록색
         self.arena_color = (0, 180, 200)  # 경기장 라인색
+
+        # 서피스 캐싱 (최적화 - 매 프레임 생성 방지)
+        self._glow_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        self._wave_surface = pygame.Surface((width, 40), pygame.SRCALPHA)
+        self._shadow_surface = pygame.Surface((width, 100), pygame.SRCALPHA)
+        self._platform_surface = pygame.Surface((width, 100), pygame.SRCALPHA)
+        self._transparent = (0, 0, 0, 0)
+
+        # 구름 서피스 캐싱 (구름마다 하나씩)
+        self._cloud_surfaces = []
         
         # 파도 효과
         self.waves = []
@@ -48,13 +58,18 @@ class AnimatedBackgroundStage6:
         # 구름
         self.clouds = []
         for _ in range(4):
-            self.clouds.append({
+            cloud_size = random.randint(40, 80)
+            cloud_data = {
                 'x': random.randint(0, width),
                 'y': random.randint(50, 200),
-                'size': random.randint(40, 80),
+                'size': cloud_size,
                 'speed': random.uniform(0.1, 0.3),
                 'opacity': random.randint(30, 60)
-            })
+            }
+            self.clouds.append(cloud_data)
+            # 구름 서피스 미리 생성
+            cloud_surf = pygame.Surface((cloud_size * 2, cloud_size), pygame.SRCALPHA)
+            self._cloud_surfaces.append(cloud_surf)
         
         # 경기장 중앙 원형 라인
         self.arena_center_x = width // 2
@@ -183,16 +198,16 @@ class AnimatedBackgroundStage6:
     def _draw_arena_circle(self, screen):
         """중앙 경기장 원형 라인 그리기"""
         # 메인 원
-        pygame.draw.circle(screen, self.arena_color, 
-                         (self.arena_center_x, self.arena_center_y), 
+        pygame.draw.circle(screen, self.arena_color,
+                         (self.arena_center_x, self.arena_center_y),
                          self.arena_radius, 3)
-        
-        # 네온 글로우 효과
-        glow_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surface, (*self.cyan_glow, 30), 
-                         (self.arena_center_x, self.arena_center_y), 
+
+        # 네온 글로우 효과 (캐시된 서피스 재사용)
+        self._glow_surface.fill(self._transparent)
+        pygame.draw.circle(self._glow_surface, (*self.cyan_glow, 30),
+                         (self.arena_center_x, self.arena_center_y),
                          self.arena_radius + 5, 2)
-        screen.blit(glow_surface, (0, 0))
+        screen.blit(self._glow_surface, (0, 0))
         
         # 중앙 십자선
         line_length = 40
@@ -204,62 +219,63 @@ class AnimatedBackgroundStage6:
                         (self.arena_center_x, self.arena_center_y + line_length), 2)
     
     def _draw_clouds(self, screen):
-        """구름 그리기"""
-        for cloud in self.clouds:
-            cloud_surface = pygame.Surface((cloud['size'] * 2, cloud['size']), pygame.SRCALPHA)
+        """구름 그리기 (캐시된 서피스 재사용)"""
+        for idx, cloud in enumerate(self.clouds):
+            cloud_surface = self._cloud_surfaces[idx]
+            cloud_surface.fill(self._transparent)
             # 구름 모양 (여러 원으로 구성)
             for i in range(3):
                 x = cloud['size'] // 2 + i * cloud['size'] // 3
                 y = cloud['size'] // 2
                 radius = cloud['size'] // 3
-                pygame.draw.circle(cloud_surface, (255, 255, 255, cloud['opacity']), 
+                pygame.draw.circle(cloud_surface, (255, 255, 255, cloud['opacity']),
                                  (x, y), radius)
             screen.blit(cloud_surface, (cloud['x'], cloud['y']))
     
     def _draw_waves(self, screen):
-        """파도 그리기"""
+        """파도 그리기 (캐시된 서피스 재사용)"""
         for wave in self.waves:
-            wave_surface = pygame.Surface((self.width, 40), pygame.SRCALPHA)
-            
+            self._wave_surface.fill(self._transparent)
+
             for x in range(0, self.width, 5):
                 # 사인파 형태의 파도
                 y = 20 + wave['amplitude'] * math.sin(x * wave['frequency'] + wave['phase'])
-                
+
                 # 파도 그리기
-                pygame.draw.circle(wave_surface, (*self.ocean_surface, 40), 
+                pygame.draw.circle(self._wave_surface, (*self.ocean_surface, 40),
                                  (x, int(y)), 8)
-                
+
                 # 파도 거품
                 if random.random() < 0.1:
-                    pygame.draw.circle(wave_surface, (*self.wave_foam, 60), 
+                    pygame.draw.circle(self._wave_surface, (*self.wave_foam, 60),
                                      (x, int(y) - 5), 3)
-            
-            screen.blit(wave_surface, (0, wave['y']))
+
+            screen.blit(self._wave_surface, (0, wave['y']))
     
     def _draw_floating_platform(self, screen):
-        """바다 위에 떠있는 플랫폼"""
+        """바다 위에 떠있는 플랫폼 (캐시된 서피스 재사용)"""
         platform_y = self.height // 2 + 100
-        
+
         # 플랫폼 그림자 (바다에 비치는)
-        shadow_surface = pygame.Surface((self.width, 100), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surface, (0, 0, 0, 30), 
+        self._shadow_surface.fill(self._transparent)
+        pygame.draw.ellipse(self._shadow_surface, (0, 0, 0, 30),
                           (self.width // 4, 20, self.width // 2, 60))
-        screen.blit(shadow_surface, (0, platform_y + 20))
-        
+        screen.blit(self._shadow_surface, (0, platform_y + 20))
+
         # 플랫폼 본체
-        platform_surface = pygame.Surface((self.width, 100), pygame.SRCALPHA)
-        pygame.draw.rect(platform_surface, (80, 80, 100, 100), 
+        self._platform_surface.fill(self._transparent)
+        pygame.draw.rect(self._platform_surface, (80, 80, 100, 100),
                         (self.width // 4, 30, self.width // 2, 40))
-        pygame.draw.rect(platform_surface, self.cyan_glow, 
+        pygame.draw.rect(self._platform_surface, self.cyan_glow,
                         (self.width // 4, 30, self.width // 2, 40), 2)
-        
+
         # 플랫폼 지지대
         for i in range(3):
             x = self.width // 4 + (self.width // 8) * (i + 1)
-            pygame.draw.line(platform_surface, (60, 60, 80), 
+            pygame.draw.line(self._platform_surface, (60, 60, 80),
                            (x, 70), (x, 90), 3)
-        
-        screen.blit(platform_surface, (0, platform_y))
+
+        screen.blit(self._platform_surface, (0, platform_y))
     
     def _update_fire_lines(self):
         """불타는 라인 애니메이션 업데이트"""

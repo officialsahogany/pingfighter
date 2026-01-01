@@ -8,9 +8,11 @@ class AnimatedBackgroundStage4:
         self.width = self.base_image.get_width()
         self.height = self.base_image.get_height()
         self.time = 0
-        
+
+        # 서피스 재사용 (최적화)
         self.glow_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self.particle_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self._transparent = (0, 0, 0, 0)  # fill용 투명 색상 캐시
         
         self.center_x = self.width // 2
         self.center_y = self.height // 2
@@ -49,8 +51,8 @@ class AnimatedBackgroundStage4:
     
     def draw(self, screen):
         screen.blit(self.base_image, (0, 0))
-        
-        self.glow_surface.fill((0, 0, 0, 0))
+
+        self.glow_surface.fill(self._transparent)
         
         # 명상 원 펄스 효과 (아주 희미하게)
         if self.meditation_pulse > 0.7:
@@ -89,7 +91,7 @@ class AnimatedBackgroundStage4:
         screen.blit(self.glow_surface, (0, 0), special_flags=pygame.BLEND_ADD)
         
         # 디지털 입자 그리기
-        self.particle_surface.fill((0, 0, 0, 0))
+        self.particle_surface.fill(self._transparent)
         for particle in self.digital_particles:
             pygame.draw.circle(self.particle_surface,
                              (200, 180, 255, particle['alpha']),

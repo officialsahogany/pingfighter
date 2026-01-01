@@ -45,7 +45,8 @@ class PillarBackgroundRenderer:
 
     def __init__(self, screen_width: int, screen_height: int,
                  game_width: int, game_height: int,
-                 offset_x: int = None, offset_y: int = None):
+                 offset_x: int = None, offset_y: int = None,
+                 original_game_width: int = None, original_game_height: int = None):
         """
         Args:
             screen_width: 전체화면 너비
@@ -54,11 +55,17 @@ class PillarBackgroundRenderer:
             game_height: 게임 영역 높이 (스케일링된 크기)
             offset_x: 게임 영역 X 오프셋 (None이면 자동 계산)
             offset_y: 게임 영역 Y 오프셋 (None이면 자동 계산)
+            original_game_width: 원본 게임 너비 (스케일링 전)
+            original_game_height: 원본 게임 높이 (스케일링 전)
         """
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.game_width = game_width
         self.game_height = game_height
+
+        # 원본 게임 크기 (스케일링 전) - 인게임 좌표 변환에 사용
+        self.original_game_width = original_game_width if original_game_width else game_width
+        self.original_game_height = original_game_height if original_game_height else game_height
 
         # 게임 영역 오프셋 (전달되면 사용, 없으면 중앙 배치로 계산)
         self.game_offset_x = offset_x if offset_x is not None else (screen_width - game_width) // 2
@@ -269,9 +276,10 @@ class PillarBackgroundRenderer:
             self._stadium_bg = StadiumPillarBackground(
                 self.screen_width, self.screen_height,
                 self.game_width, self.game_height,
-                self.game_offset_x, self.game_offset_y
+                self.game_offset_x, self.game_offset_y,
+                self.original_game_width, self.original_game_height
             )
-            print(f"[PillarBG] 스테이지 1 스타디움 배경 초기화 완료 (offset: {self.game_offset_x}, {self.game_offset_y})")
+            print(f"[PillarBG] 스테이지 1 스타디움 배경 초기화 완료 (offset: {self.game_offset_x}, {self.game_offset_y}, original: {self.original_game_width}x{self.original_game_height})")
 
         # 스테이지 2: 정글 늪지대 배경 초기화 (원숭이-바나나 이벤트 매니저 포함)
         if stage == 2 and self._jungle_bg is None:
@@ -638,10 +646,11 @@ class PillarBackgroundRenderer:
         if self._baroque_bg is not None:
             self._baroque_bg = BaroqueFrame(screen_width, screen_height, game_width, game_height)
 
-        # 스타디움 배경 리사이즈 (offset 전달)
+        # 스타디움 배경 리사이즈 (offset 및 원본 크기 전달)
         if self._stadium_bg is not None:
             self._stadium_bg.resize(screen_width, screen_height, game_width, game_height,
-                                    self.game_offset_x, self.game_offset_y)
+                                    self.game_offset_x, self.game_offset_y,
+                                    self.original_game_width, self.original_game_height)
 
         # 정글 배경 리사이즈 (원숭이 이벤트 매니저도 재초기화)
         if self._jungle_bg is not None:
@@ -1097,12 +1106,13 @@ _pillar_renderer = None
 
 def init_pillar_background(screen_width: int, screen_height: int,
                            game_width: int, game_height: int,
-                           offset_x: int = None, offset_y: int = None) -> PillarBackgroundRenderer:
+                           offset_x: int = None, offset_y: int = None,
+                           original_game_width: int = None, original_game_height: int = None) -> PillarBackgroundRenderer:
     """필러 배경 렌더러 초기화"""
     global _pillar_renderer
     _pillar_renderer = PillarBackgroundRenderer(
         screen_width, screen_height, game_width, game_height,
-        offset_x, offset_y
+        offset_x, offset_y, original_game_width, original_game_height
     )
     return _pillar_renderer
 

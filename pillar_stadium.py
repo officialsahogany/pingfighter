@@ -29,11 +29,19 @@ class TraditionalFrame:
 
     def __init__(self, screen_width: int, screen_height: int,
                  game_width: int, game_height: int,
-                 offset_x: int = None, offset_y: int = None):
+                 offset_x: int = None, offset_y: int = None,
+                 original_game_width: int = None, original_game_height: int = None):
         self.screen_width = screen_width
         self.screen_height = screen_height
-        self.game_width = game_width
+        self.game_width = game_width  # 스케일링된 게임 영역 크기
         self.game_height = game_height
+
+        # 원본 게임 크기 (스케일링 전) - 인게임 좌표 변환에 사용
+        self.original_game_width = original_game_width if original_game_width else game_width
+        self.original_game_height = original_game_height if original_game_height else game_height
+
+        # 스케일 팩터 계산 (스케일링된 크기 / 원본 크기)
+        self.scale_factor = game_width / self.original_game_width if self.original_game_width > 0 else 1.0
 
         # 게임 영역 위치 (offset이 전달되면 사용, 아니면 중앙 배치로 계산)
         self.game_x = offset_x if offset_x is not None else (screen_width - game_width) // 2
@@ -877,12 +885,22 @@ class TraditionalFrame:
 
     def resize(self, screen_width: int, screen_height: int,
                game_width: int, game_height: int,
-               offset_x: int = None, offset_y: int = None):
+               offset_x: int = None, offset_y: int = None,
+               original_game_width: int = None, original_game_height: int = None):
         """화면 크기 변경"""
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.game_width = game_width
         self.game_height = game_height
+
+        # 원본 게임 크기 업데이트
+        if original_game_width is not None:
+            self.original_game_width = original_game_width
+        if original_game_height is not None:
+            self.original_game_height = original_game_height
+
+        # 스케일 팩터 재계산
+        self.scale_factor = game_width / self.original_game_width if self.original_game_width > 0 else 1.0
 
         # offset이 전달되면 사용, 아니면 중앙 배치로 계산
         self.game_x = offset_x if offset_x is not None else (screen_width - game_width) // 2
@@ -910,12 +928,20 @@ class TraditionalFrame:
             return None
 
         butterfly = self._butterfly_flying_to_player
-        # 전체화면 좌표 -> 게임 좌표로 변환
-        game_x = butterfly['x'] - self.game_x
-        game_y = butterfly['y'] - self.game_y
+        # 전체화면 좌표 -> 스케일링된 게임 영역 좌표로 변환
+        scaled_x = butterfly['x'] - self.game_x
+        scaled_y = butterfly['y'] - self.game_y
 
-        # 게임 영역 안에 들어왔을 때만 반환
-        if game_x >= -50 and game_x <= self.game_width + 50:
+        # 스케일링된 좌표 -> 원본 게임 좌표로 변환
+        if self.scale_factor != 1.0 and self.scale_factor > 0:
+            game_x = scaled_x / self.scale_factor
+            game_y = scaled_y / self.scale_factor
+        else:
+            game_x = scaled_x
+            game_y = scaled_y
+
+        # 게임 영역 안에 들어왔을 때만 반환 (원본 게임 크기 기준)
+        if game_x >= -50 and game_x <= self.original_game_width + 50:
             return {
                 'x': game_x,
                 'y': game_y,
@@ -1020,8 +1046,18 @@ class TraditionalFrame:
         """
         particles = []
         for p in self._absorption_particles:
-            game_x = p['x'] - self.game_x
-            game_y = p['y'] - self.game_y
+            # 전체화면 좌표 -> 스케일링된 게임 영역 좌표로 변환
+            scaled_x = p['x'] - self.game_x
+            scaled_y = p['y'] - self.game_y
+
+            # 스케일링된 좌표 -> 원본 게임 좌표로 변환
+            if self.scale_factor != 1.0 and self.scale_factor > 0:
+                game_x = scaled_x / self.scale_factor
+                game_y = scaled_y / self.scale_factor
+            else:
+                game_x = scaled_x
+                game_y = scaled_y
+
             particles.append({
                 'x': game_x,
                 'y': game_y,
@@ -1062,9 +1098,17 @@ class TraditionalFrame:
             return None
 
         butterfly = self._absorbing_butterfly
-        # 전체화면 좌표 -> 게임 좌표로 변환
-        game_x = butterfly['x'] - self.game_x
-        game_y = butterfly['y'] - self.game_y
+        # 전체화면 좌표 -> 스케일링된 게임 영역 좌표로 변환
+        scaled_x = butterfly['x'] - self.game_x
+        scaled_y = butterfly['y'] - self.game_y
+
+        # 스케일링된 좌표 -> 원본 게임 좌표로 변환
+        if self.scale_factor != 1.0 and self.scale_factor > 0:
+            game_x = scaled_x / self.scale_factor
+            game_y = scaled_y / self.scale_factor
+        else:
+            game_x = scaled_x
+            game_y = scaled_y
 
         return {
             'x': game_x,

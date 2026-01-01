@@ -9,7 +9,7 @@ def resource_path(relative_path):
     except Exception:
         # 일반 Python 실행인 경우 - 상위 디렉토리로 이동
         base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    
+
     return os.path.join(base_path, relative_path)
 
 
@@ -34,8 +34,14 @@ class AnimatedBackground:
 
         self.time = 0
 
+        # 서피스 재사용 (매 프레임 생성 방지)
         self.glow_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self.grid_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self.rotated_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self.flash_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+
+        # 투명 색상 캐시 (fill용)
+        self._transparent = (0, 0, 0, 0)
 
         self.center_x = self.width // 2
         self.center_y = self.height // 2
@@ -49,51 +55,53 @@ class AnimatedBackground:
                 'speed': random.uniform(0.5, 2),
                 'size': random.randint(1, 3)
             })
-    
+
     def update(self, dt):
         self.time += dt
-        
+
         for particle in self.grid_particles:
             particle['y'] -= particle['speed']
             if particle['y'] < self.height // 2:
                 particle['y'] = self.height
                 particle['x'] = random.randint(0, self.width)
-    
+
     def draw(self, screen):
         screen.blit(self.base_image, (0, 0))
-        
-        self.glow_surface.fill((0, 0, 0, 0))
-        
+
+        # 서피스 재사용 - fill 대신 clear
+        self.glow_surface.fill(self._transparent)
+
         pulse = math.sin(self.time * 0.002) * 0.5 + 0.5
         glow_alpha = int(80 + pulse * 100)  # 더 진하게
         glow_radius = self.taegeuk_radius + int(pulse * 15)
-        
+
         for i in range(3):
             radius = glow_radius + i * 10
             alpha = max(0, glow_alpha - i * 30)
             if alpha > 0:
-                pygame.draw.circle(self.glow_surface, 
+                pygame.draw.circle(self.glow_surface,
                                  (25, 25, 200, alpha),  # 군청색 계열 글로우
                                  (self.center_x, self.center_y),
                                  radius)
-        
+
         rotation = self.time * 0.001
-        rotated_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        
+        # 서피스 재사용
+        self.rotated_surface.fill(self._transparent)
+
         for angle in range(0, 360, 90):
             rad = math.radians(angle + rotation * 50)
             x = self.center_x + math.cos(rad) * (self.taegeuk_radius + 30)
             y = self.center_y + math.sin(rad) * (self.taegeuk_radius + 30)
-            
+
             spark_alpha = int(100 + pulse * 100)
-            pygame.draw.circle(rotated_surface,
+            pygame.draw.circle(self.rotated_surface,
                              (50, 50, 255, spark_alpha),  # 군청색 스파크
                              (int(x), int(y)), 3)
-        
+
         screen.blit(self.glow_surface, (0, 0), special_flags=pygame.BLEND_ADD)
-        screen.blit(rotated_surface, (0, 0), special_flags=pygame.BLEND_ADD)
-        
-        self.grid_surface.fill((0, 0, 0, 0))
+        screen.blit(self.rotated_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+
+        self.grid_surface.fill(self._transparent)
         for particle in self.grid_particles:
             alpha = int(100 * (1 - (particle['y'] - self.height//2) / (self.height//2)))
             if alpha > 0:
@@ -101,15 +109,16 @@ class AnimatedBackground:
                                  (25, 25, 150, alpha),  # 군청색 파티클
                                  (int(particle['x']), int(particle['y'])),
                                  particle['size'])
-        
+
         screen.blit(self.grid_surface, (0, 0), special_flags=pygame.BLEND_ADD)
-        
+
         if int(self.time / 1000) % 3 == 0:
             flash_alpha = int(abs(math.sin(self.time * 0.01)) * 20)
-            flash_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            # 서피스 재사용
+            self.flash_surface.fill(self._transparent)
             # 검은색 번쩍임 효과
-            pygame.draw.circle(flash_surface,
+            pygame.draw.circle(self.flash_surface,
                              (10, 10, 10, flash_alpha),  # 거의 검은색
                              (self.center_x, self.center_y),
                              self.taegeuk_radius + 10)
-            screen.blit(flash_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+            screen.blit(self.flash_surface, (0, 0), special_flags=pygame.BLEND_ADD)

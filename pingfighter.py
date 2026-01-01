@@ -1954,12 +1954,13 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     print(f"[{_current_platform}] SCREEN Surface에 convert_alpha() 적용", flush=True)
 
     # 필러 배경 렌더러 초기화 (실제 화면 크기 사용)
-    # 스케일링된 게임 크기와 오프셋을 전달하여 프레임이 정확히 맞도록 함
+    # 스케일링된 게임 크기와 오프셋, 원본 게임 크기를 전달하여 좌표 변환이 정확히 되도록 함
     from pillar_background import init_pillar_background, get_pillar_renderer
     pillar_renderer = init_pillar_background(
         FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT,
         GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
-        offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y
+        offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
+        original_game_width=WIDTH, original_game_height=HEIGHT
     )
 
     # display_manager에 전체화면 모드 설정 전달
@@ -34442,9 +34443,19 @@ def go_to_next_round():
     # Stage 7에서 크리스탈 실드 활성화가 예약되어 있으면 애니메이션 시작
     if current_stage == 7 and pillar_renderer is not None:
         if pillar_renderer.is_crystal_shield_pending():
-            # REAL_SCREEN 좌표계로 변환 (게임 영역 오프셋 추가)
-            boss_center_x = BOSS.x + BOSS.width // 2 + GAME_OFFSET_X
-            boss_center_y = BOSS.y + BOSS.height // 2 + GAME_OFFSET_Y
+            # REAL_SCREEN 좌표계로 변환 (게임 영역 오프셋 + 스케일링 고려)
+            scaled_boss_cx = (BOSS.x + BOSS.width // 2) * GAME_SCALE_FACTOR
+            scaled_boss_cy = (BOSS.y + BOSS.height // 2) * GAME_SCALE_FACTOR
+            boss_center_x = scaled_boss_cx + GAME_OFFSET_X
+            boss_center_y = scaled_boss_cy + GAME_OFFSET_Y
+            # 스케일링 시 추가 오프셋 적용
+            if GAME_SCALE_FACTOR != 1.0:
+                sw = int(WIDTH * GAME_SCALE_FACTOR)
+                sh = int(HEIGHT * GAME_SCALE_FACTOR)
+                additional_offset_x = (GAME_SCALED_WIDTH - sw) // 2
+                additional_offset_y = (GAME_SCALED_HEIGHT - sh) // 2
+                boss_center_x += additional_offset_x
+                boss_center_y += additional_offset_y
             print(f"[Stage7] 크리스탈 실드 애니메이션 시작! 보스 중앙: ({boss_center_x}, {boss_center_y})")
             pillar_renderer.start_crystal_shield_animation(boss_center_x, boss_center_y)
     # Stage 8: 경기 시작(0-0) 시 초각성 상태/연출 플래그 리셋
@@ -83586,10 +83597,22 @@ def draw_field():
                 if special_gauge >= 350:
                     special_ready = True
         # 스테이지 7: 보스 위치 포함 업데이트 (크리스탈 실드용)
-        # REAL_SCREEN 좌표계로 변환 (게임 영역 오프셋 추가)
+        # REAL_SCREEN 좌표계로 변환 (게임 영역 오프셋 + 스케일링 고려)
         if current_stage == 7:
-            boss_cx = BOSS.x + BOSS.width // 2 + GAME_OFFSET_X
-            boss_cy = BOSS.y + BOSS.height // 2 + GAME_OFFSET_Y
+            # 스케일링을 고려한 보스 중심 좌표 계산
+            scaled_boss_cx = (BOSS.x + BOSS.width // 2) * GAME_SCALE_FACTOR
+            scaled_boss_cy = (BOSS.y + BOSS.height // 2) * GAME_SCALE_FACTOR
+            # 기본 오프셋 적용
+            boss_cx = scaled_boss_cx + GAME_OFFSET_X
+            boss_cy = scaled_boss_cy + GAME_OFFSET_Y
+            # 스케일링 시 추가 오프셋 적용 (게임 화면이 스케일 영역 내에서 중앙 정렬됨)
+            if GAME_SCALE_FACTOR != 1.0:
+                sw = int(WIDTH * GAME_SCALE_FACTOR)
+                sh = int(HEIGHT * GAME_SCALE_FACTOR)
+                additional_offset_x = (GAME_SCALED_WIDTH - sw) // 2
+                additional_offset_y = (GAME_SCALED_HEIGHT - sh) // 2
+                boss_cx += additional_offset_x
+                boss_cy += additional_offset_y
             pillar_renderer.update_tetriser_with_boss(1/60, boss_cx, boss_cy)
         # 스테이지 2: 원숭이-바나나 이벤트용 플레이어/보스 위치 및 대쉬 방향 전달
         if current_stage == 2:
@@ -89826,10 +89849,20 @@ def handle_ball():
 
             # Stage 7에서 플레이어가 4점 획득 시 크리스탈 실드 활성화
             if current_stage == 7 and round_wins == 4 and pillar_renderer is not None:
-                # REAL_SCREEN 좌표계로 변환 (게임 영역 오프셋 추가)
-                boss_center_x = BOSS.x + BOSS.width // 2 + GAME_OFFSET_X
-                boss_center_y = BOSS.y + BOSS.height // 2 + GAME_OFFSET_Y
-                print(f"[Stage7] 크리스탈 실드 활성화! BOSS.x={BOSS.x}, BOSS.y={BOSS.y}, OFFSET=({GAME_OFFSET_X}, {GAME_OFFSET_Y})")
+                # REAL_SCREEN 좌표계로 변환 (게임 영역 오프셋 + 스케일링 고려)
+                scaled_boss_cx = (BOSS.x + BOSS.width // 2) * GAME_SCALE_FACTOR
+                scaled_boss_cy = (BOSS.y + BOSS.height // 2) * GAME_SCALE_FACTOR
+                boss_center_x = scaled_boss_cx + GAME_OFFSET_X
+                boss_center_y = scaled_boss_cy + GAME_OFFSET_Y
+                # 스케일링 시 추가 오프셋 적용
+                if GAME_SCALE_FACTOR != 1.0:
+                    sw = int(WIDTH * GAME_SCALE_FACTOR)
+                    sh = int(HEIGHT * GAME_SCALE_FACTOR)
+                    additional_offset_x = (GAME_SCALED_WIDTH - sw) // 2
+                    additional_offset_y = (GAME_SCALED_HEIGHT - sh) // 2
+                    boss_center_x += additional_offset_x
+                    boss_center_y += additional_offset_y
+                print(f"[Stage7] 크리스탈 실드 활성화! BOSS.x={BOSS.x}, BOSS.y={BOSS.y}, OFFSET=({GAME_OFFSET_X}, {GAME_OFFSET_Y}), SCALE={GAME_SCALE_FACTOR}")
                 print(f"[Stage7] 보스 중앙 (REAL_SCREEN): ({boss_center_x}, {boss_center_y})")
                 pillar_renderer.activate_crystal_shield(boss_center_x, boss_center_y)
 
@@ -97611,7 +97644,18 @@ def main(stage_num, new_boss_mode=False):
                         game_should_exit = True
                 # 화면 정지 중에도 실드 애니메이션 업데이트
                 _freeze_dt = clock.tick(FPS) / 1000.0
-                _pillar_renderer.update_tetriser_with_boss(_freeze_dt, BOSS.centerx + GAME_OFFSET_X, BOSS.centery + GAME_OFFSET_Y)
+                # REAL_SCREEN 좌표계로 변환 (게임 영역 오프셋 + 스케일링 고려)
+                _scaled_boss_cx = BOSS.centerx * GAME_SCALE_FACTOR
+                _scaled_boss_cy = BOSS.centery * GAME_SCALE_FACTOR
+                _freeze_boss_cx = _scaled_boss_cx + GAME_OFFSET_X
+                _freeze_boss_cy = _scaled_boss_cy + GAME_OFFSET_Y
+                # 스케일링 시 추가 오프셋 적용
+                if GAME_SCALE_FACTOR != 1.0:
+                    _sw = int(WIDTH * GAME_SCALE_FACTOR)
+                    _sh = int(HEIGHT * GAME_SCALE_FACTOR)
+                    _freeze_boss_cx += (GAME_SCALED_WIDTH - _sw) // 2
+                    _freeze_boss_cy += (GAME_SCALED_HEIGHT - _sh) // 2
+                _pillar_renderer.update_tetriser_with_boss(_freeze_dt, _freeze_boss_cx, _freeze_boss_cy)
                 # 실드 그리기 (현재 화면 위에)
                 _pillar_renderer.draw_crystal_shield(REAL_SCREEN)
                 pygame.display.flip()

@@ -24,10 +24,15 @@ class AnimatedBackgroundStage2:
         self.width = self.base_image.get_width()
         self.height = self.base_image.get_height()
         self.time = 0
-        
+
         self.glow_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self.particle_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self.eye_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+
+        # 스케일된 배경 캐싱 (최적화)
+        self._scaled_bg_cache = None
+        self._scaled_bg_size = None
+        self._transparent = (0, 0, 0, 0)
         
         self.center_x = self.width // 2
         self.center_y = self.height // 2
@@ -1861,14 +1866,17 @@ class AnimatedBackgroundStage2:
         pass
     
     def draw(self, screen):
-        # 배경 이미지를 화면 크기에 맞게 스케일
+        # 배경 이미지를 화면 크기에 맞게 스케일 (캐싱 적용)
         screen_w, screen_h = screen.get_size()
         scale_x = screen_w / self.width  # 스케일 비율
         scale_y = screen_h / self.height
 
         if screen_w != self.width or screen_h != self.height:
-            scaled_bg = pygame.transform.scale(self.base_image, (screen_w, screen_h))
-            screen.blit(scaled_bg, (0, 0))
+            # 캐시된 스케일 배경 사용 (매 프레임 스케일링 방지)
+            if self._scaled_bg_cache is None or self._scaled_bg_size != (screen_w, screen_h):
+                self._scaled_bg_cache = pygame.transform.scale(self.base_image, (screen_w, screen_h))
+                self._scaled_bg_size = (screen_w, screen_h)
+            screen.blit(self._scaled_bg_cache, (0, 0))
         else:
             screen.blit(self.base_image, (0, 0))
 
