@@ -8,9 +8,20 @@ from __future__ import annotations
 
 import math
 import random
+import sys
 from typing import Dict, List, Optional, Tuple
 
 import pygame
+
+
+def _safe_print(msg: str) -> None:
+    """Windows cp949 인코딩에서도 안전하게 출력."""
+    try:
+        print(msg)
+    except UnicodeEncodeError:
+        # 이모지 등 인코딩 불가 문자 제거 후 출력
+        safe_msg = msg.encode('cp949', errors='ignore').decode('cp949')
+        print(safe_msg)
 
 
 class Dynamite:
@@ -25,12 +36,12 @@ class Dynamite:
     """
 
     # 기본 상수
-    THROW_SPEED = 12  # 투척 속도
+    THROW_SPEED = 18  # 투척 속도 (증가: 보스 진영까지 도달)
     COUNTDOWN_FRAMES = 420  # 7초 카운트다운 (60fps * 7)
     EXPLOSION_RADIUS = 350  # 폭발 범위
     KNOCKBACK_SPEED = 13  # 넉백 속도
     STUN_DURATION = 180  # 스턴 시간 3초 (60fps * 3)
-    BOSS_AREA_Y = 150  # 보스 진영 기준 Y 좌표
+    BOSS_AREA_Y = 250  # 보스 진영 기준 Y 좌표 (화면 상단 1/3)
 
     def __init__(self) -> None:
         self.active: bool = False
@@ -109,8 +120,8 @@ class Dynamite:
         }
 
         self.projectiles.append(projectile)
-        self._debug(f"throw → pos=({start_x:.1f}, {start_y:.1f})")
-        print("🧨 다이너마이트 투척!")
+        self._debug(f"throw -> pos=({start_x:.1f}, {start_y:.1f})")
+        _safe_print("[Dynamite] 다이너마이트 투척!")
 
         # 투척 사운드 재생
         self._play_throw_sound()
@@ -141,8 +152,8 @@ class Dynamite:
                 self.projectiles.remove(proj)
                 continue
 
-            # 중력 적용
-            proj["vel_y"] += 0.3
+            # 중력 적용 (낮은 중력으로 멀리 던짐)
+            proj["vel_y"] += 0.15
 
             # 위치 업데이트
             proj["x"] += proj["vel_x"]
@@ -168,7 +179,7 @@ class Dynamite:
                     explosion_events.append(explosion)
                     proj["active"] = False
                     self._debug(f"ball collision → immediate explosion at ({proj['x']:.1f}, {proj['y']:.1f})")
-                    print("💥 다이너마이트가 공에 맞아 즉시 폭발!")
+                    _safe_print("[Dynamite] 다이너마이트가 공에 맞아 즉시 폭발!")
                     continue
 
             # 보스 진영 도달 체크 (화면 상단)
@@ -185,7 +196,7 @@ class Dynamite:
                 proj["active"] = False
                 self._play_place_sound()
                 self._debug(f"placed at boss area → ({placed['x']:.1f}, {placed['y']:.1f}), countdown={self.COUNTDOWN_FRAMES}")
-                print("🧨 다이너마이트 설치! 7초 후 폭발!")
+                _safe_print("[Dynamite] 다이너마이트 설치! 7초 후 폭발!")
                 continue
 
             # 화면 하단으로 떨어지면 제거
@@ -210,7 +221,7 @@ class Dynamite:
                     explosion_events.append(explosion)
                     placed["active"] = False
                     self._debug(f"placed dynamite hit by ball → explosion")
-                    print("💥 설치된 다이너마이트가 공에 맞아 폭발!")
+                    _safe_print("[Dynamite] 설치된 다이너마이트가 공에 맞아 폭발!")
                     continue
 
             # 카운트다운 완료 - 폭발
@@ -219,7 +230,7 @@ class Dynamite:
                 explosion_events.append(explosion)
                 placed["active"] = False
                 self._debug(f"countdown complete → explosion at ({placed['x']:.1f}, {placed['y']:.1f})")
-                print("💥 다이너마이트 폭발!")
+                _safe_print("[Dynamite] 다이너마이트 폭발!")
 
         # 폭발 이펙트 업데이트
         for explosion in self.explosions[:]:
