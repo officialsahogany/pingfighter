@@ -44,6 +44,10 @@ class Dynamite:
     # 보스 진영 경계선 (config/constants.py의 BOSS_AREA_BOUNDARY_Y 참조)
     # 화면 규격: 760x750, 보스 Y=25, 보스 진영은 Y < 120
     BOSS_AREA_Y = 120  # 보스 진영 하단 경계 Y 좌표
+    # 게임 영역 오프셋 (좌우 필러 80px)
+    GAME_AREA_OFFSET_X = 80
+    GAME_AREA_LEFT = GAME_AREA_OFFSET_X  # 80px (게임 영역 왼쪽 경계)
+    GAME_AREA_RIGHT = GAME_AREA_OFFSET_X + 600  # 680px (게임 영역 오른쪽 경계)
 
     def __init__(self) -> None:
         self.active: bool = False
@@ -119,6 +123,7 @@ class Dynamite:
             "rotation_speed": random.uniform(5, 15),  # 회전 속도
             "active": True,
             "fuse_lit": False,  # 심지 점화 여부
+            "immune_frames": 30,  # 투척 직후 30프레임(0.5초) 동안 공과 충돌 무시
         }
 
         self.projectiles.append(projectile)
@@ -164,16 +169,22 @@ class Dynamite:
             # 회전 업데이트
             proj["rotation"] += proj["rotation_speed"]
 
-            # 좌우 벽 충돌 (튕김)
-            if proj["x"] <= 20:
-                proj["x"] = 20
+            # 좌우 벽 충돌 (게임 영역 경계 기준으로 튕김)
+            left_boundary = self.GAME_AREA_LEFT + 10  # 게임 영역 왼쪽 + 여백
+            right_boundary = self.GAME_AREA_RIGHT - 10  # 게임 영역 오른쪽 - 여백
+            if proj["x"] <= left_boundary:
+                proj["x"] = left_boundary
                 proj["vel_x"] = abs(proj["vel_x"]) * 0.8
-            elif proj["x"] >= screen_width - 20:
-                proj["x"] = screen_width - 20
+            elif proj["x"] >= right_boundary:
+                proj["x"] = right_boundary
                 proj["vel_x"] = -abs(proj["vel_x"]) * 0.8
 
-            # 공과 충돌 체크 - 즉시 폭발
-            if ball_rect:
+            # 면역 프레임 감소
+            if proj.get("immune_frames", 0) > 0:
+                proj["immune_frames"] -= 1
+
+            # 공과 충돌 체크 - 즉시 폭발 (면역 프레임 동안은 무시)
+            if ball_rect and proj.get("immune_frames", 0) <= 0:
                 proj_rect = pygame.Rect(proj["x"] - 12, proj["y"] - 12, 24, 24)
                 if proj_rect.colliderect(ball_rect):
                     # 즉시 폭발
@@ -186,9 +197,10 @@ class Dynamite:
 
             # 보스 진영 도달 체크 (화면 상단)
             if proj["y"] <= self.BOSS_AREA_Y:
-                # 설치 상태로 전환
+                # 설치 상태로 전환 - X 좌표를 게임 영역 내로 제한
+                placed_x = max(self.GAME_AREA_LEFT + 20, min(self.GAME_AREA_RIGHT - 20, proj["x"]))
                 placed = {
-                    "x": proj["x"],
+                    "x": placed_x,
                     "y": max(30, proj["y"]),  # 화면 밖으로 나가지 않게
                     "countdown": self.COUNTDOWN_FRAMES,
                     "active": True,
@@ -301,13 +313,17 @@ class Dynamite:
         Returns:
             넉백 정보 또는 None
         """
+        if boss_rect is None:
+            return None
+
         for explosion in self.explosions:
-            if explosion["progress"] < 0.1:  # 폭발 초반에만 넉백 적용
+            if explosion["progress"] < 0.2:  # 폭발 초반에만 넉백 적용 (0.1 → 0.2로 확대)
                 ex, ey = explosion["x"], explosion["y"]
                 boss_center = boss_rect.center
 
                 # 거리 계산
                 dist = math.hypot(boss_center[0] - ex, boss_center[1] - ey)
+                self._debug(f"check_boss → explosion({ex:.1f}, {ey:.1f}), boss({boss_center[0]:.1f}, {boss_center[1]:.1f}), dist={dist:.1f}, radius={self.EXPLOSION_RADIUS}")
 
                 if dist <= self.EXPLOSION_RADIUS:
                     # 넉백 방향 계산 (폭발 중심에서 보스 방향)
