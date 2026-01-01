@@ -17800,24 +17800,24 @@ def _draw_blacksmith_umbrella_overlay(
     half_h = shield_height * 0.5
 
     # 초승달 모양의 곡선 방패를 위한 포인트 생성
-    num_points = 36  # 부드러운 곡선을 위한 포인트 수 증가
+    num_points = 18  # 성능 최적화: 36 → 18로 감소 (여전히 부드러운 곡선)
     outline_local = []
-    
+
     # 상단 곡선 (초승달의 바깥쪽 볼록한 부분)
     for i in range(num_points + 1):
         t = i / num_points  # 0에서 1까지
         x = (t - 0.5) * shield_width
-        
+
         # 초승달의 상단 곡선 - 더 얕은 아치
         outer_curve = 0.5 + 0.15 * open_amount
         y = -math.sin(t * math.pi) * shield_height * outer_curve - shield_height * 0.08
         outline_local.append((x, y))
-    
+
     # 하단 곡선 (초승달의 안쪽 오목한 부분) - 역순으로 추가
     for i in range(num_points, -1, -1):
         t = i / num_points
         x = (t - 0.5) * shield_width
-        
+
         # 초승달의 하단 곡선 - 중앙이 얇아지는 효과
         inner_wave = 0.08 + 0.28 * open_amount
         thickness = 0.18 + 0.42 * (1 - math.sin(t * math.pi)) * (0.6 + 0.4 * open_amount)
@@ -17971,18 +17971,18 @@ def _draw_blacksmith_umbrella_overlay(
         hammer_shadow_color = (70, 56, 36)
         strap_color = (96, 78, 60)
     
-    # 메인 방패 본체 (그라데이션 레이어)
-    for i in range(3):
-        offset = i * 2
+    # 메인 방패 본체 (그라데이션 레이어) - 성능 최적화: 3 → 2 레이어
+    for i in range(2):
+        offset = i * 3
         grad_color = (
-            base_color[0] + (highlight_color[0] - base_color[0]) * (i / 3),
-            base_color[1] + (highlight_color[1] - base_color[1]) * (i / 3),
-            base_color[2] + (highlight_color[2] - base_color[2]) * (i / 3)
+            int(base_color[0] + (highlight_color[0] - base_color[0]) * (i / 2)),
+            int(base_color[1] + (highlight_color[1] - base_color[1]) * (i / 2)),
+            int(base_color[2] + (highlight_color[2] - base_color[2]) * (i / 2))
         )
         offset_outline = []
         for point in outline_local:
             offset_x = point[0] * (1 - offset * 0.005)
-            offset_y = point[1] * (1 - offset * 0.01) 
+            offset_y = point[1] * (1 - offset * 0.01)
             offset_outline.append((offset_x, offset_y))
         offset_world = [to_world(x, y) for x, y in offset_outline]
         offset_int = [_vec_to_int_pair(p) for p in offset_world]
@@ -18005,140 +18005,73 @@ def _draw_blacksmith_umbrella_overlay(
     ) if divine_active else (188, 174, 158)
     pygame.draw.polygon(surface, inner_outline_color, inner_int, width=2)
 
-    # 상하 금속 판재 층 (메탈릭 효과 강화)
+    # 상하 금속 판재 층 (메탈릭 효과 강화) - 성능 최적화: 포인트 수 감소
     band_thickness = shield_height * (0.24 + 0.18 * open_amount)
-    
+
     # 상단 밴드 - 초승달 곡선을 따라가는 밴드
     upper_band_base = []
-    band_num_points = 20
+    band_num_points = 10  # 성능 최적화: 20 → 10
     for i in range(band_num_points):
         t = i / (band_num_points - 1)
         x = (t - 0.5) * shield_width * 0.9
-        
-        # 초승달 모양에 맞춘 상단 밴드 곡선
         base_y = -math.sin(t * math.pi) * shield_height * 0.5 - shield_height * 0.15
         band_y = base_y - band_thickness * 0.3
-        
         upper_band_base.append((x, band_y))
-    
-    # 상단 밴드 그라데이션 레이어
-    for layer, layer_color in enumerate(upper_band_layer_colors):
-        layer_band_points = []
-        for x, y in upper_band_base:
-            layer_band_points.append(_vec_to_int_pair(to_world(x, y + layer * 1.5)))
-        pygame.draw.polygon(surface, layer_color, layer_band_points)
 
+    # 상단 밴드 - 단일 레이어만 (성능 최적화)
     upper_band = [_vec_to_int_pair(to_world(x, y)) for x, y in upper_band_base]
+    pygame.draw.polygon(surface, upper_band_layer_colors[0], upper_band)
     pygame.draw.polygon(surface, upper_band_outline_color, upper_band, width=2)
-    # 상단 하이라이트 라인
-    highlight_line = [_vec_to_int_pair(to_world(x, y - band_thickness * 0.15)) for x, y in upper_band_base[:4]]
-    pygame.draw.lines(surface, upper_band_highlight_color, False, highlight_line, 2)
 
-    # 하단 밴드 - 초승달 곡선을 따라가는 밴드  
+    # 하단 밴드 - 초승달 곡선을 따라가는 밴드
     lower_band_base = []
     for i in range(band_num_points):
         t = i / (band_num_points - 1)
         x = (t - 0.5) * shield_width * 0.95
-        
-        # 초승달 모양에 맞춘 하단 밴드 곡선
         thickness = 0.25 + 0.45 * (1 - math.sin(t * math.pi))
         base_y = -math.sin(t * math.pi) * shield_height * 0.05 + shield_height * (thickness - 0.1)
         band_y = base_y + band_thickness * 0.2
-        
         lower_band_base.append((x, band_y))
-    
-    # 하단 밴드 그라데이션 레이어
-    for layer, layer_color in enumerate(lower_band_layer_colors):
-        layer_band_points = []
-        for x, y in lower_band_base:
-            layer_band_points.append(_vec_to_int_pair(to_world(x, y - layer * 1.5)))
-        pygame.draw.polygon(surface, layer_color, layer_band_points)
 
+    # 하단 밴드 - 단일 레이어만 (성능 최적화)
     lower_band = [_vec_to_int_pair(to_world(x, y)) for x, y in lower_band_base]
+    pygame.draw.polygon(surface, lower_band_layer_colors[0], lower_band)
     pygame.draw.polygon(surface, lower_band_outline_color, lower_band, width=2)
-    # 하단 하이라이트 라인
-    highlight_line_lower = [_vec_to_int_pair(to_world(x, y + band_thickness * 0.1)) for x, y in lower_band_base[2:5]]
-    pygame.draw.lines(surface, lower_band_highlight_color, False, highlight_line_lower, 2)
 
-    # 중앙 룬 라인 (발광 애니메이션 효과) - 초승달 곡선 따라 배치
-    current_time = pygame.time.get_ticks() / 1000.0  # 초 단위로 변환
-    glow_surface = _get_blacksmith_umbrella_temp_surface((int(shield_width), int(shield_height * 2)))
-    glow_offset = (int(shield_center.x - shield_width / 2), int(shield_center.y - shield_height))
-    glow_drawn = False
-    
-    for i in range(-2, 3):
-        # 각 룬마다 다른 위상으로 펄스 효과
-        phase_offset = i * 0.5
-        pulse_intensity = (math.sin(current_time * 2.0 + phase_offset) + 1.0) / 2.0  # 0~1 범위
-        
-        # 색상 보간
-        rune_color = (
-            int(rune_base_color[0] + (rune_glow_color[0] - rune_base_color[0]) * pulse_intensity),
-            int(rune_base_color[1] + (rune_glow_color[1] - rune_base_color[1]) * pulse_intensity),
-            int(rune_base_color[2] + (rune_glow_color[2] - rune_base_color[2]) * pulse_intensity)
-        )
-        
-        # 룬의 x 위치에 따른 t 값 계산
-        rune_x = i * shield_width * 0.16
-        t = (rune_x / shield_width) + 0.5  # 0~1 범위로 정규화
-        
-        # 초승달 곡선에 맞춰 룬의 상하 위치 계산
+    # 중앙 룬 라인 - 성능 최적화: 5개 → 3개, 글로우 효과 제거
+    for i in range(-1, 2):  # -1, 0, 1 (3개만)
+        rune_x = i * shield_width * 0.22
+        t = (rune_x / shield_width) + 0.5
         curve_y = -math.sin(t * math.pi) * shield_height * 0.4
         top_y = curve_y - shield_height * 0.25
         bottom_y = curve_y + shield_height * 0.25
-        
+
         top = to_world(rune_x, top_y)
         bottom = to_world(rune_x, bottom_y)
-        
-        # 글로우 효과 (여러 겹으로 그리기)
-        if pulse_intensity > 0.5:
-            glow_alpha = int((pulse_intensity - 0.5) * 100)
-            for glow_size in range(3, 0, -1):
-                pygame.draw.line(
-                    glow_surface,
-                    (*rune_glow_color, glow_alpha // glow_size),
-                    (int(top.x - shield_center.x + shield_width / 2), int(top.y - shield_center.y + shield_height)),
-                    (int(bottom.x - shield_center.x + shield_width / 2), int(bottom.y - shield_center.y + shield_height)),
-                    3 + glow_size * 2,
-                )
-            glow_drawn = True
-        
-        # 메인 룬 라인
-        pygame.draw.line(surface, rune_color, _vec_to_int_pair(top), _vec_to_int_pair(bottom), 4)
-        # 초승달 곡선에 맞춘 가로 틱
-        left_tick = to_world(rune_x - shield_width * 0.05, curve_y)
-        right_tick = to_world(rune_x + shield_width * 0.05, curve_y)
-        pygame.draw.line(surface, rune_color, _vec_to_int_pair(left_tick), _vec_to_int_pair(right_tick), 3)
 
-    if glow_drawn:
-        surface.blit(glow_surface, glow_offset, special_flags=pygame.BLEND_ADD)
+        # 메인 룬 라인만 (글로우 효과 제거로 성능 향상)
+        pygame.draw.line(surface, rune_base_color, _vec_to_int_pair(top), _vec_to_int_pair(bottom), 3)
+        # 가로 틱
+        left_tick = to_world(rune_x - shield_width * 0.04, curve_y)
+        right_tick = to_world(rune_x + shield_width * 0.04, curve_y)
+        pygame.draw.line(surface, rune_base_color, _vec_to_int_pair(left_tick), _vec_to_int_pair(right_tick), 2)
 
-    # 리벳 (메탈릭 효과 강화) - 초승달 곡선 따라 배치
-    # 3개의 곡선 라인을 따라 리벳 배치
-    for row in range(3):
-        row_factor = row / 2  # 0, 0.5, 1
-        count = 7 if row == 1 else 6  # 중앙 줄은 더 많이
-        
+    # 리벳 (메탈릭 효과 강화) - 성능 최적화: 2줄, 각 4개로 감소
+    for row in range(2):
+        row_factor = row  # 0, 1
+        count = 4  # 성능 최적화: 6~7 → 4
+
         for j in range(count):
             t = j / (count - 1) if count > 1 else 0.5
-            x = (t - 0.5) * shield_width * 0.86
-            
-            # 초승달 곡선에 맞춘 y 위치
+            x = (t - 0.5) * shield_width * 0.8
             base_curve_y = -math.sin(t * math.pi) * shield_height * 0.5
-            # 각 줄마다 다른 오프셋 적용
-            y_offset = (row_factor - 0.5) * shield_height * 0.8
+            y_offset = (row_factor - 0.5) * shield_height * 0.6
             y = base_curve_y + y_offset
-            
+
             pos = to_world(x, y)
-            # 리벳 그림자
-            pygame.draw.circle(surface, rivet_shadow_color, _vec_to_int_pair(pos), 5)
-            # 리벳 본체
-            pygame.draw.circle(surface, rivet_body_color, _vec_to_int_pair(pos), 4)
-            # 리벳 하이라이트
-            highlight_pos = (int(pos.x - 1), int(pos.y - 1))
-            pygame.draw.circle(surface, rivet_highlight_color, highlight_pos, 2)
-            # 중앙 반사광
-            pygame.draw.circle(surface, rivet_core_color, highlight_pos, 1)
+            # 리벳 - 성능 최적화: 4개 원 → 2개 원
+            pygame.draw.circle(surface, rivet_shadow_color, _vec_to_int_pair(pos), 4)
+            pygame.draw.circle(surface, rivet_body_color, _vec_to_int_pair(pos), 3)
 
     # 가장자리 보강 스트랩 - 초승달 곡선에 맞춰 조정
     for side in (-1, 1):
@@ -101282,6 +101215,11 @@ def main(stage_num, new_boss_mode=False):
 
                 # 폭발 이벤트 처리 - 보스 넉백 및 스턴 적용 (수류탄과 동일한 방식)
                 if explosion_events:
+                    # 다이너마이트 폭발 화면 흔들림 (수류탄보다 더 강하게)
+                    global screen_shake_timer, screen_shake_intensity
+                    screen_shake_timer = max(screen_shake_timer, 40)  # 40프레임
+                    screen_shake_intensity = max(screen_shake_intensity, 35)  # 매우 강한 흔들림
+
                     for exp in explosion_events:
                         knockback_info = dynamite.check_boss_in_explosion(boss_rect_for_dynamite)
                         if knockback_info:
@@ -101297,8 +101235,8 @@ def main(stage_num, new_boss_mode=False):
                             power = float(knockback_info["knockback_speed"])
 
                             # 넉백 타이머 설정 (다이너마이트: 더 짧은 시간에 빠르게 튕김)
-                            boss_knockback_timer = max(boss_knockback_timer, 24)  # 수류탄(36)보다 짧게
-                            boss_knockback_vel = _apply_boss_knockback_velocity(direction * power * 1.5)  # 초기 속도 1.5배
+                            boss_knockback_timer = max(boss_knockback_timer, 18)  # 수류탄(36)의 절반
+                            boss_knockback_vel = _apply_boss_knockback_velocity(direction * power * 2.0)  # 초기 속도 2배
 
                             # 대쉬/후딜 상태 강제 해제 (넉백 즉시 적용)
                             globals()["boss_dashing"] = False
