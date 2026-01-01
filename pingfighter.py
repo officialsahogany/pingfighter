@@ -35304,6 +35304,19 @@ def apply_effect(effect_name):
             # 날씨가 없거나 이미 페이드아웃 중일 때는 아이템을 소모하지 않음
             print("🌤️ 기상조절캡슐: 현재 활성화된 날씨 이벤트가 없습니다.")
             return  # 아이템 소모 안 함
+    elif effect_name == "dynamite":  # 🧨 다이너마이트 액티브 아이템
+        # 라운드 시작 3초 제한 체크
+        current_time = pygame.time.get_ticks()
+        if current_time - round_start_time < 3000:  # 3초 미만
+            remaining_time = (3000 - (current_time - round_start_time)) / 1000
+            print(f"🧨 다이너마이트 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+            return False
+        from item_effects.dynamite import get_dynamite_instance
+        dynamite = get_dynamite_instance()
+        if dynamite:
+            dynamite.throw(PLAYER)
+            play_active_item_sound()
+            print("🧨 다이너마이트 투척! 보스 진영 도달 시 7초 후 폭발!")
 # === 벌크업 발동 함수 ===
 def activate_long_boost():
     global long_boost_active, long_boost_timer, long_boost_initial_timer, long_boost_scale, long_boost_target_scale
@@ -65516,6 +65529,11 @@ def draw_objects():
         # 볼링트랩 이펙트 그리기 (폭발, 화염 궤적) - 항상 그리기
         bowling_trap.draw_effects(SCREEN)
 
+        # === 다이너마이트 그리기 ===
+        from item_effects.dynamite import get_dynamite_instance
+        dynamite = get_dynamite_instance()
+        dynamite.draw(SCREEN)
+
         # === 자폭드론 표시 (고퀄리티 3D 스타일) ===
         if suicide_drone_active and suicide_drone_rect:
             cx, cy = suicide_drone_rect.center
@@ -69352,6 +69370,13 @@ def show_start_screen():
     items.reset_items()
     try:
         deactivate_vitamin_pill()
+    except Exception:
+        pass
+    # 다이너마이트 리셋
+    try:
+        from item_effects.dynamite import get_dynamite_instance
+        dynamite = get_dynamite_instance()
+        dynamite.reset()
     except Exception:
         pass
     reset_runtime_items(
@@ -78637,6 +78662,7 @@ def show_item_manager_menu():
         {"name": "holy_barrier", "type": "active", "icon": get_item_icon("holy_barrier")},
         {"name": "dash_boost", "type": "active", "icon": get_item_icon("dash_boost")},
         {"name": "weather_capsule", "type": "active", "icon": get_item_icon("weather_capsule")},
+        {"name": "dynamite", "type": "active", "icon": get_item_icon("dynamite")},
         # 화기류 아이템들
         {"name": "bazooka", "type": "firearm", "icon": get_icon_safe("bazooka_icon", "bazooka")},
         {"name": "ak47", "type": "firearm", "icon": get_icon_safe("ak47_icon", "ak47")},
@@ -101036,6 +101062,56 @@ def main(stage_num, new_boss_mode=False):
                             deactivate_whip()
                             print("🎳 볼링트랩 발사로 상모돌리기 강제 종료!")
 
+                    # 🧨 다이너마이트 시스템 업데이트
+                    from item_effects.dynamite import get_dynamite_instance
+                    dynamite = get_dynamite_instance()
+                    ball_rect_for_dynamite = pygame.Rect(BALL.x, BALL.y, BALL.width, BALL.height) if BALL else None
+                    boss_rect_for_dynamite = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height) if BOSS else None
+                    explosion_events = dynamite.update(ball_rect_for_dynamite, boss_rect_for_dynamite, WIDTH)
+
+                    # 폭발 이벤트 처리 - 보스 넉백 및 스턴 적용
+                    for exp in explosion_events:
+                        knockback_info = dynamite.check_boss_in_explosion(boss_rect_for_dynamite)
+                        if knockback_info:
+                            # 보스 스턴 적용
+                            boss_stunned = True
+                            boss_stun_timer = knockback_info["stun_duration"]
+
+                            # 보스 넉백 적용 (벽 반사 포함)
+                            knockback_speed = knockback_info["knockback_speed"]
+                            knockback_dir_x = knockback_info["knockback_dir_x"]
+                            knockback_dir_y = knockback_info["knockback_dir_y"]
+                            remaining_distance = knockback_info["remaining_distance"]
+
+                            # 넉백 이동 (프레임당 처리)
+                            move_x = knockback_dir_x * knockback_speed
+                            move_y = knockback_dir_y * knockback_speed
+
+                            # 보스 위치 업데이트 (벽 반사 처리)
+                            new_boss_x = BOSS.x + move_x
+                            new_boss_y = BOSS.y + move_y
+
+                            # 좌우 벽 반사
+                            if new_boss_x < 0:
+                                new_boss_x = 0
+                                knockback_dir_x = -knockback_dir_x
+                            elif new_boss_x + BOSS.width > WIDTH:
+                                new_boss_x = WIDTH - BOSS.width
+                                knockback_dir_x = -knockback_dir_x
+
+                            # 상하 벽 반사
+                            if new_boss_y < 0:
+                                new_boss_y = 0
+                                knockback_dir_y = -knockback_dir_y
+                            elif new_boss_y > HEIGHT // 2:
+                                new_boss_y = HEIGHT // 2
+                                knockback_dir_y = -knockback_dir_y
+
+                            BOSS.x = new_boss_x
+                            BOSS.y = new_boss_y
+
+                            print(f"💥 다이너마이트 폭발! 보스 스턴 {knockback_info['stun_duration'] / 60:.1f}초")
+
                     fire_support_weapon = get_fire_support_instance()
                     fire_support_weapon.update(
                         boss_rect=pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height),
@@ -105554,6 +105630,7 @@ def get_item_name_korean(item_name):
         "holy_barrier": "홀리베리어",
         "dash_boost": "대쉬부스트",
         "weather_capsule": "기상조절캡슐",
+        "dynamite": "다이너마이트",
         "gold_bar": "금괴",
         # 전설탭 전용: baby (헤르메스 아이콘과 동일)
         "baby": "베이비",
@@ -105657,6 +105734,7 @@ def get_item_description(item_name):
         "holy_barrier": "홀리베리어: 4초간 플레이어 뒤쪽 화면 하단에 신성한 방벽을 소환합니다. 방벽은 보스가 친 공이 바닥에 닿기 전에 반사시켜 실점을 방지합니다. 금빛 파티클과 신성한 문양이 방벽을 장식합니다.",
         "dash_boost": "대쉬부스트: 8초간 대쉬 비용이 70% 할인됩니다. 저렴한 비용으로 연속 대쉬를 사용하여 보스의 공격을 회피하세요!",
         "weather_capsule": "기상조절캡슐: 현재 진행 중인 날씨 이벤트를 즉시 강제 종료시킵니다. 미풍, 강풍, 불, 얼음, 소나기, 우박 등 모든 날씨 효과를 제거합니다. 활성화된 날씨가 없으면 사용되지 않습니다.",
+        "dynamite": "다이너마이트: 보스 진영을 향해 투척하는 폭발물입니다. 보스 진영(화면 상단)에 도달하면 7초 카운트다운 후 폭발합니다. 폭발 범위 350px, 보스를 속도 13으로 넉백시키고 3초간 스턴시킵니다. 넉백으로 벽에 부딪히면 반대 방향으로 튕깁니다. 보스가 발사한 공에 다이너마이트가 닿으면 즉시 폭발합니다.",
         "gold_bar": "금괴: 상점에서 2000골드+에 판매 가능한 고가의 장신구입니다. 착용하면 장신구 2슬롯을 차지하지만 페널티가 없습니다. 인벤토리에 소지만 하고 미착용 시 이동속도가 30% 감소합니다. 상점에서 구매할 수 없으며 가챠로만 획득 가능합니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",

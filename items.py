@@ -724,6 +724,7 @@ def load_item_icons():
         "holy_barrier": "holy_barrier.png",  # 홀리베리어 아이콘
         "dash_boost": "dash_boost.png",  # 대쉬부스트 아이콘
         "weather_capsule": "weather_capsule.png",  # 기상조절캡슐 아이콘
+        "dynamite": "dynamite.png",  # 다이너마이트 아이콘
         # "knee_pads": "knee_pads.png",  # 킥차져 - pingfighter.py의 create_knee_pads_icon() 사용
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
@@ -1425,6 +1426,15 @@ ITEM_TYPES = [
         "chance": 0.004,  # 확률 0.4%
         "duration": 0,  # 즉발형 (지속시간 없음)
         "unlock_condition": None
+    },
+    {
+        "name": "dynamite",  # 🧨 다이너마이트 액티브 아이템
+        "color": (200, 50, 50),  # 빨간색 (폭발물)
+        "effect": "dynamite",
+        "icon": None,
+        "chance": 0.012,  # 확률 1.2%
+        "duration": 600,  # 사용 시까지 유지
+        "unlock_condition": None
     }
 ]
 
@@ -1532,6 +1542,7 @@ unlocked_items = {
     "holy_barrier": True,
     "dash_boost": True,
     "weather_capsule": True,
+    "dynamite": True,
 
     # 전설 아이템 해금 상태
     "ragnarok_hammer": True,
