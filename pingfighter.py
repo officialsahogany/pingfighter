@@ -21760,6 +21760,8 @@ def update_blacksmith_hammer_shock(keys):
         if 'PLAYER' in globals() and PLAYER is not None:
             blacksmith_hammer_shock_anchor_x = PLAYER.centerx
             blacksmith_hammer_shock_anchor_y = PLAYER.centery
+            # 차징 중에도 플레이어 이동에 따라 차징 위치 업데이트
+            blacksmith_hammer_charge_position = (float(PLAYER.right + 18), float(PLAYER.centery - 20))
         blacksmith_hammer_shock_charge_frames += 1
         max_stage_for_gauge = _blacksmith_hammer_shock_max_stage_for_gauge(special_gauge)
         blacksmith_hammer_shock_stage = _blacksmith_hammer_shock_effective_stage(
@@ -21781,11 +21783,9 @@ def update_blacksmith_hammer_shock(keys):
             blacksmith_hammer_charge_position = None
         else:
             try:
-                origin_x = PLAYER.right + 18
-                origin_y = PLAYER.centery - 20
-                if blacksmith_hammer_charge_position is not None:
-                    origin_x = float(blacksmith_hammer_charge_position[0])
-                    origin_y = float(blacksmith_hammer_charge_position[1])
+                # 항상 플레이어 기준 위치 사용
+                origin_x = float(blacksmith_hammer_charge_position[0]) if blacksmith_hammer_charge_position else PLAYER.right + 18
+                origin_y = float(blacksmith_hammer_charge_position[1]) if blacksmith_hammer_charge_position else PLAYER.centery - 20
                 if blacksmith_hammer_shock_stage >= 1 and blacksmith_hammer_shock_charge_frames % 6 == 0:
                     effects_manager.spawn_star_particles(int(origin_x), int(origin_y), count=3 + blacksmith_hammer_shock_stage)
                 if blacksmith_hammer_shock_stage >= 2 and blacksmith_hammer_shock_charge_frames % 10 == 0:
@@ -98624,20 +98624,18 @@ def main(stage_num, new_boss_mode=False):
                     blacksmith_hammer_shock_stage = 0
                     blacksmith_hammer_swing_active = False
                     blacksmith_hammer_swing_phase = 0
+                    # 해머쇼크 차징 시작 시 우산(토르쉴드) 강제 접기
+                    # 우산이 펴진 상태에서는 해머 위치가 복원되어 차징 이펙트/발사 위치가 잘못됨
+                    if blacksmith_umbrella_open:
+                        blacksmith_umbrella_open = False
+                        blacksmith_umbrella_retracting = True
+                        blacksmith_umbrella_anim_timer = 0
+                        blacksmith_umbrella_anim_direction = -1
                     blacksmith_hammer_shock_anchor_x = PLAYER.centerx
                     blacksmith_hammer_shock_anchor_y = PLAYER.centery
-                    # 충전 시작 시점에 현재 해머 위치를 charge_position으로 설정
-                    # blacksmith_hammer_idle_position이 있으면 사용, 없으면 플레이어 기준 기본 위치
-                    if blacksmith_hammer_idle_position is not None:
-                        blacksmith_hammer_charge_position = blacksmith_hammer_idle_position
-                    elif blacksmith_hammer_head_surface_point is not None:
-                        sanitized_head = _sanitize_blacksmith_hammer_position(blacksmith_hammer_head_surface_point)
-                        if sanitized_head is not None:
-                            blacksmith_hammer_charge_position = sanitized_head
-                        else:
-                            blacksmith_hammer_charge_position = (float(PLAYER.right + 18), float(PLAYER.centery - 20))
-                    else:
-                        blacksmith_hammer_charge_position = (float(PLAYER.right + 18), float(PLAYER.centery - 20))
+                    # 충전 시작 시점에 플레이어 기준 해머 위치로 강제 설정
+                    # 우산 모드에서 복원된 잘못된 위치 대신 항상 플레이어 기준으로 계산
+                    blacksmith_hammer_charge_position = (float(PLAYER.right + 18), float(PLAYER.centery - 20))
                     start_blacksmith_hammer_charge_sound()
                 # 해머쇼크 차지 취소: 차지 중(space/좌클릭 홀드) 상태에서 ↓ 또는 우클릭 입력 시 취소
                 if blacksmith_hammer_shock_charging and (down_just_pressed or mb_right_just_pressed):
@@ -101298,9 +101296,9 @@ def main(stage_num, new_boss_mode=False):
                             # 넉백 세기 (dynamite.py의 KNOCKBACK_SPEED 사용)
                             power = float(knockback_info["knockback_speed"])
 
-                            # 넉백 타이머 설정 (넉백 속도에 비례)
-                            boss_knockback_timer = max(boss_knockback_timer, 36)
-                            boss_knockback_vel = _apply_boss_knockback_velocity(direction * power)
+                            # 넉백 타이머 설정 (다이너마이트: 더 짧은 시간에 빠르게 튕김)
+                            boss_knockback_timer = max(boss_knockback_timer, 24)  # 수류탄(36)보다 짧게
+                            boss_knockback_vel = _apply_boss_knockback_velocity(direction * power * 1.5)  # 초기 속도 1.5배
 
                             # 대쉬/후딜 상태 강제 해제 (넉백 즉시 적용)
                             globals()["boss_dashing"] = False
