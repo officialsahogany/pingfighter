@@ -39,8 +39,8 @@ class Banana:
     PREPARE_TIME = 18  # 준비 동작 시간 (0.3초 = 18프레임)
     GRAVITY = 0.0  # 중력 없음 - 직선 비행
 
-    # 보스 진영 경계선
-    BOSS_AREA_Y = 120  # 보스 진영 하단 경계 Y 좌표
+    # 보스 진영 경계선 (보스 패들 Y=25, 하단=65)
+    BOSS_AREA_Y = 60  # 보스 패들 바로 아래에 착지
 
     # 게임 영역 오프셋
     GAME_AREA_OFFSET_X = 80
