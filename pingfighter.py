@@ -12072,6 +12072,10 @@ grenade_throwing = False  # 수류탄 투척 모션 중
 grenade_throw_timer = 0  # 투척 모션 타이머
 grenade_target_x = 0  # 수류탄 목표 X 좌표
 grenade_target_y = 0  # 수류탄 목표 Y 좌표
+# === 다이너마이트 관련 ===
+dynamite_throwing = False  # 다이너마이트 투척 모션 중
+dynamite_throw_timer = 0  # 투척 모션 타이머
+dynamite_target_x = 0  # 다이너마이트 목표 X 좌표
 
 
 def _destroy_stage2_rocks_in_radius(
@@ -35311,12 +35315,8 @@ def apply_effect(effect_name):
             remaining_time = (3000 - (current_time - round_start_time)) / 1000
             print(f"🧨 다이너마이트 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
             return False
-        from item_effects.dynamite import get_dynamite_instance
-        dynamite = get_dynamite_instance()
-        if dynamite:
-            dynamite.throw(PLAYER)
-            play_active_item_sound()
-            print("🧨 다이너마이트 투척! 보스 진영 도달 시 7초 후 폭발!")
+        # 투척 준비 동작 시작 (수류탄/화염병/조명탄과 동일)
+        activate_dynamite()
 # === 벌크업 발동 함수 ===
 def activate_long_boost():
     global long_boost_active, long_boost_timer, long_boost_initial_timer, long_boost_scale, long_boost_target_scale
@@ -35339,6 +35339,41 @@ def activate_long_boost():
             _hg_on_activate('long_boost')
         except Exception:
             pass
+
+def activate_dynamite():
+    """다이너마이트 투척 함수 - 0.6초 투척 모션 후 발사 (수류탄/화염병/조명탄과 동일)"""
+    global dynamite_throwing, dynamite_throw_timer, dynamite_target_x
+    import items
+
+    # 목표 지점 미리 계산 (보스 중심 방향)
+    dynamite_target_x = BOSS.centerx + random.uniform(-30, 30)
+
+    # 투척 모션 시작
+    dynamite_throwing = True
+
+    # 코만도암 효과 적용 (준비시간 단축, 스택 반영)
+    base_timer = 36  # 0.6초 (60fps * 0.6)
+    dynamite_throw_timer = _commando_timer_reduction(base_timer)
+    if items.commando_arm_obtained:
+        print(f"🧨 코만도암 적용! 투척 준비시간: {dynamite_throw_timer/60:.2f}초")
+        SOUND_THROW_BEFORE.play(maxtime=200)
+    else:
+        print(f"🧨 다이너마이트 투척 준비: {dynamite_throw_timer/60:.2f}초")
+        play_sound_with_volume(SOUND_THROW_BEFORE)
+    # 효과음 재생 (투척 시작)
+    play_active_item_sound()
+    print(f"🧨 다이너마이트 투척 준비! {dynamite_throw_timer/60:.1f}초 후 투척.")
+
+def throw_dynamite():
+    """실제 다이너마이트 투척 (모션 후 실행)"""
+    global PLAYER, dynamite_target_x
+    from item_effects.dynamite import get_dynamite_instance
+
+    dynamite = get_dynamite_instance()
+    if dynamite:
+        dynamite.throw(PLAYER, dynamite_target_x)
+        print("🧨 다이너마이트 투척! 보스 진영 도달 시 7초 후 폭발!")
+
 def activate_flare():
     """조명탄 투척 함수 - 0.5초 투척 모션 후 발사"""
     global flare_throwing, flare_throw_timer, flare_target_x, flare_target_y
@@ -43594,6 +43629,7 @@ def handle_player(keys):
     global molotov_throwing, molotov_throw_timer  # 화염병 투척 모션
     global grenade_throwing, grenade_throw_timer  # 수류탄 투척 모션
     global flare_throwing, flare_throw_timer  # 조명탄 투척 모션
+    global dynamite_throwing, dynamite_throw_timer  # 다이너마이트 투척 모션
     global stopwatch_active, stopwatch_recovery_timer, stopwatch_original_ball_vel  # 스탑워치 관련 변수
     global tutorial_current_chapter  # 튜토리얼 현재 챕터 - Chapter 4 전환을 위해 필요
     global soldier_walking_active, soldier_walking_timer  # 코만도 걷기 애니메이션 변수
@@ -45088,6 +45124,16 @@ def handle_player(keys):
         if flare_throw_timer <= 0:
             flare_throwing = False
             throw_flare()  # 실제 투척
+        return  # 투척 모션 중에는 조작 불가
+    # 🧨 다이너마이트 투척 모션 중 처리
+    if dynamite_throwing:
+        dynamite_throw_timer -= 1
+        # 투척 완료 직후 throw.wav 재생
+        if dynamite_throw_timer == 0:  # 투척 완료 시점
+            play_sound_with_volume(SOUND_THROW)
+        if dynamite_throw_timer <= 0:
+            dynamite_throwing = False
+            throw_dynamite()  # 실제 투척
         return  # 투척 모션 중에는 조작 불가
     # 연막탄 투척 모션 제거 (즉시 발동으로 변경됨)
     #  디버프 적용: 느려지는 효과
@@ -62319,7 +62365,7 @@ def draw_objects():
         optimus_arm_swing_left_timer = 0
         optimus_arm_swing_right_timer = 0
     #  투척 모션 중일 때 특별한 회전 각도 적용
-    if molotov_throwing or grenade_throwing or flare_throwing:
+    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing:
         throw_progress = 0
         if molotov_throwing:
             throw_progress = 1.0 - (molotov_throw_timer / 30.0)  # 0에서 1로 진행
@@ -62327,6 +62373,8 @@ def draw_objects():
             throw_progress = 1.0 - (grenade_throw_timer / 30.0)  # 0에서 1로 진행
         elif flare_throwing:
             throw_progress = 1.0 - (flare_throw_timer / 30.0)  # 0에서 1로 진행
+        elif dynamite_throwing:
+            throw_progress = 1.0 - (dynamite_throw_timer / 30.0)  # 0에서 1로 진행
         # 투척 모션: UFO가 뒤로 젖혔다가 앞으로 던지는 동작
         if throw_progress < 0.3:
             # 준비 단계: 뒤로 젖히기
@@ -63634,7 +63682,7 @@ def draw_objects():
             except Exception:
                 pass
     #  투척 모션 중 아이템 표시
-    if molotov_throwing or grenade_throwing or flare_throwing:
+    if molotov_throwing or grenade_throwing or flare_throwing or dynamite_throwing:
         throw_progress = 0
         item_icon = None
         if molotov_throwing:
@@ -63664,6 +63712,15 @@ def draw_objects():
                 # 조명탄 기본 아이콘
                 item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
                 pygame.draw.circle(item_icon, (255, 255, 200), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
+        elif dynamite_throwing:
+            throw_progress = 1.0 - (dynamite_throw_timer / 30.0)
+            try:
+                item_icon = pygame.image.load(resource_path("items/dynamite.png")).convert_alpha()
+                item_icon = pygame.transform.scale(item_icon, (40, 40))
+            except:
+                # 다이너마이트 기본 아이콘
+                item_icon = pygame.Surface((40, 40), pygame.SRCALPHA)
+                pygame.draw.circle(item_icon, (180, 60, 60), (DEFAULT_RADIUS, DEFAULT_RADIUS), 15)
         # 연막탄은 즉시 발동으로 변경되어 투척 모션 제거됨
         if item_icon:
             # 투척 모션에 따른 아이템 위치 계산

@@ -582,13 +582,14 @@ class Dynamite:
             pass
 
     def _play_explosion_sound(self) -> None:
-        """폭발 사운드 재생."""
+        """폭발 사운드 재생 (수류탄과 동일한 grenade.wav 사용)."""
         try:
             import os
+            # 수류탄과 동일한 폭발 사운드 사용
             sound_path = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),
                 "sounds",
-                "explosion.wav"
+                "grenade.wav"
             )
             if os.path.exists(sound_path):
                 explosion_sound = pygame.mixer.Sound(sound_path)
