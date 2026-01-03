@@ -21829,10 +21829,20 @@ def update_blacksmith_hammer_shock(keys):
 
     if blacksmith_hammer_shock_charging and not umbrella_blocks_hammer_shock:
         if 'PLAYER' in globals() and PLAYER is not None:
+            # 차징 중에도 플레이어 이동에 따라 차징 위치 업데이트
+            # 충전 시작 시 설정된 오프셋(해머 위치 - 플레이어 위치)을 현재 플레이어 위치에 적용
+            if blacksmith_hammer_charge_position is not None:
+                # 기존 오프셋 계산 (충전 시작 시의 해머-플레이어 상대 위치)
+                offset_x = blacksmith_hammer_charge_position[0] - blacksmith_hammer_shock_anchor_x
+                offset_y = blacksmith_hammer_charge_position[1] - blacksmith_hammer_shock_anchor_y
+                # 현재 플레이어 위치에 오프셋 적용
+                blacksmith_hammer_charge_position = (
+                    float(PLAYER.centerx + offset_x),
+                    float(PLAYER.centery + offset_y)
+                )
+            # anchor 위치 업데이트
             blacksmith_hammer_shock_anchor_x = PLAYER.centerx
             blacksmith_hammer_shock_anchor_y = PLAYER.centery
-            # 차징 중에도 플레이어 이동에 따라 차징 위치 업데이트
-            blacksmith_hammer_charge_position = (float(PLAYER.right + 18), float(PLAYER.centery - 20))
         blacksmith_hammer_shock_charge_frames += 1
         max_stage_for_gauge = _blacksmith_hammer_shock_max_stage_for_gauge(special_gauge)
         blacksmith_hammer_shock_stage = _blacksmith_hammer_shock_effective_stage(
@@ -98921,9 +98931,16 @@ def main(stage_num, new_boss_mode=False):
                         blacksmith_umbrella_anim_direction = -1
                     blacksmith_hammer_shock_anchor_x = PLAYER.centerx
                     blacksmith_hammer_shock_anchor_y = PLAYER.centery
-                    # 충전 시작 시점에 플레이어 기준 해머 위치로 강제 설정
-                    # 우산 모드에서 복원된 잘못된 위치 대신 항상 플레이어 기준으로 계산
-                    blacksmith_hammer_charge_position = (float(PLAYER.right + 18), float(PLAYER.centery - 20))
+                    # 충전 시작 시점에 해머 머리 위치 설정
+                    # blacksmith_hammer_idle_position이 있으면 그것을 사용 (실제 해머 위치)
+                    # 없으면 PLAYER 기준 fallback 위치 사용
+                    if blacksmith_hammer_idle_position is not None:
+                        blacksmith_hammer_charge_position = (
+                            float(blacksmith_hammer_idle_position[0]),
+                            float(blacksmith_hammer_idle_position[1])
+                        )
+                    else:
+                        blacksmith_hammer_charge_position = (float(PLAYER.right + 18), float(PLAYER.centery - 20))
                     start_blacksmith_hammer_charge_sound()
                 # 해머쇼크 차지 취소: 차지 중(space/좌클릭 홀드) 상태에서 ↓ 또는 우클릭 입력 시 취소
                 if blacksmith_hammer_shock_charging and (down_just_pressed or mb_right_just_pressed):
