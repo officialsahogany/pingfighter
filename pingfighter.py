@@ -63679,9 +63679,14 @@ def is_ingame_tutorial_paused() -> bool:
 def on_player_hit_ball_for_tutorial():
     """플레이어가 공을 맞췄을 때 튜토리얼 체크 - 첫 번째 히트 시 튜토리얼 시작"""
     global _ingame_tutorial_wait_first_hit, _ingame_tutorial_active
+    global _ingame_tutorial_score_frozen, round_wins, round_losses
     if _ingame_tutorial_wait_first_hit and not _ingame_tutorial_completed:
         _ingame_tutorial_wait_first_hit = False
         _ingame_tutorial_active = True
+        # 튜토리얼 중 점수 고정 활성화
+        _ingame_tutorial_score_frozen = True
+        round_wins = 0
+        round_losses = 0
         # 튜토리얼 BGM 재생
         try:
             bgm_manager.bgm_manager.play_bgm('tutorial_genie')
@@ -106098,7 +106103,8 @@ def handle_ball():
                 animated_bg_stage2.set_expression('sad')
         else:
             # 튜토리얼 중이면 점수 고정 (0:0 유지)
-            if not _ingame_tutorial_score_frozen:
+            # 주니어리그에서 튜토리얼이 완료되지 않았으면 점수 증가 안함
+            if not _ingame_tutorial_score_frozen and not (ai_mode == "junior" and not _ingame_tutorial_completed):
                 round_wins += 1
             # 스테이지 1: 관중 흥분 트리거
             if current_stage == 1 and pillar_renderer is not None:
@@ -106561,7 +106567,8 @@ def handle_ball():
                 animated_bg_stage2.set_expression('happy')
         else:
             # 튜토리얼 중이면 점수 고정 (0:0 유지)
-            if not _ingame_tutorial_score_frozen:
+            # 주니어리그에서 튜토리얼이 완료되지 않았으면 점수 증가 안함
+            if not _ingame_tutorial_score_frozen and not (ai_mode == "junior" and not _ingame_tutorial_completed):
                 round_losses += 1
                 # 📜 퀘스트 추적: 보스 득점 기록
                 globals()['quest_stage_boss_score'] = globals().get('quest_stage_boss_score', 0) + 1
