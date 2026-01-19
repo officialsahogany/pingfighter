@@ -63761,7 +63761,7 @@ def check_skill_hover_for_tutorial():
     # 스킬 아이콘 호버 체크 (스매셔만)
     if globals().get('selected_character_type') == 'smasher':
         scale_factor = globals().get('GAME_SCALE_FACTOR', 1.0)
-        hovered_skill = get_smasher_skill_at_mouse(None, scale_factor)
+        hovered_skill = _check_smasher_skill_tooltip(None, scale_factor)
         if hovered_skill is not None:
             # 스킬 아이콘에 마우스를 올렸음 - 튜토리얼 진행
             hide_tutorial_action_gauge()  # 액션 게이지 숨기기
