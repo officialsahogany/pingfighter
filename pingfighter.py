@@ -65278,6 +65278,11 @@ def advance_ingame_tutorial():
         if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
             sound_effects["MISSION_CLEAR"].set_volume(0.6)
             sound_effects["MISSION_CLEAR"].play()
+        # 스테이지 BGM 복원
+        try:
+            bgm_manager.play_stage_bgm(1)  # 스테이지 1 BGM
+        except Exception as e:
+            print(f"[DEBUG] 스테이지 BGM 복원 실패: {e}")
         return  # 더 이상 진행하지 않음
 
     # wait_for가 있는 단계에서 아직 대기 상태가 아니면 대기 상태로 전환
@@ -65424,6 +65429,11 @@ def advance_ingame_tutorial():
             if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
                 sound_effects["MISSION_CLEAR"].set_volume(0.6)
                 sound_effects["MISSION_CLEAR"].play()
+            # 스테이지 BGM 복원
+            try:
+                bgm_manager.play_stage_bgm(1)  # 스테이지 1 BGM
+            except Exception as e:
+                print(f"[DEBUG] 스테이지 BGM 복원 실패: {e}")
 
 
 def on_player_dash_for_tutorial(is_half_dash: bool = False):
