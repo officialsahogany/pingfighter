@@ -63849,27 +63849,34 @@ def draw_tutorial_action_gauge():
 
     # 대쉬/하프대쉬일 때 키캡 설명 추가
     if _tutorial_action_gauge_type in ("dash", "half_dash"):
-        _draw_dash_keycap_hint(target_screen, gauge_x, gauge_y + gauge_height + 8, gauge_width)
+        _draw_dash_keycap_hint(target_screen, gauge_x, gauge_y + gauge_height + 8, gauge_width, _tutorial_action_gauge_type)
 
 
-def _draw_dash_keycap_hint(target_screen, x, y, width):
+def _draw_dash_keycap_hint(target_screen, x, y, width, gauge_type="dash"):
     """대쉬 조작법 키캡 힌트 그리기"""
-    # 배경 패널
-    hint_height = 50
+    # 하프대쉬는 추가 설명이 있어서 높이가 더 큼
+    is_half_dash = (gauge_type == "half_dash")
+    hint_height = 70 if is_half_dash else 50
+
     hint_surf = pygame.Surface((width, hint_height), pygame.SRCALPHA)
     pygame.draw.rect(hint_surf, (15, 25, 45, 200), (0, 0, width, hint_height), border_radius=8)
-    pygame.draw.rect(hint_surf, (60, 100, 160), (0, 0, width, hint_height), 2, border_radius=8)
+
+    # 하프대쉬는 주황색 테두리
+    border_color = (200, 140, 60) if is_half_dash else (60, 100, 160)
+    pygame.draw.rect(hint_surf, border_color, (0, 0, width, hint_height), 2, border_radius=8)
 
     # 폰트 설정
     try:
         key_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 12)
         small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+        tiny_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 9)
     except:
         key_font = pygame.freetype.SysFont("malgun gothic", 12)
         small_font = pygame.freetype.SysFont("malgun gothic", 10)
+        tiny_font = pygame.freetype.SysFont("malgun gothic", 9)
 
     # 첫 번째 줄: A 또는 D + S
-    line1_y = 10
+    line1_y = 8
     current_x = 10
 
     # "A" 키캡
@@ -63894,9 +63901,18 @@ def _draw_dash_keycap_hint(target_screen, x, y, width):
     _draw_keycap(hint_surf, current_x, line1_y, "S", key_font, highlight=True)
 
     # 두 번째 줄: 설명
-    desc_surf, _ = small_font.render("이동 중 S키로 대쉬!", (150, 200, 255))
+    desc_text = "이동 중 S키로 대쉬!"
+    desc_color = (255, 200, 100) if is_half_dash else (150, 200, 255)
+    desc_surf, _ = small_font.render(desc_text, desc_color)
     desc_x = (width - desc_surf.get_width()) // 2
-    hint_surf.blit(desc_surf, (desc_x, 32))
+    hint_surf.blit(desc_surf, (desc_x, 30))
+
+    # 하프대쉬일 때 추가 설명
+    if is_half_dash:
+        extra_text = "토큰 완충 전에 발동!"
+        extra_surf, _ = tiny_font.render(extra_text, (255, 180, 80))
+        extra_x = (width - extra_surf.get_width()) // 2
+        hint_surf.blit(extra_surf, (extra_x, 50))
 
     target_screen.blit(hint_surf, (x, y))
 
