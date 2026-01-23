@@ -4176,16 +4176,16 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
 
     y_offset = padding
 
-    # === 스킬명 (헤더) ===
+    # === 스킬명 (헤더 좌측) ===
     skill_name_text = skill_data["korean"]
     name_surface, name_rect = title_font.render(skill_name_text, (255, 255, 255))
     tooltip_surface.blit(name_surface, (padding, y_offset))
 
-    # 키 표시 (우측 상단)
-    key_text = f"[{skill_data['key']}]"
-    key_surface, key_rect = title_font.render(key_text, skill_data["color"])
-    key_x = tooltip_width - padding - key_rect.width
-    tooltip_surface.blit(key_surface, (key_x, y_offset))
+    # ACTIVE 라벨 (우측 상단) - 스크린샷과 동일하게
+    active_text = "ACTIVE"
+    active_surface, active_rect = title_font.render(active_text, (255, 120, 80))  # 주황색 계열
+    active_x = tooltip_width - padding - active_rect.width
+    tooltip_surface.blit(active_surface, (active_x, y_offset))
 
     y_offset += header_height + 6
 
@@ -4242,7 +4242,7 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     how_to_use = skill_data.get("how_to_use", "")
     if how_to_use:
         # 조작법 배경 박스 (파워스매싱은 2줄이라 더 높게)
-        how_to_box_height = 48 if how_to_use == "power_smashing" else 32
+        how_to_box_height = 52 if how_to_use == "power_smashing" else 32
         how_to_box = pygame.Rect(padding, y_offset, tooltip_width - padding * 2, how_to_box_height)
         pygame.draw.rect(tooltip_surface, (40, 45, 60, 200), how_to_box, border_radius=4)
         pygame.draw.rect(tooltip_surface, (*skill_data["color"][:3], 80), how_to_box, 1, border_radius=4)
@@ -4279,13 +4279,8 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
             _draw_mouse_left_click_icon(tooltip_surface, render_x, render_y + 2, 18, highlighted=True)
 
         elif how_to_use == "power_smashing":
-            # 파워스매싱: 2줄로 표시
-            # 1줄: A/D + 마우스홀드 = 원하는 방향
-            text1_surface, _ = small_font.render("▶ ", skill_data["color"])
-            tooltip_surface.blit(text1_surface, (render_x, render_y + 2))
-            render_x += text1_surface.get_width()
-
-            # A 키
+            # 파워스매싱: 2줄로 표시 (스크린샷과 동일하게)
+            # 1줄: A/D + 마우스홀드 = 홀드
             _draw_key_box(tooltip_surface, render_x, render_y - 1, "A", small_font)
             render_x += 20
 
@@ -4303,7 +4298,7 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
             tooltip_surface.blit(plus_surface, (render_x, render_y + 2))
             render_x += 12
 
-            # 마우스 홀드
+            # 마우스 홀드 아이콘
             _draw_mouse_left_click_icon(tooltip_surface, render_x, render_y, 16, highlighted=True)
             render_x += 20
 
@@ -4311,11 +4306,20 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
             hold_surface, _ = small_font.render("홀드", (255, 200, 100))
             tooltip_surface.blit(hold_surface, (render_x, render_y + 2))
 
-            # 2줄: 방향키 없이 = 반대 방향
+            # 2줄: 단독 + 마우스 홀드 → 피격 부위 반대 방향으로 발동
             render_x2 = padding + 8
-            render_y2 = render_y + 16
-            tip_surface, _ = small_font.render("※ 방향키 없이 → 공의 반대 방향으로 발동", (180, 180, 180))
-            tooltip_surface.blit(tip_surface, (render_x2, render_y2))
+            render_y2 = render_y + 20
+            tip_prefix, _ = small_font.render("※ 단독 ", (180, 180, 180))
+            tooltip_surface.blit(tip_prefix, (render_x2, render_y2 + 2))
+            render_x2 += tip_prefix.get_width()
+
+            # 마우스 아이콘
+            _draw_mouse_left_click_icon(tooltip_surface, render_x2, render_y2, 14, highlighted=True)
+            render_x2 += 18
+
+            # 홀드 → 설명
+            tip_suffix, _ = small_font.render("홀드 → 피격 부위 반대 방향으로 발동", (180, 180, 180))
+            tooltip_surface.blit(tip_suffix, (render_x2, render_y2 + 2))
 
         else:
             # 일반 텍스트 조작법
@@ -4511,180 +4515,717 @@ def _draw_skill_effect_preview(surface: pygame.Surface, effect_type: str, color:
         _draw_mini_star(surface, center_x, center_y, int(12 * star_scale), color)
 
     elif effect_type == "drive_curve":
-        # 드라이브: 인게임과 동일한 드라이브 모니터 + 커브샷 프리뷰
-        # 애니메이션 단계: 0~0.4 공 내려옴 + 드라이브 모니터 표시, 0.4~1.0 커브샷 발동
+        # 드라이브: 인게임과 동일한 고퀄리티 캐릭터 + 커브샷 + 무지개색 공
+        # 타이밍: 0~0.3 공 다가옴 + 모니터, 0.3~0.5 준비자세, 0.5~1.0 커브샷 발동
 
-        # 공 위치 (중앙 기준)
-        ball_radius = 8
-        ball_base_y = center_y + 5
+        # === 미리보기 영역 설정 ===
+        preview_top = center_y - 42
+        preview_bottom = center_y + 42
 
-        if progress < 0.4:
-            # === 단계 1: 공이 내려오고 드라이브 모니터 표시 ===
-            phase = progress / 0.4
+        ball_radius = 6  # 공 크기 (인게임 비율)
 
-            # 공이 위에서 내려옴
-            ball_y = center_y - 30 + int(35 * phase)
+        # 시간 기반 애니메이션
+        time_ms = pygame.time.get_ticks()
+        cycle_progress = (time_ms % 3000) / 3000.0  # 3초 주기
+        is_left_cycle = cycle_progress < 0.5
+        local_progress = (cycle_progress % 0.5) * 2  # 0~1 범위
+
+        # [A] = 왼쪽(-1), [D] = 오른쪽(+1)
+        curve_direction = -1 if is_left_cycle else 1
+        key_text = "A" if is_left_cycle else "D"
+
+        # === 캐릭터 설정 (파워스매싱과 동일) ===
+        char_x = center_x
+        char_y = preview_bottom - 2
+        block = 4
+
+        # 인게임과 동일한 팔레트
+        palette = {
+            "helmet": (70, 102, 162),
+            "helmet_side": (58, 82, 136),
+            "helmet_high": (148, 182, 236),
+            "visor": (170, 224, 255),
+            "visor_core": (126, 192, 246),
+            "armor_outer": (80, 96, 150),
+            "armor_mid": (60, 76, 120),
+            "armor_inner": (46, 58, 92),
+            "trim": (190, 206, 236),
+            "accent": (118, 214, 255),
+            "undersuit": (36, 40, 58),
+            "arm_light": (132, 152, 204),
+            "glove": (198, 182, 164),
+            "paddle": (220, 56, 74),
+            "paddle_core": (244, 116, 132),
+            "paddle_shadow": (154, 42, 58),
+            "handle": (174, 132, 98),
+            "belt": (88, 78, 108),
+        }
+
+        def draw_smasher_drive(surf, cx, cy, b, direction, swing_ratio=0.0):
+            """드라이브용 미니 스매셔 (파워스매싱과 동일 구조, 팔 스윙 모션 포함)"""
+            torso_y = cy - int(1.5 * b)
+            arm_swing = int(swing_ratio * 1.2 * b)  # 팔 스윙 정도
+
+            # === 헬멧 ===
+            helmet_w = int(2.7 * b)
+            helmet_h = int(2.2 * b)
+            helmet_rect = pygame.Rect(cx - helmet_w // 2, torso_y - int(3.1 * b), helmet_w, helmet_h)
+            pygame.draw.ellipse(surf, palette["helmet"], helmet_rect)
+
+            side_w = int(0.8 * b)
+            side_h = int(1.4 * b)
+            pygame.draw.ellipse(surf, palette["helmet_side"],
+                              (helmet_rect.left - int(0.5 * b), helmet_rect.centery - int(0.5 * b), side_w, side_h))
+            pygame.draw.ellipse(surf, palette["helmet_side"],
+                              (helmet_rect.right - int(0.3 * b), helmet_rect.centery - int(0.5 * b), side_w, side_h))
+
+            visor_rect = pygame.Rect(cx - int(0.9 * b), helmet_rect.centery - int(0.1 * b), int(1.8 * b), int(0.9 * b))
+            pygame.draw.ellipse(surf, palette["visor"], visor_rect)
+            pygame.draw.ellipse(surf, palette["visor_core"], visor_rect.inflate(-int(0.4 * b), -int(0.3 * b)))
+
+            pygame.draw.ellipse(surf, palette["helmet_high"], helmet_rect.inflate(-int(1.2 * b), -int(1.0 * b)), 1)
+            ridge_w = max(1, int(0.4 * b))
+            pygame.draw.rect(surf, palette["helmet_high"],
+                           (cx - ridge_w // 2, helmet_rect.top + int(0.2 * b), ridge_w, int(1.5 * b)), border_radius=1)
+
+            # === 몸통 ===
+            torso_width = int(3.4 * b)
+            chest_height = int(2.2 * b)
+            chest_rect = pygame.Rect(cx - torso_width // 2, torso_y - int(0.4 * b), torso_width, chest_height)
+            pygame.draw.rect(surf, palette["armor_outer"], chest_rect, border_radius=max(1, int(0.6 * b)))
+
+            mid_rect = chest_rect.inflate(-int(0.5 * b), -int(0.4 * b))
+            pygame.draw.rect(surf, palette["armor_mid"], mid_rect, border_radius=max(1, int(0.5 * b)))
+
+            inner_panel = mid_rect.inflate(-int(0.5 * b), -int(0.3 * b))
+            pygame.draw.rect(surf, palette["armor_inner"], inner_panel, border_radius=max(1, int(0.3 * b)))
+            pygame.draw.rect(surf, palette["trim"], chest_rect, 1, border_radius=max(1, int(0.6 * b)))
+            pygame.draw.line(surf, palette["accent"], (cx, inner_panel.top + int(0.2 * b)),
+                           (cx, inner_panel.bottom - int(0.2 * b)), max(1, int(0.15 * b)))
+
+            # === 하체 ===
+            abs_rect = pygame.Rect(cx - int(1.1 * b), inner_panel.bottom - int(0.1 * b), int(2.2 * b), int(1.2 * b))
+            pygame.draw.rect(surf, palette["undersuit"], abs_rect, border_radius=max(1, int(0.2 * b)))
+            belt_rect = pygame.Rect(cx - int(1.8 * b), abs_rect.bottom - int(0.1 * b), int(3.6 * b), int(0.7 * b))
+            pygame.draw.rect(surf, palette["belt"], belt_rect, border_radius=1)
+
+            # === 어깨 갑옷 ===
+            left_pauldron = [
+                (cx - int(2.0 * b), torso_y - int(0.4 * b)),
+                (cx - int(1.1 * b), torso_y - int(0.8 * b)),
+                (cx - int(0.8 * b), torso_y + int(0.7 * b)),
+                (cx - int(1.9 * b), torso_y + int(0.8 * b)),
+            ]
+            pygame.draw.polygon(surf, palette["armor_mid"], left_pauldron)
+            pygame.draw.line(surf, palette["trim"], left_pauldron[0], left_pauldron[1], max(1, int(0.15 * b)))
+
+            right_pauldron = [
+                (cx + int(2.0 * b), torso_y - int(0.4 * b)),
+                (cx + int(1.1 * b), torso_y - int(0.8 * b)),
+                (cx + int(0.8 * b), torso_y + int(0.7 * b)),
+                (cx + int(1.9 * b), torso_y + int(0.8 * b)),
+            ]
+            pygame.draw.polygon(surf, palette["armor_mid"], right_pauldron)
+            pygame.draw.line(surf, palette["trim"], right_pauldron[0], right_pauldron[1], max(1, int(0.15 * b)))
+
+            # === 팔 (스윙 모션 적용) ===
+            # 왼쪽 팔 (라켓 들고 있음 - 스윙 방향에 따라 움직임)
+            left_shoulder = (cx - int(1.6 * b), torso_y)
+            left_swing_offset = arm_swing if direction == -1 else 0
+            left_elbow = (left_shoulder[0] - int(0.9 * b) - left_swing_offset,
+                         torso_y + int(0.1 * b))
+            left_wrist = (left_elbow[0] - int(0.7 * b) - left_swing_offset,
+                         torso_y - int(0.3 * b) - (int(0.8 * b) if direction == -1 and swing_ratio > 0 else 0))
+
+            pygame.draw.line(surf, palette["arm_light"], left_shoulder, left_elbow, max(2, int(0.8 * b)))
+            pygame.draw.line(surf, palette["armor_mid"], left_shoulder, left_elbow, max(1, int(0.6 * b)))
+            pygame.draw.line(surf, palette["arm_light"], left_elbow, left_wrist, max(2, int(0.7 * b)))
+            pygame.draw.circle(surf, palette["glove"], left_wrist, max(2, int(0.4 * b)))
+
+            # 오른쪽 팔 (스윙 방향에 따라 움직임)
+            right_shoulder = (cx + int(1.6 * b), torso_y)
+            right_swing_offset = arm_swing if direction == 1 else 0
+            right_elbow = (right_shoulder[0] + int(0.9 * b) + right_swing_offset,
+                          torso_y + int(0.1 * b))
+            right_wrist = (right_elbow[0] + int(0.7 * b) + right_swing_offset,
+                          torso_y - int(0.3 * b) - (int(0.8 * b) if direction == 1 and swing_ratio > 0 else 0))
+
+            pygame.draw.line(surf, palette["arm_light"], right_shoulder, right_elbow, max(2, int(0.8 * b)))
+            pygame.draw.line(surf, palette["armor_mid"], right_shoulder, right_elbow, max(1, int(0.6 * b)))
+            pygame.draw.line(surf, palette["arm_light"], right_elbow, right_wrist, max(2, int(0.7 * b)))
+            pygame.draw.circle(surf, palette["glove"], right_wrist, max(2, int(0.4 * b)))
+
+            # === 오른손 에너지 쉴드 (오각형) ===
+            shield_radius = int(1.8 * b)
+            shield_cx = right_wrist[0] + int(0.5 * b)
+            shield_cy = right_wrist[1] - int(0.3 * b)
+
+            # 오각형 점 계산 함수
+            def pentagon_points(cx, cy, radius, rotation_deg=-90):
+                points = []
+                for i in range(5):
+                    angle = math.radians(rotation_deg + i * 72)
+                    px = cx + radius * math.cos(angle)
+                    py = cy + radius * math.sin(angle)
+                    points.append((int(px), int(py)))
+                return points
+
+            # 쉴드 글로우 (외곽)
+            glow_points = pentagon_points(shield_cx, shield_cy, shield_radius * 1.1)
+            pygame.draw.polygon(surf, (70, 160, 255), glow_points)
+
+            # 쉴드 링 (테두리)
+            ring_points = pentagon_points(shield_cx, shield_cy, shield_radius)
+            pygame.draw.polygon(surf, (120, 210, 255), ring_points, max(1, int(0.3 * b)))
+
+            # 쉴드 코어 (중앙)
+            core_points = pentagon_points(shield_cx, shield_cy, shield_radius * 0.5)
+            pygame.draw.polygon(surf, (200, 252, 255), core_points)
+
+            # 쉴드 하이라이트
+            highlight_points = pentagon_points(shield_cx, shield_cy, shield_radius * 0.8)
+            pygame.draw.lines(surf, (180, 240, 255), True, highlight_points, 1)
+
+            # === 라켓 (왼손에 - 스윙 모션 적용) ===
+            racket_offset_y = -int(1.0 * b) - (int(0.5 * b) if swing_ratio > 0 else 0)
+            handle_end = (left_wrist[0] - int(0.3 * b), left_wrist[1] + racket_offset_y)
+            pygame.draw.line(surf, palette["handle"], left_wrist, handle_end, max(2, int(0.35 * b)))
+
+            paddle_cx = handle_end[0] - int(0.8 * b)
+            paddle_cy = handle_end[1] - int(0.3 * b)
+            paddle_r = int(1.5 * b)
+            pygame.draw.circle(surf, palette["paddle_shadow"], (paddle_cx + 1, paddle_cy + 1), paddle_r)
+            pygame.draw.circle(surf, palette["paddle"], (paddle_cx, paddle_cy), paddle_r)
+            pygame.draw.circle(surf, palette["paddle_core"], (paddle_cx, paddle_cy), max(1, paddle_r - int(0.25 * b)))
+
+        def get_rainbow_color(t):
+            """무지개색 계산 (t: 0~1)"""
+            hue = (t * 360) % 360
+            # HSV to RGB 변환 (간단 버전)
+            c = 1.0
+            x = 1.0 - abs((hue / 60) % 2 - 1)
+            if hue < 60:
+                r, g, b = c, x, 0
+            elif hue < 120:
+                r, g, b = x, c, 0
+            elif hue < 180:
+                r, g, b = 0, c, x
+            elif hue < 240:
+                r, g, b = 0, x, c
+            elif hue < 300:
+                r, g, b = x, 0, c
+            else:
+                r, g, b = c, 0, x
+            return (int(r * 255), int(g * 255), int(b * 255))
+
+        # === 캐릭터 상단 위치 ===
+        char_top = char_y - int(4.5 * block)
+
+        if local_progress < 0.3:
+            # === 단계 1: 공이 다가옴 + Drive 모니터 ===
+            phase = local_progress / 0.3
+            ball_start_y = preview_top - 5
+            ball_end_y = char_top - int(2 * block)
+            ball_y = ball_start_y + int((ball_end_y - ball_start_y) * phase)
             ball_x = center_x
 
-            # 공 그리기 (인게임 에너지볼 스타일 - 파란색)
-            pygame.draw.circle(surface, (60, 140, 220), (ball_x, ball_y), ball_radius + 2)
+            # 캐릭터 그리기 (대기 자세)
+            draw_smasher_drive(surface, char_x, char_y, block, curve_direction, swing_ratio=0.0)
+
+            # 에너지볼 (파란색)
+            for i in range(3):
+                glow_r = ball_radius + 3 - i
+                pygame.draw.circle(surface, (30 + i*15, 80 + i*25, 180 + i*15), (ball_x, ball_y), glow_r)
             pygame.draw.circle(surface, (100, 180, 255), (ball_x, ball_y), ball_radius)
-            pygame.draw.circle(surface, (200, 230, 255), (ball_x - 2, ball_y - 2), 3)
+            pygame.draw.circle(surface, (200, 235, 255), (ball_x - 1, ball_y - 1), 2)
 
-            # 드라이브 모니터 (인게임과 동일: 노란색 원, 두께 3, 펄싱)
-            monitor_pulse = 1.0 + 0.15 * math.sin(phase * math.pi * 6)
-            monitor_radius = int(22 * monitor_pulse)
-            pygame.draw.circle(surface, (255, 255, 0), (ball_x, ball_y), monitor_radius, 3)
+            # Drive 모니터 (노란색)
+            if phase > 0.4:
+                monitor_pulse = 1.0 + 0.1 * math.sin(time_ms * 0.015)
+                monitor_radius = int(14 * monitor_pulse)
+                pygame.draw.circle(surface, (255, 255, 0), (ball_x, ball_y), monitor_radius, 2)
 
-            # "Drive!" 텍스트 (인게임과 동일: 노란색, 공 위에 표시)
-            # 간단한 텍스트 표현 (작은 점들로)
-            text_y = ball_y - monitor_radius - 12
-            # D
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x - 20, text_y, 2, 8))
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x - 20, text_y, 5, 2))
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x - 20, text_y + 6, 5, 2))
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x - 16, text_y + 2, 2, 4))
-            # r
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x - 12, text_y + 3, 2, 5))
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x - 10, text_y + 3, 3, 2))
-            # i
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x - 5, text_y + 1, 2, 2))
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x - 5, text_y + 4, 2, 4))
-            # v
-            pygame.draw.line(surface, (255, 255, 0), (ball_x, text_y + 3), (ball_x + 2, text_y + 8), 2)
-            pygame.draw.line(surface, (255, 255, 0), (ball_x + 4, text_y + 3), (ball_x + 2, text_y + 8), 2)
-            # e
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x + 7, text_y + 3, 4, 2))
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x + 7, text_y + 5, 3, 2))
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x + 7, text_y + 7, 4, 1))
-            # !
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x + 14, text_y + 1, 2, 5))
-            pygame.draw.rect(surface, (255, 255, 0), (ball_x + 14, text_y + 7, 2, 2))
+        elif local_progress < 0.5:
+            # === 단계 2: 준비 자세 + 키캡 표시 ===
+            phase = (local_progress - 0.3) / 0.2
+            ball_y = char_top - int(2 * block)
+            ball_x = center_x
+
+            # 캐릭터 그리기 (준비 자세)
+            draw_smasher_drive(surface, char_x, char_y, block, curve_direction, swing_ratio=0.0)
+
+            # Drive 모니터 (강한 펄싱)
+            monitor_pulse = 1.0 + 0.15 * math.sin(time_ms * 0.02)
+            monitor_radius = int(15 * monitor_pulse)
+            pygame.draw.circle(surface, (255, 255, 0), (ball_x, ball_y), monitor_radius, 2)
+
+            # 에너지볼
+            for i in range(3):
+                glow_r = ball_radius + 3 - i
+                pygame.draw.circle(surface, (30 + i*15, 80 + i*25, 180 + i*15), (ball_x, ball_y), glow_r)
+            pygame.draw.circle(surface, (100, 180, 255), (ball_x, ball_y), ball_radius)
+            pygame.draw.circle(surface, (200, 235, 255), (ball_x - 1, ball_y - 1), 2)
+
+            # 키캡 표시 (캐릭터 왼쪽에 배치)
+            keycap_x = center_x - 55
+            keycap_y = char_y - int(2 * block)
+
+            # 키캡 배경 박스
+            key_box_w = 16
+            key_box_h = 14
+            pygame.draw.rect(surface, (25, 30, 40), (keycap_x - key_box_w//2, keycap_y - key_box_h//2, key_box_w, key_box_h), border_radius=3)
+            pygame.draw.rect(surface, (70, 75, 85), (keycap_x - key_box_w//2, keycap_y - key_box_h//2, key_box_w, key_box_h), 1, border_radius=3)
+            pygame.draw.rect(surface, (45, 50, 60), (keycap_x - key_box_w//2 + 2, keycap_y - key_box_h//2 + 2, key_box_w - 4, key_box_h - 6), border_radius=2)
+
+            # A 또는 D 글자 (픽셀 폰트)
+            if key_text == "A":
+                ax, ay = keycap_x - 3, keycap_y - 4
+                pygame.draw.rect(surface, (255, 255, 255), (ax + 1, ay, 3, 1))
+                pygame.draw.rect(surface, (255, 255, 255), (ax, ay + 1, 1, 6))
+                pygame.draw.rect(surface, (255, 255, 255), (ax + 4, ay + 1, 1, 6))
+                pygame.draw.rect(surface, (255, 255, 255), (ax + 1, ay + 3, 3, 1))
+            else:
+                dx, dy = keycap_x - 3, keycap_y - 4
+                pygame.draw.rect(surface, (255, 255, 255), (dx, dy, 1, 7))
+                pygame.draw.rect(surface, (255, 255, 255), (dx + 1, dy, 2, 1))
+                pygame.draw.rect(surface, (255, 255, 255), (dx + 1, dy + 6, 2, 1))
+                pygame.draw.rect(surface, (255, 255, 255), (dx + 3, dy + 1, 1, 2))
+                pygame.draw.rect(surface, (255, 255, 255), (dx + 4, dy + 2, 1, 3))
+                pygame.draw.rect(surface, (255, 255, 255), (dx + 3, dy + 4, 1, 2))
 
         else:
-            # === 단계 2: 커브샷 발동 (좌/우 번갈아) ===
-            phase = (progress - 0.4) / 0.6
-            curve_direction = 1 if int(progress * 4) % 2 == 0 else -1
+            # === 단계 3: 커브샷 발동 (무지개색 공) ===
+            phase = (local_progress - 0.5) / 0.5
+            ease_phase = 1.0 - (1.0 - phase) ** 2.5
 
-            # 공이 커브를 그리며 위로 올라감
-            ball_y = ball_base_y - int(40 * phase)
-            curve_amount = 35 * math.sin(phase * math.pi)
+            # 캐릭터 그리기 (스윙 모션)
+            draw_smasher_drive(surface, char_x, char_y, block, curve_direction, swing_ratio=min(1.0, phase * 2))
+
+            # 커브 궤적 계산 (사인 곡선으로 휘어짐)
+            start_x = center_x
+            start_y = char_top - int(2 * block)
+            end_y = preview_top + 5
+
+            # 커브 궤적 - 휘어지는 곡선
+            curve_amount = 40 * math.sin(ease_phase * math.pi)  # 사인 곡선
             ball_x = center_x + int(curve_direction * curve_amount)
+            ball_y = start_y + int((end_y - start_y) * ease_phase)
 
-            # 커브 궤적 트레일
-            for t in range(8):
-                t_phase = phase * (t / 8)
-                t_y = ball_base_y - int(40 * t_phase)
-                t_curve = 35 * math.sin(t_phase * math.pi)
-                t_x = center_x + int(curve_direction * t_curve)
-                trail_alpha = int(150 * (t / 8))
-                trail_size = 2 + int(3 * (t / 8))
-                pygame.draw.circle(surface, (255, 220, 50, trail_alpha), (t_x, t_y), trail_size)
+            # 무지개색 커브 트레일
+            num_trails = 12
+            for i in range(num_trails):
+                t = max(0, ease_phase - i * 0.07)
+                if t > 0:
+                    t_curve = 40 * math.sin(t * math.pi)
+                    trail_x = center_x + int(curve_direction * t_curve)
+                    trail_y = start_y + int((end_y - start_y) * t)
+                    trail_size = max(2, ball_radius - i * 0.4)
 
-            # 공 그리기 (드라이브 활성화 - 연두색/노란색)
-            pygame.draw.circle(surface, (180, 255, 80), (ball_x, ball_y), ball_radius + 3)
-            pygame.draw.circle(surface, (220, 255, 120), (ball_x, ball_y), ball_radius)
-            pygame.draw.circle(surface, (255, 255, 200), (ball_x - 2, ball_y - 2), 3)
+                    # 무지개색 (시간 + 위치 기반)
+                    rainbow_t = (time_ms * 0.003 + i * 0.1) % 1.0
+                    trail_color = get_rainbow_color(rainbow_t)
+                    pygame.draw.circle(surface, trail_color, (trail_x, trail_y), int(trail_size))
 
-            # 방향 표시 (A 또는 D)
-            key_text = "A" if curve_direction == -1 else "D"
-            key_x = center_x + curve_direction * 50
-            key_y = center_y + 20
-            pygame.draw.rect(surface, (70, 70, 80), (key_x - 8, key_y - 6, 16, 14), border_radius=2)
-            pygame.draw.rect(surface, (150, 150, 160), (key_x - 8, key_y - 6, 16, 14), 1, border_radius=2)
-            # 간단한 A/D 표시
-            if key_text == "A":
-                pygame.draw.polygon(surface, (255, 255, 255), [(key_x, key_y - 3), (key_x - 4, key_y + 4), (key_x + 4, key_y + 4)])
-                pygame.draw.line(surface, (255, 255, 255), (key_x - 2, key_y + 1), (key_x + 2, key_y + 1), 1)
-            else:
-                pygame.draw.rect(surface, (255, 255, 255), (key_x - 3, key_y - 3, 2, 8))
-                pygame.draw.arc(surface, (255, 255, 255), (key_x - 3, key_y - 3, 8, 8), -1.5, 1.5, 2)
+            # 메인 공 (무지개색 글로우)
+            rainbow_base = (time_ms * 0.005) % 1.0
+            for i in range(4):
+                glow_r = ball_radius + 5 - i
+                glow_color = get_rainbow_color((rainbow_base + i * 0.1) % 1.0)
+                pygame.draw.circle(surface, glow_color, (ball_x, ball_y), glow_r)
+
+            # 공 중심 (밝은 흰색)
+            pygame.draw.circle(surface, (255, 255, 255), (ball_x, ball_y), ball_radius - 1)
+            pygame.draw.circle(surface, (255, 255, 230), (ball_x - 1, ball_y - 1), 2)
 
     elif effect_type == "smash_orange":
-        # 파워스매싱: 인게임과 동일한 빨간색 드라이브 모니터 + 강력한 스매시
-        # 애니메이션 단계: 0~0.5 드라이브 모니터(빨간색) 표시, 0.5~1.0 스매시 발동
+        # 파워스매싱: 인게임과 동일한 고퀄리티 캐릭터 + 공 + 스매시 궤적
+        # 타이밍: 0~0.3 공 다가옴 + 모니터, 0.3~0.5 준비자세, 0.5~1.0 스매시 발동
 
-        ball_radius = 8
-        ball_base_y = center_y + 5
+        # === 미리보기 영역 설정 ===
+        preview_top = center_y - 42
+        preview_bottom = center_y + 42
 
-        if progress < 0.5:
-            # === 단계 1: 공이 내려오고 빨간색 드라이브 모니터 표시 (파워스매싱 준비) ===
-            phase = progress / 0.5
+        ball_radius = 6  # 공 크기 (인게임 비율)
 
-            # 공이 위에서 내려옴
-            ball_y = center_y - 30 + int(35 * phase)
+        # 시간 기반 애니메이션 (3가지 모션: A 대각선, D 대각선, 홀드만 직선)
+        time_ms = pygame.time.get_ticks()
+        cycle_progress = (time_ms % 4500) / 4500.0  # 4.5초 주기 (3가지 모션)
+
+        # 3가지 모션 사이클: 0~0.33 A 대각선, 0.33~0.66 D 대각선, 0.66~1.0 홀드만 직선
+        if cycle_progress < 0.333:
+            motion_type = "left"  # A키 대각선
+            smash_direction = -1
+            key_text = "A"
+            local_progress = (cycle_progress / 0.333)
+        elif cycle_progress < 0.666:
+            motion_type = "right"  # D키 대각선
+            smash_direction = 1
+            key_text = "D"
+            local_progress = ((cycle_progress - 0.333) / 0.333)
+        else:
+            motion_type = "straight"  # 홀드만 직선 위로
+            smash_direction = 0
+            key_text = None  # 방향키 없음
+            local_progress = ((cycle_progress - 0.666) / 0.334)
+
+        # === 캐릭터 설정 (인게임과 동일한 비율) ===
+        char_x = center_x
+        char_y = preview_bottom - 2
+        block = 4  # 인게임 block=9의 축소 버전
+
+        # 인게임과 동일한 팔레트
+        palette = {
+            "helmet": (70, 102, 162),
+            "helmet_side": (58, 82, 136),
+            "helmet_high": (148, 182, 236),
+            "face": (212, 196, 176),
+            "visor": (170, 224, 255),
+            "visor_core": (126, 192, 246),
+            "armor_outer": (80, 96, 150),
+            "armor_mid": (60, 76, 120),
+            "armor_inner": (46, 58, 92),
+            "trim": (190, 206, 236),
+            "accent": (118, 214, 255),
+            "accent_core": (82, 178, 248),
+            "undersuit": (36, 40, 58),
+            "arm_light": (132, 152, 204),
+            "glove": (198, 182, 164),
+            "paddle": (220, 56, 74),
+            "paddle_core": (244, 116, 132),
+            "paddle_shadow": (154, 42, 58),
+            "handle": (174, 132, 98),
+            "handle_core": (206, 166, 128),
+            "belt": (88, 78, 108),
+            "outline": (20, 24, 36),
+        }
+
+        def draw_smasher_hq(surf, cx, cy, b, direction, swing_ratio=0.0):
+            """고퀄리티 미니 스매셔 (인게임 create_smasher_paddle_surface 기반)"""
+            torso_y = cy - int(1.5 * b)
+
+            # === 헬멧 ===
+            helmet_w = int(2.7 * b)
+            helmet_h = int(2.2 * b)
+            helmet_rect = pygame.Rect(cx - helmet_w // 2, torso_y - int(3.1 * b), helmet_w, helmet_h)
+            pygame.draw.ellipse(surf, palette["helmet"], helmet_rect)
+
+            # 헬멧 사이드
+            side_w = int(0.8 * b)
+            side_h = int(1.4 * b)
+            pygame.draw.ellipse(surf, palette["helmet_side"],
+                              (helmet_rect.left - int(0.5 * b), helmet_rect.centery - int(0.5 * b), side_w, side_h))
+            pygame.draw.ellipse(surf, palette["helmet_side"],
+                              (helmet_rect.right - int(0.3 * b), helmet_rect.centery - int(0.5 * b), side_w, side_h))
+
+            # 바이저
+            visor_rect = pygame.Rect(cx - int(0.9 * b), helmet_rect.centery - int(0.1 * b), int(1.8 * b), int(0.9 * b))
+            pygame.draw.ellipse(surf, palette["visor"], visor_rect)
+            pygame.draw.ellipse(surf, palette["visor_core"], visor_rect.inflate(-int(0.4 * b), -int(0.3 * b)))
+
+            # 헬멧 하이라이트
+            pygame.draw.ellipse(surf, palette["helmet_high"], helmet_rect.inflate(-int(1.2 * b), -int(1.0 * b)), 1)
+
+            # 헬멧 릿지
+            ridge_w = max(1, int(0.4 * b))
+            pygame.draw.rect(surf, palette["helmet_high"],
+                           (cx - ridge_w // 2, helmet_rect.top + int(0.2 * b), ridge_w, int(1.5 * b)), border_radius=1)
+
+            # === 몸통 ===
+            torso_width = int(3.4 * b)
+            chest_height = int(2.2 * b)
+            chest_rect = pygame.Rect(cx - torso_width // 2, torso_y - int(0.4 * b), torso_width, chest_height)
+            pygame.draw.rect(surf, palette["armor_outer"], chest_rect, border_radius=max(1, int(0.6 * b)))
+
+            mid_rect = chest_rect.inflate(-int(0.5 * b), -int(0.4 * b))
+            pygame.draw.rect(surf, palette["armor_mid"], mid_rect, border_radius=max(1, int(0.5 * b)))
+
+            inner_panel = mid_rect.inflate(-int(0.5 * b), -int(0.3 * b))
+            pygame.draw.rect(surf, palette["armor_inner"], inner_panel, border_radius=max(1, int(0.3 * b)))
+
+            # 트림 라인
+            pygame.draw.rect(surf, palette["trim"], chest_rect, 1, border_radius=max(1, int(0.6 * b)))
+
+            # 가슴 액센트 라인
+            pygame.draw.line(surf, palette["accent"], (cx, inner_panel.top + int(0.2 * b)),
+                           (cx, inner_panel.bottom - int(0.2 * b)), max(1, int(0.15 * b)))
+
+            # === 하체 ===
+            abs_rect = pygame.Rect(cx - int(1.1 * b), inner_panel.bottom - int(0.1 * b), int(2.2 * b), int(1.2 * b))
+            pygame.draw.rect(surf, palette["undersuit"], abs_rect, border_radius=max(1, int(0.2 * b)))
+
+            # 벨트
+            belt_rect = pygame.Rect(cx - int(1.8 * b), abs_rect.bottom - int(0.1 * b), int(3.6 * b), int(0.7 * b))
+            pygame.draw.rect(surf, palette["belt"], belt_rect, border_radius=1)
+
+            # === 어깨 갑옷 ===
+            # 왼쪽 어깨
+            left_pauldron = [
+                (cx - int(2.0 * b), torso_y - int(0.4 * b)),
+                (cx - int(1.1 * b), torso_y - int(0.8 * b)),
+                (cx - int(0.8 * b), torso_y + int(0.7 * b)),
+                (cx - int(1.9 * b), torso_y + int(0.8 * b)),
+            ]
+            pygame.draw.polygon(surf, palette["armor_mid"], left_pauldron)
+            pygame.draw.line(surf, palette["trim"], left_pauldron[0], left_pauldron[1], max(1, int(0.15 * b)))
+
+            # 오른쪽 어깨
+            right_pauldron = [
+                (cx + int(2.0 * b), torso_y - int(0.4 * b)),
+                (cx + int(1.1 * b), torso_y - int(0.8 * b)),
+                (cx + int(0.8 * b), torso_y + int(0.7 * b)),
+                (cx + int(1.9 * b), torso_y + int(0.8 * b)),
+            ]
+            pygame.draw.polygon(surf, palette["armor_mid"], right_pauldron)
+            pygame.draw.line(surf, palette["trim"], right_pauldron[0], right_pauldron[1], max(1, int(0.15 * b)))
+
+            # === 팔과 라켓 ===
+            arm_swing = int(swing_ratio * 1.2 * b)
+
+            # 왼쪽 팔
+            left_shoulder = (cx - int(1.6 * b), torso_y)
+            left_elbow = (left_shoulder[0] - int(0.9 * b) - (arm_swing if direction == -1 else 0),
+                         torso_y + int(0.1 * b))
+            left_wrist = (left_elbow[0] - int(0.7 * b) - (arm_swing if direction == -1 else 0),
+                         torso_y - int(0.3 * b) - (int(0.8 * b) if direction == -1 and swing_ratio > 0 else 0))
+
+            pygame.draw.line(surf, palette["arm_light"], left_shoulder, left_elbow, max(2, int(0.8 * b)))
+            pygame.draw.line(surf, palette["armor_mid"], left_shoulder, left_elbow, max(1, int(0.6 * b)))
+            pygame.draw.line(surf, palette["arm_light"], left_elbow, left_wrist, max(2, int(0.7 * b)))
+            pygame.draw.circle(surf, palette["glove"], left_wrist, max(2, int(0.4 * b)))
+
+            # 오른쪽 팔
+            right_shoulder = (cx + int(1.6 * b), torso_y)
+            right_elbow = (right_shoulder[0] + int(0.9 * b) + (arm_swing if direction == 1 else 0),
+                          torso_y + int(0.1 * b))
+            right_wrist = (right_elbow[0] + int(0.7 * b) + (arm_swing if direction == 1 else 0),
+                          torso_y - int(0.3 * b) - (int(0.8 * b) if direction == 1 and swing_ratio > 0 else 0))
+
+            pygame.draw.line(surf, palette["arm_light"], right_shoulder, right_elbow, max(2, int(0.8 * b)))
+            pygame.draw.line(surf, palette["armor_mid"], right_shoulder, right_elbow, max(1, int(0.6 * b)))
+            pygame.draw.line(surf, palette["arm_light"], right_elbow, right_wrist, max(2, int(0.7 * b)))
+            pygame.draw.circle(surf, palette["glove"], right_wrist, max(2, int(0.4 * b)))
+
+            # === 오른손 에너지 쉴드 (오각형) ===
+            shield_radius = int(1.8 * b)
+            shield_cx = right_wrist[0] + int(0.5 * b)
+            shield_cy = right_wrist[1] - int(0.3 * b)
+
+            # 오각형 점 계산 함수
+            def pentagon_points(cx, cy, radius, rotation_deg=-90):
+                points = []
+                for i in range(5):
+                    angle = math.radians(rotation_deg + i * 72)
+                    px = cx + radius * math.cos(angle)
+                    py = cy + radius * math.sin(angle)
+                    points.append((int(px), int(py)))
+                return points
+
+            # 쉴드 글로우 (외곽)
+            glow_points = pentagon_points(shield_cx, shield_cy, shield_radius * 1.1)
+            pygame.draw.polygon(surf, (70, 160, 255), glow_points)
+
+            # 쉴드 링 (테두리)
+            ring_points = pentagon_points(shield_cx, shield_cy, shield_radius)
+            pygame.draw.polygon(surf, (120, 210, 255), ring_points, max(1, int(0.3 * b)))
+
+            # 쉴드 코어 (중앙)
+            core_points = pentagon_points(shield_cx, shield_cy, shield_radius * 0.5)
+            pygame.draw.polygon(surf, (200, 252, 255), core_points)
+
+            # 쉴드 하이라이트
+            highlight_points = pentagon_points(shield_cx, shield_cy, shield_radius * 0.8)
+            pygame.draw.lines(surf, (180, 240, 255), True, highlight_points, 1)
+
+            # 라켓 (왼손에 들고 있음 - 방향에 따라 스윙)
+            racket_wrist = left_wrist
+            racket_dir = -1  # 왼손 기준
+
+            # 손잡이
+            handle_end = (racket_wrist[0] - int(0.3 * b), racket_wrist[1] - int(1.0 * b))
+            pygame.draw.line(surf, palette["handle"], racket_wrist, handle_end, max(2, int(0.35 * b)))
+
+            # 라켓 면
+            paddle_cx = handle_end[0] - int(0.8 * b)
+            paddle_cy = handle_end[1] - int(0.3 * b)
+            paddle_r = int(1.5 * b)
+            pygame.draw.circle(surf, palette["paddle_shadow"], (paddle_cx + 1, paddle_cy + 1), paddle_r)
+            pygame.draw.circle(surf, palette["paddle"], (paddle_cx, paddle_cy), paddle_r)
+            pygame.draw.circle(surf, palette["paddle_core"], (paddle_cx, paddle_cy), max(1, paddle_r - int(0.25 * b)))
+
+            # 라켓 테두리 그림자
+            pygame.draw.arc(surf, palette["paddle_shadow"],
+                          (paddle_cx - paddle_r, paddle_cy - paddle_r, paddle_r * 2, paddle_r * 2),
+                          math.radians(200), math.radians(320), max(1, int(0.2 * b)))
+
+        # === 공 및 이펙트 ===
+        char_top = char_y - int(4.5 * block)  # 캐릭터 상단
+
+        if local_progress < 0.3:
+            # === 단계 1: 공이 다가옴 + SMASHING 모니터 ===
+            phase = local_progress / 0.3
+            ball_start_y = preview_top - 5
+            ball_end_y = char_top - int(2 * block)
+            ball_y = ball_start_y + int((ball_end_y - ball_start_y) * phase)
             ball_x = center_x
 
-            # 공 그리기 (인게임 에너지볼 스타일 - 파란색)
-            pygame.draw.circle(surface, (60, 140, 220), (ball_x, ball_y), ball_radius + 2)
+            # 캐릭터 그리기 (대기 자세)
+            draw_smasher_hq(surface, char_x, char_y, block, smash_direction, swing_ratio=0.0)
+
+            # 에너지볼 (인게임 스타일 - 파란색 글로우)
+            for i in range(3):
+                glow_r = ball_radius + 3 - i
+                pygame.draw.circle(surface, (30 + i*15, 80 + i*25, 180 + i*15), (ball_x, ball_y), glow_r)
             pygame.draw.circle(surface, (100, 180, 255), (ball_x, ball_y), ball_radius)
-            pygame.draw.circle(surface, (200, 230, 255), (ball_x - 2, ball_y - 2), 3)
+            pygame.draw.circle(surface, (200, 235, 255), (ball_x - 1, ball_y - 1), 2)
 
-            # 드라이브 모니터 (인게임과 동일: 빨간색 원, 두께 3, 펄싱) - 파워스매싱 준비 상태
-            monitor_pulse = 1.0 + 0.15 * math.sin(phase * math.pi * 6)
-            monitor_radius = int(22 * monitor_pulse)
-            pygame.draw.circle(surface, (255, 80, 80), (ball_x, ball_y), monitor_radius, 3)
+            # SMASHING 모니터 (빨간색 - 인게임과 동일)
+            if phase > 0.4:
+                monitor_pulse = 1.0 + 0.1 * math.sin(time_ms * 0.015)
+                monitor_radius = int(14 * monitor_pulse)
+                pygame.draw.circle(surface, (255, 80, 80), (ball_x, ball_y), monitor_radius, 2)
 
-            # "SMASHING" 텍스트 (인게임과 동일: 빨간색, 공 위에 표시)
-            text_y = ball_y - monitor_radius - 10
-            # S
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x - 28, text_y + 1, 4, 2))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x - 28, text_y + 3, 2, 2))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x - 28, text_y + 5, 4, 2))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x - 26, text_y + 7, 2, 2))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x - 28, text_y + 9, 4, 2))
-            # M
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x - 22, text_y + 1, 2, 10))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x - 16, text_y + 1, 2, 10))
-            pygame.draw.line(surface, (255, 80, 80), (ball_x - 21, text_y + 2), (ball_x - 18, text_y + 5), 2)
-            pygame.draw.line(surface, (255, 80, 80), (ball_x - 15, text_y + 2), (ball_x - 18, text_y + 5), 2)
-            # A
-            pygame.draw.polygon(surface, (255, 80, 80), [(ball_x - 10, text_y + 10), (ball_x - 8, text_y + 1), (ball_x - 6, text_y + 10)])
-            pygame.draw.line(surface, (255, 80, 80), (ball_x - 9, text_y + 6), (ball_x - 7, text_y + 6), 1)
-            # S
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x - 2, text_y + 1, 4, 2))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x - 2, text_y + 3, 2, 2))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x - 2, text_y + 5, 4, 2))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x, text_y + 7, 2, 2))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x - 2, text_y + 9, 4, 2))
-            # H
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x + 5, text_y + 1, 2, 10))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x + 9, text_y + 1, 2, 10))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x + 5, text_y + 5, 6, 2))
-            # !
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x + 14, text_y + 1, 2, 6))
-            pygame.draw.rect(surface, (255, 80, 80), (ball_x + 14, text_y + 9, 2, 2))
+        elif local_progress < 0.5:
+            # === 단계 2: 준비 자세 + 키캡 표시 ===
+            phase = (local_progress - 0.3) / 0.2
+            ball_y = char_top - int(2 * block)
+            ball_x = center_x
+
+            # 캐릭터 그리기 (준비 자세)
+            draw_smasher_hq(surface, char_x, char_y, block, smash_direction, swing_ratio=0.0)
+
+            # SMASHING 모니터 (강한 펄싱)
+            monitor_pulse = 1.0 + 0.15 * math.sin(time_ms * 0.02)
+            monitor_radius = int(15 * monitor_pulse)
+            pygame.draw.circle(surface, (255, 80, 80), (ball_x, ball_y), monitor_radius, 2)
+
+            # 에너지볼
+            for i in range(3):
+                glow_r = ball_radius + 3 - i
+                pygame.draw.circle(surface, (30 + i*15, 80 + i*25, 180 + i*15), (ball_x, ball_y), glow_r)
+            pygame.draw.circle(surface, (100, 180, 255), (ball_x, ball_y), ball_radius)
+            pygame.draw.circle(surface, (200, 235, 255), (ball_x - 1, ball_y - 1), 2)
+
+            # 키캡 + 마우스 표시 (캐릭터 왼쪽에 배치)
+            keycap_x = center_x - 55  # 캐릭터 왼쪽
+            keycap_y = char_y - int(2 * block)  # 캐릭터 중앙 높이
+
+            if motion_type == "straight":
+                # 홀드만 모션: 마우스만 표시 (방향키 없음)
+                mouse_x = keycap_x
+                pygame.draw.rect(surface, (35, 40, 50), (mouse_x - 5, keycap_y - 6, 10, 14), border_radius=3)
+                pygame.draw.rect(surface, (75, 80, 90), (mouse_x - 5, keycap_y - 6, 10, 14), 1, border_radius=3)
+                pygame.draw.rect(surface, (255, 200, 80), (mouse_x - 4, keycap_y - 5, 4, 5), border_radius=1)
+                pygame.draw.rect(surface, (55, 60, 70), (mouse_x, keycap_y - 5, 4, 5), border_radius=1)
+                pygame.draw.line(surface, (45, 50, 60), (mouse_x - 1, keycap_y - 5), (mouse_x - 1, keycap_y + 3), 1)
+                # "Hold" 텍스트 표시
+                hold_y = keycap_y + 12
+                pygame.draw.rect(surface, (150, 150, 150), (mouse_x - 10, hold_y, 2, 5))  # H
+                pygame.draw.rect(surface, (150, 150, 150), (mouse_x - 6, hold_y, 2, 5))
+                pygame.draw.rect(surface, (150, 150, 150), (mouse_x - 10, hold_y + 2, 6, 1))
+            else:
+                # A/D 대각선 모션: 키캡 + 마우스 표시
+                key_box_w = 16
+                key_box_h = 14
+                pygame.draw.rect(surface, (25, 30, 40), (keycap_x - key_box_w//2, keycap_y - key_box_h//2, key_box_w, key_box_h), border_radius=3)
+                pygame.draw.rect(surface, (70, 75, 85), (keycap_x - key_box_w//2, keycap_y - key_box_h//2, key_box_w, key_box_h), 1, border_radius=3)
+                pygame.draw.rect(surface, (45, 50, 60), (keycap_x - key_box_w//2 + 2, keycap_y - key_box_h//2 + 2, key_box_w - 4, key_box_h - 6), border_radius=2)
+
+                # A 또는 D 글자 (픽셀 폰트 스타일로 명확하게)
+                if key_text == "A":
+                    ax, ay = keycap_x - 3, keycap_y - 4
+                    pygame.draw.rect(surface, (255, 255, 255), (ax + 1, ay, 3, 1))
+                    pygame.draw.rect(surface, (255, 255, 255), (ax, ay + 1, 1, 6))
+                    pygame.draw.rect(surface, (255, 255, 255), (ax + 4, ay + 1, 1, 6))
+                    pygame.draw.rect(surface, (255, 255, 255), (ax + 1, ay + 3, 3, 1))
+                else:
+                    dx, dy = keycap_x - 3, keycap_y - 4
+                    pygame.draw.rect(surface, (255, 255, 255), (dx, dy, 1, 7))
+                    pygame.draw.rect(surface, (255, 255, 255), (dx + 1, dy, 2, 1))
+                    pygame.draw.rect(surface, (255, 255, 255), (dx + 1, dy + 6, 2, 1))
+                    pygame.draw.rect(surface, (255, 255, 255), (dx + 3, dy + 1, 1, 2))
+                    pygame.draw.rect(surface, (255, 255, 255), (dx + 4, dy + 2, 1, 3))
+                    pygame.draw.rect(surface, (255, 255, 255), (dx + 3, dy + 4, 1, 2))
+
+                # + 기호 (키캡 오른쪽)
+                plus_x = keycap_x + key_box_w//2 + 5
+                pygame.draw.line(surface, (150, 150, 150), (plus_x - 3, keycap_y), (plus_x + 3, keycap_y), 1)
+                pygame.draw.line(surface, (150, 150, 150), (plus_x, keycap_y - 3), (plus_x, keycap_y + 3), 1)
+
+                # 마우스 아이콘 (+ 기호 오른쪽)
+                mouse_x = plus_x + 10
+                pygame.draw.rect(surface, (35, 40, 50), (mouse_x - 5, keycap_y - 6, 10, 14), border_radius=3)
+                pygame.draw.rect(surface, (75, 80, 90), (mouse_x - 5, keycap_y - 6, 10, 14), 1, border_radius=3)
+                pygame.draw.rect(surface, (255, 200, 80), (mouse_x - 4, keycap_y - 5, 4, 5), border_radius=1)
+                pygame.draw.rect(surface, (55, 60, 70), (mouse_x, keycap_y - 5, 4, 5), border_radius=1)
+                pygame.draw.line(surface, (45, 50, 60), (mouse_x - 1, keycap_y - 5), (mouse_x - 1, keycap_y + 3), 1)
 
         else:
-            # === 단계 2: 스매시 발동 (공이 빠르게 위로 날아감 + 충격파) ===
-            phase = (progress - 0.5) / 0.5
+            # === 단계 3: 스매시 발동 ===
+            phase = (local_progress - 0.5) / 0.5
+            ease_phase = 1.0 - (1.0 - phase) ** 2.5  # 이징
 
-            # 공이 빠르게 위로 날아감
-            ball_y = ball_base_y - int(50 * phase)
-            ball_x = center_x
+            # 캐릭터 그리기 (스매시 자세)
+            draw_smasher_hq(surface, char_x, char_y, block, smash_direction, swing_ratio=min(1.0, phase * 2))
 
-            # 스피드 라인 (강력한 임팩트)
-            for i in range(6):
-                line_y = ball_y + 8 + i * 6
-                line_alpha = int(200 * (1 - i / 6) * (1 - phase * 0.5))
-                line_width = 8 - i
-                if line_alpha > 0 and line_width > 0:
-                    pygame.draw.line(surface, (255, 100, 50, line_alpha),
-                                   (center_x - line_width, line_y), (center_x + line_width, line_y), 2)
+            # 스매시 궤적 계산
+            start_x = center_x
+            start_y = char_top - int(2 * block)
 
-            # 충격파 효과
-            if phase > 0.2:
-                shock_phase = (phase - 0.2) / 0.8
-                shock_radius = int(15 + shock_phase * 30)
-                shock_alpha = int(200 * (1 - shock_phase))
-                if shock_alpha > 0:
-                    pygame.draw.circle(surface, (255, 100, 50, shock_alpha), (ball_x, ball_base_y), shock_radius, 3)
+            if motion_type == "straight":
+                # 홀드만: 직선으로 위로 발사
+                end_x = center_x  # 가로 이동 없음
+                end_y = preview_top + 5
+            else:
+                # A/D 대각선: 좌/우 대각선으로 발사
+                end_x = center_x + smash_direction * 45
+                end_y = preview_top + 5
 
-            # 공 그리기 (주황색 글로우 - 파워스매싱 활성화)
-            glow_size = ball_radius + 4 + int(phase * 3)
-            pygame.draw.circle(surface, (255, 150, 50), (ball_x, ball_y), glow_size)
-            pygame.draw.circle(surface, (255, 200, 100), (ball_x, ball_y), ball_radius)
-            pygame.draw.circle(surface, (255, 255, 200), (ball_x - 2, ball_y - 2), 3)
+            ball_x = start_x + int((end_x - start_x) * ease_phase)
+            ball_y = start_y + int((end_y - start_y) * ease_phase)
+
+            # 트레일 효과 (원형 잔상)
+            num_trails = 8
+            for i in range(num_trails):
+                t = max(0, ease_phase - i * 0.1)
+                if t > 0:
+                    trail_x = start_x + int((end_x - start_x) * t)
+                    trail_y = start_y + int((end_y - start_y) * t)
+                    trail_size = max(2, ball_radius - i * 0.6)
+                    r = min(255, 255 - i * 3)
+                    g = max(40, 150 - i * 15)
+                    b = max(20, 60 - i * 6)
+                    pygame.draw.circle(surface, (r, g, b), (trail_x, trail_y), int(trail_size))
+
+            # 스피드 라인
+            if phase < 0.6:
+                for i in range(4):
+                    line_t = max(0, ease_phase - i * 0.12 - 0.05)
+                    if line_t > 0:
+                        line_x = start_x + int((end_x - start_x) * line_t)
+                        line_y = start_y + int((end_y - start_y) * line_t)
+                        if motion_type == "straight":
+                            # 직선: 수직 스피드 라인
+                            pygame.draw.line(surface, (255, 200, 100),
+                                            (line_x, line_y), (line_x, line_y + int(12 * (1 - i * 0.2))), 1)
+                        else:
+                            # 대각선: 방향 스피드 라인
+                            dx = (end_x - start_x) / 50
+                            dy = (end_y - start_y) / 50
+                            line_len = int(12 * (1 - i * 0.2))
+                            pygame.draw.line(surface, (255, 200, 100),
+                                            (line_x, line_y), (line_x - dx * line_len, line_y - dy * line_len), 1)
+
+            # 메인 공 (불꽃 효과)
+            for i in range(4):
+                glow_r = ball_radius + 6 - i * 2
+                pygame.draw.circle(surface, (255, max(60, 180 - i * 40), max(20, 100 - i * 25)), (ball_x, ball_y), glow_r)
+            pygame.draw.circle(surface, (255, 220, 120), (ball_x, ball_y), ball_radius)
+            pygame.draw.circle(surface, (255, 250, 200), (ball_x - 1, ball_y - 1), 2)
+
+            # 충격파 (스매시 시작)
+            if phase < 0.25:
+                impact_r = int(12 + phase * 35)
+                pygame.draw.circle(surface, (255, 140, 70), (start_x, start_y), impact_r, 2)
 
 
 def _draw_mini_star(surface: pygame.Surface, cx: int, cy: int, size: int, color: tuple):
@@ -5418,10 +5959,10 @@ def _draw_pillar_ui(screen, renderer):
                 scaled_gauge_w = int(gauge_w * GAME_SCALE_FACTOR) if GAME_SCALE_FACTOR != 1.0 else gauge_w
                 gauge_x = GAME_OFFSET_X - scaled_gauge_w - int(25 * GAME_SCALE_FACTOR)
                 gauge_center_x = gauge_x + scaled_gauge_w // 2
-                gold_hud_x = gauge_center_x - scaled_hud_w // 2  # 구슬 중심에 HUD 중심 맞춤
+                gold_hud_x = gauge_center_x - scaled_hud_w // 2 + int(30 * GAME_SCALE_FACTOR)  # 구슬 중심에 HUD 중심 맞춤 + 30px 오른쪽
             else:
                 # 구슬이 없으면 기본 위치
-                gold_hud_x = GAME_OFFSET_X - scaled_hud_w - int(100 * GAME_SCALE_FACTOR)
+                gold_hud_x = GAME_OFFSET_X - scaled_hud_w - int(70 * GAME_SCALE_FACTOR)  # 100 - 30 = 70
 
             gold_hud_y = GAME_OFFSET_Y + int(5 * GAME_SCALE_FACTOR)
 
@@ -8938,6 +9479,12 @@ def on_starpoint_collected(amount: int = 1):
     starpoint_for_skills += amount
     # print(f"[RuntimeSkill] starpoint_for_skills = {starpoint_for_skills}")  # 디버그 비활성화
 
+    # 튜토리얼 스타포인트 획득 체크
+    try:
+        on_star_point_collect_for_tutorial()
+    except Exception:
+        pass  # 함수가 아직 정의되지 않았을 수 있음
+
     # N포인트당 선택지 1회
     while starpoint_for_skills >= STARPOINT_PER_SKILL_CHOICE:
         starpoint_for_skills -= STARPOINT_PER_SKILL_CHOICE
@@ -9315,8 +9862,82 @@ def get_runtime_skill_choices(character_type: str, exclude_instant: bool = False
         character_type: 캐릭터 타입 (smasher, optimus 등)
         exclude_instant: True면 즉시형 스킬(풀게이징, 차원개방 등) 제외 (스테이지 클리어 보상용)
     """
-    global runtime_skill_levels
+    global runtime_skill_levels, _ingame_tutorial_active
     import random
+
+    # 튜토리얼 모드: 첫 스타포인트 획득 시 고정 스킬 선택지 제공
+    if _ingame_tutorial_active:
+        tutorial_choices = []
+
+        # 1. 경량화 (dash_lightweight) - RUNTIME_SKILL_POOL
+        skill_data = RUNTIME_SKILL_POOL.get("dash_lightweight")
+        if skill_data:
+            current_level = runtime_skill_levels.get("dash_lightweight", 0)
+            next_level = current_level + 1
+            tutorial_choices.append({
+                "id": "dash_lightweight",
+                "name": skill_data["name"],
+                "description": skill_data["descriptions"].get(next_level, ""),
+                "detail": skill_data.get("detail", ""),
+                "icon_color": skill_data["icon_color"],
+                "current_level": current_level,
+                "next_level": next_level,
+                "max_level": skill_data["max_level"],
+                "tree": skill_data.get("tree", ""),
+                "character_restriction": None
+            })
+
+        # 2. 플라즈마 해금 (unlock_plasma) - SMASHER_EXCLUSIVE_SKILLS
+        skill_data = SMASHER_EXCLUSIVE_SKILLS.get("unlock_plasma")
+        if skill_data:
+            current_level = runtime_skill_levels.get("unlock_plasma", 0)
+            next_level = current_level + 1
+            tutorial_choices.append({
+                "id": "unlock_plasma",
+                "name": skill_data["name"],
+                "description": skill_data["descriptions"].get(next_level, ""),
+                "detail": skill_data.get("detail", ""),
+                "icon_color": skill_data["icon_color"],
+                "current_level": current_level,
+                "next_level": next_level,
+                "max_level": skill_data["max_level"],
+                "tree": skill_data.get("tree", ""),
+                "character_restriction": "smasher"
+            })
+
+        # 3. 원숭이은혜 (instant_monkey_blessing) - INSTANT_RUNTIME_SKILLS
+        skill_data = INSTANT_RUNTIME_SKILLS.get("instant_monkey_blessing")
+        if skill_data:
+            tutorial_choices.append({
+                "id": "instant_monkey_blessing",
+                "name": skill_data["name"],
+                "description": skill_data["description"],
+                "detail": skill_data.get("detail", ""),
+                "icon_color": skill_data["icon_color"],
+                "current_level": 0,
+                "next_level": 0,
+                "max_level": 0,
+                "tree": skill_data.get("tree", "instant"),
+                "character_restriction": None,
+                "is_instant": True
+            })
+
+        # 4. 골드변환 (convert_to_gold) - 튜토리얼에서도 골드변환 옵션 제공
+        tutorial_choices.append({
+            "id": "convert_to_gold",
+            "name": "골드변환",
+            "description": "스킬 대신 500골드를 획득합니다",
+            "detail": "런타임 스킬을 포기하고 즉시 500골드를 인게임 골드로 획득합니다",
+            "icon_color": (255, 215, 0),  # 금색
+            "tree": "instant",
+            "character_restriction": None,
+            "is_instant": True,
+            "is_gold_conversion": True,
+            "gold_amount": 500
+        })
+
+        print(f"[Tutorial] 고정 스킬 선택지 제공: {[c['name'] for c in tutorial_choices]}")
+        return tutorial_choices
 
     available = []
 
@@ -12483,6 +13104,11 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             apply_runtime_skill_effect(selected_result)
             pending_skill_choices = max(0, pending_skill_choices - 1)
             runtime_skill_choice_pending = pending_skill_choices > 0
+        # 튜토리얼 런타임 스킬 선택 완료 처리
+        try:
+            on_runtime_skill_select_complete_for_tutorial()
+        except NameError:
+            pass
         return selected_result
 
     # 실시간 배경 렌더링 모드인지 정적 배경 모드인지 결정
@@ -12597,6 +13223,14 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                     hovered_index = i
                     break
 
+        # 튜토리얼 진행 중인지 먼저 확인 (이벤트 처리 전에)
+        tutorial_in_progress = False
+        if _tutorial_waiting_runtime_skill_select and _ingame_tutorial_active:
+            try:
+                tutorial_in_progress = not is_skill_select_tutorial_complete()
+            except NameError:
+                pass
+
         # Event handling
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -12604,33 +13238,52 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                 sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if phase == "active" and event.button == 1:  # Left click
-                    for i, rect in enumerate(card_rects):
-                        if rect.collidepoint(event.pos):
-                            if i < len(choices):
-                                selected_index = i
-                                selected_result = choices[i].get("id", "")
-                                phase = "selected"
-                                frame_count = 0
-                            break
+                    if tutorial_in_progress:
+                        # 튜토리얼 진행 중: 어디를 클릭하든 튜토리얼 진행 (스킬 선택 불가)
+                        try:
+                            advance_skill_select_tutorial_step()
+                        except NameError:
+                            pass
+                        continue
+                    else:
+                        # 튜토리얼 완료: 스킬 선택 가능
+                        for i, rect in enumerate(card_rects):
+                            if rect.collidepoint(event.pos):
+                                if i < len(choices):
+                                    selected_index = i
+                                    selected_result = choices[i].get("id", "")
+                                    phase = "selected"
+                                    frame_count = 0
+                                break
             elif event.type == pygame.MOUSEMOTION:
-                # Update selection based on hover
-                if phase == "active":
+                # Update selection based on hover (튜토리얼 완료 후에만)
+                if phase == "active" and not tutorial_in_progress:
                     for i, rect in enumerate(card_rects):
                         if rect.collidepoint(event.pos):
                             selected_index = i
                             break
             elif event.type == pygame.KEYDOWN:
                 if phase == "active":
-                    if event.key == pygame.K_LEFT:
-                        selected_index = (selected_index - 1) % num_cards
-                    elif event.key == pygame.K_RIGHT:
-                        selected_index = (selected_index + 1) % num_cards
-                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_z):
-                        # Select skill
-                        if selected_index < len(choices):
-                            selected_result = choices[selected_index].get("id", "")
-                            phase = "selected"
-                            frame_count = 0
+                    if tutorial_in_progress:
+                        # 튜토리얼 진행 중: SPACE/ENTER/Z로 튜토리얼 진행만 가능
+                        if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_z):
+                            try:
+                                advance_skill_select_tutorial_step()
+                            except NameError:
+                                pass
+                        # 방향키 등 다른 키는 무시
+                    else:
+                        # 튜토리얼 완료: 정상적인 스킬 선택
+                        if event.key == pygame.K_LEFT:
+                            selected_index = (selected_index - 1) % num_cards
+                        elif event.key == pygame.K_RIGHT:
+                            selected_index = (selected_index + 1) % num_cards
+                        elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_z):
+                            # 스킬 선택
+                            if selected_index < len(choices):
+                                selected_result = choices[selected_index].get("id", "")
+                                phase = "selected"
+                                frame_count = 0
 
         # Draw background - 실시간 렌더링 또는 정적 배경
         if use_live_bg:
@@ -12882,8 +13535,44 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             final_y = int(card_y_anim - (scaled_height - card_height) // 2)
             SCREEN.blit(card_surface, (final_x, final_y))
 
-        # 선택된 스킬 설명 박스 그리기
-        if selected_index < len(choices):
+            # === 튜토리얼 카드 강조 효과 ===
+            try:
+                tutorial_highlight_idx = get_skill_select_tutorial_highlight()
+                if _tutorial_waiting_runtime_skill_select and _ingame_tutorial_active and i == tutorial_highlight_idx:
+                    # 반짝이는 시안색 강조 효과
+                    highlight_pulse = 0.5 + 0.5 * math.sin(frame_count * 0.15)
+                    highlight_alpha = int(80 + 60 * highlight_pulse)
+
+                    # 외곽 글로우
+                    for glow_offset in range(12, 0, -2):
+                        glow_rect = pygame.Rect(
+                            final_x - glow_offset,
+                            final_y - glow_offset,
+                            scaled_width + glow_offset * 2,
+                            scaled_height + glow_offset * 2
+                        )
+                        glow_alpha = int(highlight_alpha * (1 - glow_offset / 12))
+                        glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                        pygame.draw.rect(glow_surf, (0, 255, 255, glow_alpha), (0, 0, glow_rect.width, glow_rect.height), border_radius=16)
+                        SCREEN.blit(glow_surf, (glow_rect.x, glow_rect.y))
+
+                    # 내부 테두리 강조
+                    border_surf = pygame.Surface((scaled_width + 4, scaled_height + 4), pygame.SRCALPHA)
+                    pygame.draw.rect(border_surf, (0, 255, 255, highlight_alpha + 50), (0, 0, scaled_width + 4, scaled_height + 4), 3, border_radius=14)
+                    SCREEN.blit(border_surf, (final_x - 2, final_y - 2))
+            except NameError:
+                pass  # 함수가 아직 정의되지 않음
+
+        # 튜토리얼 가이드 재생 중인지 확인
+        tutorial_guide_showing = False
+        try:
+            if _tutorial_waiting_runtime_skill_select and _ingame_tutorial_active:
+                tutorial_guide_showing = not is_skill_select_tutorial_complete()
+        except NameError:
+            pass
+
+        # 선택된 스킬 설명 박스 그리기 (튜토리얼 가이드 중에는 숨김)
+        if selected_index < len(choices) and not tutorial_guide_showing:
             selected_choice = choices[selected_index]
 
             # 설명 박스 배경
@@ -13208,17 +13897,19 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             no_skill_surf = panel_small_font.render(no_skill_text, True, (100, 100, 120))
             bottom_panel_surface.blit(no_skill_surf, (skills_start_x, skills_start_y + 5))
 
-        SCREEN.blit(bottom_panel_surface, (bottom_panel_x, bottom_panel_y))
+        # 튜토리얼 가이드 중에는 하단 패널 숨김
+        if not tutorial_guide_showing:
+            SCREEN.blit(bottom_panel_surface, (bottom_panel_x, bottom_panel_y))
 
         # Pending choices indicator - 게임 플레이 영역 중앙에 배치
-        if pending_skill_choices > 1:
+        if pending_skill_choices > 1 and not tutorial_guide_showing:
             remaining_text = f"+{pending_skill_choices - 1} more"
             remaining_surface = level_font.render(remaining_text, True, (255, 220, 100))
             remaining_rect = remaining_surface.get_rect(center=(GAME_AREA_CENTER_X, bottom_panel_y + bottom_panel_height + 5))
             SCREEN.blit(remaining_surface, remaining_rect)
 
-        # Mouse/keyboard hint text - 게임 플레이 영역 중앙에 배치
-        if phase == "active":
+        # Mouse/keyboard hint text - 게임 플레이 영역 중앙에 배치 (튜토리얼 중에는 숨김)
+        if phase == "active" and not tutorial_guide_showing:
             hint_text = "마우스 클릭 또는 ← → 키로 선택"
             hint_surface = desc_font.render(hint_text, True, (160, 170, 200))
             hint_rect = hint_surface.get_rect(center=(GAME_AREA_CENTER_X, bottom_panel_y + bottom_panel_height + 20))
@@ -13229,6 +13920,10 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
             else:
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
+        # === 튜토리얼 모드: 런타임 스킬 선택 가이드 표시 ===
+        if _tutorial_waiting_runtime_skill_select and _ingame_tutorial_active:
+            _draw_tutorial_runtime_skill_guide(SCREEN, desc_box_x, desc_box_y, desc_box_width)
 
         pygame.display.flip()
         local_clock.tick(60)
@@ -13241,6 +13936,12 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         apply_runtime_skill_effect(selected_result)
         pending_skill_choices = max(0, pending_skill_choices - 1)
         runtime_skill_choice_pending = pending_skill_choices > 0
+
+    # 튜토리얼 런타임 스킬 선택 완료 처리
+    try:
+        on_runtime_skill_select_complete_for_tutorial()
+    except NameError:
+        pass
 
     # Clear event queue
     pygame.event.clear()
@@ -44164,6 +44865,10 @@ def check_tear_collisions():
 def apply_effect(effect_name):
     global PADDLE_WIDTH, PLAYER_SPEED, special_gauge, special_gauge_max, special_ready
     global aipill_active, selected_character_type  #  AI 필 변수 추가
+
+    # 튜토리얼: 아이템 사용 체크
+    on_item_use_for_tutorial()
+
     #  아이템 사용 기록 (효과적인 사용인지 간단히 판단)
     was_effective = True  # 대부분의 아이템은 효과적으로 간주
     if effect_name == "gauge_boost" and special_gauge >= 70:
@@ -53756,7 +54461,9 @@ def handle_player(keys):
             # print(f"[TOKEN-SET-START_DASH] idx={_next_charge_idx}, actual={base_timer}, ui={_UI_CHARGE_MAX}, ratio={ui_ratio:.2f}")  # 디버그 비활성화
 
         # 연속 대쉬 카운트 및 튜토리얼 진행
-        if globals().get("half_dash_used_flag"):
+        # 하프대쉬 여부 먼저 저장 (플래그 리셋 전)
+        _was_half_dash = globals().get("half_dash_used_flag", False)
+        if _was_half_dash:
             set_roll("rolling_consecutive_count", 1)
             globals()["half_dash_used_flag"] = False
         else:
@@ -53805,9 +54512,10 @@ def handle_player(keys):
         mega_smashing_bonus_applied = False
         record_dash_usage(success=False)
 
-        # 실전 튜토리얼: 대쉬 종료 시 콜백 (일반 대쉬 - 하프대쉬는 발동 시 직접 호출됨)
-        # 여기서는 is_half_dash=False로 호출 (일반 대쉬 종료 경로)
-        on_player_dash_for_tutorial(is_half_dash=False)
+        # 실전 튜토리얼: 대쉬 종료 시 콜백 (일반 대쉬만 - 하프대쉬는 발동 시 직접 호출됨)
+        # _was_half_dash가 True면 하프대쉬이므로 여기서 호출하지 않음 (이미 발동 시 호출됨)
+        if not _was_half_dash:
+            on_player_dash_for_tutorial(is_half_dash=False)
 
         # 부스트차징 발동 체크 (대쉬기어 보유 시) - 즉시 토큰 충전!
         if dashgear_obtained and _next_charge_idx >= 0:
@@ -59792,6 +60500,10 @@ def store_active_item(item_data):
 
     # 아이템 획득 효과 표시 (아이템 위치에서) - 옛날 버전 활성화
     show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+
+    # 튜토리얼: 아이템 획득 체크
+    on_item_collect_for_tutorial(item_data)
+
 # bosspong.py
 def store_passive_item(item_data):
     global MAX_ITEM_SLOTS, passive_item_list, speedboots_obtained, speedgear_obtained
@@ -60353,7 +61065,11 @@ def store_passive_item(item_data):
     # 빈 슬롯이 있으면 즉시 장착
     if appended:
         auto_equip_passive_item(item_data)
-    
+
+    # 튜토리얼: 패시브 아이템 획득 체크
+    if appended:
+        on_item_collect_for_tutorial(item_data)
+
     # 아이템 획득 효과 표시 (아이템 위치에서) - 옛날 버전 활성화
     # 전설 아이템은 trigger_legendary_acquisition에서 별도 연출을 사용하므로 스킵
     legendary_items_for_effect = ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown"]
@@ -62865,6 +63581,37 @@ _ingame_tutorial_combo_pending = False  # 3콤보 달성됨, 애니메이션 종
 _ingame_tutorial_delay_start = 0  # 딜레이 시작 시간 (ms)
 _ingame_tutorial_delay_duration = 3000  # 딜레이 지속 시간 (3초 = 3000ms)
 _ingame_tutorial_score_frozen = False  # 튜토리얼 중 점수 고정 (0:0 유지)
+_ingame_tutorial_clap_active = False  # 박수 애니메이션 활성화
+_ingame_tutorial_clap_timer = 0  # 박수 애니메이션 타이머
+
+# === 튜토리얼 스킬 호버 추적 (두 스킬 각각 3초씩) ===
+_tutorial_skill_hover_drive = False  # 드라이브 아이콘 3초 호버 완료
+_tutorial_skill_hover_power = False  # 파워스매싱 아이콘 3초 호버 완료
+_tutorial_skill_hover_current = None  # 현재 호버 중인 스킬
+_tutorial_skill_hover_start_time = 0  # 현재 스킬 호버 시작 시간
+_tutorial_skill_hover_duration = 3000  # 스킬 호버 필요 시간 (3초)
+
+# === 튜토리얼 스킬 사용 추적 (드라이브 + 파워스매싱 각 1회) ===
+_tutorial_skill_used_drive = False  # 드라이브 사용 완료
+_tutorial_skill_used_power = False  # 파워스매싱 사용 완료
+_tutorial_skill_use_complete_time = 0  # 두 스킬 모두 사용 완료된 시간 (딜레이용)
+_tutorial_skill_use_delay_pending = False  # 스킬 사용 완료 딜레이 대기 중
+
+# === 튜토리얼 런타임 스킬 선택 추적 ===
+_tutorial_waiting_runtime_skill_select = False  # 런타임 스킬 선택 대기 중 (스타포인트 획득 후)
+_tutorial_skill_select_step = 0  # 스킬 선택 화면 내 튜토리얼 단계 (0~5)
+_tutorial_skill_select_highlight_index = -1  # 강조할 스킬 카드 인덱스 (-1=없음, 0~3=해당 카드)
+
+# === 튜토리얼 아이템 시스템 ===
+_tutorial_spawned_item = None  # 스폰된 튜토리얼 아이템 (액티브)
+_tutorial_spawned_passive_item = None  # 스폰된 튜토리얼 패시브 아이템
+_tutorial_balloon_machine_spawned = False  # 튜토리얼 풍선기계 스폰 여부
+_tutorial_balloon_machine_shot_fired = False  # 풍선기계가 풍선을 발사했는지
+_tutorial_balloon_paused = False  # 튜토리얼 중 풍선 일시정지
+_tutorial_balloon_machine_enabled = False  # 튜토리얼용 풍선기계 스폰 전까지 일반 풍선기계 차단
+_tutorial_balloon_shot_delay_start = 0  # 풍선 발사 후 딜레이 시작 시간
+_tutorial_balloon_respawn_delay_start = 0  # 풍선 리스폰 대기 시작 시간
+_tutorial_balloon_all_popped = False  # 풍선이 모두 터졌는지 여부
 
 # === 미션 안내창 시스템 ===
 _mission_banner_active = False
@@ -62953,18 +63700,6 @@ def draw_tutorial_action_gauge():
     # REAL_SCREEN 또는 SCREEN 결정
     target_screen = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
 
-    # 게이지 위치 (우측 상단 필러)
-    if _is_fullscreen_active and REAL_SCREEN is not None:
-        gauge_x = GAME_OFFSET_X + GAME_SCALED_WIDTH + 30
-        gauge_y = GAME_OFFSET_Y + 30
-        gauge_width = 120
-        gauge_height = 140
-    else:
-        gauge_x = INTERNAL_WIDTH - 150
-        gauge_y = 30
-        gauge_width = 120
-        gauge_height = 140
-
     current_time = pygame.time.get_ticks()
 
     # 완료 상태 시 애니메이션 처리
@@ -62976,6 +63711,29 @@ def draw_tutorial_action_gauge():
             _tutorial_action_gauge_fill_anim = elapsed / anim_duration
         else:
             _tutorial_action_gauge_fill_anim = 1.0
+
+    # === 스킬 호버 타입일 때 특수 UI 렌더링 ===
+    if _tutorial_action_gauge_type == "skill_hover":
+        _draw_tutorial_skill_hover_gauge(target_screen, current_time)
+        return
+
+    # === 스킬 사용 타입일 때 특수 UI 렌더링 ===
+    if _tutorial_action_gauge_type == "skill_use":
+        _draw_tutorial_skill_use_gauge(target_screen, current_time)
+        return
+
+    # === 일반 게이지 렌더링 ===
+    # 게이지 위치 (우측 상단 필러)
+    if _is_fullscreen_active and REAL_SCREEN is not None:
+        gauge_x = GAME_OFFSET_X + GAME_SCALED_WIDTH + 30
+        gauge_y = GAME_OFFSET_Y + 30
+        gauge_width = 120
+        gauge_height = 140
+    else:
+        gauge_x = INTERNAL_WIDTH - 150
+        gauge_y = 30
+        gauge_width = 120
+        gauge_height = 140
 
     # 배경 패널
     panel_surf = pygame.Surface((gauge_width, gauge_height), pygame.SRCALPHA)
@@ -63090,6 +63848,438 @@ def draw_tutorial_action_gauge():
     target_screen.blit(panel_surf, (gauge_x, gauge_y))
 
 
+def _draw_tutorial_skill_hover_gauge(target_screen, current_time):
+    """튜토리얼 스킬 호버 미션 전용 UI 렌더링 - 드라이브/파워스매싱 아이콘 + 개별 게이지"""
+
+    # 패널 크기 (더 넓게 - 두 스킬 아이콘을 나란히 표시)
+    if _is_fullscreen_active and REAL_SCREEN is not None:
+        gauge_x = GAME_OFFSET_X + GAME_SCALED_WIDTH + 15
+        gauge_y = GAME_OFFSET_Y + 30
+        gauge_width = 150
+        gauge_height = 180
+    else:
+        gauge_x = INTERNAL_WIDTH - 165
+        gauge_y = 30
+        gauge_width = 150
+        gauge_height = 180
+
+    # 배경 패널
+    panel_surf = pygame.Surface((gauge_width, gauge_height), pygame.SRCALPHA)
+
+    # 완료 시 배경 색상 변경
+    if _tutorial_action_gauge_complete and _tutorial_action_gauge_fill_anim >= 1.0:
+        bg_color = (25, 35, 20, 230)
+    else:
+        bg_color = (15, 25, 45, 220)
+    pygame.draw.rect(panel_surf, bg_color, (0, 0, gauge_width, gauge_height), border_radius=12)
+
+    # 테두리
+    if _tutorial_action_gauge_complete and _tutorial_action_gauge_fill_anim >= 1.0:
+        pulse = int(50 * (0.5 + 0.5 * math.sin(current_time * 0.01)))
+        border_color = (min(255, 255 + pulse), min(255, 215 + pulse), pulse)
+    else:
+        border_color = (255, 180, 80)
+    pygame.draw.rect(panel_surf, border_color, (0, 0, gauge_width, gauge_height), 3, border_radius=12)
+
+    # 제목
+    try:
+        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 13)
+    except:
+        title_font = pygame.freetype.SysFont("malgun gothic", 13)
+
+    title_surf, title_rect = title_font.render("스킬 정보 확인", (255, 255, 255))
+    title_x = (gauge_width - title_rect.width) // 2
+    panel_surf.blit(title_surf, (title_x, 8))
+
+    # 스킬 데이터 가져오기
+    drive_data = None
+    power_data = None
+    for skill in SMASHER_SKILL_ICONS_DATA:
+        if skill["name"] == "drive":
+            drive_data = skill
+        elif skill["name"] == "power_smashing":
+            power_data = skill
+
+    # 두 스킬 아이콘 좌우 배치
+    icon_size = 40
+    icon_y = 35
+    left_icon_x = 20
+    right_icon_x = gauge_width - 20 - icon_size
+
+    # 현재 호버 진행도 계산
+    drive_progress = 0.0
+    power_progress = 0.0
+
+    if _tutorial_skill_hover_drive:
+        drive_progress = 1.0
+    elif _tutorial_skill_hover_current == "drive":
+        elapsed = current_time - _tutorial_skill_hover_start_time
+        drive_progress = min(1.0, elapsed / _tutorial_skill_hover_duration)
+
+    if _tutorial_skill_hover_power:
+        power_progress = 1.0
+    elif _tutorial_skill_hover_current == "power":
+        elapsed = current_time - _tutorial_skill_hover_start_time
+        power_progress = min(1.0, elapsed / _tutorial_skill_hover_duration)
+
+    # === 드라이브 스킬 아이콘 및 게이지 ===
+    if drive_data:
+        # 아이콘 생성 및 그리기
+        drive_icon = _create_smasher_skill_icon(drive_data, icon_size, active=True)
+        # 아이콘 중심 맞춤 (create_smasher_skill_icon은 여백 포함)
+        icon_offset = (drive_icon.get_width() - icon_size) // 2
+        panel_surf.blit(drive_icon, (left_icon_x - icon_offset, icon_y - icon_offset))
+
+        # 스킬명
+        try:
+            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+        except:
+            name_font = pygame.freetype.SysFont("malgun gothic", 10)
+        name_surf, name_rect = name_font.render("드라이브", drive_data["color"])
+        name_x = left_icon_x + (icon_size - name_rect.width) // 2
+        panel_surf.blit(name_surf, (name_x, icon_y + icon_size + 5))
+
+        # 호버 게이지 (원형)
+        gauge_center_x = left_icon_x + icon_size // 2
+        gauge_center_y = icon_y + icon_size + 30
+        gauge_radius = 18
+
+        # 게이지 배경
+        pygame.draw.circle(panel_surf, (30, 40, 60), (gauge_center_x, gauge_center_y), gauge_radius)
+
+        # 게이지 채우기 (원형 아크)
+        if drive_progress > 0:
+            if _tutorial_skill_hover_drive:
+                # 완료 시 녹색
+                fill_color = (100, 255, 100)
+            else:
+                fill_color = drive_data["color"]
+
+            # 원형 게이지 그리기 (파이 형태)
+            start_angle = -math.pi / 2  # 12시 방향부터 시작
+            end_angle = start_angle + (2 * math.pi * drive_progress)
+
+            # 채워진 부분
+            points = [(gauge_center_x, gauge_center_y)]
+            for i in range(int(drive_progress * 30) + 1):
+                angle = start_angle + (end_angle - start_angle) * i / 30
+                px = gauge_center_x + int(math.cos(angle) * (gauge_radius - 2))
+                py = gauge_center_y + int(math.sin(angle) * (gauge_radius - 2))
+                points.append((px, py))
+            if len(points) > 2:
+                pygame.draw.polygon(panel_surf, fill_color, points)
+
+        # 게이지 테두리
+        pygame.draw.circle(panel_surf, (80, 100, 140), (gauge_center_x, gauge_center_y), gauge_radius, 2)
+
+        # 완료 체크 또는 퍼센트
+        if _tutorial_skill_hover_drive:
+            # 체크 마크
+            pygame.draw.line(panel_surf, (255, 255, 255),
+                           (gauge_center_x - 6, gauge_center_y),
+                           (gauge_center_x - 2, gauge_center_y + 5), 3)
+            pygame.draw.line(panel_surf, (255, 255, 255),
+                           (gauge_center_x - 2, gauge_center_y + 5),
+                           (gauge_center_x + 7, gauge_center_y - 6), 3)
+        else:
+            # 남은 시간 표시
+            try:
+                pct_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+            except:
+                pct_font = pygame.freetype.SysFont("malgun gothic", 10)
+            remaining = max(0, 3.0 - (3.0 * drive_progress))
+            pct_text = f"{remaining:.1f}s"
+            pct_surf, pct_rect = pct_font.render(pct_text, (255, 255, 255))
+            pct_x = gauge_center_x - pct_rect.width // 2
+            pct_y = gauge_center_y - pct_rect.height // 2
+            panel_surf.blit(pct_surf, (pct_x, pct_y))
+
+    # === 파워스매싱 스킬 아이콘 및 게이지 ===
+    if power_data:
+        # 아이콘 생성 및 그리기
+        power_icon = _create_smasher_skill_icon(power_data, icon_size, active=True)
+        icon_offset = (power_icon.get_width() - icon_size) // 2
+        panel_surf.blit(power_icon, (right_icon_x - icon_offset, icon_y - icon_offset))
+
+        # 스킬명
+        try:
+            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+        except:
+            name_font = pygame.freetype.SysFont("malgun gothic", 10)
+        name_surf, name_rect = name_font.render("파워스매싱", power_data["color"])
+        name_x = right_icon_x + (icon_size - name_rect.width) // 2
+        panel_surf.blit(name_surf, (name_x, icon_y + icon_size + 5))
+
+        # 호버 게이지 (원형)
+        gauge_center_x = right_icon_x + icon_size // 2
+        gauge_center_y = icon_y + icon_size + 30
+        gauge_radius = 18
+
+        # 게이지 배경
+        pygame.draw.circle(panel_surf, (30, 40, 60), (gauge_center_x, gauge_center_y), gauge_radius)
+
+        # 게이지 채우기 (원형 아크)
+        if power_progress > 0:
+            if _tutorial_skill_hover_power:
+                fill_color = (100, 255, 100)
+            else:
+                fill_color = power_data["color"]
+
+            start_angle = -math.pi / 2
+            end_angle = start_angle + (2 * math.pi * power_progress)
+
+            points = [(gauge_center_x, gauge_center_y)]
+            for i in range(int(power_progress * 30) + 1):
+                angle = start_angle + (end_angle - start_angle) * i / 30
+                px = gauge_center_x + int(math.cos(angle) * (gauge_radius - 2))
+                py = gauge_center_y + int(math.sin(angle) * (gauge_radius - 2))
+                points.append((px, py))
+            if len(points) > 2:
+                pygame.draw.polygon(panel_surf, fill_color, points)
+
+        # 게이지 테두리
+        pygame.draw.circle(panel_surf, (80, 100, 140), (gauge_center_x, gauge_center_y), gauge_radius, 2)
+
+        # 완료 체크 또는 퍼센트
+        if _tutorial_skill_hover_power:
+            pygame.draw.line(panel_surf, (255, 255, 255),
+                           (gauge_center_x - 6, gauge_center_y),
+                           (gauge_center_x - 2, gauge_center_y + 5), 3)
+            pygame.draw.line(panel_surf, (255, 255, 255),
+                           (gauge_center_x - 2, gauge_center_y + 5),
+                           (gauge_center_x + 7, gauge_center_y - 6), 3)
+        else:
+            try:
+                pct_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+            except:
+                pct_font = pygame.freetype.SysFont("malgun gothic", 10)
+            remaining = max(0, 3.0 - (3.0 * power_progress))
+            pct_text = f"{remaining:.1f}s"
+            pct_surf, pct_rect = pct_font.render(pct_text, (255, 255, 255))
+            pct_x = gauge_center_x - pct_rect.width // 2
+            pct_y = gauge_center_y - pct_rect.height // 2
+            panel_surf.blit(pct_surf, (pct_x, pct_y))
+
+    # === 하단 완료 상태 표시 ===
+    status_y = gauge_height - 25
+
+    if _tutorial_action_gauge_complete and _tutorial_action_gauge_fill_anim >= 1.0:
+        # 완료 텍스트
+        try:
+            complete_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
+        except:
+            complete_font = pygame.freetype.SysFont("malgun gothic", 16)
+        complete_surf, complete_rect = complete_font.render("완료!", (255, 215, 0))
+        complete_x = (gauge_width - complete_rect.width) // 2
+        panel_surf.blit(complete_surf, (complete_x, status_y))
+    else:
+        # 진행 상황 (x/2)
+        try:
+            status_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 14)
+        except:
+            status_font = pygame.freetype.SysFont("malgun gothic", 14)
+        completed_count = (1 if _tutorial_skill_hover_drive else 0) + (1 if _tutorial_skill_hover_power else 0)
+        status_text = f"{completed_count}/2 완료"
+        status_surf, status_rect = status_font.render(status_text, (200, 200, 200))
+        status_x = (gauge_width - status_rect.width) // 2
+        panel_surf.blit(status_surf, (status_x, status_y))
+
+    target_screen.blit(panel_surf, (gauge_x, gauge_y))
+
+
+def _draw_tutorial_skill_use_gauge(target_screen, current_time):
+    """튜토리얼 스킬 사용 미션 전용 UI 렌더링 - 드라이브/파워스매싱 아이콘 + 사용 여부 표시"""
+
+    # 패널 크기 (두 스킬 아이콘을 나란히 표시)
+    if _is_fullscreen_active and REAL_SCREEN is not None:
+        gauge_x = GAME_OFFSET_X + GAME_SCALED_WIDTH + 15
+        gauge_y = GAME_OFFSET_Y + 30
+        gauge_width = 150
+        gauge_height = 160
+    else:
+        gauge_x = INTERNAL_WIDTH - 165
+        gauge_y = 30
+        gauge_width = 150
+        gauge_height = 160
+
+    # 배경 패널
+    panel_surf = pygame.Surface((gauge_width, gauge_height), pygame.SRCALPHA)
+
+    # 완료 시 배경 색상 변경
+    if _tutorial_action_gauge_complete and _tutorial_action_gauge_fill_anim >= 1.0:
+        bg_color = (25, 35, 20, 230)
+    else:
+        bg_color = (15, 25, 45, 220)
+    pygame.draw.rect(panel_surf, bg_color, (0, 0, gauge_width, gauge_height), border_radius=12)
+
+    # 테두리
+    if _tutorial_action_gauge_complete and _tutorial_action_gauge_fill_anim >= 1.0:
+        pulse = int(50 * (0.5 + 0.5 * math.sin(current_time * 0.01)))
+        border_color = (min(255, 255 + pulse), min(255, 215 + pulse), pulse)
+    else:
+        border_color = (255, 150, 100)  # 스킬 사용은 주황빛
+    pygame.draw.rect(panel_surf, border_color, (0, 0, gauge_width, gauge_height), 3, border_radius=12)
+
+    # 제목
+    try:
+        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 13)
+    except:
+        title_font = pygame.freetype.SysFont("malgun gothic", 13)
+
+    title_surf, title_rect = title_font.render("스킬 사용", (255, 255, 255))
+    title_x = (gauge_width - title_rect.width) // 2
+    panel_surf.blit(title_surf, (title_x, 8))
+
+    # 스킬 데이터 가져오기
+    drive_data = None
+    power_data = None
+    for skill in SMASHER_SKILL_ICONS_DATA:
+        if skill["name"] == "drive":
+            drive_data = skill
+        elif skill["name"] == "power_smashing":
+            power_data = skill
+
+    # 두 스킬 아이콘 좌우 배치
+    icon_size = 44
+    icon_y = 35
+    left_icon_x = 22
+    right_icon_x = gauge_width - 22 - icon_size
+
+    # === 드라이브 스킬 아이콘 및 상태 ===
+    if drive_data:
+        # 아이콘 생성 및 그리기
+        drive_completed = _tutorial_skill_used_drive
+        drive_icon = _create_smasher_skill_icon(drive_data, icon_size, active=True)
+        icon_offset = (drive_icon.get_width() - icon_size) // 2
+        panel_surf.blit(drive_icon, (left_icon_x - icon_offset, icon_y - icon_offset))
+
+        # 완료 시 체크 오버레이
+        if drive_completed:
+            check_center_x = left_icon_x + icon_size // 2
+            check_center_y = icon_y + icon_size // 2
+            # 반투명 녹색 원
+            check_surf = pygame.Surface((icon_size + 10, icon_size + 10), pygame.SRCALPHA)
+            pygame.draw.circle(check_surf, (50, 200, 50, 180), (icon_size // 2 + 5, icon_size // 2 + 5), icon_size // 2)
+            panel_surf.blit(check_surf, (left_icon_x - 5, icon_y - 5))
+            # 체크 마크
+            pygame.draw.line(panel_surf, (255, 255, 255),
+                           (check_center_x - 10, check_center_y),
+                           (check_center_x - 3, check_center_y + 8), 4)
+            pygame.draw.line(panel_surf, (255, 255, 255),
+                           (check_center_x - 3, check_center_y + 8),
+                           (check_center_x + 12, check_center_y - 10), 4)
+
+        # 스킬명
+        try:
+            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+        except:
+            name_font = pygame.freetype.SysFont("malgun gothic", 10)
+
+        if drive_completed:
+            name_color = (100, 255, 100)
+        else:
+            name_color = drive_data["color"]
+        name_surf, name_rect = name_font.render("드라이브", name_color)
+        name_x = left_icon_x + (icon_size - name_rect.width) // 2
+        panel_surf.blit(name_surf, (name_x, icon_y + icon_size + 8))
+
+        # 상태 텍스트
+        try:
+            status_small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 9)
+        except:
+            status_small_font = pygame.freetype.SysFont("malgun gothic", 9)
+
+        if drive_completed:
+            status_text = "완료!"
+            status_color = (100, 255, 100)
+        else:
+            status_text = "대기 중"
+            status_color = (180, 180, 180)
+        status_surf, status_rect = status_small_font.render(status_text, status_color)
+        status_x = left_icon_x + (icon_size - status_rect.width) // 2
+        panel_surf.blit(status_surf, (status_x, icon_y + icon_size + 22))
+
+    # === 파워스매싱 스킬 아이콘 및 상태 ===
+    if power_data:
+        # 아이콘 생성 및 그리기
+        power_completed = _tutorial_skill_used_power
+        power_icon = _create_smasher_skill_icon(power_data, icon_size, active=True)
+        icon_offset = (power_icon.get_width() - icon_size) // 2
+        panel_surf.blit(power_icon, (right_icon_x - icon_offset, icon_y - icon_offset))
+
+        # 완료 시 체크 오버레이
+        if power_completed:
+            check_center_x = right_icon_x + icon_size // 2
+            check_center_y = icon_y + icon_size // 2
+            # 반투명 녹색 원
+            check_surf = pygame.Surface((icon_size + 10, icon_size + 10), pygame.SRCALPHA)
+            pygame.draw.circle(check_surf, (50, 200, 50, 180), (icon_size // 2 + 5, icon_size // 2 + 5), icon_size // 2)
+            panel_surf.blit(check_surf, (right_icon_x - 5, icon_y - 5))
+            # 체크 마크
+            pygame.draw.line(panel_surf, (255, 255, 255),
+                           (check_center_x - 10, check_center_y),
+                           (check_center_x - 3, check_center_y + 8), 4)
+            pygame.draw.line(panel_surf, (255, 255, 255),
+                           (check_center_x - 3, check_center_y + 8),
+                           (check_center_x + 12, check_center_y - 10), 4)
+
+        # 스킬명
+        try:
+            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+        except:
+            name_font = pygame.freetype.SysFont("malgun gothic", 10)
+
+        if power_completed:
+            name_color = (100, 255, 100)
+        else:
+            name_color = power_data["color"]
+        name_surf, name_rect = name_font.render("파워스매싱", name_color)
+        name_x = right_icon_x + (icon_size - name_rect.width) // 2
+        panel_surf.blit(name_surf, (name_x, icon_y + icon_size + 8))
+
+        # 상태 텍스트
+        try:
+            status_small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 9)
+        except:
+            status_small_font = pygame.freetype.SysFont("malgun gothic", 9)
+
+        if power_completed:
+            status_text = "완료!"
+            status_color = (100, 255, 100)
+        else:
+            status_text = "대기 중"
+            status_color = (180, 180, 180)
+        status_surf, status_rect = status_small_font.render(status_text, status_color)
+        status_x = right_icon_x + (icon_size - status_rect.width) // 2
+        panel_surf.blit(status_surf, (status_x, icon_y + icon_size + 22))
+
+    # === 하단 완료 상태 표시 ===
+    status_y = gauge_height - 22
+
+    if _tutorial_action_gauge_complete and _tutorial_action_gauge_fill_anim >= 1.0:
+        # 완료 텍스트
+        try:
+            complete_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
+        except:
+            complete_font = pygame.freetype.SysFont("malgun gothic", 16)
+        complete_surf, complete_rect = complete_font.render("완료!", (255, 215, 0))
+        complete_x = (gauge_width - complete_rect.width) // 2
+        panel_surf.blit(complete_surf, (complete_x, status_y))
+    else:
+        # 진행 상황 (x/2)
+        try:
+            status_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 14)
+        except:
+            status_font = pygame.freetype.SysFont("malgun gothic", 14)
+        completed_count = (1 if _tutorial_skill_used_drive else 0) + (1 if _tutorial_skill_used_power else 0)
+        status_text = f"{completed_count}/2 완료"
+        status_surf, status_rect = status_font.render(status_text, (200, 200, 200))
+        status_x = (gauge_width - status_rect.width) // 2
+        panel_surf.blit(status_surf, (status_x, status_y))
+
+    target_screen.blit(panel_surf, (gauge_x, gauge_y))
+
+
 def show_mission_banner(text: str, duration_ms: int = 2000):
     """미션 안내창 표시"""
     global _mission_banner_active, _mission_banner_text, _mission_banner_start_time, _mission_banner_duration
@@ -63097,7 +64287,10 @@ def show_mission_banner(text: str, duration_ms: int = 2000):
     _mission_banner_text = text
     _mission_banner_start_time = pygame.time.get_ticks()
     _mission_banner_duration = duration_ms
-    print(f"[DEBUG] show_mission_banner 호출됨 - active={_mission_banner_active}, text={text}")
+
+    # 미션 배너 효과음 재생
+    if "TUTORIAL_MISSION" in sound_effects and sound_effects["TUTORIAL_MISSION"]:
+        sound_effects["TUTORIAL_MISSION"].play()
 
 
 def update_mission_banner():
@@ -63515,17 +64708,519 @@ _INGAME_TUTORIAL_STEPS = [
     {
         "highlight": None,
         "messages": [],  # 대화창 없이 미션 배너만 표시
-        "mission_banner": "스킬 아이콘에 마우스를 갖다대보세요!",
+        "mission_banner": "두 스킬 아이콘의 정보를 확인하세요! (각 3초)",
         "wait_for": "skill_hover"  # 스킬 아이콘 호버 대기
     },
-    # === 튜토리얼 종료 - 실전 시작 ===
+    # Step 27: 스킬 호버 완료 축하
     {
         "highlight": None,
         "messages": [
-            "자, 기본기는 여기까지!",
-            "그럼 실전 싸움을 해볼까요?",
+            "잘했어요!",
+        ]
+    },
+    # Step 28: 스킬 사용 안내
+    {
+        "highlight": None,
+        "messages": [
+            "이제 스킬창 툴팁 설명을 숙지하였으니",
+            "드라이브와 파워스매싱을 사용해봅시다!",
+        ]
+    },
+    # Step 29: 파워스매싱 설명
+    {
+        "highlight": None,
+        "messages": [
+            "파워스매싱은 공이 다가올 때",
+            "마우스를 꾹 누르고 있으면 발동되지만",
+        ]
+    },
+    # Step 30: 드라이브 설명
+    {
+        "highlight": None,
+        "messages": [
+            "드라이브는 플레이어에 공이 가까이 다가왔을 때",
+            "타이밍에 맞춰서 방향키 + 마우스좌클릭을",
+            "동시에 해야해서 조금 더 난이도가 있어요",
+        ]
+    },
+    # Step 31: 스킬 사용 미션
+    {
+        "highlight": None,
+        "messages": [],
+        "mission_banner": "드라이브와 파워스매싱을 각각 1회 사용해보세요!",
+        "wait_for": "skill_use"  # 드라이브 + 파워스매싱 각 1회 대기
+    },
+    # Step 32: 스킬 사용 완료 축하
+    {
+        "highlight": None,
+        "messages": [
+            "잘했어요!",
+        ]
+    },
+    # Step 33: 스킬 숙달 안내
+    {
+        "highlight": None,
+        "messages": [
+            "아직은 익숙하지 않을수도 있지만",
+            "실전에서 연습삼아 계속 익히시다보면",
+            "능숙하게 사용할 수 있을 거에요",
+        ]
+    },
+    # Step 34: 고급 콤보 안내
+    {
+        "highlight": None,
+        "messages": [
+            "어느정도 숙달이 되면",
+            "대쉬 후 원하는 방향으로 파워스매싱 또는 드라이브",
+            "같은 고급 콤보도 구사할 수 있으며",
+            "실전에서 많이 유용하게 쓰여요",
+        ]
+    },
+    # === Part 4: 아이템 시스템 (Step 35~55) ===
+    # Step 35: 아이템 소개
+    {
+        "highlight": None,
+        "messages": [
+            "이제 아이템에 대해서 알아볼게요",
+        ]
+    },
+    # Step 36: 3초 대기 + 아이템 스폰
+    {
+        "highlight": None,
+        "messages": [],
+        "wait_for": "delay_3s_item_spawn"  # 3초 대기 후 아이템 스폰
+    },
+    # Step 37: 아이템 강조 대기
+    {
+        "highlight": "unknown_item",
+        "messages": [],
+        "wait_for": "delay_1s"  # 1초 대기 (아이템 강조 표시)
+    },
+    # Step 38: ? 아이템 설명
+    {
+        "highlight": "unknown_item",
+        "messages": [
+            "게임을 하다보면 맵 중앙에",
+            "? 아이템이 생성됩니다",
+        ]
+    },
+    # Step 39: 아이템 미확인 설명
+    {
+        "highlight": "unknown_item",
+        "messages": [
+            "아이템은 획득하기 전까진",
+            "어떤 아이템인지 알 수 없어요",
+        ]
+    },
+    # Step 40: 아이템 터치 설명
+    {
+        "highlight": None,
+        "messages": [
+            "떠돌아다니는 ?아이템을",
+            "직접 캐릭터로 터치하면",
+        ]
+    },
+    # Step 41: 아이템 획득 설명
+    {
+        "highlight": None,
+        "messages": [
+            "아이템을 획득할 수 있습니다",
+        ]
+    },
+    # Step 42: 아이템 획득 미션
+    {
+        "highlight": None,
+        "messages": [],
+        "mission_banner": "캐릭터를 움직여서 아이템을 획득해보세요!",
+        "wait_for": "item_collect"  # 아이템 획득 대기
+    },
+    # Step 43: 1초 대기
+    {
+        "highlight": None,
+        "messages": [],
+        "wait_for": "delay_1s"
+    },
+    # Step 44: 아이템 획득 축하
+    {
+        "highlight": None,
+        "messages": [
+            "잘했어요!",
+        ]
+    },
+    # Step 45: 액티브 아이템 슬롯 설명
+    {
+        "highlight": "active_item_slot",
+        "messages": [
+            "액티브아이템을 획득시",
+            "아래있는 액티브아이템슬롯에",
+            "아이템이 저장돼요",
+        ]
+    },
+    # Step 46: 아이템 호버 설명
+    {
+        "highlight": "active_item_slot",
+        "messages": [
+            "해당 아이템에 마우스 커서를",
+            "갖다대면",
+        ]
+    },
+    # Step 47: 아이템 정보 확인
+    {
+        "highlight": None,
+        "messages": [
+            "아이템의 정보를 확인할 수 있어요",
+        ]
+    },
+    # Step 48: 아이템 확인 후
+    {
+        "highlight": None,
+        "messages": [
+            "어떤 아이템인지 확인 해본 후에",
+        ]
+    },
+    # Step 49: 아이템 사용 방법
+    {
+        "highlight": "active_item_slot",
+        "messages": [
+            "해당 아이템 아이콘 슬롯의 번호에 맞게",
+            "숫자키를 입력하거나, 마우스로 클릭하면",
+        ]
+    },
+    # Step 50: 아이템 사용
+    {
+        "highlight": None,
+        "messages": [
+            "아이템을 사용할 수 있습니다",
+        ]
+    },
+    # Step 51: 아이템 사용 미션
+    {
+        "highlight": None,
+        "messages": [],
+        "mission_banner": "획득한 액티브아이템을 사용해보세요!",
+        "wait_for": "item_use"  # 아이템 사용 대기
+    },
+    # Step 52: 1초 대기
+    {
+        "highlight": None,
+        "messages": [],
+        "wait_for": "delay_1s"
+    },
+    # Step 53: 아이템 사용 축하
+    {
+        "highlight": None,
+        "messages": [
+            "잘했어요!",
+        ]
+    },
+    # Step 54: 액티브 아이템 활용
+    {
+        "highlight": None,
+        "messages": [
+            "전투중에 액티브아이템을 적절히 사용하여",
+            "전세를 역전하거나 유리한 상황으로 이끌어갈 수 있어요",
+        ]
+    },
+    # Step 55: 패시브 아이템 소개
+    {
+        "highlight": None,
+        "messages": [
+            "아이템은 액티브아이템 뿐만 아니라",
+            "패시브아이템, 이렇게 크게 두 종류로 나뉘어져요",
+        ]
+    },
+    # === Part 5: 패시브 아이템 & TAB 시스템 (Step 56~68) ===
+    # Step 56: 3초 대기 + 스피드부츠 스폰
+    {
+        "highlight": None,
+        "messages": [],
+        "wait_for": "delay_3s_passive_spawn"  # 3초 대기 후 패시브 아이템 스폰
+    },
+    # Step 57: 패시브 아이템 강조 대기
+    {
+        "highlight": "passive_item",
+        "messages": [],
+        "wait_for": "delay_1s"
+    },
+    # Step 58: 패시브 아이템 획득 미션
+    {
+        "highlight": None,
+        "messages": [],
+        "mission_banner": "다음 아이템도 획득해보세요!",
+        "wait_for": "passive_item_collect"  # 패시브 아이템 획득 대기
+    },
+    # Step 59: 1초 대기
+    {
+        "highlight": None,
+        "messages": [],
+        "wait_for": "delay_1s"
+    },
+    # Step 60: 패시브 아이템 획득 축하
+    {
+        "highlight": None,
+        "messages": [
+            "잘했어요!",
+        ]
+    },
+    # Step 61: TAB 키 안내
+    {
+        "highlight": None,
+        "messages": [
+            "획득한 패시브 아이템에 대한 정보는",
+            "{KEY:TAB}키를 눌러서 확인 할 수 있어요",
+        ]
+    },
+    # Step 62: TAB 키 미션
+    {
+        "highlight": None,
+        "messages": [],
+        "mission_banner": "{KEY:TAB}키를 눌러보세요!",
+        "wait_for": "tab_press"  # TAB 키 입력 대기
+    },
+    # Step 63: 1초 대기
+    {
+        "highlight": None,
+        "messages": [],
+        "wait_for": "delay_1s"
+    },
+    # Step 64: TAB 키 축하
+    {
+        "highlight": None,
+        "messages": [
+            "잘했어요!",
+        ]
+    },
+    # Step 65: TAB 메뉴 아이템 정보
+    {
+        "highlight": "tab_passive_item",
+        "messages": [
+            "마우스 위에 커서를 올리면",
+            "해당 아이템의 정보를 확인할 수 있습니다",
+        ]
+    },
+    # Step 66: 장착/해제 안내
+    {
+        "highlight": None,
+        "messages": [
+            "마우스 오른쪽 버튼을 눌러서",
+            "장착, 해제를 할수도 있고",
+        ]
+    },
+    # Step 67: 아이템 버리기 안내
+    {
+        "highlight": "tab_trash_icon",
+        "messages": [
+            "우측 상단에 쓰레기통으로 드래그하면",
+            "아이템을 버릴 수도 있어요",
+        ]
+    },
+    # Step 68: 스피드부츠 효과 안내
+    {
+        "highlight": None,
+        "messages": [
+            "스피드부츠를 획득했네요!",
+            "장착시 능력치 중 이동속도가",
+            "변화하는 것을 확인할 수 있어요",
+        ]
+    },
+    # Step 69: TAB 창 닫기 대기 (메시지 없이 대기만)
+    {
+        "highlight": None,
+        "messages": [],
+        "wait_for": "tab_close"  # TAB 창 닫을 때까지 대기
+    },
+    # === Part 6: 풍선기계 & 골드 & 게임 룰 & 최종 미션 (Step 70~94) ===
+    # === 풍선기계 튜토리얼 (Step 70~77) ===
+    # Step 70: 3초 대기 + 풍선기계 스폰 (TAB 창 닫은 후)
+    {
+        "highlight": None,
+        "messages": [],
+        "wait_for": "delay_3s_balloon_spawn"  # 3초 대기 후 풍선기계 스폰
+    },
+    # Step 71: 풍선기계 풍선 발사 대기
+    {
+        "highlight": None,
+        "messages": [],
+        "wait_for": "balloon_machine_shooting"  # 풍선기계가 풍선 발사할 때까지 대기
+    },
+    # Step 72: 풍선기계 등장 설명
+    {
+        "highlight": "tutorial_balloon",
+        "messages": [
+            "풍선기계가 나타났어요!",
         ],
-        "trigger": "end_tutorial"  # 튜토리얼 종료 트리거
+        "pause_balloon": True  # 풍선 일시정지
+    },
+    # Step 72: 풍선 터트리기 설명
+    {
+        "highlight": "tutorial_balloon",
+        "messages": [
+            "이 풍선을 공을 맞춰 터트리면",
+        ],
+        "pause_balloon": True
+    },
+    # Step 73: 스타포인트 드랍 설명
+    {
+        "highlight": "tutorial_balloon",
+        "messages": [
+            "스타포인트를 드랍하는데",
+        ],
+        "pause_balloon": True
+    },
+    # Step 74: 스타포인트 획득 설명
+    {
+        "highlight": "tutorial_balloon",
+        "messages": [
+            "플레이어 캐릭터로 스타포인트에 닿으면",
+        ],
+        "pause_balloon": True
+    },
+    # Step 75: 런타임 스킬 선택 설명
+    {
+        "highlight": "tutorial_balloon",
+        "messages": [
+            "런타임 스킬을 선택할 수 있어요",
+        ],
+        "pause_balloon": True
+    },
+    # Step 76: 풍선 터트리기 + 스타포인트 획득 미션
+    {
+        "highlight": "tutorial_balloon",
+        "messages": [],
+        "mission_banner": "풍선을 터트린 후 스타포인트를 획득하세요!",
+        "wait_for": "star_point_collect"  # 스타포인트 획득 대기 → 런타임스킬 창
+    },
+    # === 골드 HUD 튜토리얼 (Step 77~79) ===
+    # Step 77: 골드 획득 방법 설명
+    {
+        "highlight": "gold_hud",
+        "messages": [
+            "골드는 인게임에서 공을",
+            "서로 주고받으면서 획득이 가능하고",
+        ]
+    },
+    # Step 78: 속도 보너스 설명
+    {
+        "highlight": "gold_hud",
+        "messages": [
+            "공이 점점 빨라질수록",
+            "골드보너스를 얻어요",
+        ]
+    },
+    # Step 79: 대쉬/스킬 보너스 설명
+    {
+        "highlight": "gold_hud",
+        "messages": [
+            "대쉬 혹은 스킬을 사용할 경우",
+            "더 많은 골드 보너스를 얻습니다",
+        ]
+    },
+    # === 게임 룰 튜토리얼 (Step 80~89) ===
+    # Step 80: 축하 + 기본 학습 완료
+    {
+        "highlight": None,
+        "messages": [
+            "이제 게임의 기본적인 모든 걸 익혔습니다!",
+        ],
+        "trigger": "celebrate"  # 축하 효과
+    },
+    # Step 81: 게임 룰 소개 대기
+    {
+        "highlight": None,
+        "messages": [],
+        "mission_banner": "이제 게임의 룰을 배워볼까요?",
+        "wait_for": "delay_3s"  # 3초 딜레이
+    },
+    # Step 82: 게임 룰 설명 시작
+    {
+        "highlight": None,
+        "messages": [
+            "게임의 룰은 간단합니다",
+        ]
+    },
+    # Step 83: 보스 벽 설명
+    {
+        "highlight": "boss_wall",
+        "messages": [
+            "이 벽 뒤로 공을 넘기면 플레이어 1점 획득",
+        ]
+    },
+    # Step 84: 플레이어 벽 설명
+    {
+        "highlight": "player_wall",
+        "messages": [
+            "반대로 플레이어가 공을 막지못하면 보스가 1점획득",
+        ]
+    },
+    # Step 85: 승리 조건 설명
+    {
+        "highlight": "mini_scoreboard",
+        "messages": [
+            "먼저 5점 획득시 최종승리, 스테이지를 클리어하게 됩니다",
+        ]
+    },
+    # Step 86: 듀스 룰 소개
+    {
+        "highlight": "mini_scoreboard",
+        "messages": [
+            "단 4:4 동점이 될 경우 듀스 룰이 적용이 되는데",
+        ]
+    },
+    # Step 87: 듀스 승리 조건
+    {
+        "highlight": "mini_scoreboard",
+        "messages": [
+            "이경우 2점을 추가로 더 획득하는 쪽이 승리하게 됩니다",
+            "4:4의 경우 6:4",
+        ]
+    },
+    # Step 88: 최대 듀스 설명
+    {
+        "highlight": "mini_scoreboard",
+        "messages": [
+            "듀스는 최대 5:5까지 적용이 되며",
+            "최대 7점을 획득시 승리하게되죠",
+        ]
+    },
+    # Step 89: 실전 격려
+    {
+        "highlight": None,
+        "messages": [
+            "지금까지 배운 내용들을 잘 활용하여",
+            "보스와 싸워서 승리하세요",
+        ]
+    },
+    # === 최종 미션: 보스전 승리 (Step 90~93) ===
+    # Step 90: 마지막 미션 안내
+    {
+        "highlight": None,
+        "messages": [
+            "마지막 미션입니다!",
+        ]
+    },
+    # Step 91: 보스전 승리 미션 (점수 고정 해제)
+    {
+        "highlight": None,
+        "messages": [],
+        "mission_banner": "보스랑 배틀해서 승리하세요!",
+        "wait_for": "win_battle",  # 보스전 승리 대기
+        "trigger": "unfreeze_score"  # 점수 고정 해제
+    },
+    # Step 92: 튜토리얼 완료 축하
+    {
+        "highlight": "stage_clear",
+        "messages": [
+            "축하합니다! 튜토리얼을 완료했어요!",
+        ],
+        "trigger": "celebrate"  # 축하 효과
+    },
+    # Step 93: 최종 완료 + 게임 재시작
+    {
+        "highlight": None,
+        "messages": [
+            "이제 본격적인 모험을 시작해볼까요?",
+        ],
+        "trigger": "end_tutorial"  # 튜토리얼 종료 트리거 → 게임 재시작
     },
 ]
 
@@ -63534,6 +65229,9 @@ def start_ingame_tutorial():
     """실전 튜토리얼 시작"""
     global _ingame_tutorial_active, _ingame_tutorial_step, _ingame_tutorial_waiting_action, _ingame_tutorial_completed
     global _ingame_tutorial_score_frozen, round_wins, round_losses
+    global _tutorial_balloon_machine_enabled, _tutorial_balloon_machine_spawned
+    global _tutorial_balloon_machine_shot_fired, _tutorial_balloon_shot_delay_start
+    global active_item_slot
     if _ingame_tutorial_completed:
         return
     _ingame_tutorial_active = True
@@ -63544,6 +65242,17 @@ def start_ingame_tutorial():
     _ingame_tutorial_score_frozen = True
     round_wins = 0
     round_losses = 0
+
+    # 튜토리얼 시작 시 기본 지급 에너지드링크 제거
+    active_item_slot.clear()
+
+    # 튜토리얼 풍선기계 초기화 - 튜토리얼용 스폰 전까지 일반 풍선기계 차단
+    _tutorial_balloon_machine_enabled = False
+    _tutorial_balloon_machine_spawned = False
+    _tutorial_balloon_machine_shot_fired = False
+    _tutorial_balloon_shot_delay_start = 0
+    globals()['_tutorial_balloon_respawn_delay_start'] = 0
+    globals()['_tutorial_balloon_all_popped'] = False
 
     # 튜토리얼 BGM 재생
     try:
@@ -63556,23 +65265,41 @@ def advance_ingame_tutorial():
     """튜토리얼 다음 단계로 진행 (또는 액션 대기 상태로 전환)"""
     global _ingame_tutorial_step, _ingame_tutorial_active, _ingame_tutorial_waiting_action, _ingame_tutorial_completed
     global _ingame_tutorial_delay_start, smasher_combo_count
+    global _ingame_tutorial_clap_active, _ingame_tutorial_clap_timer
+    global _ingame_tutorial_score_frozen, round_wins, round_losses
     if not _ingame_tutorial_active:
         return
 
     current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
 
+    # 트리거 처리 (대기 전에 실행)
+    trigger = current.get("trigger")
+    if trigger == "unfreeze_score":
+        # 점수 고정 해제 - 실전 보스전 시작!
+        _ingame_tutorial_score_frozen = False
+        round_wins = 0
+        round_losses = 0
+        print("[DEBUG] 튜토리얼: 점수 고정 해제 - 실전 시작!")
+    elif trigger == "celebrate":
+        # 축하 효과 활성화
+        _ingame_tutorial_clap_active = True
+        _ingame_tutorial_clap_timer = 120  # 2초
+        if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
+            sound_effects["MISSION_CLEAR"].set_volume(0.8)
+            sound_effects["MISSION_CLEAR"].play()
+
     # wait_for가 있는 단계에서 아직 대기 상태가 아니면 대기 상태로 전환
     if current.get("wait_for") and not _ingame_tutorial_waiting_action:
         _ingame_tutorial_waiting_action = True
+        wait_for = current.get("wait_for")
         # 딜레이 대기의 경우 시작 시간 기록
-        if current.get("wait_for") == "delay_3s":
+        if wait_for in ("delay_3s", "delay_1s", "delay_3s_item_spawn", "delay_3s_passive_spawn", "delay_3s_balloon_spawn"):
             _ingame_tutorial_delay_start = pygame.time.get_ticks()
         # 미션 배너가 있으면 표시
         if current.get("mission_banner"):
             print(f"[DEBUG] 미션 배너 표시: {current['mission_banner']}")
             show_mission_banner(current["mission_banner"], 2500)
         # 미션 유형에 따라 액션 게이지 표시
-        wait_for = current.get("wait_for")
         if wait_for == "combo_3":
             # 콤보 미션 시작 시 콤보 카운트 리셋
             smasher_combo_count = 0
@@ -63582,18 +65309,57 @@ def advance_ingame_tutorial():
         elif wait_for == "half_dash":
             show_tutorial_action_gauge("half_dash", 1, "하프대쉬")
         elif wait_for == "skill_hover":
-            show_tutorial_action_gauge("skill_hover", 1, "스킬 호버")
+            show_tutorial_action_gauge("skill_hover", 2, "스킬 호버")  # 2개 스킬 호버 필요
+        elif wait_for == "skill_use":
+            show_tutorial_action_gauge("skill_use", 2, "스킬 사용")  # 드라이브 + 파워스매싱
+        elif wait_for == "item_collect":
+            show_tutorial_action_gauge("item_collect", 1, "아이템 획득")
+        elif wait_for == "item_use":
+            show_tutorial_action_gauge("item_use", 1, "아이템 사용")
+        elif wait_for == "passive_item_collect":
+            show_tutorial_action_gauge("passive_item_collect", 1, "패시브 획득")
+        elif wait_for == "tab_press":
+            show_tutorial_action_gauge("tab_press", 1, "TAB 키")
+        elif wait_for == "balloon_hit":
+            show_tutorial_action_gauge("balloon_hit", 1, "풍선기계")
+        elif wait_for == "star_point_collect":
+            show_tutorial_action_gauge("star_point_collect", 1, "스타포인트")
+        elif wait_for == "win_battle":
+            show_tutorial_action_gauge("win_battle", 5, "보스전 승리")
+        elif wait_for == "balloon_machine_shooting":
+            # 풍선기계가 풍선을 쏠 때까지 대기 (게이지 없이)
+            _ingame_tutorial_delay_start = pygame.time.get_ticks()
         return  # 다음 단계로 넘어가지 않고 대기
 
     # 다음 단계로 진행
     _ingame_tutorial_step += 1
     _ingame_tutorial_waiting_action = False
 
+    # 다음 단계의 메시지 확인하여 칭찬 메시지면 사운드 재생 + 박수 애니메이션
+    if _ingame_tutorial_step < len(_INGAME_TUTORIAL_STEPS):
+        next_messages = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step].get("messages", [])
+        is_praise_message = False
+        for msg in next_messages:
+            if any(praise in msg for praise in ["잘했어요", "훌륭해요", "좋아요", "대단해요", "멋져요", "완벽해요"]):
+                is_praise_message = True
+                # 칭찬 메시지 사운드 재생 (MISSION_CLEAR 사용)
+                if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
+                    sound_effects["MISSION_CLEAR"].set_volume(0.7)
+                    sound_effects["MISSION_CLEAR"].play()
+                break
+
+        # 칭찬 메시지일 때 박수 애니메이션 활성화
+        if is_praise_message:
+            _ingame_tutorial_clap_active = True
+            _ingame_tutorial_clap_timer = 90  # 1.5초
+
     if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
         _ingame_tutorial_active = False
         _ingame_tutorial_completed = True
+        # 튜토리얼 완료 사운드 재생
+        if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
+            sound_effects["MISSION_CLEAR"].play()
         # 튜토리얼 중 점수 고정 해제 - 실전 시작!
-        global _ingame_tutorial_score_frozen, round_wins, round_losses
         _ingame_tutorial_score_frozen = False
         round_wins = 0
         round_losses = 0
@@ -63608,13 +65374,13 @@ def advance_ingame_tutorial():
     next_step = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
     if next_step.get("wait_for") and not next_step.get("messages"):
         _ingame_tutorial_waiting_action = True
-        if next_step.get("wait_for") == "delay_3s":
+        next_wait_for = next_step.get("wait_for")
+        if next_wait_for in ("delay_3s", "delay_1s", "delay_3s_item_spawn", "delay_3s_passive_spawn", "delay_3s_balloon_spawn"):
             _ingame_tutorial_delay_start = pygame.time.get_ticks()
         # 미션 배너가 있으면 표시
         if next_step.get("mission_banner"):
             show_mission_banner(next_step["mission_banner"], 2500)
         # 미션 유형에 따라 액션 게이지 표시
-        next_wait_for = next_step.get("wait_for")
         if next_wait_for == "combo_3":
             # 콤보 미션 시작 시 콤보 카운트 리셋
             smasher_combo_count = 0
@@ -63624,7 +65390,36 @@ def advance_ingame_tutorial():
         elif next_wait_for == "half_dash":
             show_tutorial_action_gauge("half_dash", 1, "하프대쉬")
         elif next_wait_for == "skill_hover":
-            show_tutorial_action_gauge("skill_hover", 1, "스킬 호버")
+            show_tutorial_action_gauge("skill_hover", 2, "스킬 호버")
+        elif next_wait_for == "skill_use":
+            show_tutorial_action_gauge("skill_use", 2, "스킬 사용")
+        elif next_wait_for == "item_collect":
+            show_tutorial_action_gauge("item_collect", 1, "아이템 획득")
+        elif next_wait_for == "item_use":
+            show_tutorial_action_gauge("item_use", 1, "아이템 사용")
+        elif next_wait_for == "passive_item_collect":
+            show_tutorial_action_gauge("passive_item_collect", 1, "패시브 획득")
+        elif next_wait_for == "tab_press":
+            show_tutorial_action_gauge("tab_press", 1, "TAB 키")
+        elif next_wait_for == "balloon_hit":
+            show_tutorial_action_gauge("balloon_hit", 1, "풍선기계")
+        elif next_wait_for == "star_point_collect":
+            show_tutorial_action_gauge("star_point_collect", 1, "스타포인트")
+        elif next_wait_for == "win_battle":
+            show_tutorial_action_gauge("win_battle", 5, "보스전 승리")
+        elif next_wait_for == "balloon_machine_shooting":
+            # 풍선기계가 풍선을 쏠 때까지 대기 (게이지 없이)
+            _ingame_tutorial_delay_start = pygame.time.get_ticks()
+        # 트리거 처리 (next_step에도)
+        next_trigger = next_step.get("trigger")
+        if next_trigger == "unfreeze_score":
+            _ingame_tutorial_score_frozen = False
+            round_wins = 0
+            round_losses = 0
+            print("[DEBUG] 튜토리얼: 점수 고정 해제 - 실전 시작!")
+        elif next_trigger == "celebrate":
+            _ingame_tutorial_clap_active = True
+            _ingame_tutorial_clap_timer = 120
 
 
 def on_player_dash_for_tutorial(is_half_dash: bool = False):
@@ -63739,17 +65534,114 @@ def update_ingame_tutorial_delay():
 
     current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
     wait_for = current.get("wait_for")
+    current_time = pygame.time.get_ticks()
+    elapsed = current_time - _ingame_tutorial_delay_start
+
 
     # 3초 딜레이 체크
     if wait_for == "delay_3s":
-        current_time = pygame.time.get_ticks()
-        elapsed = current_time - _ingame_tutorial_delay_start
         if elapsed >= _ingame_tutorial_delay_duration:
             advance_ingame_tutorial()
 
+    # 1초 딜레이 체크
+    elif wait_for == "delay_1s":
+        if elapsed >= 1000:  # 1초
+            advance_ingame_tutorial()
+
+    # 3초 대기 후 액티브 아이템 스폰
+    elif wait_for == "delay_3s_item_spawn":
+        if elapsed >= _ingame_tutorial_delay_duration:
+            # 튜토리얼용 액티브 아이템 스폰 (예: 바나나)
+            spawn_tutorial_active_item()
+            advance_ingame_tutorial()
+
+    # 3초 대기 후 패시브 아이템 스폰
+    elif wait_for == "delay_3s_passive_spawn":
+        if elapsed >= _ingame_tutorial_delay_duration:
+            # 튜토리얼용 패시브 아이템 스폰 (스피드부츠)
+            spawn_tutorial_passive_item()
+            advance_ingame_tutorial()
+
+    # 3초 대기 후 풍선기계 스폰
+    elif wait_for == "delay_3s_balloon_spawn":
+        if elapsed >= _ingame_tutorial_delay_duration:
+            print(f"[DEBUG] 튜토리얼: 풍선기계 스폰!")
+            # 튜토리얼용 풍선기계 스폰
+            spawn_tutorial_balloon_machine()
+            advance_ingame_tutorial()
+
+    # 풍선기계가 풍선을 모두 쏜 후 1초 대기
+    elif wait_for == "balloon_machine_shooting":
+        # 풍선기계가 풍선을 모두 발사했는지 확인 (shooting_wait 단계로 전환됨)
+        if _tutorial_balloon_machine_spawned and stage1_events:
+            balloon_event = stage1_events.balloon_machine
+            # 풍선이 모두 발사되면 phase가 "shooting_wait" 이상으로 변경됨
+            all_shot_phases = ("shooting_wait", "machine_lowering", "machine_lower_wait", "door_closing")
+            if balloon_event.phase in all_shot_phases:
+                # 풍선 발사 완료 시점 기록 (아직 기록 안 됐으면)
+                if _tutorial_balloon_shot_delay_start == 0:
+                    globals()['_tutorial_balloon_shot_delay_start'] = current_time
+                # 1초 딜레이 체크
+                delay_elapsed = current_time - _tutorial_balloon_shot_delay_start
+                if delay_elapsed >= 1000:  # 풍선 발사 완료 후 1초
+                    _tutorial_balloon_machine_shot_fired = True
+                    advance_ingame_tutorial()
+                    print(f"[DEBUG] 튜토리얼: 풍선 발사 완료 후 1초 경과, 다음 단계로!")
+
+    # 스킬 사용 완료 후 1초 딜레이 체크
+    elif wait_for == "skill_use":
+        if _tutorial_skill_use_delay_pending:
+            skill_use_elapsed = current_time - _tutorial_skill_use_complete_time
+            if skill_use_elapsed >= 1000:  # 1초 딜레이
+                _finalize_skill_use_tutorial()
+
+    # 스타포인트 획득 대기 중 풍선이 모두 터졌으면 2초 후 재스폰
+    elif wait_for == "star_point_collect":
+        global _tutorial_balloon_respawn_delay_start, _tutorial_balloon_all_popped
+        # 풍선 상태 확인
+        if stage1_events and hasattr(stage1_events, 'balloon_machine'):
+            balloons = stage1_events.balloon_machine.get_balloons()
+            tutorial_balloons = [b for b in balloons if b.get("is_tutorial", False)]
+
+            if len(tutorial_balloons) == 0 and not _tutorial_balloon_all_popped:
+                # 풍선이 모두 터짐 - 리스폰 타이머 시작
+                _tutorial_balloon_all_popped = True
+                _tutorial_balloon_respawn_delay_start = current_time
+                print(f"[DEBUG] 튜토리얼: 풍선이 모두 터짐! 2초 후 재스폰 예정")
+
+            elif _tutorial_balloon_all_popped and _tutorial_balloon_respawn_delay_start > 0:
+                # 2초 대기 후 풍선기계 재스폰
+                respawn_elapsed = current_time - _tutorial_balloon_respawn_delay_start
+                if respawn_elapsed >= 2000:  # 2초 후
+                    print(f"[DEBUG] 튜토리얼: 풍선 재스폰!")
+                    _tutorial_balloon_all_popped = False
+                    _tutorial_balloon_respawn_delay_start = 0
+                    # 풍선기계 다시 스폰
+                    spawn_tutorial_balloon_machine()
+
+
+def _finalize_skill_use_tutorial():
+    """스킬 사용 튜토리얼 완료 처리 (딜레이 후 호출)"""
+    global _tutorial_skill_used_drive, _tutorial_skill_used_power
+    global _tutorial_skill_use_delay_pending
+
+    hide_tutorial_action_gauge()
+    advance_ingame_tutorial()
+    # 다음 미션을 위해 초기화
+    _tutorial_skill_used_drive = False
+    _tutorial_skill_used_power = False
+    _tutorial_skill_use_delay_pending = False
+    print(f"[DEBUG] 튜토리얼: 스킬 사용 미션 완료!")
+
 
 def check_skill_hover_for_tutorial():
-    """스킬 아이콘 호버 체크 - 매 프레임 호출 (튜토리얼 skill_hover 대기 중일 때)"""
+    """스킬 아이콘 호버 체크 - 매 프레임 호출 (튜토리얼 skill_hover 대기 중일 때)
+
+    두 스킬(드라이브, 파워스매싱) 아이콘에 각각 3초씩 마우스를 올려야 완료됩니다.
+    """
+    global _tutorial_skill_hover_drive, _tutorial_skill_hover_power
+    global _tutorial_skill_hover_current, _tutorial_skill_hover_start_time
+
     if not _ingame_tutorial_active or not _ingame_tutorial_waiting_action:
         return
 
@@ -63767,10 +65659,506 @@ def check_skill_hover_for_tutorial():
     if globals().get('selected_character_type') == 'smasher':
         scale_factor = globals().get('GAME_SCALE_FACTOR', 1.0)
         hovered_skill = _check_smasher_skill_tooltip(None, scale_factor)
+        current_time = pygame.time.get_ticks()
+
         if hovered_skill is not None:
-            # 스킬 아이콘에 마우스를 올렸음 - 튜토리얼 진행
-            hide_tutorial_action_gauge()  # 액션 게이지 숨기기
-            advance_ingame_tutorial()
+            # 호버 중인 스킬 확인 (hovered_skill은 스킬 데이터 딕셔너리)
+            hovered_skill_name = hovered_skill.get("name", "")
+            # 드라이브와 파워스매싱만 튜토리얼 대상
+            if hovered_skill_name == "drive":
+                skill_name = "drive"
+            elif hovered_skill_name == "power_smashing":
+                skill_name = "power"
+            else:
+                # 다른 스킬은 무시
+                _tutorial_skill_hover_current = None
+                return
+
+            # 같은 스킬을 계속 호버 중인지 확인
+            if _tutorial_skill_hover_current == skill_name:
+                # 3초 경과 체크
+                elapsed = current_time - _tutorial_skill_hover_start_time
+                if elapsed >= _tutorial_skill_hover_duration:
+                    # 해당 스킬 호버 완료
+                    if skill_name == "drive" and not _tutorial_skill_hover_drive:
+                        _tutorial_skill_hover_drive = True
+                        update_tutorial_action_gauge(1 if not _tutorial_skill_hover_power else 2)
+                        print(f"[DEBUG] 드라이브 스킬 호버 완료!")
+                    elif skill_name == "power" and not _tutorial_skill_hover_power:
+                        _tutorial_skill_hover_power = True
+                        update_tutorial_action_gauge(1 if not _tutorial_skill_hover_drive else 2)
+                        print(f"[DEBUG] 파워스매싱 스킬 호버 완료!")
+
+                    # 두 스킬 모두 완료되었는지 체크
+                    if _tutorial_skill_hover_drive and _tutorial_skill_hover_power:
+                        hide_tutorial_action_gauge()
+                        advance_ingame_tutorial()
+                        # 다음 미션을 위해 초기화
+                        _tutorial_skill_hover_drive = False
+                        _tutorial_skill_hover_power = False
+                    else:
+                        # 다음 스킬 호버를 위해 현재 상태 리셋
+                        _tutorial_skill_hover_current = None
+            else:
+                # 새로운 스킬 호버 시작
+                _tutorial_skill_hover_current = skill_name
+                _tutorial_skill_hover_start_time = current_time
+        else:
+            # 호버 중이 아님 - 시간 리셋
+            _tutorial_skill_hover_current = None
+
+
+def on_skill_use_for_tutorial(skill_type: str):
+    """스킬 사용 시 튜토리얼 체크 (드라이브 또는 파워스매싱)
+
+    Args:
+        skill_type: "drive" 또는 "power"
+    """
+    global _tutorial_skill_used_drive, _tutorial_skill_used_power
+    global _tutorial_skill_use_complete_time, _tutorial_skill_use_delay_pending
+
+    if not _ingame_tutorial_active or not _ingame_tutorial_waiting_action:
+        return
+
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        return
+
+    current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    wait_for = current.get("wait_for")
+
+    if wait_for != "skill_use":
+        return
+
+    # 이미 딜레이 대기 중이면 무시
+    if _tutorial_skill_use_delay_pending:
+        return
+
+    if skill_type == "drive" and not _tutorial_skill_used_drive:
+        _tutorial_skill_used_drive = True
+        update_tutorial_action_gauge(1 if not _tutorial_skill_used_power else 2)
+        print(f"[DEBUG] 튜토리얼: 드라이브 사용 완료!")
+    elif skill_type == "power" and not _tutorial_skill_used_power:
+        _tutorial_skill_used_power = True
+        update_tutorial_action_gauge(1 if not _tutorial_skill_used_drive else 2)
+        print(f"[DEBUG] 튜토리얼: 파워스매싱 사용 완료!")
+
+    # 두 스킬 모두 사용되었는지 체크 - 1초 딜레이 후 진행
+    if _tutorial_skill_used_drive and _tutorial_skill_used_power and not _tutorial_skill_use_delay_pending:
+        _tutorial_skill_use_delay_pending = True
+        _tutorial_skill_use_complete_time = pygame.time.get_ticks()
+        print(f"[DEBUG] 튜토리얼: 스킬 사용 완료! 1초 후 진행...")
+
+
+def spawn_tutorial_active_item():
+    """튜토리얼용 액티브 아이템 스폰 (에너지드링크/게이지충전) - 물음표 상태로 시작"""
+    global _tutorial_spawned_item
+    try:
+        # 게임 중앙에 아이템 스폰
+        center_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+        center_y = INTERNAL_HEIGHT // 2
+
+        # items.ITEM_TYPES에서 게이지충전(에너지드링크) 찾기
+        item_type_data = None
+        for item_type in items.ITEM_TYPES:
+            if item_type["name"] == "gauge_charge":
+                item_type_data = item_type.copy()
+                break
+
+        if not item_type_data:
+            print("[ERROR] 게이지충전 아이템 타입을 찾을 수 없음")
+            return
+
+        # revealed=False로 물음표 상태로 시작
+        item_type_data["revealed"] = False
+
+        # 정상적인 아이템 구조로 생성 - 기존 아이템과 동일한 속도로 이동
+        import random
+        tutorial_item = {
+            "x": center_x,
+            "y": center_y,
+            "vel": [random.choice([-4, -3, 3, 4]), random.choice([-4, -3, 3, 4])],  # 기존 아이템과 동일한 속도
+            "type": item_type_data,
+            "timer": 9999,
+            "bounce_count": 0,
+            "max_bounces": 9999,  # 사라지지 않음 (벽에 부딪혀도 유지)
+            "angle": 0,
+            "is_tutorial_item": True  # 튜토리얼 아이템 표시
+        }
+        items.item_list.append(tutorial_item)
+        _tutorial_spawned_item = tutorial_item
+        print(f"[DEBUG] 튜토리얼: 게이지충전 아이템(?) 스폰 at ({center_x}, {center_y})")
+    except Exception as e:
+        print(f"[ERROR] 튜토리얼 아이템 스폰 실패: {e}")
+
+
+def spawn_tutorial_passive_item():
+    """튜토리얼용 패시브 아이템 스폰 (스피드부츠) - 물음표 상태로 시작"""
+    global _tutorial_spawned_passive_item
+    try:
+        # 게임 중앙에 스피드부츠 스폰
+        center_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+        center_y = INTERNAL_HEIGHT // 2
+
+        # items.ITEM_TYPES에서 스피드부츠 찾기
+        speedboots_type = None
+        for item_type in items.ITEM_TYPES:
+            if item_type["name"] == "speedboots":
+                speedboots_type = item_type.copy()
+                break
+
+        if not speedboots_type:
+            print("[ERROR] 스피드부츠 아이템 타입을 찾을 수 없음")
+            return
+
+        # revealed=False로 물음표 상태로 시작
+        speedboots_type["revealed"] = False
+
+        # 정상적인 아이템 구조로 생성 - 기존 아이템과 동일한 속도로 이동
+        import random
+        speedboots_item = {
+            "x": center_x,
+            "y": center_y,
+            "vel": [random.choice([-4, -3, 3, 4]), random.choice([-4, -3, 3, 4])],  # 기존 아이템과 동일한 속도
+            "type": speedboots_type,
+            "timer": 9999,
+            "bounce_count": 0,
+            "max_bounces": 9999,  # 사라지지 않음 (벽에 부딪혀도 유지)
+            "angle": 0,
+            "is_tutorial_item": True
+        }
+        items.item_list.append(speedboots_item)
+        _tutorial_spawned_passive_item = speedboots_item
+        print(f"[DEBUG] 튜토리얼: 스피드부츠 아이템(?) 스폰 at ({center_x}, {center_y})")
+    except Exception as e:
+        print(f"[ERROR] 튜토리얼 패시브 아이템 스폰 실패: {e}")
+
+
+def spawn_tutorial_balloon_machine():
+    """튜토리얼용 풍선기계 스폰 - 기계 애니메이션 후 풍선 발사"""
+    global _tutorial_balloon_machine_spawned, _tutorial_balloon_machine_shot_fired
+    global _tutorial_balloon_machine_enabled, _tutorial_balloon_shot_delay_start, stage1_events
+    _tutorial_balloon_machine_shot_fired = False  # 발사 플래그 초기화
+    _tutorial_balloon_machine_enabled = True  # 이후 일반 풍선기계도 스폰 가능
+    try:
+        # stage1_events를 통해 풍선기계 이벤트 활성화 (기계 애니메이션 포함)
+        if stage1_events and hasattr(stage1_events, 'balloon_machine'):
+            balloon_event = stage1_events.balloon_machine
+            # 풍선기계 위치 설정
+            balloon_event.machine_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+            balloon_event.machine_y = INTERNAL_HEIGHT // 2
+            # activate를 통해 풍선기계 이벤트 시작 (기계 등장 -> 풍선 발사 -> 기계 퇴장 애니메이션)
+            # tutorial_mode=True로 설정하면 모든 풍선이 특별 풍선(스타포인트 드랍)
+            if balloon_event.activate(SCREEN, SOUND_BALLOON_BOOM, SOUND_STAGE1_DOOR, SOUND_STAGE1_MACHINE,
+                                       player_score=0, tutorial_mode=True, tutorial_balloon_count=3):
+                # Stage1EventManager의 이벤트 상태도 업데이트
+                stage1_events.event_active = True
+                stage1_events.event_type = "balloon_machine"
+                _tutorial_balloon_machine_spawned = True
+                _tutorial_balloon_shot_delay_start = 0  # 풍선 발사 완료 시점에 기록 (check_tutorial_delay에서)
+                print(f"[DEBUG] 튜토리얼: 풍선기계 이벤트 활성화 at ({balloon_event.machine_x}, {balloon_event.machine_y})")
+            else:
+                print(f"[WARN] 튜토리얼 풍선기계 활성화 실패 (이미 활성 상태?)")
+        else:
+            print(f"[ERROR] 튜토리얼 풍선기계 스폰 실패: stage1_events가 초기화되지 않음")
+    except Exception as e:
+        print(f"[ERROR] 튜토리얼 풍선기계 스폰 실패: {e}")
+
+
+def on_item_collect_for_tutorial(item_data: dict):
+    """아이템 획득 시 튜토리얼 체크
+
+    Args:
+        item_data: 획득한 아이템 데이터
+    """
+    if not _ingame_tutorial_active or not _ingame_tutorial_waiting_action:
+        return
+
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        return
+
+    current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    wait_for = current.get("wait_for")
+
+    # 액티브 아이템 획득 대기 중
+    if wait_for == "item_collect":
+        update_tutorial_action_gauge(1)
+        hide_tutorial_action_gauge()
+        advance_ingame_tutorial()
+        print(f"[DEBUG] 튜토리얼: 액티브 아이템 획득 완료!")
+
+    # 패시브 아이템 획득 대기 중
+    elif wait_for == "passive_item_collect":
+        update_tutorial_action_gauge(1)
+        hide_tutorial_action_gauge()
+        advance_ingame_tutorial()
+        print(f"[DEBUG] 튜토리얼: 패시브 아이템 획득 완료!")
+
+
+def on_item_use_for_tutorial():
+    """아이템 사용 시 튜토리얼 체크"""
+    if not _ingame_tutorial_active or not _ingame_tutorial_waiting_action:
+        return
+
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        return
+
+    current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    wait_for = current.get("wait_for")
+
+    if wait_for == "item_use":
+        update_tutorial_action_gauge(1)
+        hide_tutorial_action_gauge()
+        advance_ingame_tutorial()
+        print(f"[DEBUG] 튜토리얼: 아이템 사용 완료!")
+
+
+def on_tab_press_for_tutorial():
+    """TAB 키 입력 시 튜토리얼 체크"""
+    if not _ingame_tutorial_active or not _ingame_tutorial_waiting_action:
+        return
+
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        return
+
+    current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    wait_for = current.get("wait_for")
+
+    if wait_for == "tab_press":
+        update_tutorial_action_gauge(1)
+        hide_tutorial_action_gauge()
+        advance_ingame_tutorial()
+        print(f"[DEBUG] 튜토리얼: TAB 키 입력 완료!")
+
+
+def on_tab_close_for_tutorial():
+    """TAB 창(캐릭터정보창)이 닫힐 때 튜토리얼 체크"""
+    print(f"[DEBUG] on_tab_close_for_tutorial 호출됨! active={_ingame_tutorial_active}, waiting={_ingame_tutorial_waiting_action}, step={_ingame_tutorial_step}")
+
+    if not _ingame_tutorial_active or not _ingame_tutorial_waiting_action:
+        print(f"[DEBUG] 조기 반환: active={_ingame_tutorial_active}, waiting={_ingame_tutorial_waiting_action}")
+        return
+
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        print(f"[DEBUG] 조기 반환: step={_ingame_tutorial_step} >= len={len(_INGAME_TUTORIAL_STEPS)}")
+        return
+
+    current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    wait_for = current.get("wait_for")
+    print(f"[DEBUG] 현재 스텝 wait_for: {wait_for}")
+
+    if wait_for == "tab_close":
+        print(f"[DEBUG] 튜토리얼: TAB 창 닫힘 감지! -> advance_ingame_tutorial() 호출")
+        advance_ingame_tutorial()
+
+
+def on_balloon_collect_for_tutorial():
+    """풍선기계 풍선 수집 시 튜토리얼 체크"""
+    if not _ingame_tutorial_active or not _ingame_tutorial_waiting_action:
+        return
+
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        return
+
+    current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    wait_for = current.get("wait_for")
+
+    if wait_for == "balloon_hit":
+        update_tutorial_action_gauge(1)
+        hide_tutorial_action_gauge()
+        advance_ingame_tutorial()
+        print(f"[DEBUG] 튜토리얼: 풍선기계 히트 완료!")
+
+
+def on_balloon_machine_shot_for_tutorial():
+    """풍선기계가 풍선을 발사했을 때 튜토리얼 체크"""
+    global _tutorial_balloon_machine_shot_fired
+    if not _ingame_tutorial_active or not _ingame_tutorial_waiting_action:
+        return
+
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        return
+
+    current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    wait_for = current.get("wait_for")
+
+    if wait_for == "balloon_machine_shooting":
+        _tutorial_balloon_machine_shot_fired = True
+        print(f"[DEBUG] 튜토리얼: 풍선기계 풍선 발사 감지!")
+
+
+def skip_tutorial_chapter():
+    """Ctrl 키로 현재 튜토리얼 챕터 스킵"""
+    global _ingame_tutorial_waiting_action, _ingame_tutorial_step, _ingame_tutorial_active, _ingame_tutorial_completed
+    if not _ingame_tutorial_active:
+        return False
+
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        return False
+
+    print(f"[DEBUG] 튜토리얼: Ctrl 키로 스킵 시도 (현재 step {_ingame_tutorial_step}, waiting={_ingame_tutorial_waiting_action})")
+
+    # 액션 게이지 숨기기
+    hide_tutorial_action_gauge()
+
+    # 현재 단계를 건너뛰고 다음 단계로 강제 이동
+    _ingame_tutorial_step += 1
+    _ingame_tutorial_waiting_action = False
+
+    # 튜토리얼 완료 체크
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        _ingame_tutorial_active = False
+        _ingame_tutorial_completed = True
+        print(f"[DEBUG] 튜토리얼: Ctrl 스킵으로 완료!")
+        return True
+
+    # 다음 단계가 wait_for가 있는 단계면 대기 상태로 전환
+    next_step = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    if next_step.get("wait_for"):
+        _ingame_tutorial_waiting_action = True
+
+    print(f"[DEBUG] 튜토리얼: Ctrl 키로 스킵 완료! (새 step {_ingame_tutorial_step})")
+    return True
+
+
+def on_star_point_collect_for_tutorial():
+    """스타포인트 획득 시 튜토리얼 체크
+
+    스타포인트 획득 후 런타임 스킬 선택 화면이 표시되므로,
+    튜토리얼 진행을 스킬 선택 완료 후까지 지연시킵니다.
+    """
+    global _tutorial_waiting_runtime_skill_select, _tutorial_skill_select_step, _tutorial_skill_select_highlight_index
+
+    if not _ingame_tutorial_active or not _ingame_tutorial_waiting_action:
+        return
+
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        return
+
+    current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    wait_for = current.get("wait_for")
+
+    if wait_for == "star_point_collect":
+        update_tutorial_action_gauge(1)
+        hide_tutorial_action_gauge()
+        # 즉시 진행하지 않고, 런타임 스킬 선택 완료 후 진행하도록 플래그 설정
+        _tutorial_waiting_runtime_skill_select = True
+        _tutorial_skill_select_step = 0  # 스킬 선택 화면 튜토리얼 단계 초기화
+        _tutorial_skill_select_highlight_index = -1  # 강조 없음
+        print(f"[DEBUG] 튜토리얼: 스타포인트 획득! 런타임 스킬 선택 대기 중...")
+
+
+def on_runtime_skill_select_complete_for_tutorial():
+    """런타임 스킬 선택 완료 후 튜토리얼 진행
+
+    스타포인트 획득 후 런타임 스킬 선택 화면에서 스킬을 선택하면 호출됩니다.
+    """
+    global _tutorial_waiting_runtime_skill_select, _tutorial_skill_select_step, _tutorial_skill_select_highlight_index
+
+    if not _tutorial_waiting_runtime_skill_select:
+        return
+
+    _tutorial_waiting_runtime_skill_select = False
+    _tutorial_skill_select_step = 0  # 초기화
+    _tutorial_skill_select_highlight_index = -1  # 초기화
+    advance_ingame_tutorial()
+    print(f"[DEBUG] 튜토리얼: 런타임 스킬 선택 완료! 다음 단계로 진행")
+
+
+def advance_skill_select_tutorial_step() -> bool:
+    """스킬 선택 화면 내 튜토리얼 단계 진행
+
+    Returns:
+        True: 아직 더 진행할 단계가 있음
+        False: 모든 단계 완료, 스킬 선택 가능
+    """
+    global _tutorial_skill_select_step, _tutorial_skill_select_highlight_index
+
+    # 총 6단계: 0=잘했어요, 1=소개, 2=경량화, 3=플라즈마, 4=원숭이은혜, 5=골드변환
+    _tutorial_skill_select_step += 1
+
+    # 단계별 강조 카드 설정
+    if _tutorial_skill_select_step == 2:
+        _tutorial_skill_select_highlight_index = 0  # 경량화
+    elif _tutorial_skill_select_step == 3:
+        _tutorial_skill_select_highlight_index = 1  # 플라즈마
+    elif _tutorial_skill_select_step == 4:
+        _tutorial_skill_select_highlight_index = 2  # 원숭이은혜
+    elif _tutorial_skill_select_step == 5:
+        _tutorial_skill_select_highlight_index = 3  # 골드변환
+    else:
+        _tutorial_skill_select_highlight_index = -1  # 강조 없음
+
+    print(f"[DEBUG] 스킬선택 튜토리얼 단계: {_tutorial_skill_select_step}, 강조: {_tutorial_skill_select_highlight_index}")
+
+    # 5단계까지 진행 가능 (0~5)
+    if _tutorial_skill_select_step > 5:
+        _tutorial_skill_select_step = 6  # 완료 상태
+        _tutorial_skill_select_highlight_index = -1
+        return False  # 모든 단계 완료
+
+    return True  # 아직 진행 중
+
+
+def is_skill_select_tutorial_complete() -> bool:
+    """스킬 선택 화면 튜토리얼이 완료되었는지 확인"""
+    return _tutorial_skill_select_step > 5
+
+
+def get_skill_select_tutorial_highlight() -> int:
+    """현재 강조할 스킬 카드 인덱스 반환 (-1이면 강조 없음)"""
+    return _tutorial_skill_select_highlight_index
+
+
+def on_player_win_battle_for_tutorial():
+    """플레이어가 보스전에서 승리했을 때 튜토리얼 체크"""
+    if not _ingame_tutorial_active or not _ingame_tutorial_waiting_action:
+        return
+
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        return
+
+    current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    wait_for = current.get("wait_for")
+
+    if wait_for == "win_battle":
+        update_tutorial_action_gauge(5)  # 5점 도달로 완료
+        hide_tutorial_action_gauge()
+        advance_ingame_tutorial()
+        print(f"[DEBUG] 튜토리얼: 보스전 승리 완료!")
+
+
+def on_player_score_for_tutorial(player_score: int):
+    """플레이어 점수 획득 시 튜토리얼 체크 (win_battle 게이지 업데이트용)"""
+    if not _ingame_tutorial_active or not _ingame_tutorial_waiting_action:
+        return
+
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        return
+
+    current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    wait_for = current.get("wait_for")
+
+    if wait_for == "win_battle":
+        update_tutorial_action_gauge(player_score)
+
+
+def is_tutorial_balloon_paused() -> bool:
+    """튜토리얼 중 풍선이 일시정지 상태인지 확인"""
+    if not _ingame_tutorial_active:
+        return False
+    if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
+        return False
+    current = _INGAME_TUTORIAL_STEPS[_ingame_tutorial_step]
+    # pause_balloon이 True이고, 액션 대기 중이 아닐 때 (메시지 표시 중) 풍선 정지
+    return current.get("pause_balloon", False) and not _ingame_tutorial_waiting_action
+
+
+def get_tutorial_balloons_positions() -> list:
+    """튜토리얼 풍선들의 위치 반환 (강조용)"""
+    if not stage1_events or not hasattr(stage1_events, 'balloon_machine'):
+        return []
+    balloons = stage1_events.balloon_machine.get_balloons()
+    return [(b["x"], b["y"], b["radius"]) for b in balloons]
 
 
 def _draw_ingame_tutorial() -> None:
@@ -63968,10 +66356,434 @@ def _draw_ingame_tutorial() -> None:
             # 투명 구멍
             pygame.draw.circle(overlay, (0, 0, 0, 0), (sx, sy), highlight_r)
 
+    # ? 아이템 강조 (튜토리얼 스폰 아이템의 실제 위치)
+    elif highlight_type == "unknown_item":
+        # 스폰된 튜토리얼 아이템의 실제 위치 사용
+        if _tutorial_spawned_item is not None:
+            item_x = _tutorial_spawned_item.get("x", GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2)
+            item_y = _tutorial_spawned_item.get("y", INTERNAL_HEIGHT // 2)
+        else:
+            # 폴백: 중앙 위치
+            item_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+            item_y = INTERNAL_HEIGHT // 2
+
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            item_screen_x = GAME_OFFSET_X + int(item_x * GAME_SCALE_FACTOR)
+            item_screen_y = GAME_OFFSET_Y + int(item_y * GAME_SCALE_FACTOR)
+            highlight_radius = int(40 * GAME_SCALE_FACTOR)
+        else:
+            item_screen_x = int(item_x)
+            item_screen_y = int(item_y)
+            highlight_radius = 40
+
+        # 글로우 효과 (노란색 - 아이템 색상)
+        for i in range(4):
+            glow_radius = highlight_radius + i * 10
+            glow_alpha = 120 - i * 25
+            glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (255, 220, 100, glow_alpha),
+                             (glow_radius + 2, glow_radius + 2), glow_radius)
+            overlay.blit(glow_surface,
+                        (item_screen_x - glow_radius - 2, item_screen_y - glow_radius - 2))
+
+        # 투명 구멍
+        pygame.draw.circle(overlay, (0, 0, 0, 0), (item_screen_x, item_screen_y), highlight_radius)
+
+    # 패시브 아이템 강조 (게임 영역 중앙)
+    elif highlight_type == "passive_item":
+        item_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+        item_y = INTERNAL_HEIGHT // 2
+
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            item_screen_x = GAME_OFFSET_X + int(item_x * GAME_SCALE_FACTOR)
+            item_screen_y = GAME_OFFSET_Y + int(item_y * GAME_SCALE_FACTOR)
+            highlight_radius = int(40 * GAME_SCALE_FACTOR)
+        else:
+            item_screen_x = item_x
+            item_screen_y = item_y
+            highlight_radius = 40
+
+        # 글로우 효과 (초록색 - 패시브 색상)
+        for i in range(4):
+            glow_radius = highlight_radius + i * 10
+            glow_alpha = 120 - i * 25
+            glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (100, 255, 150, glow_alpha),
+                             (glow_radius + 2, glow_radius + 2), glow_radius)
+            overlay.blit(glow_surface,
+                        (item_screen_x - glow_radius - 2, item_screen_y - glow_radius - 2))
+
+        pygame.draw.circle(overlay, (0, 0, 0, 0), (item_screen_x, item_screen_y), highlight_radius)
+
+    # 액티브 아이템 슬롯 강조 (하단 필러 영역 - 게임 화면 바깥)
+    elif highlight_type == "active_item_slot":
+        # 액티브 아이템 슬롯 위치 (게임 영역 하단 바깥, 필러 배경 위)
+        # pillar_background.py의 draw_left_pillar_ui에서:
+        # box_y = game_offset_y + game_height + 14
+        # box_x = game_offset_x + (game_width - total_width) // 2
+
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            # 게임 영역 하단 + 14px + 박스 높이의 절반 (약 25px)
+            slot_screen_x = GAME_OFFSET_X + GAME_SCALED_WIDTH // 2
+            slot_screen_y = GAME_OFFSET_Y + GAME_SCALED_HEIGHT + int(14 * GAME_SCALE_FACTOR) + int(25 * GAME_SCALE_FACTOR)
+            highlight_w = int(200 * GAME_SCALE_FACTOR)
+            highlight_h = int(60 * GAME_SCALE_FACTOR)
+        else:
+            # 창 모드: 게임 영역 하단
+            slot_screen_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+            slot_screen_y = INTERNAL_HEIGHT + 14 + 25  # 게임 영역 바깥
+            highlight_w = 200
+            highlight_h = 60
+
+        # 글로우 효과 (주황색 - 액티브 색상)
+        for i in range(3):
+            glow_w = highlight_w + i * 16
+            glow_h = highlight_h + i * 12
+            glow_alpha = 100 - i * 30
+            glow_surface = pygame.Surface((glow_w + 4, glow_h + 4), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surface, (255, 180, 80, glow_alpha),
+                           (2, 2, glow_w, glow_h), border_radius=10)
+            overlay.blit(glow_surface,
+                        (slot_screen_x - glow_w // 2 - 2, slot_screen_y - glow_h // 2 - 2))
+
+        # 투명 영역 (사각형)
+        rect_x = slot_screen_x - highlight_w // 2
+        rect_y = slot_screen_y - highlight_h // 2
+        pygame.draw.rect(overlay, (0, 0, 0, 0), (rect_x, rect_y, highlight_w, highlight_h), border_radius=10)
+
+    # TAB 메뉴 패시브 아이템 강조 (PASSIVE 인벤토리 영역 - 하단)
+    elif highlight_type == "tab_passive_item":
+        # 캐릭터 정보창 하단의 인벤토리 영역 전체 (ACTIVE + PASSIVE 박스)
+        # 패널: 중앙 정렬
+        panel_width = min(940, INTERNAL_WIDTH - 80)
+        panel_height = min(720, INTERNAL_HEIGHT - 40)
+        panel_x = (INTERNAL_WIDTH - panel_width) // 2
+        panel_y = (INTERNAL_HEIGHT - panel_height) // 2
+
+        # 하단 인벤토리 영역 전체 (bottom_area 전체를 강조)
+        bottom_area_height = 220
+        bottom_area_x = panel_x + 20
+        bottom_area_y = panel_y + panel_height - bottom_area_height - 12
+        bottom_area_w = panel_width - 40  # 좌우 여백 제외
+
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            tab_screen_x = GAME_OFFSET_X + int((bottom_area_x + bottom_area_w // 2) * GAME_SCALE_FACTOR)
+            tab_screen_y = GAME_OFFSET_Y + int((bottom_area_y + bottom_area_height // 2) * GAME_SCALE_FACTOR)
+            highlight_w = int(bottom_area_w * GAME_SCALE_FACTOR)
+            highlight_h = int(bottom_area_height * GAME_SCALE_FACTOR)
+        else:
+            tab_screen_x = bottom_area_x + bottom_area_w // 2
+            tab_screen_y = bottom_area_y + bottom_area_height // 2
+            highlight_w = bottom_area_w
+            highlight_h = bottom_area_height
+
+        # 글로우 효과 (초록색)
+        for i in range(3):
+            glow_w = highlight_w + i * 16
+            glow_h = highlight_h + i * 12
+            glow_alpha = 100 - i * 30
+            glow_surface = pygame.Surface((glow_w + 4, glow_h + 4), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surface, (100, 255, 150, glow_alpha),
+                           (2, 2, glow_w, glow_h), border_radius=10)
+            overlay.blit(glow_surface,
+                        (tab_screen_x - glow_w // 2 - 2, tab_screen_y - glow_h // 2 - 2))
+
+        rect_x = tab_screen_x - highlight_w // 2
+        rect_y = tab_screen_y - highlight_h // 2
+        pygame.draw.rect(overlay, (0, 0, 0, 0), (rect_x, rect_y, highlight_w, highlight_h), border_radius=10)
+
+    # TAB 메뉴 쓰레기통 아이콘 강조 (우측 상단)
+    elif highlight_type == "tab_trash_icon":
+        # 캐릭터 정보창 패널 기준 우측 상단 쓰레기통 아이콘
+        panel_width = min(940, INTERNAL_WIDTH - 80)
+        panel_height = min(720, INTERNAL_HEIGHT - 40)
+        panel_x = (INTERNAL_WIDTH - panel_width) // 2
+        panel_y = (INTERNAL_HEIGHT - panel_height) // 2
+
+        # 쓰레기통 아이콘: 패널 우측 상단 (실제 trash_rect 위치와 일치)
+        # trash_rect = pygame.Rect(panel_rect.right - trash_size - 20, panel_rect.y + 12, 48, 48)
+        trash_size = 48
+        trash_x = panel_x + panel_width - trash_size - 20 + trash_size // 2  # 중심 X
+        trash_y = panel_y + 12 + trash_size // 2  # 중심 Y
+
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            trash_screen_x = GAME_OFFSET_X + int(trash_x * GAME_SCALE_FACTOR)
+            trash_screen_y = GAME_OFFSET_Y + int(trash_y * GAME_SCALE_FACTOR)
+            highlight_size = int(trash_size * GAME_SCALE_FACTOR)
+        else:
+            trash_screen_x = trash_x
+            trash_screen_y = trash_y
+            highlight_size = trash_size
+
+        # 글로우 효과 (초록색)
+        for i in range(3):
+            glow_size = highlight_size + i * 12
+            glow_alpha = 100 - i * 30
+            glow_surface = pygame.Surface((glow_size + 4, glow_size + 4), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surface, (100, 255, 150, glow_alpha),
+                           (2, 2, glow_size, glow_size), border_radius=8)
+            overlay.blit(glow_surface,
+                        (trash_screen_x - glow_size // 2 - 2, trash_screen_y - glow_size // 2 - 2))
+
+        rect_x = trash_screen_x - highlight_size // 2
+        rect_y = trash_screen_y - highlight_size // 2
+        pygame.draw.rect(overlay, (0, 0, 0, 0), (rect_x, rect_y, highlight_size, highlight_size), border_radius=8)
+
+    # 풍선기계 강조 (게임 영역 상단 중앙)
+    elif highlight_type == "balloon_machine":
+        balloon_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+        balloon_y = 150  # 상단 영역
+
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            balloon_screen_x = GAME_OFFSET_X + int(balloon_x * GAME_SCALE_FACTOR)
+            balloon_screen_y = GAME_OFFSET_Y + int(balloon_y * GAME_SCALE_FACTOR)
+            highlight_radius = int(60 * GAME_SCALE_FACTOR)
+        else:
+            balloon_screen_x = balloon_x
+            balloon_screen_y = balloon_y
+            highlight_radius = 60
+
+        # 글로우 효과 (핑크색 - 풍선 색상)
+        for i in range(4):
+            glow_radius = highlight_radius + i * 12
+            glow_alpha = 120 - i * 25
+            glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (255, 150, 200, glow_alpha),
+                             (glow_radius + 2, glow_radius + 2), glow_radius)
+            overlay.blit(glow_surface,
+                        (balloon_screen_x - glow_radius - 2, balloon_screen_y - glow_radius - 2))
+
+        pygame.draw.circle(overlay, (0, 0, 0, 0), (balloon_screen_x, balloon_screen_y), highlight_radius)
+
+    # 튜토리얼 풍선 강조 (풍선기계에서 발사된 실제 풍선들)
+    elif highlight_type == "tutorial_balloon":
+        # 실제 풍선들의 위치 가져오기
+        balloon_positions = get_tutorial_balloons_positions()
+
+        if balloon_positions:
+            # 각 풍선을 개별적으로 강조
+            for balloon_x, balloon_y, balloon_radius in balloon_positions:
+                if _is_fullscreen_active and REAL_SCREEN is not None:
+                    balloon_screen_x = GAME_OFFSET_X + int(balloon_x * GAME_SCALE_FACTOR)
+                    balloon_screen_y = GAME_OFFSET_Y + int(balloon_y * GAME_SCALE_FACTOR)
+                    highlight_radius = int((balloon_radius + 15) * GAME_SCALE_FACTOR)
+                else:
+                    balloon_screen_x = int(balloon_x)
+                    balloon_screen_y = int(balloon_y)
+                    highlight_radius = balloon_radius + 15
+
+                # 글로우 효과 (하늘색 - 스타포인트 관련)
+                for i in range(3):
+                    glow_radius = highlight_radius + i * 8
+                    glow_alpha = 100 - i * 25
+                    glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surface, (100, 200, 255, glow_alpha),
+                                     (glow_radius + 2, glow_radius + 2), glow_radius)
+                    overlay.blit(glow_surface,
+                                (balloon_screen_x - glow_radius - 2, balloon_screen_y - glow_radius - 2))
+
+                # 투명 구멍 (풍선이 보이도록)
+                pygame.draw.circle(overlay, (0, 0, 0, 0), (balloon_screen_x, balloon_screen_y), highlight_radius)
+        else:
+            # 풍선이 없으면 화면 중앙 기본 강조 (fallback)
+            balloon_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+            balloon_y = INTERNAL_HEIGHT // 2
+
+            if _is_fullscreen_active and REAL_SCREEN is not None:
+                balloon_screen_x = GAME_OFFSET_X + int(balloon_x * GAME_SCALE_FACTOR)
+                balloon_screen_y = GAME_OFFSET_Y + int(balloon_y * GAME_SCALE_FACTOR)
+                highlight_radius = int(60 * GAME_SCALE_FACTOR)
+            else:
+                balloon_screen_x = balloon_x
+                balloon_screen_y = balloon_y
+                highlight_radius = 60
+
+            for i in range(3):
+                glow_radius = highlight_radius + i * 8
+                glow_alpha = 100 - i * 25
+                glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surface, (100, 200, 255, glow_alpha),
+                                 (glow_radius + 2, glow_radius + 2), glow_radius)
+                overlay.blit(glow_surface,
+                            (balloon_screen_x - glow_radius - 2, balloon_screen_y - glow_radius - 2))
+
+            pygame.draw.circle(overlay, (0, 0, 0, 0), (balloon_screen_x, balloon_screen_y), highlight_radius)
+
+    # 골드 HUD 강조 (좌측 필러 상단)
+    elif highlight_type == "gold_hud":
+        # 골드 HUD 위치 (게임 영역 상단 좌측 - 실제 HUD 렌더링 위치와 동일하게)
+        if _is_fullscreen_active and REAL_SCREEN is not None and _player_gauge_surface_left is not None:
+            gauge_w = _player_gauge_surface_left.get_width()
+            scaled_gauge_w = int(gauge_w * GAME_SCALE_FACTOR)
+            scaled_hud_w = int(100 * GAME_SCALE_FACTOR)
+            scaled_hud_h = int(40 * GAME_SCALE_FACTOR)
+
+            # 골드 HUD X 위치 계산 (실제 HUD 렌더링과 동일한 방식)
+            gauge_x = GAME_OFFSET_X - scaled_gauge_w - int(25 * GAME_SCALE_FACTOR)
+            gauge_center_x = gauge_x + scaled_gauge_w // 2
+            gold_hud_x = gauge_center_x - scaled_hud_w // 2 + int(30 * GAME_SCALE_FACTOR)
+            gold_screen_x = gold_hud_x + scaled_hud_w // 2  # HUD 중심 X
+
+            # 골드 HUD Y 위치 (GAME_OFFSET_Y + 5 에서 시작, 높이 40)
+            gold_hud_y = GAME_OFFSET_Y + int(5 * GAME_SCALE_FACTOR)
+            gold_screen_y = gold_hud_y + scaled_hud_h // 2  # HUD 중심 Y
+
+            highlight_w = int(100 * GAME_SCALE_FACTOR)
+            highlight_h = int(50 * GAME_SCALE_FACTOR)
+        else:
+            # 창 모드 - 골드 HUD 위치 (hud_x=2, hud_y=5, box_width=76, box_height=40)
+            gold_screen_x = 2 + 76 // 2  # 40 (HUD 중심 X)
+            gold_screen_y = 5 + 40 // 2  # 25 (HUD 중심 Y)
+            highlight_w = 80
+            highlight_h = 45
+
+        # 글로우 효과 (금색)
+        for i in range(4):
+            glow_w = highlight_w + i * 16
+            glow_h = highlight_h + i * 12
+            glow_alpha = 120 - i * 25
+            glow_surface = pygame.Surface((glow_w + 4, glow_h + 4), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surface, (255, 215, 0, glow_alpha),
+                           (2, 2, glow_w, glow_h), border_radius=10)
+            overlay.blit(glow_surface,
+                        (gold_screen_x - glow_w // 2 - 2, gold_screen_y - glow_h // 2 - 2))
+
+        rect_x = gold_screen_x - highlight_w // 2
+        rect_y = gold_screen_y - highlight_h // 2
+        pygame.draw.rect(overlay, (0, 0, 0, 0), (rect_x, rect_y, highlight_w, highlight_h), border_radius=10)
+
+    # 보스 벽 강조 (화면 상단 벽)
+    elif highlight_type == "boss_wall":
+        # 보스 패들 뒤쪽 벽 (상단)
+        wall_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+        wall_y = 15  # 상단 벽
+
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            wall_screen_x = GAME_OFFSET_X + int(wall_x * GAME_SCALE_FACTOR)
+            wall_screen_y = GAME_OFFSET_Y + int(wall_y * GAME_SCALE_FACTOR)
+            highlight_w = int(GAME_PLAY_WIDTH * GAME_SCALE_FACTOR)
+            highlight_h = int(30 * GAME_SCALE_FACTOR)
+        else:
+            wall_screen_x = wall_x
+            wall_screen_y = wall_y
+            highlight_w = GAME_PLAY_WIDTH
+            highlight_h = 30
+
+        # 글로우 효과 (빨간색 - 보스 색상)
+        for i in range(4):
+            glow_w = highlight_w + i * 16
+            glow_h = highlight_h + i * 8
+            glow_alpha = 120 - i * 25
+            glow_surface = pygame.Surface((glow_w + 4, glow_h + 4), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surface, (255, 80, 80, glow_alpha),
+                           (2, 2, glow_w, glow_h), border_radius=4)
+            overlay.blit(glow_surface,
+                        (wall_screen_x - glow_w // 2 - 2, wall_screen_y - glow_h // 2 - 2))
+
+        rect_x = wall_screen_x - highlight_w // 2
+        rect_y = wall_screen_y - highlight_h // 2
+        pygame.draw.rect(overlay, (0, 0, 0, 0), (rect_x, rect_y, highlight_w, highlight_h), border_radius=4)
+
+    # 플레이어 벽 강조 (화면 하단 벽)
+    elif highlight_type == "player_wall":
+        # 플레이어 패들 뒤쪽 벽 (하단)
+        wall_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+        wall_y = INTERNAL_HEIGHT - 15  # 하단 벽
+
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            wall_screen_x = GAME_OFFSET_X + int(wall_x * GAME_SCALE_FACTOR)
+            wall_screen_y = GAME_OFFSET_Y + int(wall_y * GAME_SCALE_FACTOR)
+            highlight_w = int(GAME_PLAY_WIDTH * GAME_SCALE_FACTOR)
+            highlight_h = int(30 * GAME_SCALE_FACTOR)
+        else:
+            wall_screen_x = wall_x
+            wall_screen_y = wall_y
+            highlight_w = GAME_PLAY_WIDTH
+            highlight_h = 30
+
+        # 글로우 효과 (파란색 - 플레이어 색상)
+        for i in range(4):
+            glow_w = highlight_w + i * 16
+            glow_h = highlight_h + i * 8
+            glow_alpha = 120 - i * 25
+            glow_surface = pygame.Surface((glow_w + 4, glow_h + 4), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surface, (80, 150, 255, glow_alpha),
+                           (2, 2, glow_w, glow_h), border_radius=4)
+            overlay.blit(glow_surface,
+                        (wall_screen_x - glow_w // 2 - 2, wall_screen_y - glow_h // 2 - 2))
+
+        rect_x = wall_screen_x - highlight_w // 2
+        rect_y = wall_screen_y - highlight_h // 2
+        pygame.draw.rect(overlay, (0, 0, 0, 0), (rect_x, rect_y, highlight_w, highlight_h), border_radius=4)
+
+    # 미니 점수판 강조 (상단 중앙)
+    elif highlight_type == "mini_scoreboard":
+        # 점수판 위치 (상단 중앙)
+        scoreboard_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+        scoreboard_y = 50
+
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            scoreboard_screen_x = GAME_OFFSET_X + int(scoreboard_x * GAME_SCALE_FACTOR)
+            scoreboard_screen_y = GAME_OFFSET_Y + int(scoreboard_y * GAME_SCALE_FACTOR)
+            highlight_w = int(140 * GAME_SCALE_FACTOR)
+            highlight_h = int(50 * GAME_SCALE_FACTOR)
+        else:
+            scoreboard_screen_x = scoreboard_x
+            scoreboard_screen_y = scoreboard_y
+            highlight_w = 140
+            highlight_h = 50
+
+        # 글로우 효과 (은색)
+        for i in range(4):
+            glow_w = highlight_w + i * 14
+            glow_h = highlight_h + i * 10
+            glow_alpha = 120 - i * 25
+            glow_surface = pygame.Surface((glow_w + 4, glow_h + 4), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surface, (200, 200, 220, glow_alpha),
+                           (2, 2, glow_w, glow_h), border_radius=10)
+            overlay.blit(glow_surface,
+                        (scoreboard_screen_x - glow_w // 2 - 2, scoreboard_screen_y - glow_h // 2 - 2))
+
+        rect_x = scoreboard_screen_x - highlight_w // 2
+        rect_y = scoreboard_screen_y - highlight_h // 2
+        pygame.draw.rect(overlay, (0, 0, 0, 0), (rect_x, rect_y, highlight_w, highlight_h), border_radius=10)
+
+    # 스테이지 클리어 강조 (화면 중앙)
+    elif highlight_type == "stage_clear":
+        # 스테이지 클리어 UI 위치 (중앙)
+        clear_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+        clear_y = INTERNAL_HEIGHT // 2
+
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            clear_screen_x = GAME_OFFSET_X + int(clear_x * GAME_SCALE_FACTOR)
+            clear_screen_y = GAME_OFFSET_Y + int(clear_y * GAME_SCALE_FACTOR)
+            highlight_w = int(300 * GAME_SCALE_FACTOR)
+            highlight_h = int(150 * GAME_SCALE_FACTOR)
+        else:
+            clear_screen_x = clear_x
+            clear_screen_y = clear_y
+            highlight_w = 300
+            highlight_h = 150
+
+        # 글로우 효과 (금색 - 승리 색상)
+        for i in range(5):
+            glow_w = highlight_w + i * 20
+            glow_h = highlight_h + i * 14
+            glow_alpha = 150 - i * 25
+            glow_surface = pygame.Surface((glow_w + 4, glow_h + 4), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surface, (255, 215, 0, glow_alpha),
+                           (2, 2, glow_w, glow_h), border_radius=15)
+            overlay.blit(glow_surface,
+                        (clear_screen_x - glow_w // 2 - 2, clear_screen_y - glow_h // 2 - 2))
+
+        rect_x = clear_screen_x - highlight_w // 2
+        rect_y = clear_screen_y - highlight_h // 2
+        pygame.draw.rect(overlay, (0, 0, 0, 0), (rect_x, rect_y, highlight_w, highlight_h), border_radius=15)
+
     target_screen.blit(overlay, (0, 0))
 
     # 구슬 강조 시 화살표 + 반짝이 애니메이션
-    if highlight_type in ["gauge", "dash_token", "skill_orbs"]:
+    if highlight_type in ["gauge", "dash_token", "skill_orbs", "unknown_item"]:
         # 타겟 좌표 결정
         if highlight_type == "gauge":
             target_x = highlight_center_x
@@ -63983,6 +66795,24 @@ def _draw_ingame_tutorial() -> None:
             target_y = token_center_y
             main_color = (100, 200, 255)  # 파랑 (대쉬 토큰 색상)
             accent_color = (180, 230, 255)
+        elif highlight_type == "unknown_item":
+            # ? 아이템 좌표 (튜토리얼 스폰 아이템의 실제 위치)
+            if _tutorial_spawned_item is not None:
+                item_x = _tutorial_spawned_item.get("x", GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2)
+                item_y = _tutorial_spawned_item.get("y", INTERNAL_HEIGHT // 2)
+            else:
+                item_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+                item_y = INTERNAL_HEIGHT // 2
+            if _is_fullscreen_active and REAL_SCREEN is not None:
+                target_x = GAME_OFFSET_X + int(item_x * GAME_SCALE_FACTOR)
+                target_y = GAME_OFFSET_Y + int(item_y * GAME_SCALE_FACTOR)
+                highlight_radius = int(40 * GAME_SCALE_FACTOR)
+            else:
+                target_x = int(item_x)
+                target_y = int(item_y)
+                highlight_radius = 40
+            main_color = (255, 220, 100)  # 노란색 (아이템 색상)
+            accent_color = (255, 240, 180)
         else:  # skill_orbs
             # 스킬 아이콘들의 중심점 (두 스킬 아이콘 사이)
             if skill_icon_positions:
@@ -64228,6 +67058,119 @@ def _draw_ingame_tutorial() -> None:
         hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (150, 200, 255))
         hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + 25))
         target_screen.blit(hint_text, hint_rect)
+
+        # 칭찬 메시지일 때 박수 애니메이션 표시
+        is_praise = any(praise in msg for msg in messages for praise in ["잘했어요", "훌륭해요", "좋아요", "대단해요", "멋져요", "완벽해요"])
+        if is_praise and _ingame_tutorial_clap_active:
+            # 박수 애니메이션을 가이드 박스 위에 표시
+            _draw_ingame_tutorial_clap(target_screen, box_x + box_width // 2, box_y - 50)
+
+
+def _draw_ingame_tutorial_clap(screen, center_x, center_y):
+    """인게임 튜토리얼 박수 애니메이션 그리기"""
+    global _ingame_tutorial_clap_timer, _ingame_tutorial_clap_active
+
+    if not _ingame_tutorial_clap_active or _ingame_tutorial_clap_timer <= 0:
+        _ingame_tutorial_clap_active = False
+        return
+
+    _ingame_tutorial_clap_timer -= 1
+    frame = 90 - _ingame_tutorial_clap_timer
+
+    # 박수 애니메이션
+    clap_offset = abs(math.sin(frame * 0.3)) * 15
+    hand_size = 25
+
+    # 왼쪽 손
+    left_hand_x = center_x - 60 - clap_offset
+    pygame.draw.circle(screen, (255, 220, 180), (int(left_hand_x), int(center_y)), hand_size)
+    for i in range(4):
+        finger_angle = -math.pi/6 + i * math.pi/12
+        finger_x = left_hand_x + hand_size * math.cos(finger_angle)
+        finger_y = center_y + hand_size * math.sin(finger_angle) - 8
+        pygame.draw.ellipse(screen, (255, 220, 180), (finger_x - 4, finger_y - 6, 8, 12))
+    pygame.draw.ellipse(screen, (255, 220, 180), (left_hand_x + hand_size - 4, center_y - 4, 10, 8))
+
+    # 오른쪽 손
+    right_hand_x = center_x + 60 + clap_offset
+    pygame.draw.circle(screen, (255, 220, 180), (int(right_hand_x), int(center_y)), hand_size)
+    for i in range(4):
+        finger_angle = math.pi - math.pi/6 + i * math.pi/12
+        finger_x = right_hand_x + hand_size * math.cos(finger_angle)
+        finger_y = center_y + hand_size * math.sin(finger_angle) - 8
+        pygame.draw.ellipse(screen, (255, 220, 180), (finger_x - 4, finger_y - 6, 8, 12))
+    pygame.draw.ellipse(screen, (255, 220, 180), (right_hand_x - hand_size - 6, center_y - 4, 10, 8))
+
+    # 박수 이펙트 (작은 별들)
+    if frame % 10 < 5:
+        for _ in range(3):
+            star_x = center_x + random.randint(-30, 30)
+            star_y = center_y + random.randint(-20, 20)
+            pygame.draw.circle(screen, (255, 255, 100), (int(star_x), int(star_y)), 3)
+
+
+def _draw_tutorial_runtime_skill_guide(screen, desc_box_x, desc_box_y, desc_box_width):
+    """런타임 스킬 선택 화면에서 튜토리얼 가이드 대화 상자 렌더링
+
+    단계별로 다른 메시지를 표시하고 해당 스킬 카드를 강조합니다.
+    SPACE/클릭으로 다음 메시지로 진행합니다.
+
+    Args:
+        screen: 렌더링 대상 Surface
+        desc_box_x: 설명 박스 X 좌표 (기준 위치)
+        desc_box_y: 설명 박스 Y 좌표 (기준 위치)
+        desc_box_width: 설명 박스 너비
+    """
+    # 튜토리얼 완료 시 표시하지 않음
+    if is_skill_select_tutorial_complete():
+        return
+
+    # 단계별 메시지 정의
+    step_messages = {
+        0: ["잘했어요!"],
+        1: ["스타포인트를 획득하면", "4가지 런타임 스킬 중 하나를 고를 수 있어요"],
+        2: ["캐릭터의 스텟에 도움을 주는 스킬"],
+        3: ["액티브 스킬을 해금할 수 있는 스킬"],
+        4: ["즉시 효과가 발동되는 스킬"],
+        5: ["마음에 드는 스킬이 없는 경우", "골드로 변환할 수도 있어요"],
+    }
+
+    guide_messages = step_messages.get(_tutorial_skill_select_step, ["원하는 스킬을 선택하세요!"])
+
+    # 박스 크기 및 위치 (스킬 선택 UI 설명 박스와 겹치도록)
+    box_width = min(480, desc_box_width + 80)
+    line_count = len(guide_messages)
+    box_height = 55 + line_count * 30
+    box_x = desc_box_x + (desc_box_width - box_width) // 2
+    box_y = desc_box_y - 10  # 설명 박스 위에 위치
+
+    # 메시지 박스 배경 (진한 푸른색, 반투명)
+    box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+    pygame.draw.rect(box_surface, (15, 35, 55, 235), (0, 0, box_width, box_height), border_radius=12)
+    pygame.draw.rect(box_surface, (80, 180, 255), (0, 0, box_width, box_height), 2, border_radius=12)
+    screen.blit(box_surface, (box_x, box_y))
+
+    # 메시지 텍스트
+    try:
+        msg_font = get_font(20)
+    except:
+        msg_font = pygame.font.SysFont("malgun gothic", 20)
+
+    y_offset = box_y + 18
+    for msg in guide_messages:
+        text_surface = msg_font.render(msg, True, (255, 255, 255))
+        text_rect = text_surface.get_rect(center=(box_x + box_width // 2, y_offset + 8))
+        screen.blit(text_surface, text_rect)
+        y_offset += 28
+
+    # "클릭 또는 SPACE로 계속" 힌트 표시
+    try:
+        hint_font = get_font(15)
+    except:
+        hint_font = pygame.font.SysFont("malgun gothic", 15)
+    hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (100, 200, 255))
+    hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height - 12))
+    screen.blit(hint_text, hint_rect)
 
 
 def _render_message_with_keycaps(surface: pygame.Surface, msg: str, font, box_x: int, box_width: int, y_offset: int) -> None:
@@ -85720,7 +88663,11 @@ def init_tutorial_success_feedback(message, level="normal"):
     global tutorial_success_feedback_active, tutorial_success_feedback_message
     global tutorial_success_feedback_level, tutorial_success_feedback_timer
     global tutorial_success_feedback_particles
-    
+
+    # 튜토리얼 미션 성공 사운드 재생
+    if "TUTORIAL_MISSION" in sound_effects and sound_effects["TUTORIAL_MISSION"]:
+        sound_effects["TUTORIAL_MISSION"].play()
+
     tutorial_success_feedback_active = True
     tutorial_success_feedback_message = message
     tutorial_success_feedback_level = level
@@ -85824,7 +88771,11 @@ def draw_tutorial_success_feedback():
 def show_tutorial_success_feedback_blocking(message, level="normal"):
     """튜토리얼 성공 시 긍정적 피드백 표시 (차단 방식, 최종 달성용)"""
     clock = pygame.time.Clock()
-    
+
+    # 미션 클리어 사운드 재생 (마스터/완벽/튜토리얼 완료 시)
+    if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
+        sound_effects["MISSION_CLEAR"].play()
+
     # 폰트 설정
     font_large = FontStyle.subtitle()  # 32pt
     font_medium = FontStyle.body()  # 24pt
@@ -85973,7 +88924,11 @@ def show_tutorial_success_feedback(message, level="normal"):
 def show_chapter_completion_summary(chapter_num):
     """챕터 완료 시 학습 내용 요약 화면 표시"""
     clock = pygame.time.Clock()
-    
+
+    # 미션 클리어 사운드 재생
+    if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
+        sound_effects["MISSION_CLEAR"].play()
+
     # 폰트 설정
     font_title = FontStyle.title()  # 48pt
     font_subtitle = FontStyle.subtitle()  # 32pt
@@ -86067,8 +89022,9 @@ def show_chapter_completion_summary(chapter_num):
         pygame.display.flip()
         clock.tick(60)
     
-    # 대기
+    # 대기 (박수 애니메이션 포함)
     waiting = True
+    clap_frame = 0
     while waiting:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -86077,13 +89033,79 @@ def show_chapter_completion_summary(chapter_num):
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     waiting = False
-        
+
         # 애니메이션 유지
         SCREEN.fill((10, 10, 30))
-        
-        # (동일한 내용 다시 그리기 - 코드 생략)
-        # ... [위의 그리기 코드 반복] ...
-        
+
+        # 배경 장식
+        for i in range(5):
+            y = 100 + i * 150
+            pygame.draw.line(SCREEN, (30, 30, 60), (0, y), (WIDTH, y), 2)
+
+        # 타이틀
+        title_surface = font_title.render(summary["title"], True, (255, 255, 255))
+        title_rect = title_surface.get_rect(center=(WIDTH // 2, 100))
+        SCREEN.blit(title_surface, title_rect)
+
+        # 한글 부제
+        korean_surface = font_subtitle.render(summary["korean"], True, (100, 200, 255))
+        korean_rect = korean_surface.get_rect(center=(WIDTH // 2, 160))
+        SCREEN.blit(korean_surface, korean_rect)
+
+        # 구분선
+        pygame.draw.line(SCREEN, (100, 100, 200), (WIDTH // 4, 200), (3 * WIDTH // 4, 200), 2)
+
+        # 학습 내용
+        y_pos = 250
+        for skill in summary["skills"]:
+            skill_surface = font_body.render(skill, True, (200, 255, 200))
+            skill_rect = skill_surface.get_rect(center=(WIDTH // 2, y_pos))
+            SCREEN.blit(skill_surface, skill_rect)
+            y_pos += 40
+
+        # 메시지
+        msg_surface = font_body.render(summary["message"], True, (255, 200, 100))
+        msg_rect = msg_surface.get_rect(center=(WIDTH // 2, y_pos + 40))
+        SCREEN.blit(msg_surface, msg_rect)
+
+        # 박수 애니메이션
+        clap_offset = abs(math.sin(clap_frame * 0.3)) * 10
+        hand_size = 30
+        hand_y = y_pos + 120  # 메시지 아래에 표시
+
+        # 왼쪽 손
+        left_hand_x = WIDTH // 2 - 80 - clap_offset
+        pygame.draw.circle(SCREEN, (255, 220, 180), (int(left_hand_x), int(hand_y)), hand_size)
+        for i in range(4):
+            finger_angle = -math.pi/6 + i * math.pi/12
+            finger_x = left_hand_x + hand_size * math.cos(finger_angle)
+            finger_y = hand_y + hand_size * math.sin(finger_angle) - 10
+            pygame.draw.ellipse(SCREEN, (255, 220, 180),
+                               (finger_x - 5, finger_y - 8, 10, 16))
+        pygame.draw.ellipse(SCREEN, (255, 220, 180),
+                          (left_hand_x + hand_size - 5, hand_y - 5, 12, 10))
+
+        # 오른쪽 손
+        right_hand_x = WIDTH // 2 + 80 + clap_offset
+        pygame.draw.circle(SCREEN, (255, 220, 180), (int(right_hand_x), int(hand_y)), hand_size)
+        for i in range(4):
+            finger_angle = math.pi - math.pi/6 + i * math.pi/12
+            finger_x = right_hand_x + hand_size * math.cos(finger_angle)
+            finger_y = hand_y + hand_size * math.sin(finger_angle) - 10
+            pygame.draw.ellipse(SCREEN, (255, 220, 180),
+                               (finger_x - 5, finger_y - 8, 10, 16))
+        pygame.draw.ellipse(SCREEN, (255, 220, 180),
+                          (right_hand_x - hand_size - 7, hand_y - 5, 12, 10))
+
+        # 박수 이펙트 (작은 별들)
+        if clap_frame % 10 < 5:
+            for _ in range(3):
+                star_x = WIDTH // 2 + random.randint(-20, 20)
+                star_y = hand_y + random.randint(-20, 20)
+                pygame.draw.circle(SCREEN, (255, 255, 100),
+                                 (int(star_x), int(star_y)), 3)
+
+        clap_frame += 1
         pygame.display.flip()
         clock.tick(60)
     
@@ -93706,7 +96728,8 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         except Exception as e:
             print(f"[WARN] 스매셔 킥차져 초기화 실패: {e}")
 
-        if selected_character_type == "smasher":
+        # 주니어리그(튜토리얼)에서는 에너지드링크 지급 안함
+        if selected_character_type == "smasher" and difficulty_mode != "junior":
             active_items = item_state_adapter.active_items()
             if not any(item.get("name") == "gauge_charge" for item in active_items):
                 energy_drink_item = {
@@ -102272,6 +105295,8 @@ def calculate_bounce(paddle):
             drive_hit_boss = False     # 드라이브 상태 초기화
             #  드라이브 별빛가루 파티클 생성
             spawn_drive_particles(BALL.centerx, BALL.centery, count=8)
+            # 튜토리얼: 드라이브 사용 체크
+            on_skill_use_for_tutorial("drive")
             global drive_text_timer
             drive_text_timer = HALF_SECOND_FRAMES      # DRIVE! 텍스트 0.5초간 표시
             # 드라이브 성공 시 1.5% 속도 증가
@@ -106103,8 +109128,8 @@ def handle_ball():
                 animated_bg_stage2.set_expression('sad')
         else:
             # 튜토리얼 중이면 점수 고정 (0:0 유지)
-            # 주니어리그에서 튜토리얼이 완료되지 않았으면 점수 증가 안함
-            if not _ingame_tutorial_score_frozen and not (ai_mode == "junior" and not _ingame_tutorial_completed):
+            # 튜토리얼이 활성화되었고 아직 완료되지 않은 경우에만 점수 고정
+            if not _ingame_tutorial_score_frozen and not (_ingame_tutorial_active and not _ingame_tutorial_completed):
                 round_wins += 1
             # 스테이지 1: 관중 흥분 트리거
             if current_stage == 1 and pillar_renderer is not None:
@@ -106567,8 +109592,8 @@ def handle_ball():
                 animated_bg_stage2.set_expression('happy')
         else:
             # 튜토리얼 중이면 점수 고정 (0:0 유지)
-            # 주니어리그에서 튜토리얼이 완료되지 않았으면 점수 증가 안함
-            if not _ingame_tutorial_score_frozen and not (ai_mode == "junior" and not _ingame_tutorial_completed):
+            # 튜토리얼이 활성화되었고 아직 완료되지 않은 경우에만 점수 고정
+            if not _ingame_tutorial_score_frozen and not (_ingame_tutorial_active and not _ingame_tutorial_completed):
                 round_losses += 1
                 # 📜 퀘스트 추적: 보스 득점 기록
                 globals()['quest_stage_boss_score'] = globals().get('quest_stage_boss_score', 0) + 1
@@ -114296,6 +117321,8 @@ def main(stage_num, new_boss_mode=False):
         global pending_skill_choices, runtime_skill_choice_pending, _key0_pressed
         # 대쉬 토큰 완충 반짝임 효과용 전역 변수
         global _all_tokens_full_sparkle_timer, _ALL_TOKENS_FULL_SPARKLE_DURATION
+        # 인게임 튜토리얼 관련 전역 변수
+        global _ingame_tutorial_active
         # ========== 마이그레이션 모드: 프레임 시작 동기화 ==========
         if MIGRATION_MODE and migration_bridge:
             try:
@@ -114626,6 +117653,12 @@ def main(stage_num, new_boss_mode=False):
         pygame.event.pump()
         keys = pygame.key.get_pressed()
         
+        # Ctrl 키로 인게임 튜토리얼 챕터 스킵 (주니어리그)
+        if (keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]) and not getattr(main, 'keyCtrl_pressed', False):
+            if _ingame_tutorial_active:
+                skip_tutorial_chapter()
+        main.keyCtrl_pressed = keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]
+
         # F3키로 프로파일러 표시 토글
         if keys[pygame.K_F3] and not getattr(main, 'keyF3_pressed', False):
             if profiler:
@@ -115671,6 +118704,8 @@ def main(stage_num, new_boss_mode=False):
                     trigger_smasher_skill_cooldown("power_smashing")
                     #  파워스매싱 성공 기록
                     record_skill_usage(success=True)
+                    # 튜토리얼: 파워스매싱 사용 체크
+                    on_skill_use_for_tutorial("power")
                     #  고스트샷일 때는 파워스매싱 정지 시간 사용하지 않음
                     if not mega_smashing_active:
                         # 파워스매싱 정지 시간 시작
@@ -116087,8 +119122,14 @@ def main(stage_num, new_boss_mode=False):
             # 스페이스 키 또는 마우스 클릭으로 진행
             if is_ingame_tutorial_paused():
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    # 가이드창 넘기기 효과음
+                    if "BUTTON_CLICK" in sound_effects and sound_effects["BUTTON_CLICK"]:
+                        sound_effects["BUTTON_CLICK"].play()
                     advance_ingame_tutorial()
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    # 가이드창 넘기기 효과음
+                    if "BUTTON_CLICK" in sound_effects and sound_effects["BUTTON_CLICK"]:
+                        sound_effects["BUTTON_CLICK"].play()
                     advance_ingame_tutorial()
                 continue  # 튜토리얼 일시정지 중에는 다른 입력 무시
 
@@ -116176,6 +119217,8 @@ def main(stage_num, new_boss_mode=False):
                     continue
                 # 인게임 캐릭터 정보 표시 (Tab)
                 elif event.key == pygame.K_TAB:
+                    # 튜토리얼: TAB 키 입력 체크
+                    on_tab_press_for_tutorial()
                     show_character_info()
                     continue
                 # I키 기능 제거: ESC 메뉴의 '정보'에서 확인 가능
@@ -116509,7 +119552,7 @@ def main(stage_num, new_boss_mode=False):
                     # 인게임 상태 비활성화 (구슬 숨김 - 메인메뉴 복귀)
                     set_ingame_active(False)
                     # 실전 튜토리얼 상태 초기화 (메인 메뉴 복귀)
-                    global _ingame_tutorial_active
+                    # global _ingame_tutorial_active는 루프 시작에서 선언됨
                     _ingame_tutorial_active = False
                     return "main_menu"  # 메인 메뉴로 돌아감
             if blacksmith_build_menu_active:
@@ -117251,8 +120294,8 @@ def main(stage_num, new_boss_mode=False):
             and not is_ball_spawn_animation_paused()
         ):
             # 아이템 스폰 처리 (템스폰) - 전설 애니메이션 중에는 스폰 정지
-            # 튜토리얼 스테이지(50)에서는 아이템 스폰 비활성화
-            if current_stage != 50 and pygame.time.get_ticks() - last_item_spawn_time >= next_item_spawn_delay:
+            # 튜토리얼 스테이지(50) 및 신규 튜토리얼 진행 중에는 아이템 스폰 비활성화
+            if current_stage != 50 and not _ingame_tutorial_active and pygame.time.get_ticks() - last_item_spawn_time >= next_item_spawn_delay:
                 items.spawn_random_item()
                 last_item_spawn_time = pygame.time.get_ticks()
 
@@ -117320,8 +120363,10 @@ def main(stage_num, new_boss_mode=False):
             if BALLOON_EVENT_AVAILABLE and stage1_events and current_stage == 1:
                 # 공 생성 애니메이션 중에는 풍선 이벤트 타이머 일시정지
                 if not is_ball_spawn_animation_paused():
+                    # 튜토리얼 풍선 일시정지 체크
+                    tutorial_balloon_pause = is_tutorial_balloon_paused()
                     # 타이머 기반 이벤트를 위해 screen과 sound 인자 전달
-                    stage1_events.update(SCREEN, SOUND_BALLOON_BOOM, SOUND_STAGE1_DOOR, SOUND_STAGE1_MACHINE)  # 이벤트가 끝나도 풍선 업데이트를 위해 계속 호출
+                    stage1_events.update(SCREEN, SOUND_BALLOON_BOOM, SOUND_STAGE1_DOOR, SOUND_STAGE1_MACHINE, paused=tutorial_balloon_pause)  # 이벤트가 끝나도 풍선 업데이트를 위해 계속 호출
                 if stage1_events.should_pause_game():
                     balloon_event_paused = True
 
@@ -122103,16 +125148,39 @@ def show_character_info(background_surface=None):
                     SCREEN.blit(line_surface, (tooltip_rect.x + 10, text_y))
                     text_y += line_height
 
+        # 튜토리얼 UI 그리기 (캐릭터 정보창 위에 표시)
+        if _ingame_tutorial_active and not _ingame_tutorial_waiting_action:
+            _draw_ingame_tutorial()
+
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+
+            # 튜토리얼 입력 처리 (일시정지 상태에서만)
+            if _ingame_tutorial_active and not _ingame_tutorial_waiting_action:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    if "BUTTON_CLICK" in sound_effects and sound_effects["BUTTON_CLICK"]:
+                        sound_effects["BUTTON_CLICK"].play()
+                    advance_ingame_tutorial()
+                    continue
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if "BUTTON_CLICK" in sound_effects and sound_effects["BUTTON_CLICK"]:
+                        sound_effects["BUTTON_CLICK"].play()
+                    advance_ingame_tutorial()
+                    continue
+
             if event.type == pygame.KEYDOWN:
+                # 튜토리얼 진행 중에는 메뉴 닫기 방지
+                if _ingame_tutorial_active and not _ingame_tutorial_waiting_action:
+                    continue  # 튜토리얼 가이드창 표시 중에는 다른 키 입력 무시
                 if event.key == pygame.K_TAB:
+                    on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                     _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
                     return
                 if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
+                    on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                     _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
                     return
                 if event.key in (pygame.K_DOWN, pygame.K_PAGEDOWN):
@@ -122274,6 +125342,7 @@ def show_game_info():
         # Tab 키 재입력(떼고 다시 누름) 감지 시 즉시 종료
         keys_now = pygame.key.get_pressed()
         if not tab_prev and keys_now[pygame.K_TAB]:
+            on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
             _pop_stage7_ui_pause()  # Stage 7 게이지 정지 해제
             return
         tab_prev = keys_now[pygame.K_TAB]
@@ -122664,10 +125733,12 @@ def show_game_info():
                 sys.exit()
             # Tab 한 번 더 누르면 캐릭터정보 종료 (키다운/업 모두 처리)
             if event.type in (pygame.KEYDOWN, pygame.KEYUP) and event.key == pygame.K_TAB:
+                on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                 _pop_stage7_ui_pause()
                 return
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
+                    on_tab_close_for_tutorial()  # 튜토리얼: TAB 창 닫힐 때 콜백
                     _pop_stage7_ui_pause()
                     return
                 elif event.key == pygame.K_RIGHT and current_page == 0:
@@ -122846,7 +125917,11 @@ def show_game_info():
                             else:
                                 selected_passive_item = clicked_index
                                 show_item_management_menu(passive_item_list, selected_passive_item, "passive")
+    # 튜토리얼: TAB 창 닫힐 때 콜백 호출
+    on_tab_close_for_tutorial()
     _pop_stage7_ui_pause()
+
+
 def get_item_name_korean(item_name):
     """아이템 이름을 한글로 변환"""
     # 무중력벨트 + 스피드기어 시너지 효과 확인
@@ -124443,7 +127518,7 @@ def show_quick_character_selection():
             pygame.draw.circle(SCREEN, bg_color, center, radius + 8)
             pygame.draw.circle(SCREEN, accent, center, radius, 3 if enabled else 1)
 
-            arrow_size = max(10, radius - 12)
+            arrow_size = max(10, radius - 12) 
             if direction == "left":
                 points = [
                     (center[0] - arrow_size, center[1]),
@@ -124475,7 +127550,7 @@ def show_quick_character_selection():
             right_center_x,
             "right",
             enabled=right_enabled,
-            pressed=keys[pygame.K_RIGHT] or keys[pygame.K_d],
+            pressed=keys[pygame.K_RIGHT] or keys[pygame.K_d], 
         )
 
         # 안내 문구
