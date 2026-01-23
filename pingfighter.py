@@ -66716,22 +66716,28 @@ def _draw_ingame_tutorial() -> None:
         rect_y = wall_screen_y - highlight_h // 2
         pygame.draw.rect(overlay, (0, 0, 0, 0), (rect_x, rect_y, highlight_w, highlight_h), border_radius=4)
 
-    # 미니 점수판 강조 (상단 중앙)
+    # 미니 점수판 강조 (상단 필러 중앙 - 게임 영역 위)
     elif highlight_type == "mini_scoreboard":
-        # 점수판 위치 (상단 중앙)
-        scoreboard_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
-        scoreboard_y = 50
+        # 점수판 크기 (pillar_background.py와 동일)
+        box_width = 140
+        box_height = 44
 
         if _is_fullscreen_active and REAL_SCREEN is not None:
-            scoreboard_screen_x = GAME_OFFSET_X + int(scoreboard_x * GAME_SCALE_FACTOR)
-            scoreboard_screen_y = GAME_OFFSET_Y + int(scoreboard_y * GAME_SCALE_FACTOR)
-            highlight_w = int(140 * GAME_SCALE_FACTOR)
-            highlight_h = int(50 * GAME_SCALE_FACTOR)
+            # 점수판은 게임 영역 위쪽 상단 필러에 위치
+            # pillar_background.py의 draw_top_pillar_score 함수와 동일한 계산
+            # box_x = game_offset_x + (game_width - box_width) // 2
+            # box_y = (game_offset_y - box_height) // 2, 최소 2
+            scoreboard_box_y = max(2, (GAME_OFFSET_Y - box_height) // 2)
+            scoreboard_screen_x = GAME_OFFSET_X + GAME_SCALED_WIDTH // 2  # 게임 영역 가로 중앙
+            scoreboard_screen_y = scoreboard_box_y + box_height // 2  # 점수판 박스 세로 중앙
+            highlight_w = box_width + 10  # 약간 여유
+            highlight_h = box_height + 10
         else:
-            scoreboard_screen_x = scoreboard_x
-            scoreboard_screen_y = scoreboard_y
-            highlight_w = 140
-            highlight_h = 50
+            # 창 모드 - 점수판이 게임 화면 상단에 위치 (상단 필러 없음)
+            scoreboard_screen_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2  # 380
+            scoreboard_screen_y = 24  # 상단 근처 (box_y=2 + box_height/2=22)
+            highlight_w = 150
+            highlight_h = 54
 
         # 글로우 효과 (은색)
         for i in range(4):
