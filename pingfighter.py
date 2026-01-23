@@ -65349,6 +65349,10 @@ def advance_ingame_tutorial():
         if is_praise_message:
             _ingame_tutorial_clap_active = True
             _ingame_tutorial_clap_timer = 90  # 1.5초
+        else:
+            # 칭찬 메시지가 아니면 이전 박수 애니메이션 정리
+            _ingame_tutorial_clap_active = False
+            _ingame_tutorial_clap_timer = 0
 
     if _ingame_tutorial_step >= len(_INGAME_TUTORIAL_STEPS):
         _ingame_tutorial_active = False
