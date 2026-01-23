@@ -65190,37 +65190,15 @@ _INGAME_TUTORIAL_STEPS = [
             "보스와 싸워서 승리하세요",
         ]
     },
-    # === 최종 미션: 보스전 승리 (Step 90~93) ===
-    # Step 90: 마지막 미션 안내
+    # === 최종: 튜토리얼 종료 안내 (Step 90) ===
+    # Step 90: 마지막 미션 안내 + 튜토리얼 종료
     {
         "highlight": None,
         "messages": [
             "마지막 미션입니다!",
-        ]
-    },
-    # Step 91: 보스전 승리 미션 (점수 고정 해제)
-    {
-        "highlight": None,
-        "messages": [],
-        "mission_banner": "보스랑 배틀해서 승리하세요!",
-        "wait_for": "win_battle",  # 보스전 승리 대기
-        "trigger": "unfreeze_score"  # 점수 고정 해제
-    },
-    # Step 92: 튜토리얼 완료 축하
-    {
-        "highlight": "stage_clear",
-        "messages": [
-            "축하합니다! 튜토리얼을 완료했어요!",
+            "보스랑 배틀해서 승리하세요!",
         ],
-        "trigger": "celebrate"  # 축하 효과
-    },
-    # Step 93: 최종 완료 + 게임 재시작
-    {
-        "highlight": None,
-        "messages": [
-            "이제 본격적인 모험을 시작해볼까요?",
-        ],
-        "trigger": "end_tutorial"  # 튜토리얼 종료 트리거 → 게임 재시작
+        "trigger": "end_tutorial"  # 튜토리얼 종료 → 일반 게임으로 전환
     },
 ]
 
@@ -65287,6 +65265,20 @@ def advance_ingame_tutorial():
         if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
             sound_effects["MISSION_CLEAR"].set_volume(0.8)
             sound_effects["MISSION_CLEAR"].play()
+    elif trigger == "end_tutorial":
+        # 튜토리얼 완전 종료 - 일반 게임으로 전환
+        _ingame_tutorial_active = False
+        _ingame_tutorial_completed = True
+        _ingame_tutorial_score_frozen = False  # 점수 고정 해제
+        _ingame_tutorial_waiting_action = False
+        round_wins = 0
+        round_losses = 0
+        print("[DEBUG] 튜토리얼: 완전 종료 - 일반 게임 시작!")
+        # 완료 사운드 재생
+        if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
+            sound_effects["MISSION_CLEAR"].set_volume(0.6)
+            sound_effects["MISSION_CLEAR"].play()
+        return  # 더 이상 진행하지 않음
 
     # wait_for가 있는 단계에서 아직 대기 상태가 아니면 대기 상태로 전환
     if current.get("wait_for") and not _ingame_tutorial_waiting_action:
@@ -65420,6 +65412,18 @@ def advance_ingame_tutorial():
         elif next_trigger == "celebrate":
             _ingame_tutorial_clap_active = True
             _ingame_tutorial_clap_timer = 120
+        elif next_trigger == "end_tutorial":
+            # 튜토리얼 완전 종료 - 일반 게임으로 전환
+            _ingame_tutorial_active = False
+            _ingame_tutorial_completed = True
+            _ingame_tutorial_score_frozen = False
+            _ingame_tutorial_waiting_action = False
+            round_wins = 0
+            round_losses = 0
+            print("[DEBUG] 튜토리얼: 완전 종료 (advance) - 일반 게임 시작!")
+            if "MISSION_CLEAR" in sound_effects and sound_effects["MISSION_CLEAR"]:
+                sound_effects["MISSION_CLEAR"].set_volume(0.6)
+                sound_effects["MISSION_CLEAR"].play()
 
 
 def on_player_dash_for_tutorial(is_half_dash: bool = False):
