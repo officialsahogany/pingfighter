@@ -63847,6 +63847,82 @@ def draw_tutorial_action_gauge():
 
     target_screen.blit(panel_surf, (gauge_x, gauge_y))
 
+    # 대쉬/하프대쉬일 때 키캡 설명 추가
+    if _tutorial_action_gauge_type in ("dash", "half_dash"):
+        _draw_dash_keycap_hint(target_screen, gauge_x, gauge_y + gauge_height + 8, gauge_width)
+
+
+def _draw_dash_keycap_hint(target_screen, x, y, width):
+    """대쉬 조작법 키캡 힌트 그리기"""
+    # 배경 패널
+    hint_height = 50
+    hint_surf = pygame.Surface((width, hint_height), pygame.SRCALPHA)
+    pygame.draw.rect(hint_surf, (15, 25, 45, 200), (0, 0, width, hint_height), border_radius=8)
+    pygame.draw.rect(hint_surf, (60, 100, 160), (0, 0, width, hint_height), 2, border_radius=8)
+
+    # 폰트 설정
+    try:
+        key_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 12)
+        small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+    except:
+        key_font = pygame.freetype.SysFont("malgun gothic", 12)
+        small_font = pygame.freetype.SysFont("malgun gothic", 10)
+
+    # 첫 번째 줄: A 또는 D + S
+    line1_y = 10
+    current_x = 10
+
+    # "A" 키캡
+    _draw_keycap(hint_surf, current_x, line1_y, "A", key_font)
+    current_x += 22
+
+    # "또는" 텍스트
+    or_surf, or_rect = small_font.render("또는", (180, 180, 180))
+    hint_surf.blit(or_surf, (current_x, line1_y + 4))
+    current_x += or_rect.width + 4
+
+    # "D" 키캡
+    _draw_keycap(hint_surf, current_x, line1_y, "D", key_font)
+    current_x += 22
+
+    # "+" 텍스트
+    plus_surf, plus_rect = small_font.render("+", (200, 200, 200))
+    hint_surf.blit(plus_surf, (current_x, line1_y + 3))
+    current_x += plus_rect.width + 4
+
+    # "S" 키캡 (강조)
+    _draw_keycap(hint_surf, current_x, line1_y, "S", key_font, highlight=True)
+
+    # 두 번째 줄: 설명
+    desc_surf, _ = small_font.render("이동 중 S키로 대쉬!", (150, 200, 255))
+    desc_x = (width - desc_surf.get_width()) // 2
+    hint_surf.blit(desc_surf, (desc_x, 32))
+
+    target_screen.blit(hint_surf, (x, y))
+
+
+def _draw_keycap(surface, x, y, key_text, font, highlight=False):
+    """키캡 아이콘 그리기"""
+    cap_size = 18
+    # 키캡 배경
+    if highlight:
+        bg_color = (80, 150, 220)
+        border_color = (120, 200, 255)
+        text_color = (255, 255, 255)
+    else:
+        bg_color = (50, 60, 80)
+        border_color = (100, 120, 150)
+        text_color = (220, 220, 220)
+
+    pygame.draw.rect(surface, bg_color, (x, y, cap_size, cap_size), border_radius=4)
+    pygame.draw.rect(surface, border_color, (x, y, cap_size, cap_size), 2, border_radius=4)
+
+    # 키 텍스트
+    text_surf, text_rect = font.render(key_text, text_color)
+    text_x = x + (cap_size - text_rect.width) // 2
+    text_y = y + (cap_size - text_rect.height) // 2
+    surface.blit(text_surf, (text_x, text_y))
+
 
 def _draw_tutorial_skill_hover_gauge(target_screen, current_time):
     """튜토리얼 스킬 호버 미션 전용 UI 렌더링 - 드라이브/파워스매싱 아이콘 + 개별 게이지"""
