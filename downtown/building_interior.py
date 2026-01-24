@@ -379,6 +379,11 @@ class InteriorNPC:
             self._draw_wizard(screen, draw_x, draw_y, animation_timer)
             return
 
+        # 대장간 NPC인 경우 대장장이 스타일로 그리기
+        if self.building_type == BuildingType.BLACKSMITH:
+            self._draw_blacksmith_npc(screen, draw_x, draw_y, animation_timer)
+            return
+
         # NPC 고유 ID로 외모 특성 결정
         npc_id = hash(self.name)
 
@@ -686,6 +691,33 @@ class InteriorNPC:
             pygame.draw.circle(screen, (255, 255, 255), (bubble_x + 4, bubble_y + 8), 3)
             pygame.draw.circle(screen, (255, 255, 255), (bubble_x + 8, bubble_y + 2), 5)
             pygame.draw.circle(screen, (230, 230, 230), (bubble_x + 8, bubble_y + 2), 5, 1)
+
+        # === 퀘스트 NPC 머리 위 느낌표(!) 마커 ===
+        if self.role == "quest":
+            # 느낌표 위치 (머리 위 중앙)
+            marker_x = center_x
+            marker_y = head_y - 20
+
+            # 애니메이션: 위아래 살짝 움직임 + 펄스 효과
+            bounce_offset = int(3 * math.sin(animation_timer * 4))
+            pulse = 0.8 + 0.2 * math.sin(animation_timer * 6)
+            glow_alpha = int(180 + 60 * math.sin(animation_timer * 5))
+
+            # 배경 글로우 (노란색)
+            glow_surf = pygame.Surface((32, 32), pygame.SRCALPHA)
+            glow_radius = int(14 * pulse)
+            pygame.draw.circle(glow_surf, (255, 220, 50, glow_alpha // 2), (16, 16), glow_radius)
+            screen.blit(glow_surf, (marker_x - 16, marker_y - 16 + bounce_offset))
+
+            # 느낌표 배경 원 (노란색)
+            pygame.draw.circle(screen, (255, 200, 0), (marker_x, marker_y + bounce_offset), 10)
+            pygame.draw.circle(screen, (200, 150, 0), (marker_x, marker_y + bounce_offset), 10, 2)
+
+            # 느낌표 막대 (!)
+            pygame.draw.rect(screen, (80, 50, 0), (marker_x - 2, marker_y - 6 + bounce_offset, 4, 9), border_radius=1)
+
+            # 느낌표 점
+            pygame.draw.circle(screen, (80, 50, 0), (marker_x, marker_y + 6 + bounce_offset), 2)
 
     def _draw_robot(self, screen, draw_x, draw_y, animation_timer):
         """은행 로봇 NPC 그리기 - sci-fi 스타일 로봇"""
@@ -1475,6 +1507,509 @@ class InteriorNPC:
                     pygame.draw.circle(p_surf, (200, 150, 255, particle_alpha), (2, 2), 2)
                     screen.blit(p_surf, (px - 2, py - 2))
 
+    def _draw_blacksmith_npc(self, screen, draw_x, draw_y, animation_timer):
+        """대장간 NPC 그리기 - 드워프 스타일 (발토르의 친척들, 헤파이토스가 대장)
+        참고 이미지: 녹색 셔츠, 갈색 가죽 조끼, 땋은 붉은 수염, 금속 장식, 큰 벨트
+        """
+        npc_id = hash(self.name)
+        is_main = self.role == "main"  # 헤파이토스 대장
+
+        # 드워프: 키가 매우 작고 넓은 체형 (이미지 참고 - 더 작게)
+        # 스케일을 더 줄여서 작고 다부진 체형 강조
+        scale = 0.75 if is_main else 0.65
+
+        # 드워프 피부 색상 (이미지 참고 - 살짝 붉은 피부)
+        SKIN_TONE = (215, 175, 145) if is_main else (205, 165, 135)
+        SKIN_DARK = tuple(max(0, c - 30) for c in SKIN_TONE)
+        SKIN_LIGHT = tuple(min(255, c + 15) for c in SKIN_TONE)
+
+        # 복장 색상 (이미지 참고)
+        SHIRT_COLOR = (85, 110, 65)  # 녹색 셔츠
+        SHIRT_DARK = (60, 85, 45)
+        VEST_COLOR = (130, 85, 50)  # 갈색 가죽 조끼
+        VEST_DARK = (95, 60, 35)
+        VEST_LIGHT = (160, 110, 70)
+        BELT_COLOR = (100, 70, 40)  # 벨트
+        BELT_DARK = (70, 50, 30)
+        PANTS_COLOR = (140, 125, 100)  # 베이지 바지
+        PANTS_DARK = (110, 95, 70)
+        BOOT_COLOR = (75, 55, 40)  # 갈색 부츠
+        BOOT_DARK = (55, 40, 28)
+        METAL_COLOR = (170, 165, 155)  # 금속
+        METAL_DARK = (120, 115, 105)
+        METAL_LIGHT = (210, 205, 195)
+        GOLD_COLOR = (200, 160, 60)  # 금장식 (벨트 버클)
+        GOLD_DARK = (160, 120, 40)
+        GOLD_LIGHT = (240, 200, 100)
+
+        # 수염/머리 색상 (이미지 참고 - 붉은/주황색 계열)
+        if is_main:
+            BEARD_COLOR = (165, 95, 40)  # 주황빛 붉은 수염
+            BEARD_DARK = (130, 70, 25)
+            BEARD_LIGHT = (190, 120, 60)
+            HAIR_COLOR = (155, 85, 35)
+        else:
+            beard_variants = [
+                ((140, 80, 35), (105, 55, 20), (170, 105, 55)),   # 주황 갈색
+                ((90, 70, 55), (60, 45, 35), (120, 95, 75)),      # 어두운 갈색
+                ((120, 90, 50), (85, 60, 30), (150, 115, 70)),    # 중간 갈색
+            ]
+            BEARD_COLOR, BEARD_DARK, BEARD_LIGHT = beard_variants[npc_id % len(beard_variants)]
+            HAIR_COLOR = BEARD_COLOR
+
+        # 위치 계산
+        center_x = int(draw_x)
+        feet_y = int(draw_y)
+
+        # 애니메이션
+        breath_offset = int(1.0 * math.sin(animation_timer * 1.2 + npc_id))
+
+        # 망치질 애니메이션 (메인만) - 3초 주기, 현실적인 물리 기반
+        if is_main:
+            # 3초 주기 (0~3초)
+            cycle_time = 3.0
+            t = (animation_timer % cycle_time) / cycle_time  # 0~1 정규화
+
+            # 망치질 단계:
+            # 0.0~0.6: 천천히 망치를 위로 올림 (준비)
+            # 0.6~0.8: 잠깐 멈춤 (힘 모으기)
+            # 0.8~0.95: 빠르게 내리침 (가속)
+            # 0.95~1.0: 충격 후 반동
+
+            if t < 0.6:
+                # 천천히 올리는 단계 (ease-out)
+                lift_t = t / 0.6
+                # ease-out: 처음에 빠르고 끝에 느림
+                hammer_swing = 1.0 - (1.0 - lift_t) ** 2
+                is_striking = False
+            elif t < 0.8:
+                # 힘 모으기 (위에서 멈춤)
+                hammer_swing = 1.0
+                is_striking = False
+            elif t < 0.95:
+                # 빠르게 내리치기 (ease-in-quad: 점점 가속)
+                strike_t = (t - 0.8) / 0.15
+                # ease-in: 처음에 느리고 끝에 빠름 (중력 가속처럼)
+                hammer_swing = 1.0 - (strike_t ** 2)
+                is_striking = True
+            else:
+                # 충격 반동
+                recoil_t = (t - 0.95) / 0.05
+                hammer_swing = 0.0 + 0.1 * math.sin(recoil_t * math.pi)
+                is_striking = False
+
+            # hammer_swing: 1.0 = 위로 올림, 0.0 = 내려침
+            # 팔 각도 계산 (위로 올릴 때 -60도, 내릴 때 +40도)
+            arm_angle = -60 + (1.0 - hammer_swing) * 100
+        else:
+            arm_angle = 0
+            hammer_swing = 0
+            is_striking = False
+
+        # === 그림자 (넓고 짧은 드워프) ===
+        shadow_w = int(50 * scale)
+        shadow_h = int(14 * scale)
+        shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 55), (0, 0, shadow_w, shadow_h))
+        screen.blit(shadow_surf, (center_x - shadow_w // 2, feet_y - 4))
+
+        # === 부츠 (튼튼하고 넓은 부츠) ===
+        boot_h = int(16 * scale)
+        boot_w = int(18 * scale)
+        boot_y = feet_y - boot_h
+
+        # 왼쪽 부츠
+        pygame.draw.ellipse(screen, BOOT_COLOR, (center_x - 20, boot_y + 2, boot_w, boot_h - 2))
+        pygame.draw.ellipse(screen, BOOT_DARK, (center_x - 20, boot_y + 2, boot_w, boot_h - 2), 1)
+        pygame.draw.rect(screen, BOOT_DARK, (center_x - 18, boot_y, 14, boot_h - 4), border_radius=2)
+
+        # 오른쪽 부츠
+        pygame.draw.ellipse(screen, BOOT_COLOR, (center_x + 2, boot_y + 2, boot_w, boot_h - 2))
+        pygame.draw.ellipse(screen, BOOT_DARK, (center_x + 2, boot_y + 2, boot_w, boot_h - 2), 1)
+        pygame.draw.rect(screen, BOOT_DARK, (center_x + 4, boot_y, 14, boot_h - 4), border_radius=2)
+
+        # === 매우 짧은 다리 (드워프 특징) ===
+        leg_h = int(14 * scale)
+        leg_top_y = boot_y - leg_h + 6
+        leg_w = int(16 * scale)
+
+        # 왼쪽 다리
+        pygame.draw.rect(screen, PANTS_COLOR, (center_x - 18, leg_top_y, leg_w, leg_h), border_radius=3)
+        pygame.draw.rect(screen, PANTS_DARK, (center_x - 18, leg_top_y, leg_w, leg_h), 1, border_radius=3)
+
+        # 오른쪽 다리
+        pygame.draw.rect(screen, PANTS_COLOR, (center_x + 2, leg_top_y, leg_w, leg_h), border_radius=3)
+        pygame.draw.rect(screen, PANTS_DARK, (center_x + 2, leg_top_y, leg_w, leg_h), 1, border_radius=3)
+
+        # === 넓고 두꺼운 상체 (드워프 특징 - 매우 넓음) ===
+        torso_h = int(38 * scale)
+        torso_top_y = leg_top_y - torso_h + int(10 * scale) + breath_offset
+        torso_w = int(58 * scale)  # 매우 넓은 상체
+
+        # 녹색 셔츠 (소매 부분)
+        pygame.draw.ellipse(screen, SHIRT_COLOR,
+                          (center_x - torso_w // 2 + 3, torso_top_y + 3, torso_w - 6, torso_h - 3))
+        pygame.draw.ellipse(screen, SHIRT_DARK,
+                          (center_x - torso_w // 2 + 3, torso_top_y + 3, torso_w - 6, torso_h - 3), 1)
+
+        # 갈색 가죽 조끼 (이미지 참고 - V자 형태)
+        vest_w = int(42 * scale)
+        # 왼쪽 조끼
+        left_vest = [
+            (center_x - vest_w // 2, torso_top_y + torso_h - 5),
+            (center_x - vest_w // 2 - 2, torso_top_y + 8),
+            (center_x - 5, torso_top_y + 2),
+            (center_x - 3, torso_top_y + torso_h - 5),
+        ]
+        pygame.draw.polygon(screen, VEST_COLOR, left_vest)
+        pygame.draw.polygon(screen, VEST_DARK, left_vest, 2)
+        # 조끼 하이라이트
+        pygame.draw.line(screen, VEST_LIGHT, (center_x - vest_w // 2 + 3, torso_top_y + 12),
+                        (center_x - vest_w // 2 + 5, torso_top_y + torso_h - 10), 2)
+
+        # 오른쪽 조끼
+        right_vest = [
+            (center_x + vest_w // 2, torso_top_y + torso_h - 5),
+            (center_x + vest_w // 2 + 2, torso_top_y + 8),
+            (center_x + 5, torso_top_y + 2),
+            (center_x + 3, torso_top_y + torso_h - 5),
+        ]
+        pygame.draw.polygon(screen, VEST_COLOR, right_vest)
+        pygame.draw.polygon(screen, VEST_DARK, right_vest, 2)
+
+        # === 큰 벨트 (금색 버클) ===
+        belt_y = torso_top_y + torso_h - int(12 * scale)
+        belt_h = int(10 * scale)
+        pygame.draw.rect(screen, BELT_COLOR, (center_x - vest_w // 2 - 2, belt_y, vest_w + 4, belt_h), border_radius=2)
+        pygame.draw.rect(screen, BELT_DARK, (center_x - vest_w // 2 - 2, belt_y, vest_w + 4, belt_h), 1, border_radius=2)
+
+        # 금색 벨트 버클 (큰 원형)
+        buckle_r = int(8 * scale)
+        pygame.draw.circle(screen, GOLD_COLOR, (center_x, belt_y + belt_h // 2), buckle_r)
+        pygame.draw.circle(screen, GOLD_DARK, (center_x, belt_y + belt_h // 2), buckle_r, 2)
+        pygame.draw.circle(screen, GOLD_LIGHT, (center_x - 2, belt_y + belt_h // 2 - 2), 3)
+
+        # === 팔 (짧고 매우 근육질) ===
+        arm_y = torso_top_y + int(6 * scale)
+        arm_w = int(18 * scale)
+        arm_h = int(20 * scale)
+
+        # 왼팔 (녹색 소매 + 피부)
+        left_arm_x = center_x - torso_w // 2 - 3
+        # 소매 (녹색)
+        pygame.draw.ellipse(screen, SHIRT_COLOR, (left_arm_x + 2, arm_y, arm_w - 2, int(10 * scale)))
+        # 팔뚝 (피부)
+        pygame.draw.ellipse(screen, SKIN_TONE, (left_arm_x, arm_y + 8, arm_w, arm_h - 6))
+        pygame.draw.ellipse(screen, SKIN_DARK, (left_arm_x, arm_y + 8, arm_w, arm_h - 6), 1)
+        # 팔 근육 라인
+        pygame.draw.arc(screen, SKIN_DARK, (left_arm_x + 3, arm_y + 10, arm_w - 6, arm_h // 3), 0, 3.14, 2)
+        # 가죽 팔보호대
+        pygame.draw.rect(screen, VEST_COLOR, (left_arm_x + 2, arm_y + arm_h - 8, arm_w - 4, 6), border_radius=2)
+        pygame.draw.rect(screen, VEST_DARK, (left_arm_x + 2, arm_y + arm_h - 8, arm_w - 4, 6), 1, border_radius=2)
+        # 큰 손
+        pygame.draw.circle(screen, SKIN_TONE, (left_arm_x + arm_w // 2, arm_y + arm_h + 2), int(8 * scale))
+        pygame.draw.circle(screen, SKIN_DARK, (left_arm_x + arm_w // 2, arm_y + arm_h + 2), int(8 * scale), 1)
+
+        # 오른팔 (메인은 망치 들고 있음) - 자연스러운 IK 기반 팔 동작
+        if is_main:
+            # 어깨 위치 (몸통 오른쪽 상단)
+            shoulder_x = center_x + torso_w // 2 - 8
+            shoulder_y = arm_y + 6
+
+            # 상완/전완 길이
+            upper_arm_len = int(16 * scale)
+            forearm_len = int(14 * scale)
+
+            # 팔 각도 계산 (더 자연스러운 범위)
+            # hammer_swing: 1.0 = 위로, 0.0 = 아래로
+            # 위로 올릴 때: 어깨 각도 -80도 (위로), 팔꿈치 굽힘
+            # 아래로 내릴 때: 어깨 각도 +30도 (앞으로), 팔꿈치 펴짐
+
+            # 어깨 각도 (라디안)
+            shoulder_angle = math.radians(-80 + (1.0 - hammer_swing) * 110)
+
+            # 팔꿈치 굽힘 각도 (위로 올릴 때 더 굽힘, 내릴 때 펴짐)
+            # 위: 약 100도 굽힘, 아래: 약 160도 (거의 펴짐)
+            elbow_bend = math.radians(100 + (1.0 - hammer_swing) * 60)
+
+            # 상완 끝 (팔꿈치) 위치
+            elbow_x = shoulder_x + int(math.cos(shoulder_angle) * upper_arm_len)
+            elbow_y = shoulder_y + int(math.sin(shoulder_angle) * upper_arm_len)
+
+            # 전완 각도 = 어깨 각도 + 팔꿈치 굽힘 (외측으로)
+            forearm_angle = shoulder_angle + (math.pi - elbow_bend)
+
+            # 손목 위치
+            wrist_x = elbow_x + int(math.cos(forearm_angle) * forearm_len)
+            wrist_y = elbow_y + int(math.sin(forearm_angle) * forearm_len)
+
+            # === 상완 그리기 ===
+            # 소매 (녹색)
+            pygame.draw.line(screen, SHIRT_COLOR, (shoulder_x, shoulder_y),
+                           (shoulder_x + int(math.cos(shoulder_angle) * 8),
+                            shoulder_y + int(math.sin(shoulder_angle) * 8)), int(12 * scale))
+            # 피부 (상완)
+            pygame.draw.line(screen, SKIN_TONE, (shoulder_x, shoulder_y),
+                           (elbow_x, elbow_y), int(12 * scale))
+            # 상완 하이라이트
+            pygame.draw.line(screen, SKIN_LIGHT,
+                           (shoulder_x + 2, shoulder_y - 2),
+                           (elbow_x + 2, elbow_y - 2), int(4 * scale))
+
+            # === 팔꿈치 ===
+            pygame.draw.circle(screen, SKIN_TONE, (elbow_x, elbow_y), int(7 * scale))
+            pygame.draw.circle(screen, SKIN_DARK, (elbow_x, elbow_y), int(7 * scale), 1)
+
+            # === 전완 그리기 ===
+            pygame.draw.line(screen, SKIN_TONE, (elbow_x, elbow_y),
+                           (wrist_x, wrist_y), int(10 * scale))
+            # 전완 하이라이트
+            pygame.draw.line(screen, SKIN_LIGHT,
+                           (elbow_x + 1, elbow_y - 1),
+                           (wrist_x + 1, wrist_y - 1), int(3 * scale))
+
+            # 가죽 팔보호대 (전완 중간)
+            bracer_x = elbow_x + int(math.cos(forearm_angle) * (forearm_len * 0.5))
+            bracer_y = elbow_y + int(math.sin(forearm_angle) * (forearm_len * 0.5))
+            pygame.draw.circle(screen, VEST_COLOR, (bracer_x, bracer_y), int(6 * scale))
+            pygame.draw.circle(screen, VEST_DARK, (bracer_x, bracer_y), int(6 * scale), 1)
+
+            # === 손 (망치 잡은 주먹) ===
+            pygame.draw.circle(screen, SKIN_TONE, (wrist_x, wrist_y), int(8 * scale))
+            pygame.draw.circle(screen, SKIN_DARK, (wrist_x, wrist_y), int(8 * scale), 1)
+
+            # === 드워프 전쟁 망치 ===
+            hammer_len = int(50 * scale)
+            hammer_head_w = int(20 * scale)
+            hammer_head_h = int(24 * scale)
+
+            # 망치 각도 = 전완 각도에서 약간 더 (손목 각도)
+            hammer_angle = forearm_angle + 0.3
+
+            hammer_end_x = wrist_x + int(math.cos(hammer_angle) * hammer_len)
+            hammer_end_y = wrist_y + int(math.sin(hammer_angle) * hammer_len)
+
+            # 망치 자루 (나무)
+            pygame.draw.line(screen, (90, 60, 38), (wrist_x, wrist_y),
+                           (hammer_end_x, hammer_end_y), int(6 * scale))
+            pygame.draw.line(screen, (120, 85, 55), (wrist_x, wrist_y),
+                           (hammer_end_x, hammer_end_y), int(3 * scale))
+
+            # 자루 끝 금속 마감
+            pygame.draw.circle(screen, METAL_DARK, (wrist_x, wrist_y), int(4 * scale))
+
+            # 망치 머리 위치
+            head_cx = hammer_end_x
+            head_cy = hammer_end_y
+
+            # 망치 머리 (회전 적용)
+            hammer_rect = pygame.Rect(0, 0, hammer_head_w, hammer_head_h)
+            hammer_surf = pygame.Surface((hammer_head_w + 10, hammer_head_h + 10), pygame.SRCALPHA)
+
+            # 망치 머리 그리기 (로컬 좌표)
+            local_rect = pygame.Rect(5, 5, hammer_head_w, hammer_head_h)
+            pygame.draw.rect(hammer_surf, METAL_COLOR, local_rect, border_radius=3)
+            pygame.draw.rect(hammer_surf, METAL_DARK, local_rect, 2, border_radius=3)
+            # 하이라이트
+            pygame.draw.rect(hammer_surf, METAL_LIGHT, (7, 7, hammer_head_w - 4, 5))
+
+            # 룬 (내리칠 때 더 밝게)
+            rune_intensity = 150 + int(100 * (1.0 - hammer_swing))
+            if is_striking:
+                rune_intensity = 255
+            rune_color = (100, 180, 255, rune_intensity)
+            pygame.draw.line(hammer_surf, rune_color, (9, 10), (9, hammer_head_h - 2), 2)
+            pygame.draw.line(hammer_surf, rune_color, (9, 15), (15, 10), 2)
+            pygame.draw.line(hammer_surf, rune_color, (hammer_head_w, 10), (hammer_head_w, hammer_head_h - 2), 2)
+
+            # 회전 적용
+            rot_angle = -math.degrees(hammer_angle) - 90
+            rotated_hammer = pygame.transform.rotate(hammer_surf, rot_angle)
+            rot_rect = rotated_hammer.get_rect(center=(head_cx, head_cy))
+            screen.blit(rotated_hammer, rot_rect)
+
+            # === 망치질 충격 효과 ===
+            # 내리치는 순간 (hammer_swing이 0에 가까울 때)
+            if hammer_swing < 0.15 and is_striking:
+                # 불꽃/스파크
+                for spark in range(10):
+                    spark_angle = random.uniform(0, math.pi * 2)
+                    spark_dist = random.randint(5, 25)
+                    spark_x = head_cx + int(math.cos(spark_angle) * spark_dist)
+                    spark_y = head_cy + int(math.sin(spark_angle) * spark_dist)
+                    spark_color = random.choice([
+                        (255, 240, 150), (255, 200, 80), (255, 160, 40), (255, 120, 20)
+                    ])
+                    spark_size = random.randint(2, 5)
+                    pygame.draw.circle(screen, spark_color, (spark_x, spark_y), spark_size)
+
+                # 충격파 링
+                impact_alpha = int(200 * (0.15 - hammer_swing) / 0.15)
+                impact_surf = pygame.Surface((60, 60), pygame.SRCALPHA)
+                pygame.draw.circle(impact_surf, (255, 200, 100, impact_alpha), (30, 30), 25, 3)
+                screen.blit(impact_surf, (head_cx - 30, head_cy - 30))
+        else:
+            # 일반 드워프: 팔 내림
+            right_arm_x = center_x + torso_w // 2 - arm_w + 3
+            pygame.draw.ellipse(screen, SHIRT_COLOR, (right_arm_x - 2, arm_y, arm_w - 2, int(10 * scale)))
+            pygame.draw.ellipse(screen, SKIN_TONE, (right_arm_x, arm_y + 8, arm_w, arm_h - 6))
+            pygame.draw.ellipse(screen, SKIN_DARK, (right_arm_x, arm_y + 8, arm_w, arm_h - 6), 1)
+            pygame.draw.rect(screen, VEST_COLOR, (right_arm_x + 2, arm_y + arm_h - 8, arm_w - 4, 6), border_radius=2)
+            pygame.draw.circle(screen, SKIN_TONE, (right_arm_x + arm_w // 2, arm_y + arm_h + 2), int(8 * scale))
+
+        # === 목 (매우 짧고 굵음) ===
+        neck_h = int(4 * scale)
+        neck_w = int(22 * scale)
+        neck_y = torso_top_y - neck_h + 5
+        pygame.draw.rect(screen, SKIN_TONE, (center_x - neck_w // 2, neck_y, neck_w, neck_h + 8), border_radius=4)
+
+        # === 머리 (크고 넓음) ===
+        head_y = neck_y - int(26 * scale)
+        head_w = int(38 * scale)
+        head_h = int(30 * scale)
+
+        # 얼굴 본체
+        pygame.draw.ellipse(screen, SKIN_TONE,
+                          (center_x - head_w // 2, head_y, head_w, head_h))
+        pygame.draw.ellipse(screen, SKIN_DARK,
+                          (center_x - head_w // 2, head_y, head_w, head_h), 1)
+
+        # 귀 (옆으로 작게)
+        ear_y = head_y + int(12 * scale)
+        pygame.draw.ellipse(screen, SKIN_TONE, (center_x - head_w // 2 - 4, ear_y, 8, 10))
+        pygame.draw.ellipse(screen, SKIN_TONE, (center_x + head_w // 2 - 4, ear_y, 8, 10))
+        # 귀걸이 (메인만)
+        if is_main:
+            pygame.draw.circle(screen, GOLD_COLOR, (center_x + head_w // 2, ear_y + 8), 3)
+
+        # 이마 주름
+        pygame.draw.arc(screen, SKIN_DARK,
+                       (center_x - 10, head_y + 6, 20, 8), 3.14, 0, 1)
+
+        # 머리카락 (짧고 뒤로 넘긴 스타일 - 이미지 참고)
+        hair_y = head_y - 1
+        pygame.draw.ellipse(screen, HAIR_COLOR,
+                          (center_x - head_w // 2 + 3, hair_y, head_w - 6, int(16 * scale)))
+        # 머리카락 질감
+        for i in range(7):
+            hx = center_x - 14 + i * 4
+            hy_end = hair_y + 8 + (i % 2) * 3
+            pygame.draw.line(screen, BEARD_DARK, (hx, hair_y + 2), (hx + 1, hy_end), 1)
+
+        # 두꺼운 눈썹 (인상 깊게)
+        brow_y = head_y + int(10 * scale)
+        # 눈썹이 가운데로 모이는 형태
+        pygame.draw.polygon(screen, BEARD_COLOR, [
+            (center_x - 14, brow_y + 2), (center_x - 5, brow_y), (center_x - 5, brow_y + 4), (center_x - 14, brow_y + 5)
+        ])
+        pygame.draw.polygon(screen, BEARD_COLOR, [
+            (center_x + 14, brow_y + 2), (center_x + 5, brow_y), (center_x + 5, brow_y + 4), (center_x + 14, brow_y + 5)
+        ])
+
+        # 눈 (작고 날카로움)
+        eye_y = head_y + int(14 * scale)
+        pygame.draw.ellipse(screen, (245, 240, 230), (center_x - 11, eye_y, 8, 6))
+        pygame.draw.ellipse(screen, (245, 240, 230), (center_x + 3, eye_y, 8, 6))
+        # 눈동자 (갈색)
+        eye_color = (100, 70, 40) if is_main else (85, 60, 35)
+        pygame.draw.circle(screen, eye_color, (center_x - 7, eye_y + 3), 3)
+        pygame.draw.circle(screen, eye_color, (center_x + 7, eye_y + 3), 3)
+        pygame.draw.circle(screen, (30, 20, 15), (center_x - 7, eye_y + 3), 1)
+        pygame.draw.circle(screen, (30, 20, 15), (center_x + 7, eye_y + 3), 1)
+
+        # 큰 코 (둥글고 큼 - 드워프 특징)
+        nose_y = head_y + int(16 * scale)
+        pygame.draw.ellipse(screen, SKIN_TONE, (center_x - 6, nose_y, 12, 14))
+        pygame.draw.ellipse(screen, SKIN_DARK, (center_x - 6, nose_y, 12, 14), 1)
+        # 콧구멍
+        pygame.draw.circle(screen, SKIN_DARK, (center_x - 2, nose_y + 10), 2)
+        pygame.draw.circle(screen, SKIN_DARK, (center_x + 2, nose_y + 10), 2)
+
+        # === 풍성한 자연스러운 수염 (드워프의 자랑!) ===
+        beard_top_y = head_y + int(22 * scale)
+        beard_bottom_y = torso_top_y + int(22 * scale) if is_main else torso_top_y + int(12 * scale)
+        beard_w = int(32 * scale) if is_main else int(26 * scale)
+
+        # 콧수염 (굵고 자연스럽게)
+        mustache_y = beard_top_y - 4
+        # 왼쪽 콧수염
+        pygame.draw.arc(screen, BEARD_COLOR,
+                       (center_x - 20, mustache_y - 2, 20, 12), 0.3, 1.3, 4)
+        pygame.draw.arc(screen, BEARD_DARK,
+                       (center_x - 20, mustache_y - 2, 20, 12), 0.3, 1.3, 1)
+        # 오른쪽 콧수염
+        pygame.draw.arc(screen, BEARD_COLOR,
+                       (center_x, mustache_y - 2, 20, 12), 1.84, 2.84, 4)
+        pygame.draw.arc(screen, BEARD_DARK,
+                       (center_x, mustache_y - 2, 20, 12), 1.84, 2.84, 1)
+
+        # 턱수염 본체 (자연스러운 곡선)
+        main_beard = [
+            (center_x - beard_w // 2, beard_top_y),
+            (center_x - beard_w // 2 - 2, beard_top_y + 15),
+            (center_x - beard_w // 3, beard_bottom_y - 5),
+            (center_x, beard_bottom_y + 5),  # 아래로 둥글게
+            (center_x + beard_w // 3, beard_bottom_y - 5),
+            (center_x + beard_w // 2 + 2, beard_top_y + 15),
+            (center_x + beard_w // 2, beard_top_y),
+        ]
+        pygame.draw.polygon(screen, BEARD_COLOR, main_beard)
+        pygame.draw.polygon(screen, BEARD_DARK, main_beard, 2)
+
+        # 수염 질감 (자연스러운 세로 선들)
+        beard_height = beard_bottom_y - beard_top_y
+        for i in range(11):
+            bx = center_x - 18 + i * 4
+            # 수염 폭에 따라 길이 조절 (가운데가 길고 양옆이 짧음)
+            dist_from_center = abs(i - 5)
+            length_factor = 1.0 - (dist_from_center * 0.12)
+            by_start = beard_top_y + 5
+            by_end = beard_top_y + int(beard_height * length_factor) + random.randint(-2, 2)
+            # 살짝 곡선으로
+            mid_offset = int(2 * math.sin(i * 0.5))
+            pygame.draw.line(screen, BEARD_DARK, (bx, by_start), (bx + mid_offset, by_end), 1)
+
+        # 수염 하이라이트 (자연스러운 볼륨감)
+        highlight_beard = [
+            (center_x - beard_w // 3 + 2, beard_top_y + 8),
+            (center_x - beard_w // 4, beard_bottom_y - 15),
+            (center_x - 5, beard_bottom_y - 5),
+        ]
+        pygame.draw.lines(screen, BEARD_LIGHT, False, highlight_beard, 1)
+
+        # 입 (수염 속에 약간 보임)
+        mouth_y = beard_top_y
+        if self.is_talking:
+            mouth_open = int(abs(math.sin(animation_timer * 6)) * 4)
+            pygame.draw.ellipse(screen, (70, 45, 35), (center_x - 5, mouth_y, 10, 4 + mouth_open))
+            if mouth_open > 2:
+                pygame.draw.rect(screen, (240, 235, 225), (center_x - 4, mouth_y + 1, 8, 2))
+        else:
+            pygame.draw.line(screen, SKIN_DARK, (center_x - 5, mouth_y + 2), (center_x + 5, mouth_y + 2), 2)
+
+        # === 메인 NPC 마커 ===
+        if is_main:
+            marker_y = head_y - int(25 * scale)
+            glow_alpha = int(180 + 70 * math.sin(animation_timer * 2.5))
+
+            marker_surf = pygame.Surface((36, 32), pygame.SRCALPHA)
+
+            # 모루 + 망치 아이콘
+            pygame.draw.rect(marker_surf, (90, 85, 80, glow_alpha), (10, 20, 16, 10), border_radius=2)
+            pygame.draw.rect(marker_surf, (90, 85, 80, glow_alpha), (8, 16, 20, 6), border_radius=1)
+
+            # 불꽃
+            flame_pts = [(18, 4), (14, 14), (18, 10), (22, 14)]
+            pygame.draw.polygon(marker_surf, (255, 180, 60, glow_alpha), flame_pts)
+            inner_flame = [(18, 7), (16, 12), (18, 10), (20, 12)]
+            pygame.draw.polygon(marker_surf, (255, 240, 150, glow_alpha), inner_flame)
+
+            glow_surf = pygame.Surface((28, 20), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (255, 150, 50, glow_alpha // 3), (0, 0, 28, 20))
+            screen.blit(glow_surf, (center_x - 14, marker_y - 2))
+
+            screen.blit(marker_surf, (center_x - 18, marker_y))
+
     def draw_speech_bubble(self, screen, camera_offset, fonts):
         """말풍선 그리기"""
         if not self.is_talking:
@@ -1791,28 +2326,56 @@ INTERIOR_CONFIGS = {
         "special_interior": "neon_shop",  # 특수 인테리어 플래그
     },
     BuildingType.BLACKSMITH: {
-        "name": "대장간",
-        "map_size": (10, 10),
-        "bg_color": (50, 30, 20),
-        "floor_color": (70, 45, 30),
-        "floor_pattern": "stone_brick",
-        "wall_color": (60, 35, 25),
-        "accent_color": (255, 140, 0),
-        "secondary_color": (255, 69, 0),
-        "decorations": ["anvil", "forge", "weapon_rack", "tool_wall"],
+        "name": "드워프 대장간",
+        "map_size": (16, 14),  # 드워프 대장간
+        "bg_color": (40, 28, 18),  # 어두운 대장간 분위기
+        "floor_color": (75, 55, 38),  # 석재 바닥
+        "floor_pattern": "stone_tile",  # 석재 타일 패턴
+        "wall_color": (60, 42, 28),  # 단단한 석재 벽
+        "accent_color": (255, 120, 40),  # 용광로 불빛
+        "secondary_color": (200, 160, 60),  # 금속 장식
+        "decorations": [],  # 커스텀 인테리어 사용
         "main_npc": {
-            "name": "대장장이 헤파이토스",
-            "color": (255, 140, 0),
-            "position": (0.5, 0.35),
+            "name": "대장 헤파이토스",  # 드워프 대장
+            "color": (255, 140, 50),
+            "position": (0.6, 0.35),
             "dialogue": [
-                "무기를 강화하러 왔나?",
-                "내 솜씨는 최고지!",
-                "뭘 만들어줄까?",
-                "...준비 중이야."
+                "흠! 또 다른 방문객인가.",
+                "드워프의 대장간에 오신 걸 환영하네!",
+                "우리 드워프족의 제련술은 대륙 최고야.",
+                "발토르의 친구라면... 특별히 대접해주지.",
+                "무엇이 필요한가? 무기 강화? 방어구 수리?",
+                "용광로의 불꽃은 천 년을 타오르지!",
+                "좋은 무기는 좋은 대장장이에게서 나오는 법이야."
             ]
         },
-        "customer_range": (1, 3),
-        "staff_count": 1,
+        "extra_npcs": [  # 추가 드워프 NPC들
+            {
+                "name": "도제 톨린",
+                "role": "staff",
+                "color": (180, 130, 80),
+                "position": (0.25, 0.55),
+                "dialogue": [
+                    "대장님께 배우는 중이에요!",
+                    "언젠간 저도 훌륭한 대장장이가 될 겁니다.",
+                    "이 망치질 소리... 좋지 않나요?"
+                ]
+            },
+            {
+                "name": "광부 두린",
+                "role": "customer",
+                "color": (120, 100, 80),
+                "position": (0.75, 0.65),
+                "dialogue": [
+                    "광산에서 좋은 광석을 캐왔어.",
+                    "헤파이토스 대장님의 망치질은 예술이야.",
+                    "드워프 무기는 세계 최고지!"
+                ]
+            }
+        ],
+        "customer_range": (1, 3),  # 드워프 손님들
+        "staff_count": 1,  # 도제 1명
+        "special_interior": "blacksmith",  # 대장간 특수 인테리어
     },
     BuildingType.CASINO: {
         "name": "네온 카지노",
@@ -1841,27 +2404,39 @@ INTERIOR_CONFIGS = {
     },
     BuildingType.TAVERN: {
         "name": "모험가의 선술집",
-        "map_size": (14, 11),
+        "map_size": (24, 14),  # 가로로 넓은 선술집
         "bg_color": (45, 35, 25),
-        "floor_color": (70, 55, 40),
+        "floor_color": (120, 85, 55),  # 따뜻한 나무 바닥
         "floor_pattern": "wood_plank",
-        "wall_color": (55, 42, 30),
+        "wall_color": (85, 60, 40),
         "accent_color": (210, 180, 140),
         "secondary_color": (160, 82, 45),
-        "decorations": ["barrel", "bar_counter", "table_chair", "fireplace"],
+        "decorations": [],  # 커스텀 인테리어 사용
         "main_npc": {
-            "name": "주인 바커스",
-            "color": (210, 180, 140),
-            "position": (0.5, 0.25),
+            "name": "주인장 바커스",
+            "color": (180, 120, 80),
+            "position": (0.25, 0.18),  # 바 카운터 뒤
             "dialogue": [
-                "어서오게! 뭘 마시겠나?",
+                "어서오게, 모험가!",
+                "뭘 마시겠나? 에일? 미드?",
                 "여기선 최고의 술을 팔지.",
-                "피곤한 하루였나보군.",
-                "천천히 쉬어가게나."
+                "피곤한 하루였나보군. 천천히 쉬어가게."
             ]
         },
-        "customer_range": (4, 7),
-        "staff_count": 1,
+        "extra_npcs": [
+            {
+                "name": "의뢰인 마르코",
+                "role": "quest",  # 퀘스트 NPC 역할
+                "color": (120, 100, 80),  # 어두운 갈색 톤
+                "position": (0.75, 0.65),  # 우측 벽난로 근처 테이블
+                "dialogue": [
+                    "임무를 수행해줄 의뢰인을 구하고있네.",
+                ]
+            }
+        ],
+        "customer_range": (0, 0),  # 커스텀 NPC 사용 (자체 배치)
+        "staff_count": 0,  # 커스텀 NPC 사용
+        "special_interior": "tavern",  # 선술집 전용 인테리어
     },
     BuildingType.BANK: {
         "name": "STARBANK",
@@ -2172,15 +2747,15 @@ class BuildingInterior:
 
         # 은행 메뉴 상태 (STARBANK 전용)
         self.bank_menu_open = False
-        self.bank_menu_selection = 0  # 0: 환전, 1: 예금/출금, 2: 나가기
-        self.bank_menu_items = ["환전", "예금/출금", "나가기"]
+        self.bank_menu_selection = 0  # 0: 예금/출금, 1: 나가기 (환전 제거됨)
+        self.bank_menu_items = ["예금/출금", "나가기"]  # 환전 메뉴 제거
 
-        # 환전 창 상태
+        # 환전 창 상태 (사용하지 않음 - 하위 호환성을 위해 유지)
         self.exchange_menu_open = False
-        self.exchange_direction = 0  # 0: 스타포인트→골드, 1: 골드→스타포인트
-        self.exchange_amount = 1  # 환전할 양
-        self.exchange_slider_dragging = False  # 슬라이더 드래그 중 여부
-        self.exchange_slider_rect = None  # 슬라이더 트랙 영역 (draw에서 설정)
+        self.exchange_direction = 0
+        self.exchange_amount = 1
+        self.exchange_slider_dragging = False
+        self.exchange_slider_rect = None
 
         # 예금 창 상태
         self.deposit_menu_open = False
@@ -2192,6 +2767,56 @@ class BuildingInterior:
         self.academy_dialog_open = False  # 학장 대화 미니창
         self.academy_dialog_selection = 0  # 0: 예, 1: 아니오
         self.open_skill_menu_requested = False  # 스킬 메뉴 열기 요청 플래그
+
+        # 선술집 메뉴 상태 (TAVERN 전용)
+        self.tavern_menu_open = False  # 선술집 메뉴창
+        self.tavern_menu_selection = 0  # 0: 에일, 1: 미드, 2: 특제 스튜, 3: 나가기
+        self.tavern_menu_items = [
+            {"name": "에일 한 잔", "price": 10, "effect": "체력 회복 +10", "type": "heal", "value": 10},
+            {"name": "미드 한 잔", "price": 25, "effect": "체력 회복 +25", "type": "heal", "value": 25},
+            {"name": "특제 스튜", "price": 50, "effect": "체력 완전 회복", "type": "full_heal", "value": 100},
+            {"name": "루머 듣기", "price": 5, "effect": "랜덤 정보 획득", "type": "rumor", "value": 0},
+            {"name": "나가기", "price": 0, "effect": "", "type": "exit", "value": 0},
+        ]
+        self.tavern_message = None  # 선술집 메시지 (구매 결과 등)
+        self.tavern_message_timer = 0  # 메시지 표시 시간
+
+        # 퀘스트 시스템 (TAVERN 전용)
+        self.quest_menu_open = False  # 퀘스트 메뉴창
+        self.quest_menu_selection = 0  # 선택된 퀘스트 인덱스
+        self.quest_detail_open = False  # 퀘스트 상세 보기 모드
+        self.quest_detail_selection = 0  # 0: 임무수행, 1: 취소
+        self.quest_npc_dialogue_shown = False  # NPC 대사 표시 여부
+        self.quest_npc_dialogue_timer = 0  # NPC 대사 타이머
+
+        # 퀘스트 목록 정의
+        self.quest_list = [
+            {
+                "id": "no_active_item",
+                "name": "순수한 실력",
+                "description": "다음 스테이지에서 액티브 아이템을\n한 번도 사용하지 않고 승리하세요.",
+                "condition_desc": "액티브 아이템 미사용으로 승리",
+                "reward_gold": 1000,
+                "reward_items": [],
+                "active": False,  # 현재 진행 중인지
+                "completed": False,  # 완료했는지
+            },
+            {
+                "id": "perfect_victory",
+                "name": "완벽한 승리",
+                "description": "다음 스테이지에서 5:0으로\n클리어하세요.",
+                "condition_desc": "5:0 승리",
+                "reward_gold": 1000,
+                "reward_items": [],
+                "active": False,
+                "completed": False,
+            },
+        ]
+        self.quest_message = None  # 퀘스트 메시지
+        self.quest_message_timer = 0  # 메시지 타이머
+
+        # pingfighter에서 퀘스트 상태 동기화
+        self._sync_quest_state_from_pingfighter()
 
         # 상점 거래 시스템 (ITEM_SHOP 전용)
         self.shop_trade_open = False  # 거래 창 열림 여부
@@ -2235,6 +2860,14 @@ class BuildingInterior:
                 self.pachinko_bgm_path = pachinko_bgm_path
             else:
                 self.pachinko_bgm_path = None
+
+            # 망치 소리 로드 (대장간 강화용)
+            hammering_sound_path = resource_path(os.path.join("sounds", "hammering.wav"))
+            if os.path.exists(hammering_sound_path):
+                self.hammering_sound = pygame.mixer.Sound(hammering_sound_path)
+                self.hammering_sound.set_volume(0.7)
+            else:
+                self.hammering_sound = None
         except Exception as e:
             print(f"Warning: Could not load trade/star sound: {e}")
 
@@ -2255,7 +2888,7 @@ class BuildingInterior:
         # 크레인 게임 확인 다이얼로그 상태
         self.crane_confirm_dialog_open = False  # 확인 다이얼로그 열림 여부
         self.crane_confirm_selection = 0  # 0: 예, 1: 아니오
-        self.crane_game_cost = 300  # 크레인 게임 비용 (골드)
+        self.crane_game_cost = 200  # 크레인 게임 비용 (골드)
 
         # 크레인 게임 플레이 화면 상태
         self.crane_game_playing = False  # 크레인 게임 플레이 중
@@ -2302,6 +2935,22 @@ class BuildingInterior:
         self.pachinko_game_ui = None  # 빠칭코 게임 UI 인스턴스
         self._init_slot_machine_zones()  # 슬롯머신 영역 초기화
 
+        # ===== 강화 시스템 (BLACKSMITH 전용) =====
+        self.enhancement_menu_open = False  # 강화 메뉴 열림 여부
+        self.enhancement_item_select_open = False  # 아이템 선택창 열림
+        self.enhancement_confirm_open = False  # 강화 확인창 열림
+        self.enhancement_animation_playing = False  # 강화 애니메이션 재생 중
+        self.enhancement_result_open = False  # 강화 결과창 열림
+        self.enhancement_selected_item = None  # 선택된 아이템 (dict)
+        self.enhancement_selected_idx = -1  # 선택된 아이템 인덱스
+        self.enhancement_result = None  # 결과: "success", "maintain", "fail"
+        self.enhancement_animation_timer = 0.0  # 애니메이션 타이머
+        self.enhancement_hover_item = None  # 호버 중인 아이템
+        self.enhancement_item_rects = {}  # 아이템 클릭 영역
+        self.enhancement_scroll = 0  # 스크롤 오프셋
+        self._enhancement_max_scroll = 0
+        self.enhancement_last_swing = -1  # 마지막 스윙 사이클 번호 (사운드 중복 방지)
+
     def _init_shop_inventory(self):
         """상점 인벤토리 초기화 (랜덤 패시브 아이템 1~7개 + 5% 전설)"""
         if self.building_type != BuildingType.ITEM_SHOP:
@@ -2320,60 +2969,58 @@ class BuildingInterior:
 
         # 패시브 아이템 목록 (판매 가능한 아이템들)
         passive_items = [
-            {"name": "speedboots", "base_price": 1100, "korean": "스피드부츠"},
-            {"name": "speedgear", "base_price": 800, "korean": "스피드기어"},
-            {"name": "battery", "base_price": 1300, "korean": "배터리"},
-            {"name": "revival", "base_price": 3000, "korean": "부활"},
-            {"name": "master", "base_price": 900, "korean": "토르의 망치"},
-            {"name": "cooltime", "base_price": 700, "korean": "쿨타임"},
-            {"name": "chargebag", "base_price": 1500, "korean": "충전가방"},
-            {"name": "spikeboots", "base_price": 1200, "korean": "스파이크부츠"},
-            {"name": "dashgear", "base_price": 1200, "korean": "대쉬기어"},
-            {"name": "bulkup", "base_price": 1100, "korean": "벌크업"},
-            {"name": "sensor", "base_price": 1800, "korean": "위험감지센서"},
-            {"name": "gravitybelt", "base_price": 2800, "korean": "무중력벨트"},
-            {"name": "dashholder", "base_price": 1800, "korean": "대쉬홀더"},
+            {"name": "speedboots", "base_price": 750, "korean": "스피드부츠"},
+            {"name": "speedgear", "base_price": 550, "korean": "스피드기어"},
+            {"name": "battery", "base_price": 900, "korean": "배터리"},
+            {"name": "revival", "base_price": 2000, "korean": "부활"},
+            {"name": "master", "base_price": 700, "korean": "토르의 망치"},
+            {"name": "cooltime", "base_price": 500, "korean": "쿨타임"},
+            {"name": "chargebag", "base_price": 1000, "korean": "충전가방"},
+            {"name": "spikeboots", "base_price": 800, "korean": "스파이크부츠"},
+            {"name": "dashgear", "base_price": 800, "korean": "대쉬기어"},
+            {"name": "bulkup", "base_price": 750, "korean": "벌크업"},
+            {"name": "sensor", "base_price": 1200, "korean": "위험감지센서"},
+            {"name": "gravitybelt", "base_price": 1900, "korean": "무중력벨트"},
+            {"name": "dashholder", "base_price": 1200, "korean": "대쉬홀더"},
             {"name": "dowsing_pendulum", "base_price": 700, "korean": "다우징팬들럼"},
-            {"name": "smartphone", "base_price": 800, "korean": "스마트폰"},
-            {"name": "commando_arm", "base_price": 1100, "korean": "코만도암"},
+            {"name": "smartphone", "base_price": 550, "korean": "스마트폰"},
+            {"name": "commando_arm", "base_price": 750, "korean": "코만도암"},
             {"name": "technical_vest", "base_price": 1200, "korean": "테크니컬조끼"},
-            {"name": "fuel_pouch", "base_price": 700, "korean": "연료파우치"},
-            {"name": "slot_add", "base_price": 900, "korean": "가방"},
-            {"name": "bluetooth_ring", "base_price": 1200, "korean": "블루투스링"},
-            {"name": "star_detector", "base_price": 900, "korean": "별탐지기"},
-            {"name": "foul_whistle", "base_price": 1300, "korean": "반칙호루라기"},
-            {"name": "bulletproof_hat", "base_price": 800, "korean": "방탄모자"},
-            {"name": "spiked_helmet", "base_price": 1000, "korean": "가시투구"},
-            {"name": "knee_pads", "base_price": 800, "korean": "킥차져"},
+            {"name": "fuel_pouch", "base_price": 500, "korean": "연료파우치"},
+            {"name": "slot_add", "base_price": 600, "korean": "가방"},
+            {"name": "bluetooth_ring", "base_price": 800, "korean": "블루투스링"},
+            {"name": "star_detector", "base_price": 600, "korean": "별탐지기"},
+            {"name": "foul_whistle", "base_price": 900, "korean": "반칙호루라기"},
+            {"name": "bulletproof_hat", "base_price": 550, "korean": "방탄모자"},
+            {"name": "spiked_helmet", "base_price": 700, "korean": "가시투구"},
+            {"name": "knee_pads", "base_price": 550, "korean": "킥차져"},
         ]
 
         # 전설 아이템 목록 (5% 확률)
         legendary_items = [
-            {"name": "ragnarok_hammer", "base_price": 6500, "korean": "라그나로크 해머", "type": "legendary"},
-            {"name": "hermes_shoes", "base_price": 5500, "korean": "헤르메스의 신발", "type": "legendary"},
-            {"name": "poseidon_trident", "base_price": 5500, "korean": "포세이돈의 삼지창", "type": "legendary"},
-            {"name": "angel_blessing", "base_price": 6000, "korean": "천사의 가호", "type": "legendary"},
-            {"name": "sacred_laurel", "base_price": 5800, "korean": "신성 월계수", "type": "legendary"},
+            {"name": "ragnarok_hammer", "base_price": 3600, "korean": "라그나로크 해머", "type": "legendary"},
+            {"name": "hermes_shoes", "base_price": 3000, "korean": "헤르메스의 신발", "type": "legendary"},
+            {"name": "poseidon_trident", "base_price": 3000, "korean": "포세이돈의 삼지창", "type": "legendary"},
+            {"name": "angel_blessing", "base_price": 3960, "korean": "천사의 가호", "type": "legendary"},
+            {"name": "sacred_laurel", "base_price": 3360, "korean": "신성 월계수", "type": "legendary"},
+            {"name": "transcendent_crown", "base_price": 4560, "korean": "초월자의 관", "type": "legendary"},
         ]
 
-        # 랜덤 아이템 개수 (1~7개)
-        item_count = random.randint(1, 7)
+        # 랜덤 아이템 개수 (5~12개)
+        item_count = random.randint(5, 12)
 
-        # 사용 가능한 아이템 풀에서 랜덤 선택
-        available_pool = passive_items.copy()
+        # 전설 아이템 풀 (중복 방지용 복사)
+        available_legendary = legendary_items.copy()
 
         for _ in range(item_count):
-            if not available_pool:
-                break
-
             # 5% 확률로 전설 아이템
-            if random.random() < 0.05 and legendary_items:
-                selected = random.choice(legendary_items)
-                legendary_items.remove(selected)  # 중복 방지
+            if random.random() < 0.05 and available_legendary:
+                selected = random.choice(available_legendary)
+                available_legendary.remove(selected)  # 전설은 중복 방지
                 is_legendary = True
             else:
-                selected = random.choice(available_pool)
-                available_pool.remove(selected)  # 중복 방지
+                # 일반 아이템은 중복 허용 (옵션이 다르게 붙음)
+                selected = random.choice(passive_items)
                 is_legendary = False
 
             # 기본 아이템 데이터 생성
@@ -2384,8 +3031,31 @@ class BuildingInterior:
                 "icon": None
             }
 
-            # 전설 아이템이 아닌 경우 롤옵션 생성
-            if not is_legendary and roll_passive_options:
+            # 롤옵션 생성
+            if is_legendary:
+                # 전설 아이템 롤옵션 생성
+                from legendary_items import LEGENDARY_ROLL_OPTIONS, randomize_legendary_rolls, legendary_roll_values
+                if selected["name"] in LEGENDARY_ROLL_OPTIONS:
+                    # 이 상점 아이템용 롤옵션 랜덤 생성
+                    randomize_legendary_rolls(selected["name"])
+                    # 롤된 값을 아이템에 저장
+                    rolled_options = []
+                    for opt in LEGENDARY_ROLL_OPTIONS[selected["name"]]:
+                        key = opt["key"]
+                        value = legendary_roll_values.get(selected["name"], {}).get(key, opt.get("default", opt["min"]))
+                        rolled_options.append({
+                            "key": key,
+                            "label": opt["label"],
+                            "value": value,
+                            "min": opt["min"],
+                            "max": opt["max"],
+                            "unit": opt.get("unit", ""),
+                            "reverse": opt.get("reverse", False)  # 쿨타임 등은 낮을수록 좋음
+                        })
+                    shop_item["rolled_options"] = rolled_options
+                    shop_item["is_legendary"] = True
+            elif roll_passive_options:
+                # 패시브 아이템 롤옵션 생성
                 rolled_options = roll_passive_options(selected["name"])
                 if rolled_options:
                     shop_item["rolled_options"] = rolled_options
@@ -2838,23 +3508,7 @@ class BuildingInterior:
             pingfighter = sys.modules['pingfighter']
             is_blacksmith = getattr(pingfighter, 'selected_character_type', '') == 'blacksmith'
 
-        # 이미 소유한 전설 아이템 목록 확인 (중복 방지)
-        owned_legendary_items = set()
-        try:
-            if 'items' in sys.modules:
-                items_module = sys.modules['items']
-                if getattr(items_module, 'ragnarok_hammer_obtained', False):
-                    owned_legendary_items.add('ragnarok_hammer')
-                if getattr(items_module, 'hermes_shoes_obtained', False):
-                    owned_legendary_items.add('hermes_shoes')
-                if getattr(items_module, 'poseidon_trident_obtained', False):
-                    owned_legendary_items.add('poseidon_trident')
-                if getattr(items_module, 'angel_blessing_obtained', False):
-                    owned_legendary_items.add('angel_blessing')
-                if getattr(items_module, 'sacred_laurel_obtained', False):
-                    owned_legendary_items.add('sacred_laurel')
-        except Exception as e:
-            print(f"[크레인] 전설 아이템 소유 확인 실패: {e}")
+        # 전설 아이템 중복 획득 허용 (owned_legendary_items 체크 제거)
 
         # === 액티브 아이템 풀 (70% 비율) - 전부 커먼 ===
         active_items = [
@@ -2954,15 +3608,13 @@ class BuildingInterior:
                 else:  # 92% 레어
                     rarity = "rare"
 
-            # 해당 레어리티의 아이템 선택 (이미 소유한 전설 아이템 제외)
+            # 해당 레어리티의 아이템 선택 (전설 아이템 중복 허용)
             available = [item for item in item_pool
                         if item["rarity"] == rarity
-                        and item["name"] not in used_items
-                        and item["name"] not in owned_legendary_items]
+                        and item["name"] not in used_items]
             if not available:
                 available = [item for item in item_pool
-                            if item["rarity"] == rarity
-                            and item["name"] not in owned_legendary_items]
+                            if item["rarity"] == rarity]
             if not available:
                 # 해당 레어리티가 없으면 레어에서 선택
                 available = [item for item in item_pool if item["rarity"] == "rare"]
@@ -3008,8 +3660,8 @@ class BuildingInterior:
         if current_gold < self.crane_game_cost:
             return False
 
-        # 골드 차감
-        self.player_data['gold'] = current_gold - self.crane_game_cost
+        # 골드 차감 (필러 HUD 동기화 포함)
+        self._set_gold(current_gold - self.crane_game_cost)
 
         # 골드 감소 애니메이션
         self._add_gold_float_animation(self.crane_game_cost, is_gain=False)
@@ -3363,6 +4015,52 @@ class BuildingInterior:
 
         return None
 
+    def _sync_gold_to_pillar(self):
+        """골드 변경 시 필러 HUD에 실시간 반영"""
+        try:
+            import pingfighter
+            pingfighter.downtown_gold = self.player_data.get('gold', 0)
+        except Exception:
+            pass
+
+    def _sync_quest_state_from_pingfighter(self):
+        """pingfighter에서 퀘스트 상태를 동기화"""
+        try:
+            import pingfighter
+            active_quests = getattr(pingfighter, 'active_quests', [])
+            completed_rewards = getattr(pingfighter, 'quest_completed_rewards', [])
+
+            # 현재 활성화된 퀘스트 상태 반영
+            for quest in self.quest_list:
+                quest_id = quest["id"]
+                # 활성화 상태 확인
+                if quest_id in active_quests:
+                    quest["active"] = True
+                # 완료 상태 확인 (보상을 받았으면 완료)
+                completed_ids = [r.get("id") for r in completed_rewards if r]
+                if quest_id in completed_ids:
+                    quest["completed"] = True
+                    quest["active"] = False
+        except Exception as e:
+            print(f"퀘스트 상태 동기화 실패: {e}")
+
+    def _set_gold(self, new_gold):
+        """골드 설정 및 필러 HUD 동기화"""
+        self.player_data['gold'] = new_gold
+        self._sync_gold_to_pillar()
+
+    def _add_gold(self, amount):
+        """골드 추가 및 필러 HUD 동기화"""
+        current = self.player_data.get('gold', 0)
+        self.player_data['gold'] = current + amount
+        self._sync_gold_to_pillar()
+
+    def _subtract_gold(self, amount):
+        """골드 차감 및 필러 HUD 동기화"""
+        current = self.player_data.get('gold', 0)
+        self.player_data['gold'] = max(0, current - amount)
+        self._sync_gold_to_pillar()
+
     def _create_npcs(self):
         """NPC들 생성"""
         # 아카데미는 전용 NPC 생성 로직 사용
@@ -3371,6 +4069,9 @@ class BuildingInterior:
         # 네온 상점은 전용 NPC 생성 로직 사용
         if self.building_type == BuildingType.ITEM_SHOP:
             return self._create_neon_shop_npcs()
+        # 대장간은 드워프 전용 NPC 생성 로직 사용
+        if self.building_type == BuildingType.BLACKSMITH:
+            return self._create_blacksmith_npcs()
 
         npcs = []
 
@@ -3446,6 +4147,90 @@ class BuildingInterior:
                 staff_color, dialogue, self.building_type
             )
             npcs.append(staff)
+
+        # extra_npcs 처리 (TAVERN 퀘스트 NPC 등)
+        extra_npcs_cfg = self.config.get("extra_npcs", [])
+        for npc_cfg in extra_npcs_cfg:
+            npc_x = int(self.pixel_width * npc_cfg["position"][0])
+            npc_y = int(self.pixel_height * npc_cfg["position"][1])
+
+            npc = InteriorNPC(
+                npc_x, npc_y,
+                npc_cfg["name"],
+                npc_cfg.get("role", "customer"),
+                npc_cfg["color"],
+                npc_cfg["dialogue"],
+                self.building_type
+            )
+            npcs.append(npc)
+
+        return npcs
+
+    def _create_blacksmith_npcs(self):
+        """드워프 대장간 전용 NPC 생성 - 헤파이토스 대장과 드워프들"""
+        npcs = []
+
+        # === 대장 헤파이토스 (메인 NPC) - 드워프 대장 ===
+        main_cfg = self.config["main_npc"]
+        main_x = int(self.pixel_width * main_cfg["position"][0])
+        main_y = int(self.pixel_height * main_cfg["position"][1])
+
+        main_npc = InteriorNPC(
+            main_x, main_y,
+            main_cfg["name"],
+            "main",
+            main_cfg["color"],
+            main_cfg["dialogue"],
+            self.building_type
+        )
+        npcs.append(main_npc)
+
+        # === 추가 드워프 NPC들 (설정에서 가져옴) ===
+        extra_npcs_cfg = self.config.get("extra_npcs", [])
+        for npc_cfg in extra_npcs_cfg:
+            npc_x = int(self.pixel_width * npc_cfg["position"][0])
+            npc_y = int(self.pixel_height * npc_cfg["position"][1])
+
+            npc = InteriorNPC(
+                npc_x, npc_y,
+                npc_cfg["name"],
+                npc_cfg.get("role", "customer"),
+                npc_cfg["color"],
+                npc_cfg["dialogue"],
+                self.building_type
+            )
+            npcs.append(npc)
+
+        # === 랜덤 드워프 손님 (0~1명 추가) ===
+        if random.random() < 0.5:  # 50% 확률로 추가 손님
+            dwarf_names = ["광부 발린", "전사 글로인", "대장장이 킬리", "상인 노리"]
+            dwarf_dialogues = [
+                ["여기서 만든 도끼는 정말 대단해!", "드워프 제품은 믿을 수 있지."],
+                ["헤파이토스 대장님은 전설이야.", "이 갑옷 수리 좀 해주시오!"],
+                ["발토르네 가문이랑 여기가 친척이라던데...", "좋은 금속이 들어왔군!"],
+                ["드워프 무기 없이 어떻게 싸우겠나?", "망치질 소리가 음악 같군."]
+            ]
+
+            # 랜덤 위치 (기존 NPC들과 겹치지 않게)
+            x = random.randint(
+                self.walkable_rect.left + 50,
+                self.walkable_rect.right - 50
+            )
+            y = random.randint(
+                self.walkable_rect.top + 80,
+                self.walkable_rect.top + (self.walkable_rect.height * 2 // 3)
+            )
+
+            idx = random.randint(0, len(dwarf_names) - 1)
+            dwarf_customer = InteriorNPC(
+                x, y,
+                dwarf_names[idx],
+                "customer",
+                (140, 100, 70),  # 드워프 피부색 계열
+                dwarf_dialogues[idx],
+                self.building_type
+            )
+            npcs.append(dwarf_customer)
 
         return npcs
 
@@ -3827,6 +4612,11 @@ class BuildingInterior:
         # 골드 변동 애니메이션 업데이트
         self._update_gold_float_animations(dt)
 
+        # 강화 애니메이션 업데이트
+        if self.enhancement_animation_playing:
+            self._update_enhancement_animation(dt)
+            return  # 강화 애니메이션 중에는 다른 업데이트 차단
+
         # 포커 게임 업데이트
         if self.poker_game_playing:
             self._update_poker_game(dt)
@@ -3852,8 +4642,27 @@ class BuildingInterior:
             self.entry_cooldown -= dt
 
         # 메뉴가 열려있으면 플레이어 입력 차단
-        if self.bank_menu_open or self.exchange_menu_open or self.academy_dialog_open or self.crane_confirm_dialog_open:
+        if self.bank_menu_open or self.exchange_menu_open or self.academy_dialog_open or self.crane_confirm_dialog_open or self.tavern_menu_open or self.quest_menu_open:
+            # 선술집 메시지 타이머 업데이트
+            if self.tavern_message_timer > 0:
+                self.tavern_message_timer -= dt
+                if self.tavern_message_timer <= 0:
+                    self.tavern_message = None
+            # 퀘스트 메시지 타이머 업데이트
+            if self.quest_message_timer > 0:
+                self.quest_message_timer -= dt
+                if self.quest_message_timer <= 0:
+                    self.quest_message = None
             return
+
+        # 퀘스트 NPC 대사 타이머 업데이트 (대사 후 퀘스트 메뉴 열기)
+        if self.quest_npc_dialogue_shown:
+            self.quest_npc_dialogue_timer -= dt
+            if self.quest_npc_dialogue_timer <= 0:
+                self.quest_npc_dialogue_shown = False
+                self.quest_menu_open = True
+                self.quest_menu_selection = 0
+                self.quest_detail_open = False
 
         # 플레이어 업데이트
         keys = pygame.key.get_pressed()
@@ -3950,6 +4759,27 @@ class BuildingInterior:
         if self.academy_dialog_open:
             return self._handle_academy_dialog_click(pos)
 
+        # ===== 강화 시스템 클릭 처리 =====
+        # 강화 결과창
+        if self.enhancement_result_open:
+            return self._handle_enhancement_result_click(pos)
+
+        # 강화 애니메이션 중에는 클릭 무시
+        if self.enhancement_animation_playing:
+            return None
+
+        # 강화 확인창
+        if self.enhancement_confirm_open:
+            return self._handle_enhancement_confirm_click(pos)
+
+        # 강화 아이템 선택창
+        if self.enhancement_item_select_open:
+            return self._handle_enhancement_item_select_click(pos)
+
+        # 강화 메뉴
+        if self.enhancement_menu_open:
+            return self._handle_enhancement_menu_click(pos)
+
         # 예금 메뉴가 열려있으면 예금 메뉴 클릭 처리
         if self.deposit_menu_open:
             return self._handle_deposit_menu_click(pos)
@@ -3961,6 +4791,14 @@ class BuildingInterior:
         # 은행 메뉴가 열려있으면 메뉴 클릭 처리
         if self.bank_menu_open:
             return self._handle_bank_menu_click(pos)
+
+        # 선술집 메뉴가 열려있으면 메뉴 클릭 처리
+        if self.tavern_menu_open:
+            return self._handle_tavern_menu_click(pos)
+
+        # 퀘스트 메뉴가 열려있으면 메뉴 클릭 처리
+        if self.quest_menu_open:
+            return self._handle_quest_menu_click(pos)
 
         # 화면 좌표를 월드 좌표로 변환
         world_x = pos[0] + self.camera_offset[0]
@@ -4013,6 +4851,18 @@ class BuildingInterior:
                     self.shop_trade_open = True
                     self.shop_hover_item = None
                     return ("shop_trade", npc)
+                # 선술집 메인 NPC(주인장 바커스)인 경우 메뉴 열기
+                elif self.building_type == BuildingType.TAVERN and npc.role == "main":
+                    self.tavern_menu_open = True
+                    self.tavern_menu_selection = 0
+                    return ("tavern_menu", npc)
+                # 선술집 퀘스트 NPC(의뢰인 마르코)인 경우 퀘스트 메뉴 바로 열기
+                elif self.building_type == BuildingType.TAVERN and npc.role == "quest":
+                    # 대사 없이 바로 퀘스트 메뉴 열기
+                    self.quest_menu_open = True
+                    self.quest_menu_selection = 0
+                    self.quest_detail_open = False
+                    return ("quest_menu", npc)
                 else:
                     dialogue = npc.start_dialogue()
                     if dialogue:
@@ -4220,11 +5070,14 @@ class BuildingInterior:
             item_name = item.get("name", "")
             is_equipped = bool(item.get("_equipped_slot"))
 
-            # 판매가 계산 (품질 + 롤옵션 수치 반영 가격의 30%)
+            # 판매가 계산 (품질 + 롤옵션 수치 + 강화 보너스 반영 가격의 30%)
             base_price = self._get_item_base_price(item_name)
             quality_roll_bonus = self._get_quality_and_roll_bonus(item, base_price)
-            sell_price = int((base_price + quality_roll_bonus) * 0.3)
-            shop_price = int((base_price + quality_roll_bonus) * 1.0)
+            # 강화 보너스 적용 (강화 레벨당 +20% 추가 가치)
+            enhancement_level = item.get("enhancement_level", 0)
+            enhancement_price_bonus = int((base_price + quality_roll_bonus) * enhancement_level * 0.2)
+            sell_price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 0.3)
+            shop_price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 1.0)
 
             # 장착 중이면 판매 확인 팝업 띄우기
             if is_equipped:
@@ -4237,9 +5090,8 @@ class BuildingInterior:
                 }
                 return ("confirm_sell_equipped", {"item": item_name, "price": sell_price})
 
-            # 플레이어 골드 증가
-            current_gold = self.player_data.get('gold', 0)
-            self.player_data['gold'] = current_gold + sell_price
+            # 플레이어 골드 증가 (필러 HUD 동기화 포함)
+            self._add_gold(sell_price)
 
             # 골드 획득 애니메이션 추가 (초록색, + 표시, 마우스 위치)
             self._add_gold_float_animation(sell_price, is_gain=True, pos=mouse_pos)
@@ -4251,12 +5103,12 @@ class BuildingInterior:
             # 플레이어 인벤토리에서 제거
             removed_item = pingfighter.passive_item_list.pop(idx)
 
-            # 상점 인벤토리에 추가 (롤옵션, 품질 정보 유지)
+            # 상점 인벤토리에 추가 (롤옵션, 품질, 강화 정보 유지)
             korean_name = self._get_item_korean_name(item_name)
             shop_item = {
                 "name": item_name,
                 "korean": korean_name,
-                "price": shop_price,  # 상점은 원가+품질보너스로 판매
+                "price": shop_price,  # 상점은 원가+품질+강화 보너스로 판매
                 "type": removed_item.get("type", "passive"),
                 "icon": None,
                 # 롤옵션 및 품질 정보 유지
@@ -4264,6 +5116,9 @@ class BuildingInterior:
                 "quality_tier": removed_item.get("quality_tier"),
                 "name_prefix": removed_item.get("name_prefix"),
                 "quality_color": removed_item.get("quality_color"),
+                # 강화 정보 유지
+                "enhancement_level": removed_item.get("enhancement_level", 0),
+                "enhancement_bonus_pct": removed_item.get("enhancement_bonus_pct", 0),
             }
             self.shop_inventory.append(shop_item)
 
@@ -4279,16 +5134,24 @@ class BuildingInterior:
             return None
 
         item = self.shop_inventory[idx]
-        price = item.get("price", 0)
+        base_price = item.get("price", 0)
         item_name = item.get("name", "")
+
+        # 흥정 스킬 할인 적용
+        try:
+            import pingfighter
+            bargain_discount = getattr(pingfighter, 'get_bargain_discount', lambda: 0.0)()
+            price = int(base_price * (1.0 - bargain_discount))
+        except:
+            price = base_price
 
         # 골드 확인
         current_gold = self.player_data.get('gold', 0)
         if current_gold < price:
             return ("not_enough_gold", {"need": price, "have": current_gold})
 
-        # 골드 차감
-        self.player_data['gold'] = current_gold - price
+        # 골드 차감 (필러 HUD 동기화 포함)
+        self._set_gold(current_gold - price)
 
         # 골드 소모 애니메이션 추가 (빨간색, - 표시, 마우스 위치)
         self._add_gold_float_animation(price, is_gain=False, pos=mouse_pos)
@@ -4347,8 +5210,8 @@ class BuildingInterior:
 
         except Exception as e:
             print(f"아이템 구매 실패: {e}")
-            # 실패시 골드 복구
-            self.player_data['gold'] = current_gold
+            # 실패시 골드 복구 (필러 HUD 동기화 포함)
+            self._set_gold(current_gold)
             return None
 
     def _handle_shop_confirm_click(self, pos):
@@ -4401,9 +5264,8 @@ class BuildingInterior:
         sell_price = data.get("sell_price", 0)
         shop_price = data.get("shop_price", 0)
 
-        # 골드 증가
-        current_gold = self.player_data.get('gold', 0)
-        self.player_data['gold'] = current_gold + sell_price
+        # 골드 증가 (필러 HUD 동기화 포함)
+        self._add_gold(sell_price)
 
         # 효과 표시
         self._add_gold_float_animation(sell_price, is_gain=True, pos=pygame.mouse.get_pos())
@@ -4658,6 +5520,43 @@ class BuildingInterior:
                 return ("shop_close", None)
             return None  # 다른 키는 무시
 
+        # ===== 강화 시스템 키 처리 =====
+        # 강화 애니메이션 중에는 입력 무시
+        if self.enhancement_animation_playing:
+            return None
+
+        # 강화 결과창
+        if self.enhancement_result_open:
+            if event.key == pygame.K_ESCAPE or event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                self.enhancement_result_open = False
+                self.enhancement_result = None
+                self.enhancement_selected_item = None
+                self.enhancement_selected_idx = -1
+                return ("enhancement_done", None)
+            return None
+
+        # 강화 확인창
+        if self.enhancement_confirm_open:
+            if event.key == pygame.K_ESCAPE:
+                self.enhancement_confirm_open = False
+                self.enhancement_selected_item = None
+                return ("enhancement_cancel", None)
+            return None
+
+        # 강화 아이템 선택창
+        if self.enhancement_item_select_open:
+            if event.key == pygame.K_ESCAPE:
+                self.enhancement_item_select_open = False
+                return ("enhancement_close", None)
+            return None
+
+        # 강화 메뉴
+        if self.enhancement_menu_open:
+            if event.key == pygame.K_ESCAPE:
+                self.enhancement_menu_open = False
+                return ("enhancement_close", None)
+            return None
+
         # 아카데미 대화창이 열려있을 때
         if self.academy_dialog_open:
             if self._handle_academy_dialog_key(event.key):
@@ -4748,6 +5647,54 @@ class BuildingInterior:
             elif event.key == pygame.K_ESCAPE:
                 self.bank_menu_open = False
                 return ("menu_close", None)
+            return None
+
+        # 선술집 메뉴가 열려있을 때
+        if self.tavern_menu_open:
+            if event.key == pygame.K_UP or event.key == pygame.K_w:
+                self.tavern_menu_selection = (self.tavern_menu_selection - 1) % len(self.tavern_menu_items)
+                return ("menu_move", None)
+            elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                self.tavern_menu_selection = (self.tavern_menu_selection + 1) % len(self.tavern_menu_items)
+                return ("menu_move", None)
+            elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                return self._select_tavern_menu_item()
+            elif event.key == pygame.K_ESCAPE:
+                self.tavern_menu_open = False
+                return ("menu_close", None)
+            return None
+
+        # 퀘스트 메뉴가 열려있을 때
+        if self.quest_menu_open:
+            if self.quest_detail_open:
+                # 퀘스트 상세 보기 모드
+                if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                    self.quest_detail_selection = 0  # 임무수행
+                    return ("quest_detail_move", None)
+                elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                    self.quest_detail_selection = 1  # 취소
+                    return ("quest_detail_move", None)
+                elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                    return self._select_quest_detail_button()
+                elif event.key == pygame.K_ESCAPE:
+                    self.quest_detail_open = False
+                    return ("quest_detail_close", None)
+            else:
+                # 퀘스트 목록 모드
+                if event.key == pygame.K_UP or event.key == pygame.K_w:
+                    self.quest_menu_selection = (self.quest_menu_selection - 1) % len(self.quest_list)
+                    return ("quest_menu_move", None)
+                elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                    self.quest_menu_selection = (self.quest_menu_selection + 1) % len(self.quest_list)
+                    return ("quest_menu_move", None)
+                elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                    # 상세 보기 열기
+                    self.quest_detail_open = True
+                    self.quest_detail_selection = 0
+                    return ("quest_detail_open", None)
+                elif event.key == pygame.K_ESCAPE:
+                    self.quest_menu_open = False
+                    return ("quest_menu_close", None)
             return None
 
         # 크레인 게임 확인 다이얼로그가 열려있을 때
@@ -5033,7 +5980,7 @@ class BuildingInterior:
                 gold_gained = self.exchange_amount * self.current_exchange_rate
                 new_star_points = star_points - self.exchange_amount
                 self._set_star_points(new_star_points)
-                self.player_data['gold'] = self.player_data.get('gold', 0) + gold_gained
+                self._add_gold(gold_gained)  # 필러 HUD 동기화 포함
                 # 골드 획득 애니메이션 (초록색)
                 self._add_gold_float_animation(gold_gained, is_gain=True, pos=anim_pos)
                 # 거래 효과음
@@ -5048,7 +5995,7 @@ class BuildingInterior:
             gold = self.player_data.get('gold', 0)
             gold_needed = self.exchange_amount * self.current_exchange_rate
             if gold >= gold_needed:
-                self.player_data['gold'] = gold - gold_needed
+                self._set_gold(gold - gold_needed)  # 필러 HUD 동기화 포함
                 current_star = self._get_current_star_points()
                 self._set_star_points(current_star + self.exchange_amount)
                 # 스타포인트 획득 애니메이션 (시안색) - 커스텀
@@ -5109,6 +6056,10 @@ class BuildingInterior:
                     self.shop_trade_open = True
                     self.shop_hover_item = None
                     return ("shop_trade", npc)
+                # 대장간 메인 NPC (헤파이토스)인 경우 강화 메뉴 열기
+                elif self.building_type == BuildingType.BLACKSMITH and npc.role == "main":
+                    self.enhancement_menu_open = True
+                    return ("enhancement_menu", npc)
                 else:
                     dialogue = npc.start_dialogue()
                     if dialogue:
@@ -5163,6 +6114,199 @@ class BuildingInterior:
         elif selected == "나가기":
             self.bank_menu_open = False
             return ("menu_close", None)
+
+        return None
+
+    def _handle_tavern_menu_click(self, pos):
+        """선술집 메뉴 클릭 처리"""
+        # 메뉴 영역 계산 (화면 중앙)
+        menu_w, menu_h = 280, 280
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        # 메뉴 아이템 클릭 체크
+        item_h = 36
+        item_start_y = menu_y + 60
+
+        for i, item in enumerate(self.tavern_menu_items):
+            item_rect = pygame.Rect(menu_x + 20, item_start_y + i * item_h, menu_w - 40, item_h - 4)
+            if item_rect.collidepoint(pos):
+                self.tavern_menu_selection = i
+                return self._select_tavern_menu_item()
+
+        # 메뉴 바깥 클릭시 닫기
+        menu_rect = pygame.Rect(menu_x, menu_y, menu_w, menu_h)
+        if not menu_rect.collidepoint(pos):
+            self.tavern_menu_open = False
+            return ("menu_close", None)
+
+        return None
+
+    def _select_tavern_menu_item(self):
+        """선술집 메뉴 아이템 선택"""
+        selected = self.tavern_menu_items[self.tavern_menu_selection]
+        item_type = selected.get("type", "exit")
+        price = selected.get("price", 0)
+        value = selected.get("value", 0)
+
+        # 나가기
+        if item_type == "exit":
+            self.tavern_menu_open = False
+            return ("menu_close", None)
+
+        # 골드 체크
+        current_gold = self.player_data.get('gold', 0)
+        if current_gold < price:
+            self.tavern_message = "골드가 부족합니다!"
+            self.tavern_message_timer = 2.0
+            return ("not_enough_gold", None)
+
+        # 골드 차감
+        self.player_data['gold'] = current_gold - price
+
+        # 효과 적용
+        if item_type == "heal":
+            # 체력 회복 (player_data에 저장)
+            current_hp = self.player_data.get('hp', 100)
+            max_hp = self.player_data.get('max_hp', 100)
+            new_hp = min(max_hp, current_hp + value)
+            self.player_data['hp'] = new_hp
+            self.tavern_message = f"체력이 {value} 회복되었습니다!"
+            self.tavern_message_timer = 2.0
+            # 효과음
+            if self.trade_sound:
+                self.trade_sound.play()
+            return ("tavern_heal", {"amount": value, "new_hp": new_hp})
+
+        elif item_type == "full_heal":
+            # 체력 완전 회복
+            max_hp = self.player_data.get('max_hp', 100)
+            self.player_data['hp'] = max_hp
+            self.tavern_message = "체력이 완전히 회복되었습니다!"
+            self.tavern_message_timer = 2.0
+            if self.trade_sound:
+                self.trade_sound.play()
+            return ("tavern_full_heal", {"new_hp": max_hp})
+
+        elif item_type == "rumor":
+            # 루머 (랜덤 힌트)
+            rumors = [
+                "동쪽 숲에 희귀한 아이템이 숨겨져 있다더군...",
+                "다음 보스는 화염 공격에 취약하다고 하네.",
+                "은행에 골드를 예금하면 이자가 붙는다더군.",
+                "아카데미에서 스킬을 배우면 강해진다네.",
+                "가챠에서 전설 아이템이 나온 적 있다더라...",
+                "대장간에서 장비를 강화할 수 있다네.",
+                "누군가 비밀 상점을 본 적이 있다더군...",
+                "보스의 패턴을 외우면 피하기 쉽다네.",
+            ]
+            import random
+            rumor = random.choice(rumors)
+            self.tavern_message = rumor
+            self.tavern_message_timer = 4.0
+            return ("tavern_rumor", {"rumor": rumor})
+
+        return None
+
+    def _select_quest_detail_button(self):
+        """퀘스트 상세 보기에서 버튼 선택"""
+        quest = self.quest_list[self.quest_menu_selection]
+
+        if self.quest_detail_selection == 0:
+            # 임무수행 버튼
+            if quest["active"]:
+                # 이미 진행 중
+                self.quest_message = "이 퀘스트는 이미 진행 중입니다."
+                self.quest_message_timer = 2.0
+                return ("quest_already_active", None)
+            elif quest["completed"]:
+                # 이미 완료됨
+                self.quest_message = "이 퀘스트는 이미 완료되었습니다."
+                self.quest_message_timer = 2.0
+                return ("quest_already_completed", None)
+            else:
+                # 퀘스트 수락
+                quest["active"] = True
+                self.quest_message = f"'{quest['name']}' 퀘스트를 수락했습니다!"
+                self.quest_message_timer = 2.0
+                self.quest_detail_open = False
+                self.quest_menu_open = False
+
+                # pingfighter의 active_quests에 추가
+                try:
+                    import pingfighter
+                    if quest["id"] not in pingfighter.active_quests:
+                        pingfighter.active_quests.append(quest["id"])
+                        print(f"📜 [퀘스트 수락] {quest['name']} (ID: {quest['id']}) 활성화됨")
+                except Exception as e:
+                    print(f"퀘스트 등록 실패: {e}")
+
+                # 효과음
+                if self.trade_sound:
+                    self.trade_sound.play()
+                return ("quest_accepted", {"quest_id": quest["id"], "quest": quest})
+        else:
+            # 취소 버튼
+            self.quest_detail_open = False
+            return ("quest_detail_cancel", None)
+
+    def _handle_quest_menu_click(self, pos):
+        """퀘스트 메뉴 마우스 클릭 처리"""
+        if self.quest_detail_open:
+            # 상세 보기 모드에서 버튼 클릭
+            return self._handle_quest_detail_click(pos)
+        else:
+            # 목록 모드에서 아이템 클릭
+            return self._handle_quest_list_click(pos)
+
+    def _handle_quest_list_click(self, pos):
+        """퀘스트 목록 클릭 처리"""
+        menu_w, menu_h = 350, 320
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        item_h = 50
+        item_start_y = menu_y + 65
+
+        for i, quest in enumerate(self.quest_list):
+            item_y = item_start_y + i * item_h
+            item_rect = pygame.Rect(menu_x + 15, item_y, menu_w - 30, item_h - 4)
+
+            if item_rect.collidepoint(pos):
+                self.quest_menu_selection = i
+                # 더블클릭 효과: 상세 보기 열기
+                self.quest_detail_open = True
+                self.quest_detail_selection = 0
+                return ("quest_detail_open", None)
+
+        return None
+
+    def _handle_quest_detail_click(self, pos):
+        """퀘스트 상세 보기 버튼 클릭 처리"""
+        quest = self.quest_list[self.quest_menu_selection]
+
+        menu_w, menu_h = 380, 350
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        btn_w, btn_h = 100, 36
+        btn_y = menu_y + menu_h - 60
+        btn_gap = 30
+
+        # 임무수행 버튼
+        accept_btn_x = menu_x + menu_w // 2 - btn_w - btn_gap // 2
+        accept_btn_rect = pygame.Rect(accept_btn_x, btn_y, btn_w, btn_h)
+
+        # 취소 버튼
+        cancel_btn_x = menu_x + menu_w // 2 + btn_gap // 2
+        cancel_btn_rect = pygame.Rect(cancel_btn_x, btn_y, btn_w, btn_h)
+
+        if accept_btn_rect.collidepoint(pos):
+            self.quest_detail_selection = 0
+            return self._select_quest_detail_button()
+        elif cancel_btn_rect.collidepoint(pos):
+            self.quest_detail_selection = 1
+            return self._select_quest_detail_button()
 
         return None
 
@@ -5435,8 +6579,8 @@ class BuildingInterior:
 
             # 출금 실행
             self.player_data['deposit_balance'] = balance - self.deposit_amount
-            self.player_data['gold'] = gold + self.deposit_amount
-            
+            self._set_gold(gold + self.deposit_amount)  # 필러 HUD 동기화 포함
+
             # 은행 방문 기록 업데이트 (출금했으므로 이 스테이지를 마지막 방문으로 기록)
             self.player_data['last_deposit_stage'] = current_stage
             
@@ -5474,7 +6618,7 @@ class BuildingInterior:
                 return ("deposit_error", "골드가 부족합니다")
 
             # 예금 실행
-            self.player_data['gold'] = gold - self.deposit_amount
+            self._set_gold(gold - self.deposit_amount)  # 필러 HUD 동기화 포함
             self.player_data['deposit_balance'] = balance + self.deposit_amount
 
             # 은행 방문 기록 업데이트 (예금했으므로 이 스테이지를 마지막 방문으로 기록)
@@ -5823,13 +6967,11 @@ class BuildingInterior:
             balance = self.player_data.get('deposit_balance', 0)
             interest_rate = self.deposit_interest_rate
 
-            # 현재 보유량/잔액 표시
+            # 통장 잔액 표시 (보유 골드는 필러 HUD에서 통합 표시)
             info_y = menu_y + 58
             if font_small:
-                gold_surf, _ = font_small.render(f"보유 골드: G {gold:,}", TEXT_GOLD)
-                screen.blit(gold_surf, (menu_x + 30, info_y))
                 balance_surf, _ = font_small.render(f"통장 잔액: G {balance:,}", TEXT_GREEN)
-                screen.blit(balance_surf, (menu_x + 220, info_y))
+                screen.blit(balance_surf, (menu_x + 120, info_y))
 
             # 예금/출금 모드 전환 버튼
             mode_y = menu_y + 90
@@ -5997,6 +7139,12 @@ class BuildingInterior:
         elif special_interior == "neon_casino":
             # 네온 카지노 전용 인테리어
             self._draw_neon_casino_interior(screen)
+        elif special_interior == "blacksmith":
+            # 대장간 전용 인테리어
+            self._draw_blacksmith_interior(screen)
+        elif special_interior == "tavern":
+            # 선술집 전용 인테리어
+            self._draw_tavern_interior(screen)
         else:
             # 기본 인테리어
             # 배경
@@ -6041,6 +7189,14 @@ class BuildingInterior:
         # 은행 메뉴 (맨 위에)
         if self.bank_menu_open:
             self._draw_bank_menu(screen)
+
+        # 선술집 메뉴 (맨 위에)
+        if self.tavern_menu_open:
+            self._draw_tavern_menu(screen)
+
+        # 퀘스트 메뉴 (맨 위에)
+        if self.quest_menu_open:
+            self._draw_quest_menu(screen)
 
         # 환전 메뉴 (맨 위에)
         if self.exchange_menu_open:
@@ -6091,6 +7247,23 @@ class BuildingInterior:
         if self.shop_trade_open:
             self._draw_shop_trade_ui(screen)
 
+        # ===== 강화 시스템 UI =====
+        # 강화 애니메이션 (전체 화면)
+        if self.enhancement_animation_playing:
+            self._draw_enhancement_animation(screen)
+        # 강화 결과창
+        elif self.enhancement_result_open:
+            self._draw_enhancement_result(screen)
+        # 강화 확인창
+        elif self.enhancement_confirm_open:
+            self._draw_enhancement_confirm(screen)
+        # 강화 아이템 선택창
+        elif self.enhancement_item_select_open:
+            self._draw_enhancement_item_select(screen)
+        # 강화 메뉴
+        elif self.enhancement_menu_open:
+            self._draw_enhancement_menu(screen)
+
         # 골드 변동 애니메이션 (최상위 레이어)
         self._draw_gold_float_animations(screen)
 
@@ -6137,12 +7310,8 @@ class BuildingInterior:
         font_medium = self.fonts.get('medium')
         font_small = self.fonts.get('small')
 
-        # === 플레이어 골드 표시 (상단) ===
-        player_gold = self.player_data.get('gold', 0)
-        gold_text = f"보유 골드: {player_gold:,}G"
-        if font_medium:
-            gold_surf, gold_rect = font_medium.render(gold_text, TEXT_GOLD)
-            screen.blit(gold_surf, (ui_x + total_w // 2 - gold_rect.width // 2, ui_y + 12))
+        # 골드 표시는 왼쪽 필러 HUD에서 통합 표시 (중복 방지)
+        # (기존 골드 표시 코드 제거)
 
         # 아이템 목록 - pingfighter 가져오기
         try:
@@ -6222,15 +7391,47 @@ class BuildingInterior:
 
                 # 아이콘 그리기
                 item_name = item.get("name", "")
-                icon = None
-                if get_item_icon:
-                    icon = get_item_icon(item_name)
-                if not icon:
-                    icon = item.get("icon")
+                is_legendary_item = item.get("type") == "legendary" or item_name in [
+                    "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
+                    "angel_blessing", "sacred_laurel", "transcendent_crown"
+                ]
 
-                if icon:
-                    scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
-                    screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+                # 전설 아이템은 애니메이션으로 직접 그리기
+                if is_legendary_item:
+                    try:
+                        from legendary_items import get_legendary_manager
+                        legendary_manager = get_legendary_manager()
+                        if legendary_manager:
+                            legendary_item = legendary_manager.get_item(item_name)
+                            if legendary_item:
+                                legendary_item.update(0.016)  # 애니메이션 업데이트
+                                legendary_item.draw_icon(screen, cell_rect.x + 4, cell_rect.y + 4, cell_size - 8)
+                            else:
+                                # 폴백: 정적 아이콘
+                                icon = get_item_icon(item_name) if get_item_icon else None
+                                if icon:
+                                    scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                                    screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+                        else:
+                            icon = get_item_icon(item_name) if get_item_icon else None
+                            if icon:
+                                scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                                screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+                    except Exception:
+                        icon = get_item_icon(item_name) if get_item_icon else None
+                        if icon:
+                            scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                            screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+                else:
+                    icon = None
+                    if get_item_icon:
+                        icon = get_item_icon(item_name)
+                    if not icon:
+                        icon = item.get("icon")
+
+                    if icon:
+                        scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                        screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
                 # 장착 배지
                 if item.get("_equipped_slot"):
                     badge_rect = pygame.Rect(cell_rect.right - 18, cell_rect.bottom - 14, 16, 12)
@@ -6313,13 +7514,45 @@ class BuildingInterior:
 
                 # 아이콘 그리기
                 item_name = item.get("name", "")
-                icon = None
-                if get_item_icon:
-                    icon = get_item_icon(item_name)
+                is_legendary_item = item.get("type") == "legendary" or item_name in [
+                    "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
+                    "angel_blessing", "sacred_laurel", "transcendent_crown"
+                ]
 
-                if icon:
-                    scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
-                    screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+                # 전설 아이템은 애니메이션으로 직접 그리기
+                if is_legendary_item:
+                    try:
+                        from legendary_items import get_legendary_manager
+                        legendary_manager = get_legendary_manager()
+                        if legendary_manager:
+                            legendary_item = legendary_manager.get_item(item_name)
+                            if legendary_item:
+                                legendary_item.update(0.016)  # 애니메이션 업데이트
+                                legendary_item.draw_icon(screen, cell_rect.x + 4, cell_rect.y + 4, cell_size - 8)
+                            else:
+                                # 폴백: 정적 아이콘
+                                icon = get_item_icon(item_name) if get_item_icon else None
+                                if icon:
+                                    scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                                    screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+                        else:
+                            icon = get_item_icon(item_name) if get_item_icon else None
+                            if icon:
+                                scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                                screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+                    except Exception:
+                        icon = get_item_icon(item_name) if get_item_icon else None
+                        if icon:
+                            scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                            screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
+                else:
+                    icon = None
+                    if get_item_icon:
+                        icon = get_item_icon(item_name)
+
+                    if icon:
+                        scaled_icon = pygame.transform.scale(icon, (cell_size - 8, cell_size - 8))
+                        screen.blit(scaled_icon, (cell_rect.x + 4, cell_rect.y + 4))
 
         # 구매 안내 텍스트
         if font_small:
@@ -6394,6 +7627,7 @@ class BuildingInterior:
             strip_name_prefix = getattr(pingfighter, 'strip_name_prefix', None)
             is_name_line = getattr(pingfighter, 'is_name_line', None)
             get_item_name_korean = getattr(pingfighter, 'get_item_name_korean', None)
+            format_roll_option_with_polish = getattr(pingfighter, 'format_roll_option_with_polish', None)
         except Exception:
             format_item_display_name = None
             get_item_quality_color = None
@@ -6406,6 +7640,7 @@ class BuildingInterior:
             strip_name_prefix = None
             is_name_line = None
             get_item_name_korean = None
+            format_roll_option_with_polish = None
 
         # 롤옵션/수식어 보정: 저장 데이터에 없던 수식어 누락을 방지
         if not is_legendary and ensure_passive_rolls:
@@ -6425,7 +7660,7 @@ class BuildingInterior:
             except Exception:
                 pass
 
-        # 아이템 이름 (수식어 포함)
+        # 아이템 이름 (수식어 + 강화 레벨 포함)
         if format_item_display_name:
             display_name = format_item_display_name(item)
         else:
@@ -6433,6 +7668,11 @@ class BuildingInterior:
             prefix = item.get("name_prefix") or ""
             base_name = self._get_item_korean_name(item_name)
             display_name = f"{prefix} {base_name}".strip()
+
+        # 강화 레벨 추가 (format_item_display_name에서 처리 안 된 경우 대비)
+        enhancement_level = item.get("enhancement_level", 0)
+        if enhancement_level > 0 and f"+{enhancement_level}" not in display_name:
+            display_name = f"{display_name} +{enhancement_level}"
 
         # 품질 색상
         if get_item_quality_color:
@@ -6449,14 +7689,28 @@ class BuildingInterior:
             slot_label = self._get_item_slot_label(item_name)
 
         # 가격
+        bargain_discount = 0.0
+        try:
+            bargain_discount = getattr(pingfighter, 'get_bargain_discount', lambda: 0.0)()
+        except:
+            pass
+
         if source == "player":
             base_price = self._get_item_base_price(item_name)
             # 품질 + 롤옵션 수치 보너스 계산 (실제 판매가와 동일하게)
             quality_roll_bonus = self._get_quality_and_roll_bonus(item, base_price)
-            price = int((base_price + quality_roll_bonus) * 0.3)
+            # 강화 보너스 적용 (강화 레벨당 +20% 추가 가치)
+            enhancement_level = item.get("enhancement_level", 0)
+            enhancement_price_bonus = int((base_price + quality_roll_bonus) * enhancement_level * 0.2)
+            price = int((base_price + quality_roll_bonus + enhancement_price_bonus) * 0.3)
+            price_text = f"{price:,}G"
         else:
-            price = item.get("price", 0)
-        price_text = f"{price:,}G"
+            original_price = item.get("price", 0)
+            if bargain_discount > 0:
+                discounted_price = int(original_price * (1.0 - bargain_discount))
+                price_text = f"{discounted_price:,}G (원가 {original_price:,}G)"
+            else:
+                price_text = f"{original_price:,}G"
 
         # 설명
         description = ""
@@ -6487,16 +7741,56 @@ class BuildingInterior:
                 pass
 
         # 롤 옵션
-        rolled_options = item.get("rolled_options") or []
         option_entries = []
-        for opt in rolled_options:
-            opt_text = opt.get("text", "") if isinstance(opt, dict) else str(opt)
-            if not opt_text:
-                continue
-            option_entries.append({
-                "text": opt_text,
-                "color": opt.get("color", (200, 210, 230)) if isinstance(opt, dict) else (200, 210, 230)
-            })
+
+        # 전설 아이템인 경우 LEGENDARY_ROLL_OPTIONS에서 롤옵션 가져오기
+        if is_legendary:
+            try:
+                from legendary_items import LEGENDARY_ROLL_OPTIONS, get_legendary_roll_value
+                legend_opts = LEGENDARY_ROLL_OPTIONS.get(item_name, [])
+                for opt in legend_opts:
+                    base_val = get_legendary_roll_value(item_name, opt["key"], apply_polish=False)
+                    polished_val = get_legendary_roll_value(item_name, opt["key"], apply_polish=True)
+                    unit = opt.get("unit", "")
+                    label = opt.get("label", opt["key"])
+                    step = opt.get("step", 1)
+                    is_reverse = opt.get("reverse", False)
+
+                    if isinstance(step, float) and step < 1:
+                        base_str = f"{base_val:.1f}"
+                    else:
+                        base_str = f"{int(base_val)}"
+
+                    # 연마 스킬로 인한 보너스 표시 (+N 또는 -N)
+                    bonus_text = ""
+                    if polished_val != base_val:
+                        if isinstance(step, float) and step < 1:
+                            bonus = polished_val - base_val
+                            bonus_text = f" ({bonus:+.1f}{unit})"
+                        else:
+                            bonus = int(polished_val) - int(base_val)
+                            bonus_text = f" ({bonus:+d}{unit})"
+
+                    option_entries.append({
+                        "text": f"• {label}: {base_str}{unit}{bonus_text}",
+                        "color": (255, 220, 150)
+                    })
+            except Exception:
+                pass
+        else:
+            # 일반 아이템 롤옵션 (강화 보너스 포함)
+            rolled_options = item.get("rolled_options") or []
+            for opt in rolled_options:
+                if format_roll_option_with_polish:
+                    opt_text = format_roll_option_with_polish(opt, item)
+                else:
+                    opt_text = opt.get("text", "") if isinstance(opt, dict) else str(opt)
+                if not opt_text:
+                    continue
+                option_entries.append({
+                    "text": opt_text,
+                    "color": opt.get("color", (200, 210, 230)) if isinstance(opt, dict) else (200, 210, 230)
+                })
 
         # 폰트
         font_small = self.fonts.get('small')
@@ -6703,7 +7997,7 @@ class BuildingInterior:
             "bulkup": "상의",
             "sensor": "장신구",
             "gravitybelt": "허리",
-            "dashholder": "허리",
+            "dashholder": "무릎",
             "dowsing_pendulum": "장신구",
             "smartphone": "장신구",
             "commando_arm": "팔",
@@ -6750,6 +8044,7 @@ class BuildingInterior:
             "poseidon_trident": "포세이돈의 삼지창",
             "angel_blessing": "천사의 가호",
             "sacred_laurel": "신성 월계수",
+            "transcendent_crown": "초월자의 관",
             "foul_whistle": "반칙호루라기",
             "spiked_helmet": "가시투구",
             "star_detector": "별탐지기",
@@ -6762,55 +8057,86 @@ class BuildingInterior:
     def _get_item_base_price(self, item_name):
         """아이템 기본 가격 반환 (상점 판매가와 동기화)"""
         price_map = {
-            # 패시브 아이템
-            "speedboots": 900,
-            "speedgear": 800,
-            "battery": 1000,
-            "revival": 3000,
-            "master": 900,
-            "cooltime": 700,
-            "chargebag": 1500,
-            "spikeboots": 1100,
-            "dashgear": 1000,
-            "bulkup": 800,
-            "sensor": 1800,
-            "gravitybelt": 2500,
+            # 패시브 아이템 (상점 판매가 기준 동기화)
+            "speedboots": 750,
+            "speedgear": 550,
+            "battery": 900,
+            "revival": 2000,
+            "master": 700,
+            "cooltime": 500,
+            "chargebag": 1000,
+            "spikeboots": 800,
+            "dashgear": 800,
+            "bulkup": 750,
+            "sensor": 1200,
+            "gravitybelt": 1900,
             "dashholder": 1200,
             "dowsing_pendulum": 700,
-            "smartphone": 800,
-            "commando_arm": 1100,
-            "technical_vest": 1000,
-            "fuel_pouch": 700,
-            "slot_add": 900,
-            # 전설 아이템
-            "ragnarok_hammer": 6500,
-            "hermes_shoes": 5500,
-            "poseidon_trident": 5500,
-            "angel_blessing": 6000,
-            "sacred_laurel": 5800,
+            "smartphone": 550,
+            "commando_arm": 750,
+            "technical_vest": 1200,
+            "fuel_pouch": 500,
+            "slot_add": 600,
             # 기타 아이템
-            "foul_whistle": 2000,
-            "spiked_helmet": 1100,
-            "star_detector": 1400,
-            "knee_pads": 900,
-            "bluetooth_ring": 1200,
-            "bulletproof_hat": 1000,
+            "foul_whistle": 900,
+            "spiked_helmet": 700,
+            "star_detector": 600,
+            "knee_pads": 550,
+            "bluetooth_ring": 800,
+            "bulletproof_hat": 550,
+            # 전설 아이템
+            "ragnarok_hammer": 3600,
+            "hermes_shoes": 3000,
+            "poseidon_trident": 3000,
+            "angel_blessing": 3960,
+            "sacred_laurel": 3360,
+            "transcendent_crown": 4560,
         }
         return price_map.get(item_name, 500)
 
     def _calculate_roll_option_bonus(self, item):
         """롤옵션 세부 수치에 따른 가격 보너스 계산 (0.0 ~ 1.0)"""
+        rolled_options = item.get("rolled_options") or []
+        if not rolled_options:
+            return 0.0
+
+        item_name = item.get("name", "")
+
+        # 전설 아이템인 경우 rolled_options에 이미 min/max가 포함되어 있음
+        is_legendary = item.get("is_legendary", False) or item.get("type") == "legendary"
+
+        if is_legendary:
+            # 전설 아이템: rolled_options에서 직접 범위 사용
+            percentiles = []
+            for opt in rolled_options:
+                value = opt.get("value")
+                v_min = opt.get("min", 0)
+                v_max = opt.get("max", 100)
+                reverse = opt.get("reverse", False)
+
+                if value is None:
+                    continue
+
+                if v_max == v_min:
+                    pct = 1.0
+                else:
+                    pct = (value - v_min) / (v_max - v_min)
+                    if reverse:
+                        pct = 1.0 - pct
+
+                percentiles.append(pct)
+
+            if not percentiles:
+                return 0.0
+            return sum(percentiles) / len(percentiles)
+
+        # 패시브 아이템: PASSIVE_OPTION_RANGES에서 범위 찾기
         try:
             import pingfighter
             PASSIVE_OPTION_RANGES = getattr(pingfighter, 'PASSIVE_OPTION_RANGES', {})
         except Exception:
             return 0.0
 
-        rolled_options = item.get("rolled_options") or []
-        if not rolled_options:
-            return 0.0
-
-        item_name = item.get("name", "")
         ranges = PASSIVE_OPTION_RANGES.get(item_name, [])
         if not ranges:
             return 0.0
@@ -6848,6 +8174,21 @@ class BuildingInterior:
 
     def _get_quality_and_roll_bonus(self, item, base_price):
         """품질과 롤옵션 수치에 따른 가격 보너스 계산"""
+        item_type = item.get("type", "")
+
+        # 전설 아이템은 별도 가격 계산 (품질 등급 없이 롤옵션만으로 가격 결정)
+        if item_type == "legendary":
+            # 전설 아이템 롤옵션 퍼센타일 (0.0 ~ 1.0)
+            roll_pct = self._calculate_roll_option_bonus(item)
+
+            # 전설 아이템 롤옵션 가격 배수 범위: 0.85 ~ 1.25 (최저옵 -15%, 최고옵 +25%)
+            legendary_min_mult = 0.85
+            legendary_max_mult = 1.25
+            final_mult = legendary_min_mult + (legendary_max_mult - legendary_min_mult) * roll_pct
+
+            # 가격 보너스 = (최종 배수 - 1) * 기본가
+            return int(base_price * (final_mult - 1))
+
         quality_tier = item.get("quality_tier", "low")
 
         # 품질 등급별 최종 배수 (low=1.0 기준, 롤옵션 100% 기준)
@@ -6858,12 +8199,12 @@ class BuildingInterior:
             "low": 1.0,    # 1.0배
         }
 
-        # 품질 등급별 롤옵션 추가 배수 범위 (최대치) - 롤옵션 없음으로 통일
+        # 품질 등급별 롤옵션 추가 배수 범위 (같은 등급 내에서 옵션에 따른 가격 차이)
         roll_bonus_ranges = {
-            "top": 0.0,    # 롤옵션 보너스 없음 (고정 1.9배)
-            "high": 0.0,   # 롤옵션 보너스 없음 (고정 1.6배)
-            "mid": 0.0,    # 롤옵션 보너스 없음 (고정 1.35배)
-            "low": 0.0,    # 롤옵션 보너스 없음 (고정 1.0배)
+            "top": 0.15,   # 1.9 ~ 2.05배 (최상옵 내 세부 차이)
+            "high": 0.12,  # 1.6 ~ 1.72배 (상옵 내 세부 차이)
+            "mid": 0.10,   # 1.35 ~ 1.45배 (중옵 내 세부 차이)
+            "low": 0.08,   # 1.0 ~ 1.08배 (하옵 내 세부 차이)
         }
 
         base_mult = quality_multipliers.get(quality_tier, 1.0)
@@ -7068,7 +8409,6 @@ class BuildingInterior:
         title_text = "🎮 인형뽑기 게임"
         cost_text = f"비용: {self.crane_game_cost} 골드"
         current_gold = self.player_data.get('gold', 0)
-        gold_text = f"보유 골드: {current_gold}"
 
         # 폰트
         font_medium = self.fonts.get('medium')
@@ -7080,15 +8420,15 @@ class BuildingInterior:
             title_surf, title_rect = font_medium.render("인형뽑기 게임", TEXT_WHITE)
             screen.blit(title_surf, (dialog_x + 60, dialog_y + 25))
 
-        # 비용 및 골드 정보
+        # 비용 정보 (보유 골드는 필러 HUD에서 표시)
         if font_small:
             cost_surf, cost_rect = font_small.render(cost_text, TEXT_GOLD)
             screen.blit(cost_surf, (dialog_x + dialog_w // 2 - cost_rect.width // 2, dialog_y + 60))
 
-            # 골드가 부족하면 빨간색으로 표시
-            gold_color = TEXT_YELLOW if current_gold >= self.crane_game_cost else (255, 100, 100)
-            gold_surf, gold_rect = font_small.render(gold_text, gold_color)
-            screen.blit(gold_surf, (dialog_x + dialog_w // 2 - gold_rect.width // 2, dialog_y + 85))
+            # 골드 부족 경고 (부족할 때만)
+            if current_gold < self.crane_game_cost:
+                warn_surf, warn_rect = font_small.render("골드가 부족합니다!", (255, 100, 100))
+                screen.blit(warn_surf, (dialog_x + dialog_w // 2 - warn_rect.width // 2, dialog_y + 85))
 
             # 질문
             question_text = "플레이 하시겠습니까?"
@@ -7768,10 +9108,7 @@ class BuildingInterior:
 
         font_small = self.fonts.get('small')
         if font_small:
-            # 골드 표시
-            gold_text = f"💰 {self.player_data.get('gold', 0):,}"
-            gold_surf, gold_rect = font_small.render(gold_text, (255, 215, 100))
-            screen.blit(gold_surf, (game_x, ui_panel_y + 14))
+            # 골드 표시는 왼쪽 필러 HUD에서 통합 표시 (중복 방지)
 
             # 조작 힌트
             if self.crane_state == "idle":
@@ -7849,7 +9186,7 @@ class BuildingInterior:
 
                 # 성공 텍스트 (글로우 효과)
                 if font_medium:
-                    result_text = f"🎉 {item_korean} 획득!"
+                    result_text = f"{item_korean} 획득!"
                     for offset in range(3, 0, -1):
                         glow_surf, _ = font_medium.render(result_text, (*glow_color, 150 // offset))
                         screen.blit(glow_surf, (glass_x + game_w // 2 - glow_surf.get_width() // 2 - offset,
@@ -7920,7 +9257,7 @@ class BuildingInterior:
                         pass
             else:
                 if font_medium:
-                    result_text = "😢 아쉽네요... 다시 도전!"
+                    result_text = "아쉽네요... 다시 도전!"
                     result_surf, _ = font_medium.render(result_text, (255, 150, 150))
                     screen.blit(result_surf, (glass_x + game_w // 2 - result_surf.get_width() // 2,
                                              glass_y + game_h // 2 - 5))
@@ -8048,6 +9385,451 @@ class BuildingInterior:
 
                 item_surf, _ = font_small.render(item, text_color)
                 screen.blit(item_surf, (item_rect.x + 40, item_rect.y + 8))
+
+    def _draw_tavern_menu(self, screen):
+        """선술집 메뉴 그리기 - 따뜻한 중세 판타지 스타일"""
+        import math
+
+        # 메뉴 크기 및 위치 (화면 중앙)
+        menu_w, menu_h = 300, 300
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        # 색상 (따뜻한 선술집 테마)
+        BG_WOOD = (55, 40, 28)
+        BG_WOOD_LIGHT = (75, 55, 38)
+        BORDER_GOLD = (200, 160, 80)
+        BORDER_DARK = (120, 90, 50)
+        HIGHLIGHT = (90, 65, 45)
+        HOVER_BG = (70, 50, 35)
+        TEXT_WHITE = (255, 245, 230)
+        TEXT_GOLD = (255, 210, 100)
+        TEXT_PRICE = (100, 200, 100)
+        TEXT_DIM = (180, 160, 140)
+
+        # 마우스 위치
+        mouse_pos = pygame.mouse.get_pos()
+
+        # 배경 어둡게 (반투명 오버레이)
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        screen.blit(overlay, (0, 0))
+
+        # 따뜻한 글로우 효과
+        glow_intensity = int(30 + 15 * math.sin(self.animation_timer * 2))
+        glow_surf = pygame.Surface((menu_w + 30, menu_h + 30), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (255, 180, 80, glow_intensity), (0, 0, menu_w + 30, menu_h + 30), border_radius=15)
+        screen.blit(glow_surf, (menu_x - 15, menu_y - 15))
+
+        # 메뉴 배경 (나무 패널 스타일)
+        pygame.draw.rect(screen, BG_WOOD, (menu_x, menu_y, menu_w, menu_h), border_radius=10)
+        pygame.draw.rect(screen, BORDER_GOLD, (menu_x, menu_y, menu_w, menu_h), 3, border_radius=10)
+        pygame.draw.rect(screen, BORDER_DARK, (menu_x + 3, menu_y + 3, menu_w - 6, menu_h - 6), 1, border_radius=8)
+
+        # 나무 패널 텍스처 (세로 라인)
+        for i in range(menu_x + 15, menu_x + menu_w - 15, 25):
+            pygame.draw.line(screen, (45, 32, 22), (i, menu_y + 50), (i, menu_y + menu_h - 15), 1)
+
+        # 상단 바 (장식 테두리)
+        pygame.draw.rect(screen, BG_WOOD_LIGHT, (menu_x + 5, menu_y + 5, menu_w - 10, 45), border_radius=6)
+        pygame.draw.line(screen, BORDER_GOLD, (menu_x + 15, menu_y + 52), (menu_x + menu_w - 15, menu_y + 52), 2)
+
+        font_small = self.fonts.get('small')
+        font_medium = self.fonts.get('medium')
+
+        # 타이틀 (맥주잔 아이콘 + 텍스트)
+        if font_medium:
+            # 맥주잔 아이콘
+            mug_x = menu_x + 30
+            mug_y = menu_y + 18
+            pygame.draw.rect(screen, TEXT_GOLD, (mug_x, mug_y, 18, 22), border_radius=3)
+            pygame.draw.arc(screen, TEXT_GOLD, (mug_x + 14, mug_y + 4, 10, 14), -1.5, 1.5, 2)
+            pygame.draw.ellipse(screen, (255, 250, 230), (mug_x + 2, mug_y + 2, 14, 5))
+
+            title_surf, title_rect = font_medium.render("모험가의 선술집", TEXT_WHITE)
+            screen.blit(title_surf, (menu_x + 60, menu_y + 15))
+
+        # 현재 골드 표시
+        current_gold = self.player_data.get('gold', 0)
+        if font_small:
+            gold_text = f"소지금: {current_gold}G"
+            gold_surf, _ = font_small.render(gold_text, TEXT_GOLD)
+            screen.blit(gold_surf, (menu_x + menu_w - 120, menu_y + 18))
+
+        # 메뉴 아이템
+        item_h = 40
+        item_start_y = menu_y + 65
+
+        for i, item in enumerate(self.tavern_menu_items):
+            item_y = item_start_y + i * item_h
+            item_rect = pygame.Rect(menu_x + 15, item_y, menu_w - 30, item_h - 4)
+
+            # 마우스 호버 체크
+            is_hovered = item_rect.collidepoint(mouse_pos)
+            is_selected = (i == self.tavern_menu_selection)
+
+            # 호버 시 선택 상태 업데이트
+            if is_hovered:
+                self.tavern_menu_selection = i
+
+            # 가격 체크 (구매 가능 여부)
+            can_afford = current_gold >= item.get("price", 0)
+
+            # 선택/호버 아이템 하이라이트
+            if is_selected:
+                pygame.draw.rect(screen, HIGHLIGHT, item_rect, border_radius=5)
+                pygame.draw.rect(screen, BORDER_GOLD, item_rect, 2, border_radius=5)
+
+                # 선택 표시
+                if font_small:
+                    arrow_surf, _ = font_small.render("▶", TEXT_GOLD)
+                    screen.blit(arrow_surf, (item_rect.x + 8, item_rect.y + 10))
+
+                text_color = TEXT_GOLD if can_afford else (180, 100, 100)
+            elif is_hovered:
+                pygame.draw.rect(screen, HOVER_BG, item_rect, border_radius=5)
+                pygame.draw.rect(screen, BORDER_DARK, item_rect, 1, border_radius=5)
+                text_color = TEXT_WHITE if can_afford else (180, 100, 100)
+            else:
+                text_color = TEXT_WHITE if can_afford else TEXT_DIM
+
+            # 아이템 정보
+            name = item.get("name", "")
+            price = item.get("price", 0)
+            effect = item.get("effect", "")
+            item_type = item.get("type", "")
+
+            if font_small:
+                # 아이콘 그리기
+                icon_x = item_rect.x + 30
+                icon_y = item_rect.y + item_h // 2 - 5
+
+                icon_color = TEXT_GOLD if is_selected else (200, 160, 80)
+
+                if item_type == "heal":
+                    # 맥주잔 아이콘
+                    pygame.draw.rect(screen, icon_color, (icon_x, icon_y, 12, 16), border_radius=2)
+                    pygame.draw.ellipse(screen, (255, 250, 220), (icon_x + 1, icon_y + 1, 10, 4))
+                elif item_type == "full_heal":
+                    # 스튜 그릇 아이콘
+                    pygame.draw.ellipse(screen, icon_color, (icon_x - 2, icon_y + 4, 18, 10))
+                    pygame.draw.arc(screen, (180, 130, 60), (icon_x, icon_y - 2, 14, 10), 0, 3.14, 2)
+                elif item_type == "rumor":
+                    # 말풍선 아이콘
+                    pygame.draw.ellipse(screen, icon_color, (icon_x, icon_y, 16, 12))
+                    pygame.draw.polygon(screen, icon_color, [(icon_x + 3, icon_y + 10), (icon_x + 8, icon_y + 16), (icon_x + 10, icon_y + 10)])
+                elif item_type == "exit":
+                    # 문 아이콘
+                    pygame.draw.rect(screen, text_color, (icon_x, icon_y - 2, 12, 16), 1, border_radius=2)
+                    pygame.draw.circle(screen, text_color, (icon_x + 10, icon_y + 7), 2)
+
+                # 이름
+                name_surf, _ = font_small.render(name, text_color)
+                screen.blit(name_surf, (item_rect.x + 55, item_rect.y + 5))
+
+                # 가격 (나가기 제외)
+                if price > 0:
+                    price_color = TEXT_PRICE if can_afford else (180, 100, 100)
+                    price_surf, _ = font_small.render(f"{price}G", price_color)
+                    screen.blit(price_surf, (item_rect.right - 50, item_rect.y + 5))
+
+                # 효과 설명 (작은 글씨)
+                if effect:
+                    effect_color = TEXT_DIM if not is_selected else (200, 180, 150)
+                    effect_surf, _ = font_small.render(effect, effect_color)
+                    screen.blit(effect_surf, (item_rect.x + 55, item_rect.y + 22))
+
+        # 메시지 표시 (구매 결과 등)
+        if self.tavern_message and self.tavern_message_timer > 0:
+            msg_w = 280
+            msg_h = 40
+            msg_x = (SCREEN_WIDTH - msg_w) // 2
+            msg_y = menu_y + menu_h + 10
+
+            # 메시지 배경
+            pygame.draw.rect(screen, (40, 35, 28), (msg_x, msg_y, msg_w, msg_h), border_radius=8)
+            pygame.draw.rect(screen, TEXT_GOLD, (msg_x, msg_y, msg_w, msg_h), 2, border_radius=8)
+
+            if font_small:
+                msg_surf, msg_rect = font_small.render(self.tavern_message, TEXT_WHITE)
+                screen.blit(msg_surf, (msg_x + (msg_w - msg_rect.width) // 2, msg_y + 10))
+
+    def _draw_quest_menu(self, screen):
+        """퀘스트 메뉴 그리기 - 의뢰 목록 및 상세 보기"""
+        import math
+
+        # 색상 (따뜻한 선술집 테마 + 퀘스트 강조색)
+        BG_WOOD = (55, 40, 28)
+        BG_WOOD_LIGHT = (75, 55, 38)
+        BORDER_GOLD = (200, 160, 80)
+        BORDER_DARK = (120, 90, 50)
+        HIGHLIGHT = (90, 65, 45)
+        HOVER_BG = (70, 50, 35)
+        TEXT_WHITE = (255, 245, 230)
+        TEXT_GOLD = (255, 210, 100)
+        TEXT_GREEN = (100, 220, 100)
+        TEXT_DIM = (180, 160, 140)
+        QUEST_ACTIVE = (100, 180, 255)  # 진행 중인 퀘스트 색상
+        QUEST_COMPLETED = (100, 200, 100)  # 완료된 퀘스트 색상
+        BTN_ACCEPT = (80, 150, 80)
+        BTN_ACCEPT_HOVER = (100, 180, 100)
+        BTN_CANCEL = (150, 80, 80)
+        BTN_CANCEL_HOVER = (180, 100, 100)
+
+        mouse_pos = pygame.mouse.get_pos()
+
+        # 배경 어둡게
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        screen.blit(overlay, (0, 0))
+
+        font_small = self.fonts.get('small')
+        font_medium = self.fonts.get('medium')
+
+        if self.quest_detail_open:
+            # === 퀘스트 상세 보기 모드 ===
+            self._draw_quest_detail(screen, mouse_pos, font_small, font_medium,
+                                   BG_WOOD, BG_WOOD_LIGHT, BORDER_GOLD, BORDER_DARK,
+                                   HIGHLIGHT, TEXT_WHITE, TEXT_GOLD, TEXT_GREEN, TEXT_DIM,
+                                   BTN_ACCEPT, BTN_ACCEPT_HOVER, BTN_CANCEL, BTN_CANCEL_HOVER)
+        else:
+            # === 퀘스트 목록 모드 ===
+            self._draw_quest_list(screen, mouse_pos, font_small, font_medium,
+                                 BG_WOOD, BG_WOOD_LIGHT, BORDER_GOLD, BORDER_DARK,
+                                 HIGHLIGHT, HOVER_BG, TEXT_WHITE, TEXT_GOLD, TEXT_DIM,
+                                 QUEST_ACTIVE, QUEST_COMPLETED)
+
+    def _draw_quest_list(self, screen, mouse_pos, font_small, font_medium,
+                         BG_WOOD, BG_WOOD_LIGHT, BORDER_GOLD, BORDER_DARK,
+                         HIGHLIGHT, HOVER_BG, TEXT_WHITE, TEXT_GOLD, TEXT_DIM,
+                         QUEST_ACTIVE, QUEST_COMPLETED):
+        """퀘스트 목록 그리기"""
+        import math
+
+        # 메뉴 크기 및 위치
+        menu_w, menu_h = 350, 320
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        # 글로우 효과
+        glow_intensity = int(30 + 15 * math.sin(self.animation_timer * 2))
+        glow_surf = pygame.Surface((menu_w + 30, menu_h + 30), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (255, 180, 80, glow_intensity), (0, 0, menu_w + 30, menu_h + 30), border_radius=15)
+        screen.blit(glow_surf, (menu_x - 15, menu_y - 15))
+
+        # 메뉴 배경
+        pygame.draw.rect(screen, BG_WOOD, (menu_x, menu_y, menu_w, menu_h), border_radius=10)
+        pygame.draw.rect(screen, BORDER_GOLD, (menu_x, menu_y, menu_w, menu_h), 3, border_radius=10)
+        pygame.draw.rect(screen, BORDER_DARK, (menu_x + 3, menu_y + 3, menu_w - 6, menu_h - 6), 1, border_radius=8)
+
+        # 상단 바
+        pygame.draw.rect(screen, BG_WOOD_LIGHT, (menu_x + 5, menu_y + 5, menu_w - 10, 45), border_radius=6)
+        pygame.draw.line(screen, BORDER_GOLD, (menu_x + 15, menu_y + 52), (menu_x + menu_w - 15, menu_y + 52), 2)
+
+        # 타이틀
+        if font_medium:
+            # 두루마리 아이콘
+            scroll_x = menu_x + 25
+            scroll_y = menu_y + 18
+            pygame.draw.rect(screen, TEXT_GOLD, (scroll_x, scroll_y, 20, 24), border_radius=3)
+            pygame.draw.rect(screen, (200, 160, 60), (scroll_x + 3, scroll_y + 4, 14, 16))
+            pygame.draw.line(screen, (180, 140, 50), (scroll_x + 5, scroll_y + 8), (scroll_x + 15, scroll_y + 8), 1)
+            pygame.draw.line(screen, (180, 140, 50), (scroll_x + 5, scroll_y + 12), (scroll_x + 15, scroll_y + 12), 1)
+            pygame.draw.line(screen, (180, 140, 50), (scroll_x + 5, scroll_y + 16), (scroll_x + 12, scroll_y + 16), 1)
+
+            title_surf, _ = font_medium.render("의뢰 목록", TEXT_WHITE)
+            screen.blit(title_surf, (menu_x + 60, menu_y + 15))
+
+        # 퀘스트 목록
+        item_h = 50
+        item_start_y = menu_y + 65
+
+        for i, quest in enumerate(self.quest_list):
+            item_y = item_start_y + i * item_h
+            item_rect = pygame.Rect(menu_x + 15, item_y, menu_w - 30, item_h - 4)
+
+            is_hovered = item_rect.collidepoint(mouse_pos)
+            is_selected = (i == self.quest_menu_selection)
+
+            if is_hovered:
+                self.quest_menu_selection = i
+
+            # 퀘스트 상태에 따른 색상
+            if quest["completed"]:
+                status_color = QUEST_COMPLETED
+                status_text = "[완료]"
+            elif quest["active"]:
+                status_color = QUEST_ACTIVE
+                status_text = "[진행중]"
+            else:
+                status_color = TEXT_DIM
+                status_text = ""
+
+            # 배경 그리기
+            if is_selected:
+                pygame.draw.rect(screen, HIGHLIGHT, item_rect, border_radius=5)
+                pygame.draw.rect(screen, BORDER_GOLD, item_rect, 2, border_radius=5)
+                text_color = TEXT_GOLD
+            elif is_hovered:
+                pygame.draw.rect(screen, HOVER_BG, item_rect, border_radius=5)
+                pygame.draw.rect(screen, BORDER_DARK, item_rect, 1, border_radius=5)
+                text_color = TEXT_WHITE
+            else:
+                text_color = TEXT_WHITE
+
+            if font_small:
+                # 선택 화살표
+                if is_selected:
+                    arrow_surf, _ = font_small.render("▶", TEXT_GOLD)
+                    screen.blit(arrow_surf, (item_rect.x + 8, item_rect.y + 15))
+
+                # 퀘스트 이름
+                name_surf, _ = font_small.render(quest["name"], text_color)
+                screen.blit(name_surf, (item_rect.x + 30, item_rect.y + 8))
+
+                # 상태 표시
+                if status_text:
+                    status_surf, _ = font_small.render(status_text, status_color)
+                    screen.blit(status_surf, (item_rect.right - 70, item_rect.y + 8))
+
+                # 보상 표시
+                reward_text = f"보상: {quest['reward_gold']}G"
+                reward_surf, _ = font_small.render(reward_text, TEXT_GOLD)
+                screen.blit(reward_surf, (item_rect.x + 30, item_rect.y + 28))
+
+        # 하단 안내 텍스트
+        if font_small:
+            help_text = "Enter: 상세보기 / ESC: 닫기"
+            help_surf, _ = font_small.render(help_text, TEXT_DIM)
+            screen.blit(help_surf, (menu_x + (menu_w - help_surf.get_width()) // 2, menu_y + menu_h - 30))
+
+    def _draw_quest_detail(self, screen, mouse_pos, font_small, font_medium,
+                           BG_WOOD, BG_WOOD_LIGHT, BORDER_GOLD, BORDER_DARK,
+                           HIGHLIGHT, TEXT_WHITE, TEXT_GOLD, TEXT_GREEN, TEXT_DIM,
+                           BTN_ACCEPT, BTN_ACCEPT_HOVER, BTN_CANCEL, BTN_CANCEL_HOVER):
+        """퀘스트 상세 보기 그리기"""
+        import math
+
+        quest = self.quest_list[self.quest_menu_selection]
+
+        # 메뉴 크기 및 위치
+        menu_w, menu_h = 380, 350
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        # 글로우 효과
+        glow_intensity = int(30 + 15 * math.sin(self.animation_timer * 2))
+        glow_surf = pygame.Surface((menu_w + 30, menu_h + 30), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (255, 180, 80, glow_intensity), (0, 0, menu_w + 30, menu_h + 30), border_radius=15)
+        screen.blit(glow_surf, (menu_x - 15, menu_y - 15))
+
+        # 메뉴 배경
+        pygame.draw.rect(screen, BG_WOOD, (menu_x, menu_y, menu_w, menu_h), border_radius=10)
+        pygame.draw.rect(screen, BORDER_GOLD, (menu_x, menu_y, menu_w, menu_h), 3, border_radius=10)
+        pygame.draw.rect(screen, BORDER_DARK, (menu_x + 3, menu_y + 3, menu_w - 6, menu_h - 6), 1, border_radius=8)
+
+        # 상단 바
+        pygame.draw.rect(screen, BG_WOOD_LIGHT, (menu_x + 5, menu_y + 5, menu_w - 10, 45), border_radius=6)
+        pygame.draw.line(screen, BORDER_GOLD, (menu_x + 15, menu_y + 52), (menu_x + menu_w - 15, menu_y + 52), 2)
+
+        # 타이틀 (퀘스트 이름)
+        if font_medium:
+            title_surf, _ = font_medium.render(quest["name"], TEXT_GOLD)
+            screen.blit(title_surf, (menu_x + 20, menu_y + 15))
+
+        # 퀘스트 설명
+        if font_small:
+            desc_y = menu_y + 70
+            desc_lines = quest["description"].split("\n")
+            for line in desc_lines:
+                desc_surf, _ = font_small.render(line, TEXT_WHITE)
+                screen.blit(desc_surf, (menu_x + 25, desc_y))
+                desc_y += 22
+
+            # 조건 표시
+            cond_y = desc_y + 20
+            pygame.draw.line(screen, BORDER_DARK, (menu_x + 20, cond_y - 5), (menu_x + menu_w - 20, cond_y - 5), 1)
+            cond_label, _ = font_small.render("달성 조건:", TEXT_DIM)
+            screen.blit(cond_label, (menu_x + 25, cond_y))
+            cond_surf, _ = font_small.render(quest["condition_desc"], TEXT_WHITE)
+            screen.blit(cond_surf, (menu_x + 100, cond_y))
+
+            # 보상 표시
+            reward_y = cond_y + 40
+            pygame.draw.line(screen, BORDER_DARK, (menu_x + 20, reward_y - 5), (menu_x + menu_w - 20, reward_y - 5), 1)
+            reward_label, _ = font_small.render("보상:", TEXT_DIM)
+            screen.blit(reward_label, (menu_x + 25, reward_y))
+
+            # 골드 아이콘
+            gold_icon_x = menu_x + 75
+            gold_icon_y = reward_y + 2
+            pygame.draw.circle(screen, TEXT_GOLD, (gold_icon_x + 8, gold_icon_y + 8), 8)
+            pygame.draw.circle(screen, (200, 160, 60), (gold_icon_x + 8, gold_icon_y + 8), 6)
+
+            gold_surf, _ = font_small.render(f"{quest['reward_gold']}G", TEXT_GOLD)
+            screen.blit(gold_surf, (gold_icon_x + 22, reward_y))
+
+        # 버튼들
+        btn_w, btn_h = 100, 36
+        btn_y = menu_y + menu_h - 60
+        btn_gap = 30
+
+        # 임무수행 버튼
+        accept_btn_x = menu_x + menu_w // 2 - btn_w - btn_gap // 2
+        accept_btn_rect = pygame.Rect(accept_btn_x, btn_y, btn_w, btn_h)
+        is_accept_hover = accept_btn_rect.collidepoint(mouse_pos)
+        is_accept_selected = (self.quest_detail_selection == 0)
+
+        # 이미 진행 중이거나 완료된 퀘스트는 버튼 비활성화
+        can_accept = not quest["active"] and not quest["completed"]
+
+        if can_accept:
+            if is_accept_selected or is_accept_hover:
+                pygame.draw.rect(screen, BTN_ACCEPT_HOVER, accept_btn_rect, border_radius=5)
+                if is_accept_hover:
+                    self.quest_detail_selection = 0
+            else:
+                pygame.draw.rect(screen, BTN_ACCEPT, accept_btn_rect, border_radius=5)
+            pygame.draw.rect(screen, (120, 200, 120), accept_btn_rect, 2, border_radius=5)
+        else:
+            pygame.draw.rect(screen, (80, 80, 80), accept_btn_rect, border_radius=5)
+            pygame.draw.rect(screen, (100, 100, 100), accept_btn_rect, 2, border_radius=5)
+
+        if font_small:
+            btn_text = "임무수행" if can_accept else ("진행중" if quest["active"] else "완료")
+            btn_color = TEXT_WHITE if can_accept else TEXT_DIM
+            btn_surf, btn_rect = font_small.render(btn_text, btn_color)
+            screen.blit(btn_surf, (accept_btn_x + (btn_w - btn_rect.width) // 2, btn_y + 8))
+
+        # 취소 버튼
+        cancel_btn_x = menu_x + menu_w // 2 + btn_gap // 2
+        cancel_btn_rect = pygame.Rect(cancel_btn_x, btn_y, btn_w, btn_h)
+        is_cancel_hover = cancel_btn_rect.collidepoint(mouse_pos)
+        is_cancel_selected = (self.quest_detail_selection == 1)
+
+        if is_cancel_selected or is_cancel_hover:
+            pygame.draw.rect(screen, BTN_CANCEL_HOVER, cancel_btn_rect, border_radius=5)
+            if is_cancel_hover:
+                self.quest_detail_selection = 1
+        else:
+            pygame.draw.rect(screen, BTN_CANCEL, cancel_btn_rect, border_radius=5)
+        pygame.draw.rect(screen, (200, 120, 120), cancel_btn_rect, 2, border_radius=5)
+
+        if font_small:
+            cancel_surf, cancel_rect = font_small.render("취소", TEXT_WHITE)
+            screen.blit(cancel_surf, (cancel_btn_x + (btn_w - cancel_rect.width) // 2, btn_y + 8))
+
+        # 퀘스트 상태 메시지
+        if quest["active"]:
+            if font_small:
+                status_text = "이 퀘스트는 현재 진행 중입니다."
+                status_surf, _ = font_small.render(status_text, (100, 180, 255))
+                screen.blit(status_surf, (menu_x + 25, btn_y - 30))
+        elif quest["completed"]:
+            if font_small:
+                status_text = "이 퀘스트는 이미 완료되었습니다."
+                status_surf, _ = font_small.render(status_text, (100, 200, 100))
+                screen.blit(status_surf, (menu_x + 25, btn_y - 30))
 
     def _draw_headmaster_interact_hint(self, screen):
         """아카데미 학장 근처일 때 상호작용 힌트 표시 (마우스 클릭 전용)"""
@@ -12664,11 +14446,11 @@ class BuildingInterior:
         if self.ap_system:
             self.ap_system.draw(screen, 35, 30, font_medium)
 
-        # === 좌측 상단: 금화 (열쇠 아래) ===
-        self._draw_gold(screen)
+        # 골드 HUD는 왼쪽 필러 배경에서 통합 표시 (중복 방지)
+        # self._draw_gold(screen)
 
-        # === 우측 상단: 스타 포인트 ===
-        self._draw_star_points(screen)
+        # === 우측 상단: 스타 포인트 표시 제거 (골드 시스템 일원화) ===
+        # self._draw_star_points(screen)
 
         # === 하단: 조작 안내 ===
         if font_small:
@@ -13738,3 +15520,3737 @@ class BuildingInterior:
                      (dx, dy + diamond_size), (dx - diamond_size, dy)]
             pygame.draw.polygon(screen, color, points)
             pygame.draw.polygon(screen, (255, 255, 255), points, 1)
+
+    def _draw_blacksmith_interior(self, screen):
+        """대장간 전용 인테리어 - 드워프 대장간 고퀄리티 버전"""
+        import math
+
+        # 색상 팔레트 (드워프 대장간 - 따뜻하고 웅장한 분위기)
+        BG_DARK = (28, 20, 15)
+        WOOD_DARK = (55, 35, 20)
+        WOOD_MID = (85, 55, 30)
+        WOOD_LIGHT = (115, 80, 45)
+        WOOD_PLANK = (75, 50, 28)
+        STONE_DARK = (45, 42, 38)
+        STONE_MID = (70, 65, 58)
+        STONE_LIGHT = (95, 88, 78)
+        BRICK_DARK = (65, 40, 32)
+        BRICK_MID = (100, 62, 45)
+        BRICK_LIGHT = (135, 88, 60)
+        FIRE_ORANGE = (255, 140, 50)
+        FIRE_RED = (255, 70, 25)
+        FIRE_YELLOW = (255, 210, 100)
+        FIRE_WHITE = (255, 245, 200)
+        METAL_DARK = (45, 45, 52)
+        METAL_MID = (80, 80, 92)
+        METAL_LIGHT = (125, 125, 145)
+        METAL_HOT = (255, 120, 60)  # 달궈진 금속
+        ANVIL_COLOR = (55, 55, 65)
+        COPPER = (180, 100, 60)
+        BRONZE = (165, 120, 70)
+        GOLD_TRIM = (200, 160, 80)
+
+        cam_x, cam_y = self.camera_offset
+        anim = self.animation_timer
+
+        # === 1. 배경 ===
+        screen.fill(BG_DARK)
+
+        # === 2. 석재 바닥 (드워프 스타일 - 육각형 패턴) ===
+        tile_size = 32
+        for py in range(-tile_size, self.pixel_height + tile_size, tile_size):
+            for px in range(-tile_size, self.pixel_width + tile_size, tile_size):
+                # 오프셋으로 벽돌 패턴
+                offset = (py // tile_size) % 2 * (tile_size // 2)
+                draw_x = px + offset - cam_x
+                draw_y = py - cam_y
+
+                # 돌 색상 변화 (랜덤하지만 일관된 패턴)
+                stone_seed = (px * 7 + py * 13) % 5
+                stone_colors = [STONE_DARK, STONE_MID, (60, 55, 48), (55, 50, 42), STONE_MID]
+                stone_color = stone_colors[stone_seed]
+
+                pygame.draw.rect(screen, stone_color, (draw_x, draw_y, tile_size - 2, tile_size - 2))
+                # 돌 테두리
+                pygame.draw.rect(screen, (35, 30, 25), (draw_x, draw_y, tile_size - 2, tile_size - 2), 1)
+
+                # 돌 균열/텍스처
+                if stone_seed == 0:
+                    pygame.draw.line(screen, (40, 35, 28), (draw_x + 5, draw_y + 8),
+                                   (draw_x + tile_size - 10, draw_y + tile_size - 12), 1)
+
+        # 바닥 그을음/숯 자국 (용광로 근처)
+        for i in range(8):
+            soot_x = self.pixel_width - 180 + (i % 3) * 40 - cam_x
+            soot_y = 180 + (i // 3) * 35 - cam_y
+            soot_surf = pygame.Surface((25, 25), pygame.SRCALPHA)
+            pygame.draw.ellipse(soot_surf, (20, 18, 15, 80), (0, 0, 25, 20))
+            screen.blit(soot_surf, (soot_x, soot_y))
+
+        # === 3. 상단 벽 (드워프 석조 벽 - 룬 문양) ===
+        wall_h = int(TILE_SIZE * 5)
+
+        # 큰 석재 블록 벽
+        pygame.draw.rect(screen, STONE_DARK, (-cam_x, -cam_y, self.pixel_width, wall_h))
+
+        # 석재 블록 패턴
+        block_w, block_h = 48, 32
+        for by in range(0, wall_h, block_h):
+            offset = (by // block_h) % 2 * (block_w // 2)
+            for bx in range(-block_w, self.pixel_width + block_w, block_w):
+                block_x = bx + offset - cam_x
+                block_y = by - cam_y
+
+                # 블록 색상 변화
+                block_seed = (bx * 3 + by * 7) % 4
+                bc = [STONE_MID, STONE_DARK, (65, 60, 52), STONE_MID][block_seed]
+                pygame.draw.rect(screen, bc, (block_x, block_y, block_w - 3, block_h - 3))
+
+                # 블록 3D 효과
+                pygame.draw.line(screen, STONE_LIGHT, (block_x, block_y),
+                               (block_x + block_w - 4, block_y), 2)  # 상단 하이라이트
+                pygame.draw.line(screen, (35, 32, 28), (block_x, block_y + block_h - 4),
+                               (block_x + block_w - 4, block_y + block_h - 4), 1)  # 하단 그림자
+
+        # 드워프 룬 문양 (벽에 새겨진)
+        rune_positions = [(80, 40), (200, 60), (350, 45), (500, 55)]
+        rune_symbols = ["◆", "▲", "●", "■"]
+        for i, (rx, ry) in enumerate(rune_positions):
+            rune_x = rx - cam_x
+            rune_y = ry - cam_y
+            # 룬 글로우 (주황빛)
+            glow_alpha = int(40 + 30 * math.sin(anim * 2 + i))
+            rune_glow = pygame.Surface((30, 30), pygame.SRCALPHA)
+            pygame.draw.circle(rune_glow, (255, 150, 80, glow_alpha), (15, 15), 15)
+            screen.blit(rune_glow, (rune_x - 15, rune_y - 15))
+            # 룬 새김
+            pygame.draw.circle(screen, GOLD_TRIM, (rune_x, rune_y), 8, 2)
+            pygame.draw.circle(screen, (180, 130, 60), (rune_x, rune_y), 4)
+
+        # 벽 하단 금속 트림
+        trim_y = wall_h - cam_y - 8
+        pygame.draw.rect(screen, METAL_DARK, (-cam_x, trim_y, self.pixel_width, 8))
+        pygame.draw.rect(screen, METAL_LIGHT, (-cam_x, trim_y, self.pixel_width, 2))
+        # 금속 리벳
+        for rivet_x in range(30, self.pixel_width, 50):
+            pygame.draw.circle(screen, METAL_LIGHT, (rivet_x - cam_x, trim_y + 4), 3)
+            pygame.draw.circle(screen, METAL_DARK, (rivet_x - cam_x + 1, trim_y + 5), 3, 1)
+
+        # === 4. 대형 용광로 (오른쪽 - 드워프 스타일 거대 화덕) ===
+        forge_x = self.pixel_width - 220 - cam_x
+        forge_y = -cam_y + 10
+        forge_w, forge_h = 190, 180
+
+        # 용광로 굴뚝 (거대하고 장식적)
+        chimney_w = 70
+        chimney_x = forge_x + forge_w // 2 - chimney_w // 2
+        chimney_h = 60
+
+        # 굴뚝 본체
+        pygame.draw.rect(screen, STONE_DARK, (chimney_x, forge_y - chimney_h + 20, chimney_w, chimney_h))
+        pygame.draw.rect(screen, STONE_MID, (chimney_x + 5, forge_y - chimney_h + 25, chimney_w - 10, chimney_h - 10), 2)
+
+        # 굴뚝 금속 밴드
+        for band_y in [forge_y - 35, forge_y - 15]:
+            pygame.draw.rect(screen, METAL_DARK, (chimney_x - 3, band_y, chimney_w + 6, 6))
+            pygame.draw.rect(screen, METAL_LIGHT, (chimney_x - 3, band_y, chimney_w + 6, 2))
+
+        # 연기 (개선된 파티클)
+        for i in range(8):
+            smoke_offset = (anim * 25 + i * 20) % 100
+            smoke_x = chimney_x + chimney_w // 2 + int(8 * math.sin(anim * 1.5 + i * 0.5))
+            smoke_y = forge_y - chimney_h - smoke_offset
+            smoke_alpha = max(0, 120 - int(smoke_offset * 1.1))
+            smoke_size = 10 + int(smoke_offset * 0.15)
+            smoke_surf = pygame.Surface((smoke_size * 2, smoke_size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(smoke_surf, (90, 85, 80, smoke_alpha), (smoke_size, smoke_size), smoke_size)
+            screen.blit(smoke_surf, (smoke_x - smoke_size, smoke_y - smoke_size))
+
+        # 용광로 본체 (큰 벽돌 구조물)
+        pygame.draw.rect(screen, BRICK_DARK, (forge_x, forge_y, forge_w, forge_h))
+
+        # 벽돌 패턴 (상세)
+        fb_w, fb_h = 28, 18
+        for row in range(forge_h // fb_h):
+            for col in range(forge_w // fb_w + 1):
+                fbx = forge_x + col * fb_w + (row % 2) * 14
+                fby = forge_y + row * fb_h
+                if fbx < forge_x + forge_w - 5:
+                    fbc = BRICK_MID if (row + col) % 3 != 0 else (90, 55, 40)
+                    pygame.draw.rect(screen, fbc, (fbx, fby, fb_w - 2, fb_h - 2))
+                    pygame.draw.line(screen, BRICK_LIGHT, (fbx, fby), (fbx + fb_w - 3, fby), 1)
+
+        # 용광로 아치형 입구 (큰 화덕)
+        fire_x = forge_x + 25
+        fire_y = forge_y + forge_h - 110
+        fire_w, fire_h = 140, 90
+
+        # 아치 프레임 (금속)
+        pygame.draw.ellipse(screen, METAL_DARK, (fire_x - 8, fire_y - 15, fire_w + 16, 40))
+        pygame.draw.rect(screen, METAL_DARK, (fire_x - 8, fire_y, 8, fire_h))
+        pygame.draw.rect(screen, METAL_DARK, (fire_x + fire_w, fire_y, 8, fire_h))
+        pygame.draw.rect(screen, METAL_LIGHT, (fire_x - 8, fire_y - 15, fire_w + 16, 3))
+
+        # 화덕 내부 (검은 배경)
+        pygame.draw.ellipse(screen, (15, 10, 8), (fire_x, fire_y - 10, fire_w, 30))
+        pygame.draw.rect(screen, (15, 10, 8), (fire_x, fire_y, fire_w, fire_h))
+
+        # 불꽃 효과 (고퀄리티)
+        fire_flicker = math.sin(anim * 10) * 0.25 + 0.75
+
+        # 대형 글로우
+        for glow_r in range(5, 0, -1):
+            glow_alpha = int(70 * fire_flicker - glow_r * 12)
+            glow_w = glow_r * 35
+            glow_h = glow_r * 20
+            glow_surf = pygame.Surface((glow_w * 2, glow_h * 2), pygame.SRCALPHA)
+            glow_color = (255, 120 + glow_r * 15, 40, max(0, glow_alpha))
+            pygame.draw.ellipse(glow_surf, glow_color, (0, glow_h // 2, glow_w * 2, glow_h))
+            screen.blit(glow_surf, (fire_x + fire_w // 2 - glow_w, fire_y + fire_h // 2 - glow_h))
+
+        # 불꽃 레이어들
+        flame_base_y = fire_y + fire_h - 5
+        for layer in range(3):  # 3개 레이어
+            layer_flames = 10 - layer * 2
+            for i in range(layer_flames):
+                fx = fire_x + 15 + i * (fire_w - 30) // layer_flames
+                fx += int(4 * math.sin(anim * 12 + i + layer * 2))
+                fh = 40 + int(25 * math.sin(anim * 15 + i * 0.8 + layer)) - layer * 10
+                fw = 12 - layer * 2 + int(4 * math.sin(anim * 10 + i))
+
+                # 불꽃 색상 (레이어별)
+                if layer == 0:
+                    fc = FIRE_RED
+                elif layer == 1:
+                    fc = FIRE_ORANGE if i % 2 == 0 else FIRE_YELLOW
+                else:
+                    fc = FIRE_WHITE if i % 3 == 0 else FIRE_YELLOW
+
+                # 불꽃 그리기
+                flame_pts = [
+                    (fx, flame_base_y),
+                    (fx + fw, flame_base_y),
+                    (fx + fw // 2, flame_base_y - fh)
+                ]
+                pygame.draw.polygon(screen, fc, flame_pts)
+
+        # 불씨/숯불
+        for i in range(10):
+            ember_x = fire_x + 20 + i * 12
+            ember_y = fire_y + fire_h - 5
+            ember_pulse = (anim * 4 + i * 0.7) % 1
+            ember_color = (255, 100 + int(100 * ember_pulse), 30)
+            pygame.draw.circle(screen, ember_color, (ember_x, ember_y), 4 + int(ember_pulse * 2))
+            # 불씨 글로우
+            if ember_pulse > 0.7:
+                ember_glow = pygame.Surface((12, 12), pygame.SRCALPHA)
+                pygame.draw.circle(ember_glow, (255, 150, 50, 60), (6, 6), 6)
+                screen.blit(ember_glow, (ember_x - 6, ember_y - 6))
+
+        # 달궈진 금속 (화덕 안)
+        hot_metal_x = fire_x + fire_w // 2 - 15
+        hot_metal_y = fire_y + 30
+        hot_glow = abs(math.sin(anim * 3))
+        pygame.draw.rect(screen, (200 + int(55 * hot_glow), 80 + int(40 * hot_glow), 30),
+                        (hot_metal_x, hot_metal_y, 30, 8))
+
+        # === 5. 헤파이토스 작업용 모루 (대장 위치에 맞춤: 0.6, 0.35) ===
+        # 헤파이토스 NPC 위치: x=0.6, y=0.35 - 그 앞에 모루 배치
+        hephaitos_x = int(self.pixel_width * 0.6)
+        hephaitos_y = int(self.pixel_height * 0.35)
+
+        # 모루는 헤파이토스 앞쪽 아래에 위치 (망치가 내려치는 지점)
+        anvil_x = hephaitos_x + 25 - cam_x  # 헤파이토스 오른쪽 앞
+        anvil_y = hephaitos_y + 55 - cam_y  # 헤파이토스 아래쪽
+
+        # 모루 받침 (거대한 참나무 그루터기 - 드워프 스타일)
+        stump_w, stump_h = 85, 60
+
+        # 그림자 (더 진하게)
+        shadow_surf = pygame.Surface((stump_w + 20, 20), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (15, 12, 8, 120), (0, 0, stump_w + 20, 20))
+        screen.blit(shadow_surf, (anvil_x - 15, anvil_y + stump_h))
+
+        # 그루터기 본체 (나무결 표현)
+        pygame.draw.rect(screen, WOOD_MID, (anvil_x - 5, anvil_y + 25, stump_w - 10, stump_h - 5))
+        # 나무 질감 - 세로 줄무늬
+        for stripe in range(8):
+            stripe_x = anvil_x - 2 + stripe * 9
+            stripe_color = WOOD_DARK if stripe % 2 == 0 else (70, 45, 25)
+            pygame.draw.line(screen, stripe_color, (stripe_x, anvil_y + 28), (stripe_x, anvil_y + stump_h + 15), 2)
+
+        # 상단 원형 (나이테 표현)
+        pygame.draw.ellipse(screen, WOOD_LIGHT, (anvil_x - 8, anvil_y + 18, stump_w - 5, 18))
+        pygame.draw.ellipse(screen, WOOD_MID, (anvil_x - 8, anvil_y + 18, stump_w - 5, 18), 2)
+        # 나이테
+        for ring in range(5):
+            ring_size = stump_w - 20 - ring * 12
+            if ring_size > 5:
+                pygame.draw.ellipse(screen, WOOD_DARK,
+                    (anvil_x + (stump_w - ring_size) // 2 - 10, anvil_y + 20 + ring, ring_size, 10 - ring), 1)
+        # 중심점 (짙은 색)
+        pygame.draw.circle(screen, (50, 32, 18), (anvil_x + stump_w // 2 - 8, anvil_y + 26), 5)
+
+        # 금속 밴드 (그루터기 고정용 - 드워프 정교함)
+        band_y = anvil_y + 45
+        pygame.draw.rect(screen, METAL_DARK, (anvil_x - 10, band_y, stump_w, 8))
+        pygame.draw.rect(screen, METAL_LIGHT, (anvil_x - 10, band_y, stump_w, 2))
+        # 리벳
+        for rivet in range(5):
+            rivet_x = anvil_x - 5 + rivet * 18
+            pygame.draw.circle(screen, METAL_LIGHT, (rivet_x, band_y + 4), 3)
+            pygame.draw.circle(screen, METAL_DARK, (rivet_x + 1, band_y + 5), 2)
+
+        # === 모루 본체 (대형 드워프 모루 - 고퀄리티) ===
+        # 베이스 (넓고 안정적)
+        base_w, base_h = 75, 22
+        pygame.draw.rect(screen, ANVIL_COLOR, (anvil_x - 8, anvil_y + 5, base_w, base_h), border_radius=4)
+        # 베이스 3D 효과
+        pygame.draw.line(screen, (75, 75, 85), (anvil_x - 6, anvil_y + 6), (anvil_x + base_w - 12, anvil_y + 6), 2)
+        pygame.draw.rect(screen, METAL_DARK, (anvil_x - 8, anvil_y + 5, base_w, base_h), 2, border_radius=4)
+
+        # 중간부 (좁아지는 부분)
+        mid_w, mid_h = 50, 18
+        mid_x = anvil_x + (base_w - mid_w) // 2 - 5
+        pygame.draw.rect(screen, (50, 50, 58), (mid_x, anvil_y - 8, mid_w, mid_h))
+        pygame.draw.line(screen, METAL_MID, (mid_x + 2, anvil_y - 6), (mid_x + mid_w - 4, anvil_y - 6), 1)
+
+        # 작업면 (상단 - 광택있는 금속)
+        face_w, face_h = 90, 18
+        face_x = anvil_x - 15
+        face_y = anvil_y - 22
+        # 메인 작업면
+        pygame.draw.rect(screen, METAL_MID, (face_x, face_y, face_w, face_h), border_radius=3)
+        # 상단 하이라이트 (광택)
+        pygame.draw.rect(screen, METAL_LIGHT, (face_x + 2, face_y + 1, face_w - 4, 5), border_radius=2)
+        # 중간 반사광
+        pygame.draw.line(screen, (180, 180, 195), (face_x + 10, face_y + 8), (face_x + face_w - 15, face_y + 8), 1)
+        # 테두리
+        pygame.draw.rect(screen, METAL_DARK, (face_x, face_y, face_w, face_h), 2, border_radius=3)
+
+        # 왼쪽 뿔 (원뿔형 - 섬세한 작업용)
+        horn_base_x = face_x
+        horn_tip_x = face_x - 35
+        horn_pts = [
+            (horn_base_x, face_y + 2),
+            (horn_base_x, face_y + face_h - 4),
+            (horn_tip_x, face_y + face_h // 2 + 3),
+            (horn_tip_x - 5, face_y + face_h // 2),
+        ]
+        pygame.draw.polygon(screen, METAL_MID, horn_pts)
+        # 뿔 하이라이트
+        pygame.draw.line(screen, METAL_LIGHT, (horn_base_x - 3, face_y + 4), (horn_tip_x, face_y + face_h // 2), 2)
+        pygame.draw.polygon(screen, METAL_DARK, horn_pts, 2)
+
+        # 오른쪽 사각 뿔 (무거운 작업용)
+        sq_x = face_x + face_w - 3
+        sq_w, sq_h = 20, 15
+        pygame.draw.rect(screen, METAL_MID, (sq_x, face_y + 1, sq_w, sq_h))
+        pygame.draw.rect(screen, METAL_LIGHT, (sq_x, face_y + 1, sq_w, 4))
+        pygame.draw.rect(screen, METAL_DARK, (sq_x, face_y + 1, sq_w, sq_h), 2)
+        # 끝부분 라운드
+        pygame.draw.rect(screen, METAL_MID, (sq_x + sq_w - 3, face_y + 2, 5, sq_h - 2), border_radius=2)
+
+        # 모루 위 달궈진 금속 조각 (망치질 타이밍에 맞춤)
+        # 3초 주기 애니메이션과 동기화
+        cycle_time = 3.0
+        t = (anim % cycle_time) / cycle_time
+
+        # 항상 작업 중인 금속 표시
+        hot_glow = 0.5 + 0.5 * abs(math.sin(anim * 4))
+
+        # 달궈진 금속 잉곳
+        ingot_x = anvil_x + 18
+        ingot_y = face_y - 6
+        ingot_w, ingot_h = 25, 8
+
+        # 글로우 효과 (아래)
+        glow_surf = pygame.Surface((ingot_w + 20, ingot_h + 16), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow_surf, (255, 100, 30, int(60 * hot_glow)), (0, 4, ingot_w + 20, ingot_h + 8))
+        screen.blit(glow_surf, (ingot_x - 10, ingot_y - 4))
+
+        # 금속 본체
+        metal_color = (255, 140 + int(60 * hot_glow), 40 + int(20 * hot_glow))
+        pygame.draw.rect(screen, metal_color, (ingot_x, ingot_y, ingot_w, ingot_h), border_radius=2)
+        # 밝은 중심부
+        pygame.draw.rect(screen, (255, 200 + int(40 * hot_glow), 100),
+                        (ingot_x + 3, ingot_y + 2, ingot_w - 6, ingot_h - 4), border_radius=1)
+
+        # 망치 충격 효과 (내리치는 순간)
+        if 0.8 < t < 0.98:
+            impact_intensity = 1.0 - abs(t - 0.9) * 10
+
+            # 충격파 링
+            impact_radius = int(20 + impact_intensity * 15)
+            impact_surf = pygame.Surface((impact_radius * 2 + 10, impact_radius * 2 + 10), pygame.SRCALPHA)
+            pygame.draw.circle(impact_surf, (255, 200, 100, int(80 * impact_intensity)),
+                             (impact_radius + 5, impact_radius + 5), impact_radius, 3)
+            screen.blit(impact_surf, (ingot_x + ingot_w // 2 - impact_radius - 5,
+                                      ingot_y + ingot_h // 2 - impact_radius - 5))
+
+            # 스파크
+            for spark in range(8):
+                spark_angle = spark * 0.785 + anim * 2  # 45도 간격
+                spark_dist = 15 + impact_intensity * 25
+                spark_x = ingot_x + ingot_w // 2 + int(spark_dist * math.cos(spark_angle))
+                spark_y = ingot_y + ingot_h // 2 + int(spark_dist * math.sin(spark_angle) * 0.5)
+                spark_size = 2 + int(impact_intensity * 3)
+                spark_color = (255, 200 + int(55 * ((spark + int(anim * 10)) % 3) / 2), 50)
+                pygame.draw.circle(screen, spark_color, (spark_x, spark_y), spark_size)
+
+        # === 6. 왼쪽 벽 - 무기 진열 (드워프 명품 무기 - 고퀄리티) ===
+        rack_x = -cam_x + 15
+        rack_y = -cam_y + 20
+
+        # 대형 무기 진열장 (드워프 장인 스타일)
+        rack_w, rack_h = 130, 170
+
+        # 진열장 뒷판 (진한 나무)
+        pygame.draw.rect(screen, (40, 28, 18), (rack_x - 5, rack_y - 5, rack_w + 10, rack_h + 10))
+
+        # 화려한 금속 프레임
+        frame_color = (160, 140, 100)  # 황금빛 청동
+        frame_dark = (110, 95, 65)
+        frame_light = (200, 180, 130)
+
+        # 외곽 프레임
+        pygame.draw.rect(screen, frame_color, (rack_x - 8, rack_y - 8, rack_w + 16, rack_h + 16), 6)
+        pygame.draw.rect(screen, frame_light, (rack_x - 8, rack_y - 8, rack_w + 16, 3))
+        pygame.draw.rect(screen, frame_dark, (rack_x - 8, rack_y + rack_h + 5, rack_w + 16, 3))
+
+        # 코너 장식 (드워프 룬)
+        corner_positions = [(rack_x - 5, rack_y - 5), (rack_x + rack_w + 2, rack_y - 5),
+                           (rack_x - 5, rack_y + rack_h + 2), (rack_x + rack_w + 2, rack_y + rack_h + 2)]
+        for cx, cy in corner_positions:
+            pygame.draw.circle(screen, frame_color, (cx, cy), 8)
+            pygame.draw.circle(screen, GOLD_TRIM, (cx, cy), 5)
+            pygame.draw.circle(screen, frame_dark, (cx, cy), 8, 2)
+
+        # 진열대 배경 (벨벳 느낌)
+        pygame.draw.rect(screen, (60, 25, 28), (rack_x, rack_y, rack_w, rack_h))
+        # 벨벳 질감
+        for tex in range(10):
+            tex_y = rack_y + tex * 17
+            pygame.draw.line(screen, (55, 22, 25), (rack_x, tex_y), (rack_x + rack_w, tex_y), 1)
+
+        # === 상단: 대형 전투도끼 (드워프 명품) ===
+        ax_x, ax_y = rack_x + 65, rack_y + 20
+
+        # 자루 (정교한 나무 + 가죽)
+        handle_pts = [(ax_x - 2, ax_y + 10), (ax_x + 8, ax_y + 10),
+                     (ax_x + 7, ax_y + 70), (ax_x - 1, ax_y + 70)]
+        pygame.draw.polygon(screen, WOOD_MID, handle_pts)
+        pygame.draw.polygon(screen, WOOD_DARK, handle_pts, 2)
+        # 가죽 감김
+        for wrap in range(4):
+            wrap_y = ax_y + 40 + wrap * 7
+            pygame.draw.rect(screen, (100, 70, 45), (ax_x - 3, wrap_y, 12, 5))
+            pygame.draw.line(screen, (80, 55, 35), (ax_x - 3, wrap_y + 2), (ax_x + 8, wrap_y + 2), 1)
+
+        # 도끼 머리 (화려한 양날)
+        head_w, head_h = 55, 45
+        head_x = ax_x - head_w // 2 + 3
+        head_y = ax_y - 5
+
+        # 왼쪽 날
+        left_blade = [
+            (head_x + head_w // 2, head_y),
+            (head_x + head_w // 2, head_y + head_h),
+            (head_x - 8, head_y + head_h - 8),
+            (head_x - 15, head_y + head_h // 2),
+            (head_x - 8, head_y + 8)
+        ]
+        pygame.draw.polygon(screen, METAL_LIGHT, left_blade)
+        # 날 광택
+        pygame.draw.polygon(screen, (220, 220, 235), [
+            (head_x + head_w // 2 - 5, head_y + 5),
+            (head_x + head_w // 2 - 5, head_y + head_h - 5),
+            (head_x - 5, head_y + head_h // 2)
+        ])
+        pygame.draw.polygon(screen, METAL_DARK, left_blade, 2)
+
+        # 오른쪽 날
+        right_blade = [
+            (head_x + head_w // 2, head_y),
+            (head_x + head_w // 2, head_y + head_h),
+            (head_x + head_w + 8, head_y + head_h - 8),
+            (head_x + head_w + 15, head_y + head_h // 2),
+            (head_x + head_w + 8, head_y + 8)
+        ]
+        pygame.draw.polygon(screen, METAL_LIGHT, right_blade)
+        pygame.draw.polygon(screen, (220, 220, 235), [
+            (head_x + head_w // 2 + 5, head_y + 5),
+            (head_x + head_w // 2 + 5, head_y + head_h - 5),
+            (head_x + head_w + 5, head_y + head_h // 2)
+        ])
+        pygame.draw.polygon(screen, METAL_DARK, right_blade, 2)
+
+        # 중앙 장식 (금 인레이)
+        pygame.draw.circle(screen, GOLD_TRIM, (head_x + head_w // 2, head_y + head_h // 2), 10)
+        pygame.draw.circle(screen, (240, 200, 100), (head_x + head_w // 2, head_y + head_h // 2), 6)
+        # 룬 문양
+        pygame.draw.circle(screen, GOLD_TRIM, (head_x + head_w // 2, head_y + head_h // 2), 4, 1)
+
+        # === 중단 왼쪽: 드워프 워해머 ===
+        wh_x, wh_y = rack_x + 25, rack_y + 82
+
+        # 자루 (두꺼움)
+        pygame.draw.rect(screen, WOOD_DARK, (wh_x + 8, wh_y + 5, 8, 55))
+        pygame.draw.rect(screen, WOOD_LIGHT, (wh_x + 9, wh_y + 5, 2, 55))
+        # 금속 밴드
+        pygame.draw.rect(screen, BRONZE, (wh_x + 6, wh_y + 50, 12, 5))
+
+        # 해머 머리 (거대하고 각진)
+        hammer_w, hammer_h = 40, 24
+        hammer_x = wh_x - 8
+        hammer_y = wh_y - 8
+
+        # 메인 해머 헤드
+        pygame.draw.rect(screen, METAL_MID, (hammer_x, hammer_y, hammer_w, hammer_h), border_radius=3)
+        pygame.draw.rect(screen, METAL_LIGHT, (hammer_x + 2, hammer_y + 2, hammer_w - 4, 6), border_radius=2)
+        pygame.draw.rect(screen, METAL_DARK, (hammer_x, hammer_y, hammer_w, hammer_h), 2, border_radius=3)
+
+        # 스파이크 (왼쪽)
+        spike_pts = [(hammer_x, hammer_y + hammer_h // 2 - 4),
+                    (hammer_x - 15, hammer_y + hammer_h // 2),
+                    (hammer_x, hammer_y + hammer_h // 2 + 4)]
+        pygame.draw.polygon(screen, METAL_LIGHT, spike_pts)
+        pygame.draw.polygon(screen, METAL_DARK, spike_pts, 1)
+
+        # 룬 장식 (해머 면)
+        pygame.draw.rect(screen, GOLD_TRIM, (hammer_x + 15, hammer_y + 8, 10, 8), border_radius=2)
+
+        # === 중단 오른쪽: 드워프 방패 (원형 - 정교한 문양) ===
+        sh_x, sh_y = rack_x + 75, rack_y + 85
+        sh_r = 28
+
+        # 방패 본체 (금속)
+        pygame.draw.circle(screen, METAL_MID, (sh_x + sh_r, sh_y + sh_r), sh_r)
+
+        # 동심원 패턴
+        for ring in range(4):
+            ring_r = sh_r - ring * 6
+            if ring_r > 5:
+                ring_color = METAL_LIGHT if ring % 2 == 0 else METAL_MID
+                pygame.draw.circle(screen, ring_color, (sh_x + sh_r, sh_y + sh_r), ring_r, 2)
+
+        # 중앙 보스 (큰 금속 돌출부)
+        pygame.draw.circle(screen, BRONZE, (sh_x + sh_r, sh_y + sh_r), 12)
+        pygame.draw.circle(screen, GOLD_TRIM, (sh_x + sh_r, sh_y + sh_r), 8)
+        pygame.draw.circle(screen, (240, 200, 100), (sh_x + sh_r, sh_y + sh_r), 4)
+
+        # 룬 문양 (8방향)
+        for rune in range(8):
+            rune_angle = rune * 0.785  # 45도
+            rune_dist = sh_r - 8
+            rune_x = sh_x + sh_r + int(rune_dist * math.cos(rune_angle))
+            rune_y = sh_y + sh_r + int(rune_dist * math.sin(rune_angle))
+            pygame.draw.circle(screen, GOLD_TRIM, (rune_x, rune_y), 3)
+
+        # 테두리
+        pygame.draw.circle(screen, METAL_DARK, (sh_x + sh_r, sh_y + sh_r), sh_r, 3)
+        pygame.draw.circle(screen, frame_color, (sh_x + sh_r, sh_y + sh_r), sh_r + 2, 2)
+
+        # === 하단: 드워프 숏소드 2개 (교차 배치) ===
+        # 왼쪽 검
+        sw1_x, sw1_y = rack_x + 25, rack_y + 145
+
+        # 날 (넓고 짧은 드워프 스타일)
+        blade1_pts = [(sw1_x, sw1_y - 35), (sw1_x + 12, sw1_y - 35),
+                     (sw1_x + 14, sw1_y - 5), (sw1_x - 2, sw1_y - 5)]
+        pygame.draw.polygon(screen, METAL_LIGHT, blade1_pts)
+        # 중앙 홈
+        pygame.draw.line(screen, (200, 200, 220), (sw1_x + 6, sw1_y - 32), (sw1_x + 6, sw1_y - 8), 2)
+        pygame.draw.polygon(screen, METAL_DARK, blade1_pts, 2)
+
+        # 가드 (금속 십자형)
+        pygame.draw.rect(screen, BRONZE, (sw1_x - 8, sw1_y - 5, 28, 6))
+        pygame.draw.rect(screen, GOLD_TRIM, (sw1_x - 8, sw1_y - 5, 28, 2))
+
+        # 손잡이
+        pygame.draw.rect(screen, WOOD_DARK, (sw1_x + 2, sw1_y + 1, 8, 18))
+        pygame.draw.rect(screen, (100, 70, 45), (sw1_x + 3, sw1_y + 3, 2, 14))  # 가죽 감김
+
+        # 폼멜
+        pygame.draw.circle(screen, GOLD_TRIM, (sw1_x + 6, sw1_y + 22), 5)
+        pygame.draw.circle(screen, (240, 200, 100), (sw1_x + 6, sw1_y + 22), 3)
+
+        # 오른쪽 검 (약간 기울어짐)
+        sw2_x, sw2_y = rack_x + 55, rack_y + 143
+
+        # 날
+        blade2_pts = [(sw2_x + 4, sw2_y - 33), (sw2_x + 16, sw2_y - 35),
+                     (sw2_x + 14, sw2_y - 5), (sw2_x + 2, sw2_y - 3)]
+        pygame.draw.polygon(screen, METAL_LIGHT, blade2_pts)
+        pygame.draw.line(screen, (200, 200, 220), (sw2_x + 9, sw2_y - 30), (sw2_x + 8, sw2_y - 8), 2)
+        pygame.draw.polygon(screen, METAL_DARK, blade2_pts, 2)
+
+        # 가드
+        pygame.draw.rect(screen, COPPER, (sw2_x - 5, sw2_y - 5, 26, 5))
+
+        # 손잡이
+        pygame.draw.rect(screen, WOOD_MID, (sw2_x + 4, sw2_y, 8, 16))
+
+        # 폼멜
+        pygame.draw.circle(screen, COPPER, (sw2_x + 8, sw2_y + 19), 5)
+
+        # === 걸이 고리 (무기 지지대) ===
+        hook_positions = [(rack_x + 65, rack_y + 65),  # 도끼용
+                         (rack_x + 25, rack_y + 72),   # 해머용
+                         (rack_x + 90, rack_y + 80)]   # 방패용
+        for hx, hy in hook_positions:
+            pygame.draw.arc(screen, METAL_DARK, (hx - 8, hy - 5, 16, 12), 3.14, 6.28, 3)
+            pygame.draw.circle(screen, METAL_LIGHT, (hx - 7, hy), 3)
+            pygame.draw.circle(screen, METAL_LIGHT, (hx + 7, hy), 3)
+
+        # === 7. 작업대 영역 (하단) ===
+        table_x = -cam_x + 15
+        table_y = wall_h + 130 - cam_y
+        table_w, table_h = 150, 55
+
+        # 견고한 작업대 (두꺼운 나무)
+        pygame.draw.ellipse(screen, (30, 25, 18), (table_x, table_y + table_h - 5, table_w, 12))  # 그림자
+        pygame.draw.rect(screen, WOOD_MID, (table_x, table_y, table_w, 15))  # 상판
+        pygame.draw.rect(screen, WOOD_LIGHT, (table_x, table_y, table_w, 5))
+        pygame.draw.rect(screen, WOOD_DARK, (table_x, table_y, table_w, 15), 2)
+
+        # 다리 (두꺼운)
+        pygame.draw.rect(screen, WOOD_DARK, (table_x + 10, table_y + 15, 15, table_h - 15))
+        pygame.draw.rect(screen, WOOD_DARK, (table_x + table_w - 25, table_y + 15, 15, table_h - 15))
+        # 보강대
+        pygame.draw.rect(screen, WOOD_MID, (table_x + 25, table_y + 35, table_w - 50, 8))
+
+        # 작업대 위 도구들
+        # 집게
+        pygame.draw.rect(screen, METAL_DARK, (table_x + 20, table_y - 4, 35, 5))
+        pygame.draw.ellipse(screen, METAL_MID, (table_x + 15, table_y - 6, 12, 10))
+        pygame.draw.ellipse(screen, METAL_MID, (table_x + 50, table_y - 6, 12, 10))
+
+        # 다양한 망치들
+        for i, (mx, mc) in enumerate([(70, METAL_MID), (95, COPPER), (120, METAL_LIGHT)]):
+            pygame.draw.rect(screen, WOOD_MID, (table_x + mx + 3, table_y - 3, 4, 18))
+            pygame.draw.rect(screen, mc, (table_x + mx - 3, table_y - 7, 16, 10))
+            pygame.draw.rect(screen, METAL_DARK, (table_x + mx - 3, table_y - 7, 16, 10), 1)
+
+        # 금속 잉곳들 (다양한 종류)
+        ingot_colors = [(METAL_LIGHT, "철"), (COPPER, "구리"), (GOLD_TRIM, "금"), (BRONZE, "청동")]
+        for i, (ic, _) in enumerate(ingot_colors):
+            ix = table_x + table_w - 50 + (i % 2) * 22
+            iy = table_y - 8 - (i // 2) * 10
+            pygame.draw.rect(screen, ic, (ix, iy, 18, 8))
+            pygame.draw.rect(screen, tuple(max(0, c - 30) for c in ic), (ix, iy, 18, 8), 1)
+            pygame.draw.line(screen, tuple(min(255, c + 40) for c in ic), (ix + 2, iy + 2), (ix + 15, iy + 2), 1)
+
+        # === 8. 오른쪽 - 재료 선반 ===
+        shelf_x = self.pixel_width - 90 - cam_x
+        shelf_y = wall_h + 50 - cam_y
+
+        # 선반 프레임
+        pygame.draw.rect(screen, WOOD_DARK, (shelf_x - 5, shelf_y - 5, 80, 140))
+        pygame.draw.rect(screen, METAL_DARK, (shelf_x - 5, shelf_y - 5, 80, 140), 2)
+
+        # 선반 (4단)
+        for i in range(4):
+            sy = shelf_y + i * 33
+            pygame.draw.rect(screen, WOOD_MID, (shelf_x, sy, 70, 8))
+            pygame.draw.rect(screen, WOOD_LIGHT, (shelf_x, sy, 70, 3))
+
+            # 선반 위 물건들
+            if i == 0:
+                # 광석/보석
+                ores = [(40, 40, 45), (100, 60, 40), (60, 80, 60), (80, 70, 100)]
+                for j, oc in enumerate(ores):
+                    pygame.draw.polygon(screen, oc, [
+                        (shelf_x + 8 + j * 16, sy - 12),
+                        (shelf_x + 4 + j * 16, sy - 5),
+                        (shelf_x + 18 + j * 16, sy - 5)
+                    ])
+            elif i == 1:
+                # 석탄 더미
+                for j in range(6):
+                    pygame.draw.circle(screen, (35, 35, 40), (shelf_x + 10 + j * 10, sy - 6), 5)
+            elif i == 2:
+                # 가죽/천 롤
+                for j in range(2):
+                    pygame.draw.ellipse(screen, (120, 80, 50), (shelf_x + 10 + j * 30, sy - 15, 20, 12))
+                    pygame.draw.ellipse(screen, (100, 65, 40), (shelf_x + 10 + j * 30, sy - 15, 20, 12), 1)
+            else:
+                # 병/물약
+                for j in range(3):
+                    pygame.draw.rect(screen, [(100, 150, 200), (200, 100, 100), (100, 200, 100)][j],
+                                   (shelf_x + 10 + j * 20, sy - 18, 12, 15))
+                    pygame.draw.rect(screen, WOOD_LIGHT, (shelf_x + 12 + j * 20, sy - 22, 8, 5))
+
+        # === 9. 물통/냉각통 ===
+        bucket_x = anvil_x + 90
+        bucket_y = anvil_y + 40
+
+        # 나무 물통 (금속 밴드)
+        pygame.draw.ellipse(screen, (30, 50, 70), (bucket_x - 2, bucket_y + 35, 44, 10))  # 물 반사
+        pygame.draw.ellipse(screen, WOOD_MID, (bucket_x, bucket_y + 30, 40, 12))  # 바닥
+        pygame.draw.rect(screen, WOOD_MID, (bucket_x + 3, bucket_y, 34, 35))  # 몸통
+        pygame.draw.ellipse(screen, (40, 70, 100), (bucket_x + 3, bucket_y - 3, 34, 10))  # 물
+        pygame.draw.ellipse(screen, (60, 100, 140), (bucket_x + 8, bucket_y - 2, 15, 5))  # 물 하이라이트
+
+        # 금속 밴드
+        pygame.draw.rect(screen, METAL_DARK, (bucket_x, bucket_y + 5, 40, 4))
+        pygame.draw.rect(screen, METAL_DARK, (bucket_x, bucket_y + 25, 40, 4))
+        pygame.draw.rect(screen, METAL_LIGHT, (bucket_x, bucket_y + 5, 40, 1))
+
+        # 수증기 (뜨거운 금속 담글 때)
+        if int(anim * 3) % 5 < 2:
+            for st in range(4):
+                steam_y = bucket_y - 10 - st * 8 - int(anim * 20) % 15
+                steam_alpha = max(0, 80 - st * 20)
+                steam_surf = pygame.Surface((20, 10), pygame.SRCALPHA)
+                pygame.draw.ellipse(steam_surf, (200, 200, 210, steam_alpha), (0, 0, 20, 10))
+                screen.blit(steam_surf, (bucket_x + 10 + int(3 * math.sin(anim * 4 + st)), steam_y))
+
+        # === 10. 바닥 장식 (도구, 금속 조각) ===
+        # 여기저기 흩어진 도구들
+        debris_items = [
+            (180, self.pixel_height - 100, "hammer"),
+            (280, self.pixel_height - 85, "tongs"),
+            (400, self.pixel_height - 95, "metal"),
+        ]
+        for dx, dy, dtype in debris_items:
+            ddx, ddy = dx - cam_x, dy - cam_y
+            if dtype == "hammer":
+                pygame.draw.rect(screen, WOOD_MID, (ddx, ddy, 4, 20))
+                pygame.draw.rect(screen, METAL_MID, (ddx - 5, ddy - 3, 14, 8))
+            elif dtype == "tongs":
+                pygame.draw.line(screen, METAL_DARK, (ddx, ddy), (ddx + 25, ddy + 5), 3)
+            else:
+                pygame.draw.rect(screen, METAL_LIGHT, (ddx, ddy, 12, 6))
+
+        # === 11. 문 그리기 ===
+        self._draw_door(screen)
+
+        # === 12. 조명 효과 ===
+        # 용광로 빛
+        light_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        light_cx = fire_x + fire_w // 2 + cam_x
+        light_cy = fire_y + fire_h // 2 + cam_y
+
+        for radius in range(350, 50, -40):
+            alpha = int(12 * fire_flicker * (350 - radius) / 350)
+            pygame.draw.circle(light_surf, (255, 130, 40, alpha), (light_cx, light_cy), radius)
+
+        screen.blit(light_surf, (0, 0))
+
+        # 전체적인 따뜻한 오버레이
+        warm_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        warm_overlay.fill((255, 200, 150, 15))
+        screen.blit(warm_overlay, (0, 0))
+
+    # =========================================================================
+    # 강화 시스템 메서드들 (BLACKSMITH 전용)
+    # =========================================================================
+
+    def _get_enhanceable_items(self):
+        """강화 가능한 아이템 목록 반환 (롤옵션 있는 패시브 아이템 + 전설 아이템)"""
+        from .constants import LEGENDARY_ITEM_NAMES
+        try:
+            import pingfighter
+            passive_list = getattr(pingfighter, 'passive_item_list', [])
+        except:
+            return []
+
+        enhanceable = []
+        for i, item in enumerate(passive_list):
+            item_name = item.get("name", "")
+            is_legendary = item.get("type") == "legendary" or item_name in LEGENDARY_ITEM_NAMES
+
+            # 롤옵션이 있는 아이템 또는 전설 아이템
+            if item.get("rolled_options") and len(item.get("rolled_options", [])) > 0:
+                enhanceable.append((i, item))
+            elif is_legendary:
+                # 전설 아이템은 롤옵션이 없어도 강화 가능
+                enhanceable.append((i, item))
+        return enhanceable
+
+    def _get_enhancement_level(self, item):
+        """아이템의 현재 강화 단계 반환"""
+        return item.get("enhancement_level", 0)
+
+    def _get_enhancement_cost(self, current_level, item=None):
+        """강화 비용 반환 (전설 아이템은 3배)"""
+        from .constants import ENHANCEMENT_COSTS, LEGENDARY_ITEM_NAMES, LEGENDARY_ENHANCEMENT_COST_MULTIPLIER
+        base_cost = ENHANCEMENT_COSTS.get(current_level, 1000)
+
+        # 전설 아이템 여부 확인
+        if item:
+            item_name = item.get("name", "")
+            is_legendary = item.get("type") == "legendary" or item_name in LEGENDARY_ITEM_NAMES
+            if is_legendary:
+                return base_cost * LEGENDARY_ENHANCEMENT_COST_MULTIPLIER
+
+        return base_cost
+
+    def _get_enhancement_rates(self, current_level):
+        """강화 확률 반환"""
+        from .constants import ENHANCEMENT_RATES
+        return ENHANCEMENT_RATES.get(current_level, {"success": 10, "maintain": 50, "fail": 40})
+
+    def _get_enhancement_bonus(self, level):
+        """강화 보너스 퍼센트 반환"""
+        from .constants import ENHANCEMENT_BONUSES
+        return ENHANCEMENT_BONUSES.get(level, 0)
+
+    def _do_enhancement(self):
+        """강화 실행 및 결과 결정"""
+        import random
+        from .constants import MAX_ENHANCEMENT_LEVEL
+
+        if not self.enhancement_selected_item:
+            return None
+
+        current_level = self._get_enhancement_level(self.enhancement_selected_item)
+
+        # 최대 레벨 체크
+        if current_level >= MAX_ENHANCEMENT_LEVEL:
+            return "max_level"
+
+        rates = self._get_enhancement_rates(current_level)
+        roll = random.randint(1, 100)
+
+        if roll <= rates["success"]:
+            return "success"
+        elif roll <= rates["success"] + rates["maintain"]:
+            return "maintain"
+        else:
+            return "fail"
+
+    def _apply_enhancement_result(self, result):
+        """강화 결과 적용"""
+        try:
+            import pingfighter
+            passive_list = getattr(pingfighter, 'passive_item_list', [])
+        except:
+            return
+
+        if self.enhancement_selected_idx < 0 or self.enhancement_selected_idx >= len(passive_list):
+            return
+
+        item = passive_list[self.enhancement_selected_idx]
+
+        if result == "success":
+            # 강화 성공: 레벨 +1
+            current_level = item.get("enhancement_level", 0)
+            item["enhancement_level"] = current_level + 1
+            # 롤옵션 보너스 업데이트
+            self._update_roll_option_bonus(item)
+
+        elif result == "maintain":
+            # 강화 유지: 변경 없음
+            pass
+
+        elif result == "fail":
+            # 강화 실패: 아이템 파괴
+            if self.enhancement_selected_idx < len(passive_list):
+                del passive_list[self.enhancement_selected_idx]
+
+    def _update_roll_option_bonus(self, item):
+        """강화 레벨에 따른 롤옵션 보너스 업데이트"""
+        level = item.get("enhancement_level", 0)
+        bonus_pct = self._get_enhancement_bonus(level)
+        item["enhancement_bonus_pct"] = bonus_pct
+
+    def _handle_enhancement_menu_click(self, pos):
+        """강화 메뉴 클릭 처리"""
+        # 메뉴 영역 계산
+        menu_w, menu_h = 220, 140
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        # 강화하기 버튼
+        enhance_btn = pygame.Rect(menu_x + 20, menu_y + 50, menu_w - 40, 35)
+        if enhance_btn.collidepoint(pos):
+            self.enhancement_menu_open = False
+            self.enhancement_item_select_open = True
+            self.enhancement_scroll = 0
+            self.enhancement_hover_item = None
+            return ("enhancement_item_select", None)
+
+        # 나가기 버튼
+        exit_btn = pygame.Rect(menu_x + 20, menu_y + 95, menu_w - 40, 30)
+        if exit_btn.collidepoint(pos):
+            self.enhancement_menu_open = False
+            return ("enhancement_close", None)
+
+        # 바깥 클릭 시 닫기
+        menu_rect = pygame.Rect(menu_x, menu_y, menu_w, menu_h)
+        if not menu_rect.collidepoint(pos):
+            self.enhancement_menu_open = False
+            return ("enhancement_close", None)
+
+        return None
+
+    def _handle_enhancement_item_select_click(self, pos):
+        """강화 아이템 선택창 클릭 처리"""
+        # UI 크기 및 위치
+        total_w, total_h = 400, 380
+        ui_x = (SCREEN_WIDTH - total_w) // 2
+        ui_y = (SCREEN_HEIGHT - total_h) // 2
+
+        # 닫기 버튼
+        close_btn = pygame.Rect(ui_x + total_w - 35, ui_y + 5, 30, 30)
+        if close_btn.collidepoint(pos):
+            self.enhancement_item_select_open = False
+            return ("enhancement_close", None)
+
+        # 아이템 클릭 체크
+        for idx, rect in self.enhancement_item_rects.items():
+            if rect.collidepoint(pos):
+                items = self._get_enhanceable_items()
+                if idx < len(items):
+                    orig_idx, item = items[idx]
+                    self.enhancement_selected_item = item
+                    self.enhancement_selected_idx = orig_idx
+                    self.enhancement_item_select_open = False
+                    self.enhancement_confirm_open = True
+                    return ("enhancement_confirm", item)
+
+        # 바깥 클릭
+        ui_rect = pygame.Rect(ui_x, ui_y, total_w, total_h)
+        if not ui_rect.collidepoint(pos):
+            self.enhancement_item_select_open = False
+            return ("enhancement_close", None)
+
+        return None
+
+    def _handle_enhancement_confirm_click(self, pos):
+        """강화 확인창 클릭 처리"""
+        dialog_w, dialog_h = 320, 200
+        dialog_x = (SCREEN_WIDTH - dialog_w) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_h) // 2
+
+        btn_w, btn_h = 90, 35
+        btn_y = dialog_y + dialog_h - 55
+
+        # 예 버튼
+        yes_btn = pygame.Rect(dialog_x + dialog_w // 2 - btn_w - 15, btn_y, btn_w, btn_h)
+        if yes_btn.collidepoint(pos):
+            # 골드 체크 (전설 아이템은 3배 비용)
+            cost = self._get_enhancement_cost(self._get_enhancement_level(self.enhancement_selected_item), self.enhancement_selected_item)
+            player_gold = self.player_data.get('gold', 0)
+
+            if player_gold >= cost:
+                # 골드 차감 (HUD 동기화 포함)
+                self._subtract_gold(cost)
+                # pingfighter 전역 gold도 업데이트
+                try:
+                    import pingfighter
+                    pingfighter.gold = self.player_data['gold']
+                except:
+                    pass
+                # 골드 차감 애니메이션 표시
+                self._add_gold_float_animation(cost, is_gain=False)
+
+                self.enhancement_confirm_open = False
+                self.enhancement_animation_playing = True
+                self.enhancement_animation_timer = 0.0
+                self.enhancement_last_swing = -1  # 스윙 사운드 초기화
+                return ("enhancement_start", None)
+            else:
+                # 골드 부족 - 그냥 닫기
+                self.enhancement_confirm_open = False
+                self.enhancement_selected_item = None
+                return ("enhancement_no_gold", None)
+
+        # 아니오 버튼
+        no_btn = pygame.Rect(dialog_x + dialog_w // 2 + 15, btn_y, btn_w, btn_h)
+        if no_btn.collidepoint(pos):
+            self.enhancement_confirm_open = False
+            self.enhancement_selected_item = None
+            return ("enhancement_cancel", None)
+
+        return None
+
+    def _handle_enhancement_result_click(self, pos):
+        """강화 결과창 클릭 처리 (아무 곳이나 클릭하면 닫기)"""
+        self.enhancement_result_open = False
+        self.enhancement_result = None
+        self.enhancement_selected_item = None
+        self.enhancement_selected_idx = -1
+        return ("enhancement_done", None)
+
+    def _update_enhancement_animation(self, dt):
+        """강화 애니메이션 업데이트"""
+        from .constants import ENHANCEMENT_ANIMATION_TIME
+
+        if not self.enhancement_animation_playing:
+            return
+
+        self.enhancement_animation_timer += dt
+
+        # 3초 후 결과 표시
+        if self.enhancement_animation_timer >= ENHANCEMENT_ANIMATION_TIME:
+            self.enhancement_animation_playing = False
+            # 결과 결정
+            self.enhancement_result = self._do_enhancement()
+            # 결과 적용
+            self._apply_enhancement_result(self.enhancement_result)
+            self.enhancement_result_open = True
+
+    def _draw_enhancement_menu(self, screen):
+        """강화 메뉴 그리기 (헤파이토스 메인 메뉴)"""
+        import math
+
+        # 색상
+        BG_DARK = (28, 22, 18)
+        BORDER_GOLD = (200, 160, 80)
+        TEXT_WHITE = (240, 235, 220)
+        TEXT_GOLD = (255, 210, 100)
+        BTN_BG = (60, 45, 35)
+        BTN_HOVER = (90, 70, 50)
+
+        menu_w, menu_h = 220, 140
+        menu_x = (SCREEN_WIDTH - menu_w) // 2
+        menu_y = (SCREEN_HEIGHT - menu_h) // 2
+
+        mouse_pos = pygame.mouse.get_pos()
+
+        # 반투명 오버레이
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        screen.blit(overlay, (0, 0))
+
+        # 메뉴 배경
+        pygame.draw.rect(screen, BG_DARK, (menu_x, menu_y, menu_w, menu_h), border_radius=10)
+        pygame.draw.rect(screen, BORDER_GOLD, (menu_x, menu_y, menu_w, menu_h), 3, border_radius=10)
+
+        # 제목
+        font_medium = self.fonts.get('medium')
+        font_small = self.fonts.get('small')
+
+        if font_medium:
+            title_surf, _ = font_medium.render("대장 헤파이토스", TEXT_GOLD)
+            screen.blit(title_surf, (menu_x + (menu_w - title_surf.get_width()) // 2, menu_y + 12))
+
+        # 강화하기 버튼
+        enhance_btn = pygame.Rect(menu_x + 20, menu_y + 50, menu_w - 40, 35)
+        btn_color = BTN_HOVER if enhance_btn.collidepoint(mouse_pos) else BTN_BG
+        pygame.draw.rect(screen, btn_color, enhance_btn, border_radius=6)
+        pygame.draw.rect(screen, BORDER_GOLD, enhance_btn, 2, border_radius=6)
+        if font_small:
+            btn_surf, _ = font_small.render("강화하기", TEXT_WHITE)
+            screen.blit(btn_surf, (enhance_btn.centerx - btn_surf.get_width() // 2,
+                                   enhance_btn.centery - btn_surf.get_height() // 2))
+
+        # 나가기 버튼
+        exit_btn = pygame.Rect(menu_x + 20, menu_y + 95, menu_w - 40, 30)
+        btn_color = BTN_HOVER if exit_btn.collidepoint(mouse_pos) else BTN_BG
+        pygame.draw.rect(screen, btn_color, exit_btn, border_radius=6)
+        pygame.draw.rect(screen, (150, 130, 100), exit_btn, 1, border_radius=6)
+        if font_small:
+            btn_surf, _ = font_small.render("나가기", (180, 170, 150))
+            screen.blit(btn_surf, (exit_btn.centerx - btn_surf.get_width() // 2,
+                                   exit_btn.centery - btn_surf.get_height() // 2))
+
+    def _draw_enhancement_item_select(self, screen):
+        """강화 아이템 선택창 그리기"""
+        import math
+
+        # 색상
+        BG_DARK = (22, 26, 40)
+        PANEL_BG = (30, 36, 54)
+        BORDER_MAIN = (200, 160, 80)
+        BORDER_GOLD = (255, 210, 100)
+        TEXT_WHITE = (240, 240, 240)
+        TEXT_GOLD = (255, 215, 100)
+        TEXT_GRAY = (150, 150, 150)
+        CELL_BG = (35, 40, 55)
+        CELL_BORDER = (100, 130, 170)
+        CELL_HOVER = (180, 150, 100)
+
+        total_w, total_h = 400, 380
+        ui_x = (SCREEN_WIDTH - total_w) // 2
+        ui_y = (SCREEN_HEIGHT - total_h) // 2
+
+        mouse_pos = pygame.mouse.get_pos()
+
+        # 반투명 오버레이
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        # 메인 배경
+        pygame.draw.rect(screen, BG_DARK, (ui_x, ui_y, total_w, total_h), border_radius=10)
+        pygame.draw.rect(screen, BORDER_MAIN, (ui_x, ui_y, total_w, total_h), 3, border_radius=10)
+
+        font_medium = self.fonts.get('medium')
+        font_small = self.fonts.get('small')
+        font_tiny = self.fonts.get('tiny') or font_small
+
+        # 제목
+        if font_medium:
+            title_surf, _ = font_medium.render("강화할 아이템 선택", TEXT_GOLD)
+            screen.blit(title_surf, (ui_x + 20, ui_y + 15))
+
+        # 닫기 버튼
+        close_btn = pygame.Rect(ui_x + total_w - 35, ui_y + 5, 30, 30)
+        pygame.draw.rect(screen, (80, 60, 50), close_btn, border_radius=5)
+        if font_small:
+            x_surf, _ = font_small.render("X", TEXT_WHITE)
+            screen.blit(x_surf, (close_btn.centerx - x_surf.get_width() // 2,
+                                close_btn.centery - x_surf.get_height() // 2))
+
+        # 아이템 목록
+        items = self._get_enhanceable_items()
+
+        if not items:
+            # 강화 가능한 아이템 없음
+            if font_small:
+                no_item_surf, _ = font_small.render("강화 가능한 아이템이 없습니다", TEXT_GRAY)
+                screen.blit(no_item_surf, (ui_x + (total_w - no_item_surf.get_width()) // 2, ui_y + 180))
+                hint_surf, _ = font_small.render("(롤옵션이 있는 패시브/전설 아이템 강화 가능)", (120, 120, 140))
+                screen.blit(hint_surf, (ui_x + (total_w - hint_surf.get_width()) // 2, ui_y + 210))
+            return
+
+        # 그리드 설정 (아이콘만 표시, 정사각형 셀)
+        cell_w, cell_h = 48, 48
+        cell_gap = 8
+        cols = 6
+        grid_x = ui_x + 25
+        grid_y = ui_y + 55
+        grid_h = total_h - 100
+
+        visible_rows = max(1, (grid_h + cell_gap) // (cell_h + cell_gap))
+        total_rows = max(1, math.ceil(len(items) / cols))
+        self._enhancement_max_scroll = max(0, total_rows - visible_rows)
+        self.enhancement_scroll = max(0, min(self.enhancement_scroll, self._enhancement_max_scroll))
+        start_idx = self.enhancement_scroll * cols
+
+        self.enhancement_item_rects = {}
+        self.enhancement_hover_item = None
+
+        # pingfighter에서 아이콘 가져오기
+        try:
+            import pingfighter
+            get_item_icon = getattr(pingfighter, 'get_item_icon', None)
+            get_item_korean_name = getattr(pingfighter, 'get_item_korean_name', None)
+        except:
+            get_item_icon = None
+            get_item_korean_name = None
+
+        for vis_row in range(visible_rows):
+            for col in range(cols):
+                idx = start_idx + vis_row * cols + col
+                if idx >= len(items):
+                    continue
+
+                orig_idx, item = items[idx]
+                cell_rect = pygame.Rect(
+                    grid_x + col * (cell_w + cell_gap),
+                    grid_y + vis_row * (cell_h + cell_gap),
+                    cell_w, cell_h
+                )
+                self.enhancement_item_rects[idx] = cell_rect
+
+                # 호버 체크
+                is_hover = cell_rect.collidepoint(mouse_pos)
+                if is_hover:
+                    self.enhancement_hover_item = (idx, item, cell_rect)
+
+                # 셀 배경
+                pygame.draw.rect(screen, CELL_BG, cell_rect, border_radius=6)
+                border_color = CELL_HOVER if is_hover else CELL_BORDER
+                pygame.draw.rect(screen, border_color, cell_rect, 2 if is_hover else 1, border_radius=6)
+
+                # 아이콘
+                item_name = item.get("name", "")
+                icon = None
+                if get_item_icon:
+                    icon = get_item_icon(item_name)
+                if not icon:
+                    icon = item.get("icon")
+
+                if icon:
+                    icon_size = 36
+                    scaled_icon = pygame.transform.scale(icon, (icon_size, icon_size))
+                    screen.blit(scaled_icon, (cell_rect.x + (cell_w - icon_size) // 2, cell_rect.y + (cell_h - icon_size) // 2))
+
+                # 강화 레벨 표시 (아이콘 우측 상단에)
+                level = self._get_enhancement_level(item)
+                if level > 0:
+                    level_text = f"+{level}"
+                    if font_tiny:
+                        level_surf, _ = font_tiny.render(level_text, (100, 255, 100))
+                        screen.blit(level_surf, (cell_rect.right - level_surf.get_width() - 2, cell_rect.y + 2))
+
+        # 툴팁 (호버 아이템 정보)
+        if self.enhancement_hover_item:
+            self._draw_enhancement_item_tooltip(screen, mouse_pos)
+
+        # 하단 안내
+        if font_small:
+            hint_surf, _ = font_small.render("클릭하여 강화할 아이템 선택", TEXT_GRAY)
+            screen.blit(hint_surf, (ui_x + (total_w - hint_surf.get_width()) // 2, ui_y + total_h - 35))
+
+    def _draw_enhancement_item_tooltip(self, screen, mouse_pos):
+        """강화 아이템 툴팁 그리기 - 캐릭터 정보창 패시브 탭과 동일한 스타일"""
+        if not self.enhancement_hover_item:
+            return
+
+        idx, item, cell_rect = self.enhancement_hover_item
+        from .constants import MAX_ENHANCEMENT_LEVEL
+
+        # 색상 (캐릭터 정보창과 동일)
+        DESC_BG = (16, 20, 34, 235)
+        ROLL_BG = (18, 22, 40, 235)
+        BORDER_COLOR = (120, 180, 255)
+        TEXT_WHITE = (240, 240, 240)
+        TEXT_GOLD = (255, 210, 100)
+        TEXT_GREEN = (100, 255, 120)
+        TEXT_RED = (255, 100, 100)
+        TEXT_GRAY = (160, 160, 170)
+        SLOT_COLOR = (255, 220, 160)
+
+        font_small = self.fonts.get('small')
+        font_tiny = self.fonts.get('tiny') or font_small
+
+        # 강화 정보 (전설 아이템은 3배 비용)
+        level = self._get_enhancement_level(item)
+        cost = self._get_enhancement_cost(level, item)
+        rates = self._get_enhancement_rates(level)
+        current_bonus = self._get_enhancement_bonus(level)
+        next_bonus = self._get_enhancement_bonus(level + 1) if level < MAX_ENHANCEMENT_LEVEL else current_bonus
+
+        # 아이템 정보 가져오기
+        name_color = TEXT_GOLD  # 기본 색상
+        try:
+            import pingfighter
+            get_item_display_name = getattr(pingfighter, 'get_item_display_name', None)
+            get_item_korean_name = getattr(pingfighter, 'get_item_korean_name', None)
+            get_item_quality_color = getattr(pingfighter, 'get_item_quality_color', None)
+            get_item_description = getattr(pingfighter, 'get_item_description', None)
+            get_item_slot_label = getattr(pingfighter, 'get_item_slot_label', None)
+            format_roll_option_with_polish = getattr(pingfighter, 'format_roll_option_with_polish', None)
+            # 수식어 포함된 한글 이름 (예: "행운의 가방")
+            if get_item_display_name:
+                korean_name = get_item_display_name(item) or item.get("name", "")
+            elif get_item_korean_name:
+                korean_name = get_item_korean_name(item.get("name", "")) or item.get("name", "")
+            else:
+                korean_name = item.get("name", "")
+            # 등급에 따른 색상
+            if get_item_quality_color:
+                color_result = get_item_quality_color(item)
+                if color_result:
+                    name_color = color_result
+            description = get_item_description(item.get("name", "")) if get_item_description else ""
+            slot_label = get_item_slot_label(item.get("name", "")) if get_item_slot_label else ""
+        except:
+            korean_name = item.get("name", "")
+            description = ""
+            slot_label = ""
+            format_roll_option_with_polish = None
+
+        # 이름에 강화 레벨 추가
+        display_name = korean_name
+        if level > 0:
+            display_name = f"{korean_name} +{level}"
+
+        # 롤옵션 가져오기
+        option_texts = []
+        is_legendary = item.get("type") == "legendary"
+        item_name = item.get("name", "")
+
+        # 전설 아이템인 경우 LEGENDARY_ROLL_OPTIONS에서 롤옵션 가져오기
+        if is_legendary:
+            try:
+                from legendary_items import LEGENDARY_ROLL_OPTIONS, get_legendary_roll_value
+                legend_opts = LEGENDARY_ROLL_OPTIONS.get(item_name, [])
+                for opt in legend_opts:
+                    base_val = get_legendary_roll_value(item_name, opt["key"], apply_polish=False)
+                    polished_val = get_legendary_roll_value(item_name, opt["key"], apply_polish=True)
+                    unit = opt.get("unit", "")
+                    label = opt.get("label", opt["key"])
+                    step = opt.get("step", 1)
+                    is_reverse = opt.get("reverse", False)
+
+                    if isinstance(step, float) and step < 1:
+                        base_str = f"{base_val:.1f}"
+                    else:
+                        base_str = f"{int(base_val)}"
+
+                    # 연마 스킬로 인한 보너스 표시 (+N 또는 -N)
+                    bonus_text = ""
+                    if polished_val != base_val:
+                        if isinstance(step, float) and step < 1:
+                            bonus = polished_val - base_val
+                            bonus_text = f" ({bonus:+.1f}{unit})"
+                        else:
+                            bonus = int(polished_val) - int(base_val)
+                            bonus_text = f" ({bonus:+d}{unit})"
+
+                    option_texts.append({
+                        "text": f"• {label}: {base_str}{unit}{bonus_text}",
+                        "color": (255, 220, 150)
+                    })
+            except Exception:
+                pass
+        else:
+            # 일반 아이템 롤옵션
+            rolled_options = item.get("rolled_options") or []
+            for opt in rolled_options:
+                if format_roll_option_with_polish:
+                    opt_text = format_roll_option_with_polish(opt, item)
+                else:
+                    opt_text = opt.get("text", "")
+                if opt_text:
+                    option_texts.append({"text": opt_text, "color": opt.get("color", (200, 210, 230))})
+
+        # 폰트 높이
+        line_height = 18
+
+        # 왼쪽 박스 (아이템 정보 + 강화 정보)
+        desc_lines = []
+        if description:
+            # 설명 줄바꿈
+            words = description.split()
+            current_line = ""
+            for word in words:
+                test_line = current_line + " " + word if current_line else word
+                if font_tiny:
+                    test_surf, _ = font_tiny.render(test_line, TEXT_WHITE)
+                    if test_surf.get_width() > 200:
+                        if current_line:
+                            desc_lines.append(current_line)
+                        current_line = word
+                    else:
+                        current_line = test_line
+                else:
+                    current_line = test_line
+            if current_line:
+                desc_lines.append(current_line)
+
+        # 강화 정보 라인들 (확률은 비공개)
+        enhance_lines = []
+        # 전설 아이템 여부 확인
+        from .constants import LEGENDARY_ITEM_NAMES
+        item_name = item.get("name", "")
+        is_legendary = item.get("type") == "legendary" or item_name in LEGENDARY_ITEM_NAMES
+
+        if level >= MAX_ENHANCEMENT_LEVEL:
+            enhance_lines.append({"text": "최대 강화 달성!", "color": TEXT_GREEN})
+            enhance_lines.append({"text": f"현재 아이템 효율: +{current_bonus}%", "color": TEXT_WHITE})
+        else:
+            cost_text = f"강화 비용: {cost} 골드"
+            if is_legendary:
+                cost_text += " (전설 3배)"
+            enhance_lines.append({"text": cost_text, "color": TEXT_WHITE})
+            if current_bonus > 0:
+                enhance_lines.append({"text": f"현재 아이템 효율: +{current_bonus}%", "color": TEXT_WHITE})
+            # 성공 시 효과를 구체적으로 표시
+            bonus_increase = next_bonus - current_bonus
+            enhance_lines.append({"text": f"성공 시: 아이템 효율 +{next_bonus}% (총)", "color": TEXT_GREEN})
+            if rates['fail'] > 0:
+                enhance_lines.append({"text": "실패 시 아이템 파괴!", "color": TEXT_RED})
+
+        # 박스 크기 계산
+        name_height = 22
+        slot_height = 18 if slot_label else 0
+        desc_content_height = len(desc_lines) * line_height if desc_lines else 0
+        enhance_content_height = len(enhance_lines) * line_height
+        desc_box_height = 20 + name_height + slot_height + 8 + desc_content_height + 12 + enhance_content_height + 10
+        desc_box_width = 240
+
+        # 오른쪽 박스 (롤옵션)
+        roll_box_height = 16 + len(option_texts) * line_height + 10 if option_texts else 0
+        roll_box_width = 200 if option_texts else 0
+
+        gap = 12
+        total_width = desc_box_width + (gap + roll_box_width if option_texts else 0)
+        max_height = max(desc_box_height, roll_box_height) if option_texts else desc_box_height
+
+        # 툴팁 위치 (화면 중앙에 표시)
+        tt_x = (SCREEN_WIDTH - total_width) // 2
+        tt_y = (SCREEN_HEIGHT - max_height) // 2
+
+        # 화면 경계 체크
+        if tt_x < 10:
+            tt_x = 10
+        if tt_x + total_width > SCREEN_WIDTH - 10:
+            tt_x = SCREEN_WIDTH - total_width - 10
+        if tt_y < 10:
+            tt_y = 10
+        if tt_y + max_height > SCREEN_HEIGHT - 10:
+            tt_y = SCREEN_HEIGHT - max_height - 10
+
+        # 왼쪽 박스 그리기 (아이템 정보 + 강화 정보)
+        desc_rect = pygame.Rect(tt_x, tt_y, desc_box_width, desc_box_height)
+        desc_surf = pygame.Surface((desc_box_width, desc_box_height), pygame.SRCALPHA)
+        pygame.draw.rect(desc_surf, DESC_BG, (0, 0, desc_box_width, desc_box_height), border_radius=8)
+        pygame.draw.rect(desc_surf, BORDER_COLOR, (0, 0, desc_box_width, desc_box_height), 2, border_radius=8)
+        screen.blit(desc_surf, (tt_x, tt_y))
+
+        y = tt_y + 10
+
+        # 아이템 이름 (등급에 따른 색상 적용)
+        if font_small:
+            name_surf, _ = font_small.render(display_name, name_color)
+            screen.blit(name_surf, (tt_x + 10, y))
+            # 슬롯 라벨 (오른쪽 정렬)
+            if slot_label:
+                slot_surf, _ = font_small.render(slot_label, SLOT_COLOR)
+                screen.blit(slot_surf, (tt_x + desc_box_width - slot_surf.get_width() - 10, y))
+            y += name_height
+
+        # 슬롯 라벨이 아래로 내려갈 경우
+        if slot_label and font_small:
+            y += 4
+
+        # 아이템 설명
+        if desc_lines and font_tiny:
+            y += 6
+            for line in desc_lines:
+                line_surf, _ = font_tiny.render(line, (200, 210, 230))
+                screen.blit(line_surf, (tt_x + 10, y))
+                y += line_height
+
+        # 구분선
+        y += 8
+        pygame.draw.line(screen, (80, 90, 120), (tt_x + 10, y), (tt_x + desc_box_width - 10, y), 1)
+        y += 8
+
+        # 강화 정보
+        if font_tiny:
+            for line_info in enhance_lines:
+                line_surf, _ = font_tiny.render(line_info["text"], line_info["color"])
+                screen.blit(line_surf, (tt_x + 10, y))
+                y += line_height
+
+        # 오른쪽 박스 그리기 (롤옵션)
+        if option_texts:
+            roll_x = tt_x + desc_box_width + gap
+            roll_rect = pygame.Rect(roll_x, tt_y, roll_box_width, roll_box_height)
+            roll_surf = pygame.Surface((roll_box_width, roll_box_height), pygame.SRCALPHA)
+            pygame.draw.rect(roll_surf, ROLL_BG, (0, 0, roll_box_width, roll_box_height), border_radius=8)
+            pygame.draw.rect(roll_surf, BORDER_COLOR, (0, 0, roll_box_width, roll_box_height), 2, border_radius=8)
+            screen.blit(roll_surf, (roll_x, tt_y))
+
+            roll_y = tt_y + 10
+            if font_tiny:
+                for opt_info in option_texts:
+                    opt_surf, _ = font_tiny.render(opt_info["text"], opt_info["color"])
+                    screen.blit(opt_surf, (roll_x + 10, roll_y))
+                    roll_y += line_height
+
+    def _draw_enhancement_confirm(self, screen):
+        """강화 확인창 그리기"""
+        from .constants import MAX_ENHANCEMENT_LEVEL
+
+        # 색상
+        BG_DARK = (28, 24, 20)
+        BORDER_GOLD = (200, 160, 80)
+        TEXT_WHITE = (240, 235, 220)
+        TEXT_GOLD = (255, 210, 100)
+        TEXT_GREEN = (100, 255, 120)
+        TEXT_RED = (255, 100, 100)
+        BTN_YES = (60, 100, 60)
+        BTN_YES_HOVER = (80, 130, 80)
+        BTN_NO = (100, 60, 60)
+        BTN_NO_HOVER = (130, 80, 80)
+
+        dialog_w, dialog_h = 320, 200
+        dialog_x = (SCREEN_WIDTH - dialog_w) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_h) // 2
+
+        mouse_pos = pygame.mouse.get_pos()
+
+        # 반투명 오버레이
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        # 다이얼로그 배경
+        pygame.draw.rect(screen, BG_DARK, (dialog_x, dialog_y, dialog_w, dialog_h), border_radius=10)
+        pygame.draw.rect(screen, BORDER_GOLD, (dialog_x, dialog_y, dialog_w, dialog_h), 3, border_radius=10)
+
+        font_medium = self.fonts.get('medium')
+        font_small = self.fonts.get('small')
+
+        item = self.enhancement_selected_item
+        if not item:
+            return
+
+        level = self._get_enhancement_level(item)
+        cost = self._get_enhancement_cost(level, item)  # 전설 아이템은 3배 비용
+        rates = self._get_enhancement_rates(level)
+        player_gold = self.player_data.get('gold', 0)
+
+        # 아이템 표시 이름 및 색상 가져오기 (수식어 포함)
+        display_name = item.get("name", "")
+        name_color = TEXT_WHITE
+        try:
+            import pingfighter
+            # get_item_display_name 함수로 수식어 포함된 한글 이름 가져오기
+            get_display = getattr(pingfighter, 'get_item_display_name', None)
+            if get_display:
+                result = get_display(item)
+                if result:
+                    display_name = result
+            # get_item_quality_color 함수로 품질 색상 가져오기
+            get_color = getattr(pingfighter, 'get_item_quality_color', None)
+            if get_color:
+                color_result = get_color(item)
+                if color_result:
+                    name_color = color_result
+        except:
+            pass
+
+        # 제목
+        if font_medium:
+            title_text = f"강화하시겠습니까?"
+            title_surf, _ = font_medium.render(title_text, TEXT_GOLD)
+            screen.blit(title_surf, (dialog_x + (dialog_w - title_surf.get_width()) // 2, dialog_y + 15))
+
+        # 아이템 정보 (수식어 + 한글이름 + 현재 강화수치 → 다음 강화수치)
+        y = dialog_y + 50
+        if font_small:
+            # 현재 강화 수치 표시
+            if level > 0:
+                item_text = f"{display_name} +{level} → +{level + 1}"
+            else:
+                item_text = f"{display_name} → +{level + 1}"
+            item_surf, _ = font_small.render(item_text, name_color)
+            screen.blit(item_surf, (dialog_x + (dialog_w - item_surf.get_width()) // 2, y))
+            y += 25
+
+            # 비용 (전설 아이템은 3배 표시)
+            from .constants import LEGENDARY_ITEM_NAMES
+            item_name = item.get("name", "")
+            is_legendary = item.get("type") == "legendary" or item_name in LEGENDARY_ITEM_NAMES
+            cost_text = f"비용: {cost} 골드"
+            if is_legendary:
+                cost_text += " (전설 3배)"
+            cost_text += f" (보유: {player_gold})"
+            cost_color = TEXT_WHITE if player_gold >= cost else TEXT_RED
+            cost_surf, _ = font_small.render(cost_text, cost_color)
+            screen.blit(cost_surf, (dialog_x + (dialog_w - cost_surf.get_width()) // 2, y))
+
+        # 버튼
+        btn_w, btn_h = 90, 35
+        btn_y = dialog_y + dialog_h - 55
+
+        # 예 버튼
+        yes_btn = pygame.Rect(dialog_x + dialog_w // 2 - btn_w - 15, btn_y, btn_w, btn_h)
+        yes_hover = yes_btn.collidepoint(mouse_pos)
+        yes_color = BTN_YES_HOVER if yes_hover else BTN_YES
+        if player_gold < cost:
+            yes_color = (60, 60, 60)
+        pygame.draw.rect(screen, yes_color, yes_btn, border_radius=6)
+        pygame.draw.rect(screen, (100, 180, 100), yes_btn, 2, border_radius=6)
+        if font_small:
+            yes_surf, _ = font_small.render("예", TEXT_WHITE)
+            screen.blit(yes_surf, (yes_btn.centerx - yes_surf.get_width() // 2,
+                                   yes_btn.centery - yes_surf.get_height() // 2))
+
+        # 아니오 버튼
+        no_btn = pygame.Rect(dialog_x + dialog_w // 2 + 15, btn_y, btn_w, btn_h)
+        no_hover = no_btn.collidepoint(mouse_pos)
+        no_color = BTN_NO_HOVER if no_hover else BTN_NO
+        pygame.draw.rect(screen, no_color, no_btn, border_radius=6)
+        pygame.draw.rect(screen, (180, 100, 100), no_btn, 2, border_radius=6)
+        if font_small:
+            no_surf, _ = font_small.render("아니오", TEXT_WHITE)
+            screen.blit(no_surf, (no_btn.centerx - no_surf.get_width() // 2,
+                                  no_btn.centery - no_surf.get_height() // 2))
+
+    def _draw_enhancement_animation(self, screen):
+        """강화 애니메이션 그리기 (고퀄리티 대장간 망치질)"""
+        import math
+        import random
+        from .constants import ENHANCEMENT_ANIMATION_TIME
+
+        # 색상 팔레트
+        BG_DARK = (15, 12, 10)
+        BG_GRADIENT_TOP = (25, 18, 12)
+        ANVIL_DARK = (45, 45, 55)
+        ANVIL_MID = (65, 65, 78)
+        ANVIL_LIGHT = (95, 95, 115)
+        ANVIL_HIGHLIGHT = (140, 140, 165)
+        HANDLE_DARK = (70, 45, 25)
+        HANDLE_LIGHT = (120, 85, 50)
+        HAMMER_DARK = (50, 50, 60)
+        HAMMER_MID = (85, 85, 100)
+        HAMMER_LIGHT = (130, 130, 155)
+        FIRE_CORE = (255, 255, 200)
+        FIRE_INNER = (255, 200, 80)
+        FIRE_OUTER = (255, 120, 30)
+        FIRE_EDGE = (200, 60, 20)
+        SPARK_WHITE = (255, 255, 240)
+        SPARK_YELLOW = (255, 220, 100)
+        SPARK_ORANGE = (255, 160, 60)
+        TEXT_WHITE = (255, 250, 240)
+        TEXT_GOLD = (255, 215, 120)
+
+        # 전체 화면 - 그라디언트 배경
+        for y in range(SCREEN_HEIGHT):
+            ratio = y / SCREEN_HEIGHT
+            r = int(BG_DARK[0] + (BG_GRADIENT_TOP[0] - BG_DARK[0]) * (1 - ratio) * 0.5)
+            g = int(BG_DARK[1] + (BG_GRADIENT_TOP[1] - BG_DARK[1]) * (1 - ratio) * 0.5)
+            b = int(BG_DARK[2] + (BG_GRADIENT_TOP[2] - BG_DARK[2]) * (1 - ratio) * 0.5)
+            pygame.draw.line(screen, (r, g, b), (0, y), (SCREEN_WIDTH, y))
+
+        t = self.enhancement_animation_timer / ENHANCEMENT_ANIMATION_TIME
+        cycle = self.enhancement_animation_timer % 0.85  # 0.85초 주기 (30% 더 느리게)
+        swing_phase = cycle / 0.85  # 0~1 정규화
+        current_swing = int(self.enhancement_animation_timer / 0.85)  # 현재 스윙 사이클 번호
+
+        # 망치질 페이즈 (보물탐색 곡괭이 스타일 - 오른쪽에서 왼쪽으로 내리침)
+        if swing_phase < 0.5:
+            # 들어올리기 (0 -> -60도) - 천천히
+            swing_progress = swing_phase / 0.5
+            hammer_angle = -60 * (1 - (1 - swing_progress) ** 2)  # ease-out
+            is_striking = False
+            strike_intensity = 0
+        elif swing_phase < 0.62:
+            # 내려치기 (-60 -> 30도) - 매우 빠르게 (0.12 구간)
+            swing_progress = (swing_phase - 0.5) / 0.12
+            hammer_angle = -60 + 90 * (swing_progress ** 1.5)  # 더 급격한 가속
+            is_striking = swing_progress > 0.6
+            strike_intensity = max(0, (swing_progress - 0.6) / 0.4)
+
+            # 타격 시점에 사운드 재생 (스윙당 한 번만)
+            if swing_progress > 0.8 and current_swing != self.enhancement_last_swing:
+                self.enhancement_last_swing = current_swing
+                if hasattr(self, 'hammering_sound') and self.hammering_sound:
+                    self.hammering_sound.play()
+        else:
+            # 복귀 (30 -> 0도) - 천천히
+            swing_progress = (swing_phase - 0.62) / 0.38
+            hammer_angle = 30 * (1 - swing_progress)
+            is_striking = False
+            strike_intensity = 0
+
+        cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20
+
+        # 모루 진동 효과
+        shake_x = 0
+        shake_y = 0
+        if is_striking:
+            shake_x = int(random.uniform(-3, 3) * strike_intensity)
+            shake_y = int(random.uniform(-2, 2) * strike_intensity)
+
+        # ===== 배경 불꽃 (용광로 느낌) =====
+        fire_x = cx - 80
+        fire_y = cy + 80
+        for i in range(8):
+            flicker = 0.7 + 0.3 * math.sin(self.enhancement_animation_timer * 8 + i * 0.7)
+            fire_h = int((30 + i * 5) * flicker)
+            fire_w = 12 + i * 2
+            alpha = int(60 - i * 6)
+            fire_surf = pygame.Surface((fire_w * 2, fire_h), pygame.SRCALPHA)
+            color = (255, 100 + i * 15, 20, alpha)
+            pygame.draw.ellipse(fire_surf, color, (0, 0, fire_w * 2, fire_h))
+            screen.blit(fire_surf, (fire_x + i * 18 + shake_x, fire_y - fire_h // 2 + shake_y))
+
+        # ===== 모루 (더 디테일하게) =====
+        anvil_w, anvil_h = 140, 50
+        anvil_x = cx - anvil_w // 2 + shake_x
+        anvil_y = cy + 30 + shake_y
+
+        # 모루 받침대
+        base_w, base_h = 100, 25
+        base_x = cx - base_w // 2 + shake_x
+        base_y = anvil_y + anvil_h - 5
+        pygame.draw.rect(screen, (35, 35, 42), (base_x, base_y, base_w, base_h), border_radius=3)
+
+        # 모루 본체
+        pygame.draw.rect(screen, ANVIL_DARK, (anvil_x, anvil_y, anvil_w, anvil_h), border_radius=6)
+        # 상단 하이라이트
+        pygame.draw.rect(screen, ANVIL_MID, (anvil_x + 2, anvil_y, anvil_w - 4, 12), border_radius=6)
+        pygame.draw.rect(screen, ANVIL_LIGHT, (anvil_x + 4, anvil_y + 2, anvil_w - 8, 6), border_radius=4)
+        # 테두리
+        pygame.draw.rect(screen, (30, 30, 38), (anvil_x, anvil_y, anvil_w, anvil_h), 2, border_radius=6)
+
+        # 왼쪽 뿔 (더 세밀하게)
+        horn_pts = [
+            (anvil_x + 5, anvil_y + 18),
+            (anvil_x - 45, anvil_y + 23),
+            (anvil_x - 48, anvil_y + 26),
+            (anvil_x - 45, anvil_y + 29),
+            (anvil_x + 5, anvil_y + 32)
+        ]
+        pygame.draw.polygon(screen, ANVIL_MID, horn_pts)
+        pygame.draw.polygon(screen, (30, 30, 38), horn_pts, 2)
+        # 뿔 하이라이트
+        pygame.draw.line(screen, ANVIL_LIGHT, (anvil_x, anvil_y + 20), (anvil_x - 40, anvil_y + 24), 2)
+
+        # 오른쪽 작은 뿔
+        horn2_pts = [
+            (anvil_x + anvil_w - 5, anvil_y + 20),
+            (anvil_x + anvil_w + 25, anvil_y + 24),
+            (anvil_x + anvil_w - 5, anvil_y + 28)
+        ]
+        pygame.draw.polygon(screen, ANVIL_MID, horn2_pts)
+        pygame.draw.polygon(screen, (30, 30, 38), horn2_pts, 2)
+
+        # ===== 달궈진 금속 (더 화려하게) =====
+        metal_x = cx - 20 + shake_x
+        metal_y = anvil_y - 10 + shake_y
+        metal_w, metal_h = 40, 14
+
+        # 금속 글로우 (여러 레이어)
+        glow_intensity = 0.6 + 0.4 * abs(math.sin(self.enhancement_animation_timer * 6))
+        for glow_layer in range(4):
+            glow_size = 80 - glow_layer * 15
+            glow_alpha = int((40 - glow_layer * 8) * glow_intensity)
+            glow_surf = pygame.Surface((glow_size, glow_size // 2), pygame.SRCALPHA)
+            glow_color = (255, 80 + glow_layer * 30, 20, glow_alpha)
+            pygame.draw.ellipse(glow_surf, glow_color, (0, 0, glow_size, glow_size // 2))
+            screen.blit(glow_surf, (metal_x + metal_w // 2 - glow_size // 2, metal_y - glow_size // 4 + 5))
+
+        # 금속 본체 (그라디언트 효과)
+        metal_glow = 0.5 + 0.5 * abs(math.sin(self.enhancement_animation_timer * 5))
+        metal_colors = [
+            (255, 255 - int(55 * (1 - metal_glow)), 180 - int(80 * (1 - metal_glow))),
+            (255, 180 - int(40 * (1 - metal_glow)), 60),
+            (255, 120, 30)
+        ]
+        for i, color in enumerate(metal_colors):
+            rect_y = metal_y + i * (metal_h // 3)
+            rect_h = metal_h // 3 + 1
+            pygame.draw.rect(screen, color, (metal_x, rect_y, metal_w, rect_h))
+        pygame.draw.rect(screen, (180, 80, 20), (metal_x, metal_y, metal_w, metal_h), 1, border_radius=2)
+
+        # ===== 망치 (곡괭이 스타일 - 오른쪽에서 금속을 내려침) =====
+        metal_center_x = metal_x + metal_w // 2
+        metal_top_y = metal_y
+
+        # 피벗 포인트 (금속 오른쪽 상단 - 곡괭이처럼)
+        hammer_pivot_x = metal_center_x + 80 + shake_x
+        hammer_pivot_y = metal_top_y - 70 + shake_y
+
+        # 자루 (그라디언트) - 자루 끝이 금속을 향하도록
+        handle_len = 95
+        # 각도 조정: 왼쪽 아래를 향해 스윙 (음수 방향으로 회전)
+        actual_angle = hammer_angle - 30  # 기본 각도 보정
+        handle_end_x = hammer_pivot_x - int(handle_len * math.cos(math.radians(actual_angle)))
+        handle_end_y = hammer_pivot_y + int(handle_len * math.sin(math.radians(actual_angle)))
+
+        # 자루 그림자
+        shadow_offset = 3
+        pygame.draw.line(screen, (40, 25, 15),
+                        (hammer_pivot_x + shadow_offset, hammer_pivot_y + shadow_offset),
+                        (handle_end_x + shadow_offset, handle_end_y + shadow_offset), 12)
+        # 자루 본체
+        pygame.draw.line(screen, HANDLE_DARK, (hammer_pivot_x, hammer_pivot_y), (handle_end_x, handle_end_y), 10)
+        pygame.draw.line(screen, HANDLE_LIGHT, (hammer_pivot_x, hammer_pivot_y), (handle_end_x, handle_end_y), 6)
+        # 자루 하이라이트
+        mid_x = (hammer_pivot_x + handle_end_x) // 2
+        mid_y = (hammer_pivot_y + handle_end_y) // 2
+        pygame.draw.line(screen, (150, 110, 70), (hammer_pivot_x + 2, hammer_pivot_y - 2), (mid_x + 2, mid_y - 2), 2)
+
+        # 망치 머리 (더 크고 디테일하게)
+        head_w, head_h = 55, 35
+        hammer_surf = pygame.Surface((head_w + 10, head_h + 10), pygame.SRCALPHA)
+
+        # 망치 그림자
+        pygame.draw.rect(hammer_surf, (30, 30, 40, 150), (5, 5, head_w, head_h), border_radius=5)
+        # 망치 본체
+        pygame.draw.rect(hammer_surf, HAMMER_DARK, (0, 0, head_w, head_h), border_radius=5)
+        pygame.draw.rect(hammer_surf, HAMMER_MID, (2, 0, head_w - 4, head_h - 8), border_radius=5)
+        # 상단 하이라이트
+        pygame.draw.rect(hammer_surf, HAMMER_LIGHT, (4, 2, head_w - 8, 10), border_radius=4)
+        # 테두리
+        pygame.draw.rect(hammer_surf, (35, 35, 45), (0, 0, head_w, head_h), 2, border_radius=5)
+        # 금속 결 표현
+        for line_y in range(8, head_h - 5, 6):
+            pygame.draw.line(hammer_surf, (70, 70, 85), (5, line_y), (head_w - 5, line_y), 1)
+
+        rotated_hammer = pygame.transform.rotate(hammer_surf, actual_angle + 90)
+        hammer_rect = rotated_hammer.get_rect(center=(handle_end_x, handle_end_y))
+        screen.blit(rotated_hammer, hammer_rect)
+
+        # ===== 충격 효과 (금속 위치에서 발생) =====
+        if is_striking:
+            # 충격 중심을 금속 위치로
+            impact_cx = metal_center_x + shake_x
+            impact_cy = metal_y + shake_y
+
+            # 화면 플래시
+            flash_alpha = int(80 * strike_intensity)
+            flash_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            flash_surf.fill((255, 200, 100, flash_alpha))
+            screen.blit(flash_surf, (0, 0))
+
+            # 다중 충격파
+            for wave in range(3):
+                wave_delay = wave * 0.03
+                wave_progress = max(0, strike_intensity - wave_delay)
+                if wave_progress > 0:
+                    impact_r = int(25 + wave_progress * 100 + wave * 15)
+                    if impact_r < 120:
+                        impact_surf = pygame.Surface((impact_r * 2 + 20, impact_r * 2 + 20), pygame.SRCALPHA)
+                        alpha = max(0, int((100 - wave * 25) * (1 - wave_progress)))
+                        pygame.draw.circle(impact_surf, (255, 200, 100, alpha),
+                                         (impact_r + 10, impact_r + 10), impact_r, 4 - wave)
+                        screen.blit(impact_surf, (impact_cx - impact_r - 10, impact_cy - impact_r - 10))
+
+            # 불똥 스파크 (금속에서 튀어오름)
+            spark_count = 25
+            for i in range(spark_count):
+                seed = i * 137 + int(self.enhancement_animation_timer * 1000)
+                random.seed(seed)
+
+                # 위쪽으로 튀어오르는 각도 (주로 위쪽, 양옆으로)
+                angle = random.uniform(-150, -30)  # 위쪽 방향
+                speed = random.uniform(0.4, 1.0)
+                dist = 15 + strike_intensity * speed * 70
+                spark_x = impact_cx + int(dist * math.cos(math.radians(angle)))
+                spark_y = impact_cy + int(dist * math.sin(math.radians(angle)))
+
+                # 스파크 꼬리 (이동 방향 반대로)
+                tail_len = int(10 + speed * 15)
+                tail_x = spark_x - int(tail_len * math.cos(math.radians(angle)) * 0.6)
+                tail_y = spark_y - int(tail_len * math.sin(math.radians(angle)) * 0.6)
+
+                # 스파크 색상 (밝은 노란색/주황색)
+                if i % 4 == 0:
+                    spark_color = SPARK_WHITE
+                elif i % 4 == 1:
+                    spark_color = SPARK_YELLOW
+                elif i % 4 == 2:
+                    spark_color = SPARK_ORANGE
+                else:
+                    spark_color = (255, 180, 80)
+
+                spark_size = int(2 + speed * 4)
+                # 꼬리 그리기
+                pygame.draw.line(screen, spark_color, (tail_x, tail_y), (spark_x, spark_y), max(1, spark_size - 1))
+                # 불똥 머리 (밝은 점)
+                pygame.draw.circle(screen, SPARK_WHITE, (spark_x, spark_y), spark_size)
+                pygame.draw.circle(screen, spark_color, (spark_x, spark_y), max(1, spark_size - 1))
+
+            random.seed()  # 시드 초기화
+
+        # ===== 상시 불똥 파티클 (금속에서 올라옴) =====
+        for i in range(8):
+            ember_seed = i * 73 + int(self.enhancement_animation_timer * 500)
+            random.seed(ember_seed)
+            ember_x = metal_center_x + random.randint(-25, 25) + shake_x
+            ember_base_y = metal_y + shake_y
+            rise_amount = int((self.enhancement_animation_timer * 60 + i * 25) % 120)
+            ember_y = ember_base_y - rise_amount
+            ember_alpha = max(0, 220 - rise_amount * 2)
+            if ember_alpha > 0:
+                ember_size = max(2, 4 - rise_amount // 40)
+                ember_surf = pygame.Surface((ember_size * 2, ember_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ember_surf, (255, 160 + random.randint(0, 40), 50, ember_alpha), (ember_size, ember_size), ember_size)
+                screen.blit(ember_surf, (ember_x - ember_size, ember_y - ember_size))
+        random.seed()
+
+        # ===== 진행 바 (더 화려하게) =====
+        bar_w, bar_h = 240, 16
+        bar_x = (SCREEN_WIDTH - bar_w) // 2
+        bar_y = SCREEN_HEIGHT - 85
+
+        # 진행 바 배경 (글로우)
+        bar_glow_surf = pygame.Surface((bar_w + 20, bar_h + 20), pygame.SRCALPHA)
+        pygame.draw.rect(bar_glow_surf, (255, 100, 30, 40), (0, 0, bar_w + 20, bar_h + 20), border_radius=10)
+        screen.blit(bar_glow_surf, (bar_x - 10, bar_y - 10))
+
+        # 진행 바 프레임
+        pygame.draw.rect(screen, (50, 40, 30), (bar_x - 2, bar_y - 2, bar_w + 4, bar_h + 4), border_radius=10)
+        pygame.draw.rect(screen, (30, 25, 20), (bar_x, bar_y, bar_w, bar_h), border_radius=8)
+
+        # 진행 바 채우기 (그라디언트 효과)
+        fill_w = int(bar_w * t)
+        if fill_w > 0:
+            for px in range(fill_w):
+                ratio = px / bar_w
+                r = 255
+                g = int(180 - ratio * 60)
+                b = int(60 - ratio * 30)
+                pygame.draw.line(screen, (r, g, b), (bar_x + px, bar_y + 2), (bar_x + px, bar_y + bar_h - 2))
+            # 진행 바 하이라이트
+            pygame.draw.rect(screen, (255, 220, 150, 100), (bar_x, bar_y + 2, fill_w, 4), border_radius=4)
+
+        # 진행 바 테두리
+        pygame.draw.rect(screen, (120, 90, 60), (bar_x, bar_y, bar_w, bar_h), 2, border_radius=8)
+
+        # ===== 텍스트 (그림자 효과) =====
+        font_medium = self.fonts.get('medium')
+        if font_medium:
+            # 그림자
+            shadow_surf, _ = font_medium.render("강화 중...", (40, 30, 20))
+            screen.blit(shadow_surf, ((SCREEN_WIDTH - shadow_surf.get_width()) // 2 + 2, bar_y - 38))
+            # 본문
+            text_surf, _ = font_medium.render("강화 중...", TEXT_GOLD)
+            screen.blit(text_surf, ((SCREEN_WIDTH - text_surf.get_width()) // 2, bar_y - 40))
+
+        # 퍼센트 표시
+        font_small = self.fonts.get('small')
+        if font_small:
+            pct_text = f"{int(t * 100)}%"
+            pct_surf, _ = font_small.render(pct_text, TEXT_WHITE)
+            screen.blit(pct_surf, (bar_x + bar_w + 10, bar_y + (bar_h - pct_surf.get_height()) // 2))
+
+    def _draw_enhancement_result(self, screen):
+        """강화 결과창 그리기"""
+        import math
+
+        # 결과별 색상
+        if self.enhancement_result == "success":
+            BG_COLOR = (20, 40, 25)
+            BORDER_COLOR = (100, 255, 120)
+            TEXT_COLOR = (100, 255, 120)
+            TITLE = "강화 성공!"
+            DESC = "아이템이 한 단계 강화되었습니다!"
+        elif self.enhancement_result == "maintain":
+            BG_COLOR = (35, 35, 25)
+            BORDER_COLOR = (200, 180, 100)
+            TEXT_COLOR = (200, 180, 100)
+            TITLE = "강화 유지"
+            DESC = "강화 수치가 유지되었습니다."
+        elif self.enhancement_result == "fail":
+            BG_COLOR = (45, 20, 20)
+            BORDER_COLOR = (255, 100, 100)
+            TEXT_COLOR = (255, 100, 100)
+            TITLE = "강화 실패"
+            DESC = "아이템이 파괴되었습니다..."
+        else:
+            return
+
+        dialog_w, dialog_h = 300, 150
+        dialog_x = (SCREEN_WIDTH - dialog_w) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_h) // 2
+
+        # 반투명 오버레이
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        # 다이얼로그
+        pygame.draw.rect(screen, BG_COLOR, (dialog_x, dialog_y, dialog_w, dialog_h), border_radius=12)
+        pygame.draw.rect(screen, BORDER_COLOR, (dialog_x, dialog_y, dialog_w, dialog_h), 3, border_radius=12)
+
+        font_medium = self.fonts.get('medium')
+        font_small = self.fonts.get('small')
+
+        # 제목
+        if font_medium:
+            title_surf, _ = font_medium.render(TITLE, TEXT_COLOR)
+            screen.blit(title_surf, (dialog_x + (dialog_w - title_surf.get_width()) // 2, dialog_y + 30))
+
+        # 설명
+        if font_small:
+            desc_surf, _ = font_small.render(DESC, (220, 220, 220))
+            screen.blit(desc_surf, (dialog_x + (dialog_w - desc_surf.get_width()) // 2, dialog_y + 70))
+
+            # 클릭 안내
+            hint_surf, _ = font_small.render("(클릭하여 닫기)", (140, 140, 150))
+            screen.blit(hint_surf, (dialog_x + (dialog_w - hint_surf.get_width()) // 2, dialog_y + 110))
+
+    # =========================================================================
+    # 모험가의 선술집 인테리어 (High Quality Fantasy Tavern)
+    # =========================================================================
+    def _draw_tavern_interior(self, screen):
+        """선술집 전용 인테리어 - 고퀄리티 판타지 선술집 (적절한 손님 수)"""
+        import math
+
+        # 색상 팔레트 (따뜻한 선술집 분위기)
+        BG_DARK = (25, 18, 12)
+        WOOD_FLOOR = (142, 102, 65)
+        WOOD_FLOOR_DARK = (115, 80, 50)
+        WOOD_FLOOR_LIGHT = (165, 120, 78)
+        WOOD_FLOOR_ACCENT = (128, 88, 52)
+        WOOD_WALL = (102, 72, 45)
+        WOOD_WALL_DARK = (75, 52, 32)
+        WOOD_WALL_LIGHT = (128, 92, 58)
+        WOOD_PLANK = (88, 62, 38)
+        WOOD_TRIM = (68, 48, 28)
+        BRICK_DARK = (85, 50, 35)
+        BRICK_MID = (122, 72, 50)
+        BRICK_LIGHT = (152, 98, 65)
+        STONE_MID = (85, 78, 72)
+        STONE_LIGHT = (115, 108, 98)
+        FIRE_ORANGE = (255, 162, 62)
+        FIRE_RED = (255, 92, 38)
+        FIRE_YELLOW = (255, 222, 122)
+        FIRE_WHITE = (255, 250, 212)
+        BARREL_WOOD = (95, 65, 40)
+        BARREL_DARK = (65, 45, 25)
+        BARREL_METAL = (72, 68, 60)
+        BARREL_METAL_LIGHT = (92, 85, 75)
+        COUNTER_TOP = (132, 98, 62)
+        COUNTER_FRONT = (95, 70, 42)
+        MUG_GOLD = (232, 198, 82)
+        MUG_BODY = (182, 152, 62)
+        BEER_GOLD = (242, 202, 92)
+        BEER_FOAM = (255, 250, 232)
+        CARPET_RED = (142, 45, 35)
+        CARPET_RED_DARK = (112, 35, 28)
+        CARPET_GOLD = (178, 138, 58)
+        SHELF_WOOD = (85, 58, 35)
+        BOTTLE_GREEN = (52, 122, 68)
+        BOTTLE_BLUE = (62, 92, 142)
+        BOTTLE_BROWN = (102, 68, 42)
+        BOTTLE_RED = (138, 48, 48)
+        LANTERN_GLOW = (255, 202, 102)
+        TABLE_WOOD = (112, 75, 48)
+        TABLE_WOOD_DARK = (82, 55, 35)
+        CHAIR_WOOD = (92, 62, 40)
+        CANDLE_GLOW = (255, 218, 148)
+
+        cam_x, cam_y = self.camera_offset
+        anim = self.animation_timer
+
+        # === 1. 배경 ===
+        screen.fill(BG_DARK)
+
+        # === 2. 나무 판자 바닥 ===
+        self._draw_tavern_floor_v2(screen, cam_x, cam_y, WOOD_FLOOR, WOOD_FLOOR_DARK,
+                                   WOOD_FLOOR_LIGHT, WOOD_FLOOR_ACCENT)
+
+        # === 3. 상단 벽 ===
+        wall_h = int(TILE_SIZE * 4)
+        self._draw_tavern_walls_v2(screen, cam_x, cam_y, wall_h, WOOD_WALL, WOOD_WALL_DARK,
+                                   WOOD_WALL_LIGHT, WOOD_PLANK, WOOD_TRIM)
+
+        # === 4. 벽난로 (우측 상단) ===
+        fireplace_x = self.pixel_width - int(TILE_SIZE * 5.5)
+        fireplace_y = int(TILE_SIZE * 0.2)
+        self._draw_tavern_fireplace_v2(screen, fireplace_x - cam_x, fireplace_y - cam_y, anim,
+                                       BRICK_DARK, BRICK_MID, BRICK_LIGHT, STONE_MID, STONE_LIGHT,
+                                       FIRE_ORANGE, FIRE_RED, FIRE_YELLOW, FIRE_WHITE)
+
+        # === 5. 바 카운터 (좌측 상단) ===
+        counter_x = int(TILE_SIZE * 0.8)
+        counter_y = wall_h - int(TILE_SIZE * 0.2)
+        counter_w = int(TILE_SIZE * 10)
+        self._draw_tavern_bar_v2(screen, counter_x - cam_x, counter_y - cam_y, counter_w, anim,
+                                 COUNTER_TOP, COUNTER_FRONT, WOOD_TRIM, MUG_GOLD, MUG_BODY,
+                                 BEER_GOLD, BEER_FOAM, BARREL_METAL)
+
+        # === 6. 술 선반 (바 뒤 벽) ===
+        shelf_x = int(TILE_SIZE * 1.5)
+        shelf_y = int(TILE_SIZE * 0.5)
+        self._draw_tavern_shelves_v2(screen, shelf_x - cam_x, shelf_y - cam_y,
+                                     SHELF_WOOD, BOTTLE_GREEN, BOTTLE_BLUE, BOTTLE_BROWN, BOTTLE_RED)
+
+        # === 7. 맥주 배럴들 ===
+        barrel_x = int(TILE_SIZE * 7)
+        barrel_y = int(TILE_SIZE * 0.6)
+        self._draw_tavern_barrels_v2(screen, barrel_x - cam_x, barrel_y - cam_y,
+                                     BARREL_WOOD, BARREL_DARK, BARREL_METAL, BARREL_METAL_LIGHT)
+
+        # === 8. 벽난로 앞 카펫 ===
+        carpet_x = self.pixel_width - int(TILE_SIZE * 7)
+        carpet_y = wall_h + int(TILE_SIZE * 0.5)
+        self._draw_tavern_carpet_v2(screen, carpet_x - cam_x, carpet_y - cam_y,
+                                    CARPET_RED, CARPET_RED_DARK, CARPET_GOLD)
+
+        # === 9. 테이블 3개 + 고퀄리티 손님들 ===
+        # 테이블 1: 좌측 (2인용 - 전사와 마법사)
+        table1_x = int(TILE_SIZE * 2)
+        table1_y = wall_h + int(TILE_SIZE * 3)
+        self._draw_tavern_table_v2(screen, table1_x - cam_x, table1_y - cam_y, anim,
+                                   TABLE_WOOD, TABLE_WOOD_DARK, CHAIR_WOOD,
+                                   "medium", "warrior_mage")
+
+        # 테이블 2: 중앙 (3인용 - 드워프 파티)
+        table2_x = int(TILE_SIZE * 9)
+        table2_y = wall_h + int(TILE_SIZE * 3.5)
+        self._draw_tavern_table_v2(screen, table2_x - cam_x, table2_y - cam_y, anim,
+                                   TABLE_WOOD, TABLE_WOOD_DARK, CHAIR_WOOD,
+                                   "large", "dwarf_party")
+
+        # 테이블 3: 우측 벽난로 옆 (1인용 - 후드 인물)
+        table3_x = self.pixel_width - int(TILE_SIZE * 4)
+        table3_y = wall_h + int(TILE_SIZE * 4.5)
+        self._draw_tavern_table_v2(screen, table3_x - cam_x, table3_y - cam_y, anim,
+                                   TABLE_WOOD, TABLE_WOOD_DARK, CHAIR_WOOD,
+                                   "small", "hooded")
+
+        # === 10. 바 카운터 손님 2명 (고퀄리티) ===
+        self._draw_tavern_bar_patrons_v2(screen, counter_x - cam_x, counter_y - cam_y,
+                                         counter_w, anim)
+
+        # === 11. 벽 장식들 ===
+        self._draw_tavern_decorations_v2(screen, cam_x, cam_y, wall_h, anim)
+
+        # === 12. 조명 (샹들리에 + 랜턴) ===
+        self._draw_tavern_lighting_v2(screen, cam_x, cam_y, anim, LANTERN_GLOW, CANDLE_GLOW)
+
+        # === 13. 충돌 영역 ===
+        self.shop_obstacle_rects = []
+        self.shop_obstacle_rects.append(pygame.Rect(0, 0, self.pixel_width, wall_h - int(TILE_SIZE * 0.2)))
+        self.shop_obstacle_rects.append(pygame.Rect(counter_x, counter_y, counter_w, int(TILE_SIZE * 2.2)))
+        self.shop_obstacle_rects.append(pygame.Rect(fireplace_x - TILE_SIZE, fireplace_y, int(TILE_SIZE * 5.5), int(TILE_SIZE * 3.8)))
+        self.shop_obstacle_rects.append(pygame.Rect(table1_x - 20, table1_y - 20, int(TILE_SIZE * 3.5), int(TILE_SIZE * 2.8)))
+        self.shop_obstacle_rects.append(pygame.Rect(table2_x - 20, table2_y - 20, int(TILE_SIZE * 4), int(TILE_SIZE * 3)))
+        self.shop_obstacle_rects.append(pygame.Rect(table3_x - 15, table3_y - 15, int(TILE_SIZE * 2), int(TILE_SIZE * 2)))
+
+        # === 14. 문 ===
+        self._draw_door(screen)
+
+    def _draw_tavern_wood_floor(self, screen, cam_x, cam_y, floor_color, floor_dark, floor_light):
+        """선술집 나무 판자 바닥"""
+        plank_w = TILE_SIZE
+        plank_h = int(TILE_SIZE * 0.4)
+
+        for py in range(-plank_h, self.pixel_height + plank_h, plank_h):
+            # 행마다 오프셋 (엇갈린 패턴)
+            row_offset = ((py // plank_h) % 3) * (plank_w // 3)
+            for px in range(-plank_w, self.pixel_width + plank_w * 2, plank_w):
+                draw_x = px + row_offset - cam_x
+                draw_y = py - cam_y
+
+                # 판자 색상 변화
+                seed = (px * 13 + py * 7) % 5
+                colors = [floor_color, floor_dark, floor_color, floor_light, floor_dark]
+                base_color = colors[seed]
+
+                # 판자 본체
+                pygame.draw.rect(screen, base_color, (draw_x, draw_y, plank_w - 2, plank_h - 1))
+
+                # 판자 하이라이트 (상단)
+                highlight = tuple(min(255, c + 15) for c in base_color)
+                pygame.draw.line(screen, highlight, (draw_x, draw_y), (draw_x + plank_w - 3, draw_y))
+
+                # 판자 그림자 (하단)
+                shadow = tuple(max(0, c - 20) for c in base_color)
+                pygame.draw.line(screen, shadow, (draw_x, draw_y + plank_h - 2),
+                               (draw_x + plank_w - 3, draw_y + plank_h - 2))
+
+                # 나뭇결 (가끔)
+                if seed % 2 == 0:
+                    grain_color = tuple(max(0, c - 10) for c in base_color)
+                    grain_y = draw_y + plank_h // 3
+                    pygame.draw.line(screen, grain_color, (draw_x + 5, grain_y),
+                                   (draw_x + plank_w - 10, grain_y))
+
+    def _draw_tavern_walls(self, screen, cam_x, cam_y, wall_h, wall_color, wall_dark, wall_light, plank_color):
+        """선술집 나무 벽"""
+        # 벽 배경
+        wall_rect = pygame.Rect(-cam_x, -cam_y, self.pixel_width, wall_h)
+        pygame.draw.rect(screen, wall_color, wall_rect)
+
+        # 나무 패널 (세로 줄)
+        panel_w = int(TILE_SIZE * 0.8)
+        for i in range(0, self.pixel_width + panel_w, panel_w):
+            panel_x = i - cam_x
+
+            # 패널 그림자
+            pygame.draw.line(screen, wall_dark, (panel_x, -cam_y), (panel_x, wall_h - cam_y), 3)
+
+            # 패널 하이라이트
+            pygame.draw.line(screen, wall_light, (panel_x + 2, -cam_y), (panel_x + 2, wall_h - cam_y), 1)
+
+        # 몰딩 (상단)
+        molding_h = 15
+        pygame.draw.rect(screen, plank_color, (-cam_x, -cam_y, self.pixel_width, molding_h))
+        pygame.draw.rect(screen, wall_dark, (-cam_x, molding_h - cam_y - 2, self.pixel_width, 3))
+
+        # 몰딩 (하단 - 벽과 바닥 경계)
+        pygame.draw.rect(screen, plank_color, (-cam_x, wall_h - 20 - cam_y, self.pixel_width, 20))
+        pygame.draw.line(screen, wall_dark, (-cam_x, wall_h - cam_y),
+                        (self.pixel_width - cam_x, wall_h - cam_y), 2)
+
+    def _draw_tavern_fireplace(self, screen, x, y, anim, brick_dark, brick_mid, brick_light, stone_mid,
+                               fire_orange, fire_red, fire_yellow, fire_white):
+        """선술집 벽난로"""
+        fp_w = int(TILE_SIZE * 3.5)
+        fp_h = int(TILE_SIZE * 3.5)
+
+        # 벽난로 프레임 (벽돌)
+        pygame.draw.rect(screen, brick_mid, (x, y, fp_w, fp_h), border_radius=8)
+
+        # 벽돌 패턴
+        brick_h = 12
+        brick_w = 20
+        for by in range(0, fp_h, brick_h):
+            offset = (by // brick_h % 2) * (brick_w // 2)
+            for bx in range(0, fp_w, brick_w):
+                brick_x = x + bx + offset
+                brick_y = y + by
+                if brick_x < x + fp_w - 5:
+                    seed = (bx * 7 + by * 11) % 3
+                    colors = [brick_dark, brick_mid, brick_light]
+                    pygame.draw.rect(screen, colors[seed], (brick_x + 1, brick_y + 1, brick_w - 2, brick_h - 2))
+
+        # 벽난로 내부 (검은 구멍)
+        inner_margin = 25
+        inner_rect = (x + inner_margin, y + inner_margin + 15,
+                     fp_w - inner_margin * 2, fp_h - inner_margin - 30)
+        pygame.draw.rect(screen, (15, 12, 10), inner_rect, border_radius=5)
+
+        # 불꽃 애니메이션
+        fire_base_y = inner_rect[1] + inner_rect[3] - 10
+        fire_center_x = inner_rect[0] + inner_rect[2] // 2
+
+        # 장작
+        for i in range(3):
+            log_x = inner_rect[0] + 10 + i * 20
+            log_y = fire_base_y + 5
+            pygame.draw.ellipse(screen, (60, 40, 25), (log_x, log_y, 30, 12))
+            pygame.draw.ellipse(screen, (80, 55, 35), (log_x + 2, log_y + 1, 26, 8))
+
+        # 불꽃들
+        flame_offsets = [
+            (0, 0, 30, fire_yellow),
+            (-15, 5, 20, fire_orange),
+            (15, 5, 20, fire_orange),
+            (-8, -5, 25, fire_red),
+            (8, -5, 25, fire_red),
+        ]
+
+        for fx_off, fy_off, f_size, f_color in flame_offsets:
+            flame_flicker = math.sin(anim * 8 + fx_off * 0.5) * 5
+            flame_h = f_size + int(flame_flicker)
+
+            # 불꽃 그리기 (삼각형 + 타원)
+            flame_x = fire_center_x + fx_off + int(math.sin(anim * 6 + fx_off) * 3)
+            flame_y = fire_base_y - flame_h + fy_off
+
+            # 불꽃 글로우
+            glow_surf = pygame.Surface((f_size * 3, f_size * 3), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (*f_color[:3], 60), (0, 0, f_size * 3, f_size * 3))
+            screen.blit(glow_surf, (flame_x - f_size * 1.5, flame_y - f_size))
+
+            # 불꽃 본체
+            points = [
+                (flame_x, flame_y - flame_h // 2),
+                (flame_x - f_size // 3, flame_y + flame_h // 3),
+                (flame_x + f_size // 3, flame_y + flame_h // 3),
+            ]
+            pygame.draw.polygon(screen, f_color, points)
+
+        # 불꽃 하이라이트
+        pygame.draw.circle(screen, fire_white, (fire_center_x, fire_base_y - 15), 8)
+
+        # 벽난로 장식 (상단 선반)
+        mantle_y = y - 10
+        pygame.draw.rect(screen, stone_mid, (x - 10, mantle_y, fp_w + 20, 15), border_radius=3)
+        pygame.draw.rect(screen, (110, 100, 90), (x - 10, mantle_y, fp_w + 20, 15), 2, border_radius=3)
+
+    def _draw_tavern_bear_statue(self, screen, x, y, bear_brown):
+        """곰 동상 (선술집 마스코트)"""
+        # 몸통
+        body_h = int(TILE_SIZE * 2.5)
+        body_w = int(TILE_SIZE * 1.2)
+
+        # 다리
+        leg_w = 20
+        leg_h = 30
+        pygame.draw.rect(screen, bear_brown, (x - 15, y + body_h - 20, leg_w, leg_h), border_radius=5)
+        pygame.draw.rect(screen, bear_brown, (x + 15, y + body_h - 20, leg_w, leg_h), border_radius=5)
+
+        # 몸통
+        pygame.draw.ellipse(screen, bear_brown, (x - body_w // 2, y + 20, body_w, body_h - 30))
+
+        # 팔
+        arm_color = tuple(max(0, c - 15) for c in bear_brown)
+        pygame.draw.ellipse(screen, arm_color, (x - body_w // 2 - 12, y + 40, 18, 50))
+        pygame.draw.ellipse(screen, arm_color, (x + body_w // 2 - 6, y + 40, 18, 50))
+
+        # 머리
+        head_size = 35
+        pygame.draw.circle(screen, bear_brown, (x, y + 25), head_size)
+
+        # 귀
+        ear_color = tuple(min(255, c + 20) for c in bear_brown)
+        pygame.draw.circle(screen, bear_brown, (x - 25, y + 5), 12)
+        pygame.draw.circle(screen, bear_brown, (x + 25, y + 5), 12)
+        pygame.draw.circle(screen, ear_color, (x - 25, y + 5), 6)
+        pygame.draw.circle(screen, ear_color, (x + 25, y + 5), 6)
+
+        # 얼굴
+        face_color = (160, 110, 70)
+        pygame.draw.ellipse(screen, face_color, (x - 12, y + 25, 24, 18))
+
+        # 눈
+        pygame.draw.circle(screen, (30, 25, 20), (x - 10, y + 20), 5)
+        pygame.draw.circle(screen, (30, 25, 20), (x + 10, y + 20), 5)
+        pygame.draw.circle(screen, (255, 255, 255), (x - 11, y + 18), 2)
+        pygame.draw.circle(screen, (255, 255, 255), (x + 9, y + 18), 2)
+
+        # 코
+        pygame.draw.ellipse(screen, (40, 30, 25), (x - 6, y + 30, 12, 8))
+
+    def _draw_tavern_bar_counter(self, screen, x, y, width, anim, counter_top, counter_front,
+                                  wood_trim, mug_gold, mug_body, beer_gold, beer_foam):
+        """선술집 바 카운터"""
+        counter_h = int(TILE_SIZE * 2)
+
+        # 카운터 전면
+        pygame.draw.rect(screen, counter_front, (x, y + 10, width, counter_h - 10), border_radius=5)
+
+        # 카운터 패널 라인
+        panel_w = 50
+        for px in range(0, width, panel_w):
+            panel_x = x + px
+            pygame.draw.line(screen, wood_trim, (panel_x, y + 15), (panel_x, y + counter_h - 5), 2)
+
+        # 카운터 상판
+        pygame.draw.rect(screen, counter_top, (x - 5, y, width + 10, 15), border_radius=3)
+        pygame.draw.rect(screen, wood_trim, (x - 5, y, width + 10, 15), 2, border_radius=3)
+
+        # 상판 하이라이트
+        highlight = tuple(min(255, c + 25) for c in counter_top)
+        pygame.draw.line(screen, highlight, (x, y + 3), (x + width, y + 3), 2)
+
+        # 맥주잔들 (카운터 위)
+        mug_positions = [
+            (x + 30, y - 25),
+            (x + 90, y - 22),
+            (x + 150, y - 28),
+            (x + width - 80, y - 24),
+        ]
+
+        for mx, my in mug_positions:
+            # 맥주잔 본체
+            pygame.draw.rect(screen, mug_body, (mx, my, 22, 28), border_radius=3)
+            pygame.draw.rect(screen, mug_gold, (mx, my, 22, 28), 2, border_radius=3)
+
+            # 맥주
+            beer_h = 20
+            pygame.draw.rect(screen, beer_gold, (mx + 3, my + 5, 16, beer_h))
+
+            # 거품
+            foam_y = my + 3
+            pygame.draw.ellipse(screen, beer_foam, (mx + 2, foam_y, 18, 8))
+            # 거품 버블
+            for i in range(3):
+                bx = mx + 5 + i * 5
+                pygame.draw.circle(screen, beer_foam, (bx, foam_y + 3), 3)
+
+            # 손잡이
+            pygame.draw.arc(screen, mug_gold, (mx + 18, my + 5, 12, 18), -1.5, 1.5, 3)
+
+        # 수도꼭지/탭 (맥주 디스펜서)
+        tap_x = x + width // 2
+        tap_y = y - 35
+        # 탭 본체
+        pygame.draw.rect(screen, (50, 50, 55), (tap_x - 25, tap_y, 50, 40), border_radius=5)
+        # 탭 핸들들
+        for i in range(3):
+            handle_x = tap_x - 15 + i * 15
+            handle_color = [(200, 160, 80), (180, 140, 60), (160, 120, 50)][i]
+            pygame.draw.rect(screen, handle_color, (handle_x - 4, tap_y - 15, 8, 20), border_radius=3)
+            pygame.draw.circle(screen, handle_color, (handle_x, tap_y - 18), 6)
+
+    def _draw_tavern_shelves(self, screen, x, y, anim, shelf_wood, bottle_green, bottle_blue, bottle_brown):
+        """술 선반 (바 뒤)"""
+        shelf_w = int(TILE_SIZE * 4)
+        shelf_h = 12
+
+        for row in range(3):
+            shelf_y = y + row * 40
+
+            # 선반 본체
+            pygame.draw.rect(screen, shelf_wood, (x, shelf_y, shelf_w, shelf_h), border_radius=2)
+            pygame.draw.line(screen, (60, 40, 25), (x, shelf_y + shelf_h - 2),
+                           (x + shelf_w, shelf_y + shelf_h - 2), 2)
+
+            # 병들
+            bottle_colors = [bottle_green, bottle_blue, bottle_brown, bottle_green, bottle_blue]
+            for i, bcolor in enumerate(bottle_colors):
+                bottle_x = x + 10 + i * 25
+                bottle_y = shelf_y - 25
+
+                # 병 몸통
+                pygame.draw.rect(screen, bcolor, (bottle_x, bottle_y + 8, 14, 18), border_radius=3)
+                # 병 목
+                pygame.draw.rect(screen, bcolor, (bottle_x + 4, bottle_y, 6, 12))
+                # 병 뚜껑/코르크
+                pygame.draw.rect(screen, (180, 150, 100), (bottle_x + 5, bottle_y - 3, 4, 5))
+                # 라벨
+                label_color = (240, 230, 210)
+                pygame.draw.rect(screen, label_color, (bottle_x + 2, bottle_y + 12, 10, 8))
+
+                # 하이라이트
+                pygame.draw.line(screen, tuple(min(255, c + 40) for c in bcolor),
+                               (bottle_x + 2, bottle_y + 10), (bottle_x + 2, bottle_y + 24), 2)
+
+    def _draw_tavern_barrels(self, screen, x, y, barrel_wood, barrel_dark, barrel_metal):
+        """맥주 배럴들"""
+        barrel_positions = [
+            (x, y, 45, 55),  # 큰 배럴
+            (x + 55, y + 10, 40, 48),  # 중간 배럴
+            (x + 100, y + 5, 42, 52),  # 중간 배럴
+            (x + 25, y + 60, 35, 42),  # 작은 배럴 (아래)
+            (x + 70, y + 65, 35, 40),  # 작은 배럴 (아래)
+        ]
+
+        for bx, by, bw, bh in barrel_positions:
+            # 배럴 본체 (타원형)
+            pygame.draw.ellipse(screen, barrel_wood, (bx, by, bw, bh))
+
+            # 배럴 띠 (금속)
+            band_positions = [by + 8, by + bh // 2, by + bh - 12]
+            for band_y in band_positions:
+                pygame.draw.ellipse(screen, barrel_metal, (bx + 2, band_y, bw - 4, 6))
+
+            # 배럴 하이라이트
+            pygame.draw.arc(screen, tuple(min(255, c + 30) for c in barrel_wood),
+                          (bx + 5, by + 5, bw - 10, bh - 10), 0.5, 2.5, 3)
+
+            # 배럴 정면 (원형 마개)
+            center_x = bx + bw // 2
+            center_y = by + bh // 2
+            pygame.draw.circle(screen, barrel_dark, (center_x, center_y), 8)
+            pygame.draw.circle(screen, barrel_metal, (center_x, center_y), 5)
+
+        # 수도꼭지 (첫 번째 배럴)
+        tap_x = x + 45
+        tap_y = y + 30
+        pygame.draw.rect(screen, barrel_metal, (tap_x, tap_y, 15, 8))
+        pygame.draw.circle(screen, (180, 150, 80), (tap_x + 12, tap_y + 4), 5)
+
+    def _draw_tavern_dining_table(self, screen, x, y, anim, table_wood, chair_wood, is_large=False):
+        """식탁 테이블 (음식과 함께)"""
+        if is_large:
+            table_w = int(TILE_SIZE * 4.5)
+            table_h = int(TILE_SIZE * 1.8)
+        else:
+            table_w = int(TILE_SIZE * 3)
+            table_h = int(TILE_SIZE * 1.5)
+
+        # 테이블 그림자
+        shadow_surf = pygame.Surface((table_w + 10, table_h + 10), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 5, table_w + 10, table_h))
+        screen.blit(shadow_surf, (x - 5, y + 10))
+
+        # 의자들 (테이블 주변)
+        chair_positions = [
+            (x - 15, y + table_h // 2 - 10),  # 좌
+            (x + table_w + 5, y + table_h // 2 - 10),  # 우
+            (x + table_w // 3, y - 20),  # 상
+            (x + table_w // 3, y + table_h + 10),  # 하
+        ]
+
+        for cx, cy in chair_positions:
+            # 의자 좌석
+            pygame.draw.rect(screen, chair_wood, (cx, cy + 10, 20, 18), border_radius=3)
+            # 의자 등받이
+            pygame.draw.rect(screen, tuple(max(0, c - 15) for c in chair_wood),
+                           (cx + 2, cy, 16, 15), border_radius=3)
+
+        # 테이블 본체
+        pygame.draw.rect(screen, table_wood, (x, y, table_w, table_h), border_radius=5)
+        pygame.draw.rect(screen, tuple(max(0, c - 25) for c in table_wood),
+                        (x, y, table_w, table_h), 2, border_radius=5)
+
+        # 테이블 하이라이트
+        pygame.draw.line(screen, tuple(min(255, c + 20) for c in table_wood),
+                        (x + 5, y + 3), (x + table_w - 5, y + 3), 2)
+
+        # 음식/음료 (테이블 위)
+        if is_large:
+            # 피자/파이
+            pygame.draw.circle(screen, (220, 180, 100), (x + 40, y + table_h // 2), 25)
+            pygame.draw.circle(screen, (200, 100, 80), (x + 40, y + table_h // 2), 22)
+            # 토핑
+            for i in range(6):
+                angle = i * math.pi / 3
+                tx = x + 40 + int(math.cos(angle) * 12)
+                ty = y + table_h // 2 + int(math.sin(angle) * 12)
+                pygame.draw.circle(screen, (180, 60, 50), (tx, ty), 4)
+
+            # 햄버거/샌드위치
+            pygame.draw.ellipse(screen, (200, 160, 100), (x + 90, y + 15, 30, 20))
+            pygame.draw.rect(screen, (150, 200, 100), (x + 93, y + 22, 24, 4))  # 양상추
+            pygame.draw.ellipse(screen, (180, 100, 70), (x + 95, y + 25, 20, 8))  # 고기
+
+            # 맥주잔
+            pygame.draw.rect(screen, (200, 170, 80), (x + table_w - 45, y + 20, 18, 25), border_radius=3)
+            pygame.draw.rect(screen, (240, 200, 90), (x + table_w - 43, y + 25, 14, 18))
+            pygame.draw.ellipse(screen, (255, 250, 230), (x + table_w - 44, y + 23, 16, 6))
+
+        # 접시/컵
+        pygame.draw.ellipse(screen, (230, 225, 220), (x + table_w // 2 - 15, y + table_h // 2 - 8, 30, 16))
+
+    def _draw_tavern_small_table(self, screen, x, y, anim, table_wood, chair_wood):
+        """작은 원형 테이블"""
+        table_r = 30
+
+        # 그림자
+        shadow_surf = pygame.Surface((table_r * 3, table_r * 2), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 35), (0, 5, table_r * 3, table_r * 1.5))
+        screen.blit(shadow_surf, (x - table_r // 2, y + table_r // 2))
+
+        # 의자들
+        chair_offsets = [(-35, 0), (35, 0)]
+        for ox, oy in chair_offsets:
+            cx, cy = x + table_r + ox, y + oy
+            pygame.draw.rect(screen, chair_wood, (cx, cy + 8, 18, 16), border_radius=3)
+            pygame.draw.rect(screen, tuple(max(0, c - 15) for c in chair_wood),
+                           (cx + 2, cy, 14, 12), border_radius=3)
+
+        # 테이블
+        pygame.draw.circle(screen, table_wood, (x + table_r, y + table_r // 2), table_r)
+        pygame.draw.circle(screen, tuple(max(0, c - 20) for c in table_wood),
+                          (x + table_r, y + table_r // 2), table_r, 2)
+
+        # 하이라이트
+        pygame.draw.arc(screen, tuple(min(255, c + 20) for c in table_wood),
+                       (x + 5, y - table_r // 2 + 5, table_r * 2 - 10, table_r - 5), 0.3, 2.8, 2)
+
+        # 맥주잔
+        pygame.draw.rect(screen, (190, 160, 70), (x + table_r - 8, y + 5, 16, 22), border_radius=2)
+        pygame.draw.rect(screen, (235, 195, 85), (x + table_r - 6, y + 8, 12, 16))
+        pygame.draw.ellipse(screen, (255, 248, 225), (x + table_r - 7, y + 6, 14, 5))
+
+    def _draw_tavern_round_table(self, screen, x, y, anim, table_wood, chair_wood):
+        """둥근 테이블 (벽난로 옆)"""
+        table_w = int(TILE_SIZE * 2.5)
+        table_h = int(TILE_SIZE * 1.8)
+
+        # 그림자
+        shadow_surf = pygame.Surface((table_w + 15, table_h + 10), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 5, table_w + 15, table_h))
+        screen.blit(shadow_surf, (x - 5, y + 8))
+
+        # 의자들
+        chair_positions = [(x - 12, y + 15), (x + table_w - 8, y + 15), (x + table_w // 2 - 10, y + table_h + 5)]
+        for cx, cy in chair_positions:
+            pygame.draw.rect(screen, chair_wood, (cx, cy + 5, 18, 15), border_radius=3)
+            pygame.draw.rect(screen, tuple(max(0, c - 12) for c in chair_wood),
+                           (cx + 2, cy - 3, 14, 12), border_radius=3)
+
+        # 테이블
+        pygame.draw.ellipse(screen, table_wood, (x, y, table_w, table_h))
+        pygame.draw.ellipse(screen, tuple(max(0, c - 20) for c in table_wood),
+                          (x, y, table_w, table_h), 2)
+
+        # 음식들
+        # 플레이트
+        pygame.draw.ellipse(screen, (235, 230, 225), (x + 20, y + table_h // 2 - 12, 35, 20))
+        # 음식 (스테이크?)
+        pygame.draw.ellipse(screen, (140, 80, 60), (x + 25, y + table_h // 2 - 8, 25, 14))
+
+        # 맥주잔
+        pygame.draw.rect(screen, (195, 165, 75), (x + table_w - 35, y + 25, 15, 20), border_radius=2)
+        pygame.draw.rect(screen, (238, 198, 88), (x + table_w - 33, y + 28, 11, 15))
+
+    def _draw_tavern_carpet(self, screen, x, y, carpet_red, carpet_dark):
+        """카펫 (벽난로 앞)"""
+        carpet_w = int(TILE_SIZE * 4)
+        carpet_h = int(TILE_SIZE * 2.5)
+
+        # 카펫 본체
+        pygame.draw.ellipse(screen, carpet_red, (x, y, carpet_w, carpet_h))
+
+        # 카펫 테두리/프린지
+        pygame.draw.ellipse(screen, carpet_dark, (x, y, carpet_w, carpet_h), 4)
+
+        # 장식 패턴 (중앙)
+        center_x = x + carpet_w // 2
+        center_y = y + carpet_h // 2
+        pygame.draw.ellipse(screen, carpet_dark, (center_x - 30, center_y - 15, 60, 30))
+        pygame.draw.ellipse(screen, carpet_red, (center_x - 22, center_y - 10, 44, 20))
+
+        # 장식 패턴 (모서리)
+        for ox, oy in [(-50, -20), (50, -20), (-50, 20), (50, 20)]:
+            pygame.draw.circle(screen, carpet_dark, (center_x + ox, center_y + oy), 8)
+
+    def _draw_tavern_arcade_machine(self, screen, x, y, anim):
+        """아케이드/슬롯 머신"""
+        machine_w = 35
+        machine_h = 60
+
+        # 머신 본체
+        pygame.draw.rect(screen, (60, 50, 80), (x, y, machine_w, machine_h), border_radius=5)
+        pygame.draw.rect(screen, (80, 70, 100), (x, y, machine_w, machine_h), 2, border_radius=5)
+
+        # 화면
+        screen_y = y + 8
+        screen_h = 25
+        pygame.draw.rect(screen, (20, 30, 40), (x + 5, screen_y, machine_w - 10, screen_h), border_radius=3)
+
+        # 화면 내용 (깜빡이는 숫자/그래픽)
+        glow = abs(math.sin(anim * 4))
+        screen_color = (int(50 + 100 * glow), int(200 * glow), int(50 + 100 * glow))
+        for i in range(3):
+            digit_x = x + 8 + i * 8
+            pygame.draw.rect(screen, screen_color, (digit_x, screen_y + 8, 6, 10))
+
+        # 버튼들
+        button_y = y + 40
+        pygame.draw.circle(screen, (200, 50, 50), (x + 12, button_y), 5)
+        pygame.draw.circle(screen, (50, 200, 50), (x + 24, button_y), 5)
+
+        # 코인 슬롯
+        pygame.draw.rect(screen, (40, 40, 50), (x + 12, y + 50, 12, 4))
+
+    def _draw_tavern_wall_decorations(self, screen, cam_x, cam_y, wall_h, anim):
+        """벽 장식들 (포스터, 간판 등)"""
+        # BEER 포스터 (좌측 상단)
+        poster_x = int(TILE_SIZE * 1) - cam_x
+        poster_y = int(TILE_SIZE * 0.3) - cam_y
+        pygame.draw.rect(screen, (180, 150, 100), (poster_x, poster_y, 35, 45), border_radius=3)
+        pygame.draw.rect(screen, (60, 45, 30), (poster_x, poster_y, 35, 45), 2, border_radius=3)
+        # BEER 텍스트 (간단히)
+        pygame.draw.rect(screen, (80, 60, 40), (poster_x + 5, poster_y + 5, 25, 12))
+        pygame.draw.rect(screen, (200, 160, 50), (poster_x + 8, poster_y + 20, 20, 20))
+
+        # 게시판 (중앙 상단)
+        board_x = self.pixel_width // 2 - 40 - cam_x
+        board_y = 15 - cam_y
+        pygame.draw.rect(screen, (160, 130, 90), (board_x, board_y, 80, 60), border_radius=5)
+        pygame.draw.rect(screen, (100, 75, 50), (board_x, board_y, 80, 60), 3, border_radius=5)
+        # 메모들
+        memo_colors = [(255, 255, 200), (200, 255, 200), (255, 200, 200)]
+        for i, mc in enumerate(memo_colors):
+            mx = board_x + 10 + (i % 2) * 35
+            my = board_y + 10 + (i // 2) * 25
+            pygame.draw.rect(screen, mc, (mx, my, 28, 22))
+            pygame.draw.rect(screen, (180, 180, 180), (mx, my, 28, 22), 1)
+
+        # Spirit 병 포스터 (우측)
+        spirit_x = self.pixel_width - int(TILE_SIZE * 3) - cam_x
+        spirit_y = int(TILE_SIZE * 0.5) - cam_y
+        pygame.draw.rect(screen, (200, 180, 140), (spirit_x, spirit_y, 40, 50), border_radius=3)
+        pygame.draw.rect(screen, (80, 60, 40), (spirit_x, spirit_y, 40, 50), 2, border_radius=3)
+        # 병 그림
+        pygame.draw.rect(screen, (60, 120, 80), (spirit_x + 14, spirit_y + 10, 12, 30), border_radius=3)
+        pygame.draw.rect(screen, (60, 120, 80), (spirit_x + 17, spirit_y + 5, 6, 8))
+
+    def _draw_tavern_lanterns(self, screen, cam_x, cam_y, anim, lantern_glow):
+        """천장 랜턴/조명"""
+        lantern_positions = [
+            (int(TILE_SIZE * 3), int(TILE_SIZE * 1.5)),
+            (self.pixel_width // 2, int(TILE_SIZE * 2)),
+            (self.pixel_width - int(TILE_SIZE * 4), int(TILE_SIZE * 1.5)),
+        ]
+
+        for lx, ly in lantern_positions:
+            draw_x = lx - cam_x
+            draw_y = ly - cam_y
+
+            # 체인
+            pygame.draw.line(screen, (60, 55, 50), (draw_x, draw_y - 30), (draw_x, draw_y), 2)
+
+            # 랜턴 글로우
+            glow_pulse = 0.7 + 0.3 * abs(math.sin(anim * 3 + lx * 0.01))
+            glow_size = int(40 * glow_pulse)
+            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            for i in range(5):
+                alpha = int((60 - i * 10) * glow_pulse)
+                pygame.draw.circle(glow_surf, (*lantern_glow[:3], alpha),
+                                 (glow_size, glow_size), glow_size - i * 5)
+            screen.blit(glow_surf, (draw_x - glow_size, draw_y - glow_size))
+
+            # 랜턴 본체
+            pygame.draw.rect(screen, (50, 45, 40), (draw_x - 10, draw_y - 5, 20, 25), border_radius=3)
+            # 유리
+            glass_color = tuple(int(c * glow_pulse) for c in lantern_glow)
+            pygame.draw.rect(screen, glass_color, (draw_x - 7, draw_y, 14, 15), border_radius=2)
+            # 상단 장식
+            pygame.draw.rect(screen, (70, 65, 55), (draw_x - 12, draw_y - 8, 24, 6), border_radius=2)
+            # 하단
+            pygame.draw.rect(screen, (70, 65, 55), (draw_x - 8, draw_y + 17, 16, 4), border_radius=1)
+
+    # =========================================================================
+    # 고퀄리티 선술집 헬퍼 함수들 (모험가 분위기)
+    # =========================================================================
+    def _draw_tavern_wood_floor_hq(self, screen, cam_x, cam_y, floor_color, floor_dark, floor_light, floor_accent):
+        """고퀄리티 나무 판자 바닥 - 낡고 분위기 있는 선술집 바닥"""
+        import math
+        plank_w = int(TILE_SIZE * 1.2)
+        plank_h = int(TILE_SIZE * 0.35)
+
+        for py in range(-plank_h, self.pixel_height + plank_h, plank_h):
+            row_offset = ((py // plank_h) % 4) * (plank_w // 4)
+            for px in range(-plank_w, self.pixel_width + plank_w * 2, plank_w):
+                draw_x = px + row_offset - cam_x
+                draw_y = py - cam_y
+
+                seed = (px * 17 + py * 11) % 7
+                colors = [floor_color, floor_dark, floor_color, floor_light, floor_dark, floor_accent, floor_color]
+                base_color = colors[seed]
+
+                # 판자 본체
+                pygame.draw.rect(screen, base_color, (draw_x, draw_y, plank_w - 2, plank_h - 1))
+
+                # 하이라이트
+                highlight = tuple(min(255, c + 18) for c in base_color)
+                pygame.draw.line(screen, highlight, (draw_x + 1, draw_y + 1), (draw_x + plank_w - 4, draw_y + 1))
+
+                # 그림자
+                shadow = tuple(max(0, c - 22) for c in base_color)
+                pygame.draw.line(screen, shadow, (draw_x, draw_y + plank_h - 2), (draw_x + plank_w - 3, draw_y + plank_h - 2))
+
+                # 나뭇결
+                if seed % 3 == 0:
+                    grain = tuple(max(0, c - 12) for c in base_color)
+                    pygame.draw.line(screen, grain, (draw_x + 4, draw_y + plank_h // 3), (draw_x + plank_w - 8, draw_y + plank_h // 3))
+
+                # 오래된 얼룩 (간혹)
+                if seed == 2 and (px + py) % 200 < 30:
+                    stain = tuple(max(0, c - 25) for c in base_color)
+                    pygame.draw.circle(screen, stain, (draw_x + plank_w // 2, draw_y + plank_h // 2), 5)
+
+    def _draw_tavern_walls_hq(self, screen, cam_x, cam_y, wall_h, wall_color, wall_dark, wall_light, plank_color, trim_color):
+        """고퀄리티 나무 벽 - 오래된 선술집 분위기"""
+        # 벽 배경
+        wall_rect = pygame.Rect(-cam_x, -cam_y, self.pixel_width, wall_h)
+        pygame.draw.rect(screen, wall_color, wall_rect)
+
+        # 나무 패널 (세로 줄) - 더 세밀하게
+        panel_w = int(TILE_SIZE * 0.6)
+        for i in range(0, self.pixel_width + panel_w, panel_w):
+            panel_x = i - cam_x
+            seed = i % 5
+            panel_col = wall_color if seed % 2 == 0 else tuple(max(0, c - 8) for c in wall_color)
+
+            pygame.draw.rect(screen, panel_col, (panel_x, -cam_y, panel_w - 3, wall_h))
+            pygame.draw.line(screen, wall_dark, (panel_x, -cam_y), (panel_x, wall_h - cam_y), 2)
+            pygame.draw.line(screen, wall_light, (panel_x + 2, -cam_y), (panel_x + 2, wall_h - cam_y), 1)
+
+        # 상단 몰딩
+        pygame.draw.rect(screen, plank_color, (-cam_x, -cam_y, self.pixel_width, 18))
+        pygame.draw.rect(screen, trim_color, (-cam_x, 15 - cam_y, self.pixel_width, 4))
+
+        # 하단 몰딩 (허리 높이)
+        pygame.draw.rect(screen, plank_color, (-cam_x, wall_h - 25 - cam_y, self.pixel_width, 25))
+        pygame.draw.line(screen, trim_color, (-cam_x, wall_h - cam_y), (self.pixel_width - cam_x, wall_h - cam_y), 3)
+
+    def _draw_tavern_fireplace_hq(self, screen, x, y, anim, brick_dark, brick_mid, brick_light, stone_mid, stone_light,
+                                   fire_orange, fire_red, fire_yellow, fire_white):
+        """고퀄리티 벽난로 - 크고 따뜻한 불꽃"""
+        import math
+        fp_w = int(TILE_SIZE * 4)
+        fp_h = int(TILE_SIZE * 3.8)
+
+        # 벽난로 프레임 (석재)
+        pygame.draw.rect(screen, stone_mid, (x - 10, y, fp_w + 20, fp_h + 10), border_radius=5)
+
+        # 벽돌 패턴
+        brick_h, brick_w = 14, 22
+        for by in range(0, fp_h, brick_h):
+            offset = (by // brick_h % 2) * (brick_w // 2)
+            for bx in range(0, fp_w, brick_w):
+                bxx = x + bx + offset
+                if bxx < x + fp_w - 3:
+                    seed = (bx * 7 + by * 13) % 4
+                    colors = [brick_dark, brick_mid, brick_light, brick_mid]
+                    pygame.draw.rect(screen, colors[seed], (bxx + 1, y + by + 1, brick_w - 2, brick_h - 2), border_radius=1)
+
+        # 벽난로 내부 (어두운 공간)
+        inner_m = 30
+        inner_rect = (x + inner_m, y + inner_m + 20, fp_w - inner_m * 2, fp_h - inner_m - 35)
+        pygame.draw.rect(screen, (12, 10, 8), inner_rect, border_radius=8)
+
+        # 장작
+        fire_base_y = inner_rect[1] + inner_rect[3] - 15
+        fire_cx = inner_rect[0] + inner_rect[2] // 2
+        for i in range(4):
+            log_x = inner_rect[0] + 8 + i * 18
+            pygame.draw.ellipse(screen, (55, 38, 22), (log_x, fire_base_y + 3, 28, 14))
+            pygame.draw.ellipse(screen, (75, 52, 32), (log_x + 2, fire_base_y + 5, 22, 9))
+
+        # 불꽃들 - 더 역동적
+        flames = [
+            (0, 0, 35, fire_yellow), (-18, 8, 25, fire_orange), (18, 8, 25, fire_orange),
+            (-10, -8, 30, fire_red), (10, -8, 30, fire_red), (0, -15, 20, fire_white),
+        ]
+        for fx_off, fy_off, f_size, f_color in flames:
+            flicker = math.sin(anim * 9 + fx_off * 0.6) * 6
+            flame_h = f_size + int(flicker)
+            flame_x = fire_cx + fx_off + int(math.sin(anim * 7 + fx_off) * 4)
+            flame_y = fire_base_y - flame_h + fy_off
+
+            # 글로우
+            glow_surf = pygame.Surface((f_size * 3, f_size * 3), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (*f_color[:3], 50), (0, 0, f_size * 3, f_size * 3))
+            screen.blit(glow_surf, (flame_x - f_size * 1.5, flame_y - f_size))
+
+            # 불꽃 삼각형
+            pts = [(flame_x, flame_y - flame_h // 2), (flame_x - f_size // 3, flame_y + flame_h // 3), (flame_x + f_size // 3, flame_y + flame_h // 3)]
+            pygame.draw.polygon(screen, f_color, pts)
+
+        # 불꽃 중심
+        pygame.draw.circle(screen, fire_white, (fire_cx, fire_base_y - 18), 10)
+
+        # 상단 선반 (맨틀피스)
+        pygame.draw.rect(screen, stone_light, (x - 15, y - 12, fp_w + 30, 18), border_radius=4)
+
+    def _draw_tavern_wall_trophy(self, screen, x, y, bear_brown):
+        """사슴 머리 트로피"""
+        # 나무 패널
+        pygame.draw.ellipse(screen, (70, 50, 32), (x - 25, y, 50, 55))
+        pygame.draw.ellipse(screen, (85, 62, 40), (x - 22, y + 3, 44, 48))
+
+        # 사슴 머리
+        head_color = (140, 100, 70)
+        pygame.draw.ellipse(screen, head_color, (x - 15, y + 15, 30, 35))
+        # 귀
+        pygame.draw.ellipse(screen, head_color, (x - 20, y + 12, 12, 18))
+        pygame.draw.ellipse(screen, head_color, (x + 8, y + 12, 12, 18))
+        # 뿔
+        antler = (90, 70, 50)
+        pygame.draw.line(screen, antler, (x - 12, y + 8), (x - 25, y - 15), 4)
+        pygame.draw.line(screen, antler, (x - 25, y - 15), (x - 35, y - 5), 3)
+        pygame.draw.line(screen, antler, (x - 25, y - 15), (x - 30, y - 25), 3)
+        pygame.draw.line(screen, antler, (x + 12, y + 8), (x + 25, y - 15), 4)
+        pygame.draw.line(screen, antler, (x + 25, y - 15), (x + 35, y - 5), 3)
+        pygame.draw.line(screen, antler, (x + 25, y - 15), (x + 30, y - 25), 3)
+        # 눈
+        pygame.draw.circle(screen, (30, 25, 20), (x - 6, y + 28), 4)
+        pygame.draw.circle(screen, (30, 25, 20), (x + 6, y + 28), 4)
+        # 코
+        pygame.draw.ellipse(screen, (50, 40, 35), (x - 5, y + 40, 10, 8))
+
+    def _draw_tavern_bar_counter_hq(self, screen, x, y, width, anim, counter_top, counter_front, wood_trim,
+                                     mug_gold, mug_body, beer_gold, beer_foam, metal):
+        """고퀄리티 바 카운터 - 맥주 탭과 잔들"""
+        import math
+        counter_h = int(TILE_SIZE * 2.2)
+
+        # 카운터 전면
+        pygame.draw.rect(screen, counter_front, (x, y + 12, width, counter_h - 12), border_radius=5)
+
+        # 패널 라인
+        for px in range(0, width, 45):
+            pygame.draw.line(screen, wood_trim, (x + px, y + 18), (x + px, y + counter_h - 8), 2)
+
+        # 카운터 상판
+        pygame.draw.rect(screen, counter_top, (x - 8, y, width + 16, 18), border_radius=4)
+        pygame.draw.rect(screen, wood_trim, (x - 8, y, width + 16, 18), 2, border_radius=4)
+
+        # 하이라이트
+        pygame.draw.line(screen, tuple(min(255, c + 30) for c in counter_top), (x, y + 4), (x + width, y + 4), 2)
+
+        # 맥주 탭 (중앙)
+        tap_x = x + width // 2 - 30
+        tap_y = y - 40
+        pygame.draw.rect(screen, (45, 45, 50), (tap_x, tap_y, 60, 45), border_radius=5)
+        for i in range(3):
+            hx = tap_x + 12 + i * 18
+            handle_col = [(210, 170, 85), (185, 145, 65), (165, 125, 55)][i]
+            pygame.draw.rect(screen, handle_col, (hx - 5, tap_y - 18, 10, 22), border_radius=3)
+            pygame.draw.circle(screen, handle_col, (hx, tap_y - 20), 7)
+
+        # 맥주잔들
+        mug_pos = [(x + 25, y - 28), (x + 85, y - 25), (x + width - 90, y - 30), (x + width - 40, y - 26)]
+        for mx, my in mug_pos:
+            pygame.draw.rect(screen, mug_body, (mx, my, 24, 30), border_radius=3)
+            pygame.draw.rect(screen, mug_gold, (mx, my, 24, 30), 2, border_radius=3)
+            pygame.draw.rect(screen, beer_gold, (mx + 3, my + 6, 18, 20))
+            pygame.draw.ellipse(screen, beer_foam, (mx + 2, my + 3, 20, 9))
+            pygame.draw.arc(screen, mug_gold, (mx + 20, my + 6, 14, 20), -1.5, 1.5, 3)
+
+    def _draw_tavern_shelves_hq(self, screen, x, y, anim, shelf_wood, bottle_green, bottle_blue, bottle_brown, bottle_red):
+        """고퀄리티 술 선반 - 다양한 병들"""
+        shelf_w = int(TILE_SIZE * 3.8)
+
+        for row in range(3):
+            shelf_y = y + row * 38
+            pygame.draw.rect(screen, shelf_wood, (x, shelf_y, shelf_w, 10), border_radius=2)
+            pygame.draw.line(screen, (55, 38, 22), (x, shelf_y + 8), (x + shelf_w, shelf_y + 8), 2)
+
+            colors = [bottle_green, bottle_blue, bottle_brown, bottle_red, bottle_green, bottle_blue]
+            for i in range(6):
+                bx = x + 8 + i * 22
+                by = shelf_y - 28
+
+                pygame.draw.rect(screen, colors[i % len(colors)], (bx, by + 10, 16, 20), border_radius=3)
+                pygame.draw.rect(screen, colors[i % len(colors)], (bx + 5, by, 6, 14))
+                pygame.draw.rect(screen, (170, 140, 95), (bx + 6, by - 3, 4, 5))
+                pygame.draw.rect(screen, (235, 225, 205), (bx + 2, by + 14, 12, 10))
+
+    def _draw_tavern_barrels_hq(self, screen, x, y, barrel_wood, barrel_dark, barrel_metal, barrel_metal_light):
+        """고퀄리티 맥주 배럴들"""
+        barrels = [(x, y, 50, 60), (x + 58, y + 8, 45, 52), (x + 108, y + 5, 48, 55), (x + 30, y + 65, 40, 45)]
+        for bx, by, bw, bh in barrels:
+            pygame.draw.ellipse(screen, barrel_wood, (bx, by, bw, bh))
+            for band_y in [by + 10, by + bh // 2, by + bh - 14]:
+                pygame.draw.ellipse(screen, barrel_metal, (bx + 3, band_y, bw - 6, 7))
+                pygame.draw.ellipse(screen, barrel_metal_light, (bx + 5, band_y + 1, bw - 10, 3))
+            pygame.draw.circle(screen, barrel_dark, (bx + bw // 2, by + bh // 2), 9)
+            pygame.draw.circle(screen, barrel_metal, (bx + bw // 2, by + bh // 2), 6)
+
+        # 탭
+        pygame.draw.rect(screen, barrel_metal, (x + 50, y + 32, 18, 10))
+        pygame.draw.circle(screen, (190, 160, 85), (x + 65, y + 37), 6)
+
+    def _draw_tavern_carpet_hq(self, screen, x, y, carpet_red, carpet_dark, carpet_gold, small=False):
+        """고퀄리티 카펫"""
+        if small:
+            cw, ch = int(TILE_SIZE * 2.5), int(TILE_SIZE * 1.8)
+        else:
+            cw, ch = int(TILE_SIZE * 4.5), int(TILE_SIZE * 2.8)
+
+        pygame.draw.ellipse(screen, carpet_red, (x, y, cw, ch))
+        pygame.draw.ellipse(screen, carpet_dark, (x, y, cw, ch), 5)
+        pygame.draw.ellipse(screen, carpet_gold, (x + 8, y + 6, cw - 16, ch - 12), 2)
+
+        cx, cy = x + cw // 2, y + ch // 2
+        pygame.draw.ellipse(screen, carpet_dark, (cx - 25, cy - 12, 50, 24))
+        pygame.draw.ellipse(screen, carpet_red, (cx - 18, cy - 8, 36, 16))
+
+    def _draw_tavern_table_with_customers(self, screen, x, y, anim, table_wood, table_dark, chair_wood,
+                                           table_type="round", customer_config="couple"):
+        """테이블 + 앉아있는 모험가 손님들"""
+        import math
+
+        # 테이블 타입별 크기
+        sizes = {
+            "large_rect": (int(TILE_SIZE * 4), int(TILE_SIZE * 2)),
+            "medium_rect": (int(TILE_SIZE * 3), int(TILE_SIZE * 1.8)),
+            "round": (int(TILE_SIZE * 2.2), int(TILE_SIZE * 2.2)),
+            "small_round": (int(TILE_SIZE * 1.8), int(TILE_SIZE * 1.8)),
+            "tiny": (int(TILE_SIZE * 1.3), int(TILE_SIZE * 1.3)),
+        }
+        tw, th = sizes.get(table_type, sizes["round"])
+
+        # 그림자
+        shadow = pygame.Surface((tw + 20, th + 15), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow, (0, 0, 0, 35), (0, 8, tw + 20, th))
+        screen.blit(shadow, (x - 10, y + 5))
+
+        # 손님 NPC 그리기 (테이블 뒤쪽 먼저)
+        self._draw_tavern_customers(screen, x, y, tw, th, anim, customer_config, behind=True)
+
+        # 테이블 그리기
+        if "round" in table_type or table_type == "tiny":
+            pygame.draw.ellipse(screen, table_wood, (x, y, tw, th))
+            pygame.draw.ellipse(screen, table_dark, (x, y, tw, th), 3)
+        else:
+            pygame.draw.rect(screen, table_wood, (x, y, tw, th), border_radius=6)
+            pygame.draw.rect(screen, table_dark, (x, y, tw, th), 3, border_radius=6)
+
+        # 테이블 위 음식/음료
+        self._draw_tavern_table_items(screen, x, y, tw, th, anim, customer_config)
+
+        # 손님 NPC 그리기 (테이블 앞쪽)
+        self._draw_tavern_customers(screen, x, y, tw, th, anim, customer_config, behind=False)
+
+    def _draw_tavern_customers(self, screen, x, y, tw, th, anim, config, behind=True):
+        """앉아있는 모험가 손님들 그리기"""
+        import math
+
+        # 손님 설정
+        configs = {
+            "party_4": [
+                {"pos": "top_left", "type": "warrior", "color": (180, 60, 60), "behind": True},
+                {"pos": "top_right", "type": "archer", "color": (60, 140, 60), "behind": True},
+                {"pos": "bottom_left", "type": "mage", "color": (80, 80, 180), "behind": False},
+                {"pos": "bottom_right", "type": "cleric", "color": (200, 180, 100), "behind": False},
+            ],
+            "couple": [
+                {"pos": "left", "type": "lady", "color": (200, 120, 150), "behind": True},
+                {"pos": "right", "type": "gentleman", "color": (80, 100, 140), "behind": False},
+            ],
+            "dwarves_3": [
+                {"pos": "top", "type": "dwarf", "color": (150, 100, 60), "behind": True},
+                {"pos": "bottom_left", "type": "dwarf", "color": (160, 90, 50), "behind": False},
+                {"pos": "bottom_right", "type": "dwarf", "color": (140, 85, 55), "behind": False},
+            ],
+            "mages_2": [
+                {"pos": "left", "type": "mage", "color": (120, 50, 150), "behind": True},
+                {"pos": "right", "type": "mage", "color": (50, 100, 150), "behind": False},
+            ],
+            "mysterious_1": [
+                {"pos": "center", "type": "hooded", "color": (50, 50, 55), "behind": False},
+            ],
+        }
+
+        customers = configs.get(config, [])
+        for cust in customers:
+            if cust["behind"] != behind:
+                continue
+
+            # 위치 계산
+            pos = cust["pos"]
+            cx, cy = x + tw // 2, y + th // 2
+            if pos == "top_left":
+                cx, cy = x + tw // 4, y - 15
+            elif pos == "top_right":
+                cx, cy = x + tw * 3 // 4, y - 15
+            elif pos == "bottom_left":
+                cx, cy = x + tw // 4, y + th + 5
+            elif pos == "bottom_right":
+                cx, cy = x + tw * 3 // 4, y + th + 5
+            elif pos == "left":
+                cx, cy = x - 15, y + th // 2
+            elif pos == "right":
+                cx, cy = x + tw + 15, y + th // 2
+            elif pos == "top":
+                cx, cy = x + tw // 2, y - 15
+            elif pos == "center":
+                cx, cy = x + tw // 2, y + th + 10
+
+            self._draw_seated_adventurer(screen, cx, cy, anim, cust["type"], cust["color"])
+
+    def _draw_seated_adventurer(self, screen, x, y, anim, adv_type, color):
+        """앉아있는 모험가 한 명 그리기"""
+        import math
+
+        # 의자 (간단히)
+        chair_col = (85, 60, 40)
+        pygame.draw.rect(screen, chair_col, (x - 12, y + 5, 24, 18), border_radius=3)
+
+        # 몸통
+        body_col = color
+        pygame.draw.ellipse(screen, body_col, (x - 14, y - 20, 28, 35))
+
+        # 머리
+        skin = (235, 200, 170)
+        if adv_type == "dwarf":
+            # 드워프 - 큰 수염
+            pygame.draw.circle(screen, skin, (x, y - 32), 14)
+            beard_col = (140, 100, 60)
+            pygame.draw.ellipse(screen, beard_col, (x - 12, y - 28, 24, 25))
+            pygame.draw.circle(screen, skin, (x, y - 38), 10)
+            # 헬멧
+            pygame.draw.arc(screen, (120, 120, 130), (x - 12, y - 52, 24, 20), 0, 3.14, 4)
+        elif adv_type == "hooded":
+            # 후드 쓴 인물
+            pygame.draw.circle(screen, (35, 35, 40), (x, y - 35), 16)
+            pygame.draw.ellipse(screen, (25, 25, 30), (x - 18, y - 48, 36, 30))
+            # 어두운 얼굴
+            pygame.draw.ellipse(screen, (20, 20, 25), (x - 8, y - 38, 16, 12))
+        elif adv_type == "mage":
+            pygame.draw.circle(screen, skin, (x, y - 35), 12)
+            # 마법사 모자
+            pygame.draw.polygon(screen, color, [(x, y - 65), (x - 14, y - 40), (x + 14, y - 40)])
+        elif adv_type == "warrior":
+            pygame.draw.circle(screen, skin, (x, y - 35), 13)
+            # 투구
+            pygame.draw.arc(screen, (150, 150, 160), (x - 14, y - 50, 28, 22), 0, 3.14, 5)
+        elif adv_type == "archer":
+            pygame.draw.circle(screen, skin, (x, y - 35), 12)
+            # 두건
+            pygame.draw.arc(screen, (60, 120, 60), (x - 13, y - 48, 26, 18), 0, 3.14, 4)
+        elif adv_type == "cleric":
+            pygame.draw.circle(screen, skin, (x, y - 35), 12)
+            # 성직자 모자
+            pygame.draw.rect(screen, (200, 180, 100), (x - 10, y - 50, 20, 8), border_radius=2)
+        elif adv_type == "lady":
+            pygame.draw.circle(screen, skin, (x, y - 35), 11)
+            # 긴 머리
+            pygame.draw.ellipse(screen, (120, 70, 50), (x - 14, y - 45, 28, 30))
+            pygame.draw.circle(screen, skin, (x, y - 38), 10)
+        elif adv_type == "gentleman":
+            pygame.draw.circle(screen, skin, (x, y - 35), 12)
+            # 콧수염
+            pygame.draw.arc(screen, (60, 50, 40), (x - 8, y - 30, 16, 8), 3.14, 6.28, 2)
+        else:
+            pygame.draw.circle(screen, skin, (x, y - 35), 12)
+
+        # 눈 (후드 제외)
+        if adv_type != "hooded":
+            pygame.draw.circle(screen, (30, 30, 35), (x - 4, y - 37), 2)
+            pygame.draw.circle(screen, (30, 30, 35), (x + 4, y - 37), 2)
+
+        # 맥주잔 들고 있는 손 (가끔 애니메이션)
+        if adv_type not in ["hooded", "lady"]:
+            arm_offset = int(math.sin(anim * 2 + hash(adv_type) % 10) * 2)
+            mug_x = x + 18
+            mug_y = y - 10 + arm_offset
+            # 팔
+            pygame.draw.line(screen, skin, (x + 10, y - 5), (mug_x - 5, mug_y + 5), 4)
+            # 맥주잔
+            pygame.draw.rect(screen, (180, 150, 60), (mug_x - 6, mug_y, 12, 16), border_radius=2)
+            pygame.draw.rect(screen, (235, 195, 80), (mug_x - 4, mug_y + 4, 8, 10))
+            pygame.draw.ellipse(screen, (255, 248, 225), (mug_x - 5, mug_y + 2, 10, 5))
+
+    def _draw_tavern_table_items(self, screen, x, y, tw, th, anim, config):
+        """테이블 위 음식과 음료"""
+        import math
+        cx, cy = x + tw // 2, y + th // 2
+
+        if config == "party_4":
+            # 큰 파이
+            pygame.draw.circle(screen, (215, 175, 95), (cx - 20, cy), 22)
+            pygame.draw.circle(screen, (195, 95, 75), (cx - 20, cy), 18)
+            # 맥주잔들
+            for ox in [-50, 40, -30, 50]:
+                pygame.draw.rect(screen, (185, 155, 65), (cx + ox, cy - 8, 14, 18), border_radius=2)
+        elif config == "dwarves_3":
+            # 고기 플래터
+            pygame.draw.ellipse(screen, (230, 220, 210), (cx - 30, cy - 12, 60, 25))
+            pygame.draw.ellipse(screen, (145, 85, 60), (cx - 20, cy - 8, 40, 16))
+            # 맥주
+            for ox in [-35, 0, 35]:
+                pygame.draw.rect(screen, (190, 160, 70), (cx + ox - 7, cy - 5, 14, 18), border_radius=2)
+        elif config == "couple":
+            # 와인잔
+            pygame.draw.ellipse(screen, (200, 80, 80), (cx - 18, cy - 5, 12, 8))
+            pygame.draw.line(screen, (180, 180, 185), (cx - 12, cy + 2), (cx - 12, cy + 12), 2)
+            pygame.draw.ellipse(screen, (200, 80, 80), (cx + 6, cy - 5, 12, 8))
+            pygame.draw.line(screen, (180, 180, 185), (cx + 12, cy + 2), (cx + 12, cy + 12), 2)
+            # 촛불
+            candle_flicker = abs(math.sin(anim * 5)) * 0.3 + 0.7
+            pygame.draw.rect(screen, (240, 235, 220), (cx - 3, cy - 10, 6, 12))
+            flame_col = (255, int(200 * candle_flicker), int(80 * candle_flicker))
+            pygame.draw.ellipse(screen, flame_col, (cx - 4, cy - 18, 8, 12))
+        elif config == "mages_2":
+            # 두꺼운 책
+            pygame.draw.rect(screen, (100, 60, 45), (cx - 15, cy - 8, 30, 22), border_radius=2)
+            pygame.draw.rect(screen, (220, 210, 180), (cx - 12, cy - 5, 24, 16))
+            # 포션
+            pygame.draw.rect(screen, (120, 50, 150), (cx + 25, cy - 5, 10, 16), border_radius=3)
+        elif config == "mysterious_1":
+            # 술잔 하나
+            pygame.draw.rect(screen, (60, 60, 65), (cx - 6, cy - 5, 12, 15), border_radius=2)
+            pygame.draw.rect(screen, (80, 50, 45), (cx - 4, cy - 2, 8, 10))
+
+    def _draw_tavern_bar_customers(self, screen, counter_x, counter_y, counter_w, anim):
+        """바 카운터에 앉아있는 손님들"""
+        import math
+
+        # 바 스툴 + 손님들
+        customers = [
+            {"x": counter_x + 50, "type": "drunk_warrior", "color": (170, 70, 70)},
+            {"x": counter_x + 130, "type": "bard", "color": (180, 140, 80)},
+            {"x": counter_x + counter_w - 120, "type": "merchant", "color": (100, 130, 100)},
+            {"x": counter_x + counter_w - 50, "type": "sailor", "color": (70, 100, 150)},
+        ]
+
+        for cust in customers:
+            cx = cust["x"]
+            cy = counter_y + 45
+
+            # 바 스툴
+            pygame.draw.rect(screen, (75, 55, 38), (cx - 12, cy + 10, 24, 20), border_radius=4)
+            pygame.draw.rect(screen, (55, 40, 28), (cx - 4, cy + 28, 8, 15))
+
+            # 몸통
+            pygame.draw.ellipse(screen, cust["color"], (cx - 16, cy - 15, 32, 38))
+
+            # 머리
+            skin = (235, 200, 170)
+            ctype = cust["type"]
+
+            if ctype == "drunk_warrior":
+                pygame.draw.circle(screen, skin, (cx, cy - 28), 14)
+                # 흐트러진 머리
+                pygame.draw.arc(screen, (80, 60, 45), (cx - 15, cy - 42, 30, 18), 0, 3.14, 4)
+                # 붉은 코
+                pygame.draw.circle(screen, (220, 120, 120), (cx, cy - 24), 5)
+                # 취한 눈
+                pygame.draw.line(screen, (30, 30, 35), (cx - 6, cy - 30), (cx - 2, cy - 28), 2)
+                pygame.draw.line(screen, (30, 30, 35), (cx + 2, cy - 28), (cx + 6, cy - 30), 2)
+            elif ctype == "bard":
+                pygame.draw.circle(screen, skin, (cx, cy - 28), 13)
+                # 깃털 모자
+                pygame.draw.arc(screen, (140, 80, 50), (cx - 14, cy - 42, 28, 16), 0, 3.14, 4)
+                pygame.draw.ellipse(screen, (200, 50, 50), (cx + 8, cy - 48, 8, 20))
+                pygame.draw.circle(screen, (30, 30, 35), (cx - 4, cy - 30), 2)
+                pygame.draw.circle(screen, (30, 30, 35), (cx + 4, cy - 30), 2)
+            elif ctype == "merchant":
+                pygame.draw.circle(screen, skin, (cx, cy - 28), 13)
+                # 통통한 얼굴, 콧수염
+                pygame.draw.ellipse(screen, skin, (cx - 10, cy - 32, 20, 18))
+                pygame.draw.arc(screen, (50, 45, 40), (cx - 8, cy - 23, 16, 10), 3.14, 6.28, 2)
+                pygame.draw.circle(screen, (30, 30, 35), (cx - 4, cy - 30), 2)
+                pygame.draw.circle(screen, (30, 30, 35), (cx + 4, cy - 30), 2)
+            elif ctype == "sailor":
+                pygame.draw.circle(screen, skin, (cx, cy - 28), 13)
+                # 반다나
+                pygame.draw.arc(screen, (180, 50, 50), (cx - 14, cy - 42, 28, 16), 0, 3.14, 5)
+                # 수염
+                pygame.draw.rect(screen, (60, 50, 45), (cx - 8, cy - 22, 16, 8), border_radius=3)
+                pygame.draw.circle(screen, (30, 30, 35), (cx - 4, cy - 30), 2)
+                pygame.draw.circle(screen, (30, 30, 35), (cx + 4, cy - 30), 2)
+
+            # 맥주잔 들고 있음
+            arm_bob = int(math.sin(anim * 2.5 + cx * 0.1) * 3)
+            mug_x, mug_y = cx + 20, cy - 5 + arm_bob
+            pygame.draw.line(screen, skin, (cx + 12, cy), (mug_x - 3, mug_y + 8), 4)
+            pygame.draw.rect(screen, (185, 155, 65), (mug_x - 8, mug_y, 16, 20), border_radius=3)
+            pygame.draw.rect(screen, (240, 200, 90), (mug_x - 6, mug_y + 4, 12, 14))
+            pygame.draw.ellipse(screen, (255, 250, 230), (mug_x - 7, mug_y + 2, 14, 6))
+
+    def _draw_tavern_jukebox(self, screen, x, y, anim):
+        """주크박스/음악 상자"""
+        import math
+
+        # 본체
+        pygame.draw.rect(screen, (70, 55, 85), (x, y, 40, 65), border_radius=6)
+        pygame.draw.rect(screen, (90, 75, 105), (x, y, 40, 65), 2, border_radius=6)
+
+        # 상단 아치
+        pygame.draw.arc(screen, (200, 160, 80), (x + 2, y + 2, 36, 25), 0, 3.14, 4)
+
+        # 음악 표시 (깜빡임)
+        glow = abs(math.sin(anim * 4))
+        note_col = (int(100 + 150 * glow), int(200 * glow), int(100 + 100 * glow))
+        pygame.draw.circle(screen, note_col, (x + 12, y + 20), 4)
+        pygame.draw.circle(screen, note_col, (x + 28, y + 18), 4)
+        pygame.draw.line(screen, note_col, (x + 12, y + 16), (x + 12, y + 8), 2)
+        pygame.draw.line(screen, note_col, (x + 28, y + 14), (x + 28, y + 6), 2)
+
+        # 버튼들
+        for i in range(3):
+            btn_y = y + 35 + i * 8
+            pygame.draw.rect(screen, (50, 50, 55), (x + 10, btn_y, 20, 5), border_radius=2)
+
+        # 코인 슬롯
+        pygame.draw.rect(screen, (40, 40, 45), (x + 15, y + 58, 10, 4))
+
+    def _draw_tavern_wall_decorations_hq(self, screen, cam_x, cam_y, wall_h, anim):
+        """고퀄리티 벽 장식들 - 무기, 방패, 포스터"""
+        import math
+
+        # 방패 + 교차 검 (좌측)
+        shield_x = int(TILE_SIZE * 1.5) - cam_x
+        shield_y = int(TILE_SIZE * 0.3) - cam_y
+        # 검
+        pygame.draw.line(screen, (180, 180, 190), (shield_x - 25, shield_y), (shield_x + 25, shield_y + 50), 4)
+        pygame.draw.line(screen, (180, 180, 190), (shield_x + 25, shield_y), (shield_x - 25, shield_y + 50), 4)
+        # 방패
+        pygame.draw.ellipse(screen, (150, 50, 50), (shield_x - 18, shield_y + 8, 36, 45))
+        pygame.draw.ellipse(screen, (180, 70, 70), (shield_x - 14, shield_y + 12, 28, 36))
+        pygame.draw.ellipse(screen, (200, 160, 60), (shield_x - 8, shield_y + 20, 16, 20))
+
+        # "BEER" 포스터 (중앙 좌측)
+        poster_x = int(TILE_SIZE * 4) - cam_x
+        poster_y = int(TILE_SIZE * 0.4) - cam_y
+        pygame.draw.rect(screen, (180, 150, 100), (poster_x, poster_y, 45, 55), border_radius=3)
+        pygame.draw.rect(screen, (60, 45, 30), (poster_x, poster_y, 45, 55), 2, border_radius=3)
+        # 맥주잔 그림
+        pygame.draw.rect(screen, (200, 165, 70), (poster_x + 12, poster_y + 15, 20, 28), border_radius=3)
+        pygame.draw.ellipse(screen, (255, 250, 230), (poster_x + 13, poster_y + 17, 18, 8))
+
+        # 게시판 (중앙)
+        board_x = self.pixel_width // 2 - 45 - cam_x
+        board_y = int(TILE_SIZE * 0.2) - cam_y
+        pygame.draw.rect(screen, (155, 125, 85), (board_x, board_y, 90, 70), border_radius=5)
+        pygame.draw.rect(screen, (95, 70, 45), (board_x, board_y, 90, 70), 3, border_radius=5)
+        # 메모들
+        for i, mc in enumerate([(255, 255, 195), (195, 255, 195), (255, 195, 195), (195, 220, 255)]):
+            mx = board_x + 8 + (i % 2) * 42
+            my = board_y + 8 + (i // 2) * 30
+            pygame.draw.rect(screen, mc, (mx, my, 35, 26), border_radius=2)
+            # 핀
+            pygame.draw.circle(screen, (200, 50, 50), (mx + 17, my + 3), 4)
+
+        # 도끼 (우측 상단)
+        axe_x = self.pixel_width - int(TILE_SIZE * 2.5) - cam_x
+        axe_y = int(TILE_SIZE * 0.5) - cam_y
+        # 자루
+        pygame.draw.line(screen, (100, 70, 45), (axe_x, axe_y + 40), (axe_x, axe_y), 6)
+        # 날
+        pygame.draw.polygon(screen, (170, 170, 180), [(axe_x - 20, axe_y + 5), (axe_x, axe_y - 5), (axe_x, axe_y + 15)])
+        pygame.draw.polygon(screen, (170, 170, 180), [(axe_x + 20, axe_y + 5), (axe_x, axe_y - 5), (axe_x, axe_y + 15)])
+
+    def _draw_tavern_chandeliers(self, screen, cam_x, cam_y, anim, lantern_glow, candle_glow):
+        """천장 샹들리에와 랜턴들"""
+        import math
+
+        # 메인 샹들리에 (중앙)
+        ch_x = self.pixel_width // 2 - cam_x
+        ch_y = int(TILE_SIZE * 1.5) - cam_y
+
+        # 체인
+        pygame.draw.line(screen, (70, 65, 55), (ch_x, ch_y - 40), (ch_x, ch_y), 3)
+
+        # 샹들리에 프레임 (원형)
+        pygame.draw.circle(screen, (90, 75, 55), (ch_x, ch_y + 10), 35, 4)
+
+        # 촛불들
+        candle_positions = [(ch_x - 30, ch_y + 5), (ch_x - 15, ch_y + 15), (ch_x, ch_y + 5),
+                           (ch_x + 15, ch_y + 15), (ch_x + 30, ch_y + 5)]
+        for i, (cx, cy) in enumerate(candle_positions):
+            # 촛불 글로우
+            glow_pulse = 0.7 + 0.3 * abs(math.sin(anim * 4 + i * 0.8))
+            glow_size = int(25 * glow_pulse)
+            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            for j in range(4):
+                alpha = int((50 - j * 12) * glow_pulse)
+                pygame.draw.circle(glow_surf, (*candle_glow[:3], alpha), (glow_size, glow_size), glow_size - j * 5)
+            screen.blit(glow_surf, (cx - glow_size, cy - glow_size - 10))
+
+            # 촛불
+            pygame.draw.rect(screen, (240, 235, 220), (cx - 3, cy, 6, 14))
+            # 불꽃
+            flame_h = 8 + int(math.sin(anim * 6 + i) * 3)
+            pygame.draw.ellipse(screen, candle_glow, (cx - 4, cy - flame_h, 8, flame_h + 2))
+
+        # 보조 랜턴들
+        lanterns = [(int(TILE_SIZE * 2.5), int(TILE_SIZE * 2)), (self.pixel_width - int(TILE_SIZE * 2.5), int(TILE_SIZE * 2))]
+        for lx, ly in lanterns:
+            dx, dy = lx - cam_x, ly - cam_y
+
+            pygame.draw.line(screen, (60, 55, 48), (dx, dy - 25), (dx, dy), 2)
+
+            glow_p = 0.7 + 0.3 * abs(math.sin(anim * 3.5 + lx * 0.01))
+            glow_s = int(35 * glow_p)
+            g_surf = pygame.Surface((glow_s * 2, glow_s * 2), pygame.SRCALPHA)
+            for k in range(4):
+                pygame.draw.circle(g_surf, (*lantern_glow[:3], int((55 - k * 12) * glow_p)), (glow_s, glow_s), glow_s - k * 6)
+            screen.blit(g_surf, (dx - glow_s, dy - glow_s))
+
+            pygame.draw.rect(screen, (55, 50, 45), (dx - 10, dy - 5, 20, 28), border_radius=3)
+            glass_col = tuple(int(c * glow_p) for c in lantern_glow)
+            pygame.draw.rect(screen, glass_col, (dx - 7, dy, 14, 18), border_radius=2)
+
+    # =========================================================================
+    # 선술집 v2 고퀄리티 함수들 (광장 NPC 수준 디테일)
+    # =========================================================================
+    def _draw_tavern_floor_v2(self, screen, cam_x, cam_y, floor_col, floor_dark, floor_light, floor_accent):
+        """고퀄리티 나무 바닥"""
+        plank_w = int(TILE_SIZE * 1.5)
+        plank_h = int(TILE_SIZE * 0.4)
+
+        for py in range(-plank_h, self.pixel_height + plank_h, plank_h):
+            row_off = ((py // plank_h) % 3) * (plank_w // 3)
+            for px in range(-plank_w, self.pixel_width + plank_w * 2, plank_w):
+                dx = px + row_off - cam_x
+                dy = py - cam_y
+                seed = (px * 17 + py * 13) % 6
+                colors = [floor_col, floor_dark, floor_light, floor_col, floor_accent, floor_dark]
+                base = colors[seed]
+
+                pygame.draw.rect(screen, base, (dx, dy, plank_w - 2, plank_h - 1))
+                pygame.draw.line(screen, tuple(min(255, c + 20) for c in base), (dx + 1, dy + 1), (dx + plank_w - 4, dy + 1))
+                pygame.draw.line(screen, tuple(max(0, c - 25) for c in base), (dx, dy + plank_h - 2), (dx + plank_w - 3, dy + plank_h - 2))
+
+    def _draw_tavern_walls_v2(self, screen, cam_x, cam_y, wall_h, wall_col, wall_dark, wall_light, plank_col, trim_col):
+        """고퀄리티 나무 벽"""
+        pygame.draw.rect(screen, wall_col, (-cam_x, -cam_y, self.pixel_width, wall_h))
+
+        panel_w = int(TILE_SIZE * 0.7)
+        for i in range(0, self.pixel_width + panel_w, panel_w):
+            px = i - cam_x
+            pygame.draw.line(screen, wall_dark, (px, -cam_y), (px, wall_h - cam_y), 2)
+            pygame.draw.line(screen, wall_light, (px + 2, -cam_y), (px + 2, wall_h - cam_y), 1)
+
+        pygame.draw.rect(screen, plank_col, (-cam_x, -cam_y, self.pixel_width, 15))
+        pygame.draw.rect(screen, trim_col, (-cam_x, 12 - cam_y, self.pixel_width, 4))
+        pygame.draw.rect(screen, plank_col, (-cam_x, wall_h - 22 - cam_y, self.pixel_width, 22))
+
+    def _draw_tavern_fireplace_v2(self, screen, x, y, anim, brick_dark, brick_mid, brick_light, stone_mid, stone_light,
+                                   fire_orange, fire_red, fire_yellow, fire_white):
+        """고퀄리티 벽난로 (작은 사이즈)"""
+        import math
+        fp_w, fp_h = int(TILE_SIZE * 3), int(TILE_SIZE * 2.3)
+
+        pygame.draw.rect(screen, stone_mid, (x - 8, y, fp_w + 16, fp_h + 8), border_radius=4)
+
+        # 벽돌 (작게)
+        brick_h, brick_w = 8, 14
+        for by in range(0, fp_h, brick_h):
+            off = (by // brick_h % 2) * (brick_w // 2)
+            for bx in range(0, fp_w, brick_w):
+                bxx = x + bx + off
+                if bxx < x + fp_w - 2:
+                    seed = (bx * 7 + by * 11) % 3
+                    cols = [brick_dark, brick_mid, brick_light]
+                    pygame.draw.rect(screen, cols[seed], (bxx + 1, y + by + 1, brick_w - 2, brick_h - 2), border_radius=1)
+
+        # 불구멍
+        inner = (x + 18, y + 24, fp_w - 36, fp_h - 32)
+        pygame.draw.rect(screen, (10, 8, 6), inner, border_radius=4)
+
+        fire_y = inner[1] + inner[3] - 8
+        fire_cx = inner[0] + inner[2] // 2
+        for i in range(2):
+            pygame.draw.ellipse(screen, (52, 35, 20), (inner[0] + 3 + i * 14, fire_y + 1, 18, 8))
+
+        # 불꽃 (작게)
+        flames = [(0, 0, 20, fire_yellow), (-10, 4, 14, fire_orange), (10, 4, 14, fire_orange),
+                  (-5, -4, 16, fire_red), (5, -4, 16, fire_red)]
+        for fx, fy, fs, fc in flames:
+            flick = math.sin(anim * 8 + fx * 0.5) * 3
+            fh = fs + int(flick)
+            ffx = fire_cx + fx + int(math.sin(anim * 6 + fx) * 2)
+            ffy = fire_y - fh + fy
+            glow = pygame.Surface((fs * 2, fs * 2), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow, (*fc[:3], 40), (0, 0, fs * 2, fs * 2))
+            screen.blit(glow, (ffx - fs, ffy - fs // 2))
+            pygame.draw.polygon(screen, fc, [(ffx, ffy - fh // 2), (ffx - fs // 3, ffy + fh // 3), (ffx + fs // 3, ffy + fh // 3)])
+
+        pygame.draw.circle(screen, fire_white, (fire_cx, fire_y - 10), 5)
+        pygame.draw.rect(screen, stone_light, (x - 12, y - 7, fp_w + 24, 11), border_radius=3)
+
+    def _draw_tavern_bar_v2(self, screen, x, y, width, anim, counter_top, counter_front, trim, mug_gold, mug_body, beer_gold, beer_foam, metal):
+        """고퀄리티 바 카운터 (작은 사이즈)"""
+        import math
+        h = int(TILE_SIZE * 1.3)
+
+        pygame.draw.rect(screen, counter_front, (x, y + 7, width, h - 7), border_radius=3)
+        for px in range(0, width, 35):
+            pygame.draw.line(screen, trim, (x + px, y + 10), (x + px, y + h - 3), 1)
+
+        pygame.draw.rect(screen, counter_top, (x - 4, y, width + 8, 11), border_radius=3)
+        pygame.draw.rect(screen, trim, (x - 4, y, width + 8, 11), 2, border_radius=3)
+        pygame.draw.line(screen, tuple(min(255, c + 25) for c in counter_top), (x, y + 3), (x + width, y + 3), 1)
+
+        # 맥주 탭 (작게)
+        tap_x = x + width // 2 - 22
+        tap_y = y - 28
+        pygame.draw.rect(screen, (42, 42, 48), (tap_x, tap_y, 44, 32), border_radius=3)
+        for i in range(3):
+            hx = tap_x + 9 + i * 13
+            hcol = [(208, 168, 82), (182, 142, 62), (162, 122, 52)][i]
+            pygame.draw.rect(screen, hcol, (hx - 3, tap_y - 10, 6, 13), border_radius=2)
+            pygame.draw.circle(screen, hcol, (hx, tap_y - 12), 4)
+
+        # 바 위 맥주잔 (작은 사이즈)
+        for mx, my in [(x + 25, y - 16), (x + 75, y - 14), (x + width - 40, y - 18)]:
+            pygame.draw.rect(screen, mug_body, (mx, my, 14, 18), border_radius=2)
+            pygame.draw.rect(screen, mug_gold, (mx, my, 14, 18), 2, border_radius=2)
+            pygame.draw.rect(screen, beer_gold, (mx + 2, my + 3, 10, 12))
+            pygame.draw.ellipse(screen, beer_foam, (mx + 1, my + 2, 12, 5))
+            pygame.draw.arc(screen, mug_gold, (mx + 11, my + 3, 8, 12), -1.5, 1.5, 2)
+
+    def _draw_tavern_shelves_v2(self, screen, x, y, shelf_wood, bottle_green, bottle_blue, bottle_brown, bottle_red):
+        """고퀄리티 술 선반 (작은 사이즈)"""
+        shelf_w = int(TILE_SIZE * 4)
+        for row in range(3):
+            sy = y + row * 28
+            pygame.draw.rect(screen, shelf_wood, (x, sy, shelf_w, 8), border_radius=1)
+            pygame.draw.line(screen, (52, 35, 20), (x, sy + 6), (x + shelf_w, sy + 6), 1)
+
+            cols = [bottle_green, bottle_blue, bottle_brown, bottle_red, bottle_green, bottle_blue, bottle_brown]
+            for i in range(7):
+                bx, by = x + 4 + i * 16, sy - 18
+                c = cols[i % len(cols)]
+                pygame.draw.rect(screen, c, (bx, by + 4, 10, 13), border_radius=2)
+                pygame.draw.rect(screen, c, (bx + 3, by, 4, 9))  # 병목
+                pygame.draw.rect(screen, (168, 138, 92), (bx + 3, by - 1, 3, 3))  # 코르크
+                pygame.draw.rect(screen, (232, 222, 202), (bx + 1, by + 9, 8, 6))  # 라벨
+                pygame.draw.line(screen, tuple(min(255, cc + 35) for cc in c), (bx + 1, by + 7), (bx + 1, by + 18), 1)  # 하이라이트
+
+    def _draw_tavern_barrels_v2(self, screen, x, y, barrel_wood, barrel_dark, barrel_metal, barrel_light):
+        """고퀄리티 맥주 배럴 (작은 사이즈)"""
+        barrels = [(x, y, 35, 42), (x + 40, y + 5, 30, 35), (x + 74, y + 3, 33, 38)]
+        for bx, by, bw, bh in barrels:
+            pygame.draw.ellipse(screen, barrel_wood, (bx, by, bw, bh))
+            for band_y in [by + 6, by + bh // 2, by + bh - 9]:
+                pygame.draw.ellipse(screen, barrel_metal, (bx + 2, band_y, bw - 4, 5))
+                pygame.draw.ellipse(screen, barrel_light, (bx + 3, band_y + 1, bw - 6, 2))
+            pygame.draw.circle(screen, barrel_dark, (bx + bw // 2, by + bh // 2), 6)
+            pygame.draw.circle(screen, barrel_metal, (bx + bw // 2, by + bh // 2), 4)
+
+        # 수도꼭지
+        pygame.draw.rect(screen, barrel_metal, (x + 35, y + 22, 12, 7))
+        pygame.draw.circle(screen, (188, 158, 82), (x + 45, y + 26), 4)
+
+    def _draw_tavern_carpet_v2(self, screen, x, y, carpet_red, carpet_dark, carpet_gold):
+        """고퀄리티 카펫 (작은 사이즈)"""
+        cw, ch = int(TILE_SIZE * 3.5), int(TILE_SIZE * 2)
+        pygame.draw.ellipse(screen, carpet_red, (x, y, cw, ch))
+        pygame.draw.ellipse(screen, carpet_dark, (x, y, cw, ch), 3)
+        pygame.draw.ellipse(screen, carpet_gold, (x + 7, y + 5, cw - 14, ch - 10), 1)
+        cx, cy = x + cw // 2, y + ch // 2
+        pygame.draw.ellipse(screen, carpet_dark, (cx - 18, cy - 9, 36, 18))
+        pygame.draw.ellipse(screen, carpet_red, (cx - 12, cy - 6, 24, 12))
+
+    def _draw_tavern_table_v2(self, screen, x, y, anim, table_wood, table_dark, chair_wood, size, config):
+        """고퀄리티 테이블 + 손님 (작은 NPC에 맞춤)"""
+        import math
+
+        # NPC 사이즈에 맞게 테이블 축소
+        sizes = {"small": (int(TILE_SIZE * 1.0), int(TILE_SIZE * 1.0)),
+                 "medium": (int(TILE_SIZE * 1.8), int(TILE_SIZE * 1.3)),
+                 "large": (int(TILE_SIZE * 2.2), int(TILE_SIZE * 1.5))}
+        tw, th = sizes.get(size, sizes["medium"])
+
+        shadow = pygame.Surface((tw + 20, th + 15), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow, (0, 0, 0, 30), (0, 8, tw + 20, th))
+        screen.blit(shadow, (x - 10, y + 8))
+
+        self._draw_tavern_patrons_v2(screen, x, y, tw, th, anim, config, behind=True)
+
+        if size == "small":
+            pygame.draw.ellipse(screen, table_wood, (x, y, tw, th))
+            pygame.draw.ellipse(screen, table_dark, (x, y, tw, th), 3)
+        else:
+            pygame.draw.rect(screen, table_wood, (x, y, tw, th), border_radius=6)
+            pygame.draw.rect(screen, table_dark, (x, y, tw, th), 3, border_radius=6)
+
+        pygame.draw.line(screen, tuple(min(255, c + 22) for c in table_wood), (x + 5, y + 3), (x + tw - 5, y + 3), 2)
+
+        self._draw_tavern_table_food_v2(screen, x, y, tw, th, anim, config)
+        self._draw_tavern_patrons_v2(screen, x, y, tw, th, anim, config, behind=False)
+
+    def _draw_tavern_patrons_v2(self, screen, x, y, tw, th, anim, config, behind):
+        """고퀄리티 손님 NPC (광장 수준 디테일)"""
+        import math
+
+        configs = {
+            "warrior_mage": [
+                {"pos": "left", "type": "warrior", "skin": (255, 218, 185), "body": (165, 55, 55), "hair": (62, 42, 22), "behind": True},
+                {"pos": "right", "type": "mage", "skin": (248, 212, 178), "body": (72, 72, 165), "hair": (35, 35, 42), "behind": False},
+            ],
+            "dwarf_party": [
+                {"pos": "top", "type": "dwarf", "skin": (252, 208, 168), "body": (148, 98, 58), "hair": (138, 95, 58), "behind": True},
+                {"pos": "bottom_left", "type": "dwarf", "skin": (248, 202, 162), "body": (158, 88, 48), "hair": (128, 85, 48), "behind": False},
+                {"pos": "bottom_right", "type": "dwarf", "skin": (255, 215, 175), "body": (138, 78, 42), "hair": (148, 108, 68), "behind": False},
+            ],
+            "hooded": [
+                {"pos": "center", "type": "hooded", "skin": (30, 30, 35), "body": (45, 45, 52), "hair": (25, 25, 30), "behind": False},
+            ],
+        }
+
+        patrons = configs.get(config, [])
+        for p in patrons:
+            if p["behind"] != behind:
+                continue
+
+            pos = p["pos"]
+            cx, cy = x + tw // 2, y + th // 2
+            if pos == "left":
+                cx, cy = x - 12, y + th // 2  # 테이블 왼쪽
+            elif pos == "right":
+                cx, cy = x + tw + 12, y + th // 2  # 테이블 오른쪽
+            elif pos == "top":
+                cx, cy = x + tw // 2, y - 12  # 테이블 위
+            elif pos == "bottom_left":
+                cx, cy = x + tw // 3, y + th + 8  # 테이블 아래 왼쪽
+            elif pos == "bottom_right":
+                cx, cy = x + tw * 2 // 3, y + th + 8  # 테이블 아래 오른쪽
+            elif pos == "center":
+                cx, cy = x + tw // 2, y + th + 10  # 테이블 아래 중앙
+
+            self._draw_seated_patron_hq(screen, cx, cy, anim, p["type"], p["skin"], p["body"], p["hair"])
+
+    def _draw_seated_patron_hq(self, screen, x, y, anim, ptype, skin, body, hair):
+        """고퀄리티 앉아있는 NPC (광장 NPC 수준 - 작은 사이즈)"""
+        import math
+
+        # 의자 (작게)
+        chair = (82, 58, 38)
+        pygame.draw.rect(screen, chair, (x - 8, y + 5, 16, 12), border_radius=2)
+        pygame.draw.rect(screen, tuple(max(0, c - 15) for c in chair), (x - 7, y - 3, 14, 10), border_radius=2)
+
+        body_dark = tuple(max(0, c - 28) for c in body)
+        skin_dark = tuple(max(0, c - 22) for c in skin)
+
+        # 다리 (작게)
+        pygame.draw.rect(screen, body_dark, (x - 3, y + 7, 5, 10), border_radius=1)
+        pygame.draw.rect(screen, body_dark, (x + 1, y + 7, 5, 10), border_radius=1)
+
+        # 몸통 (작게)
+        pygame.draw.ellipse(screen, body, (x - 10, y - 13, 20, 24))
+        pygame.draw.rect(screen, tuple(min(255, c + 18) for c in body), (x - 8, y - 11, 3, 17), border_radius=1)
+
+        arm_bob = int(math.sin(anim * 2.2 + hash(ptype) % 10) * 1.5)
+
+        # 왼팔
+        pygame.draw.rect(screen, body_dark, (x - 12, y - 7 + arm_bob, 5, 14), border_radius=2)
+        pygame.draw.ellipse(screen, skin, (x - 11, y + 5 + arm_bob, 4, 4))
+
+        if ptype != "hooded":
+            # 오른팔 + 맥주잔
+            pygame.draw.rect(screen, body, (x + 8, y - 7, 5, 14), border_radius=2)
+            pygame.draw.ellipse(screen, skin, (x + 9, y + 5, 4, 4))
+
+            mug_x, mug_y = x + 16, y - 1 + arm_bob
+            pygame.draw.line(screen, skin, (x + 11, y + 1), (mug_x - 2, mug_y + 5), 3)
+            pygame.draw.rect(screen, (178, 148, 58), (mug_x - 5, mug_y, 10, 13), border_radius=2)
+            pygame.draw.rect(screen, (238, 198, 88), (mug_x - 4, mug_y + 2, 8, 9))
+            pygame.draw.ellipse(screen, (255, 248, 228), (mug_x - 4, mug_y + 1, 8, 4))
+            pygame.draw.arc(screen, (178, 148, 58), (mug_x + 3, mug_y + 2, 6, 9), -1.5, 1.5, 2)
+
+        # 목
+        pygame.draw.rect(screen, skin, (x - 2, y - 15, 5, 4))
+
+        if ptype == "dwarf":
+            # 드워프 (헬멧 + 큰 수염)
+            pygame.draw.circle(screen, skin, (x, y - 23), 10)
+            pygame.draw.ellipse(screen, hair, (x - 8, y - 20, 16, 16))  # 수염
+            pygame.draw.circle(screen, skin, (x, y - 27), 7)
+            pygame.draw.arc(screen, (118, 118, 128), (x - 8, y - 35, 16, 13), 0, 3.14, 3)  # 헬멧
+            pygame.draw.circle(screen, (32, 28, 25), (x - 3, y - 26), 2)  # 눈
+            pygame.draw.circle(screen, (32, 28, 25), (x + 3, y - 26), 2)
+            pygame.draw.circle(screen, (255, 255, 255), (x - 3, y - 27), 1)
+            pygame.draw.ellipse(screen, (42, 32, 28), (x - 2, y - 21, 5, 3))  # 코
+
+        elif ptype == "hooded":
+            # 후드 쓴 미스터리 인물
+            pygame.draw.ellipse(screen, body, (x - 12, y - 33, 24, 21))
+            pygame.draw.circle(screen, (28, 28, 32), (x, y - 24), 11)
+            pygame.draw.ellipse(screen, (18, 18, 22), (x - 6, y - 27, 12, 9))
+            pygame.draw.circle(screen, (200, 50, 50), (x - 2, y - 24), 1)  # 빛나는 눈
+            pygame.draw.circle(screen, (200, 50, 50), (x + 2, y - 24), 1)
+
+        elif ptype == "warrior":
+            # 전사 (투구 + 콧수염)
+            pygame.draw.circle(screen, skin, (x, y - 24), 8)
+            pygame.draw.arc(screen, (148, 148, 158), (x - 10, y - 34, 20, 15), 0, 3.14, 4)  # 투구
+            pygame.draw.rect(screen, (148, 148, 158), (x - 1, y - 35, 3, 7))  # 투구 장식
+            pygame.draw.ellipse(screen, hair, (x - 7, y - 29, 14, 7))
+            pygame.draw.circle(screen, (35, 30, 28), (x - 3, y - 25), 2)  # 눈
+            pygame.draw.circle(screen, (35, 30, 28), (x + 3, y - 25), 2)
+            pygame.draw.circle(screen, (255, 255, 255), (x - 3, y - 26), 1)
+            pygame.draw.line(screen, (90, 60, 40), (x - 5, y - 20), (x + 5, y - 20), 1)  # 콧수염
+
+        elif ptype == "mage":
+            # 마법사 (뾰족한 모자)
+            pygame.draw.circle(screen, skin, (x, y - 24), 8)
+            pygame.draw.polygon(screen, body, [(x, y - 43), (x - 10, y - 26), (x + 10, y - 26)])  # 마법사 모자
+            pygame.draw.circle(screen, (255, 220, 80), (x, y - 43), 3)  # 모자 별
+            pygame.draw.ellipse(screen, hair, (x - 6, y - 29, 12, 6))
+            pygame.draw.circle(screen, (38, 35, 32), (x - 2, y - 25), 2)  # 눈
+            pygame.draw.circle(screen, (38, 35, 32), (x + 2, y - 25), 2)
+            pygame.draw.circle(screen, (255, 255, 255), (x - 3, y - 26), 1)
+
+        else:
+            # 일반 NPC
+            pygame.draw.circle(screen, skin, (x, y - 24), 8)
+            pygame.draw.ellipse(screen, hair, (x - 7, y - 31, 14, 10))
+            pygame.draw.circle(screen, (35, 30, 28), (x - 3, y - 25), 2)
+            pygame.draw.circle(screen, (35, 30, 28), (x + 3, y - 25), 2)
+
+    def _draw_tavern_table_food_v2(self, screen, x, y, tw, th, anim, config):
+        """테이블 위 음식/음료 (작은 사이즈)"""
+        import math
+        cx, cy = x + tw // 2, y + th // 2
+
+        if config == "warrior_mage":
+            # 접시 + 고기
+            pygame.draw.ellipse(screen, (228, 218, 208), (cx - 15, cy - 6, 30, 13))
+            pygame.draw.ellipse(screen, (142, 82, 58), (cx - 11, cy - 4, 22, 9))
+            # 맥주잔 2개
+            pygame.draw.rect(screen, (182, 152, 62), (cx + 20, cy - 4, 9, 11), border_radius=1)
+            pygame.draw.rect(screen, (182, 152, 62), (cx - 28, cy - 5, 9, 11), border_radius=1)
+
+        elif config == "dwarf_party":
+            # 큰 접시 + 고기
+            pygame.draw.ellipse(screen, (225, 215, 205), (cx - 21, cy - 7, 42, 17))
+            pygame.draw.ellipse(screen, (138, 78, 55), (cx - 15, cy - 5, 30, 11))
+            # 맥주잔 3개
+            for ox in [-25, 0, 25]:
+                pygame.draw.rect(screen, (188, 158, 68), (cx + ox - 5, cy - 4, 10, 12), border_radius=1)
+
+        elif config == "hooded":
+            # 작은 잔
+            pygame.draw.rect(screen, (58, 58, 62), (cx - 4, cy - 4, 9, 10), border_radius=1)
+            pygame.draw.rect(screen, (78, 48, 42), (cx - 3, cy - 2, 7, 7))
+
+    def _draw_tavern_bar_patrons_v2(self, screen, counter_x, counter_y, counter_w, anim):
+        """바 카운터 손님 2명 (고퀄리티 - 광장 NPC 사이즈)"""
+        import math
+
+        patrons = [
+            {"x": counter_x + 50, "type": "bard", "skin": (252, 215, 182), "body": (178, 138, 78), "hair": (85, 55, 35)},
+            {"x": counter_x + counter_w - 60, "type": "sailor", "skin": (248, 205, 168), "body": (68, 98, 148), "hair": (42, 35, 30)},
+        ]
+
+        for p in patrons:
+            cx = p["x"]
+            cy = counter_y + 30
+            skin, body, hair = p["skin"], p["body"], p["hair"]
+            body_dark = tuple(max(0, c - 25) for c in body)
+
+            # 의자/스툴 (작게)
+            pygame.draw.rect(screen, (72, 52, 35), (cx - 8, cy + 7, 16, 13), border_radius=3)
+            pygame.draw.rect(screen, (52, 38, 25), (cx - 3, cy + 19, 6, 11))
+
+            # 다리 (작게)
+            pygame.draw.rect(screen, body_dark, (cx - 3, cy + 9, 6, 11), border_radius=1)
+            pygame.draw.rect(screen, body_dark, (cx + 1, cy + 9, 6, 11), border_radius=1)
+
+            # 몸통 (작게)
+            pygame.draw.ellipse(screen, body, (cx - 11, cy - 11, 22, 25))
+
+            arm_bob = int(math.sin(anim * 2.5 + cx * 0.1) * 2)
+
+            # 왼팔 (작게)
+            pygame.draw.rect(screen, body_dark, (cx - 13, cy - 5 + arm_bob, 5, 14), border_radius=2)
+            pygame.draw.ellipse(screen, skin, (cx - 12, cy + 8 + arm_bob, 4, 4))
+
+            # 오른팔 + 맥주잔 (작게)
+            mug_x, mug_y = cx + 17, cy - 1 + arm_bob
+            pygame.draw.line(screen, skin, (cx + 9, cy + 1), (mug_x - 2, mug_y + 6), 3)
+            pygame.draw.rect(screen, (182, 152, 62), (mug_x - 5, mug_y, 11, 14), border_radius=2)
+            pygame.draw.rect(screen, (242, 202, 92), (mug_x - 4, mug_y + 3, 9, 10))
+            pygame.draw.ellipse(screen, (255, 250, 232), (mug_x - 5, mug_y + 2, 10, 4))
+
+            # 목
+            pygame.draw.rect(screen, skin, (cx - 2, cy - 13, 5, 4))
+
+            ptype = p["type"]
+            if ptype == "bard":
+                # 음유시인 (모자 + 깃털)
+                pygame.draw.circle(screen, skin, (cx, cy - 20), 9)
+                pygame.draw.arc(screen, (138, 78, 48), (cx - 10, cy - 29, 20, 11), 0, 3.14, 3)  # 모자
+                pygame.draw.ellipse(screen, (198, 48, 48), (cx + 6, cy - 33, 6, 13))  # 깃털
+                pygame.draw.circle(screen, (32, 28, 25), (cx - 3, cy - 21), 2)  # 눈
+                pygame.draw.circle(screen, (32, 28, 25), (cx + 3, cy - 21), 2)
+                pygame.draw.circle(screen, (255, 255, 255), (cx - 4, cy - 22), 1)
+                pygame.draw.arc(screen, (32, 28, 25), (cx - 3, cy - 17, 6, 4), 0, 3.14, 1)  # 미소
+
+            elif ptype == "sailor":
+                # 선원 (반다나 + 수염)
+                pygame.draw.circle(screen, skin, (cx, cy - 20), 9)
+                pygame.draw.arc(screen, (178, 48, 48), (cx - 10, cy - 29, 20, 11), 0, 3.14, 4)  # 반다나
+                pygame.draw.rect(screen, (58, 48, 42), (cx - 6, cy - 16, 12, 6), border_radius=2)  # 수염
+                pygame.draw.circle(screen, (32, 28, 25), (cx - 3, cy - 21), 2)  # 눈
+                pygame.draw.circle(screen, (32, 28, 25), (cx + 3, cy - 21), 2)
+                pygame.draw.circle(screen, (255, 255, 255), (cx - 4, cy - 22), 1)
+
+    def _draw_tavern_decorations_v2(self, screen, cam_x, cam_y, wall_h, anim):
+        """벽 장식들 (작은 사이즈)"""
+        import math
+
+        # 방패와 검
+        shield_x = int(TILE_SIZE * 2) - cam_x
+        shield_y = int(TILE_SIZE * 0.3) - cam_y
+        pygame.draw.line(screen, (178, 178, 188), (shield_x - 18, shield_y), (shield_x + 18, shield_y + 35), 3)
+        pygame.draw.line(screen, (178, 178, 188), (shield_x + 18, shield_y), (shield_x - 18, shield_y + 35), 3)
+        pygame.draw.ellipse(screen, (148, 48, 48), (shield_x - 13, shield_y + 6, 26, 32))
+        pygame.draw.ellipse(screen, (178, 68, 68), (shield_x - 10, shield_y + 9, 20, 25))
+        pygame.draw.ellipse(screen, (198, 158, 58), (shield_x - 6, shield_y + 14, 12, 15))
+
+        # 게시판
+        board_x = self.pixel_width // 2 - 32 - cam_x
+        board_y = int(TILE_SIZE * 0.15) - cam_y
+        pygame.draw.rect(screen, (152, 122, 82), (board_x, board_y, 64, 48), border_radius=3)
+        pygame.draw.rect(screen, (92, 68, 42), (board_x, board_y, 64, 48), 2, border_radius=3)
+        for i, mc in enumerate([(255, 255, 192), (192, 255, 192), (255, 192, 192), (192, 218, 255)]):
+            mx = board_x + 6 + (i % 2) * 30
+            my = board_y + 6 + (i // 2) * 20
+            pygame.draw.rect(screen, mc, (mx, my, 24, 18), border_radius=1)
+            pygame.draw.circle(screen, (198, 48, 48), (mx + 12, my + 3), 3)
+
+        # 도끼
+        axe_x = self.pixel_width - int(TILE_SIZE * 2) - cam_x
+        axe_y = int(TILE_SIZE * 0.4) - cam_y
+        pygame.draw.line(screen, (98, 68, 42), (axe_x, axe_y + 28), (axe_x, axe_y), 5)
+        pygame.draw.polygon(screen, (168, 168, 178), [(axe_x - 14, axe_y + 5), (axe_x, axe_y - 5), (axe_x, axe_y + 11)])
+        pygame.draw.polygon(screen, (168, 168, 178), [(axe_x + 14, axe_y + 5), (axe_x, axe_y - 5), (axe_x, axe_y + 11)])
+
+    def _draw_tavern_lighting_v2(self, screen, cam_x, cam_y, anim, lantern_glow, candle_glow):
+        """조명 (샹들리에 + 랜턴) - 작은 사이즈"""
+        import math
+
+        ch_x = self.pixel_width // 2 - cam_x
+        ch_y = int(TILE_SIZE * 1.2) - cam_y
+
+        # 샹들리에 (작게)
+        pygame.draw.line(screen, (68, 62, 52), (ch_x, ch_y - 30), (ch_x, ch_y), 3)
+        pygame.draw.circle(screen, (88, 72, 52), (ch_x, ch_y + 8), 26, 3)
+
+        candle_pos = [(ch_x - 22, ch_y + 5), (ch_x - 11, ch_y + 12), (ch_x, ch_y + 5),
+                      (ch_x + 11, ch_y + 12), (ch_x + 22, ch_y + 5)]
+        for i, (ccx, ccy) in enumerate(candle_pos):
+            glow_p = 0.7 + 0.3 * abs(math.sin(anim * 4.5 + i * 0.9))
+            glow_s = int(18 * glow_p)
+            g_surf = pygame.Surface((glow_s * 2, glow_s * 2), pygame.SRCALPHA)
+            for j in range(3):
+                pygame.draw.circle(g_surf, (*candle_glow[:3], int((40 - j * 12) * glow_p)), (glow_s, glow_s), glow_s - j * 4)
+            screen.blit(g_surf, (ccx - glow_s, ccy - glow_s - 8))
+
+            pygame.draw.rect(screen, (238, 232, 218), (ccx - 2, ccy, 5, 10))
+            flame_h = 7 + int(math.sin(anim * 7 + i) * 3)
+            pygame.draw.ellipse(screen, candle_glow, (ccx - 3, ccy - flame_h, 7, flame_h + 2))
+
+        # 벽 랜턴 (작게)
+        for lx, ly in [(int(TILE_SIZE * 3), int(TILE_SIZE * 1.8)), (self.pixel_width - int(TILE_SIZE * 3), int(TILE_SIZE * 1.8))]:
+            dx, dy = lx - cam_x, ly - cam_y
+            pygame.draw.line(screen, (58, 52, 45), (dx, dy - 18), (dx, dy), 2)
+
+            glow_p = 0.7 + 0.3 * abs(math.sin(anim * 3.8 + lx * 0.01))
+            glow_s = int(25 * glow_p)
+            g_surf = pygame.Surface((glow_s * 2, glow_s * 2), pygame.SRCALPHA)
+            for k in range(3):
+                pygame.draw.circle(g_surf, (*lantern_glow[:3], int((45 - k * 12) * glow_p)), (glow_s, glow_s), glow_s - k * 5)
+            screen.blit(g_surf, (dx - glow_s, dy - glow_s))
+
+            pygame.draw.rect(screen, (52, 48, 42), (dx - 8, dy - 4, 16, 22), border_radius=3)
+            glass = tuple(int(c * glow_p) for c in lantern_glow)
+            pygame.draw.rect(screen, glass, (dx - 6, dy, 12, 15), border_radius=1)
