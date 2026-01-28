@@ -81982,8 +81982,26 @@ def draw_objects():
             apply_red_overlay(rotated_player, intensity=80)  # 강도 80으로 은은한 붉은 효과
     #  대쉬 잔상 효과 그리기
     global dash_afterimages, rolling_active, rolling_timer, rolling_direction
-    # 대쉬 중일 때 잔상 추가
-    if rolling_active and rolling_timer > 0:
+    # 👁 오딘의 눈 변신 상태 체크 (잔상 생성 스킵 여부)
+    _skip_dash_afterimage = False
+    try:
+        from legendary_items import get_legendary_manager
+        _afterimg_leg_mgr = get_legendary_manager()
+        if _afterimg_leg_mgr:
+            _afterimg_odins = _afterimg_leg_mgr.get_item("odins_eye")
+            if _afterimg_odins and _afterimg_odins.active:
+                # 변신 상태 (penalty_active 또는 dark_energy_active)면 기존 잔상 스킵
+                if _afterimg_odins.penalty_active or _afterimg_odins.dark_energy_active:
+                    _skip_dash_afterimage = True
+                # 죽음/부활 애니메이션 중에도 스킵
+                if getattr(_afterimg_odins, 'is_death_animating', False):
+                    _skip_dash_afterimage = True
+                if getattr(_afterimg_odins, 'is_revival_animating', False):
+                    _skip_dash_afterimage = True
+    except:
+        pass
+    # 대쉬 중일 때 잔상 추가 (오딘의 눈 변신 상태가 아닐 때만)
+    if rolling_active and rolling_timer > 0 and not _skip_dash_afterimage:
         # 대쉬 방향에 따른 잔상 생성 위치
         afterimage_x = PLAYER.centerx
         afterimage_y = PLAYER.centery
@@ -81994,7 +82012,7 @@ def draw_objects():
         # 잔상 리스트에 추가 (최대 5개 유지)
         dash_afterimages.append({
             'x': afterimage_x,
-            'y': afterimage_y, 
+            'y': afterimage_y,
             'alpha': alpha,
             'image': afterimage,
             'life': 10  # 잔상 지속 시간
@@ -82002,6 +82020,9 @@ def draw_objects():
         # 잔상 개수 제한
         if len(dash_afterimages) > 5:
             dash_afterimages.pop(0)
+    # 👁 오딘의 눈 변신 상태일 때 기존 잔상 즉시 제거
+    if _skip_dash_afterimage:
+        dash_afterimages.clear()
     # 잔상 그리기 및 업데이트
     new_afterimages = []
     for afterimage in dash_afterimages:
