@@ -85,7 +85,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
         {"key": "skill_bonus", "label": "모든 퍽 레벨 증가", "min": 1, "max": 2, "unit": "+", "default": 2},
     ],
     "odins_eye": [
-        {"key": "revival_chance", "label": "부활 확률", "min": 30, "max": 50, "unit": "%", "default": 40},
+        {"key": "revival_chance", "label": "부활 확률", "min": 25, "max": 40, "unit": "%", "default": 30},
     ],
 }
 
@@ -6264,6 +6264,26 @@ class OdinsEye(LegendaryItem):
         self.dark_fragments = []
 
         # ═══════════════════════════════════════════════════════════════════
+        # 🌑 오딘 대쉬 다이브 시스템 (변신 상태 대쉬 시 땅속 잠수 효과)
+        # ═══════════════════════════════════════════════════════════════════
+        self.odin_dash_dive_active = False        # 다이브 전체 활성 여부
+        self.odin_dash_sink_phase = False         # 가라앉기 페이즈
+        self.odin_dash_underground_phase = False  # 지하 이동 페이즈
+        self.odin_dash_emerge_phase = False       # 솟아오르기 페이즈
+        self.odin_dash_sink_timer = 0             # 가라앉기 타이머
+        self.odin_dash_emerge_timer = 0           # 솟아오르기 타이머
+        self.ODIN_DASH_SINK_DURATION = 8          # 가라앉기 지속시간 (~0.13초)
+        self.ODIN_DASH_EMERGE_DURATION = 12       # 솟아오르기 지속시간 (~0.2초)
+        self.odin_dash_sink_x = 0                 # 가라앉기 시작 X
+        self.odin_dash_sink_y = 0                 # 가라앉기 시작 Y
+        self.odin_dash_trail_positions = []       # 지하 이동 트레일 (어둠 그림자)
+        self.odin_dash_trail_spawn_cooldown = 0   # 트레일 생성 쿨다운
+        self.ODIN_DASH_TRAIL_INTERVAL = 2         # 2프레임마다 트레일 생성
+        self.odin_dash_ground_cracks = []         # 땅 균열 이펙트
+        self.odin_dash_burst_particles = []       # 다이브/솟아오르기 파티클
+        self.odin_dash_ground_ripples = []        # 땅 파문 이펙트
+
+        # ═══════════════════════════════════════════════════════════════════
         # 어둠의 늪 스킬 시스템
         # ═══════════════════════════════════════════════════════════════════
         self.dark_swamp_enabled = False  # 스킬 활성화 여부 (부활 후)
@@ -6319,6 +6339,8 @@ class OdinsEye(LegendaryItem):
         self.dark_energy_timer = 0
         self.dark_energy_active = False
         self.dark_particles = []
+        # 🌑 오딘 대쉬 다이브 초기화
+        self._reset_dash_dive()
 
     def reset_for_new_round(self):
         """새 라운드 시작 시 부활 상태 리셋 (점수 화면 표시 후 호출됨)"""
@@ -6345,10 +6367,412 @@ class OdinsEye(LegendaryItem):
         # 솟아오르기 애니메이션 초기화
         self.rise_from_ground_active = False
         self.rise_from_ground_timer = 0
+        # 🌑 오딘 대쉬 다이브 초기화
+        self._reset_dash_dive()
 
     def clear_death_hide(self):
         """💀 새 라운드 실제 시작 시 패들 숨김 해제"""
         self.hide_paddle_after_death = False
+
+    # ==================== 🌑 오딘 대쉬 다이브 시스템 ====================
+
+    def _reset_dash_dive(self):
+        """대쉬 다이브 상태 완전 초기화"""
+        self.odin_dash_dive_active = False
+        self.odin_dash_sink_phase = False
+        self.odin_dash_underground_phase = False
+        self.odin_dash_emerge_phase = False
+        self.odin_dash_sink_timer = 0
+        self.odin_dash_emerge_timer = 0
+        self.odin_dash_trail_positions = []
+        self.odin_dash_trail_spawn_cooldown = 0
+        self.odin_dash_ground_cracks = []
+        self.odin_dash_burst_particles = []
+        self.odin_dash_ground_ripples = []
+
+    def start_dash_dive(self, player_x: int, player_y: int):
+        """🌑 대쉬 다이브 시작 - 가라앉기 페이즈 개시"""
+        if not self.is_transformed():
+            return
+        # 부활/죽음 애니메이션 중에는 시작 안 함
+        if self.rise_from_ground_active or self.is_revival_animating or self.dark_burst_active:
+            return
+        if getattr(self, 'is_death_animating', False):
+            return
+
+        # 연속 대쉬: 이전 다이브가 진행 중이면 emerge 취소하고 새로 시작
+        if self.odin_dash_dive_active:
+            self.odin_dash_emerge_phase = False
+            self.odin_dash_emerge_timer = 0
+
+        self.odin_dash_dive_active = True
+        self.odin_dash_sink_phase = True
+        self.odin_dash_underground_phase = False
+        self.odin_dash_emerge_phase = False
+        self.odin_dash_sink_timer = 0
+        self.odin_dash_emerge_timer = 0
+        self.odin_dash_sink_x = player_x
+        self.odin_dash_sink_y = player_y
+        self.odin_dash_trail_positions = []
+        self.odin_dash_trail_spawn_cooldown = 0
+
+        # 가라앉기 지점에 이펙트 생성
+        self._spawn_ground_cracks(player_x, player_y, count=5)
+        self._spawn_ground_ripple(player_x, player_y)
+        self._spawn_dive_particles(player_x, player_y, direction='down')
+
+    def update_dash_dive(self, player_x: int, player_y: int, rolling_active: bool):
+        """🌑 대쉬 다이브 매 프레임 업데이트"""
+        if not self.odin_dash_dive_active:
+            # 다이브 비활성이어도 잔여 이펙트 업데이트
+            self._update_dash_dive_effects()
+            return
+
+        # 죽음/부활 애니메이션 시작 시 다이브 즉시 취소
+        if getattr(self, 'is_death_animating', False) or self.is_revival_animating:
+            self._reset_dash_dive()
+            return
+
+        # === 가라앉기 페이즈 ===
+        if self.odin_dash_sink_phase:
+            self.odin_dash_sink_timer += 1
+            if self.odin_dash_sink_timer >= self.ODIN_DASH_SINK_DURATION:
+                # 가라앉기 완료 -> 지하 이동 페이즈
+                self.odin_dash_sink_phase = False
+                self.odin_dash_underground_phase = True
+
+        # === 지하 이동 페이즈 ===
+        elif self.odin_dash_underground_phase:
+            if rolling_active:
+                # 대쉬 진행 중: 트레일 + 잔상 생성 (대쉬 경로를 따라 쭉 펼쳐짐)
+                self.odin_dash_trail_spawn_cooldown -= 1
+                if self.odin_dash_trail_spawn_cooldown <= 0:
+                    self.odin_dash_trail_positions.append({
+                        'x': player_x,
+                        'y': player_y,
+                        'alpha': 200,
+                        'timer': 0,
+                        'max_timer': 30,  # 0.5초 지속
+                    })
+                    # 👻 대쉬 경로에 잔상 생성
+                    self.odin_afterimages.append({
+                        'x': player_x,
+                        'y': player_y,
+                        'width': 155,
+                        'height': 25,
+                        'timer': 0,
+                        'alpha': 200,
+                        'phase': 'hold',
+                        'glow_offset': 0,
+                        'hit_timer': 0,
+                        'dissolve_offset': 0,
+                    })
+                    self.odin_dash_trail_spawn_cooldown = self.ODIN_DASH_TRAIL_INTERVAL
+            else:
+                # 대쉬 종료 -> 솟아오르기 페이즈
+                self.end_dash_dive(player_x, player_y)
+
+        # === 솟아오르기 페이즈 ===
+        elif self.odin_dash_emerge_phase:
+            self.odin_dash_emerge_timer += 1
+            if self.odin_dash_emerge_timer >= self.ODIN_DASH_EMERGE_DURATION:
+                # 솟아오르기 완료 -> 다이브 종료
+                self.odin_dash_emerge_phase = False
+                self.odin_dash_dive_active = False
+
+        # 이펙트 업데이트 (항상)
+        self._update_dash_dive_effects()
+
+    def end_dash_dive(self, player_x: int, player_y: int):
+        """🌑 지하 이동 종료 -> 솟아오르기 페이즈 개시"""
+        self.odin_dash_sink_phase = False
+        self.odin_dash_underground_phase = False
+        self.odin_dash_emerge_phase = True
+        self.odin_dash_emerge_timer = 0
+
+        # 솟아오르기 지점에 이펙트 생성 (더 화려하게)
+        self._spawn_ground_cracks(player_x, player_y, count=8)
+        self._spawn_ground_ripple(player_x, player_y)
+        self._spawn_dive_particles(player_x, player_y, direction='up')
+
+    def is_dash_diving(self) -> bool:
+        """대쉬 다이브 중인지 확인"""
+        return self.odin_dash_dive_active
+
+    def should_hide_dark_paddle_for_dive(self) -> bool:
+        """대쉬 다이브 중 패들 숨김 여부"""
+        if not self.odin_dash_dive_active:
+            return False
+        # 가라앉기 50% 이후부터 숨김
+        if self.odin_dash_sink_phase and self.odin_dash_sink_timer >= self.ODIN_DASH_SINK_DURATION // 2:
+            return True
+        # 지하 이동 중 항상 숨김
+        if self.odin_dash_underground_phase:
+            return True
+        # 솟아오르기 초반 25% 동안 숨김 (아직 땅 아래)
+        if self.odin_dash_emerge_phase and self.odin_dash_emerge_timer < self.ODIN_DASH_EMERGE_DURATION * 0.25:
+            return True
+        return False
+
+    def get_dash_dive_visual_params(self):
+        """대쉬 다이브 시 패들 시각 파라미터 반환
+
+        Returns:
+            dict or None: {'offset_y', 'alpha', 'visible'}
+        """
+        import math
+
+        if not self.odin_dash_dive_active:
+            return None
+
+        # 가라앉기 페이즈
+        if self.odin_dash_sink_phase:
+            p = self.odin_dash_sink_timer / max(1, self.ODIN_DASH_SINK_DURATION)
+            ease = p * p  # ease-in (빨려들어가는 느낌)
+            return {
+                'offset_y': int(120 * ease),
+                'alpha': int(255 * max(0, 1.0 - ease * 1.5)),
+                'visible': ease < 0.85,
+            }
+
+        # 지하 이동 페이즈
+        if self.odin_dash_underground_phase:
+            return {
+                'offset_y': 120,
+                'alpha': 0,
+                'visible': False,
+            }
+
+        # 솟아오르기 페이즈
+        if self.odin_dash_emerge_phase:
+            p = self.odin_dash_emerge_timer / max(1, self.ODIN_DASH_EMERGE_DURATION)
+            ease = 1 - (1 - p) * (1 - p)  # ease-out (힘차게 솟아오름)
+            return {
+                'offset_y': int(120 * (1 - ease)),
+                'alpha': int(255 * min(1.0, p * 2.5)),
+                'visible': True,
+            }
+
+        return None
+
+    # --- 대쉬 다이브 이펙트 헬퍼 ---
+
+    def _spawn_ground_cracks(self, x: int, y: int, count: int = 5):
+        """땅 균열 이펙트 생성"""
+        import random, math
+        for i in range(count):
+            angle = random.uniform(0, math.pi * 2)
+            length = random.uniform(15, 45)
+            self.odin_dash_ground_cracks.append({
+                'x': x, 'y': y,
+                'angle': angle,
+                'length': length,
+                'timer': 0,
+                'max_timer': random.randint(20, 40),
+                'width': random.randint(1, 3),
+            })
+
+    def _spawn_ground_ripple(self, x: int, y: int):
+        """원형 파문 이펙트 생성"""
+        self.odin_dash_ground_ripples.append({
+            'x': x, 'y': y,
+            'radius': 5,
+            'max_radius': 65,
+            'alpha': 220,
+            'timer': 0,
+            'max_timer': 25,
+        })
+
+    def _spawn_dive_particles(self, x: int, y: int, direction: str = 'down'):
+        """다이브/솟아오르기 시 파티클 생성"""
+        import random, math
+        count = 18 if direction == 'up' else 12
+        for i in range(count):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(2, 7) if direction == 'up' else random.uniform(1, 4)
+            vy_base = -random.uniform(2, 6) if direction == 'up' else random.uniform(1, 3)
+            self.odin_dash_burst_particles.append({
+                'x': x + random.uniform(-20, 20),
+                'y': y + random.uniform(-5, 5),
+                'vx': math.cos(angle) * speed,
+                'vy': vy_base,
+                'size': random.uniform(3, 9),
+                'life': random.randint(15, 40),
+                'max_life': 40,
+                'color': random.choice([
+                    (30, 15, 50),   # 어두운 보라
+                    (50, 25, 80),   # 중간 보라
+                    (20, 10, 35),   # 짙은 보라
+                    (40, 20, 65),   # 진보라
+                    (60, 30, 90),   # 밝은 보라
+                ]),
+            })
+
+    def _update_dash_dive_effects(self):
+        """모든 다이브 이펙트 업데이트"""
+        # 트레일 업데이트
+        for trail in self.odin_dash_trail_positions[:]:
+            trail['timer'] += 1
+            trail['alpha'] = int(200 * (1 - trail['timer'] / max(1, trail['max_timer'])))
+            if trail['timer'] >= trail['max_timer'] or trail['alpha'] <= 0:
+                self.odin_dash_trail_positions.remove(trail)
+
+        # 균열 업데이트
+        for crack in self.odin_dash_ground_cracks[:]:
+            crack['timer'] += 1
+            if crack['timer'] >= crack['max_timer']:
+                self.odin_dash_ground_cracks.remove(crack)
+
+        # 파문 업데이트
+        for ripple in self.odin_dash_ground_ripples[:]:
+            ripple['timer'] += 1
+            progress = ripple['timer'] / max(1, ripple['max_timer'])
+            ripple['radius'] = int(5 + (ripple['max_radius'] - 5) * progress)
+            ripple['alpha'] = int(220 * (1 - progress))
+            if ripple['timer'] >= ripple['max_timer']:
+                self.odin_dash_ground_ripples.remove(ripple)
+
+        # 버스트 파티클 업데이트
+        for p in self.odin_dash_burst_particles[:]:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['vy'] += 0.12  # 중력
+            p['vx'] *= 0.95  # 감속
+            p['life'] -= 1
+            if p['life'] <= 0:
+                self.odin_dash_burst_particles.remove(p)
+
+    def draw_dash_dive_effects(self, screen):
+        """🌑 대쉬 다이브 전체 이펙트 그리기"""
+        import pygame
+
+        has_effects = (
+            self.odin_dash_dive_active or
+            self.odin_dash_trail_positions or
+            self.odin_dash_ground_cracks or
+            self.odin_dash_ground_ripples or
+            self.odin_dash_burst_particles
+        )
+        if not has_effects:
+            return
+
+        # 1. 파문 (바닥 레이어)
+        self._draw_ground_ripples(screen)
+        # 2. 지하 이동 트레일 (그림자)
+        self._draw_underground_trail(screen)
+        # 3. 균열
+        self._draw_ground_cracks(screen)
+        # 4. 파티클
+        self._draw_dive_particles(screen)
+
+    def _draw_underground_trail(self, screen):
+        """지하 이동 트레일 - 타원형 어둠 그림자"""
+        import pygame, math
+        for trail in self.odin_dash_trail_positions:
+            alpha = max(0, min(255, trail['alpha']))
+            if alpha <= 0:
+                continue
+            # 타원형 어둠 그림자 (땅 위에 비치는 형상)
+            shadow_w, shadow_h = 60, 24
+            shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+            # 외곽 그림자
+            pygame.draw.ellipse(shadow_surf, (25, 12, 40, alpha), (0, 0, shadow_w, shadow_h))
+            # 내부 코어 (더 어둡게)
+            inner_a = int(alpha * 0.7)
+            pygame.draw.ellipse(shadow_surf, (12, 5, 22, inner_a),
+                              (12, 5, shadow_w - 24, shadow_h - 10))
+            # 가운데 밝은 눈 (작은 보라 빛)
+            eye_a = int(alpha * 0.5)
+            t = trail['timer'] * 0.3
+            eye_pulse = int(3 + math.sin(t) * 2)
+            pygame.draw.ellipse(shadow_surf, (80, 40, 120, eye_a),
+                              (shadow_w // 2 - eye_pulse, shadow_h // 2 - eye_pulse // 2,
+                               eye_pulse * 2, eye_pulse))
+            screen.blit(shadow_surf, (trail['x'] - shadow_w // 2, trail['y'] - shadow_h // 2))
+
+    def _draw_ground_cracks(self, screen):
+        """땅 균열 이펙트 그리기"""
+        import pygame, math
+        for crack in self.odin_dash_ground_cracks:
+            progress = crack['timer'] / max(1, crack['max_timer'])
+            # 균열: 빠르게 나타나고 천천히 사라짐
+            if progress < 0.2:
+                visible_len = crack['length'] * (progress / 0.2)
+                alpha = 220
+            else:
+                visible_len = crack['length']
+                alpha = int(220 * (1 - (progress - 0.2) / 0.8))
+
+            if alpha <= 0 or visible_len <= 0:
+                continue
+
+            end_x = crack['x'] + math.cos(crack['angle']) * visible_len
+            end_y = crack['y'] + math.sin(crack['angle']) * visible_len * 0.4  # 수평 눌린 형태
+
+            # 균열 선 (보라빛)
+            crack_surf = pygame.Surface((abs(int(end_x - crack['x'])) + 10,
+                                        abs(int(end_y - crack['y'])) + 10), pygame.SRCALPHA)
+            ox = max(0, int(crack['x'] - min(crack['x'], end_x))) + 5
+            oy = max(0, int(crack['y'] - min(crack['y'], end_y))) + 5
+            ex = max(0, int(end_x - min(crack['x'], end_x))) + 5
+            ey = max(0, int(end_y - min(crack['y'], end_y))) + 5
+
+            # 글로우 (넓은 선)
+            pygame.draw.line(crack_surf, (60, 30, 90, alpha // 3),
+                           (ox, oy), (ex, ey), crack['width'] + 3)
+            # 코어 (밝은 선)
+            pygame.draw.line(crack_surf, (80, 40, 120, alpha),
+                           (ox, oy), (ex, ey), crack['width'])
+
+            screen.blit(crack_surf, (int(min(crack['x'], end_x)) - 5,
+                                     int(min(crack['y'], end_y)) - 5))
+
+    def _draw_ground_ripples(self, screen):
+        """땅 파문 이펙트 (타원형 파동)"""
+        import pygame
+        for ripple in self.odin_dash_ground_ripples:
+            alpha = max(0, ripple['alpha'])
+            if alpha <= 0 or ripple['radius'] <= 0:
+                continue
+            # 타원형 파문 (위에서 보는 바닥 효과)
+            rw = ripple['radius'] * 2
+            rh = max(1, ripple['radius'])  # 수평 타원 (높이 절반)
+            ripple_surf = pygame.Surface((rw + 4, rh + 4), pygame.SRCALPHA)
+            # 외곽 파문
+            pygame.draw.ellipse(ripple_surf, (70, 35, 100, alpha),
+                              (0, 0, rw + 4, rh + 4), 2)
+            # 안쪽 파문 (약하게)
+            if rw > 20:
+                inner_r = int(rw * 0.6)
+                inner_h = max(1, int(rh * 0.6))
+                inner_a = int(alpha * 0.5)
+                ox = (rw + 4 - inner_r) // 2
+                oy = (rh + 4 - inner_h) // 2
+                pygame.draw.ellipse(ripple_surf, (50, 25, 75, inner_a),
+                                  (ox, oy, inner_r, inner_h), 1)
+            screen.blit(ripple_surf,
+                       (ripple['x'] - rw // 2 - 2,
+                        ripple['y'] - rh // 2 - 2))
+
+    def _draw_dive_particles(self, screen):
+        """다이브 버스트 파티클 그리기"""
+        import pygame
+        for p in self.odin_dash_burst_particles:
+            life_ratio = max(0, p['life'] / max(1, p['max_life']))
+            alpha = int(255 * life_ratio)
+            size = max(1, int(p['size'] * life_ratio))
+            if alpha <= 0 or size <= 0:
+                continue
+            r, g, b = p['color']
+            # 글로우
+            glow_size = size + 3
+            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (r, g, b, alpha // 4),
+                             (glow_size, glow_size), glow_size)
+            pygame.draw.circle(glow_surf, (r, g, b, alpha),
+                             (glow_size, glow_size), size)
+            screen.blit(glow_surf,
+                       (int(p['x']) - glow_size, int(p['y']) - glow_size))
 
     # ==================== 👻 오딘 잔상 시스템 ====================
 
@@ -6854,6 +7278,8 @@ class OdinsEye(LegendaryItem):
         # 솟아오르기 애니메이션 초기화
         self.rise_from_ground_active = False
         self.rise_from_ground_timer = 0
+        # 🌑 오딘 대쉬 다이브 초기화
+        self._reset_dash_dive()
         # 죽음 애니메이션 초기화
         self.is_death_animating = False
         self.death_anim_timer = 0
@@ -8809,6 +9235,12 @@ class OdinsEye(LegendaryItem):
         if self.penalty_active:
             return 1
         return None
+
+    def get_dash_distance_multiplier(self) -> float:
+        """변신 상태에서 대쉬 거리 배율 반환 (1.0 = 기본, 1.5 = 50% 증가)"""
+        if self.penalty_active or self.dark_energy_active:
+            return 1.5
+        return 1.0
 
     def get_dash_cooldown_multiplier(self) -> float:
         """대시 쿨다운 배율 (1.0 = 기본, 2.0 = +100%)"""
