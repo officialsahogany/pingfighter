@@ -82727,6 +82727,7 @@ def draw_objects():
 
     # 👁 오딘의 눈 페널티 상태 체크 - 검은 악의 에너지 패들로 대체
     _odins_eye_dark_paddle_drawn = False
+    _odins_eye_hide_paddle = False  # 💀 죽음 애니메이션 후 패들 숨김
     try:
         from legendary_items import get_legendary_manager
         _leg_mgr = get_legendary_manager()
@@ -82738,10 +82739,15 @@ def draw_objects():
                 _is_revival_anim = getattr(_odins_eye, 'is_revival_animating', False)
                 _is_burst_anim = getattr(_odins_eye, 'dark_burst_active', False)
                 _silhouette_shown = getattr(_odins_eye, 'silhouette_revealed', True)
+                _is_death_anim = getattr(_odins_eye, 'is_death_animating', False)
+                _hide_after_death = getattr(_odins_eye, 'hide_paddle_after_death', False)
                 # 부활 애니메이션 또는 폭발 애니메이션 중이고, 실루엣이 아직 공개되지 않았으면 숨김
                 if (_is_revival_anim or _is_burst_anim) and not _silhouette_shown:
                     _hide_during_revival = True
-            if _odins_eye and _odins_eye.active and (_odins_eye.penalty_active or _odins_eye.dark_energy_active) and not _hide_during_revival:
+                # 💀 죽음 애니메이션 중이거나 완료 후에는 모든 패들 숨김
+                if _is_death_anim or _hide_after_death:
+                    _odins_eye_hide_paddle = True
+            if _odins_eye and _odins_eye.active and (_odins_eye.penalty_active or _odins_eye.dark_energy_active) and not _hide_during_revival and not _odins_eye_hide_paddle:
                 # 플레이어 x 속도 계산 (움직임 애니메이션용)
                 _player_vx = globals().get("player_velocity_x", 0)
                 if _player_vx == 0:
@@ -82761,6 +82767,8 @@ def draw_objects():
     # 오딘의 눈 페널티 상태가 아닐 때만 기본 패들 그리기
     if _odins_eye_dark_paddle_drawn:
         pass  # 이미 오딘의 눈 패들을 그렸으므로 스킵
+    elif _odins_eye_hide_paddle:
+        pass  # 💀 죽음 애니메이션 후 패들 숨김 - 점수 화면에서 기존 캐릭터 안 보이게
     elif special_ready:
         if (time_now // 250) % 2 == 0:
             #  성능 최적화: 블렌딩 모드를 사용한 깜빡임 효과
@@ -106478,7 +106486,11 @@ def choose_server(show_text=True):
     legendary_manager = get_legendary_manager()
     if legendary_manager:
         legendary_manager.reset_round_effects()
-    
+        # 💀 오딘의 눈 죽음 애니메이션 후 패들 숨김 해제 (새 라운드 시작 시)
+        odins_eye = legendary_manager.get_item("odins_eye")
+        if odins_eye and hasattr(odins_eye, 'clear_death_hide'):
+            odins_eye.clear_death_hide()
+
     #  새 라운드 시작 시 토큰 시스템 초기화
     base_charges = 1
     holder_bonus = _get_dashholder_count()

@@ -23,6 +23,9 @@ def resource_path(relative_path):
         base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
+# 디버그 플래그 (성능 영향으로 비활성화)
+LEGENDARY_DEBUG_ENABLED = False
+
 # 전설 아이템 티어 정의
 LEGENDARY_TIER = "legendary"
 LEGENDARY_COLOR = (255, 50, 50)  # 붉은색
@@ -58,6 +61,128 @@ ANGEL_BLESSING_OPTIONS = (
 # 천사의 가호 지연 활성화 대기열 (전설 획득 애니메이션 완료 후 발동)
 _pending_angel_blessing_activation: Optional[Dict] = None
 
+# ============================================================================ 
+# 전설 아이템 롤 옵션 정의
+# ============================================================================
+LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
+    "ragnarok_hammer": [
+        {"key": "trigger_chance", "label": "발동 확률", "min": 20, "max": 50, "unit": "%", "default": 35},
+        {"key": "stun_duration", "label": "스턴 시간", "min": 0.4, "max": 0.8, "unit": "초", "default": 0.6, "step": 0.1},
+    ],
+    "poseidon_trident": [
+        {"key": "cooldown", "label": "쿨타임", "min": 2, "max": 10, "unit": "초", "default": 6, "step": 1},
+    ],
+    "hermes_shoes": [
+        {"key": "speed_bonus", "label": "이동속도", "min": 30, "max": 60, "unit": "%", "default": 50},
+    ],
+    "angel_blessing": [
+        {"key": "buff_level", "label": "버프 강도", "min": 1, "max": 5, "unit": "Lv", "default": 3},
+    ],
+    "sacred_laurel": [
+        {"key": "leaf_count", "label": "월계수 잎", "min": 3, "max": 8, "unit": "개", "default": 6},
+    ],
+    "transcendent_crown": [
+        {"key": "skill_bonus", "label": "모든 퍽 레벨 증가", "min": 1, "max": 2, "unit": "+", "default": 2},
+    ],
+    "odins_eye": [
+        {"key": "revival_chance", "label": "부활 확률", "min": 30, "max": 50, "unit": "%", "default": 40},
+    ],
+}
+
+# 전설 아이템 롤 값 저장소 (아이템명 -> {옵션키: 값})
+legendary_roll_values: Dict[str, Dict[str, float]] = {}
+
+def get_legendary_roll_value(item_name: str, option_key: str, apply_polish: bool = False, enhancement_bonus_pct: float = 0) -> float:
+    """전설 아이템의 롤 옵션 값을 가져옵니다. 없으면 기본값 반환.
+
+    Args:
+        item_name: 전설 아이템 이름
+        option_key: 롤옵션 키
+        apply_polish: True면 연마 스킬 보너스 적용 (실제 효과 계산용)
+        enhancement_bonus_pct: 강화 보너스 퍼센트 (0~100)
+    """
+    base_value = 0
+
+    if item_name in legendary_roll_values:
+        if option_key in legendary_roll_values[item_name]:
+            base_value = legendary_roll_values[item_name][option_key]
+        else:
+            # 기본값 찾기
+            if item_name in LEGENDARY_ROLL_OPTIONS:
+                for opt in LEGENDARY_ROLL_OPTIONS[item_name]:
+                    if opt["key"] == option_key:
+                        base_value = opt.get("default", opt["min"])
+                        break
+    else:
+        # 기본값 찾기
+        if item_name in LEGENDARY_ROLL_OPTIONS:
+            for opt in LEGENDARY_ROLL_OPTIONS[item_name]:
+                if opt["key"] == option_key:
+                    base_value = opt.get("default", opt["min"])
+                    break
+
+    # 연마 스킬 보너스 + 강화 보너스 적용 (옵션이 활성화된 경우에만)
+    if (apply_polish or enhancement_bonus_pct > 0) and base_value != 0:
+        try:
+            # pingfighter에서 연마 배율 가져오기
+            import sys
+            polish_multiplier = 1.0
+            if apply_polish and 'pingfighter' in sys.modules:
+                pingfighter = sys.modules['pingfighter']
+
+                # 초월자의 관은 기본 연마 배율 사용 (순환 의존성 방지)
+                # 다른 아이템은 초월자의 관 보너스가 적용된 전체 연마 배율 사용
+                if item_name == "transcendent_crown":
+                    if hasattr(pingfighter, 'get_base_polish_multiplier'):
+                        polish_multiplier = pingfighter.get_base_polish_multiplier()
+                else:
+                    if hasattr(pingfighter, 'get_effective_polish_multiplier'):
+                        polish_multiplier = pingfighter.get_effective_polish_multiplier()
+
+            # 총 배율 계산 (연마 + 강화)
+            total_multiplier = polish_multiplier
+            if enhancement_bonus_pct > 0:
+                total_multiplier = total_multiplier * (1 + enhancement_bonus_pct / 100)
+
+            # reverse 옵션 확인 (낮을수록 좋은 옵션)
+            is_reverse = False
+            if item_name in LEGENDARY_ROLL_OPTIONS:
+                for opt in LEGENDARY_ROLL_OPTIONS[item_name]:
+                    if opt["key"] == option_key:
+                        is_reverse = opt.get("reverse", False)
+                        break
+
+            if is_reverse:
+                # reverse 옵션: 값을 줄임 (예: 쿨타임 감소)
+                base_value = base_value / total_multiplier
+            else:
+                # 일반 옵션: 값을 증가
+                base_value = base_value * total_multiplier
+        except Exception:
+            pass
+
+    return base_value
+
+def set_legendary_roll_value(item_name: str, option_key: str, value: float):
+    """전설 아이템의 롤 옵션 값을 설정합니다."""
+    if item_name not in legendary_roll_values:
+        legendary_roll_values[item_name] = {}
+    legendary_roll_values[item_name][option_key] = value
+
+def randomize_legendary_rolls(item_name: str):
+    """전설 아이템의 롤 옵션을 랜덤으로 설정합니다."""
+    if item_name not in LEGENDARY_ROLL_OPTIONS:
+        return
+    for opt in LEGENDARY_ROLL_OPTIONS[item_name]:
+        step = opt.get("step", 1)
+        if step < 1:
+            # 소수점 스텝
+            steps = int((opt["max"] - opt["min"]) / step) + 1
+            value = opt["min"] + random.randint(0, steps - 1) * step
+        else:
+            value = random.randint(int(opt["min"]), int(opt["max"]))
+        set_legendary_roll_value(item_name, opt["key"], value)
+
 
 class KnockbackProfile(NamedTuple):
     base_power: float
@@ -83,7 +208,7 @@ KNOCKBACK_PROFILES: Dict[str, KnockbackProfile] = {
         max_power=44.0,
     ),
     "grenade": KnockbackProfile(  # 중간 넉백
-        base_power=38.0,
+        base_power=38.0, 
         speed_weight=0.0,
         speed_thresholds=_STANDARD_KNOCKBACK_THRESHOLDS,
         random_bonus=(0.01, 0.04),
@@ -445,7 +570,8 @@ class LegendaryItem:
     def activate(self, game_state: Dict):
         """아이템 활성화 - 각 아이템별로 오버라이드"""
         self.active = True
-        print(f"   [{self.korean_name}] !")
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"   [{self.korean_name}] !")
         
     def deactivate(self):
         """아이템 비활성화"""
@@ -556,7 +682,8 @@ class PhoenixFeather(LegendaryItem):
         if self.active and not self.revival_used and current_health <= 0:
             self.revival_used = True
             new_health = int(max_health * self.revival_health)
-            print(f"   !  {new_health} !")
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"   !  {new_health} !")
             return new_health
         return None
 
@@ -588,7 +715,8 @@ class ChronosClock(LegendaryItem):
             self.time_slow_active = True
             self.time_slow_timer = self.time_slow_duration
             self.cooldown_timer = self.time_slow_cooldown
-            print(f"   !  ...")
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"   !  ...")
             return True
         return False
         
@@ -598,7 +726,7 @@ class ChronosClock(LegendaryItem):
             self.time_slow_timer -= dt
             if self.time_slow_timer <= 0:
                 self.time_slow_active = False
-                print(f"")
+                pass  # print(f"")  # 디버그 비활성화
             return self.time_scale
         
         if self.cooldown_timer > 0:
@@ -631,12 +759,12 @@ class ExcaliburBlade(LegendaryItem):
 
 
 class PoseidonTrident(LegendaryItem):
-    """포세이돈의 삼지창 - 물의 신의 무기"""
+    """포세이돈의 삼지창 - 물의 신의 무기 (롤 옵션: 쿨타임)"""
     def __init__(self):
         super().__init__(
             name="poseidon_trident",
             korean_name="포세이돈의 삼지창",
-            description="대시 시 거대한 물결 회오리를 생성하여 공을 튕겨냅니다 (순수 대시 보조용)",
+            description="대시 시 거대한 물결 회오리를 생성하여 공을 튕겨냅니다 (롤 옵션: 쿨타임)",
             unlock_condition="스테이지 7 클리어",
             icon_path="items/legendary/poseidon_trident.png"
         )
@@ -696,10 +824,11 @@ class PoseidonTrident(LegendaryItem):
         self.water_momentum_force_y = 0  # 유지되는 Y축 힘
         self.water_momentum_force_x = 0  # 유지되는 X축 힘
 
-        # 효과 발동 쿨타임 시스템 (6초)
+        # 효과 발동 쿨타임 시스템 (롤 옵션으로 결정)
         self.effect_cooldown = 0  # 현재 쿨타임 타이머
-        self.effect_cooldown_max = 6.0  # 최대 쿨타임 (6초)
+        self._base_cooldown_max = 6.0  # 기본 쿨타임 (롤 옵션으로 덮어씀)
         self.effect_ready = True  # 효과 발동 가능 여부
+        self.enhancement_bonus_pct = 0  # 강화 보너스 퍼센트
 
         # 쿨타임 충전 완료 물의 기운 응축 파티클
         self.water_condensation_particles = []  # 물의 기운 응축 파티클
@@ -753,32 +882,40 @@ class PoseidonTrident(LegendaryItem):
                 self.icon_frames.append(composite)
                 self.animation_frames.append(composite)  # legendary_acquisition에서 사용
                 frames_loaded += 1
-                print(f"✓ 포세이돈 삼지창 프레임 {i} 동기화 완료")
+                pass  # print(f"✓ 포세이돈 삼지창 프레임 {i} 동기화 완료")  # 디버그 비활성화
             except Exception as e:
-                print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")
-        
-        print(f"포세이돈 삼지창: PNG 프레임 {frames_loaded}/8개 로드")
-        
+                pass  # print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")  # 디버그 비활성화
+
+        pass  # print(f"포세이돈 삼지창: PNG 프레임 {frames_loaded}/8개 로드")  # 디버그 비활성화
+
         # 프레임이 없으면 에러만 표시 (가짜 애니메이션 생성하지 않음)
         if not self.icon_frames or len(self.icon_frames) == 0:
-            print("❌ 포세이돈 삼지창: PNG 프레임을 찾을 수 없습니다!")
+            pass  # print("❌ 포세이돈 삼지창: PNG 프레임을 찾을 수 없습니다!")  # 디버그 비활성화
                 
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         """스테이지 7 클리어 체크"""
         return game_stats.get("highest_stage_cleared", 0) >= 7
-        
+
+    @property
+    def effect_cooldown_max(self) -> float:
+        """쿨타임 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
+        return get_legendary_roll_value("poseidon_trident", "cooldown", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
+
     def activate(self, game_state: Dict):
         """삼지창 활성화"""
-        print(f"🔱 [BEFORE] PoseidonTrident.activate 호출, self.active = {self.active}")
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"🔱 [BEFORE] PoseidonTrident.activate 호출, self.active = {self.active}")
         super().activate(game_state)  # 부모 클래스의 activate 호출 (self.active = True 설정)
         self.wave_timer = 0
-        print(f"🔱 [AFTER] {self.korean_name} 활성화!")
-        print(f"   - self.active = {self.active}")
-        print(f"   - 대시 시 거대한 물결 회오리 생성!")
-        
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"🔱 [AFTER] {self.korean_name} 활성화!")
+            print(f"   - self.active = {self.active}")
+            print(f"   - 대시 시 거대한 물결 회오리 생성!")
+
         # 강제로 active 확인
         if not self.active:
-            print(f"⚠️ WARNING: self.active가 False입니다! 강제로 True로 설정합니다.")
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"⚠️ WARNING: self.active가 False입니다! 강제로 True로 설정합니다.")
             self.active = True
             
     def deactivate(self):
@@ -826,15 +963,17 @@ class PoseidonTrident(LegendaryItem):
         self.water_explosion_active = False
         self.water_explosion_timer = 0
 
-        print(f"🔱 포세이돈의 삼지창 라운드 효과 초기화")
-        
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"🔱 포세이돈의 삼지창 라운드 효과 초기화")
+
     def stop_water_momentum(self):
         """물의 추진력 즉시 중단 (보스 패들에 맞았을 때)"""
         self.water_momentum_active = False
         self.water_momentum_timer = 0
         self.water_momentum_force_y = 0
         self.water_momentum_force_x = 0
-        print(f"🔱 물의 추진력 종료 - 보스 패들 충돌")
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"🔱 물의 추진력 종료 - 보스 패들 충돌")
         
     def apply_trajectory_influence(self, ball_x: float, ball_y: float, 
                                   ball_vx: float, ball_vy: float, 
@@ -851,18 +990,21 @@ class PoseidonTrident(LegendaryItem):
             bool: 효과가 발동되었으면 True, 쿨타임 중이면 False
         """
         if not self.active:
-            print(f"⚠️ 포세이돈 삼지창이 비활성화 상태입니다!")
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"⚠️ 포세이돈 삼지창이 비활성화 상태입니다!")
             return False
 
         # 쿨타임 체크
         if not self.effect_ready:
-            print(f"🔱 포세이돈 삼지창 쿨타임 중: {self.effect_cooldown:.1f}초 남음")
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"🔱 포세이돈 삼지창 쿨타임 중: {self.effect_cooldown:.1f}초 남음")
             return False
 
         # 효과 발동 후 쿨타임 시작
         self.effect_ready = False
         self.effect_cooldown = self.effect_cooldown_max
-        print(f"🔱 포세이돈 삼지창 효과 발동! 쿨타임 {self.effect_cooldown_max}초 시작")
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"🔱 포세이돈 삼지창 효과 발동! 쿨타임 {self.effect_cooldown_max}초 시작")
 
         self.dash_wave_active = True
         self.dash_wave_timer = 0
@@ -932,9 +1074,10 @@ class PoseidonTrident(LegendaryItem):
         # 회오리 효과를 받은 공이 보스에게 맞았는지 확인
         if self.vortex_affected:
             # 회오리 효과를 받은 공이 보스에게 맞았는지 확인
-            print(f"🔍 [물회오리 디버그] vortex_affected={self.vortex_affected}, ball_vy={ball_vy:.1f}, original_speed={self.original_ball_speed:.1f}")
-            print(f"🔍 [물회오리 디버그] 현재 속도: vx={ball_vx:.1f}, vy={ball_vy:.1f}, total={math.sqrt(ball_vx**2 + ball_vy**2):.1f}")
-            print(f"🔍 [물회오리 디버그] boss_hit_count={self.boss_hit_count}")
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"🔍 [물회오리 디버그] vortex_affected={self.vortex_affected}, ball_vy={ball_vy:.1f}, original_speed={self.original_ball_speed:.1f}")
+                print(f"🔍 [물회오리 디버그] 현재 속도: vx={ball_vx:.1f}, vy={ball_vy:.1f}, total={math.sqrt(ball_vx**2 + ball_vy**2):.1f}")
+                print(f"🔍 [물회오리 디버그] boss_hit_count={self.boss_hit_count}")
             
             # 보스가 실제로 공을 친 경우에만 속도 복원
             if self.boss_hit_count > 0:
@@ -945,8 +1088,9 @@ class PoseidonTrident(LegendaryItem):
                     speed_ratio = target_speed / current_speed
                     new_vx = ball_vx * speed_ratio
                     new_vy = ball_vy * speed_ratio
-                    print(f"🔱 [포세이돈] 보스 반격 - 속도 50% 감속: {current_speed:.1f} → {target_speed:.1f}")
-                    print(f"🔍 [물회오리 디버그] 속도 조정: vx {ball_vx:.1f} → {new_vx:.1f}, vy {ball_vy:.1f} → {new_vy:.1f}")
+                    if LEGENDARY_DEBUG_ENABLED:
+                        print(f"🔱 [포세이돈] 보스 반격 - 속도 50% 감속: {current_speed:.1f} → {target_speed:.1f}")
+                        print(f"🔍 [물회오리 디버그] 속도 조정: vx {ball_vx:.1f} → {new_vx:.1f}, vy {ball_vy:.1f} → {new_vy:.1f}")
                     
                     # 회오리 효과 플래그 해제
                     self.vortex_affected = False
@@ -961,7 +1105,8 @@ class PoseidonTrident(LegendaryItem):
                     # 속도 복원 완료
                     return new_vx, new_vy
                 else:
-                    print(f"🔍 [DEBUG] 속도 복원 실패: current_speed={current_speed:.1f}, original_speed={self.original_ball_speed:.1f}")
+                    if LEGENDARY_DEBUG_ENABLED:
+                        print(f"🔍 [DEBUG] 속도 복원 실패: current_speed={current_speed:.1f}, original_speed={self.original_ball_speed:.1f}")
         
         # 원래 속도 저장 (디버그용)
         original_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
@@ -1015,7 +1160,7 @@ class PoseidonTrident(LegendaryItem):
             in_right = x_in_right_vortex and y_in_right_vortex
             
             # 디버그: 회오리 위치와 크기 (최초 1회만)
-            if not hasattr(self, '_vortex_debug_shown'):
+            if not hasattr(self, '_vortex_debug_shown') and LEGENDARY_DEBUG_ENABLED:
                 print(f"   최대 높이: {self.vortex_max_height:.0f}")
                 self._vortex_debug_shown = True
             in_any_vortex = in_left or in_right
@@ -1061,42 +1206,47 @@ class PoseidonTrident(LegendaryItem):
                 # 보스가 친 공은 회오리에 닿으면 즉시 강력하게 반사 (간섭 없이)
                 # 단, 이미 회오리 효과를 받았거나 쿨다운 중이면 무시
                 if ball_vy > 0 and not self.vortex_affected and self.vortex_cooldown <= 0:  # 보스가 친 공
-                    print(f"🌊 [즉시 반사] 보스 공 회오리 접촉!")
+                    if LEGENDARY_DEBUG_ENABLED:
+                        print(f"🌊 [즉시 반사] 보스 공 회오리 접촉!")
                     current_ball_speed = math.sqrt(ball_vx**2 + ball_vy**2)
-                    
+
                     # 원래 속도 저장 (복원용)
                     self.original_ball_speed = current_ball_speed
                     self.vortex_affected = True  # 회오리 효과를 받았음을 표시
                     self.boss_hit_count = 0  # 보스 히트 카운트 리셋
-                    print(f"🔍 [즉시 반사] vortex_affected=True 설정, original_speed={self.original_ball_speed:.1f}, boss_hit_count=0")
-                    
+                    if LEGENDARY_DEBUG_ENABLED:
+                        print(f"🔍 [즉시 반사] vortex_affected=True 설정, original_speed={self.original_ball_speed:.1f}, boss_hit_count=0")
+
                     # 물 궤적 활성화 (즉시 반사 후에도 궤적 유지)
                     self.water_trail_active = True
-                    print(f"🌊 [즉시 반사] 물 궤적 활성화!")
-                    
+                    if LEGENDARY_DEBUG_ENABLED:
+                        print(f"🌊 [즉시 반사] 물 궤적 활성화!")
+
                     # 랜덤 증폭 반사 (현재 공 속도의 150~200%)
                     amplify_factor = random.uniform(1.5, 2.0)  # 1.5배~2배 랜덤
                     amplified_speed = current_ball_speed * amplify_factor
-                    
+
                     # 최소 속도 보장 (회오리 영역을 확실히 벗어나도록)
                     min_speed = 20.0  # 최소 속도
                     if amplified_speed < min_speed:
                         amplified_speed = min_speed
-                    
-                    print(f"🔍 [물회오리 즉시반사] 원래 속도: {current_ball_speed:.1f} × {amplify_factor:.2f} = 증폭 속도: {amplified_speed:.1f}")
-                    
+
+                    if LEGENDARY_DEBUG_ENABLED:
+                        print(f"🔍 [물회오리 즉시반사] 원래 속도: {current_ball_speed:.1f} × {amplify_factor:.2f} = 증폭 속도: {amplified_speed:.1f}")
+
                     # 위쪽 방향 랜덤 반사 (-90도 기준 ±30도) - 더 위쪽으로
                     base_angle = -math.pi / 2  # -90도 (위쪽)
                     random_spread = math.pi / 6  # ±30도 (더 좁은 범위)
                     random_offset = random.uniform(-random_spread, random_spread)
                     target_angle = base_angle + random_offset
-                    
+
                     # 최종 속도 계산 (간섭 없음)
                     final_vx = math.cos(target_angle) * amplified_speed
                     final_vy = math.sin(target_angle) * amplified_speed
-                    
-                    print(f"🌊 [즉시 반사] 속도: {current_ball_speed:.1f} → {amplified_speed:.1f} ({amplify_factor:.1f}배) | 각도: {math.degrees(target_angle):.1f}도")
-                    print(f"🌊 [즉시 반사] 결과: vx={final_vx:.1f}, vy={final_vy:.1f}")
+
+                    if LEGENDARY_DEBUG_ENABLED:
+                        print(f"🌊 [즉시 반사] 속도: {current_ball_speed:.1f} → {amplified_speed:.1f} ({amplify_factor:.1f}배) | 각도: {math.degrees(target_angle):.1f}도")
+                        print(f"🌊 [즉시 반사] 결과: vx={final_vx:.1f}, vy={final_vy:.1f}")
                     
                     # 반사된 공의 현재 위치를 물궤적에 추가
                     self.update_water_trail(ball_x, ball_y)
@@ -1137,12 +1287,14 @@ class PoseidonTrident(LegendaryItem):
                     self.captured_ball_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
                     self.original_ball_speed = self.captured_ball_speed  # 원래 속도 저장
                     
-                    print(f"🌊 [포세이돈 DEBUG] 공 캡처! 입력 속도: {self.captured_ball_speed:.1f}")
-                    
+                    if LEGENDARY_DEBUG_ENABLED:
+                        print(f"🌊 [포세이돈 DEBUG] 공 캡처! 입력 속도: {self.captured_ball_speed:.1f}")
+
                     # 물 궤적 시작
                     self.water_trail_active = True
                     self.water_trail = []  # 새로운 궤적 시작
-                    print(f"[DEBUG] 물 궤적 활성화! 공 위치: ({ball_x:.0f}, {ball_y:.0f})")
+                    if LEGENDARY_DEBUG_ENABLED:
+                        print(f"[DEBUG] 물 궤적 활성화! 공 위치: ({ball_x:.0f}, {ball_y:.0f})")
                 
                 # 공이 회오리에 캡처되어 있는 경우 - 빙글빙글 회전
                 if self.ball_in_vortex:
@@ -1183,7 +1335,8 @@ class PoseidonTrident(LegendaryItem):
                         new_vy = upward_force
                         if abs(new_vx) > 5:  # 수평 속도가 너무 강하면 감소
                             new_vx *= 0.6
-                        print(f"[DEBUG] 회오리 상향 강제: vx={new_vx:.1f}, vy={new_vy:.1f}")
+                        if LEGENDARY_DEBUG_ENABLED:
+                            print(f"[DEBUG] 회오리 상향 강제: vx={new_vx:.1f}, vy={new_vy:.1f}")
                     
                     # 최소 속도 보장 (회전 운동 유지)
                     min_speed = 8  # 최소 속도
@@ -1196,7 +1349,8 @@ class PoseidonTrident(LegendaryItem):
                         # 상향 성분 추가 보장
                         if new_vy > -2:
                             new_vy = -2
-                        print(f"[DEBUG] 회오리 속도 보정: {current_speed:.1f} → {min_speed:.1f}")
+                        if LEGENDARY_DEBUG_ENABLED:
+                            print(f"[DEBUG] 회오리 속도 보정: {current_speed:.1f} → {min_speed:.1f}")
                     
                     # 속도 제한 (너무 빠르면 순간이동처럼 보임)
                     max_speed = 15
@@ -1207,7 +1361,8 @@ class PoseidonTrident(LegendaryItem):
                     
                     # 캡처 시간이 끝나면 랜덤 방향으로 튕겨냄
                     if self.ball_vortex_timer >= self.ball_capture_duration:
-                        print(f"🌊 [포세이돈 DEBUG] 캡처 완료! 타이머: {self.ball_vortex_timer}/{self.ball_capture_duration}")
+                        if LEGENDARY_DEBUG_ENABLED:
+                            print(f"🌊 [포세이돈 DEBUG] 캡처 완료! 타이머: {self.ball_vortex_timer}/{self.ball_capture_duration}")
                         # 포세이돈의 삼지창은 항상 보스 쪽(위쪽)으로 공을 튕겨냄
                         # 플레이어에게 유리하도록 작동
                         
@@ -1229,8 +1384,9 @@ class PoseidonTrident(LegendaryItem):
                         new_vx = math.cos(target_angle) * deflect_speed
                         new_vy = math.sin(target_angle) * deflect_speed
                         
-                        print(f"🌊 [포세이돈 DEBUG] 속도 계산: {self.captured_ball_speed:.1f} → {deflect_speed:.1f} ({amplify_factor:.1f}배 랜덤)")
-                        print(f"🌊 [포세이돈 DEBUG] 각도 계산: {math.degrees(target_angle):.1f}도")
+                        if LEGENDARY_DEBUG_ENABLED:
+                            print(f"🌊 [포세이돈 DEBUG] 속도 계산: {self.captured_ball_speed:.1f} → {deflect_speed:.1f} ({amplify_factor:.1f}배 랜덤)")
+                            print(f"🌊 [포세이돈 DEBUG] 각도 계산: {math.degrees(target_angle):.1f}도")
                         
                         # Y축 속도 안전장치 - 반드시 위쪽으로 향하도록 보장
                         min_upward_speed = -50  # 최소 위쪽 속도 (극도로 빠르게)
@@ -1240,24 +1396,29 @@ class PoseidonTrident(LegendaryItem):
                         original_vy = new_vy
                         if new_vy >= 0:  # 아래쪽이나 수평이면
                             new_vy = min_upward_speed  # 강제로 위쪽으로
-                            print(f"🌊 [포세이돈 DEBUG] Y축 보정: {original_vy:.1f} → {new_vy:.1f} (아래쪽→위쪽)")
+                            if LEGENDARY_DEBUG_ENABLED:
+                                print(f"🌊 [포세이돈 DEBUG] Y축 보정: {original_vy:.1f} → {new_vy:.1f} (아래쪽→위쪽)")
                         elif new_vy > max_upward_speed:  # 위쪽이지만 너무 느리면
                             new_vy = max_upward_speed
-                            print(f"🌊 [포세이돈 DEBUG] Y축 보정: {original_vy:.1f} → {new_vy:.1f} (너무 느림)")
+                            if LEGENDARY_DEBUG_ENABLED:
+                                print(f"🌊 [포세이돈 DEBUG] Y축 보정: {original_vy:.1f} → {new_vy:.1f} (너무 느림)")
                         elif new_vy < min_upward_speed:  # 너무 빠르면
                             new_vy = min_upward_speed
-                            print(f"🌊 [포세이돈 DEBUG] Y축 보정: {original_vy:.1f} → {new_vy:.1f} (너무 빠름)")
+                            if LEGENDARY_DEBUG_ENABLED:
+                                print(f"🌊 [포세이돈 DEBUG] Y축 보정: {original_vy:.1f} → {new_vy:.1f} (너무 빠름)")
                         
                         # X축 속도도 너무 극단적이지 않도록 제한
                         max_x_speed = 50  # 횡방향 속도 제한 (극도로 빠르게)
                         original_vx = new_vx
                         if abs(new_vx) > max_x_speed:
                             new_vx = max_x_speed if new_vx > 0 else -max_x_speed
-                            print(f"🌊 [포세이돈 DEBUG] X축 보정: {original_vx:.1f} → {new_vx:.1f} (속도 제한)")
+                            if LEGENDARY_DEBUG_ENABLED:
+                                print(f"🌊 [포세이돈 DEBUG] X축 보정: {original_vx:.1f} → {new_vx:.1f} (속도 제한)")
                         
                         # 최종 속도 계산 및 출력
                         final_speed = math.sqrt(new_vx ** 2 + new_vy ** 2)
-                        print(f"🌊 [포세이돈 DEBUG] 최종 튕김: vx={new_vx:.1f}, vy={new_vy:.1f}, 총속도={final_speed:.1f}")
+                        if LEGENDARY_DEBUG_ENABLED:
+                            print(f"🌊 [포세이돈 DEBUG] 최종 튕김: vx={new_vx:.1f}, vy={new_vy:.1f}, 총속도={final_speed:.1f}")
                         
                         # 캡처 상태 해제 및 쿨다운 설정
                         self.ball_in_vortex = False
@@ -1265,7 +1426,8 @@ class PoseidonTrident(LegendaryItem):
                         self.vortex_cooldown = 30  # 0.5초 쿨다운
                         self.vortex_affected = True  # 회오리 효과를 받았음을 표시
                         self.speed_restored = False  # 속도 복원 플래그 초기화
-                        print(f"[DEBUG] vortex_affected 플래그 설정! original_ball_speed={self.original_ball_speed}")
+                        if LEGENDARY_DEBUG_ENABLED:
+                            print(f"[DEBUG] vortex_affected 플래그 설정! original_ball_speed={self.original_ball_speed}")
                         # 물 궤적은 계속 유지 (보스가 칠 때까지)
                     
                     return new_vx, new_vy
@@ -1409,8 +1571,9 @@ class PoseidonTrident(LegendaryItem):
                         elif new_vy < -50:
                             new_vy = -50  # 너무 빠르면 제한
                         
-                        print(f"🌊 [보스공 반사] 속도: {current_ball_speed:.1f} → {amplified_speed} (고정 고속)")
-                        print(f"🌊 [보스공 반사] 최종: vx={new_vx:.1f}, vy={new_vy:.1f}")
+                        if LEGENDARY_DEBUG_ENABLED:
+                            print(f"🌊 [보스공 반사] 속도: {current_ball_speed:.1f} → {amplified_speed} (고정 고속)")
+                            print(f"🌊 [보스공 반사] 최종: vx={new_vx:.1f}, vy={new_vy:.1f}")
                     else:
                         # 플레이어가 친 공은 회오리 영향을 받지 않음
                         return ball_vx, ball_vy  # 원래 속도 그대로 반환
@@ -1457,7 +1620,7 @@ class PoseidonTrident(LegendaryItem):
         
         # 최종 속도 확인 (디버그)
         final_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
-        if abs(final_speed - original_speed) > 2.0:  # 속도가 2 이상 변했으면
+        if abs(final_speed - original_speed) > 2.0 and LEGENDARY_DEBUG_ENABLED:  # 속도가 2 이상 변했으면
             print(f"⚠️ 속도 변화 감지! 원래: {original_speed:.1f} → 최종: {final_speed:.1f}")
             print(f"   위치: ({ball_x:.0f}, {ball_y:.0f}), 회오리 활성: {self.vortex_active}, 캡처: {self.ball_in_vortex}")
         
@@ -1479,7 +1642,7 @@ class PoseidonTrident(LegendaryItem):
             self._update_debug_counter = 0
         self._update_debug_counter += 1
         
-        if self._update_debug_counter <= 3:
+        if self._update_debug_counter <= 3 and LEGENDARY_DEBUG_ENABLED:
             print(f"🔱 PoseidonTrident.update 호출: dt={dt:.4f}, ui_mode={ui_mode}, active={self.active}")
         
         # 부모 클래스의 update 호출 (animation_offset 업데이트 포함)
@@ -1493,13 +1656,13 @@ class PoseidonTrident(LegendaryItem):
                 self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
         
         if not self.active:
-            if self._update_debug_counter <= 3:
+            if self._update_debug_counter <= 3 and LEGENDARY_DEBUG_ENABLED:
                 print(f"🔱 PoseidonTrident.update: active=False, 리턴")
             return
             
         # UI 모드에서는 아이콘 애니메이션만 업데이트하고 게임플레이 효과는 스킵
         if ui_mode:
-            if self._update_debug_counter <= 3:
+            if self._update_debug_counter <= 3 and LEGENDARY_DEBUG_ENABLED:
                 print(f"🔱 PoseidonTrident.update: ui_mode=True, 게임플레이 효과 스킵")
             return
             
@@ -1515,16 +1678,16 @@ class PoseidonTrident(LegendaryItem):
             self.vortex_timer += dt
             
             # 디버그: 업데이트 확인
-            if self._update_debug_counter <= 10:
+            if self._update_debug_counter <= 10 and LEGENDARY_DEBUG_ENABLED:
                 print(f"🌀 Vortex UPDATE: dt={dt:.4f}, timer={old_timer:.3f}→{self.vortex_timer:.3f}")
                 print(f"   왼쪽 높이: {old_left_height:.1f} → ", end="")
-            
+
             # 왼쪽 회오리 높이 급속 확장 (용솟음치는 효과)
             if self.vortex_left_height < self.vortex_max_height:
                 self.vortex_left_height += 800 * dt  # 빠르게 상승
-                if self._update_debug_counter <= 10:
+                if self._update_debug_counter <= 10 and LEGENDARY_DEBUG_ENABLED:
                     print(f"{self.vortex_left_height:.1f} (증가: {800 * dt:.1f})")
-            elif self._update_debug_counter <= 10:
+            elif self._update_debug_counter <= 10 and LEGENDARY_DEBUG_ENABLED:
                 print(f"{self.vortex_left_height:.1f} (최대값 도달)")
             
             # 오른쪽 회오리 높이 급속 확장 (용솟음치는 효과)
@@ -1532,7 +1695,7 @@ class PoseidonTrident(LegendaryItem):
                 self.vortex_right_height += 800 * dt  # 빠르게 상승
                 
             # 매 0.5초마다 업데이트 상태 출력
-            if int(self.vortex_timer * 2) != int((self.vortex_timer - dt) * 2):
+            if int(self.vortex_timer * 2) != int((self.vortex_timer - dt) * 2) and LEGENDARY_DEBUG_ENABLED:
                 print(f"📈 Vortex Update: timer={self.vortex_timer:.2f}s, 왼쪽={self.vortex_left_height:.0f}, 오른쪽={self.vortex_right_height:.0f}")
             
             # 회전 속도 증가
@@ -2122,24 +2285,25 @@ class PoseidonTrident(LegendaryItem):
     
     def on_boss_hit(self):
         """보스가 공을 칠 때 호출되는 함수"""
-        print(f"🔍 [on_boss_hit 호출됨] vortex_affected={self.vortex_affected}")
+        # print(f"🔍 [on_boss_hit 호출됨] vortex_affected={self.vortex_affected}")  # 디버그 비활성화
         if self.vortex_affected and self.boss_hit_count == 0:  # 첫 번째 히트만 카운트
             self.boss_hit_count += 1
-            print(f"🔍 [보스 히트] boss_hit_count 증가: {self.boss_hit_count - 1} → {self.boss_hit_count}")
+            # print(f"🔍 [보스 히트] boss_hit_count 증가: {self.boss_hit_count - 1} → {self.boss_hit_count}")  # 디버그 비활성화
     
     def deactivate_water_trail(self):
         """물 궤적 비활성화 (보스가 공을 칠 때 호출)"""
-        print(f"🔍 [deactivate_water_trail 호출됨] vortex_affected={self.vortex_affected}, water_trail_active={self.water_trail_active}")
+        # print(f"🔍 [deactivate_water_trail 호출됨] vortex_affected={self.vortex_affected}, water_trail_active={self.water_trail_active}")  # 디버그 비활성화
         # 회오리 효과를 받은 공은 보스가 쳐도 궤적 유지
         if self.vortex_affected:
-            print(f"🔱 포세이돈 삼지창: 회오리 효과 중이므로 물 궤적 유지")
+            # print(f"🔱 포세이돈 삼지창: 회오리 효과 중이므로 물 궤적 유지")  # 디버그 비활성화
             self.on_boss_hit()  # 보스 히트 카운트 증가
             return  # 궤적을 끄지 않음
             
         if self.water_trail_active:
             self.water_trail_active = False
             self.water_trail.clear()
-            print(f"🔱 포세이돈 삼지창: 물 궤적 비활성화 (보스가 공을 쳤음)")
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"🔱 포세이돈 삼지창: 물 궤적 비활성화 (보스가 공을 쳤음)")
     
     def update_water_trail(self, ball_x, ball_y):
         """물 궤적 업데이트"""
@@ -2214,16 +2378,17 @@ class PoseidonTrident(LegendaryItem):
 
 
 class HermesShoes(LegendaryItem):
-    """헤르메스의 신발 - 이동속도 50% 증가"""
+    """헤르메스의 신발 - 이동속도 증가 (롤 옵션: 이동속도 30~60%)"""
     def __init__(self):
         super().__init__(
             name="hermes_shoes",
             korean_name="헤르메스의 신발",
-            description="패들 이동속도가 50% 증가합니다",
+            description="패들 이동속도 증가 (롤 옵션: 30~60%)",
             unlock_condition="누적 이동 거리 100,000 픽셀 달성",
             icon_path="items/legendary/hermes_shoes.png"  # 아이콘 경로 추가
         )
-        self.speed_multiplier = 1.5  # 50% 속도 증가
+        self._base_speed_bonus = 50  # 기본 이동속도 보너스 % (롤 옵션으로 덮어씀)
+        self.enhancement_bonus_pct = 0  # 강화 보너스 퍼센트
         self.speed_trails = []  # 속도 잔상 효과
         self.wing_effects = []  # 날개 효과
         
@@ -2240,7 +2405,17 @@ class HermesShoes(LegendaryItem):
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         """누적 이동 거리 체크"""
         return game_stats.get("total_movement_distance", 0) >= 100000
-        
+
+    @property
+    def speed_bonus(self) -> float:
+        """이동속도 보너스 % (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
+        return get_legendary_roll_value("hermes_shoes", "speed_bonus", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
+
+    @property
+    def speed_multiplier(self) -> float:
+        """이동속도 배율 (1.0 + 보너스%)"""
+        return 1.0 + (self.speed_bonus / 100.0)
+
     def activate(self, game_state: Dict):
         """헤르메스의 신발 활성화"""
         super().activate(game_state)
@@ -2249,8 +2424,9 @@ class HermesShoes(LegendaryItem):
         import items
         pingfighter.hermes_shoes_obtained = True
         items.hermes_shoes_obtained = True
-        print(f"헤르메스의 신발 활성화! 이동속도 50% 증가!")
-        
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"헤르메스의 신발 활성화! 이동속도 {self.speed_bonus}% 증가!")
+
     def apply_speed(self, base_speed: float) -> float:
         """이동속도 배율 적용"""
         if self.active:
@@ -2343,16 +2519,16 @@ class HermesShoes(LegendaryItem):
                 cleaned_frame = _strip_legendary_red_ring(frame)
                 self.animation_frames.append(cleaned_frame)
                 frames_loaded += 1
-                print(f"✓ 헤르메스 신발 프레임 {i} 로드 성공")
+                pass  # print(f"✓ 헤르메스 신발 프레임 {i} 로드 성공")  # 디버그 비활성화
             except Exception as e:
-                print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")
-        
-        print(f"헤르메스 신발: 전용 프레임 {frames_loaded}/8개 로드")
+                pass  # print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")  # 디버그 비활성화
+
+        pass  # print(f"헤르메스 신발: 전용 프레임 {frames_loaded}/8개 로드")  # 디버그 비활성화
         
 
         # 프레임이 없으면 에러만 표시 (가짜 애니메이션 생성하지 않음)
         if not self.animation_frames or len(self.animation_frames) == 0:
-            print("❌ 헤르메스 신발: PNG 프레임을 찾을 수 없습니다!")
+            pass  # print("❌ 헤르메스 신발: PNG 프레임을 찾을 수 없습니다!")  # 디버그 비활성화
             # 가짜 애니메이션 생성 코드 완전 제거
     
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
@@ -2671,20 +2847,23 @@ class DivineStone(LegendaryItem):
         pygame.draw.lines(screen, (255, 255, 180), False, [(bx1, by1), (bx2, by2), (bx3, by3)], 2)
 
 class RagnarokHammer(LegendaryItem):
-    """라그나로크 해머 - 강력한 넉백 효과"""
+    """라그나로크 해머 - 강력한 넉백 효과 (롤 옵션: 발동확률, 스턴시간)"""
     def __init__(self):
         super().__init__(
             name="ragnarok_hammer",
             korean_name="라그나로크 해머",
-            description="보스가 공을 받을 때 공속에 비례한 강력한 넉백을 받고 0.6초간 스턴됩니다",
+            description="보스가 공을 받을 때 확률적으로 넉백 + 스턴 (롤 옵션 적용)",
             unlock_condition="누적 넉백 거리 10,000 픽셀 달성",
             icon_path=None  # 고유 애니메이션만 사용 (중앙 PNG 제거)
         )
-        self.knockback_multiplier = 5.0  # 넉백 배율 (3.0 -> 5.0 증가)
-        self.max_knockback = 250  # 최대 넉백 거리 (150 -> 250 증가)
+        self.knockback_multiplier = 5.0  # 넉백 배율
+        self.max_knockback = 250  # 최대 넉백 거리
         self.impact_particles = []  # 충격 파티클
-        self.stun_duration = 0.6  # 넉백 후 스턴 시간 (초)
-        
+        # 롤 옵션으로 결정되는 값 (기본값)
+        self._base_stun_duration = 0.6  # 스턴 시간 (롤 옵션으로 덮어씀)
+        self._base_trigger_chance = 35  # 발동 확률 % (롤 옵션으로 덮어씀)
+        self.enhancement_bonus_pct = 0  # 강화 보너스 퍼센트
+
         # 애니메이션 프레임 로드
         self.animation_frames = []
         self.current_frame = 0
@@ -2698,7 +2877,27 @@ class RagnarokHammer(LegendaryItem):
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         """누적 넉백 거리 체크"""
         return game_stats.get("total_knockback_distance", 0) >= 10000
-        
+
+    @property
+    def trigger_chance(self) -> float:
+        """발동 확률 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
+        return get_legendary_roll_value("ragnarok_hammer", "trigger_chance", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
+
+    @property
+    def stun_duration(self) -> float:
+        """스턴 시간 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
+        return get_legendary_roll_value("ragnarok_hammer", "stun_duration", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
+
+    def should_trigger(self) -> bool:
+        """발동 확률 체크 - 보스가 공을 받을 때마다 호출"""
+        if not self.active:
+            return False
+        roll = random.randint(1, 100)
+        triggered = roll <= self.trigger_chance
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"[라그나로크 해머] 발동 확률 체크: {roll} <= {self.trigger_chance}% = {triggered}")
+        return triggered
+
     def calculate_knockback(self, ball_speed: float, boss_x: float = 300) -> tuple:
         """
         공속에 비례한 수평 넉백 계산 (수류탄 방식)
@@ -2706,7 +2905,11 @@ class RagnarokHammer(LegendaryItem):
         """
         if not self.active:
             return 0, 0
-            
+
+        # 발동 확률 체크
+        if not self.should_trigger():
+            return 0, 0
+
         magnitude = compute_knockback_magnitude("ragnarok", ball_speed=ball_speed)
 
         # 보스 위치에 따라 방향 결정
@@ -2716,13 +2919,17 @@ class RagnarokHammer(LegendaryItem):
         else:  # 보스가 오른쪽에 있으면
             horizontal_velocity = -magnitude  # 왼쪽으로 넉백
 
-        print(f"[라그나로크 해머 calculate_knockback]")
-        print(f"  - 입력 공속: {ball_speed:.1f}")
-        print(f"  - 최종 넉백 속도: {horizontal_velocity:.1f}")
-        print(f"  - 스턴 시간: {self.stun_duration:.1f}초")
+        # 롤 옵션에서 스턴 시간 가져오기
+        current_stun = self.stun_duration
+
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"[라그나로크 해머 calculate_knockback]")
+            print(f"  - 입력 공속: {ball_speed:.1f}")
+            print(f"  - 최종 넉백 속도: {horizontal_velocity:.1f}")
+            print(f"  - 스턴 시간: {current_stun:.1f}초")
 
         # 넉백 속도와 스턴 시간을 함께 반환
-        return horizontal_velocity, self.stun_duration
+        return horizontal_velocity, current_stun
         
     def draw_special_effects(self, screen, boss_x: int, boss_y: int):
         """특수 효과 그리기"""
@@ -2779,14 +2986,14 @@ class RagnarokHammer(LegendaryItem):
                 cleaned_frame = _strip_legendary_red_ring(frame)
                 self.animation_frames.append(cleaned_frame)
                 frames_loaded += 1
-                print(f"✓ 프레임 {i} 로드 성공: {frame_path}")
+                pass  # print(f"✓ 프레임 {i} 로드 성공: {frame_path}")  # 디버그 비활성화
             except Exception as e:
-                print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")
+                pass  # print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")  # 디버그 비활성화
 
-        print(f"라그나로크 해머 프레임 {frames_loaded}/8개 로드")
+        pass  # print(f"라그나로크 해머 프레임 {frames_loaded}/8개 로드")  # 디버그 비활성화
 
         if not self.animation_frames:
-            print(f"❌ 라그나로크 해머: PNG 프레임을 찾을 수 없습니다!")
+            pass  # print(f"❌ 라그나로크 해머: PNG 프레임을 찾을 수 없습니다!")  # 디버그 비활성화
     
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         """애니메이션 아이콘 그리기"""
@@ -2885,16 +3092,16 @@ class RagnarokHammer(LegendaryItem):
 
 
 class SacredLaurel(LegendaryItem):
-    """신성 월계수 - 6개의 월계수 잎이 플레이어 주변을 회전하며 공을 막아줌"""
+    """신성 월계수 - 월계수 잎이 플레이어 주변을 회전하며 공을 막아줌 (롤 옵션: 잎 개수 3~8)"""
 
     def __init__(self):
         super().__init__(
             name="sacred_laurel",
             korean_name="신성 월계수",
-            description="6개의 신성한 월계수 잎이 플레이어 주변을 회전하며 보호. 공이 잎에 닿으면 잎이 제거되고, 모든 잎이 제거되면 30초 후 리스폰.",
+            description="월계수 잎이 플레이어 주변을 회전하며 보호 (롤 옵션: 잎 개수 3~8개)",
             unlock_condition="전설 아이템 획득"
         )
-        self.max_leaves = 6
+        self._base_max_leaves = 6  # 기본 잎 개수 (롤 옵션으로 덮어씀)
         self.leaves = []
         self.leaf_radius = 200  # 가로 길이 400% (50 -> 100 -> 200)
         self.leaf_size = 12  # 그림 크기
@@ -2927,6 +3134,7 @@ class SacredLaurel(LegendaryItem):
         self._load_animation_frames()
         self.player_x = 0
         self.player_y = 0
+        self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
 
     def _load_animation_frames(self):
         import pygame
@@ -3006,6 +3214,11 @@ class SacredLaurel(LegendaryItem):
         pygame.draw.circle(frame, border_colors[frame_idx], (cx, cy), 15, 2)
         return frame
 
+    @property
+    def max_leaves(self) -> int:
+        """최대 잎 개수 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함, 3~8개)"""
+        return int(get_legendary_roll_value("sacred_laurel", "leaf_count", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct))
+
     def activate(self, game_state: Dict = None):
         if self.active:
             return
@@ -3021,7 +3234,8 @@ class SacredLaurel(LegendaryItem):
             self.current_angle = self._saved_current_angle
             self.leaf_regen_timer = self._saved_regen_timer
             active_count = sum(1 for leaf in self.leaves if leaf['active'])
-            print(f"🌿 신성 월계수 재활성화! {active_count}개의 월계수 잎이 남아있습니다!")
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"🌿 신성 월계수 재활성화! {active_count}개의 월계수 잎이 남아있습니다!")
         else:
             # 처음 활성화 시 새로운 잎 생성
             self.leaves = []
@@ -3041,7 +3255,8 @@ class SacredLaurel(LegendaryItem):
             self.all_leaves_destroyed = False
             self.respawn_timer = 0
             self.leaf_regen_timer = 0
-            print(f"🌿 신성 월계수 활성화! {self.max_leaves}개의 월계수 잎이 당신을 보호합니다!")
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"🌿 신성 월계수 활성화! {self.max_leaves}개의 월계수 잎이 당신을 보호합니다!")
 
         self.removal_particles = []
 
@@ -3223,7 +3438,8 @@ class SacredLaurel(LegendaryItem):
         leaf['size_variation'] = random.uniform(0.8, 1.2)
 
         active_count = sum(1 for l in self.leaves if l['active'])
-        print(f"🌿 월계수 잎 1개 재생! (현재 {active_count}/{self.max_leaves}개)")
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"🌿 월계수 잎 1개 재생! (현재 {active_count}/{self.max_leaves}개)")
 
     def get_active_leaf_count(self):
         return sum(1 for leaf in self.leaves if leaf['active'])
@@ -3665,9 +3881,9 @@ class EmptyLegendary(LegendaryItem):
                 self.animation_frames.append(center_cleared)
                 frames_loaded += 1
             except Exception as e:
-                print(f"[INFO] 빈전설 프레임 {i} 로드 실패: {e}")
+                pass  # print(f"[INFO] 빈전설 프레임 {i} 로드 실패: {e}")  # 디버그 비활성화
 
-        print(f"빈전설 프레임 {frames_loaded}/8개 로드")
+        pass  # print(f"빈전설 프레임 {frames_loaded}/8개 로드")  # 디버그 비활성화
 
     def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
         """프레임에서 테두리 영역(가장자리 6픽셀) 그대로 유지, 내부만 완전 제거"""
@@ -3801,13 +4017,25 @@ class EmptyLegendary(LegendaryItem):
 
 
 class AngelBlessing(LegendaryItem):
-    """천사의 가호 - 스테이지 시작 시 천사의 주사위로 버프 선택."""
+    """천사의 가호 - 스테이지 시작 시 천사의 주사위로 버프 선택 (롤 옵션: 버프 강도 Lv1~5)."""
+
+    # 디버그 플래그 (성능 영향으로 비활성화)
+    DEBUG_ENABLED = False
+
+    # 버프 강도 레벨별 배율 (Lv1=10%, Lv2=20%, Lv3=30%, Lv4=40%, Lv5=50%)
+    BUFF_LEVEL_MULTIPLIERS = {
+        1: 0.10,  # 10%
+        2: 0.20,  # 20%
+        3: 0.30,  # 30%
+        4: 0.40,  # 40%
+        5: 0.50,  # 50%
+    }
 
     def __init__(self):
         super().__init__(
             name="angel_blessing",
             korean_name="천사의 가호",
-            description="스테이지 시작 시 천사의 주사위를 굴려 1~3개의 랜덤 축복을 받습니다.",
+            description="스테이지 시작 시 천사의 주사위를 굴려 버프 획득 (롤 옵션: 버프 강도 Lv1~5)",
             unlock_condition="전설 아이템 수집가 업적",
             icon_path=None,  # 직접 렌더링
         )
@@ -3820,6 +4048,7 @@ class AngelBlessing(LegendaryItem):
         self.roll_anim_active = False
         self.roll_anim_duration = 3.0  # 3초간 화려한 연출
         self.waiting_for_space = False  # 스페이스바 대기 상태
+        self._base_buff_level = 3  # 기본 버프 레벨 (롤 옵션으로 덮어씀)
         # 화려한 연출용 파티클 리스트
         self.holy_particles = []
         self.light_rays = []
@@ -3832,6 +4061,17 @@ class AngelBlessing(LegendaryItem):
         self.frame_counter = 0
         self.animation_speed = 8  # 라그나로크 해머와 동일
         self._load_animation_frames()
+        self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
+
+    @property
+    def buff_level(self) -> int:
+        """버프 강도 레벨 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함, Lv1~5)"""
+        return int(get_legendary_roll_value("angel_blessing", "buff_level", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct))
+
+    @property
+    def buff_multiplier(self) -> float:
+        """버프 강도 배율 (레벨에 따라 10%~50%)"""
+        return self.BUFF_LEVEL_MULTIPLIERS.get(self.buff_level, 0.30)
 
     def activate(self, game_state: Dict):
         """장착/획득 시 - 같은 스테이지에서는 재발동하지 않음."""
@@ -3843,11 +4083,11 @@ class AngelBlessing(LegendaryItem):
         try:
             from effects.legendary_integration import is_legendary_effect_active
             if is_legendary_effect_active():
-                print(f"[AngelBlessing.activate] 전설 획득 애니메이션 진행 중 - 주사위 굴림 대기")
+                if self.DEBUG_ENABLED: print(f"[AngelBlessing.activate] 전설 획득 애니메이션 진행 중 - 주사위 굴림 대기")
                 _pending_angel_blessing_activation = dict(game_state) if game_state else {}
                 return
         except Exception as e:
-            print(f"[AngelBlessing.activate] 애니메이션 상태 확인 실패: {e}")
+            if self.DEBUG_ENABLED: print(f"[AngelBlessing.activate] 애니메이션 상태 확인 실패: {e}")
 
         stage = None
         try:
@@ -3859,7 +4099,7 @@ class AngelBlessing(LegendaryItem):
 
         # 같은 스테이지에서 이미 주사위를 굴렸으면 다시 굴리지 않음 (재장착 방지)
         if stage is not None and stage in self._triggered_stages:
-            print(f"[AngelBlessing] 스테이지 {stage}에서 이미 발동됨 - 재장착해도 재발동 안됨")
+            if self.DEBUG_ENABLED: print(f"[AngelBlessing] 스테이지 {stage}에서 이미 발동됨 - 재장착해도 재발동 안됨")
             return
 
         # 새로운 스테이지에서만 주사위 굴림 (_roll_blessing 내부에서 _triggered_stages에 추가)
@@ -3916,20 +4156,20 @@ class AngelBlessing(LegendaryItem):
             dm = dash_manager._GLOBAL_DASH_INST or dash_manager.get_dash_manager()
             if dm:
                 dm.set_external_multipliers(1.0, 1.0)
-                print(f"[AngelBlessing] 대쉬 버프 초기화됨: cost=1.0, cooldown=1.0")
+                if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 버프 초기화됨: cost=1.0, cooldown=1.0")
         except Exception:
             pass
         # 이동 속도 복구 (MAX_SPEED)
         if hasattr(self, "_original_max_speed") and self._original_max_speed is not None:
             if pf is not None and hasattr(pf, "MAX_SPEED"):
                 pf.MAX_SPEED = self._original_max_speed
-                print(f"[AngelBlessing] MAX_SPEED 복원: {self._original_max_speed}")
+                if self.DEBUG_ENABLED: print(f"[AngelBlessing] MAX_SPEED 복원: {self._original_max_speed}")
             self._original_max_speed = None
         # 가속도 복구 (ACCELERATION)
         if hasattr(self, "_original_acceleration") and self._original_acceleration is not None:
             if pf is not None and hasattr(pf, "ACCELERATION"):
                 pf.ACCELERATION = self._original_acceleration
-                print(f"[AngelBlessing] ACCELERATION 복원: {self._original_acceleration}")
+                if self.DEBUG_ENABLED: print(f"[AngelBlessing] ACCELERATION 복원: {self._original_acceleration}")
             self._original_acceleration = None
         # 게이지 재계산
         try:
@@ -3970,16 +4210,22 @@ class AngelBlessing(LegendaryItem):
         except Exception:
             pass
 
-        print(f"[AngelBlessing] 버프 효과 해제됨 - 모든 보너스 초기화")
+        if self.DEBUG_ENABLED: print(f"[AngelBlessing] 버프 효과 해제됨 - 모든 보너스 초기화")
 
     def _apply_buff(self, buff: str):
-        """선택된 버프 적용"""
+        """선택된 버프 적용 (buff_multiplier 롤옵션 적용)"""
         import items
         import academy
         import sys
         pf = sys.modules.get("pingfighter")
+
+        # 롤옵션 버프 배율 가져오기 (Lv1=10%, Lv2=20%, ..., Lv5=50%)
+        buff_mult = self.buff_multiplier  # 0.10 ~ 0.50
+        positive_mult = 1.0 + buff_mult   # 1.10 ~ 1.50 (증가 효과용)
+        negative_mult = 1.0 - buff_mult   # 0.90 ~ 0.50 (감소 효과용)
+
         if buff == "paddle_size":
-            self._set_global_multiplier("ANGEL_PADDLE_SCALE", 1.5)
+            self._set_global_multiplier("ANGEL_PADDLE_SCALE", positive_mult)
             try:
                 current_scale = None
                 if pf is not None and hasattr(pf, "CURRENT_PADDLE_EFFECTIVE_SCALE"):
@@ -3998,8 +4244,9 @@ class AngelBlessing(LegendaryItem):
                     apply_equipment_paddle_modifiers()  # type: ignore[name-defined]
             except Exception:
                 pass
+            if self.DEBUG_ENABLED: print(f"[AngelBlessing] 패들 크기 버프 적용: +{int(buff_mult*100)}%")
         elif buff == "gauge_max":
-            self._set_global_multiplier("ANGEL_GAUGE_MULT", 1.5)
+            self._set_global_multiplier("ANGEL_GAUGE_MULT", positive_mult)
             try:
                 calc_max = None
                 if pf is not None and hasattr(pf, "get_max_gauge"):
@@ -4016,11 +4263,14 @@ class AngelBlessing(LegendaryItem):
                         globals()["special_gauge"] = min(globals().get("special_gauge", 0), max_g)
             except Exception:
                 pass
+            if self.DEBUG_ENABLED: print(f"[AngelBlessing] 최대 게이지 버프 적용: +{int(buff_mult*100)}%")
         elif buff == "item_spawn":
             if hasattr(items, "LEGENDARY_ITEM_SPAWN_MULT"):
-                items.LEGENDARY_ITEM_SPAWN_MULT = 1.5
+                items.LEGENDARY_ITEM_SPAWN_MULT = positive_mult
+            if self.DEBUG_ENABLED: print(f"[AngelBlessing] 아이템 스폰률 버프 적용: +{int(buff_mult*100)}%")
         elif buff == "item_cooldown":
-            academy.ANGEL_ITEM_COOLDOWN_MULTIPLIER = 0.5
+            academy.ANGEL_ITEM_COOLDOWN_MULTIPLIER = negative_mult
+            if self.DEBUG_ENABLED: print(f"[AngelBlessing] 아이템 쿨타임 버프 적용: -{int(buff_mult*100)}%")
         elif buff == "dash_cost":
             try:
                 import dash_manager
@@ -4028,13 +4278,13 @@ class AngelBlessing(LegendaryItem):
                 dm = dash_manager._GLOBAL_DASH_INST or dash_manager.get_dash_manager()
                 if dm:
                     old_cost = getattr(dm, 'external_cost_multiplier', 1.0)
-                    dm.set_external_multipliers(cost_mul=0.5)
+                    dm.set_external_multipliers(cost_mul=negative_mult)
                     new_cost = getattr(dm, 'external_cost_multiplier', 1.0)
-                    print(f"[AngelBlessing] 대쉬 비용 버프 적용: {old_cost} -> {new_cost}")
+                    if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 비용 버프 적용: {old_cost} -> {new_cost} (-{int(buff_mult*100)}%)")
                 else:
-                    print(f"[AngelBlessing] 대쉬 매니저를 찾을 수 없음")
+                    if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 매니저를 찾을 수 없음")
             except Exception as e:
-                print(f"[AngelBlessing] 대쉬 비용 버프 적용 실패: {e}")
+                if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 비용 버프 적용 실패: {e}")
         elif buff == "dash_cooldown":
             try:
                 import dash_manager
@@ -4042,13 +4292,13 @@ class AngelBlessing(LegendaryItem):
                 dm = dash_manager._GLOBAL_DASH_INST or dash_manager.get_dash_manager()
                 if dm:
                     old_mul = getattr(dm, 'external_cooldown_multiplier', 1.0)
-                    dm.set_external_multipliers(cooldown_mul=0.5)
+                    dm.set_external_multipliers(cooldown_mul=negative_mult)
                     new_mul = getattr(dm, 'external_cooldown_multiplier', 1.0)
-                    print(f"[AngelBlessing] 대쉬 쿨타임 버프 적용: {old_mul} -> {new_mul}")
+                    if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 쿨타임 버프 적용: {old_mul} -> {new_mul} (-{int(buff_mult*100)}%)")
                 else:
-                    print(f"[AngelBlessing] 대쉬 매니저를 찾을 수 없음")
+                    if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 매니저를 찾을 수 없음")
             except Exception as e:
-                print(f"[AngelBlessing] 대쉬 쿨타임 버프 적용 실패: {e}")
+                if self.DEBUG_ENABLED: print(f"[AngelBlessing] 대쉬 쿨타임 버프 적용 실패: {e}")
         elif buff == "move_speed":
             # MAX_SPEED 증가 (실제 이동속도 결정 변수)
             try:
@@ -4057,19 +4307,20 @@ class AngelBlessing(LegendaryItem):
                     # 기본 MAX_SPEED 저장 (복원용) - 값이 None이거나 속성이 없으면 저장
                     if not hasattr(self, "_original_max_speed") or self._original_max_speed is None:
                         self._original_max_speed = base_max_speed
-                    pf.MAX_SPEED = int(self._original_max_speed * 1.5)  # 항상 원본 기준으로 계산
-                    self._set_global_multiplier("ANGEL_SPEED_MULT", 1.5)
-                    print(f"[AngelBlessing] 이동속도 버프 적용: MAX_SPEED {self._original_max_speed} -> {pf.MAX_SPEED}")
-                # ACCELERATION도 증가
+                    pf.MAX_SPEED = int(self._original_max_speed * positive_mult)  # 항상 원본 기준으로 계산
+                    self._set_global_multiplier("ANGEL_SPEED_MULT", positive_mult)
+                    if self.DEBUG_ENABLED: print(f"[AngelBlessing] 이동속도 버프 적용: MAX_SPEED {self._original_max_speed} -> {pf.MAX_SPEED} (+{int(buff_mult*100)}%)")
+                # ACCELERATION도 증가 (이동속도 버프의 절반 정도 적용)
                 if pf is not None and hasattr(pf, "ACCELERATION"):
                     base_accel = getattr(pf, "ACCELERATION", 0.4)
                     # 기본 ACCELERATION 저장 (복원용) - 값이 None이거나 속성이 없으면 저장
                     if not hasattr(self, "_original_acceleration") or self._original_acceleration is None:
                         self._original_acceleration = base_accel
-                    pf.ACCELERATION = self._original_acceleration * 1.3  # 항상 원본 기준으로 계산
-                    print(f"[AngelBlessing] 가속도 버프 적용: ACCELERATION {self._original_acceleration} -> {pf.ACCELERATION}")
+                    accel_mult = 1.0 + (buff_mult * 0.6)  # 이동속도의 60% 정도 적용
+                    pf.ACCELERATION = self._original_acceleration * accel_mult  # 항상 원본 기준으로 계산
+                    if self.DEBUG_ENABLED: print(f"[AngelBlessing] 가속도 버프 적용: ACCELERATION {self._original_acceleration} -> {pf.ACCELERATION}")
             except Exception as e:
-                print(f"[AngelBlessing] 이동속도 버프 적용 실패: {e}")
+                if self.DEBUG_ENABLED: print(f"[AngelBlessing] 이동속도 버프 적용 실패: {e}")
 
     def deactivate(self):
         """천사의 가호 비활성화 - 모든 버프 효과 즉시 해제
@@ -4077,14 +4328,14 @@ class AngelBlessing(LegendaryItem):
         NOTE: applied_stage와 _triggered_stages는 유지하여 같은 스테이지 내
         재장착 시 재발동을 방지합니다.
         """
-        print(f"[AngelBlessing] 비활성화 시작 - 현재 버프: {self.active_buffs}")
+        if self.DEBUG_ENABLED: print(f"[AngelBlessing] 비활성화 시작 - 현재 버프: {self.active_buffs}")
         super().deactivate()
         self._reset_globals()  # 모든 버프 효과 해제
         # applied_stage와 _triggered_stages는 유지 (같은 스테이지 내 재발동 방지)
         self.active_buffs.clear()
         self.roll_anim_active = False
         self.waiting_for_space = False
-        print(f"[AngelBlessing] 비활성화 완료 - 버프 제거됨 (스테이지 {self.applied_stage} 발동 이력 유지)")
+        if self.DEBUG_ENABLED: print(f"[AngelBlessing] 비활성화 완료 - 버프 제거됨 (스테이지 {self.applied_stage} 발동 이력 유지)")
 
     def reset_for_new_game(self):
         """새 게임 시작 시 모든 발동 이력 초기화 (게임 오버/메인 메뉴 복귀 시 호출)"""
@@ -4093,14 +4344,14 @@ class AngelBlessing(LegendaryItem):
         self.active_buffs.clear()
         self.roll_anim_active = False
         self.waiting_for_space = False
-        print("[AngelBlessing] 새 게임 - 발동 이력 초기화됨")
+        if self.DEBUG_ENABLED: print("[AngelBlessing] 새 게임 - 발동 이력 초기화됨")
 
     def _roll_blessing(self, current_stage: int):
         """주사위 굴림 및 버프 적용"""
         import random
         # 이미 발동된 스테이지면 스킵 (재장착 방지)
         if current_stage in self._triggered_stages:
-            print(f"[AngelBlessing] 스테이지 {current_stage}에서 이미 발동됨 - 스킵")
+            if self.DEBUG_ENABLED: print(f"[AngelBlessing] 스테이지 {current_stage}에서 이미 발동됨 - 스킵")
             return
         if self.applied_stage == current_stage:
             return
@@ -4123,7 +4374,7 @@ class AngelBlessing(LegendaryItem):
             self._apply_buff(buff)
         if debug:
             print(f"[AngelBlessing][DEBUG] Stage {current_stage} 주사위 {dice_face} → {selected}")
-        else:
+        elif self.DEBUG_ENABLED:
             print(f"[AngelBlessing] Stage {current_stage} 주사위 {dice_face} → {selected}")
 
     def _load_animation_frames(self):
@@ -4133,7 +4384,7 @@ class AngelBlessing(LegendaryItem):
         # 천사의 가호는 주사위 테마이므로 주사위 프레임 직접 생성
         # (라그나로크 해머 프레임을 사용하면 중앙이 비어 보임)
         self._generate_dice_frames()
-        print(f"천사의 가호: 주사위+날개 애니메이션 프레임 {len(self.animation_frames)}개 생성 완료")
+        if self.DEBUG_ENABLED: print(f"천사의 가호: 주사위+날개 애니메이션 프레임 {len(self.animation_frames)}개 생성 완료")
 
     def _clear_center_content(self, frame: pygame.Surface) -> pygame.Surface:
         """프레임에서 중앙 망치/번개/손잡이/그림자 모두 제거하고 테두리만 유지"""
@@ -4168,7 +4419,7 @@ class AngelBlessing(LegendaryItem):
             self._draw_dice_to_surface(surf, frame_size, rot_x, rot_y)
             self.animation_frames.append(surf)
 
-        print(f"천사의 가호: 주사위 프레임 8개 동적 생성 완료")
+        pass  # print(f"천사의 가호: 주사위 프레임 8개 동적 생성 완료")  # 디버그 비활성화
 
     def _draw_dice_to_surface(self, surf, size, rot_x, rot_y):
         """주사위를 서피스에 그리기 - 천사 날개 포함"""
@@ -5093,24 +5344,27 @@ class AngelBlessing(LegendaryItem):
         # 결과 텍스트 영역
         results_y = panel_y + 220
 
-        # 버프 이름 (한글/영문)
+        # 버프 강도 퍼센트 (롤옵션 적용)
+        buff_pct = int(self.buff_multiplier * 100)  # 10% ~ 50%
+
+        # 버프 이름 (한글/영문) - 롤옵션 버프 강도 적용
         buff_names_kr = {
-            "paddle_size": "패들 크기 +50%",
-            "gauge_max": "최대 게이지 +50%",
-            "item_spawn": "아이템 스폰률 +50%",
-            "item_cooldown": "아이템 쿨타임 -50%",
-            "dash_cost": "대쉬 비용 -50%",
-            "dash_cooldown": "대쉬 쿨타임 -50%",
-            "move_speed": "이동 속도 +50%",
+            "paddle_size": f"패들 크기 +{buff_pct}%",
+            "gauge_max": f"최대 게이지 +{buff_pct}%",
+            "item_spawn": f"아이템 스폰률 +{buff_pct}%",
+            "item_cooldown": f"아이템 쿨타임 -{buff_pct}%",
+            "dash_cost": f"대쉬 비용 -{buff_pct}%",
+            "dash_cooldown": f"대쉬 쿨타임 -{buff_pct}%",
+            "move_speed": f"이동 속도 +{buff_pct}%",
         }
         buff_names_en = {
-            "paddle_size": "Paddle Size +50%",
-            "gauge_max": "Max Gauge +50%",
-            "item_spawn": "Item Spawn +50%",
-            "item_cooldown": "Item Cooldown -50%",
-            "dash_cost": "Dash Cost -50%",
-            "dash_cooldown": "Dash Cooldown -50%",
-            "move_speed": "Move Speed +50%",
+            "paddle_size": f"Paddle Size +{buff_pct}%",
+            "gauge_max": f"Max Gauge +{buff_pct}%",
+            "item_spawn": f"Item Spawn +{buff_pct}%",
+            "item_cooldown": f"Item Cooldown -{buff_pct}%",
+            "dash_cost": f"Dash Cost -{buff_pct}%",
+            "dash_cooldown": f"Dash Cooldown -{buff_pct}%",
+            "move_speed": f"Move Speed +{buff_pct}%",
         }
 
         # 주사위 숫자 표시 (Phase 4 이후에만)
@@ -5270,7 +5524,7 @@ class AngelBlessing(LegendaryItem):
         if event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN):
             self.roll_anim_active = False
             self.waiting_for_space = False
-            print(f"[AngelBlessing] 주사위 애니메이션 종료 - applied_stage: {self.applied_stage}")
+            if self.DEBUG_ENABLED: print(f"[AngelBlessing] 주사위 애니메이션 종료 - applied_stage: {self.applied_stage}")
             return True
 
         return False
@@ -5300,7 +5554,7 @@ class AngelBlessing(LegendaryItem):
                 if self.roll_timer >= self.roll_anim_duration:
                     # 타이머가 끝나면 스페이스바 대기 상태로 전환 (바로 닫지 않음)
                     self.waiting_for_space = True
-                    print(f"[AngelBlessing] 주사위 결과 표시 - 스페이스바 대기 중...")
+                    if self.DEBUG_ENABLED: print(f"[AngelBlessing] 주사위 결과 표시 - 스페이스바 대기 중...")
 
         # 8프레임 애니메이션 업데이트
         self.frame_counter += 1
@@ -5421,7 +5675,7 @@ class EmptyLegendarySlot(LegendaryItem):
             transparent.fill((0, 0, 0, 0))  # 완전 투명
             self.animation_frames.append(transparent)
 
-        print(f"[INFO] empty 전설 슬롯: 투명 프레임 {total_frames}개 생성 (테두리 효과만 표시)")
+        pass  # print(f"[INFO] empty 전설 슬롯: 투명 프레임 {total_frames}개 생성 (테두리 효과만 표시)")  # 디버그 비활성화
 
     def _erase_hermes_shoe(self, surface: pygame.Surface) -> None:
         """헤르메스 프레임에서 신발 본체와 잔상만 제거한다."""
@@ -5595,7 +5849,3509 @@ class EmptyLegendarySlot2(LegendaryItem):
             transparent.fill((0, 0, 0, 0))  # 완전 투명
             self.animation_frames.append(transparent)
 
-        print(f"[INFO] empty2 전설 슬롯: 라그나로크 스타일 빈 프레임 8개 생성 (테두리/글로우만 표시)")
+        pass  # print(f"[INFO] empty2 전설 슬롯: 라그나로크 스타일 빈 프레임 8개 생성 (테두리/글로우만 표시)")  # 디버그 비활성화
+
+
+class TranscendentCrown(LegendaryItem):
+    """초월자의 관 - 머리 부위 전설 아이템
+
+    롤 옵션: 모든 스킬 레벨 +1 ~ +3
+    투자한 런타임 스킬(아카데미 스킬)에 보너스 레벨을 부여합니다.
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="transcendent_crown",
+            korean_name="초월자의 관",
+            description="모든 스킬 레벨 증가 (롤 옵션: +1~+3)",
+            unlock_condition="전설 아이템 획득",
+            icon_path=None  # 고유 애니메이션만 사용
+        )
+        self._base_skill_bonus = 2  # 기본 스킬 보너스 (롤 옵션으로 덮어씀)
+
+        # 애니메이션 프레임 설정
+        self.animation_frames = []
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 8  # 프레임당 틱 수
+        self._load_animation_frames()
+        self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화)
+
+    @property
+    def skill_bonus(self) -> int:
+        """스킬 레벨 보너스 (롤 옵션 + 연마 배율 + 강화 보너스 적용)
+
+        NOTE: 기본 연마 레벨의 배율만 적용 (순환 의존성 방지)
+        예: 연마 Lv.5 (50%) + 초월자의 관 +3 → +3 * 1.5 = +4.5
+        강화 보너스가 있으면 추가 적용: +4.5 * 1.33 (강화 100%) = +6
+        """
+        return int(get_legendary_roll_value("transcendent_crown", "skill_bonus", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct))
+
+    def activate(self, game_state: Dict):
+        """초월자의 관 활성화 - 모든 투자된 스킬에 보너스 레벨 부여"""
+        super().activate(game_state)
+        import items
+        items.transcendent_crown_obtained = True
+
+        # 스킬 보너스 적용 (academy.py의 skill_system에 보너스 적용)
+        try:
+            import academy
+            academy.transcendent_crown_skill_bonus = self.skill_bonus
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"초월자의 관 활성화 (academy)! 모든 스킬 레벨 +{self.skill_bonus}")
+        except ImportError:
+            pass
+
+        # pingfighter.py의 런타임 스킬 보너스도 적용
+        try:
+            import pingfighter
+            pingfighter.transcendent_crown_skill_bonus = self.skill_bonus
+            # 기존 투자된 스킬 효과 재계산
+            if hasattr(pingfighter, 'recalculate_transcendent_crown_effects'):
+                pingfighter.recalculate_transcendent_crown_effects()
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"초월자의 관 활성화 (pingfighter)! 런타임 스킬 레벨 +{self.skill_bonus}")
+        except ImportError:
+            pass
+
+    def deactivate(self):
+        """초월자의 관 비활성화 - 보너스 레벨 제거"""
+        super().deactivate()
+        try:
+            import academy
+            academy.transcendent_crown_skill_bonus = 0
+        except ImportError:
+            pass
+
+        # pingfighter.py의 런타임 스킬 보너스도 제거
+        try:
+            import pingfighter
+            pingfighter.transcendent_crown_skill_bonus = 0
+            # 스킬 효과 재계산 (보너스 제거 후)
+            if hasattr(pingfighter, 'recalculate_transcendent_crown_effects'):
+                pingfighter.recalculate_transcendent_crown_effects()
+        except ImportError:
+            pass
+
+    def _load_animation_frames(self):
+        """애니메이션 프레임 로드 (라그나로크 해머 프레임 기반)"""
+        import pygame
+
+        self.animation_frames.clear()
+
+        # 라그나로크 해머 프레임을 기반으로 중앙 이미지만 왕관으로 교체
+        for i in range(8):
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            try:
+                if os.path.exists(frame_path):
+                    original = pygame.image.load(frame_path).convert_alpha()
+                    # 중앙 망치를 지우고 왕관 그리기
+                    frame = self._create_crown_frame(original, i)
+                    self.animation_frames.append(frame)
+            except Exception:
+                pass
+
+        # 프레임 로드 실패시 기본 프레임 생성
+        if not self.animation_frames:
+            for i in range(8):
+                self.animation_frames.append(self._create_default_crown_frame(i))
+
+    def _create_crown_frame(self, base_frame, frame_idx):
+        """기존 프레임에서 중앙 망치를 지우고 왕관 그리기"""
+        import pygame
+        import math
+
+        frame = base_frame.copy()
+        width, height = frame.get_size()
+        cx, cy = width // 2, height // 2
+
+        # 중앙 영역 전체 지우기 (손잡이 포함 - 테두리만 남김)
+        # 라그나로크 해머의 망치 머리 + 손잡이 전체를 지우기 위해 넓은 영역 클리어
+        clear_radius = min(width, height) // 2 - 3  # 테두리 3px 남기고 전체 지우기
+        for y in range(height):
+            for x in range(width):
+                dist = math.sqrt((x - cx)**2 + (y - cy)**2)
+                if dist < clear_radius:
+                    frame.set_at((x, y), (0, 0, 0, 0))
+
+        # 왕관 그리기
+        self._draw_crown_on_surface(frame, cx, cy, frame_idx)
+
+        return frame
+
+    def _create_default_crown_frame(self, frame_idx):
+        """기본 왕관 프레임 생성"""
+        import pygame
+
+        frame = pygame.Surface((32, 32), pygame.SRCALPHA)
+        cx, cy = 16, 16
+
+        # 배경 (붉은색 계열 그라데이션)
+        border_colors = [(150, 0, 0), (224, 0, 0), (255, 0, 0), (224, 0, 0),
+                         (150, 0, 0), (75, 0, 0), (45, 0, 0), (75, 0, 0)]
+        pygame.draw.circle(frame, border_colors[frame_idx], (cx, cy), 15, 2)
+
+        # 왕관 그리기
+        self._draw_crown_on_surface(frame, cx, cy, frame_idx)
+
+        return frame
+
+    def _draw_crown_on_surface(self, surface, cx, cy, frame_idx):
+        """왕관을 surface에 그리기"""
+        import pygame
+        import math
+
+        # 왕관 색상 (금색 계열, 프레임마다 약간 변화)
+        gold_base = [(255, 215, 0), (255, 220, 50), (255, 210, 30), (255, 225, 60),
+                     (255, 205, 20), (255, 230, 70), (255, 200, 10), (255, 235, 80)]
+        gold_dark = [(205, 175, 0), (215, 180, 30), (200, 170, 20), (220, 185, 40),
+                     (195, 165, 10), (225, 190, 50), (190, 160, 0), (230, 195, 60)]
+        gold_highlight = [(255, 255, 150), (255, 255, 160), (255, 255, 140), (255, 255, 170),
+                          (255, 255, 130), (255, 255, 180), (255, 255, 120), (255, 255, 190)]
+
+        crown_gold = gold_base[frame_idx % 8]
+        crown_dark = gold_dark[frame_idx % 8]
+        crown_light = gold_highlight[frame_idx % 8]
+
+        # 보석 색상 (붉은 루비)
+        ruby_colors = [(220, 30, 50), (240, 40, 60), (255, 50, 70), (230, 35, 55),
+                       (210, 25, 45), (250, 45, 65), (200, 20, 40), (245, 42, 62)]
+        ruby_color = ruby_colors[frame_idx % 8]
+        ruby_highlight = (255, 150, 170)
+
+        # 왕관 베이스 (아래 부분)
+        base_rect = pygame.Rect(cx - 8, cy + 2, 16, 5)
+        pygame.draw.rect(surface, crown_dark, base_rect)
+        pygame.draw.rect(surface, crown_gold, base_rect.inflate(-2, -2))
+
+        # 왕관 포인트 3개 (뾰족한 부분)
+        points_left = [(cx - 7, cy + 2), (cx - 6, cy - 4), (cx - 4, cy + 2)]
+        points_center = [(cx - 2, cy + 2), (cx, cy - 7), (cx + 2, cy + 2)]
+        points_right = [(cx + 4, cy + 2), (cx + 6, cy - 4), (cx + 7, cy + 2)]
+
+        # 왕관 뾰족한 부분 그리기
+        pygame.draw.polygon(surface, crown_gold, points_left)
+        pygame.draw.polygon(surface, crown_dark, points_left, 1)
+
+        pygame.draw.polygon(surface, crown_gold, points_center)
+        pygame.draw.polygon(surface, crown_dark, points_center, 1)
+
+        pygame.draw.polygon(surface, crown_gold, points_right)
+        pygame.draw.polygon(surface, crown_dark, points_right, 1)
+
+        # 중앙 큰 보석 (루비)
+        pygame.draw.circle(surface, ruby_color, (cx, cy - 2), 3)
+        pygame.draw.circle(surface, ruby_highlight, (cx - 1, cy - 3), 1)
+
+        # 좌우 작은 보석
+        pygame.draw.circle(surface, ruby_color, (cx - 5, cy), 2)
+        pygame.draw.circle(surface, ruby_highlight, (cx - 5, cy - 1), 1)
+        pygame.draw.circle(surface, ruby_color, (cx + 5, cy), 2)
+        pygame.draw.circle(surface, ruby_highlight, (cx + 5, cy - 1), 1)
+
+        # 왕관 상단 하이라이트
+        pygame.draw.line(surface, crown_light, (cx - 1, cy - 5), (cx + 1, cy - 5), 1)
+        pygame.draw.line(surface, crown_light, (cx - 5, cy - 2), (cx - 4, cy - 2), 1)
+        pygame.draw.line(surface, crown_light, (cx + 4, cy - 2), (cx + 5, cy - 2), 1)
+
+        # 빛나는 효과 (애니메이션)
+        sparkle_offset = math.sin(frame_idx * 0.8) * 2
+        sparkle_alpha = int(180 + math.sin(frame_idx * 1.2) * 60)
+        if frame_idx % 2 == 0:
+            pygame.draw.circle(surface, (*crown_light[:3],), (cx, cy - 8 + int(sparkle_offset)), 1)
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """애니메이션 아이콘 그리기"""
+        import pygame
+        import math
+
+        # 공통 배경 프레임 연출 (라그나로크 해머와 동일한 붉은색 테두리 + 은색 모서리)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+
+        # 애니메이션 프레임 그리기
+        if self.animation_frames and len(self.animation_frames) > 0:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
+            icon_y = y + frame_offset + int(self.animation_offset)
+            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled_icon = pygame.transform.scale(current_icon, (size, size))
+            screen.blit(scaled_icon, (x, icon_y))
+
+            # 신성한 빛 효과 (왕관 위에서 반짝임)
+            if self.current_frame in [0, 2, 4, 6]:
+                sparkle_color = (255, 255, 200)
+                sparkle_y = y + frame_offset - 3 + int(math.sin(self.animation_time * 4) * 2)
+                pygame.draw.circle(screen, sparkle_color, (x + size // 2, sparkle_y), 2)
+                pygame.draw.circle(screen, (255, 255, 255), (x + size // 2, sparkle_y), 1)
+        else:
+            # Fallback: 프레임이 없으면 기본 왕관 아이콘 그리기
+            icon_y = y + frame_offset + int(self.animation_offset)
+
+            # 간단한 왕관 모양
+            crown_gold = (255, 215, 0)
+            crown_dark = (205, 175, 0)
+            ruby_color = (220, 50, 50)
+
+            cx, cy = x + size // 2, icon_y + size // 2
+
+            # 왕관 베이스
+            base_w, base_h = size // 3, size // 8
+            base_rect = pygame.Rect(cx - base_w // 2, cy + size // 8, base_w, base_h)
+            pygame.draw.rect(screen, crown_gold, base_rect)
+            pygame.draw.rect(screen, crown_dark, base_rect, 1)
+
+            # 왕관 포인트 3개
+            point_h = size // 4
+            points_left = [(cx - base_w // 2, cy + size // 8),
+                          (cx - base_w // 4, cy - point_h // 2),
+                          (cx - base_w // 4 + size // 10, cy + size // 8)]
+            points_center = [(cx - size // 10, cy + size // 8),
+                            (cx, cy - point_h),
+                            (cx + size // 10, cy + size // 8)]
+            points_right = [(cx + base_w // 4 - size // 10, cy + size // 8),
+                           (cx + base_w // 4, cy - point_h // 2),
+                           (cx + base_w // 2, cy + size // 8)]
+
+            pygame.draw.polygon(screen, crown_gold, points_left)
+            pygame.draw.polygon(screen, crown_gold, points_center)
+            pygame.draw.polygon(screen, crown_gold, points_right)
+
+            # 중앙 보석
+            pygame.draw.circle(screen, ruby_color, (cx, cy - size // 10), size // 12)
+
+        # 파티클 효과
+        if self.particle_timer > 1.0:
+            self._spawn_particle(screen, x + size // 2, y + frame_offset + size // 2)
+            self.particle_timer = 0
+
+    def update(self, dt: float, ui_mode: bool = False):
+        """애니메이션 업데이트"""
+        super().update(dt, ui_mode)
+
+        # 애니메이션 프레임 카운터 업데이트
+        if self.animation_frames and len(self.animation_frames) > 1:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
+
+class OdinsEye(LegendaryItem):
+    """오딘의 눈 - 벨트 부위 전설 아이템
+
+    롤 옵션: 부활 확률 30% ~ 50%
+    플레이어가 라운드를 잃을 때(공을 막지 못했을 때), 일정 확률로 패배하지 않고 부활합니다.
+    부활 시 3초 동안 어둠의 기운 애니메이션 후 페널티가 적용됩니다:
+    - 이동 속도 -50%
+    - 대시 토큰 1개 고정
+    - 대시 쿨타임 +100%
+    페널티 상태에서 다시 공을 막지 못하면 진정한 패배입니다.
+    페널티 상태에서 라운드를 승리하면 페널티가 해제됩니다.
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="odins_eye",
+            korean_name="오딘의 눈",
+            description="라운드 패배 시 부활 (롤 옵션: 확률 30%~50%)",
+            unlock_condition="전설 아이템 획득",
+            icon_path=None  # 고유 애니메이션만 사용
+        )
+        self._base_revival_chance = 40  # 기본 부활 확률 (롤 옵션으로 덮어씀)
+        self.enhancement_bonus_pct = 0  # 강화 보너스 퍼센트
+
+        # 부활 상태 관리
+        self.revival_used = False  # 이번 라운드에서 부활 사용 여부
+        self.penalty_active = False  # 페널티 상태 여부
+        self.dark_energy_timer = 0  # 어둠의 기운 애니메이션 타이머 (3초)
+        self.dark_energy_active = False  # 어둠의 기운 활성화 여부
+        self.dark_energy_until_round_end = False  # 라운드 종료까지 어둠의 기운 유지
+
+        # 🎬 부활 애니메이션 상태 (3초 연출) - 악의 에너지 인간 형태
+        self.is_revival_animating = False  # 부활 애니메이션 진행 중 여부
+        self.revival_anim_timer = 0  # 부활 애니메이션 타이머 (프레임)
+        self.revival_anim_phase = 0  # 0: 수집, 1: 형성, 2: 폭발, 3: 완료
+        self.revival_anim_player_x = 0  # 애니메이션 위치 X
+        self.revival_anim_player_y = 0  # 애니메이션 위치 Y
+        self.revival_anim_particles = []  # 수집 파티클
+        self.revival_burst_particles = []  # 폭발 파티클
+        self.REVIVAL_ANIM_DURATION = 180  # 3초 (60fps 기준)
+        self.REVIVAL_GATHER_PHASE = 90  # 1.5초 수집
+        self.REVIVAL_FORM_PHASE = 60  # 1초 형성
+        self.REVIVAL_BURST_PHASE = 30  # 0.5초 폭발
+
+        # 인간 형태 실루엣 파라미터 (폭발 후에만 보임)
+        self.human_silhouette_alpha = 0  # 인간 형태 투명도
+        self.human_silhouette_scale = 0  # 인간 형태 스케일 (0~1)
+        self.human_eye_glow = 0  # 눈 발광 강도
+        self.silhouette_revealed = False  # 폭발 후 실루엣 공개 여부
+
+        # 🌑 어둠의 구체 시스템 (변신 전 캐릭터를 덮는 구체)
+        self.dark_sphere_radius = 0  # 어둠 구체 반지름
+        self.dark_sphere_max_radius = 80  # 최대 구체 크기
+        self.dark_sphere_alpha = 0  # 구체 투명도
+        self.dark_sphere_pulse = 0  # 구체 맥동 효과
+        self.dark_sphere_particles = []  # 구체 주변 파티클
+        self.dark_sphere_inner_glow = 0  # 내부 발광 (폭발 직전)
+        self.dark_sphere_cracks = []  # 구체 균열 (폭발 직전)
+
+        # 🎇 드라마틱 변신 완료 폭발 이펙트 시스템
+        self.dark_burst_active = False  # 어둠 폭발 활성화 여부
+        self.dark_burst_timer = 0  # 폭발 타이머
+        self.dark_burst_particles = []  # 폭발 파티클
+        self.dark_burst_shockwaves = []  # 충격파 리스트
+        self.DARK_BURST_DURATION = 45  # 폭발 이펙트 지속시간 (0.75초)
+
+        # 드라마틱 연출 파라미터
+        self.screen_flash_alpha = 0  # 화면 플래시 강도
+        self.screen_shake_intensity = 0  # 화면 흔들림 강도
+        self.dramatic_zoom = 1.0  # 드라마틱 줌 효과
+        self.energy_ring_radius = 0  # 에너지 링 반지름
+        self.energy_tendrils = []  # 에너지 촉수 (모이는 효과)
+
+        # 💀 죽음 애니메이션 시스템 (페널티 상태에서 패배 시)
+        self.is_death_animating = False  # 죽음 애니메이션 진행 중
+        self.death_anim_timer = 0  # 죽음 애니메이션 타이머
+        self.death_anim_phase = 0  # 0: 폭발 직전, 1: 폭발, 2: 분해, 3: 완료
+        self.death_anim_player_x = 0  # 애니메이션 위치 X
+        self.death_anim_player_y = 0  # 애니메이션 위치 Y
+        self.DEATH_PREEXPLOSION_PHASE = 120  # 2초 (폭발 직전)
+        self.DEATH_EXPLOSION_PHASE = 60  # 1초 (폭발)
+        self.DEATH_DISINTEGRATE_PHASE = 90  # 1.5초 (분해)
+        self.DEATH_ANIM_DURATION = 270  # 총 4.5초
+        self.death_particles = []  # 죽음 파티클
+        self.death_shockwaves = []  # 죽음 충격파
+        self.death_energy_buildup = 0  # 에너지 축적량 (0~1)
+        self.death_cracks = []  # 균열 효과
+        self.death_flash_intensity = 0  # 플래시 강도
+        self.hide_paddle_after_death = False  # 죽음 후 패들 숨김 (점수 화면용)
+        self.death_fragments = []  # 💀 분해 파편 (캐릭터 조각)
+        self.death_disintegrate_progress = 0  # 분해 진행도
+
+        # 애니메이션 프레임 설정
+        self.animation_frames = []
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 8  # 프레임당 틱 수
+        self._load_animation_frames()
+
+        # 어둠의 기운 파티클
+        self.dark_particles = []
+
+        # ═══════════════════════════════════════════════════════════════════
+        # 어둠의 늪 스킬 시스템
+        # ═══════════════════════════════════════════════════════════════════
+        self.dark_swamp_enabled = False  # 스킬 활성화 여부 (부활 후)
+        self.dark_swamp_cost = 50  # 게이지 소모량
+        self.dark_swamp_cooldown = 120  # 2초 쿨타임 (60fps 기준)
+        self.dark_swamp_cooldown_timer = 0  # 현재 쿨타임 타이머
+        self.dark_swamp_active = False  # 스킬 발동 중
+
+        # 럴커 가시 시스템
+        self.lurker_spikes = []  # 활성 가시 리스트
+        self.spike_spawn_timer = 0  # 가시 생성 타이머
+        self.spike_spawn_interval = 8  # 가시 생성 간격 (프레임) - 느리게
+        self.spike_count = 0  # 생성된 가시 개수
+        self.max_spikes = 12  # 최대 가시 개수 - 적게, 간격 넓게
+        self.spike_start_x = 0  # 시작 X (플레이어)
+        self.spike_start_y = 0  # 시작 Y (플레이어)
+        self.spike_end_x = 0  # 끝 X (보스)
+        self.spike_end_y = 0  # 끝 Y (보스)
+
+        # 가시 시각 효과
+        self.spike_wave_active = False  # 가시 물결 활성화
+        self.spike_wave_progress = 0.0  # 물결 진행도 (0~1)
+        self.spike_smoke_particles = []  # 연기 파티클
+        self.spike_fragments = []  # 타격 시 어둠의 파편
+
+    @property
+    def revival_chance(self) -> float:
+        """부활 확률 (롤 옵션 + 연마 스킬 + 강화 보너스 적용, 30%~50%)"""
+        return get_legendary_roll_value("odins_eye", "revival_chance", apply_polish=True, enhancement_bonus_pct=self.enhancement_bonus_pct)
+
+    def activate(self, game_state: Dict = None):
+        """오딘의 눈 활성화"""
+        super().activate(game_state)
+        import items
+        items.odins_eye_obtained = True
+
+        # 상태 초기화
+        self.revival_used = False
+        self.penalty_active = False
+        self.dark_energy_timer = 0
+        self.dark_energy_active = False
+        self.dark_particles = []
+
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"👁 오딘의 눈 활성화! 부활 확률: {self.revival_chance:.0f}%")
+
+    def deactivate(self):
+        """오딘의 눈 비활성화"""
+        super().deactivate()
+        self.revival_used = False
+        self.penalty_active = False
+        self.dark_energy_timer = 0
+        self.dark_energy_active = False
+        self.dark_particles = []
+
+    def reset_for_new_round(self):
+        """새 라운드 시작 시 부활 상태 리셋 (점수 화면 표시 후 호출됨)"""
+        self.revival_used = False
+        self.penalty_active = False  # 라운드 종료 시 페널티도 초기화
+        # 어둠의 기운 효과 초기화
+        self.dark_energy_active = False
+        self.dark_energy_until_round_end = False
+        self.dark_energy_timer = 0
+        self.dark_particles = []
+        # 💀 죽음 애니메이션 후 패들 숨김은 유지 (clear_death_hide()로 별도 초기화)
+        # hide_paddle_after_death는 여기서 리셋하지 않음!
+        self.death_fragments = []
+        self.death_disintegrate_progress = 0
+
+    def clear_death_hide(self):
+        """💀 새 라운드 실제 시작 시 패들 숨김 해제"""
+        self.hide_paddle_after_death = False
+
+    def reset_for_new_game(self):
+        """새 게임 시작 시 완전 초기화"""
+        self.active = False
+        self.revival_used = False
+        self.penalty_active = False
+        self.dark_energy_timer = 0
+        self.dark_energy_active = False
+        self.dark_energy_until_round_end = False
+        self.dark_particles = []
+        # 부활 애니메이션 초기화
+        self.is_revival_animating = False
+        self.revival_anim_timer = 0
+        self.revival_anim_phase = 0
+        self.revival_anim_particles = []
+        self.revival_burst_particles = []
+        # 인간 실루엣 초기화
+        self.human_silhouette_alpha = 0
+        self.human_silhouette_scale = 0
+        self.human_eye_glow = 0
+        self.silhouette_revealed = False
+        # 어둠의 구체 초기화
+        self.dark_sphere_radius = 0
+        self.dark_sphere_alpha = 0
+        self.dark_sphere_pulse = 0
+        self.dark_sphere_particles = []
+        self.dark_sphere_inner_glow = 0
+        self.dark_sphere_cracks = []
+        # 드라마틱 폭발 이펙트 초기화
+        self.dark_burst_active = False
+        self.dark_burst_timer = 0
+        self.dark_burst_particles = []
+        self.dark_burst_shockwaves = []
+        self.screen_flash_alpha = 0
+        self.screen_shake_intensity = 0
+        self.energy_ring_radius = 0
+        self.energy_tendrils = []
+        # 죽음 애니메이션 초기화
+        self.is_death_animating = False
+        self.death_anim_timer = 0
+        self.death_anim_phase = 0
+        self.death_particles = []
+        self.death_shockwaves = []
+        self.death_energy_buildup = 0
+        self.death_cracks = []
+        self.death_flash_intensity = 0
+
+    def on_round_win(self):
+        """라운드 승리 시 호출 - 페널티 해제"""
+        if self.penalty_active:
+            self.penalty_active = False
+            if LEGENDARY_DEBUG_ENABLED:
+                print("👁 오딘의 눈: 라운드 승리! 페널티 해제!")
+
+    # ==================== 부활 애니메이션 시스템 ====================
+
+    def start_revival_animation(self, player_x: int, player_y: int):
+        """부활 애니메이션 시작 (어둠의 구체가 플레이어를 덮고 폭발 후 변신)"""
+        self.is_revival_animating = True
+        self.revival_anim_timer = 0
+        self.revival_anim_phase = 0  # 구체 생성 페이즈
+        self.revival_anim_player_x = player_x
+        self.revival_anim_player_y = player_y
+        self.revival_anim_particles = []
+        self.revival_burst_particles = []
+
+        # 인간 실루엣 초기화 (폭발 후에만 보임)
+        self.human_silhouette_alpha = 0
+        self.human_silhouette_scale = 0
+        self.human_eye_glow = 0
+        self.silhouette_revealed = False  # 아직 공개 안됨
+
+        # 🌑 어둠의 구체 초기화
+        self.dark_sphere_radius = 0
+        self.dark_sphere_alpha = 0
+        self.dark_sphere_pulse = 0
+        self.dark_sphere_particles = []
+        self.dark_sphere_inner_glow = 0
+        self.dark_sphere_cracks = []
+
+        # 부활 상태 설정 (페널티 적용)
+        self.revival_used = True
+        self.penalty_active = True
+        self.dark_energy_active = True
+        self.dark_energy_timer = 180  # 3초
+
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"👁 오딘의 눈: 부활 애니메이션 시작! 위치=({player_x}, {player_y})")
+
+    def update_revival_animation(self) -> bool:
+        """부활 애니메이션 업데이트 - 어둠의 구체가 캐릭터를 덮고 폭발 후 변신. 완료 시 True 반환."""
+        import random
+        import math
+
+        if not self.is_revival_animating and not self.dark_burst_active:
+            return False
+
+        # 폭발 이펙트 업데이트 (애니메이션 완료 후)
+        if self.dark_burst_active:
+            return self._update_dark_burst()
+
+        self.revival_anim_timer += 1
+        px, py = self.revival_anim_player_x, self.revival_anim_player_y
+        sphere_center_y = py - 40  # 구체 중심 (캐릭터 중앙)
+
+        # 🌑 실루엣은 폭발 전까지 숨김! (핵심 변경)
+        self.human_silhouette_alpha = 0
+        self.human_silhouette_scale = 0
+        self.human_eye_glow = 0
+
+        # 페이즈 0: 어둠의 구체 생성 & 성장 (캐릭터를 덮음)
+        if self.revival_anim_timer <= self.REVIVAL_GATHER_PHASE:
+            self.revival_anim_phase = 0
+            progress = self.revival_anim_timer / self.REVIVAL_GATHER_PHASE
+
+            # 🌑 어둠의 구체 성장
+            self.dark_sphere_radius = self.dark_sphere_max_radius * progress
+            self.dark_sphere_alpha = int(180 + progress * 75)  # 180 → 255
+            self.dark_sphere_pulse = math.sin(self.revival_anim_timer * 0.15) * 5
+
+            # 에너지 수집 파티클 생성 (사방에서 구체로 모임)
+            if random.random() < 0.7 + progress * 0.3:
+                angle = random.uniform(0, math.pi * 2)
+                distance = random.uniform(120, 220)
+                self.energy_tendrils.append({
+                    'x': px + math.cos(angle) * distance,
+                    'y': sphere_center_y + math.sin(angle) * distance,
+                    'target_x': px + random.uniform(-5, 5),
+                    'target_y': sphere_center_y + random.uniform(-5, 5),
+                    'speed': random.uniform(4, 8),
+                    'size': random.uniform(3, 8),
+                    'life': random.randint(40, 80),
+                    'color_type': random.choice(['purple', 'dark', 'gold'])
+                })
+
+            # 구체 표면 파티클 생성
+            if random.random() < 0.4:
+                angle = random.uniform(0, math.pi * 2)
+                self.dark_sphere_particles.append({
+                    'angle': angle,
+                    'dist_offset': random.uniform(-5, 5),
+                    'size': random.uniform(2, 5),
+                    'life': random.randint(20, 40),
+                    'speed': random.uniform(0.05, 0.1),
+                    'color_type': random.choice(['purple', 'dark'])
+                })
+
+            # 에너지 수집 파티클 업데이트
+            for tendril in self.energy_tendrils[:]:
+                dx = tendril['target_x'] - tendril['x']
+                dy = tendril['target_y'] - tendril['y']
+                dist = max(1, math.sqrt(dx * dx + dy * dy))
+                tendril['x'] += (dx / dist) * tendril['speed']
+                tendril['y'] += (dy / dist) * tendril['speed']
+                tendril['life'] -= 1
+                if tendril['life'] <= 0 or dist < 10:
+                    self.energy_tendrils.remove(tendril)
+
+            # 화면 흔들림 (점점 강해짐)
+            self.screen_shake_intensity = progress * 3
+
+        # 페이즈 1: 구체 맥동 & 에너지 응축 (점점 불안정해짐)
+        elif self.revival_anim_timer <= self.REVIVAL_GATHER_PHASE + self.REVIVAL_FORM_PHASE:
+            if self.revival_anim_phase == 0:
+                self.revival_anim_phase = 1
+                self.energy_tendrils.clear()
+                if LEGENDARY_DEBUG_ENABLED:
+                    print("👁 오딘의 눈: 어둠의 구체 응축!")
+
+            progress = (self.revival_anim_timer - self.REVIVAL_GATHER_PHASE) / self.REVIVAL_FORM_PHASE
+
+            # 🌑 구체 맥동 강화 (점점 불안정하게)
+            pulse_intensity = 1 + progress * 2  # 맥동 강도 증가
+            self.dark_sphere_pulse = math.sin(self.revival_anim_timer * 0.2) * 8 * pulse_intensity
+            self.dark_sphere_radius = self.dark_sphere_max_radius + self.dark_sphere_pulse
+            self.dark_sphere_alpha = 255
+
+            # 내부 발광 (폭발 에너지 축적)
+            self.dark_sphere_inner_glow = progress
+
+            # 에너지 링 (구체 주변 회전)
+            self.energy_ring_radius = 20 + progress * 15
+
+            # 화면 효과 강화
+            self.screen_shake_intensity = 3 + progress * 5
+            self.screen_flash_alpha = int(progress * 40)
+
+            # 구체 주변 에너지 파편
+            if random.random() < 0.6:
+                angle = random.uniform(0, math.pi * 2)
+                r = self.dark_sphere_radius + random.uniform(5, 20)
+                self.revival_anim_particles.append({
+                    'x': px + math.cos(angle) * r,
+                    'y': sphere_center_y + math.sin(angle) * r,
+                    'vx': math.cos(angle) * random.uniform(0.3, 1),
+                    'vy': math.sin(angle) * random.uniform(0.3, 1),
+                    'life': random.randint(15, 30),
+                    'size': random.uniform(2, 5),
+                    'alpha': 200
+                })
+
+        # 페이즈 2: 폭발 직전 - 구체 균열 & 빛 누출
+        elif self.revival_anim_timer <= self.REVIVAL_ANIM_DURATION:
+            if self.revival_anim_phase == 1:
+                self.revival_anim_phase = 2
+                # 균열 생성
+                for _ in range(6):
+                    self.dark_sphere_cracks.append({
+                        'angle': random.uniform(0, math.pi * 2),
+                        'length': random.uniform(0.3, 0.8),
+                        'width': random.uniform(2, 4),
+                        'glow': random.uniform(0.5, 1.0)
+                    })
+                if LEGENDARY_DEBUG_ENABLED:
+                    print("👁 오딘의 눈: 구체 폭발 직전!")
+
+            progress = (self.revival_anim_timer - self.REVIVAL_GATHER_PHASE - self.REVIVAL_FORM_PHASE) / self.REVIVAL_BURST_PHASE
+
+            # 🌑 구체 급격히 수축 후 팽창 (폭발 준비)
+            shrink_expand = 1 - math.sin(progress * math.pi) * 0.3
+            self.dark_sphere_radius = self.dark_sphere_max_radius * shrink_expand
+            self.dark_sphere_inner_glow = 1 + progress  # 내부 발광 최대
+            self.dark_sphere_pulse = math.sin(self.revival_anim_timer * 0.4) * 5
+
+            # 균열에서 빛 누출 강화
+            for crack in self.dark_sphere_cracks:
+                crack['glow'] = min(2.0, crack['glow'] + 0.05)
+
+            # 화면 전체 밝아짐 (폭발 직전)
+            self.screen_flash_alpha = int(40 + progress * 80)
+            self.screen_shake_intensity = 7 + progress * 3
+
+            # 에너지 링 축소 (폭발 준비)
+            self.energy_ring_radius = 35 * (1 - progress * 0.7)
+
+        # 구체 표면 파티클 업데이트
+        for p in self.dark_sphere_particles[:]:
+            p['angle'] += p['speed']
+            p['life'] -= 1
+            if p['life'] <= 0:
+                self.dark_sphere_particles.remove(p)
+
+        # 일반 파티클 업데이트
+        for p in self.revival_anim_particles[:]:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['life'] -= 1
+            p['alpha'] = max(0, p['alpha'] - 6)
+            if p['life'] <= 0:
+                self.revival_anim_particles.remove(p)
+
+        # 애니메이션 완료 → 어둠 구체 폭발 시작!
+        if self.revival_anim_timer >= self.REVIVAL_ANIM_DURATION:
+            self.revival_anim_phase = 3
+            self.is_revival_animating = False
+
+            # 구체 상태 초기화
+            self.dark_sphere_radius = 0
+            self.dark_sphere_alpha = 0
+            self.dark_sphere_particles = []
+            self.dark_sphere_cracks = []
+
+            # 🎇 어둠 폭발 이펙트 시작! (폭발 후 실루엣 공개)
+            self._start_dark_burst(px, sphere_center_y)
+
+            if LEGENDARY_DEBUG_ENABLED:
+                print("👁 오딘의 눈: 구체 폭발! 변신 공개!")
+            return False  # 폭발 완료까지 대기
+
+        return False
+
+    def _start_dark_burst(self, cx: int, cy: int):
+        """어둠 폭발 이펙트 시작 - 폭발 후 변신된 캐릭터 공개"""
+        import random
+        import math
+
+        self.dark_burst_active = True
+        self.dark_burst_timer = 0
+        self.dark_burst_particles = []
+        self.dark_burst_shockwaves = []
+        self.screen_flash_alpha = 200  # 초기 플래시 (더 강하게)
+
+        # 🌟 폭발과 동시에 변신된 캐릭터 공개!
+        self.silhouette_revealed = True
+        self.human_silhouette_alpha = 255
+        self.human_silhouette_scale = 1.0
+        self.human_eye_glow = 1.5  # 눈 강하게 발광
+
+        # 중심 위치 저장
+        self._burst_center_x = cx
+        self._burst_center_y = cy
+
+        # 폭발 파티클 대량 생성 (사방으로 퍼짐)
+        for _ in range(60):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(4, 15)
+            self.dark_burst_particles.append({
+                'x': cx,
+                'y': cy,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'life': random.randint(30, 50),
+                'max_life': 50,
+                'size': random.uniform(4, 12),
+                'type': random.choice(['dark', 'purple', 'gold', 'smoke']),
+                'rotation': random.uniform(0, math.pi * 2),
+                'rot_speed': random.uniform(-0.2, 0.2)
+            })
+
+        # 충격파 생성 (다중)
+        for i in range(3):
+            self.dark_burst_shockwaves.append({
+                'radius': 0,
+                'max_radius': 150 + i * 30,
+                'speed': 8 - i * 1.5,
+                'alpha': 200 - i * 40,
+                'thickness': 4 - i,
+                'delay': i * 5,
+                'color': (80 - i * 20, 30 - i * 10, 120 - i * 30)
+            })
+
+    def _update_dark_burst(self) -> bool:
+        """어둠 폭발 이펙트 업데이트. 완료 시 True 반환."""
+        import math
+
+        self.dark_burst_timer += 1
+
+        # 화면 플래시 감소
+        self.screen_flash_alpha = max(0, self.screen_flash_alpha - 8)
+        self.screen_shake_intensity = max(0, 8 - self.dark_burst_timer * 0.3)
+
+        # 🌟 변신 캐릭터 서서히 안정화 (눈 발광 감소, 알파 유지)
+        if self.silhouette_revealed:
+            # 처음에는 눈이 강하게 빛나다가 점점 안정화
+            if self.dark_burst_timer < 20:
+                self.human_eye_glow = 1.5 - (self.dark_burst_timer / 20) * 0.5
+            else:
+                self.human_eye_glow = max(0.8, self.human_eye_glow - 0.01)  # 최소 0.8 유지
+            self.human_silhouette_alpha = 255
+            self.human_silhouette_scale = 1.0
+
+        # 파티클 업데이트
+        for p in self.dark_burst_particles[:]:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['vx'] *= 0.96  # 감속
+            p['vy'] *= 0.96
+            p['vy'] += 0.1  # 약간의 중력
+            p['rotation'] += p['rot_speed']
+            p['life'] -= 1
+
+            if p['life'] <= 0:
+                self.dark_burst_particles.remove(p)
+
+        # 충격파 업데이트
+        for wave in self.dark_burst_shockwaves[:]:
+            if wave['delay'] > 0:
+                wave['delay'] -= 1
+                continue
+
+            wave['radius'] += wave['speed']
+            wave['alpha'] = max(0, wave['alpha'] - 5)
+
+            if wave['radius'] >= wave['max_radius'] or wave['alpha'] <= 0:
+                self.dark_burst_shockwaves.remove(wave)
+
+        # 폭발 완료 체크
+        if self.dark_burst_timer >= self.DARK_BURST_DURATION and len(self.dark_burst_particles) == 0 and len(self.dark_burst_shockwaves) == 0:
+            self.dark_burst_active = False
+            self.screen_flash_alpha = 0
+            self.screen_shake_intensity = 0
+            if LEGENDARY_DEBUG_ENABLED:
+                print("👁 오딘의 눈: 부활 애니메이션 완료!")
+            return True
+
+        return False
+
+    def draw_revival_animation(self, screen):
+        """부활 애니메이션 그리기 - 드라마틱한 연출 + 어둠 폭발 이펙트"""
+        import pygame
+        import math
+
+        # 폭발 이펙트 그리기 (애니메이션 완료 후)
+        if self.dark_burst_active:
+            self._draw_dark_burst(screen)
+            return
+
+        if not self.is_revival_animating:
+            return
+
+        px, py = self.revival_anim_player_x, self.revival_anim_player_y
+        sphere_center_y = py - 40  # 구체 중심
+        silhouette_center_y = py - 60  # 실루엣 중심 (폭발 후용)
+
+        # === 0. 🌑 어둠의 구체 그리기 (핵심!) ===
+        if self.dark_sphere_radius > 0 and self.dark_sphere_alpha > 0:
+            self._draw_dark_sphere(screen, px, sphere_center_y)
+
+        # === 1. 에너지 수집 파티클 (사방에서 모이는 효과) ===
+        for tendril in self.energy_tendrils:
+            life_ratio = tendril['life'] / 80
+            size = int(tendril['size'] * life_ratio)
+            alpha = int(200 * life_ratio)
+
+            if size > 0:
+                if tendril['color_type'] == 'purple':
+                    color = (100, 40, 140, alpha)
+                elif tendril['color_type'] == 'gold':
+                    color = (200, 150, 50, alpha)
+                else:  # dark
+                    color = (30, 15, 50, alpha)
+
+                # 꼬리 효과 (라인)
+                dx = tendril['target_x'] - tendril['x']
+                dy = tendril['target_y'] - tendril['y']
+                dist = max(1, math.sqrt(dx * dx + dy * dy))
+                if dist > 5:
+                    tail_len = min(20, dist * 0.3)
+                    tail_x = tendril['x'] - (dx / dist) * tail_len
+                    tail_y = tendril['y'] - (dy / dist) * tail_len
+                    pygame.draw.line(screen, color[:3],
+                                   (int(tendril['x']), int(tendril['y'])),
+                                   (int(tail_x), int(tail_y)), max(1, size // 2))
+
+                # 파티클 본체
+                surf = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.circle(surf, color, (size + 2, size + 2), size)
+                # 글로우 효과
+                if tendril['color_type'] == 'gold':
+                    pygame.draw.circle(surf, (255, 200, 100, alpha // 3), (size + 2, size + 2), size + 2)
+                screen.blit(surf, (int(tendril['x'] - size - 2), int(tendril['y'] - size - 2)))
+
+        # === 2. 에너지 링 (형상 주변 회전) ===
+        if self.energy_ring_radius > 0:
+            ring_surf = pygame.Surface((200, 200), pygame.SRCALPHA)
+            ring_cx, ring_cy = 100, 100
+
+            # 회전하는 에너지 세그먼트
+            t = self.revival_anim_timer * 0.15
+            for i in range(8):
+                angle = (i / 8) * math.pi * 2 + t
+                seg_x = ring_cx + math.cos(angle) * self.energy_ring_radius
+                seg_y = ring_cy + math.sin(angle) * self.energy_ring_radius * 0.6
+
+                # 세그먼트 글로우
+                seg_alpha = int(150 + math.sin(t * 3 + i) * 50)
+                pygame.draw.circle(ring_surf, (80, 40, 120, seg_alpha), (int(seg_x), int(seg_y)), 4)
+                pygame.draw.circle(ring_surf, (150, 80, 180, seg_alpha // 2), (int(seg_x), int(seg_y)), 6)
+
+            screen.blit(ring_surf, (px - 100, silhouette_center_y - 100))
+
+        # === 3. 작은 어둠 파편 파티클 ===
+        for p in self.revival_anim_particles:
+            size = int(p['size'] * (p['life'] / 40))
+            if size > 0:
+                surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.circle(surf, (40, 20, 60, p['alpha']), (size + 1, size + 1), size)
+                screen.blit(surf, (int(p['x'] - size - 1), int(p['y'] - size - 1)))
+
+        # === 4. 인간 실루엣 (폭발 후에만 표시!) ===
+        # 구체가 폭발하기 전까지는 실루엣을 숨김
+        if self.silhouette_revealed and self.human_silhouette_alpha > 0:
+            self._draw_human_silhouette(screen, px, silhouette_center_y)
+
+        # === 5. 화면 플래시 오버레이 ===
+        if self.screen_flash_alpha > 0:
+            flash_surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+            flash_surf.fill((60, 30, 80, self.screen_flash_alpha))
+            screen.blit(flash_surf, (0, 0))
+
+        # === 6. "부활!" 텍스트 (페이즈 2) ===
+        if self.revival_anim_phase == 2:
+            burst_progress = (self.revival_anim_timer - self.REVIVAL_GATHER_PHASE - self.REVIVAL_FORM_PHASE) / self.REVIVAL_BURST_PHASE
+            if burst_progress > 0.3:
+                try:
+                    font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                    if os.path.exists(font_path):
+                        import pygame.freetype
+                        font = pygame.freetype.Font(font_path, 24)
+                        text_alpha = int(255 * min(1.0, (burst_progress - 0.3) * 2))
+                        # 글로우 효과
+                        glow_font = pygame.freetype.Font(font_path, 26)
+                        glow_surf, glow_rect = glow_font.render("부활!", (120, 60, 140))
+                        glow_surf.set_alpha(text_alpha // 2)
+                        screen.blit(glow_surf, (px - glow_rect.width // 2, silhouette_center_y - 52))
+                        # 본 텍스트
+                        text_surf, text_rect = font.render("부활!", (200, 120, 180))
+                        text_surf.set_alpha(text_alpha)
+                        screen.blit(text_surf, (px - text_rect.width // 2, silhouette_center_y - 50))
+                except Exception:
+                    pass
+
+    def _draw_dark_burst(self, screen):
+        """어둠 폭발 이펙트 그리기 + 변신된 캐릭터 공개"""
+        import pygame
+        import math
+
+        cx = getattr(self, '_burst_center_x', 380)
+        cy = getattr(self, '_burst_center_y', 650)
+        silhouette_y = cy - 20  # 실루엣 위치 보정
+
+        # === 0. 변신된 캐릭터 그리기 (폭발과 함께 공개!) ===
+        if self.silhouette_revealed and self.human_silhouette_alpha > 0:
+            self._draw_human_silhouette(screen, cx, silhouette_y)
+
+        # === 1. 충격파 그리기 (뒤에서부터) ===
+        for wave in self.dark_burst_shockwaves:
+            if wave['delay'] > 0:
+                continue
+
+            if wave['radius'] > 0 and wave['alpha'] > 0:
+                # 충격파 서피스
+                wave_size = int(wave['radius'] * 2) + 20
+                wave_surf = pygame.Surface((wave_size, wave_size), pygame.SRCALPHA)
+                wave_cx, wave_cy = wave_size // 2, wave_size // 2
+
+                # 충격파 링 그리기
+                r, g, b = wave['color']
+                thickness = max(1, wave['thickness'])
+
+                # 외곽 글로우
+                for i in range(3):
+                    glow_alpha = max(0, wave['alpha'] // (i + 2))
+                    glow_r = int(wave['radius']) + i * 2
+                    if glow_r > 0:
+                        pygame.draw.circle(wave_surf, (r, g, b, glow_alpha),
+                                         (wave_cx, wave_cy), glow_r, thickness + i)
+
+                screen.blit(wave_surf, (int(cx - wave_cx), int(cy - wave_cy)))
+
+        # === 2. 폭발 파티클 그리기 ===
+        for p in self.dark_burst_particles:
+            life_ratio = p['life'] / p['max_life']
+            size = int(p['size'] * life_ratio)
+
+            if size <= 0:
+                continue
+
+            # 파티클 색상
+            if p['type'] == 'purple':
+                color = (120, 50, 150, int(220 * life_ratio))
+            elif p['type'] == 'gold':
+                color = (220, 180, 80, int(220 * life_ratio))
+            elif p['type'] == 'smoke':
+                color = (40, 30, 50, int(150 * life_ratio))
+            else:  # dark
+                color = (30, 15, 45, int(200 * life_ratio))
+
+            # 파티클 서피스
+            p_size = size * 2 + 4
+            p_surf = pygame.Surface((p_size, p_size), pygame.SRCALPHA)
+            p_cx, p_cy = p_size // 2, p_size // 2
+
+            if p['type'] == 'smoke':
+                # 연기 파티클 (불규칙한 형태)
+                points = []
+                for i in range(6):
+                    angle = (i / 6) * math.pi * 2 + p['rotation']
+                    r = size * (0.6 + math.sin(angle * 3) * 0.4)
+                    points.append((int(p_cx + math.cos(angle) * r),
+                                 int(p_cy + math.sin(angle) * r)))
+                if len(points) >= 3:
+                    pygame.draw.polygon(p_surf, color, points)
+            else:
+                # 일반 파티클 (글로우 포함)
+                pygame.draw.circle(p_surf, color, (p_cx, p_cy), size)
+                # 밝은 중심
+                if p['type'] == 'gold':
+                    pygame.draw.circle(p_surf, (255, 230, 150, int(180 * life_ratio)),
+                                     (p_cx, p_cy), max(1, size // 2))
+
+            screen.blit(p_surf, (int(p['x'] - p_cx), int(p['y'] - p_cy)))
+
+        # === 3. 화면 플래시 ===
+        if self.screen_flash_alpha > 0:
+            flash_surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+            # 어두운 보라색 플래시
+            flash_surf.fill((50, 20, 70, self.screen_flash_alpha))
+            screen.blit(flash_surf, (0, 0))
+
+        # === 4. 중심 글로우 (폭발 직후) ===
+        if self.dark_burst_timer < 15:
+            glow_intensity = 1 - (self.dark_burst_timer / 15)
+            glow_size = int(40 + glow_intensity * 60)
+            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            glow_cx, glow_cy = glow_size, glow_size
+
+            # 다중 글로우 레이어
+            for i in range(4):
+                layer_r = glow_size - i * 10
+                layer_alpha = int(glow_intensity * (150 - i * 30))
+                if layer_r > 0 and layer_alpha > 0:
+                    pygame.draw.circle(glow_surf, (100, 50, 130, layer_alpha),
+                                     (glow_cx, glow_cy), layer_r)
+
+            screen.blit(glow_surf, (int(cx - glow_cx), int(cy - glow_cy)),
+                       special_flags=pygame.BLEND_RGBA_ADD)
+
+    def get_screen_shake(self) -> tuple:
+        """화면 흔들림 오프셋 반환 (x, y)"""
+        import random
+        if self.screen_shake_intensity > 0:
+            return (
+                random.uniform(-self.screen_shake_intensity, self.screen_shake_intensity),
+                random.uniform(-self.screen_shake_intensity, self.screen_shake_intensity)
+            )
+        return (0, 0)
+
+    # ==================== 💀 죽음 애니메이션 시스템 ====================
+
+    def start_death_animation(self, player_x: int, player_y: int):
+        """죽음 애니메이션 시작 (페널티 상태에서 패배 시)"""
+        self.is_death_animating = True
+        self.death_anim_timer = 0
+        self.death_anim_phase = 0  # 폭발 직전
+        self.death_anim_player_x = player_x
+        self.death_anim_player_y = player_y
+        self.death_particles = []
+        self.death_shockwaves = []
+        self.death_cracks = []
+        self.death_energy_buildup = 0
+        self.death_flash_intensity = 0
+
+        if LEGENDARY_DEBUG_ENABLED:
+            print(f"💀 오딘의 눈: 죽음 애니메이션 시작! 위치=({player_x}, {player_y})")
+
+    def update_death_animation(self) -> bool:
+        """죽음 애니메이션 업데이트. 완료 시 True 반환."""
+        import random
+        import math
+
+        if not self.is_death_animating:
+            return False
+
+        self.death_anim_timer += 1
+        px, py = self.death_anim_player_x, self.death_anim_player_y
+        silhouette_y = py - 60
+
+        # ═══════════════════════════════════════════════════════════════
+        # 페이즈 0: 폭발 직전 (2초) - 에너지 축적 + 균열 + 떨림
+        # ═══════════════════════════════════════════════════════════════
+        if self.death_anim_timer <= self.DEATH_PREEXPLOSION_PHASE:
+            self.death_anim_phase = 0
+            progress = self.death_anim_timer / self.DEATH_PREEXPLOSION_PHASE
+
+            # 에너지 축적 (점점 빨라짐)
+            self.death_energy_buildup = progress ** 1.5
+
+            # 화면 흔들림 (점점 강해짐)
+            self.screen_shake_intensity = progress * 8
+
+            # 플래시 효과 (깜빡임)
+            flash_freq = 2 + progress * 15  # 점점 빨라지는 깜빡임
+            self.death_flash_intensity = int((math.sin(self.death_anim_timer * flash_freq * 0.1) + 1) * 40 * progress)
+
+            # 균열 생성 (점점 늘어남)
+            if random.random() < 0.1 + progress * 0.3:
+                angle = random.uniform(0, math.pi * 2)
+                length = random.uniform(10, 30 + progress * 40)
+                self.death_cracks.append({
+                    'x': px + random.uniform(-15, 15),
+                    'y': silhouette_y + random.uniform(-30, 20),
+                    'angle': angle,
+                    'length': length,
+                    'width': random.randint(1, 3),
+                    'alpha': 255,
+                    'life': random.randint(30, 60)
+                })
+
+            # 에너지 파티클 (몸에서 새어나옴)
+            if random.random() < 0.3 + progress * 0.5:
+                angle = random.uniform(0, math.pi * 2)
+                self.death_particles.append({
+                    'x': px + random.uniform(-20, 20),
+                    'y': silhouette_y + random.uniform(-40, 30),
+                    'vx': math.cos(angle) * random.uniform(0.5, 2),
+                    'vy': math.sin(angle) * random.uniform(0.5, 2) - 1,
+                    'size': random.uniform(2, 6),
+                    'life': random.randint(20, 50),
+                    'max_life': 50,
+                    'type': random.choice(['dark', 'purple', 'red']),
+                    'phase': 0
+                })
+
+            # 실루엣 맥동 효과
+            pulse = math.sin(self.death_anim_timer * 0.3) * 0.1
+            self.human_silhouette_scale = 1.0 + pulse + progress * 0.15
+            self.human_silhouette_alpha = 220 + int(progress * 35)
+            self.human_eye_glow = 0.5 + progress * 1.5  # 눈이 점점 밝아짐
+
+        # ═══════════════════════════════════════════════════════════════
+        # 페이즈 1: 폭발 (1초) - 대폭발 + 충격파
+        # ═══════════════════════════════════════════════════════════════
+        elif self.death_anim_timer <= self.DEATH_PREEXPLOSION_PHASE + self.DEATH_EXPLOSION_PHASE:
+            if self.death_anim_phase == 0:
+                self.death_anim_phase = 1
+                self._trigger_death_explosion(px, silhouette_y)
+                if LEGENDARY_DEBUG_ENABLED:
+                    print("💀 오딘의 눈: 폭발!")
+
+            progress = (self.death_anim_timer - self.DEATH_PREEXPLOSION_PHASE) / self.DEATH_EXPLOSION_PHASE
+
+            # 화면 플래시 (폭발 직후 밝아졌다가 감소)
+            if progress < 0.2:
+                self.death_flash_intensity = int(255 * (1 - progress * 5))
+            else:
+                self.death_flash_intensity = max(0, int(200 * (1 - progress)))
+
+            # 화면 흔들림 감소
+            self.screen_shake_intensity = max(0, 10 * (1 - progress * 0.5))
+
+            # 실루엣이 폭발로 인해 흔들리며 약간 투명해짐
+            self.human_silhouette_alpha = max(100, int(255 * (1 - progress * 0.6)))
+            self.human_silhouette_scale = 1.15 + progress * 0.15
+            self.human_eye_glow = 2.0 - progress * 0.5  # 눈이 매우 밝게
+
+        # ═══════════════════════════════════════════════════════════════
+        # 페이즈 2: 분해 (1.5초) - 캐릭터가 완전히 분해되어 파편으로 흩어짐
+        # ═══════════════════════════════════════════════════════════════
+        elif self.death_anim_timer <= self.DEATH_ANIM_DURATION:
+            if self.death_anim_phase == 1:
+                self.death_anim_phase = 2
+                self._trigger_disintegration(px, silhouette_y)
+                if LEGENDARY_DEBUG_ENABLED:
+                    print("💀 오딘의 눈: 분해 시작!")
+
+            progress = (self.death_anim_timer - self.DEATH_PREEXPLOSION_PHASE - self.DEATH_EXPLOSION_PHASE) / self.DEATH_DISINTEGRATE_PHASE
+            self.death_disintegrate_progress = progress
+
+            # 화면 흔들림 유지 후 감소
+            self.screen_shake_intensity = max(0, 5 * (1 - progress))
+
+            # 플래시 완전히 사라짐
+            self.death_flash_intensity = max(0, int(50 * (1 - progress * 2)))
+
+            # 실루엣 완전히 사라짐 (분해되면서)
+            self.human_silhouette_alpha = max(0, int(100 * (1 - progress * 1.5)))
+            self.human_silhouette_scale = 1.3 + progress * 0.5  # 확대되며 사라짐
+            self.human_eye_glow = max(0, 1.5 * (1 - progress))
+
+            # 지속적으로 파편 생성 (분해 효과)
+            if progress < 0.8 and random.random() < 0.6:
+                for _ in range(3):
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(3, 12)
+                    self.death_fragments.append({
+                        'x': px + random.uniform(-25, 25),
+                        'y': silhouette_y + random.uniform(-40, 30),
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed - 2,
+                        'size': random.uniform(4, 14),
+                        'life': random.randint(50, 90),
+                        'max_life': 90,
+                        'rotation': random.uniform(0, math.pi * 2),
+                        'rot_speed': random.uniform(-0.15, 0.15),
+                        'type': random.choice(['body', 'dark', 'purple', 'eye']),
+                        'trail': []  # 잔상 효과용
+                    })
+
+        # 파티클 업데이트
+        for p in self.death_particles[:]:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            if p['phase'] == 1:  # 폭발 파티클
+                p['vx'] *= 0.97
+                p['vy'] *= 0.97
+                p['vy'] += 0.05
+            p['life'] -= 1
+            if p['life'] <= 0:
+                self.death_particles.remove(p)
+
+        # 💀 파편 업데이트 (분해된 캐릭터 조각)
+        for frag in self.death_fragments[:]:
+            # 잔상 기록
+            if len(frag['trail']) < 5:
+                frag['trail'].append({'x': frag['x'], 'y': frag['y'], 'alpha': 150})
+            else:
+                frag['trail'].pop(0)
+                frag['trail'].append({'x': frag['x'], 'y': frag['y'], 'alpha': 150})
+
+            # 잔상 페이드 아웃
+            for trail in frag['trail']:
+                trail['alpha'] = max(0, trail['alpha'] - 25)
+
+            frag['x'] += frag['vx']
+            frag['y'] += frag['vy']
+            frag['vx'] *= 0.98
+            frag['vy'] *= 0.98
+            frag['vy'] += 0.15  # 중력
+            frag['rotation'] += frag['rot_speed']
+            frag['life'] -= 1
+
+            if frag['life'] <= 0:
+                self.death_fragments.remove(frag)
+
+        # 균열 업데이트
+        for crack in self.death_cracks[:]:
+            crack['life'] -= 1
+            if crack['life'] <= 0:
+                self.death_cracks.remove(crack)
+            else:
+                crack['alpha'] = int(255 * (crack['life'] / 60))
+
+        # 충격파 업데이트
+        for wave in self.death_shockwaves[:]:
+            wave['radius'] += wave['speed']
+            wave['alpha'] = max(0, wave['alpha'] - 4)
+            if wave['radius'] >= wave['max_radius'] or wave['alpha'] <= 0:
+                self.death_shockwaves.remove(wave)
+
+        # 애니메이션 완료
+        if self.death_anim_timer >= self.DEATH_ANIM_DURATION:
+            self.death_anim_phase = 3  # 완료 상태
+            self.is_death_animating = False
+            self.screen_shake_intensity = 0
+            self.death_flash_intensity = 0
+            self.human_silhouette_alpha = 0
+            self.human_silhouette_scale = 0
+            self.human_eye_glow = 0
+            # 💀 점수 화면에서 패들 숨김 유지
+            self.hide_paddle_after_death = True
+
+            if LEGENDARY_DEBUG_ENABLED:
+                print("💀 오딘의 눈: 죽음 애니메이션 완료! 패들 숨김 활성화")
+            return True
+
+        return False
+
+    def _trigger_death_explosion(self, cx: int, cy: int):
+        """죽음 폭발 이펙트 생성"""
+        import random
+        import math
+
+        # 대량의 폭발 파티클
+        for _ in range(80):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(5, 20)
+            self.death_particles.append({
+                'x': cx,
+                'y': cy,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'size': random.uniform(5, 15),
+                'life': random.randint(40, 70),
+                'max_life': 70,
+                'type': random.choice(['dark', 'purple', 'red', 'smoke', 'flame']),
+                'phase': 1,
+                'rotation': random.uniform(0, math.pi * 2),
+                'rot_speed': random.uniform(-0.2, 0.2)
+            })
+
+        # 다중 충격파
+        for i in range(4):
+            self.death_shockwaves.append({
+                'x': cx,
+                'y': cy,
+                'radius': 0,
+                'max_radius': 180 + i * 40,
+                'speed': 10 - i * 1.5,
+                'alpha': 220 - i * 30,
+                'thickness': 5 - i,
+                'color': (120 - i * 20, 40 - i * 10, 80 - i * 15) if i < 2 else (60, 20, 40)
+            })
+
+    def _trigger_disintegration(self, cx: int, cy: int):
+        """💀 분해 이펙트 시작 - 캐릭터가 파편으로 분해됨"""
+        import random
+        import math
+
+        # 💀 캐릭터 몸체 파편 (큰 조각들)
+        body_parts = [
+            ('head', 0, -35, 12),      # 머리
+            ('torso', 0, -15, 15),     # 몸통
+            ('arm_l', -15, -20, 8),    # 왼팔
+            ('arm_r', 15, -20, 8),     # 오른팔
+            ('leg_l', -8, 5, 10),      # 왼다리
+            ('leg_r', 8, 5, 10),       # 오른다리
+            ('eye_l', -6, -38, 5),     # 왼눈
+            ('eye_r', 6, -38, 5),      # 오른눈
+        ]
+
+        for part_name, ox, oy, size in body_parts:
+            # 사방으로 튀어나가는 각도
+            angle = math.atan2(oy, ox) + random.uniform(-0.5, 0.5) if (ox != 0 or oy != 0) else random.uniform(0, math.pi * 2)
+            speed = random.uniform(6, 14)
+
+            frag_type = 'eye' if 'eye' in part_name else 'body'
+
+            self.death_fragments.append({
+                'x': cx + ox,
+                'y': cy + oy,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - random.uniform(2, 5),  # 위로 튀어오름
+                'size': size + random.uniform(-2, 4),
+                'life': random.randint(70, 110),
+                'max_life': 110,
+                'rotation': random.uniform(0, math.pi * 2),
+                'rot_speed': random.uniform(-0.2, 0.2),
+                'type': frag_type,
+                'trail': [],
+                'is_main': True  # 주요 파편
+            })
+
+        # 💀 작은 어둠 파편들 (대량 생성)
+        for _ in range(50):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(4, 18)
+            self.death_fragments.append({
+                'x': cx + random.uniform(-20, 20),
+                'y': cy + random.uniform(-35, 10),
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - random.uniform(1, 4),
+                'size': random.uniform(3, 10),
+                'life': random.randint(50, 90),
+                'max_life': 90,
+                'rotation': random.uniform(0, math.pi * 2),
+                'rot_speed': random.uniform(-0.25, 0.25),
+                'type': random.choice(['dark', 'purple', 'smoke']),
+                'trail': [],
+                'is_main': False
+            })
+
+        # 💀 추가 충격파 (분해용)
+        self.death_shockwaves.append({
+            'x': cx,
+            'y': cy,
+            'radius': 0,
+            'max_radius': 120,
+            'speed': 8,
+            'alpha': 180,
+            'thickness': 3,
+            'color': (80, 30, 60)
+        })
+
+    def draw_death_animation(self, screen):
+        """죽음 애니메이션 그리기"""
+        import pygame
+        import math
+        import random
+
+        if not self.is_death_animating:
+            return
+
+        px, py = self.death_anim_player_x, self.death_anim_player_y
+        silhouette_y = py - 60
+
+        # === 1. 충격파 그리기 (뒤에서) ===
+        for wave in self.death_shockwaves:
+            if wave['radius'] > 0 and wave['alpha'] > 0:
+                wave_size = int(wave['radius'] * 2) + 20
+                wave_surf = pygame.Surface((wave_size, wave_size), pygame.SRCALPHA)
+                wave_cx, wave_cy = wave_size // 2, wave_size // 2
+
+                r, g, b = wave['color']
+                thickness = max(1, wave['thickness'])
+
+                # 충격파 링
+                for j in range(3):
+                    glow_alpha = max(0, wave['alpha'] // (j + 2))
+                    glow_r = int(wave['radius']) + j * 3
+                    if glow_r > 0:
+                        pygame.draw.circle(wave_surf, (r, g, b, glow_alpha),
+                                         (wave_cx, wave_cy), glow_r, thickness + j)
+
+                screen.blit(wave_surf, (int(wave['x'] - wave_cx), int(wave['y'] - wave_cy)))
+
+        # === 2. 균열 효과 그리기 ===
+        for crack in self.death_cracks:
+            if crack['alpha'] > 0:
+                end_x = crack['x'] + math.cos(crack['angle']) * crack['length']
+                end_y = crack['y'] + math.sin(crack['angle']) * crack['length']
+
+                # 균열 글로우
+                pygame.draw.line(screen, (150, 50, 80, crack['alpha'] // 2),
+                               (int(crack['x']), int(crack['y'])),
+                               (int(end_x), int(end_y)), crack['width'] + 2)
+                # 균열 본체
+                pygame.draw.line(screen, (200, 100, 120),
+                               (int(crack['x']), int(crack['y'])),
+                               (int(end_x), int(end_y)), crack['width'])
+
+        # === 3. 에너지 오라 (폭발 직전 페이즈) ===
+        if self.death_anim_phase == 0 and self.death_energy_buildup > 0:
+            aura_size = int(60 + self.death_energy_buildup * 40)
+            aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+            aura_cx, aura_cy = aura_size, aura_size
+
+            # 맥동하는 오라
+            pulse = math.sin(self.death_anim_timer * 0.4) * 0.2 + 1
+            for i in range(4):
+                r = int((aura_size - i * 10) * pulse)
+                alpha = int(self.death_energy_buildup * (80 - i * 15))
+                if r > 0 and alpha > 0:
+                    # 붉은/보라 그라데이션
+                    color = (100 + i * 20, 30, 60 + i * 15, alpha)
+                    pygame.draw.circle(aura_surf, color, (aura_cx, aura_cy), r)
+
+            screen.blit(aura_surf, (int(px - aura_cx), int(silhouette_y - aura_cy)))
+
+        # === 4. 어둠의 인간 실루엣 ===
+        if self.human_silhouette_alpha > 0:
+            self._draw_death_silhouette(screen, px, silhouette_y)
+
+        # === 5. 파티클 그리기 ===
+        for p in self.death_particles:
+            life_ratio = p['life'] / p['max_life']
+            size = int(p['size'] * life_ratio)
+
+            if size <= 0:
+                continue
+
+            # 색상 선택
+            if p['type'] == 'purple':
+                color = (140, 60, 160, int(220 * life_ratio))
+            elif p['type'] == 'red':
+                color = (180, 50, 70, int(220 * life_ratio))
+            elif p['type'] == 'smoke':
+                color = (50, 35, 55, int(150 * life_ratio))
+            elif p['type'] == 'flame':
+                color = (200, 100, 50, int(200 * life_ratio))
+            else:  # dark
+                color = (40, 20, 50, int(200 * life_ratio))
+
+            p_surf = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+            p_cx, p_cy = size + 2, size + 2
+
+            if p['type'] == 'flame':
+                # 불꽃 형태
+                points = [
+                    (p_cx, p_cy - size),
+                    (p_cx - size * 0.6, p_cy + size * 0.4),
+                    (p_cx, p_cy),
+                    (p_cx + size * 0.6, p_cy + size * 0.4)
+                ]
+                pygame.draw.polygon(p_surf, color, [(int(x), int(y)) for x, y in points])
+            else:
+                pygame.draw.circle(p_surf, color, (p_cx, p_cy), size)
+
+            screen.blit(p_surf, (int(p['x'] - p_cx), int(p['y'] - p_cy)))
+
+        # === 5.5. 💀 분해 파편 그리기 ===
+        for frag in self.death_fragments:
+            life_ratio = frag['life'] / frag['max_life']
+            size = int(frag['size'] * (0.3 + life_ratio * 0.7))
+
+            if size <= 0:
+                continue
+
+            # 잔상 그리기
+            for trail in frag.get('trail', []):
+                if trail['alpha'] > 10:
+                    trail_size = max(1, int(size * 0.6))
+                    trail_surf = pygame.Surface((trail_size * 2 + 2, trail_size * 2 + 2), pygame.SRCALPHA)
+                    pygame.draw.circle(trail_surf, (40, 20, 50, trail['alpha'] // 3),
+                                      (trail_size + 1, trail_size + 1), trail_size)
+                    screen.blit(trail_surf, (int(trail['x'] - trail_size - 1), int(trail['y'] - trail_size - 1)))
+
+            # 파편 색상
+            frag_type = frag.get('type', 'dark')
+            is_main = frag.get('is_main', False)
+
+            if frag_type == 'eye':
+                # 눈 파편 - 빨간색 발광
+                glow_alpha = int(200 * life_ratio)
+                color = (200, 60, 80, int(255 * life_ratio))
+                glow_color = (255, 100, 120, glow_alpha // 2)
+            elif frag_type == 'body':
+                # 몸체 파편 - 어두운 보라
+                color = (35, 18, 45, int(240 * life_ratio))
+                glow_color = (80, 40, 70, int(100 * life_ratio))
+            elif frag_type == 'purple':
+                color = (100, 40, 120, int(220 * life_ratio))
+                glow_color = (140, 60, 160, int(80 * life_ratio))
+            elif frag_type == 'smoke':
+                color = (45, 30, 50, int(150 * life_ratio))
+                glow_color = None
+            else:  # dark
+                color = (30, 15, 40, int(200 * life_ratio))
+                glow_color = (60, 30, 70, int(60 * life_ratio))
+
+            frag_surf = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
+            frag_cx, frag_cy = size * 3 // 2, size * 3 // 2
+
+            # 글로우 효과 (큰 파편만)
+            if glow_color and is_main:
+                pygame.draw.circle(frag_surf, glow_color, (frag_cx, frag_cy), size + 4)
+
+            # 파편 본체 (불규칙한 형태)
+            if is_main and frag_type in ['body', 'eye']:
+                # 불규칙한 다각형 형태
+                import math as m
+                rot = frag['rotation']
+                points = []
+                num_points = 6
+                for i in range(num_points):
+                    angle = rot + (i / num_points) * m.pi * 2
+                    r = size * (0.7 + random.uniform(0, 0.3) if random.random() > 0.7 else 1.0)
+                    px_pt = frag_cx + m.cos(angle) * r
+                    py_pt = frag_cy + m.sin(angle) * r
+                    points.append((int(px_pt), int(py_pt)))
+                if len(points) >= 3:
+                    pygame.draw.polygon(frag_surf, color, points)
+                    # 가장자리
+                    pygame.draw.polygon(frag_surf, (color[0] + 30, color[1] + 20, color[2] + 30, color[3]),
+                                       points, 1)
+            else:
+                # 일반 원형 파편
+                pygame.draw.circle(frag_surf, color, (frag_cx, frag_cy), size)
+
+            # 눈 파편은 중심에 밝은 점
+            if frag_type == 'eye':
+                pygame.draw.circle(frag_surf, (255, 200, 200, int(255 * life_ratio)),
+                                  (frag_cx, frag_cy), max(1, size // 3))
+
+            screen.blit(frag_surf, (int(frag['x'] - frag_cx), int(frag['y'] - frag_cy)))
+
+        # === 6. 화면 플래시 ===
+        if self.death_flash_intensity > 0:
+            flash_surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+            # 붉은/보라 플래시
+            flash_surf.fill((80, 30, 50, min(200, self.death_flash_intensity)))
+            screen.blit(flash_surf, (0, 0))
+
+        # === 7. 폭발 중심 글로우 (폭발 페이즈) ===
+        if self.death_anim_phase == 1:
+            progress = (self.death_anim_timer - self.DEATH_PREEXPLOSION_PHASE) / self.DEATH_EXPLOSION_PHASE
+            if progress < 0.3:
+                glow_intensity = 1 - progress * 3
+                glow_size = int(80 + glow_intensity * 100)
+                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                glow_cx, glow_cy = glow_size, glow_size
+
+                for i in range(5):
+                    layer_r = glow_size - i * 15
+                    layer_alpha = int(glow_intensity * (180 - i * 30))
+                    if layer_r > 0 and layer_alpha > 0:
+                        pygame.draw.circle(glow_surf, (150, 60, 90, layer_alpha),
+                                         (glow_cx, glow_cy), layer_r)
+
+                screen.blit(glow_surf, (int(px - glow_cx), int(silhouette_y - glow_cy)),
+                           special_flags=pygame.BLEND_RGBA_ADD)
+
+    def _draw_death_silhouette(self, screen, cx: int, cy: int):
+        """죽음 상태의 어둠의 인간 실루엣 (균열 + 빛나는 눈)"""
+        import pygame
+        import math
+
+        alpha = min(255, self.human_silhouette_alpha)
+        scale = self.human_silhouette_scale
+        eye_glow = self.human_eye_glow
+
+        if alpha <= 0 or scale <= 0:
+            return
+
+        t = self.death_anim_timer * 0.1
+        wave = math.sin(t * 2) * 3  # 더 격렬한 흔들림
+        s = scale
+
+        surf_w, surf_h = 100, 120
+        silhouette_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+        scx, scy = surf_w // 2, surf_h // 2
+
+        # 색상 (어두운 보라/붉은빛 혼합)
+        r_tint = int(30 + self.death_energy_buildup * 50)
+        body_color = (20 + r_tint // 3, 10, 30, alpha)
+        edge_color = (120 + r_tint // 2, 50, 100, min(255, int(alpha * 1.3)))
+
+        # 머리
+        head_points = [
+            (scx + wave * 0.3, scy - int(35 * s)),
+            (scx - int(9 * s) + wave * 0.2, scy - int(30 * s)),
+            (scx - int(10 * s) + wave * 0.1, scy - int(22 * s)),
+            (scx + int(10 * s) + wave * 0.1, scy - int(22 * s)),
+            (scx + int(9 * s) + wave * 0.2, scy - int(30 * s)),
+        ]
+        pygame.draw.polygon(silhouette_surf, body_color, [(int(x), int(y)) for x, y in head_points])
+        pygame.draw.polygon(silhouette_surf, edge_color, [(int(x), int(y)) for x, y in head_points], 2)
+
+        # 목
+        neck_points = [
+            (scx - int(5 * s), scy - int(22 * s)),
+            (scx + int(5 * s), scy - int(22 * s)),
+            (scx + int(6 * s), scy - int(15 * s)),
+            (scx - int(6 * s), scy - int(15 * s)),
+        ]
+        pygame.draw.polygon(silhouette_surf, body_color, [(int(x), int(y)) for x, y in neck_points])
+
+        # 몸통
+        torso_points = [
+            (scx - int(12 * s), scy - int(15 * s)),
+            (scx + int(12 * s), scy - int(15 * s)),
+            (scx + int(10 * s), scy + int(15 * s)),
+            (scx - int(10 * s), scy + int(15 * s)),
+        ]
+        pygame.draw.polygon(silhouette_surf, body_color, [(int(x), int(y)) for x, y in torso_points])
+        pygame.draw.polygon(silhouette_surf, edge_color, [(int(x), int(y)) for x, y in torso_points], 2)
+
+        # 팔
+        for side in [-1, 1]:
+            arm_points = [
+                (scx + side * int(12 * s), scy - int(13 * s)),
+                (scx + side * int(22 * s) + wave * side, scy - int(5 * s)),
+                (scx + side * int(28 * s) + wave * side * 1.5, scy + int(8 * s)),
+                (scx + side * int(25 * s) + wave * side * 1.5, scy + int(10 * s)),
+                (scx + side * int(20 * s) + wave * side, scy - int(3 * s)),
+                (scx + side * int(11 * s), scy - int(10 * s)),
+            ]
+            pygame.draw.polygon(silhouette_surf, body_color, [(int(x), int(y)) for x, y in arm_points])
+
+        # 다리
+        for side in [-1, 1]:
+            leg_points = [
+                (scx + side * int(7 * s), scy + int(12 * s)),
+                (scx + side * int(10 * s), scy + int(30 * s)),
+                (scx + side * int(12 * s), scy + int(45 * s)),
+                (scx + side * int(6 * s), scy + int(45 * s)),
+                (scx + side * int(4 * s), scy + int(30 * s)),
+                (scx + side * int(2 * s), scy + int(12 * s)),
+            ]
+            pygame.draw.polygon(silhouette_surf, body_color, [(int(x), int(y)) for x, y in leg_points])
+
+        # 눈 (강렬하게 빛남)
+        if eye_glow > 0:
+            eye_y = scy - int(28 * s)
+            eye_spacing = int(5 * s)
+
+            # 눈 글로우 (여러 층)
+            for i in range(4):
+                glow_r = 5 - i + int(eye_glow * 3)
+                glow_alpha = int(min(255, eye_glow * (200 - i * 40)))
+                if glow_r > 0 and glow_alpha > 0:
+                    # 왼쪽 눈
+                    pygame.draw.circle(silhouette_surf, (255, 150 + i * 20, 100, glow_alpha),
+                                     (scx - eye_spacing, eye_y), glow_r)
+                    # 오른쪽 눈
+                    pygame.draw.circle(silhouette_surf, (255, 150 + i * 20, 100, glow_alpha),
+                                     (scx + eye_spacing, eye_y), glow_r)
+
+            # 눈 본체 (밝은 핵)
+            pygame.draw.circle(silhouette_surf, (255, 220, 180),
+                             (scx - eye_spacing, eye_y), 2)
+            pygame.draw.circle(silhouette_surf, (255, 220, 180),
+                             (scx + eye_spacing, eye_y), 2)
+
+        screen.blit(silhouette_surf, (cx - surf_w // 2, cy - surf_h // 2))
+
+    def is_death_animation_complete(self) -> bool:
+        """죽음 애니메이션이 완료되었는지 확인"""
+        return not self.is_death_animating and self.death_anim_phase == 2
+
+    # ==================== 💀 죽음 애니메이션 끝 ====================
+
+    # ==================== 🌑 어둠의 구체 렌더링 ====================
+
+    def _draw_dark_sphere(self, screen, cx: int, cy: int):
+        """어둠의 구체 그리기 - 캐릭터를 덮는 불길한 구체"""
+        import pygame
+        import math
+
+        radius = self.dark_sphere_radius + self.dark_sphere_pulse
+        alpha = self.dark_sphere_alpha
+        inner_glow = self.dark_sphere_inner_glow
+
+        if radius <= 0 or alpha <= 0:
+            return
+
+        # 구체 서피스 생성
+        sphere_size = int(radius * 2) + 60
+        sphere_surf = pygame.Surface((sphere_size, sphere_size), pygame.SRCALPHA)
+        scx, scy = sphere_size // 2, sphere_size // 2
+
+        # === 1. 외곽 글로우 (여러 레이어) ===
+        for i in range(4):
+            glow_radius = int(radius) + 15 + i * 8
+            glow_alpha = max(0, int((alpha // 4) * (1 - i * 0.2)))
+            if glow_radius > 0 and glow_alpha > 0:
+                pygame.draw.circle(sphere_surf, (60, 20, 80, glow_alpha),
+                                 (scx, scy), glow_radius)
+
+        # === 2. 메인 구체 (어둠의 핵심) ===
+        # 그라데이션 효과 (바깥에서 안으로 점점 어두워짐)
+        for i in range(int(radius), 0, -3):
+            ratio = i / radius
+            r = int(30 * ratio + 10)
+            g = int(15 * ratio + 5)
+            b = int(45 * ratio + 15)
+            a = int(alpha * (0.7 + 0.3 * (1 - ratio)))
+            pygame.draw.circle(sphere_surf, (r, g, b, a), (scx, scy), i)
+
+        # === 3. 내부 발광 (폭발 직전 에너지) ===
+        if inner_glow > 0:
+            glow_intensity = inner_glow
+            glow_r = int(radius * 0.6)
+            # 보라색/금색 혼합 발광
+            for i in range(3):
+                layer_r = glow_r - i * 8
+                if layer_r > 0:
+                    layer_alpha = int(100 * glow_intensity * (1 - i * 0.3))
+                    # 보라/금색 교차
+                    if i % 2 == 0:
+                        color = (150, 80, 180, layer_alpha)
+                    else:
+                        color = (200, 150, 80, layer_alpha)
+                    pygame.draw.circle(sphere_surf, color, (scx, scy), layer_r)
+
+        # === 4. 구체 표면 파티클 (회전하는 에너지) ===
+        for p in self.dark_sphere_particles:
+            p_x = scx + math.cos(p['angle']) * (radius + p['dist_offset'])
+            p_y = scy + math.sin(p['angle']) * (radius + p['dist_offset'])
+            p_alpha = int(200 * (p['life'] / 40))
+            p_size = int(p['size'] * (p['life'] / 40))
+
+            if p_size > 0:
+                if p['color_type'] == 'purple':
+                    p_color = (120, 50, 150, p_alpha)
+                else:
+                    p_color = (40, 20, 60, p_alpha)
+                pygame.draw.circle(sphere_surf, p_color, (int(p_x), int(p_y)), p_size)
+
+        # === 5. 균열 효과 (폭발 직전) ===
+        for crack in self.dark_sphere_cracks:
+            crack_glow = crack['glow']
+            crack_alpha = int(200 * min(1.0, crack_glow))
+            crack_color = (220, 180, 100, crack_alpha)  # 금색 균열
+
+            angle = crack['angle']
+            length = crack['length'] * radius
+            width = int(crack['width'] * crack_glow)
+
+            # 균열 시작점 (구체 표면 안쪽)
+            start_x = scx + math.cos(angle) * (radius * 0.3)
+            start_y = scy + math.sin(angle) * (radius * 0.3)
+            # 균열 끝점 (표면까지)
+            end_x = scx + math.cos(angle) * (radius * 0.9)
+            end_y = scy + math.sin(angle) * (radius * 0.9)
+
+            if width > 0:
+                pygame.draw.line(sphere_surf, crack_color,
+                               (int(start_x), int(start_y)),
+                               (int(end_x), int(end_y)), width)
+                # 균열 끝 발광
+                pygame.draw.circle(sphere_surf, (255, 220, 150, crack_alpha // 2),
+                                 (int(end_x), int(end_y)), width + 2)
+
+        # === 6. 구체 테두리 (어둠의 경계) ===
+        pygame.draw.circle(sphere_surf, (80, 40, 100, int(alpha * 0.8)),
+                         (scx, scy), int(radius), 3)
+
+        # 화면에 그리기
+        screen.blit(sphere_surf, (cx - scx, cy - scy))
+
+    # ==================== 🌑 어둠의 구체 렌더링 끝 ====================
+
+    def _draw_human_silhouette(self, screen, cx: int, cy: int):
+        """악의 에너지가 응축된 인간 형태 실루엣 그리기 (원형 효과 없음)"""
+        import pygame
+        import math
+
+        alpha = self.human_silhouette_alpha
+        scale = self.human_silhouette_scale
+        eye_glow = self.human_eye_glow
+
+        if alpha <= 0 or scale <= 0:
+            return
+
+        # 애니메이션 효과
+        t = self.revival_anim_timer * 0.1
+        wave = math.sin(t * 1.5) * 2
+
+        s = scale
+
+        # 실루엣 Surface 생성 (투명 배경)
+        surf_w, surf_h = 80, 100
+        silhouette_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+        scx, scy = surf_w // 2, surf_h // 2
+
+        # 색상 (어두운 보라/검정)
+        body_color = (20, 10, 30, alpha)
+        edge_color = (100, 50, 120, min(255, int(alpha * 1.3)))
+
+        # 머리 (다각형으로 변경 - 원형 아님)
+        head_points = [
+            (scx, scy - int(32 * s)),  # 정수리
+            (scx - int(8 * s), scy - int(28 * s)),  # 왼쪽
+            (scx - int(9 * s), scy - int(22 * s)),  # 왼쪽 아래
+            (scx + int(9 * s), scy - int(22 * s)),  # 오른쪽 아래
+            (scx + int(8 * s), scy - int(28 * s)),  # 오른쪽
+        ]
+        pygame.draw.polygon(silhouette_surf, body_color, head_points)
+        pygame.draw.polygon(silhouette_surf, edge_color, head_points, 1)
+
+        # 목
+        neck_points = [
+            (scx - int(4 * s), scy - int(22 * s)),
+            (scx + int(4 * s), scy - int(22 * s)),
+            (scx + int(5 * s), scy - int(16 * s)),
+            (scx - int(5 * s), scy - int(16 * s)),
+        ]
+        pygame.draw.polygon(silhouette_surf, body_color, neck_points)
+
+        # 몸통 (다각형)
+        torso_points = [
+            (scx - int(10 * s), scy - int(16 * s)),  # 왼쪽 어깨
+            (scx + int(10 * s), scy - int(16 * s)),  # 오른쪽 어깨
+            (scx + int(8 * s), scy + int(10 * s)),   # 오른쪽 허리
+            (scx - int(8 * s), scy + int(10 * s)),   # 왼쪽 허리
+        ]
+        pygame.draw.polygon(silhouette_surf, body_color, torso_points)
+        pygame.draw.polygon(silhouette_surf, edge_color, torso_points, 1)
+
+        # 왼팔
+        arm_l = [
+            (scx - int(10 * s), scy - int(14 * s)),
+            (scx - int(18 * s) + wave, scy - int(6 * s)),
+            (scx - int(22 * s) + wave * 1.2, scy + int(4 * s)),
+            (scx - int(20 * s) + wave * 1.2, scy + int(6 * s)),
+            (scx - int(16 * s) + wave, scy - int(4 * s)),
+            (scx - int(9 * s), scy - int(10 * s)),
+        ]
+        pygame.draw.polygon(silhouette_surf, body_color, [(int(x), int(y)) for x, y in arm_l])
+        pygame.draw.lines(silhouette_surf, edge_color, False, [(int(x), int(y)) for x, y in arm_l], 1)
+
+        # 오른팔
+        arm_r = [
+            (scx + int(10 * s), scy - int(14 * s)),
+            (scx + int(18 * s) - wave, scy - int(6 * s)),
+            (scx + int(22 * s) - wave * 1.2, scy + int(4 * s)),
+            (scx + int(20 * s) - wave * 1.2, scy + int(6 * s)),
+            (scx + int(16 * s) - wave, scy - int(4 * s)),
+            (scx + int(9 * s), scy - int(10 * s)),
+        ]
+        pygame.draw.polygon(silhouette_surf, body_color, [(int(x), int(y)) for x, y in arm_r])
+        pygame.draw.lines(silhouette_surf, edge_color, False, [(int(x), int(y)) for x, y in arm_r], 1)
+
+        # 왼다리
+        leg_l = [
+            (scx - int(6 * s), scy + int(8 * s)),
+            (scx - int(8 * s), scy + int(25 * s)),
+            (scx - int(10 * s), scy + int(38 * s)),
+            (scx - int(5 * s), scy + int(38 * s)),
+            (scx - int(3 * s), scy + int(25 * s)),
+            (scx - int(2 * s), scy + int(8 * s)),
+        ]
+        pygame.draw.polygon(silhouette_surf, body_color, [(int(x), int(y)) for x, y in leg_l])
+        pygame.draw.lines(silhouette_surf, edge_color, False, [(int(x), int(y)) for x, y in leg_l], 1)
+
+        # 오른다리
+        leg_r = [
+            (scx + int(6 * s), scy + int(8 * s)),
+            (scx + int(8 * s), scy + int(25 * s)),
+            (scx + int(10 * s), scy + int(38 * s)),
+            (scx + int(5 * s), scy + int(38 * s)),
+            (scx + int(3 * s), scy + int(25 * s)),
+            (scx + int(2 * s), scy + int(8 * s)),
+        ]
+        pygame.draw.polygon(silhouette_surf, body_color, [(int(x), int(y)) for x, y in leg_r])
+        pygame.draw.lines(silhouette_surf, edge_color, False, [(int(x), int(y)) for x, y in leg_r], 1)
+
+        # 눈 (작은 점 2개 - 원형이지만 매우 작음)
+        if eye_glow > 0:
+            eye_y = scy - int(26 * s)
+            eye_spacing = int(4 * s)
+            eye_alpha = int(eye_glow * 255)
+
+            # 왼쪽 눈 (2픽셀)
+            pygame.draw.rect(silhouette_surf, (255, 200, 80, eye_alpha),
+                           (scx - eye_spacing - 1, eye_y - 1, 2, 2))
+            # 오른쪽 눈 (2픽셀)
+            pygame.draw.rect(silhouette_surf, (255, 200, 80, eye_alpha),
+                           (scx + eye_spacing - 1, eye_y - 1, 2, 2))
+
+        # 화면에 그리기
+        screen.blit(silhouette_surf, (cx - surf_w // 2, cy - surf_h // 2))
+
+    def is_revival_animation_complete(self) -> bool:
+        """부활 애니메이션이 완료되었는지 확인 (폭발 이펙트 포함)"""
+        return not self.is_revival_animating and not self.dark_burst_active and self.revival_anim_phase == 3
+
+    # ==================== 부활 애니메이션 끝 ====================
+
+    def try_revival(self) -> bool:
+        """라운드 패배 시 부활 시도.
+
+        Returns:
+            True: 부활 성공 (페널티 적용됨)
+            False: 부활 실패 또는 이미 부활 사용함 (진정한 패배)
+        """
+        if not self.active:
+            return False
+
+        # 이미 부활 사용했거나 페널티 상태면 진정한 패배
+        if self.revival_used or self.penalty_active:
+            if LEGENDARY_DEBUG_ENABLED:
+                print("👁 오딘의 눈: 이미 부활 사용함 또는 페널티 상태 - 진정한 패배!")
+            return False
+
+        # 부활 확률 체크
+        import random
+        roll = random.random() * 100
+        if roll <= self.revival_chance:
+            # 부활 성공!
+            self.revival_used = True
+            self.penalty_active = True
+            self.dark_energy_active = True
+            self.dark_energy_timer = 180  # 3초 (60fps 기준)
+
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"👁 오딘의 눈: 부활 성공! (확률: {self.revival_chance:.0f}%, 굴림: {roll:.1f})")
+            return True
+        else:
+            # 부활 실패
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"👁 오딘의 눈: 부활 실패 (확률: {self.revival_chance:.0f}%, 굴림: {roll:.1f})")
+            return False
+
+    def get_movement_penalty(self) -> float:
+        """이동 속도 페널티 배율 반환 (1.0 = 패널티 없음, 0.5 = 50% 감소)"""
+        if self.penalty_active:
+            return 0.5
+        return 1.0
+
+    def get_dash_token_limit(self) -> int:
+        """대시 토큰 제한 (None = 제한 없음)"""
+        if self.penalty_active:
+            return 1
+        return None
+
+    def get_dash_cooldown_multiplier(self) -> float:
+        """대시 쿨다운 배율 (1.0 = 기본, 2.0 = +100%)"""
+        if self.penalty_active:
+            return 2.0
+        return 1.0
+
+    def update(self, dt: float, ui_mode: bool = False):
+        """애니메이션 및 상태 업데이트"""
+        super().update(dt, ui_mode)
+
+        # 어둠의 기운 타이머 업데이트
+        if self.dark_energy_active and not ui_mode:
+            # 라운드 종료까지 유지 모드가 아닐 때만 타이머 감소
+            if not self.dark_energy_until_round_end:
+                self.dark_energy_timer -= 1
+                if self.dark_energy_timer <= 0:
+                    self.dark_energy_active = False
+                    self.dark_energy_timer = 0
+
+            # 어둠 파티클 생성
+            self._update_dark_particles()
+
+        # 애니메이션 프레임 카운터 업데이트
+        if self.animation_frames and len(self.animation_frames) > 1:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
+    def _update_dark_particles(self):
+        """어둠 파티클 업데이트"""
+        import random
+
+        # 파티클 생성
+        if random.random() < 0.3:  # 30% 확률로 파티클 생성
+            self.dark_particles.append({
+                'x': random.uniform(-30, 30),
+                'y': random.uniform(-30, 30),
+                'vx': random.uniform(-1, 1),
+                'vy': random.uniform(-2, -0.5),
+                'life': random.randint(30, 60),
+                'size': random.uniform(3, 8),
+                'alpha': 200
+            })
+
+        # 파티클 업데이트
+        for particle in self.dark_particles[:]:
+            particle['x'] += particle['vx']
+            particle['y'] += particle['vy']
+            particle['life'] -= 1
+            particle['alpha'] = max(0, particle['alpha'] - 4)
+
+            if particle['life'] <= 0:
+                self.dark_particles.remove(particle)
+
+    def draw_dark_energy_effect(self, screen, player_x: int, player_y: int):
+        """플레이어 주변에 어둠의 기운 이펙트 그리기 - 원형 효과 제거됨"""
+        if not self.dark_energy_active:
+            return
+        # 원형 글로우 및 파티클 모두 제거됨 - 아무것도 그리지 않음
+        pass
+
+    def draw_dark_paddle(self, screen, paddle_rect, player_vx: float = 0):
+        """부활 페널티 상태: 고퀄리티 악의 에너지 인간 형상"""
+        if not self.penalty_active and not self.dark_energy_active:
+            return None
+
+        import pygame
+        import math
+        import random
+
+        # 중심 좌표
+        cx = paddle_rect.centerx
+        cy = paddle_rect.centery - 45  # 패들 위에 형상
+
+        # 애니메이션 타이밍
+        t = self.animation_time * 1.5
+
+        # 이동/애니메이션 파라미터
+        lean = player_vx * 0.012
+        breathe = (math.sin(t * 2.5) + 1) / 2
+        pulse = (math.sin(t * 4) + 1) / 2
+        flow = math.sin(t * 1.8) * 2
+
+        # 형상 크기
+        h = 75  # 높이
+        w = 45  # 폭
+
+        # 파티클 시스템 초기화
+        if not hasattr(self, '_shadow_wisps'):
+            self._shadow_wisps = []
+        if not hasattr(self, '_energy_tendrils'):
+            self._energy_tendrils = []
+        if not hasattr(self, '_aura_particles'):
+            self._aura_particles = []
+
+        # ═══════════════════════════════════════════════════════════════════
+        # 1. 다층 어둠 오라 (배경 레이어)
+        # ═══════════════════════════════════════════════════════════════════
+        aura_surface = pygame.Surface((200, 160), pygame.SRCALPHA)
+        aura_cx, aura_cy = 100, 80
+
+        # 외곽 확산 오라 (여러 층)
+        for layer in range(5):
+            aura_r = 55 - layer * 8 + int(breathe * 6)
+            aura_alpha = 25 + layer * 8
+            # 불규칙한 오라 형태
+            aura_points = []
+            for i in range(24):
+                angle = (i / 24) * math.pi * 2
+                noise = math.sin(angle * 3 + t * 2 + layer) * 4
+                noise += math.sin(angle * 5 - t * 3) * 2
+                r = aura_r + noise
+                ax = aura_cx + math.cos(angle) * r
+                ay = aura_cy + math.sin(angle) * r * 0.7  # 세로로 약간 압축
+                aura_points.append((int(ax), int(ay)))
+
+            color = (20 + layer * 5, 8 + layer * 3, 35 + layer * 8, aura_alpha)
+            if len(aura_points) >= 3:
+                pygame.draw.polygon(aura_surface, color, aura_points)
+
+        screen.blit(aura_surface, (cx - 100, cy - 80))
+
+        # ═══════════════════════════════════════════════════════════════════
+        # 2. 에너지 촉수/텐드릴 (유기적 움직임)
+        # ═══════════════════════════════════════════════════════════════════
+        tendril_surface = pygame.Surface((180, 140), pygame.SRCALPHA)
+        tcx, tcy = 90, 70
+
+        for tendril_idx in range(6):
+            base_angle = (tendril_idx / 6) * math.pi * 2 + t * 0.3
+            tendril_len = 30 + math.sin(t * 2 + tendril_idx) * 10
+
+            prev_x, prev_y = tcx, tcy
+            for seg in range(8):
+                seg_progress = seg / 8
+                wave = math.sin(t * 3 + tendril_idx * 1.5 + seg * 0.8) * (8 * seg_progress)
+                angle = base_angle + wave * 0.1 + lean * 2
+
+                seg_len = tendril_len * (1 - seg_progress * 0.3) / 8
+                nx = prev_x + math.cos(angle) * seg_len
+                ny = prev_y + math.sin(angle) * seg_len * 0.6 - seg * 1.5
+
+                thickness = max(1, int(4 * (1 - seg_progress)))
+                alpha = int(120 * (1 - seg_progress * 0.7))
+                color = (30, 15, 50, alpha)
+
+                pygame.draw.line(tendril_surface, color,
+                               (int(prev_x), int(prev_y)), (int(nx), int(ny)), thickness)
+                prev_x, prev_y = nx, ny
+
+        screen.blit(tendril_surface, (cx - 90, cy - 70))
+
+        # ═══════════════════════════════════════════════════════════════════
+        # 3. 고퀄리티 인간 실루엣 (부드러운 곡선)
+        # ═══════════════════════════════════════════════════════════════════
+        body_surface = pygame.Surface((120, 140), pygame.SRCALPHA)
+        bcx, bcy = 60, 70
+
+        # 이동에 따른 기울기
+        tilt = lean * 25
+        arm_swing = player_vx * 0.4 + math.sin(t * 3.5) * 8
+
+        # --- 망토/로브 (뒤에 먼저) ---
+        cloak_points = []
+        cloak_segments = 16
+        for i in range(cloak_segments + 1):
+            progress = i / cloak_segments
+            # 망토 윤곽
+            if progress < 0.3:
+                # 어깨에서 시작
+                cx_off = -20 + progress * 15
+                cy_off = -15 + progress * 40
+            elif progress < 0.7:
+                # 몸통 옆면
+                local_p = (progress - 0.3) / 0.4
+                cx_off = -15 + local_p * 5
+                cy_off = -3 + local_p * 35
+                # 바람에 흔들림
+                cx_off += math.sin(t * 2 + local_p * 3) * 4
+            else:
+                # 아래로 퍼짐
+                local_p = (progress - 0.7) / 0.3
+                cx_off = -10 - local_p * 15 + math.sin(t * 2.5 + local_p * 2) * 6
+                cy_off = 32 + local_p * 20
+
+            cloak_points.append((int(bcx + cx_off + tilt), int(bcy + cy_off)))
+
+        # 반대편 추가
+        for i in range(cloak_segments, -1, -1):
+            progress = i / cloak_segments
+            if progress < 0.3:
+                cx_off = 20 - progress * 15
+                cy_off = -15 + progress * 40
+            elif progress < 0.7:
+                local_p = (progress - 0.3) / 0.4
+                cx_off = 15 - local_p * 5
+                cy_off = -3 + local_p * 35
+                cx_off += math.sin(t * 2 + local_p * 3 + 1) * 4
+            else:
+                local_p = (progress - 0.7) / 0.3
+                cx_off = 10 + local_p * 15 - math.sin(t * 2.5 + local_p * 2 + 0.5) * 6
+                cy_off = 32 + local_p * 20
+
+            cloak_points.append((int(bcx + cx_off + tilt), int(bcy + cy_off)))
+
+        # 망토 그리기 (그라데이션 효과)
+        if len(cloak_points) >= 3:
+            # 외곽 (더 밝은 보라)
+            pygame.draw.polygon(body_surface, (25, 12, 40, 200), cloak_points)
+            pygame.draw.polygon(body_surface, (50, 25, 70, 150), cloak_points, 2)
+
+        # --- 몸통 ---
+        torso_points = []
+        # 목 아래
+        torso_points.append((int(bcx - 8 + tilt), int(bcy - 20)))
+        # 왼쪽 어깨
+        torso_points.append((int(bcx - 18 + tilt * 0.8), int(bcy - 15)))
+        # 왼쪽 허리
+        torso_points.append((int(bcx - 12 + tilt * 0.5), int(bcy + 15)))
+        # 오른쪽 허리
+        torso_points.append((int(bcx + 12 + tilt * 0.5), int(bcy + 15)))
+        # 오른쪽 어깨
+        torso_points.append((int(bcx + 18 + tilt * 0.8), int(bcy - 15)))
+        # 목 아래
+        torso_points.append((int(bcx + 8 + tilt), int(bcy - 20)))
+
+        pygame.draw.polygon(body_surface, (12, 6, 18, 240), torso_points)
+
+        # --- 팔 (부드러운 곡선) ---
+        for side in [-1, 1]:
+            arm_base_x = bcx + side * 18 + tilt * 0.8
+            arm_base_y = bcy - 12
+            swing = arm_swing * side * -1
+
+            # 팔 세그먼트
+            arm_points = []
+            for seg in range(6):
+                seg_p = seg / 5
+                # 팔꿈치까지 + 손까지
+                if seg_p < 0.5:
+                    local_p = seg_p * 2
+                    ax = arm_base_x + side * (8 + local_p * 10) + swing * local_p
+                    ay = arm_base_y + local_p * 20
+                else:
+                    local_p = (seg_p - 0.5) * 2
+                    ax = arm_base_x + side * 18 + swing + local_p * side * 5
+                    ay = arm_base_y + 20 + local_p * 15 + math.sin(t * 3 + side) * 3
+
+                thickness = int(5 - seg_p * 3)
+                arm_points.append((int(ax), int(ay), thickness))
+
+            # 팔 그리기
+            for i in range(len(arm_points) - 1):
+                x1, y1, t1 = arm_points[i]
+                x2, y2, t2 = arm_points[i + 1]
+                pygame.draw.line(body_surface, (10, 5, 15, 230), (x1, y1), (x2, y2), max(1, (t1 + t2) // 2))
+
+        # --- 머리 (부드러운 원형 + 후드 효과) ---
+        head_x = int(bcx + tilt)
+        head_y = int(bcy - 32)
+        head_r = int(12 + breathe * 2)
+
+        # 후드 그림자
+        hood_points = []
+        for i in range(12):
+            angle = math.pi + (i / 11) * math.pi
+            r = head_r + 6 + math.sin(angle * 2 + t) * 2
+            hx = head_x + math.cos(angle) * r
+            hy = head_y + math.sin(angle) * r * 0.8 - 3
+            hood_points.append((int(hx), int(hy)))
+        hood_points.append((head_x + head_r + 4, head_y + 5))
+        hood_points.append((head_x - head_r - 4, head_y + 5))
+
+        if len(hood_points) >= 3:
+            pygame.draw.polygon(body_surface, (18, 8, 28, 220), hood_points)
+
+        # 머리 (어두운 구체)
+        for i in range(3):
+            r = head_r - i * 2
+            alpha = 200 + i * 20
+            pygame.draw.circle(body_surface, (8 + i * 3, 3 + i * 2, 12 + i * 4, alpha),
+                             (head_x, head_y), r)
+
+        screen.blit(body_surface, (cx - 60, cy - 70))
+
+        # ═══════════════════════════════════════════════════════════════════
+        # 4. 오딘의 눈 (신비로운 황금빛)
+        # ═══════════════════════════════════════════════════════════════════
+        eye_x = cx + int(tilt) + int(player_vx * 0.06)
+        eye_y = cy - 32
+
+        # 눈 글로우 (여러 층)
+        for i in range(4):
+            gr = 12 - i * 2 + int(pulse * 3)
+            ga = 40 + i * 25 + int(pulse * 30)
+            glow_surf = pygame.Surface((gr * 2, gr * 2), pygame.SRCALPHA)
+            glow_color = (200 + i * 15, 150 + i * 20, 40 + i * 10, ga)
+            pygame.draw.circle(glow_surf, glow_color, (gr, gr), gr)
+            screen.blit(glow_surf, (eye_x - gr, eye_y - gr), special_flags=pygame.BLEND_RGBA_ADD)
+
+        # 눈 본체 (세밀한 디테일)
+        pygame.draw.circle(screen, (255, 230, 150), (eye_x, eye_y), 5)
+        pygame.draw.circle(screen, (255, 245, 200), (eye_x, eye_y), 4)
+        pygame.draw.circle(screen, (255, 255, 240), (eye_x, eye_y), 3)
+
+        # 동공 (이동 방향 추적)
+        pupil_offset = int(player_vx * 0.04)
+        pygame.draw.circle(screen, (30, 20, 5), (eye_x + pupil_offset, eye_y), 2)
+
+        # 하이라이트
+        pygame.draw.circle(screen, (255, 255, 255), (eye_x - 1, eye_y - 1), 1)
+
+        # ═══════════════════════════════════════════════════════════════════
+        # 5. 고급 파티클 시스템
+        # ═══════════════════════════════════════════════════════════════════
+
+        # --- 5a. 그림자 위습 (떠다니는 어둠 조각) ---
+        if len(self._shadow_wisps) < 12 and random.random() < 0.4:
+            spawn_angle = random.uniform(0, math.pi * 2)
+            spawn_dist = random.uniform(20, 40)
+            self._shadow_wisps.append({
+                'x': cx + math.cos(spawn_angle) * spawn_dist,
+                'y': cy + math.sin(spawn_angle) * spawn_dist * 0.5,
+                'vx': random.uniform(-0.5, 0.5) + player_vx * 0.03,
+                'vy': random.uniform(-1.2, -0.4),
+                'size': random.uniform(4, 9),
+                'life': random.randint(40, 70),
+                'max_life': 70,
+                'angle': random.uniform(0, math.pi * 2),
+                'rotation': random.uniform(-0.1, 0.1),
+                'type': random.choice(['circle', 'wisp', 'flame'])
+            })
+
+        for w in self._shadow_wisps[:]:
+            w['x'] += w['vx'] + math.sin(t * 3 + w['angle']) * 0.3
+            w['y'] += w['vy']
+            w['angle'] += w['rotation']
+            w['life'] -= 1
+            life_ratio = w['life'] / w['max_life']
+
+            if w['life'] <= 0:
+                self._shadow_wisps.remove(w)
+                continue
+
+            size = int(w['size'] * life_ratio)
+            alpha = int(180 * life_ratio)
+
+            if size > 0:
+                ws = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
+                wcx, wcy = size * 1.5, size * 1.5
+
+                if w['type'] == 'circle':
+                    pygame.draw.circle(ws, (20, 10, 35, alpha), (int(wcx), int(wcy)), size)
+                    pygame.draw.circle(ws, (40, 20, 60, alpha // 2), (int(wcx), int(wcy)), size, 1)
+                elif w['type'] == 'wisp':
+                    # 불규칙한 형태
+                    wisp_points = []
+                    for i in range(8):
+                        a = (i / 8) * math.pi * 2 + w['angle']
+                        r = size * (0.7 + math.sin(a * 3 + t * 4) * 0.3)
+                        wisp_points.append((int(wcx + math.cos(a) * r), int(wcy + math.sin(a) * r)))
+                    if len(wisp_points) >= 3:
+                        pygame.draw.polygon(ws, (25, 12, 40, alpha), wisp_points)
+                else:  # flame
+                    # 불꽃 형태 (위로 뾰족)
+                    flame_points = [
+                        (int(wcx), int(wcy - size * 1.5)),
+                        (int(wcx - size * 0.7), int(wcy + size * 0.5)),
+                        (int(wcx), int(wcy)),
+                        (int(wcx + size * 0.7), int(wcy + size * 0.5))
+                    ]
+                    pygame.draw.polygon(ws, (30, 15, 50, alpha), flame_points)
+
+                screen.blit(ws, (int(w['x'] - wcx), int(w['y'] - wcy)))
+
+        # --- 5b. 오라 파티클 (몸 주변 순환) ---
+        if len(self._aura_particles) < 15 and random.random() < 0.5:
+            orbit_angle = random.uniform(0, math.pi * 2)
+            self._aura_particles.append({
+                'angle': orbit_angle,
+                'radius': random.uniform(35, 55),
+                'speed': random.uniform(0.02, 0.05) * random.choice([-1, 1]),
+                'y_offset': random.uniform(-30, 20),
+                'size': random.uniform(2, 5),
+                'life': random.randint(60, 100),
+                'max_life': 100,
+                'pulse_offset': random.uniform(0, math.pi * 2)
+            })
+
+        for ap in self._aura_particles[:]:
+            ap['angle'] += ap['speed']
+            ap['life'] -= 1
+            life_ratio = ap['life'] / ap['max_life']
+
+            if ap['life'] <= 0:
+                self._aura_particles.remove(ap)
+                continue
+
+            # 궤도 위치
+            orbit_x = cx + math.cos(ap['angle']) * ap['radius']
+            orbit_y = cy + ap['y_offset'] + math.sin(ap['angle']) * ap['radius'] * 0.3
+
+            size = int(ap['size'] * (0.5 + life_ratio * 0.5))
+            alpha = int(140 * life_ratio)
+            pulse_size = size + int(math.sin(t * 5 + ap['pulse_offset']) * 2)
+
+            if pulse_size > 0:
+                ps = pygame.Surface((pulse_size * 2 + 4, pulse_size * 2 + 4), pygame.SRCALPHA)
+                pcx, pcy = pulse_size + 2, pulse_size + 2
+
+                # 글로우
+                pygame.draw.circle(ps, (40, 20, 70, alpha // 3), (pcx, pcy), pulse_size + 2)
+                pygame.draw.circle(ps, (60, 30, 90, alpha), (pcx, pcy), pulse_size)
+
+                screen.blit(ps, (int(orbit_x - pcx), int(orbit_y - pcy)))
+
+        # --- 5c. 바닥 그림자 (발 아래) ---
+        shadow_y = paddle_rect.centery + 5
+        shadow_w = 50 + int(breathe * 10)
+        shadow_h = 8
+        shadow_surf = pygame.Surface((shadow_w, shadow_h * 2), pygame.SRCALPHA)
+
+        for i in range(3):
+            sw = shadow_w - i * 12
+            sh = shadow_h - i * 2
+            sa = 60 - i * 15
+            pygame.draw.ellipse(shadow_surf, (10, 5, 20, sa),
+                              (shadow_w // 2 - sw // 2, shadow_h - sh // 2, sw, sh))
+
+        screen.blit(shadow_surf, (cx - shadow_w // 2, shadow_y - shadow_h))
+
+        return True
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 어둠의 늪 스킬 시스템
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    def is_transformed(self) -> bool:
+        """오딘의 눈 변신 상태인지 확인 (기존 스킬 잠금용)"""
+        return self.penalty_active or self.dark_energy_active
+
+    def enable_dark_swamp(self):
+        """어둠의 늪 스킬 활성화 (부활 후 호출)"""
+        self.dark_swamp_enabled = True
+        self.dark_swamp_cooldown_timer = 0
+        print("👁 [오딘의 눈] 어둠의 늪 스킬 활성화!")
+
+    def disable_dark_swamp(self):
+        """어둠의 늪 스킬 비활성화"""
+        self.dark_swamp_enabled = False
+        self.dark_swamp_active = False
+        self.lurker_spikes = []
+        self.dark_swamp_cooldown_timer = 0
+
+    def can_use_dark_swamp(self, current_gauge: float) -> bool:
+        """어둠의 늪 스킬 사용 가능 여부"""
+        if not self.dark_swamp_enabled:
+            return False
+        if not self.is_transformed():
+            return False
+        if self.dark_swamp_cooldown_timer > 0:
+            return False
+        if current_gauge < self.dark_swamp_cost:
+            return False
+        if self.dark_swamp_active:
+            return False
+        return True
+
+    def get_dark_swamp_cooldown_ratio(self) -> float:
+        """쿨타임 비율 반환 (0=사용가능, 1=쿨타임중)"""
+        if self.dark_swamp_cooldown <= 0:
+            return 0.0
+        return min(1.0, self.dark_swamp_cooldown_timer / self.dark_swamp_cooldown)
+
+    def activate_dark_swamp(self, player_x: int, player_y: int, boss_y: int, boss_x: int = None) -> bool:
+        """어둠의 늪 스킬 발동 - 럴커 가시 발사 (플레이어 → 보스 방향)"""
+        if self.dark_swamp_active:
+            return False
+
+        import pygame
+        try:
+            # 스킬 발동 사운드
+            sound_path = resource_path("sounds/lurker_attack.wav")
+            if os.path.exists(sound_path):
+                sound = pygame.mixer.Sound(sound_path)
+                sound.set_volume(0.5)
+                sound.play()
+        except:
+            pass
+
+        self.dark_swamp_active = True
+        self.spike_spawn_timer = 0
+        self.spike_count = 0
+        self.lurker_spikes = []
+        self.spike_smoke_particles = []
+
+        # 가시 경로 설정 (플레이어 → 보스 방향으로 순차 발사)
+        self.spike_start_x = player_x  # 시작 X (플레이어)
+        self.spike_start_y = player_y - 30  # 시작 Y (플레이어 위)
+        self.spike_end_x = boss_x if boss_x is not None else player_x  # 끝 X (보스)
+        self.spike_end_y = boss_y + 30  # 끝 Y (보스 아래)
+
+        # 쿨타임 시작
+        self.dark_swamp_cooldown_timer = self.dark_swamp_cooldown
+
+        # 가시 물결 효과 시작
+        self.spike_wave_active = True
+        self.spike_wave_progress = 0.0
+
+        return True
+
+    def update_dark_swamp(self, dt: float = 1/60):
+        """어둠의 늪 스킬 업데이트"""
+        import math
+        import random
+
+        # 쿨타임 감소
+        if self.dark_swamp_cooldown_timer > 0:
+            self.dark_swamp_cooldown_timer -= 1
+
+        if not self.dark_swamp_active:
+            return
+
+        # 가시 물결 진행
+        if self.spike_wave_active:
+            self.spike_wave_progress += 0.025  # 약 40프레임(0.67초)에 완료
+
+            if self.spike_wave_progress >= 1.0:
+                self.spike_wave_active = False
+                self.spike_wave_progress = 1.0
+
+        # 가시 생성
+        self.spike_spawn_timer += 1
+        if self.spike_spawn_timer >= self.spike_spawn_interval and self.spike_count < self.max_spikes:
+            self.spike_spawn_timer = 0
+            self._spawn_lurker_spike()
+            self.spike_count += 1
+
+        # 가시 업데이트
+        for spike in self.lurker_spikes[:]:
+            spike['timer'] += 1
+            spike['phase_timer'] += 1
+
+            # 페이즈 진행: 올라옴 → 유지 → 내려감
+            if spike['phase'] == 'rising':
+                progress = min(1.0, spike['phase_timer'] / spike['rise_time'])
+                spike['height'] = spike['max_height'] * self._ease_out_back(progress)
+
+                if spike['phase_timer'] >= spike['rise_time']:
+                    spike['phase'] = 'hold'
+                    spike['phase_timer'] = 0
+
+            elif spike['phase'] == 'hold':
+                if spike['phase_timer'] >= spike['hold_time']:
+                    spike['phase'] = 'falling'
+                    spike['phase_timer'] = 0
+
+            elif spike['phase'] == 'falling':
+                progress = min(1.0, spike['phase_timer'] / spike['fall_time'])
+                spike['height'] = spike['max_height'] * (1 - self._ease_in_quad(progress))
+
+                if spike['phase_timer'] >= spike['fall_time']:
+                    self.lurker_spikes.remove(spike)
+                    continue
+
+            elif spike['phase'] == 'dissolving':
+                # 녹는 효과: 빠르게 투명해지면서 작아짐
+                dissolve_time = 15  # 녹는 시간 (프레임)
+                progress = min(1.0, spike['phase_timer'] / dissolve_time)
+                spike['dissolve_alpha'] = int(255 * (1 - progress))
+                spike['height'] = spike['max_height'] * (1 - progress * 0.5)  # 살짝 줄어듦
+                spike['width'] = max(1, spike['width'] * (1 - progress * 0.3))  # 가늘어짐
+
+                if spike['phase_timer'] >= dissolve_time:
+                    self.lurker_spikes.remove(spike)
+                    continue
+
+            # 흔들림 효과
+            spike['wobble'] = math.sin(spike['timer'] * 0.3 + spike['offset']) * 2
+
+        # 연기 파티클 업데이트
+        self._update_smoke_particles()
+
+        # 파편 업데이트
+        self._update_spike_fragments()
+
+        # 모든 가시가 사라지면 스킬 종료
+        if self.spike_count >= self.max_spikes and len(self.lurker_spikes) == 0 and len(self.spike_smoke_particles) == 0 and len(self.spike_fragments) == 0:
+            self.dark_swamp_active = False
+
+    def _spawn_lurker_spike(self):
+        """럴커 가시 하나 생성 (플레이어 → 보스 방향으로 순차 발사)"""
+        import random
+
+        # 진행도 계산 (0 = 플레이어 위치, 1 = 보스 위치)
+        progress = self.spike_count / max(1, self.max_spikes - 1)
+
+        # Y 위치: 플레이어에서 보스 방향으로 진행
+        spike_y = self.spike_start_y - (self.spike_start_y - self.spike_end_y) * progress
+
+        # X 위치: 가로로 넓게 퍼지게 (좌우 번갈아가며)
+        spread_offset = ((self.spike_count % 2) * 2 - 1) * (self.spike_count // 2 + 1) * 25
+        spike_x = self.spike_start_x + spread_offset + random.randint(-10, 10)
+
+        # X 범위 제한 (게임 영역 내)
+        spike_x = max(100, min(660, spike_x))
+
+        spike = {
+            'x': spike_x,
+            'y': spike_y,
+            'height': 0,
+            'max_height': random.randint(45, 70),  # 크게
+            'width': random.randint(5, 10),  # 굵게
+            'timer': 0,
+            'phase': 'rising',
+            'phase_timer': 0,
+            'rise_time': 10,  # 올라오는 시간
+            'hold_time': 35,  # 유지 시간
+            'fall_time': 15,  # 내려가는 시간
+            'offset': random.uniform(0, 6.28),
+            'wobble': 0,
+            'hit_ball': False,
+            'hit_boss': False,
+            'color_shift': random.uniform(0, 1)
+        }
+
+        self.lurker_spikes.append(spike)
+
+        # 연기 파티클 생성
+        self._spawn_smoke_particles(spike_x, spike_y)
+
+    def _spawn_smoke_particles(self, x: int, y: int):
+        """가시 스폰 시 어둠의 연기 파티클 생성"""
+        import random
+
+        for _ in range(8):
+            particle = {
+                'x': x + random.randint(-20, 20),
+                'y': y + random.randint(-5, 5),
+                'vx': random.uniform(-1.5, 1.5),
+                'vy': random.uniform(-2.5, -0.5),  # 위로 올라감
+                'size': random.randint(8, 18),
+                'alpha': random.randint(150, 220),
+                'life': random.randint(25, 45),
+                'max_life': 45,
+                'color_shift': random.uniform(0, 1)
+            }
+            self.spike_smoke_particles.append(particle)
+
+    def _update_smoke_particles(self):
+        """연기 파티클 업데이트"""
+        for particle in self.spike_smoke_particles[:]:
+            particle['x'] += particle['vx']
+            particle['y'] += particle['vy']
+            particle['vy'] += 0.05  # 약간의 중력
+            particle['life'] -= 1
+            particle['size'] += 0.3  # 점점 커짐
+            particle['alpha'] = int(particle['alpha'] * 0.92)  # 점점 투명
+
+            if particle['life'] <= 0 or particle['alpha'] < 10:
+                self.spike_smoke_particles.remove(particle)
+
+    def _ease_out_back(self, t: float) -> float:
+        """이징 함수 - 튀어나오는 효과"""
+        c1 = 1.70158
+        c3 = c1 + 1
+        return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2)
+
+    def _ease_in_quad(self, t: float) -> float:
+        """이징 함수 - 가속"""
+        return t * t
+
+    def draw_lurker_spikes(self, screen):
+        """럴커 가시 그리기"""
+        if not self.dark_swamp_active and len(self.lurker_spikes) == 0 and len(self.spike_smoke_particles) == 0 and len(self.spike_fragments) == 0:
+            return
+
+        import pygame
+        import math
+
+        for spike in self.lurker_spikes:
+            if spike['height'] <= 0:
+                continue
+
+            x = int(spike['x'] + spike['wobble'])
+            base_y = int(spike['y'])
+            h = int(spike['height'])
+            w = int(spike['width'])
+
+            # 녹는 중인 가시는 투명도 적용
+            is_dissolving = spike['phase'] == 'dissolving'
+            alpha = spike.get('dissolve_alpha', 255) if is_dissolving else 255
+
+            # 가시 색상 (밝은 보라/자주색 - 스타크래프트 럴커 스타일)
+            base_color = (120, 60, 150)  # 밝은 보라
+            dark_color = (80, 40, 110)   # 어두운 보라
+            highlight_color = (180, 100, 220)  # 하이라이트
+
+            # 녹는 효과: 색상 변화 (더 밝아지면서 녹음)
+            if is_dissolving:
+                dissolve_blend = 1 - (alpha / 255)
+                base_color = (
+                    min(255, int(base_color[0] + 80 * dissolve_blend)),
+                    min(255, int(base_color[1] + 40 * dissolve_blend)),
+                    min(255, int(base_color[2] + 60 * dissolve_blend))
+                )
+                dark_color = (
+                    min(255, int(dark_color[0] + 60 * dissolve_blend)),
+                    min(255, int(dark_color[1] + 30 * dissolve_blend)),
+                    min(255, int(dark_color[2] + 50 * dissolve_blend))
+                )
+                highlight_color = (
+                    min(255, int(highlight_color[0] + 50 * dissolve_blend)),
+                    min(255, int(highlight_color[1] + 80 * dissolve_blend)),
+                    min(255, int(highlight_color[2] + 35 * dissolve_blend))
+                )
+
+            # 서페이스 크기 계산 (여유 공간 포함)
+            surf_width = w * 4 + 30
+            surf_height = h + 40
+
+            if is_dissolving and alpha < 255:
+                # 투명 서페이스에 그리기
+                spike_surf = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
+                offset_x = surf_width // 2
+                offset_y = h + 10
+
+                # 그림자
+                shadow_points = [
+                    (offset_x - w + 3, offset_y + 3),
+                    (offset_x + w + 3, offset_y + 3),
+                    (offset_x + w // 2 + 3, offset_y - h * 0.7 + 3),
+                    (offset_x + 3, offset_y - h + 3),
+                    (offset_x - w // 2 + 3, offset_y - h * 0.7 + 3),
+                ]
+                shadow_color = (20, 10, 30, alpha // 2)
+                pygame.draw.polygon(spike_surf, shadow_color, shadow_points)
+
+                # 메인 가시
+                spike_points = [
+                    (offset_x - w, offset_y),
+                    (offset_x + w, offset_y),
+                    (offset_x + w // 2, offset_y - h * 0.7),
+                    (offset_x, offset_y - h),
+                    (offset_x - w // 2, offset_y - h * 0.7),
+                ]
+                pygame.draw.polygon(spike_surf, (*base_color, alpha), spike_points)
+
+                # 오른쪽 면
+                right_points = [
+                    (offset_x + w, offset_y),
+                    (offset_x + w // 2, offset_y - h * 0.7),
+                    (offset_x, offset_y - h),
+                    (offset_x + w // 3, offset_y - h * 0.5),
+                ]
+                pygame.draw.polygon(spike_surf, (*dark_color, alpha), right_points)
+
+                # 왼쪽 면 하이라이트
+                highlight_points = [
+                    (offset_x - w, offset_y),
+                    (offset_x - w // 2, offset_y - h * 0.7),
+                    (offset_x, offset_y - h),
+                    (offset_x - w // 3, offset_y - h * 0.5),
+                ]
+                pygame.draw.polygon(spike_surf, (*highlight_color, alpha), highlight_points)
+
+                # 테두리
+                pygame.draw.polygon(spike_surf, (200, 120, 255, alpha), spike_points, 2)
+
+                # 서페이스 블릿
+                screen.blit(spike_surf, (x - offset_x, base_y - offset_y))
+
+            else:
+                # 일반 그리기 (투명도 없음)
+                # 그림자 (오프셋)
+                shadow_points = [
+                    (x - w + 3, base_y + 3),
+                    (x + w + 3, base_y + 3),
+                    (x + w // 2 + 3, base_y - h * 0.7 + 3),
+                    (x + 3, base_y - h + 3),
+                    (x - w // 2 + 3, base_y - h * 0.7 + 3),
+                ]
+                pygame.draw.polygon(screen, (20, 10, 30), shadow_points)
+
+                # 메인 가시 (위로 뾰족)
+                spike_points = [
+                    (x - w, base_y),  # 왼쪽 아래
+                    (x + w, base_y),  # 오른쪽 아래
+                    (x + w // 2, base_y - h * 0.7),  # 오른쪽 중간
+                    (x, base_y - h),  # 꼭대기
+                    (x - w // 2, base_y - h * 0.7),  # 왼쪽 중간
+                ]
+                pygame.draw.polygon(screen, base_color, spike_points)
+
+                # 오른쪽 면 (어두운 색)
+                right_points = [
+                    (x + w, base_y),
+                    (x + w // 2, base_y - h * 0.7),
+                    (x, base_y - h),
+                    (x + w // 3, base_y - h * 0.5),
+                ]
+                pygame.draw.polygon(screen, dark_color, right_points)
+
+                # 왼쪽 면 하이라이트
+                highlight_points = [
+                    (x - w, base_y),
+                    (x - w // 2, base_y - h * 0.7),
+                    (x, base_y - h),
+                    (x - w // 3, base_y - h * 0.5),
+                ]
+                pygame.draw.polygon(screen, highlight_color, highlight_points)
+
+                # 끝부분 글로우 (더 밝게)
+                glow_size = int(10 + math.sin(spike['timer'] * 0.2) * 3)
+                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (200, 100, 255, 120), (glow_size, glow_size), glow_size)
+                pygame.draw.circle(glow_surf, (255, 150, 255, 80), (glow_size, glow_size), glow_size // 2)
+                screen.blit(glow_surf, (x - glow_size, base_y - h - glow_size))
+
+                # 테두리 (외곽선)
+                pygame.draw.polygon(screen, (200, 120, 255), spike_points, 2)
+
+                # 작은 가시들 (양쪽에)
+                for side in [-1, 1]:
+                    small_x = x + side * (w + 3)
+                    small_h = h * 0.5
+                    small_w = w * 0.7
+                    small_points = [
+                        (small_x - small_w * side, base_y - h * 0.15),
+                        (small_x, base_y - h * 0.15 - small_h),
+                        (small_x + small_w * side * 0.3, base_y - h * 0.25),
+                    ]
+                    pygame.draw.polygon(screen, (100, 50, 130), small_points)
+                    pygame.draw.polygon(screen, (160, 90, 200), small_points, 1)
+
+        # 연기 파티클 그리기
+        self._draw_smoke_particles(screen)
+
+        # 파편 그리기
+        self._draw_spike_fragments(screen)
+
+    def _draw_smoke_particles(self, screen):
+        """어둠의 연기 파티클 그리기"""
+        import pygame
+
+        for particle in self.spike_smoke_particles:
+            if particle['alpha'] <= 0:
+                continue
+
+            size = int(particle['size'])
+            alpha = min(255, max(0, int(particle['alpha'])))
+
+            # 연기 색상 (어두운 보라/검정)
+            color_shift = particle['color_shift']
+            r = int(30 + color_shift * 20)
+            g = int(15 + color_shift * 10)
+            b = int(40 + color_shift * 25)
+
+            smoke_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+
+            # 여러 겹의 원으로 부드러운 연기 효과
+            for i in range(3):
+                layer_size = size - i * 2
+                if layer_size > 0:
+                    layer_alpha = alpha // (i + 1)
+                    pygame.draw.circle(smoke_surf, (r, g, b, layer_alpha),
+                                     (size, size), layer_size)
+
+            screen.blit(smoke_surf, (int(particle['x']) - size, int(particle['y']) - size))
+
+        # 균열 라인 (더 밝은 색상)
+        random.seed(self._crack_seed)
+        for i in range(8):
+            start_x = self.spike_base_x + random.randint(-60, 60)
+            start_y = wave_y + random.randint(-15, 15)
+
+            points = [(start_x, start_y)]
+            for j in range(5):
+                dx = random.randint(-25, 25)
+                dy = random.randint(-20, 10)
+                points.append((points[-1][0] + dx, points[-1][1] + dy))
+
+            # 밝은 보라색 균열
+            crack_color = (180, 100, 220)
+            for k in range(len(points) - 1):
+                pygame.draw.line(screen, crack_color, points[k], points[k + 1], 2)
+                # 글로우 효과
+                pygame.draw.line(screen, (120, 60, 150), points[k], points[k + 1], 4)
+
+        random.seed()  # 시드 리셋
+
+    def _spawn_spike_fragments(self, x: int, y: int, spike_height: int):
+        """가시 타격 시 어둠의 파편 생성"""
+        import random
+        import math
+
+        # 파편 개수 (가시 크기에 비례)
+        num_fragments = int(8 + spike_height // 10)
+
+        for i in range(num_fragments):
+            # 방사형으로 퍼지는 각도
+            angle = (i / num_fragments) * math.pi * 2 + random.uniform(-0.3, 0.3)
+            speed = random.uniform(3, 8)
+
+            fragment = {
+                'x': x + random.randint(-10, 10),
+                'y': y + random.randint(-spike_height // 2, 0),
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 2,  # 약간 위로
+                'size': random.randint(4, 10),
+                'alpha': 255,
+                'life': random.randint(30, 50),
+                'rotation': random.uniform(0, math.pi * 2),
+                'rot_speed': random.uniform(-0.3, 0.3),
+                'color_shift': random.uniform(0, 1),
+                'shape': random.choice(['triangle', 'diamond', 'shard'])
+            }
+            self.spike_fragments.append(fragment)
+
+    def _update_spike_fragments(self):
+        """파편 업데이트"""
+        for fragment in self.spike_fragments[:]:
+            fragment['x'] += fragment['vx']
+            fragment['y'] += fragment['vy']
+            fragment['vy'] += 0.25  # 중력
+            fragment['vx'] *= 0.98  # 공기 저항
+            fragment['rotation'] += fragment['rot_speed']
+            fragment['life'] -= 1
+            fragment['alpha'] = int(255 * (fragment['life'] / 50))
+            fragment['size'] = max(1, fragment['size'] * 0.97)  # 점점 작아짐
+
+            if fragment['life'] <= 0 or fragment['alpha'] < 10:
+                self.spike_fragments.remove(fragment)
+
+    def _draw_spike_fragments(self, screen):
+        """어둠의 파편 그리기"""
+        import pygame
+        import math
+
+        for fragment in self.spike_fragments:
+            if fragment['alpha'] <= 0:
+                continue
+
+            x = int(fragment['x'])
+            y = int(fragment['y'])
+            size = int(fragment['size'])
+            alpha = min(255, max(0, int(fragment['alpha'])))
+            rotation = fragment['rotation']
+
+            # 파편 색상 (어두운 보라/자주)
+            color_shift = fragment['color_shift']
+            r = int(100 + color_shift * 50)
+            g = int(40 + color_shift * 30)
+            b = int(130 + color_shift * 40)
+
+            # 서페이스 생성
+            frag_surf = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
+            center = size * 3 // 2
+
+            # 파편 모양에 따라 그리기
+            if fragment['shape'] == 'triangle':
+                points = []
+                for i in range(3):
+                    angle = rotation + (i * 2 * math.pi / 3)
+                    px = center + math.cos(angle) * size
+                    py = center + math.sin(angle) * size
+                    points.append((px, py))
+                pygame.draw.polygon(frag_surf, (r, g, b, alpha), points)
+                # 밝은 테두리
+                pygame.draw.polygon(frag_surf, (r + 50, g + 30, b + 30, alpha // 2), points, 1)
+
+            elif fragment['shape'] == 'diamond':
+                points = [
+                    (center, center - size),
+                    (center + size * 0.7, center),
+                    (center, center + size),
+                    (center - size * 0.7, center)
+                ]
+                # 회전 적용
+                rotated_points = []
+                for px, py in points:
+                    dx = px - center
+                    dy = py - center
+                    rx = dx * math.cos(rotation) - dy * math.sin(rotation) + center
+                    ry = dx * math.sin(rotation) + dy * math.cos(rotation) + center
+                    rotated_points.append((rx, ry))
+                pygame.draw.polygon(frag_surf, (r, g, b, alpha), rotated_points)
+                pygame.draw.polygon(frag_surf, (r + 50, g + 30, b + 30, alpha // 2), rotated_points, 1)
+
+            else:  # shard - 날카로운 파편
+                points = [
+                    (center, center - size * 1.2),
+                    (center + size * 0.4, center),
+                    (center, center + size * 0.5),
+                    (center - size * 0.4, center)
+                ]
+                rotated_points = []
+                for px, py in points:
+                    dx = px - center
+                    dy = py - center
+                    rx = dx * math.cos(rotation) - dy * math.sin(rotation) + center
+                    ry = dx * math.sin(rotation) + dy * math.cos(rotation) + center
+                    rotated_points.append((rx, ry))
+                pygame.draw.polygon(frag_surf, (r, g, b, alpha), rotated_points)
+                # 글로우 효과
+                glow_surf = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
+                pygame.draw.polygon(glow_surf, (r, g, b, alpha // 3), rotated_points)
+                screen.blit(glow_surf, (x - center - 2, y - center - 2))
+
+            screen.blit(frag_surf, (x - center, y - center))
+
+    def check_spike_ball_collision(self, ball_rect) -> dict:
+        """가시-공 충돌 체크. 충돌 시 공에 적용할 효과 반환"""
+        import pygame
+
+        result = {'hit': False, 'force_x': 0, 'force_y': 0}
+
+        for spike in self.lurker_spikes:
+            if spike['hit_ball']:
+                continue
+            if spike['phase'] != 'hold' and spike['phase'] != 'rising':
+                continue
+            if spike['height'] < 10:
+                continue
+
+            # 가시 히트박스
+            spike_rect = pygame.Rect(
+                spike['x'] - spike['width'] - 5,
+                spike['y'] - spike['height'],
+                spike['width'] * 2 + 10,
+                spike['height']
+            )
+
+            if spike_rect.colliderect(ball_rect):
+                spike['hit_ball'] = True
+                result['hit'] = True
+
+                # 공을 위로 튕겨냄 (보스 방향)
+                result['force_y'] = -8
+                # X 방향은 가시 위치에 따라
+                if ball_rect.centerx < spike['x']:
+                    result['force_x'] = -3
+                else:
+                    result['force_x'] = 3
+
+                # 녹는 효과 시작 및 파편 생성
+                spike['phase'] = 'dissolving'
+                spike['phase_timer'] = 0
+                spike['dissolve_alpha'] = 255
+                self._spawn_spike_fragments(int(spike['x']), int(spike['y'] - spike['height'] // 2), int(spike['height']))
+
+                print(f"👁 [가시] 공 타격! force=({result['force_x']}, {result['force_y']})")
+                break
+
+        return result
+
+    def check_spike_boss_collision(self, boss_rect) -> dict:
+        """가시-보스 충돌 체크. 충돌 시 넉백/스턴 정보 반환"""
+        import pygame
+
+        result = {
+            'hit': False,
+            'knockback_direction': 0,  # -1=왼쪽, 1=오른쪽
+            'knockback_power': 0,
+            'stun_duration': 0  # 프레임 단위
+        }
+
+        for spike in self.lurker_spikes:
+            if spike['hit_boss']:
+                continue
+            if spike['phase'] != 'hold' and spike['phase'] != 'rising':
+                continue
+            if spike['height'] < 20:
+                continue
+
+            # 가시 히트박스 (끝부분)
+            spike_tip_rect = pygame.Rect(
+                spike['x'] - spike['width'] - 3,
+                spike['y'] - spike['height'] - 5,
+                spike['width'] * 2 + 6,
+                15
+            )
+
+            if spike_tip_rect.colliderect(boss_rect):
+                spike['hit_boss'] = True
+                result['hit'] = True
+
+                # 넉백 방향 결정 (가시가 보스의 어느 쪽을 맞췄는지)
+                if spike['x'] < boss_rect.centerx:
+                    result['knockback_direction'] = 1  # 오른쪽으로 밀림
+                else:
+                    result['knockback_direction'] = -1  # 왼쪽으로 밀림
+
+                result['knockback_power'] = 25  # 넉백 강도
+                result['stun_duration'] = 60  # 1초 스턴
+
+                # 녹는 효과 시작 및 파편 생성
+                spike['phase'] = 'dissolving'
+                spike['phase_timer'] = 0
+                spike['dissolve_alpha'] = 255
+                self._spawn_spike_fragments(int(spike['x']), int(spike['y'] - spike['height']), int(spike['height']))
+
+                print(f"👁 [가시] 보스 타격! 방향={result['knockback_direction']}, 스턴=1초")
+                break
+
+        return result
+
+    def draw_dark_swamp_skill_orb(self, screen, orb_x: int, orb_y: int, current_gauge: float):
+        """어둠의 늪 스킬 구슬 그리기 (왼쪽 필러)"""
+        if not self.dark_swamp_enabled or not self.is_transformed():
+            return
+
+        import pygame
+        import math
+
+        orb_radius = 22
+        t = self.animation_time * 2
+
+        # 쿨타임 비율
+        cooldown_ratio = self.get_dark_swamp_cooldown_ratio()
+        can_use = self.can_use_dark_swamp(current_gauge)
+
+        # 배경 오라
+        for i in range(3):
+            aura_r = orb_radius + 8 - i * 3
+            aura_alpha = 40 + i * 20 if can_use else 20 + i * 10
+            aura_surf = pygame.Surface((aura_r * 2, aura_r * 2), pygame.SRCALPHA)
+            color = (60, 30, 90, aura_alpha) if can_use else (30, 15, 45, aura_alpha)
+            pygame.draw.circle(aura_surf, color, (aura_r, aura_r), aura_r)
+            screen.blit(aura_surf, (orb_x - aura_r, orb_y - aura_r))
+
+        # 구슬 배경
+        bg_color = (20, 10, 35) if can_use else (15, 8, 20)
+        pygame.draw.circle(screen, bg_color, (orb_x, orb_y), orb_radius)
+
+        # 쿨타임 표시 (위에서 아래로 차오름)
+        if cooldown_ratio > 0:
+            cooldown_height = int(orb_radius * 2 * (1 - cooldown_ratio))
+            cooldown_surf = pygame.Surface((orb_radius * 2, orb_radius * 2), pygame.SRCALPHA)
+            cooldown_rect = pygame.Rect(0, orb_radius * 2 - cooldown_height, orb_radius * 2, cooldown_height)
+            pygame.draw.rect(cooldown_surf, (50, 25, 75, 150), cooldown_rect)
+
+            # 원형 마스크 적용
+            mask_surf = pygame.Surface((orb_radius * 2, orb_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(mask_surf, (255, 255, 255), (orb_radius, orb_radius), orb_radius - 2)
+            cooldown_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+            screen.blit(cooldown_surf, (orb_x - orb_radius, orb_y - orb_radius))
+
+        # 가시 아이콘 (스킬 심볼)
+        spike_color = (180, 100, 220) if can_use else (80, 50, 100)
+        # 중앙 가시
+        pygame.draw.polygon(screen, spike_color, [
+            (orb_x, orb_y - 12),
+            (orb_x - 4, orb_y + 6),
+            (orb_x + 4, orb_y + 6)
+        ])
+        # 좌우 작은 가시
+        for side in [-1, 1]:
+            pygame.draw.polygon(screen, spike_color, [
+                (orb_x + side * 8, orb_y - 6),
+                (orb_x + side * 5, orb_y + 4),
+                (orb_x + side * 11, orb_y + 4)
+            ])
+
+        # 테두리
+        border_color = (120, 60, 160) if can_use else (60, 30, 80)
+        pygame.draw.circle(screen, border_color, (orb_x, orb_y), orb_radius, 2)
+
+        # 사용 가능 시 펄스 효과
+        if can_use:
+            pulse = (math.sin(t * 3) + 1) / 2
+            pulse_r = orb_radius + int(pulse * 4)
+            pulse_surf = pygame.Surface((pulse_r * 2 + 4, pulse_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(pulse_surf, (150, 80, 200, int(60 * pulse)),
+                             (pulse_r + 2, pulse_r + 2), pulse_r, 2)
+            screen.blit(pulse_surf, (orb_x - pulse_r - 2, orb_y - pulse_r - 2))
+
+        # 게이지 부족 표시
+        if current_gauge < self.dark_swamp_cost and cooldown_ratio == 0:
+            # X 표시
+            pygame.draw.line(screen, (150, 50, 50), (orb_x - 8, orb_y - 8), (orb_x + 8, orb_y + 8), 2)
+            pygame.draw.line(screen, (150, 50, 50), (orb_x + 8, orb_y - 8), (orb_x - 8, orb_y + 8), 2)
+
+    def _draw_dark_paddle_disabled(self, screen, paddle_rect, player_vx: float = 0):
+        """[비활성화됨] 이전 어둠의 패들 코드"""
+        if not self.penalty_active and not self.dark_energy_active:
+            return None
+
+        import pygame
+        import math
+        import random
+
+        pw = paddle_rect.width   # ~155
+        ph = paddle_rect.height  # ~50
+
+        # 여백 없이 패들 크기 그대로
+        surface = pygame.Surface((pw, ph), pygame.SRCALPHA)
+        cx = pw // 2
+        cy = ph // 2
+
+        # 애니메이션
+        t = self.animation_time * 2.0
+        pulse = (math.sin(t * 2) + 1) / 2
+        wave = math.sin(t * 1.5) * 1.5
+
+        # 이동 효과
+        lean = player_vx * 0.02
+
+        # 색상
+        body_color = (15, 12, 18, 230)
+        edge_color = (30, 25, 38, 180)
+
+        # ═══════════════════════════════════════════════════════════════
+        # 1. 메인 바디 (패들 영역에 딱 맞는 가로 타원)
+        # ═══════════════════════════════════════════════════════════════
+        body_w = pw - 10
+        body_h = ph - 6
+        body_points = []
+        for i in range(20):
+            angle = (i / 20) * 2 * math.pi
+            noise = math.sin(angle * 5 + t * 3) * 1.5
+            rx = body_w / 2 + noise
+            ry = body_h / 2 + noise * 0.3
+            bx = cx + math.cos(angle + lean) * rx
+            by = cy + math.sin(angle) * ry + wave * 0.3
+            body_points.append((int(bx), int(by)))
+
+        pygame.draw.polygon(surface, body_color, body_points)
+
+        # ═══════════════════════════════════════════════════════════════
+        # 2. 황금 눈 (중앙)
+        # ═══════════════════════════════════════════════════════════════
+        eye_x = cx + int(player_vx * 0.03)
+        eye_y = cy
+
+        # 눈 글로우 (작게)
+        for i in range(2):
+            gr = 6 - i * 2 + int(pulse * 2)
+            ga = 50 - i * 20
+            glow_surf = pygame.Surface((gr * 2, gr * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (200, 160, 60, ga), (gr, gr), gr)
+            surface.blit(glow_surf, (int(eye_x - gr), int(eye_y - gr)))
+
+        # 눈 흰자위
+        eye_w = 10 + int(pulse)
+        eye_h = 6
+        pygame.draw.ellipse(surface, (230, 225, 210),
+                           (eye_x - eye_w // 2, eye_y - eye_h // 2, eye_w, eye_h))
+
+        # 홍채
+        iris_w = 6
+        iris_h = 4
+        pygame.draw.ellipse(surface, (180, 130, 50),
+                           (eye_x - iris_w // 2, eye_y - iris_h // 2, iris_w, iris_h))
+        pygame.draw.ellipse(surface, (220, 175, 70),
+                           (eye_x - iris_w // 2 + 1, eye_y - iris_h // 2 + 1, iris_w - 2, iris_h - 2))
+
+        # 동공
+        pupil_ox = int(player_vx * 0.05)
+        pygame.draw.ellipse(surface, (5, 5, 5),
+                           (eye_x - 1 + pupil_ox, eye_y - 2, 2, 4))
+
+        # 하이라이트
+        pygame.draw.circle(surface, (255, 255, 250), (eye_x - 2 + pupil_ox, eye_y - 1), 1)
+
+        # ═══════════════════════════════════════════════════════════════
+        # 3. 외곽 흐릿한 테두리
+        # ═══════════════════════════════════════════════════════════════
+        pygame.draw.polygon(surface, edge_color, body_points, 2)
+
+        # ═══════════════════════════════════════════════════════════════
+        # 4. 작은 연기 파티클 (위쪽으로만)
+        # ═══════════════════════════════════════════════════════════════
+        if not hasattr(self, '_smoke_particles'):
+            self._smoke_particles = []
+
+        # 연기 생성 (작게, 적게)
+        if len(self._smoke_particles) < 5 and random.random() < 0.2:
+            self._smoke_particles.append({
+                'x': cx + random.randint(-20, 20),
+                'y': cy - ph // 2 + 5,
+                'vx': random.uniform(-0.2, 0.2) + player_vx * 0.01,
+                'vy': random.uniform(-0.5, -0.2),
+                'size': random.uniform(2, 4),
+                'life': random.randint(15, 30),
+                'alpha': random.randint(60, 100)
+            })
+
+        # 연기 업데이트 & 그리기
+        for s in self._smoke_particles[:]:
+            s['x'] += s['vx']
+            s['y'] += s['vy']
+            s['life'] -= 1
+            s['alpha'] = max(0, s['alpha'] - 4)
+            s['size'] = max(0.5, s['size'] - 0.08)
+
+            if s['life'] <= 0:
+                self._smoke_particles.remove(s)
+                continue
+
+            sx = int(s['x'])
+            sy = int(s['y'])
+            sz = int(s['size'])
+            if sz > 0 and 0 <= sx < pw and 0 <= sy < ph:
+                pygame.draw.circle(surface, (20, 15, 28, int(s['alpha'])), (sx, sy), sz)
+
+        # 화면에 그리기 (패들 위치 그대로)
+        screen.blit(surface, paddle_rect.topleft)
+        return surface
+
+    def _load_animation_frames(self):
+        """애니메이션 프레임 로드 (라그나로크 해머 프레임 기반)"""
+        import pygame
+
+        self.animation_frames.clear()
+
+        # 라그나로크 해머 프레임을 기반으로 중앙 이미지를 벨트+오딘의 눈으로 교체
+        for i in range(8):
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            try:
+                if os.path.exists(frame_path):
+                    original = pygame.image.load(frame_path).convert_alpha()
+                    # 중앙을 지우고 벨트+눈 그리기
+                    frame = self._create_belt_eye_frame(original, i)
+                    self.animation_frames.append(frame)
+            except Exception:
+                pass
+
+        # 프레임 로드 실패시 기본 프레임 생성
+        if not self.animation_frames:
+            for i in range(8):
+                self.animation_frames.append(self._create_default_belt_eye_frame(i))
+
+    def _create_belt_eye_frame(self, base_frame, frame_idx):
+        """기존 프레임에서 중앙을 지우고 벨트+오딘의 눈 그리기"""
+        import pygame
+        import math
+
+        frame = base_frame.copy()
+        width, height = frame.get_size()
+        cx, cy = width // 2, height // 2
+
+        # 중앙 영역 전체 지우기 (테두리만 남김)
+        clear_radius = min(width, height) // 2 - 3
+        for y in range(height):
+            for x in range(width):
+                dist = math.sqrt((x - cx)**2 + (y - cy)**2)
+                if dist < clear_radius:
+                    frame.set_at((x, y), (0, 0, 0, 0))
+
+        # 벨트+눈 그리기
+        self._draw_belt_eye_on_surface(frame, cx, cy, frame_idx)
+
+        return frame
+
+    def _create_default_belt_eye_frame(self, frame_idx):
+        """기본 벨트+눈 프레임 생성"""
+        import pygame
+
+        frame = pygame.Surface((32, 32), pygame.SRCALPHA)
+        cx, cy = 16, 16
+
+        # 배경 (붉은색/보라색 계열 그라데이션)
+        border_colors = [(100, 0, 50), (150, 0, 75), (180, 0, 90), (150, 0, 75),
+                         (100, 0, 50), (60, 0, 30), (40, 0, 20), (60, 0, 30)]
+        pygame.draw.circle(frame, border_colors[frame_idx], (cx, cy), 15, 2)
+
+        # 벨트+눈 그리기
+        self._draw_belt_eye_on_surface(frame, cx, cy, frame_idx)
+
+        return frame
+
+    def _draw_belt_eye_on_surface(self, surface, cx, cy, frame_idx):
+        """벨트와 오딘의 눈을 surface에 그리기"""
+        import pygame
+        import math
+
+        # 벨트 색상 (어두운 가죽 색상, 프레임마다 약간 변화)
+        belt_base = [(60, 40, 30), (65, 42, 32), (55, 38, 28), (70, 45, 35),
+                     (50, 35, 25), (75, 48, 38), (45, 32, 22), (80, 50, 40)]
+        belt_dark = [(40, 25, 18), (45, 28, 20), (35, 22, 15), (50, 30, 22),
+                     (30, 20, 12), (55, 32, 25), (25, 18, 10), (60, 35, 28)]
+        belt_highlight = [(100, 70, 50), (105, 72, 52), (95, 68, 48), (110, 75, 55),
+                          (90, 65, 45), (115, 78, 58), (85, 62, 42), (120, 80, 60)]
+
+        belt_color = belt_base[frame_idx % 8]
+        belt_dark_color = belt_dark[frame_idx % 8]
+        belt_light = belt_highlight[frame_idx % 8]
+
+        # 눈 색상 (붉은색/주황색 - 저주받은 느낌)
+        eye_colors = [(200, 50, 0), (220, 60, 10), (240, 70, 20), (230, 55, 5),
+                      (210, 45, 0), (250, 75, 25), (190, 40, 0), (255, 80, 30)]
+        eye_glow_colors = [(255, 100, 50), (255, 110, 60), (255, 120, 70), (255, 105, 55),
+                           (255, 95, 45), (255, 125, 75), (255, 90, 40), (255, 130, 80)]
+        pupil_colors = [(0, 0, 0), (10, 0, 5), (5, 0, 0), (15, 0, 8),
+                        (0, 0, 0), (20, 0, 10), (0, 0, 0), (25, 5, 12)]
+
+        eye_color = eye_colors[frame_idx % 8]
+        eye_glow = eye_glow_colors[frame_idx % 8]
+        pupil_color = pupil_colors[frame_idx % 8]
+
+        # 벨트 본체 그리기 (수평 직사각형)
+        belt_width = 18
+        belt_height = 6
+        belt_rect = pygame.Rect(cx - belt_width // 2, cy - belt_height // 2 + 2, belt_width, belt_height)
+        pygame.draw.rect(surface, belt_dark_color, belt_rect)
+        pygame.draw.rect(surface, belt_color, belt_rect.inflate(-2, -2))
+
+        # 벨트 하이라이트
+        pygame.draw.line(surface, belt_light,
+                        (belt_rect.left + 2, belt_rect.top + 1),
+                        (belt_rect.right - 2, belt_rect.top + 1), 1)
+
+        # 벨트 버클 위치에 오딘의 눈 그리기 (중앙)
+        eye_cx = cx
+        eye_cy = cy - 2
+
+        # 눈 외곽 글로우
+        glow_pulse = (math.sin(frame_idx * 0.8) + 1) / 2
+        glow_radius = 6 + int(glow_pulse * 2)
+
+        # 글로우 효과
+        for i in range(3):
+            alpha = 80 - i * 20
+            glow_surface = pygame.Surface((glow_radius * 2 + i * 4, glow_radius * 2 + i * 4), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surface, (*eye_glow[:3], alpha),
+                              (0, 0, glow_radius * 2 + i * 4, glow_radius + i * 2 + 2))
+            surface.blit(glow_surface, (eye_cx - glow_radius - i * 2, eye_cy - glow_radius // 2 - i))
+
+        # 눈 본체 (타원형)
+        eye_width = 10
+        eye_height = 6
+        pygame.draw.ellipse(surface, eye_glow, (eye_cx - eye_width // 2, eye_cy - eye_height // 2, eye_width, eye_height))
+        pygame.draw.ellipse(surface, eye_color, (eye_cx - eye_width // 2 + 1, eye_cy - eye_height // 2 + 1, eye_width - 2, eye_height - 2))
+
+        # 동공 (세로로 긴 고양이 눈처럼)
+        pupil_width = 2
+        pupil_height = 4
+        pygame.draw.ellipse(surface, pupil_color,
+                          (eye_cx - pupil_width // 2, eye_cy - pupil_height // 2, pupil_width, pupil_height))
+
+        # 눈 하이라이트 (작은 흰색 점)
+        pygame.draw.circle(surface, (255, 255, 255), (eye_cx - 2, eye_cy - 1), 1)
+
+        # 벨트 양쪽 끝 장식 (작은 금속 조각)
+        metal_color = (180, 160, 100)
+        metal_dark = (120, 100, 60)
+
+        # 왼쪽 금속
+        pygame.draw.rect(surface, metal_dark, (cx - belt_width // 2 - 2, cy, 3, 4))
+        pygame.draw.rect(surface, metal_color, (cx - belt_width // 2 - 1, cy + 1, 2, 2))
+
+        # 오른쪽 금속
+        pygame.draw.rect(surface, metal_dark, (cx + belt_width // 2, cy, 3, 4))
+        pygame.draw.rect(surface, metal_color, (cx + belt_width // 2 + 1, cy + 1, 2, 2))
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """애니메이션 아이콘 그리기"""
+        import pygame
+        import math
+
+        # 공통 배경 프레임 연출 (붉은색/보라색 테두리)
+        # 오딘의 눈은 붉은색 그라데이션 + 파란색 코너 애니메이션
+        frame_offset = _draw_common_legendary_frame(
+            screen, x, y, size, self.animation_time,
+            border_color=(150, 50, 100),  # 붉은 보라색 테두리
+            corner_color=(100, 150, 255)   # 파란색 코너
+        )
+
+        # 애니메이션 프레임 그리기
+        if self.animation_frames and len(self.animation_frames) > 0:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
+            icon_y = y + frame_offset + int(self.animation_offset)
+            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled_icon = pygame.transform.scale(current_icon, (size, size))
+            screen.blit(scaled_icon, (x, icon_y))
+
+            # 저주받은 빛 효과 (눈 위에서 깜빡임)
+            if self.current_frame in [0, 2, 4, 6]:
+                sparkle_color = (255, 100, 50)
+                sparkle_y = y + frame_offset + size // 3 + int(math.sin(self.animation_time * 4) * 2)
+                pygame.draw.circle(screen, sparkle_color, (x + size // 2, sparkle_y), 2)
+                pygame.draw.circle(screen, (255, 200, 150), (x + size // 2, sparkle_y), 1)
+        else:
+            # Fallback: 프레임이 없으면 기본 아이콘 그리기
+            icon_y = y + frame_offset + int(self.animation_offset)
+
+            # 간단한 벨트+눈 모양
+            belt_color = (60, 40, 30)
+            eye_color = (200, 50, 0)
+
+            cx, cy = x + size // 2, icon_y + size // 2
+
+            # 벨트
+            belt_rect = pygame.Rect(cx - size // 4, cy, size // 2, size // 8)
+            pygame.draw.rect(screen, belt_color, belt_rect)
+
+            # 눈
+            pygame.draw.ellipse(screen, eye_color, (cx - size // 8, cy - size // 10, size // 4, size // 6))
+            pygame.draw.ellipse(screen, (0, 0, 0), (cx - size // 20, cy - size // 16, size // 10, size // 8))
+
+        # 파티클 효과
+        if self.particle_timer > 1.0:
+            self._spawn_particle(screen, x + size // 2, y + frame_offset + size // 2)
+            self.particle_timer = 0
+
 
 # 전설 아이템 관리자
 class LegendaryItemManager:
@@ -5619,6 +9375,8 @@ class LegendaryItemManager:
         self.items["poseidon_trident"] = poseidon_item
         self.items["angel_blessing"] = AngelBlessing()
         self.items["sacred_laurel"] = SacredLaurel()
+        self.items["transcendent_crown"] = TranscendentCrown()
+        self.items["odins_eye"] = OdinsEye()
 
         placeholder_defs = [
             ("empty_legendary", "빈전설"),
@@ -5655,6 +9413,14 @@ class LegendaryItemManager:
         if "sacred_laurel" not in self.unlocked_items:
             self.unlocked_items.append("sacred_laurel")
 
+        self.items["transcendent_crown"].unlocked = True
+        if "transcendent_crown" not in self.unlocked_items:
+            self.unlocked_items.append("transcendent_crown")
+
+        self.items["odins_eye"].unlocked = True
+        if "odins_eye" not in self.unlocked_items:
+            self.unlocked_items.append("odins_eye")
+
         for name, _ in placeholder_defs:
             if name not in self.unlocked_items:
                 self.unlocked_items.append(name)
@@ -5682,6 +9448,12 @@ class LegendaryItemManager:
         # 신성 월계수 초기화
         if "sacred_laurel" not in self.items:
             self.items["sacred_laurel"] = SacredLaurel()
+        # 초월자의 관 초기화
+        if "transcendent_crown" not in self.items:
+            self.items["transcendent_crown"] = TranscendentCrown()
+        # 오딘의 눈 초기화
+        if "odins_eye" not in self.items:
+            self.items["odins_eye"] = OdinsEye()
         # empty/empty1/empty2 보정 생성하지 않음
         
     def check_unlocks(self, game_stats: Dict):
@@ -5690,7 +9462,8 @@ class LegendaryItemManager:
             if not item.unlocked and item.check_unlock_condition(game_stats):
                 item.unlocked = True
                 self.unlocked_items.append(item_name)
-                print(f"   [{item.korean_name}] !")
+                if LEGENDARY_DEBUG_ENABLED:
+                    print(f"   [{item.korean_name}] !")
                 
     def get_unlocked_items(self) -> List[LegendaryItem]:
         """해금된 아이템 목록 반환"""
@@ -5709,7 +9482,8 @@ class LegendaryItemManager:
         if name in self.items:
             # 아이템이 해금되지 않았으면 자동으로 해금
             if name not in self.unlocked_items:
-                print(f"   ⚠️ {name}이 unlocked_items에 없음! 자동 추가")
+                if LEGENDARY_DEBUG_ENABLED:
+                    print(f"   ⚠️ {name}이 unlocked_items에 없음! 자동 추가")
                 self.unlocked_items.append(name)
                 self.items[name].unlocked = True
 
@@ -5723,10 +9497,11 @@ class LegendaryItemManager:
                 return
 
             # 디버그 출력은 실제 활성화 시점에만
-            print(f"🎮 activate_item 호출: name={name}")
-            print(f"   - items에 있음: {name in self.items}")
-            print(f"   - unlocked_items에 있음: {name in self.unlocked_items}")
-            print(f"   - unlocked_items: {self.unlocked_items}")
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"🎮 activate_item 호출: name={name}")
+                print(f"   - items에 있음: {name in self.items}")
+                print(f"   - unlocked_items에 있음: {name in self.unlocked_items}")
+                print(f"   - unlocked_items: {self.unlocked_items}")
 
             item = self.items[name]
 
@@ -5735,14 +9510,14 @@ class LegendaryItemManager:
                 try:
                     from effects.legendary_integration import is_legendary_effect_active
                     if is_legendary_effect_active():
-                        print(f"[AngelBlessing] 전설 획득 애니메이션 진행 중 - 대기열에 추가")
+                        if AngelBlessing.DEBUG_ENABLED: print(f"[AngelBlessing] 전설 획득 애니메이션 진행 중 - 대기열에 추가")
                         _pending_angel_blessing_activation = dict(game_state) if game_state else {}
                         # active_items에는 추가하되 주사위 굴림은 나중에
                         if name not in self.active_items:
                             self.active_items.append(name)
                         return
                 except Exception as e:
-                    print(f"[AngelBlessing] 애니메이션 상태 확인 실패: {e}")
+                    if AngelBlessing.DEBUG_ENABLED: print(f"[AngelBlessing] 애니메이션 상태 확인 실패: {e}")
 
             item.activate(game_state)
             # 천사의 가호는 활성화 시점에 현재 스테이지 확인
@@ -5762,9 +9537,11 @@ class LegendaryItemManager:
                     pass
             if name not in self.active_items:
                 self.active_items.append(name)
-                print(f"   ✅ {name}을 active_items에 추가: {self.active_items}")
+                if LEGENDARY_DEBUG_ENABLED:
+                    print(f"   ✅ {name}을 active_items에 추가: {self.active_items}")
             else:
-                print(f"   ℹ️ {name}은 이미 active_items에 있음")
+                if LEGENDARY_DEBUG_ENABLED:
+                    print(f"   ℹ️ {name}은 이미 active_items에 있음")
                 
     def deactivate_item(self, name: str):
         """아이템 비활성화"""
@@ -5837,7 +9614,7 @@ class LegendaryItemManager:
                 if hasattr(item, 'reset_round_effects'):
                     item.reset_round_effects()
 
-        print(f"🎮 모든 전설 아이템 라운드 효과 초기화 완료")
+        pass  # print(f"🎮 모든 전설 아이템 라운드 효과 초기화 완료")  # 디버그 비활성화
 
     def reset_for_new_game(self):
         """새 게임 시작 시 모든 아이템 발동 이력 초기화 (게임 오버/메인 메뉴 복귀 시 호출)"""
@@ -5845,7 +9622,7 @@ class LegendaryItemManager:
             # reset_for_new_game 메서드가 있는 아이템만 호출
             if hasattr(item, 'reset_for_new_game'):
                 item.reset_for_new_game()
-        print(f"🎮 모든 전설 아이템 새 게임 초기화 완료")
+        pass  # print(f"🎮 모든 전설 아이템 새 게임 초기화 완료")  # 디버그 비활성화
 
 
 # 싱글톤 인스턴스
@@ -5878,7 +9655,7 @@ def process_pending_angel_blessing():
         legendary_manager = get_legendary_manager()
         angel_blessing = legendary_manager.get_item("angel_blessing")
         if angel_blessing and "angel_blessing" in legendary_manager.active_items:
-            print(f"[AngelBlessing] 전설 획득 애니메이션 완료 - 지연된 주사위 굴림 처리")
+            if AngelBlessing.DEBUG_ENABLED: print(f"[AngelBlessing] 전설 획득 애니메이션 완료 - 지연된 주사위 굴림 처리")
             # 현재 스테이지 확인
             current_stage_hint = None
             try:
@@ -5894,10 +9671,10 @@ def process_pending_angel_blessing():
                 angel_blessing._triggered_stages.discard(current_stage_hint)
                 angel_blessing.applied_stage = None
                 angel_blessing._roll_blessing(current_stage_hint)
-                print(f"[AngelBlessing] 전설 획득 후 주사위 애니메이션 시작 (스테이지 {current_stage_hint})")
+                if AngelBlessing.DEBUG_ENABLED: print(f"[AngelBlessing] 전설 획득 후 주사위 애니메이션 시작 (스테이지 {current_stage_hint})")
             return True
     except Exception as e:
-        print(f"[AngelBlessing] 지연 활성화 처리 실패: {e}")
+        if AngelBlessing.DEBUG_ENABLED: print(f"[AngelBlessing] 지연 활성화 처리 실패: {e}")
 
     return False
 
