@@ -6601,7 +6601,7 @@ class OdinsEye(LegendaryItem):
         return False
 
     def _start_dark_burst(self, cx: int, cy: int):
-        """어둠 폭발 이펙트 시작 - 폭발 후 변신된 캐릭터 공개"""
+        """어둠 폭발 이펙트 시작 - 폭발 후 변신된 캐릭터 공개 + 강력한 파동"""
         import random
         import math
 
@@ -6609,46 +6609,98 @@ class OdinsEye(LegendaryItem):
         self.dark_burst_timer = 0
         self.dark_burst_particles = []
         self.dark_burst_shockwaves = []
-        self.screen_flash_alpha = 200  # 초기 플래시 (더 강하게)
+        self.screen_flash_alpha = 255  # 초기 플래시 (매우 강하게)
 
         # 🌟 폭발과 동시에 변신된 캐릭터 공개!
         self.silhouette_revealed = True
         self.human_silhouette_alpha = 255
         self.human_silhouette_scale = 1.0
-        self.human_eye_glow = 1.5  # 눈 강하게 발광
+        self.human_eye_glow = 2.0  # 눈 매우 강하게 발광
 
         # 중심 위치 저장
         self._burst_center_x = cx
         self._burst_center_y = cy
 
-        # 폭발 파티클 대량 생성 (사방으로 퍼짐)
-        for _ in range(60):
+        # 💥 폭발 파티클 대량 생성 (더 많이, 더 빠르게)
+        for _ in range(100):
             angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(4, 15)
+            speed = random.uniform(6, 25)
             self.dark_burst_particles.append({
                 'x': cx,
                 'y': cy,
                 'vx': math.cos(angle) * speed,
                 'vy': math.sin(angle) * speed,
-                'life': random.randint(30, 50),
-                'max_life': 50,
-                'size': random.uniform(4, 12),
-                'type': random.choice(['dark', 'purple', 'gold', 'smoke']),
+                'life': random.randint(40, 70),
+                'max_life': 70,
+                'size': random.uniform(5, 18),
+                'type': random.choice(['dark', 'purple', 'gold', 'smoke', 'energy']),
                 'rotation': random.uniform(0, math.pi * 2),
-                'rot_speed': random.uniform(-0.2, 0.2)
+                'rot_speed': random.uniform(-0.3, 0.3)
             })
 
-        # 충격파 생성 (다중)
-        for i in range(3):
-            self.dark_burst_shockwaves.append({
-                'radius': 0,
-                'max_radius': 150 + i * 30,
-                'speed': 8 - i * 1.5,
-                'alpha': 200 - i * 40,
-                'thickness': 4 - i,
-                'delay': i * 5,
-                'color': (80 - i * 20, 30 - i * 10, 120 - i * 30)
-            })
+        # 🌊 강력한 메인 파동 (변신 공개와 동시에!)
+        # 첫 번째: 메인 파동 - 매우 크고 빠름
+        self.dark_burst_shockwaves.append({
+            'radius': 0,
+            'max_radius': 400,  # 화면 전체를 덮는 크기
+            'speed': 18,  # 매우 빠름
+            'alpha': 255,
+            'thickness': 8,
+            'delay': 0,
+            'color': (120, 50, 180),  # 진한 보라
+            'is_main': True  # 메인 파동 표시
+        })
+
+        # 두 번째: 에너지 파동
+        self.dark_burst_shockwaves.append({
+            'radius': 0,
+            'max_radius': 350,
+            'speed': 14,
+            'alpha': 220,
+            'thickness': 6,
+            'delay': 3,
+            'color': (180, 100, 220),  # 밝은 보라
+            'is_main': False
+        })
+
+        # 세 번째: 잔향 파동
+        self.dark_burst_shockwaves.append({
+            'radius': 0,
+            'max_radius': 300,
+            'speed': 10,
+            'alpha': 180,
+            'thickness': 4,
+            'delay': 8,
+            'color': (100, 60, 150),
+            'is_main': False
+        })
+
+        # 네 번째: 어둠 파동
+        self.dark_burst_shockwaves.append({
+            'radius': 0,
+            'max_radius': 250,
+            'speed': 7,
+            'alpha': 150,
+            'thickness': 3,
+            'delay': 12,
+            'color': (60, 30, 100),
+            'is_main': False
+        })
+
+        # 다섯 번째: 마무리 잔향
+        self.dark_burst_shockwaves.append({
+            'radius': 0,
+            'max_radius': 200,
+            'speed': 5,
+            'alpha': 100,
+            'thickness': 2,
+            'delay': 18,
+            'color': (40, 20, 80),
+            'is_main': False
+        })
+
+        # 화면 흔들림 강하게
+        self.screen_shake_intensity = 15
 
     def _update_dark_burst(self) -> bool:
         """어둠 폭발 이펙트 업데이트. 완료 시 True 반환."""
@@ -6840,8 +6892,10 @@ class OdinsEye(LegendaryItem):
                 continue
 
             if wave['radius'] > 0 and wave['alpha'] > 0:
-                # 충격파 서피스
-                wave_size = int(wave['radius'] * 2) + 20
+                is_main = wave.get('is_main', False)
+
+                # 충격파 서피스 (메인 파동은 더 크게)
+                wave_size = int(wave['radius'] * 2) + (60 if is_main else 20)
                 wave_surf = pygame.Surface((wave_size, wave_size), pygame.SRCALPHA)
                 wave_cx, wave_cy = wave_size // 2, wave_size // 2
 
@@ -6849,13 +6903,48 @@ class OdinsEye(LegendaryItem):
                 r, g, b = wave['color']
                 thickness = max(1, wave['thickness'])
 
-                # 외곽 글로우
-                for i in range(3):
-                    glow_alpha = max(0, wave['alpha'] // (i + 2))
-                    glow_r = int(wave['radius']) + i * 2
-                    if glow_r > 0:
-                        pygame.draw.circle(wave_surf, (r, g, b, glow_alpha),
-                                         (wave_cx, wave_cy), glow_r, thickness + i)
+                if is_main:
+                    # 💥 메인 파동: 강력한 다중 링 + 글로우 효과
+                    # 외곽 글로우 (넓은 범위)
+                    for i in range(6):
+                        glow_alpha = max(0, wave['alpha'] // (i + 1) - i * 15)
+                        glow_r = int(wave['radius']) + i * 4
+                        if glow_r > 0 and glow_alpha > 0:
+                            pygame.draw.circle(wave_surf, (r, g, b, glow_alpha),
+                                             (wave_cx, wave_cy), glow_r, max(1, thickness + 4 - i))
+
+                    # 내부 밝은 링 (에너지 느낌)
+                    inner_r = int(wave['radius']) - 3
+                    if inner_r > 0:
+                        inner_alpha = min(255, wave['alpha'] + 30)
+                        pygame.draw.circle(wave_surf, (min(255, r + 80), min(255, g + 60), min(255, b + 40), inner_alpha),
+                                         (wave_cx, wave_cy), inner_r, max(2, thickness - 1))
+
+                    # 가장 안쪽 밝은 코어
+                    core_r = int(wave['radius']) - 6
+                    if core_r > 0:
+                        core_alpha = min(200, wave['alpha'])
+                        pygame.draw.circle(wave_surf, (255, 200, 255, core_alpha // 2),
+                                         (wave_cx, wave_cy), core_r, 2)
+
+                    # 파동 가장자리 빛나는 점들
+                    if wave['radius'] > 20:
+                        num_dots = 16
+                        for i in range(num_dots):
+                            dot_angle = (i / num_dots) * math.pi * 2
+                            dot_x = wave_cx + math.cos(dot_angle) * wave['radius']
+                            dot_y = wave_cy + math.sin(dot_angle) * wave['radius']
+                            dot_alpha = min(255, wave['alpha'] + 20)
+                            pygame.draw.circle(wave_surf, (255, 220, 255, dot_alpha),
+                                             (int(dot_x), int(dot_y)), 3)
+                else:
+                    # 일반 파동: 기본 글로우
+                    for i in range(3):
+                        glow_alpha = max(0, wave['alpha'] // (i + 2))
+                        glow_r = int(wave['radius']) + i * 2
+                        if glow_r > 0:
+                            pygame.draw.circle(wave_surf, (r, g, b, glow_alpha),
+                                             (wave_cx, wave_cy), glow_r, thickness + i)
 
                 screen.blit(wave_surf, (int(cx - wave_cx), int(cy - wave_cy)))
 
@@ -6874,6 +6963,9 @@ class OdinsEye(LegendaryItem):
                 color = (220, 180, 80, int(220 * life_ratio))
             elif p['type'] == 'smoke':
                 color = (40, 30, 50, int(150 * life_ratio))
+            elif p['type'] == 'energy':
+                # 에너지 파티클 (밝은 보라/흰색)
+                color = (200, 150, 255, int(255 * life_ratio))
             else:  # dark
                 color = (30, 15, 45, int(200 * life_ratio))
 
@@ -6899,6 +6991,12 @@ class OdinsEye(LegendaryItem):
                 if p['type'] == 'gold':
                     pygame.draw.circle(p_surf, (255, 230, 150, int(180 * life_ratio)),
                                      (p_cx, p_cy), max(1, size // 2))
+                elif p['type'] == 'energy':
+                    # 에너지 파티클: 밝은 코어 + 외곽 글로우
+                    pygame.draw.circle(p_surf, (255, 255, 255, int(220 * life_ratio)),
+                                     (p_cx, p_cy), max(1, size // 2))
+                    pygame.draw.circle(p_surf, (180, 120, 220, int(100 * life_ratio)),
+                                     (p_cx, p_cy), size + 2)
 
             screen.blit(p_surf, (int(p['x'] - p_cx), int(p['y'] - p_cy)))
 
