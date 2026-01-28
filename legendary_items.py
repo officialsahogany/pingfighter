@@ -6380,6 +6380,21 @@ class OdinsEye(LegendaryItem):
         self.revival_anim_particles = []
         self.revival_burst_particles = []
 
+        # 🔊 변신 사운드 재생
+        try:
+            import pygame
+            import os
+            sound_path = resource_path(os.path.join("sounds", "odinchange.wav"))
+            if os.path.exists(sound_path):
+                odin_change_sound = pygame.mixer.Sound(sound_path)
+                odin_change_sound.set_volume(0.7)
+                odin_change_sound.play()
+                if LEGENDARY_DEBUG_ENABLED:
+                    print("🔊 오딘의 눈: 변신 사운드 재생!")
+        except Exception as e:
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"🔊 오딘의 눈: 사운드 재생 실패 - {e}")
+
         # 인간 실루엣 초기화 (폭발 후에만 보임)
         self.human_silhouette_alpha = 0
         self.human_silhouette_scale = 0
