@@ -6638,64 +6638,64 @@ class OdinsEye(LegendaryItem):
                 'rot_speed': random.uniform(-0.3, 0.3)
             })
 
-        # 🌊 강력한 메인 파동 (변신 공개와 동시에!)
-        # 첫 번째: 메인 파동 - 매우 크고 빠름
+        # 🌊 강력한 메인 파동 (변신 공개와 동시에 즉시 보임!)
+        # 💥 즉발 파동 - 처음부터 크게 시작해서 즉시 보임
         self.dark_burst_shockwaves.append({
-            'radius': 0,
-            'max_radius': 400,  # 화면 전체를 덮는 크기
-            'speed': 18,  # 매우 빠름
+            'radius': 80,  # 💥 처음부터 80px로 시작 (즉시 보임!)
+            'max_radius': 450,  # 화면 전체를 덮는 크기
+            'speed': 25,  # 매우 빠름
             'alpha': 255,
-            'thickness': 8,
+            'thickness': 12,
             'delay': 0,
-            'color': (120, 50, 180),  # 진한 보라
+            'color': (150, 80, 220),  # 밝은 보라
             'is_main': True  # 메인 파동 표시
         })
 
-        # 두 번째: 에너지 파동
+        # 두 번째: 동시 발생 내부 파동
         self.dark_burst_shockwaves.append({
-            'radius': 0,
-            'max_radius': 350,
-            'speed': 14,
-            'alpha': 220,
+            'radius': 40,  # 즉시 보임
+            'max_radius': 380,
+            'speed': 20,
+            'alpha': 230,
+            'thickness': 8,
+            'delay': 0,  # 동시 발생
+            'color': (180, 100, 255),  # 밝은 보라
+            'is_main': False
+        })
+
+        # 세 번째: 약간 지연된 에너지 파동
+        self.dark_burst_shockwaves.append({
+            'radius': 30,
+            'max_radius': 320,
+            'speed': 15,
+            'alpha': 200,
             'thickness': 6,
-            'delay': 3,
-            'color': (180, 100, 220),  # 밝은 보라
+            'delay': 2,
+            'color': (120, 60, 180),
             'is_main': False
         })
 
-        # 세 번째: 잔향 파동
+        # 네 번째: 잔향 파동
         self.dark_burst_shockwaves.append({
             'radius': 0,
-            'max_radius': 300,
-            'speed': 10,
-            'alpha': 180,
+            'max_radius': 280,
+            'speed': 12,
+            'alpha': 160,
             'thickness': 4,
-            'delay': 8,
-            'color': (100, 60, 150),
+            'delay': 5,
+            'color': (100, 50, 150),
             'is_main': False
         })
 
-        # 네 번째: 어둠 파동
+        # 다섯 번째: 어둠 파동
         self.dark_burst_shockwaves.append({
             'radius': 0,
-            'max_radius': 250,
-            'speed': 7,
-            'alpha': 150,
+            'max_radius': 240,
+            'speed': 8,
+            'alpha': 120,
             'thickness': 3,
-            'delay': 12,
+            'delay': 10,
             'color': (60, 30, 100),
-            'is_main': False
-        })
-
-        # 다섯 번째: 마무리 잔향
-        self.dark_burst_shockwaves.append({
-            'radius': 0,
-            'max_radius': 200,
-            'speed': 5,
-            'alpha': 100,
-            'thickness': 2,
-            'delay': 18,
-            'color': (40, 20, 80),
             'is_main': False
         })
 
