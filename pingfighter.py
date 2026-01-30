@@ -15550,7 +15550,9 @@ def show_all_runtime_skills_menu() -> str | None:
                         selected_skill = all_skills[selected_index]
                         running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # 좌클릭
+                # 좌클릭: 레벨 +1, 우클릭: 레벨 -1
+                if event.button in (1, 3):  # 좌클릭 또는 우클릭
+                    level_delta = 1 if event.button == 1 else -1
                     # 클릭된 스킬 찾기
                     for i, skill in enumerate(all_skills):
                         row = i // cols
@@ -15559,8 +15561,34 @@ def show_all_runtime_skills_menu() -> str | None:
                         box_y = grid_start_y + row * (box_size + box_gap) - scroll_offset
                         box_rect = pygame.Rect(box_x, box_y, box_size, box_size)
                         if box_rect.collidepoint(event.pos) and grid_start_y <= box_y <= grid_start_y + rows_per_page * (box_size + box_gap):
-                            selected_skill = skill
-                            running = False
+                            # 인스턴트 스킬은 레벨 조절 불가
+                            if skill.get("is_instant"):
+                                break
+                            skill_id = skill["id"]
+                            max_lvl = skill.get("max_level", 5)
+
+                            # 아카데미 퍽 처리
+                            if skill.get("is_academy"):
+                                try:
+                                    import academy
+                                    if hasattr(academy, 'skill_system') and academy.skill_system:
+                                        current_lvl = academy.skill_system.get_skill_level(skill_id)
+                                        new_lvl = current_lvl + level_delta
+                                        if 0 <= new_lvl <= max_lvl:
+                                            academy.skill_system.skill_levels[skill_id] = new_lvl
+                                            skill["current_level"] = new_lvl
+                                            print(f"[SkillMenu] 아카데미 퍽 {skill_id} 클릭: {current_lvl} → {new_lvl}")
+                                except Exception as e:
+                                    print(f"[SkillMenu] 아카데미 퍽 클릭 처리 실패: {e}")
+                            else:
+                                # 런타임 스킬 처리
+                                current_lvl = runtime_skill_levels.get(skill_id, 0)
+                                new_lvl = current_lvl + level_delta
+                                if new_lvl >= 0 and (max_lvl == -1 or new_lvl <= max_lvl):
+                                    runtime_skill_levels[skill_id] = new_lvl
+                                    skill["current_level"] = new_lvl
+                                    recalculate_skill_effects(skill_id)
+                                    print(f"[SkillMenu] {skill_id} 클릭: {current_lvl} → {new_lvl}")
                             break
                 # button 4/5 (구식 휠 이벤트)는 MOUSEWHEEL과 중복되므로 제거
                 # MOUSEWHEEL 이벤트에서만 휠 처리
