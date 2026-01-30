@@ -99,6 +99,7 @@ class Shop:
             ShopItem("순간이동 주문서", "체크포인트로 이동", 200, "consumable", "📜"),
             ShopItem("투명 망토", "3초간 무적", 600, "equipment", "👻"),
             ShopItem("황금 열쇠", "숨겨진 방 개방", 1000, "special", "🗝️"),
+            ShopItem("골드디거", "골드 획득량 +30~70% (팔 부위)", 700, "equipment", "⛏️"),
         ]
 
     def set_player_gold(self, gold):
@@ -181,8 +182,8 @@ class Shop:
         # 헤더
         self._draw_header(panel_x, panel_y, panel_width)
 
-        # 골드 표시
-        self._draw_gold_display(panel_x, panel_y, panel_width)
+        # 골드 표시는 왼쪽 필러 HUD에서 통합 표시 (중복 방지)
+        # self._draw_gold_display(panel_x, panel_y, panel_width)
 
         # 아이템 목록
         self._draw_item_list(panel_x, panel_y + 120, panel_width, panel_height - 180)

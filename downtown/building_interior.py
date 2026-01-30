@@ -2811,6 +2811,16 @@ class BuildingInterior:
                 "active": False,
                 "completed": False,
             },
+            {
+                "id": "collect_tablets",
+                "name": "석판 수집가",
+                "description": "다음 스테이지에서 바닥에 나타나는\n석판 5개를 수집하세요.\n(대쉬로 닿으면 석판이 파괴됩니다!)",
+                "condition_desc": "석판 5개 수집",
+                "reward_gold": 800,
+                "reward_items": [],
+                "active": False,
+                "completed": False,
+            },
         ]
         self.quest_message = None  # 퀘스트 메시지
         self.quest_message_timer = 0  # 메시지 타이머
@@ -3004,6 +3014,7 @@ class BuildingInterior:
             {"name": "angel_blessing", "base_price": 3960, "korean": "천사의 가호", "type": "legendary"},
             {"name": "sacred_laurel", "base_price": 3360, "korean": "신성 월계수", "type": "legendary"},
             {"name": "transcendent_crown", "base_price": 4560, "korean": "초월자의 관", "type": "legendary"},
+            {"name": "odins_eye", "base_price": 3750, "korean": "오딘의 눈", "type": "legendary"},
         ]
 
         # 랜덤 아이템 개수 (5~12개)
@@ -3563,12 +3574,13 @@ class BuildingInterior:
             {"name": "sensor", "korean": "위험감지센서", "rarity": "epic", "type": "passive"},
             {"name": "gravitybelt", "korean": "무중력벨트", "rarity": "epic", "type": "passive"},
             {"name": "revival", "korean": "부활", "rarity": "epic", "type": "passive"},
-            # 전설 패시브 - 완성된 5개 전설 아이템
+            # 전설 패시브 - 완성된 6개 전설 아이템
             {"name": "ragnarok_hammer", "korean": "라그나로크해머", "rarity": "legendary", "type": "passive"},
             {"name": "hermes_shoes", "korean": "헤르메스의신발", "rarity": "legendary", "type": "passive"},
             {"name": "poseidon_trident", "korean": "포세이돈의삼지창", "rarity": "legendary", "type": "passive"},
             {"name": "angel_blessing", "korean": "천사의가호", "rarity": "legendary", "type": "passive"},
             {"name": "sacred_laurel", "korean": "신성월계수", "rarity": "legendary", "type": "passive"},
+            {"name": "odins_eye", "korean": "오딘의눈", "rarity": "legendary", "type": "passive"},
         ]
 
         # 캡슐 색상 (레어리티별)
@@ -3893,7 +3905,7 @@ class BuildingInterior:
                         "angel_blessing", "sacred_laurel",
                         # 전설 패시브
                         "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
-                        "zeus_lightning", "hades_helm"
+                        "zeus_lightning", "hades_helm", "odins_eye"
                     ]
 
                     # ITEM_TYPES에서 해당 아이템 찾기
@@ -5205,6 +5217,9 @@ class BuildingInterior:
                 elif item_name == "sacred_laurel":
                     import items
                     items.sacred_laurel_obtained = True
+                elif item_name == "odins_eye":
+                    import items
+                    items.odins_eye_obtained = True
 
             return ("bought", {"item": item_name, "price": price})
 
@@ -7393,7 +7408,7 @@ class BuildingInterior:
                 item_name = item.get("name", "")
                 is_legendary_item = item.get("type") == "legendary" or item_name in [
                     "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
-                    "angel_blessing", "sacred_laurel", "transcendent_crown"
+                    "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"
                 ]
 
                 # 전설 아이템은 애니메이션으로 직접 그리기
@@ -7516,7 +7531,7 @@ class BuildingInterior:
                 item_name = item.get("name", "")
                 is_legendary_item = item.get("type") == "legendary" or item_name in [
                     "ragnarok_hammer", "hermes_shoes", "poseidon_trident",
-                    "angel_blessing", "sacred_laurel", "transcendent_crown"
+                    "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"
                 ]
 
                 # 전설 아이템은 애니메이션으로 직접 그리기
@@ -8010,10 +8025,11 @@ class BuildingInterior:
             "bulletproof_hat": "머리",
             "spiked_helmet": "머리",
             "knee_pads": "무릎",
-            "ragnarok_hammer": "전설",
-            "poseidon_trident": "전설",
-            "angel_blessing": "전설",
-            "sacred_laurel": "전설",
+            "ragnarok_hammer": "신화",
+            "poseidon_trident": "신화",
+            "angel_blessing": "신화",
+            "sacred_laurel": "신화",
+            "odins_eye": "허리",
         }
         return slot_map.get(item_name, "패시브")
 
@@ -8045,6 +8061,7 @@ class BuildingInterior:
             "angel_blessing": "천사의 가호",
             "sacred_laurel": "신성 월계수",
             "transcendent_crown": "초월자의 관",
+            "odins_eye": "오딘의 눈",
             "foul_whistle": "반칙호루라기",
             "spiked_helmet": "가시투구",
             "star_detector": "별탐지기",
@@ -8091,6 +8108,7 @@ class BuildingInterior:
             "angel_blessing": 3960,
             "sacred_laurel": 3360,
             "transcendent_crown": 4560,
+            "odins_eye": 3750,
         }
         return price_map.get(item_name, 500)
 
@@ -16604,7 +16622,7 @@ class BuildingInterior:
             if font_small:
                 no_item_surf, _ = font_small.render("강화 가능한 아이템이 없습니다", TEXT_GRAY)
                 screen.blit(no_item_surf, (ui_x + (total_w - no_item_surf.get_width()) // 2, ui_y + 180))
-                hint_surf, _ = font_small.render("(롤옵션이 있는 패시브/전설 아이템 강화 가능)", (120, 120, 140))
+                hint_surf, _ = font_small.render("(롤옵션이 있는 패시브/신화 아이템 강화 가능)", (120, 120, 140))
                 screen.blit(hint_surf, (ui_x + (total_w - hint_surf.get_width()) // 2, ui_y + 210))
             return
 

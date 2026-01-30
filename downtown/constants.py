@@ -214,12 +214,12 @@ BUILDING_INFO = {
 # =============================================================================
 CLOSED_BUILDINGS = {
     BuildingType.COLOSSEUM,      # 고대 투기장
-    BuildingType.BLACKSMITH,     # 용광로 대장간
+    # BuildingType.BLACKSMITH,   # 용광로 대장간 (영업 개시!)
     BuildingType.MAGIC_STORE,    # 마법 성소
     BuildingType.PET_SHOP,       # 숲의 펫샵
     BuildingType.ELDER,          # 피라미드 현자
     BuildingType.MINIGAME,       # 레트로 아케이드
-    BuildingType.TAVERN,         # 모험가의 선술집
+    # BuildingType.TAVERN,       # 모험가의 선술집 (영업 개시!)
     BuildingType.MYSTERY,        # ???
 }
 
@@ -438,3 +438,69 @@ SOUND_FOOTSTEP = "footstep"
 SOUND_DOOR_OPEN = "door_open"
 SOUND_COIN = "coin"
 SOUND_INTERACT = "interact"
+
+# =============================================================================
+# 강화 시스템 (Enhancement System)
+# =============================================================================
+# 강화 단계별 확률 (성공, 유지, 실패) - 퍼센트
+ENHANCEMENT_RATES = {
+    0: {"success": 80, "maintain": 19, "fail": 1},    # +0 -> +1
+    1: {"success": 75, "maintain": 22, "fail": 3},    # +1 -> +2
+    2: {"success": 70, "maintain": 25, "fail": 5},    # +2 -> +3
+    3: {"success": 65, "maintain": 27, "fail": 8},    # +3 -> +4
+    4: {"success": 60, "maintain": 27, "fail": 13},   # +4 -> +5
+    5: {"success": 50, "maintain": 33, "fail": 17},   # +5 -> +6
+    6: {"success": 42, "maintain": 36, "fail": 22},   # +6 -> +7
+    7: {"success": 35, "maintain": 40, "fail": 25},   # +7 -> +8
+    8: {"success": 30, "maintain": 40, "fail": 30},   # +8 -> +9
+    9: {"success": 23, "maintain": 45, "fail": 32},   # +9 -> +10
+}
+
+# 강화 단계별 비용 (골드)
+ENHANCEMENT_COSTS = {
+    0: 100,   # +0 -> +1
+    1: 150,   # +1 -> +2
+    2: 200,   # +2 -> +3
+    3: 300,   # +3 -> +4
+    4: 400,   # +4 -> +5
+    5: 500,   # +5 -> +6
+    6: 600,   # +6 -> +7
+    7: 700,   # +7 -> +8
+    8: 800,   # +8 -> +9
+    9: 900,   # +9 -> +10
+}
+
+# 강화 단계별 롤옵션 보너스 (퍼센트 증가)
+ENHANCEMENT_BONUSES = {
+    0: 0,      # +0 (기본)
+    1: 10,     # +1: 10% 증가
+    2: 22,     # +2: 22% 증가
+    3: 36,     # +3: 36% 증가
+    4: 52,     # +4: 52% 증가
+    5: 70,     # +5: 70% 증가
+    6: 90,     # +6: 90% 증가
+    7: 115,    # +7: 115% 증가
+    8: 145,    # +8: 145% 증가
+    9: 190,    # +9: 190% 증가
+    10: 260,   # +10: 260% 증가
+}
+
+# 최대 강화 단계
+MAX_ENHANCEMENT_LEVEL = 10
+
+# 전설 아이템 강화 비용 배율 (패시브 아이템의 3배)
+LEGENDARY_ENHANCEMENT_COST_MULTIPLIER = 3
+
+# 전설 아이템 이름 목록 (강화 시스템에서 사용)
+LEGENDARY_ITEM_NAMES = {
+    "ragnarok_hammer",
+    "hermes_shoes",
+    "poseidon_trident",
+    "angel_blessing",
+    "sacred_laurel",
+    "transcendent_crown",
+    "odins_eye",
+}
+
+# 강화 애니메이션 시간 (초)
+ENHANCEMENT_ANIMATION_TIME = 2.0

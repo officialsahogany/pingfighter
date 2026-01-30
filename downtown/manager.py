@@ -21,6 +21,7 @@ from .renderer import DowntownRenderer
 from .npc import NPCManager
 from .shop import Shop
 from .building_interior import BuildingInterior
+from .performance_stage import PerformanceStage, PerformanceStageManager
 
 # 인게임 메뉴 함수 import
 try:
@@ -85,6 +86,7 @@ class DowntownManager:
         self.ap_system = ActionPointSystem()
         self.renderer = DowntownRenderer()
         self.npc_manager = NPCManager()
+        self.performance_stage_manager = PerformanceStageManager()
 
         # 상태
         self.state = DowntownState.ENTERING
@@ -99,6 +101,11 @@ class DowntownManager:
         self.building_confirmation_dialog = None  # {'building_type': ..., 'building_name': ...}
         self.dialog_yes_rect = None
         self.dialog_no_rect = None
+
+        # 저장 NPC 다이얼로그
+        self.save_dialog_active = False
+        self.save_dialog_yes_rect = None
+        self.save_dialog_no_rect = None
 
         # 열쇠 애니메이션 (건물 입장 시)
         self.key_animation = None  # {'start_time': ..., 'building_type': ...}
@@ -165,7 +172,8 @@ class DowntownManager:
             'gold_spent': 0,
             'gold_earned': 0,
             'items_obtained': [],
-            'buffs_obtained': []
+            'buffs_obtained': [],
+            'save_and_exit': False  # 저장 NPC로 저장 후 메인메뉴 복귀
         }
 
         # 예금 이자 관련
@@ -173,7 +181,7 @@ class DowntownManager:
         self.last_interest_amount = 0  # 마지막 적용된 이자 금액
 
         # 가챠 시스템 관련
-        self.gacha_cost = 800  # 가챠 1회 비용
+        self.gacha_cost = 500  # 가챠 1회 비용
         self.gacha_max_count = 5  # 스테이지당 최대 가챠 횟수
         self.gacha_used_count = 0  # 현재 스테이지에서 사용한 가챠 횟수
         self.gacha_confirm_dialog = None  # 가챠 확인 다이얼로그 상태
@@ -320,8 +328,13 @@ class DowntownManager:
         # 예금 이자 적용 (스테이지 시작 시)
         self._apply_deposit_interest()
 
-        # 맵 생성
-        self.downtown_map = DowntownMap(stage_number)
+        # 맵 생성 (저장된 시드가 있으면 사용, 없으면 랜덤 생성)
+        saved_map_seed = self.player_data.get('downtown_map_seed', None)
+        print(f"[DEBUG 광장초기화] player_data에서 읽은 downtown_map_seed = {saved_map_seed}")
+        self.downtown_map = DowntownMap(stage_number, seed=saved_map_seed)
+        print(f"[DEBUG 광장초기화] 생성된 맵 시드 = {self.downtown_map.seed}, 건물 수 = {len(self.downtown_map.buildings)}")
+        # 생성된 시드를 player_data에 저장 (세이브 시 사용)
+        self.player_data['downtown_map_seed'] = self.downtown_map.seed
 
         # 플레이어 생성 (캐릭터 타입 전달)
         spawn_pos = self.downtown_map.get_spawn_pixel_pos()
@@ -351,6 +364,12 @@ class DowntownManager:
         # NPC 초기화
         self.npc_manager.initialize(self.downtown_map, stage_number)
 
+        # 공연 스테이지 초기화
+        self.performance_stage_manager.clear()
+        stage_positions = self.downtown_map.get_performance_stage_positions()
+        for pos in stage_positions:
+            self.performance_stage_manager.create_stage_at_plaza(pos['x'], pos['y'])
+
         # 건물 방문 기록 초기화 (새 광장 세션)
         self.visited_buildings_this_session = set()
 
@@ -373,13 +392,29 @@ class DowntownManager:
             # 이벤트 처리
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    # Alt+F4 또는 창 닫기 시 게임 완전 종료
                     self._save_ap_state()  # AP 상태 저장
                     self.is_running = False
-                    return None
+                    # 게임 종료 플래그 설정
+                    try:
+                        import pingfighter
+                        pingfighter.game_should_exit = True
+                    except Exception:
+                        pass
+                    # save_and_exit 플래그를 설정하여 다음 스테이지 진행 방지
+                    self.result_data['save_and_exit'] = True
+                    return self.result_data
                 self._handle_event(event)
 
             # 업데이트
             self._update(dt)
+
+            # 골드 동기화: player_data['gold']를 pingfighter.downtown_gold에 실시간 반영
+            try:
+                import pingfighter
+                pingfighter.downtown_gold = self.player_data.get('gold', 0)
+            except Exception:
+                pass
 
             # 렌더링
             self._draw()
@@ -478,6 +513,12 @@ class DowntownManager:
                 # 관리자 치트: 1천 골드 추가 (관리자 모드에서만 작동)
                 current_gold = self.player_data.get('gold', 0)
                 self.player_data['gold'] = current_gold + 1000
+                # 필러 HUD 동기화
+                try:
+                    import pingfighter
+                    pingfighter.downtown_gold = self.player_data['gold']
+                except Exception:
+                    pass
                 print(f"[ADMIN] 관리자 모드: 골드 +1,000 추가! (현재: {self.player_data['gold']:,})")
 
             elif event.key == pygame.K_m:
@@ -504,7 +545,10 @@ class DowntownManager:
                 # 개발자 건물 소환 모드 처리
                 if self.dev_building_spawn_mode:
                     self._handle_dev_building_click(event.pos)
-                # 다이얼로그가 열려있으면 버튼 클릭 처리
+                # 저장 다이얼로그가 열려있으면 버튼 클릭 처리
+                elif self.save_dialog_active:
+                    self._handle_save_dialog_click(event.pos)
+                # 건물 다이얼로그가 열려있으면 버튼 클릭 처리
                 elif self.building_confirmation_dialog:
                     self._handle_dialog_click(event.pos)
                 else:
@@ -558,12 +602,22 @@ class DowntownManager:
         if self.state != DowntownState.EXPLORING:
             return
 
+        # 0. 저장 NPC 체크 (우선순위 가장 높음)
+        if self.player:
+            save_npc = self.npc_manager.get_save_npc_near(self.player.x, self.player.y, radius=80)
+            if save_npc:
+                self._show_save_dialog()
+                return
+
         # 1. 먼저 건물/출구 상호작용 체크
         if self.player.interaction_target:
             target = self.player.interaction_target
+            target_type = target.get('type')  # KeyError 방지
 
-            if target['type'] == 'building':
-                building_type = target['building_type']
+            if target_type == 'building':
+                building_type = target.get('building_type')
+                if building_type is None:
+                    return
                 # 이미 방문한 건물이면 다이얼로그 표시 안 함
                 if building_type in self.visited_buildings_this_session:
                     self._show_message("이미 방문한 건물입니다!", Colors.UI_DANGER)
@@ -572,7 +626,7 @@ class DowntownManager:
                 self._show_building_confirmation_dialog(building_type)
                 return
 
-            elif target['type'] == 'exit':
+            elif target_type == 'exit':
                 self._try_exit()
                 return
 
@@ -625,8 +679,10 @@ class DowntownManager:
             mouse_pos, camera_offset, self.downtown_map
         )
 
-        if clicked_building and clicked_building['type'] == 'building':
-            building_type = clicked_building['building_type']
+        if clicked_building and clicked_building.get('type') == 'building':
+            building_type = clicked_building.get('building_type')
+            if building_type is None:
+                return
 
             # 이미 방문한 건물이면 다이얼로그 표시 안 함
             if building_type in self.visited_buildings_this_session:
@@ -752,6 +808,50 @@ class DowntownManager:
         elif self.dialog_no_rect and self.dialog_no_rect.collidepoint(mouse_pos):
             # 아니오 클릭 - 다이얼로그 닫기
             self.building_confirmation_dialog = None
+
+    def _show_save_dialog(self):
+        """저장 NPC 다이얼로그 표시"""
+        self.save_dialog_active = True
+
+    def _handle_save_dialog_click(self, mouse_pos):
+        """저장 다이얼로그 버튼 클릭 처리"""
+        if not self.save_dialog_active:
+            return False
+
+        # 예 버튼 클릭 - 저장 후 메인메뉴로
+        if self.save_dialog_yes_rect and self.save_dialog_yes_rect.collidepoint(mouse_pos):
+            self.save_dialog_active = False
+            self._do_save_and_exit()
+            return True
+
+        # 아니오 버튼 클릭 - 다이얼로그 닫기
+        if self.save_dialog_no_rect and self.save_dialog_no_rect.collidepoint(mouse_pos):
+            self.save_dialog_active = False
+            return True
+
+        return False
+
+    def _do_save_and_exit(self):
+        """저장 후 메인메뉴로 이동"""
+        try:
+            import pingfighter
+            # 저장 수행
+            pingfighter.save_game_progress(self.stage_number)
+            print(f"[저장 NPC] 스테이지 {self.stage_number} 진행상황 저장 완료")
+
+            # 메인메뉴로 돌아가기 (광장 종료)
+            self.state = DowntownState.COMPLETED
+            self.is_running = False
+
+            # result_data에 저장 후 종료 플래그 설정
+            self.result_data['save_and_exit'] = True
+
+            # game_should_exit는 False로 유지 (메인메뉴로 돌아가야 함)
+            # pingfighter.game_should_exit = True  # 이렇게 하면 게임이 완전 종료됨
+
+        except Exception as e:
+            print(f"[저장 NPC] 저장 실패: {e}")
+            self._show_message("저장에 실패했습니다!", Colors.UI_DANGER)
 
     def _enter_building(self, building_type):
         """건물 입장 (열쇠 애니메이션 시작)"""
@@ -898,6 +998,9 @@ class DowntownManager:
         # NPC 업데이트
         self.npc_manager.update(dt, self.downtown_map)
 
+        # 공연 스테이지 업데이트
+        self.performance_stage_manager.update(dt)
+
         # NPC가 플레이어에 반응
         self.npc_manager.trigger_reactions(self.player.x, self.player.y, 60)
 
@@ -907,7 +1010,7 @@ class DowntownManager:
 
         # 하이라이트 업데이트
         if self.player.interaction_target:
-            if self.player.interaction_target['type'] == 'building':
+            if self.player.interaction_target.get('type') == 'building':
                 building = self.buildings.get_nearest_building(
                     self.player.x, self.player.y, TILE_SIZE * 2
                 )
@@ -958,6 +1061,11 @@ class DowntownManager:
 
         # 파티클 (배경)
         self.renderer.draw_particles(self.screen)
+
+        # 공연 스테이지 (건물보다 먼저 - 배경 요소)
+        self.performance_stage_manager.draw(
+            self.screen, self.renderer.camera_x, self.renderer.camera_y
+        )
 
         # 건물
         self.buildings.draw(self.screen, camera_offset)
@@ -1020,15 +1128,20 @@ class DowntownManager:
         # 스테이지 정보
         self._draw_stage_info()
 
-        # 골드 표시
-        self._draw_gold()
+        # 골드 HUD - 필러 영역에서 표시하므로 여기서는 제거
+        # (좌측 필러의 골드 HUD와 열쇠 아이콘이 겹치는 문제 해결)
+        # self._draw_gold()
 
-        # 스타 포인트 표시 (우측 상단)
-        self._draw_star_points()
+        # 스타 포인트 표시 제거 (골드 시스템 일원화)
+        # self._draw_star_points()
 
         # 건물 입장 확인 다이얼로그
         if self.building_confirmation_dialog:
             self._draw_confirmation_dialog()
+
+        # 저장 NPC 다이얼로그
+        if self.save_dialog_active:
+            self._draw_save_dialog()
 
         # 열쇠 애니메이션 (건물 입장 시)
         if self.key_animation:
@@ -1202,6 +1315,86 @@ class DowntownManager:
         no_text_y = buttons_y + (button_height - no_rect.height) // 2
         self.screen.blit(no_surface, (no_text_x, no_text_y))
 
+    def _draw_save_dialog(self):
+        """저장 NPC 다이얼로그 그리기"""
+        # 다이얼로그 크기 및 위치
+        dialog_width = 440
+        dialog_height = 180
+        dialog_x = (SCREEN_WIDTH - dialog_width) // 2
+        dialog_y = (SCREEN_HEIGHT - dialog_height) // 2
+
+        # 반투명 배경 오버레이
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        self.screen.blit(overlay, (0, 0))
+
+        # 다이얼로그 배경 (보라빛 톤)
+        dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_width, dialog_height)
+        pygame.draw.rect(self.screen, (35, 30, 50), dialog_rect, border_radius=15)
+        pygame.draw.rect(self.screen, (150, 120, 200), dialog_rect, 3, border_radius=15)
+
+        # 제목 텍스트
+        title_text = "잠깐 저장하고 휴식하시겠습니까?"
+        title_surface, title_rect = self._freetype_fonts['medium'].render(title_text, (255, 255, 255))
+        title_x = dialog_x + (dialog_width - title_rect.width) // 2
+        title_y = dialog_y + 35
+        self.screen.blit(title_surface, (title_x, title_y))
+
+        # 설명 텍스트
+        desc_text = "저장된 진행상황은 메인메뉴에서 이어할 수 있습니다."
+        desc_surface, desc_rect = self._freetype_fonts['small'].render(desc_text, (180, 180, 200))
+        desc_x = dialog_x + (dialog_width - desc_rect.width) // 2
+        desc_y = title_y + 45
+        self.screen.blit(desc_surface, (desc_x, desc_y))
+
+        # 버튼 설정
+        button_width = 140
+        button_height = 50
+        button_spacing = 20
+        buttons_y = dialog_y + dialog_height - button_height - 25
+
+        yes_button_x = dialog_x + (dialog_width // 2) - button_width - (button_spacing // 2)
+        no_button_x = dialog_x + (dialog_width // 2) + (button_spacing // 2)
+
+        # 마우스 위치 확인
+        mouse_pos = pygame.mouse.get_pos()
+
+        # 예 버튼
+        self.save_dialog_yes_rect = pygame.Rect(yes_button_x, buttons_y, button_width, button_height)
+        yes_hover = self.save_dialog_yes_rect.collidepoint(mouse_pos)
+        if yes_hover:
+            yes_bg_color = (80, 100, 180)  # 호버 시 밝은 파랑
+            yes_border_color = (140, 160, 255)
+        else:
+            yes_bg_color = (60, 80, 150)
+            yes_border_color = (100, 120, 200)
+        pygame.draw.rect(self.screen, yes_bg_color, self.save_dialog_yes_rect, border_radius=10)
+        pygame.draw.rect(self.screen, yes_border_color, self.save_dialog_yes_rect, 2, border_radius=10)
+
+        yes_text = "예"
+        yes_surface, yes_rect = self._freetype_fonts['medium'].render(yes_text, (255, 255, 255))
+        yes_text_x = yes_button_x + (button_width - yes_rect.width) // 2
+        yes_text_y = buttons_y + (button_height - yes_rect.height) // 2
+        self.screen.blit(yes_surface, (yes_text_x, yes_text_y))
+
+        # 아니오 버튼
+        self.save_dialog_no_rect = pygame.Rect(no_button_x, buttons_y, button_width, button_height)
+        no_hover = self.save_dialog_no_rect.collidepoint(mouse_pos)
+        if no_hover:
+            no_bg_color = (100, 80, 80)  # 호버 시 밝은 회색빨강
+            no_border_color = (180, 140, 140)
+        else:
+            no_bg_color = (80, 60, 60)
+            no_border_color = (140, 100, 100)
+        pygame.draw.rect(self.screen, no_bg_color, self.save_dialog_no_rect, border_radius=10)
+        pygame.draw.rect(self.screen, no_border_color, self.save_dialog_no_rect, 2, border_radius=10)
+
+        no_text = "아니오"
+        no_surface, no_rect = self._freetype_fonts['medium'].render(no_text, (255, 255, 255))
+        no_text_x = no_button_x + (button_width - no_rect.width) // 2
+        no_text_y = buttons_y + (button_height - no_rect.height) // 2
+        self.screen.blit(no_surface, (no_text_x, no_text_y))
+
     def _draw_stage_info(self):
         """스테이지 정보 표시"""
         # 행성 이름
@@ -1213,18 +1406,31 @@ class DowntownManager:
         self.screen.blit(text_surface, (text_x, 10))
 
     def _draw_gold(self):
-        """골드 표시 - 금화 아이콘 직접 그리기"""
+        """골드 표시 - 인게임 필러 좌상단과 동일한 위치/스타일 (반투명 배경 박스)"""
         gold = self.player_data.get('gold', 0)
 
-        # 금화 아이콘 그리기 (20x20 크기)
-        coin_x, coin_y = 35, 75
-        coin_size = 18
+        # 인게임 draw_ingame_gold_hud()와 동일한 위치/스타일
+        hud_x = 2
+        hud_y = 5
+        box_width = 100  # 4자리 이상 숫자 지원 (인게임과 동일)
+        box_height = 40
+        coin_size = 28
+
+        # 반투명 배경 박스 (인게임과 동일)
+        bg_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+        pygame.draw.rect(bg_surface, (0, 0, 0, 160), (0, 0, box_width, box_height), border_radius=6)
+        pygame.draw.rect(bg_surface, (80, 70, 40, 180), (0, 0, box_width, box_height), width=1, border_radius=6)
+        self.screen.blit(bg_surface, (hud_x, hud_y))
+
+        # 금화 아이콘 그리기 (인게임과 동일)
+        coin_x = hud_x + 18
+        coin_y = hud_y + box_height // 2
         self._draw_gold_coin(self.screen, coin_x, coin_y, coin_size)
 
-        # 골드 숫자
+        # 골드 숫자 (인게임과 동일한 금색)
         gold_text = f"{gold:,}"
-        text_surface = self.font_medium.render(gold_text, True, Colors.UI_ACCENT)
-        self.screen.blit(text_surface, (coin_x + coin_size + 8, coin_y - 4))
+        text_surface = self.font_medium.render(gold_text, True, (255, 215, 0))
+        self.screen.blit(text_surface, (coin_x + coin_size // 2 + 8, hud_y + 12))
 
     def _draw_star_points(self):
         """스타 포인트 표시 - 우측 상단 (Academy 스킬 포인트와 동기화)"""
@@ -1662,6 +1868,12 @@ class DowntownManager:
         # 결과 처리
         if purchased_items:
             self.player_data['gold'] = remaining_gold
+            # 필러 HUD 동기화
+            try:
+                import pingfighter
+                pingfighter.downtown_gold = remaining_gold
+            except Exception:
+                pass
             self.result_data['gold_spent'] += (self.player_data.get('gold', 0) - remaining_gold)
             self.result_data['items_obtained'].extend([item.name for item in purchased_items])
 
@@ -1685,6 +1897,12 @@ class DowntownManager:
         # 결과 처리
         if purchased_items:
             self.player_data['gold'] = remaining_gold
+            # 필러 HUD 동기화
+            try:
+                import pingfighter
+                pingfighter.downtown_gold = remaining_gold
+            except Exception:
+                pass
             self.result_data['gold_spent'] += (self.player_data.get('gold', 0) - remaining_gold)
             self.result_data['items_obtained'].extend([item.name for item in purchased_items])
 
@@ -1760,13 +1978,15 @@ class DowntownManager:
                         # 상점 거래창이 열려있으면 거래창만 닫기
                         elif interior.shop_trade_open:
                             interior.shop_trade_open = False
-                        # 은행/환전/예금 등 메뉴가 열려있으면 메뉴만 닫기
+                        # 은행/환전/예금/선술집 등 메뉴가 열려있으면 메뉴만 닫기
                         elif interior.bank_menu_open:
                             interior.bank_menu_open = False
                         elif interior.exchange_menu_open:
                             interior.exchange_menu_open = False
                         elif interior.deposit_menu_open:
                             interior.deposit_menu_open = False
+                        elif interior.tavern_menu_open:
+                            interior.tavern_menu_open = False
                         elif interior.academy_dialog_open:
                             interior.academy_dialog_open = False
                         elif interior.crane_confirm_dialog_open:
@@ -2025,16 +2245,8 @@ class DowntownManager:
                 title_surf, title_rect = font_large.render("가챠 뽑기", (255, 255, 255))
                 self.screen.blit(title_surf, (dialog_x + (dialog_width - title_rect.width) // 2, dialog_y + 20))
 
-            # 현재 골드 표시
-            if font_small:
-                gold_text = f"보유 골드: {current_gold:,}"
-                gold_surf, gold_rect = font_small.render(gold_text, (255, 220, 100))
-                coin_size = 18
-                total_w = gold_rect.width + 6 + coin_size
-                gx = dialog_x + (dialog_width - total_w) // 2
-                gy = dialog_y + 55
-                self.screen.blit(gold_surf, (gx, gy))
-                self._draw_gold_coin(self.screen, gx + gold_rect.width + 6 + coin_size // 2, gy + coin_size // 2, coin_size)
+            # 보유 골드는 왼쪽 필러 HUD에서 통합 표시 (중복 방지)
+            # (기존 골드 표시 코드 제거)
 
             # 남은 횟수 표시
             if font_small:
@@ -2157,6 +2369,8 @@ class DowntownManager:
             # 총 비용 계산 및 골드 차감
             total_cost = gacha_count * self.gacha_cost
             self.player_data['gold'] = current_gold - total_cost
+            # 필러 HUD 동기화
+            pingfighter.downtown_gold = self.player_data['gold']
             self.gacha_used_count += gacha_count
 
             # pingfighter에서 필요한 함수들 가져오기
@@ -2370,6 +2584,8 @@ class DowntownManager:
             # 골드 차감
             current_gold = self.player_data.get('gold', 0)
             self.player_data['gold'] = current_gold - self.gacha_cost
+            # 필러 HUD 동기화
+            pingfighter.downtown_gold = self.player_data['gold']
             self.gacha_used_count += 1
 
             # pingfighter에서 필요한 함수들 가져오기

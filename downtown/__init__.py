@@ -18,6 +18,7 @@ from .buildings import BuildingManager
 from .action_points import ActionPointSystem
 from .renderer import DowntownRenderer
 from .npc import NPCManager, NPC, NPCType
+from .performance_stage import PerformanceStage, PerformanceStageManager
 
 __all__ = [
     'DowntownManager',
@@ -28,5 +29,7 @@ __all__ = [
     'DowntownRenderer',
     'NPCManager',
     'NPC',
-    'NPCType'
+    'NPCType',
+    'PerformanceStage',
+    'PerformanceStageManager'
 ]

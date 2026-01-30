@@ -44,6 +44,9 @@ class DowntownMap:
         # 장식물
         self.decorations = []
 
+        # 공연 스테이지 위치 (광장 중앙)
+        self.performance_stage_positions = []
+
         # 맵 생성
         self._generate_map()
 
@@ -138,6 +141,14 @@ class DowntownMap:
                         px, py = mid_x + dx, plaza_y + dy
                         if 1 < px < self.width - 2 and 1 < py < self.height - 2:
                             self.tiles[py][px] = TileType.ROAD
+
+        # 메인 광장 (맵 중앙)에 공연 스테이지 배치
+        main_plaza_y = self.height // 2
+        self.performance_stage_positions.append({
+            'x': mid_x * TILE_SIZE,
+            'y': main_plaza_y * TILE_SIZE,
+            'type': 'main'  # 메인 스테이지
+        })
 
     def _generate_vertical_main_road(self):
         """세로 메인 도로 (중앙) - 폴백용"""
@@ -345,6 +356,10 @@ class DowntownMap:
             if self._is_near_spawn_or_exit(x, y, width, height):
                 return False
 
+        # 공연 스테이지 금지 영역 체크
+        if self._is_near_performance_stage(x, y, width, height):
+            return False
+
         # 기존 건물과 겹침 체크
         # 모든 건물은 캐릭터가 통행할 수 있도록 충분한 간격 확보 (6타일 = 240px)
         building_spacing = TILE_SIZE * 6  # 모든 건물: 240px 간격 (캐릭터 통행 가능)
@@ -394,6 +409,32 @@ class DowntownMap:
         if abs(building_center_x - exit_x) < exit_distance_tiles and \
            abs(building_center_y - exit_y) < exit_distance_tiles:
             return True
+
+        return False
+
+    def _is_near_performance_stage(self, x, y, width, height):
+        """건물이 공연 스테이지 근처인지 확인"""
+        import math
+
+        # 건물 중심점 (픽셀)
+        building_center_x = (x + width / 2) * TILE_SIZE
+        building_center_y = (y + height / 2) * TILE_SIZE
+
+        # 공연 스테이지 금지 반경 (350px - 바닥 원 반경 200 + 건물 크기 여유)
+        stage_exclusion_radius = 350
+
+        # 모든 스테이지 위치 체크
+        for stage_pos in self.performance_stage_positions:
+            stage_x = stage_pos['x']
+            stage_y = stage_pos['y']
+
+            # 거리 계산
+            dx = building_center_x - stage_x
+            dy = building_center_y - stage_y
+            distance = math.sqrt(dx * dx + dy * dy)
+
+            if distance < stage_exclusion_radius:
+                return True
 
         return False
 
@@ -696,3 +737,7 @@ class DowntownMap:
                 'rect': pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, w * TILE_SIZE, h * TILE_SIZE)
             })
         return result
+
+    def get_performance_stage_positions(self):
+        """공연 스테이지 위치 반환"""
+        return self.performance_stage_positions

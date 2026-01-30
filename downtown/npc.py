@@ -23,6 +23,7 @@ class NPCType:
     CHILD = "child"
     OLD_MAN = "old_man"
     MERCHANT = "merchant"
+    SAVE_NPC = "save_npc"  # 저장 NPC (휴식처)
 
 
 # ============================================================================
@@ -38,7 +39,7 @@ NPC_DIALOGUES = {
         "보스가 패턴을 바꾸기 직전에 대쉬하면 회피가 쉬워.",
         "아이템을 잘 조합하면 시너지 효과가 엄청나더라.",
         "전투도중 가끔 노란색 별이 떨어지니까 놓치지 마. 그거 다 돈이야",
-        "전설 아이템은 운이 좋아야 얻을 수 있대.",
+        "신화 아이템은 운이 좋아야 얻을 수 있대.",
         "스매셔는 단순하지만 강력해.",
         "스테이지 클리어 시간이 빠를수록 보상이 좋다던데.",
         "게임 도중 연막탄을 쓰면 위험한 스킬로부터 보호할 수 있어.",
@@ -47,7 +48,7 @@ NPC_DIALOGUES = {
         "보스 패턴을 외우면 클리어가 훨씬 쉬워져.",
         "속도 스탯에 올인하면 방어와 회피가 쉬워.",
         "수류탄으로 보스를 바보만들 때 짜릿한 쾌감을 느끼지.",
-        "가챠에서 전설아이템이 나왔어 가보로 물려줄려고",
+        "가챠에서 신화아이템이 나왔어 가보로 물려줄려고",
         "위험감지센서 이 아이템은 아무리 생각해도 사기인거같아 그냥 전설급인듯",
         "액티브 스킬은 쿨타임 관리가 핵심이야.",
         "효과음 볼륨을 따로 조절하면 집중하기 좋아.",
@@ -98,7 +99,7 @@ NPC_DIALOGUES = {
         "요즘 젊은 선수들 실력이 대단하더라.",
         "가끔은 지구가 그리워.",
         "오늘 날씨 좋다. 낚시나 하러갈까.",
-        "나도 전설 아이템 가지고 싶다...",
+        "나도 신화 아이템 가지고 싶다...",
         "나도 너처럼 강해지고 싶어.",
         "아침에 커피 마시는 게 낙이야.",
         "점심은 뭐 먹지? 고민되네.",
@@ -189,7 +190,7 @@ NPC_DIALOGUES = {
         "저 강아지 귀엽지 않아요?",
         "숨바꼭질하자!",
         "나 대쉬하는 법 알아! 휙!",
-        "나도 전설 아이템 갖고 싶어요!",
+        "나도 신화 아이템 갖고 싶어요!",
         "나는 롤링 대쉬 10번 연속 성공했어요!",
         "저번에 보스 혼자 잡았어요! 진짜에요!",
         "아빠가 핑파이터 챔피언이래요!",
@@ -592,6 +593,17 @@ NPC_CONFIG = {
         "idle_chance": 0.08,
         "stationary": True,
     },
+    NPCType.SAVE_NPC: {
+        "name": "휴식처 안내원",
+        "size": (26, 42),
+        "speed": 0.0,
+        "colors": [
+            {"body": (100, 150, 200), "skin": (255, 220, 190), "hair": (60, 40, 20), "robe": (200, 180, 255)},
+        ],
+        "idle_chance": 0.0,
+        "stationary": True,
+        "is_save_npc": True,
+    },
 }
 
 
@@ -658,6 +670,9 @@ class NPC:
         self.is_talking = False
         self.dialogue_timer = 0
         self.last_dialogue = None  # 마지막 대화 내용 (중복 방지)
+
+        # 저장 NPC 여부
+        self.is_save_npc = self.config.get("is_save_npc", False)
 
         # 초기 목표 설정
         self._set_new_target()
@@ -872,6 +887,8 @@ class NPC:
             self._draw_cat(screen, draw_x, draw_y)
         elif self.type == NPCType.ROBOT:
             self._draw_robot(screen, draw_x, draw_y)
+        elif self.type == NPCType.SAVE_NPC:
+            self._draw_save_npc(screen, draw_x, draw_y)
         elif self.type in [NPCType.CITIZEN_MALE, NPCType.CITIZEN_FEMALE,
                           NPCType.CHILD, NPCType.OLD_MAN, NPCType.MERCHANT]:
             self._draw_human(screen, draw_x, draw_y)
@@ -1756,6 +1773,65 @@ class NPC:
                            (x + 5, whisker_y + dy),
                            (x + 12, whisker_y + dy - 1), 1)
 
+    def _draw_save_npc(self, screen, x, y):
+        """저장 NPC 그리기 - 보라빛 로브를 입은 안내원"""
+        colors = self.colors
+        robe_color = colors.get("robe", (180, 150, 220))
+        body_color = colors.get("body", (100, 150, 200))
+        skin_color = colors.get("skin", (255, 220, 190))
+        hair_color = colors.get("hair", (60, 40, 20))
+
+        # 부드러운 호흡 애니메이션
+        breath = math.sin(self.effect_timer * 2) * 1.5
+
+        # 로브 (긴 옷)
+        robe_points = [
+            (x - 12, y - 10 + breath),  # 어깨 왼쪽
+            (x + 12, y - 10 + breath),  # 어깨 오른쪽
+            (x + 15, y + 20),  # 하단 오른쪽
+            (x - 15, y + 20),  # 하단 왼쪽
+        ]
+        pygame.draw.polygon(screen, robe_color, robe_points)
+        pygame.draw.polygon(screen, (robe_color[0] - 30, robe_color[1] - 30, robe_color[2] - 30), robe_points, 2)
+
+        # 몸통 (로브 안쪽)
+        body_rect = pygame.Rect(x - 8, y - 8 + breath, 16, 18)
+        pygame.draw.rect(screen, body_color, body_rect, border_radius=4)
+
+        # 머리
+        head_y = y - 22 + breath
+        pygame.draw.circle(screen, skin_color, (x, int(head_y)), 10)
+
+        # 머리카락
+        pygame.draw.arc(screen, hair_color, (x - 10, head_y - 12, 20, 14), 0, math.pi, 3)
+
+        # 눈
+        eye_y = int(head_y)
+        pygame.draw.circle(screen, (40, 40, 40), (x - 4, eye_y), 2)
+        pygame.draw.circle(screen, (40, 40, 40), (x + 4, eye_y), 2)
+
+        # 입 (미소)
+        pygame.draw.arc(screen, (150, 80, 80), (x - 4, eye_y + 2, 8, 5), 3.14, 0, 1)
+
+        # 반짝이는 후광 효과 (저장 NPC 특유의 신비로운 느낌)
+        glow_alpha = int(80 + 40 * math.sin(self.effect_timer * 3))
+        glow_surf = pygame.Surface((60, 60), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (200, 180, 255, glow_alpha), (30, 30), 25)
+        screen.blit(glow_surf, (x - 30, y - 35))
+
+        # 책 아이콘 (손에 들고 있음)
+        book_x = x + 10
+        book_y = y + 5 + breath
+        pygame.draw.rect(screen, (139, 69, 19), (book_x, int(book_y), 8, 10))  # 책 표지
+        pygame.draw.rect(screen, (255, 250, 240), (book_x + 1, int(book_y) + 1, 6, 8))  # 책 페이지
+        pygame.draw.line(screen, (100, 50, 20), (book_x + 4, int(book_y)), (book_x + 4, int(book_y) + 10), 1)  # 책등
+
+        # "저장" 아이콘 표시 (머리 위)
+        icon_y = int(y - 38 + math.sin(self.effect_timer * 4) * 2)
+        pygame.draw.rect(screen, (100, 120, 180), (x - 6, icon_y, 12, 10), border_radius=2)
+        pygame.draw.rect(screen, (255, 255, 255), (x - 4, icon_y + 2, 8, 6), border_radius=1)
+        pygame.draw.rect(screen, (100, 120, 180), (x - 2, icon_y + 4, 4, 3))  # 플로피 디스크 모양
+
     def _draw_robot(self, screen, x, y):
         """로봇 그리기 - 5가지 타입별 디자인"""
         variant = self.robot_variant
@@ -2257,7 +2333,7 @@ class NPC:
 
         # 한글 폰트 로드 (pygame.freetype 사용) - 네오둥근모 프로 도트 폰트 우선
         font = None
-        font_size = 14
+        font_size = 21  # 14에서 50% 증가 (14 * 1.5 = 21)
 
         # 1차 시도: 네오둥근모 프로 픽셀 폰트
         try:
@@ -2297,35 +2373,35 @@ class NPC:
 
         # 텍스트 렌더링
         text_surface, text_rect = font.render(self.speech_bubble, (40, 40, 40))
-        text_w = text_rect.width + 16
-        text_h = text_rect.height + 10
+        text_w = text_rect.width + 24  # 16에서 50% 증가
+        text_h = text_rect.height + 15  # 10에서 50% 증가
 
         bubble_x = x - text_w // 2
-        bubble_y = y - self.height - 25
+        bubble_y = y - self.height - 38  # 25에서 50% 증가
 
         # 화면 밖으로 나가지 않게 조정
         bubble_x = max(5, min(SCREEN_WIDTH - text_w - 5, bubble_x))
 
         # 말풍선 배경
-        bubble_surf = pygame.Surface((text_w, text_h + 8), pygame.SRCALPHA)
+        bubble_surf = pygame.Surface((text_w, text_h + 12), pygame.SRCALPHA)  # 8에서 50% 증가
         pygame.draw.rect(bubble_surf, (255, 255, 255, 240),
-                        (0, 0, text_w, text_h), border_radius=8)
+                        (0, 0, text_w, text_h), border_radius=12)  # 8에서 50% 증가
         pygame.draw.rect(bubble_surf, (80, 80, 80),
-                        (0, 0, text_w, text_h), 2, border_radius=8)
+                        (0, 0, text_w, text_h), 2, border_radius=12)
 
-        # 꼬리
+        # 꼬리 (크기 50% 증가)
         pygame.draw.polygon(bubble_surf, (255, 255, 255, 240), [
-            (text_w // 2 - 6, text_h),
-            (text_w // 2 + 6, text_h),
-            (text_w // 2, text_h + 8),
+            (text_w // 2 - 9, text_h),  # 6에서 50% 증가
+            (text_w // 2 + 9, text_h),
+            (text_w // 2, text_h + 12),  # 8에서 50% 증가
         ])
         pygame.draw.line(bubble_surf, (80, 80, 80),
-                        (text_w // 2 - 6, text_h), (text_w // 2, text_h + 8), 2)
+                        (text_w // 2 - 9, text_h), (text_w // 2, text_h + 12), 2)
         pygame.draw.line(bubble_surf, (80, 80, 80),
-                        (text_w // 2 + 6, text_h), (text_w // 2, text_h + 8), 2)
+                        (text_w // 2 + 9, text_h), (text_w // 2, text_h + 12), 2)
 
         screen.blit(bubble_surf, (bubble_x, bubble_y))
-        screen.blit(text_surface, (bubble_x + 8, bubble_y + 5))
+        screen.blit(text_surface, (bubble_x + 12, bubble_y + 7))  # 패딩도 50% 증가
 
     def get_rect(self):
         """충돌 렉트 반환"""
@@ -2422,6 +2498,25 @@ class NPCManager:
         """NPC 초기화 - 맵에 맞게 생성"""
         self.npcs.clear()
 
+        # === 저장 NPC 스폰 (플레이어 시작 위치 옆에 항상 배치) ===
+        spawn_pos = downtown_map.get_spawn_pixel_pos()
+        if spawn_pos:
+            # 플레이어 시작 위치의 오른쪽에 배치 (100픽셀 옆)
+            save_npc_x = spawn_pos[0] + 100
+            save_npc_y = spawn_pos[1]
+
+            # 해당 위치가 걸을 수 없으면 왼쪽에 배치
+            if not downtown_map.is_walkable(save_npc_x, save_npc_y):
+                save_npc_x = spawn_pos[0] - 100
+
+            save_npc = NPC(NPCType.SAVE_NPC, save_npc_x, save_npc_y)
+            self.npcs.append(save_npc)
+            self.save_npc_ref = save_npc  # 저장 NPC 참조 저장
+
+        # 저장 NPC 말풍선 타이머 초기화 (광장 진입 후 2초 뒤에 표시)
+        self.save_npc_bubble_timer = 2.0  # 2초 후 말풍선 표시
+        self.save_npc_bubble_shown = False  # 말풍선이 이미 표시되었는지
+
         # 스테이지에 따른 NPC 수
         base_count = 5 + stage_number
         npc_count = min(base_count, self.max_npcs)
@@ -2443,17 +2538,43 @@ class NPCManager:
         for npc_type, weight in type_weights.items():
             type_list.extend([npc_type] * weight)
 
+        # 공연 스테이지 금지 영역 가져오기
+        stage_exclusion_zones = []
+        if hasattr(downtown_map, 'get_performance_stage_positions'):
+            stage_positions = downtown_map.get_performance_stage_positions()
+            for pos in stage_positions:
+                stage_exclusion_zones.append({
+                    'x': pos['x'],
+                    'y': pos['y'],
+                    'radius': 280  # 금지 반경
+                })
+
         # NPC 생성
         for _ in range(npc_count):
             npc_type = random.choice(type_list)
 
-            # 랜덤 위치 (도로나 바닥 위)
+            # 랜덤 위치 (도로나 바닥 위, 스테이지 금지 영역 제외)
             attempts = 0
             while attempts < 50:
                 x = random.randint(TILE_SIZE * 2, (MAP_WIDTH - 2) * TILE_SIZE)
                 y = random.randint(TILE_SIZE * 2, (MAP_HEIGHT - 2) * TILE_SIZE)
 
-                if downtown_map.is_walkable(x, y):
+                # 걸을 수 있는 위치인지 확인
+                if not downtown_map.is_walkable(x, y):
+                    attempts += 1
+                    continue
+
+                # 스테이지 금지 영역인지 확인
+                in_exclusion_zone = False
+                for zone in stage_exclusion_zones:
+                    dx = x - zone['x']
+                    dy = y - zone['y']
+                    distance = (dx * dx + dy * dy) ** 0.5
+                    if distance < zone['radius']:
+                        in_exclusion_zone = True
+                        break
+
+                if not in_exclusion_zone:
                     npc = NPC(npc_type, x, y)
                     self.npcs.append(npc)
                     break
@@ -2464,6 +2585,16 @@ class NPCManager:
         """모든 NPC 업데이트"""
         for npc in self.npcs:
             npc.update(dt, downtown_map)
+
+        # 저장 NPC 말풍선 타이머 처리 (광장 진입 후 2초 뒤에 4초간 표시)
+        if hasattr(self, 'save_npc_bubble_timer') and not self.save_npc_bubble_shown:
+            self.save_npc_bubble_timer -= dt
+            if self.save_npc_bubble_timer <= 0:
+                # 2초 경과 - 말풍선 표시
+                if hasattr(self, 'save_npc_ref') and self.save_npc_ref:
+                    self.save_npc_ref.speech_bubble = "잠깐 저장하고 쉬고싶으면 내게 말을 걸게나"
+                    self.save_npc_ref.speech_timer = 4.0  # 4초간 표시
+                self.save_npc_bubble_shown = True
 
         # 동적 스폰 (선택적)
         # self._try_spawn(dt, downtown_map)
@@ -2539,6 +2670,14 @@ class NPCManager:
         npc = self.get_talkable_npc_near(x, y, radius)
         if npc:
             return npc.start_dialogue()
+        return None
+
+    def get_save_npc_near(self, x, y, radius=80):
+        """근처의 저장 NPC 반환"""
+        nearby = self.get_npcs_in_range(x, y, radius)
+        for npc in nearby:
+            if npc.is_save_npc:
+                return npc
         return None
 
     def try_interact_with_animal(self, x, y, radius=60):

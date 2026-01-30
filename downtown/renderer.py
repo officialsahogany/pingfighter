@@ -709,31 +709,34 @@ class DowntownRenderer:
             if p.get('has_trail') and 'trail' in p:
                 self._draw_particle_trail(screen, p, alpha)
 
-            if p['type'] == 'neon_rain':
+            # 파티클 타입 안전하게 가져오기 (KeyError 방지)
+            particle_type = p.get('type', 'default')
+
+            if particle_type == 'neon_rain':
                 # 네온 비 (고품질)
                 self._draw_neon_rain(screen, p, px, py, alpha)
 
-            elif p['type'] == 'snow':
+            elif particle_type == 'snow':
                 # 눈 (고품질)
                 self._draw_snow_particle(screen, p, px, py, alpha)
 
-            elif p['type'] == 'leaves':
+            elif particle_type == 'leaves':
                 # 나뭇잎 (고품질)
                 self._draw_leaf_particle(screen, p, px, py, alpha)
 
-            elif p['type'] == 'sand':
+            elif particle_type == 'sand':
                 # 모래 (고품질)
                 self._draw_sand_particle(screen, p, px, py, alpha)
 
-            elif p['type'] == 'stars' or p['type'] == 'sparkle':
+            elif particle_type == 'stars' or particle_type == 'sparkle':
                 # 별빛/스파클 (고품질)
                 self._draw_star_particle(screen, p, px, py, alpha)
 
-            elif p['type'] == 'fireflies':
+            elif particle_type == 'fireflies':
                 # 반딧불이 (고품질)
                 self._draw_firefly_particle(screen, p, px, py, alpha)
 
-            elif p['type'] == 'embers':
+            elif particle_type == 'embers':
                 # 불꽃 잔해 (고품질)
                 self._draw_ember_particle(screen, p, px, py, alpha)
 
