@@ -106,6 +106,7 @@ hail_impact_particles = []  # 우박 충돌 파티클 [(x, y, vx, vy, life, max_
 hail_spawn_timer = 0  # 우박 생성 타이머
 hail_initialized = False  # 우박 초기화 여부
 hail_player_hit_cooldown = 0  # 플레이어 피격 쿨다운
+hail_dash_destroy_callback = None  # 대시로 우박 파괴 시 콜백
 
 # 기상조절캡슐 페이드아웃 상태
 weather_capsule_fadeout_active = False  # 페이드아웃 진행 중 여부
@@ -2490,3 +2491,8 @@ def force_start_hail_event(duration=None):
     play_weather_sound("rain")
 
     print(f"[Weather] Forced hail start! Duration: {weather_event_remaining_rounds}")
+
+def set_hail_dash_destroy_callback(callback):
+    """우박 대시 파괴 콜백 설정"""
+    global hail_dash_destroy_callback
+    hail_dash_destroy_callback = callback
