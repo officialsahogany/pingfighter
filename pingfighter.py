@@ -4343,7 +4343,7 @@ def _draw_smasher_skill_debug(screen: pygame.Surface, scale_factor: float = 1.0)
 # ============================================================================
 def _draw_blacksmith_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
                                  orb_radius: int, current_gauge: float, max_gauge: float):
-    """게이지 구슬을 둘러싸는 반원 형태로 발토르 스킬 아이콘 배치
+    """게이지 구슬 옆에 발토르 스킬 아이콘 배치 (해머쇼크 1개 슬롯)
 
     Args:
         surface: 그릴 Surface
@@ -4360,158 +4360,124 @@ def _draw_blacksmith_skill_icons(surface: pygame.Surface, orb_center_x: int, orb
     icon_radius = 21
     icon_diameter = icon_radius * 2
 
-    # 구슬을 둘러싸는 반원 배치 (왼쪽 반원)
+    # 구슬 옆에 1개 배치 (왼쪽)
     orbit_radius = orb_radius + icon_radius + 18
 
     time_now = pygame.time.get_ticks()
     activation_effect_duration = 400
 
-    # 해머쇼크 퍽 레벨에 따른 해금 상태
-    perk_max_stage = get_blacksmith_hammer_shock_max_stage_by_perk()
+    # 해머쇼크 퍽 레벨 (0~3)
+    perk_level = get_blacksmith_hammer_shock_max_stage_by_perk()
 
-    # 슬롯 각도 정의 (왼쪽 반원에 3개 배치: 해머쇼크 1, 2, 3)
-    slot_angles = [165, 195, 225]  # 아래서부터 위로
+    # 슬롯 위치 (왼쪽 중앙)
+    angle_deg = 180
+    angle_rad = math.radians(angle_deg)
+    slot_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
+    slot_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
 
-    # 빈 슬롯 그리기 함수
-    def draw_empty_slot(slot_x: int, slot_y: int, locked: bool = False):
-        """빈 스킬 슬롯 (어두운 회색 원형) 그리기"""
+    # 퍽 미획득 시 잠긴 슬롯 표시
+    if perk_level <= 0:
         empty_bg_color = (40, 40, 45, 180)
         empty_border_color = (60, 60, 65, 200)
         pygame.draw.circle(surface, empty_bg_color, (slot_x, slot_y), icon_radius)
         pygame.draw.circle(surface, empty_border_color, (slot_x, slot_y), icon_radius, 2)
-        if locked:
-            # 자물쇠 아이콘 (간단한 형태)
-            pygame.draw.rect(surface, (80, 80, 80), (slot_x - 4, slot_y - 2, 8, 6))
-            pygame.draw.arc(surface, (80, 80, 80), (slot_x - 5, slot_y - 8, 10, 10), 0, math.pi, 2)
+        # 자물쇠 아이콘
+        pygame.draw.rect(surface, (80, 80, 80), (slot_x - 4, slot_y - 2, 8, 6))
+        pygame.draw.arc(surface, (80, 80, 80), (slot_x - 5, slot_y - 8, 10, 10), 0, math.pi, 2)
+        return
+
+    # 퍽 보유 - 해머쇼크 슬롯 그리기
+    skill_name = "hammer_shock"
+    skill_data = BLACKSMITH_SKILL_ICONS_DATA[0]
+
+    # 현재 레벨에 따른 색상 (최대 사용 가능 단계)
+    level_colors = {
+        1: (255, 150, 50),   # 주황
+        2: (255, 100, 50),   # 진한 주황
+        3: (255, 50, 50)     # 빨강
+    }
+    color = level_colors.get(perk_level, (255, 150, 50))
+
+    # 현재 레벨에 따른 게이지 비용 (최대 단계 비용)
+    level_costs = {1: 100, 2: 200, 3: 350}
+    min_cost = level_costs.get(1, 100)  # 최소 비용 (1단계)
 
     # 디바인스톤 존재 여부
     divine_state = globals().get("blacksmith_divine_stone_state")
     has_divine_stone = divine_state is not None
 
-    # 해머쇼크 3개 슬롯 그리기 (1단계, 2단계, 3단계)
-    for stage_idx in range(3):
-        stage_num = stage_idx + 1  # 1, 2, 3
-        angle_deg = slot_angles[stage_idx]
-        angle_rad = math.radians(angle_deg)
+    # 쿨타임 확인
+    cooldown_ratio = get_blacksmith_skill_cooldown_remaining("hammer_shock")
+    is_on_cooldown = cooldown_ratio > 0
 
-        slot_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
-        slot_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
+    # 활성화 여부 (최소 게이지 + 쿨타임 없음 + 디바인스톤)
+    is_active = current_gauge >= min_cost and not is_on_cooldown and has_divine_stone
 
-        # 해당 단계 퍽 보유 여부
-        has_perk = perk_max_stage >= stage_num
+    # 활성화 순간 감지
+    was_active = _blacksmith_skill_was_active.get("hammer_shock", False)
+    if is_active and not was_active:
+        _blacksmith_skill_activation_times["hammer_shock"] = time_now
+    _blacksmith_skill_was_active["hammer_shock"] = is_active
 
-        if not has_perk:
-            # 퍽 없음 - 잠긴 슬롯
-            draw_empty_slot(slot_x, slot_y, locked=True)
-            continue
+    # 아이콘 rect 저장
+    _blacksmith_skill_icon_rects[skill_name] = pygame.Rect(
+        slot_x - icon_radius, slot_y - icon_radius,
+        icon_diameter, icon_diameter
+    )
 
-        # 퍽 보유 - 스킬 슬롯 그리기
-        skill_name = f"hammer_shock_{stage_num}"
-        skill_data = BLACKSMITH_SKILL_ICONS_DATA[0]  # 해머쇼크 데이터
+    # 배경색 결정
+    if is_active:
+        bg_color = (*color[:3], 200)
+        border_color = (255, 255, 255, 255)
+    else:
+        dark_color = tuple(max(0, c // 3) for c in color[:3])
+        bg_color = (*dark_color, 150)
+        border_color = (80, 80, 80, 180)
 
-        # 단계별 비용 및 색상
-        stage_costs = {1: 100, 2: 200, 3: 350}
-        stage_colors = {
-            1: (255, 150, 50),
-            2: (255, 100, 50),
-            3: (255, 50, 50)
-        }
-        cost = stage_costs.get(stage_num, 100)
-        color = stage_colors.get(stage_num, skill_data["color"])
+    # 활성화 효과 (글로우)
+    activation_time = _blacksmith_skill_activation_times.get("hammer_shock", 0)
+    activation_elapsed = time_now - activation_time
+    if is_active and activation_elapsed < activation_effect_duration:
+        progress = activation_elapsed / activation_effect_duration
+        glow_alpha = int(100 * (1 - progress))
+        glow_radius = icon_radius + int(8 * (1 - progress))
+        glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surface, (*color[:3], glow_alpha),
+                           (glow_radius + 2, glow_radius + 2), glow_radius)
+        surface.blit(glow_surface, (slot_x - glow_radius - 2, slot_y - glow_radius - 2))
 
-        # 쿨타임 확인
-        cooldown_ratio = get_blacksmith_skill_cooldown_remaining("hammer_shock")
-        is_on_cooldown = cooldown_ratio > 0
+    # 아이콘 배경 원
+    pygame.draw.circle(surface, bg_color, (slot_x, slot_y), icon_radius)
+    pygame.draw.circle(surface, border_color, (slot_x, slot_y), icon_radius, 2)
 
-        # 활성화 여부 확인 (게이지 충분 + 쿨타임 없음 + 디바인스톤 있음)
-        is_active = current_gauge >= cost and not is_on_cooldown and has_divine_stone
+    # 아이콘 그리기 (망치 + 충격파) - 레벨에 따라 충격파 개수
+    hammer_color = color if is_active else (100, 100, 100)
+    pygame.draw.rect(surface, hammer_color, (slot_x - 6, slot_y - 4, 12, 5))
+    handle_color = (120, 80, 50) if is_active else (80, 60, 40)
+    pygame.draw.rect(surface, handle_color, (slot_x - 2, slot_y, 4, 10))
+    shock_color = color if is_active else (80, 80, 80)
+    for i in range(perk_level):
+        wave_radius = 8 + i * 3
+        pygame.draw.circle(surface, shock_color, (slot_x, slot_y - 6), wave_radius, 1)
 
-        # 활성화 순간 감지 (1단계만 추적)
-        if stage_num == 1:
-            was_active = _blacksmith_skill_was_active.get("hammer_shock", False)
-            if is_active and not was_active:
-                _blacksmith_skill_activation_times["hammer_shock"] = time_now
-            _blacksmith_skill_was_active["hammer_shock"] = is_active
-
-        # 아이콘 rect 저장
-        _blacksmith_skill_icon_rects[skill_name] = pygame.Rect(
-            slot_x - icon_radius, slot_y - icon_radius,
-            icon_diameter, icon_diameter
-        )
-
-        # 배경색 결정
-        if is_active:
-            bg_color = (*color[:3], 200)
-            border_color = (255, 255, 255, 255)
-        else:
-            dark_color = tuple(max(0, c // 3) for c in color[:3])
-            bg_color = (*dark_color, 150)
-            border_color = (80, 80, 80, 180)
-
-        # 활성화 효과 (글로우)
-        if stage_num == 1:
-            activation_time = _blacksmith_skill_activation_times.get("hammer_shock", 0)
-            activation_elapsed = time_now - activation_time
-
-            if is_active and activation_elapsed < activation_effect_duration:
-                progress = activation_elapsed / activation_effect_duration
-                glow_alpha = int(100 * (1 - progress))
-                glow_radius = icon_radius + int(8 * (1 - progress))
-                glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surface, (*color[:3], glow_alpha),
-                                   (glow_radius + 2, glow_radius + 2), glow_radius)
-                surface.blit(glow_surface, (slot_x - glow_radius - 2, slot_y - glow_radius - 2))
-
-        # 아이콘 배경 원
-        pygame.draw.circle(surface, bg_color, (slot_x, slot_y), icon_radius)
-        pygame.draw.circle(surface, border_color, (slot_x, slot_y), icon_radius, 2)
-
-        # 아이콘 그리기 (망치 + 충격파)
-        # 망치 헤드
-        hammer_color = color if is_active else (100, 100, 100)
-        pygame.draw.rect(surface, hammer_color, (slot_x - 6, slot_y - 4, 12, 5))
-        # 망치 손잡이
-        handle_color = (120, 80, 50) if is_active else (80, 60, 40)
-        pygame.draw.rect(surface, handle_color, (slot_x - 2, slot_y, 4, 10))
-        # 충격파 (단계별로 개수 증가)
-        shock_color = color if is_active else (80, 80, 80)
-        for i in range(stage_num):
-            wave_radius = 8 + i * 3
-            pygame.draw.circle(surface, shock_color, (slot_x, slot_y - 6), wave_radius, 1)
-
-        # 단계 숫자 표시
-        try:
-            num_font = pygame.font.Font(None, 14)
-            num_surf = num_font.render(str(stage_num), True, (255, 255, 255))
-            num_rect = num_surf.get_rect(center=(slot_x + icon_radius - 6, slot_y + icon_radius - 6))
-            # 숫자 배경
-            pygame.draw.circle(surface, (0, 0, 0, 180), num_rect.center, 7)
-            surface.blit(num_surf, num_rect)
-        except:
-            pass
-
-        # 쿨타임 오버레이
-        if is_on_cooldown:
-            # 반투명 어두운 오버레이
-            cooldown_surface = pygame.Surface((icon_diameter, icon_diameter), pygame.SRCALPHA)
-            pygame.draw.circle(cooldown_surface, (0, 0, 0, 150), (icon_radius, icon_radius), icon_radius)
-
-            # 쿨타임 진행도 표시 (파이 형태)
-            if cooldown_ratio > 0:
-                start_angle = -math.pi / 2
-                end_angle = start_angle + (1 - cooldown_ratio) * 2 * math.pi
-                if end_angle > start_angle:
-                    pie_points = [(icon_radius, icon_radius)]
-                    for a in range(int(math.degrees(start_angle)), int(math.degrees(end_angle)) + 1, 5):
-                        rad = math.radians(a)
-                        px = icon_radius + int(math.cos(rad) * icon_radius)
-                        py = icon_radius + int(math.sin(rad) * icon_radius)
-                        pie_points.append((px, py))
-                    pie_points.append((icon_radius, icon_radius))
-                    if len(pie_points) >= 3:
-                        pygame.draw.polygon(cooldown_surface, (0, 0, 0, 100), pie_points)
-
-            surface.blit(cooldown_surface, (slot_x - icon_radius, slot_y - icon_radius))
+    # 쿨타임 오버레이
+    if is_on_cooldown:
+        cooldown_surface = pygame.Surface((icon_diameter, icon_diameter), pygame.SRCALPHA)
+        pygame.draw.circle(cooldown_surface, (0, 0, 0, 150), (icon_radius, icon_radius), icon_radius)
+        if cooldown_ratio > 0:
+            start_angle = -math.pi / 2
+            end_angle = start_angle + (1 - cooldown_ratio) * 2 * math.pi
+            if end_angle > start_angle:
+                pie_points = [(icon_radius, icon_radius)]
+                for a in range(int(math.degrees(start_angle)), int(math.degrees(end_angle)) + 1, 5):
+                    rad = math.radians(a)
+                    px = icon_radius + int(math.cos(rad) * icon_radius)
+                    py = icon_radius + int(math.sin(rad) * icon_radius)
+                    pie_points.append((px, py))
+                pie_points.append((icon_radius, icon_radius))
+                if len(pie_points) >= 3:
+                    pygame.draw.polygon(cooldown_surface, (0, 0, 0, 100), pie_points)
+        surface.blit(cooldown_surface, (slot_x - icon_radius, slot_y - icon_radius))
 
 
 def _check_smasher_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> dict:
@@ -14337,20 +14303,7 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         if current_level >= 3:
             pygame.draw.circle(surface, (255, 255, 200), (icon_cx, shock_y), int(1.5*scale))
 
-        # Lv 표시 (우하단)
-        if current_level > 0:
-            pygame.draw.circle(surface, (255, 255, 255), (icon_cx + int(5*scale), icon_cy + int(5*scale)), int(3.5*scale))
-            try:
-                num_font = pygame.font.Font(None, max(8, int(10*scale)))
-                num_surf = num_font.render(str(current_level), True, shock_color)
-                num_rect = num_surf.get_rect(center=(icon_cx + int(5*scale), icon_cy + int(5*scale)))
-                surface.blit(num_surf, num_rect)
-            except:
-                pass
-        else:
-            # 미획득 시 자물쇠 표시
-            pygame.draw.circle(surface, (80, 80, 80), (icon_cx + int(5*scale), icon_cy + int(5*scale)), int(3*scale))
-            pygame.draw.rect(surface, (60, 60, 60), (icon_cx + int(3*scale), icon_cy + int(3*scale), int(4*scale), int(4*scale)))
+        # 레벨 숫자는 아이콘 내부에 표시하지 않음 (충격파 개수로 레벨 구분)
 
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
@@ -15727,10 +15680,20 @@ def show_all_runtime_skills_menu() -> str | None:
             icon_x = box_x + 10
             icon_y = box_y + 5
             icon_size_small = 35
+            # 아카데미 퍽의 경우 current_level 실시간 동기화
+            if skill.get("is_academy"):
+                try:
+                    import academy
+                    if hasattr(academy, 'skill_system') and academy.skill_system:
+                        skill["current_level"] = academy.skill_system.get_skill_level(skill["id"])
+                except:
+                    pass
+
             skill_for_icon = {
                 "id": skill["id"],
                 "name": skill["name"],
-                "icon_color": skill["icon_color"]
+                "icon_color": skill["icon_color"],
+                "current_level": skill.get("current_level", 0)  # 레벨 전달 (해머쇼크 등)
             }
             draw_skill_icon_mini(SCREEN, skill_for_icon, icon_x, icon_y, icon_size_small, scale_multiplier=1.2)
 
@@ -15746,13 +15709,15 @@ def show_all_runtime_skills_menu() -> str | None:
                 level_text = "즉시" if not is_unique else "★전설"
                 level_color = (100, 255, 200) if not is_unique else (255, 200, 50)
             else:
-                # F7 디버그 메뉴에서는 기본 레벨만 표시 (초월자의 관 보너스 제외)
-                # runtime_skill_levels에서 직접 가져와서 실시간 반영
                 skill_id = skill.get("id", "")
-                current_lvl = runtime_skill_levels.get(skill_id, 0)
+                # 아카데미 퍽은 skill["current_level"]에서, 런타임 스킬은 runtime_skill_levels에서
+                if skill.get("is_academy"):
+                    current_lvl = skill.get("current_level", 0)
+                else:
+                    current_lvl = runtime_skill_levels.get(skill_id, 0)
                 max_lvl = skill.get("max_level", 5)
                 level_text = f"Lv.{current_lvl}/{max_lvl}"
-                level_color = (150, 200, 255)
+                level_color = (150, 200, 255) if not skill.get("is_academy") else (180, 100, 220)
             level_surface = font_level.render(level_text, True, level_color)
             SCREEN.blit(level_surface, (box_x + 5, box_y + box_size - 14))
 
