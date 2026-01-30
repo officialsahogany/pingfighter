@@ -2,15 +2,11 @@
 """
 조선시대 스타일 액자 필러 배경 (Stage 1)
 게임 화면 주변을 전통 한국 자수/단청 스타일의 액자 테두리로 장식
-Gemini API가 생성한 코드 기반 용 기둥 배경 사용
 """
 
 import math
 import random
 import pygame
-
-# Gemini API로 생성된 코드 기반 용 기둥 배경
-from pillar_dragon import DragonPillarBackground
 
 
 class TraditionalFrame:
@@ -61,11 +57,6 @@ class TraditionalFrame:
         # 꽃잎 파티클
         self.petals = []
 
-        # 코드 기반 용 기둥 배경 (Gemini API가 생성한 코드)
-        self._dragon_pillar_bg = DragonPillarBackground(
-            screen_width, screen_height, game_width, game_height
-        )
-
         # 캐시된 프레임
         self._frame_surface = None
         self._create_frame()
@@ -94,8 +85,7 @@ class TraditionalFrame:
             (self.screen_width - self.game_x // 2, self.screen_height * 2 // 3),
         ]
 
-        # [DEBUG] 나비 생성 디버그
-        print(f"[나비생성] screen: {self.screen_width}x{self.screen_height}, game: {self.game_width}x{self.game_height}, offset: ({self.game_x}, {self.game_y})")
+        # [DEBUG] 나비 생성 디버그 (F4 좌표계 디버그로 대체됨 - 출력 비활성화)
 
         for i, (x, y) in enumerate(positions):
             if self.game_x > 80:  # 충분한 공간이 있을 때만
@@ -109,20 +99,33 @@ class TraditionalFrame:
                     'color': random.choice(['blue', 'gold', 'red']),
                     'size': random.uniform(0.8, 1.2),
                 })
-            else:
-                print(f"[나비생성] 실패! game_x={self.game_x} <= 80 (공간 부족)")
+            # 공간 부족 시 생성 스킵
 
-        print(f"[나비생성] 완료: {len(self.butterflies)}마리 생성됨")
+        # 생성 완료 (디버그 출력 비활성화 - F4 좌표계 디버그로 대체)
 
     def _create_frame(self):
-        """전통 액자 프레임 생성 (코드 기반 용 기둥 배경)"""
+        """전통 액자 프레임 생성"""
         self._frame_surface = pygame.Surface(
             (self.screen_width, self.screen_height), pygame.SRCALPHA
         )
 
-        # 코드 기반 용 기둥 배경 사용 (Gemini API가 생성한 코드)
-        # DragonPillarBackground가 필러를 직접 그림
-        # _frame_surface는 나비/꽃잎 등 추가 요소를 위해 투명하게 유지
+        # 배경 (주홍색 비단)
+        self._draw_silk_background(self._frame_surface)
+
+        # 외곽 금테
+        self._draw_outer_gold_border(self._frame_surface)
+
+        # 내곽 금테 (게임 영역 주변)
+        self._draw_inner_gold_border(self._frame_surface)
+
+        # 모서리 장식 (전통 문양)
+        self._draw_corner_ornaments(self._frame_surface)
+
+        # 꽃 자수 장식
+        self._draw_flower_embroidery(self._frame_surface)
+
+        # 나뭇가지 장식
+        self._draw_branch_decoration(self._frame_surface)
 
     def _draw_silk_background(self, surface: pygame.Surface):
         """한지(韓紙) 질감 배경"""
@@ -492,10 +495,8 @@ class TraditionalFrame:
     def set_player_rect(self, player_rect):
         """플레이어 위치 설정 (게임 좌표 -> 전체화면 좌표 변환)"""
         self._player_rect = player_rect
-        # [DEBUG] 플레이어 위치 확인
-        if player_rect and hasattr(player_rect, 'centerx'):
-            if random.random() < 0.01:  # 1% 확률로 출력
-                print(f"[플레이어위치] x={player_rect.centerx}, y={player_rect.centery}, game_w={self.game_width}, game_h={self.game_height}")
+        # [DEBUG] 플레이어 위치 확인 - F4 디버그 모드에서만 출력
+        # (디버그 출력 비활성화 - F4 좌표계 디버그로 대체됨)
 
     def check_gauge_recovered(self) -> bool:
         """게이지 회복이 완료되었는지 확인하고 플래그 리셋"""
@@ -553,10 +554,6 @@ class TraditionalFrame:
     def update(self, dt: float):
         """업데이트"""
         self.time += dt
-
-        # 코드 기반 용 기둥 배경 업데이트
-        if self._dragon_pillar_bg:
-            self._dragon_pillar_bg.update(dt)
 
         # 나비 흡수 쿨타임 감소
         if self._butterfly_cooldown > 0:
@@ -636,7 +633,7 @@ class TraditionalFrame:
                 self._butterfly_flying_to_player = self._select_butterfly_for_flight()
                 if self._butterfly_flying_to_player:
                     self._butterfly_absorbed = False
-                    print(f"[나비비행] 시작! 플레이어: ({player_cx}, {player_cy}), 나비: ({self._butterfly_flying_to_player['x']:.0f}, {self._butterfly_flying_to_player['y']:.0f})")
+                    # 디버그 출력 비활성화 - F4 좌표계 디버그로 대체
 
         # 흡수 파티클 업데이트
         for p in self._absorption_particles[:]:
@@ -839,9 +836,9 @@ class TraditionalFrame:
 
     def draw(self, surface: pygame.Surface):
         """전체 렌더링"""
-        # 코드 기반 용 기둥 배경 그리기
-        if self._dragon_pillar_bg:
-            self._dragon_pillar_bg.draw(surface)
+        # 캐시된 프레임
+        if self._frame_surface:
+            surface.blit(self._frame_surface, (0, 0))
 
         # 꽃잎 파티클
         for petal in self.petals:
@@ -910,11 +907,6 @@ class TraditionalFrame:
 
         self._frame_surface = None
         self._create_frame()
-
-        # 코드 기반 용 기둥 배경 재초기화
-        self._dragon_pillar_bg = DragonPillarBackground(
-            screen_width, screen_height, game_width, game_height
-        )
 
     def trigger_excitement(self, level: float = 1.5):
         """효과 트리거 (득점 시)"""
