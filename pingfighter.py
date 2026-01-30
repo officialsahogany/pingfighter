@@ -35441,7 +35441,7 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
     padding_bottom = max(6, height // 12)
     draw_width = width + padding_x * 2
     draw_height = height + padding_top + padding_bottom
-    structure_surface = pygame.Surface((draw_width, draw_height), pygame.SRCALPHA)
+    structure_surface = _get_divine_stone_structure_surface(draw_width, draw_height)  # 성능 최적화: 캐싱
     frame_value = float(globals().get("frame_counter", 0))
     deploy_frames = max(1, BLACKSMITH_DIVINE_DEPLOY_FRAMES)
     deploy_timer = min(deploy_frames, int(divine_state.get("deploy_timer", deploy_frames)))
@@ -35559,27 +35559,29 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
                 # 폭발 시: 에너지 구슬이 바깥으로 터짐
                 explosion_ratio = explosion_ttl / max(1, int(0.25 * FPS))
 
-                # 폭발 파동 (바깥으로 퍼져나감)
+                # 폭발 파동 (바깥으로 퍼져나감) - 성능 최적화: 캐싱
                 wave_radius = int(glow_radius * (1 + (1.0 - explosion_ratio) * 4))
                 wave_alpha = int(220 * explosion_ratio)
-                wave_surf = pygame.Surface((wave_radius * 2, wave_radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(wave_surf, (150, 200, 255, wave_alpha),
-                                 (wave_radius, wave_radius), wave_radius, 3)
-                structure_surface.blit(wave_surf, (int(mana_center.x - wave_radius), int(mana_center.y - wave_radius)))
+                if wave_radius > 0:
+                    wave_surf = _get_divine_stone_glow_surface(wave_radius)
+                    pygame.draw.circle(wave_surf, (150, 200, 255, wave_alpha),
+                                     (wave_radius, wave_radius), wave_radius, 3)
+                    structure_surface.blit(wave_surf, (int(mana_center.x - wave_radius), int(mana_center.y - wave_radius)))
 
-                # 두 번째 파동
+                # 두 번째 파동 - 성능 최적화: 캐싱
                 wave2_radius = int(glow_radius * (1 + (1.0 - explosion_ratio) * 2.5))
                 wave2_alpha = int(160 * explosion_ratio)
-                wave2_surf = pygame.Surface((wave2_radius * 2, wave2_radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(wave2_surf, (200, 230, 255, wave2_alpha),
-                                 (wave2_radius, wave2_radius), wave2_radius, 2)
-                structure_surface.blit(wave2_surf, (int(mana_center.x - wave2_radius), int(mana_center.y - wave2_radius)))
+                if wave2_radius > 0:
+                    wave2_surf = _get_divine_stone_glow_surface(wave2_radius)
+                    pygame.draw.circle(wave2_surf, (200, 230, 255, wave2_alpha),
+                                     (wave2_radius, wave2_radius), wave2_radius, 2)
+                    structure_surface.blit(wave2_surf, (int(mana_center.x - wave2_radius), int(mana_center.y - wave2_radius)))
 
-                # 중심 잔여 에너지 (작아지면서 사라짐)
+                # 중심 잔여 에너지 - 성능 최적화: 캐싱
                 shrink_size = int(core_radius * explosion_ratio * 0.6)
                 if shrink_size > 0:
                     shrink_alpha = int(255 * explosion_ratio)
-                    shrink_surf = pygame.Surface((shrink_size * 2, shrink_size * 2), pygame.SRCALPHA)
+                    shrink_surf = _get_divine_stone_glow_surface(shrink_size)
                     pygame.draw.circle(shrink_surf, (255, 255, 255, shrink_alpha),
                                      (shrink_size, shrink_size), shrink_size)
                     structure_surface.blit(shrink_surf, (int(mana_center.x - shrink_size), int(mana_center.y - shrink_size)))
@@ -35603,37 +35605,38 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
                 g_inner = int(200 + charge_progress * 40)
                 b_inner = 255
 
-                # 외부 글로우
+                # 외부 글로우 - 성능 최적화: 캐싱
                 if current_glow > 0:
-                    outer_surf = pygame.Surface((current_glow * 2, current_glow * 2), pygame.SRCALPHA)
+                    outer_surf = _get_divine_stone_glow_surface(current_glow)
                     pygame.draw.circle(outer_surf, (r_outer, g_outer, b_outer, outer_alpha),
                                      (current_glow, current_glow), current_glow)
                     structure_surface.blit(outer_surf, (int(mana_center.x - current_glow), int(mana_center.y - current_glow)))
 
-                # 내부 글로우
+                # 내부 글로우 - 성능 최적화: 캐싱
                 if current_core > 0:
-                    inner_surf = pygame.Surface((current_core * 2, current_core * 2), pygame.SRCALPHA)
+                    inner_surf = _get_divine_stone_glow_surface(current_core)
                     pygame.draw.circle(inner_surf, (r_inner, g_inner, b_inner, inner_alpha),
                                      (current_core, current_core), current_core)
                     structure_surface.blit(inner_surf, (int(mana_center.x - current_core), int(mana_center.y - current_core)))
 
-                # 중심 하얀 코어
+                # 중심 하얀 코어 - 성능 최적화: 캐싱
                 core_surf_size = max(2, current_core - 2)
                 if core_surf_size > 0:
-                    core_surf = pygame.Surface((core_surf_size * 2, core_surf_size * 2), pygame.SRCALPHA)
+                    core_surf = _get_divine_stone_glow_surface(core_surf_size)
                     pygame.draw.circle(core_surf, (255, 255, 255, core_alpha),
                                      (core_surf_size, core_surf_size), core_surf_size)
                     structure_surface.blit(core_surf, (int(mana_center.x - core_surf_size), int(mana_center.y - core_surf_size)))
 
-                # 충전 완료 시 맥동 효과 (더 강하게)
+                # 충전 완료 시 맥동 효과 - 성능 최적화: 캐싱
                 if charge_progress > 0.85:
                     pulse_intensity = (math.sin(pulse * 0.4) + 1) * 0.5
                     pulse_size = int(current_glow + pulse_intensity * 5)
                     pulse_alpha = int(60 * pulse_intensity)
-                    pulse_surf = pygame.Surface((pulse_size * 2, pulse_size * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(pulse_surf, (200, 230, 255, pulse_alpha),
-                                     (pulse_size, pulse_size), pulse_size)
-                    structure_surface.blit(pulse_surf, (int(mana_center.x - pulse_size), int(mana_center.y - pulse_size)))
+                    if pulse_size > 0:
+                        pulse_surf = _get_divine_stone_glow_surface(pulse_size)
+                        pygame.draw.circle(pulse_surf, (200, 230, 255, pulse_alpha),
+                                         (pulse_size, pulse_size), pulse_size)
+                        structure_surface.blit(pulse_surf, (int(mana_center.x - pulse_size), int(mana_center.y - pulse_size)))
 
         rune_progress = (pulse % 180) / 180.0
         orb_alpha = int(180 * core_progress)
@@ -39497,6 +39500,33 @@ _divine_shield_base_cache: dict[tuple[int, int, bool], pygame.Surface] = {}
 # ============================================================
 _blacksmith_blueprint_cache: dict[tuple, pygame.Surface] = {}  # 청사진 정적 요소 캐시
 _blacksmith_divine_stone_cache: dict[tuple, pygame.Surface] = {}  # 디바인 스톤 구조물 캐시
+_divine_stone_structure_cache: dict[tuple[int, int], pygame.Surface] = {}  # 구조물 Surface 캐시
+_divine_stone_glow_cache: dict[int, pygame.Surface] = {}  # 글로우 Surface 캐시 (크기별)
+
+
+def _get_divine_stone_structure_surface(width: int, height: int) -> pygame.Surface:
+    """디바인스톤 structure_surface 캐싱 (매 프레임 생성 방지)"""
+    key = (width, height)
+    if key not in _divine_stone_structure_cache:
+        _divine_stone_structure_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
+        if len(_divine_stone_structure_cache) > 10:
+            oldest = next(iter(_divine_stone_structure_cache))
+            del _divine_stone_structure_cache[oldest]
+    else:
+        _divine_stone_structure_cache[key].fill((0, 0, 0, 0))
+    return _divine_stone_structure_cache[key]
+
+
+def _get_divine_stone_glow_surface(size: int) -> pygame.Surface:
+    """디바인스톤 글로우/파동 Surface 캐싱 (크기별)"""
+    if size not in _divine_stone_glow_cache:
+        _divine_stone_glow_cache[size] = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+        if len(_divine_stone_glow_cache) > 30:
+            oldest = next(iter(_divine_stone_glow_cache))
+            del _divine_stone_glow_cache[oldest]
+    else:
+        _divine_stone_glow_cache[size].fill((0, 0, 0, 0))
+    return _divine_stone_glow_cache[size]
 _blacksmith_blueprint_frame_counter = 0
 _blacksmith_last_blueprint_progress: dict[str, float] = {}  # {"divine": 0.0, "turret": 0.0}
 BLACKSMITH_BLUEPRINT_CACHE_SKIP_FRAMES = 2  # 2프레임마다 갱신 (30fps 수준)
