@@ -867,6 +867,10 @@ class MossyStoneFrame:
         for plant in self.small_plants:
             self._draw_small_plant(self._static_cache, plant)
 
+        # 게임 영역을 투명하게 (나중에 게임 배경이 그려짐)
+        game_rect = pygame.Rect(self.game_x, self.game_y, self.game_width, self.game_height)
+        self._static_cache.fill((0, 0, 0, 0), game_rect)
+
     def _create_foliage_cache(self):
         """식물 캐시 (덩굴, 양치, 야자수, 몬스테라, 꽃)"""
         self._foliage_cache = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
@@ -898,6 +902,10 @@ class MossyStoneFrame:
         # 매달린 덩굴
         for vine in self.hanging_vines:
             self._draw_hanging_vine_static(self._foliage_cache, vine)
+
+        # 게임 영역을 투명하게 (나중에 게임 배경이 그려짐)
+        game_rect = pygame.Rect(self.game_x, self.game_y, self.game_width, self.game_height)
+        self._foliage_cache.fill((0, 0, 0, 0), game_rect)
 
     def _draw_jungle_background(self, surface):
         """깊은 정글 숲 배경 그리기"""
@@ -967,10 +975,6 @@ class MossyStoneFrame:
             if right_start < self.screen_width:
                 pygame.draw.rect(surface, (*self.COLORS['jungle_mist'], alpha),
                                (right_start, y, self.screen_width - right_start, 4))
-
-        # 게임 영역은 투명하게 (나중에 게임 배경이 그려짐)
-        game_rect = pygame.Rect(self.game_x, self.game_y, self.game_width, self.game_height)
-        pygame.draw.rect(surface, (0, 0, 0, 0), game_rect)
 
     def _draw_background_vine(self, surface, vine):
         """배경 덩굴 그리기"""
