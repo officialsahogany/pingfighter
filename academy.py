@@ -8,6 +8,10 @@ from start_menu import is_admin_mode_enabled
 
 ACADEMY_DEBUG = os.getenv("ACADEMY_DEBUG") == "1"
 
+# 초월자의 관 스킬 보너스 (전설 아이템 효과)
+# 이 값은 legendary_items.py의 TranscendentCrown.activate()에서 설정됨
+transcendent_crown_skill_bonus = 0
+
 # PyInstaller 실행 파일에서 리소스 경로를 찾기 위한 함수
 def resource_path(relative_path):
     """PyInstaller로 패키징된 실행 파일에서 리소스 경로를 찾는 함수"""
@@ -237,6 +241,79 @@ SKILL_TREES = {
                 "col": 1
             }
         ]
+    },
+    "blacksmith": {
+        "name": "발토르 스킬",
+        "color": (180, 100, 220),  # 보라색 (발토르 테마)
+        "character_exclusive": "blacksmith",  # 발토르 전용 표시
+        "skills": [
+            {
+                "id": "blacksmith_turret_enhance",
+                "name": "강화포탑 해금",
+                "description": "포탑을 강화 포탑으로 업그레이드할 수 있게 됩니다.\n(유도 미사일, 오버드라이브 사용 가능)",
+                "max_level": 1,
+                "cost": 2,
+                "icon_color": (180, 100, 220),
+                "icon_type": "turret",  # 특수 아이콘 타입
+                "requires": None,
+                "row": 0,
+                "col": 0
+            },
+            {
+                "id": "blacksmith_divine_enhance",
+                "name": "디바인 강화 해금",
+                "description": "디바인스톤을 강화 디바인스톤으로 업그레이드할 수 있게 됩니다.\n(검기, 디바인쉴드 사용 가능)",
+                "max_level": 1,
+                "cost": 2,
+                "icon_color": (100, 200, 255),
+                "icon_type": "divine",  # 특수 아이콘 타입
+                "requires": None,
+                "row": 0,
+                "col": 1
+            },
+            {
+                "id": "blacksmith_hammer_shock",
+                "name": "해머쇼크",
+                "description": "해머쇼크 스킬을 사용할 수 있게 됩니다.\nLv.1: 기본 해머쇼크\nLv.2: 넓은 범위, 강한 피해\nLv.3: 최대 범위, 최대 피해",
+                "max_level": 3,
+                "cost": 2,  # 레벨당 비용
+                "icon_color": (255, 150, 50),  # 기본 색상 (레벨에 따라 변경)
+                "icon_type": "hammer_shock",
+                "requires": None,
+                "row": 0,
+                "col": 2,
+                # 레벨별 아이콘 색상 (그라데이션)
+                "level_colors": {
+                    1: (255, 150, 50),   # 주황
+                    2: (255, 100, 50),   # 진한 주황
+                    3: (255, 50, 50)     # 빨강
+                }
+            },
+            {
+                "id": "blacksmith_gauge_efficiency",
+                "name": "게이지 효율",
+                "description": "토르쉴드로 공을 막을 때 게이지 획득량 10% 증가\n(누적 ★4 필요)",
+                "max_level": 5,
+                "cost": 1,
+                "icon_color": (200, 150, 255),
+                "requires_or": ["blacksmith_turret_enhance", "blacksmith_divine_enhance"],
+                "total_tp_required": 4,
+                "row": 1,
+                "col": 0.5
+            },
+            {
+                "id": "blacksmith_build_speed",
+                "name": "숙련된 망치질",
+                "description": "건설 속도 8% 증가\n(누적 ★8 필요)",
+                "max_level": 5,
+                "cost": 2,
+                "icon_color": (220, 180, 255),
+                "requires": "blacksmith_gauge_efficiency",
+                "total_tp_required": 8,
+                "row": 2,
+                "col": 0.5
+            }
+        ]
     }
 }
 
@@ -247,7 +324,8 @@ TREE_SUMMARIES = {
     "dash": "대쉬 속도와 통제력을 끌어올려 공격 템포를 높이는 스킬입니다.",
     "item": "필드 드랍률과 가챠, 아이템 쿨타임을 다뤄 보조 능력을 강화합니다.",
     "paddle": "패들 스킬 트리는 재구성 준비 중입니다.",
-    "downtown": "가챠 추가 실행과 전설 아이템 확률을 높이는 광장 스킬입니다."
+    "downtown": "가챠 추가 실행과 신화 아이템 확률을 높이는 광장 스킬입니다.",
+    "blacksmith": "발토르 전용 스킬입니다. 강화 포탑/디바인 업그레이드와 건설 효율을 높입니다."
 }
 
 class SkillSystem:
@@ -302,7 +380,55 @@ class SkillSystem:
     def add_skill_points(self, points):
         """스킬 포인트 추가 (저장하지 않음)"""
         self.skill_points += points
-        
+
+    def to_save_dict(self):
+        """저장 가능한 딕셔너리로 변환"""
+        # 활성 스킬만 저장 (0인 스킬은 제외하여 저장 용량 절약)
+        active_skill_levels = {k: v for k, v in self.skill_levels.items() if v > 0}
+        if active_skill_levels:
+            print(f"[스킬 시스템] 저장할 활성 스킬: {active_skill_levels}")
+        return {
+            "skill_points": self.skill_points,
+            "skill_levels": dict(self.skill_levels),  # 전체 저장 (호환성)
+            "total_invested_points": self.total_invested_points,
+            "total_invested_points_by_tree": dict(self.total_invested_points_by_tree),
+        }
+
+    def load_from_dict(self, data):
+        """저장된 딕셔너리에서 스킬 시스템 복원"""
+        if not data:
+            return False
+        try:
+            self.skill_points = data.get("skill_points", 0)
+            self.skill_levels = dict(data.get("skill_levels", {}))
+            self.total_invested_points = data.get("total_invested_points", 0)
+            self.total_invested_points_by_tree = dict(data.get("total_invested_points_by_tree", {}))
+
+            # skill_to_tree 매핑은 항상 SKILL_TREES에서 재계산 (저장하지 않음)
+            self.skill_to_tree = {}
+            for tree_id, tree_data in SKILL_TREES.items():
+                for skill in tree_data["skills"]:
+                    self.skill_to_tree[skill["id"]] = tree_id
+
+            # 트리별 TP가 없으면 초기화
+            if not self.total_invested_points_by_tree:
+                for tree_id in SKILL_TREES.keys():
+                    self.total_invested_points_by_tree[tree_id] = 0
+
+            print(f"[스킬 시스템] 로드 완료 - SP: {self.skill_points}, 투자 TP: {self.total_invested_points}, 스킬: {len(self.skill_levels)}개")
+
+            # 로드된 스킬 레벨 상세 출력 (디버그용)
+            active_skills = {k: v for k, v in self.skill_levels.items() if v > 0}
+            if active_skills:
+                print(f"[스킬 시스템] 활성 스킬: {active_skills}")
+
+            return True
+        except Exception as e:
+            print(f"[스킬 시스템] 로드 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def reset_all(self):
         """모든 스킬과 포인트를 완전히 초기화"""
         self.init_fresh_skills()
@@ -1648,6 +1774,90 @@ class AcademyUI:
             for i in range(3):
                 dot_y = center_y - 4 + i * 4
                 pygame.draw.circle(surface, color, (center_x - 6, dot_y), 1)
+
+        # === 발토르 (Blacksmith) 스킬 아이콘 ===
+        elif skill_id == "blacksmith_turret_enhance":
+            # 🗼 강화포탑 해금 - 포탑 실루엣 + 상승 화살표
+            # 포탑 본체 (사다리꼴)
+            turret_body = [
+                (center_x - 8, center_y + 8),
+                (center_x + 8, center_y + 8),
+                (center_x + 5, center_y - 2),
+                (center_x - 5, center_y - 2)
+            ]
+            pygame.draw.polygon(surface, color, turret_body, 2)
+            # 포탑 헤드 (원형 코어)
+            pygame.draw.circle(surface, color, (center_x, center_y - 6), 5, 2)
+            # 포신 (위로 향함)
+            pygame.draw.line(surface, color, (center_x, center_y - 11), (center_x, center_y - 16), 3)
+            # 상승 화살표 (강화 표시)
+            pygame.draw.polygon(surface, color, [
+                (center_x + 10, center_y - 8),
+                (center_x + 14, center_y - 4),
+                (center_x + 12, center_y - 4),
+                (center_x + 12, center_y + 2),
+                (center_x + 8, center_y + 2),
+                (center_x + 8, center_y - 4),
+                (center_x + 6, center_y - 4)
+            ], 0)
+            # 베이스 라인
+            pygame.draw.line(surface, color, (center_x - 10, center_y + 8), (center_x + 10, center_y + 8), 2)
+
+        elif skill_id == "blacksmith_divine_enhance":
+            # 💎 디바인 강화 해금 - 크리스탈 + 광채
+            # 디바인스톤 본체 (육각형 크리스탈)
+            crystal_points = []
+            for i in range(6):
+                angle = math.radians(60 * i - 90)
+                px = center_x + 10 * math.cos(angle)
+                py = center_y + 10 * math.sin(angle)
+                crystal_points.append((px, py))
+            pygame.draw.polygon(surface, color, crystal_points, 2)
+            # 내부 광채 라인
+            pygame.draw.line(surface, color, (center_x - 5, center_y - 3), (center_x + 5, center_y + 3), 1)
+            pygame.draw.line(surface, color, (center_x + 5, center_y - 3), (center_x - 5, center_y + 3), 1)
+            # 중앙 코어
+            pygame.draw.circle(surface, color, (center_x, center_y), 3)
+            # 주변 광채 효과 (4방향 빛)
+            for angle_deg in [0, 90, 180, 270]:
+                angle = math.radians(angle_deg)
+                x1 = center_x + 12 * math.cos(angle)
+                y1 = center_y + 12 * math.sin(angle)
+                x2 = center_x + 16 * math.cos(angle)
+                y2 = center_y + 16 * math.sin(angle)
+                pygame.draw.line(surface, color, (x1, y1), (x2, y2), 2)
+
+        elif skill_id == "blacksmith_gauge_efficiency":
+            # ⚡ 게이지 효율 - 번개 + 게이지바
+            # 번개 모양
+            lightning_points = [
+                (center_x + 2, center_y - 12),
+                (center_x - 4, center_y - 2),
+                (center_x, center_y - 2),
+                (center_x - 2, center_y + 8),
+                (center_x + 4, center_y - 2),
+                (center_x, center_y - 2)
+            ]
+            pygame.draw.polygon(surface, color, lightning_points, 2)
+            # 게이지 바 (하단)
+            pygame.draw.rect(surface, color, (center_x - 10, center_y + 10, 20, 4), 2)
+            pygame.draw.rect(surface, color, (center_x - 9, center_y + 11, 12, 2))
+
+        elif skill_id == "blacksmith_build_speed":
+            # 🔨 숙련된 망치질 - 망치 + 속도 라인
+            # 망치 헤드
+            pygame.draw.rect(surface, color, (center_x - 8, center_y - 10, 16, 8), 2)
+            # 망치 손잡이
+            pygame.draw.line(surface, color, (center_x, center_y - 2), (center_x, center_y + 10), 3)
+            # 속도 라인 (모션 블러)
+            pygame.draw.line(surface, color, (center_x - 12, center_y - 8), (center_x - 14, center_y - 6), 1)
+            pygame.draw.line(surface, color, (center_x - 12, center_y - 5), (center_x - 15, center_y - 3), 1)
+            pygame.draw.line(surface, color, (center_x - 12, center_y - 2), (center_x - 14, center_y), 1)
+
+        elif "blacksmith" in skill_id:
+            # 기타 발토르 스킬은 기본 망치 아이콘
+            pygame.draw.rect(surface, color, (center_x - 6, center_y - 8, 12, 6), 2)
+            pygame.draw.line(surface, color, (center_x, center_y - 2), (center_x, center_y + 8), 2)
 
         elif "item" in skill_id:
             # 기타 아이템 스킬은 아직 전용 아이콘이 없음
@@ -3679,8 +3889,27 @@ def get_skill_bonus(skill_id):
 
 
 def get_skill_level(skill_id):
-    """특정 스킬 레벨 조회"""
-    return skill_system.get_skill_level(skill_id)
+    """특정 스킬 레벨 조회 (초월자의 관 보너스 포함)
+
+    초월자의 관 착용 시: 이미 투자된 스킬(레벨 1 이상)에만 보너스 적용
+    보너스는 max_level을 초과하지 않음
+    """
+    base_level = skill_system.get_skill_level(skill_id)
+
+    # 초월자의 관 보너스: 이미 투자된 스킬에만 적용
+    if base_level > 0 and transcendent_crown_skill_bonus > 0:
+        # 해당 스킬의 max_level 찾기
+        max_level = 99  # 기본값 (찾지 못할 경우)
+        for tree_data in SKILL_TREES.values():
+            for skill in tree_data["skills"]:
+                if skill["id"] == skill_id:
+                    max_level = skill["max_level"]
+                    break
+
+        # max_level을 초과하지 않도록 제한
+        return min(base_level + transcendent_crown_skill_bonus, max_level)
+
+    return base_level
 
 
 def compute_item_spawn_delay_multiplier(level):

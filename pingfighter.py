@@ -14291,70 +14291,66 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         # 반짝임
         pygame.draw.circle(surface, (255, 255, 200), (icon_cx - int(3*scale), icon_cy - int(5*scale)), int(1.5*scale))
 
-    elif skill_id == "blacksmith_hammer_shock_1":
-        # 해머쇼크 1단계 - 작은 충격파 + 망치
-        shock_color = (255, 150, 50)
-        # 망치 헤드
-        pygame.draw.rect(surface, darker(shock_color), (icon_cx - int(4*scale), icon_cy - int(3*scale), int(8*scale), int(4*scale)))
-        pygame.draw.rect(surface, shock_color, (icon_cx - int(4*scale), icon_cy - int(3*scale), int(7*scale), int(3*scale)))
-        # 망치 손잡이
-        pygame.draw.rect(surface, (120, 80, 50), (icon_cx - int(1*scale), icon_cy, int(2*scale), int(7*scale)))
-        # 충격파 1개 (작은 원)
-        pygame.draw.circle(surface, shock_color, (icon_cx, icon_cy - int(6*scale)), int(3*scale), max(1, int(1*scale)))
-        # 숫자 1 표시
-        pygame.draw.circle(surface, (255, 255, 255), (icon_cx + int(5*scale), icon_cy + int(5*scale)), int(3*scale))
-        try:
-            num_font = pygame.font.Font(None, max(8, int(10*scale)))
-            num_surf = num_font.render("1", True, shock_color)
-            num_rect = num_surf.get_rect(center=(icon_cx + int(5*scale), icon_cy + int(5*scale)))
-            surface.blit(num_surf, num_rect)
-        except:
-            pass
+    elif skill_id == "blacksmith_hammer_shock":
+        # 해머쇼크 - 레벨에 따라 다른 아이콘 (Lv.1/2/3)
+        # 현재 레벨 가져오기
+        current_level = skill.get("current_level", 0)
+        if current_level <= 0:
+            # 레벨 0이면 academy에서 가져오기 시도
+            try:
+                import academy
+                if hasattr(academy, 'skill_system') and academy.skill_system:
+                    current_level = academy.skill_system.get_skill_level("blacksmith_hammer_shock")
+            except:
+                pass
 
-    elif skill_id == "blacksmith_hammer_shock_2":
-        # 해머쇼크 2단계 - 중간 충격파 + 망치
-        shock_color = (255, 100, 50)
-        # 망치 헤드
-        pygame.draw.rect(surface, darker(shock_color), (icon_cx - int(4*scale), icon_cy - int(2*scale), int(8*scale), int(4*scale)))
-        pygame.draw.rect(surface, shock_color, (icon_cx - int(4*scale), icon_cy - int(2*scale), int(7*scale), int(3*scale)))
-        # 망치 손잡이
-        pygame.draw.rect(surface, (120, 80, 50), (icon_cx - int(1*scale), icon_cy + int(1*scale), int(2*scale), int(6*scale)))
-        # 충격파 2개 (동심원)
-        pygame.draw.circle(surface, shock_color, (icon_cx, icon_cy - int(5*scale)), int(4*scale), max(1, int(1*scale)))
-        pygame.draw.circle(surface, lighter(shock_color), (icon_cx, icon_cy - int(5*scale)), int(2*scale), max(1, int(1*scale)))
-        # 숫자 2 표시
-        pygame.draw.circle(surface, (255, 255, 255), (icon_cx + int(5*scale), icon_cy + int(5*scale)), int(3*scale))
-        try:
-            num_font = pygame.font.Font(None, max(8, int(10*scale)))
-            num_surf = num_font.render("2", True, shock_color)
-            num_rect = num_surf.get_rect(center=(icon_cx + int(5*scale), icon_cy + int(5*scale)))
-            surface.blit(num_surf, num_rect)
-        except:
-            pass
+        # 레벨별 색상 (0이면 회색)
+        level_colors = {
+            0: (120, 120, 120),  # 미획득 - 회색
+            1: (255, 150, 50),   # Lv.1 - 주황
+            2: (255, 100, 50),   # Lv.2 - 진한 주황
+            3: (255, 50, 50)     # Lv.3 - 빨강
+        }
+        shock_color = level_colors.get(current_level, level_colors[0])
 
-    elif skill_id == "blacksmith_hammer_shock_3":
-        # 해머쇼크 3단계 - 큰 충격파 + 망치
-        shock_color = (255, 50, 50)
-        # 글로우 효과
-        pygame.draw.circle(surface, (255, 100, 50), (icon_cx, icon_cy - int(4*scale)), int(7*scale))
+        # Lv.3 전용 글로우 효과
+        if current_level >= 3:
+            pygame.draw.circle(surface, (255, 100, 50), (icon_cx, icon_cy - int(4*scale)), int(7*scale))
+
         # 망치 헤드
-        pygame.draw.rect(surface, darker(shock_color), (icon_cx - int(4*scale), icon_cy - int(1*scale), int(8*scale), int(4*scale)))
-        pygame.draw.rect(surface, shock_color, (icon_cx - int(4*scale), icon_cy - int(1*scale), int(7*scale), int(3*scale)))
+        head_y = icon_cy - int(3*scale) if current_level <= 1 else icon_cy - int(2*scale) if current_level == 2 else icon_cy - int(1*scale)
+        pygame.draw.rect(surface, darker(shock_color), (icon_cx - int(4*scale), head_y, int(8*scale), int(4*scale)))
+        pygame.draw.rect(surface, shock_color, (icon_cx - int(4*scale), head_y, int(7*scale), int(3*scale)))
+
         # 망치 손잡이
-        pygame.draw.rect(surface, (120, 80, 50), (icon_cx - int(1*scale), icon_cy + int(2*scale), int(2*scale), int(5*scale)))
-        # 충격파 3개 (동심원 + 불꽃)
-        pygame.draw.circle(surface, shock_color, (icon_cx, icon_cy - int(4*scale)), int(5*scale), max(1, int(2*scale)))
-        pygame.draw.circle(surface, lighter(shock_color), (icon_cx, icon_cy - int(4*scale)), int(3*scale), max(1, int(1*scale)))
-        pygame.draw.circle(surface, (255, 255, 200), (icon_cx, icon_cy - int(4*scale)), int(1.5*scale))
-        # 숫자 3 표시
-        pygame.draw.circle(surface, (255, 255, 255), (icon_cx + int(5*scale), icon_cy + int(5*scale)), int(3*scale))
-        try:
-            num_font = pygame.font.Font(None, max(8, int(10*scale)))
-            num_surf = num_font.render("3", True, shock_color)
-            num_rect = num_surf.get_rect(center=(icon_cx + int(5*scale), icon_cy + int(5*scale)))
-            surface.blit(num_surf, num_rect)
-        except:
-            pass
+        handle_y = head_y + int(3*scale)
+        handle_len = int(7*scale) if current_level <= 1 else int(6*scale) if current_level == 2 else int(5*scale)
+        pygame.draw.rect(surface, (120, 80, 50), (icon_cx - int(1*scale), handle_y, int(2*scale), handle_len))
+
+        # 충격파 (레벨에 따라 다르게)
+        shock_y = icon_cy - int(6*scale) if current_level <= 1 else icon_cy - int(5*scale) if current_level == 2 else icon_cy - int(4*scale)
+        if current_level >= 1:
+            wave_r = int(3*scale) if current_level == 1 else int(4*scale) if current_level == 2 else int(5*scale)
+            pygame.draw.circle(surface, shock_color, (icon_cx, shock_y), wave_r, max(1, int(1*scale) if current_level <= 2 else int(2*scale)))
+        if current_level >= 2:
+            pygame.draw.circle(surface, lighter(shock_color), (icon_cx, shock_y), int(2*scale) if current_level == 2 else int(3*scale), max(1, int(1*scale)))
+        if current_level >= 3:
+            pygame.draw.circle(surface, (255, 255, 200), (icon_cx, shock_y), int(1.5*scale))
+
+        # Lv 표시 (우하단)
+        if current_level > 0:
+            pygame.draw.circle(surface, (255, 255, 255), (icon_cx + int(5*scale), icon_cy + int(5*scale)), int(3.5*scale))
+            try:
+                num_font = pygame.font.Font(None, max(8, int(10*scale)))
+                num_surf = num_font.render(str(current_level), True, shock_color)
+                num_rect = num_surf.get_rect(center=(icon_cx + int(5*scale), icon_cy + int(5*scale)))
+                surface.blit(num_surf, num_rect)
+            except:
+                pass
+        else:
+            # 미획득 시 자물쇠 표시
+            pygame.draw.circle(surface, (80, 80, 80), (icon_cx + int(5*scale), icon_cy + int(5*scale)), int(3*scale))
+            pygame.draw.rect(surface, (60, 60, 60), (icon_cx + int(3*scale), icon_cy + int(3*scale), int(4*scale), int(4*scale)))
 
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
@@ -38936,20 +38932,15 @@ def get_blacksmith_hammer_shock_max_stage_by_perk() -> int:
 
     Returns:
         0: 퍽 없음 (해머쇼크 사용 불가)
-        1: 1단계 퍽 보유
-        2: 2단계 퍽 보유
-        3: 3단계 퍽 보유
+        1: Lv.1 퍽 보유 (1단계 해머쇼크)
+        2: Lv.2 퍽 보유 (2단계 해머쇼크)
+        3: Lv.3 퍽 보유 (3단계 해머쇼크)
     """
     try:
         import academy
         if hasattr(academy, 'skill_system') and academy.skill_system:
-            # 3단계 → 2단계 → 1단계 순으로 체크
-            if academy.skill_system.get_skill_level("blacksmith_hammer_shock_3") >= 1:
-                return 3
-            if academy.skill_system.get_skill_level("blacksmith_hammer_shock_2") >= 1:
-                return 2
-            if academy.skill_system.get_skill_level("blacksmith_hammer_shock_1") >= 1:
-                return 1
+            # 통합된 해머쇼크 퍽 레벨 반환 (0~3)
+            return academy.skill_system.get_skill_level("blacksmith_hammer_shock")
     except Exception:
         pass
     return 0
