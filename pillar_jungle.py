@@ -912,25 +912,14 @@ class MossyStoneFrame:
         left_width = self.game_x
         right_start = self.game_x + self.game_width
 
-        # 어두운 정글 그라데이션 (필러 영역만)
+        # 어두운 정글 그라데이션 (필러 영역만) - 부드러운 단일 그라데이션
+        # 상단: 어두운 녹색 → 하단: 약간 밝은 녹색 (자연스러운 정글 느낌)
         for y in range(0, self.screen_height, 2):
             progress = y / self.screen_height
-            # 위쪽은 약간 밝고 (나무 캐노피), 중간은 더 어둡고, 아래쪽은 약간 밝은 빛
-            if progress < 0.3:
-                # 상단 (나무 사이로 들어오는 빛)
-                t = progress / 0.3
-                r = int(self.COLORS['jungle_dark'][0] + (self.COLORS['jungle_mid'][0] - self.COLORS['jungle_dark'][0]) * t)
-                g = int(self.COLORS['jungle_dark'][1] + (self.COLORS['jungle_mid'][1] - self.COLORS['jungle_dark'][1]) * t)
-                b = int(self.COLORS['jungle_dark'][2] + (self.COLORS['jungle_mid'][2] - self.COLORS['jungle_dark'][2]) * t)
-            elif progress < 0.7:
-                # 중간 (어두운 정글 내부)
-                r, g, b = self.COLORS['jungle_darkest']
-            else:
-                # 하단 (바닥쪽 - 약간 밝은 이끼빛)
-                t = (progress - 0.7) / 0.3
-                r = int(self.COLORS['jungle_darkest'][0] + (self.COLORS['jungle_dark'][0] - self.COLORS['jungle_darkest'][0]) * t)
-                g = int(self.COLORS['jungle_darkest'][1] + (self.COLORS['jungle_dark'][1] - self.COLORS['jungle_darkest'][1]) * t)
-                b = int(self.COLORS['jungle_darkest'][2] + (self.COLORS['jungle_dark'][2] - self.COLORS['jungle_darkest'][2]) * t)
+            # 전체적으로 부드럽게 상단(어둡) → 하단(밝음) 그라데이션
+            r = int(self.COLORS['jungle_darkest'][0] + (self.COLORS['jungle_dark'][0] - self.COLORS['jungle_darkest'][0]) * progress)
+            g = int(self.COLORS['jungle_darkest'][1] + (self.COLORS['jungle_dark'][1] - self.COLORS['jungle_darkest'][1]) * progress)
+            b = int(self.COLORS['jungle_darkest'][2] + (self.COLORS['jungle_dark'][2] - self.COLORS['jungle_darkest'][2]) * progress)
 
             # 좌측 필러
             if left_width > 0:
@@ -965,16 +954,7 @@ class MossyStoneFrame:
                                        (0, 0, radius * 2, radius * 2))
                     surface.blit(glow_surf, (right_start - radius, glow_center_y - radius))
 
-        # 안개 효과 (하단)
-        mist_start = int(self.screen_height * 0.7)
-        for y in range(mist_start, self.screen_height, 4):
-            progress = (y - mist_start) / (self.screen_height - mist_start)
-            alpha = int(20 * (1 - progress))
-            if left_width > 0:
-                pygame.draw.rect(surface, (*self.COLORS['jungle_mist'], alpha), (0, y, left_width, 4))
-            if right_start < self.screen_width:
-                pygame.draw.rect(surface, (*self.COLORS['jungle_mist'], alpha),
-                               (right_start, y, self.screen_width - right_start, 4))
+        # 안개 효과 제거 (그라데이션과 충돌하여 사각형 경계 생성함)
 
     def _draw_background_vine(self, surface, vine):
         """배경 덩굴 그리기"""
