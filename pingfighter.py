@@ -357,7 +357,27 @@ import numpy as np
 _surface_cache = {}  # 범용 Surface 캐시
 _scale_cache = {}    # transform.scale 결과 캐시
 _glow_surface_cache = {}  # 글로우 이펙트 Surface 캐시
+_predrawn_glow_cache = {}  # 사전 렌더링된 glow 원 캐시 (크기/색상/알파 버킷)
+_font_cache = {}  # 폰트 객체 캐시 (매 프레임 SysFont 생성 방지)
+_static_text_cache = {}  # 정적 텍스트 Surface 캐시 (변하지 않는 라벨용)
+_water_trail_cache = {}  # 물자국 타원 캐시 (크기/알파 버킷)
+_pachinko_cache = {}  # 파칭코 UI 캐시 (배경 그라데이션, glow 등)
+_overlay_cache = {}  # 전체화면 오버레이 캐시 (알파별로 사전 렌더링)
+_boss_hp_gradient_cache = {}  # 보스 HP바 그라데이션 캐시 (색상별 사전 렌더링)
+_trail_point_cache = {}  # 에너지 트레일 포인트 캐시 (크기/알파별)
+_wall_impact_cache = {}  # 벽 충돌 이펙트 캐시 (크기/알파/색상별)
+_gauge_gradient_cache = {}  # 게이지바 그라데이션 캐시 (스테이지/높이별)
+_gold_hud_cache = None  # 골드 HUD 캐시
+_gold_hud_cached_value = -1  # 캐시된 골드 값
+_gold_hud_scaled_cache = {}  # 스케일된 골드 HUD 캐시 (스케일 팩터별)
 _CACHE_MAX_SIZE = 500  # 캐시 최대 크기 (메모리 관리)
+
+# Glow 최적화용 버킷 (메모리 절약을 위해 유사한 값들을 그룹화)
+_GLOW_SIZE_BUCKETS = (8, 12, 16, 20, 24, 32, 40, 48, 60, 80, 100, 120, 150, 200)
+_GLOW_ALPHA_BUCKETS = (32, 64, 96, 128, 160, 192, 224, 255)
+
+# Water trail 알파 버킷 (5단계로 분류)
+_WATER_ALPHA_BUCKETS = (20, 40, 60, 80, 100)
 
 def get_cached_surface(width: int, height: int, alpha: bool = True) -> pygame.Surface:
     """캐시된 투명 Surface 반환 (재사용)"""
@@ -400,12 +420,190 @@ def get_cached_glow_surface(size: int) -> pygame.Surface:
     surface.fill((0, 0, 0, 0))
     return surface
 
+
+def _bucket_value(value: int, buckets: tuple) -> int:
+    """값을 가장 가까운 버킷으로 매핑"""
+    return min(buckets, key=lambda b: abs(b - value))
+
+
+def get_predrawn_glow_circle(size: int, color: tuple, alpha: int) -> pygame.Surface:
+    """사전 렌더링된 glow 원 반환 (크기/색상/알파 버킷팅으로 캐시 효율화)
+
+    매 프레임 draw.circle() 호출 대신 캐시된 Surface 재사용.
+    크기와 알파를 버킷팅하여 캐시 히트율 향상.
+    """
+    # 버킷팅으로 유사한 요청을 동일 캐시 엔트리로 매핑
+    size_bucket = _bucket_value(size, _GLOW_SIZE_BUCKETS)
+    alpha_bucket = _bucket_value(max(0, min(255, alpha)), _GLOW_ALPHA_BUCKETS)
+    color_key = (color[0], color[1], color[2]) if len(color) >= 3 else (255, 255, 255)
+
+    cache_key = (size_bucket, color_key, alpha_bucket)
+
+    if cache_key not in _predrawn_glow_cache:
+        # 캐시 크기 제한
+        if len(_predrawn_glow_cache) > 800:
+            # 절반 삭제 (간단한 eviction)
+            keys_to_remove = list(_predrawn_glow_cache.keys())[:400]
+            for k in keys_to_remove:
+                del _predrawn_glow_cache[k]
+
+        # 새 glow 원 렌더링
+        surf = pygame.Surface((size_bucket, size_bucket), pygame.SRCALPHA)
+        center = size_bucket // 2
+        radius = center
+        pygame.draw.circle(surf, (*color_key, alpha_bucket), (center, center), radius)
+        _predrawn_glow_cache[cache_key] = surf
+
+    return _predrawn_glow_cache[cache_key]
+
+def get_cached_font(font_name: str, size: int, bold: bool = False, italic: bool = False) -> pygame.font.Font:
+    """캐시된 폰트 객체 반환 (매 프레임 SysFont 생성 방지)
+
+    pygame.font.SysFont()는 느린 연산이므로 캐싱 필수.
+    """
+    cache_key = (font_name, size, bold, italic)
+    if cache_key not in _font_cache:
+        if len(_font_cache) > 100:
+            # 오래된 폰트 일부 제거
+            keys_to_remove = list(_font_cache.keys())[:50]
+            for k in keys_to_remove:
+                del _font_cache[k]
+        _font_cache[cache_key] = pygame.font.SysFont(font_name, size, bold=bold, italic=italic)
+    return _font_cache[cache_key]
+
+
+def get_cached_static_text(text: str, font_key: tuple, color: tuple, antialias: bool = True) -> pygame.Surface:
+    """정적 텍스트 Surface 캐싱 (변하지 않는 라벨용)
+
+    "HP", "PAUSE", "READY" 등 변하지 않는 텍스트를 매 프레임 렌더링하지 않음.
+    font_key = (font_name, size, bold, italic)
+    """
+    cache_key = (text, font_key, color, antialias)
+    if cache_key not in _static_text_cache:
+        if len(_static_text_cache) > 300:
+            # 오래된 텍스트 일부 제거
+            keys_to_remove = list(_static_text_cache.keys())[:150]
+            for k in keys_to_remove:
+                del _static_text_cache[k]
+        font = get_cached_font(*font_key)
+        _static_text_cache[cache_key] = font.render(text, antialias, color)
+    return _static_text_cache[cache_key]
+
+
 def clear_surface_caches():
     """모든 Surface 캐시 클리어 (스테이지 전환 시 호출)"""
-    global _surface_cache, _scale_cache, _glow_surface_cache
+    global _surface_cache, _scale_cache, _glow_surface_cache, _predrawn_glow_cache, _water_trail_cache
     _surface_cache.clear()
     _scale_cache.clear()
     _glow_surface_cache.clear()
+    _predrawn_glow_cache.clear()
+    _water_trail_cache.clear()
+    # 폰트와 텍스트 캐시는 스테이지 전환 시에도 유지 (재사용 가능)
+
+def get_cached_overlay(width: int, height: int, alpha: int) -> pygame.Surface:
+    """전체화면 오버레이 Surface 캐시 (알파값별 사전 렌더링)
+
+    매 프레임 새로운 SRCALPHA Surface 생성을 방지하여 성능 향상.
+    동일한 alpha 값의 오버레이는 캐시에서 반환.
+    """
+    # 알파값 버킷팅 (16단계로 분류하여 캐시 효율화)
+    alpha_bucket = (alpha // 16) * 16
+    alpha_bucket = max(0, min(255, alpha_bucket))
+
+    key = (width, height, alpha_bucket)
+    if key not in _overlay_cache:
+        # 캐시 크기 제한
+        if len(_overlay_cache) > 32:
+            # 오래된 항목 제거
+            keys_to_remove = list(_overlay_cache.keys())[:16]
+            for k in keys_to_remove:
+                del _overlay_cache[k]
+        surf = pygame.Surface((width, height), pygame.SRCALPHA)
+        surf.fill((0, 0, 0, alpha_bucket))
+        _overlay_cache[key] = surf
+    return _overlay_cache[key]
+
+def get_boss_hp_gradient(width: int, height: int, health_color: tuple) -> pygame.Surface:
+    """보스 HP바 그라데이션 Surface 캐시 (색상별 사전 렌더링)
+
+    매 프레임 height회 draw.line 호출을 1회 blit으로 대체.
+    """
+    key = (width, height, health_color)
+    if key not in _boss_hp_gradient_cache:
+        # 캐시 크기 제한
+        if len(_boss_hp_gradient_cache) > 10:
+            _boss_hp_gradient_cache.clear()
+        surf = pygame.Surface((width, height), pygame.SRCALPHA)
+        for i in range(height):
+            alpha = 1.0 - (i / height) * 0.3
+            color = tuple(int(c * alpha) for c in health_color)
+            pygame.draw.line(surf, color, (0, i), (width - 1, i))
+        _boss_hp_gradient_cache[key] = surf
+    return _boss_hp_gradient_cache[key]
+
+def get_gauge_gradient(gauge_id: str, width: int, height: int, color_func) -> pygame.Surface:
+    """게이지바 그라데이션 Surface 캐시 (스테이지/높이별 사전 렌더링)
+
+    최대 100회 draw.line 호출을 1회 blit으로 대체.
+    color_func: (row_index, total_height) -> (r, g, b) 색상 반환 함수
+    """
+    key = (gauge_id, width, height)
+    if key not in _gauge_gradient_cache:
+        if len(_gauge_gradient_cache) > 20:
+            _gauge_gradient_cache.clear()
+        surf = pygame.Surface((width, height), pygame.SRCALPHA)
+        for i in range(height):
+            color = color_func(i, height)
+            pygame.draw.line(surf, color, (0, i), (width - 1, i))
+        _gauge_gradient_cache[key] = surf
+    return _gauge_gradient_cache[key]
+
+def get_wall_impact_surface(size: int, color: tuple, alpha: int) -> pygame.Surface:
+    """벽 충돌 파티클 Surface 캐시 (크기/색상/알파별 사전 렌더링)"""
+    # 크기 버킷팅 (2픽셀 단위)
+    size_bucket = max(1, (size // 2) * 2)
+    # 알파 버킷팅 (20 단위)
+    alpha_bucket = max(0, min(255, (alpha // 20) * 20))
+    # 색상 버킷팅 (32 단위로 양자화)
+    color_bucket = tuple((c // 32) * 32 for c in color[:3])
+
+    key = (size_bucket, color_bucket, alpha_bucket)
+    if key not in _wall_impact_cache:
+        if len(_wall_impact_cache) > 60:
+            _wall_impact_cache.clear()
+        surf_size = size_bucket * 2 + 2
+        surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+        pygame.draw.circle(surf, (*color_bucket, alpha_bucket), (size_bucket + 1, size_bucket + 1), size_bucket)
+        _wall_impact_cache[key] = surf
+    return _wall_impact_cache[key]
+
+def get_trail_point_surface(size: int, glow_alpha: int, inner_alpha: int,
+                            glow_color: tuple, base_color: tuple) -> pygame.Surface:
+    """에너지 트레일 포인트 Surface 캐시 (크기/알파별 사전 렌더링)
+
+    각 트레일 포인트마다 Surface 생성 방지.
+    """
+    # 크기 버킷팅 (2픽셀 단위)
+    size_bucket = max(2, (size // 2) * 2)
+    # 알파 버킷팅 (8 단위)
+    glow_bucket = (glow_alpha // 8) * 8
+    inner_bucket = (inner_alpha // 8) * 8
+
+    key = (size_bucket, glow_bucket, inner_bucket)
+    if key not in _trail_point_cache:
+        if len(_trail_point_cache) > 80:
+            _trail_point_cache.clear()
+        trail_size = size_bucket * 2 + 4
+        surf = pygame.Surface((trail_size, trail_size), pygame.SRCALPHA)
+        center = trail_size // 2
+        # 외부 글로우
+        if glow_bucket > 0:
+            pygame.draw.circle(surf, (*glow_color[:3], glow_bucket), (center, center), size_bucket + 1)
+        # 내부 에너지
+        if inner_bucket > 0:
+            pygame.draw.circle(surf, (*base_color[:3], inner_bucket), (center, center), max(1, size_bucket - 1))
+        _trail_point_cache[key] = surf
+    return _trail_point_cache[key]
 
 # 눈물 이미지 스케일 캐시 (다이얼로그용)
 _tear_scale_cache = {}
@@ -1262,8 +1460,8 @@ def show_loading_screen(message: str, target_progress: float | None = None) -> N
             elif _loading_scan_lines:
                 _loading_scan_lines.clear()
 
-            dim_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            dim_overlay.fill((0, 0, 0, 25))  # 약간 더 밝게 (35 -> 25) 
+            # 캐시된 오버레이 사용 (매 프레임 생성 방지)
+            dim_overlay = get_cached_overlay(WIDTH, HEIGHT, 25)
             SCREEN.blit(dim_overlay, (0, 0))
 
             # === 로고/타이틀 영역 ===
@@ -2896,6 +3094,11 @@ _rage_indicator_tooltip_active = False  # 광폭화 툴팁이 현재 표시 중�
 _rage_tooltip_prev_game_paused = False  # 툴팁 표시 전 게임 일시정지 상태
 _rage_tooltip_forced_pause = False      # 툴팁으로 인한 강제 일시정지 여부
 
+# 퀘스트 엠블럼 툴팁 관련 변수
+_quest_emblem_tooltip_active = False    # 퀘스트 툴팁이 현재 표시 중인지
+_quest_tooltip_prev_game_paused = False # 툴팁 표시 전 게임 일시정지 상태
+_quest_tooltip_forced_pause = False     # 툴팁으로 인한 강제 일시정지 여부
+
 # 툴팁 일시정지로 인한 쿨타임 정지 시간 추적
 _smasher_tooltip_pause_start = 0  # 툴팁 일시정지가 시작된 시각 (ms)
 _smasher_tooltip_pause_accumulated = 0  # 누적된 툴팁 일시정지 시간 (ms)
@@ -2965,6 +3168,67 @@ def unlock_smasher_skill(skill_name: str) -> bool:
 def is_smasher_skill_unlocked(skill_name: str) -> bool:
     """스매셔 스킬이 해금되었는지 확인"""
     return _smasher_skill_unlocked.get(skill_name, True)
+
+
+# ============================================================================
+# 발토르(블랙스미스) 스킬 아이콘 데이터
+# ============================================================================
+BLACKSMITH_SKILL_ICONS_DATA = [
+    {
+        "name": "hammer_shock",
+        "korean": "해머쇼크",
+        "cost": 100,  # BLACKSMITH_HAMMER_SHOCK_MIN_STAGE_COST
+        "color": (255, 150, 50),
+        "symbol": "⚡",
+        "cooldown": 3.0,  # 기본 쿨타임 (단계에 따라 다름)
+        "key": "SPACE",
+        "description": "망치를 던져 충격파를 발생시킵니다.\n차지 시간에 따라 1~3단계로 강화됩니다.",
+        "how_to_use": "SPACE를 홀드하여 차지 후 손을 떼면 발사",
+        "effect_type": "shock_orange",
+        "requires_divine_stone": True  # 디바인스톤 필요
+    },
+]
+
+# 발토르 스킬 툴팁 관련 변수
+_blacksmith_skill_tooltip_data = None
+_blacksmith_skill_icon_rects = {}
+_blacksmith_skill_icons_cache = {}
+_blacksmith_skill_tooltip_active = False
+
+# 발토르 스킬 활성화 순간 추적
+_blacksmith_skill_activation_times = {
+    "hammer_shock": 0,
+}
+_blacksmith_skill_was_active = {
+    "hammer_shock": False,
+}
+
+
+def is_blacksmith_skill_available(skill_name: str) -> bool:
+    """발토르 스킬이 사용 가능한지 확인 (해금 + 조건 충족)"""
+    if skill_name == "hammer_shock":
+        # 퍽 체크
+        if not has_blacksmith_hammer_shock_perk():
+            return False
+        # 디바인스톤 체크
+        divine_state = globals().get("blacksmith_divine_stone_state")
+        if divine_state is None:
+            return False
+        return True
+    return False
+
+
+def get_blacksmith_skill_cooldown_remaining(skill_name: str) -> float:
+    """발토르 스킬의 남은 쿨타임 비율 반환 (0.0 ~ 1.0)"""
+    if skill_name == "hammer_shock":
+        cooldown_timer = globals().get("blacksmith_hammer_shock_cooldown_timer", 0)
+        cooldown_total = globals().get("blacksmith_hammer_shock_cooldown_total", 1)
+        if cooldown_total <= 0:
+            cooldown_total = 1
+        if cooldown_timer <= 0:
+            return 0.0
+        return min(1.0, cooldown_timer / cooldown_total)
+    return 0.0
 
 
 def _check_player_has_debuff() -> bool:
@@ -4074,6 +4338,182 @@ def _draw_smasher_skill_debug(screen: pygame.Surface, scale_factor: float = 1.0)
         pass
 
 
+# ============================================================================
+# 발토르(블랙스미스) 스킬 아이콘 그리기 함수
+# ============================================================================
+def _draw_blacksmith_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_center_y: int,
+                                 orb_radius: int, current_gauge: float, max_gauge: float):
+    """게이지 구슬을 둘러싸는 반원 형태로 발토르 스킬 아이콘 배치
+
+    Args:
+        surface: 그릴 Surface
+        orb_center_x: 구슬 중심 X 좌표
+        orb_center_y: 구슬 중심 Y 좌표
+        orb_radius: 구슬 반지름
+        current_gauge: 현재 게이지
+        max_gauge: 최대 게이지
+    """
+    global _blacksmith_skill_icons_cache, _blacksmith_skill_activation_times, _blacksmith_skill_was_active
+    global _blacksmith_skill_icon_rects
+
+    # 원형 아이콘 설정
+    icon_radius = 21
+    icon_diameter = icon_radius * 2
+
+    # 구슬을 둘러싸는 반원 배치 (왼쪽 반원)
+    orbit_radius = orb_radius + icon_radius + 18
+
+    time_now = pygame.time.get_ticks()
+    activation_effect_duration = 400
+
+    # 해머쇼크 퍽 레벨에 따른 해금 상태
+    perk_max_stage = get_blacksmith_hammer_shock_max_stage_by_perk()
+
+    # 슬롯 각도 정의 (왼쪽 반원에 3개 배치: 해머쇼크 1, 2, 3)
+    slot_angles = [165, 195, 225]  # 아래서부터 위로
+
+    # 빈 슬롯 그리기 함수
+    def draw_empty_slot(slot_x: int, slot_y: int, locked: bool = False):
+        """빈 스킬 슬롯 (어두운 회색 원형) 그리기"""
+        empty_bg_color = (40, 40, 45, 180)
+        empty_border_color = (60, 60, 65, 200)
+        pygame.draw.circle(surface, empty_bg_color, (slot_x, slot_y), icon_radius)
+        pygame.draw.circle(surface, empty_border_color, (slot_x, slot_y), icon_radius, 2)
+        if locked:
+            # 자물쇠 아이콘 (간단한 형태)
+            pygame.draw.rect(surface, (80, 80, 80), (slot_x - 4, slot_y - 2, 8, 6))
+            pygame.draw.arc(surface, (80, 80, 80), (slot_x - 5, slot_y - 8, 10, 10), 0, math.pi, 2)
+
+    # 디바인스톤 존재 여부
+    divine_state = globals().get("blacksmith_divine_stone_state")
+    has_divine_stone = divine_state is not None
+
+    # 해머쇼크 3개 슬롯 그리기 (1단계, 2단계, 3단계)
+    for stage_idx in range(3):
+        stage_num = stage_idx + 1  # 1, 2, 3
+        angle_deg = slot_angles[stage_idx]
+        angle_rad = math.radians(angle_deg)
+
+        slot_x = orb_center_x + int(math.cos(angle_rad) * orbit_radius)
+        slot_y = orb_center_y + int(math.sin(angle_rad) * orbit_radius)
+
+        # 해당 단계 퍽 보유 여부
+        has_perk = perk_max_stage >= stage_num
+
+        if not has_perk:
+            # 퍽 없음 - 잠긴 슬롯
+            draw_empty_slot(slot_x, slot_y, locked=True)
+            continue
+
+        # 퍽 보유 - 스킬 슬롯 그리기
+        skill_name = f"hammer_shock_{stage_num}"
+        skill_data = BLACKSMITH_SKILL_ICONS_DATA[0]  # 해머쇼크 데이터
+
+        # 단계별 비용 및 색상
+        stage_costs = {1: 100, 2: 200, 3: 350}
+        stage_colors = {
+            1: (255, 150, 50),
+            2: (255, 100, 50),
+            3: (255, 50, 50)
+        }
+        cost = stage_costs.get(stage_num, 100)
+        color = stage_colors.get(stage_num, skill_data["color"])
+
+        # 쿨타임 확인
+        cooldown_ratio = get_blacksmith_skill_cooldown_remaining("hammer_shock")
+        is_on_cooldown = cooldown_ratio > 0
+
+        # 활성화 여부 확인 (게이지 충분 + 쿨타임 없음 + 디바인스톤 있음)
+        is_active = current_gauge >= cost and not is_on_cooldown and has_divine_stone
+
+        # 활성화 순간 감지 (1단계만 추적)
+        if stage_num == 1:
+            was_active = _blacksmith_skill_was_active.get("hammer_shock", False)
+            if is_active and not was_active:
+                _blacksmith_skill_activation_times["hammer_shock"] = time_now
+            _blacksmith_skill_was_active["hammer_shock"] = is_active
+
+        # 아이콘 rect 저장
+        _blacksmith_skill_icon_rects[skill_name] = pygame.Rect(
+            slot_x - icon_radius, slot_y - icon_radius,
+            icon_diameter, icon_diameter
+        )
+
+        # 배경색 결정
+        if is_active:
+            bg_color = (*color[:3], 200)
+            border_color = (255, 255, 255, 255)
+        else:
+            dark_color = tuple(max(0, c // 3) for c in color[:3])
+            bg_color = (*dark_color, 150)
+            border_color = (80, 80, 80, 180)
+
+        # 활성화 효과 (글로우)
+        if stage_num == 1:
+            activation_time = _blacksmith_skill_activation_times.get("hammer_shock", 0)
+            activation_elapsed = time_now - activation_time
+
+            if is_active and activation_elapsed < activation_effect_duration:
+                progress = activation_elapsed / activation_effect_duration
+                glow_alpha = int(100 * (1 - progress))
+                glow_radius = icon_radius + int(8 * (1 - progress))
+                glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surface, (*color[:3], glow_alpha),
+                                   (glow_radius + 2, glow_radius + 2), glow_radius)
+                surface.blit(glow_surface, (slot_x - glow_radius - 2, slot_y - glow_radius - 2))
+
+        # 아이콘 배경 원
+        pygame.draw.circle(surface, bg_color, (slot_x, slot_y), icon_radius)
+        pygame.draw.circle(surface, border_color, (slot_x, slot_y), icon_radius, 2)
+
+        # 아이콘 그리기 (망치 + 충격파)
+        # 망치 헤드
+        hammer_color = color if is_active else (100, 100, 100)
+        pygame.draw.rect(surface, hammer_color, (slot_x - 6, slot_y - 4, 12, 5))
+        # 망치 손잡이
+        handle_color = (120, 80, 50) if is_active else (80, 60, 40)
+        pygame.draw.rect(surface, handle_color, (slot_x - 2, slot_y, 4, 10))
+        # 충격파 (단계별로 개수 증가)
+        shock_color = color if is_active else (80, 80, 80)
+        for i in range(stage_num):
+            wave_radius = 8 + i * 3
+            pygame.draw.circle(surface, shock_color, (slot_x, slot_y - 6), wave_radius, 1)
+
+        # 단계 숫자 표시
+        try:
+            num_font = pygame.font.Font(None, 14)
+            num_surf = num_font.render(str(stage_num), True, (255, 255, 255))
+            num_rect = num_surf.get_rect(center=(slot_x + icon_radius - 6, slot_y + icon_radius - 6))
+            # 숫자 배경
+            pygame.draw.circle(surface, (0, 0, 0, 180), num_rect.center, 7)
+            surface.blit(num_surf, num_rect)
+        except:
+            pass
+
+        # 쿨타임 오버레이
+        if is_on_cooldown:
+            # 반투명 어두운 오버레이
+            cooldown_surface = pygame.Surface((icon_diameter, icon_diameter), pygame.SRCALPHA)
+            pygame.draw.circle(cooldown_surface, (0, 0, 0, 150), (icon_radius, icon_radius), icon_radius)
+
+            # 쿨타임 진행도 표시 (파이 형태)
+            if cooldown_ratio > 0:
+                start_angle = -math.pi / 2
+                end_angle = start_angle + (1 - cooldown_ratio) * 2 * math.pi
+                if end_angle > start_angle:
+                    pie_points = [(icon_radius, icon_radius)]
+                    for a in range(int(math.degrees(start_angle)), int(math.degrees(end_angle)) + 1, 5):
+                        rad = math.radians(a)
+                        px = icon_radius + int(math.cos(rad) * icon_radius)
+                        py = icon_radius + int(math.sin(rad) * icon_radius)
+                        pie_points.append((px, py))
+                    pie_points.append((icon_radius, icon_radius))
+                    if len(pie_points) >= 3:
+                        pygame.draw.polygon(cooldown_surface, (0, 0, 0, 100), pie_points)
+
+            surface.blit(cooldown_surface, (slot_x - icon_radius, slot_y - icon_radius))
+
+
 def _check_smasher_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> dict:
     """마우스 위치에 해당하는 스킬 툴팁 데이터 반환
 
@@ -4088,6 +4528,17 @@ def _check_smasher_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) ->
 
     if not _smasher_skill_icon_rects:
         return None
+
+    # 오딘의 눈 변신 상태에서는 기존 스매셔 스킬 툴팁 표시 안함
+    try:
+        from legendary_items import get_legendary_manager
+        _odins_mgr = get_legendary_manager()
+        if _odins_mgr:
+            _odins_eye = _odins_mgr.get_item("odins_eye")
+            if _odins_eye and _odins_eye.active and _odins_eye.is_transformed():
+                return None
+    except Exception:
+        pass
 
     # 래핑되지 않은 원본 마우스 좌표 사용 (화면 좌표) - 코만도 화기류와 동일한 방식
     raw_mouse_x, raw_mouse_y = _original_mouse_get_pos()
@@ -4400,25 +4851,14 @@ def _check_odin_swamp_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) -> bo
 
 
 def _draw_odin_swamp_tooltip(surface: pygame.Surface, mouse_pos: tuple, current_gauge: float):
-    """오딘의 늪 스킬 툴팁 그리기"""
-    global _odin_swamp_tooltip_fonts
+    """오딘의 늪 스킬 툴팁 그리기 (파워스매싱 툴팁과 동일 구조)"""
+    global _smasher_skill_tooltip_fonts
 
-    import pygame.freetype
     import math
 
-    if _odin_swamp_tooltip_fonts is None:
-        try:
-            _font_path = resource_path(os.path.join("font", "NanumSquareB.ttf"))
-            _odin_swamp_tooltip_fonts = {
-                'title': pygame.freetype.Font(_font_path, 18),
-                'label': pygame.freetype.Font(_font_path, 13),
-                'value': pygame.freetype.Font(_font_path, 14),
-                'desc': pygame.freetype.Font(_font_path, 12),
-                'small': pygame.freetype.Font(_font_path, 11),
-            }
-        except Exception:
-            return
+    time_now = pygame.time.get_ticks()
 
+    # --- odins_eye 정보 가져오기 ---
     try:
         from legendary_items import get_legendary_manager
         mgr = get_legendary_manager()
@@ -4430,10 +4870,31 @@ def _draw_odin_swamp_tooltip(surface: pygame.Surface, mouse_pos: tuple, current_
     except Exception:
         return
 
-    fonts = _odin_swamp_tooltip_fonts
+    # --- 폰트 (스매셔 스킬 툴팁과 동일 폰트 재사용) ---
+    if _smasher_skill_tooltip_fonts is None:
+        import pygame.freetype as freetype_module
+        try:
+            title_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
+            normal_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 12)
+            small_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+        except:
+            title_font = freetype_module.SysFont("malgun gothic", 16)
+            normal_font = freetype_module.SysFont("malgun gothic", 12)
+            small_font = freetype_module.SysFont("malgun gothic", 10)
+        _smasher_skill_tooltip_fonts = (title_font, normal_font, small_font)
+
+    title_font, normal_font, small_font = _smasher_skill_tooltip_fonts
+
+    # --- 스킬 데이터 ---
+    skill_color = (150, 80, 200)
+    gauge_cost = odins_eye.dark_swamp_cost
+    cooldown_sec = odins_eye.dark_swamp_cooldown / 60.0
+
+    # --- 크기 및 위치 (파워스매싱과 동일) ---
+    tooltip_width = 300
+    tooltip_height = 330
+    effect_preview_height = 150
     padding = 12
-    tooltip_width = 280
-    tooltip_height = 220
 
     surf_offset_x, surf_offset_y = _player_gauge_surface_left_screen_pos
     pillar_width = int(250 * GAME_SCALE_FACTOR)
@@ -4446,83 +4907,471 @@ def _draw_odin_swamp_tooltip(surface: pygame.Surface, mouse_pos: tuple, current_
     if tooltip_y + tooltip_height > screen_height - 10:
         tooltip_y = screen_height - tooltip_height - 10
 
+    # --- 툴팁 배경 (파워스매싱과 동일) ---
     tooltip_surface = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
+    tooltip_surface.fill((20, 25, 35, 230))
 
-    for row in range(tooltip_height):
-        ratio = row / tooltip_height
-        r = int(15 + ratio * 10)
-        g = int(8 + ratio * 5)
-        b = int(30 + ratio * 15)
-        pygame.draw.line(tooltip_surface, (r, g, b, 240), (0, row), (tooltip_width, row))
+    # 외곽선
+    pygame.draw.rect(tooltip_surface, skill_color, (0, 0, tooltip_width, tooltip_height), 2, border_radius=8)
 
-    skill_color = (150, 80, 200)
-    pygame.draw.rect(tooltip_surface, (*skill_color, 180), (0, 0, tooltip_width, tooltip_height), 2, border_radius=8)
-    pygame.draw.line(tooltip_surface, (*skill_color, 200), (2, 0), (tooltip_width - 2, 0), 2)
+    # 상단 헤더 바
+    header_height = 36
+    header_color = (*skill_color[:3], 60)
+    pygame.draw.rect(tooltip_surface, header_color, (2, 2, tooltip_width - 4, header_height), border_radius=6)
 
     y_offset = padding
 
-    title_surf, title_rect = fonts['title'].render("어둠의 늪", skill_color)
-    tooltip_surface.blit(title_surf, (padding, y_offset))
+    # === 스킬명 (헤더 좌측) ===
+    name_surface, name_rect = title_font.render("어둠의 늪", (255, 255, 255))
+    tooltip_surface.blit(name_surface, (padding, y_offset))
 
-    active_surf, active_rect = fonts['small'].render("ACTIVE", (100, 200, 100))
-    tooltip_surface.blit(active_surf, (tooltip_width - padding - active_rect.width, y_offset + 2))
-    y_offset += title_rect.height + 10
+    # ACTIVE 라벨 (우측 상단)
+    active_surface, active_rect = title_font.render("ACTIVE", (255, 120, 80))
+    active_x = tooltip_width - padding - active_rect.width
+    tooltip_surface.blit(active_surface, (active_x, y_offset))
 
-    pygame.draw.line(tooltip_surface, (*skill_color, 80), (padding, y_offset), (tooltip_width - padding, y_offset), 1)
-    y_offset += 8
+    y_offset += header_height + 6
 
-    cost_label_surf, _ = fonts['label'].render("게이지 소모:", (160, 160, 170))
-    tooltip_surface.blit(cost_label_surf, (padding, y_offset))
+    # === 게이지 비용 (좌측) + 쿨타임 (우측) - 같은 줄 ===
+    can_use = current_gauge >= gauge_cost
+    cost_color = (100, 255, 150) if can_use else (255, 100, 100)
+    cost_text = f"게이지 비용: {int(gauge_cost)}"
+    cost_surface, cost_rect = normal_font.render(cost_text, cost_color)
+    tooltip_surface.blit(cost_surface, (padding, y_offset))
 
-    gauge_cost = odins_eye.dark_swamp_cost
-    cost_color = (100, 220, 100) if current_gauge >= gauge_cost else (220, 80, 80)
-    cost_surf, cost_rect = fonts['value'].render(f"{int(gauge_cost)}", cost_color)
-    tooltip_surface.blit(cost_surf, (padding + 90, y_offset))
-
-    gauge_info = f"({int(current_gauge)}/{int(gauge_cost)})"
-    gauge_color = (80, 180, 80) if current_gauge >= gauge_cost else (180, 80, 80)
-    gauge_surf, _ = fonts['small'].render(gauge_info, gauge_color)
-    tooltip_surface.blit(gauge_surf, (padding + 90 + cost_rect.width + 6, y_offset + 2))
-    y_offset += 22
-
-    cd_label_surf, _ = fonts['label'].render("쿨타임:", (160, 160, 170))
-    tooltip_surface.blit(cd_label_surf, (padding, y_offset))
-
-    cooldown_sec = odins_eye.dark_swamp_cooldown / 60.0
     cd_ratio = odins_eye.get_dark_swamp_cooldown_ratio()
     if cd_ratio > 0:
         remaining = cooldown_sec * cd_ratio
-        cd_text = f"{remaining:.1f}초 / {cooldown_sec:.1f}초"
-        cd_color = (220, 160, 60)
+        cd_text = f"쿨타임: {remaining:.1f}초"
+        cd_color = (255, 180, 80)
     else:
-        cd_text = f"{cooldown_sec:.1f}초"
-        cd_color = (160, 200, 160)
-    cd_surf, _ = fonts['value'].render(cd_text, cd_color)
-    tooltip_surface.blit(cd_surf, (padding + 90, y_offset))
+        cd_text = f"쿨타임: {cooldown_sec:.0f}초"
+        cd_color = (180, 180, 180)
+    cd_surface, cd_rect = small_font.render(cd_text, cd_color)
+    cd_x = tooltip_width - padding - cd_rect.width
+    tooltip_surface.blit(cd_surface, (cd_x, y_offset + 2))
+
     y_offset += 22
 
-    pygame.draw.line(tooltip_surface, (*skill_color, 60), (padding, y_offset), (tooltip_width - padding, y_offset), 1)
-    y_offset += 8
+    # === 설명 ===
+    description = "가시를 보스 방향으로 발사하여 공을 반사하고 보스를 밀어냅니다!"
+    max_width = tooltip_width - padding * 2
+    lines = []
+    current_line = ""
+    for char in description:
+        test_line = current_line + char
+        test_surface, test_rect = normal_font.render(test_line, (255, 255, 255))
+        if test_rect.width <= max_width:
+            current_line = test_line
+        else:
+            if current_line:
+                lines.append(current_line)
+            current_line = char
+    if current_line:
+        lines.append(current_line)
 
-    for line in ["가시를 보스 방향으로 발사하여", "공을 반사하고 보스를 밀어냅니다."]:
-        desc_surf, desc_rect = fonts['desc'].render(line, (190, 190, 200))
-        tooltip_surface.blit(desc_surf, (padding, y_offset))
-        y_offset += desc_rect.height + 4
+    for line in lines[:3]:
+        line_surface, line_rect = normal_font.render(line, (220, 220, 220))
+        tooltip_surface.blit(line_surface, (padding, y_offset))
+        y_offset += 18
+
     y_offset += 6
 
-    how_box_height = 34
-    how_rect = pygame.Rect(padding, y_offset, tooltip_width - padding * 2, how_box_height)
-    pygame.draw.rect(tooltip_surface, (20, 15, 35, 200), how_rect, border_radius=6)
-    pygame.draw.rect(tooltip_surface, (*skill_color, 80), how_rect, 1, border_radius=6)
+    # === 조작법 박스 (1줄 - 마우스 좌클릭) ===
+    how_to_box_height = 32
+    how_to_box = pygame.Rect(padding, y_offset, tooltip_width - padding * 2, how_to_box_height)
+    pygame.draw.rect(tooltip_surface, (40, 45, 60, 200), how_to_box, border_radius=4)
+    pygame.draw.rect(tooltip_surface, (*skill_color[:3], 80), how_to_box, 1, border_radius=4)
 
-    how_label_surf, _ = fonts['small'].render("사용:", (140, 140, 150))
-    tooltip_surface.blit(how_label_surf, (padding + 8, y_offset + 9))
+    render_x = padding + 8
+    render_y = y_offset + 6
 
-    _draw_mouse_left_click_icon(tooltip_surface, padding + 40, y_offset + 7, 20, highlighted=True)
+    _draw_mouse_left_click_icon(tooltip_surface, render_x, render_y, 16, highlighted=True)
+    render_x += 20
 
-    click_surf, _ = fonts['small'].render("마우스 좌클릭", (200, 200, 210))
-    tooltip_surface.blit(click_surf, (padding + 65, y_offset + 9))
+    click_surface, _ = small_font.render("마우스 좌클릭으로 가시 발사", (255, 200, 100))
+    tooltip_surface.blit(click_surface, (render_x, render_y + 2))
 
+    y_offset += how_to_box_height + 8
+
+    # === 이펙트 프리뷰 영역 (파워스매싱과 동일 구조) ===
+    effect_y = tooltip_height - effect_preview_height - padding
+    effect_rect = pygame.Rect(padding, effect_y, tooltip_width - padding * 2, effect_preview_height)
+
+    # 이펙트 배경
+    pygame.draw.rect(tooltip_surface, (10, 15, 25, 200), effect_rect, border_radius=6)
+    pygame.draw.rect(tooltip_surface, (*skill_color[:3], 100), effect_rect, 1, border_radius=6)
+
+    # 이펙트 애니메이션: 변신 캐릭터 + 크리스탈 가시
+    effect_center_x = effect_rect.centerx
+    effect_center_y = effect_rect.centery
+    anim_progress = (time_now % 3000) / 3000.0
+    t = time_now * 0.001  # 초 단위 타이머
+
+    # --- 캐릭터 + 가시 통합 프리뷰 (실제 인게임과 흡사) ---
+    ground_y = effect_rect.bottom - 8
+    char_cx = effect_center_x
+    char_base_y = ground_y  # 캐릭터 발 위치
+
+    # ═══════════════════════════════════════════════════════
+    # 0. 바닥 어둠 웅덩이 (캐릭터 아래)
+    # ═══════════════════════════════════════════════════════
+    for i in range(3):
+        pool_w = 38 - i * 8
+        pool_h = 5 - i
+        pool_alpha = 50 + i * 25
+        pool_surf = pygame.Surface((pool_w * 2, pool_h * 2), pygame.SRCALPHA)
+        pygame.draw.ellipse(pool_surf, (30, 10, 50, pool_alpha), (0, 0, pool_w * 2, pool_h * 2))
+        tooltip_surface.blit(pool_surf, (char_cx - pool_w, char_base_y - pool_h))
+
+    # ═══════════════════════════════════════════════════════
+    # 1. 미니 오딘 변신 캐릭터 (하단 중앙)
+    # ═══════════════════════════════════════════════════════
+    pulse = (math.sin(t * 3) + 1) / 2
+    lean_sway = math.sin(t * 0.8) * 1.5  # 부유 흔들림
+
+    # 캐릭터 크기 (미니 스케일)
+    head_y = char_base_y - 48
+    head_x = int(char_cx + lean_sway)
+    shoulder_y = head_y + 10
+    body_end_y = char_base_y - 2
+
+    # --- 보라 오라 후광 ---
+    aura_cx = head_x
+    aura_cy = head_y + 8
+    for i in range(6):
+        ar = 28 - i * 3 + int(math.sin(t * 0.7 + i * 0.3) * 1.5)
+        aa = int(18 - i * 2.5)
+        if ar > 0 and aa > 0:
+            aura_surf = pygame.Surface((ar * 2, ar * 2), pygame.SRCALPHA)
+            pygame.draw.circle(aura_surf, (55, 25, 85, aa), (ar, ar), ar)
+            tooltip_surface.blit(aura_surf, (aura_cx - ar + int(math.sin(t * 0.4 + i * 0.6)), aura_cy - ar))
+
+    # --- 몸통 (폴리곤 실루엣) ---
+    body_steps = 12
+    left_edge = []
+    right_edge = []
+    for i in range(body_steps + 1):
+        progress = i / body_steps
+        by = shoulder_y + progress * (body_end_y - shoulder_y)
+        if progress < 0.15:
+            half_w = 6 + progress * 30
+        elif progress < 0.4:
+            p2 = (progress - 0.15) / 0.25
+            half_w = 10.5 - p2 * 2.5
+        elif progress < 0.65:
+            p3 = (progress - 0.4) / 0.25
+            half_w = 8 - p3 * 2
+        else:
+            p4 = (progress - 0.65) / 0.35
+            half_w = 6 - p4 * 4.5
+        wave_l = math.sin(t * 1.0 + progress * 5) * 1.2 * progress
+        wave_r = math.sin(t * 1.0 + progress * 5 + 2.0) * 1.2 * progress
+        swirl = math.sin(t * 0.7 + progress * 3.5) * 1.5 * progress
+        cx_off = head_x + int(swirl)
+        half_w = max(1, int(half_w))
+        left_edge.append((cx_off - half_w + int(wave_l), int(by)))
+        right_edge.append((cx_off + half_w + int(wave_r), int(by)))
+    body_poly = left_edge + list(reversed(right_edge))
+    if len(body_poly) >= 3:
+        # 글로우
+        glow_poly = []
+        mid_x = sum(p[0] for p in body_poly) / len(body_poly)
+        mid_y = sum(p[1] for p in body_poly) / len(body_poly)
+        for px, py in body_poly:
+            dx, dy = px - mid_x, py - mid_y
+            dist = math.sqrt(dx*dx + dy*dy) if (dx*dx + dy*dy) > 0 else 1
+            glow_poly.append((int(px + dx/dist * 3), int(py + dy/dist * 2)))
+        gp_surf = pygame.Surface((effect_rect.width, effect_rect.height), pygame.SRCALPHA)
+        gp_offset = (effect_rect.x, effect_rect.y)
+        adj_glow = [(p[0] - gp_offset[0], p[1] - gp_offset[1]) for p in glow_poly]
+        adj_body = [(p[0] - gp_offset[0], p[1] - gp_offset[1]) for p in body_poly]
+        if all(0 <= p[0] < effect_rect.width and 0 <= p[1] < effect_rect.height for p in adj_glow[:3]):
+            pygame.draw.polygon(gp_surf, (40, 18, 60, 35), adj_glow)
+        if all(0 <= p[0] < effect_rect.width and 0 <= p[1] < effect_rect.height for p in adj_body[:3]):
+            pygame.draw.polygon(gp_surf, (20, 8, 32, 180), adj_body)
+            pygame.draw.polygon(gp_surf, (46, 20, 68, 100), adj_body)
+        tooltip_surface.blit(gp_surf, gp_offset)
+
+    # --- 소용돌이 에너지 ---
+    for i in range(4):
+        angle = t * 1.5 + i * (math.pi * 2 / 4)
+        wisp_progress = (i / 4 + t * 0.2) % 1.0
+        wisp_by = shoulder_y + wisp_progress * (body_end_y - shoulder_y)
+        wisp_r = 5 + math.sin(wisp_progress * math.pi) * 3
+        wx = head_x + math.cos(angle) * wisp_r
+        wy = wisp_by
+        wa = int(60 * math.sin(wisp_progress * math.pi))
+        if wa > 0:
+            ws = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.circle(ws, (50, 24, 72, wa), (4, 4), 3)
+            tooltip_surface.blit(ws, (int(wx) - 4, int(wy) - 4))
+
+    # --- 촉수 팔 (좌우 각 2개) ---
+    tentacle_configs = [
+        (-1, 0.7, 18, 2.5),   # 왼쪽 위
+        (-1, 1.2, 14, 2.0),   # 왼쪽 아래
+        (1, 0.7, 18, 2.5),    # 오른쪽 위
+        (1, 1.2, 14, 2.0),    # 오른쪽 아래
+    ]
+    for ti, (side, angle_base, length, thick) in enumerate(tentacle_configs):
+        base_x = head_x + side * 8
+        base_y = shoulder_y + 4
+        prev_x, prev_y = float(base_x), float(base_y)
+        for j in range(1, 8):
+            jp = j / 7
+            angle = side * angle_base + math.sin(t * 1.5 + ti * 1.2 + jp * 3) * 0.4 * jp
+            seg_x = base_x + math.cos(angle) * jp * length * side
+            seg_y = base_y + math.sin(angle + 0.3) * jp * length * 0.5 + jp * 6
+            w = max(1, int(thick * (1 - jp * 0.7)))
+            a = int(180 * (1 - jp * 0.3))
+            tent_color = (
+                int(14 + jp * 24),
+                int(4 + jp * 12),
+                int(24 + jp * 18),
+                a
+            )
+            ts = pygame.Surface((abs(int(seg_x - prev_x)) + w * 2 + 4, abs(int(seg_y - prev_y)) + w * 2 + 4), pygame.SRCALPHA)
+            ox = min(int(prev_x), int(seg_x)) - w - 2
+            oy = min(int(prev_y), int(seg_y)) - w - 2
+            pygame.draw.line(tooltip_surface, tent_color,
+                           (int(prev_x), int(prev_y)), (int(seg_x), int(seg_y)), w)
+            prev_x, prev_y = seg_x, seg_y
+
+    # --- 머리 뿔/촉수 (상단) ---
+    horn_configs = [
+        (-0.8, 12, 2), (0.8, 12, 2),
+        (-1.4, 9, 1), (1.4, 9, 1),
+    ]
+    for hi, (h_angle, h_len, h_thick) in enumerate(horn_configs):
+        prev_hx, prev_hy = float(head_x), float(head_y - 3)
+        for j in range(1, 7):
+            hp = j / 6
+            ha = h_angle - math.pi * 0.5 + math.sin(t * 1.2 + hi + hp * 3) * 0.2 * hp
+            hx = head_x + math.cos(ha) * hp * h_len
+            hy = (head_y - 3) + math.sin(ha) * hp * h_len
+            w = max(1, int(h_thick * (1 - hp * 0.6)))
+            a = int(160 * (1 - hp * 0.4))
+            pygame.draw.line(tooltip_surface, (30, 12, 45, a),
+                           (int(prev_hx), int(prev_hy)), (int(hx), int(hy)), w)
+            prev_hx, prev_hy = hx, hy
+
+    # --- 머리 코어 ---
+    core_r = 7
+    for i in range(3):
+        gr = core_r + 4 - i * 1.5 + int(pulse * 1)
+        if gr > 0:
+            cs = pygame.Surface((int(gr * 2 + 2), int(gr * 2 + 2)), pygame.SRCALPHA)
+            pygame.draw.circle(cs, (46, 20, 70, int(35 * (1 - i * 0.2))),
+                             (int(gr + 1), int(gr + 1)), int(gr))
+            tooltip_surface.blit(cs, (head_x - int(gr + 1), head_y - int(gr + 1)))
+    pygame.draw.circle(tooltip_surface, (12, 5, 22), (head_x, head_y), core_r)
+    pygame.draw.circle(tooltip_surface, (40, 16, 58), (head_x, head_y), core_r, 1)
+
+    # --- 오딘의 눈 (황금 눈) ---
+    eye_x = head_x
+    eye_y = head_y
+    ei = 0.88 + pulse * 0.12
+    for i in range(5):
+        gr = int((7 - i * 1.2) * ei)
+        if gr > 0:
+            eye_glow_surf = pygame.Surface((gr * 2 + 2, gr * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(eye_glow_surf, (255, 195 - i * 18, 60 - i * 8, int(55 * (1 - i * 0.12))),
+                             (gr + 1, gr + 1), gr)
+            tooltip_surface.blit(eye_glow_surf, (eye_x - gr - 1, eye_y - gr - 1))
+    pygame.draw.circle(tooltip_surface, (255, 218, 105), (eye_x, eye_y), int(4 * ei))
+    pygame.draw.circle(tooltip_surface, (255, 240, 170), (eye_x, eye_y), int(3 * ei))
+    pygame.draw.circle(tooltip_surface, (255, 250, 215), (eye_x, eye_y), int(2 * ei))
+    # 동공 (수직 슬릿)
+    pupil_h = int(3 * ei)
+    pupil_w = max(1, int(1.2 * ei))
+    pr = pygame.Rect(eye_x - pupil_w // 2, eye_y - pupil_h // 2, pupil_w, pupil_h)
+    pygame.draw.ellipse(tooltip_surface, (52, 28, 18), pr)
+    # 하이라이트
+    pygame.draw.circle(tooltip_surface, (255, 255, 250), (eye_x - 2, eye_y - 2), max(1, int(1 * ei)))
+
+    # --- 룬 문자 (미니 스케일) ---
+    rune_symbols = ['ᚠ', 'ᚢ', 'ᚦ', 'ᚨ', 'ᚱ']
+    try:
+        rune_font = pygame.font.Font(None, 11)
+        for i in range(5):
+            ra = t * 0.2 + i * (math.pi * 2 / 5)
+            rd = 20 + math.sin(t * 1.2 + i * 1.5) * 3
+            rx = head_x + math.cos(ra) * rd
+            ry = head_y + 5 + math.sin(ra) * rd * 0.7
+            rune_alpha = int(160 * (0.4 + math.sin(t * 2.0 + i * 1.3) * 0.6))
+            si = (i + int(t * 0.3)) % len(rune_symbols)
+            rs = rune_font.render(rune_symbols[si], True, (185, 115, 218))
+            rs.set_alpha(rune_alpha)
+            tooltip_surface.blit(rs, (int(rx) - 3, int(ry) - 4))
+    except:
+        pass
+
+    # --- 에너지 파동 ---
+    for i in range(2):
+        wp = (t * 0.3 + i * 0.5) % 1.0
+        wr = int(10 + wp * 16)
+        wa = int(14 * (1 - wp))
+        if wa > 0 and wr > 0:
+            wave_surf = pygame.Surface((wr * 2 + 2, wr * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(wave_surf, (58, 26, 82, wa), (wr + 1, wr + 1), wr, 1)
+            tooltip_surface.blit(wave_surf, (head_x - wr - 1, head_y + 3 - wr - 1))
+
+    # ═══════════════════════════════════════════════════════
+    # 2. 크리스탈 가시 파동 (캐릭터→보스 방향 순차 발사)
+    #    인게임: 플레이어 위치에서 보스 방향으로 가시가
+    #    좌우 번갈아가며 순차적으로 솟아오르는 웨이브
+    # ═══════════════════════════════════════════════════════
+    # 프리뷰 좌표계: 캐릭터(하단) → 상단(보스 방향)
+    wave_start_y = char_base_y - 5   # 가시 시작 Y (캐릭터 근처)
+    wave_end_y = effect_rect.top + 12  # 가시 도착 Y (프리뷰 상단)
+    wave_travel = wave_start_y - wave_end_y  # 총 이동 거리
+
+    # 가시 7개 순차 발사 (인게임 max_spikes=12의 축소)
+    num_spikes = 7
+    cycle_ms = 3500  # 전체 사이클 (ms)
+    anim_cycle = (time_now % cycle_ms) / float(cycle_ms)  # 0~1 루프
+
+    for idx in range(num_spikes):
+        # 인게임과 동일: 좌우 번갈아가며 퍼짐
+        side = ((idx % 2) * 2 - 1)  # -1 또는 1
+        spread = (idx // 2 + 1) * 14  # 갈수록 넓게
+        spike_x = char_cx + side * spread
+
+        # Y 진행도: 0번 가시=캐릭터 근처, 마지막=보스 근처
+        y_progress = idx / max(1, num_spikes - 1)
+        spike_ground_y = int(wave_start_y - wave_travel * y_progress)
+
+        # 각 가시의 타이밍 딜레이 (순차 등장)
+        spawn_delay = idx * 0.08  # 각 가시 8% 간격
+        sp = (anim_cycle - spawn_delay)
+        if sp < 0:
+            sp += 1.0  # 루프
+
+        # 가시 크기 (먼 가시일수록 작아짐 - 원근감)
+        max_h = int(28 - y_progress * 10)  # 28 → 18
+        sw = max(2, int(4 - y_progress * 1.5))  # 4 → 2.5
+
+        # 페이즈: 0~0.15 올라옴, 0.15~0.55 유지, 0.55~0.75 내려감, 0.75~1.0 대기
+        if sp < 0.15:
+            ratio = sp / 0.15
+            # ease-out-back
+            overshoot = 1.3
+            ratio = 1 - (1 - ratio) * (1 - ratio)
+            ratio = min(1.0, ratio * overshoot - (overshoot - 1) * ratio * ratio)
+            h = int(max_h * ratio)
+        elif sp < 0.55:
+            h = max_h
+        elif sp < 0.75:
+            ratio = 1.0 - (sp - 0.55) / 0.2
+            ratio = ratio * ratio
+            h = int(max_h * ratio)
+        else:
+            h = 0
+
+        if h <= 1:
+            continue
+
+        base_x = spike_x
+        base_y = spike_ground_y
+        tip_y = base_y - h
+        wobble = math.sin(time_now * 0.005 + idx * 2.3) * 1.2
+
+        # 바닥 어둠 풀
+        sp_pool_w = sw + 3
+        sp_pool_h = 2
+        sp_pool_surf = pygame.Surface((sp_pool_w * 2, sp_pool_h * 2), pygame.SRCALPHA)
+        pygame.draw.ellipse(sp_pool_surf, (20, 8, 35, 70), (0, 0, sp_pool_w * 2, sp_pool_h * 2))
+        tooltip_surface.blit(sp_pool_surf, (int(base_x + wobble) - sp_pool_w, base_y - sp_pool_h))
+
+        # 크리스탈 본체 (5각형)
+        points = [
+            (base_x - sw + wobble, base_y),
+            (base_x + sw + wobble, base_y),
+            (base_x + int(sw * 0.35) + wobble, base_y - int(h * 0.55)),
+            (base_x + wobble, tip_y),
+            (base_x - int(sw * 0.35) + wobble, base_y - int(h * 0.55)),
+        ]
+
+        # 베이스 컬러 (어두운 보라)
+        pygame.draw.polygon(tooltip_surface, (75, 30, 105), points)
+        # 밝은 하이라이트 면 (왼쪽)
+        hl_pts = [points[0], points[4], points[3]]
+        pygame.draw.polygon(tooltip_surface, (130, 55, 165), hl_pts)
+        # 어두운 면 (오른쪽)
+        dk_pts = [points[1], points[2], points[3]]
+        pygame.draw.polygon(tooltip_surface, (60, 20, 90), dk_pts)
+        # 중앙 하이라이트 스트라이프
+        mid_y1 = base_y - int(h * 0.3)
+        mid_y2 = base_y - int(h * 0.7)
+        if mid_y2 < mid_y1:
+            stripe_pts = [
+                (base_x - 1 + wobble, mid_y2),
+                (base_x + 1 + wobble, mid_y2),
+                (base_x + 1 + wobble, mid_y1),
+                (base_x - 1 + wobble, mid_y1),
+            ]
+            pygame.draw.polygon(tooltip_surface, (195, 110, 235, 80), stripe_pts)
+        # 외곽선
+        pygame.draw.polygon(tooltip_surface, (210, 140, 255), points, 1)
+
+        # 팁 글로우
+        glow_alpha = int(120 + 60 * math.sin(time_now * 0.008 + idx))
+        for gi in range(3):
+            gr = 4 - gi * 1.2
+            ga = int(glow_alpha * (0.3 + gi * 0.25))
+            if gr > 0 and ga > 0:
+                g_colors = [(140, 60, 220, ga), (190, 120, 255, ga), (230, 180, 255, ga)]
+                glow_s = pygame.Surface((int(gr * 2 + 2), int(gr * 2 + 2)), pygame.SRCALPHA)
+                pygame.draw.circle(glow_s, g_colors[gi], (int(gr + 1), int(gr + 1)), max(1, int(gr)))
+                tooltip_surface.blit(glow_s, (int(base_x + wobble - gr - 1), int(tip_y - gr)))
+
+        # 서브 크리스탈 (좌우 작은 가시)
+        for sub_side in [-1, 1]:
+            sub_base_x = base_x + sub_side * (sw + 2) + wobble
+            sub_h = int(h * 0.35)
+            sub_w = max(1, sw - 1)
+            if sub_h <= 2:
+                continue
+            sub_tip_x = sub_base_x + sub_side * 1
+            sub_tip_y = base_y - sub_h
+            sub_pts = [
+                (sub_base_x - sub_w, base_y),
+                (sub_base_x + sub_w, base_y),
+                (sub_tip_x, sub_tip_y),
+            ]
+            pygame.draw.polygon(tooltip_surface, (55, 18, 80), sub_pts)
+            pygame.draw.polygon(tooltip_surface, (130, 70, 180), sub_pts, 1)
+
+        # 연기 파티클 (각 가시 주변)
+        if sp < 0.25:  # 올라올 때만 연기
+            for si in range(2):
+                sm_x = base_x + int(math.sin(time_now * 0.004 + idx * 3 + si * 2) * (sw + 6))
+                sm_y = base_y - 1 + int(math.cos(time_now * 0.003 + idx + si) * 2)
+                sm_r = 2 + int(math.sin(time_now * 0.005 + si) * 1)
+                sm_a = int(50 * (1 - sp / 0.25))
+                if sm_r > 0 and sm_a > 0:
+                    sm_s = pygame.Surface((sm_r * 2, sm_r * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(sm_s, (80, 40, 120, sm_a), (sm_r, sm_r), sm_r)
+                    tooltip_surface.blit(sm_s, (sm_x - sm_r, sm_y - sm_r))
+
+    # ═══════════════════════════════════════════════════════
+    # 3. 바닥 연기 (캐릭터 발 주변)
+    # ═══════════════════════════════════════════════════════
+    for i in range(4):
+        smoke_x = char_cx + int(math.sin(time_now * 0.003 + i * 1.5) * 20)
+        smoke_y = char_base_y - 2 + int(math.cos(time_now * 0.002 + i) * 2)
+        smoke_r = 3 + int(math.sin(time_now * 0.004 + i * 0.8) * 1.5)
+        smoke_a = 30 + int(math.sin(time_now * 0.005 + i * 1.2) * 12)
+        smoke_surf = pygame.Surface((smoke_r * 2, smoke_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(smoke_surf, (80, 40, 120, smoke_a), (smoke_r, smoke_r), smoke_r)
+        tooltip_surface.blit(smoke_surf, (smoke_x - smoke_r, smoke_y - smoke_r))
+
+    # 이펙트 라벨
+    effect_label_surface, effect_label_rect = small_font.render("이펙트 미리보기", (150, 150, 150))
+    tooltip_surface.blit(effect_label_surface, (padding + 4, effect_y + 4))
+
+    # 툴팁 그리기
     surface.blit(tooltip_surface, (tooltip_x, tooltip_y))
 
 
@@ -5422,8 +6271,8 @@ def _draw_mini_star(surface: pygame.Surface, cx: int, cy: int, size: int, color:
 # 스킬 정보: (스킬명, 게이지 비용, 아이콘 색상, 쿨타임(초))
 SOLDIER_SKILL_ICONS_DATA = [
     {
-        "name": "supply_drop", "korean": "물자보급", "cost": 0, "color": (100, 200, 100),
-        "symbol": "📻", "cooldown": 40.0, "key": "↓ 홀드",
+        "name": "supply_drop", "korean": "물자보급", "cost": 350, "color": (100, 200, 100),
+        "symbol": "📻", "cooldown": 40.0, "key": "↓/우클릭 홀드",
         "description": "무전기로 보급기를 호출하여 랜덤 아이템이나 화기류를 투하합니다.",
         "effect_type": "supply_green"
     },
@@ -5746,8 +6595,9 @@ def _draw_soldier_skill_icons(surface: pygame.Surface, orb_center_x: int, orb_ce
         is_active = False
 
         if skill_name == "supply_drop":
-            # 물자보급: 쿨타임만 확인
-            is_active = not is_on_cooldown
+            # 물자보급: 게이지 350 이상 + 쿨타임
+            has_gauge = current_gauge >= skill_data["cost"]
+            is_active = has_gauge and not is_on_cooldown
         elif skill_name == "emergency_supply":
             # 긴급재보급: 게이지 300 이상 + 쿨타임
             has_gauge = current_gauge >= skill_data["cost"]
@@ -6117,33 +6967,42 @@ def _draw_pillar_ui(screen, renderer):
     # 전체화면 모드에서만 필러 영역에 표시
     try:
         if _is_fullscreen_active and GAME_OFFSET_X > 0:
-            # 스케일 적용된 골드 HUD 그리기 (100x40 크기 - 4자리 이상 숫자 지원)
-            gold_hud_surface = pygame.Surface((100, 40), pygame.SRCALPHA)
-            _draw_ingame_gold_hud_internal(gold_hud_surface)
+            global _gold_hud_cache, _gold_hud_cached_value, _gold_hud_scaled_cache
 
-            # 화면에 배치 (왼쪽 필러 배경 상단 - 게이지 구슬과 X축 중앙 맞춤)
-            # 게이지 구슬 중심 X에 골드 HUD 중심을 맞춤
+            # 현재 골드 값 계산
+            current_gold = globals().get('downtown_gold', 0) + globals().get('ingame_gold', 0)
+
+            # 캐시 히트 체크 (골드 값이 바뀌면 재생성)
+            if _gold_hud_cache is None or _gold_hud_cached_value != current_gold:
+                _gold_hud_cache = pygame.Surface((100, 40), pygame.SRCALPHA)
+                _draw_ingame_gold_hud_internal(_gold_hud_cache)
+                _gold_hud_cached_value = current_gold
+                _gold_hud_scaled_cache.clear()  # 스케일 캐시도 클리어
+
+            # 화면에 배치
             scaled_hud_w = int(100 * GAME_SCALE_FACTOR)
             scaled_hud_h = int(40 * GAME_SCALE_FACTOR)
 
-            # 게이지 구슬의 중심 X 계산 (구슬이 있으면 그 위치 사용)
+            # 게이지 구슬의 중심 X 계산
             if _player_gauge_surface_left is not None:
                 gauge_w = _player_gauge_surface_left.get_width()
                 scaled_gauge_w = int(gauge_w * GAME_SCALE_FACTOR) if GAME_SCALE_FACTOR != 1.0 else gauge_w
                 gauge_x = GAME_OFFSET_X - scaled_gauge_w - int(25 * GAME_SCALE_FACTOR)
                 gauge_center_x = gauge_x + scaled_gauge_w // 2
-                gold_hud_x = gauge_center_x - scaled_hud_w // 2 + int(30 * GAME_SCALE_FACTOR)  # 구슬 중심에 HUD 중심 맞춤 + 30px 오른쪽
+                gold_hud_x = gauge_center_x - scaled_hud_w // 2 + int(30 * GAME_SCALE_FACTOR)
             else:
-                # 구슬이 없으면 기본 위치
-                gold_hud_x = GAME_OFFSET_X - scaled_hud_w - int(70 * GAME_SCALE_FACTOR)  # 100 - 30 = 70
+                gold_hud_x = GAME_OFFSET_X - scaled_hud_w - int(70 * GAME_SCALE_FACTOR)
 
             gold_hud_y = GAME_OFFSET_Y + int(5 * GAME_SCALE_FACTOR)
 
             if GAME_SCALE_FACTOR != 1.0:
-                scaled_hud = pygame.transform.smoothscale(gold_hud_surface, (scaled_hud_w, scaled_hud_h))
-                screen.blit(scaled_hud, (gold_hud_x, gold_hud_y))
+                # 스케일된 HUD 캐시 사용 (scale 사용 - 빠름)
+                scale_key = (scaled_hud_w, scaled_hud_h)
+                if scale_key not in _gold_hud_scaled_cache:
+                    _gold_hud_scaled_cache[scale_key] = pygame.transform.scale(_gold_hud_cache, scale_key)
+                screen.blit(_gold_hud_scaled_cache[scale_key], (gold_hud_x, gold_hud_y))
             else:
-                screen.blit(gold_hud_surface, (gold_hud_x, gold_hud_y))
+                screen.blit(_gold_hud_cache, (gold_hud_x, gold_hud_y))
     except Exception as e:
         pass
 
@@ -6162,11 +7021,11 @@ def _draw_pillar_ui(screen, renderer):
                 scaled_gauge_h = gauge_h
             pillar_y = GAME_OFFSET_Y + GAME_SCALED_HEIGHT - scaled_gauge_h - 10  # 하단에서 10px 위
 
-            # 스케일링 적용
+            # 스케일링 적용 (scale 사용 - smoothscale보다 빠름)
             if GAME_SCALE_FACTOR != 1.0:
                 scaled_w = int(_player_gauge_surface.get_width() * GAME_SCALE_FACTOR)
                 scaled_h = int(_player_gauge_surface.get_height() * GAME_SCALE_FACTOR)
-                scaled_gauge = pygame.transform.smoothscale(_player_gauge_surface, (scaled_w, scaled_h))
+                scaled_gauge = pygame.transform.scale(_player_gauge_surface, (scaled_w, scaled_h))
                 screen.blit(scaled_gauge, (pillar_x, pillar_y))
             else:
                 screen.blit(_player_gauge_surface, (pillar_x, pillar_y))
@@ -6195,9 +7054,9 @@ def _draw_pillar_ui(screen, renderer):
             # pillar_x_left, pillar_y_left는 실제 화면에 blit되는 좌표
             _player_gauge_surface_left_screen_pos = (pillar_x_left, pillar_y_left)
 
-            # 스케일링 적용
+            # 스케일링 적용 (scale 사용 - smoothscale보다 빠름)
             if GAME_SCALE_FACTOR != 1.0:
-                scaled_gauge_left = pygame.transform.smoothscale(_player_gauge_surface_left, (scaled_gauge_w, scaled_gauge_h))
+                scaled_gauge_left = pygame.transform.scale(_player_gauge_surface_left, (scaled_gauge_w, scaled_gauge_h))
                 screen.blit(scaled_gauge_left, (pillar_x_left, pillar_y_left))
             else:
                 screen.blit(_player_gauge_surface_left, (pillar_x_left, pillar_y_left))
@@ -6221,7 +7080,10 @@ def _draw_pillar_ui(screen, renderer):
 
     # 스매셔 스킬 툴팁 그리기 (REAL_SCREEN에 그림) - 인게임에서만
     global _smasher_skill_tooltip_active, game_paused, game_paused_by_tooltip, _tooltip_prev_game_paused, _tooltip_forced_pause
-    global _smasher_tooltip_pause_start, _smasher_tooltip_pause_accumulated
+    global _smasher_tooltip_pause_start, _smasher_tooltip_pause_accumulated, _odin_swamp_tooltip_active
+    global _rage_indicator_tooltip_active, _rage_tooltip_prev_game_paused, _rage_tooltip_forced_pause
+    global _quest_emblem_tooltip_active, _quest_tooltip_prev_game_paused, _quest_tooltip_forced_pause
+    global quest_completion_glow_active, quest_completion_glow_timer, quest_completion_glow_duration
     if _is_ingame:
       try:
         if selected_character_type == "smasher":
@@ -6254,7 +7116,7 @@ def _draw_pillar_ui(screen, renderer):
                     if _smasher_tooltip_pause_start > 0:
                         _smasher_tooltip_pause_accumulated += pygame.time.get_ticks() - _smasher_tooltip_pause_start
                         _smasher_tooltip_pause_start = 0
-                    if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active:
+                    if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
                         game_paused = _tooltip_prev_game_paused
                         game_paused_by_tooltip = False
                         _tooltip_forced_pause = False
@@ -6273,7 +7135,7 @@ def _draw_pillar_ui(screen, renderer):
                 if _smasher_tooltip_pause_start > 0:
                     _smasher_tooltip_pause_accumulated += pygame.time.get_ticks() - _smasher_tooltip_pause_start
                     _smasher_tooltip_pause_start = 0
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active:
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
                     game_paused = _tooltip_prev_game_paused
                     game_paused_by_tooltip = False
                     _tooltip_forced_pause = False
@@ -6287,7 +7149,6 @@ def _draw_pillar_ui(screen, renderer):
             print(f"[SMASHER_TOOLTIP ERROR] {e}", flush=True)
 
     # 오딘의 늪 스킬 툴팁 그리기 (REAL_SCREEN에 그림) - 인게임에서만
-    global _odin_swamp_tooltip_active
     if _is_ingame:
       try:
         mouse_pos = pygame.mouse.get_pos()
@@ -6308,15 +7169,16 @@ def _draw_pillar_ui(screen, renderer):
         else:
             if _odin_swamp_tooltip_active:
                 _odin_swamp_tooltip_active = False
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active:
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
                     game_paused = _tooltip_prev_game_paused
                     game_paused_by_tooltip = False
                     _tooltip_forced_pause = False
       except Exception:
         _odin_swamp_tooltip_active = False
 
+
+
     # 광폭화 인디케이터 그리기 (신화모드 광폭화 보스)
-    global _rage_indicator_tooltip_active, _rage_tooltip_prev_game_paused, _rage_tooltip_forced_pause
     try:
         # 신화모드 광폭화 보스 활성화 여부 체크
         is_rage_active = globals().get('enraged_boss_active', False)
@@ -6330,35 +7192,106 @@ def _draw_pillar_ui(screen, renderer):
                 renderer.draw_rage_indicator(screen, dt=0.016)  # 60fps 기준
 
                 # 마우스 호버 시 툴팁 표시 + 게임 일시정지
-                mouse_pos = pygame.mouse.get_pos()
+                mouse_pos = _original_mouse_get_pos()  # REAL_SCREEN 좌표계 사용 (필러 렌더러와 동일)
                 is_hovering = renderer.check_rage_indicator_hover(mouse_pos)
 
                 if is_hovering:
-                    # 툴팁 활성화 - 게임 일시정지
+                    # 툴팁 활성화 - 게임 일시정지 (PAUSE 문구 없이)
                     if not _rage_indicator_tooltip_active:
                         _rage_indicator_tooltip_active = True
-                        _rage_tooltip_prev_game_paused = game_paused
-                        if not game_paused:
-                            _rage_tooltip_forced_pause = True
-                            globals()['game_paused'] = True
+                        if not game_paused_by_tooltip:
+                            _rage_tooltip_prev_game_paused = game_paused
+                            _rage_tooltip_forced_pause = not _rage_tooltip_prev_game_paused
+                            game_paused = True
+                            game_paused_by_tooltip = True
                     # 툴팁 그리기
                     renderer.draw_rage_tooltip(screen, mouse_pos)
                 else:
                     # 툴팁 비활성화 - 게임 재개
                     if _rage_indicator_tooltip_active:
                         _rage_indicator_tooltip_active = False
-                        if _rage_tooltip_forced_pause:
-                            globals()['game_paused'] = _rage_tooltip_prev_game_paused
+                        if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
+                            game_paused = _rage_tooltip_prev_game_paused
+                            game_paused_by_tooltip = False
                             _rage_tooltip_forced_pause = False
             else:
                 # 광폭화 비활성 시 툴팁 상태 초기화
                 if _rage_indicator_tooltip_active:
                     _rage_indicator_tooltip_active = False
-                    if _rage_tooltip_forced_pause:
-                        globals()['game_paused'] = _rage_tooltip_prev_game_paused
+                    if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
+                        game_paused = _rage_tooltip_prev_game_paused
+                        game_paused_by_tooltip = False
                         _rage_tooltip_forced_pause = False
     except Exception as e:
         # 광폭화 인디케이터 오류는 무시
+        pass
+
+    # 퀘스트 양피지 엠블럼 그리기 (우측 필러)
+    try:
+        has_active_quests = len(active_quests) > 0
+
+        # 퀘스트 완료 빛 효과 타이머 업데이트
+        if quest_completion_glow_active:
+            quest_completion_glow_timer += 0.016
+            if quest_completion_glow_timer >= quest_completion_glow_duration:
+                quest_completion_glow_active = False
+                quest_completion_glow_timer = 0.0
+
+        if renderer is not None:
+            renderer.set_quest_emblem(
+                has_active_quests,
+                glow=quest_completion_glow_active
+            )
+            # 석판 카운터 동기화
+            renderer.set_quest_tablet_counter(
+                quest_tablets_collected,
+                quest_tablets_target,
+                "collect_tablets" in active_quests
+            )
+
+            if has_active_quests or quest_completion_glow_active:
+                renderer.draw_quest_emblem(screen, dt=0.016)
+
+                # 마우스 호버 시 툴팁 표시 + 게임 일시정지
+                mouse_pos = _original_mouse_get_pos()
+                is_hovering = renderer.check_quest_emblem_hover(mouse_pos)
+
+                if is_hovering:
+                    # 툴팁 활성화 - 게임 일시정지
+                    if not _quest_emblem_tooltip_active:
+                        _quest_emblem_tooltip_active = True
+                        if not game_paused_by_tooltip:
+                            _quest_tooltip_prev_game_paused = game_paused
+                            _quest_tooltip_forced_pause = not _quest_tooltip_prev_game_paused
+                            game_paused = True
+                            game_paused_by_tooltip = True
+
+                    # 퀘스트 정보 리스트 구성
+                    quest_info_list = []
+                    for qid in active_quests:
+                        if qid in QUEST_DATA:
+                            quest_info_list.append(QUEST_DATA[qid])
+                    renderer.draw_quest_tooltip(screen, mouse_pos, quest_info_list)
+                else:
+                    # 툴팁 비활성화 - 게임 즉시 재개
+                    if _quest_emblem_tooltip_active:
+                        _quest_emblem_tooltip_active = False
+                        # 다른 툴팁이 활성 중이 아니면 즉시 게임 재개
+                        if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
+                            if _quest_tooltip_forced_pause:
+                                game_paused = _quest_tooltip_prev_game_paused
+                            game_paused_by_tooltip = False
+                            _quest_tooltip_forced_pause = False
+            else:
+                # 퀘스트 없을 때 툴팁 상태 초기화
+                if _quest_emblem_tooltip_active:
+                    _quest_emblem_tooltip_active = False
+                    if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
+                        if _quest_tooltip_forced_pause:
+                            game_paused = _quest_tooltip_prev_game_paused
+                        game_paused_by_tooltip = False
+                        _quest_tooltip_forced_pause = False
+    except Exception:
         pass
 
     # 성능 측정 종료
@@ -6809,6 +7742,12 @@ _valthor_perf_times: dict[str, list[float]] = {}
 _valthor_perf_start: dict[str, float] = {}
 _valthor_perf_max_samples = 60  # 1초 분량
 
+# 토르쉴드 프레임 드랍 전용 추적
+_thor_shield_frame_times: list[float] = []
+_thor_shield_deploy_active = False
+_thor_shield_deploy_start_time = 0.0
+_thor_shield_cache_stats = {"hits": 0, "misses": 0}
+
 def valthor_perf_start(name: str) -> None:
     """발토르 관련 함수 성능 측정 시작"""
     if VALTHOR_PERF_DEBUG:
@@ -6895,6 +7834,31 @@ def draw_valthor_perf_overlay(surface: pygame.Surface) -> None:
             scale_info = f"SCREEN: {screen_size[0]}x{screen_size[1]} -> {real_size[0]}x{real_size[1]} (x{GAME_SCALE_FACTOR:.2f})"
             scale_surface = pygame.font.Font(None, 16).render(scale_info, True, (180, 180, 255))
             surface.blit(scale_surface, (15, y_offset))
+            y_offset += 20
+
+        # 토르쉴드 배치 상태 표시
+        umbrella_open = globals().get("blacksmith_umbrella_open", False)
+        anim_timer = globals().get("blacksmith_umbrella_anim_timer", 0)
+        if umbrella_open or anim_timer > 0:
+            shield_status = f"THOR SHIELD: OPEN (anim={anim_timer})"
+            shield_color = (255, 200, 100)
+        else:
+            shield_status = "THOR SHIELD: CLOSED"
+            shield_color = (100, 100, 100)
+        shield_surface = pygame.font.Font(None, 16).render(shield_status, True, shield_color)
+        surface.blit(shield_surface, (15, y_offset))
+        y_offset += 20
+
+        # 프레임 타임 표시 (실시간)
+        if _thor_shield_frame_times:
+            avg_ft = sum(_thor_shield_frame_times) / len(_thor_shield_frame_times)
+            max_ft = max(_thor_shield_frame_times)
+            min_ft = min(_thor_shield_frame_times)
+            fps_equiv = 1000.0 / avg_ft if avg_ft > 0 else 0
+            ft_color = (255, 80, 80) if avg_ft > 20 else (255, 255, 80) if avg_ft > 16.67 else (80, 255, 80)
+            ft_text = f"FRAME: {avg_ft:.1f}ms (min={min_ft:.1f} max={max_ft:.1f}) ~{fps_equiv:.0f}fps"
+            ft_surface = pygame.font.Font(None, 16).render(ft_text, True, ft_color)
+            surface.blit(ft_surface, (15, y_offset))
     except:
         pass
 # 입력 관련 변수들은 input_manager에서 관리
@@ -7440,13 +8404,13 @@ def draw_emergency_charge_effects(screen: pygame.Surface):
         color = (*p["color"][:3], alpha) if len(p["color"]) == 3 else p["color"]
         # 전기 효과 (작은 번개 라인)
         gfxdraw.filled_circle(screen, int(p["x"]), int(p["y"]), p["size"], color)
-        # 글로우 효과 (캐시된 Surface 사용)
+        # 글로우 효과 (사전 렌더링된 캐시 사용 - 매 프레임 draw.circle 제거)
         if p["size"] > 4:
             glow_size = p["size"] * 4
-            glow_surf = get_cached_glow_surface(glow_size)
-            glow_color = (*p["color"][:3], alpha // 4)
-            pygame.draw.circle(glow_surf, glow_color, (p["size"]*2, p["size"]*2), p["size"]*2)
-            screen.blit(glow_surf, (int(p["x"]) - p["size"]*2, int(p["y"]) - p["size"]*2), special_flags=pygame.BLEND_ADD)
+            glow_alpha = alpha // 4
+            glow_surf = get_predrawn_glow_circle(glow_size, p["color"][:3], glow_alpha)
+            half_size = glow_surf.get_width() // 2
+            screen.blit(glow_surf, (int(p["x"]) - half_size, int(p["y"]) - half_size), special_flags=pygame.BLEND_ADD)
 
 # ========== 리커버리 좌우 동시입력 감지 시스템 (스매셔 전용) ==========
 class RecoveryDualInput:
@@ -7653,26 +8617,25 @@ def update_recovery_speed_boost(player_x: float, player_y: float, is_moving: boo
 
 
 def draw_recovery_light_particles(screen: pygame.Surface):
-    """리커버리 빛가루 파티클 그리기"""
+    """리커버리 빛가루 파티클 그리기 - 캐시된 glow 사용"""
     global recovery_light_particles
 
     for p in recovery_light_particles:
         if p['alpha'] > 0 and p['size'] > 0:
-            # 글로우 효과
+            # 글로우 효과 - 캐시된 Surface 사용
             glow_size = int(p['size'] * 2)
             if glow_size > 0:
-                glow_surf = pygame.Surface((glow_size * 2 + 4, glow_size * 2 + 4), pygame.SRCALPHA)
                 glow_alpha = min(255, int(p['alpha'] * 0.4))
-                pygame.draw.circle(glow_surf, (*p['color'], glow_alpha),
-                                 (glow_size + 2, glow_size + 2), glow_size)
-                screen.blit(glow_surf, (int(p['x'] - glow_size - 2), int(p['y'] - glow_size - 2)))
+                glow_surf = get_predrawn_glow_circle(glow_size * 2, p['color'][:3], glow_alpha)
+                half = glow_surf.get_width() // 2
+                screen.blit(glow_surf, (int(p['x'] - half), int(p['y'] - half)))
 
-            # 코어
+            # 코어 - 캐시된 Surface 사용
             core_size = max(1, int(p['size']))
-            core_surf = pygame.Surface((core_size * 2 + 2, core_size * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.circle(core_surf, (*p['color'], min(255, int(p['alpha']))),
-                             (core_size + 1, core_size + 1), core_size)
-            screen.blit(core_surf, (int(p['x'] - core_size - 1), int(p['y'] - core_size - 1)))
+            core_alpha = min(255, int(p['alpha']))
+            core_surf = get_predrawn_glow_circle(core_size * 2, p['color'][:3], core_alpha)
+            half = core_surf.get_width() // 2
+            screen.blit(core_surf, (int(p['x'] - half), int(p['y'] - half)))
 
 
 def get_recovery_speed_boost_multiplier() -> float:
@@ -7842,35 +8805,42 @@ def draw_recovery_effects(screen: pygame.Surface):
         screen.blit(ring_surf, (int(cx - center), int(cy - center)),
                    special_flags=pygame.BLEND_ADD)
 
-    # 3. 섬세한 에너지 파티클 (그라데이션)
+    # 3. 섬세한 에너지 파티클 - 캐시된 glow 사용 (3겹 Surface 생성 제거)
     for p in recovery_particles:
         if p['alpha'] <= 5:
             continue
 
         if p['color_type'] == 'emerald':
-            colors = [(30, 150, 130), (60, 190, 165), (100, 220, 195)]
+            main_color = (60, 190, 165)
         elif p['color_type'] == 'gold':
-            colors = [(60, 180, 150), (100, 210, 180), (150, 245, 215)]
+            main_color = (100, 210, 180)
         else:
-            colors = [(80, 180, 210), (120, 210, 240), (170, 240, 255)]
+            main_color = (120, 210, 240)
 
-        p_surf_size = max(8, int(p['size'] * 8))
-        p_surf = pygame.Surface((p_surf_size, p_surf_size), pygame.SRCALPHA)
-        p_center = p_surf_size // 2
+        px, py = int(p['x']), int(p['y'])
 
-        for i, color in enumerate(colors):
-            radius = max(1, int(p['size'] * (3 - i) * 0.8))
-            alpha = int(p['alpha'] * (0.2 + i * 0.3))
-            if radius > 0:
-                pygame.draw.circle(p_surf, (*color, min(255, alpha)),
-                                  (p_center, p_center), radius)
+        # 외부 glow (캐시된 Surface)
+        outer_radius = max(2, int(p['size'] * 2.4))
+        outer_alpha = int(p['alpha'] * 0.2)
+        if outer_alpha > 0:
+            outer_surf = get_predrawn_glow_circle(outer_radius * 2, main_color, outer_alpha)
+            half = outer_surf.get_width() // 2
+            screen.blit(outer_surf, (px - half, py - half), special_flags=pygame.BLEND_ADD)
 
+        # 내부 glow (캐시된 Surface)
+        inner_radius = max(1, int(p['size'] * 1.2))
+        inner_alpha = int(p['alpha'] * 0.5)
+        if inner_alpha > 0:
+            inner_surf = get_predrawn_glow_circle(inner_radius * 2, main_color, inner_alpha)
+            half = inner_surf.get_width() // 2
+            screen.blit(inner_surf, (px - half, py - half), special_flags=pygame.BLEND_ADD)
+
+        # 밝은 코어 (캐시된 Surface)
         if p['size'] > 1:
-            pygame.draw.circle(p_surf, (200, 255, 245, min(255, p['alpha'])),
-                              (p_center, p_center), max(1, int(p['size'] * 0.4)))
-
-        screen.blit(p_surf, (int(p['x']) - p_center, int(p['y']) - p_center),
-                   special_flags=pygame.BLEND_ADD)
+            core_radius = max(1, int(p['size'] * 0.4))
+            core_surf = get_predrawn_glow_circle(core_radius * 2, (200, 255, 245), min(255, int(p['alpha'])))
+            half = core_surf.get_width() // 2
+            screen.blit(core_surf, (px - half, py - half), special_flags=pygame.BLEND_ADD)
 
     # 4. 중앙 코어 - 다중 레이어 광채
     if recovery_effect_timer > recovery_effect_duration - 10:
@@ -7943,6 +8913,7 @@ STARPOINT_PER_SKILL_CHOICE = 1  # 1 starpoint = 1 skill choice
 
 # Runtime skill state variables
 runtime_skill_levels = {}  # Current run's skill levels (reset on new game)
+_skill_levels_snapshot_at_stage_start = {}  # 스테이지 시작 시 스킬 레벨 스냅샷 (승리화면 필터용)
 starpoint_for_skills = 0   # Accumulated starpoints for skill selection (0~2)
 pending_skill_choices = 0  # Pending skill choice count
 runtime_skill_choice_pending = False  # Skill selection pending flag
@@ -8005,7 +8976,7 @@ def get_runtime_skill_description(skill_id: str, skill_data: dict, level: int) -
         "item_recycle": ("아이템 유지 확률 ", 7, "%"),
         # Downtown Tree
         "downtown_gamble": ("가챠 추가 1회 확률 ", 10, "%"),
-        "downtown_treasure_map": ("전설 확률 +", 150, "%"),
+        "downtown_treasure_map": ("신화 확률 +", 150, "%"),
         "downtown_bargain": ("상점 아이템 가격 ", 10, "% 할인"),
         # Common Tree
         "common_swiftness": ("이동속도 ", 5, "% 증가"),
@@ -8285,13 +9256,13 @@ RUNTIME_SKILL_POOL = {
         "name": "보물지도",
         "max_level": 5,
         "descriptions": {
-            1: "전설 확률 +150%",
-            2: "전설 확률 +300%",
-            3: "전설 확률 +450%",
-            4: "전설 확률 +600%",
-            5: "전설 확률 +750%",
+            1: "신화 확률 +150%",
+            2: "신화 확률 +300%",
+            3: "신화 확률 +450%",
+            4: "신화 확률 +600%",
+            5: "신화 확률 +750%",
         },
-        "detail": "보물지도로 전설 아이템을 더 쉽게 찾을 수 있습니다.",
+        "detail": "보물지도로 신화 아이템을 더 쉽게 찾을 수 있습니다.",
         "icon_color": (255, 223, 0),
         "tree": "downtown"
     },
@@ -9820,7 +10791,7 @@ def add_ingame_gold(amount: int, x: float = None, y: float = None, source: str =
         source: 골드 획득 출처 ("rally", "dash", "skill")
     """
     global ingame_gold, ingame_gold_animations, last_rally_gold, dash_gold_multiplier_active
-    global rally_gold_earned, dash_gold_earned, skill_gold_earned
+    global rally_gold_earned, dash_gold_earned, skill_gold_earned, perk_gold_earned, quest_gold_earned
 
     # 대시 배율 적용 (릴레이에만 적용)
     dash_bonus = 0
@@ -10614,6 +11585,15 @@ def run_treasure_hunt_sequence():
                 treasure_hunt_phase = "result"
                 treasure_hunt_timer = 0
                 treasure_hunt_animation_timer = 0
+                # 보물탐색 결과 사운드 재생
+                if treasure_hunt_result and treasure_hunt_result.get("type") != "empty":
+                    gacha.play_gacha_result_sound()
+                    if treasure_hunt_result.get("type") == "legendary" and legend_open_sound:
+                        legend_open_sound.set_volume(get_sfx_volume())
+                        legend_open_sound.play()
+                elif disappointment_sound:
+                    disappointment_sound.set_volume(get_sfx_volume())
+                    disappointment_sound.play()
 
         elif treasure_hunt_phase == "result":
             treasure_hunt_animation_timer += 1
@@ -10761,6 +11741,15 @@ def update_treasure_hunt():
             treasure_hunt_phase = "result"
             treasure_hunt_timer = 0
             treasure_hunt_animation_timer = 0
+            # 보물탐색 결과 사운드 재생
+            if treasure_hunt_result and treasure_hunt_result.get("type") != "empty":
+                gacha.play_gacha_result_sound()
+                if treasure_hunt_result.get("type") == "legendary" and legend_open_sound:
+                    legend_open_sound.set_volume(get_sfx_volume())
+                    legend_open_sound.play()
+            elif disappointment_sound:
+                disappointment_sound.set_volume(get_sfx_volume())
+                disappointment_sound.play()
 
     elif treasure_hunt_phase == "result":
         treasure_hunt_animation_timer += 1
@@ -11195,7 +12184,7 @@ def draw_treasure_hunt_overlay(screen):
 
             # 발견 메시지
             if is_legendary:
-                discover_text = "★ 전설 아이템 발견! ★"
+                discover_text = "★ 신화 아이템 발견! ★"
                 text_color = (255, 215, 0)
             else:
                 discover_text = "아이템을 발견했습니다!"
@@ -13219,6 +14208,154 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         # 반짝임 효과
         pygame.draw.circle(surface, (255, 255, 255), (icon_cx + int(5*scale), icon_cy - int(6*scale)), int(1.5*scale))
 
+    elif skill_id == "blacksmith_turret_enhance":
+        # 강화포탑 해금 - 포탑 실루엣 + 업그레이드 화살표
+        turret_color = (180, 100, 220)  # 보라색 (발토르 테마)
+        # 포탑 기둥
+        pygame.draw.rect(surface, darker(turret_color), (icon_cx - int(3*scale), icon_cy, int(6*scale), int(8*scale)))
+        pygame.draw.rect(surface, turret_color, (icon_cx - int(3*scale), icon_cy, int(5*scale), int(7*scale)))
+        # 포탑 포신
+        pygame.draw.rect(surface, darker(turret_color), (icon_cx - int(2*scale), icon_cy - int(5*scale), int(4*scale), int(6*scale)))
+        pygame.draw.rect(surface, turret_color, (icon_cx - int(2*scale), icon_cy - int(5*scale), int(3*scale), int(5*scale)))
+        # 업그레이드 화살표 (우상단)
+        arrow_x = icon_cx + int(5*scale)
+        arrow_y = icon_cy - int(4*scale)
+        pygame.draw.polygon(surface, (100, 255, 100), [
+            (arrow_x, arrow_y - int(4*scale)),
+            (arrow_x - int(3*scale), arrow_y),
+            (arrow_x + int(3*scale), arrow_y)
+        ])
+        pygame.draw.rect(surface, (100, 255, 100), (arrow_x - int(1*scale), arrow_y, int(2*scale), int(4*scale)))
+        # 하이라이트
+        pygame.draw.line(surface, lighter(turret_color), (icon_cx - int(2*scale), icon_cy - int(4*scale)), (icon_cx - int(2*scale), icon_cy + int(2*scale)), 1)
+
+    elif skill_id == "blacksmith_divine_enhance":
+        # 디바인 강화 해금 - 육각 크리스탈
+        crystal_color = (180, 100, 220)
+        # 글로우 효과
+        pygame.draw.circle(surface, (220, 180, 255), (icon_cx, icon_cy), int(9*scale))
+        # 육각형 크리스탈
+        hex_points = []
+        for i in range(6):
+            angle = math.radians(30 + i * 60)
+            hex_points.append((
+                icon_cx + int(8*scale * math.cos(angle)),
+                icon_cy + int(8*scale * math.sin(angle))
+            ))
+        pygame.draw.polygon(surface, darker(crystal_color), hex_points)
+        # 내부 육각형
+        inner_hex = []
+        for i in range(6):
+            angle = math.radians(30 + i * 60)
+            inner_hex.append((
+                icon_cx + int(5*scale * math.cos(angle)),
+                icon_cy + int(5*scale * math.sin(angle))
+            ))
+        pygame.draw.polygon(surface, lighter(crystal_color), inner_hex)
+        # 중앙 빛
+        pygame.draw.circle(surface, (255, 220, 255), (icon_cx, icon_cy), int(3*scale))
+        # 반짝임
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx - int(2*scale), icon_cy - int(3*scale)), int(1.5*scale))
+
+    elif skill_id == "blacksmith_gauge_efficiency":
+        # 게이지 효율 - 번개 + 게이지 바
+        lightning_color = (255, 220, 100)
+        # 게이지 바 배경
+        pygame.draw.rect(surface, (60, 60, 80), (icon_cx - int(8*scale), icon_cy + int(2*scale), int(16*scale), int(5*scale)))
+        # 게이지 채움
+        pygame.draw.rect(surface, (100, 200, 100), (icon_cx - int(7*scale), icon_cy + int(3*scale), int(10*scale), int(3*scale)))
+        # 번개
+        lightning_points = [
+            (icon_cx - int(2*scale), icon_cy - int(7*scale)),
+            (icon_cx + int(3*scale), icon_cy - int(2*scale)),
+            (icon_cx, icon_cy - int(2*scale)),
+            (icon_cx + int(2*scale), icon_cy + int(1*scale)),
+            (icon_cx - int(1*scale), icon_cy - int(1*scale)),
+            (icon_cx - int(4*scale), icon_cy - int(5*scale))
+        ]
+        pygame.draw.polygon(surface, lightning_color, lightning_points)
+        pygame.draw.polygon(surface, (255, 255, 200), lightning_points, 1)
+
+    elif skill_id == "blacksmith_build_speed":
+        # 건설 속도 - 망치 + 모션 라인
+        hammer_color = (180, 140, 100)
+        # 망치 헤드
+        pygame.draw.rect(surface, darker(hammer_color), (icon_cx - int(5*scale), icon_cy - int(6*scale), int(10*scale), int(5*scale)))
+        pygame.draw.rect(surface, hammer_color, (icon_cx - int(5*scale), icon_cy - int(6*scale), int(9*scale), int(4*scale)))
+        # 망치 손잡이
+        pygame.draw.rect(surface, (100, 70, 50), (icon_cx - int(1*scale), icon_cy - int(2*scale), int(2*scale), int(10*scale)))
+        # 모션 라인 (빠른 움직임)
+        for i in range(3):
+            y_off = icon_cy - int(4*scale) + i * int(3*scale)
+            pygame.draw.line(surface, (255, 255, 150), (icon_cx + int(6*scale), y_off), (icon_cx + int(9*scale), y_off), 1)
+        # 반짝임
+        pygame.draw.circle(surface, (255, 255, 200), (icon_cx - int(3*scale), icon_cy - int(5*scale)), int(1.5*scale))
+
+    elif skill_id == "blacksmith_hammer_shock_1":
+        # 해머쇼크 1단계 - 작은 충격파 + 망치
+        shock_color = (255, 150, 50)
+        # 망치 헤드
+        pygame.draw.rect(surface, darker(shock_color), (icon_cx - int(4*scale), icon_cy - int(3*scale), int(8*scale), int(4*scale)))
+        pygame.draw.rect(surface, shock_color, (icon_cx - int(4*scale), icon_cy - int(3*scale), int(7*scale), int(3*scale)))
+        # 망치 손잡이
+        pygame.draw.rect(surface, (120, 80, 50), (icon_cx - int(1*scale), icon_cy, int(2*scale), int(7*scale)))
+        # 충격파 1개 (작은 원)
+        pygame.draw.circle(surface, shock_color, (icon_cx, icon_cy - int(6*scale)), int(3*scale), max(1, int(1*scale)))
+        # 숫자 1 표시
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx + int(5*scale), icon_cy + int(5*scale)), int(3*scale))
+        try:
+            num_font = pygame.font.Font(None, max(8, int(10*scale)))
+            num_surf = num_font.render("1", True, shock_color)
+            num_rect = num_surf.get_rect(center=(icon_cx + int(5*scale), icon_cy + int(5*scale)))
+            surface.blit(num_surf, num_rect)
+        except:
+            pass
+
+    elif skill_id == "blacksmith_hammer_shock_2":
+        # 해머쇼크 2단계 - 중간 충격파 + 망치
+        shock_color = (255, 100, 50)
+        # 망치 헤드
+        pygame.draw.rect(surface, darker(shock_color), (icon_cx - int(4*scale), icon_cy - int(2*scale), int(8*scale), int(4*scale)))
+        pygame.draw.rect(surface, shock_color, (icon_cx - int(4*scale), icon_cy - int(2*scale), int(7*scale), int(3*scale)))
+        # 망치 손잡이
+        pygame.draw.rect(surface, (120, 80, 50), (icon_cx - int(1*scale), icon_cy + int(1*scale), int(2*scale), int(6*scale)))
+        # 충격파 2개 (동심원)
+        pygame.draw.circle(surface, shock_color, (icon_cx, icon_cy - int(5*scale)), int(4*scale), max(1, int(1*scale)))
+        pygame.draw.circle(surface, lighter(shock_color), (icon_cx, icon_cy - int(5*scale)), int(2*scale), max(1, int(1*scale)))
+        # 숫자 2 표시
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx + int(5*scale), icon_cy + int(5*scale)), int(3*scale))
+        try:
+            num_font = pygame.font.Font(None, max(8, int(10*scale)))
+            num_surf = num_font.render("2", True, shock_color)
+            num_rect = num_surf.get_rect(center=(icon_cx + int(5*scale), icon_cy + int(5*scale)))
+            surface.blit(num_surf, num_rect)
+        except:
+            pass
+
+    elif skill_id == "blacksmith_hammer_shock_3":
+        # 해머쇼크 3단계 - 큰 충격파 + 망치
+        shock_color = (255, 50, 50)
+        # 글로우 효과
+        pygame.draw.circle(surface, (255, 100, 50), (icon_cx, icon_cy - int(4*scale)), int(7*scale))
+        # 망치 헤드
+        pygame.draw.rect(surface, darker(shock_color), (icon_cx - int(4*scale), icon_cy - int(1*scale), int(8*scale), int(4*scale)))
+        pygame.draw.rect(surface, shock_color, (icon_cx - int(4*scale), icon_cy - int(1*scale), int(7*scale), int(3*scale)))
+        # 망치 손잡이
+        pygame.draw.rect(surface, (120, 80, 50), (icon_cx - int(1*scale), icon_cy + int(2*scale), int(2*scale), int(5*scale)))
+        # 충격파 3개 (동심원 + 불꽃)
+        pygame.draw.circle(surface, shock_color, (icon_cx, icon_cy - int(4*scale)), int(5*scale), max(1, int(2*scale)))
+        pygame.draw.circle(surface, lighter(shock_color), (icon_cx, icon_cy - int(4*scale)), int(3*scale), max(1, int(1*scale)))
+        pygame.draw.circle(surface, (255, 255, 200), (icon_cx, icon_cy - int(4*scale)), int(1.5*scale))
+        # 숫자 3 표시
+        pygame.draw.circle(surface, (255, 255, 255), (icon_cx + int(5*scale), icon_cy + int(5*scale)), int(3*scale))
+        try:
+            num_font = pygame.font.Font(None, max(8, int(10*scale)))
+            num_surf = num_font.render("3", True, shock_color)
+            num_rect = num_surf.get_rect(center=(icon_cx + int(5*scale), icon_cy + int(5*scale)))
+            surface.blit(num_surf, num_rect)
+        except:
+            pass
+
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
         symbol = skill.get("name", "?")[0] if skill.get("name") else "?"
@@ -14234,6 +15371,10 @@ def show_all_runtime_skills_menu() -> str | None:
     """
     global runtime_skill_levels
 
+    print("[DEBUG F7] ========== F7 스킬 메뉴 열림 ==========")
+    print("[DEBUG F7] 사용법: 빈 공간에서 휠=스크롤, 스킬 위에서 휠업=레벨+, 휠다운=레벨-")
+    print("[DEBUG F7] 발토르 퍽은 목록 맨 아래에 있습니다 (스크롤 필요)")
+
     clock = pygame.time.Clock()
     running = True
     selected_skill = None
@@ -14308,6 +15449,37 @@ def show_all_runtime_skills_menu() -> str | None:
             "category": "인스턴트"
         }
         all_skills.append(skill_info)
+
+    # 발토르(블랙스미스) 아카데미 퍽
+    blacksmith_skills_loaded = 0
+    try:
+        import academy
+        if hasattr(academy, 'SKILL_TREES') and "blacksmith" in academy.SKILL_TREES:
+            blacksmith_tree = academy.SKILL_TREES["blacksmith"]
+            for skill_data in blacksmith_tree.get("skills", []):
+                skill_id = skill_data.get("id", "")
+                # 현재 레벨 가져오기
+                current_lvl = 0
+                if hasattr(academy, 'skill_system') and academy.skill_system:
+                    current_lvl = academy.skill_system.get_skill_level(skill_id)
+                skill_info = {
+                    "id": skill_id,
+                    "name": skill_data.get("name", skill_id),
+                    "icon_color": skill_data.get("icon_color", (180, 100, 220)),
+                    "max_level": skill_data.get("max_level", 1),
+                    "current_level": current_lvl,
+                    "description": skill_data.get("description", ""),
+                    "is_academy": True,  # 아카데미 퍽 표시
+                    "category": "발토르"
+                }
+                all_skills.append(skill_info)
+                blacksmith_skills_loaded += 1
+        # 발토르 퍽이 몇 번째 인덱스부터 시작하는지 표시
+        blacksmith_start_index = len(all_skills) - blacksmith_skills_loaded
+        print(f"[DEBUG F7] 발토르 퍽 {blacksmith_skills_loaded}개 로드, 총 스킬 수: {len(all_skills)}")
+        print(f"[DEBUG F7] 발토르 퍽 인덱스: {blacksmith_start_index} ~ {len(all_skills)-1} (스크롤 필요할 수 있음)")
+    except Exception as e:
+        print(f"[SkillMenu] 발토르 아카데미 퍽 로드 실패: {e}")
 
     # 그리드 설정
     cols = 6  # 한 줄에 6개
@@ -14393,34 +15565,71 @@ def show_all_runtime_skills_menu() -> str | None:
                 # button 4/5 (구식 휠 이벤트)는 MOUSEWHEEL과 중복되므로 제거
                 # MOUSEWHEEL 이벤트에서만 휠 처리
             elif event.type == pygame.MOUSEWHEEL:
+                # DEBUG: 휠 이벤트 감지
+                wheel_direction = "UP (레벨+)" if event.y > 0 else "DOWN (레벨-)" if event.y < 0 else "NONE"
+                print(f"[DEBUG F7] 휠 이벤트 감지: y={event.y} ({wheel_direction}), hovered_index={hovered_index}")
                 if hovered_index >= 0:
                     # 호버된 스킬 레벨 조절
                     hovered_skill = all_skills[hovered_index]
+                    print(f"[DEBUG F7] 호버 스킬: id={hovered_skill.get('id')}, is_academy={hovered_skill.get('is_academy')}, is_instant={hovered_skill.get('is_instant')}")
                     if not hovered_skill.get("is_instant"):
                         skill_id = hovered_skill["id"]
                         max_lvl = hovered_skill.get("max_level", 5)
-                        # 실시간 레벨 동기화
-                        current_lvl = runtime_skill_levels.get(skill_id, 0)
-                        hovered_skill["current_level"] = current_lvl
 
-                        if event.y > 0:  # 휠 업 = 레벨업
-                            # 최대 레벨 체크 (max_lvl == -1이면 무제한)
-                            if max_lvl == -1 or current_lvl < max_lvl:
-                                # 직접 레벨 증가 (apply_runtime_skill_effect는 최대 레벨 체크 안 함)
-                                runtime_skill_levels[skill_id] = current_lvl + 1
-                                hovered_skill["current_level"] = runtime_skill_levels[skill_id]
-                                # 스킬별 효과 적용
-                                recalculate_skill_effects(skill_id)
-                                print(f"[SkillMenu] {skill_id} 레벨업: {current_lvl} → {runtime_skill_levels[skill_id]}")
-                        elif event.y < 0:  # 휠 다운 = 레벨 다운
-                            if current_lvl > 0:
-                                runtime_skill_levels[skill_id] = current_lvl - 1
-                                hovered_skill["current_level"] = runtime_skill_levels[skill_id]
-                                recalculate_skill_effects(skill_id)
-                                print(f"[SkillMenu] {skill_id} 레벨다운: {current_lvl} → {runtime_skill_levels[skill_id]}")
+                        # 아카데미 퍽 처리 (발토르 등)
+                        if hovered_skill.get("is_academy"):
+                            print(f"[DEBUG F7] 아카데미 퍽 처리 시작: {skill_id}")
+                            try:
+                                import academy
+                                has_skill_system = hasattr(academy, 'skill_system') and academy.skill_system is not None
+                                print(f"[DEBUG F7] academy.skill_system 존재: {has_skill_system}")
+                                if has_skill_system:
+                                    current_lvl = academy.skill_system.get_skill_level(skill_id)
+                                    print(f"[DEBUG F7] {skill_id} 현재 레벨: {current_lvl}, max: {max_lvl}")
+                                    hovered_skill["current_level"] = current_lvl
+
+                                    if event.y > 0:  # 휠 업 = 레벨업
+                                        if current_lvl < max_lvl:
+                                            # 아카데미 스킬 레벨 직접 설정
+                                            academy.skill_system.skill_levels[skill_id] = current_lvl + 1
+                                            hovered_skill["current_level"] = current_lvl + 1
+                                            # 설정 후 검증
+                                            verify_level = academy.skill_system.get_skill_level(skill_id)
+                                            print(f"[SkillMenu] 아카데미 퍽 {skill_id} 레벨업: {current_lvl} → {current_lvl + 1} (검증: {verify_level})")
+                                    elif event.y < 0:  # 휠 다운 = 레벨 다운
+                                        if current_lvl > 0:
+                                            academy.skill_system.skill_levels[skill_id] = current_lvl - 1
+                                            hovered_skill["current_level"] = current_lvl - 1
+                                            print(f"[SkillMenu] 아카데미 퍽 {skill_id} 레벨다운: {current_lvl} → {current_lvl - 1}")
+                            except Exception as e:
+                                print(f"[SkillMenu] 아카데미 퍽 레벨 조절 실패: {e}")
+                        else:
+                            # 런타임 스킬 처리
+                            # 실시간 레벨 동기화
+                            current_lvl = runtime_skill_levels.get(skill_id, 0)
+                            hovered_skill["current_level"] = current_lvl
+
+                            if event.y > 0:  # 휠 업 = 레벨업
+                                # 최대 레벨 체크 (max_lvl == -1이면 무제한)
+                                if max_lvl == -1 or current_lvl < max_lvl:
+                                    # 직접 레벨 증가 (apply_runtime_skill_effect는 최대 레벨 체크 안 함)
+                                    runtime_skill_levels[skill_id] = current_lvl + 1
+                                    hovered_skill["current_level"] = runtime_skill_levels[skill_id]
+                                    # 스킬별 효과 적용
+                                    recalculate_skill_effects(skill_id)
+                                    print(f"[SkillMenu] {skill_id} 레벨업: {current_lvl} → {runtime_skill_levels[skill_id]}")
+                            elif event.y < 0:  # 휠 다운 = 레벨 다운
+                                if current_lvl > 0:
+                                    runtime_skill_levels[skill_id] = current_lvl - 1
+                                    hovered_skill["current_level"] = runtime_skill_levels[skill_id]
+                                    recalculate_skill_effects(skill_id)
+                                    print(f"[SkillMenu] {skill_id} 레벨다운: {current_lvl} → {runtime_skill_levels[skill_id]}")
                 else:
-                    # 스크롤
+                    # 스크롤 (호버된 스킬이 없을 때)
+                    old_offset = scroll_offset
                     scroll_offset = max(0, min(max_scroll, scroll_offset - event.y * 30))
+                    if scroll_offset != old_offset:
+                        print(f"[DEBUG F7] 스크롤: {old_offset} → {scroll_offset} (max: {max_scroll})")
 
         # 배경 그리기 (실시간 렌더링)
         if use_live_bg:
@@ -14428,9 +15637,8 @@ def show_all_runtime_skills_menu() -> str | None:
         else:
             SCREEN.fill((20, 25, 40))
 
-        # 반투명 오버레이
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
+        # 반투명 오버레이 - 캐시된 Surface 사용
+        overlay = get_cached_overlay(WIDTH, HEIGHT, 180)
         SCREEN.blit(overlay, (0, 0))
 
         # 타이틀
@@ -14530,7 +15738,9 @@ def show_all_runtime_skills_menu() -> str | None:
                 "공용": (150, 150, 150),
                 "스매셔": (255, 100, 100),
                 "옵티머스": (100, 200, 255),
-                "인스턴트": (100, 255, 150)
+                "인스턴트": (100, 255, 150),
+                "코만도": (180, 140, 80),
+                "발토르": (180, 100, 220)  # 보라색 (발토르 테마)
             }
             cat_color = cat_colors.get(category, (150, 150, 150))
             # 작은 점으로 카테고리 표시
@@ -16758,6 +17968,7 @@ except Exception:
 # 메뉴 사운드 (자동 생성된 파일들)
 SOUND_BUTTON_CLICK = sound_effects['BUTTON_CLICK'] or SOUND_ACTIVE_ITEM
 SOUND_BUTTON_HOVER = sound_effects['BUTTON_HOVER'] or SOUND_ACTIVE_ITEM
+SOUND_LEVEL_SELECT = sound_effects.get('LEVEL_SELECT')
 # DivineStone 번개 사운드 (건설형 연동)
 try:
     SOUND_DIVINE_THUNDER = pygame.mixer.Sound(resource_path("sounds/devinethunder.wav"))
@@ -16822,6 +18033,18 @@ try:
     SOUND_CHARACTER_SPAWN = pygame.mixer.Sound(resource_path("sounds/characterspawn.wav"))
 except Exception:
     SOUND_CHARACTER_SPAWN = None
+
+# 캐릭터 선택 레이저 사운드 (사이드 레이저 빔 애니메이션)
+try:
+    SOUND_CHARACTER_LASER = pygame.mixer.Sound(resource_path("sounds/characterlazer.wav"))
+except Exception:
+    SOUND_CHARACTER_LASER = None
+
+# 신성 월계수 잎 충돌 사운드
+try:
+    SOUND_LEAF = pygame.mixer.Sound(resource_path("sounds/leaf.wav"))
+except Exception:
+    SOUND_LEAF = None
 
 # === 추가된 필살기 관련 전역 변수 ===
 special_ready = False
@@ -17143,6 +18366,7 @@ selected_item_index = 0              # 현재 선택 중인 아이템 인덱스
 MAX_ITEM_SLOTS = 3                   # 최대 아이템 슬롯 수 (기본값)
 ITEM_MANAGER_ACTIVE_LIMIT = 10       # 아이템 관리자에서 허용할 엑티브 아이템 최대 선택 수
 passive_item_list = []               # 패시브 아이템 목록 (어댑터 호환용)
+_items_snapshot_at_stage_start = set()  # 스테이지 시작 시 보유 아이템 id() 스냅샷 (승리화면 필터용)
 selected_passive_item = -1           # 패시브 아이템 선택 인덱스 (어댑터 호환용)
 active_item_icon_size = (28, 28)     # 화면에 표시할 크기
 last_item_use_time = 0               # 마지막 아이템 사용 시간 (전역 쿨타임용)
@@ -17238,8 +18462,8 @@ def _reset_active_item_hover_state() -> None:
     _active_item_tooltip_title = ""
     _active_item_tooltip_body = ""
 
-    # 스매셔 스킬 툴팁이 활성화 중이면 일시정지 상태를 건드리지 않음
-    if _smasher_skill_tooltip_active:
+    # 다른 툴팁이 활성화 중이면 일시정지 상태를 건드리지 않음
+    if _smasher_skill_tooltip_active or _odin_swamp_tooltip_active or _rage_indicator_tooltip_active:
         return
 
     if game_paused_by_tooltip and _tooltip_forced_pause and game_paused:
@@ -17378,10 +18602,11 @@ def _update_active_item_hover_state(now_ms: int) -> None:
         _active_item_hover_start_ms = now_ms
         _active_item_tooltip_ready = False
         # 기존 툴팁 일시정지를 해제하고 새로운 타이머 시작
-        if game_paused_by_tooltip:
+        # (오딘의 늪/스매셔 스킬 툴팁 활성 시에는 건드리지 않음)
+        if game_paused_by_tooltip and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
             game_paused = _tooltip_prev_game_paused
             game_paused_by_tooltip = False
-        _tooltip_forced_pause = False
+            _tooltip_forced_pause = False
         return
 
     if _active_item_hover_start_ms is None:
@@ -18031,6 +19256,105 @@ def ensure_passive_rolls(item_data: dict) -> None:
             assign_item_prefix(item_data)
     except Exception:
         # 롤링 실패 시 조용히 패스
+        pass
+
+
+def roll_legendary_options(item_name: str) -> list[dict]:
+    """전설 아이템 옵션을 LEGENDARY_ROLL_OPTIONS에서 범위 내 롤링해 반환."""
+    from legendary_items import LEGENDARY_ROLL_OPTIONS
+    rng = random.SystemRandom()
+    ranges = LEGENDARY_ROLL_OPTIONS.get(item_name)
+    if not ranges:
+        return []
+    rolled = []
+    for opt in ranges:
+        v_min, v_max = opt["min"], opt["max"]
+        step = opt.get("step", 1)
+        if step < 1:
+            # 소수점 스텝
+            steps = int((v_max - v_min) / step) + 1
+            val = v_min + rng.randint(0, steps - 1) * step
+            val = round(val, 2)
+        else:
+            val = rng.randint(int(v_min), int(v_max))
+        # 퍼센타일 기반 색상
+        reverse = opt.get("reverse", False)
+        if v_max == v_min:
+            pct = 1.0
+        else:
+            pct = (val - v_min) / (v_max - v_min)
+            if reverse:
+                pct = 1.0 - pct
+        if (not reverse and val == v_max) or (reverse and val == v_min):
+            color = _OPTION_COLOR_TOP
+        elif pct <= 1/3:
+            color = _OPTION_COLOR_LOW
+        elif pct <= 2/3:
+            color = _OPTION_COLOR_MID
+        else:
+            color = _OPTION_COLOR_HIGH
+        prefix = opt.get("prefix", "")
+        text = f"{opt['label']} {prefix}{val}{opt.get('unit','')}"
+        rolled.append({"text": text, "color": color, "key": opt.get("key"), "value": val, "unit": opt.get("unit", ""), "min": v_min, "max": v_max, "reverse": reverse})
+    return rolled
+
+
+def get_item_legendary_roll_value(item: dict, option_key: str, apply_polish: bool = False) -> float:
+    """아이템의 개별 rolled_options에서 롤 값을 가져옴. 없으면 전역 딕셔너리 사용.
+
+    Args:
+        item: 아이템 딕셔너리 (rolled_options 포함 가능)
+        option_key: 롤 옵션 키 (예: "speed_bonus", "cooldown")
+        apply_polish: 연마 퍽 보너스 적용 여부
+
+    Returns:
+        롤 옵션 값 (개별 아이템 → 전역 딕셔너리 → 기본값 순으로 탐색)
+    """
+    # 1. 아이템의 개별 rolled_options에서 먼저 찾기
+    rolled_opts = item.get("rolled_options", [])
+    for opt in rolled_opts:
+        if opt.get("key") == option_key:
+            base_value = opt.get("value", 0)
+            if apply_polish and base_value != 0:
+                # 연마 퍽 보너스 적용
+                try:
+                    polish_mult = get_effective_polish_multiplier()
+                    enhancement_pct = item.get("enhancement_bonus_pct", 0)
+                    total_mult = polish_mult
+                    if enhancement_pct > 0:
+                        total_mult = total_mult * (1 + enhancement_pct / 100)
+
+                    # reverse 옵션 확인
+                    is_reverse = opt.get("reverse", False)
+                    if is_reverse:
+                        return base_value / total_mult
+                    else:
+                        return base_value * total_mult
+                except Exception:
+                    pass
+            return base_value
+
+    # 2. 전역 딕셔너리에서 찾기 (fallback)
+    item_name = item.get("name", "")
+    enhancement_pct = item.get("enhancement_bonus_pct", 0)
+    return get_legendary_roll_value(item_name, option_key, apply_polish, enhancement_pct)
+
+
+def ensure_legendary_rolls(item_data: dict) -> None:
+    """전설 아이템에 롤 옵션이 없으면 생성해서 주입."""
+    try:
+        if item_data.get("type") != "legendary":
+            return
+        if "rolled_options" in item_data and item_data["rolled_options"]:
+            return
+        name = item_data.get("name")
+        if not name:
+            return
+        rolled = roll_legendary_options(name)
+        if rolled:
+            item_data["rolled_options"] = rolled
+            assign_item_prefix(item_data)
+    except Exception:
         pass
 
 
@@ -18942,9 +20266,29 @@ def sync_equipped_passive_effects():
             legendary_anim_active = is_legendary_effect_active()
         except Exception:
             pass
+        # 장착된 전설 아이템의 rolled_options를 전역 legendary_roll_values에 동기화
+        # (각 아이템의 개별 롤 값이 효과 적용 시 사용되도록)
+        def _sync_legendary_rolled_options(item_data, item_name):
+            """장착된 아이템의 rolled_options를 전역 legendary_roll_values에 동기화"""
+            try:
+                from legendary_items import legendary_roll_values, set_legendary_roll_value
+                rolled_opts = item_data.get("rolled_options", [])
+                if rolled_opts:
+                    for opt in rolled_opts:
+                        key = opt.get("key")
+                        value = opt.get("value")
+                        if key and value is not None:
+                            set_legendary_roll_value(item_name, key, value)
+            except Exception as e:
+                print(f"[LEGENDARY_ROLL_SYNC] {item_name} 롤 동기화 실패: {e}")
+
         # 장비 슬롯에 존재하면 전설 효과 활성화
         for legend_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"):
             if legend_name in equipped_names:
+                # 장착된 아이템의 rolled_options를 전역 딕셔너리에 동기화
+                equipped_legend_item = next((item for item in equipped_items if item.get("name") == legend_name), None)
+                if equipped_legend_item:
+                    _sync_legendary_rolled_options(equipped_legend_item, legend_name)
                 # 천사의 가호는 전설 획득 애니메이션 중에는 활성화하지 않음
                 # (애니메이션 종료 후 process_pending_angel_blessing에서 처리)
                 if legend_name == "angel_blessing" and legendary_anim_active:
@@ -21335,15 +22679,14 @@ def draw_optimus_emblem(surface, emblem_x: int, emblem_y: int, emblem_radius: in
     pygame.draw.circle(disc_surface, (*accent, 90), (disc_center, disc_center), inner_ring_r, 2)
     surface.blit(disc_surface, (emblem_x - disc_center, emblem_y - disc_center))
 
-    # 핵융합 코어 - 캐시된 Surface 사용
+    # 핵융합 코어 - 사전 렌더링된 glow 캐시 사용
     core_pulse = 1.0 + math.sin(time_now * 0.009) * 0.25
     core_r = max(3, int(emblem_radius * 0.35 * core_pulse))
     glow_r = int(core_r * 1.9)
     glow_size = glow_r * 2 + 4
-    glow_surface = get_cached_glow_surface(glow_size)
-    glow_center = glow_r + 2
-    pygame.draw.circle(glow_surface, (*accent, 80), (glow_center, glow_center), glow_r)
-    surface.blit(glow_surface, (emblem_x - glow_center, emblem_y - glow_center))
+    glow_surface = get_predrawn_glow_circle(glow_size, accent, 80)
+    half_glow = glow_surface.get_width() // 2
+    surface.blit(glow_surface, (emblem_x - half_glow, emblem_y - half_glow))
     pygame.draw.circle(surface, core_color, (emblem_x, emblem_y), core_r + 1)
     pygame.draw.circle(surface, core_inner, (emblem_x, emblem_y), max(2, core_r - 1))
     pygame.draw.circle(surface, (255, 255, 255), (emblem_x, emblem_y), max(1, core_r - 2), 1)
@@ -25987,7 +27330,7 @@ def _draw_blacksmith_umbrella_overlay(
     half_h = shield_height * 0.5
 
     # 초승달 모양의 곡선 방패를 위한 포인트 생성
-    num_points = 12  # 성능 최적화: 18 → 12로 감소 (여전히 부드러운 곡선)
+    num_points = 36  # 부드러운 곡선을 위한 포인트 수 (백업 버전 복원)
     outline_local = []
 
     # 상단 곡선 (초승달의 바깥쪽 볼록한 부분)
@@ -26158,13 +27501,13 @@ def _draw_blacksmith_umbrella_overlay(
         hammer_shadow_color = (70, 56, 36)
         strap_color = (96, 78, 60)
     
-    # 메인 방패 본체 (그라데이션 레이어) - 성능 최적화: 3 → 2 레이어
-    for i in range(2):
-        offset = i * 3
+    # 메인 방패 본체 (그라데이션 레이어) - 백업 버전 복원: 3 레이어
+    for i in range(3):
+        offset = i * 2
         grad_color = (
-            int(base_color[0] + (highlight_color[0] - base_color[0]) * (i / 2)),
-            int(base_color[1] + (highlight_color[1] - base_color[1]) * (i / 2)),
-            int(base_color[2] + (highlight_color[2] - base_color[2]) * (i / 2))
+            base_color[0] + (highlight_color[0] - base_color[0]) * (i / 3),
+            base_color[1] + (highlight_color[1] - base_color[1]) * (i / 3),
+            base_color[2] + (highlight_color[2] - base_color[2]) * (i / 3)
         )
         offset_outline = []
         for point in outline_local:
@@ -26192,43 +27535,84 @@ def _draw_blacksmith_umbrella_overlay(
     ) if divine_active else (188, 174, 158)
     pygame.draw.polygon(surface, inner_outline_color, inner_int, width=2)
 
-    # 상하 금속 판재 층 (메탈릭 효과 강화) - 성능 최적화: 포인트 수 감소
+    # 상하 금속 판재 층 (메탈릭 효과 강화)
     band_thickness = shield_height * (0.24 + 0.18 * open_amount)
 
     # 상단 밴드 - 초승달 곡선을 따라가는 밴드
     upper_band_base = []
-    band_num_points = 6  # 성능 최적화: 10 → 6
+    band_num_points = 20
     for i in range(band_num_points):
         t = i / (band_num_points - 1)
         x = (t - 0.5) * shield_width * 0.9
+
+        # 초승달 모양에 맞춘 상단 밴드 곡선
         base_y = -math.sin(t * math.pi) * shield_height * 0.5 - shield_height * 0.15
         band_y = base_y - band_thickness * 0.3
+
         upper_band_base.append((x, band_y))
 
-    # 상단 밴드 - 단일 레이어만 (성능 최적화)
+    # 상단 밴드 그라데이션 레이어
+    for layer, layer_color in enumerate(upper_band_layer_colors):
+        layer_band_points = []
+        for x, y in upper_band_base:
+            layer_band_points.append(_vec_to_int_pair(to_world(x, y + layer * 1.5)))
+        pygame.draw.polygon(surface, layer_color, layer_band_points)
+
     upper_band = [_vec_to_int_pair(to_world(x, y)) for x, y in upper_band_base]
-    pygame.draw.polygon(surface, upper_band_layer_colors[0], upper_band)
     pygame.draw.polygon(surface, upper_band_outline_color, upper_band, width=2)
+    # 상단 하이라이트 라인
+    highlight_line = [_vec_to_int_pair(to_world(x, y - band_thickness * 0.15)) for x, y in upper_band_base[:4]]
+    pygame.draw.lines(surface, upper_band_highlight_color, False, highlight_line, 2)
 
     # 하단 밴드 - 초승달 곡선을 따라가는 밴드
     lower_band_base = []
     for i in range(band_num_points):
         t = i / (band_num_points - 1)
         x = (t - 0.5) * shield_width * 0.95
+
+        # 초승달 모양에 맞춘 하단 밴드 곡선
         thickness = 0.25 + 0.45 * (1 - math.sin(t * math.pi))
         base_y = -math.sin(t * math.pi) * shield_height * 0.05 + shield_height * (thickness - 0.1)
         band_y = base_y + band_thickness * 0.2
+
         lower_band_base.append((x, band_y))
 
-    # 하단 밴드 - 단일 레이어만 (성능 최적화)
-    lower_band = [_vec_to_int_pair(to_world(x, y)) for x, y in lower_band_base]
-    pygame.draw.polygon(surface, lower_band_layer_colors[0], lower_band)
-    pygame.draw.polygon(surface, lower_band_outline_color, lower_band, width=2)
+    # 하단 밴드 그라데이션 레이어
+    for layer, layer_color in enumerate(lower_band_layer_colors):
+        layer_band_points = []
+        for x, y in lower_band_base:
+            layer_band_points.append(_vec_to_int_pair(to_world(x, y - layer * 1.5)))
+        pygame.draw.polygon(surface, layer_color, layer_band_points)
 
-    # 중앙 룬 라인 - 성능 최적화: 3개 → 1개 (중앙만)
-    for i in range(0, 1):  # 0만 (중앙 1개)
-        rune_x = i * shield_width * 0.22
-        t = (rune_x / shield_width) + 0.5
+    lower_band = [_vec_to_int_pair(to_world(x, y)) for x, y in lower_band_base]
+    pygame.draw.polygon(surface, lower_band_outline_color, lower_band, width=2)
+    # 하단 하이라이트 라인
+    highlight_line_lower = [_vec_to_int_pair(to_world(x, y + band_thickness * 0.1)) for x, y in lower_band_base[2:5]]
+    pygame.draw.lines(surface, lower_band_highlight_color, False, highlight_line_lower, 2)
+
+    # 중앙 룬 라인 (발광 애니메이션 효과) - 초승달 곡선 따라 배치
+    current_time = pygame.time.get_ticks() / 1000.0  # 초 단위로 변환
+    glow_surface = _get_blacksmith_umbrella_temp_surface((int(shield_width), int(shield_height * 2)))
+    glow_offset = (int(shield_center.x - shield_width / 2), int(shield_center.y - shield_height))
+    glow_drawn = False
+
+    for i in range(-2, 3):
+        # 각 룬마다 다른 위상으로 펄스 효과
+        phase_offset = i * 0.5
+        pulse_intensity = (math.sin(current_time * 2.0 + phase_offset) + 1.0) / 2.0  # 0~1 범위
+
+        # 색상 보간
+        rune_color = (
+            int(rune_base_color[0] + (rune_glow_color[0] - rune_base_color[0]) * pulse_intensity),
+            int(rune_base_color[1] + (rune_glow_color[1] - rune_base_color[1]) * pulse_intensity),
+            int(rune_base_color[2] + (rune_glow_color[2] - rune_base_color[2]) * pulse_intensity)
+        )
+
+        # 룬의 x 위치에 따른 t 값 계산
+        rune_x = i * shield_width * 0.16
+        t = (rune_x / shield_width) + 0.5  # 0~1 범위로 정규화
+
+        # 초승달 곡선에 맞춰 룬의 상하 위치 계산
         curve_y = -math.sin(t * math.pi) * shield_height * 0.4
         top_y = curve_y - shield_height * 0.25
         bottom_y = curve_y + shield_height * 0.25
@@ -26236,29 +27620,55 @@ def _draw_blacksmith_umbrella_overlay(
         top = to_world(rune_x, top_y)
         bottom = to_world(rune_x, bottom_y)
 
-        # 메인 룬 라인만 (글로우 효과 제거로 성능 향상)
-        pygame.draw.line(surface, rune_base_color, _vec_to_int_pair(top), _vec_to_int_pair(bottom), 3)
-        # 가로 틱
-        left_tick = to_world(rune_x - shield_width * 0.04, curve_y)
-        right_tick = to_world(rune_x + shield_width * 0.04, curve_y)
-        pygame.draw.line(surface, rune_base_color, _vec_to_int_pair(left_tick), _vec_to_int_pair(right_tick), 2)
+        # 글로우 효과 (여러 겹으로 그리기)
+        if pulse_intensity > 0.5:
+            glow_alpha = int((pulse_intensity - 0.5) * 100)
+            for glow_size in range(3, 0, -1):
+                pygame.draw.line(
+                    glow_surface,
+                    (*rune_glow_color, glow_alpha // glow_size),
+                    (int(top.x - shield_center.x + shield_width / 2), int(top.y - shield_center.y + shield_height)),
+                    (int(bottom.x - shield_center.x + shield_width / 2), int(bottom.y - shield_center.y + shield_height)),
+                    3 + glow_size * 2,
+                )
+            glow_drawn = True
 
-    # 리벳 (메탈릭 효과 강화) - 성능 최적화: 1줄, 3개로 감소
-    for row in range(1):
-        row_factor = row  # 0만
-        count = 3  # 성능 최적화: 4 → 3
+        # 메인 룬 라인
+        pygame.draw.line(surface, rune_color, _vec_to_int_pair(top), _vec_to_int_pair(bottom), 4)
+        # 초승달 곡선에 맞춘 가로 틱
+        left_tick = to_world(rune_x - shield_width * 0.05, curve_y)
+        right_tick = to_world(rune_x + shield_width * 0.05, curve_y)
+        pygame.draw.line(surface, rune_color, _vec_to_int_pair(left_tick), _vec_to_int_pair(right_tick), 3)
+
+    if glow_drawn:
+        surface.blit(glow_surface, glow_offset, special_flags=pygame.BLEND_ADD)
+
+    # 리벳 (메탈릭 효과 강화) - 초승달 곡선 따라 배치
+    # 3개의 곡선 라인을 따라 리벳 배치
+    for row in range(3):
+        row_factor = row / 2  # 0, 0.5, 1
+        count = 7 if row == 1 else 6  # 중앙 줄은 더 많이
 
         for j in range(count):
             t = j / (count - 1) if count > 1 else 0.5
-            x = (t - 0.5) * shield_width * 0.8
+            x = (t - 0.5) * shield_width * 0.86
+
+            # 초승달 곡선에 맞춘 y 위치
             base_curve_y = -math.sin(t * math.pi) * shield_height * 0.5
-            y_offset = (row_factor - 0.5) * shield_height * 0.6
+            # 각 줄마다 다른 오프셋 적용
+            y_offset = (row_factor - 0.5) * shield_height * 0.8
             y = base_curve_y + y_offset
 
             pos = to_world(x, y)
-            # 리벳 - 성능 최적화: 4개 원 → 2개 원
-            pygame.draw.circle(surface, rivet_shadow_color, _vec_to_int_pair(pos), 4)
-            pygame.draw.circle(surface, rivet_body_color, _vec_to_int_pair(pos), 3)
+            # 리벳 그림자
+            pygame.draw.circle(surface, rivet_shadow_color, _vec_to_int_pair(pos), 5)
+            # 리벳 본체
+            pygame.draw.circle(surface, rivet_body_color, _vec_to_int_pair(pos), 4)
+            # 리벳 하이라이트
+            highlight_pos = (int(pos.x - 1), int(pos.y - 1))
+            pygame.draw.circle(surface, rivet_highlight_color, highlight_pos, 2)
+            # 중앙 반사광
+            pygame.draw.circle(surface, rivet_core_color, highlight_pos, 1)
 
     # 가장자리 보강 스트랩 - 초승달 곡선에 맞춰 조정
     for side in (-1, 1):
@@ -26370,13 +27780,27 @@ def _draw_blacksmith_umbrella_overlay(
                 pygame.draw.circle(surface, crack_shadow, center, junction_radius)
                 pygame.draw.circle(surface, junction_color, center, core_radius)
 
-    # 방패 충격 효과 (전역 변수 체크) - 성능 최적화: 단일 링으로 단순화
+    # 방패 충격 효과 (전역 변수 체크)
     global blacksmith_shield_impact_timer
     if 'blacksmith_shield_impact_timer' in globals() and blacksmith_shield_impact_timer > 0:
+        # 충격파 효과
         impact_radius = (30 - blacksmith_shield_impact_timer) * 4
-        if impact_radius > 0:
-            impact_center = _vec_to_int_pair(shield_center)
-            pygame.draw.circle(surface, (255, 235, 180), impact_center, int(impact_radius), 3)
+        impact_alpha = int(blacksmith_shield_impact_timer * 8)
+        if impact_alpha > 0:
+            impact_surface = _get_blacksmith_umbrella_temp_surface(
+                (int(shield_width * 1.5), int(shield_height * 3))
+            )
+            impact_center = (int(shield_width * 0.75), int(shield_height * 1.5))
+            # 여러 겹의 충격파
+            for ring in range(3):
+                ring_radius = impact_radius - ring * 10
+                if ring_radius > 0:
+                    ring_alpha = max(0, impact_alpha - ring * 30)
+                    pygame.draw.circle(impact_surface, (255, 235, 180, ring_alpha),
+                                     impact_center, int(ring_radius), 3)
+            surface.blit(impact_surface, (int(shield_center.x - shield_width * 0.75),
+                                         int(shield_center.y - shield_height * 1.5)),
+                        special_flags=pygame.BLEND_ADD)
 
     xs = [p.x for p in outline_world]
     blacksmith_umbrella_overlay_bounds = (min(xs), max(xs)) if xs else None
@@ -26524,6 +27948,9 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         return cached_surface
 
     _blacksmith_paddle_cache_misses += 1
+    # 디버그: 캐시 미스 로그 (배치 애니메이션 중일 때만)
+    if VALTHOR_PERF_DEBUG and 0.01 < progress < 0.99:
+        print(f"[CACHE MISS] progress={progress:.3f}, q_progress={round(progress/0.05)*0.05:.2f}, key={cache_key}")
 
     # === 캐시 미스: 새로 생성 ===
     raise_amount = min(1.0, progress / 0.45)
@@ -27313,26 +28740,34 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         if stone_rect is not None:
             distance = abs(PLAYER.centerx - stone_rect.centerx)
             if distance <= BLACKSMITH_DIVINE_BUILD_RADIUS:
-                if not blacksmith_hammer_swing_active:
-                    blacksmith_hammer_swing_phase = 0
-                blacksmith_hammer_swing_slow_timer = 0
-                blacksmith_hammer_slow_decay_step = 0
-                blacksmith_hammer_swing_active = True
-                # 포탑 강화와 동일하게 망치질 애니메이션 진행
-                hammer_increment = 1
-                if frame_counter % 2 == 0:
-                    hammer_increment = 2
-                blacksmith_hammer_swing_phase = (
-                    blacksmith_hammer_swing_phase + hammer_increment
-                ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
-                hammer_engaged_this_frame = True
+                # ★ 강화 디바인스톤 해금 퍽 체크: 퍽이 없으면 모션/상호작용 전부 차단
+                divine_upgrade_blocked = False
+                if not has_blacksmith_divine_enhance_perk():
+                    # 퍽이 없으면 망치질 모션 및 상호작용 완전 차단
+                    divine_upgrade_blocked = True
 
-                # 강화 디바인스톤 업그레이드: 게이지 400pt 필요, 300/11≈27.3pt/s로 빠져 실제 약 14.7초 소요
-                drain_per_sec = 300.0 / 11.0
-                drain_per_frame = (drain_per_sec / FPS) * get_blacksmith_construction_speed_multiplier()
-                gained_xp = 0
+                if not divine_upgrade_blocked:
+                    # 퍽이 있을 때만 망치 모션 시작
+                    if not blacksmith_hammer_swing_active:
+                        blacksmith_hammer_swing_phase = 0
+                    blacksmith_hammer_swing_slow_timer = 0
+                    blacksmith_hammer_slow_decay_step = 0
+                    blacksmith_hammer_swing_active = True
+                    # 포탑 강화와 동일하게 망치질 애니메이션 진행
+                    hammer_increment = 1
+                    if frame_counter % 2 == 0:
+                        hammer_increment = 2
+                    blacksmith_hammer_swing_phase = (
+                        blacksmith_hammer_swing_phase + hammer_increment
+                    ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
+                    hammer_engaged_this_frame = True
 
-                if special_gauge > 0:
+                    # 강화 디바인스톤 업그레이드: 게이지 400pt 필요, 300/11≈27.3pt/s로 빠져 실제 약 14.7초 소요
+                    drain_per_sec = 300.0 / 11.0
+                    drain_per_frame = (drain_per_sec / FPS) * get_blacksmith_construction_speed_multiplier()
+                    gained_xp = 0
+
+                if not divine_upgrade_blocked and special_gauge > 0:
                     construction_active = True
                     partial = float(blacksmith_divine_stone_state.get("reinforce_partial", 0.0))
                     partial += drain_per_frame
@@ -27346,7 +28781,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             gained_xp = actual_drain
                     blacksmith_divine_stone_state["reinforce_partial"] = partial
 
-                if gained_xp > 0:
+                if not divine_upgrade_blocked and gained_xp > 0:
                     current_xp = blacksmith_divine_stone_state.get("xp", 0.0) + gained_xp
                     xp_max = max(1.0, float(blacksmith_divine_stone_state.get("xp_max", 300.0)))
                     if current_xp >= xp_max:
@@ -27477,99 +28912,114 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             distance = abs(PLAYER.centerx - turret_rect.centerx)
             engaged_for_charge = distance <= BLACKSMITH_TURRET_BUILD_RADIUS
             if engaged_for_charge:
-                if not blacksmith_hammer_swing_active:
-                    blacksmith_hammer_swing_phase = 0
-                blacksmith_hammer_swing_slow_timer = 0
-                blacksmith_hammer_slow_decay_step = 0
-                blacksmith_hammer_swing_active = True
-                blacksmith_hammer_swing_phase = (
-                    blacksmith_hammer_swing_phase + 1
-                ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
-                hammer_engaged_this_frame = True
                 # 레벨 1: 강화 포탑으로 업그레이드하기 위한 게이지(250pt, 약 10초)
                 # 레벨 2 이상: 오버드라이브 게이지 충전(300pt, 약 3초)
+                # ★ 강화포탑 해금 퍽 체크: 퍽이 없으면 레벨 1에서 모션/상호작용 전부 차단
+                turret_upgrade_blocked = False
                 if turret_level < BLACKSMITH_TURRET_MAX_LEVEL:
-                    drain_per_sec = BLACKSMITH_TURRET_REINFORCE_GAUGE_DRAIN_PER_SEC
+                    perk_check_result = has_blacksmith_turret_enhance_perk()
+                    print(f"[DEBUG 포탑업그레이드] turret_level={turret_level}, perk={perk_check_result}")
+                    if not perk_check_result:
+                        # 퍽이 없으면 망치질 모션 및 상호작용 완전 차단
+                        turret_upgrade_blocked = True
+                        blacksmith_turret_xp_partial_drain = 0.0
+                    else:
+                        drain_per_sec = BLACKSMITH_TURRET_REINFORCE_GAUGE_DRAIN_PER_SEC
                 else:
                     drain_per_sec = BLACKSMITH_TURRET_OVERDRIVE_GAUGE_DRAIN_PER_SEC
-                drain_per_frame = (drain_per_sec / FPS) * get_blacksmith_turret_charge_speed_multiplier()
-                gained_xp = 0
-                if special_gauge > 0:
-                    construction_active = True
-                    blacksmith_turret_xp_partial_drain += drain_per_frame
-                    drain_units = int(blacksmith_turret_xp_partial_drain)
-                    if drain_units > 0:
-                        actual_drain = min(drain_units, special_gauge)
-                        if actual_drain > 0:
-                            special_gauge -= actual_drain
-                            blacksmith_turret_xp_partial_drain -= actual_drain
-                            special_ready = special_gauge >= 350
-                            gained_xp = actual_drain
-                if gained_xp > 0:
-                    current_xp = blacksmith_turret_state.get("xp", 0.0) + gained_xp
-                    if current_xp >= xp_max:
-                        if turret_level < BLACKSMITH_TURRET_MAX_LEVEL:
-                            # 강화 포탑(레벨 2)으로 업그레이드
-                            new_level = min(BLACKSMITH_TURRET_MAX_LEVEL, turret_level + 1)
-                            blacksmith_turret_state["level"] = new_level
-                            # 포탑 최대 체력 +1 및 전부 회복
-                            try:
-                                current_max_hp = int(
-                                    blacksmith_turret_state.get("max_hp", BLACKSMITH_TURRET_BASE_HP)
-                                )
-                            except Exception:
-                                current_max_hp = BLACKSMITH_TURRET_BASE_HP
-                            new_max_hp = current_max_hp + 1
-                            blacksmith_turret_state["max_hp"] = new_max_hp
-                            blacksmith_turret_state["hp"] = new_max_hp
-                            try:
-                                rect = blacksmith_turret_state.get("rect")
-                                if rect is not None:
-                                    damage_manager = get_damage_manager()
-                                    damage_manager.register_building("turret", rect, new_max_hp)
-                            except Exception:
-                                pass
-                            # 강화 포탑은 자동 발사 주기를 4초로 단축
-                            if new_level >= BLACKSMITH_TURRET_MAX_LEVEL:
-                                new_interval = BLACKSMITH_TURRET_FIRE_INTERVAL_LVL2
-                                blacksmith_turret_state["base_fire_interval"] = new_interval
-                                blacksmith_turret_state["fire_interval"] = new_interval
-                                blacksmith_turret_state["fire_timer"] = min(
-                                    blacksmith_turret_state.get("fire_timer", new_interval),
-                                    new_interval,
-                                )
-                            # 업그레이드 후에는 오버드라이브용 게이지로 전환
-                            blacksmith_turret_state["xp_max"] = float(BLACKSMITH_TURRET_XP_REQUIRED)
-                            blacksmith_turret_state["xp"] = 0.0
-                            blacksmith_turret_xp_partial_drain = 0.0
-                            try:
-                                rect = blacksmith_turret_state.get("rect")
-                                if rect is not None:
-                                    effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=14)
-                                    effects_manager.spawn_flame_particles(rect.centerx, rect.top - 8, count=10)
-                            except Exception:
-                                pass
-                            try:
-                                play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
-                            except Exception:
-                                pass
-                            push_blacksmith_state()
+
+                if not turret_upgrade_blocked:
+                    # 퍽이 있거나 레벨 2 이상일 때만 망치 모션 시작
+                    if not blacksmith_hammer_swing_active:
+                        blacksmith_hammer_swing_phase = 0
+                    blacksmith_hammer_swing_slow_timer = 0
+                    blacksmith_hammer_slow_decay_step = 0
+                    blacksmith_hammer_swing_active = True
+                    blacksmith_hammer_swing_phase = (
+                        blacksmith_hammer_swing_phase + 1
+                    ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
+                    hammer_engaged_this_frame = True
+
+                if not turret_upgrade_blocked:
+                    # 퍽이 있거나 레벨 2 이상: 정상 게이지 소모 진행
+                    drain_per_frame = (drain_per_sec / FPS) * get_blacksmith_turret_charge_speed_multiplier()
+                    gained_xp = 0
+                    if special_gauge > 0:
+                        construction_active = True
+                        blacksmith_turret_xp_partial_drain += drain_per_frame
+                        drain_units = int(blacksmith_turret_xp_partial_drain)
+                        if drain_units > 0:
+                            actual_drain = min(drain_units, special_gauge)
+                            if actual_drain > 0:
+                                special_gauge -= actual_drain
+                                blacksmith_turret_xp_partial_drain -= actual_drain
+                                special_ready = special_gauge >= 350
+                                gained_xp = actual_drain
+                    if gained_xp > 0:
+                        current_xp = blacksmith_turret_state.get("xp", 0.0) + gained_xp
+                        if current_xp >= xp_max:
+                            if turret_level < BLACKSMITH_TURRET_MAX_LEVEL:
+                                # 강화 포탑(레벨 2)으로 업그레이드
+                                new_level = min(BLACKSMITH_TURRET_MAX_LEVEL, turret_level + 1)
+                                blacksmith_turret_state["level"] = new_level
+                                # 포탑 최대 체력 +1 및 전부 회복
+                                try:
+                                    current_max_hp = int(
+                                        blacksmith_turret_state.get("max_hp", BLACKSMITH_TURRET_BASE_HP)
+                                    )
+                                except Exception:
+                                    current_max_hp = BLACKSMITH_TURRET_BASE_HP
+                                new_max_hp = current_max_hp + 1
+                                blacksmith_turret_state["max_hp"] = new_max_hp
+                                blacksmith_turret_state["hp"] = new_max_hp
+                                try:
+                                    rect = blacksmith_turret_state.get("rect")
+                                    if rect is not None:
+                                        damage_manager = get_damage_manager()
+                                        damage_manager.register_building("turret", rect, new_max_hp)
+                                except Exception:
+                                    pass
+                                # 강화 포탑은 자동 발사 주기를 4초로 단축
+                                if new_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+                                    new_interval = BLACKSMITH_TURRET_FIRE_INTERVAL_LVL2
+                                    blacksmith_turret_state["base_fire_interval"] = new_interval
+                                    blacksmith_turret_state["fire_interval"] = new_interval
+                                    blacksmith_turret_state["fire_timer"] = min(
+                                        blacksmith_turret_state.get("fire_timer", new_interval),
+                                        new_interval,
+                                    )
+                                # 업그레이드 후에는 오버드라이브용 게이지로 전환
+                                blacksmith_turret_state["xp_max"] = float(BLACKSMITH_TURRET_XP_REQUIRED)
+                                blacksmith_turret_state["xp"] = 0.0
+                                blacksmith_turret_xp_partial_drain = 0.0
+                                try:
+                                    rect = blacksmith_turret_state.get("rect")
+                                    if rect is not None:
+                                        effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=14)
+                                        effects_manager.spawn_flame_particles(rect.centerx, rect.top - 8, count=10)
+                                except Exception:
+                                    pass
+                                try:
+                                    play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
+                                except Exception:
+                                    pass
+                                push_blacksmith_state()
+                            else:
+                                # 포탑 드라이브 준비완료. 자동 발동하지 않고 SPACE 입력을 기다린다.
+                                blacksmith_turret_state["xp"] = xp_max
+                                blacksmith_turret_state["overdrive_ready"] = True
+                                # UI 힌트: 잠시 점화 이펙트 강조 및 디바인 힌트 유지
+                                try:
+                                    turret_runtime.overdrive_ui_timer = BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION
+                                    turret_runtime.overdrive_ui_divine = is_blacksmith_divine_stone_active()
+                                except Exception:
+                                    pass
+                                push_blacksmith_state()
+                                blacksmith_turret_xp_partial_drain = 0.0
                         else:
-                            # 포탑 드라이브 준비완료. 자동 발동하지 않고 SPACE 입력을 기다린다.
-                            blacksmith_turret_state["xp"] = xp_max
-                            blacksmith_turret_state["overdrive_ready"] = True
-                            # UI 힌트: 잠시 점화 이펙트 강조 및 디바인 힌트 유지
-                            try:
-                                turret_runtime.overdrive_ui_timer = BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION
-                                turret_runtime.overdrive_ui_divine = is_blacksmith_divine_stone_active()
-                            except Exception:
-                                pass
-                            push_blacksmith_state()
-                            blacksmith_turret_xp_partial_drain = 0.0
-                    else:
-                        blacksmith_turret_state["xp"] = current_xp
-                if gained_xp > 0:
-                    construction_active = True
+                            blacksmith_turret_state["xp"] = current_xp
+                    if gained_xp > 0:
+                        construction_active = True
             else:
                 blacksmith_turret_xp_partial_drain = 0.0
         else:
@@ -28260,20 +29710,23 @@ def _blacksmith_hammer_shock_effective_stage(frames: int, gauge: float) -> int:
     frame_stage = _blacksmith_hammer_shock_stage_for_frames(frames)
     max_stage = _blacksmith_hammer_shock_max_stage_for_gauge(gauge)
 
-    # 디바인스톤/강화디바인스톤 상태에 따라 해머쇼크 최대 단계를 제한한다.
-    # - 디바인스톤(강화 전): 1~2단계까지
-    # - 강화디바인스톤: 기본적으로 3단계까지, 디바인쉴드 과부하 중에는 1단계까지만
+    # 해머쇼크 퍽 레벨에 따라 최대 단계를 제한한다.
+    # - 퍽 없음: 0 (해머쇼크 사용 불가)
+    # - 1단계 퍽: 최대 1단계
+    # - 2단계 퍽: 최대 2단계
+    # - 3단계 퍽: 최대 3단계
+    perk_max_stage = get_blacksmith_hammer_shock_max_stage_by_perk()
+    max_stage = min(max_stage, perk_max_stage)
+
+    # 디바인쉴드 과부하 중에는 1단계까지만 (강화 디바인스톤 한정)
     try:
         divine_state = globals().get("blacksmith_divine_stone_state")
         if divine_state:
-            reinforced = bool(divine_state.get("reinforced", False))
             overheat = int(divine_state.get("shield_overheat", 0)) > 0
             if overheat:
                 max_stage = min(max_stage, 1)
-            elif not reinforced:
-                max_stage = min(max_stage, 2)
     except Exception:
-        max_stage = min(max_stage, 2)
+        pass
 
     return min(frame_stage, max_stage)
 
@@ -32691,157 +34144,190 @@ def draw_blacksmith_turret_elements(surface):
 
         width = blueprint_rect.width
         height = blueprint_rect.height
-        base_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
-        base_center = pygame.math.Vector2(width / 2, height - BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT / 2)
-        base_radius_x = max(18, width // 3)
-        base_radius_y = max(12, BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT // 2)
-        pygame.draw.ellipse(
-            base_surface,
-            (90, 70, 55, 220),
-            pygame.Rect(
-                int(base_center.x - base_radius_x),
-                int(base_center.y - base_radius_y),
-                int(base_radius_x * 2),
-                int(base_radius_y * 2),
-            ),
-        )
-        pygame.draw.ellipse(
-            base_surface,
-            (160, 130, 95, 160),
-            pygame.Rect(
-                int(base_center.x - base_radius_x + 6),
-                int(base_center.y - base_radius_y + 6),
-                int((base_radius_x - 6) * 2),
-                int((base_radius_y - 6) * 2),
-            ),
-            2,
-        )
+        # 캐시 키 생성 (크기 + 진행도 10% 단위)
+        progress_stage = int(progress_ratio * 10)
+        cache_key = ("divine_bp", width, height, progress_stage)
 
-        stage_float = progress_ratio * 3.0
-        stage_index = min(2, int(stage_float))
-        stage_alpha = stage_float - stage_index
-
-        stone_width, stone_height = BLACKSMITH_DIVINE_STONE_SIZE
-        stone_surface = pygame.Surface((stone_width, stone_height), pygame.SRCALPHA)
-        stone_color = (200, 210, 220)
-        if stage_index >= 0:
-            outline_alpha = int(110 + 100 * progress_ratio)
-            pygame.draw.rect(
-                stone_surface,
-                (*stone_color, outline_alpha),
-                pygame.Rect(8, 6, stone_width - 16, stone_height - 12),
-                2,
-                border_radius=10,
-            )
-            glyph_alpha = int(80 + 120 * stage_alpha) if stage_index >= 1 else int(70 * progress_ratio)
-            for offset, radius in ((0, 10), (12, 6), (-12, 6)):
-                pygame.draw.circle(
-                    stone_surface,
-                    (120, 160, 255, glyph_alpha),
-                    (stone_width // 2 + offset, stone_height // 2),
-                    radius,
-                    1,
-                )
-        if stage_index >= 2:
-            fill_alpha = int(190 * progress_ratio)
-            pygame.draw.rect(
-                stone_surface,
-                (220, 230, 240, fill_alpha),
-                pygame.Rect(10, 8, stone_width - 20, stone_height - 16),
-                border_radius=8,
-            )
-            glow_surface = pygame.Surface((stone_width, stone_height), pygame.SRCALPHA)
-            pygame.draw.ellipse(
-                glow_surface,
-                (120, 200, 255, int(130 * stage_alpha)),
-                pygame.Rect(14, stone_height - 26, stone_width - 28, 18),
-            )
-            stone_surface.blit(glow_surface, (0, 0))
-
-        placement_y = height - (BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT + stone_height)
-
-        # ▶ 고급 조립 애니메이션(디바인 스톤 전용) — 기존보다 발전된 단계 구성
-        #  - 0.20~0.40: 받침대/바닥원 등장
-        #  - 0.35~0.70: 좌/우/중앙 수정(크리스탈) 기둥 상승
-        #  - 0.60~0.85: 외곽 링 조립 + 천천히 회전
-        #  - 0.80~1.00: 중앙 코어 점화 + 수직 라이트샤프트
-        assembly_surface = pygame.Surface((stone_width, stone_height), pygame.SRCALPHA)
-        p = progress_ratio
-        # 받침대(바닥 타원) — 하단에서 위로 점진적 등장
-        if p > 0.2:
-            base_h = int(6 + 10 * min(1.0, (p - 0.2) / 0.2))
-            base_rect = pygame.Rect(8, stone_height - base_h - 4, stone_width - 16, base_h)
-            pygame.draw.ellipse(assembly_surface, (120, 100, 85, int(140 + 80 * p)), base_rect)
-            pygame.draw.ellipse(assembly_surface, (200, 180, 150, int(120 + 80 * p)), base_rect, 2)
-
-        # 수정 기둥(좌/중앙/우) — 높이 증가
-        if p > 0.35:
-            shard_progress = min(1.0, (p - 0.35) / 0.35)
-            max_h = int(stone_height * 0.55)
-            h = int(max_h * shard_progress)
-            mid_x = stone_width // 2
-            def shard(x0, w, height, tilt=0):
-                poly = [
-                    (x0 - w // 2 + tilt, stone_height - 8),
-                    (x0 + w // 2 + tilt, stone_height - 8),
-                    (x0 + w // 4, stone_height - 8 - height // 3),
-                    (x0, stone_height - 8 - height),
-                    (x0 - w // 4, stone_height - 8 - height // 3),
-                ]
-                pygame.draw.polygon(assembly_surface, (200, 210, 230, int(110 + 110 * shard_progress)), poly)
-                pygame.draw.lines(assembly_surface, (140, 170, 210, int(120 + 80 * shard_progress)), True, poly, 1)
-            shard(mid_x - stone_width // 4, 14, h, tilt=-2)
-            shard(mid_x, 18, min(stone_height - 16, int(h * 1.15)))
-            shard(mid_x + stone_width // 4, 14, h, tilt=2)
-
-        # 외곽 회전 링 — 진행도에 따라 반경/밝기 증가, 부드러운 회전
-        if p > 0.6:
-            ring_phase = (pygame.time.get_ticks() * 0.002) % (2 * math.pi)
-            ring_alpha = int(60 + 120 * min(1.0, (p - 0.6) / 0.25))
-            cx = stone_width // 2
-            cy = int(stone_height * 0.42)
-            for i, r in enumerate((16, 22, 28)):
-                a0 = ring_phase + i * 0.6
-                a1 = a0 + (0.8 + 0.2 * i)
-                rect = pygame.Rect(cx - r, cy - r, 2 * r, 2 * r)
-                color = (110 + i * 20, 180 + i * 10, 255, ring_alpha)
-                pygame.draw.arc(assembly_surface, color, rect, a0, a1, 2)
-
-        # 중앙 코어 점화 + 수직 라이트 샤프트
-        if p > 0.8:
-            core_strength = min(1.0, (p - 0.8) / 0.2)
-            core_r = int(4 + 6 * core_strength)
-            core_c = (stone_width // 2, int(stone_height * 0.45))
-            glow = pygame.Surface((stone_width, stone_height), pygame.SRCALPHA)
-            pygame.draw.circle(glow, (140, 220, 255, int(120 * core_strength)), core_c, core_r * 2)
-            assembly_surface.blit(glow, (0, 0), special_flags=pygame.BLEND_ADD)
-            # 라이트 샤프트(아래→위)
-            shaft_h = int(stone_height * 0.55 * core_strength)
-            shaft_rect = pygame.Rect(core_c[0] - 3, core_c[1] - shaft_h, 6, shaft_h * 2)
-            pygame.draw.rect(assembly_surface, (180, 240, 255, int(90 + 110 * core_strength)), shaft_rect)
-
-        # 조립 레이어를 기본 스톤 위에 합성
-        stone_surface.blit(assembly_surface, (0, 0))
-
-        base_surface.blit(stone_surface, ((width - stone_width) // 2, placement_y))
-
-        # 하단에서 위로 드러나는 리빌 클립으로 완성감 향상
-        reveal_h = int(height * p)
-        if reveal_h > 0:
-            clip = base_surface.subsurface(pygame.Rect(0, height - reveal_h, width, reveal_h))
-            surface.blit(clip, (blueprint_rect.left, blueprint_rect.top + height - reveal_h))
+        # 캐시 히트 체크 - 캐시된 완성된 surface 재사용
+        if cache_key in _blacksmith_blueprint_cache:
+            cached_surface = _blacksmith_blueprint_cache[cache_key]
+            # 리빌 클립 적용하여 blit
+            p = progress_ratio
+            reveal_h = int(height * p)
+            if reveal_h > 0:
+                clip = cached_surface.subsurface(pygame.Rect(0, height - reveal_h, width, reveal_h))
+                surface.blit(clip, (blueprint_rect.left, blueprint_rect.top + height - reveal_h))
+            else:
+                surface.blit(cached_surface, blueprint_rect.topleft)
+            # 게이지바 그리기
+            gauge_width = blueprint_rect.width
+            gauge_height = 6
+            gauge_rect = pygame.Rect(blueprint_rect.left, blueprint_rect.top - gauge_height - 6, gauge_width, gauge_height)
+            pygame.draw.rect(surface, (40, 50, 70), gauge_rect.inflate(4, 4), border_radius=3)
+            if progress_ratio > 0:
+                filled_rect = pygame.Rect(gauge_rect.left, gauge_rect.top, int(gauge_width * progress_ratio), gauge_height)
+                pygame.draw.rect(surface, (110, 200, 255), filled_rect, border_radius=3)
+            pygame.draw.rect(surface, (150, 200, 255), gauge_rect, 1, border_radius=3)
         else:
-            surface.blit(base_surface, blueprint_rect.topleft)
+            # 캐시 미스 - 새로 생성 후 캐시에 저장
+            if len(_blacksmith_blueprint_cache) > 30:
+                _blacksmith_blueprint_cache.clear()
+            base_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
-        gauge_width = blueprint_rect.width
-        gauge_height = 6
-        gauge_rect = pygame.Rect(blueprint_rect.left, blueprint_rect.top - gauge_height - 6, gauge_width, gauge_height)
-        pygame.draw.rect(surface, (40, 50, 70), gauge_rect.inflate(4, 4), border_radius=3)
-        if progress_ratio > 0:
-            filled_rect = pygame.Rect(gauge_rect.left, gauge_rect.top, int(gauge_width * progress_ratio), gauge_height)
-            pygame.draw.rect(surface, (110, 200, 255), filled_rect, border_radius=3)
-        pygame.draw.rect(surface, (150, 200, 255), gauge_rect, 1, border_radius=3)
+            base_center = pygame.math.Vector2(width / 2, height - BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT / 2)
+            base_radius_x = max(18, width // 3)
+            base_radius_y = max(12, BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT // 2)
+            pygame.draw.ellipse(
+                base_surface,
+                (90, 70, 55, 220),
+                pygame.Rect(
+                    int(base_center.x - base_radius_x),
+                    int(base_center.y - base_radius_y),
+                    int(base_radius_x * 2),
+                    int(base_radius_y * 2),
+                ),
+            )
+            pygame.draw.ellipse(
+                base_surface,
+                (160, 130, 95, 160),
+                pygame.Rect(
+                    int(base_center.x - base_radius_x + 6),
+                    int(base_center.y - base_radius_y + 6),
+                    int((base_radius_x - 6) * 2),
+                    int((base_radius_y - 6) * 2),
+                ),
+                2,
+            )
+
+            stage_float = progress_ratio * 3.0
+            stage_index = min(2, int(stage_float))
+            stage_alpha = stage_float - stage_index
+
+            stone_width, stone_height = BLACKSMITH_DIVINE_STONE_SIZE
+            stone_surface = pygame.Surface((stone_width, stone_height), pygame.SRCALPHA)
+            stone_color = (200, 210, 220)
+            if stage_index >= 0:
+                outline_alpha = int(110 + 100 * progress_ratio)
+                pygame.draw.rect(
+                    stone_surface,
+                    (*stone_color, outline_alpha),
+                    pygame.Rect(8, 6, stone_width - 16, stone_height - 12),
+                    2,
+                    border_radius=10,
+                )
+                glyph_alpha = int(80 + 120 * stage_alpha) if stage_index >= 1 else int(70 * progress_ratio)
+                for offset, radius in ((0, 10), (12, 6), (-12, 6)):
+                    pygame.draw.circle(
+                        stone_surface,
+                        (120, 160, 255, glyph_alpha),
+                        (stone_width // 2 + offset, stone_height // 2),
+                        radius,
+                        1,
+                    )
+            if stage_index >= 2:
+                fill_alpha = int(190 * progress_ratio)
+                pygame.draw.rect(
+                    stone_surface,
+                    (220, 230, 240, fill_alpha),
+                    pygame.Rect(10, 8, stone_width - 20, stone_height - 16),
+                    border_radius=8,
+                )
+                glow_surface = pygame.Surface((stone_width, stone_height), pygame.SRCALPHA)
+                pygame.draw.ellipse(
+                    glow_surface,
+                    (120, 200, 255, int(130 * stage_alpha)),
+                    pygame.Rect(14, stone_height - 26, stone_width - 28, 18),
+                )
+                stone_surface.blit(glow_surface, (0, 0))
+
+            placement_y = height - (BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT + stone_height)
+
+            # ▶ 고급 조립 애니메이션(디바인 스톤 전용) — 기존보다 발전된 단계 구성
+            #  - 0.20~0.40: 받침대/바닥원 등장
+            #  - 0.35~0.70: 좌/우/중앙 수정(크리스탈) 기둥 상승
+            #  - 0.60~0.85: 외곽 링 조립 + 천천히 회전
+            #  - 0.80~1.00: 중앙 코어 점화 + 수직 라이트샤프트
+            assembly_surface = pygame.Surface((stone_width, stone_height), pygame.SRCALPHA)
+            p = progress_ratio
+            # 받침대(바닥 타원) — 하단에서 위로 점진적 등장
+            if p > 0.2:
+                base_h = int(6 + 10 * min(1.0, (p - 0.2) / 0.2))
+                base_rect = pygame.Rect(8, stone_height - base_h - 4, stone_width - 16, base_h)
+                pygame.draw.ellipse(assembly_surface, (120, 100, 85, int(140 + 80 * p)), base_rect)
+                pygame.draw.ellipse(assembly_surface, (200, 180, 150, int(120 + 80 * p)), base_rect, 2)
+
+            # 수정 기둥(좌/중앙/우) — 높이 증가
+            if p > 0.35:
+                shard_progress = min(1.0, (p - 0.35) / 0.35)
+                max_h = int(stone_height * 0.55)
+                h = int(max_h * shard_progress)
+                mid_x = stone_width // 2
+                def shard(x0, w, height, tilt=0):
+                    poly = [
+                        (x0 - w // 2 + tilt, stone_height - 8),
+                        (x0 + w // 2 + tilt, stone_height - 8),
+                        (x0 + w // 4, stone_height - 8 - height // 3),
+                        (x0, stone_height - 8 - height),
+                        (x0 - w // 4, stone_height - 8 - height // 3),
+                    ]
+                    pygame.draw.polygon(assembly_surface, (200, 210, 230, int(110 + 110 * shard_progress)), poly)
+                    pygame.draw.lines(assembly_surface, (140, 170, 210, int(120 + 80 * shard_progress)), True, poly, 1)
+                shard(mid_x - stone_width // 4, 14, h, tilt=-2)
+                shard(mid_x, 18, min(stone_height - 16, int(h * 1.15)))
+                shard(mid_x + stone_width // 4, 14, h, tilt=2)
+
+            # 외곽 회전 링 — 진행도에 따라 반경/밝기 증가, 부드러운 회전
+            if p > 0.6:
+                ring_phase = (pygame.time.get_ticks() * 0.002) % (2 * math.pi)
+                ring_alpha = int(60 + 120 * min(1.0, (p - 0.6) / 0.25))
+                cx = stone_width // 2
+                cy = int(stone_height * 0.42)
+                for i, r in enumerate((16, 22, 28)):
+                    a0 = ring_phase + i * 0.6
+                    a1 = a0 + (0.8 + 0.2 * i)
+                    rect = pygame.Rect(cx - r, cy - r, 2 * r, 2 * r)
+                    color = (110 + i * 20, 180 + i * 10, 255, ring_alpha)
+                    pygame.draw.arc(assembly_surface, color, rect, a0, a1, 2)
+
+            # 중앙 코어 점화 + 수직 라이트 샤프트
+            if p > 0.8:
+                core_strength = min(1.0, (p - 0.8) / 0.2)
+                core_r = int(4 + 6 * core_strength)
+                core_c = (stone_width // 2, int(stone_height * 0.45))
+                glow = pygame.Surface((stone_width, stone_height), pygame.SRCALPHA)
+                pygame.draw.circle(glow, (140, 220, 255, int(120 * core_strength)), core_c, core_r * 2)
+                assembly_surface.blit(glow, (0, 0), special_flags=pygame.BLEND_ADD)
+                # 라이트 샤프트(아래→위)
+                shaft_h = int(stone_height * 0.55 * core_strength)
+                shaft_rect = pygame.Rect(core_c[0] - 3, core_c[1] - shaft_h, 6, shaft_h * 2)
+                pygame.draw.rect(assembly_surface, (180, 240, 255, int(90 + 110 * core_strength)), shaft_rect)
+
+            # 조립 레이어를 기본 스톤 위에 합성
+            stone_surface.blit(assembly_surface, (0, 0))
+
+            base_surface.blit(stone_surface, ((width - stone_width) // 2, placement_y))
+
+            # 캐시에 저장
+            _blacksmith_blueprint_cache[cache_key] = base_surface.copy()
+
+            # 하단에서 위로 드러나는 리빌 클립으로 완성감 향상
+            reveal_h = int(height * p)
+            if reveal_h > 0:
+                clip = base_surface.subsurface(pygame.Rect(0, height - reveal_h, width, reveal_h))
+                surface.blit(clip, (blueprint_rect.left, blueprint_rect.top + height - reveal_h))
+            else:
+                surface.blit(base_surface, blueprint_rect.topleft)
+
+            # 게이지바 그리기
+            gauge_width = blueprint_rect.width
+            gauge_height = 6
+            gauge_rect = pygame.Rect(blueprint_rect.left, blueprint_rect.top - gauge_height - 6, gauge_width, gauge_height)
+            pygame.draw.rect(surface, (40, 50, 70), gauge_rect.inflate(4, 4), border_radius=3)
+            if progress_ratio > 0:
+                filled_rect = pygame.Rect(gauge_rect.left, gauge_rect.top, int(gauge_width * progress_ratio), gauge_height)
+                pygame.draw.rect(surface, (110, 200, 255), filled_rect, border_radius=3)
+            pygame.draw.rect(surface, (150, 200, 255), gauge_rect, 1, border_radius=3)
     if turret.blueprint_active and turret.blueprint_rect:
         blueprint_rect = turret.blueprint_rect
         progress_ratio = 0.0
@@ -32855,137 +34341,163 @@ def draw_blacksmith_turret_elements(surface):
 
         width = blueprint_rect.width
         height = blueprint_rect.height
-        base_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
-        ground_rect = pygame.Rect(2, height - 10, width - 4, 10)
-        pygame.draw.rect(base_surface, (90, 70, 55), ground_rect, border_radius=3)
-        pygame.draw.rect(base_surface, (70, 55, 40), ground_rect.inflate(4, 2), 2, border_radius=4)
+        # 캐시 키 생성 (크기 + 진행도 10% 단위)
+        progress_stage = int(progress_ratio * 10)
+        cache_key = ("turret_bp", width, height, progress_stage)
 
-        stake_color = (110, 85, 65)
-        rope_color = (160, 130, 95)
+        # 캐시 히트 체크 - 캐시된 완성된 surface 재사용
+        if cache_key in _blacksmith_blueprint_cache:
+            cached_surface = _blacksmith_blueprint_cache[cache_key]
+            surface.blit(cached_surface, blueprint_rect.topleft)
+            # 게이지바 그리기
+            gauge_width = blueprint_rect.width
+            gauge_height = 6
+            gauge_rect = pygame.Rect(blueprint_rect.left, blueprint_rect.top - gauge_height - 6, gauge_width, gauge_height)
+            pygame.draw.rect(surface, (40, 50, 70), gauge_rect.inflate(4, 4), border_radius=3)
+            if progress_ratio > 0:
+                filled_rect = pygame.Rect(gauge_rect.left, gauge_rect.top, int(gauge_width * progress_ratio), gauge_height)
+                pygame.draw.rect(surface, (220, 180, 80), filled_rect, border_radius=3)
+            pygame.draw.rect(surface, (110, 120, 140), gauge_rect, 1, border_radius=3)
+        else:
+            # 캐시 미스 - 새로 생성 후 캐시에 저장
+            if len(_blacksmith_blueprint_cache) > 30:
+                _blacksmith_blueprint_cache.clear()
+            base_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
-        if stage_index >= 0:
-            # Stage 1: stake perimeter and dirt patch
-            dirt_color = (120, 95, 70, 200)
-            dirt_rect = pygame.Rect(6, height - 14, width - 12, 12)
-            pygame.draw.rect(base_surface, dirt_color, dirt_rect, border_radius=3)
-            for x in (6, width - 8):
-                for y in (height - 12, height - 6):
-                    pygame.draw.rect(base_surface, stake_color, (x, y, 4, 8))
-            pygame.draw.line(base_surface, rope_color, (8, height - 8), (width - 8, height - 8), 2)
+            ground_rect = pygame.Rect(2, height - 10, width - 4, 10)
+            pygame.draw.rect(base_surface, (90, 70, 55), ground_rect, border_radius=3)
+            pygame.draw.rect(base_surface, (70, 55, 40), ground_rect.inflate(4, 2), 2, border_radius=4)
 
-        if stage_index >= 1:
-            # Stage 2: wooden frame
-            frame_height = height - 16
-            post_positions = [8, width // 2, width - 8]
-            for px in post_positions:
-                pygame.draw.rect(base_surface, (120, 100, 80), (px - 2, 4, 4, frame_height))
-            pygame.draw.rect(base_surface, (150, 120, 90), (10, 8, width - 20, 6))
-            pygame.draw.rect(base_surface, (135, 105, 80), (14, 20, width - 28, 4))
-            for beam_y in (20, 28 + int(8 * stage_alpha)):
-                pygame.draw.line(base_surface, (160, 125, 90), (10, beam_y), (width - 10, beam_y), 3)
+            stake_color = (110, 85, 65)
+            rope_color = (160, 130, 95)
 
-        if stage_index >= 2:
-            # Stage 3: partial walls and scaffolding
-            wall_height = max(8, int(18 * (0.4 + 0.6 * stage_alpha)))
-            wall_rect = pygame.Rect(12, height - 18 - wall_height, width - 24, wall_height)
-            pygame.draw.rect(base_surface, (165, 140, 110), wall_rect)
-            pygame.draw.rect(base_surface, (200, 180, 150), wall_rect, 2)
-            # roof beams
-            roof_y = wall_rect.top - 4
-            pygame.draw.rect(base_surface, (145, 115, 85), (16, roof_y, width - 32, 4))
-            for idx in range(3):
-                beam_x = 18 + idx * ((width - 36) // 2)
-                pygame.draw.line(base_surface, (110, 90, 70), (beam_x, roof_y), (beam_x - 6, roof_y - 10), 2)
-                pygame.draw.line(base_surface, (110, 90, 70), (beam_x + (width - 36) // 2, roof_y), (beam_x + (width - 36) // 2 + 6, roof_y - 10), 2)
+            if stage_index >= 0:
+                # Stage 1: stake perimeter and dirt patch
+                dirt_color = (120, 95, 70, 200)
+                dirt_rect = pygame.Rect(6, height - 14, width - 12, 12)
+                pygame.draw.rect(base_surface, dirt_color, dirt_rect, border_radius=3)
+                for x in (6, width - 8):
+                    for y in (height - 12, height - 6):
+                        pygame.draw.rect(base_surface, stake_color, (x, y, 4, 8))
+                pygame.draw.line(base_surface, rope_color, (8, height - 8), (width - 8, height - 8), 2)
 
-        # ▶ 포탑 조립 애니메이션(진척도 반영): 진행도에 따라 금속 부품이 순차적으로 등장
-        #    - 0.25: 받침대
-        #    - 0.40: 좌/우 지지대
-        #    - 0.60: 몸통
-        #    - 0.80: 포신/헤드 + 용접 스파크(간헐)
-        assembly_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-        cx = width // 2
-        bottom = height - 2
-        top = 4
-        build_alpha = int(60 + 140 * progress_ratio)
-        edge_alpha = int(80 + 100 * progress_ratio)
+            if stage_index >= 1:
+                # Stage 2: wooden frame
+                frame_height = height - 16
+                post_positions = [8, width // 2, width - 8]
+                for px in post_positions:
+                    pygame.draw.rect(base_surface, (120, 100, 80), (px - 2, 4, 4, frame_height))
+                pygame.draw.rect(base_surface, (150, 120, 90), (10, 8, width - 20, 6))
+                pygame.draw.rect(base_surface, (135, 105, 80), (14, 20, width - 28, 4))
+                for beam_y in (20, 28 + int(8 * stage_alpha)):
+                    pygame.draw.line(base_surface, (160, 125, 90), (10, beam_y), (width - 10, beam_y), 3)
 
-        def poly(points, color):
-            pygame.draw.polygon(assembly_surface, color, points)
+            if stage_index >= 2:
+                # Stage 3: partial walls and scaffolding
+                wall_height = max(8, int(18 * (0.4 + 0.6 * stage_alpha)))
+                wall_rect = pygame.Rect(12, height - 18 - wall_height, width - 24, wall_height)
+                pygame.draw.rect(base_surface, (165, 140, 110), wall_rect)
+                pygame.draw.rect(base_surface, (200, 180, 150), wall_rect, 2)
+                # roof beams
+                roof_y = wall_rect.top - 4
+                pygame.draw.rect(base_surface, (145, 115, 85), (16, roof_y, width - 32, 4))
+                for idx in range(3):
+                    beam_x = 18 + idx * ((width - 36) // 2)
+                    pygame.draw.line(base_surface, (110, 90, 70), (beam_x, roof_y), (beam_x - 6, roof_y - 10), 2)
+                    pygame.draw.line(base_surface, (110, 90, 70), (beam_x + (width - 36) // 2, roof_y), (beam_x + (width - 36) // 2 + 6, roof_y - 10), 2)
 
-        def line(color, p1, p2, w=1):
-            pygame.draw.line(assembly_surface, color, p1, p2, w)
+            # ▶ 포탑 조립 애니메이션(진척도 반영): 진행도에 따라 금속 부품이 순차적으로 등장
+            #    - 0.25: 받침대
+            #    - 0.40: 좌/우 지지대
+            #    - 0.60: 몸통
+            #    - 0.80: 포신/헤드 + 용접 스파크(간헐)
+            assembly_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+            cx = width // 2
+            bottom = height - 2
+            top = 4
+            build_alpha = int(60 + 140 * progress_ratio)
+            edge_alpha = int(80 + 100 * progress_ratio)
 
-        # 받침대
-        if progress_ratio >= 0.25:
-            base_h = max(4, int(6 + 6 * min(1.0, (progress_ratio - 0.25) / 0.15)))
-            plate = [
-                (cx - width * 0.34, bottom - base_h),
-                (cx + width * 0.34, bottom - base_h),
-                (cx + width * 0.22, bottom + 4),
-                (cx - width * 0.22, bottom + 4),
-            ]
-            poly([(int(x), int(y)) for x, y in plate], (200, 208, 220, build_alpha))
-            line((110, 120, 140, edge_alpha), (int(cx - width * 0.34), int(bottom - base_h)), (int(cx + width * 0.34), int(bottom - base_h)), 2)
+            def poly(points, color):
+                pygame.draw.polygon(assembly_surface, color, points)
 
-        # 좌/우 지지대
-        if progress_ratio >= 0.40:
-            leg_h = max(10, int(20 * min(1.0, (progress_ratio - 0.40) / 0.20)))
-            left_leg = [
-                (cx - width * 0.36, bottom - 8),
-                (cx - width * 0.46, bottom - leg_h - 10),
-                (cx - width * 0.40, bottom - leg_h - 26),
-                (cx - width * 0.24, bottom - 14),
-            ]
-            right_leg = [
-                (cx + width * 0.36, bottom - 8),
-                (cx + width * 0.46, bottom - leg_h - 10),
-                (cx + width * 0.40, bottom - leg_h - 26),
-                (cx + width * 0.24, bottom - 14),
-            ]
-            poly([(int(x), int(y)) for x, y in left_leg], (186, 192, 210, build_alpha))
-            poly([(int(x), int(y)) for x, y in right_leg], (186, 192, 210, build_alpha))
+            def line(color, p1, p2, w=1):
+                pygame.draw.line(assembly_surface, color, p1, p2, w)
 
-        # 몸통
-        if progress_ratio >= 0.60:
-            torso_h = max(10, int(22 * min(1.0, (progress_ratio - 0.60) / 0.20)))
-            torso_w = int(width * 0.36)
-            torso_rect = pygame.Rect(cx - torso_w // 2, bottom - 18 - torso_h, torso_w, torso_h)
-            pygame.draw.rect(assembly_surface, (220, 234, 250, build_alpha), torso_rect)
-            pygame.draw.rect(assembly_surface, (120, 130, 160, edge_alpha), torso_rect, 2)
+            # 받침대
+            if progress_ratio >= 0.25:
+                base_h = max(4, int(6 + 6 * min(1.0, (progress_ratio - 0.25) / 0.15)))
+                plate = [
+                    (cx - width * 0.34, bottom - base_h),
+                    (cx + width * 0.34, bottom - base_h),
+                    (cx + width * 0.22, bottom + 4),
+                    (cx - width * 0.22, bottom + 4),
+                ]
+                poly([(int(x), int(y)) for x, y in plate], (200, 208, 220, build_alpha))
+                line((110, 120, 140, edge_alpha), (int(cx - width * 0.34), int(bottom - base_h)), (int(cx + width * 0.34), int(bottom - base_h)), 2)
 
-        # 포신/헤드 + 용접 스파크
-        if progress_ratio >= 0.80:
-            head_w = int(width * 0.22)
-            head_h = int(10 * min(1.0, (progress_ratio - 0.80) / 0.15))
-            head_rect = pygame.Rect(cx - head_w // 2, top + 8, head_w, head_h)
-            pygame.draw.rect(assembly_surface, (230, 210, 210, build_alpha), head_rect)
-            # 포신
-            barrel_len = int(width * 0.28 * min(1.0, (progress_ratio - 0.80) / 0.20))
-            line((220, 180, 120, edge_alpha), (cx, head_rect.top + head_rect.height // 2), (cx, head_rect.top + head_rect.height // 2 - barrel_len), 2)
-            # 용접 스파크(간헐)
-            if (pygame.time.get_ticks() // 120) % 2 == 0:
-                spark_y = head_rect.bottom + 2
-                for dx in (-6, 0, 6):
-                    line((255, 220, 120, 160), (cx + dx, spark_y), (cx + dx + 2, spark_y - 4), 1)
+            # 좌/우 지지대
+            if progress_ratio >= 0.40:
+                leg_h = max(10, int(20 * min(1.0, (progress_ratio - 0.40) / 0.20)))
+                left_leg = [
+                    (cx - width * 0.36, bottom - 8),
+                    (cx - width * 0.46, bottom - leg_h - 10),
+                    (cx - width * 0.40, bottom - leg_h - 26),
+                    (cx - width * 0.24, bottom - 14),
+                ]
+                right_leg = [
+                    (cx + width * 0.36, bottom - 8),
+                    (cx + width * 0.46, bottom - leg_h - 10),
+                    (cx + width * 0.40, bottom - leg_h - 26),
+                    (cx + width * 0.24, bottom - 14),
+                ]
+                poly([(int(x), int(y)) for x, y in left_leg], (186, 192, 210, build_alpha))
+                poly([(int(x), int(y)) for x, y in right_leg], (186, 192, 210, build_alpha))
 
-        # 하단에서 위로 드러나는 클립(전체 조립감 강화)
-        reveal_h = int(height * progress_ratio)
-        if reveal_h > 0:
-            clip = assembly_surface.subsurface(pygame.Rect(0, height - reveal_h, width, reveal_h))
-            base_surface.blit(clip, (0, height - reveal_h))
+            # 몸통
+            if progress_ratio >= 0.60:
+                torso_h = max(10, int(22 * min(1.0, (progress_ratio - 0.60) / 0.20)))
+                torso_w = int(width * 0.36)
+                torso_rect = pygame.Rect(cx - torso_w // 2, bottom - 18 - torso_h, torso_w, torso_h)
+                pygame.draw.rect(assembly_surface, (220, 234, 250, build_alpha), torso_rect)
+                pygame.draw.rect(assembly_surface, (120, 130, 160, edge_alpha), torso_rect, 2)
 
-        surface.blit(base_surface, blueprint_rect.topleft)
+            # 포신/헤드 + 용접 스파크
+            if progress_ratio >= 0.80:
+                head_w = int(width * 0.22)
+                head_h = int(10 * min(1.0, (progress_ratio - 0.80) / 0.15))
+                head_rect = pygame.Rect(cx - head_w // 2, top + 8, head_w, head_h)
+                pygame.draw.rect(assembly_surface, (230, 210, 210, build_alpha), head_rect)
+                # 포신
+                barrel_len = int(width * 0.28 * min(1.0, (progress_ratio - 0.80) / 0.20))
+                line((220, 180, 120, edge_alpha), (cx, head_rect.top + head_rect.height // 2), (cx, head_rect.top + head_rect.height // 2 - barrel_len), 2)
+                # 용접 스파크(간헐)
+                if (pygame.time.get_ticks() // 120) % 2 == 0:
+                    spark_y = head_rect.bottom + 2
+                    for dx in (-6, 0, 6):
+                        line((255, 220, 120, 160), (cx + dx, spark_y), (cx + dx + 2, spark_y - 4), 1)
 
-        gauge_width = blueprint_rect.width
-        gauge_height = 6
-        gauge_rect = pygame.Rect(blueprint_rect.left, blueprint_rect.top - gauge_height - 6, gauge_width, gauge_height)
-        pygame.draw.rect(surface, (40, 50, 70), gauge_rect.inflate(4, 4), border_radius=3)
-        if progress_ratio > 0:
-            filled_rect = pygame.Rect(gauge_rect.left, gauge_rect.top, int(gauge_width * progress_ratio), gauge_height)
-            pygame.draw.rect(surface, (220, 180, 80), filled_rect, border_radius=3)
-        pygame.draw.rect(surface, (110, 120, 140), gauge_rect, 1, border_radius=3)
+            # 하단에서 위로 드러나는 클립(전체 조립감 강화)
+            reveal_h = int(height * progress_ratio)
+            if reveal_h > 0:
+                clip = assembly_surface.subsurface(pygame.Rect(0, height - reveal_h, width, reveal_h))
+                base_surface.blit(clip, (0, height - reveal_h))
+
+            # 캐시에 저장
+            _blacksmith_blueprint_cache[cache_key] = base_surface.copy()
+
+            surface.blit(base_surface, blueprint_rect.topleft)
+
+            # 게이지바 그리기
+            gauge_width = blueprint_rect.width
+            gauge_height = 6
+            gauge_rect = pygame.Rect(blueprint_rect.left, blueprint_rect.top - gauge_height - 6, gauge_width, gauge_height)
+            pygame.draw.rect(surface, (40, 50, 70), gauge_rect.inflate(4, 4), border_radius=3)
+            if progress_ratio > 0:
+                filled_rect = pygame.Rect(gauge_rect.left, gauge_rect.top, int(gauge_width * progress_ratio), gauge_height)
+                pygame.draw.rect(surface, (220, 180, 80), filled_rect, border_radius=3)
+            pygame.draw.rect(surface, (110, 120, 140), gauge_rect, 1, border_radius=3)
 
     if blacksmith_turret_active and blacksmith_turret_state and blacksmith_turret_state.get("rect"):
         turret_rect = blacksmith_turret_state["rect"]
@@ -33625,33 +35137,136 @@ def draw_blacksmith_turret_elements(surface):
         homing_proj = proj.get("homing")
 
         if homing_proj:
-            # 강화 포탑 유도 미사일: 더 작고 보랏빛 계열 디자인
-            core_color = (200, 180, 255)
-            shell_color = (120, 80, 200)
-            glow_color = (255, 120, 220, 140)
-            pygame.draw.circle(surface, shell_color, proj_pos, radius + 2)
-            pygame.draw.circle(surface, core_color, proj_pos, max(1, radius - 1))
-            # 진행 방향 반대편에 작은 꼬리
-            tail_len = max(4, int(radius * 1.5))
+            # 강화 포탑 유도 미사일: 고급 로켓형 디자인
             angle = math.atan2(proj["vy"], proj["vx"])
-            tail_dx = -math.cos(angle) * tail_len
-            tail_dy = -math.sin(angle) * tail_len
-            tail_end = (int(proj_pos[0] + tail_dx), int(proj_pos[1] + tail_dy))
-            pygame.draw.line(surface, core_color, proj_pos, tail_end, 2)
-            # 주변에 약한 글로우
-            glow_size = max(8, radius * 3)
+            cos_a, sin_a = math.cos(angle), math.sin(angle)
+
+            # 애니메이션용 시간값
+            anim_time = pygame.time.get_ticks() / 1000.0
+            homing_age = proj.get("homing_age", 0)
+            pulse = 0.5 + 0.5 * math.sin(anim_time * 8.0 + homing_age * 0.5)
+
+            # 미사일 크기 스케일
+            missile_len = max(16, radius * 2.8)
+            missile_width = max(6, radius * 0.9)
+
+            # === 1. 외곽 에너지 오라 (3중 링) ===
+            aura_size = int(radius * 5)
+            aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+            aura_center = aura_size
+            for i, (r_mult, alpha) in enumerate([(1.8, 40), (1.4, 60), (1.0, 80)]):
+                ring_r = int(radius * r_mult * (1.0 + pulse * 0.15))
+                ring_color = (180, 120, 255, int(alpha * (0.7 + pulse * 0.3)))
+                pygame.draw.circle(aura_surf, ring_color, (aura_center, aura_center), ring_r, max(1, int(2 - i * 0.5)))
+            surface.blit(aura_surf, (proj_pos[0] - aura_center, proj_pos[1] - aura_center), special_flags=pygame.BLEND_ADD)
+
+            # === 2. 엔진 배기 불꽃 (다층 플레임) ===
+            exhaust_len = missile_len * (0.8 + pulse * 0.4)
+            exhaust_base_x = proj_pos[0] - cos_a * (missile_len * 0.4)
+            exhaust_base_y = proj_pos[1] - sin_a * (missile_len * 0.4)
+
+            # 외곽 불꽃 (보라색)
+            for flame_i in range(3):
+                flame_offset = (flame_i - 1) * missile_width * 0.3
+                perp_x, perp_y = -sin_a * flame_offset, cos_a * flame_offset
+                flame_tip_x = exhaust_base_x - cos_a * exhaust_len * (0.9 - flame_i * 0.15) + perp_x
+                flame_tip_y = exhaust_base_y - sin_a * exhaust_len * (0.9 - flame_i * 0.15) + perp_y
+                flame_alpha = int(180 - flame_i * 40)
+                flame_color = (160 + flame_i * 30, 80 + flame_i * 20, 255, flame_alpha)
+                flame_surf = pygame.Surface((int(exhaust_len * 2), int(exhaust_len * 2)), pygame.SRCALPHA)
+                fc = int(exhaust_len)
+                pygame.draw.line(flame_surf, flame_color,
+                    (fc, fc),
+                    (fc + int((flame_tip_x - exhaust_base_x)), fc + int((flame_tip_y - exhaust_base_y))),
+                    max(2, int(missile_width * 0.5 - flame_i * 0.8)))
+                surface.blit(flame_surf, (int(exhaust_base_x - fc), int(exhaust_base_y - fc)), special_flags=pygame.BLEND_ADD)
+
+            # 내부 코어 불꽃 (시안-화이트)
+            core_flame_len = exhaust_len * 0.6
+            core_flame_tip = (exhaust_base_x - cos_a * core_flame_len, exhaust_base_y - sin_a * core_flame_len)
+            pygame.draw.line(surface, (200, 240, 255), (int(exhaust_base_x), int(exhaust_base_y)),
+                (int(core_flame_tip[0]), int(core_flame_tip[1])), max(2, int(missile_width * 0.35)))
+
+            # === 3. 미사일 본체 (유선형 로켓) ===
+            # 노즈콘 (앞부분 뾰족)
+            nose_tip = (proj_pos[0] + cos_a * missile_len * 0.5, proj_pos[1] + sin_a * missile_len * 0.5)
+            nose_base_l = (proj_pos[0] - sin_a * missile_width * 0.4, proj_pos[1] + cos_a * missile_width * 0.4)
+            nose_base_r = (proj_pos[0] + sin_a * missile_width * 0.4, proj_pos[1] - cos_a * missile_width * 0.4)
+
+            # 본체 (뒤로 갈수록 넓어짐)
+            body_end = (proj_pos[0] - cos_a * missile_len * 0.35, proj_pos[1] - sin_a * missile_len * 0.35)
+            body_l = (body_end[0] - sin_a * missile_width * 0.55, body_end[1] + cos_a * missile_width * 0.55)
+            body_r = (body_end[0] + sin_a * missile_width * 0.55, body_end[1] - cos_a * missile_width * 0.55)
+
+            # 본체 폴리곤 (외곽)
+            body_points = [nose_tip, nose_base_r, body_r, body_l, nose_base_l]
+            body_outline = (80, 50, 140)
+            body_fill = (140, 100, 200)
+            body_highlight = (200, 170, 255)
+
+            pygame.draw.polygon(surface, body_fill, [(int(p[0]), int(p[1])) for p in body_points])
+            pygame.draw.polygon(surface, body_outline, [(int(p[0]), int(p[1])) for p in body_points], 2)
+
+            # 본체 하이라이트 라인 (중앙)
+            hl_start = (proj_pos[0] + cos_a * missile_len * 0.35, proj_pos[1] + sin_a * missile_len * 0.35)
+            hl_end = (proj_pos[0] - cos_a * missile_len * 0.2, proj_pos[1] - sin_a * missile_len * 0.2)
+            pygame.draw.line(surface, body_highlight, (int(hl_start[0]), int(hl_start[1])),
+                (int(hl_end[0]), int(hl_end[1])), max(1, int(missile_width * 0.15)))
+
+            # === 4. 날개 핀 (좌우 2개) ===
+            fin_len = missile_width * 1.2
+            fin_width = missile_width * 0.4
+            fin_base_x = proj_pos[0] - cos_a * missile_len * 0.25
+            fin_base_y = proj_pos[1] - sin_a * missile_len * 0.25
+
+            for side in [-1, 1]:
+                fin_root = (fin_base_x + sin_a * missile_width * 0.4 * side,
+                            fin_base_y - cos_a * missile_width * 0.4 * side)
+                fin_tip = (fin_root[0] + sin_a * fin_len * side - cos_a * fin_width,
+                           fin_root[1] - cos_a * fin_len * side - sin_a * fin_width)
+                fin_back = (fin_base_x - cos_a * missile_len * 0.1 + sin_a * missile_width * 0.5 * side,
+                            fin_base_y - sin_a * missile_len * 0.1 - cos_a * missile_width * 0.5 * side)
+                fin_points = [fin_root, fin_tip, fin_back]
+                pygame.draw.polygon(surface, (100, 70, 160), [(int(p[0]), int(p[1])) for p in fin_points])
+                pygame.draw.polygon(surface, (60, 40, 100), [(int(p[0]), int(p[1])) for p in fin_points], 1)
+
+            # === 5. 코어 에너지 (펄스 애니메이션) ===
+            core_x = proj_pos[0] + cos_a * missile_len * 0.1
+            core_y = proj_pos[1] + sin_a * missile_len * 0.1
+            core_r = max(3, int(missile_width * 0.35 * (0.8 + pulse * 0.4)))
+            core_inner = (255, 220, 255, int(200 + pulse * 55))
+            core_outer = (180, 140, 255, int(150 + pulse * 50))
+
+            core_surf = pygame.Surface((core_r * 4, core_r * 4), pygame.SRCALPHA)
+            pygame.draw.circle(core_surf, core_outer, (core_r * 2, core_r * 2), int(core_r * 1.5))
+            pygame.draw.circle(core_surf, core_inner, (core_r * 2, core_r * 2), core_r)
+            surface.blit(core_surf, (int(core_x - core_r * 2), int(core_y - core_r * 2)), special_flags=pygame.BLEND_ADD)
+
+            # === 6. 나선형 에너지 트레일 ===
+            trail_len = missile_len * 1.5
+            trail_segments = 8
+            for t_i in range(trail_segments):
+                t_ratio = t_i / trail_segments
+                t_dist = trail_len * t_ratio
+                spiral_phase = anim_time * 12.0 + t_ratio * math.pi * 3
+                spiral_amp = missile_width * 0.6 * (1.0 - t_ratio * 0.7)
+
+                t_x = exhaust_base_x - cos_a * t_dist + sin_a * math.sin(spiral_phase) * spiral_amp
+                t_y = exhaust_base_y - sin_a * t_dist - cos_a * math.sin(spiral_phase) * spiral_amp
+                t_alpha = int(120 * (1.0 - t_ratio))
+                t_r = max(1, int(3 * (1.0 - t_ratio * 0.6)))
+
+                trail_color = (180, 120, 255, t_alpha)
+                trail_surf = pygame.Surface((t_r * 4, t_r * 4), pygame.SRCALPHA)
+                pygame.draw.circle(trail_surf, trail_color, (t_r * 2, t_r * 2), t_r)
+                surface.blit(trail_surf, (int(t_x - t_r * 2), int(t_y - t_r * 2)), special_flags=pygame.BLEND_ADD)
+
+            # === 7. 글로우 오버레이 ===
+            glow_size = max(20, int(missile_len * 1.2))
             glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-            pygame.draw.circle(
-                glow_surface,
-                glow_color,
-                (glow_size // 2, glow_size // 2),
-                glow_size // 2,
-            )
-            surface.blit(
-                glow_surface,
-                (proj_pos[0] - glow_size // 2, proj_pos[1] - glow_size // 2),
-                special_flags=pygame.BLEND_ADD,
-            )
+            glow_color = (160, 100, 255, int(60 + pulse * 30))
+            pygame.draw.circle(glow_surface, glow_color, (glow_size // 2, glow_size // 2), glow_size // 2)
+            surface.blit(glow_surface, (proj_pos[0] - glow_size // 2, proj_pos[1] - glow_size // 2), special_flags=pygame.BLEND_ADD)
         else:
             if 'BLACKSMITH_MISSILE_IMG' in globals() and BLACKSMITH_MISSILE_IMG:
                 velocity_angle = math.degrees(math.atan2(proj["vy"], proj["vx"])) - 180
@@ -35544,6 +37159,18 @@ try:
 except:
     mining_sound = None
 
+# 전설 아이템 발견 사운드 로드
+try:
+    legend_open_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "legendopen.wav")))
+except:
+    legend_open_sound = None
+
+# 꽝 사운드 로드
+try:
+    disappointment_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "disappointment.wav")))
+except:
+    disappointment_sound = None
+
 # === 발토르 걷기 애니메이션 변수 ===
 blacksmith_walking_active = False
 blacksmith_walking_timer = 0
@@ -35575,7 +37202,7 @@ blacksmith_umbrella_swing_recover_pre = 0.0
 # === 토르쉴드 패들 캐싱 시스템 (성능 최적화) ===
 _blacksmith_paddle_cache: dict[tuple, pygame.Surface] = {}
 _blacksmith_paddle_cache_hitbox: dict[str, object] = {}  # 히트박스 관련 전역변수 캐시
-_blacksmith_paddle_cache_max_size = 64  # 최대 캐시 항목 수 (애니메이션 캐싱을 위해 증가)
+_blacksmith_paddle_cache_max_size = 384  # 최대 캐시 항목 수 (배치 40단계 + 디바인 조합)
 _blacksmith_paddle_cache_hits = 0
 _blacksmith_paddle_cache_misses = 0
 
@@ -35590,38 +37217,38 @@ def _get_paddle_cache_key(
     swing_direction: int,
     reinforced_divine: bool = False,
     divine_active: bool = False,
-) -> tuple:
-    """패들 캐시 키 생성 (상태 양자화로 캐시 효율성 향상)"""
-    # swing_progress는 캐싱 안 함 - 스윙 애니메이션은 부드러워야 함
-    # 스윙 중에는 캐시 미스 허용 (스윙은 짧은 시간이라 괜찮음)
+) -> tuple | None:
+    """패들 캐시 키 생성 - 세밀한 양자화로 부드러움 + 캐시 활용"""
+    # 스윙 중에는 캐시 비활성화 (원래대로)
     if swing_active:
-        # 스윙 중에는 캐시 키를 None으로 반환하여 캐시 스킵
         return None
 
-    # 토르쉴드 활성화/비활성화 애니메이션 중(0 < progress < 1)에는 캐시 스킵
-    # 스윙처럼 부드러운 애니메이션을 위해 매 프레임 새로 렌더링
+    # 배치/접기 애니메이션: 0.025 단위(40단계)로 매우 세밀하게 양자화
+    # 42프레임 애니메이션에서 거의 모든 프레임이 캐시 미스지만
+    # 반복 플레이 시 캐시 히트됨
+    q_progress = round(progress / 0.025) * 0.025
+
+    # 배치 중에는 walking 무시 (캐시 조합 감소)
     if 0.01 < progress < 0.99:
-        return None
-
-    # 완전 펼침/접힘 상태는 0.05 단위로 양자화 (20단계)
-    q_progress = round(progress / 0.05) * 0.05
-
-    # walking_timer를 8프레임 단위로 양자화 - 걷기는 큰 단위 OK
-    q_walk_timer = (walking_timer // 8) * 8 if walking_active else 0
-
-    q_swing_progress = 0.0
+        q_walk_timer = 0
+        q_walk_direction = 0
+        q_walking_active = False
+    else:
+        q_walk_timer = (walking_timer // 8) * 8 if walking_active else 0
+        q_walk_direction = walk_direction if walking_active else 0
+        q_walking_active = walking_active
 
     return (
         q_progress,
-        walking_active,
+        q_walking_active,
         q_walk_timer,
-        walk_direction if walking_active else 0,
-        swing_active,
-        swing_stage if swing_active else 0,
-        q_swing_progress,
-        swing_direction if swing_active else 0,
-        divine_active,  # 디바인스톤 활성화 여부 (토르쉴드 색상 구분: 노란색 vs 은색)
-        reinforced_divine,  # 강화 디바인스톤 여부 (토르쉴드 색상 구분: 은색 vs 보라색)
+        q_walk_direction,
+        False,
+        0,
+        0.0,
+        0,
+        divine_active,
+        reinforced_divine,
     )
 
 def clear_blacksmith_paddle_cache() -> None:
@@ -36332,27 +37959,25 @@ def draw_wall_impact_effects(surface: pygame.Surface) -> None:
     """벽 충돌 이펙트 렌더링"""
     global wall_impact_particles, wall_impact_flash_timer, wall_impact_position
 
-    # 충돌 플래시 (은은하게)
+    # 충돌 플래시 (은은하게) - 캐시된 Surface 사용
     if wall_impact_flash_timer > 0:
         flash_alpha = int(25 * (wall_impact_flash_timer / 8))
         flash_size = 25 + (8 - wall_impact_flash_timer) * 3
-        flash_surf = pygame.Surface((flash_size * 2, flash_size * 2), pygame.SRCALPHA)
-        pygame.draw.circle(flash_surf, (180, 220, 255, flash_alpha),
-                          (flash_size, flash_size), flash_size)
+        flash_surf = get_wall_impact_surface(flash_size, (180, 220, 255), flash_alpha)
+        center = flash_surf.get_width() // 2
         surface.blit(flash_surf,
-                    (wall_impact_position[0] - flash_size, wall_impact_position[1] - flash_size),
+                    (wall_impact_position[0] - center, wall_impact_position[1] - center),
                     special_flags=pygame.BLEND_ADD)
 
-    # 파티클 렌더링
+    # 파티클 렌더링 - 캐시된 Surface 사용
     for p in wall_impact_particles:
         alpha = int(180 * (p['life'] / p['max_life']))
         if alpha > 0 and p['size'] > 0.5:
             size = int(p['size'])
             if size > 0:
-                p_surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
-                color_with_alpha = (*p['color'], alpha)
-                pygame.draw.circle(p_surf, color_with_alpha, (size + 1, size + 1), size)
-                surface.blit(p_surf, (int(p['x']) - size - 1, int(p['y']) - size - 1),
+                p_surf = get_wall_impact_surface(size, p['color'], alpha)
+                center = p_surf.get_width() // 2
+                surface.blit(p_surf, (int(p['x']) - center, int(p['y']) - center),
                             special_flags=pygame.BLEND_ADD)
 
 def update_rainbow_ball_trail(ball_cx: int, ball_cy: int) -> None:
@@ -36456,26 +38081,19 @@ def draw_rainbow_ball_trail(surface: pygame.Surface) -> None:
 
         size = max(2, int(point['size'] * (0.4 + position_ratio * 0.6)))
 
-        # 트레일 포인트 서피스
-        trail_size = size * 2 + 4
-        trail_surface = pygame.Surface((trail_size, trail_size), pygame.SRCALPHA)
-        center = trail_size // 2
-
-        # 외부 글로우
+        # 트레일 포인트 - 캐시된 Surface 사용 (매 포인트마다 생성 방지)
         glow_alpha = int(base_alpha * 0.15)
-        if glow_alpha > 0:
-            pygame.draw.circle(trail_surface, (*ENERGY_TRAIL_GLOW_COLOR, glow_alpha),
-                             (center, center), size + 1)
-
-        # 내부 에너지
         inner_alpha = int(base_alpha * 0.25)
-        if inner_alpha > 0:
-            pygame.draw.circle(trail_surface, (*ENERGY_TRAIL_BASE_COLOR, inner_alpha),
-                             (center, center), max(1, size - 1))
 
-        surface.blit(trail_surface,
-                    (int(point['x']) - center, int(point['y']) - center),
-                    special_flags=pygame.BLEND_ADD)
+        if glow_alpha > 0 or inner_alpha > 0:
+            trail_surface = get_trail_point_surface(
+                size, glow_alpha, inner_alpha,
+                ENERGY_TRAIL_GLOW_COLOR, ENERGY_TRAIL_BASE_COLOR
+            )
+            center = trail_surface.get_width() // 2
+            surface.blit(trail_surface,
+                        (int(point['x']) - center, int(point['y']) - center),
+                        special_flags=pygame.BLEND_ADD)
 
     # 벽 충돌 이펙트 렌더링
     draw_wall_impact_effects(surface)
@@ -37256,6 +38874,64 @@ def _is_divine_state_active(state: dict[str, object] | None) -> bool:
     return rect is not None and getattr(rect, "width", 0) > 0 and getattr(rect, "height", 0) > 0
 
 
+def has_blacksmith_turret_enhance_perk() -> bool:
+    """발토르 강화포탑 해금 퍽을 보유하고 있는지 확인한다."""
+    try:
+        import academy
+        if hasattr(academy, 'skill_system') and academy.skill_system:
+            level = academy.skill_system.get_skill_level("blacksmith_turret_enhance")
+            # 디버그: 퍽 체크 결과 및 skill_levels 딕셔너리 상태 출력
+            blacksmith_skills = {k: v for k, v in academy.skill_system.skill_levels.items() if "blacksmith" in k}
+            print(f"[DEBUG] has_blacksmith_turret_enhance_perk: level={level}, blacksmith_skills={blacksmith_skills}")
+            return level >= 1
+        else:
+            print(f"[DEBUG] has_blacksmith_turret_enhance_perk: skill_system이 없음!")
+    except Exception as e:
+        print(f"[DEBUG] has_blacksmith_turret_enhance_perk exception: {e}")
+    return False
+
+
+def has_blacksmith_divine_enhance_perk() -> bool:
+    """발토르 디바인 강화 해금 퍽을 보유하고 있는지 확인한다."""
+    try:
+        import academy
+        if hasattr(academy, 'skill_system') and academy.skill_system:
+            level = academy.skill_system.get_skill_level("blacksmith_divine_enhance")
+            return level >= 1
+    except Exception:
+        pass
+    return False
+
+
+def get_blacksmith_hammer_shock_max_stage_by_perk() -> int:
+    """해머쇼크 퍽에 따라 사용 가능한 최대 단계를 반환한다.
+
+    Returns:
+        0: 퍽 없음 (해머쇼크 사용 불가)
+        1: 1단계 퍽 보유
+        2: 2단계 퍽 보유
+        3: 3단계 퍽 보유
+    """
+    try:
+        import academy
+        if hasattr(academy, 'skill_system') and academy.skill_system:
+            # 3단계 → 2단계 → 1단계 순으로 체크
+            if academy.skill_system.get_skill_level("blacksmith_hammer_shock_3") >= 1:
+                return 3
+            if academy.skill_system.get_skill_level("blacksmith_hammer_shock_2") >= 1:
+                return 2
+            if academy.skill_system.get_skill_level("blacksmith_hammer_shock_1") >= 1:
+                return 1
+    except Exception:
+        pass
+    return 0
+
+
+def has_blacksmith_hammer_shock_perk() -> bool:
+    """해머쇼크 1단계 이상 퍽을 보유하고 있는지 확인한다."""
+    return get_blacksmith_hammer_shock_max_stage_by_perk() >= 1
+
+
 def is_blacksmith_divine_stone_active() -> bool:
     """디바인스톤이 건설되어 필드에 남아있는지 여부를 반환한다."""
 
@@ -37643,6 +39319,15 @@ BLACKSMITH_DIVINE_SHIELD_LAYERS = 4
 # 디바인쉴드 그리기 최적화 캐시
 DIVINE_SHIELD_SPARK_COUNT = 8
 _divine_shield_base_cache: dict[tuple[int, int, bool], pygame.Surface] = {}
+
+# ============================================================
+# 발토르 청사진/구조물 캐시 시스템 (성능 최적화)
+# ============================================================
+_blacksmith_blueprint_cache: dict[tuple, pygame.Surface] = {}  # 청사진 정적 요소 캐시
+_blacksmith_divine_stone_cache: dict[tuple, pygame.Surface] = {}  # 디바인 스톤 구조물 캐시
+_blacksmith_blueprint_frame_counter = 0
+_blacksmith_last_blueprint_progress: dict[str, float] = {}  # {"divine": 0.0, "turret": 0.0}
+BLACKSMITH_BLUEPRINT_CACHE_SKIP_FRAMES = 2  # 2프레임마다 갱신 (30fps 수준)
 # 디바인쉴드 동적 요소 프레임 스킵 (성능 최적화)
 _divine_shield_frame_counter = 0
 _divine_shield_last_dynamic_surf: pygame.Surface | None = None
@@ -42683,6 +44368,13 @@ _pillar_weapon_slots: list[tuple[str, pygame.Rect]] = []
 _pillar_weapon_inventory_offset: tuple[int, int] = (0, 0)  # 필러 surface의 화면상 오프셋
 _pillar_weapon_hovered: str | None = None  # 현재 호버링 중인 화기류 이름
 
+# ============================================================
+# 🔫 화기류 UI 캐시 시스템 (성능 최적화)
+# ============================================================
+_weapon_glow_cache: dict[tuple[int, int, int], pygame.Surface] = {}  # {(width, height, layer): surface}
+_weapon_dark_icon_cache: dict[str, pygame.Surface] = {}  # {weapon_name: darkened_icon}
+_WEAPON_GLOW_CACHE_LIMIT = 30
+
 
 def draw_pillar_weapon_inventory(surface: pygame.Surface, orb_center_x: int, orb_center_y: int, orb_radius: int):
     """좌측 필러 게이지 구슬 위에 화기류 인벤토리 표시 (좌하단 화기류 UI와 동일한 스타일)
@@ -42759,12 +44451,20 @@ def draw_pillar_weapon_inventory(surface: pygame.Surface, orb_center_x: int, orb
             pulse = int(128 + 127 * math.sin(current_time * 0.005))
             glow_color = (255, pulse, 0)  # 황금색 반짝임
 
-            # 외부 글로우 효과
+            # 외부 글로우 효과 (캐시 사용)
             for i in range(3, 0, -1):
                 glow_rect = slot_rect.inflate(i * 4, i * 4)
                 alpha = 80 - i * 20
-                glow_surface = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
-                pygame.draw.rect(glow_surface, (*glow_color, alpha), glow_surface.get_rect(), 2, border_radius=4)
+                cache_key = (glow_rect.width, glow_rect.height, i)
+                if cache_key not in _weapon_glow_cache:
+                    if len(_weapon_glow_cache) > _WEAPON_GLOW_CACHE_LIMIT:
+                        _weapon_glow_cache.clear()
+                    glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                    # 테두리만 그림 (색상은 나중에 blit 시 적용)
+                    pygame.draw.rect(glow_surf, (255, 255, 255, alpha), glow_surf.get_rect(), 2, border_radius=4)
+                    _weapon_glow_cache[cache_key] = glow_surf
+                glow_surface = _weapon_glow_cache[cache_key].copy()
+                glow_surface.fill((*glow_color, 0), special_flags=pygame.BLEND_RGB_MULT)
                 surface.blit(glow_surface, glow_rect.topleft)
 
             # 강조된 배경
@@ -42773,13 +44473,18 @@ def draw_pillar_weapon_inventory(surface: pygame.Surface, orb_center_x: int, orb
         elif is_hovered:
             # 호버링 효과 - 밝은 청록색 테두리
             hover_color = (100, 200, 255)  # 청록색
-            # 외부 글로우 효과
+            # 외부 글로우 효과 (캐시 사용)
             for i in range(2, 0, -1):
                 glow_rect = slot_rect.inflate(i * 3, i * 3)
                 alpha = 60 - i * 20
-                glow_surface = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
-                pygame.draw.rect(glow_surface, (*hover_color, alpha), glow_surface.get_rect(), 2, border_radius=4)
-                surface.blit(glow_surface, glow_rect.topleft)
+                cache_key = (glow_rect.width, glow_rect.height, 10 + i)  # hover용 별도 키
+                if cache_key not in _weapon_glow_cache:
+                    if len(_weapon_glow_cache) > _WEAPON_GLOW_CACHE_LIMIT:
+                        _weapon_glow_cache.clear()
+                    glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_surf, (*hover_color, alpha), glow_surf.get_rect(), 2, border_radius=4)
+                    _weapon_glow_cache[cache_key] = glow_surf
+                surface.blit(_weapon_glow_cache[cache_key], glow_rect.topleft)
             # 밝은 배경
             pygame.draw.rect(surface, (50, 50, 55), slot_rect)
             pygame.draw.rect(surface, hover_color, slot_rect, 2)
@@ -42798,12 +44503,15 @@ def draw_pillar_weapon_inventory(surface: pygame.Surface, orb_center_x: int, orb
             icon_rect = icon.get_rect(center=(slot_rect.centerx, slot_rect.centery))
             # 탄약 소진 시 아이콘도 어둡게 표시
             if is_empty and not is_selected:
-                # 어두운 오버레이 적용
-                dark_icon = icon.copy()
-                dark_overlay = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
-                dark_overlay.fill((0, 0, 0, 140))
-                dark_icon.blit(dark_overlay, (0, 0))
-                surface.blit(dark_icon, icon_rect)
+                # 어두운 오버레이 적용 (캐시 사용)
+                cache_key = f"{weapon_name}_{icon_size}"
+                if cache_key not in _weapon_dark_icon_cache:
+                    dark_icon = icon.copy()
+                    dark_overlay = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+                    dark_overlay.fill((0, 0, 0, 140))
+                    dark_icon.blit(dark_overlay, (0, 0))
+                    _weapon_dark_icon_cache[cache_key] = dark_icon
+                surface.blit(_weapon_dark_icon_cache[cache_key], icon_rect)
             else:
                 surface.blit(icon, icon_rect)
 
@@ -44504,9 +46212,8 @@ def show_winner_text(winner_name):
     while pygame.time.get_ticks() - hold_start < hold_duration:
         draw_field()
         draw_objects()
-        # 반투명 오버레이
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 150))
+        # 반투명 오버레이 - 캐시된 Surface 사용
+        overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
         SCREEN.blit(overlay, (0, 0))
         # 텍스트 위치
         if show_winner_name:
@@ -49969,19 +51676,26 @@ def draw_soldier_weapon_ui(screen):
         # 강조 효과 - 반짝거리는 테두리
         pulse = int(128 + 127 * math.sin(soldier_controller.ui_highlight_timer * 0.3))  # 반짝거림
         glow_color = (255, pulse, 0)  # 황금색 반짝임
-        
-        # 외부 글로우 효과
+
+        # 외부 글로우 효과 (캐시 사용)
         for i in range(3, 0, -1):
             glow_rect = weapon_rect.inflate(i * 4, i * 4)
             alpha = 80 - i * 20
-            glow_surface = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surface, (*glow_color, alpha), glow_surface.get_rect(), 2)
+            cache_key = (glow_rect.width, glow_rect.height, 20 + i)  # 하단 UI용 별도 키
+            if cache_key not in _weapon_glow_cache:
+                if len(_weapon_glow_cache) > _WEAPON_GLOW_CACHE_LIMIT:
+                    _weapon_glow_cache.clear()
+                glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (255, 255, 255, alpha), glow_surf.get_rect(), 2)
+                _weapon_glow_cache[cache_key] = glow_surf
+            glow_surface = _weapon_glow_cache[cache_key].copy()
+            glow_surface.fill((*glow_color, 0), special_flags=pygame.BLEND_RGB_MULT)
             screen.blit(glow_surface, glow_rect.topleft)
-        
+
         # 강조된 배경
         pygame.draw.rect(screen, (60, 60, 40), weapon_rect)
         pygame.draw.rect(screen, glow_color, weapon_rect, 4)
-        
+
         # 타이머 감소
         soldier_controller.ui_highlight_timer -= 1
     else:
@@ -50126,12 +51840,18 @@ def draw_soldier_weapon_ui(screen):
         # 총구 내부 (깊이감)
         pygame.draw.circle(screen, (15, 15, 18), (muzzle_cx, muzzle_cy), max(2, muzzle_r - 3))
 
-        # 열기/발사 준비 효과 (활성 시)
+        # 열기/발사 준비 효과 (활성 시) - 캐시 사용
         if bazooka_active:
             glow_r = muzzle_r - 1
-            glow_surface = pygame.Surface((glow_r * 2 + 4, glow_r * 2 + 4), pygame.SRCALPHA)
+            cache_key = (glow_r * 2 + 4, glow_r * 2 + 4, 100)  # 바주카 muzzle glow 키
+            if cache_key not in _weapon_glow_cache:
+                glow_surface = pygame.Surface((glow_r * 2 + 4, glow_r * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surface, (255, 255, 255, 60), (glow_r + 2, glow_r + 2), glow_r)
+                _weapon_glow_cache[cache_key] = glow_surface
+            glow_surface = _weapon_glow_cache[cache_key].copy()
             glow_alpha = int(60 * pulse)
-            pygame.draw.circle(glow_surface, (*heat_color[:3], glow_alpha), (glow_r + 2, glow_r + 2), glow_r)
+            glow_surface.fill((*heat_color[:3], 0), special_flags=pygame.BLEND_RGB_MULT)
+            glow_surface.set_alpha(glow_alpha)
             screen.blit(glow_surface, (muzzle_cx - glow_r - 2, muzzle_cy - glow_r - 2))
 
         # === 발사 화염 (로켓 머즐 플래시) ===
@@ -50515,10 +52235,13 @@ def draw_soldier_weapon_ui(screen):
             mag_mid = (75, 75, 75)
             mag_light = (95, 95, 95)
 
-        # === 그림자 (총기 아래쪽에 맞춤) ===
-        shadow_surface = pygame.Surface((w - 4, 6), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surface, (0, 0, 0, 35), (4, 0, w - 12, 6))
-        screen.blit(shadow_surface, (base_x, center_y + 20))
+        # === 그림자 (총기 아래쪽에 맞춤) - 캐시 사용 ===
+        shadow_cache_key = (w - 4, 6, 200)  # AK47 shadow 키
+        if shadow_cache_key not in _weapon_glow_cache:
+            shadow_surface = pygame.Surface((w - 4, 6), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_surface, (0, 0, 0, 35), (4, 0, w - 12, 6))
+            _weapon_glow_cache[shadow_cache_key] = shadow_surface
+        screen.blit(_weapon_glow_cache[shadow_cache_key], (base_x, center_y + 20))
 
         # === 1. 개머리판 (Stock) - 곡선형 목재 ===
         # 메인 형태 (이미지처럼 위로 약간 올라가는 곡선)
@@ -55396,7 +57119,12 @@ def handle_player(keys):
     _fresh_keys = pygame.key.get_pressed()
     _final_down = _fresh_keys[pygame.K_DOWN] if pygame.K_DOWN < len(_fresh_keys) else False
     _final_s = _fresh_keys[pygame.K_s] if pygame.K_s < len(_fresh_keys) else False
-    if down_pressed_raw and not _final_down and not _final_s:
+    _final_mouse_right = False
+    try:
+        _final_mouse_right = bool(pygame.mouse.get_pressed()[2])
+    except Exception:
+        pass
+    if down_pressed_raw and not _final_down and not _final_s and not _final_mouse_right:
         down_pressed_raw = False
     down_pressed = down_pressed_raw
     # 🔧 버그 수정: 키 릴리즈 감지 시 연속 대시 허용 플래그 설정
@@ -55572,6 +57300,10 @@ def handle_player(keys):
                 blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
                 blacksmith_umbrella_retract_start_frame = -1000
                 blacksmith_umbrella_retract_grace_timer = 0
+                # 디버그: 토르쉴드 배치 시작 로그
+                if VALTHOR_PERF_DEBUG:
+                    print(f"[THOR SHIELD] DEPLOY START - anim_frames={BLACKSMITH_UMBRELLA_ANIM_FRAMES}, cache_size={len(_blacksmith_paddle_cache)}")
+                    _thor_shield_frame_times.clear()  # 프레임 타임 초기화
                 if SOUND_BLACKSMITH_UMBRELLA_OPEN:
                     play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_OPEN)
                 blacksmith_walking_active = False
@@ -60501,6 +62233,417 @@ quest_stage_active_item_used = False  # 이번 스테이지에서 액티브 아�
 quest_stage_boss_score = 0  # 이번 스테이지에서 보스가 득점한 횟수
 quest_completed_rewards = []  # 완료된 퀘스트 보상 목록 (UI 표시용)
 
+# 퀘스트 상세 데이터 (선술집에서 수락 시 동기화 - 툴팁 표시용)
+QUEST_DATA = {
+    "no_active_item": {
+        "name": "순수한 실력",
+        "description": "액티브 아이템을 한 번도 사용하지 않고 승리",
+        "condition_desc": "액티브 아이템 미사용으로 승리",
+        "reward_gold": 1500,
+    },
+    "perfect_victory": {
+        "name": "완벽한 승리",
+        "description": "5:0으로 클리어",
+        "condition_desc": "5:0 승리",
+        "reward_gold": 1000,
+    },
+    "collect_tablets": {
+        "name": "석판 수집가",
+        "description": "바닥에 나타나는 석판 5개를 수집하세요\n(대쉬로 닿으면 석판이 파괴됩니다!)",
+        "condition_desc": "석판 5개 수집 (0/5)",
+        "reward_gold": 800,
+    },
+}
+
+# 퀘스트 완료 빛 효과 상태
+quest_completion_glow_active = False
+quest_completion_glow_timer = 0.0
+quest_completion_glow_duration = 3.0  # 3초간 빛 효과
+
+# ============================================================
+# 석판 수집 퀘스트 시스템
+# ============================================================
+quest_tablets_collected = 0           # 수집한 석판 수
+quest_tablets_target = 5              # 목표 석판 수
+quest_tablet_spawn_timer = 0          # 석판 스폰 쿨타임 타이머 (프레임)
+quest_tablet_spawn_cooldown = 0       # 현재 쿨타임 (프레임, 20~50초 = 1200~3000)
+quest_tablet_active_list = []         # 현재 필드에 있는 석판 목록
+quest_tablet_effects = []            # 석판 이펙트 (획득/파괴 시각 효과)
+_quest_tablet_icon_surface = None    # 캐싱된 석판 아이콘 서피스
+
+QUEST_TABLET_SIZE = 52               # 석판 크기 (px) - 큰 석판
+QUEST_TABLET_SPAWN_Y_MIN = 690       # 석판 스폰 Y 최소 (플레이어 진영 바닥)
+QUEST_TABLET_SPAWN_Y_MAX = 700       # 석판 스폰 Y 최대 (바닥에 닿는 느낌)
+QUEST_TABLET_SPAWN_IMMUNITY = 60     # 스폰 후 무적 시간 (프레임, 1초)
+
+def _create_tablet_icon():
+    """석판 아이콘 Surface 생성 (프로그래밍 방식)"""
+    global _quest_tablet_icon_surface
+    if _quest_tablet_icon_surface is not None:
+        return _quest_tablet_icon_surface
+    try:
+        s = QUEST_TABLET_SIZE
+        surf = pygame.Surface((s, s), pygame.SRCALPHA)
+        # 석판 본체 (회색-청색 돌 질감)
+        stone_base = (120, 130, 150)
+        stone_light = (160, 170, 185)
+        stone_dark = (80, 85, 100)
+        m = max(1, s // 13)  # 마진 스케일 (52px → 4)
+        # 메인 사각형
+        pygame.draw.rect(surf, stone_base, (m, m, s - m * 2, s - m * 2), border_radius=3)
+        # 상단 하이라이트
+        pygame.draw.rect(surf, stone_light, (m + 1, m + 1, s - m * 2 - 2, s // 6), border_radius=2)
+        # 하단 음영
+        pygame.draw.rect(surf, stone_dark, (m + 1, s - m - s // 8, s - m * 2 - 2, s // 8), border_radius=2)
+        # 테두리
+        pygame.draw.rect(surf, (70, 75, 90), (m, m, s - m * 2, s - m * 2), 2, border_radius=3)
+        # 미세한 돌 질감 노이즈
+        import random as _rnd
+        for _ in range(s * 2):
+            nx = _rnd.randint(m + 2, s - m - 3)
+            ny = _rnd.randint(m + 2, s - m - 3)
+            nc = _rnd.choice([(110, 120, 140, 40), (140, 150, 165, 40), (100, 105, 120, 30)])
+            noise_s = pygame.Surface((2, 2), pygame.SRCALPHA)
+            noise_s.fill(nc)
+            surf.blit(noise_s, (nx, ny))
+        # 룬 무늬 (스케일된 선)
+        rune_color = (180, 200, 220, 160)
+        rune_surf = pygame.Surface((s, s), pygame.SRCALPHA)
+        rm = s // 5  # 룬 마진 (52px → 10)
+        lw = max(1, s // 26)  # 선 두께 (52px → 2)
+        # 세로선
+        pygame.draw.line(rune_surf, rune_color, (s // 2, rm), (s // 2, s - rm), lw)
+        # 가로선
+        pygame.draw.line(rune_surf, rune_color, (rm, s // 2), (s - rm, s // 2), lw)
+        # 대각선 장식 (코너 4곳)
+        dl = s // 5  # 대각선 길이
+        dm = s // 7  # 대각선 시작 마진
+        pygame.draw.line(rune_surf, rune_color, (dm, dm), (dm + dl, dm + dl), lw)
+        pygame.draw.line(rune_surf, rune_color, (s - dm, dm), (s - dm - dl, dm + dl), lw)
+        pygame.draw.line(rune_surf, rune_color, (dm, s - dm), (dm + dl, s - dm - dl), lw)
+        pygame.draw.line(rune_surf, rune_color, (s - dm, s - dm), (s - dm - dl, s - dm - dl), lw)
+        # 원형 룬 장식 (중앙)
+        rune_r = s // 6
+        pygame.draw.circle(rune_surf, rune_color, (s // 2, s // 2), rune_r, lw)
+        surf.blit(rune_surf, (0, 0))
+        # 미세한 빛남 (중앙)
+        glow_r = s // 6
+        glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (200, 220, 255, 80), (glow_r, glow_r), glow_r)
+        surf.blit(glow_surf, (s // 2 - glow_r, s // 2 - glow_r))
+        _quest_tablet_icon_surface = surf
+        return surf
+    except Exception as e:
+        print(f"[QUEST] 석판 아이콘 생성 실패: {e}")
+        return None
+
+def reset_quest_tablet_state():
+    """석판 퀘스트 상태 초기화 (스테이지 시작 시)"""
+    global quest_tablets_collected, quest_tablet_spawn_timer, quest_tablet_spawn_cooldown
+    global quest_tablet_active_list, quest_tablet_effects
+    quest_tablets_collected = 0
+    quest_tablet_active_list = []
+    quest_tablet_effects = []
+    quest_tablet_spawn_timer = 0
+    # 첫 석판은 10~20초 후 스폰
+    quest_tablet_spawn_cooldown = random.randint(600, 1200)
+
+def spawn_quest_tablet():
+    """석판을 플레이어 진영 바닥에 스폰 (플레이어와 멀리 떨어진 곳)"""
+    global quest_tablet_spawn_timer, quest_tablet_spawn_cooldown
+    import random as _rand
+
+    # 플레이어 위치 가져오기
+    player = globals().get("PLAYER")
+    player_cx = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2  # 기본값: 중앙
+    if player is not None:
+        player_cx = player.x + player.width // 2
+
+    # 플레이어와 멀리 떨어진 X 위치 선택
+    x_min = GAME_AREA_OFFSET_X + 30
+    x_max = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 30 - QUEST_TABLET_SIZE
+    game_center_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+
+    # 플레이어가 왼쪽에 있으면 오른쪽에 스폰, 오른쪽에 있으면 왼쪽에 스폰
+    if player_cx < game_center_x:
+        # 플레이어가 왼쪽 → 오른쪽 영역에서 스폰 (게임영역 2/3 ~ 끝)
+        spawn_x_min = game_center_x + 50
+        spawn_x_max = x_max
+    else:
+        # 플레이어가 오른쪽 → 왼쪽 영역에서 스폰 (시작 ~ 게임영역 1/3)
+        spawn_x_min = x_min
+        spawn_x_max = game_center_x - 50
+
+    # 범위 보정
+    spawn_x_min = max(x_min, spawn_x_min)
+    spawn_x_max = min(x_max, spawn_x_max)
+    if spawn_x_min >= spawn_x_max:
+        spawn_x_min, spawn_x_max = x_min, x_max
+
+    x = _rand.randint(spawn_x_min, spawn_x_max)
+    y = _rand.randint(QUEST_TABLET_SPAWN_Y_MIN, QUEST_TABLET_SPAWN_Y_MAX)
+    tablet = {
+        "x": x, "y": y,
+        "rect": pygame.Rect(x, y, QUEST_TABLET_SIZE, QUEST_TABLET_SIZE),
+        "anim_time": 0.0,
+        "spawn_alpha": 0,  # 페이드인 용
+        "spawn_immunity": QUEST_TABLET_SPAWN_IMMUNITY,  # 스폰 후 무적 시간 (1초)
+    }
+    quest_tablet_active_list.append(tablet)
+    # 다음 쿨타임 설정 (15~25초)
+    quest_tablet_spawn_cooldown = _rand.randint(900, 1500)
+    quest_tablet_spawn_timer = 0
+    print(f"📜 [석판] 석판 스폰! 위치=({x}, {y}), 수집={quest_tablets_collected}/{quest_tablets_target}")
+
+def update_quest_tablets(dt_frames=1):
+    """석판 업데이트 (스폰 타이머, 충돌 감지, 이펙트)"""
+    global quest_tablet_spawn_timer, quest_tablets_collected
+    global quest_tablet_active_list, quest_tablet_effects
+
+    # 퀘스트 미활성 시 처리 안함
+    if "collect_tablets" not in active_quests:
+        return
+    # 이미 목표 달성 시 새 석판 스폰 안함
+    if quest_tablets_collected >= quest_tablets_target:
+        # 남은 석판 + 이펙트만 업데이트
+        _update_tablet_effects(dt_frames)
+        return
+
+    # 스폰 타이머
+    if len(quest_tablet_active_list) == 0:  # 필드에 석판 없을 때만 스폰
+        quest_tablet_spawn_timer += dt_frames
+        if quest_tablet_spawn_timer >= quest_tablet_spawn_cooldown:
+            spawn_quest_tablet()
+
+    # 석판 애니메이션 업데이트
+    for tablet in quest_tablet_active_list:
+        tablet["anim_time"] += dt_frames * 0.016
+        if tablet["spawn_alpha"] < 255:
+            tablet["spawn_alpha"] = min(255, tablet["spawn_alpha"] + 8)
+        # 스폰 무적 시간 감소
+        if tablet.get("spawn_immunity", 0) > 0:
+            tablet["spawn_immunity"] -= dt_frames
+
+    # 플레이어 패들 충돌 감지
+    player = globals().get("PLAYER")
+    if player is None:
+        _update_tablet_effects(dt_frames)
+        return
+
+    player_rect = pygame.Rect(player.x, player.y, player.width, player.height)
+    is_dashing = globals().get("rolling_active", False)
+
+    tablets_to_remove = []
+    for tablet in quest_tablet_active_list:
+        # 스폰 무적 시간 중에는 충돌 무시
+        if tablet.get("spawn_immunity", 0) > 0:
+            continue
+        if player_rect.colliderect(tablet["rect"]):
+            if is_dashing:
+                # 대쉬로 닿으면 석판 파괴!
+                tablets_to_remove.append(tablet)
+                _add_tablet_effect(tablet["x"], tablet["y"], "destroy")
+                # 돌 파괴 사운드 재생
+                try:
+                    sfx = globals().get("SOUND_STONEBREAK_MEDIUM")
+                    if sfx:
+                        play_sound_with_volume(sfx)
+                except:
+                    pass
+                print(f"📜 [석판] 석판 파괴! (대쉬로 접촉)")
+            else:
+                # 일반 이동으로 닿으면 수집!
+                tablets_to_remove.append(tablet)
+                quest_tablets_collected += 1
+                _add_tablet_effect(tablet["x"], tablet["y"], "collect")
+                # QUEST_DATA 동적 업데이트 (툴팁 표시용)
+                if "collect_tablets" in QUEST_DATA:
+                    QUEST_DATA["collect_tablets"]["condition_desc"] = f"석판 5개 수집 ({quest_tablets_collected}/{quest_tablets_target})"
+                print(f"📜 [석판] 석판 수집! ({quest_tablets_collected}/{quest_tablets_target})")
+                # 효과음
+                try:
+                    sfx = globals().get("SOUND_ITEM_GET")
+                    if sfx:
+                        sfx.play()
+                except:
+                    pass
+
+    for t in tablets_to_remove:
+        if t in quest_tablet_active_list:
+            quest_tablet_active_list.remove(t)
+
+    _update_tablet_effects(dt_frames)
+
+def _add_tablet_effect(x, y, effect_type):
+    """석판 획득/파괴 시각 효과 추가"""
+    import random as _rand
+    particles = []
+    if effect_type == "collect":
+        # 수집: 금색 빛 파티클
+        for _ in range(12):
+            particles.append({
+                "x": x + QUEST_TABLET_SIZE // 2 + _rand.uniform(-8, 8),
+                "y": y + QUEST_TABLET_SIZE // 2 + _rand.uniform(-8, 8),
+                "vx": _rand.uniform(-2, 2),
+                "vy": _rand.uniform(-3, -0.5),
+                "life": _rand.randint(20, 40),
+                "max_life": 40,
+                "color": (255, 215, 80),
+            })
+    else:
+        # 파괴: 돌 파편 파티클 (큰 파편 + 작은 먼지)
+        cx = x + QUEST_TABLET_SIZE // 2
+        cy = y + QUEST_TABLET_SIZE // 2
+        stone_colors = [
+            (120, 130, 150), (100, 110, 130), (140, 150, 165),
+            (90, 95, 110), (160, 170, 185), (80, 85, 100),
+        ]
+        # 큰 파편 (사각형) - 사방으로 튀김
+        for _ in range(8):
+            angle = _rand.uniform(0, 6.28)
+            speed = _rand.uniform(3, 7)
+            particles.append({
+                "x": cx + _rand.uniform(-8, 8),
+                "y": cy + _rand.uniform(-8, 8),
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed - _rand.uniform(1, 4),
+                "life": _rand.randint(25, 50),
+                "max_life": 50,
+                "color": _rand.choice(stone_colors),
+                "size": _rand.randint(4, 10),
+                "type": "fragment",
+                "rot": _rand.uniform(0, 6.28),
+                "rot_speed": _rand.uniform(-0.3, 0.3),
+            })
+        # 중간 파편
+        for _ in range(12):
+            angle = _rand.uniform(0, 6.28)
+            speed = _rand.uniform(2, 5)
+            particles.append({
+                "x": cx + _rand.uniform(-6, 6),
+                "y": cy + _rand.uniform(-6, 6),
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed - _rand.uniform(0.5, 3),
+                "life": _rand.randint(20, 40),
+                "max_life": 40,
+                "color": _rand.choice(stone_colors),
+                "size": _rand.randint(2, 5),
+                "type": "fragment",
+                "rot": _rand.uniform(0, 6.28),
+                "rot_speed": _rand.uniform(-0.4, 0.4),
+            })
+        # 먼지 파티클 (작은 원형)
+        for _ in range(15):
+            particles.append({
+                "x": cx + _rand.uniform(-10, 10),
+                "y": cy + _rand.uniform(-10, 10),
+                "vx": _rand.uniform(-2, 2),
+                "vy": _rand.uniform(-3, -0.5),
+                "life": _rand.randint(15, 35),
+                "max_life": 35,
+                "color": (170, 175, 190),
+                "size": _rand.randint(1, 3),
+                "type": "dust",
+            })
+    quest_tablet_effects.append({
+        "type": effect_type,
+        "particles": particles,
+        "timer": 0,
+    })
+
+def _update_tablet_effects(dt_frames=1):
+    """석판 이펙트 파티클 업데이트"""
+    global quest_tablet_effects
+    effects_to_remove = []
+    for effect in quest_tablet_effects:
+        effect["timer"] += dt_frames
+        all_dead = True
+        for p in effect["particles"]:
+            p["x"] += p["vx"]
+            p["y"] += p["vy"]
+            p["vy"] += 0.05  # 중력
+            p["life"] -= dt_frames
+            if p["life"] > 0:
+                all_dead = False
+        if all_dead:
+            effects_to_remove.append(effect)
+    for e in effects_to_remove:
+        quest_tablet_effects.remove(e)
+
+def draw_quest_tablets(screen):
+    """석판 및 이펙트 렌더링"""
+    if "collect_tablets" not in active_quests and not quest_tablet_active_list and not quest_tablet_effects:
+        return
+
+    icon_surf = _create_tablet_icon()
+
+    # 석판 그리기
+    for tablet in quest_tablet_active_list:
+        if icon_surf is None:
+            # 폴백: 회색 사각형
+            pygame.draw.rect(screen, (120, 130, 150),
+                tablet["rect"], border_radius=2)
+            pygame.draw.rect(screen, (70, 75, 90),
+                tablet["rect"], 1, border_radius=2)
+        else:
+            # 떠다니는 효과 (미세한 상하 움직임)
+            float_y = int(1.5 * math.sin(tablet["anim_time"] * 2.5))
+            # 페이드인
+            alpha = tablet["spawn_alpha"]
+            if alpha < 255:
+                temp = icon_surf.copy()
+                temp.set_alpha(alpha)
+                screen.blit(temp, (tablet["x"], tablet["y"] + float_y))
+            else:
+                screen.blit(icon_surf, (tablet["x"], tablet["y"] + float_y))
+
+            # 미세한 글로우
+            glow_pulse = 0.4 + 0.3 * math.sin(tablet["anim_time"] * 3)
+            glow_alpha = int(50 * glow_pulse)
+            if glow_alpha > 0:
+                glow_s = QUEST_TABLET_SIZE + 8
+                glow_surf = pygame.Surface((glow_s, glow_s), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf,
+                    (180, 200, 255, glow_alpha), (0, 0, glow_s, glow_s))
+                screen.blit(glow_surf,
+                    (tablet["x"] - 4, tablet["y"] + float_y - 4))
+
+    # 수집 카운터는 pillar_background.py의 draw_quest_emblem()에서 표시
+
+    # 이펙트 파티클 그리기
+    for effect in quest_tablet_effects:
+        for p in effect["particles"]:
+            if p["life"] > 0:
+                alpha = int(255 * (p["life"] / p["max_life"]))
+                color = p["color"]
+                p_type = p.get("type", "")
+                p_size = p.get("size", 3)
+
+                if p_type == "fragment":
+                    # 사각형 파편 (회전)
+                    rot = p.get("rot", 0)
+                    p["rot"] = rot + p.get("rot_speed", 0)
+                    frag_s = max(2, int(p_size * (p["life"] / p["max_life"] * 0.5 + 0.5)))
+                    frag_surf = pygame.Surface((frag_s + 2, frag_s + 2), pygame.SRCALPHA)
+                    pygame.draw.rect(frag_surf, (*color, alpha), (1, 1, frag_s, frag_s))
+                    # 간단 회전 (90도 단위)
+                    rot_deg = int(math.degrees(rot)) % 360
+                    rotated = pygame.transform.rotate(frag_surf, rot_deg)
+                    rx, ry = int(p["x"]) - rotated.get_width() // 2, int(p["y"]) - rotated.get_height() // 2
+                    screen.blit(rotated, (rx, ry))
+                elif p_type == "dust":
+                    # 먼지 (원형, 페이드아웃)
+                    r = max(1, p_size)
+                    dust_surf = pygame.Surface((r * 2 + 2, r * 2 + 2), pygame.SRCALPHA)
+                    pygame.draw.circle(dust_surf, (*color, min(alpha, 160)), (r + 1, r + 1), r)
+                    screen.blit(dust_surf, (int(p["x"]) - r - 1, int(p["y"]) - r - 1))
+                else:
+                    # 기본 원형 파티클 (수집 효과)
+                    r = max(1, int(3 * (p["life"] / p["max_life"])))
+                    p_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(p_surf, (*color, alpha), (r, r), r)
+                    screen.blit(p_surf, (int(p["x"]) - r, int(p["y"]) - r))
+
 def check_and_complete_quests():
     """스테이지 승리 시 퀘스트 완료 체크 및 보상 지급."""
     global active_quests, quest_stage_active_item_used, quest_stage_boss_score
@@ -60529,6 +62672,16 @@ def check_and_complete_quests():
                     "reward_gold": 1000
                 })
                 print(f"📜 [퀘스트 완료] 완벽한 승리 - 5:0 클리어!")
+
+        elif quest_id == "collect_tablets":
+            # 석판 5개 수집
+            if quest_tablets_collected >= quest_tablets_target:
+                completed_quests.append({
+                    "id": quest_id,
+                    "name": "석판 수집가",
+                    "reward_gold": 800
+                })
+                print(f"📜 [퀘스트 완료] 석판 수집가 - 석판 {quest_tablets_collected}개 수집!")
 
     # 보상 지급 및 퀘스트 목록에서 제거
     for quest in completed_quests:
@@ -61780,17 +63933,16 @@ def store_passive_item(item_data):
             # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
             trigger_legendary_acquisition("ragnarok_hammer", "라그나로크 해머", item_icon, 
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("🔴 라그나로크 해머 획득! 신들의 황혼이 시작됩니다!")
-        else:
-            print("이미 라그나로크 해머를 보유 중입니다.")
-            skip_append = True  # 중복 추가 방지
+            print("🔴 라그나로크 해머 첫 획득! 신들의 황혼이 시작됩니다!")
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "hermes_shoes":
         # 헤르메스의 신발 전설 아이템 획득
         if not hermes_shoes_obtained:
             hermes_shoes_obtained = True  # 게임 전역 변수 설정
             items.hermes_shoes_obtained = True  # items.py의 변수도 업데이트
-            # 전설 아이템 타입 설정
-            item_data["type"] = "legendary"
             try:
                 legendary_manager = get_legendary_manager()
                 if "hermes_shoes" not in legendary_manager.unlocked_items:
@@ -61801,16 +63953,15 @@ def store_passive_item(item_data):
             # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
             trigger_legendary_acquisition("hermes_shoes", "헤르메스의 신발", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("⚡ 헤르메스의 신발 획득! 신들의 속도를 얻었습니다! 이동속도 50% 증가!")
-        else:
-            print("이미 헤르메스의 신발을 보유 중입니다.")
-            skip_append = True  # 중복 추가 방지
+            print("⚡ 헤르메스의 신발 첫 획득! 신들의 속도를 얻었습니다!")
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "poseidon_trident":
         # 포세이돈의 삼지창 전설 아이템 획득
         if not items.poseidon_trident_obtained:
             items.poseidon_trident_obtained = True
-            # 전설 아이템 타입 설정
-            item_data["type"] = "legendary"
             try:
                 legendary_manager = get_legendary_manager()
                 if "poseidon_trident" not in legendary_manager.unlocked_items:
@@ -61818,21 +63969,17 @@ def store_passive_item(item_data):
                     legendary_manager.items["poseidon_trident"].unlocked = True
             except Exception:
                 pass
-            # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
             trigger_legendary_acquisition("poseidon_trident", "포세이돈의 삼지창", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("🌊 포세이돈의 삼지창 획득! 바다의 힘이 깃들었습니다!")
-        else:
-            print("이미 포세이돈의 삼지창을 보유 중입니다.")
-            skip_append = True  # 중복 추가 방지
+            print("🌊 포세이돈의 삼지창 첫 획득! 바다의 힘이 깃들었습니다!")
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "angel_blessing":
         # 천사의 가호 전설 아이템 획득
-        # print(f"[DEBUG] angel_blessing pickup - current obtained state: {items.angel_blessing_obtained}")  # 디버그 비활성화
         if not items.angel_blessing_obtained:
             items.angel_blessing_obtained = True
-            # print(f"[DEBUG] angel_blessing_obtained set to True")  # 디버그 비활성화
-            # 전설 아이템 타입 설정
-            item_data["type"] = "legendary"
             try:
                 legendary_manager = get_legendary_manager()
                 if "angel_blessing" not in legendary_manager.unlocked_items:
@@ -61840,41 +63987,36 @@ def store_passive_item(item_data):
                     legendary_manager.items["angel_blessing"].unlocked = True
             except Exception:
                 pass
-            # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
             trigger_legendary_acquisition("angel_blessing", "천사의 가호", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("😇 천사의 가호 획득! 천사의 축복이 함께합니다!")
-        else:
-            print("이미 천사의 가호를 보유 중입니다.")
-            skip_append = True  # 중복 추가 방지
+            print("😇 천사의 가호 첫 획득! 천사의 축복이 함께합니다!")
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "sacred_laurel":
         # 신성 월계수 전설 아이템 획득
         if not items.sacred_laurel_obtained:
             items.sacred_laurel_obtained = True
-            # 전설 아이템 타입 설정
-            item_data["type"] = "legendary"
             try:
                 legendary_manager = get_legendary_manager()
                 if "sacred_laurel" not in legendary_manager.unlocked_items:
                     legendary_manager.unlocked_items.append("sacred_laurel")
                     legendary_manager.items["sacred_laurel"].unlocked = True
-                # 활성화는 장착 시점에 수행, 여기서는 해금만 보장
             except Exception:
                 pass
-            # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
             trigger_legendary_acquisition("sacred_laurel", "신성 월계수", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("🌿 신성 월계수 획득! 장착 시 성스러운 월계수 잎이 당신을 보호합니다!")
-        else:
-            print("이미 신성 월계수를 보유 중입니다.")
-            skip_append = True  # 중복 추가 방지
+            print("🌿 신성 월계수 첫 획득! 장착 시 성스러운 월계수 잎이 당신을 보호합니다!")
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "transcendent_crown":
         # 초월자의 관 전설 아이템 획득
         # ⚠️ 효과는 장착 시에만 활성화됨 (sync_equipped_passive_effects에서 처리)
         if not items.transcendent_crown_obtained:
             items.transcendent_crown_obtained = True
-            # 전설 아이템 타입 설정
-            item_data["type"] = "legendary"
             try:
                 legendary_manager = get_legendary_manager()
                 if "transcendent_crown" not in legendary_manager.unlocked_items:
@@ -61888,24 +64030,21 @@ def store_passive_item(item_data):
                 if crown:
                     crown._base_skill_bonus = skill_bonus
                     crown.skill_bonus = skill_bonus
-                    # ⚠️ activate()와 recalculate_transcendent_crown_effects() 호출 제거
-                    # 효과는 장착 시 sync_equipped_passive_effects()에서 활성화됨
             except Exception as e:
                 print(f"초월자의 관 효과 적용 오류: {e}")
             # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
             trigger_legendary_acquisition("transcendent_crown", "초월자의 관", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("👑 초월자의 관 획득! 장착 시 모든 투자된 스킬 레벨이 상승합니다!")
-        else:
-            print("이미 초월자의 관을 보유 중입니다.")
-            skip_append = True  # 중복 추가 방지
+            print("👑 초월자의 관 첫 획득! 장착 시 모든 투자된 스킬 레벨이 상승합니다!")
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "odins_eye":
         # 오딘의 눈 전설 아이템 획득 (벨트 부위 - 부활 효과)
         # ⚠️ 효과는 장착 시에만 활성화됨
         if not items.odins_eye_obtained:
             items.odins_eye_obtained = True
-            # 전설 아이템 타입 설정
-            item_data["type"] = "legendary"
             try:
                 legendary_manager = get_legendary_manager()
                 if "odins_eye" not in legendary_manager.unlocked_items:
@@ -61914,21 +64053,19 @@ def store_passive_item(item_data):
                 # 롤 옵션 랜덤화 (부활 확률 30~50%)
                 from legendary_items import get_legendary_roll_value, randomize_legendary_rolls
                 randomize_legendary_rolls("odins_eye")
-                # eye 객체에 강화 보너스 저장 (프로퍼티에서 사용)
                 eye = legendary_manager.items.get("odins_eye")
                 if eye:
                     enhancement_pct = item_data.get("enhancement_bonus_pct", 0)
                     eye.enhancement_bonus_pct = enhancement_pct
-                    # ⚠️ activate() 호출 제거 - 효과는 장착 시 sync_equipped_passive_effects()에서 활성화됨
             except Exception as e:
                 print(f"오딘의 눈 효과 적용 오류: {e}")
-            # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
             trigger_legendary_acquisition("odins_eye", "오딘의 눈", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("👁 오딘의 눈 획득! 장착 시 라운드 패배 시 부활 기회가 생깁니다!")
-        else:
-            print("이미 오딘의 눈을 보유 중입니다.")
-            skip_append = True  # 중복 추가 방지
+            print("👁 오딘의 눈 첫 획득! 장착 시 라운드 패배 시 부활 기회가 생깁니다!")
+        item_data["type"] = "legendary"
+        ensure_legendary_rolls(item_data)
+        apply_roll_bonuses_from_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "gold_bar":
         # 금괴 패시브 아이템 획득
         if not items.gold_bar_obtained:
@@ -64064,38 +66201,63 @@ def update_water_trail():
     # 물자국 점점 사라지게 하기 (시간이 지나면 투명도 감소)
     water_trail_positions = [(x, y, alpha - 3) for x, y, alpha in water_trail_positions if alpha > 0]
 def draw_water_trail():
-    """물자국 그리기 함수"""
+    """물자국 그리기 함수 (캐시 최적화 - 매 프레임 Surface 생성 제거)"""
+    global _water_trail_cache
     for x, y, alpha in water_trail_positions:
         if alpha > 0:
-            # 물자국 크기와 색상
-            size = random.randint(8, 15)
-            color = (100, DEFAULT_ALPHA, 255, min(alpha, 100))  # 푸른 물빛, 최대 투명도 100
-            # 물자국 그리기 (타원형)
-            water_surface = pygame.Surface((size, size//2), pygame.SRCALPHA)
-            pygame.draw.ellipse(water_surface, color, (0, 0, size, size//2))
-            SCREEN.blit(water_surface, (x - size//2, y - size//4))
+            # 물자국 크기 (랜덤 대신 alpha 기반으로 결정하여 캐시 효율화)
+            size = 8 + (alpha % 8)  # 8-15 범위, alpha에 따라 결정적
+            alpha_clamped = min(alpha, 100)
+            # 알파 버킷팅 (20, 40, 60, 80, 100)
+            alpha_bucket = min(_WATER_ALPHA_BUCKETS, key=lambda b: abs(b - alpha_clamped))
+            cache_key = (size, alpha_bucket)
+
+            # 캐시에서 가져오거나 새로 생성
+            if cache_key not in _water_trail_cache:
+                surf = pygame.Surface((size, size // 2), pygame.SRCALPHA)
+                color = (100, DEFAULT_ALPHA, 255, alpha_bucket)
+                pygame.draw.ellipse(surf, color, (0, 0, size, size // 2))
+                _water_trail_cache[cache_key] = surf
+
+            SCREEN.blit(_water_trail_cache[cache_key], (x - size // 2, y - size // 4))
 def draw_pachinko():
-    """라스베가스 스타일 슬롯머신 그리기 함수"""
+    """라스베가스 스타일 슬롯머신 그리기 함수 (캐시 최적화)"""
+    global _pachinko_cache
     if not pachinko_active:
         return
-    # 라스베가스 스타일 배경 (화려한 그라데이션)
-    for y in range(HEIGHT):
-        ratio = y / HEIGHT
-        r = int(20 + ratio * 30)
-        g = int(10 + ratio * 20)
-        b = int(40 + ratio * 50)
-        draw.line((r, g, b), (0, y), (WIDTH, y))
+
+    # === 배경 그라데이션 캐싱 (750회 draw.line → 1회 blit) ===
+    bg_cache_key = ("pachinko_bg", WIDTH, HEIGHT)
+    if bg_cache_key not in _pachinko_cache:
+        import numpy as np
+        bg_surf = pygame.Surface((WIDTH, HEIGHT))
+        arr = np.zeros((WIDTH, HEIGHT, 3), dtype=np.uint8)
+        y_indices = np.arange(HEIGHT, dtype=np.float32)
+        ratios = y_indices / HEIGHT
+        arr[:, :, 0] = (20 + ratios * 30).astype(np.uint8)
+        arr[:, :, 1] = (10 + ratios * 20).astype(np.uint8)
+        arr[:, :, 2] = (40 + ratios * 50).astype(np.uint8)
+        pygame.surfarray.blit_array(bg_surf, arr)
+        _pachinko_cache[bg_cache_key] = bg_surf
+    SCREEN.blit(_pachinko_cache[bg_cache_key], (0, 0))
+
     # 메인 컨테이너 (라스베가스 카지노 스타일)
     container_width = 500
     container_height = 600
     container_x = (WIDTH - container_width) // 2
     container_y = (HEIGHT - container_height) // 2 - 20
-    # 컨테이너 글로우 효과 (골드)
+
+    # === 컨테이너 글로우 캐싱 (10개 Surface → 캐시 재사용) ===
     for i in range(10):
+        glow_w = container_width + i * 6
+        glow_h = container_height + i * 6
         glow_alpha = 60 - i * 6
-        glow_surface = pygame.Surface((container_width + i*6, container_height + i*6), pygame.SRCALPHA)
-        glow_surface.fill((255, 215, 0, glow_alpha))
-        SCREEN.blit(glow_surface, (container_x - i*3, container_y - i*3))
+        glow_key = ("pachinko_glow", glow_w, glow_h, glow_alpha)
+        if glow_key not in _pachinko_cache:
+            glow_surface = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+            glow_surface.fill((255, 215, 0, glow_alpha))
+            _pachinko_cache[glow_key] = glow_surface
+        SCREEN.blit(_pachinko_cache[glow_key], (container_x - i * 3, container_y - i * 3))
     # 메인 컨테이너
     main_container = pygame.Rect(container_x, container_y, container_width, container_height)
     draw.rect((25, 15, 5), main_container)
@@ -64160,17 +66322,22 @@ def draw_pachinko():
                         center_x = reel_x + slot_width // 2
                         center_y = item_y + item_size // 2
                         draw.circle(item["color"], (center_x, center_y), 20)
-        # 중앙 선택 표시 (골드 글로우)
+        # 중앙 선택 표시 (골드 글로우) - 캐싱
         center_y = reel_y + slot_height // 2
         center_rect = pygame.Rect(reel_x - 5, center_y - 35, slot_width + 10, 70)
-        # 글로우 효과
+        # 글로우 효과 (캐시 사용)
         for i in range(3):
+            glow_w = slot_width + 10 + i * 4
+            glow_h = 70 + i * 4
             glow_alpha = 100 - i * 30
-            glow_surface = pygame.Surface((slot_width + 10 + i*4, 70 + i*4), pygame.SRCALPHA)
-            glow_surface.fill((255, 215, 0, glow_alpha))
-            glow_x = reel_x - 5 - i*2
-            glow_y = center_y - 35 - i*2
-            SCREEN.blit(glow_surface, (glow_x, glow_y))
+            reel_glow_key = ("reel_glow", glow_w, glow_h, glow_alpha)
+            if reel_glow_key not in _pachinko_cache:
+                glow_surface = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+                glow_surface.fill((255, 215, 0, glow_alpha))
+                _pachinko_cache[reel_glow_key] = glow_surface
+            glow_x = reel_x - 5 - i * 2
+            glow_y = center_y - 35 - i * 2
+            SCREEN.blit(_pachinko_cache[reel_glow_key], (glow_x, glow_y))
         draw.rect((255, 215, 0), center_rect, 4)
     # 결과 표시
     if pachinko_phase == 3 and slot_final_result:
@@ -64182,13 +66349,20 @@ def draw_pachinko():
         result_height = 120
         result_x = (WIDTH - result_width) // 2
         result_y = container_y + container_height + 20
-        # 화려한 배경
-        for i in range(result_height):
-            ratio = i / result_height
-            r = int(50 + ratio * 100)
-            g = int(30 + ratio * 80)
-            b = int(10 + ratio * 40)
-            draw.line((r, g, b), (result_x, result_y + i), (result_x + result_width, result_y + i))
+        # 화려한 배경 (캐싱 - 120회 draw.line → 1회 blit)
+        result_bg_key = ("pachinko_result_bg", result_width, result_height)
+        if result_bg_key not in _pachinko_cache:
+            import numpy as np
+            result_surf = pygame.Surface((result_width, result_height))
+            arr = np.zeros((result_width, result_height, 3), dtype=np.uint8)
+            y_indices = np.arange(result_height, dtype=np.float32)
+            ratios = y_indices / result_height
+            arr[:, :, 0] = (50 + ratios * 100).astype(np.uint8)
+            arr[:, :, 1] = (30 + ratios * 80).astype(np.uint8)
+            arr[:, :, 2] = (10 + ratios * 40).astype(np.uint8)
+            pygame.surfarray.blit_array(result_surf, arr)
+            _pachinko_cache[result_bg_key] = result_surf
+        SCREEN.blit(_pachinko_cache[result_bg_key], (result_x, result_y))
         draw.rect((255, 215, 0), (result_x, result_y, result_width, result_height), 4)
         # 당첨 아이템 표시
         if "icon" in slot_final_result and slot_final_result["icon"]:
@@ -64626,6 +66800,14 @@ _ingame_tutorial_completed = False  # 튜토리얼 완료 여부
 _ingame_tutorial_dash_pending = False  # 대쉬 사용됨, 통제불능 종료 대기 중
 _ingame_tutorial_dash_is_half = False  # 대기 중인 대쉬가 하프대쉬인지
 _ingame_tutorial_wait_first_hit = True  # 첫 번째 공 히트 대기 중
+_is_tutorial_mode_active = False  # 튜토리얼 경로로 시작했는지 (일반 게임에서 주니어리그와 구분)
+
+def set_tutorial_mode(is_tutorial: bool) -> None:
+    """튜토리얼 모드 설정 (start_menu.py에서 호출)"""
+    global _is_tutorial_mode_active
+    _is_tutorial_mode_active = is_tutorial
+    print(f"[DEBUG] set_tutorial_mode({is_tutorial}) 호출됨")
+
 _ingame_tutorial_combo_pending = False  # 3콤보 달성됨, 애니메이션 종료 대기 중
 _ingame_tutorial_delay_start = 0  # 딜레이 시작 시간 (ms)
 _ingame_tutorial_delay_duration = 3000  # 딜레이 지속 시간 (3초 = 3000ms)
@@ -67106,8 +69288,9 @@ def on_player_hit_ball_for_tutorial():
     """플레이어가 공을 맞췄을 때 튜토리얼 체크 - 첫 번째 히트 시 튜토리얼 시작"""
     global _ingame_tutorial_wait_first_hit, _ingame_tutorial_active
     global _ingame_tutorial_score_frozen, round_wins, round_losses
-    print(f"[DEBUG] on_player_hit_ball_for_tutorial() 호출됨 - wait_first_hit={_ingame_tutorial_wait_first_hit}, completed={_ingame_tutorial_completed}")
-    if _ingame_tutorial_wait_first_hit and not _ingame_tutorial_completed:
+    print(f"[DEBUG] on_player_hit_ball_for_tutorial() 호출됨 - wait_first_hit={_ingame_tutorial_wait_first_hit}, completed={_ingame_tutorial_completed}, tutorial_mode={_is_tutorial_mode_active}")
+    # 튜토리얼 모드로 시작한 경우에만 튜토리얼 진행 (일반 게임에서 주니어리그 선택 시 제외)
+    if _ingame_tutorial_wait_first_hit and not _ingame_tutorial_completed and _is_tutorial_mode_active:
         print(f"[DEBUG] 첫 히트로 튜토리얼 시작!")
         _ingame_tutorial_wait_first_hit = False
         _ingame_tutorial_active = True
@@ -72103,13 +74286,24 @@ def draw_stage2_boss_gauge_bar():
     gauge_ratio = min(current_gauge / max_gauge, 1.0)
     filled_height = int(gauge_height * gauge_ratio)
     if filled_height > 0:
-        for i in range(filled_height):
-            row_ratio = i / max(1, filled_height - 1)
-            r = int(38 + 22 * (1 - row_ratio))
-            g = int(150 + 60 * row_ratio)
-            b = int(84 + 36 * (1 - row_ratio))
-            y_pos = gauge_y + gauge_height - i - 1
-            pygame.draw.line(SCREEN, (r, g, b), (gauge_x + 2, y_pos), (gauge_x + gauge_width - 3, y_pos))
+        # 캐시된 그라데이션 사용 (높이 버킷팅: 10픽셀 단위)
+        height_bucket = max(10, ((filled_height + 9) // 10) * 10)
+        cache_key = ("stage2_gauge", gauge_width - 5, height_bucket)
+        if cache_key not in _gauge_gradient_cache:
+            if len(_gauge_gradient_cache) > 30:
+                _gauge_gradient_cache.clear()
+            grad_surf = pygame.Surface((gauge_width - 5, height_bucket), pygame.SRCALPHA)
+            for i in range(height_bucket):
+                row_ratio = i / max(1, height_bucket - 1)
+                r = int(38 + 22 * (1 - row_ratio))
+                g = int(150 + 60 * row_ratio)
+                b = int(84 + 36 * (1 - row_ratio))
+                pygame.draw.line(grad_surf, (r, g, b), (0, height_bucket - i - 1), (gauge_width - 6, height_bucket - i - 1))
+            _gauge_gradient_cache[cache_key] = grad_surf
+        grad_surf = _gauge_gradient_cache[cache_key]
+        # filled_height만큼만 blit (하단부터)
+        src_rect = (0, height_bucket - filled_height, gauge_width - 5, filled_height)
+        SCREEN.blit(grad_surf, (gauge_x + 2, gauge_y + gauge_height - filled_height), src_rect)
 
         wave_top = gauge_y + gauge_height - filled_height
         shimmer = 0.6 + 0.4 * math.sin(time_now * 0.02)
@@ -74053,6 +76247,10 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
 
 
+# === 구슬 렌더링 캐시 (정적 요소 - orb_radius가 변경될 때만 재생성) ===
+_blue_orb_cache = {"radius": -1}
+_red_orb_cache = {"radius": -1}
+
 def draw_player_gauge():
     """플레이어 게이지바 그리기 - 디아블로 스타일 버전
 
@@ -74227,101 +76425,268 @@ def draw_player_gauge():
                         pygame.draw.circle(p_surface, (*p['color'], p_alpha), (p_radius + 1, p_radius + 1), p_radius)
                         _player_gauge_surface_left.blit(p_surface, (int(px - p_radius - 1), int(py - p_radius - 1)))
 
-            # === 1. 구슬 외곽 프레임 (금속 테두리) ===
-            frame_color_dark = (40, 35, 30)
-            frame_color_light = (100, 90, 70)
-            frame_color_highlight = (160, 140, 100)
+            # === 1~2. 구슬 프레임 + 배경 (캐시 최적화) ===
+            _surf = _player_gauge_surface_left
+            _cx, _cy, _r = orb_center_x, orb_center_y, orb_radius
+            _frame_w = 10
 
-            # 외곽 어두운 그림자
-            pygame.draw.circle(_player_gauge_surface_left, (20, 18, 15), (orb_center_x + 2, orb_center_y + 2), orb_radius + 6)
-            # 외곽 프레임
-            pygame.draw.circle(_player_gauge_surface_left, frame_color_dark, (orb_center_x, orb_center_y), orb_radius + 5)
-            pygame.draw.circle(_player_gauge_surface_left, frame_color_light, (orb_center_x, orb_center_y), orb_radius + 5, 3)
-            pygame.draw.circle(_player_gauge_surface_left, frame_color_highlight, (orb_center_x, orb_center_y), orb_radius + 3, 1)
+            # 정적 요소 캐시 재생성 (orb_radius 변경 시만)
+            if _blue_orb_cache.get("radius") != _r:
+                _blue_orb_cache["radius"] = _r
+                _sw, _sh = _surf.get_width(), _surf.get_height()
+                # --- 프레임 정적 캐시 ---
+                _fc = pygame.Surface((_sw, _sh), pygame.SRCALPHA)
+                _shadow_surf = pygame.Surface((_r * 2 + 40, _r * 2 + 40), pygame.SRCALPHA)
+                for _si in range(4):
+                    _sr = _r + _frame_w + 3 - _si
+                    _sa = 60 - _si * 15
+                    pygame.draw.circle(_shadow_surf, (5, 5, 3, _sa), (_r + 20 + 2, _r + 20 + 3), _sr)
+                _fc.blit(_shadow_surf, (_cx - _r - 20, _cy - _r - 20))
+                pygame.draw.circle(_fc, (45, 35, 20), (_cx, _cy), _r + _frame_w)
+                pygame.draw.circle(_fc, (130, 105, 55), (_cx, _cy), _r + _frame_w, 4)
+                pygame.draw.circle(_fc, (190, 165, 95), (_cx, _cy), _r + _frame_w, 2)
+                pygame.draw.circle(_fc, (100, 80, 40), (_cx, _cy), _r + _frame_w - 4, 2)
+                pygame.draw.circle(_fc, (170, 145, 80), (_cx, _cy), _r + _frame_w - 5, 1)
+                _bevel_rect = (_cx - _r - _frame_w + 2, _cy - _r - _frame_w + 2,
+                              (_r + _frame_w - 2) * 2, (_r + _frame_w - 2) * 2)
+                pygame.draw.arc(_fc, (220, 200, 140, 180), _bevel_rect, math.radians(200), math.radians(340), 3)
+                pygame.draw.arc(_fc, (30, 22, 12, 160), _bevel_rect, math.radians(20), math.radians(160), 3)
+                _num_studs = 8
+                for _si in range(_num_studs):
+                    _sa = _si * (math.pi * 2 / _num_studs) - math.pi / 2
+                    _sd = _r + _frame_w // 2
+                    _sx = int(_cx + math.cos(_sa) * _sd)
+                    _sy = int(_cy + math.sin(_sa) * _sd)
+                    pygame.draw.circle(_fc, (60, 50, 30, 255), (_sx, _sy), 6)
+                    pygame.draw.circle(_fc, (150, 125, 70, 255), (_sx, _sy), 5)
+                    pygame.draw.circle(_fc, (200, 175, 100, 255), (_sx, _sy), 4)
+                    pygame.draw.circle(_fc, (30, 80, 160, 255), (_sx, _sy), 3)
+                    pygame.draw.circle(_fc, (80, 150, 240, 255), (_sx, _sy), 2)
+                    pygame.draw.circle(_fc, (180, 220, 255, 200), (_sx - 1, _sy - 1), 1)
+                for _si in range(_num_studs):
+                    _a1 = _si * (math.pi * 2 / _num_studs) - math.pi / 2
+                    _a2 = (_si + 1) * (math.pi * 2 / _num_studs) - math.pi / 2
+                    _amid = (_a1 + _a2) / 2
+                    _od = _r + _frame_w + 4
+                    _omx = int(_cx + math.cos(_amid) * _od)
+                    _omy = int(_cy + math.sin(_amid) * _od)
+                    _dd = 3
+                    _d_pts = [
+                        (_omx + int(math.cos(_amid) * _dd), _omy + int(math.sin(_amid) * _dd)),
+                        (_omx + int(math.cos(_amid + math.pi/2) * _dd * 0.6), _omy + int(math.sin(_amid + math.pi/2) * _dd * 0.6)),
+                        (_omx - int(math.cos(_amid) * _dd), _omy - int(math.sin(_amid) * _dd)),
+                        (_omx - int(math.cos(_amid + math.pi/2) * _dd * 0.6), _omy - int(math.sin(_amid + math.pi/2) * _dd * 0.6)),
+                    ]
+                    pygame.draw.polygon(_fc, (180, 155, 90, 200), _d_pts)
+                    pygame.draw.polygon(_fc, (220, 195, 120, 160), _d_pts, 1)
+                    for _q in [0.3, 0.7]:
+                        _qa = _a1 + (_a2 - _a1) * _q
+                        _qd = _r + _frame_w + 2
+                        _qx = int(_cx + math.cos(_qa) * _qd)
+                        _qy = int(_cy + math.sin(_qa) * _qd)
+                        pygame.draw.circle(_fc, (160, 135, 75, 140), (_qx, _qy), 1)
+                pygame.draw.circle(_fc, (25, 20, 12), (_cx, _cy), _r + 2, 2)
+                pygame.draw.circle(_fc, (90, 75, 45), (_cx, _cy), _r + 1, 1)
+                _blue_orb_cache["frame"] = _fc
+                # --- 배경 그라데이션 캐시 ---
+                _bg_cache = pygame.Surface((_r * 2 + 2, _r * 2 + 2), pygame.SRCALPHA)
+                for _gr in range(_r, 0, -2):
+                    _ratio = _gr / _r
+                    _bg_r = int(5 + 18 * (1 - _ratio))
+                    _bg_g = int(12 + 30 * (1 - _ratio))
+                    _bg_b = int(25 + 40 * (1 - _ratio))
+                    pygame.draw.circle(_bg_cache, (_bg_r, _bg_g, _bg_b), (_r + 1, _r + 1), _gr)
+                _blue_orb_cache["bg"] = _bg_cache
+                # --- 글래스 오버레이 캐시 ---
+                _gc = pygame.Surface((_sw, _sh), pygame.SRCALPHA)
+                _hl_s = pygame.Surface((_r * 2 + 4, _r * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.ellipse(_hl_s, (255, 255, 255, 35), (8, 5, _r + 10, _r // 2))
+                pygame.draw.ellipse(_hl_s, (255, 255, 255, 55), (14, 10, _r - 10, _r // 3))
+                pygame.draw.ellipse(_hl_s, (255, 255, 255, 80), (18, 14, _r // 2, _r // 4))
+                pygame.draw.circle(_hl_s, (255, 255, 255, 140), (_r // 3, _r // 3), 3)
+                pygame.draw.circle(_hl_s, (255, 255, 255, 100), (_r // 3 + 1, _r // 3 + 1), 2)
+                _rim_s = pygame.Surface((_r * 2 + 4, _r * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.arc(_rim_s, (150, 200, 255, 40), (2, 2, _r * 2, _r * 2),
+                               math.radians(30), math.radians(150), 2)
+                _gc.blit(_hl_s, (_cx - _r - 2, _cy - _r - 2))
+                _gc.blit(_rim_s, (_cx - _r - 2, _cy - _r - 2))
+                pygame.draw.circle(_gc, (0, 0, 0, 120), (_cx, _cy), _r, 3)
+                pygame.draw.circle(_gc, (0, 0, 0, 60), (_cx, _cy), _r - 1, 1)
+                pygame.draw.arc(_gc, (100, 160, 220, 50),
+                               (_cx - _r, _cy - _r, _r * 2, _r * 2),
+                               math.radians(200), math.radians(340), 1)
+                for _ba in [math.radians(a) for a in [315, 45, 225, 135]]:
+                    _bx = int(_cx + math.cos(_ba) * (_r + 5))
+                    _by = int(_cy + math.sin(_ba) * (_r + 5))
+                    pygame.draw.circle(_gc, (50, 40, 25, 255), (_bx, _by), 6)
+                    pygame.draw.circle(_gc, (130, 110, 65, 255), (_bx, _by), 5)
+                    pygame.draw.circle(_gc, (180, 155, 90, 255), (_bx, _by), 4)
+                    pygame.draw.circle(_gc, (200, 170, 80, 255), (_bx, _by), 3)
+                    pygame.draw.circle(_gc, (240, 210, 120, 255), (_bx, _by), 2)
+                    pygame.draw.circle(_gc, (255, 240, 180, 180), (_bx - 1, _by - 1), 1)
+                _blue_orb_cache["glass"] = _gc
+                # --- 채우기 그라데이션 캐시 (4 색상 티어) ---
+                _fill_size_c = _r * 2 + 10
+                _fill_cx_c = _r + 5
+                _fill_tiers = {}
+                for _tk, _fcb, _fct, _fcs in [
+                    ("gold", (180, 150, 40), (255, 240, 140), (255, 255, 180)),
+                    ("high", (25, 70, 180), (100, 180, 255), (130, 200, 255)),
+                    ("mid",  (15, 45, 140), (60, 130, 230), (90, 150, 235)),
+                    ("low",  (10, 25, 100), (35, 75, 180), (50, 100, 190)),
+                ]:
+                    _fs = pygame.Surface((_fill_size_c, _fill_size_c), pygame.SRCALPHA)
+                    for _fy in range(_r * 2):
+                        _dy = abs(_fy - _r)
+                        if _dy >= _r:
+                            continue
+                        _dx = int(math.sqrt(_r * _r - _dy * _dy))
+                        _gy_r = _fy / (_r * 2) if _r > 0 else 0
+                        _fr = int(_fct[0] + (_fcb[0] - _fct[0]) * _gy_r)
+                        _fg = int(_fct[1] + (_fcb[1] - _fct[1]) * _gy_r)
+                        _fb = int(_fct[2] + (_fcb[2] - _fct[2]) * _gy_r)
+                        pygame.draw.line(_fs, (_fr, _fg, _fb),
+                                        (_fill_cx_c - _dx, 5 + _fy), (_fill_cx_c + _dx, 5 + _fy))
+                    # 내부 빛 효과 (별도 서피스에 그린 후 블렌딩)
+                    _il_r = int(_r * 0.6)
+                    _il_surf = pygame.Surface((_fill_size_c, _fill_size_c), pygame.SRCALPHA)
+                    for _ilr in range(_il_r, 0, -2):
+                        _il_ratio = _ilr / _il_r
+                        _il_alpha = int(30 * (1 - _il_ratio))
+                        pygame.draw.circle(_il_surf, (_fcs[0], _fcs[1], _fcs[2], _il_alpha),
+                                          (_fill_cx_c, _fill_cx_c - int(_r * 0.1)), _ilr)
+                    _fs.blit(_il_surf, (0, 0))
+                    _fill_tiers[_tk] = _fs
+                _blue_orb_cache["fills"] = _fill_tiers
 
-            # === 2. 구슬 배경 (비어있는 부분 - 어두운 색) ===
-            empty_color = (15, 25, 40)  # 어두운 파란색/검정
-            pygame.draw.circle(_player_gauge_surface_left, empty_color, (orb_center_x, orb_center_y), orb_radius)
+            # 1-1. 외곽 글로우 (애니메이션 - 매 프레임)
+            _frame_glow_surf = pygame.Surface((_r * 2 + 50, _r * 2 + 50), pygame.SRCALPHA)
+            _fg_pulse = 0.6 + 0.4 * math.sin(time_now * 0.003)
+            for _gi in range(4):
+                _gr = _r + _frame_w + 12 - _gi * 3
+                _ga = int(25 * _fg_pulse * (4 - _gi) / 4)
+                pygame.draw.circle(_frame_glow_surf, (80, 140, 220, _ga), (_r + 25, _r + 25), _gr)
+            _surf.blit(_frame_glow_surf, (_cx - _r - 25, _cy - _r - 25))
 
-        # === 3. 게이지 채워진 부분 (아래에서 위로 차오름) ===
+            # 캐시된 프레임 blit
+            _surf.blit(_blue_orb_cache["frame"], (0, 0))
+            # 캐시된 배경 blit
+            _surf.blit(_blue_orb_cache["bg"], (_cx - _r - 1, _cy - _r - 1))
+
+            # 내부 별빛 파티클 (애니메이션 - 매 프레임)
+            _sparkle_surf = pygame.Surface((_r * 2, _r * 2), pygame.SRCALPHA)
+            for _pi in range(12):
+                _pa = time_now * 0.001 + _pi * 0.52
+                _pd = (_r - 8) * (0.3 + 0.5 * abs(math.sin(_pa * 0.7 + _pi)))
+                _ppx = int(_r + math.cos(_pa) * _pd)
+                _ppy = int(_r + math.sin(_pa * 0.8) * _pd)
+                _p_alpha = int(60 + 40 * abs(math.sin(_pa * 1.3)))
+                _p_size = 1 + int(abs(math.sin(_pa * 0.5)))
+                if 0 < _ppx < _r * 2 and 0 < _ppy < _r * 2:
+                    _dx = _ppx - _r
+                    _dy = _ppy - _r
+                    if _dx * _dx + _dy * _dy < (_r - 5) * (_r - 5):
+                        pygame.draw.circle(_sparkle_surf, (100, 180, 255, _p_alpha), (_ppx, _ppy), _p_size)
+            _surf.blit(_sparkle_surf, (_cx - _r, _cy - _r))
+
+        # === 3. 게이지 채워진 부분 (고급 액상 효과) ===
         if gauge_ratio > 0 and orb_radius > 0:
             # 채워진 높이 계산
             fill_height = int(orb_radius * 2 * gauge_ratio)
             fill_top = orb_center_y + orb_radius - fill_height
-
-            # 게이지 색상 (파란색 계열 - 마나 스타일)
-            if gauge_ratio >= 1.0:
-                # 만렙: 밝은 황금색 + 빛나는 효과
-                fill_color = (255, 220, 100)
-                glow_color = (255, 255, 200)
-            elif gauge_ratio >= 0.7:
-                # 높음: 밝은 파란색
-                fill_color = (80, 150, 255)
-                glow_color = (150, 200, 255)
-            elif gauge_ratio >= 0.3:
-                # 중간: 일반 파란색
-                fill_color = (50, 100, 200)
-                glow_color = (100, 150, 230)
-            else:
-                # 낮음: 어두운 파란색
-                fill_color = (30, 60, 150)
-                glow_color = (60, 100, 180)
-
-            # 마스킹을 위한 Surface 생성
-            fill_surface = pygame.Surface((orb_radius * 2 + 10, orb_radius * 2 + 10), pygame.SRCALPHA)
-            fill_surface.fill((0, 0, 0, 0))
-
-            # 원형 마스크 그리기
-            pygame.draw.circle(fill_surface, fill_color, (orb_radius + 5, orb_radius + 5), orb_radius)
-
-            # 채워진 부분만 표시 (위쪽 클리핑)
-            clip_y = int((1.0 - gauge_ratio) * orb_radius * 2)
-            clip_surface = pygame.Surface((orb_radius * 2 + 10, orb_radius * 2 + 10), pygame.SRCALPHA)
-            clip_surface.blit(fill_surface, (0, 0), (0, clip_y, orb_radius * 2 + 10, orb_radius * 2 + 10 - clip_y))
-            _player_gauge_surface_left.blit(clip_surface, (orb_center_x - orb_radius - 5, orb_center_y - orb_radius - 5 + clip_y))
-
-            # 물결 효과 (상단 경계선)
-            wave_y = fill_top
             time_now = pygame.time.get_ticks()
-            wave_offset = math.sin(time_now * 0.005) * 3
-            for wx in range(-orb_radius, orb_radius, 4):
-                # 원 안에 있는지 체크
-                dist_from_center = abs(wx)
-                if dist_from_center < orb_radius:
-                    wave_height = math.sqrt(orb_radius**2 - wx**2)
-                    if wave_y >= orb_center_y - wave_height and wave_y <= orb_center_y + wave_height:
-                        wave_local_y = wave_y + math.sin(wx * 0.15 + time_now * 0.008) * 2 + wave_offset
-                        pygame.draw.circle(_player_gauge_surface_left, glow_color,
-                                         (int(orb_center_x + wx), int(wave_local_y)), 2)
 
-        # === 4. 구슬 하이라이트 (유리 반사 효과) ===
-        highlight_surface = pygame.Surface((orb_radius * 2, orb_radius * 2), pygame.SRCALPHA)
-        # 상단 왼쪽 하이라이트
-        pygame.draw.ellipse(highlight_surface, (255, 255, 255, 60),
-                           (10, 8, orb_radius - 5, orb_radius // 2 - 5))
-        # 작은 반짝임
-        pygame.draw.circle(highlight_surface, (255, 255, 255, 100),
-                          (orb_radius // 3, orb_radius // 3), 4)
-        _player_gauge_surface_left.blit(highlight_surface,
-                                        (orb_center_x - orb_radius, orb_center_y - orb_radius))
+            # 게이지 색상 결정 + 캐시된 채우기 그라데이션 사용
+            if gauge_ratio >= 1.0:
+                glow_color = (255, 255, 200)
+                _tier_key = "gold"
+            elif gauge_ratio >= 0.7:
+                glow_color = (150, 210, 255)
+                _tier_key = "high"
+            elif gauge_ratio >= 0.3:
+                glow_color = (100, 160, 240)
+                _tier_key = "mid"
+            else:
+                glow_color = (60, 110, 200)
+                _tier_key = "low"
 
-        # === 5. 내부 테두리 (깊이감) ===
-        pygame.draw.circle(_player_gauge_surface_left, (0, 0, 0, 100),
-                          (orb_center_x, orb_center_y), orb_radius, 2)
+            # 캐시된 그라데이션 복사 (물결 클리핑용)
+            _fill_size = orb_radius * 2 + 10
+            _fill_cx = orb_radius + 5
+            fill_surface = _blue_orb_cache["fills"][_tier_key].copy()
 
-        # === 6. (텍스트는 맨 마지막에 그림) ===
+            # 물결 모양 클리핑 (수면이 웨이브 곡선을 따라감)
+            _wave_slow = math.sin(time_now * 0.002) * 1.5
+            _fill_top_local = _fill_cx + orb_radius - fill_height  # fill_surface 내부 Y좌표
 
-        # === 7. 구슬 프레임 장식 (금속 볼트) ===
-        bolt_positions = [
-            (orb_center_x - orb_radius - 2, orb_center_y - 20),
-            (orb_center_x - orb_radius - 2, orb_center_y + 20),
-            (orb_center_x + orb_radius + 2, orb_center_y - 20),
-            (orb_center_x + orb_radius + 2, orb_center_y + 20),
-        ]
-        for bx, by in bolt_positions:
-            pygame.draw.circle(_player_gauge_surface_left, (60, 55, 45), (bx, by), 4)
-            pygame.draw.circle(_player_gauge_surface_left, (120, 110, 90), (bx, by), 3)
-            pygame.draw.circle(_player_gauge_surface_left, (180, 160, 120), (bx, by), 2)
+            # 물결 곡선 포인트 계산 (fill_surface 로컬 좌표)
+            _wave_pts_local = []
+            for _wx in range(-orb_radius + 1, orb_radius, 1):
+                if abs(_wx) < orb_radius - 1:
+                    _lx = _fill_cx + _wx
+                    _ly = _fill_top_local + math.sin(_wx * 0.08 + time_now * 0.003) * 1.8 + _wave_slow
+                    _wave_pts_local.append((_lx, _ly))
+
+            if len(_wave_pts_local) >= 2:
+                # 웨이브 위 영역 제거 (투명하게) - 폴리곤으로 마스킹
+                _erase_poly = [(0, 0), (_fill_size - 1, 0),
+                               (_fill_size - 1, _wave_pts_local[-1][1])]
+                for _wpt in reversed(_wave_pts_local):
+                    _erase_poly.append((_wpt[0], _wpt[1]))
+                _erase_poly.append((0, _wave_pts_local[0][1]))
+
+                _eraser = pygame.Surface((_fill_size, _fill_size), pygame.SRCALPHA)
+                pygame.draw.polygon(_eraser, (0, 0, 0, 255), _erase_poly)
+                fill_surface.blit(_eraser, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+
+            # 채워진 부분 blit (물결 모양으로 잘린 액체)
+            _player_gauge_surface_left.blit(fill_surface, (orb_center_x - orb_radius - 5, orb_center_y - orb_radius - 5))
+
+            # 은은한 수면 글로우 (웨이브 경계에 빛)
+            if fill_height > 3:
+                _wave_surf = pygame.Surface((_player_gauge_surface_left.get_width(), _player_gauge_surface_left.get_height()), pygame.SRCALPHA)
+
+                # 1. 물결선 위 은은한 글로우 라인
+                _prev_pt = None
+                for _wx in range(-orb_radius + 3, orb_radius - 3, 2):
+                    if abs(_wx) < orb_radius - 3:
+                        _wh = math.sqrt((orb_radius - 3)**2 - _wx**2)
+                        _screen_wy = fill_top + math.sin(_wx * 0.08 + time_now * 0.003) * 1.8 + _wave_slow
+                        if _screen_wy >= orb_center_y - _wh and _screen_wy <= orb_center_y + _wh:
+                            _cur_pt = (int(orb_center_x + _wx), int(_screen_wy))
+                            if _prev_pt is not None:
+                                pygame.draw.line(_wave_surf, (*glow_color, 40), _prev_pt, _cur_pt, 2)
+                                pygame.draw.line(_wave_surf, (255, 255, 255, 20), _prev_pt, _cur_pt, 1)
+                            _prev_pt = _cur_pt
+                        else:
+                            _prev_pt = None
+                    else:
+                        _prev_pt = None
+
+                _player_gauge_surface_left.blit(_wave_surf, (0, 0))
+
+            # 기포 파티클 (물결 수면 아래만 표시)
+            if fill_height > 8:
+                _bbl_surf = pygame.Surface((_player_gauge_surface_left.get_width(), _player_gauge_surface_left.get_height()), pygame.SRCALPHA)
+                for _bi in range(5):
+                    _ba = time_now * 0.001 + _bi * 1.26
+                    _bx = orb_center_x + int(math.sin(_ba * 0.5 + _bi * 2.1) * (orb_radius * 0.35))
+                    _by_offset = int((_ba * 12 + _bi * 22) % max(1, fill_height))
+                    _by = orb_center_y + orb_radius - _by_offset
+                    # 해당 x 위치에서의 물결 수면 y 계산
+                    _bwx = _bx - orb_center_x
+                    _b_wave_y = fill_top + math.sin(_bwx * 0.08 + time_now * 0.003) * 1.8 + _wave_slow
+                    _bdx = _bx - orb_center_x
+                    _bdy = _by - orb_center_y
+                    if _bdx * _bdx + _bdy * _bdy < (orb_radius - 8) * (orb_radius - 8) and _by > _b_wave_y + 4:
+                        _b_alpha = int(30 + 20 * abs(math.sin(_ba * 0.9)))
+                        pygame.draw.circle(_bbl_surf, (200, 230, 255, _b_alpha), (_bx, _by), 2)
+                        pygame.draw.circle(_bbl_surf, (255, 255, 255, _b_alpha // 3), (_bx, _by - 1), 1)
+                _player_gauge_surface_left.blit(_bbl_surf, (0, 0))
+
+        # === 4~7. 글래스 + 깊이 + 볼트 (캐시된 오버레이) ===
+        if "glass" in _blue_orb_cache:
+            _player_gauge_surface_left.blit(_blue_orb_cache["glass"], (0, 0))
 
         # === 8. 킥차저/나비 충전 애니메이션 - 구슬 황금빛 글로우 효과 ===
         if gauge_charge_animation_timer > 0:
@@ -74427,6 +76792,18 @@ def draw_player_gauge():
             # 오딘의 눈 변신 중에는 기존 스킬 잠금
             if selected_character_type == "soldier" and not _odins_eye_transformed:
                 _draw_soldier_skill_icons(
+                    _player_gauge_surface_left,
+                    orb_center_x,
+                    orb_center_y,
+                    orb_radius,
+                    displayed_gauge,
+                    current_max_gauge
+                )
+
+            # === 발토르 스킬 아이콘 표시 (구슬 주변에 원형으로 배치) ===
+            # 오딘의 눈 변신 중에는 기존 스킬 잠금
+            if selected_character_type == "blacksmith" and not _odins_eye_transformed:
+                _draw_blacksmith_skill_icons(
                     _player_gauge_surface_left,
                     orb_center_x,
                     orb_center_y,
@@ -76749,16 +79126,114 @@ def draw_player_gauge():
             else:
                 token_states = [False] * max_tokens
 
-        # === 구슬 배경 (어두운 원) ===
-        # 애니메이션 중 스킵 체크
+        # === 구슬 배경 + 프레임 + 글래스 캐시 재생성 ===
+        if _red_orb_cache.get("radius") != orb_radius and orb_radius > 0:
+            _red_orb_cache["radius"] = orb_radius
+            _rc_r = orb_radius
+            _rc_cx, _rc_cy = orb_center_x, orb_center_y
+            _rc_fw = 10
+            # --- 쉐도우 + 배경 캐시 ---
+            _rsbg = pygame.Surface((surface_width, surface_height), pygame.SRCALPHA)
+            _rd_shadow = pygame.Surface((_rc_r * 2 + 20, _rc_r * 2 + 20), pygame.SRCALPHA)
+            for _rsi in range(4):
+                _rsr = _rc_r + 3 - _rsi
+                _rsa = 50 - _rsi * 12
+                pygame.draw.circle(_rd_shadow, (5, 3, 3, _rsa), (_rc_r + 10 + 3, _rc_r + 10 + 3), _rsr)
+            _rsbg.blit(_rd_shadow, (_rc_cx - _rc_r - 10, _rc_cy - _rc_r - 10))
+            _rd_bg = pygame.Surface((_rc_r * 2 + 2, _rc_r * 2 + 2), pygame.SRCALPHA)
+            for _rrr in range(_rc_r, 0, -2):
+                _ratio = _rrr / _rc_r
+                _rd_r = int(8 + 30 * (1 - _ratio))
+                _rd_g = int(3 + 12 * (1 - _ratio))
+                _rd_b = int(5 + 15 * (1 - _ratio))
+                pygame.draw.circle(_rd_bg, (_rd_r, _rd_g, _rd_b), (_rc_r + 1, _rc_r + 1), _rrr)
+            _rsbg.blit(_rd_bg, (_rc_cx - _rc_r - 1, _rc_cy - _rc_r - 1))
+            _red_orb_cache["shadow_bg"] = _rsbg
+            # --- 프레임 정적 캐시 ---
+            _rfc = pygame.Surface((surface_width, surface_height), pygame.SRCALPHA)
+            pygame.draw.circle(_rfc, (35, 25, 25, 255), (_rc_cx, _rc_cy), _rc_r + _rc_fw)
+            _inner_cut = pygame.Surface((surface_width, surface_height), pygame.SRCALPHA)
+            pygame.draw.circle(_inner_cut, (0, 0, 0, 255), (_rc_cx, _rc_cy), _rc_r - 1)
+            _rfc.blit(_inner_cut, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+            pygame.draw.circle(_rfc, (100, 75, 70), (_rc_cx, _rc_cy), _rc_r + _rc_fw, 4)
+            pygame.draw.circle(_rfc, (150, 120, 110), (_rc_cx, _rc_cy), _rc_r + _rc_fw, 2)
+            pygame.draw.circle(_rfc, (80, 55, 50), (_rc_cx, _rc_cy), _rc_r + _rc_fw - 4, 2)
+            pygame.draw.circle(_rfc, (130, 100, 90), (_rc_cx, _rc_cy), _rc_r + _rc_fw - 5, 1)
+            _rb_rect = (_rc_cx - _rc_r - _rc_fw + 2, _rc_cy - _rc_r - _rc_fw + 2,
+                       (_rc_r + _rc_fw - 2) * 2, (_rc_r + _rc_fw - 2) * 2)
+            pygame.draw.arc(_rfc, (200, 175, 165, 180), _rb_rect, math.radians(200), math.radians(340), 3)
+            pygame.draw.arc(_rfc, (25, 18, 15, 160), _rb_rect, math.radians(20), math.radians(160), 3)
+            _rn_studs = 8
+            for _rsi in range(_rn_studs):
+                _rsa = _rsi * (math.pi * 2 / _rn_studs) - math.pi / 2
+                _rsd = _rc_r + _rc_fw // 2
+                _rsx = int(_rc_cx + math.cos(_rsa) * _rsd)
+                _rsy = int(_rc_cy + math.sin(_rsa) * _rsd)
+                pygame.draw.circle(_rfc, (45, 35, 35, 255), (_rsx, _rsy), 6)
+                pygame.draw.circle(_rfc, (120, 100, 95, 255), (_rsx, _rsy), 5)
+                pygame.draw.circle(_rfc, (160, 140, 130, 255), (_rsx, _rsy), 4)
+                pygame.draw.circle(_rfc, (160, 30, 30, 255), (_rsx, _rsy), 3)
+                pygame.draw.circle(_rfc, (220, 60, 60, 255), (_rsx, _rsy), 2)
+                pygame.draw.circle(_rfc, (255, 150, 150, 180), (_rsx - 1, _rsy - 1), 1)
+            for _rsi in range(_rn_studs):
+                _ra1 = _rsi * (math.pi * 2 / _rn_studs) - math.pi / 2
+                _ra2 = (_rsi + 1) * (math.pi * 2 / _rn_studs) - math.pi / 2
+                _ramid = (_ra1 + _ra2) / 2
+                _rod = _rc_r + _rc_fw + 6
+                _rtip_x = int(_rc_cx + math.cos(_ramid) * _rod)
+                _rtip_y = int(_rc_cy + math.sin(_ramid) * _rod)
+                _rbase1_x = int(_rc_cx + math.cos(_ramid - 0.08) * (_rc_r + _rc_fw - 1))
+                _rbase1_y = int(_rc_cy + math.sin(_ramid - 0.08) * (_rc_r + _rc_fw - 1))
+                _rbase2_x = int(_rc_cx + math.cos(_ramid + 0.08) * (_rc_r + _rc_fw - 1))
+                _rbase2_y = int(_rc_cy + math.sin(_ramid + 0.08) * (_rc_r + _rc_fw - 1))
+                pygame.draw.polygon(_rfc, (120, 90, 80, 220),
+                                  [(_rtip_x, _rtip_y), (_rbase1_x, _rbase1_y), (_rbase2_x, _rbase2_y)])
+                pygame.draw.polygon(_rfc, (170, 140, 125, 180),
+                                  [(_rtip_x, _rtip_y), (_rbase1_x, _rbase1_y), (_rbase2_x, _rbase2_y)], 1)
+                for _rq in [0.3, 0.7]:
+                    _rqa = _ra1 + (_ra2 - _ra1) * _rq
+                    _rqd = _rc_r + _rc_fw + 2
+                    _rqx = int(_rc_cx + math.cos(_rqa) * _rqd)
+                    _rqy = int(_rc_cy + math.sin(_rqa) * _rqd)
+                    pygame.draw.circle(_rfc, (130, 100, 85, 120), (_rqx, _rqy), 1)
+            pygame.draw.circle(_rfc, (20, 15, 12), (_rc_cx, _rc_cy), _rc_r + 2, 2)
+            pygame.draw.circle(_rfc, (70, 55, 45), (_rc_cx, _rc_cy), _rc_r + 1, 1)
+            _red_orb_cache["frame"] = _rfc
+            # --- 글래스 캐시 ---
+            _rgc = pygame.Surface((surface_width, surface_height), pygame.SRCALPHA)
+            _rhl_s = pygame.Surface((_rc_r * 2 + 4, _rc_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.ellipse(_rhl_s, (255, 255, 255, 30), (8, 5, _rc_r + 10, _rc_r // 2))
+            pygame.draw.ellipse(_rhl_s, (255, 255, 255, 50), (14, 10, _rc_r - 10, _rc_r // 3))
+            pygame.draw.ellipse(_rhl_s, (255, 255, 255, 75), (18, 14, _rc_r // 2, _rc_r // 4))
+            pygame.draw.circle(_rhl_s, (255, 255, 255, 130), (_rc_r // 3, _rc_r // 3), 3)
+            pygame.draw.circle(_rhl_s, (255, 255, 255, 90), (_rc_r // 3 + 1, _rc_r // 3 + 1), 2)
+            _rrim_s = pygame.Surface((_rc_r * 2 + 4, _rc_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.arc(_rrim_s, (255, 150, 130, 35), (2, 2, _rc_r * 2, _rc_r * 2),
+                           math.radians(30), math.radians(150), 2)
+            _rgc.blit(_rhl_s, (_rc_cx - _rc_r - 2, _rc_cy - _rc_r - 2))
+            _rgc.blit(_rrim_s, (_rc_cx - _rc_r - 2, _rc_cy - _rc_r - 2))
+            _red_orb_cache["glass"] = _rgc
+
+        # === 구슬 배경 (캐시 + 애니메이션 파티클) ===
         if not _skip_right_orb_drawing:
-            # 그림자
-            pygame.draw.circle(SCREEN, (15, 10, 10), (orb_center_x + 3, orb_center_y + 3), orb_radius)
-            # 기본 어두운 배경 (그라데이션 효과)
-            for r in range(orb_radius, 0, -2):
-                ratio = r / orb_radius if orb_radius > 0 else 0
-                color = (int(30 * ratio), int(15 * ratio), int(20 * ratio))
-                pygame.draw.circle(SCREEN, color, (orb_center_x, orb_center_y), r)
+            # 캐시된 쉐도우+배경 blit
+            if "shadow_bg" in _red_orb_cache:
+                SCREEN.blit(_red_orb_cache["shadow_bg"], (0, 0))
+            # 내부 파티클 (애니메이션 - 매 프레임)
+            _rd_sparkle = pygame.Surface((orb_radius * 2, orb_radius * 2), pygame.SRCALPHA)
+            for _rpi in range(10):
+                _rpa = time_now * 0.0012 + _rpi * 0.63
+                _rpd = (orb_radius - 8) * (0.3 + 0.5 * abs(math.sin(_rpa * 0.6 + _rpi)))
+                _rppx = int(orb_radius + math.cos(_rpa) * _rpd)
+                _rppy = int(orb_radius + math.sin(_rpa * 0.7) * _rpd)
+                _rp_alpha = int(50 + 35 * abs(math.sin(_rpa * 1.2)))
+                _rp_size = 1 + int(abs(math.sin(_rpa * 0.4)))
+                if 0 < _rppx < orb_radius * 2 and 0 < _rppy < orb_radius * 2:
+                    _rdx = _rppx - orb_radius
+                    _rdy = _rppy - orb_radius
+                    if _rdx * _rdx + _rdy * _rdy < (orb_radius - 5) * (orb_radius - 5):
+                        pygame.draw.circle(_rd_sparkle, (255, 120, 80, _rp_alpha), (_rppx, _rppy), _rp_size)
+            SCREEN.blit(_rd_sparkle, (orb_center_x - orb_radius, orb_center_y - orb_radius))
 
         # === 섹터별 그리기 ===
         # 애니메이션 중 스킵 체크
@@ -77015,34 +79490,26 @@ def draw_player_gauge():
                 pygame.draw.circle(SCREEN, (220, 180, 100), (orb_center_x, orb_center_y), 4)
                 pygame.draw.circle(SCREEN, (255, 220, 150), (orb_center_x, orb_center_y), 2)
 
-        # === 금속 프레임 (테두리) - 더 화려하게 ===
-        # 외곽 어두운 그림자
-        pygame.draw.circle(SCREEN, (40, 25, 20), (orb_center_x, orb_center_y), orb_radius + 2, 3)
-        # 금속 베이스
-        pygame.draw.circle(SCREEN, (80, 60, 40), (orb_center_x, orb_center_y), orb_radius, 5)
-        # 금색 하이라이트 (상단)
-        pygame.draw.arc(SCREEN, (220, 180, 100),
-                       (orb_center_x - orb_radius, orb_center_y - orb_radius,
-                        orb_radius * 2, orb_radius * 2),
-                       math.radians(200), math.radians(340), 3)
-        # 어두운 그림자 (하단)
-        pygame.draw.arc(SCREEN, (50, 35, 25),
-                       (orb_center_x - orb_radius, orb_center_y - orb_radius,
-                        orb_radius * 2, orb_radius * 2),
-                       math.radians(20), math.radians(160), 3)
-        # 내부 링
-        pygame.draw.circle(SCREEN, (60, 45, 35), (orb_center_x, orb_center_y), orb_radius - 5, 1)
+        # === 금속 프레임 (캐시된 정적 요소 + 애니메이션 글로우) ===
+        _rcx, _rcy, _rr = orb_center_x, orb_center_y, orb_radius
+        _rf_w = 10
 
-        # === 유리 하이라이트 효과 ===
-        highlight_surface = pygame.Surface((orb_radius * 2, orb_radius * 2), pygame.SRCALPHA)
-        # 상단 좌측 하이라이트 (더 자연스럽게)
-        pygame.draw.ellipse(highlight_surface, (255, 255, 255, 40),
-                          (orb_radius - 35, orb_radius - 35, 50, 30))
-        pygame.draw.ellipse(highlight_surface, (255, 255, 255, 70),
-                          (orb_radius - 25, orb_radius - 28, 30, 18))
-        pygame.draw.ellipse(highlight_surface, (255, 255, 255, 100),
-                          (orb_radius - 18, orb_radius - 22, 15, 10))
-        SCREEN.blit(highlight_surface, (orb_center_x - orb_radius, orb_center_y - orb_radius))
+        # 외곽 글로우 (애니메이션 - 매 프레임)
+        _rf_glow = pygame.Surface((_rr * 2 + 50, _rr * 2 + 50), pygame.SRCALPHA)
+        _rf_pulse = 0.6 + 0.4 * math.sin(time_now * 0.004)
+        for _rgi in range(4):
+            _rgr = _rr + _rf_w + 12 - _rgi * 3
+            _rga = int(20 * _rf_pulse * (4 - _rgi) / 4)
+            pygame.draw.circle(_rf_glow, (200, 60, 60, _rga), (_rr + 25, _rr + 25), _rgr)
+        SCREEN.blit(_rf_glow, (_rcx - _rr - 25, _rcy - _rr - 25))
+
+        # 캐시된 프레임 blit
+        if "frame" in _red_orb_cache:
+            SCREEN.blit(_red_orb_cache["frame"], (0, 0))
+
+        # === 유리 하이라이트 (캐시된 오버레이) ===
+        if "glass" in _red_orb_cache:
+            SCREEN.blit(_red_orb_cache["glass"], (0, 0))
 
         # === 펄스 글로우 효과 (토큰이 있을 때) ===
         if rolling_charges > 0:
@@ -77222,21 +79689,22 @@ def draw_player_gauge():
                              (stun_cx, stun_cy), 3)
             SCREEN.blit(seal_surface, (0, 0))
 
-        # === 볼트 장식 (4개 코너) - 더 정교하게 ===
-        bolt_positions = [
-            (orb_center_x - orb_radius + 10, orb_center_y - orb_radius + 10),
-            (orb_center_x + orb_radius - 10, orb_center_y - orb_radius + 10),
-            (orb_center_x - orb_radius + 10, orb_center_y + orb_radius - 10),
-            (orb_center_x + orb_radius - 10, orb_center_y + orb_radius - 10),
-        ]
-        for idx, (bx, by) in enumerate(bolt_positions):
-            # 볼트 베이스
-            pygame.draw.circle(SCREEN, (70, 55, 40), (int(bx), int(by)), 5)
-            pygame.draw.circle(SCREEN, (140, 110, 70), (int(bx), int(by)), 4)
-            # 볼트 하이라이트
-            pygame.draw.circle(SCREEN, (200, 170, 110), (int(bx) - 1, int(by) - 1), 2)
-            # 볼트 슬롯
-            pygame.draw.line(SCREEN, (50, 40, 30), (int(bx) - 2, int(by)), (int(bx) + 2, int(by)), 1)
+        # === 볼트 장식 (대각선 4방향 - 고급 루비 볼트) ===
+        _rb_angles = [math.radians(a) for a in [315, 45, 225, 135]]
+        _rb_surf2 = pygame.Surface((surface_width, surface_height), pygame.SRCALPHA)
+        for _rba in _rb_angles:
+            _rbx = int(orb_center_x + math.cos(_rba) * (orb_radius + 5))
+            _rby = int(orb_center_y + math.sin(_rba) * (orb_radius + 5))
+            # 볼트 마운트 (은색)
+            pygame.draw.circle(_rb_surf2, (40, 30, 28, 255), (_rbx, _rby), 6)
+            pygame.draw.circle(_rb_surf2, (110, 90, 85, 255), (_rbx, _rby), 5)
+            pygame.draw.circle(_rb_surf2, (150, 130, 120, 255), (_rbx, _rby), 4)
+            # 루비 보석
+            pygame.draw.circle(_rb_surf2, (180, 40, 40, 255), (_rbx, _rby), 3)
+            pygame.draw.circle(_rb_surf2, (220, 80, 80, 255), (_rbx, _rby), 2)
+            # 하이라이트
+            pygame.draw.circle(_rb_surf2, (255, 200, 200, 160), (_rbx - 1, _rby - 1), 1)
+        SCREEN.blit(_rb_surf2, (0, 0))
 
         # === 토큰 카운트 텍스트는 맨 마지막에 그림 (아래 코드 참조) ===
 
@@ -81414,6 +83882,7 @@ def draw_objects():
         boss_dash_afterimages = new_boss_after
 
     # === 광폭화 보스 어두운 화염 파티클 효과 (악마의 주사위 스타일) ===
+    # 🔧 최적화: 파티클 수 제한, Surface 생성 최소화
     if enraged_boss_active:
         global enraged_boss_aura_timer
         enraged_boss_aura_timer += 1
@@ -81421,8 +83890,11 @@ def draw_objects():
         # 보스 패들 좌표 (BOSS rect 기준)
         paddle_rect = BOSS
 
-        # 어두운 화염 파티클 생성 (30% 확률)
-        if random.random() < 0.3:
+        # 🔧 최적화: 최대 파티클 수 제한 (20개)
+        MAX_ENRAGED_PARTICLES = 20
+
+        # 어두운 화염 파티클 생성 (30% 확률, 최대 개수 미만일 때만)
+        if random.random() < 0.3 and len(enraged_boss_aura_particles) < MAX_ENRAGED_PARTICLES:
             enraged_boss_aura_particles.append({
                 'x': paddle_rect.centerx + random.randint(-paddle_rect.width//2, paddle_rect.width//2),
                 'y': paddle_rect.centery,
@@ -81449,22 +83921,23 @@ def draw_objects():
 
             if p['life'] > 0 and p['size'] >= 1:
                 life_ratio = p['life'] / p['max_life']
-                alpha = life_ratio
+                px, py = int(p['x']), int(p['y'])
+                psize = int(p['size'])
 
-                # 글로우 효과
-                for i in range(3):
-                    glow_size = int(p['size'] * (1 + i * 0.5))
-                    glow_alpha = alpha * (0.3 - i * 0.1)
-                    if glow_alpha > 0 and glow_size > 0:
-                        glow_surface = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
-                        pygame.draw.circle(glow_surface, (*p['color'], int(255 * glow_alpha)),
-                                         (glow_size, glow_size), glow_size)
-                        SCREEN.blit(glow_surface, (int(p['x']) - glow_size, int(p['y']) - glow_size))
+                # 🔧 최적화: Surface 생성 없이 직접 원 그리기 (gfxdraw 또는 일반 draw)
+                # 글로우 효과 - 큰 원 1개만 (기존 3개 루프 → 1개로 단순화)
+                glow_size = int(p['size'] * 1.8)
+                if glow_size > 0:
+                    glow_alpha = int(255 * life_ratio * 0.25)
+                    if glow_alpha > 10:
+                        # 알파 블렌딩된 글로우 (단일 Surface 재사용)
+                        glow_color = (*p['color'], glow_alpha)
+                        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(glow_surf, glow_color, (glow_size, glow_size), glow_size)
+                        SCREEN.blit(glow_surf, (px - glow_size, py - glow_size))
 
                 # 중심 파티클
-                pygame.draw.circle(SCREEN, p['color'],
-                                 (int(p['x']), int(p['y'])),
-                                 int(p['size']))
+                pygame.draw.circle(SCREEN, p['color'], (px, py), psize)
 
                 new_particles.append(p)
 
@@ -88509,9 +90982,10 @@ def show_victory_screen(stage_cleared, reward):
     # 스테이지 전환 시 모든 효과음 강제 정지 (루프 사운드 버그 수정)
     stop_all_stage_sounds()
 
-    # 점수 화면 진입 시 현재 스테이지 BGM 정지
+    # 점수 화면 진입 시 현재 스테이지 BGM 정지 후 승리 BGM 재생
     try:
         bgm_manager.stop_bgm()
+        bgm_manager.bgm_manager.play_bgm('victory', loop=0)
     except Exception:
         pass
 
@@ -88749,10 +91223,7 @@ def show_victory_screen(stage_cleared, reward):
     # 전체를 중앙으로 이동 (y 좌표 조정) - 패널 높이 증가로 버튼 위치 추가 조정
     # 마지막 스테이지가 아닌 경우에만 "다음 스테이지로" 버튼 표시
     final_stage_for_buttons = display_stage_cleared >= TOTAL_STAGES
-    # 버튼 위치 조정 (패널 아래 적절한 간격으로)
-    skip_to_stage_rect = pygame.Rect(game_center_x - button_width // 2, 510, button_width, button_height)
-    next_stage_rect = pygame.Rect(game_center_x - button_width // 2, 580, button_width, button_height)
-    rest_rect = pygame.Rect(game_center_x - button_width // 2, 650, button_width, button_height)
+    # 버튼 위치는 패널 높이 계산 후 동적으로 설정 (아래 참조)
 
     # 정적인 UI 요소는 미리 만들어서 프레임 부하를 줄인다.
     title_text = f"Stage {display_stage_cleared} 클리어!"
@@ -88761,10 +91232,56 @@ def show_victory_screen(stage_cleared, reward):
     title_rect = title_surface.get_rect(center=(game_center_x, 120))
     title_shadow_rect = title_shadow_surface.get_rect(center=(game_center_x + 3, 123))
 
-    info_panel_rect = pygame.Rect(game_center_x - 200, 180, 400, 320)  # 높이 증가 (항목별 정산용)
+    # === 패널 높이 동적 계산 (항목 수에 따라) ===
+    _breakdown_count = len([k for k in animation_states if k not in ('total', 'enraged')])
+    # 이번 스테이지 획득 아이템 수 미리 계산
+    _pre_num_items = 0
+    for _pi in active_item_slot:
+        if _pi and id(_pi) not in _items_snapshot_at_stage_start:
+            _pre_num_items += 1
+    for _pi in passive_item_list:
+        if _pi and id(_pi) not in _items_snapshot_at_stage_start:
+            _pre_num_items += 1
+    _pre_num_items = min(_pre_num_items, 12)
+    _pre_item_rows = ((_pre_num_items - 1) // 6 + 1) if _pre_num_items > 0 else 0
+    # 퍽 수 미리 계산
+    _pre_num_perks = sum(1 for _lv in runtime_skill_levels.values() if _lv > 0)
+    _pre_num_perks = min(_pre_num_perks, 14)
+    _pre_perk_rows = ((_pre_num_perks - 1) // 7 + 1) if _pre_num_perks > 0 else 0
+    # 패널 높이 산출 (실제 렌더링 좌표 기준으로 정확히 계산)
+    # 패널 top=180, medal_y=220(+40), breakdown_start=270(+90)
+    # breakdown lines: count*32, separator: +15, total gold: ~30px
+    _panel_h = 135 + _breakdown_count * 32         # 메달(90) + 정산 + 구분선+획득골드(45)
+    if _pre_item_rows > 0:
+        _panel_h += 15 + _pre_item_rows * 44       # 아이템 영역 (총합 아래 15px 갭 + 행)
+    if _pre_perk_rows > 0:
+        if _pre_item_rows > 0:
+            _panel_h += 10 + _pre_perk_rows * 38   # 아이템 아래 10px 갭 + 퍽 행
+        else:
+            _panel_h += 15 + _pre_perk_rows * 38   # 총합 아래 15px 갭 + 퍽 행
+    _panel_h += 15                                 # 하단 여백
+    _panel_h = max(_panel_h, 200)                  # 최소 높이
+
+    info_panel_rect = pygame.Rect(game_center_x - 200, 180, 400, _panel_h)
     info_panel_surface = pygame.Surface(info_panel_rect.size, pygame.SRCALPHA)
     info_panel_surface.fill((30, 30, 60, 180))
     pygame.draw.rect(info_panel_surface, (100, 150, 255), info_panel_surface.get_rect(), 2)
+
+    # === 버튼 위치 (패널 하단 기준 동적 배치) ===
+    _btn_start_y = info_panel_rect.bottom + 10
+    _num_btns = 2 if final_stage_for_buttons else 3
+    _btn_needed = _num_btns * button_height
+    if _btn_start_y + _btn_needed > HEIGHT - 5:
+        # 버튼이 화면 밖으로 나가면 버튼 높이 축소
+        button_height = max(40, (HEIGHT - 5 - _btn_start_y) // _num_btns)
+    if final_stage_for_buttons:
+        skip_to_stage_rect = pygame.Rect(0, -100, 0, 0)  # 사용 안 함
+        next_stage_rect = pygame.Rect(game_center_x - button_width // 2, _btn_start_y, button_width, button_height)
+        rest_rect = pygame.Rect(game_center_x - button_width // 2, _btn_start_y + button_height, button_width, button_height)
+    else:
+        skip_to_stage_rect = pygame.Rect(game_center_x - button_width // 2, _btn_start_y, button_width, button_height)
+        next_stage_rect = pygame.Rect(game_center_x - button_width // 2, _btn_start_y + button_height, button_width, button_height)
+        rest_rect = pygame.Rect(game_center_x - button_width // 2, _btn_start_y + 2 * button_height, button_width, button_height)
 
     total_medals = calculate_total_earned_medals(stage_cleared)
     medal_y = 220  # 패널 시작 위치에 맞춰 조정
@@ -88830,7 +91347,7 @@ def show_victory_screen(stage_cleared, reward):
             SCREEN.blit(message_surface, message_rect)
 
             if bonus_percent > 0:
-                bonus_surface = info_font.render(f"전설 아이템 확률 +{bonus_percent}% 보너스", True, (255, 210, 120))
+                bonus_surface = info_font.render(f"신화 아이템 확률 +{bonus_percent}% 보너스", True, (255, 210, 120))
                 bonus_rect = bonus_surface.get_rect(center=(panel_rect.centerx, panel_rect.top + 150))
                 SCREEN.blit(bonus_surface, bonus_rect)
 
@@ -89100,13 +91617,14 @@ def show_victory_screen(stage_cleared, reward):
             SCREEN.blit(total_label, (game_center_x - 100, skill_point_y))
             SCREEN.blit(total_value, (game_center_x + 20, skill_point_y - 3))
 
-        # === 획득한 런타임 아이템 표시 ===
-        # 액티브 아이템 + 패시브 아이템 모두 표시
+        # === 획득한 런타임 아이템 표시 (이번 스테이지에서 획득한 것만) ===
         all_acquired_items = []
-        if active_item_slot:
-            all_acquired_items.extend(active_item_slot)
-        if passive_item_list:
-            all_acquired_items.extend(passive_item_list)
+        for _vi in active_item_slot:
+            if _vi and id(_vi) not in _items_snapshot_at_stage_start:
+                all_acquired_items.append(_vi)
+        for _vi in passive_item_list:
+            if _vi and id(_vi) not in _items_snapshot_at_stage_start:
+                all_acquired_items.append(_vi)
 
         # 툴팁용 아이템/퍽 위치 저장
         item_tooltip_rects = []  # [(rect, item_data), ...]
@@ -89177,25 +91695,32 @@ def show_victory_screen(stage_cleared, reward):
         all_skill_pools.update(INSTANT_RUNTIME_SKILLS)
 
         if animation_states.get('total', {}).get('show', False) and runtime_skill_levels:
-            # 아이템 표시 아래에 퍽 표시
-            perk_y_offset = 50 if all_acquired_items else 45  # 아이템이 있으면 더 아래에
-            perks_y = skill_point_y + perk_y_offset + (50 if all_acquired_items else 0)
+            # 아이템 표시 아래에 퍽 표시 (아이템 행 수 반영)
+            if all_acquired_items:
+                _num_disp_items = min(len(all_acquired_items), 12)
+                _item_rows_actual = ((_num_disp_items - 1) // 6 + 1) if _num_disp_items > 0 else 0
+                perks_y = skill_point_y + 45 + _item_rows_actual * 44 + 10
+            else:
+                perks_y = skill_point_y + 45
             perk_icon_size = 32
             perk_spacing = 38
             max_perks_per_row = 7
 
-            # 획득한 스킬 목록 생성
+            # 이번 스테이지에서 획득한 스킬 목록 생성 (스냅샷 비교)
             acquired_perks = []
             for skill_id, level in runtime_skill_levels.items():
                 if level > 0 and skill_id in all_skill_pools:
-                    skill_data = all_skill_pools[skill_id]
-                    acquired_perks.append({
-                        "id": skill_id,
-                        "name": skill_data.get("name", skill_id),
-                        "icon_color": skill_data.get("icon_color", (150, 150, 150)),
-                        "level": level,
-                        "skill_data": skill_data  # 툴팁용 전체 데이터
-                    })
+                    start_level = _skill_levels_snapshot_at_stage_start.get(skill_id, 0)
+                    level_gained_this_stage = level - start_level
+                    if level_gained_this_stage > 0:  # 이번 스테이지에서 획득/레벨업한 경우만
+                        skill_data = all_skill_pools[skill_id]
+                        acquired_perks.append({
+                            "id": skill_id,
+                            "name": skill_data.get("name", skill_id),
+                            "icon_color": skill_data.get("icon_color", (150, 150, 150)),
+                            "level": level_gained_this_stage,  # 이번 스테이지에서 획득한 레벨 수
+                            "skill_data": skill_data  # 툴팁용 전체 데이터
+                        })
 
             num_perks = len(acquired_perks)
             if num_perks > 0:
@@ -90158,6 +92683,7 @@ def show_start_screen():
         show_difficulty_selection=show_difficulty_selection,
         start_game_with_difficulty=start_game_with_difficulty,
         start_tutorial_game=start_main_tutorial,
+        set_tutorial_mode=set_tutorial_mode,
         start_ai_play=start_ai_play,
         start_test_mode=lambda: main(1, new_boss_mode=True),
         get_fullscreen=lambda: REAL_SCREEN if REAL_SCREEN is not None else SCREEN,
@@ -92066,9 +94592,8 @@ def show_tutorial_drive_helper_dialogue():
             # 배경 그리기 (정지된 게임 화면)
             SCREEN.blit(background, (0, 0))
             
-            # 어두운 오버레이
-            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 150))
+            # 어두운 오버레이 - 캐시된 Surface 사용
+            overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
             SCREEN.blit(overlay, (0, 0))
             
             # 대화창 영역 (화면 중앙) - 챕터 2와 완전히 동일
@@ -95235,9 +97760,8 @@ def show_tutorial_angle_dialogue():
             # 배경 그리기 (정지된 게임 화면)
             SCREEN.blit(background, (0, 0))
             
-            # 어두운 오버레이
-            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 150))
+            # 어두운 오버레이 - 캐시된 Surface 사용
+            overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
             SCREEN.blit(overlay, (0, 0))
             
             # 대화창 영역 (화면 중앙)
@@ -95470,9 +97994,8 @@ def show_tutorial_gauge_dialogue():
             # 배경 그리기 (정지된 게임 화면)
             SCREEN.blit(background, (0, 0))
             
-            # 어두운 오버레이
-            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 150))
+            # 어두운 오버레이 - 캐시된 Surface 사용
+            overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
             SCREEN.blit(overlay, (0, 0))
             
             # 게이지를 명시적으로 그리기 (배경에 게이지가 없을 수 있으므로)
@@ -95808,9 +98331,8 @@ def show_tutorial_dash_token_dialogue():
             # 배경 그리기 (정지된 게임 화면)
             SCREEN.blit(background, (0, 0))
             
-            # 일반 어두운 오버레이 먼저 그리기
-            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 150))
+            # 일반 어두운 오버레이 - 캐시된 Surface 사용
+            overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
             SCREEN.blit(overlay, (0, 0))
             
             # 게이지 그리기
@@ -95936,9 +98458,8 @@ def show_tutorial_serve_helper():
         # 화면 그리기
         SCREEN.blit(screen_capture, (0, 0))
         
-        # 반투명 어두운 배경
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
+        # 반투명 어두운 배경 - 캐시된 오버레이 사용
+        overlay = get_cached_overlay(WIDTH, HEIGHT, 180)
         SCREEN.blit(overlay, (0, 0))
 
         # 도우미 알림 박스
@@ -96185,9 +98706,8 @@ def show_tutorial_dash_completion_dialogue():
             # 배경 그리기 (정지된 게임 화면)
             SCREEN.blit(background, (0, 0))
             
-            # 어두운 오버레이
-            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 150))
+            # 어두운 오버레이 - 캐시된 Surface 사용
+            overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
             SCREEN.blit(overlay, (0, 0))
             
             # 텍스트 배경 (검은색 반투명 - 화면 하단의 가로 바)
@@ -96850,6 +99370,11 @@ def show_character_selection():
         return "__TUTORIAL__"
 
     clock = pygame.time.Clock()
+    # 카드 선택 사운드 로드
+    try:
+        _card_select_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "cardselect.wav")))
+    except Exception:
+        _card_select_sound = None
     soldier_card_preview: pygame.Surface | None = None
     optimus_card_preview: pygame.Surface | None = None
     tutorial_supported_ids = {"ufo_player", "smasher", "soldier", "blacksmith", "optimus"}
@@ -97124,6 +99649,8 @@ def show_character_selection():
     card_transition_active = False
     card_transition_progress = 0.0
     card_transition_duration = 45  # 더 부드러운 애니메이션
+    _effects_spawn_timer = 0  # 페디스탈/사이드빔 등장 애니메이션 타이머 (60프레임=1초)
+    _laser_sound_played = False  # 레이저 사운드 재생 여부 (카드 전환마다 리셋)
     previous_selected = 0
     # 카드 위치 저장용
     card_start_pos = (0, 0)
@@ -97141,8 +99668,8 @@ def show_character_selection():
     card_width = 140  # 더 큰 카드
     card_height = 200
     # 선택된 카드는 더 크게 (업그레이드)
-    selected_card_width = 220
-    selected_card_height = 300
+    selected_card_width = 150
+    selected_card_height = 204
     # 부채꼴 카드들 위치 (하단, 더 넓은 배치)
     fan_radius = 210
     fan_angle_range = 120  # 더 넓은 부채꼴
@@ -97150,28 +99677,48 @@ def show_character_selection():
     center_y = HEIGHT - 100
     # 사이버펑크 배경 효과용 변수들
     neon_particles = []
-    for _ in range(30):  # 최적화된 네온 파티클
+    for _ in range(10):  # 갯수 축소 + 연한 색상
         neon_particles.append({
             "x": random.randint(0, WIDTH),
             "y": random.randint(0, HEIGHT),
-            "vx": random.uniform(-1, 1),
-            "vy": random.uniform(-1, 1),
-            "size": random.randint(1, 3),
-            "color": random.choice([(0, 255, 255), (255, 0, 255), YELLOW]),
-            "alpha": random.randint(40, 100),
-            "pulse_speed": random.uniform(0.05, 0.15)
+            "vx": random.uniform(-0.6, 0.6),
+            "vy": random.uniform(-0.6, 0.6),
+            "size": random.randint(1, 2),
+            "color": random.choice([(0, 90, 120), (60, 0, 80), (80, 80, 40)]),
+            "alpha": random.randint(15, 35),
+            "pulse_speed": random.uniform(0.03, 0.08)
         })
     # 스캔라인 효과
     scan_lines = []
-    for i in range(3):  # 최적화된 스캔라인
+    for i in range(2):  # 스캔라인 축소
         scan_lines.append({
             "y": random.randint(0, HEIGHT),
-            "speed": random.uniform(2, 4),
-            "alpha": random.randint(20, 40)
+            "speed": random.uniform(1.5, 3),
+            "alpha": random.randint(10, 20)
         })
     # 홀로그램 글리치 효과
     glitch_timer = 0
     glitch_active = False
+
+    # 배경 오브(네뷸라) 동적 움직임 파라미터
+    orb_move_params = []
+    for _oi in range(4):
+        orb_move_params.append({
+            "px": random.uniform(0, math.pi * 2),
+            "py": random.uniform(0, math.pi * 2),
+            "sx": random.uniform(0.01, 0.018),
+            "sy": random.uniform(0.008, 0.014),
+            "ax": random.uniform(15, 30),
+            "ay": random.uniform(10, 25),
+        })
+    selection_spark_timer = 0   # 카드 선택 시 스파크/글리치 이펙트 (120프레임=2초)
+    spark_particles = []        # 스파크 파티클 리스트
+
+    # 카드 픽업(확정 선택) 애니메이션 변수
+    card_pickup_active = False
+    card_pickup_timer = 0
+    card_pickup_duration = 120  # 2초 (60fps)
+    card_pickup_result_id = None  # 애니메이션 종료 후 반환할 캐릭터 ID
 
     # ======== PRE-CACHED STATIC SURFACES (성능 최적화) ========
     # 1. 배경 그라데이션 캐시 (더 어둡고 깊은 톤)
@@ -97304,41 +99851,321 @@ def show_character_selection():
         pygame.draw.line(_vignette_cache, (0, 0, 0, _va), (0, _vy), (WIDTH, _vy))
         pygame.draw.line(_vignette_cache, (0, 0, 0, _va), (0, HEIGHT - 1 - _vy), (WIDTH, HEIGHT - 1 - _vy))
 
-    # 7. 사이파이 프레임 보더 캐시
+    # 7. 사이파이 프레임 보더 캐시 (사이버펑크 강화)
     _frame_border_cache = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    # 코너 브라켓 (L자 모양)
-    _bracket_len = 50
-    _bracket_w = 2
     _bcolor = (0, 180, 220, 190)
+    _bcolor_dim = (0, 100, 140, 100)
+    _bcolor_bright = (0, 220, 255, 220)
+    _bcolor_accent = (0, 255, 200, 130)
+    # --- 코너 브라켓 (L자 + 이중선) ---
+    _bracket_len = 55
+    _bracket_w = 2
     for _cx, _cy, _dx, _dy in [(12, 12, 1, 1), (WIDTH - 12, 12, -1, 1),
                                 (12, HEIGHT - 12, 1, -1), (WIDTH - 12, HEIGHT - 12, -1, -1)]:
+        # 외곽 브라켓
         pygame.draw.line(_frame_border_cache, _bcolor, (_cx, _cy), (_cx + _bracket_len * _dx, _cy), _bracket_w)
         pygame.draw.line(_frame_border_cache, _bcolor, (_cx, _cy), (_cx, _cy + _bracket_len * _dy), _bracket_w)
-        pygame.draw.circle(_frame_border_cache, (0, 200, 240, 150), (_cx, _cy), 2)
+        # 내곽 브라켓 (짧은 이중선)
+        pygame.draw.line(_frame_border_cache, _bcolor_dim,
+                        (_cx + 6 * _dx, _cy + 6 * _dy),
+                        (_cx + 30 * _dx, _cy + 6 * _dy), 1)
+        pygame.draw.line(_frame_border_cache, _bcolor_dim,
+                        (_cx + 6 * _dx, _cy + 6 * _dy),
+                        (_cx + 6 * _dx, _cy + 30 * _dy), 1)
+        # 코너 노드 (밝은 점)
+        pygame.draw.circle(_frame_border_cache, _bcolor_bright, (_cx, _cy), 3)
+        pygame.draw.circle(_frame_border_cache, (0, 255, 255, 80), (_cx, _cy), 6)
+        # 대각선 컷 (사이버펑크 특유)
+        pygame.draw.line(_frame_border_cache, _bcolor_accent,
+                        (_cx + _bracket_len * _dx, _cy),
+                        (_cx + (_bracket_len + 8) * _dx, _cy + 8 * _dy), 1)
+        pygame.draw.line(_frame_border_cache, _bcolor_accent,
+                        (_cx, _cy + _bracket_len * _dy),
+                        (_cx + 8 * _dx, _cy + (_bracket_len + 8) * _dy), 1)
+    # --- 상단 엣지 라인 (회로 트레이스) ---
+    _top_y = 10
+    # 중앙 수평 라인 (좌측 브라켓 끝 ~ 우측 브라켓 끝)
+    pygame.draw.line(_frame_border_cache, _bcolor_dim, (70, _top_y), (WIDTH // 2 - 100, _top_y), 1)
+    pygame.draw.line(_frame_border_cache, _bcolor_dim, (WIDTH // 2 + 100, _top_y), (WIDTH - 70, _top_y), 1)
+    # 상단 틱 마크 (회로 분기점)
+    for _tx in range(90, WIDTH - 90, 40):
+        if abs(_tx - WIDTH // 2) > 110:
+            pygame.draw.line(_frame_border_cache, _bcolor_dim, (_tx, _top_y), (_tx, _top_y + 5), 1)
+            if (_tx // 40) % 3 == 0:
+                pygame.draw.line(_frame_border_cache, (0, 140, 180, 60), (_tx, _top_y + 5), (_tx + 12, _top_y + 5), 1)
+                pygame.draw.circle(_frame_border_cache, _bcolor_accent, (_tx + 12, _top_y + 5), 1)
+    # 상단 중앙 노드 (다이아몬드)
+    _tc = WIDTH // 2
+    _td = [(0, -4), (4, 0), (0, 4), (-4, 0)]
+    _td_pts = [(_tc + dx, _top_y + dy) for dx, dy in _td]
+    pygame.draw.polygon(_frame_border_cache, _bcolor_accent, _td_pts, 1)
+    pygame.draw.line(_frame_border_cache, _bcolor_dim, (_tc - 4, _top_y), (_tc - 90, _top_y), 1)
+    pygame.draw.line(_frame_border_cache, _bcolor_dim, (_tc + 4, _top_y), (_tc + 90, _top_y), 1)
+    # --- 하단 엣지 라인 ---
+    _bot_y = HEIGHT - 10
+    pygame.draw.line(_frame_border_cache, _bcolor_dim, (70, _bot_y), (WIDTH // 2 - 80, _bot_y), 1)
+    pygame.draw.line(_frame_border_cache, _bcolor_dim, (WIDTH // 2 + 80, _bot_y), (WIDTH - 70, _bot_y), 1)
+    for _tx in range(90, WIDTH - 90, 45):
+        if abs(_tx - WIDTH // 2) > 90:
+            pygame.draw.line(_frame_border_cache, _bcolor_dim, (_tx, _bot_y), (_tx, _bot_y - 4), 1)
+    # 하단 중앙 노드
+    _bd_pts = [(_tc + dx, _bot_y + dy) for dx, dy in _td]
+    pygame.draw.polygon(_frame_border_cache, _bcolor_accent, _bd_pts, 1)
+    # --- 좌측 엣지 (수직 회로선 + 분기) ---
+    _left_x = 10
+    pygame.draw.line(_frame_border_cache, _bcolor_dim, (_left_x, 70), (_left_x, HEIGHT // 2 - 40), 1)
+    pygame.draw.line(_frame_border_cache, _bcolor_dim, (_left_x, HEIGHT // 2 + 40), (_left_x, HEIGHT - 70), 1)
+    for _ty in range(90, HEIGHT - 90, 35):
+        if abs(_ty - HEIGHT // 2) > 50:
+            pygame.draw.line(_frame_border_cache, _bcolor_dim, (_left_x, _ty), (_left_x + 5, _ty), 1)
+            if (_ty // 35) % 4 == 0:
+                # 회로 분기: 수평으로 꺾이는 트레이스
+                pygame.draw.line(_frame_border_cache, (0, 130, 170, 55),
+                                (_left_x + 5, _ty), (_left_x + 18, _ty), 1)
+                pygame.draw.line(_frame_border_cache, (0, 130, 170, 55),
+                                (_left_x + 18, _ty), (_left_x + 18, _ty + 10), 1)
+                pygame.draw.circle(_frame_border_cache, _bcolor_accent, (_left_x + 18, _ty + 10), 1)
+    # 좌측 중간 노드
+    _lm = HEIGHT // 2
+    pygame.draw.line(_frame_border_cache, _bcolor, (_left_x - 2, _lm - 15), (_left_x - 2, _lm + 15), 1)
+    pygame.draw.line(_frame_border_cache, _bcolor, (_left_x + 2, _lm - 12), (_left_x + 2, _lm + 12), 1)
+    pygame.draw.circle(_frame_border_cache, _bcolor_bright, (_left_x, _lm), 2)
+    # --- 우측 엣지 (좌측 미러) ---
+    _right_x = WIDTH - 10
+    pygame.draw.line(_frame_border_cache, _bcolor_dim, (_right_x, 70), (_right_x, HEIGHT // 2 - 40), 1)
+    pygame.draw.line(_frame_border_cache, _bcolor_dim, (_right_x, HEIGHT // 2 + 40), (_right_x, HEIGHT - 70), 1)
+    for _ty in range(90, HEIGHT - 90, 35):
+        if abs(_ty - HEIGHT // 2) > 50:
+            pygame.draw.line(_frame_border_cache, _bcolor_dim, (_right_x, _ty), (_right_x - 5, _ty), 1)
+            if (_ty // 35) % 4 == 0:
+                pygame.draw.line(_frame_border_cache, (0, 130, 170, 55),
+                                (_right_x - 5, _ty), (_right_x - 18, _ty), 1)
+                pygame.draw.line(_frame_border_cache, (0, 130, 170, 55),
+                                (_right_x - 18, _ty), (_right_x - 18, _ty + 10), 1)
+                pygame.draw.circle(_frame_border_cache, _bcolor_accent, (_right_x - 18, _ty + 10), 1)
+    # 우측 중간 노드
+    pygame.draw.line(_frame_border_cache, _bcolor, (_right_x + 2, _lm - 15), (_right_x + 2, _lm + 15), 1)
+    pygame.draw.line(_frame_border_cache, _bcolor, (_right_x - 2, _lm - 12), (_right_x - 2, _lm + 12), 1)
+    pygame.draw.circle(_frame_border_cache, _bcolor_bright, (_right_x, _lm), 2)
+    # --- 추가 장식: 코너 근처 짧은 사선 + 소형 사각형 ---
+    for _cx, _cy, _dx, _dy in [(30, 30, 1, 1), (WIDTH - 30, 30, -1, 1),
+                                (30, HEIGHT - 30, 1, -1), (WIDTH - 30, HEIGHT - 30, -1, -1)]:
+        # 소형 사각형 노드
+        pygame.draw.rect(_frame_border_cache, _bcolor_dim,
+                        (_cx - 2, _cy - 2, 4, 4), 1)
+        # 사선 트레이스
+        pygame.draw.line(_frame_border_cache, (0, 120, 160, 50),
+                        (_cx + 8 * _dx, _cy), (_cx + 20 * _dx, _cy + 12 * _dy), 1)
+    # --- 엣지 중간 작은 직사각형 (데이터 포트 느낌) ---
+    for _px, _py, _pw, _ph in [(WIDTH // 2 - 8, 4, 16, 3),
+                                 (WIDTH // 2 - 8, HEIGHT - 7, 16, 3),
+                                 (4, HEIGHT // 2 - 8, 3, 16),
+                                 (WIDTH - 7, HEIGHT // 2 - 8, 3, 16)]:
+        pygame.draw.rect(_frame_border_cache, _bcolor_dim, (_px, _py, _pw, _ph), 1)
+        pygame.draw.rect(_frame_border_cache, _bcolor_accent,
+                        (_px + 1, _py + 1, max(1, _pw - 2), max(1, _ph - 2)))
 
-    # 8. 홀로그래픽 페디스탈 캐시
-    _pedestal_w, _pedestal_h = 240, 50
-    _pedestal_base_cache = pygame.Surface((_pedestal_w, _pedestal_h), pygame.SRCALPHA)
-    for _pi in range(5):
-        _pa = max(5, 40 - _pi * 8)
-        _pw = 180 - _pi * 20
-        _ph = 16 - _pi * 2
-        if _pw > 0 and _ph > 0:
-            pygame.draw.ellipse(_pedestal_base_cache, (0, 180, 255, _pa),
-                              (_pedestal_w // 2 - _pw // 2, 15 - _ph // 2, _pw, _ph), 1)
-    for _gi in range(3):
-        _ga = max(5, 20 - _gi * 6)
-        _gw = 140 - _gi * 30
-        pygame.draw.line(_pedestal_base_cache, (0, 150, 220, _ga),
-                        (_pedestal_w // 2 - _gw // 2, 28 + _gi * 6),
-                        (_pedestal_w // 2 + _gw // 2, 28 + _gi * 6), 1)
+    # 8. 홀로그래픽 페디스탈 캐시 (고퀄리티)
+    _pedestal_w, _pedestal_h = 260, 55
 
-    # 9. 사이드 글로우 바 캐시
-    _sel_card_h_for_glow = 300
-    _left_glow_bar = pygame.Surface((6, _sel_card_h_for_glow), pygame.SRCALPHA)
-    for _gy in range(_sel_card_h_for_glow):
-        _ga = int(50 * (1 - abs(_gy - _sel_card_h_for_glow // 2) / (_sel_card_h_for_glow // 2)))
-        pygame.draw.line(_left_glow_bar, (0, 180, 255, _ga), (0, _gy), (5, _gy))
+    # 캐릭터별 페디스탈 색상 반환 함수
+    def _get_pedestal_colors_for_character(char_id):
+        """캐릭터 ID에 따른 페디스탈 색상 반환 (base, mid, bright)"""
+        char = next((c for c in characters if c["id"] == char_id), None)
+        if char is None:
+            # 기본 cyan 색상
+            return (0, 150, 220), (0, 180, 255), (60, 220, 255), (150, 245, 255)
+
+        if char_id == "blacksmith":
+            # 발토르: 갈색/황금 계열
+            return (100, 65, 10), (160, 110, 30), (200, 155, 60), (240, 210, 130)
+        elif char_id == "soldier":
+            # 코만도: 밀리터리 그린 계열
+            return (30, 120, 25), (50, 160, 45), (90, 200, 80), (160, 240, 150)
+        else:
+            # 다른 캐릭터: card_color 기반
+            base_color = char.get("card_color", (0, 180, 255))
+            r, g, b = base_color
+            return (
+                (max(0, r//2), max(0, g//2), max(0, b//2)),
+                (int(r*0.8), int(g*0.8), int(b*0.8)),
+                (min(255, r+30), min(255, g+30), min(255, b+30)),
+                (min(255, int(r*0.6)+140), min(255, int(g*0.6)+140), min(255, int(b*0.6)+140))
+            )
+
+    # 페디스탈 캐시 생성 함수
+    def _create_pedestal_cache(char_id):
+        """선택된 캐릭터에 맞는 페디스탈 캐시 생성"""
+        ped_base, ped_mid, ped_bright, ped_core = _get_pedestal_colors_for_character(char_id)
+
+        _cache = pygame.Surface((_pedestal_w, _pedestal_h), pygame.SRCALPHA)
+        _cx = _pedestal_w // 2
+
+        # 베이스 타원 링들 (7 레이어)
+        for _pi in range(7):
+            _pa = max(3, 50 - _pi * 7)
+            _pw = 210 - _pi * 24
+            _ph = 20 - _pi * 2
+            if _pw > 0 and _ph > 0:
+                pygame.draw.ellipse(_cache, (*ped_mid, _pa),
+                                  (_cx - _pw // 2, 18 - _ph // 2, _pw, _ph), 1)
+
+        # 수평 에너지 라인들
+        for _gi in range(5):
+            _ga = max(3, 28 - _gi * 5)
+            _gw = 170 - _gi * 28
+            if _gw > 0:
+                pygame.draw.line(_cache, (*ped_base, _ga),
+                                (_cx - _gw // 2, 30 + _gi * 5),
+                                (_cx + _gw // 2, 30 + _gi * 5), 1)
+
+        # 중앙 글로우 스팟
+        _glow_spot = pygame.Surface((100, 6), pygame.SRCALPHA)
+        pygame.draw.rect(_glow_spot, (*ped_mid, 18), (0, 0, 100, 6), border_radius=3)
+        pygame.draw.rect(_glow_spot, (*ped_bright, 35), (20, 1, 60, 4), border_radius=2)
+        pygame.draw.rect(_glow_spot, (*ped_core, 50), (38, 2, 24, 2))
+        _cache.blit(_glow_spot, (_cx - 50, 14))
+
+        return _cache, ped_base, ped_mid, ped_bright, ped_core
+
+    # 초기 페디스탈 캐시 생성
+    _current_ped_char_id = characters[selected]["id"] if characters else "ufo_player"
+    _pedestal_base_cache, _ped_color_base, _ped_color_mid, _ped_color_bright, _ped_color_core = _create_pedestal_cache(_current_ped_char_id)
+    _ped_cx = _pedestal_w // 2
+
+    # 9. 사이드 레이저 빔 캐시 (고퀄리티 멀티레이어, 카드 높이에 맞춤)
+    _beam_w = 12
+    _beam_h = selected_card_height
+    _beam_cx_local = _beam_w // 2
+
+    # 캐릭터별 레이저 빔 색상 정의 함수
+    def _get_beam_layers_for_character(char_id):
+        """캐릭터 ID에 따른 레이저 빔 레이어 색상 반환"""
+        char = next((c for c in characters if c["id"] == char_id), None)
+        if char is None:
+            # 기본 cyan 색상
+            return [
+                (10, 12, (0, 50, 150)),
+                (7,  22, (0, 90, 190)),
+                (5,  38, (0, 140, 230)),
+                (3,  65, (0, 195, 255)),
+                (2, 110, (60, 225, 255)),
+                (1, 160, (180, 250, 255)),
+            ]
+
+        # 캐릭터별 특화 색상
+        if char_id == "blacksmith":
+            # 발토르: 갈색/황금 계열
+            return [
+                (10, 12, (60, 35, 0)),       # 최외곽 은은한 글로우
+                (7,  22, (110, 70, 15)),     # 외곽 글로우
+                (5,  38, (170, 115, 40)),    # 중간 글로우
+                (3,  65, (210, 155, 60)),    # 내부 글로우
+                (2, 110, (240, 195, 100)),   # 코어 밝은 선
+                (1, 160, (255, 230, 170)),   # 초코어
+            ]
+        elif char_id == "soldier":
+            # 코만도: 밀리터리 그린 계열
+            return [
+                (10, 12, (15, 50, 10)),      # 최외곽 은은한 글로우
+                (7,  22, (35, 95, 30)),      # 외곽 글로우
+                (5,  38, (65, 150, 55)),     # 중간 글로우
+                (3,  65, (95, 200, 85)),     # 내부 글로우
+                (2, 110, (140, 235, 125)),   # 코어 밝은 선
+                (1, 160, (195, 255, 185)),   # 초코어
+            ]
+        else:
+            # 다른 캐릭터: card_color 기반 자동 생성
+            base_color = char.get("card_color", (0, 180, 255))
+            r, g, b = base_color
+            return [
+                (10, 12, (max(0, r//4), max(0, g//4), max(0, b//4))),
+                (7,  22, (max(0, r//2), max(0, g//2), max(0, b//2))),
+                (5,  38, (int(r*0.7), int(g*0.7), int(b*0.7))),
+                (3,  65, (int(r*0.9), int(g*0.9), int(b*0.9))),
+                (2, 110, (min(255, r+40), min(255, g+40), min(255, b+40))),
+                (1, 160, (min(255, int(r*0.6)+140), min(255, int(g*0.6)+140), min(255, int(b*0.6)+140))),
+            ]
+
+    # 캐릭터별 펄스 노드 색상 반환
+    def _get_pulse_colors_for_character(char_id):
+        """캐릭터 ID에 따른 펄스 노드 색상 반환 (outer, middle, inner)"""
+        char = next((c for c in characters if c["id"] == char_id), None)
+        if char is None:
+            return (50, 190, 255), (140, 240, 255), (220, 255, 255)
+
+        if char_id == "blacksmith":
+            # 발토르: 황금/주황 톤
+            return (140, 100, 30), (210, 160, 70), (255, 220, 140)
+        elif char_id == "soldier":
+            # 코만도: 그린 톤
+            return (60, 160, 50), (120, 210, 100), (190, 255, 175)
+        else:
+            # 다른 캐릭터: card_color 기반
+            base_color = char.get("card_color", (0, 180, 255))
+            r, g, b = base_color
+            return (
+                (max(0, r//2), max(0, g//2+30), max(0, b//2)),
+                (min(255, r+40), min(255, g+60), min(255, b+40)),
+                (min(255, r+100), min(255, g+100), min(255, b+100))
+            )
+
+    # 빔 캐시 생성 함수 (캐릭터별 색상 적용)
+    def _create_beam_caches(char_id):
+        """선택된 캐릭터에 맞는 빔 캐시 생성"""
+        _beam_layers = _get_beam_layers_for_character(char_id)
+        pulse_outer, pulse_mid, pulse_inner = _get_pulse_colors_for_character(char_id)
+
+        # 좌측 빔 캐시
+        _left = pygame.Surface((_beam_w, _beam_h), pygame.SRCALPHA)
+        for _by in range(_beam_h):
+            _vert_t = _by / max(1, _beam_h - 1)
+            _vert_fade = max(0, 1 - (2 * _vert_t - 1) ** 2) ** 0.55
+            for _lw, _la_base, _lc in _beam_layers:
+                _la = int(_la_base * _vert_fade)
+                if _la > 0:
+                    _lx = _beam_cx_local - _lw // 2
+                    pygame.draw.line(_left, (*_lc, _la), (_lx, _by), (_lx + _lw - 1, _by))
+        # 우측 빔 = 좌측 미러
+        _right = pygame.transform.flip(_left, True, False)
+
+        # 에너지 펄스 노드 캐시
+        _pulse = pygame.Surface((10, 6), pygame.SRCALPHA)
+        pygame.draw.ellipse(_pulse, (*pulse_outer, 90), (0, 0, 10, 6))
+        pygame.draw.ellipse(_pulse, (*pulse_mid, 150), (2, 1, 6, 4))
+        pygame.draw.ellipse(_pulse, (*pulse_inner, 200), (4, 2, 2, 2))
+
+        # 상단 가로 빔 캐시
+        _top_w = selected_card_width
+        _top_h = _beam_w
+        _top_cy = _top_h // 2
+        _top = pygame.Surface((_top_w, _top_h), pygame.SRCALPHA)
+        for _tx in range(_top_w):
+            _horiz_t = _tx / max(1, _top_w - 1)
+            _horiz_fade = max(0, 1 - (2 * _horiz_t - 1) ** 2) ** 0.55
+            for _lw, _la_base, _lc in _beam_layers:
+                _la = int(_la_base * _horiz_fade)
+                if _la > 0:
+                    _ly = _top_cy - _lw // 2
+                    pygame.draw.line(_top, (*_lc, _la), (_tx, _ly), (_tx, _ly + _lw - 1))
+
+        # 상단 빔 펄스 노드 캐시
+        _top_pulse = pygame.Surface((6, 10), pygame.SRCALPHA)
+        pygame.draw.ellipse(_top_pulse, (*pulse_outer, 90), (0, 0, 6, 10))
+        pygame.draw.ellipse(_top_pulse, (*pulse_mid, 150), (1, 2, 4, 6))
+        pygame.draw.ellipse(_top_pulse, (*pulse_inner, 200), (2, 4, 2, 2))
+
+        return _left, _right, _pulse, _top, _top_pulse, pulse_outer, pulse_mid, pulse_inner
+
+    # 초기 빔 캐시 생성 (첫 번째 캐릭터 기준)
+    _current_beam_char_id = characters[selected]["id"] if characters else "ufo_player"
+    _beam_cache_left, _beam_cache_right, _pulse_node_cache, _top_beam_cache, _top_pulse_node_cache, \
+        _current_pulse_outer, _current_pulse_mid, _current_pulse_inner = _create_beam_caches(_current_beam_char_id)
+
+    # 10. 상단 가로 빔 캐시 변수 (함수에서 생성됨)
+    _top_beam_w = selected_card_width
+    _top_beam_h = _beam_w  # 세로 빔과 동일한 두께 (12px)
+    _top_beam_cy = _top_beam_h // 2
 
     # 선택된 카드 위치 계산
     _sel_card_x = (WIDTH - selected_card_width) // 2
@@ -97353,8 +100180,9 @@ def show_character_selection():
     def start_card_transition():
         nonlocal card_transition_active, card_transition_progress
         nonlocal card_start_pos, card_target_pos
-        nonlocal selected_hover_lift
+        nonlocal selected_hover_lift, selection_spark_timer
         card_transition_active = True
+        selection_spark_timer = 120  # 2초간 스파크/글리치 효과 재생
         # 전환 시작 시 중앙 카드 리프트를 원위치로 복귀시켜 깔끔한 이동을 보장
         selected_hover_lift = 0.0
         card_transition_progress = 0.0
@@ -97376,12 +100204,26 @@ def show_character_selection():
         target_y = center_y - math.cos(angle_rad) * fan_radius * 0.2 - card_height // 2
         card_target_pos = (target_x, target_y)
     def update_card_transition():
-        nonlocal card_transition_active, card_transition_progress
+        nonlocal card_transition_active, card_transition_progress, _effects_spawn_timer, _laser_sound_played
+        nonlocal _beam_cache_left, _beam_cache_right, _pulse_node_cache, _top_beam_cache, _top_pulse_node_cache
+        nonlocal _current_pulse_outer, _current_pulse_mid, _current_pulse_inner, _current_beam_char_id
+        nonlocal _pedestal_base_cache, _ped_color_base, _ped_color_mid, _ped_color_bright, _ped_color_core, _current_ped_char_id
         if card_transition_active:
             card_transition_progress += 1.0 / card_transition_duration
             if card_transition_progress >= 1.0:
                 card_transition_progress = 1.0
                 card_transition_active = False
+                _effects_spawn_timer = 0  # 등장 애니메이션 리셋
+                _laser_sound_played = False  # 레이저 사운드 재생 플래그 리셋
+                # 새 캐릭터에 맞는 빔/페디스탈 캐시 재생성
+                new_char_id = characters[selected]["id"] if selected < len(characters) else "ufo_player"
+                if new_char_id != _current_beam_char_id:
+                    _current_beam_char_id = new_char_id
+                    _beam_cache_left, _beam_cache_right, _pulse_node_cache, _top_beam_cache, _top_pulse_node_cache, \
+                        _current_pulse_outer, _current_pulse_mid, _current_pulse_inner = _create_beam_caches(new_char_id)
+                if new_char_id != _current_ped_char_id:
+                    _current_ped_char_id = new_char_id
+                    _pedestal_base_cache, _ped_color_base, _ped_color_mid, _ped_color_bright, _ped_color_core = _create_pedestal_cache(new_char_id)
     def get_transition_position(start_pos, target_pos, progress):
         # 이지-아웃 애니메이션 (부드러운 감속)
         eased_progress = 1 - (1 - progress) ** 3
@@ -97395,6 +100237,13 @@ def show_character_selection():
         animation_timer += 1
         card_flip_timer += 1
         glitch_timer += 1
+        if not card_transition_active:
+            _effects_spawn_timer = min(_effects_spawn_timer + 1, 90)  # 최대 90 (1.5초 여유)
+            # 레이저 사운드 재생 (애니메이션 시작 시 1회)
+            if _effects_spawn_timer == 1 and not _laser_sound_played:
+                _laser_sound_played = True
+                if SOUND_CHARACTER_LASER:
+                    play_sound_with_volume(SOUND_CHARACTER_LASER)
         # 랜덤 글리치 효과 활성화
         if random.randint(0, 300) == 0:
             glitch_active = True
@@ -97402,12 +100251,20 @@ def show_character_selection():
             glitch_active = False
             glitch_timer = 0
         dt_ms = clock.get_time()
+        # 카드 픽업 애니메이션 업데이트
+        if card_pickup_active:
+            card_pickup_timer += 1
+            if card_pickup_timer >= card_pickup_duration:
+                return card_pickup_result_id
         if genie_assistant.is_active():
             genie_assistant.update(dt_ms)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            # 픽업 애니메이션 중에는 입력 차단
+            if card_pickup_active:
+                continue
             if genie_assistant.is_active():
                 genie_assistant.handle_event(event)
                 continue
@@ -97433,9 +100290,15 @@ def show_character_selection():
                         start_card_transition()
                         play_button_hover_sound()
                 elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
-                    if characters[selected]["unlocked"]:
-                        play_button_click_sound()
-                        return characters[selected]["id"]
+                    if characters[selected]["unlocked"] and not card_pickup_active:
+                        if _card_select_sound:
+                            _card_select_sound.set_volume(sfx_volume)
+                            play_sound_with_volume(_card_select_sound)
+                        else:
+                            play_button_click_sound()
+                        card_pickup_active = True
+                        card_pickup_timer = 0
+                        card_pickup_result_id = characters[selected]["id"]
                     else:
                         # 해금 안된 캐릭터 선택 시 효과음 (선택 불가 사운드)
                         pass
@@ -97543,15 +100406,70 @@ def show_character_selection():
                         play_button_hover_sound()
                     else:
                         # 중앙 선택 카드 클릭 시 확정(시작)
-                        play_button_click_sound()
-                        if characters[selected]["unlocked"]:
-                            return characters[selected]["id"]
+                        if characters[selected]["unlocked"] and not card_pickup_active:
+                            if _card_select_sound:
+                                _card_select_sound.set_volume(sfx_volume)
+                                play_sound_with_volume(_card_select_sound)
+                            else:
+                                play_button_click_sound()
+                            card_pickup_active = True
+                            card_pickup_timer = 0
+                            card_pickup_result_id = characters[selected]["id"]
         # ======== 업그레이드된 배경 렌더링 ========
         # 1. 캐시된 그라데이션 배경 (더 어두운 톤)
         SCREEN.blit(_bg_gradient_cache, (0, 0))
-        # 2. 네뷸라 스폿 (깊이감)
-        for _ns_surf, _ns_x, _ns_y in _nebula_spots:
-            SCREEN.blit(_ns_surf, (_ns_x, _ns_y), special_flags=pygame.BLEND_ADD)
+        # 2. 네뷸라 스폿 (깊이감) - 동적 움직임
+        _orb_speed_mult = 1.0
+        if selection_spark_timer > 0:
+            _spark_ratio = selection_spark_timer / 120.0
+            _orb_speed_mult = 1.0 + 3.5 * _spark_ratio
+        for _oi, (_ns_surf, _ns_bx, _ns_by) in enumerate(_nebula_spots):
+            _op = orb_move_params[_oi]
+            _ox = math.sin(animation_timer * _op["sx"] * _orb_speed_mult + _op["px"]) * _op["ax"]
+            _oy = math.cos(animation_timer * _op["sy"] * _orb_speed_mult + _op["py"]) * _op["ay"]
+            SCREEN.blit(_ns_surf, (_ns_bx + _ox, _ns_by + _oy), special_flags=pygame.BLEND_ADD)
+        # 카드 선택 스파크/글리치 효과
+        if selection_spark_timer > 0:
+            selection_spark_timer -= 1
+            _spark_intensity = selection_spark_timer / 120.0
+            # 스파크 파티클 생성 (갯수 축소 + 연한 색상)
+            for _ in range(int(1 + _spark_intensity * 2)):
+                spark_particles.append({
+                    "x": random.uniform(140, WIDTH - 140),
+                    "y": random.uniform(100, 520),
+                    "vx": random.uniform(-2.5, 2.5),
+                    "vy": random.uniform(-2.5, 2.5),
+                    "life": random.randint(6, 14),
+                    "size": random.randint(1, 2),
+                    "color": random.choice([(0, 100, 130), (0, 80, 120), (60, 120, 130), (120, 130, 140)])
+                })
+            # 글리치 바 (수평 노이즈 라인, 연하게)
+            if random.random() < 0.1 + _spark_intensity * 0.2:
+                _gb_y = random.randint(80, HEIGHT - 100)
+                _gb_h = random.randint(1, max(2, int(3 * _spark_intensity)))
+                _gb_w = random.randint(40, max(60, int(200 * _spark_intensity)))
+                _gb_x = random.randint(120, max(121, WIDTH - 120 - _gb_w))
+                _gb_s = pygame.Surface((_gb_w, _gb_h), pygame.SRCALPHA)
+                _gb_a = int(10 + 25 * _spark_intensity)
+                _gb_c = random.choice([(0, 120, 150, _gb_a), (100, 0, 60, _gb_a), (0, 90, 120, _gb_a)])
+                _gb_s.fill(_gb_c)
+                SCREEN.blit(_gb_s, (_gb_x, _gb_y), special_flags=pygame.BLEND_ADD)
+        # 스파크 파티클 업데이트 & 렌더
+        _alive_sparks = []
+        for _sp in spark_particles:
+            _sp["x"] += _sp["vx"]
+            _sp["y"] += _sp["vy"]
+            _sp["life"] -= 1
+            if _sp["life"] <= 0:
+                continue
+            _alive_sparks.append(_sp)
+            _sp_a = min(120, int(120 * (_sp["life"] / 14.0)))
+            _sp_sz = _sp["size"]
+            _sp_d = _sp_sz * 4
+            _sp_s = pygame.Surface((_sp_d, _sp_d), pygame.SRCALPHA)
+            pygame.draw.circle(_sp_s, (*_sp["color"][:3], _sp_a), (_sp_d // 2, _sp_d // 2), _sp_sz)
+            SCREEN.blit(_sp_s, (int(_sp["x"]) - _sp_d // 2, int(_sp["y"]) - _sp_d // 2), special_flags=pygame.BLEND_ADD)
+        spark_particles[:] = _alive_sparks
         # 3. 사이드 메카닉 패널 (양쪽 기계 프레임)
         SCREEN.blit(_side_panel_cache, (0, 0))
         # 4. 애니메이션 헥스 그리드 (미묘하게)
@@ -97578,6 +100496,39 @@ def show_character_selection():
             pygame.draw.line(_scan_surf, (0, 150, 220, _sa), (0, _sy), (3, _sy))
         SCREEN.blit(_scan_surf, (113, _scan_y))
         SCREEN.blit(_scan_surf, (WIDTH - 117, _scan_y))
+        # 7b. 엣지 펄스 라이트 (테두리를 따라 이동하는 빛 점)
+        _edge_pulse = abs(math.sin(animation_timer * 0.04)) * 0.6 + 0.4
+        _ep_a = int(60 * _edge_pulse)
+        # 상단 엣지 - 좌→우 이동
+        _ep_top_x = int((animation_timer * 2.3) % (WIDTH - 140)) + 70
+        _ep_s = pygame.Surface((12, 4), pygame.SRCALPHA)
+        for _ei in range(12):
+            _ea = int(_ep_a * (1 - abs(_ei - 6) / 6))
+            pygame.draw.line(_ep_s, (0, 220, 255, _ea), (_ei, 0), (_ei, 3))
+        SCREEN.blit(_ep_s, (_ep_top_x - 6, 8), special_flags=pygame.BLEND_ADD)
+        # 하단 엣지 - 우→좌 이동
+        _ep_bot_x = WIDTH - 70 - int((animation_timer * 1.8) % (WIDTH - 140))
+        SCREEN.blit(_ep_s, (_ep_bot_x - 6, HEIGHT - 12), special_flags=pygame.BLEND_ADD)
+        # 좌측 엣지 - 상→하 이동
+        _ep_left_y = int((animation_timer * 1.6) % (HEIGHT - 140)) + 70
+        _ep_v = pygame.Surface((4, 12), pygame.SRCALPHA)
+        for _ei in range(12):
+            _ea = int(_ep_a * (1 - abs(_ei - 6) / 6))
+            pygame.draw.line(_ep_v, (0, 220, 255, _ea), (0, _ei), (3, _ei))
+        SCREEN.blit(_ep_v, (8, _ep_left_y - 6), special_flags=pygame.BLEND_ADD)
+        # 우측 엣지 - 하→상 이동
+        _ep_right_y = HEIGHT - 70 - int((animation_timer * 2.0) % (HEIGHT - 140))
+        SCREEN.blit(_ep_v, (WIDTH - 12, _ep_right_y - 6), special_flags=pygame.BLEND_ADD)
+        # 7c. 엣지 중간 노드 글로우 (4면 중앙 - 숨쉬는 효과)
+        _node_pulse = abs(math.sin(animation_timer * 0.06 + 1.0))
+        _node_a = int(30 + _node_pulse * 40)
+        _node_s = pygame.Surface((10, 10), pygame.SRCALPHA)
+        pygame.draw.circle(_node_s, (0, 255, 200, _node_a), (5, 5), 4)
+        pygame.draw.circle(_node_s, (0, 200, 180, _node_a // 2), (5, 5), 2)
+        SCREEN.blit(_node_s, (WIDTH // 2 - 5, 2), special_flags=pygame.BLEND_ADD)
+        SCREEN.blit(_node_s, (WIDTH // 2 - 5, HEIGHT - 12), special_flags=pygame.BLEND_ADD)
+        SCREEN.blit(_node_s, (2, HEIGHT // 2 - 5), special_flags=pygame.BLEND_ADD)
+        SCREEN.blit(_node_s, (WIDTH - 12, HEIGHT // 2 - 5), special_flags=pygame.BLEND_ADD)
         # 8. HUD 데이터 리드아웃 (뷰포트 내부 코너)
         font_hud = get_font(10)
         _hud_color = (0, 70, 105)
@@ -97686,12 +100637,12 @@ def show_character_selection():
             for angle, i, character, card_x, card_y in sorted(fan_draw_list, key=lambda t: t[0], reverse=True):
                 draw_character_card(character, card_x, card_y, angle, False, i, card_width, card_height)
             # 2. 애니메이션 중이 아닌 선택된 카드를 중앙에 그리기 (확대 버전)
-            if not card_transition_active:
+            if not card_transition_active and not card_pickup_active:
                 selected_char = characters[selected]
                 selected_x = _sel_card_x
                 selected_y = _sel_card_y
-                _scw = selected_card_width   # 220
-                _sch = selected_card_height  # 300
+                _scw = selected_card_width   # 150
+                _sch = selected_card_height  # 204
                 # 중앙 선택 카드: 호버 시 부드러운 리프트(이징)
                 try:
                     mx_win, my_win = pygame.mouse.get_pos()
@@ -97722,33 +100673,225 @@ def show_character_selection():
                     _preview_center_hovered_prev = preview_center_hovered
                 except Exception:
                     pass
-                # 사이드 글로우 바 (선택 카드 양옆)
-                SCREEN.blit(_left_glow_bar, (selected_x - 14, selected_y), special_flags=pygame.BLEND_ADD)
-                SCREEN.blit(_left_glow_bar, (selected_x + _scw + 8, selected_y), special_flags=pygame.BLEND_ADD)
+                # ===== 등장 애니메이션 진행도 =====
+                _spawn_raw = min(1.0, _effects_spawn_timer / 60.0)
+                _spawn_t = 1 - (1 - _spawn_raw) ** 2.5  # ease-out
+                # ===== 사이드 레이저 빔 애니메이션 (선택 카드 양옆, 아래→위 등장) =====
+                if _spawn_t > 0.01:
+                    _bl_x = selected_x - _beam_w + 2
+                    _bl_y = selected_y
+                    _br_x = selected_x + _scw - 2
+                    # 등장: 아래에서 위로 성장
+                    _visible_h = max(1, int(_beam_h * _spawn_t))
+                    _vis_start = _beam_h - _visible_h
+                    _beam_area = pygame.Rect(0, _vis_start, _beam_w, _visible_h)
+                    SCREEN.blit(_beam_cache_left, (_bl_x, _bl_y + _vis_start),
+                               area=_beam_area, special_flags=pygame.BLEND_ADD)
+                    SCREEN.blit(_beam_cache_right, (_br_x, _bl_y + _vis_start),
+                               area=_beam_area, special_flags=pygame.BLEND_ADD)
+                    _beam_pulse_v = 0.7 + 0.3 * math.sin(animation_timer * 0.06)
+                    # 에너지 펄스 노드 (등장 30% 이후)
+                    if _spawn_t > 0.3:
+                        _nd_am = min(1.0, (_spawn_t - 0.3) / 0.3)
+                        for _side in range(2):
+                            _node_bx = (_bl_x if _side == 0 else _br_x) + _beam_cx_local
+                            for _ni in range(3):
+                                _node_spd = 1.0 + _ni * 0.4 + _side * 0.2
+                                _node_raw_y = (animation_timer * _node_spd + _ni * _beam_h / 3) % _beam_h
+                                if _node_raw_y < _vis_start:
+                                    continue
+                                _node_vt = _node_raw_y / max(1, _beam_h)
+                                _node_fd = max(0, 1 - (2 * _node_vt - 1) ** 2) ** 0.5 * _beam_pulse_v * _nd_am
+                                if _node_fd > 0.15:
+                                    _ns = pygame.Surface((10, 6), pygame.SRCALPHA)
+                                    _na = int(130 * _node_fd)
+                                    # 캐릭터별 펄스 색상 적용
+                                    _pulse_col_o = (*_current_pulse_mid, min(255, _na))
+                                    _pulse_col_i = (*_current_pulse_inner, min(255, int(_na * 1.3)))
+                                    pygame.draw.ellipse(_ns, _pulse_col_o, (0, 0, 10, 6))
+                                    pygame.draw.ellipse(_ns, _pulse_col_i, (2, 1, 6, 4))
+                                    SCREEN.blit(_ns, (_node_bx - 5, int(_bl_y + _node_raw_y) - 3),
+                                               special_flags=pygame.BLEND_ADD)
+                    # 빔 코어 플리커 (등장 50% 이후)
+                    if _spawn_t > 0.5:
+                        _flk_m = min(1.0, (_spawn_t - 0.5) / 0.3)
+                        _flicker_v = max(0, math.sin(animation_timer * 0.15)) ** 4 * _flk_m
+                        if _flicker_v > 0.05:
+                            _flk_s = pygame.Surface((2, _visible_h), pygame.SRCALPHA)
+                            # 캐릭터별 플리커 색상 적용
+                            _flk_s.fill((*_current_pulse_inner, int(35 * _flicker_v)))
+                            SCREEN.blit(_flk_s, (_bl_x + _beam_cx_local - 1, _bl_y + _vis_start),
+                                       special_flags=pygame.BLEND_ADD)
+                            SCREEN.blit(_flk_s, (_br_x + _beam_cx_local - 1, _bl_y + _vis_start),
+                                       special_flags=pygame.BLEND_ADD)
+                    # 빔 수평 노치 마크 (등장 40% 이후)
+                    if _spawn_t > 0.4:
+                        _nt_m = min(1.0, (_spawn_t - 0.4) / 0.3)
+                        for _nti in range(4):
+                            _nt_ph = math.sin(animation_timer * 0.07 + _nti * 1.1)
+                            _nt_a = int(28 * max(0, _nt_ph) * _nt_m)
+                            if _nt_a > 3:
+                                _nt_yp = _bl_y + int((_beam_h / 5) * (_nti + 1))
+                                if _nt_yp >= _bl_y + _vis_start:
+                                    _nt_s = pygame.Surface((_beam_w, 1), pygame.SRCALPHA)
+                                    # 캐릭터별 노치 색상 적용
+                                    _nt_s.fill((*_current_pulse_mid, _nt_a))
+                                    SCREEN.blit(_nt_s, (_bl_x, _nt_yp), special_flags=pygame.BLEND_ADD)
+                                    SCREEN.blit(_nt_s, (_br_x, _nt_yp), special_flags=pygame.BLEND_ADD)
+                    # ===== 상단 가로 빔 (좌우 코너에서 중앙으로 등장) =====
+                    if _spawn_t > 0.7:
+                        _top_t = min(1.0, (_spawn_t - 0.7) / 0.3)
+                        _top_e = 1 - (1 - _top_t) ** 2.5  # ease-out
+                        _top_bx = selected_x
+                        _top_by = selected_y - _top_beam_h // 2
+                        _half_w = _top_beam_w // 2
+                        _vis_half = max(1, int(_half_w * _top_e))
+                        # 좌측 반 (왼쪽 끝에서 중앙으로)
+                        _left_area = pygame.Rect(0, 0, _vis_half, _top_beam_h)
+                        SCREEN.blit(_top_beam_cache, (_top_bx, _top_by),
+                                   area=_left_area, special_flags=pygame.BLEND_ADD)
+                        # 우측 반 (오른쪽 끝에서 중앙으로)
+                        _right_start = _top_beam_w - _vis_half
+                        _right_area = pygame.Rect(_right_start, 0, _vis_half, _top_beam_h)
+                        SCREEN.blit(_top_beam_cache, (_top_bx + _right_start, _top_by),
+                                   area=_right_area, special_flags=pygame.BLEND_ADD)
+                        # 상단 빔 코어 플리커
+                        if _top_e > 0.5:
+                            _tf_m = min(1.0, (_top_e - 0.5) / 0.3)
+                            _tf_v = max(0, math.sin(animation_timer * 0.15)) ** 4 * _tf_m
+                            if _tf_v > 0.05:
+                                _tf_s = pygame.Surface((_vis_half * 2, 2), pygame.SRCALPHA)
+                                # 캐릭터별 플리커 색상 적용
+                                _tf_s.fill((*_current_pulse_inner, int(35 * _tf_v)))
+                                _tf_cx = _top_bx + _half_w - _vis_half
+                                SCREEN.blit(_tf_s, (_tf_cx, _top_by + _top_beam_h // 2 - 1),
+                                           special_flags=pygame.BLEND_ADD)
+                        # 상단 빔 에너지 펄스 노드
+                        if _top_e > 0.4:
+                            _tnd_m = min(1.0, (_top_e - 0.4) / 0.3)
+                            for _tni in range(3):
+                                _tnode_spd = 1.2 + _tni * 0.5
+                                _tnode_raw_x = (animation_timer * _tnode_spd + _tni * _top_beam_w / 3) % _top_beam_w
+                                _tnode_ht = _tnode_raw_x / max(1, _top_beam_w)
+                                _tnode_fd = max(0, 1 - (2 * _tnode_ht - 1) ** 2) ** 0.5 * _beam_pulse_v * _tnd_m
+                                # 등장 범위 내에 있는 노드만 표시
+                                if _tnode_raw_x >= (_half_w - _vis_half) and _tnode_raw_x <= (_half_w + _vis_half):
+                                    if _tnode_fd > 0.15:
+                                        _tns = pygame.Surface((6, 10), pygame.SRCALPHA)
+                                        _tna = int(130 * _tnode_fd)
+                                        # 캐릭터별 펄스 색상 적용
+                                        _tpulse_col_o = (*_current_pulse_mid, min(255, _tna))
+                                        _tpulse_col_i = (*_current_pulse_inner, min(255, int(_tna * 1.3)))
+                                        pygame.draw.ellipse(_tns, _tpulse_col_o, (0, 0, 6, 10))
+                                        pygame.draw.ellipse(_tns, _tpulse_col_i, (1, 2, 4, 6))
+                                        SCREEN.blit(_tns, (int(_top_bx + _tnode_raw_x) - 3, _top_by + _top_beam_h // 2 - 5),
+                                                   special_flags=pygame.BLEND_ADD)
+                        # 코너 연결 글로우 (좌우 빔과 상단 빔이 만나는 지점)
+                        if _top_e > 0.6:
+                            _cg_m = min(1.0, (_top_e - 0.6) / 0.3)
+                            _cg_a = int(50 * _beam_pulse_v * _cg_m)
+                            if _cg_a > 3:
+                                _cg_s = pygame.Surface((16, 16), pygame.SRCALPHA)
+                                # 캐릭터별 코너 글로우 색상 적용
+                                _cg_col_o = (*_current_pulse_mid, _cg_a)
+                                _cg_col_i = (*_current_pulse_inner, min(255, int(_cg_a * 1.5)))
+                                pygame.draw.ellipse(_cg_s, _cg_col_o, (0, 0, 16, 16))
+                                pygame.draw.ellipse(_cg_s, _cg_col_i, (4, 4, 8, 8))
+                                # 좌측 코너
+                                SCREEN.blit(_cg_s, (_bl_x + _beam_w // 2 - 8, _top_by + _top_beam_h // 2 - 8),
+                                           special_flags=pygame.BLEND_ADD)
+                                # 우측 코너
+                                SCREEN.blit(_cg_s, (_br_x + _beam_w // 2 - 8, _top_by + _top_beam_h // 2 - 8),
+                                           special_flags=pygame.BLEND_ADD)
                 # 확대된 앞면 카드 그리기
                 draw_character_card(selected_char, selected_x, selected_y, 0, True, selected,
                                   _scw, _sch)
-                # 홀로그래픽 페디스탈 (선택 카드 아래)
-                _ped_x = selected_x + (_scw - _pedestal_w) // 2
-                _ped_y = selected_y + _sch - 15
-                _ped_pulse = 0.7 + 0.3 * math.sin(animation_timer * 0.08)
-                SCREEN.blit(_pedestal_base_cache, (_ped_x, _ped_y), special_flags=pygame.BLEND_ADD)
-                # 동심 링 애니메이션
-                for _ri in range(3):
-                    _ring_a = int(35 * _ped_pulse) - _ri * 10
-                    if _ring_a > 0:
-                        _ring_w = 160 + _ri * 30
-                        _ring_h = 14 + _ri * 5
-                        _ring_s = pygame.Surface((_ring_w, _ring_h), pygame.SRCALPHA)
-                        pygame.draw.ellipse(_ring_s, (0, 200, 255, _ring_a), (0, 0, _ring_w, _ring_h), 1)
-                        SCREEN.blit(_ring_s, (_ped_x + _pedestal_w // 2 - _ring_w // 2,
-                                             _ped_y + 15 - _ring_h // 2))
-                # 카드 위 수평 스캔 라인
-                _scan_y_off = int(math.sin(animation_timer * 0.04) * (_sch // 2 - 10))
-                _scan_y = selected_y + _sch // 2 + _scan_y_off
-                _scan_surf = pygame.Surface((_scw, 2), pygame.SRCALPHA)
-                _scan_surf.fill((0, 255, 255, 35))
-                SCREEN.blit(_scan_surf, (selected_x, _scan_y))
+                # ===== 홀로그래픽 페디스탈 애니메이션 (접힘→펼침 등장) =====
+                if _spawn_t > 0.05:
+                    _ped_x = selected_x + (_scw - _pedestal_w) // 2
+                    _ped_y = selected_y + _sch - 15
+                    _ped_pulse = 0.6 + 0.4 * math.sin(animation_timer * 0.06)
+                    _ped_fast = 0.5 + 0.5 * math.sin(animation_timer * 0.12)
+                    # 등장: 중앙에서 좌우로 펼쳐짐 (ease-out cubic)
+                    _pst = min(1.0, max(0, (_spawn_t - 0.05) / 0.6))
+                    _pse = 1 - (1 - _pst) ** 3
+                    if _pse > 0.01:
+                        _pvw = max(1, int(_pedestal_w * _pse))
+                        _ped_scaled = pygame.transform.scale(_pedestal_base_cache, (_pvw, _pedestal_h))
+                        SCREEN.blit(_ped_scaled, (_ped_x + (_pedestal_w - _pvw) // 2, _ped_y),
+                                   special_flags=pygame.BLEND_ADD)
+                    # 스캐닝 라이트 바 (펼침 50% 이후)
+                    if _pse > 0.5:
+                        _slm = min(1.0, (_pse - 0.5) / 0.3)
+                        _sbp = (math.sin(animation_timer * 0.03) + 1) / 2
+                        _sb_cx = int(_ped_x + 40 + _sbp * (_pedestal_w - 80))
+                        _sb_s = pygame.Surface((60, 8), pygame.SRCALPHA)
+                        # 캐릭터별 스캐닝 라이트 색상 적용
+                        pygame.draw.rect(_sb_s, (*_ped_color_mid, int(20 * _ped_pulse * _slm)), (0, 0, 60, 8), border_radius=4)
+                        pygame.draw.rect(_sb_s, (*_ped_color_bright, int(45 * _ped_pulse * _slm)), (14, 1, 32, 6), border_radius=3)
+                        pygame.draw.rect(_sb_s, (*_ped_color_core, int(75 * _ped_pulse * _slm)), (24, 2, 12, 4), border_radius=2)
+                        SCREEN.blit(_sb_s, (_sb_cx - 30, _ped_y + 14), special_flags=pygame.BLEND_ADD)
+                    # 동심 링 (펼쳐지면서 크기 확장)
+                    if _pse > 0.2:
+                        _rlm = min(1.0, (_pse - 0.2) / 0.4)
+                        for _ri in range(5):
+                            _rph = (animation_timer * 0.015 + _ri * 0.8) % (math.pi * 2)
+                            _rpv = 0.4 + 0.6 * math.sin(_rph)
+                            _ring_a = int(32 * _rpv * _rlm)
+                            if _ring_a > 2:
+                                _ring_w = int((100 + _ri * 32 + math.sin(animation_timer * 0.01 + _ri * 0.5) * 10) * _pse)
+                                _ring_h = int(10 + _ri * 4)
+                                if _ring_w > 0 and _ring_h > 0:
+                                    _ring_s = pygame.Surface((_ring_w, _ring_h), pygame.SRCALPHA)
+                                    # 캐릭터별 링 색상 적용 (밝기 변조)
+                                    _ring_blend = min(1.0, 0.3 + _ri * 0.15)
+                                    _ring_col = (
+                                        int(_ped_color_mid[0] * (1 - _ring_blend) + _ped_color_bright[0] * _ring_blend),
+                                        int(_ped_color_mid[1] * (1 - _ring_blend) + _ped_color_bright[1] * _ring_blend),
+                                        int(_ped_color_mid[2] * (1 - _ring_blend) + _ped_color_bright[2] * _ring_blend)
+                                    )
+                                    pygame.draw.ellipse(_ring_s, (*_ring_col, _ring_a), (0, 0, _ring_w, _ring_h), 1)
+                                    SCREEN.blit(_ring_s, (_ped_x + _pedestal_w // 2 - _ring_w // 2,
+                                                         _ped_y + 16 - _ring_h // 2 + _ri * 2))
+                    # 엣지 다이아몬드 마커 (펼침 70% 이후)
+                    if _pse > 0.7:
+                        _dkm = min(1.0, (_pse - 0.7) / 0.3)
+                        for _dx in [-1, 1]:
+                            _mk_off = int(80 * _ped_pulse + 15)
+                            _mk_x = _ped_x + _pedestal_w // 2 + _dx * _mk_off
+                            _mk_a = int(55 * _ped_fast * _dkm)
+                            if _mk_a > 3:
+                                _mk_s = pygame.Surface((8, 8), pygame.SRCALPHA)
+                                # 캐릭터별 다이아몬드 색상 적용
+                                pygame.draw.polygon(_mk_s, (*_ped_color_core, _mk_a), [(4, 0), (7, 4), (4, 7), (1, 4)])
+                                SCREEN.blit(_mk_s, (_mk_x - 4, _ped_y + 14), special_flags=pygame.BLEND_ADD)
+                    # 수직 라이트 레이 (펼침 80% 이후)
+                    if _pse > 0.8:
+                        _rym = min(1.0, (_pse - 0.8) / 0.2)
+                        for _ryi in range(3):
+                            _ryph = (animation_timer * 0.04 + _ryi * 2.0) % (math.pi * 2)
+                            _ry_a = int(22 * max(0, math.sin(_ryph)) * _rym)
+                            if _ry_a > 2:
+                                _ry_xo = int((_ryi - 1) * 35 + math.sin(animation_timer * 0.015 + _ryi) * 10)
+                                _ry_rx = _ped_x + _pedestal_w // 2 + _ry_xo
+                                _ry_rh = int(20 + 15 * math.sin(_ryph))
+                                if _ry_rh > 0:
+                                    _ry_s = pygame.Surface((4, _ry_rh), pygame.SRCALPHA)
+                                    _ry_t = max(1, _ry_rh // 3)
+                                    # 캐릭터별 수직 라이트 색상 적용
+                                    pygame.draw.rect(_ry_s, (*_ped_color_mid, _ry_a), (0, _ry_rh - _ry_t, 4, _ry_t))
+                                    pygame.draw.rect(_ry_s, (*_ped_color_mid, int(_ry_a * 0.6)), (1, _ry_rh - 2 * _ry_t, 2, _ry_t))
+                                    pygame.draw.rect(_ry_s, (*_ped_color_mid, int(_ry_a * 0.25)), (1, 0, 2, _ry_t))
+                                    SCREEN.blit(_ry_s, (_ry_rx - 2, _ped_y - _ry_rh + 16), special_flags=pygame.BLEND_ADD)
+                # 카드 위 수평 스캔 라인 (등장 70% 이후)
+                if _spawn_t > 0.7:
+                    _scm = min(1.0, (_spawn_t - 0.7) / 0.3)
+                    _scan_y_off = int(math.sin(animation_timer * 0.04) * (_sch // 2 - 10))
+                    _scan_y = selected_y + _sch // 2 + _scan_y_off
+                    _scan_surf = pygame.Surface((_scw, 2), pygame.SRCALPHA)
+                    # 캐릭터별 스캔 라인 색상 적용
+                    _scan_surf.fill((*_ped_color_core, int(35 * _scm)))
+                    SCREEN.blit(_scan_surf, (selected_x, _scan_y))
                 # 호버 하이라이트
                 try:
                     if preview_center_hovered:
@@ -98236,27 +101379,26 @@ def show_character_selection():
             # 펄스 효과
             pulse = abs(math.sin(animation_timer * particle["pulse_speed"]))
             current_alpha = int(particle["alpha"] * (0.5 + pulse * 0.5))
-            # 네온 글로우 파티클
-            for i in range(2):
-                glow_size = particle["size"] + i * 2
-                glow_alpha = current_alpha // (i + 1)
-                glow_surf = pygame.Surface((glow_size * 4, glow_size * 4), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (*particle["color"], glow_alpha),
-                                 (glow_size * 2, glow_size * 2), glow_size)
-                SCREEN.blit(glow_surf, (particle["x"] - glow_size * 2, 
-                                       particle["y"] - glow_size * 2))
+            # 네온 글로우 파티클 (단일 레이어, 연한 톤)
+            glow_size = particle["size"]
+            glow_alpha = min(current_alpha, 40)
+            glow_d = glow_size * 4
+            glow_surf = pygame.Surface((glow_d, glow_d), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*particle["color"], glow_alpha),
+                             (glow_d // 2, glow_d // 2), glow_size)
+            SCREEN.blit(glow_surf, (particle["x"] - glow_d // 2,
+                                   particle["y"] - glow_d // 2))
         # 스캔라인 효과
         for scan_line in scan_lines:
             scan_line["y"] += scan_line["speed"]
             if scan_line["y"] > HEIGHT:
                 scan_line["y"] = -10
-            # 더 화려한 스캔라인
-            for i in range(3):
-                scan_alpha = scan_line["alpha"] - i * 10
-                if scan_alpha > 0:
-                    scan_surf = pygame.Surface((WIDTH, 2 - i), pygame.SRCALPHA)
-                    scan_surf.fill((0, 255, 255, scan_alpha))
-                    SCREEN.blit(scan_surf, (0, scan_line["y"] + i))
+            # 스캔라인 (연한 톤)
+            scan_alpha = scan_line["alpha"]
+            if scan_alpha > 0:
+                scan_surf = pygame.Surface((WIDTH, 1), pygame.SRCALPHA)
+                scan_surf.fill((0, 130, 160, scan_alpha))
+                SCREEN.blit(scan_surf, (0, scan_line["y"]))
         # 카드 부채꼴 그리기
         draw_card_fan()
         # ======== 업그레이드된 정보 패널 (상단) ========
@@ -98577,6 +101719,158 @@ def show_character_selection():
         #         else:
         #             # 잠긴 캐릭터 - 매우 어두운 링
         #             draw.circle((50, 50, 50), (indicator_x, indicator_y), 4, 2)
+        # ======== 카드 픽업 애니메이션 (기존 카드가 U자 포물선 + 3D 회전) ========
+        if card_pickup_active:
+            _pu_t = card_pickup_timer / card_pickup_duration  # 0→1
+            # 경로 이징 (ease-out - 초반 빠르고 후반 감속)
+            _pu_path_ease = 1 - (1 - _pu_t) ** 2.5
+            # 1. 배경 서서히 어둡게 (후반부에 살짝만)
+            _pu_dim = int(120 * max(0, _pu_t - 0.3) / 0.7)
+            if _pu_dim > 0:
+                _pu_ov = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                _pu_ov.fill((0, 0, 0, _pu_dim))
+                SCREEN.blit(_pu_ov, (0, 0))
+            # 2. 베지어 곡선 경로 (U자 - 우측으로 드로잉하듯 뽑기)
+            _pu_sx = _sel_card_x + selected_card_width // 2
+            _pu_sy = _sel_card_y + selected_card_height // 2
+            _pu_ex = WIDTH // 2
+            _pu_ey = HEIGHT // 2 - 20
+            # 컨트롤 포인트: 우측 상단 → 우측 하단 (U자 궤적)
+            _cp1x = min(WIDTH - 60, _pu_sx + 280)
+            _cp1y = _pu_sy - 120
+            _cp2x = min(WIDTH - 40, _pu_ex + 300)
+            _cp2y = _pu_ey + 260
+            # 큐빅 베지어 계산
+            _bu = 1.0 - _pu_path_ease
+            _pu_cx = (_bu**3 * _pu_sx + 3 * _bu**2 * _pu_path_ease * _cp1x +
+                      3 * _bu * _pu_path_ease**2 * _cp2x + _pu_path_ease**3 * _pu_ex)
+            _pu_cy = (_bu**3 * _pu_sy + 3 * _bu**2 * _pu_path_ease * _cp1y +
+                      3 * _bu * _pu_path_ease**2 * _cp2y + _pu_path_ease**3 * _pu_ey)
+            # 3. 3D Y축 회전 (카드 앞뒤를 자유롭게 보여주기)
+            # 3바퀴 회전 (6π), ease-out으로 마지막에 앞면 정착
+            _rot_ease = 1 - (1 - _pu_t) ** 3
+            _rot_angle = _rot_ease * math.pi * 6  # 3 full rotations
+            _cos_rot = math.cos(_rot_angle)
+            _show_front = _cos_rot >= 0
+            _apparent_w_ratio = max(0.04, abs(_cos_rot))
+            # 4. 스케일 (점진적 확대 - 다가오는 느낌)
+            _pu_scale = 1.0 + _pu_path_ease * 0.55
+            _pu_base_w = int(selected_card_width * _pu_scale)
+            _pu_h = int(selected_card_height * _pu_scale)
+            _pu_w = max(1, int(_pu_base_w * _apparent_w_ratio))
+            # 5. 카드 서피스 렌더링 (앞면 또는 뒷면)
+            _pu_card = pygame.Surface((selected_card_width, selected_card_height), pygame.SRCALPHA)
+            _pu_char = characters[selected]
+            if _show_front:
+                draw_card_front(_pu_card, _pu_char, True, selected_card_width, selected_card_height)
+            else:
+                draw_card_back(_pu_card, selected, True, selected_card_width, selected_card_height)
+            # 카드 테두리
+            _pu_bc = _pu_char.get("card_color", (0, 200, 255))
+            pygame.draw.rect(_pu_card, _pu_bc,
+                            (0, 0, selected_card_width, selected_card_height), 2, border_radius=14)
+            # 3D 퍼스펙티브 변환 (너비 축소로 Y축 회전 시뮬레이션)
+            _pu_scaled = pygame.transform.smoothscale(_pu_card, (_pu_w, _pu_h))
+            # Z축 미세 틸트 (경로 곡선 방향에 따른 자연스러운 기울기)
+            _tilt = math.sin(_pu_t * 4.5) * (1 - _pu_path_ease * 0.8) * 10
+            if abs(_tilt) > 0.3:
+                _pu_scaled = pygame.transform.rotate(_pu_scaled, _tilt)
+            # 카드 블릿
+            _pu_rect = _pu_scaled.get_rect(center=(int(_pu_cx), int(_pu_cy)))
+            SCREEN.blit(_pu_scaled, _pu_rect)
+            # 6. 카드 엣지 하이라이트 (옆면이 보일 때 빛 반사)
+            if _apparent_w_ratio < 0.25:
+                _edge_bright = int(220 * (1 - _apparent_w_ratio / 0.25))
+                _edge_h_half = _pu_h // 2
+                _edge_s = pygame.Surface((6, _pu_h), pygame.SRCALPHA)
+                for _ey in range(_pu_h):
+                    _ea = int(_edge_bright * (1 - abs(_ey - _edge_h_half) / max(1, _edge_h_half)))
+                    pygame.draw.line(_edge_s, (220, 240, 255, _ea), (0, _ey), (5, _ey))
+                SCREEN.blit(_edge_s, (int(_pu_cx) - 3, int(_pu_cy) - _edge_h_half),
+                           special_flags=pygame.BLEND_ADD)
+            # 7. 글로우 이펙트 (카드 주변 - 기본 너비 기준)
+            _pu_gc = _pu_char.get("glow_color", (0, 200, 255))
+            _pu_ga = int((30 + 25 * math.sin(animation_timer * 0.12)) * min(1.0, _pu_t * 2))
+            _gw = _pu_base_w + 36
+            _gh = _pu_h + 36
+            _pu_gs = pygame.Surface((_gw, _gh), pygame.SRCALPHA)
+            pygame.draw.rect(_pu_gs, (*_pu_gc[:3], _pu_ga), (0, 0, _gw, _gh), border_radius=20)
+            SCREEN.blit(_pu_gs, (int(_pu_cx - _gw // 2), int(_pu_cy - _gh // 2)),
+                       special_flags=pygame.BLEND_ADD)
+            # 8.5 카드 테두리 레이저 광선 이펙트 (전환 직전 ~0.5초)
+            if 0.67 < _pu_t < 0.93:
+                _lz_phase = (_pu_t - 0.67) / 0.26  # 0→1 over ~0.5s
+                # 스트로브 깜빡임 (점점 빨라짐)
+                _lz_strobe = abs(math.sin(_lz_phase * math.pi * (6 + _lz_phase * 8)))
+                # 기본 밝기 (ease-in 커브)
+                _lz_base = min(1.0, _lz_phase * 1.6)
+                _lz_int = _lz_base * (0.35 + 0.65 * _lz_strobe)
+                _lz_color = _pu_char.get("card_color", (0, 200, 255))
+                _lcx, _lcy = int(_pu_cx), int(_pu_cy)
+                _lhw = _pu_base_w // 2
+                _lhh = _pu_h // 2
+                # --- 1. 다중 발광 테두리 (6겹, 코어 흰색→외곽 캐릭터색) ---
+                for _i in range(6):
+                    _exp = (_i + 1) * 4
+                    _a = max(0, int(255 * _lz_int * (1 - _i * 0.14)))
+                    _w = _pu_base_w + _exp * 2
+                    _h = _pu_h + _exp * 2
+                    _s = pygame.Surface((_w, _h), pygame.SRCALPHA)
+                    _m = max(0.0, 1.0 - _i * 0.18)
+                    _r = int(_lz_color[0] + (255 - _lz_color[0]) * _m)
+                    _g = int(_lz_color[1] + (255 - _lz_color[1]) * _m)
+                    _b = int(_lz_color[2] + (255 - _lz_color[2]) * _m)
+                    pygame.draw.rect(_s, (_r, _g, _b, _a),
+                                    (0, 0, _w, _h),
+                                    max(2, 6 - _i), border_radius=14 + _i * 2)
+                    SCREEN.blit(_s, (_lcx - _w // 2, _lcy - _h // 2),
+                               special_flags=pygame.BLEND_ADD)
+                # --- 2. 코너 대각선 + 엣지 레이저 광선 ---
+                _ray_len = int(60 + 120 * _lz_int)
+                _beam_len = int(30 + 90 * _lz_int * _lz_strobe)
+                _ray_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                # 대각선 코너 광선 (4개)
+                _corners = [
+                    (_lcx - _lhw, _lcy - _lhh, -1, -1),
+                    (_lcx + _lhw, _lcy - _lhh, 1, -1),
+                    (_lcx - _lhw, _lcy + _lhh, -1, 1),
+                    (_lcx + _lhw, _lcy + _lhh, 1, 1),
+                ]
+                for _rx, _ry, _dx, _dy in _corners:
+                    _ex = _rx + _dx * _ray_len
+                    _ey = _ry + _dy * _ray_len
+                    for _rw in range(4):
+                        _ra = max(0, int(220 * _lz_int * _lz_strobe * (1 - _rw * 0.22)))
+                        _rm = max(0.0, 1.0 - _rw * 0.25)
+                        _rr = int(_lz_color[0] + (255 - _lz_color[0]) * _rm)
+                        _rg = int(_lz_color[1] + (255 - _lz_color[1]) * _rm)
+                        _rb = int(_lz_color[2] + (255 - _lz_color[2]) * _rm)
+                        pygame.draw.line(_ray_surf, (_rr, _rg, _rb, _ra),
+                                       (_rx, _ry), (int(_ex), int(_ey)),
+                                       max(1, 4 - _rw))
+                # 상하좌우 엣지 빔 (4개)
+                _edges = [
+                    (_lcx, _lcy - _lhh, 0, -1),
+                    (_lcx, _lcy + _lhh, 0, 1),
+                    (_lcx - _lhw, _lcy, -1, 0),
+                    (_lcx + _lhw, _lcy, 1, 0),
+                ]
+                for _bx, _by, _bdx, _bdy in _edges:
+                    _bex = _bx + _bdx * _beam_len
+                    _bey = _by + _bdy * _beam_len
+                    for _bw in range(3):
+                        _ba = max(0, int(200 * _lz_int * _lz_strobe * (1 - _bw * 0.3)))
+                        pygame.draw.line(_ray_surf, (255, 255, 255, _ba),
+                                       (_bx, _by), (int(_bex), int(_bey)),
+                                       max(1, 3 - _bw))
+                SCREEN.blit(_ray_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+            # 8. 마지막 플래시 (전환)
+            if _pu_t > 0.88:
+                _flash_t = (_pu_t - 0.88) / 0.12
+                _flash_a = int(140 * _flash_t)
+                _flash_s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                _flash_s.fill((255, 255, 255, _flash_a))
+                SCREEN.blit(_flash_s, (0, 0))
         pygame.display.flip()
         clock.tick(60)
 def show_difficulty_selection():
@@ -98976,7 +102270,7 @@ def show_difficulty_selection():
                 if event.button == 1:
                     mx, my = event.pos
                     selected = get_panel_at_pos(mx, my)
-                    play_button_click_sound()
+                    play_sound_with_volume(SOUND_LEVEL_SELECT)
                     confirming = True
                     confirm_result = difficulties[selected]["ai_mode"]
                     confirm_selected = selected
@@ -99012,7 +102306,7 @@ def show_difficulty_selection():
                     selected = (selected + 1) % len(difficulties)
                     play_button_hover_sound()
                 elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
-                    play_button_click_sound()
+                    play_sound_with_volume(SOUND_LEVEL_SELECT)
                     confirming = True
                     confirm_result = difficulties[selected]["ai_mode"]
                     confirm_selected = selected
@@ -100306,7 +103600,7 @@ def show_item_manager_menu():
         tab_height = 40
         tab_y = 120
         tab_spacing = 10
-        tab_names = ["엑티브", "패시브", "화기류", "전설"]
+        tab_names = ["엑티브", "패시브", "화기류", "신화"]
         tab_colors = [
             (100, 150, 255),  # 엑티브 - 파란색
             (100, 255, 150),  # 패시브 - 초록색
@@ -100595,11 +103889,11 @@ def show_item_manager_menu():
                     desc = get_item_description(item_name)
                     slot_label = item.get("slot", "기타")
 
-                    # 롤옵션 정보 가져오기
+                    # 롤옵션 정보 가져오기 (개별 아이템의 rolled_options 우선 사용)
                     roll_opts = LEGENDARY_ROLL_OPTIONS.get(item_name, [])
                     opt_lines = []
                     for opt in roll_opts:
-                        current_val = get_legendary_roll_value(item_name, opt["key"])
+                        current_val = get_item_legendary_roll_value(item, opt["key"])
                         unit = opt.get("unit", "")
                         label = opt.get("label", opt["key"])
                         step = opt.get("step", 1)
@@ -102763,6 +106057,23 @@ def get_item_icon(item_name):
                         pygame.draw.polygon(icon_surface, gold_color, crown_points)
                         # 보석
                         pygame.draw.circle(icon_surface, gem_color, (cx, ICON_SIZE // 2 + 2), 4)
+                elif lookup_name == "odins_eye":
+                    # 오딘의 눈 - 애니메이션 프레임 사용
+                    if hasattr(legendary_item, 'animation_frames') and legendary_item.animation_frames:
+                        frame = legendary_item.animation_frames[0]  # 첫 프레임 사용
+                        scaled_frame = pygame.transform.scale(frame, (ICON_SIZE, ICON_SIZE))
+                        icon_surface.blit(scaled_frame, (0, 0))
+                    elif hasattr(legendary_item, 'draw_icon'):
+                        legendary_item.draw_icon(icon_surface, 0, 0, ICON_SIZE)
+                    else:
+                        # 폴백: 기본 벨트+눈 아이콘
+                        eye_color = (200, 50, 0)
+                        belt_color = (60, 40, 30)
+                        cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+                        pygame.draw.rect(icon_surface, belt_color,
+                                        (cx - ICON_SIZE // 4, cy, ICON_SIZE // 2, ICON_SIZE // 8))
+                        pygame.draw.ellipse(icon_surface, eye_color,
+                                          (cx - ICON_SIZE // 8, cy - ICON_SIZE // 10, ICON_SIZE // 4, ICON_SIZE // 6))
 
                 icon_cache[item_name] = icon_surface
                 return icon_surface
@@ -102832,6 +106143,15 @@ def get_item_icon(item_name):
             ]
             pygame.draw.polygon(icon_surface, gold_color, crown_points)
             pygame.draw.circle(icon_surface, gem_color, (cx, ICON_SIZE // 2 + 2), 4)
+        elif lookup_name == "odins_eye":
+            # 오딘의 눈 기본 아이콘 (벨트+눈)
+            eye_color = (200, 50, 0)
+            belt_color = (60, 40, 30)
+            cx, cy = ICON_SIZE // 2, ICON_SIZE // 2
+            pygame.draw.rect(icon_surface, belt_color,
+                            (cx - ICON_SIZE // 4, cy, ICON_SIZE // 2, ICON_SIZE // 8))
+            pygame.draw.ellipse(icon_surface, eye_color,
+                              (cx - ICON_SIZE // 8, cy - ICON_SIZE // 10, ICON_SIZE // 4, ICON_SIZE // 6))
         icon_cache[item_name] = icon_surface
         return icon_surface
 
@@ -106389,12 +109709,10 @@ def draw_boss_health_bar():
             # 빨간색 위험
             health_color = (200, 50, 50)
             glow_color = (255, 100, 100)
-        # 메인 체력 그라데이션
-        for i in range(boss_health_bar_height):
-            alpha = 1.0 - (i / boss_health_bar_height) * 0.3
-            color = tuple(int(c * alpha) for c in health_color)
-            draw.line(color, (health_bar_x, health_bar_y + i),
-                           (health_bar_x + current_width - 1, health_bar_y + i))
+        # 메인 체력 그라데이션 - 캐시된 Surface 사용 (height회 draw.line → 1회 blit)
+        gradient_surf = get_boss_hp_gradient(boss_health_bar_width, boss_health_bar_height, health_color)
+        # current_width만큼만 blit (subsurface 대신 area 파라미터 사용)
+        SCREEN.blit(gradient_surf, (health_bar_x, health_bar_y), (0, 0, current_width, boss_health_bar_height))
         # 체력바 끝 부분 하이라이트 (펄스 효과)
         pulse = abs(math.sin(pygame.time.get_ticks() * 0.005))
         highlight_width = 3
@@ -106405,12 +109723,11 @@ def draw_boss_health_bar():
                 draw.line(highlight_color, (health_bar_x + current_width - highlight_width + i, health_bar_y),
                                (health_bar_x + current_width - highlight_width + i, health_bar_y + boss_health_bar_height - 1))
     # === 디지털 수치 표시 ===
-    # HP 라벨 (왼쪽)
-    font_label = pygame.font.SysFont("Courier", 10, bold=True)
-    hp_label = font_label.render("HP", True, (150, 160, 170))
+    # HP 라벨 (왼쪽) - 정적 텍스트 캐싱 사용
+    hp_label = get_cached_static_text("HP", ("Courier", 10, True, False), (150, 160, 170))
     SCREEN.blit(hp_label, (health_bar_x - 20, health_bar_y - 1))
-    # 체력 수치 (오른쪽, 디지털 스타일)
-    font_digital = pygame.font.SysFont("Courier", 11, bold=True)
+    # 체력 수치 (오른쪽, 디지털 스타일) - 폰트만 캐싱 (텍스트는 동적)
+    font_digital = get_cached_font("Courier", 11, bold=True)
     hp_text = f"{int(boss_displayed_health):02d}/{boss_max_health:02d}"
     # 디지털 디스플레이 배경
     text_bg_x = health_bar_x + boss_health_bar_width + 10
@@ -116020,8 +119337,8 @@ def draw_ai_visualization():
     if not ai_enabled or not AI_AVAILABLE:
         return
     # 원래 AI 시각화 로직 (항상 활성화)
-    # AI 모드 표시
-    font_small = pygame.font.SysFont("Arial", 20, bold=True)
+    # AI 모드 표시 - 캐시된 폰트 사용
+    font_small = get_cached_font("Arial", 20, bold=True)
     # 리그별 색상
     league_colors = {
         "junior": (100, 255, 100),    # 연두색
@@ -117662,9 +120979,349 @@ def handle_boss():
             BOSS_MAX_SPEED = BOSS_MAX_SPEED_DEFAULT
             BOSS_INSTANT_STOP_DECELERATION = BOSS_INSTANT_STOP_DECELERATION_DEFAULT
 def show_death_evaluation():
-    """사망 시 실력 평가 화면 표시 - show_player_info() 호출"""
-    # ESC 메뉴의 정보 화면과 동일한 플레이어 실력 분석을 표시
-    show_player_info()
+    """게임 오버 시 요약 화면 표시 - 골드, 시간, 아이템, 퍽, 보스 정보"""
+    global player_analyzer, current_stage
+
+    # 패배 BGM 재생
+    try:
+        bgm_manager.stop_bgm()
+        bgm_manager.bgm_manager.play_bgm('defeat', loop=0)
+    except Exception:
+        pass
+
+    # === 데이터 스냅샷 (리셋 전에 캡처) ===
+    accumulated_gold = downtown_gold
+
+    # 게임 시간 계산
+    game_time_seconds = 0
+    try:
+        if player_analyzer and hasattr(player_analyzer, 'stats') and hasattr(player_analyzer.stats, 'session_start_time'):
+            game_time_seconds = max(0, time.time() - player_analyzer.stats.session_start_time)
+    except Exception:
+        pass
+    game_minutes = int(game_time_seconds) // 60
+    game_seconds = int(game_time_seconds) % 60
+
+    # 획득 아이템 목록 (패시브/액티브 분리)
+    acquired_passive_items = []
+    acquired_active_items = []
+    try:
+        for item in passive_item_list:
+            if item and item.get("name"):
+                acquired_passive_items.append(item)
+    except Exception:
+        pass
+    try:
+        for item in active_item_slot:
+            if item and item.get("name"):
+                acquired_active_items.append(item)
+    except Exception:
+        pass
+
+    # 획득 퍽 목록 (runtime_skill_levels 사용 - 인게임에서 실제 획득한 퍽)
+    acquired_perks = []
+    try:
+        all_skill_pools = {}
+        all_skill_pools.update(RUNTIME_SKILL_POOL)
+        all_skill_pools.update(SMASHER_EXCLUSIVE_SKILLS)
+        all_skill_pools.update(OPTIMUS_EXCLUSIVE_SKILLS)
+        all_skill_pools.update(SOLDIER_EXCLUSIVE_SKILLS)
+        all_skill_pools.update(INSTANT_RUNTIME_SKILLS)
+        for skill_id, level in runtime_skill_levels.items():
+            if level > 0 and skill_id in all_skill_pools:
+                skill_data = all_skill_pools[skill_id]
+                acquired_perks.append({
+                    "id": skill_id,
+                    "name": skill_data.get("name", skill_id),
+                    "level": level,
+                    "icon_color": skill_data.get("icon_color", (150, 150, 150)),
+                    "skill_data": skill_data,
+                })
+    except Exception:
+        pass
+
+    # 클리어한 보스 목록 (이미지 포함)
+    cleared_bosses = []
+    boss_thumb_size = 48
+    try:
+        for logic_stage in range(1, current_stage):
+            display_stage = stage_logic_to_display(logic_stage)
+            name = get_boss_name(logic_stage)
+            # 보스 이미지 로드 (썸네일용)
+            # 이미지 파일명은 디스플레이 스테이지 기준 (스테이지 5/6 스왑 반영)
+            boss_thumb = None
+            try:
+                img_path = resource_path(f"boss_stage{display_stage}.png")
+                if os.path.exists(img_path):
+                    boss_thumb = pygame.image.load(img_path).convert_alpha()
+                    boss_thumb = pygame.transform.smoothscale(boss_thumb, (boss_thumb_size, boss_thumb_size))
+            except Exception:
+                pass
+            cleared_bosses.append({"display_stage": display_stage, "name": name, "thumb": boss_thumb})
+    except Exception:
+        pass
+
+    # 전투 결과
+    final_wins = round_wins
+    final_losses = round_losses
+    display_stage = stage_logic_to_display(current_stage)
+    current_boss_name = get_boss_name(current_stage)
+
+    # === 폰트 설정 ===
+    font_body = FontStyle.small()      # 18pt
+    font_detail = FontStyle.tiny()     # 12pt
+    font_hint = FontStyle.tiny()       # 12pt
+
+    # === 패널 설정 ===
+    panel_width = 620
+    panel_height = 700
+    panel_x = (WIDTH - panel_width) // 2
+    panel_y = (HEIGHT - panel_height) // 2
+    panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+    content_x = panel_x + 20
+    content_width = panel_width - 40
+
+    # 잔여 이벤트 제거
+    try:
+        pygame.event.clear()
+    except Exception:
+        pass
+
+    # === 메인 루프 ===
+    while True:
+        # 구슬 접기 애니메이션 업데이트
+        if is_orb_collapse_animation_active():
+            update_orb_collapse_animation()
+
+        # 이벤트 처리 (먼저!)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_ESCAPE, pygame.K_SPACE):
+                    return
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    return
+
+        # === 렌더링 ===
+        try:
+            # 배경
+            draw_field()
+            draw_shaking_screen()
+            draw_objects()
+
+            # 어두운 오버레이 - 캐시된 Surface 사용
+            overlay = get_cached_overlay(WIDTH, HEIGHT, 200)
+            SCREEN.blit(overlay, (0, 0))
+
+            # 메인 패널
+            draw_modern_panel(SCREEN, panel_rect, "게임 오버 요약", (255, 100, 100))
+
+            y_cursor = panel_y + 55
+
+            # === 섹션 1: 골드 / 플레이타임 ===
+            section1_h = 65
+            section1_rect = pygame.Rect(content_x, y_cursor, content_width, section1_h)
+            draw_section_container(SCREEN, section1_rect, "골드 / 플레이타임", "trophy")
+
+            gold_text = font_body.render(f"누적 골드: {accumulated_gold}G", True, (255, 215, 0))
+            SCREEN.blit(gold_text, (content_x + 20, y_cursor + 40))
+
+            time_text = font_body.render(f"플레이타임: {game_minutes:02d}:{game_seconds:02d}", True, (200, 220, 255))
+            time_rect = time_text.get_rect(right=content_x + content_width - 20, top=y_cursor + 40)
+            SCREEN.blit(time_text, time_rect)
+
+            y_cursor += section1_h + 8
+
+            # === 섹션 2: 클리어한 보스 ===
+            bosses_per_row = 8
+            if cleared_bosses:
+                boss_rows = max(1, (len(cleared_bosses) + bosses_per_row - 1) // bosses_per_row)
+                section2_h = 40 + boss_rows * (boss_thumb_size + 18) + 5
+            else:
+                section2_h = 60
+            section2_rect = pygame.Rect(content_x, y_cursor, content_width, section2_h)
+            draw_section_container(SCREEN, section2_rect, "클리어한 보스", "medal")
+
+            if cleared_bosses:
+                boss_spacing = boss_thumb_size + 12
+                for i, boss in enumerate(cleared_bosses):
+                    row = i // bosses_per_row
+                    col = i % bosses_per_row
+                    # 현재 행의 보스 수 계산하여 중앙 정렬
+                    bosses_in_row = min(bosses_per_row, len(cleared_bosses) - row * bosses_per_row)
+                    row_width = bosses_in_row * boss_spacing - 12
+                    row_start_x = content_x + (content_width - row_width) // 2
+                    bx = row_start_x + col * boss_spacing
+                    by = y_cursor + 38 + row * (boss_thumb_size + 18)
+                    # 보스 이미지 그리기
+                    if boss.get("thumb"):
+                        SCREEN.blit(boss["thumb"], (bx, by))
+                    else:
+                        pygame.draw.rect(SCREEN, (80, 80, 100), (bx, by, boss_thumb_size, boss_thumb_size), border_radius=6)
+                        pygame.draw.rect(SCREEN, (120, 120, 140), (bx, by, boss_thumb_size, boss_thumb_size), 1, border_radius=6)
+                    # 보스 이름 (이미지 아래)
+                    name_surf = font_detail.render(boss["name"], True, (220, 220, 220))
+                    name_rect = name_surf.get_rect(centerx=bx + boss_thumb_size // 2, top=by + boss_thumb_size + 2)
+                    SCREEN.blit(name_surf, name_rect)
+            else:
+                no_boss = font_detail.render("클리어한 보스가 없습니다.", True, (150, 150, 150))
+                SCREEN.blit(no_boss, (content_x + 20, y_cursor + 42))
+
+            y_cursor += section2_h + 8
+
+            # === 섹션 3: 획득 아이템 (패시브/액티브 분리) ===
+            icon_size = 32
+            icons_per_row = 13
+            icon_gap = 8
+            max_display_items = icons_per_row * 2  # 카테고리별 최대 2줄
+
+            total_items = len(acquired_passive_items) + len(acquired_active_items)
+            # 섹션 높이 계산
+            section3_h = 38  # 헤더
+            if acquired_passive_items:
+                p_rows = min(2, max(1, (len(acquired_passive_items) + icons_per_row - 1) // icons_per_row))
+                section3_h += 20 + p_rows * (icon_size + icon_gap)
+            if acquired_active_items:
+                a_rows = min(2, max(1, (len(acquired_active_items) + icons_per_row - 1) // icons_per_row))
+                section3_h += 20 + a_rows * (icon_size + icon_gap)
+            if not acquired_passive_items and not acquired_active_items:
+                section3_h = 60
+            section3_h += 8
+
+            section3_rect = pygame.Rect(content_x, y_cursor, content_width, section3_h)
+            draw_section_container(SCREEN, section3_rect, f"획득 아이템 ({total_items}개)", "trophy")
+
+            item_y = y_cursor + 38
+
+            def _draw_item_icons(item_list, start_y, label, label_color):
+                """아이템 아이콘 행 렌더링 헬퍼"""
+                lbl = font_detail.render(f"{label} ({len(item_list)})", True, label_color)
+                SCREEN.blit(lbl, (content_x + 15, start_y))
+                grid_y = start_y + 16
+                display = item_list[:max_display_items]
+                for i, item in enumerate(display):
+                    row = i // icons_per_row
+                    col = i % icons_per_row
+                    ix = content_x + 15 + col * (icon_size + icon_gap)
+                    iy = grid_y + row * (icon_size + icon_gap)
+                    try:
+                        icon_surface = get_item_icon(item.get("name", ""))
+                        if icon_surface:
+                            if icon_surface.get_size() != (icon_size, icon_size):
+                                icon_surface = pygame.transform.smoothscale(icon_surface, (icon_size, icon_size))
+                            SCREEN.blit(icon_surface, (ix, iy))
+                        else:
+                            pygame.draw.rect(SCREEN, (80, 80, 100), (ix, iy, icon_size, icon_size), border_radius=4)
+                            pygame.draw.rect(SCREEN, (120, 120, 140), (ix, iy, icon_size, icon_size), 1, border_radius=4)
+                    except Exception:
+                        pygame.draw.rect(SCREEN, (80, 80, 100), (ix, iy, icon_size, icon_size), border_radius=4)
+                overflow = len(item_list) - len(display)
+                rows_used = max(1, (len(display) + icons_per_row - 1) // icons_per_row) if display else 0
+                if overflow > 0:
+                    more_text = font_detail.render(f"+{overflow}", True, (200, 200, 200))
+                    SCREEN.blit(more_text, (content_x + 15 + min(len(display), icons_per_row) * (icon_size + icon_gap) + 4, grid_y + 8))
+                return 20 + rows_used * (icon_size + icon_gap)
+
+            if acquired_passive_items:
+                item_y += _draw_item_icons(acquired_passive_items, item_y, "패시브", (100, 200, 255))
+            if acquired_active_items:
+                item_y += _draw_item_icons(acquired_active_items, item_y, "액티브", (255, 180, 100))
+            if not acquired_passive_items and not acquired_active_items:
+                no_item = font_detail.render("획득한 아이템이 없습니다.", True, (150, 150, 150))
+                SCREEN.blit(no_item, (content_x + 20, y_cursor + 42))
+
+            y_cursor += section3_h + 8
+
+            # === 섹션 4: 획득 퍽 (아이콘 표시) ===
+            perk_icon_size = 32
+            perk_spacing = 38
+            perks_per_row = 13
+            max_display_perks = perks_per_row * 2  # 최대 2줄
+
+            if acquired_perks:
+                perk_rows = min(2, max(1, (len(acquired_perks) + perks_per_row - 1) // perks_per_row))
+                section4_h = 42 + perk_rows * (perk_icon_size + 8) + 5
+            else:
+                section4_h = 60
+            section4_rect = pygame.Rect(content_x, y_cursor, content_width, section4_h)
+            draw_section_container(SCREEN, section4_rect, f"획득 퍽 ({len(acquired_perks)}개)", "idea")
+
+            if acquired_perks:
+                display_perks = acquired_perks[:max_display_perks]
+                overflow_perks = len(acquired_perks) - len(display_perks)
+
+                for i, perk_data in enumerate(display_perks):
+                    row = i // perks_per_row
+                    col = i % perks_per_row
+                    # 현재 행의 퍽 수 계산하여 중앙 정렬
+                    perks_in_row = min(perks_per_row, len(display_perks) - row * perks_per_row)
+                    row_width = perks_in_row * perk_spacing - (perk_spacing - perk_icon_size)
+                    row_start_x = content_x + (content_width - row_width) // 2
+                    px = row_start_x + col * perk_spacing
+                    py = y_cursor + 40 + row * (perk_icon_size + 8)
+
+                    # 퍽 박스 배경
+                    perk_box = pygame.Surface((perk_icon_size + 4, perk_icon_size + 4), pygame.SRCALPHA)
+                    pygame.draw.rect(perk_box, (20, 25, 40, 200), (0, 0, perk_icon_size + 4, perk_icon_size + 4), border_radius=5)
+                    pygame.draw.rect(perk_box, perk_data["icon_color"], (0, 0, perk_icon_size + 4, perk_icon_size + 4), width=1, border_radius=5)
+                    SCREEN.blit(perk_box, (px - 2, py - 2))
+
+                    # 퍽 아이콘 그리기
+                    try:
+                        draw_skill_icon_mini(SCREEN, perk_data, px, py, perk_icon_size, scale_multiplier=1.5)
+                    except Exception:
+                        pass
+
+                    # 레벨 표시 (우하단)
+                    if perk_data["level"] > 1:
+                        try:
+                            level_font = pygame.font.Font(None, 14)
+                            level_text = level_font.render(f"{perk_data['level']}", True, (255, 255, 255))
+                            SCREEN.blit(level_text, (px + perk_icon_size - 8, py + perk_icon_size - 10))
+                        except Exception:
+                            pass
+
+                if overflow_perks > 0:
+                    more_perk = font_detail.render(f"+{overflow_perks}개", True, (180, 180, 180))
+                    SCREEN.blit(more_perk, (content_x + content_width - 50, y_cursor + section4_h - 18))
+            else:
+                no_perk = font_detail.render("획득한 퍽이 없습니다.", True, (150, 150, 150))
+                SCREEN.blit(no_perk, (content_x + 20, y_cursor + 42))
+
+            y_cursor += section4_h + 8
+
+            # === 섹션 5: 전투 결과 ===
+            section5_h = 60
+            section5_rect = pygame.Rect(content_x, y_cursor, content_width, section5_h)
+            draw_section_container(SCREEN, section5_rect, "전투 결과", "analysis")
+
+            score_text = font_body.render(f"최종 스코어: {final_wins} - {final_losses}", True, WHITE)
+            SCREEN.blit(score_text, (content_x + 20, y_cursor + 38))
+
+            stage_text = font_body.render(f"스테이지 {display_stage}: {current_boss_name}", True, (200, 200, 255))
+            stage_rect = stage_text.get_rect(right=content_x + content_width - 20, top=y_cursor + 38)
+            SCREEN.blit(stage_text, stage_rect)
+
+            # === 하단 안내 ===
+            hint_text = font_hint.render("ESC / SPACE / 클릭: 돌아가기", True, (140, 140, 140))
+            hint_rect = hint_text.get_rect(center=(panel_rect.centerx, panel_rect.bottom - 12))
+            SCREEN.blit(hint_text, hint_rect)
+
+        except Exception as e:
+            print(f"show_death_evaluation rendering error: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                error_font = FontStyle.body()
+                error_text = error_font.render("요약 정보를 표시할 수 없습니다.", True, (255, 100, 100))
+                SCREEN.blit(error_text, error_text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+            except Exception:
+                pass
+
+        pygame.display.flip()
 
 def start_nemesis_death_animation():
     """네메시스 보스 패배 애니메이션 시작 (게임 루프 내에서 상태 기반으로 동작)"""
@@ -118079,6 +121736,7 @@ def show_result(won):
     global emotional_overdrive_active, emotional_overdrive_timer, overdrive_flash_timer, overdrive_trails  #  사이코볼 관련 변수 추가
     global boss_special_gauge, boss_special_ready, boss_special_waiting, boss_red_intensity  #  멘헤라걸 관련 변수 추가
     global enraged_boss_active  # 광폭화 보스 상태 확인용
+    global quest_completion_glow_active, quest_completion_glow_timer  # 퀘스트 완료 빛 효과
 
     stop_blacksmith_construction_sound()
 
@@ -118187,6 +121845,9 @@ def show_result(won):
         if completed_quests:
             for quest in completed_quests:
                 show_fade_text(f"퀘스트 완료! {quest['name']} (+{quest['reward_gold']}G)")
+            # 퀘스트 완료 빛 효과 활성화
+            quest_completion_glow_active = True
+            quest_completion_glow_timer = 0.0
         # 검은 화면 채우기 제거 - 승리 이펙트와 스킬 선택이 현재 스테이지 배경을 사용하도록
         pygame.display.flip()
         pygame.time.delay(100)  # 딜레이도 짧게
@@ -119078,6 +122739,9 @@ def main(stage_num, new_boss_mode=False):
     global quest_stage_active_item_used, quest_stage_boss_score
     quest_stage_active_item_used = False
     quest_stage_boss_score = 0
+    # 석판 수집 퀘스트 초기화
+    if "collect_tablets" in active_quests:
+        reset_quest_tablet_state()
 
     # 🎳 볼링트랩 설치물 초기화 (새 스테이지 시작 시)
     try:
@@ -119596,6 +123260,20 @@ def main(stage_num, new_boss_mode=False):
     global ball_spawn_animation_active, ball_spawn_animation_stage_start
     ball_spawn_animation_active = False
     ball_spawn_animation_stage_start = False
+
+    # === 승리화면 '이번 스테이지 획득 아이템' 필터용 스냅샷 ===
+    global _items_snapshot_at_stage_start
+    _items_snapshot_at_stage_start = set()
+    for _snap_item in active_item_slot:
+        if _snap_item:
+            _items_snapshot_at_stage_start.add(id(_snap_item))
+    for _snap_item in passive_item_list:
+        if _snap_item:
+            _items_snapshot_at_stage_start.add(id(_snap_item))
+
+    # === 승리화면 '이번 스테이지 획득 퍽' 필터용 스냅샷 ===
+    global _skill_levels_snapshot_at_stage_start
+    _skill_levels_snapshot_at_stage_start = runtime_skill_levels.copy()
 
     # 스테이지 첫 시작이므로 is_stage_start=True로 호출
     # 이렇게 하면 서브 텍스트("플레이어 서브!" 등)가 표시되지 않고
@@ -120520,9 +124198,15 @@ def main(stage_num, new_boss_mode=False):
         dt_ms = clock.tick(FPS)
         now_ms = pygame.time.get_ticks()
         # 프레임 시간 캐싱 업데이트 (성능 최적화)
-        global _current_frame_ticks, _frame_counter
+        global _current_frame_ticks, _frame_counter, VALTHOR_PERF_DEBUG
         _current_frame_ticks = now_ms
         _frame_counter += 1
+
+        # 토르쉴드 프레임 시간 추적 (디버그용)
+        if VALTHOR_PERF_DEBUG:
+            _thor_shield_frame_times.append(dt_ms)
+            if len(_thor_shield_frame_times) > 120:  # 최근 2초
+                _thor_shield_frame_times.pop(0)
 
         # === 첫 프레임 dt 강제 제한 (EXE 패키징 시 초기 지연 문제 해결) ===
         # 패키징된 EXE에서는 게임 루프 첫 프레임에 리소스 로딩 지연으로 인해
@@ -120676,7 +124360,6 @@ def main(stage_num, new_boss_mode=False):
         main.keyF4_pressed = keys[pygame.K_F4]
 
         # F9키로 발토르 성능 디버그 토글
-        global VALTHOR_PERF_DEBUG
         if keys[pygame.K_F9] and not getattr(main, 'keyF9_pressed', False):
             VALTHOR_PERF_DEBUG = not VALTHOR_PERF_DEBUG
             _valthor_perf_times.clear()
@@ -121195,7 +124878,8 @@ def main(stage_num, new_boss_mode=False):
                     and not blacksmith_hammer_shock_charging
                     and blacksmith_hammer_shock_cooldown_timer <= 0
                     and special_gauge >= BLACKSMITH_HAMMER_SHOCK_MIN_STAGE_COST
-                    and blacksmith_divine_stone_state is not None
+                    and blacksmith_divine_stone_state is not None  # 디바인스톤(강화 여부 무관)이 필드에 있어야 함
+                    and has_blacksmith_hammer_shock_perk()  # 해머쇼크 퍽(1단계 이상) 필요
                     and not blacksmith_umbrella_open  # 토르쉴드가 열려있으면 해머쇼크 차징 불가 (스윙 우선)
                 )
                 # 포탑 수동 발사: 빠른 더블 입력(SPACE 또는 마우스 좌클릭 두 번)일 때만 발동
@@ -123862,6 +127546,10 @@ def main(stage_num, new_boss_mode=False):
                 is_tutorial_paused = (current_stage == 50 and tutorial_pause_for_dialogue) or is_ingame_tutorial_paused()
                 items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused)
 
+                # 석판 수집 퀘스트 업데이트
+                if not is_tutorial_paused:
+                    update_quest_tablets()
+
                 # 보물탐색 연출 업데이트
                 if treasure_hunt_active:
                     update_treasure_hunt()
@@ -124119,6 +127807,9 @@ def main(stage_num, new_boss_mode=False):
                                 ball_cy = BALL.centery
                                 ball_radius = BALL.width // 2
                                 if laurel.check_ball_collision(ball_cx, ball_cy, ball_radius):
+                                    # 월계수 잎 충돌 사운드 재생
+                                    if SOUND_LEAF:
+                                        play_sound_with_volume(SOUND_LEAF)
                                     # 잎이 공에 맞아 제거됨 - 가속 + 괴상한 방향으로 반사
                                     import math as _math_laurel
                                     import random as _random_laurel
@@ -124558,8 +128249,8 @@ def main(stage_num, new_boss_mode=False):
                 update_stage8_afterimage_ghosts()
                 draw_stage8_afterimage_ghosts(SCREEN)
             if current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms:
-                overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                overlay.fill((0, 0, 0, 150))
+                # 캐시된 오버레이 사용
+                overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
                 SCREEN.blit(overlay, (0, 0))
                 text = FontStyle.title().render("초각성 준비...", True, (255, 230, 80))
                 SCREEN.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
@@ -124597,13 +128288,14 @@ def main(stage_num, new_boss_mode=False):
                 # items.draw_active_item(...) - 제거됨 (2026-01-04)
                 # _draw_active_item_hover_tooltip() - 제거됨
                 items.draw_items(SCREEN)
-                
+                draw_quest_tablets(SCREEN)
+
                 # 물자보급 시스템 그리기 (코만도 캐릭터 전용)
                 if selected_character_type == "soldier":
                     draw_supply_drop_system(SCREEN)
                     draw_fire_support_system(SCREEN)
                     # draw_bazooka_recoil_effect(SCREEN)  # 바주카포 반동 효과 비활성화
-                
+
                 draw_pandora_box_effect()  # 판도라의 상자 무지개 효과
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
             # 흔들림과 무관하게 그려지는 UI
@@ -124659,8 +128351,8 @@ def main(stage_num, new_boss_mode=False):
                 update_stage8_afterimage_ghosts()
                 draw_stage8_afterimage_ghosts(SCREEN)
             if current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms:
-                overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                overlay.fill((0, 0, 0, 150))
+                # 캐시된 오버레이 사용
+                overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
                 SCREEN.blit(overlay, (0, 0))
                 text = FontStyle.title().render("초각성 준비...", True, (255, 230, 80))
                 SCREEN.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
@@ -124708,7 +128400,8 @@ def main(stage_num, new_boss_mode=False):
                 # items.draw_active_item(...) - 제거됨 (2026-01-04)
                 # _draw_active_item_hover_tooltip() - 제거됨
                 items.draw_items(SCREEN)
-                
+                draw_quest_tablets(SCREEN)
+
                 # 물자보급 시스템 그리기 (코만도 캐릭터 전용)
                 if selected_character_type == "soldier":
                     draw_supply_drop_system(SCREEN)
@@ -124760,7 +128453,16 @@ def main(stage_num, new_boss_mode=False):
             draw_legendary_effect(SCREEN, font_large, font_huge)
         
         #  일시정지 UI 렌더링
-        if game_paused and not game_paused_by_tooltip:
+        # 퀘스트 엠블럼 호버 중에는 PAUSE 오버레이 표시 안함
+        _skip_pause_for_quest_hover = False
+        try:
+            if pillar_renderer is not None and len(active_quests) > 0:
+                _mouse_pos = pygame.mouse.get_pos()
+                if pillar_renderer.check_quest_emblem_hover(_mouse_pos):
+                    _skip_pause_for_quest_hover = True
+        except:
+            pass
+        if game_paused and not game_paused_by_tooltip and not _skip_pause_for_quest_hover:
             draw_pause_overlay()
         
         # Stage 3 쿠로미 각성 오버레이
@@ -125567,6 +129269,8 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             # 튜토리얼 일시정지 시 아이템 이동/회전 정지 (두 가지 방식 모두 체크)
             is_tutorial_paused = (current_stage == 50 and tutorial_pause_for_dialogue) or is_ingame_tutorial_paused()
             items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused)
+            if not is_tutorial_paused:
+                update_quest_tablets()
         except Exception:
             pass
 
@@ -125641,25 +129345,31 @@ def game_loop():
         # show_start_screen()에서 게임이 시작되고 끝나면 다시 메인 메뉴로 돌아옴
 def draw_pause_overlay():
     """일시정지 오버레이 UI 그리기"""
-    # 반투명 검정 오버레이 - SRCALPHA로 macOS/Windows 모두 알파 블렌딩 지원
-    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 120))  # 투명도 120 (0-255, 낮을수록 투명)
+    # 반투명 검정 오버레이 - 캐시된 Surface 사용 (매 프레임 생성 방지)
+    overlay = get_cached_overlay(WIDTH, HEIGHT, 120)
     SCREEN.blit(overlay, (0, 0))
-    # PAUSE 텍스트
-    font_pause = get_font(80)  # 80pt 픽셀 폰트
-    pause_text = font_pause.render("PAUSE", True, WHITE)
-    # 텍스트에 그림자 효과 추가
-    shadow_text = font_pause.render("PAUSE", True, (50, 50, 50))
-    shadow_rect = shadow_text.get_rect(center=(WIDTH//2 + 3, HEIGHT//2 + 3))
-    SCREEN.blit(shadow_text, shadow_rect)
+
+    # 정적 텍스트 캐싱 (매 프레임 렌더링 방지)
+    pause_cache_key = ("pause_overlay", WIDTH, HEIGHT)
+    if pause_cache_key not in _static_text_cache:
+        font_pause = get_font(80)  # 80pt 픽셀 폰트
+        font_hint = FontStyle.body()  # 24pt 픽셀 폰트
+        _static_text_cache[pause_cache_key] = {
+            "pause": font_pause.render("PAUSE", True, WHITE),
+            "shadow": font_pause.render("PAUSE", True, (50, 50, 50)),
+            "hint": font_hint.render("P키를 다시 눌러서 게임 재개", True, (200, 200, 200)),
+        }
+    cached = _static_text_cache[pause_cache_key]
+
+    # 그림자 텍스트
+    shadow_rect = cached["shadow"].get_rect(center=(WIDTH//2 + 3, HEIGHT//2 + 3))
+    SCREEN.blit(cached["shadow"], shadow_rect)
     # 메인 텍스트
-    pause_rect = pause_text.get_rect(center=(WIDTH//2, HEIGHT//2))
-    SCREEN.blit(pause_text, pause_rect)
+    pause_rect = cached["pause"].get_rect(center=(WIDTH//2, HEIGHT//2))
+    SCREEN.blit(cached["pause"], pause_rect)
     # 하단 힌트 텍스트
-    font_hint = FontStyle.body()  # 24pt 픽셀 폰트
-    hint_text = font_hint.render("P키를 다시 눌러서 게임 재개", True, (200, 200, 200))
-    hint_rect = hint_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 80))
-    SCREEN.blit(hint_text, hint_rect)
+    hint_rect = cached["hint"].get_rect(center=(WIDTH//2, HEIGHT//2 + 80))
+    SCREEN.blit(cached["hint"], hint_rect)
 def show_pause_menu():
     """일시정지 메뉴"""
     global session_medal_earned, medal_score
@@ -125707,9 +129417,8 @@ def show_pause_menu():
             draw_shaking_screen()
             draw_objects()
             draw_water_trail()
-            # 반투명 오버레이
-            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 128))  # 반투명 검은색
+            # 반투명 오버레이 - 캐시된 Surface 사용
+            overlay = get_cached_overlay(WIDTH, HEIGHT, 128)
             SCREEN.blit(overlay, (0, 0))
             # 메뉴 제목
             title_text = font_large.render("일시정지", True, WHITE)
@@ -126101,9 +129810,8 @@ def show_player_info():
             draw_field()
             draw_shaking_screen()
             draw_objects()
-            # 반투명 오버레이 (더 어둡게)
-            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 200))
+            # 반투명 오버레이 (더 어둡게) - 캐시된 Surface 사용
+            overlay = get_cached_overlay(WIDTH, HEIGHT, 200)
             SCREEN.blit(overlay, (0, 0))
             # 메인 패널 설정
             main_panel_width = 580
@@ -126336,9 +130044,8 @@ def show_weather_debug_menu():
         # 마우스 위치
         mouse_pos = pygame.mouse.get_pos()
 
-        # 배경 어둡게
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
+        # 배경 어둡게 - 캐시된 오버레이 사용
+        overlay = get_cached_overlay(WIDTH, HEIGHT, 180)
         SCREEN.blit(overlay, (0, 0))
 
         # 메뉴 패널
@@ -126832,26 +130539,15 @@ def show_character_info(background_surface=None):
                 # 전설 아이템인 경우 LEGENDARY_ROLL_OPTIONS에서 롤옵션 가져오기
                 if item.get("type") == "legendary" and item_name in LEGENDARY_ROLL_OPTIONS:
                     legend_opts = LEGENDARY_ROLL_OPTIONS.get(item_name, [])
-                    # 강화 보너스 가져오기
-                    enhancement_bonus_pct = item.get("enhancement_bonus_pct", 0)
 
                     for opt in legend_opts:
-                        base_val = get_legendary_roll_value(item_name, opt["key"], apply_polish=False)
-                        polished_val = get_legendary_roll_value(item_name, opt["key"], apply_polish=True)
+                        # 개별 아이템의 rolled_options에서 값 가져오기 (전역 딕셔너리 대신)
+                        base_val = get_item_legendary_roll_value(item, opt["key"], apply_polish=False)
+                        polished_val = get_item_legendary_roll_value(item, opt["key"], apply_polish=True)
                         unit = opt.get("unit", "")
                         label = opt.get("label", opt["key"])
                         step = opt.get("step", 1)
                         is_reverse = opt.get("reverse", False)
-
-                        # 강화 보너스 적용
-                        if enhancement_bonus_pct > 0:
-                            enhancement_multiplier = 1 + enhancement_bonus_pct / 100
-                            if is_reverse:
-                                # reverse 옵션 (낮을수록 좋음): 값을 감소
-                                polished_val = polished_val / enhancement_multiplier
-                            else:
-                                # 일반 옵션: 값을 증가
-                                polished_val = polished_val * enhancement_multiplier
 
                         if isinstance(step, float) and step < 1:
                             base_str = f"{base_val:.1f}"
@@ -127131,26 +130827,15 @@ def show_character_info(background_surface=None):
                 # 전설 아이템인 경우 LEGENDARY_ROLL_OPTIONS에서 롤옵션 가져오기
                 if item.get("type") == "legendary" and item_name in LEGENDARY_ROLL_OPTIONS:
                     legend_opts = LEGENDARY_ROLL_OPTIONS.get(item_name, [])
-                    # 강화 보너스 가져오기
-                    enhancement_bonus_pct = item.get("enhancement_bonus_pct", 0)
 
                     for opt in legend_opts:
-                        base_val = get_legendary_roll_value(item_name, opt["key"], apply_polish=False)
-                        polished_val = get_legendary_roll_value(item_name, opt["key"], apply_polish=True)
+                        # 개별 아이템의 rolled_options에서 값 가져오기 (전역 딕셔너리 대신)
+                        base_val = get_item_legendary_roll_value(item, opt["key"], apply_polish=False)
+                        polished_val = get_item_legendary_roll_value(item, opt["key"], apply_polish=True)
                         unit = opt.get("unit", "")
                         label = opt.get("label", opt["key"])
                         step = opt.get("step", 1)
                         is_reverse = opt.get("reverse", False)
-
-                        # 강화 보너스 적용
-                        if enhancement_bonus_pct > 0:
-                            enhancement_multiplier = 1 + enhancement_bonus_pct / 100
-                            if is_reverse:
-                                # reverse 옵션 (낮을수록 좋음): 값을 감소
-                                polished_val = polished_val / enhancement_multiplier
-                            else:
-                                # 일반 옵션: 값을 증가
-                                polished_val = polished_val * enhancement_multiplier
 
                         if isinstance(step, float) and step < 1:
                             base_str = f"{base_val:.1f}"
@@ -127762,6 +131447,29 @@ def show_character_info(background_surface=None):
                         "icon_color": skill_data["icon_color"],
                     })
 
+        # 아카데미 퍽 추가 (발토르 전용 등)
+        try:
+            import academy
+            if hasattr(academy, 'skill_system') and academy.skill_system:
+                if hasattr(academy, 'SKILL_TREES'):
+                    for tree_id, tree_data in academy.SKILL_TREES.items():
+                        for skill_data in tree_data.get("skills", []):
+                            skill_id = skill_data.get("id", "")
+                            level = academy.skill_system.get_skill_level(skill_id)
+                            if level > 0:
+                                acquired_skills.append({
+                                    "id": skill_id,
+                                    "name": skill_data.get("name", skill_id),
+                                    "level": level,
+                                    "max_level": skill_data.get("max_level", 1),
+                                    "description": skill_data.get("description", ""),
+                                    "detail": "",
+                                    "icon_color": skill_data.get("icon_color", (180, 100, 220)),
+                                    "is_academy": True,  # 아카데미 퍽 표시
+                                })
+        except Exception as e:
+            pass
+
         if not acquired_skills:
             empty_text = stats_tiny_font.render("획득한 퍽 없음", True, (120, 120, 140))
             empty_rect = empty_text.get_rect(center=(area_rect.centerx, area_rect.centery + 10))
@@ -128025,9 +131733,8 @@ def show_character_info(background_surface=None):
             dialog_clock.tick(60)
             mouse_pos = pygame.mouse.get_pos()
 
-            # 배경 어둡게
-            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 150))
+            # 배경 어둡게 - 캐시된 오버레이 사용
+            overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
             SCREEN.blit(overlay, (0, 0))
 
             # 다이얼로그 배경
@@ -128148,8 +131855,8 @@ def show_character_info(background_surface=None):
             draw_shaking_screen()
             draw_objects()
             draw_water_trail()
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
+        # 캐시된 오버레이 사용
+        overlay = get_cached_overlay(WIDTH, HEIGHT, 180)
         SCREEN.blit(overlay, (0, 0))
         panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
         draw.rect((20, 24, 40), panel_rect)
@@ -128716,9 +132423,8 @@ def show_game_info():
             draw_water_trail()
         else:
             SCREEN.blit(bg_surface, (0, 0))
-        # 반투명 오버레이
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
+        # 반투명 오버레이 - 캐시된 Surface 사용
+        overlay = get_cached_overlay(WIDTH, HEIGHT, 180)
         SCREEN.blit(overlay, (0, 0))
         if current_page == 0:  # 기본정보 페이지
             # 패널 배경
@@ -129673,9 +133379,8 @@ def show_item_management_menu(item_list, selected_index, item_type):
         draw_shaking_screen()
         draw_objects()
         draw_water_trail()
-        # 반투명 오버레이
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
+        # 반투명 오버레이 - 캐시된 Surface 사용
+        overlay = get_cached_overlay(WIDTH, HEIGHT, 180)
         SCREEN.blit(overlay, (0, 0))
         # 아이템 정보
         item = item_list[selected_index]
@@ -130032,9 +133737,8 @@ def show_surrender_confirm():
         draw_shaking_screen()
         draw_objects()
         draw_water_trail()
-        # 반투명 오버레이
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
+        # 반투명 오버레이 - 캐시된 Surface 사용
+        overlay = get_cached_overlay(WIDTH, HEIGHT, 180)
         SCREEN.blit(overlay, (0, 0))
         # 기권 메시지
         message_text = font_large.render("기권하시겠습니까?", True, WHITE)
@@ -130250,7 +133954,7 @@ def show_character_item_manager():
         total_tab_width = tab_width * 4 + tab_spacing * 3
         start_x = (WIDTH - total_tab_width) // 2
         
-        tab_names = ["캐릭터", "엑티브", "패시브", "전설"]
+        tab_names = ["캐릭터", "엑티브", "패시브", "신화"]
         tab_colors = [
             (150, 100, 200) if selected_main_tab == 0 else (60, 60, 80),  # 캐릭터 - 보라색
             (100, 150, 255) if selected_main_tab == 1 else (60, 60, 80),  # 엑티브 - 파란색
