@@ -87,6 +87,7 @@ SOUND_PATHS = {
     "BUTTON_CLICK": "sounds/button_click.wav",
     "BUTTON_HOVER": "sounds/button_hover.wav",
     "DASH_CHARGE": "sounds/dashcharge.wav",
+    "DASH_DELAY": "sounds/dashdelay.wav",
     "THROWING_BANANA": "sounds/throwingbanana.wav",
     "STEP_BANANA": "sounds/bananastep.wav",
     "STAGE5_WARNING": "sounds/stage5warning.wav",
