@@ -968,9 +968,9 @@ class MossyStoneFrame:
                 pygame.draw.rect(surface, (*self.COLORS['jungle_mist'], alpha),
                                (right_start, y, self.screen_width - right_start, 4))
 
-        # 게임 영역 배경 (어두운 색)
-        pygame.draw.rect(surface, self.COLORS['bg_darkest'],
-                        (self.game_x, self.game_y, self.game_width, self.game_height))
+        # 게임 영역은 투명하게 (나중에 게임 배경이 그려짐)
+        game_rect = pygame.Rect(self.game_x, self.game_y, self.game_width, self.game_height)
+        pygame.draw.rect(surface, (0, 0, 0, 0), game_rect)
 
     def _draw_background_vine(self, surface, vine):
         """배경 덩굴 그리기"""
