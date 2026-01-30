@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "gemini": {
+      "command": "npx",
+      "args": ["-y", "@rlabs-inc/gemini-mcp"],
+      "env": {
+        "GEMINI_API_KEY": "AIzaSyA61y7qv57bUPHt9wZWLTz6y0ftFeilAik"
+      }
+    }
+  }
+}

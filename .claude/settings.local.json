@@ -61,7 +61,9 @@
       "Bash(\"/e/bosspong/.venv_win/Scripts/python.exe\" -m PyInstaller PingFighter_Windows.spec --clean)",
       "Bash(cat:*)",
       "Bash(timeout:*)",
-      "Bash(py:*)"
+      "Bash(py:*)",
+      "mcp__gemini__gemini-query",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": [],

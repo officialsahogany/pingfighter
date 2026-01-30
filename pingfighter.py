@@ -34796,7 +34796,7 @@ def draw_blacksmith_turret_elements(surface):
         if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL and idle_pulse > 0.0:
             halo_width = int(max(40, sx_val(120)))
             halo_height = int(max(16, sy_val(36)))
-            halo_surface = pygame.Surface((halo_width, halo_height), pygame.SRCALPHA)
+            halo_surface = _get_reinforced_turret_halo_surface(halo_width, halo_height)  # 캐싱
             center_x = halo_width // 2
             base_y = halo_height - 1
             outer_alpha = int(50 + 90 * idle_pulse)
@@ -34812,8 +34812,7 @@ def draw_blacksmith_turret_elements(surface):
                 (255, 180, 120, inner_alpha),
                 pygame.Rect(int(halo_width * 0.1), int(halo_height * 0.4), int(halo_width * 0.8), int(halo_height * 0.5)),
             )
-            # 강철 보랏빛 가시들
-            spike_surface = pygame.Surface((halo_width, halo_height), pygame.SRCALPHA)
+            # 강철 보랏빛 가시들 (halo_surface에 직접 그리기 - spike_surface 생성 제거)
             spike_base_color = (130, 110, 210, 170)
             spike_edge_color = (220, 210, 255, 210)
             for idx, offset in enumerate((-0.6, -0.2, 0.2, 0.6)):
@@ -34825,9 +34824,8 @@ def draw_blacksmith_turret_elements(surface):
                     (base_x + 3, base_y),
                     (base_x + lean, base_y - height),
                 ]
-                pygame.draw.polygon(spike_surface, spike_base_color, pts)
-                pygame.draw.lines(spike_surface, spike_edge_color, True, pts, 1)
-            halo_surface.blit(spike_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+                pygame.draw.polygon(halo_surface, spike_base_color, pts)
+                pygame.draw.lines(halo_surface, spike_edge_color, True, pts, 1)
             surface.blit(
                 halo_surface,
                 (int(cx - halo_width / 2), int(bottom - sy_val(4) - halo_height)),
@@ -34926,13 +34924,9 @@ def draw_blacksmith_turret_elements(surface):
         padding_top = max(6, int(sy_val(18)))
         padding_bottom = max(4, int(sy_val(12)))
         # 회전 시 터렛 헤드의 상단이 잘리지 않도록 추가 여백을 확보한다.
-        head_surface = pygame.Surface(
-            (
-                head_width + padding_x * 2,
-                head_height + padding_top + padding_bottom,
-            ),
-            pygame.SRCALPHA,
-        )
+        head_surf_w = head_width + padding_x * 2
+        head_surf_h = head_height + padding_top + padding_bottom
+        head_surface = _get_reinforced_turret_head_surface(head_surf_w, head_surf_h)  # 캐싱
         pivot_local = pygame.math.Vector2(
             padding_x + head_width / 2,
             padding_top + head_height * 0.7,
@@ -35229,7 +35223,7 @@ def draw_blacksmith_turret_elements(surface):
 
             # === 1. 외곽 에너지 오라 (3중 링) ===
             aura_size = int(radius * 5)
-            aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+            aura_surf = _get_homing_missile_surface(aura_size * 2)  # 캐싱
             aura_center = aura_size
             for i, (r_mult, alpha) in enumerate([(1.8, 40), (1.4, 60), (1.0, 80)]):
                 ring_r = int(radius * r_mult * (1.0 + pulse * 0.15))
@@ -35242,21 +35236,17 @@ def draw_blacksmith_turret_elements(surface):
             exhaust_base_x = proj_pos[0] - cos_a * (missile_len * 0.4)
             exhaust_base_y = proj_pos[1] - sin_a * (missile_len * 0.4)
 
-            # 외곽 불꽃 (보라색)
+            # 외곽 불꽃 (보라색) - 직접 라인 그리기로 Surface 생성 제거
             for flame_i in range(3):
                 flame_offset = (flame_i - 1) * missile_width * 0.3
                 perp_x, perp_y = -sin_a * flame_offset, cos_a * flame_offset
                 flame_tip_x = exhaust_base_x - cos_a * exhaust_len * (0.9 - flame_i * 0.15) + perp_x
                 flame_tip_y = exhaust_base_y - sin_a * exhaust_len * (0.9 - flame_i * 0.15) + perp_y
-                flame_alpha = int(180 - flame_i * 40)
-                flame_color = (160 + flame_i * 30, 80 + flame_i * 20, 255, flame_alpha)
-                flame_surf = pygame.Surface((int(exhaust_len * 2), int(exhaust_len * 2)), pygame.SRCALPHA)
-                fc = int(exhaust_len)
-                pygame.draw.line(flame_surf, flame_color,
-                    (fc, fc),
-                    (fc + int((flame_tip_x - exhaust_base_x)), fc + int((flame_tip_y - exhaust_base_y))),
+                flame_color = (160 + flame_i * 30, 80 + flame_i * 20, 255)
+                pygame.draw.line(surface, flame_color,
+                    (int(exhaust_base_x + perp_x), int(exhaust_base_y + perp_y)),
+                    (int(flame_tip_x), int(flame_tip_y)),
                     max(2, int(missile_width * 0.5 - flame_i * 0.8)))
-                surface.blit(flame_surf, (int(exhaust_base_x - fc), int(exhaust_base_y - fc)), special_flags=pygame.BLEND_ADD)
 
             # 내부 코어 불꽃 (시안-화이트)
             core_flame_len = exhaust_len * 0.6
@@ -35314,14 +35304,14 @@ def draw_blacksmith_turret_elements(surface):
             core_inner = (255, 220, 255, int(200 + pulse * 55))
             core_outer = (180, 140, 255, int(150 + pulse * 50))
 
-            core_surf = pygame.Surface((core_r * 4, core_r * 4), pygame.SRCALPHA)
+            core_surf = _get_homing_missile_surface(core_r * 4)  # 캐싱
             pygame.draw.circle(core_surf, core_outer, (core_r * 2, core_r * 2), int(core_r * 1.5))
             pygame.draw.circle(core_surf, core_inner, (core_r * 2, core_r * 2), core_r)
             surface.blit(core_surf, (int(core_x - core_r * 2), int(core_y - core_r * 2)), special_flags=pygame.BLEND_ADD)
 
-            # === 6. 나선형 에너지 트레일 ===
+            # === 6. 나선형 에너지 트레일 (직접 그리기로 최적화) ===
             trail_len = missile_len * 1.5
-            trail_segments = 8
+            trail_segments = 6  # 8 → 6으로 축소
             for t_i in range(trail_segments):
                 t_ratio = t_i / trail_segments
                 t_dist = trail_len * t_ratio
@@ -35330,17 +35320,14 @@ def draw_blacksmith_turret_elements(surface):
 
                 t_x = exhaust_base_x - cos_a * t_dist + sin_a * math.sin(spiral_phase) * spiral_amp
                 t_y = exhaust_base_y - sin_a * t_dist - cos_a * math.sin(spiral_phase) * spiral_amp
-                t_alpha = int(120 * (1.0 - t_ratio))
                 t_r = max(1, int(3 * (1.0 - t_ratio * 0.6)))
 
-                trail_color = (180, 120, 255, t_alpha)
-                trail_surf = pygame.Surface((t_r * 4, t_r * 4), pygame.SRCALPHA)
-                pygame.draw.circle(trail_surf, trail_color, (t_r * 2, t_r * 2), t_r)
-                surface.blit(trail_surf, (int(t_x - t_r * 2), int(t_y - t_r * 2)), special_flags=pygame.BLEND_ADD)
+                trail_color = (180, 120, 255)
+                pygame.draw.circle(surface, trail_color, (int(t_x), int(t_y)), t_r)
 
             # === 7. 글로우 오버레이 ===
             glow_size = max(20, int(missile_len * 1.2))
-            glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            glow_surface = _get_homing_missile_surface(glow_size)  # 캐싱
             glow_color = (160, 100, 255, int(60 + pulse * 30))
             pygame.draw.circle(glow_surface, glow_color, (glow_size // 2, glow_size // 2), glow_size // 2)
             surface.blit(glow_surface, (proj_pos[0] - glow_size // 2, proj_pos[1] - glow_size // 2), special_flags=pygame.BLEND_ADD)
@@ -35362,7 +35349,7 @@ def draw_blacksmith_turret_elements(surface):
 
         if overdrive_proj and not homing_proj:
             glow_size = max(12, radius * 4)
-            glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            glow_surface = _get_homing_missile_surface(glow_size)  # 캐싱
             glow_center = glow_size // 2
             pygame.draw.circle(glow_surface, (255, 80, 48, 150), (glow_center, glow_center), glow_center)
             pygame.draw.circle(glow_surface, (255, 180, 120, 160), (glow_center, glow_center), max(6, glow_center // 2))
@@ -35374,7 +35361,7 @@ def draw_blacksmith_turret_elements(surface):
 
         if proj.get("divine_overdrive"):
             swirl_size = max(24, radius * 5)
-            swirl_surface = pygame.Surface((swirl_size, swirl_size), pygame.SRCALPHA)
+            swirl_surface = _get_homing_missile_surface(swirl_size)  # 캐싱
             swirl_rect = swirl_surface.get_rect()
             phase = (proj.get("trail_timer", 0) * 0.24) % math.tau
             for idx in range(3):
@@ -35795,12 +35782,12 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
 
         halo_alpha = int((40 + 30 * math.sin(pulse * 0.04)) * core_progress)
         if halo_alpha > 0:
-            halo_surface = pygame.Surface((draw_width, draw_height), pygame.SRCALPHA)
+            halo_surface = _get_divine_stone_glow_surface(max(draw_width, draw_height) // 2)  # 캐싱
             halo_radius = max(width // 2, height // 2)
-            pygame.draw.circle(halo_surface, (90, 140, 240, min(255, halo_alpha)), (cx, cy), halo_radius)
-            structure_surface.blit(halo_surface, (0, 0))
+            pygame.draw.circle(halo_surface, (90, 140, 240, min(255, halo_alpha)), (halo_surface.get_width() // 2, halo_surface.get_height() // 2), halo_radius)
+            structure_surface.blit(halo_surface, (cx - halo_surface.get_width() // 2, cy - halo_surface.get_height() // 2))
 
-    tower_surface = pygame.Surface((draw_width, draw_height), pygame.SRCALPHA)
+    tower_surface = _get_divine_tower_surface(draw_width, draw_height)  # 캐싱
     if structure_progress > 0:
         visible_height = max(2, int(draw_height * structure_progress))
         clip_top = draw_height - visible_height
@@ -39521,6 +39508,66 @@ def _get_divine_stone_glow_surface(size: int) -> pygame.Surface:
     else:
         _divine_stone_glow_cache[size].fill((0, 0, 0, 0))
     return _divine_stone_glow_cache[size]
+
+
+# === 강화 포탑/디바인스톤 성능 최적화 캐시 ===
+_reinforced_turret_halo_cache: dict[tuple[int, int], pygame.Surface] = {}
+_reinforced_turret_head_cache: dict[tuple[int, int], pygame.Surface] = {}
+_homing_missile_surf_cache: dict[int, pygame.Surface] = {}  # 크기별 캐싱
+_divine_tower_cache: dict[tuple[int, int], pygame.Surface] = {}
+
+
+def _get_reinforced_turret_halo_surface(width: int, height: int) -> pygame.Surface:
+    """강화 포탑 오로라/가시 Surface 캐싱"""
+    key = (width, height)
+    if key not in _reinforced_turret_halo_cache:
+        _reinforced_turret_halo_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
+        if len(_reinforced_turret_halo_cache) > 10:
+            oldest = next(iter(_reinforced_turret_halo_cache))
+            del _reinforced_turret_halo_cache[oldest]
+    else:
+        _reinforced_turret_halo_cache[key].fill((0, 0, 0, 0))
+    return _reinforced_turret_halo_cache[key]
+
+
+def _get_reinforced_turret_head_surface(width: int, height: int) -> pygame.Surface:
+    """강화 포탑 헤드 Surface 캐싱"""
+    key = (width, height)
+    if key not in _reinforced_turret_head_cache:
+        _reinforced_turret_head_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
+        if len(_reinforced_turret_head_cache) > 10:
+            oldest = next(iter(_reinforced_turret_head_cache))
+            del _reinforced_turret_head_cache[oldest]
+    else:
+        _reinforced_turret_head_cache[key].fill((0, 0, 0, 0))
+    return _reinforced_turret_head_cache[key]
+
+
+def _get_homing_missile_surface(size: int) -> pygame.Surface:
+    """유도 미사일 이펙트 Surface 캐싱 (크기별)"""
+    if size not in _homing_missile_surf_cache:
+        _homing_missile_surf_cache[size] = pygame.Surface((size, size), pygame.SRCALPHA)
+        if len(_homing_missile_surf_cache) > 50:
+            oldest = next(iter(_homing_missile_surf_cache))
+            del _homing_missile_surf_cache[oldest]
+    else:
+        _homing_missile_surf_cache[size].fill((0, 0, 0, 0))
+    return _homing_missile_surf_cache[size]
+
+
+def _get_divine_tower_surface(width: int, height: int) -> pygame.Surface:
+    """디바인스톤 타워 Surface 캐싱"""
+    key = (width, height)
+    if key not in _divine_tower_cache:
+        _divine_tower_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
+        if len(_divine_tower_cache) > 10:
+            oldest = next(iter(_divine_tower_cache))
+            del _divine_tower_cache[oldest]
+    else:
+        _divine_tower_cache[key].fill((0, 0, 0, 0))
+    return _divine_tower_cache[key]
+
+
 _blacksmith_blueprint_frame_counter = 0
 _blacksmith_last_blueprint_progress: dict[str, float] = {}  # {"divine": 0.0, "turret": 0.0}
 BLACKSMITH_BLUEPRINT_CACHE_SKIP_FRAMES = 2  # 2프레임마다 갱신 (30fps 수준)
