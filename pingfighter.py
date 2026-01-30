@@ -38916,6 +38916,28 @@ def has_blacksmith_hammer_shock_perk() -> bool:
     return get_blacksmith_hammer_shock_max_stage_by_perk() >= 1
 
 
+def get_blacksmith_gauge_efficiency_level() -> int:
+    """게이지 효율 퍽 레벨 반환 (0~5)"""
+    try:
+        import academy
+        if hasattr(academy, 'skill_system') and academy.skill_system:
+            return academy.skill_system.get_skill_level("blacksmith_gauge_efficiency")
+    except Exception:
+        pass
+    return 0
+
+
+def get_blacksmith_build_speed_level() -> int:
+    """숙련된 망치질 퍽 레벨 반환 (0~5)"""
+    try:
+        import academy
+        if hasattr(academy, 'skill_system') and academy.skill_system:
+            return academy.skill_system.get_skill_level("blacksmith_build_speed")
+    except Exception:
+        pass
+    return 0
+
+
 def is_blacksmith_divine_stone_active() -> bool:
     """디바인스톤이 건설되어 필드에 남아있는지 여부를 반환한다."""
 
@@ -38963,7 +38985,10 @@ def get_blacksmith_umbrella_recover_interval_frames() -> int:
 
 
 def get_blacksmith_umbrella_gauge_gain() -> int:
-    """현재 토르쉴드 패들 충돌 시 기본 게이지 획득량을 반환한다."""
+    """현재 토르쉴드 패들 충돌 시 기본 게이지 획득량을 반환한다.
+
+    게이지 효율 퍽 적용: 레벨당 10% 증가 (최대 50%)
+    """
 
     global blacksmith_blocking_penalty_timer
 
@@ -38988,6 +39013,12 @@ def get_blacksmith_umbrella_gauge_gain() -> int:
             base_gain = BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE
     else:
         base_gain = BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE
+
+    # 게이지 효율 퍽 적용 (레벨당 10% 증가)
+    efficiency_level = get_blacksmith_gauge_efficiency_level()
+    if efficiency_level > 0:
+        bonus_multiplier = 1.0 + (efficiency_level * 0.10)  # 레벨당 10%
+        base_gain = int(round(base_gain * bonus_multiplier))
 
     if blacksmith_blocking_penalty_timer > 0:
         reduced_gain = int(round(base_gain * (1.0 - BLACKSMITH_BLOCKING_PENALTY_RATIO)))
@@ -43099,8 +43130,23 @@ def sync_berserk_potion_from_global_manager() -> None:
 
 
 def get_blacksmith_construction_speed_multiplier() -> float:
-    """발토르 건설/업그레이드 진행 배수를 반환"""
-    return BERSERK_POTION_BUILD_MULTIPLIER if berserk_potion_active and berserk_potion_timer > 0 else 1.0
+    """발토르 건설/업그레이드 진행 배수를 반환
+
+    숙련된 망치질 퍽: 레벨당 8% 증가 (최대 40%)
+    광폭물약: 3배 (퍽과 중첩)
+    """
+    base_multiplier = 1.0
+
+    # 숙련된 망치질 퍽 적용 (레벨당 8% 증가)
+    build_speed_level = get_blacksmith_build_speed_level()
+    if build_speed_level > 0:
+        base_multiplier += build_speed_level * 0.08  # 레벨당 8%
+
+    # 광폭물약 적용 (중첩)
+    if berserk_potion_active and berserk_potion_timer > 0:
+        base_multiplier *= BERSERK_POTION_BUILD_MULTIPLIER
+
+    return base_multiplier
 
 
 def get_blacksmith_manual_cooldown_multiplier() -> float:
