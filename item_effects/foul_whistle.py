@@ -20,7 +20,7 @@ class FoulWhistle:
             pygame.font.init()
 
         self.active = False
-        self.negate_chance = 0.10
+        self.negate_chance = 0.07  # 기본값 7% (롤 범위 4~10%)
 
         self.animation_active = False
         self.animation_frame = 0

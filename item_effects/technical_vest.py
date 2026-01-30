@@ -35,8 +35,8 @@ class TechnicalVest:
         """플레이어 패들에 공이 닿았을 때 호출"""
         if not self.active:
             return
-            
-        # 20% 확률(롤 옵션 반영)로 연막 생성
+
+        # 롤옵션 확률로 연막 생성
         if random.random() < self.trigger_chance:
             # 플레이어 패들 위치에 연막 생성
             smoke = {

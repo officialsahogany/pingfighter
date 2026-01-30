@@ -37,7 +37,7 @@ class Dynamite:
     THROW_SPEED = 18  # 투척 속도 (증가: 보스 진영까지 도달)
     COUNTDOWN_FRAMES = 420  # 7초 카운트다운 (60fps * 7)
     EXPLOSION_RADIUS = 350  # 폭발 범위
-    KNOCKBACK_SPEED = 13  # 넉백 속도
+    KNOCKBACK_SPEED = 52  # 넉백 속도 (4배 증가: 13 → 26 → 52)
     STUN_DURATION = 180  # 스턴 시간 3초 (60fps * 3)
     # 보스 진영 경계선 (config/constants.py의 BOSS_AREA_BOUNDARY_Y 참조)
     # 화면 규격: 760x750, 보스 Y=25, 보스 진영은 Y < 120

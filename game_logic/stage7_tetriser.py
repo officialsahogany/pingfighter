@@ -106,12 +106,13 @@ def get_tetro_wall_spawn_spec(width: int = 600, height: int = 750) -> dict:
 def get_tetro_wall_spawn_spec_legacy(width: int = 600, height: int = 750) -> dict:
     """레거시 pingfighter용 스펙(현행 동작 유지).
 
-    - pingfighter.py는 tile=20, cols=5, 30초, 코스트 50, 측면당 10개로 설계됨.
+    - pingfighter.py는 tile=20, 30초, 코스트 50, 측면당 10개로 설계됨.
+    - cols=4로 변경: PILLAR_UI_WIDTH(80px)에 맞춤 (4*20=80px)
     - 최소 수렴 단계에서는 수치 유지가 중요하므로 그대로 반환.
     """
     return {
         'tile': 20,
-        'cols': 5,
+        'cols': 4,  # 80px 필러 너비에 맞춤 (4*20=80px)
         'pieces_per_side': 10,
         'interval_sec': 30.0,
         'skill_cost': 50,

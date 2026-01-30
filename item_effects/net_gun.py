@@ -38,8 +38,8 @@ class NetTrapGun:
         self.throw_pose_timer: int = 0
         self.harpoon_flash_timer: int = 0
 
-        # 디버그 플래그
-        self.debug_enabled: bool = True
+        # 디버그 플래그 (성능 영향으로 비활성화)
+        self.debug_enabled: bool = False
         self.last_player_dashing: bool = False
         self.dash_break_duration: int = max(6, int(0.4 * TARGET_FPS))
         self.player_slow_factor: float = 0.7

@@ -65,37 +65,37 @@ class HalfDashSystem:
         Returns:
             (하프대쉬 발동 여부, 방향, 타이머, 토큰 소모량)
         """
-        # 하프 대쉬 발동 조건
-        # 1. 대쉬 토큰이 있음
-        # 2. 게이지가 부족함
-        # 3. 현재 대쉬 중이 아님
-        # 4. 아래키가 눌렸음
-        # 5. 방향키가 눌렸음
-        # 6. 대쉬 스턴 타이머가 0 (일반 대쉬와 동일한 쿨다운)
-        if (rolling_charges >= self.HALF_DASH_TOKEN_COST and 
-            special_gauge < required_gauge and 
-            not rolling_active and 
+        # 하프 대쉬 발동 조건 (변경됨)
+        # 1. 대쉬 토큰이 0개 (또는 충전 중)
+        # 2. 현재 대쉬 중이 아님
+        # 3. 아래키가 눌렸음
+        # 4. 방향키가 눌렸음
+        # 5. 대쉬 스턴 타이머가 0 (일반 대쉬와 동일한 쿨다운)
+        # 게이지 조건 제거 - 토큰 0개 조건으로 변경
+        if (rolling_charges <= 0 and  # 토큰이 0개일 때만 하프 대쉬
+            not rolling_active and
             rolling_stun_timer <= 0 and  # 일반 대쉬와 동일한 쿨다운 체크
-            down_pressed and 
+            down_pressed and
             (left_key or right_key)):
-            
+
             # 방향 결정
             direction = -1 if left_key else 1
-            
+
             # 하프 대쉬 타이머 계산
             timer = self.HALF_DASH_BASE_TIMER
-            
+
             # 하프 대쉬 활성화
             self.half_dash_active = True
             self.half_dash_count += 1
-            
-            print(f"   ! ( : {special_gauge}/{required_gauge})")
-            print(f"   : {'' if direction < 0 else ''}")
-            print(f"   :   50%")
-            print(f"    : {self.HALF_DASH_TOKEN_COST}")
-            
-            return True, direction, timer, self.HALF_DASH_TOKEN_COST
-            
+
+            print(f"   하프대쉬! (토큰: {rolling_charges}, 게이지: {special_gauge})")
+            print(f"   방향: {'좌' if direction < 0 else '우'}")
+            print(f"   거리: 일반대쉬 50%")
+            print(f"   토큰 소모 없음 (이미 0개)")
+
+            # 토큰 0개이므로 토큰 소모 0
+            return True, direction, timer, 0
+
         return False, 0, 0, 0
     
     def apply_half_dash_effects(self, base_rolling_timer: int, 

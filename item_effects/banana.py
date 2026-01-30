@@ -33,14 +33,15 @@ class Banana:
 
     # 기본 상수
     THROW_SPEED = 20  # 투척 속도 (증가)
-    SLIP_DURATION = 90  # 미끄러짐 지속 시간 (1.5초 = 90프레임)
-    SLIP_SPEED = 8  # 미끄러짐 속도
+    SLIP_DURATION = 48  # 미끄러짐 지속 시간 (0.8초 = 48프레임)
+    SLIP_SPEED = 11  # 미끄러짐 속도 (-30%)
     LAND_DURATION = 180  # 착지 후 유지 시간 (3초 = 180프레임)
     PREPARE_TIME = 18  # 준비 동작 시간 (0.3초 = 18프레임)
     GRAVITY = 0.0  # 중력 없음 - 직선 비행
 
-    # 보스 진영 경계선 (보스 패들 Y=25, 하단=65)
-    BOSS_AREA_Y = 60  # 보스 패들 바로 아래에 착지
+    # 보스 진영 경계선 (보스 패들 Y=25~65)
+    # 바나나는 보스 패들과 같은 높이에 착지해야 밟을 수 있음
+    BOSS_AREA_Y = 45  # 보스 패들 중앙 높이에 착지 (Y=25~65의 중간)
 
     # 게임 영역 오프셋
     GAME_AREA_OFFSET_X = 80
@@ -70,8 +71,12 @@ class Banana:
         self.prepare_timer: int = 0
         self.pending_throw: Optional[Dict] = None
 
+        # 준비 중 표시용 위치
+        self.prepare_display_x: float = 0
+        self.prepare_display_y: float = 0
+
         # 디버그
-        self.debug_enabled: bool = True
+        self.debug_enabled: bool = False  # 성능 영향으로 비활성화
 
     def _debug(self, message: str) -> None:
         if self.debug_enabled:
@@ -123,6 +128,9 @@ class Banana:
             "player_y": player_rect.top,
             "target_x": target_x
         }
+        # 준비 중 바나나 표시 위치 설정
+        self.prepare_display_x = player_rect.centerx
+        self.prepare_display_y = player_rect.top - 10
         self._debug(f"start_throw -> 준비 동작 시작")
         return True
 
@@ -166,12 +174,14 @@ class Banana:
         self,
         boss_rect: Optional[pygame.Rect] = None,
         screen_width: int = 760,
+        boss_move_direction: int = 0,
     ) -> Dict:
         """매 프레임 업데이트.
 
         Args:
             boss_rect: 보스 히트박스
             screen_width: 화면 너비
+            boss_move_direction: 보스 이동 방향 (-1: 왼쪽, 0: 정지, 1: 오른쪽)
 
         Returns:
             미끄러짐 상태 정보
@@ -213,7 +223,7 @@ class Banana:
                 landed_x = max(self.GAME_AREA_LEFT + 30, min(self.GAME_AREA_RIGHT - 30, proj["x"]))
                 landed = {
                     "x": landed_x,
-                    "y": max(40, min(self.BOSS_AREA_Y - 10, proj["y"])),
+                    "y": self.BOSS_AREA_Y,  # 보스 패들 높이(45)에 고정 착지
                     "timer": self.LAND_DURATION,
                     "active": True,
                     "slip_triggered": False,
@@ -239,24 +249,30 @@ class Banana:
 
             # 보스와 충돌 체크
             if boss_rect and not landed["slip_triggered"]:
-                # 바나나 히트박스: 보스 패들이 지나가는 영역과 겹치도록 설정
-                # 보스 패들 Y=25~65 범위이므로 바나나 히트박스를 위로 확장
+                # 바나나 히트박스: 보스 패들(Y=25~65)이 지나갈 때 충돌하도록 설정
+                # X 범위: 바나나 중심에서 좌우 40px (총 80px 너비)
+                # Y 범위: 보스 패들 전체 영역을 커버하도록 Y=20~70
                 banana_rect = pygame.Rect(
-                    landed["x"] - 30,
-                    landed["y"] - 30,  # 위쪽으로 더 확장
-                    60,
-                    50  # 높이 증가
+                    landed["x"] - 40,  # X 중심에서 좌로 40px
+                    20,  # 보스 패들 위쪽 (Y=25)보다 약간 위
+                    80,  # 총 너비 80px
+                    50   # 높이 50px (Y=20~70)
                 )
                 if boss_rect.colliderect(banana_rect):
                     landed["slip_triggered"] = True
+                    landed["active"] = False  # 밟힌 즉시 바나나 제거
                     self.boss_slipping = True
                     self.boss_slip_timer = self.SLIP_DURATION
-                    # 미끄러지는 방향 결정 (보스 이동 방향 또는 랜덤)
-                    self.boss_slip_direction = random.choice([-1, 1])
+                    # 미끄러지는 방향 결정 (보스 이동 방향으로, 정지 시 랜덤)
+                    if boss_move_direction != 0:
+                        self.boss_slip_direction = boss_move_direction
+                    else:
+                        self.boss_slip_direction = random.choice([-1, 1])
                     self._create_burst_particles(landed["x"], landed["y"])
                     self._play_slip_sound()
-                    self._debug(f"boss stepped on banana -> slip start!")
+                    self._debug(f"boss stepped on banana -> slip start! boss_rect={boss_rect}, banana_rect={banana_rect}")
                     _safe_print("[Banana] 보스가 바나나를 밟았다! 미끄러짐!")
+                    continue  # 바나나 제거 후 다음 바나나로
 
             # 시간 초과 시 제거
             if landed["timer"] <= 0:
@@ -325,9 +341,32 @@ class Banana:
     # -------------------------------------------------------------------------
     def draw(self, screen: pygame.Surface) -> None:
         """모든 바나나와 파티클 그리기."""
+        self._draw_preparing_banana(screen)
         self._draw_projectiles(screen)
         self._draw_landed_bananas(screen)
         self._draw_burst_particles(screen)
+
+    def _draw_preparing_banana(self, screen: pygame.Surface) -> None:
+        """준비 동작 중인 바나나 그리기."""
+        if not self.preparing:
+            return
+
+        x, y = int(self.prepare_display_x), int(self.prepare_display_y)
+
+        # 준비 동작 진행률 (0 -> 1)
+        progress = 1.0 - (self.prepare_timer / self.PREPARE_TIME)
+
+        # 바나나가 위로 올라가는 애니메이션 (0 ~ -20px)
+        offset_y = int(-20 * progress)
+
+        # 바나나 서피스 생성
+        banana_surf = self._create_banana_surface(64)
+
+        # 살짝 회전 (준비 동작 느낌)
+        rotation = -15 + progress * 30  # -15도 -> 15도
+        rotated = pygame.transform.rotate(banana_surf, rotation)
+        rect = rotated.get_rect(center=(x, y + offset_y))
+        screen.blit(rotated, rect)
 
     def _draw_projectiles(self, screen: pygame.Surface) -> None:
         """비행 중인 바나나 그리기."""
@@ -338,8 +377,8 @@ class Banana:
             x, y = int(proj["x"]), int(proj["y"])
             rotation = proj["rotation"]
 
-            # 바나나 서피스 생성
-            banana_surf = self._create_banana_surface(40)
+            # 바나나 서피스 생성 (비행 중)
+            banana_surf = self._create_banana_surface(64)
 
             # 회전 적용
             rotated = pygame.transform.rotate(banana_surf, rotation)
@@ -359,8 +398,8 @@ class Banana:
                 if (landed["timer"] // 5) % 2 == 0:
                     continue
 
-            # 바나나 서피스 생성 (평면에 놓인 모습)
-            banana_surf = self._create_banana_surface(48)
+            # 바나나 서피스 생성 (착지한 바나나, 더 크게)
+            banana_surf = self._create_banana_surface(72)
             # 살짝 기울어진 느낌
             rotated = pygame.transform.rotate(banana_surf, 15)
             rect = rotated.get_rect(center=(x, y))
@@ -456,13 +495,13 @@ class Banana:
     # 사운드
     # -------------------------------------------------------------------------
     def _play_throw_sound(self) -> None:
-        """투척 사운드 재생."""
+        """투척 사운드 재생 (스테이지2와 동일)."""
         try:
             import os
             sound_path = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),
                 "sounds",
-                "throwing_banana.wav"
+                "throwingbanana.wav"  # 스테이지2와 동일
             )
             if os.path.exists(sound_path):
                 throw_sound = pygame.mixer.Sound(sound_path)
@@ -477,13 +516,13 @@ class Banana:
         pass
 
     def _play_slip_sound(self) -> None:
-        """미끄러짐 사운드 재생."""
+        """미끄러짐 사운드 재생 (스테이지2와 동일)."""
         try:
             import os
             sound_path = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),
                 "sounds",
-                "step_banana.wav"
+                "bananastep.wav"  # 스테이지2와 동일
             )
             if os.path.exists(sound_path):
                 slip_sound = pygame.mixer.Sound(sound_path)

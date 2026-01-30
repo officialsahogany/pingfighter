@@ -43,7 +43,7 @@ def show_difficulty_selection():
     SOUND_BUTTON_HOVER = sounds['SOUND_BUTTON_HOVER']
     clock = pygame.time.Clock()
     
-    # 4단계 리그 시스템 (홀로그램 테마)
+    # 3단계 리그 시스템 (홀로그램 테마)
     difficulties = [
         {
             "id": "junior",
@@ -62,30 +62,14 @@ def show_difficulty_selection():
             ]
         },
         {
-            "id": "pro",
-            "name": "프로리그", 
-            "description": "본격적인 경쟁이 시작되는 중급자 리그\n전략과 반응속도가 중요해집니다",
-            "ai_mode": "pro",
-            "color": (255, 200, 100),
-            "icon": "⚡",
-            "details": [
-                "• 표준 공 속도",
-                "• AI 적당한 실수 (15%)",
-                "• 예측 가능한 패턴",
-                "• 실력 향상에 좋음",
-                "⚡ 보스 능력치: +5% (105%)",
-                "🎯 목표 승률: 60%"
-            ]
-        },
-        {
             "id": "champion",
             "name": "챔피언리그",
             "description": "실력자들만이 도전하는 상급자 리그\n빠른 판단력과 정확한 컨트롤이 필수입니다",
             "ai_mode": "champion",
             "color": (255, 150, 255),
-            "icon": "💎",
+            "icon": "⚡",
             "details": [
-                "• 빠른 공 속도", 
+                "• 빠른 공 속도",
                 "• AI 소수 실수 (8%)",
                 "• 고도의 전략 필요",
                 "• 챔피언급 도전",
@@ -150,47 +134,14 @@ def show_difficulty_selection():
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    pass
                     return None  # 캐릭터 선택으로 돌아가기
-                elif event.key in [pygame.K_UP, pygame.K_w]:
-                    pass
-                    # 2x2 그리드에서 위로 이동
-                    current_row = selected // cards_per_row
-                    current_col = selected % cards_per_row
-                    new_row = (current_row - 1) % 2  # 2행에서 순환
-                    selected = new_row * cards_per_row + current_col
-                    if selected >= len(difficulties):  # 인덱스 범위 초과 시 조정
-                        selected = (len(difficulties) - 1)
+                elif is_move_left_event(event) or event.key in [pygame.K_UP, pygame.K_w]:
+                    # 1x3 가로 배치에서 왼쪽으로 이동
+                    selected = (selected - 1) % len(difficulties)
                     SOUND_BUTTON_HOVER.play()
-                elif is_move_down_event(event):
-                    pass
-                    # 2x2 그리드에서 아래로 이동
-                    current_row = selected // cards_per_row
-                    current_col = selected % cards_per_row
-                    new_row = (current_row + 1) % 2  # 2행에서 순환
-                    selected = new_row * cards_per_row + current_col
-                    if selected >= len(difficulties):  # 인덱스 범위 초과 시 조정
-                        selected = current_col if current_col < len(difficulties) else 0
-                    SOUND_BUTTON_HOVER.play()
-                elif is_move_left_event(event):
-                    pass
-                    # 2x2 그리드에서 왼쪽으로 이동
-                    current_row = selected // cards_per_row
-                    current_col = selected % cards_per_row
-                    new_col = (current_col - 1) % cards_per_row  # 2열에서 순환
-                    selected = current_row * cards_per_row + new_col
-                    if selected >= len(difficulties):  # 인덱스 범위 초과 시 조정
-                        selected = current_row * cards_per_row + (new_col % len(difficulties))
-                    SOUND_BUTTON_HOVER.play()
-                elif is_move_right_event(event):
-                    pass
-                    # 2x2 그리드에서 오른쪽으로 이동
-                    current_row = selected // cards_per_row
-                    current_col = selected % cards_per_row
-                    new_col = (current_col + 1) % cards_per_row  # 2열에서 순환
-                    selected = current_row * cards_per_row + new_col
-                    if selected >= len(difficulties):  # 인덱스 범위 초과 시 조정
-                        selected = current_row * cards_per_row + (new_col % len(difficulties))
+                elif is_move_right_event(event) or is_move_down_event(event):
+                    # 1x3 가로 배치에서 오른쪽으로 이동
+                    selected = (selected + 1) % len(difficulties)
                     SOUND_BUTTON_HOVER.play()
                 elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
                     SOUND_BUTTON_CLICK.play()
@@ -323,21 +274,20 @@ def show_difficulty_selection():
                     scan_surf.fill((0, 255, 255, scan_alpha))
                     SCREEN.blit(scan_surf, (0, scan_line["y"] + i))
         
-        # 홀로그램 난이도 카드들
-        cards_per_row = 2  # 2x2 레이아웃
-        card_width = 250  # 카드 너비 증가
-        card_height = 170  # 카드 높이 증가
-        card_margin = 40  # 마진 증가
-        
+        # 홀로그램 난이도 카드들 - 1x3 가로 레이아웃
+        cards_per_row = 3
+        card_width = 220  # 카드 너비 (3개가 들어가도록 조정)
+        card_height = 200  # 카드 높이 (세로 공간 활용)
+        card_margin = 25  # 카드 간격
+
         start_x = (WIDTH - (cards_per_row * card_width + (cards_per_row - 1) * card_margin)) // 2
-        start_y = 120  # 시작 위치 약간 위로
-        
+        start_y = 140  # 카드 시작 Y 위치 (중앙에 배치)
+
         for i, difficulty in enumerate(difficulties):
-            row = i // cards_per_row
-            col = i % cards_per_row
-            
+            col = i  # 가로 1줄이므로 col만 사용
+
             card_x = start_x + col * (card_width + card_margin)
-            card_y = start_y + row * (card_height + card_margin + 20)  # 세로 간격 감소
+            card_y = start_y  # 가로 1줄이므로 Y 고정
             
             # 선택된 카드 효과 (다층 홀로그램 글로우)
             if i == selected:
@@ -436,19 +386,19 @@ def show_difficulty_selection():
                 for r in range(3):
                     alpha = 50 - r * 15
                     draw.circle( (150, 255, 150, alpha), (emblem_x, emblem_y - 10), 12 + r * 3, 1)
-                    
-            elif difficulty["id"] == "pro":
+
+            elif difficulty["id"] == "champion":
                 pass
-                # ⚡ 프로리그 - 번개 엠블럼
+                # ⚡ 챔피언리그 - 번개 엠블럼
                 # 회전 효과를 위한 스케일 계산
                 scale_x = math.cos(math.radians(rotation_angle)) if i == selected else 1.0
-                
+
                 # 외곽 원 (회전 시 타원형으로)
                 if abs(scale_x) > 0.1:
                     ellipse_width = int(50 * abs(scale_x))
                     ellipse_rect = (emblem_x - ellipse_width//2, emblem_y - 25, ellipse_width, 50)
-                    draw.ellipse( (255, 200, 100), ellipse_rect, 2)
-                
+                    draw.ellipse(difficulty["color"], ellipse_rect, 2)
+
                 # 번개 본체 (회전 효과 적용)
                 lightning_points = [
                     (emblem_x - 8 * scale_x, emblem_y - 15),
@@ -459,54 +409,16 @@ def show_difficulty_selection():
                     (emblem_x + 4 * scale_x, emblem_y + 5)
                 ]
                 if abs(scale_x) > 0.2:
-                    draw.lines((255, 100, 255, 1), False, lightning_points, 4)
-                    draw.lines((255, 0, 200, 1), False, lightning_points, 2)
+                    draw.lines((255, 150, 255, 1), False, lightning_points, 4)
+                    draw.lines((255, 100, 255, 1), False, lightning_points, 2)
                 # 전기 스파크 (회전과 무관하게 유지)
                 for angle in range(0, 360, 60):
                     spark_angle = angle + rotation_angle if i == selected else angle
                     spark_x = emblem_x + 30 * math.cos(math.radians(spark_angle))
                     spark_y = emblem_y + 30 * math.sin(math.radians(spark_angle))
-                    draw.line((255, 255, 150), (emblem_x, emblem_y), (spark_x, spark_y), 1)
+                    draw.line((255, 200, 255), (emblem_x, emblem_y), (spark_x, spark_y), 1)
                 # 중심 광원
-                draw.circle((255, 255, 200), (emblem_x, emblem_y), 5)
-                
-            elif difficulty["id"] == "champion":
-                pass
-                # 💎 챔피언리그 - 다이아몬드 엠블럼
-                # 회전 효과를 위한 스케일 계산
-                scale_x = math.cos(math.radians(rotation_angle)) if i == selected else 1.0
-                
-                # 다이아몬드 외형 (회전 효과 적용)
-                diamond_points = [
-                    (emblem_x, emblem_y - 25),  # 상단
-                    (emblem_x + 20 * scale_x, emblem_y - 5),  # 우상
-                    (emblem_x + 15 * scale_x, emblem_y + 5),  # 우중
-                    (emblem_x, emblem_y + 20),  # 하단
-                    (emblem_x - 15 * scale_x, emblem_y + 5),  # 좌중
-                    (emblem_x - 20 * scale_x, emblem_y - 5),  # 좌상
-                ]
-                # 그라데이션 효과를 위한 여러 층
-                colors = [(255, 150, 255), (255, 100, 255), (200, 50, 200)]
-                for j, color in enumerate(colors):
-                    scaled_points = []
-                    scale = 1.0 - j * 0.2
-                    for px, py in diamond_points:
-                        scaled_x = emblem_x + (px - emblem_x) * scale
-                        scaled_y = emblem_y + (py - emblem_y) * scale
-                        scaled_points.append((scaled_x, scaled_y))
-                    if abs(scale_x) > 0.1:
-                        draw.polygon(color, scaled_points)
-                # 반짝임 효과
-                if abs(scale_x, 0) > 0.2:
-                    draw.lines((255, 255, 255, 1), True, diamond_points, 2)
-                # 중심 빛
-                draw.circle((255, 200, 255), (emblem_x, emblem_y), 3)
-                # 광채 효과 (회전과 무관하게 유지)
-                for angle in range(45, 360, 90):
-                    ray_angle = angle + rotation_angle if i == selected else angle
-                    ray_x = emblem_x + 35 * math.cos(math.radians(ray_angle))
-                    ray_y = emblem_y + 35 * math.sin(math.radians(ray_angle))
-                    draw.line((255, 200, 255, 100), (emblem_x, emblem_y), (ray_x, ray_y), 1)
+                draw.circle((255, 220, 255), (emblem_x, emblem_y), 5)
                     
             elif difficulty["id"] == "mythic":
                 pass
@@ -550,7 +462,7 @@ def show_difficulty_selection():
         if selected < len(difficulties):
             pass
             # 상세 정보 박스를 카드 아래쪽에 배치
-            detail_y = start_y + 2 * (card_height + card_margin + 20) + 10  # 두 번째 줄 카드 아래
+            detail_y = start_y + card_height + 40  # 카드 아래에 배치
             
             selected_diff = difficulties[selected]
             

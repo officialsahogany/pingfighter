@@ -16,6 +16,9 @@ import random
 # 기본값: False (요청에 따라 자동 사용 금지)
 SMARTPHONE_ALLOW_AI_PILL_AUTOUSE = False
 
+# 디버그 모드 - False로 설정하면 모든 디버그 print 비활성화
+SMARTPHONE_DEBUG = False
+
 class Smartphone:
     def __init__(self):
         self.active = False
@@ -592,7 +595,8 @@ class Smartphone:
                 # print(f"  - miss_at_player_x: {miss_at_player_x}, near_hit: {near_hit_imminent}")
                 # 바닥 임박+높이 가드일 때 허용 (프레임 조건 완화)
                 if frames_to_floor <= 15 and activation_height_ok and (not near_hit_imminent):
-                    print(f"[DEBUG] 🚨 바닥 근처 위험 발동! Y={ball_y:.0f}, 바닥까지={frames_to_floor:.1f}")
+                    if SMARTPHONE_DEBUG:
+                        print(f"[DEBUG] 🚨 바닥 근처 위험 발동! Y={ball_y:.0f}, 바닥까지={frames_to_floor:.1f}")
                     return True
         
         # 일반 위험 판단
@@ -623,10 +627,11 @@ class Smartphone:
                 self.last_y_gap = cur_gap
                 return False
             # miss_at_player_x가 True면 더 확실한 위험
-            if miss_at_player_x is True:
-                print(f"[DEBUG] 🚨🚨 위험 확정(Y+X): dy={y_distance:.0f}, t_hit={time_to_reach_player:.1f}, t_need={time_needed_for_y:.1f}, dash={dash_state}")
-            else:
-                print(f"[DEBUG] 🚨 위험(Y): dy={y_distance:.0f}, t_hit={time_to_reach_player:.1f}, t_need={time_needed_for_y:.1f}, dash={dash_state}")
+            if SMARTPHONE_DEBUG:
+                if miss_at_player_x is True:
+                    print(f"[DEBUG] 🚨🚨 위험 확정(Y+X): dy={y_distance:.0f}, t_hit={time_to_reach_player:.1f}, t_need={time_needed_for_y:.1f}, dash={dash_state}")
+                else:
+                    print(f"[DEBUG] 🚨 위험(Y): dy={y_distance:.0f}, t_hit={time_to_reach_player:.1f}, t_need={time_needed_for_y:.1f}, dash={dash_state}")
             return True
 
         # 패들 근접 트리거: 더 낮은 임계(패들에 매우 근접했을 때만) 발동
@@ -762,16 +767,18 @@ class Smartphone:
             if y_distance <= PADDLE_HEIGHT / 2:
                 return False
             
-            print(f"[DEBUG] 🚨 공을 놓칠 위험! X거리:{x_distance:.0f}px, Y거리:{y_distance:.0f}px")
-            print(f"       도달 시간:{time_to_reach:.1f}프레임, 필요 시간:{time_needed_for_y:.1f}프레임")
-            print(f"       플레이어 속도:{player_speed}, 대시 가능:{can_dash}")
+            if SMARTPHONE_DEBUG:
+                print(f"[DEBUG] 🚨 공을 놓칠 위험! X거리:{x_distance:.0f}px, Y거리:{y_distance:.0f}px")
+                print(f"       도달 시간:{time_to_reach:.1f}프레임, 필요 시간:{time_needed_for_y:.1f}프레임")
+                print(f"       플레이어 속도:{player_speed}, 대시 가능:{can_dash}")
             return True
-        
+
         # 특수 케이스: 매우 빠른 공이 가까이 있을 때
         if ball_speed >= 20 and x_distance <= 100:
             # Y축 거리가 멀고 시간이 부족하면
             if y_distance > 100 and time_needed_for_y > time_to_reach:
-                print(f"[DEBUG] 🚨 초고속 공! 속도:{ball_speed:.0f}, X거리:{x_distance:.0f}px")
+                if SMARTPHONE_DEBUG:
+                    print(f"[DEBUG] 🚨 초고속 공! 속도:{ball_speed:.0f}, X거리:{x_distance:.0f}px")
                 return True
         
         # 특수 케이스2: 화면 끝쪽에 있는 공
@@ -948,25 +955,27 @@ class Smartphone:
             if not self.auto_activated:  # Prevent multiple activations
                 # Check for active items in player's slots
                 active_items = game_state.get('active_items', [])
-                print(f"[DEBUG] 위험 감지됨! active_items 개수: {len(active_items)}")
-                
+                if SMARTPHONE_DEBUG:
+                    print(f"[DEBUG] 위험 감지됨! active_items 개수: {len(active_items)}")
+
                 # More detailed debugging
                 stopwatch_slot_index = None
                 aipill_slot_index = None
-                for i, item in enumerate(active_items):
-                    if item is None:
-                        print(f"[DEBUG] 슬롯 {i}: None (빈 슬롯)")
-                    elif isinstance(item, dict):
-                        print(f"[DEBUG] 슬롯 {i}: dict - name='{item.get('name', 'NO_NAME')}', effect='{item.get('effect', 'NO_EFFECT')}'")
-                        # Print all keys in the item dict for debugging
-                        print(f"[DEBUG]   - 아이템 키: {list(item.keys())}")
-                    else:
-                        print(f"[DEBUG] 슬롯 {i}: 예상치 못한 타입 - {type(item)}")
-                
+                if SMARTPHONE_DEBUG:
+                    for i, item in enumerate(active_items):
+                        if item is None:
+                            print(f"[DEBUG] 슬롯 {i}: None (빈 슬롯)")
+                        elif isinstance(item, dict):
+                            print(f"[DEBUG] 슬롯 {i}: dict - name='{item.get('name', 'NO_NAME')}', effect='{item.get('effect', 'NO_EFFECT')}'")
+                            # Print all keys in the item dict for debugging
+                            print(f"[DEBUG]   - 아이템 키: {list(item.keys())}")
+                        else:
+                            print(f"[DEBUG] 슬롯 {i}: 예상치 못한 타입 - {type(item)}")
+
                 # Priority: Stopwatch > AI Pill
                 stopwatch_available = False
                 ai_pill_available = False
-                
+
                 for i, item in enumerate(active_items):
                     if item and isinstance(item, dict):
                         item_name = item.get('name', '')
@@ -975,14 +984,16 @@ class Smartphone:
                             stopwatch_available = True
                             if stopwatch_slot_index is None:
                                 stopwatch_slot_index = i
-                            print(f"[DEBUG] ✅ 스탑워치 발견! (슬롯 {i})")
+                            if SMARTPHONE_DEBUG:
+                                print(f"[DEBUG] ✅ 스탑워치 발견! (슬롯 {i})")
                         elif item_name.lower() in ['aipill', 'ai_pill']:
                             # 자동 사용은 비활성화. 필요 시 슬롯 인덱스만 기록 가능
                             if SMARTPHONE_ALLOW_AI_PILL_AUTOUSE:
                                 ai_pill_available = True
                                 if aipill_slot_index is None:
                                     aipill_slot_index = i
-                                print(f"[DEBUG] ✅ AI알약 발견! (슬롯 {i})")
+                                if SMARTPHONE_DEBUG:
+                                    print(f"[DEBUG] ✅ AI알약 발견! (슬롯 {i})")
                             
                 # Auto-activate appropriate item (스톱워치 우선)
                 can_fire = ((self.last_activation_time <= 0) and allow_persistent) or self.urgent_override
@@ -1089,7 +1100,6 @@ smartphone_instance = None
 def get_smartphone_instance():
     global smartphone_instance
     if smartphone_instance is None:
-        print("[DEBUG] 스마트폰 인스턴스 최초 생성")
         smartphone_instance = Smartphone()
     else:
         return smartphone_instance

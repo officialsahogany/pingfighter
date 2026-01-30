@@ -12,11 +12,11 @@ class BluetoothRing:
         
     def activate(self, game_state, current_stage):
         """블루투스링 아이템 활성화"""
-        print(f" DEBUG: BluetoothRing.activate()  -  : {self.active}")
+        # print(f" DEBUG: BluetoothRing.activate()  -  : {self.active}")  # 디버그 비활성화
         if not self.active:
             self.active = True
-            print(f"  !   +{int(self.gauge_charge_bonus * 100)}%")
-        print(f" DEBUG: BluetoothRing.activate()  -  : {self.active}")
+            # print(f"  !   +{int(self.gauge_charge_bonus * 100)}%")  # 디버그 비활성화
+        # print(f" DEBUG: BluetoothRing.activate()  -  : {self.active}")  # 디버그 비활성화
         
     def deactivate(self):
         """블루투스링 비활성화 (스테이지 종료 시)"""
@@ -55,7 +55,7 @@ class BluetoothRing:
         """실제 게이지 충전량 계산"""
         if self.active:
             result = int(base_charge * (1.0 + self.gauge_charge_bonus))
-            print(f" BluetoothRing.calculate_gauge_charge: {base_charge} → {result} (+{self.gauge_charge_bonus*100:.0f}%)")
+            # print(f" BluetoothRing.calculate_gauge_charge: {base_charge} → {result} (+{self.gauge_charge_bonus*100:.0f}%)")  # 디버그 비활성화
             return result
         return base_charge
 
