@@ -2583,10 +2583,6 @@ class ShaolinTempleBackground:
     
     def _update_monk_death_effects(self):
         """Update monk death particles and body parts"""
-        # Debug logging
-        if len(self.monk_death_particles) > 0 or len(self.monk_body_parts) > 0:
-            print(f"Updating monk death effects: {len(self.monk_death_particles)} particles, {len(self.monk_body_parts)} body parts")
-        
         # Update death particles
         for particle in self.monk_death_particles[:]:
             # Only update position for particles with velocity

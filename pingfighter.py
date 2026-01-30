@@ -28996,7 +28996,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 turret_upgrade_blocked = False
                 if turret_level < BLACKSMITH_TURRET_MAX_LEVEL:
                     perk_check_result = has_blacksmith_turret_enhance_perk()
-                    print(f"[DEBUG 포탑업그레이드] turret_level={turret_level}, perk={perk_check_result}")
                     if not perk_check_result:
                         # 퍽이 없으면 망치질 모션 및 상호작용 완전 차단
                         turret_upgrade_blocked = True
@@ -39029,12 +39028,7 @@ def has_blacksmith_turret_enhance_perk() -> bool:
         import academy
         if hasattr(academy, 'skill_system') and academy.skill_system:
             level = academy.skill_system.get_skill_level("blacksmith_turret_enhance")
-            # 디버그: 퍽 체크 결과 및 skill_levels 딕셔너리 상태 출력
-            blacksmith_skills = {k: v for k, v in academy.skill_system.skill_levels.items() if "blacksmith" in k}
-            print(f"[DEBUG] has_blacksmith_turret_enhance_perk: level={level}, blacksmith_skills={blacksmith_skills}")
             return level >= 1
-        else:
-            print(f"[DEBUG] has_blacksmith_turret_enhance_perk: skill_system이 없음!")
     except Exception as e:
         print(f"[DEBUG] has_blacksmith_turret_enhance_perk exception: {e}")
     return False
