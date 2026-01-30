@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Stage 1: 한국 전통 용 기둥 배경 (코드 기반)
-Gemini API가 생성한 코드를 게임에 맞게 수정
-- 전통 용 문양
-- 단청 패턴
-- 구름 효과
+Stage 1: 한국 전통 용 기둥 배경 (고퀄리티 버전)
+- 정교한 용 문양
+- 세련된 단청 패턴
+- 부드러운 그라데이션
 - 은은한 애니메이션
 """
 
@@ -14,325 +13,416 @@ import random
 
 
 class DragonPillarBackground:
-    """한국 전통 용 기둥 배경 (코드로 직접 그림)"""
+    """한국 전통 용 기둥 배경 (고퀄리티)"""
+
+    # 한국 전통 색상 팔레트
+    COLORS = {
+        # 기둥 기본색
+        'pillar_dark': (45, 25, 20),
+        'pillar_mid': (75, 35, 28),
+        'pillar_light': (100, 50, 38),
+        'pillar_highlight': (130, 70, 55),
+
+        # 단청 색상 (오방색)
+        'dancheong_red': (180, 50, 45),
+        'dancheong_blue': (45, 75, 140),
+        'dancheong_green': (50, 120, 80),
+        'dancheong_yellow': (200, 160, 60),
+        'dancheong_white': (240, 235, 225),
+
+        # 용 색상
+        'dragon_body': (55, 100, 130),
+        'dragon_dark': (35, 70, 100),
+        'dragon_light': (80, 130, 160),
+        'dragon_scale': (70, 115, 145),
+        'dragon_belly': (180, 160, 130),
+
+        # 황금색
+        'gold_dark': (150, 110, 40),
+        'gold_mid': (200, 160, 60),
+        'gold_light': (230, 195, 90),
+        'gold_shine': (255, 230, 150),
+
+        # 배경
+        'bg_dark': (20, 18, 22),
+        'bg_gradient': (35, 30, 40),
+    }
 
     def __init__(self, screen_width, screen_height, game_width, game_height):
         self.sw = screen_width
         self.sh = screen_height
 
-        # 게임 영역 계산
         self.game_x = (screen_width - game_width) // 2
         self.game_y = 0
         self.game_w = game_width
         self.game_h = game_height
 
-        # 필러 영역 정의
-        self.left_rect = pygame.Rect(0, 0, self.game_x, screen_height)
-        self.right_rect = pygame.Rect(self.game_x + game_width, 0,
-                                       screen_width - (self.game_x + game_width), screen_height)
-
-        # 한국 전통 색상 팔레트 (오방색 + 변형)
-        self.colors = {
-            'dancheong_green': (66, 149, 117),    # 녹색
-            'dancheong_red': (186, 43, 43),       # 진홍
-            'dancheong_blue': (47, 65, 133),      # 청색
-            'gold': (218, 165, 32),               # 황금
-            'white': (245, 245, 245),             # 백색
-            'wood': (101, 67, 33),                # 목재
-            'roof_grey': (70, 75, 80),            # 기와색
-            'glow': (255, 200, 50),               # 빛
-            'pillar_red': (130, 40, 40),          # 기둥 붉은색
-            'dark_bg': (20, 20, 25),              # 어두운 배경
-        }
+        self.pillar_width = self.game_x
+        self.right_pillar_x = self.game_x + game_width
 
         # 애니메이션 상태
-        self.time = 0
-        self.breath_offset = 0
-        self.eye_alpha = 0
-        self.clouds = self._init_clouds()
+        self.time = 0.0
+
+        # 파티클
         self.sparkles = []
+        self.clouds = []
+        self._init_particles()
 
-        # 눈 위치 저장
-        self.left_eye_pos = None
-        self.right_eye_pos = None
+        # 캐시된 서피스
+        self._left_pillar = None
+        self._right_pillar = None
+        self._create_pillars()
 
-        # 정적 요소 캐시
-        self.left_pillar_surf = pygame.Surface(
-            (self.left_rect.width, self.left_rect.height), pygame.SRCALPHA)
-        self.right_pillar_surf = pygame.Surface(
-            (self.right_rect.width, self.right_rect.height), pygame.SRCALPHA)
-
-        # 정적 요소 그리기
-        self._render_pillar(self.left_pillar_surf, is_left=True)
-        self._render_pillar(self.right_pillar_surf, is_left=False)
-
-        # 반짝임 위치 초기화
-        self._init_sparkles()
-
-    def _init_clouds(self):
-        """구름 파티클 초기화"""
-        clouds = []
-        for _ in range(6):
-            clouds.append({
-                'x': random.randint(-50, self.sw),
-                'y': random.randint(50, self.sh // 3),
-                'speed': random.uniform(0.3, 0.6),
-                'size': random.uniform(0.4, 0.8),
-                'alpha': random.randint(30, 60)
+    def _init_particles(self):
+        """파티클 초기화"""
+        # 용 비늘 반짝임
+        for _ in range(12):
+            self.sparkles.append({
+                'x': random.randint(0, self.pillar_width),
+                'y': random.randint(100, self.sh - 100),
+                'phase': random.uniform(0, 6.28),
+                'speed': random.uniform(2, 4),
+                'side': random.choice(['left', 'right']),
+                'size': random.uniform(1.5, 3),
             })
-        return clouds
 
-    def _init_sparkles(self):
-        """용 비늘 반짝임 위치 초기화"""
-        self.sparkles = []
+        # 구름
+        for _ in range(4):
+            self.clouds.append({
+                'x': random.randint(-30, self.sw + 30),
+                'y': random.randint(30, 150),
+                'speed': random.uniform(0.2, 0.5),
+                'size': random.uniform(0.6, 1.0),
+                'alpha': random.randint(20, 40),
+            })
 
-        for is_left in [True, False]:
-            rect = self.left_rect if is_left else self.right_rect
-            center_x = rect.width // 2
-
-            # 용 몸통 따라 반짝임 배치
-            for y in range(150, self.sh - 150, 40):
-                wave = math.sin(y * 0.012) * (rect.width * 0.2)
-                x = center_x + wave
-                if random.random() > 0.6:
-                    self.sparkles.append({
-                        'base_x': x + (0 if is_left else self.right_rect.x),
-                        'y': y,
-                        'phase': random.uniform(0, 6.28),
-                        'speed': random.uniform(1.5, 3.0),
-                        'is_left': is_left
-                    })
-
-    def _draw_dancheong_pattern(self, surface, x, y, size):
-        """단청 패턴 그리기 (동심원 + 마름모)"""
-        colors = [
-            self.colors['dancheong_green'],
-            self.colors['dancheong_red'],
-            self.colors['dancheong_blue'],
-            self.colors['gold']
-        ]
-
-        # 마름모 (외곽)
-        points = [(x, y - size), (x + size, y), (x, y + size), (x - size, y)]
-        pygame.draw.polygon(surface, colors[0], points)
-
-        # 동심원
-        radii = [size * 0.75, size * 0.55, size * 0.35, size * 0.15]
-        for i, r in enumerate(radii):
-            if r > 0:
-                pygame.draw.circle(surface, colors[(i + 1) % 4], (int(x), int(y)), int(r))
-
-    def _draw_dragon_body(self, surface, w, h, is_left):
-        """용 몸통 그리기 (원 연속으로 사인파 형태)"""
-        center_x = w // 2
-        segment_radius = w * 0.12
-
-        phase_offset = 0 if is_left else 3.14
-        amplitude = w * 0.22
-        frequency = 0.012
-
-        # 몸통 그리기 (아래에서 위로)
-        for y in range(h - 120, 120, -8):
-            x_offset = math.sin(y * frequency + phase_offset) * amplitude
-            cx = center_x + x_offset
-
-            # 색상 그라데이션 (녹색 → 청색)
-            progress = (h - y) / h
-            r = int(self.colors['dancheong_green'][0] * (1 - progress) +
-                   self.colors['dancheong_blue'][0] * progress)
-            g = int(self.colors['dancheong_green'][1] * (1 - progress) +
-                   self.colors['dancheong_blue'][1] * progress)
-            b = int(self.colors['dancheong_green'][2] * (1 - progress) +
-                   self.colors['dancheong_blue'][2] * progress)
-            col = (r, g, b)
-
-            # 몸통 세그먼트
-            pygame.draw.circle(surface, col, (int(cx), int(y)), int(segment_radius))
-
-            # 비늘 디테일 (황금 테두리)
-            if y % 24 == 0:
-                pygame.draw.circle(surface, self.colors['gold'],
-                                 (int(cx), int(y)), int(segment_radius), 1)
-
-        # 머리 그리기
-        head_y = 130
-        head_x_offset = math.sin(head_y * frequency + phase_offset) * amplitude
-        head_x = center_x + head_x_offset
-        self._draw_dragon_head(surface, head_x, head_y, w, is_left)
-
-    def _draw_dragon_head(self, surface, head_x, head_y, pillar_width, is_left):
-        """용 머리 그리기"""
-        head_size = pillar_width * 0.28
-        direction = 1 if is_left else -1
-
-        # 갈기 (붉은색)
-        for i in range(4):
-            offset_y = (i - 2) * 8
-            mane_points = [
-                (head_x, head_y + offset_y),
-                (head_x - (40 * direction), head_y - 20 + offset_y),
-                (head_x - (55 * direction), head_y + 5 + offset_y)
-            ]
-            pygame.draw.lines(surface, self.colors['dancheong_red'], False, mane_points, 3)
-
-        # 머리 본체
-        pygame.draw.circle(surface, self.colors['dancheong_green'],
-                          (int(head_x), int(head_y)), int(head_size))
-
-        # 주둥이
-        snout_w = head_size * 1.0
-        snout_h = head_size * 0.8
-        if direction == 1:
-            snout_rect = pygame.Rect(head_x, head_y - snout_h // 2, snout_w, snout_h)
-        else:
-            snout_rect = pygame.Rect(head_x - snout_w, head_y - snout_h // 2, snout_w, snout_h)
-        pygame.draw.ellipse(surface, self.colors['dancheong_blue'], snout_rect)
-
-        # 뿔
-        horn_points = [
-            (head_x - 5 * direction, head_y - head_size * 0.7),
-            (head_x - 15 * direction, head_y - head_size * 1.3),
-            (head_x + 8 * direction, head_y - head_size * 0.7)
-        ]
-        pygame.draw.polygon(surface, self.colors['wood'], horn_points)
-
-        # 수염
-        whisker_start = (head_x + (head_size * 0.8 * direction), head_y + 5)
-        whisker_mid = (head_x + (head_size * 1.4 * direction), head_y + 25)
-        whisker_end = (head_x + (head_size * 1.1 * direction), head_y + 50)
-        pygame.draw.lines(surface, self.colors['white'], False,
-                         [whisker_start, whisker_mid, whisker_end], 2)
-
-        # 눈 위치 저장
-        eye_x = head_x + (head_size * 0.3 * direction)
-        eye_y = head_y - 3
-        if is_left:
-            self.left_eye_pos = (int(eye_x), int(eye_y))
-        else:
-            self.right_eye_pos = (int(eye_x), int(eye_y))
-
-    def _render_pillar(self, surface, is_left):
-        """정적 필러 요소 렌더링"""
-        w, h = surface.get_size()
-
-        # 배경
-        surface.fill(self.colors['dark_bg'])
-
-        # 기둥 본체
-        pillar_margin = w * 0.1
-        pillar_rect = pygame.Rect(pillar_margin, 40, w - pillar_margin * 2, h - 40)
-        pygame.draw.rect(surface, self.colors['pillar_red'], pillar_rect)
-        pygame.draw.rect(surface, self.colors['gold'], pillar_rect, 2)
-
-        # 상단 단청
-        top_block = pygame.Rect(pillar_margin, 40, w - pillar_margin * 2, 80)
-        pygame.draw.rect(surface, self.colors['dancheong_green'], top_block)
-        self._draw_dancheong_pattern(surface, w // 2, 80, 12)
-
-        # 하단 단청
-        bottom_block = pygame.Rect(pillar_margin, h - 100, w - pillar_margin * 2, 100)
-        pygame.draw.rect(surface, self.colors['dancheong_blue'], bottom_block)
-        self._draw_dancheong_pattern(surface, w // 2, h - 50, 18)
-
-        # 기와 지붕
-        pygame.draw.arc(surface, self.colors['roof_grey'],
-                       (-w * 0.1, 10, w * 1.2, 50), 0, 3.14, 15)
-        for i in range(0, int(w), 12):
-            pygame.draw.line(surface, (50, 50, 55), (i, 10), (i, 40), 2)
-
-        # 용 그리기
-        self._draw_dragon_body(surface, w, h, is_left)
-
-    def _draw_korean_cloud(self, surface, x, y, size, alpha):
-        """한국 전통 구름 그리기"""
-        cloud_surf = pygame.Surface((int(80 * size), int(40 * size)), pygame.SRCALPHA)
-        color = (*self.colors['white'], alpha)
-
-        # 구름 형태 (겹친 원들)
-        centers = [(20, 20), (35, 15), (50, 20)]
-        radii = [15, 18, 15]
-
-        for (cx, cy), r in zip(centers, radii):
-            pygame.draw.circle(cloud_surf, color,
-                             (int(cx * size), int(cy * size)), int(r * size))
-
-        surface.blit(cloud_surf, (int(x), int(y)))
-
-    def _draw_glowing_eye(self, surface, x, y, alpha):
-        """빛나는 용 눈 그리기"""
-        if x is None or y is None:
+    def _create_pillars(self):
+        """필러 서피스 생성"""
+        if self.pillar_width <= 0:
             return
 
-        # 글로우 효과
-        glow_surf = pygame.Surface((16, 16), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (*self.colors['dancheong_red'], alpha // 3), (8, 8), 6)
-        pygame.draw.circle(glow_surf, (*self.colors['gold'], alpha), (8, 8), 3)
-        pygame.draw.circle(glow_surf, self.colors['glow'], (8, 8), 2)
+        self._left_pillar = pygame.Surface((self.pillar_width, self.sh), pygame.SRCALPHA)
+        self._right_pillar = pygame.Surface((self.pillar_width, self.sh), pygame.SRCALPHA)
 
-        surface.blit(glow_surf, (x - 8, y - 8))
+        self._draw_pillar(self._left_pillar, is_left=True)
+        self._draw_pillar(self._right_pillar, is_left=False)
+
+    def _draw_pillar(self, surface, is_left):
+        """개별 필러 그리기"""
+        w, h = surface.get_size()
+
+        # 1. 배경 그라데이션
+        for y in range(h):
+            t = y / h
+            r = int(self.COLORS['bg_dark'][0] * (1-t) + self.COLORS['bg_gradient'][0] * t)
+            g = int(self.COLORS['bg_dark'][1] * (1-t) + self.COLORS['bg_gradient'][1] * t)
+            b = int(self.COLORS['bg_dark'][2] * (1-t) + self.COLORS['bg_gradient'][2] * t)
+            pygame.draw.line(surface, (r, g, b), (0, y), (w, y))
+
+        # 2. 기둥 본체 (3D 효과)
+        margin = 8
+        pillar_rect = pygame.Rect(margin, 0, w - margin * 2, h)
+
+        # 기둥 그라데이션 (세로)
+        for x in range(pillar_rect.left, pillar_rect.right):
+            rel_x = (x - pillar_rect.left) / pillar_rect.width
+            # 볼록한 3D 효과
+            brightness = 1.0 - abs(rel_x - 0.4) * 0.8
+            r = int(self.COLORS['pillar_mid'][0] * brightness)
+            g = int(self.COLORS['pillar_mid'][1] * brightness)
+            b = int(self.COLORS['pillar_mid'][2] * brightness)
+            pygame.draw.line(surface, (r, g, b), (x, 0), (x, h))
+
+        # 3. 상단 장식 (단청)
+        self._draw_top_decoration(surface, w, is_left)
+
+        # 4. 하단 장식 (단청)
+        self._draw_bottom_decoration(surface, w, h)
+
+        # 5. 용 그리기
+        self._draw_dragon(surface, w, h, is_left)
+
+        # 6. 테두리 금장
+        self._draw_gold_border(surface, w, h, margin)
+
+    def _draw_top_decoration(self, surface, w, is_left):
+        """상단 단청 장식"""
+        # 기와 지붕 모양
+        roof_height = 50
+
+        # 기와색 배경
+        pygame.draw.rect(surface, (60, 55, 50), (0, 0, w, roof_height))
+
+        # 기와 무늬
+        tile_width = 12
+        for i in range(0, w, tile_width):
+            pygame.draw.arc(surface, (45, 40, 38),
+                          (i - tile_width//2, 5, tile_width, 20), 0, 3.14, 2)
+            pygame.draw.arc(surface, (75, 70, 65),
+                          (i - tile_width//2, 25, tile_width, 20), 0, 3.14, 2)
+
+        # 단청 띠
+        colors = [self.COLORS['dancheong_red'], self.COLORS['dancheong_green'],
+                  self.COLORS['dancheong_blue'], self.COLORS['gold_mid']]
+
+        y = roof_height
+        for i, color in enumerate(colors):
+            pygame.draw.rect(surface, color, (5, y + i*6, w-10, 5))
+            # 패턴 추가
+            if i % 2 == 0:
+                for x in range(10, w-10, 15):
+                    pygame.draw.circle(surface, self.COLORS['gold_light'],
+                                      (x, y + i*6 + 2), 2)
+
+    def _draw_bottom_decoration(self, surface, w, h):
+        """하단 단청 장식"""
+        base_y = h - 80
+
+        # 단청 띠
+        colors = [self.COLORS['dancheong_blue'], self.COLORS['dancheong_green'],
+                  self.COLORS['dancheong_red'], self.COLORS['gold_mid']]
+
+        for i, color in enumerate(colors):
+            pygame.draw.rect(surface, color, (5, base_y + i*6, w-10, 5))
+
+        # 연꽃 문양
+        cx = w // 2
+        cy = h - 40
+        self._draw_lotus(surface, cx, cy, 25)
+
+    def _draw_lotus(self, surface, cx, cy, size):
+        """연꽃 문양"""
+        # 꽃잎
+        petal_color = self.COLORS['dancheong_red']
+        for i in range(8):
+            angle = i * (math.pi / 4) - math.pi/2
+            px = cx + int(math.cos(angle) * size * 0.7)
+            py = cy + int(math.sin(angle) * size * 0.7)
+
+            # 꽃잎 타원
+            petal_surf = pygame.Surface((size, size//2), pygame.SRCALPHA)
+            pygame.draw.ellipse(petal_surf, (*petal_color, 200), (0, 0, size, size//2))
+            rotated = pygame.transform.rotate(petal_surf, -math.degrees(angle) - 90)
+            rect = rotated.get_rect(center=(px, py))
+            surface.blit(rotated, rect)
+
+        # 중심
+        pygame.draw.circle(surface, self.COLORS['gold_mid'], (cx, cy), size//3)
+        pygame.draw.circle(surface, self.COLORS['gold_light'], (cx, cy), size//4)
+
+    def _draw_dragon(self, surface, w, h, is_left):
+        """용 그리기 (곡선으로 감싸는 형태)"""
+        # 용의 경로 (베지어 곡선 기반)
+        center_x = w // 2
+
+        # 몸통 경로 점들
+        direction = 1 if is_left else -1
+
+        body_points = []
+        amplitude = w * 0.25
+
+        for i in range(0, h - 100, 8):
+            y = 100 + i
+            # S자 곡선
+            t = i / (h - 200)
+            wave = math.sin(t * math.pi * 2.5 + (0 if is_left else math.pi)) * amplitude
+            x = center_x + wave
+            body_points.append((x, y))
+
+        # 몸통 그리기 (두꺼운 선으로 여러 레이어)
+        body_width = w * 0.18
+
+        if len(body_points) > 1:
+            # 그림자
+            shadow_points = [(p[0] + 3, p[1] + 3) for p in body_points]
+            pygame.draw.lines(surface, (20, 20, 25), False, shadow_points, int(body_width + 4))
+
+            # 몸통 외곽 (어두운 색)
+            pygame.draw.lines(surface, self.COLORS['dragon_dark'], False, body_points, int(body_width + 2))
+
+            # 몸통 본체
+            pygame.draw.lines(surface, self.COLORS['dragon_body'], False, body_points, int(body_width))
+
+            # 몸통 하이라이트
+            highlight_points = [(p[0] - 2, p[1]) for p in body_points]
+            pygame.draw.lines(surface, self.COLORS['dragon_light'], False, highlight_points, int(body_width * 0.5))
+
+        # 비늘 패턴
+        for i, (x, y) in enumerate(body_points[::3]):
+            if 0 < x < w:
+                scale_size = int(body_width * 0.3)
+                # 비늘 반원
+                pygame.draw.arc(surface, self.COLORS['dragon_scale'],
+                              (int(x - scale_size//2), int(y - scale_size//2),
+                               scale_size, scale_size),
+                              0, math.pi, 2)
+
+        # 머리 그리기
+        if body_points:
+            head_x, head_y = body_points[0]
+            self._draw_dragon_head(surface, head_x, head_y - 20, w, is_left)
+
+        # 꼬리
+        if body_points:
+            tail_x, tail_y = body_points[-1]
+            self._draw_dragon_tail(surface, tail_x, tail_y, is_left)
+
+    def _draw_dragon_head(self, surface, cx, cy, pillar_width, is_left):
+        """용 머리 그리기"""
+        direction = 1 if is_left else -1
+        head_size = pillar_width * 0.35
+
+        # 갈기
+        for i in range(5):
+            mane_angle = math.pi * 0.7 + i * 0.15 - 0.3
+            if not is_left:
+                mane_angle = math.pi - mane_angle
+            mx = cx + math.cos(mane_angle) * head_size * 1.2
+            my = cy + math.sin(mane_angle) * head_size * 0.8
+            pygame.draw.line(surface, self.COLORS['dancheong_red'],
+                           (cx, cy), (int(mx), int(my)), 4)
+
+        # 머리 본체 (타원)
+        head_rect = pygame.Rect(cx - head_size//2, cy - head_size//2, head_size, head_size * 0.8)
+        pygame.draw.ellipse(surface, self.COLORS['dragon_dark'], head_rect)
+        pygame.draw.ellipse(surface, self.COLORS['dragon_body'], head_rect.inflate(-4, -4))
+
+        # 뿔
+        horn_x = cx + direction * head_size * 0.2
+        horn_y = cy - head_size * 0.4
+        horn_points = [
+            (horn_x, horn_y + 10),
+            (horn_x + direction * 8, horn_y - 20),
+            (horn_x + direction * 3, horn_y + 5)
+        ]
+        pygame.draw.polygon(surface, self.COLORS['gold_dark'], horn_points)
+
+        # 눈 (저장해서 나중에 애니메이션)
+        eye_x = cx + direction * head_size * 0.15
+        eye_y = cy - 5
+        self._dragon_eye_pos = (eye_x, eye_y, is_left)
+
+        # 눈 그리기 (정적)
+        pygame.draw.circle(surface, (255, 255, 255), (int(eye_x), int(eye_y)), 6)
+        pygame.draw.circle(surface, (30, 30, 30), (int(eye_x), int(eye_y)), 3)
+
+        # 수염
+        whisker_start = (cx + direction * head_size * 0.4, cy + 10)
+        whisker_end = (cx + direction * head_size * 0.8, cy + 35)
+        pygame.draw.line(surface, self.COLORS['dancheong_white'], whisker_start, whisker_end, 2)
+
+    def _draw_dragon_tail(self, surface, tx, ty, is_left):
+        """용 꼬리"""
+        direction = 1 if is_left else -1
+
+        # 꼬리 지느러미
+        tail_points = [
+            (tx, ty),
+            (tx + direction * 15, ty + 30),
+            (tx - direction * 10, ty + 50),
+            (tx + direction * 5, ty + 70),
+        ]
+        pygame.draw.lines(surface, self.COLORS['dragon_body'], False, tail_points, 6)
+        pygame.draw.lines(surface, self.COLORS['dragon_light'], False, tail_points, 3)
+
+    def _draw_gold_border(self, surface, w, h, margin):
+        """금색 테두리"""
+        # 외곽선
+        pygame.draw.rect(surface, self.COLORS['gold_dark'],
+                        (margin-2, 0, w-margin*2+4, h), 2)
+
+        # 내곽선 (밝은 금색)
+        pygame.draw.rect(surface, self.COLORS['gold_light'],
+                        (margin, 2, w-margin*2, h-4), 1)
+
+        # 모서리 장식
+        corner_size = 12
+        corners = [(margin, 50), (w-margin, 50), (margin, h-50), (w-margin, h-50)]
+        for cx, cy in corners:
+            pygame.draw.circle(surface, self.COLORS['gold_mid'], (cx, cy), corner_size//2)
+            pygame.draw.circle(surface, self.COLORS['gold_light'], (cx, cy), corner_size//3)
+
+    def _draw_cloud(self, surface, x, y, size, alpha):
+        """구름 그리기"""
+        cloud_surf = pygame.Surface((int(60 * size), int(30 * size)), pygame.SRCALPHA)
+        color = (255, 255, 255, alpha)
+
+        # 구름 형태
+        pygame.draw.ellipse(cloud_surf, color, (0, 10*size, 25*size, 15*size))
+        pygame.draw.ellipse(cloud_surf, color, (15*size, 5*size, 30*size, 20*size))
+        pygame.draw.ellipse(cloud_surf, color, (35*size, 10*size, 20*size, 15*size))
+
+        surface.blit(cloud_surf, (int(x), int(y)))
 
     def update(self, dt, excitement=0.0):
         """애니메이션 업데이트"""
         self.time += dt
 
-        # 숨쉬기 애니메이션
-        breath_speed = 1.5 + (excitement * 2.0)
-        self.breath_offset = math.sin(self.time * breath_speed) * 2
-
-        # 눈 빛 맥동
-        self.eye_alpha = int(120 + 80 * math.sin(self.time * 2.5))
-
-        # 구름 업데이트
+        # 구름 이동
         for cloud in self.clouds:
-            cloud['x'] += cloud['speed'] * (1 + excitement * 0.5)
+            cloud['x'] += cloud['speed']
             if cloud['x'] > self.sw + 50:
-                cloud['x'] = -80 * cloud['size']
-                cloud['y'] = random.randint(30, self.sh // 3)
+                cloud['x'] = -60 * cloud['size']
+                cloud['y'] = random.randint(30, 150)
 
     def draw(self, surface):
-        """배경 그리기"""
-        # 1. 구름 (배경 레이어)
+        """전체 그리기"""
+        # 배경
+        surface.fill(self.COLORS['bg_dark'])
+
+        # 구름 (배경)
         for cloud in self.clouds:
-            self._draw_korean_cloud(surface, cloud['x'], cloud['y'],
-                                   cloud['size'], cloud['alpha'])
+            self._draw_cloud(surface, cloud['x'], cloud['y'], cloud['size'], cloud['alpha'])
 
-        # 2. 캐시된 필러 (숨쉬기 오프셋 적용)
-        left_y = int(self.breath_offset)
-        surface.blit(self.left_pillar_surf, (0, left_y))
+        # 캐시된 필러 그리기
+        if self._left_pillar:
+            # 숨쉬기 애니메이션 (미세한 움직임)
+            breath_offset = int(math.sin(self.time * 1.5) * 1.5)
+            surface.blit(self._left_pillar, (0, breath_offset))
 
-        right_y = int(math.sin(self.time * 1.5 + 1.2) * 2)
-        surface.blit(self.right_pillar_surf, (self.right_rect.x, right_y))
+        if self._right_pillar:
+            breath_offset = int(math.sin(self.time * 1.5 + 1.0) * 1.5)
+            surface.blit(self._right_pillar, (self.right_pillar_x, breath_offset))
 
-        # 3. 반짝임 효과
+        # 반짝임 효과
         for sp in self.sparkles:
             intensity = math.sin(self.time * sp['speed'] + sp['phase'])
-            if intensity > 0.85:
-                y_adj = sp['y'] + (left_y if sp['is_left'] else right_y)
-                cx, cy = int(sp['base_x']), int(y_adj)
+            if intensity > 0.7:
+                alpha = int((intensity - 0.7) * 3 * 255)
+                if sp['side'] == 'left':
+                    x = sp['x']
+                else:
+                    x = self.right_pillar_x + sp['x']
 
-                # 작은 십자 모양
-                pygame.draw.line(surface, self.colors['gold'],
-                               (cx - 2, cy), (cx + 2, cy), 1)
-                pygame.draw.line(surface, self.colors['gold'],
-                               (cx, cy - 2), (cx, cy + 2), 1)
+                # 십자 반짝임
+                size = int(sp['size'])
+                spark_surf = pygame.Surface((size*4, size*4), pygame.SRCALPHA)
+                color = (*self.COLORS['gold_light'], min(alpha, 200))
+                pygame.draw.line(spark_surf, color, (size*2-size, size*2), (size*2+size, size*2), 1)
+                pygame.draw.line(spark_surf, color, (size*2, size*2-size), (size*2, size*2+size), 1)
+                surface.blit(spark_surf, (int(x)-size*2, int(sp['y'])-size*2))
 
-        # 4. 빛나는 눈
-        if self.left_eye_pos:
-            self._draw_glowing_eye(surface, self.left_eye_pos[0],
-                                  self.left_eye_pos[1] + left_y, self.eye_alpha)
-        if self.right_eye_pos:
-            ex = self.right_rect.x + self.right_eye_pos[0]
-            self._draw_glowing_eye(surface, ex,
-                                  self.right_eye_pos[1] + right_y, self.eye_alpha)
+        # 용 눈 빛남 효과
+        if hasattr(self, '_dragon_eye_pos'):
+            eye_glow = int(100 + 50 * math.sin(self.time * 3))
+            # 왼쪽 눈
+            glow_surf = pygame.Surface((16, 16), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (255, 200, 100, eye_glow), (8, 8), 6)
+            pygame.draw.circle(glow_surf, (255, 255, 200, min(eye_glow + 50, 255)), (8, 8), 3)
+
+            ex, ey, is_left = self._dragon_eye_pos
+            surface.blit(glow_surf, (int(ex) - 8, int(ey) - 8 + int(math.sin(self.time * 1.5) * 1.5)))
+            # 오른쪽 눈 (미러)
+            surface.blit(glow_surf, (int(self.right_pillar_x + self.pillar_width - ex) - 8,
+                                    int(ey) - 8 + int(math.sin(self.time * 1.5 + 1.0) * 1.5)))
 
 
-# 싱글톤 인스턴스
+# 싱글톤
 _dragon_pillar_bg = None
 
 
 def get_dragon_pillar_background(screen_width=760, screen_height=750,
                                   game_width=600, game_height=750):
-    """용 기둥 배경 싱글톤 반환"""
     global _dragon_pillar_bg
     if _dragon_pillar_bg is None:
         _dragon_pillar_bg = DragonPillarBackground(
@@ -341,6 +431,5 @@ def get_dragon_pillar_background(screen_width=760, screen_height=750,
 
 
 def reset_dragon_pillar_background():
-    """배경 초기화"""
     global _dragon_pillar_bg
     _dragon_pillar_bg = None
