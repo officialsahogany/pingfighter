@@ -756,6 +756,61 @@ git add -A && git commit -m "[Type]: [작업 내용 설명]" && git push
 - At the end of each work session
 - When user uses --checkmate command
 
+### ⚠️ CRITICAL: 안전한 Git 롤백 규칙 (Safe Rollback Rules)
+**절대로 `git reset --hard`를 미커밋 상태에서 실행하지 않는다!**
+
+#### 롤백이 필요할 때 반드시 따라야 할 순서:
+
+```bash
+# 1단계: 현재 작업 상태 저장 (필수!)
+git stash -u -m "롤백 전 백업 $(date +%Y%m%d_%H%M%S)"
+# 또는
+git add -A && git commit -m "WIP: 롤백 전 임시 저장"
+
+# 2단계: 롤백 실행
+git reset --hard [커밋해시]
+
+# 3단계: (필요시) 저장했던 작업 복원
+git stash pop
+```
+
+#### 안전한 롤백 방법들:
+
+| 상황 | 안전한 명령어 | 설명 |
+|------|--------------|------|
+| 특정 파일만 되돌리기 | `git checkout [커밋] -- [파일]` | 다른 파일에 영향 없음 |
+| 테스트용 롤백 | `git checkout -b test-branch [커밋]` | 새 브랜치에서 안전하게 테스트 |
+| 전체 롤백 (안전) | `git stash -u` → `git reset --hard` | 작업 내용 보존 |
+| 커밋 취소 (기록 유지) | `git revert [커밋]` | 히스토리 보존하면서 취소 |
+
+#### ❌ 절대 하지 말 것:
+```bash
+# 미커밋 변경사항이 있는 상태에서 직접 reset --hard 금지!
+git reset --hard [커밋]  # ❌ 위험! 작업 손실 가능
+
+# 반드시 먼저 stash 또는 commit 후 실행
+git stash -u && git reset --hard [커밋]  # ✅ 안전
+```
+
+#### 롤백 후 문제 발생 시 복구 방법:
+```bash
+# stash로 저장한 경우
+git stash list          # 저장된 stash 목록 확인
+git stash pop           # 가장 최근 stash 복원
+
+# 커밋으로 저장한 경우
+git reflog              # 이전 커밋 히스토리 확인
+git checkout [커밋해시] # 원하는 상태로 이동
+
+# 백업 폴더가 있는 경우
+# 'd:\백업\0130\main\bosspong' 등에서 파일 복사
+```
+
+#### 모듈 버전 불일치 방지:
+- `pingfighter.py`와 모듈 파일들(`start_menu.py`, `items.py` 등)은 항상 **함께 커밋**
+- 롤백 시 **모든 관련 파일이 같은 버전**인지 확인
+- 문제 발생 시 백업 폴더에서 동기화된 버전 복사
+
 ### Git Repository Info
 - **Remote**: https://github.com/officialsahogany/pingfighter.git
 - **Current Branch**: feature/refactor-ui
