@@ -347,6 +347,132 @@ def get_[item_name]_instance():
 - [ ] Update gacha.py (for one-time passive items)
 - [ ] Create `test_[item_name].py` test file
 
+### ⚠️ CRITICAL: 패시브 아이템 추가 시 필수 체크리스트
+**패시브 아이템이 필드에서 드랍/획득되지 않는 버그 방지를 위해 반드시 아래 모든 항목을 확인할 것!**
+
+| # | 파일 | 위치 | 작업 내용 |
+|---|------|------|----------|
+| 1 | `items.py` | `ITEM_TYPES` 배열 | 아이템 정의 추가 (`chance`, `body_part` 등) |
+| 2 | `items.py` | `unlocked_items` 딕셔너리 | `"[item_name]": True` 추가 **[필수!]** |
+| 3 | `items.py` | `[item_name]_obtained` 변수 | 전역 변수 선언 (예: `gold_digger_obtained = False`) |
+| 4 | `items.py` | `update_items()` 함수 내 패시브 목록 | 아이템 이름 추가 **[필수! 없으면 액티브로 처리됨]** |
+| 5 | `items.py` | `spawn_random_item()` 내 `passive_names` | 아이템 이름 추가 (드랍 가중치 계산용) |
+| 6 | `items.py` | `spawn_random_item()` 내 중복 방지 로직 | `if item["name"] == "[item_name]" and [item_name]_obtained...` 추가 |
+| 7 | `items.py` | `PASSIVE_DUPLICATE_ALLOWED` 집합 | 중복 파밍 허용 시 추가 |
+| 8 | `pingfighter.py` | `store_active_item()` 패시브 필터 목록 | 아이템 이름 추가 (액티브 슬롯 방지) |
+| 9 | `pingfighter.py` | `store_passive_item()` 함수 | `elif item_data["name"] == "[item_name]":` 처리 추가 |
+| 10 | `pingfighter.py` | `store_passive_item()` 중복 허용 로직 | **중복 허용 아이템은 `skip_append = True` 사용 금지!** ⚠️ |
+
+```python
+# items.py - update_items() 내 패시브 목록 (약 2227줄)
+if item_name in ["speedboots", "speedgear", ..., "[NEW_ITEM_NAME]"]:
+
+# items.py - spawn_random_item() 내 passive_names (약 2060줄)
+passive_names = {
+    "speedboots", "speedgear", ..., "[NEW_ITEM_NAME]"
+}
+
+# pingfighter.py - store_active_item() 패시브 필터 (약 59683줄)
+if item_data["name"] in ["speedboots", ..., "[NEW_ITEM_NAME]"]:
+    return
+```
+
+### ⚠️ CRITICAL: 중복 획득 허용 아이템의 store_passive_item() 구현 패턴
+**PASSIVE_DUPLICATE_ALLOWED에 포함된 아이템은 반드시 아래 패턴을 따를 것!**
+
+```python
+# ❌ 잘못된 예 - 중복 획득 시 인벤토리에 추가 안됨
+elif item_data["name"] == "gold_digger":
+    if not items.gold_digger_obtained:
+        items.gold_digger_obtained = True
+        # 효과 적용...
+    else:
+        print("이미 보유 중입니다.")
+        skip_append = True  # ❌ 이 줄이 문제! 두 번째 획득 시 인벤토리에 추가 안됨
+
+# ✅ 올바른 예 - 중복 획득 시에도 인벤토리에 정상 추가
+elif item_data["name"] == "gold_digger":
+    # 첫 획득 시에만 활성화/장착 처리
+    if not items.gold_digger_obtained:
+        items.gold_digger_obtained = True
+        from item_effects.gold_digger import activate_gold_digger, equip_gold_digger
+        activate_gold_digger()
+        equip_gold_digger()
+        print("첫 획득!")
+    # 롤 옵션과 인벤토리 추가는 항상 실행 (skip_append 없음!)
+    item_data["type"] = "passive"
+    ensure_passive_rolls(item_data)
+    apply_roll_bonuses_from_item(item_data)
+    show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    # skip_append = True 절대 사용 금지!
+```
+
+**핵심 규칙:**
+1. `PASSIVE_DUPLICATE_ALLOWED`에 포함된 아이템은 `skip_append = True` **절대 사용 금지**
+2. 첫 획득 시에만 `obtained` 플래그 설정 및 효과 활성화
+3. 롤 옵션 적용(`ensure_passive_rolls`, `apply_roll_bonuses_from_item`)은 **매번 실행**
+4. 인벤토리 추가는 함수 끝에서 자동으로 처리됨 (skip_append가 False일 때)
+
+### ⚠️ CRITICAL: 전설 아이템 추가 시 필수 체크리스트
+**전설 아이템은 패시브 체크리스트 + 아래 추가 항목 모두 확인!**
+
+| # | 파일 | 위치 | 작업 내용 |
+|---|------|------|----------|
+| 1 | `legendary_items.py` | 클래스 정의 | `class [ItemName](LegendaryItem):` 생성 |
+| 2 | `legendary_items.py` | `LEGENDARY_ROLL_OPTIONS` | 롤 옵션 정의 추가 |
+| 3 | `legendary_items.py` | `LegendaryItemManager._init_legendary_items()` | 아이템 인스턴스 생성 |
+| 4 | `pingfighter.py` | `get_item_icon()` 전설 아이템 목록 | 아이템 이름 추가 **[필수! 없으면 아이콘 ?로 표시]** |
+| 5 | `pingfighter.py` | 전설 아이템 획득 플래그 동기화 | `sync_bool()` 호출 추가 |
+| 6 | `items.py` | `spawn_random_item()` 내 `legendary_names` | 아이템 이름 추가 (스폰 배율용) |
+| 7 | `downtown/constants.py` | `LEGENDARY_ITEM_NAMES` | 아이템 이름 추가 |
+| 8 | `downtown/building_interior.py` | 상점 전설 아이템 목록 | 상점 판매용 아이템 추가 |
+
+```python
+# pingfighter.py - get_item_icon() 전설 아이템 목록 (약 95453줄)
+if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident",
+                 "angel_blessing", "sacred_laurel", "transcendent_crown", "[NEW_LEGENDARY]"]:
+
+# items.py - spawn_random_item() 내 legendary_names (약 2043줄)
+legendary_names = {"ragnarok_hammer", "hermes_shoes", ..., "[NEW_LEGENDARY]"}
+```
+
+### ⚠️ CRITICAL: 전설 아이템은 중복 획득이 가능해야 함 (skip_append 금지!)
+**모든 전설 아이템의 `store_passive_item()` 구현에서 `skip_append = True`를 절대 사용하지 않는다.**
+전설 아이템은 롤 옵션 파밍을 위해 중복 획득이 허용되며, 필드/뽑기/상점/보물찾기 등 모든 경로에서 동일하게 적용된다.
+
+```python
+# ❌ 잘못된 예 - 두 번째 획득 시 인벤토리에 추가 안됨
+elif item_data["name"] == "legendary_item":
+    if not items.legendary_item_obtained:
+        items.legendary_item_obtained = True
+        # 첫 획득 처리...
+    else:
+        print("이미 보유 중입니다.")
+        skip_append = True  # ❌ 절대 금지!
+
+# ✅ 올바른 예 - 중복 획득 시에도 인벤토리에 정상 추가
+elif item_data["name"] == "legendary_item":
+    if not items.legendary_item_obtained:
+        items.legendary_item_obtained = True
+        # 첫 획득: 해금, 애니메이션 트리거 등
+        legendary_manager = get_legendary_manager()
+        if "legendary_item" not in legendary_manager.unlocked_items:
+            legendary_manager.unlocked_items.append("legendary_item")
+            legendary_manager.items["legendary_item"].unlocked = True
+        trigger_legendary_acquisition(...)
+    # 모든 획득(첫/중복 모두): 타입 설정, 롤 옵션, 인벤토리 추가
+    item_data["type"] = "legendary"
+    ensure_passive_rolls(item_data)
+    apply_roll_bonuses_from_item(item_data)
+    show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    # skip_append 없음 → 함수 끝에서 자동으로 인벤토리에 추가됨
+```
+
+**핵심 규칙:**
+1. 첫 획득 시에만 `obtained` 플래그 설정 및 전설 매니저 해금
+2. `item_data["type"]`, `ensure_passive_rolls`, `apply_roll_bonuses_from_item`은 **매번 실행**
+3. `skip_append = True` **절대 사용 금지** (인벤토리 추가는 함수 끝에서 자동 처리)
+
 ## Common Issues & Solutions
 
 ### Icons Show as Empty Circles
@@ -367,6 +493,13 @@ def get_[item_name]_instance():
 ### Passive Items Not Saving
 **Cause**: Duplicate code in store_passive_item() function
 **Solution**: Let the function end handle list addition automatically
+
+### 중복 획득 허용 아이템이 두 번째부터 인벤토리에 안 보임
+**Cause**: `PASSIVE_DUPLICATE_ALLOWED`에 포함된 아이템인데 `store_passive_item()`에서 `skip_append = True` 사용
+**Solution**:
+1. 해당 아이템이 `PASSIVE_DUPLICATE_ALLOWED`에 포함되어 있는지 확인
+2. 포함되어 있다면 `else:` 블록에서 `skip_append = True` 제거
+3. 첫 획득 시에만 `obtained` 플래그와 효과 활성화, 롤 옵션/인벤토리 추가는 매번 실행되도록 수정
 
 ### Active Items in Wrong Slot
 **Cause**: Passive items not filtered in store_active_item()
@@ -447,6 +580,60 @@ The project is currently undergoing UI refactoring with extensive changes to:
            if trident:
                trident.activate()
    ```
+
+### ⚠️ CRITICAL: 전설 아이템 연마 퍽 + 강화 버프 적용 필수
+**모든 전설 아이템의 롤 옵션 프로퍼티는 반드시 연마 퍽과 강화 버프를 모두 적용해야 합니다!**
+
+#### 1. 클래스에 enhancement_bonus_pct 속성 추가
+```python
+class NewLegendaryItem(LegendaryItem):
+    def __init__(self):
+        super().__init__(...)
+        # ... 기타 속성들 ...
+        self.enhancement_bonus_pct = 0  # 강화 버프 보너스 (장착 시 동기화) ← 필수!
+```
+
+#### 2. 롤 옵션 프로퍼티에서 enhancement_bonus_pct 전달
+```python
+@property
+def some_stat(self) -> float:
+    """스탯 설명 (롤 옵션 적용, 연마 스킬 + 강화 보너스 포함)"""
+    return get_legendary_roll_value(
+        "new_legendary_item",
+        "stat_key",
+        apply_polish=True,  # 연마 퍽 적용
+        enhancement_bonus_pct=self.enhancement_bonus_pct  # 강화 버프 적용 ← 필수!
+    )
+```
+
+#### 3. sync_equipped_passive_effects()에 동기화 코드 추가
+```python
+# pingfighter.py - sync_equipped_passive_effects() 내부
+# 장착 시 동기화
+if legend_name == "new_legendary_item":
+    item = next((i for i in equipped_items if i.get("name") == "new_legendary_item"), None)
+    if item:
+        legendary = legendary_manager.get_item("new_legendary_item")
+        if legendary:
+            legendary.enhancement_bonus_pct = item.get("enhancement_bonus_pct", 0)
+
+# 장착 해제 시 초기화
+elif legend_name == "new_legendary_item":
+    legendary = legendary_manager.get_item("new_legendary_item")
+    if legendary:
+        legendary.enhancement_bonus_pct = 0
+```
+
+#### 현재 적용된 전설 아이템 목록
+| 아이템 | 롤 옵션 | 연마 퍽 | 강화 버프 |
+|--------|---------|---------|-----------|
+| 오딘의 눈 | revival_chance | ✅ | ✅ |
+| 포세이돈의 삼지창 | wave_power | ✅ | ✅ |
+| 헤르메스의 신발 | speed_bonus | ✅ | ✅ |
+| 라그나로크 해머 | trigger_chance | ✅ | ✅ |
+| 신성 월계수 | leaf_count | ✅ | ✅ |
+| 천사의 가호 | buff_level | ✅ | ✅ |
+| 초월자의 관 | skill_bonus | ✅ | ✅ |
 
 ### Key Implementation Details
 Legendary items like Ragnarok Hammer require special handling for animations:
@@ -532,13 +719,26 @@ hermes_shoes_obtained = False     # Optional: allow re-obtaining
 
 ## Git Workflow & Automatic Commits
 
-### Automatic Git Saving After Each Task
-**IMPORTANT**: Per user request, save work to Git after completing each task.
+### ⚠️ CRITICAL: 매 프롬프트 완수 시 자동 커밋 필수!
+**IMPORTANT**: 사용자의 프롬프트(요청)를 완수할 때마다 반드시 Git에 커밋한다.
+
+#### 커밋 규칙
+1. **매 프롬프트 완수 시** → 즉시 커밋 (예외 없음!)
+2. 커밋 메시지는 한글로 작성 가능
+3. 커밋 후 자동 push
 
 #### Quick Git Commands
 ```bash
 # Regular commit (for each completed task)
-git add -A && git commit -m "Update: [task description]" && git push
+git add -A && git commit -m "[Type]: [작업 내용 설명]" && git push
+
+# Commit Types:
+# Feat: 새 기능 추가
+# Fix: 버그 수정
+# Refactor: 코드 리팩토링
+# Docs: 문서 수정
+# Style: 코드 스타일 변경
+# Debug: 디버그 코드 추가
 
 # Checkmate commit (for important checkpoints)
 --checkmate MM.DD-N  # Automatically creates: git commit -m "🏁 Checkmate MM.DD-N: [description]"
@@ -547,7 +747,8 @@ git add -A && git commit -m "Update: [task description]" && git push
 --checkmate 09.02-5  # Creates "🏁 Checkmate 09.02-5: 작업 체크포인트"
 ```
 
-#### When to Commit
+#### When to Commit (언제 커밋하나?)
+- **프롬프트 완수 시** (가장 중요!)
 - After fixing any bug
 - After implementing new feature
 - After completing requested changes
