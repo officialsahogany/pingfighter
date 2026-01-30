@@ -5,10 +5,215 @@ MenuSystem - 메뉴 시스템
 
 import pygame
 import math
+import random
 from typing import List, Dict, Any, Optional, Callable
 from core.game_state import GameState
 from core.events import EventType, emit_event
 from enum import Enum
+
+
+def draw_glass_orb_button(surface: pygame.Surface, rect: pygame.Rect,
+                          text: str, font: pygame.font.Font,
+                          selected: bool = False, hover: bool = False,
+                          animation_timer: float = 0,
+                          base_color: tuple = (80, 150, 255)) -> pygame.Rect:
+    """투명 유리알 스타일 버튼 그리기
+
+    Args:
+        surface: 그릴 서피스
+        rect: 버튼 영역
+        text: 버튼 텍스트
+        font: 폰트
+        selected: 선택 상태
+        hover: 호버 상태
+        animation_timer: 애니메이션 타이머
+        base_color: 기본 색상
+
+    Returns:
+        실제 버튼 영역
+    """
+    x, y, width, height = rect.x, rect.y, rect.width, rect.height
+    center_x = x + width // 2
+    center_y = y + height // 2
+
+    # 선택/호버 상태에 따른 색상 조정
+    if selected:
+        # 선택 시 더 밝고 따뜻한 색상
+        pulse = abs(math.sin(animation_timer * 0.08))
+        r = min(255, int(base_color[0] * 1.5 + 100 * pulse))
+        g = min(255, int(base_color[1] * 1.3 + 80 * pulse))
+        b = min(255, int(base_color[2] * 0.8))
+        glow_color = (r, g, b)
+        glow_intensity = 1.5 + 0.5 * pulse
+        scale_factor = 1.08 + 0.03 * pulse
+    elif hover:
+        glow_color = (min(255, base_color[0] + 40),
+                      min(255, base_color[1] + 40),
+                      min(255, base_color[2] + 40))
+        glow_intensity = 1.2
+        scale_factor = 1.03
+    else:
+        glow_color = base_color
+        glow_intensity = 1.0
+        scale_factor = 1.0
+
+    # 스케일 적용
+    scaled_width = int(width * scale_factor)
+    scaled_height = int(height * scale_factor)
+    scaled_x = center_x - scaled_width // 2
+    scaled_y = center_y - scaled_height // 2
+
+    # 버튼 서피스 생성
+    button_surface = pygame.Surface((scaled_width + 40, scaled_height + 40), pygame.SRCALPHA)
+    btn_cx = (scaled_width + 40) // 2
+    btn_cy = (scaled_height + 40) // 2
+
+    # === 1. 외곽 글로우 효과 (발광) ===
+    for i in range(12):
+        glow_alpha = int(40 * glow_intensity * (12 - i) / 12)
+        glow_radius = max(scaled_width, scaled_height) // 2 + 15 - i
+        glow_surf = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow_surf, (*glow_color, glow_alpha),
+                           (0, 0, glow_radius * 2 + 4, int((glow_radius * 2 + 4) * 0.6)))
+        button_surface.blit(glow_surf,
+                           (btn_cx - glow_radius - 2,
+                            btn_cy - int(glow_radius * 0.3) - 2))
+
+    # === 2. 그림자 (아래쪽) ===
+    shadow_height = int(scaled_height * 0.15)
+    shadow_surf = pygame.Surface((scaled_width + 20, shadow_height + 10), pygame.SRCALPHA)
+    for i in range(shadow_height):
+        shadow_alpha = int(60 * (shadow_height - i) / shadow_height)
+        pygame.draw.ellipse(shadow_surf, (0, 0, 0, shadow_alpha),
+                           (5 + i, i, scaled_width + 10 - i * 2, shadow_height - i))
+    button_surface.blit(shadow_surf,
+                       (btn_cx - scaled_width // 2 - 10,
+                        btn_cy + scaled_height // 2 - 5))
+
+    # === 3. 메인 유리알 본체 (그라데이션) ===
+    glass_surf = pygame.Surface((scaled_width + 4, scaled_height + 4), pygame.SRCALPHA)
+
+    # 본체 그라데이션 (위에서 아래로)
+    for i in range(scaled_height):
+        ratio = i / scaled_height
+        # 상단: 밝음, 하단: 어둡고 채도 높음
+        r = int(glow_color[0] * (0.4 + 0.4 * (1 - ratio)))
+        g = int(glow_color[1] * (0.4 + 0.4 * (1 - ratio)))
+        b = int(glow_color[2] * (0.5 + 0.3 * (1 - ratio)))
+        # 투명도: 중앙이 가장 높음, 가장자리 낮음
+        base_alpha = 180 if selected else 140
+        alpha = int(base_alpha * (0.7 + 0.3 * math.sin(ratio * math.pi)))
+
+        # 수평 그라데이션 적용
+        line_surf = pygame.Surface((scaled_width, 1), pygame.SRCALPHA)
+        for j in range(scaled_width):
+            h_ratio = abs(j - scaled_width / 2) / (scaled_width / 2)
+            edge_fade = 1 - h_ratio * 0.3
+            pygame.draw.line(line_surf, (r, g, b, int(alpha * edge_fade)), (j, 0), (j, 1))
+        glass_surf.blit(line_surf, (2, 2 + i))
+
+    # 둥근 모서리 마스크 적용
+    mask_surf = pygame.Surface((scaled_width + 4, scaled_height + 4), pygame.SRCALPHA)
+    pygame.draw.rect(mask_surf, (255, 255, 255, 255),
+                    (0, 0, scaled_width + 4, scaled_height + 4),
+                    border_radius=min(20, scaled_height // 3))
+
+    # 마스크 적용
+    for px in range(glass_surf.get_width()):
+        for py in range(glass_surf.get_height()):
+            if mask_surf.get_at((px, py))[3] == 0:
+                glass_surf.set_at((px, py), (0, 0, 0, 0))
+
+    button_surface.blit(glass_surf, (btn_cx - scaled_width // 2 - 2,
+                                      btn_cy - scaled_height // 2 - 2))
+
+    # === 4. 상단 하이라이트 (반사광) ===
+    highlight_height = int(scaled_height * 0.35)
+    highlight_surf = pygame.Surface((scaled_width - 10, highlight_height), pygame.SRCALPHA)
+    for i in range(highlight_height):
+        ratio = i / highlight_height
+        alpha = int(120 * (1 - ratio) * (1 - ratio))
+        # 가장자리 페이드
+        pygame.draw.ellipse(highlight_surf, (255, 255, 255, alpha),
+                           (i * 2, i, scaled_width - 10 - i * 4, highlight_height - i * 2))
+    button_surface.blit(highlight_surf,
+                       (btn_cx - scaled_width // 2 + 5,
+                        btn_cy - scaled_height // 2 + 3))
+
+    # === 5. 테두리 (림 라이팅) ===
+    rim_color = (min(255, glow_color[0] + 80),
+                 min(255, glow_color[1] + 80),
+                 min(255, glow_color[2] + 80))
+    rim_surf = pygame.Surface((scaled_width + 6, scaled_height + 6), pygame.SRCALPHA)
+
+    # 외곽 림
+    pygame.draw.rect(rim_surf, (*rim_color, 100),
+                    (0, 0, scaled_width + 6, scaled_height + 6),
+                    width=2, border_radius=min(22, scaled_height // 3 + 2))
+    # 내곽 림 (더 밝음)
+    pygame.draw.rect(rim_surf, (*rim_color, 60),
+                    (2, 2, scaled_width + 2, scaled_height + 2),
+                    width=1, border_radius=min(20, scaled_height // 3))
+    button_surface.blit(rim_surf, (btn_cx - scaled_width // 2 - 3,
+                                   btn_cy - scaled_height // 2 - 3))
+
+    # === 6. 선택 시 반짝이는 입자 효과 ===
+    if selected:
+        particle_count = 6
+        for i in range(particle_count):
+            angle = animation_timer * 0.05 + i * (math.pi * 2 / particle_count)
+            dist = scaled_width * 0.35 + math.sin(animation_timer * 0.1 + i) * 8
+            px = int(btn_cx + math.cos(angle) * dist)
+            py = int(btn_cy + math.sin(angle) * dist * 0.4)
+
+            # 입자 크기 변동
+            size = 2 + int(abs(math.sin(animation_timer * 0.15 + i * 0.5)) * 2)
+            alpha = int(150 + 100 * abs(math.sin(animation_timer * 0.1 + i)))
+
+            # 빛나는 점
+            spark_surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+            pygame.draw.circle(spark_surf, (255, 255, 200, alpha), (size * 2, size * 2), size)
+            pygame.draw.circle(spark_surf, (255, 255, 255, min(255, alpha + 50)), (size * 2, size * 2), size // 2)
+            button_surface.blit(spark_surf, (px - size * 2, py - size * 2))
+
+    # === 7. 하단 반사 (유리알 아래 하이라이트) ===
+    bottom_highlight_height = int(scaled_height * 0.15)
+    bottom_surf = pygame.Surface((scaled_width - 20, bottom_highlight_height), pygame.SRCALPHA)
+    for i in range(bottom_highlight_height):
+        ratio = i / bottom_highlight_height
+        alpha = int(40 * ratio)
+        pygame.draw.ellipse(bottom_surf, (255, 255, 255, alpha),
+                           (i, 0, scaled_width - 20 - i * 2, bottom_highlight_height - i))
+    button_surface.blit(bottom_surf,
+                       (btn_cx - scaled_width // 2 + 10,
+                        btn_cy + scaled_height // 2 - bottom_highlight_height - 3))
+
+    # 버튼 서피스를 메인 서피스에 블릿
+    surface.blit(button_surface, (scaled_x - 20, scaled_y - 20))
+
+    # === 8. 텍스트 렌더링 ===
+    if selected:
+        text_color = (255, 255, 255)
+        # 텍스트 글로우
+        glow_text = font.render(text, True, glow_color)
+        glow_text.set_alpha(150)
+        for offset in [(-2, -1), (2, -1), (-2, 1), (2, 1), (0, -2), (0, 2)]:
+            text_rect = glow_text.get_rect(center=(center_x + offset[0], center_y + offset[1]))
+            surface.blit(glow_text, text_rect)
+    else:
+        text_color = (220, 230, 255) if hover else (180, 200, 230)
+
+    # 텍스트 그림자
+    shadow_text = font.render(text, True, (20, 30, 50))
+    shadow_rect = shadow_text.get_rect(center=(center_x + 1, center_y + 2))
+    surface.blit(shadow_text, shadow_rect)
+
+    # 메인 텍스트
+    text_surface = font.render(text, True, text_color)
+    text_rect = text_surface.get_rect(center=(center_x, center_y))
+    surface.blit(text_surface, text_rect)
+
+    return pygame.Rect(scaled_x, scaled_y, scaled_width, scaled_height)
 
 
 class MenuState(Enum):
@@ -120,16 +325,16 @@ class MenuSystem:
             self.font_small = pygame.font.Font(None, 24)
             
     def _init_particles(self):
-        """배경 파티클 초기화"""
-        import random
-        for _ in range(50):
+        """배경 파티클 초기화 (부드럽게 떠다니는 빛나는 입자)"""
+        for _ in range(60):
             self.particles.append({
                 'x': random.randint(0, self.width),
                 'y': random.randint(0, self.height),
-                'vx': random.uniform(-0.5, 0.5),
-                'vy': random.uniform(-1, -0.5),
-                'size': random.randint(1, 3),
-                'alpha': random.randint(50, 150)
+                'vx': random.uniform(-0.3, 0.3),
+                'vy': random.uniform(-0.8, -0.2),
+                'size': random.randint(1, 4),
+                'alpha': random.randint(80, 180),
+                'phase': random.uniform(0, math.pi * 2)  # 흔들림 위상
             })
             
     def _create_all_menus(self):
@@ -266,15 +471,31 @@ class MenuSystem:
         # 배경 애니메이션
         self.animation_timer += dt * 60
         
-        # 파티클 업데이트
+        # 파티클 업데이트 (물결치듯 부드러운 움직임)
         for particle in self.particles:
-            particle['x'] += particle['vx']
+            # 위상 업데이트
+            particle['phase'] = particle.get('phase', 0) + 0.02
+
+            # 좌우 흔들림 추가
+            wave_offset = math.sin(particle['phase']) * 0.5
+            particle['x'] += particle['vx'] + wave_offset
             particle['y'] += particle['vy']
-            
+
+            # 알파 깜빡임
+            base_alpha = particle.get('base_alpha', particle['alpha'])
+            if 'base_alpha' not in particle:
+                particle['base_alpha'] = particle['alpha']
+            particle['alpha'] = int(base_alpha * (0.7 + 0.3 * abs(math.sin(particle['phase'] * 0.5))))
+
             # 화면 밖으로 나가면 위치 리셋
-            if particle['y'] < 0:
-                particle['y'] = self.height
-                particle['x'] = (pygame.time.get_ticks() % self.width)
+            if particle['y'] < -10:
+                particle['y'] = self.height + 10
+                particle['x'] = random.randint(0, self.width)
+                particle['size'] = random.randint(1, 4)
+            if particle['x'] < -10:
+                particle['x'] = self.width + 10
+            elif particle['x'] > self.width + 10:
+                particle['x'] = -10
                 
     def render(self, screen: pygame.Surface = None):
         """메뉴 렌더링"""
@@ -285,96 +506,157 @@ class MenuSystem:
             self.draw_menu(self.current_menu)
             
     def draw_menu(self, menu_items: List[MenuItem]):
-        """메뉴 그리기"""
+        """메뉴 그리기 (유리알 버튼 스타일)"""
         # 배경
         self.draw_background()
-        
+
         # 제목 (상태별로 다른 제목)
         title_text = self._get_menu_title()
+
+        # 제목 배경 글로우
+        title_glow_pulse = abs(math.sin(self.animation_timer * 0.03))
+        for i in range(8):
+            glow_alpha = int(30 * (8 - i) / 8 * (0.5 + 0.5 * title_glow_pulse))
+            glow_color = (0, 255, 200, glow_alpha)
+            glow_surf = pygame.Surface((400 + i * 20, 80 + i * 10), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, glow_color, glow_surf.get_rect())
+            self.screen.blit(glow_surf, (self.width // 2 - glow_surf.get_width() // 2,
+                                         75 - glow_surf.get_height() // 2))
+
         title_surface = self.font_title.render(title_text, True, self.colors['primary'])
         title_rect = title_surface.get_rect(center=(self.width // 2, 100))
-        
+
         # 제목 글로우 효과
         glow_alpha = abs(math.sin(self.animation_timer * 0.05)) * 50 + 50
         glow_surface = self.font_title.render(title_text, True, self.colors['glow'])
         glow_surface.set_alpha(int(glow_alpha))
         for offset in [(-2, -2), (2, -2), (-2, 2), (2, 2)]:
             self.screen.blit(glow_surface, (title_rect.x + offset[0], title_rect.y + offset[1]))
-            
+
         self.screen.blit(title_surface, title_rect)
-        
-        # 메뉴 아이템들
-        start_y = 250
-        item_height = 60
-        
+
+        # === 유리알 버튼 스타일 메뉴 아이템 ===
+        button_width = 280
+        button_height = 48
+        start_y = 200
+        item_spacing = 58
+
+        # 버튼 색상 팔레트 (아이템별로 다른 색상)
+        button_colors = [
+            (100, 180, 255),   # 게임 시작 - 파랑
+            (180, 140, 255),   # 아카데미 - 보라
+            (255, 180, 100),   # 가챠 - 주황
+            (100, 255, 180),   # 스테이지 - 청록
+            (200, 200, 220),   # 설정 - 회색
+            (150, 220, 255),   # 도움말 - 하늘
+            (255, 200, 150),   # 크레딧 - 베이지
+            (255, 120, 120),   # 종료 - 빨강
+        ]
+
         for i, item in enumerate(menu_items):
-            y = start_y + i * item_height
-            
-            # 선택된 아이템 강조
-            if i == self.selected_index:
-                item.selected = True
-                self.draw_selection_highlight(y, item_height)
-                color = item.hover_color if hasattr(item, 'hover_color') else self.colors['accent']
-                scale = item.hover_scale if hasattr(item, 'hover_scale') else 1.1
-            elif item.hover:
-                color = self.colors['primary']
-                scale = 1.05
-            else:
-                item.selected = False
-                color = item.color if hasattr(item, 'color') else self.colors['text_dim']
-                scale = 1.0
-                
-            # 글로우 효과 (선택된 아이템)
-            if i == self.selected_index and hasattr(item, 'glow_alpha') and item.glow_alpha > 0:
-                glow_surface = self.font_menu.render(item.text, True, color)
-                glow_surface.set_alpha(int(item.glow_alpha))
-                for offset in [(-2, -2), (2, -2), (-2, 2), (2, 2)]:
-                    self.screen.blit(glow_surface, 
-                                   (self.width // 2 - glow_surface.get_width() // 2 + offset[0], 
-                                    y - glow_surface.get_height() // 2 + offset[1]))
-                
-            # 텍스트 렌더링
-            text_surface = self.font_menu.render(item.text, True, color)
-            
-            # 스케일 적용
-            if scale != 1.0:
-                w, h = text_surface.get_size()
-                text_surface = pygame.transform.scale(text_surface, 
-                                                     (int(w * scale), int(h * scale)))
-                
-            # 호버 오프셋 적용
-            x_offset = item.hover_offset if hasattr(item, 'hover_offset') else 0
-            text_rect = text_surface.get_rect(center=(self.width // 2 + x_offset, y))
-            item.rect = text_rect
-            self.screen.blit(text_surface, text_rect)
-            
-        # 파티클 렌더링
+            y = start_y + i * item_spacing
+
+            # 선택 상태 업데이트
+            is_selected = (i == self.selected_index)
+            is_hover = item.hover
+            item.selected = is_selected
+
+            # 버튼 영역 계산
+            btn_rect = pygame.Rect(
+                self.width // 2 - button_width // 2,
+                y - button_height // 2,
+                button_width,
+                button_height
+            )
+
+            # 아이템별 색상 (범위 초과 시 기본 색상)
+            base_color = button_colors[i % len(button_colors)]
+
+            # 유리알 버튼 그리기
+            actual_rect = draw_glass_orb_button(
+                self.screen,
+                btn_rect,
+                item.text,
+                self.font_menu,
+                selected=is_selected,
+                hover=is_hover,
+                animation_timer=self.animation_timer,
+                base_color=base_color
+            )
+
+            # 클릭 영역 저장
+            item.rect = actual_rect
+
+        # 파티클 렌더링 (버튼 위에)
         self._render_particles()
-        
+
         # 상태별 추가 UI
         self._render_state_ui()
             
     def draw_background(self):
-        """배경 그리기"""
-        # 그라데이션 배경
-        for y in range(0, self.height, 10):
+        """배경 그리기 (고급 그라데이션 + 빛 효과)"""
+        # 깊은 우주 느낌의 그라데이션 배경
+        for y in range(0, self.height, 2):
             ratio = y / self.height
-            r = int(15 + ratio * 10)
-            g = int(15 + ratio * 10)
-            b = int(25 + ratio * 15)
-            pygame.draw.rect(self.screen, (r, g, b), (0, y, self.width, 10))
-            
-        # 움직이는 패턴
-        pattern_color = (30, 40, 60)
-        offset = self.animation_timer * 0.5
-        for x in range(-100, self.width + 100, 100):
-            for y in range(-100, self.height + 100, 100):
-                offset_x = x + offset
-                offset_y = y + offset * 0.5
-                pygame.draw.circle(self.screen, pattern_color, 
-                                 (int(offset_x % self.width), int(offset_y % self.height)), 
-                                 50, 1)
-                           
+            # 상단: 깊은 남색, 하단: 진한 보라
+            r = int(8 + ratio * 15 + math.sin(ratio * math.pi) * 10)
+            g = int(12 + ratio * 8)
+            b = int(35 + ratio * 25 - math.sin(ratio * math.pi) * 15)
+            pygame.draw.rect(self.screen, (r, g, b), (0, y, self.width, 2))
+
+        # 중앙 빛줄기 효과 (버튼들 뒤쪽)
+        beam_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        beam_pulse = 0.7 + 0.3 * abs(math.sin(self.animation_timer * 0.02))
+        for i in range(20):
+            beam_alpha = int(15 * beam_pulse * (20 - i) / 20)
+            beam_width = 200 + i * 15
+            pygame.draw.ellipse(beam_surf, (80, 120, 180, beam_alpha),
+                               (self.width // 2 - beam_width // 2, 100, beam_width, self.height - 100))
+        self.screen.blit(beam_surf, (0, 0))
+
+        # 별빛 효과 (작은 반짝이는 점들)
+        star_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        random.seed(42)  # 고정 시드로 일관된 별 위치
+        for _ in range(80):
+            sx = random.randint(0, self.width)
+            sy = random.randint(0, self.height)
+            # 반짝임 애니메이션
+            twinkle = abs(math.sin(self.animation_timer * 0.03 + sx * 0.01 + sy * 0.01))
+            star_alpha = int(50 + 100 * twinkle)
+            star_size = 1 + int(twinkle * 1.5)
+            pygame.draw.circle(star_surf, (200, 220, 255, star_alpha), (sx, sy), star_size)
+        self.screen.blit(star_surf, (0, 0))
+
+        # 움직이는 빛 파티클 (느린 움직임)
+        particle_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        for i in range(15):
+            angle = self.animation_timer * 0.01 + i * 0.5
+            radius = 150 + i * 20
+            px = self.width // 2 + int(math.cos(angle) * radius * 0.3)
+            py = self.height // 2 + int(math.sin(angle * 0.7) * radius * 0.8)
+
+            # 부드러운 글로우 파티클
+            for j in range(5):
+                p_alpha = int(30 * (5 - j) / 5)
+                p_size = 8 + j * 4
+                pygame.draw.circle(particle_surf, (100, 150, 220, p_alpha), (px, py), p_size)
+        self.screen.blit(particle_surf, (0, 0))
+
+        # 하단 반사광 (바닥 느낌)
+        floor_surf = pygame.Surface((self.width, 100), pygame.SRCALPHA)
+        for i in range(100):
+            floor_alpha = int(20 * (100 - i) / 100)
+            pygame.draw.rect(floor_surf, (60, 80, 120, floor_alpha), (0, i, self.width, 1))
+        self.screen.blit(floor_surf, (0, self.height - 100))
+
+        # 모서리 비네팅 효과
+        vignette_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        for i in range(50):
+            vig_alpha = int(80 * (50 - i) / 50)
+            pygame.draw.rect(vignette_surf, (0, 0, 0, vig_alpha),
+                            (i, i, self.width - i * 2, self.height - i * 2), 1)
+        self.screen.blit(vignette_surf, (0, 0))
+
     def draw_selection_highlight(self, y: int, height: int):
         """선택 강조 효과"""
         # 발광 효과
@@ -401,12 +683,27 @@ class MenuSystem:
         pygame.draw.polygon(self.screen, self.colors['accent'], right_arrow)
         
     def _render_particles(self):
-        """파티클 렌더링"""
+        """파티클 렌더링 (유리알 느낌의 빛나는 먼지)"""
         for particle in self.particles:
-            s = pygame.Surface((particle['size'] * 2, particle['size'] * 2), pygame.SRCALPHA)
-            pygame.draw.circle(s, (255, 255, 255, particle['alpha']), 
-                             (particle['size'], particle['size']), particle['size'])
-            self.screen.blit(s, (int(particle['x']), int(particle['y'])))
+            # 파티클 크기와 글로우
+            size = particle['size']
+            px, py = int(particle['x']), int(particle['y'])
+
+            # 외곽 글로우
+            glow_size = size * 4
+            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            glow_alpha = int(particle['alpha'] * 0.3)
+            pygame.draw.circle(glow_surf, (150, 200, 255, glow_alpha),
+                             (glow_size, glow_size), glow_size)
+            self.screen.blit(glow_surf, (px - glow_size, py - glow_size))
+
+            # 메인 파티클 (밝은 중심)
+            main_surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+            pygame.draw.circle(main_surf, (200, 230, 255, particle['alpha']),
+                             (size * 2, size * 2), size + 1)
+            pygame.draw.circle(main_surf, (255, 255, 255, min(255, particle['alpha'] + 50)),
+                             (size * 2, size * 2), size)
+            self.screen.blit(main_surf, (px - size * 2, py - size * 2))
             
     def _render_state_ui(self):
         """상태별 추가 UI 렌더링"""
