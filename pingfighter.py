@@ -81022,7 +81022,7 @@ def draw_player_gauge():
             _surface_h = _player_gauge_surface.get_height() if _player_gauge_surface else 320
             _orb_center_y = _surface_h - _orb_radius_base - 15
             _orb_top = _orb_center_y - _orb_radius_base
-            panel_y = int(_orb_top - panel_height - 8)  # 구슬 상단 위 8px
+            panel_y = int(_orb_top - panel_height - 38)  # 구슬 상단 위 38px (30px 상단 이동)
         else:
             # 일반 모드: 기존 좌측 게이지 기준
             center_x = player_gauge_x + player_gauge_width // 2
