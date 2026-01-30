@@ -2,11 +2,15 @@
 """
 조선시대 스타일 액자 필러 배경 (Stage 1)
 게임 화면 주변을 전통 한국 자수/단청 스타일의 액자 테두리로 장식
+Gemini API가 생성한 코드 기반 용 기둥 배경 사용
 """
 
 import math
 import random
 import pygame
+
+# Gemini API로 생성된 코드 기반 용 기둥 배경
+from pillar_dragon import DragonPillarBackground
 
 
 class TraditionalFrame:
@@ -57,6 +61,11 @@ class TraditionalFrame:
         # 꽃잎 파티클
         self.petals = []
 
+        # 코드 기반 용 기둥 배경 (Gemini API가 생성한 코드)
+        self._dragon_pillar_bg = DragonPillarBackground(
+            screen_width, screen_height, game_width, game_height
+        )
+
         # 캐시된 프레임
         self._frame_surface = None
         self._create_frame()
@@ -106,28 +115,14 @@ class TraditionalFrame:
         print(f"[나비생성] 완료: {len(self.butterflies)}마리 생성됨")
 
     def _create_frame(self):
-        """전통 액자 프레임 생성"""
+        """전통 액자 프레임 생성 (코드 기반 용 기둥 배경)"""
         self._frame_surface = pygame.Surface(
             (self.screen_width, self.screen_height), pygame.SRCALPHA
         )
 
-        # 배경 (주홍색 비단)
-        self._draw_silk_background(self._frame_surface)
-
-        # 외곽 금테
-        self._draw_outer_gold_border(self._frame_surface)
-
-        # 내곽 금테 (게임 영역 주변)
-        self._draw_inner_gold_border(self._frame_surface)
-
-        # 모서리 장식 (전통 문양)
-        self._draw_corner_ornaments(self._frame_surface)
-
-        # 꽃 자수 장식
-        self._draw_flower_embroidery(self._frame_surface)
-
-        # 나뭇가지 장식
-        self._draw_branch_decoration(self._frame_surface)
+        # 코드 기반 용 기둥 배경 사용 (Gemini API가 생성한 코드)
+        # DragonPillarBackground가 필러를 직접 그림
+        # _frame_surface는 나비/꽃잎 등 추가 요소를 위해 투명하게 유지
 
     def _draw_silk_background(self, surface: pygame.Surface):
         """한지(韓紙) 질감 배경"""
@@ -559,6 +554,10 @@ class TraditionalFrame:
         """업데이트"""
         self.time += dt
 
+        # 코드 기반 용 기둥 배경 업데이트
+        if self._dragon_pillar_bg:
+            self._dragon_pillar_bg.update(dt)
+
         # 나비 흡수 쿨타임 감소
         if self._butterfly_cooldown > 0:
             self._butterfly_cooldown -= dt
@@ -840,9 +839,9 @@ class TraditionalFrame:
 
     def draw(self, surface: pygame.Surface):
         """전체 렌더링"""
-        # 캐시된 프레임
-        if self._frame_surface:
-            surface.blit(self._frame_surface, (0, 0))
+        # 코드 기반 용 기둥 배경 그리기
+        if self._dragon_pillar_bg:
+            self._dragon_pillar_bg.draw(surface)
 
         # 꽃잎 파티클
         for petal in self.petals:
@@ -911,6 +910,11 @@ class TraditionalFrame:
 
         self._frame_surface = None
         self._create_frame()
+
+        # 코드 기반 용 기둥 배경 재초기화
+        self._dragon_pillar_bg = DragonPillarBackground(
+            screen_width, screen_height, game_width, game_height
+        )
 
     def trigger_excitement(self, level: float = 1.5):
         """효과 트리거 (득점 시)"""
