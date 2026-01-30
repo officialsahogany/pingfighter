@@ -78207,8 +78207,8 @@ def draw_player_gauge():
                 glow_color = tuple(min(255, c + 50) for c in energy_color)
                 draw.line(glow_color, (gauge_x + 2, fill_y - i),
                                (gauge_x + gauge_width - 2, fill_y - i))
-    #  파워 준비 상태 표시 (캐릭터별 연출)
-    if displayed_gauge >= 350:
+    #  파워 준비 상태 표시 (캐릭터별 연출) - 일반 모드 전용 (구슬 모드에서는 별도 이펙트 사용)
+    if displayed_gauge >= 350 and not _gauge_using_separate_surface:
         if selected_character_type == "blacksmith":
             forge_pulse = abs(math.sin(time_now * 0.01))
             glow_color = (
