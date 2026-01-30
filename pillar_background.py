@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-필러(Pillar) 배경 렌더러
+���러(Pillar) 배경 렌더러
 전체화면 모드에서 게임 영역 외의 좌우 공간을 채우는 배경 시스템
 """
 
@@ -96,6 +96,9 @@ class PillarBackgroundRenderer:
         # 애니메이션 상태
         self.animation_time = 0.0
 
+        # 쿨타임 완료 반짝임 효과 추적 {slot_index: complete_time_ms}
+        self._cooldown_complete_flash = {}
+
         # 스테이지별 특수 배경 (스타디움 등)
         self._baroque_bg = None  # 바로크 액자 (메인 메뉴, 스테이지 0)
         self._stadium_bg = None
@@ -118,8 +121,82 @@ class PillarBackgroundRenderer:
         # 불타는 태양 효과 강도 (0.0 ~ 1.0)
         self._blazing_intensity = 0.8
 
+        # 광폭화 인디케이터 관련
+        self._rage_indicator_active = False  # 광폭화 모드 활성 여부
+        self._rage_indicator_rect = None     # 광폭화 아이콘 영역 (호버 감지용)
+        self._rage_icon_surface = None       # 광폭화 아이콘 서피스 (캐시)
+        self._rage_icon_w = 52               # 아이콘 가로 크기
+        self._rage_icon_h = 68               # 아이콘 세로 크기 (세로가 더 김)
+        self._rage_animation_time = 0.0      # 광폭화 아이콘 애니메이션
+        self._create_rage_indicator_icon()   # 아이콘 생성
+
+        # 퀘스트 양피지 엠블럼 관련
+        self._quest_emblem_active = False        # 퀘스트 엠블럼 표시 여부
+        self._quest_emblem_rect = None           # 엠블럼 영역 (호버 감지용)
+        self._quest_emblem_surface = None        # 엠블럼 서피스 (캐시)
+        self._quest_emblem_w = 40                # 엠블럼 가로
+        self._quest_emblem_h = 48                # 엠블럼 세로
+        self._quest_animation_time = 0.0         # 엠블럼 애니메이션 타이머
+        self._quest_completion_glow = False       # 퀘스트 완료 빛 효과
+        self._quest_completion_glow_timer = 0.0   # 빛 효과 타이머
+        self._quest_tablet_count = 0              # 석판 수집 카운터
+        self._quest_tablet_target = 5             # 석판 수집 목표
+        self._quest_has_tablet_quest = False       # 석판 퀘스트 활성 여부
+        self._create_quest_parchment_icon()      # 양피지 아이콘 생성
+
+        # === 🔧 액티브 아이템 슬롯 UI 최적화용 캐시 ===
+        # 폰트 캐시 (매 프레임 로딩 방지)
+        self._slot_font_small = None   # 카운트다운용 (size 20)
+        self._slot_font_num = None     # 슬롯 번호용 (size 18)
+        self._slot_font_notice = None  # 연금술 텍스트용 (한글 폰트)
+        self._init_slot_fonts()
+
+        # Surface 캐시 (크기별)
+        self._slot_bg_cache = {}       # {(w, h, alpha): Surface}
+        self._overlay_cache = {}       # {(w, h, alpha): Surface}
+
+        # 스케일된 아이콘 캐시 {(item_name, w, h): Surface}
+        self._scaled_icon_cache = {}
+
         # 아트워크 로드
         self._load_artwork()
+
+    def _init_slot_fonts(self):
+        """슬롯 UI용 폰트 초기화 (한 번만 로딩)"""
+        try:
+            self._slot_font_small = pygame.font.Font(None, 20)
+            self._slot_font_num = pygame.font.Font(None, 18)
+            # 한글 폰트
+            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+            if os.path.exists(font_path):
+                self._slot_font_notice = pygame.font.Font(font_path, 16)
+            else:
+                self._slot_font_notice = pygame.font.Font(None, 16)
+        except Exception as e:
+            print(f"[PillarBG] 슬롯 폰트 초기화 실패: {e}")
+            self._slot_font_small = pygame.font.Font(None, 20)
+            self._slot_font_num = pygame.font.Font(None, 18)
+            self._slot_font_notice = pygame.font.Font(None, 16)
+
+    def _get_cached_surface(self, cache_dict, key, size, fill_color):
+        """캐시된 Surface 반환 또는 생성"""
+        if key not in cache_dict:
+            surf = pygame.Surface(size, pygame.SRCALPHA)
+            surf.fill(fill_color)
+            cache_dict[key] = surf
+        return cache_dict[key]
+
+    def _get_scaled_icon(self, item, icon_size):
+        """스케일된 아이콘 캐시에서 반환 또는 생성"""
+        item_name = item.get("name") or item.get("effect") or id(item)
+        icon = item.get("icon")
+        if icon is None:
+            return None
+
+        cache_key = (item_name, icon_size[0], icon_size[1])
+        if cache_key not in self._scaled_icon_cache:
+            self._scaled_icon_cache[cache_key] = pygame.transform.scale(icon, icon_size)
+        return self._scaled_icon_cache[cache_key]
 
     def _load_artwork(self):
         """핑파이터 아트워크 이미지 로드"""
@@ -319,7 +396,7 @@ class PillarBackgroundRenderer:
                 self.screen_width, self.screen_height,
                 self.game_width, self.game_height
             )
-            print(f"[PillarBG] 스테이지 6(실제 5 네메시스) 해상전투 배경 초기화 완료")
+            pass  # print(f"[PillarBG] 스테이지 6(실제 5 네메시스) 해상전투 배경 초기화 완료")  # 디버그 비활성화
 
         # 스테이지 7: 테트리서 테트리스 배경 초기화
         if stage == 7 and self._tetriser_bg is None:
@@ -906,33 +983,738 @@ class PillarBackgroundRenderer:
 
         screen.blit(box_surface, (x, y))
 
-    def draw_left_pillar_ui(self, screen, active_items=None, icon_size=(28, 28)):
-        """왼쪽 필러 UI 그리기 (액티브 아이템 슬롯)
+    def draw_top_pillar_score(self, screen, player_score=0, boss_score=0):
+        """상단 필러 중앙에 고급스러운 스코어 표시 (듀스 시 화염 버전)
+
+        Args:
+            screen: 그릴 surface
+            player_score: 플레이어 점수
+            boss_score: 보스 점수
+        """
+        # 상단 필러가 없으면 그리지 않음
+        if self.top_pillar_height < 20:
+            return
+
+        # 듀스 상태 확인 - pingfighter의 전역 deuce_mode 변수를 참조
+        # 기존 로컬 조건 대신 전역 상태를 사용하여 일관성 유지
+        try:
+            import pingfighter
+            is_deuce = getattr(pingfighter, 'deuce_mode', False)
+        except (ImportError, AttributeError):
+            # fallback: 4:4 이상 동점일 때만 듀스로 처리
+            is_deuce = player_score >= 4 and boss_score >= 4 and player_score == boss_score
+
+        # 스코어 박스 크기
+        box_width = 140
+        box_height = 44
+
+        # 게임 화면 상단 중앙에 배치
+        box_x = self.game_offset_x + (self.game_width - box_width) // 2
+        box_y = (self.game_offset_y - box_height) // 2
+
+        # 박스가 화면 밖으로 나가지 않도록
+        if box_y < 2:
+            box_y = 2
+
+        time_ms = pygame.time.get_ticks()
+
+        # === 점수 변경 감지 및 반짝임 트리거 ===
+        if not hasattr(self, '_prev_player_score'):
+            self._prev_player_score = player_score
+            self._prev_boss_score = boss_score
+            self._score_sparkle_start = 0
+
+        if player_score != self._prev_player_score or boss_score != self._prev_boss_score:
+            self._score_sparkle_start = time_ms
+            self._prev_player_score = player_score
+            self._prev_boss_score = boss_score
+
+        sparkle_duration = 1000
+        time_since_sparkle = time_ms - self._score_sparkle_start
+        sparkle_intensity = 0
+        cycle_progress = 0
+
+        if time_since_sparkle < sparkle_duration:
+            cycle_progress = time_since_sparkle
+            sparkle_progress = time_since_sparkle / sparkle_duration
+            sparkle_intensity = math.sin(sparkle_progress * math.pi)
+
+        if is_deuce:
+            # ==================== 듀스 화염 버전 ====================
+            self._draw_deuce_fire_score(screen, box_x, box_y, box_width, box_height,
+                                        player_score, boss_score, time_ms, sparkle_intensity)
+        else:
+            # ==================== 일반 버전 ====================
+            self._draw_normal_score(screen, box_x, box_y, box_width, box_height,
+                                    player_score, boss_score, time_ms, sparkle_intensity,
+                                    cycle_progress, sparkle_duration)
+
+    def _draw_deuce_fire_score(self, screen, box_x, box_y, box_width, box_height,
+                                player_score, boss_score, time_ms, sparkle_intensity):
+        """듀스 상태의 이글이글 타오르는 화염 점수판 (Raging Inferno 스타일)"""
+        import random
+
+        # === 외곽 열기 글로우 (강렬하게, 5단계) ===
+        pulse = math.sin(time_ms * 0.008) * 0.3 + 0.7
+        for glow_layer in range(5):
+            glow_margin = 20 - glow_layer * 3
+            glow_surface = pygame.Surface(
+                (box_width + glow_margin * 2, box_height + glow_margin * 2),
+                pygame.SRCALPHA
+            )
+            glow_alpha = int((40 - glow_layer * 7) * pulse)
+            pygame.draw.rect(glow_surface, (255, 50 + glow_layer * 20, 0, glow_alpha),
+                            glow_surface.get_rect(), border_radius=12)
+            screen.blit(glow_surface, (box_x - glow_margin, box_y - glow_margin))
+
+        # === 메인 박스 (격렬한 화염 그라데이션) ===
+        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+
+        for i in range(box_height):
+            ratio = i / box_height
+            # 빠르고 불규칙한 파동
+            wave1 = math.sin(time_ms * 0.012 + ratio * 8) * 0.15
+            wave2 = math.sin(time_ms * 0.018 + ratio * 12 + 2) * 0.1
+            wave3 = math.sin(time_ms * 0.025 + ratio * 20) * 0.08
+            combined = wave1 + wave2 + wave3
+
+            # 강렬한 화염 색상
+            if ratio < 0.3:
+                r, g, b = 255, int(255 - 55 * ratio / 0.3), int(200 - 150 * ratio / 0.3)
+            elif ratio < 0.6:
+                r, g, b = 255, int(200 - 100 * (ratio - 0.3) / 0.3), int(50 - 30 * (ratio - 0.3) / 0.3)
+            else:
+                r, g, b = int(255 - 80 * (ratio - 0.6) / 0.4), int(100 - 70 * (ratio - 0.6) / 0.4), 10
+
+            r = int(min(255, max(0, r + 60 * combined)))
+            g = int(min(255, max(0, g + 80 * combined)))
+            b = int(min(255, max(0, b + 30 * combined)))
+
+            pygame.draw.line(box_surface, (r, g, b, 245), (0, i), (box_width, i))
+
+        # 테두리
+        pygame.draw.rect(box_surface, (180, 60, 20), (0, 0, box_width, box_height), 3, border_radius=8)
+        screen.blit(box_surface, (box_x, box_y))
+
+        # === 맹렬한 상단 화염 (다중 레이어) ===
+        flame_surface = pygame.Surface((box_width + 20, 45), pygame.SRCALPHA)
+
+        for layer in range(4):
+            layer_height = 35 - layer * 6
+            layer_alpha = 200 - layer * 40
+
+            points = [(0, 45)]
+            for fx in range(0, box_width + 21, 2):
+                h = layer_height * 0.4
+                h += math.sin(time_ms * (0.015 + layer * 0.003) + fx * 0.18) * layer_height * 0.3
+                h += math.sin(time_ms * (0.022 + layer * 0.005) + fx * 0.28) * layer_height * 0.2
+                h += math.sin(time_ms * (0.035 + layer * 0.008) + fx * 0.45) * layer_height * 0.15
+                points.append((fx, 45 - max(0, h)))
+            points.append((box_width + 20, 45))
+
+            # 화염 색상 (레이어별)
+            if layer == 0:
+                color = (255, 255, 220, layer_alpha)  # 밝은 중심
+            elif layer == 1:
+                color = (255, 200, 80, layer_alpha)   # 노랑
+            elif layer == 2:
+                color = (255, 120, 30, layer_alpha)   # 주황
+            else:
+                color = (200, 60, 10, layer_alpha)    # 빨강
+
+            pygame.draw.polygon(flame_surface, color, points)
+
+        screen.blit(flame_surface, (box_x - 10, box_y - 38))
+
+        # === 떠오르는 불씨 파티클 ===
+        for j in range(10):
+            particle_speed = 0.004 + j * 0.0008
+            particle_phase = (time_ms * particle_speed + j * 0.7) % 1.0
+
+            # 위로 올라가는 효과
+            particle_y_base = box_y - 5
+            particle_y_offset = -particle_phase * 35
+            particle_x = box_x + 5 + j * (box_width - 10) / 9
+
+            # 좌우 흔들림
+            sway = math.sin(time_ms * 0.01 + j * 1.2) * 5
+            particle_x += sway
+
+            particle_y = particle_y_base + particle_y_offset
+
+            # 크기와 투명도 (위로 갈수록 작아지고 투명해짐)
+            size_factor = 1 - particle_phase * 0.7
+            particle_size = int((2 + j % 3) * size_factor)
+            particle_alpha = int(255 * (1 - particle_phase) ** 1.2)
+
+            if particle_size > 0 and particle_alpha > 20:
+                particle_surface = pygame.Surface((particle_size * 4, particle_size * 4), pygame.SRCALPHA)
+
+                # 화염 색상 (수명에 따라 노랑 → 주황 → 빨강)
+                life_ratio = 1 - particle_phase
+                if life_ratio > 0.6:
+                    p_r, p_g, p_b = 255, 255, int(150 * (life_ratio - 0.6) / 0.4)
+                elif life_ratio > 0.3:
+                    p_r, p_g, p_b = 255, int(150 + 105 * (life_ratio - 0.3) / 0.3), 0
+                else:
+                    p_r, p_g, p_b = int(255 * life_ratio / 0.3), int(80 * life_ratio / 0.3), 0
+
+                # 글로우
+                pygame.draw.circle(particle_surface, (p_r, p_g, 0, particle_alpha // 4),
+                                 (particle_size * 2, particle_size * 2), particle_size * 2)
+                pygame.draw.circle(particle_surface, (p_r, p_g, p_b, particle_alpha // 2),
+                                 (particle_size * 2, particle_size * 2), particle_size + 1)
+                # 밝은 코어
+                pygame.draw.circle(particle_surface, (255, 255, 200, particle_alpha),
+                                 (particle_size * 2, particle_size * 2), particle_size)
+
+                screen.blit(particle_surface,
+                          (int(particle_x - particle_size * 2), int(particle_y - particle_size * 2)))
+
+        # === "DEUCE!" 텍스트 (화염 스타일) ===
+        try:
+            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+            deuce_font = pygame.font.Font(font_path, 11)
+
+            deuce_center_x = box_x + box_width // 2
+            deuce_center_y = box_y - 12
+
+            # 글로우 레이어
+            for gw in range(3, 0, -1):
+                glow_text = deuce_font.render("DEUCE!", True, (255, 100, 0))
+                glow_text.set_alpha(int(50 * (4 - gw) * pulse))
+                glow_rect = glow_text.get_rect(center=(deuce_center_x, deuce_center_y))
+                for ox, oy in [(-gw, 0), (gw, 0), (0, -gw), (0, gw)]:
+                    screen.blit(glow_text, (glow_rect.x + ox, glow_rect.y + oy))
+
+            # 메인 텍스트 (밝은 노랑)
+            deuce_text = deuce_font.render("DEUCE!", True, (255, 255, 230))
+            deuce_rect = deuce_text.get_rect(center=(deuce_center_x, deuce_center_y))
+            # 그림자
+            shadow_text = deuce_font.render("DEUCE!", True, (100, 30, 5))
+            screen.blit(shadow_text, (deuce_rect.x + 1, deuce_rect.y + 1))
+            screen.blit(deuce_text, deuce_rect)
+
+        except:
+            pass
+
+        # === 스코어 텍스트 (화염 색상 + 글로우 + 미세 떨림) ===
+        try:
+            score_font = pygame.font.Font(None, 42)
+
+            # 열기로 인한 미세한 떨림
+            shake_x = math.sin(time_ms * 0.02) * 1
+            shake_y = math.cos(time_ms * 0.025) * 0.5
+
+            center_x = box_x + box_width // 2 + shake_x
+            center_y = box_y + box_height // 2 + shake_y
+            score_offset = 28
+
+            # 글로우 효과
+            for gw in range(4, 0, -1):
+                glow_color = (255, 100, 0)
+                p_glow = score_font.render(str(player_score), True, glow_color)
+                b_glow = score_font.render(str(boss_score), True, glow_color)
+                p_glow.set_alpha(int(50 * (5 - gw)))
+                b_glow.set_alpha(int(50 * (5 - gw)))
+
+                p_glow_rect = p_glow.get_rect(center=(center_x - score_offset, center_y))
+                b_glow_rect = b_glow.get_rect(center=(center_x + score_offset, center_y))
+
+                for ox, oy in [(-gw, 0), (gw, 0), (0, -gw), (0, gw)]:
+                    screen.blit(p_glow, (p_glow_rect.x + ox, p_glow_rect.y + oy))
+                    screen.blit(b_glow, (b_glow_rect.x + ox, b_glow_rect.y + oy))
+
+            # 그림자
+            shadow_color = (100, 30, 5)
+            p_shadow = score_font.render(str(player_score), True, shadow_color)
+            b_shadow = score_font.render(str(boss_score), True, shadow_color)
+            colon_shadow = score_font.render(":", True, shadow_color)
+
+            # 메인 점수 (밝은 흰색-노랑)
+            score_color = (255, 255, 230)
+            colon_color = (255, 220, 150)
+
+            p_text = score_font.render(str(player_score), True, score_color)
+            b_text = score_font.render(str(boss_score), True, score_color)
+            colon_text = score_font.render(":", True, colon_color)
+
+            colon_rect = colon_text.get_rect(center=(center_x, center_y))
+            p_rect = p_text.get_rect(center=(center_x - score_offset, center_y))
+            b_rect = b_text.get_rect(center=(center_x + score_offset, center_y))
+
+            # 그림자 그리기
+            screen.blit(p_shadow, (p_rect.x + 2, p_rect.y + 2))
+            screen.blit(b_shadow, (b_rect.x + 2, b_rect.y + 2))
+            screen.blit(colon_shadow, (colon_rect.x + 2, colon_rect.y + 2))
+
+            # 메인 텍스트 그리기
+            screen.blit(p_text, p_rect)
+            screen.blit(colon_text, colon_rect)
+            screen.blit(b_text, b_rect)
+
+        except:
+            pass
+
+    def _draw_normal_score(self, screen, box_x, box_y, box_width, box_height,
+                           player_score, boss_score, time_ms, sparkle_intensity,
+                           cycle_progress, sparkle_duration):
+        """일반 점수판"""
+        # === 외곽 글로우 효과 ===
+        glow_margin = 6
+        glow_surface = pygame.Surface(
+            (box_width + glow_margin * 2, box_height + glow_margin * 2),
+            pygame.SRCALPHA
+        )
+        base_glow_alpha = 40 + int(60 * sparkle_intensity)
+        glow_color = (255, 215, 100, base_glow_alpha)
+        pygame.draw.rect(glow_surface, glow_color, glow_surface.get_rect(), border_radius=12)
+        screen.blit(glow_surface, (box_x - glow_margin, box_y - glow_margin))
+
+        # === 메인 박스 ===
+        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+
+        for i in range(box_height):
+            ratio = i / box_height
+            r = int(35 - 15 * ratio)
+            g = int(30 - 10 * ratio)
+            b = int(50 - 20 * ratio)
+            if sparkle_intensity > 0:
+                r = min(255, r + int(30 * sparkle_intensity))
+                g = min(255, g + int(25 * sparkle_intensity))
+                b = min(255, b + int(20 * sparkle_intensity))
+            pygame.draw.line(box_surface, (r, g, b, 230), (0, i), (box_width, i))
+
+        highlight_color = (255, 255, 255, 30 + int(40 * sparkle_intensity))
+        pygame.draw.line(box_surface, highlight_color, (4, 2), (box_width - 4, 2), 1)
+
+        border_brightness = 180 + int(75 * sparkle_intensity)
+        border_color = (border_brightness, int(border_brightness * 0.75), 50)
+        pygame.draw.rect(box_surface, border_color, (0, 0, box_width, box_height), 2, border_radius=8)
+
+        inner_border = (100, 80, 30, 150)
+        pygame.draw.rect(box_surface, inner_border, (2, 2, box_width - 4, box_height - 4), 1, border_radius=6)
+
+        screen.blit(box_surface, (box_x, box_y))
+
+        # === 장식 다이아몬드 ===
+        diamond_size = 6
+        diamond_color = (255, 220, 100, 200 + int(55 * sparkle_intensity))
+        left_diamond = [
+            (box_x + 10, box_y + box_height // 2),
+            (box_x + 10 + diamond_size, box_y + box_height // 2 - diamond_size),
+            (box_x + 10 + diamond_size * 2, box_y + box_height // 2),
+            (box_x + 10 + diamond_size, box_y + box_height // 2 + diamond_size)
+        ]
+        pygame.draw.polygon(screen, diamond_color[:3], left_diamond)
+        right_diamond = [
+            (box_x + box_width - 10 - diamond_size * 2, box_y + box_height // 2),
+            (box_x + box_width - 10 - diamond_size, box_y + box_height // 2 - diamond_size),
+            (box_x + box_width - 10, box_y + box_height // 2),
+            (box_x + box_width - 10 - diamond_size, box_y + box_height // 2 + diamond_size)
+        ]
+        pygame.draw.polygon(screen, diamond_color[:3], right_diamond)
+
+        # === 스코어 텍스트 ===
+        try:
+            score_font = pygame.font.Font(None, 36)
+
+            p_color = (100, 180, 255)
+            p_text = score_font.render(str(player_score), True, p_color)
+            p_shadow = score_font.render(str(player_score), True, (0, 0, 0))
+
+            colon_color = (255, 255, 255)
+            colon_text = score_font.render(":", True, colon_color)
+
+            b_color = (255, 100, 100)
+            b_text = score_font.render(str(boss_score), True, b_color)
+            b_shadow = score_font.render(str(boss_score), True, (0, 0, 0))
+
+            center_x = box_x + box_width // 2
+            center_y = box_y + box_height // 2
+            score_offset = 28
+
+            colon_rect = colon_text.get_rect(center=(center_x, center_y))
+            p_rect = p_text.get_rect(center=(center_x - score_offset, center_y))
+            b_rect = b_text.get_rect(center=(center_x + score_offset, center_y))
+
+            screen.blit(p_shadow, (p_rect.x + 2, p_rect.y + 2))
+            screen.blit(b_shadow, (b_rect.x + 2, b_rect.y + 2))
+
+            screen.blit(p_text, p_rect)
+            screen.blit(colon_text, colon_rect)
+            screen.blit(b_text, b_rect)
+
+            # 반짝임 효과
+            if sparkle_intensity > 0.1:
+                sweep_progress = cycle_progress / sparkle_duration
+                sweep_x = int(box_width * 1.5 * sweep_progress) - box_width // 4
+
+                sweep_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+                sweep_width = 25
+                sweep_alpha = int(120 * sparkle_intensity)
+
+                for i in range(sweep_width):
+                    line_alpha = int(sweep_alpha * (1 - abs(i - sweep_width // 2) / (sweep_width // 2)))
+                    line_x = sweep_x + i
+                    if 0 <= line_x < box_width:
+                        pygame.draw.line(sweep_surface, (255, 255, 220, line_alpha),
+                                       (line_x, 0), (line_x - 15, box_height))
+                screen.blit(sweep_surface, (box_x, box_y))
+
+                if sparkle_intensity > 0.5:
+                    star_positions = [
+                        (box_x + 6, box_y + 6),
+                        (box_x + box_width - 6, box_y + 6),
+                        (box_x + 6, box_y + box_height - 6),
+                        (box_x + box_width - 6, box_y + box_height - 6),
+                    ]
+                    star_alpha = int(255 * sparkle_intensity)
+                    star_size = int(3 + 2 * sparkle_intensity)
+
+                    for sx, sy in star_positions:
+                        pygame.draw.line(screen, (255, 255, 200, star_alpha),
+                                       (sx - star_size, sy), (sx + star_size, sy), 1)
+                        pygame.draw.line(screen, (255, 255, 200, star_alpha),
+                                       (sx, sy - star_size), (sx, sy + star_size), 1)
+                        diag = star_size * 0.7
+                        pygame.draw.line(screen, (255, 255, 150, star_alpha // 2),
+                                       (int(sx - diag), int(sy - diag)), (int(sx + diag), int(sy + diag)), 1)
+                        pygame.draw.line(screen, (255, 255, 150, star_alpha // 2),
+                                       (int(sx + diag), int(sy - diag)), (int(sx - diag), int(sy + diag)), 1)
+        except:
+            pass
+
+    def draw_left_pillar_ui(self, screen, active_items=None, icon_size=(28, 28),
+                             selected_index=0, cooldown_ms=10000, round_start_time=None,
+                             alchemy_notices=None, max_slots=3):
+        """게임 화면 하단 필러 영역에 가로 배치되는 액티브 아이템 슬롯 (max_slots에 따라 동적 크기)
 
         Args:
             screen: 그릴 surface
             active_items: 액티브 아이템 리스트
             icon_size: 아이콘 크기 튜플
+            selected_index: 선택된 아이템 인덱스
+            cooldown_ms: 쿨다운 시간 (ms)
+            round_start_time: 라운드 시작 시간
+            alchemy_notices: 연금술 알림 리스트
+            max_slots: 최대 슬롯 수
         """
-        if self.left_pillar_width < 60:
-            return  # 필러가 너무 좁으면 그리지 않음
+        SLOT_W, SLOT_H = icon_size
+        slot_margin = 2  # 슬롯 간 여백
+        box_padding = 4  # 박스 내부 패딩
 
-        # 왼쪽 하단에 액티브 아이템 박스
-        box_width = 60
-        box_height = 120  # 최대 3슬롯 세로 배치
-        box_x = (self.left_pillar_width - box_width) // 2
-        box_y = self.screen_height - box_height - 20
+        # 실제 아이템 수
+        actual_item_count = len(active_items) if active_items else 0
+        # 초과 아이템 수
+        overflow_count = max(0, actual_item_count - max_slots)
 
-        self.draw_pillar_ui_box(screen, box_x, box_y, box_width, box_height)
+        # === 메인 박스 (max_slots 기준) ===
+        box_inner_width = max_slots * SLOT_W + (max_slots - 1) * slot_margin
+        box_width = box_inner_width + box_padding * 2
+        box_height = SLOT_H + box_padding * 2
 
-        # "ITEMS" 레이블
-        try:
-            font = pygame.font.Font(None, 14)
-            label = font.render("ITEMS", True, (150, 150, 180))
-            label_x = box_x + (box_width - label.get_width()) // 2
-            screen.blit(label, (label_x, box_y + 5))
-        except:
-            pass
+        # === 오버플로우 박스 크기 미리 계산 ===
+        overflow_box_width = 0
+        if overflow_count > 0:
+            overflow_inner_width = overflow_count * SLOT_W + (overflow_count - 1) * slot_margin
+            overflow_box_width = overflow_inner_width + box_padding * 2 - 1  # -1은 메인 박스와 겹치는 부분
+
+        # === 전체 너비 (메인 + 오버플로우) 기준 가운데 정렬 ===
+        total_width = box_width + overflow_box_width
+        box_y = self.game_offset_y + self.game_height + 14  # +10px 아래로
+
+        # 게임 영역 내 가운데 정렬
+        game_area_right = self.game_offset_x + self.game_width
+        total_start_x = self.game_offset_x + (self.game_width - total_width) // 2
+
+        # 게임 영역 경계 체크
+        if total_start_x < self.game_offset_x:
+            total_start_x = self.game_offset_x
+        if total_start_x + total_width > game_area_right:
+            total_start_x = game_area_right - total_width
+
+        box_x = total_start_x
+
+        # 메인 박스 배경 그리기
+        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+        box_surface.fill((15, 15, 25, 180))
+        pygame.draw.rect(box_surface, (70, 70, 90), (0, 0, box_width, box_height), 1, border_radius=3)
+        screen.blit(box_surface, (box_x, box_y))
+
+        # === 초과 아이템용 임시 박스 (오버플로우) ===
+        overflow_box_x = box_x + box_width - 1  # 메인 박스에 자연스럽게 붙임
+
+        if overflow_count > 0 and overflow_box_width > 0:
+            # 게임 영역을 벗어나지 않도록 클리핑
+            actual_overflow_width = min(overflow_box_width + 1, game_area_right - overflow_box_x)
+
+            if actual_overflow_width > 0:
+                overflow_surface = pygame.Surface((actual_overflow_width, box_height), pygame.SRCALPHA)
+                # 임시 박스 - 연하고 투명한 느낌
+                overflow_surface.fill((15, 15, 25, 80))
+                pygame.draw.rect(overflow_surface, (60, 60, 80, 100), (0, 0, actual_overflow_width, box_height), 1, border_radius=3)
+                screen.blit(overflow_surface, (overflow_box_x, box_y))
+
+        # 슬롯 시작 좌표
+        slot_start_x = box_x + box_padding
+        slot_start_y = box_y + box_padding
+
+        current_time = pygame.time.get_ticks()
+
+        if round_start_time is None:
+            time_since_round_start = 10000
+        else:
+            time_since_round_start = current_time - round_start_time
+
+        throwing_items = {"molotov", "grenade", "flare", "spider_mine", "banana", "dynamite"}
+
+        # 슬롯 rect 리스트 (클릭/호버 감지용으로 반환)
+        slot_rects = []
+
+        # 전체 슬롯 그리기 (메인 + 오버플로우)
+        total_slots = max(max_slots, actual_item_count)
+        for i in range(total_slots):
+            # 좌표 계산 (메인 박스 또는 오버플로우 박스)
+            if i < max_slots:
+                x = slot_start_x + i * (SLOT_W + slot_margin)
+            else:
+                # 오버플로우 박스 내 좌표
+                overflow_idx = i - max_slots
+                overflow_box_x_calc = box_x + box_width - 1  # 메인 박스에 붙음
+                x = overflow_box_x_calc + box_padding + overflow_idx * (SLOT_W + slot_margin)
+            y = slot_start_y
+
+            # 슬롯이 게임 영역을 벗어나면 건너뛰기
+            if x + SLOT_W > game_area_right:
+                continue
+
+            # 슬롯 rect 저장 (클릭/호버 감지용)
+            slot_rects.append(pygame.Rect(x, y, SLOT_W, SLOT_H))
+
+            # 🔧 최적화: 빈 슬롯 배경 캐시 사용
+            slot_alpha = 120 if i < max_slots else 60
+            slot_bg_key = (SLOT_W, SLOT_H, slot_alpha)
+            if slot_bg_key not in self._slot_bg_cache:
+                slot_bg = pygame.Surface((SLOT_W, SLOT_H), pygame.SRCALPHA)
+                slot_bg.fill((0, 0, 0, slot_alpha))
+                self._slot_bg_cache[slot_bg_key] = slot_bg
+            screen.blit(self._slot_bg_cache[slot_bg_key], (x, y))
+
+            # 아이템이 있는 경우
+            item = active_items[i] if active_items and i < len(active_items) else None
+
+            if item is None:
+                # 빈 슬롯 테두리
+                pygame.draw.rect(screen, (40, 40, 50), (x, y, SLOT_W, SLOT_H), 1)
+                continue
+
+            # 아이콘 표시
+            item_name = item.get("name") or item.get("effect")
+
+            # 전설 아이템 처리
+            _LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident",
+                                     "odins_eye", "sacred_laurel", "angel_blessing", "transcendent_crown"}
+            if item_name in _LEGENDARY_ICON_NAMES:
+                try:
+                    from legendary_items import get_legendary_manager
+                    legendary_manager = get_legendary_manager()
+                    legendary_item = legendary_manager.get_item(item_name) if legendary_manager else None
+                except Exception:
+                    legendary_item = None
+
+                if legendary_item:
+                    legendary_item.update(1 / 60.0, ui_mode=True)
+                    legend_surface = pygame.Surface(icon_size, pygame.SRCALPHA)
+                    legendary_item.draw_icon(legend_surface, 0, 0, icon_size[0])
+                    screen.blit(legend_surface, (x, y))
+                elif item.get("icon"):
+                    # 🔧 최적화: 스케일된 아이콘 캐시 사용
+                    scaled_icon = self._get_scaled_icon(item, icon_size)
+                    if scaled_icon:
+                        screen.blit(scaled_icon, (x, y))
+            elif "icon" in item and item["icon"]:
+                # 🔧 최적화: 스케일된 아이콘 캐시 사용
+                scaled_icon = self._get_scaled_icon(item, icon_size)
+                if scaled_icon:
+                    screen.blit(scaled_icon, (x, y))
+            else:
+                radius = int(SLOT_W * 0.28)
+                center_x = x + SLOT_W // 2
+                center_y = y + SLOT_H // 2
+                color = item.get("color", (200, 200, 200))
+                pygame.draw.circle(screen, color, (center_x, center_y), radius)
+
+            # 쿨타임 표시
+            if "last_use" in item:
+                last_use = item["last_use"]
+                elapsed = current_time - last_use
+                if elapsed < cooldown_ms:
+                    cooldown_ratio = elapsed / cooldown_ms
+                    overlay_height = int(SLOT_H * (1 - cooldown_ratio))
+                    if overlay_height > 0:
+                        overlay = pygame.Surface((SLOT_W, overlay_height), pygame.SRCALPHA)
+                        overlay.fill((0, 0, 0, 210))  # 더 짙은 쿨타임 오버레이
+                        screen.blit(overlay, (x, y))
+                    # 쿨타임 진행 중이면 반짝임 추적에서 제거
+                    if i in self._cooldown_complete_flash:
+                        del self._cooldown_complete_flash[i]
+                else:
+                    # 쿨타임 완료! 반짝임 효과 시작
+                    if i not in self._cooldown_complete_flash:
+                        self._cooldown_complete_flash[i] = current_time
+
+                    # 반짝임 효과 (400ms 동안)
+                    flash_start = self._cooldown_complete_flash[i]
+                    flash_elapsed = current_time - flash_start
+                    flash_duration = 400  # 0.4초
+
+                    if flash_elapsed < flash_duration:
+                        # 한 번 크게 반짝이고 사라지는 효과
+                        progress = flash_elapsed / flash_duration
+                        # 초반에 빠르게 최대 밝기, 이후 서서히 사라짐
+                        if progress < 0.2:
+                            # 처음 20%: 빠르게 최대 밝기로
+                            pulse = progress / 0.2
+                        else:
+                            # 나머지 80%: 서서히 사라짐
+                            pulse = 1.0 - ((progress - 0.2) / 0.8)
+
+                        flash_alpha = int(pulse * 255)
+                        # 내부 밝은 플래시
+                        flash_surface = pygame.Surface((SLOT_W, SLOT_H), pygame.SRCALPHA)
+                        flash_surface.fill((255, 255, 220, flash_alpha))
+                        screen.blit(flash_surface, (x, y))
+
+                        # 외곽 글로우 테두리 (더 눈에 띄게)
+                        glow_alpha = int(pulse * 200)
+                        pygame.draw.rect(screen, (255, 230, 100, glow_alpha),
+                                       (x - 2, y - 2, SLOT_W + 4, SLOT_H + 4), 3)
+
+            # 투척류 카운트다운 (3초 제한)
+            if item_name in throwing_items and time_since_round_start < 3000:
+                remaining_seconds = int((3000 - time_since_round_start) / 1000) + 1
+                # 🔧 최적화: 오버레이 캐시 사용
+                overlay_key = (SLOT_W, SLOT_H, 150)
+                if overlay_key not in self._overlay_cache:
+                    overlay = pygame.Surface((SLOT_W, SLOT_H), pygame.SRCALPHA)
+                    overlay.fill((0, 0, 0, 150))
+                    self._overlay_cache[overlay_key] = overlay
+                screen.blit(self._overlay_cache[overlay_key], (x, y))
+                try:
+                    # 🔧 최적화: 캐시된 폰트 사용
+                    if self._slot_font_small:
+                        text = self._slot_font_small.render(str(remaining_seconds), True, (255, 100, 100))
+                        text_rect = text.get_rect(center=(x + SLOT_W // 2, y + SLOT_H // 2))
+                        screen.blit(text, text_rect)
+                except:
+                    pass
+
+            # 선택된 아이템 테두리
+            if i == selected_index:
+                pygame.draw.rect(screen, (255, 220, 80), (x - 1, y - 1, SLOT_W + 2, SLOT_H + 2), 2)
+            elif i >= max_slots:
+                # 오버플로우 아이템 테두리 (연하고 투명한 느낌)
+                pygame.draw.rect(screen, (50, 50, 65), (x, y, SLOT_W, SLOT_H), 1)
+            else:
+                pygame.draw.rect(screen, (60, 60, 80), (x, y, SLOT_W, SLOT_H), 1)
+
+            # 슬롯 번호 표시 (좌측 상단 모서리)
+            # 🔧 최적화: 캐시된 폰트 사용
+            if self._slot_font_num:
+                try:
+                    slot_num = i + 1  # 1부터 시작
+                    # 숫자 텍스트 (흰색, 검은 테두리)
+                    num_text = self._slot_font_num.render(str(slot_num), True, (255, 255, 255))
+                    # 테두리 효과
+                    num_outline = self._slot_font_num.render(str(slot_num), True, (0, 0, 0))
+                    num_x = x + 3
+                    num_y = y + 2
+                    # 테두리 그리기 (더 두꺼운 테두리)
+                    for ox in [-1, 0, 1]:
+                        for oy in [-1, 0, 1]:
+                            if ox != 0 or oy != 0:
+                                screen.blit(num_outline, (num_x + ox, num_y + oy))
+                    # 메인 텍스트
+                    screen.blit(num_text, (num_x, num_y))
+                except:
+                    pass
+
+            # 연금술 발동 효과 (화려한 무지개 글로우 + 텍스트)
+            if alchemy_notices:
+                for notice in alchemy_notices:
+                    if notice.get("slot_index") == i and notice.get("timer", 0) > 0:
+                        remaining = notice.get("timer", 0)
+                        duration = max(1, notice.get("duration", 60))
+                        ratio = remaining / duration
+                        progress = 1.0 - ratio
+
+                        time_ms = pygame.time.get_ticks()
+                        pulse = math.sin(time_ms * 0.05) * 0.5 + 0.5  # 0~1 진동
+
+                        # 무지개 색상 변화
+                        hue_shift = (time_ms * 0.3) % 360
+                        h = hue_shift / 60.0
+                        c = 1.0
+                        x_c = c * (1 - abs(h % 2 - 1))
+                        if h < 1:
+                            r, g, b = c, x_c, 0
+                        elif h < 2:
+                            r, g, b = x_c, c, 0
+                        elif h < 3:
+                            r, g, b = 0, c, x_c
+                        elif h < 4:
+                            r, g, b = 0, x_c, c
+                        elif h < 5:
+                            r, g, b = x_c, 0, c
+                        else:
+                            r, g, b = c, 0, x_c
+                        base_color = (int(r * 255), int(g * 255), int(b * 255))
+
+                        glow_intensity = pulse * ratio
+
+                        # 바깥쪽 글로우
+                        glow_margin = 4
+                        glow_surface = pygame.Surface(
+                            (SLOT_W + glow_margin * 2, SLOT_H + glow_margin * 2),
+                            pygame.SRCALPHA
+                        )
+                        glow_alpha = int(150 * glow_intensity)
+                        glow_color = (*base_color, glow_alpha)
+                        pygame.draw.rect(glow_surface, glow_color, glow_surface.get_rect(), border_radius=4)
+                        screen.blit(glow_surface, (x - glow_margin, y - glow_margin))
+
+                        # 화려한 테두리
+                        border_width = int(2 + pulse * 2)
+                        bright_color = (
+                            min(255, base_color[0] + int(pulse * 100)),
+                            min(255, base_color[1] + int(pulse * 100)),
+                            min(255, base_color[2] + int(pulse * 100))
+                        )
+                        pygame.draw.rect(screen, bright_color,
+                                       (x - 2, y - 2, SLOT_W + 4, SLOT_H + 4), border_width)
+
+                        # "연금술!" 텍스트 (위로 떠오르며 페이드아웃)
+                        # 🔧 최적화: 캐시된 한글 폰트 사용
+                        if self._slot_font_notice:
+                            try:
+                                alpha = int(220 * (ratio ** 0.9))
+                                y_offset = -12 - progress * 20
+                                text = "연금술!"
+                                text_surface = self._slot_font_notice.render(text, True, (200, 150, 255))
+                                text_surface.set_alpha(alpha)
+                                text_rect = text_surface.get_rect(center=(x + SLOT_W // 2, y + y_offset))
+                                # 그림자
+                                shadow = self._slot_font_notice.render(text, True, (0, 0, 0))
+                                shadow.set_alpha(int(alpha * 0.5))
+                                screen.blit(shadow, (text_rect.x + 1, text_rect.y + 1))
+                                screen.blit(text_surface, text_rect)
+                            except:
+                                pass
+                        break
+
+        # 슬롯 rect 리스트 반환 (클릭/호버 감지용)
+        return slot_rects
 
     def draw_right_pillar_ui(self, screen, player_score=0, boss_score=0,
                              boss_gauge=0, boss_gauge_max=500,
@@ -1099,6 +1881,701 @@ class PillarBackgroundRenderer:
                     pygame.draw.circle(screen, (100, 80, 80), (tx, token_y), token_radius, 1)
         except:
             pass
+
+    def _create_rage_indicator_icon(self):
+        """광폭화 인디케이터 아이콘 생성 (공포스러운 악마 - 세로가 긴 비율)"""
+        try:
+            # 세로가 더 긴 비율
+            icon_w, icon_h = 52, 68
+            self._rage_icon_w = icon_w
+            self._rage_icon_h = icon_h
+            self._rage_icon_surface = pygame.Surface((icon_w, icon_h), pygame.SRCALPHA)
+
+            cx = icon_w // 2
+            cy = icon_h // 2
+
+            # === 1. 어둠의 배경 (검은 연기/그림자) ===
+            for i in range(6):
+                alpha = 50 - i * 8
+                shrink = i * 3
+                pygame.draw.ellipse(self._rage_icon_surface, (10, 0, 0, alpha),
+                    (shrink, shrink + 4, icon_w - shrink * 2, icon_h - shrink * 2 - 4))
+
+            # === 2. 얼굴 베이스 (어두운 붉은 피부 - 공포스러운 질감) ===
+            face_w, face_h = 40, 54
+            face_x, face_y = (icon_w - face_w) // 2, 8
+
+            # 깊은 그림자
+            pygame.draw.ellipse(self._rage_icon_surface, (25, 5, 5),
+                (face_x - 2, face_y + 3, face_w + 4, face_h))
+            # 어두운 피부 베이스
+            pygame.draw.ellipse(self._rage_icon_surface, (90, 15, 10),
+                (face_x, face_y, face_w, face_h))
+            # 중간 톤 (붉은 피부)
+            pygame.draw.ellipse(self._rage_icon_surface, (140, 25, 18),
+                (face_x + 2, face_y + 2, face_w - 4, face_h - 6))
+            # 미세한 하이라이트 (이마)
+            pygame.draw.ellipse(self._rage_icon_surface, (180, 40, 30, 180),
+                (face_x + 6, face_y + 4, face_w - 12, 16))
+
+            # === 3. 깊은 균열/주름 (공포 효과) ===
+            crack_dark = (40, 8, 5)
+            crack_glow = (120, 40, 20)
+            # 이마 세로 균열
+            pygame.draw.line(self._rage_icon_surface, crack_dark, (cx, face_y + 8), (cx - 2, face_y + 18), 2)
+            pygame.draw.line(self._rage_icon_surface, crack_glow, (cx + 1, face_y + 8), (cx - 1, face_y + 18), 1)
+            # 왼쪽 볼 균열
+            pygame.draw.line(self._rage_icon_surface, crack_dark, (face_x + 6, face_y + 20), (face_x + 10, face_y + 38), 1)
+            pygame.draw.line(self._rage_icon_surface, crack_dark, (face_x + 8, face_y + 28), (face_x + 4, face_y + 34), 1)
+            # 오른쪽 볼 균열
+            pygame.draw.line(self._rage_icon_surface, crack_dark, (face_x + face_w - 6, face_y + 20), (face_x + face_w - 10, face_y + 38), 1)
+            pygame.draw.line(self._rage_icon_surface, crack_dark, (face_x + face_w - 8, face_y + 28), (face_x + face_w - 4, face_y + 34), 1)
+
+            # === 4. 뿔 (더 크고 날카롭고 위협적) ===
+            # 왼쪽 뿔 - 그림자
+            pygame.draw.polygon(self._rage_icon_surface, (30, 25, 10),
+                [(10, 20), (2, -2), (20, 16)])
+            # 왼쪽 뿔 - 베이스 (어두운 금색)
+            pygame.draw.polygon(self._rage_icon_surface, (150, 120, 45),
+                [(9, 18), (3, 0), (18, 14)])
+            # 왼쪽 뿔 - 중간 하이라이트
+            pygame.draw.polygon(self._rage_icon_surface, (200, 170, 80),
+                [(8, 14), (4, 2), (14, 12)])
+            # 왼쪽 뿔 - 밝은 하이라이트
+            pygame.draw.polygon(self._rage_icon_surface, (240, 215, 140),
+                [(6, 10), (4, 3), (10, 9)])
+            # 왼쪽 뿔 - 끝 광택
+            pygame.draw.polygon(self._rage_icon_surface, (255, 250, 210),
+                [(5, 5), (4, 1), (7, 5)])
+
+            # 오른쪽 뿔
+            pygame.draw.polygon(self._rage_icon_surface, (30, 25, 10),
+                [(icon_w - 10, 20), (icon_w - 2, -2), (icon_w - 20, 16)])
+            pygame.draw.polygon(self._rage_icon_surface, (150, 120, 45),
+                [(icon_w - 9, 18), (icon_w - 3, 0), (icon_w - 18, 14)])
+            pygame.draw.polygon(self._rage_icon_surface, (200, 170, 80),
+                [(icon_w - 8, 14), (icon_w - 4, 2), (icon_w - 14, 12)])
+            pygame.draw.polygon(self._rage_icon_surface, (240, 215, 140),
+                [(icon_w - 6, 10), (icon_w - 4, 3), (icon_w - 10, 9)])
+            pygame.draw.polygon(self._rage_icon_surface, (255, 250, 210),
+                [(icon_w - 5, 5), (icon_w - 4, 1), (icon_w - 7, 5)])
+
+            # === 5. 눈 (공포스러운 빛나는 눈) ===
+            eye_y = 28
+            eye_w_size, eye_h_size = 11, 8
+
+            for side in [-1, 1]:
+                eye_cx = cx + side * 10
+                # 깊은 눈구멍 (검은 구멍)
+                pygame.draw.ellipse(self._rage_icon_surface, (5, 0, 0),
+                    (eye_cx - eye_w_size//2 - 2, eye_y - 2, eye_w_size + 4, eye_h_size + 4))
+                # 눈 외곽 글로우 (주황)
+                pygame.draw.ellipse(self._rage_icon_surface, (255, 120, 30, 200),
+                    (eye_cx - eye_w_size//2 - 1, eye_y - 1, eye_w_size + 2, eye_h_size + 2))
+                # 눈 베이스 (밝은 주황)
+                pygame.draw.ellipse(self._rage_icon_surface, (255, 170, 50),
+                    (eye_cx - eye_w_size//2, eye_y, eye_w_size, eye_h_size))
+                # 눈 중심 (노랑)
+                pygame.draw.ellipse(self._rage_icon_surface, (255, 220, 80),
+                    (eye_cx - eye_w_size//2 + 2, eye_y + 2, eye_w_size - 4, eye_h_size - 4))
+                # 눈 코어 (밝은 흰노랑 - 불타는 느낌)
+                pygame.draw.ellipse(self._rage_icon_surface, (255, 255, 180),
+                    (eye_cx - 2, eye_y + 2, 4, 4))
+                # 광채 점
+                pygame.draw.circle(self._rage_icon_surface, (255, 255, 255), (eye_cx, eye_y + 3), 1)
+
+            # === 6. 눈썹 (더 사악하게) ===
+            brow_color = (60, 10, 8)
+            # 왼쪽 - 더 각지게
+            pygame.draw.polygon(self._rage_icon_surface, brow_color,
+                [(12, eye_y - 6), (27, eye_y - 1), (27, eye_y + 1), (12, eye_y - 3)])
+            # 오른쪽
+            pygame.draw.polygon(self._rage_icon_surface, brow_color,
+                [(icon_w - 12, eye_y - 6), (icon_w - 27, eye_y - 1), (icon_w - 27, eye_y + 1), (icon_w - 12, eye_y - 3)])
+
+            # === 7. 코 (납작하고 짐승같은) ===
+            nose_y = 40
+            pygame.draw.ellipse(self._rage_icon_surface, (80, 15, 12), (cx - 5, nose_y, 10, 7))
+            # 콧구멍 (검고 깊은)
+            pygame.draw.ellipse(self._rage_icon_surface, (15, 0, 0), (cx - 4, nose_y + 3, 3, 3))
+            pygame.draw.ellipse(self._rage_icon_surface, (15, 0, 0), (cx + 1, nose_y + 3, 3, 3))
+
+            # === 8. 입 (불타는 지옥의 입) ===
+            mouth_y = 48
+            mouth_w_size, mouth_h_size = 30, 16
+
+            # 입 배경 (검은 심연)
+            pygame.draw.ellipse(self._rage_icon_surface, (8, 0, 0),
+                (cx - mouth_w_size//2, mouth_y, mouth_w_size, mouth_h_size))
+            # 입 안쪽 불꽃 (용암 느낌)
+            pygame.draw.ellipse(self._rage_icon_surface, (180, 60, 20, 150),
+                (cx - mouth_w_size//2 + 3, mouth_y + 4, mouth_w_size - 6, mouth_h_size - 6))
+            pygame.draw.ellipse(self._rage_icon_surface, (255, 120, 40, 100),
+                (cx - mouth_w_size//2 + 6, mouth_y + 6, mouth_w_size - 12, mouth_h_size - 10))
+            pygame.draw.ellipse(self._rage_icon_surface, (255, 180, 80, 80),
+                (cx - mouth_w_size//2 + 9, mouth_y + 8, mouth_w_size - 18, mouth_h_size - 14))
+
+            # === 9. 이빨 (날카로운 금색) ===
+            teeth_color = (230, 200, 110)
+            teeth_highlight = (255, 245, 195)
+
+            # 윗니 (더 날카롭고 불규칙하게)
+            teeth_positions = [(-12, 7), (-8, 5), (-4, 6), (0, 5), (4, 6), (8, 5), (12, 7)]
+            for i, (offset, height) in enumerate(teeth_positions):
+                tx = cx + offset - 2
+                # 이빨 그림자
+                pygame.draw.polygon(self._rage_icon_surface, (100, 80, 40),
+                    [(tx, mouth_y + 1), (tx + 2, mouth_y + height + 1), (tx + 4, mouth_y + 1)])
+                # 이빨 본체
+                pygame.draw.polygon(self._rage_icon_surface, teeth_color,
+                    [(tx + 1, mouth_y), (tx + 2, mouth_y + height), (tx + 3, mouth_y)])
+                # 하이라이트
+                pygame.draw.line(self._rage_icon_surface, teeth_highlight,
+                    (tx + 2, mouth_y + 1), (tx + 2, mouth_y + height - 1), 1)
+
+            # === 10. 큰 송곳니 (더 길고 무섭게) ===
+            fang_shadow = (70, 55, 25)
+            fang_color = (240, 210, 120)
+            fang_highlight = (255, 250, 210)
+
+            # 왼쪽 송곳니
+            pygame.draw.polygon(self._rage_icon_surface, fang_shadow,
+                [(cx - 14, mouth_y + 2), (cx - 10, mouth_y + 18), (cx - 16, mouth_y + 16)])
+            pygame.draw.polygon(self._rage_icon_surface, fang_color,
+                [(cx - 13, mouth_y + 1), (cx - 10, mouth_y + 16), (cx - 15, mouth_y + 14)])
+            pygame.draw.polygon(self._rage_icon_surface, fang_highlight,
+                [(cx - 12, mouth_y + 2), (cx - 11, mouth_y + 10), (cx - 13, mouth_y + 8)])
+
+            # 오른쪽 송곳니
+            pygame.draw.polygon(self._rage_icon_surface, fang_shadow,
+                [(cx + 14, mouth_y + 2), (cx + 10, mouth_y + 18), (cx + 16, mouth_y + 16)])
+            pygame.draw.polygon(self._rage_icon_surface, fang_color,
+                [(cx + 13, mouth_y + 1), (cx + 10, mouth_y + 16), (cx + 15, mouth_y + 14)])
+            pygame.draw.polygon(self._rage_icon_surface, fang_highlight,
+                [(cx + 12, mouth_y + 2), (cx + 11, mouth_y + 10), (cx + 13, mouth_y + 8)])
+
+            # === 11. 이마 제3의 눈/문양 ===
+            third_eye_y = 18
+            # 외곽 글로우
+            pygame.draw.circle(self._rage_icon_surface, (255, 100, 50, 100), (cx, third_eye_y), 6)
+            # 문양 베이스
+            pygame.draw.circle(self._rage_icon_surface, (200, 60, 30), (cx, third_eye_y), 4)
+            # 내부 빛
+            pygame.draw.circle(self._rage_icon_surface, (255, 180, 80), (cx, third_eye_y), 2)
+            # 중앙 광점
+            pygame.draw.circle(self._rage_icon_surface, (255, 255, 200), (cx, third_eye_y), 1)
+
+            # === 12. 얼굴 테두리 불꽃 효과 ===
+            flame_points_left = [(4, 25), (2, 35), (5, 45), (3, 55)]
+            flame_points_right = [(icon_w - 4, 25), (icon_w - 2, 35), (icon_w - 5, 45), (icon_w - 3, 55)]
+            pygame.draw.lines(self._rage_icon_surface, (255, 100, 30, 120), False, flame_points_left, 2)
+            pygame.draw.lines(self._rage_icon_surface, (255, 100, 30, 120), False, flame_points_right, 2)
+
+            print("[PillarBG] 광폭화 인디케이터 아이콘 생성 완료 (공포 버전)")
+        except Exception as e:
+            print(f"[PillarBG] 광폭화 아이콘 생성 실패: {e}")
+            self._rage_icon_surface = None
+            self._rage_icon_w = 52
+            self._rage_icon_h = 68
+
+    def set_rage_indicator(self, active: bool):
+        """광폭화 인디케이터 활성화/비활성화"""
+        self._rage_indicator_active = active
+
+    def draw_rage_indicator(self, screen, dt: float = 0.016):
+        """광폭화 인디케이터 그리기 (우측 필러 상단 - X축은 대쉬토큰구슬 중앙, Y축은 골드HUD 높이)
+
+        Args:
+            screen: 그릴 surface
+            dt: 프레임 시간 (애니메이션용)
+
+        Returns:
+            pygame.Rect or None: 인디케이터 영역 (호버 감지용)
+        """
+        if not self._rage_indicator_active or self._rage_icon_surface is None:
+            self._rage_indicator_rect = None
+            return None
+
+        if self.right_pillar_width < 50:
+            self._rage_indicator_rect = None
+            return None
+
+        try:
+            # 애니메이션 업데이트
+            self._rage_animation_time += dt
+
+            # 위치 계산
+            right_x = self.game_offset_x + self.game_width
+            icon_w = self._rage_icon_w  # 가로
+            icon_h = self._rage_icon_h  # 세로 (더 김)
+
+            # X축: 대쉬토큰구슬 박스의 중앙
+            bottom_box_width = 60
+            bottom_box_x = right_x + (self.right_pillar_width - bottom_box_width) // 2
+            dash_token_center_x = bottom_box_x + bottom_box_width // 2
+
+            # Y축: 골드 HUD와 같은 높이 (상단), X축: 대쉬토큰구슬 중앙 기준
+            base_x = dash_token_center_x - icon_w // 2 - 110  # 왼쪽으로 110px
+            base_y = 75  # 상단에서 75px 아래
+
+            # 펄스/흔들림 애니메이션
+            pulse = 1.0 + 0.06 * math.sin(self._rage_animation_time * 4)
+            shake_x = int(1 * math.sin(self._rage_animation_time * 10))
+            shake_y = int(0.5 * math.cos(self._rage_animation_time * 8))
+
+            x = base_x + shake_x
+            y = base_y + shake_y
+
+            # === 배경 효과 (타원형 글로우) ===
+            glow_w = int(icon_w * 1.6)
+            glow_h = int(icon_h * 1.4)
+            glow_surface = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+            glow_pulse = 0.6 + 0.4 * math.sin(self._rage_animation_time * 3)
+
+            # 외곽 글로우 (타원형)
+            for i in range(8):
+                shrink = i * 4
+                alpha = int(40 * glow_pulse * (8 - i) / 8)
+                pygame.draw.ellipse(glow_surface, (255, 50 + i * 10, 20, alpha),
+                    (shrink, shrink, glow_w - shrink * 2, glow_h - shrink * 2))
+
+            screen.blit(glow_surface, (x + icon_w // 2 - glow_w // 2,
+                                       y + icon_h // 2 - glow_h // 2))
+
+            # === 아이콘 그리기 (펄스 스케일) ===
+            scaled_w = int(self._rage_icon_w * pulse)
+            scaled_h = int(self._rage_icon_h * pulse)
+            scaled_icon = pygame.transform.scale(self._rage_icon_surface,
+                                                (scaled_w, scaled_h))
+            draw_x = x + (self._rage_icon_w - scaled_w) // 2
+            draw_y = y + (self._rage_icon_h - scaled_h) // 2
+            screen.blit(scaled_icon, (draw_x, draw_y))
+
+            # 호버 영역 저장 (테두리 없이 아이콘 영역만)
+            self._rage_indicator_rect = pygame.Rect(x, y, self._rage_icon_w, self._rage_icon_h)
+            return self._rage_indicator_rect
+
+        except Exception as e:
+            print(f"[PillarBG] 광폭화 인디케이터 그리기 실패: {e}")
+            self._rage_indicator_rect = None
+            return None
+
+    def get_rage_indicator_rect(self):
+        """광폭화 인디케이터 영역 반환 (호버 감지용)"""
+        return self._rage_indicator_rect
+
+    def check_rage_indicator_hover(self, mouse_pos):
+        """마우스가 광폭화 인디케이터 위에 있는지 확인
+
+        Args:
+            mouse_pos: 마우스 위치 (x, y)
+
+        Returns:
+            bool: 호버 중이면 True
+        """
+        if self._rage_indicator_rect and self._rage_indicator_active:
+            return self._rage_indicator_rect.collidepoint(mouse_pos)
+        return False
+
+    def draw_rage_tooltip(self, screen, mouse_pos):
+        """광폭화 모드 툴팁 그리기
+
+        Args:
+            screen: 그릴 surface
+            mouse_pos: 마우스 위치 (x, y)
+        """
+        if not self.check_rage_indicator_hover(mouse_pos):
+            return
+
+        try:
+            # 툴팁 텍스트
+            tooltip_text = "광폭화보스"
+
+            # 폰트 로드 (한글 렌더링을 위해 freetype 사용)
+            import pygame.freetype as freetype_module
+            try:
+                font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                tooltip_font = freetype_module.Font(font_path, 14)
+            except:
+                tooltip_font = freetype_module.SysFont("malgun gothic", 14)
+
+            # 텍스트 렌더링
+            text_surface, text_rect = tooltip_font.render(tooltip_text, (255, 255, 255))
+
+            # 툴팁 배경 크기
+            padding = 6
+            bg_width = text_rect.width + padding * 2
+            bg_height = text_rect.height + padding * 2
+
+            # 위치 (마우스 옆에 표시, 화면 밖으로 나가지 않게)
+            tooltip_x = mouse_pos[0] + 15
+            tooltip_y = mouse_pos[1] - bg_height // 2
+
+            # 화면 경계 체크
+            if tooltip_x + bg_width > self.screen_width:
+                tooltip_x = mouse_pos[0] - bg_width - 10
+            if tooltip_y < 5:
+                tooltip_y = 5
+            if tooltip_y + bg_height > self.screen_height - 5:
+                tooltip_y = self.screen_height - bg_height - 5
+
+            # 배경 (반투명 검정 + 빨간 테두리)
+            bg_surface = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+            pygame.draw.rect(bg_surface, (40, 10, 10, 230), (0, 0, bg_width, bg_height), border_radius=4)
+            pygame.draw.rect(bg_surface, (200, 50, 50), (0, 0, bg_width, bg_height), 1, border_radius=4)
+
+            screen.blit(bg_surface, (tooltip_x, tooltip_y))
+            screen.blit(text_surface, (tooltip_x + padding, tooltip_y + padding))
+
+        except Exception as e:
+            print(f"[PillarBG] 광폭화 툴팁 그리기 실패: {e}")
+
+    # ============================================================
+    # 퀘스트 양피지 엠블럼 시스템
+    # ============================================================
+
+    def _create_quest_parchment_icon(self):
+        """퀘스트 양피지 엠블럼 아이콘 생성 (프로그래밍 방식)"""
+        try:
+            icon_w, icon_h = self._quest_emblem_w, self._quest_emblem_h
+            self._quest_emblem_surface = pygame.Surface((icon_w, icon_h), pygame.SRCALPHA)
+            surf = self._quest_emblem_surface
+
+            cx = icon_w // 2
+            # === 양피지 본체 ===
+            # 양피지 배경 (베이지/크림색)
+            parchment_color = (210, 185, 140)
+            parchment_dark = (180, 155, 110)
+            parchment_light = (230, 210, 170)
+
+            # 메인 양피지 사각형 (약간 둥근 모서리)
+            body_rect = pygame.Rect(4, 6, icon_w - 8, icon_h - 12)
+            pygame.draw.rect(surf, parchment_color, body_rect, border_radius=3)
+
+            # 양피지 테두리 (갈색)
+            border_color = (140, 110, 70)
+            pygame.draw.rect(surf, border_color, body_rect, 1, border_radius=3)
+
+            # 양피지 상단/하단 말림 효과 (롤 부분)
+            roll_color = (190, 165, 120)
+            roll_highlight = (220, 200, 160)
+            # 상단 말림
+            pygame.draw.ellipse(surf, roll_color, (3, 2, icon_w - 6, 10))
+            pygame.draw.ellipse(surf, roll_highlight, (5, 3, icon_w - 10, 6))
+            pygame.draw.ellipse(surf, border_color, (3, 2, icon_w - 6, 10), 1)
+            # 하단 말림
+            pygame.draw.ellipse(surf, roll_color, (3, icon_h - 10, icon_w - 6, 10))
+            pygame.draw.ellipse(surf, roll_highlight, (5, icon_h - 9, icon_w - 10, 6))
+            pygame.draw.ellipse(surf, border_color, (3, icon_h - 10, icon_w - 6, 10), 1)
+
+            # === 텍스트 라인 장식 (가로 줄) ===
+            line_color = (160, 135, 100, 120)
+            line_y_start = 14
+            line_spacing = 6
+            for i in range(4):
+                ly = line_y_start + i * line_spacing
+                lx_start = 10
+                lx_end = icon_w - 10 - (i % 2) * 6  # 줄마다 약간 다른 길이
+                line_surf = pygame.Surface((lx_end - lx_start, 1), pygame.SRCALPHA)
+                line_surf.fill(line_color)
+                surf.blit(line_surf, (lx_start, ly))
+
+            # === 밀봉 인장 (빨간 원) ===
+            seal_cx = cx
+            seal_cy = icon_h - 16
+            seal_r = 5
+            # 어두운 빨강 (왁스 느낌)
+            pygame.draw.circle(surf, (160, 40, 40), (seal_cx, seal_cy), seal_r)
+            pygame.draw.circle(surf, (200, 60, 50), (seal_cx, seal_cy), seal_r - 1)
+            # 인장 하이라이트
+            pygame.draw.circle(surf, (220, 100, 80), (seal_cx - 1, seal_cy - 1), 2)
+            # 인장 테두리
+            pygame.draw.circle(surf, (120, 30, 30), (seal_cx, seal_cy), seal_r, 1)
+
+            print(f"[PillarBG] 퀘스트 양피지 엠블럼 생성 완료 ({icon_w}x{icon_h})")
+
+        except Exception as e:
+            print(f"[PillarBG] 퀘스트 양피지 엠블럼 생성 실패: {e}")
+            self._quest_emblem_surface = None
+
+    def set_quest_emblem(self, active: bool, glow: bool = False):
+        """퀘스트 엠블럼 활성화/비활성화 설정
+
+        Args:
+            active: 진행 중인 퀘스트가 있으면 True
+            glow: 퀘스트 완료 빛 효과 활성화
+        """
+        self._quest_emblem_active = active
+        self._quest_completion_glow = glow
+
+    def set_quest_tablet_counter(self, count: int, target: int, active: bool):
+        """석판 퀘스트 카운터 설정"""
+        self._quest_tablet_count = count
+        self._quest_tablet_target = target
+        self._quest_has_tablet_quest = active
+
+    def draw_quest_emblem(self, screen, dt: float = 0.016):
+        """퀘스트 양피지 엠블럼 그리기 (우측 필러 상단 박스 아래)
+
+        Args:
+            screen: 그릴 surface
+            dt: 프레임 시간 (애니메이션용)
+
+        Returns:
+            pygame.Rect or None: 엠블럼 영역 (호버 감지용)
+        """
+        if not self._quest_emblem_active and not self._quest_completion_glow:
+            self._quest_emblem_rect = None
+            return None
+
+        if self._quest_emblem_surface is None:
+            self._quest_emblem_rect = None
+            return None
+
+        if self.right_pillar_width < 50:
+            self._quest_emblem_rect = None
+            return None
+
+        try:
+            # 애니메이션 타이머 업데이트
+            self._quest_animation_time += dt
+
+            # 위치 계산 (광폭화 아이콘과 같은 X축, 그 아래에 배치)
+            right_x = self.game_offset_x + self.game_width
+            icon_w = self._quest_emblem_w
+            icon_h = self._quest_emblem_h
+
+            # X: 광폭화 아이콘과 동일한 X축 계산 (대쉬토큰 중앙 기준 왼쪽 110px)
+            bottom_box_width = 60
+            bottom_box_x = right_x + (self.right_pillar_width - bottom_box_width) // 2
+            dash_token_center_x = bottom_box_x + bottom_box_width // 2
+            base_x = dash_token_center_x - icon_w // 2 - 110
+            # Y: 광폭화 아이콘(Y=75, H=68) 아래에 배치
+            base_y = 155
+
+            # 미세한 떠다니는 애니메이션 (상하로 살짝 흔들림)
+            float_offset = int(2.0 * math.sin(self._quest_animation_time * 1.5))
+            x = base_x
+            y = base_y + float_offset
+
+            # === 퀘스트 완료 빛 효과 ===
+            if self._quest_completion_glow:
+                self._quest_completion_glow_timer += dt
+                glow_progress = self._quest_completion_glow_timer
+
+                # 빛 방사 효과 (금색 글로우)
+                glow_intensity = max(0, 1.0 - glow_progress / 3.0)  # 3초에 걸쳐 페이드아웃
+                if glow_intensity > 0:
+                    # 펄싱 글로우
+                    pulse = 0.6 + 0.4 * math.sin(glow_progress * 6)
+                    glow_alpha = int(120 * glow_intensity * pulse)
+
+                    # 외곽 글로우 (여러 레이어)
+                    for layer in range(6):
+                        expand = layer * 5
+                        layer_alpha = int(glow_alpha * (6 - layer) / 6)
+                        if layer_alpha > 0:
+                            glow_w = icon_w + expand * 2
+                            glow_h = icon_h + expand * 2
+                            glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+                            pygame.draw.ellipse(glow_surf,
+                                (255, 215, 80, layer_alpha),
+                                (0, 0, glow_w, glow_h))
+                            screen.blit(glow_surf,
+                                (x + icon_w // 2 - glow_w // 2,
+                                 y + icon_h // 2 - glow_h // 2))
+
+                    # 빛 입자 효과
+                    for i in range(8):
+                        angle = (self._quest_animation_time * 2 + i * 0.785)  # 45도 간격
+                        dist = 15 + 10 * math.sin(glow_progress * 3 + i)
+                        px = int(x + icon_w // 2 + math.cos(angle) * dist)
+                        py = int(y + icon_h // 2 + math.sin(angle) * dist)
+                        p_alpha = int(180 * glow_intensity * pulse)
+                        if p_alpha > 0:
+                            p_surf = pygame.Surface((4, 4), pygame.SRCALPHA)
+                            pygame.draw.circle(p_surf, (255, 230, 120, p_alpha), (2, 2), 2)
+                            screen.blit(p_surf, (px - 2, py - 2))
+            else:
+                # 평상시 미세한 글로우 (따뜻한 베이지)
+                ambient_pulse = 0.3 + 0.2 * math.sin(self._quest_animation_time * 2)
+                ambient_alpha = int(40 * ambient_pulse)
+                if ambient_alpha > 0:
+                    glow_w = icon_w + 12
+                    glow_h = icon_h + 12
+                    glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+                    pygame.draw.ellipse(glow_surf,
+                        (210, 185, 100, ambient_alpha),
+                        (0, 0, glow_w, glow_h))
+                    screen.blit(glow_surf,
+                        (x + icon_w // 2 - glow_w // 2,
+                         y + icon_h // 2 - glow_h // 2))
+
+            # === 아이콘 그리기 ===
+            screen.blit(self._quest_emblem_surface, (x, y))
+
+            # === 석판 카운터 표시 (엠블럼 아래) ===
+            if self._quest_has_tablet_quest:
+                try:
+                    counter_text = f"{self._quest_tablet_count}/{self._quest_tablet_target}"
+                    counter_font = pygame.font.Font(None, 18)
+                    counter_surf = counter_font.render(counter_text, True, (200, 210, 230))
+                    counter_x = x + icon_w // 2 - counter_surf.get_width() // 2
+                    counter_y = y + icon_h + 4
+                    # 배경 박스
+                    bg_w = counter_surf.get_width() + 8
+                    bg_h = counter_surf.get_height() + 4
+                    bg_surf = pygame.Surface((bg_w, bg_h), pygame.SRCALPHA)
+                    pygame.draw.rect(bg_surf, (30, 30, 40, 160), (0, 0, bg_w, bg_h), border_radius=3)
+                    pygame.draw.rect(bg_surf, (120, 130, 160, 100), (0, 0, bg_w, bg_h), 1, border_radius=3)
+                    screen.blit(bg_surf, (counter_x - 4, counter_y - 2))
+                    screen.blit(counter_surf, (counter_x, counter_y))
+                except:
+                    pass
+
+            # 호버 영역 저장
+            self._quest_emblem_rect = pygame.Rect(x, y, icon_w, icon_h)
+            return self._quest_emblem_rect
+
+        except Exception as e:
+            print(f"[PillarBG] 퀘스트 엠블럼 그리기 실패: {e}")
+            self._quest_emblem_rect = None
+            return None
+
+    def get_quest_emblem_rect(self):
+        """퀘스트 엠블럼 영역 반환 (호버 감지용)"""
+        return self._quest_emblem_rect
+
+    def check_quest_emblem_hover(self, mouse_pos):
+        """마우스가 퀘스트 엠블럼 위에 있는지 확인
+
+        Args:
+            mouse_pos: 마우스 위치 (x, y)
+
+        Returns:
+            bool: 호버 중이면 True
+        """
+        if self._quest_emblem_rect and self._quest_emblem_active:
+            return self._quest_emblem_rect.collidepoint(mouse_pos)
+        return False
+
+    def draw_quest_tooltip(self, screen, mouse_pos, quest_info_list):
+        """퀘스트 정보 툴팁 그리기
+
+        Args:
+            screen: 그릴 surface
+            mouse_pos: 마우스 위치 (x, y)
+            quest_info_list: 퀘스트 정보 딕셔너리 리스트
+                [{"name": "...", "description": "...", "condition_desc": "...", "reward_gold": 1000}, ...]
+        """
+        if not self.check_quest_emblem_hover(mouse_pos):
+            return
+
+        if not quest_info_list:
+            return
+
+        try:
+            import pygame.freetype as freetype_module
+            try:
+                font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                title_font = freetype_module.Font(font_path, 13)
+                body_font = freetype_module.Font(font_path, 11)
+            except:
+                title_font = freetype_module.SysFont("malgun gothic", 13)
+                body_font = freetype_module.SysFont("malgun gothic", 11)
+
+            # 툴팁 내용 구성
+            lines = []
+            # 헤더
+            header_surf, header_rect = title_font.render("진행 중인 퀘스트", (255, 220, 150))
+            lines.append(("header", header_surf, header_rect))
+
+            for i, quest in enumerate(quest_info_list):
+                if i > 0:
+                    lines.append(("spacer", None, None))
+
+                # 퀘스트명
+                name_surf, name_rect = title_font.render(
+                    quest.get("name", "???"), (255, 255, 255))
+                lines.append(("name", name_surf, name_rect))
+
+                # 조건
+                cond_surf, cond_rect = body_font.render(
+                    quest.get("condition_desc", ""), (200, 200, 200))
+                lines.append(("cond", cond_surf, cond_rect))
+
+                # 보상
+                reward_gold = quest.get("reward_gold", 0)
+                reward_surf, reward_rect = body_font.render(
+                    f"보상: {reward_gold}G", (255, 215, 80))
+                lines.append(("reward", reward_surf, reward_rect))
+
+            # 툴팁 크기 계산
+            padding = 8
+            line_height = 18
+            spacer_height = 6
+            max_w = 0
+            total_h = padding * 2
+
+            for line_type, surf, rect in lines:
+                if line_type == "spacer":
+                    total_h += spacer_height
+                else:
+                    total_h += line_height
+                    if rect:
+                        max_w = max(max_w, rect.width)
+
+            bg_width = max_w + padding * 2 + 4
+            bg_height = total_h
+
+            # 최소 너비 보장
+            bg_width = max(bg_width, 140)
+
+            # 위치 (마우스 왼쪽에 표시 - 우측 필러에 있으므로)
+            tooltip_x = mouse_pos[0] - bg_width - 10
+            tooltip_y = mouse_pos[1] - bg_height // 2
+
+            # 화면 경계 체크
+            if tooltip_x < 5:
+                tooltip_x = mouse_pos[0] + 15
+            if tooltip_y < 5:
+                tooltip_y = 5
+            if tooltip_y + bg_height > self.screen_height - 5:
+                tooltip_y = self.screen_height - bg_height - 5
+
+            # 배경 (양피지 느낌의 반투명 박스)
+            bg_surface = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+            pygame.draw.rect(bg_surface, (45, 35, 20, 235),
+                (0, 0, bg_width, bg_height), border_radius=5)
+            pygame.draw.rect(bg_surface, (180, 150, 80),
+                (0, 0, bg_width, bg_height), 1, border_radius=5)
+            # 내부 테두리 (이중선 효과)
+            pygame.draw.rect(bg_surface, (120, 100, 50, 80),
+                (2, 2, bg_width - 4, bg_height - 4), 1, border_radius=4)
+
+            screen.blit(bg_surface, (tooltip_x, tooltip_y))
+
+            # 텍스트 렌더링
+            current_y = tooltip_y + padding
+            for line_type, surf, rect in lines:
+                if line_type == "spacer":
+                    # 구분선
+                    sep_y = current_y + spacer_height // 2
+                    pygame.draw.line(screen, (120, 100, 60),
+                        (tooltip_x + padding, sep_y),
+                        (tooltip_x + bg_width - padding, sep_y), 1)
+                    current_y += spacer_height
+                elif line_type == "header":
+                    # 헤더 중앙 정렬
+                    tx = tooltip_x + (bg_width - rect.width) // 2
+                    screen.blit(surf, (tx, current_y))
+                    current_y += line_height
+                else:
+                    screen.blit(surf, (tooltip_x + padding + 2, current_y))
+                    current_y += line_height
+
+        except Exception as e:
+            print(f"[PillarBG] 퀘스트 툴팁 그리기 실패: {e}")
 
 # 전역 인스턴스
 _pillar_renderer = None

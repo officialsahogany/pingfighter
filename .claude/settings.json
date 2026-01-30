@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c \"for %I in \\(d:\\\\main\\\\bosspong\\\\dist\\\\PingFighter.exe\\) do @echo %~zI bytes\")"
+    ]
+  }
+}

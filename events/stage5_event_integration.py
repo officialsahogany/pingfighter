@@ -41,8 +41,8 @@ class Stage5EventManager:
             # 10~20초 사이의 랜덤 간격 설정
             self.event_timer = random.randint(self.MIN_INTERVAL, self.MAX_INTERVAL)
             seconds = self.event_timer / 60
-            print(f"🔥🔥🔥 Stage 5 화염 이벤트 타이머 시작! 다음 이벤트까지 {seconds:.1f}초")
-            print(f"🔥 타이머 활성화 상태: {self.timer_active}, 타이머 값: {self.event_timer}")
+            pass  # print(f"🔥🔥🔥 Stage 5 화염 이벤트 타이머 시작! 다음 이벤트까지 {seconds:.1f}초")  # 디버그 비활성화
+            pass  # print(f"🔥 타이머 활성화 상태: {self.timer_active}, 타이머 값: {self.event_timer}")  # 디버그 비활성화
     
     def check_timer_event(self, current_stage: int) -> bool:
         """
@@ -55,11 +55,11 @@ class Stage5EventManager:
         # 타이머가 만료되었는지 체크
         if self.event_timer <= 0:
             if self.fire_machine.should_trigger(current_stage):
-                print(f"🔥 타이머 만료! 화염 기계 이벤트 발동")
+                pass  # print(f"🔥 타이머 만료! 화염 기계 이벤트 발동")  # 디버그 비활성화
                 # 다음 타이머 설정
                 self.event_timer = random.randint(self.MIN_INTERVAL, self.MAX_INTERVAL)
                 seconds = self.event_timer / 60
-                print(f"🔥 다음 이벤트까지 {seconds:.1f}초")
+                pass  # print(f"🔥 다음 이벤트까지 {seconds:.1f}초")  # 디버그 비활성화
                 return True
         
         return False
@@ -87,7 +87,7 @@ class Stage5EventManager:
         
         # 현재 이벤트가 활성 중이면 대기 큐에 저장
         if self.event_active:
-            print(f"🔥 [trigger_event] 이벤트 활성 중 - 대기 큐에 저장 체크 시작")
+            pass  # print(f"🔥 [trigger_event] 이벤트 활성 중 - 대기 큐에 저장 체크 시작")  # 디버그 비활성화
             if self.fire_machine.should_trigger(current_stage):
                 self.pending_event = {
                     'screen': screen,
@@ -96,16 +96,16 @@ class Stage5EventManager:
                     'sound_machine': sound_machine,
                     'sound_fire': sound_fire
                 }
-                print(f"🔥 [trigger_event] 이벤트 대기 큐에 저장됨")
+                pass  # print(f"🔥 [trigger_event] 이벤트 대기 큐에 저장됨")  # 디버그 비활성화
             return False
-        
+
         # 이벤트가 활성 중이 아니면 즉시 시작
         if self.fire_machine.should_trigger(current_stage):
             if self.fire_machine.activate(screen, sound_door, sound_machine, sound_fire):
                 self.event_active = True
                 self.event_type = "fire_machine"
                 self.pause_game = False  # 게임 진행 계속
-                print(f"🔥 [trigger_event] 타이머 기반 이벤트 즉시 시작!")
+                pass  # print(f"🔥 [trigger_event] 타이머 기반 이벤트 즉시 시작!")  # 디버그 비활성화
                 return True
         
         return False
@@ -123,7 +123,7 @@ class Stage5EventManager:
                 if self.event_timer % 180 == 0 or self.event_timer <= 180:
                     seconds_left = self.event_timer / 60
                     if seconds_left > 0:
-                        print(f"🔥 다음 화염 이벤트까지 {seconds_left:.1f}초 남음 (timer: {self.event_timer})")
+                        pass  # print(f"🔥 다음 화염 이벤트까지 {seconds_left:.1f}초 남음 (timer: {self.event_timer})")  # 디버그 비활성화
         
         # 이벤트가 활성화되어 있을 때
         if self.event_active:
@@ -139,7 +139,7 @@ class Stage5EventManager:
                     # 대기 중인 이벤트가 있으면 지연 타이머 시작
                     if self.pending_event:
                         self.pending_event_delay = 5  # 5프레임 지연
-                        print(f"🔥 [update] 대기 이벤트 지연 시작 (5 프레임)")
+                        pass  # print(f"🔥 [update] 대기 이벤트 지연 시작 (5 프레임)")  # 디버그 비활성화
                     
                     return False
             return True
@@ -148,10 +148,10 @@ class Stage5EventManager:
             if self.pending_event_delay > 0:
                 self.pending_event_delay -= 1
                 if self.pending_event_delay == 0 and self.pending_event:
-                    print(f"🔥 [update] 대기 중인 이벤트 시작")
+                    pass  # print(f"🔥 [update] 대기 중인 이벤트 시작")  # 디버그 비활성화
                     pending = self.pending_event
                     self.pending_event = None  # 대기 큐 비우기
-                    
+
                     # 대기 중이던 이벤트 시작
                     if self.fire_machine.activate(
                         pending['screen'],
@@ -162,7 +162,7 @@ class Stage5EventManager:
                         self.event_active = True
                         self.event_type = "fire_machine"
                         self.pause_game = False
-                        print(f"🔥 [update] 대기 중이던 이벤트 성공적으로 시작됨!")
+                        pass  # print(f"🔥 [update] 대기 중이던 이벤트 성공적으로 시작됨!")  # 디버그 비활성화
                         return True
             
             # 이벤트가 끝났어도 화염 스트림, 지대, 연기는 계속 업데이트
@@ -218,7 +218,7 @@ class Stage5EventManager:
     def reset_for_deuce(self):
         """듀스 재시작 시 이벤트 부분 리셋"""
         self.fire_machine.reset_for_deuce()
-        print("🔥 Stage 5 이벤트 - 듀스 재시작 리셋")
+        pass  # print("🔥 Stage 5 이벤트 - 듀스 재시작 리셋")  # 디버그 비활성화
     
     def is_event_active(self) -> bool:
         """이벤트가 활성화되어 있는지 확인"""

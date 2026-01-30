@@ -81,7 +81,7 @@ ITEM_ICONS = {}
 # 전설 아이콘 애니메이션 프레임 캐시
 ITEM_ICON_ANIMATIONS = {}
 _ICON_ANIMATION_SCALE_CACHE = {}
-_LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
+_LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "odins_eye"}
 # 전설 버프용 아이템 스폰 배율
 LEGENDARY_ITEM_SPAWN_MULT = 1.0
 
@@ -491,6 +491,173 @@ def _draw_weather_capsule_icon(size: int = 32) -> pygame.Surface:
     return s
 
 
+def _draw_banana_icon(size: int = 32) -> pygame.Surface:
+    """바나나 아이콘 그리기 - 노란색 초승달 모양"""
+    import math
+    s = pygame.Surface((size, size), pygame.SRCALPHA)
+    cx, cy = size // 2, size // 2
+    scale = size / 48.0
+
+    # 바나나 색상 팔레트
+    peel_dark = (198, 156, 41)
+    peel_mid = (227, 189, 52)
+    peel_light = (247, 220, 89)
+    stem_green = (154, 165, 67)
+    tip_dark = (89, 60, 31)
+
+    # 바나나 본체 (초승달 모양)
+    body_points = []
+    for i in range(15):
+        t = i / 14
+        x = cx - 15 * scale + t * 30 * scale
+        curve = -10 * scale * math.sin(t * math.pi)
+        y = cy + curve
+        body_points.append((x, y))
+
+    # 아래쪽 곡선
+    for i in range(14, -1, -1):
+        t = i / 14
+        x = cx - 15 * scale + t * 30 * scale
+        curve = -5 * scale * math.sin(t * math.pi) + 6 * scale
+        y = cy + curve
+        body_points.append((x, y))
+
+    if len(body_points) >= 3:
+        # 어두운 부분
+        pygame.draw.polygon(s, peel_dark, body_points)
+        # 메인 색상
+        inner_points = [(p[0], p[1] - scale) for p in body_points]
+        pygame.draw.polygon(s, peel_mid, inner_points)
+        # 밝은 부분
+        highlight_points = []
+        for i in range(8):
+            t = i / 7
+            x = cx - 10 * scale + t * 20 * scale
+            y = cy - 7 * scale * math.sin(t * math.pi)
+            highlight_points.append((x, y))
+        for i in range(7, -1, -1):
+            t = i / 7
+            x = cx - 10 * scale + t * 20 * scale
+            y = cy - 4 * scale * math.sin(t * math.pi) + 2 * scale
+            highlight_points.append((x, y))
+        if len(highlight_points) >= 3:
+            pygame.draw.polygon(s, peel_light, highlight_points)
+
+    # 꼭지 (녹색)
+    stem_x = cx - 16 * scale
+    stem_y = cy
+    pygame.draw.ellipse(s, stem_green,
+                       (stem_x - 3 * scale, stem_y - 2 * scale, 5 * scale, 4 * scale))
+
+    # 끝부분 (갈색)
+    tip_x = cx + 16 * scale
+    tip_y = cy + 2 * scale
+    pygame.draw.ellipse(s, tip_dark,
+                       (tip_x - 2 * scale, tip_y - 2 * scale, 4 * scale, 3 * scale))
+
+    return s
+
+
+def _draw_regeneration_potion_icon(size: int = 32) -> pygame.Surface:
+    """재생물약 아이콘 그리기 - 노란색 포션 병"""
+    import math
+    s = pygame.Surface((size, size), pygame.SRCALPHA)
+    cx, cy = size // 2, size // 2
+    k = size / 32.0
+
+    # 색상 팔레트 (노란색/골드 테마)
+    liquid_bright = (255, 230, 80)   # 밝은 노란색
+    liquid_mid = (255, 200, 50)      # 중간 노란색
+    liquid_dark = (220, 160, 30)     # 어두운 노란색
+    glass_light = (255, 255, 255, 150)
+    glass_dark = (200, 200, 200, 100)
+    cork_color = (139, 90, 43)       # 코르크 마개 색
+    cork_light = (180, 130, 80)
+
+    # 배경 글로우 (황금빛)
+    for i in range(3):
+        alpha = 40 - i * 12
+        glow_color = (255, 215, 0, alpha)
+        glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        glow_radius = int((14 - i * 2) * k)
+        pygame.draw.circle(glow_surf, glow_color, (cx, cy + int(3 * k)), glow_radius)
+        s.blit(glow_surf, (0, 0))
+
+    # 포션 병 본체 (둥근 플라스크 형태)
+    bottle_width = int(14 * k)
+    bottle_height = int(16 * k)
+    bottle_left = cx - bottle_width // 2
+    bottle_top = cy - int(2 * k)
+
+    # 병 본체 (어두운 부분)
+    pygame.draw.ellipse(s, liquid_dark,
+                       (bottle_left, bottle_top, bottle_width, bottle_height))
+    # 병 본체 (메인 색상)
+    pygame.draw.ellipse(s, liquid_mid,
+                       (bottle_left + int(1 * k), bottle_top + int(1 * k),
+                        bottle_width - int(2 * k), bottle_height - int(2 * k)))
+    # 병 본체 (밝은 부분 - 하이라이트)
+    highlight_width = int(6 * k)
+    highlight_height = int(8 * k)
+    pygame.draw.ellipse(s, liquid_bright,
+                       (bottle_left + int(2 * k), bottle_top + int(2 * k),
+                        highlight_width, highlight_height))
+
+    # 병 목 (상단)
+    neck_width = int(6 * k)
+    neck_height = int(6 * k)
+    neck_left = cx - neck_width // 2
+    neck_top = bottle_top - int(4 * k)
+    pygame.draw.rect(s, liquid_mid, (neck_left, neck_top, neck_width, neck_height))
+    # 목 하이라이트
+    pygame.draw.rect(s, liquid_bright, (neck_left + int(1 * k), neck_top, int(2 * k), neck_height))
+
+    # 코르크 마개
+    cork_width = int(8 * k)
+    cork_height = int(4 * k)
+    cork_left = cx - cork_width // 2
+    cork_top = neck_top - int(3 * k)
+    pygame.draw.rect(s, cork_color, (cork_left, cork_top, cork_width, cork_height))
+    pygame.draw.rect(s, cork_light, (cork_left + int(1 * k), cork_top, int(2 * k), cork_height))
+
+    # 유리 반사광 (왼쪽 상단)
+    reflection_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    reflection_points = [
+        (bottle_left + int(2 * k), bottle_top + int(3 * k)),
+        (bottle_left + int(4 * k), bottle_top + int(2 * k)),
+        (bottle_left + int(5 * k), bottle_top + int(5 * k)),
+        (bottle_left + int(3 * k), bottle_top + int(6 * k)),
+    ]
+    if len(reflection_points) >= 3:
+        pygame.draw.polygon(reflection_surf, (255, 255, 255, 80), reflection_points)
+        s.blit(reflection_surf, (0, 0))
+
+    # 재생 심볼 (작은 회오리 또는 별) - 포션 중앙에
+    symbol_cx = cx
+    symbol_cy = cy + int(2 * k)
+    # 작은 별 모양
+    star_points = []
+    for i in range(5):
+        angle = math.radians(i * 72 - 90)
+        outer_r = int(3 * k)
+        inner_r = int(1.5 * k)
+        # 외곽 점
+        star_points.append((
+            symbol_cx + int(outer_r * math.cos(angle)),
+            symbol_cy + int(outer_r * math.sin(angle))
+        ))
+        # 내부 점
+        inner_angle = angle + math.radians(36)
+        star_points.append((
+            symbol_cx + int(inner_r * math.cos(inner_angle)),
+            symbol_cy + int(inner_r * math.sin(inner_angle))
+        ))
+    if len(star_points) >= 3:
+        pygame.draw.polygon(s, (255, 255, 200), star_points)
+
+    return s
+
+
 def _draw_gold_bar_icon(size: int = 32) -> pygame.Surface:
     """금괴 아이콘 그리기 - 빛나는 금괴"""
     import math
@@ -732,7 +899,8 @@ def load_item_icons():
         "hermes_shoes": "legendary/hermes_shoes.png",
         "poseidon_trident": "legendary/poseidon_trident.png",
         "angel_blessing": "legendary/holy_laurel.png",  # 천사의 가호 아이콘
-        "sacred_laurel": "legendary/sacred_laurel.png"  # 신성한 월계관 아이콘
+        "sacred_laurel": "legendary/sacred_laurel.png",  # 신성한 월계관 아이콘
+        "regeneration_potion": "regeneration_potion.png"  # 재생물약 아이콘
     }
 
     legendary_manager = None
@@ -913,6 +1081,26 @@ def load_item_icons():
                     pygame.draw.rect(icon, (218, 165, 32), (6, 10, 20, 12), 2)
                     # 하이라이트
                     pygame.draw.line(icon, (255, 255, 200), (8, 12), (14, 12), 2)
+                    ITEM_ICONS[item_name] = icon
+            elif item_name == "banana":
+                # 바나나 아이콘 프로시저럴 생성
+                try:
+                    ITEM_ICONS[item_name] = _draw_banana_icon(32)
+                except Exception:
+                    icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                    # 간단한 바나나 폴백 (노란 초승달)
+                    pygame.draw.arc(icon, (255, 220, 50), (6, 8, 20, 16), 0.5, 2.5, 4)
+                    ITEM_ICONS[item_name] = icon
+            elif item_name == "regeneration_potion":
+                # 재생물약 아이콘 프로시저럴 생성
+                try:
+                    ITEM_ICONS[item_name] = _draw_regeneration_potion_icon(32)
+                except Exception:
+                    icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                    # 간단한 재생물약 폴백 (노란 포션 병)
+                    pygame.draw.ellipse(icon, (255, 200, 50), (9, 10, 14, 16))
+                    pygame.draw.rect(icon, (255, 230, 80), (13, 5, 6, 6))
+                    pygame.draw.rect(icon, (139, 90, 43), (12, 2, 8, 4))
                     ITEM_ICONS[item_name] = icon
             else:
                 icon = pygame.Surface((32, 32), pygame.SRCALPHA)
@@ -1203,7 +1391,7 @@ ITEM_TYPES = [
         "color": (60, 60, 70),  # 다크 그레이 (군용 색상)
         "effect": "commando_arm",
         "icon": None,
-        "chance": 0.008,  # 확률 1.2%
+        "chance": 0.006,  # 확률 1.2%
         "duration": 600,
         "unlock_condition": None
     },
@@ -1239,13 +1427,12 @@ ITEM_TYPES = [
         "color": (255, 215, 0),  # 금색
         "effect": "gold_bar",
         "icon": None,
-        "chance": 0.0,  # 상점에 스폰되지 않음 (unknown_item에서만 획득)
+        "chance": 0.001,  # 희귀 아이템 (0.3% 확률)
         "duration": 600,
         "unlock_condition": None,
         "sell_price": 2000,  # 판매 가격
         "slots_required": 2,  # 장신구 2칸 차지
         "body_part": "accessory",  # 장신구 부위
-        "shop_spawnable": False  # 상점에 스폰되지 않음
     },
     {
         "name": "bluetooth_ring",  # 블루투스링 패시브 아이템
@@ -1337,6 +1524,25 @@ ITEM_TYPES = [
         "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
         "duration": 600,
         "unlock_condition": None
+    },
+    {
+        "name": "transcendent_crown",  # 초월자의 관 전설 아이템
+        "color": (255, 215, 100),  # 금색 (왕관)
+        "effect": "transcendent_crown",
+        "icon": None,
+        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "duration": 600,
+        "unlock_condition": None
+    },
+    {
+        "name": "odins_eye",  # 오딘의 눈 전설 아이템 (벨트 부위)
+        "color": (150, 50, 100),  # 붉은 보라색
+        "effect": "odins_eye",
+        "icon": None,
+        "chance": 0.0004,  # 전설 아이템 필드 드랍 0.04% 확률
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "belt"  # 벨트 부위
     },
     {
         "name": "knee_pads",  # 킥차져 패시브 아이템
@@ -1445,6 +1651,25 @@ ITEM_TYPES = [
         "chance": 0.012,  # 확률 1.2%
         "duration": 600,  # 사용 시까지 유지
         "unlock_condition": None
+    },
+    {
+        "name": "regeneration_potion",  # 🧪 재생물약 액티브 아이템
+        "color": (255, 230, 80),  # 노란색 (포션 색)
+        "effect": "regeneration_potion",
+        "icon": None,
+        "chance": 0.008,  # 확률 0.8% (희귀 아이템)
+        "duration": 600,  # 사용 시까지 유지
+        "unlock_condition": None
+    },
+    {
+        "name": "gold_digger",  # 골드디거 패시브 아이템 (팔 부위)
+        "color": (255, 200, 50),  # 골드 색상
+        "effect": "gold_digger",
+        "icon": None,
+        "chance": 0.005,  # 테스트용 (원래 0.005 = 0.5%)
+        "duration": 600,
+        "unlock_condition": None,
+        "body_part": "arm"  # 팔 부위
     }
 ]
 
@@ -1493,9 +1718,12 @@ hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
 poseidon_trident_obtained = False  # 포세이돈의 삼지창 획득 여부
 angel_blessing_obtained = False  # 천사의 가호 획득 여부
 sacred_laurel_obtained = False  # 신성 월계수 획득 여부
+transcendent_crown_obtained = False  # 초월자의 관 획득 여부
+odins_eye_obtained = False  # 오딘의 눈 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
 gold_bar_obtained = False  # 금괴 아이템 획득 여부
+gold_digger_obtained = False  # 골드디거 아이템 획득 여부
 
 
 active_item_slot = None
@@ -1561,10 +1789,15 @@ unlocked_items = {
     "poseidon_trident": True,
     "angel_blessing": True,
     "sacred_laurel": True,
+    "transcendent_crown": True,
+    "odins_eye": True,
 
     # 패시브 아이템
-    "knee_pads": True
-    
+    "knee_pads": True,
+    "gold_digger": True,
+
+    # 액티브 아이템
+    "regeneration_potion": True  # 재생물약
 }
 
 # 현재 떠 있는 아이템 리스트
@@ -1576,7 +1809,7 @@ PASSIVE_DUPLICATE_ALLOWED = {
     "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
     "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest",
     "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle",
-    "smartphone", "knee_pads"
+    "smartphone", "knee_pads", "gold_digger"
 }
 
 
@@ -1633,11 +1866,13 @@ def reset_items():
     sensor_obtained = False  # sensor 획득 상태 초기화
     
     global dowsing_pendulum_obtained, commando_arm_obtained, commando_arm_count, technical_vest_obtained
+    global gold_digger_obtained
     dowsing_pendulum_obtained = False  # dowsing_pendulum 획득 상태 초기화
     commando_arm_obtained = False  # commando_arm 획득 상태 초기화
     commando_arm_count = 0         # commando_arm 스택 초기화
     technical_vest_obtained = False  # technical_vest 획득 상태 초기화
-    
+    gold_digger_obtained = False  # gold_digger 획득 상태 초기화
+
     # 전설 아이템 획득 상태는 게임 세션 동안 유지되므로 초기화하지 않음
     # (한 번 획득한 전설 아이템은 더 이상 필드에 나타나지 않도록 함)
 
@@ -1662,11 +1897,18 @@ def reset_items():
     except Exception:
         pass
 
+    try:
+        from item_effects.gold_digger import reset_gold_digger
+
+        reset_gold_digger()
+    except Exception:
+        pass
+
 
 # 아이템 생성
 def spawn_random_item():
     # 전역 변수 참조
-    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, angel_blessing_obtained, sacred_laurel_obtained, foul_whistle_obtained
+    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, angel_blessing_obtained, sacred_laurel_obtained, foul_whistle_obtained, transcendent_crown_obtained, odins_eye_obtained
     
     debug_spawn = os.environ.get("PINGF_DEBUG_ITEMS", "0").lower() in ("1", "true", "yes", "on")
     if debug_spawn:
@@ -1687,7 +1929,7 @@ def spawn_random_item():
         selected_character = None
     
     # 현재 필드에 떠 있는 아이템들의 이름 목록 생성 (중복 방지)
-    items_in_field = [item["type"]["name"] for item in item_list]
+    items_in_field = [item["type"]["name"] for item in item_list if isinstance(item.get("type"), dict)]
     if debug_spawn:
         print(f"[DEBUG] Items currently in field: {items_in_field}")
     
@@ -1777,50 +2019,26 @@ def spawn_random_item():
         if item["name"] == "knee_pads" and knee_pads_obtained and not _allow_duplicate_passive("knee_pads"):
             continue
 
+        # gold_digger 아이템 중복 허용
+        if item["name"] == "gold_digger" and gold_digger_obtained and not _allow_duplicate_passive("gold_digger"):
+            continue
+
         # gold_bar 중복 스폰 방지
         if item["name"] == "gold_bar" and gold_bar_obtained:
             continue
 
-        # 라그나로크 해머는 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "ragnarok_hammer" and ragnarok_hammer_obtained:
-            continue
-        
-        # 헤르메스의 신발은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "hermes_shoes" and hermes_shoes_obtained:
-            continue
-        
         # 방탄모자는 한 번 획득하면 더 이상 스폰하지 않음
         if item["name"] == "bulletproof_hat" and bulletproof_hat_obtained:
             continue
         # 가시투구는 한 번 획득하면 더 이상 스폰하지 않음
         if item["name"] == "spiked_helmet" and spiked_helmet_obtained:
             continue
-        
-        # 포세이돈의 삼지창은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "poseidon_trident":
-            print(f"[DEBUG] Checking poseidon_trident: obtained = {poseidon_trident_obtained}")
-            if poseidon_trident_obtained:
-                print(f"[DEBUG] Skipping poseidon_trident spawn (already obtained)")
-                continue
-            else:
-                print(f"[DEBUG] poseidon_trident can spawn (not obtained yet)")
 
-        # 천사의 가호는 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "angel_blessing":
-            print(f"[DEBUG] Checking angel_blessing: obtained = {angel_blessing_obtained}")
-            if angel_blessing_obtained:
-                print(f"[DEBUG] Skipping angel_blessing spawn (already obtained)")
-                continue
-            else:
-                print(f"[DEBUG] angel_blessing can spawn (not obtained yet)")
-        
-        # 신성 월계수는 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "sacred_laurel" and sacred_laurel_obtained:
-            continue
-        
+        # 전설 아이템은 중복 스폰 허용 (ragnarok_hammer, hermes_shoes, poseidon_trident, angel_blessing, sacred_laurel)
+
         # 패시브 아이템 중복 스폰 허용(파밍). 단, 동일 아이템이 필드에 이미 있을 때는 혼잡 방지를 위해 1개만 유지.
         if item["name"] in items_in_field and item["name"] != "chargebag":
-            print(f"[DEBUG] Skipping {item['name']} - already spawned in field (limit 1 concurrently)")
+            # print(f"[DEBUG] Skipping {item['name']} - already spawned in field (limit 1 concurrently)")  # 디버그 비활성화
             continue
 
         # 스폰 가능한 아이템을 목록에 추가 (확률 포함)
@@ -1839,7 +2057,7 @@ def spawn_random_item():
     except Exception:
         pass
 
-    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
+    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"}
     try:
         legendary_multiplier = academy.get_treasure_map_field_multiplier()
     except Exception:
@@ -1861,8 +2079,8 @@ def spawn_random_item():
         "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt",
         "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
         "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer",
-        "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "bulletproof_hat", "spiked_helmet",
-        "gold_bar"
+        "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye",
+        "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger"
     }
 
     for item in available_items:
@@ -1969,35 +2187,63 @@ def spawn_random_item():
                     # 인스턴스가 없으면 초기화만 함 (activate 호출 안 함)
                     legendary_manager._init_legendary_items()
 
+        # 오딘의 눈이 스폰되면 애니메이션을 위해 인스턴스만 준비 (효과는 적용하지 않음)
+        if selected_item["name"] == "odins_eye":
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                # 오딘의 눈 인스턴스가 없으면 생성만 하고 activate는 하지 않음
+                odins_eye = legendary_manager.get_item("odins_eye")
+                if not odins_eye:
+                    # 인스턴스가 없으면 초기화만 함 (activate 호출 안 함)
+                    legendary_manager._init_legendary_items()
+
         # 신성 월계수도 동일하게 초기화만 수행해 아이콘 애니메이션이 가능하도록 함
 
-def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None):
-    global item_list, angel_blessing_obtained, ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, sacred_laurel_obtained
+def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None, paused=False, on_item_collect_callback=None):
+    global item_list, angel_blessing_obtained, ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained, sacred_laurel_obtained, transcendent_crown_obtained, odins_eye_obtained
     new_items = []
 
     for item in item_list:
-        # 위치 이동
-        item["x"] += item["vel"][0]
-        item["y"] += item["vel"][1]
+        # vel 키가 없는 아이템은 이동 처리 건너뜀 (비정상 아이템)
+        if "vel" not in item:
+            new_items.append(item)
+            continue
 
-        # 회전 각도 증가
-        item["angle"] = (item["angle"] + 2) % 360
+        # 일시정지 상태에서는 이동 및 회전만 정지 (충돌 판정은 유지)
+        if not paused:
+            # 위치 이동
+            item["x"] += item["vel"][0]
+            item["y"] += item["vel"][1]
 
-        # 벽에 부딪히면 튕기기 + 튕김 횟수 증가
-        if item["x"] <= 0 or item["x"] >= WIDTH:
-            item["vel"][0] *= -1
-            item["bounce_count"] += 1
-        if item["y"] <= 0 or item["y"] >= HEIGHT:
-            item["vel"][1] *= -1
-            item["bounce_count"] += 1
+            # 회전 각도 증가
+            item["angle"] = (item.get("angle", 0) + 2) % 360
+
+            # 벽에 부딪히면 튕기기 + 튕김 횟수 증가
+            if item["x"] <= 0 or item["x"] >= WIDTH:
+                item["vel"][0] *= -1
+                item["bounce_count"] = item.get("bounce_count", 0) + 1
+            if item["y"] <= 0 or item["y"] >= HEIGHT:
+                item["vel"][1] *= -1
+                item["bounce_count"] = item.get("bounce_count", 0) + 1
+        else:
+            # 일시정지 중에도 수명은 계속 감소 (악용 방지)
+            # 60프레임당 1 bounce로 환산 (약 1초당 1 bounce 증가)
+            item["bounce_count"] = item.get("bounce_count", 0) + 0.017  # 1/60
 
         # 아이템 충돌 판정
         item_rect = pygame.Rect(item["x"] - 15, item["y"] - 15, 30, 30)
 
         if item_rect.colliderect(player_rect):
             # 아이템 획득 시 revealed를 True로 설정
-            item["type"]["revealed"] = True
-            
+            item_type = item.get("type")
+            if isinstance(item_type, dict):
+                item_type["revealed"] = True
+
+            # 튜토리얼 아이템 획득 콜백 호출
+            if on_item_collect_callback:
+                on_item_collect_callback(item)
+
             # 아이템 획득 사운드 재생 (외부에서 전달받은 사운드 사용)
             if sound_item_get:
                 try:
@@ -2012,55 +2258,36 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                     except Exception as e:
                         print(f"   : {e}")
             
-            item_name = item["type"]["name"]
-            print(f"🔍 DEBUG: 아이템 획득 감지: {item_name}")
+            # item["type"]이 딕셔너리인지 확인
+            item_type_data = item.get("type")
+            if isinstance(item_type_data, dict):
+                item_name = item_type_data.get("name", "")
+                item_color = item_type_data.get("color", (200, 200, 200))
+            else:
+                item_name = item.get("name", "")
+                item_color = item.get("color", (200, 200, 200))
 
-            # 전설 아이템 중복 획득 방지 체크
-            legendary_already_obtained = False
-            if item_name == "angel_blessing" and angel_blessing_obtained:
-                print(f"⚠️ 천사의 가호 중복 획득 방지: 이미 획득했으므로 스킵")
-                legendary_already_obtained = True
-            elif item_name == "ragnarok_hammer" and ragnarok_hammer_obtained:
-                print(f"⚠️ 라그나로크 해머 중복 획득 방지: 이미 획득했으므로 스킵")
-                legendary_already_obtained = True
-            elif item_name == "hermes_shoes" and hermes_shoes_obtained:
-                print(f"⚠️ 헤르메스의 신발 중복 획득 방지: 이미 획득했으므로 스킵")
-                legendary_already_obtained = True
-            elif item_name == "poseidon_trident" and poseidon_trident_obtained:
-                print(f"⚠️ 포세이돈의 삼지창 중복 획득 방지: 이미 획득했으므로 스킵")
-                legendary_already_obtained = True
-            elif item_name == "sacred_laurel" and sacred_laurel_obtained:
-                print(f"⚠️ 신성 월계수 중복 획득 방지: 이미 획득했으므로 스킵")
-                legendary_already_obtained = True
-
-            if legendary_already_obtained:
-                # 이미 획득한 전설 아이템은 필드에서 제거하고 다음 아이템으로
-                continue
+            # 전설 아이템 중복 획득 허용 (더 이상 체크하지 않음)
 
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "bulletproof_hat", "spiked_helmet", "gold_bar"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger"]:
                 # 패시브 아이템 처리
-                print(f"🔍 DEBUG: {item_name}을(를) 패시브 아이템으로 처리 중...")
                 if store_passive_func:
                     item_data = {
                         "name": item_name,
-                        "color": item["type"]["color"],
+                        "color": item_color,
                         "effect": item_name,
                         "icon": None,  # 아이콘은 pingfighter.py의 store_passive_item에서 get_item_icon으로 설정됨
                         "x": item["x"],
                         "y": item["y"]
                     }
-                    print(f"🔍 DEBUG: store_passive_func 호출 중... item_data: {item_data['name']}")
                     store_passive_func(item_data)
-                    print(f"✅ DEBUG: {item_name} 패시브 아이템 처리 완료!")
-                else:
-                    print(f"❌ DEBUG: store_passive_func가 None입니다!")
             else:
                 # 엑티브 아이템 처리 - store_active_item을 통해 슬롯에 저장
                 if store_active_func:
                     item_data = {
                         "name": item_name,
-                        "color": item["type"]["color"],
+                        "color": item_color,
                         "effect": item_name,
                         "icon": None,  # 아이콘은 pingfighter.py의 store_active_item에서 get_item_icon으로 설정됨
                         "x": item["x"],
@@ -2068,7 +2295,10 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                     }
                     store_active_func(item_data)
         else:
-            if item["bounce_count"] < item["max_bounces"]:
+            # 튜토리얼 아이템은 바운스 횟수 무관하게 유지
+            bounce_count = item.get("bounce_count", 0)
+            max_bounces = item.get("max_bounces", 10)
+            if item.get("is_tutorial_item") or bounce_count < max_bounces:
                 new_items.append(item)  # 남아있는 아이템만 리스트에 유지
 
     item_list = new_items  # 아이템 리스트 갱신
@@ -2081,13 +2311,26 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
 
 def draw_items(screen):
     for item in item_list:
+        # item["type"]이 딕셔너리인지 문자열인지 확인
+        item_type = item.get("type")
+        if isinstance(item_type, str):
+            # type이 문자열인 경우 (예: "passive", "active") - 일반 아이콘 사용
+            icon = item.get("icon")
+            if icon:
+                angle = item.get("angle", 0)
+                icon = pygame.transform.scale(icon, (60, 60))
+                rotated_icon = pygame.transform.rotate(icon, angle)
+                rect = rotated_icon.get_rect(center=(int(item["x"]), int(item["y"])))
+                screen.blit(rotated_icon, rect.topleft)
+            continue
+
         # revealed 속성 체크
-        if not item["type"].get("revealed", True):
+        if not item_type.get("revealed", True):
             # 아직 공개되지 않은 아이템은 물음표 아이콘 표시
             icon = UNKNOWN_ITEM_ICON
         else:
             # 전설 아이템인지 체크 (라그나로크 해머, 헤르메스의 신발 등)
-            item_name = item["type"].get("name", "")
+            item_name = item_type.get("name", "")
             if item_name == "ragnarok_hammer":
                 # 라그나로크 해머는 전설 아이템 매니저를 통해 애니메이션 그리기
                 from legendary_items import get_legendary_manager
@@ -2124,12 +2367,24 @@ def draw_items(screen):
                         # 애니메이션 아이콘 그리기 (회전 없이)
                         trident.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
                         continue
-            
+            elif item_name == "odins_eye":
+                # 오딘의 눈도 전설 아이템 매니저를 통해 애니메이션 그리기
+                from legendary_items import get_legendary_manager
+                legendary_manager = get_legendary_manager()
+                if legendary_manager:
+                    odins_eye = legendary_manager.get_item("odins_eye")
+                    if odins_eye:
+                        # 애니메이션 업데이트 (밀리초 단위)
+                        odins_eye.update(16)  # 60fps 기준 16ms
+                        # 애니메이션 아이콘 그리기 (회전 없이)
+                        odins_eye.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
+                        continue
+
             # 일반 아이템은 기존 방식대로 처리
-            icon = item["type"].get("icon")
+            icon = item_type.get("icon")
             if not icon:
                 # 아이콘이 없으면 색상 원으로 표시
-                pygame.draw.circle(screen, item["type"]["color"], (int(item["x"]), int(item["y"])), 20)
+                pygame.draw.circle(screen, item_type.get("color", (200, 200, 200)), (int(item["x"]), int(item["y"])), 20)
                 continue
         
         if icon:

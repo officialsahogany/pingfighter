@@ -12,6 +12,22 @@ from typing import List, Tuple
 
 import pygame
 
+# ============================================================
+# Surface 캐시 시스템 (성능 최적화)
+# ============================================================
+_stage7_surface_cache = {}
+
+def _get_cached_surface(width: int, height: int) -> pygame.Surface:
+    """캐시된 투명 Surface 반환"""
+    key = (width, height)
+    if key not in _stage7_surface_cache:
+        if len(_stage7_surface_cache) > 100:
+            _stage7_surface_cache.clear()
+        _stage7_surface_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
+    surface = _stage7_surface_cache[key]
+    surface.fill((0, 0, 0, 0))
+    return surface
+
 Color = Tuple[int, int, int]
 
 # 화면 크기 - config에서 가져오기
@@ -218,7 +234,11 @@ class AnimatedBackgroundStage7:
         """
 
         ox, oy = offset
-        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        # 캐시된 오버레이 Surface 재사용 (매 프레임 새로 생성하지 않음)
+        if not hasattr(self, '_overlay_cache') or self._overlay_cache is None:
+            self._overlay_cache = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay = self._overlay_cache
+        overlay.fill((0, 0, 0, 0))  # 투명하게 클리어
 
         # 배경형 오버레이(반투명 요소)
         self._draw_torch_glow(overlay)
@@ -282,33 +302,34 @@ class AnimatedBackgroundStage7:
     # 내부 헬퍼
     # ------------------------------------------------------------------
     def _draw_torch_glow(self, overlay: pygame.Surface) -> None:
+        # 최적화: 팔레트와 레이어 수 줄임 (4→2), circle 호출 최소화
         prism_palette = [
             (120, 200, 255),
-            (160, 120, 255),
             (255, 180, 120),
-            (120, 255, 200),
         ]
 
         for index, (x, y) in enumerate(self.torch_positions):
             wobble = 0.4 + 0.3 * math.sin(self.time * 6.0 + index * 1.7)
             base_radius = 28 + 2 * math.sin(self.time * 4.3 + index)
 
+            # 최적화: 레이어 2개만 렌더링
             for layer, color in enumerate(prism_palette):
-                layer_radius = base_radius * (1.0 + layer * 0.25)
-                alpha = int(65 + 35 * wobble - layer * 8)
-                tinted = (*color, max(0, alpha))
-                pygame.draw.circle(overlay, tinted, (x, y - 4), int(layer_radius))
+                layer_radius = base_radius * (1.0 + layer * 0.35)
+                alpha = int(70 + 35 * wobble - layer * 12)
+                if alpha > 0:
+                    pygame.draw.circle(overlay, (*color, alpha), (x, y - 4), int(layer_radius))
 
             core_alpha = int(180 + 50 * wobble)
-            core_color = (255, 236, 200, core_alpha)
-            pygame.draw.circle(overlay, core_color, (x, y - 6), 14)
+            pygame.draw.circle(overlay, (255, 236, 200, core_alpha), (x, y - 6), 14)
 
-            halo_radius = base_radius * 1.8
-            halo_alpha = int(50 + 40 * wobble)
-            pygame.draw.circle(overlay, (120, 200, 255, halo_alpha), (x, y - 6), int(halo_radius), width=2)
+            # 최적화: 헤일로 링은 wobble이 높을 때만 그림
+            if wobble > 0.5:
+                halo_radius = base_radius * 1.8
+                halo_alpha = int(50 + 40 * wobble)
+                pygame.draw.circle(overlay, (120, 200, 255, halo_alpha), (x, y - 6), int(halo_radius), width=2)
 
     def _draw_light_band(self, overlay: pygame.Surface) -> None:
-        band_surface = pygame.Surface((self.band_width, self.band_height), pygame.SRCALPHA)
+        band_surface = _get_cached_surface(self.band_width, self.band_height)
         half = self.band_width / 2
         for x in range(self.band_width):
             intensity = max(0.0, 1.0 - abs(x - half) / half)

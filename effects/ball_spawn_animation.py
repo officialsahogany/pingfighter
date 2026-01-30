@@ -1349,19 +1349,21 @@ def is_ball_spawn_animation_complete() -> bool:
     return anim.is_complete()
 
 
-def get_ball_spawn_animation_elapsed_time() -> float:
-    """애니메이션 경과 시간 반환"""
-    anim = get_ball_spawn_animation()
-    return anim.elapsed_time if hasattr(anim, 'elapsed_time') else 0.0
-
-
-def get_ball_spawn_animation_total_duration() -> float:
-    """애니메이션 총 지속 시간 반환"""
-    anim = get_ball_spawn_animation()
-    return anim.total_duration if hasattr(anim, 'total_duration') else 1.0
-
-
 def get_spawned_ball_position() -> Tuple[float, float]:
     """생성된 공 위치 반환"""
     anim = get_ball_spawn_animation()
     return anim.get_ball_position()
+
+
+def get_ball_spawn_animation_elapsed_time() -> float:
+    """애니메이션 경과 시간 반환 (초 단위)"""
+    anim = get_ball_spawn_animation()
+    if anim.is_active():
+        return anim.elapsed_time
+    return 0.0
+
+
+def get_ball_spawn_animation_total_duration() -> float:
+    """애니메이션 총 시간 반환 (초 단위)"""
+    anim = get_ball_spawn_animation()
+    return anim.TOTAL_DURATION

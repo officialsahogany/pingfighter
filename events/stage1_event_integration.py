@@ -57,7 +57,16 @@ class Stage1EventManager:
         """타이머 기반 이벤트 발동"""
         if self.event_active:
             return False
-        
+
+        # 튜토리얼 상태 체크 - 풍선기계 튜토리얼 전까지 비활성화
+        try:
+            import pingfighter as pf
+            if hasattr(pf, '_ingame_tutorial_active') and pf._ingame_tutorial_active:
+                if hasattr(pf, '_tutorial_balloon_machine_enabled') and not pf._tutorial_balloon_machine_enabled:
+                    return False
+        except:
+            pass
+
         # 풍선 기계 활성화
         if self.balloon_machine.activate(screen, sound_balloon, sound_door, sound_machine, 0):
             self.event_active = True
@@ -105,23 +114,26 @@ class Stage1EventManager:
         
         return False
     
-    def update(self, screen: pygame.Surface = None, sound_balloon=None, sound_door=None, sound_machine=None) -> bool:
+    def update(self, screen: pygame.Surface = None, sound_balloon=None, sound_door=None, sound_machine=None, paused: bool = False) -> bool:
         """
         활성 이벤트 업데이트 및 타이머 체크
+
+        Args:
+            paused: True면 풍선/기계 업데이트 건너뜀 (튜토리얼 일시정지용)
         Returns: True if event is still active
         """
-        # 타이머 업데이트 (이벤트가 활성화되지 않았을 때만)
-        if not self.event_active:
+        # 타이머 업데이트 (이벤트가 활성화되지 않았을 때만, 일시정지 중 아닐 때만)
+        if not self.event_active and not paused:
             # 타이머가 0이 되면 이벤트 발동
             if self.balloon_machine.update_timer():
                 # 자동으로 이벤트 트리거
                 return self.trigger_event_timer(screen, 1, sound_balloon, sound_door, sound_machine)
-        
+
         # 이벤트가 활성화되어 있을 때
         if self.event_active:
             # 풍선 기계 이벤트 업데이트
             if self.event_type == "balloon_machine":
-                still_active = self.balloon_machine.update()
+                still_active = self.balloon_machine.update(paused=paused)
                 
                 if not still_active:
                     self.event_active = False
@@ -163,9 +175,9 @@ class Stage1EventManager:
                     else:
                         print(f" [update]     !")
             
-            # 이벤트가 끝났어도 풍선은 계속 업데이트
-            if self.balloon_machine.balloons:
-                self.balloon_machine._update_balloons()
+            # 이벤트가 끝났어도 풍선은 계속 업데이트 (튜토리얼 풍선 모드 포함)
+            if self.balloon_machine.balloons or getattr(self.balloon_machine, 'tutorial_balloon_mode', False):
+                self.balloon_machine.update()  # tutorial_balloon_mode 처리를 위해 update() 호출
             return False
     
     def draw_background(self, screen: pygame.Surface):
@@ -180,9 +192,9 @@ class Stage1EventManager:
             if self.event_type == "balloon_machine":
                 self.balloon_machine.draw(screen)
         else:
-            # 이벤트가 끝났어도 풍선은 계속 그리기
-            if self.balloon_machine.balloons:
-                self.balloon_machine._draw_balloons(screen)
+            # 이벤트가 끝났어도 풍선은 계속 그리기 (튜토리얼 풍선 모드 포함)
+            if self.balloon_machine.balloons or getattr(self.balloon_machine, 'tutorial_balloon_mode', False):
+                self.balloon_machine.draw(screen)  # tutorial_balloon_mode 처리를 위해 draw() 호출
     
     def should_pause_game(self) -> bool:
         """게임을 일시정지해야 하는지 확인"""

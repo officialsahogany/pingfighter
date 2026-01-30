@@ -83,6 +83,10 @@ class ShaolinTempleBackground:
         self.moon_pulse_timer = 0  # Timer for pulsing animation
         self.moon_pulse_active = False  # Whether moon is pulsing
         self.moon_pulse_scale = 1.0  # Scale factor for moon size
+
+        # Ponk gauge gradient cache for performance optimization
+        self._gauge_gradient_cache = {}  # key: (fill_height, state) -> surface
+        self._gauge_cache_last_state = None  # Track state changes to invalidate cache
         
         # Destruction wave from moon
         self.destruction_wave = None  # Active destruction wave
@@ -117,7 +121,12 @@ class ShaolinTempleBackground:
         self.red_moon_cache_intensity = -1  # Last cached intensity
         self.red_moon_cache_scale = -1  # Last cached scale
         self.red_moon_update_counter = 0  # Update every N frames
-        
+
+        # OPTIMIZATION: Cache for static temple rendering
+        self._temple_cache = None  # Cached temple surface when not animating
+        self._temple_cache_valid = False  # Whether cache is valid
+        self._temple_last_door_amount = -1  # Track door animation state
+
         # OPTIMIZATION: Performance mode for low FPS
         self.performance_mode = False  # Enable reduced quality for better FPS
         self.fps_counter = 0
@@ -212,6 +221,15 @@ class ShaolinTempleBackground:
         # Reusable working surfaces to avoid per-frame allocations
         self._temp_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self._red_overlay_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+
+        # OPTIMIZATION: Pre-cached surfaces for particles to avoid per-frame allocation
+        self._mist_surface_cache = {}  # (width, height) -> surface
+        self._star_glow_cache = {}  # (size, alpha) -> surface
+        self._leaf_surface_cache = {}  # (size, color_idx) -> surface
+        self._leaf_rotated_cache = {}  # (size, color_idx, angle_bucket) -> surface
+        self._monk_surface = pygame.Surface((60, 80), pygame.SRCALPHA)  # 몽크 렌더링용 캐시
+        self._flame_surface = pygame.Surface((80, 60), pygame.SRCALPHA)  # 화로 불꽃용 캐시
+        self._glow_surface_cache = {}  # 광채 효과 캐시 (size -> surface)
         
     def _create_lanterns(self) -> List[Dict[str, Any]]:
         """Create hanging lanterns"""
@@ -503,6 +521,24 @@ class ShaolinTempleBackground:
             collapse_y_offset = self.collapse_offset
             collapse_rotation = min(5, self.collapse_offset / 30)
             collapse_opacity = max(100, 255 - self.collapse_offset)
+
+        # OPTIMIZATION: Use cached temple surface when not animating
+        # Cache is valid when: no collapse, no crush, no sink, no spire angle, and door hasn't changed
+        door_amount = getattr(self, 'door_open_amount', 0)
+        is_static = (collapse_y_offset == 0 and building_crush == 1.0 and
+                     building_sink == 0.0 and spire_angle == 0 and
+                     all(c == 0 for c in level_crushes))
+
+        # Check if we can use cache
+        if is_static:
+            # Only rebuild cache if door amount changed significantly
+            door_changed = abs(door_amount - self._temple_last_door_amount) > 0.02
+            if self._temple_cache_valid and not door_changed:
+                # Use cached surface
+                surface.blit(self._temple_cache, (0, 0))
+                return
+            # Update door tracking
+            self._temple_last_door_amount = door_amount
 
         # Create temple surface for collapse effects
         temple_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
@@ -1113,9 +1149,15 @@ class ShaolinTempleBackground:
             rotated_temple = pygame.transform.rotate(temple_surface, collapse_rotation)
             rot_rect = rotated_temple.get_rect(center=(self.width // 2, self.height // 2))
             surface.blit(rotated_temple, rot_rect)
+            # Invalidate cache when rotating
+            self._temple_cache_valid = False
         else:
             surface.blit(temple_surface, (0, 0))
-    
+            # OPTIMIZATION: Cache the temple surface if in static state
+            if is_static:
+                self._temple_cache = temple_surface.copy()
+                self._temple_cache_valid = True
+
     def _draw_dragon_ornament(self, surface: pygame.Surface, dragon: Dict[str, Any]):
         """Draw a dragon ornament"""
         x, y = dragon['x'], dragon['y']
@@ -1402,19 +1444,19 @@ class ShaolinTempleBackground:
                                   (leaf_x, leaf_y, 15, 5))
     
     def _draw_floating_leaves(self, surface: pygame.Surface):
-        """Draw floating bamboo leaves"""
+        """Draw floating bamboo leaves - OPTIMIZED: cached rotated surfaces"""
         leaf_colors = [
             (40, 60, 40),  # Dark green
             (50, 70, 50),  # Medium green
             (30, 50, 30),  # Very dark green
         ]
-        
+
         for leaf in self.floating_leaves:
             # Update position
             leaf['x'] += leaf['vx']
             leaf['y'] += leaf['vy']
             leaf['rotation'] += leaf['rotation_speed']
-            
+
             # Wrap around screen
             if leaf['x'] < -50:
                 leaf['x'] = self.width + 50
@@ -1422,70 +1464,99 @@ class ShaolinTempleBackground:
             if leaf['y'] > self.height + 50:
                 leaf['y'] = -50
                 leaf['x'] = random.randint(0, self.width)
-            
-            # Draw leaf
-            color = leaf_colors[leaf['color_variant']]
-            
-            # Create rotated leaf shape
-            leaf_surface = pygame.Surface((leaf['size'] * 2, leaf['size'] * 2), pygame.SRCALPHA)
-            pygame.draw.ellipse(leaf_surface, color,
-                              (leaf['size'] // 2, leaf['size'] // 2, 
-                               leaf['size'], leaf['size'] // 2))
-            
-            # Rotate
-            rotated = pygame.transform.rotate(leaf_surface, math.degrees(leaf['rotation']))
-            surface.blit(rotated, (leaf['x'] - rotated.get_width() // 2,
-                                  leaf['y'] - rotated.get_height() // 2))
+
+            # OPTIMIZATION: Cache base leaf surfaces by size and color
+            size = leaf['size']
+            color_idx = leaf['color_variant']
+            base_key = (size, color_idx)
+
+            if base_key not in self._leaf_surface_cache:
+                color = leaf_colors[color_idx]
+                leaf_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(leaf_surface, color,
+                                  (size // 2, size // 2, size, size // 2))
+                self._leaf_surface_cache[base_key] = leaf_surface
+
+            # OPTIMIZATION: Quantize rotation to 15-degree increments (24 cached rotations)
+            angle_degrees = int(math.degrees(leaf['rotation'])) % 360
+            angle_bucket = (angle_degrees // 15) * 15  # Round to nearest 15 degrees
+            rotated_key = (size, color_idx, angle_bucket)
+
+            if rotated_key not in self._leaf_rotated_cache:
+                base_surf = self._leaf_surface_cache[base_key]
+                rotated = pygame.transform.rotate(base_surf, angle_bucket)
+                self._leaf_rotated_cache[rotated_key] = rotated
+                # Limit cache size (24 rotations * 3 colors * ~3 sizes = ~200 max)
+                if len(self._leaf_rotated_cache) > 250:
+                    self._leaf_rotated_cache.pop(next(iter(self._leaf_rotated_cache)))
+
+            rotated = self._leaf_rotated_cache[rotated_key]
+            surface.blit(rotated, (int(leaf['x']) - rotated.get_width() // 2,
+                                  int(leaf['y']) - rotated.get_height() // 2))
     
     def _draw_mist(self, surface: pygame.Surface):
-        """Draw floating mist layers"""
+        """Draw floating mist layers - OPTIMIZED: cached surfaces, reduced draw calls"""
         for mist in self.mist_layers:
             # Update position
             mist['x'] -= mist['speed']
             if mist['x'] < -mist['width']:
                 mist['x'] = 0
-            
-            # Draw mist
-            mist_surface = pygame.Surface((mist['width'], mist['height']), pygame.SRCALPHA)
-            
-            # Create gradient mist effect
-            for i in range(0, int(mist['width']), 20):
-                alpha = int(mist['opacity'] * abs(math.sin(i / 100 + self.frame_count * 0.01)))
-                color = (*self.colors['mist'][:3], alpha)
-                pygame.draw.circle(mist_surface, color,
-                                 (i, mist['height'] // 2), mist['height'] // 2)
-            
-            surface.blit(mist_surface, (mist['x'], mist['y']))
+
+            # OPTIMIZATION: Cache mist surface by size (don't recreate every frame)
+            cache_key = (int(mist['width']), int(mist['height']), int(mist['opacity']))
+            if cache_key not in self._mist_surface_cache:
+                mist_surface = pygame.Surface((int(mist['width']), int(mist['height'])), pygame.SRCALPHA)
+                # Draw static mist pattern (no animation needed - movement provides visual interest)
+                mist_color = self.colors['mist'][:3]
+                # Use larger step (40 instead of 20) for fewer circles
+                for i in range(0, int(mist['width']), 40):
+                    # Use simpler alpha calculation without frame_count (static pattern)
+                    alpha = int(mist['opacity'] * abs(math.sin(i / 100)))
+                    color = (*mist_color, alpha)
+                    pygame.draw.circle(mist_surface, color,
+                                     (i, int(mist['height']) // 2), int(mist['height']) // 2)
+                self._mist_surface_cache[cache_key] = mist_surface
+                # Limit cache size
+                if len(self._mist_surface_cache) > 10:
+                    self._mist_surface_cache.pop(next(iter(self._mist_surface_cache)))
+
+            surface.blit(self._mist_surface_cache[cache_key], (int(mist['x']), int(mist['y'])))
     
     def _draw_stars(self, surface: pygame.Surface):
-        """Draw twinkling stars with soft glow"""
+        """Draw twinkling stars with soft glow - OPTIMIZED: cached glow surfaces"""
         for star in self.stars:
             # Calculate twinkle
             twinkle = abs(math.sin(self.frame_count * star['twinkle_speed'] + star['twinkle_offset']))
             brightness = star['brightness'] * twinkle
-            
+
             if brightness > 0.3:  # Only draw visible stars
                 # Create soft glow for larger stars
                 if star['size'] > 1 and brightness > 0.5:
-                    # Subtle glow effect
-                    glow_alpha = int(20 * brightness)
-                    glow_color = (255, 255, 230, glow_alpha)
+                    # OPTIMIZATION: Quantize alpha to reduce cache entries (10 levels instead of 20)
+                    glow_alpha = int(20 * brightness) // 2 * 2  # Round to even numbers
                     glow_size = star['size'] * 3
-                    
-                    star_surface = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
-                    star_surface.fill((0, 0, 0, 0))
-                    pygame.draw.circle(star_surface, glow_color, 
-                                     (glow_size, glow_size), glow_size)
-                    surface.blit(star_surface, 
+                    cache_key = (glow_size, glow_alpha)
+
+                    if cache_key not in self._star_glow_cache:
+                        glow_color = (255, 255, 230, glow_alpha)
+                        star_surface = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(star_surface, glow_color,
+                                         (glow_size, glow_size), glow_size)
+                        self._star_glow_cache[cache_key] = star_surface
+                        # Limit cache size
+                        if len(self._star_glow_cache) > 30:
+                            self._star_glow_cache.pop(next(iter(self._star_glow_cache)))
+
+                    surface.blit(self._star_glow_cache[cache_key],
                                (star['x'] - glow_size, star['y'] - glow_size))
-                
+
                 # Draw the star itself
                 color = (
                     int(255 * brightness),
                     int(255 * brightness),
                     int(230 * brightness)
                 )
-                
+
                 if star['size'] == 1:
                     surface.set_at((star['x'], star['y']), color)
                 else:
@@ -1584,20 +1655,27 @@ class ShaolinTempleBackground:
                     (brazier_x + flame_width//2, brazier_y + flame_y_offset),
                 ]
                 
-                # 반투명 불꽃 효과
-                flame_surface = pygame.Surface((80, 60), pygame.SRCALPHA)
-                pygame.draw.polygon(flame_surface, (*flame_color, flame_alpha), 
+                # 반투명 불꽃 효과 (캐시된 surface 사용)
+                self._flame_surface.fill((0, 0, 0, 0))
+                pygame.draw.polygon(self._flame_surface, (*flame_color, flame_alpha),
                                   [(p[0] - brazier_x + 40, p[1] - brazier_y + 30) for p in flame_points])
-                surface.blit(flame_surface, (brazier_x - 40, brazier_y - 30))
-            
-            # 불빛 광채 효과
+                surface.blit(self._flame_surface, (brazier_x - 40, brazier_y - 30))
+
+            # 불빛 광채 효과 (캐시된 surface 사용)
             glow_radius = int(40 + abs(math.sin(self.brazier_fire_animation * 0.5)) * 10)
-            glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-            for i in range(glow_radius, 0, -2):
-                alpha = int(30 * (i / glow_radius))
-                pygame.draw.circle(glow_surface, (255, 150, 50, alpha), 
-                                 (glow_radius, glow_radius), i)
-            surface.blit(glow_surface, (brazier_x - glow_radius, brazier_y - glow_radius))
+            # 반지름 5단위로 양자화하여 캐시 효율 향상
+            glow_radius_q = (glow_radius // 5) * 5
+            if glow_radius_q not in self._glow_surface_cache:
+                glow_surface = pygame.Surface((glow_radius_q * 2, glow_radius_q * 2), pygame.SRCALPHA)
+                for i in range(glow_radius_q, 0, -2):
+                    alpha = int(30 * (i / glow_radius_q))
+                    pygame.draw.circle(glow_surface, (255, 150, 50, alpha),
+                                     (glow_radius_q, glow_radius_q), i)
+                self._glow_surface_cache[glow_radius_q] = glow_surface
+                # 캐시 크기 제한
+                if len(self._glow_surface_cache) > 10:
+                    self._glow_surface_cache.pop(next(iter(self._glow_surface_cache)))
+            surface.blit(self._glow_surface_cache[glow_radius_q], (brazier_x - glow_radius_q, brazier_y - glow_radius_q))
             
         else:
             # 불이 꺼진 상태
@@ -2825,9 +2903,10 @@ class ShaolinTempleBackground:
     def _draw_monk(self, surface: pygame.Surface, monk: Dict[str, Any]):
         """Draw a wandering monk with unique appearance"""
         x, y = int(monk['x']), int(monk['y'])
-        
-        # Create monk surface with alpha for opacity
-        monk_surface = pygame.Surface((60, 80), pygame.SRCALPHA)
+
+        # Use cached surface instead of creating new one every frame
+        self._monk_surface.fill((0, 0, 0, 0))
+        monk_surface = self._monk_surface
         
         # Colors for monk (개성있는 색상 적용)
         base_robe_color = monk.get('robe_color', (60, 50, 40))
@@ -3062,12 +3141,14 @@ class ShaolinTempleBackground:
             pygame.draw.circle(monk_surface, (40, 30, 20, monk['opacity']),
                              (robe_x + 5, int(robe_y + 32)), 2)
         
-        # Flip if facing left
-        if monk['direction'] == -1:
-            monk_surface = pygame.transform.flip(monk_surface, True, False)
-        
         # Draw to main surface
-        surface.blit(monk_surface, (x - 30, y - 40))
+        if monk['direction'] == -1:
+            # OPTIMIZATION: flip is required but pygame.transform.flip is relatively fast
+            # The real bottleneck is the drawing above, which uses cached _monk_surface
+            flipped = pygame.transform.flip(monk_surface, True, False)
+            surface.blit(flipped, (x - 30, y - 40))
+        else:
+            surface.blit(monk_surface, (x - 30, y - 40))
     
     def update(self, dt: float = 0.016):
         """Update animations"""
@@ -3081,13 +3162,13 @@ class ShaolinTempleBackground:
                 if self.fps_counter > 30:  # If low FPS for 0.5 seconds (faster activation)
                     self.performance_mode = True
                     self.red_moon_cache = None  # Force cache refresh
-                    print(f"Performance mode enabled (FPS: {current_fps:.1f})")
+                    # print(f"Performance mode enabled (FPS: {current_fps:.1f})")  # 디버그 비활성화
             else:
                 self.fps_counter = max(0, self.fps_counter - 1)
                 if self.fps_counter == 0 and self.performance_mode:
                     self.performance_mode = False
                     self.red_moon_cache = None  # Force cache refresh
-                    print("Performance mode disabled")
+                    # print("Performance mode disabled")  # 디버그 비활성화
         self._update_crows()
         self._update_monk_hit_effects()  # Update monk hit effects
         self._update_monk_death_effects()  # Update monk death particles
@@ -3620,22 +3701,38 @@ class ShaolinTempleBackground:
                 pygame.draw.rect(surface, mid_color,
                                (inner_x + 2, fill_y + 2, inner_width - 4, fill_height - 4))
             
-            # Core layer (brightest) with vertical gradient
-            if inner_width > 6:
+            # Core layer (brightest) with vertical gradient - OPTIMIZED with caching
+            if inner_width > 6 and fill_height > 6:
                 core_width = inner_width - 6
                 core_x = inner_x + 3
-                for i in range(fill_height - 6):
-                    gradient_ratio = i / max(1, fill_height - 6)
-                    # Gradient from bright at top to darker at bottom
-                    gradient_color = tuple(
-                        int(core_color[j] * (1.5 - gradient_ratio * 0.5)) 
-                        for j in range(3)
-                    )
-                    # Clamp to valid color range
-                    gradient_color = tuple(min(255, c) for c in gradient_color)
-                    pygame.draw.line(surface, gradient_color,
-                                   (core_x, fill_y + 3 + i),
-                                   (core_x + core_width - 1, fill_y + 3 + i))
+                gradient_height = fill_height - 6
+
+                # Determine state for cache key (quantize to reduce cache misses)
+                state_key = "active" if is_active else ("ready" if is_ready else "charging")
+                # Round core_color to nearest 10 to reduce cache variations
+                color_key = (core_color[0] // 10, core_color[1] // 10, core_color[2] // 10)
+                cache_key = (gradient_height, core_width, state_key, color_key)
+
+                # Check if we have a cached gradient surface
+                if cache_key not in self._gauge_gradient_cache:
+                    # Limit cache size to prevent memory bloat
+                    if len(self._gauge_gradient_cache) > 20:
+                        self._gauge_gradient_cache.clear()
+
+                    # Create gradient surface once
+                    gradient_surf = pygame.Surface((core_width, gradient_height), pygame.SRCALPHA)
+                    for i in range(gradient_height):
+                        gradient_ratio = i / max(1, gradient_height)
+                        gradient_color = tuple(
+                            min(255, int(core_color[j] * (1.5 - gradient_ratio * 0.5)))
+                            for j in range(3)
+                        )
+                        pygame.draw.line(gradient_surf, gradient_color,
+                                       (0, i), (core_width - 1, i))
+                    self._gauge_gradient_cache[cache_key] = gradient_surf
+
+                # Blit cached gradient surface
+                surface.blit(self._gauge_gradient_cache[cache_key], (core_x, fill_y + 3))
             
             # Add chi energy effect when ready or active
             if is_ready or is_active:
@@ -5188,9 +5285,7 @@ class ShaolinTempleBackground:
             }
             self.moon_fragments.append(fragment)
         
-        print(f"Spawned {num_fragments} moon fragments from ({moon_x}, {moon_y})!")
-        for frag in self.moon_fragments[-num_fragments:]:
-            print(f"  Fragment target: ({frag['target_x']}, {frag['target_y']}), speed: {math.sqrt(frag['vx']**2 + frag['vy']**2):.1f}")
+        # Debug output removed for performance
     
     def _update_moon_fragments(self):
         """Update moon crater fragments"""
@@ -5208,11 +5303,16 @@ class ShaolinTempleBackground:
         # Only spawn fragments if moon is red and temple is destroyed
         if self.moon_fragment_active or (self.temple_destroyed and self.moon_red_intensity > 0):
             self.moon_fragment_active = True
-            
+
+            # OPTIMIZATION: Limit maximum number of fragments to prevent performance issues
+            MAX_FRAGMENTS = 40  # Cap at 40 active fragments
+
             # Update spawn timer
             self.moon_fragment_timer += 1
             if self.moon_fragment_timer >= self.moon_fragment_interval:
-                self._spawn_moon_fragments()
+                # Only spawn if under limit
+                if len(self.moon_fragments) < MAX_FRAGMENTS:
+                    self._spawn_moon_fragments()
                 self.moon_fragment_timer = 0
                 # Reset interval for next spawn
                 self.moon_fragment_interval = random.randint(120, 900)  # 2-15 seconds
@@ -5236,27 +5336,14 @@ class ShaolinTempleBackground:
                         self._play_stage4_hit_sound()
                         continue
                 
-                # Add to trail
-                if len(fragment['trail']) < 15:
-                    fragment['trail'].append({
-                        'x': fragment['x'],
-                        'y': fragment['y'],
-                        'size': fragment['size'] * 0.7,
-                        'alpha': 150,
-                    })
+                # Add to trail - OPTIMIZED: reduced trail length and simplified alpha
+                max_trail = 10  # Reduced from 15 for performance
+                if len(fragment['trail']) < max_trail:
+                    fragment['trail'].append((fragment['x'], fragment['y']))
                 else:
                     # Shift trail and add new position
                     fragment['trail'].pop(0)
-                    fragment['trail'].append({
-                        'x': fragment['x'],
-                        'y': fragment['y'],
-                        'size': fragment['size'] * 0.7,
-                        'alpha': 150,
-                    })
-                
-                # Fade trail
-                for i, trail_point in enumerate(fragment['trail']):
-                    trail_point['alpha'] = int(150 * (i / len(fragment['trail'])))
+                    fragment['trail'].append((fragment['x'], fragment['y']))
                 
                 # Check if reached target or went off screen
                 dist_to_target = math.sqrt((fragment['x'] - fragment['target_x'])**2 + 
@@ -5272,12 +5359,6 @@ class ShaolinTempleBackground:
                 expired = fragment['lifetime'] <= 0
                 
                 if off_screen or expired:
-                    # Debug: print why fragment is impacting
-                    if off_screen:
-                        print(f"Fragment impact: off screen at ({fragment['x']:.0f}, {fragment['y']:.0f})")
-                    elif expired:
-                        print(f"Fragment impact: expired at ({fragment['x']:.0f}, {fragment['y']:.0f})")
-                    
                     fragment['impact'] = True
                     fragment['impact_timer'] = 30  # 0.5 second impact effect
                     # Create impact shockwave effect
@@ -5603,33 +5684,41 @@ class ShaolinTempleBackground:
     
     def _draw_moon_fragments(self, surface: pygame.Surface):
         """Draw moon crater fragments (optimized)"""
-        # OPTIMIZATION: Get cached trail surface or create once
+        # OPTIMIZATION: Pre-cache trail surfaces by size
         if not hasattr(self, '_trail_surf_cache'):
             self._trail_surf_cache = {}
 
         for fragment in self.moon_fragments:
             if not fragment['impact']:
-                # Draw trail (optimized - skip every other trail point)
-                trail_len = len(fragment['trail'])
-                for idx, trail_point in enumerate(fragment['trail']):
-                    # Skip every other point for performance
-                    if idx % 2 == 0 and idx < trail_len - 1:
-                        continue
+                # Draw trail (optimized - simplified tuple format)
+                trail = fragment['trail']
+                trail_len = len(trail)
+                frag_size = fragment['size']
+                trail_base_size = int(frag_size * 0.7)
 
-                    trail_size = int(trail_point['size'])
-                    cache_key = (trail_size, trail_point['alpha'] // 30)  # Group by size and alpha range
+                # Only draw every 2nd point for performance
+                for idx in range(0, trail_len, 2):
+                    trail_point = trail[idx]
+                    # Calculate alpha based on position in trail
+                    alpha = int(150 * (idx / max(1, trail_len)))
+                    trail_size = max(2, trail_base_size - (trail_len - idx) // 2)
+
+                    # Cache key by size and alpha range
+                    cache_key = (trail_size, alpha // 40)
+
+                    # Limit cache size before adding new entries
+                    if len(self._trail_surf_cache) > 30:
+                        self._trail_surf_cache.clear()
 
                     if cache_key not in self._trail_surf_cache:
                         trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
-                        # Simplified trail - single circle instead of 3 layers
-                        alpha = trail_point['alpha']
-                        color = (*self.colors['fragment_trail'][:3], alpha)
+                        color = (*self.colors['fragment_trail'][:3], min(alpha, 150))
                         pygame.draw.circle(trail_surf, color, (trail_size, trail_size), trail_size)
                         self._trail_surf_cache[cache_key] = trail_surf
 
                     surface.blit(self._trail_surf_cache[cache_key],
-                               (int(trail_point['x'] - trail_size),
-                                int(trail_point['y'] - trail_size)))
+                               (int(trail_point[0] - trail_size),
+                                int(trail_point[1] - trail_size)))
 
                 # Draw main fragment with glow
                 fragment_surf = pygame.Surface((fragment['size'] * 4, fragment['size'] * 4), pygame.SRCALPHA)

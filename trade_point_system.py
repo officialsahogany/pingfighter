@@ -26,6 +26,30 @@ except Exception:
     def record_trigger(position):  # type: ignore
         return None
 
+try:
+    from item_effects.gold_digger import (
+        is_gold_digger_equipped,
+        is_gold_digger_active,
+    )
+except Exception:
+
+    def is_gold_digger_equipped() -> bool:  # type: ignore
+        return False
+
+    def is_gold_digger_active() -> bool:  # type: ignore
+        return False
+
+
+def get_gold_digger_bonus_pct() -> int:
+    """pingfighter의 롤 옵션 값을 가져옴"""
+    try:
+        if 'pingfighter' in sys.modules:
+            pf = sys.modules['pingfighter']
+            return getattr(pf, 'gold_digger_bonus_pct', 50)
+    except Exception:
+        pass
+    return 50  # 기본값
+
 # 리소스 경로 헬퍼 (PyInstaller 호환)
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller"""
@@ -102,16 +126,18 @@ class TradePointSystem:
             self.stars.append(star_data)
             self._spawn_particles(spawn_x, spawn_y, source_type)
 
-            print(f" [spawn_star]   ! bonus={is_bonus_spawn}")
-            print(f"    : ({spawn_x:.1f}, {spawn_y:.1f})")
-            print(f"    : {source_type}")
-            print(f"    : vx={star_data['vx']:.2f}, vy={star_data['vy']:.2f}")
-            print(f"       : {len(self.stars)}")
+            # 디버그 비활성화 - 성능 영향
+            # print(f" [spawn_star]   ! bonus={is_bonus_spawn}")
+            # print(f"    : ({spawn_x:.1f}, {spawn_y:.1f})")
+            # print(f"    : {source_type}")
+            # print(f"    : vx={star_data['vx']:.2f}, vy={star_data['vy']:.2f}")
+            # print(f"       : {len(self.stars)}")
 
             return star_data
 
         spawn_positions: list[tuple[float, float, bool]] = [(x, y, False)]
         extra_spawn_count = 0
+        print(f"[DEBUG-SPAWN] 별 스폰 요청: ({x:.1f}, {y:.1f}), source={source_type}")
 
         if is_star_detector_active():
             try:
@@ -159,70 +185,84 @@ class TradePointSystem:
             }
             self.particles.append(particle)
     
-    def update(self, ball_rect=None, paddle_rect=None):
+    def update(self, ball_rect=None, paddle_rect=None, paused=False):
         """
         시스템 업데이트
         Args:
             ball_rect: 공의 충돌 영역 (현재 사용 안 함 - 패들로만 수집 가능)
             paddle_rect: 패들의 충돌 영역 (수집 체크용)
+            paused: 일시정지 상태 (True면 이동/애니메이션 정지, 수집 및 제거는 계속)
         Returns:
             collected: 이번 프레임에 수집된 별 개수
         """
         collected_this_frame = 0
-        
+
+        # 디버그: 별 개수 출력 비활성화 (성능)
+        # if len(self.stars) > 0 and self.draw_debug_count % 60 == 0:
+        #     active_stars = [s for s in self.stars if not s['collected']]
+        #     if active_stars:
+        #         print(f"[DEBUG-STARS] 활성 별 {len(active_stars)}개, 패들: {paddle_rect}")
+        self.draw_debug_count += 1
+
         # 별 업데이트
         stars_to_remove = []
         for star in self.stars:
             if star['collected']:
                 continue
-            
-            # 수명 감소
+
+            # 일시정지 중에도 수명은 계속 감소 (악용 방지)
             star['life'] -= 1
             if star['life'] <= 0:
                 stars_to_remove.append(star)
                 continue
-            
-            # 위치 업데이트 (포물선 효과 + 가속도)
-            star['float_timer'] += 0.05
-            
-            # 수평 이동 (초기 속도 + 약간의 흔들림)
-            star['x'] += star['vx'] + math.sin(star['float_timer']) * 0.1  # 약간의 좌우 흔들림
-            star['y'] += star['vy']  # 수직 이동
-            
-            # 중력 가속도 적용 (점점 빨라짐)
-            star['vy'] += star['acceleration']
-            if star['vy'] > 12.0:  # 최대 속도 제한 (더 빠르게)
-                star['vy'] = 12.0
-            
-            # 벽 충돌 체크 및 튕김
-            # 왼쪽 벽
-            if star['x'] <= star['size']:
-                star['x'] = star['size']
-                star['vx'] = abs(star['vx']) * star['bounce_damping']  # 오른쪽으로 튕김
-            
-            # 오른쪽 벽
-            if star['x'] >= 600 - star['size']:  # WIDTH = 600
-                star['x'] = 600 - star['size']
-                star['vx'] = -abs(star['vx']) * star['bounce_damping']  # 왼쪽으로 튕김
-            
-            # 수평 속도 감쇠 (공기 저항)
-            star['vx'] *= 0.98
-            
-            # 화면 밖으로 나가면 제거
-            if star['y'] > 750:  # 화면 하단 밖
-                stars_to_remove.append(star)
-                continue
-            
-            # 회전
-            star['rotation'] += star['rotation_speed']
-            
-            # 반짝임 효과
-            star['glow_timer'] += 0.1
-            star['glow_intensity'] = 0.7 + 0.3 * abs(math.sin(star['glow_timer']))
+
+            # 일시정지 중에는 이동, 회전만 정지
+            if not paused:
+                # 위치 업데이트 (포물선 효과 + 가속도)
+                star['float_timer'] += 0.05
+
+                # 수평 이동 (초기 속도 + 약간의 흔들림)
+                star['x'] += star['vx'] + math.sin(star['float_timer']) * 0.1  # 약간의 좌우 흔들림
+                star['y'] += star['vy']  # 수직 이동
+
+                # 중력 가속도 적용 (점점 빨라짐)
+                star['vy'] += star['acceleration']
+                if star['vy'] > 12.0:  # 최대 속도 제한 (더 빠르게)
+                    star['vy'] = 12.0
+
+                # 벽 충돌 체크 및 튕김
+                # 게임 영역: 80 ~ 680 (필러 오프셋 적용)
+                GAME_LEFT = 80  # PILLAR_UI_WIDTH
+                GAME_RIGHT = 680  # PILLAR_UI_WIDTH + GAME_PLAY_WIDTH
+
+                # 왼쪽 벽
+                if star['x'] <= GAME_LEFT + star['size']:
+                    star['x'] = GAME_LEFT + star['size']
+                    star['vx'] = abs(star['vx']) * star['bounce_damping']  # 오른쪽으로 튕김
+
+                # 오른쪽 벽
+                if star['x'] >= GAME_RIGHT - star['size']:
+                    star['x'] = GAME_RIGHT - star['size']
+                    star['vx'] = -abs(star['vx']) * star['bounce_damping']  # 왼쪽으로 튕김
+
+                # 수평 속도 감쇠 (공기 저항)
+                star['vx'] *= 0.98
+
+                # 화면 밖으로 나가면 제거
+                if star['y'] > 750:  # 화면 하단 밖
+                    stars_to_remove.append(star)
+                    continue
+
+                # 회전
+                star['rotation'] += star['rotation_speed']
+
+                # 반짝임 효과
+                star['glow_timer'] += 0.1
+                star['glow_intensity'] = 0.7 + 0.3 * abs(math.sin(star['glow_timer']))
             
             # 수집 체크 - 패들로만 수집 가능
             # (공으로는 별을 획득할 수 없음)
-            
+
             # 패들과 충돌 체크
             if paddle_rect:
                 # 별의 더 작은 충돌 영역 (패들은 정확한 충돌 필요)
@@ -232,19 +272,39 @@ class TradePointSystem:
                     star['size'] * 2,
                     star['size'] * 2
                 )
-                
+
+                # 디버그: 별과 패들 위치 출력 비활성화 (성능)
+                # if star['y'] > 650:  # 플레이어 근처
+                #     print(f"[DEBUG-STAR] 별 위치: ({star['x']:.1f}, {star['y']:.1f}), "
+                #           f"패들: ({paddle_rect.x}, {paddle_rect.y}, {paddle_rect.width}x{paddle_rect.height})")
+
                 if paddle_rect.colliderect(star_collision_rect):
                     star['collected'] = True
-                    self.collected_count += 1
-                    collected_this_frame += 1
 
-                    bonus_spawn = bool(star.get('is_bonus_spawn'))
+                    # 골드디거 효과 적용: 장착 시 추가 별 포인트 획득 확률
+                    base_amount = 1
+                    bonus_amount = 0
+                    gold_digger_triggered = False
 
-                    # 수집 텍스트 추가
+                    if is_gold_digger_equipped():
+                        # 롤 옵션 값 사용 (30%~70%)
+                        bonus_pct = get_gold_digger_bonus_pct()
+                        extra_chance = bonus_pct / 100.0
+                        if random.random() < extra_chance:
+                            bonus_amount = 1
+                            gold_digger_triggered = True
+
+                    total_amount = base_amount + bonus_amount
+                    self.collected_count += total_amount
+                    collected_this_frame += total_amount
+
+                    bonus_spawn = bool(star.get('is_bonus_spawn')) or gold_digger_triggered
+
+                    # 수집 텍스트 추가 (골드디거 보너스 포함)
                     self._add_collection_text(
                         star['x'],
                         star['y'],
-                        amount=1,
+                        amount=total_amount,
                         bonus=bonus_spawn,
                     )
 
@@ -350,11 +410,11 @@ class TradePointSystem:
     
     def draw(self):
         """시스템 렌더링"""
-        # 디버그: draw 호출 확인 (처음 10번만)
-        active_stars = len([s for s in self.stars if not s['collected']])
-        if active_stars > 0 and self.draw_debug_count < 10:
-            print(f" [draw #{self.draw_debug_count+1}]  {active_stars}")
-            self.draw_debug_count += 1
+        # 디버그 비활성화 - 성능 영향
+        # active_stars = len([s for s in self.stars if not s['collected']])
+        # if active_stars > 0 and self.draw_debug_count < 10:
+        #     print(f" [draw #{self.draw_debug_count+1}]  {active_stars}")
+        #     self.draw_debug_count += 1
         
         # 파티클 먼저 그리기
         self._draw_particles()
@@ -407,9 +467,9 @@ class TradePointSystem:
             if star['collected']:
                 continue
             
-            # 디버그: 별 그리기 상세 정보 (처음 10번만)
-            if self.draw_debug_count <= 10:
-                print(f"    #{idx+1} : =({star['x']:.1f}, {star['y']:.1f}), life={star['life']}, size={star['size']}")
+            # 디버그 비활성화 - 성능 영향
+            # if self.draw_debug_count <= 10:
+            #     print(f"    #{idx+1} : =({star['x']:.1f}, {star['y']:.1f}), life={star['life']}, size={star['size']}")
             
             # 투명도 계산
             alpha = min(255, star['life'] * 2)

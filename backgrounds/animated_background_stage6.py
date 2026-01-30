@@ -5,8 +5,26 @@
 """
 
 import pygame
+import pygame.surfarray
 import math
 import random
+import numpy as np
+
+# ============================================================
+# Surface 캐시 시스템 (성능 최적화)
+# ============================================================
+_stage6_surface_cache = {}
+
+def _get_cached_surface(width: int, height: int) -> pygame.Surface:
+    """캐시된 투명 Surface 반환"""
+    key = (width, height)
+    if key not in _stage6_surface_cache:
+        if len(_stage6_surface_cache) > 100:
+            _stage6_surface_cache.clear()
+        _stage6_surface_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
+    surface = _stage6_surface_cache[key]
+    surface.fill((0, 0, 0, 0))
+    return surface
 
 # 화면 크기 - config에서 가져오기
 try:
@@ -40,6 +58,11 @@ class AnimatedBackgroundStage6:
         self._shadow_surface = pygame.Surface((width, 100), pygame.SRCALPHA)
         self._platform_surface = pygame.Surface((width, 100), pygame.SRCALPHA)
         self._transparent = (0, 0, 0, 0)
+
+        # 그라데이션 캐시 (numpy 최적화 - 374회 draw.rect 제거)
+        self._sky_gradient_cache = None
+        self._ocean_gradient_cache = None
+        self._init_gradient_caches()
 
         # 구름 서피스 캐싱 (구름마다 하나씩)
         self._cloud_surfaces = []
@@ -88,10 +111,44 @@ class AnimatedBackgroundStage6:
             (150, 40, 10),    # 어두운 빨강
         ]
         
+    def _init_gradient_caches(self):
+        """하늘/바다 그라데이션을 numpy로 사전 렌더링 (374회 draw.rect → 1회 blit)"""
+        half_height = self.height // 2
+
+        # === 하늘 그라데이션 캐시 ===
+        self._sky_gradient_cache = pygame.Surface((self.width, half_height))
+        sky_arr = np.zeros((self.width, half_height, 3), dtype=np.uint8)
+        y_indices = np.arange(half_height, dtype=np.float32)
+        factors = y_indices / half_height
+
+        # sky_blue → horizon_color 그라데이션
+        sky_r = (self.sky_blue[0] + (self.horizon_color[0] - self.sky_blue[0]) * factors).astype(np.uint8)
+        sky_g = (self.sky_blue[1] + (self.horizon_color[1] - self.sky_blue[1]) * factors).astype(np.uint8)
+        sky_b = (self.sky_blue[2] + (self.horizon_color[2] - self.sky_blue[2]) * factors).astype(np.uint8)
+
+        sky_arr[:, :, 0] = sky_r
+        sky_arr[:, :, 1] = sky_g
+        sky_arr[:, :, 2] = sky_b
+        pygame.surfarray.blit_array(self._sky_gradient_cache, sky_arr)
+
+        # === 바다 그라데이션 캐시 ===
+        self._ocean_gradient_cache = pygame.Surface((self.width, half_height))
+        ocean_arr = np.zeros((self.width, half_height, 3), dtype=np.uint8)
+
+        # ocean_surface → ocean_deep 그라데이션
+        ocean_r = (self.ocean_surface[0] + (self.ocean_deep[0] - self.ocean_surface[0]) * factors).astype(np.uint8)
+        ocean_g = (self.ocean_surface[1] + (self.ocean_deep[1] - self.ocean_surface[1]) * factors).astype(np.uint8)
+        ocean_b = (self.ocean_surface[2] + (self.ocean_deep[2] - self.ocean_surface[2]) * factors).astype(np.uint8)
+
+        ocean_arr[:, :, 0] = ocean_r
+        ocean_arr[:, :, 1] = ocean_g
+        ocean_arr[:, :, 2] = ocean_b
+        pygame.surfarray.blit_array(self._ocean_gradient_cache, ocean_arr)
+
     def update(self):
         self.time += 1
         self.fire_glow_phase += 0.05  # 불꽃 맥동 애니메이션
-        
+
         # 파도 업데이트
         for wave in self.waves:
             wave['phase'] += wave['speed']
@@ -107,29 +164,14 @@ class AnimatedBackgroundStage6:
         self._update_fire_lines()
     
     def draw(self, screen):
-        # 하늘 그라데이션 (위에서 아래로)
-        for y in range(0, self.height // 2, 4):
-            factor = y / (self.height // 2)
-            # 하늘색에서 수평선 색으로 그라데이션
-            color = (
-                int(self.sky_blue[0] + (self.horizon_color[0] - self.sky_blue[0]) * factor),
-                int(self.sky_blue[1] + (self.horizon_color[1] - self.sky_blue[1]) * factor),
-                int(self.sky_blue[2] + (self.horizon_color[2] - self.sky_blue[2]) * factor)
-            )
-            pygame.draw.rect(screen, color, (0, y, self.width, 4))
-        
+        # 하늘 그라데이션 (캐시된 Surface 사용 - 374회 draw.rect → 2회 blit)
+        screen.blit(self._sky_gradient_cache, (0, 0))
+
         # 구름 그리기
         self._draw_clouds(screen)
-        
-        # 바다 그라데이션 (수평선 아래)
-        for y in range(self.height // 2, self.height, 4):
-            factor = (y - self.height // 2) / (self.height // 2)
-            color = (
-                int(self.ocean_surface[0] + (self.ocean_deep[0] - self.ocean_surface[0]) * factor),
-                int(self.ocean_surface[1] + (self.ocean_deep[1] - self.ocean_surface[1]) * factor),
-                int(self.ocean_surface[2] + (self.ocean_deep[2] - self.ocean_surface[2]) * factor)
-            )
-            pygame.draw.rect(screen, color, (0, y, self.width, 4))
+
+        # 바다 그라데이션 (캐시된 Surface 사용)
+        screen.blit(self._ocean_gradient_cache, (0, self.height // 2))
         
         # 파도 그리기
         self._draw_waves(screen)
@@ -334,9 +376,10 @@ class AnimatedBackgroundStage6:
                     60 + int(40 * glow_intensity), 
                     20)
             
-            # 글로우 서피스에 그리기
-            glow_surface = pygame.Surface((radius * 2 + 20, radius * 2 + 20), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surface, (*color, alpha), 
+            # 글로우 서피스에 그리기 - 캐시 사용
+            glow_size = radius * 2 + 20
+            glow_surface = _get_cached_surface(glow_size, glow_size)
+            pygame.draw.circle(glow_surface, (*color, alpha),
                              (radius + 10, radius + 10), radius, 2 + i)
             screen.blit(glow_surface, (center_x - radius - 10, center_y - radius - 10))
         
@@ -364,8 +407,8 @@ class AnimatedBackgroundStage6:
                         60 + int(40 * glow_intensity),
                         20)
                 
-                # 글로우 라인
-                glow_surface = pygame.Surface((dash_length + 10, 10), pygame.SRCALPHA)
+                # 글로우 라인 - 캐시 사용
+                glow_surface = _get_cached_surface(dash_length + 10, 10)
                 pygame.draw.line(glow_surface, (*color, alpha),
                                (5, 5), (dash_length + 5, 5), thickness)
                 screen.blit(glow_surface, (current_x - 5, self.stadium_line_y - 5))
@@ -379,13 +422,14 @@ class AnimatedBackgroundStage6:
         
         # 불꽃 파티클 그리기
         for particle in self.fire_line_particles:
-            # 파티클 글로우 효과
+            # 파티클 글로우 효과 - 캐시 사용
             glow_alpha = int(particle['glow'] * particle['life'] * 1.5)
             if glow_alpha > 0:
-                glow_size = particle['size'] * 1.5
-                glow_surface = pygame.Surface((int(glow_size * 2), int(glow_size * 2)), pygame.SRCALPHA)
+                glow_size = int(particle['size'] * 1.5)
+                surf_size = max(1, glow_size * 2)
+                glow_surface = _get_cached_surface(surf_size, surf_size)
                 pygame.draw.circle(glow_surface, (*particle['color'], min(glow_alpha, 100)),
-                                 (int(glow_size), int(glow_size)), int(glow_size))
+                                 (glow_size, glow_size), glow_size)
                 screen.blit(glow_surface, (particle['x'] - glow_size, particle['y'] - glow_size))
             
             # 파티클 본체

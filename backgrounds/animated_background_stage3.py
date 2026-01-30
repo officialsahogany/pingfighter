@@ -2,6 +2,22 @@ import pygame
 import math
 import random
 
+# ============================================================
+# Surface 캐시 시스템 (성능 최적화)
+# ============================================================
+_stage3_surface_cache = {}
+
+def _get_cached_surface(width: int, height: int) -> pygame.Surface:
+    """캐시된 투명 Surface 반환"""
+    key = (width, height)
+    if key not in _stage3_surface_cache:
+        if len(_stage3_surface_cache) > 100:
+            _stage3_surface_cache.clear()
+        _stage3_surface_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
+    surface = _stage3_surface_cache[key]
+    surface.fill((0, 0, 0, 0))
+    return surface
+
 class AnimatedBackgroundStage3:
     def __init__(self, base_image_path="stage3_field.png"):
         self.base_image = pygame.image.load(base_image_path).convert()
@@ -84,9 +100,9 @@ class AnimatedBackgroundStage3:
         
         screen.blit(self.particle_surface, (0, 0), special_flags=pygame.BLEND_ADD)
         
-        # 픽셀 하트 테두리 펄스
+        # 픽셀 하트 테두리 펄스 - 캐시 사용
         if self.pixel_heart_pulse > 0.7:
-            border_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            border_surface = _get_cached_surface(self.width, self.height)
             alpha = int((self.pixel_heart_pulse - 0.7) * 500)
             
             # 상단 하트들 빛나기

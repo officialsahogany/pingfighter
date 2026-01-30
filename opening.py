@@ -37,21 +37,25 @@ class IntroCutscene:
             self.font_large = pygame.freetype.Font(
                 resource_path("NanumSquareB.ttf"), 32
             )
+            # 대화창용 함초롱바탕 Bold 폰트
             self.font_medium = pygame.freetype.Font(
-                resource_path("NanumSquareB.ttf"), 24
+                resource_path(os.path.join("font", "HCRBatang-Bold.ttf")), 24
             )
             self.font_small = pygame.freetype.Font(
-                resource_path("NanumSquareB.ttf"), 20
+                resource_path(os.path.join("font", "HCRBatang-Bold.ttf")), 20
             )
             self.font_hint = pygame.freetype.Font(
                 resource_path("NanumSquareR.ttf"), 14
             )
+            # 기본 폰트 (대화창 텍스트용)
+            self.font = self.font_medium
         except Exception as e:
             print(f"[IntroCutscene] 폰트 로드 실패, 기본 폰트 사용: {e}")
             self.font_large = pygame.freetype.SysFont("Arial", 32)
             self.font_medium = pygame.freetype.SysFont("Arial", 24)
             self.font_small = pygame.freetype.SysFont("Arial", 20)
             self.font_hint = pygame.freetype.SysFont("Arial", 14)
+            self.font = self.font_medium
 
         # 명언 데이터 (두 명언을 한 화면에 표시)
         self.combined_quotes = [
@@ -277,8 +281,10 @@ class IntroCutscene:
                 if self._check_skip_all(event):
                     return  # Ctrl로 전체 스킵
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        return  # ESC로만 스킵 (드라마틱 연출 유지)
+                    if event.key in (pygame.K_ESCAPE, pygame.K_SPACE, pygame.K_RETURN):
+                        return  # ESC, 스페이스, 엔터로 스킵
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    return  # 마우스 클릭으로 스킵
 
             # 검은 배경
             self.screen.fill((0, 0, 0))
@@ -344,15 +350,16 @@ class IntroCutscene:
             image_y = 0
             new_h = self.height - text_box_height - 50
 
-        # 텍스트 박스 위치 (하단 검은 공간 중앙에 위치)
-        text_box_y = self.height - text_box_height - 60
+        # 텍스트 박스 위치 (하단에 정렬)
+        text_box_y = self.height - text_box_height - 30
 
         # 페이드인 (이미지) - skip_fade_in이 True면 생략
         if not skip_fade_in:
             fade_in_frames = int(1.5 * fps)  # 1.5초 페이드인
+            skip_fade = False
             for frame in range(fade_in_frames):
-                if self.skip_all:
-                    return
+                if self.skip_all or skip_fade:
+                    break
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         pygame.quit()
@@ -361,6 +368,10 @@ class IntroCutscene:
                         return
                     if self._check_skip_all(event):
                         return
+                    # 마우스 클릭 또는 스페이스/엔터로 페이드인 스킵
+                    if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)):
+                        skip_fade = True
+                        break
 
                 alpha = int(255 * (frame / fade_in_frames))
                 self.screen.fill((0, 0, 0))
@@ -374,25 +385,31 @@ class IntroCutscene:
                 pygame.display.flip()
                 self.clock.tick(fps)
 
-            # 텍스트 시작 전 딜레이
-            delay_frames = int(text_delay * fps)
-            for frame in range(delay_frames):
-                if self.skip_all:
-                    return
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        sys.exit()
-                    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                        return
-                    if self._check_skip_all(event):
-                        return
+            # 텍스트 시작 전 딜레이 (페이드인 스킵 시 딜레이도 스킵)
+            if not skip_fade:
+                delay_frames = int(text_delay * fps)
+                skip_delay = False
+                for frame in range(delay_frames):
+                    if self.skip_all or skip_delay:
+                        break
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            pygame.quit()
+                            sys.exit()
+                        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                            return
+                        if self._check_skip_all(event):
+                            return
+                        # 마우스 클릭 또는 스페이스/엔터로 딜레이 스킵
+                        if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)):
+                            skip_delay = True
+                            break
 
-                self.screen.fill((0, 0, 0))
-                self.screen.blit(image, (image_x, image_y))
-                self._draw_skip_hint()
-                pygame.display.flip()
-                self.clock.tick(fps)
+                    self.screen.fill((0, 0, 0))
+                    self.screen.blit(image, (image_x, image_y))
+                    self._draw_skip_hint()
+                    pygame.display.flip()
+                    self.clock.tick(fps)
 
         # 대사 리스트 처리 (쉼표로 구분된 경우 분리)
         if isinstance(dialogues, str):
@@ -406,6 +423,812 @@ class IntroCutscene:
                 continue
 
             self._show_typing_dialogue(image, image_x, image_y, dialogue, text_box_y, text_box_height, text_color, speaker)
+
+    def show_zoom_in_scene(self, image_path, dialogues, zoom_target=(0.45, 0.35), zoom_start=1.0, zoom_end=1.8, zoom_duration=3.0, text_color=(255, 255, 255), speaker=None):
+        """줌인 효과가 있는 스토리 씬 표시 (대화와 동시에 줌인)
+
+        Args:
+            image_path: 배경 이미지 경로
+            dialogues: 대사 리스트
+            zoom_target: 줌인 목표 지점 (0~1 비율, x, y) - 상자 가운데
+            zoom_start: 시작 줌 배율
+            zoom_end: 최종 줌 배율
+            zoom_duration: 줌인 지속 시간 (초)
+            text_color: 텍스트 색상
+            speaker: 화자 이름
+        """
+        if self.skip_all:
+            return
+
+        fps = 60
+        text_box_height = 180
+
+        # 이미지 로드
+        try:
+            original_image = pygame.image.load(resource_path(image_path)).convert()
+            orig_w, orig_h = original_image.get_size()
+        except Exception as e:
+            print(f"[IntroCutscene] 이미지 로드 실패: {e}")
+            return
+
+        # 텍스트 박스 위치
+        text_box_y = self.height - text_box_height - 30
+        available_height = self.height - text_box_height - 50
+        display_w = self.width
+        display_h = available_height
+
+        # 원본 이미지를 화면에 맞게 스케일 (show_story_scene과 동일한 방식)
+        scale_w = display_w / orig_w
+        scale_h = available_height / orig_h
+        base_scale = min(scale_w, scale_h)
+
+        # 화면을 채우도록 조정
+        if int(orig_w * base_scale) < display_w:
+            base_scale = display_w / orig_w
+
+        base_w = int(orig_w * base_scale)
+        base_h = int(orig_h * base_scale)
+        base_image = pygame.transform.smoothscale(original_image, (base_w, base_h))
+        base_x = (display_w - base_w) // 2
+        base_y = (available_height - base_h) // 2
+
+        # 줌 레벨에 따른 이미지 생성 함수 (줌인 시 타겟으로 이동)
+        def get_zoomed_image(zoom_progress):
+            # zoom_progress: 0.0 = 원본, 1.0 = 최대 줌인
+            current_scale = base_scale * (1 + (zoom_end / zoom_start - 1) * zoom_progress)
+
+            zoomed_w = int(orig_w * current_scale)
+            zoomed_h = int(orig_h * current_scale)
+            zoomed_image = pygame.transform.smoothscale(original_image, (zoomed_w, zoomed_h))
+
+            # 줌 진행에 따라 타겟으로 이동
+            # 시작: 중앙, 끝: 타겟 위치
+            center_x = zoomed_w // 2
+            center_y = zoomed_h // 2
+            target_x = int(zoom_target[0] * zoomed_w)
+            target_y = int(zoom_target[1] * zoomed_h)
+
+            # 현재 포커스 위치 (중앙에서 타겟으로 보간)
+            focus_x = int(center_x + (target_x - center_x) * zoom_progress)
+            focus_y = int(center_y + (target_y - center_y) * zoom_progress)
+
+            # 포커스가 화면 중앙에 오도록 오프셋 계산
+            offset_x = focus_x - display_w // 2
+            offset_y = focus_y - display_h // 2
+            offset_x = max(0, min(offset_x, zoomed_w - display_w))
+            offset_y = max(0, min(offset_y, zoomed_h - display_h))
+
+            crop_rect = pygame.Rect(offset_x, offset_y, min(display_w, zoomed_w), min(display_h, zoomed_h))
+            cropped = zoomed_image.subsurface(crop_rect).copy()
+
+            if cropped.get_width() < display_w or cropped.get_height() < display_h:
+                cropped = pygame.transform.smoothscale(cropped, (display_w, display_h))
+
+            return cropped
+
+        # 페이드인 (원본 이미지로)
+        fade_in_frames = int(1.5 * fps)
+        skip_fade = False
+        for frame in range(fade_in_frames):
+            if self.skip_all or skip_fade:
+                break
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    return
+                if self._check_skip_all(event):
+                    return
+                if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)):
+                    skip_fade = True
+                    break
+
+            alpha = int(255 * (frame / fade_in_frames))
+            self.screen.fill((0, 0, 0))
+
+            # 원본 이미지로 페이드인 (줌 없음)
+            temp_surface = base_image.copy()
+            temp_surface.set_alpha(alpha)
+            self.screen.blit(temp_surface, (base_x, base_y))
+
+            self._draw_skip_hint()
+            pygame.display.flip()
+            self.clock.tick(fps)
+
+        # 대사 리스트 처리
+        if isinstance(dialogues, str):
+            dialogue_list = [dialogues]
+        else:
+            dialogue_list = dialogues
+
+        # 줌 관련 변수 (백그라운드에서 계속 진행)
+        zoom_total_frames = int(zoom_duration * fps)
+        zoom_frame = 0
+
+        # 텍스트 영역 설정
+        box_margin = 30
+        box_x = box_margin
+        box_width = self.width - box_margin * 2
+        box_height = text_box_height - 20
+        text_padding = 25
+
+        # 각 대사를 순차적으로 표시 (줌인은 백그라운드에서 계속 진행)
+        for dialogue in dialogue_list:
+            if self.skip_all or not dialogue:
+                continue
+
+            typing_speed = 0.05
+            char_timer = 0
+            char_index = 0
+            displayed_text = ""
+            typing_done = False
+
+            while True:
+                if self.skip_all:
+                    return
+
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            return
+                        if self._check_skip_all(event):
+                            return
+                        if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
+                            if typing_done:
+                                break  # 다음 대사로
+                            else:
+                                # 타이핑 스킵
+                                displayed_text = dialogue
+                                char_index = len(dialogue)
+                                typing_done = True
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        if typing_done:
+                            break  # 다음 대사로
+                        else:
+                            displayed_text = dialogue
+                            char_index = len(dialogue)
+                            typing_done = True
+                else:
+                    # 타이핑 애니메이션
+                    if char_index < len(dialogue):
+                        char_timer += 1 / fps
+                        while char_timer >= typing_speed and char_index < len(dialogue):
+                            char_timer -= typing_speed
+                            displayed_text += dialogue[char_index]
+                            char_index += 1
+                    else:
+                        if not typing_done:
+                            typing_done = True
+
+                    # 줌 진행 (백그라운드에서 계속)
+                    if zoom_frame < zoom_total_frames:
+                        zoom_frame += 1
+                    zoom_progress = min(zoom_frame / zoom_total_frames, 1.0)
+
+                    # 그리기
+                    self.screen.fill((0, 0, 0))
+
+                    # 줌인된 이미지
+                    zoomed_img = get_zoomed_image(zoom_progress)
+                    img_x = (self.width - zoomed_img.get_width()) // 2
+                    img_y = (available_height - zoomed_img.get_height()) // 2
+                    self.screen.blit(zoomed_img, (img_x, img_y))
+
+                    # 바로크풍 텍스트 박스 그리기
+                    self._draw_baroque_frame(self.screen, box_x, text_box_y, box_width, box_height)
+
+                    # 텍스트 렌더링 (줄바꿈 지원)
+                    if displayed_text:
+                        text_x = box_x + text_padding
+                        lines = displayed_text.split('\n')
+                        line_height = 32
+                        total_text_height = len(lines) * line_height
+                        start_y = text_box_y + (box_height - total_text_height) // 2
+
+                        last_rect = None
+                        for i, line in enumerate(lines):
+                            if line:
+                                text_surface, text_rect = self.font_medium.render(line, text_color)
+                                text_y = start_y + i * line_height
+                                self.screen.blit(text_surface, (text_x, text_y))
+                                last_rect = text_rect
+                                last_y = text_y
+
+                        # 타이핑 중 커서 표시
+                        if not typing_done and int(pygame.time.get_ticks() / 500) % 2 == 0 and last_rect:
+                            cursor_x = text_x + last_rect.width + 3
+                            pygame.draw.rect(self.screen, text_color, (cursor_x, last_y, 2, 24))
+
+                    # 계속하려면... 안내
+                    if typing_done:
+                        hint_alpha = int(128 + 127 * math.sin(pygame.time.get_ticks() / 300))
+                        hint_surface, hint_rect = self.font_small.render("▼", text_color)
+                        hint_surface.set_alpha(hint_alpha)
+                        hint_x = box_x + box_width - 40
+                        hint_y = text_box_y + box_height - 35
+                        self.screen.blit(hint_surface, (hint_x, hint_y))
+
+                    self._draw_skip_hint()
+                    pygame.display.flip()
+                    self.clock.tick(fps)
+                    continue
+
+                # break로 나왔으면 다음 대사로
+                break
+
+    def show_final_black_scene(self, text, text_color=(255, 80, 80)):
+        """마지막 검은 배경 씬 - 텍스트 페이드인 후 클릭 대기, 페이드아웃
+
+        Args:
+            text: 표시할 텍스트
+            text_color: 텍스트 색상 (기본: 빨간색)
+        """
+        if self.skip_all:
+            return
+
+        fps = 60
+
+        # 텍스트 위치 계산
+        text_surface, text_rect = self.font_large.render(text, text_color)
+        text_x = (self.width - text_rect.width) // 2
+        text_y = (self.height - text_rect.height) // 2
+
+        # 텍스트 페이드인 (1.5초)
+        fade_in_frames = int(1.5 * fps)
+        skip_to_next = False
+        for frame in range(fade_in_frames):
+            if self.skip_all or skip_to_next:
+                break
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    return
+                if self._check_skip_all(event):
+                    return
+                if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)):
+                    skip_to_next = True
+                    break
+
+            alpha = int(255 * (frame / fade_in_frames))
+            self.screen.fill((0, 0, 0))
+
+            text_surface, text_rect = self.font_large.render(text, text_color)
+            text_surface.set_alpha(alpha)
+            self.screen.blit(text_surface, (text_x, text_y))
+
+            self._draw_skip_hint()
+            pygame.display.flip()
+            self.clock.tick(fps)
+
+        # 클릭 대기 (텍스트 표시 상태)
+        waiting = True
+        while waiting:
+            if self.skip_all:
+                return
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return
+                    if self._check_skip_all(event):
+                        return
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        waiting = False
+                        break
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    waiting = False
+                    break
+
+            self.screen.fill((0, 0, 0))
+            text_surface, text_rect = self.font_large.render(text, text_color)
+            self.screen.blit(text_surface, (text_x, text_y))
+
+            self._draw_skip_hint()
+            pygame.display.flip()
+            self.clock.tick(fps)
+
+        # 텍스트 페이드아웃 (1.5초)
+        fade_out_frames = int(1.5 * fps)
+        for frame in range(fade_out_frames):
+            if self.skip_all:
+                return
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    return
+                if self._check_skip_all(event):
+                    return
+
+            alpha = int(255 * (1 - frame / fade_out_frames))
+            self.screen.fill((0, 0, 0))
+
+            text_surface, text_rect = self.font_large.render(text, text_color)
+            text_surface.set_alpha(alpha)
+            self.screen.blit(text_surface, (text_x, text_y))
+
+            self._draw_skip_hint()
+            pygame.display.flip()
+            self.clock.tick(fps)
+
+        # 완전히 검은 화면으로 마무리 (0.5초)
+        for frame in range(int(0.5 * fps)):
+            if self.skip_all:
+                return
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+            self.screen.fill((0, 0, 0))
+            pygame.display.flip()
+            self.clock.tick(fps)
+
+    def show_zoom_in_out_scene(self, image_path, dialogues, zoom_target=(0.75, 0.4), zoom_in_duration=1.0, hold_duration=2.5, zoom_out_duration=1.0, zoom_end=1.4, text_color=(255, 255, 255), speaker=None, skip_fade_in=False):
+        """줌인 후 줌아웃 효과가 있는 스토리 씬 (얼굴 클로즈업용)
+
+        Args:
+            image_path: 배경 이미지 경로
+            dialogues: 대사 리스트
+            zoom_target: 줌인 목표 지점 (0~1 비율, x, y)
+            zoom_in_duration: 줌인 시간 (초)
+            hold_duration: 줌인 유지 시간 (초)
+            zoom_out_duration: 줌아웃 시간 (초)
+            zoom_end: 최대 줌 배율
+            text_color: 텍스트 색상
+            speaker: 화자 이름
+            skip_fade_in: 페이드인 생략 여부
+        """
+        if self.skip_all:
+            return
+
+        fps = 60
+        text_box_height = 180
+
+        # 이미지 로드
+        try:
+            original_image = pygame.image.load(resource_path(image_path)).convert()
+            orig_w, orig_h = original_image.get_size()
+        except Exception as e:
+            print(f"[IntroCutscene] 이미지 로드 실패: {e}")
+            return
+
+        # 텍스트 박스 위치
+        text_box_y = self.height - text_box_height - 30
+        available_height = self.height - text_box_height - 50
+        display_w = self.width
+        display_h = available_height
+
+        # 원본 이미지를 화면에 맞게 스케일
+        scale_w = display_w / orig_w
+        scale_h = available_height / orig_h
+        base_scale = min(scale_w, scale_h)
+        if int(orig_w * base_scale) < display_w:
+            base_scale = display_w / orig_w
+
+        base_w = int(orig_w * base_scale)
+        base_h = int(orig_h * base_scale)
+        base_image = pygame.transform.smoothscale(original_image, (base_w, base_h))
+        base_x = (display_w - base_w) // 2
+        base_y = (available_height - base_h) // 2
+
+        # 줌 레벨에 따른 이미지 생성 함수
+        def get_zoomed_image(zoom_progress):
+            current_scale = base_scale * (1 + (zoom_end - 1) * zoom_progress)
+            zoomed_w = int(orig_w * current_scale)
+            zoomed_h = int(orig_h * current_scale)
+            zoomed_image = pygame.transform.smoothscale(original_image, (zoomed_w, zoomed_h))
+
+            center_x = zoomed_w // 2
+            center_y = zoomed_h // 2
+            target_x = int(zoom_target[0] * zoomed_w)
+            target_y = int(zoom_target[1] * zoomed_h)
+
+            focus_x = int(center_x + (target_x - center_x) * zoom_progress)
+            focus_y = int(center_y + (target_y - center_y) * zoom_progress)
+
+            offset_x = focus_x - display_w // 2
+            offset_y = focus_y - display_h // 2
+            offset_x = max(0, min(offset_x, zoomed_w - display_w))
+            offset_y = max(0, min(offset_y, zoomed_h - display_h))
+
+            crop_rect = pygame.Rect(offset_x, offset_y, min(display_w, zoomed_w), min(display_h, zoomed_h))
+            cropped = zoomed_image.subsurface(crop_rect).copy()
+
+            if cropped.get_width() < display_w or cropped.get_height() < display_h:
+                cropped = pygame.transform.smoothscale(cropped, (display_w, display_h))
+
+            return cropped
+
+        # 페이드인 (원본 이미지로) - skip_fade_in이 True면 건너뜀
+        if not skip_fade_in:
+            fade_in_frames = int(1.0 * fps)
+            skip_fade = False
+            for frame in range(fade_in_frames):
+                if self.skip_all or skip_fade:
+                    break
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        return
+                    if self._check_skip_all(event):
+                        return
+                    if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)):
+                        skip_fade = True
+                        break
+
+                alpha = int(255 * (frame / fade_in_frames))
+                self.screen.fill((0, 0, 0))
+                temp_surface = base_image.copy()
+                temp_surface.set_alpha(alpha)
+                self.screen.blit(temp_surface, (base_x, base_y))
+                self._draw_skip_hint()
+                pygame.display.flip()
+                self.clock.tick(fps)
+
+        # 대사 리스트 처리
+        if isinstance(dialogues, str):
+            dialogue_list = [dialogues]
+        else:
+            dialogue_list = dialogues
+
+        # 줌 타이밍 계산
+        zoom_in_frames = int(zoom_in_duration * fps)
+        hold_frames = int(hold_duration * fps)
+        zoom_out_frames = int(zoom_out_duration * fps)
+        total_zoom_frames = zoom_in_frames + hold_frames + zoom_out_frames
+        zoom_frame = 0
+
+        # 텍스트 영역 설정
+        box_margin = 30
+        box_x = box_margin
+        box_width = self.width - box_margin * 2
+        box_height = text_box_height - 20
+        text_padding = 25
+
+        # 각 대사를 순차적으로 표시
+        for dialogue in dialogue_list:
+            if self.skip_all or not dialogue:
+                continue
+
+            typing_speed = 0.05
+            char_timer = 0
+            char_index = 0
+            displayed_text = ""
+            typing_done = False
+
+            while True:
+                if self.skip_all:
+                    return
+
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            return
+                        if self._check_skip_all(event):
+                            return
+                        if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
+                            if typing_done:
+                                break
+                            else:
+                                displayed_text = dialogue
+                                char_index = len(dialogue)
+                                typing_done = True
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        if typing_done:
+                            break
+                        else:
+                            displayed_text = dialogue
+                            char_index = len(dialogue)
+                            typing_done = True
+                else:
+                    # 타이핑 애니메이션
+                    if char_index < len(dialogue):
+                        char_timer += 1 / fps
+                        while char_timer >= typing_speed and char_index < len(dialogue):
+                            char_timer -= typing_speed
+                            displayed_text += dialogue[char_index]
+                            char_index += 1
+                    else:
+                        if not typing_done:
+                            typing_done = True
+
+                    # 줌 진행 (줌인 → 유지 → 줌아웃)
+                    if zoom_frame < total_zoom_frames:
+                        zoom_frame += 1
+
+                    if zoom_frame <= zoom_in_frames:
+                        # 줌인 단계
+                        zoom_progress = zoom_frame / zoom_in_frames
+                    elif zoom_frame <= zoom_in_frames + hold_frames:
+                        # 유지 단계
+                        zoom_progress = 1.0
+                    else:
+                        # 줌아웃 단계
+                        out_frame = zoom_frame - zoom_in_frames - hold_frames
+                        zoom_progress = 1.0 - (out_frame / zoom_out_frames)
+
+                    zoom_progress = max(0.0, min(1.0, zoom_progress))
+
+                    # 그리기
+                    self.screen.fill((0, 0, 0))
+                    zoomed_img = get_zoomed_image(zoom_progress)
+                    img_x = (self.width - zoomed_img.get_width()) // 2
+                    img_y = (available_height - zoomed_img.get_height()) // 2
+                    self.screen.blit(zoomed_img, (img_x, img_y))
+
+                    # 바로크풍 텍스트 박스 그리기
+                    self._draw_baroque_frame(self.screen, box_x, text_box_y, box_width, box_height)
+
+                    # 텍스트 렌더링
+                    if displayed_text:
+                        text_surface, text_rect = self.font_medium.render(displayed_text, text_color)
+                        text_x = box_x + text_padding
+                        text_y = text_box_y + (box_height - 32) // 2
+                        self.screen.blit(text_surface, (text_x, text_y))
+
+                        if not typing_done and int(pygame.time.get_ticks() / 500) % 2 == 0:
+                            cursor_x = text_x + text_rect.width + 3
+                            pygame.draw.rect(self.screen, text_color, (cursor_x, text_y, 2, 24))
+
+                    if typing_done:
+                        hint_alpha = int(128 + 127 * math.sin(pygame.time.get_ticks() / 300))
+                        hint_surface, hint_rect = self.font_small.render("▼", text_color)
+                        hint_surface.set_alpha(hint_alpha)
+                        hint_x = box_x + box_width - 40
+                        hint_y = text_box_y + box_height - 35
+                        self.screen.blit(hint_surface, (hint_x, hint_y))
+
+                    self._draw_skip_hint()
+                    pygame.display.flip()
+                    self.clock.tick(fps)
+                    continue
+
+                break
+
+    def show_overlay_fade_scene(self, base_image_path, overlay_image_path, dialogues, fade_duration=2.0, text_color=(255, 255, 255), speaker=None, skip_fade_in=False):
+        """베이스 이미지 위에 오버레이 이미지가 점점 페이드인되는 씬
+
+        Args:
+            base_image_path: 베이스 배경 이미지 경로
+            overlay_image_path: 위에 겹쳐질 오버레이 이미지 경로 (투명 배경)
+            dialogues: 대사 리스트
+            fade_duration: 오버레이 페이드인 시간 (초)
+            text_color: 텍스트 색상
+            speaker: 화자 이름
+            skip_fade_in: 초기 페이드인 생략 여부
+        """
+        if self.skip_all:
+            return
+
+        fps = 60
+        text_box_height = 180
+
+        # 베이스 이미지 로드
+        try:
+            base_original = pygame.image.load(resource_path(base_image_path)).convert()
+            base_orig_w, base_orig_h = base_original.get_size()
+        except Exception as e:
+            print(f"[IntroCutscene] 베이스 이미지 로드 실패: {e}")
+            return
+
+        # 오버레이 이미지 로드 (알파 채널 포함)
+        try:
+            overlay_original = pygame.image.load(resource_path(overlay_image_path)).convert_alpha()
+            overlay_orig_w, overlay_orig_h = overlay_original.get_size()
+
+            # 흰색 배경 투명하게 처리 (경계는 자연스러운 그라데이션)
+            for x in range(overlay_orig_w):
+                for y in range(overlay_orig_h):
+                    r, g, b, a = overlay_original.get_at((x, y))
+                    brightness = (r + g + b) // 3
+
+                    # 흰색/밝은색 (200 이상) - 완전 투명
+                    if brightness > 200:
+                        overlay_original.set_at((x, y), (r, g, b, 0))
+                    # 밝은 경계 (170~200) - 부드러운 그라데이션
+                    elif brightness > 170:
+                        new_alpha = int(255 * (200 - brightness) / 30)
+                        overlay_original.set_at((x, y), (r, g, b, new_alpha))
+                    # 나머지는 원본 유지 (완전 불투명)
+        except Exception as e:
+            print(f"[IntroCutscene] 오버레이 이미지 로드 실패: {e}")
+            return
+
+        # 텍스트 박스 위치
+        text_box_y = self.height - text_box_height - 30
+        available_height = self.height - text_box_height - 50
+        display_w = self.width
+        display_h = available_height
+
+        # 베이스 이미지 스케일
+        scale_w = display_w / base_orig_w
+        scale_h = available_height / base_orig_h
+        base_scale = min(scale_w, scale_h)
+        if int(base_orig_w * base_scale) < display_w:
+            base_scale = display_w / base_orig_w
+
+        base_w = int(base_orig_w * base_scale)
+        base_h = int(base_orig_h * base_scale)
+        base_image = pygame.transform.smoothscale(base_original, (base_w, base_h))
+        base_x = (display_w - base_w) // 2
+        base_y = (available_height - base_h) // 2
+
+        # 오버레이 이미지 스케일 (베이스보다 10% 크게)
+        overlay_scale = base_scale * 1.1  # 10% 더 크게
+        overlay_w = int(overlay_orig_w * overlay_scale)
+        overlay_h = int(overlay_orig_h * overlay_scale)
+        overlay_image = pygame.transform.smoothscale(overlay_original, (overlay_w, overlay_h))
+        overlay_x = (display_w - overlay_w) // 2
+        overlay_y = (available_height - overlay_h) // 2
+
+        # 초기 페이드인 (베이스 이미지만)
+        if not skip_fade_in:
+            fade_in_frames = int(1.0 * fps)
+            skip_fade = False
+            for frame in range(fade_in_frames):
+                if self.skip_all or skip_fade:
+                    break
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        return
+                    if self._check_skip_all(event):
+                        return
+                    if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)):
+                        skip_fade = True
+                        break
+
+                alpha = int(255 * (frame / fade_in_frames))
+                self.screen.fill((0, 0, 0))
+                temp_surface = base_image.copy()
+                temp_surface.set_alpha(alpha)
+                self.screen.blit(temp_surface, (base_x, base_y))
+                self._draw_skip_hint()
+                pygame.display.flip()
+                self.clock.tick(fps)
+
+        # 대사 리스트 처리
+        if isinstance(dialogues, str):
+            dialogue_list = [dialogues]
+        else:
+            dialogue_list = dialogues
+
+        # 오버레이 페이드 타이밍
+        overlay_fade_frames = int(fade_duration * fps)
+        overlay_frame = 0
+
+        # 텍스트 영역 설정
+        box_margin = 30
+        box_x = box_margin
+        box_width = self.width - box_margin * 2
+        box_height = text_box_height - 20
+        text_padding = 25
+
+        # 각 대사를 순차적으로 표시
+        for dialogue in dialogue_list:
+            if self.skip_all or not dialogue:
+                break
+
+            # 텍스트 타이핑 상태
+            visible_chars = 0
+            typing_speed = 2
+            typing_done = False
+            frame_count = 0
+
+            while True:
+                if self.skip_all:
+                    return
+
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        return
+                    if self._check_skip_all(event):
+                        return
+                    if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)):
+                        if typing_done:
+                            break
+                        else:
+                            visible_chars = len(dialogue)
+                            typing_done = True
+
+                # 오버레이 알파 계산 (점점 페이드인)
+                if overlay_frame < overlay_fade_frames:
+                    overlay_alpha = int(255 * (overlay_frame / overlay_fade_frames))
+                    overlay_frame += 1
+                else:
+                    overlay_alpha = 255
+
+                # 화면 그리기
+                self.screen.fill((0, 0, 0))
+
+                # 베이스 이미지
+                self.screen.blit(base_image, (base_x, base_y))
+
+                # 오버레이 이미지 (알파 적용)
+                overlay_with_alpha = overlay_image.copy()
+                overlay_with_alpha.set_alpha(overlay_alpha)
+                self.screen.blit(overlay_with_alpha, (overlay_x, overlay_y))
+
+                # 타이핑 업데이트
+                frame_count += 1
+                if frame_count % typing_speed == 0 and not typing_done:
+                    visible_chars += 1
+                    if visible_chars >= len(dialogue):
+                        visible_chars = len(dialogue)
+                        typing_done = True
+
+                # 텍스트 박스 그리기
+                self._draw_baroque_frame(self.screen, box_x, text_box_y, box_width, box_height)
+
+                # 텍스트 렌더링
+                visible_text = dialogue[:visible_chars]
+                lines = visible_text.split('\n')
+                text_y = text_box_y + text_padding
+
+                for line in lines:
+                    if line:
+                        text_surface, text_rect = self.font.render(line, text_color)
+                        text_x = box_x + (box_width - text_rect.width) // 2
+                        self.screen.blit(text_surface, (text_x, text_y))
+                        text_y += text_rect.height + 8
+                    else:
+                        text_y += 24
+
+                # 커서 깜빡임
+                if not typing_done and frame_count % 30 < 15:
+                    if lines and lines[-1]:
+                        last_line = lines[-1]
+                        cursor_surface, cursor_rect = self.font.render(last_line, text_color)
+                        cursor_x = box_x + (box_width - cursor_rect.width) // 2 + cursor_rect.width
+                        pygame.draw.rect(self.screen, text_color, (cursor_x, text_y - text_rect.height - 8, 2, 24))
+
+                # 다음 힌트
+                if typing_done:
+                    hint_alpha = int(128 + 127 * math.sin(pygame.time.get_ticks() / 300))
+                    hint_surface, hint_rect = self.font_small.render("▼", text_color)
+                    hint_surface.set_alpha(hint_alpha)
+                    hint_x = box_x + box_width - 40
+                    hint_y = text_box_y + box_height - 35
+                    self.screen.blit(hint_surface, (hint_x, hint_y))
+
+                self._draw_skip_hint()
+                pygame.display.flip()
+                self.clock.tick(fps)
+
+                # 대사 완료 후 클릭 대기
+                if typing_done:
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            pygame.quit()
+                            sys.exit()
+                        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                            return
+                        if self._check_skip_all(event):
+                            return
+                        if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)):
+                            break
+                    else:
+                        continue
+                    break
 
     def show_dark_monologue_scene(self, image_path, dialogues, text_color=(255, 255, 255)):
         """어두운 명암 + 블러 처리된 독백 씬 표시
@@ -475,14 +1298,15 @@ class IntroCutscene:
             image_x = 0
             image_y = 0
 
-        # 텍스트 박스 위치
-        text_box_y = self.height - text_box_height - 60
+        # 텍스트 박스 위치 (하단에 정렬)
+        text_box_y = self.height - text_box_height - 30
 
         # 페이드인 (어두운 이미지로)
         fade_in_frames = int(1.0 * fps)
+        skip_fade = False
         for frame in range(fade_in_frames):
-            if self.skip_all:
-                return
+            if self.skip_all or skip_fade:
+                break
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -491,6 +1315,10 @@ class IntroCutscene:
                     return
                 if self._check_skip_all(event):
                     return
+                # 마우스 클릭 또는 스페이스/엔터로 페이드인 스킵
+                if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)):
+                    skip_fade = True
+                    break
 
             alpha = int(255 * (frame / fade_in_frames))
             self.screen.fill((0, 0, 0))
@@ -885,14 +1713,19 @@ class IntroCutscene:
         # 현재 화면 캡처
         current_screen = self.screen.copy()
 
+        skip_fade = False
         for frame in range(frames):
-            if self.skip_all:
+            if self.skip_all or skip_fade:
                 break
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
                 if self._check_skip_all(event):
+                    break
+                # 마우스 클릭 또는 스페이스/엔터로 페이드 스킵
+                if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)):
+                    skip_fade = True
                     break
 
             alpha = int(255 * (frame / frames))
@@ -912,16 +1745,42 @@ class IntroCutscene:
 
     def run_intro_sequence(self):
         """전체 인트로 시퀀스 실행"""
-        # 1. 두 명언을 한 화면에 표시
+        # 인트로 시작 BGM 재생 (introstart.mp3 - 검은화면 2장 동안 재생)
+        try:
+            introstart_path = resource_path(os.path.join("bgm", "intro", "introstart.mp3"))
+            if os.path.exists(introstart_path):
+                pygame.mixer.music.load(introstart_path)
+                pygame.mixer.music.set_volume(0.5)
+                pygame.mixer.music.play()
+        except Exception as e:
+            print(f"[IntroCutscene] introstart.mp3 로드 실패: {e}")
+
+        # 1. 두 명언을 한 화면에 표시 ("사는 것은 선택하는 것이다")
         self.show_combined_quotes_screen()
 
-        # 2. 추가 명언 표시
+        # 2. 추가 명언 표시 ("선택이라는 자유를 누린다")
         self.show_additional_quotes_screen()
+
+        # introstart BGM 페이드아웃
+        try:
+            pygame.mixer.music.fadeout(1000)  # 1초 페이드아웃
+        except Exception:
+            pass
 
         # 3. 검은 화면 대기 (드라마틱 연출용 - 사운드 삽입 가능)
         self.show_black_screen(duration=2.0)
 
         # 4. 스토리 컷씬들
+        # 클럽 BGM 재생 시작 (introclub.mp3 - 클럽 장면 동안 재생)
+        try:
+            introclub_path = resource_path(os.path.join("bgm", "intro", "introclub.mp3"))
+            if os.path.exists(introclub_path):
+                pygame.mixer.music.load(introclub_path)
+                pygame.mixer.music.set_volume(0.5)
+                pygame.mixer.music.play(-1)  # 루프 재생
+        except Exception as e:
+            print(f"[IntroCutscene] introclub.mp3 로드 실패: {e}")
+
         # 컷씬 1: 주인공 유이안 대사 (현실 - 흰색)
         self.show_story_scene(
             image_path="introstory/KakaoTalk_20251219_234944201.png",
@@ -1002,10 +1861,162 @@ class IntroCutscene:
             ],
             text_color=(128, 128, 128)  # 회색 (독백)
         )
-        self.fade_out_to_black(duration=1.0)
 
-        # 최종 페이드아웃
-        self.fade_out_to_black(duration=0.5)
+        # 컷씬 3: 유이안 작별 인사 (손 흔드는 장면)
+        self.show_story_scene(
+            image_path="introstory/KakaoTalk_20260103_180952143.png",
+            dialogues="맞다. 아버지가 불렀던 게 이제야 생각났어.",
+            text_delay=0.5,
+            text_color=(255, 255, 255),
+            speaker="유이안"
+        )
+        self.show_story_scene(
+            image_path="introstory/KakaoTalk_20260103_180952143.png",
+            dialogues=["아쉽지만 오늘은 이쯤하고.. 다음에 또 만나자, 이쁜이들~"],
+            text_delay=0.5,
+            text_color=(255, 255, 255),
+            speaker="유이안",
+            skip_fade_in=True
+        )
+        self.show_story_scene(
+            image_path="introstory/KakaoTalk_20260103_180952143.png",
+            dialogues=["계산은 외상으로 달고, 나중에 사람 보낼게."],
+            text_delay=0.5,
+            text_color=(255, 255, 255),
+            speaker="유이안",
+            skip_fade_in=True
+        )
+
+        # 컷씬 3 연속: 독백 (술집 나서며)
+        self.show_dark_monologue_scene(
+            image_path="introstory/KakaoTalk_20260103_180952143.png",
+            dialogues=[
+                "그렇게 가볍게 손을 흔들며 술집을 나서니, 도로변에 검은 리무진이 세워져 있었다.",
+                "운전 기사가 내려, 내게 차 문을 열어줘서 몸을 숙이며 푹신한 좌석에 앉았다."
+            ],
+            text_color=(128, 128, 128)  # 회색 (독백)
+        )
+
+        # 클럽 BGM 페이드아웃
+        try:
+            pygame.mixer.music.fadeout(1500)  # 1.5초 페이드아웃
+        except Exception:
+            pass
+
+        # 차 BGM 재생 시작 (introcar.mp3 - 리무진 장면부터 마지막까지)
+        try:
+            introcar_path = resource_path(os.path.join("bgm", "intro", "introcar.mp3"))
+            if os.path.exists(introcar_path):
+                pygame.mixer.music.load(introcar_path)
+                pygame.mixer.music.set_volume(0.5)
+                pygame.mixer.music.play(-1)  # 루프 재생
+        except Exception as e:
+            print(f"[IntroCutscene] introcar.mp3 로드 실패: {e}")
+
+        # 컷씬 4: 리무진 안 독백 (파트 1 - _01.png, 선명한 이미지)
+        self.show_story_scene(
+            image_path="introstory/KakaoTalk_20260103_180952143_01.png",
+            dialogues=[
+                "고급스럽지 않는 것들이 없었다.",
+                "상류층만 오가는 값비싼 클럽, 입고 있는 옷, 부르지 않아도 알아서 태우는 전용 차, 나고 자란 사립학교….",
+                "이 모든 것들이 대한민국 국민들의 피와 눈물로 이루어진, 국회의원 아들의 호화로운 삶이었다."
+            ],
+            text_color=(128, 128, 128)  # 회색 (독백)
+        )
+
+        # 컷씬 4: 리무진 안 독백 (파트 2 - _02.png, 실루엣 등장)
+        self.show_story_scene(
+            image_path="introstory/KakaoTalk_20260103_180952143_02.png",
+            dialogues=[
+                "…그래. 선택. 이 얼마나 자비롭고도 잔혹한 단어란 말인가.",
+                "이기심의 기반이 되고, 정의감의 희생 찬가가 되는,",
+                "모든 것들의 원인이자 과정이며 결과이자… 책임인 그것."
+            ],
+            text_color=(128, 128, 128),  # 회색 (독백)
+            skip_fade_in=True
+        )
+
+        # 컷씬 4: 리무진 안 독백 (파트 3 - 살짝 웃는 얼굴, 줌인/줌아웃)
+        self.show_zoom_in_out_scene(
+            image_path="introstory/KakaoTalk_20260104_224853913.png",
+            dialogues=[
+                "나는 이상향의 전부를 대부분 누리지만,",
+                "나 개인은 정말 이대로 좋은지는 잘 모르겠다."
+            ],
+            zoom_target=(0.75, 0.4),  # 우측 이안 얼굴
+            zoom_in_duration=1.0,  # 1초 줌인
+            hold_duration=2.5,  # 2.5초 유지
+            zoom_out_duration=1.0,  # 1초 줌아웃
+            zoom_end=1.4,
+            text_color=(128, 128, 128),  # 회색 (독백)
+            skip_fade_in=True  # 리무진 씬 내에서 즉각적 전환
+        )
+
+        # 컷씬 4: 리무진 안 독백 (파트 4 - _04.png)
+        self.show_story_scene(
+            image_path="introstory/KakaoTalk_20260103_180952143_04.png",
+            dialogues=[
+                "밖을 잠깐 걸어도, 창가 밖으로 보아도 사람들의 얼굴에 나와 같은 미소를 찾기는 불가능에 가까웠다.",
+                "그들 대부분의 웃음은, 순수하지 못했다."
+            ],
+            text_color=(128, 128, 128),  # 회색 (독백)
+            skip_fade_in=True
+        )
+
+        # 컷씬 4: 리무진 안 독백 (파트 4-2 - _03.png)
+        self.show_story_scene(
+            image_path="introstory/KakaoTalk_20260103_180952143_03.png",
+            dialogues=[
+                "나 또한 그럴 지도 모른다."
+            ],
+            text_color=(128, 128, 128),  # 회색 (독백)
+            skip_fade_in=True
+        )
+
+        # 컷씬 4: 리무진 안 독백 (파트 5 - _05.png, 어두운 얼굴)
+        self.show_story_scene(
+            image_path="introstory/KakaoTalk_20260103_180952143_05.png",
+            dialogues=["그저 눈치채지 못했을 뿐."],
+            text_color=(128, 128, 128),  # 회색 (독백)
+            skip_fade_in=True
+        )
+
+        # 컷씬 4: 리무진 안 독백 (파트 6 - _06.png, 상자로 줌인)
+        self.show_zoom_in_scene(
+            image_path="introstory/KakaoTalk_20260103_180952143_06.png",
+            dialogues=[
+                "그래서 줄곧 관심 없던,",
+                "전세계적으로 유행하는 가상현실 기술에 대해\n아버지가 내게 권하셨을 때…"
+            ],
+            zoom_target=(0.42, 0.32),  # VR 상자 가운데
+            zoom_start=1.0,
+            zoom_end=1.6,
+            zoom_duration=2.0,  # 2초 동안 줌인
+            text_color=(128, 128, 128)  # 회색 (독백)
+        )
+
+        # 컷씬 4: 리무진 안 독백 (파트 7 - _07.png, 선택)
+        self.show_story_scene(
+            image_path="introstory/KakaoTalk_20260103_180952143_07.png",
+            dialogues=[
+                "나는 또 다른 세계를 알아 가는 것을 [선택]한 것이었다.",
+                "앞으로 이 [선택]이 내 삶을 어떠한 [선택]들로 가득 채울지……"
+            ],
+            text_color=(128, 128, 128),  # 회색 (독백)
+            skip_fade_in=False  # 페이드인 처리
+        )
+
+        # 마지막 씬: 검은 배경 + 빨간 글씨 + 흩어지는 애니메이션
+        self.show_final_black_scene(
+            text="아무것도 모르는 채로..",
+            text_color=(255, 80, 80)  # 빨간색
+        )
+
+        # 차 BGM 페이드아웃
+        try:
+            pygame.mixer.music.fadeout(1500)  # 1.5초 페이드아웃
+        except Exception:
+            pass
 
 
 def show_intro_cutscene(screen, width, height):

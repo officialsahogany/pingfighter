@@ -114,6 +114,16 @@ class BGMManager:
                 os.path.join("bgm", "tutorialbgm.mp3"),
                 os.path.join("bgm", "tutorialbgm.wav"),
             ],
+            'victory': [
+                os.path.join("bgm", "victory.mp3"),
+                os.path.join("bgm", "victory.ogg"),
+                os.path.join("bgm", "victory.wav"),
+            ],
+            'defeat': [
+                os.path.join("bgm", "defeat.mp3"),
+                os.path.join("bgm", "defeat.ogg"),
+                os.path.join("bgm", "defeat.wav"),
+            ],
         }
         self.is_initialized = False
         

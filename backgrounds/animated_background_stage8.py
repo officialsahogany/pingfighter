@@ -11,6 +11,22 @@ from typing import List, Tuple
 
 import pygame
 
+# ============================================================
+# Surface 캐시 시스템 (성능 최적화)
+# ============================================================
+_stage8_surface_cache = {}
+
+def _get_cached_surface(width: int, height: int) -> pygame.Surface:
+    """캐시된 투명 Surface 반환"""
+    key = (width, height)
+    if key not in _stage8_surface_cache:
+        if len(_stage8_surface_cache) > 100:
+            _stage8_surface_cache.clear()
+        _stage8_surface_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
+    surface = _stage8_surface_cache[key]
+    surface.fill((0, 0, 0, 0))
+    return surface
+
 Color = Tuple[int, int, int]
 
 # 화면 크기 - config에서 가져오기
@@ -424,7 +440,11 @@ class AnimatedBackgroundStage8:
     def draw(self, surface: pygame.Surface, *, offset: Tuple[int, int] = (0, 0)) -> None:
         """애니메이션 레이어를 그린다."""
         ox, oy = offset
-        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        # 오버레이 캐시 사용 (매 프레임 Surface 생성 방지)
+        if not hasattr(self, '_overlay_cache') or self._overlay_cache.get_size() != (self.width, self.height):
+            self._overlay_cache = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay = self._overlay_cache
+        overlay.fill((0, 0, 0, 0))
 
         # 1. 연기 효과 (뒤쪽)
         self._draw_smoke(overlay)
@@ -516,7 +536,8 @@ class AnimatedBackgroundStage8:
                 continue
             size = int(smoke["size"])
             alpha = int(max(0, smoke["alpha"]))
-            smoke_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            surf_size = max(1, size * 2)
+            smoke_surf = _get_cached_surface(surf_size, surf_size)
             # 여러 겹의 원으로 부드러운 연기
             for i in range(3):
                 r = size - i * (size // 4)
@@ -532,8 +553,9 @@ class AnimatedBackgroundStage8:
             size = petal["size"]
             rot = petal["rotation"]
 
-            # 꽃잎 모양 (타원)
-            petal_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            # 꽃잎 모양 (타원) - 캐시 사용
+            surf_size = max(1, size * 2)
+            petal_surf = _get_cached_surface(surf_size, surf_size)
             # 연한 분홍색
             color = (180, 120, 130, 80)
             pygame.draw.ellipse(petal_surf, color, (size // 2, 0, size, size * 2))
@@ -551,8 +573,9 @@ class AnimatedBackgroundStage8:
             rot = shuriken["rotation"]
             alpha = shuriken["alpha"]
 
-            # 수리검 그리기 (4개의 뾰족한 날)
-            shuriken_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            # 수리검 그리기 (4개의 뾰족한 날) - 캐시 사용
+            surf_size = max(1, size * 2)
+            shuriken_surf = _get_cached_surface(surf_size, surf_size)
             center = size
 
             for i in range(4):
@@ -595,7 +618,7 @@ class AnimatedBackgroundStage8:
             # 잔상마다 약간 다른 애니메이션 페이즈 (달리는 느낌)
             trail_run_cycle = math.sin(self.ninja_run_phase - i * 0.4) * 0.5 + 0.5
 
-            shadow_surf = pygame.Surface((100, 80), pygame.SRCALPHA)
+            shadow_surf = _get_cached_surface(100, 80)
             color = (10, 10, 15, trail_alpha)
 
             # 기준점
@@ -776,7 +799,7 @@ class AnimatedBackgroundStage8:
                 spread_color = (50, 40, 30)
 
             if glow_alpha > 0:
-                glow_surf = pygame.Surface((ww, wh), pygame.SRCALPHA)
+                glow_surf = _get_cached_surface(ww, wh)
                 pygame.draw.rect(glow_surf, glow_color, (0, 0, ww, wh))
                 overlay.blit(glow_surf, (wx + 4, wy + 4))
 

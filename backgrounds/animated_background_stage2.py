@@ -17,6 +17,38 @@ def resource_path(relative_path):
 import pygame
 import math
 import random
+import threading
+
+# ============================================================
+# Surface 캐시 시스템 (성능 최적화 - 스레드 세이프)
+# ============================================================
+_stage2_surface_cache = {}
+_stage2_cache_lock = threading.Lock()
+_CACHE_SIZE_LIMIT = 50  # 메모리 사용량 제한
+
+def _get_cached_surface(width: int, height: int) -> pygame.Surface:
+    """캐시된 투명 Surface 반환 (스레드 세이프)"""
+    key = (width, height)
+    with _stage2_cache_lock:
+        if key not in _stage2_surface_cache:
+            if len(_stage2_surface_cache) > _CACHE_SIZE_LIMIT:
+                _stage2_surface_cache.clear()
+            _stage2_surface_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
+        surface = _stage2_surface_cache[key]
+        surface.fill((0, 0, 0, 0))
+        return surface
+
+_stage2_glow_cache = {}
+
+def _get_cached_glow(size: int) -> pygame.Surface:
+    """캐시된 글로우 Surface 반환"""
+    if size not in _stage2_glow_cache:
+        if len(_stage2_glow_cache) > 20:
+            _stage2_glow_cache.clear()
+        _stage2_glow_cache[size] = pygame.Surface((size, size), pygame.SRCALPHA)
+    surface = _stage2_glow_cache[size]
+    surface.fill((0, 0, 0, 0))
+    return surface
 
 class AnimatedBackgroundStage2:
     def __init__(self, base_image_path="stage2_field.png"):
@@ -33,7 +65,26 @@ class AnimatedBackgroundStage2:
         self._scaled_bg_cache = None
         self._scaled_bg_size = None
         self._transparent = (0, 0, 0, 0)
-        
+
+        # ============================================================
+        # 🌿 덤불 프리렌더 캐시 시스템 (성능 최적화)
+        # ============================================================
+        self._bush_cache = {}  # {bush_id: (surface, last_rustle_amount)}
+        self._bush_cache_dirty = True  # 캐시 갱신 필요 여부
+        self._last_scale = (1.0, 1.0)  # 마지막 스케일 값 추적
+
+        # Spatial Grid for bush interactions (150px grid cells)
+        self._spatial_grid_size = 150
+        self._bush_spatial_grid = {}  # {(grid_x, grid_y): [bush_indices]}
+
+        # ============================================================
+        # 👁️ 눈 시스템 캐시 (표정별 프리렌더)
+        # ============================================================
+        self._eye_base_cache = None  # 눈 흰자 + 외곽선 캐시
+        self._eye_base_cache_size = None  # 캐시 크기 추적
+        self._expression_cache = {}  # {expression: surface}
+        self._last_expression = None
+
         self.center_x = self.width // 2
         self.center_y = self.height // 2
         self.stadium_radius = 80
@@ -138,7 +189,10 @@ class AnimatedBackgroundStage2:
                 'leaves': self.generate_bush_leaves(size_map[pos['size']], pos['variant'], area_type)
             }
             self.realistic_bushes.append(bush)
-        
+
+        # Spatial Grid 초기화 (덤불 위치 기반)
+        self._init_bush_spatial_grid()
+
         # 패들 위치 및 속도 추적용
         self.boss_paddle_x = self.width // 2
         self.player_paddle_x = self.width // 2
@@ -271,11 +325,36 @@ class AnimatedBackgroundStage2:
             leaves.append(leaf)
         
         return leaves
-    
+
+    def _init_bush_spatial_grid(self):
+        """Spatial Grid 초기화 - O(1) 덤불 조회용"""
+        self._bush_spatial_grid = {}
+        for idx, bush in enumerate(self.realistic_bushes):
+            grid_x = int(bush['x'] // self._spatial_grid_size)
+            grid_y = int(bush['y'] // self._spatial_grid_size)
+            key = (grid_x, grid_y, bush['area'])
+            if key not in self._bush_spatial_grid:
+                self._bush_spatial_grid[key] = []
+            self._bush_spatial_grid[key].append(idx)
+
+    def _get_nearby_bushes(self, paddle_x, area):
+        """Spatial Grid를 사용해 근처 덤불만 조회 - O(1) 복잡도"""
+        grid_x = int(paddle_x // self._spatial_grid_size)
+        # 패들 Y 위치는 area에 따라 결정
+        grid_y = 0 if area == 'boss' else 4  # boss: 상단, player: 하단
+
+        nearby_indices = []
+        # 인접 셀 포함 (3x1 범위)
+        for dx in [-1, 0, 1]:
+            key = (grid_x + dx, grid_y, area)
+            if key in self._bush_spatial_grid:
+                nearby_indices.extend(self._bush_spatial_grid[key])
+        return nearby_indices
+
     def trigger_bush_rustle(self, area, paddle_x, intensity_type='normal'):
-        """패들 움직임에 따른 덤불 흔들림 트리거 (속도별 차등 적용)"""
+        """패들 움직임에 따른 덤불 흔들림 트리거 (Spatial Grid 최적화)"""
         rustle_range = 150  # 흔들림 영향 범위 (픽셀)
-        
+
         # 속도별 흔들림 강도 설정
         if intensity_type == 'dash':
             base_rustle = 15.0  # 대쉬 시 더 강한 흔들림
@@ -283,22 +362,30 @@ class AnimatedBackgroundStage2:
         else:  # normal
             base_rustle = 8.0   # 일반 이동 시 기본 흔들림
             angle_multiplier = 0.3  # 기본 각도
-        
-        for bush in self.realistic_bushes:
-            if bush['area'] == area:
-                # 패들과 덤불 사이의 거리 계산
-                distance = abs(bush['x'] - paddle_x)
-                
-                if distance < rustle_range:
-                    # 거리에 따른 흔들림 강도 (가까울수록 강함)
-                    distance_factor = (rustle_range - distance) / rustle_range
-                    bush['rustle_amount'] = distance_factor * base_rustle
-                    
-                    # 패들 이동 방향에 따른 흔들림 방향
-                    if paddle_x > bush['x']:
-                        bush['rustle_angle'] = angle_multiplier  # 오른쪽으로 흔들림
-                    else:
-                        bush['rustle_angle'] = -angle_multiplier  # 왼쪽으로 흔들림
+
+        # Spatial Grid로 근처 덤불만 조회 (O(1) vs O(n))
+        nearby_indices = self._get_nearby_bushes(paddle_x, area)
+
+        for idx in nearby_indices:
+            bush = self.realistic_bushes[idx]
+            # 패들과 덤불 사이의 거리 계산
+            distance = abs(bush['x'] - paddle_x)
+
+            if distance < rustle_range:
+                # 거리에 따른 흔들림 강도 (가까울수록 강함)
+                distance_factor = (rustle_range - distance) / rustle_range
+                old_rustle = bush['rustle_amount']
+                bush['rustle_amount'] = distance_factor * base_rustle
+
+                # 캐시 무효화 (흔들림 변경 시)
+                if abs(old_rustle - bush['rustle_amount']) > 0.5:
+                    self._bush_cache_dirty = True
+
+                # 패들 이동 방향에 따른 흔들림 방향
+                if paddle_x > bush['x']:
+                    bush['rustle_angle'] = angle_multiplier  # 오른쪽으로 흔들림
+                else:
+                    bush['rustle_angle'] = -angle_multiplier  # 왼쪽으로 흔들림
     
     def set_expression(self, expression):
         """표정 설정 ('neutral', 'happy', 'sad')"""
@@ -336,25 +423,43 @@ class AnimatedBackgroundStage2:
         self.rock_spawn_triggered = False
         print(f"🌋 정글지진 효과 시작! 지속시간: {self.earthquake_duration}프레임")
     
-    def spawn_skill_rocks(self):
-        """정글지진 스킬 발동 시 바위 1-3개 즉시 생성"""
+    def spawn_skill_rocks(self, enraged=False, difficulty="pro"):
+        """정글지진 스킬 발동 시 바위 즉시 생성 (난이도별 개수 조절)
+
+        난이도별 바위 개수:
+        - 주니어리그/프로리그: 1~2개
+        - 챔피언리그: 1~3개
+        - 신화리그: 2~4개 (광폭화 시 4~8개)
+        """
         # 맵 전체 영역
         map_x_min = 50   # 맵 가장자리 여유
         map_x_max = 550  # 맵 가장자리 여유
         map_y_min = 50   # 상단 여유 (UI 공간)
         map_y_max = 700  # 하단 여유 (플레이어 공간)
-        
+
         # 실제 바위 스타일 (참조 이미지 기반 자연 바위)
         rock_styles = [
             {'type': 'dark_granite', 'colors': [(35, 35, 40), (55, 55, 60), (75, 75, 80)]},     # 어두운 화강암
-            {'type': 'light_granite', 'colors': [(120, 115, 110), (140, 135, 130), (160, 155, 150)]}, # 밝은 화강암  
+            {'type': 'light_granite', 'colors': [(120, 115, 110), (140, 135, 130), (160, 155, 150)]}, # 밝은 화강암
             {'type': 'reddish_stone', 'colors': [(85, 65, 55), (105, 85, 75), (125, 105, 95)]}, # 적갈색 바위
             {'type': 'yellowish_stone', 'colors': [(140, 120, 85), (160, 140, 105), (180, 160, 125)]}, # 황갈색 바위
             {'type': 'gray_stone', 'colors': [(70, 70, 75), (90, 90, 95), (110, 110, 115)]},    # 회색 바위
             {'type': 'mixed_stone', 'colors': [(95, 85, 80), (115, 105, 100), (135, 125, 120)]} # 혼합 바위
         ]
-        
-        num_rocks = random.randint(2, 4)  # 2-4개 바위 생성
+
+        # 난이도별 바위 개수 설정
+        if difficulty == "mythic":
+            # 신화리그: 2~4개 (광폭화 시 4~8개)
+            if enraged:
+                num_rocks = random.randint(4, 8)
+            else:
+                num_rocks = random.randint(2, 4)
+        elif difficulty == "champion":
+            # 챔피언리그: 1~3개
+            num_rocks = random.randint(1, 3)
+        else:
+            # 주니어리그/프로리그: 1~2개
+            num_rocks = random.randint(1, 2)
         for i in range(num_rocks):
             # 맵 전체 랜덤 위치
             x = random.randint(map_x_min, map_x_max)
@@ -747,6 +852,7 @@ class AnimatedBackgroundStage2:
                 if bush['rustle_amount'] < 0.5:
                     bush['rustle_amount'] = 0
                     bush['rustle_angle'] = 0
+                    self._bush_cache_dirty = True  # 캐시 무효화
         
         # 위기 상황 바위 애니메이션 업데이트
         for rock in self.crisis_rocks:
@@ -871,10 +977,10 @@ class AnimatedBackgroundStage2:
         # 🌿 덤불 흔들림 업데이트 제거 (완전 정적)
     
     def draw_3d_rock(self, surface, x, y, size, color_base, moss_coverage):
-        """3D 느낌의 돌맹이 그리기"""
-        # 그림자 그리기
-        shadow_surface = pygame.Surface((size * 2, size), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surface, (0, 0, 0, 40), 
+        """3D 느낌의 돌맹이 그리기 (캐시 최적화)"""
+        # 그림자 그리기 - 캐시된 Surface 사용
+        shadow_surface = _get_cached_surface(size * 2, size)
+        pygame.draw.ellipse(shadow_surface, (0, 0, 0, 40),
                            (0, size//2, size * 2, size))
         surface.blit(shadow_surface, (x - size, y + size//2))
         
@@ -906,9 +1012,9 @@ class AnimatedBackgroundStage2:
                                  (moss_x, moss_y), moss_size)
     
     def draw_detailed_leaf(self, surface, x, y, size, leaf_type, color, rotation):
-        """디테일한 잎사귀 그리기"""
-        # 잎사귀 그림자
-        shadow_surface = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+        """디테일한 잎사귀 그리기 (캐시 최적화)"""
+        # 잎사귀 그림자 - 캐시된 Surface 사용
+        shadow_surface = _get_cached_surface(size * 4, size * 4)
         shadow_x = size * 2
         shadow_y = size * 2
         
@@ -950,9 +1056,9 @@ class AnimatedBackgroundStage2:
         
         # 그림자 먼저 그리기
         surface.blit(shadow_surface, (x - size * 2 + 5, y - size * 2 + 5))
-        
-        # 잎사귀 본체
-        leaf_surface = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+
+        # 잎사귀 본체 - 캐시된 Surface 사용
+        leaf_surface = _get_cached_surface(size * 4, size * 4)
         center_x = size * 2
         center_y = size * 2
         
@@ -1166,9 +1272,9 @@ class AnimatedBackgroundStage2:
         base_color = bush['base_color']
         highlight_color = bush['highlight_color']
         
-        # 덤불 그림자 (타원형으로 더 자연스럽게)
-        shadow_surface = pygame.Surface((size * 3, size), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surface, (0, 0, 0, 30), 
+        # 덤불 그림자 (타원형으로 더 자연스럽게) - 캐시된 Surface 사용
+        shadow_surface = _get_cached_surface(size * 3, size)
+        pygame.draw.ellipse(shadow_surface, (0, 0, 0, 30),
                            (0, 0, size * 3, size))
         surface.blit(shadow_surface, (x - size * 1.5 + 5, y + size//2 + 8))
         
@@ -1326,10 +1432,10 @@ class AnimatedBackgroundStage2:
         rustle_x = math.sin(bush['rustle_angle']) * bush['rustle_amount']
         rustle_y = math.cos(bush['rustle_angle'] * 1.5) * bush['rustle_amount'] * 0.3
         
-        # 덤불 그림자 (타원형, 더 부드럽게)
+        # 덤불 그림자 (타원형, 더 부드럽게) - 캐시된 Surface 사용
         shadow_width = base_size * 2.2
         shadow_height = base_size * 0.8
-        shadow_surface = pygame.Surface((int(shadow_width), int(shadow_height)), pygame.SRCALPHA)
+        shadow_surface = _get_cached_surface(int(shadow_width), int(shadow_height))
         
         # 그라데이션 그림자
         for i in range(int(shadow_height // 2)):
@@ -1461,9 +1567,84 @@ class AnimatedBackgroundStage2:
                 bright_color = (min(255, colors[2][0] + 60),
                                min(255, colors[2][1] + 40),
                                min(255, colors[2][2] + 30))
-                pygame.draw.circle(surface, bright_color, 
+                pygame.draw.circle(surface, bright_color,
                                  (int(spot_x), int(spot_y)), spot_size)
-    
+
+    def _prerender_bush_to_surface(self, bush, scale_x, scale_y):
+        """덤불을 개별 Surface에 프리렌더 (캐시용)"""
+        # 덤불 바운딩 박스 계산
+        base_size = bush['base_size']
+        padding = 30  # 여유 공간
+        surf_width = int((base_size * 3 + padding) * scale_x)
+        surf_height = int((base_size * 3 + padding) * scale_y)
+
+        bush_surface = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
+
+        # 임시로 중앙에 덤불 그리기
+        temp_bush = {
+            'x': surf_width // 2,
+            'y': surf_height // 2,
+            'base_size': bush['base_size'] * min(scale_x, scale_y),
+            'variant': bush['variant'],
+            'rustle_amount': bush['rustle_amount'] * min(scale_x, scale_y),
+            'rustle_angle': bush['rustle_angle'],
+            'area': bush['area'],
+            'clusters': [],
+            'leaves': []
+        }
+
+        # 클러스터/잎 스케일링
+        for cluster in bush['clusters']:
+            temp_bush['clusters'].append({
+                'offset_x': cluster['offset_x'] * scale_x,
+                'offset_y': cluster['offset_y'] * scale_y,
+                'size': cluster['size'] * min(scale_x, scale_y),
+                'darkness': cluster['darkness'],
+                'static_points': [(p[0] * scale_x, p[1] * scale_y) for p in cluster['static_points']]
+            })
+        for leaf in bush['leaves']:
+            temp_bush['leaves'].append({
+                'offset_x': leaf['offset_x'] * scale_x,
+                'offset_y': leaf['offset_y'] * scale_y,
+                'size': int(leaf['size'] * min(scale_x, scale_y)),
+                'color_variant': leaf.get('color_variant', 0),
+                'type': leaf.get('type', 'oval'),
+                'angle': leaf.get('angle', 0)
+            })
+
+        self.draw_realistic_bush(bush_surface, temp_bush)
+        return bush_surface, (surf_width // 2, surf_height // 2)
+
+    def _draw_bushes_optimized(self, screen, scale_x, scale_y):
+        """최적화된 덤불 렌더링 (캐시 활용)"""
+        scale_changed = (self._last_scale != (scale_x, scale_y))
+
+        for idx, bush in enumerate(self.realistic_bushes):
+            bush_id = id(bush)
+            cached = self._bush_cache.get(bush_id)
+
+            # 캐시 무효화 조건: 스케일 변경 또는 흔들림 변경
+            needs_update = (
+                cached is None or
+                scale_changed or
+                abs(cached[1] - bush['rustle_amount']) > 0.3
+            )
+
+            if needs_update:
+                # 덤불 프리렌더
+                bush_surface, offset = self._prerender_bush_to_surface(bush, scale_x, scale_y)
+                self._bush_cache[bush_id] = (bush_surface, bush['rustle_amount'], offset)
+                cached = self._bush_cache[bush_id]
+
+            # 캐시된 Surface blit
+            bush_surface, _, offset = cached
+            draw_x = int(bush['x'] * scale_x - offset[0])
+            draw_y = int(bush['y'] * scale_y - offset[1])
+            screen.blit(bush_surface, (draw_x, draw_y))
+
+        self._last_scale = (scale_x, scale_y)
+        self._bush_cache_dirty = False
+
     def draw_crisis_rock(self, surface, rock):
         """실제 바위 참고 울퉁불퉁한 위기 상황 바위 렌더링"""
         x = rock['x']
@@ -1486,8 +1667,9 @@ class AnimatedBackgroundStage2:
         
         # 떨어지는 동안 그림자 투명도도 변경 (높이 있을수록 투명)
         shadow_alpha = int(30 + 20 * shadow_scale)  # 30~50 투명도
-        
-        shadow_surface = pygame.Surface((int(shadow_width), int(shadow_height)), pygame.SRCALPHA)
+
+        # 캐시된 Surface 사용
+        shadow_surface = _get_cached_surface(int(shadow_width), int(shadow_height))
         
         # 불규칙한 그림자 모양
         shadow_points = []
@@ -1541,13 +1723,14 @@ class AnimatedBackgroundStage2:
             # 황금빛 반짝임 효과
             sparkle_time = pygame.time.get_ticks() / 100
             sparkle_intensity = abs(math.sin(sparkle_time)) * 0.5 + 0.5
-            
-            # 황금 후광 효과
-            glow_surf = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
+
+            # 황금 후광 효과 - 캐시된 Surface 사용
+            glow_size = size * 3
+            glow_surf = _get_cached_glow(glow_size)
             glow_alpha = int(50 * sparkle_intensity)
-            pygame.draw.circle(glow_surf, (255, 215, 0, glow_alpha), 
-                             (size * 3 // 2, size * 3 // 2), size)
-            surface.blit(glow_surf, (x - size * 3 // 2, y - size * 3 // 2))
+            pygame.draw.circle(glow_surf, (255, 215, 0, glow_alpha),
+                             (glow_size // 2, glow_size // 2), size)
+            surface.blit(glow_surf, (x - glow_size // 2, y - glow_size // 2))
             
             # 작은 반짝임 파티클들
             for i in range(3):
@@ -1884,9 +2067,8 @@ class AnimatedBackgroundStage2:
         for vine in self.vines:
             self.draw_vine_scaled(screen, vine, scale_x, scale_y)
 
-        # 🌿 리얼리스틱 덤불 시스템 렌더링 (스케일 적용)
-        for bush in self.realistic_bushes:
-            self.draw_realistic_bush_scaled(screen, bush, scale_x, scale_y)
+        # 🌿 리얼리스틱 덤불 시스템 렌더링 (최적화된 캐시 방식)
+        self._draw_bushes_optimized(screen, scale_x, scale_y)
 
         # 돌맹이 그리기 제거 (사용자 요청)
         # for rock in self.rocks:
@@ -2082,9 +2264,9 @@ class AnimatedBackgroundStage2:
         # 💥 파편 렌더링 (원형 효과 제거)
         self.draw_rock_fragments(screen)
         
-        # 🔥 보스 분노 빨간색 틴트 효과 (화면 크기에 맞게)
+        # 🔥 보스 분노 빨간색 틴트 효과 (화면 크기에 맞게) - 캐시 사용
         if self.boss_red_tint > 0:
-            red_surface = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
+            red_surface = _get_cached_surface(screen_w, screen_h)
             red_surface.fill((255, 0, 0, min(100, self.boss_red_tint // 2)))
             screen.blit(red_surface, (0, 0))
         

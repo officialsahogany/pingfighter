@@ -12,6 +12,9 @@ from typing import List, Dict, Tuple, Optional, Any
 class Stage5FireMachineEvent:
     """스테이지 5 - 바닥 화염 방사 기계 이벤트"""
 
+    # 디버그 플래그 (성능 영향으로 비활성화)
+    DEBUG_ENABLED = False
+
     def __init__(self, screen_width: int = 760, screen_height: int = 750):
         # 필러 UI 오프셋 (좌우 80px씩)
         try:
@@ -108,29 +111,29 @@ class Stage5FireMachineEvent:
     
     def should_trigger(self, current_stage: int) -> bool:
         """이벤트 발동 조건 체크 - 외부 타이머가 결정"""
-        print(f"🔥 [should_trigger] Called with - Stage: {current_stage}, Active: {self.active}")
-        
+        if self.DEBUG_ENABLED: print(f"🔥 [should_trigger] Called with - Stage: {current_stage}, Active: {self.active}")
+
         # Stage 5에서만 발동
         if current_stage != 5:
-            print(f"🔥 [should_trigger] Stage {current_stage} != 5, 이벤트 발동 불가")
+            if self.DEBUG_ENABLED: print(f"🔥 [should_trigger] Stage {current_stage} != 5, 이벤트 발동 불가")
             return False
-        
+
         # 이미 활성화 중이면 발동 불가
         if self.active:
-            print(f"🔥 [should_trigger] 이미 활성화 중, 이벤트 발동 불가")
+            if self.DEBUG_ENABLED: print(f"🔥 [should_trigger] 이미 활성화 중, 이벤트 발동 불가")
             return False
-        
-        print(f"🔥 [should_trigger] 이벤트 발동 가능!")
+
+        if self.DEBUG_ENABLED: print(f"🔥 [should_trigger] 이벤트 발동 가능!")
         return True
     
-    def activate(self, screen: pygame.Surface, sound_door: Any = None, 
+    def activate(self, screen: pygame.Surface, sound_door: Any = None,
                  sound_machine: Any = None, sound_fire: Any = None):
         """이벤트 활성화"""
-        print(f"🔥 [activate] Called - 타이머 기반 이벤트 발동")
-        print(f"🔥 [activate] Current state - Active: {self.active}")
-        
+        if self.DEBUG_ENABLED: print(f"🔥 [activate] Called - 타이머 기반 이벤트 발동")
+        if self.DEBUG_ENABLED: print(f"🔥 [activate] Current state - Active: {self.active}")
+
         if self.active:
-            print(f"🔥 [activate] Already active, returning False")
+            if self.DEBUG_ENABLED: print(f"🔥 [activate] Already active, returning False")
             return False
             
         self.screen = screen
@@ -154,7 +157,7 @@ class Stage5FireMachineEvent:
         self.dragon_jaw_phase = "closed"  # 입 닫힌 상태
         self.init_font()
         
-        print(f"🔥 Stage 5 화염 방사 기계 이벤트 활성화!")
+        if self.DEBUG_ENABLED: print(f"🔥 Stage 5 화염 방사 기계 이벤트 활성화!")
         return True
     
     def update(self) -> bool:
@@ -217,7 +220,7 @@ class Stage5FireMachineEvent:
                     self.aim_target_x - self.machine_x
                 )
                 self.target_cannon_angle = self.cannon_angle
-                print(f"🐉 용 방향 설정! 목표: ({self.aim_target_x}, {self.aim_target_y}), 각도: {math.degrees(self.cannon_angle):.1f}°")
+                if self.DEBUG_ENABLED: print(f"🐉 용 방향 설정! 목표: ({self.aim_target_x}, {self.aim_target_y}), 각도: {math.degrees(self.cannon_angle):.1f}°")
 
             # === 1단계: 용 목이 먼저 길게 뻗어나감 (0~45프레임) ===
             if self.timer < 45:
@@ -337,7 +340,7 @@ class Stage5FireMachineEvent:
             # 조준 방향은 spraying 단계 시작 시 이미 설정됨
             # 여기서는 is_aiming만 True로 설정
             self.is_aiming = True
-            print(f"🎯 화염 발사 준비 완료! 목표: ({self.aim_target_x}, {self.aim_target_y})")
+            if self.DEBUG_ENABLED: print(f"🎯 화염 발사 준비 완료! 목표: ({self.aim_target_x}, {self.aim_target_y})")
         
         # 포구 회전 (부드럽게 목표 각도로 회전)
         if self.is_aiming:
@@ -386,7 +389,7 @@ class Stage5FireMachineEvent:
                 if self.sound_fire:
                     self.sound_fire.play()
                 
-                print(f"🔥 화염 스트림 발사! 각도: {math.degrees(self.cannon_angle):.1f}°")
+                if self.DEBUG_ENABLED: print(f"🔥 화염 스트림 발사! 각도: {math.degrees(self.cannon_angle):.1f}°")
         
         self.spray_timer += 1
     
@@ -537,7 +540,7 @@ class Stage5FireMachineEvent:
             fire_zone["flames"].append(flame)
         
         self.fire_zones.append(fire_zone)
-        print(f"🔥 화염 지대 생성! 위치: ({x}, {y})")
+        if self.DEBUG_ENABLED: print(f"🔥 화염 지대 생성! 위치: ({x}, {y})")
     
     def _update_fire_zones(self):
         """화염 지대 업데이트"""
@@ -572,7 +575,7 @@ class Stage5FireMachineEvent:
             # 지속시간 종료 체크
             if fire_zone["duration"] <= 0:
                 self.fire_zones.remove(fire_zone)
-                print(f"🔥 화염 지대 소멸")
+                if self.DEBUG_ENABLED: print(f"🔥 화염 지대 소멸")
     
     def check_fire_zone_collision(self, player_rect, is_rolling=False, in_smoke_grenade=False):
         """
@@ -591,7 +594,7 @@ class Stage5FireMachineEvent:
                 if not is_rolling:
                     # 연막탄 연기 안에 있으면 넉백 면역
                     if in_smoke_grenade:
-                        print(f"💨 연막탄 연기로 화염 넉백 면역!")
+                        if self.DEBUG_ENABLED: print(f"💨 연막탄 연기로 화염 넉백 면역!")
                         return False, 0  # 연막탄 연기가 보호해줌
                     
                     # 대쉬 중이 아니고 연막탄도 없으면 넉백 (스턴 없음)
@@ -605,14 +608,14 @@ class Stage5FireMachineEvent:
                         push_direction = 1 if push_x > 0 else -1
                     
                     # 디버그 출력 추가
-                    print(f"🔥 화염 충돌! 플레이어 X={player_rect.centerx}, 화염 X={fire_zone['x']}, 방향={push_direction}")
+                    if self.DEBUG_ENABLED: print(f"🔥 화염 충돌! 플레이어 X={player_rect.centerx}, 화염 X={fire_zone['x']}, 방향={push_direction}")
                     return True, push_direction
                 else:
                     # 대쉬 중이면 화염 즉시 소멸 및 연기 효과 생성
-                    self._create_smoke_effect(fire_zone["x"], fire_zone["y"], 
+                    self._create_smoke_effect(fire_zone["x"], fire_zone["y"],
                                             fire_zone["width"], fire_zone["height"])
                     self.fire_zones.remove(fire_zone)
-                    print(f"💨 대쉬로 화염 소멸! 연기 효과 생성")
+                    if self.DEBUG_ENABLED: print(f"💨 대쉬로 화염 소멸! 연기 효과 생성")
                     return False, 0  # 대쉬로 화염을 꺼뜨렸으므로 넉백 없음
         
         return False, 0
@@ -655,7 +658,7 @@ class Stage5FireMachineEvent:
                 # 넉백 힘 (화염 중심에 가까울수록 강함)
                 push_force = 15 + (50 / max(distance, 10)) * 10  # 15~25의 힘
                 
-                print(f"🔥 몽크가 화염에 닿음! 넉백 방향: ({push_dir_x:.2f}, {push_dir_y:.2f}), 힘: {push_force:.1f}")
+                if self.DEBUG_ENABLED: print(f"🔥 몽크가 화염에 닿음! 넉백 방향: ({push_dir_x:.2f}, {push_dir_y:.2f}), 힘: {push_force:.1f}")
                 return True, (push_dir_x, push_dir_y), push_force
         
         return False, (0, 0), 0
@@ -1319,7 +1322,7 @@ class Stage5FireMachineEvent:
         self.phase = "idle"
         self.timer = 0
         # 화염 지대는 유지 (계속 타오름)
-        print(f"🔥 Stage 5 화염 방사 기계 이벤트 종료")
+        if self.DEBUG_ENABLED: print(f"🔥 Stage 5 화염 방사 기계 이벤트 종료")
     
     def reset(self):
         """모든 이벤트 리셋 (새 게임 시작 시)"""
@@ -1334,7 +1337,7 @@ class Stage5FireMachineEvent:
         self.machine_scale = 0.0
         self.spray_timer = 0
         self.spray_count = 0
-        print("🔥 Stage 5 화염 방사 기계 이벤트 리셋")
+        if self.DEBUG_ENABLED: print("🔥 Stage 5 화염 방사 기계 이벤트 리셋")
     
     def reset_for_deuce(self):
         """듀스 재시작 시 이벤트 부분 리셋"""
@@ -1349,7 +1352,7 @@ class Stage5FireMachineEvent:
         self.spray_timer = 0
         self.spray_count = 0
         # 화염 지대는 유지
-        print("🔥 Stage 5 화염 방사 기계 이벤트 - 듀스 리셋")
+        if self.DEBUG_ENABLED: print("🔥 Stage 5 화염 방사 기계 이벤트 - 듀스 리셋")
     
     def _ease_out_cubic(self, t: float) -> float:
         """Ease-out cubic 애니메이션 곡선"""

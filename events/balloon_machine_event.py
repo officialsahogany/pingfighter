@@ -42,6 +42,7 @@ class BalloonMachineEvent:
 
         # Event state
         self.active = False
+        self.tutorial_balloon_mode = False  # 튜토리얼 풍선 모드 (기계 없이 풍선만)
 
         # Timer-based triggering
         self.cooldown_timer = 0  # 다음 이벤트까지 대기 시간
@@ -115,10 +116,19 @@ class BalloonMachineEvent:
     def _set_next_cooldown(self):
         """다음 이벤트까지의 쿨다운 시간을 랜덤하게 설정"""
         self.cooldown_timer = random.randint(self.MIN_COOLDOWN, self.MAX_COOLDOWN)
-        print(f"[BalloonMachine] 다음 이벤트까지 {self.cooldown_timer/60:.1f}초")
+        # print(f"[BalloonMachine] 다음 이벤트까지 {self.cooldown_timer/60:.1f}초")  # 디버그 비활성화
     
     def update_timer(self):
         """타이머 업데이트 (매 프레임 호출)"""
+        # 튜토리얼 상태 체크 - 풍선기계 튜토리얼 전까지 타이머 정지
+        try:
+            import pingfighter as pf
+            if hasattr(pf, '_ingame_tutorial_active') and pf._ingame_tutorial_active:
+                if hasattr(pf, '_tutorial_balloon_machine_enabled') and not pf._tutorial_balloon_machine_enabled:
+                    return False  # 튜토리얼 중에는 타이머 정지
+        except:
+            pass
+
         if not self.active and self.cooldown_timer > 0:
             self.cooldown_timer -= 1
             if self.cooldown_timer == 0:
@@ -130,23 +140,40 @@ class BalloonMachineEvent:
         # Stage 1에서만 작동
         if current_stage != 1:
             return False
-            
+
         # 이미 활성 중이면 발동하지 않음
         if self.active:
             return False
-        
+
+        # 튜토리얼 상태 체크 - 풍선기계 튜토리얼 전까지 비활성화
+        try:
+            # pingfighter.py의 튜토리얼 상태 확인
+            import pingfighter as pf
+            if hasattr(pf, '_ingame_tutorial_active') and pf._ingame_tutorial_active:
+                # 튜토리얼 활성화 중이고 풍선기계 단계에 도달하지 않았으면 비활성화
+                if hasattr(pf, '_tutorial_balloon_machine_enabled') and not pf._tutorial_balloon_machine_enabled:
+                    return False
+        except:
+            pass
+
         # 타이머가 0이 되면 발동
         return self.cooldown_timer == 0
     
-    def activate(self, screen: pygame.Surface, sound_balloon: Any = None, 
-                 sound_door: Any = None, sound_machine: Any = None, player_score: int = 0):
-        """이벤트 활성화"""
-        print(f"[BalloonMachine] 풍선 기계 이벤트 발동!")
-        
+    def activate(self, screen: pygame.Surface, sound_balloon: Any = None,
+                 sound_door: Any = None, sound_machine: Any = None, player_score: int = 0,
+                 tutorial_mode: bool = False, tutorial_balloon_count: int = 0):
+        """이벤트 활성화
+
+        Args:
+            tutorial_mode: 튜토리얼 모드 여부
+            tutorial_balloon_count: 튜토리얼 모드일 때 발사할 풍선 개수 (0이면 기본값 3)
+        """
+        # print(f"[BalloonMachine] 풍선 기계 이벤트 발동!")  # 디버그 비활성화
+
         if self.active:
-            print(f"[BalloonMachine] Already active, returning False")
+            # print(f"[BalloonMachine] Already active, returning False")  # 디버그 비활성화
             return False
-            
+
         self.screen = screen
         self.sound_balloon = sound_balloon
         self.sound_door = sound_door  # stage1door.wav
@@ -155,30 +182,37 @@ class BalloonMachineEvent:
         self.phase = "door_opening"
         self.timer = 0
         # 풍선은 clear하지 않음 (이전 풍선 유지)
-        # self.balloons.clear()  
+        # self.balloons.clear()
         self.door_open_percent = 0.0
         self.machine_scale = 0.0  # 기계 크기 초기화
         self.balloon_shoot_timer = 0  # 풍선 발사 타이머 초기화
         self.balloon_shoot_count = 0  # 발사한 풍선 개수 초기화
         self.init_font()
-        
-        # 발사할 풍선 개수를 2~4개 사이에서 랜덤하게 결정
-        self.total_balloon_count = random.randint(2, 4)
-        
+
+        # 튜토리얼 모드 플래그 저장
+        self._tutorial_mode = tutorial_mode
+
+        # 튜토리얼 모드일 때 고정된 풍선 설정
+        if tutorial_mode:
+            self.total_balloon_count = tutorial_balloon_count if tutorial_balloon_count > 0 else 3
+            # 모든 풍선이 특별 풍선 (스타포인트 드랍)
+            self.special_balloon_indices = list(range(self.total_balloon_count))
+        else:
+            # 발사할 풍선 개수를 2~4개 사이에서 랜덤하게 결정
+            self.total_balloon_count = random.randint(2, 4)
+            # 특별한 풍선이 나올 순서들을 랜덤하게 결정 (0~2개)
+            special_count = random.randint(0, min(2, self.total_balloon_count))
+            if special_count > 0:
+                self.special_balloon_indices = random.sample(range(self.total_balloon_count), special_count)
+            else:
+                self.special_balloon_indices = []
+
         # 랜덤 발사 순서 생성 (발사할 개수만큼의 인덱스를 섞음)
         self.balloon_shoot_order = list(range(self.total_balloon_count))
         random.shuffle(self.balloon_shoot_order)
-        
-        # 특별한 풍선이 나올 순서들을 랜덤하게 결정 (0~2개)
-        # 먼저 개수를 0~2 사이에서 랜덤하게 결정
-        special_count = random.randint(0, min(2, self.total_balloon_count))  # 풍선 개수를 초과하지 않도록
-        # 중복되지 않게 특별한 풍선 인덱스 선택
-        if special_count > 0:
-            self.special_balloon_indices = random.sample(range(self.total_balloon_count), special_count)
-        else:
-            self.special_balloon_indices = []
-        print(f"[BalloonMachine] 총 {self.total_balloon_count}개 풍선, 특별한 풍선 {special_count}개: {self.special_balloon_indices}")
-        
+
+        # print(f"[BalloonMachine] 총 {self.total_balloon_count}개 풍선, 특별한 풍선 {len(self.special_balloon_indices)}개: {self.special_balloon_indices}")  # 디버그 비활성화
+
         # 랜덤 발사 각도 생성 (발사할 개수만큼의 랜덤 각도)
         # 기본 방향을 개수에 맞게 조정
         self.balloon_shoot_angles = []
@@ -189,15 +223,32 @@ class BalloonMachineEvent:
             self.balloon_shoot_angles.append(base_angle + offset)
         # 각도들도 섞어서 순서를 랜덤하게
         random.shuffle(self.balloon_shoot_angles)
-        
+
         # 풍선 기계 이벤트 활성화
-        
+
         return True
     
-    def update(self) -> bool:
-        """이벤트 업데이트. Returns True if event is still active"""
+    def update(self, paused: bool = False) -> bool:
+        """이벤트 업데이트. Returns True if event is still active
+
+        Args:
+            paused: True면 풍선/기계 업데이트 건너뜀 (튜토리얼 일시정지용)
+        """
+        # 튜토리얼 풍선 모드: 풍선만 업데이트하고 기계 애니메이션은 스킵
+        if getattr(self, 'tutorial_balloon_mode', False) and self.balloons:
+            self._update_balloons(paused)
+            return True
+
+        # 이벤트가 비활성화되어도 풍선이 남아있으면 계속 업데이트
         if not self.active:
+            if self.balloons:
+                self._update_balloons(paused)
+                return True  # 풍선이 남아있으면 True 반환
             return False
+
+        # 일시정지 중이면 타이머와 풍선 업데이트 건너뜀
+        if paused:
+            return True
         
         self.timer += 1
         
@@ -335,7 +386,8 @@ class BalloonMachineEvent:
             "color": color,
             "bounce": 0,
             "lifetime": 0,
-            "is_special": is_special  # 특별한 풍선 플래그
+            "is_special": is_special,  # 특별한 풍선 플래그
+            "is_tutorial": getattr(self, '_tutorial_mode', False)  # 튜토리얼 모드 플래그
         }
         self.balloons.append(balloon)
         
@@ -345,8 +397,14 @@ class BalloonMachineEvent:
         
         # 특별한 풍선인지 일반 풍선인지 구분하여 생성 완료
     
-    def _update_balloons(self):
-        """풍선 위치 업데이트 (풍선파티 스킬과 동일한 물리)"""
+    def _update_balloons(self, paused: bool = False):
+        """풍선 위치 업데이트 (풍선파티 스킬과 동일한 물리)
+
+        Args:
+            paused: True면 풍선 위치 업데이트 건너뜀 (튜토리얼 일시정지용)
+        """
+        if paused:
+            return  # 일시정지 중이면 위치 업데이트 안 함
         for balloon in self.balloons[:]:
             # 풍선 위치 업데이트
             balloon["x"] += balloon["vx"]
@@ -356,14 +414,17 @@ class BalloonMachineEvent:
             balloon["bounce"] += 0.2
             balloon["y"] += int(math.sin(balloon["bounce"]) * 1)
             
-            # 벽 충돌 감지 및 튕김 처리 (풍선파티와 동일한 로직)
-            if balloon["x"] - balloon["radius"] <= 0:  # 왼쪽 벽
-                balloon["x"] = balloon["radius"]
+            # 벽 충돌 감지 및 튕김 처리 (게임 영역 기준: 80~680)
+            GAME_LEFT = self.pillar_offset  # 80
+            GAME_RIGHT = self.pillar_offset + self.game_play_width  # 680
+
+            if balloon["x"] - balloon["radius"] <= GAME_LEFT:  # 왼쪽 벽
+                balloon["x"] = GAME_LEFT + balloon["radius"]
                 balloon["vx"] = abs(balloon["vx"])  # 오른쪽으로 튕김
-            elif balloon["x"] + balloon["radius"] >= self.screen_width:  # 오른쪽 벽
-                balloon["x"] = self.screen_width - balloon["radius"]
+            elif balloon["x"] + balloon["radius"] >= GAME_RIGHT:  # 오른쪽 벽
+                balloon["x"] = GAME_RIGHT - balloon["radius"]
                 balloon["vx"] = -abs(balloon["vx"])  # 왼쪽으로 튕김
-                
+
             if balloon["y"] - balloon["radius"] <= 0:  # 위쪽 벽
                 balloon["y"] = balloon["radius"]
                 balloon["vy"] = abs(balloon["vy"])  # 아래쪽으로 튕김
@@ -386,11 +447,17 @@ class BalloonMachineEvent:
     
     def draw(self, screen: pygame.Surface):
         """이벤트 그리기 (공 위에 그려질 요소들)"""
+        # 튜토리얼 풍선 모드: 풍선만 그리기
+        if getattr(self, 'tutorial_balloon_mode', False) and self.balloons:
+            self._draw_balloons(screen)
+            return
+
+        # 이벤트가 비활성화되어도 풍선이 남아있으면 그리기
+        if self.balloons:
+            self._draw_balloons(screen)
+
         if not self.active:
             return
-        
-        # 풍선만 그리기 (공 위에 그려짐)
-        self._draw_balloons(screen)
         
         # 디버그 정보 (개발 중에만)
         # self._draw_debug_info(screen)
@@ -625,15 +692,15 @@ class BalloonMachineEvent:
     
     def deactivate(self):
         """이벤트 비활성화 및 다음 타이머 설정"""
-        print(f"[BalloonMachine] 이벤트 종료, 다음 타이머 설정")
+        # print(f"[BalloonMachine] 이벤트 종료, 다음 타이머 설정")  # 디버그 비활성화
         self.active = False
         self._set_next_cooldown()  # 다음 이벤트까지의 쿨다운 설정
         self.phase = "idle"
         self.timer = 0
         # 풍선은 남겨둠 (계속 맵에서 돌아다니게)
-        # self.balloons.clear()  
+        # self.balloons.clear()
         # 풍선 기계 이벤트 비활성화 - 풍선은 필드에 남아있음
-        print(f" [deactivate] Complete - active is now {self.active}")
+        # print(f" [deactivate] Complete - active is now {self.active}")  # 디버그 비활성화
     
     def reset(self):
         """이벤트 리셋 (새 게임 시작 시)"""
@@ -648,7 +715,7 @@ class BalloonMachineEvent:
     
     def reset_for_deuce(self):
         """듀스 재시작 시 3점 트리거만 리셋"""
-        print(f" [reset_for_deuce]   - triggered_at_3")
+        # print(f" [reset_for_deuce]   - triggered_at_3")  # 디버그 비활성화
         self.triggered_at_3 = False  # 3점 트리거만 리셋 (듀스에서 다시 발동 가능하도록)
     
     def get_balloons(self) -> List[Dict]:
@@ -705,8 +772,19 @@ class BalloonMachineEvent:
                 
                 if is_special and trade_point_system:
                     # 특별한 풍선 터짐 - 트레이드 포인트 별 생성
+                    print(f"[DEBUG-BALLOON-POP] 특별 풍선 터짐! 위치: ({balloon['x']:.1f}, {balloon['y']:.1f})")
                     star = trade_point_system.spawn_star(balloon["x"], balloon["y"], "balloon")
-                
+                    print(f"[DEBUG-BALLOON-POP] 별 스폰 완료: {star is not None}")
+
+                    # 튜토리얼 풍선이면 튜토리얼 함수 호출
+                    if balloon.get("is_tutorial", False):
+                        try:
+                            import pingfighter as pf
+                            if hasattr(pf, 'on_balloon_collect_for_tutorial'):
+                                pf.on_balloon_collect_for_tutorial()
+                        except:
+                            pass
+
                 # 풍선 제거
                 self.balloons.remove(balloon)
                 
@@ -809,6 +887,15 @@ class BalloonMachineEvent:
         if is_special and trade_point_system:
             trade_point_system.spawn_star(hit_balloon["x"], hit_balloon["y"], "balloon")
 
+            # 튜토리얼 풍선이면 튜토리얼 함수 호출
+            if hit_balloon.get("is_tutorial", False):
+                try:
+                    import pingfighter as pf
+                    if hasattr(pf, 'on_balloon_collect_for_tutorial'):
+                        pf.on_balloon_collect_for_tutorial()
+                except:
+                    pass
+
         try:
             self.balloons.remove(hit_balloon)
         except ValueError:
@@ -831,9 +918,63 @@ class BalloonMachineEvent:
         self.timer = 0
         self.balloons.clear()
         self._set_next_cooldown()  # 새로운 쿨다운 설정
-        print("[BalloonMachine] 완전 리셋 - 새 게임 시작")
-    
+        # print("[BalloonMachine] 완전 리셋 - 새 게임 시작")  # 디버그 비활성화
+
     def reset_for_deuce(self):
         """듀스 재시작 시 리셋 - 타이머는 유지"""
         # 듀스에서도 타이머는 계속 진행되도록 함
-        print("[BalloonMachine] 듀스 리셋 - 타이머는 유지")
+        # print("[BalloonMachine] 듀스 리셋 - 타이머는 유지")  # 디버그 비활성화
+
+    def force_spawn_balloons(self, count: int = 3, is_tutorial: bool = False):
+        """튜토리얼용 풍선 강제 스폰 - 풍선기계 애니메이션 없이 바로 풍선 발사
+
+        Args:
+            count: 발사할 풍선 개수
+            is_tutorial: 튜토리얼용 여부 (True면 모두 특별 풍선)
+        """
+        # 튜토리얼 풍선 업데이트/렌더링을 위해 특별 모드 설정
+        self.tutorial_balloon_mode = True
+
+        center_x = self.machine_x
+        center_y = self.machine_y
+
+        for i in range(count):
+            # 랜덤 방향으로 풍선 발사
+            angle = (math.pi * 2 / count) * i + random.uniform(-math.pi / 12, math.pi / 12)
+            speed = random.uniform(3.0, 4.0)
+
+            # 튜토리얼이면 모든 풍선이 특별 풍선 (스타포인트 드랍)
+            is_special = True if is_tutorial else (random.random() < 0.3)
+
+            if not is_special:
+                color = self.balloon_colors[i % len(self.balloon_colors)]
+            else:
+                color = (255, 255, 255)  # 특별한 풍선은 흰색 기본
+
+            balloon = {
+                "x": center_x,
+                "y": center_y,
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed,
+                "radius": random.randint(25, 35),
+                "color": color,
+                "bounce": 0,
+                "lifetime": 0,
+                "is_special": is_special,
+                "is_tutorial": is_tutorial  # 튜토리얼 풍선 플래그
+            }
+            self.balloons.append(balloon)
+
+        print(f"[BalloonMachine] 튜토리얼 풍선 {count}개 강제 스폰")
+
+
+# === 싱글턴 인스턴스 및 접근 함수 ===
+_balloon_machine_event_instance = None
+
+
+def get_balloon_machine_event() -> BalloonMachineEvent:
+    """BalloonMachineEvent 싱글턴 인스턴스 반환"""
+    global _balloon_machine_event_instance
+    if _balloon_machine_event_instance is None:
+        _balloon_machine_event_instance = BalloonMachineEvent()
+    return _balloon_machine_event_instance

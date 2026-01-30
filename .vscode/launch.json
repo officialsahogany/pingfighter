@@ -2,12 +2,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Setup Claude Code Workspace",
+            "name": "PingFighter",
             "type": "node",
             "request": "launch",
-            "program": "${workspaceFolder}",
-            "preLaunchTask": "Open Claude Code Panels",
-            "console": "integratedTerminal"
+            "runtimeExecutable": "${workspaceFolder}/.venv_win/Scripts/python.exe",
+            "runtimeArgs": ["${workspaceFolder}/pingfighter.py"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

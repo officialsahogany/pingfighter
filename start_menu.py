@@ -7,6 +7,7 @@ from typing import Callable, List, Optional, Sequence, Tuple
 
 import math
 import random
+import sys
 import pygame
 
 from start_menu_decorations import (
@@ -26,6 +27,7 @@ from pillar_background import get_pillar_renderer
 BASE_MENU_OPTIONS = ["경기장 입장", "멀티플레이", "개발테스트", "메달샵", "크레딧"]
 MENU_ICONS = {
     "경기장 입장": "▶",
+    "계속하기": "▷",
     "멀티플레이": "★",
     "로컬플레이": "▷",
     "AI 플레이": "◇",
@@ -176,6 +178,15 @@ def _update_background_layers(
 
 def _build_menu_options(state: MenuState) -> List[str]:
     menu_options = list(BASE_MENU_OPTIONS)
+
+    # 저장 데이터가 있으면 "계속하기" 버튼을 맨 앞에 추가
+    try:
+        from pingfighter import has_save_data
+        if has_save_data() and "계속하기" not in menu_options:
+            menu_options.insert(0, "계속하기")
+    except ImportError:
+        pass
+
     if state.developer_unlocked and "개발자" not in menu_options:
         menu_options.append("개발자")
     if state.selected >= len(menu_options):
@@ -271,6 +282,8 @@ def _render_menu(
         display_text = option
         if option == "경기장 입장":
             display_text = "입장"
+        elif option == "계속하기":
+            display_text = "계속"
         elif option == "AI 플레이":
             display_text = "AI"
         elif option == "테스트메뉴":
@@ -300,10 +313,27 @@ def _render_menu(
             text_rect = text_surface.get_rect(center=(center_x, menu_y + menu_item_height // 2))
             screen.blit(text_surface, text_rect)
 
-        # 선택된 개발테스트 메뉴일 때 설명 표시
+        # 선택된 메뉴일 때 설명 표시
         if idx == state.selected and option == "개발테스트":
             font_desc = ctx.FontStyle.tiny()
             desc = font_desc.render("개발용 AI/테스트 모드", True, (200, 200, 255))
+            desc_rect = desc.get_rect(center=(width // 2, menu_y + menu_item_height + 35))
+            screen.blit(desc, desc_rect)
+
+        # 계속하기 선택 시 저장된 스테이지 정보 표시
+        if idx == state.selected and option == "계속하기":
+            font_desc = ctx.FontStyle.tiny()
+            try:
+                from pingfighter import load_game_progress
+                save_data = load_game_progress()
+                if save_data:
+                    stage_num = save_data.get("stage_number", "?")
+                    desc_text = f"스테이지 {stage_num} 광장에서 이어하기"
+                else:
+                    desc_text = "저장된 게임 불러오기"
+            except Exception:
+                desc_text = "저장된 게임 불러오기"
+            desc = font_desc.render(desc_text, True, (100, 255, 150))
             desc_rect = desc.get_rect(center=(width // 2, menu_y + menu_item_height + 35))
             screen.blit(desc, desc_rect)
 
@@ -866,6 +896,136 @@ def _hsv_to_rgb_transition(h: float, s: float, v: float) -> Tuple[int, int, int]
 
 
 def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bool:
+    if choice == "계속하기":
+        # 저장된 게임 데이터 불러오기
+        try:
+            import pingfighter as pf_module
+            from pingfighter import (
+                load_game_progress, apply_loaded_progress, run_downtown_hub,
+                apply_character_selection, main as pingfighter_main, items,
+                effects_manager, reset_damage_manager, get_net_gun_instance,
+                preload_stage_intro_resources, show_stage2_intro, show_stage3_intro,
+                show_stage4_intro, show_stage5_intro, show_stage6_intro,
+                show_stage7_intro, show_stage8_intro,
+                STAGE2_INTRO_VIDEO_PATH, STAGE3_INTRO_VIDEO_PATH, STAGE4_INTRO_VIDEO_PATH,
+                STAGE5_INTRO_VIDEO_PATH, STAGE6_INTRO_VIDEO_PATH, STAGE7_INTRO_VIDEO_PATH,
+                STAGE8_INTRO_VIDEO_PATH
+            )
+
+            save_data = load_game_progress()
+            if save_data:
+                # 클릭 사운드 재생
+                ctx.play_click_sound()
+
+                # 저장된 데이터 적용
+                apply_loaded_progress(save_data)
+
+                # 저장된 캐릭터 타입 적용
+                char_type = save_data.get("character_type", "smasher")
+                try:
+                    apply_character_selection(char_type)
+                except Exception as char_err:
+                    print(f"[계속하기] 캐릭터 적용 실패: {char_err}")
+
+                # === UI 활성화 및 게임 상태 초기화 ===
+                # 필러 UI 활성화 (중요! 없으면 게이지, 점수판 등 UI가 안 보임)
+                pf_module._pillar_ui_enabled = True
+
+                # AI 모드 설정 (저장된 값 또는 기본값)
+                ai_mode = save_data.get("ai_mode", "junior")
+                pf_module.ai_mode = ai_mode
+                pf_module.ai_enabled = True
+
+                # 난이도별 패들 스케일 적용
+                try:
+                    pf_module.apply_player_paddle_scale(ai_mode)
+                except Exception:
+                    pass
+
+                # 저장된 스테이지의 광장으로 이동
+                stage_num = save_data.get("stage_number", 1)
+
+                # 무지개 파티클 트랜지션 효과 재생
+                _play_rainbow_transition(ctx.get_screen(), 800)
+
+                # 광장으로 직접 이동
+                should_continue = run_downtown_hub(stage_num)
+
+                # 저장 NPC를 통해 메인메뉴로 복귀하는 경우
+                if not should_continue:
+                    # Alt+F4로 종료한 경우 게임 완전 종료
+                    if getattr(pf_module, 'game_should_exit', False):
+                        pygame.quit()
+                        sys.exit()
+                    # 메인메뉴로 복귀 (루프 재시작)
+                    return False
+
+                # === 광장 종료 후 다음 스테이지로 전환 ===
+                # 다음 스테이지 번호 계산 (광장 stage_num은 클리어한 스테이지, 다음은 +1)
+                next_stage_display = stage_num + 1
+
+                # 아이템 및 상태 초기화
+                items.clear_field_items()
+                try:
+                    get_net_gun_instance().reset()
+                except Exception:
+                    pass
+
+                # === 저장 파일 삭제 (다음 스테이지 진입 시) ===
+                # 이제 광장에서 나가면 저장 데이터는 더 이상 유효하지 않음
+                try:
+                    from pingfighter import delete_save_data
+                    delete_save_data()
+                    print(f"[계속하기] 저장 파일 삭제 완료 - 다음 스테이지 {next_stage_display} 진입")
+                except Exception as del_err:
+                    print(f"[계속하기] 저장 파일 삭제 실패: {del_err}")
+
+                # 다음 스테이지 인트로 재생
+                if next_stage_display == 2:
+                    preload_stage_intro_resources(STAGE2_INTRO_VIDEO_PATH)
+                    show_stage2_intro()
+                elif next_stage_display == 3:
+                    preload_stage_intro_resources(STAGE3_INTRO_VIDEO_PATH)
+                    show_stage3_intro()
+                elif next_stage_display == 4:
+                    preload_stage_intro_resources(STAGE4_INTRO_VIDEO_PATH)
+                    show_stage4_intro()
+                elif next_stage_display == 5:
+                    preload_stage_intro_resources(STAGE5_INTRO_VIDEO_PATH)
+                    show_stage5_intro()
+                elif next_stage_display == 6:
+                    preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
+                    show_stage6_intro()
+                elif next_stage_display == 7:
+                    preload_stage_intro_resources(STAGE7_INTRO_VIDEO_PATH)
+                    show_stage7_intro()
+                elif next_stage_display == 8:
+                    preload_stage_intro_resources(STAGE8_INTRO_VIDEO_PATH)
+                    show_stage8_intro()
+
+                # 이펙트 및 상태 초기화
+                try:
+                    effects_manager.clear_all_effects()
+                except Exception:
+                    pass
+                try:
+                    reset_damage_manager()
+                except Exception:
+                    pass
+
+                # 다음 스테이지 게임 시작
+                if not getattr(pf_module, 'game_should_exit', False):
+                    pingfighter_main(next_stage_display)
+
+                return True
+            else:
+                print("[계속하기] 저장 데이터 없음")
+        except Exception as e:
+            print(f"[계속하기 오류] {e}")
+            import traceback
+            traceback.print_exc()
+        return False
+
     if choice == "경기장 입장":
         # 입장 버튼 클릭 사운드 재생
         try:
@@ -890,9 +1050,15 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
         _play_rainbow_transition(ctx.get_screen(), 1000)
         # 캐릭터 선택으로 진행
         character = ctx.show_character_selection()
+        if character == "__TUTORIAL__":
+            # 튜토리얼 진행 선택됨 - 스매셔 + 주니어리그로 스테이지 1부터 시작
+            ctx.set_tutorial_mode(True)  # 튜토리얼 모드 활성화
+            ctx.start_game_with_difficulty("ufo_player", "junior")
+            return True
         if character is not None:
             difficulty = ctx.show_difficulty_selection()
             if difficulty is not None:
+                ctx.set_tutorial_mode(False)  # 일반 게임 모드 (튜토리얼 비활성화)
                 ctx.start_game_with_difficulty(character, difficulty)
         return True
     if choice == "멀티플레이":
@@ -1081,6 +1247,7 @@ class MenuContext:
     show_difficulty_selection: Callable[[], Optional[str]]
     start_game_with_difficulty: Callable[[str, str], None]
     start_tutorial_game: Callable[[], None]
+    set_tutorial_mode: Callable[[bool], None]  # 튜토리얼 모드 플래그 설정
     start_ai_play: Callable[[], None]
     start_test_mode: Callable[[], None]
     show_item_manager_menu: Callable[[], None]

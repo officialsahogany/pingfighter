@@ -1,33 +1,21 @@
 
 ================================================================================
-오류 발생 시간: 2026-01-01 18:32:48
+오류 발생 시간: 2026-01-31 04:13:41
 ================================================================================
 
-오류 타입: UnboundLocalError
-오류 메시지: cannot access local variable 'boss_stunned_timer' where it is not associated with a value
+오류 타입: TypeError
+오류 메시지: MenuContext.__init__() got an unexpected keyword argument 'set_tutorial_mode'
 
 상세 스택 트레이스:
 Traceback (most recent call last):
-  File "e:\bosspong\pingfighter.py", line 108132, in <module>
+  File "D:\main\bosspong/pingfighter.py", line 136329, in <module>
     game_loop()
-  File "e:\bosspong\pingfighter.py", line 102258, in game_loop
+  File "D:\main\bosspong/pingfighter.py", line 130102, in game_loop
     show_start_screen()
-  File "e:\bosspong\pingfighter.py", line 69525, in show_start_screen
-    show_start_menu(ctx)
-  File "e:\bosspong\start_menu.py", line 1250, in show_start_menu
-    _MENU_STATE_CACHE = run_start_menu(ctx, _MENU_STATE_CACHE)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "e:\bosspong\start_menu.py", line 1240, in run_start_menu
-    if not _handle_menu_events(ctx, state, current_menu_options):
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "e:\bosspong\start_menu.py", line 984, in _handle_menu_events
-    ctx.show_item_manager_menu()
-  File "e:\bosspong\pingfighter.py", line 79688, in show_item_manager_menu
-    main(stage_num)
-  File "e:\bosspong\pingfighter.py", line 101142, in main
-    boss_stunned_timer = max(boss_stunned_timer, knockback_info["stun_duration"])
-                             ^^^^^^^^^^^^^^^^^^
-UnboundLocalError: cannot access local variable 'boss_stunned_timer' where it is not associated with a value
+  File "D:\main\bosspong/pingfighter.py", line 93402, in show_start_screen
+    ctx = MenuContext(
+          ^^^^^^^^^^^^
+TypeError: MenuContext.__init__() got an unexpected keyword argument 'set_tutorial_mode'
 
 
 ================================================================================

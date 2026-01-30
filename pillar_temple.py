@@ -92,10 +92,14 @@ class TemplePillarBackground:
         self._pattern_cache_left = None
         self._pattern_cache_right = None
         self._pattern_cache_scroll = 0
-        self._pattern_update_interval = 3  # 3프레임마다 패턴 업데이트
+        self._pattern_update_interval = 6  # 6프레임마다 패턴 업데이트 (성능 최적화: 3→6)
         self._pattern_frame_counter = 0
         # 별 렌더링용 재사용 서피스
         self._star_glow_cache = {}  # 크기별 글로우 서피스 캐시
+        # 연꽃 캐시 (크기별 기본 연꽃 서피스)
+        self._lotus_cache = {}  # key: (size_bucket, color_idx) -> Surface
+        # 꽃잎 캐시 (크기/색상별)
+        self._petal_cache = {}  # key: (size_bucket, color_type) -> Surface
 
         self._create_frame()
         self._create_bg_cache()
@@ -114,6 +118,9 @@ class TemplePillarBackground:
 
         # 3. 모서리 장식 (연꽃/만다라)
         self._draw_corner_ornaments(self._frame_surface)
+
+        # 4. 금색 게임 영역 경계선 (매 프레임 그리던 것을 캐시에 포함)
+        self._draw_golden_borders(self._frame_surface)
 
     def _create_bg_cache(self):
         """기본 배경 캐시 생성 (정적 요소 사전 렌더링)"""
@@ -364,7 +371,7 @@ class TemplePillarBackground:
     def _init_stars(self):
         """별빛 파티클 초기화 (최적화: 색상 사전 결정)"""
         self.stars = []
-        for _ in range(30):  # 40 -> 30개로 축소
+        for _ in range(20):  # 40 -> 30 -> 20개로 축소 (성능 최적화)
             side = random.choice(['left', 'right'])
             if side == 'left' and self.game_x > 20:
                 x = random.uniform(5, self.game_x - 5)
@@ -531,10 +538,7 @@ class TemplePillarBackground:
         # 5. 꽃가루 (개수 제한)
         self._draw_petals(screen)
 
-        # 6. 금색 테두리 장식
-        self._draw_golden_borders(screen)
-
-        # 7. 액자 프레임 (맨 위에)
+        # 6. 액자 프레임 (맨 위에, 금색 테두리 포함)
         if self._frame_surface is not None:
             screen.blit(self._frame_surface, (0, 0))
 
@@ -561,88 +565,155 @@ class TemplePillarBackground:
                 # 코어만 그리기
                 pygame.draw.circle(screen, color, (int(star['x']), int(star['y'])), max(1, int(size)))
 
+    def _get_cached_lotus(self, size: float, color_idx: int) -> pygame.Surface:
+        """캐시된 연꽃 서피스 반환 (성능 최적화)"""
+        # 크기 버킷팅 (5px 단위)
+        size_bucket = int(size / 5) * 5
+        cache_key = (size_bucket, color_idx)
+
+        if cache_key in self._lotus_cache:
+            return self._lotus_cache[cache_key]
+
+        # 연꽃 서피스 생성 (회전 없이 기본 형태)
+        lotus_size = int(size_bucket * 2.5)
+        lotus_surf = pygame.Surface((lotus_size, lotus_size), pygame.SRCALPHA)
+        local_cx = lotus_size // 2
+        local_cy = lotus_size // 2
+
+        # 색상 팔레트
+        color_palettes = [
+            self.colors['petal_pink'],
+            self.colors['petal_purple'],
+            self.colors['petal_gold']
+        ]
+        base_color = color_palettes[color_idx % 3]
+
+        # 8개의 꽃잎 (회전 0에서 그림)
+        num_petals = 8
+        for i in range(num_petals):
+            angle = (i / num_petals) * math.pi * 2
+            petal_len = size_bucket * 0.9
+            end_x = local_cx + math.cos(angle) * petal_len
+            end_y = local_cy + math.sin(angle) * petal_len
+
+            perp = angle + math.pi / 2
+            width = size_bucket * 0.35
+            mid_dist = petal_len * 0.5
+            mid_x = local_cx + math.cos(angle) * mid_dist
+            mid_y = local_cy + math.sin(angle) * mid_dist
+
+            side1_x = mid_x + math.cos(perp) * width
+            side1_y = mid_y + math.sin(perp) * width
+            side2_x = mid_x - math.cos(perp) * width
+            side2_y = mid_y - math.sin(perp) * width
+
+            points = [(local_cx, local_cy), (side1_x, side1_y), (end_x, end_y), (side2_x, side2_y)]
+
+            # 그림자
+            shadow_pts = [(p[0] + 2, p[1] + 2) for p in points]
+            pygame.draw.polygon(lotus_surf, (10, 8, 15, 80), shadow_pts)
+            # 꽃잎 베이스
+            pygame.draw.polygon(lotus_surf, base_color, points)
+            # 하이라이트
+            inner_pts = [
+                (local_cx, local_cy),
+                (side1_x * 0.6 + local_cx * 0.4, side1_y * 0.6 + local_cy * 0.4),
+                (end_x * 0.7 + local_cx * 0.3, end_y * 0.7 + local_cy * 0.3),
+                (side2_x * 0.6 + local_cx * 0.4, side2_y * 0.6 + local_cy * 0.4)
+            ]
+            highlight_color = tuple(min(255, c + 30) for c in base_color)
+            pygame.draw.polygon(lotus_surf, highlight_color, inner_pts)
+            # 테두리
+            border_color = tuple(min(200, c + 40) for c in base_color)
+            pygame.draw.polygon(lotus_surf, border_color, points, 1)
+
+        # 중심부
+        pygame.draw.circle(lotus_surf, self.colors['gold_mid'], (local_cx, local_cy), int(size_bucket * 0.25))
+        pygame.draw.circle(lotus_surf, self.colors['gold_light'], (local_cx - 1, local_cy - 1), int(size_bucket * 0.15))
+
+        self._lotus_cache[cache_key] = lotus_surf
+        return lotus_surf
+
     def _draw_floating_lotuses(self, screen: pygame.Surface):
-        """떠다니는 연꽃 그리기 (어둡고 투명하게)"""
+        """떠다니는 연꽃 그리기 (최적화: 캐시 + 회전 캐시)"""
         for lotus in self.floating_lotuses:
             cx, cy = int(lotus['x']), int(lotus['y'])
             size = lotus['size']
             rotation = lotus['rotation']
             color_phase = lotus['color_phase']
 
-            # 연꽃용 투명 서피스 생성 (크기 여유있게)
-            lotus_size = int(size * 2.5)
-            lotus_surf = pygame.Surface((lotus_size, lotus_size), pygame.SRCALPHA)
-            local_cx = lotus_size // 2
-            local_cy = lotus_size // 2
-
-            # 색상 그라데이션 (시간에 따라 변화)
+            # 색상 인덱스 계산 (시간에 따라 변화)
             color_shift = (math.sin(color_phase) + 1) / 2
+            color_idx = int(color_shift * 3) % 3
 
-            # 8개의 꽃잎
-            num_petals = 8
-            for i in range(num_petals):
-                angle = rotation + (i / num_petals) * math.pi * 2
+            # 회전 각도 양자화 (15도 단위)
+            rotation_deg = int(math.degrees(rotation) / 15) * 15
 
-                # 꽃잎 끝점
-                petal_len = size * 0.9
-                end_x = local_cx + math.cos(angle) * petal_len
-                end_y = local_cy + math.sin(angle) * petal_len
-
-                # 꽃잎 측면
-                perp = angle + math.pi / 2
-                width = size * 0.35
-                mid_dist = petal_len * 0.5
-
-                mid_x = local_cx + math.cos(angle) * mid_dist
-                mid_y = local_cy + math.sin(angle) * mid_dist
-
-                side1_x = mid_x + math.cos(perp) * width
-                side1_y = mid_y + math.sin(perp) * width
-                side2_x = mid_x - math.cos(perp) * width
-                side2_y = mid_y - math.sin(perp) * width
-
-                points = [(local_cx, local_cy), (side1_x, side1_y), (end_x, end_y), (side2_x, side2_y)]
-
-                # 색상 선택 (꽃잎마다 약간 다르게)
-                petal_phase = color_shift + i * 0.1
-                if petal_phase % 1 < 0.33:
-                    base_color = self.colors['petal_pink']
-                elif petal_phase % 1 < 0.66:
-                    base_color = self.colors['petal_purple']
-                else:
-                    base_color = self.colors['petal_gold']
-
-                # 그림자 (더 어둡게)
-                shadow_pts = [(p[0] + 2, p[1] + 2) for p in points]
-                pygame.draw.polygon(lotus_surf, (10, 8, 15, 80), shadow_pts)
-
-                # 꽃잎 베이스
-                pygame.draw.polygon(lotus_surf, base_color, points)
-
-                # 하이라이트 (더 은은하게)
-                inner_pts = [
-                    (local_cx, local_cy),
-                    (side1_x * 0.6 + local_cx * 0.4, side1_y * 0.6 + local_cy * 0.4),
-                    (end_x * 0.7 + local_cx * 0.3, end_y * 0.7 + local_cy * 0.3),
-                    (side2_x * 0.6 + local_cx * 0.4, side2_y * 0.6 + local_cy * 0.4)
-                ]
-                highlight_color = tuple(min(255, c + 30) for c in base_color)
-                pygame.draw.polygon(lotus_surf, highlight_color, inner_pts)
-
-                # 테두리 (더 어둡게)
-                border_color = tuple(min(200, c + 40) for c in base_color)
-                pygame.draw.polygon(lotus_surf, border_color, points, 1)
-
-            # 중심부 (어둡게)
-            pygame.draw.circle(lotus_surf, self.colors['gold_mid'], (local_cx, local_cy), int(size * 0.25))
-            pygame.draw.circle(lotus_surf, self.colors['gold_light'], (local_cx - 1, local_cy - 1), int(size * 0.15))
+            # 캐시된 회전 연꽃 가져오기 (회전도 캐시)
+            rotated = self._get_rotated_lotus(size, color_idx, rotation_deg)
 
             # 투명도 적용 후 화면에 블릿
-            lotus_surf.set_alpha(100)  # 투명하게 (255의 약 40%)
-            screen.blit(lotus_surf, (cx - lotus_size // 2, cy - lotus_size // 2))
+            rotated.set_alpha(100)
+            rect = rotated.get_rect(center=(cx, cy))
+            screen.blit(rotated, rect.topleft)
+
+    def _get_rotated_lotus(self, size: float, color_idx: int, rotation_deg: int) -> pygame.Surface:
+        """회전된 연꽃 캐시 반환 (성능 최적화)"""
+        # 크기 버킷팅 (5px 단위)
+        size_bucket = int(size / 5) * 5
+        # 회전 0-345도 (15도 단위 = 24개 각도)
+        rot_key = rotation_deg % 360
+        cache_key = (size_bucket, color_idx, rot_key)
+
+        # 회전 캐시 초기화
+        if not hasattr(self, '_rotated_lotus_cache'):
+            self._rotated_lotus_cache = {}
+
+        if cache_key in self._rotated_lotus_cache:
+            return self._rotated_lotus_cache[cache_key]
+
+        # 캐시된 기본 연꽃 가져오기
+        lotus_surf = self._get_cached_lotus(size, color_idx)
+
+        # 회전 적용
+        if rot_key != 0:
+            rotated = pygame.transform.rotate(lotus_surf, -rot_key)
+        else:
+            rotated = lotus_surf
+
+        # 캐시 크기 제한 (메모리 관리)
+        if len(self._rotated_lotus_cache) > 100:
+            self._rotated_lotus_cache.clear()
+
+        self._rotated_lotus_cache[cache_key] = rotated
+        return rotated
+
+    def _get_cached_petal(self, size: float, color_type: str) -> pygame.Surface:
+        """캐시된 꽃잎 서피스 반환 (성능 최적화)"""
+        # 크기 버킷팅 (2px 단위)
+        size_bucket = max(2, int(size / 2) * 2)
+        cache_key = (size_bucket, color_type)
+
+        if cache_key in self._petal_cache:
+            return self._petal_cache[cache_key]
+
+        # 색상 선택
+        if color_type == 'pink':
+            color = self.colors['petal_pink']
+        elif color_type == 'purple':
+            color = self.colors['petal_purple']
+        else:
+            color = self.colors['petal_gold']
+
+        # 꽃잎 서피스 생성
+        petal_surf = pygame.Surface((size_bucket * 2, size_bucket), pygame.SRCALPHA)
+        pygame.draw.ellipse(petal_surf, color, (0, 0, size_bucket * 2, size_bucket))
+
+        self._petal_cache[cache_key] = petal_surf
+        return petal_surf
 
     def _draw_petals(self, screen: pygame.Surface):
-        """꽃가루 그리기"""
+        """꽃가루 그리기 (최적화: 회전 캐시 사용)"""
         for petal in self.petals:
             if petal['alpha'] <= 0:
                 continue
@@ -652,25 +723,47 @@ class TemplePillarBackground:
             rotation = petal['rotation']
             alpha = int(petal['alpha'] * 255)
 
-            # 색상 선택
-            if petal['color_type'] == 'pink':
-                color = self.colors['petal_pink']
-            elif petal['color_type'] == 'purple':
-                color = self.colors['petal_purple']
-            else:
-                color = self.colors['petal_gold']
+            # 회전 각도 양자화 (30도 단위)
+            rotation_deg = int(math.degrees(rotation) / 30) * 30
 
-            # 꽃잎 모양 (타원형)
-            petal_surf = pygame.Surface((int(size * 2), int(size)), pygame.SRCALPHA)
+            # 캐시된 회전 꽃잎 가져오기
+            rotated = self._get_rotated_petal(size, petal['color_type'], rotation_deg)
 
             # 투명도 적용
-            adjusted_color = (*color, alpha)
-            pygame.draw.ellipse(petal_surf, adjusted_color, (0, 0, int(size * 2), int(size)))
-
-            # 회전
-            rotated = pygame.transform.rotate(petal_surf, math.degrees(rotation))
+            rotated.set_alpha(alpha)
             rect = rotated.get_rect(center=(px, py))
             screen.blit(rotated, rect.topleft)
+
+    def _get_rotated_petal(self, size: float, color_type: str, rotation_deg: int) -> pygame.Surface:
+        """회전된 꽃잎 캐시 반환 (성능 최적화)"""
+        # 크기 버킷팅 (2px 단위)
+        size_bucket = max(2, int(size / 2) * 2)
+        # 회전 0-330도 (30도 단위 = 12개 각도)
+        rot_key = rotation_deg % 360
+        cache_key = (size_bucket, color_type, rot_key)
+
+        # 회전 캐시 초기화
+        if not hasattr(self, '_rotated_petal_cache'):
+            self._rotated_petal_cache = {}
+
+        if cache_key in self._rotated_petal_cache:
+            return self._rotated_petal_cache[cache_key]
+
+        # 캐시된 기본 꽃잎 가져오기
+        petal_surf = self._get_cached_petal(size, color_type)
+
+        # 회전 적용
+        if rot_key != 0:
+            rotated = pygame.transform.rotate(petal_surf, rot_key)
+        else:
+            rotated = petal_surf
+
+        # 캐시 크기 제한 (메모리 관리)
+        if len(self._rotated_petal_cache) > 100:
+            self._rotated_petal_cache.clear()
+
+        self._rotated_petal_cache[cache_key] = rotated
+        return rotated
 
     def _draw_base_background(self, screen: pygame.Surface):
         """기본 배경 (깊은 그라데이션과 텍스처)"""
@@ -1539,6 +1632,14 @@ class TemplePillarBackground:
         # 캐시 초기화 (다음 draw에서 재생성됨)
         self._pattern_cache_left = None
         self._pattern_cache_right = None
+        # 회전 캐시 초기화
+        if hasattr(self, '_rotated_lotus_cache'):
+            self._rotated_lotus_cache.clear()
+        if hasattr(self, '_rotated_petal_cache'):
+            self._rotated_petal_cache.clear()
+        # 기본 연꽃/꽃잎 캐시도 초기화
+        self._lotus_cache.clear()
+        self._petal_cache.clear()
 
         # 액자 프레임 및 배경 캐시 재생성
         self._create_frame()

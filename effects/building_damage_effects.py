@@ -182,7 +182,6 @@ class BuildingDamageManager:
             'damage_level': 0,  # 0: 정상, 1: 경미한 손상, 2: 심각한 손상
             'particles': []  # 이 건물의 파티클들
         }
-        print(f"[손상 시스템] {building_id} 등록: rect={rect}, max_hp={max_hp}")
         
     def update_building_rect(self, building_id: str, rect: pygame.Rect):
         """건물 위치 업데이트"""
@@ -209,23 +208,13 @@ class BuildingDamageManager:
         # 체력이 증가해서 손상 레벨이 개선되었을 때 파티클 조정
         if prev_level > state['damage_level']:
             self._adjust_particles_for_healing(state, prev_level, state['damage_level'])
-            
-        # 디버그 로그
+
+        # 손상 레벨 변경 시 리셋
         if prev_level != state['damage_level']:
-            print(f"[손상 효과] {building_id}: HP {current_hp}, 손상 레벨 {prev_level} → {state['damage_level']}")
-            state['debug_update_logged'] = False  # 리셋
+            state['debug_update_logged'] = False
             
     def update(self):
         """파티클 업데이트"""
-        # 디버그: 건물 상태 확인
-        has_damaged = False
-        for building_id, state in self.damage_states.items():
-            if state['damage_level'] > 0:
-                has_damaged = True
-                if not state.get('debug_update_logged'):
-                    print(f"[손상 업데이트] {building_id}: 레벨 {state['damage_level']}, HP {state['current_hp']}/{state['max_hp']}")
-                    state['debug_update_logged'] = True
-        
         # 건물별 파티클 생성 및 업데이트
         for building_id, state in self.damage_states.items():
             if state['damage_level'] >= 1:
@@ -263,7 +252,6 @@ class BuildingDamageManager:
             x = rect.centerx + random.randint(-rect.width//3, rect.width//3)
             y = rect.top + random.randint(0, rect.height//4)
             state['particles'].append(SmokeParticle(x, y))
-        print(f"[연기 생성] {count}개 생성, 위치: ({rect.centerx}, {rect.top}), rect: {rect}, 현재 파티클 수: {len(state['particles'])}")
             
     def _spawn_fire(self, state: Dict):
         """불꽃 생성"""
@@ -274,7 +262,6 @@ class BuildingDamageManager:
             x = rect.centerx + random.randint(-rect.width//2, rect.width//2)
             y = rect.centery + random.randint(-rect.height//3, rect.height//3)
             state['particles'].append(FireParticle(x, y))
-        print(f"[불꽃 생성] {count}개 생성, 위치: ({rect.centerx}, {rect.centery})")
             
     def _spawn_sparks(self, state: Dict):
         """불씨 생성"""
@@ -288,38 +275,10 @@ class BuildingDamageManager:
             
     def draw(self, surface: pygame.Surface):
         """모든 파티클 그리기"""
-        # 디버그: 파티클 수 확인
-        total_particles = 0
-        for building_id, state in self.damage_states.items():
-            total_particles += len(state['particles'])
-            
-        if total_particles > 0:
-            if not hasattr(self, '_draw_count'):
-                self._draw_count = 0
-            self._draw_count += 1
-            
-            # 매 60프레임마다 상세 로그
-            if self._draw_count % 60 == 0:
-                print(f"[손상 그리기] 총 파티클 수: {total_particles}")
-                for building_id, state in self.damage_states.items():
-                    if len(state['particles']) > 0:
-                        print(f"  - {building_id}: {len(state['particles'])} 파티클")
-                        # 파티클 타입별 수 확인
-                        smoke_count = sum(1 for p in state['particles'] if isinstance(p, SmokeParticle))
-                        fire_count = sum(1 for p in state['particles'] if isinstance(p, FireParticle))
-                        spark_count = sum(1 for p in state['particles'] if isinstance(p, SparkParticle))
-                        print(f"    연기: {smoke_count}, 불꽃: {fire_count}, 불씨: {spark_count}")
-        
         # 모든 건물의 파티클 그리기
-        drawn_count = 0
         for building_id, state in self.damage_states.items():
             for particle in state['particles']:
                 particle.draw(surface)
-                drawn_count += 1
-                
-        # 실제로 그린 파티클 수 확인
-        if drawn_count > 0 and self._draw_count % 60 == 0:
-            print(f"[손상 렌더링] 실제 그린 파티클: {drawn_count}개")
             
     def draw_damage_overlay(self, surface: pygame.Surface, building_id: str, rect: pygame.Rect):
         """건물 손상 오버레이 그리기"""
@@ -379,28 +338,19 @@ class BuildingDamageManager:
         """건물이 수리되었을 때 파티클 조정"""
         # 체력이 회복되어 손상 레벨이 개선됨
         if new_level == 0:  # 체력 3 이상 - 모든 파티클 제거
-            removed_count = len(state['particles'])
             state['particles'].clear()
-            print(f"[수리 효과] 체력 완전 회복 - {removed_count}개 파티클 모두 제거")
-            
+
         elif new_level == 1 and old_level == 2:  # 체력 2로 회복 - 불꽃/불씨 제거, 연기만 유지
             # FireParticle과 SparkParticle만 제거
-            fire_particles = [p for p in state['particles'] if isinstance(p, (FireParticle, SparkParticle))]
             smoke_particles = [p for p in state['particles'] if isinstance(p, SmokeParticle)]
-            
-            removed_count = len(fire_particles)
             state['particles'] = smoke_particles
-            print(f"[수리 효과] 체력 2로 회복 - {removed_count}개 불꽃/불씨 제거, {len(smoke_particles)}개 연기 유지")
                 
     def clear_building(self, building_id: str):
         """건물 제거"""
         if building_id in self.damage_states:
             # 파티클 효과 즉시 제거
             state = self.damage_states[building_id]
-            particle_count = len(state.get('particles', []))
             state['particles'].clear()  # 모든 파티클 즉시 제거
-            
-            print(f"[손상 시스템] {building_id} 제거 - {particle_count}개의 파티클 효과 종료")
             del self.damage_states[building_id]
 
     def reset_all(self) -> None:

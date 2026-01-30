@@ -2,6 +2,22 @@ import pygame
 import math
 import random
 
+# ============================================================
+# Surface 캐시 시스템 (성능 최적화)
+# ============================================================
+_stage5_surface_cache = {}
+
+def _get_cached_surface(width: int, height: int) -> pygame.Surface:
+    """캐시된 투명 Surface 반환"""
+    key = (width, height)
+    if key not in _stage5_surface_cache:
+        if len(_stage5_surface_cache) > 100:
+            _stage5_surface_cache.clear()
+        _stage5_surface_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
+    surface = _stage5_surface_cache[key]
+    surface.fill((0, 0, 0, 0))
+    return surface
+
 class AnimatedBackgroundStage5:
     def __init__(self, base_image_path="stage5_field.png"):
         self.base_image = pygame.image.load(base_image_path).convert()
@@ -251,9 +267,10 @@ class AnimatedBackgroundStage5:
                     60 + int(40 * glow_intensity), 
                     20)
             
-            # 글로우 서피스에 그리기
-            glow_surface = pygame.Surface((radius * 2 + 20, radius * 2 + 20), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surface, (*color, alpha), 
+            # 글로우 서피스에 그리기 - 캐시 사용
+            glow_size = radius * 2 + 20
+            glow_surface = _get_cached_surface(glow_size, glow_size)
+            pygame.draw.circle(glow_surface, (*color, alpha),
                              (radius + 10, radius + 10), radius, 1 + i)
             surface.blit(glow_surface, (center_x - radius - 10, center_y - radius - 10))
         
@@ -274,8 +291,8 @@ class AnimatedBackgroundStage5:
                     60 + int(40 * glow_intensity),
                     20)
             
-            # 글로우 라인
-            glow_surface = pygame.Surface((self.width, 10), pygame.SRCALPHA)
+            # 글로우 라인 - 캐시 사용
+            glow_surface = _get_cached_surface(self.width, 10)
             pygame.draw.line(glow_surface, (*color, alpha),
                            (line_start_x, 5),
                            (line_end_x, 5), thickness)
@@ -288,13 +305,14 @@ class AnimatedBackgroundStage5:
         
         # 불꽃 파티클 그리기
         for particle in self.fire_line_particles:
-            # 파티클 글로우 효과
+            # 파티클 글로우 효과 - 캐시 사용
             glow_alpha = int(particle['glow'] * particle['life'] * 1.5)
             if glow_alpha > 0:
-                glow_size = particle['size'] * 1.5
-                glow_surface = pygame.Surface((int(glow_size * 2), int(glow_size * 2)), pygame.SRCALPHA)
+                glow_size = int(particle['size'] * 1.5)
+                surf_size = max(1, glow_size * 2)
+                glow_surface = _get_cached_surface(surf_size, surf_size)
                 pygame.draw.circle(glow_surface, (*particle['color'], min(glow_alpha, 80)),
-                                 (int(glow_size), int(glow_size)), int(glow_size))
+                                 (glow_size, glow_size), glow_size)
                 surface.blit(glow_surface, (particle['x'] - glow_size, particle['y'] - glow_size))
             
             # 파티클 본체

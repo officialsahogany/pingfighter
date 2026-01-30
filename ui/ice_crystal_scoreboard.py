@@ -132,7 +132,7 @@ def draw_metallic_score(surface, p_score, b_score, x, y, w, h, frame, boss_name=
         label_font = pygame.font.Font(None, 20)
 
     center_x = x + w // 2
-    score_y = y + h // 2 - 5
+    score_y = y + h // 2 + 5  # 점수 중앙 Y 위치
 
     # 메탈릭 블루 색상
     p_color = (150, 200, 255)  # 플레이어: 밝은 메탈릭 블루
@@ -144,35 +144,35 @@ def draw_metallic_score(surface, p_score, b_score, x, y, w, h, frame, boss_name=
     player_label_x = center_x - 55 - player_label.get_width() // 2
     surface.blit(player_label, (player_label_x, y + 12))
 
-    # 플레이어 점수
+    # 플레이어 점수 - centery 사용하여 수직 중앙 정렬
     p_text = font.render(str(p_score), True, p_color)
-    p_x = center_x - 55 - p_text.get_width() // 2
+    p_rect = p_text.get_rect(centerx=center_x - 55, centery=score_y)
 
     # 메탈릭 글로우 효과
     for g in range(3, 0, -1):
         glow = font.render(str(p_score), True, (100, 180, 255))
         glow.set_alpha(50 // g)
-        surface.blit(glow, (p_x - g, score_y - g))
-    surface.blit(p_text, (p_x, score_y))
+        surface.blit(glow, (p_rect.x - g, p_rect.y - g))
+    surface.blit(p_text, p_rect)
 
     # VS
     vs = small_font.render("VS", True, (140, 180, 220))
-    surface.blit(vs, (center_x - vs.get_width() // 2, score_y + 15))
+    surface.blit(vs, (center_x - vs.get_width() // 2, score_y + 5))
 
     # 보스 라벨 (현재 스테이지 보스 이름)
     boss_label = label_font.render(boss_name, True, label_color)
     boss_label_x = center_x + 55 - boss_label.get_width() // 2
     surface.blit(boss_label, (boss_label_x, y + 12))
 
-    # 보스 점수
+    # 보스 점수 - centery 사용하여 수직 중앙 정렬
     b_text = font.render(str(b_score), True, b_color)
-    b_x = center_x + 55 - b_text.get_width() // 2
+    b_rect = b_text.get_rect(centerx=center_x + 55, centery=score_y)
 
     for g in range(3, 0, -1):
         glow = font.render(str(b_score), True, (60, 140, 200))
         glow.set_alpha(50 // g)
-        surface.blit(glow, (b_x - g, score_y - g))
-    surface.blit(b_text, (b_x, score_y))
+        surface.blit(glow, (b_rect.x - g, b_rect.y - g))
+    surface.blit(b_text, b_rect)
 
 
 def draw_ice_score(surface, p_score, b_score, x, y, w, h, frame):

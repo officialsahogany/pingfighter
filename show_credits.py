@@ -27,6 +27,7 @@ def show_credits_screen():
         {"role": "BGM Sound Director", "name": "BK22", "color": (100, 200, 255)},
         {"role": "Character Art", "name": "흑쌍쌍바", "color": (255, 100, 150)},
         {"role": "Story Scenario", "name": "흑쌍쌍바", "color": (200, 150, 255)},
+        {"role": "Feedback & QA Support", "name": "Pyo hyun jun", "color": (150, 255, 150)},
         {"role": "Special Thanks", "name": "All Players", "color": (255, 150, 200)},
     ]
 
@@ -120,9 +121,15 @@ def show_credits_screen():
         pygame.draw.circle(SCREEN, (0, 255, 255), (WIDTH // 2 - 150, line_y), 3)
         pygame.draw.circle(SCREEN, (0, 255, 255), (WIDTH // 2 + 150, line_y), 3)
 
-        # 크레딧 본문
-        start_y = 200
-        spacing = 100
+        # 크레딧 본문 - 화면 중앙 정렬
+        spacing = 85  # 각 항목 간격
+        total_credits_height = len(credits_data) * spacing
+        # 제목 영역(~140) + 크레딧 + 하단 여백을 고려한 중앙 정렬
+        top_margin = 140  # 제목 + 구분선 영역
+        bottom_margin = 50  # 하단 저작권 영역
+        available_height = HEIGHT - top_margin - bottom_margin
+        start_y = top_margin + (available_height - total_credits_height) // 2 + 20
+
         for i, credit in enumerate(credits_data):
             y_pos = start_y + i * spacing
             role_surf = font_role.render(credit["role"], True, (200, 200, 200))
@@ -130,7 +137,7 @@ def show_credits_screen():
             SCREEN.blit(role_surf, role_rect)
 
             name_surf = font_name.render(credit["name"], True, credit["color"])
-            name_rect = name_surf.get_rect(center=(WIDTH // 2, y_pos + 35))
+            name_rect = name_surf.get_rect(center=(WIDTH // 2, y_pos + 30))
             SCREEN.blit(name_surf, name_rect)
 
         # Copyright (우측 하단)

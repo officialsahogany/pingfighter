@@ -6,6 +6,30 @@ import math
 import random
 from typing import List, Tuple
 
+# 파티클 Surface 캐시 (크기/색상/알파별)
+_menu_particle_cache = {}
+
+def get_cached_particle(size: int, color: tuple, alpha: int, shape: str = "circle") -> pygame.Surface:
+    """메뉴 파티클 Surface 캐시 (매 프레임 생성 방지)"""
+    # 크기 버킷팅 (2픽셀 단위)
+    size_bucket = max(2, (size // 2) * 2)
+    # 알파 버킷팅 (20 단위)
+    alpha_bucket = max(0, min(255, (alpha // 20) * 20))
+    # 색상 버킷팅 (16 단위로 양자화)
+    color_bucket = tuple((c // 16) * 16 for c in color[:3])
+
+    key = (size_bucket, color_bucket, alpha_bucket, shape)
+    if key not in _menu_particle_cache:
+        if len(_menu_particle_cache) > 100:
+            _menu_particle_cache.clear()
+        surf_size = size_bucket * 3
+        surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+        center = surf_size // 2
+        if shape == "circle":
+            pygame.draw.circle(surf, (*color_bucket, alpha_bucket), (center, center), size_bucket // 2)
+        _menu_particle_cache[key] = surf
+    return _menu_particle_cache[key]
+
 class SimpleMenuBackground:
     """심플한 사이버펑크 스타일 배경 관리 클래스 + 애니 감성"""
 

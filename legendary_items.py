@@ -70,7 +70,7 @@ LEGENDARY_ROLL_OPTIONS: Dict[str, List[Dict]] = {
         {"key": "stun_duration", "label": "스턴 시간", "min": 0.4, "max": 0.8, "unit": "초", "default": 0.6, "step": 0.1},
     ],
     "poseidon_trident": [
-        {"key": "cooldown", "label": "쿨타임", "min": 2, "max": 10, "unit": "초", "default": 6, "step": 1},
+        {"key": "cooldown", "label": "쿨타임", "min": 2, "max": 10, "unit": "초", "default": 6, "step": 1, "reverse": True},
     ],
     "hermes_shoes": [
         {"key": "speed_bonus", "label": "이동속도", "min": 30, "max": 60, "unit": "%", "default": 50},
@@ -3099,7 +3099,7 @@ class SacredLaurel(LegendaryItem):
             name="sacred_laurel",
             korean_name="신성 월계수",
             description="월계수 잎이 플레이어 주변을 회전하며 보호 (롤 옵션: 잎 개수 3~8개)",
-            unlock_condition="전설 아이템 획득"
+            unlock_condition="신화 아이템 획득"
         )
         self._base_max_leaves = 6  # 기본 잎 개수 (롤 옵션으로 덮어씀)
         self.leaves = []
@@ -4036,7 +4036,7 @@ class AngelBlessing(LegendaryItem):
             name="angel_blessing",
             korean_name="천사의 가호",
             description="스테이지 시작 시 천사의 주사위를 굴려 버프 획득 (롤 옵션: 버프 강도 Lv1~5)",
-            unlock_condition="전설 아이템 수집가 업적",
+            unlock_condition="신화 아이템 수집가 업적",
             icon_path=None,  # 직접 렌더링
         )
         self.unlocked = True
@@ -5572,7 +5572,7 @@ class EmptyLegendarySlot(LegendaryItem):
         super().__init__(
             name="empty",
             korean_name="empty",
-            description="전설 슬롯을 비워두기 위한 플레이스홀더",
+            description="신화 슬롯을 비워두기 위한 플레이스홀더",
             unlock_condition="항상 사용 가능",
         )
         self.unlocked = True
@@ -5864,7 +5864,7 @@ class TranscendentCrown(LegendaryItem):
             name="transcendent_crown",
             korean_name="초월자의 관",
             description="모든 스킬 레벨 증가 (롤 옵션: +1~+3)",
-            unlock_condition="전설 아이템 획득",
+            unlock_condition="신화 아이템 획득",
             icon_path=None  # 고유 애니메이션만 사용
         )
         self._base_skill_bonus = 2  # 기본 스킬 보너스 (롤 옵션으로 덮어씀)
@@ -6157,7 +6157,7 @@ class OdinsEye(LegendaryItem):
             name="odins_eye",
             korean_name="오딘의 눈",
             description="라운드 패배 시 부활 (롤 옵션: 확률 30%~50%)",
-            unlock_condition="전설 아이템 획득",
+            unlock_condition="신화 아이템 획득",
             icon_path=None  # 고유 애니메이션만 사용
         )
         self._base_revival_chance = 40  # 기본 부활 확률 (롤 옵션으로 덮어씀)
@@ -6287,10 +6287,11 @@ class OdinsEye(LegendaryItem):
         # 어둠의 늪 스킬 시스템
         # ═══════════════════════════════════════════════════════════════════
         self.dark_swamp_enabled = False  # 스킬 활성화 여부 (부활 후)
-        self.dark_swamp_cost = 50  # 게이지 소모량
+        self.dark_swamp_cost = 100  # 게이지 소모량
         self.dark_swamp_cooldown = 120  # 2초 쿨타임 (60fps 기준)
         self.dark_swamp_cooldown_timer = 0  # 현재 쿨타임 타이머
         self.dark_swamp_active = False  # 스킬 발동 중
+        self.dark_swamp_orb_rect = None  # 스킬 아이콘 rect (툴팁용)
 
         # 럴커 가시 시스템
         self.lurker_spikes = []  # 활성 가시 리스트
@@ -9658,7 +9659,35 @@ class OdinsEye(LegendaryItem):
         # 🌑 솟아오르기: 알파 적용 + Y 오프셋
         if rise_alpha < 255:
             main_surf.set_alpha(rise_alpha)
-        screen.blit(main_surf, (cx - surf_w // 2, cy - surf_h // 2 + rise_offset_y))
+
+        # 🌀 어둠의 늪 발동 중: Y축 회전 (좌우 빙글빙글 스핀)
+        if self.dark_swamp_active or (hasattr(self, 'lurker_spikes') and len(self.lurker_spikes) > 0):
+            spin_speed = 20.0  # 회전 속도
+            spin_angle = t * spin_speed
+            scale_x = math.cos(spin_angle)
+            abs_scale = abs(scale_x)
+
+            if abs_scale < 0.05:
+                # 완전 옆면일 때: 얇은 실루엣 라인만 표시
+                line_surf = pygame.Surface((3, surf_h), pygame.SRCALPHA)
+                line_surf.fill((40, 18, 60, 180))
+                blit_x = cx - 1
+                blit_y = cy - surf_h // 2 + rise_offset_y
+                screen.blit(line_surf, (blit_x, blit_y))
+            else:
+                # X축 스케일링으로 Y축 회전 효과
+                scaled_w = max(4, int(surf_w * abs_scale))
+                if scale_x < 0:
+                    # 뒷면: 좌우 반전
+                    flipped = pygame.transform.flip(main_surf, True, False)
+                    scaled_surf = pygame.transform.scale(flipped, (scaled_w, surf_h))
+                else:
+                    scaled_surf = pygame.transform.scale(main_surf, (scaled_w, surf_h))
+                blit_x = cx - scaled_w // 2
+                blit_y = cy - surf_h // 2 + rise_offset_y
+                screen.blit(scaled_surf, (blit_x, blit_y))
+        else:
+            screen.blit(main_surf, (cx - surf_w // 2, cy - surf_h // 2 + rise_offset_y))
         return True
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -10643,6 +10672,7 @@ class OdinsEye(LegendaryItem):
     def draw_dark_swamp_skill_orb(self, screen, orb_x: int, orb_y: int, current_gauge: float):
         """어둠의 늪 스킬 구슬 그리기 (왼쪽 필러)"""
         if not self.dark_swamp_enabled or not self.is_transformed():
+            self.dark_swamp_orb_rect = None
             return
 
         import pygame
@@ -10654,6 +10684,13 @@ class OdinsEye(LegendaryItem):
         # 쿨타임 비율
         cooldown_ratio = self.get_dark_swamp_cooldown_ratio()
         can_use = self.can_use_dark_swamp(current_gauge)
+        is_on_cooldown = cooldown_ratio > 0
+
+        # 아이콘 rect 저장 (툴팁 충돌 검사용)
+        self.dark_swamp_orb_rect = pygame.Rect(
+            orb_x - orb_radius, orb_y - orb_radius,
+            orb_radius * 2, orb_radius * 2
+        )
 
         # 배경 오라
         for i in range(3):
@@ -10668,20 +10705,7 @@ class OdinsEye(LegendaryItem):
         bg_color = (20, 10, 35) if can_use else (15, 8, 20)
         pygame.draw.circle(screen, bg_color, (orb_x, orb_y), orb_radius)
 
-        # 쿨타임 표시 (위에서 아래로 차오름)
-        if cooldown_ratio > 0:
-            cooldown_height = int(orb_radius * 2 * (1 - cooldown_ratio))
-            cooldown_surf = pygame.Surface((orb_radius * 2, orb_radius * 2), pygame.SRCALPHA)
-            cooldown_rect = pygame.Rect(0, orb_radius * 2 - cooldown_height, orb_radius * 2, cooldown_height)
-            pygame.draw.rect(cooldown_surf, (50, 25, 75, 150), cooldown_rect)
-
-            # 원형 마스크 적용
-            mask_surf = pygame.Surface((orb_radius * 2, orb_radius * 2), pygame.SRCALPHA)
-            pygame.draw.circle(mask_surf, (255, 255, 255), (orb_radius, orb_radius), orb_radius - 2)
-            cooldown_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
-            screen.blit(cooldown_surf, (orb_x - orb_radius, orb_y - orb_radius))
-
-        # 가시 아이콘 (스킬 심볼)
+        # 가시 아이콘 (스킬 심볼) - 쿨타임/비활성 시 어두운 색
         spike_color = (180, 100, 220) if can_use else (80, 50, 100)
         # 중앙 가시
         pygame.draw.polygon(screen, spike_color, [
@@ -10697,9 +10721,32 @@ class OdinsEye(LegendaryItem):
                 (orb_x + side * 11, orb_y + 4)
             ])
 
-        # 테두리
-        border_color = (120, 60, 160) if can_use else (60, 30, 80)
+        # 테두리 (활성: 밝은 보라, 비활성: 어두운 회색)
+        border_color = (120, 60, 160) if can_use else (60, 40, 60)
         pygame.draw.circle(screen, border_color, (orb_x, orb_y), orb_radius, 2)
+
+        # 쿨타임 오버레이 (부채꼴 방식 - 다른 스킬과 동일)
+        if is_on_cooldown:
+            cd_diameter = orb_radius * 2 + 4
+            cd_surface = pygame.Surface((cd_diameter, cd_diameter), pygame.SRCALPHA)
+            cd_center = cd_diameter // 2
+
+            start_angle = -math.pi / 2  # 12시 방향
+            end_angle = start_angle + (2 * math.pi * cooldown_ratio)
+
+            if cooldown_ratio > 0.01:
+                points = [(cd_center, cd_center)]
+                num_segments = max(3, int(36 * cooldown_ratio))
+                for j in range(num_segments + 1):
+                    angle = start_angle + (end_angle - start_angle) * j / num_segments
+                    px = cd_center + int(math.cos(angle) * orb_radius)
+                    py = cd_center + int(math.sin(angle) * orb_radius)
+                    points.append((px, py))
+
+                if len(points) >= 3:
+                    pygame.draw.polygon(cd_surface, (0, 0, 0, 180), points)
+
+            screen.blit(cd_surface, (orb_x - cd_diameter // 2, orb_y - cd_diameter // 2))
 
         # 사용 가능 시 펄스 효과
         if can_use:
@@ -10709,12 +10756,6 @@ class OdinsEye(LegendaryItem):
             pygame.draw.circle(pulse_surf, (150, 80, 200, int(60 * pulse)),
                              (pulse_r + 2, pulse_r + 2), pulse_r, 2)
             screen.blit(pulse_surf, (orb_x - pulse_r - 2, orb_y - pulse_r - 2))
-
-        # 게이지 부족 표시
-        if current_gauge < self.dark_swamp_cost and cooldown_ratio == 0:
-            # X 표시
-            pygame.draw.line(screen, (150, 50, 50), (orb_x - 8, orb_y - 8), (orb_x + 8, orb_y + 8), 2)
-            pygame.draw.line(screen, (150, 50, 50), (orb_x + 8, orb_y - 8), (orb_x - 8, orb_y + 8), 2)
 
     def _draw_dark_paddle_disabled(self, screen, paddle_rect, player_vx: float = 0):
         """[비활성화됨] 이전 어둠의 패들 코드"""

@@ -393,7 +393,7 @@ class Stage5ChineseMarket:
             'y': y,
             'duration': 700  # 0.7초 (밀리초 단위)
         })
-        print(f"💥 불꽃 충돌 지점 추가: ({x}, {y}), 현재 총 {len(self.impact_fire_zones)}개")
+        pass  # print(f"💥 불꽃 충돌 지점 추가: ({x}, {y}), 현재 총 {len(self.impact_fire_zones)}개")  # 디버그 비활성화
     
     def trigger_spiral_burst(self, inferno=False):
         """화염탄 발사시 나선 폭발 효과 트리거"""

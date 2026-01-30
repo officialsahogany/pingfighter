@@ -4443,15 +4443,141 @@ def _draw_blacksmith_skill_icons(surface: pygame.Surface, orb_center_x: int, orb
     pygame.draw.circle(surface, bg_color, (slot_x, slot_y), icon_radius)
     pygame.draw.circle(surface, border_color, (slot_x, slot_y), icon_radius, 2)
 
-    # 아이콘 그리기 (망치 + 충격파) - 레벨에 따라 충격파 개수
-    hammer_color = color if is_active else (100, 100, 100)
-    pygame.draw.rect(surface, hammer_color, (slot_x - 6, slot_y - 4, 12, 5))
-    handle_color = (120, 80, 50) if is_active else (80, 60, 40)
-    pygame.draw.rect(surface, handle_color, (slot_x - 2, slot_y, 4, 10))
-    shock_color = color if is_active else (80, 80, 80)
+    # === 고퀄리티 해머쇼크 아이콘 (디바인스톤 UI 스타일) ===
+    # 아이콘 중심 (원의 정중앙)
+    cx, cy = slot_x, slot_y
+
+    # 레벨별 이펙트 색상 및 강도 (정적 그래픽)
+    if is_active:
+        if perk_level >= 3:
+            effect_color = (255, 80, 40)       # 강렬한 빨강-주황
+            energy_color = (255, 180, 80)
+            glow_color = (255, 120, 60)
+            wave_count = 3
+            spark_count = 8
+            glow_intensity = 80
+        elif perk_level >= 2:
+            effect_color = (255, 140, 50)      # 주황
+            energy_color = (255, 200, 100)
+            glow_color = (255, 160, 70)
+            wave_count = 2
+            spark_count = 5
+            glow_intensity = 60
+        else:
+            effect_color = (255, 180, 80)      # 연주황
+            energy_color = (255, 220, 140)
+            glow_color = (255, 190, 100)
+            wave_count = 1
+            spark_count = 3
+            glow_intensity = 40
+    else:
+        effect_color = (80, 80, 85)
+        energy_color = (100, 100, 105)
+        glow_color = (70, 70, 75)
+        wave_count = 0
+        spark_count = 0
+        glow_intensity = 0
+
+    # === 1. 레벨별 충격파 링 (정적, 해머 주변) ===
+    if wave_count > 0:
+        for i in range(wave_count):
+            # 레벨이 높을수록 더 크고 화려한 링
+            ring_radius = 12 + i * 5
+            ring_thickness = 2 if i == 0 else 1
+
+            # 외곽 글로우 (레벨 높을수록 더 밝음)
+            glow_alpha = glow_intensity + i * 10
+            for g in range(3):
+                ga = max(0, glow_alpha - g * 25)
+                pygame.draw.circle(surface, (*energy_color, ga), (cx, cy), ring_radius + 2 - g, 1)
+
+            # 메인 링
+            ring_alpha = 150 - i * 35
+            pygame.draw.circle(surface, (*effect_color, ring_alpha), (cx, cy), ring_radius, ring_thickness)
+
+    # === 2. 해머 배경 글로우 (레벨별) ===
+    if glow_intensity > 0:
+        glow_size = icon_radius + perk_level * 3
+        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (*glow_color, glow_intensity // 2), (glow_size, glow_size), glow_size)
+        surface.blit(glow_surf, (cx - glow_size, cy - glow_size), special_flags=pygame.BLEND_ADD)
+
+    # === 3. 해머 아이콘 (디바인스톤 UI 방식) ===
+    # _get_blacksmith_thrown_hammer_surface() 사용
+    hammer_surface = _get_blacksmith_thrown_hammer_surface()
+
+    # 아이콘 크기에 맞게 스케일 (아이콘 지름의 80% 정도)
+    target_height = max(12, int(icon_radius * 1.6))
+    scale = target_height / max(1, hammer_surface.get_height())
+    scaled_width = max(4, int(hammer_surface.get_width() * scale))
+    scaled_height = max(4, int(hammer_surface.get_height() * scale))
+    hammer_scaled = pygame.transform.smoothscale(hammer_surface, (scaled_width, scaled_height))
+
+    # 약간 기울여서 역동적으로 (-15도)
+    hammer_rotated = pygame.transform.rotozoom(hammer_scaled, -15, 1.0)
+
+    # 비활성화시 어둡게
+    if not is_active:
+        dark_hammer = hammer_rotated.copy()
+        dark_overlay = pygame.Surface(dark_hammer.get_size(), pygame.SRCALPHA)
+        dark_overlay.fill((0, 0, 0, 140))
+        dark_hammer.blit(dark_overlay, (0, 0))
+        hammer_rotated = dark_hammer
+
+    # 해머 그림자 (아래쪽에 타원형)
+    shadow_width = max(8, int(icon_radius * 0.7))
+    shadow_height = max(4, int(icon_radius * 0.25))
+    shadow_surf = pygame.Surface((shadow_width, shadow_height), pygame.SRCALPHA)
+    pygame.draw.ellipse(shadow_surf, (20, 18, 28, 90), (0, 0, shadow_width, shadow_height))
+    surface.blit(shadow_surf, (cx - shadow_width // 2, cy + int(icon_radius * 0.35)))
+
+    # 해머 중앙 배치
+    hammer_rect = hammer_rotated.get_rect(center=(cx, cy))
+    surface.blit(hammer_rotated, hammer_rect)
+
+    # === 4. 레벨별 스파크/광선 (해머 주변, 정적) ===
+    if spark_count > 0:
+        for i in range(spark_count):
+            angle = i * (math.pi * 2 / spark_count) - math.pi / 2  # 위쪽부터 시작
+            # 스파크 길이 (레벨 높을수록 김)
+            spark_length = 3 + perk_level * 2
+            spark_dist = icon_radius - 4
+
+            sx = cx + int(math.cos(angle) * spark_dist)
+            sy = cy + int(math.sin(angle) * spark_dist)
+            ex = cx + int(math.cos(angle) * (spark_dist + spark_length))
+            ey = cy + int(math.sin(angle) * (spark_dist + spark_length))
+
+            # 스파크 라인
+            pygame.draw.line(surface, effect_color, (sx, sy), (ex, ey), 2)
+            # 스파크 끝 점 (빛나는 효과)
+            pygame.draw.circle(surface, energy_color, (ex, ey), 2)
+
+    # === 5. 해머 머리 하이라이트 (활성화시 추가 반짝임) ===
+    if is_active and perk_level >= 2:
+        highlight_surf = pygame.Surface((icon_radius * 2, icon_radius * 2), pygame.SRCALPHA)
+        pygame.draw.arc(
+            highlight_surf,
+            (255, 255, 255, 100 + perk_level * 20),
+            pygame.Rect(4, 4, icon_radius * 2 - 8, icon_radius * 2 - 8),
+            math.radians(200),
+            math.radians(340),
+            2,
+        )
+        surface.blit(highlight_surf, (cx - icon_radius, cy - icon_radius))
+
+    # === 6. 레벨 표시 (하단, 원 안쪽) ===
+    level_y = cy + icon_radius - 5  # 아이콘 원 안쪽 하단
+    dot_spacing = 5
+    start_x = cx - (perk_level - 1) * dot_spacing // 2
     for i in range(perk_level):
-        wave_radius = 8 + i * 3
-        pygame.draw.circle(surface, shock_color, (slot_x, slot_y - 6), wave_radius, 1)
+        dot_x = start_x + i * dot_spacing
+        if is_active:
+            # 레벨별로 색상 강도 증가
+            pygame.draw.circle(surface, (*effect_color, 120), (dot_x, level_y), 3)
+            pygame.draw.circle(surface, effect_color, (dot_x, level_y), 2)
+        else:
+            pygame.draw.circle(surface, (60, 60, 65), (dot_x, level_y), 2)
 
     # 쿨타임 오버레이
     if is_on_cooldown:
@@ -11472,6 +11598,21 @@ def recalculate_skill_effects(skill_id: str):
         new_level = runtime_skill_levels.get("item_polish", 0)
         multiplier = get_effective_polish_multiplier()
         # print(f"[RuntimeSkill] 연마 레벨 변경 Lv.{new_level} - 롤옵션 배율 {multiplier:.2f}x, 장착 아이템 보너스 재계산 완료")  # 디버그 비활성화
+
+    # 플라즈마 해금: 스매셔 스킬 해금 상태 동기화
+    elif skill_id == "unlock_plasma":
+        level = runtime_skill_levels.get("unlock_plasma", 0)
+        _smasher_skill_unlocked["plasma"] = level >= 1
+
+    # 리커버리 해금: 스매셔 스킬 해금 상태 동기화
+    elif skill_id == "unlock_recovery_skill":
+        level = runtime_skill_levels.get("unlock_recovery_skill", 0)
+        _smasher_skill_unlocked["recovery"] = level >= 1
+
+    # 클렌즈 해금: 스매셔 스킬 해금 상태 동기화
+    elif skill_id == "unlock_cleanse":
+        level = runtime_skill_levels.get("unlock_cleanse", 0)
+        _smasher_skill_unlocked["cleanse"] = level >= 1
 
     # 기타 스킬들은 별도 재계산 불필요 (get_runtime_skill_bonus에서 실시간 조회)
 
@@ -35914,76 +36055,144 @@ BLACKSMITH_DIVINE_UI_STAGE_STYLES: dict[int, dict[str, object]] = {
 
 
 def _get_blacksmith_divine_ui_icon(size: int) -> pygame.Surface:
+    """디바인스톤 UI 아이콘 - 마나스톤(빛나는 마법 구슬) 그래픽"""
     icon_size = max(16, int(size))
     cached = _blacksmith_divine_ui_icon_cache.get(icon_size)
     if cached is not None:
         return cached
 
-    hammer_surface = _get_blacksmith_thrown_hammer_surface()
-    target_height = max(12, int(icon_size * 0.9))
-    scale = target_height / max(1, hammer_surface.get_height())
-    scaled_width = max(4, int(hammer_surface.get_width() * scale))
-    scaled_height = max(4, int(hammer_surface.get_height() * scale))
-    hammer_scaled = pygame.transform.smoothscale(hammer_surface, (scaled_width, scaled_height))
-    hammer_rotated = pygame.transform.rotozoom(hammer_scaled, -18, 1.0)
-
     icon_surface = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
-    glow = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
-    pygame.draw.circle(
-        glow,
-        (150, 170, 235, 105),
-        (icon_size // 2 - 6, icon_size // 2 + 4),
-        icon_size // 2,
-    )
-    icon_surface.blit(glow, (0, 0), special_flags=pygame.BLEND_ADD)
+    cx, cy = icon_size // 2, icon_size // 2
 
-    shadow = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
-    shadow_width = max(6, int(icon_size * 0.58))
-    shadow_height = max(4, int(icon_size * 0.22))
+    # === 1. 배경 글로우 (마법 에너지) ===
+    glow_radius = int(icon_size * 0.45)
+    glow_surf = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+    # 외곽 글로우 (보라-파랑)
+    for i in range(3):
+        r = glow_radius - i * 3
+        if r > 0:
+            alpha = 30 + i * 15
+            pygame.draw.circle(glow_surf, (120, 140, 220, alpha), (cx, cy - 2), r)
+    icon_surface.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+
+    # === 2. 제단/받침대 (간략화된 구조물) ===
+    pedestal_width = max(12, int(icon_size * 0.55))
+    pedestal_height = max(6, int(icon_size * 0.18))
+    pedestal_top = int(icon_size * 0.72)
+
+    # 받침대 그림자
     shadow_rect = pygame.Rect(
-        icon_size // 2 - shadow_width // 2,
-        int(icon_size * 0.62),
-        shadow_width,
-        shadow_height,
+        cx - pedestal_width // 2 + 2,
+        pedestal_top + 2,
+        pedestal_width,
+        pedestal_height
     )
-    pygame.draw.ellipse(shadow, (20, 18, 28, 110), shadow_rect)
-    icon_surface.blit(shadow, (0, 0))
+    pygame.draw.rect(icon_surface, (30, 25, 40, 100), shadow_rect, border_radius=3)
 
-    hammer_rect = hammer_rotated.get_rect(
-        center=(icon_size // 2 + int(icon_size * 0.08), icon_size // 2 + 2)
+    # 받침대 본체 (보라-회색 돌)
+    pedestal_rect = pygame.Rect(
+        cx - pedestal_width // 2,
+        pedestal_top,
+        pedestal_width,
+        pedestal_height
     )
-    icon_surface.blit(hammer_rotated, hammer_rect)
+    pygame.draw.rect(icon_surface, (80, 70, 100), pedestal_rect, border_radius=3)
 
-    glove_width = max(6, int(icon_size * 0.22))
-    glove_height = max(6, int(icon_size * 0.3))
-    glove_surface = pygame.Surface((glove_width, glove_height), pygame.SRCALPHA)
-    glove_rect = pygame.Rect(0, 0, glove_width, glove_height)
-    pygame.draw.rect(glove_surface, (196, 144, 92), glove_rect, border_radius=max(2, glove_width // 3))
-    strap_rect = glove_rect.inflate(-max(2, glove_width // 4), -max(2, glove_height // 3))
-    pygame.draw.rect(glove_surface, (145, 102, 62), strap_rect, border_radius=max(2, glove_width // 4))
+    # 받침대 내부 하이라이트
+    inner_rect = pedestal_rect.inflate(-4, -2)
+    if inner_rect.width > 0 and inner_rect.height > 0:
+        pygame.draw.rect(icon_surface, (130, 115, 160), inner_rect, border_radius=2)
+
+    # 받침대 상단 하이라이트
+    pygame.draw.line(
+        icon_surface,
+        (180, 170, 210),
+        (pedestal_rect.left + 2, pedestal_rect.top),
+        (pedestal_rect.right - 2, pedestal_rect.top),
+        1
+    )
+
+    # === 3. 양쪽 기둥 (작은 버전) ===
+    pillar_width = max(3, int(icon_size * 0.08))
+    pillar_height = max(8, int(icon_size * 0.22))
+    pillar_bottom = pedestal_top
+
+    # 왼쪽 기둥
+    left_pillar = pygame.Rect(
+        cx - pedestal_width // 2 + 2,
+        pillar_bottom - pillar_height,
+        pillar_width,
+        pillar_height
+    )
+    pygame.draw.rect(icon_surface, (100, 90, 130), left_pillar, border_radius=1)
+    pygame.draw.line(icon_surface, (150, 140, 180),
+                     (left_pillar.left + 1, left_pillar.top + 1),
+                     (left_pillar.left + 1, left_pillar.bottom - 1), 1)
+
+    # 오른쪽 기둥
+    right_pillar = pygame.Rect(
+        cx + pedestal_width // 2 - pillar_width - 2,
+        pillar_bottom - pillar_height,
+        pillar_width,
+        pillar_height
+    )
+    pygame.draw.rect(icon_surface, (100, 90, 130), right_pillar, border_radius=1)
+    pygame.draw.line(icon_surface, (150, 140, 180),
+                     (right_pillar.left + 1, right_pillar.top + 1),
+                     (right_pillar.left + 1, right_pillar.bottom - 1), 1)
+
+    # === 4. 마나 구슬 (중앙, 빛나는 효과) ===
+    orb_radius = max(6, int(icon_size * 0.22))
+    orb_cy = cy - int(icon_size * 0.08)  # 약간 위에 위치
+
+    # 외부 글로우 (파랑-보라)
+    outer_glow_surf = pygame.Surface((orb_radius * 4, orb_radius * 4), pygame.SRCALPHA)
+    pygame.draw.circle(outer_glow_surf, (100, 150, 255, 50),
+                       (orb_radius * 2, orb_radius * 2), orb_radius + 6)
+    pygame.draw.circle(outer_glow_surf, (130, 180, 255, 80),
+                       (orb_radius * 2, orb_radius * 2), orb_radius + 3)
+    icon_surface.blit(outer_glow_surf, (cx - orb_radius * 2, orb_cy - orb_radius * 2))
+
+    # 구슬 본체 - 그라데이션 효과
+    orb_surf = pygame.Surface((orb_radius * 2 + 4, orb_radius * 2 + 4), pygame.SRCALPHA)
+    orb_cx, orb_cy_local = orb_radius + 2, orb_radius + 2
+
+    # 외곽 (진한 파랑)
+    pygame.draw.circle(orb_surf, (80, 120, 200), (orb_cx, orb_cy_local), orb_radius)
+    # 중간 (밝은 파랑)
+    pygame.draw.circle(orb_surf, (120, 170, 240), (orb_cx, orb_cy_local), orb_radius - 2)
+    # 내부 (밝은 코어)
+    pygame.draw.circle(orb_surf, (180, 210, 255), (orb_cx - 1, orb_cy_local - 1), orb_radius - 4)
+    # 하이라이트 (반사광)
+    highlight_r = max(2, orb_radius // 3)
+    pygame.draw.circle(orb_surf, (240, 250, 255),
+                       (orb_cx - orb_radius // 3, orb_cy_local - orb_radius // 3), highlight_r)
+
+    icon_surface.blit(orb_surf, (cx - orb_radius - 2, orb_cy - orb_radius - 2))
+
+    # === 5. 에너지 입자/스파클 효과 ===
+    sparkle_positions = [
+        (cx - orb_radius - 2, orb_cy - 4),
+        (cx + orb_radius + 1, orb_cy - 2),
+        (cx - 3, orb_cy - orb_radius - 3),
+        (cx + 4, orb_cy + orb_radius + 1),
+    ]
+    for sx, sy in sparkle_positions:
+        if 0 <= sx < icon_size and 0 <= sy < icon_size:
+            pygame.draw.circle(icon_surface, (200, 220, 255, 150), (sx, sy), 1)
+
+    # === 6. 상단 아크 하이라이트 ===
+    highlight_surf = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
     pygame.draw.arc(
-        glove_surface,
-        (255, 228, 208),
-        glove_rect.inflate(-2, -2),
-        math.radians(210),
-        math.radians(330),
+        highlight_surf,
+        (200, 220, 255, 120),
+        pygame.Rect(cx - orb_radius - 4, orb_cy - orb_radius - 4,
+                    (orb_radius + 4) * 2, (orb_radius + 4) * 2),
+        math.radians(200),
+        math.radians(340),
         1,
     )
-    glove_dest = glove_surface.get_rect(
-        center=(icon_size // 2 - int(icon_size * 0.25), icon_size // 2 + int(icon_size * 0.34))
-    )
-    icon_surface.blit(glove_surface, glove_dest)
-
-    highlight = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
-    pygame.draw.arc(
-        highlight,
-        (240, 245, 255, 180),
-        pygame.Rect(4, 4, icon_size - 8, icon_size - 8),
-        math.radians(210),
-        math.radians(330),
-        2,
-    )
-    icon_surface.blit(highlight, (0, 0))
+    icon_surface.blit(highlight_surf, (0, 0))
 
     _blacksmith_divine_ui_icon_cache[icon_size] = icon_surface
     return icon_surface
@@ -44411,7 +44620,7 @@ def draw_pillar_blacksmith_turret(surface: pygame.Surface, orb_center_x: int, or
 
     # 시작 Y 위치 (게이지 구슬 상단에서 위로, 코만도와 동일)
     orb_radius_base = 55
-    start_y = orb_center_y - orb_radius_base - 140  # 구슬 상단에서 140px 위
+    start_y = orb_center_y - orb_radius_base - 180  # 구슬 상단에서 180px 위 (40px 추가 상향)
 
     # 슬롯 위치 (중앙 정렬)
     slot_x = orb_center_x - slot_size // 2
@@ -44643,13 +44852,13 @@ def draw_pillar_blacksmith_divine(surface: pygame.Surface, orb_center_x: int, or
 
     # 시작 Y 위치 계산 (포탑 UI 아래)
     orb_radius_base = 55
-    turret_start_y = orb_center_y - orb_radius_base - 140
+    turret_start_y = orb_center_y - orb_radius_base - 180  # 구슬 상단에서 180px 위 (40px 추가 상향)
 
     # 포탑이 활성화되어 있으면 그 아래에, 아니면 포탑 위치에
     if turret_runtime.active:
         # 포탑 UI 전체 높이: 아이콘(48) + HP바(6) + 간격(4) + 강화바(6) + 간격(4) + 여유(8)
         turret_total_height = slot_size + bar_height + bar_spacing + bar_height + bar_spacing + 8
-        start_y = turret_start_y + turret_total_height + 8
+        start_y = turret_start_y + turret_total_height + 23  # 간격 15px 추가 (8 → 23)
     else:
         start_y = turret_start_y
 
@@ -112695,8 +112904,20 @@ def handle_ball():
         return
     # === 광폭화 자기장 발사체 처리 ===
     if magnetic_projectile_active and current_stage == 4:
-        # 플레이어 방향으로 이동
-        globals()['magnetic_projectile_y'] = magnetic_projectile_y + magnetic_projectile_speed
+        # 광폭화 시 플레이어 X축 유도 + 아래로 이동, 일반 시 직선 이동
+        if enraged_boss_active:
+            # X축: 플레이어 방향으로 부드럽게 추적
+            dx = PLAYER.centerx - magnetic_projectile_x
+            homing_speed = 6  # X축 유도 속도
+            if abs(dx) > homing_speed:
+                globals()['magnetic_projectile_x'] = magnetic_projectile_x + (homing_speed if dx > 0 else -homing_speed)
+            else:
+                globals()['magnetic_projectile_x'] = PLAYER.centerx
+            # Y축: 항상 아래로 이동 (기존처럼 통과)
+            globals()['magnetic_projectile_y'] = magnetic_projectile_y + magnetic_projectile_speed
+        else:
+            # 일반: 직선 아래로 이동
+            globals()['magnetic_projectile_y'] = magnetic_projectile_y + magnetic_projectile_speed
         # 플레이어 패들과 충돌 감지
         proj_rect = pygame.Rect(
             magnetic_projectile_x - magnetic_projectile_radius,
@@ -112712,10 +112933,13 @@ def handle_ball():
             globals()['player_slow_timer'] = 10  # 매 프레임 갱신
             globals()['player_slow_timer_max'] = 10
             globals()['player_slow_factor'] = magnetic_projectile_slow_amount  # 40% 속도
-        # 화면 밖으로 나가면 비활성화
+        # 화면 밖으로 나가면 비활성화 (아래로만 이동하므로 하단만 체크)
         if magnetic_projectile_y > HEIGHT + magnetic_projectile_radius:
             globals()['magnetic_projectile_active'] = False
-            print(f"🔥⚡ [광폭화] 자기장 발사체 화면 밖으로 사라짐")
+            if enraged_boss_active:
+                print(f"🔥⚡ [광폭화] 유도 자기장 발사체 화면 밖으로 사라짐")
+            else:
+                print(f"⚡ 자기장 발사체 화면 밖으로 사라짐")
     #  서브 대기
     if is_waiting_for_serve:
         if is_player_serve:
@@ -113351,8 +113575,20 @@ def handle_ball():
         return
     # === 광폭화 자기장 발사체 처리 ===
     if magnetic_projectile_active and current_stage == 4:
-        # 플레이어 방향으로 이동
-        globals()['magnetic_projectile_y'] = magnetic_projectile_y + magnetic_projectile_speed
+        # 광폭화 시 플레이어 X축 유도 + 아래로 이동, 일반 시 직선 이동
+        if enraged_boss_active:
+            # X축: 플레이어 방향으로 부드럽게 추적
+            dx = PLAYER.centerx - magnetic_projectile_x
+            homing_speed = 6  # X축 유도 속도
+            if abs(dx) > homing_speed:
+                globals()['magnetic_projectile_x'] = magnetic_projectile_x + (homing_speed if dx > 0 else -homing_speed)
+            else:
+                globals()['magnetic_projectile_x'] = PLAYER.centerx
+            # Y축: 항상 아래로 이동 (기존처럼 통과)
+            globals()['magnetic_projectile_y'] = magnetic_projectile_y + magnetic_projectile_speed
+        else:
+            # 일반: 직선 아래로 이동
+            globals()['magnetic_projectile_y'] = magnetic_projectile_y + magnetic_projectile_speed
         # 플레이어 패들과 충돌 감지
         proj_rect = pygame.Rect(
             magnetic_projectile_x - magnetic_projectile_radius,
@@ -113368,10 +113604,13 @@ def handle_ball():
             globals()['player_slow_timer'] = 10  # 매 프레임 갱신
             globals()['player_slow_timer_max'] = 10
             globals()['player_slow_factor'] = magnetic_projectile_slow_amount  # 40% 속도
-        # 화면 밖으로 나가면 비활성화
+        # 화면 밖으로 나가면 비활성화 (아래로만 이동하므로 하단만 체크)
         if magnetic_projectile_y > HEIGHT + magnetic_projectile_radius:
             globals()['magnetic_projectile_active'] = False
-            print(f"🔥⚡ [광폭화] 자기장 발사체 화면 밖으로 사라짐")
+            if enraged_boss_active:
+                print(f"🔥⚡ [광폭화] 유도 자기장 발사체 화면 밖으로 사라짐")
+            else:
+                print(f"⚡ 자기장 발사체 화면 밖으로 사라짐")
     #  서브 대기
     if is_waiting_for_serve:
         if is_player_serve:
@@ -117124,11 +117363,8 @@ def handle_ball():
                 else:
                     gain = 80
             elif current_stage == 3:
-                # 광폭화 시 게이지 충전량 70으로 상향 (일반: 50)
-                if enraged_boss_active:
-                    gain = 70
-                else:
-                    gain = 50
+                # 광폭화 여부와 관계없이 게이지 충전량 50 고정
+                gain = 50
             else:
                 gain = 80
             boss_special_gauge = min(boss_special_gauge + gain, 500)

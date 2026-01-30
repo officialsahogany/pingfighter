@@ -91,6 +91,9 @@ SOUND_PATHS = {
     "THROWING_BANANA": "sounds/throwingbanana.wav",
     "STEP_BANANA": "sounds/bananastep.wav",
     "STAGE5_WARNING": "sounds/stage5warning.wav",
+    "MISSION_CLEAR": "sounds/missonclear.wav",
+    "TUTORIAL_MISSION": "sounds/tutorialmission.wav",
+    "LEVEL_SELECT": "sounds/levelselect.wav",
 }
 
 

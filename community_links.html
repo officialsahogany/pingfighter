@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>핑파이터 커뮤니티</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            color: #1a1a2e;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+
+        .link-card {
+            display: block;
+            padding: 20px 30px;
+            margin: 15px 0;
+            border-radius: 12px;
+            text-decoration: none;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .link-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .kakao {
+            background: linear-gradient(135deg, #FEE500 0%, #F7D000 100%);
+            color: #3C1E1E;
+        }
+
+        .youtube {
+            background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+        }
+
+        .icon {
+            margin-right: 10px;
+            font-size: 24px;
+            vertical-align: middle;
+        }
+
+        .link-text {
+            vertical-align: middle;
+        }
+
+        .footer {
+            margin-top: 40px;
+            color: #999;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🏓</div>
+        <h1>핑파이터</h1>
+        <p class="subtitle">PingFighter Community</p>
+
+        <a href="https://open.kakao.com/o/gY4Y3SUh" target="_blank" class="link-card kakao">
+            <span class="icon">💬</span>
+            <span class="link-text">카카오톡 오픈채팅</span>
+        </a>
+
+        <a href="https://www.youtube.com/@%EB%8F%99%EB%84%A4%EA%B2%8C%EC%9E%84%EC%A6%88" target="_blank" class="link-card youtube">
+            <span class="icon">▶️</span>
+            <span class="link-text">유튜브 채널</span>
+        </a>
+
+        <p class="footer">© 2026 PingFighter. All rights reserved.</p>
+    </div>
+</body>
+</html>

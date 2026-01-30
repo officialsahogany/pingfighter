@@ -215,8 +215,15 @@ class SplashScreen:
         self.clock.tick(60)
 
     def close(self):
-        """스플래시 화면 종료 (pygame은 유지)"""
-        pass  # pygame은 메인 게임에서 계속 사용
+        """스플래시 화면 종료 (pygame display만 정리, pygame 자체는 유지)"""
+        # 현재 디스플레이 모드를 정리하여 다음 set_mode가 깨끗하게 시작되도록 함
+        # 이렇게 하면 pygame.display.Info()가 스플래시 창 크기가 아닌
+        # 실제 모니터 해상도를 반환함
+        try:
+            pygame.display.quit()
+            pygame.display.init()
+        except Exception:
+            pass  # 에러 발생 시 무시
 
 
 # 전역 스플래시 인스턴스

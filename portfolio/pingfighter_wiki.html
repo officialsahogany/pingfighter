@@ -1,0 +1,2273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>핑파이터 - 나무위키</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: #fff;
+            color: #373a3c;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        /* 나무위키 스타일 헤더 */
+        .wiki-header {
+            background: linear-gradient(135deg, #00a495 0%, #00c4b4 100%);
+            color: white;
+            padding: 20px 0;
+            border-bottom: 3px solid #008577;
+        }
+
+        .wiki-header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .wiki-logo {
+            font-size: 28px;
+            font-weight: bold;
+            text-decoration: none;
+            color: white;
+        }
+
+        .wiki-logo span {
+            color: #b8fff8;
+        }
+
+        /* 메인 컨테이너 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* 문서 제목 */
+        .doc-title {
+            font-size: 32px;
+            font-weight: bold;
+            color: #00a495;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #00a495;
+            margin-bottom: 20px;
+        }
+
+        .doc-subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        /* 프로필 박스 (인포박스) */
+        .infobox {
+            float: right;
+            width: 320px;
+            margin: 0 0 20px 20px;
+            border: 1px solid #aaa;
+            background: #f9f9f9;
+            font-size: 14px;
+        }
+
+        .infobox-header {
+            background: linear-gradient(135deg, #00a495, #00c4b4);
+            color: white;
+            text-align: center;
+            padding: 12px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .infobox-image {
+            text-align: center;
+            padding: 15px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+        }
+
+        .infobox-image-placeholder {
+            width: 280px;
+            height: 180px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin: 0 auto;
+        }
+
+        .infobox-caption {
+            text-align: center;
+            padding: 8px;
+            font-size: 12px;
+            color: #666;
+            background: #eee;
+        }
+
+        .infobox-row {
+            display: flex;
+            border-top: 1px solid #ddd;
+        }
+
+        .infobox-label {
+            width: 100px;
+            background: #e8e8e8;
+            padding: 8px 10px;
+            font-weight: bold;
+            border-right: 1px solid #ddd;
+        }
+
+        .infobox-data {
+            flex: 1;
+            padding: 8px 10px;
+            background: white;
+        }
+
+        /* 목차 */
+        .toc {
+            background: #f8f9fa;
+            border: 1px solid #a2a9b1;
+            padding: 15px 20px;
+            margin-bottom: 25px;
+            display: inline-block;
+            min-width: 300px;
+        }
+
+        .toc-title {
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .toc-list {
+            list-style: none;
+        }
+
+        .toc-list li {
+            margin: 5px 0;
+        }
+
+        .toc-list a {
+            color: #0645ad;
+            text-decoration: none;
+        }
+
+        .toc-list a:hover {
+            text-decoration: underline;
+        }
+
+        .toc-h2 {
+            font-weight: bold;
+        }
+
+        .toc-h3 {
+            margin-left: 20px;
+        }
+
+        .toc-h4 {
+            margin-left: 40px;
+        }
+
+        /* 섹션 헤더 */
+        .section-header {
+            border-bottom: 2px solid #00a495;
+            margin: 30px 0 15px 0;
+            padding-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-header h2 {
+            font-size: 24px;
+            color: #00a495;
+        }
+
+        .section-header h3 {
+            font-size: 20px;
+            color: #00a495;
+            border-bottom-width: 1px;
+        }
+
+        .section-header h4 {
+            font-size: 17px;
+            color: #00a495;
+            border-bottom-width: 1px;
+        }
+
+        .section-number {
+            color: #00a495;
+            font-weight: bold;
+        }
+
+        .edit-link {
+            font-size: 12px;
+            color: #666;
+            margin-left: auto;
+        }
+
+        /* 문단 스타일 */
+        p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        /* 표 스타일 */
+        .wiki-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        .wiki-table th {
+            background: linear-gradient(135deg, #00a495, #00b5a5);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #008577;
+        }
+
+        .wiki-table td {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        .wiki-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .wiki-table tr:hover {
+            background: #e8f6f5;
+        }
+
+        /* 보스 카드 */
+        .boss-card {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .boss-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, rgba(255,255,255,0.1), transparent);
+            border-radius: 50%;
+        }
+
+        .boss-stage {
+            background: #ff6b6b;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .boss-stage.stage-1 { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .boss-stage.stage-2 { background: linear-gradient(135deg, #11998e, #38ef7d); }
+        .boss-stage.stage-3 { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
+        .boss-stage.stage-4 { background: linear-gradient(135deg, #f093fb, #f5576c); }
+        .boss-stage.stage-5 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+        .boss-stage.stage-6 { background: linear-gradient(135deg, #fa709a, #fee140); }
+        .boss-stage.stage-7 { background: linear-gradient(135deg, #7f00ff, #e100ff); }
+        .boss-stage.stage-8 { background: linear-gradient(135deg, #ff0844, #ffb199); }
+
+        .boss-name {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .boss-theme {
+            color: #aaa;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .boss-skills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .boss-skill {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 13px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* 아이템 그리드 */
+        .item-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .item-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .item-card:hover {
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transform: translateY(-3px);
+        }
+
+        .item-card.legendary {
+            border: 2px solid #ffd700;
+            background: linear-gradient(135deg, #fff9e6, #fff);
+        }
+
+        .item-card.legendary::before {
+            content: '전설';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            color: #333;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .item-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .item-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .item-icon.active { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .item-icon.passive { background: linear-gradient(135deg, #11998e, #38ef7d); }
+        .item-icon.legendary { background: linear-gradient(135deg, #ffd700, #ff8c00); }
+
+        .item-name {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .item-type {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .item-desc {
+            font-size: 13px;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        /* 스킬 트리 */
+        .skill-tree {
+            background: #f5f5f5;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+
+        .skill-tier {
+            margin-bottom: 25px;
+        }
+
+        .skill-tier-header {
+            background: linear-gradient(135deg, #00a495, #00c4b4);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .skill-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .skill-node {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            flex: 1;
+            min-width: 200px;
+            position: relative;
+        }
+
+        .skill-node.unlocked {
+            border-color: #00a495;
+        }
+
+        .skill-name {
+            font-weight: bold;
+            font-size: 16px;
+            color: #00a495;
+            margin-bottom: 5px;
+        }
+
+        .skill-level {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .skill-effect {
+            font-size: 13px;
+            color: #555;
+        }
+
+        /* 인용 박스 */
+        .quote-box {
+            background: #f0f7f6;
+            border-left: 4px solid #00a495;
+            padding: 15px 20px;
+            margin: 20px 0;
+            font-style: italic;
+        }
+
+        /* 경고/정보 박스 */
+        .info-box {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .info-box.warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+        }
+
+        .info-box.info {
+            background: #d1ecf1;
+            border: 1px solid #17a2b8;
+        }
+
+        .info-box.tip {
+            background: #d4edda;
+            border: 1px solid #28a745;
+        }
+
+        .info-box-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 접기 박스 */
+        .fold-box {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .fold-header {
+            background: #f5f5f5;
+            padding: 12px 15px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+
+        .fold-header:hover {
+            background: #eee;
+        }
+
+        .fold-content {
+            padding: 15px;
+            display: none;
+        }
+
+        .fold-content.active {
+            display: block;
+        }
+
+        /* 갤러리 */
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .gallery-item {
+            background: #1a1a2e;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .gallery-image {
+            width: 100%;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+        }
+
+        .gallery-caption {
+            background: #16213e;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        /* 사이드바 */
+        .sidebar {
+            width: 280px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-box {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            background: #00a495;
+            color: white;
+            padding: 12px 15px;
+            font-weight: bold;
+        }
+
+        .sidebar-content {
+            padding: 15px;
+        }
+
+        .sidebar-list {
+            list-style: none;
+        }
+
+        .sidebar-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .sidebar-list li:last-child {
+            border-bottom: none;
+        }
+
+        .sidebar-list a {
+            color: #0645ad;
+            text-decoration: none;
+        }
+
+        .sidebar-list a:hover {
+            text-decoration: underline;
+        }
+
+        /* 태그 */
+        .tag {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin: 2px;
+        }
+
+        .tag.active { background: #667eea; color: white; }
+        .tag.passive { background: #11998e; color: white; }
+        .tag.legendary { background: linear-gradient(135deg, #ffd700, #ff8c00); color: #333; }
+
+        /* 통계 박스 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #00a495, #00c4b4);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        /* 푸터 */
+        .wiki-footer {
+            background: #333;
+            color: #aaa;
+            padding: 30px 0;
+            margin-top: 50px;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .wiki-footer a {
+            color: #00c4b4;
+            text-decoration: none;
+        }
+
+        /* 반응형 */
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+            }
+
+            .infobox {
+                float: none;
+                width: 100%;
+                margin: 0 0 20px 0;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* 스크롤탑 버튼 */
+        .scroll-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #00a495;
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.2);
+            font-size: 24px;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .scroll-top.visible {
+            opacity: 1;
+        }
+
+        .scroll-top:hover {
+            background: #008577;
+            transform: translateY(-3px);
+        }
+
+        /* 애니메이션 */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .legendary-glow {
+            animation: pulse 2s infinite;
+        }
+
+        /* 진행 바 */
+        .progress-bar {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #00a495, #00c4b4);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <!-- 헤더 -->
+    <header class="wiki-header">
+        <div class="wiki-header-content">
+            <a href="#" class="wiki-logo">나무<span>위키</span></a>
+            <span style="color: rgba(255,255,255,0.7);">|</span>
+            <span>게임 포트폴리오</span>
+        </div>
+    </header>
+
+    <!-- 메인 컨테이너 -->
+    <div class="container">
+        <main class="main-content">
+            <!-- 문서 제목 -->
+            <h1 class="doc-title">
+                핑파이터 (PingFighter)
+                <div class="doc-subtitle">아케이드 보스 배틀 탁구 게임</div>
+            </h1>
+
+            <!-- 인포박스 -->
+            <div class="infobox">
+                <div class="infobox-header">핑파이터</div>
+                <div class="infobox-image">
+                    <div class="infobox-image-placeholder">PING<br>FIGHTER</div>
+                </div>
+                <div class="infobox-caption">핑파이터 로고 이미지</div>
+                <div class="infobox-row">
+                    <div class="infobox-label">장르</div>
+                    <div class="infobox-data">아케이드 / 보스 배틀 / 스포츠</div>
+                </div>
+                <div class="infobox-row">
+                    <div class="infobox-label">플랫폼</div>
+                    <div class="infobox-data">Windows, macOS</div>
+                </div>
+                <div class="infobox-row">
+                    <div class="infobox-label">개발</div>
+                    <div class="infobox-data">인디 개발</div>
+                </div>
+                <div class="infobox-row">
+                    <div class="infobox-label">엔진</div>
+                    <div class="infobox-data">Pygame (Python)</div>
+                </div>
+                <div class="infobox-row">
+                    <div class="infobox-label">스테이지</div>
+                    <div class="infobox-data">8 스테이지 + 튜토리얼</div>
+                </div>
+                <div class="infobox-row">
+                    <div class="infobox-label">보스</div>
+                    <div class="infobox-data">8명의 개성 있는 보스</div>
+                </div>
+                <div class="infobox-row">
+                    <div class="infobox-label">캐릭터</div>
+                    <div class="infobox-data">스매셔, 코만도, 발토르</div>
+                </div>
+                <div class="infobox-row">
+                    <div class="infobox-label">아이템</div>
+                    <div class="infobox-data">액티브 25+ / 패시브 30+ / 전설 5</div>
+                </div>
+                <div class="infobox-row">
+                    <div class="infobox-label">스킬</div>
+                    <div class="infobox-data">2개 스킬 트리 (14+ 스킬)</div>
+                </div>
+                <div class="infobox-row">
+                    <div class="infobox-label">코드 규모</div>
+                    <div class="infobox-data">25,000+ Lines</div>
+                </div>
+            </div>
+
+            <!-- 통계 박스 -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-number">8</div>
+                    <div class="stat-label">스테이지</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">60+</div>
+                    <div class="stat-label">아이템</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">14+</div>
+                    <div class="stat-label">스킬</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">25K+</div>
+                    <div class="stat-label">코드 라인</div>
+                </div>
+            </div>
+
+            <!-- 목차 -->
+            <div class="toc">
+                <div class="toc-title">목차</div>
+                <ol class="toc-list">
+                    <li class="toc-h2"><a href="#overview">1. 개요</a></li>
+                    <li class="toc-h2"><a href="#concept">2. 게임 콘셉트</a></li>
+                    <li class="toc-h2"><a href="#gameplay">3. 게임플레이</a></li>
+                    <li class="toc-h3"><a href="#core-mechanics">3.1. 핵심 메카닉</a></li>
+                    <li class="toc-h3"><a href="#dash-system">3.2. 대쉬 시스템</a></li>
+                    <li class="toc-h3"><a href="#weather">3.3. 날씨 시스템</a></li>
+                    <li class="toc-h2"><a href="#stages">4. 스테이지 & 보스</a></li>
+                    <li class="toc-h3"><a href="#boss-1">4.1. 풍악보이 (Stage 1)</a></li>
+                    <li class="toc-h3"><a href="#boss-2">4.2. 악어장군 (Stage 2)</a></li>
+                    <li class="toc-h3"><a href="#boss-3">4.3. 멘헤라걸 (Stage 3)</a></li>
+                    <li class="toc-h3"><a href="#boss-4">4.4. 퐁크 (Stage 4)</a></li>
+                    <li class="toc-h3"><a href="#boss-5">4.5. 네메시스 (Stage 5)</a></li>
+                    <li class="toc-h3"><a href="#boss-6">4.6. 홍련 (Stage 6)</a></li>
+                    <li class="toc-h3"><a href="#boss-7">4.7. 테트리서 (Stage 7)</a></li>
+                    <li class="toc-h3"><a href="#boss-8">4.8. 아카무 리고 (Stage 8)</a></li>
+                    <li class="toc-h2"><a href="#items">5. 아이템 시스템</a></li>
+                    <li class="toc-h3"><a href="#active-items">5.1. 액티브 아이템</a></li>
+                    <li class="toc-h3"><a href="#passive-items">5.2. 패시브 아이템</a></li>
+                    <li class="toc-h3"><a href="#legendary-items">5.3. 전설 아이템</a></li>
+                    <li class="toc-h2"><a href="#academy">6. 수련원 시스템</a></li>
+                    <li class="toc-h3"><a href="#dash-skill">6.1. 대쉬 스킬 트리</a></li>
+                    <li class="toc-h3"><a href="#item-skill">6.2. 아이템 스킬 트리</a></li>
+                    <li class="toc-h2"><a href="#gacha">7. 뽑기 시스템</a></li>
+                    <li class="toc-h2"><a href="#characters">8. 캐릭터</a></li>
+                    <li class="toc-h3"><a href="#char-smasher">8.1. 스매셔</a></li>
+                    <li class="toc-h3"><a href="#char-commando">8.2. 코만도</a></li>
+                    <li class="toc-h3"><a href="#char-valtor">8.3. 발토르</a></li>
+                    <li class="toc-h2"><a href="#technical">9. 기술적 특징</a></li>
+                </ol>
+            </div>
+
+            <div style="clear:both;"></div>
+
+            <!-- 1. 개요 -->
+            <div class="section-header" id="overview">
+                <span class="section-number">1.</span>
+                <h2>개요</h2>
+            </div>
+
+            <p>
+                <strong>핑파이터(PingFighter, 핑파이터)</strong>는 아케이드 스타일의 보스 배틀 탁구 게임이다.
+                클래식 퐁(Pong) 게임의 심플한 재미에 현대적인 보스 레이드 시스템, 다양한 아이템과 스킬,
+                개성 넘치는 보스 캐릭터들을 결합하여 전략적이면서도 액션감 넘치는 게임플레이를 제공한다.
+            </p>
+
+            <p>
+                각 스테이지마다 고유한 테마와 능력을 가진 보스가 등장하며, 플레이어는 대쉬, 아이템, 스킬을
+                활용하여 이들을 물리쳐야 한다. 한국 전통, 정글, 멘헤라, 사원, 해상전투, 중국 화염, 테트리스 요새, 닌자 저택 등
+                다양한 문화와 테마를 아우르는 8개의 스테이지가 준비되어 있다.
+            </p>
+
+            <div class="quote-box">
+                "클래식의 감성, 현대의 재미 - 탁구공 하나로 펼쳐지는 보스 레이드의 신세계"
+            </div>
+
+            <!-- 2. 게임 콘셉트 -->
+            <div class="section-header" id="concept">
+                <span class="section-number">2.</span>
+                <h2>게임 콘셉트</h2>
+            </div>
+
+            <p>
+                핑파이터는 <strong>"보스 레이드 + 리듬 액션 + 로그라이크"</strong>의 요소를 탁구라는 심플한
+                게임에 녹여낸 작품이다. 단순히 공을 주고받는 것을 넘어, 각 보스의 고유한 패턴을 파악하고,
+                적절한 타이밍에 아이템과 스킬을 사용하는 전략적 플레이가 요구된다.
+            </p>
+
+            <div class="info-box info">
+                <div class="info-box-title">핵심 디자인 철학</div>
+                <ul>
+                    <li><strong>접근성</strong>: 누구나 쉽게 이해할 수 있는 탁구 규칙 기반</li>
+                    <li><strong>깊이</strong>: 대쉬 시스템, 스킬 트리, 아이템 조합으로 전략적 플레이 제공</li>
+                    <li><strong>개성</strong>: 8명의 개성 넘치는 보스와 독특한 스테이지 테마</li>
+                    <li><strong>성장</strong>: 수련원 스킬 시스템으로 장기적 플레이 목표 제시</li>
+                </ul>
+            </div>
+
+            <!-- 3. 게임플레이 -->
+            <div class="section-header" id="gameplay">
+                <span class="section-number">3.</span>
+                <h2>게임플레이</h2>
+            </div>
+
+            <div class="section-header" id="core-mechanics">
+                <span class="section-number">3.1.</span>
+                <h3>핵심 메카닉</h3>
+            </div>
+
+            <p>
+                기본적인 게임플레이는 화면 하단에서 패들을 조작하여 공을 상단의 보스에게 맞추는 것이다.
+                보스 역시 공을 되받아치며, 이 과정에서 다양한 스킬과 패턴을 사용한다.
+            </p>
+
+            <table class="wiki-table">
+                <tr>
+                    <th>요소</th>
+                    <th>설명</th>
+                    <th>전략적 의미</th>
+                </tr>
+                <tr>
+                    <td><strong>게이지</strong></td>
+                    <td>대쉬와 스킬 사용에 필요한 자원</td>
+                    <td>공을 맞추거나 아이템으로 충전, 관리가 핵심</td>
+                </tr>
+                <tr>
+                    <td><strong>대쉬 토큰</strong></td>
+                    <td>대쉬 사용 가능 횟수 표시</td>
+                    <td>토큰 관리로 위기 상황 대처</td>
+                </tr>
+                <tr>
+                    <td><strong>하프 대쉬</strong></td>
+                    <td>대쉬 중 공을 치면 보너스 게이지 획득</td>
+                    <td>고급 테크닉, 리스크-리턴 밸런스</td>
+                </tr>
+                <tr>
+                    <td><strong>Trade Point (★)</strong></td>
+                    <td>스테이지에서 획득하는 스킬 포인트</td>
+                    <td>수련원 스킬 해금에 사용</td>
+                </tr>
+            </table>
+
+            <div class="section-header" id="dash-system">
+                <span class="section-number">3.2.</span>
+                <h3>대쉬 시스템</h3>
+            </div>
+
+            <p>
+                <strong>대쉬</strong>는 핑파이터의 핵심 메카닉이다. 게이지를 소모하여 빠르게 이동하며,
+                위험한 상황을 회피하거나 어려운 공을 받아칠 수 있다.
+            </p>
+
+            <div class="info-box tip">
+                <div class="info-box-title">대쉬 팁</div>
+                <ul>
+                    <li><strong>하프 대쉬</strong>: 대쉬 중 공을 치면 보너스 게이지 획득!</li>
+                    <li><strong>대쉬 토큰</strong>: 스테이지마다 재충전되니 적극 활용하자</li>
+                    <li><strong>버스트업</strong>: 스킬 습득 시 대쉬 중 패들 크기 증가</li>
+                </ul>
+            </div>
+
+            <div class="section-header" id="weather">
+                <span class="section-number">3.3.</span>
+                <h3>날씨 시스템</h3>
+            </div>
+
+            <p>게임 중 다양한 날씨 이벤트가 발생하여 게임플레이에 영향을 준다.</p>
+
+            <table class="wiki-table">
+                <tr>
+                    <th>날씨</th>
+                    <th>효과</th>
+                </tr>
+                <tr>
+                    <td>미풍 (Light Breeze)</td>
+                    <td>공의 궤적이 살짝 흔들림</td>
+                </tr>
+                <tr>
+                    <td>강풍 (Strong Wind)</td>
+                    <td>공이 한쪽 방향으로 밀림</td>
+                </tr>
+                <tr>
+                    <td>불 (Fire)</td>
+                    <td>화염 효과로 시야 방해</td>
+                </tr>
+                <tr>
+                    <td>얼음 (Ice)</td>
+                    <td>패들 조작이 미끄러워짐</td>
+                </tr>
+                <tr>
+                    <td>소나기 (Rain)</td>
+                    <td>공 속도 변화</td>
+                </tr>
+                <tr>
+                    <td>우박 (Hail)</td>
+                    <td>추가 장애물 생성</td>
+                </tr>
+            </table>
+
+            <!-- 4. 스테이지 & 보스 -->
+            <div class="section-header" id="stages">
+                <span class="section-number">4.</span>
+                <h2>스테이지 & 보스</h2>
+            </div>
+
+            <p>
+                핑파이터에는 각각 고유한 테마와 능력을 가진 8명의 보스가 등장한다.
+                각 보스는 독특한 공격 패턴과 스킬을 사용하며, 스테이지 배경도 보스의 테마에 맞게 디자인되었다.
+                후반 스테이지로 갈수록 보스의 궁극기가 강력해지며, 최종 보스 아카무 리고는 무한 대쉬 모드까지 사용한다!
+            </p>
+
+            <!-- Stage 1: 풍악보이 -->
+            <div class="section-header" id="boss-1">
+                <span class="section-number">4.1.</span>
+                <h3>풍악보이 (Stage 1)</h3>
+            </div>
+
+            <div class="boss-card">
+                <span class="boss-stage stage-1">STAGE 1</span>
+                <div class="boss-name">풍악보이</div>
+                <div class="boss-theme">한국 전통 / 국악 테마</div>
+                <p>
+                    한국 전통 국악과 사물놀이를 테마로 한 첫 번째 보스. 화려한 상모돌리기와
+                    역동적인 움직임이 특징이다. 초보자도 쉽게 적응할 수 있는 패턴을 가지고 있지만,
+                    방심하면 상모의 회전 공격에 당할 수 있다.
+                </p>
+                <div class="boss-skills">
+                    <span class="boss-skill">상모돌리기</span>
+                    <span class="boss-skill">풍물 가락</span>
+                    <span class="boss-skill">한국 전통 스타디움</span>
+                </div>
+            </div>
+
+            <!-- Stage 2: 악어장군 -->
+            <div class="section-header" id="boss-2">
+                <span class="section-number">4.2.</span>
+                <h3>악어장군 (Stage 2)</h3>
+            </div>
+
+            <div class="boss-card">
+                <span class="boss-stage stage-2">STAGE 2</span>
+                <div class="boss-name">악어장군</div>
+                <div class="boss-theme">정글 / 늪지대 테마</div>
+                <p>
+                    정글 깊숙한 늪지대를 지배하는 악어장군. 공의 움직임을 추적하는 무시무시한 눈동자와
+                    파괴 가능한 바위 장벽, 물대포 공격이 특징이다. 지형지물을 활용한 공방전이 핵심이다.
+                </p>
+                <div class="boss-skills">
+                    <span class="boss-skill">추적 눈동자</span>
+                    <span class="boss-skill">바위 장벽</span>
+                    <span class="boss-skill">물대포</span>
+                    <span class="boss-skill">늪지 환경</span>
+                </div>
+            </div>
+
+            <!-- Stage 3: 멘헤라걸 -->
+            <div class="section-header" id="boss-3">
+                <span class="section-number">4.3.</span>
+                <h3>멘헤라걸 (Stage 3)</h3>
+            </div>
+
+            <div class="boss-card">
+                <span class="boss-stage stage-3">STAGE 3</span>
+                <div class="boss-name">멘헤라걸</div>
+                <div class="boss-theme">멘헤라 / 인형 테마</div>
+                <p>
+                    감정의 폭풍을 일으키는 멘헤라걸. 그녀의 감정이 격해질수록 화면이 붉게 물들고,
+                    "눈물의 비" 스킬로 전방위 공격을 퍼붓는다. 세일러문 스타일의 독특한 게이지바와
+                    심리적 압박감이 특징인 까다로운 보스.
+                </p>
+                <div class="boss-skills">
+                    <span class="boss-skill">눈물의 비</span>
+                    <span class="boss-skill">감정 과다</span>
+                    <span class="boss-skill">붉은 화면 효과</span>
+                    <span class="boss-skill">인형 테마</span>
+                </div>
+            </div>
+
+            <!-- Stage 4: 퐁크 -->
+            <div class="section-header" id="boss-4">
+                <span class="section-number">4.4.</span>
+                <h3>퐁크 (Stage 4)</h3>
+            </div>
+
+            <div class="boss-card">
+                <span class="boss-stage stage-4">STAGE 4</span>
+                <div class="boss-name">퐁크</div>
+                <div class="boss-theme">사원 / 소림 테마</div>
+                <p>
+                    동양 사원에서 수련하는 무술의 달인 퐁크. 자기장을 이용한 공격으로 공의
+                    궤적을 예측하기 어렵게 만든다. 소림사를 연상시키는 사원 배경에서 펼쳐지는
+                    고난이도 전투가 기다린다.
+                </p>
+                <div class="boss-skills">
+                    <span class="boss-skill">자기장</span>
+                    <span class="boss-skill">무술 공격</span>
+                    <span class="boss-skill">동양 사원</span>
+                </div>
+            </div>
+
+            <!-- Stage 5: 네메시스 -->
+            <div class="section-header" id="boss-5">
+                <span class="section-number">4.5.</span>
+                <h3>네메시스 (Stage 5)</h3>
+            </div>
+
+            <div class="boss-card">
+                <span class="boss-stage stage-5">STAGE 5</span>
+                <div class="boss-name">네메시스</div>
+                <div class="boss-theme">해상전투 / 전함 테마</div>
+                <p>
+                    망망대해에서 펼쳐지는 해상전투! 항공모함과 전함을 배경으로 하는 네메시스는
+                    해군 레이더 시스템과 파도 공격을 활용한다. 광활한 바다 위에서 펼쳐지는
+                    스케일 큰 보스전이 특징이다.
+                </p>
+                <div class="boss-skills">
+                    <span class="boss-skill">해군 레이더</span>
+                    <span class="boss-skill">파도 공격</span>
+                    <span class="boss-skill">함포 사격</span>
+                    <span class="boss-skill">해상 환경</span>
+                </div>
+            </div>
+
+            <!-- Stage 6: 홍련 -->
+            <div class="section-header" id="boss-6">
+                <span class="section-number">4.6.</span>
+                <h3>홍련 (Stage 6)</h3>
+            </div>
+
+            <div class="boss-card">
+                <span class="boss-stage stage-6">STAGE 6</span>
+                <div class="boss-name">홍련</div>
+                <div class="boss-theme">중국 전통 / 화염 테마</div>
+                <p>
+                    최종 보스 홍련! 중국 전통 사원을 배경으로 맹렬한 화염을 다루는 강적이다.
+                    "홍련폭염" 스킬로 화면 전체를 불바다로 만들고, 방어막과 홍련탄으로 플레이어를
+                    압박한다. 모든 실력을 총동원해야 클리어할 수 있는 최고 난이도 스테이지.
+                </p>
+                <div class="boss-skills">
+                    <span class="boss-skill">홍련폭염</span>
+                    <span class="boss-skill">방어막</span>
+                    <span class="boss-skill">홍련탄</span>
+                    <span class="boss-skill">화염 사원</span>
+                </div>
+            </div>
+
+            <!-- Stage 7: 테트리서 -->
+            <div class="section-header" id="boss-7">
+                <span class="section-number">4.7.</span>
+                <h3>테트리서 (Stage 7)</h3>
+            </div>
+
+            <div class="boss-card">
+                <span class="boss-stage stage-7">STAGE 7</span>
+                <div class="boss-name">테트리서</div>
+                <div class="boss-theme">중세 요새 / 테트리스 테마</div>
+                <p>
+                    테트리스 블록을 무기로 사용하는 독특한 보스! 중세 요새를 배경으로 떨어지는 테트로미노 블록과
+                    방어 벽을 활용한 전략적 전투가 특징이다. 중앙의 회전하는 3D 큐브가 보스의 상징이며,
+                    궁극기 "초인 테트리서" 발동 시 큐브가 폭발하며 모든 블록을 제거하는 압도적인 공격을 선보인다.
+                </p>
+                <div class="boss-skills">
+                    <span class="boss-skill">가드 블록</span>
+                    <span class="boss-skill">낙하 테트로미노</span>
+                    <span class="boss-skill">대량 벽 소환</span>
+                    <span class="boss-skill">크리스탈 실드</span>
+                    <span class="boss-skill">궁극기: 초인 테트리서</span>
+                </div>
+            </div>
+
+            <div class="info-box warning">
+                <div class="info-box-title">궁극기: 초인 테트리서</div>
+                게이지 250 도달 시 발동. 약 10초간 지속되며 큐브 폭발로 모든 테트로미노 블록 제거,
+                착지 공격 시 <strong>2배 넉백 + 1초 스턴</strong> (기본 0.5초). 어둠의 불꽃 이펙트와 함께
+                양팔을 벌리고 포효하는 포즈가 압권!
+            </div>
+
+            <!-- Stage 8: 아카무 리고 -->
+            <div class="section-header" id="boss-8">
+                <span class="section-number">4.8.</span>
+                <h3>아카무 리고 (Stage 8)</h3>
+            </div>
+
+            <div class="boss-card">
+                <span class="boss-stage stage-8">STAGE 8</span>
+                <div class="boss-name">아카무 리고</div>
+                <div class="boss-theme">닌자 저택 / 일본 무사 테마</div>
+                <p>
+                    최종 보스 아카무 리고! 일본식 닌자 저택을 배경으로 그림자 분신술과 표창,
+                    연막 기술을 구사하는 최강의 닌자 전사다. 벚꽃이 흩날리고 수리검이 날아다니는
+                    아름답지만 치명적인 스테이지에서 플레이어의 모든 실력이 시험된다.
+                    각성 상태에 돌입하면 분신이 2개에서 4개로 증가하며 더욱 강력해진다.
+                </p>
+                <div class="boss-skills">
+                    <span class="boss-skill">그림자 분신</span>
+                    <span class="boss-skill">표창 던지기</span>
+                    <span class="boss-skill">구름장막</span>
+                    <span class="boss-skill">초각성</span>
+                    <span class="boss-skill">궁극기: 극정호신</span>
+                </div>
+            </div>
+
+            <div class="info-box warning">
+                <div class="info-box-title">궁극기: 극정호신 (極精護身)</div>
+                게이지 250 도달 시 발동. 약 10초간 <strong>무한 대쉬 모드</strong> 돌입!
+                쿨다운 없이 무제한 대쉬가 가능하며 거리 제한도 없어 예측 위치로 순간이동한다.
+                주황색 기운과 어둠의 불꽃이 감싸고, 길게 남는 잔상과 환영 분신이 따라다닌다.
+            </div>
+
+            <!-- 5. 아이템 시스템 -->
+            <div class="section-header" id="items">
+                <span class="section-number">5.</span>
+                <h2>아이템 시스템</h2>
+            </div>
+
+            <p>
+                핑파이터에는 60종 이상의 다양한 아이템이 등장한다. 아이템은 크게 <strong>액티브 아이템</strong>,
+                <strong>패시브 아이템</strong>, <strong>전설 아이템</strong>으로 분류된다.
+            </p>
+
+            <div class="section-header" id="active-items">
+                <span class="section-number">5.1.</span>
+                <h3>액티브 아이템</h3>
+            </div>
+
+            <p>직접 사용하여 효과를 발동하는 아이템. 재사용 대기시간이 있으며, 전략적 타이밍에 사용해야 한다.</p>
+
+            <div class="item-grid">
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">🧪</div>
+                        <div>
+                            <div class="item-name">거대화 포션</div>
+                            <div class="item-type">액티브 - 버프</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">8초간 플레이어 크기가 대폭 증가한다. 넓은 범위의 공을 받아칠 수 있다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">⚡</div>
+                        <div>
+                            <div class="item-name">에너지 드링크</div>
+                            <div class="item-type">액티브 - 회복</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">게이지를 220 충전한다. 급한 상황에서 대쉬 자원을 확보할 때 유용.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">🌈</div>
+                        <div>
+                            <div class="item-name">생명수</div>
+                            <div class="item-type">액티브 - 회복</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">무지개빛 마법 물약. 게이지를 500이나 충전하는 최고급 회복 아이템.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">🔥</div>
+                        <div>
+                            <div class="item-name">화염병</div>
+                            <div class="item-type">액티브 - 공격</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">화염 지역을 생성하여 보스의 이동을 제한한다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">💣</div>
+                        <div>
+                            <div class="item-name">수류탄</div>
+                            <div class="item-type">액티브 - 공격</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">폭발로 넉백 효과와 3초간 스턴을 유발한다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">💨</div>
+                        <div>
+                            <div class="item-name">연막탄</div>
+                            <div class="item-type">액티브 - 유틸</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">연막을 생성하여 공 속도를 감소시키고 보스 스킬을 차단한다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">🎯</div>
+                        <div>
+                            <div class="item-name">레이저 스코프</div>
+                            <div class="item-type">액티브 - 유틸</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">25초간 보스의 모든 공 궤적을 레이저로 표시해준다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">⏱️</div>
+                        <div>
+                            <div class="item-name">스탑워치</div>
+                            <div class="item-type">액티브 - 시간</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">일정 시간 동안 공의 움직임을 완전히 정지시킨다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">🧨</div>
+                        <div>
+                            <div class="item-name">다이너마이트</div>
+                            <div class="item-type">액티브 - 공격</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">7초 카운트다운 후 대폭발! 350px 범위, 속도 13 넉백, 3초 스턴.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">🍌</div>
+                        <div>
+                            <div class="item-name">바나나</div>
+                            <div class="item-type">액티브 - 함정</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">보스가 밟으면 1.5초간 미끄러진다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">✨</div>
+                        <div>
+                            <div class="item-name">판도라의 상자</div>
+                            <div class="item-type">액티브 - 특수</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">무지개 소용돌이가 열리며 다수의 랜덤 아이템이 쏟아진다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">🛡️</div>
+                        <div>
+                            <div class="item-name">홀리 베리어</div>
+                            <div class="item-type">액티브 - 방어</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">4초간 화면 하단에 신성한 방어막 생성. 보스의 공을 반사한다.</div>
+                </div>
+            </div>
+
+            <div class="fold-box">
+                <div class="fold-header" onclick="toggleFold(this)">
+                    <span>더 많은 액티브 아이템 보기</span>
+                    <span>▼</span>
+                </div>
+                <div class="fold-content">
+                    <table class="wiki-table">
+                        <tr>
+                            <th>아이템명</th>
+                            <th>효과</th>
+                        </tr>
+                        <tr>
+                            <td>조명탄</td>
+                            <td>투사체 폭발로 보스를 일정 시간 혼란 상태로 만든다</td>
+                        </tr>
+                        <tr>
+                            <td>스파이더 지뢰</td>
+                            <td>지뢰 설치 - 보스가 밟으면 폭발 + 슬로우</td>
+                        </tr>
+                        <tr>
+                            <td>대쉬 부스트</td>
+                            <td>8초간 대쉬 게이지 소모 70% 할인</td>
+                        </tr>
+                        <tr>
+                            <td>기상조절 캡슐</td>
+                            <td>활성화된 날씨 이벤트를 강제로 종료</td>
+                        </tr>
+                        <tr>
+                            <td>비타민약</td>
+                            <td>10초간 이동 속도 대폭 증가</td>
+                        </tr>
+                        <tr>
+                            <td>재생 물약</td>
+                            <td>모든 스킬 쿨다운 초기화 + 대쉬 토큰 전체 회복</td>
+                        </tr>
+                        <tr>
+                            <td>화력 지원</td>
+                            <td>폭격기 호출 - 보스 영역에 5~7회 폭격</td>
+                        </tr>
+                        <tr>
+                            <td>그물덫총</td>
+                            <td>그물 발사 - 보스를 가두고 연타로 조이기</td>
+                        </tr>
+                        <tr>
+                            <td>악마의 주사위</td>
+                            <td>모든 스탯을 랜덤화! 운에 따라 결과가 달라지는 희귀 아이템 (1%)</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="section-header" id="passive-items">
+                <span class="section-number">5.2.</span>
+                <h3>패시브 아이템</h3>
+            </div>
+
+            <p>획득 즉시 영구적으로 효과가 적용되는 아이템. 스탯 강화와 특수 능력을 제공한다.</p>
+
+            <div class="item-grid">
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">🎒</div>
+                        <div>
+                            <div class="item-name">배낭</div>
+                            <div class="item-type">패시브 - 용량</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">액티브 아이템 슬롯을 1~3칸 추가한다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">💀</div>
+                        <div>
+                            <div class="item-name">부활</div>
+                            <div class="item-type">패시브 - 생존</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">패배 시 1회 부활 기회. 게임당 1회만 등장하는 희귀 아이템.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">🔨</div>
+                        <div>
+                            <div class="item-name">토르의 망치</div>
+                            <div class="item-type">패시브 - 강화</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">벽/벽돌 길이 증가, 아이템 쿨타임 소폭 감소.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">❄️</div>
+                        <div>
+                            <div class="item-name">쿨링볼</div>
+                            <div class="item-type">패시브 - 쿨타임</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">아이템 재사용 대기시간을 감소시킨다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">🔋</div>
+                        <div>
+                            <div class="item-name">충전 가방</div>
+                            <div class="item-type">패시브 - 게이지</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">공이 벽에 맞을 때마다 보너스 게이지를 획득한다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">💪</div>
+                        <div>
+                            <div class="item-name">벌크업 슈트</div>
+                            <div class="item-type">패시브 - 크기</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">티타늄 슈트로 플레이어 크기가 영구 증가한다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">⚠️</div>
+                        <div>
+                            <div class="item-name">위험감지 벨트</div>
+                            <div class="item-type">패시브 - 자동</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">위험 상황에서 자동 대쉬 발동! 게이지 소모 없음, 보라색 토큰 사용.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">🎲</div>
+                        <div>
+                            <div class="item-name">대쉬 홀더</div>
+                            <div class="item-type">패시브 - 대쉬</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">대쉬 토큰 최대 보유량을 증가시킨다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">👟</div>
+                        <div>
+                            <div class="item-name">스피드 부츠</div>
+                            <div class="item-type">패시브 - 이동</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">기본 이동 속도가 증가한다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">🧲</div>
+                        <div>
+                            <div class="item-name">다우징 펜듈럼</div>
+                            <div class="item-type">패시브 - 수집</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">자기장이 150~250px 반경의 아이템을 끌어당긴다.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">📱</div>
+                        <div>
+                            <div class="item-name">스마트폰</div>
+                            <div class="item-type">패시브 - AI</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">게이지 부족 시 물약 자동 사용, 위험 시 스탑워치 자동 발동.</div>
+                </div>
+
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon passive">📯</div>
+                        <div>
+                            <div class="item-name">반칙 호루라기</div>
+                            <div class="item-type">패시브 - 특수</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">라운드 패배 시 확률적으로 심판 개입! 라운드 재시작.</div>
+                </div>
+            </div>
+
+            <div class="section-header" id="legendary-items">
+                <span class="section-number">5.3.</span>
+                <h3>전설 아이템</h3>
+            </div>
+
+            <p>
+                게임 내 최고 희귀도를 자랑하는 <strong>전설 아이템</strong>. 뽑기 시스템에서 극히 낮은 확률로
+                등장하며, 강력한 특수 능력을 제공한다. 빨간색 테두리와 금빛 장식으로 구별된다.
+            </p>
+
+            <div class="info-box warning">
+                <div class="info-box-title">전설 아이템 출현 확률</div>
+                대부분의 전설 아이템은 <strong>0.04% ~ 0.08%</strong>의 극히 낮은 확률로 등장합니다.
+            </div>
+
+            <div class="item-grid">
+                <div class="item-card legendary" style="position: relative;">
+                    <div class="item-header">
+                        <div class="item-icon legendary">⚒️</div>
+                        <div>
+                            <div class="item-name">라그나로크 해머</div>
+                            <div class="item-type">전설 - 0.08%</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">북유럽 신화의 전설적인 무기. 최대 넉백을 유발하는 궁극의 망치.</div>
+                </div>
+
+                <div class="item-card legendary" style="position: relative;">
+                    <div class="item-header">
+                        <div class="item-icon legendary">👟</div>
+                        <div>
+                            <div class="item-name">헤르메스의 신발</div>
+                            <div class="item-type">전설 - 0.08%</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">그리스 전령의 신 헤르메스가 신던 날개 달린 신발. 압도적인 이동 능력.</div>
+                </div>
+
+                <div class="item-card legendary" style="position: relative;">
+                    <div class="item-header">
+                        <div class="item-icon legendary">🔱</div>
+                        <div>
+                            <div class="item-name">포세이돈의 삼지창</div>
+                            <div class="item-type">전설 - 0.08%</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">바다의 신 포세이돈의 삼지창. 물의 힘으로 궤적을 지배한다.</div>
+                </div>
+
+                <div class="item-card legendary" style="position: relative;">
+                    <div class="item-header">
+                        <div class="item-icon legendary">👼</div>
+                        <div>
+                            <div class="item-name">천사의 가호</div>
+                            <div class="item-type">전설 - 0.08%</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">스테이지 시작 시 천사 주사위를 굴려 1~3개의 랜덤 축복을 획득한다.</div>
+                </div>
+
+                <div class="item-card legendary" style="position: relative;">
+                    <div class="item-header">
+                        <div class="item-icon legendary">🌿</div>
+                        <div>
+                            <div class="item-name">신성 월계수</div>
+                            <div class="item-type">전설 - 0.04%</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">6장의 신성한 월계수 잎이 플레이어 주위를 공전. 6회 피격 흡수, 30초 후 재생.</div>
+                </div>
+            </div>
+
+            <!-- 6. 수련원 시스템 -->
+            <div class="section-header" id="academy">
+                <span class="section-number">6.</span>
+                <h2>수련원 시스템</h2>
+            </div>
+
+            <p>
+                <strong>수련원(Academy)</strong>은 핑파이터의 장기 성장 시스템이다. 스테이지 클리어로
+                획득한 Trade Point(★)를 사용하여 영구 스킬을 습득할 수 있다. 스킬은
+                <strong>대쉬 트리</strong>와 <strong>아이템 트리</strong> 두 갈래로 나뉜다.
+            </p>
+
+            <div class="section-header" id="dash-skill">
+                <span class="section-number">6.1.</span>
+                <h3>대쉬 스킬 트리</h3>
+            </div>
+
+            <div class="skill-tree">
+                <div class="skill-tier">
+                    <div class="skill-tier-header">Tier 1 - 기초</div>
+                    <div class="skill-row">
+                        <div class="skill-node">
+                            <div class="skill-name">경량화</div>
+                            <div class="skill-level">최대 Lv.5</div>
+                            <div class="skill-effect">대쉬 쿨다운 -7%</div>
+                        </div>
+                        <div class="skill-node">
+                            <div class="skill-name">모듈 제어</div>
+                            <div class="skill-level">최대 Lv.5</div>
+                            <div class="skill-effect">대쉬 후딜레이 -10%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="skill-tier">
+                    <div class="skill-tier-header">Tier 2 - 필요 TP: 4</div>
+                    <div class="skill-row">
+                        <div class="skill-node">
+                            <div class="skill-name">도약</div>
+                            <div class="skill-level">최대 Lv.5</div>
+                            <div class="skill-effect">대쉬 거리 +4%</div>
+                        </div>
+                        <div class="skill-node">
+                            <div class="skill-name">배터리팩</div>
+                            <div class="skill-level">최대 Lv.5</div>
+                            <div class="skill-effect">게이지 소모 -8%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="skill-tier">
+                    <div class="skill-tier-header">Tier 3 - 필요 TP: 8</div>
+                    <div class="skill-row">
+                        <div class="skill-node">
+                            <div class="skill-name">버스트업</div>
+                            <div class="skill-level">최대 Lv.5 (비용: 2)</div>
+                            <div class="skill-effect">대쉬 중 패들 높이 +60%</div>
+                        </div>
+                        <div class="skill-node">
+                            <div class="skill-name">증폭</div>
+                            <div class="skill-level">최대 Lv.2 (비용: 3)</div>
+                            <div class="skill-effect">대쉬 토큰 +1 추가</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="skill-tier">
+                    <div class="skill-tier-header">Tier 4 - 필요 TP: 12</div>
+                    <div class="skill-row">
+                        <div class="skill-node">
+                            <div class="skill-name">대쉬 스피릿</div>
+                            <div class="skill-level">최대 Lv.2 (비용: 4)</div>
+                            <div class="skill-effect">대쉬 시 30~50% 확률로 시안색 레이저 잔상 생성</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-header" id="item-skill">
+                <span class="section-number">6.2.</span>
+                <h3>아이템 스킬 트리</h3>
+            </div>
+
+            <div class="skill-tree">
+                <div class="skill-tier">
+                    <div class="skill-tier-header">Tier 1 - 기초</div>
+                    <div class="skill-row">
+                        <div class="skill-node">
+                            <div class="skill-name">행운</div>
+                            <div class="skill-level">최대 Lv.5</div>
+                            <div class="skill-effect">아이템 스폰 딜레이 -6% (Lv.5 보너스: 추가 -6%)</div>
+                        </div>
+                        <div class="skill-node">
+                            <div class="skill-name">숙련</div>
+                            <div class="skill-level">최대 Lv.5</div>
+                            <div class="skill-effect">액티브 아이템 쿨다운 -8%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="skill-tier">
+                    <div class="skill-tier-header">Tier 2 - 필요 TP: 4</div>
+                    <div class="skill-row">
+                        <div class="skill-node">
+                            <div class="skill-name">숙달</div>
+                            <div class="skill-level">최대 Lv.5</div>
+                            <div class="skill-effect">액티브 아이템 사용 시 게이지 +7</div>
+                        </div>
+                        <div class="skill-node">
+                            <div class="skill-name">가방 확장</div>
+                            <div class="skill-level">최대 Lv.3 (비용: 2)</div>
+                            <div class="skill-effect">액티브 아이템 슬롯 +1</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="skill-tier">
+                    <div class="skill-tier-header">Tier 3 - 필요 TP: 8</div>
+                    <div class="skill-row">
+                        <div class="skill-node">
+                            <div class="skill-name">카페인</div>
+                            <div class="skill-level">최대 Lv.5 (비용: 2)</div>
+                            <div class="skill-effect">시간 기반 액티브 아이템 지속시간 +15%</div>
+                        </div>
+                        <div class="skill-node">
+                            <div class="skill-name">연마</div>
+                            <div class="skill-level">최대 Lv.5 (비용: 3)</div>
+                            <div class="skill-effect">패시브 아이템 옵션 효율 +20% (레벨당 +10%)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="skill-tier">
+                    <div class="skill-tier-header">Tier 4 - 필요 TP: 12</div>
+                    <div class="skill-row">
+                        <div class="skill-node">
+                            <div class="skill-name">연금술</div>
+                            <div class="skill-level">최대 Lv.3 (비용: 3)</div>
+                            <div class="skill-effect">사용한 아이템이 20% 확률로 사라지지 않음</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. 뽑기 시스템 -->
+            <div class="section-header" id="gacha">
+                <span class="section-number">7.</span>
+                <h2>뽑기 시스템</h2>
+            </div>
+
+            <p>
+                <strong>뽑기(Gacha)</strong> 시스템은 캡슐 머신 형태로 구현되어 있다. 코인을 투입하면
+                캡슐이 회전하며 랜덤 아이템을 획득할 수 있다.
+            </p>
+
+            <table class="wiki-table">
+                <tr>
+                    <th>아이템 등급</th>
+                    <th>출현 확률</th>
+                    <th>비고</th>
+                </tr>
+                <tr>
+                    <td>액티브 아이템</td>
+                    <td>~75%</td>
+                    <td>전투용 소모 아이템</td>
+                </tr>
+                <tr>
+                    <td>패시브 아이템</td>
+                    <td>~25%</td>
+                    <td>영구 스탯 강화</td>
+                </tr>
+                <tr>
+                    <td><span class="tag legendary">전설 아이템</span></td>
+                    <td>0.04% ~ 0.08%</td>
+                    <td>최고 희귀도, 특수 연출</td>
+                </tr>
+            </table>
+
+            <div class="info-box info">
+                <div class="info-box-title">뽑기 연출</div>
+                <ul>
+                    <li>캡슐 회전 애니메이션</li>
+                    <li>공이 수집 영역으로 떨어지는 모션</li>
+                    <li>전설 아이템 당첨 시 특별 이펙트 (금빛 파티클, 빨간 테두리)</li>
+                    <li>결과 화면 0.75초 자동 전환</li>
+                </ul>
+            </div>
+
+            <!-- 8. 캐릭터 -->
+            <div class="section-header" id="characters">
+                <span class="section-number">8.</span>
+                <h2>캐릭터</h2>
+            </div>
+
+            <p>
+                핑파이터에는 3명의 개성 넘치는 플레이어블 캐릭터가 존재한다.
+                각 캐릭터는 고유한 플레이 스타일, 전용 스킬, 전용 아이템을 보유하고 있어
+                완전히 다른 게임 경험을 제공한다.
+            </p>
+
+            <table class="wiki-table">
+                <tr>
+                    <th>캐릭터</th>
+                    <th>플레이 스타일</th>
+                    <th>핵심 메카닉</th>
+                    <th>난이도</th>
+                </tr>
+                <tr>
+                    <td><strong>스매셔</strong></td>
+                    <td>공격형 (Power)</td>
+                    <td>게이지 폭발 파워샷</td>
+                    <td>★★☆☆☆</td>
+                </tr>
+                <tr>
+                    <td><strong>코만도</strong></td>
+                    <td>원거리형 (Ranged)</td>
+                    <td>화기 교체 · 탄약 관리</td>
+                    <td>★★★☆☆</td>
+                </tr>
+                <tr>
+                    <td><strong>발토르</strong></td>
+                    <td>방어형 (Defense)</td>
+                    <td>건설 · 포탑 · 방패</td>
+                    <td>★★★★☆</td>
+                </tr>
+            </table>
+
+            <!-- 8.1 스매셔 -->
+            <div class="section-header" id="char-smasher">
+                <span class="section-number">8.1.</span>
+                <h3>스매셔 (Smasher)</h3>
+            </div>
+
+            <div class="boss-card" style="background: linear-gradient(135deg, #ff6b35, #f7931e);">
+                <span class="boss-stage" style="background: linear-gradient(135deg, #ff4500, #ff6b35);">STRIKER</span>
+                <div class="boss-name">스매셔</div>
+                <div class="boss-theme">"게이지 폭발로 연속 파워스매시. 공격 템포를 쥐는 핵심 스트라이커."</div>
+                <p>
+                    강력한 파워샷과 게이지 폭발에 특화된 공격형 캐릭터. 타이밍에 맞춘 정확한 스매싱으로
+                    보스를 압도하는 플레이 스타일이다. 초보자도 쉽게 접근할 수 있는 직관적인 조작감이 장점.
+                </p>
+                <div class="boss-skills">
+                    <span class="boss-skill">드라이브</span>
+                    <span class="boss-skill">파워스매싱</span>
+                    <span class="boss-skill">쇼트</span>
+                </div>
+            </div>
+
+            <table class="wiki-table">
+                <tr>
+                    <th>스킬명</th>
+                    <th>조작법</th>
+                    <th>게이지</th>
+                    <th>효과</th>
+                </tr>
+                <tr>
+                    <td><strong>드라이브</strong></td>
+                    <td>← 또는 → + SPACE 동시</td>
+                    <td>160</td>
+                    <td>방향 드라이브, 공 속도 대폭 증가, 보스 적중 시 위쪽 잠금 해제</td>
+                </tr>
+                <tr>
+                    <td><strong>파워스매싱</strong></td>
+                    <td>SPACE 홀드 (게이지 350+)</td>
+                    <td>350+</td>
+                    <td>←/→/직선 3방향 폭발, 폭발적 속도로 공 발사, 큰 피해와 넉백</td>
+                </tr>
+                <tr>
+                    <td><strong>쇼트</strong></td>
+                    <td>공이 패들에 닿는 순간 ↑</td>
+                    <td>100</td>
+                    <td>수직 쇼트 발동</td>
+                </tr>
+            </table>
+
+            <!-- 8.2 코만도 -->
+            <div class="section-header" id="char-commando">
+                <span class="section-number">8.2.</span>
+                <h3>코만도 (Commando)</h3>
+            </div>
+
+            <div class="boss-card" style="background: linear-gradient(135deg, #2c3e50, #4a6741);">
+                <span class="boss-stage" style="background: linear-gradient(135deg, #556b2f, #6b8e23);">SOLDIER</span>
+                <div class="boss-name">코만도</div>
+                <div class="boss-theme">"탄약은 곧 정의다." - 화력 기반 원거리 딜러</div>
+                <p>
+                    다양한 화기류를 자유자재로 교체하며 싸우는 원거리 특화 캐릭터. 권총, AK-47, 바주카포,
+                    그물덫총 등 6종의 무기를 상황에 맞게 활용해야 한다. 탄약 관리와 물자보급 타이밍이 핵심!
+                </p>
+                <div class="boss-skills">
+                    <span class="boss-skill">화기 발사</span>
+                    <span class="boss-skill">무기 교체</span>
+                    <span class="boss-skill">물자보급</span>
+                    <span class="boss-skill">비상보급</span>
+                </div>
+            </div>
+
+            <table class="wiki-table">
+                <tr>
+                    <th>스킬명</th>
+                    <th>조작법</th>
+                    <th>게이지</th>
+                    <th>효과</th>
+                </tr>
+                <tr>
+                    <td><strong>화기 발사</strong></td>
+                    <td>SPACE</td>
+                    <td>-</td>
+                    <td>현재 장비한 화기 발사 (기본: 권총 6발)</td>
+                </tr>
+                <tr>
+                    <td><strong>재장전</strong></td>
+                    <td>SPACE (탄약 0)</td>
+                    <td>150</td>
+                    <td>2초 재장전 후 탄창 완전 충전</td>
+                </tr>
+                <tr>
+                    <td><strong>무기 교체</strong></td>
+                    <td>↑ (짧게/길게) 또는 마우스 휠</td>
+                    <td>-</td>
+                    <td>보유 화기 순환 / 무기 선택 메뉴</td>
+                </tr>
+                <tr>
+                    <td><strong>물자보급</strong></td>
+                    <td>↓ (1초 홀드)</td>
+                    <td>350</td>
+                    <td>보급 비행기 호출, 탄약상자/화기류/아이템 획득</td>
+                </tr>
+                <tr>
+                    <td><strong>비상보급</strong></td>
+                    <td>↓↓ (더블 탭)</td>
+                    <td>500</td>
+                    <td>현재 화기 탄약 즉시 충전 (스테이지당 1회)</td>
+                </tr>
+            </table>
+
+            <div class="info-box info">
+                <div class="info-box-title">코만도 보유 화기</div>
+                <ul>
+                    <li><strong>권총</strong>: 기본 무기, 6발, 헤드샷/레그샷 확률 발동</li>
+                    <li><strong>AK-47</strong>: 빠른 연사력, 높은 DPS, 탄약 소모 빠름</li>
+                    <li><strong>바주카포</strong>: 강력한 폭발 데미지, 큰 넉백</li>
+                    <li><strong>그물덫총</strong>: 보스 일시 속박</li>
+                    <li><strong>화력지원</strong>: 폭격기 호출, 광역 폭발</li>
+                    <li><strong>자폭드론</strong>: 유도 드론 3기 발사</li>
+                </ul>
+            </div>
+
+            <div class="item-card" style="margin-top: 15px;">
+                <div class="item-header">
+                    <div class="item-icon passive">💪</div>
+                    <div>
+                        <div class="item-name">코만도암 (전용 패시브)</div>
+                        <div class="item-type">패시브 - 최대 2개 중첩</div>
+                    </div>
+                </div>
+                <div class="item-desc">
+                    숙련된 코만도의 유품. 수류탄, 화염병 등 투척류 무기와 연막탄 같은 방어 아이템을
+                    더 신속하고 능숙하게 다룰 수 있다.<br>
+                    <strong>효과:</strong> 투척 속도 +15%, 폭발 범위 +10%, 연막 지속시간 +30%
+                </div>
+            </div>
+
+            <!-- 8.3 발토르 -->
+            <div class="section-header" id="char-valtor">
+                <span class="section-number">8.3.</span>
+                <h3>발토르 (Valtor)</h3>
+            </div>
+
+            <div class="boss-card" style="background: linear-gradient(135deg, #1a1a2e, #4a148c);">
+                <span class="boss-stage" style="background: linear-gradient(135deg, #6a0dad, #9b59b6);">BLACKSMITH</span>
+                <div class="boss-name">발토르</div>
+                <div class="boss-theme">방어 · 건설 기반 전략형 플레이</div>
+                <p>
+                    포탑과 디바인스톤을 건설하고, 토르쉴드로 방어하며, 해머쇼크로 반격하는 전략형 캐릭터.
+                    가장 복잡한 조작 체계를 가지고 있지만, 마스터하면 압도적인 방어력과 공격력을 동시에 발휘한다.
+                    건설물 관리와 쉴드 타이밍이 승패를 좌우한다.
+                </p>
+                <div class="boss-skills">
+                    <span class="boss-skill">토르쉴드</span>
+                    <span class="boss-skill">포탑 건설</span>
+                    <span class="boss-skill">디바인스톤</span>
+                    <span class="boss-skill">해머쇼크</span>
+                </div>
+            </div>
+
+            <table class="wiki-table">
+                <tr>
+                    <th>스킬명</th>
+                    <th>조작법</th>
+                    <th>게이지/시간</th>
+                    <th>효과</th>
+                </tr>
+                <tr>
+                    <td><strong>토르쉴드</strong></td>
+                    <td>↑ (토글)</td>
+                    <td>내구도 5칸</td>
+                    <td>방패 전개/접기, 공 방어 시 내구도 소모, 직접 타격보다 많은 게이지 획득</td>
+                </tr>
+                <tr>
+                    <td><strong>방패 스윙</strong></td>
+                    <td>SPACE + ←/→</td>
+                    <td>-</td>
+                    <td>쉴드 전개 중 방향 반격</td>
+                </tr>
+                <tr>
+                    <td><strong>포탑 건설</strong></td>
+                    <td>↓ (유지, 메뉴에서 1)</td>
+                    <td>220 / ~5초</td>
+                    <td>5초 간격 자동 미사일, SPACE로 수동 발사 (60게이지, 0.6초 쿨)</td>
+                </tr>
+                <tr>
+                    <td><strong>포탑 강화</strong></td>
+                    <td>완성 후 ↓ 유지</td>
+                    <td>250 / ~10초</td>
+                    <td>"강화 포탑"으로 진화, 오버드라이브 가능</td>
+                </tr>
+                <tr>
+                    <td><strong>디바인스톤</strong></td>
+                    <td>↓ (유지, 메뉴에서 2)</td>
+                    <td>330 / ~7초</td>
+                    <td>공을 튕겨냄, HP 3칸, 쉴드 회복 주기 단축 (7초→5초)</td>
+                </tr>
+                <tr>
+                    <td><strong>해머쇼크</strong></td>
+                    <td>SPACE 홀드 (디바인스톤 필요)</td>
+                    <td>200/260/320</td>
+                    <td>1~3초 차지로 Lv.1~3, 해머 투척 + 충격파, 큰 피해와 넉백</td>
+                </tr>
+            </table>
+
+            <div class="info-box tip">
+                <div class="info-box-title">발토르 플레이 팁</div>
+                <ul>
+                    <li><strong>Blocking</strong>: 공에 닿을 때 ↑로 방패 접으면 내구도 소모 없이 게이지만 획득!</li>
+                    <li>토르쉴드가 열려있으면 대쉬, 건설, 아이템 사용, 해머쇼크 모두 불가</li>
+                    <li>디바인스톤이 있어야 해머쇼크 사용 가능</li>
+                    <li>강화 포탑 + 디바인스톤 = 메가드라이브 발동!</li>
+                </ul>
+            </div>
+
+            <div class="item-grid">
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">🔧</div>
+                        <div>
+                            <div class="item-name">수리키트 (전용)</div>
+                            <div class="item-type">액티브 - 발토르 전용</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">포탑, 디바인스톤, 설치된 벽돌을 즉시 완전 수리하고 과열을 제거한다.</div>
+                </div>
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-icon active">🧪</div>
+                        <div>
+                            <div class="item-name">광폭물약 (전용)</div>
+                            <div class="item-type">액티브 - 발토르 전용 (희귀 0.4%)</div>
+                        </div>
+                    </div>
+                    <div class="item-desc">15초간 건설·업그레이드 속도 3배, 기본 게이지 획득량 대폭 증가.</div>
+                </div>
+            </div>
+
+            <!-- 9. 기술적 특징 -->
+            <div class="section-header" id="technical">
+                <span class="section-number">9.</span>
+                <h2>기술적 특징</h2>
+            </div>
+
+            <p>핑파이터는 Python과 Pygame 프레임워크를 기반으로 개발되었으며, 다음과 같은 기술적 특징을 가진다.</p>
+
+            <table class="wiki-table">
+                <tr>
+                    <th>항목</th>
+                    <th>내용</th>
+                </tr>
+                <tr>
+                    <td>개발 언어</td>
+                    <td>Python 3.x</td>
+                </tr>
+                <tr>
+                    <td>게임 프레임워크</td>
+                    <td>Pygame 2.5.0+</td>
+                </tr>
+                <tr>
+                    <td>코드 규모</td>
+                    <td>25,000+ Lines (메인 파일 기준)</td>
+                </tr>
+                <tr>
+                    <td>지원 플랫폼</td>
+                    <td>Windows 10/11, macOS (Intel/Apple Silicon)</td>
+                </tr>
+                <tr>
+                    <td>해상도</td>
+                    <td>760 x 750 (내부), 600 x 750 (플레이 영역)</td>
+                </tr>
+                <tr>
+                    <td>빌드 도구</td>
+                    <td>PyInstaller</td>
+                </tr>
+                <tr>
+                    <td>한글 지원</td>
+                    <td>pygame.freetype + NanumSquare 폰트</td>
+                </tr>
+            </table>
+
+            <div class="info-box tip">
+                <div class="info-box-title">모듈 구조</div>
+                <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;">
+bosspong/
+├── core/               # 코어 시스템 (게임 상태, 상수, 이벤트)
+├── game_logic/         # 게임 메카닉 (물리, 충돌, AI)
+├── entities/           # 게임 오브젝트 (공, 패들, 보스)
+├── ai/                 # AI 및 보스 행동 시스템
+├── managers/           # 리소스 및 이펙트 매니저
+├── ui/                 # UI 컴포넌트 (메뉴, HUD, 다이얼로그)
+├── item_effects/       # 개별 아이템 효과 구현
+├── events/             # 스테이지별 이벤트 시스템
+├── backgrounds/        # 애니메이션 배경 시스템
+└── rendering/          # 렌더링 시스템</pre>
+            </div>
+
+        </main>
+
+        <!-- 사이드바 -->
+        <aside class="sidebar">
+            <div class="sidebar-box">
+                <div class="sidebar-header">관련 문서</div>
+                <div class="sidebar-content">
+                    <ul class="sidebar-list">
+                        <li><a href="#">핑파이터/보스 공략</a></li>
+                        <li><a href="#">핑파이터/아이템 도감</a></li>
+                        <li><a href="#">핑파이터/스킬 빌드</a></li>
+                        <li><a href="#">핑파이터/팁과 노하우</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="sidebar-box">
+                <div class="sidebar-header">게임 태그</div>
+                <div class="sidebar-content">
+                    <span class="tag">아케이드</span>
+                    <span class="tag">보스배틀</span>
+                    <span class="tag">인디게임</span>
+                    <span class="tag">탁구</span>
+                    <span class="tag">로그라이크</span>
+                    <span class="tag">스킬트리</span>
+                    <span class="tag">가챠</span>
+                    <span class="tag">Python</span>
+                    <span class="tag">Pygame</span>
+                </div>
+            </div>
+
+            <div class="sidebar-box">
+                <div class="sidebar-header">개발 정보</div>
+                <div class="sidebar-content">
+                    <p><strong>버전:</strong> 개발 중</p>
+                    <p><strong>브랜치:</strong> feature/refactor-ui</p>
+                    <p><strong>최근 업데이트:</strong> 2025</p>
+                </div>
+            </div>
+
+            <div class="sidebar-box">
+                <div class="sidebar-header">핵심 기능</div>
+                <div class="sidebar-content">
+                    <ul class="sidebar-list">
+                        <li>8단계 보스 레이드</li>
+                        <li>60+ 아이템 시스템</li>
+                        <li>스킬 트리 성장</li>
+                        <li>뽑기(가챠) 시스템</li>
+                        <li>3명의 개성 캐릭터</li>
+                        <li>날씨 시스템</li>
+                        <li>크로스 플랫폼</li>
+                        <li>보스 궁극기 시스템</li>
+                    </ul>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- 푸터 -->
+    <footer class="wiki-footer">
+        <p>핑파이터 (PingFighter) - 네오위즈 퀘스트 공모전 포트폴리오</p>
+        <p>이 문서는 게임 소개 목적으로 제작되었습니다.</p>
+    </footer>
+
+    <!-- 스크롤 탑 버튼 -->
+    <div class="scroll-top" onclick="scrollToTop()">↑</div>
+
+    <script>
+        // 접기 토글
+        function toggleFold(element) {
+            const content = element.nextElementSibling;
+            const arrow = element.querySelector('span:last-child');
+            content.classList.toggle('active');
+            arrow.textContent = content.classList.contains('active') ? '▲' : '▼';
+        }
+
+        // 스크롤 탑
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // 스크롤 버튼 표시/숨김
+        window.addEventListener('scroll', () => {
+            const scrollBtn = document.querySelector('.scroll-top');
+            if (window.scrollY > 300) {
+                scrollBtn.classList.add('visible');
+            } else {
+                scrollBtn.classList.remove('visible');
+            }
+        });
+
+        // 목차 클릭 시 부드러운 스크롤
+        document.querySelectorAll('.toc-list a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = document.querySelector(link.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

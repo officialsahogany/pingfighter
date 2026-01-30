@@ -119,16 +119,16 @@ class EventHandlers:
         else:
             self.game_state.round_wins += 1
             
-        print(f"라운드 승리! 현재 스코어: {self.game_state.round_wins} - {self.game_state.round_losses}")
-        
+        pass  # print(f"라운드 승리! 현재 스코어: {self.game_state.round_wins} - {self.game_state.round_losses}")  # 디버그 비활성화
+
     def handle_round_lose(self, event):
         """라운드 패배 이벤트 처리"""
         if self.game_state.deuce_mode:
             self.game_state.deuce_losses += 1
         else:
             self.game_state.round_losses += 1
-            
-        print(f"라운드 패배! 현재 스코어: {self.game_state.round_wins} - {self.game_state.round_losses}")
+
+        pass  # print(f"라운드 패배! 현재 스코어: {self.game_state.round_wins} - {self.game_state.round_losses}")  # 디버그 비활성화
         
     # ========== 점수 핸들러 ==========
     

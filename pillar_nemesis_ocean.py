@@ -79,12 +79,21 @@ class NemesisOceanFrame:
         self._frame_surface = None
         self._create_frame()
 
+        # === 성능 최적화: 캐시 ===
+        # 구름 Surface 캐시 (크기별)
+        self._cloud_cache = {}
+        # 파도 Surface 캐시 (좌/우 필러)
+        self._wave_cache_left = None
+        self._wave_cache_right = None
+        self._wave_cache_phase = 0
+        self._wave_update_interval = 6  # 6프레임마다 파도 업데이트 (성능 최적화: 3→6)
+
     def _create_waves(self):
-        """파도 레이어 생성"""
+        """파도 레이어 생성 (성능 최적화: 5→3 레이어)"""
         # 해수면 아래에 파도 레이어 생성
-        for i in range(5):
+        for i in range(3):
             self.waves.append({
-                'y_offset': i * 30,  # 해수면 기준 오프셋
+                'y_offset': i * 45,  # 간격 증가 (30→45)
                 'amplitude': random.uniform(5, 15),
                 'frequency': random.uniform(0.01, 0.03),
                 'phase': random.uniform(0, math.pi * 2),
@@ -92,8 +101,8 @@ class NemesisOceanFrame:
             })
 
     def _create_clouds(self):
-        """구름 생성"""
-        for _ in range(6):
+        """구름 생성 (성능 최적화: 6→4개)"""
+        for _ in range(4):
             self.clouds.append({
                 'x': random.randint(0, self.screen_width),
                 'y': random.randint(20, self.horizon_y - 100),
@@ -279,10 +288,10 @@ class NemesisOceanFrame:
         # 우측 컨트롤 패널
         self._draw_control_panel(surface, self.screen_width - 15, self.game_y + 40, 'right')
 
-        # 레이더 (좌측 하단)
-        if self.game_x > 80:
-            self._draw_radar_display(surface, self.game_x // 2,
-                                    self.game_y + self.game_height - 70)
+        # 레이더 제거됨 (좌측 하단)
+        # if self.game_x > 80:
+        #     self._draw_radar_display(surface, self.game_x // 2,
+        #                             self.game_y + self.game_height - 70)
 
     def _draw_control_panel(self, surface: pygame.Surface, x: int, y: int, side: str):
         """컨트롤 패널"""
@@ -349,48 +358,100 @@ class NemesisOceanFrame:
         pygame.draw.circle(surface, (*self.COLORS['cyan_glow'], 200), (cx, cy), radar_size, 2)
 
     def _draw_animated_clouds(self, surface: pygame.Surface):
-        """구름 애니메이션"""
+        """구름 애니메이션 (최적화: 캐시 사용)"""
         for cloud in self.clouds:
             # 하늘 영역에만 (해수면 위)
             if cloud['y'] < self.horizon_y - 20:
-                cloud_surface = pygame.Surface((cloud['size'] * 2, cloud['size']), pygame.SRCALPHA)
-                # 구름 모양
-                for i in range(3):
-                    cx = cloud['size'] // 2 + i * cloud['size'] // 3
-                    cy = cloud['size'] // 2
-                    radius = cloud['size'] // 3
-                    pygame.draw.circle(cloud_surface, (255, 255, 255, cloud['opacity']),
-                                     (cx, cy), radius)
-                surface.blit(cloud_surface, (int(cloud['x']), int(cloud['y'])))
+                # 캐시된 구름 Surface 가져오기
+                cloud_surf = self._get_cached_cloud(cloud['size'], cloud['opacity'])
+                surface.blit(cloud_surf, (int(cloud['x']), int(cloud['y'])))
+
+    def _get_cached_cloud(self, size: int, opacity: int) -> pygame.Surface:
+        """캐시된 구름 Surface 반환"""
+        # 크기 버킷팅 (10px 단위)
+        size_bucket = (size // 10) * 10
+        # 투명도 버킷팅 (20 단위)
+        opacity_bucket = (opacity // 20) * 20
+        cache_key = (size_bucket, opacity_bucket)
+
+        if cache_key in self._cloud_cache:
+            return self._cloud_cache[cache_key]
+
+        # 새 구름 Surface 생성
+        cloud_surface = pygame.Surface((size_bucket * 2, size_bucket), pygame.SRCALPHA)
+        for i in range(3):
+            cx = size_bucket // 2 + i * size_bucket // 3
+            cy = size_bucket // 2
+            radius = size_bucket // 3
+            pygame.draw.circle(cloud_surface, (255, 255, 255, opacity_bucket),
+                             (cx, cy), radius)
+
+        # 캐시 크기 제한
+        if len(self._cloud_cache) > 50:
+            self._cloud_cache.clear()
+
+        self._cloud_cache[cache_key] = cloud_surface
+        return cloud_surface
 
     def _draw_animated_waves(self, surface: pygame.Surface):
-        """애니메이션 파도 효과 (해수면 아래)"""
+        """애니메이션 파도 효과 (최적화: 간격 증가 + 캐시)"""
+        # 프레임 카운터 업데이트
+        if not hasattr(self, '_wave_frame_counter'):
+            self._wave_frame_counter = 0
+        self._wave_frame_counter += 1
+
+        # 파도 캐시 업데이트 필요 여부
+        need_update = (self._wave_frame_counter % self._wave_update_interval == 0 or
+                      self._wave_cache_left is None)
+
+        if need_update:
+            self._update_wave_cache()
+
+        # 캐시된 파도 블릿
+        if self._wave_cache_left is not None and self.game_x > 20:
+            surface.blit(self._wave_cache_left, (0, self.horizon_y))
+        if self._wave_cache_right is not None:
+            right_start = self.game_x + self.game_width
+            surface.blit(self._wave_cache_right, (right_start, self.horizon_y))
+
+    def _update_wave_cache(self):
+        """파도 캐시 업데이트"""
         ocean_surface = self.COLORS['ocean_surface']
         wave_foam = self.COLORS['wave_foam']
 
-        for wave in self.waves:
-            wave_y = self.horizon_y + wave['y_offset']
+        # 파도가 그려지는 Y 범위 계산
+        max_y_offset = max(w['y_offset'] + w['amplitude'] for w in self.waves) + 20
+        wave_height = int(max_y_offset) + 30
 
-            # 필러 영역에만 그리기
-            if self.game_x > 20:
-                # 좌측 필러
-                for x in range(0, self.game_x - 10, 5):
-                    y = wave_y + wave['amplitude'] * math.sin(x * wave['frequency'] + wave['phase'])
-                    pygame.draw.circle(surface, (*ocean_surface, 60),
-                                     (x, int(y)), 6)
-                    # 거품
-                    if random.random() < 0.05:
-                        pygame.draw.circle(surface, (*wave_foam, 80),
-                                         (x, int(y) - 3), 2)
+        # 좌측 파도 캐시
+        if self.game_x > 20:
+            if self._wave_cache_left is None:
+                self._wave_cache_left = pygame.Surface((self.game_x, wave_height), pygame.SRCALPHA)
+            self._wave_cache_left.fill((0, 0, 0, 0))
 
-                # 우측 필러
-                for x in range(self.game_x + self.game_width + 10, self.screen_width, 5):
-                    y = wave_y + wave['amplitude'] * math.sin(x * wave['frequency'] + wave['phase'])
-                    pygame.draw.circle(surface, (*ocean_surface, 60),
-                                     (x, int(y)), 6)
-                    if random.random() < 0.05:
-                        pygame.draw.circle(surface, (*wave_foam, 80),
-                                         (x, int(y) - 3), 2)
+            for wave in self.waves:
+                y_base = wave['y_offset']
+                # 간격을 20px로 늘림 (성능 최적화: 10 → 20)
+                for x in range(0, self.game_x - 10, 20):
+                    y = y_base + wave['amplitude'] * math.sin(x * wave['frequency'] + wave['phase'])
+                    pygame.draw.circle(self._wave_cache_left, (*ocean_surface, 60),
+                                     (x, int(y)), 8)  # 간격 증가에 따라 크기도 약간 증가
+
+        # 우측 파도 캐시
+        right_start = self.game_x + self.game_width
+        right_width = self.screen_width - right_start
+        if right_width > 20:
+            if self._wave_cache_right is None:
+                self._wave_cache_right = pygame.Surface((right_width, wave_height), pygame.SRCALPHA)
+            self._wave_cache_right.fill((0, 0, 0, 0))
+
+            for wave in self.waves:
+                y_base = wave['y_offset']
+                # 간격을 20px로 늘림 (성능 최적화: 10 → 20)
+                for x in range(10, right_width, 20):
+                    y = y_base + wave['amplitude'] * math.sin((x + right_start) * wave['frequency'] + wave['phase'])
+                    pygame.draw.circle(self._wave_cache_right, (*ocean_surface, 60),
+                                     (x, int(y)), 8)  # 간격 증가에 따라 크기도 약간 증가
 
     def _draw_foam_particles(self, surface: pygame.Surface):
         """물거품 파티클"""
@@ -420,43 +481,39 @@ class NemesisOceanFrame:
                                (cx, cy), (ex, ey), max(1, 2 - i // 4))
 
     def _draw_warning_lights(self, surface: pygame.Surface):
-        """경고등 깜빡임"""
+        """경고등 깜빡임 (성능 최적화: 6→4개)"""
         if self.game_x < 50:
             return
 
         flash = self.warning_flash > 0.5
 
-        # 좌측 경고등
+        # 좌측 경고등 (2개로 축소)
         lx = 15 + min(45, self.game_x - 25) // 2
-        for i in range(3):
-            ly = self.game_y + 40 + 18 + i * 22
+        for i in range(2):
+            ly = self.game_y + 40 + 18 + i * 28
 
             if i == 0:
                 color = self.COLORS['red_light'] if flash else (80, 30, 30)
-            elif i == 1:
-                color = self.COLORS['green_light']
             else:
-                color = self.COLORS['cyan_glow'] if not flash else (0, 100, 110)
+                color = self.COLORS['green_light']
 
             pygame.draw.circle(surface, (*color, 255), (lx, ly), 4)
 
-        # 우측 경고등
+        # 우측 경고등 (2개로 축소)
         rx = self.screen_width - 15 - min(45, self.game_x - 25) // 2
-        for i in range(3):
-            ry = self.game_y + 40 + 18 + i * 22
+        for i in range(2):
+            ry = self.game_y + 40 + 18 + i * 28
 
             if i == 0:
                 color = self.COLORS['red_light'] if flash else (80, 30, 30)
-            elif i == 1:
-                color = self.COLORS['green_light']
             else:
-                color = self.COLORS['cyan_glow'] if not flash else (0, 100, 110)
+                color = self.COLORS['green_light']
 
             pygame.draw.circle(surface, (*color, 255), (rx, ry), 4)
 
     def _spawn_foam(self):
-        """물거품 생성 (해수면 아래에서만)"""
-        if random.random() < 0.02 and len(self.foam_particles) < 25:
+        """물거품 생성 (해수면 아래에서만, 성능 최적화: 0.02→0.01, 25→12)"""
+        if random.random() < 0.01 and len(self.foam_particles) < 12:
             if self.game_x > 20:
                 # 좌측 또는 우측 필러에서 생성
                 if random.random() < 0.5:
@@ -492,10 +549,10 @@ class NemesisOceanFrame:
                 cloud['x'] = -cloud['size']
                 cloud['y'] = random.randint(20, self.horizon_y - 100)
 
-        # 레이더 회전
-        self.radar_angle += dt * 2
-        if self.radar_angle > math.pi * 2:
-            self.radar_angle -= math.pi * 2
+        # 레이더 회전 제거됨
+        # self.radar_angle += dt * 2
+        # if self.radar_angle > math.pi * 2:
+        #     self.radar_angle -= math.pi * 2
 
         # 경고등 깜빡임
         self.warning_flash += dt
@@ -528,8 +585,8 @@ class NemesisOceanFrame:
         # 물거품 파티클
         self._draw_foam_particles(surface)
 
-        # 레이더 스윕
-        self._draw_radar_sweep(surface)
+        # 레이더 스윕 제거됨
+        # self._draw_radar_sweep(surface)
 
         # 경고등 깜빡임
         self._draw_warning_lights(surface)
@@ -538,20 +595,18 @@ class NemesisOceanFrame:
         self._draw_game_border_glow(surface)
 
     def _draw_game_border_glow(self, surface: pygame.Surface):
-        """게임 영역 테두리 글로우 효과"""
+        """게임 영역 테두리 글로우 효과 (성능 최적화: 2→1 레이어)"""
         pulse = int(15 + 8 * math.sin(self.time * 1.5))
         cyan = self.COLORS['cyan_glow']
 
-        for i in range(2):
-            alpha = pulse - i * 6
-            if alpha > 0:
-                rect = pygame.Rect(
-                    self.game_x - 10 - i,
-                    self.game_y - 10 - i,
-                    self.game_width + 20 + i * 2,
-                    self.game_height + 20 + i * 2
-                )
-                pygame.draw.rect(surface, (*cyan, alpha), rect, 1)
+        if pulse > 0:
+            rect = pygame.Rect(
+                self.game_x - 10,
+                self.game_y - 10,
+                self.game_width + 20,
+                self.game_height + 20
+            )
+            pygame.draw.rect(surface, (*cyan, pulse), rect, 1)
 
     def resize(self, screen_width: int, screen_height: int,
                game_width: int, game_height: int):
@@ -570,6 +625,11 @@ class NemesisOceanFrame:
         self.foam_particles = []
         self.clouds = []
         self._create_clouds()
+
+        # 캐시 초기화
+        self._cloud_cache.clear()
+        self._wave_cache_left = None
+        self._wave_cache_right = None
 
         self._frame_surface = None
         self._create_frame()

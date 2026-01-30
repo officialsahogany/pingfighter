@@ -1573,42 +1573,64 @@ class TetrisUIPanel:
         self.text_color = (200, 220, 255)
         self.accent_color = (0, 255, 255)  # 시안
 
+        # 캐시된 정적 패널 Surface (글로우 제외한 기본 패널)
+        self._static_cache = None
+        self._create_static_cache()
+
+    def _create_static_cache(self):
+        """정적인 패널 요소 사전 렌더링"""
+        # 패널 크기 + 여백
+        cache_w = self.width + 8
+        cache_h = self.height + 8
+        self._static_cache = pygame.Surface((cache_w, cache_h), pygame.SRCALPHA)
+
+        offset_x = 4
+        offset_y = 4
+
+        # 배경
+        pygame.draw.rect(self._static_cache, (*self.bg_color, 200),
+                        (offset_x, offset_y, self.width, self.height), border_radius=2)
+
+        # 테두리 (네온 스타일)
+        pygame.draw.rect(self._static_cache, self.border_color,
+                        (offset_x, offset_y, self.width, self.height), 2, border_radius=2)
+
+        # 내부 테두리 (하이라이트)
+        pygame.draw.rect(self._static_cache, (*self.glow_color, 40),
+                        (offset_x + 2, offset_y + 2, self.width - 4, self.height - 4), 1, border_radius=1)
+
+        # 타이틀
+        if self.title:
+            self._draw_title_to_cache(offset_x, offset_y)
+
+    def _draw_title_to_cache(self, offset_x: int, offset_y: int):
+        """타이틀을 캐시에 그리기"""
+        try:
+            font = pygame.font.Font(None, 16)
+        except:
+            font = pygame.font.SysFont('Arial', 12)
+
+        # 타이틀 배경
+        title_height = 18
+        pygame.draw.rect(self._static_cache, (*self.border_color, 150),
+                        (offset_x, offset_y, self.width, title_height), border_radius=2)
+        pygame.draw.rect(self._static_cache, (*self.border_color, 200),
+                        (offset_x, offset_y, self.width, title_height), 0, border_radius=2)
+
+        # 타이틀 텍스트
+        text_surf = font.render(self.title, True, self.accent_color)
+        text_x = offset_x + (self.width - text_surf.get_width()) // 2
+        text_y = offset_y + (title_height - text_surf.get_height()) // 2 + 1
+        self._static_cache.blit(text_surf, (text_x, text_y))
+
     def update(self, dt: float):
         self.time += dt
 
     def draw(self, surface: pygame.Surface, content_callback=None):
-        """패널 그리기"""
-        # 글로우 효과 (펄스)
-        pulse = 0.7 + 0.3 * math.sin(self.time * 2.0)
-        glow_alpha = int(30 * pulse)
-
-        # 외곽 글로우
-        for i in range(3, 0, -1):
-            glow_rect = pygame.Rect(self.x - i, self.y - i,
-                                   self.width + i * 2, self.height + i * 2)
-            glow_surf = pygame.Surface((self.width + i * 2 + 2, self.height + i * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surf, (*self.glow_color, glow_alpha // i),
-                           (0, 0, glow_surf.get_width(), glow_surf.get_height()),
-                           border_radius=3)
-            surface.blit(glow_surf, (self.x - i - 1, self.y - i - 1))
-
-        # 배경
-        bg_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        pygame.draw.rect(bg_surf, (*self.bg_color, 200),
-                        (0, 0, self.width, self.height), border_radius=2)
-        surface.blit(bg_surf, (self.x, self.y))
-
-        # 테두리 (네온 스타일)
-        pygame.draw.rect(surface, self.border_color,
-                        (self.x, self.y, self.width, self.height), 2, border_radius=2)
-
-        # 내부 테두리 (하이라이트)
-        inner_rect = pygame.Rect(self.x + 2, self.y + 2, self.width - 4, self.height - 4)
-        pygame.draw.rect(surface, (*self.glow_color, 40), inner_rect, 1, border_radius=1)
-
-        # 타이틀
-        if self.title:
-            self._draw_title(surface)
+        """패널 그리기 (캐시 활용)"""
+        # 캐시된 정적 패널 blit (글로우 효과 생략 - 성능 최적화)
+        if self._static_cache:
+            surface.blit(self._static_cache, (self.x - 4, self.y - 4))
 
         # 컨텐츠 콜백
         if content_callback:
@@ -1718,6 +1740,11 @@ class TetrisGame:
         # 무지개 애니메이션 타이머
         self.rainbow_time = 0.0
 
+        # 보드 캐싱 (성능 최적화)
+        self._board_cache = None
+        self._board_dirty = True  # 보드가 변경되면 True
+        self._last_rainbow_time = 0.0  # 마지막 캐시 갱신 시간
+
     def spawn_piece(self):
         """새 블록 생성 - NEXT 시스템 사용"""
         piece_type = self.next_piece_type
@@ -1765,6 +1792,9 @@ class TetrisGame:
             if 0 <= by < self.rows and 0 <= bx < self.cols:
                 self.board[by][bx] = self.current_piece['color']
 
+        # 보드가 변경됨
+        self._board_dirty = True
+
         # 라인 클리어 체크
         self.check_lines()
 
@@ -1787,6 +1817,9 @@ class TetrisGame:
         for y in sorted(self.clearing_lines, reverse=True):
             del self.board[y]
             self.board.insert(0, [None for _ in range(self.cols)])
+
+        # 보드가 변경됨
+        self._board_dirty = True
 
         # 점수 계산 (고전 테트리스 스타일)
         score_table = {1: 100, 2: 300, 3: 500, 4: 800}
@@ -1841,8 +1874,39 @@ class TetrisGame:
                 self.lock_piece()
 
     def draw(self, surface: pygame.Surface):
-        """보드와 현재 블록 그리기"""
-        # 쌓인 블록들
+        """보드와 현재 블록 그리기 (캐싱 활용)"""
+        # 무지개 애니메이션 주기적 갱신 (0.5초마다 - 성능과 시각 효과 균형)
+        rainbow_update_needed = abs(self.rainbow_time - self._last_rainbow_time) > 0.5
+
+        # 보드 캐시 갱신 조건: 보드 변경 또는 무지개 애니메이션 갱신 시
+        # 라인 클리어 중에는 매 프레임 갱신 (애니메이션)
+        if self._board_dirty or rainbow_update_needed or self.clearing_lines:
+            self._update_board_cache()
+            self._board_dirty = False
+            self._last_rainbow_time = self.rainbow_time
+
+        # 캐시된 보드 blit
+        if self._board_cache:
+            surface.blit(self._board_cache, (self.offset_x, self.offset_y))
+
+        # 현재 떨어지는 블록 (매 프레임 그리기 - 움직이므로)
+        if self.current_piece and not self.clearing_lines:
+            for bx, by in self.get_piece_blocks(self.current_piece):
+                if by >= 0:
+                    self._draw_block(surface, bx, by, self.current_piece['color'], is_falling=True)
+
+    def _update_board_cache(self):
+        """보드 캐시 갱신"""
+        # 캐시 Surface 생성 (처음 또는 크기 변경 시)
+        cache_w = self.cols * self.block_size
+        cache_h = self.rows * self.block_size
+        if self._board_cache is None or self._board_cache.get_size() != (cache_w, cache_h):
+            self._board_cache = pygame.Surface((cache_w, cache_h), pygame.SRCALPHA)
+
+        # 캐시 클리어
+        self._board_cache.fill((0, 0, 0, 0))
+
+        # 쌓인 블록들 캐시에 그리기
         for y in range(self.rows):
             for x in range(self.cols):
                 if self.board[y][x] is not None:
@@ -1851,14 +1915,7 @@ class TetrisGame:
                     if y in self.clearing_lines:
                         flash = int(255 * (self.clear_timer / self.clear_duration))
                         color = (flash, flash, flash)
-
-                    self._draw_block(surface, x, y, color, is_falling=False)
-
-        # 현재 떨어지는 블록
-        if self.current_piece and not self.clearing_lines:
-            for bx, by in self.get_piece_blocks(self.current_piece):
-                if by >= 0:
-                    self._draw_block(surface, bx, by, self.current_piece['color'], is_falling=True)
+                    self._draw_block_to_cache(x, y, color)
 
     def draw_next_preview(self, surface: pygame.Surface, panel_x: int, panel_y: int,
                           panel_width: int, panel_height: int):
@@ -1956,6 +2013,37 @@ class TetrisGame:
         if i == 3: return (p, q, v)
         if i == 4: return (t, p, v)
         return (v, p, q)
+
+    def _draw_block_to_cache(self, grid_x: int, grid_y: int, color: Tuple[int, int, int]):
+        """캐시용 블록 그리기 (오프셋 없이 로컬 좌표 사용)"""
+        px = grid_x * self.block_size
+        py = grid_y * self.block_size
+        size = self.block_size - 1
+
+        # 무지개 색상 계산
+        hue_offset = (grid_x * 0.3 + grid_y * 0.2 + self.rainbow_time * 0.5) % 1.0
+        r, g, b = self._hsv_to_rgb(hue_offset, 0.6, 1.0)
+        rainbow_color = (int(r * 255), int(g * 255), int(b * 255))
+
+        # 투명도 (쌓인 블록용)
+        base_alpha = 3
+        inner_alpha = 1
+        glow_alpha = 1
+
+        # 외곽 글로우
+        pygame.draw.rect(self._board_cache, (*rainbow_color, glow_alpha),
+                        (px - 1, py - 1, size + 2, size + 2), border_radius=2)
+        # 메인 외곽선
+        pygame.draw.rect(self._board_cache, (*rainbow_color, base_alpha),
+                        (px, py, size, size), 1, border_radius=1)
+        # 내부 채움
+        pygame.draw.rect(self._board_cache, (*rainbow_color, inner_alpha),
+                        (px + 1, py + 1, size - 2, size - 2), border_radius=1)
+        # 하이라이트
+        pygame.draw.line(self._board_cache, (255, 255, 255, inner_alpha),
+                        (px + 2, py + 2), (px + size // 3, py + 2), 1)
+        pygame.draw.line(self._board_cache, (255, 255, 255, inner_alpha),
+                        (px + 2, py + 2), (px + 2, py + size // 3), 1)
 
     def _draw_block(self, surface: pygame.Surface, grid_x: int, grid_y: int,
                     color: Tuple[int, int, int], is_falling: bool = False):

@@ -36,6 +36,44 @@ BABY_BLUE = (137, 207, 240)         # 베이비 블루
 SOFT_YELLOW = (255, 255, 200)      # 부드러운 노란색
 MINT_GREEN = (152, 255, 152)       # 민트 그린
 
+# 하트/별 glow 캐시 (크기/알파별 사전 렌더링)
+_heart_glow_cache = {}
+_star_glow_cache = {}
+
+def get_cached_star_glow(size: int, alpha: int) -> pygame.Surface:
+    """별 glow Surface 캐시 (매 프레임 생성 방지)"""
+    # 크기 버킷팅 (4픽셀 단위)
+    size_bucket = max(4, (size // 4) * 4)
+    # 알파 버킷팅 (10 단위)
+    alpha_bucket = max(0, min(255, (alpha // 10) * 10))
+
+    key = (size_bucket, alpha_bucket)
+    if key not in _star_glow_cache:
+        if len(_star_glow_cache) > 80:
+            _star_glow_cache.clear()
+        surf = pygame.Surface((size_bucket, size_bucket), pygame.SRCALPHA)
+        center = size_bucket // 2
+        pygame.draw.circle(surf, (255, 255, 255, alpha_bucket), (center, center), center)
+        _star_glow_cache[key] = surf
+    return _star_glow_cache[key]
+
+def get_cached_heart_glow(size: int, color: tuple, alpha: int) -> pygame.Surface:
+    """하트 glow Surface 캐시 (매 프레임 생성 방지)"""
+    # 크기 버킷팅 (2픽셀 단위)
+    size_bucket = max(2, (size // 2) * 2)
+    # 알파 버킷팅 (15 단위)
+    alpha_bucket = max(0, min(255, (alpha // 15) * 15))
+
+    key = (size_bucket, color[:3], alpha_bucket)
+    if key not in _heart_glow_cache:
+        # 캐시 크기 제한
+        if len(_heart_glow_cache) > 100:
+            _heart_glow_cache.clear()
+        surf = pygame.Surface((size_bucket * 2, size_bucket * 2), pygame.SRCALPHA)
+        pygame.draw.circle(surf, (*color[:3], alpha_bucket), (size_bucket, size_bucket), size_bucket)
+        _heart_glow_cache[key] = surf
+    return _heart_glow_cache[key]
+
 class Stage3MenheraWorld:
     def __init__(self, width: int = None, height: int = None):
         self.width = width if width is not None else WIDTH
@@ -80,6 +118,11 @@ class Stage3MenheraWorld:
         # 사운드 재생 플래그
         self.swallow_sound_played = False  # 삼키기 사운드 재생 여부
         self.tongue_sound_played = False  # 혀 내밀기 사운드 재생 여부
+
+        # 광폭화 보스 상태 (pingfighter.py에서 설정)
+        self.enraged_boss_active = False
+        self.enraged_aura_timer = 0
+        self.enraged_particles = []  # 광폭화 파티클
 
         self.init_decorations()
         
@@ -1543,13 +1586,11 @@ class Stage3MenheraWorld:
             # 하트 펄스 효과
             heart_pulse = abs(math.sin(self.time * 0.015)) * 2 + 8
             
-            # 하트 광채
+            # 하트 광채 - 캐시된 Surface 사용 (매 프레임 3개 Surface 생성 방지)
             for i in range(3):
                 alpha = 60 - i * 15
-                size = heart_pulse + i * 2
-                glow_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surface, (*PASTEL_PINK, alpha),
-                                 (size, size), size)
+                size = int(heart_pulse + i * 2)
+                glow_surface = get_cached_heart_glow(size, PASTEL_PINK, alpha)
                 screen.blit(glow_surface, (end_x - size, end_y - size))
             
             # 메인 하트 (더 정교하게)
@@ -1654,8 +1695,61 @@ class Stage3MenheraWorld:
                                  (left_eye_x, left_eye_y + eye_height//2 + tear_offset), 2)
                 pygame.draw.circle(screen, (*BABY_BLUE, 180),
                                  (right_eye_x, right_eye_y + eye_height//2 + tear_offset + 2), 2)
-        
-    
+
+        # === 광폭화 보스 이펙트 (악마의 주사위 스타일) ===
+        if self.enraged_boss_active:
+            self.enraged_aura_timer += 1
+
+            # 어두운 화염 파티클 생성 (30% 확률)
+            if random.random() < 0.3:
+                self.enraged_particles.append({
+                    'x': x + random.randint(-40, 40),
+                    'y': y + random.randint(-30, 30),
+                    'vx': random.uniform(-1, 1),
+                    'vy': random.uniform(-2, -0.5),  # 위로 올라가는 효과
+                    'size': random.randint(3, 7),
+                    'life': random.randint(20, 40),
+                    'max_life': 40,
+                    'color': random.choice([
+                        (139, 0, 0),    # 다크 레드
+                        (75, 0, 130),   # 인디고
+                        (25, 25, 112),  # 미드나잇 블루
+                        (128, 0, 128)   # 퍼플
+                    ])
+                })
+
+            # 파티클 업데이트 및 그리기
+            new_particles = []
+            for p in self.enraged_particles:
+                p['x'] += p['vx']
+                p['y'] += p['vy']
+                p['life'] -= 1
+                p['size'] *= 0.95
+
+                if p['life'] > 0 and p['size'] >= 1:
+                    life_ratio = p['life'] / p['max_life']
+                    alpha = life_ratio
+
+                    # 글로우 효과
+                    for i in range(3):
+                        glow_size = int(p['size'] * (1 + i * 0.5))
+                        glow_alpha = alpha * (0.3 - i * 0.1)
+                        if glow_alpha > 0 and glow_size > 0:
+                            glow_surface = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                            pygame.draw.circle(glow_surface, (*p['color'], int(255 * glow_alpha)),
+                                             (glow_size, glow_size), glow_size)
+                            screen.blit(glow_surface, (int(p['x']) - glow_size, int(p['y']) - glow_size))
+
+                    # 중심 파티클
+                    pygame.draw.circle(screen, p['color'],
+                                     (int(p['x']), int(p['y'])),
+                                     int(p['size']))
+
+                    new_particles.append(p)
+
+            self.enraged_particles = new_particles
+
+
     def draw_petrified_kuromi(self, screen, x, y, size):
         """석회화된 쿠로미 - 완전한 돌 석상"""
         head_size = int(size * 0.6)
@@ -1897,15 +1991,14 @@ class Stage3MenheraWorld:
     
     def draw_particles(self, screen):
         """하트와 별 파티클 그리기 (은은하게)"""
-        # 별 파티클 (더 은은하게)
+        # 별 파티클 (더 은은하게) - 캐시된 Surface 사용
         for star in self.star_particles:
             alpha = abs(math.sin(star['twinkle'])) * star['life'] / 200  # 알파값 감소
             if alpha > 0:
-                # 은은한 빛나는 효과
-                star_surface = pygame.Surface((star['size'] * 4, star['size'] * 4), pygame.SRCALPHA)
-                center = star['size'] * 2
-                pygame.draw.circle(star_surface, (*WHITE, int(alpha * 100)), 
-                                 (center, center), star['size'] * 2)
+                # 은은한 빛나는 효과 - 캐시된 glow 사용
+                glow_size = star['size'] * 4
+                star_surface = get_cached_star_glow(glow_size, int(alpha * 100))
+                center = star_surface.get_width() // 2
                 screen.blit(star_surface, (star['x'] - center, star['y'] - center))
                 self.draw_mini_star(screen, int(star['x']), int(star['y']), star['size'], (*WHITE, int(alpha * 200)))
         

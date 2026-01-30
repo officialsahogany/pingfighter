@@ -465,15 +465,15 @@ class GameEngine:
     
     def _on_game_over(self, event_data):
         """게임 오버 이벤트 핸들러"""
-        print("💀 게임 오버 이벤트 처리")
-    
+        pass  # print("💀 게임 오버 이벤트 처리")  # 디버그 비활성화
+
     def _on_round_win(self, event_data):
         """라운드 승리 이벤트 핸들러"""
-        print(f"✅ 라운드 승리! ({self.round_wins}/{self.round_losses})")
-    
+        pass  # print(f"✅ 라운드 승리! ({self.round_wins}/{self.round_losses})")  # 디버그 비활성화
+
     def _on_round_lose(self, event_data):
         """라운드 패배 이벤트 핸들러"""
-        print(f"❌ 라운드 패배! ({self.round_wins}/{self.round_losses})")
+        pass  # print(f"❌ 라운드 패배! ({self.round_wins}/{self.round_losses})")  # 디버그 비활성화
     
     def _on_pause(self, event_data):
         """일시정지 이벤트 핸들러"""

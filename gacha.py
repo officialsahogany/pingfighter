@@ -1,8 +1,10 @@
 import pygame
+import pygame.surfarray
 import random
 import math
 import sys
 import os
+import numpy as np
 import academy
 from game_state.audio import get_sfx_volume
 
@@ -68,19 +70,33 @@ def _get_bg_surface(width: int, height: int, *, cache_key: str = "main", grid_st
     if cache_id in _bg_cache:
         return _bg_cache[cache_id]
 
-    surf = pygame.Surface((width, height), pygame.SRCALPHA)
-    for y in range(height):
-        ratio = y / height
-        r = int(10 + ratio * 20)
-        g = int(20 + ratio * 30)
-        b = int(30 + ratio * 50)
-        pygame.draw.line(surf, (r, g, b), (0, y), (width, y))
+    surf = pygame.Surface((width, height))
 
+    # 최적화: numpy 배열로 그라데이션 한 번에 생성 (기존 750회 draw.line → 1회 배열 연산)
+    # pygame surfarray는 (width, height, 3) 형태 사용
+    arr = np.zeros((width, height, 3), dtype=np.uint8)
+    y_indices = np.arange(height, dtype=np.float32)
+    ratios = y_indices / height
+
+    # R, G, B 채널 계산 (브로드캐스팅으로 전체 width에 적용)
+    r_values = (10 + ratios * 20).astype(np.uint8)
+    g_values = (20 + ratios * 30).astype(np.uint8)
+    b_values = (30 + ratios * 50).astype(np.uint8)
+
+    arr[:, :, 0] = r_values  # 모든 x에 대해 동일한 y별 R 값
+    arr[:, :, 1] = g_values
+    arr[:, :, 2] = b_values
+
+    pygame.surfarray.blit_array(surf, arr)
+
+    # 그리드 라인 (SRCALPHA 서피스에 그리기)
+    grid_surf = pygame.Surface((width, height), pygame.SRCALPHA)
     grid_color = (0, 255, 255, grid_alpha)
     for x in range(0, width, grid_step):
-        pygame.draw.line(surf, grid_color, (x, 0), (x, height))
+        pygame.draw.line(grid_surf, grid_color, (x, 0), (x, height))
     for y in range(0, height, grid_step):
-        pygame.draw.line(surf, grid_color, (0, y), (width, y))
+        pygame.draw.line(grid_surf, grid_color, (0, y), (width, y))
+    surf.blit(grid_surf, (0, 0))
 
     _bg_cache[cache_id] = surf
     return surf
@@ -209,9 +225,9 @@ def init_gacha(available_items, legendary_bonus=0.0):
         "phantom_cloak", "bulletproof_hat", "spiked_helmet",
         # 추가 패시브 아이템들 (store_active_item 필터에 있는 것들)
         "dowsing_pendulum", "fuel_pouch", "bluetooth_ring", "foul_whistle",
-        "star_detector", "smartphone", "knee_pads", "gold_bar",
+        "star_detector", "smartphone", "knee_pads", "gold_bar", "gold_digger",
         # 전설 아이템들
-        "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"
+        "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"
     }
 
     # 뽑기 통 안의 아이템들 (40개로 증가, 다양한 색상)
@@ -282,6 +298,9 @@ def init_gacha(available_items, legendary_bonus=0.0):
         # 금괴 중복 획득 방지
         if item_name == "gold_bar" and getattr(items, 'gold_bar_obtained', False):
             continue
+        # 골드디거 중복 획득 방지
+        if item_name == "gold_digger" and getattr(items, 'gold_digger_obtained', False):
+            continue
 
         # 이미 획득한 패시브 아이템은 제외
         should_skip = False
@@ -294,7 +313,7 @@ def init_gacha(available_items, legendary_bonus=0.0):
         filtered_items = gacha_available_items_template
     
     # 전설 아이템과 일반 아이템 분리 (액티브/패시브 구분)
-    legendary_pool = ["ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"]
+    legendary_pool = ["ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"]
     legendary_items = [item for item in filtered_items if item.get("name", "") in legendary_pool]
     active_items = [item for item in filtered_items if item.get("name", "") not in legendary_pool and item.get("type") == "active"]
     passive_items = [item for item in filtered_items if item.get("name", "") not in legendary_pool and item.get("type") == "passive"]
@@ -687,7 +706,7 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
 
             # 캡슐 내부 아이콘
             item_name = item.get("name", "")
-            legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
+            legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"}
             drew_legendary = False
 
             if item_name in legendary_names:
@@ -791,7 +810,7 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
         # 캡슐 내부 아이콘
         item_name = falling_capsule.get("name")
         legendary_fall = False
-        if item_name in {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}:
+        if item_name in {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"}:
             try:
                 from legendary_items import get_legendary_manager
                 legendary_manager = get_legendary_manager()
@@ -877,10 +896,21 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
             glows.append((glow_surf, (-i * 5, -i * 5)))
 
         container_surf = pygame.Surface((container_width, container_height), pygame.SRCALPHA)
-        for y in range(container_height):
-            ratio = y / container_height
-            alpha = int(200 - ratio * 100)
-            pygame.draw.line(container_surf, (0, 30, 60, alpha), (0, y), (container_width, y))
+        # numpy로 RGBA 그라데이션 생성 (기존 draw.line 루프 대체)
+        arr = np.zeros((container_width, container_height, 4), dtype=np.uint8)
+        y_indices = np.arange(container_height, dtype=np.float32)
+        ratios = y_indices / container_height
+        a_values = (200 - ratios * 100).astype(np.uint8)
+
+        arr[:, :, 0] = 0   # R
+        arr[:, :, 1] = 30  # G
+        arr[:, :, 2] = 60  # B
+        arr[:, :, 3] = a_values  # A (그라데이션)
+
+        pygame.surfarray.blit_array(container_surf, arr[:, :, :3])
+        alpha_surf = pygame.surfarray.pixels_alpha(container_surf)
+        alpha_surf[:, :] = arr[:, :, 3]
+        del alpha_surf
 
         cached_container = {"glows": glows, "surface": container_surf}
         _container_cache[container_key] = cached_container
@@ -936,7 +966,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     if legendary_bonus > 0:
         bonus_font = draw_gacha._bonus_font
         bonus_percent = int(legendary_bonus * 100)
-        bonus_text = bonus_font.render(f"전설 아이템 확률 +{bonus_percent}%", True, (120, 240, 255))
+        bonus_text = bonus_font.render(f"신화 아이템 확률 +{bonus_percent}%", True, (120, 240, 255))
         bonus_rect = bonus_text.get_rect(center=(container_x + container_width // 2, container_y + 115))
         screen.blit(bonus_text, bonus_rect)
 
@@ -1382,11 +1412,25 @@ def show_gacha_result_page(
             glows.append((glow_surf, (-i * 15, -i * 15)))
 
         container_surf = pygame.Surface((container_width, container_height), pygame.SRCALPHA)
-        for y in range(container_height):
-            ratio = y / container_height
-            alpha = int(230 - ratio * 130)
-            color = (int(0 + ratio * 30), int(40 + ratio * 40), int(80 + ratio * 50), alpha)
-            pygame.draw.line(container_surf, color, (0, y), (container_width, y))
+        # numpy로 RGBA 그라데이션 생성 (색상 + 알파 모두 변화)
+        arr = np.zeros((container_width, container_height, 4), dtype=np.uint8)
+        y_indices = np.arange(container_height, dtype=np.float32)
+        ratios = y_indices / container_height
+
+        r_values = (0 + ratios * 30).astype(np.uint8)
+        g_values = (40 + ratios * 40).astype(np.uint8)
+        b_values = (80 + ratios * 50).astype(np.uint8)
+        a_values = (230 - ratios * 130).astype(np.uint8)
+
+        arr[:, :, 0] = r_values
+        arr[:, :, 1] = g_values
+        arr[:, :, 2] = b_values
+        arr[:, :, 3] = a_values
+
+        pygame.surfarray.blit_array(container_surf, arr[:, :, :3])
+        alpha_surf = pygame.surfarray.pixels_alpha(container_surf)
+        alpha_surf[:, :] = arr[:, :, 3]
+        del alpha_surf
 
         cached_container = {"glows": glows, "surface": container_surf}
         _container_cache[container_key] = cached_container
@@ -1552,7 +1596,7 @@ def show_gacha_result_page(
         if legendary_bonus > 0:
             bonus_font = fonts["bonus"]
             bonus_percent = int(legendary_bonus * 100)
-            bonus_text = bonus_font.render(f"전설 아이템 확률 +{bonus_percent}%", True, (120, 240, 255))
+            bonus_text = bonus_font.render(f"신화 아이템 확률 +{bonus_percent}%", True, (120, 240, 255))
             bonus_rect = bonus_text.get_rect(center=(width // 2, container_y + 130))
             screen.blit(bonus_text, bonus_rect)
 
@@ -1651,7 +1695,7 @@ def show_gacha_result_page(
         icon_surface = None
         drew_legendary_icon = False
 
-        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
+        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"}
         if gacha_result["name"] in legendary_names:
             if legendary_manager is None:
                 from legendary_items import get_legendary_manager  # 지연 import
@@ -1968,14 +2012,33 @@ def show_multi_gacha_result_page(
         container_x = (width - container_width) // 2
         container_y = (height - container_height) // 2 - 10
 
-        # 컨테이너 배경
-        container_surf = pygame.Surface((container_width, container_height), pygame.SRCALPHA)
-        for y in range(container_height):
-            ratio = y / container_height
-            alpha = int(220 - ratio * 100)
-            color = (int(5 + ratio * 20), int(30 + ratio * 30), int(60 + ratio * 40), alpha)
-            pygame.draw.line(container_surf, color, (0, y), (container_width, y))
-        screen.blit(container_surf, (container_x, container_y))
+        # 컨테이너 배경 (캐싱 + numpy 최적화)
+        multi_container_key = ("multi_result", container_width, container_height)
+        if multi_container_key not in _result_bg_cache:
+            container_surf = pygame.Surface((container_width, container_height), pygame.SRCALPHA)
+            # numpy로 RGBA 그라데이션 생성
+            arr = np.zeros((container_width, container_height, 4), dtype=np.uint8)
+            y_indices = np.arange(container_height, dtype=np.float32)
+            ratios = y_indices / container_height
+
+            r_values = (5 + ratios * 20).astype(np.uint8)
+            g_values = (30 + ratios * 30).astype(np.uint8)
+            b_values = (60 + ratios * 40).astype(np.uint8)
+            a_values = (220 - ratios * 100).astype(np.uint8)
+
+            arr[:, :, 0] = r_values
+            arr[:, :, 1] = g_values
+            arr[:, :, 2] = b_values
+            arr[:, :, 3] = a_values
+
+            pygame.surfarray.blit_array(container_surf, arr[:, :, :3])
+            # 알파 채널 적용을 위해 픽셀알파 모드 사용
+            alpha_surf = pygame.surfarray.pixels_alpha(container_surf)
+            alpha_surf[:, :] = arr[:, :, 3]
+            del alpha_surf  # 락 해제
+
+            _result_bg_cache[multi_container_key] = container_surf
+        screen.blit(_result_bg_cache[multi_container_key], (container_x, container_y))
 
         # 네온 테두리
         pygame.draw.rect(screen, (0, 255, 255), (container_x, container_y, container_width, container_height), 3, border_radius=15)
@@ -2038,7 +2101,7 @@ def show_multi_gacha_result_page(
         total_height = (base_total_rows * row_height) + (bonus_total_rows * row_height) + bonus_section_header
         start_y = container_y + 100 + max(0, (container_height - 160 - total_height) // 2)
 
-        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel"}
+        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye"}
 
         # === 기본 뽑기 아이템 캡슐 그리기 ===
         item_idx = 0
