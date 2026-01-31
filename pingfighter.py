@@ -20704,10 +20704,14 @@ def fire_snake_fireball(start_x: int, start_y: int, target_x: int, target_y: int
 
     # 디버그: 좌표 확인
     side = "LEFT" if start_x < GAME_AREA_OFFSET_X else "RIGHT" if start_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH else "CENTER"
-    print(f"🐍 [뱀화염탄] {side} 필러에서 발사!")
-    print(f"   시작위치: ({game_start_x:.0f}, {game_start_y:.0f})")
-    print(f"   타겟위치: ({game_target_x:.0f}, {game_target_y:.0f})")
-    print(f"   게임영역: X={GAME_AREA_OFFSET_X}~{GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH}")
+    print(f"")
+    print(f"🐍🐍🐍 [뱀화염탄 발사!] 🐍🐍🐍")
+    print(f"   원본 입력: start=({start_x}, {start_y}), target=({target_x}, {target_y})")
+    print(f"   계산된 위치: ({game_start_x:.0f}, {game_start_y:.0f}) → ({game_target_x:.0f}, {game_target_y:.0f})")
+    print(f"   필러 위치: {side}")
+    print(f"   게임영역 X범위: {GAME_AREA_OFFSET_X} ~ {GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH}")
+    print(f"   GAME_OFFSET: ({GAME_OFFSET_X}, {GAME_OFFSET_Y}), SCALE: {GAME_SCALE_FACTOR}")
+    print(f"   ※ SCREEN 좌표 x<80 또는 x>680은 필러 영역이지만,")
 
     # 방향 벡터 계산
     dx = game_target_x - game_start_x
@@ -73731,28 +73735,25 @@ def update_stage7_tetro_laser(now: int | None = None) -> None:
             stage7_tetro_laser_start_ms = now
             stage7_tetro_laser_last_fire_ms = now
 
-            # 폭발큐브 녹이기 (레이저로 파괴)
-            # 활성 상태이거나 재건 중인 경우 모두 녹일 수 있음
-            cube_st = stage7_center_cube_state
-            if cube_st:
-                is_active = cube_st.get("active", False)
-                is_rebuilding = cube_st.get("rebuild", False)
-                is_melting = cube_st.get("melting", False)
-
-                if is_active or is_rebuilding:
-                    # 재건 중이면 재건 진행도 초기화
-                    if is_rebuilding:
-                        cube_st["rebuild"] = False
-                        cube_st["rebuild_progress"] = 0
-                        cube_st["active"] = True  # 활성 상태로 변경 후 녹이기
-                    _stage7_cube_explode_and_clear_tetros(now, by_laser=True)
-                    print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! 폭발큐브 녹이기 시작!")
-                elif is_melting:
-                    print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 이미 녹는 중)")
+            # 3D 폭발큐브 녹이기 (레이저로 파괴)
+            if animated_bg_stage7 is not None:
+                if animated_bg_stage7.is_cube_active():
+                    if animated_bg_stage7.trigger_laser_melt():
+                        # 테트로미노도 함께 제거
+                        try:
+                            if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+                                for mino in list(stage7_tetrominoes):
+                                    if mino.get("state") not in ("evaporating", "destroying"):
+                                        destroy_stage7_tetromino(mino, by_smoke=True)
+                        except Exception:
+                            pass
+                        print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! 3D 폭발큐브 녹이기 시작!")
+                    else:
+                        print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 이미 숨김/재조립 중)")
                 else:
-                    print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 상태 없음)")
+                    print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 비활성)")
             else:
-                print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 미초기화)")
+                print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (animated_bg_stage7 없음)")
 
             # 사운드 재생
             try:
@@ -73779,12 +73780,11 @@ def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
     boss_cx = BOSS.centerx if BOSS else WIDTH // 2
     boss_cy = BOSS.bottom if BOSS else 65
 
-    # 큐브 위치
+    # 큐브 위치 (3D 폭발큐브)
     cube_cx = WIDTH // 2
     cube_cy = HEIGHT // 2
-    if stage7_center_cube_state:
-        cube_cx = stage7_center_cube_state.get("cx", WIDTH // 2)
-        cube_cy = stage7_center_cube_state.get("cy", HEIGHT // 2)
+    if animated_bg_stage7 is not None:
+        cube_cx, cube_cy = animated_bg_stage7.cube_center
 
     # 테트로미노 블럭 레이아웃 정의 (셀 좌표 기준)
     tetro_layouts = {
@@ -128606,7 +128606,6 @@ def main(stage_num, new_boss_mode=False):
                     # 궁극기 활성/유지 업데이트
                     update_stage7_super_state()
                     update_stage7_tetro_laser()  # 테트로미노 광선 업데이트
-                    update_stage7_center_cube()  # 폭발큐브 상태 업데이트 (멜팅 포함)
                     update_stage7_guard_skill()
                     update_stage7_tetromino_skill()
                     update_stage7_tetro_wall_skill()
@@ -129743,7 +129742,6 @@ def main(stage_num, new_boss_mode=False):
             draw_stage7_boss_gauge_bar()  # 스테이지 7 테트리서 게이지
             draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
-            draw_stage7_center_cube(SCREEN)  # 폭발큐브 (레이저로 녹는 애니메이션 포함)
             draw_stage7_tetrominoes(SCREEN)
             draw_stage7_tetro_laser(SCREEN)  # 테트로미노 광선 (초인테트리서 스킬)
             draw_stage7_tetro_debris(SCREEN)  # 테트로미노 파편 효과

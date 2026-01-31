@@ -202,6 +202,33 @@ class AnimatedBackgroundStage7:
             return True
         return False
 
+    def trigger_laser_melt(self) -> bool:
+        """테트로미노 광선에 의한 강제 녹이기. 성공 시 True 반환."""
+        now_ms = int(self.time * 1000)
+        # 이미 숨김 중이거나 재조립 중이면 무효
+        if self._hidden_until_ms and now_ms < self._hidden_until_ms:
+            return False
+        if self._rebuild_anim_ms > 0:
+            return False
+        # 즉시 폭발 요청 + 숨김 (25~45초)
+        self._explosion_request = True
+        self._hidden_until_ms = now_ms + random.randint(25000, 45000)
+        # 진동 상태 초기화
+        self._vibrate_until_ms = 0
+        self._vibrate_mode = None
+        # 히트 카운트 초기화
+        self._hit_count = 0
+        return True
+
+    def is_cube_active(self) -> bool:
+        """큐브가 활성 상태인지 확인 (레이저 타겟 가능 여부)."""
+        now_ms = int(self.time * 1000)
+        # 숨김 중이면 비활성
+        if self._hidden_until_ms and now_ms < self._hidden_until_ms:
+            return False
+        # 재조립 중이어도 타겟 가능 (재조립 중이면 즉시 다시 녹일 수 있음)
+        return True
+
     def _is_visible(self) -> bool:
         # 폭발 후 15초 숨김 또는 재조립 애니메이션 중을 모두 '표시'로 간주(재조립은 표시되지만 홀로그램 효과)
         now_ms = int(self.time * 1000)

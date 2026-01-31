@@ -14,6 +14,171 @@ import pygame
 from typing import Callable, Optional, List, Tuple
 
 
+class PillarFireball:
+    """필러 영역에서 게임 영역으로 이동하는 화염탄 효과
+
+    뱀이 발사하면 필러 내에서 시작하여 게임 영역 경계까지 이동.
+    경계에 도달하면 실제 게임 화염탄 생성을 트리거.
+    """
+
+    # 화염탄 색상
+    COLORS = {
+        'core': (255, 255, 200),      # 밝은 중심
+        'inner': (255, 180, 50),       # 주황 내부
+        'outer': (255, 80, 30),        # 빨간 외부
+        'trail': (200, 50, 20),        # 잔상
+    }
+
+    def __init__(self, start_x: float, start_y: float,
+                 target_x: float, target_y: float,
+                 side: str, game_area_x: int, game_area_end_x: int,
+                 fire_callback: Optional[Callable] = None,
+                 scale_factor: float = 1.0, game_offset_x: int = 0, game_offset_y: int = 0,
+                 internal_target_x: float = 380, internal_target_y: float = 710):
+        """
+        Args:
+            start_x, start_y: 시작 위치 (REAL_SCREEN 좌표 - 뱀 입)
+            target_x, target_y: 최종 타겟 (REAL_SCREEN 좌표 - 플레이어)
+            side: 'left' 또는 'right'
+            game_area_x: 게임 영역 시작 X (REAL_SCREEN 좌표)
+            game_area_end_x: 게임 영역 끝 X (REAL_SCREEN 좌표)
+            fire_callback: 게임 영역 진입 시 호출할 콜백 (내부 좌표 전달)
+            scale_factor: REAL_SCREEN→내부 좌표 변환용 스케일
+            game_offset_x/y: 게임 영역 오프셋
+            internal_target_x/y: 내부 좌표계 타겟 (플레이어 위치)
+        """
+        self.x = float(start_x)
+        self.y = float(start_y)
+        self.start_x = float(start_x)
+        self.start_y = float(start_y)
+        self.target_x = float(target_x)
+        self.target_y = float(target_y)
+        self.side = side
+        self.game_area_x = game_area_x
+        self.game_area_end_x = game_area_end_x
+        self.fire_callback = fire_callback
+
+        # 좌표 변환용
+        self.scale_factor = scale_factor
+        self.game_offset_x = game_offset_x
+        self.game_offset_y = game_offset_y
+        self.internal_target_x = internal_target_x
+        self.internal_target_y = internal_target_y
+
+        # 방향 벡터 계산 (REAL_SCREEN 좌표 기준)
+        dx = target_x - start_x
+        dy = target_y - start_y
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0:
+            self.vel_x = (dx / dist) * 18  # 속도 18 (빠르게)
+            self.vel_y = (dy / dist) * 18
+        else:
+            self.vel_x = 18 if side == 'left' else -18
+            self.vel_y = 0
+
+        # 잔상 효과용 위치 기록
+        self.trail_positions: List[Tuple[float, float]] = []
+        self.max_trail = 5
+
+        # 애니메이션
+        self.pulse_phase = random.uniform(0, math.pi * 2)
+        self.alive = True
+        self.spawned_game_fireball = False
+
+    def update(self, dt: float) -> bool:
+        """화염탄 업데이트. 게임 영역 진입 시 True 반환."""
+        if not self.alive:
+            return False
+
+        # 잔상 기록
+        self.trail_positions.append((self.x, self.y))
+        if len(self.trail_positions) > self.max_trail:
+            self.trail_positions.pop(0)
+
+        # 이동
+        self.x += self.vel_x * dt * 60  # 60fps 기준
+        self.y += self.vel_y * dt * 60
+
+        # 애니메이션
+        self.pulse_phase += dt * 15
+
+        # 게임 영역 경계 도달 체크
+        entered_game_area = False
+        if self.side == 'left' and self.x >= self.game_area_x:
+            # 왼쪽에서 진입
+            entered_game_area = True
+            self.x = self.game_area_x + 5  # 경계 약간 안쪽
+        elif self.side == 'right' and self.x <= self.game_area_end_x:
+            # 오른쪽에서 진입
+            entered_game_area = True
+            self.x = self.game_area_end_x - 5
+
+        if entered_game_area and not self.spawned_game_fireball:
+            self.spawned_game_fireball = True
+            self.alive = False
+            # 게임 화염탄 생성 콜백 호출 (내부 좌표계로 변환)
+            if self.fire_callback:
+                # REAL_SCREEN → 내부 좌표 변환
+                if self.side == 'left':
+                    internal_x = 80 + 5  # 왼쪽 필러 경계 + 약간 안쪽
+                else:
+                    internal_x = 680 - 5  # 오른쪽 경계 - 약간 안쪽
+
+                # Y 좌표 변환: (real_y - offset) / scale
+                internal_y = int((self.y - self.game_offset_y) / self.scale_factor) if self.scale_factor > 0 else int(self.y)
+
+                print(f"🔥 [필러화염탄] 게임 영역 진입!")
+                print(f"   REAL: ({self.x:.0f}, {self.y:.0f}) → INTERNAL: ({internal_x}, {internal_y})")
+                print(f"   타겟 INTERNAL: ({self.internal_target_x:.0f}, {self.internal_target_y:.0f})")
+
+                self.fire_callback(internal_x, internal_y, int(self.internal_target_x), int(self.internal_target_y))
+            return True
+
+        return False
+
+    def draw(self, screen: pygame.Surface, scale: float = 1.0, offset_x: int = 0, offset_y: int = 0):
+        """REAL_SCREEN에 화염탄 그리기"""
+        if not self.alive:
+            return
+
+        # 스케일 및 오프셋 적용
+        draw_x = int(self.x * scale + offset_x)
+        draw_y = int(self.y * scale + offset_y)
+
+        # 잔상 그리기
+        for i, (tx, ty) in enumerate(self.trail_positions):
+            alpha = int((i + 1) / len(self.trail_positions) * 150)
+            trail_x = int(tx * scale + offset_x)
+            trail_y = int(ty * scale + offset_y)
+            trail_size = int(6 * scale * (i + 1) / len(self.trail_positions))
+
+            trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(trail_surf, (*self.COLORS['trail'], alpha),
+                             (trail_size, trail_size), trail_size)
+            screen.blit(trail_surf, (trail_x - trail_size, trail_y - trail_size))
+
+        # 맥동 크기
+        pulse = 1.0 + math.sin(self.pulse_phase) * 0.2
+        base_size = int(12 * scale * pulse)
+
+        # 외부 발광
+        for i in range(3):
+            glow_size = base_size + int((3 - i) * 4 * scale)
+            glow_alpha = 80 - i * 25
+            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*self.COLORS['outer'], glow_alpha),
+                             (glow_size, glow_size), glow_size)
+            screen.blit(glow_surf, (draw_x - glow_size, draw_y - glow_size))
+
+        # 내부 원
+        inner_size = int(base_size * 0.7)
+        pygame.draw.circle(screen, self.COLORS['inner'], (draw_x, draw_y), inner_size)
+
+        # 중심
+        core_size = int(base_size * 0.4)
+        pygame.draw.circle(screen, self.COLORS['core'], (draw_x, draw_y), core_size)
+
+
 class SnakePot:
     """항아리에서 나오는 뱀 클래스 - 광폭화 모드 전용"""
 
@@ -378,17 +543,27 @@ class HongryeonFrame:
     }
 
     def __init__(self, screen_width: int, screen_height: int,
-                 game_width: int, game_height: int):
+                 game_width: int, game_height: int,
+                 internal_width: int = 760, internal_height: int = 750):
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.game_width = game_width
         self.game_height = game_height
 
-        # 게임 영역 위치
+        # 내부 좌표계 (게임 로직용)
+        self.internal_width = internal_width
+        self.internal_height = internal_height
+        self.internal_game_width = 600  # 내부 게임 영역 너비
+        self.internal_pillar_width = 80  # 내부 필러 너비
+
+        # 스케일 팩터 (REAL_SCREEN ↔ 내부 좌표 변환용)
+        self.scale_factor = game_width / self.internal_game_width if self.internal_game_width > 0 else 1.0
+
+        # 게임 영역 위치 (REAL_SCREEN 좌표)
         self.game_x = (screen_width - game_width) // 2
         self.game_y = (screen_height - game_height) // 2
 
-        # 필러 크기
+        # 필러 크기 (REAL_SCREEN 좌표)
         self.left_width = self.game_x
         self.right_width = screen_width - game_width - self.game_x
 
@@ -422,6 +597,9 @@ class HongryeonFrame:
         # 플레이어 위치 (조준용)
         self.player_x = 380
         self.player_y = 710
+
+        # 필러 화염탄 리스트 (필러 영역에서 게임 영역으로 이동 중인 화염탄)
+        self.pillar_fireballs: List[PillarFireball] = []
 
         # 프레임 서피스 생성
         self._static_surface = None
@@ -531,13 +709,53 @@ class HongryeonFrame:
 
     def set_fire_callback(self, callback: Callable[[int, int, int, int], None]):
         """화염탄 발사 콜백 설정
-        callback(start_x, start_y, target_x, target_y): 화염탄 발사 함수
+        callback(start_x, start_y, target_x, target_y): 게임 화염탄 발사 함수
+
+        뱀 → PillarFireball 생성 → 게임 영역 진입 시 callback 호출
         """
         self.fire_callback = callback
-        # 모든 항아리에도 콜백 설정
+        # 모든 항아리는 spawn_pillar_fireball을 호출
         print(f"[홍련 필러] 화염탄 콜백 설정! 뱀 개수: {len(self.snake_pots)}")
         for pot in self.snake_pots:
-            pot.fire_callback = callback
+            pot.fire_callback = self._spawn_pillar_fireball
+
+    def _spawn_pillar_fireball(self, start_x: int, start_y: int, target_x: int, target_y: int):
+        """필러 화염탄 생성 (뱀이 호출)
+
+        필러 영역에서 시작하여 게임 영역 경계까지 이동하는 화염탄 생성.
+        게임 영역 진입 시 self.fire_callback을 호출하여 실제 게임 화염탄 생성.
+
+        Args:
+            start_x, start_y: 뱀 입 위치 (REAL_SCREEN 좌표)
+            target_x, target_y: 플레이어 위치 (REAL_SCREEN 좌표)
+        """
+        side = 'left' if start_x < self.game_x else 'right'
+
+        # 내부 좌표계 타겟 계산 (fire_callback용)
+        internal_target_x = self.internal_player_x
+        internal_target_y = self.internal_player_y
+
+        print(f"🔥 [필러화염탄 생성] side={side}")
+        print(f"   REAL: start=({start_x}, {start_y}), target=({target_x}, {target_y})")
+        print(f"   INTERNAL target: ({internal_target_x}, {internal_target_y})")
+        print(f"   scale={self.scale_factor:.2f}, offset=({self.game_x}, {self.game_y})")
+
+        fireball = PillarFireball(
+            start_x=start_x,
+            start_y=start_y,
+            target_x=target_x,
+            target_y=target_y,
+            side=side,
+            game_area_x=self.game_x,
+            game_area_end_x=self.game_x + self.game_width,
+            fire_callback=self.fire_callback,
+            scale_factor=self.scale_factor,
+            game_offset_x=self.game_x,
+            game_offset_y=self.game_y,
+            internal_target_x=internal_target_x,
+            internal_target_y=internal_target_y
+        )
+        self.pillar_fireballs.append(fireball)
 
     def update_player_position(self, player_x: int, player_y: int):
         """플레이어 위치 업데이트 (조준용)"""
@@ -728,6 +946,18 @@ class HongryeonFrame:
         # 모든 항아리 뱀 업데이트 (광폭화 여부와 관계없이 - 숨는 애니메이션 처리)
         for pot in self.snake_pots:
             pot.update(dt)
+
+        # 필러 화염탄 업데이트
+        self._update_pillar_fireballs(dt)
+
+    def _update_pillar_fireballs(self, dt: float):
+        """필러 화염탄 업데이트 - 게임 영역 진입 시 게임 화염탄 생성"""
+        alive_fireballs = []
+        for fb in self.pillar_fireballs:
+            fb.update(dt)
+            if fb.alive:
+                alive_fireballs.append(fb)
+        self.pillar_fireballs = alive_fireballs
 
     def draw(self, screen: pygame.Surface):
         """필러 배경 그리기"""
