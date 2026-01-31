@@ -73313,6 +73313,7 @@ STAGE7_CUBE_RADIUS = 90  # 원형 서클 반지름
 STAGE7_CUBE_GRID_SIZE = 3
 STAGE7_CUBE_CELL_GAP = 3
 STAGE7_CUBE_SOLVE_DELAY_MS = 1000
+STAGE7_CUBE_MELT_DURATION_MS = 1000  # 녹는 애니메이션 지속시간 (1초)
 
 
 def _stage7_init_center_cube(now: int | None = None) -> None:
@@ -73393,8 +73394,9 @@ def _stage7_cube_force_uniform(state: dict) -> None:
     state["grid"] = [[color for _ in range(3)] for _ in range(3)]
 
 
-def _stage7_cube_explode_and_clear_tetros(now: int | None = None) -> None:
-    """큐브 폭발 연출 및 스테이지7 테트로미노 제거(증발 처리)."""
+def _stage7_cube_explode_and_clear_tetros(now: int | None = None, *, by_laser: bool = False) -> None:
+    """큐브 폭발 연출 및 스테이지7 테트로미노 제거(증발 처리).
+    by_laser=True일 경우 녹는 애니메이션 적용."""
     if now is None:
         now = pygame.time.get_ticks()
     global stage7_center_cube_state
@@ -73402,7 +73404,25 @@ def _stage7_cube_explode_and_clear_tetros(now: int | None = None) -> None:
         return
     cx = stage7_center_cube_state.get("cx", WIDTH // 2)
     cy = stage7_center_cube_state.get("cy", HEIGHT // 2)
-    # 시각/사운드: 수류탄 스타일 폭발 재사용 (반경 약간 큼)
+
+    # 레이저로 녹는 경우: 폭발 대신 녹는 애니메이션
+    if by_laser:
+        stage7_center_cube_state["melting"] = True
+        stage7_center_cube_state["melt_start_ms"] = now
+        stage7_center_cube_state["active"] = False
+        stage7_center_cube_state["solve_pending"] = False
+        stage7_center_cube_state["solve_at"] = 0
+        # 테트로미노는 바로 제거
+        try:
+            if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+                for mino in list(stage7_tetrominoes):
+                    if mino.get("state") not in ("evaporating", "destroying"):
+                        destroy_stage7_tetromino(mino, by_smoke=True)
+        except Exception:
+            pass
+        return
+
+    # 일반 폭발: 시각/사운드 + 즉시 재조립 모드
     try:
         trigger_grenade_style_explosion(cx, cy, apply_commando_bonus=False, source="center_cube", radius_scale=1.2)
     except Exception:
@@ -73481,6 +73501,22 @@ def update_stage7_center_cube(now: int | None = None) -> None:
     if st.get("solve_pending") and now >= int(st.get("solve_at", 0)):
         _stage7_cube_explode_and_clear_tetros(now)
 
+    # 녹는 애니메이션 완료 체크
+    if st.get("melting"):
+        melt_start = st.get("melt_start_ms", now)
+        melt_elapsed = now - melt_start
+        if melt_elapsed >= STAGE7_CUBE_MELT_DURATION_MS:
+            # 녹기 완료 → 재조립 모드로 전환
+            st["melting"] = False
+            st["rebuild"] = True
+            st["rebuild_progress"] = 0
+            # 스타포인트 드랍 (녹은 후)
+            try:
+                if 'trade_point_system' in globals() and trade_point_system:
+                    trade_point_system.spawn_star(cx, cy, "stage7_center_cube_melt")
+            except Exception:
+                pass
+
 
 def draw_stage7_center_cube(surface: pygame.Surface) -> None:
     if current_stage != 7:
@@ -73488,6 +73524,15 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
     st = stage7_center_cube_state
     if not st:
         return
+
+    # 녹는 중일 때는 큐브를 그리지 않고 녹는 효과만 표시
+    now = pygame.time.get_ticks()
+    melting = st.get("melting", False)
+    melt_progress = 0.0
+    if melting:
+        melt_start = st.get("melt_start_ms", now)
+        melt_progress = min(1.0, (now - melt_start) / STAGE7_CUBE_MELT_DURATION_MS)
+
     cx, cy = st.get("cx", WIDTH // 2), st.get("cy", HEIGHT // 2)
     # 중앙 원(경계) 표시 — 캐시된 링 Surface 사용
     # 캐시: (radius, thickness, color)별 1회 생성 후 재사용
@@ -73511,16 +73556,82 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
             _center_ring_cache[key] = surf  # type: ignore[name-defined]
         return surf
 
-    # 외곽선 + 내부선
-    ring_outer = _get_center_ring(STAGE7_CUBE_RADIUS + 10, (30, 40, 60), 2)
-    ring_inner = _get_center_ring(STAGE7_CUBE_RADIUS, (12, 18, 28), 2)
+    # 외곽선 + 내부선 (녹는 중일 때는 페이드아웃)
+    ring_alpha = int(255 * (1.0 - melt_progress)) if melting else 255
+    ring_outer = _get_center_ring(STAGE7_CUBE_RADIUS + 10, (30, 40, 60, ring_alpha), 2)
+    ring_inner = _get_center_ring(STAGE7_CUBE_RADIUS, (12, 18, 28, ring_alpha), 2)
     # 은은한 글로우(경량): 얇은 반투명 링을 아래에 한 겹
-    glow = _get_center_ring(STAGE7_CUBE_RADIUS + 14, (80, 140, 220, 70), 6)
+    glow_alpha = int(70 * (1.0 - melt_progress)) if melting else 70
+    glow = _get_center_ring(STAGE7_CUBE_RADIUS + 14, (80, 140, 220, glow_alpha), 6)
     def _blit_center(s: pygame.Surface):
         surface.blit(s, (cx - s.get_width() // 2, cy - s.get_height() // 2))
     _blit_center(glow)
     _blit_center(ring_outer)
     _blit_center(ring_inner)
+
+    # 녹는 효과: 보라색 액체가 흘러내리는 파티클
+    if melting and melt_progress < 1.0:
+        grid = st.get("grid", [])
+        half = int(STAGE7_CUBE_RADIUS * 0.9)
+        cell_size = (half * 2 - (STAGE7_CUBE_CELL_GAP * 2)) // 3
+
+        # 각 셀이 녹아내리는 효과
+        for r in range(3):
+            for c in range(3):
+                # 셀마다 다른 타이밍으로 녹음 (위→아래 순서)
+                cell_delay = (r * 3 + c) * 0.08  # 셀마다 약간의 지연
+                cell_melt = max(0, min(1.0, (melt_progress - cell_delay) / (1.0 - cell_delay * 0.9)))
+
+                if cell_melt >= 1.0:
+                    continue  # 완전히 녹음
+
+                # 셀 위치
+                cell_x = cx - half + c * (cell_size + STAGE7_CUBE_CELL_GAP)
+                cell_y = cy - half + r * (cell_size + STAGE7_CUBE_CELL_GAP)
+
+                # 녹으면서 아래로 흘러내림
+                drip_offset = int(cell_melt * 60)
+                cell_y += drip_offset
+
+                # 크기 감소
+                shrink = 1.0 - cell_melt * 0.5
+                draw_size = int(cell_size * shrink)
+
+                # 색상 (녹으면서 보라색으로 변함)
+                if grid and r < len(grid) and c < len(grid[r]):
+                    base_color = grid[r][c]
+                else:
+                    base_color = (180, 80, 220)
+
+                # 보라색과 블렌딩
+                melt_color = (
+                    int(base_color[0] * (1 - cell_melt) + 180 * cell_melt),
+                    int(base_color[1] * (1 - cell_melt) + 80 * cell_melt),
+                    int(base_color[2] * (1 - cell_melt) + 220 * cell_melt),
+                )
+
+                # 투명도 감소
+                alpha = int(255 * (1.0 - cell_melt * 0.8))
+
+                if draw_size > 2 and alpha > 10:
+                    cell_surf = pygame.Surface((draw_size, draw_size), pygame.SRCALPHA)
+                    cell_surf.fill((*melt_color, alpha))
+                    surface.blit(cell_surf, (int(cell_x), int(cell_y)))
+
+                    # 물방울 효과 (아래로 떨어지는 작은 방울들)
+                    if cell_melt > 0.2:
+                        num_drops = int(3 * cell_melt)
+                        for di in range(num_drops):
+                            drop_y = cell_y + draw_size + di * 8 + int(cell_melt * 30)
+                            drop_size = max(2, int(4 * (1.0 - cell_melt)))
+                            drop_alpha = max(0, int(150 * (1.0 - cell_melt)))
+                            if drop_alpha > 0:
+                                drop_surf = pygame.Surface((drop_size * 2, drop_size * 2), pygame.SRCALPHA)
+                                pygame.draw.circle(drop_surf, (*melt_color, drop_alpha),
+                                                 (drop_size, drop_size), drop_size)
+                                surface.blit(drop_surf, (int(cell_x + draw_size // 2 - drop_size),
+                                                        int(drop_y)))
+        return  # 녹는 중에는 일반 큐브 렌더링 스킵
 
     # 큐브(정면 3x3) 렌더: 활성 상태에서는 전체, 재조립 상태에서는 진행도에 따라 일부 채움
     grid = st.get("grid")
@@ -73628,10 +73739,10 @@ def update_stage7_tetro_laser(now: int | None = None) -> None:
             stage7_tetro_laser_start_ms = now
             stage7_tetro_laser_last_fire_ms = now
 
-            # 폭발큐브 파괴
+            # 폭발큐브 녹이기 (레이저로 파괴)
             if stage7_center_cube_state and stage7_center_cube_state.get("active"):
-                _stage7_cube_explode_and_clear_tetros(now)
-                print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! 폭발큐브 파괴!")
+                _stage7_cube_explode_and_clear_tetros(now, by_laser=True)
+                print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! 폭발큐브 녹이기 시작!")
             else:
                 print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 비활성)")
 
