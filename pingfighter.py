@@ -89435,10 +89435,10 @@ def draw_objects():
                     muzzle_surf = pygame.Surface((muzzle_glow_size * 4, muzzle_glow_size * 4), pygame.SRCALPHA)
                     glow_r = muzzle_glow_size - i * 4
                     if glow_r > 0:
-                        # 광폭화 여부에 따른 발사구 색상
-                        muzzle_r = laser_color_muzzle[0] + i * 30
-                        muzzle_g = laser_color_muzzle[1] + i * 20
-                        muzzle_b = laser_color_muzzle[2]
+                        # 광폭화 여부에 따른 발사구 색상 (0-255 범위 제한)
+                        muzzle_r = min(255, laser_color_muzzle[0] + i * 30)
+                        muzzle_g = min(255, laser_color_muzzle[1] + i * 20)
+                        muzzle_b = min(255, laser_color_muzzle[2])
                         pygame.draw.circle(muzzle_surf, (muzzle_r, muzzle_g, muzzle_b, muzzle_alpha // (i + 1)),
                                           (muzzle_glow_size * 2, muzzle_glow_size * 2), glow_r)
                         SCREEN.blit(muzzle_surf, (beam_start_x - muzzle_glow_size * 2, beam_start_y - muzzle_glow_size * 2))
