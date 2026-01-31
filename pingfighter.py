@@ -136412,7 +136412,7 @@ def _draw_mp_gauge(screen, player: dict):
 
     # 게이지 바
     fill_ratio = player["gauge"] / player["gauge_max"]
-    fill_width = int(gauge_width * fill_ ratio)
+    fill_width = int(gauge_width * fill_ratio)
 
     # 게이지 색상 (충전량에 따라)
     if fill_ratio >= 0.7:
