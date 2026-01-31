@@ -124539,8 +124539,8 @@ def main(stage_num, new_boss_mode=False):
         # 스테이지 5(코드=실제6 홍련) 광폭화: 필러 항아리 뱀 공격 시스템 활성화
         if stage_num == 5 and pillar_renderer is not None:
             pillar_renderer.set_hongryeon_enraged(True)
-            # 뱀 화염탄 발사 콜백 설정
-            pillar_renderer.set_hongryeon_fire_callback(fire_snake_fireball)
+            # 뱀 화염탄 발사 콜백 설정 (인게임 화염탄 이미지 전달)
+            pillar_renderer.set_hongryeon_fire_callback(fire_snake_fireball, FIREBALL_IMG)
             print(f"🔥 [광폭화 보스] 스테이지 5(홍련) 필러 뱀 공격 시스템 활성화!")
 
             # 화염 기계 이벤트 광폭화 모드 (용 2마리)

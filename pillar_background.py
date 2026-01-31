@@ -133,6 +133,7 @@ class PillarBackgroundRenderer:
         # 홍련 광폭화 상태 (배경 초기화 전에 설정된 경우 보존)
         self._pending_hongryeon_enraged = False
         self._pending_hongryeon_fire_callback = None
+        self._pending_hongryeon_fireball_image = None
 
         # 퀘스트 양피지 엠블럼 관련
         self._quest_emblem_active = False        # 퀘스트 엠블럼 표시 여부
@@ -398,7 +399,10 @@ class PillarBackgroundRenderer:
                 print(f"[PillarBG] 대기 중인 광폭화 상태 적용!")
                 self._hongryeon_bg.set_enraged_mode(True)
                 if self._pending_hongryeon_fire_callback:
-                    self._hongryeon_bg.set_fire_callback(self._pending_hongryeon_fire_callback)
+                    self._hongryeon_bg.set_fire_callback(
+                        self._pending_hongryeon_fire_callback,
+                        self._pending_hongryeon_fireball_image
+                    )
 
         # 스테이지 6(코드): 네메시스 해상전투 배경 초기화 (게임 내 실제 스테이지 5 = 코드 상 stage 6)
         if stage == 6 and self._nemesis_ocean_bg is None:
@@ -804,14 +808,16 @@ class PillarBackgroundRenderer:
         else:
             print(f"[PillarBG] 홍련 배경 미초기화 - 광폭화 상태 대기: {active}")
 
-    def set_hongryeon_fire_callback(self, callback):
+    def set_hongryeon_fire_callback(self, callback, fireball_image=None):
         """홍련 필러 화염탄 발사 콜백 설정
         callback(start_x, start_y, target_x, target_y): 화염탄 발사 함수
+        fireball_image: 인게임 화염탄 이미지 (필러 화염탄에 사용)
         """
         # 배경이 아직 초기화되지 않은 경우 대기 상태로 저장
         self._pending_hongryeon_fire_callback = callback
+        self._pending_hongryeon_fireball_image = fireball_image
         if self._hongryeon_bg is not None:
-            self._hongryeon_bg.set_fire_callback(callback)
+            self._hongryeon_bg.set_fire_callback(callback, fireball_image)
         else:
             print(f"[PillarBG] 홍련 배경 미초기화 - 화염 콜백 대기")
 
