@@ -19401,33 +19401,93 @@ class BuildingInterior:
         self._draw_door(screen)
 
     def _draw_colosseum_wood_floor(self, screen, cam_x, cam_y, floor_color, floor_dark, floor_light, line_color):
-        """투기장 나무 판자 바닥 (세로 줄무늬)"""
-        plank_w = int(TILE_SIZE * 0.6)
+        """투기장 나무 판자 바닥 (고퀄리티 세로 줄무늬)"""
+        import random
+        import math
 
-        for px in range(-plank_w, self.pixel_width + plank_w, plank_w):
-            # 줄마다 색상 변화
-            col_idx = (px // plank_w) % 3
-            if col_idx == 0:
-                color = floor_color
-            elif col_idx == 1:
-                color = floor_dark
-            else:
-                color = floor_light
+        # 판자 설정
+        plank_w = int(TILE_SIZE * 1.2)  # 더 넓은 판자
+
+        # 색상 팔레트 (5가지 톤)
+        colors = [
+            floor_color,
+            floor_dark,
+            floor_light,
+            (floor_color[0] - 10, floor_color[1] - 8, floor_color[2] - 5),
+            (floor_light[0] - 5, floor_light[1] - 3, floor_light[2]),
+        ]
+
+        for px in range(-plank_w, self.pixel_width + plank_w * 2, plank_w):
+            col_idx = (px // plank_w) % len(colors)
+            base_color = colors[col_idx]
 
             draw_x = px - int(cam_x) % plank_w
-            pygame.draw.rect(screen, color, (draw_x, 0, plank_w, SCREEN_HEIGHT))
 
-            # 판자 경계선
+            # 판자 본체 (그라데이션 효과)
+            for gx in range(plank_w):
+                # 중앙이 밝고 가장자리가 어두운 그라데이션
+                dist_from_center = abs(gx - plank_w // 2) / (plank_w // 2)
+                darken = int(15 * dist_from_center)
+                grad_color = (
+                    max(0, base_color[0] - darken),
+                    max(0, base_color[1] - darken),
+                    max(0, base_color[2] - darken)
+                )
+                pygame.draw.line(screen, grad_color, (draw_x + gx, 0), (draw_x + gx, SCREEN_HEIGHT), 1)
+
+            # 판자 왼쪽 하이라이트
+            highlight = (
+                min(255, base_color[0] + 25),
+                min(255, base_color[1] + 20),
+                min(255, base_color[2] + 15)
+            )
+            pygame.draw.line(screen, highlight, (draw_x + 1, 0), (draw_x + 1, SCREEN_HEIGHT), 1)
+
+            # 판자 오른쪽 그림자
+            shadow = (
+                max(0, base_color[0] - 35),
+                max(0, base_color[1] - 30),
+                max(0, base_color[2] - 25)
+            )
+            pygame.draw.line(screen, shadow, (draw_x + plank_w - 1, 0), (draw_x + plank_w - 1, SCREEN_HEIGHT), 2)
+
+            # 판자 경계선 (어두운 선)
             pygame.draw.line(screen, line_color, (draw_x, 0), (draw_x, SCREEN_HEIGHT), 1)
 
-            # 가로 나뭇결 (랜덤한 위치에)
-            import random
-            random.seed(px)
-            for _ in range(5):
+            # 나뭇결 텍스처 (세로 방향)
+            random.seed(px + 12345)
+            num_grains = random.randint(8, 15)
+            for _ in range(num_grains):
                 grain_y = random.randint(0, SCREEN_HEIGHT)
-                grain_len = random.randint(10, 25)
-                darker = tuple(max(0, c - 20) for c in color)
-                pygame.draw.line(screen, darker, (draw_x + 5, grain_y), (draw_x + 5 + grain_len, grain_y), 1)
+                grain_len = random.randint(40, 120)
+                grain_x = draw_x + random.randint(3, plank_w - 5)
+                grain_color = (
+                    max(0, base_color[0] - random.randint(15, 30)),
+                    max(0, base_color[1] - random.randint(12, 25)),
+                    max(0, base_color[2] - random.randint(8, 18))
+                )
+                # 약간 곡선으로 나뭇결 표현
+                for gy in range(grain_len):
+                    if grain_y + gy >= SCREEN_HEIGHT:
+                        break
+                    wave = int(math.sin(gy * 0.05) * 2)
+                    pygame.draw.circle(screen, grain_color, (grain_x + wave, grain_y + gy), 1)
+
+            # 옹이 (나무 매듭) - 가끔씩
+            random.seed(px + 67890)
+            if random.random() < 0.3:
+                knot_x = draw_x + random.randint(8, plank_w - 8)
+                knot_y = random.randint(50, SCREEN_HEIGHT - 50)
+                knot_r = random.randint(4, 8)
+                knot_color = (
+                    max(0, base_color[0] - 40),
+                    max(0, base_color[1] - 35),
+                    max(0, base_color[2] - 30)
+                )
+                pygame.draw.circle(screen, knot_color, (knot_x, knot_y), knot_r)
+                # 옹이 하이라이트
+                pygame.draw.circle(screen, (knot_color[0] + 20, knot_color[1] + 15, knot_color[2] + 10),
+                                   (knot_x - 2, knot_y - 2), knot_r // 2)
 
     def _draw_colosseum_stone_walls(self, screen, cam_x, cam_y, wall_h, wall_color, wall_dark, wall_light, brick_color):
         """투기장 회색 벽돌 벽"""
