@@ -90099,7 +90099,7 @@ def draw_objects():
                             'patrol_move_timer': 0,  # 목표 변경 타이머
                             'health': 1,  # 한 번 맞으면 파괴
                             'glow_timer': 0,
-                            'golden': random.random() < 0.03  # 3% 확률로 황금 인터셉터
+                            'golden': random.random() < 0.02  # 2% 확률로 황금 인터셉터
                         }
                         interceptors.append(new_interceptor)
                         to_launch.append(interceptor_data)
@@ -111416,7 +111416,7 @@ def reset_round(is_stage_start=False):
                 'patrol_move_timer': 0,
                 'health': 1,
                 'glow_timer': random.uniform(0, 6.28),  # 랜덤 초기 위상
-                'golden': random.random() < 0.03  # 3% 확률로 황금 인터셉터
+                'golden': random.random() < 0.02  # 2% 확률로 황금 인터셉터
             }
             interceptors.append(new_interceptor)
         interceptor_launch_time = pygame.time.get_ticks()
@@ -136412,7 +136412,7 @@ def _draw_mp_gauge(screen, player: dict):
 
     # 게이지 바
     fill_ratio = player["gauge"] / player["gauge_max"]
-    fill_width = int(gauge_width * fill_ratio)
+    fill_width = int(gauge_width * fill_ ratio)
 
     # 게이지 색상 (충전량에 따라)
     if fill_ratio >= 0.7:
