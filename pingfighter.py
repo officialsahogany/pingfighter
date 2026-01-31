@@ -36121,7 +36121,7 @@ BLACKSMITH_DIVINE_UI_STAGE_STYLES: dict[int, dict[str, object]] = {
 
 
 def _get_blacksmith_divine_ui_icon(size: int) -> pygame.Surface:
-    """디바인스톤 UI 아이콘 - 마나스톤(빛나는 마법 구슬) 그래픽"""
+    """디바인스톤 UI 아이콘 - 고급 마나스톤 그래픽 (황금 장식 + 신비로운 구슬)"""
     icon_size = max(16, int(size))
     cached = _blacksmith_divine_ui_icon_cache.get(icon_size)
     if cached is not None:
@@ -36130,135 +36130,169 @@ def _get_blacksmith_divine_ui_icon(size: int) -> pygame.Surface:
     icon_surface = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
     cx, cy = icon_size // 2, icon_size // 2
 
-    # === 1. 배경 글로우 (마법 에너지) ===
-    glow_radius = int(icon_size * 0.45)
+    # === 1. 다층 배경 글로우 (신비로운 마법 오라) ===
     glow_surf = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
-    # 외곽 글로우 (보라-파랑)
-    for i in range(3):
-        r = glow_radius - i * 3
+    # 외곽 보라 오라
+    for i in range(5):
+        r = int(icon_size * 0.48) - i * 2
         if r > 0:
-            alpha = 30 + i * 15
-            pygame.draw.circle(glow_surf, (120, 140, 220, alpha), (cx, cy - 2), r)
+            alpha = 15 + i * 8
+            pygame.draw.circle(glow_surf, (140, 100, 200, alpha), (cx, cy - 3), r)
+    # 내부 파랑 오라
+    for i in range(3):
+        r = int(icon_size * 0.35) - i * 3
+        if r > 0:
+            alpha = 25 + i * 12
+            pygame.draw.circle(glow_surf, (100, 160, 255, alpha), (cx, cy - 3), r)
     icon_surface.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_ADD)
 
-    # === 2. 제단/받침대 (간략화된 구조물) ===
-    pedestal_width = max(12, int(icon_size * 0.55))
-    pedestal_height = max(6, int(icon_size * 0.18))
+    # === 2. 화려한 받침대 (금박 장식) ===
+    pedestal_width = max(14, int(icon_size * 0.6))
+    pedestal_height = max(8, int(icon_size * 0.2))
     pedestal_top = int(icon_size * 0.72)
 
     # 받침대 그림자
-    shadow_rect = pygame.Rect(
-        cx - pedestal_width // 2 + 2,
-        pedestal_top + 2,
-        pedestal_width,
-        pedestal_height
-    )
-    pygame.draw.rect(icon_surface, (30, 25, 40, 100), shadow_rect, border_radius=3)
+    shadow_surf = pygame.Surface((pedestal_width + 6, pedestal_height + 4), pygame.SRCALPHA)
+    pygame.draw.ellipse(shadow_surf, (20, 15, 30, 80), (0, 0, pedestal_width + 6, pedestal_height + 4))
+    icon_surface.blit(shadow_surf, (cx - pedestal_width // 2 - 3, pedestal_top + 1))
 
-    # 받침대 본체 (보라-회색 돌)
-    pedestal_rect = pygame.Rect(
-        cx - pedestal_width // 2,
-        pedestal_top,
-        pedestal_width,
-        pedestal_height
-    )
-    pygame.draw.rect(icon_surface, (80, 70, 100), pedestal_rect, border_radius=3)
+    # 받침대 본체 (그라데이션)
+    pedestal_surf = pygame.Surface((pedestal_width, pedestal_height), pygame.SRCALPHA)
+    for row in range(pedestal_height):
+        ratio = row / pedestal_height
+        r = int(60 + ratio * 30)
+        g = int(50 + ratio * 25)
+        b = int(80 + ratio * 20)
+        pygame.draw.line(pedestal_surf, (r, g, b), (2, row), (pedestal_width - 2, row))
+    # 둥근 모서리 마스크
+    mask_surf = pygame.Surface((pedestal_width, pedestal_height), pygame.SRCALPHA)
+    pygame.draw.rect(mask_surf, (255, 255, 255), (0, 0, pedestal_width, pedestal_height), border_radius=4)
+    pedestal_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+    icon_surface.blit(pedestal_surf, (cx - pedestal_width // 2, pedestal_top))
 
-    # 받침대 내부 하이라이트
-    inner_rect = pedestal_rect.inflate(-4, -2)
-    if inner_rect.width > 0 and inner_rect.height > 0:
-        pygame.draw.rect(icon_surface, (130, 115, 160), inner_rect, border_radius=2)
+    # 금박 테두리
+    gold_border_rect = pygame.Rect(cx - pedestal_width // 2, pedestal_top, pedestal_width, pedestal_height)
+    pygame.draw.rect(icon_surface, (200, 160, 80), gold_border_rect, 1, border_radius=4)
+    # 금박 하이라이트
+    pygame.draw.line(icon_surface, (255, 220, 140),
+                     (gold_border_rect.left + 3, gold_border_rect.top + 1),
+                     (gold_border_rect.right - 3, gold_border_rect.top + 1), 1)
+    # 금박 장식 (중앙 보석)
+    gem_y = pedestal_top + pedestal_height // 2
+    pygame.draw.circle(icon_surface, (180, 140, 60), (cx, gem_y), 3)
+    pygame.draw.circle(icon_surface, (255, 200, 100), (cx, gem_y), 2)
+    pygame.draw.circle(icon_surface, (255, 240, 180), (cx - 1, gem_y - 1), 1)
 
-    # 받침대 상단 하이라이트
-    pygame.draw.line(
-        icon_surface,
-        (180, 170, 210),
-        (pedestal_rect.left + 2, pedestal_rect.top),
-        (pedestal_rect.right - 2, pedestal_rect.top),
-        1
-    )
-
-    # === 3. 양쪽 기둥 (작은 버전) ===
-    pillar_width = max(3, int(icon_size * 0.08))
-    pillar_height = max(8, int(icon_size * 0.22))
+    # === 3. 화려한 양쪽 기둥 (금 장식) ===
+    pillar_width = max(4, int(icon_size * 0.1))
+    pillar_height = max(12, int(icon_size * 0.28))
     pillar_bottom = pedestal_top
 
-    # 왼쪽 기둥
-    left_pillar = pygame.Rect(
+    for side in [-1, 1]:  # 왼쪽(-1), 오른쪽(1)
+        pillar_x = cx + side * (pedestal_width // 2 - pillar_width // 2 - 1)
+        pillar_rect = pygame.Rect(
+            pillar_x - pillar_width // 2,
+            pillar_bottom - pillar_height,
+            pillar_width,
+            pillar_height
+        )
+        # 기둥 본체 (그라데이션)
+        pillar_surf = pygame.Surface((pillar_width, pillar_height), pygame.SRCALPHA)
+        for col in range(pillar_width):
+            ratio = col / pillar_width
+            brightness = 0.7 + 0.3 * math.sin(ratio * math.pi)
+            r = int(90 * brightness)
+            g = int(75 * brightness)
+            b = int(110 * brightness)
+            pygame.draw.line(pillar_surf, (r, g, b), (col, 0), (col, pillar_height))
+        icon_surface.blit(pillar_surf, pillar_rect.topleft)
+
+        # 금 테두리
+        pygame.draw.rect(icon_surface, (180, 140, 60), pillar_rect, 1, border_radius=1)
+        # 상단 금 장식
+        cap_rect = pygame.Rect(pillar_rect.left - 1, pillar_rect.top - 2, pillar_width + 2, 4)
+        pygame.draw.rect(icon_surface, (200, 160, 80), cap_rect, border_radius=1)
+        pygame.draw.line(icon_surface, (255, 220, 140),
+                         (cap_rect.left + 1, cap_rect.top), (cap_rect.right - 1, cap_rect.top), 1)
+
+    # === 4. 아치 (기둥 상단 연결) ===
+    arch_top = pillar_bottom - pillar_height - 2
+    arch_rect = pygame.Rect(
         cx - pedestal_width // 2 + 2,
-        pillar_bottom - pillar_height,
-        pillar_width,
-        pillar_height
+        arch_top,
+        pedestal_width - 4,
+        max(6, int(icon_size * 0.12))
     )
-    pygame.draw.rect(icon_surface, (100, 90, 130), left_pillar, border_radius=1)
-    pygame.draw.line(icon_surface, (150, 140, 180),
-                     (left_pillar.left + 1, left_pillar.top + 1),
-                     (left_pillar.left + 1, left_pillar.bottom - 1), 1)
+    pygame.draw.arc(icon_surface, (160, 130, 70), arch_rect, math.pi, 2 * math.pi, 2)
+    pygame.draw.arc(icon_surface, (255, 220, 140), arch_rect.inflate(-2, -2), math.pi, 2 * math.pi, 1)
 
-    # 오른쪽 기둥
-    right_pillar = pygame.Rect(
-        cx + pedestal_width // 2 - pillar_width - 2,
-        pillar_bottom - pillar_height,
-        pillar_width,
-        pillar_height
-    )
-    pygame.draw.rect(icon_surface, (100, 90, 130), right_pillar, border_radius=1)
-    pygame.draw.line(icon_surface, (150, 140, 180),
-                     (right_pillar.left + 1, right_pillar.top + 1),
-                     (right_pillar.left + 1, right_pillar.bottom - 1), 1)
+    # === 5. 마나 구슬 (다층 신비로운 효과) ===
+    orb_radius = max(8, int(icon_size * 0.25))
+    orb_cy = cy - int(icon_size * 0.05)
 
-    # === 4. 마나 구슬 (중앙, 빛나는 효과) ===
-    orb_radius = max(6, int(icon_size * 0.22))
-    orb_cy = cy - int(icon_size * 0.08)  # 약간 위에 위치
+    # 외부 마법진 링
+    ring_surf = pygame.Surface((orb_radius * 4, orb_radius * 4), pygame.SRCALPHA)
+    ring_cx, ring_cy = orb_radius * 2, orb_radius * 2
+    pygame.draw.circle(ring_surf, (180, 140, 255, 40), (ring_cx, ring_cy), orb_radius + 8, 1)
+    pygame.draw.circle(ring_surf, (140, 180, 255, 60), (ring_cx, ring_cy), orb_radius + 5, 1)
+    icon_surface.blit(ring_surf, (cx - orb_radius * 2, orb_cy - orb_radius * 2))
 
-    # 외부 글로우 (파랑-보라)
-    outer_glow_surf = pygame.Surface((orb_radius * 4, orb_radius * 4), pygame.SRCALPHA)
-    pygame.draw.circle(outer_glow_surf, (100, 150, 255, 50),
-                       (orb_radius * 2, orb_radius * 2), orb_radius + 6)
-    pygame.draw.circle(outer_glow_surf, (130, 180, 255, 80),
-                       (orb_radius * 2, orb_radius * 2), orb_radius + 3)
-    icon_surface.blit(outer_glow_surf, (cx - orb_radius * 2, orb_cy - orb_radius * 2))
+    # 외부 글로우 (다층)
+    for i in range(4):
+        glow_r = orb_radius + 6 - i * 2
+        glow_alpha = 30 + i * 20
+        glow_color = (100 + i * 20, 140 + i * 15, 255, glow_alpha)
+        pygame.draw.circle(icon_surface, glow_color, (cx, orb_cy), glow_r)
 
-    # 구슬 본체 - 그라데이션 효과
+    # 구슬 본체 (풍부한 그라데이션)
     orb_surf = pygame.Surface((orb_radius * 2 + 4, orb_radius * 2 + 4), pygame.SRCALPHA)
-    orb_cx, orb_cy_local = orb_radius + 2, orb_radius + 2
+    orb_cx_local, orb_cy_local = orb_radius + 2, orb_radius + 2
 
-    # 외곽 (진한 파랑)
-    pygame.draw.circle(orb_surf, (80, 120, 200), (orb_cx, orb_cy_local), orb_radius)
-    # 중간 (밝은 파랑)
-    pygame.draw.circle(orb_surf, (120, 170, 240), (orb_cx, orb_cy_local), orb_radius - 2)
-    # 내부 (밝은 코어)
-    pygame.draw.circle(orb_surf, (180, 210, 255), (orb_cx - 1, orb_cy_local - 1), orb_radius - 4)
+    # 외곽 (깊은 보라-파랑)
+    pygame.draw.circle(orb_surf, (60, 80, 160), (orb_cx_local, orb_cy_local), orb_radius)
+    # 중간층 (로열 블루)
+    pygame.draw.circle(orb_surf, (80, 120, 200), (orb_cx_local, orb_cy_local), orb_radius - 1)
+    # 내부 (밝은 파랑)
+    pygame.draw.circle(orb_surf, (100, 160, 240), (orb_cx_local - 1, orb_cy_local - 1), orb_radius - 3)
+    # 코어 (빛나는 중심)
+    pygame.draw.circle(orb_surf, (160, 200, 255), (orb_cx_local - 2, orb_cy_local - 2), orb_radius - 5)
+    # 밝은 코어
+    core_r = max(2, orb_radius - 7)
+    pygame.draw.circle(orb_surf, (200, 230, 255), (orb_cx_local - 2, orb_cy_local - 2), core_r)
     # 하이라이트 (반사광)
     highlight_r = max(2, orb_radius // 3)
-    pygame.draw.circle(orb_surf, (240, 250, 255),
-                       (orb_cx - orb_radius // 3, orb_cy_local - orb_radius // 3), highlight_r)
+    pygame.draw.circle(orb_surf, (255, 255, 255),
+                       (orb_cx_local - orb_radius // 3, orb_cy_local - orb_radius // 3), highlight_r)
+    # 작은 하이라이트
+    pygame.draw.circle(orb_surf, (255, 255, 255, 200),
+                       (orb_cx_local + orb_radius // 4, orb_cy_local + orb_radius // 4), max(1, highlight_r // 2))
 
     icon_surface.blit(orb_surf, (cx - orb_radius - 2, orb_cy - orb_radius - 2))
 
-    # === 5. 에너지 입자/스파클 효과 ===
-    sparkle_positions = [
-        (cx - orb_radius - 2, orb_cy - 4),
-        (cx + orb_radius + 1, orb_cy - 2),
-        (cx - 3, orb_cy - orb_radius - 3),
-        (cx + 4, orb_cy + orb_radius + 1),
+    # === 6. 떠다니는 에너지 입자 (별처럼) ===
+    sparkle_data = [
+        (cx - orb_radius - 4, orb_cy - 6, 2, (255, 220, 180)),
+        (cx + orb_radius + 3, orb_cy - 3, 2, (180, 220, 255)),
+        (cx - 2, orb_cy - orb_radius - 5, 1, (255, 255, 220)),
+        (cx + 5, orb_cy + orb_radius + 2, 1, (200, 180, 255)),
+        (cx - orb_radius, orb_cy + 4, 1, (180, 200, 255)),
+        (cx + orb_radius - 1, orb_cy - 8, 1, (255, 200, 220)),
     ]
-    for sx, sy in sparkle_positions:
+    for sx, sy, sr, color in sparkle_data:
         if 0 <= sx < icon_size and 0 <= sy < icon_size:
-            pygame.draw.circle(icon_surface, (200, 220, 255, 150), (sx, sy), 1)
+            # 글로우
+            pygame.draw.circle(icon_surface, (*color[:3], 80), (sx, sy), sr + 2)
+            # 코어
+            pygame.draw.circle(icon_surface, color, (sx, sy), sr)
 
-    # === 6. 상단 아크 하이라이트 ===
-    highlight_surf = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
-    pygame.draw.arc(
-        highlight_surf,
-        (200, 220, 255, 120),
-        pygame.Rect(cx - orb_radius - 4, orb_cy - orb_radius - 4,
-                    (orb_radius + 4) * 2, (orb_radius + 4) * 2),
-        math.radians(200),
-        math.radians(340),
-        1,
-    )
-    icon_surface.blit(highlight_surf, (0, 0))
+    # === 7. 상단 마법 아크 (왕관 같은 효과) ===
+    crown_surf = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+    crown_rect = pygame.Rect(cx - orb_radius - 6, orb_cy - orb_radius - 8,
+                             (orb_radius + 6) * 2, (orb_radius + 6) * 2)
+    pygame.draw.arc(crown_surf, (255, 220, 140, 100), crown_rect, math.radians(210), math.radians(330), 2)
+    pygame.draw.arc(crown_surf, (255, 255, 255, 150), crown_rect.inflate(-4, -4),
+                    math.radians(220), math.radians(320), 1)
+    icon_surface.blit(crown_surf, (0, 0))
 
     _blacksmith_divine_ui_icon_cache[icon_size] = icon_surface
     return icon_surface
