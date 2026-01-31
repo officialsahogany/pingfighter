@@ -60,7 +60,11 @@ class Stage5FireMachineEvent:
         self.fire_zones: List[Dict] = []
         self.spray_timer = 0  # 화염 방사 타이머
         self.spray_count = 0  # 방사한 화염 지대 수
-        self.MAX_FIRE_ZONES = 1  # 최대 1개의 화염 지대만 생성
+        self.MAX_FIRE_ZONES = 1  # 최대 화염 지대 수 (광폭화 시 2개)
+
+        # 광폭화 모드
+        self.enraged_mode = False  # 광폭화 모드 여부
+        self.dragon_count = 1  # 용 머리 수 (광폭화 시 2)
         
         # Fire stream animation (화염 스트림 애니메이션)
         self.fire_streams: List[Dict] = []  # 진행 중인 화염 스트림
@@ -82,25 +86,47 @@ class Stage5FireMachineEvent:
         # Smoke particles (화염 소멸 시 연기 효과)
         self.smoke_particles = []
         
-        # Cannon barrel properties (포구)
-        self.cannon_angle = 0  # 현재 포구 각도
-        self.target_cannon_angle = 0  # 목표 포구 각도
+        # Cannon barrel properties (포구) - 용 2마리 지원을 위해 리스트로 관리
         self.cannon_length = 60  # 포구 최대 길이
-        self.cannon_current_length = 0  # 현재 포구 길이 (애니메이션용)
         self.cannon_width = 20  # 포구 너비
-        self.cannon_emergence = 0.0  # 포구 출현 정도 (0.0 ~ 1.0)
-        self.is_aiming = False  # 조준 중인지 여부
-        self.aim_target_x = 0  # 조준 목표 X
-        self.aim_target_y = 0  # 조준 목표 Y
-
-        # 용 입 벌림 애니메이션
-        self.dragon_jaw_open = 0.0  # 입 벌림 정도 (0.0 ~ 1.0)
-        self.dragon_jaw_phase = "closed"  # closed, opening, open, breathing
         self.DRAGON_JAW_OPEN_TIME = 30  # 입 벌리는 시간 (0.5초)
+
+        # 용 데이터 (광폭화 시 2마리)
+        self.dragons: List[Dict] = []
+        self._init_dragons()
         
         # Font for debugging
         self.font = None
-        
+
+    def _init_dragons(self):
+        """용 데이터 초기화"""
+        self.dragons = []
+        for i in range(2):  # 최대 2마리 지원
+            dragon = {
+                "cannon_angle": 0,           # 현재 포구 각도
+                "target_cannon_angle": 0,    # 목표 포구 각도
+                "cannon_current_length": 0,  # 현재 포구 길이
+                "cannon_emergence": 0.0,     # 포구 출현 정도 (0.0 ~ 1.0)
+                "is_aiming": False,          # 조준 중인지 여부
+                "aim_target_x": 0,           # 조준 목표 X
+                "aim_target_y": 0,           # 조준 목표 Y
+                "jaw_open": 0.0,             # 입 벌림 정도 (0.0 ~ 1.0)
+                "jaw_phase": "closed",       # closed, opening, open, breathing
+                "fired": False,              # 발사 완료 여부
+                "base_angle_offset": 0,      # 기본 각도 오프셋 (2마리일 때 대칭)
+            }
+            self.dragons.append(dragon)
+
+    def set_enraged_mode(self, enraged: bool):
+        """광폭화 모드 설정"""
+        self.enraged_mode = enraged
+        if enraged:
+            self.dragon_count = 2
+            self.MAX_FIRE_ZONES = 2
+        else:
+            self.dragon_count = 1
+            self.MAX_FIRE_ZONES = 1
+
     def init_font(self):
         """폰트 초기화 - PF스타더스트 픽셀 폰트"""
         if not self.font:
@@ -149,12 +175,27 @@ class Stage5FireMachineEvent:
         self.spray_timer = 0
         self.spray_count = 0
         self.spray_particles.clear()
-        self.is_aiming = False  # 조준 상태 초기화
-        self.cannon_angle = 0  # 포구 각도 초기화
-        self.cannon_emergence = 0.0  # 포구 출현도 초기화
-        self.cannon_current_length = 0  # 포구 길이 초기화
-        self.dragon_jaw_open = 0.0  # 용 입 벌림 초기화
-        self.dragon_jaw_phase = "closed"  # 입 닫힌 상태
+
+        # 용 데이터 초기화
+        for dragon in self.dragons:
+            dragon["cannon_angle"] = 0
+            dragon["target_cannon_angle"] = 0
+            dragon["cannon_current_length"] = 0
+            dragon["cannon_emergence"] = 0.0
+            dragon["is_aiming"] = False
+            dragon["aim_target_x"] = 0
+            dragon["aim_target_y"] = 0
+            dragon["jaw_open"] = 0.0
+            dragon["jaw_phase"] = "closed"
+            dragon["fired"] = False
+
+        # 광폭화 모드: 2마리 용의 기본 각도 오프셋 설정
+        if self.enraged_mode and self.dragon_count >= 2:
+            self.dragons[0]["base_angle_offset"] = -0.4  # 약 -23도
+            self.dragons[1]["base_angle_offset"] = 0.4   # 약 +23도
+        else:
+            self.dragons[0]["base_angle_offset"] = 0
+
         self.init_font()
         
         if self.DEBUG_ENABLED: print(f"🔥 Stage 5 화염 방사 기계 이벤트 활성화!")
@@ -210,45 +251,61 @@ class Stage5FireMachineEvent:
             # === 0단계: 목이 나오기 전에 먼저 조준 방향 설정 (첫 프레임에만) ===
             # timer += 1이 먼저 실행되므로 timer == 1일 때가 첫 프레임
             if self.timer == 1:
-                # 플레이어 쪽 바닥 영역으로 조준 방향 설정
+                # 각 용마다 조준 방향 설정
                 fixed_floor_y = self.screen_height - 50
-                self.aim_target_x = random.randint(50, self.screen_width - 50)
-                self.aim_target_y = fixed_floor_y
-                # 조준 각도를 바로 설정 (목이 처음부터 올바른 방향으로 나옴)
-                self.cannon_angle = math.atan2(
-                    self.aim_target_y - self.machine_y,
-                    self.aim_target_x - self.machine_x
-                )
-                self.target_cannon_angle = self.cannon_angle
-                if self.DEBUG_ENABLED: print(f"🐉 용 방향 설정! 목표: ({self.aim_target_x}, {self.aim_target_y}), 각도: {math.degrees(self.cannon_angle):.1f}°")
+                for idx, dragon in enumerate(self.dragons[:self.dragon_count]):
+                    # 각 용은 서로 다른 랜덤 위치로 조준
+                    if self.dragon_count == 2:
+                        # 2마리일 때: 좌측/우측 영역 분리
+                        if idx == 0:
+                            dragon["aim_target_x"] = random.randint(self.pillar_offset + 50, self.pillar_offset + self.game_play_width // 2 - 30)
+                        else:
+                            dragon["aim_target_x"] = random.randint(self.pillar_offset + self.game_play_width // 2 + 30, self.pillar_offset + self.game_play_width - 50)
+                    else:
+                        dragon["aim_target_x"] = random.randint(self.pillar_offset + 50, self.pillar_offset + self.game_play_width - 50)
+                    dragon["aim_target_y"] = fixed_floor_y
 
-            # === 1단계: 용 목이 먼저 길게 뻗어나감 (0~45프레임) ===
-            if self.timer < 45:
-                self.cannon_emergence = self._ease_out_cubic(self.timer / 45)
-                self.cannon_current_length = self.cannon_length * self.cannon_emergence
-                self.dragon_jaw_phase = "closed"
-                self.dragon_jaw_open = 0.0
+                    # 조준 각도 설정 (기본 각도 오프셋 적용)
+                    base_angle = math.atan2(
+                        dragon["aim_target_y"] - self.machine_y,
+                        dragon["aim_target_x"] - self.machine_x
+                    )
+                    dragon["cannon_angle"] = base_angle + dragon["base_angle_offset"]
+                    dragon["target_cannon_angle"] = base_angle
+                    dragon["fired"] = False
 
-            # === 2단계: 입 벌리기 애니메이션 (45~75프레임) ===
-            elif self.timer < 75:
-                self.cannon_emergence = 1.0
-                self.cannon_current_length = self.cannon_length
-                jaw_progress = (self.timer - 45) / self.DRAGON_JAW_OPEN_TIME
-                self.dragon_jaw_open = self._ease_out_cubic(min(1.0, jaw_progress))
-                self.dragon_jaw_phase = "opening"
-                if jaw_progress >= 1.0:
-                    self.dragon_jaw_phase = "open"
+                    if self.DEBUG_ENABLED:
+                        print(f"🐉 용 #{idx} 방향 설정! 목표: ({dragon['aim_target_x']}, {dragon['aim_target_y']}), 각도: {math.degrees(dragon['cannon_angle']):.1f}°")
 
-            # === 3단계: 입 완전히 열림 + 화염 방사 ===
-            else:
-                self.cannon_emergence = 1.0
-                self.cannon_current_length = self.cannon_length
-                self.dragon_jaw_phase = "breathing"
-                # 입이 열린 상태에서 약간 벌렁거림 (숨쉬는 효과)
-                self.dragon_jaw_open = 1.0 + 0.1 * math.sin(self.timer * 0.2)
+            # 모든 용에 대해 애니메이션 업데이트
+            for idx, dragon in enumerate(self.dragons[:self.dragon_count]):
+                # === 1단계: 용 목이 먼저 길게 뻗어나감 (0~45프레임) ===
+                if self.timer < 45:
+                    dragon["cannon_emergence"] = self._ease_out_cubic(self.timer / 45)
+                    dragon["cannon_current_length"] = self.cannon_length * dragon["cannon_emergence"]
+                    dragon["jaw_phase"] = "closed"
+                    dragon["jaw_open"] = 0.0
 
-                # 화염 방사 중 (스트림 시작) - 입이 열린 후에만 발사
-                self._spray_fire()
+                # === 2단계: 입 벌리기 애니메이션 (45~75프레임) ===
+                elif self.timer < 75:
+                    dragon["cannon_emergence"] = 1.0
+                    dragon["cannon_current_length"] = self.cannon_length
+                    jaw_progress = (self.timer - 45) / self.DRAGON_JAW_OPEN_TIME
+                    dragon["jaw_open"] = self._ease_out_cubic(min(1.0, jaw_progress))
+                    dragon["jaw_phase"] = "opening"
+                    if jaw_progress >= 1.0:
+                        dragon["jaw_phase"] = "open"
+
+                # === 3단계: 입 완전히 열림 + 화염 방사 ===
+                else:
+                    dragon["cannon_emergence"] = 1.0
+                    dragon["cannon_current_length"] = self.cannon_length
+                    dragon["jaw_phase"] = "breathing"
+                    # 입이 열린 상태에서 약간 벌렁거림 (숨쉬는 효과)
+                    dragon["jaw_open"] = 1.0 + 0.1 * math.sin(self.timer * 0.2 + idx * 0.5)
+
+                    # 화염 방사 중 (스트림 시작) - 입이 열린 후에만 발사
+                    self._spray_fire_dragon(idx, dragon)
 
             # 스트림과 화염 지대 업데이트
             self._update_fire_streams()
@@ -270,14 +327,15 @@ class Stage5FireMachineEvent:
             self._update_fire_zones()
             self._update_smoke_particles()
 
-            # 입 닫기 애니메이션 (처음 30프레임 동안)
-            if self.timer < 30:
-                close_progress = self.timer / 30.0
-                self.dragon_jaw_open = 1.0 - self._ease_in_cubic(close_progress)
-                self.dragon_jaw_phase = "closing"
-            else:
-                self.dragon_jaw_open = 0.0
-                self.dragon_jaw_phase = "closed"
+            # 모든 용의 입 닫기 애니메이션 (처음 30프레임 동안)
+            for dragon in self.dragons[:self.dragon_count]:
+                if self.timer < 30:
+                    close_progress = self.timer / 30.0
+                    dragon["jaw_open"] = 1.0 - self._ease_in_cubic(close_progress)
+                    dragon["jaw_phase"] = "closing"
+                else:
+                    dragon["jaw_open"] = 0.0
+                    dragon["jaw_phase"] = "closed"
 
             if self.timer >= self.SPRAYING_DELAY:
                 self.phase = "machine_lowering"
@@ -287,18 +345,21 @@ class Stage5FireMachineEvent:
             # 기계 하강 시작 시 사운드 재생
             if self.timer == 1 and self.sound_machine:
                 self.sound_machine.play()
-            
+
             # 기계와 포구 사라지는 애니메이션
             progress = min(1.0, self.timer / self.MACHINE_LOWER_TIME)
             self.machine_scale = 1.0 - self._ease_in_cubic(progress)
-            self.cannon_emergence = 1.0 - self._ease_in_cubic(progress)
-            self.cannon_current_length = self.cannon_length * self.cannon_emergence
-            
+
+            # 모든 용의 포구 사라지는 애니메이션
+            for dragon in self.dragons[:self.dragon_count]:
+                dragon["cannon_emergence"] = 1.0 - self._ease_in_cubic(progress)
+                dragon["cannon_current_length"] = self.cannon_length * dragon["cannon_emergence"]
+
             # 스트림과 화염 지대 계속 업데이트
             self._update_fire_streams()
             self._update_fire_zones()
             self._update_smoke_particles()
-            
+
             if self.timer >= self.MACHINE_LOWER_TIME:
                 self.phase = "machine_lower_wait"
                 self.timer = 0
@@ -334,64 +395,70 @@ class Stage5FireMachineEvent:
         return self.active
     
     def _spray_fire(self):
-        """화염 방사"""
+        """화염 방사 (단일 용 - 레거시 호환용)"""
+        if self.dragon_count >= 1:
+            self._spray_fire_dragon(0, self.dragons[0])
+
+    def _spray_fire_dragon(self, idx: int, dragon: Dict):
+        """개별 용의 화염 방사"""
+        # 이미 발사했으면 스킵
+        if dragon["fired"]:
+            return
+
         # 조준 단계 (처음에 목표 설정) - spraying 단계에서 이미 설정됨
-        if not self.is_aiming and self.spray_count < self.MAX_FIRE_ZONES and self.spray_timer == 0:
-            # 조준 방향은 spraying 단계 시작 시 이미 설정됨
-            # 여기서는 is_aiming만 True로 설정
-            self.is_aiming = True
-            if self.DEBUG_ENABLED: print(f"🎯 화염 발사 준비 완료! 목표: ({self.aim_target_x}, {self.aim_target_y})")
-        
+        if not dragon["is_aiming"] and self.spray_count < self.MAX_FIRE_ZONES:
+            dragon["is_aiming"] = True
+            if self.DEBUG_ENABLED: print(f"🎯 용 #{idx} 화염 발사 준비 완료! 목표: ({dragon['aim_target_x']}, {dragon['aim_target_y']})")
+
         # 포구 회전 (부드럽게 목표 각도로 회전)
-        if self.is_aiming:
-            angle_diff = self.target_cannon_angle - self.cannon_angle
+        if dragon["is_aiming"]:
+            angle_diff = dragon["target_cannon_angle"] - dragon["cannon_angle"]
             # 각도 차이를 -π ~ π 범위로 정규화
             while angle_diff > math.pi:
                 angle_diff -= 2 * math.pi
             while angle_diff < -math.pi:
                 angle_diff += 2 * math.pi
-            
-            # 부드럽게 회전 (0.1 속도로)
-            self.cannon_angle += angle_diff * 0.15
-            
-            # 충분히 조준되었으면 발사
-            if abs(angle_diff) < 0.1 and self.spray_timer >= 20:  # 최소 20프레임(0.3초) 조준 시간
+
+            # 부드럽게 회전 (0.15 속도로)
+            dragon["cannon_angle"] += angle_diff * 0.15
+
+            # 충분히 조준되었으면 발사 (입이 열린 후에만)
+            if abs(angle_diff) < 0.1 and dragon["jaw_open"] >= 0.8:
                 # 화염 스트림 생성 (용머리 입 위치에서 발사)
-                # 용 전체 길이: 목(70%) + 머리(head_length_px = 70 * scale)
-                dragon_total = self.cannon_current_length * 1.5  # 전체 길이
-                neck_len = dragon_total * 0.7  # 목 길이
-                head_len = 70 * self.machine_scale  # 머리 길이
-                dragon_mouth_length = neck_len + head_len  # 입 위치
+                dragon_total = dragon["cannon_current_length"] * 1.5
+                neck_len = dragon_total * 0.7
+                head_len = 70 * self.machine_scale
+                dragon_mouth_length = neck_len + head_len
+
                 fire_stream = {
-                    "start_x": self.machine_x + math.cos(self.cannon_angle) * dragon_mouth_length,
-                    "start_y": self.machine_y + math.sin(self.cannon_angle) * dragon_mouth_length,
-                    "target_x": self.aim_target_x,
-                    "target_y": self.aim_target_y,
+                    "start_x": self.machine_x + math.cos(dragon["cannon_angle"]) * dragon_mouth_length,
+                    "start_y": self.machine_y + math.sin(dragon["cannon_angle"]) * dragon_mouth_length,
+                    "target_x": dragon["aim_target_x"],
+                    "target_y": dragon["aim_target_y"],
                     "timer": 0,
                     "max_timer": self.STREAM_DURATION,
-                    "particles": [],  # 스트림 파티클들
+                    "particles": [],
                     "completed": False
                 }
-                
+
                 # 스트림의 각도와 거리 계산
                 distance = math.hypot(
-                    self.aim_target_x - fire_stream["start_x"], 
-                    self.aim_target_y - fire_stream["start_y"]
+                    dragon["aim_target_x"] - fire_stream["start_x"],
+                    dragon["aim_target_y"] - fire_stream["start_y"]
                 )
-                fire_stream["angle"] = self.cannon_angle
+                fire_stream["angle"] = dragon["cannon_angle"]
                 fire_stream["distance"] = distance
-                
+
                 self.fire_streams.append(fire_stream)
                 self.spray_count += 1
-                self.is_aiming = False  # 조준 완료
-                
+                dragon["is_aiming"] = False
+                dragon["fired"] = True
+
                 # 방사 효과음
                 if self.sound_fire:
                     self.sound_fire.play()
-                
-                if self.DEBUG_ENABLED: print(f"🔥 화염 스트림 발사! 각도: {math.degrees(self.cannon_angle):.1f}°")
-        
-        self.spray_timer += 1
+
+                if self.DEBUG_ENABLED: print(f"🔥 용 #{idx} 화염 스트림 발사! 각도: {math.degrees(dragon['cannon_angle']):.1f}°")
     
     def _create_spray_particles(self, target_x, target_y):
         """화염 방사 시각 효과 파티클 생성"""
@@ -799,11 +866,17 @@ class Stage5FireMachineEvent:
                                      (int(nozzle_x), int(nozzle_y)), 
                                      int(3 * self.machine_scale))
             
-            # 🐉 용머리 포구 그리기 (디테일한 동양풍 용)
-            if self.machine_scale >= 0.8 and self.cannon_emergence > 0:
+            # 🐉 용머리 포구 그리기 (디테일한 동양풍 용) - 다중 용 지원
+            for dragon_idx, dragon_data in enumerate(self.dragons[:self.dragon_count]):
+                if self.machine_scale < 0.8 or dragon_data["cannon_emergence"] <= 0:
+                    continue
+
                 # 용 전체 길이 (목이 먼저 길게 늘어남)
-                dragon_total_length = self.cannon_current_length * self.machine_scale * 1.5
-                dragon_scale = self.machine_scale * self.cannon_emergence
+                dragon_total_length = dragon_data["cannon_current_length"] * self.machine_scale * 1.5
+                dragon_scale = self.machine_scale * dragon_data["cannon_emergence"]
+                d_cannon_angle = dragon_data["cannon_angle"]
+                d_jaw_open = dragon_data["jaw_open"]
+                d_jaw_phase = dragon_data["jaw_phase"]
 
                 if dragon_total_length > 5:
                     # 용 색상 팔레트 (홍련 기계와 동일한 붉은색/분홍색 계열)
@@ -816,7 +889,7 @@ class Stage5FireMachineEvent:
                     dragon_glow = (255, 200, 150)     # 화염 발광색
 
                     # 수직 방향
-                    perp_angle = self.cannon_angle + math.pi / 2
+                    perp_angle = d_cannon_angle + math.pi / 2
 
                     # === 1단계: 긴 목 (화염 방향으로 먼저 뻗어나감) ===
                     neck_length = dragon_total_length * 0.7  # 목이 전체의 70%
@@ -825,8 +898,8 @@ class Stage5FireMachineEvent:
                     # 목 두께 (시작 -> 머리로 갈수록 두꺼워짐)
                     for i in range(neck_segments):
                         progress = i / neck_segments
-                        seg_x = self.machine_x + math.cos(self.cannon_angle) * (neck_length * progress)
-                        seg_y = self.machine_y + math.sin(self.cannon_angle) * (neck_length * progress)
+                        seg_x = self.machine_x + math.cos(d_cannon_angle) * (neck_length * progress)
+                        seg_y = self.machine_y + math.sin(d_cannon_angle) * (neck_length * progress)
 
                         # 목 두께 (시작: 얇음 -> 중간: 두꺼움 -> 머리: 약간 좁아짐)
                         if progress < 0.5:
@@ -874,14 +947,14 @@ class Stage5FireMachineEvent:
                                                (int(seg_x + scale_size * 0.4), int(seg_y + scale_size * 0.2))], 1)
 
                     # === 2단계: 용 머리 (디테일한 서피스로 그리기) ===
-                    head_start_x = self.machine_x + math.cos(self.cannon_angle) * neck_length
-                    head_start_y = self.machine_y + math.sin(self.cannon_angle) * neck_length
+                    head_start_x = self.machine_x + math.cos(d_cannon_angle) * neck_length
+                    head_start_y = self.machine_y + math.sin(d_cannon_angle) * neck_length
                     head_size = int(55 * dragon_scale)  # 머리 기본 크기 (약간 크게)
                     head_length_px = int(80 * dragon_scale)  # 머리 길이 (더 길게)
 
                     # 머리 끝 (입) 위치
-                    mouth_x = head_start_x + math.cos(self.cannon_angle) * head_length_px
-                    mouth_y = head_start_y + math.sin(self.cannon_angle) * head_length_px
+                    mouth_x = head_start_x + math.cos(d_cannon_angle) * head_length_px
+                    mouth_y = head_start_y + math.sin(d_cannon_angle) * head_length_px
 
                     # 머리 서피스 생성 (충분히 크게)
                     surf_size = head_length_px * 4
@@ -889,9 +962,9 @@ class Stage5FireMachineEvent:
                     cx, cy = surf_size // 2, surf_size // 2  # 서피스 중심
 
                     # 입 벌림 계산
-                    base_jaw_open = 25 * self.dragon_jaw_open  # 최대 25픽셀 열림
-                    if self.dragon_jaw_phase == "breathing":
-                        jaw_open_amount = base_jaw_open + 4 * math.sin(self.timer * 0.3)
+                    base_jaw_open = 25 * d_jaw_open  # 최대 25픽셀 열림
+                    if d_jaw_phase == "breathing":
+                        jaw_open_amount = base_jaw_open + 4 * math.sin(self.timer * 0.3 + dragon_idx * 0.5)
                     else:
                         jaw_open_amount = base_jaw_open
 
@@ -1129,7 +1202,7 @@ class Stage5FireMachineEvent:
                                        (eye_x - eye_w/2 + 3, eye_y - eye_h/2 + 3, eye_w - 6, eye_h - 6))
 
                     # 눈동자 (세로 슬릿) - 화염 상태에 따라 크기 변화
-                    pupil_width = 3 if self.dragon_jaw_phase == "breathing" else 5
+                    pupil_width = 3 if d_jaw_phase == "breathing" else 5
                     pygame.draw.ellipse(head_surf, (20, 5, 5),
                                        (eye_x - pupil_width/2, eye_y - eye_h/2 + 4, pupil_width, eye_h - 8))
 
@@ -1156,7 +1229,7 @@ class Stage5FireMachineEvent:
                                        (nostril_x - 5, nostril_y + 8, 8, 5))
 
                     # 콧구멍에서 나오는 연기 (화염 방사 시)
-                    if self.dragon_jaw_phase == "breathing":
+                    if d_jaw_phase == "breathing":
                         smoke_alpha = int(80 + 40 * math.sin(self.timer * 0.3))
                         for smoke_i in range(3):
                             smoke_x = nostril_x + 5 + smoke_i * 4 + math.sin(self.timer * 0.2 + smoke_i) * 3
@@ -1196,16 +1269,16 @@ class Stage5FireMachineEvent:
                                         head_size * 0.25, head_size * 0.15))
 
                     # 머리 회전 및 배치
-                    rotated_head = pygame.transform.rotate(head_surf, -math.degrees(self.cannon_angle))
-                    head_rect = rotated_head.get_rect(center=(int(head_start_x + math.cos(self.cannon_angle) * head_length_px * 0.3),
-                                                              int(head_start_y + math.sin(self.cannon_angle) * head_length_px * 0.3)))
+                    rotated_head = pygame.transform.rotate(head_surf, -math.degrees(d_cannon_angle))
+                    head_rect = rotated_head.get_rect(center=(int(head_start_x + math.cos(d_cannon_angle) * head_length_px * 0.3),
+                                                              int(head_start_y + math.sin(d_cannon_angle) * head_length_px * 0.3)))
                     screen.blit(rotated_head, head_rect)
 
                     # === 입에서 나오는 화염 발광 효과 (입이 열릴 때만) ===
-                    if self.cannon_emergence >= 0.8 and self.dragon_jaw_open > 0.3:
+                    if dragon_data["cannon_emergence"] >= 0.8 and d_jaw_open > 0.3:
                         # 발광 강도는 입 벌림 정도에 비례
-                        glow_multiplier = min(1.0, self.dragon_jaw_open)
-                        glow_intensity = int((150 + 80 * math.sin(self.timer * 0.2)) * glow_multiplier)
+                        glow_multiplier = min(1.0, d_jaw_open)
+                        glow_intensity = int((150 + 80 * math.sin(self.timer * 0.2 + dragon_idx * 0.3)) * glow_multiplier)
 
                         # 다중 레이어 글로우
                         for g in range(5):
@@ -1221,35 +1294,35 @@ class Stage5FireMachineEvent:
                             pygame.draw.circle(glow_surf, (r, gr, b, alpha),
                                              (glow_size, glow_size), glow_size)
                             screen.blit(glow_surf, (int(mouth_x - glow_size), int(mouth_y - glow_size)))
-                
-                # 조준선 (조준 중일 때만) - 용 입에서 목표까지
-                if self.is_aiming:
-                    # 점선 조준선
-                    line_length = math.hypot(
-                        self.aim_target_x - mouth_x,
-                        self.aim_target_y - mouth_y
-                    )
-                    segments = int(line_length / 20)
 
-                    for i in range(0, segments, 2):  # 짝수 세그먼트만 그려서 점선 효과
-                        start_ratio = i / segments
-                        end_ratio = min((i + 1) / segments, 1)
+                    # 조준선 (조준 중일 때만) - 용 입에서 목표까지
+                    if dragon_data["is_aiming"]:
+                        # 점선 조준선
+                        line_length = math.hypot(
+                            dragon_data["aim_target_x"] - mouth_x,
+                            dragon_data["aim_target_y"] - mouth_y
+                        )
+                        segments = int(line_length / 20) if line_length > 0 else 1
 
-                        start_x = mouth_x + (self.aim_target_x - mouth_x) * start_ratio
-                        start_y = mouth_y + (self.aim_target_y - mouth_y) * start_ratio
-                        end_x = mouth_x + (self.aim_target_x - mouth_x) * end_ratio
-                        end_y = mouth_y + (self.aim_target_y - mouth_y) * end_ratio
+                        for i in range(0, segments, 2):  # 짝수 세그먼트만 그려서 점선 효과
+                            start_ratio = i / segments
+                            end_ratio = min((i + 1) / segments, 1)
 
-                        # 레이저 조준선 (빨간색)
-                        pygame.draw.line(screen, (255, 0, 0, 100),
-                                       (int(start_x), int(start_y)),
-                                       (int(end_x), int(end_y)), 1)
+                            start_x = mouth_x + (dragon_data["aim_target_x"] - mouth_x) * start_ratio
+                            start_y = mouth_y + (dragon_data["aim_target_y"] - mouth_y) * start_ratio
+                            end_x = mouth_x + (dragon_data["aim_target_x"] - mouth_x) * end_ratio
+                            end_y = mouth_y + (dragon_data["aim_target_y"] - mouth_y) * end_ratio
 
-                    # 조준점 표시
-                    pygame.draw.circle(screen, (255, 0, 0),
-                                     (int(self.aim_target_x), int(self.aim_target_y)), 8, 2)
-                    pygame.draw.circle(screen, (255, 100, 100),
-                                     (int(self.aim_target_x), int(self.aim_target_y)), 4, 2)
+                            # 레이저 조준선 (빨간색)
+                            pygame.draw.line(screen, (255, 0, 0, 100),
+                                           (int(start_x), int(start_y)),
+                                           (int(end_x), int(end_y)), 1)
+
+                        # 조준점 표시
+                        pygame.draw.circle(screen, (255, 0, 0),
+                                         (int(dragon_data["aim_target_x"]), int(dragon_data["aim_target_y"])), 8, 2)
+                        pygame.draw.circle(screen, (255, 100, 100),
+                                         (int(dragon_data["aim_target_x"]), int(dragon_data["aim_target_y"])), 4, 2)
         
         # 화염 스트림 그리기 (물줄기 애니메이션)
         for stream in self.fire_streams:

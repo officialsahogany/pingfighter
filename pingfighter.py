@@ -124036,6 +124036,10 @@ def main(stage_num, new_boss_mode=False):
     if pillar_renderer is not None:
         pillar_renderer.set_hongryeon_enraged(False)
 
+    # 화염 기계 이벤트 광폭화 모드 리셋
+    if FIRE_EVENT_AVAILABLE and stage5_events is not None:
+        stage5_events.fire_machine.set_enraged_mode(False)
+
     # 챔피언리그: 10% 광폭화, 신화리그: 100% 광폭화
     should_enrage = False
     if ai_mode == "champion" and random.random() < ENRAGED_BOSS_CHANCE:
@@ -124079,6 +124083,11 @@ def main(stage_num, new_boss_mode=False):
             # 뱀 화염탄 발사 콜백 설정
             pillar_renderer.set_hongryeon_fire_callback(fire_snake_fireball)
             print(f"🔥 [광폭화 보스] 스테이지 5(홍련) 필러 뱀 공격 시스템 활성화!")
+
+            # 화염 기계 이벤트 광폭화 모드 (용 2마리)
+            if FIRE_EVENT_AVAILABLE and stage5_events is not None:
+                stage5_events.fire_machine.set_enraged_mode(True)
+                print(f"🐉 [광폭화 보스] 스테이지 5(홍련) 화염 기계 2마리 용 모드 활성화!")
 
     #  통합 보스 설정: 스테이지별 + 리그별 완전 연계
     config = get_final_boss_config(stage_num, ai_mode)
