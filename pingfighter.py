@@ -18193,6 +18193,16 @@ stage7_tetro_debris_particles: list[dict] = []
 # 초인 발동 연출(포효 포즈) 기간: 0.6초 동안 제자리에서 양팔 벌리고 포효
 stage7_super_intro_until_ms: int = 0
 
+# Stage 7 초인테트리서 테트로미노 광선 (폭발큐브 파괴용)
+stage7_tetro_laser_active: bool = False       # 광선 발사 중
+stage7_tetro_laser_start_ms: int = 0          # 광선 시작 시각
+stage7_tetro_laser_charging: bool = False     # 충전 중
+stage7_tetro_laser_charge_start_ms: int = 0   # 충전 시작 시각
+STAGE7_TETRO_LASER_CHARGE_MS = 800            # 충전 시간 (0.8초)
+STAGE7_TETRO_LASER_DURATION_MS = 1200         # 광선 지속 시간 (1.2초)
+STAGE7_TETRO_LASER_COOLDOWN_MS = 3000         # 광선 쿨다운 (광폭화 모드에서만 사용)
+stage7_tetro_laser_last_fire_ms: int = 0      # 마지막 광선 발사 시각
+
 # 디버그/테스트: 환경변수로 쿨타임 축소
 try:
     if _bool_from_env("PINGFIGHTER_TETRO_TEST"):
@@ -73564,6 +73574,222 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
             pygame.draw.rect(surface, hl, inner, 1, border_radius=3)
             idx += 1
 
+
+# =====================
+# Stage 7 초인테트리서 테트로미노 광선 (폭발큐브 파괴)
+# - 광폭화 초인테트리서 상태에서 게이지가 500에 도달하면 발동
+# - 보스에서 중앙 큐브로 광선을 발사하여 큐브를 녹여버림
+# - 발동 시 게이지 전량 소모
+# =====================
+
+def trigger_stage7_tetro_laser() -> bool:
+    """테트로미노 광선 발동 트리거. 성공 시 True 반환."""
+    global stage7_tetro_laser_charging, stage7_tetro_laser_charge_start_ms
+    global boss_special_gauge, stage7_persistent_boss_gauge
+
+    now = pygame.time.get_ticks()
+
+    # 이미 충전/발사 중이면 무시
+    if stage7_tetro_laser_charging or stage7_tetro_laser_active:
+        return False
+
+    # 쿨다운 체크
+    if now - stage7_tetro_laser_last_fire_ms < STAGE7_TETRO_LASER_COOLDOWN_MS:
+        return False
+
+    # 충전 시작
+    stage7_tetro_laser_charging = True
+    stage7_tetro_laser_charge_start_ms = now
+
+    # 게이지 전량 소모
+    boss_special_gauge = 0
+    stage7_persistent_boss_gauge = 0
+
+    print(f"[Stage7TetroLaser] ⚡ 테트로미노 광선 충전 시작! (게이지 전량 소모)")
+    return True
+
+
+def update_stage7_tetro_laser(now: int | None = None) -> None:
+    """테트로미노 광선 상태 업데이트."""
+    global stage7_tetro_laser_active, stage7_tetro_laser_start_ms
+    global stage7_tetro_laser_charging, stage7_tetro_laser_charge_start_ms
+    global stage7_tetro_laser_last_fire_ms
+
+    if current_stage != 7:
+        return
+
+    if now is None:
+        now = pygame.time.get_ticks()
+
+    # UI 정지 중이면 업데이트 스킵
+    if _is_stage7_ui_paused():
+        return
+
+    # 충전 완료 → 발사
+    if stage7_tetro_laser_charging:
+        if now - stage7_tetro_laser_charge_start_ms >= STAGE7_TETRO_LASER_CHARGE_MS:
+            stage7_tetro_laser_charging = False
+            stage7_tetro_laser_active = True
+            stage7_tetro_laser_start_ms = now
+            stage7_tetro_laser_last_fire_ms = now
+
+            # 폭발큐브 파괴
+            if stage7_center_cube_state and stage7_center_cube_state.get("active"):
+                _stage7_cube_explode_and_clear_tetros(now)
+                print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! 폭발큐브 파괴!")
+            else:
+                print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 비활성)")
+
+            # 사운드 재생
+            try:
+                if 'SOUND_CHARACTER_LASER' in globals() and SOUND_CHARACTER_LASER:
+                    play_sound_with_volume(SOUND_CHARACTER_LASER)
+            except Exception:
+                pass
+
+    # 발사 종료
+    if stage7_tetro_laser_active:
+        if now - stage7_tetro_laser_start_ms >= STAGE7_TETRO_LASER_DURATION_MS:
+            stage7_tetro_laser_active = False
+            print(f"[Stage7TetroLaser] 광선 종료")
+
+
+def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
+    """테트로미노 광선 시각 효과 렌더링."""
+    if current_stage != 7:
+        return
+
+    now = pygame.time.get_ticks()
+
+    # 보스 위치
+    boss_cx = BOSS.centerx if BOSS else WIDTH // 2
+    boss_cy = BOSS.bottom if BOSS else 65
+
+    # 큐브 위치
+    cube_cx = WIDTH // 2
+    cube_cy = HEIGHT // 2
+    if stage7_center_cube_state:
+        cube_cx = stage7_center_cube_state.get("cx", WIDTH // 2)
+        cube_cy = stage7_center_cube_state.get("cy", HEIGHT // 2)
+
+    # 충전 이펙트
+    if stage7_tetro_laser_charging:
+        charge_progress = min(1.0, (now - stage7_tetro_laser_charge_start_ms) / STAGE7_TETRO_LASER_CHARGE_MS)
+
+        # 충전 글로우 (보스 주변)
+        glow_size = int(30 + 40 * charge_progress)
+        glow_alpha = int(100 + 155 * charge_progress)
+
+        # 테트로미노 색상 (보라/마젠타 계열)
+        charge_colors = [
+            (180, 80, 220),   # 보라
+            (220, 100, 180),  # 마젠타
+            (140, 60, 200),   # 진보라
+        ]
+
+        for i, color in enumerate(charge_colors):
+            size = glow_size - i * 8
+            if size > 0:
+                alpha = max(0, glow_alpha - i * 40)
+                glow_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (*color, alpha), (size, size), size)
+                surface.blit(glow_surf, (boss_cx - size, boss_cy - size))
+
+        # 에너지 라인 (보스 → 큐브 방향 예고)
+        if charge_progress > 0.3:
+            line_alpha = int(100 * (charge_progress - 0.3) / 0.7)
+            line_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            pygame.draw.line(line_surf, (180, 80, 220, line_alpha),
+                           (boss_cx, boss_cy), (cube_cx, cube_cy), 2)
+            surface.blit(line_surf, (0, 0))
+
+    # 광선 발사 이펙트
+    if stage7_tetro_laser_active:
+        beam_time = now - stage7_tetro_laser_start_ms
+        beam_progress = beam_time / STAGE7_TETRO_LASER_DURATION_MS
+
+        # 페이드아웃 (마지막 30%)
+        if beam_progress > 0.7:
+            fade = 1.0 - (beam_progress - 0.7) / 0.3
+        else:
+            fade = 1.0
+
+        beam_alpha = int(255 * fade)
+        beam_width = int(20 * fade)
+
+        # 테트로미노 광선 색상 (보라/시안/마젠타 믹스)
+        laser_colors = [
+            (180, 80, 220, beam_alpha),       # 외곽 보라
+            (100, 200, 255, beam_alpha),      # 중간 시안
+            (255, 150, 255, beam_alpha),      # 중심 핑크
+        ]
+
+        # 외곽 글로우
+        for glow_i in range(5):
+            glow_width = beam_width + (5 - glow_i) * 8
+            glow_a = max(0, int(40 * fade) - glow_i * 8)
+            if glow_a > 0:
+                glow_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                pygame.draw.line(glow_surf, (150, 100, 200, glow_a),
+                               (boss_cx, boss_cy), (cube_cx, cube_cy), glow_width)
+                surface.blit(glow_surf, (0, 0))
+
+        # 메인 빔 (3중 레이어)
+        for i, color in enumerate(laser_colors):
+            width = max(2, beam_width - i * 5)
+            beam_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            pygame.draw.line(beam_surf, color,
+                           (boss_cx, boss_cy), (cube_cx, cube_cy), width)
+            surface.blit(beam_surf, (0, 0))
+
+        # 에너지 파동 (빔을 따라 흐름)
+        num_waves = 5
+        for wave_i in range(num_waves):
+            wave_phase = ((beam_time * 0.005) + wave_i * 0.2) % 1.0
+            wave_x = boss_cx + (cube_cx - boss_cx) * wave_phase
+            wave_y = boss_cy + (cube_cy - boss_cy) * wave_phase
+            wave_size = int(15 * fade * (1.0 - abs(wave_phase - 0.5)))
+            wave_alpha = int(180 * fade * (1.0 - abs(wave_phase - 0.5)))
+            if wave_size > 0 and wave_alpha > 0:
+                wave_surf = pygame.Surface((wave_size * 2, wave_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(wave_surf, (200, 150, 255, wave_alpha),
+                                 (wave_size, wave_size), wave_size)
+                surface.blit(wave_surf, (int(wave_x - wave_size), int(wave_y - wave_size)))
+
+        # 발사구 발광
+        muzzle_size = int(25 * fade)
+        if muzzle_size > 0:
+            for mi in range(3):
+                ms = muzzle_size - mi * 6
+                if ms > 0:
+                    ma = max(0, beam_alpha - mi * 60)
+                    muzzle_surf = pygame.Surface((ms * 2, ms * 2), pygame.SRCALPHA)
+                    muzzle_color = (220 - mi * 30, 120 + mi * 40, 255, ma)
+                    pygame.draw.circle(muzzle_surf, muzzle_color, (ms, ms), ms)
+                    surface.blit(muzzle_surf, (boss_cx - ms, boss_cy - ms))
+
+        # 임팩트 이펙트 (큐브 위치)
+        impact_size = int(40 * fade * (0.5 + 0.5 * math.sin(beam_time * 0.02)))
+        if impact_size > 0:
+            impact_surf = pygame.Surface((impact_size * 2, impact_size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(impact_surf, (255, 200, 255, int(150 * fade)),
+                             (impact_size, impact_size), impact_size)
+            surface.blit(impact_surf, (cube_cx - impact_size, cube_cy - impact_size))
+
+
+def reset_stage7_tetro_laser_state() -> None:
+    """테트로미노 광선 상태 초기화."""
+    global stage7_tetro_laser_active, stage7_tetro_laser_start_ms
+    global stage7_tetro_laser_charging, stage7_tetro_laser_charge_start_ms
+    global stage7_tetro_laser_last_fire_ms
+
+    stage7_tetro_laser_active = False
+    stage7_tetro_laser_start_ms = 0
+    stage7_tetro_laser_charging = False
+    stage7_tetro_laser_charge_start_ms = 0
+    stage7_tetro_laser_last_fire_ms = 0
+
+
 def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
     """Stage 7 테트로미노 스킬 상태 초기화."""
     global stage7_tetrominoes, stage7_tetromino_next_trigger_ms, stage7_tetro_followup_due_ms, stage7_tetro_followup_remaining
@@ -74972,6 +75198,12 @@ def update_stage7_super_state(now: int | None = None) -> None:
             # 광폭화 모드에서는 게이지 드레인 없이 초인테트리서 상태 유지
             # (게이지 충전은 update_stage7_gauge_charge에서 계속됨)
             stage7_super_last_update_ms = now
+
+            # === 광폭화 초인테트리서: 게이지 500 도달 시 테트로미노 광선 발사 ===
+            # 광선이 충전/발사 중이 아니고, 게이지가 500 이상이면 발동
+            if boss_special_gauge >= 500:
+                if not stage7_tetro_laser_charging and not stage7_tetro_laser_active:
+                    trigger_stage7_tetro_laser()
         else:
             # === 일반 모드 ===
             # 발동 트리거: 500 도달
@@ -128205,6 +128437,7 @@ def main(stage_num, new_boss_mode=False):
                     update_stage7_gauge_charge(_charge)
                     # 궁극기 활성/유지 업데이트
                     update_stage7_super_state()
+                    update_stage7_tetro_laser()  # 테트로미노 광선 업데이트
                     update_stage7_guard_skill()
                     update_stage7_tetromino_skill()
                     update_stage7_tetro_wall_skill()
@@ -129275,6 +129508,7 @@ def main(stage_num, new_boss_mode=False):
             draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
             draw_stage7_tetrominoes(SCREEN)
+            draw_stage7_tetro_laser(SCREEN)  # 테트로미노 광선 (초인테트리서 스킬)
             draw_stage7_tetro_debris(SCREEN)
             # Stage7 디버그 HUD (플래그 기반)
             draw_stage7_debug_hud(SCREEN)
@@ -129341,6 +129575,7 @@ def main(stage_num, new_boss_mode=False):
             draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
             draw_stage7_tetrominoes(SCREEN)
+            draw_stage7_tetro_laser(SCREEN)  # 테트로미노 광선 (초인테트리서 스킬)
             draw_stage7_tetro_debris(SCREEN)  # 테트로미노 파편 효과
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # Stage7 디버그 HUD (플래그 기반)
