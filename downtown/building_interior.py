@@ -19465,34 +19465,78 @@ class BuildingInterior:
                     pygame.draw.circle(screen, knot_highlight, (knot_x - 1, knot_y - 1), 1)
 
     def _draw_colosseum_stone_walls(self, screen, cam_x, cam_y, wall_h, wall_color, wall_dark, wall_light, brick_color):
-        """투기장 회색 벽돌 벽"""
-        # 벽 배경
+        """투기장 회색 벽돌 벽 (고퀄리티)"""
+        import random
+
+        # 몰타르(시멘트) 배경
+        mortar_color = (45, 45, 50)
         wall_rect = pygame.Rect(0, -cam_y, self.pixel_width, wall_h)
-        pygame.draw.rect(screen, wall_color, wall_rect)
+        pygame.draw.rect(screen, mortar_color, wall_rect)
 
-        # 벽돌 패턴
-        brick_h = int(TILE_SIZE * 0.4)
-        brick_w = int(TILE_SIZE * 0.8)
+        # 벽돌 설정
+        brick_h = int(TILE_SIZE * 0.45)
+        brick_w = int(TILE_SIZE * 0.9)
+        gap = 3  # 벽돌 사이 간격
 
-        for row in range(wall_h // brick_h + 1):
+        # 벽돌 색상 팔레트 (6가지 톤)
+        brick_colors = [
+            brick_color,
+            wall_color,
+            (brick_color[0] + 8, brick_color[1] + 8, brick_color[2] + 10),
+            (brick_color[0] - 8, brick_color[1] - 8, brick_color[2] - 6),
+            wall_light,
+            (wall_color[0] - 5, wall_color[1] - 5, wall_color[2] - 3),
+        ]
+
+        for row in range(wall_h // brick_h + 2):
             row_offset = (row % 2) * (brick_w // 2)
-            for col in range(-1, self.pixel_width // brick_w + 2):
+            for col in range(-2, self.pixel_width // brick_w + 3):
                 bx = col * brick_w + row_offset - int(cam_x) % brick_w
                 by = row * brick_h - int(cam_y) % brick_h
 
-                if by > wall_h:
+                if by > wall_h or by + brick_h < 0:
                     continue
 
-                # 벽돌 그림자/하이라이트
-                brick_rect = pygame.Rect(bx, by, brick_w - 2, brick_h - 2)
-                pygame.draw.rect(screen, brick_color, brick_rect)
-                pygame.draw.line(screen, wall_light, (bx, by), (bx + brick_w - 3, by), 1)
-                pygame.draw.line(screen, wall_light, (bx, by), (bx, by + brick_h - 3), 1)
-                pygame.draw.line(screen, wall_dark, (bx, by + brick_h - 3), (bx + brick_w - 3, by + brick_h - 3), 1)
-                pygame.draw.line(screen, wall_dark, (bx + brick_w - 3, by), (bx + brick_w - 3, by + brick_h - 3), 1)
+                # 벽돌 색상 (위치 기반 시드)
+                random.seed(col * 17 + row * 31)
+                base_color = random.choice(brick_colors)
 
-        # 벽 하단 경계
-        pygame.draw.line(screen, wall_dark, (0, wall_h - cam_y), (self.pixel_width, wall_h - cam_y), 3)
+                # 벽돌 본체 (gap 만큼 작게)
+                brick_rect = pygame.Rect(bx + 1, by + 1, brick_w - gap, brick_h - gap)
+                pygame.draw.rect(screen, base_color, brick_rect, border_radius=1)
+
+                # 상단 하이라이트
+                highlight = tuple(min(255, c + 18) for c in base_color)
+                pygame.draw.line(screen, highlight, (bx + 2, by + 2), (bx + brick_w - gap - 1, by + 2), 1)
+
+                # 좌측 하이라이트
+                pygame.draw.line(screen, highlight, (bx + 2, by + 2), (bx + 2, by + brick_h - gap - 1), 1)
+
+                # 하단 그림자
+                shadow = tuple(max(0, c - 22) for c in base_color)
+                pygame.draw.line(screen, shadow, (bx + 2, by + brick_h - gap), (bx + brick_w - gap, by + brick_h - gap), 1)
+
+                # 우측 그림자
+                pygame.draw.line(screen, shadow, (bx + brick_w - gap, by + 2), (bx + brick_w - gap, by + brick_h - gap), 1)
+
+                # 벽돌 텍스처 (미세한 점)
+                if random.random() < 0.3:
+                    for _ in range(random.randint(1, 3)):
+                        tx = bx + random.randint(4, brick_w - gap - 4)
+                        ty = by + random.randint(4, brick_h - gap - 4)
+                        speck_color = tuple(max(0, c - random.randint(8, 15)) for c in base_color)
+                        screen.set_at((tx, ty), speck_color)
+
+        # 벽 상단 몰딩
+        molding_h = 8
+        pygame.draw.rect(screen, (55, 55, 60), (0, -cam_y, self.pixel_width, molding_h))
+        pygame.draw.line(screen, (70, 70, 75), (0, molding_h - 2 - cam_y), (self.pixel_width, molding_h - 2 - cam_y), 2)
+
+        # 벽 하단 경계 (두꺼운 몰딩)
+        bottom_molding_h = 12
+        pygame.draw.rect(screen, (40, 40, 45), (0, wall_h - bottom_molding_h - cam_y, self.pixel_width, bottom_molding_h))
+        pygame.draw.line(screen, (60, 60, 65), (0, wall_h - bottom_molding_h - cam_y), (self.pixel_width, wall_h - bottom_molding_h - cam_y), 2)
+        pygame.draw.line(screen, (30, 30, 35), (0, wall_h - cam_y), (self.pixel_width, wall_h - cam_y), 2)
 
     def _draw_colosseum_torch(self, screen, x, y, anim, orange, yellow, red):
         """투기장 횃불"""
