@@ -114512,16 +114512,16 @@ def handle_ball():
         )
     )
     sensor_equipped = is_passive_equipped("sensor")
-    # 디버깅: 센서 상태 확인
-    if sensor_equipped:
-        print(
-            f"  - equipped: {sensor_equipped}, "
-            f"enabled: {danger_sensor_enabled}, "
-            f"auto_dash_enabled: {danger_sensor_auto_dash_enabled}, "
-            f"ball_vel[1]: {ball_vel[1]:.2f}, "
-            f"BALL.centery: {BALL.centery:.1f}, "
-            f"HEIGHT*0.75: {HEIGHT * 0.75:.1f}"
-        )
+    # 디버깅: 센서 상태 확인 (비활성화 - 홍련 뱀 디버그 로그 가림 문제)
+    # if sensor_equipped:
+    #     print(
+    #         f"  - equipped: {sensor_equipped}, "
+    #         f"enabled: {danger_sensor_enabled}, "
+    #         f"auto_dash_enabled: {danger_sensor_auto_dash_enabled}, "
+    #         f"ball_vel[1]: {ball_vel[1]:.2f}, "
+    #         f"BALL.centery: {BALL.centery:.1f}, "
+    #         f"HEIGHT*0.75: {HEIGHT * 0.75:.1f}"
+    #     )
     # 공이 화면의 절반 이하(플레이어와 중간지점의 가운데)로 내려왔을 때만 탐지
     if (
         sensor_equipped
@@ -114546,12 +114546,14 @@ def handle_ball():
             player_speed = 8  # 플레이어 기본 이동 속도
             player_max_distance = player_speed * time_to_reach_player  # 플레이어 최대 이동 거리
             distance_to_predicted = abs(predicted_x - PLAYER.centerx)
-            print(f"  - time_to_reach: {time_to_reach_player:.1f}, predicted_x: {predicted_x:.1f}, distance: {distance_to_predicted:.1f}, max_distance: {player_max_distance:.1f}")
+            # 디버그 로그 비활성화 (홍련 뱀 디버그 로그 가림 문제)
+            # print(f"  - time_to_reach: {time_to_reach_player:.1f}, predicted_x: {predicted_x:.1f}, distance: {distance_to_predicted:.1f}, max_distance: {player_max_distance:.1f}")
             # 도달할 수 없는 상황이면 자동 대쉬 (쿨타임 체크 포함)
             if distance_to_predicted > player_max_distance + PADDLE_WIDTH // 2 and sensor_can_activate:
                 # 대쉬 방향 결정
                 dash_direction = 1 if predicted_x > PLAYER.centerx else -1
-                print(f"   - charges: {rolling_charges}, active: {rolling_active}, waiting: {is_waiting_for_serve}")
+                # 디버그 로그 비활성화
+                # print(f"   - charges: {rolling_charges}, active: {rolling_active}, waiting: {is_waiting_for_serve}")
                 # 대쉬 실행 - 위험감지센서는 게이지와 토큰 소모 없이 사용
                 # 대쉬 감속 구간 캔슬: rolling_active 중이어도 감속 후반부면 연속 대쉬 허용
                 _can_cancel_sensor = not rolling_active or (rolling_active and rolling_timer <= DASH_CANCEL_THRESHOLD)
