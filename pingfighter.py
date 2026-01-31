@@ -72436,10 +72436,14 @@ def initialize_stage7_guard_state(now: int | None = None) -> None:
 
 
 def update_stage7_gauge_charge(is_active: bool) -> None:
-    """Stage 7 보스 게이지를 초당 25씩 자동 충전한다."""
+    """Stage 7 보스 게이지를 초당 25씩 자동 충전한다.
+    광폭화 모드: 초인테트리서 발동 중에도 충전 계속 (드레인 없이 충전만)."""
     global stage7_gauge_last_update_ms, stage7_gauge_charge_progress, boss_special_gauge
 
     now = pygame.time.get_ticks()
+
+    # 광폭화 모드 체크
+    is_berserk = enraged_boss_active and current_stage == 7
 
     # TAB/ESC 등으로 UI가 정지된 동안에는 게이지 충전/감소를 모두 멈춘다.
     if _is_stage7_ui_paused():
@@ -72448,7 +72452,8 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
         return
 
     # 초인테트리서 발동 중에는 충전을 정지 (드레인만 수행)
-    if globals().get('stage7_super_active', False):
+    # 단, 광폭화 모드에서는 초인테트리서 중에도 충전 계속!
+    if globals().get('stage7_super_active', False) and not is_berserk:
         stage7_gauge_last_update_ms = now
         stage7_gauge_charge_progress = 0.0
         return
@@ -72468,7 +72473,9 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
 
     stage7_gauge_last_update_ms = now
 
-    if boss_special_gauge >= 500:
+    # 광폭화 모드에서는 500 제한 없이 충전 계속 (게이지바는 계속 움직임)
+    # 일반 모드에서는 500에서 멈춤
+    if not is_berserk and boss_special_gauge >= 500:
         boss_special_gauge = 500
         stage7_gauge_charge_progress = 0.0
         return
@@ -72479,12 +72486,18 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
     if charge_units <= 0:
         return
 
-    boss_special_gauge = min(500, boss_special_gauge + charge_units)
+    # 광폭화 모드: 상한 없이 충전 (시각적 효과용)
+    # 일반 모드: 500 상한
+    if is_berserk:
+        boss_special_gauge = boss_special_gauge + charge_units
+    else:
+        boss_special_gauge = min(500, boss_special_gauge + charge_units)
     stage7_gauge_charge_progress -= charge_units
     global stage7_persistent_boss_gauge
     stage7_persistent_boss_gauge = boss_special_gauge
     if STAGE7_DEBUG.get('GAUGE', False):
-        print(f"[Stage7Gauge][Charge] +{charge_units} → {boss_special_gauge}")
+        mode_str = "🔥광폭화" if is_berserk else ""
+        print(f"[Stage7Gauge][Charge]{mode_str} +{charge_units} → {boss_special_gauge}")
 
 
 STAGE7_GUARD_CELL_SIZE = 20
@@ -74907,7 +74920,8 @@ def draw_stage7_boss_gauge_bar():
 
 
 def update_stage7_super_state(now: int | None = None) -> None:
-    """초인테트리서: 500 도달 시 발동, 발동 중에는 초당 게이지 25 감소, 0이 되면 종료."""
+    """초인테트리서: 500 도달 시 발동, 발동 중에는 초당 게이지 25 감소, 0이 되면 종료.
+    광폭화 모드: 항상 초인테트리서 상태, 게이지 감소 없음, 게이지는 0에서 천천히 충전."""
     global stage7_super_active, boss_special_gauge, stage7_persistent_boss_gauge
     global stage7_boss_orig_size, stage7_super_target_scale, stage7_super_scale
     global stage7_super_last_update_ms, stage7_super_drain_progress
@@ -74915,6 +74929,9 @@ def update_stage7_super_state(now: int | None = None) -> None:
     if now is None:
         now = pygame.time.get_ticks()
     ui_paused = _is_stage7_ui_paused()
+
+    # 광폭화 모드 체크
+    is_berserk = enraged_boss_active and current_stage == 7
 
     if current_stage != 7 or new_boss_mode_active:
         # 스테이지 벗어나면 비활성 방향으로 자연 복귀
@@ -74930,48 +74947,75 @@ def update_stage7_super_state(now: int | None = None) -> None:
             stage7_super_last_update_ms = now
             return
 
-        # 발동 트리거: 500 도달
-        if not stage7_super_active and boss_special_gauge >= 500:
-            stage7_super_active = True
-            stage7_super_target_scale = 2.0
-            if stage7_boss_orig_size is None:
-                stage7_boss_orig_size = (BOSS.width, BOSS.height)
-            stage7_super_last_update_ms = now
-            stage7_super_drain_progress = 0.0
-            # 0.6초 포효 포즈 시작: 제자리 고정 + 사운드 재생
-            try:
-                globals()['stage7_super_intro_until_ms'] = now + 600
-                if SOUND_CRY:
-                    play_sound_with_volume(SOUND_CRY)
-            except Exception:
-                globals()['stage7_super_intro_until_ms'] = now + 600
-            try:
-                play_wall_sound()
-            except Exception:
-                pass
-            print(f"[Stage7Super] {STAGE7_SUPER_NAME} 발동! (게이지 소모형)")
-
-        # 발동 중: 초당 25 드레인, 0이면 종료
-        if stage7_super_active:
-            # ui_paused 체크는 위에서 이미 처리됨
-            if stage7_super_last_update_ms == 0:
+        # === 광폭화 모드: 항상 초인테트리서 상태 유지 ===
+        if is_berserk:
+            # 광폭화 시 초인테트리서가 아직 활성화되지 않았으면 즉시 활성화
+            if not stage7_super_active:
+                stage7_super_active = True
+                stage7_super_target_scale = 2.0
+                if stage7_boss_orig_size is None:
+                    stage7_boss_orig_size = (BOSS.width, BOSS.height)
                 stage7_super_last_update_ms = now
-            elapsed = now - stage7_super_last_update_ms
-            stage7_super_last_update_ms = now
-            if elapsed > 0:
-                stage7_super_drain_progress += elapsed * 0.025
-                drain_units = int(stage7_super_drain_progress)
-                if drain_units > 0:
-                    boss_special_gauge = max(0, boss_special_gauge - drain_units)
-                    stage7_persistent_boss_gauge = boss_special_gauge
-                    stage7_super_drain_progress -= drain_units
-            if boss_special_gauge <= 0:
-                stage7_super_active = False
-                stage7_super_target_scale = 1.0
+                stage7_super_drain_progress = 0.0
+                # 0.6초 포효 포즈 시작: 제자리 고정 + 사운드 재생
                 try:
-                    stage7_super_particles.clear()
+                    globals()['stage7_super_intro_until_ms'] = now + 600
+                    if SOUND_CRY:
+                        play_sound_with_volume(SOUND_CRY)
+                except Exception:
+                    globals()['stage7_super_intro_until_ms'] = now + 600
+                try:
+                    play_wall_sound()
                 except Exception:
                     pass
+                print(f"[Stage7Super] 🔥 광폭화 {STAGE7_SUPER_NAME} 발동! (게이지 드레인 없음, 충전 계속)")
+            # 광폭화 모드에서는 게이지 드레인 없이 초인테트리서 상태 유지
+            # (게이지 충전은 update_stage7_gauge_charge에서 계속됨)
+            stage7_super_last_update_ms = now
+        else:
+            # === 일반 모드 ===
+            # 발동 트리거: 500 도달
+            if not stage7_super_active and boss_special_gauge >= 500:
+                stage7_super_active = True
+                stage7_super_target_scale = 2.0
+                if stage7_boss_orig_size is None:
+                    stage7_boss_orig_size = (BOSS.width, BOSS.height)
+                stage7_super_last_update_ms = now
+                stage7_super_drain_progress = 0.0
+                # 0.6초 포효 포즈 시작: 제자리 고정 + 사운드 재생
+                try:
+                    globals()['stage7_super_intro_until_ms'] = now + 600
+                    if SOUND_CRY:
+                        play_sound_with_volume(SOUND_CRY)
+                except Exception:
+                    globals()['stage7_super_intro_until_ms'] = now + 600
+                try:
+                    play_wall_sound()
+                except Exception:
+                    pass
+                print(f"[Stage7Super] {STAGE7_SUPER_NAME} 발동! (게이지 소모형)")
+
+            # 발동 중: 초당 25 드레인, 0이면 종료
+            if stage7_super_active:
+                # ui_paused 체크는 위에서 이미 처리됨
+                if stage7_super_last_update_ms == 0:
+                    stage7_super_last_update_ms = now
+                elapsed = now - stage7_super_last_update_ms
+                stage7_super_last_update_ms = now
+                if elapsed > 0:
+                    stage7_super_drain_progress += elapsed * 0.025
+                    drain_units = int(stage7_super_drain_progress)
+                    if drain_units > 0:
+                        boss_special_gauge = max(0, boss_special_gauge - drain_units)
+                        stage7_persistent_boss_gauge = boss_special_gauge
+                        stage7_super_drain_progress -= drain_units
+                if boss_special_gauge <= 0:
+                    stage7_super_active = False
+                    stage7_super_target_scale = 1.0
+                    try:
+                        stage7_super_particles.clear()
+                    except Exception:
+                        pass
 
     # 스케일 스무딩/적용 (항상 호출)
     try:
@@ -124088,6 +124132,17 @@ def main(stage_num, new_boss_mode=False):
             if FIRE_EVENT_AVAILABLE and stage5_events is not None:
                 stage5_events.fire_machine.set_enraged_mode(True)
                 print(f"🐉 [광폭화 보스] 스테이지 5(홍련) 화염 기계 2마리 용 모드 활성화!")
+
+        # 스테이지 7 광폭화: 항상 초인테트리서 상태, 게이지 0에서 시작
+        if stage_num == 7:
+            global boss_special_gauge, stage7_persistent_boss_gauge
+            global stage7_super_active, stage7_super_target_scale, stage7_boss_orig_size
+            # 게이지를 0으로 초기화 (광폭화 초인테트리서는 0에서 충전 시작)
+            boss_special_gauge = 0
+            stage7_persistent_boss_gauge = 0
+            # 초인테트리서 즉시 활성화 (update_stage7_super_state에서 처리)
+            # 여기서는 플래그만 설정하고, 실제 활성화는 첫 update에서 처리됨
+            print(f"🔥 [광폭화 보스] 스테이지 7(테트리서) 초인테트리서 모드 즉시 발동! (게이지 0에서 충전)")
 
     #  통합 보스 설정: 스테이지별 + 리그별 완전 연계
     config = get_final_boss_config(stage_num, ai_mode)
