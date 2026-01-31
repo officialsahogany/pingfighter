@@ -7,7 +7,8 @@ import math
 from .constants import (
     MAP_WIDTH, MAP_HEIGHT, TILE_SIZE,
     TileType, BuildingType, BUILDING_INFO,
-    Colors, PlanetTheme, PLANET_THEMES
+    Colors, PlanetTheme, PLANET_THEMES,
+    DISABLED_BUILDINGS
 )
 
 class DowntownMap:
@@ -255,17 +256,19 @@ class DowntownMap:
         if random.random() < 0.40:
             selected_buildings.append(BuildingType.GACHA)
 
-        # 나머지 건물들 (랜덤 선택)
+        # 나머지 건물들 (랜덤 선택) - 비활성화된 건물 제외
         other_buildings = [
-            BuildingType.CASINO,       # 도박장
-            BuildingType.COLOSSEUM,    # 콜로세움
-            BuildingType.BLACKSMITH,   # 대장장이
-            BuildingType.MAGIC_STORE,  # 마법 성소
-            BuildingType.PET_SHOP,     # 펫 상점
-            BuildingType.ELDER,        # 버프 노인
-            BuildingType.MINIGAME,     # 미니게임
-            BuildingType.TAVERN,       # 주점
-            BuildingType.MYSTERY,      # 미스터리
+            b for b in [
+                BuildingType.CASINO,       # 도박장
+                BuildingType.COLOSSEUM,    # 콜로세움
+                BuildingType.BLACKSMITH,   # 대장장이
+                BuildingType.MAGIC_STORE,  # 마법 성소
+                BuildingType.PET_SHOP,     # 펫 상점
+                BuildingType.ELDER,        # 버프 노인
+                BuildingType.MINIGAME,     # 미니게임
+                BuildingType.TAVERN,       # 주점
+                BuildingType.MYSTERY,      # 미스터리
+            ] if b not in DISABLED_BUILDINGS
         ]
 
         # 스테이지 번호를 시드에 반영하여 스테이지마다 다른 조합 생성

@@ -46,7 +46,7 @@ class TileType:
 # 건물 타입
 # =============================================================================
 class BuildingType:
-    CASINO = "casino"               # 도박장
+    CASINO = "casino"               # 도박장 (비활성화됨 - 게임위 심의)
     COLOSSEUM = "colosseum"         # 콜로세움
     BLACKSMITH = "blacksmith"       # 대장장이
     MAGIC_STORE = "magic_store"     # 마법 성소
@@ -59,6 +59,13 @@ class BuildingType:
     GACHA = "gacha"                 # 가챠샵
     ACADEMY = "academy"             # 스킬 학원
     ITEM_SHOP = "item_shop"         # 아이템 상점 (새로 추가!)
+
+# =============================================================================
+# 비활성화된 건물 (게임위 심의 등의 이유로 스폰 제외)
+# =============================================================================
+DISABLED_BUILDINGS = {
+    BuildingType.CASINO,  # 사행성 요소 - 게임물관리위원회 심의 대응
+}
 
 # 건물 정보 (각 건물별 고유 디자인 및 크기 - 세로형 화면에 맞게 축소)
 BUILDING_INFO = {
