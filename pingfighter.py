@@ -122479,18 +122479,65 @@ def show_death_evaluation():
     # 스왑 맵을 사용하지 않고 직접 logic_stage 기준으로 표시
     cleared_bosses = []
     boss_thumb_size = 48
+
+    def _create_nemesis_battlecruiser_thumb(size):
+        """네메시스 보스 썸네일 - 울트라 배틀크루저 직접 그리기"""
+        surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        # 배경 (바다색)
+        pygame.draw.rect(surf, (30, 50, 80), (0, 0, size, size))
+        # 전함 본체 (회색 금속)
+        ship_w = int(size * 0.85)
+        ship_h = int(size * 0.35)
+        ship_x = (size - ship_w) // 2
+        ship_y = int(size * 0.35)
+        # 선체 그림자
+        pygame.draw.rect(surf, (45, 55, 65), (ship_x + 2, ship_y + 2, ship_w, ship_h))
+        # 선체 본체
+        pygame.draw.rect(surf, (75, 90, 105), (ship_x, ship_y, ship_w, ship_h))
+        # 상부 구조물 (함교)
+        bridge_w = int(size * 0.25)
+        bridge_h = int(size * 0.2)
+        bridge_x = (size - bridge_w) // 2
+        bridge_y = ship_y - bridge_h + 2
+        pygame.draw.rect(surf, (85, 100, 115), (bridge_x, bridge_y, bridge_w, bridge_h))
+        pygame.draw.rect(surf, (100, 115, 130), (bridge_x, bridge_y, bridge_w, 2))
+        # 안테나/레이더
+        ant_x = size // 2
+        pygame.draw.line(surf, (120, 130, 145), (ant_x, bridge_y), (ant_x, bridge_y - 6), 1)
+        pygame.draw.circle(surf, (140, 180, 220), (ant_x, bridge_y - 6), 2)
+        # 갑판 디테일 (장갑판)
+        for i in range(4):
+            px = ship_x + 4 + i * int(ship_w * 0.22)
+            pygame.draw.rect(surf, (95, 110, 125), (px, ship_y + 3, int(ship_w * 0.18), ship_h - 6))
+        # 포탑들
+        turret_color = (100, 115, 130)
+        pygame.draw.circle(surf, turret_color, (ship_x + 6, ship_y + ship_h // 2), 3)
+        pygame.draw.circle(surf, turret_color, (ship_x + ship_w - 6, ship_y + ship_h // 2), 3)
+        # 엔진 불꽃 (후방)
+        pygame.draw.rect(surf, (255, 150, 50), (ship_x + ship_w - 2, ship_y + 4, 4, 3))
+        pygame.draw.rect(surf, (255, 150, 50), (ship_x + ship_w - 2, ship_y + ship_h - 7, 4, 3))
+        # 파도 효과
+        wave_y = ship_y + ship_h + 3
+        pygame.draw.arc(surf, (100, 150, 200), (ship_x - 5, wave_y, 20, 8), 3.14, 6.28, 1)
+        pygame.draw.arc(surf, (100, 150, 200), (ship_x + ship_w - 15, wave_y, 20, 8), 3.14, 6.28, 1)
+        return surf
+
     try:
         for logic_stage in range(1, current_stage):
             # 스왑하지 않음 - 실제 게임 진행 순서 유지
             name = boss_names.get(logic_stage, "보스")
             # 보스 이미지 로드 (썸네일용)
-            # 이미지 파일명은 logic_stage 기준 (스왑하지 않음)
             boss_thumb = None
             try:
-                img_path = resource_path(f"boss_stage{logic_stage}.png")
-                if os.path.exists(img_path):
-                    boss_thumb = pygame.image.load(img_path).convert_alpha()
-                    boss_thumb = pygame.transform.smoothscale(boss_thumb, (boss_thumb_size, boss_thumb_size))
+                # 스테이지 5 (네메시스)는 배틀크루저 직접 그리기
+                if logic_stage == 5:
+                    boss_thumb = _create_nemesis_battlecruiser_thumb(boss_thumb_size)
+                else:
+                    # 다른 보스는 이미지 파일 로드
+                    img_path = resource_path(f"boss_stage{logic_stage}.png")
+                    if os.path.exists(img_path):
+                        boss_thumb = pygame.image.load(img_path).convert_alpha()
+                        boss_thumb = pygame.transform.smoothscale(boss_thumb, (boss_thumb_size, boss_thumb_size))
             except Exception:
                 pass
             cleared_bosses.append({"display_stage": logic_stage, "name": name, "thumb": boss_thumb})
