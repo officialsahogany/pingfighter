@@ -114,15 +114,14 @@ class PillarFireball:
         self.pulse_phase += dt * 15
 
         # 게임 영역 경계 도달 체크
+        # 경계 진입 시 실제 위치를 사용하여 자연스러운 전환 (스냅 없음)
         entered_game_area = False
         if self.side == 'left' and self.x >= self.game_area_x:
-            # 왼쪽에서 진입
+            # 왼쪽에서 진입 - 실제 위치 사용
             entered_game_area = True
-            self.x = self.game_area_x + 5  # 경계 약간 안쪽
         elif self.side == 'right' and self.x <= self.game_area_end_x:
-            # 오른쪽에서 진입
+            # 오른쪽에서 진입 - 실제 위치 사용
             entered_game_area = True
-            self.x = self.game_area_end_x - 5
 
         if entered_game_area and not self.spawned_game_fireball:
             self.spawned_game_fireball = True

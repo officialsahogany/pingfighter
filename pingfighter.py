@@ -20718,11 +20718,12 @@ def fire_snake_fireball(real_x: int, real_y: int, target_x: int, target_y: int, 
     game_start_x = (real_x - total_offset_x) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR > 0 else float(real_x)
     game_start_y = (real_y - total_offset_y) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR > 0 else float(real_y)
 
-    # X 좌표가 게임 영역 밖이면 경계로 조정
-    if game_start_x < GAME_AREA_OFFSET_X:
-        game_start_x = float(GAME_AREA_OFFSET_X + 3)
-    elif game_start_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH:
-        game_start_x = float(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 3)
+    # X 좌표가 전체 내부 영역(0~760) 밖이면 경계로 살짝 조정
+    # 필러 UI 영역(0~79, 680~759)에서 시작해도 괜찮음 - 자연스럽게 게임 영역으로 이동
+    if game_start_x < 0:
+        game_start_x = 3.0  # 왼쪽 경계
+    elif game_start_x > INTERNAL_WIDTH:
+        game_start_x = float(INTERNAL_WIDTH - 3)  # 오른쪽 경계
 
     # 타겟은 이미 내부 좌표
     game_target_x = float(target_x)
