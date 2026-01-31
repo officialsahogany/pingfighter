@@ -815,10 +815,17 @@ class PillarBackgroundRenderer:
         else:
             print(f"[PillarBG] 홍련 배경 미초기화 - 화염 콜백 대기")
 
-    def update_hongryeon_player_position(self, player_x: int, player_y: int):
-        """홍련 필러 플레이어 위치 업데이트 (뱀 조준용)"""
+    def update_hongryeon_player_position(self, player_x: int, player_y: int,
+                                          internal_x: int = None, internal_y: int = None):
+        """홍련 필러 플레이어 위치 업데이트 (뱀 조준용)
+
+        Args:
+            player_x, player_y: REAL_SCREEN 좌표 (시각적 조준용)
+            internal_x, internal_y: 내부 게임 좌표 (화염탄 생성용)
+        """
         if self._hongryeon_bg is not None:
-            self._hongryeon_bg.update_player_position(player_x, player_y)
+            self._hongryeon_bg.update_player_position(player_x, player_y,
+                                                       internal_x, internal_y)
 
     def get_hongryeon_background(self):
         """홍련 배경 인스턴스 반환"""
