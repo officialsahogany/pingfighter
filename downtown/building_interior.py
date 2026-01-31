@@ -19578,8 +19578,8 @@ class BuildingInterior:
         pygame.draw.rect(screen, cyan, (box_x, admission_y, box_w, box_h), 2)
 
         # 텍스트 "ADMISSION:"
-        if self.freetype_fonts and "menu" in self.freetype_fonts:
-            font = self.freetype_fonts["menu"]
+        if self.fonts and "small" in self.fonts:
+            font = self.fonts["small"]
             text1, _ = font.render("ADMISSION:", cyan_light)
             screen.blit(text1, (box_x + 8, admission_y + 3))
 
