@@ -2537,27 +2537,37 @@ INTERIOR_CONFIGS = {
     },
     BuildingType.COLOSSEUM: {
         "name": "고대 투기장",
-        "map_size": (18, 14),
-        "bg_color": (40, 35, 30),
-        "floor_color": (120, 100, 80),
-        "floor_pattern": "arena_sand",
-        "wall_color": (90, 80, 70),
-        "accent_color": (200, 170, 140),
-        "secondary_color": (180, 50, 50),
-        "decorations": ["pillar", "statue", "torch", "weapon_stand"],
+        "map_size": (20, 16),  # 넓은 투기장
+        "bg_color": (50, 50, 55),  # 어두운 회색 배경
+        "floor_color": (140, 100, 60),  # 나무 바닥색
+        "floor_pattern": "wood_plank",  # 나무 바닥 패턴
+        "wall_color": (75, 75, 85),  # 회색 벽돌 벽
+        "accent_color": (0, 255, 255),  # 사이언 홀로그램 색상
+        "secondary_color": (255, 150, 50),  # 횃불 오렌지
+        "decorations": ["torch", "barrel", "monitor", "shelf", "hologram_warrior"],
         "main_npc": {
-            "name": "투기장 관리인",
-            "color": (200, 170, 140),
-            "position": (0.5, 0.25),
+            "name": "아레나 마스터",
+            "color": (0, 200, 200),  # 사이언 색상
+            "position": (0.5, 0.22),  # 홀로그램 앞 중앙
             "dialogue": [
-                "고대 투기장에 오신 것을 환영하오.",
-                "이곳에서 전사들이 싸우게 되지.",
-                "아직 대회 준비 중이라오.",
-                "곧 투기가 시작될 거요."
+                "고대 투기장에 오신 것을 환영한다.",
+                "입장료는 100 골드다.",
+                "이곳에서 최강의 전사들이 겨룬다.",
+                "네 실력을 보여줄 준비가 되었는가?"
             ]
         },
-        "customer_range": (2, 4),
+        "extra_npcs": [
+            {"name": "검투사 브루투스", "role": "gladiator", "position": (0.25, 0.5)},
+            {"name": "검투사 스파르타쿠스", "role": "gladiator", "position": (0.75, 0.5)},
+            {"name": "사이버 용병", "role": "mercenary", "position": (0.15, 0.35)},
+            {"name": "기계 전사", "role": "mercenary", "position": (0.85, 0.35)},
+            {"name": "관람객", "role": "customer", "position": (0.1, 0.7)},
+            {"name": "관람객", "role": "customer", "position": (0.9, 0.7)},
+        ],
+        "customer_range": (4, 8),  # 많은 관람객
         "staff_count": 2,
+        "special_interior": "colosseum",  # 특수 인테리어 플래그
+        "admission_fee": 100,  # 입장료 100 골드
     },
     BuildingType.PET_SHOP: {
         "name": "숲의 펫샵",
@@ -7160,6 +7170,9 @@ class BuildingInterior:
         elif special_interior == "tavern":
             # 선술집 전용 인테리어
             self._draw_tavern_interior(screen)
+        elif special_interior == "colosseum":
+            # 고대 투기장 전용 인테리어
+            self._draw_colosseum_interior(screen)
         else:
             # 기본 인테리어
             # 배경
@@ -19279,3 +19292,526 @@ class BuildingInterior:
             pygame.draw.rect(screen, (52, 48, 42), (dx - 8, dy - 4, 16, 22), border_radius=3)
             glass = tuple(int(c * glow_p) for c in lantern_glow)
             pygame.draw.rect(screen, glass, (dx - 6, dy, 12, 15), border_radius=1)
+
+    # =========================================================================
+    # 고대 투기장 인테리어 (Medieval + Cyberpunk Mix)
+    # =========================================================================
+    def _draw_colosseum_interior(self, screen):
+        """고대 투기장 전용 인테리어 - 중세+사이버펑크 혼합 스타일"""
+        import math
+
+        # 색상 팔레트 (중세 + 사이버펑크)
+        BG_DARK = (45, 45, 50)
+        STONE_WALL = (75, 75, 85)
+        STONE_WALL_DARK = (55, 55, 65)
+        STONE_WALL_LIGHT = (95, 95, 105)
+        STONE_BRICK = (65, 65, 75)
+        WOOD_FLOOR = (140, 100, 60)
+        WOOD_FLOOR_DARK = (110, 75, 45)
+        WOOD_FLOOR_LIGHT = (165, 120, 75)
+        WOOD_PLANK_LINE = (95, 65, 40)
+        BARREL_WOOD = (95, 65, 40)
+        BARREL_DARK = (65, 45, 25)
+        BARREL_METAL = (72, 68, 60)
+        TORCH_ORANGE = (255, 150, 50)
+        TORCH_YELLOW = (255, 220, 100)
+        TORCH_RED = (255, 80, 30)
+        CYAN_GLOW = (0, 255, 255)
+        CYAN_DARK = (0, 180, 180)
+        CYAN_LIGHT = (100, 255, 255)
+        MONITOR_FRAME = (50, 55, 60)
+        MONITOR_SCREEN = (20, 40, 50)
+        SHELF_WOOD = (85, 60, 40)
+
+        cam_x, cam_y = self.camera_offset
+        anim = self.animation_timer
+
+        # === 1. 배경 ===
+        screen.fill(BG_DARK)
+
+        # === 2. 나무 판자 바닥 (세로 줄무늬) ===
+        self._draw_colosseum_wood_floor(screen, cam_x, cam_y, WOOD_FLOOR, WOOD_FLOOR_DARK,
+                                        WOOD_FLOOR_LIGHT, WOOD_PLANK_LINE)
+
+        # === 3. 회색 벽돌 벽 ===
+        wall_h = int(TILE_SIZE * 4)
+        self._draw_colosseum_stone_walls(screen, cam_x, cam_y, wall_h, STONE_WALL, STONE_WALL_DARK,
+                                         STONE_WALL_LIGHT, STONE_BRICK)
+
+        # === 4. 횃불 4개 (벽에) ===
+        torch_positions = [
+            (int(TILE_SIZE * 2), int(TILE_SIZE * 1.5)),
+            (self.pixel_width - int(TILE_SIZE * 2), int(TILE_SIZE * 1.5)),
+            (int(TILE_SIZE * 2), int(TILE_SIZE * 3)),
+            (self.pixel_width - int(TILE_SIZE * 2), int(TILE_SIZE * 3)),
+        ]
+        for tx, ty in torch_positions:
+            self._draw_colosseum_torch(screen, tx - cam_x, ty - cam_y, anim,
+                                       TORCH_ORANGE, TORCH_YELLOW, TORCH_RED)
+
+        # === 5. 중앙 홀로그램 전사 + 입장료 표시 ===
+        holo_x = self.pixel_width // 2
+        holo_y = int(TILE_SIZE * 1.8)
+        self._draw_colosseum_hologram(screen, holo_x - cam_x, holo_y - cam_y, anim,
+                                      CYAN_GLOW, CYAN_DARK, CYAN_LIGHT)
+
+        # === 6. 양쪽 모니터/선반 ===
+        # 좌측 상단
+        self._draw_colosseum_monitor(screen, int(TILE_SIZE * 0.8) - cam_x, int(TILE_SIZE * 0.8) - cam_y,
+                                     MONITOR_FRAME, MONITOR_SCREEN, CYAN_GLOW, anim)
+        # 우측 상단
+        self._draw_colosseum_monitor(screen, self.pixel_width - int(TILE_SIZE * 3) - cam_x,
+                                     int(TILE_SIZE * 0.8) - cam_y, MONITOR_FRAME, MONITOR_SCREEN, CYAN_GLOW, anim)
+
+        # === 7. 나무 통들 ===
+        barrel_positions = [
+            (int(TILE_SIZE * 4.5), int(TILE_SIZE * 1)),
+            (self.pixel_width - int(TILE_SIZE * 5.5), int(TILE_SIZE * 1)),
+        ]
+        for bx, by in barrel_positions:
+            self._draw_colosseum_barrel(screen, bx - cam_x, by - cam_y, BARREL_WOOD, BARREL_DARK, BARREL_METAL)
+
+        # === 8. 좌우 선반 ===
+        self._draw_colosseum_shelf(screen, int(TILE_SIZE * 0.5) - cam_x, int(TILE_SIZE * 2.5) - cam_y, SHELF_WOOD)
+        self._draw_colosseum_shelf(screen, self.pixel_width - int(TILE_SIZE * 2.5) - cam_x,
+                                   int(TILE_SIZE * 2.5) - cam_y, SHELF_WOOD)
+
+        # === 9. 하단 좌우 모니터/의자 ===
+        self._draw_colosseum_side_monitor(screen, int(TILE_SIZE * 0.5) - cam_x,
+                                          self.pixel_height - int(TILE_SIZE * 4) - cam_y,
+                                          MONITOR_FRAME, MONITOR_SCREEN, CYAN_GLOW, anim)
+        self._draw_colosseum_side_monitor(screen, self.pixel_width - int(TILE_SIZE * 2.5) - cam_x,
+                                          self.pixel_height - int(TILE_SIZE * 4) - cam_y,
+                                          MONITOR_FRAME, MONITOR_SCREEN, CYAN_GLOW, anim)
+
+        # === 10. NPC들 (검투사, 사이버 용병, 관람객) ===
+        self._draw_colosseum_npcs(screen, cam_x, cam_y, anim)
+
+        # === 11. 충돌 영역 ===
+        self.shop_obstacle_rects = []
+        self.shop_obstacle_rects.append(pygame.Rect(0, 0, self.pixel_width, wall_h - int(TILE_SIZE * 0.2)))
+
+        # === 12. 문 ===
+        self._draw_door(screen)
+
+    def _draw_colosseum_wood_floor(self, screen, cam_x, cam_y, floor_color, floor_dark, floor_light, line_color):
+        """투기장 나무 판자 바닥 (세로 줄무늬)"""
+        plank_w = int(TILE_SIZE * 0.6)
+
+        for px in range(-plank_w, self.pixel_width + plank_w, plank_w):
+            # 줄마다 색상 변화
+            col_idx = (px // plank_w) % 3
+            if col_idx == 0:
+                color = floor_color
+            elif col_idx == 1:
+                color = floor_dark
+            else:
+                color = floor_light
+
+            draw_x = px - int(cam_x) % plank_w
+            pygame.draw.rect(screen, color, (draw_x, 0, plank_w, SCREEN_HEIGHT))
+
+            # 판자 경계선
+            pygame.draw.line(screen, line_color, (draw_x, 0), (draw_x, SCREEN_HEIGHT), 1)
+
+            # 가로 나뭇결 (랜덤한 위치에)
+            import random
+            random.seed(px)
+            for _ in range(5):
+                grain_y = random.randint(0, SCREEN_HEIGHT)
+                grain_len = random.randint(10, 25)
+                darker = tuple(max(0, c - 20) for c in color)
+                pygame.draw.line(screen, darker, (draw_x + 5, grain_y), (draw_x + 5 + grain_len, grain_y), 1)
+
+    def _draw_colosseum_stone_walls(self, screen, cam_x, cam_y, wall_h, wall_color, wall_dark, wall_light, brick_color):
+        """투기장 회색 벽돌 벽"""
+        # 벽 배경
+        wall_rect = pygame.Rect(0, -cam_y, self.pixel_width, wall_h)
+        pygame.draw.rect(screen, wall_color, wall_rect)
+
+        # 벽돌 패턴
+        brick_h = int(TILE_SIZE * 0.4)
+        brick_w = int(TILE_SIZE * 0.8)
+
+        for row in range(wall_h // brick_h + 1):
+            row_offset = (row % 2) * (brick_w // 2)
+            for col in range(-1, self.pixel_width // brick_w + 2):
+                bx = col * brick_w + row_offset - int(cam_x) % brick_w
+                by = row * brick_h - int(cam_y) % brick_h
+
+                if by > wall_h:
+                    continue
+
+                # 벽돌 그림자/하이라이트
+                brick_rect = pygame.Rect(bx, by, brick_w - 2, brick_h - 2)
+                pygame.draw.rect(screen, brick_color, brick_rect)
+                pygame.draw.line(screen, wall_light, (bx, by), (bx + brick_w - 3, by), 1)
+                pygame.draw.line(screen, wall_light, (bx, by), (bx, by + brick_h - 3), 1)
+                pygame.draw.line(screen, wall_dark, (bx, by + brick_h - 3), (bx + brick_w - 3, by + brick_h - 3), 1)
+                pygame.draw.line(screen, wall_dark, (bx + brick_w - 3, by), (bx + brick_w - 3, by + brick_h - 3), 1)
+
+        # 벽 하단 경계
+        pygame.draw.line(screen, wall_dark, (0, wall_h - cam_y), (self.pixel_width, wall_h - cam_y), 3)
+
+    def _draw_colosseum_torch(self, screen, x, y, anim, orange, yellow, red):
+        """투기장 횃불"""
+        import math
+
+        # 횃불대
+        pygame.draw.rect(screen, (60, 45, 30), (x - 4, y, 8, 35))
+        pygame.draw.rect(screen, (80, 60, 40), (x - 6, y + 30, 12, 8))
+
+        # 불꽃 애니메이션
+        flame_offset = math.sin(anim * 8) * 3
+        flame_h = 25 + math.sin(anim * 10) * 5
+
+        # 불꽃 글로우
+        glow_size = int(40 + math.sin(anim * 6) * 8)
+        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+        for i in range(4):
+            alpha = 60 - i * 15
+            pygame.draw.circle(glow_surf, (*orange[:3], alpha), (glow_size, glow_size), glow_size - i * 8)
+        screen.blit(glow_surf, (x - glow_size, y - 20 - glow_size))
+
+        # 불꽃 본체
+        flame_points = [
+            (x, y - 5),
+            (x - 8 + flame_offset, y - 15),
+            (x - 5, y - flame_h),
+            (x, y - flame_h - 5),
+            (x + 5, y - flame_h),
+            (x + 8 - flame_offset, y - 15),
+        ]
+        pygame.draw.polygon(screen, orange, flame_points)
+
+        # 내부 불꽃
+        inner_points = [
+            (x, y - 8),
+            (x - 4 + flame_offset * 0.5, y - 15),
+            (x, y - flame_h + 8),
+            (x + 4 - flame_offset * 0.5, y - 15),
+        ]
+        pygame.draw.polygon(screen, yellow, inner_points)
+
+        # 중심 불꽃
+        core_h = flame_h * 0.4
+        pygame.draw.ellipse(screen, (255, 255, 200), (x - 2, y - 10 - core_h, 4, core_h))
+
+    def _draw_colosseum_hologram(self, screen, x, y, anim, cyan, cyan_dark, cyan_light):
+        """투기장 중앙 홀로그램 전사 + 입장료 표시"""
+        import math
+
+        # 홀로그램 프레임 (사각형 테두리)
+        frame_w, frame_h = 120, 150
+        frame_x = x - frame_w // 2
+        frame_y = y - 20
+
+        # 스캔라인 효과
+        scan_offset = int((anim * 50) % frame_h)
+
+        # 프레임 배경 (반투명 사이언)
+        frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
+        pygame.draw.rect(frame_surf, (*cyan_dark[:3], 40), (0, 0, frame_w, frame_h))
+
+        # 스캔라인
+        for sy in range(0, frame_h, 3):
+            alpha = 20 + 15 * abs(math.sin((sy + scan_offset) * 0.1))
+            pygame.draw.line(frame_surf, (*cyan[:3], int(alpha)), (0, sy), (frame_w, sy), 1)
+
+        screen.blit(frame_surf, (frame_x, frame_y))
+
+        # 프레임 테두리
+        pygame.draw.rect(screen, cyan, (frame_x, frame_y, frame_w, frame_h), 2)
+
+        # 코너 장식
+        corner_size = 10
+        for cx, cy in [(frame_x, frame_y), (frame_x + frame_w - corner_size, frame_y),
+                       (frame_x, frame_y + frame_h - corner_size), (frame_x + frame_w - corner_size, frame_y + frame_h - corner_size)]:
+            pygame.draw.rect(screen, cyan_light, (cx, cy, corner_size, corner_size), 2)
+
+        # 홀로그램 전사 (실루엣)
+        warrior_x = x
+        warrior_y = y + 40
+
+        # 머리 (헬멧)
+        helmet_glow = int(200 + 55 * math.sin(anim * 3))
+        head_color = (0, helmet_glow, helmet_glow)
+        pygame.draw.ellipse(screen, head_color, (warrior_x - 15, warrior_y - 50, 30, 35))
+        pygame.draw.rect(screen, cyan_dark, (warrior_x - 12, warrior_y - 35, 24, 5))  # 바이저
+
+        # 몸통 (아머)
+        pygame.draw.rect(screen, head_color, (warrior_x - 20, warrior_y - 15, 40, 50))
+        pygame.draw.rect(screen, cyan_light, (warrior_x - 18, warrior_y - 10, 36, 3), 1)
+        pygame.draw.rect(screen, cyan_light, (warrior_x - 18, warrior_y + 5, 36, 3), 1)
+        pygame.draw.rect(screen, cyan_light, (warrior_x - 18, warrior_y + 20, 36, 3), 1)
+
+        # 어깨 패드
+        pygame.draw.rect(screen, head_color, (warrior_x - 30, warrior_y - 15, 15, 20))
+        pygame.draw.rect(screen, head_color, (warrior_x + 15, warrior_y - 15, 15, 20))
+
+        # 다리
+        pygame.draw.rect(screen, head_color, (warrior_x - 15, warrior_y + 35, 12, 35))
+        pygame.draw.rect(screen, head_color, (warrior_x + 3, warrior_y + 35, 12, 35))
+
+        # 팔
+        pygame.draw.rect(screen, head_color, (warrior_x - 35, warrior_y - 5, 10, 40))
+        pygame.draw.rect(screen, head_color, (warrior_x + 25, warrior_y - 5, 10, 40))
+
+        # 글리치 효과
+        if int(anim * 10) % 20 == 0:
+            glitch_y = warrior_y + int(math.sin(anim * 50) * 30)
+            pygame.draw.line(screen, cyan_light, (warrior_x - 25, glitch_y), (warrior_x + 25, glitch_y), 2)
+
+        # === 입장료 표시 ===
+        admission_y = frame_y + frame_h + 10
+
+        # 배경 박스
+        box_w, box_h = 100, 35
+        box_x = x - box_w // 2
+        pygame.draw.rect(screen, (*cyan_dark[:3], 180), (box_x, admission_y, box_w, box_h))
+        pygame.draw.rect(screen, cyan, (box_x, admission_y, box_w, box_h), 2)
+
+        # 텍스트 "ADMISSION:"
+        if self.freetype_fonts and "menu" in self.freetype_fonts:
+            font = self.freetype_fonts["menu"]
+            text1, _ = font.render("ADMISSION:", cyan_light)
+            screen.blit(text1, (box_x + 8, admission_y + 3))
+
+            # "100 GOLD"
+            text2, _ = font.render("100 GOLD", (255, 215, 0))
+            screen.blit(text2, (box_x + 15, admission_y + 18))
+
+    def _draw_colosseum_monitor(self, screen, x, y, frame_color, screen_color, glow_color, anim):
+        """투기장 벽면 모니터"""
+        import math
+
+        # 모니터 프레임
+        mon_w, mon_h = 60, 45
+        pygame.draw.rect(screen, frame_color, (x, y, mon_w, mon_h))
+        pygame.draw.rect(screen, (40, 45, 50), (x + 2, y + 2, mon_w - 4, mon_h - 4))
+
+        # 화면
+        pygame.draw.rect(screen, screen_color, (x + 4, y + 4, mon_w - 8, mon_h - 8))
+
+        # 스캔라인
+        for sy in range(y + 4, y + mon_h - 4, 2):
+            alpha = 30 + 20 * abs(math.sin((sy + anim * 30) * 0.2))
+            pygame.draw.line(screen, (*glow_color[:3], int(alpha)), (x + 4, sy), (x + mon_w - 4, sy), 1)
+
+        # 데이터 표시 (랜덤 바)
+        import random
+        random.seed(int(anim * 2))
+        for i in range(3):
+            bar_w = random.randint(10, 35)
+            bar_y = y + 10 + i * 10
+            pygame.draw.rect(screen, glow_color, (x + 8, bar_y, bar_w, 4))
+
+    def _draw_colosseum_barrel(self, screen, x, y, wood_color, dark_color, metal_color):
+        """투기장 나무 통"""
+        # 통 몸체
+        barrel_w, barrel_h = 30, 40
+        pygame.draw.ellipse(screen, wood_color, (x, y, barrel_w, barrel_h))
+
+        # 통 테두리 (금속 밴드)
+        for band_y in [y + 8, y + barrel_h - 12]:
+            pygame.draw.ellipse(screen, metal_color, (x - 2, band_y, barrel_w + 4, 6), 2)
+
+        # 하이라이트
+        pygame.draw.arc(screen, (wood_color[0] + 30, wood_color[1] + 30, wood_color[2] + 30),
+                        (x + 5, y + 5, barrel_w - 10, barrel_h - 10), 0.5, 2.5, 2)
+
+        # 그림자
+        pygame.draw.arc(screen, dark_color, (x + 5, y + 5, barrel_w - 10, barrel_h - 10), 3.5, 5.5, 3)
+
+    def _draw_colosseum_shelf(self, screen, x, y, wood_color):
+        """투기장 선반"""
+        shelf_w, shelf_h = 60, 50
+        pygame.draw.rect(screen, wood_color, (x, y, shelf_w, shelf_h))
+        pygame.draw.rect(screen, (wood_color[0] - 20, wood_color[1] - 20, wood_color[2] - 20),
+                         (x, y, shelf_w, shelf_h), 2)
+
+        # 선반 칸막이
+        pygame.draw.line(screen, (wood_color[0] - 15, wood_color[1] - 15, wood_color[2] - 15),
+                         (x, y + shelf_h // 2), (x + shelf_w, y + shelf_h // 2), 2)
+
+        # 물건들 (작은 박스들)
+        item_colors = [(100, 80, 60), (60, 100, 80), (80, 60, 100)]
+        for i, ic in enumerate(item_colors):
+            ix = x + 8 + i * 18
+            iy = y + 5
+            pygame.draw.rect(screen, ic, (ix, iy, 12, 15))
+
+    def _draw_colosseum_side_monitor(self, screen, x, y, frame_color, screen_color, glow_color, anim):
+        """투기장 하단 사이드 모니터 + 의자"""
+        import math
+
+        # 책상
+        desk_w, desk_h = 70, 25
+        pygame.draw.rect(screen, (70, 55, 40), (x - 5, y + 40, desk_w, desk_h))
+
+        # 모니터
+        mon_w, mon_h = 50, 40
+        pygame.draw.rect(screen, frame_color, (x + 5, y, mon_w, mon_h))
+        pygame.draw.rect(screen, screen_color, (x + 8, y + 3, mon_w - 6, mon_h - 6))
+
+        # 화면 내용
+        for sy in range(y + 5, y + mon_h - 5, 3):
+            alpha = 40 + 30 * abs(math.sin((sy + anim * 25) * 0.15))
+            pygame.draw.line(screen, (*glow_color[:3], int(alpha)), (x + 10, sy), (x + mon_w, sy), 1)
+
+        # 의자
+        chair_x = x + 15
+        chair_y = y + desk_h + 40
+        pygame.draw.rect(screen, (50, 50, 55), (chair_x, chair_y, 25, 20))
+        pygame.draw.rect(screen, (60, 60, 65), (chair_x, chair_y - 25, 25, 25))
+
+    def _draw_colosseum_npcs(self, screen, cam_x, cam_y, anim):
+        """투기장 NPC들 (검투사, 사이버 용병, 관람객)"""
+        import math
+
+        # NPC 위치 및 타입
+        npcs = [
+            # (x비율, y비율, 타입, 방향)
+            (0.15, 0.45, "gladiator", "right"),
+            (0.85, 0.45, "gladiator", "left"),
+            (0.25, 0.55, "cyber_merc", "right"),
+            (0.75, 0.55, "cyber_merc", "left"),
+            (0.3, 0.7, "spectator", "up"),
+            (0.5, 0.65, "spectator", "up"),
+            (0.7, 0.7, "spectator", "up"),
+            (0.1, 0.8, "spectator_sit", "right"),
+            (0.9, 0.8, "spectator_sit", "left"),
+        ]
+
+        for nx_ratio, ny_ratio, npc_type, direction in npcs:
+            nx = int(self.pixel_width * nx_ratio) - cam_x
+            ny = int(self.pixel_height * ny_ratio) - cam_y
+
+            if npc_type == "gladiator":
+                self._draw_colosseum_gladiator(screen, nx, ny, anim, direction)
+            elif npc_type == "cyber_merc":
+                self._draw_colosseum_cyber_merc(screen, nx, ny, anim, direction)
+            elif npc_type == "spectator":
+                self._draw_colosseum_spectator(screen, nx, ny, anim)
+            elif npc_type == "spectator_sit":
+                self._draw_colosseum_spectator_sitting(screen, nx, ny, anim, direction)
+
+    def _draw_colosseum_gladiator(self, screen, x, y, anim, direction):
+        """검투사 NPC"""
+        import math
+
+        # 호흡 애니메이션
+        breath = math.sin(anim * 2) * 2
+
+        # 몸체 색상
+        armor_color = (80, 75, 70)
+        armor_light = (100, 95, 90)
+        skin_color = (180, 140, 110)
+
+        # 머리 (헬멧)
+        pygame.draw.ellipse(screen, armor_color, (x - 10, y - 35 + breath, 20, 22))
+        pygame.draw.rect(screen, (60, 60, 65), (x - 8, y - 25 + breath, 16, 4))  # 바이저
+
+        # 몸통
+        pygame.draw.rect(screen, armor_color, (x - 12, y - 12 + breath, 24, 30))
+        pygame.draw.rect(screen, armor_light, (x - 10, y - 8 + breath, 20, 3), 1)
+        pygame.draw.rect(screen, armor_light, (x - 10, y + 2 + breath, 20, 3), 1)
+
+        # 어깨 패드
+        pygame.draw.rect(screen, armor_color, (x - 18, y - 12 + breath, 8, 15))
+        pygame.draw.rect(screen, armor_color, (x + 10, y - 12 + breath, 8, 15))
+
+        # 팔
+        pygame.draw.rect(screen, skin_color, (x - 20, y + breath, 6, 20))
+        pygame.draw.rect(screen, skin_color, (x + 14, y + breath, 6, 20))
+
+        # 다리
+        pygame.draw.rect(screen, (60, 55, 50), (x - 8, y + 18 + breath, 7, 22))
+        pygame.draw.rect(screen, (60, 55, 50), (x + 1, y + 18 + breath, 7, 22))
+
+        # 검 (방향에 따라)
+        sword_x = x + 20 if direction == "right" else x - 25
+        pygame.draw.rect(screen, (150, 150, 160), (sword_x, y - 10 + breath, 5, 35))
+        pygame.draw.rect(screen, (100, 80, 60), (sword_x - 3, y + 20 + breath, 11, 6))
+
+    def _draw_colosseum_cyber_merc(self, screen, x, y, anim, direction):
+        """사이버 용병 NPC"""
+        import math
+
+        breath = math.sin(anim * 2.5) * 1.5
+
+        # 색상
+        armor_color = (50, 55, 60)
+        visor_color = (0, 200, 200)
+        visor_glow = int(180 + 75 * math.sin(anim * 4))
+
+        # 머리 (사이버 헬멧)
+        pygame.draw.ellipse(screen, armor_color, (x - 10, y - 35 + breath, 20, 22))
+        pygame.draw.rect(screen, (0, visor_glow, visor_glow), (x - 7, y - 28 + breath, 14, 4))
+
+        # 몸통 (택티컬 아머)
+        pygame.draw.rect(screen, armor_color, (x - 12, y - 12 + breath, 24, 30))
+
+        # 사이언 라이트
+        pygame.draw.line(screen, visor_color, (x - 8, y - 5 + breath), (x + 8, y - 5 + breath), 2)
+        pygame.draw.line(screen, visor_color, (x - 8, y + 5 + breath), (x + 8, y + 5 + breath), 2)
+
+        # 팔
+        pygame.draw.rect(screen, armor_color, (x - 18, y - 8 + breath, 8, 25))
+        pygame.draw.rect(screen, armor_color, (x + 10, y - 8 + breath, 8, 25))
+
+        # 다리
+        pygame.draw.rect(screen, (40, 45, 50), (x - 8, y + 18 + breath, 7, 22))
+        pygame.draw.rect(screen, (40, 45, 50), (x + 1, y + 18 + breath, 7, 22))
+
+        # 무기 (에너지 라이플)
+        weapon_x = x + 18 if direction == "right" else x - 25
+        pygame.draw.rect(screen, (60, 65, 70), (weapon_x, y + breath, 7, 25))
+        pygame.draw.rect(screen, visor_color, (weapon_x + 1, y + 2 + breath, 5, 3))
+
+    def _draw_colosseum_spectator(self, screen, x, y, anim):
+        """관람객 NPC (서있는)"""
+        import math
+        import random
+
+        random.seed(int(x + y))
+        breath = math.sin(anim * 1.8 + x * 0.1) * 1
+
+        # 랜덤 색상
+        clothes_colors = [(120, 80, 60), (80, 100, 120), (100, 80, 100), (80, 120, 80)]
+        clothes = random.choice(clothes_colors)
+        skin = (200, 160, 130)
+
+        # 머리
+        pygame.draw.ellipse(screen, skin, (x - 7, y - 28 + breath, 14, 16))
+
+        # 몸통
+        pygame.draw.rect(screen, clothes, (x - 9, y - 12 + breath, 18, 25))
+
+        # 다리
+        pygame.draw.rect(screen, (50, 50, 55), (x - 6, y + 13 + breath, 5, 18))
+        pygame.draw.rect(screen, (50, 50, 55), (x + 1, y + 13 + breath, 5, 18))
+
+    def _draw_colosseum_spectator_sitting(self, screen, x, y, anim, direction):
+        """관람객 NPC (앉아있는)"""
+        import math
+        import random
+
+        random.seed(int(x + y + 100))
+        breath = math.sin(anim * 1.5 + x * 0.15) * 0.5
+
+        clothes_colors = [(100, 70, 50), (70, 90, 110), (90, 70, 90)]
+        clothes = random.choice(clothes_colors)
+        skin = (190, 150, 120)
+
+        # 의자
+        pygame.draw.rect(screen, (55, 50, 45), (x - 12, y + 5, 24, 15))
+
+        # 머리
+        pygame.draw.ellipse(screen, skin, (x - 6, y - 18 + breath, 12, 14))
+
+        # 몸통
+        pygame.draw.rect(screen, clothes, (x - 8, y - 4 + breath, 16, 18))
+
+        # 다리 (앉은 자세)
+        pygame.draw.rect(screen, (45, 45, 50), (x - 6, y + 10, 12, 8))

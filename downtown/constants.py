@@ -220,7 +220,7 @@ BUILDING_INFO = {
 # 나중에 구현이 완료되면 이 목록에서 제거하면 영업정지 해제됨
 # =============================================================================
 CLOSED_BUILDINGS = {
-    BuildingType.COLOSSEUM,      # 고대 투기장
+    # BuildingType.COLOSSEUM,    # 고대 투기장 (영업 개시!)
     # BuildingType.BLACKSMITH,   # 용광로 대장간 (영업 개시!)
     BuildingType.MAGIC_STORE,    # 마법 성소
     BuildingType.PET_SHOP,       # 숲의 펫샵
