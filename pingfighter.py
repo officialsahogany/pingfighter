@@ -92554,11 +92554,8 @@ def show_victory_screen(stage_cleared, reward):
 
     # === 패널 높이 동적 계산 (항목 수에 따라) ===
     _breakdown_count = len([k for k in animation_states if k not in ('total', 'enraged')])
-    # 이번 스테이지 획득 아이템 수 미리 계산
+    # 이번 스테이지 획득 아이템 수 미리 계산 (패시브 아이템만)
     _pre_num_items = 0
-    for _pi in active_item_slot:
-        if _pi and id(_pi) not in _items_snapshot_at_stage_start:
-            _pre_num_items += 1
     for _pi in passive_item_list:
         if _pi and id(_pi) not in _items_snapshot_at_stage_start:
             _pre_num_items += 1
@@ -92937,11 +92934,8 @@ def show_victory_screen(stage_cleared, reward):
             SCREEN.blit(total_label, (game_center_x - 100, skill_point_y))
             SCREEN.blit(total_value, (game_center_x + 20, skill_point_y - 3))
 
-        # === 획득한 런타임 아이템 표시 (이번 스테이지에서 획득한 것만) ===
+        # === 획득한 런타임 아이템 표시 (이번 스테이지에서 획득한 패시브 아이템만) ===
         all_acquired_items = []
-        for _vi in active_item_slot:
-            if _vi and id(_vi) not in _items_snapshot_at_stage_start:
-                all_acquired_items.append(_vi)
         for _vi in passive_item_list:
             if _vi and id(_vi) not in _items_snapshot_at_stage_start:
                 all_acquired_items.append(_vi)
