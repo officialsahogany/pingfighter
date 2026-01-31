@@ -82841,6 +82841,10 @@ def activate_nemesis_sub_boss_skill():
     global nemesis_sub_boss_skill_cooldown, nemesis_sub_boss_barrier_active
     global nemesis_sub_boss_electric_particles
 
+    # 보조 보스(배슬)가 파괴된 상태면 스킬 발동 불가 (배슬 전용 스킬)
+    if not nemesis_sub_boss_alive:
+        return False
+
     current_time = pygame.time.get_ticks()
 
     # 쿨타임 체크 (45초 = 45000ms)
@@ -82872,8 +82876,12 @@ def update_nemesis_sub_boss_skill():
     global nemesis_sub_boss_barrier_active, nemesis_sub_boss_electric_particles
     global nemesis_sub_boss_skill_cooldown
 
-    # 사망 상태면 스킬 업데이트하지 않음
+    # 사망 상태면 활성화된 스킬/방어막 즉시 해제 후 종료 (배슬 전용 스킬)
     if not nemesis_sub_boss_alive:
+        if nemesis_sub_boss_skill_active or nemesis_sub_boss_barrier_active:
+            nemesis_sub_boss_skill_active = False
+            nemesis_sub_boss_barrier_active = False
+            nemesis_sub_boss_electric_particles = []
         return
 
     current_time = pygame.time.get_ticks()
@@ -111363,10 +111371,15 @@ def reset_round(is_stage_start=False):
 
     # 스테이지 6 (네메시스) 보조 보스 전기 스킬 최초 발동 (3점 획득 후 다음 라운드)
     # 재발동은 update_nemesis_sub_boss_skill()에서 쿨타임 기반으로 자동 처리
-    if current_stage == 6 and not is_stage_start and nemesis_sub_boss_skill_triggered:
+    # 단, 보조 보스(배슬)가 살아있을 때만 발동 (배슬 전용 스킬)
+    if current_stage == 6 and not is_stage_start and nemesis_sub_boss_skill_triggered and nemesis_sub_boss_alive:
         if activate_nemesis_sub_boss_skill():
             print("[Stage5 네메시스] 보조 보스 전기 에너지 스킬 발동! (3점 획득 후)")
             nemesis_sub_boss_skill_triggered = False  # 발동 후 플래그 리셋
+    elif current_stage == 6 and not is_stage_start and nemesis_sub_boss_skill_triggered and not nemesis_sub_boss_alive:
+        # 배슬이 파괴된 상태에서 스킬 예약이 있으면 취소
+        nemesis_sub_boss_skill_triggered = False
+        print("[Stage5 네메시스] 보조 보스 파괴됨 - 전기 스킬 예약 취소")
 
     # 스테이지 6 (네메시스) 인터셉터 초기화 - 스테이지 시작 시 난이도별 소환
     global interceptors, interceptor_launch_time, interceptor_cooldown
@@ -116755,7 +116768,8 @@ def handle_ball():
                 pillar_renderer.activate_crystal_shield(boss_center_x, boss_center_y)
 
             # Stage 5 네메시스에서 플레이어가 3점 획득 시 다음 라운드에 스킬 발동 예약 (코드상 stage 6 = 실제 스테이지 5 네메시스)
-            if current_stage == 6 and round_wins == 3:
+            # 단, 보조 보스(배슬)가 살아있을 때만 예약 (배슬 전용 스킬)
+            if current_stage == 6 and round_wins == 3 and nemesis_sub_boss_alive:
                 nemesis_sub_boss_skill_triggered = True
                 print("[Stage5 네메시스] 보조 보스 전기 스킬 다음 라운드 발동 예약!")
 
