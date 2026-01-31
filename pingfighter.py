@@ -20439,13 +20439,15 @@ def sync_equipped_passive_effects():
                         hammer = legendary_manager.get_item("ragnarok_hammer")
                         if hammer:
                             hammer.enhancement_bonus_pct = hammer_item.get("enhancement_bonus_pct", 0)
-                # 신성 월계수: 강화 보너스 동기화
+                # 신성 월계수: 강화 보너스 동기화 + 잎 개수 갱신
                 if legend_name == "sacred_laurel":
                     laurel_item = next((item for item in equipped_items if item.get("name") == "sacred_laurel"), None)
                     if laurel_item:
                         laurel = legendary_manager.get_item("sacred_laurel")
                         if laurel:
                             laurel.enhancement_bonus_pct = laurel_item.get("enhancement_bonus_pct", 0)
+                            # 강화 보너스 적용 후 잎 개수 갱신 (이미 활성화된 경우)
+                            laurel.refresh_leaves()
                 # 천사의 가호: 강화 보너스 동기화
                 if legend_name == "angel_blessing":
                     blessing_item = next((item for item in equipped_items if item.get("name") == "angel_blessing"), None)
@@ -20692,6 +20694,10 @@ def fire_snake_fireball(start_x: int, start_y: int, target_x: int, target_y: int
         target_x, target_y: 플레이어 위치 (REAL_SCREEN 좌표)
     """
     global fireballs
+
+    # 디버그: 원본 좌표 확인
+    print(f"[뱀화염탄 DEBUG] 원본좌표: start=({start_x}, {start_y}), target=({target_x}, {target_y})")
+    print(f"[뱀화염탄 DEBUG] OFFSET=({GAME_OFFSET_X}, {GAME_OFFSET_Y}), SCALE={GAME_SCALE_FACTOR}")
 
     # REAL_SCREEN 좌표를 게임 좌표로 변환
     # (스케일링 역변환)

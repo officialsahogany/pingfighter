@@ -16358,6 +16358,13 @@ class BuildingInterior:
             item["enhancement_level"] = current_level + 1
             # 롤옵션 보너스 업데이트
             self._update_roll_option_bonus(item)
+            # 전설 아이템 강화 시 효과 동기화 (잎 개수 갱신 등)
+            try:
+                import pingfighter
+                if hasattr(pingfighter, 'sync_equipped_passive_effects'):
+                    pingfighter.sync_equipped_passive_effects()
+            except Exception:
+                pass
 
         elif result == "maintain":
             # 강화 유지: 변경 없음

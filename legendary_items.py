@@ -3420,6 +3420,48 @@ class SacredLaurel(LegendaryItem):
         self.respawn_timer = 0
         self.leaf_regen_timer = 0
 
+    def refresh_leaves(self):
+        """강화 보너스 변경 시 잎 개수를 max_leaves에 맞게 조정"""
+        if not self.active:
+            return
+        import math
+        import random
+
+        current_count = len(self.leaves)
+        target_count = self.max_leaves
+
+        if current_count == target_count:
+            return  # 변경 없음
+
+        if current_count < target_count:
+            # 잎 추가 (부족한 만큼)
+            for i in range(current_count, target_count):
+                angle = (2 * math.pi / target_count) * i
+                leaf_type = random.randint(0, 3)
+                self.leaves.append({
+                    'active': True,
+                    'base_angle': angle,
+                    'removal_effect': False,
+                    'removal_timer': 0,
+                    'leaf_type': leaf_type,
+                    'size_variation': random.uniform(0.8, 1.2)
+                })
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"🌿 신성 월계수 잎 추가! {current_count}개 → {target_count}개")
+        else:
+            # 잎 제거 (초과분 - 일반적으로 발생하지 않음)
+            self.leaves = self.leaves[:target_count]
+            if LEGENDARY_DEBUG_ENABLED:
+                print(f"🌿 신성 월계수 잎 조정! {current_count}개 → {target_count}개")
+
+        # 각도 재분배 (균등 배치)
+        for i, leaf in enumerate(self.leaves):
+            leaf['base_angle'] = (2 * math.pi / target_count) * i
+
+        # 전멸 상태 재평가
+        active_count = sum(1 for leaf in self.leaves if leaf['active'])
+        self.all_leaves_destroyed = (active_count == 0)
+
     def _regenerate_one_leaf(self):
         """파괴된 잎 1개를 재생"""
         import random
