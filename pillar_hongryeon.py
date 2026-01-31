@@ -127,22 +127,16 @@ class PillarFireball:
         if entered_game_area and not self.spawned_game_fireball:
             self.spawned_game_fireball = True
             self.alive = False
-            # 게임 화염탄 생성 콜백 호출 (내부 좌표계로 변환)
+            # 게임 화염탄 생성 콜백 호출
+            # REAL_SCREEN 좌표를 직접 전달 - fire_snake_fireball에서 변환
             if self.fire_callback:
-                # REAL_SCREEN → 내부 좌표 변환
-                if self.side == 'left':
-                    internal_x = 80 + 5  # 왼쪽 필러 경계 + 약간 안쪽
-                else:
-                    internal_x = 680 - 5  # 오른쪽 경계 - 약간 안쪽
-
-                # Y 좌표 변환: (real_y - offset) / scale
-                internal_y = int((self.y - self.game_offset_y) / self.scale_factor) if self.scale_factor > 0 else int(self.y)
-
-                print(f"🔥 [필러화염탄] 게임 영역 진입!")
-                print(f"   REAL: ({self.x:.0f}, {self.y:.0f}) → INTERNAL: ({internal_x}, {internal_y})")
-                print(f"   타겟 INTERNAL: ({self.internal_target_x:.0f}, {self.internal_target_y:.0f})")
-
-                self.fire_callback(internal_x, internal_y, int(self.internal_target_x), int(self.internal_target_y))
+                print(f"🔥 [필러화염탄] 게임 영역 진입! REAL=({self.x:.0f}, {self.y:.0f}), side={self.side}")
+                # REAL 좌표와 side 정보 전달 (fire_snake_fireball에서 변환)
+                self.fire_callback(
+                    int(self.x), int(self.y),
+                    int(self.internal_target_x), int(self.internal_target_y),
+                    self.side  # side 정보 추가
+                )
             return True
 
         return False

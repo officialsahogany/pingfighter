@@ -20686,32 +20686,44 @@ fireball_speed = 15           # 화염탄 발사 속도
 round_start_time = 0          # 라운드 시작 시간 (화염탄 2.5초 지연용)
 
 
-def fire_snake_fireball(start_x: int, start_y: int, target_x: int, target_y: int):
+def fire_snake_fireball(real_x: int, real_y: int, target_x: int, target_y: int, side: str = None):
     """뱀 항아리에서 화염탄 발사 (광폭화 모드 전용)
 
     Args:
-        start_x, start_y: 뱀 머리 위치 (내부 게임 좌표 760x750)
+        real_x, real_y: 발사 위치 (REAL_SCREEN 좌표)
         target_x, target_y: 플레이어 위치 (내부 게임 좌표 760x750)
+        side: 'left' 또는 'right' (어느 필러에서 발사했는지)
     """
     global fireballs
 
-    # SnakePot에서 전달받은 좌표는 이미 내부 게임 좌표 (760x750)
-    # 뱀 입 위치에서 직접 발사 (필러 영역에서 시작)
-    game_start_x = float(start_x)
-    game_start_y = float(start_y)
+    # REAL_SCREEN 좌표 → 내부 좌표 변환
+    # 스케일링 시 추가 오프셋 계산
+    if GAME_SCALE_FACTOR != 1.0:
+        sw = int(WIDTH * GAME_SCALE_FACTOR)
+        sh = int(HEIGHT * GAME_SCALE_FACTOR)
+        additional_offset_x = (GAME_SCALED_WIDTH - sw) // 2
+        additional_offset_y = (GAME_SCALED_HEIGHT - sh) // 2
+    else:
+        additional_offset_x = 0
+        additional_offset_y = 0
+
+    # X 좌표: 필러 경계에서 시작
+    if side == 'left':
+        game_start_x = float(GAME_AREA_OFFSET_X + 5)  # 80 + 5 = 85
+    elif side == 'right':
+        game_start_x = float(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 5)  # 680 - 5 = 675
+    else:
+        # side 정보 없으면 REAL 좌표에서 추정
+        game_start_x = (real_x - GAME_OFFSET_X - additional_offset_x) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR > 0 else float(real_x)
+
+    # Y 좌표: REAL → 내부 변환
+    game_start_y = (real_y - GAME_OFFSET_Y - additional_offset_y) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR > 0 else float(real_y)
+
+    # 타겟은 이미 내부 좌표
     game_target_x = float(target_x)
     game_target_y = float(target_y)
 
-    # 디버그: 좌표 확인
-    side = "LEFT" if start_x < GAME_AREA_OFFSET_X else "RIGHT" if start_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH else "CENTER"
-    print(f"")
-    print(f"🐍🐍🐍 [뱀화염탄 발사!] 🐍🐍🐍")
-    print(f"   원본 입력: start=({start_x}, {start_y}), target=({target_x}, {target_y})")
-    print(f"   계산된 위치: ({game_start_x:.0f}, {game_start_y:.0f}) → ({game_target_x:.0f}, {game_target_y:.0f})")
-    print(f"   필러 위치: {side}")
-    print(f"   게임영역 X범위: {GAME_AREA_OFFSET_X} ~ {GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH}")
-    print(f"   GAME_OFFSET: ({GAME_OFFSET_X}, {GAME_OFFSET_Y}), SCALE: {GAME_SCALE_FACTOR}")
-    print(f"   ※ SCREEN 좌표 x<80 또는 x>680은 필러 영역이지만,")
+    print(f"🐍 [뱀화염탄] REAL({real_x}, {real_y}) → INTERNAL({game_start_x:.0f}, {game_start_y:.0f}), side={side}")
 
     # 방향 벡터 계산
     dx = game_target_x - game_start_x
