@@ -57,9 +57,9 @@ class SnakePot:
         self.side = side
         self.index = index
 
-        # 항아리 크기
-        self.pot_width = 50
-        self.pot_height = 55
+        # 호리병(등불) 크기 - 기존 _draw_lanterns와 일치
+        self.lantern_size = 35  # 등불 크기
+        self.vase_height = int(self.lantern_size * 2.8)  # 호리병 높이 (약 98)
 
         # 뱀 상태
         self.state = self.STATE_IDLE
@@ -122,7 +122,7 @@ class SnakePot:
 
             # 플레이어 방향 계산
             snake_head_x = self.x
-            snake_head_y = self.y - self.pot_height // 2 - self.snake_max_height * self.snake_rise_progress
+            snake_head_y = self.y - self.vase_height // 2 - self.snake_max_height * self.snake_rise_progress
             dx = self.target_x - snake_head_x
             dy = self.target_y - snake_head_y
             target_angle = math.atan2(dy, dx)
@@ -143,7 +143,7 @@ class SnakePot:
             # 발사 - 콜백 호출
             if not self.fired_this_cycle and self.fire_callback:
                 snake_head_x = int(self.x)
-                snake_head_y = int(self.y - self.pot_height // 2 - self.snake_max_height * self.snake_rise_progress)
+                snake_head_y = int(self.y - self.vase_height // 2 - self.snake_max_height * self.snake_rise_progress)
                 self.fire_callback(snake_head_x, snake_head_y, self.target_x, self.target_y)
                 self.fired_this_cycle = True
 
@@ -163,16 +163,10 @@ class SnakePot:
                 self.snake_rise_progress = 0.0
 
     def draw(self, screen: pygame.Surface):
-        """항아리와 뱀 그리기"""
-        # 1. 항아리 본체 그리기
-        self._draw_pot(screen)
-
-        # 2. 뱀 그리기 (올라와 있을 때만)
+        """뱀만 그리기 (호리병은 기존 _draw_lanterns에서 그려짐)"""
+        # 뱀 그리기 (올라와 있을 때만)
         if self.snake_rise_progress > 0.01:
             self._draw_snake(screen)
-
-        # 3. 항아리 뚜껑 (뱀이 나와있을 때는 열린 상태)
-        self._draw_pot_lid(screen)
 
     def _draw_pot(self, screen: pygame.Surface):
         """항아리 본체 그리기"""
@@ -244,9 +238,9 @@ class SnakePot:
                               (cx, lid_y - 12), 4)
 
     def _draw_snake(self, screen: pygame.Surface):
-        """뱀 그리기"""
+        """뱀 그리기 - 호리병 입구에서 나옴"""
         cx = self.x
-        base_y = self.y - self.pot_height // 2  # 항아리 입구
+        base_y = self.y - self.vase_height // 2  # 호리병 입구
         rise_height = self.snake_max_height * self.snake_rise_progress
 
         # 뱀 몸통 (곡선으로 여러 세그먼트)
@@ -479,38 +473,42 @@ class HongryeonFrame:
             })
 
     def _init_snake_pots(self):
-        """항아리 뱀 초기화 - 좌우 필러에 각각 3개씩 (총 6개)"""
+        """뱀 초기화 - 기존 호리병(등불) 위치와 동일하게 배치 (총 6개)"""
         self.snake_pots.clear()
 
-        # 항아리 Y 위치 (등불과 비슷하게 배치하되 약간 다른 위치)
-        pot_y_positions = [
-            self.game_y + 150,                          # 상단
-            self.game_y + self.game_height // 2 + 50,   # 중앙
-            self.game_y + self.game_height - 150,       # 하단
+        # 등불과 동일한 Y 위치 사용 (_init_lanterns와 일치)
+        lantern_y_positions = [
+            self.game_y + 80,                           # 상단
+            self.game_y + self.game_height // 2,        # 중앙
+            self.game_y + self.game_height - 80,        # 하단
         ]
 
-        # 왼쪽 필러 항아리 (3개)
+        # 왼쪽 필러 (3개) - 등불 위치와 동일
         if self.left_width > 50:
             pot_x = self.left_width // 2
-            for i, pot_y in enumerate(pot_y_positions):
+            for i, pot_y in enumerate(lantern_y_positions):
                 pot = SnakePot(pot_x, pot_y, 'left', i)
                 self.snake_pots.append(pot)
 
-        # 오른쪽 필러 항아리 (3개)
+        # 오른쪽 필러 (3개) - 등불 위치와 동일
         if self.right_width > 50:
-            pot_x = self.game_x + self.game_width + self.right_width // 2
-            for i, pot_y in enumerate(pot_y_positions):
+            start_x = self.game_x + self.game_width
+            pot_x = start_x + self.right_width // 2
+            for i, pot_y in enumerate(lantern_y_positions):
                 pot = SnakePot(pot_x, pot_y, 'right', i + 3)
                 self.snake_pots.append(pot)
 
     def set_enraged_mode(self, active: bool):
         """광폭화 모드 설정"""
+        print(f"[홍련 필러] set_enraged_mode 호출: {active}, 현재 상태: {self.enraged_mode}")
         if self.enraged_mode != active:
             self.enraged_mode = active
             if active:
                 # 광폭화 시작 시 쿨타임 초기화 (3초 후 첫 공격)
                 self.snake_attack_cooldown = 3.0
-                print("[홍련 필러] 광폭화 모드 활성화 - 뱀 공격 시스템 가동")
+                print(f"[홍련 필러] 광폭화 모드 활성화 - 뱀 공격 시스템 가동! 뱀 개수: {len(self.snake_pots)}")
+                for i, pot in enumerate(self.snake_pots):
+                    print(f"  - 뱀 #{i}: 위치 ({pot.x}, {pot.y}), 상태: {pot.state}")
             else:
                 # 광폭화 종료 시 모든 뱀 숨기기
                 for pot in self.snake_pots:
@@ -525,6 +523,7 @@ class HongryeonFrame:
         """
         self.fire_callback = callback
         # 모든 항아리에도 콜백 설정
+        print(f"[홍련 필러] 화염탄 콜백 설정! 뱀 개수: {len(self.snake_pots)}")
         for pot in self.snake_pots:
             pot.fire_callback = callback
 
@@ -699,13 +698,20 @@ class HongryeonFrame:
             # 뱀 공격 쿨타임 처리
             if self.snake_attack_cooldown > 0:
                 self.snake_attack_cooldown -= dt
+                # 디버그: 쿨타임 로그 (3초마다)
+                if int(self.snake_attack_cooldown * 10) % 30 == 0:
+                    print(f"[홍련] 뱀 쿨타임: {self.snake_attack_cooldown:.1f}s, 뱀 개수: {len(self.snake_pots)}")
             else:
                 # 쿨타임 만료 시 뱀 공격 트리거
+                print(f"[홍련] 뱀 공격 트리거 시도! 플레이어: ({self.player_x}, {self.player_y})")
                 if self._trigger_snake_attack():
                     # 다음 쿨타임 설정 (10~20초)
                     self.snake_attack_cooldown = random.uniform(
                         self.SNAKE_COOLDOWN_MIN, self.SNAKE_COOLDOWN_MAX
                     )
+                    print(f"[홍련] 뱀 공격 성공! 다음 쿨타임: {self.snake_attack_cooldown:.1f}s")
+                else:
+                    print(f"[홍련] 뱀 공격 실패 - 가용 항아리 없음")
 
         # 모든 항아리 뱀 업데이트 (광폭화 여부와 관계없이 - 숨는 애니메이션 처리)
         for pot in self.snake_pots:
