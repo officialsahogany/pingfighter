@@ -818,8 +818,8 @@ class ColosseumsArena:
         pygame.draw.rect(self.screen, (100, 180, 255), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
 
         # 타이틀
-        if self.fonts and "menu" in self.fonts:
-            title, _ = self.fonts["menu"].render("배팅하기", (255, 215, 0))
+        if self.fonts and "medium" in self.fonts:
+            title, _ = self.fonts["medium"].render("배팅하기", (255, 215, 0))
             self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, panel_y + 15))
 
         # 매치 정보
@@ -862,9 +862,9 @@ class ColosseumsArena:
             self.screen.blit(surf, (btn2_rect.centerx - surf.get_width() // 2, btn2_rect.y + 40))
 
         # 배팅액 표시
-        if self.fonts and "menu" in self.fonts:
+        if self.fonts and "medium" in self.fonts:
             bet_text = f"배팅액: {self.bet_amount} G"
-            surf, _ = self.fonts["menu"].render(bet_text, (255, 255, 255))
+            surf, _ = self.fonts["medium"].render(bet_text, (255, 255, 255))
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 170))
 
         # 배팅액 조절 버튼
@@ -904,9 +904,9 @@ class ColosseumsArena:
         confirm_color = (80, 180, 80) if confirm_enabled else (60, 60, 60)
         confirm_rect = pygame.Rect(panel_x + 80, panel_y + 320, 200, 45)
         pygame.draw.rect(self.screen, confirm_color, confirm_rect, border_radius=5)
-        if self.fonts and "menu" in self.fonts:
+        if self.fonts and "medium" in self.fonts:
             text_color = (255, 255, 255) if confirm_enabled else (100, 100, 100)
-            surf, _ = self.fonts["menu"].render("배팅 확정", text_color)
+            surf, _ = self.fonts["medium"].render("배팅 확정", text_color)
             self.screen.blit(surf, (confirm_rect.centerx - surf.get_width() // 2, confirm_rect.y + 12))
 
         # 취소 버튼
@@ -952,18 +952,18 @@ class ColosseumsArena:
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 20))
 
         # 승자 정보
-        if self.fonts and "menu" in self.fonts:
+        if self.fonts and "medium" in self.fonts:
             winner_text = f"승자: {winner['name']}"
-            surf, _ = self.fonts["menu"].render(winner_text, winner["color"])
+            surf, _ = self.fonts["medium"].render(winner_text, winner["color"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 70))
 
             # 스코어
             score_text = f"{self.selected_match.score1} : {self.selected_match.score2}"
-            surf, _ = self.fonts["menu"].render(score_text, (200, 200, 200))
+            surf, _ = self.fonts["medium"].render(score_text, (200, 200, 200))
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 100))
 
         # 수익/손실
-        if self.fonts and "menu" in self.fonts:
+        if self.fonts and "medium" in self.fonts:
             if is_win:
                 odds1, odds2 = self._calculate_odds(self.selected_match.hero1, self.selected_match.hero2)
                 odds = odds1 if self.bet_hero == self.selected_match.hero1 else odds2
@@ -973,7 +973,7 @@ class ColosseumsArena:
             else:
                 profit_text = f"-{self.bet_amount} G"
                 profit_color = (255, 100, 100)
-            surf, _ = self.fonts["menu"].render(profit_text, profit_color)
+            surf, _ = self.fonts["medium"].render(profit_text, profit_color)
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 140))
 
         # 총 수익
@@ -1009,10 +1009,10 @@ class ColosseumsArena:
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 30))
 
         # 현재 수익
-        if self.fonts and "menu" in self.fonts:
+        if self.fonts and "medium" in self.fonts:
             profit_text = f"현재 수익: {self.total_winnings} G"
             color = (100, 255, 100) if self.total_winnings >= 0 else (255, 100, 100)
-            surf, _ = self.fonts["menu"].render(profit_text, color)
+            surf, _ = self.fonts["medium"].render(profit_text, color)
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 90))
 
         # 질문
@@ -1023,15 +1023,15 @@ class ColosseumsArena:
         # 계속 버튼
         continue_rect = pygame.Rect(panel_x + 40, panel_y + 200, 180, 50)
         pygame.draw.rect(self.screen, (80, 180, 80), continue_rect, border_radius=5)
-        if self.fonts and "menu" in self.fonts:
-            surf, _ = self.fonts["menu"].render("계속 배팅", (255, 255, 255))
+        if self.fonts and "medium" in self.fonts:
+            surf, _ = self.fonts["medium"].render("계속 배팅", (255, 255, 255))
             self.screen.blit(surf, (continue_rect.centerx - surf.get_width() // 2, continue_rect.y + 15))
 
         # 나가기 버튼
         exit_rect = pygame.Rect(panel_x + 240, panel_y + 200, 180, 50)
         pygame.draw.rect(self.screen, (180, 80, 80), exit_rect, border_radius=5)
-        if self.fonts and "menu" in self.fonts:
-            surf, _ = self.fonts["menu"].render("수익 확정", (255, 255, 255))
+        if self.fonts and "medium" in self.fonts:
+            surf, _ = self.fonts["medium"].render("수익 확정", (255, 255, 255))
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 15))
 
         # 경고
@@ -1060,9 +1060,9 @@ class ColosseumsArena:
 
         # 최종 우승자
         final_match = self.matches[TournamentRound.FINAL][0]
-        if final_match.winner and self.fonts and "menu" in self.fonts:
+        if final_match.winner and self.fonts and "medium" in self.fonts:
             winner_text = f"우승: {final_match.winner['name']}"
-            surf, _ = self.fonts["menu"].render(winner_text, final_match.winner["color"])
+            surf, _ = self.fonts["medium"].render(winner_text, final_match.winner["color"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 90))
 
         # 최종 수익
@@ -1075,8 +1075,8 @@ class ColosseumsArena:
         # 나가기 버튼
         exit_rect = pygame.Rect(panel_x + 100, panel_y + 230, 200, 50)
         pygame.draw.rect(self.screen, (80, 120, 180), exit_rect, border_radius=5)
-        if self.fonts and "menu" in self.fonts:
-            surf, _ = self.fonts["menu"].render("투기장 나가기", (255, 255, 255))
+        if self.fonts and "medium" in self.fonts:
+            surf, _ = self.fonts["medium"].render("투기장 나가기", (255, 255, 255))
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 15))
 
     def get_result(self) -> Dict:
@@ -1103,7 +1103,7 @@ def test_arena():
     fonts = {}
     try:
         fonts["small"] = pygame.freetype.Font(None, 16)
-        fonts["menu"] = pygame.freetype.Font(None, 20)
+        fonts["medium"] = pygame.freetype.Font(None, 20)
         fonts["large"] = pygame.freetype.Font(None, 28)
     except:
         pass
