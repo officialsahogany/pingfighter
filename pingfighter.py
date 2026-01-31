@@ -74952,7 +74952,7 @@ def update_stage7_super_state(now: int | None = None) -> None:
             # 광폭화 시 초인테트리서가 아직 활성화되지 않았으면 즉시 활성화
             if not stage7_super_active:
                 stage7_super_active = True
-                stage7_super_target_scale = 2.0
+                stage7_super_target_scale = 1.4  # 광폭화 초인테트리서: +40% (일반 초인: +100%)
                 if stage7_boss_orig_size is None:
                     stage7_boss_orig_size = (BOSS.width, BOSS.height)
                 stage7_super_last_update_ms = now
