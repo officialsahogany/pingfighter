@@ -20673,6 +20673,71 @@ fireball_last_cast = 0        # 마지막 발사 시각
 fireball_speed = 15           # 화염탄 발사 속도
 round_start_time = 0          # 라운드 시작 시간 (화염탄 2.5초 지연용)
 
+
+def fire_snake_fireball(start_x: int, start_y: int, target_x: int, target_y: int):
+    """뱀 항아리에서 화염탄 발사 (광폭화 모드 전용)
+
+    Args:
+        start_x, start_y: 뱀 머리 위치 (REAL_SCREEN 좌표)
+        target_x, target_y: 플레이어 위치 (REAL_SCREEN 좌표)
+    """
+    global fireballs
+
+    # REAL_SCREEN 좌표를 게임 좌표로 변환
+    # (스케일링 역변환)
+    game_start_x = (start_x - GAME_OFFSET_X) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR != 0 else start_x
+    game_start_y = (start_y - GAME_OFFSET_Y) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR != 0 else start_y
+    game_target_x = (target_x - GAME_OFFSET_X) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR != 0 else target_x
+    game_target_y = (target_y - GAME_OFFSET_Y) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR != 0 else target_y
+
+    # 스케일링 시 추가 오프셋 역변환
+    if GAME_SCALE_FACTOR != 1.0:
+        sw = int(WIDTH * GAME_SCALE_FACTOR)
+        sh = int(HEIGHT * GAME_SCALE_FACTOR)
+        additional_offset_x = (GAME_SCALED_WIDTH - sw) // 2
+        additional_offset_y = (GAME_SCALED_HEIGHT - sh) // 2
+        game_start_x -= additional_offset_x / GAME_SCALE_FACTOR
+        game_start_y -= additional_offset_y / GAME_SCALE_FACTOR
+        game_target_x -= additional_offset_x / GAME_SCALE_FACTOR
+        game_target_y -= additional_offset_y / GAME_SCALE_FACTOR
+
+    # 뱀 화염탄은 필러에서 발사되므로, 게임 영역 경계로 시작점 조정
+    if game_start_x < GAME_AREA_OFFSET_X:
+        game_start_x = GAME_AREA_OFFSET_X + 10  # 왼쪽 필러에서 발사
+    elif game_start_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH:
+        game_start_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 10  # 오른쪽 필러에서 발사
+
+    # 방향 벡터 계산
+    dx = game_target_x - game_start_x
+    dy = game_target_y - game_start_y
+    dist = math.sqrt(dx * dx + dy * dy)
+    if dist > 0:
+        dx /= dist
+        dy /= dist
+    else:
+        dx, dy = 0, 1  # 기본값: 아래로
+
+    # 약간의 랜덤 오프셋 추가 (±10도)
+    angle_offset = random.uniform(-0.17, 0.17)  # 약 ±10도
+    cos_a, sin_a = math.cos(angle_offset), math.sin(angle_offset)
+    new_dx = dx * cos_a - dy * sin_a
+    new_dy = dx * sin_a + dy * cos_a
+
+    # 뱀 화염탄 속도 (기본 화염탄보다 약간 느림)
+    snake_fireball_speed = 12
+    vel = [new_dx * snake_fireball_speed, new_dy * snake_fireball_speed]
+    pos = [game_start_x, game_start_y]
+
+    fireballs.append([pos, vel])
+
+    # 화염탄 발사 효과음
+    try:
+        play_sound_with_volume(SOUND_FIREBALL)
+    except:
+        pass
+
+    print(f"🐍 [뱀 화염탄] 발사! ({game_start_x:.0f}, {game_start_y:.0f}) → ({game_target_x:.0f}, {game_target_y:.0f})")
+
 # === Stage 5 보스 피격 효과 변수 ===
 stage5_boss_hurt_timer = 0    # 보스 피격 애니메이션 타이머 (0.3초 = 18프레임)
 stage5_boss_hurt_active = False  # 보스 피격 애니메이션 활성화 여부
@@ -109842,6 +109907,23 @@ def draw_field():
             else:
                 pillar_renderer.set_player_dash_dir(0)
 
+        # 스테이지 5(코드=실제6 홍련): 광폭화 뱀 공격용 플레이어 위치 전달
+        if current_stage == 5 and enraged_boss_active:
+            # REAL_SCREEN 좌표계로 변환 (게임 영역 오프셋 + 스케일링 고려)
+            scaled_player_cx = (PLAYER.x + PLAYER.width // 2) * GAME_SCALE_FACTOR
+            scaled_player_cy = (PLAYER.y + PLAYER.height // 2) * GAME_SCALE_FACTOR
+            player_cx = scaled_player_cx + GAME_OFFSET_X
+            player_cy = scaled_player_cy + GAME_OFFSET_Y
+            # 스케일링 시 추가 오프셋 적용
+            if GAME_SCALE_FACTOR != 1.0:
+                sw = int(WIDTH * GAME_SCALE_FACTOR)
+                sh = int(HEIGHT * GAME_SCALE_FACTOR)
+                additional_offset_x = (GAME_SCALED_WIDTH - sw) // 2
+                additional_offset_y = (GAME_SCALED_HEIGHT - sh) // 2
+                player_cx += additional_offset_x
+                player_cy += additional_offset_y
+            pillar_renderer.update_hongryeon_player_position(int(player_cx), int(player_cy))
+
     # Stage 50 (튜토리얼) - 연습장 배경
     if current_stage == 50:
         draw_tutorial_practice_room()
@@ -123950,6 +124032,10 @@ def main(stage_num, new_boss_mode=False):
     enraged_boss_pending_start = False
     hologram_spawn_sound_played = False  # 홀로그램 사운드 재생 플래그 리셋
 
+    # 홍련 필러 광폭화 모드 리셋 (스테이지 전환 시)
+    if pillar_renderer is not None:
+        pillar_renderer.set_hongryeon_enraged(False)
+
     # 챔피언리그: 10% 광폭화, 신화리그: 100% 광폭화
     should_enrage = False
     if ai_mode == "champion" and random.random() < ENRAGED_BOSS_CHANCE:
@@ -123986,6 +124072,13 @@ def main(stage_num, new_boss_mode=False):
                 # 붉은달 이벤트 시작 시 phase2 BGM으로 변경
                 bgm_manager.bgm_manager.play_bgm('stage4_phase2')
                 print(f"🔥 [광폭화 보스] 스테이지 4 사원 파괴 즉시 발동! (붉은달 이벤트)")
+
+        # 스테이지 5(코드=실제6 홍련) 광폭화: 필러 항아리 뱀 공격 시스템 활성화
+        if stage_num == 5 and pillar_renderer is not None:
+            pillar_renderer.set_hongryeon_enraged(True)
+            # 뱀 화염탄 발사 콜백 설정
+            pillar_renderer.set_hongryeon_fire_callback(fire_snake_fireball)
+            print(f"🔥 [광폭화 보스] 스테이지 5(홍련) 필러 뱀 공격 시스템 활성화!")
 
     #  통합 보스 설정: 스테이지별 + 리그별 완전 연계
     config = get_final_boss_config(stage_num, ai_mode)

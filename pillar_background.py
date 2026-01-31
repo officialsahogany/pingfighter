@@ -783,6 +783,29 @@ class PillarBackgroundRenderer:
         if self._hongryeon_bg is not None:
             self._hongryeon_bg.trigger_excitement(level)
 
+    # ===== Stage 5(코드=실제6 홍련) 광폭화 뱀 공격 시스템 =====
+
+    def set_hongryeon_enraged(self, active: bool):
+        """홍련 필러 광폭화 모드 설정 (뱀 공격 시스템 활성화)"""
+        if self._hongryeon_bg is not None:
+            self._hongryeon_bg.set_enraged_mode(active)
+
+    def set_hongryeon_fire_callback(self, callback):
+        """홍련 필러 화염탄 발사 콜백 설정
+        callback(start_x, start_y, target_x, target_y): 화염탄 발사 함수
+        """
+        if self._hongryeon_bg is not None:
+            self._hongryeon_bg.set_fire_callback(callback)
+
+    def update_hongryeon_player_position(self, player_x: int, player_y: int):
+        """홍련 필러 플레이어 위치 업데이트 (뱀 조준용)"""
+        if self._hongryeon_bg is not None:
+            self._hongryeon_bg.update_player_position(player_x, player_y)
+
+    def get_hongryeon_background(self):
+        """홍련 배경 인스턴스 반환"""
+        return self._hongryeon_bg
+
     def trigger_nemesis_excitement(self, level: float = 1.5):
         """네메시스 해상전투 배경 반응 트리거 (점수 획득 시 호출)"""
         if self._nemesis_ocean_bg is not None:

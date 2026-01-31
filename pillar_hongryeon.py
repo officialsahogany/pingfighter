@@ -5,11 +5,330 @@
 - 인게임 색상과 일치하는 어두운 마룬/크림슨 톤
 - 그라데이션 기반 고급스러운 디자인
 - 육각형 패턴, 등불, 소용돌이 장식
+- 광폭화 모드: 항아리에서 뱀이 나와 화염탄 발사
 """
 
 import math
 import random
 import pygame
+from typing import Callable, Optional, List, Tuple
+
+
+class SnakePot:
+    """항아리에서 나오는 뱀 클래스 - 광폭화 모드 전용"""
+
+    # 뱀 상태
+    STATE_IDLE = "idle"           # 항아리 안에 숨어있음
+    STATE_RISING = "rising"       # 뱀이 올라오는 중
+    STATE_AIMING = "aiming"       # 조준 중 (머리 흔들림)
+    STATE_FIRING = "firing"       # 발사 중
+    STATE_HIDING = "hiding"       # 다시 숨는 중
+
+    # 색상 (뱀)
+    SNAKE_COLORS = {
+        'body_dark': (45, 80, 35),        # 어두운 녹색
+        'body_mid': (65, 120, 50),         # 중간 녹색
+        'body_light': (90, 160, 70),       # 밝은 녹색
+        'pattern': (180, 60, 40),          # 붉은 무늬
+        'eye': (255, 200, 50),             # 노란 눈
+        'tongue': (200, 50, 60),           # 붉은 혀
+    }
+
+    # 항아리 색상 (중국 도자기 스타일)
+    POT_COLORS = {
+        'body_dark': (60, 35, 25),         # 어두운 갈색
+        'body_mid': (100, 60, 40),         # 중간 갈색
+        'body_light': (140, 90, 60),       # 밝은 갈색
+        'rim_gold': (200, 160, 80),        # 금색 테두리
+        'pattern_red': (180, 50, 40),      # 붉은 문양
+        'lid': (80, 50, 35),               # 뚜껑
+    }
+
+    def __init__(self, x: int, y: int, side: str, index: int):
+        """
+        Args:
+            x: 항아리 중심 X 좌표
+            y: 항아리 중심 Y 좌표
+            side: 'left' 또는 'right' (필러 위치)
+            index: 항아리 인덱스 (0, 1, 2)
+        """
+        self.x = x
+        self.y = y
+        self.side = side
+        self.index = index
+
+        # 항아리 크기
+        self.pot_width = 50
+        self.pot_height = 55
+
+        # 뱀 상태
+        self.state = self.STATE_IDLE
+        self.state_timer = 0.0
+
+        # 뱀 애니메이션
+        self.snake_rise_progress = 0.0  # 0.0 ~ 1.0 (뱀이 얼마나 올라왔는지)
+        self.snake_max_height = 80      # 뱀이 올라오는 최대 높이
+        self.snake_head_angle = 0.0     # 뱀 머리 각도 (플레이어 조준)
+        self.snake_wobble = 0.0         # 뱀 머리 흔들림
+        self.tongue_flick = 0.0         # 혀 날름거림 타이머
+
+        # 타이밍 상수
+        self.RISE_DURATION = 0.8        # 올라오는 시간 (초)
+        self.AIM_DURATION = 0.6         # 조준 시간 (초)
+        self.FIRE_DURATION = 0.3        # 발사 애니메이션 시간 (초)
+        self.HIDE_DURATION = 0.5        # 숨는 시간 (초)
+
+        # 발사 콜백 (pingfighter.py에서 설정)
+        self.fire_callback: Optional[Callable[[int, int, int, int], None]] = None
+
+        # 플레이어 위치 (조준용)
+        self.target_x = 380  # 기본값 (게임 중앙)
+        self.target_y = 710  # 플레이어 Y 위치
+
+        # 발사 완료 플래그
+        self.fired_this_cycle = False
+
+    def start_attack(self, target_x: int, target_y: int):
+        """뱀 공격 시작"""
+        if self.state != self.STATE_IDLE:
+            return False
+
+        self.state = self.STATE_RISING
+        self.state_timer = 0.0
+        self.snake_rise_progress = 0.0
+        self.target_x = target_x
+        self.target_y = target_y
+        self.fired_this_cycle = False
+        return True
+
+    def update(self, dt: float):
+        """뱀 상태 업데이트"""
+        self.state_timer += dt
+        self.tongue_flick += dt * 8  # 혀 애니메이션
+
+        if self.state == self.STATE_RISING:
+            # 뱀이 올라오는 중
+            progress = min(1.0, self.state_timer / self.RISE_DURATION)
+            # 이징: ease-out
+            self.snake_rise_progress = 1.0 - (1.0 - progress) ** 2
+
+            if self.state_timer >= self.RISE_DURATION:
+                self.state = self.STATE_AIMING
+                self.state_timer = 0.0
+
+        elif self.state == self.STATE_AIMING:
+            # 조준 중 - 머리 흔들림
+            self.snake_wobble = math.sin(self.state_timer * 12) * 0.15
+
+            # 플레이어 방향 계산
+            snake_head_x = self.x
+            snake_head_y = self.y - self.pot_height // 2 - self.snake_max_height * self.snake_rise_progress
+            dx = self.target_x - snake_head_x
+            dy = self.target_y - snake_head_y
+            target_angle = math.atan2(dy, dx)
+
+            # 부드러운 조준 (lerp)
+            angle_diff = target_angle - self.snake_head_angle
+            while angle_diff > math.pi:
+                angle_diff -= 2 * math.pi
+            while angle_diff < -math.pi:
+                angle_diff += 2 * math.pi
+            self.snake_head_angle += angle_diff * dt * 5
+
+            if self.state_timer >= self.AIM_DURATION:
+                self.state = self.STATE_FIRING
+                self.state_timer = 0.0
+
+        elif self.state == self.STATE_FIRING:
+            # 발사 - 콜백 호출
+            if not self.fired_this_cycle and self.fire_callback:
+                snake_head_x = int(self.x)
+                snake_head_y = int(self.y - self.pot_height // 2 - self.snake_max_height * self.snake_rise_progress)
+                self.fire_callback(snake_head_x, snake_head_y, self.target_x, self.target_y)
+                self.fired_this_cycle = True
+
+            if self.state_timer >= self.FIRE_DURATION:
+                self.state = self.STATE_HIDING
+                self.state_timer = 0.0
+
+        elif self.state == self.STATE_HIDING:
+            # 다시 숨는 중
+            progress = min(1.0, self.state_timer / self.HIDE_DURATION)
+            # 이징: ease-in
+            self.snake_rise_progress = 1.0 - progress ** 2
+
+            if self.state_timer >= self.HIDE_DURATION:
+                self.state = self.STATE_IDLE
+                self.state_timer = 0.0
+                self.snake_rise_progress = 0.0
+
+    def draw(self, screen: pygame.Surface):
+        """항아리와 뱀 그리기"""
+        # 1. 항아리 본체 그리기
+        self._draw_pot(screen)
+
+        # 2. 뱀 그리기 (올라와 있을 때만)
+        if self.snake_rise_progress > 0.01:
+            self._draw_snake(screen)
+
+        # 3. 항아리 뚜껑 (뱀이 나와있을 때는 열린 상태)
+        self._draw_pot_lid(screen)
+
+    def _draw_pot(self, screen: pygame.Surface):
+        """항아리 본체 그리기"""
+        cx, cy = self.x, self.y
+        w, h = self.pot_width, self.pot_height
+
+        # 항아리 형태 (타원형 본체)
+        # 그림자
+        shadow_rect = pygame.Rect(cx - w//2 + 3, cy - h//2 + 5, w, h)
+        pygame.draw.ellipse(screen, (20, 10, 10), shadow_rect)
+
+        # 본체 외곽 (어두운)
+        body_rect = pygame.Rect(cx - w//2, cy - h//2, w, h)
+        pygame.draw.ellipse(screen, self.POT_COLORS['body_dark'], body_rect)
+
+        # 본체 중간층
+        inner_rect = pygame.Rect(cx - w//2 + 4, cy - h//2 + 4, w - 8, h - 8)
+        pygame.draw.ellipse(screen, self.POT_COLORS['body_mid'], inner_rect)
+
+        # 하이라이트
+        highlight_rect = pygame.Rect(cx - w//4, cy - h//3, w//3, h//3)
+        pygame.draw.ellipse(screen, self.POT_COLORS['body_light'], highlight_rect)
+
+        # 붉은 문양 (중국 스타일)
+        pattern_y = cy
+        pygame.draw.ellipse(screen, self.POT_COLORS['pattern_red'],
+                           (cx - w//3, pattern_y - 4, w*2//3, 8), 2)
+
+        # 금색 테두리 (입구)
+        rim_y = cy - h//2 + 2
+        pygame.draw.ellipse(screen, self.POT_COLORS['rim_gold'],
+                           (cx - w//3 - 2, rim_y - 4, w*2//3 + 4, 10), 3)
+
+    def _draw_pot_lid(self, screen: pygame.Surface):
+        """항아리 뚜껑 그리기 (뱀이 나와있으면 기울어진 상태)"""
+        cx, cy = self.x, self.y
+        w = self.pot_width
+        lid_y = cy - self.pot_height // 2 - 2
+
+        if self.snake_rise_progress > 0.1:
+            # 뚜껑이 열린 상태 - 옆으로 기울어짐
+            lid_offset = int(self.snake_rise_progress * 25)
+            lid_tilt = self.snake_rise_progress * 0.4
+
+            # 기울어진 뚜껑
+            if self.side == 'left':
+                lid_x = cx - w//3 - lid_offset
+            else:
+                lid_x = cx + w//3 + lid_offset - 20
+
+            # 뚜껑 (타원)
+            lid_surf = pygame.Surface((30, 15), pygame.SRCALPHA)
+            pygame.draw.ellipse(lid_surf, self.POT_COLORS['lid'], (0, 0, 30, 15))
+            pygame.draw.ellipse(lid_surf, self.POT_COLORS['rim_gold'], (0, 0, 30, 15), 2)
+
+            # 회전
+            rotated_lid = pygame.transform.rotate(lid_surf, lid_tilt * 30)
+            screen.blit(rotated_lid, (lid_x, lid_y - 10))
+        else:
+            # 뚜껑이 닫힌 상태
+            pygame.draw.ellipse(screen, self.POT_COLORS['lid'],
+                               (cx - w//3, lid_y - 8, w*2//3, 16))
+            pygame.draw.ellipse(screen, self.POT_COLORS['rim_gold'],
+                               (cx - w//3, lid_y - 8, w*2//3, 16), 2)
+            # 뚜껑 손잡이
+            pygame.draw.circle(screen, self.POT_COLORS['rim_gold'],
+                              (cx, lid_y - 12), 6)
+            pygame.draw.circle(screen, self.POT_COLORS['body_mid'],
+                              (cx, lid_y - 12), 4)
+
+    def _draw_snake(self, screen: pygame.Surface):
+        """뱀 그리기"""
+        cx = self.x
+        base_y = self.y - self.pot_height // 2  # 항아리 입구
+        rise_height = self.snake_max_height * self.snake_rise_progress
+
+        # 뱀 몸통 (곡선으로 여러 세그먼트)
+        segments = 12
+        body_points = []
+
+        for i in range(segments + 1):
+            t = i / segments
+            seg_y = base_y - rise_height * t
+
+            # S자 곡선 + 흔들림
+            wobble = math.sin(t * math.pi * 2 + self.state_timer * 6) * 8 * (1 - t)
+            seg_x = cx + wobble
+
+            body_points.append((seg_x, seg_y))
+
+        # 몸통 그리기 (두꺼운 선)
+        if len(body_points) >= 2:
+            # 그라데이션 효과를 위해 여러 번 그리기
+            for thickness, color in [(14, self.SNAKE_COLORS['body_dark']),
+                                      (10, self.SNAKE_COLORS['body_mid']),
+                                      (6, self.SNAKE_COLORS['body_light'])]:
+                pygame.draw.lines(screen, color, False, body_points, thickness)
+
+            # 붉은 무늬 (지그재그)
+            for i in range(0, len(body_points) - 2, 3):
+                if i + 1 < len(body_points):
+                    pygame.draw.line(screen, self.SNAKE_COLORS['pattern'],
+                                    body_points[i], body_points[i + 1], 3)
+
+        # 뱀 머리
+        head_x, head_y = body_points[-1]
+        head_angle = self.snake_head_angle + self.snake_wobble
+
+        # 머리 방향으로 오프셋
+        head_offset = 15
+        head_x += math.cos(head_angle) * head_offset
+        head_y += math.sin(head_angle) * head_offset
+
+        # 머리 (삼각형 + 타원)
+        head_size = 18
+        head_points = [
+            (head_x + math.cos(head_angle) * head_size,
+             head_y + math.sin(head_angle) * head_size),
+            (head_x + math.cos(head_angle + 2.3) * head_size * 0.7,
+             head_y + math.sin(head_angle + 2.3) * head_size * 0.7),
+            (head_x + math.cos(head_angle - 2.3) * head_size * 0.7,
+             head_y + math.sin(head_angle - 2.3) * head_size * 0.7),
+        ]
+        pygame.draw.polygon(screen, self.SNAKE_COLORS['body_mid'], head_points)
+        pygame.draw.polygon(screen, self.SNAKE_COLORS['body_light'], head_points, 2)
+
+        # 눈 (두 개)
+        eye_offset = 6
+        for side_mult in [-1, 1]:
+            eye_x = head_x + math.cos(head_angle + side_mult * 0.6) * eye_offset
+            eye_y = head_y + math.sin(head_angle + side_mult * 0.6) * eye_offset
+            pygame.draw.circle(screen, self.SNAKE_COLORS['eye'], (int(eye_x), int(eye_y)), 4)
+            pygame.draw.circle(screen, (0, 0, 0), (int(eye_x), int(eye_y)), 2)
+
+        # 혀 (깜빡임)
+        if math.sin(self.tongue_flick) > 0.3:
+            tongue_length = 12 + math.sin(self.tongue_flick * 2) * 4
+            tongue_tip_x = head_x + math.cos(head_angle) * (head_size + tongue_length)
+            tongue_tip_y = head_y + math.sin(head_angle) * (head_size + tongue_length)
+            tongue_start_x = head_x + math.cos(head_angle) * head_size
+            tongue_start_y = head_y + math.sin(head_angle) * head_size
+
+            pygame.draw.line(screen, self.SNAKE_COLORS['tongue'],
+                            (int(tongue_start_x), int(tongue_start_y)),
+                            (int(tongue_tip_x), int(tongue_tip_y)), 2)
+            # 갈라진 혀 끝
+            for angle_offset in [-0.3, 0.3]:
+                fork_x = tongue_tip_x + math.cos(head_angle + angle_offset) * 5
+                fork_y = tongue_tip_y + math.sin(head_angle + angle_offset) * 5
+                pygame.draw.line(screen, self.SNAKE_COLORS['tongue'],
+                                (int(tongue_tip_x), int(tongue_tip_y)),
+                                (int(fork_x), int(fork_y)), 2)
+
+    def is_active(self) -> bool:
+        """뱀이 활동 중인지 확인"""
+        return self.state != self.STATE_IDLE
 
 
 class HongryeonFrame:
@@ -79,6 +398,25 @@ class HongryeonFrame:
         self.embers = []
         self._init_embers()
 
+        # === 광폭화 모드: 항아리 뱀 시스템 ===
+        self.snake_pots: List[SnakePot] = []
+        self._init_snake_pots()
+
+        # 뱀 공격 쿨타임 (10~20초)
+        self.snake_attack_cooldown = 0.0
+        self.SNAKE_COOLDOWN_MIN = 10.0  # 최소 쿨타임 (초)
+        self.SNAKE_COOLDOWN_MAX = 20.0  # 최대 쿨타임 (초)
+
+        # 광폭화 모드 상태
+        self.enraged_mode = False
+
+        # 화염탄 발사 콜백 (pingfighter.py에서 설정)
+        self.fire_callback: Optional[Callable[[int, int, int, int], None]] = None
+
+        # 플레이어 위치 (조준용)
+        self.player_x = 380
+        self.player_y = 710
+
         # 프레임 서피스 생성
         self._static_surface = None
         self._create_static_surface()
@@ -139,6 +477,78 @@ class HongryeonFrame:
                 'alpha': random.randint(150, 255),
                 'side': side,
             })
+
+    def _init_snake_pots(self):
+        """항아리 뱀 초기화 - 좌우 필러에 각각 3개씩 (총 6개)"""
+        self.snake_pots.clear()
+
+        # 항아리 Y 위치 (등불과 비슷하게 배치하되 약간 다른 위치)
+        pot_y_positions = [
+            self.game_y + 150,                          # 상단
+            self.game_y + self.game_height // 2 + 50,   # 중앙
+            self.game_y + self.game_height - 150,       # 하단
+        ]
+
+        # 왼쪽 필러 항아리 (3개)
+        if self.left_width > 50:
+            pot_x = self.left_width // 2
+            for i, pot_y in enumerate(pot_y_positions):
+                pot = SnakePot(pot_x, pot_y, 'left', i)
+                self.snake_pots.append(pot)
+
+        # 오른쪽 필러 항아리 (3개)
+        if self.right_width > 50:
+            pot_x = self.game_x + self.game_width + self.right_width // 2
+            for i, pot_y in enumerate(pot_y_positions):
+                pot = SnakePot(pot_x, pot_y, 'right', i + 3)
+                self.snake_pots.append(pot)
+
+    def set_enraged_mode(self, active: bool):
+        """광폭화 모드 설정"""
+        if self.enraged_mode != active:
+            self.enraged_mode = active
+            if active:
+                # 광폭화 시작 시 쿨타임 초기화 (3초 후 첫 공격)
+                self.snake_attack_cooldown = 3.0
+                print("[홍련 필러] 광폭화 모드 활성화 - 뱀 공격 시스템 가동")
+            else:
+                # 광폭화 종료 시 모든 뱀 숨기기
+                for pot in self.snake_pots:
+                    if pot.state != SnakePot.STATE_IDLE:
+                        pot.state = SnakePot.STATE_HIDING
+                        pot.state_timer = 0.0
+                print("[홍련 필러] 광폭화 모드 비활성화")
+
+    def set_fire_callback(self, callback: Callable[[int, int, int, int], None]):
+        """화염탄 발사 콜백 설정
+        callback(start_x, start_y, target_x, target_y): 화염탄 발사 함수
+        """
+        self.fire_callback = callback
+        # 모든 항아리에도 콜백 설정
+        for pot in self.snake_pots:
+            pot.fire_callback = callback
+
+    def update_player_position(self, player_x: int, player_y: int):
+        """플레이어 위치 업데이트 (조준용)"""
+        self.player_x = player_x
+        self.player_y = player_y
+
+    def _trigger_snake_attack(self):
+        """뱀 공격 트리거 - 6개 중 랜덤으로 1개 선택"""
+        # 현재 활동 중이지 않은 항아리만 선택
+        available_pots = [pot for pot in self.snake_pots if pot.state == SnakePot.STATE_IDLE]
+
+        if not available_pots:
+            return False
+
+        # 랜덤 선택
+        selected_pot = random.choice(available_pots)
+        result = selected_pot.start_attack(self.player_x, self.player_y)
+
+        if result:
+            print(f"[홍련 필러] 뱀 공격! 항아리 #{selected_pot.index} ({selected_pot.side})")
+
+        return result
 
 
     def _create_static_surface(self):
@@ -284,6 +694,23 @@ class HongryeonFrame:
                     ember['base_x'] = self.game_x + self.game_width + random.randint(10, self.right_width - 10)
                 ember['x'] = ember['base_x']
 
+        # === 광폭화 모드: 항아리 뱀 업데이트 ===
+        if self.enraged_mode:
+            # 뱀 공격 쿨타임 처리
+            if self.snake_attack_cooldown > 0:
+                self.snake_attack_cooldown -= dt
+            else:
+                # 쿨타임 만료 시 뱀 공격 트리거
+                if self._trigger_snake_attack():
+                    # 다음 쿨타임 설정 (10~20초)
+                    self.snake_attack_cooldown = random.uniform(
+                        self.SNAKE_COOLDOWN_MIN, self.SNAKE_COOLDOWN_MAX
+                    )
+
+        # 모든 항아리 뱀 업데이트 (광폭화 여부와 관계없이 - 숨는 애니메이션 처리)
+        for pot in self.snake_pots:
+            pot.update(dt)
+
     def draw(self, screen: pygame.Surface):
         """필러 배경 그리기"""
         # 정적 배경
@@ -295,6 +722,10 @@ class HongryeonFrame:
 
         # 떠다니는 불씨
         self._draw_embers(screen)
+
+        # === 광폭화 모드: 항아리 뱀 그리기 ===
+        for pot in self.snake_pots:
+            pot.draw(screen)
 
         # 테두리 글로우 효과 (애니메이션)
         self._draw_animated_border_glow(screen)
@@ -676,3 +1107,23 @@ def init_hongryeon_background(screen_width: int, screen_height: int,
 def get_hongryeon_background() -> HongryeonFrame:
     """홍련 배경 인스턴스 반환"""
     return _hongryeon_bg
+
+
+def set_hongryeon_enraged(active: bool):
+    """홍련 필러 광폭화 모드 설정 (전역 함수)"""
+    if _hongryeon_bg is not None:
+        _hongryeon_bg.set_enraged_mode(active)
+
+
+def set_hongryeon_fire_callback(callback: Callable[[int, int, int, int], None]):
+    """홍련 필러 화염탄 발사 콜백 설정 (전역 함수)
+    callback(start_x, start_y, target_x, target_y): 화염탄 발사 함수
+    """
+    if _hongryeon_bg is not None:
+        _hongryeon_bg.set_fire_callback(callback)
+
+
+def update_hongryeon_player_position(player_x: int, player_y: int):
+    """홍련 필러 플레이어 위치 업데이트 (전역 함수)"""
+    if _hongryeon_bg is not None:
+        _hongryeon_bg.update_player_position(player_x, player_y)
