@@ -20695,21 +20695,19 @@ def fire_snake_fireball(start_x: int, start_y: int, target_x: int, target_y: int
     """
     global fireballs
 
-    # 디버그: 원본 좌표 확인
-    print(f"[뱀화염탄 DEBUG] 내부좌표: start=({start_x}, {start_y}), target=({target_x}, {target_y})")
-
     # SnakePot에서 전달받은 좌표는 이미 내부 게임 좌표 (760x750)
-    # 직접 사용하고 게임 영역 경계로 시작점만 조정
+    # 뱀 입 위치에서 직접 발사 (필러 영역에서 시작)
     game_start_x = float(start_x)
     game_start_y = float(start_y)
     game_target_x = float(target_x)
     game_target_y = float(target_y)
 
-    # 뱀 화염탄은 필러에서 발사되므로, 게임 영역 경계로 시작점 조정
-    if game_start_x < GAME_AREA_OFFSET_X:
-        game_start_x = GAME_AREA_OFFSET_X + 10  # 왼쪽 필러에서 발사
-    elif game_start_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH:
-        game_start_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 10  # 오른쪽 필러에서 발사
+    # 디버그: 좌표 확인
+    side = "LEFT" if start_x < GAME_AREA_OFFSET_X else "RIGHT" if start_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH else "CENTER"
+    print(f"🐍 [뱀화염탄] {side} 필러에서 발사!")
+    print(f"   시작위치: ({game_start_x:.0f}, {game_start_y:.0f})")
+    print(f"   타겟위치: ({game_target_x:.0f}, {game_target_y:.0f})")
+    print(f"   게임영역: X={GAME_AREA_OFFSET_X}~{GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH}")
 
     # 방향 벡터 계산
     dx = game_target_x - game_start_x
@@ -73734,11 +73732,27 @@ def update_stage7_tetro_laser(now: int | None = None) -> None:
             stage7_tetro_laser_last_fire_ms = now
 
             # 폭발큐브 녹이기 (레이저로 파괴)
-            if stage7_center_cube_state and stage7_center_cube_state.get("active"):
-                _stage7_cube_explode_and_clear_tetros(now, by_laser=True)
-                print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! 폭발큐브 녹이기 시작!")
+            # 활성 상태이거나 재건 중인 경우 모두 녹일 수 있음
+            cube_st = stage7_center_cube_state
+            if cube_st:
+                is_active = cube_st.get("active", False)
+                is_rebuilding = cube_st.get("rebuild", False)
+                is_melting = cube_st.get("melting", False)
+
+                if is_active or is_rebuilding:
+                    # 재건 중이면 재건 진행도 초기화
+                    if is_rebuilding:
+                        cube_st["rebuild"] = False
+                        cube_st["rebuild_progress"] = 0
+                        cube_st["active"] = True  # 활성 상태로 변경 후 녹이기
+                    _stage7_cube_explode_and_clear_tetros(now, by_laser=True)
+                    print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! 폭발큐브 녹이기 시작!")
+                elif is_melting:
+                    print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 이미 녹는 중)")
+                else:
+                    print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 상태 없음)")
             else:
-                print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 비활성)")
+                print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 미초기화)")
 
             # 사운드 재생
             try:
@@ -128592,6 +128606,7 @@ def main(stage_num, new_boss_mode=False):
                     # 궁극기 활성/유지 업데이트
                     update_stage7_super_state()
                     update_stage7_tetro_laser()  # 테트로미노 광선 업데이트
+                    update_stage7_center_cube()  # 폭발큐브 상태 업데이트 (멜팅 포함)
                     update_stage7_guard_skill()
                     update_stage7_tetromino_skill()
                     update_stage7_tetro_wall_skill()
@@ -129728,6 +129743,7 @@ def main(stage_num, new_boss_mode=False):
             draw_stage7_boss_gauge_bar()  # 스테이지 7 테트리서 게이지
             draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
+            draw_stage7_center_cube(SCREEN)  # 폭발큐브 (레이저로 녹는 애니메이션 포함)
             draw_stage7_tetrominoes(SCREEN)
             draw_stage7_tetro_laser(SCREEN)  # 테트로미노 광선 (초인테트리서 스킬)
             draw_stage7_tetro_debris(SCREEN)  # 테트로미노 파편 효과

@@ -142,20 +142,20 @@ class SnakePot:
         elif self.state == self.STATE_FIRING:
             # 발사 - 콜백 호출
             if not self.fired_this_cycle and self.fire_callback:
-                # 뱀 머리 위치 계산 - 호리병 Y 위치에서 발사 (상승 없이)
-                # 뱀은 호리병 옆에서 게임 영역 쪽으로 발사
+                # 뱀 머리 위치 계산 - 호리병 위치에서 발사
+                # 뱀 입은 필러 안쪽에서 시작하여 게임 영역으로 날아감
                 snake_head_y = int(self.y)  # 호리병 중심 Y에서 발사
 
-                # 머리 X 위치 (게임 영역 경계 근처)
+                # 머리 X 위치 - 필러 안쪽에서 시작 (게임 영역 경계가 아닌 필러 내부)
                 if self.side == 'left':
-                    # 왼쪽 필러: 게임 영역 시작점 근처에서 발사
-                    snake_head_x = int(self.x + 40)  # 오른쪽(게임 영역)으로
+                    # 왼쪽 필러: 호리병 위치에서 약간 오른쪽 (필러 안쪽)
+                    snake_head_x = int(self.x + 20)  # ~60 (필러 안쪽)
                 else:
-                    # 오른쪽 필러: 게임 영역 끝점 근처에서 발사
-                    snake_head_x = int(self.x - 40)  # 왼쪽(게임 영역)으로
+                    # 오른쪽 필러: 호리병 위치에서 약간 왼쪽 (필러 안쪽)
+                    snake_head_x = int(self.x - 20)  # ~700 (필러 안쪽)
 
-                print(f"[SnakePot DEBUG] pot=({self.x}, {self.y}), side={self.side}")
-                print(f"[SnakePot DEBUG] head=({snake_head_x}, {snake_head_y}), target=({self.target_x}, {self.target_y})")
+                print(f"🐍 [SnakePot] 발사! pot=({self.x}, {self.y}), side={self.side}")
+                print(f"   head=({snake_head_x}, {snake_head_y}) → target=({self.target_x}, {self.target_y})")
                 self.fire_callback(snake_head_x, snake_head_y, self.target_x, self.target_y)
                 self.fired_this_cycle = True
 
