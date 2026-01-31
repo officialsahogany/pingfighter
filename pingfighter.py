@@ -73655,7 +73655,7 @@ def update_stage7_tetro_laser(now: int | None = None) -> None:
 
 
 def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
-    """테트로미노 광선 시각 효과 렌더링."""
+    """테트로미노 광선 시각 효과 렌더링 - 테트로미노 블럭 스트림 스타일."""
     if current_stage != 7:
         return
 
@@ -73672,38 +73672,88 @@ def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
         cube_cx = stage7_center_cube_state.get("cx", WIDTH // 2)
         cube_cy = stage7_center_cube_state.get("cy", HEIGHT // 2)
 
-    # 충전 이펙트
+    # 테트로미노 블럭 레이아웃 정의 (셀 좌표 기준)
+    tetro_layouts = {
+        'T': [(0, 0), (-1, 0), (1, 0), (0, -1)],
+        'I': [(0, -1), (0, 0), (0, 1), (0, 2)],
+        'L': [(-1, 0), (0, 0), (1, 0), (1, -1)],
+        'J': [(-1, -1), (-1, 0), (0, 0), (1, 0)],
+        'Z': [(-1, -1), (0, -1), (0, 0), (1, 0)],
+        'S': [(-1, 0), (0, 0), (0, -1), (1, -1)],
+        'O': [(0, 0), (1, 0), (0, 1), (1, 1)],
+    }
+    tetro_colors = {
+        'T': (180, 80, 220),   # 보라
+        'I': (80, 200, 255),   # 시안
+        'L': (255, 165, 60),   # 주황
+        'J': (80, 100, 220),   # 파랑
+        'Z': (255, 80, 80),    # 빨강
+        'S': (80, 220, 120),   # 초록
+        'O': (255, 220, 60),   # 노랑
+    }
+    tetro_types = list(tetro_layouts.keys())
+
+    def draw_tetromino_at(cx: float, cy: float, tetro_type: str, cell_size: int, alpha: int, rotation: int = 0):
+        """지정 위치에 테트로미노 블럭 그리기."""
+        layout = tetro_layouts[tetro_type]
+        color = tetro_colors[tetro_type]
+        # 회전 적용 (90도 단위)
+        rotated = layout
+        for _ in range(rotation % 4):
+            rotated = [(-dy, dx) for dx, dy in rotated]
+
+        for dx, dy in rotated:
+            x = int(cx + dx * cell_size)
+            y = int(cy + dy * cell_size)
+            rect = pygame.Rect(x - cell_size // 2, y - cell_size // 2, cell_size, cell_size)
+            # 블럭 본체
+            block_surf = pygame.Surface((cell_size, cell_size), pygame.SRCALPHA)
+            block_surf.fill((*color, alpha))
+            surface.blit(block_surf, rect.topleft)
+            # 하이라이트 테두리
+            if alpha > 100:
+                hl_color = tuple(min(255, c + 60) for c in color)
+                pygame.draw.rect(surface, (*hl_color, min(255, alpha)), rect, 1)
+
+    # 충전 이펙트 - 테트로미노 블럭 모임
     if stage7_tetro_laser_charging:
         charge_progress = min(1.0, (now - stage7_tetro_laser_charge_start_ms) / STAGE7_TETRO_LASER_CHARGE_MS)
 
-        # 충전 글로우 (보스 주변)
-        glow_size = int(30 + 40 * charge_progress)
-        glow_alpha = int(100 + 155 * charge_progress)
+        # 보스 주변에 테트로미노들이 모여드는 효과
+        num_gathering = int(7 * charge_progress)
+        gather_radius = 60 - 40 * charge_progress  # 점점 모임
 
-        # 테트로미노 색상 (보라/마젠타 계열)
-        charge_colors = [
-            (180, 80, 220),   # 보라
-            (220, 100, 180),  # 마젠타
-            (140, 60, 200),   # 진보라
-        ]
+        for i in range(num_gathering):
+            angle = (now * 0.003 + i * (2 * math.pi / 7))
+            dist = gather_radius + 10 * math.sin(now * 0.01 + i)
+            px = boss_cx + math.cos(angle) * dist
+            py = boss_cy + math.sin(angle) * dist
+            tetro_type = tetro_types[i % len(tetro_types)]
+            cell_size = int(6 + 4 * charge_progress)
+            alpha = int(100 + 155 * charge_progress)
+            rotation = int(now * 0.005 + i) % 4
+            draw_tetromino_at(px, py, tetro_type, cell_size, alpha, rotation)
 
-        for i, color in enumerate(charge_colors):
-            size = glow_size - i * 8
-            if size > 0:
-                alpha = max(0, glow_alpha - i * 40)
-                glow_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (*color, alpha), (size, size), size)
-                surface.blit(glow_surf, (boss_cx - size, boss_cy - size))
+        # 충전 글로우
+        glow_size = int(25 + 35 * charge_progress)
+        glow_alpha = int(80 + 100 * charge_progress)
+        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (180, 100, 220, glow_alpha), (glow_size, glow_size), glow_size)
+        surface.blit(glow_surf, (boss_cx - glow_size, boss_cy - glow_size))
 
-        # 에너지 라인 (보스 → 큐브 방향 예고)
-        if charge_progress > 0.3:
-            line_alpha = int(100 * (charge_progress - 0.3) / 0.7)
-            line_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            pygame.draw.line(line_surf, (180, 80, 220, line_alpha),
-                           (boss_cx, boss_cy), (cube_cx, cube_cy), 2)
-            surface.blit(line_surf, (0, 0))
+        # 예고 라인 (테트로미노 점선)
+        if charge_progress > 0.4:
+            line_alpha = int(80 * (charge_progress - 0.4) / 0.6)
+            num_dots = int(8 * charge_progress)
+            for di in range(num_dots):
+                t = (di + 0.5) / num_dots
+                dx = boss_cx + (cube_cx - boss_cx) * t
+                dy = boss_cy + (cube_cy - boss_cy) * t
+                dot_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+                pygame.draw.rect(dot_surf, (180, 80, 220, line_alpha), (0, 0, 8, 8))
+                surface.blit(dot_surf, (int(dx - 4), int(dy - 4)))
 
-    # 광선 발사 이펙트
+    # 광선 발사 이펙트 - 테트로미노 스트림
     if stage7_tetro_laser_active:
         beam_time = now - stage7_tetro_laser_start_ms
         beam_progress = beam_time / STAGE7_TETRO_LASER_DURATION_MS
@@ -73715,64 +73765,75 @@ def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
             fade = 1.0
 
         beam_alpha = int(255 * fade)
-        beam_width = int(20 * fade)
 
-        # 테트로미노 광선 색상 (보라/시안/마젠타 믹스)
-        laser_colors = [
-            (180, 80, 220, beam_alpha),       # 외곽 보라
-            (100, 200, 255, beam_alpha),      # 중간 시안
-            (255, 150, 255, beam_alpha),      # 중심 핑크
-        ]
-
-        # 외곽 글로우
-        for glow_i in range(5):
-            glow_width = beam_width + (5 - glow_i) * 8
-            glow_a = max(0, int(40 * fade) - glow_i * 8)
+        # 외곽 글로우 라인
+        glow_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        for gi in range(4):
+            glow_width = 30 - gi * 6
+            glow_a = max(0, int(50 * fade) - gi * 12)
             if glow_a > 0:
-                glow_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                pygame.draw.line(glow_surf, (150, 100, 200, glow_a),
+                pygame.draw.line(glow_surf, (150, 80, 200, glow_a),
                                (boss_cx, boss_cy), (cube_cx, cube_cy), glow_width)
-                surface.blit(glow_surf, (0, 0))
+        surface.blit(glow_surf, (0, 0))
 
-        # 메인 빔 (3중 레이어)
-        for i, color in enumerate(laser_colors):
-            width = max(2, beam_width - i * 5)
-            beam_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            pygame.draw.line(beam_surf, color,
-                           (boss_cx, boss_cy), (cube_cx, cube_cy), width)
-            surface.blit(beam_surf, (0, 0))
+        # 테트로미노 블럭 스트림 (빔을 따라 흐름)
+        num_tetros = 12
+        stream_speed = 0.004  # 흐름 속도
 
-        # 에너지 파동 (빔을 따라 흐름)
-        num_waves = 5
-        for wave_i in range(num_waves):
-            wave_phase = ((beam_time * 0.005) + wave_i * 0.2) % 1.0
-            wave_x = boss_cx + (cube_cx - boss_cx) * wave_phase
-            wave_y = boss_cy + (cube_cy - boss_cy) * wave_phase
-            wave_size = int(15 * fade * (1.0 - abs(wave_phase - 0.5)))
-            wave_alpha = int(180 * fade * (1.0 - abs(wave_phase - 0.5)))
-            if wave_size > 0 and wave_alpha > 0:
-                wave_surf = pygame.Surface((wave_size * 2, wave_size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(wave_surf, (200, 150, 255, wave_alpha),
-                                 (wave_size, wave_size), wave_size)
-                surface.blit(wave_surf, (int(wave_x - wave_size), int(wave_y - wave_size)))
+        for ti in range(num_tetros):
+            # 각 테트로미노의 위치 (시간에 따라 흐름)
+            base_phase = (ti / num_tetros)
+            flow_offset = (beam_time * stream_speed) % 1.0
+            phase = (base_phase + flow_offset) % 1.0
 
-        # 발사구 발광
-        muzzle_size = int(25 * fade)
-        if muzzle_size > 0:
-            for mi in range(3):
-                ms = muzzle_size - mi * 6
-                if ms > 0:
-                    ma = max(0, beam_alpha - mi * 60)
-                    muzzle_surf = pygame.Surface((ms * 2, ms * 2), pygame.SRCALPHA)
-                    muzzle_color = (220 - mi * 30, 120 + mi * 40, 255, ma)
-                    pygame.draw.circle(muzzle_surf, muzzle_color, (ms, ms), ms)
-                    surface.blit(muzzle_surf, (boss_cx - ms, boss_cy - ms))
+            # 빔 시작~끝 사이 위치
+            tx = boss_cx + (cube_cx - boss_cx) * phase
+            ty = boss_cy + (cube_cy - boss_cy) * phase
 
-        # 임팩트 이펙트 (큐브 위치)
-        impact_size = int(40 * fade * (0.5 + 0.5 * math.sin(beam_time * 0.02)))
+            # 테트로미노 종류 (순환)
+            tetro_type = tetro_types[ti % len(tetro_types)]
+
+            # 크기와 투명도 (중앙이 가장 밝음)
+            dist_from_center = abs(phase - 0.5) * 2  # 0~1 (0이 중앙)
+            size_factor = 1.0 - dist_from_center * 0.3
+            alpha_factor = 1.0 - dist_from_center * 0.4
+
+            cell_size = int(10 * size_factor * fade)
+            alpha = int(beam_alpha * alpha_factor)
+
+            # 회전 (시간에 따라)
+            rotation = int((beam_time * 0.008 + ti * 0.7)) % 4
+
+            if cell_size > 2 and alpha > 20:
+                draw_tetromino_at(tx, ty, tetro_type, cell_size, alpha, rotation)
+
+        # 발사구 - 테트로미노 폭발 효과
+        muzzle_tetros = 4
+        for mi in range(muzzle_tetros):
+            angle = now * 0.015 + mi * (2 * math.pi / muzzle_tetros)
+            dist = 15 + 8 * math.sin(now * 0.02 + mi)
+            mx = boss_cx + math.cos(angle) * dist
+            my = boss_cy + math.sin(angle) * dist
+            mtype = tetro_types[(mi + int(now * 0.01)) % len(tetro_types)]
+            draw_tetromino_at(mx, my, mtype, int(8 * fade), int(200 * fade), int(now * 0.01 + mi) % 4)
+
+        # 임팩트 - 큐브 위치에서 테트로미노 산란
+        impact_tetros = 6
+        impact_pulse = 0.5 + 0.5 * math.sin(beam_time * 0.015)
+        for ii in range(impact_tetros):
+            angle = now * 0.012 + ii * (2 * math.pi / impact_tetros)
+            dist = 30 + 20 * impact_pulse
+            ix = cube_cx + math.cos(angle) * dist
+            iy = cube_cy + math.sin(angle) * dist
+            itype = tetro_types[(ii + int(now * 0.008)) % len(tetro_types)]
+            ialpha = int(180 * fade * (0.6 + 0.4 * impact_pulse))
+            draw_tetromino_at(ix, iy, itype, int(7 * fade), ialpha, int(now * 0.006 + ii) % 4)
+
+        # 중앙 임팩트 글로우
+        impact_size = int(35 * fade * impact_pulse)
         if impact_size > 0:
             impact_surf = pygame.Surface((impact_size * 2, impact_size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(impact_surf, (255, 200, 255, int(150 * fade)),
+            pygame.draw.circle(impact_surf, (255, 180, 255, int(120 * fade)),
                              (impact_size, impact_size), impact_size)
             surface.blit(impact_surf, (cube_cx - impact_size, cube_cy - impact_size))
 
