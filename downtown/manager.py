@@ -22,6 +22,7 @@ from .npc import NPCManager
 from .shop import Shop
 from .building_interior import BuildingInterior
 from .performance_stage import PerformanceStage, PerformanceStageManager
+from .colosseum_arena import ColosseumsArena
 
 # 인게임 메뉴 함수 import
 try:
@@ -907,7 +908,7 @@ class DowntownManager:
         elif building_type == BuildingType.CASINO:
             self._show_placeholder(building_type)
         elif building_type == BuildingType.COLOSSEUM:
-            self._show_placeholder(building_type)
+            self._run_colosseum(building_type)
         elif building_type == BuildingType.PET_SHOP:
             self._show_placeholder(building_type)
         elif building_type == BuildingType.ELDER:
@@ -1941,6 +1942,145 @@ class DowntownManager:
     def _show_mystery(self):
         """미스터리"""
         pass
+
+    def _run_colosseum(self, building_type):
+        """고대 투기장 - 토너먼트 시스템"""
+        # 먼저 건물 내부 표시 (입장 확인)
+        player_sprite = getattr(self.player, 'sprite', None)
+        interior = BuildingInterior(
+            building_type, self._freetype_fonts, player_sprite,
+            player_data=self.player_data,
+            academy=self.academy,
+            ap_system=self.ap_system
+        )
+
+        # 입장료 확인
+        admission_fee = 100
+        player_gold = self.player_data.get('gold', 0)
+
+        clock = pygame.time.Clock()
+        running = True
+        show_entry_dialog = True  # 입장 확인 다이얼로그
+        arena_running = False
+
+        while running:
+            dt = clock.tick(60) / 1000.0
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    return
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        if arena_running:
+                            continue  # 아레나 진행 중에는 ESC 무시
+                        running = False
+
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    mx, my = event.pos
+                    if show_entry_dialog:
+                        # 입장 버튼 클릭 체크
+                        entry_btn = pygame.Rect(250, 420, 120, 45)
+                        cancel_btn = pygame.Rect(390, 420, 120, 45)
+
+                        if entry_btn.collidepoint(mx, my):
+                            if player_gold >= admission_fee:
+                                # 입장료 지불
+                                self.player_data['gold'] = player_gold - admission_fee
+                                show_entry_dialog = False
+                                arena_running = True
+
+                                # 아레나 시스템 실행
+                                arena = ColosseumsArena(
+                                    self.screen,
+                                    self._freetype_fonts,
+                                    self.player_data.get('gold', 0)
+                                )
+
+                                # 아레나 게임 루프
+                                arena_active = True
+                                while arena_active:
+                                    dt = clock.tick(60) / 1000.0
+
+                                    for arena_event in pygame.event.get():
+                                        if arena_event.type == pygame.QUIT:
+                                            arena_active = False
+                                            running = False
+                                            return
+                                        if arena.handle_event(arena_event):
+                                            arena_active = False
+
+                                    arena.update(dt)
+                                    arena.draw()
+                                    pygame.display.flip()
+
+                                # 결과 처리
+                                result = arena.get_result()
+                                self.player_data['gold'] = self.player_data.get('gold', 0) + result['winnings']
+                                arena_running = False
+                                running = False
+
+                        elif cancel_btn.collidepoint(mx, my):
+                            running = False
+
+            # 그리기
+            interior.draw(self.screen)
+
+            if show_entry_dialog:
+                # 입장 확인 다이얼로그
+                self._draw_colosseum_entry_dialog(player_gold, admission_fee)
+
+            pygame.display.flip()
+
+    def _draw_colosseum_entry_dialog(self, player_gold: int, admission_fee: int):
+        """투기장 입장 확인 다이얼로그"""
+        # 반투명 오버레이
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+
+        # 패널
+        panel_x, panel_y = 180, 250
+        panel_w, panel_h = 400, 250
+        pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
+        pygame.draw.rect(self.screen, (255, 180, 0), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
+
+        # 타이틀
+        if self._freetype_fonts and "menu" in self._freetype_fonts:
+            title, _ = self._freetype_fonts["menu"].render("고대 투기장", (255, 215, 0))
+            self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, panel_y + 20))
+
+        # 설명
+        if self._freetype_fonts and "small" in self._freetype_fonts:
+            desc1, _ = self._freetype_fonts["small"].render("8강 토너먼트에 참가하여 배팅하세요!", (200, 200, 200))
+            self.screen.blit(desc1, (SCREEN_WIDTH // 2 - desc1.get_width() // 2, panel_y + 60))
+
+            fee_text = f"입장료: {admission_fee} G"
+            fee_color = (100, 255, 100) if player_gold >= admission_fee else (255, 100, 100)
+            fee_surf, _ = self._freetype_fonts["small"].render(fee_text, fee_color)
+            self.screen.blit(fee_surf, (SCREEN_WIDTH // 2 - fee_surf.get_width() // 2, panel_y + 90))
+
+            gold_text = f"보유 골드: {player_gold} G"
+            gold_surf, _ = self._freetype_fonts["small"].render(gold_text, (255, 215, 0))
+            self.screen.blit(gold_surf, (SCREEN_WIDTH // 2 - gold_surf.get_width() // 2, panel_y + 115))
+
+        # 버튼
+        can_enter = player_gold >= admission_fee
+        entry_color = (80, 180, 80) if can_enter else (60, 60, 60)
+        entry_btn = pygame.Rect(250, 420, 120, 45)
+        pygame.draw.rect(self.screen, entry_color, entry_btn, border_radius=5)
+
+        cancel_btn = pygame.Rect(390, 420, 120, 45)
+        pygame.draw.rect(self.screen, (180, 80, 80), cancel_btn, border_radius=5)
+
+        if self._freetype_fonts and "menu" in self._freetype_fonts:
+            text_color = (255, 255, 255) if can_enter else (100, 100, 100)
+            entry_text, _ = self._freetype_fonts["menu"].render("입장하기", text_color)
+            self.screen.blit(entry_text, (entry_btn.centerx - entry_text.get_width() // 2, entry_btn.y + 12))
+
+            cancel_text, _ = self._freetype_fonts["menu"].render("나가기", (255, 255, 255))
+            self.screen.blit(cancel_text, (cancel_btn.centerx - cancel_text.get_width() // 2, cancel_btn.y + 12))
 
     def _show_placeholder(self, building_type):
         """건물 내부 표시 (광장 스타일 확장 - 플레이어 이동, 문 출입, 광장과 동일한 키 조작)"""
