@@ -132,6 +132,9 @@ class AnimatedBackgroundStage7:
         self._hidden_until_ms = 0  # 폭발 후 비가시 기간(15초)
         self._rebuild_anim_ms = 0
         self._rebuild_total_ms = 1400  # 홀로그램 재조립 연출 길이
+        # 레이저 녹는 애니메이션 (폭발 없이 사르르 녹음)
+        self._laser_melt_ms = 0  # 남은 녹는 시간
+        self._laser_melt_total_ms = 1200  # 녹는 애니메이션 총 시간
         # 홀로그램 스캔라인 레이어 캐시
         self._holo_layer = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         # 큐브 히트 신호(메인 루프에서 이펙트/사운드 처리)
@@ -157,6 +160,13 @@ class AnimatedBackgroundStage7:
         now_ms = int(self.time * 1000)
         if self._rebuild_anim_ms > 0:
             self._rebuild_anim_ms = max(0, self._rebuild_anim_ms - int(elapsed_ms))
+        # 레이저 녹는 애니메이션 업데이트
+        if self._laser_melt_ms > 0:
+            self._laser_melt_ms = max(0, self._laser_melt_ms - int(elapsed_ms))
+            # 녹기 완료 → 숨김 상태로 전환
+            if self._laser_melt_ms <= 0:
+                self._hidden_until_ms = now_ms + random.randint(20000, 35000)  # 20~35초 후 재조립
+                self._hit_count = 0
         # 숨김(폭발 후) 타임아웃이 끝났으면 재조립 시작
         if self._hidden_until_ms and now_ms >= self._hidden_until_ms:
             self._hidden_until_ms = 0
@@ -203,21 +213,21 @@ class AnimatedBackgroundStage7:
         return False
 
     def trigger_laser_melt(self) -> bool:
-        """테트로미노 광선에 의한 강제 녹이기. 성공 시 True 반환."""
+        """테트로미노 광선에 의한 강제 녹이기 (폭발 없이 사르르 녹음). 성공 시 True 반환."""
         now_ms = int(self.time * 1000)
-        # 이미 숨김 중이거나 재조립 중이면 무효
+        # 이미 숨김 중이면 무효
         if self._hidden_until_ms and now_ms < self._hidden_until_ms:
             return False
-        if self._rebuild_anim_ms > 0:
+        # 이미 녹는 중이면 무효
+        if self._laser_melt_ms > 0:
             return False
-        # 즉시 폭발 요청 + 숨김 (25~45초)
-        self._explosion_request = True
-        self._hidden_until_ms = now_ms + random.randint(25000, 45000)
+        # 녹는 애니메이션 시작 (폭발 없음!)
+        self._laser_melt_ms = self._laser_melt_total_ms
         # 진동 상태 초기화
         self._vibrate_until_ms = 0
         self._vibrate_mode = None
-        # 히트 카운트 초기화
-        self._hit_count = 0
+        # 재조립 중이었다면 취소
+        self._rebuild_anim_ms = 0
         return True
 
     def is_cube_active(self) -> bool:
@@ -226,11 +236,24 @@ class AnimatedBackgroundStage7:
         # 숨김 중이면 비활성
         if self._hidden_until_ms and now_ms < self._hidden_until_ms:
             return False
+        # 녹는 중이면 비활성
+        if self._laser_melt_ms > 0:
+            return False
         # 재조립 중이어도 타겟 가능 (재조립 중이면 즉시 다시 녹일 수 있음)
         return True
 
+    def is_melting(self) -> bool:
+        """현재 녹는 애니메이션 중인지 확인."""
+        return self._laser_melt_ms > 0
+
+    def get_melt_progress(self) -> float:
+        """녹는 진행도 반환 (0.0 = 시작, 1.0 = 완료)."""
+        if self._laser_melt_ms <= 0:
+            return 0.0
+        return 1.0 - (self._laser_melt_ms / self._laser_melt_total_ms)
+
     def _is_visible(self) -> bool:
-        # 폭발 후 15초 숨김 또는 재조립 애니메이션 중을 모두 '표시'로 간주(재조립은 표시되지만 홀로그램 효과)
+        # 숨김 중이 아니면 표시 (녹는 중도 표시됨)
         now_ms = int(self.time * 1000)
         return not (self._hidden_until_ms and now_ms < self._hidden_until_ms)
 
@@ -493,6 +516,11 @@ class AnimatedBackgroundStage7:
             k = 1.0 - (self._rebuild_anim_ms / max(1, self._rebuild_total_ms))
             self._apply_hologram_effect(self._cube_layer, intensity=k)
 
+        # 레이저 녹는 효과: 사르르 녹아서 사라짐
+        if self._laser_melt_ms > 0:
+            melt_progress = 1.0 - (self._laser_melt_ms / max(1, self._laser_melt_total_ms))
+            self._apply_melt_effect(self._cube_layer, progress=melt_progress, center=(cx, cy))
+
         # 원형 마스크 적용(큐브 영역만 남김)
         self._cube_layer.blit(self._cube_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         ox, oy = base_offset
@@ -523,6 +551,67 @@ class AnimatedBackgroundStage7:
                 pygame.draw.line(self._holo_layer, grid_color, (x, 0), (x, self.height))
         # 알파를 보존하기 위해 RGB 채널만 가산합성
         target.blit(self._holo_layer, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
+
+    def _apply_melt_effect(self, target: pygame.Surface, *, progress: float, center: tuple[int, int]) -> None:
+        """녹는 효과: 사르르 아래로 흘러내리며 보라색으로 변하고 페이드아웃.
+
+        Args:
+            target: 큐브가 그려진 레이어
+            progress: 0.0(시작) → 1.0(완전히 녹음)
+            center: 큐브 중심 좌표 (cx, cy)
+        """
+        cx, cy = center
+        w, h = target.get_size()
+
+        # 1. 아래로 흘러내리는 효과: 각 라인을 아래로 이동
+        # progress에 따라 점점 더 많이 아래로 이동
+        drip_offset = int(progress * 80)  # 최대 80px 아래로
+
+        if drip_offset > 0 and progress < 1.0:
+            # 일시적으로 복사하여 아래로 밀기
+            temp = target.copy()
+            target.fill((0, 0, 0, 0))
+            # 불규칙한 녹는 효과: 각 열마다 다른 속도로 떨어짐
+            strip_width = 8
+            for x in range(0, w, strip_width):
+                # 중앙에서 멀수록 더 빨리 녹음
+                dist_from_center = abs(x - cx) / max(1, w // 2)
+                local_progress = min(1.0, progress + dist_from_center * 0.3)
+                local_drip = int(local_progress * 80)
+                # 스트립 추출 및 이동
+                strip_rect = pygame.Rect(x, 0, strip_width, h)
+                strip = temp.subsurface(strip_rect).copy()
+                # 녹아서 늘어나는 효과
+                stretch_factor = 1.0 + local_progress * 0.3
+                new_h = int(h * stretch_factor)
+                stretched = pygame.transform.scale(strip, (strip_width, new_h))
+                target.blit(stretched, (x, local_drip))
+
+        # 2. 전체 투명도 감소 (페이드아웃)
+        fade_alpha = int(255 * (1.0 - progress * 0.9))  # 90%까지 페이드
+        if fade_alpha < 255:
+            alpha_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+            alpha_surf.fill((255, 255, 255, fade_alpha))
+            target.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+        # 3. 보라색/마젠타 틴트 추가 (녹으면서 색상 변화)
+        if progress > 0.1:
+            tint_intensity = int(80 * progress)
+            tint = pygame.Surface((w, h), pygame.SRCALPHA)
+            tint.fill((180, 60, 220, tint_intensity))  # 보라색 틴트
+            target.blit(tint, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+        # 4. 물방울 파티클 (떨어지는 효과)
+        if progress > 0.2 and progress < 0.95:
+            num_drops = int(8 * progress)
+            for i in range(num_drops):
+                # 중심 주변에서 떨어지는 물방울
+                drop_x = cx + random.randint(-40, 40)
+                drop_y = cy + int(40 + progress * 100) + random.randint(0, 30)
+                drop_size = random.randint(2, 4)
+                drop_alpha = int(150 * (1.0 - progress))
+                drop_color = (180, 120, 255, drop_alpha)
+                pygame.draw.circle(target, drop_color, (drop_x, drop_y), drop_size)
 
 
 # ----------------------------- 수학 유틸 ------------------------------
