@@ -698,9 +698,9 @@ class HongryeonFrame:
             # 뱀 공격 쿨타임 처리
             if self.snake_attack_cooldown > 0:
                 self.snake_attack_cooldown -= dt
-                # 디버그: 쿨타임 로그 (3초마다)
-                if int(self.snake_attack_cooldown * 10) % 30 == 0:
-                    print(f"[홍련] 뱀 쿨타임: {self.snake_attack_cooldown:.1f}s, 뱀 개수: {len(self.snake_pots)}")
+                # 디버그: 쿨타임 로그 (비활성화 - 너무 자주 출력됨)
+                # if int(self.snake_attack_cooldown * 10) % 30 == 0:
+                #     print(f"[홍련] 뱀 쿨타임: {self.snake_attack_cooldown:.1f}s, 뱀 개수: {len(self.snake_pots)}")
             else:
                 # 쿨타임 만료 시 뱀 공격 트리거
                 print(f"[홍련] 뱀 공격 트리거 시도! 플레이어: ({self.player_x}, {self.player_y})")
