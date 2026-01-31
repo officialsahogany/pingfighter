@@ -144,6 +144,8 @@ class SnakePot:
             if not self.fired_this_cycle and self.fire_callback:
                 snake_head_x = int(self.x)
                 snake_head_y = int(self.y - self.vase_height // 2 - self.snake_max_height * self.snake_rise_progress)
+                print(f"[SnakePot DEBUG] pot=({self.x}, {self.y}), vase_h={self.vase_height}, max_h={self.snake_max_height}, rise={self.snake_rise_progress:.2f}")
+                print(f"[SnakePot DEBUG] head=({snake_head_x}, {snake_head_y}), target=({self.target_x}, {self.target_y})")
                 self.fire_callback(snake_head_x, snake_head_y, self.target_x, self.target_y)
                 self.fired_this_cycle = True
 
