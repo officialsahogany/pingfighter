@@ -124135,11 +124135,10 @@ def main(stage_num, new_boss_mode=False):
 
         # 스테이지 7 광폭화: 항상 초인테트리서 상태, 게이지 0에서 시작
         if stage_num == 7:
-            global boss_special_gauge, stage7_persistent_boss_gauge
-            global stage7_super_active, stage7_super_target_scale, stage7_boss_orig_size
             # 게이지를 0으로 초기화 (광폭화 초인테트리서는 0에서 충전 시작)
+            # boss_special_gauge는 이미 함수 상단에서 global 선언됨
             boss_special_gauge = 0
-            stage7_persistent_boss_gauge = 0
+            globals()['stage7_persistent_boss_gauge'] = 0
             # 초인테트리서 즉시 활성화 (update_stage7_super_state에서 처리)
             # 여기서는 플래그만 설정하고, 실제 활성화는 첫 update에서 처리됨
             print(f"🔥 [광폭화 보스] 스테이지 7(테트리서) 초인테트리서 모드 즉시 발동! (게이지 0에서 충전)")
