@@ -20707,23 +20707,25 @@ def fire_snake_fireball(real_x: int, real_y: int, target_x: int, target_y: int, 
         additional_offset_x = 0
         additional_offset_y = 0
 
-    # X 좌표: 필러 경계에서 시작
-    if side == 'left':
-        game_start_x = float(GAME_AREA_OFFSET_X + 5)  # 80 + 5 = 85
-    elif side == 'right':
-        game_start_x = float(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 5)  # 680 - 5 = 675
-    else:
-        # side 정보 없으면 REAL 좌표에서 추정
-        game_start_x = (real_x - GAME_OFFSET_X - additional_offset_x) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR > 0 else float(real_x)
+    # 전체 오프셋 (REAL_SCREEN 상에서 게임 영역 시작점)
+    total_offset_x = GAME_OFFSET_X + additional_offset_x
+    total_offset_y = GAME_OFFSET_Y + additional_offset_y
 
-    # Y 좌표: REAL → 내부 변환
-    game_start_y = (real_y - GAME_OFFSET_Y - additional_offset_y) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR > 0 else float(real_y)
+    # REAL 좌표 → 내부 좌표 변환 (X와 Y 모두 동일한 공식 사용)
+    game_start_x = (real_x - total_offset_x) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR > 0 else float(real_x)
+    game_start_y = (real_y - total_offset_y) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR > 0 else float(real_y)
+
+    # X 좌표가 게임 영역 밖이면 경계로 조정
+    if game_start_x < GAME_AREA_OFFSET_X:
+        game_start_x = float(GAME_AREA_OFFSET_X + 3)
+    elif game_start_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH:
+        game_start_x = float(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 3)
 
     # 타겟은 이미 내부 좌표
     game_target_x = float(target_x)
     game_target_y = float(target_y)
 
-    print(f"🐍 [뱀화염탄] REAL({real_x}, {real_y}) → INTERNAL({game_start_x:.0f}, {game_start_y:.0f}), side={side}")
+    print(f"🐍 [뱀화염탄] REAL({real_x}, {real_y}) → INTERNAL({game_start_x:.0f}, {game_start_y:.0f})")
 
     # 방향 벡터 계산
     dx = game_target_x - game_start_x
@@ -89990,11 +89992,11 @@ def draw_objects():
                 hangar_door_open = True
                 hangar_door_timer = current_time
                 # 난이도별 인터셉터 출격 수
-                # 주니어리그: 1~2개, 프로리그: 2~4개, 챔피언리그: 3~6개, 신화리그: 4~8개
+                # 주니어리그: 1~2개, 챔피언리그: 4~8개, 신화리그: 4~8개
                 if ai_mode == "junior":
                     num_interceptors = random.randint(1, 2)
                 elif ai_mode == "champion":
-                    num_interceptors = random.randint(3, 6)
+                    num_interceptors = random.randint(4, 8)
                 else:  # mythic
                     num_interceptors = random.randint(4, 8)
                 for i in range(num_interceptors):
@@ -114222,7 +114224,8 @@ def handle_ball():
         else:
             BALL.centerx = BOSS.centerx
             BALL.top = BOSS.bottom + 5
-        return
+        # 서브 대기 중에도 기존 화염탄은 계속 이동 (새 화염탄 발사만 중지)
+        # 아래로 이동하지 않고 화염탄 처리만 수행
     # === Stage 5/6 화염탄 ===
     if current_stage == 5 or (current_stage == 6 and fireballs):
         now = pygame.time.get_ticks()
