@@ -111357,6 +111357,7 @@ def reset_round(is_stage_start=False):
     global nemesis_sub_boss_skill_active, nemesis_sub_boss_skill_timer
     global nemesis_sub_boss_skill_cooldown, nemesis_sub_boss_barrier_active
     global nemesis_sub_boss_electric_particles, nemesis_sub_boss_skill_triggered
+    global nemesis_sub_boss_alive  # 배슬 전용 스킬 조건 체크용
     if current_stage == 6 and is_stage_start:
         nemesis_sub_boss_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
         nemesis_sub_boss_target_x = nemesis_sub_boss_x
@@ -111422,7 +111423,7 @@ def reset_round(is_stage_start=False):
         interceptor_cooldown = random.randint(15000, 18000)
 
         # 서브보스 체력 초기화 (스테이지 시작 시)
-        global nemesis_sub_boss_health, nemesis_sub_boss_alive
+        global nemesis_sub_boss_health  # nemesis_sub_boss_alive는 위에서 선언됨
         global nemesis_sub_boss_debris_particles, nemesis_sub_boss_death_particles
         global nemesis_sub_boss_death_explosion_active
         nemesis_sub_boss_health = nemesis_sub_boss_max_health  # 8
