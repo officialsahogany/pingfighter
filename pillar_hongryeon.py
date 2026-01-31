@@ -594,9 +594,14 @@ class HongryeonFrame:
         # 화염탄 발사 콜백 (pingfighter.py에서 설정)
         self.fire_callback: Optional[Callable[[int, int, int, int], None]] = None
 
-        # 플레이어 위치 (조준용)
-        self.player_x = 380
-        self.player_y = 710
+        # 플레이어 위치 (조준용) - REAL_SCREEN 좌표
+        # 기본값은 화면 중앙 계산
+        self.player_x = self.game_x + self.game_width // 2
+        self.player_y = self.game_y + int(self.game_height * 0.95)
+
+        # 플레이어 위치 (내부 좌표계) - fire_callback용
+        self.internal_player_x = 380  # 80 + 600/2
+        self.internal_player_y = 710  # 패들 Y
 
         # 필러 화염탄 리스트 (필러 영역에서 게임 영역으로 이동 중인 화염탄)
         self.pillar_fireballs: List[PillarFireball] = []
@@ -757,10 +762,25 @@ class HongryeonFrame:
         )
         self.pillar_fireballs.append(fireball)
 
-    def update_player_position(self, player_x: int, player_y: int):
-        """플레이어 위치 업데이트 (조준용)"""
+    def update_player_position(self, player_x: int, player_y: int,
+                                internal_x: int = None, internal_y: int = None):
+        """플레이어 위치 업데이트 (조준용)
+
+        Args:
+            player_x, player_y: REAL_SCREEN 좌표 (시각적 조준용)
+            internal_x, internal_y: 내부 게임 좌표 (화염탄 생성용, 없으면 계산)
+        """
         self.player_x = player_x
         self.player_y = player_y
+
+        # 내부 좌표 설정
+        if internal_x is not None and internal_y is not None:
+            self.internal_player_x = internal_x
+            self.internal_player_y = internal_y
+        else:
+            # REAL_SCREEN에서 내부 좌표로 변환
+            self.internal_player_x = int((player_x - self.game_x) / self.scale_factor + 80)
+            self.internal_player_y = int((player_y - self.game_y) / self.scale_factor)
 
     def _trigger_snake_attack(self):
         """뱀 공격 트리거 - 6개 중 랜덤으로 1개 선택"""
@@ -974,6 +994,10 @@ class HongryeonFrame:
         # === 광폭화 모드: 항아리 뱀 그리기 ===
         for pot in self.snake_pots:
             pot.draw(screen)
+
+        # === 광폭화 모드: 필러 화염탄 그리기 ===
+        for fb in self.pillar_fireballs:
+            fb.draw(screen)  # 이미 REAL_SCREEN 좌표이므로 스케일 불필요
 
         # 테두리 글로우 효과 (애니메이션)
         self._draw_animated_border_glow(screen)

@@ -110360,10 +110360,25 @@ def draw_field():
 
         # 스테이지 5(코드=실제6 홍련): 광폭화 뱀 공격용 플레이어 위치 전달
         if current_stage == 5 and enraged_boss_active:
-            # 내부 게임 좌표계 사용 (760x750) - 변환 없이 직접 전달
-            player_cx = PLAYER.x + PLAYER.width // 2
-            player_cy = PLAYER.y + PLAYER.height // 2
-            pillar_renderer.update_hongryeon_player_position(int(player_cx), int(player_cy))
+            # 내부 좌표 (게임 로직용)
+            internal_cx = PLAYER.x + PLAYER.width // 2
+            internal_cy = PLAYER.y + PLAYER.height // 2
+
+            # REAL_SCREEN 좌표 (시각적 조준용)
+            real_cx = int(internal_cx * GAME_SCALE_FACTOR) + GAME_OFFSET_X
+            real_cy = int(internal_cy * GAME_SCALE_FACTOR) + GAME_OFFSET_Y
+            if GAME_SCALE_FACTOR != 1.0:
+                sw = int(WIDTH * GAME_SCALE_FACTOR)
+                sh = int(HEIGHT * GAME_SCALE_FACTOR)
+                additional_offset_x = (GAME_SCALED_WIDTH - sw) // 2
+                additional_offset_y = (GAME_SCALED_HEIGHT - sh) // 2
+                real_cx += additional_offset_x
+                real_cy += additional_offset_y
+
+            pillar_renderer.update_hongryeon_player_position(
+                real_cx, real_cy,
+                internal_x=int(internal_cx), internal_y=int(internal_cy)
+            )
 
     # Stage 50 (튜토리얼) - 연습장 배경
     if current_stage == 50:
