@@ -418,25 +418,59 @@ class AnimatedBackgroundStage7:
         pygame.draw.circle(self._cube_mask, (255, 255, 255, 255), (cx, cy), min(rx, ry))
 
     def _draw_center_cube(self, target_surface: pygame.Surface, *, base_offset: tuple[int, int] = (0, 0)) -> None:
+        # 녹는 진행도 계산
+        melt_progress = 0.0
+        if self._laser_melt_ms > 0:
+            melt_progress = 1.0 - (self._laser_melt_ms / max(1, self._laser_melt_total_ms))
+
         # 느린 회전 속도 + 진동 시 오프셋 흔들림
-        ang_y = self.time * 0.55
-        ang_x = self.time * 0.35
+        # 녹을 때는 회전이 빨라지고 불규칙해짐
+        melt_spin = melt_progress * 3.0  # 녹을수록 빠르게 회전
+        ang_y = self.time * (0.55 + melt_spin)
+        ang_x = self.time * (0.35 + melt_spin * 0.7)
         rot_y = _rot_y(ang_y)
         rot_x = _rot_x(ang_x)
 
         # 정점 회전 + 스케일 + 투영
         # 너무 작은 값도 반영되도록 최소값을 낮춤(부동소수 스케일 허용)
-        size = max(0.05, self.cube_size * self.cube_scale)
+        # 녹을 때 크기 감소
+        shrink = 1.0 - melt_progress * 0.6  # 최대 60% 축소
+        size = max(0.05, self.cube_size * self.cube_scale * shrink)
         offx, offy = self.cube_center_offset
+
         # 진동 중이면 무작위 지터 적용
         now_ms = int(self.time * 1000)
         if self._vibrate_until_ms and now_ms < self._vibrate_until_ms:
             jitter = 2 + max(0, int((self._vibrate_until_ms - now_ms) * 0.003))  # 끝날수록 약해짐
             offx += random.randint(-jitter, jitter)
             offy += random.randint(-jitter, jitter)
+
+        # 녹을 때 아래로 내려감 + 울렁거림
+        if melt_progress > 0:
+            # 아래로 서서히 내려감
+            offy += int(melt_progress * 50)
+            # 큰 울렁거림 (전체가 흔들림)
+            wobble_intensity = melt_progress * 8
+            offx += int(math.sin(self.time * 12) * wobble_intensity)
+            offy += int(math.cos(self.time * 10) * wobble_intensity * 0.5)
+
         cx, cy = (self.cube_center[0] + offx, self.cube_center[1] + offy)
         projected: list[tuple[float, float, float]] = []  # (px, py, z)
-        for vx, vy, vz in self._cube_vertices:
+
+        for idx, (vx, vy, vz) in enumerate(self._cube_vertices):
+            # 녹을 때 정점별 왜곡 (울렁거리는 효과)
+            if melt_progress > 0:
+                # 각 정점마다 다른 위상으로 울렁거림
+                phase = idx * 0.8
+                wobble_t = self.time * 8 + phase
+                wobble_amt = melt_progress * 0.4  # 녹을수록 심하게 울렁
+                vx += math.sin(wobble_t) * wobble_amt
+                vy += math.cos(wobble_t * 1.3) * wobble_amt
+                vz += math.sin(wobble_t * 0.9) * wobble_amt
+                # 아래쪽 정점은 더 많이 늘어남 (녹아내리는 느낌)
+                if vy > 0:  # 아래쪽 정점
+                    vy += melt_progress * 0.5  # 아래로 늘어남
+
             # 회전
             x1, y1, z1 = _mat_vec_mul(rot_y, (vx, vy, vz))
             x2, y2, z2 = _mat_vec_mul(rot_x, (x1, y1, z1))
@@ -484,19 +518,37 @@ class AnimatedBackgroundStage7:
             # 네온 블루→레드로 전체가 점차 붉어지도록 보간
             base_blue = (100, 170, 255)
             target_red = (255, 80, 80)
-            progress = min(1.0, self._hit_count / max(1, self._hit_to_explode))
-            base_col = (
-                int(base_blue[0] + (target_red[0] - base_blue[0]) * progress),
-                int(base_blue[1] + (target_red[1] - base_blue[1]) * progress),
-                int(base_blue[2] + (target_red[2] - base_blue[2]) * progress),
-            )
+            target_purple = (200, 80, 255)  # 녹을 때 보라색으로
+            hit_progress = min(1.0, self._hit_count / max(1, self._hit_to_explode))
+
+            # 녹을 때는 보라색으로 변함
+            if melt_progress > 0:
+                # 현재 색상에서 보라색으로 전환
+                current_col = (
+                    int(base_blue[0] + (target_red[0] - base_blue[0]) * hit_progress),
+                    int(base_blue[1] + (target_red[1] - base_blue[1]) * hit_progress),
+                    int(base_blue[2] + (target_red[2] - base_blue[2]) * hit_progress),
+                )
+                base_col = (
+                    int(current_col[0] + (target_purple[0] - current_col[0]) * melt_progress),
+                    int(current_col[1] + (target_purple[1] - current_col[1]) * melt_progress),
+                    int(current_col[2] + (target_purple[2] - current_col[2]) * melt_progress),
+                )
+            else:
+                base_col = (
+                    int(base_blue[0] + (target_red[0] - base_blue[0]) * hit_progress),
+                    int(base_blue[1] + (target_red[1] - base_blue[1]) * hit_progress),
+                    int(base_blue[2] + (target_red[2] - base_blue[2]) * hit_progress),
+                )
+
             shade = 0.35 + 0.65 * light
-            # 면을 불투명(opaque)으로: 알파를 255로 고정
+            # 녹을 때 투명도 감소
+            face_alpha = int(255 * (1.0 - melt_progress * 0.85))
             col = (
                 int(base_col[0] * shade),
                 int(base_col[1] * shade),
                 int(base_col[2] * shade),
-                255,
+                face_alpha,
             )
             pygame.draw.polygon(self._cube_layer, col, poly)
 
@@ -505,20 +557,39 @@ class AnimatedBackgroundStage7:
         # 작은 큐브에서 외곽선이 과해 보이지 않도록 두께를 스케일에 맞춤
         line_w_main = 1 if size < 12 else 2
         line_w_glow = 2 if size < 12 else 4
+        # 녹을 때 외곽선도 페이드아웃 + 보라색으로 변함
+        edge_alpha_main = int(170 * (1.0 - melt_progress * 0.9))
+        edge_alpha_glow = int(110 * (1.0 - melt_progress * 0.9))
+        if melt_progress > 0:
+            edge_color_main = (
+                int(220 + (200 - 220) * melt_progress),
+                int(240 + (100 - 240) * melt_progress),
+                int(255 + (255 - 255) * melt_progress),
+                edge_alpha_main,
+            )
+            edge_color_glow = (
+                int(120 + (180 - 120) * melt_progress),
+                int(200 + (80 - 200) * melt_progress),
+                255,
+                edge_alpha_glow,
+            )
+        else:
+            edge_color_main = (220, 240, 255, edge_alpha_main)
+            edge_color_glow = (120, 200, 255, edge_alpha_glow)
+
         for a, b in self._cube_edges:
             ax, ay = edge_points[a]
             bx, by = edge_points[b]
-            pygame.draw.line(self._cube_layer, (220, 240, 255, 170), (ax, ay), (bx, by), line_w_main)
-            pygame.draw.line(self._cube_layer, (120, 200, 255, 110), (ax, ay), (bx, by), line_w_glow)
+            pygame.draw.line(self._cube_layer, edge_color_main, (ax, ay), (bx, by), line_w_main)
+            pygame.draw.line(self._cube_layer, edge_color_glow, (ax, ay), (bx, by), line_w_glow)
 
         # 홀로그램 재조립 연출: 스캔라인/페이드
         if self._rebuild_anim_ms > 0:
             k = 1.0 - (self._rebuild_anim_ms / max(1, self._rebuild_total_ms))
             self._apply_hologram_effect(self._cube_layer, intensity=k)
 
-        # 레이저 녹는 효과: 사르르 녹아서 사라짐
-        if self._laser_melt_ms > 0:
-            melt_progress = 1.0 - (self._laser_melt_ms / max(1, self._laser_melt_total_ms))
+        # 녹는 파티클 효과 (물방울)
+        if melt_progress > 0:
             self._apply_melt_effect(self._cube_layer, progress=melt_progress, center=(cx, cy))
 
         # 원형 마스크 적용(큐브 영역만 남김)
@@ -553,7 +624,7 @@ class AnimatedBackgroundStage7:
         target.blit(self._holo_layer, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
 
     def _apply_melt_effect(self, target: pygame.Surface, *, progress: float, center: tuple[int, int]) -> None:
-        """녹는 효과: 사르르 아래로 흘러내리며 보라색으로 변하고 페이드아웃.
+        """녹는 효과 파티클: 떨어지는 물방울 효과만 추가 (메인 녹는 효과는 3D 렌더링에서 처리됨).
 
         Args:
             target: 큐브가 그려진 레이어
@@ -561,56 +632,17 @@ class AnimatedBackgroundStage7:
             center: 큐브 중심 좌표 (cx, cy)
         """
         cx, cy = center
-        w, h = target.get_size()
 
-        # 1. 아래로 흘러내리는 효과: 각 라인을 아래로 이동
-        # progress에 따라 점점 더 많이 아래로 이동
-        drip_offset = int(progress * 80)  # 최대 80px 아래로
-
-        if drip_offset > 0 and progress < 1.0:
-            # 일시적으로 복사하여 아래로 밀기
-            temp = target.copy()
-            target.fill((0, 0, 0, 0))
-            # 불규칙한 녹는 효과: 각 열마다 다른 속도로 떨어짐
-            strip_width = 8
-            for x in range(0, w, strip_width):
-                # 중앙에서 멀수록 더 빨리 녹음
-                dist_from_center = abs(x - cx) / max(1, w // 2)
-                local_progress = min(1.0, progress + dist_from_center * 0.3)
-                local_drip = int(local_progress * 80)
-                # 스트립 추출 및 이동
-                strip_rect = pygame.Rect(x, 0, strip_width, h)
-                strip = temp.subsurface(strip_rect).copy()
-                # 녹아서 늘어나는 효과
-                stretch_factor = 1.0 + local_progress * 0.3
-                new_h = int(h * stretch_factor)
-                stretched = pygame.transform.scale(strip, (strip_width, new_h))
-                target.blit(stretched, (x, local_drip))
-
-        # 2. 전체 투명도 감소 (페이드아웃)
-        fade_alpha = int(255 * (1.0 - progress * 0.9))  # 90%까지 페이드
-        if fade_alpha < 255:
-            alpha_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-            alpha_surf.fill((255, 255, 255, fade_alpha))
-            target.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-
-        # 3. 보라색/마젠타 틴트 추가 (녹으면서 색상 변화)
-        if progress > 0.1:
-            tint_intensity = int(80 * progress)
-            tint = pygame.Surface((w, h), pygame.SRCALPHA)
-            tint.fill((180, 60, 220, tint_intensity))  # 보라색 틴트
-            target.blit(tint, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
-
-        # 4. 물방울 파티클 (떨어지는 효과)
-        if progress > 0.2 and progress < 0.95:
-            num_drops = int(8 * progress)
+        # 떨어지는 물방울 파티클
+        if progress > 0.15 and progress < 0.95:
+            num_drops = int(12 * progress)
             for i in range(num_drops):
                 # 중심 주변에서 떨어지는 물방울
-                drop_x = cx + random.randint(-40, 40)
-                drop_y = cy + int(40 + progress * 100) + random.randint(0, 30)
-                drop_size = random.randint(2, 4)
-                drop_alpha = int(150 * (1.0 - progress))
-                drop_color = (180, 120, 255, drop_alpha)
+                drop_x = cx + random.randint(-35, 35)
+                drop_y = cy + int(30 + progress * 80) + random.randint(0, 40)
+                drop_size = random.randint(2, 5)
+                drop_alpha = int(180 * (1.0 - progress * 0.8))
+                drop_color = (200, 100, 255, drop_alpha)
                 pygame.draw.circle(target, drop_color, (drop_x, drop_y), drop_size)
 
 
