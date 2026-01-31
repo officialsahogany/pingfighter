@@ -428,7 +428,7 @@ class AnimatedBackgroundStage2:
 
         난이도별 바위 개수:
         - 주니어리그/프로리그: 1~2개
-        - 챔피언리그: 1~3개
+        - 챔피언리그: 2~4개
         - 신화리그: 2~4개 (광폭화 시 4~8개)
         """
         # 맵 전체 영역
@@ -455,8 +455,8 @@ class AnimatedBackgroundStage2:
             else:
                 num_rocks = random.randint(2, 4)
         elif difficulty == "champion":
-            # 챔피언리그: 1~3개
-            num_rocks = random.randint(1, 3)
+            # 챔피언리그: 2~4개
+            num_rocks = random.randint(2, 4)
         else:
             # 주니어리그/프로리그: 1~2개
             num_rocks = random.randint(1, 2)

@@ -434,8 +434,14 @@ class PillarBackgroundRenderer:
         if self._blazing_sun_bg is not None:
             self._blazing_sun_bg.set_intensity(self._blazing_intensity)
 
-    def update(self, dt: float):
-        """애니메이션 업데이트"""
+    def update(self, dt: float, is_waiting_for_serve: bool = False):
+        """애니메이션 업데이트
+
+        Args:
+            dt: 델타 타임
+            is_waiting_for_serve: 서브 대기 중인지 여부 (뱀 공격 트리거 방지용)
+        """
+        self._is_waiting_for_serve = is_waiting_for_serve  # 저장
         self.animation_time += dt
 
         # 스테이지 0: 메인 메뉴 바로크 액자 업데이트
@@ -463,8 +469,9 @@ class PillarBackgroundRenderer:
             self._temple_bg.update(dt)
 
         # 스테이지 5(코드): 홍련 중국 전통 배경 업데이트 (게임 내 실제 스테이지 6 = 코드 상 stage 5)
+        # 서브 대기 중에는 새 뱀 공격 트리거하지 않음 (기존 뱀 애니메이션은 계속 진행)
         if self.current_stage == 5 and self._hongryeon_bg is not None:
-            self._hongryeon_bg.update(dt)
+            self._hongryeon_bg.update(dt, is_waiting_for_serve)
 
         # 스테이지 6(코드): 네메시스 해상전투 배경 업데이트 (게임 내 실제 스테이지 5 = 코드 상 stage 6)
         if self.current_stage == 6 and self._nemesis_ocean_bg is not None:

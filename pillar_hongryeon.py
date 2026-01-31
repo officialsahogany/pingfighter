@@ -947,8 +947,13 @@ class HongryeonFrame:
                         (self.game_x - 2, self.game_y - 2,
                          self.game_width + 4, self.game_height + 4), 3)
 
-    def update(self, dt: float):
-        """애니메이션 업데이트"""
+    def update(self, dt: float, is_waiting_for_serve: bool = False):
+        """애니메이션 업데이트
+
+        Args:
+            dt: 델타 타임
+            is_waiting_for_serve: 서브 대기 중인지 여부 (True면 새 뱀 공격 트리거 안함)
+        """
         self.time += dt
 
         # 흥분도 감쇠
@@ -977,8 +982,8 @@ class HongryeonFrame:
                 # 디버그: 쿨타임 로그 (비활성화 - 너무 자주 출력됨)
                 # if int(self.snake_attack_cooldown * 10) % 30 == 0:
                 #     print(f"[홍련] 뱀 쿨타임: {self.snake_attack_cooldown:.1f}s, 뱀 개수: {len(self.snake_pots)}")
-            else:
-                # 쿨타임 만료 시 뱀 공격 트리거
+            elif not is_waiting_for_serve:
+                # 쿨타임 만료 시 뱀 공격 트리거 (서브 대기 중이 아닐 때만)
                 print(f"[홍련] 뱀 공격 트리거 시도! 플레이어: ({self.player_x}, {self.player_y})")
                 if self._trigger_snake_attack():
                     # 다음 쿨타임 설정 (10~20초)

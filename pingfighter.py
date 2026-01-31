@@ -18467,6 +18467,9 @@ MAX_ITEM_SLOTS = 3                   # 최대 아이템 슬롯 수 (기본값)
 ITEM_MANAGER_ACTIVE_LIMIT = 10       # 아이템 관리자에서 허용할 엑티브 아이템 최대 선택 수
 passive_item_list = []               # 패시브 아이템 목록 (어댑터 호환용)
 _items_snapshot_at_stage_start = set()  # 스테이지 시작 시 보유 아이템 id() 스냅샷 (승리화면 필터용)
+# 세션 동안 획득/사용한 아이템 추적 (게임오버 요약용)
+session_acquired_passive_items = []  # 세션 동안 획득한 모든 패시브 아이템 (가챠, 상점, 필드 등)
+session_used_active_items = []       # 세션 동안 사용한 모든 액티브 아이템
 selected_passive_item = -1           # 패시브 아이템 선택 인덱스 (어댑터 호환용)
 active_item_icon_size = (28, 28)     # 화면에 표시할 크기
 last_item_use_time = 0               # 마지막 아이템 사용 시간 (전역 쿨타임용)
@@ -50260,7 +50263,7 @@ def activate_quake(animated_bg=None):
     except:
         pass  # 사운드 오류 발생 시 무시하고 계속 진행
     
-    #  정글지진 스킬 발동 시 바위 소환 (난이도별: 주니어/프로 1~2개, 챔피언 1~3개)
+    #  정글지진 스킬 발동 시 바위 소환 (난이도별: 주니어/프로 1~2개, 챔피언 2~4개)
     if current_stage == 2 and animated_bg_stage2 is not None:
         print(f"Stage 2 spawn_skill_rocks (enraged={enraged_boss_active}, difficulty={ai_mode})")
         animated_bg_stage2.spawn_skill_rocks(enraged=enraged_boss_active, difficulty=ai_mode)
@@ -64968,7 +64971,12 @@ def store_passive_item(item_data):
     if not skip_append:
         passive_item_list.append(item_data)
         appended = True
-    
+        # 세션 획득 아이템 추적 (게임오버 요약용)
+        global session_acquired_passive_items
+        # 중복 체크 (같은 아이템 이름이 이미 있으면 추가하지 않음)
+        if not any(i.get("name") == item_name for i in session_acquired_passive_items):
+            session_acquired_passive_items.append(item_data.copy())
+
     # 빈 슬롯이 있으면 즉시 장착
     if appended:
         auto_equip_passive_item(item_data)
@@ -103939,6 +103947,11 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     global active_item_slot, selected_item_index, master_obtained, last_item_use_time
     global passive_item_list
     global _pending_ammo_restore, _pending_weapon_degradation
+    global session_acquired_passive_items, session_used_active_items
+
+    # 새 게임 시작 시 세션 아이템 추적 초기화
+    session_acquired_passive_items = []
+    session_used_active_items = []
 
     # 새 게임 시작 시 플레이어 게이지 초기화
     special_gauge = 0
@@ -110318,7 +110331,7 @@ def draw_field():
         # 스테이지 1: 나비 흡수 이벤트용 플레이어 위치 전달 (update 전에 호출해야 함)
         if current_stage == 1:
             pillar_renderer.set_player_rect(PLAYER)
-        pillar_renderer.update(1/60)  # 애니메이션 업데이트
+        pillar_renderer.update(1/60, is_waiting_for_serve)  # 애니메이션 업데이트 (서브 대기 중 뱀 공격 방지)
         # 스테이지 1: 나비 흡수로 인한 게이지 회복 처리
         if current_stage == 1 and pillar_renderer.check_butterfly_gauge_recovery():
             # 나비가 플레이어에게 흡수됨 - 게이지 200 회복
@@ -114231,8 +114244,10 @@ def handle_ball():
         now = pygame.time.get_ticks()
         if current_stage == 5:
             #  라운드 시작 2.5초 후부터 화염탄 발사 가능 (스테이지 5 전용)
-            if (now - fireball_last_cast > fireball_cooldown and 
-                now - round_start_time >= 2500):
+            # 서브 대기 중에는 새 화염탄 발사 안함
+            if (now - fireball_last_cast > fireball_cooldown and
+                now - round_start_time >= 2500 and
+                not is_waiting_for_serve):
                 fireball_last_cast = now
                 fireball_cooldown = random.randint(3500, 5000)
                 num_fireballs = random.randint(2, 3) if random.random() < 0.4 else 1
@@ -122373,18 +122388,32 @@ def show_death_evaluation():
     game_seconds = int(game_time_seconds) % 60
 
     # 획득 아이템 목록 (패시브/액티브 분리)
+    # 패시브: 세션 동안 획득한 모든 패시브 아이템 (가챠, 상점, 필드 등)
+    # 액티브: 세션 동안 사용한 모든 액티브 아이템
     acquired_passive_items = []
     acquired_active_items = []
     try:
-        for item in passive_item_list:
+        # 세션 동안 획득한 패시브 아이템 사용 (없으면 현재 passive_item_list 사용)
+        source_passive = session_acquired_passive_items if session_acquired_passive_items else passive_item_list
+        for item in source_passive:
             if item and item.get("name"):
-                acquired_passive_items.append(item)
+                # 중복 제거 (같은 이름의 아이템은 한 번만 표시)
+                if not any(i.get("name") == item.get("name") for i in acquired_passive_items):
+                    acquired_passive_items.append(item)
     except Exception:
         pass
     try:
+        # 세션 동안 사용한 액티브 아이템 + 현재 슬롯에 있는 아이템
+        # 먼저 세션 동안 사용한 아이템 추가
+        for item in session_used_active_items:
+            if item and item.get("name"):
+                if not any(i.get("name") == item.get("name") for i in acquired_active_items):
+                    acquired_active_items.append(item)
+        # 현재 슬롯에 있는 아이템도 추가 (아직 사용하지 않은 것들)
         for item in active_item_slot:
             if item and item.get("name"):
-                acquired_active_items.append(item)
+                if not any(i.get("name") == item.get("name") for i in acquired_active_items):
+                    acquired_active_items.append(item)
     except Exception:
         pass
 
@@ -122411,23 +122440,25 @@ def show_death_evaluation():
         pass
 
     # 클리어한 보스 목록 (이미지 포함)
+    # 실제 게임 진행 순서: 1→2→3→4→5(네메시스)→6(홍련)→7→8
+    # 스왑 맵을 사용하지 않고 직접 logic_stage 기준으로 표시
     cleared_bosses = []
     boss_thumb_size = 48
     try:
         for logic_stage in range(1, current_stage):
-            display_stage = stage_logic_to_display(logic_stage)
-            name = get_boss_name(logic_stage)
+            # 스왑하지 않음 - 실제 게임 진행 순서 유지
+            name = boss_names.get(logic_stage, "보스")
             # 보스 이미지 로드 (썸네일용)
-            # 이미지 파일명은 디스플레이 스테이지 기준 (스테이지 5/6 스왑 반영)
+            # 이미지 파일명은 logic_stage 기준 (스왑하지 않음)
             boss_thumb = None
             try:
-                img_path = resource_path(f"boss_stage{display_stage}.png")
+                img_path = resource_path(f"boss_stage{logic_stage}.png")
                 if os.path.exists(img_path):
                     boss_thumb = pygame.image.load(img_path).convert_alpha()
                     boss_thumb = pygame.transform.smoothscale(boss_thumb, (boss_thumb_size, boss_thumb_size))
             except Exception:
                 pass
-            cleared_bosses.append({"display_stage": display_stage, "name": name, "thumb": boss_thumb})
+            cleared_bosses.append({"display_stage": logic_stage, "name": name, "thumb": boss_thumb})
     except Exception:
         pass
 
@@ -128018,6 +128049,11 @@ def main(stage_num, new_boss_mode=False):
                         if effect_result != False:  # 효과가 성공적으로 적용된 경우에만 아이템 제거
                             # 📜 퀘스트 추적: 액티브 아이템 사용 기록
                             globals()['quest_stage_active_item_used'] = True
+                            # 세션 사용 액티브 아이템 추적 (게임오버 요약용)
+                            global session_used_active_items
+                            item_name = item.get("name", "")
+                            if item_name and not any(i.get("name") == item_name for i in session_used_active_items):
+                                session_used_active_items.append(item.copy())
                             recycle_triggered = False
                             # 연금술 확률 (아카데미 + 런타임 스킬)
                             recycle_chance = get_effective_item_recycle_chance()
