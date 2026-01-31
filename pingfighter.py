@@ -20690,32 +20690,20 @@ def fire_snake_fireball(start_x: int, start_y: int, target_x: int, target_y: int
     """뱀 항아리에서 화염탄 발사 (광폭화 모드 전용)
 
     Args:
-        start_x, start_y: 뱀 머리 위치 (REAL_SCREEN 좌표)
-        target_x, target_y: 플레이어 위치 (REAL_SCREEN 좌표)
+        start_x, start_y: 뱀 머리 위치 (내부 게임 좌표 760x750)
+        target_x, target_y: 플레이어 위치 (내부 게임 좌표 760x750)
     """
     global fireballs
 
     # 디버그: 원본 좌표 확인
-    print(f"[뱀화염탄 DEBUG] 원본좌표: start=({start_x}, {start_y}), target=({target_x}, {target_y})")
-    print(f"[뱀화염탄 DEBUG] OFFSET=({GAME_OFFSET_X}, {GAME_OFFSET_Y}), SCALE={GAME_SCALE_FACTOR}")
+    print(f"[뱀화염탄 DEBUG] 내부좌표: start=({start_x}, {start_y}), target=({target_x}, {target_y})")
 
-    # REAL_SCREEN 좌표를 게임 좌표로 변환
-    # (스케일링 역변환)
-    game_start_x = (start_x - GAME_OFFSET_X) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR != 0 else start_x
-    game_start_y = (start_y - GAME_OFFSET_Y) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR != 0 else start_y
-    game_target_x = (target_x - GAME_OFFSET_X) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR != 0 else target_x
-    game_target_y = (target_y - GAME_OFFSET_Y) / GAME_SCALE_FACTOR if GAME_SCALE_FACTOR != 0 else target_y
-
-    # 스케일링 시 추가 오프셋 역변환
-    if GAME_SCALE_FACTOR != 1.0:
-        sw = int(WIDTH * GAME_SCALE_FACTOR)
-        sh = int(HEIGHT * GAME_SCALE_FACTOR)
-        additional_offset_x = (GAME_SCALED_WIDTH - sw) // 2
-        additional_offset_y = (GAME_SCALED_HEIGHT - sh) // 2
-        game_start_x -= additional_offset_x / GAME_SCALE_FACTOR
-        game_start_y -= additional_offset_y / GAME_SCALE_FACTOR
-        game_target_x -= additional_offset_x / GAME_SCALE_FACTOR
-        game_target_y -= additional_offset_y / GAME_SCALE_FACTOR
+    # SnakePot에서 전달받은 좌표는 이미 내부 게임 좌표 (760x750)
+    # 직접 사용하고 게임 영역 경계로 시작점만 조정
+    game_start_x = float(start_x)
+    game_start_y = float(start_y)
+    game_target_x = float(target_x)
+    game_target_y = float(target_y)
 
     # 뱀 화염탄은 필러에서 발사되므로, 게임 영역 경계로 시작점 조정
     if game_start_x < GAME_AREA_OFFSET_X:
@@ -110358,19 +110346,9 @@ def draw_field():
 
         # 스테이지 5(코드=실제6 홍련): 광폭화 뱀 공격용 플레이어 위치 전달
         if current_stage == 5 and enraged_boss_active:
-            # REAL_SCREEN 좌표계로 변환 (게임 영역 오프셋 + 스케일링 고려)
-            scaled_player_cx = (PLAYER.x + PLAYER.width // 2) * GAME_SCALE_FACTOR
-            scaled_player_cy = (PLAYER.y + PLAYER.height // 2) * GAME_SCALE_FACTOR
-            player_cx = scaled_player_cx + GAME_OFFSET_X
-            player_cy = scaled_player_cy + GAME_OFFSET_Y
-            # 스케일링 시 추가 오프셋 적용
-            if GAME_SCALE_FACTOR != 1.0:
-                sw = int(WIDTH * GAME_SCALE_FACTOR)
-                sh = int(HEIGHT * GAME_SCALE_FACTOR)
-                additional_offset_x = (GAME_SCALED_WIDTH - sw) // 2
-                additional_offset_y = (GAME_SCALED_HEIGHT - sh) // 2
-                player_cx += additional_offset_x
-                player_cy += additional_offset_y
+            # 내부 게임 좌표계 사용 (760x750) - 변환 없이 직접 전달
+            player_cx = PLAYER.x + PLAYER.width // 2
+            player_cy = PLAYER.y + PLAYER.height // 2
             pillar_renderer.update_hongryeon_player_position(int(player_cx), int(player_cy))
 
     # Stage 50 (튜토리얼) - 연습장 배경
@@ -114285,7 +114263,8 @@ def handle_ball():
                 create_fireball_explosion(pos[0], pos[1])
                 continue  # 화염탄 제거
                 
-            if 0 <= pos[0] <= WIDTH and 0 <= pos[1] <= HEIGHT:
+            # 화면 밖에서 들어오는 화염탄도 허용 (뱀 화염탄 등)
+            if -100 <= pos[0] <= WIDTH + 100 and -100 <= pos[1] <= HEIGHT + 100:
                 new_fireballs.append([pos, vel])
         fireballs = new_fireballs
         #  화염탄 폭발 파티클 업데이트
