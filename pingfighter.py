@@ -72483,9 +72483,8 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
 
     stage7_gauge_last_update_ms = now
 
-    # 광폭화 모드에서는 500 제한 없이 충전 계속 (게이지바는 계속 움직임)
-    # 일반 모드에서는 500에서 멈춤
-    if not is_berserk and boss_special_gauge >= 500:
+    # 게이지 500 상한 (광폭화/일반 모두 동일)
+    if boss_special_gauge >= 500:
         boss_special_gauge = 500
         stage7_gauge_charge_progress = 0.0
         return
@@ -72496,12 +72495,8 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
     if charge_units <= 0:
         return
 
-    # 광폭화 모드: 상한 없이 충전 (시각적 효과용)
-    # 일반 모드: 500 상한
-    if is_berserk:
-        boss_special_gauge = boss_special_gauge + charge_units
-    else:
-        boss_special_gauge = min(500, boss_special_gauge + charge_units)
+    # 500 상한으로 충전
+    boss_special_gauge = min(500, boss_special_gauge + charge_units)
     stage7_gauge_charge_progress -= charge_units
     global stage7_persistent_boss_gauge
     stage7_persistent_boss_gauge = boss_special_gauge
