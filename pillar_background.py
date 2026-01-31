@@ -130,6 +130,10 @@ class PillarBackgroundRenderer:
         self._rage_animation_time = 0.0      # 광폭화 아이콘 애니메이션
         self._create_rage_indicator_icon()   # 아이콘 생성
 
+        # 홍련 광폭화 상태 (배경 초기화 전에 설정된 경우 보존)
+        self._pending_hongryeon_enraged = False
+        self._pending_hongryeon_fire_callback = None
+
         # 퀘스트 양피지 엠블럼 관련
         self._quest_emblem_active = False        # 퀘스트 엠블럼 표시 여부
         self._quest_emblem_rect = None           # 엠블럼 영역 (호버 감지용)
@@ -389,6 +393,12 @@ class PillarBackgroundRenderer:
                 self.game_width, self.game_height
             )
             print(f"[PillarBG] 스테이지 5(실제 6 홍련) 중국 전통 배경 초기화 완료")
+            # 대기 중인 광폭화 상태 적용
+            if self._pending_hongryeon_enraged:
+                print(f"[PillarBG] 대기 중인 광폭화 상태 적용!")
+                self._hongryeon_bg.set_enraged_mode(True)
+                if self._pending_hongryeon_fire_callback:
+                    self._hongryeon_bg.set_fire_callback(self._pending_hongryeon_fire_callback)
 
         # 스테이지 6(코드): 네메시스 해상전투 배경 초기화 (게임 내 실제 스테이지 5 = 코드 상 stage 6)
         if stage == 6 and self._nemesis_ocean_bg is None:
@@ -787,15 +797,23 @@ class PillarBackgroundRenderer:
 
     def set_hongryeon_enraged(self, active: bool):
         """홍련 필러 광폭화 모드 설정 (뱀 공격 시스템 활성화)"""
+        # 배경이 아직 초기화되지 않은 경우 대기 상태로 저장
+        self._pending_hongryeon_enraged = active
         if self._hongryeon_bg is not None:
             self._hongryeon_bg.set_enraged_mode(active)
+        else:
+            print(f"[PillarBG] 홍련 배경 미초기화 - 광폭화 상태 대기: {active}")
 
     def set_hongryeon_fire_callback(self, callback):
         """홍련 필러 화염탄 발사 콜백 설정
         callback(start_x, start_y, target_x, target_y): 화염탄 발사 함수
         """
+        # 배경이 아직 초기화되지 않은 경우 대기 상태로 저장
+        self._pending_hongryeon_fire_callback = callback
         if self._hongryeon_bg is not None:
             self._hongryeon_bg.set_fire_callback(callback)
+        else:
+            print(f"[PillarBG] 홍련 배경 미초기화 - 화염 콜백 대기")
 
     def update_hongryeon_player_position(self, player_x: int, player_y: int):
         """홍련 필러 플레이어 위치 업데이트 (뱀 조준용)"""
