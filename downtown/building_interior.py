@@ -2557,12 +2557,12 @@ INTERIOR_CONFIGS = {
             ]
         },
         "extra_npcs": [
-            {"name": "검투사 브루투스", "role": "gladiator", "position": (0.25, 0.5)},
-            {"name": "검투사 스파르타쿠스", "role": "gladiator", "position": (0.75, 0.5)},
-            {"name": "사이버 용병", "role": "mercenary", "position": (0.15, 0.35)},
-            {"name": "기계 전사", "role": "mercenary", "position": (0.85, 0.35)},
-            {"name": "관람객", "role": "customer", "position": (0.1, 0.7)},
-            {"name": "관람객", "role": "customer", "position": (0.9, 0.7)},
+            {"name": "검투사 브루투스", "role": "gladiator", "position": (0.25, 0.5), "color": (80, 75, 70)},
+            {"name": "검투사 스파르타쿠스", "role": "gladiator", "position": (0.75, 0.5), "color": (90, 85, 80)},
+            {"name": "사이버 용병", "role": "mercenary", "position": (0.15, 0.35), "color": (50, 55, 60)},
+            {"name": "기계 전사", "role": "mercenary", "position": (0.85, 0.35), "color": (60, 65, 70)},
+            {"name": "관람객", "role": "customer", "position": (0.1, 0.7), "color": (120, 100, 80)},
+            {"name": "관람객", "role": "customer", "position": (0.9, 0.7), "color": (100, 80, 120)},
         ],
         "customer_range": (4, 8),  # 많은 관람객
         "staff_count": 2,
