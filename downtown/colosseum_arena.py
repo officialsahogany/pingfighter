@@ -9,7 +9,7 @@ import os
 from enum import Enum
 from typing import List, Dict, Optional, Tuple
 
-# 상수
+# 상수 (실제 게임과 동일)
 SCREEN_WIDTH = 760
 SCREEN_HEIGHT = 750
 GAME_AREA_X = 80
@@ -18,6 +18,17 @@ PADDLE_WIDTH = 80
 PADDLE_HEIGHT = 12
 BALL_SIZE = 10
 WIN_SCORE = 5  # 5점 선취 승리
+
+# 물리 상수 (실제 게임과 동일)
+BALL_BASE_SPEED = 7.0       # 기본 공 속도
+BALL_MAX_SPEED = 15.0       # 최대 공 속도
+BALL_ACCELERATION = 1.03    # 충돌 시 가속률
+PADDLE_HIT_ANGLE_FACTOR = 4.0  # 패들 타격 시 각도 변화 계수
+WALL_BOUNCE_SLOWDOWN = 0.98  # 벽 반사 시 속도 감소
+
+# 패들 위치 (실제 게임과 동일)
+TOP_PADDLE_Y = 25           # 상단 패들 Y (보스 위치)
+BOTTOM_PADDLE_Y = 710       # 하단 패들 Y (플레이어 위치)
 
 # 배경/필러 임포트 (선택적)
 try:
@@ -200,129 +211,422 @@ class Match:
         self.completed = True
 
 # ============================================================================
-# AI 패들 컨트롤러
+# AI 패들 컨트롤러 (실제 보스 AI 수준)
 # ============================================================================
 class AIPaddleController:
+    """실제 게임의 보스 AI와 동일한 수준의 AI 컨트롤러"""
+
     def __init__(self, hero: Dict, is_top: bool):
         self.hero = hero
         self.is_top = is_top
         self.x = GAME_AREA_X + GAME_AREA_WIDTH // 2 - PADDLE_WIDTH // 2
-        self.y = 30 if is_top else SCREEN_HEIGHT - 50
+        self.y = TOP_PADDLE_Y if is_top else BOTTOM_PADDLE_Y
         self.target_x = self.x
-        self.speed = 6 * hero["speed"]
-        self.reaction_delay = int(10 / hero["reaction"])
-        self.reaction_timer = 0
-        self.last_ball_x = 0
+        self.velocity = 0.0
 
-        # 스타일별 행동 패턴
-        self.style = hero["style"]
+        # 영웅 스탯 기반 능력치
+        self.base_speed = 7.0 * hero["speed"]
+        self.max_speed = 10.0 * hero["speed"]
+        self.reaction_time = 0.08 / hero["reaction"]  # 반응 시간 (초)
+        self.prediction_accuracy = hero["accuracy"]  # 예측 정확도
         self.power = hero["power"]
-        self.accuracy = hero["accuracy"]
 
-    def update(self, ball_x: float, ball_y: float, ball_vy: float):
-        """AI 패들 업데이트"""
-        # 공이 자기 방향으로 올 때만 반응
+        # AI 상태
+        self.style = hero["style"]
+        self.reaction_timer = 0.0
+        self.predicted_x = self.x + PADDLE_WIDTH // 2
+        self.last_prediction_time = 0.0
+
+        # 움직임 스무딩
+        self.smoothing = 0.15
+        self.idle_return_speed = 0.02
+
+        # 실수 시스템 (정확도에 따라)
+        self.error_offset = 0
+        self.error_update_timer = 0
+
+    def _predict_x_with_walls(self, ball_x: float, ball_vx: float, ball_y: float,
+                               ball_vy: float, target_y: float) -> float:
+        """벽 반사를 고려한 도착 X 좌표 예측 (실제 보스 AI와 동일)"""
+        if abs(ball_vy) < 0.1:
+            return ball_x
+
+        # 도착까지 걸리는 시간
+        time_to_target = abs(target_y - ball_y) / abs(ball_vy)
+
+        # X 이동량 계산
+        total_dx = ball_vx * time_to_target
+        predicted_x = ball_x + total_dx
+
+        # 벽 반사 시뮬레이션
+        left_wall = GAME_AREA_X + BALL_SIZE
+        right_wall = GAME_AREA_X + GAME_AREA_WIDTH - BALL_SIZE
+
+        # 반사 횟수 제한 (최대 10회)
+        for _ in range(10):
+            if predicted_x < left_wall:
+                predicted_x = 2 * left_wall - predicted_x
+            elif predicted_x > right_wall:
+                predicted_x = 2 * right_wall - predicted_x
+            else:
+                break
+
+        return predicted_x
+
+    def update(self, ball_x: float, ball_y: float, ball_vx: float, ball_vy: float, dt: float):
+        """AI 패들 업데이트 (실제 보스 AI 수준)"""
+        # 공이 자기 방향으로 오는지 확인
         coming_towards = (ball_vy < 0 and self.is_top) or (ball_vy > 0 and not self.is_top)
 
-        if coming_towards:
-            self.reaction_timer += 1
-            if self.reaction_timer >= self.reaction_delay:
-                # 목표 위치 계산 (스타일에 따라 다름)
-                if self.style == HeroStyle.AGGRESSIVE:
-                    # 공격적: 공보다 약간 앞서서 이동
-                    self.target_x = ball_x - PADDLE_WIDTH // 2 + random.randint(-15, 15)
-                elif self.style == HeroStyle.DEFENSIVE:
-                    # 수비적: 정확히 공 위치로
-                    self.target_x = ball_x - PADDLE_WIDTH // 2
-                elif self.style == HeroStyle.TRICKY:
-                    # 트릭: 불규칙한 움직임
-                    offset = random.randint(-30, 30)
-                    self.target_x = ball_x - PADDLE_WIDTH // 2 + offset
-                else:
-                    # 균형: 약간의 오차
-                    self.target_x = ball_x - PADDLE_WIDTH // 2 + random.randint(-5, 5)
-        else:
-            # 공이 멀어질 때는 중앙으로
-            self.reaction_timer = 0
-            center = GAME_AREA_X + GAME_AREA_WIDTH // 2 - PADDLE_WIDTH // 2
-            self.target_x = self.target_x * 0.95 + center * 0.05
+        # 반응 타이머 업데이트
+        self.reaction_timer += dt
+        self.error_update_timer += dt
 
-        # 목표 위치로 이동
-        diff = self.target_x - self.x
-        if abs(diff) > 2:
-            move = min(abs(diff), self.speed) * (1 if diff > 0 else -1)
-            self.x += move
+        # 실수 오프셋 주기적 업데이트
+        if self.error_update_timer > 0.5:
+            self.error_update_timer = 0
+            # 정확도에 따른 실수 범위
+            error_range = int(30 * (1 - self.prediction_accuracy))
+            self.error_offset = random.randint(-error_range, error_range)
+
+        if coming_towards and self.reaction_timer >= self.reaction_time:
+            # 목표 위치 예측
+            self.predicted_x = self._predict_x_with_walls(
+                ball_x, ball_vx, ball_y, ball_vy, self.y
+            )
+
+            # 스타일에 따른 목표 위치 조정
+            if self.style == HeroStyle.AGGRESSIVE:
+                # 공격적: 공이 빠를 때 더 과감하게 이동, 끝쪽 타격 선호
+                speed_factor = math.hypot(ball_vx, ball_vy) / 10.0
+                offset = (0.5 - random.random()) * 30 * speed_factor
+                self.target_x = self.predicted_x + offset + self.error_offset
+            elif self.style == HeroStyle.DEFENSIVE:
+                # 수비적: 정확한 중앙 타격
+                self.target_x = self.predicted_x + self.error_offset * 0.5
+            elif self.style == HeroStyle.TRICKY:
+                # 트릭: 예측 불가능한 움직임
+                if random.random() < 0.3:
+                    offset = random.randint(-40, 40)
+                else:
+                    offset = 0
+                self.target_x = self.predicted_x + offset + self.error_offset
+            else:
+                # 균형: 약간의 변동
+                self.target_x = self.predicted_x + self.error_offset * 0.7
+        else:
+            # 공이 멀어질 때 중앙으로 서서히 복귀
+            center = GAME_AREA_X + GAME_AREA_WIDTH // 2
+            self.target_x = self.target_x * (1 - self.idle_return_speed) + center * self.idle_return_speed
+            self.reaction_timer = 0  # 반응 타이머 리셋
+
+        # 패들 중심 기준으로 목표 설정
+        target_center = self.target_x
+        current_center = self.x + PADDLE_WIDTH // 2
+
+        # 속도 계산 (스무딩 적용)
+        diff = target_center - current_center
+        target_velocity = diff * self.smoothing * 60  # 60fps 기준
+
+        # 속도 제한
+        target_velocity = max(-self.max_speed, min(self.max_speed, target_velocity))
+
+        # 가속도 적용
+        accel = 0.3
+        if abs(target_velocity - self.velocity) > accel:
+            if target_velocity > self.velocity:
+                self.velocity += accel
+            else:
+                self.velocity -= accel
+        else:
+            self.velocity = target_velocity
+
+        # 위치 업데이트
+        self.x += self.velocity
 
         # 경계 체크
         self.x = max(GAME_AREA_X, min(self.x, GAME_AREA_X + GAME_AREA_WIDTH - PADDLE_WIDTH))
 
     def get_rect(self) -> pygame.Rect:
-        return pygame.Rect(self.x, self.y, PADDLE_WIDTH, PADDLE_HEIGHT)
+        return pygame.Rect(int(self.x), int(self.y), PADDLE_WIDTH, PADDLE_HEIGHT)
+
+    def get_center_x(self) -> float:
+        return self.x + PADDLE_WIDTH // 2
 
 # ============================================================================
-# 공 클래스
+# 공 클래스 (실제 게임 물리 적용)
 # ============================================================================
 class ArenaBall:
-    def __init__(self):
-        self.reset()
+    """실제 게임과 동일한 물리를 가진 공"""
 
-    def reset(self, direction: int = 1):
+    def __init__(self):
         self.x = GAME_AREA_X + GAME_AREA_WIDTH // 2
         self.y = SCREEN_HEIGHT // 2
-        angle = random.uniform(-0.3, 0.3)
-        speed = 5
-        self.vx = speed * math.sin(angle)
-        self.vy = speed * direction
+        self.vx = 0.0
+        self.vy = 0.0
+        self.visible = False
+        self.trail = []  # 잔상 효과
 
-    def update(self) -> Optional[str]:
-        """공 업데이트, 득점 시 'top' 또는 'bottom' 반환"""
+    def reset(self, direction: int = 1, serve_x: float = None):
+        """공 초기화"""
+        self.x = serve_x if serve_x else GAME_AREA_X + GAME_AREA_WIDTH // 2
+        self.y = SCREEN_HEIGHT // 2
+
+        # 실제 게임과 동일한 초기 속도
+        angle = random.uniform(-0.4, 0.4)
+        self.vx = BALL_BASE_SPEED * math.sin(angle)
+        self.vy = BALL_BASE_SPEED * direction
+        self.visible = True
+        self.trail = []
+
+    def update(self, dt: float = 1/60) -> Optional[str]:
+        """공 업데이트 (실제 게임 물리)"""
+        if not self.visible:
+            return None
+
+        # 잔상 추가
+        self.trail.append((self.x, self.y, 1.0))
+        # 잔상 페이드 아웃
+        self.trail = [(x, y, a - 0.1) for x, y, a in self.trail if a > 0.1]
+        if len(self.trail) > 10:
+            self.trail = self.trail[-10:]
+
+        # 위치 업데이트
         self.x += self.vx
         self.y += self.vy
 
         # 좌우 벽 반사
-        if self.x <= GAME_AREA_X + BALL_SIZE:
-            self.x = GAME_AREA_X + BALL_SIZE
-            self.vx = -self.vx
-        elif self.x >= GAME_AREA_X + GAME_AREA_WIDTH - BALL_SIZE:
-            self.x = GAME_AREA_X + GAME_AREA_WIDTH - BALL_SIZE
-            self.vx = -self.vx
+        left_wall = GAME_AREA_X + BALL_SIZE
+        right_wall = GAME_AREA_X + GAME_AREA_WIDTH - BALL_SIZE
+
+        if self.x <= left_wall:
+            self.x = left_wall
+            self.vx = abs(self.vx) * WALL_BOUNCE_SLOWDOWN
+        elif self.x >= right_wall:
+            self.x = right_wall
+            self.vx = -abs(self.vx) * WALL_BOUNCE_SLOWDOWN
 
         # 상하 득점 체크
         if self.y <= 0:
+            self.visible = False
             return "bottom"  # 하단 플레이어 득점
         elif self.y >= SCREEN_HEIGHT:
+            self.visible = False
             return "top"  # 상단 플레이어 득점
 
         return None
 
     def check_paddle_collision(self, paddle: AIPaddleController) -> bool:
-        """패들 충돌 체크"""
+        """패들 충돌 체크 (실제 게임과 동일)"""
+        if not self.visible:
+            return False
+
         paddle_rect = paddle.get_rect()
-        ball_rect = pygame.Rect(self.x - BALL_SIZE, self.y - BALL_SIZE,
-                                BALL_SIZE * 2, BALL_SIZE * 2)
+
+        # 확장된 충돌 박스 (실제 게임처럼)
+        ball_rect = pygame.Rect(
+            self.x - BALL_SIZE - 2,
+            self.y - BALL_SIZE - 2,
+            BALL_SIZE * 2 + 4,
+            BALL_SIZE * 2 + 4
+        )
 
         if paddle_rect.colliderect(ball_rect):
-            # 충돌 처리
+            # 이미 맞은 방향이면 무시 (관통 방지)
+            if paddle.is_top and self.vy < 0:
+                return False
+            if not paddle.is_top and self.vy > 0:
+                return False
+
+            # 충돌 위치 보정
             if paddle.is_top:
-                self.y = paddle_rect.bottom + BALL_SIZE
-                self.vy = abs(self.vy) * 1.02  # 약간 가속
+                self.y = paddle_rect.bottom + BALL_SIZE + 1
             else:
-                self.y = paddle_rect.top - BALL_SIZE
-                self.vy = -abs(self.vy) * 1.02
+                self.y = paddle_rect.top - BALL_SIZE - 1
 
-            # 패들 위치에 따른 각도 변화
-            hit_pos = (self.x - paddle.x) / PADDLE_WIDTH
-            self.vx += (hit_pos - 0.5) * 3 * paddle.power
+            # 반사 및 가속
+            self.vy = -self.vy * BALL_ACCELERATION
 
-            # 최대 속도 제한
-            max_speed = 12
-            speed = math.sqrt(self.vx ** 2 + self.vy ** 2)
-            if speed > max_speed:
-                self.vx = self.vx / speed * max_speed
-                self.vy = self.vy / speed * max_speed
+            # 패들 타격 위치에 따른 각도 변화 (실제 게임 공식)
+            paddle_center = paddle.get_center_x()
+            hit_offset = (self.x - paddle_center) / (PADDLE_WIDTH / 2)
+            hit_offset = max(-1.0, min(1.0, hit_offset))
+
+            # 타격 위치와 파워에 따른 X 속도 변화
+            self.vx += hit_offset * PADDLE_HIT_ANGLE_FACTOR * paddle.power
+
+            # 속도 제한
+            speed = math.hypot(self.vx, self.vy)
+            if speed > BALL_MAX_SPEED:
+                scale = BALL_MAX_SPEED / speed
+                self.vx *= scale
+                self.vy *= scale
+
+            # 최소 Y 속도 보장 (수평으로 가는 것 방지)
+            min_vy = 3.0
+            if abs(self.vy) < min_vy:
+                self.vy = min_vy if self.vy > 0 else -min_vy
 
             return True
         return False
+
+    def get_speed(self) -> float:
+        return math.hypot(self.vx, self.vy)
+
+
+# ============================================================================
+# 공 생성 애니메이션
+# ============================================================================
+class BallSpawnAnimation:
+    """실제 게임과 동일한 공 생성 애니메이션"""
+
+    def __init__(self):
+        self.active = False
+        self.phase = 0  # 0: 에너지 수집, 1: 공 형성, 2: 서브 모션
+        self.timer = 0.0
+        self.particles = []
+        self.center_x = GAME_AREA_X + GAME_AREA_WIDTH // 2
+        self.center_y = SCREEN_HEIGHT // 2
+        self.ball_alpha = 0
+        self.serve_direction = 1
+        self.complete = False
+
+        # 페이즈 지속 시간
+        self.phase_durations = [1.5, 0.8, 0.5]  # 빠른 버전
+
+    def start(self, serve_direction: int = 1):
+        """애니메이션 시작"""
+        self.active = True
+        self.phase = 0
+        self.timer = 0.0
+        self.complete = False
+        self.serve_direction = serve_direction
+        self.ball_alpha = 0
+
+        # 파티클 생성
+        self.particles = []
+        for _ in range(30):
+            angle = random.uniform(0, math.pi * 2)
+            dist = random.uniform(100, 200)
+            speed = random.uniform(80, 150)
+            self.particles.append({
+                'x': self.center_x + math.cos(angle) * dist,
+                'y': self.center_y + math.sin(angle) * dist,
+                'angle': angle,
+                'speed': speed,
+                'size': random.uniform(2, 5),
+                'color_shift': random.uniform(0, 1),
+            })
+
+    def update(self, dt: float) -> bool:
+        """업데이트, 완료 시 True 반환"""
+        if not self.active:
+            return False
+
+        self.timer += dt
+
+        phase_duration = self.phase_durations[self.phase]
+
+        if self.phase == 0:
+            # 페이즈 0: 에너지 수집 - 파티클이 중앙으로 모임
+            progress = min(1.0, self.timer / phase_duration)
+            for p in self.particles:
+                # 중앙으로 수렴
+                target_dist = 150 * (1 - progress)
+                current_dist = math.hypot(p['x'] - self.center_x, p['y'] - self.center_y)
+                if current_dist > target_dist:
+                    move_speed = p['speed'] * dt
+                    dx = self.center_x - p['x']
+                    dy = self.center_y - p['y']
+                    dist = math.hypot(dx, dy)
+                    if dist > 0:
+                        p['x'] += (dx / dist) * move_speed
+                        p['y'] += (dy / dist) * move_speed
+
+                # 회전
+                p['angle'] += dt * 3
+
+            if self.timer >= phase_duration:
+                self.phase = 1
+                self.timer = 0
+
+        elif self.phase == 1:
+            # 페이즈 1: 공 형성
+            progress = min(1.0, self.timer / phase_duration)
+            self.ball_alpha = int(255 * progress)
+
+            # 파티클이 공으로 흡수
+            for p in self.particles:
+                p['size'] *= 0.95
+
+            if self.timer >= phase_duration:
+                self.phase = 2
+                self.timer = 0
+
+        elif self.phase == 2:
+            # 페이즈 2: 준비 완료
+            progress = min(1.0, self.timer / phase_duration)
+
+            if self.timer >= phase_duration:
+                self.active = False
+                self.complete = True
+                return True
+
+        return False
+
+    def draw(self, screen: pygame.Surface):
+        """애니메이션 그리기"""
+        if not self.active:
+            return
+
+        # 파티클 그리기
+        for p in self.particles:
+            if p['size'] < 0.5:
+                continue
+
+            # 색상 (노랑 ~ 주황 ~ 흰색)
+            hue = p['color_shift'] + self.timer * 0.5
+            r = int(200 + 55 * math.sin(hue))
+            g = int(180 + 75 * math.sin(hue + 1))
+            b = int(100 + 100 * math.sin(hue + 2))
+
+            size = int(p['size'])
+            if size > 0:
+                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                alpha = min(255, int(200 * (p['size'] / 5)))
+                pygame.draw.circle(surf, (r, g, b, alpha), (size, size), size)
+                screen.blit(surf, (int(p['x']) - size, int(p['y']) - size), special_flags=pygame.BLEND_ADD)
+
+        # 중앙 글로우
+        if self.phase >= 1:
+            glow_size = 40 + int(20 * math.sin(self.timer * 10))
+            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            for r in range(glow_size, 0, -5):
+                alpha = int(30 * self.ball_alpha / 255 * (r / glow_size))
+                pygame.draw.circle(glow_surf, (255, 220, 100, alpha), (glow_size, glow_size), r)
+            screen.blit(glow_surf, (int(self.center_x) - glow_size, int(self.center_y) - glow_size),
+                       special_flags=pygame.BLEND_ADD)
+
+        # 공 그리기 (형성 중)
+        if self.ball_alpha > 0:
+            # 그림자
+            pygame.draw.circle(screen, (40, 35, 30),
+                             (int(self.center_x) + 2, int(self.center_y) + 3), BALL_SIZE)
+            # 공 본체
+            ball_color = (255, 255, 255, self.ball_alpha)
+            ball_surf = pygame.Surface((BALL_SIZE * 2 + 4, BALL_SIZE * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(ball_surf, ball_color, (BALL_SIZE + 2, BALL_SIZE + 2), BALL_SIZE)
+            screen.blit(ball_surf, (int(self.center_x) - BALL_SIZE - 2, int(self.center_y) - BALL_SIZE - 2))
+            # 하이라이트
+            if self.ball_alpha > 200:
+                pygame.draw.circle(screen, (255, 255, 220),
+                                 (int(self.center_x) - 3, int(self.center_y) - 3), 3)
+
+    def get_spawn_position(self) -> Tuple[float, float]:
+        return self.center_x, self.center_y
+
+    def is_complete(self) -> bool:
+        return self.complete
 
 # ============================================================================
 # 토너먼트 시스템
@@ -359,6 +663,8 @@ class ColosseumsArena:
         self.top_paddle: Optional[AIPaddleController] = None
         self.bottom_paddle: Optional[AIPaddleController] = None
         self.ball: Optional[ArenaBall] = None
+        self.ball_spawn_animation: Optional[BallSpawnAnimation] = None  # 공 생성 애니메이션
+        self.spawn_phase = False  # 공 생성 중 여부
         self.score_top = 0
         self.score_bottom = 0
 
@@ -469,23 +775,55 @@ class ColosseumsArena:
         self.top_paddle = AIPaddleController(match.hero1, is_top=True)
         self.bottom_paddle = AIPaddleController(match.hero2, is_top=False)
 
-        # 공 생성
+        # 공 생성 (애니메이션 시작)
         self.ball = ArenaBall()
-        self.ball.reset(direction=1)
+        self.ball.visible = False  # 애니메이션 완료 전까지 숨김
+
+        # 공 생성 애니메이션 시작
+        self.ball_spawn_animation = BallSpawnAnimation()
+        self.ball_spawn_animation.start(serve_direction=1)
+        self.spawn_phase = True
 
         self.state = TournamentState.BATTLE
 
-    def update_battle(self) -> bool:
+    def update_battle(self, dt: float = 1/60) -> bool:
         """배틀 업데이트, 완료 시 True 반환"""
         if not self.battle_active:
             return False
 
-        # AI 패들 업데이트
-        self.top_paddle.update(self.ball.x, self.ball.y, self.ball.vy)
-        self.bottom_paddle.update(self.ball.x, self.ball.y, self.ball.vy)
+        # 공 생성 애니메이션 처리
+        if self.spawn_phase and self.ball_spawn_animation:
+            if self.ball_spawn_animation.update(dt):
+                # 애니메이션 완료 - 공 실제 생성
+                self.spawn_phase = False
+                direction = self.ball_spawn_animation.serve_direction
+                self.ball.reset(direction=direction)
+
+            # 스폰 중에도 패들은 중앙으로 이동
+            self.top_paddle.update(
+                GAME_AREA_X + GAME_AREA_WIDTH // 2,  # 중앙
+                SCREEN_HEIGHT // 2,
+                0.0, 0.0, dt
+            )
+            self.bottom_paddle.update(
+                GAME_AREA_X + GAME_AREA_WIDTH // 2,
+                SCREEN_HEIGHT // 2,
+                0.0, 0.0, dt
+            )
+            return False
+
+        # AI 패들 업데이트 (실제 게임과 동일한 파라미터)
+        self.top_paddle.update(
+            self.ball.x, self.ball.y,
+            self.ball.vx, self.ball.vy, dt
+        )
+        self.bottom_paddle.update(
+            self.ball.x, self.ball.y,
+            self.ball.vx, self.ball.vy, dt
+        )
 
         # 공 업데이트
-        scorer = self.ball.update()
+        scorer = self.ball.update(dt)
 
         # 패들 충돌 체크
         self.ball.check_paddle_collision(self.top_paddle)
@@ -502,8 +840,11 @@ class ColosseumsArena:
             if self._check_winner():
                 return True
 
-            # 공 리셋
-            self.ball.reset(direction=1 if scorer == "bottom" else -1)
+            # 공 리셋 (애니메이션으로 시작)
+            self.ball.visible = False
+            self.ball_spawn_animation = BallSpawnAnimation()
+            self.ball_spawn_animation.start(serve_direction=1 if scorer == "bottom" else -1)
+            self.spawn_phase = True
 
         return False
 
@@ -582,7 +923,7 @@ class ColosseumsArena:
                 )
 
         if self.state == TournamentState.BATTLE:
-            self.update_battle()
+            self.update_battle(dt)
         elif self.state == TournamentState.RESULT:
             self.result_display_timer -= 1
             if self.result_display_timer <= 0:
@@ -788,17 +1129,44 @@ class ColosseumsArena:
                 pygame.draw.rect(self.screen, (60, 50, 40), shadow_rect, border_radius=4)
                 pygame.draw.rect(self.screen, hero2["color"], paddle_rect, border_radius=4)
 
+        # 공 생성 애니메이션
+        if self.spawn_phase and self.ball_spawn_animation:
+            self.ball_spawn_animation.draw(self.screen)
+
         # 공 그리기 (그림자 포함)
-        if self.ball:
+        if self.ball and self.ball.visible:
+            # 잔상 그리기
+            for tx, ty, alpha in self.ball.trail:
+                trail_alpha = int(100 * alpha)
+                if trail_alpha > 10:
+                    trail_size = int(BALL_SIZE * 0.7 * alpha)
+                    if trail_size > 1:
+                        trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(trail_surf, (255, 255, 200, trail_alpha),
+                                          (trail_size, trail_size), trail_size)
+                        self.screen.blit(trail_surf, (int(tx) - trail_size, int(ty) - trail_size))
+
             # 그림자
             pygame.draw.circle(self.screen, (60, 50, 40),
                              (int(self.ball.x) + 2, int(self.ball.y) + 3), BALL_SIZE)
-            # 공
+            # 공 본체
             pygame.draw.circle(self.screen, (255, 255, 255),
                              (int(self.ball.x), int(self.ball.y)), BALL_SIZE)
             # 하이라이트
             pygame.draw.circle(self.screen, (255, 255, 200),
                              (int(self.ball.x) - 3, int(self.ball.y) - 3), 3)
+
+            # 공 속도에 따른 글로우 효과
+            speed = self.ball.get_speed()
+            if speed > 10:
+                glow_intensity = min(1.0, (speed - 10) / 5)
+                glow_size = int(BALL_SIZE * 1.5 + glow_intensity * 5)
+                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                glow_alpha = int(50 * glow_intensity)
+                pygame.draw.circle(glow_surf, (255, 200, 100, glow_alpha),
+                                  (glow_size, glow_size), glow_size)
+                self.screen.blit(glow_surf, (int(self.ball.x) - glow_size, int(self.ball.y) - glow_size),
+                                special_flags=pygame.BLEND_ADD)
 
         # 필러 (사이드 UI)
         if self.arena_pillar:
