@@ -1497,6 +1497,7 @@ class HeroSkillManager:
             # 새 인스턴스 생성 (상태 독립)
             skills = []
             base_skills = HERO_SKILLS.get(hero_id, [])
+            print(f"[Skill] Initializing skills for {hero_id} (is_top={is_top}), found {len(base_skills)} base skills")
             for base_skill in base_skills:
                 skill_class = type(base_skill)
                 new_skill = skill_class()
@@ -1590,6 +1591,8 @@ class HeroSkillManager:
         skills = self.active_skills.get(hero_id, [])
 
         for skill in skills:
+            if skill.trigger == trigger:
+                print(f"[Skill] Checking {skill.skill_id}: trigger match, can_use={skill.can_use()}, cooldown={skill.current_cooldown:.1f}, active={skill.is_active}")
             if skill.trigger == trigger and skill.can_use():
                 # 타겟 패들 추적
                 self.game_state['target_is_top'] = target_paddle.is_top
