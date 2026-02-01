@@ -21,7 +21,7 @@ class HeroPaddleRenderer:
         self.time += dt
 
     def update_movement(self, hero_id: str, current_x: float, dt: float):
-        """이동 상태 업데이트 - 관절 애니메이션 포함"""
+        """이동 상태 업데이트 - 관절 애니메이션 포함 (발토르 스타일 강화)"""
         if hero_id not in self.hero_states:
             self.hero_states[hero_id] = {
                 "last_x": current_x,
@@ -35,29 +35,32 @@ class HeroPaddleRenderer:
             }
 
         state = self.hero_states[hero_id]
+        # 속도 계산 (더 민감하게)
         velocity = (current_x - state["last_x"]) / max(dt, 0.001)
-        state["velocity"] = velocity * 0.3 + state["velocity"] * 0.7
+        state["velocity"] = velocity * 0.5 + state["velocity"] * 0.5  # 더 빠른 반응
 
-        # 기울기 (이동 방향)
-        target_lean = max(-1.0, min(1.0, state["velocity"] / 250.0))
-        state["lean"] = state["lean"] * 0.82 + target_lean * 0.18
+        # 기울기 (이동 방향) - 더 민감하게 조정
+        target_lean = max(-1.0, min(1.0, state["velocity"] / 120.0))  # 120으로 낮춤 (더 기울어짐)
+        state["lean"] = state["lean"] * 0.75 + target_lean * 0.25  # 더 빠른 보간
 
-        # 걷기 애니메이션 (속도에 비례)
+        # 걷기 애니메이션 (속도에 비례) - 임계값 낮춤
         move_speed = abs(state["velocity"])
-        if move_speed > 15:
-            state["step_phase"] += dt * 10.0
-            state["shoulder_phase"] += dt * 10.0
-            # 어깨 들썩임
-            state["body_bob"] = math.sin(state["step_phase"] * 2) * min(1.0, move_speed / 200.0)
-            # 팔 스윙
-            state["arm_swing"] = math.sin(state["step_phase"]) * min(1.0, move_speed / 150.0)
+        if move_speed > 5:  # 임계값 15 → 5로 낮춤
+            # 애니메이션 속도 증가
+            state["step_phase"] += dt * 14.0  # 10 → 14
+            state["shoulder_phase"] += dt * 14.0
+            # 어깨 들썩임 (더 강하게)
+            speed_factor = min(1.0, move_speed / 100.0)  # 200 → 100
+            state["body_bob"] = math.sin(state["step_phase"] * 2) * speed_factor * 1.2
+            # 팔 스윙 (더 강하게)
+            state["arm_swing"] = math.sin(state["step_phase"]) * min(1.0, move_speed / 80.0) * 1.3  # 150 → 80
             # 머리 미세 흔들림
-            state["head_tilt"] = math.sin(state["step_phase"] * 1.5) * 0.3 * min(1.0, move_speed / 200.0)
+            state["head_tilt"] = math.sin(state["step_phase"] * 1.5) * 0.5 * speed_factor
         else:
             # 정지 시 부드럽게 감쇠
-            state["body_bob"] *= 0.9
-            state["arm_swing"] *= 0.9
-            state["head_tilt"] *= 0.9
+            state["body_bob"] *= 0.85
+            state["arm_swing"] *= 0.85
+            state["head_tilt"] *= 0.85
 
         state["last_x"] = current_x
 
@@ -71,23 +74,27 @@ class HeroPaddleRenderer:
         return self.hero_states[hero_id]
 
     def _get_anim(self, state: dict) -> dict:
-        """애니메이션 값 계산"""
+        """애니메이션 값 계산 (발토르 스타일 강화)"""
         step = state.get("step_phase", 0)
         lean = state.get("lean", 0)
         arm_swing = state.get("arm_swing", 0)
         body_bob = state.get("body_bob", 0)
         head_tilt = state.get("head_tilt", 0)
+        velocity = abs(state.get("velocity", 0))
+
+        # 이동 중일 때 다리 애니메이션 강화
+        leg_intensity = min(1.0, velocity / 80.0) if velocity > 5 else 0
 
         return {
-            "wave": math.sin(step),
+            "wave": math.sin(step) * (1.0 + leg_intensity * 0.5),  # 이동 시 더 강하게
             "lean": lean,
             "arm_swing": arm_swing,
             "body_bob": body_bob,
             "head_tilt": head_tilt,
-            "left_leg": max(0, math.sin(step)) * 0.8,
-            "right_leg": max(0, -math.sin(step)) * 0.8,
-            "left_shoulder": math.sin(step + 0.5) * 0.5,
-            "right_shoulder": math.sin(step - 0.5) * 0.5,
+            "left_leg": max(0, math.sin(step)) * (0.8 + leg_intensity * 0.6),  # 이동 시 다리 더 들기
+            "right_leg": max(0, -math.sin(step)) * (0.8 + leg_intensity * 0.6),
+            "left_shoulder": math.sin(step + 0.5) * (0.5 + leg_intensity * 0.3),
+            "right_shoulder": math.sin(step - 0.5) * (0.5 + leg_intensity * 0.3),
         }
 
     def draw_hero_paddle(self, screen: pygame.Surface, hero_id: str,
@@ -96,8 +103,8 @@ class HeroPaddleRenderer:
                          scale_mode: str = "paddle"):
         """
         영웅 패들 그리기
-        facing="down": 정면 (아래를 바라봄, 얼굴이 보임)
-        facing="up": 뒷모습 (위를 바라봄, 뒷통수가 보임)
+        facing="down": 정면 (아래를 바라봄, 얼굴이 보임) - 상단 영웅
+        facing="up": 뒷모습 (위를 바라봄, 뒷통수가 보임) - 하단 영웅
         scale_mode="paddle": 투기장 모드 - 패들 크기에 맞게 캐릭터 축소
         scale_mode="preview": 미리보기 모드 - 기존 크기
         """
@@ -106,28 +113,40 @@ class HeroPaddleRenderer:
         anim = self._get_anim(state)
 
         # 스케일 계산 (기본 블록 단위)
-        # Smasher/Valtor 캐릭터 기준: b=5~6이 인게임 패들 크기에 적합
-        # 캐릭터 전체 높이 = 약 8*b (헬멧~다리)
         if scale_mode == "paddle":
-            # 투기장 모드: Smasher/보스 캐릭터와 비슷한 크기
-            # 패들 높이(40~50)에 맞춰 b=5~6 정도가 적당
-            b = 5  # 고정 스케일 (캐릭터 높이 약 40픽셀)
-            # 투기장 모드에서는 애니메이션 적당히 축소 (모션 유지 + 크기 변동 방지)
+            # 투기장 모드: 캐릭터 크기 확대 (b=8로 더 크게)
+            b = 8  # 스케일 증가 (캐릭터 높이 약 65픽셀)
+            # 이동 애니메이션 강화 (기울기, 팔 흔들기 등 더 눈에 띄게)
             anim = {
-                "wave": anim["wave"] * 0.6,
-                "lean": anim["lean"] * 0.5,  # 기울기는 좀 더 억제
-                "arm_swing": anim["arm_swing"] * 0.6,
-                "body_bob": anim["body_bob"] * 0.5,
-                "head_tilt": anim["head_tilt"] * 0.6,
-                "left_leg": anim["left_leg"] * 0.6,
-                "right_leg": anim["right_leg"] * 0.6,
-                "left_shoulder": anim["left_shoulder"] * 0.6,
-                "right_shoulder": anim["right_shoulder"] * 0.6,
+                "wave": anim["wave"] * 0.8,
+                "lean": anim["lean"] * 1.2,  # 기울기 강화
+                "arm_swing": anim["arm_swing"] * 1.0,  # 팔 흔들기 유지
+                "body_bob": anim["body_bob"] * 0.7,
+                "head_tilt": anim["head_tilt"] * 0.8,
+                "left_leg": anim["left_leg"] * 0.9,
+                "right_leg": anim["right_leg"] * 0.9,
+                "left_shoulder": anim["left_shoulder"] * 0.8,
+                "right_shoulder": anim["right_shoulder"] * 0.8,
             }
         else:
             # 기존 미리보기 모드 (크게 표시)
             b = max(3, width // 12)
-        cx, cy = int(x), int(y)
+
+        cx = int(x)
+
+        # Y 위치 보정 (캐릭터가 바닥에 붙도록)
+        # 캐릭터 높이 = 약 8*b, 중심은 cy에서 그려짐
+        # 상단(facing=down): 머리가 위로 향하고 발이 아래로, 패들 아래쪽에 위치
+        # 하단(facing=up): 발이 아래쪽(화면 하단)에 붙어야 함
+        if scale_mode == "paddle":
+            if facing == "down":
+                # 상단 영웅: 패들 아래쪽에서 캐릭터 그리기 (머리가 위)
+                cy = int(y) + int(3.5 * b)  # 아래로 이동하여 캐릭터가 패들 아래에 표시
+            else:
+                # 하단 영웅: 발이 바닥에 붙도록 (화면 하단 기준)
+                cy = int(y) - int(3.0 * b)  # 위로 이동하여 발이 화면 아래쪽에 위치
+        else:
+            cy = int(y)
 
         # 영웅별 그리기
         draw_func = getattr(self, f"_draw_{hero_id}", None)
