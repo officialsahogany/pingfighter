@@ -1106,8 +1106,8 @@ class ColosseumsArena:
                 if HERO_SKILLS_AVAILABLE:
                     pingfighter.arena_skill_manager = get_skill_manager()
                     pingfighter.arena_skill_manager.reset()
-                    pingfighter.arena_skill_manager.init_hero_skills(top_hero["id"])
-                    pingfighter.arena_skill_manager.init_hero_skills(bottom_hero["id"])
+                    pingfighter.arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True)
+                    pingfighter.arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False)
                     pingfighter.arena_skill_check_timer = 0.0
                     print(f"[Arena] Skills initialized: {top_hero['id']} vs {bottom_hero['id']}")
             except Exception as e:

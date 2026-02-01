@@ -957,7 +957,14 @@ class DragonBreath(HeroSkill):
         if not self.fire_zone_spawned and self.active_timer <= 0.5 and target_paddle:
             self.fire_zone_spawned = True
             # caster_is_top 속성 사용 (init_hero_skills에서 설정됨, 더 신뢰성 있음)
-            is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
+            has_attr = hasattr(self, 'caster_is_top')
+            self_caster_is_top = getattr(self, 'caster_is_top', None)
+            paddle_is_top = caster_paddle.is_top
+            is_caster_top = self_caster_is_top if self_caster_is_top is not None else paddle_is_top
+
+            # 디버그: 속성 확인
+            print(f"[DragonBreath DEBUG] has_attr={has_attr}, self.caster_is_top={self_caster_is_top}, caster_paddle.is_top={paddle_is_top}")
+
             if is_caster_top:
                 # 상단에서 발사 → 하단 target의 위쪽(앞쪽)에 화염
                 fire_y = target_paddle.y - 30
@@ -1431,6 +1438,8 @@ class HeroSkillManager:
             hero_id: 영웅 ID
             is_top: 상단 영웅 여부 (기본값 True)
         """
+        print(f"[init_hero_skills] hero_id={hero_id}, is_top={is_top}, already_exists={hero_id in self.active_skills}")
+
         if hero_id not in self.active_skills:
             # 새 인스턴스 생성 (상태 독립)
             skills = []
@@ -1440,17 +1449,20 @@ class HeroSkillManager:
                 new_skill = skill_class()
                 # 스킬 인스턴스에 직접 caster_is_top 저장 (화염지대 위치 계산용)
                 new_skill.caster_is_top = is_top
+                print(f"  [init_hero_skills] Created skill {new_skill.skill_id}, caster_is_top={new_skill.caster_is_top}")
                 skills.append(new_skill)
             self.active_skills[hero_id] = skills
         else:
             # 이미 존재하는 스킬들의 caster_is_top 업데이트
             for skill in self.active_skills[hero_id]:
                 skill.caster_is_top = is_top
+                print(f"  [init_hero_skills] Updated skill {skill.skill_id}, caster_is_top={skill.caster_is_top}")
 
         # 영웅 위치 정보 저장
         if 'hero_positions' not in self.game_state:
             self.game_state['hero_positions'] = {}
         self.game_state['hero_positions'][hero_id] = is_top
+        print(f"  [init_hero_skills] hero_positions now: {self.game_state['hero_positions']}")
 
     def reset(self):
         """전체 리셋"""
