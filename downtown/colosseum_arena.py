@@ -4,6 +4,8 @@
 import pygame
 import random
 import math
+import sys
+import os
 from enum import Enum
 from typing import List, Dict, Optional, Tuple
 
@@ -16,6 +18,15 @@ PADDLE_WIDTH = 80
 PADDLE_HEIGHT = 12
 BALL_SIZE = 10
 WIN_SCORE = 5  # 5점 선취 승리
+
+# 배경/필러 임포트 (선택적)
+try:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from backgrounds.animated_background_stage30 import AnimatedBackgroundStage30
+    from pillar_colosseum import ColosseumFrame
+    VISUAL_ASSETS_AVAILABLE = True
+except ImportError:
+    VISUAL_ASSETS_AVAILABLE = False
 
 # ============================================================================
 # 영웅 데이터
@@ -346,6 +357,27 @@ class ColosseumsArena:
         self.exit_requested = False
         self.winnings_collected = False
 
+        # 시각 효과 (배경/필러)
+        self.arena_background = None
+        self.arena_pillar = None
+        if VISUAL_ASSETS_AVAILABLE:
+            try:
+                self.arena_background = AnimatedBackgroundStage30(
+                    width=GAME_AREA_WIDTH, height=SCREEN_HEIGHT
+                )
+                self.arena_pillar = ColosseumFrame(
+                    screen_width=SCREEN_WIDTH,
+                    screen_height=SCREEN_HEIGHT,
+                    game_width=GAME_AREA_WIDTH,
+                    game_height=SCREEN_HEIGHT,
+                    offset_x=GAME_AREA_X,
+                    offset_y=0
+                )
+            except Exception as e:
+                print(f"Arena visual assets init error: {e}")
+                self.arena_background = None
+                self.arena_pillar = None
+
     def _generate_bracket(self):
         """8강 대진표 생성 - 상단 영웅 vs 하단 영웅 매칭"""
         for i in range(4):
@@ -504,6 +536,14 @@ class ColosseumsArena:
         """메인 업데이트"""
         self.animation_timer += dt
 
+        # 시각 효과 업데이트
+        if self.arena_background:
+            ball_x = self.ball.x if self.ball else None
+            ball_y = self.ball.y if self.ball else None
+            self.arena_background.update(dt, ball_x, ball_y)
+        if self.arena_pillar:
+            self.arena_pillar.update(dt)
+
         if self.state == TournamentState.BATTLE:
             self.update_battle()
         elif self.state == TournamentState.RESULT:
@@ -643,33 +683,76 @@ class ColosseumsArena:
         # 배경
         self.screen.fill((20, 25, 30))
 
-        # 게임 영역
-        pygame.draw.rect(self.screen, (30, 35, 45),
-                        (GAME_AREA_X, 0, GAME_AREA_WIDTH, SCREEN_HEIGHT))
+        # 콜로세움 배경 사용 (가능한 경우)
+        if self.arena_background:
+            self.arena_background.draw(self.screen, offset_x=GAME_AREA_X, offset_y=0)
+        else:
+            # 폴백: 기본 게임 영역
+            pygame.draw.rect(self.screen, (194, 158, 108),  # 모래색
+                            (GAME_AREA_X, 0, GAME_AREA_WIDTH, SCREEN_HEIGHT))
 
-        # 중앙선
-        for i in range(GAME_AREA_X + 20, GAME_AREA_X + GAME_AREA_WIDTH - 20, 20):
-            pygame.draw.rect(self.screen, (50, 55, 65),
-                           (i, SCREEN_HEIGHT // 2 - 2, 10, 4))
+        # 중앙선 (모래 위에 그려진 라인)
+        center_y = SCREEN_HEIGHT // 2
+        pygame.draw.line(self.screen, (164, 128, 88),
+                        (GAME_AREA_X + 30, center_y), (GAME_AREA_X + GAME_AREA_WIDTH - 30, center_y), 3)
 
-        # 패들 그리기
+        # 원형 경기장 라인
+        pygame.draw.circle(self.screen, (164, 128, 88),
+                          (GAME_AREA_X + GAME_AREA_WIDTH // 2, center_y), 120, 2)
+
+        # 패들 그리기 (영웅 색상 + 그림자)
         if self.top_paddle:
+            paddle_rect = self.top_paddle.get_rect()
+            # 그림자
+            shadow_rect = paddle_rect.copy()
+            shadow_rect.y += 3
+            pygame.draw.rect(self.screen, (60, 50, 40), shadow_rect, border_radius=4)
+            # 패들
             pygame.draw.rect(self.screen, self.selected_match.hero1["color"],
-                           self.top_paddle.get_rect(), border_radius=3)
-        if self.bottom_paddle:
-            pygame.draw.rect(self.screen, self.selected_match.hero2["color"],
-                           self.bottom_paddle.get_rect(), border_radius=3)
+                           paddle_rect, border_radius=4)
+            # 하이라이트
+            highlight_rect = pygame.Rect(paddle_rect.x + 2, paddle_rect.y + 2,
+                                        paddle_rect.width - 4, 3)
+            highlight_color = tuple(min(255, c + 50) for c in self.selected_match.hero1["color"])
+            pygame.draw.rect(self.screen, highlight_color, highlight_rect, border_radius=2)
 
-        # 공 그리기
+        if self.bottom_paddle:
+            paddle_rect = self.bottom_paddle.get_rect()
+            shadow_rect = paddle_rect.copy()
+            shadow_rect.y += 3
+            pygame.draw.rect(self.screen, (60, 50, 40), shadow_rect, border_radius=4)
+            pygame.draw.rect(self.screen, self.selected_match.hero2["color"],
+                           paddle_rect, border_radius=4)
+            highlight_rect = pygame.Rect(paddle_rect.x + 2, paddle_rect.y + 2,
+                                        paddle_rect.width - 4, 3)
+            highlight_color = tuple(min(255, c + 50) for c in self.selected_match.hero2["color"])
+            pygame.draw.rect(self.screen, highlight_color, highlight_rect, border_radius=2)
+
+        # 공 그리기 (그림자 포함)
         if self.ball:
+            # 그림자
+            pygame.draw.circle(self.screen, (60, 50, 40),
+                             (int(self.ball.x) + 2, int(self.ball.y) + 3), BALL_SIZE)
+            # 공
             pygame.draw.circle(self.screen, (255, 255, 255),
                              (int(self.ball.x), int(self.ball.y)), BALL_SIZE)
+            # 하이라이트
+            pygame.draw.circle(self.screen, (255, 255, 200),
+                             (int(self.ball.x) - 3, int(self.ball.y) - 3), 3)
+
+        # 필러 (사이드 UI)
+        if self.arena_pillar:
+            self.arena_pillar.draw(self.screen)
 
         # 점수판
         self._draw_scoreboard()
 
         # 영웅 정보
         self._draw_hero_info()
+
+        # 전경 효과
+        if self.arena_background:
+            self.arena_background.draw_foreground(self.screen, offset_x=GAME_AREA_X, offset_y=0)
 
     def _draw_scoreboard(self):
         """점수판 그리기"""
