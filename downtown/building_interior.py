@@ -4765,6 +4765,20 @@ class BuildingInterior:
         # NPC의 role이 "main"이면 메인 NPC
         return getattr(self.nearby_npc, 'role', None) == "main"
 
+    def get_clicked_npc(self, screen_x, screen_y):
+        """화면 좌표에서 클릭된 NPC 반환 (카메라 오프셋 적용)"""
+        # 화면 좌표를 월드 좌표로 변환
+        world_x = screen_x + self.camera_offset[0]
+        world_y = screen_y + self.camera_offset[1]
+
+        for npc in self.npcs:
+            npc_rect = npc.get_rect()
+            # 클릭 판정 영역 약간 확장
+            click_rect = npc_rect.inflate(20, 20)
+            if click_rect.collidepoint(world_x, world_y):
+                return npc
+        return None
+
     def handle_click(self, pos, button=1):
         """클릭 처리 (button: 1=좌클릭, 3=우클릭)"""
         # 크레인 게임 플레이 중일 때

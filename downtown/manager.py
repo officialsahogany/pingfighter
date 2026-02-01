@@ -1980,8 +1980,8 @@ class DowntownManager:
                             continue
                         running = False
 
-                    # Z키로 NPC 상호작용 - 메인 NPC (아레나 마스터)와 대화
-                    if event.key == pygame.K_z and not show_entry_dialog and not arena_running:
+                    # 스페이스바로 NPC 상호작용 - 메인 NPC (아레나 마스터)와 대화
+                    if event.key == pygame.K_SPACE and not show_entry_dialog and not arena_running:
                         # 플레이어가 메인 NPC 근처에 있는지 확인
                         if interior.is_near_main_npc():
                             player_gold = self.player_data.get('gold', 0)  # 골드 갱신
@@ -1989,6 +1989,16 @@ class DowntownManager:
 
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     mx, my = event.pos
+
+                    # 다이얼로그가 닫혀있을 때 NPC 클릭으로 상호작용
+                    if not show_entry_dialog and not arena_running:
+                        # 메인 NPC 클릭 체크
+                        clicked_npc = interior.get_clicked_npc(mx, my)
+                        if clicked_npc and getattr(clicked_npc, 'role', None) == "main":
+                            player_gold = self.player_data.get('gold', 0)
+                            show_entry_dialog = True
+                            continue
+
                     if show_entry_dialog:
                         # 입장 버튼 클릭 체크
                         entry_btn = pygame.Rect(250, 420, 120, 45)
