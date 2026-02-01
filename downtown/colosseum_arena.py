@@ -62,112 +62,112 @@ class HeroStyle(Enum):
 # 상단 패들 영웅 (hero1 - 화면 위쪽)
 TOP_HEROES = [
     {
-        "id": "gallita",
-        "name": "갤리타",
-        "title": "폭풍의 여전사",
+        "id": "mugen",
+        "name": "무겐",
+        "title": "귀검사",
         "style": HeroStyle.AGGRESSIVE,
-        "color": (60, 200, 120),
+        "color": (120, 60, 180),  # 보라색
         "speed": 1.3,
         "reaction": 0.85,
-        "power": 1.2,
-        "accuracy": 0.8,
+        "power": 1.25,
+        "accuracy": 0.78,
         "position": "top",
-        "description": "번개처럼 빠른 공격이 특기인 여전사"
+        "description": "어둠의 검기를 다루는 동양의 귀검객"
     },
     {
-        "id": "archines",
-        "name": "아르키네스",
-        "title": "철벽의 수호자",
-        "style": HeroStyle.DEFENSIVE,
-        "color": (60, 120, 220),
-        "speed": 0.9,
-        "reaction": 1.2,
-        "power": 0.8,
-        "accuracy": 0.95,
+        "id": "kraken",
+        "name": "크라켄",
+        "title": "심해의 포식자",
+        "style": HeroStyle.TRICKY,
+        "color": (40, 120, 140),  # 어두운 청록색
+        "speed": 0.95,
+        "reaction": 1.1,
+        "power": 1.15,
+        "accuracy": 0.82,
         "position": "top",
-        "description": "완벽한 수비로 상대를 지치게 만드는 전략가"
+        "description": "심해에서 온 촉수 괴물 하이브리드"
     },
     {
-        "id": "chungkia",
-        "name": "토키아",
-        "title": "바위의 거인",
+        "id": "chronos",
+        "name": "크로노스",
+        "title": "시간술사",
         "style": HeroStyle.DEFENSIVE,
-        "color": (200, 140, 60),
-        "speed": 0.8,
-        "reaction": 1.3,
-        "power": 0.9,
+        "color": (200, 170, 100),  # 황금색
+        "speed": 0.85,
+        "reaction": 1.35,
+        "power": 0.75,
         "accuracy": 0.98,
         "position": "top",
-        "description": "느리지만 절대 실수하지 않는 철벽 수비수"
+        "description": "시간을 조종하여 모든 공격을 예측하는 자"
     },
     {
-        "id": "poineth",
-        "name": "포이네스",
-        "title": "그림자 암살자",
-        "style": HeroStyle.TRICKY,
-        "color": (160, 60, 200),
-        "speed": 1.1,
-        "reaction": 0.85,
-        "power": 1.1,
-        "accuracy": 0.75,
+        "id": "onimaru",
+        "name": "오니마루",
+        "title": "지옥의 요괴무사",
+        "style": HeroStyle.AGGRESSIVE,
+        "color": (200, 50, 70),  # 진한 빨강
+        "speed": 1.2,
+        "reaction": 0.9,
+        "power": 1.35,
+        "accuracy": 0.72,
         "position": "top",
-        "description": "예측 불가능한 움직임으로 상대를 혼란에 빠뜨림"
+        "description": "지옥에서 온 뿔 달린 도깨비 전사"
     },
 ]
 
 # 하단 패들 영웅 (hero2 - 화면 아래쪽)
 BOTTOM_HEROES = [
     {
-        "id": "gestand",
-        "name": "게스탄드",
-        "title": "현명한 전술가",
-        "style": HeroStyle.BALANCED,
-        "color": (100, 160, 220),
-        "speed": 1.0,
-        "reaction": 1.1,
-        "power": 0.95,
-        "accuracy": 0.92,
-        "position": "bottom",
-        "description": "상대의 패턴을 분석하고 대응하는 지략가"
-    },
-    {
-        "id": "bukandai",
-        "name": "부칸다이",
-        "title": "광기의 광대",
+        "id": "maria",
+        "name": "마리아",
+        "title": "인형사",
         "style": HeroStyle.TRICKY,
-        "color": (220, 80, 180),
-        "speed": 1.15,
-        "reaction": 0.8,
-        "power": 1.25,
-        "accuracy": 0.7,
-        "position": "bottom",
-        "description": "미친듯이 강력하지만 불안정한 도박사"
-    },
-    {
-        "id": "pinjo",
-        "name": "핀조",
-        "title": "불굴의 검투사",
-        "style": HeroStyle.AGGRESSIVE,
-        "color": (220, 60, 60),
-        "speed": 1.2,
-        "reaction": 0.9,
-        "power": 1.3,
-        "accuracy": 0.85,
-        "position": "bottom",
-        "description": "화끈한 공격으로 상대를 압도하는 베테랑 검투사"
-    },
-    {
-        "id": "alexa",
-        "name": "알렉사",
-        "title": "황금의 창",
-        "style": HeroStyle.BALANCED,
-        "color": (220, 180, 60),
+        "color": (180, 100, 150),  # 분홍-보라
         "speed": 1.0,
         "reaction": 1.0,
-        "power": 1.0,
-        "accuracy": 0.9,
+        "power": 1.1,
+        "accuracy": 0.85,
         "position": "bottom",
-        "description": "모든 면에서 균형 잡힌 만능 전사"
+        "description": "마리오네트를 조종하는 기묘한 소녀"
+    },
+    {
+        "id": "ignis",
+        "name": "이그니스",
+        "title": "드래곤 나이트",
+        "style": HeroStyle.BALANCED,
+        "color": (220, 100, 40),  # 주황-빨강
+        "speed": 1.1,
+        "reaction": 1.05,
+        "power": 1.2,
+        "accuracy": 0.88,
+        "position": "bottom",
+        "description": "드래곤의 힘을 갑옷에 담은 용기사"
+    },
+    {
+        "id": "gear",
+        "name": "기어",
+        "title": "스팀펑크 메카닉",
+        "style": HeroStyle.DEFENSIVE,
+        "color": (140, 100, 60),  # 구리색
+        "speed": 0.9,
+        "reaction": 1.25,
+        "power": 0.95,
+        "accuracy": 0.95,
+        "position": "bottom",
+        "description": "증기 기관과 톱니바퀴로 무장한 발명가"
+    },
+    {
+        "id": "kurokage",
+        "name": "쿠로카게",
+        "title": "그림자 닌자",
+        "style": HeroStyle.AGGRESSIVE,
+        "color": (50, 50, 70),  # 어두운 남색
+        "speed": 1.4,
+        "reaction": 0.85,
+        "power": 1.0,
+        "accuracy": 0.8,
+        "position": "bottom",
+        "description": "어둠 속에서 나타나는 닌자 암살자"
     },
 ]
 
