@@ -954,6 +954,17 @@ class DragonBreath(HeroSkill):
         self.breath_particles = []
         self.breath_active = False
 
+        # 상대 패들 바닥에 화염 지대 생성 요청 (화염병과 동일한 넉백 효과)
+        if target_paddle:
+            game_state['spawn_dragon_fire_zone'] = {
+                'x': target_paddle.x + target_paddle.width // 2,
+                'y': target_paddle.y + (target_paddle.height if caster_paddle.is_top else 0),
+                'width': 120,  # 화염 지대 너비
+                'height': 60,  # 화염 지대 높이
+                'duration': 180,  # 3초 (60fps * 3)
+                'source': 'dragon_breath'
+            }
+
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         for p in self.breath_particles:
             if p['size'] > 2:

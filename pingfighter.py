@@ -130579,6 +130579,37 @@ def main(stage_num, new_boss_mode=False):
                     # 스킬 쿨다운/효과 업데이트
                     arena_skill_manager.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
 
+                    # 드래곤 브레스 화염 지대 생성 처리 (화염병과 동일한 넉백 효과)
+                    _dragon_fire_req = arena_skill_manager.game_state.get('spawn_dragon_fire_zone')
+                    if _dragon_fire_req:
+                        _fire_zone = {
+                            "x": _dragon_fire_req['x'],
+                            "y": _dragon_fire_req['y'],
+                            "width": _dragon_fire_req.get('width', 120),
+                            "height": _dragon_fire_req.get('height', 60),
+                            "duration": _dragon_fire_req.get('duration', 180),
+                            "flames": [],
+                            "spread_timer": 0,
+                            "push_timer": 0,
+                            "source": "dragon_breath"
+                        }
+                        # 초기 불꽃 파티클 생성
+                        for _ in range(15):
+                            _fire_zone["flames"].append({
+                                "x": _fire_zone["x"] + random.uniform(-40, 40),
+                                "y": _fire_zone["y"] + random.uniform(-15, 15),
+                                "size": random.uniform(10, 25),
+                                "lifetime": random.uniform(20, 40),
+                                "color_phase": random.uniform(0, 1)
+                            })
+                        fire_zones.append(_fire_zone)
+                        # 플래그 제거
+                        arena_skill_manager.game_state['spawn_dragon_fire_zone'] = None
+                        try:
+                            play_sound_with_volume(SOUND_FIREBOMB)
+                        except:
+                            pass
+
                     # ON_COOLDOWN 스킬 체크 (0.5초마다)
                     arena_skill_check_timer += dt
                     if arena_skill_check_timer >= 0.5:
