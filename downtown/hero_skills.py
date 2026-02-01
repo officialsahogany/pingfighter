@@ -7,6 +7,13 @@ import random
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Callable
 
+# 날씨 강풍 이벤트 임포트
+try:
+    from events.weather_event import force_start_gust_event, play_weather_sound, stop_weather_sound
+    WEATHER_EVENT_AVAILABLE = True
+except ImportError:
+    WEATHER_EVENT_AVAILABLE = False
+
 # 스킬 시스템 사용 가능 플래그
 HERO_SKILLS_AVAILABLE = True
 
@@ -1051,10 +1058,15 @@ class DragonWing(HeroSkill):
         self.wind_direction = random.choice([-1, 1])
         game_state['wind_force'] = self.wind_direction * 3
 
+        # 날씨 강풍 이벤트 시작 및 바람 사운드 재생
+        if WEATHER_EVENT_AVAILABLE:
+            force_start_gust_event(direction=self.wind_direction, duration=3)  # 3라운드 지속
+            play_weather_sound("gust")
+
         return {
             'screen_effect': ScreenEffect.WIND,
             'wind_direction': self.wind_direction,
-            'sound': 'wind'
+            'sound': None  # 날씨 시스템에서 사운드 재생
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
@@ -1080,6 +1092,10 @@ class DragonWing(HeroSkill):
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['wind_force'] = 0
         self.wind_particles = []
+
+        # 바람 사운드 정지
+        if WEATHER_EVENT_AVAILABLE:
+            stop_weather_sound()
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:

@@ -68,6 +68,14 @@ except ImportError:
     except ImportError:
         HERO_PADDLES_AVAILABLE = False
 
+# 날씨 이벤트 임포트 (용의 날개 강풍 이펙트용)
+try:
+    from events import weather_event as weather_module
+    WEATHER_EVENT_AVAILABLE = True
+except ImportError:
+    WEATHER_EVENT_AVAILABLE = False
+    weather_module = None
+
 # ============================================================================
 # 영웅 데이터
 # ============================================================================
@@ -1195,6 +1203,10 @@ class ColosseumsArena:
         if self.skill_manager and self.top_paddle and self.bottom_paddle and self.ball:
             self._update_skills(dt)
 
+        # 날씨 파티클 업데이트 (용의 날개 강풍 이펙트)
+        if WEATHER_EVENT_AVAILABLE and weather_module.weather_event_active and weather_module.weather_event_type == "gust":
+            weather_module.update_weather_particles(SCREEN_WIDTH, SCREEN_HEIGHT)
+
         # 공 생성 애니메이션 처리
         if self.spawn_phase and self.ball_spawn_animation:
             if self.ball_spawn_animation.update(dt):
@@ -1683,6 +1695,10 @@ class ColosseumsArena:
         # 스킬 이펙트 (배경 레이어)
         if self.skill_manager and self.top_paddle and self.bottom_paddle and self.ball:
             self.skill_manager.draw_skills(self.screen, self.top_paddle, self.bottom_paddle, self.ball)
+
+        # 날씨 파티클 그리기 (용의 날개 강풍 이펙트)
+        if WEATHER_EVENT_AVAILABLE and weather_module.weather_event_active and weather_module.weather_event_type == "gust":
+            weather_module.draw_weather_particles(self.screen)
 
         # 대쉬 효과 그리기 (패들 뒤에)
         if self.top_paddle:
