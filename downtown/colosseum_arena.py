@@ -9,6 +9,24 @@ import os
 from enum import Enum
 from typing import List, Dict, Optional, Tuple
 
+# 영웅 스킬 시스템 임포트
+try:
+    from downtown.hero_skills import (
+        get_skill_manager, HeroSkillManager, SkillTrigger,
+        HERO_SKILLS, get_hero_skills
+    )
+    HERO_SKILLS_AVAILABLE = True
+except ImportError:
+    try:
+        from hero_skills import (
+            get_skill_manager, HeroSkillManager, SkillTrigger,
+            HERO_SKILLS, get_hero_skills
+        )
+        HERO_SKILLS_AVAILABLE = True
+    except ImportError:
+        HERO_SKILLS_AVAILABLE = False
+        print("Hero skills module not available")
+
 # 상수 (실제 게임과 동일)
 SCREEN_WIDTH = 760
 SCREEN_HEIGHT = 750
@@ -223,6 +241,7 @@ class AIPaddleController:
         self.y = TOP_PADDLE_Y if is_top else BOTTOM_PADDLE_Y
         self.target_x = self.x
         self.velocity = 0.0
+        self.visual_width = PADDLE_WIDTH  # 시각적 패들 너비 (스킬 효과용)
 
         # 영웅 스탯 기반 능력치
         self.base_speed = 7.0 * hero["speed"]
@@ -244,6 +263,12 @@ class AIPaddleController:
         # 실수 시스템 (정확도에 따라)
         self.error_offset = 0
         self.error_update_timer = 0
+
+        # 스킬 상태 효과
+        self.is_stunned = False
+        self.slow_multiplier = 1.0
+        self.is_confused = False  # 조작 반전
+        self.paddle_scale = 1.0   # 패들 크기 배율
 
     def _predict_x_with_walls(self, ball_x: float, ball_vx: float, ball_y: float,
                                ball_vy: float, target_y: float) -> float:
@@ -275,6 +300,10 @@ class AIPaddleController:
 
     def update(self, ball_x: float, ball_y: float, ball_vx: float, ball_vy: float, dt: float):
         """AI 패들 업데이트 (실제 보스 AI 수준)"""
+        # 스턴 상태면 움직이지 않음
+        if self.is_stunned:
+            return
+
         # 공이 자기 방향으로 오는지 확인
         coming_towards = (ball_vy < 0 and self.is_top) or (ball_vy > 0 and not self.is_top)
 
@@ -324,15 +353,23 @@ class AIPaddleController:
         target_center = self.target_x
         current_center = self.x + PADDLE_WIDTH // 2
 
-        # 속도 계산 (스무딩 적용)
+        # 혼란 상태면 방향 반전
         diff = target_center - current_center
+        if self.is_confused:
+            diff = -diff
+
+        # 속도 계산 (스무딩 적용)
         target_velocity = diff * self.smoothing * 60  # 60fps 기준
 
+        # 둔화 적용
+        target_velocity *= self.slow_multiplier
+
         # 속도 제한
-        target_velocity = max(-self.max_speed, min(self.max_speed, target_velocity))
+        max_spd = self.max_speed * self.slow_multiplier
+        target_velocity = max(-max_spd, min(max_spd, target_velocity))
 
         # 가속도 적용
-        accel = 0.3
+        accel = 0.3 * self.slow_multiplier
         if abs(target_velocity - self.velocity) > accel:
             if target_velocity > self.velocity:
                 self.velocity += accel
@@ -713,6 +750,20 @@ class ColosseumsArena:
                 print(f"Hero paddle renderer init error: {e}")
                 self.hero_paddle_renderer = None
 
+        # 영웅 스킬 시스템
+        self.skill_manager: Optional[HeroSkillManager] = None
+        if HERO_SKILLS_AVAILABLE:
+            try:
+                self.skill_manager = get_skill_manager()
+                self.skill_manager.reset()
+            except Exception as e:
+                print(f"Skill manager init error: {e}")
+                self.skill_manager = None
+
+        # 스킬 쿨다운 체크 타이머 (AI가 쿨다운 스킬 사용)
+        self.skill_check_timer = 0.0
+        self.skill_check_interval = 0.5  # 0.5초마다 체크
+
     def _generate_bracket(self):
         """8강 대진표 생성 - 상단 영웅 vs 하단 영웅 매칭"""
         for i in range(4):
@@ -824,6 +875,12 @@ class ColosseumsArena:
         """배틀 시작 - 실제 게임 엔진 사용"""
         self.selected_match = match
 
+        # 스킬 시스템 초기화
+        if self.skill_manager:
+            self.skill_manager.reset()
+            self.skill_manager.init_hero_skills(match.hero1["id"])
+            self.skill_manager.init_hero_skills(match.hero2["id"])
+
         # 실제 게임 엔진으로 배틀 실행
         try:
             if self.battle_callback:
@@ -867,6 +924,10 @@ class ColosseumsArena:
         if not self.battle_active:
             return False
 
+        # 스킬 시스템 업데이트
+        if self.skill_manager and self.top_paddle and self.bottom_paddle and self.ball:
+            self._update_skills(dt)
+
         # 공 생성 애니메이션 처리
         if self.spawn_phase and self.ball_spawn_animation:
             if self.ball_spawn_animation.update(dt):
@@ -901,9 +962,11 @@ class ColosseumsArena:
         # 공 업데이트
         scorer = self.ball.update(dt)
 
-        # 패들 충돌 체크
-        self.ball.check_paddle_collision(self.top_paddle)
-        self.ball.check_paddle_collision(self.bottom_paddle)
+        # 패들 충돌 체크 + 스킬 발동
+        if self.ball.check_paddle_collision(self.top_paddle):
+            self._on_ball_hit(self.selected_match.hero1["id"], self.top_paddle, self.bottom_paddle)
+        if self.ball.check_paddle_collision(self.bottom_paddle):
+            self._on_ball_hit(self.selected_match.hero2["id"], self.bottom_paddle, self.top_paddle)
 
         # 득점 처리
         if scorer:
@@ -923,6 +986,73 @@ class ColosseumsArena:
             self.spawn_phase = True
 
         return False
+
+    def _update_skills(self, dt: float):
+        """스킬 시스템 업데이트"""
+        if not self.skill_manager:
+            return
+
+        # 스킬 매니저 업데이트
+        self.skill_manager.update(dt, self.top_paddle, self.bottom_paddle, self.ball)
+
+        # 상태 효과 적용 (패들별)
+        game_state = self.skill_manager.game_state
+
+        # 상단 패들 상태 효과
+        self.top_paddle.is_stunned = game_state.get('top_paddle_stunned', False)
+        self.top_paddle.slow_multiplier = game_state.get('top_paddle_slow_amount', 1.0) if game_state.get('top_paddle_slowed', False) else 1.0
+        self.top_paddle.is_confused = game_state.get('top_paddle_confused', False)
+        self.top_paddle.paddle_scale = game_state.get('top_paddle_shrink_scale', 1.0) if game_state.get('top_paddle_shrink', False) else 1.0
+
+        # 하단 패들 상태 효과
+        self.bottom_paddle.is_stunned = game_state.get('bottom_paddle_stunned', False)
+        self.bottom_paddle.slow_multiplier = game_state.get('bottom_paddle_slow_amount', 1.0) if game_state.get('bottom_paddle_slowed', False) else 1.0
+        self.bottom_paddle.is_confused = game_state.get('bottom_paddle_confused', False)
+        self.bottom_paddle.paddle_scale = game_state.get('bottom_paddle_shrink_scale', 1.0) if game_state.get('bottom_paddle_shrink', False) else 1.0
+
+        # 쿨다운 스킬 자동 사용 (AI)
+        self.skill_check_timer += dt
+        if self.skill_check_timer >= self.skill_check_interval:
+            self.skill_check_timer = 0
+            self._try_use_cooldown_skills()
+
+    def _on_ball_hit(self, hero_id: str, caster_paddle, target_paddle):
+        """공을 칠 때 ON_BALL_HIT 스킬 발동"""
+        if not self.skill_manager or not HERO_SKILLS_AVAILABLE:
+            return
+
+        self.skill_manager.try_use_skill(
+            hero_id,
+            SkillTrigger.ON_BALL_HIT,
+            caster_paddle,
+            target_paddle,
+            self.ball
+        )
+
+    def _try_use_cooldown_skills(self):
+        """쿨다운 완료된 ON_COOLDOWN 스킬 자동 사용"""
+        if not self.skill_manager or not HERO_SKILLS_AVAILABLE:
+            return
+
+        # 상단 영웅 스킬
+        if self.selected_match and random.random() < 0.7:  # 70% 확률로 사용 시도
+            self.skill_manager.try_use_skill(
+                self.selected_match.hero1["id"],
+                SkillTrigger.ON_COOLDOWN,
+                self.top_paddle,
+                self.bottom_paddle,
+                self.ball
+            )
+
+        # 하단 영웅 스킬
+        if self.selected_match and random.random() < 0.7:
+            self.skill_manager.try_use_skill(
+                self.selected_match.hero2["id"],
+                SkillTrigger.ON_COOLDOWN,
+                self.bottom_paddle,
+                self.top_paddle,
+                self.ball
+            )
 
     def _check_winner(self) -> bool:
         """승자 체크 (5점 선취, 듀스 룰)"""
@@ -1138,29 +1268,41 @@ class ColosseumsArena:
 
     def _draw_battle(self):
         """배틀 화면 그리기"""
+        # 화면 흔들림 오프셋
+        shake_x, shake_y = 0, 0
+        if self.skill_manager:
+            shake_x, shake_y = self.skill_manager.get_screen_shake()
+
         # 배경
         self.screen.fill((20, 25, 30))
 
         # 콜로세움 배경 사용 (가능한 경우)
         if self.arena_background:
-            self.arena_background.draw(self.screen, offset_x=GAME_AREA_X, offset_y=0)
+            self.arena_background.draw(self.screen, offset_x=GAME_AREA_X + shake_x, offset_y=shake_y)
         else:
             # 폴백: 기본 게임 영역
             pygame.draw.rect(self.screen, (194, 158, 108),  # 모래색
-                            (GAME_AREA_X, 0, GAME_AREA_WIDTH, SCREEN_HEIGHT))
+                            (GAME_AREA_X + shake_x, shake_y, GAME_AREA_WIDTH, SCREEN_HEIGHT))
 
         # 중앙선 (모래 위에 그려진 라인)
         center_y = SCREEN_HEIGHT // 2
         pygame.draw.line(self.screen, (164, 128, 88),
-                        (GAME_AREA_X + 30, center_y), (GAME_AREA_X + GAME_AREA_WIDTH - 30, center_y), 3)
+                        (GAME_AREA_X + 30 + shake_x, center_y + shake_y),
+                        (GAME_AREA_X + GAME_AREA_WIDTH - 30 + shake_x, center_y + shake_y), 3)
 
         # 원형 경기장 라인
         pygame.draw.circle(self.screen, (164, 128, 88),
-                          (GAME_AREA_X + GAME_AREA_WIDTH // 2, center_y), 120, 2)
+                          (GAME_AREA_X + GAME_AREA_WIDTH // 2 + shake_x, center_y + shake_y), 120, 2)
+
+        # 스킬 이펙트 (배경 레이어)
+        if self.skill_manager and self.top_paddle and self.bottom_paddle and self.ball:
+            self.skill_manager.draw_skills(self.screen, self.top_paddle, self.bottom_paddle, self.ball)
 
         # 패들 그리기 (영웅 패들 렌더러 사용)
         if self.top_paddle and self.selected_match:
             paddle_rect = self.top_paddle.get_rect()
+            # 패들 크기 스케일 적용
+            scaled_width = int(PADDLE_WIDTH * self.top_paddle.paddle_scale)
             hero1 = self.selected_match.hero1
 
             if self.hero_paddle_renderer:
@@ -1168,22 +1310,35 @@ class ColosseumsArena:
                 self.hero_paddle_renderer.draw_hero_paddle(
                     self.screen,
                     hero1["id"],
-                    paddle_rect.centerx,
-                    paddle_rect.centery,
-                    PADDLE_WIDTH,
+                    paddle_rect.centerx + shake_x,
+                    paddle_rect.centery + shake_y,
+                    scaled_width,
                     PADDLE_HEIGHT,
                     facing="down",
                     color=hero1["color"]
                 )
             else:
                 # 폴백: 기본 패들
-                shadow_rect = paddle_rect.copy()
+                scaled_rect = pygame.Rect(
+                    paddle_rect.centerx - scaled_width // 2 + shake_x,
+                    paddle_rect.y + shake_y,
+                    scaled_width,
+                    PADDLE_HEIGHT
+                )
+                shadow_rect = scaled_rect.copy()
                 shadow_rect.y += 3
                 pygame.draw.rect(self.screen, (60, 50, 40), shadow_rect, border_radius=4)
-                pygame.draw.rect(self.screen, hero1["color"], paddle_rect, border_radius=4)
+                pygame.draw.rect(self.screen, hero1["color"], scaled_rect, border_radius=4)
+
+                # 스턴 표시
+                if self.top_paddle.is_stunned:
+                    stun_surf = pygame.Surface((scaled_width + 10, PADDLE_HEIGHT + 10), pygame.SRCALPHA)
+                    pygame.draw.rect(stun_surf, (255, 255, 0, 100), stun_surf.get_rect(), border_radius=6)
+                    self.screen.blit(stun_surf, (scaled_rect.x - 5, scaled_rect.y - 5))
 
         if self.bottom_paddle and self.selected_match:
             paddle_rect = self.bottom_paddle.get_rect()
+            scaled_width = int(PADDLE_WIDTH * self.bottom_paddle.paddle_scale)
             hero2 = self.selected_match.hero2
 
             if self.hero_paddle_renderer:
@@ -1191,19 +1346,31 @@ class ColosseumsArena:
                 self.hero_paddle_renderer.draw_hero_paddle(
                     self.screen,
                     hero2["id"],
-                    paddle_rect.centerx,
-                    paddle_rect.centery,
-                    PADDLE_WIDTH,
+                    paddle_rect.centerx + shake_x,
+                    paddle_rect.centery + shake_y,
+                    scaled_width,
                     PADDLE_HEIGHT,
                     facing="up",
                     color=hero2["color"]
                 )
             else:
                 # 폴백: 기본 패들
-                shadow_rect = paddle_rect.copy()
+                scaled_rect = pygame.Rect(
+                    paddle_rect.centerx - scaled_width // 2 + shake_x,
+                    paddle_rect.y + shake_y,
+                    scaled_width,
+                    PADDLE_HEIGHT
+                )
+                shadow_rect = scaled_rect.copy()
                 shadow_rect.y += 3
                 pygame.draw.rect(self.screen, (60, 50, 40), shadow_rect, border_radius=4)
-                pygame.draw.rect(self.screen, hero2["color"], paddle_rect, border_radius=4)
+                pygame.draw.rect(self.screen, hero2["color"], scaled_rect, border_radius=4)
+
+                # 스턴 표시
+                if self.bottom_paddle.is_stunned:
+                    stun_surf = pygame.Surface((scaled_width + 10, PADDLE_HEIGHT + 10), pygame.SRCALPHA)
+                    pygame.draw.rect(stun_surf, (255, 255, 0, 100), stun_surf.get_rect(), border_radius=6)
+                    self.screen.blit(stun_surf, (scaled_rect.x - 5, scaled_rect.y - 5))
 
         # 공 생성 애니메이션
         if self.spawn_phase and self.ball_spawn_animation:
@@ -1211,6 +1378,9 @@ class ColosseumsArena:
 
         # 공 그리기 (그림자 포함)
         if self.ball and self.ball.visible:
+            ball_x = int(self.ball.x) + shake_x
+            ball_y = int(self.ball.y) + shake_y
+
             # 잔상 그리기
             for tx, ty, alpha in self.ball.trail:
                 trail_alpha = int(100 * alpha)
@@ -1220,14 +1390,21 @@ class ColosseumsArena:
                         trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
                         pygame.draw.circle(trail_surf, (255, 255, 200, trail_alpha),
                                           (trail_size, trail_size), trail_size)
-                        self.screen.blit(trail_surf, (int(tx) - trail_size, int(ty) - trail_size))
+                        self.screen.blit(trail_surf, (int(tx) + shake_x - trail_size, int(ty) + shake_y - trail_size))
+
+            # 불 효과 (스킬)
+            if self.skill_manager and self.skill_manager.game_state.get('ball_on_fire', False):
+                fire_glow = pygame.Surface((BALL_SIZE * 4, BALL_SIZE * 4), pygame.SRCALPHA)
+                pygame.draw.circle(fire_glow, (255, 100, 0, 100), (BALL_SIZE * 2, BALL_SIZE * 2), BALL_SIZE * 2)
+                self.screen.blit(fire_glow, (ball_x - BALL_SIZE * 2, ball_y - BALL_SIZE * 2), special_flags=pygame.BLEND_ADD)
 
             # 그림자
             pygame.draw.circle(self.screen, (60, 50, 40),
-                             (int(self.ball.x) + 2, int(self.ball.y) + 3), BALL_SIZE)
+                             (ball_x + 2, ball_y + 3), BALL_SIZE)
             # 공 본체
-            pygame.draw.circle(self.screen, (255, 255, 255),
-                             (int(self.ball.x), int(self.ball.y)), BALL_SIZE)
+            ball_color = (255, 200, 100) if self.skill_manager and self.skill_manager.game_state.get('ball_on_fire', False) else (255, 255, 255)
+            pygame.draw.circle(self.screen, ball_color,
+                             (ball_x, ball_y), BALL_SIZE)
             # 하이라이트
             pygame.draw.circle(self.screen, (255, 255, 200),
                              (int(self.ball.x) - 3, int(self.ball.y) - 3), 3)
@@ -1241,8 +1418,12 @@ class ColosseumsArena:
                 glow_alpha = int(50 * glow_intensity)
                 pygame.draw.circle(glow_surf, (255, 200, 100, glow_alpha),
                                   (glow_size, glow_size), glow_size)
-                self.screen.blit(glow_surf, (int(self.ball.x) - glow_size, int(self.ball.y) - glow_size),
+                self.screen.blit(glow_surf, (ball_x - glow_size, ball_y - glow_size),
                                 special_flags=pygame.BLEND_ADD)
+
+        # 스킬 화면 효과 (오버레이)
+        if self.skill_manager:
+            self.skill_manager.draw_screen_effects(self.screen)
 
         # 필러 (사이드 UI)
         if self.arena_pillar:
@@ -1253,6 +1434,9 @@ class ColosseumsArena:
 
         # 영웅 정보
         self._draw_hero_info()
+
+        # 스킬 쿨타임 UI 표시
+        self._draw_skill_cooldowns()
 
         # 전경 효과
         if self.arena_background:
@@ -1289,6 +1473,66 @@ class ColosseumsArena:
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render(hero2["name"], (255, 255, 255))
             self.screen.blit(surf, (690, 110))
+
+    def _draw_skill_cooldowns(self):
+        """스킬 쿨타임 UI 표시"""
+        if not self.skill_manager or not self.selected_match:
+            return
+
+        # 상단 영웅 스킬 (왼쪽 필러)
+        hero1_skills = self.skill_manager.active_skills.get(self.selected_match.hero1["id"], [])
+        self._draw_skill_icons(hero1_skills, 5, 200, self.selected_match.hero1["color"])
+
+        # 하단 영웅 스킬 (오른쪽 필러)
+        hero2_skills = self.skill_manager.active_skills.get(self.selected_match.hero2["id"], [])
+        self._draw_skill_icons(hero2_skills, 685, 200, self.selected_match.hero2["color"])
+
+    def _draw_skill_icons(self, skills, base_x: int, base_y: int, hero_color: Tuple[int, int, int]):
+        """스킬 아이콘과 쿨타임 표시"""
+        if not skills:
+            return
+
+        icon_size = 30
+        padding = 5
+
+        for i, skill in enumerate(skills):
+            x = base_x + 5
+            y = base_y + i * (icon_size + padding)
+
+            # 스킬 배경
+            bg_color = hero_color if skill.can_use() else (40, 40, 40)
+            pygame.draw.rect(self.screen, bg_color, (x, y, icon_size, icon_size), border_radius=5)
+            pygame.draw.rect(self.screen, (80, 80, 80), (x, y, icon_size, icon_size), 2, border_radius=5)
+
+            # 쿨타임 오버레이
+            if skill.current_cooldown > 0:
+                cooldown_ratio = skill.current_cooldown / skill.cooldown
+                overlay_height = int(icon_size * cooldown_ratio)
+                overlay_rect = pygame.Rect(x, y + (icon_size - overlay_height), icon_size, overlay_height)
+                overlay_surf = pygame.Surface((icon_size, overlay_height), pygame.SRCALPHA)
+                overlay_surf.fill((0, 0, 0, 150))
+                self.screen.blit(overlay_surf, (x, y + (icon_size - overlay_height)))
+
+                # 쿨타임 숫자
+                cd_text = f"{int(skill.current_cooldown)}"
+                if self.fonts and "small" in self.fonts:
+                    surf, _ = self.fonts["small"].render(cd_text, (255, 255, 255))
+                    self.screen.blit(surf, (x + icon_size // 2 - surf.get_width() // 2,
+                                           y + icon_size // 2 - surf.get_height() // 2))
+
+            # 활성 중 표시
+            if skill.is_active:
+                glow_surf = pygame.Surface((icon_size + 4, icon_size + 4), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (255, 255, 100, 150), glow_surf.get_rect(), border_radius=6)
+                self.screen.blit(glow_surf, (x - 2, y - 2))
+
+            # 스킬 이니셜
+            initial = skill.korean_name[0] if skill.korean_name else "?"
+            if self.fonts and "small" in self.fonts:
+                color = (255, 255, 255) if skill.can_use() else (100, 100, 100)
+                surf, _ = self.fonts["small"].render(initial, color)
+                self.screen.blit(surf, (x + icon_size // 2 - surf.get_width() // 2,
+                                       y + icon_size + 2))
 
     def _draw_bracket(self):
         """대진표 화면 그리기"""

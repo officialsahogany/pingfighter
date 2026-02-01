@@ -1,0 +1,1580 @@
+# downtown/hero_skills.py
+# 투기장 영웅 스킬 시스템
+
+import pygame
+import math
+import random
+from enum import Enum
+from typing import Dict, List, Optional, Tuple, Callable
+
+# ============================================================================
+# 스킬 발동 조건
+# ============================================================================
+class SkillTrigger(Enum):
+    ON_BALL_HIT = "on_ball_hit"      # 공을 칠 때 발동
+    ON_COOLDOWN = "on_cooldown"      # 쿨타임 완료 시 자동 발동
+    PASSIVE = "passive"              # 항상 적용되는 패시브
+
+
+# ============================================================================
+# 상태 이상 타입
+# ============================================================================
+class StatusEffect(Enum):
+    STUN = "stun"                    # 스턴 (이동 불가)
+    SLOW = "slow"                    # 둔화 (이동 속도 감소)
+    CONFUSION = "confusion"          # 혼란 (조작 반전)
+    BLIND = "blind"                  # 실명 (시야 제한)
+    SHRINK = "shrink"               # 축소 (패들 크기 감소)
+    KNOCKBACK = "knockback"          # 넉백 (강제 이동)
+    PUPPET = "puppet"                # 조종 (상대가 내 패들 제어)
+
+
+# ============================================================================
+# 화면 효과 타입
+# ============================================================================
+class ScreenEffect(Enum):
+    SHAKE = "shake"                  # 화면 흔들림
+    FLASH = "flash"                  # 화면 번쩍임
+    COLOR_OVERLAY = "color_overlay"  # 색상 오버레이
+    DARKNESS = "darkness"            # 어둠 효과
+    INK = "ink"                      # 먹물 효과
+    FIRE = "fire"                    # 불꽃 효과
+    TIME_STOP = "time_stop"          # 시간 정지 효과
+    WIND = "wind"                    # 바람 효과
+
+
+# ============================================================================
+# 스킬 기본 클래스
+# ============================================================================
+class HeroSkill:
+    def __init__(self,
+                 skill_id: str,
+                 name: str,
+                 korean_name: str,
+                 description: str,
+                 trigger: SkillTrigger,
+                 cooldown: float,
+                 duration: float = 0,
+                 hero_id: str = ""):
+        self.skill_id = skill_id
+        self.name = name
+        self.korean_name = korean_name
+        self.description = description
+        self.trigger = trigger
+        self.cooldown = cooldown          # 쿨타임 (초)
+        self.duration = duration          # 효과 지속시간 (초)
+        self.hero_id = hero_id
+
+        # 런타임 상태
+        self.current_cooldown = 0.0       # 현재 남은 쿨타임
+        self.is_active = False            # 효과 활성화 중
+        self.active_timer = 0.0           # 효과 남은 시간
+        self.effect_data = {}             # 효과별 추가 데이터
+
+    def can_use(self) -> bool:
+        """스킬 사용 가능 여부"""
+        return self.current_cooldown <= 0 and not self.is_active
+
+    def use(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """스킬 사용 (오버라이드 필요)"""
+        if not self.can_use():
+            return {}
+
+        self.current_cooldown = self.cooldown
+        if self.duration > 0:
+            self.is_active = True
+            self.active_timer = self.duration
+
+        return self._apply_effect(caster_paddle, target_paddle, ball, game_state)
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """실제 효과 적용 (서브클래스에서 오버라이드)"""
+        return {}
+
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """스킬 업데이트"""
+        # 쿨타임 감소
+        if self.current_cooldown > 0:
+            self.current_cooldown -= dt
+
+        # 활성 효과 업데이트
+        if self.is_active:
+            self.active_timer -= dt
+            self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
+            if self.active_timer <= 0:
+                self._end_effect(caster_paddle, target_paddle, ball, game_state)
+                self.is_active = False
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """활성 효과 업데이트 (서브클래스에서 오버라이드)"""
+        pass
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        """효과 종료 처리 (서브클래스에서 오버라이드)"""
+        pass
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        """스킬 시각 효과 그리기 (서브클래스에서 오버라이드)"""
+        pass
+
+    def reset(self):
+        """스킬 상태 리셋"""
+        self.current_cooldown = 0.0
+        self.is_active = False
+        self.active_timer = 0.0
+        self.effect_data = {}
+
+
+# ============================================================================
+# 무겐 스킬 - 귀검사 (공격적)
+# ============================================================================
+class DarkSlash(HeroSkill):
+    """암흑 베기 - 공을 칠 때 검기 이펙트 + 공 가속"""
+    def __init__(self):
+        super().__init__(
+            skill_id="dark_slash",
+            name="Dark Slash",
+            korean_name="암흑 베기",
+            description="검은 검기로 공을 강타하여 속도를 크게 증가시킨다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=8.0,
+            duration=0.5,
+            hero_id="mugen"
+        )
+        self.slash_particles = []
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        # 공 가속
+        speed_boost = 1.4
+        ball.vx *= speed_boost
+        ball.vy *= speed_boost
+
+        # 검기 파티클 생성
+        self.slash_particles = []
+        paddle_center_x = caster_paddle.x + 40
+        paddle_y = caster_paddle.y
+
+        for i in range(15):
+            angle = math.radians(random.uniform(-30, 30))
+            speed = random.uniform(200, 400)
+            self.slash_particles.append({
+                'x': paddle_center_x + random.uniform(-30, 30),
+                'y': paddle_y,
+                'vx': math.sin(angle) * speed,
+                'vy': -speed if caster_paddle.is_top else speed,
+                'life': 0.5,
+                'size': random.uniform(3, 8),
+                'color': (120 + random.randint(0, 60), 30, 180 + random.randint(0, 75))
+            })
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (150, 50, 200),
+            'flash_duration': 0.1,
+            'sound': 'slash'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 파티클 업데이트
+        for p in self.slash_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            p['size'] *= 0.95
+        self.slash_particles = [p for p in self.slash_particles if p['life'] > 0]
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        for p in self.slash_particles:
+            if p['size'] > 1:
+                alpha = int(255 * (p['life'] / 0.5))
+                surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 4)), pygame.SRCALPHA)
+                color = (*p['color'], alpha)
+                pygame.draw.ellipse(surf, color, surf.get_rect())
+                screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'] * 2)))
+
+
+class DemonEye(HeroSkill):
+    """귀신의 눈 - 상대방 시야를 제한하는 어둠 효과"""
+    def __init__(self):
+        super().__init__(
+            skill_id="demon_eye",
+            name="Demon Eye",
+            korean_name="귀신의 눈",
+            description="어둠의 기운으로 상대의 시야를 가린다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=25.0,
+            duration=4.0,
+            hero_id="mugen"
+        )
+        self.eye_animation_timer = 0
+        self.target_is_top = False
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.target_is_top = target_paddle.is_top
+        self.eye_animation_timer = 0
+        game_state['target_blind'] = True
+        game_state['blind_intensity'] = 0.8
+        game_state['blind_target_is_top'] = target_paddle.is_top
+
+        return {
+            'screen_effect': ScreenEffect.DARKNESS,
+            'target_status': StatusEffect.BLIND,
+            'status_duration': self.duration,
+            'sound': 'dark_magic'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        self.eye_animation_timer += dt
+        # 맥동 효과
+        game_state['blind_intensity'] = 0.6 + 0.2 * math.sin(self.eye_animation_timer * 5)
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['target_blind'] = False
+        game_state['blind_intensity'] = 0
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.is_active:
+            # 상대 진영에 어둠 효과
+            darkness_surf = pygame.Surface((600, 375), pygame.SRCALPHA)
+            intensity = int(200 * game_state.get('blind_intensity', 0.8))
+
+            # 그라데이션 어둠
+            if caster_paddle.is_top:
+                # 하단에 어둠 적용
+                for y in range(375):
+                    alpha = int(intensity * (y / 375))
+                    pygame.draw.line(darkness_surf, (20, 0, 40, alpha), (0, y), (600, y))
+                screen.blit(darkness_surf, (80, 375))
+            else:
+                # 상단에 어둠 적용
+                for y in range(375):
+                    alpha = int(intensity * (1 - y / 375))
+                    pygame.draw.line(darkness_surf, (20, 0, 40, alpha), (0, y), (600, y))
+                screen.blit(darkness_surf, (80, 0))
+
+            # 귀신 눈 이펙트
+            eye_x = caster_paddle.x + 40
+            eye_y = caster_paddle.y + (30 if caster_paddle.is_top else -30)
+            pulse = 1 + 0.2 * math.sin(self.eye_animation_timer * 8)
+
+            # 눈 글로우
+            glow_size = int(25 * pulse)
+            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (180, 50, 255, 100), (glow_size, glow_size), glow_size)
+            screen.blit(glow_surf, (int(eye_x - glow_size), int(eye_y - glow_size)), special_flags=pygame.BLEND_ADD)
+
+            # 눈동자
+            pygame.draw.circle(screen, (200, 50, 255), (int(eye_x), int(eye_y)), int(12 * pulse))
+            pygame.draw.circle(screen, (255, 100, 100), (int(eye_x), int(eye_y)), int(5 * pulse))
+
+
+# ============================================================================
+# 크라켄 스킬 - 심해의 포식자 (트릭형)
+# ============================================================================
+class TentacleWrap(HeroSkill):
+    """촉수 휘감기 - 상대 패들 크기 축소"""
+    def __init__(self):
+        super().__init__(
+            skill_id="tentacle_wrap",
+            name="Tentacle Wrap",
+            korean_name="촉수 휘감기",
+            description="촉수로 상대 패들을 휘감아 크기를 줄인다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=20.0,
+            duration=5.0,
+            hero_id="kraken"
+        )
+        self.tentacles = []
+        self.original_paddle_width = 80
+        self.target_is_top = False
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.target_is_top = target_paddle.is_top
+        self.original_paddle_width = getattr(target_paddle, 'visual_width', 80)
+        game_state['target_shrink'] = True
+        game_state['shrink_scale'] = 0.5  # 50%로 축소
+
+        # 촉수 생성
+        self.tentacles = []
+        for i in range(6):
+            self.tentacles.append({
+                'start_x': random.choice([80, 680]),  # 화면 양쪽에서
+                'start_y': random.uniform(200, 550),
+                'target_x': target_paddle.x + 40,
+                'target_y': target_paddle.y,
+                'progress': 0,
+                'wave_offset': random.uniform(0, math.pi * 2),
+                'thickness': random.uniform(4, 8)
+            })
+
+        return {
+            'target_status': StatusEffect.SHRINK,
+            'shrink_amount': 0.5,
+            'status_duration': self.duration,
+            'sound': 'tentacle'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        for t in self.tentacles:
+            t['progress'] = min(1.0, t['progress'] + dt * 2)
+            t['target_x'] = target_paddle.x + 40
+            t['target_y'] = target_paddle.y
+            t['wave_offset'] += dt * 3
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['target_shrink'] = False
+        game_state['shrink_scale'] = 1.0
+        # 패들별 상태 클리어
+        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_shrink'] = False
+        game_state[f'{target_prefix}_shrink_scale'] = 1.0
+        self.tentacles = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        for t in self.tentacles:
+            if t['progress'] > 0:
+                # 베지어 곡선으로 촉수 그리기
+                points = []
+                segments = 20
+                for i in range(segments + 1):
+                    prog = i / segments * t['progress']
+                    wave = math.sin(prog * math.pi * 3 + t['wave_offset']) * 30 * (1 - prog)
+
+                    x = t['start_x'] + (t['target_x'] - t['start_x']) * prog + wave
+                    y = t['start_y'] + (t['target_y'] - t['start_y']) * prog
+                    points.append((int(x), int(y)))
+
+                if len(points) > 1:
+                    # 촉수 본체
+                    pygame.draw.lines(screen, (40, 100, 120), False, points, int(t['thickness']))
+                    # 빨판
+                    for j, (px, py) in enumerate(points[::3]):
+                        if j > 0:
+                            size = int(t['thickness'] * 0.6)
+                            pygame.draw.circle(screen, (60, 140, 160), (px, py), size)
+
+
+class AbyssInk(HeroSkill):
+    """심해의 먹물 - 화면에 먹물을 뿌려 시야 방해"""
+    def __init__(self):
+        super().__init__(
+            skill_id="abyss_ink",
+            name="Abyss Ink",
+            korean_name="심해의 먹물",
+            description="심해의 먹물을 뿜어 상대의 시야를 방해한다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=15.0,
+            duration=3.5,
+            hero_id="kraken"
+        )
+        self.ink_blobs = []
+        self.target_is_top = False
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.target_is_top = target_paddle.is_top
+        # 먹물 방울 생성
+        self.ink_blobs = []
+        target_area_y = 500 if caster_paddle.is_top else 100
+
+        for i in range(12):
+            self.ink_blobs.append({
+                'x': random.uniform(100, 660),
+                'y': target_area_y + random.uniform(-100, 100),
+                'size': random.uniform(40, 100),
+                'alpha': 200,
+                'wobble': random.uniform(0, math.pi * 2)
+            })
+
+        return {
+            'screen_effect': ScreenEffect.INK,
+            'target_status': StatusEffect.CONFUSION,
+            'status_duration': self.duration,
+            'sound': 'splash'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        for blob in self.ink_blobs:
+            blob['wobble'] += dt * 2
+            blob['alpha'] = max(0, blob['alpha'] - dt * 50)
+            blob['size'] += dt * 5
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        # 패들별 상태 클리어
+        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_confused'] = False
+        self.ink_blobs = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        for blob in self.ink_blobs:
+            if blob['alpha'] > 10:
+                size = int(blob['size'] + math.sin(blob['wobble']) * 10)
+                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+
+                # 불규칙한 먹물 형태
+                points = []
+                for angle in range(0, 360, 30):
+                    rad = math.radians(angle)
+                    r = size * (0.8 + 0.3 * math.sin(rad * 3 + blob['wobble']))
+                    px = size + int(math.cos(rad) * r)
+                    py = size + int(math.sin(rad) * r)
+                    points.append((px, py))
+
+                pygame.draw.polygon(surf, (10, 20, 40, int(blob['alpha'])), points)
+                screen.blit(surf, (int(blob['x'] - size), int(blob['y'] - size)))
+
+
+# ============================================================================
+# 크로노스 스킬 - 시간술사 (수비적)
+# ============================================================================
+class TimeStop(HeroSkill):
+    """시간 정지 - 상대방을 잠시 멈춤"""
+    def __init__(self):
+        super().__init__(
+            skill_id="time_stop",
+            name="Time Stop",
+            korean_name="시간 정지",
+            description="시간을 멈춰 상대방을 일시적으로 움직이지 못하게 한다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=30.0,
+            duration=2.5,
+            hero_id="chronos"
+        )
+        self.clock_hands_angle = 0
+        self.time_particles = []
+        self.target_is_top = False
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.target_is_top = target_paddle.is_top
+        game_state['target_stunned'] = True
+        self.clock_hands_angle = 0
+
+        # 시간 파티클
+        self.time_particles = []
+        for i in range(30):
+            self.time_particles.append({
+                'x': random.uniform(80, 680),
+                'y': random.uniform(0, 750),
+                'char': random.choice(['⏰', '⌛', '🕐', '◷', '◶']),
+                'size': random.randint(12, 24),
+                'alpha': 255,
+                'vy': random.uniform(-20, 20)
+            })
+
+        return {
+            'screen_effect': ScreenEffect.TIME_STOP,
+            'target_status': StatusEffect.STUN,
+            'status_duration': self.duration,
+            'screen_tint': (200, 180, 100),
+            'sound': 'time_stop'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        self.clock_hands_angle += dt * 720  # 빠르게 회전
+
+        for p in self.time_particles:
+            p['y'] += p['vy'] * dt
+            p['alpha'] = max(0, p['alpha'] - dt * 80)
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['target_stunned'] = False
+        # 패들별 상태 클리어
+        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_stunned'] = False
+        self.time_particles = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.is_active:
+            # 세피아 톤 오버레이
+            overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
+            overlay.fill((200, 180, 100, 60))
+            screen.blit(overlay, (0, 0))
+
+            # 상대 패들 위에 시계 이펙트
+            clock_x = target_paddle.x + 40
+            clock_y = target_paddle.y
+
+            # 시계 배경
+            pygame.draw.circle(screen, (200, 170, 100), (int(clock_x), int(clock_y)), 35)
+            pygame.draw.circle(screen, (50, 40, 30), (int(clock_x), int(clock_y)), 35, 3)
+
+            # 시계 바늘
+            for i, length in enumerate([20, 28]):
+                angle = math.radians(self.clock_hands_angle * (1 if i == 0 else 0.08) - 90)
+                end_x = clock_x + math.cos(angle) * length
+                end_y = clock_y + math.sin(angle) * length
+                pygame.draw.line(screen, (50, 40, 30), (int(clock_x), int(clock_y)),
+                               (int(end_x), int(end_y)), 3 if i == 0 else 2)
+
+            # STOP 텍스트
+            font = pygame.font.Font(None, 28)
+            text = font.render("STOP", True, (200, 50, 50))
+            text_rect = text.get_rect(center=(int(clock_x), int(clock_y - 50)))
+            screen.blit(text, text_rect)
+
+
+class TimeRewind(HeroSkill):
+    """시간 역행 - 공을 이전 위치로 되돌림"""
+    def __init__(self):
+        super().__init__(
+            skill_id="time_rewind",
+            name="Time Rewind",
+            korean_name="시간 역행",
+            description="공의 시간을 되돌려 이전 위치로 되돌린다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=12.0,
+            duration=0.8,
+            hero_id="chronos"
+        )
+        self.ball_history = []
+        self.rewind_progress = 0
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        # 공 위치 히스토리 저장 (되돌릴 위치)
+        self.ball_history = game_state.get('ball_history', [])[-30:]  # 최근 30프레임
+        self.rewind_progress = 0
+
+        if self.ball_history:
+            # 공 방향 반전
+            ball.vx = -ball.vx * 0.8
+            ball.vy = -ball.vy * 0.8
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (200, 180, 100),
+            'flash_duration': 0.2,
+            'sound': 'rewind'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        self.rewind_progress += dt
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.is_active and self.ball_history:
+            # 공의 잔상 (역방향)
+            for i, (bx, by) in enumerate(reversed(self.ball_history[-15:])):
+                alpha = int(150 * (1 - i / 15))
+                size = int(10 * (1 - i / 15 * 0.5))
+                if alpha > 20 and size > 2:
+                    surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(surf, (200, 180, 100, alpha), (size, size), size)
+                    screen.blit(surf, (int(bx - size), int(by - size)))
+
+
+# ============================================================================
+# 오니마루 스킬 - 지옥의 요괴무사 (공격적)
+# ============================================================================
+class HellFire(HeroSkill):
+    """지옥의 불꽃 - 화면이 붉게 변하며 공 가속"""
+    def __init__(self):
+        super().__init__(
+            skill_id="hell_fire",
+            name="Hell Fire",
+            korean_name="지옥의 불꽃",
+            description="지옥의 불길로 공을 불태워 속도를 높인다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=10.0,
+            duration=3.0,
+            hero_id="onimaru"
+        )
+        self.fire_particles = []
+        self.flame_intensity = 0
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        # 공 가속 및 불꽃 상태
+        ball.vx *= 1.3
+        ball.vy *= 1.3
+        game_state['ball_on_fire'] = True
+        self.flame_intensity = 1.0
+
+        # 불꽃 파티클
+        self.fire_particles = []
+
+        return {
+            'screen_effect': ScreenEffect.FIRE,
+            'screen_tint': (255, 100, 50),
+            'sound': 'fire_burst'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        self.flame_intensity = max(0, self.flame_intensity - dt * 0.3)
+
+        # 공 주변 불꽃 파티클 추가
+        if random.random() < 0.5:
+            self.fire_particles.append({
+                'x': ball.x + random.uniform(-10, 10),
+                'y': ball.y + random.uniform(-10, 10),
+                'vx': random.uniform(-30, 30),
+                'vy': random.uniform(-80, -20),
+                'life': 0.5,
+                'size': random.uniform(4, 10)
+            })
+
+        # 파티클 업데이트
+        for p in self.fire_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            p['size'] *= 0.95
+        self.fire_particles = [p for p in self.fire_particles if p['life'] > 0]
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['ball_on_fire'] = False
+        self.fire_particles = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.is_active:
+            # 화면 붉은 틴트
+            if self.flame_intensity > 0:
+                overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
+                overlay.fill((255, 50, 0, int(40 * self.flame_intensity)))
+                screen.blit(overlay, (0, 0))
+
+            # 불꽃 파티클
+            for p in self.fire_particles:
+                if p['size'] > 1:
+                    # 불꽃 색상 (노랑 -> 주황 -> 빨강)
+                    life_ratio = p['life'] / 0.5
+                    r = 255
+                    g = int(200 * life_ratio)
+                    b = int(50 * life_ratio)
+                    alpha = int(200 * life_ratio)
+
+                    surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
+                    pygame.draw.circle(surf, (r, g, b, alpha),
+                                      (int(p['size']), int(p['size'])), int(p['size']))
+                    screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])),
+                               special_flags=pygame.BLEND_ADD)
+
+
+class HornCharge(HeroSkill):
+    """뿔 박치기 - 충격파로 상대 넉백 + 화면 흔들림"""
+    def __init__(self):
+        super().__init__(
+            skill_id="horn_charge",
+            name="Horn Charge",
+            korean_name="뿔 박치기",
+            description="강력한 충격파로 상대를 밀어내고 화면을 흔든다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=25.0,
+            duration=0.5,
+            hero_id="onimaru"
+        )
+        self.shockwave_radius = 0
+        self.knockback_applied = False
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.shockwave_radius = 0
+        self.knockback_applied = False
+
+        # 넉백 방향 설정
+        knockback_dir = 1 if random.random() > 0.5 else -1
+        game_state['target_knockback'] = knockback_dir * 150  # 150픽셀 넉백
+        game_state['screen_shake'] = 20  # 화면 흔들림 강도
+        game_state['shake_duration'] = 0.5
+
+        return {
+            'screen_effect': ScreenEffect.SHAKE,
+            'shake_intensity': 20,
+            'shake_duration': 0.5,
+            'target_status': StatusEffect.KNOCKBACK,
+            'knockback_force': knockback_dir * 150,
+            'sound': 'impact'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        self.shockwave_radius += dt * 800
+
+        # 넉백 적용
+        if not self.knockback_applied and game_state.get('target_knockback'):
+            target_paddle.x += game_state['target_knockback'] * dt * 5
+            # 경계 체크
+            target_paddle.x = max(80, min(target_paddle.x, 600))
+            if self.shockwave_radius > 200:
+                self.knockback_applied = True
+                game_state['target_knockback'] = 0
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['screen_shake'] = 0
+        game_state['target_knockback'] = 0
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.is_active and self.shockwave_radius < 400:
+            # 충격파 원
+            center_x = caster_paddle.x + 40
+            center_y = caster_paddle.y
+
+            alpha = int(200 * (1 - self.shockwave_radius / 400))
+            if alpha > 10:
+                # 충격파 링
+                for r_offset in [0, 20, 40]:
+                    radius = int(self.shockwave_radius - r_offset)
+                    if radius > 0:
+                        ring_alpha = int(alpha * (1 - r_offset / 60))
+                        pygame.draw.circle(screen, (255, 100, 50, ring_alpha),
+                                         (int(center_x), int(center_y)), radius, 4)
+
+
+# ============================================================================
+# 마리아 스킬 - 인형사 (트릭형)
+# ============================================================================
+class PuppetControl(HeroSkill):
+    """꼭두각시 조종 - 상대 패들을 잠시 조종"""
+    def __init__(self):
+        super().__init__(
+            skill_id="puppet_control",
+            name="Puppet Control",
+            korean_name="꼭두각시 조종",
+            description="실로 상대를 조종하여 원하는 대로 움직이게 한다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=35.0,
+            duration=2.0,
+            hero_id="maria"
+        )
+        self.strings = []
+        self.puppet_target_x = 0
+        self.target_is_top = False
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.target_is_top = target_paddle.is_top
+        game_state['target_puppeted'] = True
+        # 패들을 가장자리로 조종 (실점 유도)
+        ball_going_left = ball.vx < 0
+        self.puppet_target_x = 600 if ball_going_left else 100
+
+        # 실 생성
+        self.strings = []
+        for i in range(5):
+            self.strings.append({
+                'attach_x': target_paddle.x + 10 + i * 15,
+                'wave': random.uniform(0, math.pi * 2)
+            })
+
+        return {
+            'target_status': StatusEffect.PUPPET,
+            'puppet_target': self.puppet_target_x,
+            'status_duration': self.duration,
+            'sound': 'strings'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 패들 강제 이동
+        diff = self.puppet_target_x - target_paddle.x
+        target_paddle.x += diff * dt * 3
+
+        # 실 업데이트
+        for s in self.strings:
+            s['attach_x'] = target_paddle.x + 10 + self.strings.index(s) * 15
+            s['wave'] += dt * 5
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['target_puppeted'] = False
+        self.strings = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.is_active:
+            # 조종 실 그리기
+            hand_x = caster_paddle.x + 40
+            hand_y = caster_paddle.y + (40 if caster_paddle.is_top else -40)
+
+            for s in self.strings:
+                # 물결치는 실
+                points = []
+                segments = 15
+                for i in range(segments + 1):
+                    prog = i / segments
+                    wave = math.sin(prog * math.pi * 2 + s['wave']) * 15 * (1 - prog)
+
+                    x = hand_x + (s['attach_x'] - hand_x) * prog + wave
+                    y = hand_y + (target_paddle.y - hand_y) * prog
+                    points.append((int(x), int(y)))
+
+                if len(points) > 1:
+                    pygame.draw.lines(screen, (180, 100, 150), False, points, 2)
+
+            # 십자가 컨트롤러
+            pygame.draw.line(screen, (120, 60, 90), (hand_x - 30, hand_y), (hand_x + 30, hand_y), 4)
+            pygame.draw.line(screen, (120, 60, 90), (hand_x, hand_y - 20), (hand_x, hand_y + 10), 4)
+
+
+class DollCurse(HeroSkill):
+    """인형의 저주 - 상대 조작 반전"""
+    def __init__(self):
+        super().__init__(
+            skill_id="doll_curse",
+            name="Doll Curse",
+            korean_name="인형의 저주",
+            description="저주받은 인형으로 상대의 조작을 반전시킨다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=18.0,
+            duration=4.0,
+            hero_id="maria"
+        )
+        self.curse_dolls = []
+        self.target_is_top = False
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.target_is_top = target_paddle.is_top
+        game_state['target_confused'] = True
+        game_state['confusion_type'] = 'reverse'  # 조작 반전
+
+        # 저주 인형 이펙트
+        self.curse_dolls = []
+        for i in range(3):
+            self.curse_dolls.append({
+                'x': target_paddle.x + random.uniform(-50, 130),
+                'y': target_paddle.y + random.uniform(-80, 80),
+                'rotation': random.uniform(0, 360),
+                'scale': random.uniform(0.5, 1.0),
+                'wobble': random.uniform(0, math.pi * 2)
+            })
+
+        return {
+            'target_status': StatusEffect.CONFUSION,
+            'confusion_type': 'reverse',
+            'status_duration': self.duration,
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (180, 50, 100),
+            'sound': 'curse'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        for doll in self.curse_dolls:
+            doll['wobble'] += dt * 3
+            doll['rotation'] += math.sin(doll['wobble']) * 2
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['target_confused'] = False
+        # 패들별 상태 클리어
+        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_confused'] = False
+        self.curse_dolls = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.is_active:
+            # 저주 오버레이
+            overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
+            overlay.fill((100, 30, 60, 30))
+            screen.blit(overlay, (0, 0))
+
+            # 저주 인형들
+            for doll in self.curse_dolls:
+                # 간단한 인형 형태
+                dx, dy = int(doll['x']), int(doll['y'])
+                s = doll['scale']
+
+                # 머리
+                pygame.draw.circle(screen, (60, 40, 50), (dx, dy - int(20 * s)), int(12 * s))
+                # X 눈
+                pygame.draw.line(screen, (200, 50, 80),
+                               (dx - int(6 * s), dy - int(23 * s)),
+                               (dx - int(2 * s), dy - int(19 * s)), 2)
+                pygame.draw.line(screen, (200, 50, 80),
+                               (dx - int(6 * s), dy - int(19 * s)),
+                               (dx - int(2 * s), dy - int(23 * s)), 2)
+                pygame.draw.line(screen, (200, 50, 80),
+                               (dx + int(2 * s), dy - int(23 * s)),
+                               (dx + int(6 * s), dy - int(19 * s)), 2)
+                pygame.draw.line(screen, (200, 50, 80),
+                               (dx + int(2 * s), dy - int(19 * s)),
+                               (dx + int(6 * s), dy - int(23 * s)), 2)
+                # 몸통
+                pygame.draw.ellipse(screen, (80, 50, 70),
+                                   (dx - int(10 * s), dy - int(5 * s), int(20 * s), int(30 * s)))
+
+
+# ============================================================================
+# 이그니스 스킬 - 드래곤 나이트 (균형형)
+# ============================================================================
+class DragonBreath(HeroSkill):
+    """드래곤 브레스 - 화염 투사체로 공을 타격"""
+    def __init__(self):
+        super().__init__(
+            skill_id="dragon_breath",
+            name="Dragon Breath",
+            korean_name="드래곤 브레스",
+            description="용의 화염을 뿜어 공을 타격하고 가속시킨다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=12.0,
+            duration=1.5,
+            hero_id="ignis"
+        )
+        self.breath_particles = []
+        self.breath_active = False
+        self.breath_hit_ball = False
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.breath_particles = []
+        self.breath_active = True
+        self.breath_hit_ball = False
+
+        # 브레스 방향
+        direction = 1 if caster_paddle.is_top else -1
+
+        # 화염 파티클 대량 생성
+        for i in range(50):
+            self.breath_particles.append({
+                'x': caster_paddle.x + 40 + random.uniform(-20, 20),
+                'y': caster_paddle.y + direction * 20,
+                'vx': random.uniform(-40, 40),
+                'vy': direction * random.uniform(200, 400),
+                'life': random.uniform(0.8, 1.5),
+                'size': random.uniform(8, 20),
+                'color_phase': random.uniform(0, 1)
+            })
+
+        return {
+            'screen_effect': ScreenEffect.FIRE,
+            'sound': 'dragon_roar'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        for p in self.breath_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            p['size'] *= 0.98
+            p['color_phase'] += dt
+
+            # 공과 충돌 체크
+            if not self.breath_hit_ball:
+                dist = math.hypot(p['x'] - ball.x, p['y'] - ball.y)
+                if dist < 30:
+                    # 공 가속
+                    ball.vx *= 1.4
+                    ball.vy *= 1.4
+                    self.breath_hit_ball = True
+                    game_state['ball_on_fire'] = True
+
+        self.breath_particles = [p for p in self.breath_particles if p['life'] > 0]
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        self.breath_particles = []
+        self.breath_active = False
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        for p in self.breath_particles:
+            if p['size'] > 2:
+                # 화염 색상 변화
+                phase = p['color_phase'] % 1.0
+                if phase < 0.33:
+                    color = (255, 255, int(200 * (1 - phase * 3)))
+                elif phase < 0.66:
+                    color = (255, int(255 - 155 * (phase - 0.33) * 3), 0)
+                else:
+                    color = (int(255 - 55 * (phase - 0.66) * 3), int(100 - 100 * (phase - 0.66) * 3), 0)
+
+                alpha = int(200 * (p['life'] / 1.5))
+                surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
+                pygame.draw.circle(surf, (*color, alpha), (int(p['size']), int(p['size'])), int(p['size']))
+                screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])), special_flags=pygame.BLEND_ADD)
+
+
+class DragonWing(HeroSkill):
+    """용의 날개 - 바람으로 공 궤적 변경"""
+    def __init__(self):
+        super().__init__(
+            skill_id="dragon_wing",
+            name="Dragon Wing",
+            korean_name="용의 날개",
+            description="용의 날갯짓으로 바람을 일으켜 공의 궤적을 바꾼다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=15.0,
+            duration=2.5,
+            hero_id="ignis"
+        )
+        self.wind_direction = 0
+        self.wind_particles = []
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        # 랜덤 바람 방향
+        self.wind_direction = random.choice([-1, 1])
+        game_state['wind_force'] = self.wind_direction * 3
+
+        return {
+            'screen_effect': ScreenEffect.WIND,
+            'wind_direction': self.wind_direction,
+            'sound': 'wind'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 공에 바람 효과 적용
+        ball.vx += game_state.get('wind_force', 0) * dt * 60
+
+        # 바람 파티클 추가
+        if random.random() < 0.4:
+            start_x = 80 if self.wind_direction > 0 else 680
+            self.wind_particles.append({
+                'x': start_x,
+                'y': random.uniform(100, 650),
+                'vx': self.wind_direction * random.uniform(200, 400),
+                'life': 1.0,
+                'length': random.uniform(20, 50)
+            })
+
+        for p in self.wind_particles:
+            p['x'] += p['vx'] * dt
+            p['life'] -= dt
+        self.wind_particles = [p for p in self.wind_particles if p['life'] > 0 and 80 < p['x'] < 680]
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['wind_force'] = 0
+        self.wind_particles = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.is_active:
+            # 바람 라인
+            for p in self.wind_particles:
+                alpha = int(150 * p['life'])
+                end_x = p['x'] + p['length'] * (1 if self.wind_direction > 0 else -1)
+
+                # 그라데이션 라인
+                for i in range(3):
+                    line_alpha = alpha - i * 40
+                    if line_alpha > 0:
+                        color = (200, 220, 255, line_alpha)
+                        start = (int(p['x']), int(p['y'] + i * 3))
+                        end = (int(end_x), int(p['y'] + i * 3))
+                        pygame.draw.line(screen, color[:3], start, end, 2)
+
+
+# ============================================================================
+# 기어 스킬 - 스팀펑크 메카닉 (수비적)
+# ============================================================================
+class SteamBarrier(HeroSkill):
+    """스팀 배리어 - 증기 방어막 생성"""
+    def __init__(self):
+        super().__init__(
+            skill_id="steam_barrier",
+            name="Steam Barrier",
+            korean_name="스팀 배리어",
+            description="증기로 방어막을 만들어 공을 반사시킨다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=20.0,
+            duration=4.0,
+            hero_id="gear"
+        )
+        self.barrier_y = 0
+        self.steam_particles = []
+        self.barrier_hit = False
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        # 배리어 위치 (패들 앞쪽)
+        self.barrier_y = caster_paddle.y + (60 if caster_paddle.is_top else -60)
+        self.barrier_hit = False
+        game_state['barrier_active'] = True
+        game_state['barrier_y'] = self.barrier_y
+        game_state['barrier_owner_is_top'] = caster_paddle.is_top
+
+        return {
+            'sound': 'steam_release'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 증기 파티클
+        if random.random() < 0.3:
+            self.steam_particles.append({
+                'x': random.uniform(100, 660),
+                'y': self.barrier_y + random.uniform(-10, 10),
+                'vx': random.uniform(-20, 20),
+                'vy': random.uniform(-30, 30),
+                'life': 0.8,
+                'size': random.uniform(10, 25)
+            })
+
+        for p in self.steam_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            p['size'] += dt * 10
+        self.steam_particles = [p for p in self.steam_particles if p['life'] > 0]
+
+        # 공 배리어 충돌 체크
+        is_top = game_state.get('barrier_owner_is_top', True)
+        if not self.barrier_hit:
+            if is_top:
+                if ball.vy < 0 and abs(ball.y - self.barrier_y) < 20 and ball.y < self.barrier_y:
+                    ball.vy = abs(ball.vy) * 1.1
+                    self.barrier_hit = True
+                    game_state['screen_shake'] = 10
+            else:
+                if ball.vy > 0 and abs(ball.y - self.barrier_y) < 20 and ball.y > self.barrier_y:
+                    ball.vy = -abs(ball.vy) * 1.1
+                    self.barrier_hit = True
+                    game_state['screen_shake'] = 10
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['barrier_active'] = False
+        self.steam_particles = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.is_active:
+            # 배리어 라인
+            barrier_alpha = int(150 + 50 * math.sin(pygame.time.get_ticks() / 100))
+
+            # 메인 배리어 라인
+            pygame.draw.line(screen, (180, 200, 220),
+                           (100, int(self.barrier_y)), (660, int(self.barrier_y)), 4)
+
+            # 톱니바퀴 장식
+            for x in [120, 280, 440, 600]:
+                gear_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
+                teeth = 8
+                for i in range(teeth):
+                    angle = math.radians(i * 360 / teeth + pygame.time.get_ticks() / 50)
+                    inner = 8
+                    outer = 12
+                    x1 = 15 + math.cos(angle) * inner
+                    y1 = 15 + math.sin(angle) * inner
+                    x2 = 15 + math.cos(angle) * outer
+                    y2 = 15 + math.sin(angle) * outer
+                    pygame.draw.line(gear_surf, (140, 100, 60, 200), (x1, y1), (x2, y2), 3)
+                pygame.draw.circle(gear_surf, (160, 120, 80, 200), (15, 15), 8)
+                pygame.draw.circle(gear_surf, (100, 80, 50, 200), (15, 15), 4)
+                screen.blit(gear_surf, (x - 15, int(self.barrier_y) - 15))
+
+            # 증기 파티클
+            for p in self.steam_particles:
+                alpha = int(100 * (p['life'] / 0.8))
+                surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
+                pygame.draw.circle(surf, (200, 210, 220, alpha),
+                                  (int(p['size']), int(p['size'])), int(p['size']))
+                screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
+
+
+class OilSpill(HeroSkill):
+    """기름 투척 - 상대 진영에 기름으로 둔화"""
+    def __init__(self):
+        super().__init__(
+            skill_id="oil_spill",
+            name="Oil Spill",
+            korean_name="기름 투척",
+            description="기름을 뿌려 상대의 움직임을 둔화시킨다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=15.0,
+            duration=5.0,
+            hero_id="gear"
+        )
+        self.oil_puddles = []
+        self.target_is_top = False
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.target_is_top = target_paddle.is_top
+        game_state['target_slowed'] = True
+        game_state['slow_amount'] = 0.5  # 50% 둔화
+
+        # 기름 웅덩이 생성
+        target_area_y = target_paddle.y
+        self.oil_puddles = []
+        for i in range(5):
+            self.oil_puddles.append({
+                'x': target_paddle.x + random.uniform(-80, 160),
+                'y': target_area_y + random.uniform(-30, 30),
+                'width': random.uniform(40, 80),
+                'height': random.uniform(15, 25),
+                'wobble': random.uniform(0, math.pi * 2)
+            })
+
+        return {
+            'target_status': StatusEffect.SLOW,
+            'slow_amount': 0.5,
+            'status_duration': self.duration,
+            'sound': 'splash'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        for puddle in self.oil_puddles:
+            puddle['wobble'] += dt * 2
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['target_slowed'] = False
+        game_state['slow_amount'] = 1.0
+        # 패들별 상태 클리어
+        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_slowed'] = False
+        game_state[f'{target_prefix}_slow_amount'] = 1.0
+        self.oil_puddles = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        for puddle in self.oil_puddles:
+            # 기름 웅덩이 (타원 + 반사광)
+            w = int(puddle['width'] + math.sin(puddle['wobble']) * 5)
+            h = int(puddle['height'])
+            x = int(puddle['x'] - w / 2)
+            y = int(puddle['y'] - h / 2)
+
+            surf = pygame.Surface((w, h), pygame.SRCALPHA)
+            pygame.draw.ellipse(surf, (30, 25, 20, 180), (0, 0, w, h))
+            # 반사광
+            pygame.draw.ellipse(surf, (60, 50, 40, 100), (w // 4, h // 4, w // 3, h // 3))
+            screen.blit(surf, (x, y))
+
+
+# ============================================================================
+# 쿠로카게 스킬 - 그림자 닌자 (공격적)
+# ============================================================================
+class ShadowClone(HeroSkill):
+    """분신술 - 분신 패들 생성"""
+    def __init__(self):
+        super().__init__(
+            skill_id="shadow_clone",
+            name="Shadow Clone",
+            korean_name="분신술",
+            description="그림자 분신을 만들어 상대를 혼란시킨다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=22.0,
+            duration=5.0,
+            hero_id="kurokage"
+        )
+        self.clones = []
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        # 분신 2개 생성
+        self.clones = [
+            {'x': caster_paddle.x - 120, 'alpha': 150, 'offset': 0},
+            {'x': caster_paddle.x + 120, 'alpha': 150, 'offset': math.pi}
+        ]
+        game_state['has_clones'] = True
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (50, 50, 80),
+            'flash_duration': 0.15,
+            'sound': 'shadow'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        for clone in self.clones:
+            # 분신이 본체 따라 이동
+            clone['offset'] += dt * 3
+            base_offset = 100 * math.sin(clone['offset'])
+            clone['x'] = caster_paddle.x + base_offset
+            clone['x'] = max(80, min(clone['x'], 600))
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['has_clones'] = False
+        self.clones = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        for clone in self.clones:
+            # 반투명 분신 패들
+            clone_surf = pygame.Surface((80, 12), pygame.SRCALPHA)
+            pygame.draw.rect(clone_surf, (50, 50, 70, int(clone['alpha'])), (0, 0, 80, 12), border_radius=3)
+
+            # 그림자 효과
+            shadow_surf = pygame.Surface((85, 15), pygame.SRCALPHA)
+            pygame.draw.rect(shadow_surf, (20, 20, 30, int(clone['alpha'] * 0.5)), (0, 0, 85, 15), border_radius=3)
+
+            screen.blit(shadow_surf, (int(clone['x']) - 2, caster_paddle.y + 3))
+            screen.blit(clone_surf, (int(clone['x']), caster_paddle.y))
+
+
+class FlashShuriken(HeroSkill):
+    """섬광 수리검 - 조명탄 효과로 시야 방해"""
+    def __init__(self):
+        super().__init__(
+            skill_id="flash_shuriken",
+            name="Flash Shuriken",
+            korean_name="섬광 수리검",
+            description="섬광 수리검을 던져 상대의 눈을 멀게 한다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=12.0,
+            duration=2.0,
+            hero_id="kurokage"
+        )
+        self.shuriken_x = 0
+        self.shuriken_y = 0
+        self.shuriken_active = False
+        self.flash_intensity = 0
+        self.rotation = 0
+        self.target_is_top = False
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.target_is_top = target_paddle.is_top
+        self.shuriken_x = caster_paddle.x + 40
+        self.shuriken_y = caster_paddle.y
+        self.shuriken_active = True
+        self.flash_intensity = 0
+        self.rotation = 0
+
+        return {
+            'sound': 'shuriken'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.shuriken_active:
+            # 수리검 이동
+            direction = 1 if caster_paddle.is_top else -1
+            self.shuriken_y += direction * 600 * dt
+            self.rotation += dt * 1800
+
+            # 상대 패들 근처에서 폭발
+            if abs(self.shuriken_y - target_paddle.y) < 50:
+                self.shuriken_active = False
+                self.flash_intensity = 1.0
+                game_state['target_blind'] = True
+                game_state['blind_intensity'] = 1.0
+                game_state['blind_target_is_top'] = self.target_is_top
+        else:
+            # 섬광 감소
+            self.flash_intensity = max(0, self.flash_intensity - dt * 0.5)
+            game_state['blind_intensity'] = self.flash_intensity
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['target_blind'] = False
+        game_state['blind_intensity'] = 0
+        self.shuriken_active = False
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.shuriken_active:
+            # 회전하는 수리검
+            shuriken_size = 20
+            surf = pygame.Surface((shuriken_size * 2, shuriken_size * 2), pygame.SRCALPHA)
+
+            center = shuriken_size
+            for i in range(4):
+                angle = math.radians(self.rotation + i * 90)
+                x1 = center + math.cos(angle) * 5
+                y1 = center + math.sin(angle) * 5
+                x2 = center + math.cos(angle) * shuriken_size
+                y2 = center + math.sin(angle) * shuriken_size
+                pygame.draw.polygon(surf, (150, 150, 170), [
+                    (center, center),
+                    (x1 + math.cos(angle + 0.3) * 8, y1 + math.sin(angle + 0.3) * 8),
+                    (x2, y2),
+                    (x1 + math.cos(angle - 0.3) * 8, y1 + math.sin(angle - 0.3) * 8)
+                ])
+
+            pygame.draw.circle(surf, (100, 100, 120), (center, center), 5)
+            screen.blit(surf, (int(self.shuriken_x - shuriken_size), int(self.shuriken_y - shuriken_size)))
+
+        # 섬광 효과
+        if self.flash_intensity > 0:
+            flash_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+            flash_alpha = int(255 * self.flash_intensity)
+            flash_surf.fill((255, 255, 255, flash_alpha))
+            screen.blit(flash_surf, (0, 0))
+
+
+# ============================================================================
+# 영웅 스킬 매핑
+# ============================================================================
+HERO_SKILLS: Dict[str, List[HeroSkill]] = {
+    "mugen": [DarkSlash(), DemonEye()],
+    "kraken": [TentacleWrap(), AbyssInk()],
+    "chronos": [TimeStop(), TimeRewind()],
+    "onimaru": [HellFire(), HornCharge()],
+    "maria": [PuppetControl(), DollCurse()],
+    "ignis": [DragonBreath(), DragonWing()],
+    "gear": [SteamBarrier(), OilSpill()],
+    "kurokage": [ShadowClone(), FlashShuriken()]
+}
+
+
+def get_hero_skills(hero_id: str) -> List[HeroSkill]:
+    """영웅 ID로 스킬 목록 반환"""
+    return HERO_SKILLS.get(hero_id, [])
+
+
+def reset_all_skills():
+    """모든 스킬 상태 리셋"""
+    for skills in HERO_SKILLS.values():
+        for skill in skills:
+            skill.reset()
+
+
+# ============================================================================
+# 스킬 매니저 (게임에서 사용)
+# ============================================================================
+class HeroSkillManager:
+    """영웅 스킬 관리 클래스"""
+
+    def __init__(self):
+        self.active_skills: Dict[str, List[HeroSkill]] = {}  # hero_id -> skills
+        self.game_state: Dict = {}
+        self.screen_effects: List[Dict] = []
+
+    def init_hero_skills(self, hero_id: str):
+        """영웅 스킬 초기화"""
+        if hero_id not in self.active_skills:
+            # 새 인스턴스 생성 (상태 독립)
+            skills = []
+            for base_skill in HERO_SKILLS.get(hero_id, []):
+                skill_class = type(base_skill)
+                skills.append(skill_class())
+            self.active_skills[hero_id] = skills
+
+    def reset(self):
+        """전체 리셋"""
+        self.active_skills = {}
+        self.game_state = {
+            'ball_history': [],
+            # 상태 효과 (각 패들별로 추적)
+            'top_paddle_stunned': False,
+            'top_paddle_slowed': False,
+            'top_paddle_slow_amount': 1.0,
+            'top_paddle_confused': False,
+            'top_paddle_shrink': False,
+            'top_paddle_shrink_scale': 1.0,
+            'bottom_paddle_stunned': False,
+            'bottom_paddle_slowed': False,
+            'bottom_paddle_slow_amount': 1.0,
+            'bottom_paddle_confused': False,
+            'bottom_paddle_shrink': False,
+            'bottom_paddle_shrink_scale': 1.0,
+            # 일반 상태
+            'target_blind': False,
+            'blind_intensity': 0,
+            'blind_target_is_top': False,
+            'target_stunned': False,
+            'target_is_top': False,  # 현재 타겟이 상단 패들인지
+            'target_shrink': False,
+            'shrink_scale': 1.0,
+            'target_slowed': False,
+            'slow_amount': 1.0,
+            'target_confused': False,
+            'target_puppeted': False,
+            'target_knockback': 0,
+            'screen_shake': 0,
+            'shake_duration': 0,
+            'ball_on_fire': False,
+            'wind_force': 0,
+            'barrier_active': False,
+            'barrier_owner_is_top': False,
+            'has_clones': False
+        }
+        self.screen_effects = []
+
+    def update(self, dt: float, top_paddle, bottom_paddle, ball):
+        """스킬 업데이트"""
+        # 공 히스토리 저장
+        self.game_state['ball_history'].append((ball.x, ball.y))
+        if len(self.game_state['ball_history']) > 60:
+            self.game_state['ball_history'] = self.game_state['ball_history'][-60:]
+
+        # 화면 흔들림 감소
+        if self.game_state.get('shake_duration', 0) > 0:
+            self.game_state['shake_duration'] -= dt
+            if self.game_state['shake_duration'] <= 0:
+                self.game_state['screen_shake'] = 0
+
+        # 각 영웅의 스킬 업데이트
+        for hero_id, skills in self.active_skills.items():
+            is_top = hero_id in [h['id'] for h in TOP_HEROES] if 'TOP_HEROES' in dir() else True
+            caster_paddle = top_paddle if is_top else bottom_paddle
+            target_paddle = bottom_paddle if is_top else top_paddle
+
+            for skill in skills:
+                skill.update(dt, caster_paddle, target_paddle, ball, self.game_state)
+
+        # 화면 효과 업데이트
+        self.screen_effects = [e for e in self.screen_effects if e.get('duration', 0) > 0]
+        for effect in self.screen_effects:
+            effect['duration'] -= dt
+
+    def try_use_skill(self, hero_id: str, trigger: SkillTrigger,
+                     caster_paddle, target_paddle, ball) -> Optional[Dict]:
+        """스킬 사용 시도"""
+        skills = self.active_skills.get(hero_id, [])
+
+        for skill in skills:
+            if skill.trigger == trigger and skill.can_use():
+                # 타겟 패들 추적
+                self.game_state['target_is_top'] = target_paddle.is_top
+
+                result = skill.use(caster_paddle, target_paddle, ball, self.game_state)
+                if result:
+                    # 상태 효과를 해당 패들에 적용
+                    target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+
+                    if result.get('target_status'):
+                        status = result['target_status']
+                        if status == StatusEffect.STUN:
+                            self.game_state[f'{target_prefix}_stunned'] = True
+                        elif status == StatusEffect.SLOW:
+                            self.game_state[f'{target_prefix}_slowed'] = True
+                            self.game_state[f'{target_prefix}_slow_amount'] = result.get('slow_amount', 0.5)
+                        elif status == StatusEffect.CONFUSION:
+                            self.game_state[f'{target_prefix}_confused'] = True
+                        elif status == StatusEffect.SHRINK:
+                            self.game_state[f'{target_prefix}_shrink'] = True
+                            self.game_state[f'{target_prefix}_shrink_scale'] = result.get('shrink_amount', 0.5)
+                        elif status == StatusEffect.BLIND:
+                            self.game_state['blind_target_is_top'] = target_paddle.is_top
+
+                    # 화면 효과 추가
+                    if 'screen_effect' in result:
+                        self.screen_effects.append({
+                            'type': result['screen_effect'],
+                            'duration': result.get('flash_duration', 0.3),
+                            'color': result.get('flash_color', (255, 255, 255)),
+                            'intensity': result.get('shake_intensity', 0)
+                        })
+                    return result
+        return None
+
+    def draw_skills(self, screen: pygame.Surface, top_paddle, bottom_paddle, ball):
+        """모든 활성 스킬 이펙트 그리기"""
+        for hero_id, skills in self.active_skills.items():
+            is_top = any(h['id'] == hero_id for h in TOP_HEROES)
+            caster_paddle = top_paddle if is_top else bottom_paddle
+            target_paddle = bottom_paddle if is_top else top_paddle
+
+            for skill in skills:
+                skill.draw(screen, caster_paddle, target_paddle, ball, self.game_state)
+
+    def draw_screen_effects(self, screen: pygame.Surface):
+        """화면 효과 그리기"""
+        for effect in self.screen_effects:
+            if effect['type'] == ScreenEffect.FLASH:
+                alpha = int(150 * (effect['duration'] / 0.3))
+                flash_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+                color = effect.get('color', (255, 255, 255))
+                flash_surf.fill((*color, alpha))
+                screen.blit(flash_surf, (0, 0))
+
+    def get_screen_shake(self) -> Tuple[int, int]:
+        """화면 흔들림 오프셋 반환"""
+        shake = self.game_state.get('screen_shake', 0)
+        if shake > 0:
+            return (random.randint(-int(shake), int(shake)),
+                   random.randint(-int(shake), int(shake)))
+        return (0, 0)
+
+    def is_target_stunned(self, is_top: bool) -> bool:
+        """대상 스턴 여부"""
+        return self.game_state.get('target_stunned', False)
+
+    def get_target_slow(self) -> float:
+        """둔화 배율 (1.0 = 정상)"""
+        if self.game_state.get('target_slowed', False):
+            return self.game_state.get('slow_amount', 1.0)
+        return 1.0
+
+    def is_target_confused(self) -> bool:
+        """혼란 여부 (조작 반전)"""
+        return self.game_state.get('target_confused', False)
+
+    def get_paddle_scale(self, is_target: bool) -> float:
+        """패들 크기 배율"""
+        if is_target and self.game_state.get('target_shrink', False):
+            return self.game_state.get('shrink_scale', 1.0)
+        return 1.0
+
+
+# 전역 스킬 매니저 인스턴스
+_skill_manager: Optional[HeroSkillManager] = None
+
+def get_skill_manager() -> HeroSkillManager:
+    """스킬 매니저 싱글톤 반환"""
+    global _skill_manager
+    if _skill_manager is None:
+        _skill_manager = HeroSkillManager()
+    return _skill_manager
+
+
+# TOP_HEROES 임포트 (순환 참조 방지)
+try:
+    from downtown.colosseum_arena import TOP_HEROES, BOTTOM_HEROES
+except ImportError:
+    TOP_HEROES = [{"id": "mugen"}, {"id": "kraken"}, {"id": "chronos"}, {"id": "onimaru"}]
+    BOTTOM_HEROES = [{"id": "maria"}, {"id": "ignis"}, {"id": "gear"}, {"id": "kurokage"}]
