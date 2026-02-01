@@ -18562,7 +18562,7 @@ def update_arena_top_hero_dash():
     if arena_top_dash_cooldown > 0:
         arena_top_dash_cooldown -= 1
 
-    # 후딜(스턴) 처리 - 보스와 동일
+    # 후딜(스턴) 처리 - 보스와 동일 (후딜 중에는 이동 불가)
     if arena_top_dash_stun_timer > 0:
         _prev_stun = arena_top_dash_stun_timer
         arena_top_dash_stun_timer -= 1
@@ -18572,7 +18572,7 @@ def update_arena_top_hero_dash():
                 stop_dash_delay_sound()
             except Exception:
                 pass
-        return False
+        return True  # 후딜 중에는 True 반환하여 AI 이동 처리 건너뜀
 
     if not arena_top_dashing:
         # 잔상 페이드아웃 - 보스와 동일 (life 기반)
@@ -18649,7 +18649,7 @@ def update_arena_bottom_hero_dash():
     if arena_bottom_dash_cooldown > 0:
         arena_bottom_dash_cooldown -= 1
 
-    # 후딜(스턴) 처리 - 보스와 동일
+    # 후딜(스턴) 처리 - 보스와 동일 (후딜 중에는 이동 불가)
     if arena_bottom_dash_stun_timer > 0:
         _prev_stun = arena_bottom_dash_stun_timer
         arena_bottom_dash_stun_timer -= 1
@@ -18659,7 +18659,7 @@ def update_arena_bottom_hero_dash():
                 stop_dash_delay_sound()
             except Exception:
                 pass
-        return False
+        return True  # 후딜 중에는 True 반환하여 이동 처리 건너뜀
 
     if not arena_bottom_dashing:
         # 잔상 페이드아웃 - 보스와 동일 (life 기반)
@@ -86113,17 +86113,25 @@ def draw_objects():
                 BOSS.centerx,
                 1/60
             )
-            # 상단 영웅 패들 그리기 (보스 위치)
+            # 대쉬 후딜 떨림 효과 (보스와 동일)
+            _arena_top_stun_shake_x = 0
+            _arena_top_stun_shake_y = 0
+            _arena_top_stun_tint = None
+            if arena_top_dash_stun_timer > 0:
+                _arena_top_stun_shake_x = random.randint(-2, 2)
+                _arena_top_stun_shake_y = random.randint(-1, 1)
+            # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
                 arena_top_hero["id"],
-                BOSS.centerx + screen_shake_offset_x,
-                BOSS.centery + screen_shake_offset_y,
+                BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x,
+                BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y,
                 BOSS.width,
                 BOSS.height,
                 facing="down",
                 color=arena_top_hero["color"],
-                scale_mode="paddle"
+                scale_mode="paddle",
+                stun_effect=(arena_top_dash_stun_timer > 0)  # 후딜 틴트 효과
             )
         except Exception as e:
             pass
@@ -87582,17 +87590,24 @@ def draw_objects():
                 player_rect.centerx,
                 1/60
             )
-            # 하단 영웅 패들 그리기 (플레이어 위치)
+            # 대쉬 후딜 떨림 효과 (보스와 동일)
+            _arena_bottom_stun_shake_x = 0
+            _arena_bottom_stun_shake_y = 0
+            if arena_bottom_dash_stun_timer > 0:
+                _arena_bottom_stun_shake_x = random.randint(-2, 2)
+                _arena_bottom_stun_shake_y = random.randint(-1, 1)
+            # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
                 arena_bottom_hero["id"],
-                player_rect.centerx + screen_shake_offset_x,
-                player_rect.centery + screen_shake_offset_y,
+                player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x,
+                player_rect.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y,
                 player_rect.width,
                 player_rect.height,
                 facing="up",
                 color=arena_bottom_hero["color"],
-                scale_mode="paddle"
+                scale_mode="paddle",
+                stun_effect=(arena_bottom_dash_stun_timer > 0)  # 후딜 틴트 효과
             )
             _arena_paddle_drawn = True
         except Exception as e:

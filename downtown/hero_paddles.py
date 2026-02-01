@@ -120,14 +120,23 @@ class HeroPaddleRenderer:
     def draw_hero_paddle(self, screen: pygame.Surface, hero_id: str,
                          x: float, y: float, width: int, height: int,
                          facing: str = "down", color: Tuple[int, int, int] = (200, 200, 200),
-                         scale_mode: str = "paddle"):
+                         scale_mode: str = "paddle", stun_effect: bool = False):
         """
         영웅 패들 그리기
         facing="down": 정면 (아래를 바라봄, 얼굴이 보임) - 상단 영웅
         facing="up": 뒷모습 (위를 바라봄, 뒷통수가 보임) - 하단 영웅
         scale_mode="paddle": 투기장 모드 - 패들 크기에 맞게 캐릭터 축소
         scale_mode="preview": 미리보기 모드 - 기존 크기
+        stun_effect: 대쉬 후딜 상태 (보라색 틴트 효과)
         """
+        # 후딜 상태일 때 색상 변경 (보라색 틴트)
+        if stun_effect:
+            # 보라색 틴트 적용 (원래 색상에 보라색 혼합)
+            pulse = 0.6 + 0.4 * math.sin(pygame.time.get_ticks() * 0.02)
+            r = int(color[0] * 0.5 + 180 * pulse * 0.5)
+            g = int(color[1] * 0.3 + 120 * pulse * 0.3)
+            b_color = int(color[2] * 0.5 + 200 * pulse * 0.5)
+            color = (min(255, r), min(255, g), min(255, b_color))
         show_back = (facing == "up")
         state = self._get_state(hero_id)
         anim = self._get_anim(state)
