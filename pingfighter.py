@@ -939,12 +939,8 @@ from downtown import DowntownManager
 try:
     from downtown.hero_skills import get_skill_manager, SkillTrigger, HERO_SKILLS_AVAILABLE
     ARENA_SKILLS_AVAILABLE = True
-    print(f"[Arena Skills] Module loaded successfully, HERO_SKILLS_AVAILABLE={HERO_SKILLS_AVAILABLE}")
-except ImportError as e:
+except ImportError:
     ARENA_SKILLS_AVAILABLE = False
-    import traceback
-    print(f"Arena hero skills module not available: {e}")
-    traceback.print_exc()
 
 if _splash_screen:
     update_splash(0.40, "게임 로직 로딩 중...")
@@ -94159,7 +94155,6 @@ def show_start_screen():
             arena_hero_paddle_renderer = None
 
         # 영웅 스킬 시스템 초기화
-        print(f"[Arena DEBUG] ARENA_SKILLS_AVAILABLE = {ARENA_SKILLS_AVAILABLE}")
         if ARENA_SKILLS_AVAILABLE:
             try:
                 arena_skill_manager = get_skill_manager()
@@ -94167,20 +94162,8 @@ def show_start_screen():
                 arena_skill_manager.init_hero_skills(top_hero["id"])
                 arena_skill_manager.init_hero_skills(bottom_hero["id"])
                 arena_skill_check_timer = 0.0
-                print(f"[Arena DEBUG] Skills initialized for {top_hero['id']} vs {bottom_hero['id']}")
-                # 디버그: 초기화된 스킬 목록 출력
-                for hero_id in [top_hero["id"], bottom_hero["id"]]:
-                    skills = arena_skill_manager.active_skills.get(hero_id, [])
-                    print(f"[Arena DEBUG] {hero_id} has {len(skills)} skills:")
-                    for s in skills:
-                        print(f"  - {s.korean_name}: trigger={s.trigger.value}, cooldown={s.cooldown}s")
-            except Exception as e:
-                import traceback
-                print(f"Arena skill manager init error: {e}")
-                traceback.print_exc()
+            except Exception:
                 arena_skill_manager = None
-        else:
-            print("[Arena DEBUG] ARENA_SKILLS_AVAILABLE is False, skill system disabled")
 
         # AI 플레이 모드 활성화 (양쪽 모두 AI)
         player_ai_enabled = True
@@ -117675,9 +117658,6 @@ def handle_ball():
         update_ball_rally("player")
 
         # 투기장 모드: 하단 영웅(플레이어 위치) ON_BALL_HIT 스킬 발동
-        # 디버그: 투기장 상태 체크
-        if arena_mode_enabled:
-            print(f"[Arena DEBUG] Bottom paddle hit! arena_skill_manager={arena_skill_manager is not None}, arena_bottom_hero={arena_bottom_hero}")
         if arena_mode_enabled and arena_skill_manager and arena_bottom_hero:
             try:
                 # 래퍼 객체 생성 (스킬 시스템용)
@@ -117700,11 +117680,6 @@ def handle_ball():
                 top_wrapper = PaddleWrapper(BOSS, True)
                 ball_wrapper = BallWrapper(BALL, ball_vel)
                 hero_id = arena_bottom_hero["id"]
-                # 디버그: ON_BALL_HIT 스킬 상태 확인
-                skills = arena_skill_manager.active_skills.get(hero_id, [])
-                for arena_skill in skills:
-                    if arena_skill.trigger == SkillTrigger.ON_BALL_HIT:
-                        print(f"[Arena DEBUG] {hero_id} BALL_HIT - {arena_skill.korean_name}: cooldown={arena_skill.current_cooldown:.1f}, can_use={arena_skill.can_use()}")
                 result = arena_skill_manager.try_use_skill(
                     hero_id, SkillTrigger.ON_BALL_HIT,
                     bottom_wrapper, top_wrapper, ball_wrapper
@@ -117713,9 +117688,8 @@ def handle_ball():
                     # 공 속도 변경 반영
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
-                    print(f"[Arena] {hero_id} ON_BALL_HIT 스킬 발동!")
-            except Exception as e:
-                print(f"[Arena] Bottom hero skill error: {e}")
+            except Exception:
+                pass
 
         # 인게임 골드 획득 (랠리 성공 시)
         rally_gold = calculate_rally_gold()
@@ -118440,9 +118414,6 @@ def handle_ball():
         update_ball_rally("boss")
 
         # 투기장 모드: 상단 영웅(보스 위치) ON_BALL_HIT 스킬 발동
-        # 디버그: 투기장 상태 체크
-        if arena_mode_enabled:
-            print(f"[Arena DEBUG] Top paddle hit! arena_skill_manager={arena_skill_manager is not None}, arena_top_hero={arena_top_hero}")
         if arena_mode_enabled and arena_skill_manager and arena_top_hero:
             try:
                 # 래퍼 객체 생성 (스킬 시스템용)
@@ -118465,11 +118436,6 @@ def handle_ball():
                 bottom_wrapper = PaddleWrapper(PLAYER, False)
                 ball_wrapper = BallWrapper(BALL, ball_vel)
                 hero_id = arena_top_hero["id"]
-                # 디버그: ON_BALL_HIT 스킬 상태 확인
-                skills = arena_skill_manager.active_skills.get(hero_id, [])
-                for arena_skill in skills:
-                    if arena_skill.trigger == SkillTrigger.ON_BALL_HIT:
-                        print(f"[Arena DEBUG] {hero_id} BALL_HIT - {arena_skill.korean_name}: cooldown={arena_skill.current_cooldown:.1f}, can_use={arena_skill.can_use()}")
                 result = arena_skill_manager.try_use_skill(
                     hero_id, SkillTrigger.ON_BALL_HIT,
                     top_wrapper, bottom_wrapper, ball_wrapper
@@ -118478,9 +118444,8 @@ def handle_ball():
                     # 공 속도 변경 반영
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
-                    print(f"[Arena] {hero_id} ON_BALL_HIT 스킬 발동!")
-            except Exception as e:
-                print(f"[Arena] Top hero skill error: {e}")
+            except Exception:
+                pass
 
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
@@ -129952,11 +129917,6 @@ def main(stage_num, new_boss_mode=False):
                         # 상단 영웅 ON_COOLDOWN 스킬
                         if arena_top_hero:
                             hero_id = arena_top_hero["id"]
-                            # 디버그: 스킬 상태 확인
-                            skills = arena_skill_manager.active_skills.get(hero_id, [])
-                            for arena_skill in skills:
-                                if arena_skill.trigger == SkillTrigger.ON_COOLDOWN:
-                                    print(f"[Arena DEBUG] {hero_id} - {arena_skill.korean_name}: cooldown={arena_skill.current_cooldown:.1f}, can_use={arena_skill.can_use()}, is_active={arena_skill.is_active}")
                             result = arena_skill_manager.try_use_skill(
                                 hero_id, SkillTrigger.ON_COOLDOWN,
                                 top_wrapper, bottom_wrapper, ball_wrapper
@@ -129964,15 +129924,9 @@ def main(stage_num, new_boss_mode=False):
                             if result:
                                 ball_vel[0] = ball_wrapper.vx
                                 ball_vel[1] = ball_wrapper.vy
-                                print(f"[Arena] {hero_id} ON_COOLDOWN 스킬 발동!")
                         # 하단 영웅 ON_COOLDOWN 스킬
                         if arena_bottom_hero:
                             hero_id = arena_bottom_hero["id"]
-                            # 디버그: 스킬 상태 확인
-                            skills = arena_skill_manager.active_skills.get(hero_id, [])
-                            for arena_skill in skills:
-                                if arena_skill.trigger == SkillTrigger.ON_COOLDOWN:
-                                    print(f"[Arena DEBUG] {hero_id} - {arena_skill.korean_name}: cooldown={arena_skill.current_cooldown:.1f}, can_use={arena_skill.can_use()}, is_active={arena_skill.is_active}")
                             result = arena_skill_manager.try_use_skill(
                                 hero_id, SkillTrigger.ON_COOLDOWN,
                                 bottom_wrapper, top_wrapper, ball_wrapper
@@ -129980,9 +129934,8 @@ def main(stage_num, new_boss_mode=False):
                             if result:
                                 ball_vel[0] = ball_wrapper.vx
                                 ball_vel[1] = ball_wrapper.vy
-                                print(f"[Arena] {hero_id} ON_COOLDOWN 스킬 발동!")
-                except Exception as e:
-                    print(f"[Arena] Skill update error: {e}")
+                except Exception:
+                    pass
 
             if not freeze_now:
                 # 코만도 총알 시스템 업데이트

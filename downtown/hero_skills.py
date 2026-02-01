@@ -1402,14 +1402,11 @@ class HeroSkillManager:
             # 새 인스턴스 생성 (상태 독립)
             skills = []
             base_skills = HERO_SKILLS.get(hero_id, [])
-            print(f"[Arena Skill Init] {hero_id}: found {len(base_skills)} base skills")
             for base_skill in base_skills:
                 skill_class = type(base_skill)
                 new_skill = skill_class()
                 skills.append(new_skill)
-                print(f"  - {new_skill.korean_name} ({new_skill.trigger.value}): cooldown={new_skill.cooldown}s")
             self.active_skills[hero_id] = skills
-            print(f"[Arena Skill Init] {hero_id}: initialized {len(skills)} skills")
 
     def reset(self):
         """전체 리셋"""
@@ -1483,17 +1480,13 @@ class HeroSkillManager:
                      caster_paddle, target_paddle, ball) -> Optional[Dict]:
         """스킬 사용 시도"""
         skills = self.active_skills.get(hero_id, [])
-        print(f"[try_use_skill] hero={hero_id}, trigger={trigger.value}, num_skills={len(skills)}")
 
         for skill in skills:
-            print(f"  - {skill.korean_name}: trigger={skill.trigger.value}, cooldown={skill.current_cooldown:.2f}, is_active={skill.is_active}, can_use={skill.can_use()}")
             if skill.trigger == trigger and skill.can_use():
-                print(f"  >>> Using skill: {skill.korean_name}")
                 # 타겟 패들 추적
                 self.game_state['target_is_top'] = target_paddle.is_top
 
                 result = skill.use(caster_paddle, target_paddle, ball, self.game_state)
-                print(f"  >>> Skill result: {result}")
                 if result:
                     # 상태 효과를 해당 패들에 적용
                     target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
@@ -1539,6 +1532,9 @@ class HeroSkillManager:
         for effect in self.screen_effects:
             if effect['type'] == ScreenEffect.FLASH:
                 alpha = int(150 * (effect['duration'] / 0.3))
+                alpha = max(0, min(255, alpha))  # 유효 범위로 제한
+                if alpha <= 0:
+                    continue
                 flash_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
                 color = effect.get('color', (255, 255, 255))
                 flash_surf.fill((*color, alpha))
