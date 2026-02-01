@@ -1284,13 +1284,19 @@ class ColosseumsArena:
         # 상단 패들 상태 효과
         self.top_paddle.is_stunned = game_state.get('top_paddle_stunned', False)
         self.top_paddle.slow_multiplier = game_state.get('top_paddle_slow_amount', 1.0) if game_state.get('top_paddle_slowed', False) else 1.0
-        self.top_paddle.is_confused = game_state.get('top_paddle_confused', False)
+        top_confused = game_state.get('top_paddle_confused', False)
+        if top_confused and not self.top_paddle.is_confused:
+            print(f"[Arena] TOP paddle confusion state: False -> True")
+        self.top_paddle.is_confused = top_confused
         self.top_paddle.paddle_scale = game_state.get('top_paddle_shrink_scale', 1.0) if game_state.get('top_paddle_shrink', False) else 1.0
 
         # 하단 패들 상태 효과
         self.bottom_paddle.is_stunned = game_state.get('bottom_paddle_stunned', False)
         self.bottom_paddle.slow_multiplier = game_state.get('bottom_paddle_slow_amount', 1.0) if game_state.get('bottom_paddle_slowed', False) else 1.0
-        self.bottom_paddle.is_confused = game_state.get('bottom_paddle_confused', False)
+        bottom_confused = game_state.get('bottom_paddle_confused', False)
+        if bottom_confused and not self.bottom_paddle.is_confused:
+            print(f"[Arena] BOTTOM paddle confusion state: False -> True")
+        self.bottom_paddle.is_confused = bottom_confused
         self.bottom_paddle.paddle_scale = game_state.get('bottom_paddle_shrink_scale', 1.0) if game_state.get('bottom_paddle_shrink', False) else 1.0
 
         # 쿨다운 스킬 자동 사용 (AI)
@@ -1867,6 +1873,7 @@ class ColosseumsArena:
 
         # 상단 패들 혼란 효과
         if self.top_paddle and self.top_paddle.is_confused:
+            print(f"[Arena] Drawing confusion effect for TOP paddle")
             self._draw_question_marks(
                 self.top_paddle.x + PADDLE_WIDTH // 2 + shake_x,
                 self.top_paddle.y + PADDLE_HEIGHT // 2 + shake_y + 25,  # 패들 아래쪽에 표시
@@ -1875,6 +1882,7 @@ class ColosseumsArena:
 
         # 하단 패들 혼란 효과
         if self.bottom_paddle and self.bottom_paddle.is_confused:
+            print(f"[Arena] Drawing confusion effect for BOTTOM paddle")
             self._draw_question_marks(
                 self.bottom_paddle.x + PADDLE_WIDTH // 2 + shake_x,
                 self.bottom_paddle.y + PADDLE_HEIGHT // 2 + shake_y - 25,  # 패들 위쪽에 표시

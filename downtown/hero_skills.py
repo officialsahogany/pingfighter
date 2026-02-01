@@ -1608,6 +1608,7 @@ class HeroSkillManager:
                             self.game_state[f'{target_prefix}_slow_amount'] = result.get('slow_amount', 0.5)
                         elif status == StatusEffect.CONFUSION:
                             self.game_state[f'{target_prefix}_confused'] = True
+                            print(f"[Skill] Confusion applied to {target_prefix}!")
                         elif status == StatusEffect.SHRINK:
                             self.game_state[f'{target_prefix}_shrink'] = True
                             self.game_state[f'{target_prefix}_shrink_scale'] = result.get('shrink_amount', 0.5)
