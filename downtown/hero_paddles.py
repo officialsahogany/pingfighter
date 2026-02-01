@@ -106,11 +106,12 @@ class HeroPaddleRenderer:
         anim = self._get_anim(state)
 
         # 스케일 계산 (기본 블록 단위)
+        # Smasher/Valtor 캐릭터 기준: b=5~6이 인게임 패들 크기에 적합
+        # 캐릭터 전체 높이 = 약 8*b (헬멧~다리)
         if scale_mode == "paddle":
-            # 투기장 모드: 캐릭터가 패들 높이의 3배 정도로 맞춤
-            # 캐릭터 전체 높이는 약 8*b, 패들 높이에 맞게 조정
-            target_height = height * 3.5  # 패들 위에 적당히 올라온 느낌
-            b = max(2, int(target_height / 8))  # 캐릭터 높이 = 약 8*b
+            # 투기장 모드: Smasher/보스 캐릭터와 비슷한 크기
+            # 패들 높이(40~50)에 맞춰 b=5~6 정도가 적당
+            b = 5  # 고정 스케일 (캐릭터 높이 약 40픽셀)
         else:
             # 기존 미리보기 모드 (크게 표시)
             b = max(3, width // 12)
