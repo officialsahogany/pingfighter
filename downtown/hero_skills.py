@@ -955,10 +955,19 @@ class DragonBreath(HeroSkill):
         self.breath_active = False
 
         # 상대 패들 바닥에 화염 지대 생성 요청 (화염병과 동일한 넉백 효과)
+        # caster가 상단(is_top=True) → target은 하단 → 화염은 target 위쪽(앞쪽)
+        # caster가 하단(is_top=False) → target은 상단 → 화염은 target 아래쪽(앞쪽)
         if target_paddle:
+            if caster_paddle.is_top:
+                # 상단에서 발사 → 하단 target의 위쪽(앞쪽)에 화염
+                fire_y = target_paddle.y - 30
+            else:
+                # 하단에서 발사 → 상단 target의 아래쪽(앞쪽)에 화염
+                fire_y = target_paddle.y + target_paddle.height + 30
+
             game_state['spawn_dragon_fire_zone'] = {
                 'x': target_paddle.x + target_paddle.width // 2,
-                'y': target_paddle.y + (target_paddle.height if caster_paddle.is_top else 0),
+                'y': fire_y,
                 'width': 120,  # 화염 지대 너비
                 'height': 60,  # 화염 지대 높이
                 'duration': 180,  # 3초 (60fps * 3)
