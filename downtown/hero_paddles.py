@@ -1333,6 +1333,9 @@ class HeroPaddleRenderer:
             leg_lift_y = int(current_leg_lift * 0.2 * b)  # Y 방향 들어올림
             thigh_x = cx + side * int(0.55 * b) + lean_offset + leg_sway_x
 
+            # 다리 움직임 페이즈 (걷기 애니메이션)
+            leg_phase = int(current_leg_lift * 0.3 * b)
+
             # 허벅지 (근육 + 호피무늬 천)
             thigh_rect = pygame.Rect(thigh_x - int(0.55 * b), hip_y - leg_lift_y, int(1.1 * b), int(2.0 * b))
 
