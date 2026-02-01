@@ -117685,9 +117685,9 @@ def handle_ball():
                 hero_id = arena_bottom_hero["id"]
                 # 디버그: ON_BALL_HIT 스킬 상태 확인
                 skills = arena_skill_manager.active_skills.get(hero_id, [])
-                for skill in skills:
-                    if skill.trigger == SkillTrigger.ON_BALL_HIT:
-                        print(f"[Arena DEBUG] {hero_id} BALL_HIT - {skill.korean_name}: cooldown={skill.current_cooldown:.1f}, can_use={skill.can_use()}")
+                for arena_skill in skills:
+                    if arena_skill.trigger == SkillTrigger.ON_BALL_HIT:
+                        print(f"[Arena DEBUG] {hero_id} BALL_HIT - {arena_skill.korean_name}: cooldown={arena_skill.current_cooldown:.1f}, can_use={arena_skill.can_use()}")
                 result = arena_skill_manager.try_use_skill(
                     hero_id, SkillTrigger.ON_BALL_HIT,
                     bottom_wrapper, top_wrapper, ball_wrapper
@@ -118447,9 +118447,9 @@ def handle_ball():
                 hero_id = arena_top_hero["id"]
                 # 디버그: ON_BALL_HIT 스킬 상태 확인
                 skills = arena_skill_manager.active_skills.get(hero_id, [])
-                for skill in skills:
-                    if skill.trigger == SkillTrigger.ON_BALL_HIT:
-                        print(f"[Arena DEBUG] {hero_id} BALL_HIT - {skill.korean_name}: cooldown={skill.current_cooldown:.1f}, can_use={skill.can_use()}")
+                for arena_skill in skills:
+                    if arena_skill.trigger == SkillTrigger.ON_BALL_HIT:
+                        print(f"[Arena DEBUG] {hero_id} BALL_HIT - {arena_skill.korean_name}: cooldown={arena_skill.current_cooldown:.1f}, can_use={arena_skill.can_use()}")
                 result = arena_skill_manager.try_use_skill(
                     hero_id, SkillTrigger.ON_BALL_HIT,
                     top_wrapper, bottom_wrapper, ball_wrapper
@@ -129934,9 +129934,9 @@ def main(stage_num, new_boss_mode=False):
                             hero_id = arena_top_hero["id"]
                             # 디버그: 스킬 상태 확인
                             skills = arena_skill_manager.active_skills.get(hero_id, [])
-                            for skill in skills:
-                                if skill.trigger == SkillTrigger.ON_COOLDOWN:
-                                    print(f"[Arena DEBUG] {hero_id} - {skill.korean_name}: cooldown={skill.current_cooldown:.1f}, can_use={skill.can_use()}, is_active={skill.is_active}")
+                            for arena_skill in skills:
+                                if arena_skill.trigger == SkillTrigger.ON_COOLDOWN:
+                                    print(f"[Arena DEBUG] {hero_id} - {arena_skill.korean_name}: cooldown={arena_skill.current_cooldown:.1f}, can_use={arena_skill.can_use()}, is_active={arena_skill.is_active}")
                             result = arena_skill_manager.try_use_skill(
                                 hero_id, SkillTrigger.ON_COOLDOWN,
                                 top_wrapper, bottom_wrapper, ball_wrapper
@@ -129950,9 +129950,9 @@ def main(stage_num, new_boss_mode=False):
                             hero_id = arena_bottom_hero["id"]
                             # 디버그: 스킬 상태 확인
                             skills = arena_skill_manager.active_skills.get(hero_id, [])
-                            for skill in skills:
-                                if skill.trigger == SkillTrigger.ON_COOLDOWN:
-                                    print(f"[Arena DEBUG] {hero_id} - {skill.korean_name}: cooldown={skill.current_cooldown:.1f}, can_use={skill.can_use()}, is_active={skill.is_active}")
+                            for arena_skill in skills:
+                                if arena_skill.trigger == SkillTrigger.ON_COOLDOWN:
+                                    print(f"[Arena DEBUG] {hero_id} - {arena_skill.korean_name}: cooldown={arena_skill.current_cooldown:.1f}, can_use={arena_skill.can_use()}, is_active={arena_skill.is_active}")
                             result = arena_skill_manager.try_use_skill(
                                 hero_id, SkillTrigger.ON_COOLDOWN,
                                 bottom_wrapper, top_wrapper, ball_wrapper
