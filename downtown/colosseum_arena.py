@@ -840,6 +840,22 @@ class ColosseumsArena:
             except Exception:
                 pingfighter.arena_hero_paddle_renderer = None
 
+            # 영웅 스킬 시스템 초기화
+            try:
+                from downtown.hero_skills import get_skill_manager, HERO_SKILLS_AVAILABLE
+                if HERO_SKILLS_AVAILABLE:
+                    pingfighter.arena_skill_manager = get_skill_manager()
+                    pingfighter.arena_skill_manager.reset()
+                    pingfighter.arena_skill_manager.init_hero_skills(top_hero["id"])
+                    pingfighter.arena_skill_manager.init_hero_skills(bottom_hero["id"])
+                    pingfighter.arena_skill_check_timer = 0.0
+                    print(f"[Arena] Skills initialized: {top_hero['id']} vs {bottom_hero['id']}")
+            except Exception as e:
+                print(f"Arena skill manager init error: {e}")
+                import traceback
+                traceback.print_exc()
+                pingfighter.arena_skill_manager = None
+
             # AI 플레이 모드 활성화
             pingfighter.player_ai_enabled = True
 
@@ -868,6 +884,8 @@ class ColosseumsArena:
                 pingfighter.arena_top_hero = None
                 pingfighter.arena_bottom_hero = None
                 pingfighter.arena_hero_paddle_renderer = None
+                pingfighter.arena_skill_manager = None
+                pingfighter.arena_skill_check_timer = 0.0
             except Exception:
                 pass
 
