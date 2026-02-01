@@ -912,8 +912,9 @@ class DragonBreath(HeroSkill):
         self.breath_hit_ball = False
         self.fire_zone_spawned = False  # 화염 지대 생성 플래그 초기화
 
-        # 브레스 방향
-        direction = 1 if caster_paddle.is_top else -1
+        # 브레스 방향 (caster_is_top 속성 우선 사용)
+        is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
+        direction = 1 if is_caster_top else -1
 
         # 화염 파티클 대량 생성
         for i in range(50):
@@ -955,12 +956,17 @@ class DragonBreath(HeroSkill):
         # 스킬 종료 0.5초 전에 화염 지대 생성 (화염병과 동일한 넉백 효과)
         if not self.fire_zone_spawned and self.active_timer <= 0.5 and target_paddle:
             self.fire_zone_spawned = True
-            if caster_paddle.is_top:
+            # caster_is_top 속성 사용 (init_hero_skills에서 설정됨, 더 신뢰성 있음)
+            is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
+            if is_caster_top:
                 # 상단에서 발사 → 하단 target의 위쪽(앞쪽)에 화염
                 fire_y = target_paddle.y - 30
             else:
                 # 하단에서 발사 → 상단 target의 아래쪽(앞쪽)에 화염
                 fire_y = target_paddle.y + target_paddle.height + 30
+
+            # 디버그: 화염 지대 위치 확인
+            print(f"[DragonBreath] is_caster_top={is_caster_top}, target_y={target_paddle.y}, fire_y={fire_y}")
 
             game_state['spawn_dragon_fire_zone'] = {
                 'x': target_paddle.x + target_paddle.width // 2,
@@ -1432,8 +1438,14 @@ class HeroSkillManager:
             for base_skill in base_skills:
                 skill_class = type(base_skill)
                 new_skill = skill_class()
+                # 스킬 인스턴스에 직접 caster_is_top 저장 (화염지대 위치 계산용)
+                new_skill.caster_is_top = is_top
                 skills.append(new_skill)
             self.active_skills[hero_id] = skills
+        else:
+            # 이미 존재하는 스킬들의 caster_is_top 업데이트
+            for skill in self.active_skills[hero_id]:
+                skill.caster_is_top = is_top
 
         # 영웅 위치 정보 저장
         if 'hero_positions' not in self.game_state:
