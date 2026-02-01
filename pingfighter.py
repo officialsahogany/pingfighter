@@ -18264,6 +18264,8 @@ arena_bottom_hero = None             # 하단 영웅 정보 (플레이어 위치
 arena_hero_paddle_renderer = None    # 영웅 패들 렌더러
 arena_skill_manager = None           # 투기장 영웅 스킬 매니저
 arena_skill_check_timer = 0.0        # 스킬 쿨다운 체크 타이머
+arena_top_confused = False           # 상단 영웅(보스) 혼란 상태 (심해의 먹물 등)
+arena_bottom_confused = False        # 하단 영웅(플레이어) 혼란 상태
 
 # 투기장 영웅 대쉬 시스템
 arena_top_dashing = False            # 상단 영웅 대쉬 중
@@ -88688,6 +88690,52 @@ def draw_objects():
         SCREEN.blit(rotated_shadow, shadow_rect)
         # 물음표 본체
         SCREEN.blit(rotated_question, question_rect)
+
+    # 🎭 투기장 혼란 상태 표시 (심해의 먹물 - 크라켄 스킬)
+    if current_stage == 30 and arena_skill_manager:
+        _arena_gs = arena_skill_manager.game_state
+        _arena_top_conf = _arena_gs.get('top_paddle_confused', False)
+        _arena_bot_conf = _arena_gs.get('bottom_paddle_confused', False)
+
+        def _draw_arena_confusion(target_rect, is_top):
+            """투기장 혼란 물음표 효과"""
+            current_time = pygame.time.get_ticks()
+            rotation_speed = 0.005
+            question_font = FontStyle.menu()
+            num_questions = 3
+            orbit_radius = 30
+            # 상단 영웅은 패들 아래, 하단 영웅은 패들 위에 표시
+            offset_y = 30 if is_top else -30
+
+            for i in range(num_questions):
+                angle = current_time * rotation_speed + (i * 2 * math.pi / num_questions)
+                x = target_rect.centerx + orbit_radius * math.cos(angle)
+                y = target_rect.centery + offset_y + orbit_radius * math.sin(angle) * 0.5
+                size_factor = 0.8 + 0.2 * math.sin(angle)
+
+                if math.sin(current_time * 0.01 + i) > 0:
+                    color = (100, 200, 255)  # 밝은 청록색 (크라켄 테마)
+                else:
+                    color = (50, 150, 200)   # 어두운 청록색
+
+                question_text = question_font.render("?", True, color)
+                scaled_width = int(question_text.get_width() * size_factor)
+                scaled_height = int(question_text.get_height() * size_factor)
+                if scaled_width > 0 and scaled_height > 0:
+                    scaled_question = pygame.transform.scale(question_text, (scaled_width, scaled_height))
+                    question_rect = scaled_question.get_rect(center=(int(x), int(y)))
+                    # 그림자
+                    shadow_text = question_font.render("?", True, (20, 50, 60))
+                    scaled_shadow = pygame.transform.scale(shadow_text, (scaled_width, scaled_height))
+                    shadow_rect = scaled_shadow.get_rect(center=(int(x + 2), int(y + 2)))
+                    SCREEN.blit(scaled_shadow, shadow_rect)
+                    SCREEN.blit(scaled_question, question_rect)
+
+        if _arena_top_conf:
+            _draw_arena_confusion(BOSS, is_top=True)
+        if _arena_bot_conf:
+            _draw_arena_confusion(PLAYER, is_top=False)
+
     # 화염병 그리기
     for molotov in molotovs:
         # 회전된 화염병 아이콘 그리기
@@ -130625,6 +130673,15 @@ def main(stage_num, new_boss_mode=False):
                     # 🔥 스킬에 의한 공 속도 변경 반영 (지옥의 불꽃 등)
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
+
+                    # 🎭 투기장 혼란 상태 동기화 (심해의 먹물 등)
+                    arena_game_state = arena_skill_manager.game_state
+                    arena_top_confused = arena_game_state.get('top_paddle_confused', False)
+                    arena_bottom_confused = arena_game_state.get('bottom_paddle_confused', False)
+                    if arena_top_confused:
+                        print(f"[Arena Main] Top paddle is CONFUSED!")
+                    if arena_bottom_confused:
+                        print(f"[Arena Main] Bottom paddle is CONFUSED!")
 
                     # 드래곤 브레스 화염 지대 생성 처리 (화염병과 동일한 넉백 효과)
                     _dragon_fire_req = arena_skill_manager.game_state.get('spawn_dragon_fire_zone')
