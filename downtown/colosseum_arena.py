@@ -634,48 +634,48 @@ class ColosseumsArena:
                     return
 
         elif self.state == TournamentState.BETTING:
-            # 배팅 UI 클릭 처리
+            # 배팅 UI 클릭 처리 (그리기 좌표와 동일하게)
             panel_x, panel_y = 200, 200
-            panel_w, panel_h = 360, 350
+            panel_w, panel_h = 360, 400
 
             # 영웅 1 선택 버튼
-            btn1_rect = pygame.Rect(panel_x + 20, panel_y + 80, 150, 60)
+            btn1_rect = pygame.Rect(panel_x + 20, panel_y + 80, 150, 70)
             if btn1_rect.collidepoint(mx, my):
                 self.bet_hero = self.selected_match.hero1
                 return
 
             # 영웅 2 선택 버튼
-            btn2_rect = pygame.Rect(panel_x + 190, panel_y + 80, 150, 60)
+            btn2_rect = pygame.Rect(panel_x + 190, panel_y + 80, 150, 70)
             if btn2_rect.collidepoint(mx, my):
                 self.bet_hero = self.selected_match.hero2
                 return
 
             # 배팅액 조절 버튼
             # -100
-            if pygame.Rect(panel_x + 50, panel_y + 180, 50, 30).collidepoint(mx, my):
+            if pygame.Rect(panel_x + 50, panel_y + 200, 50, 30).collidepoint(mx, my):
                 self.bet_amount = max(100, self.bet_amount - 100)
                 return
             # +100
-            if pygame.Rect(panel_x + 260, panel_y + 180, 50, 30).collidepoint(mx, my):
+            if pygame.Rect(panel_x + 260, panel_y + 200, 50, 30).collidepoint(mx, my):
                 self.bet_amount = min(self.player_gold, self.bet_amount + 100)
                 return
             # -500
-            if pygame.Rect(panel_x + 50, panel_y + 220, 50, 30).collidepoint(mx, my):
+            if pygame.Rect(panel_x + 50, panel_y + 240, 50, 30).collidepoint(mx, my):
                 self.bet_amount = max(100, self.bet_amount - 500)
                 return
             # +500
-            if pygame.Rect(panel_x + 260, panel_y + 220, 50, 30).collidepoint(mx, my):
+            if pygame.Rect(panel_x + 260, panel_y + 240, 50, 30).collidepoint(mx, my):
                 self.bet_amount = min(self.player_gold, self.bet_amount + 500)
                 return
 
             # 배팅 확정 버튼
-            confirm_rect = pygame.Rect(panel_x + 80, panel_y + 280, 200, 50)
+            confirm_rect = pygame.Rect(panel_x + 80, panel_y + 320, 200, 45)
             if confirm_rect.collidepoint(mx, my) and self.bet_hero:
                 self.start_battle(self.selected_match)
                 return
 
             # 취소 버튼
-            cancel_rect = pygame.Rect(panel_x + 130, panel_y + 340, 100, 35)
+            cancel_rect = pygame.Rect(panel_x + 130, panel_y + 375, 100, 30)
             if cancel_rect.collidepoint(mx, my):
                 self.state = TournamentState.SELECT_MATCH
                 self.bet_hero = None
@@ -686,23 +686,27 @@ class ColosseumsArena:
             self.result_display_timer = 0
 
         elif self.state == TournamentState.ROUND_END:
+            # 라운드 종료 UI 클릭 처리 (그리기 좌표와 동일하게)
+            panel_x, panel_y = 150, 200
+
             # 계속 배팅 버튼
-            continue_rect = pygame.Rect(200, 400, 160, 50)
+            continue_rect = pygame.Rect(panel_x + 40, panel_y + 200, 180, 50)
             if continue_rect.collidepoint(mx, my):
                 self._advance_to_next_round()
                 self.state = TournamentState.SELECT_MATCH
                 return
 
             # 수익 확정하고 나가기 버튼
-            exit_rect = pygame.Rect(400, 400, 160, 50)
+            exit_rect = pygame.Rect(panel_x + 240, panel_y + 200, 180, 50)
             if exit_rect.collidepoint(mx, my):
                 self.winnings_collected = True
                 self.exit_requested = True
                 return
 
         elif self.state == TournamentState.TOURNAMENT_END:
-            # 종료 화면 클릭 시 나가기
-            exit_rect = pygame.Rect(280, 450, 200, 50)
+            # 토너먼트 종료 UI 클릭 처리 (그리기 좌표와 동일하게)
+            panel_x, panel_y = 180, 200
+            exit_rect = pygame.Rect(panel_x + 100, panel_y + 230, 200, 50)
             if exit_rect.collidepoint(mx, my):
                 self.winnings_collected = True
                 self.exit_requested = True
@@ -1270,20 +1274,24 @@ class ColosseumsArena:
 # ============================================================================
 def test_arena():
     """투기장 테스트"""
+    import pygame
+    import pygame.freetype
+
     pygame.init()
+    pygame.freetype.init()
+
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("투기장 테스트")
+    pygame.display.set_caption("콜로세움 투기장 테스트")
     clock = pygame.time.Clock()
 
     # 폰트 (테스트용)
-    import pygame.freetype
     fonts = {}
     try:
         fonts["small"] = pygame.freetype.Font(None, 16)
         fonts["medium"] = pygame.freetype.Font(None, 20)
         fonts["large"] = pygame.freetype.Font(None, 28)
-    except:
-        pass
+    except Exception as e:
+        print(f"Font init error: {e}")
 
     arena = ColosseumsArena(screen, fonts, 1000)
 
