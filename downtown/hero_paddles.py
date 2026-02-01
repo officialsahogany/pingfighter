@@ -112,6 +112,18 @@ class HeroPaddleRenderer:
             # 투기장 모드: Smasher/보스 캐릭터와 비슷한 크기
             # 패들 높이(40~50)에 맞춰 b=5~6 정도가 적당
             b = 5  # 고정 스케일 (캐릭터 높이 약 40픽셀)
+            # 투기장 모드에서는 애니메이션 축소 (크기 변동 방지)
+            anim = {
+                "wave": anim["wave"] * 0.3,
+                "lean": anim["lean"] * 0.3,
+                "arm_swing": anim["arm_swing"] * 0.3,
+                "body_bob": anim["body_bob"] * 0.3,
+                "head_tilt": anim["head_tilt"] * 0.3,
+                "left_leg": anim["left_leg"] * 0.3,
+                "right_leg": anim["right_leg"] * 0.3,
+                "left_shoulder": anim["left_shoulder"] * 0.3,
+                "right_shoulder": anim["right_shoulder"] * 0.3,
+            }
         else:
             # 기존 미리보기 모드 (크게 표시)
             b = max(3, width // 12)
