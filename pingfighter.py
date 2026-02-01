@@ -935,6 +935,14 @@ import effects_manager
 import bgm_manager
 from downtown import DowntownManager
 
+# 투기장 영웅 스킬 시스템
+try:
+    from downtown.hero_skills import get_skill_manager, SkillTrigger, HERO_SKILLS_AVAILABLE
+    ARENA_SKILLS_AVAILABLE = True
+except ImportError:
+    ARENA_SKILLS_AVAILABLE = False
+    print("Arena hero skills module not available")
+
 if _splash_screen:
     update_splash(0.40, "게임 로직 로딩 중...")
 
@@ -18255,6 +18263,8 @@ arena_mode_enabled = False           # 투기장 모드 활성화 여부
 arena_top_hero = None                # 상단 영웅 정보 (보스 위치)
 arena_bottom_hero = None             # 하단 영웅 정보 (플레이어 위치)
 arena_hero_paddle_renderer = None    # 영웅 패들 렌더러
+arena_skill_manager = None           # 투기장 영웅 스킬 매니저
+arena_skill_check_timer = 0.0        # 스킬 쿨다운 체크 타이머
 #  리그별 보스 능력치 보정
 def get_league_boss_multiplier(league_mode):
     """리그별 보스 능력치 배수 반환 (3단계 리그 시스템)"""
@@ -57319,6 +57329,40 @@ def handle_player(keys):
         rolling_speed = 0
         rolling_direction = 0
 
+    # 🏟️ 투기장 영웅 스킬 상태 효과 적용 (하단 패들 = 플레이어)
+    arena_player_stun_block = False
+    arena_player_slow_mult = 1.0
+    arena_player_confused = False
+    if arena_mode_enabled and arena_skill_manager:
+        try:
+            game_state = arena_skill_manager.game_state
+            # 스턴 체크 (하단 패들이 스턴되면 이동 불가)
+            if game_state.get('bottom_paddle_stunned', False):
+                arena_player_stun_block = True
+                current_speed = 0
+                rolling_active = False
+                rolling_timer = 0
+            # 둔화 체크
+            if game_state.get('bottom_paddle_slowed', False):
+                arena_player_slow_mult = game_state.get('bottom_paddle_slow_amount', 0.5)
+            # 혼란 체크 (조작 반전)
+            arena_player_confused = game_state.get('bottom_paddle_confused', False)
+            # 패들 축소 체크
+            if game_state.get('bottom_paddle_shrink', False):
+                shrink_scale = game_state.get('bottom_paddle_shrink_scale', 0.5)
+                target_width = int(130 * shrink_scale)  # 기본 패들 너비 130
+                if PLAYER.width != target_width:
+                    center = PLAYER.centerx
+                    PLAYER.width = target_width
+                    PLAYER.centerx = center
+        except Exception as e:
+            print(f"[Arena] Player status effect error: {e}")
+
+    # 투기장 스턴 상태면 입력 처리 건너뛰기
+    if arena_player_stun_block:
+        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        return
+
     # 플레이어 자동조종 AI: 키 입력을 가로채어 AI가 만든 입력으로 대체
     if player_ai_enabled:
         # 전설 아이템 획득 애니메이션이 활성화되어 있으면 자동으로 진행(스페이스/클릭 대체)
@@ -61822,6 +61866,17 @@ def handle_player(keys):
         # 🧊 얼음 미끄러짐 중에는 일반 이동을 무시 (미끄러짐 코드에서 이동 처리)
         # 🎯 대쉬 중에는 권총 발사 후딜(control_lock)이 이동을 막지 않음
         is_dashing = _rolling_get("rolling_active") if 'rolling_active' in _rolling_attr_map else rolling_active
+        # 🏟️ 투기장 영웅 스킬 둔화/혼란 효과 적용
+        if arena_mode_enabled and arena_skill_manager:
+            try:
+                # 둔화 효과 적용
+                if arena_player_slow_mult != 1.0:
+                    current_speed *= arena_player_slow_mult
+                # 혼란 효과 (방향 반전)
+                if arena_player_confused:
+                    current_speed = -current_speed
+            except:
+                pass
         if soldier_control_lock_timer <= 0 or is_dashing:
             if not suicide_drone_active and not ice_dash_sliding:
                 PLAYER.x += current_speed
@@ -84455,6 +84510,35 @@ def draw_objects():
     except:
         pass
 
+    # 🏟️ 투기장 영웅 스킬 이펙트 그리기
+    if arena_mode_enabled and arena_skill_manager:
+        try:
+            # 래퍼 객체 생성 (스킬 시스템용)
+            class PaddleWrapperDraw:
+                def __init__(self, rect, is_top):
+                    self.x = rect.x
+                    self.y = rect.y
+                    self.width = rect.width
+                    self.height = rect.height
+                    self.centerx = rect.centerx
+                    self.centery = rect.centery
+                    self.is_top = is_top
+            class BallWrapperDraw:
+                def __init__(self, rect, vel):
+                    self.x = rect.x
+                    self.y = rect.y
+                    self.vx = vel[0]
+                    self.vy = vel[1]
+            top_wrapper = PaddleWrapperDraw(BOSS, True)
+            bottom_wrapper = PaddleWrapperDraw(PLAYER, False)
+            ball_wrapper = BallWrapperDraw(BALL, ball_vel)
+            # 스킬 이펙트 그리기
+            arena_skill_manager.draw_skills(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
+            # 화면 효과 그리기 (플래시, 흔들림 등)
+            arena_skill_manager.draw_screen_effects(SCREEN)
+        except Exception as e:
+            print(f"[Arena] Skill draw error: {e}")
+
     # 옵티머스 비상충전 시각 효과 그리기
     if selected_character_type == "optimus":
         draw_emergency_charge_effects(SCREEN)
@@ -94056,6 +94140,7 @@ def show_start_screen():
         """
         global player_ai_enabled, _pillar_ui_enabled
         global arena_mode_enabled, arena_top_hero, arena_bottom_hero, arena_hero_paddle_renderer
+        global arena_skill_manager, arena_skill_check_timer
 
         # 투기장 모드 활성화
         arena_mode_enabled = True
@@ -94069,6 +94154,19 @@ def show_start_screen():
         except Exception as e:
             print(f"Hero paddle renderer init error: {e}")
             arena_hero_paddle_renderer = None
+
+        # 영웅 스킬 시스템 초기화
+        if ARENA_SKILLS_AVAILABLE:
+            try:
+                arena_skill_manager = get_skill_manager()
+                arena_skill_manager.reset()
+                arena_skill_manager.init_hero_skills(top_hero["id"])
+                arena_skill_manager.init_hero_skills(bottom_hero["id"])
+                arena_skill_check_timer = 0.0
+                print(f"Arena skills initialized for {top_hero['id']} vs {bottom_hero['id']}")
+            except Exception as e:
+                print(f"Arena skill manager init error: {e}")
+                arena_skill_manager = None
 
         # AI 플레이 모드 활성화 (양쪽 모두 AI)
         player_ai_enabled = True
@@ -94092,6 +94190,7 @@ def show_start_screen():
             arena_top_hero = None
             arena_bottom_hero = None
             arena_hero_paddle_renderer = None
+            arena_skill_manager = None
 
         return result
 
@@ -117561,6 +117660,40 @@ def handle_ball():
         game_vars.ball.last_hit_by = "player"
         update_ball_rally("player")
 
+        # 투기장 모드: 하단 영웅(플레이어 위치) ON_BALL_HIT 스킬 발동
+        if arena_mode_enabled and arena_skill_manager and arena_bottom_hero:
+            try:
+                # 래퍼 객체 생성 (스킬 시스템용)
+                class PaddleWrapper:
+                    def __init__(self, rect, is_top):
+                        self.x = rect.x
+                        self.y = rect.y
+                        self.width = rect.width
+                        self.height = rect.height
+                        self.centerx = rect.centerx
+                        self.centery = rect.centery
+                        self.is_top = is_top
+                class BallWrapper:
+                    def __init__(self, rect, vel):
+                        self.x = rect.x
+                        self.y = rect.y
+                        self.vx = vel[0]
+                        self.vy = vel[1]
+                bottom_wrapper = PaddleWrapper(PLAYER, False)
+                top_wrapper = PaddleWrapper(BOSS, True)
+                ball_wrapper = BallWrapper(BALL, ball_vel)
+                result = arena_skill_manager.try_use_skill(
+                    arena_bottom_hero["id"], SkillTrigger.ON_BALL_HIT,
+                    bottom_wrapper, top_wrapper, ball_wrapper
+                )
+                if result:
+                    # 공 속도 변경 반영
+                    ball_vel[0] = ball_wrapper.vx
+                    ball_vel[1] = ball_wrapper.vy
+                    print(f"[Arena] {arena_bottom_hero['id']} ON_BALL_HIT 스킬 발동!")
+            except Exception as e:
+                print(f"[Arena] Bottom hero skill error: {e}")
+
         # 인게임 골드 획득 (랠리 성공 시)
         rally_gold = calculate_rally_gold()
         add_ingame_gold(rally_gold, BALL.centerx, BALL.centery)
@@ -118282,6 +118415,40 @@ def handle_ball():
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
+
+        # 투기장 모드: 상단 영웅(보스 위치) ON_BALL_HIT 스킬 발동
+        if arena_mode_enabled and arena_skill_manager and arena_top_hero:
+            try:
+                # 래퍼 객체 생성 (스킬 시스템용)
+                class PaddleWrapper:
+                    def __init__(self, rect, is_top):
+                        self.x = rect.x
+                        self.y = rect.y
+                        self.width = rect.width
+                        self.height = rect.height
+                        self.centerx = rect.centerx
+                        self.centery = rect.centery
+                        self.is_top = is_top
+                class BallWrapper:
+                    def __init__(self, rect, vel):
+                        self.x = rect.x
+                        self.y = rect.y
+                        self.vx = vel[0]
+                        self.vy = vel[1]
+                top_wrapper = PaddleWrapper(BOSS, True)
+                bottom_wrapper = PaddleWrapper(PLAYER, False)
+                ball_wrapper = BallWrapper(BALL, ball_vel)
+                result = arena_skill_manager.try_use_skill(
+                    arena_top_hero["id"], SkillTrigger.ON_BALL_HIT,
+                    top_wrapper, bottom_wrapper, ball_wrapper
+                )
+                if result:
+                    # 공 속도 변경 반영
+                    ball_vel[0] = ball_wrapper.vx
+                    ball_vel[1] = ball_wrapper.vy
+                    print(f"[Arena] {arena_top_hero['id']} ON_BALL_HIT 스킬 발동!")
+            except Exception as e:
+                print(f"[Arena] Top hero skill error: {e}")
 
         # ⚡ 에너지 폭발 이펙트 (20% 작게)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
@@ -121533,6 +121700,32 @@ def handle_boss():
     if ball_spawn_animation_active:
         return
 
+    # 🏟️ 투기장 영웅 스킬 상태 효과 적용 (상단 패들 = 보스)
+    arena_boss_slow_multiplier = 1.0
+    arena_boss_confused = False
+    if arena_mode_enabled and arena_skill_manager:
+        try:
+            game_state = arena_skill_manager.game_state
+            # 스턴 체크 (상단 패들이 스턴되면 이동 불가)
+            if game_state.get('top_paddle_stunned', False):
+                boss_current_speed = 0
+                return  # 스턴 중에는 모든 처리 차단
+            # 둔화 체크
+            if game_state.get('top_paddle_slowed', False):
+                arena_boss_slow_multiplier = game_state.get('top_paddle_slow_amount', 0.5)
+            # 혼란 체크 (조작 반전)
+            arena_boss_confused = game_state.get('top_paddle_confused', False)
+            # 패들 축소 체크
+            if game_state.get('top_paddle_shrink', False):
+                shrink_scale = game_state.get('top_paddle_shrink_scale', 0.5)
+                target_width = int(130 * shrink_scale)  # 기본 패들 너비 130
+                if BOSS.width != target_width:
+                    center = BOSS.centerx
+                    BOSS.width = target_width
+                    BOSS.centerx = center
+        except Exception as e:
+            print(f"[Arena] Boss status effect error: {e}")
+
     # 라운드 시작 시 극정호신 텍스트는 1회만; 다음 라운드엔 숨김
     if is_waiting_for_serve:
         stage8_superspeed_text_end_ms = 0
@@ -122413,16 +122606,38 @@ def handle_boss():
     if boss_plasma_slowed:
         plasma_slow_mult = get_boss_plasma_slow_multiplier()
         slow_multiplier *= plasma_slow_mult
+    # 🏟️ 투기장 영웅 스킬 둔화 효과 적용
+    if arena_mode_enabled and arena_skill_manager:
+        try:
+            game_state = arena_skill_manager.game_state
+            if game_state.get('top_paddle_slowed', False):
+                arena_slow = game_state.get('top_paddle_slow_amount', 0.5)
+                slow_multiplier *= arena_slow
+        except:
+            pass
     if slow_multiplier != 1.0:
         enhanced_accel *= slow_multiplier
         enhanced_max_speed *= slow_multiplier
         enhanced_decel *= slow_multiplier
         boss_current_speed *= slow_multiplier
+    # 🏟️ 투기장 영웅 스킬 혼란 효과 (조작 반전)
+    arena_confused = False
+    if arena_mode_enabled and arena_skill_manager:
+        try:
+            game_state = arena_skill_manager.game_state
+            arena_confused = game_state.get('top_paddle_confused', False)
+        except:
+            pass
+    # 혼란 상태면 목표 위치를 반전 (중앙 기준으로 미러링)
+    effective_target_x = future_x
+    if arena_confused:
+        center_x = WIDTH // 2
+        effective_target_x = center_x - (future_x - center_x)
     # 기존 AI 움직임 로직
-    if future_x < BOSS.centerx:
+    if effective_target_x < BOSS.centerx:
         if boss_current_speed > -enhanced_max_speed:
             boss_current_speed -= enhanced_accel
-    elif future_x > BOSS.centerx:
+    elif effective_target_x > BOSS.centerx:
         if boss_current_speed < enhanced_max_speed:
             boss_current_speed += enhanced_accel
     else:
@@ -122431,9 +122646,9 @@ def handle_boss():
         elif boss_current_speed < 0:
             boss_current_speed += enhanced_decel
     # 급정지 처리
-    if future_x < BOSS.centerx and boss_current_speed > 0:
+    if effective_target_x < BOSS.centerx and boss_current_speed > 0:
         boss_current_speed -= enhanced_instant_stop
-    elif future_x > BOSS.centerx and boss_current_speed < 0:
+    elif effective_target_x > BOSS.centerx and boss_current_speed < 0:
         boss_current_speed += enhanced_instant_stop
     # 이동 적용 with ground crack collision check
     proposed_x = BOSS.x + boss_current_speed
@@ -129669,6 +129884,60 @@ def main(stage_num, new_boss_mode=False):
                 
             if not freeze_now:
                 handle_ball()
+
+            # 투기장 영웅 스킬 시스템 업데이트
+            if not freeze_now and arena_mode_enabled and arena_skill_manager:
+                try:
+                    dt = 1.0 / 60.0  # 60fps 기준
+                    # 래퍼 객체 생성
+                    class PaddleWrapper:
+                        def __init__(self, rect, is_top):
+                            self.x = rect.x
+                            self.y = rect.y
+                            self.width = rect.width
+                            self.height = rect.height
+                            self.centerx = rect.centerx
+                            self.centery = rect.centery
+                            self.is_top = is_top
+                    class BallWrapper:
+                        def __init__(self, rect, vel):
+                            self.x = rect.x
+                            self.y = rect.y
+                            self.vx = vel[0]
+                            self.vy = vel[1]
+                    top_wrapper = PaddleWrapper(BOSS, True)
+                    bottom_wrapper = PaddleWrapper(PLAYER, False)
+                    ball_wrapper = BallWrapper(BALL, ball_vel)
+
+                    # 스킬 쿨다운/효과 업데이트
+                    arena_skill_manager.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
+
+                    # ON_COOLDOWN 스킬 체크 (0.5초마다)
+                    arena_skill_check_timer += dt
+                    if arena_skill_check_timer >= 0.5:
+                        arena_skill_check_timer = 0.0
+                        # 상단 영웅 ON_COOLDOWN 스킬
+                        if arena_top_hero:
+                            result = arena_skill_manager.try_use_skill(
+                                arena_top_hero["id"], SkillTrigger.ON_COOLDOWN,
+                                top_wrapper, bottom_wrapper, ball_wrapper
+                            )
+                            if result:
+                                ball_vel[0] = ball_wrapper.vx
+                                ball_vel[1] = ball_wrapper.vy
+                                print(f"[Arena] {arena_top_hero['id']} ON_COOLDOWN 스킬 발동!")
+                        # 하단 영웅 ON_COOLDOWN 스킬
+                        if arena_bottom_hero:
+                            result = arena_skill_manager.try_use_skill(
+                                arena_bottom_hero["id"], SkillTrigger.ON_COOLDOWN,
+                                bottom_wrapper, top_wrapper, ball_wrapper
+                            )
+                            if result:
+                                ball_vel[0] = ball_wrapper.vx
+                                ball_vel[1] = ball_wrapper.vy
+                                print(f"[Arena] {arena_bottom_hero['id']} ON_COOLDOWN 스킬 발동!")
+                except Exception as e:
+                    print(f"[Arena] Skill update error: {e}")
 
             if not freeze_now:
                 # 코만도 총알 시스템 업데이트

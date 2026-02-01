@@ -872,36 +872,41 @@ class ColosseumsArena:
                 pass
 
     def start_battle(self, match: Match):
-        """배틀 시작 - 내부 시뮬레이션 (스킬 시스템 포함)"""
+        """배틀 시작 - 실제 게임 엔진 사용 (pingfighter.main 스테이지 30)"""
         self.selected_match = match
 
         # 점수 리셋
         self.score_top = 0
         self.score_bottom = 0
 
-        # 스킬 시스템 초기화
-        if self.skill_manager:
-            self.skill_manager.reset()
-            self.skill_manager.init_hero_skills(match.hero1["id"])
-            self.skill_manager.init_hero_skills(match.hero2["id"])
+        # 실제 게임 엔진으로 배틀 실행
+        try:
+            if self.battle_callback:
+                result = self.battle_callback(match.hero1, match.hero2)
+            else:
+                result = self._run_real_game_battle(match.hero1, match.hero2)
 
-        # AI 패들 생성
-        self.top_paddle = AIPaddleController(match.hero1, is_top=True)
-        self.bottom_paddle = AIPaddleController(match.hero2, is_top=False)
+            # 결과 처리: True = 보스 처치 (하단 영웅 승리), False = 패배 (상단 영웅 승리)
+            if result:
+                winner = match.hero2
+                self.score_top = 0
+                self.score_bottom = 5
+            else:
+                winner = match.hero1
+                self.score_top = 5
+                self.score_bottom = 0
 
-        # 공 생성 (애니메이션 시작)
-        self.ball = ArenaBall()
-        self.ball.visible = False
-        self.ball_spawn_animation = BallSpawnAnimation()
-        self.ball_spawn_animation.start(serve_direction=1)
-        self.spawn_phase = True
+            self._end_battle(winner)
 
-        # 배틀 상태 활성화
-        self.battle_active = True
-        self.state = TournamentState.BATTLE
-
-        # 스킬 체크 타이머 초기화
-        self.skill_check_timer = 0.0
+        except Exception as e:
+            print(f"Arena battle error: {e}")
+            import traceback
+            traceback.print_exc()
+            # 에러 시 랜덤 승자 결정
+            winner = random.choice([match.hero1, match.hero2])
+            self.score_top = 5 if winner == match.hero1 else 0
+            self.score_bottom = 5 if winner == match.hero2 else 0
+            self._end_battle(winner)
 
     def update_battle(self, dt: float = 1/60) -> bool:
         """배틀 업데이트, 완료 시 True 반환"""
