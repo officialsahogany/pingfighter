@@ -18264,6 +18264,230 @@ arena_bottom_hero = None             # 하단 영웅 정보 (플레이어 위치
 arena_hero_paddle_renderer = None    # 영웅 패들 렌더러
 arena_skill_manager = None           # 투기장 영웅 스킬 매니저
 arena_skill_check_timer = 0.0        # 스킬 쿨다운 체크 타이머
+
+# 투기장 영웅 대쉬 시스템
+arena_top_dashing = False            # 상단 영웅 대쉬 중
+arena_top_dash_timer = 0             # 상단 영웅 대쉬 타이머
+arena_top_dash_direction = 0         # 상단 영웅 대쉬 방향 (-1: 왼쪽, 1: 오른쪽)
+arena_top_dash_target_x = 0.0        # 상단 영웅 대쉬 목표 X
+arena_top_dash_speed = 35.0          # 상단 영웅 대쉬 속도
+arena_top_dash_cooldown = 0          # 상단 영웅 대쉬 쿨다운 (프레임)
+arena_top_dash_afterimages = []      # 상단 영웅 대쉬 잔상
+
+arena_bottom_dashing = False         # 하단 영웅 대쉬 중
+arena_bottom_dash_timer = 0          # 하단 영웅 대쉬 타이머
+arena_bottom_dash_direction = 0      # 하단 영웅 대쉬 방향 (-1: 왼쪽, 1: 오른쪽)
+arena_bottom_dash_target_x = 0.0     # 하단 영웅 대쉬 목표 X
+arena_bottom_dash_speed = 35.0       # 하단 영웅 대쉬 속도
+arena_bottom_dash_cooldown = 0       # 하단 영웅 대쉬 쿨다운 (프레임)
+arena_bottom_dash_afterimages = []   # 하단 영웅 대쉬 잔상
+arena_bottom_dash_charges = 2        # 하단 영웅 대쉬 충전 (플레이어)
+arena_bottom_dash_charge_timer = 0   # 하단 영웅 대쉬 충전 타이머
+ARENA_DASH_COOLDOWN_FRAMES = 30      # 대쉬 쿨다운 (0.5초)
+ARENA_DASH_CHARGE_TIME = 180         # 대쉬 충전 시간 (3초)
+ARENA_DASH_DURATION_FRAMES = 15      # 대쉬 지속 시간 (프레임)
+ARENA_DASH_STUN_FRAMES = 20          # 대쉬 후딜 시간 (프레임)
+
+
+def arena_trigger_top_hero_dash(target_x: float) -> bool:
+    """상단 영웅(AI) 대쉬 발동"""
+    global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
+    global arena_top_dash_target_x, arena_top_dash_cooldown
+
+    if arena_top_dashing or arena_top_dash_cooldown > 0:
+        return False
+
+    direction = 1 if target_x > BOSS.centerx else -1
+    dash_distance = abs(target_x - BOSS.centerx)
+
+    # 최소 거리 체크
+    if dash_distance < 30:
+        return False
+
+    arena_top_dash_direction = direction
+    arena_top_dash_target_x = float(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_x)))
+    arena_top_dash_timer = ARENA_DASH_DURATION_FRAMES
+    arena_top_dashing = True
+
+    return True
+
+
+def arena_trigger_bottom_hero_dash(direction: int) -> bool:
+    """하단 영웅(플레이어) 대쉬 발동"""
+    global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
+    global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_charges
+
+    if arena_bottom_dashing or arena_bottom_dash_cooldown > 0:
+        return False
+
+    if arena_bottom_dash_charges <= 0:
+        return False
+
+    arena_bottom_dash_direction = direction
+    # 대쉬 목표 = 현재 위치 + 방향 * 대쉬 거리(150px)
+    target_x = PLAYER.centerx + direction * 150
+    target_x = float(max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, target_x)))
+    arena_bottom_dash_target_x = target_x
+    arena_bottom_dash_timer = ARENA_DASH_DURATION_FRAMES
+    arena_bottom_dashing = True
+    arena_bottom_dash_charges -= 1
+
+    # 대쉬 사운드 재생
+    try:
+        play_dash_sound()
+    except Exception:
+        pass
+
+    return True
+
+
+def update_arena_top_hero_dash():
+    """상단 영웅 대쉬 업데이트"""
+    global arena_top_dashing, arena_top_dash_timer, arena_top_dash_cooldown
+    global arena_top_dash_afterimages
+
+    # 쿨다운 감소
+    if arena_top_dash_cooldown > 0:
+        arena_top_dash_cooldown -= 1
+
+    if not arena_top_dashing:
+        # 잔상 페이드아웃
+        arena_top_dash_afterimages = [
+            img for img in arena_top_dash_afterimages if img['alpha'] > 10
+        ]
+        for img in arena_top_dash_afterimages:
+            img['alpha'] -= 25
+        return False
+
+    arena_top_dash_timer -= 1
+
+    # 속도 곡선: 초반 고속, 후반 감속
+    high_phase = min(8, ARENA_DASH_DURATION_FRAMES)
+    if arena_top_dash_timer > high_phase:
+        move_step = arena_top_dash_speed * arena_top_dash_direction
+    else:
+        decel_factor = max(0.0, arena_top_dash_timer / float(high_phase)) if high_phase > 0 else 0.0
+        move_step = arena_top_dash_speed * arena_top_dash_direction * decel_factor
+
+    BOSS.centerx += move_step
+
+    # 목표 도달 체크
+    if arena_top_dash_direction > 0 and BOSS.centerx >= arena_top_dash_target_x:
+        BOSS.centerx = int(arena_top_dash_target_x)
+    elif arena_top_dash_direction < 0 and BOSS.centerx <= arena_top_dash_target_x:
+        BOSS.centerx = int(arena_top_dash_target_x)
+
+    # 게임 영역 내 제한
+    boss_min_cx = BOSS.width // 2
+    boss_max_cx = WIDTH - BOSS.width // 2
+    BOSS.centerx = max(boss_min_cx, min(boss_max_cx, BOSS.centerx))
+
+    # 잔상 추가
+    if arena_top_dash_timer % 2 == 0:
+        arena_top_dash_afterimages.append({
+            'x': BOSS.x, 'y': BOSS.y, 'width': BOSS.width, 'height': BOSS.height,
+            'alpha': 180
+        })
+        if len(arena_top_dash_afterimages) > 5:
+            arena_top_dash_afterimages.pop(0)
+
+    # 대쉬 종료
+    if arena_top_dash_timer <= 0:
+        arena_top_dashing = False
+        arena_top_dash_cooldown = ARENA_DASH_STUN_FRAMES  # 후딜
+
+    return True
+
+
+def update_arena_bottom_hero_dash():
+    """하단 영웅 대쉬 업데이트"""
+    global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_cooldown
+    global arena_bottom_dash_afterimages, arena_bottom_dash_charges, arena_bottom_dash_charge_timer
+
+    # 충전 타이머 업데이트
+    if arena_bottom_dash_charges < 2 and arena_bottom_dash_cooldown <= 0:
+        arena_bottom_dash_charge_timer += 1
+        if arena_bottom_dash_charge_timer >= ARENA_DASH_CHARGE_TIME:
+            arena_bottom_dash_charges = min(2, arena_bottom_dash_charges + 1)
+            arena_bottom_dash_charge_timer = 0
+
+    # 쿨다운 감소
+    if arena_bottom_dash_cooldown > 0:
+        arena_bottom_dash_cooldown -= 1
+
+    if not arena_bottom_dashing:
+        # 잔상 페이드아웃
+        arena_bottom_dash_afterimages = [
+            img for img in arena_bottom_dash_afterimages if img['alpha'] > 10
+        ]
+        for img in arena_bottom_dash_afterimages:
+            img['alpha'] -= 25
+        return False
+
+    arena_bottom_dash_timer -= 1
+
+    # 속도 곡선: 초반 고속, 후반 감속
+    high_phase = min(8, ARENA_DASH_DURATION_FRAMES)
+    if arena_bottom_dash_timer > high_phase:
+        move_step = arena_bottom_dash_speed * arena_bottom_dash_direction
+    else:
+        decel_factor = max(0.0, arena_bottom_dash_timer / float(high_phase)) if high_phase > 0 else 0.0
+        move_step = arena_bottom_dash_speed * arena_bottom_dash_direction * decel_factor
+
+    PLAYER.centerx += move_step
+
+    # 목표 도달 체크
+    if arena_bottom_dash_direction > 0 and PLAYER.centerx >= arena_bottom_dash_target_x:
+        PLAYER.centerx = int(arena_bottom_dash_target_x)
+    elif arena_bottom_dash_direction < 0 and PLAYER.centerx <= arena_bottom_dash_target_x:
+        PLAYER.centerx = int(arena_bottom_dash_target_x)
+
+    # 게임 영역 내 제한
+    player_min_cx = PADDLE_WIDTH // 2
+    player_max_cx = WIDTH - PADDLE_WIDTH // 2
+    PLAYER.centerx = max(player_min_cx, min(player_max_cx, PLAYER.centerx))
+
+    # 잔상 추가
+    if arena_bottom_dash_timer % 2 == 0:
+        arena_bottom_dash_afterimages.append({
+            'x': PLAYER.x, 'y': PLAYER.y, 'width': PLAYER.width, 'height': PLAYER.height,
+            'alpha': 180
+        })
+        if len(arena_bottom_dash_afterimages) > 5:
+            arena_bottom_dash_afterimages.pop(0)
+
+    # 대쉬 종료
+    if arena_bottom_dash_timer <= 0:
+        arena_bottom_dashing = False
+        arena_bottom_dash_cooldown = ARENA_DASH_STUN_FRAMES  # 후딜
+        # 후딜 사운드
+        try:
+            play_dash_delay_sound()
+        except Exception:
+            pass
+
+    return True
+
+
+def draw_arena_dash_afterimages(screen):
+    """투기장 영웅 대쉬 잔상 그리기"""
+    # 상단 영웅 잔상
+    for img in arena_top_dash_afterimages:
+        if img['alpha'] > 0:
+            surf = pygame.Surface((img['width'], img['height']), pygame.SRCALPHA)
+            color = arena_top_hero.get('color', (100, 100, 255)) if arena_top_hero else (100, 100, 255)
+            surf.fill((*color, int(img['alpha'] * 0.5)))
+            screen.blit(surf, (img['x'], img['y']))
+
+    # 하단 영웅 잔상
+    for img in arena_bottom_dash_afterimages:
+        if img['alpha'] > 0:
+            surf = pygame.Surface((img['width'], img['height']), pygame.SRCALPHA)
+            color = arena_bottom_hero.get('color', (255, 100, 100)) if arena_bottom_hero else (255, 100, 100)
+            surf.fill((*color, int(img['alpha'] * 0.5)))
+            screen.blit(surf, (img['x'], img['y']))
+
+
 #  리그별 보스 능력치 보정
 def get_league_boss_multiplier(league_mode):
     """리그별 보스 능력치 배수 반환 (3단계 리그 시스템)"""
@@ -94140,11 +94364,32 @@ def show_start_screen():
         global player_ai_enabled, _pillar_ui_enabled
         global arena_mode_enabled, arena_top_hero, arena_bottom_hero, arena_hero_paddle_renderer
         global arena_skill_manager, arena_skill_check_timer
+        global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
+        global arena_top_dash_target_x, arena_top_dash_cooldown, arena_top_dash_afterimages
+        global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
+        global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_afterimages
+        global arena_bottom_dash_charges, arena_bottom_dash_charge_timer
 
         # 투기장 모드 활성화
         arena_mode_enabled = True
         arena_top_hero = top_hero
         arena_bottom_hero = bottom_hero
+
+        # 투기장 대쉬 변수 초기화
+        arena_top_dashing = False
+        arena_top_dash_timer = 0
+        arena_top_dash_direction = 0
+        arena_top_dash_target_x = 0.0
+        arena_top_dash_cooldown = 0
+        arena_top_dash_afterimages = []
+        arena_bottom_dashing = False
+        arena_bottom_dash_timer = 0
+        arena_bottom_dash_direction = 0
+        arena_bottom_dash_target_x = 0.0
+        arena_bottom_dash_cooldown = 0
+        arena_bottom_dash_afterimages = []
+        arena_bottom_dash_charges = 2
+        arena_bottom_dash_charge_timer = 0
 
         # 영웅 패들 렌더러 초기화
         try:
@@ -121722,6 +121967,41 @@ def handle_boss():
                     BOSS.centerx = center
         except Exception as e:
             print(f"[Arena] Boss status effect error: {e}")
+
+    # 🏟️ 투기장 상단 영웅 대쉬 처리
+    if arena_mode_enabled and arena_top_hero:
+        # 대쉬 업데이트
+        if update_arena_top_hero_dash():
+            return  # 대쉬 중에는 다른 AI 처리 건너뜀
+
+        # 대쉬 쿨다운 중이 아니면 AI 대쉬 발동 시도
+        if arena_top_dash_cooldown <= 0 and not arena_top_dashing:
+            # 공이 보스 방향으로 오고 있을 때 대쉬 예측
+            ball_vx = float(ball_vel[0]) if "ball_vel" in globals() else 0.0
+            ball_vy = float(ball_vel[1]) if "ball_vel" in globals() else 0.0
+
+            if ball_vy < 0:  # 공이 위로 올라오는 중
+                # 보스 라인까지 예상 시간 계산
+                dy = float(BALL.centery - BOSS.centery)
+                if abs(ball_vy) > 0:
+                    time_to_boss = abs(dy) / abs(ball_vy)
+
+                    # 벽 반사를 고려한 X 위치 예측
+                    predicted_x = BALL.centerx + ball_vx * time_to_boss
+
+                    # 간단한 벽 반사 시뮬레이션
+                    for _ in range(3):
+                        if predicted_x < 0:
+                            predicted_x = -predicted_x
+                            ball_vx = -ball_vx
+                        elif predicted_x > WIDTH:
+                            predicted_x = 2 * WIDTH - predicted_x
+                            ball_vx = -ball_vx
+
+                    # 현재 위치와 예측 위치 차이가 크면 대쉬
+                    distance = abs(predicted_x - BOSS.centerx)
+                    if distance > 80 and random.random() < 0.15:  # 15% 확률로 대쉬 발동
+                        arena_trigger_top_hero_dash(predicted_x)
 
     # 라운드 시작 시 극정호신 텍스트는 1회만; 다음 라운드엔 숨김
     if is_waiting_for_serve:

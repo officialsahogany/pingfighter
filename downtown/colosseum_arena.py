@@ -270,6 +270,22 @@ class AIPaddleController:
         self.is_confused = False  # 조작 반전
         self.paddle_scale = 1.0   # 패들 크기 배율
 
+        # 대쉬 시스템
+        self.dash_active = False
+        self.dash_direction = 0  # -1: 왼쪽, 1: 오른쪽
+        self.dash_timer = 0  # 대쉬 지속 시간
+        self.dash_duration = 12  # 대쉬 총 지속 프레임
+        self.dash_cooldown = 0  # 대쉬 쿨다운
+        self.dash_cooldown_max = 90  # 1.5초 쿨다운 (60fps 기준)
+        self.dash_speed = 25.0  # 대쉬 속도
+        self.dash_stun_timer = 0  # 대쉬 후딜
+        self.dash_stun_duration = 8  # 대쉬 후딜 프레임
+        self.dash_trail = []  # 대쉬 잔상 효과
+
+        # AI 대쉬 판단용
+        self.last_ball_x = GAME_AREA_X + GAME_AREA_WIDTH // 2
+        self.emergency_dash_threshold = 100  # 긴급 대쉬 발동 거리
+
     def _predict_x_with_walls(self, ball_x: float, ball_vx: float, ball_y: float,
                                ball_vy: float, target_y: float) -> float:
         """벽 반사를 고려한 도착 X 좌표 예측 (실제 보스 AI와 동일)"""
@@ -300,9 +316,19 @@ class AIPaddleController:
 
     def update(self, ball_x: float, ball_y: float, ball_vx: float, ball_vy: float, dt: float):
         """AI 패들 업데이트 (실제 보스 AI 수준)"""
+        # 대쉬 상태 업데이트 (항상 먼저)
+        self.update_dash(dt)
+
         # 스턴 상태면 움직이지 않음
         if self.is_stunned:
             return
+
+        # 대쉬 중이거나 대쉬 후딜 중이면 일반 이동 안함
+        if self.dash_active or self.dash_stun_timer > 0:
+            return
+
+        # AI 긴급 대쉬 시도
+        self.ai_try_emergency_dash(ball_x, ball_y, ball_vy)
 
         # 공이 자기 방향으로 오는지 확인
         coming_towards = (ball_vy < 0 and self.is_top) or (ball_vy > 0 and not self.is_top)
@@ -389,6 +415,136 @@ class AIPaddleController:
 
     def get_center_x(self) -> float:
         return self.x + PADDLE_WIDTH // 2
+
+    def try_dash(self, direction: int) -> bool:
+        """대쉬 시도, 성공 시 True 반환"""
+        if self.dash_active or self.dash_cooldown > 0 or self.dash_stun_timer > 0 or self.is_stunned:
+            return False
+
+        self.dash_active = True
+        self.dash_direction = direction
+        self.dash_timer = self.dash_duration
+        self.dash_cooldown = self.dash_cooldown_max
+
+        # 대쉬 시작 잔상 추가
+        for i in range(3):
+            self.dash_trail.append({
+                'x': self.x,
+                'y': self.y,
+                'alpha': 180 - i * 40,
+                'width': PADDLE_WIDTH
+            })
+
+        return True
+
+    def update_dash(self, dt: float):
+        """대쉬 상태 업데이트"""
+        # 쿨다운 감소
+        if self.dash_cooldown > 0:
+            self.dash_cooldown -= 1
+
+        # 후딜 감소
+        if self.dash_stun_timer > 0:
+            self.dash_stun_timer -= 1
+            return
+
+        # 잔상 효과 업데이트
+        new_trail = []
+        for trail in self.dash_trail:
+            trail['alpha'] -= 15
+            if trail['alpha'] > 0:
+                new_trail.append(trail)
+        self.dash_trail = new_trail
+
+        if not self.dash_active:
+            return
+
+        # 대쉬 중 이동
+        dash_move = self.dash_speed * self.dash_direction
+
+        # 대쉬 잔상 추가
+        if self.dash_timer % 2 == 0:
+            self.dash_trail.append({
+                'x': self.x,
+                'y': self.y,
+                'alpha': 150,
+                'width': PADDLE_WIDTH
+            })
+
+        self.x += dash_move
+
+        # 경계 체크
+        if self.x < GAME_AREA_X:
+            self.x = GAME_AREA_X
+            self.dash_active = False
+            self.dash_stun_timer = self.dash_stun_duration
+        elif self.x > GAME_AREA_X + GAME_AREA_WIDTH - PADDLE_WIDTH:
+            self.x = GAME_AREA_X + GAME_AREA_WIDTH - PADDLE_WIDTH
+            self.dash_active = False
+            self.dash_stun_timer = self.dash_stun_duration
+
+        self.dash_timer -= 1
+        if self.dash_timer <= 0:
+            self.dash_active = False
+            self.dash_stun_timer = self.dash_stun_duration
+
+    def ai_try_emergency_dash(self, ball_x: float, ball_y: float, ball_vy: float) -> bool:
+        """AI 긴급 대쉬 판단 (공이 빠르게 다가올 때)"""
+        # 대쉬 불가능 상태
+        if self.dash_cooldown > 0 or self.dash_active or self.dash_stun_timer > 0:
+            return False
+
+        # 공이 자기 방향으로 오는지 확인
+        coming_towards = (ball_vy < 0 and self.is_top) or (ball_vy > 0 and not self.is_top)
+        if not coming_towards:
+            return False
+
+        # 공까지의 Y 거리가 가까울 때만 (200px 이내)
+        y_distance = abs(ball_y - self.y)
+        if y_distance > 200:
+            return False
+
+        # 패들 중심과 공의 X 거리
+        paddle_center = self.x + PADDLE_WIDTH // 2
+        x_distance = ball_x - paddle_center
+
+        # 긴급 대쉬 필요 여부 판단
+        if abs(x_distance) > self.emergency_dash_threshold:
+            # 대쉬 방향 결정
+            dash_dir = 1 if x_distance > 0 else -1
+
+            # 스타일에 따른 대쉬 확률
+            dash_chance = 0.3  # 기본 30% 확률
+            if self.style == HeroStyle.AGGRESSIVE:
+                dash_chance = 0.5  # 공격적: 50%
+            elif self.style == HeroStyle.DEFENSIVE:
+                dash_chance = 0.2  # 수비적: 20%
+            elif self.style == HeroStyle.TRICKY:
+                dash_chance = 0.4  # 트릭: 40%
+
+            if random.random() < dash_chance:
+                return self.try_dash(dash_dir)
+
+        return False
+
+    def draw_dash_effects(self, screen: pygame.Surface):
+        """대쉬 효과 그리기"""
+        # 잔상 그리기
+        for trail in self.dash_trail:
+            trail_surface = pygame.Surface((int(trail['width']), PADDLE_HEIGHT), pygame.SRCALPHA)
+            color = self.hero["color"]
+            trail_surface.fill((*color, int(trail['alpha'])))
+            screen.blit(trail_surface, (int(trail['x']), int(trail['y'])))
+
+        # 대쉬 중 패들 하이라이트
+        if self.dash_active:
+            # 속도감 표현 줄무늬
+            for i in range(3):
+                offset = (3 - i) * 8 * (-self.dash_direction)
+                alpha = 100 - i * 30
+                line_surface = pygame.Surface((4, PADDLE_HEIGHT), pygame.SRCALPHA)
+                line_surface.fill((255, 255, 255, alpha))
+                screen.blit(line_surface, (int(self.x + offset), int(self.y)))
 
 # ============================================================================
 # 공 클래스 (실제 게임 물리 적용)
@@ -1304,6 +1460,12 @@ class ColosseumsArena:
         # 스킬 이펙트 (배경 레이어)
         if self.skill_manager and self.top_paddle and self.bottom_paddle and self.ball:
             self.skill_manager.draw_skills(self.screen, self.top_paddle, self.bottom_paddle, self.ball)
+
+        # 대쉬 효과 그리기 (패들 뒤에)
+        if self.top_paddle:
+            self.top_paddle.draw_dash_effects(self.screen)
+        if self.bottom_paddle:
+            self.bottom_paddle.draw_dash_effects(self.screen)
 
         # 패들 그리기 (영웅 패들 렌더러 사용)
         if self.top_paddle and self.selected_match:
