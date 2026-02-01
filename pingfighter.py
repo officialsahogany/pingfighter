@@ -18249,6 +18249,12 @@ ai_decisions_history = []            # AI 결정 기록 (시각화용)
 ai_learning_active = True            # AI 학습 활성화 여부
 # 플레이어 자동조작 AI
 player_ai_enabled = False            # 메뉴에서 AI 플레이를 켰는지 여부
+
+# 투기장 모드 (콜로세움)
+arena_mode_enabled = False           # 투기장 모드 활성화 여부
+arena_top_hero = None                # 상단 영웅 정보 (보스 위치)
+arena_bottom_hero = None             # 하단 영웅 정보 (플레이어 위치)
+arena_hero_paddle_renderer = None    # 영웅 패들 렌더러
 #  리그별 보스 능력치 보정
 def get_league_boss_multiplier(league_mode):
     """리그별 보스 능력치 배수 반환 (3단계 리그 시스템)"""
@@ -85526,6 +85532,23 @@ def draw_objects():
                 spark_offset = random.randint(-5, 5)
                 draw.circle((200, 220, 255), 
                                   (antenna_right_x + spark_offset, antenna_tip_y + random.randint(-3, 3)), 1)
+    # 투기장 모드일 때 상단 영웅 패들 그리기 (보스 위에 덮어씌우기)
+    if arena_mode_enabled and arena_top_hero and arena_hero_paddle_renderer:
+        try:
+            # 상단 영웅 패들 그리기 (보스 위치)
+            arena_hero_paddle_renderer.draw_hero_paddle(
+                SCREEN,
+                arena_top_hero["id"],
+                BOSS.centerx + screen_shake_offset_x,
+                BOSS.centery + screen_shake_offset_y,
+                BOSS.width,
+                BOSS.height,
+                facing="down",
+                color=arena_top_hero["color"]
+            )
+        except Exception as e:
+            pass
+
     #  보스 확장 히트박스 디버그 표시 (개발용)
     DEBUG_SHOW_HITBOX = False  # True로 변경하면 히트박스가 보임
     if DEBUG_SHOW_HITBOX:
@@ -86970,8 +86993,29 @@ def draw_objects():
         pass
 
     # UFO 이미지 그리기 (화면 흔들림 효과 적용 - 최적화 버전)
+    # 투기장 모드일 때 영웅 패들 렌더링
+    _arena_paddle_drawn = False
+    if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
+        try:
+            # 하단 영웅 패들 그리기 (플레이어 위치)
+            arena_hero_paddle_renderer.draw_hero_paddle(
+                SCREEN,
+                arena_bottom_hero["id"],
+                player_rect.centerx + screen_shake_offset_x,
+                player_rect.centery + screen_shake_offset_y,
+                player_rect.width,
+                player_rect.height,
+                facing="up",
+                color=arena_bottom_hero["color"]
+            )
+            _arena_paddle_drawn = True
+        except Exception as e:
+            pass
+
     # 오딘의 눈 페널티 상태가 아닐 때만 기본 패들 그리기
-    if _odins_eye_dark_paddle_drawn:
+    if _arena_paddle_drawn:
+        pass  # 투기장 모드에서 영웅 패들을 그렸으므로 스킵
+    elif _odins_eye_dark_paddle_drawn:
         pass  # 이미 오딘의 눈 패들을 그렸으므로 스킵
     elif _odins_eye_hide_paddle:
         pass  # 💀 죽음 애니메이션 후 패들 숨김 - 점수 화면에서 기존 캐릭터 안 보이게
@@ -93984,6 +94028,54 @@ def show_start_screen():
         _pillar_ui_enabled = True
         return main(1)
 
+    def start_arena_battle(top_hero: dict, bottom_hero: dict):
+        """투기장 배틀 시작 - 기존 게임 시스템 활용
+
+        Args:
+            top_hero: 상단 영웅 정보 (보스 위치)
+            bottom_hero: 하단 영웅 정보 (플레이어 위치)
+        """
+        global player_ai_enabled, _pillar_ui_enabled
+        global arena_mode_enabled, arena_top_hero, arena_bottom_hero, arena_hero_paddle_renderer
+
+        # 투기장 모드 활성화
+        arena_mode_enabled = True
+        arena_top_hero = top_hero
+        arena_bottom_hero = bottom_hero
+
+        # 영웅 패들 렌더러 초기화
+        try:
+            from downtown.hero_paddles import get_hero_paddle_renderer
+            arena_hero_paddle_renderer = get_hero_paddle_renderer()
+        except Exception as e:
+            print(f"Hero paddle renderer init error: {e}")
+            arena_hero_paddle_renderer = None
+
+        # AI 플레이 모드 활성화 (양쪽 모두 AI)
+        player_ai_enabled = True
+        apply_character_selection("smasher")  # 기본 캐릭터
+
+        # AI 컨트롤러 리셋
+        try:
+            from ai.player_ai import get_player_ai_controller
+            get_player_ai_controller().on_stage_start()
+        except Exception:
+            pass
+
+        # 필러 UI 활성화
+        _pillar_ui_enabled = True
+
+        try:
+            result = main(30)  # 스테이지 30 = 투기장
+        finally:
+            # 투기장 모드 종료 시 초기화
+            arena_mode_enabled = False
+            arena_top_hero = None
+            arena_bottom_hero = None
+            arena_hero_paddle_renderer = None
+
+        return result
+
     # 개발자용 광장 직접 입장 함수
     def enter_downtown_dev():
         """개발자용: 메인메뉴에서 0번 키로 광장 직접 입장"""
@@ -94072,6 +94164,8 @@ def show_start_screen():
     ctx.enter_downtown_dev = enter_downtown_dev
     # 로컬 멀티플레이 콜백 추가
     ctx.start_local_multiplayer = start_local_multiplayer
+    # 투기장 배틀 콜백 추가
+    ctx.start_arena_battle = start_arena_battle
 
     # 메인 메뉴 진입 시 pillar_renderer 스테이지 0으로 설정 (바로크 액자용)
     if pillar_renderer is not None:

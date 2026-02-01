@@ -632,10 +632,19 @@ class BallSpawnAnimation:
 # 토너먼트 시스템
 # ============================================================================
 class ColosseumsArena:
-    def __init__(self, screen: pygame.Surface, fonts: Dict, player_gold: int):
+    def __init__(self, screen: pygame.Surface, fonts: Dict, player_gold: int, battle_callback=None):
+        """
+        Args:
+            screen: Pygame 화면
+            fonts: 폰트 딕셔너리
+            player_gold: 플레이어 골드
+            battle_callback: 배틀 시작 콜백 (top_hero, bottom_hero) -> bool
+                            None이면 자체 물리 시스템 사용
+        """
         self.screen = screen
         self.fonts = fonts
         self.player_gold = player_gold
+        self.battle_callback = battle_callback  # 실제 게임 엔진 사용 콜백
 
         # 토너먼트 상태
         self.state = TournamentState.BRACKET_VIEW
@@ -765,26 +774,53 @@ class ColosseumsArena:
         return odds1, odds2
 
     def start_battle(self, match: Match):
-        """배틀 시작"""
+        """배틀 시작 - 콜백이 있으면 실제 게임 엔진 사용, 없으면 자체 시스템"""
         self.selected_match = match
-        self.battle_active = True
-        self.score_top = 0
-        self.score_bottom = 0
 
-        # AI 패들 생성
-        self.top_paddle = AIPaddleController(match.hero1, is_top=True)
-        self.bottom_paddle = AIPaddleController(match.hero2, is_top=False)
+        if self.battle_callback:
+            # 실제 게임 엔진 사용 (콜백 호출)
+            try:
+                result = self.battle_callback(match.hero1, match.hero2)
 
-        # 공 생성 (애니메이션 시작)
-        self.ball = ArenaBall()
-        self.ball.visible = False  # 애니메이션 완료 전까지 숨김
+                # 결과 처리: True = 보스 처치 (하단 영웅 승리), False = 패배 (상단 영웅 승리)
+                if result:
+                    winner = match.hero2
+                    self.score_top = 0
+                    self.score_bottom = 5
+                else:
+                    winner = match.hero1
+                    self.score_top = 5
+                    self.score_bottom = 0
 
-        # 공 생성 애니메이션 시작
-        self.ball_spawn_animation = BallSpawnAnimation()
-        self.ball_spawn_animation.start(serve_direction=1)
-        self.spawn_phase = True
+                self._end_battle(winner)
 
-        self.state = TournamentState.BATTLE
+            except Exception as e:
+                print(f"Arena battle callback error: {e}")
+                import traceback
+                traceback.print_exc()
+                # 에러 시 랜덤 승자 결정
+                winner = random.choice([match.hero1, match.hero2])
+                self.score_top = 5 if winner == match.hero1 else 0
+                self.score_bottom = 5 if winner == match.hero2 else 0
+                self._end_battle(winner)
+        else:
+            # 자체 물리 시스템 사용 (폴백)
+            self.battle_active = True
+            self.score_top = 0
+            self.score_bottom = 0
+
+            # AI 패들 생성
+            self.top_paddle = AIPaddleController(match.hero1, is_top=True)
+            self.bottom_paddle = AIPaddleController(match.hero2, is_top=False)
+
+            # 공 생성 (애니메이션 시작)
+            self.ball = ArenaBall()
+            self.ball.visible = False
+            self.ball_spawn_animation = BallSpawnAnimation()
+            self.ball_spawn_animation.start(serve_direction=1)
+            self.spawn_phase = True
+
+            self.state = TournamentState.BATTLE
 
     def update_battle(self, dt: float = 1/60) -> bool:
         """배틀 업데이트, 완료 시 True 반환"""
