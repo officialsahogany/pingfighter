@@ -916,6 +916,9 @@ class DragonBreath(HeroSkill):
         is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
         direction = 1 if is_caster_top else -1
 
+        # 발사 시점의 X 좌표 저장 (화염지대 생성 위치용)
+        self.breath_start_x = caster_paddle.x + caster_paddle.width // 2
+
         # 화염 파티클 대량 생성
         for i in range(50):
             self.breath_particles.append({
@@ -966,8 +969,11 @@ class DragonBreath(HeroSkill):
                 # 하단에서 발사 → 상단 target의 아래쪽(앞쪽)에 화염
                 fire_y = target_paddle.y + target_paddle.height + 30
 
+            # 발사 시점의 X 좌표 사용 (breath_start_x가 없으면 target 패들 중앙 사용)
+            fire_x = getattr(self, 'breath_start_x', target_paddle.x + target_paddle.width // 2)
+
             game_state['spawn_dragon_fire_zone'] = {
-                'x': target_paddle.x + target_paddle.width // 2,
+                'x': fire_x,
                 'y': fire_y,
                 'width': 120,  # 화염 지대 너비
                 'height': 60,  # 화염 지대 높이
