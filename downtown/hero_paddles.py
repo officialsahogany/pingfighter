@@ -43,24 +43,24 @@ class HeroPaddleRenderer:
         target_lean = max(-1.0, min(1.0, state["velocity"] / 120.0))  # 120으로 낮춤 (더 기울어짐)
         state["lean"] = state["lean"] * 0.75 + target_lean * 0.25  # 더 빠른 보간
 
-        # 걷기 애니메이션 (속도에 비례) - 임계값 낮춤
+        # 걷기 애니메이션 (속도에 비례)
         move_speed = abs(state["velocity"])
-        if move_speed > 5:  # 임계값 15 → 5로 낮춤
-            # 애니메이션 속도 증가
-            state["step_phase"] += dt * 14.0  # 10 → 14
-            state["shoulder_phase"] += dt * 14.0
-            # 어깨 들썩임 (더 강하게)
-            speed_factor = min(1.0, move_speed / 100.0)  # 200 → 100
-            state["body_bob"] = math.sin(state["step_phase"] * 2) * speed_factor * 1.2
-            # 팔 스윙 (더 강하게)
-            state["arm_swing"] = math.sin(state["step_phase"]) * min(1.0, move_speed / 80.0) * 1.3  # 150 → 80
+        if move_speed > 5:
+            # 애니메이션 속도
+            state["step_phase"] += dt * 12.0
+            state["shoulder_phase"] += dt * 12.0
+            # 어깨 들썩임 (미세하게 - 촐싹거림 방지)
+            speed_factor = min(1.0, move_speed / 150.0)
+            state["body_bob"] = math.sin(state["step_phase"] * 2) * speed_factor * 0.3  # 1.2 → 0.3 (대폭 감소)
+            # 팔 스윙
+            state["arm_swing"] = math.sin(state["step_phase"]) * min(1.0, move_speed / 100.0) * 1.0
             # 머리 미세 흔들림
-            state["head_tilt"] = math.sin(state["step_phase"] * 1.5) * 0.5 * speed_factor
+            state["head_tilt"] = math.sin(state["step_phase"] * 1.5) * 0.3 * speed_factor
         else:
             # 정지 시 부드럽게 감쇠
-            state["body_bob"] *= 0.85
-            state["arm_swing"] *= 0.85
-            state["head_tilt"] *= 0.85
+            state["body_bob"] *= 0.9
+            state["arm_swing"] *= 0.9
+            state["head_tilt"] *= 0.9
 
         state["last_x"] = current_x
 
@@ -116,17 +116,17 @@ class HeroPaddleRenderer:
         if scale_mode == "paddle":
             # 투기장 모드: 캐릭터 크기 확대 (b=8로 더 크게)
             b = 8  # 스케일 증가 (캐릭터 높이 약 65픽셀)
-            # 이동 애니메이션 강화 (기울기, 팔 흔들기 등 더 눈에 띄게)
+            # 이동 애니메이션 (기울기 위주, 상하 움직임 최소화)
             anim = {
-                "wave": anim["wave"] * 0.8,
-                "lean": anim["lean"] * 1.2,  # 기울기 강화
-                "arm_swing": anim["arm_swing"] * 1.0,  # 팔 흔들기 유지
-                "body_bob": anim["body_bob"] * 0.7,
-                "head_tilt": anim["head_tilt"] * 0.8,
-                "left_leg": anim["left_leg"] * 0.9,
-                "right_leg": anim["right_leg"] * 0.9,
-                "left_shoulder": anim["left_shoulder"] * 0.8,
-                "right_shoulder": anim["right_shoulder"] * 0.8,
+                "wave": anim["wave"] * 0.7,
+                "lean": anim["lean"] * 1.2,  # 기울기 유지
+                "arm_swing": anim["arm_swing"] * 0.9,
+                "body_bob": anim["body_bob"] * 0.25,  # 0.7 → 0.25 (상하 움직임 대폭 감소)
+                "head_tilt": anim["head_tilt"] * 0.5,
+                "left_leg": anim["left_leg"] * 0.7,
+                "right_leg": anim["right_leg"] * 0.7,
+                "left_shoulder": anim["left_shoulder"] * 0.6,
+                "right_shoulder": anim["right_shoulder"] * 0.6,
             }
         else:
             # 기존 미리보기 모드 (크게 표시)
