@@ -1083,19 +1083,35 @@ class DragonWing(HeroSkill):
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
-            # 바람 라인
+            # 바람 라인 (투명도 지원을 위해 Surface 사용)
             for p in self.wind_particles:
-                alpha = int(150 * p['life'])
-                end_x = p['x'] + p['length'] * (1 if self.wind_direction > 0 else -1)
+                alpha = int(200 * p['life'])
+                line_length = p['length'] * 1.5
+                end_x = p['x'] + line_length * (1 if self.wind_direction > 0 else -1)
 
-                # 그라데이션 라인
-                for i in range(3):
-                    line_alpha = alpha - i * 40
-                    if line_alpha > 0:
-                        color = (200, 220, 255, line_alpha)
-                        start = (int(p['x']), int(p['y'] + i * 3))
-                        end = (int(end_x), int(p['y'] + i * 3))
-                        pygame.draw.line(screen, color[:3], start, end, 2)
+                # 바람 라인 Surface 생성
+                line_width = int(abs(end_x - p['x'])) + 20
+                line_height = 20
+                if line_width > 0:
+                    wind_surf = pygame.Surface((line_width, line_height), pygame.SRCALPHA)
+
+                    # 그라데이션 라인 (여러 줄로 두껍게)
+                    for i in range(5):
+                        line_alpha = max(0, alpha - i * 30)
+                        if line_alpha > 0:
+                            # 청록색 ~ 흰색 그라데이션
+                            r = min(255, 150 + i * 20)
+                            g = min(255, 220 + i * 10)
+                            b = 255
+                            color = (r, g, b, line_alpha)
+                            local_start = (5 if self.wind_direction > 0 else line_width - 5, 10 + i - 2)
+                            local_end = (line_width - 5 if self.wind_direction > 0 else 5, 10 + i - 2)
+                            pygame.draw.line(wind_surf, color, local_start, local_end, 3)
+
+                    # 블렌드 모드로 화면에 그리기
+                    blit_x = min(p['x'], end_x) - 5
+                    blit_y = p['y'] - 10
+                    screen.blit(wind_surf, (int(blit_x), int(blit_y)), special_flags=pygame.BLEND_ADD)
 
 
 # ============================================================================
