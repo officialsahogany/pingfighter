@@ -270,21 +270,25 @@ class AIPaddleController:
         self.is_confused = False  # 조작 반전
         self.paddle_scale = 1.0   # 패들 크기 배율
 
-        # 대쉬 시스템
+        # 대쉬 시스템 (보스 대쉬와 동일한 물리 엔진)
         self.dash_active = False
         self.dash_direction = 0  # -1: 왼쪽, 1: 오른쪽
         self.dash_timer = 0  # 대쉬 지속 시간
-        self.dash_duration = 12  # 대쉬 총 지속 프레임
-        self.dash_cooldown = 0  # 대쉬 쿨다운
-        self.dash_cooldown_max = 90  # 1.5초 쿨다운 (60fps 기준)
-        self.dash_speed = 25.0  # 대쉬 속도
+        self.dash_duration = 25  # 대쉬 총 지속 프레임 (보스와 동일)
+        self.dash_high_phase = 15  # 고속 구간 프레임
+        self.dash_cooldown_ms = 0  # 대쉬 쿨다운 (ms)
+        self.dash_cooldown_min_ms = 4000  # 최소 쿨다운 4초 (신화리그 수준)
+        self.dash_cooldown_max_ms = 6000  # 최대 쿨다운 6초
+        self.dash_speed = 40.0  # 대쉬 속도 (보스와 동일)
+        self.dash_target_x = 0.0  # 대쉬 목표 X
         self.dash_stun_timer = 0  # 대쉬 후딜
-        self.dash_stun_duration = 8  # 대쉬 후딜 프레임
-        self.dash_trail = []  # 대쉬 잔상 효과
+        self.dash_stun_duration = 18  # 대쉬 후딜 프레임 (0.3초)
+        self.dash_afterimages = []  # 대쉬 잔상 효과 (이미지 기반)
+        self.dash_delay_sound_playing = False  # 후딜 사운드 재생 중
 
         # AI 대쉬 판단용
         self.last_ball_x = GAME_AREA_X + GAME_AREA_WIDTH // 2
-        self.emergency_dash_threshold = 100  # 긴급 대쉬 발동 거리
+        self.emergency_dash_threshold = 120  # 긴급 대쉬 발동 거리
 
     def _predict_x_with_walls(self, ball_x: float, ball_vx: float, ball_y: float,
                                ball_vy: float, target_y: float) -> float:
@@ -328,7 +332,7 @@ class AIPaddleController:
             return
 
         # AI 긴급 대쉬 시도
-        self.ai_try_emergency_dash(ball_x, ball_y, ball_vy)
+        self.ai_try_emergency_dash(ball_x, ball_y, ball_vx, ball_vy)
 
         # 공이 자기 방향으로 오는지 확인
         coming_towards = (ball_vy < 0 and self.is_top) or (ball_vy > 0 and not self.is_top)
@@ -416,82 +420,150 @@ class AIPaddleController:
     def get_center_x(self) -> float:
         return self.x + PADDLE_WIDTH // 2
 
-    def try_dash(self, direction: int) -> bool:
-        """대쉬 시도, 성공 시 True 반환"""
-        if self.dash_active or self.dash_cooldown > 0 or self.dash_stun_timer > 0 or self.is_stunned:
+    def try_dash(self, target_x: float) -> bool:
+        """대쉬 시도, 성공 시 True 반환 (보스 대쉬와 동일한 로직)"""
+        now_ms = pygame.time.get_ticks()
+
+        # 대쉬 불가능 상태 체크
+        if self.dash_active or self.dash_stun_timer > 0 or self.is_stunned:
             return False
 
+        # 쿨다운 체크
+        if self.dash_cooldown_ms > 0 and now_ms < self.dash_cooldown_ms:
+            return False
+
+        # 대쉬 방향 결정
+        paddle_center = self.x + PADDLE_WIDTH // 2
+        direction = 1 if target_x > paddle_center else -1
+        dash_distance = abs(target_x - paddle_center)
+
+        # 최소 거리 체크
+        if dash_distance < 30:
+            return False
+
+        # 대쉬 활성화
         self.dash_active = True
         self.dash_direction = direction
+        self.dash_target_x = max(GAME_AREA_X + PADDLE_WIDTH // 2,
+                                  min(GAME_AREA_X + GAME_AREA_WIDTH - PADDLE_WIDTH // 2, target_x))
         self.dash_timer = self.dash_duration
-        self.dash_cooldown = self.dash_cooldown_max
 
-        # 대쉬 시작 잔상 추가
-        for i in range(3):
-            self.dash_trail.append({
-                'x': self.x,
-                'y': self.y,
-                'alpha': 180 - i * 40,
-                'width': PADDLE_WIDTH
-            })
+        # 🔊 대쉬 사운드 재생
+        try:
+            import pingfighter
+            if hasattr(pingfighter, 'play_dash_sound'):
+                pingfighter.play_dash_sound()
+        except Exception:
+            pass
+
+        # 쿨다운 설정 (신화리그 수준: 4~6초)
+        cooldown_ms = random.randint(self.dash_cooldown_min_ms, self.dash_cooldown_max_ms)
+        self.dash_cooldown_ms = now_ms + cooldown_ms
 
         return True
 
     def update_dash(self, dt: float):
-        """대쉬 상태 업데이트"""
-        # 쿨다운 감소
-        if self.dash_cooldown > 0:
-            self.dash_cooldown -= 1
+        """대쉬 상태 업데이트 (보스 대쉬와 동일한 물리 엔진)"""
+        now_ms = pygame.time.get_ticks()
 
-        # 후딜 감소
+        # 잔상 효과 업데이트 (항상)
+        new_afterimages = []
+        for after in self.dash_afterimages:
+            after['alpha'] -= 25
+            after['life'] -= 1
+            if after['alpha'] > 0 and after['life'] > 0:
+                new_afterimages.append(after)
+        self.dash_afterimages = new_afterimages
+
+        # 후딜 상태 처리
         if self.dash_stun_timer > 0:
+            prev_stun = self.dash_stun_timer
             self.dash_stun_timer -= 1
-            return
 
-        # 잔상 효과 업데이트
-        new_trail = []
-        for trail in self.dash_trail:
-            trail['alpha'] -= 15
-            if trail['alpha'] > 0:
-                new_trail.append(trail)
-        self.dash_trail = new_trail
+            # 🔊 후딜 종료 시 사운드 중지
+            if prev_stun > 0 and self.dash_stun_timer <= 0:
+                if self.dash_delay_sound_playing:
+                    try:
+                        import pingfighter
+                        if hasattr(pingfighter, 'stop_dash_delay_sound'):
+                            pingfighter.stop_dash_delay_sound()
+                    except Exception:
+                        pass
+                    self.dash_delay_sound_playing = False
+            return
 
         if not self.dash_active:
             return
 
-        # 대쉬 중 이동
-        dash_move = self.dash_speed * self.dash_direction
+        # 대쉬 타이머 감소
+        self.dash_timer -= 1
 
-        # 대쉬 잔상 추가
+        # 🎮 대쉬 물리 엔진 (보스와 동일한 속도 곡선)
+        # 고속 구간: dash_timer > high_phase_frames
+        # 감속 구간: dash_timer <= high_phase_frames
+        if self.dash_timer > self.dash_high_phase:
+            move_step = self.dash_speed * self.dash_direction
+        else:
+            # 감속: 선형 감속
+            decel_factor = max(0.0, self.dash_timer / float(self.dash_high_phase)) if self.dash_high_phase > 0 else 0.0
+            move_step = self.dash_speed * self.dash_direction * decel_factor
+
+        # 잔상 추가 (2프레임마다)
         if self.dash_timer % 2 == 0:
-            self.dash_trail.append({
-                'x': self.x,
-                'y': self.y,
-                'alpha': 150,
-                'width': PADDLE_WIDTH
+            self.dash_afterimages.append({
+                'x': self.x + PADDLE_WIDTH // 2,
+                'y': self.y + PADDLE_HEIGHT // 2,
+                'alpha': 160,
+                'life': 10,
+                'color': self.hero["color"]
             })
+            if len(self.dash_afterimages) > 6:
+                self.dash_afterimages.pop(0)
 
-        self.x += dash_move
+        # 이동 적용
+        self.x += move_step
+
+        # 목표 도달 체크
+        paddle_center = self.x + PADDLE_WIDTH // 2
+        if self.dash_direction > 0 and paddle_center >= self.dash_target_x:
+            self.x = self.dash_target_x - PADDLE_WIDTH // 2
+        elif self.dash_direction < 0 and paddle_center <= self.dash_target_x:
+            self.x = self.dash_target_x - PADDLE_WIDTH // 2
 
         # 경계 체크
         if self.x < GAME_AREA_X:
             self.x = GAME_AREA_X
-            self.dash_active = False
-            self.dash_stun_timer = self.dash_stun_duration
+            self._end_dash()
         elif self.x > GAME_AREA_X + GAME_AREA_WIDTH - PADDLE_WIDTH:
             self.x = GAME_AREA_X + GAME_AREA_WIDTH - PADDLE_WIDTH
-            self.dash_active = False
-            self.dash_stun_timer = self.dash_stun_duration
+            self._end_dash()
 
-        self.dash_timer -= 1
+        # 대쉬 종료
         if self.dash_timer <= 0:
-            self.dash_active = False
-            self.dash_stun_timer = self.dash_stun_duration
+            self._end_dash()
 
-    def ai_try_emergency_dash(self, ball_x: float, ball_y: float, ball_vy: float) -> bool:
-        """AI 긴급 대쉬 판단 (공이 빠르게 다가올 때)"""
+    def _end_dash(self):
+        """대쉬 종료 처리"""
+        self.dash_active = False
+        self.dash_stun_timer = self.dash_stun_duration
+
+        # 🔊 대쉬 후딜 사운드 시작
+        try:
+            import pingfighter
+            if hasattr(pingfighter, 'play_dash_delay_sound'):
+                pingfighter.play_dash_delay_sound()
+                self.dash_delay_sound_playing = True
+        except Exception:
+            pass
+
+    def ai_try_emergency_dash(self, ball_x: float, ball_y: float, ball_vx: float, ball_vy: float) -> bool:
+        """AI 긴급 대쉬 판단 (보스 AI와 동일한 로직)"""
+        now_ms = pygame.time.get_ticks()
+
         # 대쉬 불가능 상태
-        if self.dash_cooldown > 0 or self.dash_active or self.dash_stun_timer > 0:
+        if self.dash_cooldown_ms > 0 and now_ms < self.dash_cooldown_ms:
+            return False
+        if self.dash_active or self.dash_stun_timer > 0 or self.is_stunned:
             return False
 
         # 공이 자기 방향으로 오는지 확인
@@ -499,44 +571,69 @@ class AIPaddleController:
         if not coming_towards:
             return False
 
-        # 공까지의 Y 거리가 가까울 때만 (200px 이내)
+        # 공까지의 Y 거리 계산
         y_distance = abs(ball_y - self.y)
-        if y_distance > 200:
+
+        # 공이 너무 멀면 대쉬 불필요 (120px 이내)
+        if y_distance > 120 or y_distance <= 0:
             return False
 
-        # 패들 중심과 공의 X 거리
+        # 도착 시간 계산 (프레임 단위)
+        time_to_paddle = y_distance / max(1.0, abs(ball_vy))
+
+        # 시간이 너무 많이 남으면 일반 이동으로 대응 가능
+        if time_to_paddle > 20.0:
+            return False
+
+        # 벽 반사 고려한 예측 X 위치
+        predicted_x = self._predict_x_with_walls(ball_x, ball_vx, ball_y, ball_vy, self.y)
+
+        # 패들 중심과 예측 위치 간 거리
         paddle_center = self.x + PADDLE_WIDTH // 2
-        x_distance = ball_x - paddle_center
+        required_distance = abs(predicted_x - paddle_center)
 
-        # 긴급 대쉬 필요 여부 판단
-        if abs(x_distance) > self.emergency_dash_threshold:
-            # 대쉬 방향 결정
-            dash_dir = 1 if x_distance > 0 else -1
+        # 일반 이동으로 커버 가능한 거리 계산
+        max_travel = self.max_speed * time_to_paddle * 1.5  # 여유분 포함
 
-            # 스타일에 따른 대쉬 확률
-            dash_chance = 0.3  # 기본 30% 확률
-            if self.style == HeroStyle.AGGRESSIVE:
-                dash_chance = 0.5  # 공격적: 50%
-            elif self.style == HeroStyle.DEFENSIVE:
-                dash_chance = 0.2  # 수비적: 20%
-            elif self.style == HeroStyle.TRICKY:
-                dash_chance = 0.4  # 트릭: 40%
+        # 일반 이동으로 충분하면 대쉬 불필요
+        if required_distance <= max_travel:
+            return False
 
-            if random.random() < dash_chance:
-                return self.try_dash(dash_dir)
+        # 긴급 대쉬 필요 - 스타일에 따른 확률
+        dash_chance = 0.6  # 기본 60% 확률 (긴급 상황)
+        if self.style == HeroStyle.AGGRESSIVE:
+            dash_chance = 0.85  # 공격적: 85%
+        elif self.style == HeroStyle.DEFENSIVE:
+            dash_chance = 0.5  # 수비적: 50%
+        elif self.style == HeroStyle.TRICKY:
+            dash_chance = 0.7  # 트릭: 70%
+
+        if random.random() < dash_chance:
+            return self.try_dash(predicted_x)
 
         return False
 
     def draw_dash_effects(self, screen: pygame.Surface):
-        """대쉬 효과 그리기"""
-        # 잔상 그리기
-        for trail in self.dash_trail:
-            trail_surface = pygame.Surface((int(trail['width']), PADDLE_HEIGHT), pygame.SRCALPHA)
-            color = self.hero["color"]
-            trail_surface.fill((*color, int(trail['alpha'])))
-            screen.blit(trail_surface, (int(trail['x']), int(trail['y'])))
+        """대쉬 효과 그리기 (잔상 + 후딜 표시)"""
+        # 잔상 그리기 (이미지 기반)
+        for after in self.dash_afterimages:
+            alpha = after.get('alpha', 0)
+            if alpha <= 0:
+                continue
 
-        # 대쉬 중 패들 하이라이트
+            x = after.get('x', 0)
+            y = after.get('y', 0)
+            color = after.get('color', self.hero["color"])
+
+            # 잔상 표면 생성
+            trail_w = int(PADDLE_WIDTH * 0.9)
+            trail_h = int(PADDLE_HEIGHT * 1.5)
+            trail_surf = pygame.Surface((trail_w, trail_h), pygame.SRCALPHA)
+            pygame.draw.ellipse(trail_surf, (*color, int(alpha * 0.7)),
+                               (0, 0, trail_w, trail_h))
+            screen.blit(trail_surf, (int(x - trail_w // 2), int(y - trail_h // 2)))
+
+        # 대쉬 중 속도선 효과
         if self.dash_active:
             # 속도감 표현 줄무늬
             for i in range(3):
