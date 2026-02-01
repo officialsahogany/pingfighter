@@ -423,7 +423,11 @@ class AIPaddleController:
         self.x = max(GAME_AREA_X, min(self.x, GAME_AREA_X + GAME_AREA_WIDTH - PADDLE_WIDTH))
 
     def get_rect(self) -> pygame.Rect:
-        return pygame.Rect(int(self.x), int(self.y), PADDLE_WIDTH, PADDLE_HEIGHT)
+        # paddle_scale 적용하여 축소 시 충돌 판정도 줄어들게
+        scaled_width = int(PADDLE_WIDTH * self.paddle_scale)
+        # 중심 기준으로 축소 (좌우 대칭)
+        x_offset = (PADDLE_WIDTH - scaled_width) // 2
+        return pygame.Rect(int(self.x) + x_offset, int(self.y), scaled_width, PADDLE_HEIGHT)
 
     def get_center_x(self) -> float:
         return self.x + PADDLE_WIDTH // 2
@@ -1780,6 +1784,9 @@ class ColosseumsArena:
                     pygame.draw.rect(stun_surf, (255, 255, 0, 100), stun_surf.get_rect(), border_radius=6)
                     self.screen.blit(stun_surf, (scaled_rect.x - 5, scaled_rect.y - 5))
 
+        # 혼란 상태 물음표 효과 (패들 위에 빙글빙글 도는 물음표)
+        self._draw_confusion_effect(shake_x, shake_y)
+
         # 공 생성 애니메이션
         if self.spawn_phase and self.ball_spawn_animation:
             self.ball_spawn_animation.draw(self.screen)
@@ -1852,6 +1859,70 @@ class ColosseumsArena:
         # 전경 효과
         if self.arena_background:
             self.arena_background.draw_foreground(self.screen, offset_x=GAME_AREA_X, offset_y=0)
+
+    def _draw_confusion_effect(self, shake_x: int = 0, shake_y: int = 0):
+        """혼란 상태 물음표 효과 그리기 (패들 위에 빙글빙글 도는 물음표)"""
+        current_time = pygame.time.get_ticks()
+        rotation_speed = 0.005  # 회전 속도
+
+        # 상단 패들 혼란 효과
+        if self.top_paddle and self.top_paddle.is_confused:
+            self._draw_question_marks(
+                self.top_paddle.x + PADDLE_WIDTH // 2 + shake_x,
+                self.top_paddle.y + PADDLE_HEIGHT // 2 + shake_y + 25,  # 패들 아래쪽에 표시
+                current_time, rotation_speed
+            )
+
+        # 하단 패들 혼란 효과
+        if self.bottom_paddle and self.bottom_paddle.is_confused:
+            self._draw_question_marks(
+                self.bottom_paddle.x + PADDLE_WIDTH // 2 + shake_x,
+                self.bottom_paddle.y + PADDLE_HEIGHT // 2 + shake_y - 25,  # 패들 위쪽에 표시
+                current_time, rotation_speed
+            )
+
+    def _draw_question_marks(self, center_x: float, center_y: float, current_time: int, rotation_speed: float):
+        """빙글빙글 도는 물음표 그리기"""
+        num_questions = 3
+        orbit_radius = 25  # 회전 반경
+
+        for i in range(num_questions):
+            # 각 물음표의 각도 계산 (균등하게 배치)
+            angle = current_time * rotation_speed + (i * 2 * math.pi / num_questions)
+
+            # 물음표 위치 계산 (원형 궤도)
+            x = center_x + orbit_radius * math.cos(angle)
+            y = center_y + orbit_radius * math.sin(angle) * 0.5  # Y축은 타원형으로
+
+            # 물음표 크기 변화 (앞뒤 구분)
+            size_factor = 0.8 + 0.2 * math.sin(angle)
+
+            # 물음표 색상 (깜빡이는 효과)
+            if math.sin(current_time * 0.01 + i) > 0:
+                color = (255, 255, 100)  # 밝은 노란색
+            else:
+                color = (255, 200, 50)   # 어두운 노란색
+
+            # 물음표 그리기 (폰트가 있으면 사용, 없으면 원으로 대체)
+            if self.fonts and "medium" in self.fonts:
+                question_text, _ = self.fonts["medium"].render("?", color)
+                # 크기 조절
+                scaled_width = int(question_text.get_width() * size_factor)
+                scaled_height = int(question_text.get_height() * size_factor)
+                if scaled_width > 0 and scaled_height > 0:
+                    scaled_question = pygame.transform.scale(question_text, (scaled_width, scaled_height))
+                    question_rect = scaled_question.get_rect(center=(int(x), int(y)))
+                    # 그림자
+                    shadow_text, _ = self.fonts["medium"].render("?", (50, 50, 0))
+                    scaled_shadow = pygame.transform.scale(shadow_text, (scaled_width, scaled_height))
+                    shadow_rect = scaled_shadow.get_rect(center=(int(x + 2), int(y + 2)))
+                    self.screen.blit(scaled_shadow, shadow_rect)
+                    self.screen.blit(scaled_question, question_rect)
+            else:
+                # 폰트 없을 때 원으로 대체
+                radius = int(8 * size_factor)
+                pygame.draw.circle(self.screen, (50, 50, 0), (int(x + 2), int(y + 2)), radius)
+                pygame.draw.circle(self.screen, color, (int(x), int(y)), radius)
 
     def _draw_scoreboard(self):
         """점수판 그리기"""
