@@ -130678,10 +130678,6 @@ def main(stage_num, new_boss_mode=False):
                     arena_game_state = arena_skill_manager.game_state
                     arena_top_confused = arena_game_state.get('top_paddle_confused', False)
                     arena_bottom_confused = arena_game_state.get('bottom_paddle_confused', False)
-                    if arena_top_confused:
-                        print(f"[Arena Main] Top paddle is CONFUSED!")
-                    if arena_bottom_confused:
-                        print(f"[Arena Main] Bottom paddle is CONFUSED!")
 
                     # 드래곤 브레스 화염 지대 생성 처리 (화염병과 동일한 넉백 효과)
                     _dragon_fire_req = arena_skill_manager.game_state.get('spawn_dragon_fire_zone')
