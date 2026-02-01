@@ -96,8 +96,8 @@ def main():
             pygame.draw.rect(screen, (30, 35, 45), (x - 70, y - 50, 140, 130), border_radius=8)
             pygame.draw.rect(screen, hero["color"], (x - 70, y - 50, 140, 130), 2, border_radius=8)
 
-            # 패들 그리기
-            renderer.draw_hero_paddle(screen, hero["id"], sim_x, y, 80, 12, "down", hero["color"])
+            # 패들 그리기 (미리보기 모드 - 크게 표시)
+            renderer.draw_hero_paddle(screen, hero["id"], sim_x, y, 80, 12, "down", hero["color"], scale_mode="preview")
 
             # 이름
             if font:
@@ -119,8 +119,8 @@ def main():
             pygame.draw.rect(screen, (30, 35, 45), (x - 70, y - 50, 140, 130), border_radius=8)
             pygame.draw.rect(screen, hero["color"], (x - 70, y - 50, 140, 130), 2, border_radius=8)
 
-            # 패들 그리기
-            renderer.draw_hero_paddle(screen, hero["id"], sim_x, y, 80, 12, "up", hero["color"])
+            # 패들 그리기 (미리보기 모드 - 크게 표시)
+            renderer.draw_hero_paddle(screen, hero["id"], sim_x, y, 80, 12, "up", hero["color"], scale_mode="preview")
 
             # 이름
             if font:

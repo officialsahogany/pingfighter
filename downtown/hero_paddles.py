@@ -92,18 +92,28 @@ class HeroPaddleRenderer:
 
     def draw_hero_paddle(self, screen: pygame.Surface, hero_id: str,
                          x: float, y: float, width: int, height: int,
-                         facing: str = "down", color: Tuple[int, int, int] = (200, 200, 200)):
+                         facing: str = "down", color: Tuple[int, int, int] = (200, 200, 200),
+                         scale_mode: str = "paddle"):
         """
         영웅 패들 그리기
         facing="down": 정면 (아래를 바라봄, 얼굴이 보임)
         facing="up": 뒷모습 (위를 바라봄, 뒷통수가 보임)
+        scale_mode="paddle": 투기장 모드 - 패들 크기에 맞게 캐릭터 축소
+        scale_mode="preview": 미리보기 모드 - 기존 크기
         """
         show_back = (facing == "up")
         state = self._get_state(hero_id)
         anim = self._get_anim(state)
 
         # 스케일 계산 (기본 블록 단위)
-        b = max(3, width // 12)
+        if scale_mode == "paddle":
+            # 투기장 모드: 캐릭터가 패들 높이의 3배 정도로 맞춤
+            # 캐릭터 전체 높이는 약 8*b, 패들 높이에 맞게 조정
+            target_height = height * 3.5  # 패들 위에 적당히 올라온 느낌
+            b = max(2, int(target_height / 8))  # 캐릭터 높이 = 약 8*b
+        else:
+            # 기존 미리보기 모드 (크게 표시)
+            b = max(3, width // 12)
         cx, cy = int(x), int(y)
 
         # 영웅별 그리기

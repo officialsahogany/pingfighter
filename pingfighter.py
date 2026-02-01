@@ -85352,7 +85352,10 @@ def draw_objects():
         _boss_dash_stun_shake_y = random.randint(-1, 1)
 
     # === Stage 3 빨간 오버레이 ===
-    if current_stage == 3 and boss_red_intensity > 0:
+    # 투기장 모드일 때는 보스 이미지를 그리지 않음 (영웅 패들로 대체)
+    if arena_mode_enabled:
+        pass  # 보스 렌더링 스킵 - 영웅 패들이 나중에 그려짐
+    elif current_stage == 3 and boss_red_intensity > 0:
         rotated_boss_copy = rotated_boss.copy()
         apply_red_overlay(rotated_boss_copy, boss_red_intensity)
         SCREEN.blit(rotated_boss_copy, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + _boss_dash_stun_shake_y))
@@ -85532,7 +85535,7 @@ def draw_objects():
                 spark_offset = random.randint(-5, 5)
                 draw.circle((200, 220, 255), 
                                   (antenna_right_x + spark_offset, antenna_tip_y + random.randint(-3, 3)), 1)
-    # 투기장 모드일 때 상단 영웅 패들 그리기 (보스 위에 덮어씌우기)
+    # 투기장 모드일 때 상단 영웅 패들 그리기 (보스 대신)
     if arena_mode_enabled and arena_top_hero and arena_hero_paddle_renderer:
         try:
             # 상단 영웅 패들 그리기 (보스 위치)
@@ -85544,7 +85547,8 @@ def draw_objects():
                 BOSS.width,
                 BOSS.height,
                 facing="down",
-                color=arena_top_hero["color"]
+                color=arena_top_hero["color"],
+                scale_mode="paddle"
             )
         except Exception as e:
             pass
@@ -87006,7 +87010,8 @@ def draw_objects():
                 player_rect.width,
                 player_rect.height,
                 facing="up",
-                color=arena_bottom_hero["color"]
+                color=arena_bottom_hero["color"],
+                scale_mode="paddle"
             )
             _arena_paddle_drawn = True
         except Exception as e:
