@@ -1960,7 +1960,7 @@ class DowntownManager:
 
         clock = pygame.time.Clock()
         running = True
-        show_entry_dialog = True  # 입장 확인 다이얼로그
+        show_entry_dialog = False  # NPC 상호작용 시에만 표시
         arena_running = False
 
         while running:
@@ -1975,7 +1975,17 @@ class DowntownManager:
                     if event.key == pygame.K_ESCAPE:
                         if arena_running:
                             continue  # 아레나 진행 중에는 ESC 무시
+                        if show_entry_dialog:
+                            show_entry_dialog = False  # 다이얼로그 닫기
+                            continue
                         running = False
+
+                    # Z키로 NPC 상호작용 - 메인 NPC (아레나 마스터)와 대화
+                    if event.key == pygame.K_z and not show_entry_dialog and not arena_running:
+                        # 플레이어가 메인 NPC 근처에 있는지 확인
+                        if interior.is_near_main_npc():
+                            player_gold = self.player_data.get('gold', 0)  # 골드 갱신
+                            show_entry_dialog = True
 
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     mx, my = event.pos
@@ -2022,7 +2032,15 @@ class DowntownManager:
                                 running = False
 
                         elif cancel_btn.collidepoint(mx, my):
-                            running = False
+                            show_entry_dialog = False  # 다이얼로그 닫고 계속 탐색
+
+            # 플레이어 이동 처리 (다이얼로그가 열려있지 않을 때)
+            if not show_entry_dialog and not arena_running:
+                interior.update(dt)
+
+                # 문 출구로 나가기 체크
+                if interior.exit_requested:
+                    running = False
 
             # 그리기
             interior.draw(self.screen)
@@ -2047,8 +2065,8 @@ class DowntownManager:
         pygame.draw.rect(self.screen, (255, 180, 0), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
 
         # 타이틀
-        if self._freetype_fonts and "menu" in self._freetype_fonts:
-            title, _ = self._freetype_fonts["menu"].render("고대 투기장", (255, 215, 0))
+        if self._freetype_fonts and "medium" in self._freetype_fonts:
+            title, _ = self._freetype_fonts["medium"].render("고대 투기장", (255, 215, 0))
             self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, panel_y + 20))
 
         # 설명
@@ -2074,12 +2092,12 @@ class DowntownManager:
         cancel_btn = pygame.Rect(390, 420, 120, 45)
         pygame.draw.rect(self.screen, (180, 80, 80), cancel_btn, border_radius=5)
 
-        if self._freetype_fonts and "menu" in self._freetype_fonts:
+        if self._freetype_fonts and "medium" in self._freetype_fonts:
             text_color = (255, 255, 255) if can_enter else (100, 100, 100)
-            entry_text, _ = self._freetype_fonts["menu"].render("입장하기", text_color)
+            entry_text, _ = self._freetype_fonts["medium"].render("입장하기", text_color)
             self.screen.blit(entry_text, (entry_btn.centerx - entry_text.get_width() // 2, entry_btn.y + 12))
 
-            cancel_text, _ = self._freetype_fonts["menu"].render("나가기", (255, 255, 255))
+            cancel_text, _ = self._freetype_fonts["medium"].render("나가기", (255, 255, 255))
             self.screen.blit(cancel_text, (cancel_btn.centerx - cancel_text.get_width() // 2, cancel_btn.y + 12))
 
     def _show_placeholder(self, building_type):

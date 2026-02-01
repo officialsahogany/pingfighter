@@ -4758,6 +4758,13 @@ class BuildingInterior:
 
         return closest_npc
 
+    def is_near_main_npc(self):
+        """플레이어가 메인 NPC 근처에 있는지 확인 (100픽셀 이내)"""
+        if not self.nearby_npc:
+            return False
+        # NPC의 role이 "main"이면 메인 NPC
+        return getattr(self.nearby_npc, 'role', None) == "main"
+
     def handle_click(self, pos, button=1):
         """클릭 처리 (button: 1=좌클릭, 3=우클릭)"""
         # 크레인 게임 플레이 중일 때
