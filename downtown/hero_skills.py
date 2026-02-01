@@ -601,6 +601,29 @@ class HellFire(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         self.flame_intensity = max(0, self.flame_intensity - dt * 0.3)
 
+        # 🔥 지옥불 효과: 공이 자유자재로 움직임 (불규칙한 곡선 경로)
+        # 시간 기반 사인파 + 랜덤 변동으로 예측 불가능한 움직임 생성
+        self.hell_time = getattr(self, 'hell_time', 0) + dt
+
+        # 사인파 기반 곡선 움직임 (좌우로 흔들림)
+        wave_intensity = 150  # 흔들림 강도
+        wave_speed = 8  # 흔들림 속도
+        curve_force = math.sin(self.hell_time * wave_speed) * wave_intensity * dt
+
+        # 공의 X 속도에 곡선 힘 적용
+        ball.vx += curve_force
+
+        # 간헐적으로 급격한 방향 전환 (10% 확률)
+        if random.random() < 0.10:
+            # 속도 벡터를 약간 회전
+            angle_change = random.uniform(-0.3, 0.3)  # 라디안
+            cos_a = math.cos(angle_change)
+            sin_a = math.sin(angle_change)
+            new_vx = ball.vx * cos_a - ball.vy * sin_a
+            new_vy = ball.vx * sin_a + ball.vy * cos_a
+            ball.vx = new_vx
+            ball.vy = new_vy
+
         # 공 주변 불꽃 파티클 추가
         if random.random() < 0.5:
             self.fire_particles.append({
@@ -623,6 +646,7 @@ class HellFire(HeroSkill):
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['ball_on_fire'] = False
         self.fire_particles = []
+        self.hell_time = 0  # 타이머 리셋
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
