@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 콜로세움 영웅 패들 렌더러
-8명의 영웅 각각 고유한 패들 이미지 + 이동 애니메이션
+8명의 영웅 - 사람 형태의 캐릭터 (스매셔/발토르 스타일)
 """
 
 import pygame
@@ -10,11 +10,10 @@ from typing import Dict, Tuple, Optional
 
 
 class HeroPaddleRenderer:
-    """영웅 패들 렌더링 클래스"""
+    """영웅 패들 렌더링 클래스 - 사람 형태"""
 
     def __init__(self):
         self.animation_time = 0.0
-        # 각 영웅별 애니메이션 상태
         self.hero_states: Dict[str, Dict] = {}
 
     def update(self, dt: float):
@@ -25,7 +24,7 @@ class HeroPaddleRenderer:
         """영웅 상태 가져오기/생성"""
         if hero_id not in self.hero_states:
             self.hero_states[hero_id] = {
-                'move_direction': 0,  # -1: 왼쪽, 0: 정지, 1: 오른쪽
+                'move_direction': 0,
                 'move_timer': 0.0,
                 'prev_x': 0,
             }
@@ -34,604 +33,785 @@ class HeroPaddleRenderer:
     def update_movement(self, hero_id: str, current_x: float, dt: float):
         """이동 상태 업데이트"""
         state = self.get_hero_state(hero_id)
-
-        # 이동 방향 감지
         dx = current_x - state['prev_x']
         if abs(dx) > 0.5:
             state['move_direction'] = 1 if dx > 0 else -1
-            state['move_timer'] = 0.15  # 이동 애니메이션 지속 시간
-
-        # 타이머 감소
+            state['move_timer'] = 0.2
         if state['move_timer'] > 0:
             state['move_timer'] -= dt
         else:
             state['move_direction'] = 0
-
         state['prev_x'] = current_x
 
     def draw_hero_paddle(self, screen: pygame.Surface, hero_id: str,
                          x: float, y: float, width: int, height: int,
                          facing: str = "down", color: Tuple[int, int, int] = (200, 200, 200)):
-        """영웅 패들 그리기
-
-        Args:
-            screen: 화면
-            hero_id: 영웅 ID
-            x, y: 패들 중심 좌표
-            width, height: 패들 크기
-            facing: "down" (상단 영웅) 또는 "up" (하단 영웅)
-            color: 영웅 기본 색상
-        """
+        """영웅 패들 그리기 (사람 형태)"""
         state = self.get_hero_state(hero_id)
         move_dir = state['move_direction']
+        lean = move_dir * 3 if state['move_timer'] > 0 else 0
 
-        # 이동 시 기울기
-        tilt = move_dir * 8 if state['move_timer'] > 0 else 0
+        # 기본 단위 (스케일)
+        b = max(4, width // 16)
 
-        # 영웅별 그리기
         if hero_id == "gallita":
-            self._draw_gallita(screen, x, y, width, height, facing, tilt, color)
+            self._draw_gallita(screen, x, y, b, facing, lean, color)
         elif hero_id == "archines":
-            self._draw_archines(screen, x, y, width, height, facing, tilt, color)
-        elif hero_id == "chungkia":  # 토키아 (id는 chungkia로 유지)
-            self._draw_tokia(screen, x, y, width, height, facing, tilt, color)
+            self._draw_archines(screen, x, y, b, facing, lean, color)
+        elif hero_id == "chungkia":
+            self._draw_tokia(screen, x, y, b, facing, lean, color)
         elif hero_id == "poineth":
-            self._draw_poineth(screen, x, y, width, height, facing, tilt, color)
+            self._draw_poineth(screen, x, y, b, facing, lean, color)
         elif hero_id == "gestand":
-            self._draw_gestand(screen, x, y, width, height, facing, tilt, color)
+            self._draw_gestand(screen, x, y, b, facing, lean, color)
         elif hero_id == "bukandai":
-            self._draw_bukandai(screen, x, y, width, height, facing, tilt, color)
+            self._draw_bukandai(screen, x, y, b, facing, lean, color)
         elif hero_id == "pinjo":
-            self._draw_pinjo(screen, x, y, width, height, facing, tilt, color)
+            self._draw_pinjo(screen, x, y, b, facing, lean, color)
         elif hero_id == "alexa":
-            self._draw_alexa(screen, x, y, width, height, facing, tilt, color)
+            self._draw_alexa(screen, x, y, b, facing, lean, color)
         else:
-            # 기본 패들
-            self._draw_default(screen, x, y, width, height, facing, tilt, color)
+            self._draw_default(screen, x, y, b, facing, lean, color)
 
     # ========================================================================
-    # 상단 영웅들 (아래를 바라봄)
+    # 갤리타 - 폭풍의 여전사 (번개/스피드 테마)
     # ========================================================================
+    def _draw_gallita(self, screen, cx, cy, b, facing, lean, color):
+        """갤리타 - 민첩한 여전사, 번개 창"""
+        cx = int(cx) + lean
+        cy = int(cy)
+        flip = 1 if facing == "down" else -1
 
-    def _draw_gallita(self, screen, x, y, width, height, facing, tilt, color):
-        """갤리타 - 폭풍의 여전사 (번개 테마)"""
-        # 기본 색상
-        main_color = (60, 200, 120)
-        dark_color = (40, 150, 90)
-        light_color = (100, 230, 150)
-        lightning_color = (255, 255, 150)
+        # 색상 팔레트
+        main = (60, 200, 120)
+        dark = (40, 150, 90)
+        light = (100, 230, 160)
+        skin = (255, 220, 190)
+        hair = (255, 230, 100)  # 금발
+        lightning = (255, 255, 150)
 
-        cx, cy = int(x), int(y)
-        hw, hh = width // 2, height // 2
+        torso_y = cy - int(1.5 * b) * flip
 
-        # 그림자
-        shadow_offset = 3
-        pygame.draw.ellipse(screen, (30, 30, 30),
-                           (cx - hw - 2, cy + shadow_offset, width + 4, height + 4))
-
-        # 몸통 (날렵한 형태)
-        body_points = [
-            (cx - hw + tilt, cy - hh),
-            (cx + hw + tilt, cy - hh),
-            (cx + hw - 5, cy + hh),
-            (cx - hw + 5, cy + hh),
-        ]
-        pygame.draw.polygon(screen, main_color, body_points)
-        pygame.draw.polygon(screen, dark_color, body_points, 2)
-
+        # === 머리/헬멧 ===
+        head_y = torso_y - int(3 * b) * flip
+        head_r = int(1.8 * b)
         # 머리
-        head_y = cy - hh - 12 if facing == "down" else cy + hh + 12
-        head_radius = 10
-        pygame.draw.circle(screen, main_color, (cx + tilt, head_y), head_radius)
-        pygame.draw.circle(screen, dark_color, (cx + tilt, head_y), head_radius, 2)
-
-        # 눈 (아래/위를 바라봄)
-        eye_offset_y = 3 if facing == "down" else -3
-        pygame.draw.circle(screen, (255, 255, 255), (cx - 3 + tilt, head_y + eye_offset_y), 3)
-        pygame.draw.circle(screen, (255, 255, 255), (cx + 3 + tilt, head_y + eye_offset_y), 3)
-        pygame.draw.circle(screen, (0, 0, 0), (cx - 3 + tilt, head_y + eye_offset_y + 1), 2)
-        pygame.draw.circle(screen, (0, 0, 0), (cx + 3 + tilt, head_y + eye_offset_y + 1), 2)
-
-        # 번개 모양 머리카락
-        hair_y = head_y - 8 if facing == "down" else head_y + 8
-        lightning_points = [
-            (cx - 8 + tilt, hair_y),
-            (cx - 3 + tilt, hair_y - 6),
-            (cx + tilt, hair_y - 2),
-            (cx + 3 + tilt, hair_y - 8),
-            (cx + 8 + tilt, hair_y - 3),
+        pygame.draw.circle(screen, skin, (cx, head_y), head_r)
+        # 머리카락 (번개 모양 뾰족한 스타일)
+        hair_y = head_y - int(1.2 * b) * flip
+        hair_points = [
+            (cx - int(1.5 * b), head_y - int(0.5 * b) * flip),
+            (cx - int(0.8 * b), hair_y - int(1 * b) * flip),
+            (cx - int(0.3 * b), head_y - int(0.8 * b) * flip),
+            (cx + int(0.3 * b), hair_y - int(1.5 * b) * flip),
+            (cx + int(0.8 * b), head_y - int(0.6 * b) * flip),
+            (cx + int(1.5 * b), hair_y - int(0.8 * b) * flip),
         ]
-        if facing == "up":
-            lightning_points = [(p[0], head_y + (head_y - p[1])) for p in lightning_points]
-        pygame.draw.lines(screen, lightning_color, False, lightning_points, 3)
+        pygame.draw.polygon(screen, hair, hair_points)
 
-        # 번개 이펙트 (이동 시)
-        if tilt != 0:
-            bolt_x = cx + (15 if tilt > 0 else -15)
-            bolt_y = cy
-            self._draw_lightning_bolt(screen, bolt_x, bolt_y, facing)
+        # 눈
+        eye_y = head_y + int(0.3 * b) * flip
+        pygame.draw.circle(screen, (255, 255, 255), (cx - int(0.5 * b), eye_y), int(0.4 * b))
+        pygame.draw.circle(screen, (255, 255, 255), (cx + int(0.5 * b), eye_y), int(0.4 * b))
+        pygame.draw.circle(screen, (30, 100, 60), (cx - int(0.5 * b), eye_y + int(0.1 * b) * flip), int(0.25 * b))
+        pygame.draw.circle(screen, (30, 100, 60), (cx + int(0.5 * b), eye_y + int(0.1 * b) * flip), int(0.25 * b))
 
-    def _draw_archines(self, screen, x, y, width, height, facing, tilt, color):
-        """아르키네스 - 철벽의 수호자 (방패 테마)"""
-        main_color = (60, 120, 220)
-        dark_color = (40, 90, 180)
-        light_color = (100, 160, 255)
-        shield_color = (180, 180, 200)
+        # === 몸통 (갑옷) ===
+        torso_w = int(3 * b)
+        torso_h = int(2.5 * b)
+        torso_rect = pygame.Rect(cx - torso_w // 2, torso_y - int(0.5 * b) * flip if flip == 1 else torso_y - torso_h + int(0.5 * b), torso_w, torso_h)
+        pygame.draw.rect(screen, main, torso_rect, border_radius=int(0.5 * b))
+        pygame.draw.rect(screen, dark, torso_rect, 2, border_radius=int(0.5 * b))
 
-        cx, cy = int(x), int(y)
-        hw, hh = width // 2, height // 2
+        # 가슴 장식 (번개 문양)
+        chest_cx = cx
+        chest_cy = torso_rect.centery
+        pygame.draw.polygon(screen, lightning, [
+            (chest_cx, chest_cy - int(0.8 * b)),
+            (chest_cx + int(0.3 * b), chest_cy),
+            (chest_cx, chest_cy + int(0.2 * b)),
+            (chest_cx - int(0.3 * b), chest_cy),
+        ])
 
-        # 그림자
-        pygame.draw.ellipse(screen, (30, 30, 30),
-                           (cx - hw - 2, cy + 3, width + 4, height + 4))
+        # === 어깨 보호대 ===
+        shoulder_y = torso_y - int(0.3 * b) * flip
+        # 왼쪽
+        pygame.draw.ellipse(screen, light, (cx - int(2.2 * b), shoulder_y - int(0.6 * b), int(1.2 * b), int(1.2 * b)))
+        pygame.draw.ellipse(screen, dark, (cx - int(2.2 * b), shoulder_y - int(0.6 * b), int(1.2 * b), int(1.2 * b)), 2)
+        # 오른쪽
+        pygame.draw.ellipse(screen, light, (cx + int(1 * b), shoulder_y - int(0.6 * b), int(1.2 * b), int(1.2 * b)))
+        pygame.draw.ellipse(screen, dark, (cx + int(1 * b), shoulder_y - int(0.6 * b), int(1.2 * b), int(1.2 * b)), 2)
 
-        # 넓은 몸통 (방패같은 형태)
-        body_rect = pygame.Rect(cx - hw + tilt//2, cy - hh, width, height + 5)
-        pygame.draw.rect(screen, main_color, body_rect, border_radius=5)
-        pygame.draw.rect(screen, dark_color, body_rect, 3, border_radius=5)
+        # === 팔 ===
+        arm_y = shoulder_y + int(0.3 * b)
+        # 왼팔
+        pygame.draw.line(screen, skin, (cx - int(1.8 * b), arm_y), (cx - int(2.5 * b), arm_y + int(1.5 * b) * flip), int(0.6 * b))
+        # 오른팔 (창 들고 있음)
+        pygame.draw.line(screen, skin, (cx + int(1.8 * b), arm_y), (cx + int(2.5 * b), arm_y + int(1 * b) * flip), int(0.6 * b))
 
-        # 방패 무늬
-        shield_rect = pygame.Rect(cx - 12 + tilt//2, cy - 3, 24, 10)
-        pygame.draw.rect(screen, shield_color, shield_rect, border_radius=2)
-        pygame.draw.rect(screen, dark_color, shield_rect, 1, border_radius=2)
+        # === 번개 창 ===
+        spear_x = cx + int(3 * b)
+        spear_top = arm_y - int(3 * b) * flip
+        spear_bottom = arm_y + int(2 * b) * flip
+        # 창대
+        pygame.draw.line(screen, (180, 150, 100), (spear_x, spear_top), (spear_x, spear_bottom), int(0.3 * b))
+        # 창날 (번개 모양)
+        tip_y = spear_top - int(1.5 * b) * flip
+        pygame.draw.polygon(screen, lightning, [
+            (spear_x, tip_y),
+            (spear_x - int(0.6 * b), spear_top),
+            (spear_x + int(0.6 * b), spear_top),
+        ])
+        # 번개 이펙트
+        self._draw_lightning_spark(screen, spear_x, tip_y, b, flip)
 
-        # 머리 (헬멧)
-        head_y = cy - hh - 10 if facing == "down" else cy + hh + 10
+    # ========================================================================
+    # 아르키네스 - 철벽의 수호자 (방패/수비 테마)
+    # ========================================================================
+    def _draw_archines(self, screen, cx, cy, b, facing, lean, color):
+        """아르키네스 - 중갑 전사, 큰 방패"""
+        cx = int(cx) + lean
+        cy = int(cy)
+        flip = 1 if facing == "down" else -1
+
+        main = (60, 120, 220)
+        dark = (40, 80, 180)
+        light = (100, 160, 255)
+        metal = (180, 190, 200)
+        skin = (240, 210, 180)
+
+        torso_y = cy - int(1.5 * b) * flip
+
+        # === 헬멧 ===
+        head_y = torso_y - int(3 * b) * flip
         # 헬멧 본체
-        pygame.draw.circle(screen, shield_color, (cx + tilt//2, head_y), 11)
-        pygame.draw.circle(screen, (100, 100, 120), (cx + tilt//2, head_y), 11, 2)
+        helmet_rect = pygame.Rect(cx - int(1.8 * b), head_y - int(1.5 * b), int(3.6 * b), int(3 * b))
+        pygame.draw.ellipse(screen, metal, helmet_rect)
+        pygame.draw.ellipse(screen, dark, helmet_rect, 2)
 
-        # 헬멧 장식
-        crest_y = head_y - 8 if facing == "down" else head_y + 8
-        pygame.draw.rect(screen, main_color, (cx - 2 + tilt//2, crest_y - 5, 4, 10))
+        # 헬멧 장식 (크레스트)
+        crest_top = head_y - int(2.5 * b) * flip
+        pygame.draw.rect(screen, main, (cx - int(0.3 * b), crest_top - int(1 * b), int(0.6 * b), int(1.5 * b)), border_radius=2)
 
-        # 눈 (헬멧 슬릿)
-        eye_y = head_y + 2 if facing == "down" else head_y - 2
-        pygame.draw.rect(screen, (20, 20, 40), (cx - 8 + tilt//2, eye_y, 16, 3))
+        # 바이저 (T자 슬릿)
+        visor_y = head_y + int(0.3 * b) * flip
+        pygame.draw.rect(screen, (30, 30, 40), (cx - int(1.2 * b), visor_y - int(0.15 * b), int(2.4 * b), int(0.3 * b)))
+        pygame.draw.rect(screen, (30, 30, 40), (cx - int(0.15 * b), visor_y - int(0.15 * b), int(0.3 * b), int(0.8 * b)))
         # 눈빛
-        pygame.draw.rect(screen, (200, 220, 255), (cx - 5 + tilt//2, eye_y, 4, 2))
-        pygame.draw.rect(screen, (200, 220, 255), (cx + 2 + tilt//2, eye_y, 4, 2))
+        pygame.draw.rect(screen, (150, 200, 255), (cx - int(0.8 * b), visor_y - int(0.1 * b), int(0.4 * b), int(0.2 * b)))
+        pygame.draw.rect(screen, (150, 200, 255), (cx + int(0.4 * b), visor_y - int(0.1 * b), int(0.4 * b), int(0.2 * b)))
 
-    def _draw_tokia(self, screen, x, y, width, height, facing, tilt, color):
-        """토키아 - 바위의 거인 (거대하고 둔중한 느낌)"""
-        main_color = (200, 140, 60)
-        dark_color = (150, 100, 40)
-        light_color = (230, 180, 100)
-        rock_color = (140, 130, 110)
+        # === 몸통 (중갑) ===
+        torso_w = int(4 * b)
+        torso_h = int(3 * b)
+        torso_rect = pygame.Rect(cx - torso_w // 2, torso_y - int(0.5 * b) * flip if flip == 1 else torso_y - torso_h + int(0.5 * b), torso_w, torso_h)
+        pygame.draw.rect(screen, main, torso_rect, border_radius=int(0.4 * b))
+        pygame.draw.rect(screen, dark, torso_rect, 2, border_radius=int(0.4 * b))
 
-        cx, cy = int(x), int(y)
-        hw, hh = width // 2, height // 2
+        # 갑옷 패턴
+        inner_rect = torso_rect.inflate(-int(0.8 * b), -int(0.6 * b))
+        pygame.draw.rect(screen, light, inner_rect, 2, border_radius=int(0.3 * b))
 
-        # 큰 그림자
-        pygame.draw.ellipse(screen, (30, 30, 30),
-                           (cx - hw - 5, cy + 4, width + 10, height + 6))
-
-        # 넓고 두꺼운 몸통
-        body_points = [
-            (cx - hw - 5 + tilt//3, cy - hh),
-            (cx + hw + 5 + tilt//3, cy - hh),
-            (cx + hw + 8, cy + hh + 3),
-            (cx - hw - 8, cy + hh + 3),
+        # === 어깨 (큰 견갑) ===
+        shoulder_y = torso_y - int(0.5 * b) * flip
+        # 왼쪽 견갑
+        left_pauldron = [
+            (cx - int(2.2 * b), shoulder_y - int(0.8 * b)),
+            (cx - int(1.2 * b), shoulder_y - int(1 * b)),
+            (cx - int(0.8 * b), shoulder_y + int(0.8 * b)),
+            (cx - int(2.5 * b), shoulder_y + int(1 * b)),
         ]
-        pygame.draw.polygon(screen, main_color, body_points)
-        pygame.draw.polygon(screen, dark_color, body_points, 3)
+        pygame.draw.polygon(screen, metal, left_pauldron)
+        pygame.draw.polygon(screen, dark, left_pauldron, 2)
+        # 오른쪽 견갑
+        right_pauldron = [
+            (cx + int(2.2 * b), shoulder_y - int(0.8 * b)),
+            (cx + int(1.2 * b), shoulder_y - int(1 * b)),
+            (cx + int(0.8 * b), shoulder_y + int(0.8 * b)),
+            (cx + int(2.5 * b), shoulder_y + int(1 * b)),
+        ]
+        pygame.draw.polygon(screen, metal, right_pauldron)
+        pygame.draw.polygon(screen, dark, right_pauldron, 2)
 
-        # 바위 질감
+        # === 팔 ===
+        arm_y = shoulder_y + int(0.5 * b)
+        pygame.draw.line(screen, metal, (cx - int(2 * b), arm_y), (cx - int(2.8 * b), arm_y + int(1.5 * b) * flip), int(0.7 * b))
+        pygame.draw.line(screen, metal, (cx + int(2 * b), arm_y), (cx + int(2.8 * b), arm_y + int(1.2 * b) * flip), int(0.7 * b))
+
+        # === 큰 방패 (왼손) ===
+        shield_cx = cx - int(3.5 * b)
+        shield_cy = arm_y + int(1 * b) * flip
+        shield_w = int(2.5 * b)
+        shield_h = int(4 * b)
+        shield_rect = pygame.Rect(shield_cx - shield_w // 2, shield_cy - shield_h // 2, shield_w, shield_h)
+        pygame.draw.rect(screen, main, shield_rect, border_radius=int(0.3 * b))
+        pygame.draw.rect(screen, light, shield_rect, 3, border_radius=int(0.3 * b))
+        # 방패 문양 (십자)
+        pygame.draw.line(screen, metal, (shield_cx, shield_rect.top + int(0.5 * b)), (shield_cx, shield_rect.bottom - int(0.5 * b)), int(0.4 * b))
+        pygame.draw.line(screen, metal, (shield_rect.left + int(0.4 * b), shield_cy), (shield_rect.right - int(0.4 * b), shield_cy), int(0.4 * b))
+
+    # ========================================================================
+    # 토키아 - 바위의 거인 (거대/둔중 테마)
+    # ========================================================================
+    def _draw_tokia(self, screen, cx, cy, b, facing, lean, color):
+        """토키아 - 거대한 바위 전사"""
+        cx = int(cx) + lean // 2  # 느린 반응
+        cy = int(cy)
+        flip = 1 if facing == "down" else -1
+        b = int(b * 1.2)  # 더 큰 캐릭터
+
+        main = (200, 140, 60)
+        dark = (150, 100, 40)
+        light = (230, 180, 100)
+        rock = (140, 130, 110)
+        skin = (180, 140, 100)
+
+        torso_y = cy - int(1.5 * b) * flip
+
+        # === 머리 ===
+        head_y = torso_y - int(3 * b) * flip
+        head_r = int(2 * b)
+        pygame.draw.circle(screen, skin, (cx, head_y), head_r)
+        pygame.draw.circle(screen, dark, (cx, head_y), head_r, 2)
+
+        # 바위 같은 이마 장식
+        brow_y = head_y - int(0.5 * b) * flip
         for i in range(3):
-            rx = cx - 15 + i * 15 + tilt//3
-            ry = cy - 2 + (i % 2) * 4
-            pygame.draw.circle(screen, rock_color, (rx, ry), 4)
-            pygame.draw.circle(screen, dark_color, (rx, ry), 4, 1)
-
-        # 큰 머리
-        head_y = cy - hh - 14 if facing == "down" else cy + hh + 14
-        head_radius = 14
-        pygame.draw.circle(screen, main_color, (cx + tilt//3, head_y), head_radius)
-        pygame.draw.circle(screen, dark_color, (cx + tilt//3, head_y), head_radius, 3)
+            rock_x = cx - int(1 * b) + i * int(1 * b)
+            pygame.draw.circle(screen, rock, (rock_x, brow_y), int(0.4 * b))
 
         # 작은 눈 (둔해 보이게)
-        eye_offset_y = 4 if facing == "down" else -4
-        pygame.draw.circle(screen, (255, 255, 255), (cx - 5 + tilt//3, head_y + eye_offset_y), 3)
-        pygame.draw.circle(screen, (255, 255, 255), (cx + 5 + tilt//3, head_y + eye_offset_y), 3)
-        pygame.draw.circle(screen, (60, 40, 20), (cx - 5 + tilt//3, head_y + eye_offset_y), 2)
-        pygame.draw.circle(screen, (60, 40, 20), (cx + 5 + tilt//3, head_y + eye_offset_y), 2)
+        eye_y = head_y + int(0.5 * b) * flip
+        pygame.draw.circle(screen, (60, 40, 20), (cx - int(0.5 * b), eye_y), int(0.3 * b))
+        pygame.draw.circle(screen, (60, 40, 20), (cx + int(0.5 * b), eye_y), int(0.3 * b))
 
         # 두꺼운 눈썹
-        brow_y = head_y + eye_offset_y - 4
-        pygame.draw.line(screen, dark_color,
-                        (cx - 8 + tilt//3, brow_y), (cx - 2 + tilt//3, brow_y - 1), 3)
-        pygame.draw.line(screen, dark_color,
-                        (cx + 2 + tilt//3, brow_y - 1), (cx + 8 + tilt//3, brow_y), 3)
+        brow_line_y = eye_y - int(0.4 * b) * flip
+        pygame.draw.line(screen, dark, (cx - int(1 * b), brow_line_y + int(0.1 * b)), (cx - int(0.2 * b), brow_line_y), int(0.3 * b))
+        pygame.draw.line(screen, dark, (cx + int(0.2 * b), brow_line_y), (cx + int(1 * b), brow_line_y + int(0.1 * b)), int(0.3 * b))
 
-    def _draw_poineth(self, screen, x, y, width, height, facing, tilt, color):
-        """포이네스 - 그림자 암살자 (날렵하고 신비로운)"""
-        main_color = (160, 60, 200)
-        dark_color = (100, 40, 140)
-        light_color = (200, 120, 255)
-        shadow_color = (60, 30, 80)
+        # === 거대한 몸통 ===
+        torso_w = int(5 * b)
+        torso_h = int(3.5 * b)
+        torso_rect = pygame.Rect(cx - torso_w // 2, torso_y - int(0.5 * b) * flip if flip == 1 else torso_y - torso_h + int(0.5 * b), torso_w, torso_h)
+        pygame.draw.rect(screen, main, torso_rect, border_radius=int(0.6 * b))
+        pygame.draw.rect(screen, dark, torso_rect, 3, border_radius=int(0.6 * b))
 
-        cx, cy = int(x), int(y)
-        hw, hh = width // 2, height // 2
+        # 바위 질감
+        for i in range(4):
+            rx = torso_rect.x + int(0.8 * b) + i * int(1 * b)
+            ry = torso_rect.centery + ((i % 2) - 0.5) * int(0.5 * b)
+            pygame.draw.circle(screen, rock, (int(rx), int(ry)), int(0.5 * b))
+            pygame.draw.circle(screen, dark, (int(rx), int(ry)), int(0.5 * b), 1)
 
-        # 흐릿한 그림자 (여러 개로 잔상 효과)
-        for i in range(3):
-            offset = (i - 1) * 4
-            alpha_surf = pygame.Surface((width + 10, height + 10), pygame.SRCALPHA)
-            pygame.draw.ellipse(alpha_surf, (30, 20, 40, 80 - i * 20),
-                               (0, 3, width + 10, height + 4))
-            screen.blit(alpha_surf, (cx - hw - 5 + offset, cy - 2))
+        # === 거대한 어깨 ===
+        shoulder_y = torso_y - int(0.5 * b) * flip
+        pygame.draw.ellipse(screen, main, (cx - int(3 * b), shoulder_y - int(1 * b), int(1.8 * b), int(2 * b)))
+        pygame.draw.ellipse(screen, dark, (cx - int(3 * b), shoulder_y - int(1 * b), int(1.8 * b), int(2 * b)), 2)
+        pygame.draw.ellipse(screen, main, (cx + int(1.2 * b), shoulder_y - int(1 * b), int(1.8 * b), int(2 * b)))
+        pygame.draw.ellipse(screen, dark, (cx + int(1.2 * b), shoulder_y - int(1 * b), int(1.8 * b), int(2 * b)), 2)
 
-        # 날렵한 몸통
-        body_points = [
-            (cx - hw + 8 + tilt, cy - hh),
-            (cx + hw - 8 + tilt, cy - hh),
-            (cx + hw - 3, cy + hh),
-            (cx - hw + 3, cy + hh),
-        ]
-        pygame.draw.polygon(screen, main_color, body_points)
-        pygame.draw.polygon(screen, light_color, body_points, 1)
+        # === 두꺼운 팔 ===
+        arm_y = shoulder_y + int(0.8 * b)
+        pygame.draw.line(screen, skin, (cx - int(2.5 * b), arm_y), (cx - int(3.5 * b), arm_y + int(2 * b) * flip), int(1 * b))
+        pygame.draw.line(screen, skin, (cx + int(2.5 * b), arm_y), (cx + int(3.5 * b), arm_y + int(2 * b) * flip), int(1 * b))
 
-        # 후드 머리
-        head_y = cy - hh - 10 if facing == "down" else cy + hh + 10
+        # 큰 주먹
+        pygame.draw.circle(screen, skin, (cx - int(3.5 * b), arm_y + int(2.2 * b) * flip), int(0.8 * b))
+        pygame.draw.circle(screen, skin, (cx + int(3.5 * b), arm_y + int(2.2 * b) * flip), int(0.8 * b))
 
+    # ========================================================================
+    # 포이네스 - 그림자 암살자 (스텔스/닌자 테마)
+    # ========================================================================
+    def _draw_poineth(self, screen, cx, cy, b, facing, lean, color):
+        """포이네스 - 그림자 암살자, 날렵한 자세"""
+        cx = int(cx) + lean
+        cy = int(cy)
+        flip = 1 if facing == "down" else -1
+
+        main = (160, 60, 200)
+        dark = (100, 40, 140)
+        light = (200, 120, 255)
+        shadow = (40, 20, 60)
+        skin = (220, 200, 180)
+
+        torso_y = cy - int(1.5 * b) * flip
+
+        # === 후드 머리 ===
+        head_y = torso_y - int(3 * b) * flip
         # 후드
         hood_points = [
-            (cx - 12 + tilt, head_y + (5 if facing == "down" else -5)),
-            (cx + tilt, head_y - (10 if facing == "down" else -10)),
-            (cx + 12 + tilt, head_y + (5 if facing == "down" else -5)),
+            (cx - int(2 * b), head_y + int(0.8 * b) * flip),
+            (cx, head_y - int(2 * b) * flip),
+            (cx + int(2 * b), head_y + int(0.8 * b) * flip),
+            (cx + int(1.5 * b), head_y + int(1.5 * b) * flip),
+            (cx - int(1.5 * b), head_y + int(1.5 * b) * flip),
         ]
-        pygame.draw.polygon(screen, shadow_color, hood_points)
+        pygame.draw.polygon(screen, dark, hood_points)
+        pygame.draw.polygon(screen, main, hood_points, 2)
 
-        # 얼굴 (어둡게)
-        pygame.draw.circle(screen, (40, 20, 50), (cx + tilt, head_y), 7)
+        # 그림자 속 얼굴
+        pygame.draw.circle(screen, shadow, (cx, head_y + int(0.3 * b) * flip), int(1 * b))
 
         # 빛나는 눈
-        eye_offset_y = 2 if facing == "down" else -2
-        glow_time = math.sin(self.animation_time * 5) * 0.3 + 0.7
-        eye_color = (int(200 * glow_time), int(100 * glow_time), int(255 * glow_time))
-        pygame.draw.circle(screen, eye_color, (cx - 3 + tilt, head_y + eye_offset_y), 2)
-        pygame.draw.circle(screen, eye_color, (cx + 3 + tilt, head_y + eye_offset_y), 2)
+        eye_y = head_y + int(0.3 * b) * flip
+        glow = int(128 + 127 * math.sin(self.animation_time * 5))
+        eye_color = (glow, int(glow * 0.5), 255)
+        pygame.draw.circle(screen, eye_color, (cx - int(0.4 * b), eye_y), int(0.25 * b))
+        pygame.draw.circle(screen, eye_color, (cx + int(0.4 * b), eye_y), int(0.25 * b))
 
-        # 이동 시 잔상
-        if tilt != 0:
-            trail_offset = -tilt * 2
-            trail_surf = pygame.Surface((width, height + 20), pygame.SRCALPHA)
-            trail_points = [(p[0] - cx + hw + trail_offset, p[1] - cy + hh + 10) for p in body_points]
-            pygame.draw.polygon(trail_surf, (160, 60, 200, 60), trail_points)
-            screen.blit(trail_surf, (cx - hw, cy - hh - 10))
-
-    # ========================================================================
-    # 하단 영웅들 (위를 바라봄)
-    # ========================================================================
-
-    def _draw_gestand(self, screen, x, y, width, height, facing, tilt, color):
-        """게스탄드 - 현명한 전술가 (책/두루마리 테마)"""
-        main_color = (100, 160, 220)
-        dark_color = (60, 120, 180)
-        light_color = (140, 200, 255)
-        scroll_color = (240, 230, 200)
-
-        cx, cy = int(x), int(y)
-        hw, hh = width // 2, height // 2
-
-        # 그림자
-        pygame.draw.ellipse(screen, (30, 30, 30),
-                           (cx - hw - 2, cy + 3, width + 4, height + 4))
-
-        # 로브 형태 몸통
-        robe_points = [
-            (cx - hw + 3 + tilt, cy - hh - 3),
-            (cx + hw - 3 + tilt, cy - hh - 3),
-            (cx + hw + 5, cy + hh),
-            (cx - hw - 5, cy + hh),
+        # === 날렵한 몸통 ===
+        torso_w = int(2.5 * b)
+        torso_h = int(2.5 * b)
+        body_points = [
+            (cx - torso_w // 2, torso_y - int(0.5 * b) * flip),
+            (cx + torso_w // 2, torso_y - int(0.5 * b) * flip),
+            (cx + int(1 * b), torso_y + int(2 * b) * flip),
+            (cx - int(1 * b), torso_y + int(2 * b) * flip),
         ]
-        pygame.draw.polygon(screen, main_color, robe_points)
-        pygame.draw.polygon(screen, dark_color, robe_points, 2)
+        pygame.draw.polygon(screen, dark, body_points)
+        pygame.draw.polygon(screen, main, body_points, 2)
 
-        # 로브 주름
-        pygame.draw.line(screen, dark_color, (cx - 10 + tilt, cy - hh), (cx - 15, cy + hh), 1)
-        pygame.draw.line(screen, dark_color, (cx + 10 + tilt, cy - hh), (cx + 15, cy + hh), 1)
+        # === 작은 어깨 패드 ===
+        shoulder_y = torso_y - int(0.3 * b) * flip
+        pygame.draw.ellipse(screen, main, (cx - int(2 * b), shoulder_y - int(0.4 * b), int(1 * b), int(0.8 * b)))
+        pygame.draw.ellipse(screen, main, (cx + int(1 * b), shoulder_y - int(0.4 * b), int(1 * b), int(0.8 * b)))
 
-        # 두루마리 장식
-        scroll_y = cy + 2
-        pygame.draw.rect(screen, scroll_color, (cx - 8 + tilt//2, scroll_y - 3, 16, 6), border_radius=2)
-        pygame.draw.rect(screen, dark_color, (cx - 8 + tilt//2, scroll_y - 3, 16, 6), 1, border_radius=2)
+        # === 팔 ===
+        arm_y = shoulder_y + int(0.2 * b)
+        pygame.draw.line(screen, dark, (cx - int(1.5 * b), arm_y), (cx - int(2.5 * b), arm_y + int(1.2 * b) * flip), int(0.4 * b))
+        pygame.draw.line(screen, dark, (cx + int(1.5 * b), arm_y), (cx + int(2.5 * b), arm_y + int(1.2 * b) * flip), int(0.4 * b))
 
-        # 머리 (수염 있는 현자)
-        head_y = cy + hh + 12 if facing == "up" else cy - hh - 12
-        pygame.draw.circle(screen, (220, 190, 160), (cx + tilt//2, head_y), 10)
-        pygame.draw.circle(screen, dark_color, (cx + tilt//2, head_y), 10, 2)
+        # === 단검 (양손) ===
+        # 왼손 단검
+        dagger_start = (cx - int(2.5 * b), arm_y + int(1.3 * b) * flip)
+        dagger_end = (dagger_start[0] - int(1.5 * b), dagger_start[1] - int(0.8 * b) * flip)
+        pygame.draw.line(screen, (200, 200, 220), dagger_start, dagger_end, int(0.2 * b))
+        # 오른손 단검
+        dagger_start2 = (cx + int(2.5 * b), arm_y + int(1.3 * b) * flip)
+        dagger_end2 = (dagger_start2[0] + int(1.5 * b), dagger_start2[1] - int(0.8 * b) * flip)
+        pygame.draw.line(screen, (200, 200, 220), dagger_start2, dagger_end2, int(0.2 * b))
 
-        # 눈 (위를 바라봄)
-        eye_offset_y = -3 if facing == "up" else 3
-        pygame.draw.circle(screen, (255, 255, 255), (cx - 3 + tilt//2, head_y + eye_offset_y), 3)
-        pygame.draw.circle(screen, (255, 255, 255), (cx + 3 + tilt//2, head_y + eye_offset_y), 3)
-        pygame.draw.circle(screen, (40, 80, 120), (cx - 3 + tilt//2, head_y + eye_offset_y - 1), 2)
-        pygame.draw.circle(screen, (40, 80, 120), (cx + 3 + tilt//2, head_y + eye_offset_y - 1), 2)
+        # 잔상 효과 (이동 시)
+        if lean != 0:
+            trail_offset = -lean * 2
+            trail_surf = pygame.Surface((int(6 * b), int(6 * b)), pygame.SRCALPHA)
+            for point in body_points:
+                adjusted = (point[0] - cx + int(3 * b) + trail_offset, point[1] - cy + int(3 * b))
+                if 0 <= adjusted[0] < int(6 * b) and 0 <= adjusted[1] < int(6 * b):
+                    pass
+            pygame.draw.polygon(trail_surf, (160, 60, 200, 60), [
+                (int(3 * b) - torso_w // 2 + trail_offset, int(3 * b) - int(0.5 * b)),
+                (int(3 * b) + torso_w // 2 + trail_offset, int(3 * b) - int(0.5 * b)),
+                (int(3 * b) + int(1 * b) + trail_offset, int(3 * b) + int(2 * b)),
+                (int(3 * b) - int(1 * b) + trail_offset, int(3 * b) + int(2 * b)),
+            ])
+            screen.blit(trail_surf, (cx - int(3 * b), cy - int(3 * b)))
+
+    # ========================================================================
+    # 게스탄드 - 현명한 전술가 (마법사/책 테마)
+    # ========================================================================
+    def _draw_gestand(self, screen, cx, cy, b, facing, lean, color):
+        """게스탄드 - 현자, 마법 지팡이"""
+        cx = int(cx) + lean
+        cy = int(cy)
+        flip = 1 if facing == "down" else -1
+
+        main = (100, 160, 220)
+        dark = (60, 120, 180)
+        light = (140, 200, 255)
+        robe = (60, 80, 140)
+        skin = (240, 220, 200)
+        beard = (200, 200, 210)
+
+        torso_y = cy - int(1.5 * b) * flip
+
+        # === 머리 (수염 있는 현자) ===
+        head_y = torso_y - int(3 * b) * flip
+        head_r = int(1.6 * b)
+        pygame.draw.circle(screen, skin, (cx, head_y), head_r)
+
+        # 짧은 머리카락
+        pygame.draw.arc(screen, (150, 150, 160),
+                       (cx - int(1.5 * b), head_y - int(1.8 * b), int(3 * b), int(2 * b)),
+                       0, math.pi, int(0.4 * b))
+
+        # 눈
+        eye_y = head_y + int(0.2 * b) * flip
+        pygame.draw.circle(screen, (255, 255, 255), (cx - int(0.4 * b), eye_y), int(0.35 * b))
+        pygame.draw.circle(screen, (255, 255, 255), (cx + int(0.4 * b), eye_y), int(0.35 * b))
+        pygame.draw.circle(screen, (40, 80, 120), (cx - int(0.4 * b), eye_y + int(0.05 * b) * flip), int(0.2 * b))
+        pygame.draw.circle(screen, (40, 80, 120), (cx + int(0.4 * b), eye_y + int(0.05 * b) * flip), int(0.2 * b))
 
         # 수염
-        beard_y = head_y + 6 if facing == "up" else head_y - 6
+        beard_top = head_y + int(0.8 * b) * flip
+        beard_bottom = head_y + int(2 * b) * flip
         beard_points = [
-            (cx - 5 + tilt//2, head_y + (4 if facing == "up" else -4)),
-            (cx + tilt//2, beard_y + 5),
-            (cx + 5 + tilt//2, head_y + (4 if facing == "up" else -4)),
+            (cx - int(0.8 * b), beard_top),
+            (cx + int(0.8 * b), beard_top),
+            (cx + int(0.5 * b), beard_bottom),
+            (cx, beard_bottom + int(0.5 * b) * flip),
+            (cx - int(0.5 * b), beard_bottom),
         ]
-        if facing == "down":
-            beard_points = [(p[0], head_y - (p[1] - head_y)) for p in beard_points]
-        pygame.draw.polygon(screen, (200, 200, 210), beard_points)
+        pygame.draw.polygon(screen, beard, beard_points)
 
-    def _draw_bukandai(self, screen, x, y, width, height, facing, tilt, color):
-        """부칸다이 - 광기의 광대 (어릿광대 테마)"""
-        main_color = (220, 80, 180)
-        dark_color = (180, 40, 140)
-        light_color = (255, 140, 220)
-        alt_color = (80, 200, 220)  # 대비색
+        # === 로브 몸통 ===
+        torso_w = int(3.5 * b)
+        torso_h = int(3 * b)
+        robe_points = [
+            (cx - int(1.2 * b), torso_y - int(0.8 * b) * flip),
+            (cx + int(1.2 * b), torso_y - int(0.8 * b) * flip),
+            (cx + int(2 * b), torso_y + int(2.5 * b) * flip),
+            (cx - int(2 * b), torso_y + int(2.5 * b) * flip),
+        ]
+        pygame.draw.polygon(screen, robe, robe_points)
+        pygame.draw.polygon(screen, dark, robe_points, 2)
 
-        cx, cy = int(x), int(y)
-        hw, hh = width // 2, height // 2
+        # 로브 장식
+        pygame.draw.line(screen, main, (cx, torso_y - int(0.5 * b) * flip), (cx, torso_y + int(2 * b) * flip), int(0.3 * b))
 
-        # 그림자
-        pygame.draw.ellipse(screen, (30, 30, 30),
-                           (cx - hw - 2, cy + 3, width + 4, height + 4))
+        # === 어깨 ===
+        shoulder_y = torso_y - int(0.5 * b) * flip
+        pygame.draw.ellipse(screen, main, (cx - int(2 * b), shoulder_y - int(0.5 * b), int(1.2 * b), int(1 * b)))
+        pygame.draw.ellipse(screen, main, (cx + int(0.8 * b), shoulder_y - int(0.5 * b), int(1.2 * b), int(1 * b)))
 
-        # 광대 복장 (지그재그)
-        body_rect = pygame.Rect(cx - hw + tilt, cy - hh, width, height + 3)
-        pygame.draw.rect(screen, main_color, body_rect, border_radius=3)
+        # === 팔 ===
+        arm_y = shoulder_y + int(0.3 * b)
+        pygame.draw.line(screen, robe, (cx - int(1.5 * b), arm_y), (cx - int(2.2 * b), arm_y + int(1.5 * b) * flip), int(0.5 * b))
+        pygame.draw.line(screen, robe, (cx + int(1.5 * b), arm_y), (cx + int(2.5 * b), arm_y + int(1 * b) * flip), int(0.5 * b))
 
-        # 다이아몬드 패턴
-        for i in range(3):
-            dx = cx - 15 + i * 15 + tilt
-            pygame.draw.polygon(screen, alt_color, [
-                (dx, cy - 5), (dx + 5, cy), (dx, cy + 5), (dx - 5, cy)
-            ])
+        # === 마법 지팡이 ===
+        staff_x = cx + int(3 * b)
+        staff_top = arm_y - int(2.5 * b) * flip
+        staff_bottom = arm_y + int(2 * b) * flip
+        pygame.draw.line(screen, (120, 80, 50), (staff_x, staff_top), (staff_x, staff_bottom), int(0.3 * b))
+        # 지팡이 끝 마법 구슬
+        orb_y = staff_top - int(0.5 * b) * flip
+        pygame.draw.circle(screen, (100, 200, 255), (staff_x, orb_y), int(0.6 * b))
+        pygame.draw.circle(screen, (200, 240, 255), (staff_x, orb_y), int(0.3 * b))
 
-        pygame.draw.rect(screen, dark_color, body_rect, 2, border_radius=3)
+    # ========================================================================
+    # 부칸다이 - 광기의 광대 (광대/트릭 테마)
+    # ========================================================================
+    def _draw_bukandai(self, screen, cx, cy, b, facing, lean, color):
+        """부칸다이 - 미친 광대, 폭탄"""
+        cx = int(cx) + lean
+        cy = int(cy)
+        flip = 1 if facing == "down" else -1
 
-        # 머리 (광대 모자)
-        head_y = cy + hh + 12 if facing == "up" else cy - hh - 12
-        pygame.draw.circle(screen, (255, 230, 200), (cx + tilt, head_y), 10)
+        main = (220, 80, 180)
+        dark = (180, 40, 140)
+        alt = (80, 200, 220)
+        skin = (255, 240, 220)
+        yellow = (255, 255, 0)
 
-        # 광대 모자 (삼각형 2개)
-        hat_y = head_y - 8 if facing == "up" else head_y + 8
-        if facing == "up":
-            # 왼쪽 모자
-            pygame.draw.polygon(screen, main_color, [
-                (cx - 10 + tilt, head_y - 5),
-                (cx - 5 + tilt, head_y - 15),
-                (cx + tilt, head_y - 5),
-            ])
-            # 오른쪽 모자
-            pygame.draw.polygon(screen, alt_color, [
-                (cx + tilt, head_y - 5),
-                (cx + 5 + tilt, head_y - 15),
-                (cx + 10 + tilt, head_y - 5),
-            ])
-            # 방울
-            pygame.draw.circle(screen, (255, 255, 0), (cx - 5 + tilt, head_y - 16), 3)
-            pygame.draw.circle(screen, (255, 255, 0), (cx + 5 + tilt, head_y - 16), 3)
-        else:
-            pygame.draw.polygon(screen, main_color, [
-                (cx - 10 + tilt, head_y + 5),
-                (cx - 5 + tilt, head_y + 15),
-                (cx + tilt, head_y + 5),
-            ])
-            pygame.draw.polygon(screen, alt_color, [
-                (cx + tilt, head_y + 5),
-                (cx + 5 + tilt, head_y + 15),
-                (cx + 10 + tilt, head_y + 5),
-            ])
-            pygame.draw.circle(screen, (255, 255, 0), (cx - 5 + tilt, head_y + 16), 3)
-            pygame.draw.circle(screen, (255, 255, 0), (cx + 5 + tilt, head_y + 16), 3)
+        torso_y = cy - int(1.5 * b) * flip
 
-        # 미친 눈 (크기가 다름)
-        eye_offset_y = -2 if facing == "up" else 2
-        pygame.draw.circle(screen, (255, 255, 255), (cx - 4 + tilt, head_y + eye_offset_y), 4)
-        pygame.draw.circle(screen, (255, 255, 255), (cx + 4 + tilt, head_y + eye_offset_y), 3)
-        # 다른 색 눈동자
-        pygame.draw.circle(screen, main_color, (cx - 4 + tilt, head_y + eye_offset_y), 2)
-        pygame.draw.circle(screen, alt_color, (cx + 4 + tilt, head_y + eye_offset_y), 2)
+        # === 광대 모자 + 머리 ===
+        head_y = torso_y - int(3 * b) * flip
+        head_r = int(1.5 * b)
+        pygame.draw.circle(screen, skin, (cx, head_y), head_r)
 
-        # 미소
-        smile_y = head_y + (5 if facing == "up" else -5)
+        # 광대 모자 (세 갈래)
+        hat_top = head_y - int(2 * b) * flip
+        # 왼쪽 갈래
+        pygame.draw.polygon(screen, main, [
+            (cx - int(1.2 * b), head_y - int(0.8 * b) * flip),
+            (cx - int(0.3 * b), head_y - int(0.5 * b) * flip),
+            (cx - int(1 * b), hat_top - int(0.5 * b) * flip),
+        ])
+        pygame.draw.circle(screen, yellow, (cx - int(1 * b), hat_top - int(0.8 * b) * flip), int(0.3 * b))
+        # 중앙 갈래
+        pygame.draw.polygon(screen, alt, [
+            (cx - int(0.5 * b), head_y - int(0.8 * b) * flip),
+            (cx + int(0.5 * b), head_y - int(0.8 * b) * flip),
+            (cx, hat_top - int(1 * b) * flip),
+        ])
+        pygame.draw.circle(screen, yellow, (cx, hat_top - int(1.3 * b) * flip), int(0.3 * b))
+        # 오른쪽 갈래
+        pygame.draw.polygon(screen, main, [
+            (cx + int(0.3 * b), head_y - int(0.5 * b) * flip),
+            (cx + int(1.2 * b), head_y - int(0.8 * b) * flip),
+            (cx + int(1 * b), hat_top - int(0.5 * b) * flip),
+        ])
+        pygame.draw.circle(screen, yellow, (cx + int(1 * b), hat_top - int(0.8 * b) * flip), int(0.3 * b))
+
+        # 미친 눈 (크기 다름)
+        eye_y = head_y + int(0.2 * b) * flip
+        pygame.draw.circle(screen, (255, 255, 255), (cx - int(0.5 * b), eye_y), int(0.5 * b))
+        pygame.draw.circle(screen, (255, 255, 255), (cx + int(0.5 * b), eye_y), int(0.35 * b))
+        pygame.draw.circle(screen, main, (cx - int(0.5 * b), eye_y), int(0.25 * b))
+        pygame.draw.circle(screen, alt, (cx + int(0.5 * b), eye_y), int(0.2 * b))
+
+        # 미친 미소
+        smile_y = head_y + int(0.8 * b) * flip
         pygame.draw.arc(screen, (200, 50, 50),
-                       (cx - 6 + tilt, smile_y - 3, 12, 8),
-                       0 if facing == "up" else math.pi,
-                       math.pi if facing == "up" else 0, 2)
+                       (cx - int(0.8 * b), smile_y - int(0.4 * b), int(1.6 * b), int(0.8 * b)),
+                       0 if flip == 1 else math.pi, math.pi if flip == 1 else 0, int(0.2 * b))
 
-    def _draw_pinjo(self, screen, x, y, width, height, facing, tilt, color):
-        """핀조 - 불굴의 검투사 (전투적인 검투사)"""
-        main_color = (220, 60, 60)
-        dark_color = (160, 40, 40)
-        light_color = (255, 100, 100)
-        armor_color = (180, 150, 100)
+        # === 광대 복장 ===
+        torso_w = int(3 * b)
+        torso_h = int(2.5 * b)
+        torso_rect = pygame.Rect(cx - torso_w // 2, torso_y - int(0.5 * b) * flip if flip == 1 else torso_y - torso_h + int(0.5 * b), torso_w, torso_h)
+        # 다이아몬드 패턴
+        pygame.draw.rect(screen, main, torso_rect, border_radius=int(0.3 * b))
+        for i in range(3):
+            dx = cx - int(1 * b) + i * int(1 * b)
+            pygame.draw.polygon(screen, alt, [
+                (dx, torso_rect.centery - int(0.6 * b)),
+                (dx + int(0.4 * b), torso_rect.centery),
+                (dx, torso_rect.centery + int(0.6 * b)),
+                (dx - int(0.4 * b), torso_rect.centery),
+            ])
 
-        cx, cy = int(x), int(y)
-        hw, hh = width // 2, height // 2
+        # === 어깨 (퍼프) ===
+        shoulder_y = torso_y - int(0.3 * b) * flip
+        pygame.draw.circle(screen, alt, (cx - int(1.8 * b), shoulder_y), int(0.7 * b))
+        pygame.draw.circle(screen, main, (cx + int(1.8 * b), shoulder_y), int(0.7 * b))
 
-        # 그림자
-        pygame.draw.ellipse(screen, (30, 30, 30),
-                           (cx - hw - 2, cy + 3, width + 4, height + 4))
+        # === 팔 ===
+        arm_y = shoulder_y + int(0.3 * b)
+        pygame.draw.line(screen, main, (cx - int(1.8 * b), arm_y), (cx - int(2.5 * b), arm_y + int(1.2 * b) * flip), int(0.4 * b))
+        pygame.draw.line(screen, alt, (cx + int(1.8 * b), arm_y), (cx + int(2.8 * b), arm_y + int(1 * b) * flip), int(0.4 * b))
 
-        # 근육질 몸통
-        body_points = [
-            (cx - hw + tilt, cy - hh),
-            (cx + hw + tilt, cy - hh),
-            (cx + hw + 3, cy + hh + 2),
-            (cx - hw - 3, cy + hh + 2),
+        # === 폭탄 (오른손) ===
+        bomb_x = cx + int(3 * b)
+        bomb_y = arm_y + int(1.2 * b) * flip
+        pygame.draw.circle(screen, (40, 40, 40), (bomb_x, bomb_y), int(0.8 * b))
+        # 심지
+        pygame.draw.line(screen, (150, 100, 50), (bomb_x, bomb_y - int(0.8 * b)), (bomb_x + int(0.3 * b), bomb_y - int(1.3 * b)), int(0.15 * b))
+        # 불꽃
+        spark_y = bomb_y - int(1.5 * b)
+        pygame.draw.circle(screen, (255, 200, 50), (bomb_x + int(0.3 * b), spark_y), int(0.3 * b))
+        pygame.draw.circle(screen, (255, 100, 0), (bomb_x + int(0.3 * b), spark_y), int(0.2 * b))
+
+    # ========================================================================
+    # 핀조 - 불굴의 검투사 (로마 검투사 테마)
+    # ========================================================================
+    def _draw_pinjo(self, screen, cx, cy, b, facing, lean, color):
+        """핀조 - 로마 검투사, 검과 방패"""
+        cx = int(cx) + lean
+        cy = int(cy)
+        flip = 1 if facing == "down" else -1
+
+        main = (220, 60, 60)
+        dark = (160, 40, 40)
+        light = (255, 100, 100)
+        metal = (180, 170, 150)
+        gold = (220, 180, 80)
+        skin = (200, 160, 130)
+
+        torso_y = cy - int(1.5 * b) * flip
+
+        # === 검투사 투구 ===
+        head_y = torso_y - int(3 * b) * flip
+        # 투구 본체
+        helmet_rect = pygame.Rect(cx - int(1.8 * b), head_y - int(1.8 * b), int(3.6 * b), int(3 * b))
+        pygame.draw.ellipse(screen, metal, helmet_rect)
+        pygame.draw.ellipse(screen, dark, helmet_rect, 2)
+
+        # 투구 깃털 장식
+        feather_base = head_y - int(2 * b) * flip
+        feather_points = [
+            (cx - int(0.3 * b), feather_base),
+            (cx, feather_base - int(2 * b) * flip),
+            (cx + int(0.3 * b), feather_base),
         ]
-        pygame.draw.polygon(screen, main_color, body_points)
+        pygame.draw.polygon(screen, main, feather_points)
 
-        # 어깨 보호대
-        pygame.draw.ellipse(screen, armor_color, (cx - hw - 8 + tilt, cy - hh - 2, 15, 10))
-        pygame.draw.ellipse(screen, armor_color, (cx + hw - 7 + tilt, cy - hh - 2, 15, 10))
-        pygame.draw.ellipse(screen, dark_color, (cx - hw - 8 + tilt, cy - hh - 2, 15, 10), 2)
-        pygame.draw.ellipse(screen, dark_color, (cx + hw - 7 + tilt, cy - hh - 2, 15, 10), 2)
+        # 얼굴 (투구 아래로 보임)
+        face_y = head_y + int(0.5 * b) * flip
+        pygame.draw.rect(screen, skin, (cx - int(0.8 * b), face_y - int(0.5 * b), int(1.6 * b), int(1 * b)))
 
-        pygame.draw.polygon(screen, dark_color, body_points, 2)
+        # 전투적인 눈
+        eye_y = face_y
+        pygame.draw.line(screen, (80, 40, 40), (cx - int(0.7 * b), eye_y - int(0.15 * b)), (cx - int(0.2 * b), eye_y + int(0.05 * b)), 2)
+        pygame.draw.line(screen, (80, 40, 40), (cx + int(0.2 * b), eye_y + int(0.05 * b)), (cx + int(0.7 * b), eye_y - int(0.15 * b)), 2)
+        pygame.draw.circle(screen, (255, 200, 100), (cx - int(0.45 * b), eye_y), int(0.15 * b))
+        pygame.draw.circle(screen, (255, 200, 100), (cx + int(0.45 * b), eye_y), int(0.15 * b))
+
+        # === 갑옷 몸통 ===
+        torso_w = int(3.5 * b)
+        torso_h = int(2.8 * b)
+        torso_rect = pygame.Rect(cx - torso_w // 2, torso_y - int(0.5 * b) * flip if flip == 1 else torso_y - torso_h + int(0.5 * b), torso_w, torso_h)
+        pygame.draw.rect(screen, main, torso_rect, border_radius=int(0.4 * b))
+        pygame.draw.rect(screen, dark, torso_rect, 2, border_radius=int(0.4 * b))
+
+        # 복근 패턴
+        for i in range(2):
+            for j in range(2):
+                ax = cx - int(0.5 * b) + j * int(1 * b)
+                ay = torso_rect.centery - int(0.4 * b) + i * int(0.8 * b)
+                pygame.draw.rect(screen, dark, (ax - int(0.3 * b), ay - int(0.25 * b), int(0.6 * b), int(0.5 * b)), 1, border_radius=2)
 
         # 벨트
-        belt_y = cy + 2
-        pygame.draw.rect(screen, armor_color, (cx - hw + 5, belt_y - 2, width - 10, 5))
-        pygame.draw.rect(screen, (200, 180, 80), (cx - 5, belt_y - 3, 10, 6))  # 버클
+        belt_y = torso_rect.bottom - int(0.5 * b) if flip == 1 else torso_rect.top + int(0.2 * b)
+        pygame.draw.rect(screen, gold, (cx - int(1.5 * b), belt_y, int(3 * b), int(0.5 * b)))
 
-        # 머리 (투구)
-        head_y = cy + hh + 12 if facing == "up" else cy - hh - 12
-        pygame.draw.circle(screen, armor_color, (cx + tilt, head_y), 11)
-        pygame.draw.circle(screen, dark_color, (cx + tilt, head_y), 11, 2)
+        # === 어깨 보호대 ===
+        shoulder_y = torso_y - int(0.5 * b) * flip
+        pygame.draw.ellipse(screen, metal, (cx - int(2.3 * b), shoulder_y - int(0.7 * b), int(1.4 * b), int(1.4 * b)))
+        pygame.draw.ellipse(screen, dark, (cx - int(2.3 * b), shoulder_y - int(0.7 * b), int(1.4 * b), int(1.4 * b)), 2)
+        pygame.draw.ellipse(screen, metal, (cx + int(0.9 * b), shoulder_y - int(0.7 * b), int(1.4 * b), int(1.4 * b)))
+        pygame.draw.ellipse(screen, dark, (cx + int(0.9 * b), shoulder_y - int(0.7 * b), int(1.4 * b), int(1.4 * b)), 2)
 
-        # 투구 깃털
-        feather_y = head_y - 8 if facing == "up" else head_y + 8
-        feather_points = [
-            (cx + tilt, head_y - (8 if facing == "up" else -8)),
-            (cx - 4 + tilt, feather_y - (10 if facing == "up" else -10)),
-            (cx + tilt, feather_y - (8 if facing == "up" else -8)),
-            (cx + 4 + tilt, feather_y - (12 if facing == "up" else -12)),
-        ]
-        pygame.draw.polygon(screen, main_color, feather_points)
+        # === 팔 ===
+        arm_y = shoulder_y + int(0.5 * b)
+        pygame.draw.line(screen, skin, (cx - int(1.8 * b), arm_y), (cx - int(2.8 * b), arm_y + int(1.5 * b) * flip), int(0.6 * b))
+        pygame.draw.line(screen, skin, (cx + int(1.8 * b), arm_y), (cx + int(2.8 * b), arm_y + int(1.2 * b) * flip), int(0.6 * b))
 
-        # 얼굴 (투구 아래)
-        face_y = head_y + (3 if facing == "up" else -3)
-        pygame.draw.rect(screen, (200, 160, 140), (cx - 6 + tilt, face_y - 4, 12, 8))
+        # === 검 (오른손) ===
+        sword_hand = (cx + int(2.8 * b), arm_y + int(1.3 * b) * flip)
+        sword_tip = (sword_hand[0] + int(2 * b), sword_hand[1] - int(1.5 * b) * flip)
+        # 검날
+        pygame.draw.line(screen, (220, 220, 230), sword_hand, sword_tip, int(0.3 * b))
+        # 손잡이
+        pygame.draw.line(screen, (100, 60, 30), sword_hand, (sword_hand[0] - int(0.3 * b), sword_hand[1] + int(0.5 * b) * flip), int(0.25 * b))
 
-        # 눈 (전투적인)
-        eye_offset_y = -1 if facing == "up" else 1
-        pygame.draw.line(screen, (80, 40, 40),
-                        (cx - 6 + tilt, face_y + eye_offset_y - 2),
-                        (cx - 2 + tilt, face_y + eye_offset_y), 2)
-        pygame.draw.line(screen, (80, 40, 40),
-                        (cx + 2 + tilt, face_y + eye_offset_y),
-                        (cx + 6 + tilt, face_y + eye_offset_y - 2), 2)
-        pygame.draw.circle(screen, (255, 200, 100), (cx - 4 + tilt, face_y + eye_offset_y), 2)
-        pygame.draw.circle(screen, (255, 200, 100), (cx + 4 + tilt, face_y + eye_offset_y), 2)
+        # === 작은 방패 (왼손) ===
+        shield_cx = cx - int(3.2 * b)
+        shield_cy = arm_y + int(1.2 * b) * flip
+        pygame.draw.circle(screen, metal, (shield_cx, shield_cy), int(1 * b))
+        pygame.draw.circle(screen, gold, (shield_cx, shield_cy), int(0.5 * b))
+        pygame.draw.circle(screen, dark, (shield_cx, shield_cy), int(1 * b), 2)
 
-    def _draw_alexa(self, screen, x, y, width, height, facing, tilt, color):
-        """알렉사 - 황금의 창 (황금빛 전사)"""
-        main_color = (220, 180, 60)
-        dark_color = (180, 140, 40)
-        light_color = (255, 220, 100)
-        gold_color = (255, 215, 0)
+    # ========================================================================
+    # 알렉사 - 황금의 창 (귀족/황금 테마)
+    # ========================================================================
+    def _draw_alexa(self, screen, cx, cy, b, facing, lean, color):
+        """알렉사 - 황금 갑옷의 귀족 전사"""
+        cx = int(cx) + lean
+        cy = int(cy)
+        flip = 1 if facing == "down" else -1
 
-        cx, cy = int(x), int(y)
-        hw, hh = width // 2, height // 2
+        gold = (220, 180, 60)
+        dark_gold = (180, 140, 40)
+        light_gold = (255, 220, 100)
+        white = (255, 250, 240)
+        skin = (255, 230, 210)
+        red = (180, 50, 50)
 
-        # 황금빛 그림자
-        pygame.draw.ellipse(screen, (60, 50, 20),
-                           (cx - hw - 2, cy + 3, width + 4, height + 4))
+        torso_y = cy - int(1.5 * b) * flip
 
-        # 우아한 몸통
-        body_points = [
-            (cx - hw + 5 + tilt, cy - hh),
-            (cx + hw - 5 + tilt, cy - hh),
-            (cx + hw, cy + hh),
-            (cx - hw, cy + hh),
-        ]
-        pygame.draw.polygon(screen, main_color, body_points)
-        pygame.draw.polygon(screen, gold_color, body_points, 2)
+        # === 머리 + 왕관 ===
+        head_y = torso_y - int(3 * b) * flip
+        head_r = int(1.5 * b)
+        pygame.draw.circle(screen, skin, (cx, head_y), head_r)
 
-        # 황금 장식
-        pygame.draw.circle(screen, gold_color, (cx + tilt, cy), 5)
-        pygame.draw.circle(screen, dark_color, (cx + tilt, cy), 5, 1)
-
-        # 어깨 장식
-        pygame.draw.circle(screen, gold_color, (cx - hw + 3 + tilt, cy - hh + 3), 4)
-        pygame.draw.circle(screen, gold_color, (cx + hw - 3 + tilt, cy - hh + 3), 4)
-
-        # 머리 (왕관)
-        head_y = cy + hh + 11 if facing == "up" else cy - hh - 11
-        pygame.draw.circle(screen, (240, 210, 180), (cx + tilt, head_y), 10)
-        pygame.draw.circle(screen, dark_color, (cx + tilt, head_y), 10, 2)
+        # 금발
+        hair_arc_rect = (cx - int(1.5 * b), head_y - int(2 * b), int(3 * b), int(2.5 * b))
+        pygame.draw.arc(screen, light_gold, hair_arc_rect, 0, math.pi, int(0.5 * b))
 
         # 왕관
-        crown_y = head_y - 10 if facing == "up" else head_y + 10
-        if facing == "up":
-            crown_points = [
-                (cx - 10 + tilt, head_y - 5),
-                (cx - 6 + tilt, head_y - 12),
-                (cx - 2 + tilt, head_y - 8),
-                (cx + tilt, head_y - 14),
-                (cx + 2 + tilt, head_y - 8),
-                (cx + 6 + tilt, head_y - 12),
-                (cx + 10 + tilt, head_y - 5),
-            ]
-        else:
-            crown_points = [
-                (cx - 10 + tilt, head_y + 5),
-                (cx - 6 + tilt, head_y + 12),
-                (cx - 2 + tilt, head_y + 8),
-                (cx + tilt, head_y + 14),
-                (cx + 2 + tilt, head_y + 8),
-                (cx + 6 + tilt, head_y + 12),
-                (cx + 10 + tilt, head_y + 5),
-            ]
-        pygame.draw.polygon(screen, gold_color, crown_points)
-        pygame.draw.polygon(screen, dark_color, crown_points, 1)
-
+        crown_base = head_y - int(1.2 * b) * flip
+        crown_points = [
+            (cx - int(1.2 * b), crown_base + int(0.3 * b) * flip),
+            (cx - int(0.8 * b), crown_base - int(0.8 * b) * flip),
+            (cx - int(0.3 * b), crown_base + int(0.1 * b) * flip),
+            (cx, crown_base - int(1.2 * b) * flip),
+            (cx + int(0.3 * b), crown_base + int(0.1 * b) * flip),
+            (cx + int(0.8 * b), crown_base - int(0.8 * b) * flip),
+            (cx + int(1.2 * b), crown_base + int(0.3 * b) * flip),
+        ]
+        pygame.draw.polygon(screen, gold, crown_points)
+        pygame.draw.polygon(screen, dark_gold, crown_points, 2)
         # 왕관 보석
-        gem_y = head_y - 11 if facing == "up" else head_y + 11
-        pygame.draw.circle(screen, (255, 50, 50), (cx + tilt, gem_y), 3)
+        pygame.draw.circle(screen, red, (cx, crown_base - int(0.9 * b) * flip), int(0.25 * b))
 
         # 눈 (우아한)
-        eye_offset_y = -2 if facing == "up" else 2
-        pygame.draw.ellipse(screen, (255, 255, 255),
-                           (cx - 6 + tilt, head_y + eye_offset_y - 2, 5, 4))
-        pygame.draw.ellipse(screen, (255, 255, 255),
-                           (cx + 1 + tilt, head_y + eye_offset_y - 2, 5, 4))
-        pygame.draw.circle(screen, (100, 80, 60), (cx - 4 + tilt, head_y + eye_offset_y), 2)
-        pygame.draw.circle(screen, (100, 80, 60), (cx + 4 + tilt, head_y + eye_offset_y), 2)
+        eye_y = head_y + int(0.2 * b) * flip
+        pygame.draw.ellipse(screen, (255, 255, 255), (cx - int(0.7 * b), eye_y - int(0.2 * b), int(0.5 * b), int(0.4 * b)))
+        pygame.draw.ellipse(screen, (255, 255, 255), (cx + int(0.2 * b), eye_y - int(0.2 * b), int(0.5 * b), int(0.4 * b)))
+        pygame.draw.circle(screen, (100, 80, 60), (cx - int(0.45 * b), eye_y), int(0.15 * b))
+        pygame.draw.circle(screen, (100, 80, 60), (cx + int(0.45 * b), eye_y), int(0.15 * b))
 
         # 미소
-        smile_y = head_y + (4 if facing == "up" else -4)
+        smile_y = head_y + int(0.7 * b) * flip
         pygame.draw.arc(screen, (200, 100, 100),
-                       (cx - 4 + tilt, smile_y - 2, 8, 4),
-                       0 if facing == "up" else math.pi,
-                       math.pi if facing == "up" else 0, 1)
+                       (cx - int(0.4 * b), smile_y - int(0.2 * b), int(0.8 * b), int(0.4 * b)),
+                       0 if flip == 1 else math.pi, math.pi if flip == 1 else 0, 1)
+
+        # === 황금 갑옷 ===
+        torso_w = int(3.2 * b)
+        torso_h = int(2.8 * b)
+        torso_rect = pygame.Rect(cx - torso_w // 2, torso_y - int(0.5 * b) * flip if flip == 1 else torso_y - torso_h + int(0.5 * b), torso_w, torso_h)
+        pygame.draw.rect(screen, gold, torso_rect, border_radius=int(0.5 * b))
+        pygame.draw.rect(screen, dark_gold, torso_rect, 2, border_radius=int(0.5 * b))
+
+        # 갑옷 장식
+        inner_rect = torso_rect.inflate(-int(0.6 * b), -int(0.4 * b))
+        pygame.draw.rect(screen, light_gold, inner_rect, 2, border_radius=int(0.4 * b))
+        # 중앙 보석
+        pygame.draw.circle(screen, red, (cx, torso_rect.centery), int(0.4 * b))
+        pygame.draw.circle(screen, (255, 100, 100), (cx - int(0.1 * b), torso_rect.centery - int(0.1 * b)), int(0.15 * b))
+
+        # === 어깨 (우아한 장식) ===
+        shoulder_y = torso_y - int(0.4 * b) * flip
+        pygame.draw.ellipse(screen, gold, (cx - int(2.2 * b), shoulder_y - int(0.6 * b), int(1.3 * b), int(1.2 * b)))
+        pygame.draw.ellipse(screen, dark_gold, (cx - int(2.2 * b), shoulder_y - int(0.6 * b), int(1.3 * b), int(1.2 * b)), 2)
+        pygame.draw.ellipse(screen, gold, (cx + int(0.9 * b), shoulder_y - int(0.6 * b), int(1.3 * b), int(1.2 * b)))
+        pygame.draw.ellipse(screen, dark_gold, (cx + int(0.9 * b), shoulder_y - int(0.6 * b), int(1.3 * b), int(1.2 * b)), 2)
+
+        # === 팔 ===
+        arm_y = shoulder_y + int(0.4 * b)
+        pygame.draw.line(screen, skin, (cx - int(1.7 * b), arm_y), (cx - int(2.5 * b), arm_y + int(1.3 * b) * flip), int(0.5 * b))
+        pygame.draw.line(screen, skin, (cx + int(1.7 * b), arm_y), (cx + int(2.8 * b), arm_y + int(1 * b) * flip), int(0.5 * b))
+
+        # === 황금 창 ===
+        spear_x = cx + int(3.2 * b)
+        spear_top = arm_y - int(3 * b) * flip
+        spear_bottom = arm_y + int(2 * b) * flip
+        # 창대 (금색)
+        pygame.draw.line(screen, gold, (spear_x, spear_top), (spear_x, spear_bottom), int(0.25 * b))
+        # 창날
+        tip_y = spear_top - int(1 * b) * flip
+        pygame.draw.polygon(screen, light_gold, [
+            (spear_x, tip_y),
+            (spear_x - int(0.5 * b), spear_top),
+            (spear_x + int(0.5 * b), spear_top),
+        ])
+        pygame.draw.polygon(screen, dark_gold, [
+            (spear_x, tip_y),
+            (spear_x - int(0.5 * b), spear_top),
+            (spear_x + int(0.5 * b), spear_top),
+        ], 1)
 
     # ========================================================================
     # 유틸리티
     # ========================================================================
+    def _draw_default(self, screen, cx, cy, b, facing, lean, color):
+        """기본 캐릭터"""
+        cx = int(cx) + lean
+        cy = int(cy)
+        flip = 1 if facing == "down" else -1
+        torso_y = cy - int(1.5 * b) * flip
 
-    def _draw_default(self, screen, x, y, width, height, facing, tilt, color):
-        """기본 패들"""
-        cx, cy = int(x), int(y)
-        hw, hh = width // 2, height // 2
-
-        # 그림자
-        pygame.draw.ellipse(screen, (30, 30, 30),
-                           (cx - hw - 2, cy + 3, width + 4, height + 4))
-
-        # 패들
-        rect = pygame.Rect(cx - hw + tilt, cy - hh, width, height)
-        pygame.draw.rect(screen, color, rect, border_radius=4)
-        pygame.draw.rect(screen, (50, 50, 50), rect, 2, border_radius=4)
-
-        # 얼굴
-        head_y = cy + hh + 10 if facing == "up" else cy - hh - 10
-        pygame.draw.circle(screen, (200, 180, 160), (cx + tilt, head_y), 8)
-
+        # 머리
+        head_y = torso_y - int(3 * b) * flip
+        pygame.draw.circle(screen, (200, 180, 160), (cx, head_y), int(1.5 * b))
         # 눈
-        eye_offset_y = -2 if facing == "up" else 2
-        pygame.draw.circle(screen, (0, 0, 0), (cx - 2 + tilt, head_y + eye_offset_y), 2)
-        pygame.draw.circle(screen, (0, 0, 0), (cx + 2 + tilt, head_y + eye_offset_y), 2)
+        eye_y = head_y + int(0.3 * b) * flip
+        pygame.draw.circle(screen, (0, 0, 0), (cx - int(0.4 * b), eye_y), int(0.2 * b))
+        pygame.draw.circle(screen, (0, 0, 0), (cx + int(0.4 * b), eye_y), int(0.2 * b))
 
-    def _draw_lightning_bolt(self, screen, x, y, facing):
-        """번개 이펙트"""
-        bolt_color = (255, 255, 150)
-        points = [
-            (x, y - 15),
-            (x + 5, y - 5),
-            (x, y),
-            (x + 8, y + 15),
-        ]
-        if facing == "up":
-            points = [(p[0], y - (p[1] - y)) for p in points]
-        pygame.draw.lines(screen, bolt_color, False, points, 2)
+        # 몸통
+        torso_rect = pygame.Rect(cx - int(1.5 * b), torso_y - int(0.5 * b) * flip if flip == 1 else torso_y - int(2 * b), int(3 * b), int(2.5 * b))
+        pygame.draw.rect(screen, color, torso_rect, border_radius=int(0.4 * b))
+
+    def _draw_lightning_spark(self, screen, x, y, b, flip):
+        """번개 스파크 이펙트"""
+        spark_color = (255, 255, 200)
+        for i in range(3):
+            angle = self.animation_time * 10 + i * 2.1
+            dx = int(math.cos(angle) * 0.5 * b)
+            dy = int(math.sin(angle) * 0.5 * b) * flip
+            pygame.draw.circle(screen, spark_color, (x + dx, y + dy), int(0.15 * b))
 
 
-# 싱글톤 인스턴스
+# 싱글톤
 _hero_paddle_renderer: Optional[HeroPaddleRenderer] = None
 
 def get_hero_paddle_renderer() -> HeroPaddleRenderer:
-    """영웅 패들 렌더러 싱글톤 가져오기"""
     global _hero_paddle_renderer
     if _hero_paddle_renderer is None:
         _hero_paddle_renderer = HeroPaddleRenderer()
