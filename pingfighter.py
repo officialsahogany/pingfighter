@@ -124750,11 +124750,13 @@ def main(stage_num, new_boss_mode=False):
         stage5_events.fire_machine.set_enraged_mode(False)
 
     # 챔피언리그: 10% 광폭화, 신화리그: 100% 광폭화
+    # 투기장 모드에서는 광폭화 비활성화
     should_enrage = False
-    if ai_mode == "champion" and random.random() < ENRAGED_BOSS_CHANCE:
-        should_enrage = True
-    elif ai_mode == "mythic":  # 신화리그는 100% 광폭화
-        should_enrage = True
+    if not arena_mode_enabled:  # 투기장 모드가 아닐 때만 광폭화 적용
+        if ai_mode == "champion" and random.random() < ENRAGED_BOSS_CHANCE:
+            should_enrage = True
+        elif ai_mode == "mythic":  # 신화리그는 100% 광폭화
+            should_enrage = True
 
     if should_enrage:
         enraged_boss_active = True
