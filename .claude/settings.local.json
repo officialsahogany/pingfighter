@@ -63,7 +63,12 @@
       "Bash(timeout:*)",
       "Bash(py:*)",
       "mcp__gemini__gemini-query",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(copy boss_stage5.png boss_stage5_temp.png)",
+      "Bash(copy:*)",
+      "Bash(del:*)",
+      "Bash(del replace_divine_icon.py)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": [],

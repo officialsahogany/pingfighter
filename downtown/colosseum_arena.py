@@ -28,6 +28,17 @@ try:
 except ImportError:
     VISUAL_ASSETS_AVAILABLE = False
 
+# 영웅 패들 렌더러 임포트
+try:
+    from downtown.hero_paddles import get_hero_paddle_renderer
+    HERO_PADDLES_AVAILABLE = True
+except ImportError:
+    try:
+        from hero_paddles import get_hero_paddle_renderer
+        HERO_PADDLES_AVAILABLE = True
+    except ImportError:
+        HERO_PADDLES_AVAILABLE = False
+
 # ============================================================================
 # 영웅 데이터
 # ============================================================================
@@ -67,7 +78,7 @@ TOP_HEROES = [
     },
     {
         "id": "chungkia",
-        "name": "총키아",
+        "name": "토키아",
         "title": "바위의 거인",
         "style": HeroStyle.DEFENSIVE,
         "color": (200, 140, 60),
@@ -378,6 +389,15 @@ class ColosseumsArena:
                 self.arena_background = None
                 self.arena_pillar = None
 
+        # 영웅 패들 렌더러
+        self.hero_paddle_renderer = None
+        if HERO_PADDLES_AVAILABLE:
+            try:
+                self.hero_paddle_renderer = get_hero_paddle_renderer()
+            except Exception as e:
+                print(f"Hero paddle renderer init error: {e}")
+                self.hero_paddle_renderer = None
+
     def _generate_bracket(self):
         """8강 대진표 생성 - 상단 영웅 vs 하단 영웅 매칭"""
         for i in range(4):
@@ -544,6 +564,23 @@ class ColosseumsArena:
         if self.arena_pillar:
             self.arena_pillar.update(dt)
 
+        # 영웅 패들 렌더러 업데이트
+        if self.hero_paddle_renderer:
+            self.hero_paddle_renderer.update(dt)
+            # 이동 애니메이션 추적
+            if self.top_paddle and self.selected_match:
+                self.hero_paddle_renderer.update_movement(
+                    self.selected_match.hero1["id"],
+                    self.top_paddle.x + PADDLE_WIDTH // 2,
+                    dt
+                )
+            if self.bottom_paddle and self.selected_match:
+                self.hero_paddle_renderer.update_movement(
+                    self.selected_match.hero2["id"],
+                    self.bottom_paddle.x + PADDLE_WIDTH // 2,
+                    dt
+                )
+
         if self.state == TournamentState.BATTLE:
             self.update_battle()
         elif self.state == TournamentState.RESULT:
@@ -700,33 +737,52 @@ class ColosseumsArena:
         pygame.draw.circle(self.screen, (164, 128, 88),
                           (GAME_AREA_X + GAME_AREA_WIDTH // 2, center_y), 120, 2)
 
-        # 패들 그리기 (영웅 색상 + 그림자)
-        if self.top_paddle:
+        # 패들 그리기 (영웅 패들 렌더러 사용)
+        if self.top_paddle and self.selected_match:
             paddle_rect = self.top_paddle.get_rect()
-            # 그림자
-            shadow_rect = paddle_rect.copy()
-            shadow_rect.y += 3
-            pygame.draw.rect(self.screen, (60, 50, 40), shadow_rect, border_radius=4)
-            # 패들
-            pygame.draw.rect(self.screen, self.selected_match.hero1["color"],
-                           paddle_rect, border_radius=4)
-            # 하이라이트
-            highlight_rect = pygame.Rect(paddle_rect.x + 2, paddle_rect.y + 2,
-                                        paddle_rect.width - 4, 3)
-            highlight_color = tuple(min(255, c + 50) for c in self.selected_match.hero1["color"])
-            pygame.draw.rect(self.screen, highlight_color, highlight_rect, border_radius=2)
+            hero1 = self.selected_match.hero1
 
-        if self.bottom_paddle:
+            if self.hero_paddle_renderer:
+                # 영웅 패들 렌더러로 그리기 (상단 영웅은 아래를 바라봄)
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    self.screen,
+                    hero1["id"],
+                    paddle_rect.centerx,
+                    paddle_rect.centery,
+                    PADDLE_WIDTH,
+                    PADDLE_HEIGHT,
+                    facing="down",
+                    color=hero1["color"]
+                )
+            else:
+                # 폴백: 기본 패들
+                shadow_rect = paddle_rect.copy()
+                shadow_rect.y += 3
+                pygame.draw.rect(self.screen, (60, 50, 40), shadow_rect, border_radius=4)
+                pygame.draw.rect(self.screen, hero1["color"], paddle_rect, border_radius=4)
+
+        if self.bottom_paddle and self.selected_match:
             paddle_rect = self.bottom_paddle.get_rect()
-            shadow_rect = paddle_rect.copy()
-            shadow_rect.y += 3
-            pygame.draw.rect(self.screen, (60, 50, 40), shadow_rect, border_radius=4)
-            pygame.draw.rect(self.screen, self.selected_match.hero2["color"],
-                           paddle_rect, border_radius=4)
-            highlight_rect = pygame.Rect(paddle_rect.x + 2, paddle_rect.y + 2,
-                                        paddle_rect.width - 4, 3)
-            highlight_color = tuple(min(255, c + 50) for c in self.selected_match.hero2["color"])
-            pygame.draw.rect(self.screen, highlight_color, highlight_rect, border_radius=2)
+            hero2 = self.selected_match.hero2
+
+            if self.hero_paddle_renderer:
+                # 영웅 패들 렌더러로 그리기 (하단 영웅은 위를 바라봄)
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    self.screen,
+                    hero2["id"],
+                    paddle_rect.centerx,
+                    paddle_rect.centery,
+                    PADDLE_WIDTH,
+                    PADDLE_HEIGHT,
+                    facing="up",
+                    color=hero2["color"]
+                )
+            else:
+                # 폴백: 기본 패들
+                shadow_rect = paddle_rect.copy()
+                shadow_rect.y += 3
+                pygame.draw.rect(self.screen, (60, 50, 40), shadow_rect, border_radius=4)
+                pygame.draw.rect(self.screen, hero2["color"], paddle_rect, border_radius=4)
 
         # 공 그리기 (그림자 포함)
         if self.ball:

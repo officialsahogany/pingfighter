@@ -1,18 +1,18 @@
 
 ================================================================================
-오류 발생 시간: 2026-01-31 17:29:16
+오류 발생 시간: 2026-02-01 06:38:08
 ================================================================================
 
-오류 타입: TypeError
-오류 메시지: PillarBackgroundRenderer.update_hongryeon_player_position() got an unexpected keyword argument 'internal_x'
+오류 타입: NameError
+오류 메시지: cannot access free variable 'math' where it is not associated with a value in enclosing scope
 
 상세 스택 트레이스:
 Traceback (most recent call last):
-  File "D:\main\bosspong/pingfighter.py", line 136962, in <module>
+  File "D:\main\bosspong/pingfighter.py", line 137104, in <module>
     game_loop()
-  File "D:\main\bosspong/pingfighter.py", line 130735, in game_loop
+  File "D:\main\bosspong/pingfighter.py", line 130877, in game_loop
     show_start_screen()
-  File "D:\main\bosspong/pingfighter.py", line 94021, in show_start_screen
+  File "D:\main\bosspong/pingfighter.py", line 94080, in show_start_screen
     show_start_menu(ctx)
   File "D:\main\bosspong\start_menu.py", line 1417, in show_start_menu
     _MENU_STATE_CACHE = run_start_menu(ctx, _MENU_STATE_CACHE)
@@ -20,15 +20,29 @@ Traceback (most recent call last):
   File "D:\main\bosspong\start_menu.py", line 1407, in run_start_menu
     if not _handle_menu_events(ctx, state, current_menu_options):
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\main\bosspong\start_menu.py", line 1150, in _handle_menu_events
-    ctx.show_item_manager_menu()
-  File "D:\main\bosspong/pingfighter.py", line 106178, in show_item_manager_menu
-    main(stage_num)
-  File "D:\main\bosspong/pingfighter.py", line 129715, in main
-    draw_field()
-  File "D:\main\bosspong/pingfighter.py", line 110378, in draw_field
-    pillar_renderer.update_hongryeon_player_position(
-TypeError: PillarBackgroundRenderer.update_hongryeon_player_position() got an unexpected keyword argument 'internal_x'
+  File "D:\main\bosspong\start_menu.py", line 1206, in _handle_menu_events
+    if _activate_menu_choice(ctx, state, option):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\main\bosspong\start_menu.py", line 1072, in _activate_menu_choice
+    return _show_dev_test_menu(ctx, state)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\main\bosspong\start_menu.py", line 626, in _show_dev_test_menu
+    ctx.start_test_mode()
+  File "D:\main\bosspong/pingfighter.py", line 94055, in <lambda>
+    start_test_mode=lambda: main(1, new_boss_mode=True),
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\main\bosspong/pingfighter.py", line 129736, in main
+    handle_boss()
+  File "D:\main\bosspong/pingfighter.py", line 121886, in handle_boss
+    handle_lightning_master_as_top()  # 라이트닝 마스터
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\main\bosspong/pingfighter.py", line 52030, in handle_lightning_master_as_top
+    BOSS.centerx += fake_motion()
+                    ^^^^^^^^^^^^^
+  File "D:\main\bosspong/pingfighter.py", line 51982, in fake_motion
+    return math.sin(time_now / 100) * 2.5
+           ^^^^
+NameError: cannot access free variable 'math' where it is not associated with a value in enclosing scope. Did you forget to import 'math'
 
 
 ================================================================================
