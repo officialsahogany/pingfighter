@@ -10,7 +10,7 @@ from typing import Dict, Tuple, Optional
 
 
 class HeroPaddleRenderer:
-    """고퀄리티 영웅 패들 렌더러"""
+    """고퀄리티 영웅 패들 렌더러 - 관절 애니메이션 포함"""
 
     def __init__(self):
         self.hero_states: Dict[str, dict] = {}
@@ -21,33 +21,74 @@ class HeroPaddleRenderer:
         self.time += dt
 
     def update_movement(self, hero_id: str, current_x: float, dt: float):
-        """이동 상태 업데이트"""
+        """이동 상태 업데이트 - 관절 애니메이션 포함"""
         if hero_id not in self.hero_states:
             self.hero_states[hero_id] = {
                 "last_x": current_x,
                 "velocity": 0.0,
                 "lean": 0.0,
-                "step_phase": 0.0
+                "step_phase": 0.0,
+                "shoulder_phase": 0.0,
+                "arm_swing": 0.0,
+                "head_tilt": 0.0,
+                "body_bob": 0.0,
             }
 
         state = self.hero_states[hero_id]
         velocity = (current_x - state["last_x"]) / max(dt, 0.001)
         state["velocity"] = velocity * 0.3 + state["velocity"] * 0.7
 
-        target_lean = max(-1.0, min(1.0, state["velocity"] / 300.0))
-        state["lean"] = state["lean"] * 0.85 + target_lean * 0.15
+        # 기울기 (이동 방향)
+        target_lean = max(-1.0, min(1.0, state["velocity"] / 250.0))
+        state["lean"] = state["lean"] * 0.82 + target_lean * 0.18
 
-        if abs(state["velocity"]) > 20:
-            state["step_phase"] += dt * 8.0
+        # 걷기 애니메이션 (속도에 비례)
+        move_speed = abs(state["velocity"])
+        if move_speed > 15:
+            state["step_phase"] += dt * 10.0
+            state["shoulder_phase"] += dt * 10.0
+            # 어깨 들썩임
+            state["body_bob"] = math.sin(state["step_phase"] * 2) * min(1.0, move_speed / 200.0)
+            # 팔 스윙
+            state["arm_swing"] = math.sin(state["step_phase"]) * min(1.0, move_speed / 150.0)
+            # 머리 미세 흔들림
+            state["head_tilt"] = math.sin(state["step_phase"] * 1.5) * 0.3 * min(1.0, move_speed / 200.0)
+        else:
+            # 정지 시 부드럽게 감쇠
+            state["body_bob"] *= 0.9
+            state["arm_swing"] *= 0.9
+            state["head_tilt"] *= 0.9
+
         state["last_x"] = current_x
 
     def _get_state(self, hero_id: str) -> dict:
         """영웅 상태 가져오기"""
         if hero_id not in self.hero_states:
             self.hero_states[hero_id] = {
-                "last_x": 0, "velocity": 0, "lean": 0, "step_phase": 0
+                "last_x": 0, "velocity": 0, "lean": 0, "step_phase": 0,
+                "shoulder_phase": 0, "arm_swing": 0, "head_tilt": 0, "body_bob": 0
             }
         return self.hero_states[hero_id]
+
+    def _get_anim(self, state: dict) -> dict:
+        """애니메이션 값 계산"""
+        step = state.get("step_phase", 0)
+        lean = state.get("lean", 0)
+        arm_swing = state.get("arm_swing", 0)
+        body_bob = state.get("body_bob", 0)
+        head_tilt = state.get("head_tilt", 0)
+
+        return {
+            "wave": math.sin(step),
+            "lean": lean,
+            "arm_swing": arm_swing,
+            "body_bob": body_bob,
+            "head_tilt": head_tilt,
+            "left_leg": max(0, math.sin(step)) * 0.8,
+            "right_leg": max(0, -math.sin(step)) * 0.8,
+            "left_shoulder": math.sin(step + 0.5) * 0.5,
+            "right_shoulder": math.sin(step - 0.5) * 0.5,
+        }
 
     def draw_hero_paddle(self, screen: pygame.Surface, hero_id: str,
                          x: float, y: float, width: int, height: int,
@@ -59,9 +100,7 @@ class HeroPaddleRenderer:
         """
         show_back = (facing == "up")
         state = self._get_state(hero_id)
-        lean = state["lean"]
-        step_phase = state["step_phase"]
-        wave = math.sin(step_phase)
+        anim = self._get_anim(state)
 
         # 스케일 계산 (기본 블록 단위)
         b = max(3, width // 12)
@@ -70,18 +109,28 @@ class HeroPaddleRenderer:
         # 영웅별 그리기
         draw_func = getattr(self, f"_draw_{hero_id}", None)
         if draw_func:
-            draw_func(screen, cx, cy, b, color, show_back, lean, wave)
+            draw_func(screen, cx, cy, b, color, show_back, anim)
         else:
-            self._draw_default(screen, cx, cy, b, color, show_back, lean, wave)
+            self._draw_default(screen, cx, cy, b, color, show_back, anim)
 
     # =========================================================================
-    # 갤리타 - 폭풍의 여전사 (번개창)
+    # 갤리타 - 폭풍의 여전사 (번개창) - 관절 애니메이션 포함
     # =========================================================================
-    def _draw_gallita(self, screen, cx, cy, b, color, show_back, lean, wave):
-        """갤리타 - 폭풍의 여전사"""
-        torso_y = cy - int(1.5 * b)
-        lean_offset = int(lean * 2 * b)
-        leg_lift = int(abs(wave) * 2)
+    def _draw_gallita(self, screen, cx, cy, b, color, show_back, anim):
+        """갤리타 - 폭풍의 여전사 (관절 애니메이션)"""
+        # 애니메이션 값 추출
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        arm_swing_anim = anim["arm_swing"]
+        left_leg_lift = anim["left_leg"]
+        right_leg_lift = anim["right_leg"]
+        left_shoulder = anim["left_shoulder"]
+        right_shoulder = anim["right_shoulder"]
+
+        # 기본 위치 계산 (어깨 들썩임 적용)
+        torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
+        lean_offset = int(lean * 2.5 * b)
 
         # 색상 팔레트
         p = {
@@ -101,28 +150,33 @@ class HeroPaddleRenderer:
             "lightning": (200, 230, 255),
         }
 
-        # === 다리 (뒤에 먼저) ===
+        # === 다리 (관절 애니메이션) ===
         hip_y = torso_y + int(2.0 * b)
         thigh_w, thigh_h = int(0.7 * b), int(1.8 * b)
         calf_h = int(1.0 * b)
 
         for side in [-1, 1]:
-            leg_phase = leg_lift if side == 1 else -leg_lift // 2
-            thigh_x = cx + side * int(0.5 * b) + lean_offset - thigh_w // 2
-            thigh_rect = pygame.Rect(thigh_x, hip_y + leg_phase, thigh_w, thigh_h)
+            # 좌우 다리 교차 움직임
+            leg_lift = left_leg_lift if side == -1 else right_leg_lift
+            leg_phase = int(leg_lift * 3 * b)
+            leg_swing = int(wave * 2 * side)  # 전후 스윙
+
+            thigh_x = cx + side * int(0.5 * b) + lean_offset - thigh_w // 2 + leg_swing
+            thigh_rect = pygame.Rect(thigh_x, hip_y - leg_phase, thigh_w, thigh_h)
             pygame.draw.rect(screen, p["cloth"], thigh_rect, border_radius=2)
 
-            # 무릎 보호대
-            knee_rect = pygame.Rect(thigh_x - 1, thigh_rect.bottom - int(0.3 * b), thigh_w + 2, int(0.5 * b))
+            # 무릎 보호대 (관절)
+            knee_y = thigh_rect.bottom - int(0.3 * b) + int(leg_lift * 1 * b)
+            knee_rect = pygame.Rect(thigh_x - 1, knee_y, thigh_w + 2, int(0.5 * b))
             pygame.draw.rect(screen, p["armor_dark"], knee_rect, border_radius=1)
 
-            # 부츠
+            # 부츠 (발 각도)
             boot_rect = pygame.Rect(thigh_x - 1, knee_rect.bottom, thigh_w + 2, calf_h)
             pygame.draw.rect(screen, p["boot"], boot_rect, border_radius=2)
             pygame.draw.line(screen, p["boot_light"], (boot_rect.left + 1, boot_rect.centery),
                            (boot_rect.right - 1, boot_rect.centery), 1)
 
-        # === 몸통 ===
+        # === 몸통 (살짝 기울기) ===
         chest_w, chest_h = int(2.8 * b), int(2.0 * b)
         chest_rect = pygame.Rect(cx - chest_w // 2 + lean_offset, torso_y - int(0.3 * b), chest_w, chest_h)
         pygame.draw.rect(screen, p["armor"], chest_rect, border_radius=int(0.4 * b))
@@ -137,24 +191,32 @@ class HeroPaddleRenderer:
         pygame.draw.rect(screen, p["gold_dark"], belt_rect, border_radius=2)
         pygame.draw.rect(screen, p["gold"], (belt_rect.centerx - int(0.4 * b), belt_rect.top + 1, int(0.8 * b), belt_rect.height - 2), border_radius=1)
 
-        # === 어깨 갑옷 ===
+        # === 어깨 갑옷 (들썩임 적용) ===
         for side in [-1, 1]:
+            shoulder_bob = (left_shoulder if side == -1 else right_shoulder) * b
             pauldron = [
-                (cx + side * int(1.6 * b) + lean_offset, torso_y - int(0.5 * b)),
-                (cx + side * int(0.9 * b) + lean_offset, torso_y - int(0.8 * b)),
+                (cx + side * int(1.6 * b) + lean_offset, torso_y - int(0.5 * b) + int(shoulder_bob)),
+                (cx + side * int(0.9 * b) + lean_offset, torso_y - int(0.8 * b) + int(shoulder_bob * 0.5)),
                 (cx + side * int(0.8 * b) + lean_offset, torso_y + int(0.6 * b)),
                 (cx + side * int(1.5 * b) + lean_offset, torso_y + int(0.7 * b)),
             ]
             pygame.draw.polygon(screen, p["armor"], pauldron)
             pygame.draw.line(screen, p["gold"], pauldron[0], pauldron[1], 2)
 
-        # === 팔 ===
-        arm_swing = int(wave * 3)
+        # === 팔 (자연스러운 스윙) ===
+        arm_swing = int(arm_swing_anim * 4 * b)
         for side in [-1, 1]:
-            shoulder = (cx + side * int(1.3 * b) + lean_offset, torso_y)
-            elbow = (shoulder[0] + side * int(0.7 * b) + (arm_swing if side == 1 else -arm_swing),
-                    torso_y + int(0.8 * b))
-            wrist = (elbow[0] + side * int(0.5 * b), torso_y + int(1.5 * b))
+            shoulder_y_offset = (left_shoulder if side == -1 else right_shoulder) * b
+            shoulder = (cx + side * int(1.3 * b) + lean_offset, torso_y + int(shoulder_y_offset))
+
+            # 팔꿈치 - 반대 방향 스윙
+            elbow_swing = arm_swing * side
+            elbow = (shoulder[0] + side * int(0.7 * b) + elbow_swing,
+                    torso_y + int(0.8 * b) - abs(elbow_swing) // 3)
+
+            # 손목
+            wrist = (elbow[0] + side * int(0.5 * b) + elbow_swing // 2,
+                    torso_y + int(1.5 * b) - abs(elbow_swing) // 4)
 
             pygame.draw.line(screen, p["skin"], shoulder, elbow, max(2, int(0.6 * b)))
             pygame.draw.line(screen, p["skin"], elbow, wrist, max(2, int(0.5 * b)))
@@ -217,9 +279,19 @@ class HeroPaddleRenderer:
     # =========================================================================
     # 아르키네스 - 철벽의 수호자 (대형 방패)
     # =========================================================================
-    def _draw_archines(self, screen, cx, cy, b, color, show_back, lean, wave):
+    def _draw_archines(self, screen, cx, cy, b, color, show_back, anim):
         """아르키네스 - 철벽의 수호자"""
-        torso_y = cy - int(1.5 * b)
+        # 애니메이션 값 추출
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        arm_swing_anim = anim["arm_swing"]
+        left_leg_lift = anim["left_leg"]
+        right_leg_lift = anim["right_leg"]
+        left_shoulder = anim["left_shoulder"]
+        right_shoulder = anim["right_shoulder"]
+
+        torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
         lean_offset = int(lean * 2 * b)
         leg_lift = int(abs(wave) * 1.5)
 
@@ -349,9 +421,19 @@ class HeroPaddleRenderer:
     # =========================================================================
     # 토키아 - 바위의 거인
     # =========================================================================
-    def _draw_chungkia(self, screen, cx, cy, b, color, show_back, lean, wave):
+    def _draw_chungkia(self, screen, cx, cy, b, color, show_back, anim):
         """토키아 - 바위의 거인 (거대한 체구)"""
-        torso_y = cy - int(1.8 * b)
+        # 애니메이션 값 추출
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        arm_swing_anim = anim["arm_swing"]
+        left_leg_lift = anim["left_leg"]
+        right_leg_lift = anim["right_leg"]
+        left_shoulder = anim["left_shoulder"]
+        right_shoulder = anim["right_shoulder"]
+
+        torso_y = cy - int(1.8 * b) + int(body_bob * 1.5 * b)
         lean_offset = int(lean * 1.5 * b)
         leg_lift = int(abs(wave) * 1)
 
@@ -453,9 +535,19 @@ class HeroPaddleRenderer:
     # =========================================================================
     # 포이네스 - 그림자 암살자
     # =========================================================================
-    def _draw_poineth(self, screen, cx, cy, b, color, show_back, lean, wave):
+    def _draw_poineth(self, screen, cx, cy, b, color, show_back, anim):
         """포이네스 - 그림자 암살자"""
-        torso_y = cy - int(1.5 * b)
+        # 애니메이션 값 추출
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        arm_swing_anim = anim["arm_swing"]
+        left_leg_lift = anim["left_leg"]
+        right_leg_lift = anim["right_leg"]
+        left_shoulder = anim["left_shoulder"]
+        right_shoulder = anim["right_shoulder"]
+
+        torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
         lean_offset = int(lean * 2.5 * b)
         leg_lift = int(abs(wave) * 2.5)
 
@@ -550,9 +642,19 @@ class HeroPaddleRenderer:
     # =========================================================================
     # 게스탄드 - 현명한 전술가 (마법사)
     # =========================================================================
-    def _draw_gestand(self, screen, cx, cy, b, color, show_back, lean, wave):
+    def _draw_gestand(self, screen, cx, cy, b, color, show_back, anim):
         """게스탄드 - 현명한 전술가"""
-        torso_y = cy - int(1.5 * b)
+        # 애니메이션 값 추출
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        arm_swing_anim = anim["arm_swing"]
+        left_leg_lift = anim["left_leg"]
+        right_leg_lift = anim["right_leg"]
+        left_shoulder = anim["left_shoulder"]
+        right_shoulder = anim["right_shoulder"]
+
+        torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
         lean_offset = int(lean * 2 * b)
         leg_lift = int(abs(wave) * 1.5)
 
@@ -665,9 +767,19 @@ class HeroPaddleRenderer:
     # =========================================================================
     # 부칸다이 - 광기의 광대
     # =========================================================================
-    def _draw_bukandai(self, screen, cx, cy, b, color, show_back, lean, wave):
+    def _draw_bukandai(self, screen, cx, cy, b, color, show_back, anim):
         """부칸다이 - 광기의 광대"""
-        torso_y = cy - int(1.5 * b)
+        # 애니메이션 값 추출
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        arm_swing_anim = anim["arm_swing"]
+        left_leg_lift = anim["left_leg"]
+        right_leg_lift = anim["right_leg"]
+        left_shoulder = anim["left_shoulder"]
+        right_shoulder = anim["right_shoulder"]
+
+        torso_y = cy - int(1.5 * b) + int(body_bob * 2.5 * b)
         lean_offset = int(lean * 2.5 * b)
         leg_lift = int(abs(wave) * 3)
 
@@ -802,9 +914,19 @@ class HeroPaddleRenderer:
     # =========================================================================
     # 핀조 - 불굴의 검투사
     # =========================================================================
-    def _draw_pinjo(self, screen, cx, cy, b, color, show_back, lean, wave):
+    def _draw_pinjo(self, screen, cx, cy, b, color, show_back, anim):
         """핀조 - 불굴의 검투사 (로마 검투사)"""
-        torso_y = cy - int(1.5 * b)
+        # 애니메이션 값 추출
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        arm_swing_anim = anim["arm_swing"]
+        left_leg_lift = anim["left_leg"]
+        right_leg_lift = anim["right_leg"]
+        left_shoulder = anim["left_shoulder"]
+        right_shoulder = anim["right_shoulder"]
+
+        torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
         lean_offset = int(lean * 2 * b)
         leg_lift = int(abs(wave) * 2)
 
@@ -961,9 +1083,19 @@ class HeroPaddleRenderer:
     # =========================================================================
     # 알렉사 - 황금의 창
     # =========================================================================
-    def _draw_alexa(self, screen, cx, cy, b, color, show_back, lean, wave):
+    def _draw_alexa(self, screen, cx, cy, b, color, show_back, anim):
         """알렉사 - 황금의 창 (귀족 전사)"""
-        torso_y = cy - int(1.5 * b)
+        # 애니메이션 값 추출
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        arm_swing_anim = anim["arm_swing"]
+        left_leg_lift = anim["left_leg"]
+        right_leg_lift = anim["right_leg"]
+        left_shoulder = anim["left_shoulder"]
+        right_shoulder = anim["right_shoulder"]
+
+        torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
         lean_offset = int(lean * 2 * b)
         leg_lift = int(abs(wave) * 1.5)
 
@@ -1109,9 +1241,14 @@ class HeroPaddleRenderer:
     # =========================================================================
     # 기본 폴백
     # =========================================================================
-    def _draw_default(self, screen, cx, cy, b, color, show_back, lean, wave):
+    def _draw_default(self, screen, cx, cy, b, color, show_back, anim):
         """기본 캐릭터 (폴백)"""
-        torso_y = cy - int(1.5 * b)
+        # 애니메이션 값 추출
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+
+        torso_y = cy - int(1.5 * b) + int(body_bob * 1.5 * b)
         lean_offset = int(lean * 2 * b)
 
         # 다리
