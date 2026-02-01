@@ -1398,10 +1398,15 @@ class HeroSkillManager:
         if hero_id not in self.active_skills:
             # 새 인스턴스 생성 (상태 독립)
             skills = []
-            for base_skill in HERO_SKILLS.get(hero_id, []):
+            base_skills = HERO_SKILLS.get(hero_id, [])
+            print(f"[Arena Skill Init] {hero_id}: found {len(base_skills)} base skills")
+            for base_skill in base_skills:
                 skill_class = type(base_skill)
-                skills.append(skill_class())
+                new_skill = skill_class()
+                skills.append(new_skill)
+                print(f"  - {new_skill.korean_name} ({new_skill.trigger.value}): cooldown={new_skill.cooldown}s")
             self.active_skills[hero_id] = skills
+            print(f"[Arena Skill Init] {hero_id}: initialized {len(skills)} skills")
 
     def reset(self):
         """전체 리셋"""

@@ -117682,15 +117682,21 @@ def handle_ball():
                 bottom_wrapper = PaddleWrapper(PLAYER, False)
                 top_wrapper = PaddleWrapper(BOSS, True)
                 ball_wrapper = BallWrapper(BALL, ball_vel)
+                hero_id = arena_bottom_hero["id"]
+                # 디버그: ON_BALL_HIT 스킬 상태 확인
+                skills = arena_skill_manager.active_skills.get(hero_id, [])
+                for skill in skills:
+                    if skill.trigger == SkillTrigger.ON_BALL_HIT:
+                        print(f"[Arena DEBUG] {hero_id} BALL_HIT - {skill.korean_name}: cooldown={skill.current_cooldown:.1f}, can_use={skill.can_use()}")
                 result = arena_skill_manager.try_use_skill(
-                    arena_bottom_hero["id"], SkillTrigger.ON_BALL_HIT,
+                    hero_id, SkillTrigger.ON_BALL_HIT,
                     bottom_wrapper, top_wrapper, ball_wrapper
                 )
                 if result:
                     # 공 속도 변경 반영
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
-                    print(f"[Arena] {arena_bottom_hero['id']} ON_BALL_HIT 스킬 발동!")
+                    print(f"[Arena] {hero_id} ON_BALL_HIT 스킬 발동!")
             except Exception as e:
                 print(f"[Arena] Bottom hero skill error: {e}")
 
@@ -118438,15 +118444,21 @@ def handle_ball():
                 top_wrapper = PaddleWrapper(BOSS, True)
                 bottom_wrapper = PaddleWrapper(PLAYER, False)
                 ball_wrapper = BallWrapper(BALL, ball_vel)
+                hero_id = arena_top_hero["id"]
+                # 디버그: ON_BALL_HIT 스킬 상태 확인
+                skills = arena_skill_manager.active_skills.get(hero_id, [])
+                for skill in skills:
+                    if skill.trigger == SkillTrigger.ON_BALL_HIT:
+                        print(f"[Arena DEBUG] {hero_id} BALL_HIT - {skill.korean_name}: cooldown={skill.current_cooldown:.1f}, can_use={skill.can_use()}")
                 result = arena_skill_manager.try_use_skill(
-                    arena_top_hero["id"], SkillTrigger.ON_BALL_HIT,
+                    hero_id, SkillTrigger.ON_BALL_HIT,
                     top_wrapper, bottom_wrapper, ball_wrapper
                 )
                 if result:
                     # 공 속도 변경 반영
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
-                    print(f"[Arena] {arena_top_hero['id']} ON_BALL_HIT 스킬 발동!")
+                    print(f"[Arena] {hero_id} ON_BALL_HIT 스킬 발동!")
             except Exception as e:
                 print(f"[Arena] Top hero skill error: {e}")
 
@@ -124356,6 +124368,7 @@ def main(stage_num, new_boss_mode=False):
     global dashholder_obtained, dashgear_obtained, spikeboots_obtained  # 대쉬 아이템 보유 상태
     global power_smashing_direction, power_smashing_original_speed  # 파워스매싱 관련 변수
     global boss_stunned_timer, boss_knockback_vel, boss_knockback_timer  # 다이너마이트 넉백용 전역 변수
+    global arena_skill_manager, arena_skill_check_timer  # 투기장 스킬 시스템 전역 변수
     nine_just_pressed = False
     last_nine_state = False
     
@@ -129918,24 +129931,36 @@ def main(stage_num, new_boss_mode=False):
                         arena_skill_check_timer = 0.0
                         # 상단 영웅 ON_COOLDOWN 스킬
                         if arena_top_hero:
+                            hero_id = arena_top_hero["id"]
+                            # 디버그: 스킬 상태 확인
+                            skills = arena_skill_manager.active_skills.get(hero_id, [])
+                            for skill in skills:
+                                if skill.trigger == SkillTrigger.ON_COOLDOWN:
+                                    print(f"[Arena DEBUG] {hero_id} - {skill.korean_name}: cooldown={skill.current_cooldown:.1f}, can_use={skill.can_use()}, is_active={skill.is_active}")
                             result = arena_skill_manager.try_use_skill(
-                                arena_top_hero["id"], SkillTrigger.ON_COOLDOWN,
+                                hero_id, SkillTrigger.ON_COOLDOWN,
                                 top_wrapper, bottom_wrapper, ball_wrapper
                             )
                             if result:
                                 ball_vel[0] = ball_wrapper.vx
                                 ball_vel[1] = ball_wrapper.vy
-                                print(f"[Arena] {arena_top_hero['id']} ON_COOLDOWN 스킬 발동!")
+                                print(f"[Arena] {hero_id} ON_COOLDOWN 스킬 발동!")
                         # 하단 영웅 ON_COOLDOWN 스킬
                         if arena_bottom_hero:
+                            hero_id = arena_bottom_hero["id"]
+                            # 디버그: 스킬 상태 확인
+                            skills = arena_skill_manager.active_skills.get(hero_id, [])
+                            for skill in skills:
+                                if skill.trigger == SkillTrigger.ON_COOLDOWN:
+                                    print(f"[Arena DEBUG] {hero_id} - {skill.korean_name}: cooldown={skill.current_cooldown:.1f}, can_use={skill.can_use()}, is_active={skill.is_active}")
                             result = arena_skill_manager.try_use_skill(
-                                arena_bottom_hero["id"], SkillTrigger.ON_COOLDOWN,
+                                hero_id, SkillTrigger.ON_COOLDOWN,
                                 bottom_wrapper, top_wrapper, ball_wrapper
                             )
                             if result:
                                 ball_vel[0] = ball_wrapper.vx
                                 ball_vel[1] = ball_wrapper.vy
-                                print(f"[Arena] {arena_bottom_hero['id']} ON_COOLDOWN 스킬 발동!")
+                                print(f"[Arena] {hero_id} ON_COOLDOWN 스킬 발동!")
                 except Exception as e:
                     print(f"[Arena] Skill update error: {e}")
 
