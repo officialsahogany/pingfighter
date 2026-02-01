@@ -18517,8 +18517,118 @@ def arena_trigger_top_hero_dash(target_x: float) -> bool:
     return True
 
 
+def arena_should_bottom_hero_dash() -> tuple[bool, float]:
+    """하단 영웅(AI) 대쉬 발동 조건 체크 - 보스와 동일한 조건
+
+    Returns:
+        (should_dash, target_x): 대쉬 발동 여부와 목표 X 좌표
+    """
+    global arena_bottom_dashing, arena_bottom_dash_cooldown, arena_bottom_dash_stun_timer
+
+    # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
+    if arena_bottom_dashing or arena_bottom_dash_cooldown > 0 or arena_bottom_dash_stun_timer > 0:
+        return False, 0.0
+
+    # 공이 하단 영웅(플레이어) 방향으로 향하지 않으면 사용하지 않음
+    if ball_vel[1] <= 0:
+        return False, 0.0
+
+    # 공이 플레이어 라인 위 특정 Y 구간에 있을 때만 대쉬 고려
+    # dy가 작을수록 공이 플레이어에 가까움 (100px = 더 가까워졌을 때만 발동)
+    dy = PLAYER.top - BALL.centery
+    if dy <= 0 or dy > 100:
+        return False, 0.0
+
+    time_to_player = dy / max(1.0, abs(ball_vel[1]))  # 프레임 단위 예상 시간
+
+    # 공이 아직 너무 멀리 있을 때는 일반 이동으로 대응 가능하므로 대쉬 사용 안 함
+    if time_to_player > 18.0:  # 약 0.3초 이상 남으면 대쉬 안 씀
+        return False, 0.0
+
+    # 투기장 영웅 이동 속도 추정 (일반 이동 성능)
+    effective_speed = 8.0 * 1.5  # 투기장 AI 이동 속도 여유 포함
+
+    # 남은 시간 동안 일반 이동으로 커버할 수 있는 최대 거리
+    max_travel = effective_speed * time_to_player
+
+    # 사이드 벽 반사를 고려한 공의 예상 X 위치 계산
+    def _predict_x_with_walls(x: float, vx: float, frames: float) -> float:
+        if abs(vx) < 1e-3 or frames <= 0:
+            return x
+        remaining = frames
+        x_min = 0.0
+        x_max = float(WIDTH)
+        for _ in range(4):
+            if remaining <= 0:
+                break
+            if vx > 0:
+                t_wall = (x_max - x) / vx if vx != 0 else float("inf")
+            else:
+                t_wall = (x_min - x) / vx if vx != 0 else float("inf")
+            if t_wall <= 0 or t_wall >= remaining:
+                x += vx * remaining
+                remaining = 0
+                break
+            x += vx * t_wall
+            remaining -= t_wall
+            vx = -vx
+        return max(x_min, min(x_max, x))
+
+    predicted_x = _predict_x_with_walls(float(BALL.centerx), float(ball_vel[0]), float(time_to_player))
+    player_min_cx = PADDLE_WIDTH // 2
+    player_max_cx = WIDTH - PADDLE_WIDTH // 2
+    predicted_x = max(player_min_cx, min(player_max_cx, predicted_x))
+
+    required = abs(predicted_x - PLAYER.centerx)
+
+    # 일반 이동으로도 충분히 커버 가능한 거리라면 대쉬 불필요
+    if required <= max_travel:
+        return False, 0.0
+
+    # 작은 보정만으로 막을 수 있는 상황(패들 폭의 80% 미만 차이)에서는 대쉬 사용 안 함
+    if required < PLAYER.width * 0.8:
+        return False, 0.0
+
+    return True, predicted_x
+
+
+def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
+    """하단 영웅(AI) 대쉬 발동 - 보스 대쉬와 동일한 방식 (AI용)"""
+    global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
+    global arena_bottom_dash_target_x, arena_bottom_dash_cooldown
+    global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
+
+    # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
+    if arena_bottom_dashing or arena_bottom_dash_cooldown > 0 or arena_bottom_dash_stun_timer > 0:
+        return False
+
+    direction = 1 if target_x > PLAYER.centerx else -1
+    dash_distance = abs(target_x - PLAYER.centerx)
+
+    # 최소 거리 체크
+    if dash_distance < 30:
+        return False
+
+    arena_bottom_dash_direction = direction
+    arena_bottom_dash_target_x = float(max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, target_x)))
+
+    # 보스와 동일한 동적 지속시간 계산 (거리 기반)
+    estimated_duration = dash_distance / 30.0  # 평균 속도 기반
+    arena_bottom_dash_duration_frames = int(max(10, min(estimated_duration, 40)))  # 10~40 프레임
+    arena_bottom_dash_timer = arena_bottom_dash_duration_frames
+    arena_bottom_dashing = True
+
+    # 대쉬 사운드 재생 (보스와 동일)
+    try:
+        play_dash_sound()
+    except Exception:
+        pass
+
+    return True
+
+
 def arena_trigger_bottom_hero_dash(direction: int) -> bool:
-    """하단 영웅(플레이어) 대쉬 발동 - 보스 대쉬와 동일한 방식"""
+    """하단 영웅(플레이어) 대쉬 발동 - 수동 조작용"""
     global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_charges
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
@@ -18708,6 +18818,8 @@ def update_arena_bottom_hero_dash():
     if arena_bottom_dash_timer <= 0:
         arena_bottom_dashing = False
         arena_bottom_dash_stun_timer = ARENA_DASH_STUN_FRAMES  # 후딜 타이머 설정
+        # 쿨타임 설정 (10~15초 랜덤) - 대쉬 종료 후 설정
+        arena_bottom_dash_cooldown = random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX)
         # 후딜 사운드 시작 (보스와 동일)
         try:
             play_dash_delay_sound()
@@ -122268,6 +122380,17 @@ def handle_boss():
         should_dash, target_x = arena_should_top_hero_dash()
         if should_dash:
             arena_trigger_top_hero_dash(target_x)
+
+    # 🏟️ 투기장 하단 영웅 대쉬 처리 (AI)
+    if arena_mode_enabled and arena_bottom_hero:
+        # 대쉬 업데이트
+        if update_arena_bottom_hero_dash():
+            pass  # 대쉬/후딜 중에는 처리 완료
+
+        # 대쉬 발동 조건 체크 (보스와 동일한 조건: 공이 가까이 + 막지 못할 것 같을 때만)
+        should_dash, target_x = arena_should_bottom_hero_dash()
+        if should_dash:
+            arena_trigger_bottom_hero_dash_ai(target_x)
 
     # 라운드 시작 시 극정호신 텍스트는 1회만; 다음 라운드엔 숨김
     if is_waiting_for_serve:
