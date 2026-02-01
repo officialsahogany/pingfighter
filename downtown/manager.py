@@ -70,12 +70,15 @@ class DowntownManager:
     - 이벤트 처리
     """
 
-    def __init__(self, screen, academy=None):
+    def __init__(self, screen, academy=None, arena_battle_callback=None):
         self.screen = screen
         self.clock = pygame.time.Clock()
 
         # Academy 참조 (스킬 포인트 확인용)
         self.academy = academy
+
+        # 투기장 배틀 콜백 (실제 게임 엔진 사용)
+        self.arena_battle_callback = arena_battle_callback
 
         # 폰트 초기화
         self._init_fonts()
@@ -2011,11 +2014,12 @@ class DowntownManager:
                                 show_entry_dialog = False
                                 arena_running = True
 
-                                # 아레나 시스템 실행
+                                # 아레나 시스템 실행 (실제 게임 엔진 연동)
                                 arena = ColosseumsArena(
                                     self.screen,
                                     self._freetype_fonts,
-                                    self.player_data.get('gold', 0)
+                                    self.player_data.get('gold', 0),
+                                    battle_callback=self.arena_battle_callback
                                 )
 
                                 # 아레나 게임 루프

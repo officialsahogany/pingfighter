@@ -773,45 +773,85 @@ class ColosseumsArena:
 
         return odds1, odds2
 
+    def _run_real_game_battle(self, top_hero: dict, bottom_hero: dict) -> bool:
+        """실제 게임 엔진으로 배틀 실행 (pingfighter.main 호출)"""
+        try:
+            import pingfighter
+
+            # 투기장 모드 글로벌 변수 설정
+            pingfighter.arena_mode_enabled = True
+            pingfighter.arena_top_hero = top_hero
+            pingfighter.arena_bottom_hero = bottom_hero
+
+            # 영웅 패들 렌더러 초기화
+            try:
+                pingfighter.arena_hero_paddle_renderer = get_hero_paddle_renderer()
+            except Exception:
+                pingfighter.arena_hero_paddle_renderer = None
+
+            # AI 플레이 모드 활성화
+            pingfighter.player_ai_enabled = True
+
+            # AI 컨트롤러 리셋
+            try:
+                from ai.player_ai import get_player_ai_controller
+                get_player_ai_controller().on_stage_start()
+            except Exception:
+                pass
+
+            # 스테이지 30에서 게임 실행
+            result = pingfighter.main(30)
+
+            return result
+
+        except Exception as e:
+            print(f"Real game battle error: {e}")
+            import traceback
+            traceback.print_exc()
+            return random.choice([True, False])
+
+        finally:
+            # 투기장 모드 변수 초기화
+            try:
+                pingfighter.arena_mode_enabled = False
+                pingfighter.arena_top_hero = None
+                pingfighter.arena_bottom_hero = None
+                pingfighter.arena_hero_paddle_renderer = None
+            except Exception:
+                pass
+
     def start_battle(self, match: Match):
-        """배틀 시작 - 콜백이 있으면 실제 게임 엔진 사용, 없으면 자체 시스템"""
+        """배틀 시작 - 실제 게임 엔진 사용"""
         self.selected_match = match
 
-        if self.battle_callback:
-            # 실제 게임 엔진 사용 (콜백 호출)
-            try:
+        # 실제 게임 엔진으로 배틀 실행
+        try:
+            if self.battle_callback:
                 result = self.battle_callback(match.hero1, match.hero2)
+            else:
+                result = self._run_real_game_battle(match.hero1, match.hero2)
 
-                # 결과 처리: True = 보스 처치 (하단 영웅 승리), False = 패배 (상단 영웅 승리)
-                if result:
-                    winner = match.hero2
-                    self.score_top = 0
-                    self.score_bottom = 5
-                else:
-                    winner = match.hero1
-                    self.score_top = 5
-                    self.score_bottom = 0
+            # 결과 처리: True = 보스 처치 (하단 영웅 승리), False = 패배 (상단 영웅 승리)
+            if result:
+                winner = match.hero2
+                self.score_top = 0
+                self.score_bottom = 5
+            else:
+                winner = match.hero1
+                self.score_top = 5
+                self.score_bottom = 0
 
-                self._end_battle(winner)
+            self._end_battle(winner)
 
-            except Exception as e:
-                print(f"Arena battle callback error: {e}")
-                import traceback
-                traceback.print_exc()
-                # 에러 시 랜덤 승자 결정
-                winner = random.choice([match.hero1, match.hero2])
-                self.score_top = 5 if winner == match.hero1 else 0
-                self.score_bottom = 5 if winner == match.hero2 else 0
-                self._end_battle(winner)
-        else:
-            # 자체 물리 시스템 사용 (폴백)
-            self.battle_active = True
-            self.score_top = 0
-            self.score_bottom = 0
-
-            # AI 패들 생성
-            self.top_paddle = AIPaddleController(match.hero1, is_top=True)
-            self.bottom_paddle = AIPaddleController(match.hero2, is_top=False)
+        except Exception as e:
+            print(f"Arena battle error: {e}")
+            import traceback
+            traceback.print_exc()
+            # 에러 시 랜덤 승자 결정
+            winner = random.choice([match.hero1, match.hero2])
+            self.score_top = 5 if winner == match.hero1 else 0
+            self.score_bottom = 5 if winner == match.hero2 else 0
+            self._end_battle(winner)
 
             # 공 생성 (애니메이션 시작)
             self.ball = ArenaBall()
