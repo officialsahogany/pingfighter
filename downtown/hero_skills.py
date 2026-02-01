@@ -567,13 +567,13 @@ class TimeRewind(HeroSkill):
 # 오니마루 스킬 - 지옥의 요괴무사 (공격적)
 # ============================================================================
 class HellFire(HeroSkill):
-    """지옥의 불꽃 - 화면이 붉게 변하며 공 가속"""
+    """도깨비불 - 공이 도깨비불처럼 변하며 자유자재로 움직임"""
     def __init__(self):
         super().__init__(
             skill_id="hell_fire",
-            name="Hell Fire",
-            korean_name="지옥의 불꽃",
-            description="지옥의 불길로 공을 불태워 속도를 높인다",
+            name="Dokkaebi Fire",
+            korean_name="도깨비불",
+            description="공이 도깨비불로 변해 예측 불가능하게 움직인다",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=10.0,
             duration=3.0,
@@ -583,10 +583,11 @@ class HellFire(HeroSkill):
         self.flame_intensity = 0
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        # 공 가속 및 불꽃 상태
+        # 공 가속 및 도깨비불 상태
         ball.vx *= 1.3
         ball.vy *= 1.3
         game_state['ball_on_fire'] = True
+        game_state['dokkaebi_ball'] = True  # 도깨비불 이미지 활성화
         self.flame_intensity = 1.0
 
         # 불꽃 파티클
@@ -594,21 +595,21 @@ class HellFire(HeroSkill):
 
         return {
             'screen_effect': ScreenEffect.FIRE,
-            'screen_tint': (255, 100, 50),
+            'screen_tint': (100, 200, 255),  # 도깨비불은 푸른빛
             'sound': 'fire_burst'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         self.flame_intensity = max(0, self.flame_intensity - dt * 0.3)
 
-        # 🔥 지옥불 효과: 공이 자유자재로 움직임 (불규칙한 곡선 경로)
+        # 🔥 도깨비불 효과: 공이 자유자재로 움직임 (불규칙한 곡선 경로)
         # 시간 기반 사인파 + 랜덤 변동으로 예측 불가능한 움직임 생성
-        self.hell_time = getattr(self, 'hell_time', 0) + dt
+        self.dokkaebi_time = getattr(self, 'dokkaebi_time', 0) + dt
 
         # 사인파 기반 곡선 움직임 (좌우로 흔들림)
         wave_intensity = 150  # 흔들림 강도
         wave_speed = 8  # 흔들림 속도
-        curve_force = math.sin(self.hell_time * wave_speed) * wave_intensity * dt
+        curve_force = math.sin(self.dokkaebi_time * wave_speed) * wave_intensity * dt
 
         # 공의 X 속도에 곡선 힘 적용
         ball.vx += curve_force
@@ -645,25 +646,26 @@ class HellFire(HeroSkill):
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['ball_on_fire'] = False
+        game_state['dokkaebi_ball'] = False  # 도깨비불 이미지 비활성화
         self.fire_particles = []
-        self.hell_time = 0  # 타이머 리셋
+        self.dokkaebi_time = 0  # 타이머 리셋
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
-            # 화면 붉은 틴트
+            # 화면 푸른 틴트 (도깨비불)
             if self.flame_intensity > 0:
                 overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
-                overlay.fill((255, 50, 0, int(40 * self.flame_intensity)))
+                overlay.fill((50, 150, 255, int(30 * self.flame_intensity)))  # 푸른색
                 screen.blit(overlay, (0, 0))
 
-            # 불꽃 파티클
+            # 도깨비불 파티클 (푸른색/청록색)
             for p in self.fire_particles:
                 if p['size'] > 1:
-                    # 불꽃 색상 (노랑 -> 주황 -> 빨강)
+                    # 도깨비불 색상 (하늘색 -> 청록색 -> 연두색)
                     life_ratio = p['life'] / 0.5
-                    r = 255
-                    g = int(200 * life_ratio)
-                    b = int(50 * life_ratio)
+                    r = int(100 * life_ratio)
+                    g = int(220 * life_ratio)
+                    b = 255
                     alpha = int(200 * life_ratio)
 
                     surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)

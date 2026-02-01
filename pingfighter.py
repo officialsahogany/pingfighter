@@ -85131,6 +85131,49 @@ def draw_objects():
             arena_skill_manager.draw_skills(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
             # 화면 효과 그리기 (플래시, 흔들림 등)
             arena_skill_manager.draw_screen_effects(SCREEN)
+
+            # 🔥 도깨비불 공 이펙트 그리기
+            if arena_skill_manager.game_state.get('dokkaebi_ball', False) and BALL:
+                _dokkaebi_time = pygame.time.get_ticks() / 1000.0
+                _ball_cx, _ball_cy = BALL.centerx, BALL.centery
+                _ball_r = BALL.width // 2
+
+                # 도깨비불 외곽 글로우 (청록색/푸른색 반복)
+                for i in range(4):
+                    _glow_r = _ball_r + 8 + i * 6
+                    _glow_alpha = int(120 - i * 25)
+                    # 깜빡이는 효과
+                    _flicker = 0.7 + 0.3 * math.sin(_dokkaebi_time * 10 + i)
+                    _glow_alpha = int(_glow_alpha * _flicker)
+                    _glow_surf = pygame.Surface((_glow_r * 2, _glow_r * 2), pygame.SRCALPHA)
+                    # 푸른색/청록색 그라데이션
+                    _r = int(50 + 50 * math.sin(_dokkaebi_time * 5))
+                    _g = int(180 + 40 * math.sin(_dokkaebi_time * 7))
+                    _b = 255
+                    pygame.draw.circle(_glow_surf, (_r, _g, _b, _glow_alpha), (_glow_r, _glow_r), _glow_r)
+                    SCREEN.blit(_glow_surf, (_ball_cx - _glow_r, _ball_cy - _glow_r), special_flags=pygame.BLEND_ADD)
+
+                # 도깨비불 본체 (푸른 불꽃 모양)
+                _core_surf = pygame.Surface((_ball_r * 4, _ball_r * 4), pygame.SRCALPHA)
+                _core_cx, _core_cy = _ball_r * 2, _ball_r * 2
+                # 불꽃 모양 (위로 뾰족하게)
+                _flame_points = []
+                for angle in range(0, 360, 30):
+                    _rad = math.radians(angle)
+                    # 위쪽으로 길쭉한 타원형
+                    _dist = _ball_r * (1.2 + 0.3 * math.sin(_dokkaebi_time * 8 + angle / 30))
+                    if 60 < angle < 120:  # 위쪽은 더 길게
+                        _dist *= 1.5
+                    _fx = _core_cx + math.sin(_rad) * _dist * 0.8
+                    _fy = _core_cy - math.cos(_rad) * _dist
+                    _flame_points.append((_fx, _fy))
+                if len(_flame_points) >= 3:
+                    pygame.draw.polygon(_core_surf, (100, 220, 255, 200), _flame_points)
+                # 중심 하이라이트
+                pygame.draw.circle(_core_surf, (200, 255, 255, 255), (_core_cx, _core_cy), int(_ball_r * 0.6))
+                pygame.draw.circle(_core_surf, (255, 255, 255, 200), (_core_cx, _core_cy - 2), int(_ball_r * 0.3))
+                SCREEN.blit(_core_surf, (_ball_cx - _ball_r * 2, _ball_cy - _ball_r * 2), special_flags=pygame.BLEND_ADD)
+
         except Exception as e:
             print(f"[Arena] Skill draw error: {e}")
 
