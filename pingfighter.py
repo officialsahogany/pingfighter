@@ -18288,6 +18288,120 @@ ARENA_DASH_CHARGE_TIME = 180         # 대쉬 충전 시간 (3초)
 ARENA_DASH_DURATION_FRAMES = 15      # 대쉬 지속 시간 (프레임)
 ARENA_DASH_STUN_FRAMES = 20          # 대쉬 후딜 시간 (프레임)
 
+# 투기장 영웅 말풍선 시스템
+arena_top_speech_text = ""           # 상단 영웅 말풍선 텍스트
+arena_top_speech_timer = 0           # 상단 영웅 말풍선 타이머
+arena_bottom_speech_text = ""        # 하단 영웅 말풍선 텍스트
+arena_bottom_speech_timer = 0        # 하단 영웅 말풍선 타이머
+ARENA_SPEECH_DURATION = 90           # 말풍선 표시 시간 (1.5초)
+
+
+def arena_show_speech_bubble(is_top: bool, skill_name: str):
+    """투기장 영웅 말풍선 표시"""
+    global arena_top_speech_text, arena_top_speech_timer
+    global arena_bottom_speech_text, arena_bottom_speech_timer
+
+    if is_top:
+        arena_top_speech_text = skill_name + "!"
+        arena_top_speech_timer = ARENA_SPEECH_DURATION
+    else:
+        arena_bottom_speech_text = skill_name + "!"
+        arena_bottom_speech_timer = ARENA_SPEECH_DURATION
+
+
+def arena_draw_speech_bubbles():
+    """투기장 영웅 말풍선 그리기"""
+    global arena_top_speech_timer, arena_bottom_speech_timer
+
+    # 상단 영웅 말풍선 (보스 위치)
+    if arena_top_speech_timer > 0 and arena_top_speech_text:
+        _draw_arena_speech_bubble(
+            BOSS.centerx,
+            BOSS.bottom + 15,
+            arena_top_speech_text,
+            is_top=True
+        )
+        arena_top_speech_timer -= 1
+
+    # 하단 영웅 말풍선 (플레이어 위치)
+    if arena_bottom_speech_timer > 0 and arena_bottom_speech_text:
+        _draw_arena_speech_bubble(
+            PLAYER.centerx,
+            PLAYER.top - 45,
+            arena_bottom_speech_text,
+            is_top=False
+        )
+        arena_bottom_speech_timer -= 1
+
+
+def _draw_arena_speech_bubble(x: float, y: float, text: str, is_top: bool):
+    """투기장 개별 말풍선 그리기"""
+    try:
+        # 폰트 설정
+        font = FontStyle.menu()
+
+        text_surface = font.render(text, True, BLACK)
+
+        # 말풍선 크기 계산
+        padding = 14
+        bubble_width = text_surface.get_width() + padding * 2
+        bubble_height = text_surface.get_height() + padding
+
+        # 말풍선 위치
+        bubble_x = int(x - bubble_width // 2)
+        bubble_y = int(y)
+
+        # 화면 경계 체크
+        bubble_x = max(5, min(bubble_x, WIDTH - bubble_width - 5))
+
+        # 말풍선 표면 생성
+        bubble_surface = pygame.Surface((bubble_width + 15, bubble_height + 25), pygame.SRCALPHA)
+
+        # 그림자
+        shadow_rect = pygame.Rect(3, 3, bubble_width, bubble_height)
+        pygame.draw.rect(bubble_surface, (0, 0, 0, 80), shadow_rect, border_radius=12)
+
+        # 메인 말풍선
+        main_rect = pygame.Rect(0, 0, bubble_width, bubble_height)
+        pygame.draw.rect(bubble_surface, WHITE, main_rect, border_radius=12)
+        pygame.draw.rect(bubble_surface, BLACK, main_rect, 3, border_radius=12)
+
+        # 말풍선 꼬리 (위/아래 방향)
+        if is_top:
+            # 상단 영웅: 꼬리가 위쪽 (영웅을 향함)
+            tail_points = [
+                (bubble_width // 2 - 10, 2),
+                (bubble_width // 2 + 10, 2),
+                (bubble_width // 2, -15)
+            ]
+        else:
+            # 하단 영웅: 꼬리가 아래쪽 (영웅을 향함)
+            tail_points = [
+                (bubble_width // 2 - 10, bubble_height - 2),
+                (bubble_width // 2 + 10, bubble_height - 2),
+                (bubble_width // 2, bubble_height + 15)
+            ]
+
+        pygame.draw.polygon(bubble_surface, WHITE, tail_points)
+        pygame.draw.polygon(bubble_surface, BLACK, tail_points, 2)
+
+        # 텍스트 그림자
+        text_shadow = font.render(text, True, (80, 80, 80))
+        bubble_surface.blit(text_shadow, (padding + 1, padding // 2 + 1))
+
+        # 메인 텍스트
+        bubble_surface.blit(text_surface, (padding, padding // 2))
+
+        # 애니메이션 (살짝 흔들림)
+        timer = arena_top_speech_timer if is_top else arena_bottom_speech_timer
+        float_offset = math.sin(timer * 0.15) * 2
+
+        # 화면에 그리기
+        SCREEN.blit(bubble_surface, (bubble_x, bubble_y + float_offset))
+
+    except Exception as e:
+        pass  # 오류 시 무시
+
 
 def arena_trigger_top_hero_dash(target_x: float) -> bool:
     """상단 영웅(AI) 대쉬 발동"""
@@ -90821,6 +90935,9 @@ def draw_objects():
     # UI 요소들은 화면 흔들림 영향을 받지 않도록 메인 루프에서 별도로 그림
     # 말풍선 그리기 (항상 그려야 함)
     draw_speech()
+    # 투기장 영웅 말풍선 그리기
+    if arena_mode_enabled:
+        arena_draw_speech_bubbles()
     # === Stage 3 멘헤라걸 게이지바 (세일러문 요술봉 스타일) ===
     if current_stage == 3:
         # 요술봉 위치와 크기
@@ -117933,6 +118050,9 @@ def handle_ball():
                     # 공 속도 변경 반영
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
+                    # 말풍선 표시
+                    if 'skill_korean_name' in result:
+                        arena_show_speech_bubble(False, result['skill_korean_name'])
             except Exception:
                 pass
 
@@ -118689,6 +118809,9 @@ def handle_ball():
                     # 공 속도 변경 반영
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
+                    # 말풍선 표시
+                    if 'skill_korean_name' in result:
+                        arena_show_speech_bubble(True, result['skill_korean_name'])
             except Exception:
                 pass
 
@@ -130204,6 +130327,9 @@ def main(stage_num, new_boss_mode=False):
                             if result:
                                 ball_vel[0] = ball_wrapper.vx
                                 ball_vel[1] = ball_wrapper.vy
+                                # 말풍선 표시
+                                if 'skill_korean_name' in result:
+                                    arena_show_speech_bubble(True, result['skill_korean_name'])
                         # 하단 영웅 ON_COOLDOWN 스킬
                         if arena_bottom_hero:
                             hero_id = arena_bottom_hero["id"]
@@ -130214,6 +130340,9 @@ def main(stage_num, new_boss_mode=False):
                             if result:
                                 ball_vel[0] = ball_wrapper.vx
                                 ball_vel[1] = ball_wrapper.vy
+                                # 말풍선 표시
+                                if 'skill_korean_name' in result:
+                                    arena_show_speech_bubble(False, result['skill_korean_name'])
                 except Exception:
                     pass
 
