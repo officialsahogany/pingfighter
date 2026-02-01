@@ -130579,6 +130579,10 @@ def main(stage_num, new_boss_mode=False):
                     # 스킬 쿨다운/효과 업데이트
                     arena_skill_manager.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
 
+                    # 🔥 스킬에 의한 공 속도 변경 반영 (지옥의 불꽃 등)
+                    ball_vel[0] = ball_wrapper.vx
+                    ball_vel[1] = ball_wrapper.vy
+
                     # 드래곤 브레스 화염 지대 생성 처리 (화염병과 동일한 넉백 효과)
                     _dragon_fire_req = arena_skill_manager.game_state.get('spawn_dragon_fire_zone')
                     if _dragon_fire_req:
