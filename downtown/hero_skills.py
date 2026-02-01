@@ -7,6 +7,9 @@ import random
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Callable
 
+# 스킬 시스템 사용 가능 플래그
+HERO_SKILLS_AVAILABLE = True
+
 # ============================================================================
 # 스킬 발동 조건
 # ============================================================================
@@ -1480,13 +1483,17 @@ class HeroSkillManager:
                      caster_paddle, target_paddle, ball) -> Optional[Dict]:
         """스킬 사용 시도"""
         skills = self.active_skills.get(hero_id, [])
+        print(f"[try_use_skill] hero={hero_id}, trigger={trigger.value}, num_skills={len(skills)}")
 
         for skill in skills:
+            print(f"  - {skill.korean_name}: trigger={skill.trigger.value}, cooldown={skill.current_cooldown:.2f}, is_active={skill.is_active}, can_use={skill.can_use()}")
             if skill.trigger == trigger and skill.can_use():
+                print(f"  >>> Using skill: {skill.korean_name}")
                 # 타겟 패들 추적
                 self.game_state['target_is_top'] = target_paddle.is_top
 
                 result = skill.use(caster_paddle, target_paddle, ball, self.game_state)
+                print(f"  >>> Skill result: {result}")
                 if result:
                     # 상태 효과를 해당 패들에 적용
                     target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'

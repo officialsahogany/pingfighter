@@ -939,9 +939,12 @@ from downtown import DowntownManager
 try:
     from downtown.hero_skills import get_skill_manager, SkillTrigger, HERO_SKILLS_AVAILABLE
     ARENA_SKILLS_AVAILABLE = True
-except ImportError:
+    print(f"[Arena Skills] Module loaded successfully, HERO_SKILLS_AVAILABLE={HERO_SKILLS_AVAILABLE}")
+except ImportError as e:
     ARENA_SKILLS_AVAILABLE = False
-    print("Arena hero skills module not available")
+    import traceback
+    print(f"Arena hero skills module not available: {e}")
+    traceback.print_exc()
 
 if _splash_screen:
     update_splash(0.40, "게임 로직 로딩 중...")
@@ -94156,6 +94159,7 @@ def show_start_screen():
             arena_hero_paddle_renderer = None
 
         # 영웅 스킬 시스템 초기화
+        print(f"[Arena DEBUG] ARENA_SKILLS_AVAILABLE = {ARENA_SKILLS_AVAILABLE}")
         if ARENA_SKILLS_AVAILABLE:
             try:
                 arena_skill_manager = get_skill_manager()
@@ -94163,10 +94167,20 @@ def show_start_screen():
                 arena_skill_manager.init_hero_skills(top_hero["id"])
                 arena_skill_manager.init_hero_skills(bottom_hero["id"])
                 arena_skill_check_timer = 0.0
-                print(f"Arena skills initialized for {top_hero['id']} vs {bottom_hero['id']}")
+                print(f"[Arena DEBUG] Skills initialized for {top_hero['id']} vs {bottom_hero['id']}")
+                # 디버그: 초기화된 스킬 목록 출력
+                for hero_id in [top_hero["id"], bottom_hero["id"]]:
+                    skills = arena_skill_manager.active_skills.get(hero_id, [])
+                    print(f"[Arena DEBUG] {hero_id} has {len(skills)} skills:")
+                    for s in skills:
+                        print(f"  - {s.korean_name}: trigger={s.trigger.value}, cooldown={s.cooldown}s")
             except Exception as e:
+                import traceback
                 print(f"Arena skill manager init error: {e}")
+                traceback.print_exc()
                 arena_skill_manager = None
+        else:
+            print("[Arena DEBUG] ARENA_SKILLS_AVAILABLE is False, skill system disabled")
 
         # AI 플레이 모드 활성화 (양쪽 모두 AI)
         player_ai_enabled = True
@@ -117661,6 +117675,9 @@ def handle_ball():
         update_ball_rally("player")
 
         # 투기장 모드: 하단 영웅(플레이어 위치) ON_BALL_HIT 스킬 발동
+        # 디버그: 투기장 상태 체크
+        if arena_mode_enabled:
+            print(f"[Arena DEBUG] Bottom paddle hit! arena_skill_manager={arena_skill_manager is not None}, arena_bottom_hero={arena_bottom_hero}")
         if arena_mode_enabled and arena_skill_manager and arena_bottom_hero:
             try:
                 # 래퍼 객체 생성 (스킬 시스템용)
@@ -118423,6 +118440,9 @@ def handle_ball():
         update_ball_rally("boss")
 
         # 투기장 모드: 상단 영웅(보스 위치) ON_BALL_HIT 스킬 발동
+        # 디버그: 투기장 상태 체크
+        if arena_mode_enabled:
+            print(f"[Arena DEBUG] Top paddle hit! arena_skill_manager={arena_skill_manager is not None}, arena_top_hero={arena_top_hero}")
         if arena_mode_enabled and arena_skill_manager and arena_top_hero:
             try:
                 # 래퍼 객체 생성 (스킬 시스템용)
