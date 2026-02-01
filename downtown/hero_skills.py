@@ -1514,6 +1514,11 @@ class HeroSkillManager:
                             'color': result.get('flash_color', (255, 255, 255)),
                             'intensity': result.get('shake_intensity', 0)
                         })
+
+                    # 스킬 이름 정보 추가 (말풍선용)
+                    result['skill_korean_name'] = skill.korean_name
+                    result['caster_is_top'] = caster_paddle.is_top
+
                     return result
         return None
 

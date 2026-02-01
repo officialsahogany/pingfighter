@@ -920,6 +920,13 @@ class ColosseumsArena:
         self.skill_check_timer = 0.0
         self.skill_check_interval = 0.5  # 0.5초마다 체크
 
+        # 말풍선 시스템 (스킬 발동 시 외침)
+        self.top_speech_text = ""       # 상단 영웅 말풍선 텍스트
+        self.top_speech_timer = 0       # 상단 영웅 말풍선 타이머
+        self.bottom_speech_text = ""    # 하단 영웅 말풍선 텍스트
+        self.bottom_speech_timer = 0    # 하단 영웅 말풍선 타이머
+        self.speech_duration = 90       # 말풍선 표시 시간 (1.5초)
+
     def _generate_bracket(self):
         """8강 대진표 생성 - 상단 영웅 vs 하단 영웅 매칭"""
         for i in range(4):
@@ -1184,13 +1191,18 @@ class ColosseumsArena:
         if not self.skill_manager or not HERO_SKILLS_AVAILABLE:
             return
 
-        self.skill_manager.try_use_skill(
+        result = self.skill_manager.try_use_skill(
             hero_id,
             SkillTrigger.ON_BALL_HIT,
             caster_paddle,
             target_paddle,
             self.ball
         )
+
+        # 스킬이 성공적으로 발동되면 말풍선 표시
+        if result and 'skill_korean_name' in result:
+            is_top = result.get('caster_is_top', caster_paddle.is_top)
+            self.show_speech_bubble(is_top, result['skill_korean_name'])
 
     def _try_use_cooldown_skills(self):
         """쿨다운 완료된 ON_COOLDOWN 스킬 자동 사용"""
@@ -1199,23 +1211,137 @@ class ColosseumsArena:
 
         # 상단 영웅 스킬
         if self.selected_match and random.random() < 0.7:  # 70% 확률로 사용 시도
-            self.skill_manager.try_use_skill(
+            result = self.skill_manager.try_use_skill(
                 self.selected_match.hero1["id"],
                 SkillTrigger.ON_COOLDOWN,
                 self.top_paddle,
                 self.bottom_paddle,
                 self.ball
             )
+            # 스킬 발동 시 말풍선 표시
+            if result and 'skill_korean_name' in result:
+                self.show_speech_bubble(True, result['skill_korean_name'])
 
         # 하단 영웅 스킬
         if self.selected_match and random.random() < 0.7:
-            self.skill_manager.try_use_skill(
+            result = self.skill_manager.try_use_skill(
                 self.selected_match.hero2["id"],
                 SkillTrigger.ON_COOLDOWN,
                 self.bottom_paddle,
                 self.top_paddle,
                 self.ball
             )
+            # 스킬 발동 시 말풍선 표시
+            if result and 'skill_korean_name' in result:
+                self.show_speech_bubble(False, result['skill_korean_name'])
+
+    def show_speech_bubble(self, is_top: bool, skill_name: str):
+        """영웅 말풍선 표시"""
+        if is_top:
+            self.top_speech_text = skill_name + "!"
+            self.top_speech_timer = self.speech_duration
+        else:
+            self.bottom_speech_text = skill_name + "!"
+            self.bottom_speech_timer = self.speech_duration
+
+    def _draw_speech_bubbles(self):
+        """영웅 말풍선 그리기"""
+        # 상단 영웅 말풍선
+        if self.top_speech_timer > 0 and self.top_paddle and self.top_speech_text:
+            self._draw_single_speech_bubble(
+                self.top_paddle.x + PADDLE_WIDTH // 2,
+                self.top_paddle.y + PADDLE_HEIGHT + 10,
+                self.top_speech_text,
+                is_top=True
+            )
+            self.top_speech_timer -= 1
+
+        # 하단 영웅 말풍선
+        if self.bottom_speech_timer > 0 and self.bottom_paddle and self.bottom_speech_text:
+            self._draw_single_speech_bubble(
+                self.bottom_paddle.x + PADDLE_WIDTH // 2,
+                self.bottom_paddle.y - 50,
+                self.bottom_speech_text,
+                is_top=False
+            )
+            self.bottom_speech_timer -= 1
+
+    def _draw_single_speech_bubble(self, x: float, y: float, text: str, is_top: bool):
+        """개별 말풍선 그리기"""
+        try:
+            # 폰트 설정
+            font = pygame.font.Font(None, 24)
+            try:
+                # 한글 폰트 시도
+                import os
+                import sys
+                if hasattr(sys, '_MEIPASS'):
+                    font_path = os.path.join(sys._MEIPASS, "fonts", "NanumSquareB.ttf")
+                else:
+                    font_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts", "NanumSquareB.ttf")
+                if os.path.exists(font_path):
+                    font = pygame.font.Font(font_path, 20)
+            except:
+                pass
+
+            text_surface = font.render(text, True, (0, 0, 0))
+
+            # 말풍선 크기 계산
+            padding = 12
+            bubble_width = text_surface.get_width() + padding * 2
+            bubble_height = text_surface.get_height() + padding
+
+            # 말풍선 위치
+            bubble_x = int(x - bubble_width // 2)
+            bubble_y = int(y)
+
+            # 화면 경계 체크
+            bubble_x = max(GAME_AREA_X + 5, min(bubble_x, GAME_AREA_X + GAME_AREA_WIDTH - bubble_width - 5))
+
+            # 말풍선 표면 생성
+            bubble_surface = pygame.Surface((bubble_width + 15, bubble_height + 25), pygame.SRCALPHA)
+
+            # 그림자
+            shadow_rect = pygame.Rect(3, 3, bubble_width, bubble_height)
+            pygame.draw.rect(bubble_surface, (0, 0, 0, 60), shadow_rect, border_radius=10)
+
+            # 메인 말풍선
+            main_rect = pygame.Rect(0, 0, bubble_width, bubble_height)
+            pygame.draw.rect(bubble_surface, (255, 255, 255), main_rect, border_radius=10)
+            pygame.draw.rect(bubble_surface, (50, 50, 50), main_rect, 2, border_radius=10)
+
+            # 말풍선 꼬리 (위/아래 방향)
+            if is_top:
+                # 상단 영웅: 꼬리가 위쪽 (영웅을 향함)
+                tail_points = [
+                    (bubble_width // 2 - 8, 2),
+                    (bubble_width // 2 + 8, 2),
+                    (bubble_width // 2, -12)
+                ]
+            else:
+                # 하단 영웅: 꼬리가 아래쪽 (영웅을 향함)
+                tail_points = [
+                    (bubble_width // 2 - 8, bubble_height - 2),
+                    (bubble_width // 2 + 8, bubble_height - 2),
+                    (bubble_width // 2, bubble_height + 12)
+                ]
+
+            pygame.draw.polygon(bubble_surface, (255, 255, 255), tail_points)
+            pygame.draw.polygon(bubble_surface, (50, 50, 50), tail_points, 2)
+
+            # 텍스트 그리기
+            bubble_surface.blit(text_surface, (padding, padding // 2))
+
+            # 애니메이션 (살짝 흔들림)
+            timer = self.top_speech_timer if is_top else self.bottom_speech_timer
+            float_offset = math.sin(timer * 0.15) * 2
+
+            # 화면에 그리기
+            self.screen.blit(bubble_surface, (bubble_x, bubble_y + float_offset))
+
+        except Exception as e:
+            # 오류 시 무시
+            pass
 
     def _check_winner(self) -> bool:
         """승자 체크 (5점 선취, 듀스 룰)"""
@@ -1593,6 +1719,9 @@ class ColosseumsArena:
         # 스킬 화면 효과 (오버레이)
         if self.skill_manager:
             self.skill_manager.draw_screen_effects(self.screen)
+
+        # 영웅 말풍선 그리기
+        self._draw_speech_bubbles()
 
         # 필러 (사이드 UI)
         if self.arena_pillar:
