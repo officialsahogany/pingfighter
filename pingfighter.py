@@ -85538,6 +85538,14 @@ def draw_objects():
     # 투기장 모드일 때 상단 영웅 패들 그리기 (보스 대신)
     if arena_mode_enabled and arena_top_hero and arena_hero_paddle_renderer:
         try:
+            # 애니메이션 업데이트 (60fps 기준 dt = 1/60)
+            arena_hero_paddle_renderer.update(1/60)
+            # 이동 애니메이션 업데이트 (보스 패들 위치 기반)
+            arena_hero_paddle_renderer.update_movement(
+                arena_top_hero["id"],
+                BOSS.centerx,
+                1/60
+            )
             # 상단 영웅 패들 그리기 (보스 위치)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
@@ -87001,6 +87009,12 @@ def draw_objects():
     _arena_paddle_drawn = False
     if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
         try:
+            # 이동 애니메이션 업데이트 (플레이어 패들 위치 기반)
+            arena_hero_paddle_renderer.update_movement(
+                arena_bottom_hero["id"],
+                player_rect.centerx,
+                1/60
+            )
             # 하단 영웅 패들 그리기 (플레이어 위치)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
