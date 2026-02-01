@@ -904,11 +904,13 @@ class DragonBreath(HeroSkill):
         self.breath_particles = []
         self.breath_active = False
         self.breath_hit_ball = False
+        self.fire_zone_spawned = False  # 화염 지대 생성 여부
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.breath_particles = []
         self.breath_active = True
         self.breath_hit_ball = False
+        self.fire_zone_spawned = False  # 화염 지대 생성 플래그 초기화
 
         # 브레스 방향
         direction = 1 if caster_paddle.is_top else -1
@@ -950,14 +952,9 @@ class DragonBreath(HeroSkill):
 
         self.breath_particles = [p for p in self.breath_particles if p['life'] > 0]
 
-    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        self.breath_particles = []
-        self.breath_active = False
-
-        # 상대 패들 바닥에 화염 지대 생성 요청 (화염병과 동일한 넉백 효과)
-        # caster가 상단(is_top=True) → target은 하단 → 화염은 target 위쪽(앞쪽)
-        # caster가 하단(is_top=False) → target은 상단 → 화염은 target 아래쪽(앞쪽)
-        if target_paddle:
+        # 스킬 종료 0.5초 전에 화염 지대 생성 (화염병과 동일한 넉백 효과)
+        if not self.fire_zone_spawned and self.active_timer <= 0.5 and target_paddle:
+            self.fire_zone_spawned = True
             if caster_paddle.is_top:
                 # 상단에서 발사 → 하단 target의 위쪽(앞쪽)에 화염
                 fire_y = target_paddle.y - 30
@@ -973,6 +970,11 @@ class DragonBreath(HeroSkill):
                 'duration': 180,  # 3초 (60fps * 3)
                 'source': 'dragon_breath'
             }
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        self.breath_particles = []
+        self.breath_active = False
+        # 화염 지대는 _update_active_effect에서 종료 0.5초 전에 생성됨
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         for p in self.breath_particles:
