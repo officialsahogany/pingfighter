@@ -26,18 +26,20 @@ class HeroStyle(Enum):
     BALANCED = "balanced"      # 균형형 - 평균적인 능력치
     TRICKY = "tricky"          # 트릭형 - 예측 불가, 변칙 플레이
 
-ARENA_HEROES = [
+# 상단 패들 영웅 (hero1 - 화면 위쪽)
+TOP_HEROES = [
     {
-        "id": "pinjo",
-        "name": "핀조",
-        "title": "불굴의 검투사",
+        "id": "gallita",
+        "name": "갤리타",
+        "title": "폭풍의 여전사",
         "style": HeroStyle.AGGRESSIVE,
-        "color": (220, 60, 60),
-        "speed": 1.2,
-        "reaction": 0.9,
-        "power": 1.3,
-        "accuracy": 0.85,
-        "description": "화끈한 공격으로 상대를 압도하는 베테랑 검투사"
+        "color": (60, 200, 120),
+        "speed": 1.3,
+        "reaction": 0.85,
+        "power": 1.2,
+        "accuracy": 0.8,
+        "position": "top",
+        "description": "번개처럼 빠른 공격이 특기인 여전사"
     },
     {
         "id": "archines",
@@ -49,43 +51,8 @@ ARENA_HEROES = [
         "reaction": 1.2,
         "power": 0.8,
         "accuracy": 0.95,
+        "position": "top",
         "description": "완벽한 수비로 상대를 지치게 만드는 전략가"
-    },
-    {
-        "id": "alexa",
-        "name": "알렉사",
-        "title": "황금의 창",
-        "style": HeroStyle.BALANCED,
-        "color": (220, 180, 60),
-        "speed": 1.0,
-        "reaction": 1.0,
-        "power": 1.0,
-        "accuracy": 0.9,
-        "description": "모든 면에서 균형 잡힌 만능 전사"
-    },
-    {
-        "id": "poineth",
-        "name": "포이네스",
-        "title": "그림자 암살자",
-        "style": HeroStyle.TRICKY,
-        "color": (160, 60, 200),
-        "speed": 1.1,
-        "reaction": 0.85,
-        "power": 1.1,
-        "accuracy": 0.75,
-        "description": "예측 불가능한 움직임으로 상대를 혼란에 빠뜨림"
-    },
-    {
-        "id": "gallita",
-        "name": "갤리타",
-        "title": "폭풍의 여전사",
-        "style": HeroStyle.AGGRESSIVE,
-        "color": (60, 200, 120),
-        "speed": 1.3,
-        "reaction": 0.85,
-        "power": 1.2,
-        "accuracy": 0.8,
-        "description": "번개처럼 빠른 공격이 특기인 여전사"
     },
     {
         "id": "chungkia",
@@ -97,8 +64,26 @@ ARENA_HEROES = [
         "reaction": 1.3,
         "power": 0.9,
         "accuracy": 0.98,
+        "position": "top",
         "description": "느리지만 절대 실수하지 않는 철벽 수비수"
     },
+    {
+        "id": "poineth",
+        "name": "포이네스",
+        "title": "그림자 암살자",
+        "style": HeroStyle.TRICKY,
+        "color": (160, 60, 200),
+        "speed": 1.1,
+        "reaction": 0.85,
+        "power": 1.1,
+        "accuracy": 0.75,
+        "position": "top",
+        "description": "예측 불가능한 움직임으로 상대를 혼란에 빠뜨림"
+    },
+]
+
+# 하단 패들 영웅 (hero2 - 화면 아래쪽)
+BOTTOM_HEROES = [
     {
         "id": "gestand",
         "name": "게스탄드",
@@ -109,6 +94,7 @@ ARENA_HEROES = [
         "reaction": 1.1,
         "power": 0.95,
         "accuracy": 0.92,
+        "position": "bottom",
         "description": "상대의 패턴을 분석하고 대응하는 지략가"
     },
     {
@@ -121,9 +107,39 @@ ARENA_HEROES = [
         "reaction": 0.8,
         "power": 1.25,
         "accuracy": 0.7,
+        "position": "bottom",
         "description": "미친듯이 강력하지만 불안정한 도박사"
     },
+    {
+        "id": "pinjo",
+        "name": "핀조",
+        "title": "불굴의 검투사",
+        "style": HeroStyle.AGGRESSIVE,
+        "color": (220, 60, 60),
+        "speed": 1.2,
+        "reaction": 0.9,
+        "power": 1.3,
+        "accuracy": 0.85,
+        "position": "bottom",
+        "description": "화끈한 공격으로 상대를 압도하는 베테랑 검투사"
+    },
+    {
+        "id": "alexa",
+        "name": "알렉사",
+        "title": "황금의 창",
+        "style": HeroStyle.BALANCED,
+        "color": (220, 180, 60),
+        "speed": 1.0,
+        "reaction": 1.0,
+        "power": 1.0,
+        "accuracy": 0.9,
+        "position": "bottom",
+        "description": "모든 면에서 균형 잡힌 만능 전사"
+    },
 ]
+
+# 전체 영웅 목록 (호환성용)
+ARENA_HEROES = TOP_HEROES + BOTTOM_HEROES
 
 # ============================================================================
 # 토너먼트 상태
@@ -299,8 +315,10 @@ class ColosseumsArena:
         self.state = TournamentState.BRACKET_VIEW
         self.current_round = TournamentRound.QUARTER_FINAL
 
-        # 대진표 생성
-        self.heroes = random.sample(ARENA_HEROES, 8)
+        # 대진표 생성 - 상단/하단 영웅 그룹 분리 후 랜덤 매칭
+        self.top_heroes = random.sample(TOP_HEROES, 4)  # 상단 패들 영웅 4명 랜덤
+        self.bottom_heroes = random.sample(BOTTOM_HEROES, 4)  # 하단 패들 영웅 4명 랜덤
+        self.heroes = self.top_heroes + self.bottom_heroes  # 호환성용
         self.matches: Dict[TournamentRound, List[Match]] = {
             TournamentRound.QUARTER_FINAL: [],
             TournamentRound.SEMI_FINAL: [],
@@ -329,9 +347,10 @@ class ColosseumsArena:
         self.winnings_collected = False
 
     def _generate_bracket(self):
-        """8강 대진표 생성"""
-        for i in range(0, 8, 2):
-            match = Match(self.heroes[i], self.heroes[i + 1], i // 2)
+        """8강 대진표 생성 - 상단 영웅 vs 하단 영웅 매칭"""
+        for i in range(4):
+            # hero1 = 상단 패들 (화면 위), hero2 = 하단 패들 (화면 아래)
+            match = Match(self.top_heroes[i], self.bottom_heroes[i], i)
             self.matches[TournamentRound.QUARTER_FINAL].append(match)
 
     def _advance_to_next_round(self):
@@ -339,18 +358,37 @@ class ColosseumsArena:
         if self.current_round == TournamentRound.QUARTER_FINAL:
             # 8강 → 4강
             winners = [m.winner for m in self.matches[TournamentRound.QUARTER_FINAL]]
+            # 포지션 유지: top 영웅이 hero1, bottom 영웅이 hero2
             self.matches[TournamentRound.SEMI_FINAL] = [
-                Match(winners[0], winners[1], 0),
-                Match(winners[2], winners[3], 1),
+                self._create_positioned_match(winners[0], winners[1], 0),
+                self._create_positioned_match(winners[2], winners[3], 1),
             ]
             self.current_round = TournamentRound.SEMI_FINAL
         elif self.current_round == TournamentRound.SEMI_FINAL:
             # 4강 → 결승
             winners = [m.winner for m in self.matches[TournamentRound.SEMI_FINAL]]
             self.matches[TournamentRound.FINAL] = [
-                Match(winners[0], winners[1], 0),
+                self._create_positioned_match(winners[0], winners[1], 0),
             ]
             self.current_round = TournamentRound.FINAL
+
+    def _create_positioned_match(self, hero_a: Dict, hero_b: Dict, match_id: int) -> Match:
+        """포지션에 따라 hero1(상단)/hero2(하단) 결정"""
+        pos_a = hero_a.get("position", "top")
+        pos_b = hero_b.get("position", "bottom")
+
+        # 둘 다 같은 포지션이면 랜덤 배치
+        if pos_a == pos_b:
+            if random.random() < 0.5:
+                return Match(hero_a, hero_b, match_id)
+            else:
+                return Match(hero_b, hero_a, match_id)
+
+        # top 포지션 영웅이 hero1 (상단 패들)
+        if pos_a == "top":
+            return Match(hero_a, hero_b, match_id)
+        else:
+            return Match(hero_b, hero_a, match_id)
 
     def _calculate_odds(self, hero1: Dict, hero2: Dict) -> Tuple[float, float]:
         """배당률 계산"""
