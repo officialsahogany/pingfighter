@@ -94800,8 +94800,8 @@ def show_start_screen():
             try:
                 arena_skill_manager = get_skill_manager()
                 arena_skill_manager.reset()
-                arena_skill_manager.init_hero_skills(top_hero["id"])
-                arena_skill_manager.init_hero_skills(bottom_hero["id"])
+                arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True)
+                arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False)
                 arena_skill_check_timer = 0.0
             except Exception:
                 arena_skill_manager = None

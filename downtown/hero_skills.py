@@ -1418,8 +1418,13 @@ class HeroSkillManager:
         self.game_state: Dict = {}
         self.screen_effects: List[Dict] = []
 
-    def init_hero_skills(self, hero_id: str):
-        """영웅 스킬 초기화"""
+    def init_hero_skills(self, hero_id: str, is_top: bool = True):
+        """영웅 스킬 초기화
+
+        Args:
+            hero_id: 영웅 ID
+            is_top: 상단 영웅 여부 (기본값 True)
+        """
         if hero_id not in self.active_skills:
             # 새 인스턴스 생성 (상태 독립)
             skills = []
@@ -1429,6 +1434,11 @@ class HeroSkillManager:
                 new_skill = skill_class()
                 skills.append(new_skill)
             self.active_skills[hero_id] = skills
+
+        # 영웅 위치 정보 저장
+        if 'hero_positions' not in self.game_state:
+            self.game_state['hero_positions'] = {}
+        self.game_state['hero_positions'][hero_id] = is_top
 
     def reset(self):
         """전체 리셋"""
@@ -1486,7 +1496,9 @@ class HeroSkillManager:
 
         # 각 영웅의 스킬 업데이트
         for hero_id, skills in self.active_skills.items():
-            is_top = hero_id in [h['id'] for h in TOP_HEROES] if 'TOP_HEROES' in dir() else True
+            # hero_positions에서 위치 정보 가져오기
+            hero_positions = self.game_state.get('hero_positions', {})
+            is_top = hero_positions.get(hero_id, True)  # 기본값 True
             caster_paddle = top_paddle if is_top else bottom_paddle
             target_paddle = bottom_paddle if is_top else top_paddle
 
