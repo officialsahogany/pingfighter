@@ -531,7 +531,8 @@ class AbyssInk(HeroSkill):
         self.splash_center_x = 0
         self.splash_center_y = 0
         self.splash_radius = 0
-        self.splash_max_radius = 150  # 최대 스플래시 반경
+        self.splash_max_radius = 150  # 최대 스플래시 반경 (세로)
+        self.splash_width_scale = 1.5  # 가로 범위 스케일 (50% 증가)
         self.splash_expand_speed = 400  # 확장 속도
         self.splash_timer = 0
         self.splash_duration = 0.4  # 스플래시 확장 시간
@@ -594,13 +595,13 @@ class AbyssInk(HeroSkill):
             self.splash_radius = min(self.splash_max_radius,
                                      20 + self.splash_expand_speed * self.splash_timer)
 
-            # 먹물 방울 생성 (확산 중에 생성)
+            # 먹물 방울 생성 (확산 중에 생성) - 타원형 분포
             if len(self.ink_blobs) < 15 and random.random() < 0.3:
                 angle = random.uniform(0, math.pi * 2)
-                dist = random.uniform(0, self.splash_radius * 0.8)
+                dist = random.uniform(0, 0.8)
                 self.ink_blobs.append({
-                    'x': self.splash_center_x + math.cos(angle) * dist,
-                    'y': self.splash_center_y + math.sin(angle) * dist,
+                    'x': self.splash_center_x + math.cos(angle) * self.splash_radius * self.splash_width_scale * dist,
+                    'y': self.splash_center_y + math.sin(angle) * self.splash_radius * dist,
                     'size': random.uniform(30, 80),
                     'alpha': 220,
                     'wobble': random.uniform(0, math.pi * 2)
@@ -621,16 +622,20 @@ class AbyssInk(HeroSkill):
                 blob['alpha'] = max(0, blob['alpha'] - dt * 30)
                 blob['size'] += dt * 2
 
-            # 타겟이 스플래시 범위 내에 있는지 지속적으로 체크
+            # 타겟이 스플래시 범위 내에 있는지 지속적으로 체크 (타원형)
             target_center_x = target_paddle.x + 40
             target_center_y = target_paddle.y
 
-            dist = math.sqrt((target_center_x - self.splash_center_x) ** 2 +
-                            (target_center_y - self.splash_center_y) ** 2)
+            # 타원 내부 판정: (dx/a)^2 + (dy/b)^2 <= 1
+            dx = target_center_x - self.splash_center_x
+            dy = target_center_y - self.splash_center_y
+            width_radius = self.splash_max_radius * self.splash_width_scale + 40  # 패들 크기 고려
+            height_radius = self.splash_max_radius + 40
 
             target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
 
-            if dist <= self.splash_max_radius + 40:  # 패들 크기 고려
+            # 타원 내부 판정
+            if (dx / width_radius) ** 2 + (dy / height_radius) ** 2 <= 1:
                 if not self.confusion_applied:
                     # 범위 내 진입 - 혼란 시작 (3초)
                     self.confusion_applied = True
@@ -708,37 +713,39 @@ class AbyssInk(HeroSkill):
                         screen.blit(tail_surf, (int(tail_x) - size, int(tail_y) - size))
 
         elif self.phase == 'splash':
-            # 2단계: 스플래시 효과
-            # 확장하는 먹물 원
-            splash_surf = pygame.Surface((int(self.splash_radius * 2 + 40), int(self.splash_radius * 2 + 40)), pygame.SRCALPHA)
-            center = int(self.splash_radius + 20)
+            # 2단계: 스플래시 효과 (타원형 - 가로가 더 넓음)
+            width_radius = int(self.splash_radius * self.splash_width_scale)
+            height_radius = int(self.splash_radius)
+            splash_surf = pygame.Surface((width_radius * 2 + 40, height_radius * 2 + 40), pygame.SRCALPHA)
+            center_x = width_radius + 20
+            center_y = height_radius + 20
 
-            # 불규칙한 스플래시 형태 - 보라색 계열
+            # 불규칙한 스플래시 형태 - 보라색 계열 (타원형)
             points = []
             for angle in range(0, 360, 15):
                 rad = math.radians(angle)
-                r = self.splash_radius * (0.85 + 0.15 * math.sin(rad * 5 + self.splash_timer * 10))
-                px = center + int(math.cos(rad) * r)
-                py = center + int(math.sin(rad) * r)
+                wobble = 0.85 + 0.15 * math.sin(rad * 5 + self.splash_timer * 10)
+                px = center_x + int(math.cos(rad) * width_radius * wobble)
+                py = center_y + int(math.sin(rad) * height_radius * wobble)
                 points.append((px, py))
 
             if len(points) >= 3:
                 # 외곽 글로우
                 pygame.draw.polygon(splash_surf, (80, 40, 120, 100), points)
                 # 메인 색상
-                inner_points = [(center + int((p[0] - center) * 0.85), center + int((p[1] - center) * 0.85)) for p in points]
+                inner_points = [(center_x + int((p[0] - center_x) * 0.85), center_y + int((p[1] - center_y) * 0.85)) for p in points]
                 pygame.draw.polygon(splash_surf, (50, 25, 90, 200), inner_points)
                 # 테두리
                 pygame.draw.polygon(splash_surf, (100, 50, 150, 220), points, 4)
 
-            screen.blit(splash_surf, (int(self.splash_center_x - center), int(self.splash_center_y - center)))
+            screen.blit(splash_surf, (int(self.splash_center_x - center_x), int(self.splash_center_y - center_y)))
 
-            # 튀는 먹물 입자 - 보라색 계열
+            # 튀는 먹물 입자 - 보라색 계열 (타원형 분포)
             for i in range(10):
                 angle = random.uniform(0, math.pi * 2)
-                dist = self.splash_radius * random.uniform(0.5, 1.2)
-                px = self.splash_center_x + math.cos(angle) * dist
-                py = self.splash_center_y + math.sin(angle) * dist
+                dist = random.uniform(0.5, 1.2)
+                px = self.splash_center_x + math.cos(angle) * width_radius * dist
+                py = self.splash_center_y + math.sin(angle) * height_radius * dist
                 particle_size = random.randint(4, 10)
                 pygame.draw.circle(screen, (70, 35, 110), (int(px), int(py)), particle_size)
                 pygame.draw.circle(screen, (100, 50, 150), (int(px), int(py)), particle_size - 2)
@@ -767,21 +774,24 @@ class AbyssInk(HeroSkill):
                         pygame.draw.polygon(surf, (50, 25, 90, int(blob['alpha'])), points)
                     screen.blit(surf, (int(blob['x'] - center), int(blob['y'] - center)))
 
-            # 혼란 적용 시 시각적 표시 - 보라색 계열
+            # 혼란 적용 시 시각적 표시 - 보라색 계열 (타원형)
             if self.confusion_applied:
-                # 스플래시 영역 잔여 표시
-                remain_surf = pygame.Surface((self.splash_max_radius * 2 + 20, self.splash_max_radius * 2 + 20), pygame.SRCALPHA)
-                center = self.splash_max_radius + 10
-                # 외곽 글로우
-                pygame.draw.circle(remain_surf, (80, 40, 120, 40),
-                                  (center, center),
-                                  int(self.splash_max_radius))
-                # 내부
-                pygame.draw.circle(remain_surf, (50, 25, 90, 70),
-                                  (center, center),
-                                  int(self.splash_max_radius * 0.8))
-                screen.blit(remain_surf, (int(self.splash_center_x - center),
-                                         int(self.splash_center_y - center)))
+                # 스플래시 영역 잔여 표시 (타원형)
+                width_radius = int(self.splash_max_radius * self.splash_width_scale)
+                height_radius = int(self.splash_max_radius)
+                remain_surf = pygame.Surface((width_radius * 2 + 20, height_radius * 2 + 20), pygame.SRCALPHA)
+                center_x = width_radius + 10
+                center_y = height_radius + 10
+                # 외곽 글로우 (타원)
+                pygame.draw.ellipse(remain_surf, (80, 40, 120, 40),
+                                   (10, 10, width_radius * 2, height_radius * 2))
+                # 내부 (타원)
+                inner_w = int(width_radius * 0.8)
+                inner_h = int(height_radius * 0.8)
+                pygame.draw.ellipse(remain_surf, (50, 25, 90, 70),
+                                   (center_x - inner_w, center_y - inner_h, inner_w * 2, inner_h * 2))
+                screen.blit(remain_surf, (int(self.splash_center_x - center_x),
+                                         int(self.splash_center_y - center_y)))
 
 
 # ============================================================================
