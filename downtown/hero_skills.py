@@ -522,13 +522,15 @@ class AbyssInk(HeroSkill):
         self.target_is_top = target_paddle.is_top
         self.caster_is_top = caster_paddle.is_top
 
-        # 타겟에게만 혼란 적용 (caster는 제외)
+        # 타겟에게만 혼란 적용 (caster는 제외) - DollCurse와 동일하게 설정
         target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_confused'] = True
+        game_state['target_confused'] = True  # 전역 플래그도 설정 (DollCurse와 동일)
+        game_state['confusion_type'] = 'random'  # 랜덤 움직임 (조명탄과 동일)
 
         # caster의 혼란 상태는 명시적으로 False 유지
         caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
-        # caster에게는 혼란 적용하지 않음 (기존 상태 유지)
+        game_state[f'{caster_prefix}_confused'] = False  # caster는 혼란 없음
 
         # 먹물 방울 생성 (타겟 진영에만)
         self.ink_blobs = []
@@ -545,7 +547,7 @@ class AbyssInk(HeroSkill):
 
         return {
             'screen_effect': ScreenEffect.INK,
-            # target_status 제거 - 위에서 직접 설정함 (caster에게 적용 방지)
+            'target_status': StatusEffect.CONFUSION,  # DollCurse와 동일하게 반환
             'status_duration': self.duration,
             'sound': 'splash'
         }
@@ -557,7 +559,8 @@ class AbyssInk(HeroSkill):
             blob['size'] += dt * 5
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        # 패들별 상태 클리어
+        # 패들별 상태 클리어 (DollCurse와 동일)
+        game_state['target_confused'] = False
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_confused'] = False
         self.ink_blobs = []
