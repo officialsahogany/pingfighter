@@ -291,41 +291,82 @@ class TentacleWrap(HeroSkill):
             description="촉수로 상대 패들을 휘감아 스턴시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=20.0,
-            duration=3.0,  # 스턴 지속시간 3초
+            duration=4.0,  # 전체 스킬 지속시간 (이동 1초 + 스턴 3초)
             hero_id="kraken"
         )
         self.tentacles = []
         self.target_is_top = False
+        self.caster_is_top = False
+        self.phase = 'travel'  # 'travel' (이동 중) → 'wrap' (감싸는 중)
+        self.travel_progress = 0  # 이동 진행도 (0~1)
+        self.wrap_timer = 0  # 감싸기 지속 시간
+        self.stun_applied = False  # 스턴 적용 여부
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
-        game_state['target_stunned'] = True
+        self.caster_is_top = caster_paddle.is_top
+        self.phase = 'travel'
+        self.travel_progress = 0
+        self.wrap_timer = 0
+        self.stun_applied = False
 
-        # 촉수 생성
+        # 촉수 생성 - caster(크라켄) 위치에서 시작
         self.tentacles = []
+        caster_center_x = caster_paddle.x + 40
+        caster_center_y = caster_paddle.y + (20 if caster_paddle.is_top else -20)
+
         for i in range(6):
+            # 각 촉수가 caster 주변에서 약간씩 다른 위치에서 시작
+            offset_x = random.uniform(-30, 30)
+            offset_y = random.uniform(-10, 10)
             self.tentacles.append({
-                'start_x': random.choice([80, 680]),  # 화면 양쪽에서
-                'start_y': random.uniform(200, 550),
+                'start_x': caster_center_x + offset_x,
+                'start_y': caster_center_y + offset_y,
                 'target_x': target_paddle.x + 40,
                 'target_y': target_paddle.y,
                 'progress': 0,
                 'wave_offset': random.uniform(0, math.pi * 2),
-                'thickness': random.uniform(4, 8)
+                'thickness': random.uniform(5, 9),
+                'wrap_angle': i * (360 / 6),  # 감싸기 시 각도
+                'wrap_radius': random.uniform(30, 50)  # 감싸기 반경
             })
 
+        # 스턴은 아직 적용하지 않음 (촉수가 도달해야 적용)
         return {
-            'target_status': StatusEffect.STUN,
             'status_duration': self.duration,
             'sound': 'tentacle'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 타겟 위치 업데이트
         for t in self.tentacles:
-            t['progress'] = min(1.0, t['progress'] + dt * 2)
             t['target_x'] = target_paddle.x + 40
             t['target_y'] = target_paddle.y
-            t['wave_offset'] += dt * 3
+            t['wave_offset'] += dt * 4
+
+        if self.phase == 'travel':
+            # 이동 단계: 촉수가 caster에서 target으로 뻗어나감
+            self.travel_progress = min(1.0, self.travel_progress + dt * 1.5)  # 약 0.67초에 도달
+            for t in self.tentacles:
+                t['progress'] = self.travel_progress
+
+            # 촉수가 도달하면 wrap 단계로 전환
+            if self.travel_progress >= 1.0:
+                self.phase = 'wrap'
+                self.wrap_timer = 0
+                # 이제 스턴 적용
+                if not self.stun_applied:
+                    self.stun_applied = True
+                    target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+                    game_state[f'{target_prefix}_stunned'] = True
+                    game_state['target_stunned'] = True
+
+        elif self.phase == 'wrap':
+            # 감싸기 단계: 촉수가 target을 감싸면서 스턴 유지
+            self.wrap_timer += dt
+            for t in self.tentacles:
+                # 감싸기 애니메이션 - 촉수가 target 주위를 회전
+                t['wrap_angle'] += dt * 120  # 회전 속도
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['target_stunned'] = False
@@ -333,29 +374,92 @@ class TentacleWrap(HeroSkill):
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_stunned'] = False
         self.tentacles = []
+        self.phase = 'travel'
+        self.stun_applied = False
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        for t in self.tentacles:
-            if t['progress'] > 0:
-                # 베지어 곡선으로 촉수 그리기
+        if self.phase == 'travel':
+            # 이동 단계: caster에서 target으로 뻗어나가는 촉수
+            for t in self.tentacles:
+                if t['progress'] > 0:
+                    points = []
+                    segments = 25
+                    for i in range(segments + 1):
+                        prog = i / segments * t['progress']
+                        # 물결 효과 (시작점 근처는 약하게, 끝으로 갈수록 강하게)
+                        wave_strength = 25 * math.sin(prog * math.pi)  # 중간이 가장 강함
+                        wave = math.sin(prog * math.pi * 4 + t['wave_offset']) * wave_strength
+
+                        x = t['start_x'] + (t['target_x'] - t['start_x']) * prog + wave
+                        y = t['start_y'] + (t['target_y'] - t['start_y']) * prog
+                        points.append((int(x), int(y)))
+
+                    if len(points) > 1:
+                        # 촉수 본체 (그라데이션 효과)
+                        thickness = int(t['thickness'] * (1.2 - t['progress'] * 0.4))
+                        pygame.draw.lines(screen, (30, 80, 100), False, points, thickness + 2)
+                        pygame.draw.lines(screen, (50, 120, 140), False, points, thickness)
+
+                        # 빨판 (촉수 끝부분에만)
+                        for j, (px, py) in enumerate(points[::4]):
+                            if j > 0:
+                                size = int(t['thickness'] * 0.5)
+                                pygame.draw.circle(screen, (70, 150, 170), (px, py), size)
+                                pygame.draw.circle(screen, (40, 100, 120), (px, py), size, 1)
+
+                        # 촉수 끝 하이라이트
+                        if len(points) > 0:
+                            end_x, end_y = points[-1]
+                            glow_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+                            pygame.draw.circle(glow_surf, (100, 200, 220, 100), (10, 10), 8)
+                            screen.blit(glow_surf, (end_x - 10, end_y - 10))
+
+        elif self.phase == 'wrap':
+            # 감싸기 단계: target을 감싸는 촉수
+            target_x = target_paddle.x + 40
+            target_y = target_paddle.y
+
+            for t in self.tentacles:
+                # 감싸는 원형 궤도
+                angle_rad = math.radians(t['wrap_angle'])
+                wrap_x = target_x + t['wrap_radius'] * math.cos(angle_rad)
+                wrap_y = target_y + t['wrap_radius'] * 0.6 * math.sin(angle_rad)  # 타원형
+
+                # caster에서 wrap 위치까지 촉수 그리기
                 points = []
                 segments = 20
                 for i in range(segments + 1):
-                    prog = i / segments * t['progress']
-                    wave = math.sin(prog * math.pi * 3 + t['wave_offset']) * 30 * (1 - prog)
+                    prog = i / segments
+                    # 베지어 곡선으로 부드럽게 연결
+                    mid_x = (t['start_x'] + target_x) / 2
+                    mid_y = (t['start_y'] + target_y) / 2 + random.uniform(-5, 5)
 
-                    x = t['start_x'] + (t['target_x'] - t['start_x']) * prog + wave
-                    y = t['start_y'] + (t['target_y'] - t['start_y']) * prog
+                    # 2차 베지어 곡선
+                    inv_prog = 1 - prog
+                    x = inv_prog * inv_prog * t['start_x'] + 2 * inv_prog * prog * mid_x + prog * prog * wrap_x
+                    y = inv_prog * inv_prog * t['start_y'] + 2 * inv_prog * prog * mid_y + prog * prog * wrap_y
+
+                    # 물결 효과
+                    wave = math.sin(prog * math.pi * 3 + t['wave_offset']) * 15 * (1 - prog)
+                    x += wave
+
                     points.append((int(x), int(y)))
 
                 if len(points) > 1:
-                    # 촉수 본체
-                    pygame.draw.lines(screen, (40, 100, 120), False, points, int(t['thickness']))
+                    thickness = int(t['thickness'])
+                    pygame.draw.lines(screen, (30, 80, 100), False, points, thickness + 2)
+                    pygame.draw.lines(screen, (50, 120, 140), False, points, thickness)
+
                     # 빨판
-                    for j, (px, py) in enumerate(points[::3]):
+                    for j, (px, py) in enumerate(points[::5]):
                         if j > 0:
-                            size = int(t['thickness'] * 0.6)
-                            pygame.draw.circle(screen, (60, 140, 160), (px, py), size)
+                            size = int(t['thickness'] * 0.4)
+                            pygame.draw.circle(screen, (70, 150, 170), (px, py), size)
+
+            # 감싸기 효과 - 타겟 주변 원형 표시
+            wrap_surf = pygame.Surface((120, 80), pygame.SRCALPHA)
+            pygame.draw.ellipse(wrap_surf, (50, 120, 140, 80), (0, 0, 120, 80), 3)
+            screen.blit(wrap_surf, (target_x - 60, target_y - 40))
 
 
 class AbyssInk(HeroSkill):
