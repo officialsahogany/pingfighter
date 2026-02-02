@@ -663,6 +663,10 @@ class AbyssInk(HeroSkill):
         self.active_timer = 0
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # 스킬이 활성화되지 않았으면 그리지 않음
+        if not self.is_active:
+            return
+
         if self.phase == 'travel':
             # 1단계: 발사체 그리기
             # 현재 위치 계산
