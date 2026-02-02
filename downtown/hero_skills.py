@@ -525,7 +525,7 @@ class AbyssInk(HeroSkill):
         self.projectile_target_x = 0
         self.projectile_target_y = 0
         self.projectile_progress = 0.0
-        self.projectile_speed = 3.0  # 이동 속도
+        self.projectile_speed = 1.5  # 이동 속도 (기존 3.0에서 50% 감소)
 
         # 스플래시 관련
         self.splash_center_x = 0
