@@ -1629,10 +1629,15 @@ def reset_all_skills():
 class HeroSkillManager:
     """영웅 스킬 관리 클래스"""
 
+    # 영웅별 스킬 사용 간격 (초) - 한 스킬 사용 후 다음 스킬까지 대기 시간
+    HERO_SKILL_INTERVAL = 5.0  # 5초 간격
+
     def __init__(self):
         self.active_skills: Dict[str, List[HeroSkill]] = {}  # hero_id -> skills
         self.game_state: Dict = {}
         self.screen_effects: List[Dict] = []
+        # 영웅별 글로벌 스킬 쿨다운 (스킬 간 간격 조절)
+        self.hero_global_cooldowns: Dict[str, float] = {}
 
     def init_hero_skills(self, hero_id: str, is_top: bool = True):
         """영웅 스킬 초기화
@@ -1702,6 +1707,8 @@ class HeroSkillManager:
             'has_clones': False
         }
         self.screen_effects = []
+        # 영웅별 글로벌 쿨다운 초기화
+        self.hero_global_cooldowns = {}
 
     def update(self, dt: float, top_paddle, bottom_paddle, ball):
         """스킬 업데이트"""
@@ -1715,6 +1722,13 @@ class HeroSkillManager:
             self.game_state['shake_duration'] -= dt
             if self.game_state['shake_duration'] <= 0:
                 self.game_state['screen_shake'] = 0
+
+        # 영웅별 글로벌 쿨다운 감소
+        for hero_id in list(self.hero_global_cooldowns.keys()):
+            if self.hero_global_cooldowns[hero_id] > 0:
+                self.hero_global_cooldowns[hero_id] -= dt
+                if self.hero_global_cooldowns[hero_id] < 0:
+                    self.hero_global_cooldowns[hero_id] = 0
 
         # 각 영웅의 스킬 업데이트
         for hero_id, skills in self.active_skills.items():
@@ -1737,6 +1751,10 @@ class HeroSkillManager:
         """스킬 사용 시도"""
         skills = self.active_skills.get(hero_id, [])
 
+        # 영웅별 글로벌 쿨다운 체크 - 쿨다운 중이면 스킬 사용 불가
+        if self.hero_global_cooldowns.get(hero_id, 0) > 0:
+            return None
+
         for skill in skills:
             if skill.trigger == trigger and skill.can_use():
                 # 타겟 패들 추적
@@ -1744,6 +1762,8 @@ class HeroSkillManager:
 
                 result = skill.use(caster_paddle, target_paddle, ball, self.game_state)
                 if result:
+                    # 스킬 사용 성공 시 글로벌 쿨다운 설정
+                    self.hero_global_cooldowns[hero_id] = self.HERO_SKILL_INTERVAL
                     # 상태 효과를 해당 패들에 적용
                     target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
 
