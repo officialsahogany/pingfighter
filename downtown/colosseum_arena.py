@@ -46,7 +46,7 @@ WALL_BOUNCE_SLOWDOWN = 0.98  # 벽 반사 시 속도 감소
 
 # 패들 위치 (실제 게임과 동일)
 TOP_PADDLE_Y = 25           # 상단 패들 Y (보스 위치)
-BOTTOM_PADDLE_Y = 710       # 하단 패들 Y (플레이어 위치)
+BOTTOM_PADDLE_Y = 720       # 하단 패들 Y (플레이어 위치)
 
 # 배경/필러 임포트 (선택적)
 try:
