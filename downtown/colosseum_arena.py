@@ -277,6 +277,8 @@ class AIPaddleController:
         self.slow_multiplier = 1.0
         self.is_confused = False  # 조작 반전
         self.paddle_scale = 1.0   # 패들 크기 배율
+        self.is_locked = False    # 스킬에 의해 위치 고정
+        self.original_y = self.y  # Y축 이동 시 원래 위치 저장
 
         # 대쉬 시스템 (보스 대쉬와 동일한 물리 엔진)
         self.dash_active = False
@@ -330,6 +332,10 @@ class AIPaddleController:
         """AI 패들 업데이트 (실제 보스 AI 수준)"""
         # 대쉬 상태 업데이트 (항상 먼저)
         self.update_dash(dt)
+
+        # 스킬에 의해 고정된 상태면 X축 이동 안함 (Y축은 스킬에서 직접 제어)
+        if self.is_locked:
+            return
 
         # 스턴 상태면 움직이지 않음
         if self.is_stunned:
@@ -1292,6 +1298,16 @@ class ColosseumsArena:
         self.bottom_paddle.slow_multiplier = game_state.get('bottom_paddle_slow_amount', 1.0) if game_state.get('bottom_paddle_slowed', False) else 1.0
         self.bottom_paddle.is_confused = game_state.get('bottom_paddle_confused', False)
         self.bottom_paddle.paddle_scale = game_state.get('bottom_paddle_shrink_scale', 1.0) if game_state.get('bottom_paddle_shrink', False) else 1.0
+
+        # 패들 위치 고정 (스킬에 의한 locked 상태)
+        self.top_paddle.is_locked = game_state.get('top_paddle_locked', False)
+        self.bottom_paddle.is_locked = game_state.get('bottom_paddle_locked', False)
+
+        # locked 상태에서 X 위치 강제 고정
+        if self.top_paddle.is_locked and 'top_paddle_locked_x' in game_state:
+            self.top_paddle.x = game_state['top_paddle_locked_x']
+        if self.bottom_paddle.is_locked and 'bottom_paddle_locked_x' in game_state:
+            self.bottom_paddle.x = game_state['bottom_paddle_locked_x']
 
         # 쿨다운 스킬 자동 사용 (AI)
         self.skill_check_timer += dt
