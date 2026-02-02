@@ -1115,82 +1115,287 @@ class HornCharge(HeroSkill):
 # 마리아 스킬 - 인형사 (트릭형)
 # ============================================================================
 class PuppetControl(HeroSkill):
-    """꼭두각시 조종 - 상대 패들을 잠시 조종"""
+    """꼭두각시 조종 - 실로 상대를 끌어와 뽀뽀"""
+
+    # Phase 상수
+    PHASE_EXTENDING = 0   # 실이 뻗어나가는 중
+    PHASE_PULLING = 1     # 상대를 끌어당기는 중
+    PHASE_KISSING = 2     # 뽀뽀 중
+    PHASE_RETURNING = 3   # 원래 위치로 복귀 중
+
     def __init__(self):
         super().__init__(
             skill_id="puppet_control",
             name="Puppet Control",
             korean_name="꼭두각시 조종",
-            description="실로 상대를 조종하여 원하는 대로 움직이게 한다",
+            description="실로 상대를 끌어와 뽀뽀한 후 돌려보낸다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=35.0,
-            duration=2.0,
+            duration=4.0,  # 총 4초: 뻗기 0.7초 + 끌기 1.3초 + 뽀뽀 1초 + 복귀 1초
             hero_id="maria"
         )
         self.strings = []
-        self.puppet_target_x = 0
+        self.phase = self.PHASE_EXTENDING
+        self.phase_timer = 0
         self.target_is_top = False
+
+        # 위치 저장
+        self.target_original_x = 0
+        self.target_original_y = 0
+        self.caster_x = 0
+        self.caster_y = 0
+
+        # 실 뻗어나가기 진행도 (0~1)
+        self.string_extend_progress = 0
+
+        # 뽀뽀 이펙트
+        self.kiss_hearts = []
+        self.kiss_sparkles = []
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
-        game_state['target_puppeted'] = True
-        # 패들을 가장자리로 조종 (실점 유도)
-        ball_going_left = ball.vx < 0
-        self.puppet_target_x = 600 if ball_going_left else 100
+        self.phase = self.PHASE_EXTENDING
+        self.phase_timer = 0
+        self.string_extend_progress = 0
 
-        # 실 생성
+        # 위치 저장
+        self.target_original_x = target_paddle.x
+        self.target_original_y = target_paddle.y
+        self.caster_x = caster_paddle.x
+        self.caster_y = caster_paddle.y
+
+        # 실 초기화 (5개의 실)
         self.strings = []
         for i in range(5):
             self.strings.append({
-                'attach_x': target_paddle.x + 10 + i * 15,
-                'wave': random.uniform(0, math.pi * 2)
+                'offset_x': -20 + i * 10,  # 마리아 손에서의 오프셋
+                'wave': random.uniform(0, math.pi * 2),
+                'thickness': 2 + random.randint(0, 1)
             })
+
+        # 뽀뽀 이펙트 초기화
+        self.kiss_hearts = []
+        self.kiss_sparkles = []
+
+        # 마리아 고정
+        caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
+        game_state[f'{caster_prefix}_locked'] = True
+        game_state[f'{caster_prefix}_locked_x'] = self.caster_x
 
         return {
             'target_status': StatusEffect.PUPPET,
-            'puppet_target': self.puppet_target_x,
             'status_duration': self.duration,
             'sound': 'strings'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        # 패들 강제 이동
-        diff = self.puppet_target_x - target_paddle.x
-        target_paddle.x += diff * dt * 3
+        self.phase_timer += dt
 
-        # 실 업데이트
+        # 마리아 위치 고정
+        caster_paddle.x = self.caster_x
+
+        # 실 물결 업데이트
         for s in self.strings:
-            s['attach_x'] = target_paddle.x + 10 + self.strings.index(s) * 15
-            s['wave'] += dt * 5
+            s['wave'] += dt * 4
+
+        # Phase 1: 실 뻗어나가기 (0.7초)
+        if self.phase == self.PHASE_EXTENDING:
+            self.string_extend_progress = min(1.0, self.phase_timer / 0.7)
+
+            # 실이 상대에게 도달하면 다음 단계
+            if self.string_extend_progress >= 1.0:
+                self.phase = self.PHASE_PULLING
+                self.phase_timer = 0
+                game_state['target_puppeted'] = True
+
+        # Phase 2: 상대 끌어당기기 (1.3초)
+        elif self.phase == self.PHASE_PULLING:
+            pull_progress = min(1.0, self.phase_timer / 1.3)
+            # 이징 함수로 부드럽게
+            eased = 1 - (1 - pull_progress) ** 2
+
+            # 마리아 근처로 끌어옴 (Y축)
+            kiss_y = self.caster_y + (-60 if not caster_paddle.is_top else 60)
+            target_paddle.y = self.target_original_y + (kiss_y - self.target_original_y) * eased
+
+            # X축도 마리아 위치로
+            target_paddle.x = self.target_original_x + (self.caster_x - self.target_original_x) * eased
+
+            if pull_progress >= 1.0:
+                self.phase = self.PHASE_KISSING
+                self.phase_timer = 0
+
+        # Phase 3: 뽀뽀 (1초)
+        elif self.phase == self.PHASE_KISSING:
+            # 하트 파티클 생성
+            if random.random() < 0.3:
+                kiss_x = self.caster_x + 40
+                kiss_y = self.caster_y + (-30 if not caster_paddle.is_top else 30)
+                self.kiss_hearts.append({
+                    'x': kiss_x + random.uniform(-20, 20),
+                    'y': kiss_y + random.uniform(-15, 15),
+                    'vy': random.uniform(-40, -20) if not caster_paddle.is_top else random.uniform(20, 40),
+                    'size': random.uniform(6, 12),
+                    'life': 1.0,
+                    'wobble': random.uniform(0, math.pi * 2)
+                })
+
+            # 반짝이 파티클
+            if random.random() < 0.4:
+                kiss_x = self.caster_x + 40
+                kiss_y = self.caster_y + (-30 if not caster_paddle.is_top else 30)
+                self.kiss_sparkles.append({
+                    'x': kiss_x + random.uniform(-30, 30),
+                    'y': kiss_y + random.uniform(-20, 20),
+                    'life': 0.5,
+                    'size': random.uniform(2, 5)
+                })
+
+            if self.phase_timer >= 1.0:
+                self.phase = self.PHASE_RETURNING
+                self.phase_timer = 0
+
+        # Phase 4: 원래 위치로 복귀 (1초)
+        elif self.phase == self.PHASE_RETURNING:
+            return_progress = min(1.0, self.phase_timer / 1.0)
+            eased = return_progress ** 2  # ease-in
+
+            # 현재 위치에서 원래 위치로
+            kiss_y = self.caster_y + (-60 if not caster_paddle.is_top else 60)
+            target_paddle.y = kiss_y + (self.target_original_y - kiss_y) * eased
+            target_paddle.x = self.caster_x + (self.target_original_x - self.caster_x) * eased
+
+        # 하트/반짝이 업데이트
+        for h in self.kiss_hearts:
+            h['y'] += h['vy'] * dt
+            h['wobble'] += dt * 5
+            h['x'] += math.sin(h['wobble']) * 20 * dt
+            h['life'] -= dt * 0.8
+        self.kiss_hearts = [h for h in self.kiss_hearts if h['life'] > 0]
+
+        for sp in self.kiss_sparkles:
+            sp['life'] -= dt * 2
+        self.kiss_sparkles = [sp for sp in self.kiss_sparkles if sp['life'] > 0]
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['target_puppeted'] = False
+
+        # 마리아 고정 해제
+        caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
+        game_state[f'{caster_prefix}_locked'] = False
+
+        # 상대 원래 위치로 확실히 복귀
+        target_paddle.x = self.target_original_x
+        target_paddle.y = self.target_original_y
+
         self.strings = []
+        self.kiss_hearts = []
+        self.kiss_sparkles = []
+        self.phase = self.PHASE_EXTENDING
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        if self.is_active:
-            # 조종 실 그리기
-            hand_x = caster_paddle.x + 40
-            hand_y = caster_paddle.y + (40 if caster_paddle.is_top else -40)
+        if not self.is_active:
+            return
 
-            for s in self.strings:
-                # 물결치는 실
-                points = []
-                segments = 15
-                for i in range(segments + 1):
-                    prog = i / segments
-                    wave = math.sin(prog * math.pi * 2 + s['wave']) * 15 * (1 - prog)
+        hand_x = self.caster_x + 40
+        hand_y = self.caster_y + (-25 if not caster_paddle.is_top else 25)
 
-                    x = hand_x + (s['attach_x'] - hand_x) * prog + wave
-                    y = hand_y + (target_paddle.y - hand_y) * prog
-                    points.append((int(x), int(y)))
+        # 실 그리기
+        for s in self.strings:
+            string_start_x = hand_x + s['offset_x']
 
-                if len(points) > 1:
-                    pygame.draw.lines(screen, (180, 100, 150), False, points, 2)
+            # 실 끝점 계산 (phase에 따라)
+            if self.phase == self.PHASE_EXTENDING:
+                # 뻗어나가는 중: 진행도에 따라 끝점 계산
+                end_x = string_start_x + (target_paddle.x + 40 + s['offset_x'] - string_start_x) * self.string_extend_progress
+                end_y = hand_y + (target_paddle.y - hand_y) * self.string_extend_progress
+            else:
+                # 연결됨: 상대 패들 위치
+                end_x = target_paddle.x + 40 + s['offset_x']
+                end_y = target_paddle.y
 
-            # 십자가 컨트롤러
-            pygame.draw.line(screen, (120, 60, 90), (hand_x - 30, hand_y), (hand_x + 30, hand_y), 4)
-            pygame.draw.line(screen, (120, 60, 90), (hand_x, hand_y - 20), (hand_x, hand_y + 10), 4)
+            # 물결치는 실 그리기
+            points = []
+            segments = 20
+            for i in range(segments + 1):
+                prog = i / segments
+
+                # 실이 뻗어나가는 중일 때 끝부분 물결 감소
+                wave_strength = 12 * (1 - prog * 0.5)
+                if self.phase == self.PHASE_EXTENDING:
+                    wave_strength *= self.string_extend_progress
+
+                wave = math.sin(prog * math.pi * 3 + s['wave']) * wave_strength
+
+                x = string_start_x + (end_x - string_start_x) * prog + wave
+                y = hand_y + (end_y - hand_y) * prog
+                points.append((int(x), int(y)))
+
+            if len(points) > 1:
+                # 실 색상 (분홍-보라 그라데이션 느낌)
+                color = (180, 100, 150) if self.phase < self.PHASE_KISSING else (255, 150, 180)
+                pygame.draw.lines(screen, color, False, points, s['thickness'])
+
+        # 마리아 손 위치에 작은 원 (실 잡는 곳)
+        pygame.draw.circle(screen, (150, 80, 120), (int(hand_x), int(hand_y)), 8)
+        pygame.draw.circle(screen, (200, 120, 160), (int(hand_x), int(hand_y)), 5)
+
+        # Phase에 따른 추가 이펙트
+        if self.phase == self.PHASE_KISSING:
+            # 뽀뽀 중: 하트 그리기
+            for h in self.kiss_hearts:
+                self._draw_heart(screen, int(h['x']), int(h['y']), h['size'], int(255 * h['life']))
+
+            # 반짝이
+            for sp in self.kiss_sparkles:
+                alpha = int(255 * sp['life'])
+                size = int(sp['size'])
+                sparkle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(sparkle_surf, (255, 255, 200, alpha), (size, size), size)
+                screen.blit(sparkle_surf, (int(sp['x']) - size, int(sp['y']) - size))
+
+            # "CHU~" 텍스트 효과
+            kiss_x = int(self.caster_x + 60)
+            kiss_y = int(self.caster_y + (-50 if not caster_paddle.is_top else 50))
+            font_size = 16
+            try:
+                font = pygame.font.Font(None, font_size)
+                text = font.render("CHU~", True, (255, 150, 200))
+                screen.blit(text, (kiss_x, kiss_y))
+            except:
+                pass
+
+        elif self.phase == self.PHASE_PULLING:
+            # 끌어당기는 중: 긴장감 있는 실 이펙트
+            # 중앙에 집중선 효과
+            center_x = (hand_x + target_paddle.x + 40) / 2
+            center_y = (hand_y + target_paddle.y) / 2
+            for _ in range(3):
+                angle = random.uniform(0, math.pi * 2)
+                length = random.uniform(20, 40)
+                end_x = center_x + math.cos(angle) * length
+                end_y = center_y + math.sin(angle) * length
+                pygame.draw.line(screen, (255, 200, 220, 100),
+                               (int(center_x), int(center_y)),
+                               (int(end_x), int(end_y)), 1)
+
+    def _draw_heart(self, screen, x, y, size, alpha):
+        """하트 모양 그리기"""
+        heart_surf = pygame.Surface((int(size * 2), int(size * 2)), pygame.SRCALPHA)
+        color = (255, 100, 150, alpha)
+
+        # 간단한 하트: 두 원 + 삼각형
+        r = size * 0.5
+        pygame.draw.circle(heart_surf, color, (int(size - r * 0.5), int(size - r * 0.3)), int(r))
+        pygame.draw.circle(heart_surf, color, (int(size + r * 0.5), int(size - r * 0.3)), int(r))
+        points = [
+            (int(size - r * 1.2), int(size - r * 0.1)),
+            (int(size + r * 1.2), int(size - r * 0.1)),
+            (int(size), int(size + r * 1.2))
+        ]
+        pygame.draw.polygon(heart_surf, color, points)
+
+        screen.blit(heart_surf, (x - int(size), y - int(size)))
 
 
 class DollCurse(HeroSkill):
