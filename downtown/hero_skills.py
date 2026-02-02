@@ -673,42 +673,46 @@ class AbyssInk(HeroSkill):
             current_x = self.projectile_x + (self.projectile_target_x - self.projectile_x) * self.projectile_progress
             current_y = self.projectile_y + (self.projectile_target_y - self.projectile_y) * self.projectile_progress
 
-            # 먹물 발사체 (여러 방울이 뭉쳐서 날아감)
-            ink_surf = pygame.Surface((60, 60), pygame.SRCALPHA)
+            # 먹물 발사체 (여러 방울이 뭉쳐서 날아감) - 더 눈에 띄는 보라색 계열
+            ink_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
 
-            # 메인 먹물 덩어리
-            for i in range(5):
-                offset_x = random.uniform(-8, 8)
-                offset_y = random.uniform(-8, 8)
-                size = random.randint(12, 20)
-                pygame.draw.circle(ink_surf, (10, 20, 40, 200),
-                                  (30 + int(offset_x), 30 + int(offset_y)), size)
+            # 외곽 글로우 (보라색 후광)
+            pygame.draw.circle(ink_surf, (80, 40, 120, 120), (40, 40), 35)
+            pygame.draw.circle(ink_surf, (100, 50, 150, 100), (40, 40), 30)
 
-            # 외곽 글로우
-            pygame.draw.circle(ink_surf, (30, 50, 80, 100), (30, 30), 25)
+            # 메인 먹물 덩어리 (진한 보라/남색)
+            for i in range(7):
+                offset_x = random.uniform(-10, 10)
+                offset_y = random.uniform(-10, 10)
+                size = random.randint(10, 18)
+                pygame.draw.circle(ink_surf, (40, 20, 80, 230),
+                                  (40 + int(offset_x), 40 + int(offset_y)), size)
 
-            screen.blit(ink_surf, (int(current_x) - 30, int(current_y) - 30))
+            # 코어 (밝은 중심)
+            pygame.draw.circle(ink_surf, (60, 30, 100, 255), (40, 40), 12)
 
-            # 꼬리 효과 (이전 위치들)
+            screen.blit(ink_surf, (int(current_x) - 40, int(current_y) - 40))
+
+            # 꼬리 효과 (이전 위치들) - 보라색 계열
             for i in range(5):
                 tail_progress = max(0, self.projectile_progress - i * 0.08)
                 if tail_progress > 0:
                     tail_x = self.projectile_x + (self.projectile_target_x - self.projectile_x) * tail_progress
                     tail_y = self.projectile_y + (self.projectile_target_y - self.projectile_y) * tail_progress
-                    alpha = int(150 - i * 30)
-                    size = int(15 - i * 2)
+                    alpha = int(180 - i * 35)
+                    size = int(18 - i * 3)
                     if size > 0 and alpha > 0:
                         tail_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                        pygame.draw.circle(tail_surf, (20, 40, 60, alpha), (size, size), size)
+                        pygame.draw.circle(tail_surf, (60, 30, 100, alpha), (size, size), size)
                         screen.blit(tail_surf, (int(tail_x) - size, int(tail_y) - size))
 
         elif self.phase == 'splash':
             # 2단계: 스플래시 효과
             # 확장하는 먹물 원
-            splash_surf = pygame.Surface((int(self.splash_radius * 2 + 20), int(self.splash_radius * 2 + 20)), pygame.SRCALPHA)
-            center = int(self.splash_radius + 10)
+            splash_surf = pygame.Surface((int(self.splash_radius * 2 + 40), int(self.splash_radius * 2 + 40)), pygame.SRCALPHA)
+            center = int(self.splash_radius + 20)
 
-            # 불규칙한 스플래시 형태
+            # 불규칙한 스플래시 형태 - 보라색 계열
             points = []
             for angle in range(0, 360, 15):
                 rad = math.radians(angle)
@@ -718,47 +722,65 @@ class AbyssInk(HeroSkill):
                 points.append((px, py))
 
             if len(points) >= 3:
-                pygame.draw.polygon(splash_surf, (15, 30, 50, 180), points)
-                pygame.draw.polygon(splash_surf, (10, 20, 40, 220), points, 3)
+                # 외곽 글로우
+                pygame.draw.polygon(splash_surf, (80, 40, 120, 100), points)
+                # 메인 색상
+                inner_points = [(center + int((p[0] - center) * 0.85), center + int((p[1] - center) * 0.85)) for p in points]
+                pygame.draw.polygon(splash_surf, (50, 25, 90, 200), inner_points)
+                # 테두리
+                pygame.draw.polygon(splash_surf, (100, 50, 150, 220), points, 4)
 
             screen.blit(splash_surf, (int(self.splash_center_x - center), int(self.splash_center_y - center)))
 
-            # 튀는 먹물 입자
-            for i in range(8):
+            # 튀는 먹물 입자 - 보라색 계열
+            for i in range(10):
                 angle = random.uniform(0, math.pi * 2)
                 dist = self.splash_radius * random.uniform(0.5, 1.2)
                 px = self.splash_center_x + math.cos(angle) * dist
                 py = self.splash_center_y + math.sin(angle) * dist
-                pygame.draw.circle(screen, (10, 20, 40), (int(px), int(py)), random.randint(3, 8))
+                particle_size = random.randint(4, 10)
+                pygame.draw.circle(screen, (70, 35, 110), (int(px), int(py)), particle_size)
+                pygame.draw.circle(screen, (100, 50, 150), (int(px), int(py)), particle_size - 2)
 
         elif self.phase == 'active':
-            # 3단계: 먹물 방울 유지
+            # 3단계: 먹물 방울 유지 - 보라색 계열
             for blob in self.ink_blobs:
                 if blob['alpha'] > 10:
                     size = int(blob['size'] + math.sin(blob['wobble']) * 10)
-                    surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                    surf = pygame.Surface((size * 2 + 10, size * 2 + 10), pygame.SRCALPHA)
+                    center = size + 5
 
                     # 불규칙한 먹물 형태
                     points = []
                     for angle in range(0, 360, 30):
                         rad = math.radians(angle)
                         r = size * (0.8 + 0.3 * math.sin(rad * 3 + blob['wobble']))
-                        px = size + int(math.cos(rad) * r)
-                        py = size + int(math.sin(rad) * r)
+                        px = center + int(math.cos(rad) * r)
+                        py = center + int(math.sin(rad) * r)
                         points.append((px, py))
 
-                    pygame.draw.polygon(surf, (10, 20, 40, int(blob['alpha'])), points)
-                    screen.blit(surf, (int(blob['x'] - size), int(blob['y'] - size)))
+                    # 외곽 글로우
+                    if len(points) >= 3:
+                        pygame.draw.polygon(surf, (80, 40, 120, int(blob['alpha'] * 0.4)), points)
+                        # 메인 색상
+                        pygame.draw.polygon(surf, (50, 25, 90, int(blob['alpha'])), points)
+                    screen.blit(surf, (int(blob['x'] - center), int(blob['y'] - center)))
 
-            # 혼란 적용 시 시각적 표시
+            # 혼란 적용 시 시각적 표시 - 보라색 계열
             if self.confusion_applied:
                 # 스플래시 영역 잔여 표시
-                remain_surf = pygame.Surface((self.splash_max_radius * 2, self.splash_max_radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(remain_surf, (10, 20, 40, 60),
-                                  (self.splash_max_radius, self.splash_max_radius),
+                remain_surf = pygame.Surface((self.splash_max_radius * 2 + 20, self.splash_max_radius * 2 + 20), pygame.SRCALPHA)
+                center = self.splash_max_radius + 10
+                # 외곽 글로우
+                pygame.draw.circle(remain_surf, (80, 40, 120, 40),
+                                  (center, center),
+                                  int(self.splash_max_radius))
+                # 내부
+                pygame.draw.circle(remain_surf, (50, 25, 90, 70),
+                                  (center, center),
                                   int(self.splash_max_radius * 0.8))
-                screen.blit(remain_surf, (int(self.splash_center_x - self.splash_max_radius),
-                                         int(self.splash_center_y - self.splash_max_radius)))
+                screen.blit(remain_surf, (int(self.splash_center_x - center),
+                                         int(self.splash_center_y - center)))
 
 
 # ============================================================================
