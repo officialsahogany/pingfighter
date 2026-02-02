@@ -18266,6 +18266,11 @@ arena_skill_manager = None           # 투기장 영웅 스킬 매니저
 arena_skill_check_timer = 0.0        # 스킬 쿨다운 체크 타이머
 arena_top_confused = False           # 상단 영웅(보스) 혼란 상태 (심해의 먹물 등)
 arena_bottom_confused = False        # 하단 영웅(플레이어) 혼란 상태
+# 투기장 혼란 랜덤 움직임 (조명탄과 동일한 방식)
+arena_top_confusion_target = 0       # 상단 영웅 혼란 시 랜덤 목표 X
+arena_top_confusion_timer = 0        # 상단 영웅 혼란 방향 전환 타이머
+arena_bottom_confusion_target = 0    # 하단 영웅 혼란 시 랜덤 목표 X
+arena_bottom_confusion_timer = 0     # 하단 영웅 혼란 방향 전환 타이머
 
 # 투기장 영웅 대쉬 시스템
 arena_top_dashing = False            # 상단 영웅 대쉬 중
@@ -62466,12 +62471,36 @@ def handle_player(keys):
         # 🏟️ 투기장 영웅 스킬 둔화/혼란 효과 적용
         if arena_mode_enabled and arena_skill_manager:
             try:
+                global arena_bottom_confusion_target, arena_bottom_confusion_timer
                 # 둔화 효과 적용
                 if arena_player_slow_mult != 1.0:
                     current_speed *= arena_player_slow_mult
-                # 혼란 효과 (방향 반전)
+                # 혼란 효과 (조명탄과 동일한 랜덤 움직임)
                 if arena_player_confused:
-                    current_speed = -current_speed
+                    # 랜덤 목표 위치로 강제 이동 (플레이어 입력 무시)
+                    if arena_bottom_confusion_target == 0:
+                        arena_bottom_confusion_target = random.randint(PLAYER.width // 2, WIDTH - PLAYER.width // 2)
+                        arena_bottom_confusion_timer = 0
+                    # 30프레임마다 새로운 랜덤 위치 선택
+                    arena_bottom_confusion_timer += 1
+                    if arena_bottom_confusion_timer >= HALF_SECOND_FRAMES:
+                        arena_bottom_confusion_target = random.randint(PLAYER.width // 2, WIDTH - PLAYER.width // 2)
+                        arena_bottom_confusion_timer = 0
+                    # 가끔 갑자기 방향 전환 (20% 확률) - 조명탄과 동일
+                    effective_target = arena_bottom_confusion_target
+                    if random.random() < 0.2:
+                        effective_target = random.randint(PLAYER.width // 2, WIDTH - PLAYER.width // 2)
+                    # 랜덤 목표 방향으로 이동 (플레이어 입력 무시)
+                    if effective_target < PLAYER.centerx:
+                        current_speed = -abs(PLAYER_MAX_SPEED)
+                    elif effective_target > PLAYER.centerx:
+                        current_speed = abs(PLAYER_MAX_SPEED)
+                    else:
+                        current_speed = 0
+                else:
+                    # 혼란 상태가 아니면 랜덤 타겟 초기화
+                    arena_bottom_confusion_target = 0
+                    arena_bottom_confusion_timer = 0
             except:
                 pass
         if soldier_control_lock_timer <= 0 or is_dashing:
@@ -88713,10 +88742,11 @@ def draw_objects():
                 y = target_rect.centery + offset_y + orbit_radius * math.sin(angle) * 0.5
                 size_factor = 0.8 + 0.2 * math.sin(angle)
 
+                # 조명탄과 동일한 노란색 물음표
                 if math.sin(current_time * 0.01 + i) > 0:
-                    color = (100, 200, 255)  # 밝은 청록색 (크라켄 테마)
+                    color = (255, 255, 100)  # 밝은 노란색 (조명탄과 동일)
                 else:
-                    color = (50, 150, 200)   # 어두운 청록색
+                    color = (255, 200, 50)   # 어두운 노란색 (조명탄과 동일)
 
                 question_text = question_font.render("?", True, color)
                 scaled_width = int(question_text.get_width() * size_factor)
@@ -88724,8 +88754,8 @@ def draw_objects():
                 if scaled_width > 0 and scaled_height > 0:
                     scaled_question = pygame.transform.scale(question_text, (scaled_width, scaled_height))
                     question_rect = scaled_question.get_rect(center=(int(x), int(y)))
-                    # 그림자
-                    shadow_text = question_font.render("?", True, (20, 50, 60))
+                    # 그림자 (조명탄과 동일)
+                    shadow_text = question_font.render("?", True, (50, 50, 0))
                     scaled_shadow = pygame.transform.scale(shadow_text, (scaled_width, scaled_height))
                     shadow_rect = scaled_shadow.get_rect(center=(int(x + 2), int(y + 2)))
                     SCREEN.blit(scaled_shadow, shadow_rect)
@@ -88735,6 +88765,54 @@ def draw_objects():
             _draw_arena_confusion(BOSS, is_top=True)
         if _arena_bot_conf:
             _draw_arena_confusion(PLAYER, is_top=False)
+
+        # 🌟 투기장 스턴 상태 표시 (촉수 휘감기 등 - 수류탄 스턴과 동일한 별 이펙트)
+        _arena_top_stun = _arena_gs.get('top_paddle_stunned', False)
+        _arena_bot_stun = _arena_gs.get('bottom_paddle_stunned', False)
+
+        def _draw_arena_stun_stars(target_rect, is_top):
+            """투기장 스턴 별 이펙트 (수류탄 스턴과 동일)"""
+            current_time = pygame.time.get_ticks()
+            rotation_angle = (current_time * 0.36) % 360  # 360도/초 회전 속도
+            num_stars = 3
+            radius = 25  # 회전 반경
+            # 상단 영웅은 패들 아래, 하단 영웅은 패들 위에 표시
+            offset_y = 35 if is_top else -35
+
+            for i in range(num_stars):
+                angle = (rotation_angle + i * (360 / num_stars)) % 360
+                angle_rad = math.radians(angle)
+                star_x = target_rect.centerx + radius * math.cos(angle_rad)
+                star_y = target_rect.centery + offset_y + radius * math.sin(angle_rad) * 0.5
+
+                # 별 그리기
+                star_size = 8
+                star_points = []
+                for j in range(10):
+                    angle_star = j * 36 - 90
+                    angle_star_rad = math.radians(angle_star)
+                    if j % 2 == 0:
+                        px = star_x + star_size * math.cos(angle_star_rad)
+                        py = star_y + star_size * math.sin(angle_star_rad)
+                    else:
+                        px = star_x + (star_size * 0.4) * math.cos(angle_star_rad)
+                        py = star_y + (star_size * 0.4) * math.sin(angle_star_rad)
+                    star_points.append((px, py))
+
+                # 별 색상 (노란색 계열)
+                draw.polygon((255, 255, 100), star_points)
+                draw.polygon((255, 200, 0), star_points, 1)
+
+                # 별 글로우 효과
+                glow_surface = pygame.Surface((star_size * 3, star_size * 3), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surface, (255, 255, 100, 60),
+                                 (star_size * 1.5, star_size * 1.5), star_size)
+                SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
+
+        if _arena_top_stun:
+            _draw_arena_stun_stars(BOSS, is_top=True)
+        if _arena_bot_stun:
+            _draw_arena_stun_stars(PLAYER, is_top=False)
 
     # 화염병 그리기
     for molotov in molotovs:
@@ -123377,7 +123455,8 @@ def handle_boss():
         enhanced_max_speed *= slow_multiplier
         enhanced_decel *= slow_multiplier
         boss_current_speed *= slow_multiplier
-    # 🏟️ 투기장 영웅 스킬 혼란 효과 (조작 반전)
+    # 🏟️ 투기장 영웅 스킬 혼란 효과 (조명탄과 동일한 랜덤 움직임)
+    global arena_top_confusion_target, arena_top_confusion_timer
     arena_confused = False
     if arena_mode_enabled and arena_skill_manager:
         try:
@@ -123385,11 +123464,27 @@ def handle_boss():
             arena_confused = game_state.get('top_paddle_confused', False)
         except:
             pass
-    # 혼란 상태면 목표 위치를 반전 (중앙 기준으로 미러링)
+    # 혼란 상태면 랜덤하게 움직임 (조명탄 혼란 효과와 동일)
     effective_target_x = future_x
     if arena_confused:
-        center_x = WIDTH // 2
-        effective_target_x = center_x - (future_x - center_x)
+        # 혼란 상태일 때는 완전히 랜덤하게 움직임 (공을 무시) - 조명탄과 동일
+        if arena_top_confusion_target == 0:
+            arena_top_confusion_target = random.randint(BOSS.width // 2, WIDTH - BOSS.width // 2)
+            arena_top_confusion_timer = 0
+        # 30프레임마다 새로운 랜덤 위치 선택
+        arena_top_confusion_timer += 1
+        if arena_top_confusion_timer >= HALF_SECOND_FRAMES:
+            arena_top_confusion_target = random.randint(BOSS.width // 2, WIDTH - BOSS.width // 2)
+            arena_top_confusion_timer = 0
+        # 랜덤 목표 지점으로 이동
+        effective_target_x = arena_top_confusion_target
+        # 가끔 갑자기 방향 전환 (20% 확률) - 조명탄과 동일
+        if random.random() < 0.2:
+            effective_target_x = random.randint(BOSS.width // 2, WIDTH - BOSS.width // 2)
+    else:
+        # 혼란 상태가 아니면 랜덤 타겟 초기화
+        arena_top_confusion_target = 0
+        arena_top_confusion_timer = 0
     # 기존 AI 움직임 로직
     if effective_target_x < BOSS.centerx:
         if boss_current_speed > -enhanced_max_speed:
