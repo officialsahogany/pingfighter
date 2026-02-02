@@ -1308,12 +1308,16 @@ class ColosseumsArena:
             if 'top_paddle_locked_x' in game_state:
                 self.top_paddle.x = game_state['top_paddle_locked_x']
             if 'top_paddle_locked_y' in game_state:
+                old_y = self.top_paddle.y
                 self.top_paddle.y = game_state['top_paddle_locked_y']
+                print(f"[Arena] top_paddle Y 강제 적용: {old_y:.1f} -> {self.top_paddle.y:.1f}")
         if self.bottom_paddle.is_locked:
             if 'bottom_paddle_locked_x' in game_state:
                 self.bottom_paddle.x = game_state['bottom_paddle_locked_x']
             if 'bottom_paddle_locked_y' in game_state:
+                old_y = self.bottom_paddle.y
                 self.bottom_paddle.y = game_state['bottom_paddle_locked_y']
+                print(f"[Arena] bottom_paddle Y 강제 적용: {old_y:.1f} -> {self.bottom_paddle.y:.1f}")
 
         # 쿨다운 스킬 자동 사용 (AI)
         self.skill_check_timer += dt
@@ -1735,6 +1739,9 @@ class ColosseumsArena:
         # 패들 그리기 (영웅 패들 렌더러 사용)
         if self.top_paddle and self.selected_match:
             paddle_rect = self.top_paddle.get_rect()
+            # 디버그: 실제 렌더링 Y 좌표 출력
+            if self.top_paddle.is_locked:
+                print(f"[Arena DRAW] top_paddle: paddle.y={self.top_paddle.y:.1f}, rect.centery={paddle_rect.centery}")
             # 패들 크기 스케일 적용
             scaled_width = int(PADDLE_WIDTH * self.top_paddle.paddle_scale)
             hero1 = self.selected_match.hero1
