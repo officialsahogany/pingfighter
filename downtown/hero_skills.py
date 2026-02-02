@@ -643,7 +643,6 @@ class AbyssInk(HeroSkill):
                     game_state[f'{target_prefix}_confused'] = True
                     game_state['target_confused'] = True
                     game_state['confusion_type'] = 'random'
-                    print(f"[AbyssInk] 혼란 적용! target={target_prefix}, ellipse_dist={ellipse_dist:.2f}")
 
             # 혼란 타이머 관리 (3초 후 해제)
             if self.confusion_applied:

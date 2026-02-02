@@ -57949,8 +57949,6 @@ def handle_player(keys):
                 arena_player_slow_mult = game_state.get('bottom_paddle_slow_amount', 0.5)
             # 혼란 체크 (조작 반전)
             arena_player_confused = game_state.get('bottom_paddle_confused', False)
-            if arena_player_confused:
-                print(f"[Arena] 하단 패들 혼란 상태 감지! confused={arena_player_confused}")
             # 패들 축소 체크
             if game_state.get('bottom_paddle_shrink', False):
                 shrink_scale = game_state.get('bottom_paddle_shrink_scale', 0.5)
@@ -62494,9 +62492,9 @@ def handle_player(keys):
                         effective_target = random.randint(PLAYER.width // 2, WIDTH - PLAYER.width // 2)
                     # 랜덤 목표 방향으로 이동 (플레이어 입력 무시)
                     if effective_target < PLAYER.centerx:
-                        current_speed = -abs(PLAYER_MAX_SPEED)
+                        current_speed = -abs(MAX_SPEED)
                     elif effective_target > PLAYER.centerx:
-                        current_speed = abs(PLAYER_MAX_SPEED)
+                        current_speed = abs(MAX_SPEED)
                     else:
                         current_speed = 0
                 else:
