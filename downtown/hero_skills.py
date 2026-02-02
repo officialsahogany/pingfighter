@@ -1981,7 +1981,8 @@ class HeroSkillManager:
     def draw_skills(self, screen: pygame.Surface, top_paddle, bottom_paddle, ball):
         """모든 활성 스킬 이펙트 그리기"""
         for hero_id, skills in self.active_skills.items():
-            is_top = any(h['id'] == hero_id for h in TOP_HEROES)
+            # hero_positions에서 실제 위치 확인 (init_hero_skills에서 설정됨)
+            is_top = self.game_state.get('hero_positions', {}).get(hero_id, True)
             caster_paddle = top_paddle if is_top else bottom_paddle
             target_paddle = bottom_paddle if is_top else top_paddle
 
