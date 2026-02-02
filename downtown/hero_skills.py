@@ -610,11 +610,10 @@ class AbyssInk(HeroSkill):
             if self.splash_timer >= self.splash_duration:
                 # 스플래시 완료 - active 단계로 전환
                 self.phase = 'active'
-                self.active_timer = 0
+                # active_timer는 건드리지 않음 (HeroSkill.use()에서 설정한 duration 사용)
 
         elif self.phase == 'active':
             # 3단계: 먹물 유지 - 범위 내 영웅에게 혼란 적용
-            self.active_timer += dt
 
             # 먹물 방울 애니메이션
             for blob in self.ink_blobs:
