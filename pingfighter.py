@@ -57949,6 +57949,8 @@ def handle_player(keys):
                 arena_player_slow_mult = game_state.get('bottom_paddle_slow_amount', 0.5)
             # 혼란 체크 (조작 반전)
             arena_player_confused = game_state.get('bottom_paddle_confused', False)
+            if arena_player_confused:
+                print(f"[Arena] 하단 패들 혼란 상태 감지! confused={arena_player_confused}")
             # 패들 축소 체크
             if game_state.get('bottom_paddle_shrink', False):
                 shrink_scale = game_state.get('bottom_paddle_shrink_scale', 0.5)
