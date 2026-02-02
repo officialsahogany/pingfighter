@@ -565,6 +565,10 @@ class AbyssInk(HeroSkill):
         self.projectile_target_x = target_paddle.x + 40
         self.projectile_target_y = 600 if caster_paddle.is_top else 150  # 하단 또는 상단 진영
 
+        # 디버그: 스킬 발동 확인
+        print(f"[AbyssInk._apply_effect] ACTIVATED! caster_is_top={caster_paddle.is_top}")
+        print(f"[AbyssInk._apply_effect] start=({self.projectile_x:.0f},{self.projectile_y:.0f}) -> target=({self.projectile_target_x:.0f},{self.projectile_target_y:.0f})")
+
         # caster의 혼란 상태는 명시적으로 False 유지
         caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
         game_state[f'{caster_prefix}_confused'] = False
@@ -663,9 +667,15 @@ class AbyssInk(HeroSkill):
         self.active_timer = 0
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # 디버그: draw 호출 확인
+        print(f"[AbyssInk.draw] is_active={self.is_active}, phase={self.phase}, progress={self.projectile_progress:.2f}")
+
         # 스킬이 활성화되지 않았으면 그리지 않음
         if not self.is_active:
+            print(f"[AbyssInk.draw] SKIP - not active")
             return
+
+        print(f"[AbyssInk.draw] DRAWING phase={self.phase}, pos=({self.projectile_x:.0f},{self.projectile_y:.0f})->({self.projectile_target_x:.0f},{self.projectile_target_y:.0f})")
 
         if self.phase == 'travel':
             # 1단계: 발사체 그리기
@@ -2002,6 +2012,12 @@ class HeroSkillManager:
 
     def draw_skills(self, screen: pygame.Surface, top_paddle, bottom_paddle, ball):
         """모든 활성 스킬 이펙트 그리기"""
+        # 디버그: 크라켄 스킬 상태 출력
+        if 'kraken' in self.active_skills:
+            for skill in self.active_skills['kraken']:
+                if skill.skill_id == 'abyss_ink':
+                    print(f"[draw_skills] kraken abyss_ink: is_active={skill.is_active}, phase={skill.phase}")
+
         for hero_id, skills in self.active_skills.items():
             # hero_positions에서 실제 위치 확인 (init_hero_skills에서 설정됨)
             is_top = self.game_state.get('hero_positions', {}).get(hero_id, True)
