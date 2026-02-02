@@ -535,9 +535,13 @@ class AbyssInk(HeroSkill):
         self.splash_expand_speed = 400  # 확장 속도
         self.splash_timer = 0
         self.splash_duration = 0.4  # 스플래시 확장 시간
+        self.active_duration = 3.0  # 먹물 유지 시간 (active 단계)
+        self.active_timer = 0
 
         # 혼란 적용 여부
         self.confusion_applied = False
+        self.confusion_timer = 0
+        self.confusion_duration = 3.0  # 혼란 지속 시간 (3초)
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
@@ -547,9 +551,11 @@ class AbyssInk(HeroSkill):
         self.phase = 'travel'
         self.projectile_progress = 0.0
         self.confusion_applied = False
+        self.confusion_timer = 0
         self.ink_blobs = []
         self.splash_radius = 0
         self.splash_timer = 0
+        self.active_timer = 0
 
         # 발사 시작점: 크라켄 입 위치
         self.projectile_x = caster_paddle.x + 40
@@ -600,34 +606,49 @@ class AbyssInk(HeroSkill):
                 })
 
             if self.splash_timer >= self.splash_duration:
-                # 스플래시 완료 - 혼란 체크 및 active 단계로 전환
+                # 스플래시 완료 - active 단계로 전환
                 self.phase = 'active'
+                self.active_timer = 0
 
-                # 타겟이 스플래시 범위 내에 있는지 체크
-                target_center_x = target_paddle.x + 40
-                target_center_y = target_paddle.y
+        elif self.phase == 'active':
+            # 3단계: 먹물 유지 - 범위 내 영웅에게 혼란 적용
+            self.active_timer += dt
 
-                dist = math.sqrt((target_center_x - self.splash_center_x) ** 2 +
-                                (target_center_y - self.splash_center_y) ** 2)
+            # 먹물 방울 애니메이션
+            for blob in self.ink_blobs:
+                blob['wobble'] += dt * 2
+                blob['alpha'] = max(0, blob['alpha'] - dt * 30)
+                blob['size'] += dt * 2
 
-                if dist <= self.splash_max_radius + 40:  # 패들 크기 고려
-                    # 혼란 적용
+            # 타겟이 스플래시 범위 내에 있는지 지속적으로 체크
+            target_center_x = target_paddle.x + 40
+            target_center_y = target_paddle.y
+
+            dist = math.sqrt((target_center_x - self.splash_center_x) ** 2 +
+                            (target_center_y - self.splash_center_y) ** 2)
+
+            target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+
+            if dist <= self.splash_max_radius + 40:  # 패들 크기 고려
+                if not self.confusion_applied:
+                    # 범위 내 진입 - 혼란 시작 (3초)
                     self.confusion_applied = True
-                    target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+                    self.confusion_timer = 0
                     game_state[f'{target_prefix}_confused'] = True
                     game_state['target_confused'] = True
                     game_state['confusion_type'] = 'random'
 
-        elif self.phase == 'active':
-            # 3단계: 먹물 유지 및 페이드
-            for blob in self.ink_blobs:
-                blob['wobble'] += dt * 2
-                blob['alpha'] = max(0, blob['alpha'] - dt * 40)
-                blob['size'] += dt * 3
+            # 혼란 타이머 관리 (3초 후 해제)
+            if self.confusion_applied:
+                self.confusion_timer += dt
+                if self.confusion_timer >= self.confusion_duration:
+                    # 3초 경과 - 혼란 해제
+                    game_state[f'{target_prefix}_confused'] = False
+                    game_state['target_confused'] = False
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        # 혼란 상태 클리어
-        if self.confusion_applied:
+        # 혼란 상태 클리어 (아직 3초가 안 지났으면 해제)
+        if self.confusion_applied and self.confusion_timer < self.confusion_duration:
             game_state['target_confused'] = False
             target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
             game_state[f'{target_prefix}_confused'] = False
@@ -637,7 +658,9 @@ class AbyssInk(HeroSkill):
         self.phase = 'travel'
         self.projectile_progress = 0.0
         self.confusion_applied = False
+        self.confusion_timer = 0
         self.splash_radius = 0
+        self.active_timer = 0
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.phase == 'travel':
