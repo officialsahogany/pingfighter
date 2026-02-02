@@ -19092,6 +19092,11 @@ selected_passive_item = -1           # 패시브 아이템 선택 인덱스 (어
 active_item_icon_size = (28, 28)     # 화면에 표시할 크기
 last_item_use_time = 0               # 마지막 아이템 사용 시간 (전역 쿨타임용)
 foul_whistle_pending_round_reset = False  # 반칙호루라기 발동 후 라운드 리셋 대기 플래그
+
+# 투기장 상단 영웅 전용 아이템 시스템
+arena_top_active_item_slot = []      # 상단 영웅 액티브 아이템 리스트
+arena_top_selected_item_index = 0    # 상단 영웅 현재 선택된 아이템 인덱스
+arena_top_last_item_use_time = 0     # 상단 영웅 마지막 아이템 사용 시간
 # 기본 액티브 쿨타임(ms) 초기값 – 캐릭터정보 화면 등에서 참조할 때 NameError 방지
 active_item_cooldown_ms = 10000
 
@@ -65122,6 +65127,325 @@ def store_active_item(item_data):
     # 튜토리얼: 아이템 획득 체크
     on_item_collect_for_tutorial(item_data)
 
+
+def store_arena_top_active_item(item_data):
+    """투기장 상단 영웅 전용 액티브 아이템 저장 함수"""
+    global arena_top_active_item_slot, arena_top_selected_item_index, arena_top_last_item_use_time
+
+    # 투기장 모드가 아니면 무시
+    if not arena_mode_enabled:
+        return
+
+    # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye"]:
+        return
+
+    # 최대 3개까지만 보관
+    if len(arena_top_active_item_slot) >= 3:
+        return
+
+    # 아이콘 설정
+    if "icon" not in item_data or item_data["icon"] is None:
+        item_data["icon"] = get_item_icon(item_data["name"])
+
+    if "icon_animation_frames" not in item_data:
+        animation_frames = items.get_item_icon_animation(item_data["name"])
+        if animation_frames:
+            item_data["icon_animation_frames"] = animation_frames
+            item_data.setdefault("icon_animation_speed", 6)
+
+    # 아이템에 last_use 필드 추가
+    current_time = pygame.time.get_ticks()
+    item_data["last_use"] = arena_top_last_item_use_time
+    item_data["is_top_hero"] = True  # 상단 영웅용 아이템 표시
+
+    arena_top_active_item_slot.append(item_data)
+    arena_top_selected_item_index = len(arena_top_active_item_slot) - 1
+
+    # 아이템 획득 효과 표시
+    show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    print(f"[Arena] 상단 영웅 아이템 획득: {item_data['name']}")
+
+
+def _arena_top_hero_collect_items():
+    """투기장 상단 영웅(BOSS 패들)이 아이템을 획득하는 로직"""
+    global arena_top_active_item_slot
+
+    if not arena_mode_enabled:
+        return
+
+    # 상단 영웅 아이템 슬롯이 가득 찼으면 획득하지 않음
+    if len(arena_top_active_item_slot) >= 3:
+        return
+
+    # BOSS 패들 rect
+    boss_rect = BOSS
+
+    # 아이템 리스트 순회 (역순으로 순회하여 제거 시 인덱스 문제 방지)
+    items_to_remove = []
+    for i, item in enumerate(items.item_list):
+        # 아이템 rect 생성
+        item_rect = pygame.Rect(item["x"] - 15, item["y"] - 15, 30, 30)
+
+        # BOSS 패들과 충돌 체크
+        if item_rect.colliderect(boss_rect):
+            # 아이템 타입 확인
+            item_type_data = item.get("type")
+            if isinstance(item_type_data, dict):
+                item_name = item_type_data.get("name", "")
+                item_color = item_type_data.get("color", (200, 200, 200))
+            else:
+                item_name = item.get("name", "")
+                item_color = item.get("color", (200, 200, 200))
+
+            # 패시브 아이템은 상단 영웅이 획득하지 않음 (액티브만)
+            passive_items = ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger"]
+            if item_name in passive_items:
+                continue  # 패시브 아이템은 하단 영웅에게 양보
+
+            # 액티브 아이템 획득
+            item_data = {
+                "name": item_name,
+                "color": item_color,
+                "effect": item_name,
+                "icon": None,
+                "x": item["x"],
+                "y": item["y"]
+            }
+            store_arena_top_active_item(item_data)
+
+            # 아이템 획득 사운드
+            try:
+                if SOUND_ITEM_GET:
+                    SOUND_ITEM_GET.play()
+            except Exception:
+                pass
+
+            items_to_remove.append(i)
+
+            # 슬롯 다 찼으면 중단
+            if len(arena_top_active_item_slot) >= 3:
+                break
+
+    # 획득한 아이템 제거 (역순으로)
+    for i in sorted(items_to_remove, reverse=True):
+        if i < len(items.item_list):
+            items.item_list.pop(i)
+
+
+# 투기장 상단 영웅 투사체 리스트
+arena_top_grenades = []  # 상단 영웅이 던진 수류탄
+arena_top_bananas = []   # 상단 영웅이 던진 바나나
+
+
+def _apply_arena_top_item_effect(effect_name):
+    """투기장 상단 영웅용 아이템 효과 적용 (투사체는 아래로 향함)"""
+    global arena_top_grenades, arena_top_bananas
+
+    if effect_name == "grenade":
+        # 상단 영웅 수류탄: BOSS 위치에서 PLAYER 방향으로 발사
+        target_x = PLAYER.centerx + random.uniform(-50, 50)
+        target_y = PLAYER.centery
+
+        dx = target_x - BOSS.centerx
+        dy = target_y - BOSS.centery
+        distance = math.sqrt(dx**2 + dy**2)
+        speed = 10
+        vel_x = (dx / distance) * speed if distance > 0 else 0
+        vel_y = (dy / distance) * speed if distance > 0 else speed
+
+        # 발사 오차 적용
+        angle_offset = random.uniform(-10, 10)
+        angle_rad = math.radians(angle_offset)
+        cos_a = math.cos(angle_rad)
+        sin_a = math.sin(angle_rad)
+        new_vel_x = vel_x * cos_a - vel_y * sin_a
+        new_vel_y = vel_x * sin_a + vel_y * cos_a
+
+        grenade = {
+            "x": float(BOSS.centerx),
+            "y": float(BOSS.centery + 20),  # 패들 아래에서 시작
+            "vel_x": new_vel_x,
+            "vel_y": new_vel_y,
+            "timer": 90,  # 1.5초 후 폭발
+            "exploded": False,
+            "is_from_top": True
+        }
+        arena_top_grenades.append(grenade)
+        print(f"[Arena] 상단 영웅 수류탄 발사! 목표: ({target_x:.0f}, {target_y:.0f})")
+
+        # 효과음
+        try:
+            if SOUND_THROW_BEFORE:
+                SOUND_THROW_BEFORE.play()
+        except Exception:
+            pass
+
+    elif effect_name == "banana":
+        # 상단 영웅 바나나: BOSS 위치에서 아래로 던짐
+        target_x = PLAYER.centerx + random.uniform(-80, 80)
+        target_y = HEIGHT - 100  # 화면 하단 근처
+
+        dx = target_x - BOSS.centerx
+        dy = target_y - BOSS.centery
+        distance = math.sqrt(dx**2 + dy**2)
+        speed = 8
+        vel_x = (dx / distance) * speed if distance > 0 else 0
+        vel_y = (dy / distance) * speed if distance > 0 else speed
+
+        banana = {
+            "x": float(BOSS.centerx),
+            "y": float(BOSS.centery + 20),
+            "vel_x": vel_x,
+            "vel_y": vel_y,
+            "rotation": 0,
+            "landed": False,
+            "slip_timer": 0,
+            "is_from_top": True
+        }
+        arena_top_bananas.append(banana)
+        print(f"[Arena] 상단 영웅 바나나 투척!")
+
+    elif effect_name in ["gauge_boost", "gauge_charge"]:
+        # 게이지 아이템은 상단 영웅에게 별 의미 없음 - 무시
+        print(f"[Arena] 상단 영웅 게이지 아이템 사용 (효과 없음)")
+
+    elif effect_name in ["long_paddle", "long_boost"]:
+        # 패들 확장은 상단 영웅에게 적용하지 않음
+        print(f"[Arena] 상단 영웅 패들 확장 아이템 사용 (효과 없음)")
+
+    else:
+        # 그 외 아이템은 로그만 출력
+        print(f"[Arena] 상단 영웅 아이템 효과 미구현: {effect_name}")
+
+
+def _update_arena_top_projectiles():
+    """투기장 상단 영웅 투사체 업데이트"""
+    global arena_top_grenades, arena_top_bananas
+    global player_stunned_timer, player_knockback_vel
+
+    # 상단 영웅 수류탄 업데이트
+    new_grenades = []
+    for grenade in arena_top_grenades:
+        if grenade["exploded"]:
+            continue
+
+        # 이동
+        grenade["x"] += grenade["vel_x"]
+        grenade["y"] += grenade["vel_y"]
+
+        # 중력 적용
+        grenade["vel_y"] += 0.3
+
+        # 타이머 감소
+        grenade["timer"] -= 1
+
+        # 화면 밖으로 나가면 제거
+        if grenade["y"] > HEIGHT + 50 or grenade["y"] < -50:
+            continue
+        if grenade["x"] < GAME_AREA_OFFSET_X - 50 or grenade["x"] > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH + 50:
+            continue
+
+        # 타이머 종료 또는 플레이어와 충돌 시 폭발
+        grenade_rect = pygame.Rect(grenade["x"] - 10, grenade["y"] - 10, 20, 20)
+        if grenade["timer"] <= 0 or grenade_rect.colliderect(PLAYER):
+            # 폭발 처리
+            grenade["exploded"] = True
+            explosion_x, explosion_y = grenade["x"], grenade["y"]
+
+            # 플레이어와의 거리 계산
+            dist = math.sqrt((PLAYER.centerx - explosion_x)**2 + (PLAYER.centery - explosion_y)**2)
+
+            if dist < 100:  # 폭발 범위 내
+                # 스턴 적용
+                player_stunned_timer = 45  # 0.75초 스턴
+
+                # 넉백 적용
+                knockback_dir = 1 if PLAYER.centerx > explosion_x else -1
+                player_knockback_vel = knockback_dir * 15
+
+                print(f"[Arena] 상단 영웅 수류탄 폭발! 플레이어 피격!")
+
+            # 폭발 이펙트
+            try:
+                create_grenade_explosion(int(explosion_x), int(explosion_y))
+            except Exception:
+                pass
+
+            continue
+
+        new_grenades.append(grenade)
+
+    arena_top_grenades = new_grenades
+
+    # 상단 영웅 바나나 업데이트
+    new_bananas = []
+    for banana in arena_top_bananas:
+        if banana["landed"]:
+            # 바닥에 있는 바나나
+            banana["slip_timer"] -= 1
+            if banana["slip_timer"] <= 0:
+                continue  # 제거
+
+            # 플레이어와 충돌 체크
+            banana_rect = pygame.Rect(banana["x"] - 15, banana["y"] - 15, 30, 30)
+            if banana_rect.colliderect(PLAYER):
+                # 미끄러짐 효과
+                player_knockback_vel = random.choice([-20, 20])
+                print("[Arena] 상단 영웅 바나나에 미끄러짐!")
+                continue  # 바나나 제거
+
+            new_bananas.append(banana)
+        else:
+            # 날아가는 바나나
+            banana["x"] += banana["vel_x"]
+            banana["y"] += banana["vel_y"]
+            banana["rotation"] += 15  # 회전
+
+            # 중력 적용
+            banana["vel_y"] += 0.2
+
+            # 화면 밖으로 나가면 제거
+            if banana["y"] > HEIGHT + 50:
+                continue
+
+            # 바닥에 닿으면 착지
+            if banana["y"] >= HEIGHT - 80:
+                banana["landed"] = True
+                banana["slip_timer"] = 300  # 5초 동안 유지
+                banana["y"] = HEIGHT - 80
+
+            new_bananas.append(banana)
+
+    arena_top_bananas = new_bananas
+
+
+def _draw_arena_top_projectiles(screen):
+    """투기장 상단 영웅 투사체 그리기"""
+    # 수류탄 그리기
+    for grenade in arena_top_grenades:
+        if not grenade["exploded"]:
+            # 간단한 수류탄 모양 (빨간 원)
+            pygame.draw.circle(screen, (180, 50, 50), (int(grenade["x"]), int(grenade["y"])), 8)
+            pygame.draw.circle(screen, (255, 100, 100), (int(grenade["x"]), int(grenade["y"])), 5)
+
+    # 바나나 그리기
+    for banana in arena_top_bananas:
+        x, y = int(banana["x"]), int(banana["y"])
+        # 간단한 바나나 모양 (노란 타원)
+        if not banana["landed"]:
+            # 회전하는 바나나
+            angle = banana["rotation"]
+            surf = pygame.Surface((30, 15), pygame.SRCALPHA)
+            pygame.draw.ellipse(surf, (255, 220, 50), (0, 0, 30, 15))
+            rotated = pygame.transform.rotate(surf, angle)
+            rect = rotated.get_rect(center=(x, y))
+            screen.blit(rotated, rect)
+        else:
+            # 바닥에 있는 바나나
+            pygame.draw.ellipse(screen, (255, 220, 50), (x - 15, y - 7, 30, 15))
+
+
 # bosspong.py
 def store_passive_item(item_data):
     global MAX_ITEM_SLOTS, passive_item_list, speedboots_obtained, speedgear_obtained
@@ -95000,6 +95324,15 @@ def show_start_screen():
         player_ai_enabled = True
         apply_character_selection("smasher")  # 기본 캐릭터
 
+        # 상단 영웅 아이템 슬롯 초기화
+        global arena_top_active_item_slot, arena_top_selected_item_index, arena_top_last_item_use_time
+        global arena_top_grenades, arena_top_bananas
+        arena_top_active_item_slot = []
+        arena_top_selected_item_index = 0
+        arena_top_last_item_use_time = 0
+        arena_top_grenades = []
+        arena_top_bananas = []
+
         # AI 컨트롤러 리셋
         try:
             from ai.player_ai import get_player_ai_controller
@@ -95019,6 +95352,13 @@ def show_start_screen():
             arena_bottom_hero = None
             arena_hero_paddle_renderer = None
             arena_skill_manager = None
+            # 상단 영웅 아이템 슬롯 초기화
+            arena_top_active_item_slot = []
+            arena_top_selected_item_index = 0
+            arena_top_last_item_use_time = 0
+            # 상단 영웅 투사체 초기화
+            arena_top_grenades = []
+            arena_top_bananas = []
 
         return result
 
@@ -129557,6 +129897,59 @@ def main(stage_num, new_boss_mode=False):
                     other_item["last_use"] = now_ms
 
         _player_ai_try_use_active_item()
+
+        # 투기장 상단 영웅 AI: 액티브 아이템 자동 사용
+        def _arena_top_ai_try_use_active_item():
+            """투기장 상단 영웅 AI가 쿨타임이 끝난 첫 번째 액티브 아이템을 자동 사용."""
+            global arena_top_active_item_slot, arena_top_selected_item_index, arena_top_last_item_use_time
+
+            if not arena_mode_enabled or not arena_top_active_item_slot:
+                return
+            if ball_spawn_animation_active:
+                return
+
+            now_ms = pygame.time.get_ticks()
+            # 상단 영웅 전용 쿨타임 (10초)
+            top_cooldown_ms = 10000
+            global_cooldown_ok = now_ms - arena_top_last_item_use_time >= top_cooldown_ms
+            if not global_cooldown_ok:
+                return
+
+            target_index = -1
+            for idx, item in enumerate(arena_top_active_item_slot):
+                if item is None:
+                    continue
+                individual_ok = "last_use" not in item or now_ms - item["last_use"] >= top_cooldown_ms
+                if individual_ok:
+                    target_index = idx
+                    break
+            if target_index < 0:
+                return
+
+            item = arena_top_active_item_slot[target_index]
+            individual_cooldown_ok = "last_use" not in item or now_ms - item["last_use"] >= top_cooldown_ms
+            if not individual_cooldown_ok:
+                return
+
+            # 상단 영웅용 아이템 효과 적용 (방향 반전)
+            effect_name = item.get("effect", item.get("name", ""))
+            _apply_arena_top_item_effect(effect_name)
+
+            # 아이템 제거
+            del arena_top_active_item_slot[target_index]
+            if arena_top_selected_item_index >= len(arena_top_active_item_slot):
+                arena_top_selected_item_index = max(0, len(arena_top_active_item_slot) - 1)
+
+            arena_top_last_item_use_time = now_ms
+            for other_item in arena_top_active_item_slot:
+                if other_item is not None:
+                    other_item["last_use"] = now_ms
+
+            print(f"[Arena] 상단 영웅 아이템 사용: {effect_name}")
+
+        if arena_mode_enabled:
+            _arena_top_ai_try_use_active_item()
+
         #  플레이어 서브 자동 발사
         #  - AI 플레이어: 즉시 서브
         #  - 일반: 3초 대기 후 자동 서브
@@ -130278,6 +130671,11 @@ def main(stage_num, new_boss_mode=False):
                 # 튜토리얼 일시정지 시 아이템 이동/회전 정지 (두 가지 방식 모두 체크)
                 is_tutorial_paused = (current_stage == 50 and tutorial_pause_for_dialogue) or is_ingame_tutorial_paused()
                 items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused)
+
+                # 투기장 모드: 상단 영웅(BOSS 패들) 아이템 획득 처리
+                if arena_mode_enabled:
+                    _arena_top_hero_collect_items()
+                    _update_arena_top_projectiles()  # 상단 영웅 투사체 업데이트
 
                 # 석판 수집 퀘스트 업데이트
                 if not is_tutorial_paused:
@@ -131122,6 +131520,10 @@ def main(stage_num, new_boss_mode=False):
                 # _draw_active_item_hover_tooltip() - 제거됨
                 items.draw_items(SCREEN)
                 draw_quest_tablets(SCREEN)
+
+                # 투기장 상단 영웅 투사체 그리기
+                if arena_mode_enabled:
+                    _draw_arena_top_projectiles(SCREEN)
 
                 # 물자보급 시스템 그리기 (코만도 캐릭터 전용)
                 if selected_character_type == "soldier":
