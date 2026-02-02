@@ -1208,22 +1208,44 @@ class DollCurse(HeroSkill):
         )
         self.curse_dolls = []
         self.target_is_top = False
+        # 마리아 고정 위치 및 불꽃 이펙트
+        self.caster_locked_x = 0
+        self.caster_locked_y = 0
+        self.flame_particles = []
+        self.flame_timer = 0
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
         game_state['target_confused'] = True
         game_state['confusion_type'] = 'reverse'  # 조작 반전
 
-        # 저주 인형 이펙트
+        # 마리아(caster) 제자리 고정
+        self.caster_locked_x = caster_paddle.x
+        self.caster_locked_y = caster_paddle.y
+        caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
+        game_state[f'{caster_prefix}_locked'] = True
+        game_state[f'{caster_prefix}_locked_x'] = self.caster_locked_x
+
+        # 저주 인형 이펙트 - 상대 패들 주변에서 시작
         self.curse_dolls = []
         for i in range(3):
+            angle = (i / 3) * math.pi * 2 + random.uniform(-0.3, 0.3)
+            distance = random.uniform(40, 80)
             self.curse_dolls.append({
-                'x': target_paddle.x + random.uniform(-50, 130),
-                'y': target_paddle.y + random.uniform(-80, 80),
+                'x': target_paddle.x + 40 + math.cos(angle) * distance,
+                'y': target_paddle.y + math.sin(angle) * distance,
+                'base_angle': angle,
+                'distance': distance,
                 'rotation': random.uniform(0, 360),
-                'scale': random.uniform(0.5, 1.0),
-                'wobble': random.uniform(0, math.pi * 2)
+                'scale': random.uniform(0.6, 1.0),
+                'wobble': random.uniform(0, math.pi * 2),
+                'orbit_speed': random.uniform(0.5, 1.2),
+                'float_offset': random.uniform(0, math.pi * 2)
             })
+
+        # 마리아 주변 불꽃 파티클 초기화
+        self.flame_particles = []
+        self.flame_timer = 0
 
         return {
             'target_status': StatusEffect.CONFUSION,
@@ -1235,16 +1257,65 @@ class DollCurse(HeroSkill):
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 마리아(caster) 제자리 고정 유지
+        caster_paddle.x = self.caster_locked_x
+
+        # 저주 인형들 상대 패들 주변에서 천천히 공전
         for doll in self.curse_dolls:
             doll['wobble'] += dt * 3
-            doll['rotation'] += math.sin(doll['wobble']) * 2
+            doll['base_angle'] += dt * doll['orbit_speed']
+            doll['float_offset'] += dt * 2
+
+            # 상대 패들 중심 기준 공전
+            center_x = target_paddle.x + 40
+            center_y = target_paddle.y
+            float_y = math.sin(doll['float_offset']) * 8  # 위아래 둥실둥실
+            doll['x'] = center_x + math.cos(doll['base_angle']) * doll['distance']
+            doll['y'] = center_y + math.sin(doll['base_angle']) * doll['distance'] * 0.5 + float_y
+            doll['rotation'] += math.sin(doll['wobble']) * 3
+
+        # 마리아 주변 불꽃 파티클 생성
+        self.flame_timer += dt
+        if self.flame_timer > 0.05:  # 0.05초마다 파티클 생성
+            self.flame_timer = 0
+            caster_center_x = self.caster_locked_x + 40
+            caster_center_y = self.caster_locked_y + (20 if not caster_paddle.is_top else -10)
+            for _ in range(2):
+                angle = random.uniform(0, math.pi * 2)
+                dist = random.uniform(15, 40)
+                self.flame_particles.append({
+                    'x': caster_center_x + math.cos(angle) * dist,
+                    'y': caster_center_y + math.sin(angle) * dist * 0.6,
+                    'vx': random.uniform(-20, 20),
+                    'vy': random.uniform(-60, -30) if not caster_paddle.is_top else random.uniform(30, 60),
+                    'life': 1.0,
+                    'size': random.uniform(4, 10),
+                    'color_phase': random.uniform(0, 1)
+                })
+
+        # 불꽃 파티클 업데이트
+        for p in self.flame_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt * 1.5
+            p['size'] *= 0.97
+            p['color_phase'] += dt * 2
+
+        # 죽은 파티클 제거
+        self.flame_particles = [p for p in self.flame_particles if p['life'] > 0]
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['target_confused'] = False
         # 패들별 상태 클리어
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_confused'] = False
+
+        # 마리아(caster) 고정 해제
+        caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
+        game_state[f'{caster_prefix}_locked'] = False
+
         self.curse_dolls = []
+        self.flame_particles = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
@@ -1253,11 +1324,41 @@ class DollCurse(HeroSkill):
             overlay.fill((100, 30, 60, 30))
             screen.blit(overlay, (0, 0))
 
-            # 저주 인형들
+            # 마리아 주변 이글이글 불꽃 이펙트
+            for p in self.flame_particles:
+                # 불꽃 색상: 빨강 -> 주황 -> 노랑 (life에 따라)
+                phase = p['color_phase'] % 1.0
+                if phase < 0.33:
+                    color = (255, int(100 + phase * 300), 50)  # 빨강 -> 주황
+                elif phase < 0.66:
+                    color = (255, int(200 + (phase - 0.33) * 150), int(50 + (phase - 0.33) * 300))  # 주황 -> 노랑
+                else:
+                    color = (255, 255, int(150 + (phase - 0.66) * 300))  # 노랑 -> 흰노랑
+
+                alpha = int(255 * p['life'])
+                size = max(2, int(p['size']))
+
+                # 불꽃 파티클 그리기
+                flame_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(flame_surf, (*color, alpha), (size, size), size)
+                screen.blit(flame_surf, (int(p['x']) - size, int(p['y']) - size))
+
+            # 마리아 주변 기본 오라 (반투명 원)
+            caster_center_x = int(self.caster_locked_x + 40)
+            caster_center_y = int(self.caster_locked_y + (10 if not caster_paddle.is_top else 0))
+            aura_surf = pygame.Surface((120, 80), pygame.SRCALPHA)
+            pygame.draw.ellipse(aura_surf, (200, 80, 120, 60), (0, 0, 120, 80))
+            screen.blit(aura_surf, (caster_center_x - 60, caster_center_y - 40))
+
+            # 저주 인형들 (상대 패들 주변에서 공전)
             for doll in self.curse_dolls:
-                # 간단한 인형 형태
                 dx, dy = int(doll['x']), int(doll['y'])
                 s = doll['scale']
+
+                # 그림자
+                shadow_surf = pygame.Surface((int(24 * s), int(8 * s)), pygame.SRCALPHA)
+                pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), shadow_surf.get_rect())
+                screen.blit(shadow_surf, (dx - int(12 * s), dy + int(20 * s)))
 
                 # 머리
                 pygame.draw.circle(screen, (60, 40, 50), (dx, dy - int(20 * s)), int(12 * s))
@@ -1277,6 +1378,12 @@ class DollCurse(HeroSkill):
                 # 몸통
                 pygame.draw.ellipse(screen, (80, 50, 70),
                                    (dx - int(10 * s), dy - int(5 * s), int(20 * s), int(30 * s)))
+                # 저주 실 (인형에서 위로)
+                thread_color = (150, 80, 100, 150)
+                for tx in [-5, 0, 5]:
+                    pygame.draw.line(screen, (150, 80, 100),
+                                   (dx + int(tx * s), dy - int(32 * s)),
+                                   (dx + int(tx * s), dy - int(50 * s)), 1)
 
 
 # ============================================================================
