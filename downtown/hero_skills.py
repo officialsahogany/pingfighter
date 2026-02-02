@@ -502,13 +502,13 @@ class TentacleWrap(HeroSkill):
 
 
 class AbyssInk(HeroSkill):
-    """심해의 먹물 - 화면에 먹물을 뿌려 시야 방해"""
+    """심해의 먹물 - 크라켄이 먹물을 발사하여 상대방에게 혼란을 준다"""
     def __init__(self):
         super().__init__(
             skill_id="abyss_ink",
             name="Abyss Ink",
             korean_name="심해의 먹물",
-            description="심해의 먹물을 뿜어 상대의 시야를 방해한다",
+            description="심해의 먹물을 발사하여 상대의 시야를 방해하고 혼란을 준다",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=15.0,
             duration=3.5,
@@ -516,72 +516,222 @@ class AbyssInk(HeroSkill):
         )
         self.ink_blobs = []
         self.target_is_top = False
-        self.caster_is_top = False  # caster 위치 저장 (혼란 적용 방지용)
+        self.caster_is_top = False
+
+        # 3단계 애니메이션 변수
+        self.phase = 'travel'  # 'travel' -> 'splash' -> 'active'
+        self.projectile_x = 0
+        self.projectile_y = 0
+        self.projectile_target_x = 0
+        self.projectile_target_y = 0
+        self.projectile_progress = 0.0
+        self.projectile_speed = 3.0  # 이동 속도
+
+        # 스플래시 관련
+        self.splash_center_x = 0
+        self.splash_center_y = 0
+        self.splash_radius = 0
+        self.splash_max_radius = 150  # 최대 스플래시 반경
+        self.splash_expand_speed = 400  # 확장 속도
+        self.splash_timer = 0
+        self.splash_duration = 0.4  # 스플래시 확장 시간
+
+        # 혼란 적용 여부
+        self.confusion_applied = False
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
         self.caster_is_top = caster_paddle.is_top
 
-        # 타겟에게만 혼란 적용 (caster는 제외) - DollCurse와 동일하게 설정
-        target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
-        game_state[f'{target_prefix}_confused'] = True
-        game_state['target_confused'] = True  # 전역 플래그도 설정 (DollCurse와 동일)
-        game_state['confusion_type'] = 'random'  # 랜덤 움직임 (조명탄과 동일)
+        # 초기화: 발사 단계
+        self.phase = 'travel'
+        self.projectile_progress = 0.0
+        self.confusion_applied = False
+        self.ink_blobs = []
+        self.splash_radius = 0
+        self.splash_timer = 0
+
+        # 발사 시작점: 크라켄 입 위치
+        self.projectile_x = caster_paddle.x + 40
+        self.projectile_y = caster_paddle.y + (30 if caster_paddle.is_top else -30)
+
+        # 목표 지점: 타겟 진영 중앙
+        self.projectile_target_x = target_paddle.x + 40
+        self.projectile_target_y = 600 if caster_paddle.is_top else 150  # 하단 또는 상단 진영
 
         # caster의 혼란 상태는 명시적으로 False 유지
         caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
-        game_state[f'{caster_prefix}_confused'] = False  # caster는 혼란 없음
-
-        # 먹물 방울 생성 (타겟 진영에만)
-        self.ink_blobs = []
-        target_area_y = 500 if caster_paddle.is_top else 100
-
-        for i in range(12):
-            self.ink_blobs.append({
-                'x': random.uniform(100, 660),
-                'y': target_area_y + random.uniform(-100, 100),
-                'size': random.uniform(40, 100),
-                'alpha': 200,
-                'wobble': random.uniform(0, math.pi * 2)
-            })
+        game_state[f'{caster_prefix}_confused'] = False
 
         return {
             'screen_effect': ScreenEffect.INK,
-            'target_status': StatusEffect.CONFUSION,  # DollCurse와 동일하게 반환
-            'status_duration': self.duration,
             'sound': 'splash'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        for blob in self.ink_blobs:
-            blob['wobble'] += dt * 2
-            blob['alpha'] = max(0, blob['alpha'] - dt * 50)
-            blob['size'] += dt * 5
+        if self.phase == 'travel':
+            # 1단계: 먹물 발사체 이동
+            self.projectile_progress += dt * self.projectile_speed
+
+            if self.projectile_progress >= 1.0:
+                # 목표 지점 도달 - 스플래시 단계로 전환
+                self.phase = 'splash'
+                self.splash_center_x = self.projectile_target_x
+                self.splash_center_y = self.projectile_target_y
+                self.splash_radius = 20
+                self.splash_timer = 0
+
+        elif self.phase == 'splash':
+            # 2단계: 먹물 확산
+            self.splash_timer += dt
+            self.splash_radius = min(self.splash_max_radius,
+                                     20 + self.splash_expand_speed * self.splash_timer)
+
+            # 먹물 방울 생성 (확산 중에 생성)
+            if len(self.ink_blobs) < 15 and random.random() < 0.3:
+                angle = random.uniform(0, math.pi * 2)
+                dist = random.uniform(0, self.splash_radius * 0.8)
+                self.ink_blobs.append({
+                    'x': self.splash_center_x + math.cos(angle) * dist,
+                    'y': self.splash_center_y + math.sin(angle) * dist,
+                    'size': random.uniform(30, 80),
+                    'alpha': 220,
+                    'wobble': random.uniform(0, math.pi * 2)
+                })
+
+            if self.splash_timer >= self.splash_duration:
+                # 스플래시 완료 - 혼란 체크 및 active 단계로 전환
+                self.phase = 'active'
+
+                # 타겟이 스플래시 범위 내에 있는지 체크
+                target_center_x = target_paddle.x + 40
+                target_center_y = target_paddle.y
+
+                dist = math.sqrt((target_center_x - self.splash_center_x) ** 2 +
+                                (target_center_y - self.splash_center_y) ** 2)
+
+                if dist <= self.splash_max_radius + 40:  # 패들 크기 고려
+                    # 혼란 적용
+                    self.confusion_applied = True
+                    target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+                    game_state[f'{target_prefix}_confused'] = True
+                    game_state['target_confused'] = True
+                    game_state['confusion_type'] = 'random'
+
+        elif self.phase == 'active':
+            # 3단계: 먹물 유지 및 페이드
+            for blob in self.ink_blobs:
+                blob['wobble'] += dt * 2
+                blob['alpha'] = max(0, blob['alpha'] - dt * 40)
+                blob['size'] += dt * 3
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        # 패들별 상태 클리어 (DollCurse와 동일)
-        game_state['target_confused'] = False
-        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
-        game_state[f'{target_prefix}_confused'] = False
+        # 혼란 상태 클리어
+        if self.confusion_applied:
+            game_state['target_confused'] = False
+            target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+            game_state[f'{target_prefix}_confused'] = False
+
+        # 상태 초기화
         self.ink_blobs = []
+        self.phase = 'travel'
+        self.projectile_progress = 0.0
+        self.confusion_applied = False
+        self.splash_radius = 0
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        for blob in self.ink_blobs:
-            if blob['alpha'] > 10:
-                size = int(blob['size'] + math.sin(blob['wobble']) * 10)
-                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+        if self.phase == 'travel':
+            # 1단계: 발사체 그리기
+            # 현재 위치 계산
+            current_x = self.projectile_x + (self.projectile_target_x - self.projectile_x) * self.projectile_progress
+            current_y = self.projectile_y + (self.projectile_target_y - self.projectile_y) * self.projectile_progress
 
-                # 불규칙한 먹물 형태
-                points = []
-                for angle in range(0, 360, 30):
-                    rad = math.radians(angle)
-                    r = size * (0.8 + 0.3 * math.sin(rad * 3 + blob['wobble']))
-                    px = size + int(math.cos(rad) * r)
-                    py = size + int(math.sin(rad) * r)
-                    points.append((px, py))
+            # 먹물 발사체 (여러 방울이 뭉쳐서 날아감)
+            ink_surf = pygame.Surface((60, 60), pygame.SRCALPHA)
 
-                pygame.draw.polygon(surf, (10, 20, 40, int(blob['alpha'])), points)
-                screen.blit(surf, (int(blob['x'] - size), int(blob['y'] - size)))
+            # 메인 먹물 덩어리
+            for i in range(5):
+                offset_x = random.uniform(-8, 8)
+                offset_y = random.uniform(-8, 8)
+                size = random.randint(12, 20)
+                pygame.draw.circle(ink_surf, (10, 20, 40, 200),
+                                  (30 + int(offset_x), 30 + int(offset_y)), size)
+
+            # 외곽 글로우
+            pygame.draw.circle(ink_surf, (30, 50, 80, 100), (30, 30), 25)
+
+            screen.blit(ink_surf, (int(current_x) - 30, int(current_y) - 30))
+
+            # 꼬리 효과 (이전 위치들)
+            for i in range(5):
+                tail_progress = max(0, self.projectile_progress - i * 0.08)
+                if tail_progress > 0:
+                    tail_x = self.projectile_x + (self.projectile_target_x - self.projectile_x) * tail_progress
+                    tail_y = self.projectile_y + (self.projectile_target_y - self.projectile_y) * tail_progress
+                    alpha = int(150 - i * 30)
+                    size = int(15 - i * 2)
+                    if size > 0 and alpha > 0:
+                        tail_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(tail_surf, (20, 40, 60, alpha), (size, size), size)
+                        screen.blit(tail_surf, (int(tail_x) - size, int(tail_y) - size))
+
+        elif self.phase == 'splash':
+            # 2단계: 스플래시 효과
+            # 확장하는 먹물 원
+            splash_surf = pygame.Surface((int(self.splash_radius * 2 + 20), int(self.splash_radius * 2 + 20)), pygame.SRCALPHA)
+            center = int(self.splash_radius + 10)
+
+            # 불규칙한 스플래시 형태
+            points = []
+            for angle in range(0, 360, 15):
+                rad = math.radians(angle)
+                r = self.splash_radius * (0.85 + 0.15 * math.sin(rad * 5 + self.splash_timer * 10))
+                px = center + int(math.cos(rad) * r)
+                py = center + int(math.sin(rad) * r)
+                points.append((px, py))
+
+            if len(points) >= 3:
+                pygame.draw.polygon(splash_surf, (15, 30, 50, 180), points)
+                pygame.draw.polygon(splash_surf, (10, 20, 40, 220), points, 3)
+
+            screen.blit(splash_surf, (int(self.splash_center_x - center), int(self.splash_center_y - center)))
+
+            # 튀는 먹물 입자
+            for i in range(8):
+                angle = random.uniform(0, math.pi * 2)
+                dist = self.splash_radius * random.uniform(0.5, 1.2)
+                px = self.splash_center_x + math.cos(angle) * dist
+                py = self.splash_center_y + math.sin(angle) * dist
+                pygame.draw.circle(screen, (10, 20, 40), (int(px), int(py)), random.randint(3, 8))
+
+        elif self.phase == 'active':
+            # 3단계: 먹물 방울 유지
+            for blob in self.ink_blobs:
+                if blob['alpha'] > 10:
+                    size = int(blob['size'] + math.sin(blob['wobble']) * 10)
+                    surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+
+                    # 불규칙한 먹물 형태
+                    points = []
+                    for angle in range(0, 360, 30):
+                        rad = math.radians(angle)
+                        r = size * (0.8 + 0.3 * math.sin(rad * 3 + blob['wobble']))
+                        px = size + int(math.cos(rad) * r)
+                        py = size + int(math.sin(rad) * r)
+                        points.append((px, py))
+
+                    pygame.draw.polygon(surf, (10, 20, 40, int(blob['alpha'])), points)
+                    screen.blit(surf, (int(blob['x'] - size), int(blob['y'] - size)))
+
+            # 혼란 적용 시 시각적 표시
+            if self.confusion_applied:
+                # 스플래시 영역 잔여 표시
+                remain_surf = pygame.Surface((self.splash_max_radius * 2, self.splash_max_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(remain_surf, (10, 20, 40, 60),
+                                  (self.splash_max_radius, self.splash_max_radius),
+                                  int(self.splash_max_radius * 0.8))
+                screen.blit(remain_surf, (int(self.splash_center_x - self.splash_max_radius),
+                                         int(self.splash_center_y - self.splash_max_radius)))
 
 
 # ============================================================================
