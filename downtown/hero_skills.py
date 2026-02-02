@@ -368,6 +368,10 @@ class TentacleWrap(HeroSkill):
                 if not self.slow_applied:
                     self.slow_applied = True
                     target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+                    # 스턴 플래그는 명시적으로 False 유지 (둔화이므로)
+                    game_state[f'{target_prefix}_stunned'] = False
+                    game_state['target_stunned'] = False
+                    # 둔화 적용
                     game_state[f'{target_prefix}_slowed'] = True
                     game_state[f'{target_prefix}_slow_amount'] = self.slow_amount
                     game_state['target_slowed'] = True
@@ -379,6 +383,10 @@ class TentacleWrap(HeroSkill):
         elif self.phase == 'wrap':
             # 감싸기 단계: 촉수가 target을 감싸면서 둔화 유지
             self.wrap_timer += dt
+            # 매 프레임 스턴 플래그 False 유지 (둔화만 적용, 스턴 아님)
+            target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+            game_state[f'{target_prefix}_stunned'] = False
+            game_state['target_stunned'] = False
             for t in self.tentacles:
                 # 감싸기 애니메이션 - 촉수가 target 주위를 회전
                 t['wrap_angle'] += dt * 120  # 회전 속도
