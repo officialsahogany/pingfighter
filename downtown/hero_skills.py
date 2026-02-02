@@ -301,7 +301,7 @@ class TentacleWrap(HeroSkill):
         self.travel_progress = 0  # 이동 진행도 (0~1)
         self.wrap_timer = 0  # 감싸기 지속 시간
         self.slow_applied = False  # 둔화 적용 여부
-        self.slow_amount = 0.4  # 60% 감소 = 40%만 유지
+        self.slow_amount = 0.6  # 40% 감소 = 60%만 유지
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
