@@ -282,16 +282,16 @@ class DemonEye(HeroSkill):
 # 크라켄 스킬 - 심해의 포식자 (트릭형)
 # ============================================================================
 class TentacleWrap(HeroSkill):
-    """촉수 휘감기 - 상대 패들 스턴"""
+    """촉수 휘감기 - 상대 패들 둔화"""
     def __init__(self):
         super().__init__(
             skill_id="tentacle_wrap",
             name="Tentacle Wrap",
             korean_name="촉수 휘감기",
-            description="촉수로 상대 패들을 휘감아 스턴시킨다",
+            description="촉수로 상대 패들을 휘감아 이동속도를 60% 감소시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=20.0,
-            duration=4.0,  # 전체 스킬 지속시간 (이동 1초 + 스턴 3초)
+            duration=4.0,  # 전체 스킬 지속시간 (이동 1초 + 둔화 3초)
             hero_id="kraken"
         )
         self.tentacles = []
@@ -300,7 +300,8 @@ class TentacleWrap(HeroSkill):
         self.phase = 'travel'  # 'travel' (이동 중) → 'wrap' (감싸는 중)
         self.travel_progress = 0  # 이동 진행도 (0~1)
         self.wrap_timer = 0  # 감싸기 지속 시간
-        self.stun_applied = False  # 스턴 적용 여부
+        self.slow_applied = False  # 둔화 적용 여부
+        self.slow_amount = 0.4  # 60% 감소 = 40%만 유지
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
@@ -308,7 +309,7 @@ class TentacleWrap(HeroSkill):
         self.phase = 'travel'
         self.travel_progress = 0
         self.wrap_timer = 0
-        self.stun_applied = False
+        self.slow_applied = False
 
         # 촉수 생성 - caster(크라켄) 위치에서 시작
         self.tentacles = []
@@ -322,6 +323,8 @@ class TentacleWrap(HeroSkill):
             self.tentacles.append({
                 'start_x': caster_center_x + offset_x,
                 'start_y': caster_center_y + offset_y,
+                'offset_x': offset_x,  # caster 기준 오프셋 저장
+                'offset_y': offset_y,
                 'target_x': target_paddle.x + 40,
                 'target_y': target_paddle.y,
                 'progress': 0,
@@ -331,15 +334,22 @@ class TentacleWrap(HeroSkill):
                 'wrap_radius': random.uniform(30, 50)  # 감싸기 반경
             })
 
-        # 스턴은 아직 적용하지 않음 (촉수가 도달해야 적용)
+        # 둔화는 아직 적용하지 않음 (촉수가 도달해야 적용)
         return {
             'status_duration': self.duration,
             'sound': 'tentacle'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        # 타겟 위치 업데이트
+        # caster와 target 위치 실시간 업데이트
+        caster_center_x = caster_paddle.x + 40
+        caster_center_y = caster_paddle.y + (20 if caster_paddle.is_top else -20)
+
         for t in self.tentacles:
+            # caster 위치 업데이트 (촉수가 크라켄과 계속 연결)
+            t['start_x'] = caster_center_x + t['offset_x']
+            t['start_y'] = caster_center_y + t['offset_y']
+            # target 위치 업데이트
             t['target_x'] = target_paddle.x + 40
             t['target_y'] = target_paddle.y
             t['wave_offset'] += dt * 4
@@ -354,34 +364,51 @@ class TentacleWrap(HeroSkill):
             if self.travel_progress >= 1.0:
                 self.phase = 'wrap'
                 self.wrap_timer = 0
-                # 이제 스턴 적용
-                if not self.stun_applied:
-                    self.stun_applied = True
+                # 이제 둔화 적용 (60% 감소)
+                if not self.slow_applied:
+                    self.slow_applied = True
                     target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
-                    game_state[f'{target_prefix}_stunned'] = True
-                    game_state['target_stunned'] = True
+                    game_state[f'{target_prefix}_slowed'] = True
+                    game_state[f'{target_prefix}_slow_amount'] = self.slow_amount
+                    game_state['target_slowed'] = True
+                    game_state['slow_amount'] = self.slow_amount
+                    # 촉수 휘감기 전용 플래그 (둔화 이펙트용)
+                    game_state['tentacle_wrap_active'] = True
+                    game_state['tentacle_wrap_target_is_top'] = target_paddle.is_top
 
         elif self.phase == 'wrap':
-            # 감싸기 단계: 촉수가 target을 감싸면서 스턴 유지
+            # 감싸기 단계: 촉수가 target을 감싸면서 둔화 유지
             self.wrap_timer += dt
             for t in self.tentacles:
                 # 감싸기 애니메이션 - 촉수가 target 주위를 회전
                 t['wrap_angle'] += dt * 120  # 회전 속도
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        game_state['target_stunned'] = False
+        game_state['target_slowed'] = False
+        game_state['slow_amount'] = 1.0
         # 패들별 상태 클리어
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
-        game_state[f'{target_prefix}_stunned'] = False
+        game_state[f'{target_prefix}_slowed'] = False
+        game_state[f'{target_prefix}_slow_amount'] = 1.0
+        # 촉수 휘감기 전용 플래그 해제
+        game_state['tentacle_wrap_active'] = False
         self.tentacles = []
         self.phase = 'travel'
-        self.stun_applied = False
+        self.slow_applied = False
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # caster 위치 (실시간)
+        caster_center_x = caster_paddle.x + 40
+        caster_center_y = caster_paddle.y + (20 if caster_paddle.is_top else -20)
+
         if self.phase == 'travel':
             # 이동 단계: caster에서 target으로 뻗어나가는 촉수
             for t in self.tentacles:
                 if t['progress'] > 0:
+                    # 시작점은 caster 위치 (실시간)
+                    start_x = caster_center_x + t['offset_x']
+                    start_y = caster_center_y + t['offset_y']
+
                     points = []
                     segments = 25
                     for i in range(segments + 1):
@@ -390,8 +417,8 @@ class TentacleWrap(HeroSkill):
                         wave_strength = 25 * math.sin(prog * math.pi)  # 중간이 가장 강함
                         wave = math.sin(prog * math.pi * 4 + t['wave_offset']) * wave_strength
 
-                        x = t['start_x'] + (t['target_x'] - t['start_x']) * prog + wave
-                        y = t['start_y'] + (t['target_y'] - t['start_y']) * prog
+                        x = start_x + (t['target_x'] - start_x) * prog + wave
+                        y = start_y + (t['target_y'] - start_y) * prog
                         points.append((int(x), int(y)))
 
                     if len(points) > 1:
@@ -415,11 +442,15 @@ class TentacleWrap(HeroSkill):
                             screen.blit(glow_surf, (end_x - 10, end_y - 10))
 
         elif self.phase == 'wrap':
-            # 감싸기 단계: target을 감싸는 촉수
+            # 감싸기 단계: target을 감싸는 촉수 (caster와 계속 연결)
             target_x = target_paddle.x + 40
             target_y = target_paddle.y
 
             for t in self.tentacles:
+                # 시작점은 caster 위치 (실시간)
+                start_x = caster_center_x + t['offset_x']
+                start_y = caster_center_y + t['offset_y']
+
                 # 감싸는 원형 궤도
                 angle_rad = math.radians(t['wrap_angle'])
                 wrap_x = target_x + t['wrap_radius'] * math.cos(angle_rad)
@@ -428,16 +459,16 @@ class TentacleWrap(HeroSkill):
                 # caster에서 wrap 위치까지 촉수 그리기
                 points = []
                 segments = 20
+                # 중간 제어점 (caster와 target 사이)
+                mid_x = (start_x + target_x) / 2
+                mid_y = (start_y + target_y) / 2
+
                 for i in range(segments + 1):
                     prog = i / segments
-                    # 베지어 곡선으로 부드럽게 연결
-                    mid_x = (t['start_x'] + target_x) / 2
-                    mid_y = (t['start_y'] + target_y) / 2 + random.uniform(-5, 5)
-
                     # 2차 베지어 곡선
                     inv_prog = 1 - prog
-                    x = inv_prog * inv_prog * t['start_x'] + 2 * inv_prog * prog * mid_x + prog * prog * wrap_x
-                    y = inv_prog * inv_prog * t['start_y'] + 2 * inv_prog * prog * mid_y + prog * prog * wrap_y
+                    x = inv_prog * inv_prog * start_x + 2 * inv_prog * prog * mid_x + prog * prog * wrap_x
+                    y = inv_prog * inv_prog * start_y + 2 * inv_prog * prog * mid_y + prog * prog * wrap_y
 
                     # 물결 효과
                     wave = math.sin(prog * math.pi * 3 + t['wave_offset']) * 15 * (1 - prog)

@@ -88814,6 +88814,35 @@ def draw_objects():
         if _arena_bot_stun:
             _draw_arena_stun_stars(PLAYER, is_top=False)
 
+        # 🐙 투기장 촉수 휘감기 둔화 이펙트 (눈물샤워와 동일한 물결 효과)
+        _tentacle_wrap_active = _arena_gs.get('tentacle_wrap_active', False)
+        _tentacle_wrap_target_is_top = _arena_gs.get('tentacle_wrap_target_is_top', False)
+
+        if _tentacle_wrap_active:
+            # 둔화 대상 패들 선택
+            target_rect = BOSS if _tentacle_wrap_target_is_top else PLAYER
+            # 청록색 물결 둔화 이펙트 (크라켄 테마)
+            slow_wave_surface = create_slow_wave_surface(
+                132, 56,
+                base_color=(60, 160, 180),  # 청록색 (크라켄 테마)
+                intensity=0.9,
+                wave_count=3
+            )
+            # 상단은 패들 아래, 하단은 패들 위에 표시
+            if _tentacle_wrap_target_is_top:
+                wave_rect = slow_wave_surface.get_rect(midtop=(target_rect.centerx, target_rect.bottom - 8))
+            else:
+                wave_rect = slow_wave_surface.get_rect(midbottom=(target_rect.centerx, target_rect.top + 8))
+            SCREEN.blit(slow_wave_surface, wave_rect)
+
+            # 촉수 감김 표시 - 작은 촉수 아이콘
+            tentacle_text = FontStyle.small().render("🐙 -60%", True, (100, 200, 220))
+            if _tentacle_wrap_target_is_top:
+                text_pos = (target_rect.centerx - tentacle_text.get_width() // 2, target_rect.bottom + 15)
+            else:
+                text_pos = (target_rect.centerx - tentacle_text.get_width() // 2, target_rect.top - 30)
+            SCREEN.blit(tentacle_text, text_pos)
+
     # 화염병 그리기
     for molotov in molotovs:
         # 회전된 화염병 아이콘 그리기
