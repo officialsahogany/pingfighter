@@ -667,15 +667,12 @@ class AbyssInk(HeroSkill):
         self.active_timer = 0
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        # 디버그: draw 호출 확인
-        print(f"[AbyssInk.draw] is_active={self.is_active}, phase={self.phase}, progress={self.projectile_progress:.2f}")
-
         # 스킬이 활성화되지 않았으면 그리지 않음
         if not self.is_active:
-            print(f"[AbyssInk.draw] SKIP - not active")
             return
 
-        print(f"[AbyssInk.draw] DRAWING phase={self.phase}, pos=({self.projectile_x:.0f},{self.projectile_y:.0f})->({self.projectile_target_x:.0f},{self.projectile_target_y:.0f})")
+        # 디버그: 활성화된 상태에서만 출력
+        print(f"[AbyssInk.draw] DRAWING phase={self.phase}, progress={self.projectile_progress:.2f}, pos=({self.projectile_x:.0f},{self.projectile_y:.0f})->({self.projectile_target_x:.0f},{self.projectile_target_y:.0f})")
 
         if self.phase == 'travel':
             # 1단계: 발사체 그리기
@@ -1963,12 +1960,22 @@ class HeroSkillManager:
         """스킬 사용 시도"""
         skills = self.active_skills.get(hero_id, [])
 
+        # 디버그: 크라켄 스킬 시도 확인
+        if hero_id == 'kraken':
+            global_cd = self.hero_global_cooldowns.get(hero_id, 0)
+            print(f"[try_use_skill] kraken called, global_cd={global_cd:.1f}")
+            for s in skills:
+                print(f"  - {s.skill_id}: can_use={s.can_use()}, cooldown={s.current_cooldown:.1f}, is_active={s.is_active}")
+
         # 영웅별 글로벌 쿨다운 체크 - 쿨다운 중이면 스킬 사용 불가
         if self.hero_global_cooldowns.get(hero_id, 0) > 0:
             return None
 
         for skill in skills:
             if skill.trigger == trigger and skill.can_use():
+                # 디버그: 스킬 선택됨
+                if hero_id == 'kraken':
+                    print(f"[try_use_skill] SELECTED: {skill.skill_id}")
                 # 타겟 패들 추적
                 self.game_state['target_is_top'] = target_paddle.is_top
 
@@ -2012,11 +2019,11 @@ class HeroSkillManager:
 
     def draw_skills(self, screen: pygame.Surface, top_paddle, bottom_paddle, ball):
         """모든 활성 스킬 이펙트 그리기"""
-        # 디버그: 크라켄 스킬 상태 출력
+        # 디버그: 크라켄 abyss_ink가 활성화되었을 때만 출력
         if 'kraken' in self.active_skills:
             for skill in self.active_skills['kraken']:
-                if skill.skill_id == 'abyss_ink':
-                    print(f"[draw_skills] kraken abyss_ink: is_active={skill.is_active}, phase={skill.phase}")
+                if skill.skill_id == 'abyss_ink' and skill.is_active:
+                    print(f"[draw_skills] abyss_ink ACTIVE: phase={skill.phase}, progress={skill.projectile_progress:.2f}")
 
         for hero_id, skills in self.active_skills.items():
             # hero_positions에서 실제 위치 확인 (init_hero_skills에서 설정됨)
