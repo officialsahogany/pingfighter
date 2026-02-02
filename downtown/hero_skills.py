@@ -1181,6 +1181,13 @@ class PuppetControl(HeroSkill):
         caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
         game_state[f'{caster_prefix}_locked'] = True
         game_state[f'{caster_prefix}_locked_x'] = self.caster_x
+        game_state[f'{caster_prefix}_locked_y'] = self.caster_y
+
+        # 타겟 패들도 고정 (Y축 이동을 위해)
+        target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_locked'] = True
+        game_state[f'{target_prefix}_locked_x'] = self.target_original_x
+        game_state[f'{target_prefix}_locked_y'] = self.target_original_y
 
         return {
             'target_status': StatusEffect.PUPPET,
@@ -1191,8 +1198,12 @@ class PuppetControl(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         self.phase_timer += dt
 
-        # 마리아 위치 고정
+        # 마리아 위치 고정 (X축 및 Y축)
         caster_paddle.x = self.caster_x
+        caster_paddle.y = self.caster_y
+
+        # 타겟 패들 prefix
+        target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
 
         # 실 물결 업데이트
         for s in self.strings:
@@ -1214,12 +1225,18 @@ class PuppetControl(HeroSkill):
             # 이징 함수로 부드럽게
             eased = 1 - (1 - pull_progress) ** 2
 
-            # 마리아 근처로 끌어옴 (Y축)
+            # 마리아 근처로 끌어옴 (Y축) - 마리아 방향으로 크게 당김
             kiss_y = self.caster_y + (-60 if not caster_paddle.is_top else 60)
-            target_paddle.y = self.target_original_y + (kiss_y - self.target_original_y) * eased
+            new_y = self.target_original_y + (kiss_y - self.target_original_y) * eased
+            target_paddle.y = new_y
 
             # X축도 마리아 위치로
-            target_paddle.x = self.target_original_x + (self.caster_x - self.target_original_x) * eased
+            new_x = self.target_original_x + (self.caster_x - self.target_original_x) * eased
+            target_paddle.x = new_x
+
+            # game_state에도 반영 (colosseum_arena에서 강제 적용)
+            game_state[f'{target_prefix}_locked_x'] = new_x
+            game_state[f'{target_prefix}_locked_y'] = new_y
 
             if pull_progress >= 1.0:
                 self.phase = self.PHASE_KISSING
@@ -1227,13 +1244,20 @@ class PuppetControl(HeroSkill):
 
         # Phase 3: 뽀뽀 (1초)
         elif self.phase == self.PHASE_KISSING:
+            # 뽀뽀 중 타겟 위치 고정 유지
+            kiss_y = self.caster_y + (-60 if not caster_paddle.is_top else 60)
+            target_paddle.x = self.caster_x
+            target_paddle.y = kiss_y
+            game_state[f'{target_prefix}_locked_x'] = self.caster_x
+            game_state[f'{target_prefix}_locked_y'] = kiss_y
+
             # 하트 파티클 생성
             if random.random() < 0.3:
                 kiss_x = self.caster_x + 40
-                kiss_y = self.caster_y + (-30 if not caster_paddle.is_top else 30)
+                particle_kiss_y = self.caster_y + (-30 if not caster_paddle.is_top else 30)
                 self.kiss_hearts.append({
                     'x': kiss_x + random.uniform(-20, 20),
-                    'y': kiss_y + random.uniform(-15, 15),
+                    'y': particle_kiss_y + random.uniform(-15, 15),
                     'vy': random.uniform(-40, -20) if not caster_paddle.is_top else random.uniform(20, 40),
                     'size': random.uniform(6, 12),
                     'life': 1.0,
@@ -1243,10 +1267,10 @@ class PuppetControl(HeroSkill):
             # 반짝이 파티클
             if random.random() < 0.4:
                 kiss_x = self.caster_x + 40
-                kiss_y = self.caster_y + (-30 if not caster_paddle.is_top else 30)
+                particle_kiss_y = self.caster_y + (-30 if not caster_paddle.is_top else 30)
                 self.kiss_sparkles.append({
                     'x': kiss_x + random.uniform(-30, 30),
-                    'y': kiss_y + random.uniform(-20, 20),
+                    'y': particle_kiss_y + random.uniform(-20, 20),
                     'life': 0.5,
                     'size': random.uniform(2, 5)
                 })
@@ -1262,8 +1286,12 @@ class PuppetControl(HeroSkill):
 
             # 현재 위치에서 원래 위치로
             kiss_y = self.caster_y + (-60 if not caster_paddle.is_top else 60)
-            target_paddle.y = kiss_y + (self.target_original_y - kiss_y) * eased
-            target_paddle.x = self.caster_x + (self.target_original_x - self.caster_x) * eased
+            new_y = kiss_y + (self.target_original_y - kiss_y) * eased
+            new_x = self.caster_x + (self.target_original_x - self.caster_x) * eased
+            target_paddle.y = new_y
+            target_paddle.x = new_x
+            game_state[f'{target_prefix}_locked_x'] = new_x
+            game_state[f'{target_prefix}_locked_y'] = new_y
 
         # 하트/반짝이 업데이트
         for h in self.kiss_hearts:
@@ -1283,6 +1311,10 @@ class PuppetControl(HeroSkill):
         # 마리아 고정 해제
         caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
         game_state[f'{caster_prefix}_locked'] = False
+
+        # 타겟 패들 고정 해제
+        target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_locked'] = False
 
         # 상대 원래 위치로 확실히 복귀
         target_paddle.x = self.target_original_x
@@ -1424,12 +1456,13 @@ class DollCurse(HeroSkill):
         game_state['target_confused'] = True
         game_state['confusion_type'] = 'reverse'  # 조작 반전
 
-        # 마리아(caster) 제자리 고정
+        # 마리아(caster) 제자리 고정 (X축 및 Y축 모두)
         self.caster_locked_x = caster_paddle.x
         self.caster_locked_y = caster_paddle.y
         caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
         game_state[f'{caster_prefix}_locked'] = True
         game_state[f'{caster_prefix}_locked_x'] = self.caster_locked_x
+        game_state[f'{caster_prefix}_locked_y'] = self.caster_locked_y
 
         # 저주 인형 이펙트 - 상대 패들 주변에서 시작
         self.curse_dolls = []
@@ -1462,8 +1495,9 @@ class DollCurse(HeroSkill):
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        # 마리아(caster) 제자리 고정 유지
+        # 마리아(caster) 제자리 고정 유지 (X축 및 Y축 모두)
         caster_paddle.x = self.caster_locked_x
+        caster_paddle.y = self.caster_locked_y
 
         # 저주 인형들 상대 패들 주변에서 천천히 공전
         for doll in self.curse_dolls:

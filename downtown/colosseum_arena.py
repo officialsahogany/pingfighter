@@ -1303,11 +1303,17 @@ class ColosseumsArena:
         self.top_paddle.is_locked = game_state.get('top_paddle_locked', False)
         self.bottom_paddle.is_locked = game_state.get('bottom_paddle_locked', False)
 
-        # locked 상태에서 X 위치 강제 고정
-        if self.top_paddle.is_locked and 'top_paddle_locked_x' in game_state:
-            self.top_paddle.x = game_state['top_paddle_locked_x']
-        if self.bottom_paddle.is_locked and 'bottom_paddle_locked_x' in game_state:
-            self.bottom_paddle.x = game_state['bottom_paddle_locked_x']
+        # locked 상태에서 X, Y 위치 강제 고정
+        if self.top_paddle.is_locked:
+            if 'top_paddle_locked_x' in game_state:
+                self.top_paddle.x = game_state['top_paddle_locked_x']
+            if 'top_paddle_locked_y' in game_state:
+                self.top_paddle.y = game_state['top_paddle_locked_y']
+        if self.bottom_paddle.is_locked:
+            if 'bottom_paddle_locked_x' in game_state:
+                self.bottom_paddle.x = game_state['bottom_paddle_locked_x']
+            if 'bottom_paddle_locked_y' in game_state:
+                self.bottom_paddle.y = game_state['bottom_paddle_locked_y']
 
         # 쿨다운 스킬 자동 사용 (AI)
         self.skill_check_timer += dt
