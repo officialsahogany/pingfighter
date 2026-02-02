@@ -282,27 +282,24 @@ class DemonEye(HeroSkill):
 # 크라켄 스킬 - 심해의 포식자 (트릭형)
 # ============================================================================
 class TentacleWrap(HeroSkill):
-    """촉수 휘감기 - 상대 패들 크기 축소"""
+    """촉수 휘감기 - 상대 패들 스턴"""
     def __init__(self):
         super().__init__(
             skill_id="tentacle_wrap",
             name="Tentacle Wrap",
             korean_name="촉수 휘감기",
-            description="촉수로 상대 패들을 휘감아 크기를 줄인다",
+            description="촉수로 상대 패들을 휘감아 스턴시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=20.0,
-            duration=5.0,
+            duration=3.0,  # 스턴 지속시간 3초
             hero_id="kraken"
         )
         self.tentacles = []
-        self.original_paddle_width = 80
         self.target_is_top = False
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
-        self.original_paddle_width = getattr(target_paddle, 'visual_width', 80)
-        game_state['target_shrink'] = True
-        game_state['shrink_scale'] = 0.5  # 50%로 축소
+        game_state['target_stunned'] = True
 
         # 촉수 생성
         self.tentacles = []
@@ -318,8 +315,7 @@ class TentacleWrap(HeroSkill):
             })
 
         return {
-            'target_status': StatusEffect.SHRINK,
-            'shrink_amount': 0.5,
+            'target_status': StatusEffect.STUN,
             'status_duration': self.duration,
             'sound': 'tentacle'
         }
@@ -332,12 +328,10 @@ class TentacleWrap(HeroSkill):
             t['wave_offset'] += dt * 3
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        game_state['target_shrink'] = False
-        game_state['shrink_scale'] = 1.0
+        game_state['target_stunned'] = False
         # 패들별 상태 클리어
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
-        game_state[f'{target_prefix}_shrink'] = False
-        game_state[f'{target_prefix}_shrink_scale'] = 1.0
+        game_state[f'{target_prefix}_stunned'] = False
         self.tentacles = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
@@ -379,10 +373,21 @@ class AbyssInk(HeroSkill):
         )
         self.ink_blobs = []
         self.target_is_top = False
+        self.caster_is_top = False  # caster 위치 저장 (혼란 적용 방지용)
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
-        # 먹물 방울 생성
+        self.caster_is_top = caster_paddle.is_top
+
+        # 타겟에게만 혼란 적용 (caster는 제외)
+        target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_confused'] = True
+
+        # caster의 혼란 상태는 명시적으로 False 유지
+        caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
+        # caster에게는 혼란 적용하지 않음 (기존 상태 유지)
+
+        # 먹물 방울 생성 (타겟 진영에만)
         self.ink_blobs = []
         target_area_y = 500 if caster_paddle.is_top else 100
 
@@ -397,7 +402,7 @@ class AbyssInk(HeroSkill):
 
         return {
             'screen_effect': ScreenEffect.INK,
-            'target_status': StatusEffect.CONFUSION,
+            # target_status 제거 - 위에서 직접 설정함 (caster에게 적용 방지)
             'status_duration': self.duration,
             'sound': 'splash'
         }
