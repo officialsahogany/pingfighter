@@ -118192,6 +118192,10 @@ def handle_ball():
             # 스테이지 1: 관중 흥분 트리거
             if current_stage == 1 and pillar_renderer is not None:
                 pillar_renderer.trigger_stadium_excitement(1.8)
+
+            # 스테이지 30 (투기장): 관중 흥분 트리거
+            if current_stage == 30 and pillar_renderer is not None:
+                pillar_renderer.trigger_colosseum_excitement(1.0, 2.5)
             # 🔧 라운드 승리 시 즉시 대시 상태 초기화 (윈도우 버그 방지)
             rolling_active = False
             rolling_timer = 0
@@ -118835,6 +118839,9 @@ def handle_ball():
             # 스테이지 2에서 보스가 라운드 이길 때마다 악어 짧은 웃음
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('happy')
+            # 스테이지 30 (투기장): 보스 득점 시에도 관중 흥분
+            if current_stage == 30 and pillar_renderer is not None:
+                pillar_renderer.trigger_colosseum_excitement(1.0, 2.5)
         # 듀스 시스템 체크
         result = check_deuce_system()
         if result == "player_win":

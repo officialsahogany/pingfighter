@@ -21,6 +21,7 @@ from pillar_hongryeon import HongryeonFrame  # 홍련 중국 전통 배경 (스�
 from pillar_baroque import BaroqueFrame  # 바로크 액자 (메인 메뉴용, 스테이지 0)
 from pillar_tetriser import TetriserPillarBackground  # 테트리서 테트리스 배경 (스테이지 7)
 from pillar_ninja import NinjaPillarBackground  # 닌자 저택 배경 (스테이지 8)
+from pillar_colosseum import ColosseumFrame  # 투기장 배경 (스테이지 30)
 
 # 플랫폼 감지
 _is_macos = platform.system() == 'Darwin'
@@ -110,6 +111,7 @@ class PillarBackgroundRenderer:
         self._hongryeon_bg = None  # 홍련 중국 전통 배경 (실제 스테이지 6 = 코드 stage 5)
         self._tetriser_bg = None  # 테트리서 테트리스 배경 (스테이지 7)
         self._ninja_bg = None  # 닌자 저택 배경 (스테이지 8)
+        self._colosseum_bg = None  # 투기장 배경 (스테이지 30)
 
         # 플레이어/보스 위치 (원숭이-바나나 이벤트용)
         self._player_rect = None
@@ -428,6 +430,16 @@ class PillarBackgroundRenderer:
             )
             print(f"[PillarBG] 스테이지 8 닌자 저택 배경 초기화 완료")
 
+        # 스테이지 30: 투기장 배경 초기화
+        if stage == 30 and self._colosseum_bg is None:
+            self._colosseum_bg = ColosseumFrame(
+                self.screen_width, self.screen_height,
+                self.game_width, self.game_height,
+                self.game_offset_x, self.game_offset_y,
+                self.original_game_width, self.original_game_height
+            )
+            print(f"[PillarBG] 스테이지 30 투기장 배경 초기화 완료")
+
     def set_blazing_intensity(self, intensity: float):
         """불타는 태양 효과 강도 설정 (0.0 ~ 1.0)"""
         self._blazing_intensity = max(0.0, min(1.0, intensity))
@@ -487,6 +499,10 @@ class PillarBackgroundRenderer:
         if self.current_stage == 8 and self._ninja_bg is not None:
             self._ninja_bg.update(dt)
 
+        # 스테이지 30: 투기장 배경 업데이트
+        if self.current_stage == 30 and self._colosseum_bg is not None:
+            self._colosseum_bg.update(dt)
+
     def draw(self, screen: pygame.Surface):
         """필러 배경 그리기"""
         # 스테이지 0: 메인 메뉴 - 기존 아트워크 배경 위에 바로크 액자 표시
@@ -539,6 +555,11 @@ class PillarBackgroundRenderer:
         # 스테이지 8: 닌자 저택 배경 사용
         if self.current_stage == 8 and self._ninja_bg is not None:
             self._ninja_bg.draw(screen)
+            return
+
+        # 스테이지 30: 투기장 배경 사용
+        if self.current_stage == 30 and self._colosseum_bg is not None:
+            self._colosseum_bg.draw(screen)
             return
 
         if self.current_type == self.TYPE_ARTWORK:
@@ -858,6 +879,15 @@ class PillarBackgroundRenderer:
         """닌자 저택 배경 반응 트리거 (점수 획득 시 호출)"""
         if self._ninja_bg is not None:
             self._ninja_bg.trigger_excitement(level)
+
+    def trigger_colosseum_excitement(self, intensity: float = 1.0, duration: float = 2.0):
+        """투기장 관중 흥분 트리거 (득점/공 충돌 시 호출)"""
+        if self._colosseum_bg is not None:
+            self._colosseum_bg.trigger_excitement(intensity, duration)
+
+    def get_colosseum_bg(self):
+        """투기장 배경 인스턴스 반환 (직접 조작용)"""
+        return self._colosseum_bg
 
     # ===== Stage 7 크리스탈 실드 시스템 =====
 
