@@ -386,6 +386,9 @@ class DowntownManager:
             'buffs_obtained': []
         }
 
+        # 투기장 입장 요청 플래그
+        self.arena_entry_requested = False
+
         self.is_running = True
 
     def run(self):
@@ -428,6 +431,12 @@ class DowntownManager:
             # 완료 체크
             if self.state == DowntownState.COMPLETED:
                 self._save_ap_state()  # AP 상태 저장
+                return self.result_data
+
+            # 투기장 입장 요청 체크
+            if self.arena_entry_requested:
+                self._save_ap_state()  # AP 상태 저장
+                self.result_data['arena_entry'] = True
                 return self.result_data
 
         self._save_ap_state()  # AP 상태 저장
@@ -2012,13 +2021,36 @@ class DowntownManager:
                                 # 입장료 지불
                                 self.player_data['gold'] = player_gold - admission_fee
                                 show_entry_dialog = False
-                                arena_running = True
 
-                                # 투기장은 pingfighter.py 스테이지 30에서 실행
-                                # 플래그 설정 후 광장 나가기
-                                self.arena_entry_requested = True
-                                arena_running = False
-                                running = False
+                                # 투기장 영웅 매치 설정 (랜덤)
+                                import random
+                                TOP_HEROES = [
+                                    {"id": "mugen", "name": "무겐", "color": (100, 180, 255)},
+                                    {"id": "kraken", "name": "크라켄", "color": (80, 200, 180)},
+                                    {"id": "chronos", "name": "크로노스", "color": (200, 180, 100)},
+                                    {"id": "onimaru", "name": "오니마루", "color": (255, 100, 100)},
+                                ]
+                                BOTTOM_HEROES = [
+                                    {"id": "maria", "name": "마리아", "color": (255, 150, 200)},
+                                    {"id": "ignis", "name": "이그니스", "color": (255, 120, 50)},
+                                    {"id": "gear", "name": "기어", "color": (150, 150, 180)},
+                                    {"id": "kurokage", "name": "쿠로카게", "color": (80, 80, 100)},
+                                ]
+                                top_hero = random.choice(TOP_HEROES)
+                                bottom_hero = random.choice(BOTTOM_HEROES)
+
+                                # pingfighter의 start_arena_battle 호출
+                                try:
+                                    import pingfighter
+                                    if hasattr(pingfighter, 'ctx') and hasattr(pingfighter.ctx, 'start_arena_battle'):
+                                        pingfighter.ctx.start_arena_battle(top_hero, bottom_hero)
+                                        # 광장 나가고 스테이지 30으로 이동
+                                        self.arena_entry_requested = True
+                                        running = False
+                                    else:
+                                        print("[Arena] start_arena_battle 함수를 찾을 수 없음")
+                                except Exception as e:
+                                    print(f"[Arena] 투기장 시작 오류: {e}")
 
                         elif cancel_btn.collidepoint(mx, my):
                             show_entry_dialog = False  # 다이얼로그 닫고 계속 탐색

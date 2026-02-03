@@ -92060,6 +92060,12 @@ def run_downtown_hub(next_stage_display: int) -> bool:
             # game_should_exit는 False로 유지 (메인메뉴로 돌아가야 함, 게임 종료 아님)
             return False  # 다음 스테이지 진행하지 않음
 
+        # 투기장 입장 시 (start_arena_battle이 이미 호출됨)
+        if result and result.get('arena_entry', False):
+            print("[Arena] 투기장 배틀 시작!")
+            # 맵 시드 유지 (투기장 후 돌아올 때 같은 맵 사용)
+            return True  # 다음 스테이지(투기장)로 진행
+
         # 다음 스테이지로 진행 시 맵 시드 초기화 (새 스테이지는 새 맵 배치)
         downtown_map_seed = None
         return True  # 정상적으로 다음 스테이지 진행
