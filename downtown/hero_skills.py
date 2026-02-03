@@ -1513,20 +1513,29 @@ class DollCurse(HeroSkill):
             doll['y'] = center_y + math.sin(doll['base_angle']) * doll['distance'] * 0.5 + float_y
             doll['rotation'] += math.sin(doll['wobble']) * 3
 
-        # 마리아 주변 불꽃 파티클 생성
+        # 마리아 주변 불꽃 파티클 생성 (캐릭터 스프라이트 위치에)
         self.flame_timer += dt
         if self.flame_timer > 0.05:  # 0.05초마다 파티클 생성
             self.flame_timer = 0
             caster_center_x = self.caster_locked_x + 40
-            caster_center_y = self.caster_locked_y + (20 if not caster_paddle.is_top else -10)
+            # 캐릭터 스프라이트 중심 위치 계산 (b=8 스케일 기준)
+            # 상단 영웅: cy = y + 3.5*b = y + 28, 하단 영웅: cy = y + 0.5*b = y + 4
+            # 캐릭터 몸통은 cy - 1.5*b 위치, 머리~발 높이는 약 6*b
+            if caster_paddle.is_top:
+                # 상단 영웅: 캐릭터 중심이 패들 아래쪽
+                caster_center_y = self.caster_locked_y + 28 - 12  # 몸통 중심
+            else:
+                # 하단 영웅 (마리아): 캐릭터 중심이 패들 위쪽
+                caster_center_y = self.caster_locked_y - 20  # 캐릭터 몸통 중심 (패들 위)
             for _ in range(2):
                 angle = random.uniform(0, math.pi * 2)
-                dist = random.uniform(15, 40)
+                dist = random.uniform(10, 30)  # 캐릭터 크기에 맞게 범위 조정
                 self.flame_particles.append({
                     'x': caster_center_x + math.cos(angle) * dist,
-                    'y': caster_center_y + math.sin(angle) * dist * 0.6,
-                    'vx': random.uniform(-20, 20),
-                    'vy': random.uniform(-60, -30) if not caster_paddle.is_top else random.uniform(30, 60),
+                    'y': caster_center_y + math.sin(angle) * dist * 0.8,
+                    'vx': random.uniform(-15, 15),
+                    # 파티클이 캐릭터 주변에서 위아래로 흩날리도록
+                    'vy': random.uniform(-30, 30),
                     'life': 1.0,
                     'size': random.uniform(4, 10),
                     'color_phase': random.uniform(0, 1)
@@ -1582,12 +1591,22 @@ class DollCurse(HeroSkill):
                 pygame.draw.circle(flame_surf, (*color, alpha), (size, size), size)
                 screen.blit(flame_surf, (int(p['x']) - size, int(p['y']) - size))
 
-            # 마리아 주변 기본 오라 (반투명 원)
+            # 마리아 캐릭터 스프라이트 위에 오라 이펙트
             caster_center_x = int(self.caster_locked_x + 40)
-            caster_center_y = int(self.caster_locked_y + (10 if not caster_paddle.is_top else 0))
-            aura_surf = pygame.Surface((120, 80), pygame.SRCALPHA)
-            pygame.draw.ellipse(aura_surf, (200, 80, 120, 60), (0, 0, 120, 80))
-            screen.blit(aura_surf, (caster_center_x - 60, caster_center_y - 40))
+            # 캐릭터 스프라이트 중심 위치 (캐릭터 몸 전체를 감싸도록)
+            if caster_paddle.is_top:
+                caster_center_y = int(self.caster_locked_y + 28 - 12)  # 상단 영웅
+            else:
+                caster_center_y = int(self.caster_locked_y - 20)  # 하단 영웅 (마리아)
+
+            # 캐릭터를 감싸는 이글이글 오라 (더 크게, 캐릭터 몸 전체)
+            aura_w, aura_h = 80, 70  # 캐릭터 크기에 맞게
+            aura_surf = pygame.Surface((aura_w, aura_h), pygame.SRCALPHA)
+            # 외부 오라 (진한 빨간색)
+            pygame.draw.ellipse(aura_surf, (200, 60, 100, 40), (0, 0, aura_w, aura_h))
+            # 내부 오라 (더 밝은 색)
+            pygame.draw.ellipse(aura_surf, (255, 100, 130, 50), (10, 8, aura_w - 20, aura_h - 16))
+            screen.blit(aura_surf, (caster_center_x - aura_w // 2, caster_center_y - aura_h // 2))
 
             # 저주 인형들 (상대 패들 주변에서 공전)
             for doll in self.curse_dolls:
