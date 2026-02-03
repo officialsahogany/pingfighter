@@ -1093,71 +1093,234 @@ class HellFire(HeroSkill):
 
 
 class HornCharge(HeroSkill):
-    """뿔 박치기 - 충격파로 상대 넉백 + 화면 흔들림"""
+    """뿔 박치기 - 돌진 후 상대 넉백 + 스턴"""
+
+    # Phase 상수
+    PHASE_CHARGING = 0    # 상대에게 돌진
+    PHASE_IMPACT = 1      # 충돌 + 넉백
+    PHASE_RETURNING = 2   # 원래 위치로 복귀
+    PHASE_STUN = 3        # 스턴 지속
+
     def __init__(self):
         super().__init__(
             skill_id="horn_charge",
             name="Horn Charge",
             korean_name="뿔 박치기",
-            description="강력한 충격파로 상대를 밀어내고 화면을 흔든다",
+            description="빠르게 돌진하여 상대를 밀어내고 스턴시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=25.0,
-            duration=0.5,
+            duration=3.0,  # 돌진 0.3초 + 충돌 0.2초 + 복귀 0.5초 + 스턴 2초
             hero_id="onimaru"
         )
         self.shockwave_radius = 0
         self.knockback_applied = False
+        self.phase = self.PHASE_CHARGING
+        self.phase_timer = 0
+
+        # 위치 저장
+        self.caster_original_y = 0
+        self.caster_is_top = True
+        self.target_is_top = False
+        self.charge_progress = 0  # 0~1 돌진 진행도
+        self.return_progress = 0  # 0~1 복귀 진행도
+
+        # 충돌 지점
+        self.impact_y = 0
+        self.stun_applied = False
+
+        # 돌진 잔상 효과
+        self.afterimages = []
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.shockwave_radius = 0
         self.knockback_applied = False
+        self.stun_applied = False
+        self.phase = self.PHASE_CHARGING
+        self.phase_timer = 0
+        self.charge_progress = 0
+        self.return_progress = 0
+        self.afterimages = []
+
+        # 시전자 위치 정보 저장
+        self.caster_is_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
+        self.target_is_top = not self.caster_is_top
+        self.caster_original_y = caster_paddle.y
+
+        # 충돌 지점 계산 (상대 패들 앞)
+        if self.caster_is_top:
+            self.impact_y = target_paddle.y - 50  # 하단 패들 위쪽
+        else:
+            self.impact_y = target_paddle.y + target_paddle.height + 50  # 상단 패들 아래쪽
 
         # 넉백 방향 설정
         knockback_dir = 1 if random.random() > 0.5 else -1
-        game_state['target_knockback'] = knockback_dir * 150  # 150픽셀 넉백
-        game_state['screen_shake'] = 20  # 화면 흔들림 강도
-        game_state['shake_duration'] = 0.5
+        self.knockback_dir = knockback_dir
 
         return {
-            'screen_effect': ScreenEffect.SHAKE,
-            'shake_intensity': 20,
-            'shake_duration': 0.5,
-            'target_status': StatusEffect.KNOCKBACK,
-            'knockback_force': knockback_dir * 150,
-            'sound': 'impact'
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (255, 100, 50),
+            'flash_duration': 0.1,
+            'sound': 'charge'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        self.shockwave_radius += dt * 800
+        self.phase_timer += dt
 
-        # 넉백 적용
-        if not self.knockback_applied and game_state.get('target_knockback'):
-            target_paddle.x += game_state['target_knockback'] * dt * 5
-            # 경계 체크
-            target_paddle.x = max(80, min(target_paddle.x, 600))
-            if self.shockwave_radius > 200:
-                self.knockback_applied = True
-                game_state['target_knockback'] = 0
+        if self.phase == self.PHASE_CHARGING:
+            # 돌진 (0.3초)
+            charge_duration = 0.3
+            self.charge_progress = min(1.0, self.phase_timer / charge_duration)
+
+            # 이징 함수 (가속)
+            eased_progress = self.charge_progress * self.charge_progress
+
+            # 시전자 Y 위치 이동
+            if self.caster_is_top:
+                # 상단에서 하단으로
+                caster_paddle.y = self.caster_original_y + (self.impact_y - self.caster_original_y) * eased_progress
+            else:
+                # 하단에서 상단으로
+                caster_paddle.y = self.caster_original_y + (self.impact_y - self.caster_original_y) * eased_progress
+
+            # 잔상 추가
+            if random.random() < 0.5:
+                self.afterimages.append({
+                    'x': caster_paddle.x,
+                    'y': caster_paddle.y,
+                    'alpha': 200,
+                    'scale': 1.0
+                })
+
+            # 돌진 완료 → 충돌 페이즈
+            if self.charge_progress >= 1.0:
+                self.phase = self.PHASE_IMPACT
+                self.phase_timer = 0
+                game_state['screen_shake'] = 25
+                game_state['shake_duration'] = 0.3
+
+        elif self.phase == self.PHASE_IMPACT:
+            # 충돌 + 넉백 (0.2초)
+            self.shockwave_radius += dt * 1200  # 빠른 충격파
+
+            # 넉백 적용
+            if not self.knockback_applied:
+                target_paddle.x += self.knockback_dir * 150 * dt * 8
+                target_paddle.x = max(80, min(target_paddle.x, 600))
+
+                if self.phase_timer > 0.15:
+                    self.knockback_applied = True
+                    game_state['target_knockback'] = 0
+
+            # 충돌 페이즈 종료 → 복귀
+            if self.phase_timer >= 0.2:
+                self.phase = self.PHASE_RETURNING
+                self.phase_timer = 0
+
+        elif self.phase == self.PHASE_RETURNING:
+            # 복귀 (0.5초)
+            return_duration = 0.5
+            self.return_progress = min(1.0, self.phase_timer / return_duration)
+
+            # 이징 함수 (감속)
+            eased_progress = 1 - (1 - self.return_progress) * (1 - self.return_progress)
+
+            # 원래 위치로 복귀
+            current_y = self.impact_y + (self.caster_original_y - self.impact_y) * eased_progress
+            caster_paddle.y = current_y
+
+            # 복귀 완료 → 스턴 페이즈
+            if self.return_progress >= 1.0:
+                caster_paddle.y = self.caster_original_y
+                self.phase = self.PHASE_STUN
+                self.phase_timer = 0
+
+                # 스턴 적용
+                if not self.stun_applied:
+                    target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+                    game_state[f'{target_prefix}_stunned'] = True
+                    self.stun_applied = True
+
+        elif self.phase == self.PHASE_STUN:
+            # 스턴 지속 (1.5초)
+            if self.phase_timer >= 1.5:
+                # 스턴 해제
+                target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+                game_state[f'{target_prefix}_stunned'] = False
+
+        # 잔상 업데이트
+        for img in self.afterimages:
+            img['alpha'] -= dt * 400
+            img['scale'] *= 0.95
+        self.afterimages = [img for img in self.afterimages if img['alpha'] > 0]
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['screen_shake'] = 0
         game_state['target_knockback'] = 0
+        # 스턴 해제
+        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_stunned'] = False
+        # 위치 복원
+        caster_paddle.y = self.caster_original_y
+        self.afterimages = []
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 뿔 박치기 스킬 강제 종료"""
+        super().reset_for_new_round(game_state)
+        game_state['screen_shake'] = 0
+        game_state['target_knockback'] = 0
+        game_state['top_paddle_stunned'] = False
+        game_state['bottom_paddle_stunned'] = False
+        self.phase = self.PHASE_CHARGING
+        self.afterimages = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        if self.is_active and self.shockwave_radius < 400:
-            # 충격파 원
-            center_x = caster_paddle.x + 40
-            center_y = caster_paddle.y
+        if not self.is_active:
+            return
 
-            alpha = int(200 * (1 - self.shockwave_radius / 400))
+        # 잔상 그리기
+        for img in self.afterimages:
+            if img['alpha'] > 10:
+                alpha = int(img['alpha'])
+                size = int(80 * img['scale'])
+                ghost_surf = pygame.Surface((size, 40), pygame.SRCALPHA)
+                # 붉은색 잔상
+                pygame.draw.rect(ghost_surf, (255, 80, 30, alpha), (0, 0, size, 40), border_radius=5)
+                screen.blit(ghost_surf, (int(img['x']), int(img['y'])))
+
+        # 충돌 시 충격파
+        if self.phase == self.PHASE_IMPACT and self.shockwave_radius < 300:
+            center_x = caster_paddle.x + 40
+            center_y = caster_paddle.y + 20
+
+            alpha = int(255 * (1 - self.shockwave_radius / 300))
             if alpha > 10:
-                # 충격파 링
-                for r_offset in [0, 20, 40]:
+                # 충격파 링 (더 강렬하게)
+                for r_offset in [0, 15, 30, 45]:
                     radius = int(self.shockwave_radius - r_offset)
                     if radius > 0:
-                        ring_alpha = int(alpha * (1 - r_offset / 60))
-                        pygame.draw.circle(screen, (255, 100, 50, ring_alpha),
-                                         (int(center_x), int(center_y)), radius, 4)
+                        ring_alpha = max(0, int(alpha * (1 - r_offset / 60)))
+                        # SRCALPHA Surface로 그리기
+                        ring_surf = pygame.Surface((radius * 2 + 10, radius * 2 + 10), pygame.SRCALPHA)
+                        pygame.draw.circle(ring_surf, (255, 100, 50, ring_alpha),
+                                         (radius + 5, radius + 5), radius, 5)
+                        screen.blit(ring_surf, (int(center_x - radius - 5), int(center_y - radius - 5)))
+
+        # 스턴 표시 (별 아이콘)
+        if self.phase == self.PHASE_STUN and self.stun_applied:
+            stun_x = target_paddle.x + 40
+            stun_y = target_paddle.y - 30
+            stun_time = self.phase_timer * 5
+
+            for i in range(3):
+                angle = stun_time + i * (2 * math.pi / 3)
+                star_x = stun_x + math.cos(angle) * 25
+                star_y = stun_y + math.sin(angle) * 10
+                # 별 모양
+                star_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+                pygame.draw.polygon(star_surf, (255, 255, 100, 200), [
+                    (10, 0), (12, 7), (20, 7), (14, 12), (16, 20), (10, 15), (4, 20), (6, 12), (0, 7), (8, 7)
+                ])
+                screen.blit(star_surf, (int(star_x - 10), int(star_y - 10)))
 
 
 # ============================================================================
