@@ -131214,8 +131214,30 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
 
-                    # 🎭 투기장 혼란 상태 동기화 (심해의 먹물 등)
+                    # 🎭 수호 인형 공 반사 처리 (인형의 저주)
                     arena_game_state = arena_skill_manager.game_state
+                    _guardian_bounce = arena_game_state.get('doll_guardian_ball_bounce')
+                    if _guardian_bounce:
+                        # 공 반사: 수호 인형에서 튕겨나감
+                        nx = _guardian_bounce['nx']
+                        ny = _guardian_bounce['ny']
+                        # 현재 공 속도
+                        current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                        # 반사 방향으로 속도 설정 (약간 가속)
+                        ball_vel[0] = nx * current_speed * 1.1
+                        ball_vel[1] = ny * current_speed * 1.1
+                        # 공 위치 살짝 밀어내기 (겹침 방지)
+                        BALL.x += int(nx * 10)
+                        BALL.y += int(ny * 10)
+                        # 반사 플래그 제거
+                        del arena_game_state['doll_guardian_ball_bounce']
+                        # 효과음 (패들 히트 사운드 재활용)
+                        try:
+                            play_sound_with_volume(SOUND_PADDLE_HIT)
+                        except:
+                            pass
+
+                    # 🎭 투기장 혼란 상태 동기화 (심해의 먹물 등)
                     arena_top_confused = arena_game_state.get('top_paddle_confused', False)
                     arena_bottom_confused = arena_game_state.get('bottom_paddle_confused', False)
 

@@ -1493,13 +1493,13 @@ class PuppetControl(HeroSkill):
 
 
 class DollCurse(HeroSkill):
-    """인형의 저주 - 상대 조작 반전"""
+    """인형의 저주 - 상대 조작 반전 + 수호 인형으로 공 방어"""
     def __init__(self):
         super().__init__(
             skill_id="doll_curse",
             name="Doll Curse",
             korean_name="인형의 저주",
-            description="저주받은 인형으로 상대의 조작을 반전시킨다",
+            description="저주받은 인형으로 상대의 조작을 반전시키고, 수호 인형이 공을 막는다",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=18.0,
             duration=4.0,
@@ -1512,6 +1512,10 @@ class DollCurse(HeroSkill):
         self.caster_locked_y = 0
         self.flame_particles = []
         self.flame_timer = 0
+        # 수호 인형 (마리아 좌우 150px에 생성, 공을 막음)
+        self.guardian_dolls = []
+        self.guardian_offset = 150  # 마리아로부터의 거리
+        self.guardian_size = 30  # 수호 인형 충돌 반경
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
@@ -1550,6 +1554,45 @@ class DollCurse(HeroSkill):
         self.flame_particles = []
         self.flame_timer = 0
 
+        # 수호 인형 생성 (마리아 좌우 150px에 배치)
+        self.guardian_dolls = []
+        caster_center_x = self.caster_centerx
+        # 마리아 앞쪽 Y 좌표 (공이 오는 방향)
+        if caster_paddle.is_top:
+            guardian_y = self.caster_locked_y + 60  # 상단 영웅이면 아래쪽에
+        else:
+            guardian_y = self.caster_locked_y - 60  # 하단 영웅이면 위쪽에 (공이 오는 방향)
+
+        # 왼쪽 수호 인형
+        self.guardian_dolls.append({
+            'x': caster_center_x - self.guardian_offset,
+            'y': guardian_y,
+            'spawn_x': caster_center_x,  # 시작 위치 (마리아 중심)
+            'target_x': caster_center_x - self.guardian_offset,
+            'spawn_progress': 0.0,  # 생성 애니메이션 진행도 (0~1)
+            'wobble': 0,
+            'scale': 1.2,
+            'side': 'left',
+            'hit_flash': 0  # 공 막았을 때 플래시 효과
+        })
+        # 오른쪽 수호 인형
+        self.guardian_dolls.append({
+            'x': caster_center_x + self.guardian_offset,
+            'y': guardian_y,
+            'spawn_x': caster_center_x,
+            'target_x': caster_center_x + self.guardian_offset,
+            'spawn_progress': 0.0,
+            'wobble': math.pi,  # 반대 위상으로 흔들림
+            'scale': 1.2,
+            'side': 'right',
+            'hit_flash': 0
+        })
+
+        # game_state에 수호 인형 정보 저장 (pingfighter에서 충돌 체크용)
+        game_state['doll_curse_guardians'] = self.guardian_dolls
+        game_state['doll_curse_guardian_size'] = self.guardian_size
+        game_state['doll_curse_active'] = True
+
         return {
             'target_status': StatusEffect.CONFUSION,
             'confusion_type': 'reverse',
@@ -1577,6 +1620,56 @@ class DollCurse(HeroSkill):
             doll['x'] = center_x + math.cos(doll['base_angle']) * doll['distance']
             doll['y'] = center_y + math.sin(doll['base_angle']) * doll['distance'] * 0.5 + float_y
             doll['rotation'] += math.sin(doll['wobble']) * 3
+
+        # 수호 인형 업데이트 (마리아 좌우에서 공 막기)
+        for guardian in self.guardian_dolls:
+            # 생성 애니메이션 (마리아 중심에서 좌우로 이동)
+            if guardian['spawn_progress'] < 1.0:
+                guardian['spawn_progress'] += dt * 2.5  # 0.4초에 완료
+                guardian['spawn_progress'] = min(1.0, guardian['spawn_progress'])
+                # 이징 함수 (ease-out)
+                ease = 1 - (1 - guardian['spawn_progress']) ** 3
+                guardian['x'] = guardian['spawn_x'] + (guardian['target_x'] - guardian['spawn_x']) * ease
+
+            # 위아래 둥실둥실 흔들림
+            guardian['wobble'] += dt * 4
+            float_y = math.sin(guardian['wobble']) * 5
+
+            # Y 위치 업데이트 (기본 위치 + 흔들림)
+            if self.caster_is_top:
+                base_y = self.caster_locked_y + 60
+            else:
+                base_y = self.caster_locked_y - 60
+            guardian['y'] = base_y + float_y
+
+            # 히트 플래시 감소
+            if guardian['hit_flash'] > 0:
+                guardian['hit_flash'] -= dt * 3
+
+            # 공과 충돌 체크 (수호 인형이 공을 막음)
+            if ball and guardian['spawn_progress'] >= 0.8:  # 거의 배치 완료 후 충돌 활성화
+                dx = ball.x - guardian['x']
+                dy = ball.y - guardian['y']
+                dist = math.sqrt(dx * dx + dy * dy)
+                collision_radius = self.guardian_size + 5  # 공 반경 포함
+
+                if dist < collision_radius:
+                    # 공 반사!
+                    if dist > 0:
+                        # 반사 방향 계산
+                        nx = dx / dist
+                        ny = dy / dist
+                        # 공 속도 반사 (game_state를 통해 전달)
+                        game_state['doll_guardian_ball_bounce'] = {
+                            'nx': nx,
+                            'ny': ny,
+                            'guardian_x': guardian['x'],
+                            'guardian_y': guardian['y']
+                        }
+                        guardian['hit_flash'] = 1.0  # 히트 이펙트
+
+        # game_state 업데이트 (pingfighter에서 충돌 체크용)
+        game_state['doll_curse_guardians'] = self.guardian_dolls
 
         # 마리아 주변 불꽃 파티클 생성 (캐릭터 스프라이트 위치에)
         self.flame_timer += dt
@@ -1634,6 +1727,13 @@ class DollCurse(HeroSkill):
 
         self.curse_dolls = []
         self.flame_particles = []
+        self.guardian_dolls = []
+
+        # game_state에서 수호 인형 정보 제거
+        game_state['doll_curse_guardians'] = []
+        game_state['doll_curse_active'] = False
+        if 'doll_guardian_ball_bounce' in game_state:
+            del game_state['doll_guardian_ball_bounce']
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
@@ -1680,6 +1780,85 @@ class DollCurse(HeroSkill):
             pygame.draw.ellipse(aura_surf, (255, 100, 130, int(60 * pulse)), (8, 6, aura_w - 16, aura_h - 12))
             screen.blit(aura_surf, (caster_center_x - aura_w // 2, caster_center_y - aura_h // 2))
 
+            # 수호 인형들 (마리아 좌우 150px에서 공을 막음)
+            for guardian in self.guardian_dolls:
+                gx, gy = int(guardian['x']), int(guardian['y'])
+                spawn_alpha = min(1.0, guardian['spawn_progress'] * 1.5)  # 페이드인
+                base_alpha = int(255 * spawn_alpha)
+
+                # 히트 플래시 효과
+                flash = guardian.get('hit_flash', 0)
+                if flash > 0:
+                    flash_alpha = int(200 * flash)
+                    flash_size = int(self.guardian_size * 2 + flash * 20)
+                    flash_surf = pygame.Surface((flash_size * 2, flash_size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(flash_surf, (255, 200, 255, flash_alpha),
+                                     (flash_size, flash_size), flash_size)
+                    screen.blit(flash_surf, (gx - flash_size, gy - flash_size))
+
+                # 수호 인형 본체 (마리아풍 인형 디자인)
+                scale = guardian['scale'] * spawn_alpha
+
+                # 그림자
+                shadow_surf = pygame.Surface((int(30 * scale), int(10 * scale)), pygame.SRCALPHA)
+                pygame.draw.ellipse(shadow_surf, (0, 0, 0, int(80 * spawn_alpha)), shadow_surf.get_rect())
+                screen.blit(shadow_surf, (gx - int(15 * scale), gy + int(20 * scale)))
+
+                # 몸통 (둥근 인형)
+                body_color = (180, 140, 160) if flash <= 0 else (255, 200, 230)
+                pygame.draw.circle(screen, body_color, (gx, gy), int(self.guardian_size * scale))
+
+                # 테두리
+                pygame.draw.circle(screen, (120, 80, 100), (gx, gy), int(self.guardian_size * scale), 2)
+
+                # 눈 (X 모양 - 저주받은 인형)
+                eye_offset = int(8 * scale)
+                eye_size = int(4 * scale)
+                eye_color = (80, 30, 50)
+                # 왼쪽 눈 X
+                pygame.draw.line(screen, eye_color,
+                               (gx - eye_offset - eye_size, gy - eye_size),
+                               (gx - eye_offset + eye_size, gy + eye_size), 2)
+                pygame.draw.line(screen, eye_color,
+                               (gx - eye_offset - eye_size, gy + eye_size),
+                               (gx - eye_offset + eye_size, gy - eye_size), 2)
+                # 오른쪽 눈 X
+                pygame.draw.line(screen, eye_color,
+                               (gx + eye_offset - eye_size, gy - eye_size),
+                               (gx + eye_offset + eye_size, gy + eye_size), 2)
+                pygame.draw.line(screen, eye_color,
+                               (gx + eye_offset - eye_size, gy + eye_size),
+                               (gx + eye_offset + eye_size, gy - eye_size), 2)
+
+                # 입 (꿰맨 자국)
+                mouth_y = gy + int(10 * scale)
+                for mx in range(-10, 11, 5):
+                    pygame.draw.line(screen, (100, 50, 70),
+                                   (gx + int(mx * scale), mouth_y - 2),
+                                   (gx + int(mx * scale), mouth_y + 2), 1)
+
+                # 마리아와 연결된 실
+                caster_center_x = int(self.caster_centerx)
+                if self.caster_is_top:
+                    thread_start_y = int(self.caster_locked_y + 28)
+                else:
+                    thread_start_y = int(self.caster_locked_y - 8)
+
+                # 곡선 실 (베지어 느낌)
+                thread_color = (150, 80, 120, int(150 * spawn_alpha))
+                mid_x = (gx + caster_center_x) // 2
+                mid_y = (gy + thread_start_y) // 2 - 20  # 위로 볼록
+                pygame.draw.line(screen, (150, 80, 120), (caster_center_x, thread_start_y), (mid_x, mid_y), 1)
+                pygame.draw.line(screen, (150, 80, 120), (mid_x, mid_y), (gx, gy - int(self.guardian_size * scale)), 1)
+
+                # 보호막 오라
+                aura_pulse = 0.7 + 0.3 * math.sin(pygame.time.get_ticks() * 0.01 + guardian['wobble'])
+                aura_size = int((self.guardian_size + 10) * scale * aura_pulse)
+                aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(aura_surf, (200, 100, 150, int(40 * spawn_alpha)),
+                                 (aura_size, aura_size), aura_size)
+                screen.blit(aura_surf, (gx - aura_size, gy - aura_size))
+
             # 저주 인형들 (상대 패들 주변에서 공전)
             for doll in self.curse_dolls:
                 dx, dy = int(doll['x']), int(doll['y'])
@@ -1721,6 +1900,8 @@ class DollCurse(HeroSkill):
         # 저주 인형과 불꽃 제거
         self.curse_dolls = []
         self.flame_particles = []
+        # 수호 인형 제거
+        self.guardian_dolls = []
         # 조작 반전 효과 해제
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_confused'] = False
@@ -1728,6 +1909,11 @@ class DollCurse(HeroSkill):
         # 마리아 고정 해제
         caster_prefix = 'bottom_paddle' if self.target_is_top else 'top_paddle'
         game_state[f'{caster_prefix}_locked'] = False
+        # 수호 인형 game_state 정리
+        game_state['doll_curse_guardians'] = []
+        game_state['doll_curse_active'] = False
+        if 'doll_guardian_ball_bounce' in game_state:
+            del game_state['doll_guardian_ball_bounce']
 
 
 # ============================================================================
