@@ -57960,6 +57960,10 @@ def handle_player(keys):
             # 둔화 체크
             if game_state.get('bottom_paddle_slowed', False):
                 arena_player_slow_mult = game_state.get('bottom_paddle_slow_amount', 0.5)
+            # 속도 증가 체크 (귀신의 눈 등)
+            speed_boost = game_state.get('bottom_paddle_speed_boost', 1.0)
+            if speed_boost > 1.0:
+                arena_player_slow_mult *= speed_boost  # 속도 배율 적용
             # 혼란 체크 (조작 반전)
             arena_player_confused = game_state.get('bottom_paddle_confused', False)
             # 패들 축소 체크
@@ -123002,6 +123006,10 @@ def handle_boss():
             # 둔화 체크
             if game_state.get('top_paddle_slowed', False):
                 arena_boss_slow_multiplier = game_state.get('top_paddle_slow_amount', 0.5)
+            # 속도 증가 체크 (귀신의 눈 등)
+            speed_boost = game_state.get('top_paddle_speed_boost', 1.0)
+            if speed_boost > 1.0:
+                arena_boss_slow_multiplier *= speed_boost  # 속도 배율 적용
             # 혼란 체크 (조작 반전)
             arena_boss_confused = game_state.get('top_paddle_confused', False)
             # 패들 축소 체크

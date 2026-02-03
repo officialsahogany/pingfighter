@@ -468,78 +468,123 @@ class DarkSlash(HeroSkill):
 
 
 class DemonEye(HeroSkill):
-    """귀신의 눈 - 상대방 시야를 제한하는 어둠 효과"""
+    """귀신의 눈 - 7초간 이동속도 100% 증가 + 오오라 이펙트"""
     def __init__(self):
         super().__init__(
             skill_id="demon_eye",
             name="Demon Eye",
             korean_name="귀신의 눈",
-            description="어둠의 기운으로 상대의 시야를 가린다",
+            description="어둠의 기운을 두르고 이동속도가 2배로 증가한다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=25.0,
-            duration=4.0,
+            duration=7.0,  # 7초 지속
             hero_id="mugen"
         )
-        self.eye_animation_timer = 0
-        self.target_is_top = False
+        self.aura_timer = 0
+        self.caster_is_top = False
+        self.aura_particles = []  # 오오라 파티클
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        self.target_is_top = target_paddle.is_top
-        self.eye_animation_timer = 0
-        game_state['target_blind'] = True
-        game_state['blind_intensity'] = 0.8
-        game_state['blind_target_is_top'] = target_paddle.is_top
+        self.caster_is_top = caster_paddle.is_top
+        self.aura_timer = 0
+
+        # 이동속도 100% 증가 (2배)
+        speed_key = 'top_paddle_speed_boost' if caster_paddle.is_top else 'bottom_paddle_speed_boost'
+        game_state[speed_key] = 2.0  # 100% 증가 = 2배
+        game_state['demon_eye_active'] = True
+        game_state['demon_eye_caster_is_top'] = caster_paddle.is_top
+
+        # 오오라 파티클 초기화
+        self.aura_particles = []
+        for _ in range(20):
+            angle = random.uniform(0, math.pi * 2)
+            self.aura_particles.append({
+                'angle': angle,
+                'radius': random.uniform(30, 50),
+                'speed': random.uniform(1.5, 3.0),
+                'size': random.uniform(3, 8),
+                'alpha': random.randint(100, 200)
+            })
+
+        print(f"[DemonEye] 귀신의 눈 발동! 이동속도 2배, 지속시간 7초")
 
         return {
-            'screen_effect': ScreenEffect.DARKNESS,
-            'target_status': StatusEffect.BLIND,
-            'status_duration': self.duration,
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (150, 50, 200),
+            'flash_duration': 0.15,
             'sound': 'dark_magic'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        self.eye_animation_timer += dt
-        # 맥동 효과
-        game_state['blind_intensity'] = 0.6 + 0.2 * math.sin(self.eye_animation_timer * 5)
+        self.aura_timer += dt
+
+        # 오오라 파티클 업데이트 (회전)
+        for p in self.aura_particles:
+            p['angle'] += p['speed'] * dt
+            # 반짝임 효과
+            p['alpha'] = int(150 + 50 * math.sin(self.aura_timer * 5 + p['angle']))
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        game_state['target_blind'] = False
-        game_state['blind_intensity'] = 0
+        # 이동속도 원래대로
+        speed_key = 'top_paddle_speed_boost' if self.caster_is_top else 'bottom_paddle_speed_boost'
+        game_state[speed_key] = 1.0
+        game_state['demon_eye_active'] = False
+        self.aura_particles = []
+        print(f"[DemonEye] 귀신의 눈 종료")
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
-            # 상대 진영에 어둠 효과
-            darkness_surf = pygame.Surface((600, 375), pygame.SRCALPHA)
-            intensity = int(200 * game_state.get('blind_intensity', 0.8))
+            # 패들 중심 좌표
+            paddle_cx = caster_paddle.centerx
+            paddle_cy = caster_paddle.centery
 
-            # 그라데이션 어둠
-            if caster_paddle.is_top:
-                # 하단에 어둠 적용
-                for y in range(375):
-                    alpha = int(intensity * (y / 375))
-                    pygame.draw.line(darkness_surf, (20, 0, 40, alpha), (0, y), (600, y))
-                screen.blit(darkness_surf, (80, 375))
-            else:
-                # 상단에 어둠 적용
-                for y in range(375):
-                    alpha = int(intensity * (1 - y / 375))
-                    pygame.draw.line(darkness_surf, (20, 0, 40, alpha), (0, y), (600, y))
-                screen.blit(darkness_surf, (80, 0))
+            # === 오오라 이펙트 (패들 주변 회전하는 보라색 기운) ===
+            pulse = 1 + 0.15 * math.sin(self.aura_timer * 6)
 
-            # 귀신 눈 이펙트
-            eye_x = caster_paddle.x + 40
-            eye_y = caster_paddle.y + (30 if caster_paddle.is_top else -30)
-            pulse = 1 + 0.2 * math.sin(self.eye_animation_timer * 8)
+            # 외곽 글로우 (큰 원)
+            glow_radius = int(60 * pulse)
+            glow_surf = pygame.Surface((glow_radius * 2 + 20, glow_radius * 2 + 20), pygame.SRCALPHA)
+            for r in range(glow_radius, 0, -3):
+                alpha = int(80 * (r / glow_radius))
+                pygame.draw.circle(glow_surf, (120, 30, 180, alpha),
+                                 (glow_radius + 10, glow_radius + 10), r)
+            screen.blit(glow_surf, (int(paddle_cx - glow_radius - 10),
+                                   int(paddle_cy - glow_radius - 10)),
+                       special_flags=pygame.BLEND_ADD)
 
-            # 눈 글로우
-            glow_size = int(25 * pulse)
-            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (180, 50, 255, 100), (glow_size, glow_size), glow_size)
-            screen.blit(glow_surf, (int(eye_x - glow_size), int(eye_y - glow_size)), special_flags=pygame.BLEND_ADD)
+            # 회전하는 오오라 파티클
+            for p in self.aura_particles:
+                px = paddle_cx + math.cos(p['angle']) * p['radius'] * pulse
+                py = paddle_cy + math.sin(p['angle']) * p['radius'] * pulse
+
+                # 파티클 글로우
+                p_size = int(p['size'] * pulse)
+                if p_size > 0:
+                    p_surf = pygame.Surface((p_size * 4, p_size * 4), pygame.SRCALPHA)
+                    p_alpha = min(255, max(0, p['alpha']))
+                    pygame.draw.circle(p_surf, (180, 80, 255, p_alpha),
+                                     (p_size * 2, p_size * 2), p_size * 2)
+                    pygame.draw.circle(p_surf, (255, 150, 255, min(255, p_alpha + 50)),
+                                     (p_size * 2, p_size * 2), p_size)
+                    screen.blit(p_surf, (int(px - p_size * 2), int(py - p_size * 2)),
+                               special_flags=pygame.BLEND_ADD)
+
+            # 귀신 눈 이펙트 (패들 위/아래)
+            eye_x = paddle_cx
+            eye_y = paddle_cy + (35 if caster_paddle.is_top else -35)
+            eye_pulse = 1 + 0.3 * math.sin(self.aura_timer * 8)
+
+            # 눈 외곽 글로우
+            eye_glow_size = int(20 * eye_pulse)
+            eye_glow_surf = pygame.Surface((eye_glow_size * 2, eye_glow_size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(eye_glow_surf, (200, 50, 255, 120),
+                             (eye_glow_size, eye_glow_size), eye_glow_size)
+            screen.blit(eye_glow_surf, (int(eye_x - eye_glow_size), int(eye_y - eye_glow_size)),
+                       special_flags=pygame.BLEND_ADD)
 
             # 눈동자
-            pygame.draw.circle(screen, (200, 50, 255), (int(eye_x), int(eye_y)), int(12 * pulse))
-            pygame.draw.circle(screen, (255, 100, 100), (int(eye_x), int(eye_y)), int(5 * pulse))
+            pygame.draw.circle(screen, (180, 30, 220), (int(eye_x), int(eye_y)), int(10 * eye_pulse))
+            pygame.draw.circle(screen, (255, 80, 80), (int(eye_x), int(eye_y)), int(4 * eye_pulse))
 
 
 # ============================================================================
@@ -3311,12 +3356,14 @@ class HeroSkillManager:
             'top_paddle_stunned': False,
             'top_paddle_slowed': False,
             'top_paddle_slow_amount': 1.0,
+            'top_paddle_speed_boost': 1.0,  # 속도 증가 배율 (귀신의 눈 등)
             'top_paddle_confused': False,
             'top_paddle_shrink': False,
             'top_paddle_shrink_scale': 1.0,
             'bottom_paddle_stunned': False,
             'bottom_paddle_slowed': False,
             'bottom_paddle_slow_amount': 1.0,
+            'bottom_paddle_speed_boost': 1.0,  # 속도 증가 배율 (귀신의 눈 등)
             'bottom_paddle_confused': False,
             'bottom_paddle_shrink': False,
             'bottom_paddle_shrink_scale': 1.0,
@@ -3339,7 +3386,10 @@ class HeroSkillManager:
             'wind_force': 0,
             'barrier_active': False,
             'barrier_owner_is_top': False,
-            'has_clones': False
+            'has_clones': False,
+            # 귀신의 눈 관련
+            'demon_eye_active': False,
+            'demon_eye_caster_is_top': False
         }
         self.screen_effects = []
         # 영웅별 글로벌 쿨다운 초기화
