@@ -1208,8 +1208,8 @@ class HornCharge(HeroSkill):
         self.phase_timer += dt
 
         if self.phase == self.PHASE_CHARGING:
-            # 돌진 (0.3초)
-            charge_duration = 0.3
+            # 돌진 (0.43초) - 속도 30% 감소 (0.3 / 0.7 ≈ 0.43)
+            charge_duration = 0.43
             self.charge_progress = min(1.0, self.phase_timer / charge_duration)
 
             # 🎯 타겟의 실시간 위치 추적 (매 프레임 업데이트)
