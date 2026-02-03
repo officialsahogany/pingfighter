@@ -2039,18 +2039,21 @@ class DowntownManager:
                                 top_hero = random.choice(TOP_HEROES)
                                 bottom_hero = random.choice(BOTTOM_HEROES)
 
-                                # pingfighter의 start_arena_battle 호출
+                                # pingfighter의 start_arena_battle 직접 호출
                                 try:
                                     import pingfighter
-                                    if hasattr(pingfighter, 'ctx') and hasattr(pingfighter.ctx, 'start_arena_battle'):
-                                        pingfighter.ctx.start_arena_battle(top_hero, bottom_hero)
+                                    if hasattr(pingfighter, 'start_arena_battle'):
+                                        pingfighter.start_arena_battle(top_hero, bottom_hero)
+                                        print(f"[Arena] 배틀 시작: {top_hero['name']} vs {bottom_hero['name']}")
                                         # 광장 나가고 스테이지 30으로 이동
                                         self.arena_entry_requested = True
                                         running = False
                                     else:
                                         print("[Arena] start_arena_battle 함수를 찾을 수 없음")
                                 except Exception as e:
+                                    import traceback
                                     print(f"[Arena] 투기장 시작 오류: {e}")
+                                    traceback.print_exc()
 
                         elif cancel_btn.collidepoint(mx, my):
                             show_entry_dialog = False  # 다이얼로그 닫고 계속 탐색

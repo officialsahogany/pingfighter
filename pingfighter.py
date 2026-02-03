@@ -95092,6 +95092,114 @@ def confirm_rest(stage_cleared, reward):
                 elif no_rect.collidepoint(mx, my):
                     show_victory_screen(stage_cleared, reward)
                     return
+
+# ============================================================================
+# 투기장 배틀 시작 함수 (모듈 레벨 - downtown/manager.py에서 호출)
+# ============================================================================
+def start_arena_battle(top_hero: dict, bottom_hero: dict):
+    """투기장 배틀 시작 - 기존 게임 시스템 활용
+
+    Args:
+        top_hero: 상단 영웅 정보 (보스 위치)
+        bottom_hero: 하단 영웅 정보 (플레이어 위치)
+    """
+    global player_ai_enabled, _pillar_ui_enabled
+    global arena_mode_enabled, arena_top_hero, arena_bottom_hero, arena_hero_paddle_renderer
+    global arena_skill_manager, arena_skill_check_timer
+    global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
+    global arena_top_dash_target_x, arena_top_dash_cooldown, arena_top_dash_afterimages
+    global arena_top_dash_duration_frames, arena_top_dash_stun_timer
+    global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
+    global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_afterimages
+    global arena_bottom_dash_charges, arena_bottom_dash_charge_timer
+    global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
+
+    # 투기장 모드 활성화
+    arena_mode_enabled = True
+    arena_top_hero = top_hero
+    arena_bottom_hero = bottom_hero
+
+    # 투기장 대쉬 변수 초기화 (보스 대쉬와 동일한 구조)
+    arena_top_dashing = False
+    arena_top_dash_timer = 0
+    arena_top_dash_direction = 0
+    arena_top_dash_target_x = 0.0
+    arena_top_dash_cooldown = 0
+    arena_top_dash_afterimages = []
+    arena_top_dash_duration_frames = 15
+    arena_top_dash_stun_timer = 0
+    arena_bottom_dashing = False
+    arena_bottom_dash_timer = 0
+    arena_bottom_dash_direction = 0
+    arena_bottom_dash_target_x = 0.0
+    arena_bottom_dash_cooldown = 0
+    arena_bottom_dash_afterimages = []
+    arena_bottom_dash_charges = 2
+    arena_bottom_dash_charge_timer = 0
+    arena_bottom_dash_duration_frames = 15
+    arena_bottom_dash_stun_timer = 0
+
+    # 영웅 패들 렌더러 초기화
+    try:
+        from downtown.hero_paddles import get_hero_paddle_renderer
+        arena_hero_paddle_renderer = get_hero_paddle_renderer()
+    except Exception as e:
+        print(f"Hero paddle renderer init error: {e}")
+        arena_hero_paddle_renderer = None
+
+    # 영웅 스킬 시스템 초기화
+    if ARENA_SKILLS_AVAILABLE:
+        try:
+            arena_skill_manager = get_skill_manager()
+            arena_skill_manager.reset()
+            arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True)
+            arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False)
+            arena_skill_check_timer = 0.0
+        except Exception:
+            arena_skill_manager = None
+
+    # AI 플레이 모드 활성화 (양쪽 모두 AI)
+    player_ai_enabled = True
+    apply_character_selection("smasher")  # 기본 캐릭터
+
+    # 상단 영웅 아이템 슬롯 초기화
+    global arena_top_active_item_slot, arena_top_selected_item_index, arena_top_last_item_use_time
+    global arena_top_grenades, arena_top_bananas
+    arena_top_active_item_slot = []
+    arena_top_selected_item_index = 0
+    arena_top_last_item_use_time = 0
+    arena_top_grenades = []
+    arena_top_bananas = []
+
+    # AI 컨트롤러 리셋
+    try:
+        from ai.player_ai import get_player_ai_controller
+        get_player_ai_controller().on_stage_start()
+    except Exception:
+        pass
+
+    # 필러 UI 활성화
+    _pillar_ui_enabled = True
+
+    try:
+        result = main(30)  # 스테이지 30 = 투기장
+    finally:
+        # 투기장 모드 종료 시 초기화
+        arena_mode_enabled = False
+        arena_top_hero = None
+        arena_bottom_hero = None
+        arena_hero_paddle_renderer = None
+        arena_skill_manager = None
+        # 상단 영웅 아이템 슬롯 초기화
+        arena_top_active_item_slot = []
+        arena_top_selected_item_index = 0
+        arena_top_last_item_use_time = 0
+        # 상단 영웅 투사체 초기화
+        arena_top_grenades = []
+        arena_top_bananas = []
+
+    return result
+
 def show_start_screen():
     global passive_item_list, active_item_slot, selected_item_index, MAX_ITEM_SLOTS
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained
@@ -95263,110 +95371,6 @@ def show_start_screen():
         # 필러 UI 활성화
         _pillar_ui_enabled = True
         return main(1)
-
-    def start_arena_battle(top_hero: dict, bottom_hero: dict):
-        """투기장 배틀 시작 - 기존 게임 시스템 활용
-
-        Args:
-            top_hero: 상단 영웅 정보 (보스 위치)
-            bottom_hero: 하단 영웅 정보 (플레이어 위치)
-        """
-        global player_ai_enabled, _pillar_ui_enabled
-        global arena_mode_enabled, arena_top_hero, arena_bottom_hero, arena_hero_paddle_renderer
-        global arena_skill_manager, arena_skill_check_timer
-        global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
-        global arena_top_dash_target_x, arena_top_dash_cooldown, arena_top_dash_afterimages
-        global arena_top_dash_duration_frames, arena_top_dash_stun_timer
-        global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
-        global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_afterimages
-        global arena_bottom_dash_charges, arena_bottom_dash_charge_timer
-        global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
-
-        # 투기장 모드 활성화
-        arena_mode_enabled = True
-        arena_top_hero = top_hero
-        arena_bottom_hero = bottom_hero
-
-        # 투기장 대쉬 변수 초기화 (보스 대쉬와 동일한 구조)
-        arena_top_dashing = False
-        arena_top_dash_timer = 0
-        arena_top_dash_direction = 0
-        arena_top_dash_target_x = 0.0
-        arena_top_dash_cooldown = 0
-        arena_top_dash_afterimages = []
-        arena_top_dash_duration_frames = 15
-        arena_top_dash_stun_timer = 0
-        arena_bottom_dashing = False
-        arena_bottom_dash_timer = 0
-        arena_bottom_dash_direction = 0
-        arena_bottom_dash_target_x = 0.0
-        arena_bottom_dash_cooldown = 0
-        arena_bottom_dash_afterimages = []
-        arena_bottom_dash_charges = 2
-        arena_bottom_dash_charge_timer = 0
-        arena_bottom_dash_duration_frames = 15
-        arena_bottom_dash_stun_timer = 0
-
-        # 영웅 패들 렌더러 초기화
-        try:
-            from downtown.hero_paddles import get_hero_paddle_renderer
-            arena_hero_paddle_renderer = get_hero_paddle_renderer()
-        except Exception as e:
-            print(f"Hero paddle renderer init error: {e}")
-            arena_hero_paddle_renderer = None
-
-        # 영웅 스킬 시스템 초기화
-        if ARENA_SKILLS_AVAILABLE:
-            try:
-                arena_skill_manager = get_skill_manager()
-                arena_skill_manager.reset()
-                arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True)
-                arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False)
-                arena_skill_check_timer = 0.0
-            except Exception:
-                arena_skill_manager = None
-
-        # AI 플레이 모드 활성화 (양쪽 모두 AI)
-        player_ai_enabled = True
-        apply_character_selection("smasher")  # 기본 캐릭터
-
-        # 상단 영웅 아이템 슬롯 초기화
-        global arena_top_active_item_slot, arena_top_selected_item_index, arena_top_last_item_use_time
-        global arena_top_grenades, arena_top_bananas
-        arena_top_active_item_slot = []
-        arena_top_selected_item_index = 0
-        arena_top_last_item_use_time = 0
-        arena_top_grenades = []
-        arena_top_bananas = []
-
-        # AI 컨트롤러 리셋
-        try:
-            from ai.player_ai import get_player_ai_controller
-            get_player_ai_controller().on_stage_start()
-        except Exception:
-            pass
-
-        # 필러 UI 활성화
-        _pillar_ui_enabled = True
-
-        try:
-            result = main(30)  # 스테이지 30 = 투기장
-        finally:
-            # 투기장 모드 종료 시 초기화
-            arena_mode_enabled = False
-            arena_top_hero = None
-            arena_bottom_hero = None
-            arena_hero_paddle_renderer = None
-            arena_skill_manager = None
-            # 상단 영웅 아이템 슬롯 초기화
-            arena_top_active_item_slot = []
-            arena_top_selected_item_index = 0
-            arena_top_last_item_use_time = 0
-            # 상단 영웅 투사체 초기화
-            arena_top_grenades = []
-            arena_top_bananas = []
-
-        return result
 
     # 개발자용 광장 직접 입장 함수
     def enter_downtown_dev():
