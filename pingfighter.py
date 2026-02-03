@@ -131193,6 +131193,20 @@ def main(stage_num, new_boss_mode=False):
                     arena_top_confused = arena_game_state.get('top_paddle_confused', False)
                     arena_bottom_confused = arena_game_state.get('bottom_paddle_confused', False)
 
+                    # 🎭 투기장 패들 위치 고정 (꼭두각시 조종, 인형의 저주 등)
+                    # 상단 영웅 (BOSS) 위치 고정
+                    if arena_game_state.get('top_paddle_locked', False):
+                        if 'top_paddle_locked_x' in arena_game_state:
+                            BOSS.x = int(arena_game_state['top_paddle_locked_x'])
+                        if 'top_paddle_locked_y' in arena_game_state:
+                            BOSS.y = int(arena_game_state['top_paddle_locked_y'])
+                    # 하단 영웅 (PLAYER) 위치 고정
+                    if arena_game_state.get('bottom_paddle_locked', False):
+                        if 'bottom_paddle_locked_x' in arena_game_state:
+                            PLAYER.x = int(arena_game_state['bottom_paddle_locked_x'])
+                        if 'bottom_paddle_locked_y' in arena_game_state:
+                            PLAYER.y = int(arena_game_state['bottom_paddle_locked_y'])
+
                     # 드래곤 브레스 화염 지대 생성 처리 (화염병과 동일한 넉백 효과)
                     _dragon_fire_req = arena_skill_manager.game_state.get('spawn_dragon_fire_zone')
                     if _dragon_fire_req:

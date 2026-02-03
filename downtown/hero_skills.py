@@ -1212,14 +1212,12 @@ class PuppetControl(HeroSkill):
         # Phase 1: 실 뻗어나가기 (0.7초)
         if self.phase == self.PHASE_EXTENDING:
             self.string_extend_progress = min(1.0, self.phase_timer / 0.7)
-            print(f"[PuppetControl] EXTENDING: progress={self.string_extend_progress:.2f}")
 
             # 실이 상대에게 도달하면 다음 단계
             if self.string_extend_progress >= 1.0:
                 self.phase = self.PHASE_PULLING
                 self.phase_timer = 0
                 game_state['target_puppeted'] = True
-                print(f"[PuppetControl] -> PULLING 시작! caster_y={self.caster_y}, target_original_y={self.target_original_y}")
 
         # Phase 2: 상대 끌어당기기 (1.3초)
         elif self.phase == self.PHASE_PULLING:
@@ -1236,16 +1234,13 @@ class PuppetControl(HeroSkill):
             new_x = self.target_original_x + (self.caster_x - self.target_original_x) * eased
             target_paddle.x = new_x
 
-            # game_state에도 반영 (colosseum_arena에서 강제 적용)
+            # game_state에도 반영 (pingfighter.py에서 BOSS/PLAYER에 강제 적용)
             game_state[f'{target_prefix}_locked_x'] = new_x
             game_state[f'{target_prefix}_locked_y'] = new_y
-
-            print(f"[PuppetControl] PULLING: progress={pull_progress:.2f}, eased={eased:.2f}, target.y={target_paddle.y:.1f} (목표: {kiss_y}), locked={game_state.get(f'{target_prefix}_locked', False)}")
 
             if pull_progress >= 1.0:
                 self.phase = self.PHASE_KISSING
                 self.phase_timer = 0
-                print(f"[PuppetControl] -> KISSING 시작!")
 
         # Phase 3: 뽀뽀 (1초)
         elif self.phase == self.PHASE_KISSING:
