@@ -86665,21 +86665,39 @@ def draw_objects():
                 if _shockwave and _shockwave.get('active'):
                     _sw_x = int(_shockwave['x'])
                     _sw_y = int(_shockwave['y'])
-                    _sw_radius = int(_shockwave['radius'])
-                    _sw_alpha = int(_shockwave['alpha'])
-                    if _sw_radius > 0 and _sw_alpha > 0:
-                        # 충격파 원 그리기 (붉은 오라)
-                        _sw_surf = pygame.Surface((_sw_radius * 2 + 20, _sw_radius * 2 + 20), pygame.SRCALPHA)
-                        # 외곽 원 (붉은색)
-                        pygame.draw.circle(_sw_surf, (255, 100, 50, _sw_alpha),
-                                         (_sw_radius + 10, _sw_radius + 10), _sw_radius, 4)
-                        # 내부 원 (주황색)
-                        if _sw_radius > 10:
-                            pygame.draw.circle(_sw_surf, (255, 180, 80, _sw_alpha // 2),
-                                             (_sw_radius + 10, _sw_radius + 10), _sw_radius - 8, 2)
-                        SCREEN.blit(_sw_surf, (_sw_x - _sw_radius - 10 + screen_shake_offset_x,
-                                              _sw_y - _sw_radius - 10 + screen_shake_offset_y),
+
+                    # 🔥 다중 링 렌더링
+                    rings = _shockwave.get('rings', [])
+                    max_radius = max((int(ring['radius']) for ring in rings), default=0) + 20
+                    if max_radius > 0:
+                        _sw_surf = pygame.Surface((max_radius * 2 + 40, max_radius * 2 + 40), pygame.SRCALPHA)
+                        center = max_radius + 20
+
+                        for ring in rings:
+                            _r = int(ring['radius'])
+                            _a = int(ring['alpha'])
+                            _w = ring.get('width', 4)
+                            if _r > 0 and _a > 0:
+                                # 붉은/주황 그라데이션 링
+                                pygame.draw.circle(_sw_surf, (255, 80 + _r % 100, 30, _a),
+                                                 (center, center), _r, _w)
+
+                        SCREEN.blit(_sw_surf, (_sw_x - center + screen_shake_offset_x,
+                                              _sw_y - center + screen_shake_offset_y),
                                    special_flags=pygame.BLEND_ADD)
+
+                    # 🔥 파티클 렌더링
+                    for p in _shockwave.get('particles', []):
+                        px, py = int(p['x']), int(p['y'])
+                        p_alpha = min(255, p['life'] * 10)
+                        p_size = p.get('size', 4)
+                        if p_alpha > 0:
+                            # 붉은/주황 파티클
+                            p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                            pygame.draw.circle(p_surf, (255, 120, 50, p_alpha), (p_size, p_size), p_size)
+                            SCREEN.blit(p_surf, (px - p_size + screen_shake_offset_x,
+                                                py - p_size + screen_shake_offset_y),
+                                       special_flags=pygame.BLEND_ADD)
         except Exception as e:
             pass
 

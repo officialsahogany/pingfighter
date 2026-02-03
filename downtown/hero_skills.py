@@ -1249,8 +1249,15 @@ class HornCharge(HeroSkill):
                 self.impact_y = target_paddle.y
                 self.phase = self.PHASE_IMPACT
                 self.phase_timer = 0
-                game_state['screen_shake'] = 25
-                game_state['shake_duration'] = 0.3
+                # 🔥 화면 흔들림 강화 (다이너마이트급)
+                game_state['screen_shake'] = 40
+                game_state['shake_duration'] = 0.4
+                # 폭발 파티클 트리거
+                game_state['horn_charge_explosion'] = {
+                    'x': self.target_x,
+                    'y': self.impact_y,
+                    'trigger': True
+                }
                 print(f"🐂 [HORN CHARGE] 착지 완료! target_x={self.target_x}, impact_y={self.impact_y}")
 
         elif self.phase == self.PHASE_IMPACT:
@@ -1266,22 +1273,55 @@ class HornCharge(HeroSkill):
                 self.impact_shockwave_triggered = True
                 self.impact_shockwave_radius = 0
                 self.impact_shockwave_alpha = 255
-                # 충격파 이펙트 데이터를 game_state에 저장
+                # 충격파 이펙트 데이터를 game_state에 저장 (다중 링 + 파티클)
                 game_state['horn_charge_impact_shockwave'] = {
                     'x': self.target_x,
                     'y': self.impact_y,
-                    'radius': 0,
-                    'alpha': 255,
-                    'active': True
+                    'rings': [
+                        {'radius': 0, 'alpha': 255, 'width': 6},   # 메인 링
+                        {'radius': 0, 'alpha': 200, 'width': 4},   # 서브 링 1
+                        {'radius': 0, 'alpha': 150, 'width': 3},   # 서브 링 2
+                    ],
+                    'particles': [],
+                    'active': True,
+                    'timer': 0
                 }
+                # 충격파 파티클 생성
+                import random
+                for _ in range(20):
+                    angle = random.uniform(0, 6.28)
+                    speed = random.uniform(3, 8)
+                    game_state['horn_charge_impact_shockwave']['particles'].append({
+                        'x': self.target_x,
+                        'y': self.impact_y,
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed,
+                        'life': random.randint(15, 30),
+                        'size': random.randint(3, 6)
+                    })
 
             # 착지 충격파 애니메이션 업데이트
-            if game_state.get('horn_charge_impact_shockwave', {}).get('active'):
-                shockwave = game_state['horn_charge_impact_shockwave']
-                shockwave['radius'] += dt * 400  # 충격파 확장 속도
-                shockwave['alpha'] = max(0, 255 - shockwave['radius'] * 3)  # 페이드 아웃
-                if shockwave['alpha'] <= 0:
-                    shockwave['active'] = False
+            shockwave_data = game_state.get('horn_charge_impact_shockwave', {})
+            if shockwave_data.get('active'):
+                shockwave_data['timer'] += dt
+                # 다중 링 업데이트 (시차를 두고 확장)
+                for i, ring in enumerate(shockwave_data.get('rings', [])):
+                    delay = i * 0.05  # 각 링마다 0.05초 딜레이
+                    if shockwave_data['timer'] > delay:
+                        ring['radius'] += dt * 500  # 빠른 확장
+                        ring['alpha'] = max(0, 255 - ring['radius'] * 2)
+                # 파티클 업데이트
+                for p in shockwave_data.get('particles', []):
+                    p['x'] += p['vx']
+                    p['y'] += p['vy']
+                    p['vy'] += 0.3  # 중력
+                    p['life'] -= 1
+                # 죽은 파티클 제거
+                shockwave_data['particles'] = [p for p in shockwave_data.get('particles', []) if p['life'] > 0]
+                # 모든 링이 사라지고 파티클도 없으면 비활성화
+                all_rings_done = all(ring['alpha'] <= 0 for ring in shockwave_data.get('rings', []))
+                if all_rings_done and not shockwave_data.get('particles'):
+                    shockwave_data['active'] = False
 
             # 넉백 즉시 적용 (다이너마이트 폭발과 동일한 방식)
             if not self.knockback_applied:
