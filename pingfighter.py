@@ -131297,8 +131297,8 @@ def main(stage_num, new_boss_mode=False):
                         print(f"🐂 [HORN CHARGE] pingfighter.py에서 넉백 신호 수신! apply={True}, dir={_kb_dir}, vel={_kb_vel}")
 
                         # 🔥 착지 시 화면 흔들림 (다이너마이트급)
-                        screen_shake_timer = 24  # 0.4초
-                        screen_shake_intensity = 35  # 강력한 흔들림
+                        globals()['screen_shake_timer'] = 24  # 0.4초
+                        globals()['screen_shake_intensity'] = 35  # 강력한 흔들림
 
                         if _target_is_top:
                             # 보스(상단)에게 넉백 적용
