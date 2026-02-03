@@ -2141,9 +2141,30 @@ class DragonBreath(HeroSkill):
                 )
 
                 if particle_rect.colliderect(ball_rect):
-                    # 공 가속
-                    ball.vx *= 1.4
-                    ball.vy *= 1.4
+                    # 공을 화염 진행 방향으로 반사 (오딘의 늪 가시와 유사)
+                    is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
+
+                    # 현재 속도 계산
+                    current_speed = math.hypot(ball.vx, ball.vy)
+                    if current_speed < 8.0:
+                        current_speed = 10.0  # 최소 속도 보장
+
+                    # 속도 부스트 (1.3~1.5배)
+                    boosted_speed = current_speed * random.uniform(1.3, 1.5)
+
+                    # 화염 진행 방향으로 반사 (상단→아래, 하단→위)
+                    # 약간의 X축 랜덤 편차 추가
+                    angle_offset = random.uniform(-0.3, 0.3)  # ±17도
+
+                    if is_caster_top:
+                        # 상단에서 발사 → 공을 아래로 반사
+                        ball.vy = abs(boosted_speed * math.cos(angle_offset))
+                        ball.vx = boosted_speed * math.sin(angle_offset)
+                    else:
+                        # 하단에서 발사 → 공을 위로 반사
+                        ball.vy = -abs(boosted_speed * math.cos(angle_offset))
+                        ball.vx = boosted_speed * math.sin(angle_offset)
+
                     self.breath_hit_ball = True
                     game_state['ball_on_fire'] = True
 
