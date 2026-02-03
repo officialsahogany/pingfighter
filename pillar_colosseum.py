@@ -282,67 +282,125 @@ class CircularStadiumFrame:
         self._draw_arena_border(self._frame_surface)
 
     def _draw_stadium_backdrop(self, surface):
-        """관중석 뒤 스타디움 배경 그리기"""
-        # 관중석 끝나는 위치
+        """관중석 뒤 스타디움 배경 그리기 (고퀄리티)"""
         crowd_end_radius = max(self.game_width, self.game_height) // 2 + 25 + 5 * 28 + 20
         outer_radius = int(math.sqrt(self.screen_width**2 + self.screen_height**2)) + 50
 
-        # 상단 스타디움 구조 (여러 층)
-        tier_height = 40
+        # === 1. 석조 벽면 층 (그라데이션 + 텍스처) ===
+        tier_height = 35
         num_backdrop_tiers = (outer_radius - crowd_end_radius) // tier_height
 
         for i in range(num_backdrop_tiers):
             radius = crowd_end_radius + i * tier_height
 
             # 층마다 점점 어두워지는 색상
-            darkness = min(0.4, i * 0.05)
+            darkness = min(0.5, i * 0.04)
             base_color = self.COLORS['stone_medium']
             color = tuple(int(c * (1 - darkness)) for c in base_color)
+            color_light = tuple(min(255, int(c * (1.1 - darkness))) for c in base_color)
+            color_dark = tuple(int(c * (0.85 - darkness)) for c in base_color)
 
-            # 원형 층
+            # 원형 층 (메인)
             pygame.draw.circle(surface, color, (self.center_x, self.center_y),
                              radius + tier_height, tier_height)
 
-            # 층 경계선
-            pygame.draw.circle(surface, self.COLORS['stone_shadow'],
-                             (self.center_x, self.center_y), radius, 3)
+            # 층 상단 하이라이트
+            pygame.draw.circle(surface, color_light,
+                             (self.center_x, self.center_y), radius + tier_height - 3, 2)
 
-        # 대형 아치 구조 (배경)
-        num_big_arches = 12
+            # 층 하단 그림자
+            pygame.draw.circle(surface, color_dark,
+                             (self.center_x, self.center_y), radius + 2, 3)
+
+            # 벽돌 패턴 (일부 층에만)
+            if i % 2 == 0:
+                pygame.draw.circle(surface, self.COLORS['stone_shadow'],
+                                 (self.center_x, self.center_y), radius + tier_height // 2, 1)
+
+        # === 2. 대형 아치 구조 (고퀄리티) ===
+        num_big_arches = 16
         for i in range(num_big_arches):
             angle = i * (2 * math.pi / num_big_arches)
 
-            # 통로 위치 건너뛰기
             skip = False
             for aisle_angle in [math.pi * 0.5, math.pi * 1.17, math.pi * 1.83]:
-                if abs(angle - aisle_angle) < 0.3:
+                if abs(angle - aisle_angle) < 0.25:
                     skip = True
                     break
             if skip:
                 continue
 
             # 여러 반경에 아치 배치
-            for r in range(int(crowd_end_radius) + 30, int(outer_radius), 80):
+            for r in range(int(crowd_end_radius) + 25, int(outer_radius), 70):
                 ax = self.center_x + int(r * math.cos(angle))
                 ay = self.center_y + int(r * math.sin(angle))
 
                 if 0 <= ax < self.screen_width and 0 <= ay < self.screen_height:
                     if not (self.game_x - 30 < ax < self.game_x + self.game_width + 30 and
                             self.game_y - 30 < ay < self.game_y + self.game_height + 30):
-                        # 아치 배경 (어두운 구멍)
-                        pygame.draw.ellipse(surface, self.COLORS['stone_shadow'],
-                                          (ax - 18, ay - 25, 36, 50))
-                        # 아치 테두리
-                        pygame.draw.ellipse(surface, self.COLORS['stone_dark'],
-                                          (ax - 18, ay - 25, 36, 50), 3)
-                        # 아치 상단 장식
-                        pygame.draw.arc(surface, self.COLORS['gold_dark'],
-                                       (ax - 20, ay - 30, 40, 30), 0, math.pi, 2)
+                        # 아치 크기 (거리에 따라)
+                        arch_w = 28
+                        arch_h = 40
 
-        # 수평 장식 라인들
-        for r in range(int(crowd_end_radius) + 50, int(outer_radius), 60):
+                        # 아치 배경 (깊은 그림자)
+                        pygame.draw.ellipse(surface, (50, 40, 30),
+                                          (ax - arch_w//2 + 2, ay - arch_h//2 + 2, arch_w, arch_h))
+                        pygame.draw.ellipse(surface, self.COLORS['stone_shadow'],
+                                          (ax - arch_w//2, ay - arch_h//2, arch_w, arch_h))
+
+                        # 아치 프레임 (두꺼운 테두리)
+                        pygame.draw.ellipse(surface, self.COLORS['stone_dark'],
+                                          (ax - arch_w//2 - 3, ay - arch_h//2 - 3, arch_w + 6, arch_h + 6), 4)
+                        pygame.draw.ellipse(surface, self.COLORS['pillar'],
+                                          (ax - arch_w//2 - 2, ay - arch_h//2 - 2, arch_w + 4, arch_h + 4), 2)
+
+                        # 아치 상단 키스톤 (장식)
+                        pygame.draw.polygon(surface, self.COLORS['gold_dark'],
+                                          [(ax, ay - arch_h//2 - 8),
+                                           (ax - 6, ay - arch_h//2),
+                                           (ax + 6, ay - arch_h//2)])
+
+                        # 아치 양쪽 기둥 장식
+                        pygame.draw.rect(surface, self.COLORS['pillar_shadow'],
+                                        (ax - arch_w//2 - 5, ay - 5, 4, 20))
+                        pygame.draw.rect(surface, self.COLORS['pillar_shadow'],
+                                        (ax + arch_w//2 + 1, ay - 5, 4, 20))
+
+        # === 3. 장식 라인 및 코니스 ===
+        for r in range(int(crowd_end_radius) + 40, int(outer_radius), 55):
+            # 금색 장식 밴드
             pygame.draw.circle(surface, self.COLORS['gold_dark'],
-                             (self.center_x, self.center_y), r, 2)
+                             (self.center_x, self.center_y), r, 3)
+            pygame.draw.circle(surface, self.COLORS['gold'],
+                             (self.center_x, self.center_y), r - 1, 1)
+
+        # === 4. 조각상/방패 장식 (일부 위치에) ===
+        num_decorations = 8
+        deco_radius = crowd_end_radius + 100
+        for i in range(num_decorations):
+            angle = i * (2 * math.pi / num_decorations) + 0.2
+
+            skip = False
+            for aisle_angle in [math.pi * 0.5, math.pi * 1.17, math.pi * 1.83]:
+                if abs(angle - aisle_angle) < 0.4:
+                    skip = True
+                    break
+            if skip:
+                continue
+
+            dx = self.center_x + int(deco_radius * math.cos(angle))
+            dy = self.center_y + int(deco_radius * math.sin(angle))
+
+            if 0 <= dx < self.screen_width and 0 <= dy < self.screen_height:
+                if not (self.game_x - 40 < dx < self.game_x + self.game_width + 40 and
+                        self.game_y - 40 < dy < self.game_y + self.game_height + 40):
+                    # 방패 장식
+                    pygame.draw.ellipse(surface, self.COLORS['bronze'],
+                                      (dx - 12, dy - 15, 24, 30))
+                    pygame.draw.ellipse(surface, self.COLORS['gold'],
+                                      (dx - 10, dy - 13, 20, 26), 2)
+                    pygame.draw.ellipse(surface, self.COLORS['copper'],
+                                      (dx - 6, dy - 8, 12, 16))
 
     def _draw_seat_tiers(self, surface):
         """동심원 좌석 단 그리기 (관중석 영역만, 5줄)"""
@@ -597,91 +655,172 @@ class CircularStadiumFrame:
 
     def _draw_person(self, screen, x, y, size, body_color, skin_color, hair_color,
                     arm_up=False, has_hat=False, hat_color=None, head_tilt=0):
-        """관중 한 명 그리기 (고퀄리티)"""
+        """관중 한 명 그리기 (고퀄리티 - 사실적)"""
         x = int(x)
         y = int(y)
 
-        head_radius = size // 4
-        body_width = size // 2
-        body_height = int(size * 0.55)
+        # 비율 계산
+        head_radius = int(size * 0.28)
+        neck_width = int(size * 0.15)
+        neck_height = int(size * 0.08)
+        shoulder_width = int(size * 0.6)
+        body_width = int(size * 0.45)
+        body_height = int(size * 0.5)
 
-        # 몸통 그림자
-        shadow_color = tuple(max(0, c - 40) for c in body_color)
-        pygame.draw.ellipse(screen, shadow_color,
-                           (x - body_width // 2 + 2, y + 2, body_width, body_height))
+        # 색상 변형
+        shadow_body = tuple(max(0, c - 45) for c in body_color)
+        highlight_body = tuple(min(255, c + 30) for c in body_color)
+        shadow_skin = tuple(max(0, c - 35) for c in skin_color)
+        highlight_skin = tuple(min(255, c + 25) for c in skin_color)
+        hair_dark = tuple(max(0, c - 20) for c in hair_color)
 
-        # 몸통
+        # === 몸통 (어깨 포함) ===
+        # 어깨 그림자
+        pygame.draw.ellipse(screen, shadow_body,
+                           (x - shoulder_width // 2 + 2, y + 2, shoulder_width, body_height))
+
+        # 어깨/상체
         pygame.draw.ellipse(screen, body_color,
-                           (x - body_width // 2, y, body_width, body_height))
+                           (x - shoulder_width // 2, y, shoulder_width, body_height))
 
-        # 몸통 하이라이트
-        highlight_color = tuple(min(255, c + 25) for c in body_color)
-        pygame.draw.ellipse(screen, highlight_color,
-                           (x - body_width // 4, y + 2, body_width // 3, body_height // 2))
+        # 상체 하이라이트 (옷 주름 효과)
+        pygame.draw.ellipse(screen, highlight_body,
+                           (x - body_width // 4, y + 3, body_width // 2, body_height // 2))
 
-        # 팔
-        arm_width = size // 5
-        arm_height = size // 3
+        # 옷 칼라/목둘레
+        collar_color = tuple(min(255, c + 15) for c in body_color)
+        pygame.draw.ellipse(screen, collar_color,
+                           (x - neck_width - 2, y - 2, neck_width * 2 + 4, neck_height + 6))
+
+        # === 팔 ===
+        arm_width = int(size * 0.18)
+        arm_height = int(size * 0.35)
 
         if arm_up:
-            # 팔 위로 (응원)
-            pygame.draw.ellipse(screen, body_color,
-                               (x - body_width // 2 - arm_width + 3, y - arm_height // 2,
+            # 왼팔 위로
+            pygame.draw.ellipse(screen, shadow_body,
+                               (x - shoulder_width // 2 - arm_width + 5, y - arm_height // 2 + 2,
                                 arm_width, arm_height))
             pygame.draw.ellipse(screen, body_color,
-                               (x + body_width // 2 - 3, y - arm_height // 2,
+                               (x - shoulder_width // 2 - arm_width + 4, y - arm_height // 2,
+                                arm_width, arm_height))
+            # 오른팔 위로
+            pygame.draw.ellipse(screen, body_color,
+                               (x + shoulder_width // 2 - 4, y - arm_height // 2,
                                 arm_width, arm_height))
             # 손
+            hand_size = arm_width // 2 + 2
             pygame.draw.circle(screen, skin_color,
-                              (x - body_width // 2 - arm_width // 2 + 3, y - arm_height // 2),
-                              arm_width // 2 + 1)
+                              (x - shoulder_width // 2 - arm_width // 2 + 4, y - arm_height // 2 - 2),
+                              hand_size)
             pygame.draw.circle(screen, skin_color,
-                              (x + body_width // 2 + arm_width // 2 - 3, y - arm_height // 2),
-                              arm_width // 2 + 1)
+                              (x + shoulder_width // 2 + arm_width // 2 - 4, y - arm_height // 2 - 2),
+                              hand_size)
         else:
-            # 팔 옆으로 (평소)
-            pygame.draw.ellipse(screen, body_color,
-                               (x - body_width // 2 - arm_width + 4, y + 3,
+            # 팔 옆으로
+            pygame.draw.ellipse(screen, shadow_body,
+                               (x - shoulder_width // 2 - arm_width + 6, y + 4,
                                 arm_width, arm_height))
             pygame.draw.ellipse(screen, body_color,
-                               (x + body_width // 2 - 4, y + 3,
+                               (x - shoulder_width // 2 - arm_width + 5, y + 2,
+                                arm_width, arm_height))
+            pygame.draw.ellipse(screen, body_color,
+                               (x + shoulder_width // 2 - 5, y + 2,
                                 arm_width, arm_height))
 
-        # 머리 위치 (기울기 적용)
-        head_x = x + int(head_tilt * 3)
-        head_y = y - head_radius
+        # === 목 ===
+        pygame.draw.rect(screen, shadow_skin,
+                        (x - neck_width // 2 + 1, y - neck_height + 1, neck_width, neck_height + 4))
+        pygame.draw.rect(screen, skin_color,
+                        (x - neck_width // 2, y - neck_height, neck_width, neck_height + 4))
+
+        # === 머리 (기울기 적용) ===
+        head_x = x + int(head_tilt * 4)
+        head_y = y - neck_height - head_radius + 2
+
+        # 귀
+        ear_size = head_radius // 3
+        pygame.draw.ellipse(screen, shadow_skin,
+                           (head_x - head_radius - ear_size // 2, head_y - ear_size // 2,
+                            ear_size, ear_size * 2))
+        pygame.draw.ellipse(screen, skin_color,
+                           (head_x + head_radius - ear_size // 2, head_y - ear_size // 2,
+                            ear_size, ear_size * 2))
 
         # 머리 그림자
-        shadow_skin = tuple(max(0, c - 30) for c in skin_color)
-        pygame.draw.circle(screen, shadow_skin, (head_x + 1, head_y + 1), head_radius)
+        pygame.draw.circle(screen, shadow_skin, (head_x + 2, head_y + 2), head_radius)
 
         # 머리
         pygame.draw.circle(screen, skin_color, (head_x, head_y), head_radius)
 
-        # 머리 하이라이트
-        highlight_skin = tuple(min(255, c + 20) for c in skin_color)
-        pygame.draw.circle(screen, highlight_skin, (head_x - 2, head_y - 2), head_radius // 3)
+        # 머리 하이라이트 (볼)
+        pygame.draw.circle(screen, highlight_skin, (head_x - head_radius // 3, head_y - head_radius // 4),
+                          head_radius // 3)
 
-        # 머리카락
-        hair_rect = (head_x - head_radius, head_y - head_radius, head_radius * 2, head_radius * 2)
-        pygame.draw.arc(screen, hair_color, hair_rect, 0, math.pi, max(head_radius - 1, 2))
+        # === 머리카락 ===
+        # 머리카락 메인
+        hair_rect = (head_x - head_radius - 1, head_y - head_radius - 2,
+                    head_radius * 2 + 2, head_radius + head_radius // 2)
+        pygame.draw.ellipse(screen, hair_color, hair_rect)
 
-        # 모자 (있는 경우)
+        # 머리카락 하이라이트
+        pygame.draw.arc(screen, hair_dark,
+                       (head_x - head_radius, head_y - head_radius, head_radius * 2, head_radius * 2),
+                       0.3, math.pi - 0.3, 2)
+
+        # === 모자 (있는 경우) ===
         if has_hat and hat_color:
+            hat_dark = tuple(max(0, c - 30) for c in hat_color)
+            # 모자 본체
             pygame.draw.ellipse(screen, hat_color,
-                               (head_x - head_radius - 2, head_y - head_radius - 2,
-                                head_radius * 2 + 4, head_radius))
-            pygame.draw.rect(screen, hat_color,
-                            (head_x - head_radius - 4, head_y - 2, head_radius * 2 + 8, 4))
+                               (head_x - head_radius - 1, head_y - head_radius - 4,
+                                head_radius * 2 + 2, head_radius))
+            # 모자 챙
+            pygame.draw.ellipse(screen, hat_dark,
+                               (head_x - head_radius - 5, head_y - 3,
+                                head_radius * 2 + 10, 6))
+            pygame.draw.ellipse(screen, hat_color,
+                               (head_x - head_radius - 4, head_y - 4,
+                                head_radius * 2 + 8, 5))
 
-        # 눈 (크기가 충분할 때만)
-        if size >= 20:
-            eye_y = head_y
+        # === 얼굴 디테일 (크기 충분할 때) ===
+        if size >= 22:
+            eye_y = head_y - 1
             eye_spacing = head_radius // 2
-            eye_size = max(1, head_radius // 4)
-            # 눈
-            pygame.draw.circle(screen, (40, 35, 30), (head_x - eye_spacing, eye_y), eye_size)
-            pygame.draw.circle(screen, (40, 35, 30), (head_x + eye_spacing, eye_y), eye_size)
+            eye_size = max(2, head_radius // 4)
+
+            # 눈 흰자
+            pygame.draw.ellipse(screen, (250, 250, 250),
+                               (head_x - eye_spacing - eye_size, eye_y - eye_size // 2,
+                                eye_size * 2, eye_size))
+            pygame.draw.ellipse(screen, (250, 250, 250),
+                               (head_x + eye_spacing - eye_size, eye_y - eye_size // 2,
+                                eye_size * 2, eye_size))
+
+            # 눈동자
+            pygame.draw.circle(screen, (35, 30, 25),
+                              (head_x - eye_spacing, eye_y), eye_size // 2 + 1)
+            pygame.draw.circle(screen, (35, 30, 25),
+                              (head_x + eye_spacing, eye_y), eye_size // 2 + 1)
+
+            # 눈 하이라이트
+            pygame.draw.circle(screen, (255, 255, 255),
+                              (head_x - eye_spacing - 1, eye_y - 1), 1)
+            pygame.draw.circle(screen, (255, 255, 255),
+                              (head_x + eye_spacing - 1, eye_y - 1), 1)
+
+            # 코
+            nose_y = head_y + head_radius // 4
+            pygame.draw.line(screen, shadow_skin,
+                           (head_x, eye_y + 2), (head_x, nose_y), 1)
+            pygame.draw.circle(screen, shadow_skin, (head_x, nose_y), 2)
+
+            # 입 (미소)
+            mouth_y = head_y + head_radius // 2
+            mouth_width = head_radius // 2
+            pygame.draw.arc(screen, (150, 80, 80),
+                           (head_x - mouth_width, mouth_y - 2, mouth_width * 2, 6),
+                           0.2, math.pi - 0.2, 1)
 
     def _draw_torches(self, screen):
         """횃불 그리기"""
