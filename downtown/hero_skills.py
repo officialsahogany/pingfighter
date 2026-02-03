@@ -1191,7 +1191,9 @@ class HornCharge(HeroSkill):
         game_state['horn_charge_caster_is_top'] = self.caster_is_top
         game_state['horn_charge_y_offset'] = 0
         game_state['horn_charge_x_offset'] = 0  # X 오프셋 추가 (타겟 위치로 이동)
-        game_state['horn_charge_knockback_x'] = 0
+        game_state['horn_charge_apply_knockback'] = False  # 넉백 적용 신호 (착지 시 True)
+        game_state['horn_charge_knockback_dir'] = 0
+        game_state['horn_charge_knockback_vel'] = 0
         game_state['horn_charge_target_is_top'] = self.target_is_top
         game_state['horn_charge_impact_shockwave'] = None  # 충격파 이펙트 데이터
 
@@ -1270,10 +1272,12 @@ class HornCharge(HeroSkill):
                 if shockwave['alpha'] <= 0:
                     shockwave['active'] = False
 
-            # 넉백 즉시 적용 (game_state를 통해)
+            # 넉백 즉시 적용 (수류탄 폭발과 동일한 방식)
             if not self.knockback_applied:
-                # 넉백 즉시 150px 적용
-                game_state['horn_charge_knockback_x'] = self.knockback_dir * 150
+                # 넉백 신호 전달 (pingfighter.py에서 player_knockback_vel 적용)
+                game_state['horn_charge_apply_knockback'] = True
+                game_state['horn_charge_knockback_dir'] = self.knockback_dir
+                game_state['horn_charge_knockback_vel'] = 15  # 수류탄과 동일한 속도
                 game_state['horn_charge_target_is_top'] = self.target_is_top
                 self.knockback_applied = True
 
@@ -1327,7 +1331,8 @@ class HornCharge(HeroSkill):
         # 돌진 오프셋 초기화
         game_state['horn_charge_active'] = False
         game_state['horn_charge_y_offset'] = 0
-        game_state['horn_charge_knockback_x'] = 0
+        game_state['horn_charge_x_offset'] = 0
+        game_state['horn_charge_apply_knockback'] = False
         # 스턴 해제
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_stunned'] = False
@@ -1340,7 +1345,8 @@ class HornCharge(HeroSkill):
         game_state['target_knockback'] = 0
         game_state['horn_charge_active'] = False
         game_state['horn_charge_y_offset'] = 0
-        game_state['horn_charge_knockback_x'] = 0
+        game_state['horn_charge_x_offset'] = 0
+        game_state['horn_charge_apply_knockback'] = False
         game_state['top_paddle_stunned'] = False
         game_state['bottom_paddle_stunned'] = False
         self.phase = self.PHASE_CHARGING

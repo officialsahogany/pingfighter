@@ -86621,15 +86621,10 @@ def draw_objects():
             # 애니메이션 업데이트 (60fps 기준 dt = 1/60)
             arena_hero_paddle_renderer.update(1/60)
             # 이동 애니메이션 업데이트 (보스 패들 위치 기반)
-            # 넉백 값 미리 계산 (update_movement에도 반영)
-            _knockback_for_update_top = 0
-            if arena_skill_manager:
-                _upd_gs_top = arena_skill_manager.game_state
-                if _upd_gs_top.get('horn_charge_active') and _upd_gs_top.get('horn_charge_target_is_top'):
-                    _knockback_for_update_top = _upd_gs_top.get('horn_charge_knockback_x', 0)
+            # update_movement (넉백은 BOSS.x에 직접 적용되므로 오프셋 불필요)
             arena_hero_paddle_renderer.update_movement(
                 arena_top_hero["id"],
-                BOSS.centerx + _knockback_for_update_top,
+                BOSS.centerx,
                 1/60
             )
             # 대쉬 후딜 떨림 효과 (보스와 동일)
@@ -86642,7 +86637,6 @@ def draw_objects():
             # 🐂 뿔 박치기 돌진 X/Y 오프셋 (상단 영웅이 시전자일 때)
             _horn_charge_y_offset_top = 0
             _horn_charge_x_offset_top = 0  # 시전자의 X 이동 오프셋
-            _horn_charge_knockback_x_top = 0
             if arena_skill_manager:
                 _horn_gs = arena_skill_manager.game_state
                 if _horn_gs.get('horn_charge_active'):
@@ -86650,14 +86644,12 @@ def draw_objects():
                     if _horn_gs.get('horn_charge_caster_is_top'):
                         _horn_charge_y_offset_top = _horn_gs.get('horn_charge_y_offset', 0)
                         _horn_charge_x_offset_top = _horn_gs.get('horn_charge_x_offset', 0)
-                    # 타겟이 상단이면 (시전자가 하단) 넉백 X 적용
-                    if _horn_gs.get('horn_charge_target_is_top'):
-                        _horn_charge_knockback_x_top = _horn_gs.get('horn_charge_knockback_x', 0)
-            # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋 + 넉백)
+                    # 넉백은 boss_knockback_vel로 BOSS.x에 직접 적용됨 (시각적 오프셋 불필요)
+            # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
                 arena_top_hero["id"],
-                BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top + _horn_charge_knockback_x_top,
+                BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top,
                 BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top,
                 BOSS.width,
                 BOSS.height,
@@ -88140,16 +88132,10 @@ def draw_objects():
     # 🔴 디버그: 스킬 매니저 상태 출력
     if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
         try:
-            # 이동 애니메이션 업데이트 (플레이어 패들 위치 기반)
-            # 넉백 값 미리 계산 (update_movement에도 반영)
-            _knockback_for_update = 0
-            if arena_skill_manager:
-                _upd_gs = arena_skill_manager.game_state
-                if _upd_gs.get('horn_charge_active') and not _upd_gs.get('horn_charge_target_is_top'):
-                    _knockback_for_update = _upd_gs.get('horn_charge_knockback_x', 0)
+            # 이동 애니메이션 업데이트 (넉백은 PLAYER.x에 직접 적용되므로 오프셋 불필요)
             arena_hero_paddle_renderer.update_movement(
                 arena_bottom_hero["id"],
-                player_rect.centerx + _knockback_for_update,
+                player_rect.centerx,
                 1/60
             )
             # 대쉬 후딜 떨림 효과 (보스와 동일)
@@ -88160,18 +88146,17 @@ def draw_objects():
                 _arena_bottom_stun_shake_y = random.randint(-1, 1)
             # 🐂 뿔 박치기 돌진 Y 오프셋 (하단 영웅이 시전자일 때)
             _horn_charge_y_offset_bottom = 0
-            _horn_charge_knockback_x_bottom = 0
+            _horn_charge_x_offset_bottom = 0
             if arena_skill_manager:
                 _horn_gs = arena_skill_manager.game_state
                 if _horn_gs.get('horn_charge_active'):
-                    # 시전자가 하단이면 Y 오프셋 적용
+                    # 시전자가 하단이면 X/Y 오프셋 적용 (타겟 위치로 이동)
                     if not _horn_gs.get('horn_charge_caster_is_top'):
                         _horn_charge_y_offset_bottom = _horn_gs.get('horn_charge_y_offset', 0)
-                    # 타겟이 하단이면 (시전자가 상단) 넉백 X 적용
-                    if not _horn_gs.get('horn_charge_target_is_top'):
-                        _horn_charge_knockback_x_bottom = _horn_gs.get('horn_charge_knockback_x', 0)
-            # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋 + 뿔박치기 오프셋 + 넉백)
-            _final_x = player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_knockback_x_bottom
+                        _horn_charge_x_offset_bottom = _horn_gs.get('horn_charge_x_offset', 0)
+                    # 넉백은 player_knockback_vel로 PLAYER.x에 직접 적용됨 (시각적 오프셋 불필요)
+            # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
+            _final_x = player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom
             _final_y = player_rect.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
@@ -131284,6 +131269,26 @@ def main(stage_num, new_boss_mode=False):
                     # 🔥 스킬에 의한 공 속도 변경 반영 (지옥의 불꽃 등)
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
+
+                    # 🐂 뿔 박치기 넉백 적용 (수류탄 폭발과 동일한 방식)
+                    _horn_gs = arena_skill_manager.game_state
+                    if _horn_gs.get('horn_charge_apply_knockback'):
+                        _kb_dir = _horn_gs.get('horn_charge_knockback_dir', 1)
+                        _kb_vel = _horn_gs.get('horn_charge_knockback_vel', 15)
+                        _target_is_top = _horn_gs.get('horn_charge_target_is_top', False)
+
+                        if _target_is_top:
+                            # 보스(상단)에게 넉백 적용
+                            boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
+                            print(f"🐂 [HORN CHARGE] 보스 넉백! dir={_kb_dir}, vel={boss_knockback_vel:.2f}")
+                        else:
+                            # 플레이어(하단)에게 넉백 적용 (수류탄과 동일)
+                            player_knockback_vel = _kb_dir * _kb_vel
+                            player_stunned_timer = 30  # 0.5초 스턴
+                            print(f"🐂 [HORN CHARGE] 플레이어 넉백! dir={_kb_dir}, vel={player_knockback_vel:.2f}")
+
+                        # 넉백 적용 완료 플래그 해제
+                        _horn_gs['horn_charge_apply_knockback'] = False
 
                     # 🎭 수호 인형 공 반사 처리 (인형의 저주)
                     arena_game_state = arena_skill_manager.game_state
