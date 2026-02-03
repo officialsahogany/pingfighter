@@ -2153,7 +2153,7 @@ class DragonBreath(HeroSkill):
                 'y': fire_y,
                 'width': 120,  # 화염 지대 너비
                 'height': 60,  # 화염 지대 높이
-                'duration': 180,  # 3초 (60fps * 3)
+                'duration': 90,  # 1.5초 (60fps * 1.5)
                 'source': 'dragon_breath'
             }
 
