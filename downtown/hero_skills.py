@@ -2095,14 +2095,6 @@ class DragonBreath(HeroSkill):
         # 발사 시점의 X 좌표 저장 (화염지대 생성 위치용)
         self.breath_start_x = caster_paddle.x + caster_paddle.width // 2
 
-        # 🔥 [DEBUG] 스킬 발동 정보 출력
-        print(f"🔥 [드래곤브레스] 스킬 발동!")
-        print(f"   - 시전자: {'상단' if is_caster_top else '하단'} (is_top={is_caster_top})")
-        print(f"   - 패들 위치: ({caster_paddle.x}, {caster_paddle.y})")
-        print(f"   - 공 위치: ({ball.x:.0f}, {ball.y:.0f})")
-        print(f"   - 브레스 방향: {'아래↓' if direction > 0 else '위↑'}")
-        print(f"   - 파티클 시작Y: {caster_paddle.y + direction * 20}")
-
         # 화염 파티클 대량 생성
         for i in range(50):
             self.breath_particles.append({
@@ -2130,19 +2122,6 @@ class DragonBreath(HeroSkill):
             ball_radius * 2 + 10
         )
 
-        # 🔥 [DEBUG] 드래곤 브레스 상태 출력 (매 프레임)
-        if len(self.breath_particles) > 0 and not self.breath_hit_ball:
-            # 가장 가까운 파티클과 공 사이 거리 계산
-            min_dist = float('inf')
-            closest_p = None
-            for p in self.breath_particles:
-                dist = math.hypot(p['x'] - ball.x, p['y'] - ball.y)
-                if dist < min_dist:
-                    min_dist = dist
-                    closest_p = p
-            if closest_p and min_dist < 100:  # 100px 이내일 때만 출력
-                print(f"🔥 [드래곤브레스] 공({ball.x:.0f},{ball.y:.0f}) | 가장가까운파티클({closest_p['x']:.0f},{closest_p['y']:.0f}) | 거리:{min_dist:.0f}px | 파티클수:{len(self.breath_particles)}")
-
         for p in self.breath_particles:
             p['x'] += p['vx'] * dt
             p['y'] += p['vy'] * dt
@@ -2163,12 +2142,10 @@ class DragonBreath(HeroSkill):
 
                 if particle_rect.colliderect(ball_rect):
                     # 공 가속
-                    old_vx, old_vy = ball.vx, ball.vy
                     ball.vx *= 1.4
                     ball.vy *= 1.4
                     self.breath_hit_ball = True
                     game_state['ball_on_fire'] = True
-                    print(f"🔥🔥🔥 [드래곤브레스] 공 타격 성공! 속도: ({old_vx:.1f},{old_vy:.1f}) → ({ball.vx:.1f},{ball.vy:.1f})")
 
         self.breath_particles = [p for p in self.breath_particles if p['life'] > 0]
 
@@ -2205,18 +2182,27 @@ class DragonBreath(HeroSkill):
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         for p in self.breath_particles:
             if p['size'] > 2:
-                # 화염 색상 변화
+                # 화염 색상 변화 (값 범위 0~255로 클램핑)
                 phase = p['color_phase'] % 1.0
                 if phase < 0.33:
-                    color = (255, 255, int(200 * (1 - phase * 3)))
+                    r, g, b = 255, 255, int(200 * (1 - phase * 3))
                 elif phase < 0.66:
-                    color = (255, int(255 - 155 * (phase - 0.33) * 3), 0)
+                    r, g, b = 255, int(255 - 155 * (phase - 0.33) * 3), 0
                 else:
-                    color = (int(255 - 55 * (phase - 0.66) * 3), int(100 - 100 * (phase - 0.66) * 3), 0)
+                    r = int(255 - 55 * (phase - 0.66) * 3)
+                    g = int(100 - 100 * (phase - 0.66) * 3)
+                    b = 0
+
+                # 색상값 클램핑 (0~255)
+                r = max(0, min(255, r))
+                g = max(0, min(255, g))
+                b = max(0, min(255, b))
 
                 alpha = int(200 * (p['life'] / 1.5))
+                alpha = max(0, min(255, alpha))  # 알파값도 클램핑
+
                 surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
-                pygame.draw.circle(surf, (*color, alpha), (int(p['size']), int(p['size'])), int(p['size']))
+                pygame.draw.circle(surf, (r, g, b, alpha), (int(p['size']), int(p['size'])), int(p['size']))
                 screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])), special_flags=pygame.BLEND_ADD)
 
 
