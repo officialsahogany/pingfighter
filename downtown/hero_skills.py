@@ -134,6 +134,15 @@ class HeroSkill:
         self.active_timer = 0.0
         self.effect_data = {}
 
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 스킬 강제 종료 및 상태 초기화
+        서브클래스에서 오버라이드하여 추가 정리 작업 수행
+        """
+        if self.is_active:
+            self.is_active = False
+            self.active_timer = 0.0
+            self.effect_data = {}
+
 
 # ============================================================================
 # 무겐 스킬 - 귀검사 (공격적)
@@ -500,6 +509,21 @@ class TentacleWrap(HeroSkill):
             pygame.draw.ellipse(wrap_surf, (50, 120, 140, 80), (0, 0, 120, 80), 3)
             screen.blit(wrap_surf, (target_x - 60, target_y - 40))
 
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 촉수 휘감기 스킬 강제 종료"""
+        super().reset_for_new_round(game_state)
+        # 촉수 제거
+        self.tentacles = []
+        self.phase = 'travel'
+        self.travel_progress = 0
+        self.wrap_timer = 0
+        # 둔화 효과 해제
+        if self.slow_applied:
+            target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+            game_state[f'{target_prefix}_slowed'] = False
+            game_state[f'{target_prefix}_slow_amount'] = 1.0
+            self.slow_applied = False
+
 
 class AbyssInk(HeroSkill):
     """심해의 먹물 - 크라켄이 먹물을 발사하여 상대방에게 혼란을 준다"""
@@ -792,6 +816,22 @@ class AbyssInk(HeroSkill):
                                    (center_x - inner_w, center_y - inner_h, inner_w * 2, inner_h * 2))
                 screen.blit(remain_surf, (int(self.splash_center_x - center_x),
                                          int(self.splash_center_y - center_y)))
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 심해의 먹물 스킬 강제 종료"""
+        super().reset_for_new_round(game_state)
+        # 먹물 제거
+        self.ink_blobs = []
+        self.phase = 'travel'
+        self.projectile_progress = 0.0
+        self.splash_timer = 0
+        self.active_timer = 0
+        # 혼란 효과 해제
+        if self.confusion_applied:
+            target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+            game_state[f'{target_prefix}_confused'] = False
+            game_state['target_confused'] = False
+            self.confusion_applied = False
 
 
 # ============================================================================
@@ -1429,6 +1469,28 @@ class PuppetControl(HeroSkill):
 
         screen.blit(heart_surf, (x - int(size), y - int(size)))
 
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 꼭두각시 조종 스킬 강제 종료"""
+        super().reset_for_new_round(game_state)
+        # 실과 이펙트 제거
+        self.strings = []
+        self.phase = self.PHASE_EXTENDING
+        self.phase_timer = 0
+        self.string_extend_progress = 0
+        self.kiss_hearts = []
+        self.kiss_sparkles = []
+        # 패들 고정 해제
+        game_state['top_paddle_locked'] = False
+        game_state['bottom_paddle_locked'] = False
+        if 'top_paddle_locked_x' in game_state:
+            del game_state['top_paddle_locked_x']
+        if 'top_paddle_locked_y' in game_state:
+            del game_state['top_paddle_locked_y']
+        if 'bottom_paddle_locked_x' in game_state:
+            del game_state['bottom_paddle_locked_x']
+        if 'bottom_paddle_locked_y' in game_state:
+            del game_state['bottom_paddle_locked_y']
+
 
 class DollCurse(HeroSkill):
     """인형의 저주 - 상대 조작 반전"""
@@ -1652,6 +1714,20 @@ class DollCurse(HeroSkill):
                     pygame.draw.line(screen, (150, 80, 100),
                                    (dx + int(tx * s), dy - int(32 * s)),
                                    (dx + int(tx * s), dy - int(50 * s)), 1)
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 인형의 저주 스킬 강제 종료"""
+        super().reset_for_new_round(game_state)
+        # 저주 인형과 불꽃 제거
+        self.curse_dolls = []
+        self.flame_particles = []
+        # 조작 반전 효과 해제
+        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_confused'] = False
+        game_state['target_confused'] = False
+        # 마리아 고정 해제
+        caster_prefix = 'bottom_paddle' if self.target_is_top else 'top_paddle'
+        game_state[f'{caster_prefix}_locked'] = False
 
 
 # ============================================================================
@@ -2297,6 +2373,38 @@ class HeroSkillManager:
         self.screen_effects = []
         # 영웅별 글로벌 쿨다운 초기화
         self.hero_global_cooldowns = {}
+
+    def reset_active_skills_for_round(self):
+        """라운드 전환 시 모든 활성 스킬 강제 종료
+
+        스킬 발동 중 라운드가 끝나면 스킬 효과와 상태를 정리합니다.
+        - 촉수 휘감기 (크라켄): 둔화 효과 해제
+        - 심해의 먹물 (크라켄): 혼란 효과 해제
+        - 꼭두각시 조종 (마리아): 패들 고정 해제
+        - 인형의 저주 (마리아): 조작 반전 해제
+        """
+        for hero_id, skills in self.active_skills.items():
+            for skill in skills:
+                if skill.is_active:
+                    skill.reset_for_new_round(self.game_state)
+
+        # 추가로 game_state의 모든 효과 상태 초기화
+        self.game_state['top_paddle_stunned'] = False
+        self.game_state['top_paddle_slowed'] = False
+        self.game_state['top_paddle_slow_amount'] = 1.0
+        self.game_state['top_paddle_confused'] = False
+        self.game_state['top_paddle_locked'] = False
+        self.game_state['bottom_paddle_stunned'] = False
+        self.game_state['bottom_paddle_slowed'] = False
+        self.game_state['bottom_paddle_slow_amount'] = 1.0
+        self.game_state['bottom_paddle_confused'] = False
+        self.game_state['bottom_paddle_locked'] = False
+        self.game_state['target_confused'] = False
+        self.game_state['target_slowed'] = False
+        self.game_state['slow_amount'] = 1.0
+        self.game_state['target_stunned'] = False
+        self.game_state['screen_shake'] = 0
+        self.game_state['shake_duration'] = 0
 
     def update(self, dt: float, top_paddle, bottom_paddle, ball):
         """스킬 업데이트"""

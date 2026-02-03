@@ -47989,6 +47989,14 @@ def go_to_next_round():
     # 화염 효과음 관련 코드 제거됨 (SOUND_FLAME 사용 안 함)
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
+
+    # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
+    if arena_mode_enabled and arena_skill_manager:
+        try:
+            arena_skill_manager.reset_active_skills_for_round()
+        except Exception as e:
+            print(f"[Arena] 스킬 라운드 리셋 오류: {e}")
+
     #  수류탄 관련 초기화
     grenades.clear()  # 날아가는 수류탄 제거
     explosion_zones.clear()  # 폭발 지역 제거
@@ -113070,6 +113078,14 @@ def reset_round(is_stage_start=False):
     # 화염 효과음 관련 코드 제거됨 (SOUND_FLAME 사용 안 함)
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
+
+    # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
+    if arena_mode_enabled and arena_skill_manager:
+        try:
+            arena_skill_manager.reset_active_skills_for_round()
+        except Exception as e:
+            print(f"[Arena] 스킬 라운드 리셋 오류: {e}")
+
     #  수류탄 관련 초기화
     grenades.clear()  # 날아가는 수류탄 제거
     explosion_zones.clear()  # 폭발 지역 제거
