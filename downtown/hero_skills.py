@@ -1128,9 +1128,6 @@ class HornCharge(HeroSkill):
         self.impact_y = 0
         self.stun_applied = False
 
-        # 돌진 잔상 효과
-        self.afterimages = []
-
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.shockwave_radius = 0
         self.knockback_applied = False
@@ -1139,7 +1136,6 @@ class HornCharge(HeroSkill):
         self.phase_timer = 0
         self.charge_progress = 0
         self.return_progress = 0
-        self.afterimages = []
 
         # 시전자 위치 정보 저장
         self.caster_is_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
@@ -1183,16 +1179,9 @@ class HornCharge(HeroSkill):
             # Y 오프셋 계산 (game_state를 통해 전달)
             y_offset = (self.impact_y - self.caster_original_y) * eased_progress
             game_state['horn_charge_y_offset'] = y_offset
-            current_y = self.caster_original_y + y_offset
 
-            # 잔상 추가
-            if random.random() < 0.5:
-                self.afterimages.append({
-                    'x': self.caster_x,
-                    'y': current_y,
-                    'alpha': 200,
-                    'scale': 1.0
-                })
+            # 🔴 붉은 오라 효과 활성화 (돌진 중)
+            game_state['horn_charge_red_aura'] = True
 
             # 돌진 완료 → 충돌 페이즈
             if self.charge_progress >= 1.0:
@@ -1200,6 +1189,7 @@ class HornCharge(HeroSkill):
                 self.phase_timer = 0
                 game_state['screen_shake'] = 25
                 game_state['shake_duration'] = 0.3
+                game_state['horn_charge_red_aura'] = False
 
         elif self.phase == self.PHASE_IMPACT:
             # 충돌 + 넉백 (0.2초)
@@ -1238,9 +1228,13 @@ class HornCharge(HeroSkill):
             y_offset = impact_offset * (1 - eased_progress)
             game_state['horn_charge_y_offset'] = y_offset
 
+            # 🔴 붉은 오라 효과 활성화 (복귀 중)
+            game_state['horn_charge_red_aura'] = True
+
             # 복귀 완료 → 스턴 페이즈
             if self.return_progress >= 1.0:
                 game_state['horn_charge_y_offset'] = 0
+                game_state['horn_charge_red_aura'] = False
                 self.phase = self.PHASE_STUN
                 self.phase_timer = 0
 
@@ -1265,10 +1259,10 @@ class HornCharge(HeroSkill):
         game_state['horn_charge_active'] = False
         game_state['horn_charge_y_offset'] = 0
         game_state['horn_charge_knockback_x'] = 0
+        game_state['horn_charge_red_aura'] = False
         # 스턴 해제
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_stunned'] = False
-        self.afterimages = []
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 뿔 박치기 스킬 강제 종료"""
@@ -1278,10 +1272,10 @@ class HornCharge(HeroSkill):
         game_state['horn_charge_active'] = False
         game_state['horn_charge_y_offset'] = 0
         game_state['horn_charge_knockback_x'] = 0
+        game_state['horn_charge_red_aura'] = False
         game_state['top_paddle_stunned'] = False
         game_state['bottom_paddle_stunned'] = False
         self.phase = self.PHASE_CHARGING
-        self.afterimages = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if not self.is_active:
@@ -1290,16 +1284,6 @@ class HornCharge(HeroSkill):
         # 현재 시전자 Y 위치 계산
         y_offset = game_state.get('horn_charge_y_offset', 0)
         current_caster_y = self.caster_original_y + y_offset
-
-        # 잔상 그리기
-        for img in self.afterimages:
-            if img['alpha'] > 10:
-                alpha = int(img['alpha'])
-                size = int(80 * img['scale'])
-                ghost_surf = pygame.Surface((size, 40), pygame.SRCALPHA)
-                # 붉은색 잔상
-                pygame.draw.rect(ghost_surf, (255, 80, 30, alpha), (0, 0, size, 40), border_radius=5)
-                screen.blit(ghost_surf, (int(img['x']), int(img['y'])))
 
         # 충돌 시 충격파
         if self.phase == self.PHASE_IMPACT and self.shockwave_radius < 300:

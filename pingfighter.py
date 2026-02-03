@@ -86640,10 +86640,23 @@ def draw_objects():
                 _arena_top_stun_shake_y = random.randint(-1, 1)
             # 🐂 뿔 박치기 돌진 Y 오프셋 (상단 영웅이 시전자일 때)
             _horn_charge_y_offset_top = 0
+            _horn_charge_red_aura_top = False
             if arena_skill_manager:
                 _horn_gs = arena_skill_manager.game_state
                 if _horn_gs.get('horn_charge_active') and _horn_gs.get('horn_charge_caster_is_top'):
                     _horn_charge_y_offset_top = _horn_gs.get('horn_charge_y_offset', 0)
+                    _horn_charge_red_aura_top = _horn_gs.get('horn_charge_red_aura', False)
+
+            # 🔴 붉은 오라 효과 (뿔 박치기 돌진/복귀 중)
+            if _horn_charge_red_aura_top:
+                _aura_center_x = BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x
+                _aura_center_y = BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top
+                # 바깥쪽 붉은 글로우
+                _aura_surf = pygame.Surface((BOSS.width + 40, BOSS.height + 40), pygame.SRCALPHA)
+                pygame.draw.ellipse(_aura_surf, (255, 50, 30, 80), (0, 0, BOSS.width + 40, BOSS.height + 40))
+                pygame.draw.ellipse(_aura_surf, (255, 100, 50, 60), (10, 10, BOSS.width + 20, BOSS.height + 20))
+                SCREEN.blit(_aura_surf, (_aura_center_x - BOSS.width // 2 - 20, _aura_center_y - BOSS.height // 2 - 20))
+
             # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
@@ -86655,7 +86668,8 @@ def draw_objects():
                 facing="down",
                 color=arena_top_hero["color"],
                 scale_mode="paddle",
-                stun_effect=(arena_top_dash_stun_timer > 0)  # 후딜 틴트 효과
+                stun_effect=(arena_top_dash_stun_timer > 0),  # 후딜 틴트 효과
+                red_aura=_horn_charge_red_aura_top  # 🔴 붉은 오라 효과 전달
             )
         except Exception as e:
             pass
@@ -88122,10 +88136,23 @@ def draw_objects():
                 _arena_bottom_stun_shake_y = random.randint(-1, 1)
             # 🐂 뿔 박치기 돌진 Y 오프셋 (하단 영웅이 시전자일 때)
             _horn_charge_y_offset_bottom = 0
+            _horn_charge_red_aura_bottom = False
             if arena_skill_manager:
                 _horn_gs = arena_skill_manager.game_state
                 if _horn_gs.get('horn_charge_active') and not _horn_gs.get('horn_charge_caster_is_top'):
                     _horn_charge_y_offset_bottom = _horn_gs.get('horn_charge_y_offset', 0)
+                    _horn_charge_red_aura_bottom = _horn_gs.get('horn_charge_red_aura', False)
+
+            # 🔴 붉은 오라 효과 (뿔 박치기 돌진/복귀 중)
+            if _horn_charge_red_aura_bottom:
+                _aura_center_x = player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x
+                _aura_center_y = player_rect.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
+                # 바깥쪽 붉은 글로우
+                _aura_surf = pygame.Surface((player_rect.width + 40, player_rect.height + 40), pygame.SRCALPHA)
+                pygame.draw.ellipse(_aura_surf, (255, 50, 30, 80), (0, 0, player_rect.width + 40, player_rect.height + 40))
+                pygame.draw.ellipse(_aura_surf, (255, 100, 50, 60), (10, 10, player_rect.width + 20, player_rect.height + 20))
+                SCREEN.blit(_aura_surf, (_aura_center_x - player_rect.width // 2 - 20, _aura_center_y - player_rect.height // 2 - 20))
+
             # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
@@ -88137,7 +88164,8 @@ def draw_objects():
                 facing="up",
                 color=arena_bottom_hero["color"],
                 scale_mode="paddle",
-                stun_effect=(arena_bottom_dash_stun_timer > 0)  # 후딜 틴트 효과
+                stun_effect=(arena_bottom_dash_stun_timer > 0),  # 후딜 틴트 효과
+                red_aura=_horn_charge_red_aura_bottom  # 🔴 붉은 오라 효과 전달
             )
             _arena_paddle_drawn = True
         except Exception as e:
