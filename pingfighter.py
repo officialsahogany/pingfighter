@@ -88718,13 +88718,20 @@ def draw_objects():
                     PLAYER.centery - (PADDLE_HEIGHT + 40) // 2 + screen_shake_offset_y))
     
     # 플레이어 스턴 효과 (미사일/폭발/초인 테트로 폭발 등 공통)
-    if player_missile_stunned_timer > 0 or player_stunned_timer > 0:
+    # 투기장 모드에서 bottom_paddle_stunned가 활성화되면 별도 이펙트 사용 (중복 방지)
+    _skip_normal_stun_stars = False
+    if arena_mode_enabled and arena_skill_manager:
+        _arena_gs_for_stun = arena_skill_manager.game_state
+        if _arena_gs_for_stun.get('bottom_paddle_stunned', False):
+            _skip_normal_stun_stars = True
+
+    if not _skip_normal_stun_stars and (player_missile_stunned_timer > 0 or player_stunned_timer > 0):
         # 스턴 중일 때 머리 위에 별 효과
         stars_y = PLAYER.y - 40
         # 우선순위: 미사일 스턴 타이머, 없으면 일반 스턴 타이머 사용
         local_timer = player_missile_stunned_timer if player_missile_stunned_timer > 0 else player_stunned_timer
         rotation_angle = (18 - min(18, local_timer)) * 20  # 회전 각도(느슨)
-        
+
         suppress_stars_until = globals().get("player_stun_star_suppress_until_ms", 0)
         show_stars = pygame.time.get_ticks() >= suppress_stars_until
         if show_stars:
@@ -139007,4 +139014,4 @@ if __name__ == "__main__":
         try:
             input()
         except:
-            pass 
+            pass   
