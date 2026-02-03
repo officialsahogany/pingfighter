@@ -468,12 +468,12 @@ class DarkSlash(HeroSkill):
 
 
 class DemonEye(HeroSkill):
-    """귀신의 눈 - 7초간 이동속도 200% 증가 (3배) + 오오라 이펙트"""
+    """귀신발걸음 - 7초간 이동속도 200% 증가 (3배) + 오오라 이펙트"""
     def __init__(self):
         super().__init__(
-            skill_id="demon_eye",
-            name="Demon Eye",
-            korean_name="귀신의 눈",
+            skill_id="demon_step",
+            name="Ghost Step",
+            korean_name="귀신발걸음",
             description="어둠의 기운을 두르고 이동속도가 3배로 증가한다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=25.0,
@@ -506,7 +506,7 @@ class DemonEye(HeroSkill):
                 'alpha': random.randint(100, 200)
             })
 
-        print(f"[DemonEye] 귀신의 눈 발동! 이동속도 3배, 지속시간 7초")
+        print(f"[GhostStep] 귀신발걸음 발동! 이동속도 3배, 지속시간 7초")
 
         return {
             'screen_effect': ScreenEffect.FLASH,
@@ -530,7 +530,7 @@ class DemonEye(HeroSkill):
         game_state[speed_key] = 1.0
         game_state['demon_eye_active'] = False
         self.aura_particles = []
-        print(f"[DemonEye] 귀신의 눈 종료")
+        print(f"[GhostStep] 귀신발걸음 종료")
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
