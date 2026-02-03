@@ -2328,12 +2328,14 @@ class SteamBarrier(HeroSkill):
         is_top = game_state.get('barrier_owner_is_top', True)
         if not self.barrier_hit:
             if is_top:
-                if ball.vy < 0 and abs(ball.y - self.barrier_y) < 20 and ball.y < self.barrier_y:
+                # 상단 배리어: 공이 아래에서 위로 접근 (ball.y > barrier_y)
+                if ball.vy < 0 and abs(ball.y - self.barrier_y) < 20 and ball.y > self.barrier_y:
                     ball.vy = abs(ball.vy) * 1.1
                     self.barrier_hit = True
                     game_state['screen_shake'] = 10
             else:
-                if ball.vy > 0 and abs(ball.y - self.barrier_y) < 20 and ball.y > self.barrier_y:
+                # 하단 배리어: 공이 위에서 아래로 접근 (ball.y < barrier_y)
+                if ball.vy > 0 and abs(ball.y - self.barrier_y) < 20 and ball.y < self.barrier_y:
                     ball.vy = -abs(ball.vy) * 1.1
                     self.barrier_hit = True
                     game_state['screen_shake'] = 10
