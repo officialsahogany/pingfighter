@@ -1248,8 +1248,14 @@ class ColosseumsArena:
         # 패들 충돌 체크 + 스킬 발동
         if self.ball.check_paddle_collision(self.top_paddle):
             self._on_ball_hit(self.selected_match.hero1["id"], self.top_paddle, self.bottom_paddle)
+            # 관중 반응 (약한 흥분)
+            if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
+                self.arena_pillar.trigger_excitement(intensity=0.3, duration=0.5)
         if self.ball.check_paddle_collision(self.bottom_paddle):
             self._on_ball_hit(self.selected_match.hero2["id"], self.bottom_paddle, self.top_paddle)
+            # 관중 반응 (약한 흥분)
+            if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
+                self.arena_pillar.trigger_excitement(intensity=0.3, duration=0.5)
 
         # 득점 처리
         if scorer:
@@ -1257,6 +1263,10 @@ class ColosseumsArena:
                 self.score_top += 1
             else:
                 self.score_bottom += 1
+
+            # 관중 흥분 이벤트 트리거
+            if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
+                self.arena_pillar.trigger_excitement(intensity=1.0, duration=2.5)
 
             # 승리 체크 (5점 선취, 4:4부터 듀스)
             if self._check_winner():
