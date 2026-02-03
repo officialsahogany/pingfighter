@@ -89,30 +89,29 @@ class CircularStadiumFrame:
         self._wave_active = False
 
     def _generate_crowd_pixels(self):
-        """관중 픽셀 데이터 생성 (동심원 형태)"""
+        """관중 데이터 생성 (동심원 형태, 큰 사람 형태)"""
         random.seed(42)  # 일관된 결과를 위해
 
         # 게임 영역 바깥쪽 반경부터 화면 끝까지
-        inner_radius = max(self.game_width, self.game_height) // 2 + 20
+        inner_radius = max(self.game_width, self.game_height) // 2 + 30
         outer_radius = int(math.sqrt(self.screen_width**2 + self.screen_height**2))
 
-        # 관중석 층 수 (더 크게 보이도록 줄임)
-        num_tiers = 20
+        # 관중석 층 수 (큰 관중을 위해 적게)
+        num_tiers = 12
         tier_height = (outer_radius - inner_radius) // num_tiers
 
         for tier in range(num_tiers):
             radius = inner_radius + tier * tier_height
-            # 원 둘레를 따라 관중 배치 (더 큰 간격)
+            # 원 둘레를 따라 관중 배치 (큰 간격)
             circumference = 2 * math.pi * radius
-            num_seats = int(circumference / 8)  # 8픽셀 간격 (더 크게)
+            num_seats = int(circumference / 25)  # 25픽셀 간격 (큰 관중)
 
             for i in range(num_seats):
                 angle = (i / num_seats) * 2 * math.pi
 
                 # 통로 구간 (3개 방사형 통로)
-                # 120도 간격으로 3개 통로
                 aisle_angle = angle % (2 * math.pi / 3)
-                is_aisle = aisle_angle < 0.12 or aisle_angle > (2 * math.pi / 3 - 0.12)
+                is_aisle = aisle_angle < 0.15 or aisle_angle > (2 * math.pi / 3 - 0.15)
 
                 if is_aisle:
                     continue
@@ -120,25 +119,42 @@ class CircularStadiumFrame:
                 x = self.center_x + int(radius * math.cos(angle))
                 y = self.center_y + int(radius * math.sin(angle))
 
-                # 화면 범위 체크
-                if 0 <= x < self.screen_width and 0 <= y < self.screen_height:
-                    # 게임 영역 내부는 제외
-                    if not (self.game_x < x < self.game_x + self.game_width and
-                            self.game_y < y < self.game_y + self.game_height):
-                        # 관중 색상 (랜덤)
-                        color = random.choice(self.CROWD_COLORS)
+                # 화면 범위 체크 (관중 크기 고려)
+                if -20 <= x < self.screen_width + 20 and -20 <= y < self.screen_height + 20:
+                    # 게임 영역 내부는 제외 (여유 공간 포함)
+                    if not (self.game_x - 15 < x < self.game_x + self.game_width + 15 and
+                            self.game_y - 15 < y < self.game_y + self.game_height + 15):
+                        # 관중 색상 (옷 색상)
+                        body_color = random.choice(self.CROWD_COLORS)
+                        # 피부색
+                        skin_colors = [
+                            (255, 220, 180), (240, 200, 160), (220, 180, 140),
+                            (180, 140, 100), (140, 100, 70), (255, 210, 170)
+                        ]
+                        skin_color = random.choice(skin_colors)
+                        # 머리 색상
+                        hair_colors = [
+                            (40, 30, 20), (60, 45, 30), (90, 60, 40),
+                            (30, 25, 20), (80, 50, 30), (50, 40, 30)
+                        ]
+                        hair_color = random.choice(hair_colors)
+
                         # 거리에 따른 밝기 조절
-                        brightness = 1.0 - (tier / num_tiers) * 0.3
-                        color = tuple(int(c * brightness) for c in color)
+                        brightness = 1.0 - (tier / num_tiers) * 0.4
+                        body_color = tuple(int(c * brightness) for c in body_color)
+                        skin_color = tuple(int(c * brightness) for c in skin_color)
+                        hair_color = tuple(int(c * brightness) for c in hair_color)
 
                         self.crowd_pixels.append({
                             'x': x,
                             'y': y,
-                            'color': color,
+                            'body_color': body_color,
+                            'skin_color': skin_color,
+                            'hair_color': hair_color,
                             'tier': tier,
                             'angle': angle,
                             'anim_offset': random.uniform(0, math.pi * 2),
-                            'size': random.choice([3, 4, 4, 5]),  # 더 큰 픽셀 (3~5)
+                            'size': random.randint(12, 18),  # 관중 크기 12-18px
                         })
 
         random.seed()
@@ -262,32 +278,79 @@ class CircularStadiumFrame:
         if self._frame_surface:
             screen.blit(self._frame_surface, (0, 0))
 
-        # 관중 픽셀 그리기 (애니메이션)
+        # 관중 그리기 (사람 형태)
         is_excited = self.excitement_level > 0.3
 
-        for pixel in self.crowd_pixels:
-            x, y = pixel['x'], pixel['y']
-            color = pixel['color']
-            size = pixel['size']
+        for person in self.crowd_pixels:
+            x, y = person['x'], person['y']
+            body_color = person['body_color']
+            skin_color = person['skin_color']
+            hair_color = person['hair_color']
+            size = person['size']
 
-            # 애니메이션 (흥분 시 밝기 변화)
+            # 애니메이션 오프셋
+            anim_offset = person['anim_offset']
+
+            # 응원 애니메이션 (위아래 움직임)
+            bounce = 0
+            arm_up = False
             if is_excited:
-                flicker = int(20 * math.sin(self.time * 8 + pixel['anim_offset']))
-                color = tuple(min(255, max(0, c + flicker)) for c in color)
+                bounce = int(3 * math.sin(self.time * 6 + anim_offset))
+                arm_up = math.sin(self.time * 4 + anim_offset) > 0.3
 
             # 웨이브 애니메이션
             if self._wave_active:
-                angle_diff = abs(pixel['angle'] - self._wave_angle)
-                if angle_diff < 0.3 or angle_diff > math.pi * 2 - 0.3:
-                    # 웨이브 위치의 관중은 더 밝게
-                    color = tuple(min(255, c + 40) for c in color)
-                    size = max(size, 2)
+                angle_diff = abs(person['angle'] - self._wave_angle)
+                if angle_diff < 0.4 or angle_diff > math.pi * 2 - 0.4:
+                    bounce = -8  # 웨이브: 위로 점프
+                    arm_up = True
+                    body_color = tuple(min(255, c + 30) for c in body_color)
 
-            # 관중 픽셀 그리기
-            if size == 1:
-                screen.set_at((x, y), color)
-            else:
-                pygame.draw.rect(screen, color, (x, y, size, size))
+            # 관중 그리기 (머리 + 몸통)
+            self._draw_person(screen, x, y + bounce, size, body_color, skin_color, hair_color, arm_up)
+
+    def _draw_person(self, screen, x, y, size, body_color, skin_color, hair_color, arm_up=False):
+        """관중 한 명 그리기 (머리 + 몸통 + 팔)"""
+        # 크기 비율
+        head_size = size // 3
+        body_width = size // 2
+        body_height = size - head_size
+
+        # 몸통 (사각형)
+        body_y = y
+        pygame.draw.rect(screen, body_color,
+                        (x - body_width // 2, body_y, body_width, body_height),
+                        border_radius=2)
+
+        # 팔 (응원 시 위로)
+        arm_width = size // 6
+        arm_height = size // 3
+        if arm_up:
+            # 왼팔 위로
+            pygame.draw.rect(screen, body_color,
+                            (x - body_width // 2 - arm_width, body_y - arm_height + 2, arm_width, arm_height))
+            # 오른팔 위로
+            pygame.draw.rect(screen, body_color,
+                            (x + body_width // 2, body_y - arm_height + 2, arm_width, arm_height))
+            # 손
+            pygame.draw.circle(screen, skin_color,
+                              (x - body_width // 2 - arm_width // 2, body_y - arm_height + 2), arm_width)
+            pygame.draw.circle(screen, skin_color,
+                              (x + body_width // 2 + arm_width // 2, body_y - arm_height + 2), arm_width)
+        else:
+            # 팔 옆으로
+            pygame.draw.rect(screen, body_color,
+                            (x - body_width // 2 - arm_width, body_y + 2, arm_width, arm_height))
+            pygame.draw.rect(screen, body_color,
+                            (x + body_width // 2, body_y + 2, arm_width, arm_height))
+
+        # 머리 (원형)
+        head_y = body_y - head_size
+        pygame.draw.circle(screen, skin_color, (x, head_y), head_size)
+
+        # 머리카락
+        pygame.draw.circle(screen, hair_color, (x, head_y - 2), head_size,
+                          draw_top_left=True, draw_top_right=True)
 
         # 응원 이펙트
         if self.excitement_level > 0.5:
