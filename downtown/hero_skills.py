@@ -2650,6 +2650,8 @@ class HeroSkillManager:
                 new_skill = skill_class()
                 # 스킬 인스턴스에 직접 caster_is_top 저장 (화염지대 위치 계산용)
                 new_skill.caster_is_top = is_top
+                # 초기 쿨타임 부여 (3~8초) - 게임 시작 시 동시 스킬 사용 방지
+                new_skill.current_cooldown = random.uniform(3.0, 8.0)
                 skills.append(new_skill)
             self.active_skills[hero_id] = skills
         else:
