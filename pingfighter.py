@@ -64529,13 +64529,11 @@ def load_game_progress() -> dict | None:
     try:
         save_path = os.path.join(_get_save_directory(), GAME_SAVE_FILE)
         if not os.path.exists(save_path):
-            print(f"[로드] 저장 파일 없음: {save_path}")
             return None
 
         with open(save_path, 'r', encoding='utf-8') as f:
             save_data = json.load(f)
 
-        print(f"[로드] 저장 데이터 발견 (스테이지 {save_data.get('stage_number', '?')})")
         return save_data
 
     except Exception as e:
@@ -64877,10 +64875,7 @@ def has_save_data() -> bool:
     """저장된 게임 데이터가 있는지 확인합니다."""
     try:
         save_path = os.path.join(_get_save_directory(), GAME_SAVE_FILE)
-        exists = os.path.exists(save_path)
-        if exists:
-            print(f"[저장] 세이브 파일 발견: {save_path}")
-        return exists
+        return os.path.exists(save_path)
     except Exception as e:
         print(f"[저장 오류] has_save_data 실패: {e}")
         return False
@@ -86626,9 +86621,15 @@ def draw_objects():
             # 애니메이션 업데이트 (60fps 기준 dt = 1/60)
             arena_hero_paddle_renderer.update(1/60)
             # 이동 애니메이션 업데이트 (보스 패들 위치 기반)
+            # 넉백 값 미리 계산 (update_movement에도 반영)
+            _knockback_for_update_top = 0
+            if arena_skill_manager:
+                _upd_gs_top = arena_skill_manager.game_state
+                if _upd_gs_top.get('horn_charge_active') and _upd_gs_top.get('horn_charge_target_is_top'):
+                    _knockback_for_update_top = _upd_gs_top.get('horn_charge_knockback_x', 0)
             arena_hero_paddle_renderer.update_movement(
                 arena_top_hero["id"],
-                BOSS.centerx,
+                BOSS.centerx + _knockback_for_update_top,
                 1/60
             )
             # 대쉬 후딜 떨림 효과 (보스와 동일)
@@ -88112,12 +88113,23 @@ def draw_objects():
     # UFO 이미지 그리기 (화면 흔들림 효과 적용 - 최적화 버전)
     # 투기장 모드일 때 영웅 패들 렌더링
     _arena_paddle_drawn = False
+    # 🔴 디버그: 스킬 매니저 상태 출력
+    if arena_skill_manager:
+        _dbg_gs = arena_skill_manager.game_state
+        if _dbg_gs.get('horn_charge_active'):
+            print(f"[HORN_DEBUG] horn_charge_active=True, knockback_x={_dbg_gs.get('horn_charge_knockback_x')}, target_is_top={_dbg_gs.get('horn_charge_target_is_top')}")
     if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
         try:
             # 이동 애니메이션 업데이트 (플레이어 패들 위치 기반)
+            # 넉백 값 미리 계산 (update_movement에도 반영)
+            _knockback_for_update = 0
+            if arena_skill_manager:
+                _upd_gs = arena_skill_manager.game_state
+                if _upd_gs.get('horn_charge_active') and not _upd_gs.get('horn_charge_target_is_top'):
+                    _knockback_for_update = _upd_gs.get('horn_charge_knockback_x', 0)
             arena_hero_paddle_renderer.update_movement(
                 arena_bottom_hero["id"],
-                player_rect.centerx,
+                player_rect.centerx + _knockback_for_update,
                 1/60
             )
             # 대쉬 후딜 떨림 효과 (보스와 동일)
@@ -88138,12 +88150,20 @@ def draw_objects():
                     # 타겟이 하단이면 (시전자가 상단) 넉백 X 적용
                     if not _horn_gs.get('horn_charge_target_is_top'):
                         _horn_charge_knockback_x_bottom = _horn_gs.get('horn_charge_knockback_x', 0)
+                        if _horn_charge_knockback_x_bottom != 0:
+                            print(f"[DEBUG] Horn Charge knockback: {_horn_charge_knockback_x_bottom}, target_is_top: {_horn_gs.get('horn_charge_target_is_top')}")
             # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋 + 뿔박치기 오프셋 + 넉백)
+            _final_x = player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_knockback_x_bottom
+            _final_y = player_rect.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
+            if _horn_charge_knockback_x_bottom != 0:
+                print(f"[DEBUG] Drawing bottom hero at x={_final_x} (original={player_rect.centerx}, knockback={_horn_charge_knockback_x_bottom})")
+                # 디버그: 넉백 위치에 빨간 사각형
+                pygame.draw.rect(SCREEN, (255, 0, 0), (_final_x - 40, _final_y - 40, 80, 80), 3)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
                 arena_bottom_hero["id"],
-                player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_knockback_x_bottom,
-                player_rect.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom,
+                _final_x,
+                _final_y,
                 player_rect.width,
                 player_rect.height,
                 facing="up",
@@ -88153,7 +88173,9 @@ def draw_objects():
             )
             _arena_paddle_drawn = True
         except Exception as e:
-            pass
+            print(f"[ERROR] Arena paddle draw error: {e}")
+            import traceback
+            traceback.print_exc()
 
     # 오딘의 눈 페널티 상태가 아닐 때만 기본 패들 그리기
     if _arena_paddle_drawn:
