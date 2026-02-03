@@ -33,7 +33,7 @@ def get_animation_frame():
     return _animation_frame
 
 
-def draw_ice_crystal_scoreboard(surface, player_score, boss_score, screen_width, screen_height, current_stage=1):
+def draw_ice_crystal_scoreboard(surface, player_score, boss_score, screen_width, screen_height, current_stage=1, player_name=None, top_name=None):
     """
     메탈릭 블루 전광판 그리기
 
@@ -44,6 +44,8 @@ def draw_ice_crystal_scoreboard(surface, player_score, boss_score, screen_width,
         screen_width: 화면 너비
         screen_height: 화면 높이
         current_stage: 현재 스테이지 번호
+        player_name: 하단 영웅 이름 (투기장 모드용, None이면 "Player" 사용)
+        top_name: 상단 영웅 이름 (투기장 모드용, None이면 보스 이름 사용)
     """
     frame = get_animation_frame()
 
@@ -114,13 +116,20 @@ def draw_ice_crystal_scoreboard(surface, player_score, boss_score, screen_width,
         surface.blit(border, (x - i * 3, y - i * 3))
 
     # 점수 표시 (로직 스테이지 → 디스플레이 스테이지 변환 후 보스 이름 조회)
-    display_stage = STAGE_SWAP_MAP.get(current_stage, current_stage)
-    boss_name = BOSS_NAMES.get(display_stage, "Boss")
-    draw_metallic_score(surface, player_score, boss_score, x, y, w, h, frame, boss_name)
+    # 투기장 모드일 때는 전달받은 영웅 이름 사용
+    if top_name:
+        boss_name = top_name
+    else:
+        display_stage = STAGE_SWAP_MAP.get(current_stage, current_stage)
+        boss_name = BOSS_NAMES.get(display_stage, "Boss")
+
+    # 하단 이름 (투기장 모드일 때는 영웅 이름, 아니면 "Player")
+    bottom_name = player_name if player_name else "Player"
+    draw_metallic_score(surface, player_score, boss_score, x, y, w, h, frame, boss_name, bottom_name)
 
 
-def draw_metallic_score(surface, p_score, b_score, x, y, w, h, frame, boss_name="Boss"):
-    """메탈릭 블루 스타일 점수 표시 (20% 축소 + Player vs 보스이름)"""
+def draw_metallic_score(surface, p_score, b_score, x, y, w, h, frame, boss_name="Boss", player_name="Player"):
+    """메탈릭 블루 스타일 점수 표시 (20% 축소 + 하단이름 vs 상단이름)"""
     try:
         # 20% 축소: 64 -> 51, 18 -> 14
         font = pygame.font.SysFont("Arial", 51, bold=True)
@@ -139,8 +148,8 @@ def draw_metallic_score(surface, p_score, b_score, x, y, w, h, frame, boss_name=
     b_color = (100, 160, 230)  # 보스: 진한 메탈릭 블루
     label_color = (180, 210, 255)  # 라벨: 밝은 스틸 블루
 
-    # 플레이어 라벨 "Player"
-    player_label = label_font.render("Player", True, label_color)
+    # 하단 영웅 라벨 (기본값 "Player", 투기장 모드일 때는 영웅 이름)
+    player_label = label_font.render(player_name, True, label_color)
     player_label_x = center_x - 55 - player_label.get_width() // 2
     surface.blit(player_label, (player_label_x, y + 12))
 

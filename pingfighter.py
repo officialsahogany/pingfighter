@@ -85622,8 +85622,12 @@ def draw_objects():
                 #  플레이어 서브 - 하단 미니멀 UI
                 serve_font = FontStyle.body()  # 24pt 픽셀 폰트
                 info_font = FontStyle.tiny()  # 16pt 픽셀 폰트
-                # 간단한 텍스트만 표시
-                serve_text = serve_font.render("Player Serve", True, WHITE)
+                # 간단한 텍스트만 표시 (투기장 모드일 때는 하단 영웅 이름 사용)
+                if arena_mode_enabled and arena_bottom_hero:
+                    bottom_hero_name = arena_bottom_hero.get("name", "Player")
+                    serve_text = serve_font.render(f"{bottom_hero_name} Serve", True, WHITE)
+                else:
+                    serve_text = serve_font.render("Player Serve", True, WHITE)
                 serve_rect = serve_text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
                 SCREEN.blit(serve_text, serve_rect)
                 # 액센트 라인 (캐싱된 서피스 사용)
@@ -85646,9 +85650,13 @@ def draw_objects():
                 #  보스 서브 - 상단 미니멀 UI
                 serve_font = FontStyle.body()  # 24pt 픽셀 폰트
                 info_font = FontStyle.tiny()  # 16pt 픽셀 폰트
-                # 간단한 텍스트만 표시
-                boss_name = get_boss_name(current_stage, "Boss")
-                serve_text = serve_font.render(f"{boss_name} Serve", True, WHITE)
+                # 간단한 텍스트만 표시 (투기장 모드일 때는 상단 영웅 이름 사용)
+                if arena_mode_enabled and arena_top_hero:
+                    top_hero_name = arena_top_hero.get("name", "Boss")
+                    serve_text = serve_font.render(f"{top_hero_name} Serve", True, WHITE)
+                else:
+                    boss_name = get_boss_name(current_stage, "Boss")
+                    serve_text = serve_font.render(f"{boss_name} Serve", True, WHITE)
                 serve_rect = serve_text.get_rect(center=(WIDTH // 2, 80))
                 SCREEN.blit(serve_text, serve_rect)
                 # 액센트 라인 (캐싱된 서피스 사용)
@@ -112394,7 +112402,13 @@ def draw_score():
         draw_inferno_deuce_scoreboard(SCREEN, deuce_wins, deuce_losses, deuce_goal, WIDTH, HEIGHT)
     else:
         # 일반 모드 - 메탈릭 블루 전광판
-        draw_ice_crystal_scoreboard(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, current_stage)
+        # 투기장 모드일 때는 영웅 이름 사용
+        if arena_mode_enabled:
+            bottom_hero_name = arena_bottom_hero.get("name", "Player") if arena_bottom_hero else "Player"
+            top_hero_name = arena_top_hero.get("name", "Boss") if arena_top_hero else "Boss"
+            draw_ice_crystal_scoreboard(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, current_stage, bottom_hero_name, top_hero_name)
+        else:
+            draw_ice_crystal_scoreboard(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, current_stage)
 def draw_laser_cannon_gauge():
     """ 레이저 캐논 쿨타임 게이지바 (야마토포 스타일)"""
     if current_stage != 6:
