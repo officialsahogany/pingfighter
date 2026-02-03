@@ -1161,6 +1161,8 @@ class HornCharge(HeroSkill):
         game_state['horn_charge_active'] = True
         game_state['horn_charge_caster_is_top'] = self.caster_is_top
         game_state['horn_charge_y_offset'] = 0
+        game_state['horn_charge_knockback_x'] = 0
+        game_state['horn_charge_target_is_top'] = self.target_is_top
 
         return {
             'screen_effect': ScreenEffect.FLASH,
@@ -1208,17 +1210,12 @@ class HornCharge(HeroSkill):
             # Y 오프셋 유지 (충돌 지점)
             game_state['horn_charge_y_offset'] = self.impact_y - self.caster_original_y
 
-            # 넉백 적용 (game_state를 통해)
+            # 넉백 즉시 적용 (game_state를 통해)
             if not self.knockback_applied:
-                # 넉백 오프셋 저장
-                current_knockback = game_state.get('horn_charge_knockback_x', 0)
-                current_knockback += self.knockback_dir * 150 * dt * 8
-                current_knockback = max(-150, min(150, current_knockback))  # 최대 넉백 제한
-                game_state['horn_charge_knockback_x'] = current_knockback
+                # 넉백 즉시 150px 적용
+                game_state['horn_charge_knockback_x'] = self.knockback_dir * 150
                 game_state['horn_charge_target_is_top'] = self.target_is_top
-
-                if self.phase_timer > 0.15:
-                    self.knockback_applied = True
+                self.knockback_applied = True
 
             # 충돌 페이즈 종료 → 복귀
             if self.phase_timer >= 0.2:

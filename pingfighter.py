@@ -86640,15 +86640,21 @@ def draw_objects():
                 _arena_top_stun_shake_y = random.randint(-1, 1)
             # 🐂 뿔 박치기 돌진 Y 오프셋 (상단 영웅이 시전자일 때)
             _horn_charge_y_offset_top = 0
+            _horn_charge_knockback_x_top = 0
             if arena_skill_manager:
                 _horn_gs = arena_skill_manager.game_state
-                if _horn_gs.get('horn_charge_active') and _horn_gs.get('horn_charge_caster_is_top'):
-                    _horn_charge_y_offset_top = _horn_gs.get('horn_charge_y_offset', 0)
-            # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
+                if _horn_gs.get('horn_charge_active'):
+                    # 시전자가 상단이면 Y 오프셋 적용
+                    if _horn_gs.get('horn_charge_caster_is_top'):
+                        _horn_charge_y_offset_top = _horn_gs.get('horn_charge_y_offset', 0)
+                    # 타겟이 상단이면 (시전자가 하단) 넉백 X 적용
+                    if _horn_gs.get('horn_charge_target_is_top'):
+                        _horn_charge_knockback_x_top = _horn_gs.get('horn_charge_knockback_x', 0)
+            # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋 + 넉백)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
                 arena_top_hero["id"],
-                BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x,
+                BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_knockback_x_top,
                 BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top,
                 BOSS.width,
                 BOSS.height,
@@ -88122,15 +88128,21 @@ def draw_objects():
                 _arena_bottom_stun_shake_y = random.randint(-1, 1)
             # 🐂 뿔 박치기 돌진 Y 오프셋 (하단 영웅이 시전자일 때)
             _horn_charge_y_offset_bottom = 0
+            _horn_charge_knockback_x_bottom = 0
             if arena_skill_manager:
                 _horn_gs = arena_skill_manager.game_state
-                if _horn_gs.get('horn_charge_active') and not _horn_gs.get('horn_charge_caster_is_top'):
-                    _horn_charge_y_offset_bottom = _horn_gs.get('horn_charge_y_offset', 0)
-            # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
+                if _horn_gs.get('horn_charge_active'):
+                    # 시전자가 하단이면 Y 오프셋 적용
+                    if not _horn_gs.get('horn_charge_caster_is_top'):
+                        _horn_charge_y_offset_bottom = _horn_gs.get('horn_charge_y_offset', 0)
+                    # 타겟이 하단이면 (시전자가 상단) 넉백 X 적용
+                    if not _horn_gs.get('horn_charge_target_is_top'):
+                        _horn_charge_knockback_x_bottom = _horn_gs.get('horn_charge_knockback_x', 0)
+            # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋 + 뿔박치기 오프셋 + 넉백)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
                 arena_bottom_hero["id"],
-                player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x,
+                player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_knockback_x_bottom,
                 player_rect.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom,
                 player_rect.width,
                 player_rect.height,
