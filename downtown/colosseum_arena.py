@@ -1203,7 +1203,12 @@ class ColosseumsArena:
         if not self.battle_active:
             return False
 
-        # 스킬 시스템 업데이트
+        # === 암흑 베기 화면 정지 체크 (스킬 업데이트 전에 체크!) ===
+        is_frozen = False
+        if self.skill_manager:
+            is_frozen = self.skill_manager.game_state.get('dark_slash_freeze', False)
+
+        # 스킬 시스템 업데이트 (화면 정지 중에도 스킬 이펙트는 업데이트)
         if self.skill_manager and self.top_paddle and self.bottom_paddle and self.ball:
             self._update_skills(dt)
 
@@ -1232,12 +1237,6 @@ class ColosseumsArena:
             )
             return False
 
-        # === 암흑 베기 화면 정지 체크 ===
-        is_frozen = False
-        if self.skill_manager:
-            game_state = self.skill_manager.game_state
-            is_frozen = game_state.get('dark_slash_freeze', False)
-
         if not is_frozen:
             # AI 패들 업데이트 (실제 게임과 동일한 파라미터)
             self.top_paddle.update(
@@ -1264,7 +1263,7 @@ class ColosseumsArena:
                 if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
                     self.arena_pillar.trigger_excitement(intensity=0.3, duration=0.5)
         else:
-            # 화면 정지 중 - 공/패들 업데이트 없음, 스킬만 업데이트
+            # 화면 정지 중 - 공/패들 업데이트 없음
             scorer = None
 
         # 득점 처리

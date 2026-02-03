@@ -242,6 +242,7 @@ class DarkSlash(HeroSkill):
         # 화면 정지 플래그 설정
         game_state['dark_slash_freeze'] = True
         game_state['dark_slash_phase'] = self.PHASE_SLASH
+        print(f"[DarkSlash] 스킬 발동! freeze=True, phase=SLASH, ball=({ball.x:.0f},{ball.y:.0f})")
 
         return {
             'screen_effect': ScreenEffect.FLASH,
@@ -262,6 +263,7 @@ class DarkSlash(HeroSkill):
                 self.phase = self.PHASE_FREEZE
                 self.phase_timer = 0.0
                 game_state['dark_slash_phase'] = self.PHASE_FREEZE
+                print(f"[DarkSlash] SLASH → FREEZE 전환 (1초 정지 시작)")
 
         elif self.phase == self.PHASE_FREEZE:
             # 화면 정지 (1초)
@@ -279,12 +281,18 @@ class DarkSlash(HeroSkill):
                 self.phase_timer = 0.0
                 game_state['dark_slash_freeze'] = False
                 game_state['dark_slash_phase'] = self.PHASE_RELEASE
+                print(f"[DarkSlash] FREEZE → RELEASE 전환 (1초 정지 종료, freeze=False)")
 
         elif self.phase == self.PHASE_RELEASE:
-            # 정지 해제 - 공 4배 가속!
+            # 정지 해제 - 공 4배 가속 + 반격 (Y 방향 반전)
             speed_boost = 4.0
             ball.vx = self.original_ball_vx * speed_boost
-            ball.vy = self.original_ball_vy * speed_boost
+            # 무겐(상단)이 베면 아래로, 하단이면 위로 반격
+            if self.caster_is_top:
+                ball.vy = abs(self.original_ball_vy) * speed_boost  # 양수 = 아래로
+            else:
+                ball.vy = -abs(self.original_ball_vy) * speed_boost  # 음수 = 위로
+            print(f"[DarkSlash] 4배 가속 + 반격! vx={ball.vx:.1f}, vy={ball.vy:.1f}, caster_is_top={self.caster_is_top}")
 
             self.dark_slash_active = True
             game_state['dark_slash_active'] = True
@@ -418,18 +426,19 @@ class DarkSlash(HeroSkill):
                 pulse = 0.7 + 0.3 * math.sin(self.freeze_flash_timer * 10)
                 for glow in range(3):
                     glow_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
-                    alpha = int((120 - glow * 40) * pulse)
+                    alpha = max(0, min(255, int((120 - glow * 40) * pulse)))
                     pygame.draw.line(glow_surf, (200, 150, 255, alpha),
                                    (start_x, start_y), (end_x, end_y), 8 - glow * 2)
                     screen.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_ADD)
 
         # === 스파크 파티클 ===
         for spark in self.slash_sparks:
-            if spark['life'] > 0:
-                alpha = int(255 * (spark['life'] / spark['max_life']))
-                size = max(1, int(spark['size'] * (spark['life'] / spark['max_life'])))
+            if spark['life'] > 0 and spark['max_life'] > 0:
+                life_ratio = max(0, min(1, spark['life'] / spark['max_life']))
+                alpha = max(0, min(255, int(255 * life_ratio)))
+                size = max(1, int(spark['size'] * life_ratio))
                 surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(surf, (*spark['color'], alpha), (size, size), size)
+                pygame.draw.circle(surf, (*spark['color'][:3], alpha), (size, size), size)
                 screen.blit(surf, (int(spark['x']) - size, int(spark['y']) - size),
                            special_flags=pygame.BLEND_ADD)
 
