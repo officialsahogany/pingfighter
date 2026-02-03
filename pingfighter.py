@@ -86639,15 +86639,17 @@ def draw_objects():
             if arena_top_dash_stun_timer > 0:
                 _arena_top_stun_shake_x = random.randint(-2, 2)
                 _arena_top_stun_shake_y = random.randint(-1, 1)
-            # 🐂 뿔 박치기 돌진 Y 오프셋 (상단 영웅이 시전자일 때)
+            # 🐂 뿔 박치기 돌진 X/Y 오프셋 (상단 영웅이 시전자일 때)
             _horn_charge_y_offset_top = 0
+            _horn_charge_x_offset_top = 0  # 시전자의 X 이동 오프셋
             _horn_charge_knockback_x_top = 0
             if arena_skill_manager:
                 _horn_gs = arena_skill_manager.game_state
                 if _horn_gs.get('horn_charge_active'):
-                    # 시전자가 상단이면 Y 오프셋 적용
+                    # 시전자가 상단이면 X/Y 오프셋 적용 (타겟 위치로 이동)
                     if _horn_gs.get('horn_charge_caster_is_top'):
                         _horn_charge_y_offset_top = _horn_gs.get('horn_charge_y_offset', 0)
+                        _horn_charge_x_offset_top = _horn_gs.get('horn_charge_x_offset', 0)
                     # 타겟이 상단이면 (시전자가 하단) 넉백 X 적용
                     if _horn_gs.get('horn_charge_target_is_top'):
                         _horn_charge_knockback_x_top = _horn_gs.get('horn_charge_knockback_x', 0)
@@ -86655,7 +86657,7 @@ def draw_objects():
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
                 arena_top_hero["id"],
-                BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_knockback_x_top,
+                BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top + _horn_charge_knockback_x_top,
                 BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top,
                 BOSS.width,
                 BOSS.height,
@@ -88114,10 +88116,6 @@ def draw_objects():
     # 투기장 모드일 때 영웅 패들 렌더링
     _arena_paddle_drawn = False
     # 🔴 디버그: 스킬 매니저 상태 출력
-    if arena_skill_manager:
-        _dbg_gs = arena_skill_manager.game_state
-        if _dbg_gs.get('horn_charge_active'):
-            print(f"[HORN_DEBUG] horn_charge_active=True, knockback_x={_dbg_gs.get('horn_charge_knockback_x')}, target_is_top={_dbg_gs.get('horn_charge_target_is_top')}")
     if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
         try:
             # 이동 애니메이션 업데이트 (플레이어 패들 위치 기반)
@@ -88150,15 +88148,9 @@ def draw_objects():
                     # 타겟이 하단이면 (시전자가 상단) 넉백 X 적용
                     if not _horn_gs.get('horn_charge_target_is_top'):
                         _horn_charge_knockback_x_bottom = _horn_gs.get('horn_charge_knockback_x', 0)
-                        if _horn_charge_knockback_x_bottom != 0:
-                            print(f"[DEBUG] Horn Charge knockback: {_horn_charge_knockback_x_bottom}, target_is_top: {_horn_gs.get('horn_charge_target_is_top')}")
             # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋 + 뿔박치기 오프셋 + 넉백)
             _final_x = player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_knockback_x_bottom
             _final_y = player_rect.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
-            if _horn_charge_knockback_x_bottom != 0:
-                print(f"[DEBUG] Drawing bottom hero at x={_final_x} (original={player_rect.centerx}, knockback={_horn_charge_knockback_x_bottom})")
-                # 디버그: 넉백 위치에 빨간 사각형
-                pygame.draw.rect(SCREEN, (255, 0, 0), (_final_x - 40, _final_y - 40, 80, 80), 3)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
                 arena_bottom_hero["id"],
@@ -88173,9 +88165,7 @@ def draw_objects():
             )
             _arena_paddle_drawn = True
         except Exception as e:
-            print(f"[ERROR] Arena paddle draw error: {e}")
-            import traceback
-            traceback.print_exc()
+            pass
 
     # 오딘의 눈 페널티 상태가 아닐 때만 기본 패들 그리기
     if _arena_paddle_drawn:
