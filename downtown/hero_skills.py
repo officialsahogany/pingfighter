@@ -1140,6 +1140,9 @@ class HornCharge(HeroSkill):
         self.charge_progress = 0
         self.return_progress = 0
         self.afterimages = []
+        self.impact_shockwave_triggered = False  # 착지 충격파 트리거
+        self.impact_shockwave_radius = 0
+        self.impact_shockwave_alpha = 255
 
         # 시전자 위치 정보 저장
         self.caster_is_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
@@ -1148,9 +1151,25 @@ class HornCharge(HeroSkill):
         self.caster_original_x = caster_paddle.x
         self.caster_x = caster_paddle.x
 
-        # 타겟 위치 저장 (정확히 겹치도록)
-        self.target_x = target_paddle.x + target_paddle.width // 2  # 타겟 중심 X
+        # 타겟 위치 예측 (돌진 시간 0.3초 후 타겟이 있을 위치)
+        charge_duration = 0.3  # 돌진 시간
+        target_velocity_x = game_state.get('target_velocity_x', 0)  # 타겟의 X 속도
+
+        # 현재 타겟 위치
+        current_target_x = target_paddle.x + target_paddle.width // 2
+
+        # 예측 위치 계산 (현재 위치 + 속도 * 시간)
+        predicted_x = current_target_x + target_velocity_x * charge_duration
+
+        # 게임 영역 경계 제한 (80 ~ 680)
+        GAME_LEFT = 80
+        GAME_RIGHT = 680
+        predicted_x = max(GAME_LEFT + target_paddle.width // 2,
+                         min(GAME_RIGHT - target_paddle.width // 2, predicted_x))
+
+        self.target_x = predicted_x  # 예측된 타겟 X 위치
         self.target_y = target_paddle.y  # 타겟 Y
+        self.impact_x = predicted_x  # 착지 충격파 위치
 
         # 충돌 지점 계산 (타겟 패들과 정확히 겹침)
         if self.caster_is_top:
@@ -1158,8 +1177,13 @@ class HornCharge(HeroSkill):
         else:
             self.impact_y = target_paddle.y  # 타겟과 정확히 같은 Y
 
-        # 넉백 방향 설정
-        knockback_dir = 1 if random.random() > 0.5 else -1
+        # 넉백 방향 설정 (타겟이 이동 중이면 반대 방향으로)
+        if target_velocity_x > 50:
+            knockback_dir = -1  # 오른쪽으로 이동 중이면 왼쪽으로 넉백
+        elif target_velocity_x < -50:
+            knockback_dir = 1   # 왼쪽으로 이동 중이면 오른쪽으로 넉백
+        else:
+            knockback_dir = 1 if random.random() > 0.5 else -1
         self.knockback_dir = knockback_dir
 
         # game_state에 돌진 오프셋 정보 초기화
@@ -1169,6 +1193,7 @@ class HornCharge(HeroSkill):
         game_state['horn_charge_x_offset'] = 0  # X 오프셋 추가 (타겟 위치로 이동)
         game_state['horn_charge_knockback_x'] = 0
         game_state['horn_charge_target_is_top'] = self.target_is_top
+        game_state['horn_charge_impact_shockwave'] = None  # 충격파 이펙트 데이터
 
         return {
             'screen_effect': ScreenEffect.FLASH,
@@ -1222,6 +1247,28 @@ class HornCharge(HeroSkill):
             # X, Y 오프셋 유지 (충돌 지점 = 타겟 위치)
             game_state['horn_charge_y_offset'] = self.impact_y - self.caster_original_y
             game_state['horn_charge_x_offset'] = self.target_x - self.caster_original_x
+
+            # 🔥 착지 충격파 이펙트 트리거 (최초 1회)
+            if not self.impact_shockwave_triggered:
+                self.impact_shockwave_triggered = True
+                self.impact_shockwave_radius = 0
+                self.impact_shockwave_alpha = 255
+                # 충격파 이펙트 데이터를 game_state에 저장
+                game_state['horn_charge_impact_shockwave'] = {
+                    'x': self.target_x,
+                    'y': self.impact_y,
+                    'radius': 0,
+                    'alpha': 255,
+                    'active': True
+                }
+
+            # 착지 충격파 애니메이션 업데이트
+            if game_state.get('horn_charge_impact_shockwave', {}).get('active'):
+                shockwave = game_state['horn_charge_impact_shockwave']
+                shockwave['radius'] += dt * 400  # 충격파 확장 속도
+                shockwave['alpha'] = max(0, 255 - shockwave['radius'] * 3)  # 페이드 아웃
+                if shockwave['alpha'] <= 0:
+                    shockwave['active'] = False
 
             # 넉백 즉시 적용 (game_state를 통해)
             if not self.knockback_applied:

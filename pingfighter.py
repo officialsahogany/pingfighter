@@ -86666,6 +86666,28 @@ def draw_objects():
                 scale_mode="paddle",
                 stun_effect=(arena_top_dash_stun_timer > 0)  # 후딜 틴트 효과
             )
+
+            # 🔥 뿔 박치기 착지 충격파 이펙트 렌더링
+            if arena_skill_manager:
+                _shockwave = arena_skill_manager.game_state.get('horn_charge_impact_shockwave')
+                if _shockwave and _shockwave.get('active'):
+                    _sw_x = int(_shockwave['x'])
+                    _sw_y = int(_shockwave['y'])
+                    _sw_radius = int(_shockwave['radius'])
+                    _sw_alpha = int(_shockwave['alpha'])
+                    if _sw_radius > 0 and _sw_alpha > 0:
+                        # 충격파 원 그리기 (붉은 오라)
+                        _sw_surf = pygame.Surface((_sw_radius * 2 + 20, _sw_radius * 2 + 20), pygame.SRCALPHA)
+                        # 외곽 원 (붉은색)
+                        pygame.draw.circle(_sw_surf, (255, 100, 50, _sw_alpha),
+                                         (_sw_radius + 10, _sw_radius + 10), _sw_radius, 4)
+                        # 내부 원 (주황색)
+                        if _sw_radius > 10:
+                            pygame.draw.circle(_sw_surf, (255, 180, 80, _sw_alpha // 2),
+                                             (_sw_radius + 10, _sw_radius + 10), _sw_radius - 8, 2)
+                        SCREEN.blit(_sw_surf, (_sw_x - _sw_radius - 10 + screen_shake_offset_x,
+                                              _sw_y - _sw_radius - 10 + screen_shake_offset_y),
+                                   special_flags=pygame.BLEND_ADD)
         except Exception as e:
             pass
 
@@ -131223,6 +131245,19 @@ def main(stage_num, new_boss_mode=False):
             if not freeze_now and arena_mode_enabled and arena_skill_manager:
                 try:
                     dt = 1.0 / 60.0  # 60fps 기준
+
+                    # 🎯 패들 속도 추적 (뿔 박치기 위치 예측용)
+                    _prev_player_x = globals().get("_arena_prev_player_x", PLAYER.centerx)
+                    _prev_boss_x = globals().get("_arena_prev_boss_x", BOSS.centerx)
+                    _player_velocity_x = (PLAYER.centerx - _prev_player_x) / dt if dt > 0 else 0
+                    _boss_velocity_x = (BOSS.centerx - _prev_boss_x) / dt if dt > 0 else 0
+                    globals()["_arena_prev_player_x"] = PLAYER.centerx
+                    globals()["_arena_prev_boss_x"] = BOSS.centerx
+
+                    # game_state에 타겟 속도 저장
+                    arena_skill_manager.game_state['target_velocity_x'] = _player_velocity_x  # 하단(플레이어) 속도
+                    arena_skill_manager.game_state['boss_velocity_x'] = _boss_velocity_x  # 상단(보스) 속도
+
                     # 래퍼 객체 생성
                     class PaddleWrapper:
                         def __init__(self, rect, is_top):
