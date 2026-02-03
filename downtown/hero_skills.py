@@ -2230,8 +2230,28 @@ class DragonWing(HeroSkill):
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        # 공에 바람 효과 적용
-        ball.vx += game_state.get('wind_force', 0) * dt * 60
+        # 공에 바람 효과 적용 (변동성 추가)
+        base_wind = game_state.get('wind_force', 0)
+
+        # 1. 랜덤 변동 (-30% ~ +30%)
+        wind_variation = base_wind * random.uniform(0.7, 1.3)
+
+        # 2. 벽 근처에서 바람 감소 (벽에 갇히는 현상 방지)
+        wall_margin = 50  # 벽에서 50px 이내
+        left_wall = 80 + wall_margin
+        right_wall = 680 - wall_margin
+
+        if (ball.x < left_wall and base_wind < 0) or (ball.x > right_wall and base_wind > 0):
+            # 벽 방향으로 밀리는 중이면 힘 대폭 감소
+            wind_variation *= 0.2
+
+        # 3. 가끔 반대 방향 돌풍 (15% 확률)
+        if random.random() < 0.15:
+            wind_variation *= -0.5  # 반대 방향으로 살짝 밀기
+
+        # 4. 약간의 Y축 변동 추가 (자연스러운 움직임)
+        ball.vx += wind_variation * dt * 60
+        ball.vy += random.uniform(-0.3, 0.3) * abs(base_wind) * dt * 60
 
         # 바람 파티클 추가
         if random.random() < 0.4:
