@@ -1268,6 +1268,19 @@ class ColosseumsArena:
             if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
                 self.arena_pillar.trigger_excitement(intensity=1.0, duration=2.5)
 
+            # === 암흑 베기 상태 리셋 (득점 시) ===
+            if self.skill_manager:
+                game_state = self.skill_manager.game_state
+                if game_state.get('dark_slash_active', False):
+                    game_state['dark_slash_active'] = False
+                    # 무겐의 DarkSlash 스킬 상태도 리셋
+                    mugen_skills = self.skill_manager.hero_skills.get('mugen', [])
+                    for skill in mugen_skills:
+                        if skill.skill_id == 'dark_slash':
+                            skill.dark_slash_active = False
+                            skill.original_ball_speed = None
+                            break
+
             # 승리 체크 (5점 선취, 4:4부터 듀스)
             if self._check_winner():
                 return True
@@ -1313,6 +1326,20 @@ class ColosseumsArena:
         """공을 칠 때 ON_BALL_HIT 스킬 발동"""
         if not self.skill_manager or not HERO_SKILLS_AVAILABLE:
             return
+
+        # === 암흑 베기 반격 처리 ===
+        # 상대가 공을 반격하면 암흑 베기로 인한 공 가속을 원래 속도로 복귀
+        game_state = self.skill_manager.game_state
+        if game_state.get('dark_slash_active', False):
+            # 암흑 베기 시전자와 현재 타자가 다르면 (= 상대가 반격)
+            dark_slash_caster_is_top = game_state.get('dark_slash_caster_is_top', False)
+            if dark_slash_caster_is_top != caster_paddle.is_top:
+                # 무겐의 DarkSlash 스킬 찾아서 on_opponent_hit 호출
+                mugen_skills = self.skill_manager.hero_skills.get('mugen', [])
+                for skill in mugen_skills:
+                    if skill.skill_id == 'dark_slash' and hasattr(skill, 'on_opponent_hit'):
+                        skill.on_opponent_hit(self.ball, game_state)
+                        break
 
         result = self.skill_manager.try_use_skill(
             hero_id,

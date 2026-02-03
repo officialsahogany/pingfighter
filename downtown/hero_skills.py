@@ -148,48 +148,62 @@ class HeroSkill:
 # 무겐 스킬 - 귀검사 (공격적)
 # ============================================================================
 class DarkSlash(HeroSkill):
-    """암흑 베기 - 공을 칠 때 검기 이펙트 + 공 가속"""
+    """암흑 베기 - 공을 칠 때 검기 이펙트 + 공 4배 가속 (상대 반격 시 원래 속도로 복귀)"""
     def __init__(self):
         super().__init__(
             skill_id="dark_slash",
             name="Dark Slash",
             korean_name="암흑 베기",
-            description="검은 검기로 공을 강타하여 속도를 크게 증가시킨다",
+            description="검은 검기로 공을 강타하여 속도를 4배 증가시킨다 (상대 반격 시 원래 속도로 복귀)",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=8.0,
             duration=0.5,
             hero_id="mugen"
         )
         self.slash_particles = []
+        # 암흑 베기 공 속도 추적
+        self.original_ball_speed = None  # 원래 공 속도 저장
+        self.dark_slash_active = False   # 암흑 베기 가속 활성 여부
+        self.caster_is_top = False       # 시전자 위치 (상대 반격 판정용)
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        # 공 가속
-        speed_boost = 1.4
+        # 원래 공 속도 저장
+        self.original_ball_speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
+        self.caster_is_top = caster_paddle.is_top
+        self.dark_slash_active = True
+
+        # 공 4배 가속
+        speed_boost = 4.0
         ball.vx *= speed_boost
         ball.vy *= speed_boost
 
-        # 검기 파티클 생성
+        # game_state에 암흑 베기 상태 저장 (외부에서 반격 판정용)
+        game_state['dark_slash_active'] = True
+        game_state['dark_slash_caster_is_top'] = caster_paddle.is_top
+        game_state['dark_slash_original_speed'] = self.original_ball_speed
+
+        # 검기 파티클 생성 (더 강렬하게)
         self.slash_particles = []
         paddle_center_x = caster_paddle.x + 40
         paddle_y = caster_paddle.y
 
-        for i in range(15):
-            angle = math.radians(random.uniform(-30, 30))
-            speed = random.uniform(200, 400)
+        for i in range(25):  # 파티클 증가
+            angle = math.radians(random.uniform(-45, 45))
+            speed = random.uniform(300, 600)  # 더 빠른 파티클
             self.slash_particles.append({
-                'x': paddle_center_x + random.uniform(-30, 30),
+                'x': paddle_center_x + random.uniform(-40, 40),
                 'y': paddle_y,
                 'vx': math.sin(angle) * speed,
                 'vy': -speed if caster_paddle.is_top else speed,
-                'life': 0.5,
-                'size': random.uniform(3, 8),
-                'color': (120 + random.randint(0, 60), 30, 180 + random.randint(0, 75))
+                'life': 0.6,
+                'size': random.uniform(4, 12),  # 더 큰 파티클
+                'color': (140 + random.randint(0, 80), 20, 200 + random.randint(0, 55))
             })
 
         return {
             'screen_effect': ScreenEffect.FLASH,
-            'flash_color': (150, 50, 200),
-            'flash_duration': 0.1,
+            'flash_color': (180, 50, 255),  # 더 강한 플래시
+            'flash_duration': 0.15,
             'sound': 'slash'
         }
 
@@ -202,14 +216,53 @@ class DarkSlash(HeroSkill):
             p['size'] *= 0.95
         self.slash_particles = [p for p in self.slash_particles if p['life'] > 0]
 
+    def on_opponent_hit(self, ball, game_state: dict):
+        """상대가 공을 반격했을 때 호출 - 원래 속도로 복귀"""
+        if self.dark_slash_active and self.original_ball_speed is not None:
+            # 현재 속도 계산
+            current_speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
+            if current_speed > 0:
+                # 원래 속도로 복귀 (방향은 유지)
+                ratio = self.original_ball_speed / current_speed
+                ball.vx *= ratio
+                ball.vy *= ratio
+
+            # 상태 리셋
+            self.dark_slash_active = False
+            self.original_ball_speed = None
+            game_state['dark_slash_active'] = False
+
+            return True  # 속도 복귀됨
+        return False
+
+    def reset(self):
+        """스킬 상태 리셋"""
+        super().reset()
+        self.original_ball_speed = None
+        self.dark_slash_active = False
+        self.caster_is_top = False
+
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         for p in self.slash_particles:
             if p['size'] > 1:
-                alpha = int(255 * (p['life'] / 0.5))
+                alpha = int(255 * (p['life'] / 0.6))
                 surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 4)), pygame.SRCALPHA)
                 color = (*p['color'], alpha)
                 pygame.draw.ellipse(surf, color, surf.get_rect())
                 screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'] * 2)))
+
+        # 암흑 베기 활성 시 공에 검은 오라 효과
+        if self.dark_slash_active:
+            bx, by = int(ball.x), int(ball.y)
+            # 검은 오라 글로우
+            for r in range(3):
+                glow_size = 15 + r * 8
+                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                glow_alpha = 80 - r * 25
+                pygame.draw.circle(glow_surf, (100, 30, 180, glow_alpha),
+                                 (glow_size, glow_size), glow_size)
+                screen.blit(glow_surf, (bx - glow_size, by - glow_size),
+                           special_flags=pygame.BLEND_ADD)
 
 
 class DemonEye(HeroSkill):
