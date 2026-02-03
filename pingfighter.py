@@ -123925,13 +123925,18 @@ def handle_boss():
     if boss_plasma_slowed:
         plasma_slow_mult = get_boss_plasma_slow_multiplier()
         slow_multiplier *= plasma_slow_mult
-    # 🏟️ 투기장 영웅 스킬 둔화 효과 적용
+    # 🏟️ 투기장 영웅 스킬 둔화/속도증가 효과 적용
     if arena_mode_enabled and arena_skill_manager:
         try:
             game_state = arena_skill_manager.game_state
             if game_state.get('top_paddle_slowed', False):
                 arena_slow = game_state.get('top_paddle_slow_amount', 0.5)
                 slow_multiplier *= arena_slow
+            # 👁️ 귀신의 눈 등 속도 증가 효과
+            arena_speed_boost = game_state.get('top_paddle_speed_boost', 1.0)
+            if arena_speed_boost > 1.0:
+                enhanced_accel *= arena_speed_boost
+                enhanced_max_speed *= arena_speed_boost
         except:
             pass
     if slow_multiplier != 1.0:

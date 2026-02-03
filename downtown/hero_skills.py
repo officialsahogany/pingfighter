@@ -468,13 +468,13 @@ class DarkSlash(HeroSkill):
 
 
 class DemonEye(HeroSkill):
-    """귀신의 눈 - 7초간 이동속도 100% 증가 + 오오라 이펙트"""
+    """귀신의 눈 - 7초간 이동속도 200% 증가 (3배) + 오오라 이펙트"""
     def __init__(self):
         super().__init__(
             skill_id="demon_eye",
             name="Demon Eye",
             korean_name="귀신의 눈",
-            description="어둠의 기운을 두르고 이동속도가 2배로 증가한다",
+            description="어둠의 기운을 두르고 이동속도가 3배로 증가한다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=25.0,
             duration=7.0,  # 7초 지속
@@ -488,9 +488,9 @@ class DemonEye(HeroSkill):
         self.caster_is_top = caster_paddle.is_top
         self.aura_timer = 0
 
-        # 이동속도 100% 증가 (2배)
+        # 이동속도 200% 증가 (3배)
         speed_key = 'top_paddle_speed_boost' if caster_paddle.is_top else 'bottom_paddle_speed_boost'
-        game_state[speed_key] = 2.0  # 100% 증가 = 2배
+        game_state[speed_key] = 3.0  # 200% 증가 = 3배
         game_state['demon_eye_active'] = True
         game_state['demon_eye_caster_is_top'] = caster_paddle.is_top
 
@@ -506,7 +506,7 @@ class DemonEye(HeroSkill):
                 'alpha': random.randint(100, 200)
             })
 
-        print(f"[DemonEye] 귀신의 눈 발동! 이동속도 2배, 지속시간 7초")
+        print(f"[DemonEye] 귀신의 눈 발동! 이동속도 3배, 지속시간 7초")
 
         return {
             'screen_effect': ScreenEffect.FLASH,
