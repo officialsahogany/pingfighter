@@ -1259,7 +1259,7 @@ class HornCharge(HeroSkill):
             game_state['horn_charge_y_offset'] = self.impact_y - self.caster_original_y
             game_state['horn_charge_x_offset'] = self.target_x - self.caster_original_x
 
-            # 🔥 착지 충격파 이펙트 트리거 (최초 1회)
+            # 🔥 착지 충격파 이펙트 트리거 (최초 1회) - 0.2초 안에 완료
             if not self.impact_shockwave_triggered:
                 self.impact_shockwave_triggered = True
                 self.impact_shockwave_radius = 0
@@ -1269,49 +1269,52 @@ class HornCharge(HeroSkill):
                     'x': self.target_x,
                     'y': self.impact_y,
                     'rings': [
-                        {'radius': 0, 'alpha': 255, 'width': 6},   # 메인 링
-                        {'radius': 0, 'alpha': 200, 'width': 4},   # 서브 링 1
-                        {'radius': 0, 'alpha': 150, 'width': 3},   # 서브 링 2
+                        {'radius': 0, 'alpha': 255, 'width': 8},   # 메인 링 (두껍게)
+                        {'radius': 0, 'alpha': 220, 'width': 5},   # 서브 링 1
+                        {'radius': 0, 'alpha': 180, 'width': 3},   # 서브 링 2
                     ],
                     'particles': [],
                     'active': True,
-                    'timer': 0
+                    'timer': 0,
+                    'max_radius': 120  # 최대 반경
                 }
-                # 충격파 파티클 생성
+                # 충격파 파티클 생성 (빠르게 퍼짐)
                 import random
-                for _ in range(20):
+                for _ in range(25):
                     angle = random.uniform(0, 6.28)
-                    speed = random.uniform(3, 8)
+                    speed = random.uniform(8, 15)  # 더 빠른 속도
                     game_state['horn_charge_impact_shockwave']['particles'].append({
                         'x': self.target_x,
                         'y': self.impact_y,
                         'vx': math.cos(angle) * speed,
                         'vy': math.sin(angle) * speed,
-                        'life': random.randint(15, 30),
-                        'size': random.randint(3, 6)
+                        'life': random.randint(8, 15),  # 짧은 수명 (0.2초 내)
+                        'size': random.randint(4, 8)
                     })
 
-            # 착지 충격파 애니메이션 업데이트
+            # 착지 충격파 애니메이션 업데이트 (0.2초 완료)
             shockwave_data = game_state.get('horn_charge_impact_shockwave', {})
             if shockwave_data.get('active'):
                 shockwave_data['timer'] += dt
-                # 다중 링 업데이트 (시차를 두고 확장)
+                max_radius = shockwave_data.get('max_radius', 120)
+                # 다중 링 업데이트 (빠르게 확장 - 0.2초 내 완료)
                 for i, ring in enumerate(shockwave_data.get('rings', [])):
-                    delay = i * 0.05  # 각 링마다 0.05초 딜레이
+                    delay = i * 0.02  # 각 링마다 0.02초 딜레이 (더 빠른 시차)
                     if shockwave_data['timer'] > delay:
-                        ring['radius'] += dt * 500  # 빠른 확장
-                        ring['alpha'] = max(0, 255 - ring['radius'] * 2)
+                        ring['radius'] += dt * 800  # 매우 빠른 확장 (0.15초에 120px)
+                        # 반경에 따른 페이드아웃 (최대 반경에서 완전 투명)
+                        ring['alpha'] = max(0, int(255 * (1 - ring['radius'] / max_radius)))
                 # 파티클 업데이트
                 for p in shockwave_data.get('particles', []):
                     p['x'] += p['vx']
                     p['y'] += p['vy']
-                    p['vy'] += 0.3  # 중력
+                    p['vy'] += 0.5  # 강한 중력
                     p['life'] -= 1
                 # 죽은 파티클 제거
                 shockwave_data['particles'] = [p for p in shockwave_data.get('particles', []) if p['life'] > 0]
-                # 모든 링이 사라지고 파티클도 없으면 비활성화
+                # 0.2초 경과 또는 모든 이펙트 완료 시 비활성화
                 all_rings_done = all(ring['alpha'] <= 0 for ring in shockwave_data.get('rings', []))
-                if all_rings_done and not shockwave_data.get('particles'):
+                if shockwave_data['timer'] >= 0.25 or (all_rings_done and not shockwave_data.get('particles')):
                     shockwave_data['active'] = False
 
             # 넉백 즉시 적용 (다이너마이트 폭발과 동일한 방식)

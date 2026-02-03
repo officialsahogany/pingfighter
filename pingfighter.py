@@ -131288,20 +131288,24 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
 
-                    # 🐂 뿔 박치기 넉백 적용 (수류탄 폭발과 동일한 방식)
+                    # 🐂 뿔 박치기 넉백 적용 (다이너마이트 폭발과 동일한 방식)
                     _horn_gs = arena_skill_manager.game_state
                     if _horn_gs.get('horn_charge_apply_knockback'):
                         _kb_dir = _horn_gs.get('horn_charge_knockback_dir', 1)
-                        _kb_vel = _horn_gs.get('horn_charge_knockback_vel', 15)
+                        _kb_vel = _horn_gs.get('horn_charge_knockback_vel', 104)
                         _target_is_top = _horn_gs.get('horn_charge_target_is_top', False)
                         print(f"🐂 [HORN CHARGE] pingfighter.py에서 넉백 신호 수신! apply={True}, dir={_kb_dir}, vel={_kb_vel}")
+
+                        # 🔥 착지 시 화면 흔들림 (다이너마이트급)
+                        screen_shake_timer = 24  # 0.4초
+                        screen_shake_intensity = 35  # 강력한 흔들림
 
                         if _target_is_top:
                             # 보스(상단)에게 넉백 적용
                             boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
                             print(f"🐂 [HORN CHARGE] 보스 넉백! dir={_kb_dir}, vel={boss_knockback_vel:.2f}")
                         else:
-                            # 플레이어(하단)에게 넉백 적용 (수류탄과 동일)
+                            # 플레이어(하단)에게 넉백 적용 (다이너마이트와 동일)
                             _prev_player_x = PLAYER.x
                             player_knockback_vel = _kb_dir * _kb_vel
                             player_stunned_timer = 30  # 0.5초 스턴
