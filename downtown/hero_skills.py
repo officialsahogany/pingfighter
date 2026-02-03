@@ -1212,6 +1212,12 @@ class HornCharge(HeroSkill):
             charge_duration = 0.3
             self.charge_progress = min(1.0, self.phase_timer / charge_duration)
 
+            # 🎯 타겟의 실시간 위치 추적 (매 프레임 업데이트)
+            real_target_x = target_paddle.x + target_paddle.width // 2
+            self.target_x = real_target_x
+            self.impact_x = real_target_x
+            self.impact_y = target_paddle.y
+
             # 이징 함수 (가속)
             eased_progress = self.charge_progress * self.charge_progress
 
@@ -1219,7 +1225,7 @@ class HornCharge(HeroSkill):
             y_offset = (self.impact_y - self.caster_original_y) * eased_progress
             game_state['horn_charge_y_offset'] = y_offset
 
-            # X 오프셋 계산 (타겟 위치로 이동)
+            # X 오프셋 계산 (타겟의 실시간 위치로 이동)
             x_offset = (self.target_x - self.caster_original_x) * eased_progress
             game_state['horn_charge_x_offset'] = x_offset
 
@@ -1237,6 +1243,10 @@ class HornCharge(HeroSkill):
 
             # 돌진 완료 → 충돌 페이즈
             if self.charge_progress >= 1.0:
+                # 착지 시점에 타겟의 정확한 중앙 위치로 스냅
+                self.target_x = target_paddle.x + target_paddle.width // 2
+                self.impact_x = self.target_x
+                self.impact_y = target_paddle.y
                 self.phase = self.PHASE_IMPACT
                 self.phase_timer = 0
                 game_state['screen_shake'] = 25
