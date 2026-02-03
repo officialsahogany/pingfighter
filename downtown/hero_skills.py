@@ -2294,8 +2294,10 @@ class SteamBarrier(HeroSkill):
         self.barrier_hit = False
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        # 배리어 위치 (패들 앞쪽)
-        self.barrier_y = caster_paddle.y + (60 if caster_paddle.is_top else -60)
+        # 배리어 위치 (홀리 베리어와 동일한 높이)
+        # 하단: 패들(710) + 15 = 725 (홀리베리어 위치)
+        # 상단: 패들(25) + 40 = 65 (보스 히트박스 하단 근처)
+        self.barrier_y = caster_paddle.y + (40 if caster_paddle.is_top else 15)
         self.barrier_hit = False
         game_state['barrier_active'] = True
         game_state['barrier_y'] = self.barrier_y
