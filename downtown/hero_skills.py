@@ -148,11 +148,11 @@ class HeroSkill:
 # 무겐 스킬 - 귀검사 (공격적)
 # ============================================================================
 class DarkSlash(HeroSkill):
-    """암흑 베기 - 칼 휘두르기 이펙트 + 1초 화면 정지 후 공 4배 가속"""
+    """암흑 베기 - 공을 사선으로 베어버리는 이펙트 + 1초 화면 정지 후 공 4배 가속"""
 
     # 페이즈 상수
     PHASE_NONE = 0        # 비활성
-    PHASE_SLASH = 1       # 칼 휘두르기 이펙트 (0.15초)
+    PHASE_SLASH = 1       # 공 베기 이펙트 (0.1초)
     PHASE_FREEZE = 2      # 화면 정지 (1초)
     PHASE_RELEASE = 3     # 정지 해제 + 가속 적용
     PHASE_ACTIVE = 4      # 가속 상태 유지
@@ -162,10 +162,10 @@ class DarkSlash(HeroSkill):
             skill_id="dark_slash",
             name="Dark Slash",
             korean_name="암흑 베기",
-            description="칼을 휘두르며 시간이 멈추고, 해제되는 순간 공이 4배 빨라진다",
+            description="공을 사선으로 베어 시간이 멈추고, 해제되는 순간 공이 4배 빨라진다",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=8.0,
-            duration=2.5,  # 전체 연출 시간 (슬래시 0.15 + 정지 1.0 + 여유)
+            duration=2.5,
             hero_id="mugen"
         )
         # 페이즈 관리
@@ -173,13 +173,18 @@ class DarkSlash(HeroSkill):
         self.phase_timer = 0.0
 
         # 슬래시 이펙트
-        self.slash_lines = []        # 칼날 궤적
+        self.slash_progress = 0.0    # 베기 진행도 (0~1)
+        self.slash_angle = 0         # 베기 각도 (라디안)
         self.slash_sparks = []       # 스파크 파티클
-        self.slash_progress = 0.0    # 슬래시 진행도 (0~1)
+        self.slash_fragments = []    # 공이 갈라지는 조각 효과
 
         # 화면 정지
-        self.freeze_duration = 1.0   # 정지 시간
-        self.freeze_flash_timer = 0  # 정지 중 깜빡임
+        self.freeze_duration = 1.0
+        self.freeze_flash_timer = 0
+
+        # 공 위치 (정지 중 표시용)
+        self.ball_x = 0
+        self.ball_y = 0
 
         # 공 속도 추적
         self.original_ball_speed = None
@@ -188,57 +193,51 @@ class DarkSlash(HeroSkill):
         self.dark_slash_active = False
         self.caster_is_top = False
 
-        # 슬래시 위치/방향
-        self.slash_center_x = 0
-        self.slash_center_y = 0
-
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        # 원래 공 속도/방향 저장 (정지 해제 후 가속 적용용)
+        # 원래 공 속도/방향 저장
         self.original_ball_speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
         self.original_ball_vx = ball.vx
         self.original_ball_vy = ball.vy
         self.caster_is_top = caster_paddle.is_top
 
-        # 슬래시 중심 위치 (공 위치)
-        self.slash_center_x = ball.x
-        self.slash_center_y = ball.y
+        # 공 위치 저장
+        self.ball_x = ball.x
+        self.ball_y = ball.y
 
-        # === 페이즈 1: 슬래시 이펙트 시작 ===
+        # 베기 각도 (대각선 - 우상향에서 좌하향으로)
+        self.slash_angle = math.radians(-45)
+
+        # === 페이즈 1: 베기 이펙트 시작 ===
         self.phase = self.PHASE_SLASH
         self.phase_timer = 0.0
         self.slash_progress = 0.0
 
-        # 슬래시 라인 생성 (대각선 칼날 궤적)
-        self.slash_lines = []
-        num_slashes = 3  # 3번 베기
-        for i in range(num_slashes):
-            angle = -45 + i * 45  # -45도, 0도, 45도
-            self.slash_lines.append({
-                'angle': math.radians(angle),
-                'length': 250,
-                'width': 8 - i * 2,
-                'delay': i * 0.03,  # 순차적 등장
-                'progress': 0.0,
-                'color': (180 + i * 25, 50 - i * 15, 255 - i * 20)
-            })
-
-        # 스파크 파티클 생성
+        # 스파크 파티클 (베인 자리에서 튀는 불꽃)
         self.slash_sparks = []
-        for _ in range(30):
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(100, 400)
+        for _ in range(40):
+            # 베기 라인을 따라 퍼지는 스파크
+            spread_angle = self.slash_angle + random.uniform(-0.5, 0.5)
+            speed = random.uniform(150, 500)
+            offset = random.uniform(-30, 30)
             self.slash_sparks.append({
-                'x': self.slash_center_x,
-                'y': self.slash_center_y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
-                'life': random.uniform(0.3, 0.8),
-                'max_life': random.uniform(0.3, 0.8),
-                'size': random.uniform(2, 6),
+                'x': self.ball_x + math.cos(self.slash_angle + math.pi/2) * offset,
+                'y': self.ball_y + math.sin(self.slash_angle + math.pi/2) * offset,
+                'vx': math.cos(spread_angle + math.pi/2) * speed * random.choice([-1, 1]),
+                'vy': math.sin(spread_angle + math.pi/2) * speed * random.choice([-1, 1]),
+                'life': random.uniform(0.5, 1.5),
+                'max_life': random.uniform(0.5, 1.5),
+                'size': random.uniform(2, 5),
                 'color': random.choice([
-                    (200, 100, 255), (150, 50, 200), (255, 150, 255), (100, 50, 180)
+                    (255, 200, 255), (200, 100, 255), (150, 50, 200),
+                    (255, 255, 200), (255, 150, 100)
                 ])
             })
+
+        # 공이 갈라지는 조각 효과
+        self.slash_fragments = [
+            {'offset_x': -8, 'offset_y': -8, 'target_x': -15, 'target_y': -12},  # 좌상단 조각
+            {'offset_x': 8, 'offset_y': 8, 'target_x': 15, 'target_y': 12},      # 우하단 조각
+        ]
 
         # 화면 정지 플래그 설정
         game_state['dark_slash_freeze'] = True
@@ -246,8 +245,8 @@ class DarkSlash(HeroSkill):
 
         return {
             'screen_effect': ScreenEffect.FLASH,
-            'flash_color': (100, 30, 150),
-            'flash_duration': 0.05,
+            'flash_color': (200, 100, 255),
+            'flash_duration': 0.08,
             'sound': 'slash'
         }
 
@@ -255,29 +254,24 @@ class DarkSlash(HeroSkill):
         self.phase_timer += dt
 
         if self.phase == self.PHASE_SLASH:
-            # 슬래시 이펙트 진행 (0.15초)
-            self.slash_progress = min(1.0, self.phase_timer / 0.15)
+            # 베기 이펙트 진행 (0.1초)
+            self.slash_progress = min(1.0, self.phase_timer / 0.1)
 
-            # 각 슬래시 라인 진행도 업데이트
-            for slash in self.slash_lines:
-                if self.phase_timer >= slash['delay']:
-                    slash['progress'] = min(1.0, (self.phase_timer - slash['delay']) / 0.1)
-
-            # 슬래시 완료 → 화면 정지 페이즈로
-            if self.phase_timer >= 0.15:
+            # 베기 완료 → 화면 정지로
+            if self.phase_timer >= 0.1:
                 self.phase = self.PHASE_FREEZE
                 self.phase_timer = 0.0
                 game_state['dark_slash_phase'] = self.PHASE_FREEZE
 
         elif self.phase == self.PHASE_FREEZE:
-            # 화면 정지 중 (1초) - 스파크만 천천히 업데이트
+            # 화면 정지 (1초)
             self.freeze_flash_timer += dt
 
-            # 스파크 슬로우모션 업데이트
+            # 스파크 슬로우모션
             for spark in self.slash_sparks:
-                spark['x'] += spark['vx'] * dt * 0.1  # 10% 속도로 천천히
-                spark['y'] += spark['vy'] * dt * 0.1
-                spark['life'] -= dt * 0.3  # 천천히 사라짐
+                spark['x'] += spark['vx'] * dt * 0.05
+                spark['y'] += spark['vy'] * dt * 0.05
+                spark['life'] -= dt * 0.2
 
             # 정지 해제
             if self.phase_timer >= self.freeze_duration:
@@ -287,12 +281,11 @@ class DarkSlash(HeroSkill):
                 game_state['dark_slash_phase'] = self.PHASE_RELEASE
 
         elif self.phase == self.PHASE_RELEASE:
-            # 정지 해제 순간 - 공 4배 가속!
+            # 정지 해제 - 공 4배 가속!
             speed_boost = 4.0
             ball.vx = self.original_ball_vx * speed_boost
             ball.vy = self.original_ball_vy * speed_boost
 
-            # 가속 상태 활성화
             self.dark_slash_active = True
             game_state['dark_slash_active'] = True
             game_state['dark_slash_caster_is_top'] = self.caster_is_top
@@ -303,7 +296,7 @@ class DarkSlash(HeroSkill):
             self.phase_timer = 0.0
 
         elif self.phase == self.PHASE_ACTIVE:
-            # 가속 상태 유지 - 스파크 정상 속도로 업데이트
+            # 스파크 정상 속도 업데이트
             for spark in self.slash_sparks:
                 spark['x'] += spark['vx'] * dt
                 spark['y'] += spark['vy'] * dt
@@ -311,7 +304,7 @@ class DarkSlash(HeroSkill):
             self.slash_sparks = [s for s in self.slash_sparks if s['life'] > 0]
 
     def on_opponent_hit(self, ball, game_state: dict):
-        """상대가 공을 반격했을 때 호출 - 원래 속도로 복귀"""
+        """상대 반격 시 원래 속도로 복귀"""
         if self.dark_slash_active and self.original_ball_speed is not None:
             current_speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
             if current_speed > 0:
@@ -326,103 +319,143 @@ class DarkSlash(HeroSkill):
         return False
 
     def reset(self):
-        """스킬 상태 리셋"""
         super().reset()
         self.phase = self.PHASE_NONE
         self.phase_timer = 0.0
-        self.slash_lines = []
         self.slash_sparks = []
+        self.slash_fragments = []
         self.original_ball_speed = None
         self.dark_slash_active = False
         self.caster_is_top = False
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        """효과 종료"""
         game_state['dark_slash_freeze'] = False
         game_state['dark_slash_phase'] = self.PHASE_NONE
         self.phase = self.PHASE_NONE
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        # === 슬래시 이펙트 (PHASE_SLASH, PHASE_FREEZE) ===
-        if self.phase in [self.PHASE_SLASH, self.PHASE_FREEZE, self.PHASE_RELEASE]:
-            cx, cy = int(self.slash_center_x), int(self.slash_center_y)
+        bx, by = int(self.ball_x), int(self.ball_y)
 
-            # 어둠 오버레이 (화면 정지 중)
+        # === 베기 & 정지 중 이펙트 ===
+        if self.phase in [self.PHASE_SLASH, self.PHASE_FREEZE, self.PHASE_RELEASE]:
+
+            # 어둠 오버레이 (정지 중)
             if self.phase == self.PHASE_FREEZE:
                 darkness = pygame.Surface((760, 750), pygame.SRCALPHA)
-                # 깜빡이는 어둠
-                flash = 0.5 + 0.3 * math.sin(self.freeze_flash_timer * 15)
-                darkness.fill((10, 5, 30, int(180 * flash)))
+                # 맥동하는 어둠
+                pulse = 0.6 + 0.2 * math.sin(self.freeze_flash_timer * 8)
+                darkness.fill((5, 0, 20, int(200 * pulse)))
                 screen.blit(darkness, (0, 0))
 
-                # "시간 정지" 텍스트 효과
-                if hasattr(pygame, 'freetype'):
-                    pass  # 폰트 있으면 텍스트 표시 가능
+            # === 공이 갈라지는 효과 ===
+            if self.phase in [self.PHASE_FREEZE, self.PHASE_RELEASE]:
+                for i, frag in enumerate(self.slash_fragments):
+                    # 조각이 벌어지는 애니메이션
+                    sep = min(1.0, self.phase_timer * 2) if self.phase == self.PHASE_FREEZE else 1.0
+                    fx = bx + frag['offset_x'] + frag['target_x'] * sep
+                    fy = by + frag['offset_y'] + frag['target_y'] * sep
 
-            # 슬래시 라인 그리기
-            for slash in self.slash_lines:
-                if slash['progress'] > 0:
-                    angle = slash['angle']
-                    length = slash['length'] * slash['progress']
-                    width = int(slash['width'] * (1.0 - slash['progress'] * 0.3))
+                    # 반쪽 공 그리기 (반원)
+                    half_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
+                    if i == 0:  # 좌상단 조각
+                        pygame.draw.circle(half_surf, (255, 255, 255), (15, 15), 10)
+                        pygame.draw.rect(half_surf, (0, 0, 0, 0), (15, 0, 15, 30))  # 우측 제거
+                        pygame.draw.rect(half_surf, (0, 0, 0, 0), (0, 15, 30, 15))  # 하단 제거
+                    else:  # 우하단 조각
+                        pygame.draw.circle(half_surf, (255, 255, 255), (15, 15), 10)
+                        pygame.draw.rect(half_surf, (0, 0, 0, 0), (0, 0, 15, 30))   # 좌측 제거
+                        pygame.draw.rect(half_surf, (0, 0, 0, 0), (0, 0, 30, 15))   # 상단 제거
 
-                    # 시작점과 끝점
-                    start_x = cx - math.cos(angle) * length * 0.5
-                    start_y = cy - math.sin(angle) * length * 0.5
-                    end_x = cx + math.cos(angle) * length * 0.5
-                    end_y = cy + math.sin(angle) * length * 0.5
+                    screen.blit(half_surf, (int(fx) - 15, int(fy) - 15))
 
-                    # 글로우 효과
-                    for glow in range(3):
-                        glow_width = width + glow * 4
-                        alpha = 150 - glow * 50
-                        glow_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
-                        pygame.draw.line(glow_surf, (*slash['color'], alpha),
-                                        (start_x, start_y), (end_x, end_y), glow_width)
-                        screen.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+            # === 베기 라인 (사선 칼날) ===
+            if self.slash_progress > 0:
+                # 베기 라인 길이
+                slash_length = 200 * self.slash_progress
 
-                    # 메인 슬래시 라인
-                    pygame.draw.line(screen, (255, 255, 255),
-                                    (int(start_x), int(start_y)),
-                                    (int(end_x), int(end_y)), max(1, width))
+                # 시작점과 끝점 (대각선)
+                start_x = bx - math.cos(self.slash_angle) * slash_length
+                start_y = by - math.sin(self.slash_angle) * slash_length
+                end_x = bx + math.cos(self.slash_angle) * slash_length
+                end_y = by + math.sin(self.slash_angle) * slash_length
 
-                    # 끝부분 스파크
-                    if slash['progress'] > 0.5:
-                        spark_x = end_x + random.uniform(-10, 10)
-                        spark_y = end_y + random.uniform(-10, 10)
-                        pygame.draw.circle(screen, (255, 200, 255),
-                                          (int(spark_x), int(spark_y)), random.randint(2, 5))
+                # 글로우 레이어 (보라색/흰색)
+                for glow in range(5):
+                    glow_width = 12 - glow * 2
+                    alpha = 200 - glow * 40
+                    glow_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+
+                    # 그라데이션 색상
+                    if glow < 2:
+                        color = (255, 255, 255, alpha)  # 중심은 흰색
+                    else:
+                        color = (180, 100, 255, alpha)  # 외곽은 보라색
+
+                    pygame.draw.line(glow_surf, color,
+                                   (start_x, start_y), (end_x, end_y), max(1, glow_width))
+                    screen.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+
+                # 베기 끝부분 임팩트 이펙트
+                if self.slash_progress > 0.5:
+                    impact_size = int(20 * (1 - self.slash_progress) * 2)
+                    if impact_size > 0:
+                        impact_surf = pygame.Surface((impact_size * 2, impact_size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(impact_surf, (255, 200, 255, 150),
+                                         (impact_size, impact_size), impact_size)
+                        screen.blit(impact_surf, (int(end_x) - impact_size, int(end_y) - impact_size),
+                                   special_flags=pygame.BLEND_ADD)
+
+            # === 정지 중 베기 자국 유지 ===
+            if self.phase == self.PHASE_FREEZE:
+                # 베기 자국 (지속)
+                slash_length = 200
+                start_x = bx - math.cos(self.slash_angle) * slash_length
+                start_y = by - math.sin(self.slash_angle) * slash_length
+                end_x = bx + math.cos(self.slash_angle) * slash_length
+                end_y = by + math.sin(self.slash_angle) * slash_length
+
+                # 잔상 글로우
+                pulse = 0.7 + 0.3 * math.sin(self.freeze_flash_timer * 10)
+                for glow in range(3):
+                    glow_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+                    alpha = int((120 - glow * 40) * pulse)
+                    pygame.draw.line(glow_surf, (200, 150, 255, alpha),
+                                   (start_x, start_y), (end_x, end_y), 8 - glow * 2)
+                    screen.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_ADD)
 
         # === 스파크 파티클 ===
         for spark in self.slash_sparks:
             if spark['life'] > 0:
                 alpha = int(255 * (spark['life'] / spark['max_life']))
-                size = int(spark['size'] * (spark['life'] / spark['max_life']))
-                if size > 0:
-                    surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                    color = (*spark['color'], alpha)
-                    pygame.draw.circle(surf, color, (size, size), size)
-                    screen.blit(surf, (int(spark['x'] - size), int(spark['y'] - size)),
-                               special_flags=pygame.BLEND_ADD)
-
-        # === 공에 검은 오라 (가속 활성 중) ===
-        if self.dark_slash_active and self.phase == self.PHASE_ACTIVE:
-            bx, by = int(ball.x), int(ball.y)
-            for r in range(3):
-                glow_size = 15 + r * 8
-                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
-                glow_alpha = 80 - r * 25
-                pygame.draw.circle(glow_surf, (100, 30, 180, glow_alpha),
-                                 (glow_size, glow_size), glow_size)
-                screen.blit(glow_surf, (bx - glow_size, by - glow_size),
+                size = max(1, int(spark['size'] * (spark['life'] / spark['max_life'])))
+                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(surf, (*spark['color'], alpha), (size, size), size)
+                screen.blit(surf, (int(spark['x']) - size, int(spark['y']) - size),
                            special_flags=pygame.BLEND_ADD)
 
-            # 속도선 효과
-            for _ in range(3):
-                trail_x = bx - ball.vx * random.uniform(0.01, 0.03)
-                trail_y = by - ball.vy * random.uniform(0.01, 0.03)
-                pygame.draw.line(screen, (150, 80, 200),
-                                (int(trail_x), int(trail_y)), (bx, by), 2)
+        # === 가속 중 공 이펙트 ===
+        if self.dark_slash_active and self.phase == self.PHASE_ACTIVE:
+            live_bx, live_by = int(ball.x), int(ball.y)
+
+            # 검은 오라
+            for r in range(3):
+                glow_size = 18 + r * 10
+                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (120, 50, 200, 70 - r * 20),
+                                 (glow_size, glow_size), glow_size)
+                screen.blit(glow_surf, (live_bx - glow_size, live_by - glow_size),
+                           special_flags=pygame.BLEND_ADD)
+
+            # 베기 자국이 공을 따라다님
+            trail_length = 50
+            for i in range(3):
+                t = i * 0.02
+                tx = live_bx - ball.vx * t
+                ty = live_by - ball.vy * t
+                alpha = 150 - i * 50
+                pygame.draw.line(screen, (180, 100, 255),
+                               (int(tx - 15), int(ty - 15)),
+                               (int(tx + 15), int(ty + 15)), 2)
 
 
 class DemonEye(HeroSkill):
