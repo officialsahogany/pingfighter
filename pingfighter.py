@@ -131282,7 +131282,10 @@ def main(stage_num, new_boss_mode=False):
                         # 플래그 제거
                         arena_skill_manager.game_state['spawn_dragon_fire_zone'] = None
                         try:
-                            play_sound_with_volume(SOUND_FIREBOMB)
+                            # 드래곤 브레스 화염지대는 1.5초이므로 사운드도 1.5초 후 페이드아웃
+                            _dragon_fire_channel = SOUND_FIREBOMB.play()
+                            if _dragon_fire_channel:
+                                _dragon_fire_channel.fadeout(1500)  # 1.5초 후 페이드아웃
                         except:
                             pass
 
@@ -138904,4 +138907,4 @@ if __name__ == "__main__":
         try:
             input()
         except:
-            pass
+            pass 
