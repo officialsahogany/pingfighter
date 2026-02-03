@@ -1232,15 +1232,6 @@ class HornCharge(HeroSkill):
             current_y = self.caster_original_y + y_offset
             current_x = self.caster_original_x + x_offset
 
-            # 잔상 추가
-            if random.random() < 0.5:
-                self.afterimages.append({
-                    'x': current_x,
-                    'y': current_y,
-                    'alpha': 200,
-                    'scale': 1.0
-                })
-
             # 돌진 완료 → 충돌 페이즈
             if self.charge_progress >= 1.0:
                 # 착지 시점에 타겟의 정확한 중앙 위치로 스냅
@@ -1412,16 +1403,6 @@ class HornCharge(HeroSkill):
         # 현재 시전자 Y 위치 계산
         y_offset = game_state.get('horn_charge_y_offset', 0)
         current_caster_y = self.caster_original_y + y_offset
-
-        # 잔상 그리기
-        for img in self.afterimages:
-            if img['alpha'] > 10:
-                alpha = int(img['alpha'])
-                size = int(80 * img['scale'])
-                ghost_surf = pygame.Surface((size, 40), pygame.SRCALPHA)
-                # 붉은색 잔상
-                pygame.draw.rect(ghost_surf, (255, 80, 30, alpha), (0, 0, size, 40), border_radius=5)
-                screen.blit(ghost_surf, (int(img['x']), int(img['y'])))
 
         # 충돌 시 충격파
         if self.phase == self.PHASE_IMPACT and self.shockwave_radius < 300:
