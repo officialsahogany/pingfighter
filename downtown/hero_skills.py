@@ -2095,6 +2095,14 @@ class DragonBreath(HeroSkill):
         # 발사 시점의 X 좌표 저장 (화염지대 생성 위치용)
         self.breath_start_x = caster_paddle.x + caster_paddle.width // 2
 
+        # 🔥 [DEBUG] 스킬 발동 정보 출력
+        print(f"🔥 [드래곤브레스] 스킬 발동!")
+        print(f"   - 시전자: {'상단' if is_caster_top else '하단'} (is_top={is_caster_top})")
+        print(f"   - 패들 위치: ({caster_paddle.x}, {caster_paddle.y})")
+        print(f"   - 공 위치: ({ball.x:.0f}, {ball.y:.0f})")
+        print(f"   - 브레스 방향: {'아래↓' if direction > 0 else '위↑'}")
+        print(f"   - 파티클 시작Y: {caster_paddle.y + direction * 20}")
+
         # 화염 파티클 대량 생성
         for i in range(50):
             self.breath_particles.append({
@@ -2122,6 +2130,19 @@ class DragonBreath(HeroSkill):
             ball_radius * 2 + 10
         )
 
+        # 🔥 [DEBUG] 드래곤 브레스 상태 출력 (매 프레임)
+        if len(self.breath_particles) > 0 and not self.breath_hit_ball:
+            # 가장 가까운 파티클과 공 사이 거리 계산
+            min_dist = float('inf')
+            closest_p = None
+            for p in self.breath_particles:
+                dist = math.hypot(p['x'] - ball.x, p['y'] - ball.y)
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_p = p
+            if closest_p and min_dist < 100:  # 100px 이내일 때만 출력
+                print(f"🔥 [드래곤브레스] 공({ball.x:.0f},{ball.y:.0f}) | 가장가까운파티클({closest_p['x']:.0f},{closest_p['y']:.0f}) | 거리:{min_dist:.0f}px | 파티클수:{len(self.breath_particles)}")
+
         for p in self.breath_particles:
             p['x'] += p['vx'] * dt
             p['y'] += p['vy'] * dt
@@ -2142,10 +2163,12 @@ class DragonBreath(HeroSkill):
 
                 if particle_rect.colliderect(ball_rect):
                     # 공 가속
+                    old_vx, old_vy = ball.vx, ball.vy
                     ball.vx *= 1.4
                     ball.vy *= 1.4
                     self.breath_hit_ball = True
                     game_state['ball_on_fire'] = True
+                    print(f"🔥🔥🔥 [드래곤브레스] 공 타격 성공! 속도: ({old_vx:.1f},{old_vy:.1f}) → ({ball.vx:.1f},{ball.vy:.1f})")
 
         self.breath_particles = [p for p in self.breath_particles if p['life'] > 0]
 
