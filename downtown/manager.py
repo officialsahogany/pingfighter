@@ -22,7 +22,7 @@ from .npc import NPCManager
 from .shop import Shop
 from .building_interior import BuildingInterior
 from .performance_stage import PerformanceStage, PerformanceStageManager
-from .colosseum_arena import ColosseumsArena
+# ColosseumsArena는 폐기됨 - 투기장은 pingfighter.py 스테이지 30 사용
 
 # 인게임 메뉴 함수 import
 try:
@@ -2014,34 +2014,9 @@ class DowntownManager:
                                 show_entry_dialog = False
                                 arena_running = True
 
-                                # 아레나 시스템 실행 (실제 게임 엔진 연동)
-                                arena = ColosseumsArena(
-                                    self.screen,
-                                    self._freetype_fonts,
-                                    self.player_data.get('gold', 0),
-                                    battle_callback=self.arena_battle_callback
-                                )
-
-                                # 아레나 게임 루프
-                                arena_active = True
-                                while arena_active:
-                                    dt = clock.tick(60) / 1000.0
-
-                                    for arena_event in pygame.event.get():
-                                        if arena_event.type == pygame.QUIT:
-                                            arena_active = False
-                                            running = False
-                                            return
-                                        if arena.handle_event(arena_event):
-                                            arena_active = False
-
-                                    arena.update(dt)
-                                    arena.draw()
-                                    pygame.display.flip()
-
-                                # 결과 처리
-                                result = arena.get_result()
-                                self.player_data['gold'] = self.player_data.get('gold', 0) + result['winnings']
+                                # 투기장은 pingfighter.py 스테이지 30에서 실행
+                                # 플래그 설정 후 광장 나가기
+                                self.arena_entry_requested = True
                                 arena_running = False
                                 running = False
 
