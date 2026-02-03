@@ -1145,6 +1145,7 @@ class HornCharge(HeroSkill):
         self.caster_is_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
         self.target_is_top = not self.caster_is_top
         self.caster_original_y = caster_paddle.y
+        self.caster_x = caster_paddle.x
 
         # 충돌 지점 계산 (상대 패들 앞)
         if self.caster_is_top:
@@ -1155,6 +1156,11 @@ class HornCharge(HeroSkill):
         # 넉백 방향 설정
         knockback_dir = 1 if random.random() > 0.5 else -1
         self.knockback_dir = knockback_dir
+
+        # game_state에 돌진 오프셋 정보 초기화
+        game_state['horn_charge_active'] = True
+        game_state['horn_charge_caster_is_top'] = self.caster_is_top
+        game_state['horn_charge_y_offset'] = 0
 
         return {
             'screen_effect': ScreenEffect.FLASH,
@@ -1174,19 +1180,16 @@ class HornCharge(HeroSkill):
             # 이징 함수 (가속)
             eased_progress = self.charge_progress * self.charge_progress
 
-            # 시전자 Y 위치 이동
-            if self.caster_is_top:
-                # 상단에서 하단으로
-                caster_paddle.y = self.caster_original_y + (self.impact_y - self.caster_original_y) * eased_progress
-            else:
-                # 하단에서 상단으로
-                caster_paddle.y = self.caster_original_y + (self.impact_y - self.caster_original_y) * eased_progress
+            # Y 오프셋 계산 (game_state를 통해 전달)
+            y_offset = (self.impact_y - self.caster_original_y) * eased_progress
+            game_state['horn_charge_y_offset'] = y_offset
+            current_y = self.caster_original_y + y_offset
 
             # 잔상 추가
             if random.random() < 0.5:
                 self.afterimages.append({
-                    'x': caster_paddle.x,
-                    'y': caster_paddle.y,
+                    'x': self.caster_x,
+                    'y': current_y,
                     'alpha': 200,
                     'scale': 1.0
                 })
@@ -1202,14 +1205,20 @@ class HornCharge(HeroSkill):
             # 충돌 + 넉백 (0.2초)
             self.shockwave_radius += dt * 1200  # 빠른 충격파
 
-            # 넉백 적용
+            # Y 오프셋 유지 (충돌 지점)
+            game_state['horn_charge_y_offset'] = self.impact_y - self.caster_original_y
+
+            # 넉백 적용 (game_state를 통해)
             if not self.knockback_applied:
-                target_paddle.x += self.knockback_dir * 150 * dt * 8
-                target_paddle.x = max(80, min(target_paddle.x, 600))
+                # 넉백 오프셋 저장
+                current_knockback = game_state.get('horn_charge_knockback_x', 0)
+                current_knockback += self.knockback_dir * 150 * dt * 8
+                current_knockback = max(-150, min(150, current_knockback))  # 최대 넉백 제한
+                game_state['horn_charge_knockback_x'] = current_knockback
+                game_state['horn_charge_target_is_top'] = self.target_is_top
 
                 if self.phase_timer > 0.15:
                     self.knockback_applied = True
-                    game_state['target_knockback'] = 0
 
             # 충돌 페이즈 종료 → 복귀
             if self.phase_timer >= 0.2:
@@ -1224,13 +1233,14 @@ class HornCharge(HeroSkill):
             # 이징 함수 (감속)
             eased_progress = 1 - (1 - self.return_progress) * (1 - self.return_progress)
 
-            # 원래 위치로 복귀
-            current_y = self.impact_y + (self.caster_original_y - self.impact_y) * eased_progress
-            caster_paddle.y = current_y
+            # Y 오프셋 계산 (복귀)
+            impact_offset = self.impact_y - self.caster_original_y
+            y_offset = impact_offset * (1 - eased_progress)
+            game_state['horn_charge_y_offset'] = y_offset
 
             # 복귀 완료 → 스턴 페이즈
             if self.return_progress >= 1.0:
-                caster_paddle.y = self.caster_original_y
+                game_state['horn_charge_y_offset'] = 0
                 self.phase = self.PHASE_STUN
                 self.phase_timer = 0
 
@@ -1242,25 +1252,22 @@ class HornCharge(HeroSkill):
 
         elif self.phase == self.PHASE_STUN:
             # 스턴 지속 (1.5초)
+            game_state['horn_charge_y_offset'] = 0  # 원위치
             if self.phase_timer >= 1.5:
                 # 스턴 해제
                 target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_stunned'] = False
 
-        # 잔상 업데이트
-        for img in self.afterimages:
-            img['alpha'] -= dt * 400
-            img['scale'] *= 0.95
-        self.afterimages = [img for img in self.afterimages if img['alpha'] > 0]
-
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['screen_shake'] = 0
         game_state['target_knockback'] = 0
+        # 돌진 오프셋 초기화
+        game_state['horn_charge_active'] = False
+        game_state['horn_charge_y_offset'] = 0
+        game_state['horn_charge_knockback_x'] = 0
         # 스턴 해제
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_stunned'] = False
-        # 위치 복원
-        caster_paddle.y = self.caster_original_y
         self.afterimages = []
 
     def reset_for_new_round(self, game_state: dict):
@@ -1268,6 +1275,9 @@ class HornCharge(HeroSkill):
         super().reset_for_new_round(game_state)
         game_state['screen_shake'] = 0
         game_state['target_knockback'] = 0
+        game_state['horn_charge_active'] = False
+        game_state['horn_charge_y_offset'] = 0
+        game_state['horn_charge_knockback_x'] = 0
         game_state['top_paddle_stunned'] = False
         game_state['bottom_paddle_stunned'] = False
         self.phase = self.PHASE_CHARGING
@@ -1276,6 +1286,10 @@ class HornCharge(HeroSkill):
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if not self.is_active:
             return
+
+        # 현재 시전자 Y 위치 계산
+        y_offset = game_state.get('horn_charge_y_offset', 0)
+        current_caster_y = self.caster_original_y + y_offset
 
         # 잔상 그리기
         for img in self.afterimages:
@@ -1289,8 +1303,8 @@ class HornCharge(HeroSkill):
 
         # 충돌 시 충격파
         if self.phase == self.PHASE_IMPACT and self.shockwave_radius < 300:
-            center_x = caster_paddle.x + 40
-            center_y = caster_paddle.y + 20
+            center_x = self.caster_x + 40
+            center_y = current_caster_y + 20
 
             alpha = int(255 * (1 - self.shockwave_radius / 300))
             if alpha > 10:
