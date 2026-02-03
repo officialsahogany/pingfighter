@@ -2441,6 +2441,21 @@ def force_start_gust_event(direction=None, duration=None):
     if WEATHER_DEBUG_ENABLED: print(f"[Weather] Forced gust start! Direction: {'Left' if weather_event_direction < 0 else 'Right'}, Duration: {weather_event_remaining_rounds}")
 
 
+def force_end_weather_event():
+    """강제로 날씨 이벤트 종료 (스킬 연동용)"""
+    global weather_event_active, weather_event_type, weather_event_direction
+    global weather_event_remaining_rounds, weather_event_just_ended
+
+    if weather_event_active:
+        weather_event_active = False
+        weather_event_type = None
+        weather_event_direction = 0
+        weather_event_remaining_rounds = 0
+        weather_event_just_ended = True
+        stop_weather_sound()
+        if WEATHER_DEBUG_ENABLED: print(f"[Weather] Force ended weather event")
+
+
 def force_start_fire_event(duration=None):
     """Force start a fire event for testing"""
     global weather_event_active, weather_event_type, weather_event_direction

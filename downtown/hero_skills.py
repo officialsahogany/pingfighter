@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple, Callable
 
 # 날씨 강풍 이벤트 임포트
 try:
-    from events.weather_event import force_start_gust_event, play_weather_sound, stop_weather_sound
+    from events.weather_event import force_start_gust_event, force_end_weather_event, play_weather_sound, stop_weather_sound
     WEATHER_EVENT_AVAILABLE = True
 except ImportError:
     WEATHER_EVENT_AVAILABLE = False
@@ -2201,9 +2201,9 @@ class DragonWing(HeroSkill):
         self.wind_direction = random.choice([-1, 1])
         game_state['wind_force'] = self.wind_direction * 3
 
-        # 날씨 강풍 이벤트 시작 및 바람 사운드 재생
+        # 날씨 강풍 이벤트 시작 (스킬 종료 시 강제 종료됨)
         if WEATHER_EVENT_AVAILABLE:
-            force_start_gust_event(direction=self.wind_direction, duration=3)  # 3라운드 지속
+            force_start_gust_event(direction=self.wind_direction, duration=99)  # 스킬 종료 시 force_end_weather_event로 종료
             play_weather_sound("gust")
 
         return {
@@ -2236,9 +2236,9 @@ class DragonWing(HeroSkill):
         game_state['wind_force'] = 0
         self.wind_particles = []
 
-        # 바람 사운드 정지
+        # 강풍 이벤트 강제 종료 (스킬 종료와 함께)
         if WEATHER_EVENT_AVAILABLE:
-            stop_weather_sound()
+            force_end_weather_event()
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
