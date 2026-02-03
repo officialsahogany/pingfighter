@@ -1251,6 +1251,7 @@ class HornCharge(HeroSkill):
                 self.phase_timer = 0
                 game_state['screen_shake'] = 25
                 game_state['shake_duration'] = 0.3
+                print(f"🐂 [HORN CHARGE] 착지 완료! target_x={self.target_x}, impact_y={self.impact_y}")
 
         elif self.phase == self.PHASE_IMPACT:
             # 충돌 + 넉백 (0.2초)
@@ -1290,6 +1291,7 @@ class HornCharge(HeroSkill):
                 game_state['horn_charge_knockback_vel'] = 15  # 수류탄과 동일한 속도
                 game_state['horn_charge_target_is_top'] = self.target_is_top
                 self.knockback_applied = True
+                print(f"🐂 [HORN CHARGE] IMPACT 페이즈 진입 - 넉백 신호 전송! dir={self.knockback_dir}, vel=15, target_is_top={self.target_is_top}")
 
             # 충돌 페이즈 종료 → 복귀
             if self.phase_timer >= 0.2:

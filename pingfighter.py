@@ -131276,6 +131276,7 @@ def main(stage_num, new_boss_mode=False):
                         _kb_dir = _horn_gs.get('horn_charge_knockback_dir', 1)
                         _kb_vel = _horn_gs.get('horn_charge_knockback_vel', 15)
                         _target_is_top = _horn_gs.get('horn_charge_target_is_top', False)
+                        print(f"🐂 [HORN CHARGE] pingfighter.py에서 넉백 신호 수신! apply={True}, dir={_kb_dir}, vel={_kb_vel}")
 
                         if _target_is_top:
                             # 보스(상단)에게 넉백 적용
@@ -131283,9 +131284,10 @@ def main(stage_num, new_boss_mode=False):
                             print(f"🐂 [HORN CHARGE] 보스 넉백! dir={_kb_dir}, vel={boss_knockback_vel:.2f}")
                         else:
                             # 플레이어(하단)에게 넉백 적용 (수류탄과 동일)
+                            _prev_player_x = PLAYER.x
                             player_knockback_vel = _kb_dir * _kb_vel
                             player_stunned_timer = 30  # 0.5초 스턴
-                            print(f"🐂 [HORN CHARGE] 플레이어 넉백! dir={_kb_dir}, vel={player_knockback_vel:.2f}")
+                            print(f"🐂 [HORN CHARGE] 플레이어 넉백 적용! PLAYER.x={_prev_player_x}, dir={_kb_dir}, vel={player_knockback_vel:.2f}, stun={player_stunned_timer}")
 
                         # 넉백 적용 완료 플래그 해제
                         _horn_gs['horn_charge_apply_knockback'] = False
