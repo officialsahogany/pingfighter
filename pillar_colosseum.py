@@ -96,22 +96,23 @@ class CircularStadiumFrame:
         inner_radius = max(self.game_width, self.game_height) // 2 + 20
         outer_radius = int(math.sqrt(self.screen_width**2 + self.screen_height**2))
 
-        # 관중석 층 수
-        num_tiers = 30
+        # 관중석 층 수 (더 크게 보이도록 줄임)
+        num_tiers = 20
         tier_height = (outer_radius - inner_radius) // num_tiers
 
         for tier in range(num_tiers):
             radius = inner_radius + tier * tier_height
-            # 원 둘레를 따라 관중 배치
+            # 원 둘레를 따라 관중 배치 (더 큰 간격)
             circumference = 2 * math.pi * radius
-            num_seats = int(circumference / 3)  # 3픽셀 간격
+            num_seats = int(circumference / 8)  # 8픽셀 간격 (더 크게)
 
             for i in range(num_seats):
                 angle = (i / num_seats) * 2 * math.pi
 
-                # 통로 구간 (8개 방사형 통로)
-                aisle_angle = angle % (math.pi / 4)
-                is_aisle = aisle_angle < 0.08 or aisle_angle > (math.pi / 4 - 0.08)
+                # 통로 구간 (3개 방사형 통로)
+                # 120도 간격으로 3개 통로
+                aisle_angle = angle % (2 * math.pi / 3)
+                is_aisle = aisle_angle < 0.12 or aisle_angle > (2 * math.pi / 3 - 0.12)
 
                 if is_aisle:
                     continue
@@ -137,7 +138,7 @@ class CircularStadiumFrame:
                             'tier': tier,
                             'angle': angle,
                             'anim_offset': random.uniform(0, math.pi * 2),
-                            'size': random.choice([1, 1, 1, 2]),  # 대부분 1픽셀
+                            'size': random.choice([3, 4, 4, 5]),  # 더 큰 픽셀 (3~5)
                         })
 
         random.seed()
@@ -198,9 +199,9 @@ class CircularStadiumFrame:
         inner_radius = max(self.game_width, self.game_height) // 2 + 15
         outer_radius = int(math.sqrt(self.screen_width**2 + self.screen_height**2))
 
-        # 8개의 방사형 통로
-        for i in range(8):
-            angle = i * math.pi / 4
+        # 3개의 방사형 통로 (120도 간격)
+        for i in range(3):
+            angle = i * (2 * math.pi / 3)  # 0, 120, 240도
 
             # 통로 시작점과 끝점
             start_x = self.center_x + int(inner_radius * math.cos(angle))
@@ -208,12 +209,12 @@ class CircularStadiumFrame:
             end_x = self.center_x + int(outer_radius * math.cos(angle))
             end_y = self.center_y + int(outer_radius * math.sin(angle))
 
-            # 통로 그리기 (어두운 색)
+            # 통로 그리기 (어두운 색, 더 넓게)
             pygame.draw.line(surface, self.COLORS['aisle'],
-                           (start_x, start_y), (end_x, end_y), 6)
+                           (start_x, start_y), (end_x, end_y), 10)
             # 통로 가장자리 라인
             pygame.draw.line(surface, self.COLORS['structure'],
-                           (start_x, start_y), (end_x, end_y), 1)
+                           (start_x, start_y), (end_x, end_y), 2)
 
     def _draw_structures(self, surface):
         """구조물 및 난간 그리기"""
