@@ -1232,30 +1232,40 @@ class ColosseumsArena:
             )
             return False
 
-        # AI 패들 업데이트 (실제 게임과 동일한 파라미터)
-        self.top_paddle.update(
-            self.ball.x, self.ball.y,
-            self.ball.vx, self.ball.vy, dt
-        )
-        self.bottom_paddle.update(
-            self.ball.x, self.ball.y,
-            self.ball.vx, self.ball.vy, dt
-        )
+        # === 암흑 베기 화면 정지 체크 ===
+        is_frozen = False
+        if self.skill_manager:
+            game_state = self.skill_manager.game_state
+            is_frozen = game_state.get('dark_slash_freeze', False)
 
-        # 공 업데이트
-        scorer = self.ball.update(dt)
+        if not is_frozen:
+            # AI 패들 업데이트 (실제 게임과 동일한 파라미터)
+            self.top_paddle.update(
+                self.ball.x, self.ball.y,
+                self.ball.vx, self.ball.vy, dt
+            )
+            self.bottom_paddle.update(
+                self.ball.x, self.ball.y,
+                self.ball.vx, self.ball.vy, dt
+            )
 
-        # 패들 충돌 체크 + 스킬 발동
-        if self.ball.check_paddle_collision(self.top_paddle):
-            self._on_ball_hit(self.selected_match.hero1["id"], self.top_paddle, self.bottom_paddle)
-            # 관중 반응 (약한 흥분)
-            if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
-                self.arena_pillar.trigger_excitement(intensity=0.3, duration=0.5)
-        if self.ball.check_paddle_collision(self.bottom_paddle):
-            self._on_ball_hit(self.selected_match.hero2["id"], self.bottom_paddle, self.top_paddle)
-            # 관중 반응 (약한 흥분)
-            if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
-                self.arena_pillar.trigger_excitement(intensity=0.3, duration=0.5)
+            # 공 업데이트
+            scorer = self.ball.update(dt)
+
+            # 패들 충돌 체크 + 스킬 발동
+            if self.ball.check_paddle_collision(self.top_paddle):
+                self._on_ball_hit(self.selected_match.hero1["id"], self.top_paddle, self.bottom_paddle)
+                # 관중 반응 (약한 흥분)
+                if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
+                    self.arena_pillar.trigger_excitement(intensity=0.3, duration=0.5)
+            if self.ball.check_paddle_collision(self.bottom_paddle):
+                self._on_ball_hit(self.selected_match.hero2["id"], self.bottom_paddle, self.top_paddle)
+                # 관중 반응 (약한 흥분)
+                if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
+                    self.arena_pillar.trigger_excitement(intensity=0.3, duration=0.5)
+        else:
+            # 화면 정지 중 - 공/패들 업데이트 없음, 스킬만 업데이트
+            scorer = None
 
         # 득점 처리
         if scorer:
