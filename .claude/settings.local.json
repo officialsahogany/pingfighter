@@ -68,7 +68,8 @@
       "Bash(copy:*)",
       "Bash(del:*)",
       "Bash(del replace_divine_icon.py)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(cmd /c copy:*)"
     ],
     "deny": [],
     "ask": [],

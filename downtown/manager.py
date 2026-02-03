@@ -22,7 +22,7 @@ from .npc import NPCManager
 from .shop import Shop
 from .building_interior import BuildingInterior
 from .performance_stage import PerformanceStage, PerformanceStageManager
-# ColosseumsArena는 폐기됨 - 투기장은 pingfighter.py 스테이지 30 사용
+from .colosseum_arena import ColosseumsArena
 
 # 인게임 메뉴 함수 import
 try:
@@ -2021,39 +2021,38 @@ class DowntownManager:
                                 # 입장료 지불
                                 self.player_data['gold'] = player_gold - admission_fee
                                 show_entry_dialog = False
+                                arena_running = True
 
-                                # 투기장 영웅 매치 설정 (랜덤)
-                                import random
-                                TOP_HEROES = [
-                                    {"id": "mugen", "name": "무겐", "color": (100, 180, 255)},
-                                    {"id": "kraken", "name": "크라켄", "color": (80, 200, 180)},
-                                    {"id": "chronos", "name": "크로노스", "color": (200, 180, 100)},
-                                    {"id": "onimaru", "name": "오니마루", "color": (255, 100, 100)},
-                                ]
-                                BOTTOM_HEROES = [
-                                    {"id": "maria", "name": "마리아", "color": (255, 150, 200)},
-                                    {"id": "ignis", "name": "이그니스", "color": (255, 120, 50)},
-                                    {"id": "gear", "name": "기어", "color": (150, 150, 180)},
-                                    {"id": "kurokage", "name": "쿠로카게", "color": (80, 80, 100)},
-                                ]
-                                top_hero = random.choice(TOP_HEROES)
-                                bottom_hero = random.choice(BOTTOM_HEROES)
+                                # 아레나 시스템 실행 (실제 게임 엔진 연동)
+                                arena = ColosseumsArena(
+                                    self.screen,
+                                    self._freetype_fonts,
+                                    self.player_data.get('gold', 0),
+                                    battle_callback=self.arena_battle_callback
+                                )
 
-                                # pingfighter의 start_arena_battle 직접 호출
-                                try:
-                                    import pingfighter
-                                    if hasattr(pingfighter, 'start_arena_battle'):
-                                        pingfighter.start_arena_battle(top_hero, bottom_hero)
-                                        print(f"[Arena] 배틀 시작: {top_hero['name']} vs {bottom_hero['name']}")
-                                        # 광장 나가고 스테이지 30으로 이동
-                                        self.arena_entry_requested = True
-                                        running = False
-                                    else:
-                                        print("[Arena] start_arena_battle 함수를 찾을 수 없음")
-                                except Exception as e:
-                                    import traceback
-                                    print(f"[Arena] 투기장 시작 오류: {e}")
-                                    traceback.print_exc()
+                                # 아레나 게임 루프
+                                arena_active = True
+                                while arena_active:
+                                    dt = clock.tick(60) / 1000.0
+
+                                    for arena_event in pygame.event.get():
+                                        if arena_event.type == pygame.QUIT:
+                                            arena_active = False
+                                            running = False
+                                            return
+                                        if arena.handle_event(arena_event):
+                                            arena_active = False
+
+                                    arena.update(dt)
+                                    arena.draw()
+                                    pygame.display.flip()
+
+                                # 결과 처리
+                                result = arena.get_result()
+                                self.player_data['gold'] = self.player_data.get('gold', 0) + result['winnings']
+                                arena_running = False
+                                running = False
 
                         elif cancel_btn.collidepoint(mx, my):
                             show_entry_dialog = False  # 다이얼로그 닫고 계속 탐색
