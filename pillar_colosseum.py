@@ -146,17 +146,16 @@ class CircularStadiumFrame:
         self._wave_active = False
 
     def _generate_crowd(self):
-        """관중 생성 (빽빽하게, 큰 크기, 다양한 특성)"""
+        """관중 생성 (4~5줄만, 경기장 가까이에만 배치)"""
         random.seed(42)
 
         inner_radius = max(self.game_width, self.game_height) // 2 + 25
-        outer_radius = int(math.sqrt(self.screen_width**2 + self.screen_height**2)) + 50
 
-        person_size = 28
-        row_spacing = 30
-        seat_spacing = 20
+        person_size = 30  # 더 크게
+        row_spacing = 28
+        seat_spacing = 18  # 더 빽빽하게
 
-        num_rows = (outer_radius - inner_radius) // row_spacing
+        num_rows = 5  # 4~5줄만
 
         for row in range(num_rows):
             radius = inner_radius + row * row_spacing
@@ -257,10 +256,13 @@ class CircularStadiumFrame:
             (self.screen_width, self.screen_height), pygame.SRCALPHA
         )
 
-        # 배경
-        self._frame_surface.fill(self.COLORS['stone_medium'])
+        # 배경 (어두운 석조)
+        self._frame_surface.fill(self.COLORS['stone_dark'])
 
-        # 동심원 좌석 구조
+        # 외곽 스타디움 구조 (관중석 뒤)
+        self._draw_stadium_backdrop(self._frame_surface)
+
+        # 동심원 좌석 구조 (관중석 영역만)
         self._draw_seat_tiers(self._frame_surface)
 
         # 아치 구조
@@ -279,24 +281,85 @@ class CircularStadiumFrame:
         # 경기장 테두리 장식
         self._draw_arena_border(self._frame_surface)
 
-    def _draw_seat_tiers(self, surface):
-        """동심원 좌석 단 그리기 (디테일 추가)"""
-        inner_radius = max(self.game_width, self.game_height) // 2 + 20
+    def _draw_stadium_backdrop(self, surface):
+        """관중석 뒤 스타디움 배경 그리기"""
+        # 관중석 끝나는 위치
+        crowd_end_radius = max(self.game_width, self.game_height) // 2 + 25 + 5 * 28 + 20
         outer_radius = int(math.sqrt(self.screen_width**2 + self.screen_height**2)) + 50
 
-        tier_height = 32
-        num_tiers = (outer_radius - inner_radius) // tier_height
+        # 상단 스타디움 구조 (여러 층)
+        tier_height = 40
+        num_backdrop_tiers = (outer_radius - crowd_end_radius) // tier_height
+
+        for i in range(num_backdrop_tiers):
+            radius = crowd_end_radius + i * tier_height
+
+            # 층마다 점점 어두워지는 색상
+            darkness = min(0.4, i * 0.05)
+            base_color = self.COLORS['stone_medium']
+            color = tuple(int(c * (1 - darkness)) for c in base_color)
+
+            # 원형 층
+            pygame.draw.circle(surface, color, (self.center_x, self.center_y),
+                             radius + tier_height, tier_height)
+
+            # 층 경계선
+            pygame.draw.circle(surface, self.COLORS['stone_shadow'],
+                             (self.center_x, self.center_y), radius, 3)
+
+        # 대형 아치 구조 (배경)
+        num_big_arches = 12
+        for i in range(num_big_arches):
+            angle = i * (2 * math.pi / num_big_arches)
+
+            # 통로 위치 건너뛰기
+            skip = False
+            for aisle_angle in [math.pi * 0.5, math.pi * 1.17, math.pi * 1.83]:
+                if abs(angle - aisle_angle) < 0.3:
+                    skip = True
+                    break
+            if skip:
+                continue
+
+            # 여러 반경에 아치 배치
+            for r in range(int(crowd_end_radius) + 30, int(outer_radius), 80):
+                ax = self.center_x + int(r * math.cos(angle))
+                ay = self.center_y + int(r * math.sin(angle))
+
+                if 0 <= ax < self.screen_width and 0 <= ay < self.screen_height:
+                    if not (self.game_x - 30 < ax < self.game_x + self.game_width + 30 and
+                            self.game_y - 30 < ay < self.game_y + self.game_height + 30):
+                        # 아치 배경 (어두운 구멍)
+                        pygame.draw.ellipse(surface, self.COLORS['stone_shadow'],
+                                          (ax - 18, ay - 25, 36, 50))
+                        # 아치 테두리
+                        pygame.draw.ellipse(surface, self.COLORS['stone_dark'],
+                                          (ax - 18, ay - 25, 36, 50), 3)
+                        # 아치 상단 장식
+                        pygame.draw.arc(surface, self.COLORS['gold_dark'],
+                                       (ax - 20, ay - 30, 40, 30), 0, math.pi, 2)
+
+        # 수평 장식 라인들
+        for r in range(int(crowd_end_radius) + 50, int(outer_radius), 60):
+            pygame.draw.circle(surface, self.COLORS['gold_dark'],
+                             (self.center_x, self.center_y), r, 2)
+
+    def _draw_seat_tiers(self, surface):
+        """동심원 좌석 단 그리기 (관중석 영역만, 5줄)"""
+        inner_radius = max(self.game_width, self.game_height) // 2 + 20
+
+        # 5줄만 좌석
+        tier_height = 28
+        num_tiers = 6  # 관중석 배경용
 
         for i in range(num_tiers):
             radius = inner_radius + i * tier_height
 
-            # 좌석 단 색상 (그라데이션)
-            if i % 3 == 0:
+            # 좌석 단 색상
+            if i % 2 == 0:
                 color = self.COLORS['seat_light']
-            elif i % 3 == 1:
-                color = self.COLORS['seat_medium']
             else:
-                color = self.COLORS['seat_dark']
+                color = self.COLORS['seat_medium']
 
             # 원형 좌석 단
             pygame.draw.circle(surface, color, (self.center_x, self.center_y),
@@ -309,13 +372,13 @@ class CircularStadiumFrame:
                              (self.center_x, self.center_y), radius + tier_height - 2, 1)
 
     def _draw_arches(self, surface):
-        """아치 구조 그리기"""
-        inner_radius = max(self.game_width, self.game_height) // 2 + 60
+        """아치 구조 그리기 (관중석 바로 뒤)"""
+        # 관중석 끝나는 위치 바로 뒤
+        arch_radius = max(self.game_width, self.game_height) // 2 + 25 + 5 * 28 + 10
 
-        # 아치 (일정 간격마다)
         num_arches = 16
-        arch_width = 30
-        arch_height = 25
+        arch_width = 35
+        arch_height = 30
 
         for i in range(num_arches):
             angle = i * (2 * math.pi / num_arches)
@@ -329,23 +392,29 @@ class CircularStadiumFrame:
             if skip:
                 continue
 
-            x = self.center_x + int(inner_radius * math.cos(angle))
-            y = self.center_y + int(inner_radius * math.sin(angle))
+            x = self.center_x + int(arch_radius * math.cos(angle))
+            y = self.center_y + int(arch_radius * math.sin(angle))
 
             if not (self.game_x - 20 < x < self.game_x + self.game_width + 20 and
                     self.game_y - 20 < y < self.game_y + self.game_height + 20):
-                # 아치 그리기
+                # 아치 배경
+                pygame.draw.ellipse(surface, self.COLORS['stone_shadow'],
+                                   (x - arch_width // 2, y - arch_height, arch_width, arch_height * 2))
+                # 아치 테두리
                 arch_rect = (x - arch_width // 2, y - arch_height, arch_width, arch_height * 2)
-                pygame.draw.arc(surface, self.COLORS['pillar_dark'], arch_rect, 0, math.pi, 4)
+                pygame.draw.arc(surface, self.COLORS['pillar'], arch_rect, 0, math.pi, 5)
                 pygame.draw.arc(surface, self.COLORS['pillar_light'], arch_rect, 0, math.pi, 2)
+                # 아치 장식
+                pygame.draw.arc(surface, self.COLORS['gold'], arch_rect, 0.2, math.pi - 0.2, 2)
 
     def _draw_pillars(self, surface):
-        """기둥 구조 그리기 (고퀄리티)"""
-        inner_radius = max(self.game_width, self.game_height) // 2 + 25
+        """기둥 구조 그리기 (관중석 뒤에만)"""
+        # 관중석 끝나는 위치부터
+        crowd_end_radius = max(self.game_width, self.game_height) // 2 + 25 + 5 * 28 + 25
         outer_radius = int(math.sqrt(self.screen_width**2 + self.screen_height**2))
 
         num_pillars = 12
-        pillar_width = 18
+        pillar_width = 22
 
         for i in range(num_pillars):
             angle = i * (2 * math.pi / num_pillars)
@@ -359,7 +428,8 @@ class CircularStadiumFrame:
             if skip:
                 continue
 
-            for r in range(int(inner_radius), int(outer_radius), 75):
+            # 관중석 뒤부터 기둥 배치
+            for r in range(int(crowd_end_radius), int(outer_radius), 70):
                 px = self.center_x + int(r * math.cos(angle))
                 py = self.center_y + int(r * math.sin(angle))
 
@@ -368,22 +438,22 @@ class CircularStadiumFrame:
                             self.game_y < py < self.game_y + self.game_height):
                         # 기둥 그림자
                         pygame.draw.rect(surface, self.COLORS['pillar_dark'],
-                                        (px - pillar_width//2 + 2, py - 22, pillar_width, 48))
+                                        (px - pillar_width//2 + 3, py - 28, pillar_width, 60))
                         # 기둥 본체
                         pygame.draw.rect(surface, self.COLORS['pillar'],
-                                        (px - pillar_width//2, py - 24, pillar_width - 2, 48),
-                                        border_radius=2)
+                                        (px - pillar_width//2, py - 30, pillar_width - 2, 60),
+                                        border_radius=3)
                         # 기둥 하이라이트
                         pygame.draw.rect(surface, self.COLORS['pillar_light'],
-                                        (px - pillar_width//2 + 1, py - 24, 3, 48))
+                                        (px - pillar_width//2 + 1, py - 30, 4, 60))
                         # 기둥 상단 장식 (코린트식)
                         pygame.draw.rect(surface, self.COLORS['gold'],
-                                        (px - pillar_width//2 - 3, py - 28, pillar_width + 6, 5))
+                                        (px - pillar_width//2 - 4, py - 35, pillar_width + 8, 6))
                         pygame.draw.rect(surface, self.COLORS['gold_light'],
-                                        (px - pillar_width//2 - 3, py - 28, pillar_width + 6, 2))
+                                        (px - pillar_width//2 - 4, py - 35, pillar_width + 8, 2))
                         # 기둥 하단 받침
                         pygame.draw.rect(surface, self.COLORS['stone_dark'],
-                                        (px - pillar_width//2 - 2, py + 22, pillar_width + 4, 4))
+                                        (px - pillar_width//2 - 3, py + 28, pillar_width + 6, 5))
 
     def _draw_aisles(self, surface):
         """통로 그리기 (계단 디테일)"""
