@@ -2113,6 +2113,15 @@ class DragonBreath(HeroSkill):
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 공 히트박스 생성 (rect 기반 충돌 체크용)
+        ball_radius = 10  # BALL_SIZE
+        ball_rect = pygame.Rect(
+            ball.x - ball_radius - 5,
+            ball.y - ball_radius - 5,
+            ball_radius * 2 + 10,
+            ball_radius * 2 + 10
+        )
+
         for p in self.breath_particles:
             p['x'] += p['vx'] * dt
             p['y'] += p['vy'] * dt
@@ -2120,10 +2129,18 @@ class DragonBreath(HeroSkill):
             p['size'] *= 0.98
             p['color_phase'] += dt
 
-            # 공과 충돌 체크
-            if not self.breath_hit_ball:
-                dist = math.hypot(p['x'] - ball.x, p['y'] - ball.y)
-                if dist < 30:
+            # 공과 충돌 체크 (rect 기반 - 오딘의 늪과 동일 방식)
+            if not self.breath_hit_ball and p['size'] > 3:
+                # 파티클 히트박스 생성
+                particle_size = max(int(p['size']), 5)
+                particle_rect = pygame.Rect(
+                    int(p['x']) - particle_size,
+                    int(p['y']) - particle_size,
+                    particle_size * 2,
+                    particle_size * 2
+                )
+
+                if particle_rect.colliderect(ball_rect):
                     # 공 가속
                     ball.vx *= 1.4
                     ball.vy *= 1.4
