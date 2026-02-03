@@ -1058,6 +1058,15 @@ class HellFire(HeroSkill):
         self.fire_particles = []
         self.dokkaebi_time = 0  # 타이머 리셋
 
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 지옥불 스킬 강제 종료"""
+        super().reset_for_new_round(game_state)
+        game_state['ball_on_fire'] = False
+        game_state['dokkaebi_ball'] = False
+        self.fire_particles = []
+        self.flame_intensity = 0
+        self.dokkaebi_time = 0
+
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
             # 화면 푸른 틴트 (도깨비불)
@@ -2198,7 +2207,17 @@ class DragonBreath(HeroSkill):
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         self.breath_particles = []
         self.breath_active = False
+        game_state['ball_on_fire'] = False  # 화염 공 이펙트 해제
         # 화염 지대는 _update_active_effect에서 종료 0.5초 전에 생성됨
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 드래곤 브레스 스킬 강제 종료"""
+        super().reset_for_new_round(game_state)
+        self.breath_particles = []
+        self.breath_active = False
+        self.breath_hit_ball = False
+        self.fire_zone_spawned = False
+        game_state['ball_on_fire'] = False
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         for p in self.breath_particles:
@@ -2304,6 +2323,16 @@ class DragonWing(HeroSkill):
         self.wind_particles = []
 
         # 강풍 이벤트 강제 종료 (스킬 종료와 함께)
+        if WEATHER_EVENT_AVAILABLE:
+            force_end_weather_event()
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 용의 날개 스킬 강제 종료"""
+        super().reset_for_new_round(game_state)
+        game_state['wind_force'] = 0
+        self.wind_particles = []
+        self.wind_direction = 0
+        # 강풍 이벤트 강제 종료
         if WEATHER_EVENT_AVAILABLE:
             force_end_weather_event()
 
@@ -2809,6 +2838,11 @@ class HeroSkillManager:
         self.game_state['target_stunned'] = False
         self.game_state['screen_shake'] = 0
         self.game_state['shake_duration'] = 0
+
+        # 공 이펙트 초기화 (드래곤 브레스 화염, 오니마루 도깨비불 등)
+        self.game_state['ball_on_fire'] = False
+        self.game_state['dokkaebi_ball'] = False
+        self.game_state['wind_force'] = 0
 
     def update(self, dt: float, top_paddle, bottom_paddle, ball):
         """스킬 업데이트"""
