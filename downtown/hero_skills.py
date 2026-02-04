@@ -493,13 +493,13 @@ class DarkSlash(HeroSkill):
 
 
 class DemonEye(HeroSkill):
-    """귀신발걸음 - 7초간 이동속도 200% 증가 (3배) + 오오라 이펙트"""
+    """귀신발걸음 - 7초간 이동속도 200% 증가 (3배) + 패들 사이즈 20% 증가 + 오오라 이펙트"""
     def __init__(self):
         super().__init__(
             skill_id="demon_step",
             name="Ghost Step",
             korean_name="귀신발걸음",
-            description="어둠의 기운을 두르고 이동속도가 3배로 증가한다",
+            description="어둠의 기운을 두르고 이동속도가 3배, 패들 사이즈가 20% 증가한다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=25.0,
             duration=7.0,  # 7초 지속
@@ -519,6 +519,10 @@ class DemonEye(HeroSkill):
         game_state['demon_eye_active'] = True
         game_state['demon_eye_caster_is_top'] = caster_paddle.is_top
 
+        # 패들 사이즈 20% 증가
+        size_key = 'top_paddle_size_boost' if caster_paddle.is_top else 'bottom_paddle_size_boost'
+        game_state[size_key] = 1.2  # 20% 증가
+
         # 오오라 파티클 초기화
         self.aura_particles = []
         for _ in range(20):
@@ -531,7 +535,7 @@ class DemonEye(HeroSkill):
                 'alpha': random.randint(100, 200)
             })
 
-        print(f"[GhostStep] 귀신발걸음 발동! 이동속도 3배, 지속시간 7초")
+        print(f"[GhostStep] 귀신발걸음 발동! 이동속도 3배 + 패들 20% 확대, 지속시간 7초")
 
         return {
             'screen_effect': ScreenEffect.FLASH,
@@ -553,6 +557,9 @@ class DemonEye(HeroSkill):
         # 이동속도 원래대로
         speed_key = 'top_paddle_speed_boost' if self.caster_is_top else 'bottom_paddle_speed_boost'
         game_state[speed_key] = 1.0
+        # 패들 사이즈 원래대로
+        size_key = 'top_paddle_size_boost' if self.caster_is_top else 'bottom_paddle_size_boost'
+        game_state[size_key] = 1.0
         game_state['demon_eye_active'] = False
         self.aura_particles = []
         print(f"[GhostStep] 귀신발걸음 종료")
@@ -565,6 +572,8 @@ class DemonEye(HeroSkill):
         # game_state 플래그 초기화
         game_state['top_paddle_speed_boost'] = 1.0
         game_state['bottom_paddle_speed_boost'] = 1.0
+        game_state['top_paddle_size_boost'] = 1.0
+        game_state['bottom_paddle_size_boost'] = 1.0
         game_state['demon_eye_active'] = False
         print("[GhostStep] 라운드 전환 - 귀신발걸음 초기화")
 

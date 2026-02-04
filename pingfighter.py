@@ -86684,14 +86684,20 @@ def draw_objects():
                         _horn_charge_y_offset_top = _horn_gs.get('horn_charge_y_offset', 0)
                         _horn_charge_x_offset_top = _horn_gs.get('horn_charge_x_offset', 0)
                     # 넉백은 boss_knockback_vel로 BOSS.x에 직접 적용됨 (시각적 오프셋 불필요)
+            # 👁️ 귀신발걸음 패들 사이즈 부스트 적용 (상단)
+            _top_size_boost = 1.0
+            if arena_skill_manager:
+                _top_size_boost = arena_skill_manager.game_state.get('top_paddle_size_boost', 1.0)
+            _top_draw_width = int(BOSS.width * _top_size_boost)
+            _top_draw_height = int(BOSS.height * _top_size_boost)
             # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
                 arena_top_hero["id"],
                 BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top,
                 BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top,
-                BOSS.width,
-                BOSS.height,
+                _top_draw_width,
+                _top_draw_height,
                 facing="down",
                 color=arena_top_hero["color"],
                 scale_mode="paddle",
@@ -88212,6 +88218,12 @@ def draw_objects():
                         _horn_charge_y_offset_bottom = _horn_gs.get('horn_charge_y_offset', 0)
                         _horn_charge_x_offset_bottom = _horn_gs.get('horn_charge_x_offset', 0)
                     # 넉백은 player_knockback_vel로 PLAYER.x에 직접 적용됨 (시각적 오프셋 불필요)
+            # 👁️ 귀신발걸음 패들 사이즈 부스트 적용 (하단)
+            _bottom_size_boost = 1.0
+            if arena_skill_manager:
+                _bottom_size_boost = arena_skill_manager.game_state.get('bottom_paddle_size_boost', 1.0)
+            _bottom_draw_width = int(player_rect.width * _bottom_size_boost)
+            _bottom_draw_height = int(player_rect.height * _bottom_size_boost)
             # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             _final_x = player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom
             _final_y = player_rect.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
@@ -88220,8 +88232,8 @@ def draw_objects():
                 arena_bottom_hero["id"],
                 _final_x,
                 _final_y,
-                player_rect.width,
-                player_rect.height,
+                _bottom_draw_width,
+                _bottom_draw_height,
                 facing="up",
                 color=arena_bottom_hero["color"],
                 scale_mode="paddle",
@@ -131491,6 +131503,39 @@ def main(stage_num, new_boss_mode=False):
                         print(f"⚔️ [DarkSlash] 커브 적용! spin_strength={globals()['ball_spin_strength']:.2f}, spin_dir={globals()['ball_spin_direction']}")
                         # 스핀 적용 후 플래그 제거 (한 번만 적용)
                         _dark_gs['dark_slash_spin_strength'] = 0
+
+                    # 👁️ 귀신발걸음 패들 히트박스 사이즈 부스트 적용
+                    _size_gs = arena_skill_manager.game_state
+                    _arena_base_width = 130
+                    _arena_base_height = 40
+                    # 상단 (BOSS) 사이즈 부스트
+                    _top_size_boost = _size_gs.get('top_paddle_size_boost', 1.0)
+                    if _top_size_boost != 1.0:
+                        _new_boss_w = int(_arena_base_width * _top_size_boost)
+                        _new_boss_h = int(_arena_base_height * _top_size_boost)
+                        _boss_cx = BOSS.centerx
+                        BOSS.width = _new_boss_w
+                        BOSS.height = _new_boss_h
+                        BOSS.centerx = _boss_cx
+                    elif BOSS.width != _arena_base_width:
+                        _boss_cx = BOSS.centerx
+                        BOSS.width = _arena_base_width
+                        BOSS.height = _arena_base_height
+                        BOSS.centerx = _boss_cx
+                    # 하단 (PLAYER) 사이즈 부스트
+                    _bottom_size_boost = _size_gs.get('bottom_paddle_size_boost', 1.0)
+                    if _bottom_size_boost != 1.0:
+                        _new_player_w = int(_arena_base_width * _bottom_size_boost)
+                        _new_player_h = int(_arena_base_height * _bottom_size_boost)
+                        _player_cx = PLAYER.centerx
+                        PLAYER.width = _new_player_w
+                        PLAYER.height = _new_player_h
+                        PLAYER.centerx = _player_cx
+                    elif PLAYER.width != _arena_base_width:
+                        _player_cx = PLAYER.centerx
+                        PLAYER.width = _arena_base_width
+                        PLAYER.height = _arena_base_height
+                        PLAYER.centerx = _player_cx
 
                     # 🐂 뿔 박치기 넉백 적용 (다이너마이트 폭발과 동일한 방식)
                     _horn_gs = arena_skill_manager.game_state
