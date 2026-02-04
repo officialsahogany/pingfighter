@@ -118,19 +118,22 @@ class AnimatedBackgroundStage30:
 
     def _prerender_floor(self):
         """바닥 프리렌더 - 모래 아레나"""
-        self.floor_surface.fill((0, 0, 0, 0))
+        # 전체를 석조 색상으로 먼저 채움 (빈 공간 방지)
+        stone = self.colors['stone']
+        stone_dark = self.colors['stone_dark']
+        self.floor_surface.fill(stone)
 
         # 메인 모래 바닥
         sand = self.colors['sand']
 
-        # 경기장 영역 (테두리 안쪽)
-        arena_rect = pygame.Rect(45, 60, self.width - 90, self.height - 120)
+        # 경기장 영역 (테두리 안쪽) - 석조 프레임 제거, 전체를 모래로
+        arena_rect = pygame.Rect(0, 0, self.width, self.height)
         pygame.draw.rect(self.floor_surface, sand, arena_rect)
 
         # 모래 텍스처 - 미세한 노이즈
-        for _ in range(400):
-            x = random.randint(arena_rect.x + 5, arena_rect.right - 5)
-            y = random.randint(arena_rect.y + 5, arena_rect.bottom - 5)
+        for _ in range(500):
+            x = random.randint(5, self.width - 5)
+            y = random.randint(5, self.height - 5)
             shade = random.randint(-15, 15)
             color = (
                 max(0, min(255, sand[0] + shade)),
@@ -139,28 +142,6 @@ class AnimatedBackgroundStage30:
             )
             size = random.randint(1, 2)
             pygame.draw.circle(self.floor_surface, color, (x, y), size)
-
-        # 경기장 외곽 테두리 (석조 느낌)
-        stone = self.colors['stone']
-        stone_dark = self.colors['stone_dark']
-
-        # 상단 석조 프레임
-        pygame.draw.rect(self.floor_surface, stone, (0, 0, self.width, 60))
-        pygame.draw.rect(self.floor_surface, stone_dark, (0, 55, self.width, 5))
-
-        # 하단 석조 프레임
-        pygame.draw.rect(self.floor_surface, stone, (0, self.height - 60, self.width, 60))
-        pygame.draw.rect(self.floor_surface, stone_dark, (0, self.height - 60, self.width, 5))
-
-        # 좌우 석조 프레임
-        pygame.draw.rect(self.floor_surface, stone, (0, 60, 45, self.height - 120))
-        pygame.draw.rect(self.floor_surface, stone, (self.width - 45, 60, 45, self.height - 120))
-
-        # 내부 테두리 라인
-        pygame.draw.rect(self.floor_surface, stone_dark, (40, 55, self.width - 80, 3))
-        pygame.draw.rect(self.floor_surface, stone_dark, (40, self.height - 58, self.width - 80, 3))
-        pygame.draw.rect(self.floor_surface, stone_dark, (40, 55, 3, self.height - 110))
-        pygame.draw.rect(self.floor_surface, stone_dark, (self.width - 43, 55, 3, self.height - 110))
 
     def _prerender_arena(self):
         """경기장 라인 프리렌더 - 중앙선과 중앙원"""
