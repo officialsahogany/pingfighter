@@ -86686,10 +86686,14 @@ def draw_objects():
                     # 넉백은 boss_knockback_vel로 BOSS.x에 직접 적용됨 (시각적 오프셋 불필요)
             # 👁️ 귀신발걸음 패들 사이즈 부스트 적용 (상단)
             _top_size_boost = 1.0
+            _top_shrink_scale = 1.0  # 난쟁이마술 축소 스케일
             if arena_skill_manager:
                 _top_size_boost = arena_skill_manager.game_state.get('top_paddle_size_boost', 1.0)
-            _top_draw_width = int(BOSS.width * _top_size_boost)
-            _top_draw_height = int(BOSS.height * _top_size_boost)
+                # 🔮 난쟁이마술 패들 축소 체크
+                if arena_skill_manager.game_state.get('top_paddle_shrink', False):
+                    _top_shrink_scale = arena_skill_manager.game_state.get('top_paddle_shrink_scale', 0.5)
+            _top_draw_width = int(BOSS.width * _top_size_boost * _top_shrink_scale)
+            _top_draw_height = int(BOSS.height * _top_size_boost * _top_shrink_scale)
             # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
@@ -88220,10 +88224,14 @@ def draw_objects():
                     # 넉백은 player_knockback_vel로 PLAYER.x에 직접 적용됨 (시각적 오프셋 불필요)
             # 👁️ 귀신발걸음 패들 사이즈 부스트 적용 (하단)
             _bottom_size_boost = 1.0
+            _bottom_shrink_scale = 1.0  # 난쟁이마술 축소 스케일
             if arena_skill_manager:
                 _bottom_size_boost = arena_skill_manager.game_state.get('bottom_paddle_size_boost', 1.0)
-            _bottom_draw_width = int(player_rect.width * _bottom_size_boost)
-            _bottom_draw_height = int(player_rect.height * _bottom_size_boost)
+                # 🔮 난쟁이마술 패들 축소 체크
+                if arena_skill_manager.game_state.get('bottom_paddle_shrink', False):
+                    _bottom_shrink_scale = arena_skill_manager.game_state.get('bottom_paddle_shrink_scale', 0.5)
+            _bottom_draw_width = int(player_rect.width * _bottom_size_boost * _bottom_shrink_scale)
+            _bottom_draw_height = int(player_rect.height * _bottom_size_boost * _bottom_shrink_scale)
             # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             _final_x = player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom
             _final_y = player_rect.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
@@ -139134,7 +139142,7 @@ def _show_multiplayer_result(winner: str, p1_score: int, p2_score: int):
     while True:
         dt = clock.tick(60) / 1000.0
         animation_timer += dt
-
+ 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return
