@@ -669,6 +669,7 @@ class ArenaBall:
         self.vy = 0.0
         self.visible = False
         self.trail = []  # 잔상 효과
+        self.wall_bounced = False  # 벽 반사 감지 플래그
 
     def reset(self, direction: int = 1, serve_x: float = None):
         """공 초기화"""
@@ -681,6 +682,7 @@ class ArenaBall:
         self.vy = BALL_BASE_SPEED * direction
         self.visible = True
         self.trail = []
+        self.wall_bounced = False
 
     def update(self, dt: float = 1/60) -> Optional[str]:
         """공 업데이트 (실제 게임 물리)"""
@@ -702,12 +704,15 @@ class ArenaBall:
         left_wall = GAME_AREA_X + BALL_SIZE
         right_wall = GAME_AREA_X + GAME_AREA_WIDTH - BALL_SIZE
 
+        self.wall_bounced = False  # 매 프레임 초기화
         if self.x <= left_wall:
             self.x = left_wall
             self.vx = abs(self.vx) * WALL_BOUNCE_SLOWDOWN
+            self.wall_bounced = True
         elif self.x >= right_wall:
             self.x = right_wall
             self.vx = -abs(self.vx) * WALL_BOUNCE_SLOWDOWN
+            self.wall_bounced = True
 
         # 상하 득점 체크
         if self.y <= 0:
@@ -1256,6 +1261,22 @@ class ColosseumsArena:
 
             # 공 업데이트
             scorer = self.ball.update(dt)
+
+            # === 암흑 베기 벽 반사 시 즉시 상대 방향으로 꺾기 ===
+            if self.skill_manager and self.ball.wall_bounced:
+                game_state = self.skill_manager.game_state
+                if game_state.get('dark_slash_active', False):
+                    # 시전자 방향에 따라 상대 방향으로 즉시 꺾음
+                    caster_is_top = game_state.get('dark_slash_caster_is_top', False)
+                    if caster_is_top:
+                        # 상단이 시전 → 하단 방향(양수)으로 강제
+                        self.ball.vy = abs(self.ball.vy)
+                    else:
+                        # 하단이 시전 → 상단 방향(음수)으로 강제
+                        self.ball.vy = -abs(self.ball.vy)
+                    # 벽 반사 후 암흑 베기 효과 종료
+                    game_state['dark_slash_active'] = False
+                    print(f"[DarkSlash] 벽 반사 → 상대 방향으로 즉시 꺾음! vy={self.ball.vy:.1f}")
 
             # 패들 충돌 체크 + 스킬 발동
             if self.ball.check_paddle_collision(self.top_paddle):
