@@ -88230,8 +88230,9 @@ def draw_objects():
                 # 🔮 난쟁이마술 패들 축소 체크
                 if arena_skill_manager.game_state.get('bottom_paddle_shrink', False):
                     _bottom_shrink_scale = arena_skill_manager.game_state.get('bottom_paddle_shrink_scale', 0.5)
-            _bottom_draw_width = int(player_rect.width * _bottom_size_boost * _bottom_shrink_scale)
-            _bottom_draw_height = int(player_rect.height * _bottom_size_boost * _bottom_shrink_scale)
+            # 투기장 패들 크기: PLAYER rect 사용 (130x40), player_rect는 이미지 rect임
+            _bottom_draw_width = int(PLAYER.width * _bottom_size_boost * _bottom_shrink_scale)
+            _bottom_draw_height = int(PLAYER.height * _bottom_size_boost * _bottom_shrink_scale)
             # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             _final_x = player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom
             _final_y = player_rect.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
