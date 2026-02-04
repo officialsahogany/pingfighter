@@ -121071,7 +121071,13 @@ def handle_boss_pro():
     enhanced_max_speed = config["max_speed"]
     enhanced_acceleration = config["accel"]
     enhanced_deceleration = config["decel"]
-    
+
+    # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
+    if globals().get("arena_mode_enabled", False):
+        enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
+        enhanced_acceleration = 0.4    # PLAYER ACCELERATION
+        enhanced_deceleration = 0.4    # PLAYER DECELERATION
+
     # 상모돌리기 강제 해제 모션 중 속도 50% 감소
     if whip_deactivation_active:
         enhanced_max_speed *= 0.5  # 50% 감소 = 50%만 유지
@@ -121383,7 +121389,13 @@ def handle_boss_champion():
     enhanced_max_speed = config["max_speed"]
     enhanced_acceleration = config["accel"]
     enhanced_deceleration = config["decel"]
-    
+
+    # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
+    if globals().get("arena_mode_enabled", False):
+        enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
+        enhanced_acceleration = 0.4    # PLAYER ACCELERATION
+        enhanced_deceleration = 0.4    # PLAYER DECELERATION
+
     # 상모돌리기 강제 해제 모션 중 속도 50% 감소
     if whip_deactivation_active:
         enhanced_max_speed *= 0.5  # 50% 감소 = 50%만 유지
@@ -121786,7 +121798,13 @@ def handle_boss_mythic():
     enhanced_max_speed = config["max_speed"]
     enhanced_acceleration = config["accel"]
     enhanced_deceleration = config["decel"]
-    
+
+    # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
+    if globals().get("arena_mode_enabled", False):
+        enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
+        enhanced_acceleration = 0.4    # PLAYER ACCELERATION
+        enhanced_deceleration = 0.4    # PLAYER DECELERATION
+
     # 이동 속도 감소 효과 적용
     slow_multiplier = 1.0
     if leg_shot_active:
@@ -122229,7 +122247,13 @@ def handle_boss_junior():
     enhanced_max_speed = config["max_speed"]
     enhanced_acceleration = config["accel"]
     enhanced_deceleration = config["decel"]
-    
+
+    # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
+    if globals().get("arena_mode_enabled", False):
+        enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
+        enhanced_acceleration = 0.4    # PLAYER ACCELERATION
+        enhanced_deceleration = 0.4    # PLAYER DECELERATION
+
     # 이동 속도 감소 효과 적용
     slow_multiplier = 1.0
     if leg_shot_active:
@@ -123996,6 +124020,13 @@ def handle_boss():
         enhanced_decel = config["decel"]
         enhanced_max_speed = config["max_speed"]
         enhanced_instant_stop = config["instant_stop"]
+
+    # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
+    if globals().get("arena_mode_enabled", False):
+        enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
+        enhanced_accel = 0.4           # PLAYER ACCELERATION
+        enhanced_decel = 0.4           # PLAYER DECELERATION
+
     #  화염 지대 내에서 속도 감소 효과 적용
     if boss_speed_reduction_active:
         enhanced_accel *= boss_speed_reduction_factor  # 가속도 50% 감소
