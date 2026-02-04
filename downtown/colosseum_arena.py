@@ -1037,10 +1037,12 @@ class ColosseumsArena:
         self.speech_duration = 90       # 말풍선 표시 시간 (1.5초)
 
     def _generate_bracket(self):
-        """8강 대진표 생성 - 상단 영웅 vs 하단 영웅 매칭"""
+        """8강 대진표 생성 - 상단 영웅 vs 하단 영웅 완전 랜덤 매칭"""
+        # 하단 영웅 순서를 독립적으로 다시 셔플하여 매칭을 완전 랜덤화
+        shuffled_bottom = random.sample(self.bottom_heroes, len(self.bottom_heroes))
         for i in range(4):
             # hero1 = 상단 패들 (화면 위), hero2 = 하단 패들 (화면 아래)
-            match = Match(self.top_heroes[i], self.bottom_heroes[i], i)
+            match = Match(self.top_heroes[i], shuffled_bottom[i], i)
             self.matches[TournamentRound.QUARTER_FINAL].append(match)
 
     def _advance_to_next_round(self):
