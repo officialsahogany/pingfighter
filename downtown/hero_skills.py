@@ -1392,10 +1392,10 @@ class DwarfMagic(HeroSkill):
         if self.projectile_active and not self.hit_target:
             self.projectile_y += self.projectile_vy
 
-            # 🎯 30% 유도 효과 - 타겟 패들 방향으로 약간 추적
+            # 🎯 45% 유도 효과 - 타겟 패들 방향으로 추적
             target_center_x = target_paddle.x + target_paddle.width // 2
             dx = target_center_x - self.projectile_x
-            homing_strength = 0.3  # 30% 유도
+            homing_strength = 0.45  # 45% 유도 (기존 30%에서 15% 증가)
             self.projectile_x += dx * homing_strength * dt * 3  # 부드럽게 추적
 
             # 투사체 주변에 빛가루 파티클 추가
