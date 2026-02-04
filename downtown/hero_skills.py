@@ -1268,52 +1268,173 @@ class TimeStop(HeroSkill):
             screen.blit(text, text_rect)
 
 
-class TimeRewind(HeroSkill):
-    """시간 역행 - 공을 이전 위치로 되돌림"""
+class DwarfMagic(HeroSkill):
+    """난쟁이마술 - 보라색 빛가루로 상대 패들 축소"""
     def __init__(self):
         super().__init__(
-            skill_id="time_rewind",
-            name="Time Rewind",
-            korean_name="시간 역행",
-            description="공의 시간을 되돌려 이전 위치로 되돌린다",
+            skill_id="dwarf_magic",
+            name="Dwarf Magic",
+            korean_name="난쟁이마술",
+            description="보라색 빛가루를 발사해 상대 패들을 축소시킨다",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=12.0,
-            duration=0.8,
+            duration=4.0,  # 4초 지속
             hero_id="chronos"
         )
-        self.ball_history = []
-        self.rewind_progress = 0
+        self.magic_particles = []  # 보라색 빛가루 파티클
+        self.projectile_active = False
+        self.projectile_x = 0
+        self.projectile_y = 0
+        self.projectile_vy = 0
+        self.hit_target = False
+        self.shrink_timer = 0
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        # 공 위치 히스토리 저장 (되돌릴 위치)
-        self.ball_history = game_state.get('ball_history', [])[-30:]  # 최근 30프레임
-        self.rewind_progress = 0
+        # 보라색 빛가루 투사체 발사
+        self.projectile_active = True
+        self.projectile_x = caster_paddle.x + caster_paddle.width // 2
+        self.projectile_y = caster_paddle.y
+        # 상대 방향으로 발사 (위 또는 아래)
+        self.projectile_vy = -8 if caster_paddle.is_top else 8
+        if caster_paddle.is_top:
+            self.projectile_vy = 8  # 위에서 아래로
+        else:
+            self.projectile_vy = -8  # 아래에서 위로
 
-        if self.ball_history:
-            # 공 방향 반전
-            ball.vx = -ball.vx * 0.8
-            ball.vy = -ball.vy * 0.8
+        self.hit_target = False
+        self.shrink_timer = 0
+        self.magic_particles = []
+
+        # 발사 시 빛가루 파티클 생성
+        for _ in range(20):
+            self.magic_particles.append({
+                'x': self.projectile_x + random.randint(-15, 15),
+                'y': self.projectile_y + random.randint(-15, 15),
+                'vx': random.uniform(-2, 2),
+                'vy': random.uniform(-2, 2),
+                'size': random.randint(3, 8),
+                'alpha': 255,
+                'life': random.uniform(0.5, 1.5)
+            })
 
         return {
             'screen_effect': ScreenEffect.FLASH,
-            'flash_color': (200, 180, 100),
-            'flash_duration': 0.2,
-            'sound': 'rewind'
+            'flash_color': (180, 100, 220),  # 보라색 플래시
+            'flash_duration': 0.15,
+            'sound': 'magic_cast'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        self.rewind_progress += dt
+        # 투사체 이동
+        if self.projectile_active and not self.hit_target:
+            self.projectile_y += self.projectile_vy
+
+            # 투사체 주변에 빛가루 파티클 추가
+            if random.random() < 0.5:
+                self.magic_particles.append({
+                    'x': self.projectile_x + random.randint(-10, 10),
+                    'y': self.projectile_y + random.randint(-10, 10),
+                    'vx': random.uniform(-1.5, 1.5),
+                    'vy': random.uniform(-1.5, 1.5),
+                    'size': random.randint(2, 6),
+                    'alpha': 255,
+                    'life': random.uniform(0.3, 0.8)
+                })
+
+            # 타겟 패들과 충돌 체크
+            paddle_left = target_paddle.x
+            paddle_right = target_paddle.x + target_paddle.width
+            paddle_top = target_paddle.y
+            paddle_bottom = target_paddle.y + target_paddle.height
+
+            if (paddle_left - 15 < self.projectile_x < paddle_right + 15 and
+                paddle_top - 15 < self.projectile_y < paddle_bottom + 15):
+                # 명중!
+                self.hit_target = True
+                self.projectile_active = False
+                self.shrink_timer = 4.0  # 4초 지속
+
+                # 타겟 패들 50% 축소 적용
+                target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+                game_state[f'{target_prefix}_shrink'] = True
+                game_state[f'{target_prefix}_shrink_scale'] = 0.5  # 50% 축소
+
+                # 명중 시 파티클 폭발
+                for _ in range(30):
+                    self.magic_particles.append({
+                        'x': self.projectile_x,
+                        'y': self.projectile_y,
+                        'vx': random.uniform(-5, 5),
+                        'vy': random.uniform(-5, 5),
+                        'size': random.randint(4, 10),
+                        'alpha': 255,
+                        'life': random.uniform(0.5, 1.2)
+                    })
+
+            # 화면 밖으로 나가면 비활성화
+            if self.projectile_y < 0 or self.projectile_y > 750:
+                self.projectile_active = False
+
+        # 축소 효과 타이머
+        if self.hit_target and self.shrink_timer > 0:
+            self.shrink_timer -= dt
+            if self.shrink_timer <= 0:
+                # 축소 효과 해제
+                target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+                game_state[f'{target_prefix}_shrink'] = False
+                game_state[f'{target_prefix}_shrink_scale'] = 1.0
+
+        # 파티클 업데이트
+        for p in self.magic_particles[:]:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['life'] -= dt
+            p['alpha'] = max(0, int(255 * (p['life'] / 1.0)))
+            if p['life'] <= 0:
+                self.magic_particles.remove(p)
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        if self.is_active and self.ball_history:
-            # 공의 잔상 (역방향)
-            for i, (bx, by) in enumerate(reversed(self.ball_history[-15:])):
-                alpha = int(150 * (1 - i / 15))
-                size = int(10 * (1 - i / 15 * 0.5))
-                if alpha > 20 and size > 2:
-                    surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(surf, (200, 180, 100, alpha), (size, size), size)
-                    screen.blit(surf, (int(bx - size), int(by - size)))
+        if not self.is_active:
+            return
+
+        # 보라색 빛가루 투사체 그리기
+        if self.projectile_active:
+            # 메인 투사체 (보라색 빛 덩어리)
+            for r in range(3, 0, -1):
+                alpha = 100 + r * 50
+                size = 8 + r * 4
+                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                color = (180, 100, 220, alpha)  # 보라색
+                pygame.draw.circle(surf, color, (size, size), size)
+                screen.blit(surf, (int(self.projectile_x - size), int(self.projectile_y - size)))
+
+            # 투사체 중심 (밝은 보라색)
+            pygame.draw.circle(screen, (220, 180, 255),
+                             (int(self.projectile_x), int(self.projectile_y)), 5)
+
+        # 파티클 그리기
+        for p in self.magic_particles:
+            if p['alpha'] > 20:
+                surf = pygame.Surface((p['size'] * 2, p['size'] * 2), pygame.SRCALPHA)
+                # 보라색 계열 (다양한 밝기)
+                r = random.randint(150, 200)
+                g = random.randint(80, 130)
+                b = random.randint(180, 240)
+                pygame.draw.circle(surf, (r, g, b, p['alpha']),
+                                 (p['size'], p['size']), p['size'])
+                screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
+
+        # 축소 효과 활성화 시 타겟에 보라색 오라
+        if self.hit_target and self.shrink_timer > 0:
+            aura_alpha = int(100 * (self.shrink_timer / 4.0))
+            paddle_cx = target_paddle.x + target_paddle.width // 2
+            paddle_cy = target_paddle.y + target_paddle.height // 2
+            for i in range(3):
+                size = 30 + i * 15
+                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(surf, (180, 100, 220, aura_alpha // (i + 1)),
+                                 (size, size), size, 2)
+                screen.blit(surf, (int(paddle_cx - size), int(paddle_cy - size)))
 
 
 # ============================================================================
@@ -3499,7 +3620,7 @@ class FlashShuriken(HeroSkill):
 HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "mugen": [DarkSlash(), DemonEye()],
     "kraken": [TentacleWrap(), AbyssInk()],
-    "chronos": [TimeStop(), TimeRewind()],
+    "chronos": [TimeStop(), DwarfMagic()],
     "onimaru": [HellFire(), HornCharge()],
     "maria": [PuppetControl(), DollCurse()],
     "ignis": [DragonBreath(), DragonWing()],
