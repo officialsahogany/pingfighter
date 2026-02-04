@@ -163,10 +163,10 @@ BOTTOM_HEROES = [
         "title": "드래곤 나이트",
         "style": HeroStyle.BALANCED,
         "color": (220, 100, 40),  # 주황-빨강
-        "speed": 1.1,
-        "reaction": 1.05,
-        "power": 1.2,
-        "accuracy": 0.88,
+        "speed": 1.0,
+        "reaction": 0.95,
+        "power": 1.1,
+        "accuracy": 0.85,
         "position": "bottom",
         "description": "드래곤의 힘을 갑옷에 담은 용기사"
     },
