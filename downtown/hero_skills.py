@@ -1192,7 +1192,7 @@ class GravityControl(HeroSkill):
             description="중력을 조작하여 공이 계속 아래로 끌려가게 만든다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=25.0,
-            duration=4.0,  # 4초 지속
+            duration=3.0,  # 3초 지속
             hero_id="chronos"
         )
         self.gravity_particles = []  # 중력 이펙트 파티클
