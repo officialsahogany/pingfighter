@@ -237,6 +237,20 @@ class AnimatedBackgroundStage30:
                         (self.width - 55, self.height - 70),
                         (self.width - 55 + corner_size, self.height - 70), 2)
 
+        # ===== 상/하단 아치 장식 (간소화) =====
+        arch_y_top = 35
+        arch_y_bottom = self.height - 35
+        arch_spacing = 80
+
+        for i in range(7):
+            ax = 70 + i * arch_spacing
+            # 상단 아치
+            pygame.draw.arc(self.arena_surface, self.colors['stone_light'],
+                          (ax - 25, arch_y_top - 15, 50, 30), 0, math.pi, 2)
+            # 하단 아치 (뒤집힘)
+            pygame.draw.arc(self.arena_surface, self.colors['stone_light'],
+                          (ax - 25, arch_y_bottom - 15, 50, 30), math.pi, math.pi * 2, 2)
+
     def update(self, dt, ball_x=None, ball_y=None):
         """업데이트"""
         self.time += dt
