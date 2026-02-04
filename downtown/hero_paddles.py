@@ -173,7 +173,7 @@ class HeroPaddleRenderer:
             else:
                 # 하단 영웅: 발이 패들 위치(바닥)에 붙도록
                 # 발 위치가 y에 오려면 cy = y - 3*b가 아니라 cy를 더 아래로
-                cy = int(y) + int(0.5 * b)  # 약간만 아래로 이동 (발이 바닥에 닿도록)
+                cy = int(y) + int(2.0 * b)  # 더 아래로 이동 (0.5 → 2.0)
         else:
             cy = int(y)
 
