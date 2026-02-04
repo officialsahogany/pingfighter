@@ -17032,6 +17032,20 @@ def apply_equipment_paddle_modifiers() -> None:
     """장비 효과(예: 벌크업)를 반영해 패들 크기/위치를 갱신한다."""
     global CURRENT_PADDLE_EFFECTIVE_SCALE, PADDLE_WIDTH, PADDLE_HEIGHT
 
+    # 투기장 모드에서는 패들 크기를 BOSS와 동일하게 고정 (130x40)
+    if globals().get("arena_mode_enabled", False):
+        ARENA_PADDLE_WIDTH = 130
+        ARENA_PADDLE_HEIGHT = 40
+        PADDLE_WIDTH = ARENA_PADDLE_WIDTH
+        PADDLE_HEIGHT = ARENA_PADDLE_HEIGHT
+        CURRENT_PADDLE_EFFECTIVE_SCALE = 1.0
+        prev_centerx = PLAYER.centerx
+        PLAYER.size = (ARENA_PADDLE_WIDTH, ARENA_PADDLE_HEIGHT)
+        PLAYER.centerx = prev_centerx
+        PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
+        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        return
+
     # 벌크업 관련 보너스를 합산 방식으로 계산 (곱연산 → 합산)
     bulkup_bonus = _get_bulkup_scale() - 1.0  # 벌크업슈트 패시브
     bulk_up_bonus = get_bulk_up_scale() - 1.0  # 런타임 스킬 벌크업
