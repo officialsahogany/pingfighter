@@ -1244,13 +1244,14 @@ class GravityControl(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         self.pulse_timer += dt
 
-        # 🌍 핵심: 공에 중력(하향 힘) 적용
+        # 🌍 핵심: 공에 약한 중력(하향 힘) 적용
+        # 반격 가능하도록: 공이 아래로 갈 때만 중력 적용, 위로 갈 때는 약하게
         if hasattr(ball, 'vy'):
-            gravity_force = 400 * dt  # 초당 400픽셀 하향 가속
-            ball.vy += gravity_force
-            # 공이 위로 올라가려 해도 강하게 아래로 끌어당김
-            if ball.vy < 0:  # 위로 가는 중이면
-                ball.vy += gravity_force * 2  # 추가 중력
+            gravity_force = 80 * dt  # 초당 80픽셀 하향 가속 (대폭 감소)
+            if ball.vy > 0:  # 아래로 가는 중이면 중력 적용
+                ball.vy += gravity_force
+            else:  # 위로 가는 중 (반격 시) - 아주 약한 중력만
+                ball.vy += gravity_force * 0.3  # 30%만 적용 (반격 가능)
 
         # 파티클 업데이트 (아래로 떨어지는 효과)
         for p in self.gravity_particles:
@@ -1389,6 +1390,12 @@ class DwarfMagic(HeroSkill):
         # 투사체 이동
         if self.projectile_active and not self.hit_target:
             self.projectile_y += self.projectile_vy
+
+            # 🎯 30% 유도 효과 - 타겟 패들 방향으로 약간 추적
+            target_center_x = target_paddle.x + target_paddle.width // 2
+            dx = target_center_x - self.projectile_x
+            homing_strength = 0.3  # 30% 유도
+            self.projectile_x += dx * homing_strength * dt * 3  # 부드럽게 추적
 
             # 투사체 주변에 빛가루 파티클 추가
             if random.random() < 0.5:
