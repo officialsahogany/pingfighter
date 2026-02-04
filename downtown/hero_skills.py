@@ -3106,8 +3106,8 @@ class OilSpill(HeroSkill):
         self.oil_puddles = []
         self.target_is_top = False
         self.caster_is_top = False
-        # 웅덩이 지속시간 (7초)
-        self.puddle_duration = 7.0
+        # 웅덩이 지속시간 (4초)
+        self.puddle_duration = 4.0
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
@@ -3188,7 +3188,7 @@ class OilSpill(HeroSkill):
                     'width': random.uniform(72, 108),  # 20% 증가 (60-90 → 72-108)
                     'height': random.uniform(18, 28),
                     'wobble': random.uniform(0, math.pi * 2),
-                    'life': self.puddle_duration,  # 7초
+                    'life': self.puddle_duration,  # 4초
                     'max_life': self.puddle_duration,
                     'alpha': 200,
                     'splash_effect': 1.0  # 착지 스플래시 효과
