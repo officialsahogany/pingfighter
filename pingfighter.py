@@ -48016,6 +48016,17 @@ def go_to_next_round():
     if arena_mode_enabled and arena_skill_manager:
         try:
             arena_skill_manager.reset_active_skills_for_round()
+            # 🔮 난쟁이마술 등으로 축소된 패들 크기 원래대로 복원 (130x40)
+            if PLAYER.width != 130 or PLAYER.height != 40:
+                center = PLAYER.centerx
+                PLAYER.width = 130
+                PLAYER.height = 40
+                PLAYER.centerx = center
+            if BOSS.width != 130 or BOSS.height != 40:
+                center = BOSS.centerx
+                BOSS.width = 130
+                BOSS.height = 40
+                BOSS.centerx = center
         except Exception as e:
             print(f"[Arena] 스킬 라운드 리셋 오류: {e}")
 
@@ -113296,6 +113307,17 @@ def reset_round(is_stage_start=False):
     if arena_mode_enabled and arena_skill_manager:
         try:
             arena_skill_manager.reset_active_skills_for_round()
+            # 🔮 난쟁이마술 등으로 축소된 패들 크기 원래대로 복원 (130x40)
+            if PLAYER.width != 130 or PLAYER.height != 40:
+                center = PLAYER.centerx
+                PLAYER.width = 130
+                PLAYER.height = 40
+                PLAYER.centerx = center
+            if BOSS.width != 130 or BOSS.height != 40:
+                center = BOSS.centerx
+                BOSS.width = 130
+                BOSS.height = 40
+                BOSS.centerx = center
         except Exception as e:
             print(f"[Arena] 스킬 라운드 리셋 오류: {e}")
 
