@@ -2492,6 +2492,7 @@ from ui.stage5_chinese_market import Stage5ChineseMarket  #  중국 전통시장
 from backgrounds.animated_background_stage6 import AnimatedBackgroundStage6
 from backgrounds.animated_background_stage7 import AnimatedBackgroundStage7
 from backgrounds.animated_background_stage8 import AnimatedBackgroundStage8
+from backgrounds.animated_background_stage30 import AnimatedBackgroundStage30
 importlib.reload(items)
 # 설정 파일 임포트
 # config import 위치 조정(초기 로딩 전에 해상도/상수 확보)
@@ -8039,6 +8040,8 @@ animated_bg_stage5 = stage_backgrounds.animated_bg_stage5
 animated_bg_stage6 = stage_backgrounds.animated_bg_stage6
 animated_bg_stage7 = stage_backgrounds.animated_bg_stage7
 animated_bg_stage8 = stage_backgrounds.animated_bg_stage8
+# 스테이지 30 (투기장) 애니메이션 배경
+animated_bg_stage30 = AnimatedBackgroundStage30(WIDTH, HEIGHT)
 # 빠칭코 기계 이미지 로드
 try:
     pachinko_machine_img = pygame.image.load(resource_path("itemmachine.png")).convert_alpha()
@@ -14543,6 +14546,11 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         except:
             pass
         animated_bg_stage8.draw(SCREEN, offset=(shake_x, shake_y))
+    elif current_stage == 30 and animated_bg_stage30 is not None:
+        # 투기장 (콜로세움) 배경
+        dt = elapsed_ms / 1000.0
+        animated_bg_stage30.update(dt)
+        animated_bg_stage30.draw(SCREEN, offset_x=shake_x, offset_y=shake_y)
     else:
         try:
             SCREEN.blit(CURRENT_BG, (shake_x, shake_y))
@@ -112054,6 +112062,16 @@ def draw_field():
             SCREEN,
             offset=(screen_shake_offset_x, screen_shake_offset_y),
         )
+    elif current_stage == 30 and animated_bg_stage30 is not None:
+        # 스테이지30: 투기장 (콜로세움) 애니메이션 배경
+        elapsed_ms = clock.get_time() if 'clock' in globals() else 16
+        dt = elapsed_ms / 1000.0
+        animated_bg_stage30.update(dt)
+        animated_bg_stage30.draw(
+            SCREEN,
+            offset_x=screen_shake_offset_x,
+            offset_y=screen_shake_offset_y,
+        )
     else:
         # 기본 배경 (화면 흔들림 오프셋 적용)
         SCREEN.blit(CURRENT_BG, (screen_shake_offset_x, screen_shake_offset_y))
@@ -126444,6 +126462,13 @@ def main(stage_num, new_boss_mode=False):
     elif stage_num == 8:
         CURRENT_BG = STAGE8_BG
         BOSS_COLOR = (70, 90, 140)
+    elif stage_num == 30:  # Stage 30 (투기장)
+        # 투기장 배경은 animated_bg_stage30에서 처리
+        CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
+        CURRENT_BG.fill((120, 100, 80))  # 폴백용 모래색 배경
+        BOSS_COLOR = (212, 175, 85)  # 금색 (투기장 테마)
+        # 투기장 BGM 재생
+        bgm_manager.play_stage_bgm(30)
     elif stage_num == 50:  # Stage 50 (튜토리얼)
         # 튜토리얼용 배경 Surface 생성
         CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
