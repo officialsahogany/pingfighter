@@ -84,12 +84,12 @@ class AnimatedBackgroundStage30:
         self._prerender_arena()
 
     def _init_torches(self):
-        """횃불 위치 초기화 - 양쪽 가장자리에 배치"""
+        """횃불 위치 초기화 - 양쪽 가장자리에 대칭 배치"""
         torches = []
-        # 좌우 벽에 횃불 배치 (더 안쪽으로)
+        # 좌우 벽에 횃불 배치 (Y좌표 대칭: 중앙 375 기준으로 ±225)
         positions = [
-            (25, 180), (25, 375), (25, 570),  # 왼쪽
-            (575, 180), (575, 375), (575, 570),  # 오른쪽
+            (25, 150), (25, 375), (25, 600),   # 왼쪽
+            (575, 150), (575, 375), (575, 600),  # 오른쪽
         ]
         for x, y in positions:
             torches.append({
@@ -236,20 +236,6 @@ class AnimatedBackgroundStage30:
         pygame.draw.line(self.arena_surface, gold,
                         (self.width - 55, self.height - 70),
                         (self.width - 55 + corner_size, self.height - 70), 2)
-
-        # ===== 상/하단 아치 장식 (간소화) =====
-        arch_y_top = 35
-        arch_y_bottom = self.height - 35
-        arch_spacing = 80
-
-        for i in range(7):
-            ax = 70 + i * arch_spacing
-            # 상단 아치
-            pygame.draw.arc(self.arena_surface, self.colors['stone_light'],
-                          (ax - 25, arch_y_top - 15, 50, 30), 0, math.pi, 2)
-            # 하단 아치 (뒤집힘)
-            pygame.draw.arc(self.arena_surface, self.colors['stone_light'],
-                          (ax - 25, arch_y_bottom - 15, 50, 30), math.pi, math.pi * 2, 2)
 
     def update(self, dt, ball_x=None, ball_y=None):
         """업데이트"""
