@@ -1647,13 +1647,13 @@ class HornCharge(HeroSkill):
             # 넉백 즉시 적용 (다이너마이트 폭발과 동일한 방식)
             if not self.knockback_applied:
                 # 넉백 신호 전달 (pingfighter.py에서 player_knockback_vel 적용)
-                # 다이너마이트: KNOCKBACK_SPEED(52) * 2.0 = 104
+                # 기존 104에서 30% 감소 → 73
                 game_state['horn_charge_apply_knockback'] = True
                 game_state['horn_charge_knockback_dir'] = self.knockback_dir
-                game_state['horn_charge_knockback_vel'] = 104  # 다이너마이트와 동일한 속도 (52 * 2.0)
+                game_state['horn_charge_knockback_vel'] = 73  # 30% 감소 (104 → 73)
                 game_state['horn_charge_target_is_top'] = self.target_is_top
                 self.knockback_applied = True
-                print(f"🐂 [HORN CHARGE] IMPACT 페이즈 진입 - 넉백 신호 전송! dir={self.knockback_dir}, vel=104, target_is_top={self.target_is_top}")
+                print(f"🐂 [HORN CHARGE] IMPACT 페이즈 진입 - 넉백 신호 전송! dir={self.knockback_dir}, vel=73, target_is_top={self.target_is_top}")
 
             # 충돌 페이즈 종료 → 복귀
             if self.phase_timer >= 0.2:

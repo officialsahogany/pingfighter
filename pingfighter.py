@@ -59333,8 +59333,13 @@ def handle_player(keys):
             PLAYER.x += player_knockback_vel
             PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
             pass  # print(f"🔧 [STUN] 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, timer={player_stunned_timer})")  # 디버그 비활성화
-        # 감속
-        player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
+        # 감속 (뿔박치기는 더 부드러운 감속 적용)
+        if globals().get('horn_charge_player_knockback_active', False):
+            player_knockback_vel *= 0.92  # 부드러운 감속 (0.85 → 0.92)
+            if abs(player_knockback_vel) < 0.5:
+                globals()['horn_charge_player_knockback_active'] = False
+        else:
+            player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
         if fire_support_slot_restore_pending:
             apply_fire_support_slot_restore()
         if soldier_control_lock_timer > 0:
@@ -120929,12 +120934,19 @@ def handle_boss_pro():
         if BOSS.x <= 0:
             BOSS.x = 0
             boss_knockback_vel = 0
+            globals()['horn_charge_boss_knockback_active'] = False
         elif BOSS.x >= WIDTH - BOSS.width:
             BOSS.x = WIDTH - BOSS.width
             boss_knockback_vel = 0
+            globals()['horn_charge_boss_knockback_active'] = False
 
-        # 감속
-        boss_knockback_vel *= 0.85
+        # 감속 (뿔박치기는 더 부드러운 감속 적용)
+        if globals().get('horn_charge_boss_knockback_active', False):
+            boss_knockback_vel *= 0.92  # 부드러운 감속 (0.85 → 0.92)
+            if abs(boss_knockback_vel) < 0.5:
+                globals()['horn_charge_boss_knockback_active'] = False
+        else:
+            boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
 
     # 🏓 인텐시티 기반 패들 충돌 넉백 처리 (화재 넉백과 동일한 방식 - 스턴 없이 점진적 감속)
@@ -121281,12 +121293,19 @@ def handle_boss_champion():
         if BOSS.x <= 0:
             BOSS.x = 0
             boss_knockback_vel = 0
+            globals()['horn_charge_boss_knockback_active'] = False
         elif BOSS.x >= WIDTH - BOSS.width:
             BOSS.x = WIDTH - BOSS.width
             boss_knockback_vel = 0
+            globals()['horn_charge_boss_knockback_active'] = False
 
-        # 감속
-        boss_knockback_vel *= 0.85
+        # 감속 (뿔박치기는 더 부드러운 감속 적용)
+        if globals().get('horn_charge_boss_knockback_active', False):
+            boss_knockback_vel *= 0.92  # 부드러운 감속 (0.85 → 0.92)
+            if abs(boss_knockback_vel) < 0.5:
+                globals()['horn_charge_boss_knockback_active'] = False
+        else:
+            boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
 
     # 🏓 인텐시티 기반 패들 충돌 넉백 처리 (화재 넉백과 동일한 방식 - 스턴 없이 점진적 감속)
@@ -131478,12 +131497,14 @@ def main(stage_num, new_boss_mode=False):
                         if _target_is_top:
                             # 보스(상단)에게 넉백 적용
                             boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
+                            globals()['horn_charge_boss_knockback_active'] = True  # 부드러운 감속용 플래그
                             print(f"🐂 [HORN CHARGE] 보스 넉백! dir={_kb_dir}, vel={boss_knockback_vel:.2f}")
                         else:
                             # 플레이어(하단)에게 넉백 적용 (다이너마이트와 동일)
                             _prev_player_x = PLAYER.x
                             player_knockback_vel = _kb_dir * _kb_vel
                             player_stunned_timer = 30  # 0.5초 스턴
+                            globals()['horn_charge_player_knockback_active'] = True  # 부드러운 감속용 플래그
                             print(f"🐂 [HORN CHARGE] 플레이어 넉백 적용! PLAYER.x={_prev_player_x}, dir={_kb_dir}, vel={player_knockback_vel:.2f}, stun={player_stunned_timer}")
 
                         # 넉백 적용 완료 플래그 해제
