@@ -336,6 +336,22 @@ class DarkSlash(HeroSkill):
         self.dark_slash_active = False
         self.caster_is_top = False
 
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 암흑 베기 이펙트 초기화"""
+        super().reset_for_new_round(game_state)
+        self.phase = self.PHASE_NONE
+        self.phase_timer = 0.0
+        self.slash_sparks = []
+        self.slash_fragments = []
+        self.original_ball_speed = None
+        self.dark_slash_active = False
+        self.freeze_flash_timer = 0.0
+        # game_state 플래그 초기화
+        game_state['dark_slash_freeze'] = False
+        game_state['dark_slash_active'] = False
+        game_state['dark_slash_phase'] = self.PHASE_NONE
+        print("[DarkSlash] 라운드 전환 - 암흑 베기 초기화")
+
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['dark_slash_freeze'] = False
         game_state['dark_slash_phase'] = self.PHASE_NONE
@@ -531,6 +547,17 @@ class DemonEye(HeroSkill):
         game_state['demon_eye_active'] = False
         self.aura_particles = []
         print(f"[GhostStep] 귀신발걸음 종료")
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 귀신발걸음 이펙트 초기화"""
+        super().reset_for_new_round(game_state)
+        self.aura_timer = 0
+        self.aura_particles = []
+        # game_state 플래그 초기화
+        game_state['top_paddle_speed_boost'] = 1.0
+        game_state['bottom_paddle_speed_boost'] = 1.0
+        game_state['demon_eye_active'] = False
+        print("[GhostStep] 라운드 전환 - 귀신발걸음 초기화")
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
@@ -3431,6 +3458,14 @@ class HeroSkillManager:
         self.game_state['ball_on_fire'] = False
         self.game_state['dokkaebi_ball'] = False
         self.game_state['wind_force'] = 0
+
+        # 무겐 스킬 관련 초기화
+        self.game_state['dark_slash_freeze'] = False
+        self.game_state['dark_slash_active'] = False
+        self.game_state['dark_slash_phase'] = 0
+        self.game_state['top_paddle_speed_boost'] = 1.0
+        self.game_state['bottom_paddle_speed_boost'] = 1.0
+        self.game_state['demon_eye_active'] = False
 
     def update(self, dt: float, top_paddle, bottom_paddle, ball):
         """스킬 업데이트"""
