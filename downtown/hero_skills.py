@@ -3088,71 +3088,238 @@ class SteamBarrier(HeroSkill):
 
 
 class OilSpill(HeroSkill):
-    """기름 투척 - 상대 진영에 기름으로 둔화"""
+    """기름 투척 - 기름 덩어리를 던져 적 진영 바닥에 웅덩이 생성"""
     def __init__(self):
         super().__init__(
             skill_id="oil_spill",
             name="Oil Spill",
             korean_name="기름 투척",
-            description="기름을 뿌려 상대의 움직임을 둔화시킨다",
+            description="기름 덩어리 2개를 던져 적 진영 바닥에 웅덩이를 만든다. 웅덩이를 밟는 동안 50% 둔화.",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=15.0,
-            duration=5.0,
+            duration=0,  # 스킬 자체는 즉시 완료, 웅덩이가 독립적으로 지속
             hero_id="gear"
         )
+        # 발사체 (날아가는 기름 덩어리)
+        self.oil_projectiles = []
+        # 바닥에 설치된 웅덩이
         self.oil_puddles = []
         self.target_is_top = False
+        self.caster_is_top = False
+        # 웅덩이 지속시간 (7초)
+        self.puddle_duration = 7.0
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
-        game_state['target_slowed'] = True
-        game_state['slow_amount'] = 0.5  # 50% 둔화
+        self.caster_is_top = caster_paddle.is_top
 
-        # 기름 웅덩이 생성
-        target_area_y = target_paddle.y
-        self.oil_puddles = []
-        for i in range(5):
-            self.oil_puddles.append({
-                'x': target_paddle.x + random.uniform(-80, 160),
-                'y': target_area_y + random.uniform(-30, 30),
-                'width': random.uniform(40, 80),
-                'height': random.uniform(15, 25),
+        # 적 진영 바닥 Y 좌표 (보스는 상단, 플레이어는 하단)
+        if self.target_is_top:
+            # 적이 상단(보스) → 상단 바닥 근처 (Y = 50~80)
+            target_floor_y = 65
+        else:
+            # 적이 하단 → 하단 바닥 근처 (Y = 710~725)
+            target_floor_y = 715
+
+        # 기름 덩어리 2개 발사
+        self.oil_projectiles = []
+        start_x = caster_paddle.x + caster_paddle.width // 2
+        start_y = caster_paddle.y
+
+        for i in range(2):
+            # 랜덤한 목표 X 위치 (게임 영역 내: 100~660)
+            target_x = random.uniform(120, 640)
+
+            self.oil_projectiles.append({
+                'x': start_x,  # 현재 위치
+                'y': start_y,
+                'start_x': start_x,  # 시작 위치 저장
+                'start_y': start_y,
+                'target_x': target_x,
+                'target_y': target_floor_y,
+                'size': 8,  # 시작 크기 (작게)
+                'max_size': 25,  # 최대 크기
+                'progress': 0.0,  # 0~1 비행 진행도
+                'speed': 1.8,  # 비행 속도 (초당 progress)
+                'rotation': random.uniform(0, 360),
                 'wobble': random.uniform(0, math.pi * 2)
             })
 
         return {
-            'target_status': StatusEffect.SLOW,
-            'slow_amount': 0.5,
-            'status_duration': self.duration,
             'sound': 'splash'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 발사체 업데이트
+        projectiles_to_remove = []
+        for proj in self.oil_projectiles:
+            proj['progress'] += proj['speed'] * dt
+            proj['rotation'] += dt * 180
+            proj['wobble'] += dt * 5
+
+            # 크기 점점 커짐 (progress에 비례)
+            proj['size'] = 8 + (proj['max_size'] - 8) * min(proj['progress'], 1.0)
+
+            # 위치 보간 (포물선 궤적)
+            start_x = proj['start_x']
+            start_y = proj['start_y']
+            t = min(proj['progress'], 1.0)
+
+            # 포물선 계산
+            proj['x'] = start_x + (proj['target_x'] - start_x) * t
+            # Y는 포물선 (위로 올라갔다 내려옴)
+            arc_height = 150  # 포물선 높이
+            if self.caster_is_top:
+                # 위에서 아래로
+                proj['y'] = start_y + (proj['target_y'] - start_y) * t + math.sin(t * math.pi) * arc_height
+            else:
+                # 아래에서 위로
+                proj['y'] = start_y + (proj['target_y'] - start_y) * t - math.sin(t * math.pi) * arc_height
+
+            # 도착 시 웅덩이로 변환
+            if proj['progress'] >= 1.0:
+                projectiles_to_remove.append(proj)
+                # 웅덩이 생성
+                self.oil_puddles.append({
+                    'x': proj['target_x'],
+                    'y': proj['target_y'],
+                    'width': random.uniform(60, 90),
+                    'height': random.uniform(18, 28),
+                    'wobble': random.uniform(0, math.pi * 2),
+                    'life': self.puddle_duration,  # 7초
+                    'max_life': self.puddle_duration,
+                    'alpha': 200,
+                    'splash_effect': 1.0  # 착지 스플래시 효과
+                })
+
+        for proj in projectiles_to_remove:
+            self.oil_projectiles.remove(proj)
+
+        # 웅덩이 업데이트
+        puddles_to_remove = []
         for puddle in self.oil_puddles:
             puddle['wobble'] += dt * 2
+            puddle['life'] -= dt
+
+            # 스플래시 효과 감소
+            if puddle['splash_effect'] > 0:
+                puddle['splash_effect'] -= dt * 3
+
+            # 마지막 1.5초 동안 페이드아웃
+            if puddle['life'] < 1.5:
+                puddle['alpha'] = int(200 * (puddle['life'] / 1.5))
+
+            # 수명 종료
+            if puddle['life'] <= 0:
+                puddles_to_remove.append(puddle)
+
+        for puddle in puddles_to_remove:
+            self.oil_puddles.remove(puddle)
+
+        # 적 패들이 웅덩이를 밟고 있는지 체크
+        is_on_puddle = False
+        for puddle in self.oil_puddles:
+            # 패들과 웅덩이 충돌 체크
+            paddle_left = target_paddle.x
+            paddle_right = target_paddle.x + target_paddle.width
+            paddle_y = target_paddle.y
+
+            puddle_left = puddle['x'] - puddle['width'] / 2
+            puddle_right = puddle['x'] + puddle['width'] / 2
+
+            # X축 겹침 확인
+            if paddle_right > puddle_left and paddle_left < puddle_right:
+                # Y축 근접 확인 (패들이 웅덩이 근처에 있는지)
+                if abs(paddle_y - puddle['y']) < 40:
+                    is_on_puddle = True
+                    break
+
+        # 둔화 적용/해제
+        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+        if is_on_puddle:
+            game_state[f'{target_prefix}_slowed'] = True
+            game_state[f'{target_prefix}_slow_amount'] = 0.5  # 50% 둔화
+        else:
+            game_state[f'{target_prefix}_slowed'] = False
+            game_state[f'{target_prefix}_slow_amount'] = 1.0
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        game_state['target_slowed'] = False
-        game_state['slow_amount'] = 1.0
-        # 패들별 상태 클리어
-        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
-        game_state[f'{target_prefix}_slowed'] = False
-        game_state[f'{target_prefix}_slow_amount'] = 1.0
+        # 스킬 종료 시에는 웅덩이 유지 (웅덩이는 자체 수명으로 관리)
+        pass
+
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """스킬 업데이트 - 발사체와 웅덩이는 is_active와 무관하게 항상 업데이트"""
+        # 쿨타임 감소
+        if self.current_cooldown > 0:
+            self.current_cooldown -= dt
+
+        # 발사체나 웅덩이가 있으면 항상 업데이트
+        if self.oil_projectiles or self.oil_puddles:
+            self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 웅덩이 초기화"""
+        super().reset_for_new_round(game_state)
+        self.oil_projectiles = []
         self.oil_puddles = []
+        # 둔화 상태 클리어
+        game_state['top_paddle_slowed'] = False
+        game_state['top_paddle_slow_amount'] = 1.0
+        game_state['bottom_paddle_slowed'] = False
+        game_state['bottom_paddle_slow_amount'] = 1.0
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # 발사체 그리기 (날아가는 기름 덩어리)
+        for proj in self.oil_projectiles:
+            size = int(proj['size'])
+            surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+
+            # 기름 덩어리 본체 (불규칙한 원형)
+            center = size
+            wobble_offset = math.sin(proj['wobble']) * 3
+
+            # 메인 덩어리
+            pygame.draw.circle(surf, (40, 35, 25, 220), (center, center), size)
+            # 하이라이트
+            highlight_offset = int(size * 0.3)
+            pygame.draw.circle(surf, (70, 60, 45, 150),
+                             (center - highlight_offset, center - highlight_offset),
+                             int(size * 0.4))
+            # 그림자/깊이
+            pygame.draw.circle(surf, (25, 20, 15, 180),
+                             (center + int(wobble_offset), center),
+                             int(size * 0.7))
+
+            screen.blit(surf, (int(proj['x'] - size), int(proj['y'] - size)))
+
+        # 웅덩이 그리기
         for puddle in self.oil_puddles:
-            # 기름 웅덩이 (타원 + 반사광)
             w = int(puddle['width'] + math.sin(puddle['wobble']) * 5)
             h = int(puddle['height'])
             x = int(puddle['x'] - w / 2)
             y = int(puddle['y'] - h / 2)
+            alpha = puddle['alpha']
 
-            surf = pygame.Surface((w, h), pygame.SRCALPHA)
-            pygame.draw.ellipse(surf, (30, 25, 20, 180), (0, 0, w, h))
-            # 반사광
-            pygame.draw.ellipse(surf, (60, 50, 40, 100), (w // 4, h // 4, w // 3, h // 3))
-            screen.blit(surf, (x, y))
+            surf = pygame.Surface((w + 20, h + 20), pygame.SRCALPHA)
+
+            # 스플래시 효과 (착지 직후)
+            if puddle['splash_effect'] > 0:
+                splash_size = int(w * (1 + puddle['splash_effect'] * 0.5))
+                splash_alpha = int(100 * puddle['splash_effect'])
+                pygame.draw.ellipse(surf, (50, 45, 35, splash_alpha),
+                                  (10 - (splash_size - w) // 2, 10 - (splash_size - w) // 4,
+                                   splash_size, int(h * 1.3)))
+
+            # 기름 웅덩이 본체
+            pygame.draw.ellipse(surf, (30, 25, 20, alpha), (10, 10, w, h))
+            # 반사광 (기름 특유의 무지개빛)
+            pygame.draw.ellipse(surf, (60, 50, 40, int(alpha * 0.5)),
+                              (10 + w // 4, 10 + h // 4, w // 3, h // 3))
+            # 가장자리 하이라이트
+            pygame.draw.ellipse(surf, (80, 70, 50, int(alpha * 0.3)),
+                              (10 + w // 6, 10 + h // 6, w // 4, h // 4))
+
+            screen.blit(surf, (x - 10, y - 10))
 
 
 # ============================================================================
