@@ -1352,6 +1352,10 @@ class ColosseumsArena:
         self.bottom_paddle.is_confused = game_state.get('bottom_paddle_confused', False)
         self.bottom_paddle.paddle_scale = game_state.get('bottom_paddle_shrink_scale', 1.0) if game_state.get('bottom_paddle_shrink', False) else 1.0
 
+        # DEBUG: 축소 효과 확인
+        if game_state.get('top_paddle_shrink', False) or game_state.get('bottom_paddle_shrink', False):
+            print(f"[DEBUG Arena] top_shrink={game_state.get('top_paddle_shrink')}, top_scale={self.top_paddle.paddle_scale}, bottom_shrink={game_state.get('bottom_paddle_shrink')}, bottom_scale={self.bottom_paddle.paddle_scale}")
+
         # 쿨다운 스킬 자동 사용 (AI)
         self.skill_check_timer += dt
         if self.skill_check_timer >= self.skill_check_interval:
@@ -1789,6 +1793,9 @@ class ColosseumsArena:
             # 패들 크기 스케일 적용
             scaled_width = int(PADDLE_WIDTH * self.top_paddle.paddle_scale)
             hero1 = self.selected_match.hero1
+            # DEBUG
+            if self.top_paddle.paddle_scale != 1.0:
+                print(f"[DEBUG Draw] top_paddle scale={self.top_paddle.paddle_scale}, scaled_width={scaled_width}")
 
             if self.hero_paddle_renderer:
                 # 영웅 패들 렌더러로 그리기 (상단 영웅은 아래를 바라봄)

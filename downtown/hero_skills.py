@@ -1353,6 +1353,7 @@ class DwarfMagic(HeroSkill):
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         # 보라색 빛가루 투사체 발사
+        print(f"[DEBUG 난쟁이마술] 스킬 발동! caster_is_top={caster_paddle.is_top}")
         self.projectile_active = True
         self.projectile_x = caster_paddle.x + caster_paddle.width // 2
         self.projectile_y = caster_paddle.y
@@ -1426,6 +1427,7 @@ class DwarfMagic(HeroSkill):
                 target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_shrink'] = True
                 game_state[f'{target_prefix}_shrink_scale'] = 0.5  # 50% 축소
+                print(f"[DEBUG 난쟁이마술] 명중! target_is_top={target_paddle.is_top}, {target_prefix}_shrink=True, scale=0.5")
 
                 # 명중 시 파티클 폭발
                 for _ in range(30):
