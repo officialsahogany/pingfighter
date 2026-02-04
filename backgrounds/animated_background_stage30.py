@@ -40,7 +40,12 @@ def _get_cached_surface(width: int, height: int) -> pygame.Surface:
 class AnimatedBackgroundStage30:
     """고대 투기장 배경 - 로마 콜로세움 스타일"""
 
-    def __init__(self, width=600, height=750):
+    # 게임 영역 상수 (760x750 전체 화면 기준)
+    GAME_AREA_X = 80       # 게임 영역 시작 X
+    GAME_AREA_WIDTH = 600  # 게임 영역 너비
+    GAME_AREA_END_X = 680  # 게임 영역 끝 X (80 + 600)
+
+    def __init__(self, width=760, height=750):
         self.width = width
         self.height = height
         self.time = 0
@@ -84,12 +89,15 @@ class AnimatedBackgroundStage30:
         self._prerender_arena()
 
     def _init_torches(self):
-        """횃불 위치 초기화 - 양쪽 가장자리에 대칭 배치"""
+        """횃불 위치 초기화 - 게임 영역 내 양쪽 가장자리에 대칭 배치"""
         torches = []
-        # 좌우 벽에 횃불 배치 (X: 30 / 570 정확히 대칭, Y: 중앙 375 기준 ±225)
+        # 게임 영역(80~679) 내에서 좌우 대칭 배치
+        # 왼쪽: 80+25=105, 오른쪽: 680-25=655
+        left_x = self.GAME_AREA_X + 25
+        right_x = self.GAME_AREA_END_X - 25
         positions = [
-            (30, 150), (30, 375), (30, 600),   # 왼쪽
-            (570, 150), (570, 375), (570, 600),  # 오른쪽
+            (left_x, 150), (left_x, 375), (left_x, 600),   # 왼쪽
+            (right_x, 150), (right_x, 375), (right_x, 600),  # 오른쪽
         ]
         for x, y in positions:
             torches.append({
@@ -105,9 +113,9 @@ class AnimatedBackgroundStage30:
         return []  # 관중 실루엣 제거
 
     def _create_dust_particle(self):
-        """먼지 파티클 생성"""
+        """먼지 파티클 생성 - 게임 영역 내에서만"""
         return {
-            'x': random.randint(60, self.width - 60),
+            'x': random.randint(self.GAME_AREA_X + 30, self.GAME_AREA_END_X - 30),
             'y': random.randint(100, self.height - 100),
             'vx': random.uniform(-0.2, 0.2),
             'vy': random.uniform(-0.1, 0.1),
@@ -117,22 +125,20 @@ class AnimatedBackgroundStage30:
         }
 
     def _prerender_floor(self):
-        """바닥 프리렌더 - 모래 아레나"""
-        # 전체를 석조 색상으로 먼저 채움 (빈 공간 방지)
-        stone = self.colors['stone']
-        stone_dark = self.colors['stone_dark']
-        self.floor_surface.fill(stone)
+        """바닥 프리렌더 - 모래 아레나 (게임 영역에만)"""
+        # 전체를 투명으로 초기화 (필러 영역은 필러에서 그림)
+        self.floor_surface.fill((0, 0, 0, 0))
 
         # 메인 모래 바닥
         sand = self.colors['sand']
 
-        # 경기장 영역 (테두리 안쪽) - 석조 프레임 제거, 전체를 모래로
-        arena_rect = pygame.Rect(0, 0, self.width, self.height)
+        # 게임 영역(80~679)에만 모래 바닥 그리기
+        arena_rect = pygame.Rect(self.GAME_AREA_X, 0, self.GAME_AREA_WIDTH, self.height)
         pygame.draw.rect(self.floor_surface, sand, arena_rect)
 
-        # 모래 텍스처 - 미세한 노이즈
+        # 모래 텍스처 - 미세한 노이즈 (게임 영역 내에서만)
         for _ in range(500):
-            x = random.randint(5, self.width - 5)
+            x = random.randint(self.GAME_AREA_X + 5, self.GAME_AREA_END_X - 5)
             y = random.randint(5, self.height - 5)
             shade = random.randint(-15, 15)
             color = (
@@ -144,25 +150,26 @@ class AnimatedBackgroundStage30:
             pygame.draw.circle(self.floor_surface, color, (x, y), size)
 
     def _prerender_arena(self):
-        """경기장 라인 프리렌더 - 중앙선과 중앙원"""
+        """경기장 라인 프리렌더 - 중앙선과 중앙원 (게임 영역 기준)"""
         self.arena_surface.fill((0, 0, 0, 0))
 
-        center_x = self.width // 2
+        # 게임 영역 중앙 (80 + 300 = 380)
+        center_x = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
         center_y = self.height // 2
 
         line_color = self.colors['line']
         gold = self.colors['gold']
 
         # ===== 중앙선 =====
-        # 메인 중앙선 (굵은 선)
+        # 메인 중앙선 (굵은 선) - 게임 영역 내에서만
         pygame.draw.line(self.arena_surface, line_color,
-                        (50, center_y), (self.width - 50, center_y), 3)
+                        (self.GAME_AREA_X + 10, center_y), (self.GAME_AREA_END_X - 10, center_y), 3)
 
         # 중앙선 장식 (얇은 이중선)
         pygame.draw.line(self.arena_surface, gold,
-                        (50, center_y - 6), (self.width - 50, center_y - 6), 1)
+                        (self.GAME_AREA_X + 10, center_y - 6), (self.GAME_AREA_END_X - 10, center_y - 6), 1)
         pygame.draw.line(self.arena_surface, gold,
-                        (50, center_y + 6), (self.width - 50, center_y + 6), 1)
+                        (self.GAME_AREA_X + 10, center_y + 6), (self.GAME_AREA_END_X - 10, center_y + 6), 1)
 
         # ===== 중앙원 =====
         # 큰 원 (외곽)
@@ -174,13 +181,13 @@ class AnimatedBackgroundStage30:
         # 중앙 장식 원
         pygame.draw.circle(self.arena_surface, line_color, (center_x, center_y), 8, 2)
 
-        # ===== 코너 장식 (로마 스타일) =====
+        # ===== 코너 장식 (로마 스타일) - 게임 영역 기준 =====
         corner_size = 25
         corners = [
-            (55, 70),                              # 좌상
-            (self.width - 55, 70),                 # 우상
-            (55, self.height - 70),                # 좌하
-            (self.width - 55, self.height - 70)    # 우하
+            (self.GAME_AREA_X + 15, 70),                    # 좌상
+            (self.GAME_AREA_END_X - 15, 70),                # 우상
+            (self.GAME_AREA_X + 15, self.height - 70),      # 좌하
+            (self.GAME_AREA_END_X - 15, self.height - 70)   # 우하
         ]
 
         for cx, cy in corners:
@@ -193,11 +200,11 @@ class AnimatedBackgroundStage30:
         # 코너 반전 (우상, 우하)
         # 우상
         pygame.draw.line(self.arena_surface, gold,
-                        (self.width - 55, 70), (self.width - 55 + corner_size, 70), 2)
+                        (self.GAME_AREA_END_X - 15, 70), (self.GAME_AREA_END_X - 15 + corner_size, 70), 2)
         # 우하
         pygame.draw.line(self.arena_surface, gold,
-                        (self.width - 55, self.height - 70),
-                        (self.width - 55 + corner_size, self.height - 70), 2)
+                        (self.GAME_AREA_END_X - 15, self.height - 70),
+                        (self.GAME_AREA_END_X - 15 + corner_size, self.height - 70), 2)
 
     def update(self, dt, ball_x=None, ball_y=None):
         """업데이트"""
@@ -217,9 +224,9 @@ class AnimatedBackgroundStage30:
             particle['y'] += particle['vy']
             particle['life'] -= 1
 
-            # 범위 벗어나거나 수명 끝나면 재생성
+            # 범위 벗어나거나 수명 끝나면 재생성 (게임 영역 기준)
             if (particle['life'] <= 0 or
-                particle['x'] < 50 or particle['x'] > self.width - 50 or
+                particle['x'] < self.GAME_AREA_X + 20 or particle['x'] > self.GAME_AREA_END_X - 20 or
                 particle['y'] < 70 or particle['y'] > self.height - 70):
                 self.dust_particles[i] = self._create_dust_particle()
 

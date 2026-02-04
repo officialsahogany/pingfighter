@@ -8040,8 +8040,8 @@ animated_bg_stage5 = stage_backgrounds.animated_bg_stage5
 animated_bg_stage6 = stage_backgrounds.animated_bg_stage6
 animated_bg_stage7 = stage_backgrounds.animated_bg_stage7
 animated_bg_stage8 = stage_backgrounds.animated_bg_stage8
-# 스테이지 30 (투기장) 애니메이션 배경 - 게임 플레이 영역 크기(600x750)로 초기화
-animated_bg_stage30 = AnimatedBackgroundStage30(GAME_PLAY_WIDTH, GAME_PLAY_HEIGHT)
+# 스테이지 30 (투기장) 애니메이션 배경 - 전체 화면 크기(760x750)로 초기화
+animated_bg_stage30 = AnimatedBackgroundStage30(WIDTH, HEIGHT)
 # 빠칭코 기계 이미지 로드
 try:
     pachinko_machine_img = pygame.image.load(resource_path("itemmachine.png")).convert_alpha()
@@ -14550,7 +14550,7 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         # 투기장 (콜로세움) 배경
         dt = elapsed_ms / 1000.0
         animated_bg_stage30.update(dt)
-        animated_bg_stage30.draw(SCREEN, offset_x=GAME_AREA_OFFSET_X + shake_x, offset_y=shake_y)
+        animated_bg_stage30.draw(SCREEN, offset_x=shake_x, offset_y=shake_y)
     else:
         try:
             SCREEN.blit(CURRENT_BG, (shake_x, shake_y))
@@ -112069,7 +112069,7 @@ def draw_field():
         animated_bg_stage30.update(dt)
         animated_bg_stage30.draw(
             SCREEN,
-            offset_x=GAME_AREA_OFFSET_X + screen_shake_offset_x,
+            offset_x=screen_shake_offset_x,
             offset_y=screen_shake_offset_y,
         )
     else:
