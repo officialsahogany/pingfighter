@@ -86679,18 +86679,6 @@ def draw_objects():
                 stun_effect=(arena_top_dash_stun_timer > 0)  # 후딜 틴트 효과
             )
 
-            # 🔲 상단 영웅 패들 디버그 박스 (히트박스 시각화)
-            _debug_boss_rect = pygame.Rect(
-                BOSS.x + screen_shake_offset_x,
-                BOSS.y + screen_shake_offset_y,
-                BOSS.width,
-                BOSS.height
-            )
-            pygame.draw.rect(SCREEN, (255, 0, 0), _debug_boss_rect, 2)  # 빨간색 테두리
-            # 중심점 표시
-            pygame.draw.circle(SCREEN, (255, 255, 0),
-                (int(BOSS.centerx + screen_shake_offset_x), int(BOSS.centery + screen_shake_offset_y)), 4)
-
             # 🔥 뿔 박치기 착지 충격파 이펙트 렌더링
             if arena_skill_manager:
                 _shockwave = arena_skill_manager.game_state.get('horn_charge_impact_shockwave')
@@ -88220,18 +88208,6 @@ def draw_objects():
                 scale_mode="paddle",
                 stun_effect=(arena_bottom_dash_stun_timer > 0)  # 후딜 틴트 효과
             )
-
-            # 🔲 하단 영웅 패들 디버그 박스 (히트박스 시각화)
-            _debug_player_rect = pygame.Rect(
-                player_rect.x + screen_shake_offset_x,
-                player_rect.y + screen_shake_offset_y,
-                player_rect.width,
-                player_rect.height
-            )
-            pygame.draw.rect(SCREEN, (0, 255, 0), _debug_player_rect, 2)  # 초록색 테두리
-            # 중심점 표시
-            pygame.draw.circle(SCREEN, (255, 255, 0),
-                (int(player_rect.centerx + screen_shake_offset_x), int(player_rect.centery + screen_shake_offset_y)), 4)
 
             _arena_paddle_drawn = True
         except Exception as e:
@@ -95283,6 +95259,19 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     player_ai_enabled = True
     apply_character_selection("smasher")  # 기본 캐릭터
 
+    # 투기장 패들 크기 통일 (양쪽 모두 AI이므로 BOSS와 동일한 130x40으로 설정)
+    global PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_WIDTH, PADDLE_HEIGHT
+    ARENA_PADDLE_WIDTH = 130  # BOSS 패들 너비와 동일
+    ARENA_PADDLE_HEIGHT = 40  # BOSS 패들 높이와 동일
+    PADDLE_BASE_WIDTH = ARENA_PADDLE_WIDTH
+    PADDLE_BASE_HEIGHT = ARENA_PADDLE_HEIGHT
+    PADDLE_WIDTH = ARENA_PADDLE_WIDTH
+    PADDLE_HEIGHT = ARENA_PADDLE_HEIGHT
+    PLAYER.size = (ARENA_PADDLE_WIDTH, ARENA_PADDLE_HEIGHT)
+    # 패들 위치 재조정 (바닥에 맞춤)
+    PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+    PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
+
     # 상단 영웅 아이템 슬롯 초기화
     global arena_top_active_item_slot, arena_top_selected_item_index, arena_top_last_item_use_time
     global arena_top_grenades, arena_top_bananas
@@ -95318,6 +95307,12 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         # 상단 영웅 투사체 초기화
         arena_top_grenades = []
         arena_top_bananas = []
+        # 패들 크기 기본값으로 복원
+        PADDLE_BASE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
+        PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
+        PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
+        PADDLE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
+        PLAYER.size = (PADDLE_WIDTH, PADDLE_HEIGHT)
 
     return result
 
