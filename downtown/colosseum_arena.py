@@ -6,6 +6,7 @@ import random
 import math
 import sys
 import os
+import time
 from enum import Enum
 from typing import List, Dict, Optional, Tuple
 
@@ -1038,9 +1039,10 @@ class ColosseumsArena:
 
     def _generate_bracket(self):
         """8강 대진표 생성 - 상단 영웅 vs 하단 영웅 완전 랜덤 매칭"""
-        # 매 대진표 생성 시 영웅들을 완전히 새로 셔플하여 완전 랜덤화
-        self.top_heroes = random.sample(TOP_HEROES, 4)
-        self.bottom_heroes = random.sample(BOTTOM_HEROES, 4)
+        # 현재 시간 기반 로컬 Random 인스턴스로 완전 랜덤화 (시드 고정 문제 방지)
+        local_rng = random.Random(time.time())
+        self.top_heroes = local_rng.sample(TOP_HEROES, 4)
+        self.bottom_heroes = local_rng.sample(BOTTOM_HEROES, 4)
 
         for i in range(4):
             # hero1 = 상단 패들 (화면 위), hero2 = 하단 패들 (화면 아래)
