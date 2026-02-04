@@ -1273,6 +1273,14 @@ class GravityControl(HeroSkill):
         self.gravity_particles = []
         self.distortion_lines = []
 
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 중력조절 효과 초기화"""
+        super().reset_for_new_round(game_state)
+        game_state['gravity_control_active'] = False
+        self.gravity_particles = []
+        self.distortion_lines = []
+        self.pulse_timer = 0
+
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if not self.is_active:
             return
@@ -1507,6 +1515,20 @@ class DwarfMagic(HeroSkill):
                 pygame.draw.circle(surf, (180, 100, 220, aura_alpha // (i + 1)),
                                  (size, size), size, 2)
                 screen.blit(surf, (int(paddle_cx - size), int(paddle_cy - size)))
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 난쟁이마술 효과 초기화"""
+        super().reset_for_new_round(game_state)
+        # 투사체 제거
+        self.magic_particles = []
+        self.projectile_active = False
+        self.hit_target = False
+        self.shrink_timer = 0
+        # 패들 축소 효과 해제
+        game_state['top_paddle_shrink'] = False
+        game_state['top_paddle_shrink_scale'] = 1.0
+        game_state['bottom_paddle_shrink'] = False
+        game_state['bottom_paddle_shrink_scale'] = 1.0
 
 
 # ============================================================================
