@@ -1358,6 +1358,7 @@ class DwarfMagic(HeroSkill):
         self.projectile_vy = 0
         self.hit_target = False
         self.shrink_timer = 0
+        self.shrunk_target_is_top = None  # 축소된 타겟 기억용
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         # 보라색 빛가루 투사체 발사
@@ -1429,6 +1430,7 @@ class DwarfMagic(HeroSkill):
                 self.hit_target = True
                 self.projectile_active = False
                 self.shrink_timer = 4.0  # 4초 지속
+                self.shrunk_target_is_top = target_paddle.is_top  # 축소된 타겟 기억
 
                 # 타겟 패들 50% 축소 적용
                 target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
@@ -1457,10 +1459,13 @@ class DwarfMagic(HeroSkill):
         if self.hit_target and self.shrink_timer > 0:
             self.shrink_timer -= dt
             if self.shrink_timer <= 0:
-                # 축소 효과 해제
-                target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+                # 축소 효과 해제 - 저장된 타겟 정보 사용
+                target_prefix = 'top_paddle' if self.shrunk_target_is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_shrink'] = False
                 game_state[f'{target_prefix}_shrink_scale'] = 1.0
+                print(f"[DEBUG 난쟁이마술] 효과 해제! {target_prefix}_shrink=False")
+                self.hit_target = False  # 효과 해제 완료
+                self.shrunk_target_is_top = None
 
         # 파티클 업데이트
         for p in self.magic_particles[:]:
@@ -1524,6 +1529,7 @@ class DwarfMagic(HeroSkill):
         self.projectile_active = False
         self.hit_target = False
         self.shrink_timer = 0
+        self.shrunk_target_is_top = None  # 타겟 정보 초기화
         # 패들 축소 효과 해제
         game_state['top_paddle_shrink'] = False
         game_state['top_paddle_shrink_scale'] = 1.0
