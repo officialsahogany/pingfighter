@@ -1182,90 +1182,151 @@ class AbyssInk(HeroSkill):
 # ============================================================================
 # 크로노스 스킬 - 시간술사 (수비적)
 # ============================================================================
-class TimeStop(HeroSkill):
-    """시간 정지 - 상대방을 잠시 멈춤"""
+class GravityControl(HeroSkill):
+    """중력조절 - 공을 무겁게 만들어 계속 아래로 끌어당김"""
     def __init__(self):
         super().__init__(
-            skill_id="time_stop",
-            name="Time Stop",
-            korean_name="시간 정지",
-            description="시간을 멈춰 상대방을 일시적으로 움직이지 못하게 한다",
+            skill_id="gravity_control",
+            name="Gravity Control",
+            korean_name="중력조절",
+            description="중력을 조작하여 공이 계속 아래로 끌려가게 만든다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=30.0,
-            duration=2.5,
+            cooldown=25.0,
+            duration=4.0,  # 4초 지속
             hero_id="chronos"
         )
-        self.clock_hands_angle = 0
-        self.time_particles = []
-        self.target_is_top = False
+        self.gravity_particles = []  # 중력 이펙트 파티클
+        self.distortion_lines = []  # 왜곡선
+        self.pulse_timer = 0
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        self.target_is_top = target_paddle.is_top
-        game_state['target_stunned'] = True
-        self.clock_hands_angle = 0
+        # 중력 효과 활성화
+        game_state['gravity_control_active'] = True
+        self.pulse_timer = 0
 
-        # 시간 파티클
-        self.time_particles = []
-        for i in range(30):
-            self.time_particles.append({
+        # 초기 파티클 생성
+        self.gravity_particles = []
+        self.distortion_lines = []
+
+        # 화면 전체에 하강 파티클 생성
+        for _ in range(40):
+            self.gravity_particles.append({
                 'x': random.uniform(80, 680),
-                'y': random.uniform(0, 750),
-                'char': random.choice(['⏰', '⌛', '🕐', '◷', '◶']),
-                'size': random.randint(12, 24),
-                'alpha': 255,
-                'vy': random.uniform(-20, 20)
+                'y': random.uniform(-50, 750),
+                'vy': random.uniform(150, 300),  # 빠르게 아래로
+                'size': random.randint(2, 5),
+                'alpha': random.randint(100, 200),
+                'color': random.choice([
+                    (100, 80, 180),   # 보라
+                    (80, 60, 150),    # 진한 보라
+                    (120, 100, 200),  # 연한 보라
+                    (60, 40, 120),    # 어두운 보라
+                ])
+            })
+
+        # 왜곡선 생성 (중력장 표현)
+        for i in range(8):
+            self.distortion_lines.append({
+                'y': i * 100,
+                'amplitude': random.uniform(5, 15),
+                'frequency': random.uniform(0.02, 0.04),
+                'phase': random.uniform(0, math.pi * 2),
+                'alpha': random.randint(40, 80)
             })
 
         return {
-            'screen_effect': ScreenEffect.TIME_STOP,
-            'target_status': StatusEffect.STUN,
-            'status_duration': self.duration,
-            'screen_tint': (200, 180, 100),
-            'sound': 'time_stop'
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (100, 80, 180),  # 보라색 플래시
+            'flash_duration': 0.2,
+            'sound': 'gravity_shift'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        self.clock_hands_angle += dt * 720  # 빠르게 회전
+        self.pulse_timer += dt
 
-        for p in self.time_particles:
+        # 🌍 핵심: 공에 중력(하향 힘) 적용
+        if hasattr(ball, 'vy'):
+            gravity_force = 400 * dt  # 초당 400픽셀 하향 가속
+            ball.vy += gravity_force
+            # 공이 위로 올라가려 해도 강하게 아래로 끌어당김
+            if ball.vy < 0:  # 위로 가는 중이면
+                ball.vy += gravity_force * 2  # 추가 중력
+
+        # 파티클 업데이트 (아래로 떨어지는 효과)
+        for p in self.gravity_particles:
             p['y'] += p['vy'] * dt
-            p['alpha'] = max(0, p['alpha'] - dt * 80)
+            # 화면 아래로 나가면 위에서 다시 생성
+            if p['y'] > 800:
+                p['y'] = random.uniform(-50, -10)
+                p['x'] = random.uniform(80, 680)
+
+        # 왜곡선 업데이트
+        for line in self.distortion_lines:
+            line['phase'] += dt * 3
+            line['y'] += 50 * dt  # 천천히 아래로 이동
+            if line['y'] > 800:
+                line['y'] = -50
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        game_state['target_stunned'] = False
-        # 패들별 상태 클리어
-        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
-        game_state[f'{target_prefix}_stunned'] = False
-        self.time_particles = []
+        game_state['gravity_control_active'] = False
+        self.gravity_particles = []
+        self.distortion_lines = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        if self.is_active:
-            # 세피아 톤 오버레이
-            overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
-            overlay.fill((200, 180, 100, 60))
-            screen.blit(overlay, (0, 0))
+        if not self.is_active:
+            return
 
-            # 상대 패들 위에 시계 이펙트
-            clock_x = target_paddle.x + 40
-            clock_y = target_paddle.y
+        # 어두운 보라색 오버레이 (중력장 분위기)
+        overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
+        overlay.fill((60, 40, 100, 30))
+        screen.blit(overlay, (0, 0))
 
-            # 시계 배경
-            pygame.draw.circle(screen, (200, 170, 100), (int(clock_x), int(clock_y)), 35)
-            pygame.draw.circle(screen, (50, 40, 30), (int(clock_x), int(clock_y)), 35, 3)
+        # 왜곡선 그리기 (중력장 시각화)
+        for line in self.distortion_lines:
+            points = []
+            for x in range(80, 680, 10):
+                wave_y = line['y'] + math.sin(x * line['frequency'] + line['phase']) * line['amplitude']
+                points.append((x, int(wave_y)))
+            if len(points) > 1:
+                surf = pygame.Surface((600, 30), pygame.SRCALPHA)
+                for i in range(len(points) - 1):
+                    px1, py1 = points[i][0] - 80, 15
+                    px2, py2 = points[i + 1][0] - 80, 15
+                    pygame.draw.line(surf, (120, 100, 200, line['alpha']),
+                                   (px1, py1), (px2, py2), 2)
+                screen.blit(surf, (80, int(line['y']) - 15))
 
-            # 시계 바늘
-            for i, length in enumerate([20, 28]):
-                angle = math.radians(self.clock_hands_angle * (1 if i == 0 else 0.08) - 90)
-                end_x = clock_x + math.cos(angle) * length
-                end_y = clock_y + math.sin(angle) * length
-                pygame.draw.line(screen, (50, 40, 30), (int(clock_x), int(clock_y)),
-                               (int(end_x), int(end_y)), 3 if i == 0 else 2)
+        # 하강 파티클 그리기
+        for p in self.gravity_particles:
+            if 0 < p['y'] < 750:
+                # 꼬리 효과 (위쪽으로 잔상)
+                for i in range(3):
+                    tail_y = p['y'] - i * 8
+                    tail_alpha = p['alpha'] // (i + 1)
+                    tail_size = max(1, p['size'] - i)
+                    if tail_alpha > 20:
+                        pygame.draw.circle(screen, (*p['color'][:3], tail_alpha),
+                                         (int(p['x']), int(tail_y)), tail_size)
 
-            # STOP 텍스트
-            font = pygame.font.Font(None, 28)
-            text = font.render("STOP", True, (200, 50, 50))
-            text_rect = text.get_rect(center=(int(clock_x), int(clock_y - 50)))
-            screen.blit(text, text_rect)
+        # 공 주변 중력 오라
+        if hasattr(ball, 'x') and hasattr(ball, 'y'):
+            # 펄스 효과
+            pulse = abs(math.sin(self.pulse_timer * 4)) * 0.5 + 0.5
+            for i in range(3):
+                radius = int(20 + i * 12 + pulse * 8)
+                alpha = int(60 - i * 15)
+                surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(surf, (100, 80, 180, alpha), (radius, radius), radius, 2)
+                screen.blit(surf, (int(ball.x - radius), int(ball.y - radius)))
+
+            # 하향 화살표 표시
+            arrow_y_offset = int(math.sin(self.pulse_timer * 6) * 5)
+            arrow_points = [
+                (int(ball.x), int(ball.y + 25 + arrow_y_offset)),
+                (int(ball.x - 8), int(ball.y + 15 + arrow_y_offset)),
+                (int(ball.x + 8), int(ball.y + 15 + arrow_y_offset))
+            ]
+            pygame.draw.polygon(screen, (150, 120, 220), arrow_points)
 
 
 class DwarfMagic(HeroSkill):
@@ -3620,7 +3681,7 @@ class FlashShuriken(HeroSkill):
 HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "mugen": [DarkSlash(), DemonEye()],
     "kraken": [TentacleWrap(), AbyssInk()],
-    "chronos": [TimeStop(), DwarfMagic()],
+    "chronos": [GravityControl(), DwarfMagic()],
     "onimaru": [HellFire(), HornCharge()],
     "maria": [PuppetControl(), DollCurse()],
     "ignis": [DragonBreath(), DragonWing()],
