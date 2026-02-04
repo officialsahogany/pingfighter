@@ -1,0 +1,74 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-02-05T03:26:22.957409",
+  "stage_number": 1,
+  "character_type": "normal",
+  "ai_mode": "junior",
+  "downtown_gold": 1500,
+  "downtown_ap_current": null,
+  "downtown_ap_is_first_stage": true,
+  "downtown_map_seed": null,
+  "deposit_balance": 0,
+  "deposit_interest_rate": 0.0,
+  "deposit_last_deposit_stage": 0,
+  "deposit_pending_interest_rates": {},
+  "medal_score": 0,
+  "passive_items": [],
+  "active_items": [],
+  "skill_points": 0,
+  "skill_system": {
+    "skill_points": 0,
+    "skill_levels": {},
+    "total_invested_points": 0,
+    "total_invested_points_by_tree": {
+      "dash": 0,
+      "item": 0,
+      "paddle": 0,
+      "downtown": 0,
+      "blacksmith": 0
+    }
+  },
+  "runtime_skills": {
+    "skill_levels": {},
+    "starpoint_for_skills": 0,
+    "pending_skill_choices": 0,
+    "accessory_slot_bonus": 0,
+    "swiftness_bonus": 0,
+    "transcendent_crown_skill_bonus": 0
+  },
+  "smasher_skill_unlocked": {
+    "plasma": false,
+    "recovery": false,
+    "cleanse": false,
+    "drive": true,
+    "power_smashing": true
+  },
+  "tutorial_completed": false,
+  "soldier_weapons": {
+    "weapons": [
+      "pistol"
+    ],
+    "current_index": 0,
+    "reload_counts": {},
+    "degradation_thresholds": {},
+    "degraded": [],
+    "ammo_states": {
+      "ak47": {
+        "current_ammo": 90,
+        "remaining_time": 0
+      },
+      "net_gun": {
+        "ammo_count": 4
+      },
+      "fire_support": {
+        "ammo_count": 0
+      },
+      "suicide_drone": {
+        "ammo": 4
+      },
+      "bowling_trap": {
+        "ammo_count": 3
+      }
+    }
+  }
+}

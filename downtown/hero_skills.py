@@ -1247,7 +1247,7 @@ class GravityControl(HeroSkill):
         # 🌍 핵심: 공에 중력(하향 힘) 적용
         # 반격 시 공이 위로 올라갔다가 중간에서 다시 내려오도록
         if hasattr(ball, 'vy'):
-            gravity_force = 150 * dt  # 초당 150픽셀 하향 가속
+            gravity_force = 75 * dt  # 초당 75픽셀 하향 가속 (기존 150에서 50% 감소)
             if ball.vy > 0:  # 아래로 가는 중
                 ball.vy += gravity_force * 0.7  # 70% 적용 (너무 빠르게 가속 방지)
             else:  # 위로 가는 중 (반격 시) - 강한 중력으로 속도 감속
