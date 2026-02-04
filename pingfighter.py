@@ -57992,12 +57992,21 @@ def handle_player(keys):
             if game_state.get('bottom_paddle_shrink', False):
                 shrink_scale = game_state.get('bottom_paddle_shrink_scale', 0.5)
                 target_width = int(130 * shrink_scale)  # 기본 패들 너비 130
+                target_height = int(40 * shrink_scale)  # 기본 패들 높이 40
                 if PLAYER.width != target_width:
                     center = PLAYER.centerx
                     PLAYER.width = target_width
+                    PLAYER.height = target_height
                     PLAYER.centerx = center
                 # 🔮 이동속도 25% 감소 (축소된 패들 페널티)
                 arena_player_slow_mult *= 0.75
+            else:
+                # 축소 효과 해제 시 원래 크기(130x40)로 복원
+                if PLAYER.width != 130:
+                    center = PLAYER.centerx
+                    PLAYER.width = 130
+                    PLAYER.height = 40
+                    PLAYER.centerx = center
         except Exception as e:
             print(f"[Arena] Player status effect error: {e}")
 
@@ -123172,12 +123181,21 @@ def handle_boss():
             if game_state.get('top_paddle_shrink', False):
                 shrink_scale = game_state.get('top_paddle_shrink_scale', 0.5)
                 target_width = int(130 * shrink_scale)  # 기본 패들 너비 130
+                target_height = int(40 * shrink_scale)  # 기본 패들 높이 40
                 if BOSS.width != target_width:
                     center = BOSS.centerx
                     BOSS.width = target_width
+                    BOSS.height = target_height
                     BOSS.centerx = center
                 # 🔮 이동속도 25% 감소 (축소된 패들 페널티)
                 arena_boss_slow_multiplier *= 0.75
+            else:
+                # 축소 효과 해제 시 원래 크기(130x40)로 복원
+                if BOSS.width != 130:
+                    center = BOSS.centerx
+                    BOSS.width = 130
+                    BOSS.height = 40
+                    BOSS.centerx = center
         except Exception as e:
             print(f"[Arena] Boss status effect error: {e}")
 
