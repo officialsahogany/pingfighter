@@ -105592,15 +105592,27 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     optimus_gauge_scale = 1.0
     CURRENT_PADDLE_SIZE_SCALE = 1.0
     CURRENT_PADDLE_EFFECTIVE_SCALE = 1.0
-    PADDLE_BASE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
-    PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
-    PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
-    PADDLE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
+
+    # 투기장 모드에서는 패들 크기를 BOSS와 동일하게 유지 (130x40)
+    if arena_mode_enabled:
+        ARENA_PADDLE_WIDTH = 130
+        ARENA_PADDLE_HEIGHT = 40
+        PADDLE_BASE_WIDTH = ARENA_PADDLE_WIDTH
+        PADDLE_BASE_HEIGHT = ARENA_PADDLE_HEIGHT
+        PADDLE_WIDTH = ARENA_PADDLE_WIDTH
+        PADDLE_HEIGHT = ARENA_PADDLE_HEIGHT
+        PLAYER.size = (ARENA_PADDLE_WIDTH, ARENA_PADDLE_HEIGHT)
+    else:
+        PADDLE_BASE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
+        PADDLE_BASE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
+        PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
+        PADDLE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
 
     # AI 모드 설정
     ai_mode = difficulty_mode
     ai_enabled = True
-    apply_player_paddle_scale(ai_mode)
+    if not arena_mode_enabled:
+        apply_player_paddle_scale(ai_mode)
     # 캐릭터별 설정
     soldier_initial_grenade_given = False
     soldier_initial_commando_arm_given = False
