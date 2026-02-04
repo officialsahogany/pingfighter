@@ -1247,7 +1247,7 @@ class GravityControl(HeroSkill):
         # 🌍 핵심: 공에 중력(하향 힘) 적용
         # 반격 시 공이 위로 올라갔다가 중간에서 다시 내려오도록
         if hasattr(ball, 'vy'):
-            gravity_force = 75 * dt  # 초당 75픽셀 하향 가속 (기존 150에서 50% 감소)
+            gravity_force = 38 * dt  # 초당 38픽셀 하향 가속 (기존 75에서 50% 추가 감소)
             if ball.vy > 0:  # 아래로 가는 중
                 ball.vy += gravity_force * 0.7  # 70% 적용 (너무 빠르게 가속 방지)
             else:  # 위로 가는 중 (반격 시) - 강한 중력으로 속도 감속
@@ -1357,12 +1357,11 @@ class DwarfMagic(HeroSkill):
         self.projectile_active = True
         self.projectile_x = caster_paddle.x + caster_paddle.width // 2
         self.projectile_y = caster_paddle.y
-        # 상대 방향으로 발사 (위 또는 아래)
-        self.projectile_vy = -8 if caster_paddle.is_top else 8
+        # 상대 방향으로 발사 (위 또는 아래) - 속도 30% 증가 (8 → 10)
         if caster_paddle.is_top:
-            self.projectile_vy = 8  # 위에서 아래로
+            self.projectile_vy = 10  # 위에서 아래로
         else:
-            self.projectile_vy = -8  # 아래에서 위로
+            self.projectile_vy = -10  # 아래에서 위로
 
         self.hit_target = False
         self.shrink_timer = 0
