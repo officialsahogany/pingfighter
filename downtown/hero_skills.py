@@ -3603,7 +3603,11 @@ class HeroSkillManager:
         """
         for hero_id, skills in self.active_skills.items():
             for skill in skills:
-                if skill.is_active:
+                # 활성 스킬 또는 지속 효과가 있는 스킬 모두 초기화
+                # (OilSpill의 웅덩이/발사체처럼 is_active=False여도 지속되는 효과 포함)
+                has_oil_effects = (hasattr(skill, 'oil_puddles') and skill.oil_puddles) or \
+                                  (hasattr(skill, 'oil_projectiles') and skill.oil_projectiles)
+                if skill.is_active or has_oil_effects:
                     skill.reset_for_new_round(self.game_state)
 
         # 추가로 game_state의 모든 효과 상태 초기화
