@@ -3094,7 +3094,7 @@ class OilSpill(HeroSkill):
             skill_id="oil_spill",
             name="Oil Spill",
             korean_name="기름 투척",
-            description="기름 덩어리 2개를 던져 적 진영 바닥에 웅덩이를 만든다. 웅덩이를 밟는 동안 50% 둔화.",
+            description="기름 덩어리 2개를 던져 적 진영 바닥에 웅덩이를 만든다. 웅덩이를 밟는 동안 30% 둔화.",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=15.0,
             duration=0,  # 스킬 자체는 즉시 완료, 웅덩이가 독립적으로 지속
@@ -3241,10 +3241,12 @@ class OilSpill(HeroSkill):
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         if is_on_puddle:
             game_state[f'{target_prefix}_slowed'] = True
-            game_state[f'{target_prefix}_slow_amount'] = 0.5  # 50% 둔화
+            game_state[f'{target_prefix}_slow_amount'] = 0.7  # 30% 둔화 (70% 속도)
+            game_state[f'{target_prefix}_oil_slowed'] = True  # 기름 웅덩이 둔화 이펙트용
         else:
             game_state[f'{target_prefix}_slowed'] = False
             game_state[f'{target_prefix}_slow_amount'] = 1.0
+            game_state[f'{target_prefix}_oil_slowed'] = False
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         # 스킬 종료 시에는 웅덩이 유지 (웅덩이는 자체 수명으로 관리)
@@ -3268,8 +3270,10 @@ class OilSpill(HeroSkill):
         # 둔화 상태 클리어
         game_state['top_paddle_slowed'] = False
         game_state['top_paddle_slow_amount'] = 1.0
+        game_state['top_paddle_oil_slowed'] = False
         game_state['bottom_paddle_slowed'] = False
         game_state['bottom_paddle_slow_amount'] = 1.0
+        game_state['bottom_paddle_oil_slowed'] = False
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         # 발사체 그리기 (날아가는 기름 덩어리)

@@ -89270,6 +89270,32 @@ def draw_objects():
                 wave_rect = slow_wave_surface.get_rect(midbottom=(target_rect.centerx, target_rect.top + 8))
             SCREEN.blit(slow_wave_surface, wave_rect)
 
+        # 🛢️ 기름 웅덩이 둔화 이펙트 (눈물샤워와 동일한 물결 효과)
+        _top_oil_slowed = _arena_gs.get('top_paddle_oil_slowed', False)
+        _bot_oil_slowed = _arena_gs.get('bottom_paddle_oil_slowed', False)
+
+        if _top_oil_slowed:
+            # 상단 패들 기름 둔화 이펙트 (갈색/검은색 테마)
+            oil_wave_surface = create_slow_wave_surface(
+                132, 56,
+                base_color=(80, 60, 30),  # 어두운 갈색 (기름 테마)
+                intensity=0.85,
+                wave_count=3
+            )
+            wave_rect = oil_wave_surface.get_rect(midtop=(BOSS.centerx, BOSS.bottom - 8))
+            SCREEN.blit(oil_wave_surface, wave_rect)
+
+        if _bot_oil_slowed:
+            # 하단 패들 기름 둔화 이펙트 (갈색/검은색 테마)
+            oil_wave_surface = create_slow_wave_surface(
+                132, 56,
+                base_color=(80, 60, 30),  # 어두운 갈색 (기름 테마)
+                intensity=0.85,
+                wave_count=3
+            )
+            wave_rect = oil_wave_surface.get_rect(midbottom=(PLAYER.centerx, PLAYER.top + 8))
+            SCREEN.blit(oil_wave_surface, wave_rect)
+
     # 화염병 그리기
     for molotov in molotovs:
         # 회전된 화염병 아이콘 그리기
