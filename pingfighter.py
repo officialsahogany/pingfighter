@@ -57996,8 +57996,8 @@ def handle_player(keys):
                     center = PLAYER.centerx
                     PLAYER.width = target_width
                     PLAYER.centerx = center
-                # 🔮 이동속도도 축소 비율만큼 감소 (작은 패들은 같은 거리 이동에 더 많이 움직여야 함)
-                arena_player_slow_mult *= shrink_scale
+                # 🔮 이동속도 25% 감소 (축소된 패들 페널티)
+                arena_player_slow_mult *= 0.75
         except Exception as e:
             print(f"[Arena] Player status effect error: {e}")
 
@@ -123176,8 +123176,8 @@ def handle_boss():
                     center = BOSS.centerx
                     BOSS.width = target_width
                     BOSS.centerx = center
-                # 🔮 이동속도도 축소 비율만큼 감소 (작은 패들은 같은 거리 이동에 더 많이 움직여야 함)
-                arena_boss_slow_multiplier *= shrink_scale
+                # 🔮 이동속도 25% 감소 (축소된 패들 페널티)
+                arena_boss_slow_multiplier *= 0.75
         except Exception as e:
             print(f"[Arena] Boss status effect error: {e}")
 
