@@ -86693,18 +86693,6 @@ def draw_objects():
                 stun_effect=(arena_top_dash_stun_timer > 0)  # 후딜 틴트 효과
             )
 
-            # 🔲 상단 영웅 패들 디버그 박스 (히트박스 시각화)
-            _debug_boss_rect = pygame.Rect(
-                BOSS.x + screen_shake_offset_x,
-                BOSS.y + screen_shake_offset_y,
-                BOSS.width,
-                BOSS.height
-            )
-            pygame.draw.rect(SCREEN, (255, 0, 0), _debug_boss_rect, 2)  # 빨간색 테두리
-            # 중심점 표시
-            pygame.draw.circle(SCREEN, (255, 255, 0),
-                (int(BOSS.centerx + screen_shake_offset_x), int(BOSS.centery + screen_shake_offset_y)), 4)
-
             # 🔥 뿔 박치기 착지 충격파 이펙트 렌더링
             if arena_skill_manager:
                 _shockwave = arena_skill_manager.game_state.get('horn_charge_impact_shockwave')
@@ -88234,18 +88222,6 @@ def draw_objects():
                 scale_mode="paddle",
                 stun_effect=(arena_bottom_dash_stun_timer > 0)  # 후딜 틴트 효과
             )
-
-            # 🔲 하단 영웅 패들 디버그 박스 (실제 히트박스 시각화 - PLAYER 사용)
-            _debug_player_rect = pygame.Rect(
-                PLAYER.x + screen_shake_offset_x,
-                PLAYER.y + screen_shake_offset_y,
-                PLAYER.width,
-                PLAYER.height
-            )
-            pygame.draw.rect(SCREEN, (0, 255, 0), _debug_player_rect, 2)  # 초록색 테두리
-            # 중심점 표시
-            pygame.draw.circle(SCREEN, (255, 255, 0),
-                (int(PLAYER.centerx + screen_shake_offset_x), int(PLAYER.centery + screen_shake_offset_y)), 4)
 
             _arena_paddle_drawn = True
         except Exception as e:
