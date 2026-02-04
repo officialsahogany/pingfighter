@@ -1428,6 +1428,7 @@ class DwarfMagic(HeroSkill):
                 game_state[f'{target_prefix}_shrink'] = True
                 game_state[f'{target_prefix}_shrink_scale'] = 0.5  # 50% 축소
                 print(f"[DEBUG 난쟁이마술] 명중! target_is_top={target_paddle.is_top}, {target_prefix}_shrink=True, scale=0.5")
+                print(f"[DEBUG 난쟁이마술] game_state ID: {id(game_state)}, shrink값: {game_state.get(f'{target_prefix}_shrink')}")
 
                 # 명중 시 파티클 폭발
                 for _ in range(30):
@@ -1485,14 +1486,16 @@ class DwarfMagic(HeroSkill):
         # 파티클 그리기
         for p in self.magic_particles:
             if p['alpha'] > 20:
-                surf = pygame.Surface((p['size'] * 2, p['size'] * 2), pygame.SRCALPHA)
-                # 보라색 계열 (다양한 밝기)
+                p_size = max(1, int(p['size']))
+                surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                # 보라색 계열 (다양한 밝기) - 정수로 변환
                 r = random.randint(150, 200)
                 g = random.randint(80, 130)
                 b = random.randint(180, 240)
-                pygame.draw.circle(surf, (r, g, b, p['alpha']),
-                                 (p['size'], p['size']), p['size'])
-                screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
+                a = max(0, min(255, int(p['alpha'])))
+                pygame.draw.circle(surf, (r, g, b, a),
+                                 (p_size, p_size), p_size)
+                screen.blit(surf, (int(p['x'] - p_size), int(p['y'] - p_size)))
 
         # 축소 효과 활성화 시 타겟에 보라색 오라
         if self.hit_target and self.shrink_timer > 0:
