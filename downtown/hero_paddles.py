@@ -35,13 +35,13 @@ class HeroPaddleRenderer:
             }
 
         state = self.hero_states[hero_id]
-        # 속도 계산 (더 민감하게)
+        # 속도 계산 (부드럽게)
         velocity = (current_x - state["last_x"]) / max(dt, 0.001)
-        state["velocity"] = velocity * 0.5 + state["velocity"] * 0.5  # 더 빠른 반응
+        state["velocity"] = velocity * 0.3 + state["velocity"] * 0.7  # 더 부드러운 반응 (0.5→0.3)
 
-        # 기울기 (이동 방향) - 더 민감하게 조정
-        target_lean = max(-1.0, min(1.0, state["velocity"] / 120.0))  # 120으로 낮춤 (더 기울어짐)
-        state["lean"] = state["lean"] * 0.75 + target_lean * 0.25  # 더 빠른 보간
+        # 기울기 (이동 방향) - 완화된 조정
+        target_lean = max(-1.0, min(1.0, state["velocity"] / 200.0))  # 200으로 높임 (덜 기울어짐)
+        state["lean"] = state["lean"] * 0.85 + target_lean * 0.15  # 더 부드러운 보간 (0.75→0.85)
 
         # 걷기 애니메이션 (속도에 비례)
         move_speed = abs(state["velocity"])
@@ -145,17 +145,17 @@ class HeroPaddleRenderer:
         if scale_mode == "paddle":
             # 투기장 모드: 캐릭터 크기 확대 (b=8로 더 크게)
             b = 8  # 스케일 증가 (캐릭터 높이 약 65픽셀)
-            # 이동 애니메이션 (기울기 위주, 상하 움직임 최소화)
+            # 이동 애니메이션 (기울기 완화, 상하 움직임 최소화)
             anim = {
-                "wave": anim["wave"] * 0.7,
-                "lean": anim["lean"] * 1.2,  # 기울기 유지
-                "arm_swing": anim["arm_swing"] * 0.9,
-                "body_bob": anim["body_bob"] * 0.25,  # 0.7 → 0.25 (상하 움직임 대폭 감소)
-                "head_tilt": anim["head_tilt"] * 0.5,
-                "left_leg": anim["left_leg"] * 0.7,
-                "right_leg": anim["right_leg"] * 0.7,
-                "left_shoulder": anim["left_shoulder"] * 0.6,
-                "right_shoulder": anim["right_shoulder"] * 0.6,
+                "wave": anim["wave"] * 0.5,
+                "lean": anim["lean"] * 0.7,  # 1.2 → 0.7 (기울기 완화)
+                "arm_swing": anim["arm_swing"] * 0.6,  # 0.9 → 0.6 (팔 흔들림 감소)
+                "body_bob": anim["body_bob"] * 0.15,  # 0.25 → 0.15 (상하 움직임 더 감소)
+                "head_tilt": anim["head_tilt"] * 0.3,  # 0.5 → 0.3 (머리 흔들림 감소)
+                "left_leg": anim["left_leg"] * 0.5,  # 0.7 → 0.5 (다리 움직임 감소)
+                "right_leg": anim["right_leg"] * 0.5,
+                "left_shoulder": anim["left_shoulder"] * 0.4,  # 0.6 → 0.4 (어깨 움직임 감소)
+                "right_shoulder": anim["right_shoulder"] * 0.4,
             }
         else:
             # 기존 미리보기 모드 (크게 표시)
