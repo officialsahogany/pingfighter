@@ -125,20 +125,16 @@ class AnimatedBackgroundStage30:
         }
 
     def _prerender_floor(self):
-        """바닥 프리렌더 - 모래 아레나 (게임 영역에만)"""
-        # 전체를 투명으로 초기화 (필러 영역은 필러에서 그림)
-        self.floor_surface.fill((0, 0, 0, 0))
-
+        """바닥 프리렌더 - 모래 아레나"""
         # 메인 모래 바닥
         sand = self.colors['sand']
 
-        # 게임 영역(80~679)에만 모래 바닥 그리기
-        arena_rect = pygame.Rect(self.GAME_AREA_X, 0, self.GAME_AREA_WIDTH, self.height)
-        pygame.draw.rect(self.floor_surface, sand, arena_rect)
+        # 전체를 모래 색상으로 채움 (필러가 위에 그려지므로 상관없음)
+        self.floor_surface.fill(sand)
 
-        # 모래 텍스처 - 미세한 노이즈 (게임 영역 내에서만)
+        # 모래 텍스처 - 미세한 노이즈
         for _ in range(500):
-            x = random.randint(self.GAME_AREA_X + 5, self.GAME_AREA_END_X - 5)
+            x = random.randint(5, self.width - 5)
             y = random.randint(5, self.height - 5)
             shade = random.randint(-15, 15)
             color = (
