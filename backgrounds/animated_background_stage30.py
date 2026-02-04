@@ -54,11 +54,11 @@ class AnimatedBackgroundStage30:
         self.crowd_noise_level = 0.5
         self.crowd_wave_timer = 0
 
-        # 색상 팔레트 - 로마 콜로세움 테마
+        # 색상 팔레트 - 로마 콜로세움 테마 (어두운 톤)
         self.colors = {
-            'sand': (194, 164, 118),          # 모래 바닥
-            'sand_dark': (164, 134, 98),      # 어두운 모래
-            'sand_light': (214, 184, 138),    # 밝은 모래
+            'sand': (155, 130, 95),           # 모래 바닥 (어둡게)
+            'sand_dark': (125, 105, 75),      # 어두운 모래
+            'sand_light': (175, 150, 115),    # 밝은 모래
             'stone': (140, 130, 115),         # 석조
             'stone_dark': (100, 90, 80),      # 어두운 석조
             'stone_light': (170, 160, 145),   # 밝은 석조
@@ -86,10 +86,10 @@ class AnimatedBackgroundStage30:
     def _init_torches(self):
         """횃불 위치 초기화 - 양쪽 가장자리에 대칭 배치"""
         torches = []
-        # 좌우 벽에 횃불 배치 (Y좌표 대칭: 중앙 375 기준으로 ±225)
+        # 좌우 벽에 횃불 배치 (X: 30 / 570 정확히 대칭, Y: 중앙 375 기준 ±225)
         positions = [
-            (25, 150), (25, 375), (25, 600),   # 왼쪽
-            (575, 150), (575, 375), (575, 600),  # 오른쪽
+            (30, 150), (30, 375), (30, 600),   # 왼쪽
+            (570, 150), (570, 375), (570, 600),  # 오른쪽
         ]
         for x, y in positions:
             torches.append({
@@ -101,27 +101,8 @@ class AnimatedBackgroundStage30:
         return torches
 
     def _init_spectators(self):
-        """관중 실루엣 초기화 - 상단과 하단에 배치"""
-        spectators = []
-        # 상단 관중석
-        for i in range(18):
-            spectators.append({
-                'x': 35 + i * 30,
-                'y': 30 + random.randint(-3, 3),
-                'size': random.randint(10, 14),
-                'wave_offset': random.uniform(0, math.pi * 2),
-                'position': 'top'
-            })
-        # 하단 관중석
-        for i in range(18):
-            spectators.append({
-                'x': 35 + i * 30,
-                'y': 720 + random.randint(-3, 3),
-                'size': random.randint(10, 14),
-                'wave_offset': random.uniform(0, math.pi * 2),
-                'position': 'bottom'
-            })
-        return spectators
+        """관중 실루엣 초기화 - 비활성화"""
+        return []  # 관중 실루엣 제거
 
     def _create_dust_particle(self):
         """먼지 파티클 생성"""
@@ -312,9 +293,6 @@ class AnimatedBackgroundStage30:
 
         # 횃불
         self._draw_torches(screen, scale_x, scale_y, offset_x, offset_y)
-
-        # 관중
-        self._draw_spectators(screen, scale_x, scale_y, offset_x, offset_y)
 
     def _draw_torches(self, screen, scale_x, scale_y, offset_x, offset_y):
         """횃불 그리기"""
