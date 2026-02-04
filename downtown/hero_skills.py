@@ -1244,14 +1244,14 @@ class GravityControl(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         self.pulse_timer += dt
 
-        # 🌍 핵심: 공에 약한 중력(하향 힘) 적용
-        # 반격 가능하도록: 공이 아래로 갈 때만 중력 적용, 위로 갈 때는 약하게
+        # 🌍 핵심: 공에 중력(하향 힘) 적용
+        # 반격 시 공이 위로 올라갔다가 중간에서 다시 내려오도록
         if hasattr(ball, 'vy'):
-            gravity_force = 80 * dt  # 초당 80픽셀 하향 가속 (대폭 감소)
-            if ball.vy > 0:  # 아래로 가는 중이면 중력 적용
-                ball.vy += gravity_force
-            else:  # 위로 가는 중 (반격 시) - 아주 약한 중력만
-                ball.vy += gravity_force * 0.3  # 30%만 적용 (반격 가능)
+            gravity_force = 150 * dt  # 초당 150픽셀 하향 가속
+            if ball.vy > 0:  # 아래로 가는 중
+                ball.vy += gravity_force * 0.7  # 70% 적용 (너무 빠르게 가속 방지)
+            else:  # 위로 가는 중 (반격 시) - 강한 중력으로 속도 감속
+                ball.vy += gravity_force  # 100% 적용 → 공이 점점 느려지다가 다시 내려옴
 
         # 파티클 업데이트 (아래로 떨어지는 효과)
         for p in self.gravity_particles:

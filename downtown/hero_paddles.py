@@ -143,8 +143,11 @@ class HeroPaddleRenderer:
 
         # 스케일 계산 (기본 블록 단위)
         if scale_mode == "paddle":
-            # 투기장 모드: 캐릭터 크기 확대 (b=8로 더 크게)
-            b = 8  # 스케일 증가 (캐릭터 높이 약 65픽셀)
+            # 투기장 모드: 캐릭터 크기 확대 (기본 b=8, 패들 크기에 따라 스케일)
+            # 기본 패들 너비 130px 기준, width에 따라 비례 스케일
+            base_b = 8
+            scale_ratio = width / 130.0 if width > 0 else 1.0  # 패들 축소 시 캐릭터도 축소
+            b = max(4, int(base_b * scale_ratio))  # 최소 4 유지
             # 이동 애니메이션 (기울기 완화, 상하 움직임 최소화)
             anim = {
                 "wave": anim["wave"] * 0.5,
