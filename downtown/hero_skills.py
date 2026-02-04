@@ -3115,11 +3115,13 @@ class OilSpill(HeroSkill):
 
         # 적 진영 바닥 Y 좌표 (보스는 상단, 플레이어는 하단)
         if self.target_is_top:
-            # 적이 상단(보스) → 상단 바닥 근처 (Y = 50~80)
-            target_floor_y = 65
+            # 적이 상단(보스) → 상단 패들 아래 바닥 (Y = 45~55)
+            # 보스 패들 Y=25, 높이=40 → 하단 65, 여유 주어서 50
+            target_floor_y = 50
         else:
-            # 적이 하단 → 하단 바닥 근처 (Y = 710~725)
-            target_floor_y = 715
+            # 적이 하단 → 하단 패들 위 바닥 (Y = 695~705)
+            # 플레이어 패들 Y=710, 여유 주어서 700
+            target_floor_y = 700
 
         # 기름 덩어리 2개 발사
         self.oil_projectiles = []
@@ -3183,7 +3185,7 @@ class OilSpill(HeroSkill):
                 self.oil_puddles.append({
                     'x': proj['target_x'],
                     'y': proj['target_y'],
-                    'width': random.uniform(60, 90),
+                    'width': random.uniform(72, 108),  # 20% 증가 (60-90 → 72-108)
                     'height': random.uniform(18, 28),
                     'wobble': random.uniform(0, math.pi * 2),
                     'life': self.puddle_duration,  # 7초
@@ -3230,7 +3232,8 @@ class OilSpill(HeroSkill):
             # X축 겹침 확인
             if paddle_right > puddle_left and paddle_left < puddle_right:
                 # Y축 근접 확인 (패들이 웅덩이 근처에 있는지)
-                if abs(paddle_y - puddle['y']) < 40:
+                # 상단 패들 Y=25, 하단 패들 Y=710, 웅덩이와의 거리 체크
+                if abs(paddle_y - puddle['y']) <= 50:
                     is_on_puddle = True
                     break
 
