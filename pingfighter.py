@@ -131482,6 +131482,16 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
 
+                    # ⚔️ 암흑 베기 커브 효과 적용 (스매셔 드라이브처럼 굴곡)
+                    _dark_gs = arena_skill_manager.game_state
+                    if _dark_gs.get('dark_slash_spin_strength', 0) > 0:
+                        globals()['ball_spin_strength'] = _dark_gs['dark_slash_spin_strength']
+                        globals()['ball_spin_direction'] = _dark_gs.get('dark_slash_spin_direction', 1)
+                        globals()['drive_ball_active'] = True  # 드라이브 공처럼 시각 효과
+                        print(f"⚔️ [DarkSlash] 커브 적용! spin_strength={globals()['ball_spin_strength']:.2f}, spin_dir={globals()['ball_spin_direction']}")
+                        # 스핀 적용 후 플래그 제거 (한 번만 적용)
+                        _dark_gs['dark_slash_spin_strength'] = 0
+
                     # 🐂 뿔 박치기 넉백 적용 (다이너마이트 폭발과 동일한 방식)
                     _horn_gs = arena_skill_manager.game_state
                     if _horn_gs.get('horn_charge_apply_knockback'):

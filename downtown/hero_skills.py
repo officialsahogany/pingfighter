@@ -292,7 +292,16 @@ class DarkSlash(HeroSkill):
                 ball.vy = abs(self.original_ball_vy) * speed_boost  # 양수 = 아래로
             else:
                 ball.vy = -abs(self.original_ball_vy) * speed_boost  # 음수 = 위로
-            print(f"[DarkSlash] 4배 가속 + 반격! vx={ball.vx:.1f}, vy={ball.vy:.1f}, caster_is_top={self.caster_is_top}")
+
+            # 스매셔 드라이브처럼 굴곡있는 커브 효과 적용
+            # 스핀 방향: 원래 vx 방향 기반 (약간 랜덤 변동)
+            spin_direction = 1 if self.original_ball_vx >= 0 else -1
+            if random.random() < 0.3:  # 30% 확률로 반대 방향
+                spin_direction *= -1
+            game_state['dark_slash_spin_strength'] = 1.8  # 드라이브보다 강한 스핀
+            game_state['dark_slash_spin_direction'] = spin_direction
+
+            print(f"[DarkSlash] 4배 가속 + 반격 + 커브! vx={ball.vx:.1f}, vy={ball.vy:.1f}, spin={spin_direction}, caster_is_top={self.caster_is_top}")
 
             self.dark_slash_active = True
             game_state['dark_slash_active'] = True
