@@ -3206,7 +3206,7 @@ class DollCurse(HeroSkill):
                 pygame.draw.ellipse(screen, leg_color, (leg_rx - int(6*s), leg_ly, int(12*s), int(25*s)))
                 pygame.draw.ellipse(screen, leg_outline, (leg_rx - int(6*s), leg_ly, int(12*s), int(25*s)), 1)
                 # 다리 스티치
-                for ly in range(int(leg_ly + 5*s), int(leg_ly + 20*s), int(6*s)):
+                for ly in range(int(leg_ly + 5*s), int(leg_ly + 20*s), max(1, int(6*s))):
                     pygame.draw.line(screen, (120, 80, 100), (leg_lx - int(4*s), ly), (leg_lx + int(4*s), ly), 1)
                     pygame.draw.line(screen, (120, 80, 100), (leg_rx - int(4*s), ly), (leg_rx + int(4*s), ly), 1)
 
@@ -3238,11 +3238,11 @@ class DollCurse(HeroSkill):
                 # === 몸통 스티치 (봉제선) ===
                 stitch_color = (80, 50, 60)
                 # 중앙 세로 스티치
-                for sy in range(int(gy - 8*s), int(gy + 20*s), int(5*s)):
+                for sy in range(int(gy - 8*s), int(gy + 20*s), max(1, int(5*s))):
                     pygame.draw.line(screen, stitch_color, (gx - int(2*s), sy), (gx + int(2*s), sy + int(3*s)), 1)
                 # 가로 스티치 (패치 느낌)
                 pygame.draw.line(screen, stitch_color, (gx - int(10*s), gy + int(5*s)), (gx + int(10*s), gy + int(5*s)), 1)
-                for sx in range(int(gx - 8*s), int(gx + 10*s), int(4*s)):
+                for sx in range(int(gx - 8*s), int(gx + 10*s), max(1, int(4*s))):
                     pygame.draw.line(screen, stitch_color, (sx, gy + int(3*s)), (sx, gy + int(7*s)), 1)
 
                 # === 하트 핀 (가슴에 박힌 핀) ===
@@ -3399,7 +3399,7 @@ class DollCurse(HeroSkill):
                     pygame.draw.ellipse(screen, (50, 30, 40),
                                        (leg_x - int(5*s), leg_y, int(10*s), int(18*s)), 1)
                     # 다리 스티치
-                    for ly in range(int(leg_y + 4*s), int(leg_y + 15*s), int(5*s)):
+                    for ly in range(int(leg_y + 4*s), int(leg_y + 15*s), max(1, int(5*s))):
                         pygame.draw.line(screen, (120, 70, 90),
                                        (leg_x - int(3*s), ly), (leg_x + int(3*s), ly), 1)
 
@@ -3435,7 +3435,7 @@ class DollCurse(HeroSkill):
                 # === 몸통 스티치 (봉제선) ===
                 stitch_color = (120, 70, 90)
                 # 세로 스티치
-                for sy in range(int(dy - 4*s), int(dy + 14*s), int(5*s)):
+                for sy in range(int(dy - 4*s), int(dy + 14*s), max(1, int(5*s))):
                     pygame.draw.line(screen, stitch_color,
                                    (dx - int(2*s), sy), (dx + int(2*s), sy + int(2*s)), 1)
                 # 가로 패치 스티치

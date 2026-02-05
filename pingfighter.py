@@ -85603,8 +85603,8 @@ def draw_objects():
                 pygame.draw.circle(_core_surf, (255, 255, 255, 200), (_core_cx, _core_cy - 2), int(_ball_r * 0.3))
                 SCREEN.blit(_core_surf, (_ball_cx - _ball_r * 2, _ball_cy - _ball_r * 2), special_flags=pygame.BLEND_ADD)
 
-        except Exception as e:
-            print(f"[Arena] Skill draw error: {e}")
+        except Exception:
+            pass  # 스킬 그리기 오류 무시
 
     # 옵티머스 비상충전 시각 효과 그리기
     if selected_character_type == "optimus":

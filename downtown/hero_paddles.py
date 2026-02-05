@@ -148,9 +148,6 @@ class HeroPaddleRenderer:
             base_b = 8
             scale_ratio = width / 130.0 if width > 0 else 1.0  # 패들 축소 시 캐릭터도 축소
             b = max(4, int(base_b * scale_ratio))  # 최소 4 유지
-            # DEBUG
-            if width != 130:
-                print(f"[DEBUG HeroPaddle] width={width}, scale_ratio={scale_ratio:.2f}, b={b}")
             # 이동 애니메이션 (기울기 완화, 상하 움직임 최소화)
             anim = {
                 "wave": anim["wave"] * 0.5,
