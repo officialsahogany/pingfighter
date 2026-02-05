@@ -3915,14 +3915,6 @@ class ShadowClone(HeroSkill):
             # 폴백: 실루엣 스타일 분신
             self._draw_fallback_clone(screen, x, y, alpha)
 
-        # 그림자 오라 효과 (ADD 블렌딩) - 캐릭터 크기에 맞게 조정
-        glow_size = 50  # 70 -> 50으로 축소
-        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-        pygame.draw.ellipse(glow_surf, (60, 50, 90, int(alpha * 0.2)),  # 알파값 감소
-                          (0, 0, glow_size, glow_size))
-        screen.blit(glow_surf, (x - glow_size // 2, y - glow_size // 2 - 25),
-                   special_flags=pygame.BLEND_ADD)
-
     def _draw_fallback_clone(self, screen: pygame.Surface, x: int, y: int, alpha: int):
         """폴백 분신 렌더링 (실루엣 스타일)"""
         # 닌자 실루엣
@@ -3941,11 +3933,6 @@ class ShadowClone(HeroSkill):
         pygame.draw.circle(body_surf, (200, 50, 50, alpha), (25, 10), 2)
 
         screen.blit(body_surf, (x - 20, y - 45))
-
-        # 그림자 오라
-        glow_surf = pygame.Surface((60, 60), pygame.SRCALPHA)
-        pygame.draw.ellipse(glow_surf, (60, 60, 100, int(alpha * 0.3)), (0, 0, 60, 60))
-        screen.blit(glow_surf, (x - 30, y - 50), special_flags=pygame.BLEND_ADD)
 
     def _draw_dying_clone(self, screen: pygame.Surface, dying: dict, caster_paddle, renderer):
         """소멸 중인 분신 렌더링 (홀로그램 증발 효과)"""
