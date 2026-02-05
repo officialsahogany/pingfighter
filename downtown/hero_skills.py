@@ -4091,7 +4091,7 @@ class IllusionShuriken(HeroSkill):
             description="3개의 수리검을 순차 발사하여 상대를 넉백시킨다",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=14.0,
-            duration=4.0,
+            duration=999.0,  # 시간 제한 없음 - 수리검이 모두 사라질 때까지 유지
             hero_id="kurokage"
         )
         self.shurikens = []  # 활성 수리검 목록
@@ -4270,6 +4270,13 @@ class IllusionShuriken(HeroSkill):
 
         # 완료된 이펙트 제거
         self.hit_effects = [e for e in self.hit_effects if e['timer'] > 0]
+
+        # 모든 수리검이 사라지면 스킬 종료 (3개 모두 발사된 후에만 체크)
+        if self.shurikens_spawned >= 3:
+            active_shurikens = [s for s in self.shurikens if s['active']]
+            if not active_shurikens:
+                self.active_timer = 0  # 스킬 자동 종료 트리거
+                print("[IllusionShuriken] 모든 수리검 소멸 - 스킬 종료")
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         self.shurikens = []
