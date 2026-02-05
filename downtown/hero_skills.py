@@ -697,6 +697,28 @@ class TentacleWrap(HeroSkill):
             'slime': (100, 180, 150),             # 점액
         }
 
+    def _get_hero_body_position(self, paddle, b=8):
+        """영웅 이미지의 실제 몸통 위치 계산 (hero_paddles.py와 동기화)
+
+        hero_paddles.py 기준:
+        - 상단 영웅 (facing="down"): cy = y + 3.5*b, torso = cy - 1.5*b = y + 2*b
+        - 하단 영웅 (facing="up"): cy = y + 2.0*b, torso = cy - 1.5*b = y + 0.5*b
+        """
+        # 패들 너비가 다를 수 있으므로 width/2로 중심 계산
+        paddle_width = getattr(paddle, 'width', 80)
+        center_x = paddle.x + paddle_width // 2
+
+        if paddle.is_top:
+            # 상단 영웅: 패들 아래쪽에 캐릭터가 있음 (화면 중앙 방향)
+            cy = paddle.y + int(3.5 * b)
+            torso_y = cy - int(1.5 * b)  # = paddle.y + 2*b ≈ paddle.y + 16
+        else:
+            # 하단 영웅: 패들 위쪽에 캐릭터가 있음 (화면 중앙 방향)
+            cy = paddle.y + int(2.0 * b)
+            torso_y = cy - int(1.5 * b)  # = paddle.y + 0.5*b ≈ paddle.y + 4
+
+        return center_x, torso_y, cy, b
+
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
         self.caster_is_top = caster_paddle.is_top
@@ -706,53 +728,64 @@ class TentacleWrap(HeroSkill):
         self.slow_applied = False
         self.time = 0
 
-        # 촉수 생성 - 크라켄의 몸체 특정 부위에서 시작 (자연스러운 연결)
-        self.tentacles = []
-        caster_center_x = caster_paddle.x + 40
-        caster_center_y = caster_paddle.y + (25 if caster_paddle.is_top else -25)
+        # 크라켄의 실제 몸체 위치 계산 (hero_paddles.py와 동기화)
+        b = 8  # 기본 블록 단위
+        caster_cx, caster_torso_y, caster_cy, _ = self._get_hero_body_position(caster_paddle, b)
+        target_cx, target_torso_y, target_cy, _ = self._get_hero_body_position(target_paddle, b)
 
-        # 촉수 시작 위치: 크라켄의 어깨/팔 영역에서 자연스럽게 뻗어나감
-        # 좌우 3개씩 배치 (어깨 촉수 2개 + 몸통 촉수 1개씩)
+        # 촉수 생성 - 크라켄의 어깨/팔 영역에서 시작
+        self.tentacles = []
+
+        # 크라켄 어깨 위치 오프셋 (hero_paddles.py 기준: shoulder = cx ± 1.4*b, torso_y + 0.2*b)
+        shoulder_offset_x = int(1.4 * b)  # ≈ 11
+        shoulder_offset_y = int(0.2 * b)  # ≈ 2
+
+        # 방향 (상단이면 아래로, 하단이면 위로 뻗어나감)
+        direction = 1 if caster_paddle.is_top else -1
+
+        # 촉수 시작 위치: 크라켄의 어깨/팔 영역
         tentacle_origins = [
-            # 왼쪽 어깨 촉수들
-            {'base_offset_x': -25, 'base_offset_y': 5, 'type': 'shoulder'},
-            {'base_offset_x': -18, 'base_offset_y': 10, 'type': 'arm'},
-            {'base_offset_x': -10, 'base_offset_y': 15, 'type': 'body'},
-            # 오른쪽 어깨 촉수들
-            {'base_offset_x': 10, 'base_offset_y': 15, 'type': 'body'},
-            {'base_offset_x': 18, 'base_offset_y': 10, 'type': 'arm'},
-            {'base_offset_x': 25, 'base_offset_y': 5, 'type': 'shoulder'},
+            # 왼쪽 어깨/팔 촉수들
+            {'base_offset_x': -shoulder_offset_x - 5, 'base_offset_y': shoulder_offset_y, 'type': 'shoulder'},
+            {'base_offset_x': -shoulder_offset_x + 3, 'base_offset_y': shoulder_offset_y + 8, 'type': 'arm'},
+            {'base_offset_x': -int(0.4 * b), 'base_offset_y': shoulder_offset_y + 12, 'type': 'body'},
+            # 오른쪽 어깨/팔 촉수들
+            {'base_offset_x': int(0.4 * b), 'base_offset_y': shoulder_offset_y + 12, 'type': 'body'},
+            {'base_offset_x': shoulder_offset_x - 3, 'base_offset_y': shoulder_offset_y + 8, 'type': 'arm'},
+            {'base_offset_x': shoulder_offset_x + 5, 'base_offset_y': shoulder_offset_y, 'type': 'shoulder'},
         ]
 
         for i, origin in enumerate(tentacle_origins):
             # 약간의 랜덤 변동으로 자연스러움 추가
-            offset_x = origin['base_offset_x'] + random.uniform(-3, 3)
-            offset_y = origin['base_offset_y'] + random.uniform(-2, 2)
-            if not caster_paddle.is_top:
-                offset_y = -offset_y  # 아래쪽 패들이면 Y 반전
+            offset_x = origin['base_offset_x'] + random.uniform(-2, 2)
+            offset_y = origin['base_offset_y'] * direction + random.uniform(-1, 1) * direction
 
             # 촉수마다 고유한 특성
             thickness_base = 7 if origin['type'] == 'shoulder' else (6 if origin['type'] == 'arm' else 5)
 
             self.tentacles.append({
-                'start_x': caster_center_x + offset_x,
-                'start_y': caster_center_y + offset_y,
+                'start_x': caster_cx + offset_x,
+                'start_y': caster_torso_y + offset_y,
                 'offset_x': offset_x,
                 'offset_y': offset_y,
-                'target_x': target_paddle.x + 40,
-                'target_y': target_paddle.y,
+                'caster_torso_y_offset': 0,  # torso_y 기준 오프셋
+                'target_x': target_cx,
+                'target_y': target_torso_y,  # 타겟 영웅의 몸통 위치!
                 'progress': 0,
                 'wave_offset': random.uniform(0, math.pi * 2),
-                'wave_speed': random.uniform(3.5, 4.5),  # 각 촉수마다 다른 물결 속도
+                'wave_speed': random.uniform(3.5, 4.5),
                 'thickness': thickness_base + random.uniform(-1, 1),
                 'wrap_angle': i * (360 / 6) + random.uniform(-10, 10),
                 'wrap_radius': 35 + random.uniform(-5, 10),
-                'coil_turns': random.uniform(1.5, 2.5),  # 감싸는 횟수
-                'coil_progress': 0,  # 감싸기 진행도
+                'coil_turns': random.uniform(1.5, 2.5),
+                'coil_progress': 0,
                 'type': origin['type'],
-                'sucker_count': random.randint(6, 10),  # 빨판 개수
-                'biolum_phase': random.uniform(0, math.pi * 2),  # 발광 위상
+                'sucker_count': random.randint(6, 10),
+                'biolum_phase': random.uniform(0, math.pi * 2),
             })
+
+        # 저장해둘 값들 (update에서 사용)
+        self.b = b
 
         return {
             'status_duration': self.duration,
@@ -770,17 +803,18 @@ class TentacleWrap(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         self.time += dt
 
-        # caster와 target 위치 실시간 업데이트
-        caster_center_x = caster_paddle.x + 40
-        caster_center_y = caster_paddle.y + (25 if caster_paddle.is_top else -25)
+        # caster와 target의 실제 영웅 몸통 위치 계산
+        b = getattr(self, 'b', 8)
+        caster_cx, caster_torso_y, _, _ = self._get_hero_body_position(caster_paddle, b)
+        target_cx, target_torso_y, _, _ = self._get_hero_body_position(target_paddle, b)
 
         for t in self.tentacles:
-            # caster 위치 업데이트 (촉수가 크라켄과 계속 연결)
-            t['start_x'] = caster_center_x + t['offset_x']
-            t['start_y'] = caster_center_y + t['offset_y']
-            # target 위치 업데이트
-            t['target_x'] = target_paddle.x + 40
-            t['target_y'] = target_paddle.y
+            # caster 위치 업데이트 (촉수가 크라켄 몸체와 계속 연결)
+            t['start_x'] = caster_cx + t['offset_x']
+            t['start_y'] = caster_torso_y + t['offset_y']
+            # target 위치 업데이트 (타겟 영웅의 몸통 위치)
+            t['target_x'] = target_cx
+            t['target_y'] = target_torso_y
             t['wave_offset'] += dt * t['wave_speed']
             t['biolum_phase'] += dt * 2
 
@@ -894,8 +928,10 @@ class TentacleWrap(HeroSkill):
         screen.blit(glow_surf, (int(x) - glow_size, int(y) - glow_size), special_flags=pygame.BLEND_ADD)
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        caster_center_x = caster_paddle.x + 40
-        caster_center_y = caster_paddle.y + (25 if caster_paddle.is_top else -25)
+        # 영웅의 실제 몸통 위치 계산
+        b = getattr(self, 'b', 8)
+        caster_cx, caster_torso_y, _, _ = self._get_hero_body_position(caster_paddle, b)
+        target_cx, target_torso_y, _, _ = self._get_hero_body_position(target_paddle, b)
         direction = 1 if caster_paddle.is_top else -1
 
         if self.phase == 'travel':
@@ -973,8 +1009,9 @@ class TentacleWrap(HeroSkill):
 
         elif self.phase == 'wrap':
             # === 감싸기 단계: 타겟을 휘감는 촉수 (코일링 효과) ===
-            target_x = target_paddle.x + 40
-            target_y = target_paddle.y
+            # target_cx, target_torso_y는 이미 위에서 계산됨 (영웅 몸통 위치)
+            target_x = target_cx
+            target_y = target_torso_y
 
             for idx, t in enumerate(self.tentacles):
                 start_x = t['start_x']
