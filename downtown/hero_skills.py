@@ -1228,16 +1228,24 @@ class GravityControl(HeroSkill):
         game_state['gravity_control_active'] = True
         self.pulse_timer = 0
 
+        # 중력 방향 결정 (caster_is_top 속성 사용)
+        # 상단에서 발동 → 중력 아래로 (상대 하단에게 불리)
+        # 하단에서 발동 → 중력 위로 (상대 상단에게 불리)
+        is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
+        self.gravity_direction = 1 if is_caster_top else -1  # 1=아래, -1=위
+
         # 초기 파티클 생성
         self.gravity_particles = []
         self.distortion_lines = []
 
-        # 화면 전체에 하강 파티클 생성
+        # 화면 전체에 중력 방향 파티클 생성
         for _ in range(40):
+            # 파티클 속도: 중력 방향에 따라 아래 또는 위로
+            particle_vy = random.uniform(150, 300) * self.gravity_direction
             self.gravity_particles.append({
                 'x': random.uniform(80, 680),
                 'y': random.uniform(-50, 750),
-                'vy': random.uniform(150, 300),  # 빠르게 아래로
+                'vy': particle_vy,
                 'size': random.randint(2, 5),
                 'alpha': random.randint(100, 200),
                 'color': random.choice([
@@ -1268,29 +1276,37 @@ class GravityControl(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         self.pulse_timer += dt
 
-        # 🌍 핵심: 공에 중력(하향 힘) 적용
-        # 반격 시 공이 위로 올라갔다가 중간에서 다시 내려오도록
-        if hasattr(ball, 'vy'):
-            gravity_force = 60 * dt  # 초당 60픽셀 하향 가속 (46에서 30% 증가)
-            if ball.vy > 0:  # 아래로 가는 중
-                ball.vy += gravity_force * 0.7  # 70% 적용 (너무 빠르게 가속 방지)
-            else:  # 위로 가는 중 (반격 시) - 강한 중력으로 속도 감속
-                ball.vy += gravity_force  # 100% 적용 → 공이 점점 느려지다가 다시 내려옴
+        # 중력 방향 (1=아래, -1=위)
+        gravity_dir = getattr(self, 'gravity_direction', 1)
 
-        # 파티클 업데이트 (아래로 떨어지는 효과)
+        # 🌍 핵심: 공에 중력 적용 (방향에 따라 위 또는 아래로)
+        if hasattr(ball, 'vy'):
+            gravity_force = 60 * dt * gravity_dir  # 중력 방향 적용
+            # 중력 방향으로 가는 중이면 70%, 반대면 100% 적용
+            if (ball.vy > 0 and gravity_dir > 0) or (ball.vy < 0 and gravity_dir < 0):
+                ball.vy += gravity_force * 0.7  # 70% 적용 (너무 빠르게 가속 방지)
+            else:  # 반대 방향 - 강한 중력으로 속도 감속
+                ball.vy += gravity_force  # 100% 적용 → 공이 점점 느려지다가 방향 전환
+
+        # 파티클 업데이트 (중력 방향으로 이동)
         for p in self.gravity_particles:
             p['y'] += p['vy'] * dt
-            # 화면 아래로 나가면 위에서 다시 생성
-            if p['y'] > 800:
+            # 화면 밖으로 나가면 반대쪽에서 다시 생성
+            if gravity_dir > 0 and p['y'] > 800:  # 아래로 중력
                 p['y'] = random.uniform(-50, -10)
+                p['x'] = random.uniform(80, 680)
+            elif gravity_dir < 0 and p['y'] < -50:  # 위로 중력
+                p['y'] = random.uniform(760, 810)
                 p['x'] = random.uniform(80, 680)
 
         # 왜곡선 업데이트
         for line in self.distortion_lines:
             line['phase'] += dt * 3
-            line['y'] += 50 * dt  # 천천히 아래로 이동
-            if line['y'] > 800:
+            line['y'] += 50 * dt * gravity_dir  # 중력 방향으로 이동
+            if gravity_dir > 0 and line['y'] > 800:
                 line['y'] = -50
+            elif gravity_dir < 0 and line['y'] < -50:
+                line['y'] = 800
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['gravity_control_active'] = False
