@@ -1247,7 +1247,7 @@ class GravityControl(HeroSkill):
         # 🌍 핵심: 공에 중력(하향 힘) 적용
         # 반격 시 공이 위로 올라갔다가 중간에서 다시 내려오도록
         if hasattr(ball, 'vy'):
-            gravity_force = 46 * dt  # 초당 46픽셀 하향 가속 (38에서 20% 증가)
+            gravity_force = 60 * dt  # 초당 60픽셀 하향 가속 (46에서 30% 증가)
             if ball.vy > 0:  # 아래로 가는 중
                 ball.vy += gravity_force * 0.7  # 70% 적용 (너무 빠르게 가속 방지)
             else:  # 위로 가는 중 (반격 시) - 강한 중력으로 속도 감속
@@ -1419,7 +1419,10 @@ class DwarfMagic(HeroSkill):
                 target_prefix = 'top_paddle' if self.shrunk_target_is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_shrink'] = False
                 game_state[f'{target_prefix}_shrink_scale'] = 1.0
-                print(f"[DEBUG 난쟁이마술] ★ 효과 해제! {target_prefix}_shrink=False, game_state ID={id(game_state)}")
+                # 🐢 이동속도 감소 해제
+                game_state[f'{target_prefix}_slowed'] = False
+                game_state[f'{target_prefix}_slow_amount'] = 1.0
+                print(f"[DEBUG 난쟁이마술] ★ 효과 해제! {target_prefix}_shrink=False, slow=False, game_state ID={id(game_state)}")
                 self.hit_target = False
                 self.shrunk_target_is_top = None
 
@@ -1473,7 +1476,10 @@ class DwarfMagic(HeroSkill):
                 target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_shrink'] = True
                 game_state[f'{target_prefix}_shrink_scale'] = 0.5  # 50% 축소
-                print(f"[DEBUG 난쟁이마술] 명중! target_is_top={target_paddle.is_top}, {target_prefix}_shrink=True, scale=0.5")
+                # 🐢 이동속도 10% 감소 적용
+                game_state[f'{target_prefix}_slowed'] = True
+                game_state[f'{target_prefix}_slow_amount'] = 0.9  # 10% 감소 (90% 속도)
+                print(f"[DEBUG 난쟁이마술] 명중! target_is_top={target_paddle.is_top}, {target_prefix}_shrink=True, scale=0.5, slow=0.9")
                 print(f"[DEBUG 난쟁이마술] game_state ID: {id(game_state)}, shrink값: {game_state.get(f'{target_prefix}_shrink')}")
 
                 # 명중 시 파티클 폭발
