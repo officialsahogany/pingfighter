@@ -3864,16 +3864,25 @@ class ShadowClone(HeroSkill):
         x = int(clone['x'])
         y = int(clone['y']) + hop
 
+        # 바닥 그림자 먼저 그리기
+        shadow_width = int(self.CLONE_WIDTH * 0.9)
+        shadow_surf = pygame.Surface((shadow_width, 10), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (10, 10, 25, int(alpha * 0.5)),
+                          (0, 0, shadow_width, 10))
+        screen.blit(shadow_surf, (x - shadow_width // 2, y + 5))
+
         # HeroPaddleRenderer가 있으면 실제 캐릭터 그리기
         if renderer and HERO_PADDLE_RENDERER_AVAILABLE:
-            # 임시 서피스에 캐릭터 렌더링 후 반투명 적용
-            char_width = 100
-            char_height = 80
+            # 큰 서피스에 캐릭터 렌더링
+            char_width = 150
+            char_height = 120
             temp_surf = pygame.Surface((char_width, char_height), pygame.SRCALPHA)
-            temp_surf.fill((0, 0, 0, 0))
 
             # 렌더러 시간 업데이트 (애니메이션용)
             renderer.update(1/60)
+
+            # 그림자 색조의 캐릭터 색상 (보라빛 어둠)
+            shadow_color = (70, 60, 100)
 
             # 캐릭터 그리기
             try:
@@ -3881,37 +3890,34 @@ class ShadowClone(HeroSkill):
                     temp_surf,
                     "kurokage",
                     char_width // 2,  # 중앙 X
-                    char_height - 10,  # Y 위치 (하단 기준)
+                    char_height - 15,  # Y 위치
                     self.CLONE_WIDTH,
                     12,  # 패들 높이
                     self.caster_facing,
-                    self.caster_color,
+                    shadow_color,  # 그림자 색조
                     "paddle"
                 )
-            except Exception:
-                # 폴백: 단순 실루엣
-                self._draw_fallback_clone(temp_surf, char_width // 2, char_height - 30, alpha)
 
-            # 반투명 + 그림자 색조 적용
-            shadow_overlay = pygame.Surface((char_width, char_height), pygame.SRCALPHA)
-            shadow_overlay.fill((80, 80, 120, 60))  # 보라빛 그림자 색조
-            temp_surf.blit(shadow_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                # 알파 적용
+                temp_surf.set_alpha(alpha)
 
-            # 알파 적용
-            temp_surf.set_alpha(alpha)
+                # 화면에 블릿 (캐릭터 중심이 x, y에 오도록)
+                screen.blit(temp_surf, (x - char_width // 2, y - char_height + 25))
 
-            # 화면에 블릿
-            screen.blit(temp_surf, (x - char_width // 2, y - char_height + 15))
-
-            # 그림자 효과 (바닥에)
-            shadow_width = int(self.CLONE_WIDTH * 0.8)
-            shadow_surf = pygame.Surface((shadow_width, 8), pygame.SRCALPHA)
-            pygame.draw.ellipse(shadow_surf, (10, 10, 20, int(alpha * 0.4)),
-                              (0, 0, shadow_width, 8))
-            screen.blit(shadow_surf, (x - shadow_width // 2, y + 2))
+            except Exception as e:
+                # 폴백: 실루엣 스타일 분신
+                self._draw_fallback_clone(screen, x, y, alpha)
         else:
             # 폴백: 실루엣 스타일 분신
             self._draw_fallback_clone(screen, x, y, alpha)
+
+        # 그림자 오라 효과 (ADD 블렌딩)
+        glow_size = 70
+        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow_surf, (60, 50, 90, int(alpha * 0.25)),
+                          (0, 0, glow_size, glow_size))
+        screen.blit(glow_surf, (x - glow_size // 2, y - glow_size // 2 - 20),
+                   special_flags=pygame.BLEND_ADD)
 
     def _draw_fallback_clone(self, screen: pygame.Surface, x: int, y: int, alpha: int):
         """폴백 분신 렌더링 (실루엣 스타일)"""
@@ -3950,43 +3956,47 @@ class ShadowClone(HeroSkill):
         glitch_x = int(math.sin(dying['death_time'] * 35) * glitch_intensity)
         glitch_y = int(math.cos(dying['death_time'] * 28) * glitch_intensity * 0.5)
 
-        char_width = 100
-        char_height = 80
+        char_width = 150
+        char_height = 120
 
         if renderer and HERO_PADDLE_RENDERER_AVAILABLE and base_alpha > 30:
             # RGB 분리 효과로 캐릭터 3번 그리기
-            for color_offset, tint in [(-4, (255, 80, 80)), (0, (200, 200, 255)), (4, (80, 255, 255))]:
+            for color_offset, tint in [(-4, (255, 80, 80)), (0, (180, 180, 220)), (4, (80, 255, 255))]:
                 temp_surf = pygame.Surface((char_width, char_height), pygame.SRCALPHA)
                 try:
                     renderer.draw_hero_paddle(
                         temp_surf,
                         "kurokage",
                         char_width // 2,
-                        char_height - 10,
+                        char_height - 15,
                         self.CLONE_WIDTH,
                         12,
                         self.caster_facing,
                         tint,
                         "paddle"
                     )
+
+                    # 스캔라인 효과 (위에서부터 사라짐)
+                    scanline_y = int(char_height * death_progress)
+                    if scanline_y > 0:
+                        erase_rect = pygame.Rect(0, 0, char_width, scanline_y)
+                        temp_surf.fill((0, 0, 0, 0), erase_rect)
+
+                    temp_surf.set_alpha(int(base_alpha * 0.5))
+                    screen.blit(temp_surf, (x - char_width // 2 + glitch_x + color_offset, y - char_height + 25 + glitch_y))
+
                 except Exception:
-                    pygame.draw.ellipse(temp_surf, (*tint, base_alpha // 2), (30, 20, 40, 50))
-
-                # 스캔라인 효과 (위에서부터 사라짐)
-                scanline_y = int(char_height * death_progress)
-                if scanline_y > 0:
-                    erase_rect = pygame.Rect(0, 0, char_width, scanline_y)
-                    temp_surf.fill((0, 0, 0, 0), erase_rect)
-
-                temp_surf.set_alpha(int(base_alpha * 0.5))
-                screen.blit(temp_surf, (x - char_width // 2 + glitch_x + color_offset, y - char_height + 15 + glitch_y))
+                    # 폴백: 단순 타원
+                    surf = pygame.Surface((50, 60), pygame.SRCALPHA)
+                    pygame.draw.ellipse(surf, (*tint, base_alpha // 2), (0, 0, 50, 60))
+                    screen.blit(surf, (x - 25 + glitch_x + color_offset, y - 50 + glitch_y))
 
         # 파티클 효과 (위로 흩어짐)
         if death_progress > 0.15:
             num_particles = int(12 * death_progress)
             for i in range(num_particles):
-                px = x + random.randint(-30, 30)
-                py = y - int(50 * death_progress) + random.randint(-15, 15)
+                px = x + random.randint(-35, 35)
+                py = y - int(60 * death_progress) + random.randint(-20, 20)
                 p_alpha = int(base_alpha * 0.5 * random.uniform(0.4, 1.0))
                 if p_alpha > 10:
                     p_size = random.randint(2, 5)
