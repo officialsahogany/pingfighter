@@ -89369,8 +89369,8 @@ def draw_objects():
         fz_y = fire_zone["y"]
         fz_w = fire_zone["width"]
         fz_h = fire_zone["height"]
-        fz_dur = fire_zone.get("duration", 90)
-        fz_max_dur = 135  # 최대 지속시간 (2.25초)
+        fz_dur = fire_zone.get("duration", 150)
+        fz_max_dur = 150  # 최대 지속시간 (2.5초) - 화염병과 동일
         fz_life_ratio = min(1.0, fz_dur / fz_max_dur)
 
         # 1. 바닥 화염 번짐 - 다층 그라데이션
@@ -131863,10 +131863,10 @@ def main(stage_num, new_boss_mode=False):
                         # 플래그 제거
                         arena_skill_manager.game_state['spawn_dragon_fire_zone'] = None
                         try:
-                            # 드래곤 브레스 화염지대는 2.25초이므로 사운드도 2.25초 후 페이드아웃
+                            # 드래곤 브레스 화염지대는 2.5초이므로 사운드도 2.5초 후 페이드아웃 (화염병과 동일)
                             _dragon_fire_channel = SOUND_FIREBOMB.play()
                             if _dragon_fire_channel:
-                                _dragon_fire_channel.fadeout(2250)  # 2.25초 후 페이드아웃 (50% 증가)
+                                _dragon_fire_channel.fadeout(2500)  # 2.5초 후 페이드아웃
                         except:
                             pass
 

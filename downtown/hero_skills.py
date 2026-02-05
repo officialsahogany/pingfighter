@@ -3678,7 +3678,7 @@ class DragonBreath(HeroSkill):
                 'y': fire_y,
                 'width': 120,  # 화염 지대 너비
                 'height': 60,  # 화염 지대 높이
-                'duration': 135,  # 2.25초 (60fps * 2.25) - 기존 1.5초에서 50% 증가
+                'duration': 150,  # 2.5초 (60fps * 2.5) - 화염병과 동일
                 'source': 'dragon_breath'
             }
 
