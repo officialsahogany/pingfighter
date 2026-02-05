@@ -173,13 +173,17 @@ class HeroPaddleRenderer:
         # 캐릭터 높이 = 약 6*b (머리~발), 중심(torso)은 cy에서 그려짐
         # 캐릭터 발 위치 = cy + 약 3*b
         if scale_mode == "paddle":
+            # 축소 시에도 캐릭터 위치가 안정적으로 유지되도록 기준 오프셋 사용
+            base_b = 8  # 기준 블록 크기 (스케일 1.0 기준)
             if facing == "down":
                 # 상단 영웅: 패들 아래쪽에서 캐릭터 그리기
-                cy = int(y) + int(3.5 * b)
+                # 축소 시에도 동일한 Y 오프셋 유지 (캐릭터가 사라지지 않도록)
+                y_offset = int(3.5 * base_b)  # 고정 오프셋 (28px)
+                cy = int(y) + y_offset
             else:
                 # 하단 영웅: 발이 패들 위치(바닥)에 붙도록
-                # 발 위치가 y에 오려면 cy = y - 3*b가 아니라 cy를 더 아래로
-                cy = int(y) + int(2.0 * b)  # 더 아래로 이동 (0.5 → 2.0)
+                y_offset = int(2.0 * base_b)  # 고정 오프셋 (16px)
+                cy = int(y) + y_offset
         else:
             cy = int(y)
 
