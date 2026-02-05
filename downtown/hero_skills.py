@@ -525,9 +525,12 @@ class DemonEye(HeroSkill):
 
         # 🔥 귀신발걸음 y축 이동 트리거 (아래로 관통)
         # caster_paddle에 직접 start_ghost_step() 호출
+        print(f"[GhostStep DEBUG] caster_paddle type: {type(caster_paddle).__name__}, has start_ghost_step: {hasattr(caster_paddle, 'start_ghost_step')}")
         if hasattr(caster_paddle, 'start_ghost_step'):
             caster_paddle.start_ghost_step()
             print(f"[GhostStep] 귀신발걸음 y축 이동 직접 호출 성공!")
+        else:
+            print(f"[GhostStep ERROR] 패들에 start_ghost_step 메서드 없음!")
 
         # 오오라 파티클 초기화
         self.aura_particles = []
