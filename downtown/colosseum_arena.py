@@ -1304,18 +1304,16 @@ class ColosseumsArena:
             if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
                 self.arena_pillar.trigger_excitement(intensity=1.0, duration=2.5)
 
-            # === 암흑 베기 상태 리셋 (득점 시) ===
+            # === 모든 활성 스킬 상태 리셋 (득점 시) ===
             if self.skill_manager:
-                game_state = self.skill_manager.game_state
-                if game_state.get('dark_slash_active', False):
-                    game_state['dark_slash_active'] = False
-                    # 무겐의 DarkSlash 스킬 상태도 리셋
-                    mugen_skills = self.skill_manager.hero_skills.get('mugen', [])
-                    for skill in mugen_skills:
-                        if skill.skill_id == 'dark_slash':
-                            skill.dark_slash_active = False
-                            skill.original_ball_speed = None
-                            break
+                print(f"[DEBUG Arena] 득점! 스킬 리셋 호출")
+                self.skill_manager.reset_active_skills_for_round()
+
+                # 🔮 난쟁이마술 등으로 축소된 패들 크기 복원
+                if self.top_paddle:
+                    self.top_paddle.paddle_scale = 1.0
+                if self.bottom_paddle:
+                    self.bottom_paddle.paddle_scale = 1.0
 
             # 승리 체크 (5점 선취, 4:4부터 듀스)
             if self._check_winner():

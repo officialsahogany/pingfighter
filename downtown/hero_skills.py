@@ -1395,6 +1395,43 @@ class DwarfMagic(HeroSkill):
             'sound': 'magic_cast'
         }
 
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """스킬 업데이트 - 오버라이드하여 shrink_timer를 is_active와 별개로 처리"""
+        # 부모 클래스의 쿨타임 처리
+        if self.current_cooldown > 0:
+            self.current_cooldown -= dt
+
+        # 활성 효과 업데이트 (투사체 이동)
+        if self.is_active:
+            self.active_timer -= dt
+            self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
+            if self.active_timer <= 0:
+                self._end_effect(caster_paddle, target_paddle, ball, game_state)
+                self.is_active = False
+
+        # ★ 핵심: shrink_timer는 is_active와 별개로 항상 처리
+        # (투사체 명중 후 is_active가 False가 되어도 축소 효과는 유지되어야 함)
+        if self.hit_target and self.shrink_timer > 0:
+            self.shrink_timer -= dt
+            print(f"[DEBUG 난쟁이마술] shrink_timer={self.shrink_timer:.2f}, is_active={self.is_active}, hit_target={self.hit_target}")
+            if self.shrink_timer <= 0:
+                # 축소 효과 해제 - 저장된 타겟 정보 사용
+                target_prefix = 'top_paddle' if self.shrunk_target_is_top else 'bottom_paddle'
+                game_state[f'{target_prefix}_shrink'] = False
+                game_state[f'{target_prefix}_shrink_scale'] = 1.0
+                print(f"[DEBUG 난쟁이마술] ★ 효과 해제! {target_prefix}_shrink=False, game_state ID={id(game_state)}")
+                self.hit_target = False
+                self.shrunk_target_is_top = None
+
+        # 파티클 업데이트 (is_active와 관계없이)
+        for p in self.magic_particles[:]:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['life'] -= dt
+            p['alpha'] = max(0, int(255 * (p['life'] / 1.0)))
+            if p['life'] <= 0:
+                self.magic_particles.remove(p)
+
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         # 투사체 이동
         if self.projectile_active and not self.hit_target:
@@ -1455,29 +1492,13 @@ class DwarfMagic(HeroSkill):
             if self.projectile_y < 0 or self.projectile_y > 750:
                 self.projectile_active = False
 
-        # 축소 효과 타이머
-        if self.hit_target and self.shrink_timer > 0:
-            self.shrink_timer -= dt
-            if self.shrink_timer <= 0:
-                # 축소 효과 해제 - 저장된 타겟 정보 사용
-                target_prefix = 'top_paddle' if self.shrunk_target_is_top else 'bottom_paddle'
-                game_state[f'{target_prefix}_shrink'] = False
-                game_state[f'{target_prefix}_shrink_scale'] = 1.0
-                print(f"[DEBUG 난쟁이마술] 효과 해제! {target_prefix}_shrink=False")
-                self.hit_target = False  # 효과 해제 완료
-                self.shrunk_target_is_top = None
-
-        # 파티클 업데이트
-        for p in self.magic_particles[:]:
-            p['x'] += p['vx']
-            p['y'] += p['vy']
-            p['life'] -= dt
-            p['alpha'] = max(0, int(255 * (p['life'] / 1.0)))
-            if p['life'] <= 0:
-                self.magic_particles.remove(p)
+        # NOTE: shrink_timer와 파티클 업데이트는 update() 메서드에서 처리
+        # (is_active가 False가 되어도 계속 처리되어야 하므로)
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        if not self.is_active:
+        # 투사체, 파티클, 오라가 있으면 그리기 (is_active와 무관하게)
+        has_visuals = self.projectile_active or self.magic_particles or (self.hit_target and self.shrink_timer > 0)
+        if not self.is_active and not has_visuals:
             return
 
         # 보라색 빛가루 투사체 그리기
@@ -1523,6 +1544,7 @@ class DwarfMagic(HeroSkill):
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 난쟁이마술 효과 초기화"""
+        print(f"[DEBUG 난쟁이마술] ★★★ reset_for_new_round 호출됨! hit_target={self.hit_target}, shrink_timer={self.shrink_timer}")
         super().reset_for_new_round(game_state)
         # 투사체 제거
         self.magic_particles = []
@@ -1535,6 +1557,7 @@ class DwarfMagic(HeroSkill):
         game_state['top_paddle_shrink_scale'] = 1.0
         game_state['bottom_paddle_shrink'] = False
         game_state['bottom_paddle_shrink_scale'] = 1.0
+        print(f"[DEBUG 난쟁이마술] reset 완료: top_shrink={game_state.get('top_paddle_shrink')}, bottom_shrink={game_state.get('bottom_paddle_shrink')}")
 
 
 # ============================================================================
@@ -3850,7 +3873,11 @@ class HeroSkillManager:
                 # (OilSpill의 웅덩이/발사체처럼 is_active=False여도 지속되는 효과 포함)
                 has_oil_effects = (hasattr(skill, 'oil_puddles') and skill.oil_puddles) or \
                                   (hasattr(skill, 'oil_projectiles') and skill.oil_projectiles)
-                if skill.is_active or has_oil_effects:
+                # 난쟁이마술: is_active=False여도 hit_target/shrink_timer가 활성화된 경우 포함
+                has_dwarf_magic_effects = (hasattr(skill, 'hit_target') and skill.hit_target) or \
+                                          (hasattr(skill, 'shrink_timer') and skill.shrink_timer > 0)
+                if skill.is_active or has_oil_effects or has_dwarf_magic_effects:
+                    print(f"[DEBUG SkillManager] reset_for_new_round 호출: {skill.skill_id}, is_active={skill.is_active}")
                     skill.reset_for_new_round(self.game_state)
 
         # 추가로 game_state의 모든 효과 상태 초기화
@@ -3883,6 +3910,13 @@ class HeroSkillManager:
         self.game_state['top_paddle_speed_boost'] = 1.0
         self.game_state['bottom_paddle_speed_boost'] = 1.0
         self.game_state['demon_eye_active'] = False
+
+        # 난쟁이마술 (크로노스) 축소 효과 초기화
+        self.game_state['top_paddle_shrink'] = False
+        self.game_state['top_paddle_shrink_scale'] = 1.0
+        self.game_state['bottom_paddle_shrink'] = False
+        self.game_state['bottom_paddle_shrink_scale'] = 1.0
+        print(f"[DEBUG SkillManager] reset_for_new_round 완료: shrink 상태 초기화됨")
 
     def update(self, dt: float, top_paddle, bottom_paddle, ball):
         """스킬 업데이트"""
