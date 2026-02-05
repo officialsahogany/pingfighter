@@ -3057,20 +3057,69 @@ class DollCurse(HeroSkill):
                                          (glow_size, glow_size), int(glow_size * 0.5))
                         screen.blit(glow_surf, (int(eye_x) - glow_size, int(eye_y) - glow_size))
 
-                # === 외부 마법진/보호 오라 (인형 뒤에) ===
+                # === 외부 마법진/보호 오라 (인형 뒤에) - 고퀄리티 업그레이드 ===
                 aura_pulse = 0.7 + 0.3 * math.sin(time_tick * 0.008 + guardian['wobble'])
-                # 외부 원형 마법진
-                magic_size = int(55 * s * aura_pulse)
-                magic_surf = pygame.Surface((magic_size * 2, magic_size * 2), pygame.SRCALPHA)
-                # 외부 링
-                pygame.draw.circle(magic_surf, (180, 80, 120, int(50 * spawn_alpha)),
-                                 (magic_size, magic_size), magic_size, 2)
-                # 내부 글로우
-                for r in range(magic_size, 0, -5):
-                    alpha = int(20 * spawn_alpha * (r / magic_size))
-                    pygame.draw.circle(magic_surf, (200, 100, 150, alpha),
-                                     (magic_size, magic_size), r)
-                screen.blit(magic_surf, (gx - magic_size, gy - magic_size))
+                magic_size = int(60 * s * aura_pulse)
+                magic_surf = pygame.Surface((magic_size * 2 + 20, magic_size * 2 + 20), pygame.SRCALPHA)
+                mc = magic_size + 10  # 마법진 중심
+
+                # 1. 내부 글로우 (부드러운 그라데이션)
+                for r in range(magic_size, 0, -3):
+                    alpha = int(25 * spawn_alpha * (r / magic_size) * aura_pulse)
+                    pygame.draw.circle(magic_surf, (200, 80, 130, alpha), (mc, mc), r)
+
+                # 2. 외부 링 (이중 원)
+                pygame.draw.circle(magic_surf, (220, 100, 150, int(70 * spawn_alpha)),
+                                 (mc, mc), magic_size, 2)
+                pygame.draw.circle(magic_surf, (180, 70, 120, int(50 * spawn_alpha)),
+                                 (mc, mc), int(magic_size * 0.85), 2)
+
+                # 3. 마법진 룬 심볼 (회전하는 삼각형들)
+                rune_rotation = time_tick * 0.002 + guardian['wobble']
+                for ri in range(6):
+                    rune_angle = rune_rotation + ri * (math.pi / 3)
+                    rune_dist = magic_size * 0.7
+                    rx = mc + int(math.cos(rune_angle) * rune_dist)
+                    ry = mc + int(math.sin(rune_angle) * rune_dist)
+                    # 작은 삼각형 룬
+                    tri_size = int(6 * s)
+                    tri_points = []
+                    for ti in range(3):
+                        ta = rune_angle + ti * (math.pi * 2 / 3)
+                        tri_points.append((rx + int(math.cos(ta) * tri_size),
+                                         ry + int(math.sin(ta) * tri_size)))
+                    pygame.draw.polygon(magic_surf, (255, 150, 180, int(100 * spawn_alpha * aura_pulse)),
+                                      tri_points)
+                    pygame.draw.polygon(magic_surf, (220, 100, 140, int(150 * spawn_alpha)),
+                                      tri_points, 1)
+
+                # 4. 내부 별 패턴 (오각별)
+                star_points = []
+                star_size = magic_size * 0.5
+                for si in range(5):
+                    outer_angle = -math.pi/2 + si * (math.pi * 2 / 5) + rune_rotation * 0.5
+                    inner_angle = outer_angle + math.pi / 5
+                    star_points.append((mc + int(math.cos(outer_angle) * star_size),
+                                       mc + int(math.sin(outer_angle) * star_size)))
+                    star_points.append((mc + int(math.cos(inner_angle) * star_size * 0.4),
+                                       mc + int(math.sin(inner_angle) * star_size * 0.4)))
+                pygame.draw.polygon(magic_surf, (255, 120, 160, int(40 * spawn_alpha * aura_pulse)),
+                                  star_points)
+                pygame.draw.polygon(magic_surf, (220, 90, 130, int(80 * spawn_alpha)),
+                                  star_points, 1)
+
+                # 5. 회전하는 점선 원
+                num_dots = 12
+                for di in range(num_dots):
+                    dot_angle = rune_rotation * 1.5 + di * (math.pi * 2 / num_dots)
+                    dot_dist = magic_size * 0.92
+                    dot_x = mc + int(math.cos(dot_angle) * dot_dist)
+                    dot_y = mc + int(math.sin(dot_angle) * dot_dist)
+                    dot_size = int(3 * s * (0.7 + 0.3 * math.sin(time_tick * 0.01 + di)))
+                    pygame.draw.circle(magic_surf, (255, 180, 200, int(120 * spawn_alpha)),
+                                     (dot_x, dot_y), dot_size)
+
+                screen.blit(magic_surf, (gx - mc, gy - mc))
 
                 # === 그림자 (입체감) ===
                 shadow_w, shadow_h = int(40 * s), int(12 * s)
@@ -3078,23 +3127,66 @@ class DollCurse(HeroSkill):
                 pygame.draw.ellipse(shadow_surf, (0, 0, 0, int(100 * spawn_alpha)), shadow_surf.get_rect())
                 screen.blit(shadow_surf, (gx - shadow_w // 2, gy + int(38 * s)))
 
-                # === 마리아와 연결된 실 (인형 뒤에 그리기) ===
+                # === 마리아와 연결된 마법의 실 (고퀄리티 업그레이드) ===
                 caster_center_x = int(self.caster_centerx)
                 if self.caster_is_top:
                     thread_start_y = int(self.caster_locked_y + 28)
                 else:
                     thread_start_y = int(self.caster_locked_y - 8)
-                # 여러 가닥 실
-                for thread_i, thread_offset in enumerate([-8, 0, 8]):
-                    thread_alpha = int((120 - abs(thread_offset) * 5) * spawn_alpha)
+
+                thread_end_y = gy - int(22 * s)
+
+                # 메인 실 (3가닥, 베지어 곡선으로 부드럽게)
+                for thread_i, thread_offset in enumerate([-10, 0, 10]):
                     t_start_x = caster_center_x + thread_offset
-                    t_end_x = gx + thread_offset // 2
-                    # 곡선 실 (3개 포인트)
-                    mid_x = (t_start_x + t_end_x) // 2
-                    sway = math.sin(time_tick * 0.003 + thread_i) * 15  # 흔들림
-                    mid_y = (gy + thread_start_y) // 2 - 25 + sway
-                    pygame.draw.line(screen, (150, 70, 100), (t_start_x, thread_start_y), (mid_x, int(mid_y)), 1)
-                    pygame.draw.line(screen, (150, 70, 100), (mid_x, int(mid_y)), (t_end_x, gy - int(22 * s)), 1)
+                    t_end_x = gx + thread_offset // 3
+
+                    # 흔들림 애니메이션
+                    sway1 = math.sin(time_tick * 0.003 + thread_i * 0.8) * 20
+                    sway2 = math.sin(time_tick * 0.004 + thread_i * 1.2 + 1) * 15
+
+                    # 베지어 곡선 포인트들
+                    ctrl1_x = t_start_x + int(sway1)
+                    ctrl1_y = thread_start_y + (thread_end_y - thread_start_y) * 0.33
+                    ctrl2_x = t_end_x + int(sway2)
+                    ctrl2_y = thread_start_y + (thread_end_y - thread_start_y) * 0.66
+
+                    # 곡선 세그먼트로 그리기
+                    points = []
+                    for seg in range(15):
+                        t = seg / 14
+                        inv_t = 1 - t
+                        # 3차 베지어 곡선
+                        px = (inv_t**3 * t_start_x +
+                              3 * inv_t**2 * t * ctrl1_x +
+                              3 * inv_t * t**2 * ctrl2_x +
+                              t**3 * t_end_x)
+                        py = (inv_t**3 * thread_start_y +
+                              3 * inv_t**2 * t * ctrl1_y +
+                              3 * inv_t * t**2 * ctrl2_y +
+                              t**3 * thread_end_y)
+                        points.append((int(px), int(py)))
+
+                    # 글로우 레이어 (외곽)
+                    if len(points) > 1:
+                        glow_color = (200, 100, 140, int(40 * spawn_alpha))
+                        for i in range(len(points) - 1):
+                            pygame.draw.line(screen, (180, 80, 120), points[i], points[i+1], 3)
+                        # 메인 실
+                        thread_color = (220, 130, 160) if thread_offset == 0 else (180, 100, 130)
+                        for i in range(len(points) - 1):
+                            pygame.draw.line(screen, thread_color, points[i], points[i+1], 1)
+
+                    # 실 위의 마법 파티클 (중간 지점에)
+                    if thread_offset == 0 and len(points) > 7:
+                        particle_idx = 7
+                        p_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.008 + thread_i)
+                        p_size = int(4 * p_pulse)
+                        px, py = points[particle_idx]
+                        p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(p_surf, (255, 180, 200, int(150 * spawn_alpha * p_pulse)),
+                                         (p_size, p_size), p_size)
+                        screen.blit(p_surf, (px - p_size, py - p_size))
 
                 # === 다리 (인형 몸통 아래) ===
                 leg_color = (90, 60, 70) if flash <= 0 else (140, 100, 120)
@@ -3256,40 +3348,182 @@ class DollCurse(HeroSkill):
                     pygame.draw.circle(p_surf, (200, 80, 130, p_alpha), (p_size, p_size), p_size)
                     screen.blit(p_surf, (px - p_size, py - p_size))
 
-            # 저주 인형들 (상대 패들 주변에서 공전)
-            for doll in self.curse_dolls:
+            # 저주 인형들 (상대 영웅 주변에서 공전) - 고퀄리티 부두 인형
+            time_tick = pygame.time.get_ticks()
+            for doll_idx, doll in enumerate(self.curse_dolls):
                 dx, dy = int(doll['x']), int(doll['y'])
                 s = doll['scale']
+                rot = doll['rotation']
+                wobble = doll['wobble']
 
-                # 그림자
-                shadow_surf = pygame.Surface((int(24 * s), int(8 * s)), pygame.SRCALPHA)
-                pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), shadow_surf.get_rect())
-                screen.blit(shadow_surf, (dx - int(12 * s), dy + int(20 * s)))
+                # === 저주 오라 (인형 뒤) ===
+                aura_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.006 + doll_idx)
+                aura_size = int(35 * s * aura_pulse)
+                aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+                for ar in range(aura_size, 0, -4):
+                    a_alpha = int(30 * (ar / aura_size) * aura_pulse)
+                    pygame.draw.circle(aura_surf, (180, 60, 100, a_alpha), (aura_size, aura_size), ar)
+                screen.blit(aura_surf, (dx - aura_size, dy - aura_size))
 
-                # 머리
-                pygame.draw.circle(screen, (60, 40, 50), (dx, dy - int(20 * s)), int(12 * s))
-                # X 눈
-                pygame.draw.line(screen, (200, 50, 80),
-                               (dx - int(6 * s), dy - int(23 * s)),
-                               (dx - int(2 * s), dy - int(19 * s)), 2)
-                pygame.draw.line(screen, (200, 50, 80),
-                               (dx - int(6 * s), dy - int(19 * s)),
-                               (dx - int(2 * s), dy - int(23 * s)), 2)
-                pygame.draw.line(screen, (200, 50, 80),
-                               (dx + int(2 * s), dy - int(23 * s)),
-                               (dx + int(6 * s), dy - int(19 * s)), 2)
-                pygame.draw.line(screen, (200, 50, 80),
-                               (dx + int(2 * s), dy - int(19 * s)),
-                               (dx + int(6 * s), dy - int(23 * s)), 2)
-                # 몸통
-                pygame.draw.ellipse(screen, (80, 50, 70),
-                                   (dx - int(10 * s), dy - int(5 * s), int(20 * s), int(30 * s)))
-                # 저주 실 (인형에서 위로)
-                thread_color = (150, 80, 100, 150)
-                for tx in [-5, 0, 5]:
-                    pygame.draw.line(screen, (150, 80, 100),
-                                   (dx + int(tx * s), dy - int(32 * s)),
-                                   (dx + int(tx * s), dy - int(50 * s)), 1)
+                # === 그림자 ===
+                shadow_w, shadow_h = int(28 * s), int(10 * s)
+                shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+                pygame.draw.ellipse(shadow_surf, (0, 0, 0, 70), shadow_surf.get_rect())
+                screen.blit(shadow_surf, (dx - shadow_w // 2, dy + int(22 * s)))
+
+                # === 저주 실 (머리 위로 올라가는 실) ===
+                thread_base_y = dy - int(28 * s)
+                for ti, tx_off in enumerate([-4, 0, 4]):
+                    thread_sway = math.sin(time_tick * 0.004 + ti + doll_idx) * 5
+                    thread_alpha = 180 - abs(tx_off) * 20
+                    t_start = (dx + int(tx_off * s), thread_base_y)
+                    t_mid = (dx + int(tx_off * s * 0.5) + int(thread_sway), thread_base_y - int(20 * s))
+                    t_end = (dx + int(thread_sway * 0.5), thread_base_y - int(40 * s))
+                    pygame.draw.line(screen, (180, 90, 120), t_start, t_mid, 1)
+                    pygame.draw.line(screen, (150, 70, 100), t_mid, t_end, 1)
+
+                # === 다리 ===
+                leg_color = (70, 45, 55)
+                leg_highlight = (100, 70, 85)
+                leg_y = dy + int(8 * s)
+                for leg_side in [-1, 1]:
+                    leg_x = dx + int(leg_side * 6 * s)
+                    # 다리 베이스
+                    pygame.draw.ellipse(screen, leg_color,
+                                       (leg_x - int(5*s), leg_y, int(10*s), int(18*s)))
+                    pygame.draw.ellipse(screen, (50, 30, 40),
+                                       (leg_x - int(5*s), leg_y, int(10*s), int(18*s)), 1)
+                    # 다리 스티치
+                    for ly in range(int(leg_y + 4*s), int(leg_y + 15*s), int(5*s)):
+                        pygame.draw.line(screen, (120, 70, 90),
+                                       (leg_x - int(3*s), ly), (leg_x + int(3*s), ly), 1)
+
+                # === 팔 ===
+                arm_color = (75, 50, 60)
+                arm_y = dy - int(5 * s)
+                for arm_side in [-1, 1]:
+                    arm_sway = math.sin(time_tick * 0.005 + arm_side + doll_idx) * 3
+                    arm_x = dx + int(arm_side * 12 * s)
+                    # 팔 베이스
+                    pygame.draw.ellipse(screen, arm_color,
+                                       (arm_x - int(4*s), arm_y + int(arm_sway), int(8*s), int(16*s)))
+                    pygame.draw.ellipse(screen, (50, 30, 40),
+                                       (arm_x - int(4*s), arm_y + int(arm_sway), int(8*s), int(16*s)), 1)
+
+                # === 몸통 ===
+                body_color = (85, 55, 70)
+                body_light = (110, 75, 95)
+                body_dark = (60, 40, 50)
+                body_w, body_h = int(22 * s), int(28 * s)
+                body_rect = (dx - body_w // 2, dy - int(8 * s), body_w, body_h)
+                # 몸통 그림자
+                pygame.draw.ellipse(screen, body_dark,
+                                   (body_rect[0] + 2, body_rect[1] + 2, body_w, body_h))
+                # 몸통 베이스
+                pygame.draw.ellipse(screen, body_color, body_rect)
+                # 몸통 하이라이트
+                pygame.draw.ellipse(screen, body_light,
+                                   (dx - int(6*s), dy - int(6*s), int(10*s), int(14*s)))
+                # 몸통 외곽선
+                pygame.draw.ellipse(screen, (50, 30, 40), body_rect, 2)
+
+                # === 몸통 스티치 (봉제선) ===
+                stitch_color = (120, 70, 90)
+                # 세로 스티치
+                for sy in range(int(dy - 4*s), int(dy + 14*s), int(5*s)):
+                    pygame.draw.line(screen, stitch_color,
+                                   (dx - int(2*s), sy), (dx + int(2*s), sy + int(2*s)), 1)
+                # 가로 패치 스티치
+                pygame.draw.line(screen, stitch_color,
+                               (dx - int(8*s), dy + int(4*s)), (dx + int(8*s), dy + int(4*s)), 1)
+
+                # === 하트 핀 (가슴) ===
+                heart_x, heart_y = dx + int(3*s), dy - int(2*s)
+                heart_s = int(4 * s)
+                heart_color = (220, 50, 80)
+                pygame.draw.circle(screen, heart_color, (heart_x - int(1.5*s), heart_y - int(1*s)), heart_s // 2)
+                pygame.draw.circle(screen, heart_color, (heart_x + int(1.5*s), heart_y - int(1*s)), heart_s // 2)
+                pygame.draw.polygon(screen, heart_color, [
+                    (heart_x - int(3*s), heart_y),
+                    (heart_x + int(3*s), heart_y),
+                    (heart_x, heart_y + int(4*s))
+                ])
+
+                # === 머리 ===
+                head_color = (90, 60, 75)
+                head_light = (115, 85, 100)
+                head_y = dy - int(18 * s)
+                head_r = int(14 * s)
+                # 머리 그림자
+                pygame.draw.circle(screen, body_dark, (dx + 1, head_y + 1), head_r)
+                # 머리 베이스
+                pygame.draw.circle(screen, head_color, (dx, head_y), head_r)
+                # 머리 하이라이트
+                pygame.draw.circle(screen, head_light, (dx - int(4*s), head_y - int(4*s)), int(5*s))
+                # 머리 외곽선
+                pygame.draw.circle(screen, (50, 30, 40), (dx, head_y), head_r, 2)
+
+                # === 헝클어진 머리카락 ===
+                hair_color = (50, 30, 40)
+                hair_top = head_y - head_r
+                for hi in range(-2, 3):
+                    hx = dx + int(hi * 4 * s)
+                    hair_len = int((6 + abs(hi)) * s)
+                    sway = math.sin(time_tick * 0.004 + hi + doll_idx) * 2
+                    pygame.draw.line(screen, hair_color,
+                                   (hx, hair_top + int(2*s)),
+                                   (int(hx + sway), hair_top - hair_len), 2)
+
+                # === X 눈 (빛나는 저주의 눈) ===
+                eye_glow_pulse = 0.7 + 0.3 * math.sin(time_tick * 0.008 + doll_idx)
+                for eye_side in [-1, 1]:
+                    eye_x = dx + int(eye_side * 5 * s)
+                    eye_y = head_y - int(1 * s)
+                    x_size = int(4 * s)
+                    # X 눈 글로우
+                    glow_size = int(8 * s * eye_glow_pulse)
+                    glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surf, (255, 80, 120, int(60 * eye_glow_pulse)),
+                                     (glow_size, glow_size), glow_size)
+                    screen.blit(glow_surf, (eye_x - glow_size, eye_y - glow_size))
+                    # X 눈 본체
+                    x_color = (255, 80, 120)
+                    pygame.draw.line(screen, x_color,
+                                   (eye_x - x_size, eye_y - x_size),
+                                   (eye_x + x_size, eye_y + x_size), 2)
+                    pygame.draw.line(screen, x_color,
+                                   (eye_x - x_size, eye_y + x_size),
+                                   (eye_x + x_size, eye_y - x_size), 2)
+
+                # === 입 (꿰맨 지그재그) ===
+                mouth_y = head_y + int(6 * s)
+                mouth_color = (200, 80, 110)
+                mouth_points = []
+                for mi in range(-3, 4):
+                    mx = dx + int(mi * 2.5 * s)
+                    my = mouth_y + (int(1.5*s) if mi % 2 == 0 else int(-1.5*s))
+                    mouth_points.append((mx, my))
+                for i in range(len(mouth_points) - 1):
+                    pygame.draw.line(screen, mouth_color, mouth_points[i], mouth_points[i+1], 2)
+
+                # === 볼 터치 (홍조) ===
+                blush_size = int(6 * s)
+                blush_surf = pygame.Surface((blush_size * 2, blush_size), pygame.SRCALPHA)
+                pygame.draw.ellipse(blush_surf, (200, 100, 120, 60), blush_surf.get_rect())
+                screen.blit(blush_surf, (dx - int(12*s), head_y + int(2*s)))
+                screen.blit(blush_surf, (dx + int(4*s), head_y + int(2*s)))
+
+                # === 저주 파티클 (인형 주변) ===
+                for pi in range(4):
+                    p_angle = (time_tick * 0.003 + pi * 1.57 + doll_idx) % (math.pi * 2)
+                    p_dist = int(25 * s) + math.sin(time_tick * 0.006 + pi) * 5
+                    px = dx + int(math.cos(p_angle) * p_dist)
+                    py = dy + int(math.sin(p_angle) * p_dist * 0.6)
+                    p_size = int(2 * s * (0.6 + 0.4 * math.sin(time_tick * 0.007 + pi)))
+                    p_alpha = int(120 * (0.5 + 0.5 * math.sin(time_tick * 0.005 + pi)))
+                    p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(p_surf, (220, 100, 150, p_alpha), (p_size, p_size), p_size)
+                    screen.blit(p_surf, (px - p_size, py - p_size))
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 인형의 저주 스킬 강제 종료"""
