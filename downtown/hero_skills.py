@@ -3727,7 +3727,13 @@ class ShadowClone(HeroSkill):
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.caster_is_top = caster_paddle.is_top
         self.spawn_x = caster_paddle.x + caster_paddle.width // 2
-        self.spawn_y = caster_paddle.y + (20 if caster_paddle.is_top else -20)  # 약간 앞으로
+
+        # 분신을 맵 중앙 쪽으로 소환 (Stage 8 방식: 패들에서 150px 앞으로)
+        if caster_paddle.is_top:
+            self.spawn_y = caster_paddle.y + 150  # 상단 패들 → 아래쪽으로
+        else:
+            self.spawn_y = caster_paddle.y - 150  # 하단 패들 → 위쪽으로
+
         self.caster_facing = "down" if caster_paddle.is_top else "up"
 
         # 분신 2개 생성 (좌우로 벌어지며 등장) - Stage 8 방식
