@@ -2441,20 +2441,24 @@ class DollCurse(HeroSkill):
         self.flame_particles = []
         self.flame_timer = 0
 
-        # 수호 인형 생성 (마리아 좌우 150px에 배치)
+        # 수호 인형 생성 (바닥에서 솟아오르며 마리아 좌우 150px에 배치)
         self.guardian_dolls = []
         caster_center_x = self.caster_centerx
-        # 마리아 앞쪽 Y 좌표 (공이 오는 방향)
+        # 마리아 앞쪽 Y 좌표 (공이 오는 방향) - 목표 위치
         if caster_paddle.is_top:
-            guardian_y = self.caster_locked_y + 60  # 상단 영웅이면 아래쪽에
+            guardian_target_y = self.caster_locked_y + 60  # 상단 영웅이면 아래쪽에
+            guardian_spawn_y = 750 + 50  # 화면 바닥 아래에서 시작
         else:
-            guardian_y = self.caster_locked_y - 60  # 하단 영웅이면 위쪽에 (공이 오는 방향)
+            guardian_target_y = self.caster_locked_y - 60  # 하단 영웅이면 위쪽에 (공이 오는 방향)
+            guardian_spawn_y = -50  # 화면 상단 위에서 시작 (바닥에서 솟아오르는 느낌)
 
         # 왼쪽 수호 인형
         self.guardian_dolls.append({
-            'x': caster_center_x - self.guardian_offset,
-            'y': guardian_y,
-            'spawn_x': caster_center_x,  # 시작 위치 (마리아 중심)
+            'x': caster_center_x - self.guardian_offset,  # X는 바로 목표 위치
+            'y': guardian_spawn_y,  # Y는 바닥에서 시작
+            'spawn_y': guardian_spawn_y,  # 시작 Y 위치 (바닥)
+            'target_y': guardian_target_y,  # 목표 Y 위치
+            'spawn_x': caster_center_x - self.guardian_offset,  # X 시작 = 목표 (좌우 이동 없음)
             'target_x': caster_center_x - self.guardian_offset,
             'spawn_progress': 0.0,  # 생성 애니메이션 진행도 (0~1)
             'wobble': 0,
@@ -2465,8 +2469,10 @@ class DollCurse(HeroSkill):
         # 오른쪽 수호 인형
         self.guardian_dolls.append({
             'x': caster_center_x + self.guardian_offset,
-            'y': guardian_y,
-            'spawn_x': caster_center_x,
+            'y': guardian_spawn_y,
+            'spawn_y': guardian_spawn_y,
+            'target_y': guardian_target_y,
+            'spawn_x': caster_center_x + self.guardian_offset,
             'target_x': caster_center_x + self.guardian_offset,
             'spawn_progress': 0.0,
             'wobble': math.pi,  # 반대 위상으로 흔들림
@@ -2508,26 +2514,23 @@ class DollCurse(HeroSkill):
             doll['y'] = center_y + math.sin(doll['base_angle']) * doll['distance'] * 0.5 + float_y
             doll['rotation'] += math.sin(doll['wobble']) * 3
 
-        # 수호 인형 업데이트 (마리아 좌우에서 공 막기)
+        # 수호 인형 업데이트 (바닥에서 솟아오르며 마리아 좌우에서 공 막기)
         for guardian in self.guardian_dolls:
-            # 생성 애니메이션 (마리아 중심에서 좌우로 이동)
+            # 생성 애니메이션 (바닥에서 솟아오름)
             if guardian['spawn_progress'] < 1.0:
-                guardian['spawn_progress'] += dt * 2.5  # 0.4초에 완료
+                guardian['spawn_progress'] += dt * 2.0  # 0.5초에 완료 (약간 느리게)
                 guardian['spawn_progress'] = min(1.0, guardian['spawn_progress'])
-                # 이징 함수 (ease-out)
+                # 이징 함수 (ease-out cubic - 처음 빠르고 끝에 감속)
                 ease = 1 - (1 - guardian['spawn_progress']) ** 3
+                # Y축 솟아오르기 애니메이션
+                guardian['y'] = guardian['spawn_y'] + (guardian['target_y'] - guardian['spawn_y']) * ease
+                # X축은 그대로 유지 (좌우 위치는 이미 설정됨)
                 guardian['x'] = guardian['spawn_x'] + (guardian['target_x'] - guardian['spawn_x']) * ease
-
-            # 위아래 둥실둥실 흔들림
-            guardian['wobble'] += dt * 4
-            float_y = math.sin(guardian['wobble']) * 5
-
-            # Y 위치 업데이트 (기본 위치 + 흔들림)
-            if self.caster_is_top:
-                base_y = self.caster_locked_y + 60
             else:
-                base_y = self.caster_locked_y - 60
-            guardian['y'] = base_y + float_y
+                # 솟아오르기 완료 후: 위아래 둥실둥실 흔들림
+                guardian['wobble'] += dt * 4
+                float_y = math.sin(guardian['wobble']) * 5
+                guardian['y'] = guardian['target_y'] + float_y
 
             # 히트 플래시 감소
             if guardian['hit_flash'] > 0:
@@ -2691,6 +2694,78 @@ class DollCurse(HeroSkill):
 
                 scale = guardian['scale'] * spawn_alpha
                 s = scale  # 축약
+
+                # === 등대 서치라이트 효과 (상대 영웅을 비춤) ===
+                if spawn_alpha > 0.5:  # 인형이 어느 정도 나타난 후 빛 발사
+                    # 인형 눈 위치 (머리 부분)
+                    eye_x = gx
+                    eye_y = gy - int(28 * s)  # 머리 Y 위치
+
+                    # 상대 영웅 위치
+                    target_x = target_paddle.x + 40  # 패들 중심
+                    target_y = target_paddle.y
+
+                    # 빛의 방향 계산
+                    dx = target_x - eye_x
+                    dy = target_y - eye_y
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist > 0:
+                        # 정규화된 방향
+                        nx, ny = dx / dist, dy / dist
+
+                        # 서치라이트 빛 (그라데이션 삼각형 형태)
+                        light_length = min(dist, 300)  # 최대 300px
+                        beam_width_start = 8 * s  # 시작점 폭
+                        beam_width_end = 60 * s  # 끝점 폭 (퍼짐)
+
+                        # 수직 벡터 (빛의 폭을 위해)
+                        perp_x, perp_y = -ny, nx
+
+                        # 빛 끝점
+                        end_x = eye_x + nx * light_length
+                        end_y = eye_y + ny * light_length
+
+                        # 서치라이트 폴리곤 (사다리꼴 형태)
+                        # 시작점 좌우
+                        p1 = (eye_x + perp_x * beam_width_start, eye_y + perp_y * beam_width_start)
+                        p2 = (eye_x - perp_x * beam_width_start, eye_y - perp_y * beam_width_start)
+                        # 끝점 좌우
+                        p3 = (end_x - perp_x * beam_width_end, end_y - perp_y * beam_width_end)
+                        p4 = (end_x + perp_x * beam_width_end, end_y + perp_y * beam_width_end)
+
+                        # 빛 펄스 효과
+                        light_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.006 + guardian['wobble'])
+                        light_alpha = int(40 * spawn_alpha * light_pulse)
+
+                        # 빛 서피스 생성 (전체 화면 크기)
+                        light_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+
+                        # 외부 빛 (연한 빨간색)
+                        points = [(int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])),
+                                 (int(p3[0]), int(p3[1])), (int(p4[0]), int(p4[1]))]
+                        pygame.draw.polygon(light_surf, (255, 150, 180, light_alpha), points)
+
+                        # 내부 빛 (더 밝고 좁은 중심선)
+                        inner_width_start = beam_width_start * 0.4
+                        inner_width_end = beam_width_end * 0.3
+                        ip1 = (eye_x + perp_x * inner_width_start, eye_y + perp_y * inner_width_start)
+                        ip2 = (eye_x - perp_x * inner_width_start, eye_y - perp_y * inner_width_start)
+                        ip3 = (end_x - perp_x * inner_width_end, end_y - perp_y * inner_width_end)
+                        ip4 = (end_x + perp_x * inner_width_end, end_y + perp_y * inner_width_end)
+                        inner_points = [(int(ip1[0]), int(ip1[1])), (int(ip2[0]), int(ip2[1])),
+                                       (int(ip3[0]), int(ip3[1])), (int(ip4[0]), int(ip4[1]))]
+                        pygame.draw.polygon(light_surf, (255, 200, 220, int(light_alpha * 1.5)), inner_points)
+
+                        screen.blit(light_surf, (0, 0))
+
+                        # 빛 원점에서 글로우 효과
+                        glow_size = int(12 * s * light_pulse)
+                        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(glow_surf, (255, 200, 230, int(150 * spawn_alpha)),
+                                         (glow_size, glow_size), glow_size)
+                        pygame.draw.circle(glow_surf, (255, 255, 255, int(200 * spawn_alpha)),
+                                         (glow_size, glow_size), int(glow_size * 0.5))
+                        screen.blit(glow_surf, (int(eye_x) - glow_size, int(eye_y) - glow_size))
 
                 # === 외부 마법진/보호 오라 (인형 뒤에) ===
                 aura_pulse = 0.7 + 0.3 * math.sin(time_tick * 0.008 + guardian['wobble'])
