@@ -131836,7 +131836,43 @@ def main(stage_num, new_boss_mode=False):
                         if 'bottom_paddle_locked_y' in arena_game_state:
                             PLAYER.y = int(arena_game_state['bottom_paddle_locked_y'])
 
-                    # 드래곤 브레스 화염 지대 생성 처리 (화염병과 동일한 넉백 효과)
+                    # 드래곤 브레스 화염 지대 생성 처리 (여러 개 - 파티클 소멸 지점마다)
+                    _dragon_fire_list = arena_skill_manager.game_state.get('spawn_dragon_fire_zones', [])
+                    if _dragon_fire_list:
+                        for _dragon_fire_req in _dragon_fire_list:
+                            _fire_zone = {
+                                "x": _dragon_fire_req['x'],
+                                "y": _dragon_fire_req['y'],
+                                "width": _dragon_fire_req.get('width', 100),
+                                "height": _dragon_fire_req.get('height', 50),
+                                "duration": _dragon_fire_req.get('duration', 120),
+                                "flames": [],
+                                "spread_timer": 0,
+                                "push_timer": 0,
+                                "source": "dragon_breath"
+                            }
+                            # 초기 불꽃 파티클 생성
+                            for _ in range(10):
+                                _fire_zone["flames"].append({
+                                    "x": _fire_zone["x"] + random.uniform(-30, 30),
+                                    "y": _fire_zone["y"] + random.uniform(-12, 12),
+                                    "size": random.uniform(8, 20),
+                                    "lifetime": random.uniform(15, 30),
+                                    "color_phase": random.uniform(0, 1)
+                                })
+                            fire_zones.append(_fire_zone)
+                            try:
+                                # 각 화염지대마다 작은 사운드
+                                _dragon_fire_channel = SOUND_FIREBOMB.play()
+                                if _dragon_fire_channel:
+                                    _dragon_fire_channel.set_volume(0.3)  # 볼륨 낮춤 (여러 개라서)
+                                    _dragon_fire_channel.fadeout(2000)
+                            except:
+                                pass
+                        # 리스트 비우기
+                        arena_skill_manager.game_state['spawn_dragon_fire_zones'] = []
+
+                    # (호환성) 단일 화염지대 처리 (기존 코드)
                     _dragon_fire_req = arena_skill_manager.game_state.get('spawn_dragon_fire_zone')
                     if _dragon_fire_req:
                         _fire_zone = {
@@ -131844,13 +131880,12 @@ def main(stage_num, new_boss_mode=False):
                             "y": _dragon_fire_req['y'],
                             "width": _dragon_fire_req.get('width', 120),
                             "height": _dragon_fire_req.get('height', 60),
-                            "duration": _dragon_fire_req.get('duration', 180),
+                            "duration": _dragon_fire_req.get('duration', 150),
                             "flames": [],
                             "spread_timer": 0,
                             "push_timer": 0,
                             "source": "dragon_breath"
                         }
-                        # 초기 불꽃 파티클 생성
                         for _ in range(15):
                             _fire_zone["flames"].append({
                                 "x": _fire_zone["x"] + random.uniform(-40, 40),
@@ -131860,13 +131895,11 @@ def main(stage_num, new_boss_mode=False):
                                 "color_phase": random.uniform(0, 1)
                             })
                         fire_zones.append(_fire_zone)
-                        # 플래그 제거
                         arena_skill_manager.game_state['spawn_dragon_fire_zone'] = None
                         try:
-                            # 드래곤 브레스 화염지대는 2.5초이므로 사운드도 2.5초 후 페이드아웃 (화염병과 동일)
                             _dragon_fire_channel = SOUND_FIREBOMB.play()
                             if _dragon_fire_channel:
-                                _dragon_fire_channel.fadeout(2500)  # 2.5초 후 페이드아웃
+                                _dragon_fire_channel.fadeout(2500)
                         except:
                             pass
 

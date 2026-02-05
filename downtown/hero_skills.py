@@ -3566,15 +3566,19 @@ class DragonBreath(HeroSkill):
         self.breath_particles = []
         self.breath_active = False
         self.breath_hit_ball = False
-        self.fire_zone_spawned = False  # 화염 지대 생성 여부
+        self.fire_zone_spawned = False  # 화염 지대 생성 여부 (미사용, 호환성용)
         self.spawn_phase_ended = False  # 파티클 생성 단계 종료 여부
+        self.fire_zone_timer = 0  # 화염지대 생성 타이머
+        self.fire_zone_positions = []  # 생성된 화염지대 위치들
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.breath_particles = []
         self.breath_active = True
         self.breath_hit_ball = False
-        self.fire_zone_spawned = False  # 화염 지대 생성 플래그 초기화
+        self.fire_zone_spawned = False  # 호환성용
         self.spawn_phase_ended = False  # 파티클 생성 단계 시작
+        self.fire_zone_timer = 0  # 화염지대 생성 타이머 초기화
+        self.fire_zone_positions = []  # 생성된 화염지대 위치 초기화
 
         # 브레스 방향 (caster_is_top 속성 우선 사용)
         is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
@@ -3697,36 +3701,46 @@ class DragonBreath(HeroSkill):
                     self.breath_hit_ball = True
                     game_state['ball_on_fire'] = True
 
-        # 딜레이 중이거나 수명이 남은 파티클만 유지
+        # 사라지는 파티클 위치 수집 (life가 0 이하이고 아직 완전히 사라지지 않은 것들)
+        dying_particles = [p for p in self.breath_particles if -0.5 < p['life'] <= 0 and p.get('delay', 0) <= 0]
+
         # 파티클이 완전히 페이드아웃될 때까지 유지 (life가 -0.5 이하가 되면 제거)
         self.breath_particles = [p for p in self.breath_particles if p['life'] > -0.5 or p.get('delay', 0) > 0]
 
-        # 브레스가 상대에게 도달하는 시점 (약 1.0초)에 화염 지대 생성
-        # active_timer는 3.5에서 0으로 감소, 2.5 이하 = 스킬 시작 후 1.0초
-        if not self.fire_zone_spawned and self.active_timer <= 2.5 and target_paddle:
-            self.fire_zone_spawned = True
-            # caster_is_top 속성 사용 (init_hero_skills에서 설정됨)
-            is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
+        # 🔥 0.3초마다 사라지는 파티클 위치에 화염지대 생성
+        self.fire_zone_timer = getattr(self, 'fire_zone_timer', 0) + dt
 
-            if is_caster_top:
-                # 상단에서 발사 → 하단 target 패들 위치에 화염 (패들과 겹치도록)
-                # fire_y는 화염지대 중심 Y이므로, 패들 상단에 맞춤
-                fire_y = target_paddle.y
-            else:
-                # 하단에서 발사 → 상단 target 패들 위치에 화염 (패들과 겹치도록)
-                fire_y = target_paddle.y + target_paddle.height
+        if self.fire_zone_timer >= 0.3 and len(dying_particles) > 0:
+            self.fire_zone_timer = 0
 
-            # 발사 시점의 X 좌표 사용 (breath_start_x가 없으면 target 패들 중앙 사용)
-            fire_x = getattr(self, 'breath_start_x', target_paddle.x + target_paddle.width // 2)
+            # 사라지는 파티클들의 평균 위치 계산
+            avg_x = sum(p['x'] for p in dying_particles) / len(dying_particles)
+            avg_y = sum(p['y'] for p in dying_particles) / len(dying_particles)
 
-            game_state['spawn_dragon_fire_zone'] = {
-                'x': fire_x,
-                'y': fire_y,
-                'width': 120,  # 화염 지대 너비
-                'height': 60,  # 화염 지대 높이
-                'duration': 150,  # 2.5초 (60fps * 2.5) - 화염병과 동일
-                'source': 'dragon_breath'
-            }
+            # 이미 근처에 화염지대가 있는지 확인 (중복 방지)
+            too_close = False
+            for pos in getattr(self, 'fire_zone_positions', []):
+                if abs(pos[0] - avg_x) < 60 and abs(pos[1] - avg_y) < 40:
+                    too_close = True
+                    break
+
+            if not too_close:
+                # 화염지대 생성 요청 (리스트로 전달하여 여러 개 처리)
+                fire_zones_to_spawn = game_state.get('spawn_dragon_fire_zones', [])
+                fire_zones_to_spawn.append({
+                    'x': avg_x,
+                    'y': avg_y,
+                    'width': 100,  # 약간 작은 화염 지대
+                    'height': 50,
+                    'duration': 120,  # 2초 (개별 화염지대는 짧게)
+                    'source': 'dragon_breath'
+                })
+                game_state['spawn_dragon_fire_zones'] = fire_zones_to_spawn
+
+                # 생성된 위치 기록
+                if not hasattr(self, 'fire_zone_positions'):
+                    self.fire_zone_positions = []
+                self.fire_zone_positions.append((avg_x, avg_y))
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         # 파티클은 이미 자연스럽게 페이드아웃되어 있어야 함
@@ -3744,7 +3758,10 @@ class DragonBreath(HeroSkill):
         self.breath_hit_ball = False
         self.fire_zone_spawned = False
         self.spawn_phase_ended = False
+        self.fire_zone_timer = 0
+        self.fire_zone_positions = []
         game_state['ball_on_fire'] = False
+        game_state['spawn_dragon_fire_zones'] = []  # 화염지대 리스트도 초기화
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         # 고퀄리티 드래곤 브레스 화염 이펙트
