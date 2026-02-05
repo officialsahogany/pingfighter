@@ -3580,17 +3580,21 @@ class DragonBreath(HeroSkill):
 
         # 발사 시점의 X 좌표 저장 (화염지대 생성 위치용)
         self.breath_start_x = caster_paddle.x + caster_paddle.width // 2
+        self.breath_spawn_timer = 0  # 지속적인 파티클 생성용 타이머
 
-        # 화염 파티클 대량 생성
-        for i in range(50):
+        # 화염 파티클 대량 생성 (초기 버스트)
+        for i in range(80):
+            # 시간차 발사를 위한 딜레이 (0~0.3초 사이에 분산)
+            delay = (i / 80) * 0.3
             self.breath_particles.append({
-                'x': caster_paddle.x + 40 + random.uniform(-20, 20),
+                'x': caster_paddle.x + 40 + random.uniform(-25, 25),
                 'y': caster_paddle.y + direction * 20,
-                'vx': random.uniform(-40, 40),
-                'vy': direction * random.uniform(200, 400),
-                'life': random.uniform(0.8, 1.5),
-                'size': random.uniform(8, 20),
-                'color_phase': random.uniform(0, 1)
+                'vx': random.uniform(-50, 50),
+                'vy': direction * random.uniform(350, 600),  # 속도 증가 (더 멀리)
+                'life': random.uniform(1.2, 2.0) + delay,  # 수명 증가 (더 오래)
+                'size': random.uniform(10, 25),  # 크기 증가
+                'color_phase': random.uniform(0, 1),
+                'delay': delay  # 발사 딜레이
             })
 
         return {
@@ -3608,11 +3612,36 @@ class DragonBreath(HeroSkill):
             ball_radius * 2 + 10
         )
 
+        # 지속적인 파티클 생성 (브레스 스트림 효과)
+        is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
+        direction = 1 if is_caster_top else -1
+        self.breath_spawn_timer = getattr(self, 'breath_spawn_timer', 0) + dt
+
+        # 스킬 지속시간의 80%까지 새 파티클 생성 (0.02초마다)
+        if self.active_timer > self.duration * 0.2 and self.breath_spawn_timer >= 0.02:
+            self.breath_spawn_timer = 0
+            for _ in range(3):  # 한 번에 3개씩 생성
+                self.breath_particles.append({
+                    'x': caster_paddle.x + 40 + random.uniform(-20, 20),
+                    'y': caster_paddle.y + direction * 25,
+                    'vx': random.uniform(-40, 40),
+                    'vy': direction * random.uniform(400, 550),
+                    'life': random.uniform(0.8, 1.4),
+                    'size': random.uniform(8, 18),
+                    'color_phase': random.uniform(0, 1),
+                    'delay': 0
+                })
+
         for p in self.breath_particles:
+            # 딜레이가 있는 파티클은 딜레이 감소
+            if p.get('delay', 0) > 0:
+                p['delay'] -= dt
+                continue  # 딜레이 중인 파티클은 아직 움직이지 않음
+
             p['x'] += p['vx'] * dt
             p['y'] += p['vy'] * dt
             p['life'] -= dt
-            p['size'] *= 0.98
+            p['size'] *= 0.985  # 더 천천히 줄어듦
             p['color_phase'] += dt
 
             # 공과 충돌 체크 (rect 기반 - 오딘의 늪과 동일 방식)
@@ -3654,7 +3683,8 @@ class DragonBreath(HeroSkill):
                     self.breath_hit_ball = True
                     game_state['ball_on_fire'] = True
 
-        self.breath_particles = [p for p in self.breath_particles if p['life'] > 0]
+        # 딜레이 중이거나 수명이 남은 파티클만 유지
+        self.breath_particles = [p for p in self.breath_particles if p['life'] > 0 or p.get('delay', 0) > 0]
 
         # 스킬 종료 0.5초 전에 화염 지대 생성 (화염병과 동일한 넉백 효과)
         if not self.fire_zone_spawned and self.active_timer <= 0.5 and target_paddle:
