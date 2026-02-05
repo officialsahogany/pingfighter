@@ -3157,11 +3157,12 @@ class DragonBreath(HeroSkill):
             is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
 
             if is_caster_top:
-                # 상단에서 발사 → 하단 target의 위쪽(앞쪽)에 화염
-                fire_y = target_paddle.y - 30
+                # 상단에서 발사 → 하단 target 패들 위치에 화염 (패들과 겹치도록)
+                # fire_y는 화염지대 중심 Y이므로, 패들 상단에 맞춤
+                fire_y = target_paddle.y
             else:
-                # 하단에서 발사 → 상단 target의 아래쪽(앞쪽)에 화염
-                fire_y = target_paddle.y + target_paddle.height + 30
+                # 하단에서 발사 → 상단 target 패들 위치에 화염 (패들과 겹치도록)
+                fire_y = target_paddle.y + target_paddle.height
 
             # 발사 시점의 X 좌표 사용 (breath_start_x가 없으면 target 패들 중앙 사용)
             fire_x = getattr(self, 'breath_start_x', target_paddle.x + target_paddle.width // 2)
