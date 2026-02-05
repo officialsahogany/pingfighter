@@ -299,24 +299,29 @@ class DarkSlash(HeroSkill):
                 print(f"[DarkSlash] FREEZE → RELEASE 전환 (1초 정지 종료, freeze=False)")
 
         elif self.phase == self.PHASE_RELEASE:
-            # 정지 해제 - 공 4배 가속 + 반격 (Y 방향 반전)
-            speed_boost = 4.0
-            ball.vx = self.original_ball_vx * speed_boost
+            # 정지 해제 - Y축 돌진 위주 가속 + 반격 (Y 방향 반전)
+            # 수정: vx는 약하게, vy는 강하게 → 수직 돌진 후 커브로 꺾이는 느낌
+            vy_boost = 4.5  # Y축 가속 (강함)
+            vx_boost = 0.8  # X축 가속 (약함) - 벽 충돌 최소화
+
+            # X축: 원래 방향 유지하되 약하게
+            ball.vx = self.original_ball_vx * vx_boost
+
             # 무겐(상단)이 베면 아래로, 하단이면 위로 반격
             if self.caster_is_top:
-                ball.vy = abs(self.original_ball_vy) * speed_boost  # 양수 = 아래로
+                ball.vy = abs(self.original_ball_vy) * vy_boost  # 양수 = 아래로
             else:
-                ball.vy = -abs(self.original_ball_vy) * speed_boost  # 음수 = 위로
+                ball.vy = -abs(self.original_ball_vy) * vy_boost  # 음수 = 위로
 
-            # 스매셔 드라이브처럼 굴곡있는 커브 효과 적용
+            # 스매셔 드라이브처럼 굴곡있는 커브 효과 적용 (꺾이는 느낌)
             # 스핀 방향: 원래 vx 방향 기반 (약간 랜덤 변동)
             spin_direction = 1 if self.original_ball_vx >= 0 else -1
             if random.random() < 0.3:  # 30% 확률로 반대 방향
                 spin_direction *= -1
-            game_state['dark_slash_spin_strength'] = 1.8  # 드라이브보다 강한 스핀
+            game_state['dark_slash_spin_strength'] = 2.2  # 더 강한 스핀으로 "꺾이는" 느낌 강화
             game_state['dark_slash_spin_direction'] = spin_direction
 
-            print(f"[DarkSlash] 4배 가속 + 반격 + 커브! vx={ball.vx:.1f}, vy={ball.vy:.1f}, spin={spin_direction}, caster_is_top={self.caster_is_top}")
+            print(f"[DarkSlash] Y축 돌진 + 커브! vx={ball.vx:.1f}, vy={ball.vy:.1f}, spin={spin_direction}, caster_is_top={self.caster_is_top}")
 
             self.dark_slash_active = True
             game_state['dark_slash_active'] = True
