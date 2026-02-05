@@ -3586,13 +3586,17 @@ class DragonBreath(HeroSkill):
         for i in range(80):
             # 시간차 발사를 위한 딜레이 (0~0.3초 사이에 분산)
             delay = (i / 80) * 0.3
+            base_life = random.uniform(1.2, 2.0)
+            init_size = random.uniform(10, 25)
             self.breath_particles.append({
                 'x': caster_paddle.x + 40 + random.uniform(-25, 25),
                 'y': caster_paddle.y + direction * 20,
                 'vx': random.uniform(-50, 50),
                 'vy': direction * random.uniform(350, 600),  # 속도 증가 (더 멀리)
-                'life': random.uniform(1.2, 2.0) + delay,  # 수명 증가 (더 오래)
-                'size': random.uniform(10, 25),  # 크기 증가
+                'life': base_life + delay,  # 수명 증가 (더 오래)
+                'max_life': base_life,  # 페이드아웃 계산용 최대 수명
+                'size': init_size,
+                'max_size': init_size,  # 페이드아웃 시 크기 계산용
                 'color_phase': random.uniform(0, 1),
                 'delay': delay  # 발사 딜레이
             })
@@ -3621,13 +3625,17 @@ class DragonBreath(HeroSkill):
         if self.active_timer > self.duration * 0.2 and self.breath_spawn_timer >= 0.02:
             self.breath_spawn_timer = 0
             for _ in range(3):  # 한 번에 3개씩 생성
+                cont_life = random.uniform(0.8, 1.4)
+                cont_size = random.uniform(8, 18)
                 self.breath_particles.append({
                     'x': caster_paddle.x + 40 + random.uniform(-20, 20),
                     'y': caster_paddle.y + direction * 25,
                     'vx': random.uniform(-40, 40),
                     'vy': direction * random.uniform(400, 550),
-                    'life': random.uniform(0.8, 1.4),
-                    'size': random.uniform(8, 18),
+                    'life': cont_life,
+                    'max_life': cont_life,
+                    'size': cont_size,
+                    'max_size': cont_size,
                     'color_phase': random.uniform(0, 1),
                     'delay': 0
                 })
@@ -3730,9 +3738,26 @@ class DragonBreath(HeroSkill):
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         # 고퀄리티 드래곤 브레스 화염 이펙트
         for p in self.breath_particles:
+            # 딜레이 중인 파티클은 그리지 않음
+            if p.get('delay', 0) > 0:
+                continue
+
             if p['size'] > 2:
                 phase = p['color_phase'] % 1.0
-                life_ratio = p['life'] / 1.5
+
+                # 페이드아웃: max_life 기준으로 계산, 부드러운 ease-out 적용
+                max_life = p.get('max_life', 1.5)
+                raw_life_ratio = max(0, min(1, p['life'] / max_life))
+
+                # Ease-out cubic: 수명 끝에 가까울수록 더 빠르게 페이드
+                # 수명 50% 이상일 때는 거의 불투명, 50% 이하부터 점점 페이드
+                if raw_life_ratio > 0.5:
+                    life_ratio = 1.0
+                else:
+                    # 0~0.5 구간을 0~1로 매핑 후 ease-out 적용
+                    t = raw_life_ratio / 0.5
+                    life_ratio = t * t * (3 - 2 * t)  # smoothstep
+
                 base_size = int(p['size'])
 
                 # 다층 화염 렌더링 (5개 레이어)
