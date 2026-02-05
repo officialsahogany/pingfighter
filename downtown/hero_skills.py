@@ -2678,6 +2678,20 @@ class DollCurse(HeroSkill):
         self.guardian_offset = 150  # 마리아로부터의 거리
         self.guardian_size = 30  # 수호 인형 충돌 반경
 
+    def _get_hero_body_position(self, paddle, b=8):
+        """영웅 이미지의 실제 몸통 위치 계산 (hero_paddles.py와 동기화)"""
+        paddle_width = getattr(paddle, 'width', 80)
+        center_x = paddle.x + paddle_width // 2
+
+        if paddle.is_top:
+            cy = paddle.y + int(3.5 * b)
+            torso_y = cy - int(1.5 * b)
+        else:
+            cy = paddle.y + int(2.0 * b)
+            torso_y = cy - int(1.5 * b)
+
+        return center_x, torso_y, cy, b
+
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
         game_state['target_confused'] = True
@@ -2694,14 +2708,15 @@ class DollCurse(HeroSkill):
         game_state[f'{caster_prefix}_locked_x'] = self.caster_locked_x
         game_state[f'{caster_prefix}_locked_y'] = self.caster_locked_y
 
-        # 저주 인형 이펙트 - 상대 패들 주변에서 시작
+        # 저주 인형 이펙트 - 상대 영웅 이미지 주변에서 시작
+        target_cx, target_torso_y, _, _ = self._get_hero_body_position(target_paddle)
         self.curse_dolls = []
         for i in range(3):
             angle = (i / 3) * math.pi * 2 + random.uniform(-0.3, 0.3)
             distance = random.uniform(40, 80)
             self.curse_dolls.append({
-                'x': target_paddle.x + 40 + math.cos(angle) * distance,
-                'y': target_paddle.y + math.sin(angle) * distance,
+                'x': target_cx + math.cos(angle) * distance,
+                'y': target_torso_y + math.sin(angle) * distance,
                 'base_angle': angle,
                 'distance': distance,
                 'rotation': random.uniform(0, 360),
@@ -2774,18 +2789,17 @@ class DollCurse(HeroSkill):
         caster_paddle.x = self.caster_locked_x
         caster_paddle.y = self.caster_locked_y
 
-        # 저주 인형들 상대 패들 주변에서 천천히 공전
+        # 저주 인형들 상대 영웅 이미지 주변에서 천천히 공전
         for doll in self.curse_dolls:
             doll['wobble'] += dt * 3
             doll['base_angle'] += dt * doll['orbit_speed']
             doll['float_offset'] += dt * 2
 
-            # 상대 패들 중심 기준 공전
-            center_x = target_paddle.x + 40
-            center_y = target_paddle.y
+            # 상대 영웅 이미지 중심 기준 공전 (hero_paddles.py와 동기화)
+            target_cx, target_torso_y, _, _ = self._get_hero_body_position(target_paddle)
             float_y = math.sin(doll['float_offset']) * 8  # 위아래 둥실둥실
-            doll['x'] = center_x + math.cos(doll['base_angle']) * doll['distance']
-            doll['y'] = center_y + math.sin(doll['base_angle']) * doll['distance'] * 0.5 + float_y
+            doll['x'] = target_cx + math.cos(doll['base_angle']) * doll['distance']
+            doll['y'] = target_torso_y + math.sin(doll['base_angle']) * doll['distance'] * 0.5 + float_y
             doll['rotation'] += math.sin(doll['wobble']) * 3
 
         # 수호 인형 업데이트 (바닥에서 솟아오르며 마리아 좌우에서 공 막기)
@@ -2975,9 +2989,10 @@ class DollCurse(HeroSkill):
                     eye_x = gx
                     eye_y = gy - int(28 * s)  # 머리 Y 위치
 
-                    # 상대 영웅 위치
-                    target_x = target_paddle.x + 40  # 패들 중심
-                    target_y = target_paddle.y
+                    # 상대 영웅 이미지 위치 (hero_paddles.py와 동기화)
+                    target_cx, target_torso_y, _, _ = self._get_hero_body_position(target_paddle)
+                    target_x = target_cx
+                    target_y = target_torso_y
 
                     # 빛의 방향 계산
                     dx = target_x - eye_x
@@ -2988,7 +3003,8 @@ class DollCurse(HeroSkill):
                         nx, ny = dx / dist, dy / dist
 
                         # 서치라이트 빛 (그라데이션 삼각형 형태)
-                        light_length = min(dist, 300)  # 최대 300px
+                        # 상대 영웅까지 충분히 도달하도록 길이 증가
+                        light_length = dist + 50  # 타겟까지 + 여유분
                         beam_width_start = 8 * s  # 시작점 폭
                         beam_width_end = 60 * s  # 끝점 폭 (퍼짐)
 
