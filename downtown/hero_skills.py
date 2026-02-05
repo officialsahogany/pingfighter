@@ -3560,19 +3560,21 @@ class DragonBreath(HeroSkill):
             description="용의 화염을 뿜어 공을 타격하고 가속시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=12.0,
-            duration=1.5,
+            duration=3.5,  # 파티클 페이드아웃 시간 포함 (발사 1.2초 + 페이드 2.3초)
             hero_id="ignis"
         )
         self.breath_particles = []
         self.breath_active = False
         self.breath_hit_ball = False
         self.fire_zone_spawned = False  # 화염 지대 생성 여부
+        self.spawn_phase_ended = False  # 파티클 생성 단계 종료 여부
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.breath_particles = []
         self.breath_active = True
         self.breath_hit_ball = False
         self.fire_zone_spawned = False  # 화염 지대 생성 플래그 초기화
+        self.spawn_phase_ended = False  # 파티클 생성 단계 시작
 
         # 브레스 방향 (caster_is_top 속성 우선 사용)
         is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
@@ -3586,7 +3588,7 @@ class DragonBreath(HeroSkill):
         for i in range(80):
             # 시간차 발사를 위한 딜레이 (0~0.3초 사이에 분산)
             delay = (i / 80) * 0.3
-            base_life = random.uniform(1.2, 2.0)
+            base_life = random.uniform(1.0, 1.8)  # 수명 조정 (페이드아웃 시간 확보)
             init_size = random.uniform(10, 25)
             self.breath_particles.append({
                 'x': caster_paddle.x + 40 + random.uniform(-25, 25),
@@ -3621,11 +3623,13 @@ class DragonBreath(HeroSkill):
         direction = 1 if is_caster_top else -1
         self.breath_spawn_timer = getattr(self, 'breath_spawn_timer', 0) + dt
 
-        # 스킬 지속시간의 80%까지 새 파티클 생성 (0.02초마다)
-        if self.active_timer > self.duration * 0.2 and self.breath_spawn_timer >= 0.02:
+        # 파티클 생성 단계: 처음 1.2초 동안만 (나머지 2.3초는 페이드아웃)
+        # active_timer는 duration(3.5)에서 0으로 감소
+        spawn_cutoff_time = 2.3  # 이 시간 이하가 되면 생성 중단
+        if not self.spawn_phase_ended and self.active_timer > spawn_cutoff_time and self.breath_spawn_timer >= 0.02:
             self.breath_spawn_timer = 0
             for _ in range(3):  # 한 번에 3개씩 생성
-                cont_life = random.uniform(0.8, 1.4)
+                cont_life = random.uniform(0.6, 1.2)  # 수명 단축 (페이드아웃 시간 확보)
                 cont_size = random.uniform(8, 18)
                 self.breath_particles.append({
                     'x': caster_paddle.x + 40 + random.uniform(-20, 20),
@@ -3639,6 +3643,8 @@ class DragonBreath(HeroSkill):
                     'color_phase': random.uniform(0, 1),
                     'delay': 0
                 })
+        elif self.active_timer <= spawn_cutoff_time:
+            self.spawn_phase_ended = True  # 생성 단계 종료 표시
 
         for p in self.breath_particles:
             # 딜레이가 있는 파티클은 딜레이 감소
@@ -3695,8 +3701,9 @@ class DragonBreath(HeroSkill):
         # 파티클이 완전히 페이드아웃될 때까지 유지 (life가 -0.5 이하가 되면 제거)
         self.breath_particles = [p for p in self.breath_particles if p['life'] > -0.5 or p.get('delay', 0) > 0]
 
-        # 스킬 종료 0.5초 전에 화염 지대 생성 (화염병과 동일한 넉백 효과)
-        if not self.fire_zone_spawned and self.active_timer <= 0.5 and target_paddle:
+        # 브레스가 상대에게 도달하는 시점 (약 1.0초)에 화염 지대 생성
+        # active_timer는 3.5에서 0으로 감소, 2.5 이하 = 스킬 시작 후 1.0초
+        if not self.fire_zone_spawned and self.active_timer <= 2.5 and target_paddle:
             self.fire_zone_spawned = True
             # caster_is_top 속성 사용 (init_hero_skills에서 설정됨)
             is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
@@ -3722,10 +3729,12 @@ class DragonBreath(HeroSkill):
             }
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        self.breath_particles = []
+        # 파티클은 이미 자연스럽게 페이드아웃되어 있어야 함
+        # 혹시 남아있는 파티클이 있어도 다음 스킬 시작 시 초기화됨
         self.breath_active = False
+        self.spawn_phase_ended = True
         game_state['ball_on_fire'] = False  # 화염 공 이펙트 해제
-        # 화염 지대는 _update_active_effect에서 종료 0.5초 전에 생성됨
+        # 화염 지대는 _update_active_effect에서 종료 전에 생성됨
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 드래곤 브레스 스킬 강제 종료"""
@@ -3734,6 +3743,7 @@ class DragonBreath(HeroSkill):
         self.breath_active = False
         self.breath_hit_ball = False
         self.fire_zone_spawned = False
+        self.spawn_phase_ended = False
         game_state['ball_on_fire'] = False
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
