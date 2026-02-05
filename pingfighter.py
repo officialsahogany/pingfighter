@@ -131561,14 +131561,14 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[1] = ball_wrapper.vy
 
                     # 🗡️ 환영수리검 넉백 효과 적용 (상단=보스, 하단=플레이어)
-                    # 자연스러운 넉백: 부드러운 초기속도 + 감속 + 0.3초 경직
+                    # 자연스러운 넉백: 빠른 초기속도 + 긴 감속 + 0.3초 경직
                     _kb_gs = arena_skill_manager.game_state
                     # 상단 패들 (보스) 넉백
                     if _kb_gs.get('top_paddle_knockback', False):
                         _kb_dir = _kb_gs.get('top_paddle_knockback_dir', 1)
-                        # 부드러운 넉백: 초기 속도 낮춤, 긴 타이머로 자연스러운 감속
-                        globals()['boss_knockback_timer'] = 25  # 넉백 지속 (약 0.4초)
-                        _apply_boss_knockback_velocity(_kb_dir * 8.0)  # 낮은 초기 속도
+                        # 넉백 거리 2배: 빠른 초기 속도 + 긴 타이머
+                        globals()['boss_knockback_timer'] = 35  # 넉백 지속 (약 0.6초)
+                        _apply_boss_knockback_velocity(_kb_dir * 18.0)  # 빠른 초기 속도
                         # 넉백 후 0.3초 경직 (18프레임)
                         globals()['boss_stunned_timer'] = max(globals().get('boss_stunned_timer', 0), 18)
                         print(f"🗡️ [IllusionShuriken] 보스 넉백! 방향={'오른쪽' if _kb_dir > 0 else '왼쪽'}")
@@ -131576,10 +131576,10 @@ def main(stage_num, new_boss_mode=False):
                     # 하단 패들 (플레이어) 넉백
                     if _kb_gs.get('bottom_paddle_knockback', False):
                         _kb_dir = _kb_gs.get('bottom_paddle_knockback_dir', 1)
-                        # 부드러운 넉백: 초기 속도 낮춤
-                        globals()['player_knockback_vel'] = _kb_dir * 6.0  # 낮은 초기 속도
-                        # 넉백 + 0.3초 경직 (총 약 0.5초)
-                        globals()['player_stunned_timer'] = max(globals().get('player_stunned_timer', 0), 30)
+                        # 넉백 거리 2배: 빠른 초기 속도
+                        globals()['player_knockback_vel'] = _kb_dir * 14.0  # 빠른 초기 속도
+                        # 넉백 + 0.3초 경직 (총 약 0.6초)
+                        globals()['player_stunned_timer'] = max(globals().get('player_stunned_timer', 0), 36)
                         print(f"🗡️ [IllusionShuriken] 플레이어 넉백! 방향={'오른쪽' if _kb_dir > 0 else '왼쪽'}")
                         _kb_gs['bottom_paddle_knockback'] = False  # 플래그 리셋
 
