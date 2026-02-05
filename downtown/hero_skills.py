@@ -3766,6 +3766,12 @@ class ShadowClone(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         new_clones = []
 
+        # 디버그: 매 1초마다 분신 상태 출력
+        if hasattr(self, '_debug_timer'):
+            self._debug_timer += dt
+        else:
+            self._debug_timer = 0.0
+
         for clone in self.clones:
             if not clone['active']:
                 continue
@@ -3781,6 +3787,7 @@ class ShadowClone(HeroSkill):
                 rect.centery = self.spawn_y
             else:
                 # 자유 이동: 좌우로 움직이며 벽에서 튕김 (Stage 8 방식)
+                old_x = rect.x
                 rect.x += int(clone['vx'])
 
                 # 벽 충돌 (튕김)
@@ -3798,6 +3805,10 @@ class ShadowClone(HeroSkill):
                 elif speed < 5.0:
                     # 최소 속도 보장
                     clone['vx'] = 5.0 if clone['vx'] >= 0 else -5.0
+
+            # 디버그 출력 (1초마다)
+            if self._debug_timer >= 1.0:
+                print(f"[ShadowClone] 분신 {clone['id']}: rect=({rect.x}, {rect.y}), vx={clone['vx']:.1f}, spawn_time={clone['spawn_time']:.2f}")
 
             # 공과 충돌 체크 (등장 애니메이션 후에만) - Stage 8 방식
             if ball is not None and clone['spawn_time'] >= self.EMERGE_DURATION:
@@ -3833,6 +3844,10 @@ class ShadowClone(HeroSkill):
                     continue
 
             new_clones.append(clone)
+
+        # 디버그 타이머 리셋
+        if self._debug_timer >= 1.0:
+            self._debug_timer = 0.0
 
         self.clones = new_clones
 
