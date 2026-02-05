@@ -3778,6 +3778,12 @@ class ShadowClone(HeroSkill):
         else:
             self._debug_timer = 0.0
 
+        # 업데이트 시작 시 분신 수 확인 (첫 1초 동안만)
+        if self._debug_timer < 1.0 and self._debug_timer > 0.9:
+            print(f"[ShadowClone] 업데이트 시작: {len(self.clones)}개 분신, timer={self._debug_timer:.2f}")
+            for i, c in enumerate(self.clones):
+                print(f"  분신 {c['id']}: active={c['active']}, rect={c['rect']}")
+
         for clone in self.clones:
             if not clone['active']:
                 continue
@@ -3847,9 +3853,14 @@ class ShadowClone(HeroSkill):
                     }
                     self.dying_clones.append(dying_clone)
                     clone['active'] = False
+                    print(f"[ShadowClone] 분신 {clone['id']} 충돌로 제거됨")
                     continue
 
             new_clones.append(clone)
+
+        # 디버그: new_clones 수 확인
+        if len(new_clones) != len(self.clones):
+            print(f"[ShadowClone] ⚠️ 분신 수 변경: {len(self.clones)} -> {len(new_clones)}")
 
         # 디버그 타이머 리셋
         if self._debug_timer >= 1.0:
