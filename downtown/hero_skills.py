@@ -3678,7 +3678,7 @@ class DragonBreath(HeroSkill):
                 'y': fire_y,
                 'width': 120,  # 화염 지대 너비
                 'height': 60,  # 화염 지대 높이
-                'duration': 90,  # 1.5초 (60fps * 1.5)
+                'duration': 135,  # 2.25초 (60fps * 2.25) - 기존 1.5초에서 50% 증가
                 'source': 'dragon_breath'
             }
 
@@ -3698,30 +3698,96 @@ class DragonBreath(HeroSkill):
         game_state['ball_on_fire'] = False
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # 고퀄리티 드래곤 브레스 화염 이펙트
         for p in self.breath_particles:
             if p['size'] > 2:
-                # 화염 색상 변화 (값 범위 0~255로 클램핑)
                 phase = p['color_phase'] % 1.0
-                if phase < 0.33:
-                    r, g, b = 255, 255, int(200 * (1 - phase * 3))
-                elif phase < 0.66:
-                    r, g, b = 255, int(255 - 155 * (phase - 0.33) * 3), 0
-                else:
-                    r = int(255 - 55 * (phase - 0.66) * 3)
-                    g = int(100 - 100 * (phase - 0.66) * 3)
-                    b = 0
+                life_ratio = p['life'] / 1.5
+                base_size = int(p['size'])
 
-                # 색상값 클램핑 (0~255)
-                r = max(0, min(255, r))
-                g = max(0, min(255, g))
-                b = max(0, min(255, b))
+                # 다층 화염 렌더링 (5개 레이어)
+                for layer in range(5):
+                    layer_ratio = layer / 4.0
+                    layer_size = max(2, int(base_size * (1.0 - layer_ratio * 0.6)))
 
-                alpha = int(200 * (p['life'] / 1.5))
-                alpha = max(0, min(255, alpha))  # 알파값도 클램핑
+                    # 레이어별 색상 변화 (내부: 밝은 흰색/노랑 → 외부: 주황/빨강)
+                    if layer == 0:  # 가장 외부 - 어두운 빨강/검정 (연기)
+                        r, g, b = 80, 20, 10
+                        alpha = int(60 * life_ratio)
+                    elif layer == 1:  # 외부 - 빨강
+                        r = int(200 + 55 * math.sin(phase * math.pi))
+                        g = int(40 + 30 * math.sin(phase * math.pi * 2))
+                        b = 0
+                        alpha = int(120 * life_ratio)
+                    elif layer == 2:  # 중간 - 주황
+                        r = 255
+                        g = int(100 + 80 * math.sin(phase * math.pi * 1.5))
+                        b = int(20 * math.sin(phase * math.pi))
+                        alpha = int(180 * life_ratio)
+                    elif layer == 3:  # 내부 - 밝은 노랑
+                        r = 255
+                        g = int(200 + 55 * math.sin(phase * math.pi * 2))
+                        b = int(50 + 100 * math.sin(phase * math.pi))
+                        alpha = int(200 * life_ratio)
+                    else:  # 핵심 - 흰색
+                        r, g, b = 255, 255, int(200 + 55 * math.sin(phase * math.pi))
+                        alpha = int(220 * life_ratio)
 
-                surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
-                pygame.draw.circle(surf, (r, g, b, alpha), (int(p['size']), int(p['size'])), int(p['size']))
-                screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])), special_flags=pygame.BLEND_ADD)
+                    # 색상값 클램핑
+                    r = max(0, min(255, r))
+                    g = max(0, min(255, g))
+                    b = max(0, min(255, b))
+                    alpha = max(0, min(255, alpha))
+
+                    if layer_size > 1 and alpha > 5:
+                        surf_size = layer_size * 2 + 4
+                        surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+                        center = surf_size // 2
+
+                        # 그라데이션 원 효과
+                        for gr in range(layer_size, 0, -2):
+                            grad_alpha = int(alpha * (gr / layer_size) * 0.7)
+                            grad_alpha = max(0, min(255, grad_alpha))
+                            pygame.draw.circle(surf, (r, g, b, grad_alpha), (center, center), gr)
+
+                        # 흔들림 효과 (레이어별 다른 흔들림)
+                        wobble_x = math.sin(phase * 10 + layer) * (2 + layer * 0.5)
+                        wobble_y = math.cos(phase * 8 + layer * 0.7) * (1.5 + layer * 0.3)
+
+                        screen.blit(surf, (int(p['x'] - center + wobble_x), int(p['y'] - center + wobble_y)), special_flags=pygame.BLEND_ADD)
+
+                # 화염 꼬리 효과 (작은 파티클 트레일)
+                if life_ratio > 0.3 and base_size > 5:
+                    trail_count = 3
+                    for t in range(trail_count):
+                        trail_offset = (t + 1) * 5
+                        trail_size = max(2, int(base_size * 0.3 * (1 - t * 0.25)))
+                        trail_alpha = int(80 * life_ratio * (1 - t * 0.3))
+
+                        # 브레스 방향에 따른 꼬리 위치
+                        is_caster_top = getattr(self, 'caster_is_top', True)
+                        trail_y_dir = -1 if is_caster_top else 1
+
+                        trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(trail_surf, (255, 150, 50, max(0, min(255, trail_alpha))),
+                                         (trail_size, trail_size), trail_size)
+                        screen.blit(trail_surf,
+                                  (int(p['x'] - trail_size + random.uniform(-2, 2)),
+                                   int(p['y'] + trail_y_dir * trail_offset - trail_size)),
+                                  special_flags=pygame.BLEND_ADD)
+
+                # 불꽃 스파크 효과 (랜덤 밝은 점)
+                if random.random() < 0.15 * life_ratio:
+                    spark_size = random.randint(1, 3)
+                    spark_offset_x = random.uniform(-base_size, base_size)
+                    spark_offset_y = random.uniform(-base_size, base_size)
+                    spark_surf = pygame.Surface((spark_size * 2 + 2, spark_size * 2 + 2), pygame.SRCALPHA)
+                    pygame.draw.circle(spark_surf, (255, 255, 200, 255),
+                                     (spark_size + 1, spark_size + 1), spark_size)
+                    screen.blit(spark_surf,
+                              (int(p['x'] + spark_offset_x - spark_size - 1),
+                               int(p['y'] + spark_offset_y - spark_size - 1)),
+                              special_flags=pygame.BLEND_ADD)
 
 
 class DragonWing(HeroSkill):
