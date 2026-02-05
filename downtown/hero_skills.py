@@ -4199,13 +4199,18 @@ class IllusionShuriken(HeroSkill):
                 shuriken['vx'] = -abs(shuriken['vx'])  # 왼쪽으로 튕김
                 shuriken['bounces'] += 1
 
+            # 상하 벽 충돌 (바운스)
+            if shuriken['y'] <= 0:
+                shuriken['y'] = 0
+                shuriken['vy'] = abs(shuriken['vy'])  # 아래로 튕김
+                shuriken['bounces'] += 1
+            elif shuriken['y'] >= 750:
+                shuriken['y'] = 750
+                shuriken['vy'] = -abs(shuriken['vy'])  # 위로 튕김
+                shuriken['bounces'] += 1
+
             # 최대 8번 튕기면 비활성화
             if shuriken['bounces'] >= 8:
-                shuriken['active'] = False
-                continue
-
-            # 상하 경계 벗어나면 비활성화
-            if shuriken['y'] < -50 or shuriken['y'] > 800:
                 shuriken['active'] = False
                 continue
 
