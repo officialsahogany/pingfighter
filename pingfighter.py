@@ -85533,6 +85533,8 @@ def draw_objects():
                 def __init__(self, rect, vel):
                     self.x = rect.x
                     self.y = rect.y
+                    self.width = rect.width
+                    self.height = rect.height
                     self.vx = vel[0]
                     self.vy = vel[1]
             top_wrapper = PaddleWrapperDraw(BOSS, True)
@@ -119118,6 +119120,8 @@ def handle_ball():
                     def __init__(self, rect, vel):
                         self.x = rect.x
                         self.y = rect.y
+                        self.width = rect.width
+                        self.height = rect.height
                         self.vx = vel[0]
                         self.vy = vel[1]
                 bottom_wrapper = PaddleWrapper(PLAYER, False)
@@ -119877,6 +119881,8 @@ def handle_ball():
                     def __init__(self, rect, vel):
                         self.x = rect.x
                         self.y = rect.y
+                        self.width = rect.width
+                        self.height = rect.height
                         self.vx = vel[0]
                         self.vy = vel[1]
                 top_wrapper = PaddleWrapper(BOSS, True)
@@ -131539,6 +131545,8 @@ def main(stage_num, new_boss_mode=False):
                         def __init__(self, rect, vel):
                             self.x = rect.x
                             self.y = rect.y
+                            self.width = rect.width
+                            self.height = rect.height
                             self.vx = vel[0]
                             self.vy = vel[1]
                     top_wrapper = PaddleWrapper(BOSS, True)

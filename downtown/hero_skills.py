@@ -3760,6 +3760,15 @@ class ShadowClone(HeroSkill):
             self.clones.append(clone)
             print(f"[ShadowClone] 분신 {i} 생성: offset={offset}, vx={clone['vx']:.1f}")
 
+        # 디버그: 생성 완료 후 확인
+        print(f"[ShadowClone] ★★★ _apply_effect 완료: self.clones에 {len(self.clones)}개 분신 저장됨")
+        for c in self.clones:
+            print(f"    id={c['id']}, rect={c['rect']}, offset_x={c['offset_x']}")
+
+        # 프레임 카운터 초기화
+        self._frame_count = 0
+        self._draw_count = 0
+
         game_state['has_shadow_clones'] = True
 
         return {
@@ -3770,6 +3779,16 @@ class ShadowClone(HeroSkill):
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 디버그: 함수 시작 시 분신 수 확인 (처음 10프레임만)
+        if not hasattr(self, '_frame_count'):
+            self._frame_count = 0
+        self._frame_count += 1
+
+        if self._frame_count <= 10:
+            print(f"[ShadowClone] UPDATE #{self._frame_count}: {len(self.clones)} clones in list")
+            for c in self.clones:
+                print(f"  - clone id={c['id']}, active={c['active']}, rect.x={c['rect'].x}, vx={c['vx']:.1f}")
+
         new_clones = []
 
         # 디버그: 매 1초마다 분신 상태 출력
@@ -3778,13 +3797,15 @@ class ShadowClone(HeroSkill):
         else:
             self._debug_timer = 0.0
 
-        # 업데이트 시작 시 분신 수 확인 (첫 1초 동안만)
-        if self._debug_timer < 1.0 and self._debug_timer > 0.9:
-            print(f"[ShadowClone] 업데이트 시작: {len(self.clones)}개 분신, timer={self._debug_timer:.2f}")
-            for i, c in enumerate(self.clones):
-                print(f"  분신 {c['id']}: active={c['active']}, rect={c['rect']}")
+        # 디버그: 루프 시작 전 분신 수 확인
+        if self._debug_timer >= 0.9 and self._debug_timer < 1.1:
+            print(f"[ShadowClone] 루프 진입 전: self.clones에 {len(self.clones)}개")
 
         for clone in self.clones:
+            # 디버그: 각 clone 처리 시작
+            if self._debug_timer >= 0.9 and self._debug_timer < 1.1:
+                print(f"[ShadowClone] 루프 처리 중: id={clone['id']}, active={clone['active']}")
+
             if not clone['active']:
                 continue
 
@@ -3864,6 +3885,12 @@ class ShadowClone(HeroSkill):
 
         # 디버그 타이머 리셋
         if self._debug_timer >= 1.0:
+            # 타이머 리셋 전 전체 분신 상태 출력
+            print(f"[ShadowClone] ===== 1초 경과 디버그: self.clones={len(self.clones)}개, new_clones={len(new_clones)}개 =====")
+            for i, c in enumerate(self.clones):
+                print(f"    원본[{i}]: id={c['id']}, active={c['active']}, rect.x={c['rect'].x}")
+            for i, c in enumerate(new_clones):
+                print(f"    new[{i}]: id={c['id']}, active={c['active']}, rect.x={c['rect'].x}")
             self._debug_timer = 0.0
 
         self.clones = new_clones
@@ -3883,6 +3910,15 @@ class ShadowClone(HeroSkill):
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         renderer = get_shadow_clone_renderer() if HERO_PADDLE_RENDERER_AVAILABLE else None
+
+        # 디버그: 드로우 시 분신 수 확인 (처음 10프레임만)
+        if hasattr(self, '_draw_count'):
+            self._draw_count += 1
+        else:
+            self._draw_count = 0
+
+        if self._draw_count <= 10:
+            print(f"[ShadowClone] DRAW #{self._draw_count}: {len(self.clones)} clones to render")
 
         # 활성 분신 그리기
         for clone in self.clones:
