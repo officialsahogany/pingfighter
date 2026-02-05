@@ -304,7 +304,9 @@ class AIPaddleController:
         # 귀신발걸음 (Ghost Step) y축 이동 시스템
         self.ghost_step_active = False  # 귀신발걸음 y축 이동 활성화 여부
         self.ghost_step_y_velocity = 0.0  # y축 이동 속도
-        self.ghost_step_speed = 12.0  # 기본 y축 이동 속도
+        self.ghost_step_speed = 3.0  # 기본 y축 이동 속도 (부드럽게)
+        self.ghost_step_max_offset = 120  # 최대 이동 거리 (원위치에서)
+        self.ghost_step_phase = 0  # 0: 전진, 1: 복귀
         self.original_y = self.y  # 원래 y 위치 저장
 
     def _predict_x_with_walls(self, ball_x: float, ball_vx: float, ball_y: float,
@@ -581,35 +583,59 @@ class AIPaddleController:
             pass
 
     def start_ghost_step(self):
-        """귀신발걸음 y축 이동 시작 (아래로 내려가기)"""
+        """귀신발걸음 y축 이동 시작 (상단→하단, 하단→상단으로 귀신처럼 다가옴)"""
         if self.ghost_step_active:
             return False
 
         self.ghost_step_active = True
         self.original_y = self.y
-        # 항상 아래로 이동 (y값 증가)
-        self.ghost_step_y_velocity = self.ghost_step_speed
-        print(f"[GhostStep] 귀신발걸음 y축 이동 시작! 현재 y={self.y}")
+        self.ghost_step_phase = 0  # 전진 페이즈
+
+        # 상단 영웅은 아래로 (y 증가), 하단 영웅은 위로 (y 감소)
+        if self.is_top:
+            self.ghost_step_y_velocity = self.ghost_step_speed  # 아래로
+        else:
+            self.ghost_step_y_velocity = -self.ghost_step_speed  # 위로
+
+        print(f"[GhostStep] 귀신발걸음 y축 이동 시작! is_top={self.is_top}, 현재 y={self.y}, 방향={'아래' if self.is_top else '위'}")
         return True
 
     def update_ghost_step(self, dt: float):
-        """귀신발걸음 y축 이동 업데이트"""
+        """귀신발걸음 y축 이동 업데이트 (부드럽게 전진→복귀 반복)"""
         if not self.ghost_step_active:
             return
 
         # y축으로 이동
         self.y += self.ghost_step_y_velocity
 
-        # 화면 하단을 벗어났는지 확인 (플레이어 뒤쪽 벽 = SCREEN_HEIGHT 이상)
-        if self.y > SCREEN_HEIGHT + PADDLE_HEIGHT:
-            print(f"[GhostStep] 화면 하단 벗어남! y={self.y}, 원위치로 복귀")
-            self.end_ghost_step()
+        # 현재 이동 거리 계산
+        current_offset = abs(self.y - self.original_y)
+
+        if self.ghost_step_phase == 0:
+            # 전진 페이즈: 최대 거리에 도달하면 복귀로 전환
+            if current_offset >= self.ghost_step_max_offset:
+                self.ghost_step_phase = 1
+                self.ghost_step_y_velocity = -self.ghost_step_y_velocity  # 방향 반전
+                print(f"[GhostStep] 전진 완료, 복귀 시작! y={self.y}")
+        else:
+            # 복귀 페이즈: 원위치 근처에 도달하면 다시 전진
+            if self.is_top:
+                if self.y <= self.original_y:
+                    self.y = self.original_y
+                    self.ghost_step_phase = 0
+                    self.ghost_step_y_velocity = self.ghost_step_speed
+            else:
+                if self.y >= self.original_y:
+                    self.y = self.original_y
+                    self.ghost_step_phase = 0
+                    self.ghost_step_y_velocity = -self.ghost_step_speed
 
     def end_ghost_step(self):
         """귀신발걸음 y축 이동 종료 및 원위치 복귀"""
         self.ghost_step_active = False
         self.y = self.original_y
         self.ghost_step_y_velocity = 0.0
+        self.ghost_step_phase = 0
         print(f"[GhostStep] 귀신발걸음 종료, y={self.y}로 복귀")
 
     def ai_try_emergency_dash(self, ball_x: float, ball_y: float, ball_vx: float, ball_vy: float) -> bool:
