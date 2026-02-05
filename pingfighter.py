@@ -131642,6 +131642,38 @@ def main(stage_num, new_boss_mode=False):
                             # 넉백 플래그 해제
                             _shuriken_gs[f'{_paddle_prefix}_knockback'] = False
 
+                    # 🥷 그림자분신 공 반사 처리 (쿠로카게)
+                    _shadow_clone_bounce = arena_skill_manager.game_state.get('shadow_clone_ball_bounce')
+                    if _shadow_clone_bounce:
+                        _clone_x = _shadow_clone_bounce['clone_x']
+                        _clone_y = _shadow_clone_bounce['clone_y']
+                        _caster_is_top = _shadow_clone_bounce['caster_is_top']
+
+                        # 공 반사: 상대 방향으로 튕김
+                        current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                        # Y 방향 반전 (상대 쪽으로)
+                        if _caster_is_top:
+                            ball_vel[1] = abs(ball_vel[1])  # 아래로 (플레이어 쪽)
+                        else:
+                            ball_vel[1] = -abs(ball_vel[1])  # 위로 (상대 쪽)
+
+                        # X 방향: 분신 중심에서 공이 어디에 맞았는지에 따라 각도 조절
+                        ball_center_x = BALL.centerx
+                        offset = (ball_center_x - _clone_x) / 40  # -1 ~ 1
+                        ball_vel[0] = offset * current_speed * 0.5
+
+                        # 공 위치 살짝 밀어내기 (겹침 방지)
+                        BALL.y += -10 if _caster_is_top else 10
+
+                        # 반사 플래그 제거
+                        del arena_skill_manager.game_state['shadow_clone_ball_bounce']
+
+                        # 효과음
+                        try:
+                            play_sound_with_volume(SOUND_PADDLE_HIT)
+                        except:
+                            pass
+
                     # 🎭 수호 인형 공 반사 처리 (인형의 저주)
                     arena_game_state = arena_skill_manager.game_state
                     _guardian_bounce = arena_game_state.get('doll_guardian_ball_bounce')

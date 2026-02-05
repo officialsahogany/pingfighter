@@ -3679,59 +3679,235 @@ class OilSpill(HeroSkill):
 # 쿠로카게 스킬 - 그림자 닌자 (공격적)
 # ============================================================================
 class ShadowClone(HeroSkill):
-    """분신술 - 분신 패들 생성"""
+    """그림자분신 - 아카무 리고 스타일 분신 (공 반사 + 벽 튕김)"""
+
+    # 게임 영역 경계
+    GAME_LEFT = 80
+    GAME_RIGHT = 680
+
+    # 분신 상수
+    CLONE_WIDTH = 80
+    CLONE_HEIGHT = 12
+    EMERGE_DURATION = 0.3  # 등장 애니메이션 시간
+    DEATH_DURATION = 0.5   # 소멸 애니메이션 시간
+
     def __init__(self):
         super().__init__(
             skill_id="shadow_clone",
             name="Shadow Clone",
-            korean_name="분신술",
-            description="그림자 분신을 만들어 상대를 혼란시킨다",
+            korean_name="그림자분신",
+            description="그림자 분신을 소환하여 공을 반사한다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=22.0,
-            duration=5.0,
+            cooldown=20.0,
+            duration=6.0,
             hero_id="kurokage"
         )
-        self.clones = []
+        self.clones = []  # 활성 분신 목록
+        self.dying_clones = []  # 소멸 중인 분신 목록
+        self.spawn_x = 0  # 소환 시작 위치
+        self.spawn_y = 0
+        self.caster_is_top = False
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        # 분신 2개 생성
-        self.clones = [
-            {'x': caster_paddle.x - 120, 'alpha': 150, 'offset': 0},
-            {'x': caster_paddle.x + 120, 'alpha': 150, 'offset': math.pi}
-        ]
-        game_state['has_clones'] = True
+        self.caster_is_top = caster_paddle.is_top
+        self.spawn_x = caster_paddle.x + caster_paddle.width // 2
+        self.spawn_y = caster_paddle.y
+
+        # 분신 2개 생성 (좌우로 벌어지며 등장)
+        offsets = [-90, 90]
+        self.clones = []
+        self.dying_clones = []
+
+        for offset in offsets:
+            direction = -1 if offset < 0 else 1
+            self.clones.append({
+                'x': self.spawn_x,  # 시작 위치 (중앙)
+                'y': self.spawn_y,
+                'target_offset': offset,  # 목표 오프셋
+                'vx': random.uniform(5.0, 8.0) * direction,  # 초기 X 속도
+                'spawn_time': 0,  # 생성 후 경과 시간
+                'alpha': 180,
+                'active': True
+            })
+
+        game_state['has_shadow_clones'] = True
 
         return {
             'screen_effect': ScreenEffect.FLASH,
-            'flash_color': (50, 50, 80),
-            'flash_duration': 0.15,
+            'flash_color': (40, 40, 60),
+            'flash_duration': 0.12,
             'sound': 'shadow'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        new_clones = []
+
         for clone in self.clones:
-            # 분신이 본체 따라 이동
-            clone['offset'] += dt * 3
-            base_offset = 100 * math.sin(clone['offset'])
-            clone['x'] = caster_paddle.x + base_offset
-            clone['x'] = max(80, min(clone['x'], 600))
+            if not clone['active']:
+                continue
+
+            clone['spawn_time'] += dt
+
+            # 등장 애니메이션: 중앙에서 좌우로 벌어짐
+            if clone['spawn_time'] < self.EMERGE_DURATION:
+                t = clone['spawn_time'] / self.EMERGE_DURATION
+                # Ease-out 효과
+                t = 1 - (1 - t) ** 2
+                clone['x'] = self.spawn_x + clone['target_offset'] * t
+            else:
+                # 자유 이동: 좌우로 움직이며 벽에서 튕김
+                clone['x'] += clone['vx']
+
+                # 벽 충돌 (튕김)
+                if clone['x'] - self.CLONE_WIDTH // 2 <= self.GAME_LEFT:
+                    clone['x'] = self.GAME_LEFT + self.CLONE_WIDTH // 2
+                    clone['vx'] = abs(clone['vx'])
+                elif clone['x'] + self.CLONE_WIDTH // 2 >= self.GAME_RIGHT:
+                    clone['x'] = self.GAME_RIGHT - self.CLONE_WIDTH // 2
+                    clone['vx'] = -abs(clone['vx'])
+
+                # 약간의 난수 가속으로 불규칙성 추가
+                clone['vx'] += random.uniform(-0.3, 0.3)
+                # 속도 클램프
+                speed = abs(clone['vx'])
+                if speed > 10.0:
+                    clone['vx'] = clone['vx'] / speed * 10.0
+                elif speed < 3.0:
+                    clone['vx'] = clone['vx'] / speed * 3.0 if speed > 0 else 3.0
+
+            # 공과 충돌 체크
+            if ball is not None:
+                clone_rect = pygame.Rect(
+                    clone['x'] - self.CLONE_WIDTH // 2,
+                    clone['y'],
+                    self.CLONE_WIDTH,
+                    self.CLONE_HEIGHT
+                )
+                ball_rect = pygame.Rect(ball.x, ball.y, ball.width, ball.height)
+
+                if clone_rect.colliderect(ball_rect):
+                    # 공 반사 (상대 방향으로)
+                    game_state['shadow_clone_ball_bounce'] = {
+                        'clone_x': clone['x'],
+                        'clone_y': clone['y'],
+                        'caster_is_top': self.caster_is_top
+                    }
+
+                    # 소멸 애니메이션 시작
+                    dying_clone = clone.copy()
+                    dying_clone['death_time'] = 0
+                    self.dying_clones.append(dying_clone)
+                    clone['active'] = False
+                    continue
+
+            new_clones.append(clone)
+
+        self.clones = [c for c in new_clones if c['active']]
+
+        # 소멸 중인 분신 업데이트
+        new_dying = []
+        for dying in self.dying_clones:
+            dying['death_time'] += dt
+            if dying['death_time'] < self.DEATH_DURATION:
+                new_dying.append(dying)
+        self.dying_clones = new_dying
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        game_state['has_clones'] = False
+        game_state['has_shadow_clones'] = False
+        if 'shadow_clone_ball_bounce' in game_state:
+            del game_state['shadow_clone_ball_bounce']
         self.clones = []
+        self.dying_clones = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # 활성 분신 그리기
         for clone in self.clones:
-            # 반투명 분신 패들
-            clone_surf = pygame.Surface((80, 12), pygame.SRCALPHA)
-            pygame.draw.rect(clone_surf, (50, 50, 70, int(clone['alpha'])), (0, 0, 80, 12), border_radius=3)
+            self._draw_clone(screen, clone, caster_paddle)
 
-            # 그림자 효과
-            shadow_surf = pygame.Surface((85, 15), pygame.SRCALPHA)
-            pygame.draw.rect(shadow_surf, (20, 20, 30, int(clone['alpha'] * 0.5)), (0, 0, 85, 15), border_radius=3)
+        # 소멸 중인 분신 그리기 (홀로그램 증발 효과)
+        for dying in self.dying_clones:
+            self._draw_dying_clone(screen, dying, caster_paddle)
 
-            screen.blit(shadow_surf, (int(clone['x']) - 2, caster_paddle.y + 3))
-            screen.blit(clone_surf, (int(clone['x']), caster_paddle.y))
+    def _draw_clone(self, screen: pygame.Surface, clone: dict, caster_paddle):
+        """활성 분신 렌더링"""
+        # 등장 시 페이드인
+        emerge_alpha = 1.0
+        if clone['spawn_time'] < self.EMERGE_DURATION:
+            emerge_alpha = clone['spawn_time'] / self.EMERGE_DURATION
+
+        # 폴짝 모션 (위아래)
+        hop = int(4 * math.sin(clone['spawn_time'] * 8 + clone['target_offset'] * 0.1))
+
+        alpha = int(clone['alpha'] * emerge_alpha)
+        x = int(clone['x'] - self.CLONE_WIDTH // 2)
+        y = clone['y'] + hop
+
+        # 그림자
+        shadow_surf = pygame.Surface((self.CLONE_WIDTH + 6, self.CLONE_HEIGHT + 4), pygame.SRCALPHA)
+        pygame.draw.rect(shadow_surf, (15, 15, 25, int(alpha * 0.4)),
+                        (0, 0, self.CLONE_WIDTH + 6, self.CLONE_HEIGHT + 4), border_radius=4)
+        screen.blit(shadow_surf, (x - 3, y + 3))
+
+        # 분신 패들 본체
+        clone_surf = pygame.Surface((self.CLONE_WIDTH, self.CLONE_HEIGHT), pygame.SRCALPHA)
+        # 그라데이션 효과
+        for i in range(self.CLONE_HEIGHT):
+            grad_alpha = alpha - i * 3
+            if grad_alpha > 0:
+                color = (50 + i * 2, 50 + i * 2, 80 + i * 3, grad_alpha)
+                pygame.draw.line(clone_surf, color, (0, i), (self.CLONE_WIDTH, i))
+        pygame.draw.rect(clone_surf, (80, 80, 120, alpha), (0, 0, self.CLONE_WIDTH, self.CLONE_HEIGHT),
+                        width=1, border_radius=3)
+        screen.blit(clone_surf, (x, y))
+
+        # 글로우 효과
+        glow_surf = pygame.Surface((self.CLONE_WIDTH + 10, self.CLONE_HEIGHT + 10), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (100, 100, 150, int(alpha * 0.3)),
+                        (0, 0, self.CLONE_WIDTH + 10, self.CLONE_HEIGHT + 10), border_radius=6)
+        screen.blit(glow_surf, (x - 5, y - 5), special_flags=pygame.BLEND_ADD)
+
+    def _draw_dying_clone(self, screen: pygame.Surface, dying: dict, caster_paddle):
+        """소멸 중인 분신 렌더링 (홀로그램 증발 효과)"""
+        death_progress = dying['death_time'] / self.DEATH_DURATION
+        base_alpha = int(180 * (1.0 - death_progress))
+
+        x = int(dying['x'] - self.CLONE_WIDTH // 2)
+        y = dying['y']
+
+        # 글리치 효과 (떨림 + 색상 분리)
+        glitch_intensity = death_progress * 12
+        glitch_x = int(math.sin(dying['death_time'] * 30) * glitch_intensity)
+        glitch_y = int(math.cos(dying['death_time'] * 25) * glitch_intensity * 0.5)
+
+        # RGB 분리 효과
+        for color_offset, color in [(-3, (255, 0, 0)), (0, (255, 255, 255)), (3, (0, 255, 255))]:
+            if base_alpha > 30:
+                surf = pygame.Surface((self.CLONE_WIDTH, self.CLONE_HEIGHT), pygame.SRCALPHA)
+                pygame.draw.rect(surf, (*color, int(base_alpha * 0.4)),
+                               (0, 0, self.CLONE_WIDTH, self.CLONE_HEIGHT), border_radius=3)
+                screen.blit(surf, (x + glitch_x + color_offset, y + glitch_y))
+
+        # 스캔라인 효과 (위에서 아래로 사라짐)
+        scanline_y = int(self.CLONE_HEIGHT * death_progress)
+        if scanline_y < self.CLONE_HEIGHT and base_alpha > 0:
+            # 스캔라인 아래 부분만 그리기
+            remaining_height = self.CLONE_HEIGHT - scanline_y
+            if remaining_height > 0:
+                surf = pygame.Surface((self.CLONE_WIDTH, remaining_height), pygame.SRCALPHA)
+                pygame.draw.rect(surf, (60, 60, 100, base_alpha),
+                               (0, 0, self.CLONE_WIDTH, remaining_height), border_radius=2)
+                screen.blit(surf, (x + glitch_x, y + scanline_y + glitch_y))
+
+        # 파티클 효과 (위로 흩어짐)
+        if death_progress > 0.2:
+            num_particles = int(8 * death_progress)
+            for i in range(num_particles):
+                px = x + random.randint(0, self.CLONE_WIDTH)
+                py = y - int(30 * death_progress) + random.randint(-10, 10)
+                p_alpha = int(base_alpha * 0.6 * random.uniform(0.5, 1.0))
+                if p_alpha > 0:
+                    p_size = random.randint(2, 4)
+                    pygame.draw.circle(screen, (100, 100, 150, p_alpha), (px, py), p_size)
 
 
 class IllusionShuriken(HeroSkill):
