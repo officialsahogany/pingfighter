@@ -3728,15 +3728,12 @@ class ShadowClone(HeroSkill):
         self.caster_is_top = caster_paddle.is_top
         self.spawn_x = caster_paddle.x + caster_paddle.width // 2
 
-        # 분신을 맵 중앙 쪽으로 소환 (Stage 8 방식: 패들에서 150px 앞으로)
-        if caster_paddle.is_top:
-            self.spawn_y = caster_paddle.y + 150  # 상단 패들 → 아래쪽으로
-        else:
-            self.spawn_y = caster_paddle.y - 150  # 하단 패들 → 위쪽으로
+        # 분신을 캐스터와 동일한 Y 위치에 소환
+        self.spawn_y = caster_paddle.y + caster_paddle.height // 2
 
         self.caster_facing = "down" if caster_paddle.is_top else "up"
 
-        # 분신 2개 생성 (좌우로 벌어지며 등장) - Stage 8 방식
+        # 분신 2개 생성 (좌우로 벌어지며 등장)
         offsets = [-100, 100]
         self.clones = []
         self.dying_clones = []
@@ -3745,20 +3742,21 @@ class ShadowClone(HeroSkill):
 
         for i, offset in enumerate(offsets):
             direction = -1 if offset < 0 else 1
-            # pygame.Rect 사용 (Stage 8 방식)
-            rect = pygame.Rect(0, 0, self.CLONE_WIDTH, self.CLONE_HEIGHT)
-            rect.center = (self.spawn_x, self.spawn_y)
+            # 각 분신마다 독립적인 pygame.Rect 생성
+            clone_rect = pygame.Rect(0, 0, self.CLONE_WIDTH, self.CLONE_HEIGHT)
+            clone_rect.center = (self.spawn_x, self.spawn_y)
 
             clone = {
-                'rect': rect,
+                'rect': clone_rect,
                 'offset_x': offset,
-                'vx': random.uniform(8.0, 12.0) * direction,  # Stage 8과 동일한 속도
+                'target_x': self.spawn_x + offset,  # 최종 목표 X 위치 저장
+                'vx': random.uniform(8.0, 12.0) * direction,
                 'spawn_time': 0.0,
                 'active': True,
                 'id': i,
             }
             self.clones.append(clone)
-            print(f"[ShadowClone] 분신 {i} 생성: offset={offset}, vx={clone['vx']:.1f}")
+            print(f"[ShadowClone] 분신 {i} 생성: offset={offset}, vx={clone['vx']:.1f}, target_x={clone['target_x']}")
 
         # 디버그: 생성 완료 후 확인
         print(f"[ShadowClone] ★★★ _apply_effect 완료: self.clones에 {len(self.clones)}개 분신 저장됨")
@@ -3818,26 +3816,36 @@ class ShadowClone(HeroSkill):
                 t = 1 - (1 - t) ** 2  # Ease-out
                 rect.centerx = int(self.spawn_x + clone['offset_x'] * t)
                 rect.centery = self.spawn_y
+                clone['emerge_complete'] = False
             else:
-                # 자유 이동: 좌우로 움직이며 벽에서 튕김 (Stage 8 방식)
-                old_x = rect.x
-                rect.x += int(clone['vx'])
+                # 등장 완료 시 한 번만 위치 확정
+                if not clone.get('emerge_complete', False):
+                    rect.centerx = clone['target_x']
+                    rect.centery = self.spawn_y
+                    clone['emerge_complete'] = True
+                    print(f"[ShadowClone] 분신 {clone['id']} 등장 완료! 위치: ({rect.centerx}, {rect.centery})")
+
+                # 자유 이동: 좌우로 움직이며 벽에서 튕김
+                move_amount = int(clone['vx'])
+                rect.x += move_amount
 
                 # 벽 충돌 (튕김)
-                if rect.left < self.GAME_LEFT or rect.right > self.GAME_RIGHT:
-                    clone['vx'] = -clone['vx']
-                    rect.x = max(self.GAME_LEFT, min(rect.x, self.GAME_RIGHT - rect.width))
+                if rect.left < self.GAME_LEFT:
+                    rect.left = self.GAME_LEFT
+                    clone['vx'] = abs(clone['vx'])  # 오른쪽으로 튕김
+                elif rect.right > self.GAME_RIGHT:
+                    rect.right = self.GAME_RIGHT
+                    clone['vx'] = -abs(clone['vx'])  # 왼쪽으로 튕김
 
-                # 약간의 난수 가속 (Stage 8과 동일)
-                clone['vx'] += random.uniform(-0.6, 0.6)
+                # 약간의 난수 가속
+                clone['vx'] += random.uniform(-0.3, 0.3)
 
-                # 속도 클램프 (Stage 8: 최대 15)
+                # 속도 클램프 (최소 6, 최대 12)
                 speed = abs(clone['vx'])
-                if speed > 15.0:
-                    clone['vx'] = clone['vx'] / speed * 15.0
-                elif speed < 5.0:
-                    # 최소 속도 보장
-                    clone['vx'] = 5.0 if clone['vx'] >= 0 else -5.0
+                if speed > 12.0:
+                    clone['vx'] = (clone['vx'] / speed) * 12.0
+                elif speed < 6.0:
+                    clone['vx'] = 6.0 if clone['vx'] >= 0 else -6.0
 
             # 디버그 출력 (1초마다)
             if self._debug_timer >= 1.0:
@@ -3907,6 +3915,14 @@ class ShadowClone(HeroSkill):
         game_state['has_shadow_clones'] = False
         self.clones = []
         self.dying_clones = []
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 그림자분신 강제 초기화"""
+        super().reset_for_new_round(game_state)
+        self.clones = []
+        self.dying_clones = []
+        game_state['has_shadow_clones'] = False
+        print("[ShadowClone] 라운드 전환으로 분신 초기화됨")
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         renderer = get_shadow_clone_renderer() if HERO_PADDLE_RENDERER_AVAILABLE else None
@@ -4454,7 +4470,10 @@ class HeroSkillManager:
                 # 난쟁이마술: is_active=False여도 hit_target/shrink_timer가 활성화된 경우 포함
                 has_dwarf_magic_effects = (hasattr(skill, 'hit_target') and skill.hit_target) or \
                                           (hasattr(skill, 'shrink_timer') and skill.shrink_timer > 0)
-                if skill.is_active or has_oil_effects or has_dwarf_magic_effects:
+                # 그림자분신: is_active=False여도 분신이 남아있는 경우 포함
+                has_shadow_clones = (hasattr(skill, 'clones') and skill.clones) or \
+                                    (hasattr(skill, 'dying_clones') and skill.dying_clones)
+                if skill.is_active or has_oil_effects or has_dwarf_magic_effects or has_shadow_clones:
                     print(f"[DEBUG SkillManager] reset_for_new_round 호출: {skill.skill_id}, is_active={skill.is_active}")
                     skill.reset_for_new_round(self.game_state)
 
@@ -4494,7 +4513,11 @@ class HeroSkillManager:
         self.game_state['top_paddle_shrink_scale'] = 1.0
         self.game_state['bottom_paddle_shrink'] = False
         self.game_state['bottom_paddle_shrink_scale'] = 1.0
-        print(f"[DEBUG SkillManager] reset_for_new_round 완료: shrink 상태 초기화됨")
+
+        # 쿠로카게 그림자분신 초기화
+        self.game_state['has_shadow_clones'] = False
+
+        print(f"[DEBUG SkillManager] reset_for_new_round 완료: shrink/shadow_clones 상태 초기화됨")
 
     def update(self, dt: float, top_paddle, bottom_paddle, ball):
         """스킬 업데이트"""
