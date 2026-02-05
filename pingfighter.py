@@ -131561,22 +131561,26 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[1] = ball_wrapper.vy
 
                     # 🗡️ 환영수리검 넉백 효과 적용 (상단=보스, 하단=플레이어)
+                    # 자연스러운 넉백: 부드러운 초기속도 + 감속 + 0.3초 경직
                     _kb_gs = arena_skill_manager.game_state
                     # 상단 패들 (보스) 넉백
                     if _kb_gs.get('top_paddle_knockback', False):
                         _kb_dir = _kb_gs.get('top_paddle_knockback_dir', 1)
-                        _kb_vel = _kb_gs.get('top_paddle_knockback_vel', 80)
-                        globals()['boss_knockback_timer'] = max(globals().get('boss_knockback_timer', 0), 20)
-                        _apply_boss_knockback_velocity(_kb_dir * _kb_vel * 0.5)
-                        print(f"🗡️ [IllusionShuriken] 보스 넉백! 방향={'오른쪽' if _kb_dir > 0 else '왼쪽'}, 속도={_kb_vel}")
+                        # 부드러운 넉백: 초기 속도 낮춤, 긴 타이머로 자연스러운 감속
+                        globals()['boss_knockback_timer'] = 25  # 넉백 지속 (약 0.4초)
+                        _apply_boss_knockback_velocity(_kb_dir * 8.0)  # 낮은 초기 속도
+                        # 넉백 후 0.3초 경직 (18프레임)
+                        globals()['boss_stunned_timer'] = max(globals().get('boss_stunned_timer', 0), 18)
+                        print(f"🗡️ [IllusionShuriken] 보스 넉백! 방향={'오른쪽' if _kb_dir > 0 else '왼쪽'}")
                         _kb_gs['top_paddle_knockback'] = False  # 플래그 리셋
                     # 하단 패들 (플레이어) 넉백
                     if _kb_gs.get('bottom_paddle_knockback', False):
                         _kb_dir = _kb_gs.get('bottom_paddle_knockback_dir', 1)
-                        _kb_vel = _kb_gs.get('bottom_paddle_knockback_vel', 80)
-                        globals()['player_knockback_vel'] = _kb_dir * _kb_vel * 0.8
-                        globals()['player_stunned_timer'] = max(globals().get('player_stunned_timer', 0), 15)
-                        print(f"🗡️ [IllusionShuriken] 플레이어 넉백! 방향={'오른쪽' if _kb_dir > 0 else '왼쪽'}, 속도={_kb_vel}")
+                        # 부드러운 넉백: 초기 속도 낮춤
+                        globals()['player_knockback_vel'] = _kb_dir * 6.0  # 낮은 초기 속도
+                        # 넉백 + 0.3초 경직 (총 약 0.5초)
+                        globals()['player_stunned_timer'] = max(globals().get('player_stunned_timer', 0), 30)
+                        print(f"🗡️ [IllusionShuriken] 플레이어 넉백! 방향={'오른쪽' if _kb_dir > 0 else '왼쪽'}")
                         _kb_gs['bottom_paddle_knockback'] = False  # 플래그 리셋
 
                     # ⚔️ 암흑 베기 커브 효과 적용 (스매셔 드라이브처럼 굴곡)
