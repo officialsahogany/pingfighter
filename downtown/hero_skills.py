@@ -3692,7 +3692,8 @@ class DragonBreath(HeroSkill):
                     game_state['ball_on_fire'] = True
 
         # 딜레이 중이거나 수명이 남은 파티클만 유지
-        self.breath_particles = [p for p in self.breath_particles if p['life'] > 0 or p.get('delay', 0) > 0]
+        # 파티클이 완전히 페이드아웃될 때까지 유지 (life가 -0.5 이하가 되면 제거)
+        self.breath_particles = [p for p in self.breath_particles if p['life'] > -0.5 or p.get('delay', 0) > 0]
 
         # 스킬 종료 0.5초 전에 화염 지대 생성 (화염병과 동일한 넉백 효과)
         if not self.fire_zone_spawned and self.active_timer <= 0.5 and target_paddle:
@@ -3747,16 +3748,26 @@ class DragonBreath(HeroSkill):
 
                 # 페이드아웃: max_life 기준으로 계산, 부드러운 ease-out 적용
                 max_life = p.get('max_life', 1.5)
-                raw_life_ratio = max(0, min(1, p['life'] / max_life))
+                current_life = p['life']
 
-                # Ease-out cubic: 수명 끝에 가까울수록 더 빠르게 페이드
-                # 수명 50% 이상일 때는 거의 불투명, 50% 이하부터 점점 페이드
-                if raw_life_ratio > 0.5:
+                # 3단계 페이드아웃:
+                # 1) life > 0.4 * max_life: 완전 불투명
+                # 2) 0 < life <= 0.4 * max_life: 점진적 페이드 (1.0 → 0.3)
+                # 3) -0.5 < life <= 0: 최종 페이드 (0.3 → 0)
+                fade_start = max_life * 0.4
+
+                if current_life > fade_start:
                     life_ratio = 1.0
+                elif current_life > 0:
+                    # 0 ~ fade_start 구간: 1.0 → 0.3 으로 서서히 페이드
+                    t = current_life / fade_start
+                    # smoothstep으로 부드럽게
+                    smooth_t = t * t * (3 - 2 * t)
+                    life_ratio = 0.3 + 0.7 * smooth_t
                 else:
-                    # 0~0.5 구간을 0~1로 매핑 후 ease-out 적용
-                    t = raw_life_ratio / 0.5
-                    life_ratio = t * t * (3 - 2 * t)  # smoothstep
+                    # -0.5 ~ 0 구간: 0.3 → 0 으로 최종 페이드
+                    t = max(0, (current_life + 0.5) / 0.5)  # -0.5에서 0, 0에서 1
+                    life_ratio = 0.3 * t * t  # ease-out quadratic
 
                 base_size = int(p['size'])
 
