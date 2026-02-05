@@ -1,24 +1,201 @@
 {
   "version": "1.0",
-  "timestamp": "2026-02-05T03:26:22.957409",
-  "stage_number": 1,
-  "character_type": "normal",
-  "ai_mode": "junior",
-  "downtown_gold": 1500,
+  "timestamp": "2026-02-05T10:37:00.768222",
+  "stage_number": 2,
+  "character_type": "smasher",
+  "ai_mode": "champion",
+  "downtown_gold": 35,
   "downtown_ap_current": null,
   "downtown_ap_is_first_stage": true,
-  "downtown_map_seed": null,
+  "downtown_map_seed": 479852,
   "deposit_balance": 0,
   "deposit_interest_rate": 0.0,
   "deposit_last_deposit_stage": 0,
   "deposit_pending_interest_rates": {},
   "medal_score": 0,
-  "passive_items": [],
-  "active_items": [],
+  "passive_items": [
+    {
+      "name": "knee_pads",
+      "type": "passive",
+      "effect": "knee_pads",
+      "_equipped_slot": "knee",
+      "rolled_options": [
+        {
+          "text": "하프대쉬 게이지 +51%",
+          "color": [
+            180,
+            130,
+            255
+          ],
+          "key": "knee_charge_pct",
+          "value": 51,
+          "unit": "%"
+        }
+      ],
+      "name_prefix": "고품질의",
+      "quality_tier": "high",
+      "quality_color": [
+        180,
+        130,
+        255
+      ]
+    },
+    {
+      "name": "cooltime",
+      "color": [
+        0,
+        255,
+        255
+      ],
+      "effect": "cooltime",
+      "x": 712,
+      "y": 691,
+      "type": "passive",
+      "rolled_options": [
+        {
+          "text": "아이템 쿨타임 -18%",
+          "color": [
+            180,
+            130,
+            255
+          ],
+          "key": "active_cooldown_pct",
+          "value": 18,
+          "unit": "%"
+        }
+      ],
+      "name_prefix": "영롱한",
+      "quality_tier": "high",
+      "quality_color": [
+        180,
+        130,
+        255
+      ],
+      "_equipped_slot": "accessory1"
+    },
+    {
+      "name": "gold_digger",
+      "color": [
+        255,
+        200,
+        50
+      ],
+      "effect": "gold_digger",
+      "x": 276,
+      "y": 663,
+      "type": "passive",
+      "rolled_options": [
+        {
+          "text": "골드 획득량 +33%",
+          "color": [
+            230,
+            230,
+            230
+          ],
+          "key": "gold_bonus_pct",
+          "value": 33,
+          "unit": "%"
+        }
+      ],
+      "name_prefix": "저급의",
+      "quality_tier": "low",
+      "quality_color": [
+        230,
+        230,
+        230
+      ],
+      "_equipped_slot": "left_arm"
+    },
+    {
+      "name": "chargebag",
+      "type": "passive",
+      "rolled_options": [
+        {
+          "text": "벽 반사 게이지 +32%",
+          "color": [
+            180,
+            130,
+            255
+          ],
+          "key": "chargebag_pct",
+          "value": 32,
+          "unit": "%"
+        }
+      ],
+      "quality_tier": "high",
+      "name_prefix": "고성능의",
+      "quality_color": [
+        180,
+        130,
+        255
+      ],
+      "_equipped_slot": "belt2"
+    }
+  ],
+  "active_items": [
+    {
+      "name": "regeneration_potion",
+      "color": [
+        255,
+        230,
+        80
+      ],
+      "effect": "regeneration_potion",
+      "x": 64,
+      "y": 683,
+      "temporary_overflow": false
+    },
+    {
+      "name": "smoke_grenade",
+      "color": [
+        150,
+        150,
+        150
+      ],
+      "effect": "smoke_grenade",
+      "x": 92,
+      "y": 671,
+      "temporary_overflow": false
+    },
+    {
+      "name": "wall",
+      "color": [
+        139,
+        69,
+        19
+      ],
+      "effect": "wall",
+      "x": 100,
+      "y": 663,
+      "temporary_overflow": false
+    }
+  ],
   "skill_points": 0,
   "skill_system": {
     "skill_points": 0,
-    "skill_levels": {},
+    "skill_levels": {
+      "dash_lightweight": 0,
+      "dash_module_control": 0,
+      "dash_jump": 0,
+      "dash_battery_pack": 0,
+      "dash_acceleration": 0,
+      "dash_amplification": 0,
+      "dash_spirit": 0,
+      "item_luck": 0,
+      "item_cooldown_mastery": 0,
+      "item_gauge_mastery": 0,
+      "item_bag_expansion": 0,
+      "item_caffeine": 0,
+      "item_polish": 0,
+      "item_recycle": 0,
+      "downtown_gamble": 0,
+      "downtown_treasure_map": 0,
+      "blacksmith_turret_enhance": 0,
+      "blacksmith_divine_enhance": 0,
+      "blacksmith_hammer_shock": 0,
+      "blacksmith_gauge_efficiency": 0,
+      "blacksmith_build_speed": 0
+    },
     "total_invested_points": 0,
     "total_invested_points_by_tree": {
       "dash": 0,
@@ -29,7 +206,10 @@
     }
   },
   "runtime_skills": {
-    "skill_levels": {},
+    "skill_levels": {
+      "dash_amplification": 1,
+      "dash_spirit": 1
+    },
     "starpoint_for_skills": 0,
     "pending_skill_choices": 0,
     "accessory_slot_bonus": 0,
@@ -55,7 +235,7 @@
     "ammo_states": {
       "ak47": {
         "current_ammo": 90,
-        "remaining_time": 0
+        "remaining_time": 1800
       },
       "net_gun": {
         "ammo_count": 4
@@ -64,7 +244,7 @@
         "ammo_count": 0
       },
       "suicide_drone": {
-        "ammo": 4
+        "ammo": 3
       },
       "bowling_trap": {
         "ammo_count": 3

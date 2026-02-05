@@ -3734,91 +3734,247 @@ class ShadowClone(HeroSkill):
             screen.blit(clone_surf, (int(clone['x']), caster_paddle.y))
 
 
-class FlashShuriken(HeroSkill):
-    """섬광 수리검 - 조명탄 효과로 시야 방해"""
+class IllusionShuriken(HeroSkill):
+    """환영수리검 - 3개의 수리검을 순차 발사, 벽에서 튕기고 넉백 유발"""
+
+    # 게임 영역 경계
+    GAME_LEFT = 80
+    GAME_RIGHT = 680
+
     def __init__(self):
         super().__init__(
-            skill_id="flash_shuriken",
-            name="Flash Shuriken",
-            korean_name="섬광 수리검",
-            description="섬광 수리검을 던져 상대의 눈을 멀게 한다",
+            skill_id="illusion_shuriken",
+            name="Illusion Shuriken",
+            korean_name="환영수리검",
+            description="3개의 수리검을 순차 발사하여 상대를 넉백시킨다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=12.0,
-            duration=2.0,
+            cooldown=14.0,
+            duration=4.0,
             hero_id="kurokage"
         )
-        self.shuriken_x = 0
-        self.shuriken_y = 0
-        self.shuriken_active = False
-        self.flash_intensity = 0
-        self.rotation = 0
+        self.shurikens = []  # 활성 수리검 목록
+        self.spawn_timer = 0  # 순차 발사 타이머
+        self.shurikens_spawned = 0  # 발사된 수리검 수
         self.target_is_top = False
+        self.caster_is_top = False
+        self.knockback_applied = False
+        self.hit_effects = []  # 히트 이펙트
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
-        self.shuriken_x = caster_paddle.x + 40
-        self.shuriken_y = caster_paddle.y
-        self.shuriken_active = True
-        self.flash_intensity = 0
-        self.rotation = 0
+        self.caster_is_top = caster_paddle.is_top
+        self.shurikens = []
+        self.spawn_timer = 0
+        self.shurikens_spawned = 0
+        self.knockback_applied = False
+        self.hit_effects = []
+
+        # 첫 번째 수리검 즉시 발사
+        self._spawn_shuriken(caster_paddle, 0)
 
         return {
             'sound': 'shuriken'
         }
 
-    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        if self.shuriken_active:
-            # 수리검 이동
-            direction = 1 if caster_paddle.is_top else -1
-            self.shuriken_y += direction * 600 * dt
-            self.rotation += dt * 1800
+    def _spawn_shuriken(self, caster_paddle, index: int):
+        """수리검 생성 - 인덱스에 따라 각도 변화"""
+        base_angle = 0 if self.caster_is_top else math.pi  # 아래로 or 위로
 
-            # 상대 패들 근처에서 폭발
-            if abs(self.shuriken_y - target_paddle.y) < 50:
-                self.shuriken_active = False
-                self.flash_intensity = 1.0
-                game_state['target_blind'] = True
-                game_state['blind_intensity'] = 1.0
-                game_state['blind_target_is_top'] = self.target_is_top
-        else:
-            # 섬광 감소
-            self.flash_intensity = max(0, self.flash_intensity - dt * 0.5)
-            game_state['blind_intensity'] = self.flash_intensity
+        # 각도 오프셋: -15도, 0도, +15도
+        angle_offsets = [-0.26, 0, 0.26]  # 라디안 (약 15도)
+        angle = base_angle + angle_offsets[index]
+
+        speed = 450  # 수리검 속도
+
+        self.shurikens.append({
+            'x': caster_paddle.x + 40,
+            'y': caster_paddle.y,
+            'vx': math.sin(angle) * speed,  # X 방향 속도
+            'vy': math.cos(angle) * speed if self.caster_is_top else -math.cos(angle) * speed,
+            'rotation': 0,
+            'bounces': 0,  # 튕긴 횟수
+            'active': True,
+            'trail': []  # 잔상 효과
+        })
+        self.shurikens_spawned += 1
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 순차 발사 (0.2초 간격)
+        if self.shurikens_spawned < 3:
+            self.spawn_timer += dt
+            if self.spawn_timer >= 0.2:
+                self.spawn_timer = 0
+                self._spawn_shuriken(caster_paddle, self.shurikens_spawned)
+
+        # 수리검 업데이트
+        for shuriken in self.shurikens:
+            if not shuriken['active']:
+                continue
+
+            # 잔상 추가
+            shuriken['trail'].append({
+                'x': shuriken['x'],
+                'y': shuriken['y'],
+                'alpha': 150,
+                'rotation': shuriken['rotation']
+            })
+            # 잔상 최대 5개 유지
+            if len(shuriken['trail']) > 5:
+                shuriken['trail'].pop(0)
+
+            # 이동
+            shuriken['x'] += shuriken['vx'] * dt
+            shuriken['y'] += shuriken['vy'] * dt
+            shuriken['rotation'] += dt * 1200  # 회전
+
+            # 벽 충돌 (좌우 바운스)
+            if shuriken['x'] <= self.GAME_LEFT:
+                shuriken['x'] = self.GAME_LEFT
+                shuriken['vx'] = abs(shuriken['vx'])  # 오른쪽으로 튕김
+                shuriken['bounces'] += 1
+            elif shuriken['x'] >= self.GAME_RIGHT:
+                shuriken['x'] = self.GAME_RIGHT
+                shuriken['vx'] = -abs(shuriken['vx'])  # 왼쪽으로 튕김
+                shuriken['bounces'] += 1
+
+            # 최대 3번 튕기면 비활성화
+            if shuriken['bounces'] > 3:
+                shuriken['active'] = False
+                continue
+
+            # 상하 경계 벗어나면 비활성화
+            if shuriken['y'] < -50 or shuriken['y'] > 800:
+                shuriken['active'] = False
+                continue
+
+            # 상대 패들과 충돌 체크
+            paddle_left = target_paddle.x
+            paddle_right = target_paddle.x + target_paddle.width
+            paddle_top = target_paddle.y
+            paddle_bottom = target_paddle.y + target_paddle.height
+
+            if (paddle_left - 15 <= shuriken['x'] <= paddle_right + 15 and
+                paddle_top - 15 <= shuriken['y'] <= paddle_bottom + 15):
+                # 히트!
+                shuriken['active'] = False
+
+                # 넉백 방향 결정 (수리검 X 속도 방향)
+                knockback_dir = 1 if shuriken['vx'] >= 0 else -1
+
+                # 넉백 적용
+                target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+                game_state[f'{target_prefix}_knockback'] = True
+                game_state[f'{target_prefix}_knockback_dir'] = knockback_dir
+                game_state[f'{target_prefix}_knockback_vel'] = 80  # 넉백 속도
+
+                # 히트 이펙트 추가
+                self.hit_effects.append({
+                    'x': shuriken['x'],
+                    'y': shuriken['y'],
+                    'timer': 0.3,
+                    'particles': [
+                        {
+                            'x': shuriken['x'],
+                            'y': shuriken['y'],
+                            'vx': random.uniform(-200, 200),
+                            'vy': random.uniform(-200, 200),
+                            'life': 0.4
+                        }
+                        for _ in range(8)
+                    ]
+                })
+
+        # 잔상 알파값 감소
+        for shuriken in self.shurikens:
+            for trail in shuriken['trail']:
+                trail['alpha'] = max(0, trail['alpha'] - dt * 400)
+
+        # 히트 이펙트 업데이트
+        for effect in self.hit_effects:
+            effect['timer'] -= dt
+            for p in effect['particles']:
+                p['x'] += p['vx'] * dt
+                p['y'] += p['vy'] * dt
+                p['life'] -= dt
+
+        # 완료된 이펙트 제거
+        self.hit_effects = [e for e in self.hit_effects if e['timer'] > 0]
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        game_state['target_blind'] = False
-        game_state['blind_intensity'] = 0
-        self.shuriken_active = False
+        self.shurikens = []
+        self.hit_effects = []
+        # 넉백 상태 클리어
+        for prefix in ['top_paddle', 'bottom_paddle']:
+            if f'{prefix}_knockback' in game_state:
+                game_state[f'{prefix}_knockback'] = False
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        if self.shuriken_active:
-            # 회전하는 수리검
-            shuriken_size = 20
-            surf = pygame.Surface((shuriken_size * 2, shuriken_size * 2), pygame.SRCALPHA)
+        # 잔상 그리기
+        for shuriken in self.shurikens:
+            for trail in shuriken['trail']:
+                if trail['alpha'] > 0:
+                    self._draw_shuriken(screen, trail['x'], trail['y'],
+                                       trail['rotation'], int(trail['alpha']))
 
-            center = shuriken_size
-            for i in range(4):
-                angle = math.radians(self.rotation + i * 90)
-                x1 = center + math.cos(angle) * 5
-                y1 = center + math.sin(angle) * 5
-                x2 = center + math.cos(angle) * shuriken_size
-                y2 = center + math.sin(angle) * shuriken_size
-                pygame.draw.polygon(surf, (150, 150, 170), [
-                    (center, center),
-                    (x1 + math.cos(angle + 0.3) * 8, y1 + math.sin(angle + 0.3) * 8),
-                    (x2, y2),
-                    (x1 + math.cos(angle - 0.3) * 8, y1 + math.sin(angle - 0.3) * 8)
-                ])
+        # 활성 수리검 그리기
+        for shuriken in self.shurikens:
+            if shuriken['active']:
+                self._draw_shuriken(screen, shuriken['x'], shuriken['y'],
+                                   shuriken['rotation'], 255)
 
-            pygame.draw.circle(surf, (100, 100, 120), (center, center), 5)
-            screen.blit(surf, (int(self.shuriken_x - shuriken_size), int(self.shuriken_y - shuriken_size)))
+        # 히트 이펙트 그리기
+        for effect in self.hit_effects:
+            # 임팩트 플래시
+            flash_alpha = int(200 * (effect['timer'] / 0.3))
+            pygame.draw.circle(screen, (180, 150, 255),
+                             (int(effect['x']), int(effect['y'])),
+                             int(30 * (1 - effect['timer'] / 0.3)), 2)
 
-        # 섬광 효과
-        if self.flash_intensity > 0:
-            flash_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
-            flash_alpha = int(255 * self.flash_intensity)
-            flash_surf.fill((255, 255, 255, flash_alpha))
-            screen.blit(flash_surf, (0, 0))
+            # 파티클
+            for p in effect['particles']:
+                if p['life'] > 0:
+                    alpha = int(255 * (p['life'] / 0.4))
+                    size = int(4 * (p['life'] / 0.4))
+                    if size > 0:
+                        surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(surf, (150, 130, 200, alpha), (size, size), size)
+                        screen.blit(surf, (int(p['x'] - size), int(p['y'] - size)))
+
+    def _draw_shuriken(self, screen: pygame.Surface, x: float, y: float,
+                       rotation: float, alpha: int):
+        """수리검 그리기"""
+        shuriken_size = 18
+        surf = pygame.Surface((shuriken_size * 2, shuriken_size * 2), pygame.SRCALPHA)
+
+        center = shuriken_size
+        # 4개의 날
+        for i in range(4):
+            angle = math.radians(rotation + i * 90)
+            x1 = center + math.cos(angle) * 4
+            y1 = center + math.sin(angle) * 4
+            x2 = center + math.cos(angle) * shuriken_size
+            y2 = center + math.sin(angle) * shuriken_size
+
+            # 날 색상 (보라빛 금속)
+            blade_color = (130, 110, 170, alpha)
+            edge_color = (180, 160, 220, alpha)
+
+            pygame.draw.polygon(surf, blade_color, [
+                (center, center),
+                (x1 + math.cos(angle + 0.4) * 7, y1 + math.sin(angle + 0.4) * 7),
+                (x2, y2),
+                (x1 + math.cos(angle - 0.4) * 7, y1 + math.sin(angle - 0.4) * 7)
+            ])
+
+            # 날 가장자리 하이라이트
+            pygame.draw.line(surf, edge_color,
+                           (center, center), (x2, y2), 1)
+
+        # 중앙 원
+        pygame.draw.circle(surf, (100, 80, 140, alpha), (center, center), 5)
+        pygame.draw.circle(surf, (150, 130, 190, alpha), (center, center), 3)
+
+        screen.blit(surf, (int(x - shuriken_size), int(y - shuriken_size)))
 
 
 # ============================================================================
@@ -3832,7 +3988,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "maria": [PuppetControl(), DollCurse()],
     "ignis": [DragonBreath(), DragonWing()],
     "gear": [SteamBarrier(), OilSpill()],
-    "kurokage": [ShadowClone(), FlashShuriken()]
+    "kurokage": [ShadowClone(), IllusionShuriken()]
 }
 
 

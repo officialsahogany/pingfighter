@@ -131623,6 +131623,25 @@ def main(stage_num, new_boss_mode=False):
                         # 넉백 적용 완료 플래그 해제
                         _horn_gs['horn_charge_apply_knockback'] = False
 
+                    # 🌀 환영수리검 넉백 적용 (쿠로카게)
+                    _shuriken_gs = arena_skill_manager.game_state
+                    for _paddle_prefix in ['top_paddle', 'bottom_paddle']:
+                        if _shuriken_gs.get(f'{_paddle_prefix}_knockback'):
+                            _kb_dir = _shuriken_gs.get(f'{_paddle_prefix}_knockback_dir', 1)
+                            _kb_vel = _shuriken_gs.get(f'{_paddle_prefix}_knockback_vel', 80)
+                            _target_is_top = (_paddle_prefix == 'top_paddle')
+
+                            if _target_is_top:
+                                # 보스(상단)에게 넉백 적용
+                                boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
+                            else:
+                                # 플레이어(하단)에게 넉백 적용
+                                player_knockback_vel = _kb_dir * _kb_vel
+                                player_stunned_timer = 15  # 0.25초 짧은 스턴
+
+                            # 넉백 플래그 해제
+                            _shuriken_gs[f'{_paddle_prefix}_knockback'] = False
+
                     # 🎭 수호 인형 공 반사 처리 (인형의 저주)
                     arena_game_state = arena_skill_manager.game_state
                     _guardian_bounce = arena_game_state.get('doll_guardian_ball_bounce')
