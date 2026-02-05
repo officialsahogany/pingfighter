@@ -2058,7 +2058,7 @@ class PuppetControl(HeroSkill):
             description="실로 상대를 끌어와 뽀뽀한 후 돌려보낸다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=35.0,
-            duration=4.0,  # 총 4초: 뻗기 0.7초 + 끌기 1.3초 + 뽀뽀 1초 + 복귀 1초
+            duration=3.62,  # 총 3.62초: 뻗기 0.7초 + 끌기 1.083초 + 뽀뽀 1초 + 복귀 0.833초 (이동 20% 빠르게)
             hero_id="maria"
         )
         self.strings = []
@@ -2146,9 +2146,9 @@ class PuppetControl(HeroSkill):
                 self.phase_timer = 0
                 game_state['target_puppeted'] = True
 
-        # Phase 2: 상대 끌어당기기 (1.3초)
+        # Phase 2: 상대 끌어당기기 (1.083초, 기존 1.3초에서 20% 빠르게)
         elif self.phase == self.PHASE_PULLING:
-            pull_progress = min(1.0, self.phase_timer / 1.3)
+            pull_progress = min(1.0, self.phase_timer / 1.083)
             # 이징 함수로 부드럽게
             eased = 1 - (1 - pull_progress) ** 2
 
@@ -2206,9 +2206,9 @@ class PuppetControl(HeroSkill):
                 self.phase = self.PHASE_RETURNING
                 self.phase_timer = 0
 
-        # Phase 4: 원래 위치로 복귀 (1초)
+        # Phase 4: 원래 위치로 복귀 (0.833초, 기존 1초에서 20% 빠르게)
         elif self.phase == self.PHASE_RETURNING:
-            return_progress = min(1.0, self.phase_timer / 1.0)
+            return_progress = min(1.0, self.phase_timer / 0.833)
             eased = return_progress ** 2  # ease-in
 
             # 현재 위치에서 원래 위치로
