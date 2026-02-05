@@ -58015,26 +58015,22 @@ def handle_player(keys):
                 shrink_scale = game_state.get('bottom_paddle_shrink_scale', 0.5)
                 target_width = int(130 * shrink_scale)  # 기본 패들 너비 130
                 target_height = int(40 * shrink_scale)  # 기본 패들 높이 40
-                print(f"[DEBUG Shrink BOTTOM] BEFORE: PLAYER.y={PLAYER.y}, PLAYER.bottom={PLAYER.bottom}, PLAYER.height={PLAYER.height}")
-                if PLAYER.width != target_width:
-                    center_x = PLAYER.centerx
-                    original_bottom = PLAYER.bottom  # 하단 좌표 보존! (하단 패들은 bottom 고정)
-                    PLAYER.width = target_width
-                    PLAYER.height = target_height
-                    PLAYER.centerx = center_x
-                    PLAYER.bottom = original_bottom  # 하단 좌표 복원!
-                print(f"[DEBUG Shrink BOTTOM] AFTER: PLAYER.y={PLAYER.y}, PLAYER.bottom={PLAYER.bottom}, PLAYER.height={PLAYER.height}")
+                # 하단 패들: 매 프레임 강제로 크기와 bottom 위치 고정
+                center_x = PLAYER.centerx
+                PLAYER.width = target_width
+                PLAYER.height = target_height
+                PLAYER.centerx = center_x
+                PLAYER.bottom = 750  # 하단 패들 bottom 위치 고정! (HEIGHT)
                 # 🔮 이동속도 15% 감소 (축소된 패들 페널티)
                 arena_player_slow_mult *= 0.85
             else:
                 # 축소 효과 해제 시 원래 크기(130x40)로 복원
                 if PLAYER.width != 130:
                     center_x = PLAYER.centerx
-                    original_bottom = PLAYER.bottom  # 하단 좌표 보존!
                     PLAYER.width = 130
                     PLAYER.height = 40
                     PLAYER.centerx = center_x
-                    PLAYER.bottom = original_bottom  # 하단 좌표 복원!
+                    PLAYER.bottom = 750  # 하단 패들 bottom 위치 고정!
         except Exception as e:
             print(f"[Arena] Player status effect error: {e}")
 
@@ -123327,26 +123323,22 @@ def handle_boss():
                 shrink_scale = game_state.get('top_paddle_shrink_scale', 0.5)
                 target_width = int(130 * shrink_scale)  # 기본 패들 너비 130
                 target_height = int(40 * shrink_scale)  # 기본 패들 높이 40
-                print(f"[DEBUG Shrink TOP] BEFORE: BOSS.y={BOSS.y}, BOSS.centery={BOSS.centery}, BOSS.height={BOSS.height}, target_h={target_height}")
-                if BOSS.width != target_width:
-                    center_x = BOSS.centerx
-                    original_y = BOSS.y  # Y 좌표 보존!
-                    BOSS.width = target_width
-                    BOSS.height = target_height
-                    BOSS.centerx = center_x
-                    BOSS.y = original_y  # Y 좌표 복원! (상단 패들은 Y 고정)
-                print(f"[DEBUG Shrink TOP] AFTER: BOSS.y={BOSS.y}, BOSS.centery={BOSS.centery}, BOSS.height={BOSS.height}")
+                # 상단 패들: 매 프레임 강제로 크기와 Y 위치 고정 (다른 코드의 복원 방지)
+                center_x = BOSS.centerx
+                BOSS.width = target_width
+                BOSS.height = target_height
+                BOSS.centerx = center_x
+                BOSS.y = 25  # 상단 패들 Y 위치 고정! (BOSS_Y 상수값)
                 # 🔮 이동속도 15% 감소 (축소된 패들 페널티)
                 arena_boss_slow_multiplier *= 0.85
             else:
                 # 축소 효과 해제 시 원래 크기(130x40)로 복원
                 if BOSS.width != 130:
                     center_x = BOSS.centerx
-                    original_y = BOSS.y  # Y 좌표 보존!
                     BOSS.width = 130
                     BOSS.height = 40
                     BOSS.centerx = center_x
-                    BOSS.y = original_y  # Y 좌표 복원!
+                    BOSS.y = 25  # 상단 패들 Y 위치 고정!
         except Exception as e:
             print(f"[Arena] Boss status effect error: {e}")
 
