@@ -524,13 +524,10 @@ class DemonEye(HeroSkill):
         game_state[size_key] = 1.2  # 20% 증가
 
         # 🔥 귀신발걸음 y축 이동 트리거 (아래로 관통)
-        # 시전자가 상단 패들(무겐)이면 아래로 이동
-        if caster_paddle.is_top:
-            game_state['ghost_step_start_top'] = True
-            print(f"[GhostStep] 상단 패들(무겐) 귀신발걸음 - 아래로 관통 이동 시작!")
-        else:
-            game_state['ghost_step_start_bottom'] = True
-            print(f"[GhostStep] 하단 패들 귀신발걸음 - 아래로 관통 이동 시작!")
+        # caster_paddle에 직접 start_ghost_step() 호출
+        if hasattr(caster_paddle, 'start_ghost_step'):
+            caster_paddle.start_ghost_step()
+            print(f"[GhostStep] 귀신발걸음 y축 이동 직접 호출 성공!")
 
         # 오오라 파티클 초기화
         self.aura_particles = []
