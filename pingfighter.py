@@ -57999,7 +57999,7 @@ def handle_player(keys):
                 arena_player_slow_mult *= speed_boost  # 속도 배율 적용
             # 혼란 체크 (조작 반전)
             arena_player_confused = game_state.get('bottom_paddle_confused', False)
-            # 패들 축소 체크 (크기만 변경, 이동속도 감소 없음)
+            # 패들 축소 체크 (크기 + 이동속도 15% 감소)
             if game_state.get('bottom_paddle_shrink', False):
                 shrink_scale = game_state.get('bottom_paddle_shrink_scale', 0.5)
                 target_width = int(130 * shrink_scale)  # 기본 패들 너비 130
@@ -58009,6 +58009,8 @@ def handle_player(keys):
                     PLAYER.width = target_width
                     PLAYER.height = target_height
                     PLAYER.centerx = center
+                # 🔮 이동속도 15% 감소 (축소된 패들 페널티)
+                arena_player_slow_mult *= 0.85
             else:
                 # 축소 효과 해제 시 원래 크기(130x40)로 복원
                 if PLAYER.width != 130:
@@ -123202,7 +123204,7 @@ def handle_boss():
                 arena_boss_slow_multiplier *= speed_boost  # 속도 배율 적용
             # 혼란 체크 (조작 반전)
             arena_boss_confused = game_state.get('top_paddle_confused', False)
-            # 패들 축소 체크 (크기만 변경, 이동속도 감소 없음)
+            # 패들 축소 체크 (크기 + 이동속도 15% 감소)
             if game_state.get('top_paddle_shrink', False):
                 shrink_scale = game_state.get('top_paddle_shrink_scale', 0.5)
                 target_width = int(130 * shrink_scale)  # 기본 패들 너비 130
@@ -123212,6 +123214,8 @@ def handle_boss():
                     BOSS.width = target_width
                     BOSS.height = target_height
                     BOSS.centerx = center
+                # 🔮 이동속도 15% 감소 (축소된 패들 페널티)
+                arena_boss_slow_multiplier *= 0.85
             else:
                 # 축소 효과 해제 시 원래 크기(130x40)로 복원
                 if BOSS.width != 130:
