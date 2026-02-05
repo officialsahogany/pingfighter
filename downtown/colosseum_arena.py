@@ -345,10 +345,6 @@ class AIPaddleController:
         if self.is_stunned:
             return
 
-        # 귀신발걸음 중이면 일반 x축 이동 안함 (y축으로만 이동)
-        if self.ghost_step_active:
-            return
-
         # 대쉬 중이거나 대쉬 후딜 중이면 일반 이동 안함
         if self.dash_active or self.dash_stun_timer > 0:
             return
