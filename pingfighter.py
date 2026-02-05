@@ -131872,8 +131872,8 @@ def main(stage_num, new_boss_mode=False):
                                 arena_top_ghost_step_phase = 0
                                 print(f"[GhostStep DEBUG] 상단 영웅 Y축 이동 시작! 원위치={arena_top_ghost_step_original_y}")
 
-                            # 업데이트
-                            BOSS.y += arena_top_ghost_step_velocity
+                            # 업데이트 (정수로 변환하여 pygame.Rect 오류 방지)
+                            BOSS.y = int(BOSS.y + arena_top_ghost_step_velocity)
                             current_offset = abs(BOSS.y - arena_top_ghost_step_original_y)
 
                             if arena_top_ghost_step_phase == 0:
@@ -131885,7 +131885,7 @@ def main(stage_num, new_boss_mode=False):
                             else:
                                 # 복귀: 원위치 도달 시 다시 전진
                                 if BOSS.y <= arena_top_ghost_step_original_y:
-                                    BOSS.y = arena_top_ghost_step_original_y
+                                    BOSS.y = int(arena_top_ghost_step_original_y)
                                     arena_top_ghost_step_phase = 0
                                     arena_top_ghost_step_velocity = arena_top_ghost_step_speed
                         else:
@@ -131893,13 +131893,13 @@ def main(stage_num, new_boss_mode=False):
                             if not arena_bottom_ghost_step_active:
                                 # 시작
                                 arena_bottom_ghost_step_active = True
-                                arena_bottom_ghost_step_original_y = PLAYER.y
+                                arena_bottom_ghost_step_original_y = int(PLAYER.y)
                                 arena_bottom_ghost_step_velocity = -arena_bottom_ghost_step_speed  # 위로
                                 arena_bottom_ghost_step_phase = 0
                                 print(f"[GhostStep DEBUG] 하단 영웅 Y축 이동 시작! 원위치={arena_bottom_ghost_step_original_y}")
 
-                            # 업데이트
-                            PLAYER.y += arena_bottom_ghost_step_velocity
+                            # 업데이트 (정수로 변환하여 pygame.Rect 오류 방지)
+                            PLAYER.y = int(PLAYER.y + arena_bottom_ghost_step_velocity)
                             current_offset = abs(PLAYER.y - arena_bottom_ghost_step_original_y)
 
                             if arena_bottom_ghost_step_phase == 0:
@@ -131911,7 +131911,7 @@ def main(stage_num, new_boss_mode=False):
                             else:
                                 # 복귀: 원위치 도달 시 다시 전진
                                 if PLAYER.y >= arena_bottom_ghost_step_original_y:
-                                    PLAYER.y = arena_bottom_ghost_step_original_y
+                                    PLAYER.y = int(arena_bottom_ghost_step_original_y)
                                     arena_bottom_ghost_step_phase = 0
                                     arena_bottom_ghost_step_velocity = -arena_bottom_ghost_step_speed
                     else:
