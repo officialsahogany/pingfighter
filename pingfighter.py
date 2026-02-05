@@ -131780,6 +131780,66 @@ def main(stage_num, new_boss_mode=False):
                         except:
                             pass
 
+                    # 🔥 투기장 화염지대 업데이트 및 충돌 체크 (플레이어/상단 영웅 모두)
+                    for _fz in fire_zones[:]:
+                        # 화염 파티클 업데이트
+                        _fz["spread_timer"] = _fz.get("spread_timer", 0) + 1
+                        # 불꽃 번짐 효과
+                        if _fz["spread_timer"] % 5 == 0 and len(_fz.get("flames", [])) < 30:
+                            for _ in range(2):
+                                _fz.setdefault("flames", []).append({
+                                    "x": _fz["x"] + random.uniform(-_fz["width"]/2, _fz["width"]/2),
+                                    "y": _fz["y"] + random.uniform(-_fz["height"]/2, _fz["height"]/2),
+                                    "size": random.uniform(10, 25),
+                                    "lifetime": random.uniform(15, 30),
+                                    "color_phase": random.uniform(0, 1)
+                                })
+                        # 불꽃 파티클 업데이트
+                        for _flame in _fz.get("flames", [])[:]:
+                            _flame["lifetime"] -= 1
+                            _flame["size"] *= 0.97
+                            _flame["y"] -= random.uniform(0.1, 0.5)
+                            _flame["x"] += random.uniform(-0.5, 0.5)
+                            if _flame["lifetime"] <= 0 or _flame["size"] < 2:
+                                _fz["flames"].remove(_flame)
+
+                        _fz_rect = pygame.Rect(
+                            _fz["x"] - _fz["width"] / 2,
+                            _fz["y"] - _fz["height"] / 2,
+                            _fz["width"],
+                            _fz["height"]
+                        )
+                        # 플레이어(하단 영웅) 충돌 체크
+                        if _fz_rect.colliderect(PLAYER) and not rolling_active:
+                            # 넉백 방향: 화염지대 중심에서 멀어지는 방향
+                            _push_dir = -1 if PLAYER.centerx < _fz["x"] else 1
+                            # 0.5초마다 넉백 적용
+                            _fz_push = _fz.get("arena_player_push_timer", 0)
+                            if _fz_push <= 0:
+                                _fz["arena_player_push_timer"] = 30  # 0.5초
+                                # 넉백 적용
+                                _push_force = 25
+                                PLAYER.x += _push_dir * _push_force
+                                PLAYER.x = max(GAME_AREA_OFFSET_X, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width, PLAYER.x))
+                        # 상단 영웅(BOSS) 충돌 체크
+                        if _fz_rect.colliderect(BOSS) and not arena_top_dashing:
+                            _push_dir = -1 if BOSS.centerx < _fz["x"] else 1
+                            _fz_push_boss = _fz.get("arena_boss_push_timer", 0)
+                            if _fz_push_boss <= 0:
+                                _fz["arena_boss_push_timer"] = 30  # 0.5초
+                                _push_force = 25
+                                BOSS.x += _push_dir * _push_force
+                                BOSS.x = max(GAME_AREA_OFFSET_X, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - BOSS.width, BOSS.x))
+                        # 푸시 타이머 감소
+                        if _fz.get("arena_player_push_timer", 0) > 0:
+                            _fz["arena_player_push_timer"] -= 1
+                        if _fz.get("arena_boss_push_timer", 0) > 0:
+                            _fz["arena_boss_push_timer"] -= 1
+                        # 화염지대 지속시간 감소 (투기장 전용)
+                        _fz["duration"] -= 1
+                        if _fz["duration"] <= 0:
+                            fire_zones.remove(_fz)
+
                     # ON_COOLDOWN 스킬 체크 (0.5초마다)
                     arena_skill_check_timer += dt
                     if arena_skill_check_timer >= 0.5:
