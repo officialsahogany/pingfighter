@@ -1084,15 +1084,39 @@ class ColosseumsArena:
         self.speech_duration = 90       # 말풍선 표시 시간 (1.5초)
 
     def _generate_bracket(self):
-        """8강 대진표 생성 - 상단 영웅 vs 하단 영웅 완전 랜덤 매칭"""
+        """8강 대진표 생성 - 모든 영웅 자유 매칭 (상단/하단 구분 없음)
+
+        변경사항:
+        - 기존: TOP_HEROES 4명 vs BOTTOM_HEROES 4명 고정
+        - 변경: ARENA_HEROES 8명 중 자유롭게 매칭 (무겐 vs 쿠로카게 등 가능)
+        - 각 매치에서 상단/하단 포지션은 랜덤 배정
+        - 스킬 방향은 is_top 플래그로 자동 조정됨
+        """
         # 현재 시간 기반 로컬 Random 인스턴스로 완전 랜덤화 (시드 고정 문제 방지)
         local_rng = random.Random(time.time())
-        self.top_heroes = local_rng.sample(TOP_HEROES, 4)
-        self.bottom_heroes = local_rng.sample(BOTTOM_HEROES, 4)
+
+        # 전체 8명 영웅을 셔플
+        all_heroes = local_rng.sample(ARENA_HEROES, len(ARENA_HEROES))
+
+        # 4개의 매치 생성 (0-1, 2-3, 4-5, 6-7 페어링)
+        self.top_heroes = []
+        self.bottom_heroes = []
 
         for i in range(4):
+            hero_a = all_heroes[i * 2]
+            hero_b = all_heroes[i * 2 + 1]
+
+            # 랜덤으로 상단/하단 결정
+            if local_rng.random() < 0.5:
+                top_hero, bottom_hero = hero_a, hero_b
+            else:
+                top_hero, bottom_hero = hero_b, hero_a
+
+            self.top_heroes.append(top_hero)
+            self.bottom_heroes.append(bottom_hero)
+
             # hero1 = 상단 패들 (화면 위), hero2 = 하단 패들 (화면 아래)
-            match = Match(self.top_heroes[i], self.bottom_heroes[i], i)
+            match = Match(top_hero, bottom_hero, i)
             self.matches[TournamentRound.QUARTER_FINAL].append(match)
 
     def _advance_to_next_round(self):
@@ -1115,19 +1139,15 @@ class ColosseumsArena:
             self.current_round = TournamentRound.FINAL
 
     def _create_positioned_match(self, hero_a: Dict, hero_b: Dict, match_id: int) -> Match:
-        """포지션에 따라 hero1(상단)/hero2(하단) 결정"""
-        pos_a = hero_a.get("position", "top")
-        pos_b = hero_b.get("position", "bottom")
+        """랜덤으로 hero1(상단)/hero2(하단) 결정
 
-        # 둘 다 같은 포지션이면 랜덤 배치
-        if pos_a == pos_b:
-            if random.random() < 0.5:
-                return Match(hero_a, hero_b, match_id)
-            else:
-                return Match(hero_b, hero_a, match_id)
-
-        # top 포지션 영웅이 hero1 (상단 패들)
-        if pos_a == "top":
+        변경사항:
+        - 기존: 영웅의 원래 position 필드에 따라 배치
+        - 변경: 항상 랜덤 배치 (모든 영웅이 상단/하단 모두 가능)
+        - 스킬 방향은 is_top 플래그로 자동 조정됨
+        """
+        # 항상 랜덤 배치
+        if random.random() < 0.5:
             return Match(hero_a, hero_b, match_id)
         else:
             return Match(hero_b, hero_a, match_id)
