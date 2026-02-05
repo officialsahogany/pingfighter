@@ -299,6 +299,12 @@ class AIPaddleController:
         self.last_ball_x = GAME_AREA_X + GAME_AREA_WIDTH // 2
         self.emergency_dash_threshold = 120  # 긴급 대쉬 발동 거리
 
+        # 귀신발걸음 (Ghost Step) y축 이동 시스템
+        self.ghost_step_active = False  # 귀신발걸음 y축 이동 활성화 여부
+        self.ghost_step_y_velocity = 0.0  # y축 이동 속도
+        self.ghost_step_speed = 12.0  # 기본 y축 이동 속도
+        self.original_y = self.y  # 원래 y 위치 저장
+
     def _predict_x_with_walls(self, ball_x: float, ball_vx: float, ball_y: float,
                                ball_vy: float, target_y: float) -> float:
         """벽 반사를 고려한 도착 X 좌표 예측 (실제 보스 AI와 동일)"""
@@ -332,8 +338,15 @@ class AIPaddleController:
         # 대쉬 상태 업데이트 (항상 먼저)
         self.update_dash(dt)
 
+        # 귀신발걸음 y축 이동 업데이트
+        self.update_ghost_step(dt)
+
         # 스턴 상태면 움직이지 않음
         if self.is_stunned:
+            return
+
+        # 귀신발걸음 중이면 일반 x축 이동 안함 (y축으로만 이동)
+        if self.ghost_step_active:
             return
 
         # 대쉬 중이거나 대쉬 후딜 중이면 일반 이동 안함
@@ -568,6 +581,38 @@ class AIPaddleController:
                 self.dash_delay_sound_playing = True
         except Exception:
             pass
+
+    def start_ghost_step(self):
+        """귀신발걸음 y축 이동 시작 (아래로 내려가기)"""
+        if self.ghost_step_active:
+            return False
+
+        self.ghost_step_active = True
+        self.original_y = self.y
+        # 항상 아래로 이동 (y값 증가)
+        self.ghost_step_y_velocity = self.ghost_step_speed
+        print(f"[GhostStep] 귀신발걸음 y축 이동 시작! 현재 y={self.y}")
+        return True
+
+    def update_ghost_step(self, dt: float):
+        """귀신발걸음 y축 이동 업데이트"""
+        if not self.ghost_step_active:
+            return
+
+        # y축으로 이동
+        self.y += self.ghost_step_y_velocity
+
+        # 화면 하단을 벗어났는지 확인 (플레이어 뒤쪽 벽 = SCREEN_HEIGHT 이상)
+        if self.y > SCREEN_HEIGHT + PADDLE_HEIGHT:
+            print(f"[GhostStep] 화면 하단 벗어남! y={self.y}, 원위치로 복귀")
+            self.end_ghost_step()
+
+    def end_ghost_step(self):
+        """귀신발걸음 y축 이동 종료 및 원위치 복귀"""
+        self.ghost_step_active = False
+        self.y = self.original_y
+        self.ghost_step_y_velocity = 0.0
+        print(f"[GhostStep] 귀신발걸음 종료, y={self.y}로 복귀")
 
     def ai_try_emergency_dash(self, ball_x: float, ball_y: float, ball_vx: float, ball_vy: float) -> bool:
         """AI 긴급 대쉬 판단 (보스 AI와 동일한 로직)"""
@@ -1312,8 +1357,13 @@ class ColosseumsArena:
                 # 🔮 난쟁이마술 등으로 축소된 패들 크기 복원
                 if self.top_paddle:
                     self.top_paddle.paddle_scale = 1.0
+                    # 귀신발걸음 y축 이동 중이면 강제 종료 및 원위치 복귀
+                    if self.top_paddle.ghost_step_active:
+                        self.top_paddle.end_ghost_step()
                 if self.bottom_paddle:
                     self.bottom_paddle.paddle_scale = 1.0
+                    if self.bottom_paddle.ghost_step_active:
+                        self.bottom_paddle.end_ghost_step()
 
             # 승리 체크 (5점 선취, 4:4부터 듀스)
             if self._check_winner():
@@ -1352,6 +1402,17 @@ class ColosseumsArena:
         self.bottom_paddle.slow_multiplier = game_state.get('bottom_paddle_slow_amount', 1.0) if game_state.get('bottom_paddle_slowed', False) else 1.0
         self.bottom_paddle.is_confused = game_state.get('bottom_paddle_confused', False)
         self.bottom_paddle.paddle_scale = game_state.get('bottom_paddle_shrink_scale', 1.0) if game_state.get('bottom_paddle_shrink', False) else 1.0
+
+        # 🔥 귀신발걸음 y축 이동 트리거 처리
+        if game_state.get('ghost_step_start_top', False):
+            self.top_paddle.start_ghost_step()
+            game_state['ghost_step_start_top'] = False  # 플래그 초기화 (한번만 발동)
+            print(f"[Arena] 상단 패들 귀신발걸음 y축 이동 시작!")
+
+        if game_state.get('ghost_step_start_bottom', False):
+            self.bottom_paddle.start_ghost_step()
+            game_state['ghost_step_start_bottom'] = False  # 플래그 초기화
+            print(f"[Arena] 하단 패들 귀신발걸음 y축 이동 시작!")
 
         # DEBUG: 축소 효과 확인
         if game_state.get('top_paddle_shrink', False) or game_state.get('bottom_paddle_shrink', False):
