@@ -1419,10 +1419,7 @@ class DwarfMagic(HeroSkill):
                 target_prefix = 'top_paddle' if self.shrunk_target_is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_shrink'] = False
                 game_state[f'{target_prefix}_shrink_scale'] = 1.0
-                # 🐢 이동속도 감소 해제
-                game_state[f'{target_prefix}_slowed'] = False
-                game_state[f'{target_prefix}_slow_amount'] = 1.0
-                print(f"[DEBUG 난쟁이마술] ★ 효과 해제! {target_prefix}_shrink=False, slow=False, game_state ID={id(game_state)}")
+                print(f"[DEBUG 난쟁이마술] ★ 효과 해제! {target_prefix}_shrink=False, game_state ID={id(game_state)}")
                 self.hit_target = False
                 self.shrunk_target_is_top = None
 
@@ -1476,10 +1473,7 @@ class DwarfMagic(HeroSkill):
                 target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_shrink'] = True
                 game_state[f'{target_prefix}_shrink_scale'] = 0.5  # 50% 축소
-                # 🐢 이동속도 10% 감소 적용
-                game_state[f'{target_prefix}_slowed'] = True
-                game_state[f'{target_prefix}_slow_amount'] = 0.9  # 10% 감소 (90% 속도)
-                print(f"[DEBUG 난쟁이마술] 명중! target_is_top={target_paddle.is_top}, {target_prefix}_shrink=True, scale=0.5, slow=0.9")
+                print(f"[DEBUG 난쟁이마술] 명중! target_is_top={target_paddle.is_top}, {target_prefix}_shrink=True, scale=0.5")
                 print(f"[DEBUG 난쟁이마술] game_state ID: {id(game_state)}, shrink값: {game_state.get(f'{target_prefix}_shrink')}")
 
                 # 명중 시 파티클 폭발
