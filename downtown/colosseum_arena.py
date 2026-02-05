@@ -1319,6 +1319,43 @@ class ColosseumsArena:
                     game_state['dark_slash_active'] = False
                     print(f"[DarkSlash] 벽 반사 → 상대 방향으로 즉시 꺾음! vy={self.ball.vy:.1f}")
 
+            # === 그림자분신 공 반사 처리 ===
+            if self.skill_manager:
+                game_state = self.skill_manager.game_state
+                bounce_info = game_state.get('shadow_clone_ball_bounce')
+                if bounce_info:
+                    clone_x = bounce_info['clone_x']
+                    clone_y = bounce_info['clone_y']
+                    caster_is_top = bounce_info['caster_is_top']
+
+                    # 공 반사 - 상대 방향으로 (클론을 친 효과)
+                    # 클론에서 공까지의 상대 위치로 X 방향 결정
+                    hit_offset = (self.ball.x + self.ball.width / 2) - clone_x
+                    angle_factor = hit_offset / 40.0  # 클론 너비 기준 각도
+
+                    # Y 방향은 상대 진영으로
+                    if caster_is_top:
+                        # 상단 캐스터의 분신 → 공을 하단으로 반사
+                        self.ball.vy = abs(self.ball.vy) * 1.1  # 약간 가속
+                    else:
+                        # 하단 캐스터의 분신 → 공을 상단으로 반사
+                        self.ball.vy = -abs(self.ball.vy) * 1.1
+
+                    # X 방향 조정
+                    self.ball.vx = self.ball.vx * 0.8 + angle_factor * 3.0
+
+                    # 속도 제한
+                    speed = math.sqrt(self.ball.vx ** 2 + self.ball.vy ** 2)
+                    if speed > BALL_MAX_SPEED:
+                        scale = BALL_MAX_SPEED / speed
+                        self.ball.vx *= scale
+                        self.ball.vy *= scale
+
+                    print(f"[ShadowClone] 공 반사! clone_pos=({clone_x:.0f}, {clone_y:.0f}), ball_vel=({self.ball.vx:.1f}, {self.ball.vy:.1f})")
+
+                    # 반사 처리 완료 - 플래그 제거
+                    del game_state['shadow_clone_ball_bounce']
+
             # 패들 충돌 체크 + 스킬 발동
             if self.ball.check_paddle_collision(self.top_paddle):
                 self._on_ball_hit(self.selected_match.hero1["id"], self.top_paddle, self.bottom_paddle)

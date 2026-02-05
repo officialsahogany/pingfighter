@@ -3776,6 +3776,7 @@ class ShadowClone(HeroSkill):
                 clone['x'] = self.spawn_x + clone['target_offset'] * t
             else:
                 # 자유 이동: 좌우로 움직이며 벽에서 튕김
+                old_x = clone['x']
                 clone['x'] += clone['vx']
 
                 # 벽 충돌 (튕김) - 캐릭터 너비 고려
@@ -3788,14 +3789,16 @@ class ShadowClone(HeroSkill):
                     clone['vx'] = -abs(clone['vx'])
 
                 # 약간의 난수 가속으로 불규칙성 추가
-                clone['vx'] += random.uniform(-0.5, 0.5)
+                clone['vx'] += random.uniform(-0.3, 0.3)  # 변동폭 감소 (-0.5 -> -0.3)
 
-                # 속도 클램프
+                # 속도 클램프 (최소 속도 보장)
                 speed = abs(clone['vx'])
-                if speed > 12.0:
-                    clone['vx'] = clone['vx'] / speed * 12.0
-                elif speed < 4.0:
-                    clone['vx'] = (clone['vx'] / speed * 4.0) if speed > 0.1 else random.choice([-4.0, 4.0])
+                if speed > 10.0:  # 최대 속도 감소 (12 -> 10)
+                    clone['vx'] = clone['vx'] / speed * 10.0
+                elif speed < 5.0:  # 최소 속도 증가 (4 -> 5)
+                    # 속도가 너무 작으면 최소 속도로 재설정
+                    direction = 1 if clone['vx'] >= 0 else -1
+                    clone['vx'] = 5.0 * direction
 
             # 공과 충돌 체크 (등장 애니메이션 후에만)
             if ball is not None and clone['spawn_time'] >= self.EMERGE_DURATION:
@@ -3873,9 +3876,9 @@ class ShadowClone(HeroSkill):
 
         # HeroPaddleRenderer가 있으면 실제 캐릭터 그리기
         if renderer and HERO_PADDLE_RENDERER_AVAILABLE:
-            # 큰 서피스에 캐릭터 렌더링
-            char_width = 150
-            char_height = 120
+            # 큰 서피스에 캐릭터 렌더링 (적절한 크기로 조정)
+            char_width = 120
+            char_height = 100
             temp_surf = pygame.Surface((char_width, char_height), pygame.SRCALPHA)
 
             # 렌더러 시간 업데이트 (애니메이션용)
@@ -3884,39 +3887,40 @@ class ShadowClone(HeroSkill):
             # 그림자 색조의 캐릭터 색상 (보라빛 어둠)
             shadow_color = (70, 60, 100)
 
-            # 캐릭터 그리기
+            # 캐릭터 그리기 - preview 모드 사용으로 적절한 크기 유지
             try:
                 renderer.draw_hero_paddle(
                     temp_surf,
                     "kurokage",
                     char_width // 2,  # 중앙 X
-                    char_height - 15,  # Y 위치
-                    self.CLONE_WIDTH,
+                    char_height - 10,  # Y 위치
+                    100,  # 적절한 너비 (너무 작으면 캐릭터가 작아짐)
                     12,  # 패들 높이
                     self.caster_facing,
                     shadow_color,  # 그림자 색조
-                    "paddle"
+                    "preview"  # preview 모드로 변경 (캐릭터 크기 유지)
                 )
 
                 # 알파 적용
                 temp_surf.set_alpha(alpha)
 
                 # 화면에 블릿 (캐릭터 중심이 x, y에 오도록)
-                screen.blit(temp_surf, (x - char_width // 2, y - char_height + 25))
+                screen.blit(temp_surf, (x - char_width // 2, y - char_height + 15))
 
             except Exception as e:
+                print(f"[DEBUG ShadowClone] draw_hero_paddle 실패: {e}")
                 # 폴백: 실루엣 스타일 분신
                 self._draw_fallback_clone(screen, x, y, alpha)
         else:
             # 폴백: 실루엣 스타일 분신
             self._draw_fallback_clone(screen, x, y, alpha)
 
-        # 그림자 오라 효과 (ADD 블렌딩)
-        glow_size = 70
+        # 그림자 오라 효과 (ADD 블렌딩) - 캐릭터 크기에 맞게 조정
+        glow_size = 50  # 70 -> 50으로 축소
         glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-        pygame.draw.ellipse(glow_surf, (60, 50, 90, int(alpha * 0.25)),
+        pygame.draw.ellipse(glow_surf, (60, 50, 90, int(alpha * 0.2)),  # 알파값 감소
                           (0, 0, glow_size, glow_size))
-        screen.blit(glow_surf, (x - glow_size // 2, y - glow_size // 2 - 20),
+        screen.blit(glow_surf, (x - glow_size // 2, y - glow_size // 2 - 25),
                    special_flags=pygame.BLEND_ADD)
 
     def _draw_fallback_clone(self, screen: pygame.Surface, x: int, y: int, alpha: int):
@@ -4048,25 +4052,37 @@ class IllusionShuriken(HeroSkill):
 
     def _spawn_shuriken(self, caster_paddle, index: int):
         """수리검 생성 - 인덱스에 따라 각도 변화"""
-        base_angle = 0 if self.caster_is_top else math.pi  # 아래로 or 위로
-
         # 각도 오프셋: -15도, 0도, +15도
         angle_offsets = [-0.26, 0, 0.26]  # 라디안 (약 15도)
-        angle = base_angle + angle_offsets[index]
 
         speed = 450  # 수리검 속도
 
+        # 방향 계산: caster_is_top이면 아래로(+Y), 아니면 위로(-Y)
+        if self.caster_is_top:
+            # 상단에서 하단으로 발사
+            vy = speed
+            vx = math.tan(angle_offsets[index]) * speed * 0.3  # X 방향 편향
+        else:
+            # 하단에서 상단으로 발사
+            vy = -speed
+            vx = math.tan(angle_offsets[index]) * speed * 0.3  # X 방향 편향
+
+        # 패들 중앙에서 발사
+        spawn_x = caster_paddle.x + caster_paddle.width // 2
+        spawn_y = caster_paddle.y + (caster_paddle.height if self.caster_is_top else 0)
+
         self.shurikens.append({
-            'x': caster_paddle.x + 40,
-            'y': caster_paddle.y,
-            'vx': math.sin(angle) * speed,  # X 방향 속도
-            'vy': math.cos(angle) * speed if self.caster_is_top else -math.cos(angle) * speed,
+            'x': spawn_x,
+            'y': spawn_y,
+            'vx': vx,
+            'vy': vy,
             'rotation': 0,
             'bounces': 0,  # 튕긴 횟수
             'active': True,
             'trail': []  # 잔상 효과
         })
         self.shurikens_spawned += 1
+        print(f"[DEBUG IllusionShuriken] Spawned shuriken {index}: x={spawn_x}, y={spawn_y}, vx={vx:.1f}, vy={vy:.1f}")
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         # 순차 발사 (0.2초 간격)
