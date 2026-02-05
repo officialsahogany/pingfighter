@@ -131560,6 +131560,25 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
 
+                    # 🗡️ 환영수리검 넉백 효과 적용 (상단=보스, 하단=플레이어)
+                    _kb_gs = arena_skill_manager.game_state
+                    # 상단 패들 (보스) 넉백
+                    if _kb_gs.get('top_paddle_knockback', False):
+                        _kb_dir = _kb_gs.get('top_paddle_knockback_dir', 1)
+                        _kb_vel = _kb_gs.get('top_paddle_knockback_vel', 80)
+                        globals()['boss_knockback_timer'] = max(globals().get('boss_knockback_timer', 0), 20)
+                        _apply_boss_knockback_velocity(_kb_dir * _kb_vel * 0.5)
+                        print(f"🗡️ [IllusionShuriken] 보스 넉백! 방향={'오른쪽' if _kb_dir > 0 else '왼쪽'}, 속도={_kb_vel}")
+                        _kb_gs['top_paddle_knockback'] = False  # 플래그 리셋
+                    # 하단 패들 (플레이어) 넉백
+                    if _kb_gs.get('bottom_paddle_knockback', False):
+                        _kb_dir = _kb_gs.get('bottom_paddle_knockback_dir', 1)
+                        _kb_vel = _kb_gs.get('bottom_paddle_knockback_vel', 80)
+                        globals()['player_knockback_vel'] = _kb_dir * _kb_vel * 0.8
+                        globals()['player_stunned_timer'] = max(globals().get('player_stunned_timer', 0), 15)
+                        print(f"🗡️ [IllusionShuriken] 플레이어 넉백! 방향={'오른쪽' if _kb_dir > 0 else '왼쪽'}, 속도={_kb_vel}")
+                        _kb_gs['bottom_paddle_knockback'] = False  # 플래그 리셋
+
                     # ⚔️ 암흑 베기 커브 효과 적용 (스매셔 드라이브처럼 굴곡)
                     _dark_gs = arena_skill_manager.game_state
                     if _dark_gs.get('dark_slash_spin_strength', 0) > 0:
