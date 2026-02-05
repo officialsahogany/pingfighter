@@ -71,7 +71,10 @@
       "Bash(findstr:*)",
       "Bash(cmd /c copy:*)",
       "Bash(git stash:*)",
-      "Bash(git -C d:/main/bosspong commit -m \"$\\(cat <<''EOF''\nFeat: 무겐 귀신의 눈 - 7초간 이동속도 100% 증가 + 오오라 이펙트\n\n- 지속시간 4초 → 7초 변경\n- 이동속도 2배 증가 효과 추가\n- 패들 주변 회전하는 보라색 오오라 파티클 이펙트\n- 귀신 눈 맥동 이펙트\n- game_state에 speed_boost 키 추가\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git -C d:/main/bosspong commit -m \"$\\(cat <<''EOF''\nFeat: 무겐 귀신의 눈 - 7초간 이동속도 100% 증가 + 오오라 이펙트\n\n- 지속시간 4초 → 7초 변경\n- 이동속도 2배 증가 효과 추가\n- 패들 주변 회전하는 보라색 오오라 파티클 이펙트\n- 귀신 눈 맥동 이펙트\n- game_state에 speed_boost 키 추가\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"d:\\\\main\\\\bosspong\" add -A)",
+      "Bash(git -C \"d:\\\\main\\\\bosspong\" commit -m \"Fix: AIPaddleController에 width/height 속성 추가 - 스킬 코드에서 target_paddle.width/height 사용 시 호환성 문제 해결 - 난쟁이마술 등 여러 스킬에서 패들 좌표 계산 시 필요한 속성 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\")",
+      "Bash(git -C \"d:\\\\main\\\\bosspong\" push)"
     ],
     "deny": [],
     "ask": [],

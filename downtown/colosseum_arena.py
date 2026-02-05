@@ -251,6 +251,8 @@ class AIPaddleController:
         self.target_x = self.x
         self.velocity = 0.0
         self.visual_width = PADDLE_WIDTH  # 시각적 패들 너비 (스킬 효과용)
+        self.width = PADDLE_WIDTH  # 스킬 코드 호환용 (target_paddle.width)
+        self.height = PADDLE_HEIGHT  # 스킬 코드 호환용 (target_paddle.height)
 
         # 영웅 스탯 기반 능력치
         self.base_speed = 7.0 * hero["speed"]
