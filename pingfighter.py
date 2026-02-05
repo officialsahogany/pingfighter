@@ -59363,7 +59363,7 @@ def handle_player(keys):
         # 넉백 적용 (스턴 중 감속 이동)
         if abs(player_knockback_vel) > 0.5:
             old_x = PLAYER.x
-            PLAYER.x += player_knockback_vel
+            PLAYER.x += int(player_knockback_vel)
             PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
             pass  # print(f"🔧 [STUN] 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, timer={player_stunned_timer})")  # 디버그 비활성화
         # 감속 (뿔박치기는 더 부드러운 감속 적용)
@@ -59392,7 +59392,7 @@ def handle_player(keys):
         # 넉백 적용 (감속 이동)
         if abs(player_missile_knockback_vel) > 0.5:
             old_x = PLAYER.x
-            PLAYER.x += player_missile_knockback_vel
+            PLAYER.x += int(player_missile_knockback_vel)
             PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
             pass  # print(f"🚀 [MISSILE STUN] 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_missile_knockback_vel:.2f}, timer={player_missile_stunned_timer})")  # 디버그 비활성화
         # 감속 (화염탄과 동일한 0.85)
@@ -59819,7 +59819,7 @@ def handle_player(keys):
 
                     # 🧊 첫 번째 미끄러짐 이동을 즉시 실행 (지연 방지)
                     ice_slide_offset = ice_dash_slide_speed * ice_dash_slide_direction
-                    PLAYER.x += ice_slide_offset
+                    PLAYER.x += int(ice_slide_offset)
                     PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
                     if DEBUG_MODE:
                         print(f"[ICE SLIDE] 즉시 첫 이동! offset={ice_slide_offset}, new_x={PLAYER.x}")
@@ -62582,7 +62582,12 @@ def handle_player(keys):
                 pass
         if soldier_control_lock_timer <= 0 or is_dashing:
             if not suicide_drone_active and not ice_dash_sliding:
-                PLAYER.x += current_speed
+                # pygame.Rect 안전을 위해 int() 변환 및 유효성 검사
+                try:
+                    safe_speed = int(current_speed) if current_speed == current_speed else 0  # NaN 체크
+                    PLAYER.x += safe_speed
+                except (ValueError, OverflowError):
+                    pass  # 유효하지 않은 값이면 무시
 
         # 후딜 시간은 항상 감소 (대쉬 중에도)
         if soldier_control_lock_timer > 0:
@@ -62611,7 +62616,7 @@ def handle_player(keys):
     
     # 스매셔 파워스매싱 반동 적용 (모든 캐릭터 공통)
     if smasher_power_recoil_timer > 0:
-        PLAYER.x += smasher_power_recoil_vel
+        PLAYER.x += int(smasher_power_recoil_vel)
         smasher_power_recoil_vel *= SMASHER_POWER_RECOIL_DECAY * _get_knockback_resist_scale()
         smasher_power_recoil_timer -= 1
         if abs(smasher_power_recoil_vel) < SMASHER_POWER_RECOIL_STOP_THRESHOLD:
@@ -62628,14 +62633,14 @@ def handle_player(keys):
         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
     
     # 화염 지대 넉백은 감전/스턴 상태와 무관하게 항상 적용
-    PLAYER.x += player_flame_zone_knockback_vel
+    PLAYER.x += int(player_flame_zone_knockback_vel)
     PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
 
     # === 스테이지 2 바나나 미끄러짐 효과 ===
     if current_stage == 2 and pillar_renderer is not None:
         if pillar_renderer.is_player_slipping():
             banana_slip_offset = pillar_renderer.get_monkey_slip_offset()
-            PLAYER.x += banana_slip_offset
+            PLAYER.x += int(banana_slip_offset)
             PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
 
     # === 🧊 얼음 이벤트 대쉬 미끄러짐 효과 (바나나 슬립처럼 벽까지 미끄러짐) ===
@@ -62644,7 +62649,7 @@ def handle_player(keys):
         # 대쉬 후 미끄러짐 처리 - 대쉬한 방향으로 벽까지 미끄러짐
         ice_slide_offset = ice_dash_slide_speed * ice_dash_slide_direction
         old_x = PLAYER.x
-        PLAYER.x += ice_slide_offset
+        PLAYER.x += int(ice_slide_offset)
         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
 
         # 디버그: 매 10프레임마다 출력
@@ -62673,7 +62678,7 @@ def handle_player(keys):
     if is_weather_active():
         weather_push = apply_weather_effects_to_player(PLAYER, WIDTH)
         if weather_push != 0:
-            PLAYER.x += weather_push
+            PLAYER.x += int(weather_push)
             PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
 
     # === 코만도 캐릭터 걷기 애니메이션 처리 ===
@@ -63210,7 +63215,7 @@ def handle_player(keys):
             knockback_dir = random.choice([-12, 12])  # 우박과 동일한 넉백 강도
             player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
             # 첫 프레임 이동 + 즉시 감속
-            PLAYER.x += player_knockback_vel
+            PLAYER.x += int(player_knockback_vel)
             PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
             print(f"🔥 [FIRE BALL HIT] 플레이어 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f})")
             # 즉시 감속 적용
@@ -90602,7 +90607,7 @@ def draw_objects():
                     knockback_dir = random.choice([-12, 12])
                     player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir))
                     # 첫 프레임 이동 + 즉시 감속 (실행 순서 문제 해결)
-                    PLAYER.x += player_knockback_vel
+                    PLAYER.x += int(player_knockback_vel)
                     PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
                     print(f"🧊 [HAIL HIT] 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, dir={knockback_dir})")
                     # 즉시 감속 적용 (다음 프레임과의 갭 제거)
@@ -90667,7 +90672,7 @@ def draw_objects():
                         player_missile_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_direction * 14))
                         player_missile_stunned_timer = int(stun_applied * FPS)
                         # 첫 프레임 이동 + 즉시 감속 (실행 순서 문제 해결)
-                        PLAYER.x += player_missile_knockback_vel
+                        PLAYER.x += int(player_missile_knockback_vel)
                         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
                         pass  # print(f"🚀 [MISSILE HIT] 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_missile_knockback_vel:.2f})")  # 디버그 비활성화
                         # 즉시 감속 적용 (다음 프레임과의 갭 제거)
@@ -130744,7 +130749,7 @@ def main(stage_num, new_boss_mode=False):
                             _scale_knockback(SMASHER_POWER_RECOIL_SPEED * recoil_dir)
                         )
                         smasher_power_recoil_timer = SMASHER_POWER_RECOIL_FRAMES
-                        PLAYER.x += smasher_power_recoil_vel  # 즉시 한 번 튕김
+                        PLAYER.x += int(smasher_power_recoil_vel)  # 즉시 한 번 튕김
                         current_speed = 0  # 같은 프레임 이동 입력 무력화
                         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
                         _kb_debug(f"[SMASHER_RECOIL_APPLY] dir={recoil_dir}, vel={smasher_power_recoil_vel:.2f}, frames={smasher_power_recoil_timer}, x={PLAYER.x}")
@@ -132009,7 +132014,7 @@ def main(stage_num, new_boss_mode=False):
                                 _fz["arena_player_push_timer"] = 30  # 0.5초
                                 # 넉백 적용
                                 _push_force = 25
-                                PLAYER.x += _push_dir * _push_force
+                                PLAYER.x += int(_push_dir * _push_force)
                                 PLAYER.x = max(GAME_AREA_OFFSET_X, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width, PLAYER.x))
                         # 상단 영웅(BOSS) 충돌 체크
                         if _fz_rect.colliderect(BOSS) and not arena_top_dashing:
@@ -132018,7 +132023,7 @@ def main(stage_num, new_boss_mode=False):
                             if _fz_push_boss <= 0:
                                 _fz["arena_boss_push_timer"] = 30  # 0.5초
                                 _push_force = 25
-                                BOSS.x += _push_dir * _push_force
+                                BOSS.x += int(_push_dir * _push_force)
                                 BOSS.x = max(GAME_AREA_OFFSET_X, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - BOSS.width, BOSS.x))
                         # 푸시 타이머 감소
                         if _fz.get("arena_player_push_timer", 0) > 0:
