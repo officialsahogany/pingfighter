@@ -4119,21 +4119,28 @@ class IllusionShuriken(HeroSkill):
         }
 
     def _spawn_shuriken(self, caster_paddle, index: int):
-        """수리검 생성 - 인덱스에 따라 각도 변화"""
-        # 각도 오프셋: -15도, 0도, +15도
-        angle_offsets = [-0.26, 0, 0.26]  # 라디안 (약 15도)
+        """수리검 생성 - 왼쪽 1개, 오른쪽 2개 (30~50도 각도)"""
+        # 각도 설정: 인덱스 0=왼쪽, 1,2=오른쪽 (30~50도 범위)
+        # 30도 = 0.524 rad, 40도 = 0.698 rad, 50도 = 0.873 rad
+        if index == 0:
+            # 왼쪽 수리검 (30~50도 왼쪽 방향)
+            angle_rad = -random.uniform(0.524, 0.873)  # 음수 = 왼쪽
+        else:
+            # 오른쪽 수리검 2개 (30~50도 오른쪽 방향, 약간씩 다른 각도)
+            base_angle = random.uniform(0.524, 0.873)
+            angle_rad = base_angle + (index - 1) * 0.15  # 두 번째는 약간 더 벌어짐
 
         speed = 450  # 수리검 속도
 
         # 방향 계산: caster_is_top이면 아래로(+Y), 아니면 위로(-Y)
         if self.caster_is_top:
             # 상단에서 하단으로 발사
-            vy = speed
-            vx = math.tan(angle_offsets[index]) * speed * 0.3  # X 방향 편향
+            vy = speed * math.cos(angle_rad)
+            vx = speed * math.sin(angle_rad)
         else:
             # 하단에서 상단으로 발사
-            vy = -speed
-            vx = math.tan(angle_offsets[index]) * speed * 0.3  # X 방향 편향
+            vy = -speed * math.cos(angle_rad)
+            vx = speed * math.sin(angle_rad)
 
         # 패들 중앙에서 발사
         spawn_x = caster_paddle.x + caster_paddle.width // 2
@@ -4150,7 +4157,8 @@ class IllusionShuriken(HeroSkill):
             'trail': []  # 잔상 효과
         })
         self.shurikens_spawned += 1
-        print(f"[DEBUG IllusionShuriken] Spawned shuriken {index}: x={spawn_x}, y={spawn_y}, vx={vx:.1f}, vy={vy:.1f}")
+        angle_deg = math.degrees(angle_rad)
+        print(f"[DEBUG IllusionShuriken] Spawned shuriken {index}: angle={angle_deg:.1f}°, vx={vx:.1f}, vy={vy:.1f}")
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         # 순차 발사 (0.2초 간격)
@@ -4191,8 +4199,8 @@ class IllusionShuriken(HeroSkill):
                 shuriken['vx'] = -abs(shuriken['vx'])  # 왼쪽으로 튕김
                 shuriken['bounces'] += 1
 
-            # 최대 3번 튕기면 비활성화
-            if shuriken['bounces'] > 3:
+            # 최대 8번 튕기면 비활성화
+            if shuriken['bounces'] >= 8:
                 shuriken['active'] = False
                 continue
 
@@ -4212,14 +4220,18 @@ class IllusionShuriken(HeroSkill):
                 # 히트!
                 shuriken['active'] = False
 
-                # 넉백 방향 결정 (수리검 X 속도 방향)
-                knockback_dir = 1 if shuriken['vx'] >= 0 else -1
+                # 넉백 방향 결정 (수리검 X 속도 방향, 0이면 랜덤)
+                if abs(shuriken['vx']) < 10:
+                    knockback_dir = random.choice([-1, 1])
+                else:
+                    knockback_dir = 1 if shuriken['vx'] > 0 else -1
 
-                # 넉백 적용
+                # 넉백 적용 (강한 좌/우 밀어내기)
                 target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_knockback'] = True
                 game_state[f'{target_prefix}_knockback_dir'] = knockback_dir
-                game_state[f'{target_prefix}_knockback_vel'] = 80  # 넉백 속도
+                game_state[f'{target_prefix}_knockback_vel'] = 120  # 넉백 속도 증가
+                print(f"[IllusionShuriken] 적중! 넉백 방향: {'오른쪽' if knockback_dir > 0 else '왼쪽'}")
 
                 # 히트 이펙트 추가
                 self.hit_effects.append({
@@ -4261,6 +4273,19 @@ class IllusionShuriken(HeroSkill):
         for prefix in ['top_paddle', 'bottom_paddle']:
             if f'{prefix}_knockback' in game_state:
                 game_state[f'{prefix}_knockback'] = False
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 환영수리검 강제 초기화"""
+        super().reset_for_new_round(game_state)
+        self.shurikens = []
+        self.hit_effects = []
+        self.shurikens_spawned = 0
+        self.spawn_timer = 0
+        # 넉백 상태 클리어
+        for prefix in ['top_paddle', 'bottom_paddle']:
+            if f'{prefix}_knockback' in game_state:
+                game_state[f'{prefix}_knockback'] = False
+        print("[IllusionShuriken] 라운드 전환으로 수리검 초기화됨")
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         # 잔상 그리기
@@ -4473,7 +4498,9 @@ class HeroSkillManager:
                 # 그림자분신: is_active=False여도 분신이 남아있는 경우 포함
                 has_shadow_clones = (hasattr(skill, 'clones') and skill.clones) or \
                                     (hasattr(skill, 'dying_clones') and skill.dying_clones)
-                if skill.is_active or has_oil_effects or has_dwarf_magic_effects or has_shadow_clones:
+                # 환영수리검: is_active=False여도 수리검이 남아있는 경우 포함
+                has_shurikens = hasattr(skill, 'shurikens') and skill.shurikens
+                if skill.is_active or has_oil_effects or has_dwarf_magic_effects or has_shadow_clones or has_shurikens:
                     print(f"[DEBUG SkillManager] reset_for_new_round 호출: {skill.skill_id}, is_active={skill.is_active}")
                     skill.reset_for_new_round(self.game_state)
 
