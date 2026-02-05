@@ -131108,15 +131108,16 @@ def main(stage_num, new_boss_mode=False):
                         # 시각적 효과 표시 - 디버그용으로 활성화
                         dowsing_pendulum_effect.draw_attraction_range(SCREEN, PLAYER, alpha=20)
                 
+                # 투기장 모드: 상단 영웅(BOSS 패들) 아이템 획득 처리
+                # ⚠️ items.update_items() 전에 호출해야 BOSS가 먼저 아이템 획득 가능
+                if arena_mode_enabled:
+                    _arena_top_hero_collect_items()
+                    _update_arena_top_projectiles()  # 상단 영웅 투사체 업데이트
+
                 # 아이템 업데이트 (아이템 획득 사운드 전달)
                 # 튜토리얼 일시정지 시 아이템 이동/회전 정지 (두 가지 방식 모두 체크)
                 is_tutorial_paused = (current_stage == 50 and tutorial_pause_for_dialogue) or is_ingame_tutorial_paused()
                 items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, paused=is_tutorial_paused)
-
-                # 투기장 모드: 상단 영웅(BOSS 패들) 아이템 획득 처리
-                if arena_mode_enabled:
-                    _arena_top_hero_collect_items()
-                    _update_arena_top_projectiles()  # 상단 영웅 투사체 업데이트
 
                 # 석판 수집 퀘스트 업데이트
                 if not is_tutorial_paused:
