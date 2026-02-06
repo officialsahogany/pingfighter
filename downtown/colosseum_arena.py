@@ -1704,8 +1704,48 @@ class ColosseumsArena:
                 self.accumulated_prize = 0
                 self.total_winnings = -self.entry_fee  # 입장료만 잃음 (이미 지불했으므로)
 
+        # 나머지 경기 자동 결정 (랜덤)
+        self._auto_decide_remaining_matches()
+
         self.state = TournamentState.RESULT
         self.result_display_timer = 180  # 3초
+
+    def _auto_decide_remaining_matches(self):
+        """현재 라운드의 나머지 경기를 랜덤으로 결정"""
+        current_matches = self.matches.get(self.current_round, [])
+        for match in current_matches:
+            if not match.completed:
+                # 랜덤 승자 결정
+                winner = random.choice([match.hero1, match.hero2])
+                # 랜덤 스코어 (승자가 5점, 패자는 0~4점)
+                if winner == match.hero1:
+                    score1 = 5
+                    score2 = random.randint(0, 4)
+                else:
+                    score1 = random.randint(0, 4)
+                    score2 = 5
+                match.set_result(winner, score1, score2)
+                print(f"[Arena] 자동 결정: {match.hero1['name']} vs {match.hero2['name']} → 승자: {winner['name']} ({score1}:{score2})")
+
+    def _auto_select_bet_hero_match(self):
+        """배팅한 영웅이 포함된 경기를 자동 선택하고 배팅 UI로 이동"""
+        if not self.bet_hero:
+            self.state = TournamentState.BRACKET_VIEW
+            return
+
+        current_matches = self.matches.get(self.current_round, [])
+        for match in current_matches:
+            if match.completed:
+                continue
+            # 배팅한 영웅이 이 경기에 있는지 확인
+            if match.hero1 == self.bet_hero or match.hero2 == self.bet_hero:
+                self.selected_match = match
+                self.state = TournamentState.BETTING
+                print(f"[Arena] 자동 선택: {match.hero1['name']} vs {match.hero2['name']} (배팅 영웅: {self.bet_hero['name']})")
+                return
+
+        # 배팅 영웅을 찾지 못한 경우 (이론상 불가능)
+        self.state = TournamentState.BRACKET_VIEW
 
     def update(self, dt: float):
         """메인 업데이트"""
@@ -1742,16 +1782,15 @@ class ColosseumsArena:
             self.result_display_timer -= 1
             if self.result_display_timer <= 0:
                 # 다음 단계 결정
-                current_matches = self.matches[self.current_round]
-                all_completed = all(m.completed for m in current_matches)
-
-                if all_completed:
-                    if self.current_round == TournamentRound.FINAL:
-                        self.state = TournamentState.TOURNAMENT_END
-                    else:
-                        self.state = TournamentState.ROUND_END
+                # 배팅한 영웅이 패배했으면 토너먼트 종료
+                if self.bet_hero and self.selected_match and self.selected_match.winner != self.bet_hero:
+                    self.state = TournamentState.TOURNAMENT_END
+                elif self.current_round == TournamentRound.FINAL:
+                    # 결승전 종료
+                    self.state = TournamentState.TOURNAMENT_END
                 else:
-                    self.state = TournamentState.SELECT_MATCH
+                    # 승리 - 다음 라운드로 진행 가능
+                    self.state = TournamentState.ROUND_END
         elif self.state == TournamentState.BRACKET_ANIMATION:
             self._update_bracket_animation(dt)
 
@@ -1775,10 +1814,11 @@ class ColosseumsArena:
         mx, my = pos
 
         if self.state in [TournamentState.BRACKET_VIEW, TournamentState.SELECT_MATCH]:
+            box_w, box_h = 100, 130  # 새 레이아웃 박스 크기
+
             # 8강 매치 클릭 체크
-            y_base = 550
-            x_positions = [100, 250, 430, 580]
-            box_w, box_h = 100, 100
+            y_base = 580
+            x_positions = [80, 220, 440, 580]
 
             for i, match in enumerate(self.matches[TournamentRound.QUARTER_FINAL]):
                 if match.completed:
@@ -1787,7 +1827,34 @@ class ColosseumsArena:
                 if x <= mx <= x + box_w and y_base <= my <= y_base + box_h:
                     self.selected_match = match
                     self.state = TournamentState.BETTING
-                    self.bet_amount = 100  # 기본 배팅액
+                    self.bet_amount = 100
+                    return
+
+            # 4강 매치 클릭 체크
+            y_semi = 380
+            x_semi = [150, 510]
+
+            for i, match in enumerate(self.matches.get(TournamentRound.SEMI_FINAL, [])):
+                if match.completed:
+                    continue
+                x = x_semi[i]
+                if x <= mx <= x + box_w and y_semi <= my <= y_semi + box_h:
+                    self.selected_match = match
+                    self.state = TournamentState.BETTING
+                    self.bet_amount = 100
+                    return
+
+            # 결승 매치 클릭 체크
+            y_final = 170
+            x_final = 330
+
+            for match in self.matches.get(TournamentRound.FINAL, []):
+                if match.completed:
+                    continue
+                if x_final <= mx <= x_final + box_w and y_final <= my <= y_final + box_h:
+                    self.selected_match = match
+                    self.state = TournamentState.BETTING
+                    self.bet_amount = 100
                     return
 
         elif self.state == TournamentState.BETTING:
@@ -2772,11 +2839,8 @@ class ColosseumsArena:
                 # 다음 라운드로 진출
                 self._advance_to_next_round()
 
-                if self.bracket_anim_auto_battle:
-                    # 자동으로 다음 매치 선택 및 배팅 UI로 이동
-                    self.state = TournamentState.SELECT_MATCH
-                else:
-                    self.state = TournamentState.BRACKET_VIEW
+                # 배팅한 영웅이 포함된 경기 자동 선택
+                self._auto_select_bet_hero_match()
 
                 # 애니메이션 상태 초기화
                 self.bracket_anim_phase = 0
