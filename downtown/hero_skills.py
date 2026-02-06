@@ -2018,7 +2018,7 @@ class HornCharge(HeroSkill):
             description="빠르게 돌진하여 상대를 밀어내고 스턴시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=25.0,
-            duration=3.0,  # 돌진 0.3초 + 충돌 0.2초 + 복귀 0.5초 + 스턴 2초
+            duration=3.0,  # 돌진 0.3초 + 충돌 0.2초 + 복귀 0.5초 + 양측 스턴 1초
             hero_id="onimaru"
         )
         self.shockwave_radius = 0
@@ -2036,6 +2036,7 @@ class HornCharge(HeroSkill):
         # 충돌 지점
         self.impact_y = 0
         self.stun_applied = False
+        self.caster_stun_applied = False  # 시전자 스턴 적용 여부
 
         # 돌진 잔상 효과
         self.afterimages = []
@@ -2044,6 +2045,7 @@ class HornCharge(HeroSkill):
         self.shockwave_radius = 0
         self.knockback_applied = False
         self.stun_applied = False
+        self.caster_stun_applied = False
         self.phase = self.PHASE_CHARGING
         self.phase_timer = 0
         self.charge_progress = 0
@@ -2267,19 +2269,25 @@ class HornCharge(HeroSkill):
                 self.phase = self.PHASE_STUN
                 self.phase_timer = 0
 
-                # 스턴 적용
+                # 스턴 적용 (타겟 + 시전자 모두)
                 if not self.stun_applied:
                     target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
                     game_state[f'{target_prefix}_stunned'] = True
                     self.stun_applied = True
+                if not self.caster_stun_applied:
+                    caster_prefix = 'top_paddle' if self.caster_is_top else 'bottom_paddle'
+                    game_state[f'{caster_prefix}_stunned'] = True
+                    self.caster_stun_applied = True
 
         elif self.phase == self.PHASE_STUN:
-            # 스턴 지속 (1.5초)
+            # 스턴 지속 (1초) - 타겟 + 시전자 모두
             game_state['horn_charge_y_offset'] = 0  # 원위치
-            if self.phase_timer >= 1.5:
-                # 스턴 해제
+            if self.phase_timer >= 1.0:
+                # 스턴 해제 (타겟 + 시전자)
                 target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_stunned'] = False
+                caster_prefix = 'top_paddle' if self.caster_is_top else 'bottom_paddle'
+                game_state[f'{caster_prefix}_stunned'] = False
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['screen_shake'] = 0
@@ -2289,9 +2297,11 @@ class HornCharge(HeroSkill):
         game_state['horn_charge_y_offset'] = 0
         game_state['horn_charge_x_offset'] = 0
         game_state['horn_charge_apply_knockback'] = False
-        # 스턴 해제
+        # 스턴 해제 (타겟 + 시전자)
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_stunned'] = False
+        caster_prefix = 'top_paddle' if self.caster_is_top else 'bottom_paddle'
+        game_state[f'{caster_prefix}_stunned'] = False
         self.afterimages = []
 
     def reset_for_new_round(self, game_state: dict):
