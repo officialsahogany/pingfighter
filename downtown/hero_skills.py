@@ -3751,15 +3751,15 @@ class DragonBreath(HeroSkill):
             # 사라지는 파티클들의 평균 X 위치 계산
             avg_x = sum(p['x'] for p in dying_particles) / len(dying_particles)
 
-            # 첫 화염지대 생성 시 Y좌표를 가장 끝쪽(바닥)으로 고정
+            # 첫 화염지대 생성 시 Y좌표를 브레스 끝쪽으로 고정
             if self.fire_zone_fixed_y is None:
                 is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
                 if is_caster_top:
-                    # 상단에서 발사 → 하단 바닥 (가장 큰 Y)
-                    self.fire_zone_fixed_y = max(p['y'] for p in dying_particles)
-                else:
-                    # 하단에서 발사 → 상단 바닥 (가장 작은 Y)
+                    # 상단에서 발사 → 브레스 끝쪽 (가장 작은 Y = 상단 쪽)
                     self.fire_zone_fixed_y = min(p['y'] for p in dying_particles)
+                else:
+                    # 하단에서 발사 → 브레스 끝쪽 (가장 큰 Y = 하단 쪽)
+                    self.fire_zone_fixed_y = max(p['y'] for p in dying_particles)
 
             # Y좌표는 고정값 사용
             fixed_y = self.fire_zone_fixed_y
