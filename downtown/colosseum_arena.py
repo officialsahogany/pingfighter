@@ -602,7 +602,7 @@ class AIPaddleController:
         return True
 
     def update_ghost_step(self, dt: float):
-        """귀신발걸음 y축 이동 업데이트 (부드럽게 전진→복귀 반복)"""
+        """귀신발걸음 y축 이동 업데이트 (1회 왕복 후 종료)"""
         if not self.ghost_step_active:
             return
 
@@ -619,17 +619,15 @@ class AIPaddleController:
                 self.ghost_step_y_velocity = -self.ghost_step_y_velocity  # 방향 반전
                 print(f"[GhostStep] 전진 완료, 복귀 시작! y={self.y}")
         else:
-            # 복귀 페이즈: 원위치 근처에 도달하면 다시 전진
+            # 복귀 페이즈: 원위치에 도달하면 귀신발걸음 종료
             if self.is_top:
                 if self.y <= self.original_y:
-                    self.y = self.original_y
-                    self.ghost_step_phase = 0
-                    self.ghost_step_y_velocity = self.ghost_step_speed
+                    self.end_ghost_step()
+                    print(f"[GhostStep] 1회 왕복 완료 → 귀신발걸음 종료")
             else:
                 if self.y >= self.original_y:
-                    self.y = self.original_y
-                    self.ghost_step_phase = 0
-                    self.ghost_step_y_velocity = -self.ghost_step_speed
+                    self.end_ghost_step()
+                    print(f"[GhostStep] 1회 왕복 완료 → 귀신발걸음 종료")
 
     def end_ghost_step(self):
         """귀신발걸음 y축 이동 종료 및 원위치 복귀"""

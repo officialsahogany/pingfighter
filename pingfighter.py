@@ -132028,9 +132028,15 @@ def main(stage_num, new_boss_mode=False):
                                 if new_y > arena_top_ghost_step_original_y:
                                     BOSS.y = new_y
                                 else:
+                                    # 1회 왕복 완료 → 귀신발걸음 전체 종료
                                     BOSS.y = arena_top_ghost_step_original_y
-                                    arena_top_ghost_step_phase = 0  # 다시 전진 페이즈로
-                                    print(f"[GhostStep DEBUG] 상단 영웅 원위치 복귀! 다시 전진")
+                                    arena_top_ghost_step_active = False
+                                    arena_top_ghost_step_phase = 0
+                                    arena_game_state['demon_eye_active'] = False
+                                    arena_game_state['top_paddle_speed_boost'] = 1.0
+                                    arena_game_state['top_paddle_size_boost'] = 1.0
+                                    arena_game_state['ghost_step_force_end'] = True
+                                    print(f"[GhostStep DEBUG] 상단 영웅 1회 왕복 완료 → 귀신발걸음 종료")
                         else:
                             # 하단 영웅 귀신발걸음 Y축 이동 (위로 전진 → 복귀 반복)
                             if not arena_bottom_ghost_step_active:
@@ -132058,9 +132064,15 @@ def main(stage_num, new_boss_mode=False):
                                 if new_y < arena_bottom_ghost_step_original_y:
                                     PLAYER.y = new_y
                                 else:
+                                    # 1회 왕복 완료 → 귀신발걸음 전체 종료
                                     PLAYER.y = arena_bottom_ghost_step_original_y
-                                    arena_bottom_ghost_step_phase = 0  # 다시 전진 페이즈로
-                                    print(f"[GhostStep DEBUG] 하단 영웅 원위치 복귀! 다시 전진")
+                                    arena_bottom_ghost_step_active = False
+                                    arena_bottom_ghost_step_phase = 0
+                                    arena_game_state['demon_eye_active'] = False
+                                    arena_game_state['bottom_paddle_speed_boost'] = 1.0
+                                    arena_game_state['bottom_paddle_size_boost'] = 1.0
+                                    arena_game_state['ghost_step_force_end'] = True
+                                    print(f"[GhostStep DEBUG] 하단 영웅 1회 왕복 완료 → 귀신발걸음 종료")
                     else:
                         # 귀신발걸음 종료 시 원위치 복귀 및 상태 초기화
                         if arena_top_ghost_step_active:

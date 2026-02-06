@@ -584,6 +584,13 @@ class DemonEye(HeroSkill):
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 1회 왕복 완료로 인한 강제 종료 체크
+        if game_state.get('ghost_step_force_end', False):
+            game_state['ghost_step_force_end'] = False
+            self.remaining_time = 0  # 스킬 타이머 즉시 만료 → _end_effect 호출됨
+            print(f"[GhostStep] 1회 왕복 완료 → 스킬 강제 종료")
+            return
+
         self.aura_timer += dt
 
         # 오오라 파티클 업데이트 (회전)
