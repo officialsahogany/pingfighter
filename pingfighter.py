@@ -131854,18 +131854,26 @@ def main(stage_num, new_boss_mode=False):
                     arena_bottom_confused = arena_game_state.get('bottom_paddle_confused', False)
 
                     # 🎭 투기장 패들 위치 고정 (꼭두각시 조종, 인형의 저주 등)
+                    # 귀신발걸음 활성화 여부 확인 (Y축 이동 중에는 Y좌표 lock 스킵)
+                    _demon_eye_active_for_lock = arena_game_state.get('demon_eye_active', False)
+                    _demon_eye_caster_is_top_for_lock = arena_game_state.get('demon_eye_caster_is_top', True)
+
                     # 상단 영웅 (BOSS) 위치 고정
                     if arena_game_state.get('top_paddle_locked', False):
                         if 'top_paddle_locked_x' in arena_game_state:
                             BOSS.x = int(arena_game_state['top_paddle_locked_x'])
+                        # 귀신발걸음 캐스터(상단)일 때는 Y좌표 lock 스킵
                         if 'top_paddle_locked_y' in arena_game_state:
-                            BOSS.y = int(arena_game_state['top_paddle_locked_y'])
+                            if not (_demon_eye_active_for_lock and _demon_eye_caster_is_top_for_lock):
+                                BOSS.y = int(arena_game_state['top_paddle_locked_y'])
                     # 하단 영웅 (PLAYER) 위치 고정
                     if arena_game_state.get('bottom_paddle_locked', False):
                         if 'bottom_paddle_locked_x' in arena_game_state:
                             PLAYER.x = int(arena_game_state['bottom_paddle_locked_x'])
+                        # 귀신발걸음 캐스터(하단)일 때는 Y좌표 lock 스킵
                         if 'bottom_paddle_locked_y' in arena_game_state:
-                            PLAYER.y = int(arena_game_state['bottom_paddle_locked_y'])
+                            if not (_demon_eye_active_for_lock and not _demon_eye_caster_is_top_for_lock):
+                                PLAYER.y = int(arena_game_state['bottom_paddle_locked_y'])
 
                     # 👁️ 귀신발걸음 Y축 이동 업데이트 (끝까지 전진)
                     global arena_top_ghost_step_active, arena_top_ghost_step_original_y
