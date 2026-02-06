@@ -62577,8 +62577,9 @@ def handle_player(keys):
         if arena_mode_enabled and arena_skill_manager:
             try:
                 global arena_bottom_confusion_target, arena_bottom_confusion_timer
-                # 둔화 효과 적용
-                if arena_player_slow_mult != 1.0:
+                # 둔화 효과 적용 (귀신발걸음 Y축 이동 중에는 X축 속도 부스트 무시)
+                _ghost_step_x_freeze = globals().get("arena_bottom_ghost_step_active", False)
+                if arena_player_slow_mult != 1.0 and not _ghost_step_x_freeze:
                     current_speed *= arena_player_slow_mult
                 # 혼란 효과 (조명탄과 동일한 랜덤 움직임)
                 if arena_player_confused:
@@ -125275,6 +125276,10 @@ def show_result(won):
     global boss_special_gauge, boss_special_ready, boss_special_waiting, boss_red_intensity  #  멘헤라걸 관련 변수 추가
     global enraged_boss_active  # 광폭화 보스 상태 확인용
     global quest_completion_glow_active, quest_completion_glow_timer  # 퀘스트 완료 빛 효과
+
+    # 투기장 모드에서는 결과 화면 건너뛰기 (투기장 자체 결과 UI 사용)
+    if arena_mode_enabled:
+        return
 
     stop_blacksmith_construction_sound()
 
