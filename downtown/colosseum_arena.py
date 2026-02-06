@@ -2359,15 +2359,19 @@ class ColosseumsArena:
 
         # === 영웅 1 (왼쪽 상단 삼각형) ===
         h1_color = match.hero1["color"]
+        hero1_name = match.hero1.get("name", "???")
+        # 이름 색상 밝기 보정 (너무 어두우면 밝게)
+        h1_brightness = sum(h1_color) / 3
+        h1_name_color = h1_color if h1_brightness > 80 else (min(255, h1_color[0] + 100), min(255, h1_color[1] + 100), min(255, h1_color[2] + 100))
         # 이름 (상단 좌측)
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render(match.hero1["name"], h1_color)
+            surf, _ = self.fonts["small"].render(hero1_name, h1_name_color)
             self.screen.blit(surf, (x + 8, y + 8))
-        # 캐릭터 이미지 (좌측 중앙)
+        # 캐릭터 이미지 (좌측 - 더 왼쪽으로, 60% 크게)
         if self.hero_paddle_renderer:
             hero1_id = match.hero1.get("id", "mugen")
             self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero1_id, x + 35, y + 50, 40, 28,
+                self.screen, hero1_id, x + 25, y + 55, 64, 45,
                 facing="down", color=h1_color, scale_mode="preview"
             )
 
@@ -2382,16 +2386,20 @@ class ColosseumsArena:
 
         # === 영웅 2 (오른쪽 하단 삼각형) ===
         h2_color = match.hero2["color"]
-        # 캐릭터 이미지 (우측 중앙)
+        hero2_name = match.hero2.get("name", "???")
+        # 이름 색상 밝기 보정 (너무 어두우면 밝게)
+        h2_brightness = sum(h2_color) / 3
+        h2_name_color = h2_color if h2_brightness > 80 else (min(255, h2_color[0] + 100), min(255, h2_color[1] + 100), min(255, h2_color[2] + 100))
+        # 캐릭터 이미지 (우측 - 더 오른쪽으로, 60% 크게)
         if self.hero_paddle_renderer:
             hero2_id = match.hero2.get("id", "chronos")
             self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero2_id, x + box_w - 35, y + box_h - 50, 40, 28,
+                self.screen, hero2_id, x + box_w - 25, y + box_h - 55, 64, 45,
                 facing="down", color=h2_color, scale_mode="preview"
             )
         # 이름 (하단 우측)
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render(match.hero2["name"], h2_color)
+            surf, _ = self.fonts["small"].render(hero2_name, h2_name_color)
             self.screen.blit(surf, (x + box_w - surf.get_width() - 8, y + box_h - 22))
 
         # 결과 표시
@@ -2949,19 +2957,23 @@ class ColosseumsArena:
             h1_alpha = int(255 * (1.0 - self.bracket_anim_progress * 0.5))
 
         h1_color = hero1["color"]
-        hero1_rect = pygame.Rect(x + 5, y + 5, 55, 65)
+        hero1_name = hero1.get("name", "???")
+        hero1_rect = pygame.Rect(x + 5, y + 5, 55, 70)
+        # 이름 색상 밝기 보정 (너무 어두우면 밝게)
+        h1_brightness = sum(h1_color) / 3
+        h1_base_color = h1_color if h1_brightness > 80 else (min(255, h1_color[0] + 100), min(255, h1_color[1] + 100), min(255, h1_color[2] + 100))
 
         # 영웅 1 이름 (상단 좌측)
         if self.fonts and "small" in self.fonts:
-            name_color = h1_color if h1_alpha == 255 else tuple(int(c * 0.5) for c in h1_color)
-            surf, _ = self.fonts["small"].render(hero1["name"], name_color)
+            name_color = h1_base_color if h1_alpha == 255 else tuple(int(c * 0.5) for c in h1_base_color)
+            surf, _ = self.fonts["small"].render(hero1_name, name_color)
             self.screen.blit(surf, (x + 8, y + 8))
 
-        # 영웅 1 캐릭터 이미지 (좌측 중앙)
+        # 영웅 1 캐릭터 이미지 (좌측 - 더 왼쪽으로, 60% 크게)
         if self.hero_paddle_renderer and h1_alpha > 100:
             hero1_id = hero1.get("id", "mugen")
             self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero1_id, x + 35, y + 50, 40, 28,
+                self.screen, hero1_id, x + 25, y + 55, 64, 45,
                 facing="down", color=h1_color, scale_mode="preview"
             )
 
@@ -2989,20 +3001,24 @@ class ColosseumsArena:
             h2_alpha = int(255 * (1.0 - self.bracket_anim_progress * 0.5))
 
         h2_color = hero2["color"]
-        hero2_rect = pygame.Rect(x + box_w - 60, y + box_h - 70, 55, 65)
+        hero2_name = hero2.get("name", "???")
+        hero2_rect = pygame.Rect(x + box_w - 60, y + box_h - 75, 55, 70)
+        # 이름 색상 밝기 보정 (너무 어두우면 밝게)
+        h2_brightness = sum(h2_color) / 3
+        h2_base_color = h2_color if h2_brightness > 80 else (min(255, h2_color[0] + 100), min(255, h2_color[1] + 100), min(255, h2_color[2] + 100))
 
-        # 영웅 2 캐릭터 이미지 (우측 중앙)
+        # 영웅 2 캐릭터 이미지 (우측 - 더 오른쪽으로, 60% 크게)
         if self.hero_paddle_renderer and h2_alpha > 100:
             hero2_id = hero2.get("id", "chronos")
             self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero2_id, x + box_w - 35, y + box_h - 50, 40, 28,
+                self.screen, hero2_id, x + box_w - 25, y + box_h - 55, 64, 45,
                 facing="down", color=h2_color, scale_mode="preview"
             )
 
         # 영웅 2 이름 (하단 우측)
         if self.fonts and "small" in self.fonts:
-            name_color = h2_color if h2_alpha == 255 else tuple(int(c * 0.5) for c in h2_color)
-            surf, _ = self.fonts["small"].render(hero2["name"], name_color)
+            name_color = h2_base_color if h2_alpha == 255 else tuple(int(c * 0.5) for c in h2_base_color)
+            surf, _ = self.fonts["small"].render(hero2_name, name_color)
             self.screen.blit(surf, (x + box_w - surf.get_width() - 8, y + box_h - 22))
 
         # 패자 X 표시
