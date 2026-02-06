@@ -513,16 +513,16 @@ class DarkSlash(HeroSkill):
 
 
 class DemonEye(HeroSkill):
-    """귀신발걸음 - 7초간 이동속도 200% 증가 (3배) + 패들 사이즈 20% 증가 + 오오라 이펙트"""
+    """귀신발걸음 - 상대 진영으로 전진 후 복귀하면 종료 + 이동속도 3배 + 패들 사이즈 20% 증가 + 오오라 이펙트"""
     def __init__(self):
         super().__init__(
             skill_id="demon_step",
             name="Ghost Step",
             korean_name="귀신발걸음",
-            description="어둠의 기운을 두르고 이동속도가 3배, 패들 사이즈가 20% 증가한다",
+            description="어둠의 기운을 두르고 상대 진영으로 전진 후 복귀하면 종료. 이동속도 3배, 패들 사이즈 20% 증가",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=25.0,
-            duration=7.0,  # 7초 지속
+            duration=999.0,  # 시간 제한 없음 (왕복 완료 시 강제 종료)
             hero_id="mugen"
         )
         self.aura_timer = 0
@@ -574,7 +574,7 @@ class DemonEye(HeroSkill):
                 'alpha': random.randint(100, 200)
             })
 
-        print(f"[GhostStep] 귀신발걸음 발동! 이동속도 3배 + 패들 20% 확대, 지속시간 7초")
+        print(f"[GhostStep] 귀신발걸음 발동! 이동속도 3배 + 패들 20% 확대, 1회 왕복 후 종료")
 
         return {
             'screen_effect': ScreenEffect.FLASH,
@@ -587,7 +587,7 @@ class DemonEye(HeroSkill):
         # 1회 왕복 완료로 인한 강제 종료 체크
         if game_state.get('ghost_step_force_end', False):
             game_state['ghost_step_force_end'] = False
-            self.remaining_time = 0  # 스킬 타이머 즉시 만료 → _end_effect 호출됨
+            self.active_timer = 0  # 스킬 타이머 즉시 만료 → _end_effect 호출됨
             print(f"[GhostStep] 1회 왕복 완료 → 스킬 강제 종료")
             return
 
