@@ -131757,25 +131757,20 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
 
-                    # 🗡️ 환영수리검 넉백 효과 적용 (상단=보스, 하단=플레이어)
-                    # 자연스러운 넉백: 빠른 초기속도 + 긴 감속 + 0.3초 경직
+                    # 🗡️ 환영수리검 넉백 효과 적용 (상단/하단 동일)
+                    # 자연스러운 넉백: 초기속도 14.0 + 자연 감속 + 0.6초 경직
                     _kb_gs = arena_skill_manager.game_state
-                    # 상단 패들 (보스) 넉백
+                    # 상단 패들 (보스) 넉백 - 하단과 동일한 방식
                     if _kb_gs.get('top_paddle_knockback', False):
                         _kb_dir = _kb_gs.get('top_paddle_knockback_dir', 1)
-                        # 넉백 거리 2배: 빠른 초기 속도 + 긴 타이머
-                        globals()['boss_knockback_timer'] = 35  # 넉백 지속 (약 0.6초)
-                        _apply_boss_knockback_velocity(_kb_dir * 18.0)  # 빠른 초기 속도
-                        # 넉백 후 0.3초 경직 (18프레임)
-                        globals()['boss_stunned_timer'] = max(globals().get('boss_stunned_timer', 0), 18)
+                        globals()['boss_knockback_vel'] = _kb_dir * 14.0  # 초기 속도 14.0
+                        globals()['boss_stunned_timer'] = max(globals().get('boss_stunned_timer', 0), 36)  # 0.6초 경직
                         _kb_gs['top_paddle_knockback'] = False  # 플래그 리셋
                     # 하단 패들 (플레이어) 넉백
                     if _kb_gs.get('bottom_paddle_knockback', False):
                         _kb_dir = _kb_gs.get('bottom_paddle_knockback_dir', 1)
-                        # 넉백 거리 2배: 빠른 초기 속도
-                        globals()['player_knockback_vel'] = _kb_dir * 14.0  # 빠른 초기 속도
-                        # 넉백 + 0.3초 경직 (총 약 0.6초)
-                        globals()['player_stunned_timer'] = max(globals().get('player_stunned_timer', 0), 36)
+                        globals()['player_knockback_vel'] = _kb_dir * 14.0  # 초기 속도 14.0
+                        globals()['player_stunned_timer'] = max(globals().get('player_stunned_timer', 0), 36)  # 0.6초 경직
                         _kb_gs['bottom_paddle_knockback'] = False  # 플래그 리셋
 
                     # ⚔️ 암흑 베기 커브 효과 적용 (스매셔 드라이브처럼 굴곡)
