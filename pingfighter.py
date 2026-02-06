@@ -65563,7 +65563,6 @@ def store_passive_item(item_data):
     global gravitybelt_obtained  # 무중력벨트 관련 변수
     global hermes_shoes_obtained  # 헤르메스의 신발 관련 변수
     global player_ai_enabled
-    print(f"store_passive_item : {item_data['name']}")
     # 누락된 type 필드를 방어적으로 보정
     skip_append = False
 
@@ -71313,10 +71312,8 @@ def on_player_hit_ball_for_tutorial():
     """플레이어가 공을 맞췄을 때 튜토리얼 체크 - 첫 번째 히트 시 튜토리얼 시작"""
     global _ingame_tutorial_wait_first_hit, _ingame_tutorial_active
     global _ingame_tutorial_score_frozen, round_wins, round_losses
-    print(f"[DEBUG] on_player_hit_ball_for_tutorial() 호출됨 - wait_first_hit={_ingame_tutorial_wait_first_hit}, completed={_ingame_tutorial_completed}, tutorial_mode={_is_tutorial_mode_active}")
     # 튜토리얼 모드로 시작한 경우에만 튜토리얼 진행 (일반 게임에서 주니어리그 선택 시 제외)
     if _ingame_tutorial_wait_first_hit and not _ingame_tutorial_completed and _is_tutorial_mode_active:
-        print(f"[DEBUG] 첫 히트로 튜토리얼 시작!")
         _ingame_tutorial_wait_first_hit = False
         _ingame_tutorial_active = True
         # 튜토리얼 중 점수 고정 활성화
@@ -131740,7 +131737,6 @@ def main(stage_num, new_boss_mode=False):
                         _apply_boss_knockback_velocity(_kb_dir * 18.0)  # 빠른 초기 속도
                         # 넉백 후 0.3초 경직 (18프레임)
                         globals()['boss_stunned_timer'] = max(globals().get('boss_stunned_timer', 0), 18)
-                        print(f"🗡️ [IllusionShuriken] 보스 넉백! 방향={'오른쪽' if _kb_dir > 0 else '왼쪽'}")
                         _kb_gs['top_paddle_knockback'] = False  # 플래그 리셋
                     # 하단 패들 (플레이어) 넉백
                     if _kb_gs.get('bottom_paddle_knockback', False):
@@ -131749,7 +131745,6 @@ def main(stage_num, new_boss_mode=False):
                         globals()['player_knockback_vel'] = _kb_dir * 14.0  # 빠른 초기 속도
                         # 넉백 + 0.3초 경직 (총 약 0.6초)
                         globals()['player_stunned_timer'] = max(globals().get('player_stunned_timer', 0), 36)
-                        print(f"🗡️ [IllusionShuriken] 플레이어 넉백! 방향={'오른쪽' if _kb_dir > 0 else '왼쪽'}")
                         _kb_gs['bottom_paddle_knockback'] = False  # 플래그 리셋
 
                     # ⚔️ 암흑 베기 커브 효과 적용 (스매셔 드라이브처럼 굴곡)
@@ -131758,7 +131753,6 @@ def main(stage_num, new_boss_mode=False):
                         globals()['ball_spin_strength'] = _dark_gs['dark_slash_spin_strength']
                         globals()['ball_spin_direction'] = _dark_gs.get('dark_slash_spin_direction', 1)
                         globals()['drive_ball_active'] = True  # 드라이브 공처럼 시각 효과
-                        print(f"⚔️ [DarkSlash] 커브 적용! spin_strength={globals()['ball_spin_strength']:.2f}, spin_dir={globals()['ball_spin_direction']}")
                         # 스핀 적용 후 플래그 제거 (한 번만 적용)
                         _dark_gs['dark_slash_spin_strength'] = 0
 

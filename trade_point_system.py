@@ -137,7 +137,6 @@ class TradePointSystem:
 
         spawn_positions: list[tuple[float, float, bool]] = [(x, y, False)]
         extra_spawn_count = 0
-        print(f"[DEBUG-SPAWN] 별 스폰 요청: ({x:.1f}, {y:.1f}), source={source_type}")
 
         if is_star_detector_active():
             try:

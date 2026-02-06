@@ -176,7 +176,6 @@ class BGMManager:
             
         # 이미 같은 BGM이 재생 중이면 다시 로드하지 않음
         if self.current_bgm == bgm_name and pygame.mixer.music.get_busy():
-            print(f"{bgm_name} BGM이 이미 재생 중입니다.")
             return
 
         # 시스템 전체 음소거 상태면 트랙만 기억하고 재생을 건너뜀
@@ -184,7 +183,6 @@ class BGMManager:
             self._muted_last_bgm = bgm_name
             self.current_bgm = bgm_name
             self._is_paused = True
-            print(f"{bgm_name} BGM 요청됨 (시스템 음소거 중, 재생 건너뜀)")
             return
 
         # 사용자 음소거 상태(B키)면 트랙만 기억하고 재생을 건너뜀
@@ -192,7 +190,6 @@ class BGMManager:
             self._muted_last_bgm = bgm_name
             self.current_bgm = bgm_name
             self._is_paused = True
-            print(f"{bgm_name} BGM 요청됨 (사용자 음소거 중, 재생 건너뜀)")
             return
             
         bgm_path = self._resolve_bgm_path(bgm_name)
@@ -224,11 +221,6 @@ class BGMManager:
             pygame.mixer.music.play(loop)
             self.current_bgm = bgm_name
             self._is_paused = False
-            try:
-                file_size = os.path.getsize(bgm_path)
-            except Exception:
-                file_size = "?"
-            print(f"{bgm_name} BGM 재생 시작: {os.path.basename(bgm_path)} ({bgm_path}, size={file_size}) busy={pygame.mixer.music.get_busy()}")
         except Exception as e:
             print(f"BGM 로드 실패 ({bgm_name}): {e}")
             

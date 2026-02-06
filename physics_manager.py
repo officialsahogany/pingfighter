@@ -78,10 +78,7 @@ def serve_ball(is_player_serve=True, current_stage=1, league_mode="pro"):
         ball_vel[0] *= speed_scale
         ball_vel[1] *= speed_scale
 
-        # 튜토리얼 서브 디버깅
         import math
-        actual_speed = math.hypot(ball_vel[0], ball_vel[1])
-        print(f"🎓 튜토리얼 서브: ball_vel={ball_vel}, 실제속도={actual_speed:.2f}, 스테이지1과 동일")
     else:
         if is_player_serve:
             # 플레이어 서브: 위로
@@ -107,19 +104,14 @@ def serve_ball(is_player_serve=True, current_stage=1, league_mode="pro"):
             scale = max_serve_speed / current_speed
             ball_vel[0] *= scale
             ball_vel[1] *= scale
-            print(f"⚠️ 서브 속도 제한 적용: {current_speed:.2f} → {max_serve_speed:.2f}")
     
     # 🌱 주니어리그: 공 속도 -35% 감소 적용
     if junior_speed_multiplier != 1.0:
         ball_vel[0] *= junior_speed_multiplier
         ball_vel[1] *= junior_speed_multiplier
-        actual_speed = math.hypot(ball_vel[0], ball_vel[1])
-        print(f"🌱 주니어리그: 공 속도 -35% 감소 적용, 실제속도={actual_speed:.2f}")
 
     # 볼 임팩트 부스트 (기본값)
     ball_impact_boost = 1.0
-
-    print(f"  :  {ball_vel},  : {is_player_serve}")
 
     return {
         'ball_vel': ball_vel,

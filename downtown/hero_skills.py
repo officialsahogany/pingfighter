@@ -4442,8 +4442,6 @@ class ShadowClone(HeroSkill):
         self.clones = []
         self.dying_clones = []
 
-        print(f"[ShadowClone] 분신 생성! spawn_x={self.spawn_x}, spawn_y={self.spawn_y}, caster_is_top={self.caster_is_top}")
-
         for i, offset in enumerate(offsets):
             direction = -1 if offset < 0 else 1
             # 각 분신마다 독립적인 pygame.Rect 생성
@@ -4460,12 +4458,6 @@ class ShadowClone(HeroSkill):
                 'id': i,
             }
             self.clones.append(clone)
-            print(f"[ShadowClone] 분신 {i} 생성: offset={offset}, vx={clone['vx']:.1f}, target_x={clone['target_x']}")
-
-        # 디버그: 생성 완료 후 확인
-        print(f"[ShadowClone] ★★★ _apply_effect 완료: self.clones에 {len(self.clones)}개 분신 저장됨")
-        for c in self.clones:
-            print(f"    id={c['id']}, rect={c['rect']}, offset_x={c['offset_x']}")
 
         # 프레임 카운터 초기화
         self._frame_count = 0
@@ -4481,32 +4473,9 @@ class ShadowClone(HeroSkill):
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        # 디버그: 함수 시작 시 분신 수 확인 (처음 10프레임만)
-        if not hasattr(self, '_frame_count'):
-            self._frame_count = 0
-        self._frame_count += 1
-
-        if self._frame_count <= 10:
-            print(f"[ShadowClone] UPDATE #{self._frame_count}: {len(self.clones)} clones in list")
-            for c in self.clones:
-                print(f"  - clone id={c['id']}, active={c['active']}, rect.x={c['rect'].x}, vx={c['vx']:.1f}")
-
         new_clones = []
 
-        # 디버그: 매 1초마다 분신 상태 출력
-        if hasattr(self, '_debug_timer'):
-            self._debug_timer += dt
-        else:
-            self._debug_timer = 0.0
-
-        # 디버그: 루프 시작 전 분신 수 확인
-        if self._debug_timer >= 0.9 and self._debug_timer < 1.1:
-            print(f"[ShadowClone] 루프 진입 전: self.clones에 {len(self.clones)}개")
-
         for clone in self.clones:
-            # 디버그: 각 clone 처리 시작
-            if self._debug_timer >= 0.9 and self._debug_timer < 1.1:
-                print(f"[ShadowClone] 루프 처리 중: id={clone['id']}, active={clone['active']}")
 
             if not clone['active']:
                 continue
@@ -4527,7 +4496,6 @@ class ShadowClone(HeroSkill):
                     rect.centerx = clone['target_x']
                     rect.centery = self.spawn_y
                     clone['emerge_complete'] = True
-                    print(f"[ShadowClone] 분신 {clone['id']} 등장 완료! 위치: ({rect.centerx}, {rect.centery})")
 
                 # 자유 이동: 좌우로 움직이며 벽에서 튕김
                 move_amount = int(clone['vx'])
@@ -4551,17 +4519,11 @@ class ShadowClone(HeroSkill):
                 elif speed < 6.0:
                     clone['vx'] = 6.0 if clone['vx'] >= 0 else -6.0
 
-            # 디버그 출력 (1초마다)
-            if self._debug_timer >= 1.0:
-                print(f"[ShadowClone] 분신 {clone['id']}: rect=({rect.x}, {rect.y}), vx={clone['vx']:.1f}, spawn_time={clone['spawn_time']:.2f}")
-
             # 공과 충돌 체크 (등장 애니메이션 후에만) - Stage 8 방식
             if ball is not None and clone['spawn_time'] >= self.EMERGE_DURATION:
                 ball_rect = pygame.Rect(int(ball.x), int(ball.y), int(ball.width), int(ball.height))
 
                 if rect.colliderect(ball_rect):
-                    print(f"[ShadowClone] 공 충돌! clone_id={clone['id']}, rect={rect}, ball_rect={ball_rect}")
-
                     # 공 반사 - 직접 ball 속도 수정 (Stage 8 방식)
                     # 타격 위치에 따른 X 방향 조정
                     hit_offset = (ball.x + ball.width / 2) - rect.centerx
@@ -4576,8 +4538,6 @@ class ShadowClone(HeroSkill):
                     # X 방향 조정
                     ball.vx = ball.vx * 0.7 + angle_factor * 4.0
 
-                    print(f"[ShadowClone] 공 반사! ball.vx={ball.vx:.1f}, ball.vy={ball.vy:.1f}")
-
                     # 소멸 애니메이션 시작
                     dying_clone = {
                         'rect': rect.copy(),
@@ -4586,24 +4546,9 @@ class ShadowClone(HeroSkill):
                     }
                     self.dying_clones.append(dying_clone)
                     clone['active'] = False
-                    print(f"[ShadowClone] 분신 {clone['id']} 충돌로 제거됨")
                     continue
 
             new_clones.append(clone)
-
-        # 디버그: new_clones 수 확인
-        if len(new_clones) != len(self.clones):
-            print(f"[ShadowClone] ⚠️ 분신 수 변경: {len(self.clones)} -> {len(new_clones)}")
-
-        # 디버그 타이머 리셋
-        if self._debug_timer >= 1.0:
-            # 타이머 리셋 전 전체 분신 상태 출력
-            print(f"[ShadowClone] ===== 1초 경과 디버그: self.clones={len(self.clones)}개, new_clones={len(new_clones)}개 =====")
-            for i, c in enumerate(self.clones):
-                print(f"    원본[{i}]: id={c['id']}, active={c['active']}, rect.x={c['rect'].x}")
-            for i, c in enumerate(new_clones):
-                print(f"    new[{i}]: id={c['id']}, active={c['active']}, rect.x={c['rect'].x}")
-            self._debug_timer = 0.0
 
         self.clones = new_clones
 
@@ -4626,19 +4571,9 @@ class ShadowClone(HeroSkill):
         self.clones = []
         self.dying_clones = []
         game_state['has_shadow_clones'] = False
-        print("[ShadowClone] 라운드 전환으로 분신 초기화됨")
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         renderer = get_shadow_clone_renderer() if HERO_PADDLE_RENDERER_AVAILABLE else None
-
-        # 디버그: 드로우 시 분신 수 확인 (처음 10프레임만)
-        if hasattr(self, '_draw_count'):
-            self._draw_count += 1
-        else:
-            self._draw_count = 0
-
-        if self._draw_count <= 10:
-            print(f"[ShadowClone] DRAW #{self._draw_count}: {len(self.clones)} clones to render")
 
         # 활성 분신 그리기
         for clone in self.clones:
@@ -4820,8 +4755,6 @@ class IllusionShuriken(HeroSkill):
         self.knockback_applied = False
         self.hit_effects = []
 
-        print(f"[IllusionShuriken] 총 {self.total_shurikens}개 수리검 발사 시작!")
-
         # 첫 번째 수리검 즉시 발사
         self._spawn_shuriken(caster_paddle, 0)
 
@@ -4876,8 +4809,6 @@ class IllusionShuriken(HeroSkill):
             'trail': []  # 잔상 효과
         })
         self.shurikens_spawned += 1
-        angle_deg = math.degrees(angle_rad)
-        print(f"[DEBUG IllusionShuriken] Spawned shuriken {index}: angle={angle_deg:.1f}°, vx={vx:.1f}, vy={vy:.1f}")
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         # 순차 발사 (0.2초 간격)
@@ -4959,7 +4890,6 @@ class IllusionShuriken(HeroSkill):
                 game_state[f'{target_prefix}_knockback'] = True
                 game_state[f'{target_prefix}_knockback_dir'] = knockback_dir
                 game_state[f'{target_prefix}_knockback_vel'] = 120  # 넉백 속도 증가
-                print(f"[IllusionShuriken] 적중! 넉백 방향: {'오른쪽' if knockback_dir > 0 else '왼쪽'}")
 
                 # 히트 이펙트 추가
                 self.hit_effects.append({
@@ -4999,7 +4929,6 @@ class IllusionShuriken(HeroSkill):
             active_shurikens = [s for s in self.shurikens if s['active']]
             if not active_shurikens:
                 self.active_timer = 0  # 스킬 자동 종료 트리거
-                print("[IllusionShuriken] 모든 수리검 소멸 - 스킬 종료")
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         self.shurikens = []
@@ -5021,7 +4950,6 @@ class IllusionShuriken(HeroSkill):
         for prefix in ['top_paddle', 'bottom_paddle']:
             if f'{prefix}_knockback' in game_state:
                 game_state[f'{prefix}_knockback'] = False
-        print("[IllusionShuriken] 라운드 전환으로 수리검 초기화됨")
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         # 잔상 그리기
@@ -5237,7 +5165,6 @@ class HeroSkillManager:
                 # 환영수리검: is_active=False여도 수리검이 남아있는 경우 포함
                 has_shurikens = hasattr(skill, 'shurikens') and skill.shurikens
                 if skill.is_active or has_oil_effects or has_dwarf_magic_effects or has_shadow_clones or has_shurikens:
-                    print(f"[DEBUG SkillManager] reset_for_new_round 호출: {skill.skill_id}, is_active={skill.is_active}")
                     skill.reset_for_new_round(self.game_state)
 
         # 추가로 game_state의 모든 효과 상태 초기화
