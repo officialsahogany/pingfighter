@@ -18311,16 +18311,20 @@ arena_top_dash_afterimages = []      # 상단 영웅 대쉬 잔상
 arena_top_dash_duration_frames = 15  # 상단 영웅 대쉬 지속 시간 (동적 계산됨)
 arena_top_dash_stun_timer = 0        # 상단 영웅 대쉬 후딜 타이머
 
-# 투기장 귀신발걸음 Y축 이동 시스템 (끝까지 전진)
+# 투기장 귀신발걸음 Y축 이동 시스템 (전진 → 복귀 반복)
 arena_top_ghost_step_active = False      # 상단 영웅 귀신발걸음 Y축 이동 활성화
 arena_top_ghost_step_original_y = 0      # 상단 영웅 원래 Y 위치
 arena_top_ghost_step_velocity = 0.0      # 상단 영웅 Y축 이동 속도
-arena_top_ghost_step_speed = 4.0         # 이동 속도 (빠르게)
+arena_top_ghost_step_speed = 4.0         # 전진 이동 속도
+arena_top_ghost_step_return_speed = 8.0  # 복귀 이동 속도 (빠르게)
+arena_top_ghost_step_phase = 0           # 0: 전진, 1: 복귀
 
 arena_bottom_ghost_step_active = False   # 하단 영웅 귀신발걸음 Y축 이동 활성화
 arena_bottom_ghost_step_original_y = 0   # 하단 영웅 원래 Y 위치
 arena_bottom_ghost_step_velocity = 0.0   # 하단 영웅 Y축 이동 속도
-arena_bottom_ghost_step_speed = 4.0      # 이동 속도 (빠르게)
+arena_bottom_ghost_step_speed = 4.0      # 전진 이동 속도
+arena_bottom_ghost_step_return_speed = 8.0  # 복귀 이동 속도 (빠르게)
+arena_bottom_ghost_step_phase = 0        # 0: 전진, 1: 복귀
 
 arena_bottom_dashing = False         # 하단 영웅 대쉬 중
 arena_bottom_dash_timer = 0          # 하단 영웅 대쉬 타이머
@@ -131939,54 +131943,80 @@ def main(stage_num, new_boss_mode=False):
                     _demon_eye_caster_is_top = arena_game_state.get('demon_eye_caster_is_top', True)
 
                     if _demon_eye_active:
+                        global arena_top_ghost_step_phase, arena_bottom_ghost_step_phase
+                        global arena_top_ghost_step_return_speed, arena_bottom_ghost_step_return_speed
+
                         if _demon_eye_caster_is_top:
-                            # 상단 영웅 귀신발걸음 Y축 이동 (아래로 끝까지 전진)
+                            # 상단 영웅 귀신발걸음 Y축 이동 (아래로 전진 → 복귀 반복)
                             if not arena_top_ghost_step_active:
                                 # 시작
                                 arena_top_ghost_step_active = True
                                 arena_top_ghost_step_original_y = int(BOSS.y)
                                 arena_top_ghost_step_velocity = arena_top_ghost_step_speed  # 아래로
-                                print(f"[GhostStep DEBUG] 상단 영웅 Y축 전진 시작! 원위치={arena_top_ghost_step_original_y}, 목표=화면 하단")
+                                arena_top_ghost_step_phase = 0  # 전진 페이즈
+                                print(f"[GhostStep DEBUG] 상단 영웅 Y축 전진 시작! 원위치={arena_top_ghost_step_original_y}")
 
-                            # 업데이트 - 계속 아래로 전진 (화면 하단까지)
-                            new_y = int(BOSS.y + arena_top_ghost_step_velocity)
-                            # 화면 하단 제한 (상대 패들 위치 너머까지)
-                            max_y = HEIGHT - 50  # 화면 거의 끝까지
-                            if new_y < max_y:
-                                BOSS.y = new_y
+                            # 페이즈에 따른 이동
+                            max_y = HEIGHT - 50  # 화면 하단 끝
+                            if arena_top_ghost_step_phase == 0:
+                                # 전진 페이즈: 아래로 이동
+                                new_y = int(BOSS.y + arena_top_ghost_step_speed)
+                                if new_y < max_y:
+                                    BOSS.y = new_y
+                                else:
+                                    BOSS.y = max_y
+                                    arena_top_ghost_step_phase = 1  # 복귀 페이즈로 전환
+                                    print(f"[GhostStep DEBUG] 상단 영웅 끝 도달! 복귀 시작")
                             else:
-                                BOSS.y = max_y  # 끝에 도달하면 유지
+                                # 복귀 페이즈: 빠르게 위로 이동
+                                new_y = int(BOSS.y - arena_top_ghost_step_return_speed)
+                                if new_y > arena_top_ghost_step_original_y:
+                                    BOSS.y = new_y
+                                else:
+                                    BOSS.y = arena_top_ghost_step_original_y
+                                    arena_top_ghost_step_phase = 0  # 다시 전진 페이즈로
+                                    print(f"[GhostStep DEBUG] 상단 영웅 원위치 복귀! 다시 전진")
                         else:
-                            # 하단 영웅 귀신발걸음 Y축 이동 (위로 끝까지 전진)
+                            # 하단 영웅 귀신발걸음 Y축 이동 (위로 전진 → 복귀 반복)
                             if not arena_bottom_ghost_step_active:
                                 # 시작
                                 arena_bottom_ghost_step_active = True
                                 arena_bottom_ghost_step_original_y = int(PLAYER.y)
-                                arena_bottom_ghost_step_velocity = -arena_bottom_ghost_step_speed  # 위로 (음수)
-                                print(f"[GhostStep DEBUG] 하단 영웅 Y축 전진 시작! X={PLAYER.x}, 원위치Y={arena_bottom_ghost_step_original_y}, 목표=화면 상단")
+                                arena_bottom_ghost_step_velocity = -arena_bottom_ghost_step_speed  # 위로
+                                arena_bottom_ghost_step_phase = 0  # 전진 페이즈
+                                print(f"[GhostStep DEBUG] 하단 영웅 Y축 전진 시작! 원위치Y={arena_bottom_ghost_step_original_y}")
 
-                            # 업데이트 - 계속 위로 전진 (화면 상단까지)
-                            _before_y = PLAYER.y
-                            _before_x = PLAYER.x
-                            new_y = int(PLAYER.y + arena_bottom_ghost_step_velocity)
-                            # 화면 상단 제한 (보스 영역 근처까지)
-                            min_y = 50  # 화면 상단 근처까지
-                            if new_y > min_y:
-                                PLAYER.y = new_y
+                            # 페이즈에 따른 이동
+                            min_y = 50  # 화면 상단 끝
+                            if arena_bottom_ghost_step_phase == 0:
+                                # 전진 페이즈: 위로 이동
+                                new_y = int(PLAYER.y - arena_bottom_ghost_step_speed)
+                                if new_y > min_y:
+                                    PLAYER.y = new_y
+                                else:
+                                    PLAYER.y = min_y
+                                    arena_bottom_ghost_step_phase = 1  # 복귀 페이즈로 전환
+                                    print(f"[GhostStep DEBUG] 하단 영웅 끝 도달! 복귀 시작")
                             else:
-                                PLAYER.y = min_y  # 끝에 도달하면 유지
-                            # [DEBUG] X좌표도 함께 출력
-                            if abs(PLAYER.x - _before_x) > 50:  # X좌표가 50픽셀 이상 변했을 때만
-                                print(f"[GhostStep X JUMP!] X 순간이동 감지! before_x={_before_x}, after_x={PLAYER.x}")
+                                # 복귀 페이즈: 빠르게 아래로 이동
+                                new_y = int(PLAYER.y + arena_bottom_ghost_step_return_speed)
+                                if new_y < arena_bottom_ghost_step_original_y:
+                                    PLAYER.y = new_y
+                                else:
+                                    PLAYER.y = arena_bottom_ghost_step_original_y
+                                    arena_bottom_ghost_step_phase = 0  # 다시 전진 페이즈로
+                                    print(f"[GhostStep DEBUG] 하단 영웅 원위치 복귀! 다시 전진")
                     else:
-                        # 귀신발걸음 종료 시 원위치 복귀
+                        # 귀신발걸음 종료 시 원위치 복귀 및 상태 초기화
                         if arena_top_ghost_step_active:
                             BOSS.y = int(arena_top_ghost_step_original_y)
                             arena_top_ghost_step_active = False
+                            arena_top_ghost_step_phase = 0
                             print(f"[GhostStep DEBUG] 상단 영웅 귀신발걸음 종료, 원위치 복귀 y={BOSS.y}")
                         if arena_bottom_ghost_step_active:
                             PLAYER.y = int(arena_bottom_ghost_step_original_y)
                             arena_bottom_ghost_step_active = False
+                            arena_bottom_ghost_step_phase = 0
                             print(f"[GhostStep DEBUG] 하단 영웅 귀신발걸음 종료, 원위치 복귀 y={PLAYER.y}")
 
                     # 드래곤 브레스 화염 지대 생성 처리 (여러 개 - 파티클 소멸 지점마다)
