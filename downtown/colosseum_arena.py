@@ -1228,6 +1228,7 @@ class ColosseumsArena:
 
             # 투기장 모드 글로벌 변수 설정
             pingfighter.arena_mode_enabled = True
+            pingfighter.arena_battle_result = None  # 배틀 결과 초기화
             pingfighter.arena_top_hero = top_hero
             pingfighter.arena_bottom_hero = bottom_hero
 
@@ -1278,6 +1279,7 @@ class ColosseumsArena:
             # 투기장 모드 변수 초기화
             try:
                 pingfighter.arena_mode_enabled = False
+                pingfighter.arena_battle_result = None  # 배틀 결과 초기화
                 pingfighter.arena_top_hero = None
                 pingfighter.arena_bottom_hero = None
                 pingfighter.arena_hero_paddle_renderer = None

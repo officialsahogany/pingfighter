@@ -18287,6 +18287,7 @@ player_ai_enabled = False            # 메뉴에서 AI 플레이를 켰는지 �
 
 # 투기장 모드 (콜로세움)
 arena_mode_enabled = False           # 투기장 모드 활성화 여부
+arena_battle_result = None           # 투기장 배틀 결과 (True=하단 승리, False=상단 승리)
 arena_top_hero = None                # 상단 영웅 정보 (보스 위치)
 arena_bottom_hero = None             # 하단 영웅 정보 (플레이어 위치)
 arena_hero_paddle_renderer = None    # 영웅 패들 렌더러
@@ -118605,6 +118606,8 @@ def handle_ball():
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('sad')
             show_result(True)
+            if arena_mode_enabled:
+                return arena_battle_result
             return
         elif result == "boss_win":
             # 스테이지 2에서 플레이어 패배 시 악어 활짝 웃기
@@ -118614,6 +118617,8 @@ def handle_ball():
             if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
                 stage8_boss_sprite.trigger_victory()
             show_result(False)
+            if arena_mode_enabled:
+                return arena_battle_result
             return
         elif result == "deuce_started" or result == "deuce_restart":
             # 듀스 시작/재시작 시 점수 표시 업데이트
@@ -119166,6 +119171,8 @@ def handle_ball():
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('sad')
             show_result(True)
+            if arena_mode_enabled:
+                return arena_battle_result
             return
         elif result == "boss_win":
             # 스테이지 2에서 플레이어 패배 시 악어 활짝 웃기
@@ -119175,6 +119182,8 @@ def handle_ball():
             if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
                 stage8_boss_sprite.trigger_victory()
             show_result(False)
+            if arena_mode_enabled:
+                return arena_battle_result
             return
         elif result == "deuce_started" or result == "deuce_restart":
             # 듀스 시작/재시작 시 점수 표시 업데이트
@@ -120374,6 +120383,8 @@ def handle_ball():
                     start_nemesis_death_animation()
                     return  # show_result는 애니메이션 완료 후 호출
                 show_result(True)
+                if arena_mode_enabled:
+                    return arena_battle_result
                 return
             #  타격 이펙트 생성 (공 속도에 따라 강도 조절)
             create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -125279,7 +125290,11 @@ def show_result(won):
     global quest_completion_glow_active, quest_completion_glow_timer  # 퀘스트 완료 빛 효과
 
     # 투기장 모드에서는 결과 화면 건너뛰기 (투기장 자체 결과 UI 사용)
+    # 단, 배틀 결과는 저장하여 main()에서 반환할 수 있도록 함
+    global arena_battle_result
     if arena_mode_enabled:
+        arena_battle_result = won  # True=하단(플레이어AI) 승리, False=상단 승리
+        print(f"[Arena] show_result 호출: won={won}, arena_battle_result={arena_battle_result}")
         return
 
     stop_blacksmith_construction_sound()
@@ -128271,6 +128286,8 @@ def main(stage_num, new_boss_mode=False):
             player_score = 3
             # 승리 화면으로 이동
             show_result(True)
+            if arena_mode_enabled:
+                return arena_battle_result
             return
         last_nine_state = current_nine_state
         # 스페이스바 입력 감지 (감전 상태일 때는 무시)
@@ -131292,8 +131309,12 @@ def main(stage_num, new_boss_mode=False):
                                     result = check_deuce_system()
                                     if result == "player_win":
                                         show_result(True)
+                                        if arena_mode_enabled:
+                                            return arena_battle_result
                                     elif result == "boss_win":
                                         show_result(False)
+                                        if arena_mode_enabled:
+                                            return arena_battle_result
                                     else:
                                         go_to_next_round()
                                 else:
@@ -131320,8 +131341,12 @@ def main(stage_num, new_boss_mode=False):
                                     result = check_deuce_system()
                                     if result == "player_win":
                                         show_result(True)
+                                        if arena_mode_enabled:
+                                            return arena_battle_result
                                     elif result == "boss_win":
                                         show_result(False)
+                                        if arena_mode_enabled:
+                                            return arena_battle_result
                                     else:
                                         go_to_next_round()
 
@@ -133396,6 +133421,8 @@ def main(stage_num, new_boss_mode=False):
             if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
                 BOSS.whip_sound.stop()
             show_result(True)
+            if arena_mode_enabled:
+                return arena_battle_result
             return
         elif round_losses >= win_goal:
             #  게임 종료 시 즉시 상모돌리기 사운드 정지
@@ -133405,6 +133432,8 @@ def main(stage_num, new_boss_mode=False):
             #  스테이지 실패 기록
             record_stage_result(current_stage, cleared=False)
             show_result(False)
+            if arena_mode_enabled:
+                return arena_battle_result
             return
 def get_legacy_game_loop_hooks() -> LegacyHooks:
     """GameLoop과 레거시 업데이트 루프를 연결하기 위한 훅 생성."""
