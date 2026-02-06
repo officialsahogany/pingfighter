@@ -4330,7 +4330,7 @@ class OilSpill(HeroSkill):
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         if is_on_puddle:
             game_state[f'{target_prefix}_slowed'] = True
-            game_state[f'{target_prefix}_slow_amount'] = 0.7  # 30% 둔화 (70% 속도)
+            game_state[f'{target_prefix}_slow_amount'] = 0.6  # 40% 둔화 (60% 속도)
             game_state[f'{target_prefix}_oil_slowed'] = True  # 기름 웅덩이 둔화 이펙트용
         else:
             # 기름 웅덩이로 인한 둔화만 해제 (다른 스킬의 둔화 효과는 유지)
