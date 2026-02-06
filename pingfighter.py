@@ -124265,6 +124265,9 @@ def handle_boss():
             if game_state.get('top_paddle_slowed', False):
                 arena_slow = game_state.get('top_paddle_slow_amount', 0.5)
                 slow_multiplier *= arena_slow
+            # 🔮 난쟁이마술 축소 시 이동속도 15% 감소 (패들 축소 페널티)
+            if game_state.get('top_paddle_shrink', False):
+                slow_multiplier *= 0.85  # 15% 감속
             # 👁️ 귀신의 눈 등 속도 증가 효과
             arena_speed_boost = game_state.get('top_paddle_speed_boost', 1.0)
             if arena_speed_boost > 1.0:
