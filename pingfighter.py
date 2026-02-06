@@ -18644,6 +18644,10 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
 
+    # 🔥 귀신발걸음 활성 중에는 대쉬 발동 불가 (X축 점프 방지)
+    if globals().get("arena_bottom_ghost_step_active", False):
+        return False
+
     # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
     if arena_bottom_dashing or arena_bottom_dash_cooldown > 0 or arena_bottom_dash_stun_timer > 0:
         return False
@@ -18678,6 +18682,10 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
     global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_charges
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
+
+    # 🔥 귀신발걸음 활성 중에는 대쉬 발동 불가 (X축 점프 방지)
+    if globals().get("arena_bottom_ghost_step_active", False):
+        return False
 
     # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
     if arena_bottom_dashing or arena_bottom_dash_cooldown > 0 or arena_bottom_dash_stun_timer > 0:
@@ -18793,6 +18801,14 @@ def update_arena_bottom_hero_dash():
     global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_cooldown
     global arena_bottom_dash_afterimages, arena_bottom_dash_charges, arena_bottom_dash_charge_timer
     global arena_bottom_dash_stun_timer, arena_bottom_dash_duration_frames
+
+    # 🔥 귀신발걸음 활성 중에는 대쉬 시스템 비활성화 (X축 점프 방지)
+    if globals().get("arena_bottom_ghost_step_active", False):
+        # 대쉬 중이었다면 즉시 종료
+        if arena_bottom_dashing:
+            arena_bottom_dashing = False
+            arena_bottom_dash_timer = 0
+        return False
 
     # 충전 타이머 업데이트 (후딜 중에는 충전 안 함)
     if arena_bottom_dash_charges < 2 and arena_bottom_dash_cooldown <= 0 and arena_bottom_dash_stun_timer <= 0:
@@ -124436,6 +124452,11 @@ def show_death_evaluation():
     """게임 오버 시 요약 화면 표시 - 골드, 시간, 아이템, 퍽, 보스 정보"""
     global player_analyzer, current_stage
 
+    # 투기장 모드에서는 게임 오버 요약 화면 건너뛰기
+    # (투기장 자체 결과 UI 사용)
+    if arena_mode_enabled:
+        return
+
     # 패배 BGM 재생
     try:
         bgm_manager.stop_bgm()
@@ -131626,8 +131647,16 @@ def main(stage_num, new_boss_mode=False):
                         optimus_charge_active = False
                         _stop_optimus_charge_sound()
 
+            # [DEBUG] 귀신발걸음 중 X좌표 추적 - handle_player 전
+            _gs_x_before_handle = PLAYER.x if globals().get("arena_bottom_ghost_step_active", False) else None
+
             if not freeze_now:
                 handle_player(keys_now)
+
+            # [DEBUG] 귀신발걸음 중 X좌표 추적 - handle_player 후
+            if _gs_x_before_handle is not None and abs(PLAYER.x - _gs_x_before_handle) > 30:
+                print(f"[GhostStep X JUMP in handle_player!] before={_gs_x_before_handle}, after={PLAYER.x}, diff={PLAYER.x - _gs_x_before_handle}")
+
             update_blacksmith_hammer_shock(keys_now)
             update_blacksmith_turret()
 
@@ -139681,7 +139710,7 @@ if __name__ == "__main__":
 오류 발생 시간: {error_time}
 {'='*80}
 
-오류 타입: {type(e).__name__}
+오류 타입: {type(e).__name__} 
 오류 메시지: {str(e)}
 
 상세 스택 트레이스:
