@@ -1814,7 +1814,7 @@ class ColosseumsArena:
         mx, my = pos
 
         if self.state in [TournamentState.BRACKET_VIEW, TournamentState.SELECT_MATCH]:
-            box_w, box_h = 120, 160  # 확대된 박스 크기
+            box_w, box_h = 120, 140  # 대각선 레이아웃 크기
 
             # 8강 매치 클릭 체크
             y_base = 530
@@ -2346,46 +2346,53 @@ class ColosseumsArena:
         self._draw_bracket_lines()
 
     def _draw_match_box(self, match: Match, x: int, y: int, match_idx: int):
-        """매치 박스 그리기 (확대 레이아웃: 이름-이미지-VS-이미지-이름)"""
-        box_w, box_h = 120, 160
+        """매치 박스 그리기 (대각선 분할 레이아웃)"""
+        box_w, box_h = 120, 140  # 약간 낮은 박스
 
         # 박스 배경
         bg_color = (45, 50, 60) if not match.completed else (35, 55, 45)
         pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=8)
         pygame.draw.rect(self.screen, (100, 105, 115), (x, y, box_w, box_h), 2, border_radius=8)
 
-        # === 영웅 1 (상단) ===
+        # 대각선 (왼쪽 하단 → 오른쪽 상단)
+        pygame.draw.line(self.screen, (80, 85, 95), (x + 5, y + box_h - 5), (x + box_w - 5, y + 5), 2)
+
+        # === 영웅 1 (왼쪽 상단 삼각형) ===
         h1_color = match.hero1["color"]
-        # 이름
+        # 이름 (상단 좌측)
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render(match.hero1["name"], h1_color)
-            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 8))
-        # 캐릭터 이미지 (더 크게)
+            self.screen.blit(surf, (x + 8, y + 8))
+        # 캐릭터 이미지 (좌측 중앙)
         if self.hero_paddle_renderer:
             hero1_id = match.hero1.get("id", "mugen")
             self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero1_id, x + box_w // 2, y + 45, 50, 35,
+                self.screen, hero1_id, x + 35, y + 50, 40, 28,
                 facing="down", color=h1_color, scale_mode="preview"
             )
 
-        # === VS (중앙) ===
+        # === VS (중앙 원) ===
+        vs_x = x + box_w // 2
+        vs_y = y + box_h // 2
+        pygame.draw.circle(self.screen, (60, 65, 75), (vs_x, vs_y), 16)
+        pygame.draw.circle(self.screen, (100, 105, 115), (vs_x, vs_y), 16, 2)
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render("VS", (255, 215, 0))
-            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 75))
+            self.screen.blit(surf, (vs_x - surf.get_width() // 2, vs_y - surf.get_height() // 2))
 
-        # === 영웅 2 (하단) ===
+        # === 영웅 2 (오른쪽 하단 삼각형) ===
         h2_color = match.hero2["color"]
-        # 캐릭터 이미지 (더 크게)
+        # 캐릭터 이미지 (우측 중앙)
         if self.hero_paddle_renderer:
             hero2_id = match.hero2.get("id", "chronos")
             self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero2_id, x + box_w // 2, y + 105, 50, 35,
+                self.screen, hero2_id, x + box_w - 35, y + box_h - 50, 40, 28,
                 facing="down", color=h2_color, scale_mode="preview"
             )
-        # 이름
+        # 이름 (하단 우측)
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render(match.hero2["name"], h2_color)
-            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 138))
+            self.screen.blit(surf, (x + box_w - surf.get_width() - 8, y + box_h - 22))
 
         # 결과 표시
         if match.completed and match.winner:
@@ -2395,30 +2402,29 @@ class ColosseumsArena:
 
     def _draw_empty_match_box(self, x: int, y: int, label: str):
         """빈 매치 박스"""
-        box_w, box_h = 120, 160  # 확대된 크기
+        box_w, box_h = 120, 140  # 대각선 레이아웃과 동일한 크기
         pygame.draw.rect(self.screen, (35, 38, 45), (x, y, box_w, box_h), border_radius=8)
         pygame.draw.rect(self.screen, (60, 65, 75), (x, y, box_w, box_h), 2, border_radius=8)
 
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render(label, (100, 100, 100))
-            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 70))
+            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + box_h // 2 - surf.get_height() // 2))
 
     def _draw_bracket_lines(self):
-        """대진표 연결선 (확대된 레이아웃)"""
+        """대진표 연결선 (대각선 레이아웃 box_h=140 기준)"""
         line_color = (100, 105, 115)
 
         # 8강 박스 중심 x좌표 (box_w=120 기준)
-        # x_positions = [60, 195, 430, 565]
         q1_x, q2_x, q3_x, q4_x = 120, 255, 490, 625
-        # 4강 박스 중심 x좌표 [127, 497]
+        # 4강 박스 중심 x좌표
         s1_x, s2_x = 187, 557
-        # 결승 박스 중심 x좌표 [312]
+        # 결승 박스 중심 x좌표
         f_x = 372
 
-        # 8강 top y = 530, 4강 bottom y = 470 (310+160)
+        # 8강 top y = 530, 4강 bottom y = 450 (310+140)
         y_q_top = 530
-        y_mid1 = 500  # 8강→4강 연결 중간선
-        y_s_bottom = 470  # 4강 박스 하단
+        y_mid1 = 490  # 8강→4강 연결 중간선
+        y_s_bottom = 450  # 4강 박스 하단
 
         # 8강 → 4강 연결 (좌측)
         pygame.draw.line(self.screen, line_color, (q1_x, y_q_top), (q1_x, y_mid1), 2)
@@ -2432,10 +2438,10 @@ class ColosseumsArena:
         pygame.draw.line(self.screen, line_color, (q3_x, y_mid1), (q4_x, y_mid1), 2)
         pygame.draw.line(self.screen, line_color, (s2_x, y_mid1), (s2_x, y_s_bottom), 2)
 
-        # 4강 top y = 310, 결승 bottom y = 240 (80+160)
+        # 4강 top y = 310, 결승 bottom y = 220 (80+140)
         y_s_top = 310
-        y_mid2 = 275  # 4강→결승 연결 중간선
-        y_f_bottom = 240  # 결승 박스 하단
+        y_mid2 = 265  # 4강→결승 연결 중간선
+        y_f_bottom = 220  # 결승 박스 하단
 
         # 4강 → 결승 연결
         pygame.draw.line(self.screen, line_color, (s1_x, y_s_top), (s1_x, y_mid2), 2)
@@ -2916,8 +2922,8 @@ class ColosseumsArena:
         self._draw_animated_bracket_lines()
 
     def _draw_animated_match_box(self, match: Match, x: int, y: int, match_idx: int, round_type: TournamentRound):
-        """애니메이션이 적용된 매치 박스 그리기 (확대 레이아웃)"""
-        box_w, box_h = 120, 160  # 확대된 크기
+        """애니메이션이 적용된 매치 박스 그리기 (대각선 레이아웃)"""
+        box_w, box_h = 120, 140  # 대각선 레이아웃 크기
 
         # 현재 라운드의 완료된 매치인지 확인
         is_current_round_match = (round_type == self.current_round)
@@ -2931,7 +2937,10 @@ class ColosseumsArena:
         pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=8)
         pygame.draw.rect(self.screen, (100, 105, 115), (x, y, box_w, box_h), 2, border_radius=8)
 
-        # === 영웅 1 (상단) ===
+        # 대각선 (왼쪽 하단 → 오른쪽 상단)
+        pygame.draw.line(self.screen, (80, 85, 95), (x + 5, y + box_h - 5), (x + box_w - 5, y + 5), 2)
+
+        # === 영웅 1 (왼쪽 상단 삼각형) ===
         hero1 = match.hero1
         h1_is_loser = match.completed and match.winner != hero1
         h1_alpha = 255
@@ -2940,19 +2949,19 @@ class ColosseumsArena:
             h1_alpha = int(255 * (1.0 - self.bracket_anim_progress * 0.5))
 
         h1_color = hero1["color"]
-        hero1_rect = pygame.Rect(x + 5, y + 5, box_w - 10, 65)
+        hero1_rect = pygame.Rect(x + 5, y + 5, 55, 65)
 
-        # 영웅 1 이름
+        # 영웅 1 이름 (상단 좌측)
         if self.fonts and "small" in self.fonts:
             name_color = h1_color if h1_alpha == 255 else tuple(int(c * 0.5) for c in h1_color)
             surf, _ = self.fonts["small"].render(hero1["name"], name_color)
-            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 8))
+            self.screen.blit(surf, (x + 8, y + 8))
 
-        # 영웅 1 캐릭터 이미지 (더 크게)
+        # 영웅 1 캐릭터 이미지 (좌측 중앙)
         if self.hero_paddle_renderer and h1_alpha > 100:
             hero1_id = hero1.get("id", "mugen")
             self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero1_id, x + box_w // 2, y + 45, 50, 35,
+                self.screen, hero1_id, x + 35, y + 50, 40, 28,
                 facing="down", color=h1_color, scale_mode="preview"
             )
 
@@ -2962,12 +2971,16 @@ class ColosseumsArena:
             if x_progress > 0:
                 self._draw_loser_x(hero1_rect, x_progress)
 
-        # === VS (중앙) ===
+        # === VS (중앙 원) ===
+        vs_x = x + box_w // 2
+        vs_y = y + box_h // 2
+        pygame.draw.circle(self.screen, (60, 65, 75), (vs_x, vs_y), 16)
+        pygame.draw.circle(self.screen, (100, 105, 115), (vs_x, vs_y), 16, 2)
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render("VS", (255, 215, 0))
-            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 75))
+            self.screen.blit(surf, (vs_x - surf.get_width() // 2, vs_y - surf.get_height() // 2))
 
-        # === 영웅 2 (하단) ===
+        # === 영웅 2 (오른쪽 하단 삼각형) ===
         hero2 = match.hero2
         h2_is_loser = match.completed and match.winner != hero2
         h2_alpha = 255
@@ -2976,21 +2989,21 @@ class ColosseumsArena:
             h2_alpha = int(255 * (1.0 - self.bracket_anim_progress * 0.5))
 
         h2_color = hero2["color"]
-        hero2_rect = pygame.Rect(x + 5, y + 90, box_w - 10, 65)
+        hero2_rect = pygame.Rect(x + box_w - 60, y + box_h - 70, 55, 65)
 
-        # 영웅 2 캐릭터 이미지 (더 크게)
+        # 영웅 2 캐릭터 이미지 (우측 중앙)
         if self.hero_paddle_renderer and h2_alpha > 100:
             hero2_id = hero2.get("id", "chronos")
             self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero2_id, x + box_w // 2, y + 105, 50, 35,
+                self.screen, hero2_id, x + box_w - 35, y + box_h - 50, 40, 28,
                 facing="down", color=h2_color, scale_mode="preview"
             )
 
-        # 영웅 2 이름
+        # 영웅 2 이름 (하단 우측)
         if self.fonts and "small" in self.fonts:
             name_color = h2_color if h2_alpha == 255 else tuple(int(c * 0.5) for c in h2_color)
             surf, _ = self.fonts["small"].render(hero2["name"], name_color)
-            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 138))
+            self.screen.blit(surf, (x + box_w - surf.get_width() - 8, y + box_h - 22))
 
         # 패자 X 표시
         if h2_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
@@ -3144,16 +3157,16 @@ class ColosseumsArena:
             return 1 - pow(-2 * t + 2, 2) / 2
 
     def _draw_animated_bracket_lines(self):
-        """애니메이션이 적용된 대진표 연결선 (확대 레이아웃)"""
+        """애니메이션이 적용된 대진표 연결선 (대각선 레이아웃 box_h=140 기준)"""
         base_color = (100, 105, 115)
         highlight_color = (255, 215, 0)
 
-        # 확대 레이아웃 좌표 (box_w=120)
+        # 대각선 레이아웃 좌표 (box_w=120, box_h=140)
         q1_x, q2_x, q3_x, q4_x = 120, 255, 490, 625  # 8강 박스 중심
         s1_x, s2_x = 187, 557  # 4강 박스 중심
         f_x = 372  # 결승 박스 중심
-        y_q_top, y_mid1, y_s_bottom = 530, 500, 470
-        y_s_top, y_mid2, y_f_bottom = 310, 275, 240
+        y_q_top, y_mid1, y_s_bottom = 530, 490, 450
+        y_s_top, y_mid2, y_f_bottom = 310, 265, 220
 
         # 8강 → 4강 연결
         if self.current_round == TournamentRound.QUARTER_FINAL and self.bracket_anim_phase >= 1:
