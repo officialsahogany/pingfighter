@@ -1303,23 +1303,37 @@ class ColosseumsArena:
         self.score_top = 0
         self.score_bottom = 0
 
+        # 배팅한 영웅이 하단(플레이어 AI)이 되도록 배치
+        # 플레이어 AI는 항상 하단을 제어하므로, bet_hero가 하단이어야 배팅한 영웅이 유리
+        if self.bet_hero == match.hero1:
+            # bet_hero가 hero1이면 순서를 바꿔서 bet_hero가 하단이 되도록
+            top_hero = match.hero2
+            bottom_hero = match.hero1
+            print(f"[Arena] 배치 조정: {top_hero['name']}(상단) vs {bottom_hero['name']}(하단/배팅)")
+        else:
+            # bet_hero가 hero2이면 그대로 (hero2가 하단)
+            top_hero = match.hero1
+            bottom_hero = match.hero2
+            print(f"[Arena] 배치 유지: {top_hero['name']}(상단) vs {bottom_hero['name']}(하단/배팅)")
+
         # 실제 게임 엔진으로 배틀 실행
         try:
             if self.battle_callback:
-                result = self.battle_callback(match.hero1, match.hero2)
+                result = self.battle_callback(top_hero, bottom_hero)
             else:
-                result = self._run_real_game_battle(match.hero1, match.hero2)
+                result = self._run_real_game_battle(top_hero, bottom_hero)
 
-            # 결과 처리: True = 보스 처치 (하단 영웅 승리), False = 패배 (상단 영웅 승리)
+            # 결과 처리: True = 하단(플레이어 AI/배팅 영웅) 승리, False = 상단 승리
             if result:
-                winner = match.hero2
+                winner = bottom_hero  # 하단 승리 = 배팅한 영웅 승리
                 self.score_top = 0
                 self.score_bottom = 5
             else:
-                winner = match.hero1
+                winner = top_hero  # 상단 승리 = 배팅한 영웅 패배
                 self.score_top = 5
                 self.score_bottom = 0
 
+            print(f"[Arena] 배틀 결과: result={result}, winner={winner['name']}, bet_hero={self.bet_hero['name'] if self.bet_hero else 'None'}")
             self._end_battle(winner)
 
         except Exception as e:
