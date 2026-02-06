@@ -4104,18 +4104,29 @@ class SteamBarrier(HeroSkill):
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
-            # 배리어 라인 알파 (펄스 효과)
-            barrier_alpha = int(150 + 50 * math.sin(pygame.time.get_ticks() / 100))
+            # 마지막 0.5초 동안 신기루처럼 페이드아웃
+            fade_duration = 0.5
+            if self.active_timer <= fade_duration:
+                fade_alpha = self.active_timer / fade_duration  # 0.5 -> 0 = 1.0 -> 0.0
+            else:
+                fade_alpha = 1.0
+
+            # 배리어 라인 알파 (펄스 효과 + 페이드아웃)
+            base_alpha = int(150 + 50 * math.sin(pygame.time.get_ticks() / 100))
+            barrier_alpha = int(base_alpha * fade_alpha)
 
             # 메인 배리어 라인 (화면 전체 너비 0~760)
-            barrier_surf = pygame.Surface((760, 8), pygame.SRCALPHA)
-            pygame.draw.line(barrier_surf, (180, 200, 220, barrier_alpha),
-                           (0, 4), (760, 4), 4)
-            screen.blit(barrier_surf, (0, int(self.barrier_y) - 4))
+            if barrier_alpha > 0:
+                barrier_surf = pygame.Surface((760, 8), pygame.SRCALPHA)
+                pygame.draw.line(barrier_surf, (180, 200, 220, barrier_alpha),
+                               (0, 4), (760, 4), 4)
+                screen.blit(barrier_surf, (0, int(self.barrier_y) - 4))
 
             # 톱니바퀴 장식 (화면 전체에 균등 배치: 5개)
             for x in [76, 228, 380, 532, 684]:
-                gear_alpha = 200
+                gear_alpha = int(200 * fade_alpha)
+                if gear_alpha <= 0:
+                    continue
                 gear_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
                 teeth = 8
                 for i in range(teeth):
@@ -4133,7 +4144,7 @@ class SteamBarrier(HeroSkill):
 
             # 증기 파티클
             for p in self.steam_particles:
-                alpha = int(100 * (p['life'] / 0.8))
+                alpha = int(100 * (p['life'] / 0.8) * fade_alpha)
                 if alpha <= 0:
                     continue
                 surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
