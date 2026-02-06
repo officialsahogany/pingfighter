@@ -1409,10 +1409,17 @@ class ColosseumsArena:
 
         # 득점 처리
         if scorer:
+            # 방어 로직: 배틀이 이미 종료되었으면 점수 증가 방지
+            if not self.battle_active:
+                print(f"[Arena] 경고: 배틀 종료 후 득점 시도 무시")
+                return True
+
             if scorer == "top":
                 self.score_top += 1
+                print(f"[Arena] 상단 득점! 현재 점수: {self.score_top}:{self.score_bottom}")
             else:
                 self.score_bottom += 1
+                print(f"[Arena] 하단 득점! 현재 점수: {self.score_top}:{self.score_bottom}")
 
             # 관중 흥분 이벤트 트리거
             if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
@@ -1420,7 +1427,6 @@ class ColosseumsArena:
 
             # === 모든 활성 스킬 상태 리셋 (득점 시) ===
             if self.skill_manager:
-                print(f"[DEBUG Arena] 득점! 스킬 리셋 호출")
                 self.skill_manager.reset_active_skills_for_round()
 
                 # 🔮 난쟁이마술 등으로 축소된 패들 크기 복원
@@ -1436,6 +1442,10 @@ class ColosseumsArena:
 
             # 승리 체크 (5점 선취, 4:4부터 듀스)
             if self._check_winner():
+                return True
+
+            # 방어 로직: _check_winner에서 배틀이 종료되었으면 리턴
+            if not self.battle_active:
                 return True
 
             # 공 리셋 (애니메이션으로 시작)
@@ -1668,20 +1678,36 @@ class ColosseumsArena:
         """승자 체크 (5점 선취, 듀스 룰)"""
         s1, s2 = self.score_top, self.score_bottom
 
+        # 방어 로직: selected_match가 없으면 강제 종료
+        if not self.selected_match:
+            print(f"[Arena] ERROR: selected_match is None! 강제 배틀 종료")
+            self.battle_active = False
+            self.state = TournamentState.BRACKET_VIEW
+            return True
+
+        # 방어 로직: 점수가 비정상적으로 높으면 강제 종료 (최대 15점)
+        MAX_SCORE = 15
+        if s1 >= MAX_SCORE or s2 >= MAX_SCORE:
+            print(f"[Arena] 점수 상한 도달 ({s1}:{s2}) - 강제 종료")
+            winner = self.selected_match.hero1 if s1 > s2 else self.selected_match.hero2
+            self._end_battle(winner)
+            return True
+
         # 듀스 상황 (둘 다 4점 이상): 2점 차이로 승리
         if s1 >= 4 and s2 >= 4:
             if abs(s1 - s2) >= 2:
-                if s1 > s2:
-                    self._end_battle(self.selected_match.hero1)
-                else:
-                    self._end_battle(self.selected_match.hero2)
+                winner = self.selected_match.hero1 if s1 > s2 else self.selected_match.hero2
+                print(f"[Arena] 듀스 승리! {s1}:{s2} → {winner['name']}")
+                self._end_battle(winner)
                 return True
         # 일반 상황: 5점 선취
         else:
             if s1 >= WIN_SCORE:
+                print(f"[Arena] 일반 승리! {s1}:{s2} → {self.selected_match.hero1['name']}")
                 self._end_battle(self.selected_match.hero1)
                 return True
             if s2 >= WIN_SCORE:
+                print(f"[Arena] 일반 승리! {s1}:{s2} → {self.selected_match.hero2['name']}")
                 self._end_battle(self.selected_match.hero2)
                 return True
 
@@ -1689,7 +1715,20 @@ class ColosseumsArena:
 
     def _end_battle(self, winner: Dict):
         """배틀 종료 - 누적 상금 시스템"""
+        # 방어 로직: 이미 종료된 배틀이면 무시
+        if not self.battle_active:
+            print(f"[Arena] 경고: _end_battle 중복 호출 무시 (이미 종료됨)")
+            return
+
+        print(f"[Arena] 배틀 종료! 승자: {winner.get('name', 'Unknown')} | 최종 점수: {self.score_top}:{self.score_bottom}")
         self.battle_active = False
+
+        # 방어 로직: selected_match 체크
+        if not self.selected_match:
+            print(f"[Arena] ERROR: selected_match is None in _end_battle!")
+            self.state = TournamentState.BRACKET_VIEW
+            return
+
         self.selected_match.set_result(winner, self.score_top, self.score_bottom)
 
         # 누적 상금 시스템 - 승패 결과 처리
