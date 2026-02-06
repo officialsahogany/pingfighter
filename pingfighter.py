@@ -118155,9 +118155,12 @@ def handle_ball():
                 wall_bounce_count += 1
                 time_without_paddle = current_time - last_paddle_hit_time
                 print(f"    : {wall_bounce_count}/{DRAW_BOUNCE_LIMIT},   : {time_without_paddle/1000:.1f}")
-                
+
                 # 무승부 판정 체크 (두 조건 모두 만족해야 함)
+                # 투기장 모드에서 이미 결과가 결정된 경우 무승부 처리 건너뛰기
                 if wall_bounce_count >= DRAW_BOUNCE_LIMIT and time_without_paddle >= DRAW_TIME_LIMIT:
+                    if arena_mode_enabled and arena_battle_result is not None:
+                        return  # 이미 승부가 결정됨 - 무승부 판정 방지
                     print(f" !  {DRAW_BOUNCE_LIMIT}  + {DRAW_TIME_LIMIT/1000}  !")
                     # 무승부 처리: 점수는 그대로, 라운드만 재시작
                     go_to_next_round()
@@ -118304,9 +118307,12 @@ def handle_ball():
                 wall_bounce_count += 1
                 time_without_paddle = current_time - last_paddle_hit_time
                 print(f"    : {wall_bounce_count}/{DRAW_BOUNCE_LIMIT},   : {time_without_paddle/1000:.1f}")
-                
+
                 # 무승부 판정 체크 (두 조건 모두 만족해야 함)
+                # 투기장 모드에서 이미 결과가 결정된 경우 무승부 처리 건너뛰기
                 if wall_bounce_count >= DRAW_BOUNCE_LIMIT and time_without_paddle >= DRAW_TIME_LIMIT:
+                    if arena_mode_enabled and arena_battle_result is not None:
+                        return  # 이미 승부가 결정됨 - 무승부 판정 방지
                     print(f" !  {DRAW_BOUNCE_LIMIT}  + {DRAW_TIME_LIMIT/1000}  !")
                     # 무승부 처리: 점수는 그대로, 라운드만 재시작
                     go_to_next_round()
@@ -118379,7 +118385,10 @@ def handle_ball():
     else:
         horizontal_bounce_count = 0
     # --- 무승부 처리 ---
+    # 투기장 모드에서 이미 결과가 결정된 경우 무승부 처리 건너뛰기
     if horizontal_bounce_count >= 6:
+        if arena_mode_enabled and arena_battle_result is not None:
+            return  # 이미 승부가 결정됨 - 무승부 판정 방지
         show_fade_text("재대결!")
         reset_round()
         return
