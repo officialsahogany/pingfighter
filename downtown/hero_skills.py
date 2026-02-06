@@ -4778,9 +4778,12 @@ class ShadowClone(HeroSkill):
 class IllusionShuriken(HeroSkill):
     """환영수리검 - 3개의 수리검을 순차 발사, 벽에서 튕기고 넉백 유발"""
 
-    # 게임 영역 경계
+    # 게임 영역 경계 (760x750 화면, 게임 플레이 영역: 80~680)
     GAME_LEFT = 80
     GAME_RIGHT = 680
+    GAME_TOP = 0
+    GAME_BOTTOM = 750
+    SHURIKEN_SIZE = 18  # 수리검 반지름
 
     def __init__(self):
         super().__init__(
@@ -4900,23 +4903,27 @@ class IllusionShuriken(HeroSkill):
             shuriken['y'] += shuriken['vy'] * dt
             shuriken['rotation'] += dt * 1200  # 회전
 
-            # 벽 충돌 (좌우 바운스)
-            if shuriken['x'] <= self.GAME_LEFT:
-                shuriken['x'] = self.GAME_LEFT
+            # 벽 충돌 (좌우 바운스) - 수리검 크기 고려
+            left_bound = self.GAME_LEFT + self.SHURIKEN_SIZE
+            right_bound = self.GAME_RIGHT - self.SHURIKEN_SIZE
+            if shuriken['x'] <= left_bound:
+                shuriken['x'] = left_bound
                 shuriken['vx'] = abs(shuriken['vx'])  # 오른쪽으로 튕김
                 shuriken['bounces'] += 1
-            elif shuriken['x'] >= self.GAME_RIGHT:
-                shuriken['x'] = self.GAME_RIGHT
+            elif shuriken['x'] >= right_bound:
+                shuriken['x'] = right_bound
                 shuriken['vx'] = -abs(shuriken['vx'])  # 왼쪽으로 튕김
                 shuriken['bounces'] += 1
 
-            # 상하 벽 충돌 (바운스)
-            if shuriken['y'] <= 0:
-                shuriken['y'] = 0
+            # 상하 벽 충돌 (바운스) - 수리검 크기 고려
+            top_bound = self.GAME_TOP + self.SHURIKEN_SIZE
+            bottom_bound = self.GAME_BOTTOM - self.SHURIKEN_SIZE
+            if shuriken['y'] <= top_bound:
+                shuriken['y'] = top_bound
                 shuriken['vy'] = abs(shuriken['vy'])  # 아래로 튕김
                 shuriken['bounces'] += 1
-            elif shuriken['y'] >= 750:
-                shuriken['y'] = 750
+            elif shuriken['y'] >= bottom_bound:
+                shuriken['y'] = bottom_bound
                 shuriken['vy'] = -abs(shuriken['vy'])  # 위로 튕김
                 shuriken['bounces'] += 1
 

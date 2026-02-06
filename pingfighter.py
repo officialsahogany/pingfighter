@@ -131868,9 +131868,8 @@ def main(stage_num, new_boss_mode=False):
                     _demon_eye_active_for_lock = arena_game_state.get('demon_eye_active', False)
                     _demon_eye_caster_is_top_for_lock = arena_game_state.get('demon_eye_caster_is_top', True)
 
-                    # [DEBUG] 귀신발걸음 lock 상태 확인
-                    if _demon_eye_active_for_lock:
-                        print(f"[GhostStep LOCK DEBUG] active={_demon_eye_active_for_lock}, caster_is_top={_demon_eye_caster_is_top_for_lock}")
+                    # [DEBUG] 귀신발걸음 X좌표 추적 (시작 시점)
+                    _player_x_before_lock = PLAYER.x
 
                     # 상단 영웅 (BOSS) 위치 고정
                     if arena_game_state.get('top_paddle_locked', False):
@@ -131892,6 +131891,10 @@ def main(stage_num, new_boss_mode=False):
                         if 'bottom_paddle_locked_y' in arena_game_state:
                             if not _skip_bottom:
                                 PLAYER.y = int(arena_game_state['bottom_paddle_locked_y'])
+                        # [DEBUG] lock 처리 후 X좌표 변화 확인
+                        if _demon_eye_active_for_lock and not _demon_eye_caster_is_top_for_lock:
+                            if PLAYER.x != _player_x_before_lock:
+                                print(f"[GhostStep X DEBUG] LOCK 블록에서 X 변경! before={_player_x_before_lock}, after={PLAYER.x}, skip_bottom={_skip_bottom}")
 
                     # 👁️ 귀신발걸음 Y축 이동 업데이트 (끝까지 전진)
                     global arena_top_ghost_step_active, arena_top_ghost_step_original_y
@@ -131927,10 +131930,11 @@ def main(stage_num, new_boss_mode=False):
                                 arena_bottom_ghost_step_active = True
                                 arena_bottom_ghost_step_original_y = int(PLAYER.y)
                                 arena_bottom_ghost_step_velocity = -arena_bottom_ghost_step_speed  # 위로
-                                print(f"[GhostStep DEBUG] 하단 영웅 Y축 전진 시작! 원위치={arena_bottom_ghost_step_original_y}, 목표=화면 상단")
+                                print(f"[GhostStep DEBUG] 하단 영웅 Y축 전진 시작! X={PLAYER.x}, 원위치Y={arena_bottom_ghost_step_original_y}, 목표=화면 상단")
 
                             # 업데이트 - 계속 위로 전진 (화면 상단까지)
                             _before_y = PLAYER.y
+                            _before_x = PLAYER.x
                             new_y = int(PLAYER.y + arena_bottom_ghost_step_velocity)
                             # 화면 상단 제한 (상대 패들 위치 너머까지)
                             min_y = 50  # 화면 거의 끝까지
@@ -131938,7 +131942,9 @@ def main(stage_num, new_boss_mode=False):
                                 PLAYER.y = new_y
                             else:
                                 PLAYER.y = min_y  # 끝에 도달하면 유지
-                            print(f"[GhostStep Y DEBUG] 하단 Y이동: before={_before_y}, velocity={arena_bottom_ghost_step_velocity}, new_y={new_y}, after={PLAYER.y}")
+                            # [DEBUG] X좌표도 함께 출력
+                            if abs(PLAYER.x - _before_x) > 50:  # X좌표가 50픽셀 이상 변했을 때만
+                                print(f"[GhostStep X JUMP!] X 순간이동 감지! before_x={_before_x}, after_x={PLAYER.x}")
                     else:
                         # 귀신발걸음 종료 시 원위치 복귀
                         if arena_top_ghost_step_active:
