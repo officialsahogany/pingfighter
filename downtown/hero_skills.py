@@ -848,19 +848,22 @@ class TentacleWrap(HeroSkill):
                 # 이제 둔화 적용 (60% 감소)
                 if not self.slow_applied:
                     self.slow_applied = True
-                    target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+                    # self.target_is_top 사용하여 일관성 유지 (스킬 발동 시점의 타겟)
+                    target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
                     game_state[f'{target_prefix}_stunned'] = False
                     game_state['target_stunned'] = False
                     game_state[f'{target_prefix}_slowed'] = True
                     game_state[f'{target_prefix}_slow_amount'] = self.slow_amount
+                    game_state[f'{target_prefix}_tentacle_slowed'] = True  # 촉수 휘감기로 인한 둔화 표시
                     game_state['target_slowed'] = True
                     game_state['slow_amount'] = self.slow_amount
                     game_state['tentacle_wrap_active'] = True
-                    game_state['tentacle_wrap_target_is_top'] = target_paddle.is_top
+                    game_state['tentacle_wrap_target_is_top'] = self.target_is_top
 
         elif self.phase == 'wrap':
             self.wrap_timer += dt
-            target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+            # self.target_is_top 사용하여 일관성 유지
+            target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
             game_state[f'{target_prefix}_stunned'] = False
             game_state['target_stunned'] = False
 
@@ -877,8 +880,11 @@ class TentacleWrap(HeroSkill):
         game_state['target_slowed'] = False
         game_state['slow_amount'] = 1.0
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
-        game_state[f'{target_prefix}_slowed'] = False
-        game_state[f'{target_prefix}_slow_amount'] = 1.0
+        # 촉수 휘감기로 인한 둔화만 해제 (다른 스킬의 둔화 효과는 유지)
+        if game_state.get(f'{target_prefix}_tentacle_slowed', False):
+            game_state[f'{target_prefix}_slowed'] = False
+            game_state[f'{target_prefix}_slow_amount'] = 1.0
+            game_state[f'{target_prefix}_tentacle_slowed'] = False
         game_state['tentacle_wrap_active'] = False
         self.tentacles = []
         self.phase = 'travel'
@@ -1144,8 +1150,11 @@ class TentacleWrap(HeroSkill):
         self.time = 0
         if self.slow_applied:
             target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
-            game_state[f'{target_prefix}_slowed'] = False
-            game_state[f'{target_prefix}_slow_amount'] = 1.0
+            # 촉수 휘감기로 인한 둔화만 해제
+            if game_state.get(f'{target_prefix}_tentacle_slowed', False):
+                game_state[f'{target_prefix}_slowed'] = False
+                game_state[f'{target_prefix}_slow_amount'] = 1.0
+                game_state[f'{target_prefix}_tentacle_slowed'] = False
             self.slow_applied = False
 
 
@@ -4285,12 +4294,19 @@ class OilSpill(HeroSkill):
             self.oil_puddles.remove(puddle)
 
         # 적 패들이 웅덩이를 밟고 있는지 체크
+        # target_paddle이 실제 타겟 패들인지 확인 (hero_positions 변경으로 인한 불일치 방지)
+        if target_paddle.is_top == self.target_is_top:
+            paddle_to_check = target_paddle
+        else:
+            # 불일치: caster_paddle이 실제 타겟이 됨 (위치가 뒤바뀐 경우)
+            paddle_to_check = caster_paddle
+
         is_on_puddle = False
         for puddle in self.oil_puddles:
             # 패들과 웅덩이 충돌 체크
-            paddle_left = target_paddle.x
-            paddle_right = target_paddle.x + target_paddle.width
-            paddle_y = target_paddle.y
+            paddle_left = paddle_to_check.x
+            paddle_right = paddle_to_check.x + paddle_to_check.width
+            paddle_y = paddle_to_check.y
 
             puddle_left = puddle['x'] - puddle['width'] / 2
             puddle_right = puddle['x'] + puddle['width'] / 2
@@ -4310,9 +4326,11 @@ class OilSpill(HeroSkill):
             game_state[f'{target_prefix}_slow_amount'] = 0.7  # 30% 둔화 (70% 속도)
             game_state[f'{target_prefix}_oil_slowed'] = True  # 기름 웅덩이 둔화 이펙트용
         else:
-            game_state[f'{target_prefix}_slowed'] = False
-            game_state[f'{target_prefix}_slow_amount'] = 1.0
-            game_state[f'{target_prefix}_oil_slowed'] = False
+            # 기름 웅덩이로 인한 둔화만 해제 (다른 스킬의 둔화 효과는 유지)
+            if game_state.get(f'{target_prefix}_oil_slowed', False):
+                game_state[f'{target_prefix}_slowed'] = False
+                game_state[f'{target_prefix}_slow_amount'] = 1.0
+                game_state[f'{target_prefix}_oil_slowed'] = False
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         # 스킬 종료 시에는 웅덩이 유지 (웅덩이는 자체 수명으로 관리)
