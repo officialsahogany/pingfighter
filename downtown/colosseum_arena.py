@@ -146,7 +146,7 @@ TOP_HEROES = [
 BOTTOM_HEROES = [
     {
         "id": "maria",
-        "name": "마리아",
+        "name": "연화",
         "title": "인형사",
         "style": HeroStyle.TRICKY,
         "color": (180, 100, 150),  # 분홍-보라

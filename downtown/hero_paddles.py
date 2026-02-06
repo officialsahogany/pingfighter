@@ -1753,10 +1753,10 @@ class HeroPaddleRenderer:
             pygame.draw.circle(screen, p["club_metal"], (spike_base_x, spike_base_y), max(2, int(0.1 * b)))
 
     # =========================================================================
-    # 마리아 - 인형사 (마리오네트를 조종하는 소녀) [고퀄리티 업그레이드]
+    # 연화 - 인형사 (마리오네트를 조종하는 무녀) [고퀄리티 업그레이드]
     # =========================================================================
     def _draw_maria(self, screen, cx, cy, b, color, show_back, anim):
-        """마리아 - 인형사 (기묘한 인형들을 조종하는 소녀) [고퀄리티]"""
+        """연화 - 인형사 (기묘한 인형들을 조종하는 무녀) [고퀄리티]"""
         lean = anim["lean"]
         wave = anim["wave"]
         body_bob = anim["body_bob"]

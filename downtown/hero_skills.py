@@ -2311,7 +2311,7 @@ class HornCharge(HeroSkill):
 
 
 # ============================================================================
-# 마리아 스킬 - 인형사 (트릭형)
+# 연화 스킬 - 인형사 (트릭형)
 # ============================================================================
 class PuppetControl(HeroSkill):
     """꼭두각시 조종 - 실로 상대를 끌어와 뽀뽀"""
@@ -2367,7 +2367,7 @@ class PuppetControl(HeroSkill):
         self.strings = []
         for i in range(5):
             self.strings.append({
-                'offset_x': -20 + i * 10,  # 마리아 손에서의 오프셋
+                'offset_x': -20 + i * 10,  # 연화 손에서의 오프셋
                 'wave': random.uniform(0, math.pi * 2),
                 'thickness': 2 + random.randint(0, 1)
             })
@@ -2376,7 +2376,7 @@ class PuppetControl(HeroSkill):
         self.kiss_hearts = []
         self.kiss_sparkles = []
 
-        # 마리아 고정
+        # 연화 고정
         caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
         game_state[f'{caster_prefix}_locked'] = True
         game_state[f'{caster_prefix}_locked_x'] = self.caster_x
@@ -2397,7 +2397,7 @@ class PuppetControl(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         self.phase_timer += dt
 
-        # 마리아 위치 고정 (X축 및 Y축)
+        # 연화 위치 고정 (X축 및 Y축)
         caster_paddle.x = self.caster_x
         caster_paddle.y = self.caster_y
 
@@ -2424,12 +2424,12 @@ class PuppetControl(HeroSkill):
             # 이징 함수로 부드럽게
             eased = 1 - (1 - pull_progress) ** 2
 
-            # 마리아 근처로 끌어옴 (Y축) - 마리아 방향으로 크게 당김
+            # 연화 근처로 끌어옴 (Y축) - 연화 방향으로 크게 당김
             kiss_y = self.caster_y + (-60 if not caster_paddle.is_top else 60)
             new_y = self.target_original_y + (kiss_y - self.target_original_y) * eased
             target_paddle.y = new_y
 
-            # X축도 마리아 위치로
+            # X축도 연화 위치로
             new_x = self.target_original_x + (self.caster_x - self.target_original_x) * eased
             target_paddle.x = new_x
 
@@ -2507,7 +2507,7 @@ class PuppetControl(HeroSkill):
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['target_puppeted'] = False
 
-        # 마리아 고정 해제
+        # 연화 고정 해제
         caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
         game_state[f'{caster_prefix}_locked'] = False
 
@@ -2567,7 +2567,7 @@ class PuppetControl(HeroSkill):
                 color = (180, 100, 150) if self.phase < self.PHASE_KISSING else (255, 150, 180)
                 pygame.draw.lines(screen, color, False, points, s['thickness'])
 
-        # 마리아 손 위치에 작은 원 (실 잡는 곳)
+        # 연화 손 위치에 작은 원 (실 잡는 곳)
         pygame.draw.circle(screen, (150, 80, 120), (int(hand_x), int(hand_y)), 8)
         pygame.draw.circle(screen, (200, 120, 160), (int(hand_x), int(hand_y)), 5)
 
@@ -2666,14 +2666,14 @@ class DollCurse(HeroSkill):
         )
         self.curse_dolls = []
         self.target_is_top = False
-        # 마리아 고정 위치 및 불꽃 이펙트
+        # 연화 고정 위치 및 불꽃 이펙트
         self.caster_locked_x = 0
         self.caster_locked_y = 0
         self.flame_particles = []
         self.flame_timer = 0
-        # 수호 인형 (마리아 좌우 150px에 생성, 공을 막음)
+        # 수호 인형 (연화 좌우 150px에 생성, 공을 막음)
         self.guardian_dolls = []
-        self.guardian_offset = 150  # 마리아로부터의 거리
+        self.guardian_offset = 150  # 연화로부터의 거리
         self.guardian_size = 30  # 수호 인형 충돌 반경
 
     def _get_hero_body_position(self, paddle, b=8):
@@ -2695,7 +2695,7 @@ class DollCurse(HeroSkill):
         game_state['target_confused'] = True
         game_state['confusion_type'] = 'reverse'  # 조작 반전
 
-        # 마리아(caster) 제자리 고정 (X축 및 Y축 모두)
+        # 연화(caster) 제자리 고정 (X축 및 Y축 모두)
         self.caster_locked_x = caster_paddle.x
         self.caster_locked_y = caster_paddle.y
         # 캐릭터 스프라이트 중심 위치 저장 (centerx 사용)
@@ -2724,14 +2724,14 @@ class DollCurse(HeroSkill):
                 'float_offset': random.uniform(0, math.pi * 2)
             })
 
-        # 마리아 주변 불꽃 파티클 초기화
+        # 연화 주변 불꽃 파티클 초기화
         self.flame_particles = []
         self.flame_timer = 0
 
-        # 수호 인형 생성 (바닥에서 솟아오르며 마리아 좌우 150px에 배치)
+        # 수호 인형 생성 (바닥에서 솟아오르며 연화 좌우 150px에 배치)
         self.guardian_dolls = []
         caster_center_x = self.caster_centerx
-        # 마리아 앞쪽 Y 좌표 (공이 오는 방향) - 목표 위치
+        # 연화 앞쪽 Y 좌표 (공이 오는 방향) - 목표 위치
         if caster_paddle.is_top:
             guardian_target_y = self.caster_locked_y + 60  # 상단 영웅이면 아래쪽에
             guardian_spawn_y = 750 + 50  # 화면 바닥 아래에서 시작
@@ -2783,7 +2783,7 @@ class DollCurse(HeroSkill):
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        # 마리아(caster) 제자리 고정 유지 (X축 및 Y축 모두)
+        # 연화(caster) 제자리 고정 유지 (X축 및 Y축 모두)
         caster_paddle.x = self.caster_locked_x
         caster_paddle.y = self.caster_locked_y
 
@@ -2800,7 +2800,7 @@ class DollCurse(HeroSkill):
             doll['y'] = target_torso_y + math.sin(doll['base_angle']) * doll['distance'] * 0.5 + float_y
             doll['rotation'] += math.sin(doll['wobble']) * 3
 
-        # 수호 인형 업데이트 (바닥에서 솟아오르며 마리아 좌우에서 공 막기)
+        # 수호 인형 업데이트 (바닥에서 솟아오르며 연화 좌우에서 공 막기)
         for guardian in self.guardian_dolls:
             # 생성 애니메이션 (바닥에서 솟아오름)
             if guardian['spawn_progress'] < 1.0:
@@ -2847,7 +2847,7 @@ class DollCurse(HeroSkill):
         # game_state 업데이트 (pingfighter에서 충돌 체크용)
         game_state['doll_curse_guardians'] = self.guardian_dolls
 
-        # 마리아 주변 불꽃 파티클 생성 (캐릭터 스프라이트 위치에)
+        # 연화 주변 불꽃 파티클 생성 (캐릭터 스프라이트 위치에)
         self.flame_timer += dt
         if self.flame_timer > 0.05:  # 0.05초마다 파티클 생성
             self.flame_timer = 0
@@ -2861,7 +2861,7 @@ class DollCurse(HeroSkill):
                 # cy = y + 28, 머리~발: cy-24 ~ cy+24
                 caster_center_y = self.caster_locked_y + 28  # 캐릭터 중심
             else:
-                # 하단 영웅 (마리아): 캐릭터가 패들 위에 그려짐
+                # 하단 영웅 (연화): 캐릭터가 패들 위에 그려짐
                 # cy = y + 4, 머리~발: cy-24 ~ cy+24, 실제로 캐릭터 몸통은 cy - 12
                 # 패들 y=710이면, cy=714, torso=702, 머리~발: 678~726
                 # 캐릭터 몸통 중심은 약 y - 8 (710 - 8 = 702)
@@ -2897,7 +2897,7 @@ class DollCurse(HeroSkill):
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_confused'] = False
 
-        # 마리아(caster) 고정 해제
+        # 연화(caster) 고정 해제
         caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
         game_state[f'{caster_prefix}_locked'] = False
 
@@ -2918,7 +2918,7 @@ class DollCurse(HeroSkill):
             overlay.fill((100, 30, 60, 30))
             screen.blit(overlay, (0, 0))
 
-            # 마리아 주변 이글이글 불꽃 이펙트
+            # 연화 주변 이글이글 불꽃 이펙트
             for p in self.flame_particles:
                 # 불꽃 색상: 빨강 -> 주황 -> 노랑 (life에 따라)
                 phase = p['color_phase'] % 1.0
@@ -2937,13 +2937,13 @@ class DollCurse(HeroSkill):
                 pygame.draw.circle(flame_surf, (*color, alpha), (size, size), size)
                 screen.blit(flame_surf, (int(p['x']) - size, int(p['y']) - size))
 
-            # 마리아 캐릭터 스프라이트 위에 오라 이펙트
+            # 연화 캐릭터 스프라이트 위에 오라 이펙트
             caster_center_x = int(self.caster_centerx)
             # 캐릭터 스프라이트 중심 위치 (캐릭터 몸 전체를 감싸도록)
             if self.caster_is_top:
                 caster_center_y = int(self.caster_locked_y + 28)  # 상단 영웅
             else:
-                caster_center_y = int(self.caster_locked_y - 8)  # 하단 영웅 (마리아)
+                caster_center_y = int(self.caster_locked_y - 8)  # 하단 영웅 (연화)
 
             # 캐릭터를 감싸는 이글이글 오라 (캐릭터 몸 전체)
             aura_w, aura_h = 70, 60  # 캐릭터 크기에 맞게
@@ -2956,7 +2956,7 @@ class DollCurse(HeroSkill):
             pygame.draw.ellipse(aura_surf, (255, 100, 130, int(60 * pulse)), (8, 6, aura_w - 16, aura_h - 12))
             screen.blit(aura_surf, (caster_center_x - aura_w // 2, caster_center_y - aura_h // 2))
 
-            # 수호 인형들 (마리아 좌우 150px에서 공을 막음) - 고퀄리티 부두 인형 스타일
+            # 수호 인형들 (연화 좌우 150px에서 공을 막음) - 고퀄리티 부두 인형 스타일
             for guardian in self.guardian_dolls:
                 gx, gy = int(guardian['x']), int(guardian['y'])
                 spawn_alpha = min(1.0, guardian['spawn_progress'] * 1.5)  # 페이드인
@@ -3125,7 +3125,7 @@ class DollCurse(HeroSkill):
                 pygame.draw.ellipse(shadow_surf, (0, 0, 0, int(100 * spawn_alpha)), shadow_surf.get_rect())
                 screen.blit(shadow_surf, (gx - shadow_w // 2, gy + int(38 * s)))
 
-                # === 마리아와 연결된 마법의 실 (고퀄리티 업그레이드) ===
+                # === 연화와 연결된 마법의 실 (고퀄리티 업그레이드) ===
                 caster_center_x = int(self.caster_centerx)
                 if self.caster_is_top:
                     thread_start_y = int(self.caster_locked_y + 28)
@@ -3535,7 +3535,7 @@ class DollCurse(HeroSkill):
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_confused'] = False
         game_state['target_confused'] = False
-        # 마리아 고정 해제
+        # 연화 고정 해제
         caster_prefix = 'bottom_paddle' if self.target_is_top else 'top_paddle'
         game_state[f'{caster_prefix}_locked'] = False
         # 수호 인형 game_state 정리
@@ -5190,8 +5190,8 @@ class HeroSkillManager:
         스킬 발동 중 라운드가 끝나면 스킬 효과와 상태를 정리합니다.
         - 촉수 휘감기 (크라켄): 둔화 효과 해제
         - 심해의 먹물 (크라켄): 혼란 효과 해제
-        - 꼭두각시 조종 (마리아): 패들 고정 해제
-        - 인형의 저주 (마리아): 조작 반전 해제
+        - 꼭두각시 조종 (연화): 패들 고정 해제
+        - 인형의 저주 (연화): 조작 반전 해제
         """
         for hero_id, skills in self.active_skills.items():
             for skill in skills:

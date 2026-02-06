@@ -17042,7 +17042,9 @@ def apply_equipment_paddle_modifiers() -> None:
         prev_centerx = PLAYER.centerx
         PLAYER.size = (ARENA_PADDLE_WIDTH, ARENA_PADDLE_HEIGHT)
         PLAYER.centerx = prev_centerx
-        PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
+        # 귀신발걸음 Y축 이동 중에는 Y좌표 덮어쓰기 스킵
+        if not globals().get("arena_bottom_ghost_step_active", False):
+            PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
         return
 
@@ -58020,7 +58022,9 @@ def handle_player(keys):
                 PLAYER.width = target_width
                 PLAYER.height = target_height
                 PLAYER.centerx = center_x
-                PLAYER.bottom = 750  # 하단 패들 bottom 위치 고정! (HEIGHT)
+                # 귀신발걸음 Y축 이동 중에는 Y좌표 고정 스킵
+                if not globals().get("arena_bottom_ghost_step_active", False):
+                    PLAYER.bottom = 750  # 하단 패들 bottom 위치 고정! (HEIGHT)
                 # 🔮 이동속도 15% 감소 (축소된 패들 페널티)
                 arena_player_slow_mult *= 0.85
             else:
@@ -58030,7 +58034,9 @@ def handle_player(keys):
                     PLAYER.width = 130
                     PLAYER.height = 40
                     PLAYER.centerx = center_x
-                    PLAYER.bottom = 750  # 하단 패들 bottom 위치 고정!
+                    # 귀신발걸음 Y축 이동 중에는 Y좌표 고정 스킵
+                    if not globals().get("arena_bottom_ghost_step_active", False):
+                        PLAYER.bottom = 750  # 하단 패들 bottom 위치 고정!
         except Exception as e:
             print(f"[Arena] Player status effect error: {e}")
 
@@ -123335,7 +123341,9 @@ def handle_boss():
                 BOSS.width = target_width
                 BOSS.height = target_height
                 BOSS.centerx = center_x
-                BOSS.y = 25  # 상단 패들 Y 위치 고정! (BOSS_Y 상수값)
+                # 귀신발걸음 Y축 이동 중에는 Y좌표 고정 스킵
+                if not globals().get("arena_top_ghost_step_active", False):
+                    BOSS.y = 25  # 상단 패들 Y 위치 고정! (BOSS_Y 상수값)
                 # 🔮 이동속도 15% 감소 (축소된 패들 페널티)
                 arena_boss_slow_multiplier *= 0.85
             else:
@@ -123345,7 +123353,9 @@ def handle_boss():
                     BOSS.width = 130
                     BOSS.height = 40
                     BOSS.centerx = center_x
-                    BOSS.y = 25  # 상단 패들 Y 위치 고정!
+                    # 귀신발걸음 Y축 이동 중에는 Y좌표 고정 스킵
+                    if not globals().get("arena_top_ghost_step_active", False):
+                        BOSS.y = 25  # 상단 패들 Y 위치 고정!
         except Exception as e:
             print(f"[Arena] Boss status effect error: {e}")
 
@@ -131858,21 +131868,29 @@ def main(stage_num, new_boss_mode=False):
                     _demon_eye_active_for_lock = arena_game_state.get('demon_eye_active', False)
                     _demon_eye_caster_is_top_for_lock = arena_game_state.get('demon_eye_caster_is_top', True)
 
+                    # [DEBUG] 귀신발걸음 lock 상태 확인
+                    if _demon_eye_active_for_lock:
+                        print(f"[GhostStep LOCK DEBUG] active={_demon_eye_active_for_lock}, caster_is_top={_demon_eye_caster_is_top_for_lock}")
+
                     # 상단 영웅 (BOSS) 위치 고정
                     if arena_game_state.get('top_paddle_locked', False):
+                        # 귀신발걸음 캐스터(상단)일 때는 X좌표, Y좌표 lock 모두 스킵
+                        _skip_top = _demon_eye_active_for_lock and _demon_eye_caster_is_top_for_lock
                         if 'top_paddle_locked_x' in arena_game_state:
-                            BOSS.x = int(arena_game_state['top_paddle_locked_x'])
-                        # 귀신발걸음 캐스터(상단)일 때는 Y좌표 lock 스킵
+                            if not _skip_top:
+                                BOSS.x = int(arena_game_state['top_paddle_locked_x'])
                         if 'top_paddle_locked_y' in arena_game_state:
-                            if not (_demon_eye_active_for_lock and _demon_eye_caster_is_top_for_lock):
+                            if not _skip_top:
                                 BOSS.y = int(arena_game_state['top_paddle_locked_y'])
                     # 하단 영웅 (PLAYER) 위치 고정
                     if arena_game_state.get('bottom_paddle_locked', False):
+                        # 귀신발걸음 캐스터(하단)일 때는 X좌표, Y좌표 lock 모두 스킵
+                        _skip_bottom = _demon_eye_active_for_lock and not _demon_eye_caster_is_top_for_lock
                         if 'bottom_paddle_locked_x' in arena_game_state:
-                            PLAYER.x = int(arena_game_state['bottom_paddle_locked_x'])
-                        # 귀신발걸음 캐스터(하단)일 때는 Y좌표 lock 스킵
+                            if not _skip_bottom:
+                                PLAYER.x = int(arena_game_state['bottom_paddle_locked_x'])
                         if 'bottom_paddle_locked_y' in arena_game_state:
-                            if not (_demon_eye_active_for_lock and not _demon_eye_caster_is_top_for_lock):
+                            if not _skip_bottom:
                                 PLAYER.y = int(arena_game_state['bottom_paddle_locked_y'])
 
                     # 👁️ 귀신발걸음 Y축 이동 업데이트 (끝까지 전진)
@@ -131912,6 +131930,7 @@ def main(stage_num, new_boss_mode=False):
                                 print(f"[GhostStep DEBUG] 하단 영웅 Y축 전진 시작! 원위치={arena_bottom_ghost_step_original_y}, 목표=화면 상단")
 
                             # 업데이트 - 계속 위로 전진 (화면 상단까지)
+                            _before_y = PLAYER.y
                             new_y = int(PLAYER.y + arena_bottom_ghost_step_velocity)
                             # 화면 상단 제한 (상대 패들 위치 너머까지)
                             min_y = 50  # 화면 거의 끝까지
@@ -131919,6 +131938,7 @@ def main(stage_num, new_boss_mode=False):
                                 PLAYER.y = new_y
                             else:
                                 PLAYER.y = min_y  # 끝에 도달하면 유지
+                            print(f"[GhostStep Y DEBUG] 하단 Y이동: before={_before_y}, velocity={arena_bottom_ghost_step_velocity}, new_y={new_y}, after={PLAYER.y}")
                     else:
                         # 귀신발걸음 종료 시 원위치 복귀
                         if arena_top_ghost_step_active:
