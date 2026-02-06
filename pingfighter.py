@@ -58031,6 +58031,7 @@ def handle_player(keys):
             # 둔화 체크
             if game_state.get('bottom_paddle_slowed', False):
                 arena_player_slow_mult = game_state.get('bottom_paddle_slow_amount', 0.5)
+                print(f"[DEBUG PF] bottom_paddle SLOWED: slowed=True, amount={arena_player_slow_mult}, oil={game_state.get('bottom_paddle_oil_slowed')}, tentacle={game_state.get('bottom_paddle_tentacle_slowed')}")
             # 속도 증가 체크 (귀신의 눈 등)
             speed_boost = game_state.get('bottom_paddle_speed_boost', 1.0)
             if speed_boost > 1.0:
@@ -123358,6 +123359,7 @@ def handle_boss():
             # 둔화 체크
             if game_state.get('top_paddle_slowed', False):
                 arena_boss_slow_multiplier = game_state.get('top_paddle_slow_amount', 0.5)
+                print(f"[DEBUG PF] top_paddle SLOWED: slowed=True, amount={arena_boss_slow_multiplier}, oil={game_state.get('top_paddle_oil_slowed')}, tentacle={game_state.get('top_paddle_tentacle_slowed')}")
             # 속도 증가 체크 (귀신의 눈 등)
             speed_boost = game_state.get('top_paddle_speed_boost', 1.0)
             if speed_boost > 1.0:

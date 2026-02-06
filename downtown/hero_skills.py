@@ -4041,18 +4041,16 @@ class SteamBarrier(HeroSkill):
         )
         self.barrier_y = 0
         self.steam_particles = []
-        self.barrier_hit = False
-        # 신기루 페이드아웃 효과
-        self.fade_timer = 0.0
-        self.fade_duration = 0.5  # 0.5초 동안 사라짐
+        # 중복 충돌 방지용 쿨다운 (0.3초)
+        self.hit_cooldown = 0.0
+        self.hit_cooldown_max = 0.3
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         # 배리어 위치 (홀리 베리어와 동일한 높이)
         # 하단: 패들(710) + 15 = 725 (홀리베리어 위치)
         # 상단: 패들(25) + 40 = 65 (보스 히트박스 하단 근처)
         self.barrier_y = caster_paddle.y + (40 if caster_paddle.is_top else 15)
-        self.barrier_hit = False
-        self.fade_timer = 0.0  # 페이드아웃 타이머 초기화
+        self.hit_cooldown = 0.0  # 충돌 쿨다운 초기화
         game_state['barrier_active'] = True
         game_state['barrier_y'] = self.barrier_y
         game_state['barrier_owner_is_top'] = caster_paddle.is_top
@@ -4062,17 +4060,12 @@ class SteamBarrier(HeroSkill):
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        # 페이드아웃 중이면 타이머 업데이트
-        if self.barrier_hit:
-            self.fade_timer += dt
-            # 페이드아웃 완료 시 스킬 종료
-            if self.fade_timer >= self.fade_duration:
-                self.is_active = False
-                self._end_effect(caster_paddle, target_paddle, ball, game_state)
-                return
+        # 충돌 쿨다운 감소
+        if self.hit_cooldown > 0:
+            self.hit_cooldown -= dt
 
         # 증기 파티클 (화면 전체 너비 0~760)
-        if random.random() < 0.3 and not self.barrier_hit:
+        if random.random() < 0.3:
             self.steam_particles.append({
                 'x': random.uniform(0, 760),
                 'y': self.barrier_y + random.uniform(-10, 10),
@@ -4089,22 +4082,20 @@ class SteamBarrier(HeroSkill):
             p['size'] += dt * 10
         self.steam_particles = [p for p in self.steam_particles if p['life'] > 0]
 
-        # 공 배리어 충돌 체크
+        # 공 배리어 충돌 체크 (쿨다운 중이 아닐 때만)
         is_top = game_state.get('barrier_owner_is_top', True)
-        if not self.barrier_hit:
+        if self.hit_cooldown <= 0:
             if is_top:
                 # 상단 배리어: 공이 아래에서 위로 접근 (ball.y > barrier_y)
                 if ball.vy < 0 and abs(ball.y - self.barrier_y) < 20 and ball.y > self.barrier_y:
                     ball.vy = abs(ball.vy) * 1.1
-                    self.barrier_hit = True
-                    self.fade_timer = 0.0  # 페이드아웃 시작
+                    self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
                     game_state['screen_shake'] = 10
             else:
                 # 하단 배리어: 공이 위에서 아래로 접근 (ball.y < barrier_y)
                 if ball.vy > 0 and abs(ball.y - self.barrier_y) < 20 and ball.y < self.barrier_y:
                     ball.vy = -abs(ball.vy) * 1.1
-                    self.barrier_hit = True
-                    self.fade_timer = 0.0  # 페이드아웃 시작
+                    self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
                     game_state['screen_shake'] = 10
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
@@ -4113,29 +4104,18 @@ class SteamBarrier(HeroSkill):
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
-            # 페이드아웃 알파 계산 (신기루처럼 사라짐)
-            if self.barrier_hit:
-                fade_progress = self.fade_timer / self.fade_duration
-                fade_alpha = 1.0 - fade_progress  # 1.0 -> 0.0
-            else:
-                fade_alpha = 1.0
-
-            # 배리어 라인 알파 (펄스 효과 + 페이드아웃)
-            base_alpha = int(150 + 50 * math.sin(pygame.time.get_ticks() / 100))
-            barrier_alpha = int(base_alpha * fade_alpha)
+            # 배리어 라인 알파 (펄스 효과)
+            barrier_alpha = int(150 + 50 * math.sin(pygame.time.get_ticks() / 100))
 
             # 메인 배리어 라인 (화면 전체 너비 0~760)
-            if barrier_alpha > 0:
-                barrier_surf = pygame.Surface((760, 8), pygame.SRCALPHA)
-                pygame.draw.line(barrier_surf, (180, 200, 220, barrier_alpha),
-                               (0, 4), (760, 4), 4)
-                screen.blit(barrier_surf, (0, int(self.barrier_y) - 4))
+            barrier_surf = pygame.Surface((760, 8), pygame.SRCALPHA)
+            pygame.draw.line(barrier_surf, (180, 200, 220, barrier_alpha),
+                           (0, 4), (760, 4), 4)
+            screen.blit(barrier_surf, (0, int(self.barrier_y) - 4))
 
             # 톱니바퀴 장식 (화면 전체에 균등 배치: 5개)
             for x in [76, 228, 380, 532, 684]:
-                gear_alpha = int(200 * fade_alpha)
-                if gear_alpha <= 0:
-                    continue
+                gear_alpha = 200
                 gear_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
                 teeth = 8
                 for i in range(teeth):
@@ -4153,7 +4133,7 @@ class SteamBarrier(HeroSkill):
 
             # 증기 파티클
             for p in self.steam_particles:
-                alpha = int(100 * (p['life'] / 0.8) * fade_alpha)
+                alpha = int(100 * (p['life'] / 0.8))
                 if alpha <= 0:
                     continue
                 surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
