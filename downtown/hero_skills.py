@@ -4864,6 +4864,7 @@ class IllusionShuriken(HeroSkill):
             'vy': vy,
             'rotation': 0,
             'bounces': 0,  # 튕긴 횟수
+            'max_bounces': random.randint(5, 8),  # 5~8회 랜덤 소멸
             'active': True,
             'trail': []  # 잔상 효과
         })
@@ -4922,8 +4923,8 @@ class IllusionShuriken(HeroSkill):
                 shuriken['vy'] = -abs(shuriken['vy'])  # 위로 튕김
                 shuriken['bounces'] += 1
 
-            # 최대 8번 튕기면 비활성화
-            if shuriken['bounces'] >= 8:
+            # 최대 반사 횟수(5~8) 도달 시 비활성화
+            if shuriken['bounces'] >= shuriken['max_bounces']:
                 shuriken['active'] = False
                 continue
 
