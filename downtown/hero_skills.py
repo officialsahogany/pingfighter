@@ -1647,7 +1647,6 @@ class DwarfMagic(HeroSkill):
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         # 보라색 빛가루 투사체 발사
-        print(f"[DEBUG 난쟁이마술] 스킬 발동! caster_is_top={caster_paddle.is_top}")
         self.projectile_active = True
         self.projectile_x = caster_paddle.x + caster_paddle.width // 2
         self.projectile_y = caster_paddle.y
@@ -1698,13 +1697,11 @@ class DwarfMagic(HeroSkill):
         # (투사체 명중 후 is_active가 False가 되어도 축소 효과는 유지되어야 함)
         if self.hit_target and self.shrink_timer > 0:
             self.shrink_timer -= dt
-            print(f"[DEBUG 난쟁이마술] shrink_timer={self.shrink_timer:.2f}, is_active={self.is_active}, hit_target={self.hit_target}")
             if self.shrink_timer <= 0:
                 # 축소 효과 해제 - 저장된 타겟 정보 사용
                 target_prefix = 'top_paddle' if self.shrunk_target_is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_shrink'] = False
                 game_state[f'{target_prefix}_shrink_scale'] = 1.0
-                print(f"[DEBUG 난쟁이마술] ★ 효과 해제! {target_prefix}_shrink=False, game_state ID={id(game_state)}")
                 self.hit_target = False
                 self.shrunk_target_is_top = None
 
@@ -1758,8 +1755,6 @@ class DwarfMagic(HeroSkill):
                 target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_shrink'] = True
                 game_state[f'{target_prefix}_shrink_scale'] = 0.5  # 50% 축소
-                print(f"[DEBUG 난쟁이마술] 명중! target_is_top={target_paddle.is_top}, {target_prefix}_shrink=True, scale=0.5")
-                print(f"[DEBUG 난쟁이마술] game_state ID: {id(game_state)}, shrink값: {game_state.get(f'{target_prefix}_shrink')}")
 
                 # 명중 시 파티클 폭발
                 for _ in range(30):
@@ -1829,7 +1824,6 @@ class DwarfMagic(HeroSkill):
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 난쟁이마술 효과 초기화"""
-        print(f"[DEBUG 난쟁이마술] ★★★ reset_for_new_round 호출됨! hit_target={self.hit_target}, shrink_timer={self.shrink_timer}")
         super().reset_for_new_round(game_state)
         # 투사체 제거
         self.magic_particles = []
@@ -1842,7 +1836,6 @@ class DwarfMagic(HeroSkill):
         game_state['top_paddle_shrink_scale'] = 1.0
         game_state['bottom_paddle_shrink'] = False
         game_state['bottom_paddle_shrink_scale'] = 1.0
-        print(f"[DEBUG 난쟁이마술] reset 완료: top_shrink={game_state.get('top_paddle_shrink')}, bottom_shrink={game_state.get('bottom_paddle_shrink')}")
 
 
 # ============================================================================
@@ -5257,8 +5250,6 @@ class HeroSkillManager:
 
         # 쿠로카게 그림자분신 초기화
         self.game_state['has_shadow_clones'] = False
-
-        print(f"[DEBUG SkillManager] reset_for_new_round 완료: shrink/shadow_clones 상태 초기화됨")
 
     def update(self, dt: float, top_paddle, bottom_paddle, ball):
         """스킬 업데이트"""
