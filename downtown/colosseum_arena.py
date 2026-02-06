@@ -2346,52 +2346,46 @@ class ColosseumsArena:
         self._draw_bracket_lines()
 
     def _draw_match_box(self, match: Match, x: int, y: int, match_idx: int):
-        """매치 박스 그리기 (영웅 이름 상단, 이미지 하단 배치)"""
-        box_w, box_h = 100, 130  # 높이 증가하여 이미지 공간 확보
+        """매치 박스 그리기 (깔끔한 레이아웃: 이름-이미지-VS-이미지-이름)"""
+        box_w, box_h = 100, 130
 
         # 박스 배경
         bg_color = (45, 50, 60) if not match.completed else (35, 55, 45)
         pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=5)
         pygame.draw.rect(self.screen, (80, 85, 95), (x, y, box_w, box_h), 2, border_radius=5)
 
-        # 영웅 1 - 이름 (상단)
+        # === 영웅 1 (상단) ===
         h1_color = match.hero1["color"]
+        # 이름
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render(match.hero1["name"], h1_color)
-            name_x = x + box_w // 2 - surf.get_width() // 2
-            self.screen.blit(surf, (name_x, y + 5))
-
-        # 영웅 1 - 캐릭터 이미지 (이름 아래)
+            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 5))
+        # 작은 이미지
         if self.hero_paddle_renderer:
             hero1_id = match.hero1.get("id", "mugen")
-            img_x = x + box_w // 2
-            img_y = y + 22
             self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero1_id, img_x, img_y, 40, 30,
-                facing="down", color=h1_color, scale_mode="preview"
+                self.screen, hero1_id, x + box_w // 2, y + 35, 30, 20,
+                facing="down", color=h1_color, scale_mode="paddle"
             )
 
-        # VS (중앙)
+        # === VS (중앙) ===
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render("VS", (255, 215, 0))
-            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 55))
+            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 58))
 
-        # 영웅 2 - 이름 (하단)
+        # === 영웅 2 (하단) ===
         h2_color = match.hero2["color"]
-        if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render(match.hero2["name"], h2_color)
-            name_x = x + box_w // 2 - surf.get_width() // 2
-            self.screen.blit(surf, (name_x, y + 72))
-
-        # 영웅 2 - 캐릭터 이미지 (이름 아래)
+        # 작은 이미지
         if self.hero_paddle_renderer:
             hero2_id = match.hero2.get("id", "chronos")
-            img_x = x + box_w // 2
-            img_y = y + 88
             self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero2_id, img_x, img_y, 40, 30,
-                facing="down", color=h2_color, scale_mode="preview"
+                self.screen, hero2_id, x + box_w // 2, y + 78, 30, 20,
+                facing="down", color=h2_color, scale_mode="paddle"
             )
+        # 이름
+        if self.fonts and "small" in self.fonts:
+            surf, _ = self.fonts["small"].render(match.hero2["name"], h2_color)
+            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 108))
 
         # 결과 표시
         if match.completed and match.winner:
@@ -2937,7 +2931,7 @@ class ColosseumsArena:
         pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=5)
         pygame.draw.rect(self.screen, (80, 85, 95), (x, y, box_w, box_h), 2, border_radius=5)
 
-        # 영웅 1 (상단)
+        # === 영웅 1 (상단) ===
         hero1 = match.hero1
         h1_is_loser = match.completed and match.winner != hero1
         h1_alpha = 255
@@ -2946,21 +2940,20 @@ class ColosseumsArena:
             h1_alpha = int(255 * (1.0 - self.bracket_anim_progress * 0.5))
 
         h1_color = hero1["color"]
-        hero1_rect = pygame.Rect(x + 5, y + 5, box_w - 10, 45)  # 이름+이미지 영역
+        hero1_rect = pygame.Rect(x + 5, y + 5, box_w - 10, 50)
 
-        # 영웅 1 이름 (상단)
+        # 영웅 1 이름
         if self.fonts and "small" in self.fonts:
             name_color = h1_color if h1_alpha == 255 else tuple(int(c * 0.5) for c in h1_color)
             surf, _ = self.fonts["small"].render(hero1["name"], name_color)
-            name_x = x + box_w // 2 - surf.get_width() // 2
-            self.screen.blit(surf, (name_x, y + 5))
+            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 5))
 
-        # 영웅 1 이미지 (이름 아래)
+        # 영웅 1 작은 이미지
         if self.hero_paddle_renderer and h1_alpha > 100:
             hero1_id = hero1.get("id", "mugen")
             self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero1_id, x + box_w // 2, y + 22, 40, 30,
-                facing="down", color=h1_color, scale_mode="preview"
+                self.screen, hero1_id, x + box_w // 2, y + 35, 30, 20,
+                facing="down", color=h1_color, scale_mode="paddle"
             )
 
         # 패자 X 표시
@@ -2969,12 +2962,12 @@ class ColosseumsArena:
             if x_progress > 0:
                 self._draw_loser_x(hero1_rect, x_progress)
 
-        # VS (중앙)
+        # === VS (중앙) ===
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render("VS", (255, 215, 0))
-            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 55))
+            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 58))
 
-        # 영웅 2 (하단)
+        # === 영웅 2 (하단) ===
         hero2 = match.hero2
         h2_is_loser = match.completed and match.winner != hero2
         h2_alpha = 255
@@ -2983,22 +2976,21 @@ class ColosseumsArena:
             h2_alpha = int(255 * (1.0 - self.bracket_anim_progress * 0.5))
 
         h2_color = hero2["color"]
-        hero2_rect = pygame.Rect(x + 5, y + 70, box_w - 10, 55)  # 이름+이미지 영역
+        hero2_rect = pygame.Rect(x + 5, y + 72, box_w - 10, 55)
+
+        # 영웅 2 작은 이미지
+        if self.hero_paddle_renderer and h2_alpha > 100:
+            hero2_id = hero2.get("id", "chronos")
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, hero2_id, x + box_w // 2, y + 78, 30, 20,
+                facing="down", color=h2_color, scale_mode="paddle"
+            )
 
         # 영웅 2 이름
         if self.fonts and "small" in self.fonts:
             name_color = h2_color if h2_alpha == 255 else tuple(int(c * 0.5) for c in h2_color)
             surf, _ = self.fonts["small"].render(hero2["name"], name_color)
-            name_x = x + box_w // 2 - surf.get_width() // 2
-            self.screen.blit(surf, (name_x, y + 72))
-
-        # 영웅 2 이미지
-        if self.hero_paddle_renderer and h2_alpha > 100:
-            hero2_id = hero2.get("id", "chronos")
-            self.hero_paddle_renderer.draw_hero_paddle(
-                self.screen, hero2_id, x + box_w // 2, y + 88, 40, 30,
-                facing="down", color=h2_color, scale_mode="preview"
-            )
+            self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + 108))
 
         # 패자 X 표시
         if h2_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
@@ -3021,7 +3013,7 @@ class ColosseumsArena:
         if match.completed and match.winner:
             if self.fonts and "small" in self.fonts:
                 surf, _ = self.fonts["small"].render(f"{match.score1}:{match.score2}", (255, 215, 0))
-                self.screen.blit(surf, (x + box_w // 2 - 15, y + box_h + 5))
+                self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + box_h + 5))
 
     def _draw_loser_x(self, rect: pygame.Rect, progress: float):
         """패자에게 X 표시 그리기"""

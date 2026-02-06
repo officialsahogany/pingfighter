@@ -548,14 +548,19 @@ class DemonEye(HeroSkill):
         size_key = 'top_paddle_size_boost' if caster_paddle.is_top else 'bottom_paddle_size_boost'
         game_state[size_key] = 1.2  # 20% 증가
 
-        # 🔥 귀신발걸음 y축 이동 트리거 (아래로 관통)
-        # caster_paddle에 직접 start_ghost_step() 호출
-        print(f"[GhostStep DEBUG] caster_paddle type: {type(caster_paddle).__name__}, has start_ghost_step: {hasattr(caster_paddle, 'start_ghost_step')}")
+        # 🔥 귀신발걸음 y축 이동 트리거 (game_state 플래그로 전달)
+        # AIPaddleController는 직접 호출, PaddleWrapper는 플래그로 전달
         if hasattr(caster_paddle, 'start_ghost_step'):
             caster_paddle.start_ghost_step()
             print(f"[GhostStep] 귀신발걸음 y축 이동 직접 호출 성공!")
         else:
-            print(f"[GhostStep ERROR] 패들에 start_ghost_step 메서드 없음!")
+            # PaddleWrapper인 경우 game_state 플래그로 전달
+            if caster_paddle.is_top:
+                game_state['ghost_step_start_top'] = True
+                print(f"[GhostStep] 상단 귀신발걸음 플래그 설정!")
+            else:
+                game_state['ghost_step_start_bottom'] = True
+                print(f"[GhostStep] 하단 귀신발걸음 플래그 설정!")
 
         # 오오라 파티클 초기화
         self.aura_particles = []
