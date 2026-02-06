@@ -4920,22 +4920,55 @@ class IllusionShuriken(HeroSkill):
                 game_state[f'{target_prefix}_knockback_dir'] = knockback_dir
                 game_state[f'{target_prefix}_knockback_vel'] = 120  # 넉백 속도 증가
 
-                # 히트 이펙트 추가
+                # 히트 이펙트 추가 (강화된 닌자 스타일)
+                # 메인 파티클 (보라색 계열 - 20개)
+                main_particles = [
+                    {
+                        'x': shuriken['x'],
+                        'y': shuriken['y'],
+                        'vx': random.uniform(-300, 300),
+                        'vy': random.uniform(-300, 300),
+                        'life': 0.5,
+                        'color': random.choice([
+                            (180, 120, 255),  # 밝은 보라
+                            (140, 80, 200),   # 진한 보라
+                            (100, 60, 180),   # 어두운 보라
+                        ]),
+                        'size': random.uniform(3, 7)
+                    }
+                    for _ in range(20)
+                ]
+                # 스파크 파티클 (금빛 - 12개)
+                spark_particles = [
+                    {
+                        'x': shuriken['x'],
+                        'y': shuriken['y'],
+                        'vx': random.uniform(-400, 400),
+                        'vy': random.uniform(-400, 400),
+                        'life': 0.3,
+                        'color': random.choice([
+                            (255, 220, 100),  # 금색
+                            (255, 180, 50),   # 주황금
+                            (255, 255, 150),  # 밝은 금
+                        ]),
+                        'size': random.uniform(2, 4),
+                        'is_spark': True
+                    }
+                    for _ in range(12)
+                ]
+                # 슬래시 자국 (X자 베임)
+                slash_angle = random.uniform(0, 360)
                 self.hit_effects.append({
                     'x': shuriken['x'],
                     'y': shuriken['y'],
-                    'timer': 0.3,
-                    'particles': [
-                        {
-                            'x': shuriken['x'],
-                            'y': shuriken['y'],
-                            'vx': random.uniform(-200, 200),
-                            'vy': random.uniform(-200, 200),
-                            'life': 0.4
-                        }
-                        for _ in range(8)
-                    ]
+                    'timer': 0.5,
+                    'particles': main_particles + spark_particles,
+                    'slash_angle': slash_angle,
+                    'shockwave_radius': 0,
+                    'flash_intensity': 1.0
                 })
+                # 화면 흔들림
+                game_state['screen_shake'] = 8
 
         # 잔상 알파값 감소
         for shuriken in self.shurikens:
@@ -4945,10 +4978,18 @@ class IllusionShuriken(HeroSkill):
         # 히트 이펙트 업데이트
         for effect in self.hit_effects:
             effect['timer'] -= dt
+            # 충격파 확장
+            effect['shockwave_radius'] = effect.get('shockwave_radius', 0) + dt * 300
+            # 플래시 감쇠
+            effect['flash_intensity'] = max(0, effect.get('flash_intensity', 1.0) - dt * 4)
             for p in effect['particles']:
                 p['x'] += p['vx'] * dt
                 p['y'] += p['vy'] * dt
                 p['life'] -= dt
+                # 스파크는 빠르게 감속
+                if p.get('is_spark'):
+                    p['vx'] *= 0.92
+                    p['vy'] *= 0.92
 
         # 완료된 이펙트 제거
         self.hit_effects = [e for e in self.hit_effects if e['timer'] > 0]
@@ -4994,23 +5035,91 @@ class IllusionShuriken(HeroSkill):
                 self._draw_shuriken(screen, shuriken['x'], shuriken['y'],
                                    shuriken['rotation'], 255)
 
-        # 히트 이펙트 그리기
+        # 히트 이펙트 그리기 (강화된 닌자 스타일)
         for effect in self.hit_effects:
-            # 임팩트 플래시
-            flash_alpha = int(200 * (effect['timer'] / 0.3))
-            pygame.draw.circle(screen, (180, 150, 255),
-                             (int(effect['x']), int(effect['y'])),
-                             int(30 * (1 - effect['timer'] / 0.3)), 2)
+            ex, ey = int(effect['x']), int(effect['y'])
+            progress = 1 - (effect['timer'] / 0.5)  # 0 → 1
 
-            # 파티클
+            # 1. 중앙 플래시 (밝은 폭발)
+            flash_intensity = effect.get('flash_intensity', 0)
+            if flash_intensity > 0:
+                flash_size = int(40 * flash_intensity)
+                flash_surf = pygame.Surface((flash_size * 2, flash_size * 2), pygame.SRCALPHA)
+                flash_alpha = int(200 * flash_intensity)
+                pygame.draw.circle(flash_surf, (255, 220, 255, flash_alpha),
+                                 (flash_size, flash_size), flash_size)
+                pygame.draw.circle(flash_surf, (255, 255, 255, min(255, flash_alpha + 50)),
+                                 (flash_size, flash_size), flash_size // 2)
+                screen.blit(flash_surf, (ex - flash_size, ey - flash_size))
+
+            # 2. 충격파 링 (다중)
+            shockwave_r = effect.get('shockwave_radius', 0)
+            if shockwave_r > 0 and shockwave_r < 80:
+                for i, (color, offset) in enumerate([
+                    ((180, 120, 255), 0),
+                    ((140, 80, 200), 8),
+                    ((100, 60, 180), 16)
+                ]):
+                    ring_r = int(shockwave_r - offset)
+                    if ring_r > 0:
+                        ring_alpha = int(180 * (1 - shockwave_r / 80))
+                        ring_surf = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
+                        pygame.draw.circle(ring_surf, (*color, ring_alpha),
+                                         (ring_r + 2, ring_r + 2), ring_r, 2)
+                        screen.blit(ring_surf, (ex - ring_r - 2, ey - ring_r - 2))
+
+            # 3. X자 슬래시 마크 (베인 자국)
+            slash_angle = effect.get('slash_angle', 45)
+            slash_alpha = int(255 * (1 - progress * 0.7))
+            slash_length = 35 + progress * 15  # 점점 길어짐
+            if slash_alpha > 20:
+                for angle_offset in [0, 90]:  # X자 형태
+                    angle_rad = math.radians(slash_angle + angle_offset)
+                    x1 = ex + math.cos(angle_rad) * slash_length
+                    y1 = ey + math.sin(angle_rad) * slash_length
+                    x2 = ex - math.cos(angle_rad) * slash_length
+                    y2 = ey - math.sin(angle_rad) * slash_length
+                    # 메인 슬래시
+                    slash_surf = pygame.Surface((int(slash_length * 2 + 10), int(slash_length * 2 + 10)), pygame.SRCALPHA)
+                    center = int(slash_length + 5)
+                    lx1 = center + math.cos(angle_rad) * slash_length
+                    ly1 = center + math.sin(angle_rad) * slash_length
+                    lx2 = center - math.cos(angle_rad) * slash_length
+                    ly2 = center - math.sin(angle_rad) * slash_length
+                    # 글로우 효과
+                    pygame.draw.line(slash_surf, (180, 120, 255, slash_alpha // 2),
+                                   (lx1, ly1), (lx2, ly2), 6)
+                    pygame.draw.line(slash_surf, (220, 180, 255, slash_alpha),
+                                   (lx1, ly1), (lx2, ly2), 3)
+                    pygame.draw.line(slash_surf, (255, 255, 255, slash_alpha),
+                                   (lx1, ly1), (lx2, ly2), 1)
+                    screen.blit(slash_surf, (ex - center, ey - center))
+
+            # 4. 파티클 (보라색 + 금빛 스파크)
             for p in effect['particles']:
                 if p['life'] > 0:
-                    alpha = int(255 * (p['life'] / 0.4))
-                    size = int(4 * (p['life'] / 0.4))
-                    if size > 0:
-                        surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                        pygame.draw.circle(surf, (150, 130, 200, alpha), (size, size), size)
-                        screen.blit(surf, (int(p['x'] - size), int(p['y'] - size)))
+                    max_life = 0.3 if p.get('is_spark') else 0.5
+                    life_ratio = p['life'] / max_life
+                    alpha = int(255 * life_ratio)
+                    size = int(p.get('size', 4) * life_ratio)
+                    if size > 0 and alpha > 10:
+                        color = p.get('color', (150, 130, 200))
+                        # 스파크는 꼬리 효과
+                        if p.get('is_spark') and abs(p['vx']) + abs(p['vy']) > 50:
+                            tail_length = min(15, (abs(p['vx']) + abs(p['vy'])) * 0.03)
+                            tail_x = p['x'] - p['vx'] * 0.02
+                            tail_y = p['y'] - p['vy'] * 0.02
+                            pygame.draw.line(screen, (*color, alpha // 2),
+                                           (int(p['x']), int(p['y'])),
+                                           (int(tail_x), int(tail_y)), max(1, size // 2))
+                        # 메인 파티클
+                        surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
+                        pygame.draw.circle(surf, (*color, alpha), (size + 1, size + 1), size)
+                        # 밝은 중심
+                        if size > 2:
+                            pygame.draw.circle(surf, (255, 255, 255, alpha // 2),
+                                             (size + 1, size + 1), size // 2)
+                        screen.blit(surf, (int(p['x'] - size - 1), int(p['y'] - size - 1)))
 
     def _draw_shuriken(self, screen: pygame.Surface, x: float, y: float,
                        rotation: float, alpha: int):
