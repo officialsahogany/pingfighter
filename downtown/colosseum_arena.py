@@ -2821,7 +2821,7 @@ class ColosseumsArena:
     def _start_bracket_animation(self):
         """대진표 진출 애니메이션 시작"""
         self.bracket_anim_timer = 0.0
-        self.bracket_anim_phase = 0  # 0: 패자 X 표시, 1: 승자 선 이동, 2: 완료
+        self.bracket_anim_phase = 0  # 0: 패자 X 표시, 1: 승자 이동, 2: VS 매치업 표시, 3: 완료
         self.bracket_anim_progress = 0.0
 
         # 현재 라운드의 완료된 매치와 승자 수집
@@ -2856,23 +2856,30 @@ class ColosseumsArena:
                 self.bracket_anim_progress = 0.0
 
         elif self.bracket_anim_phase == 1:
-            # 페이즈 1: 승자 선 이동 애니메이션
+            # 페이즈 1: 승자 캐릭터 이동 애니메이션
             self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / phase_duration)
             if self.bracket_anim_timer >= phase_duration:
                 self.bracket_anim_phase = 2
                 self.bracket_anim_timer = 0.0
                 self.bracket_anim_progress = 0.0
-
-        elif self.bracket_anim_phase == 2:
-            # 페이즈 2: 대기 후 다음 라운드 준비
-            wait_time = 0.5
-            if self.bracket_anim_timer >= wait_time:
-                # 다음 라운드로 진출
+                # 다음 라운드로 진출 (매치 생성)
                 self._advance_to_next_round()
-
-                # 배팅한 영웅이 포함된 경기 자동 선택 (배틀 시작 없이)
+                # 배팅한 영웅이 포함된 경기 자동 선택
                 self._prepare_next_match()
 
+        elif self.bracket_anim_phase == 2:
+            # 페이즈 2: VS 매치업 표시 (2초간)
+            vs_duration = 2.0
+            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / vs_duration)
+            if self.bracket_anim_timer >= vs_duration:
+                self.bracket_anim_phase = 3
+                self.bracket_anim_timer = 0.0
+                self.bracket_anim_progress = 0.0
+
+        elif self.bracket_anim_phase == 3:
+            # 페이즈 3: 짧은 대기 후 ROUND_END로 전환
+            wait_time = 0.3
+            if self.bracket_anim_timer >= wait_time:
                 # 애니메이션 상태 초기화
                 self.bracket_anim_phase = 0
                 self.bracket_anim_progress = 0.0
@@ -2885,6 +2892,11 @@ class ColosseumsArena:
         """대진표 진출 애니메이션 그리기"""
         # 배경
         self.screen.fill((25, 28, 35))
+
+        # 페이즈 2: VS 매치업 표시
+        if self.bracket_anim_phase == 2 and self.selected_match:
+            self._draw_vs_matchup_animation()
+            return
 
         # 라운드 진출 타이틀
         if self.fonts and "large" in self.fonts:
@@ -3171,9 +3183,9 @@ class ColosseumsArena:
             self._draw_empty_match_box(target_x, target_y, "결승" if is_final else f"준결승 {slot_idx + 1}")
 
     def _draw_moving_winner(self, winner: dict, x: int, y: int, progress: float):
-        """이동 중인 승자 표시"""
+        """이동 중인 승자 표시 (캐릭터 아이콘 포함)"""
         # 글로우 효과
-        glow_radius = 30 + int(abs(math.sin(self.animation_timer * 5)) * 10)
+        glow_radius = 40 + int(abs(math.sin(self.animation_timer * 5)) * 10)
         glow_alpha = int(100 + progress * 100)
 
         glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
@@ -3181,14 +3193,138 @@ class ColosseumsArena:
                          (glow_radius, glow_radius), glow_radius)
         self.screen.blit(glow_surface, (x - glow_radius, y - glow_radius))
 
-        # 영웅 색상 원
-        pygame.draw.circle(self.screen, winner["color"], (x, y), 20)
-        pygame.draw.circle(self.screen, (255, 255, 255), (x, y), 20, 2)
+        # 캐릭터 이미지 그리기
+        if self.hero_paddle_renderer:
+            hero_id = winner.get("id", "mugen")
+            # 스케일 애니메이션 (이동 중 약간 커짐)
+            scale_factor = 1.0 + progress * 0.2
+            img_w = int(60 * scale_factor)
+            img_h = int(42 * scale_factor)
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, hero_id, x, y, img_w, img_h,
+                facing="down", color=winner["color"], scale_mode="preview"
+            )
+        else:
+            # 폴백: 영웅 색상 원
+            pygame.draw.circle(self.screen, winner["color"], (x, y), 25)
+            pygame.draw.circle(self.screen, (255, 255, 255), (x, y), 25, 2)
 
         # 이름 표시
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render(winner["name"], (255, 255, 255))
-            self.screen.blit(surf, (x - surf.get_width() // 2, y - 35))
+            # 밝기 보정
+            color = winner["color"]
+            brightness = sum(color) / 3
+            name_color = color if brightness > 80 else (min(255, color[0] + 100), min(255, color[1] + 100), min(255, color[2] + 100))
+            surf, _ = self.fonts["small"].render(winner["name"], name_color)
+            self.screen.blit(surf, (x - surf.get_width() // 2, y - 45))
+
+    def _draw_vs_matchup_animation(self):
+        """VS 매치업 애니메이션 (다음 경기 미리보기)"""
+        if not self.selected_match:
+            return
+
+        hero1 = self.selected_match.hero1
+        hero2 = self.selected_match.hero2
+        progress = self.bracket_anim_progress
+
+        # 라운드 이름
+        round_names = {
+            TournamentRound.QUARTER_FINAL: "8강전",
+            TournamentRound.SEMI_FINAL: "4강전",
+            TournamentRound.FINAL: "결승전",
+        }
+        round_name = round_names.get(self.current_round, "다음 경기")
+
+        # 타이틀
+        if self.fonts and "large" in self.fonts:
+            pulse = abs(math.sin(self.animation_timer * 3)) * 0.3 + 0.7
+            gold_color = (int(255 * pulse), int(215 * pulse), 0)
+            title = f"⚔️ {round_name} ⚔️"
+            surf, _ = self.fonts["large"].render(title, gold_color)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 80))
+
+        # 영웅 1 (왼쪽에서 슬라이드 인)
+        hero1_target_x = SCREEN_WIDTH // 2 - 150
+        hero1_start_x = -100
+        hero1_x = int(hero1_start_x + (hero1_target_x - hero1_start_x) * self._ease_in_out(min(1.0, progress * 2)))
+        hero1_y = SCREEN_HEIGHT // 2
+
+        # 글로우 효과
+        glow_alpha = int(80 + abs(math.sin(self.animation_timer * 4)) * 50)
+        glow_surf = pygame.Surface((160, 160), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (*hero1["color"], glow_alpha), (80, 80), 70)
+        self.screen.blit(glow_surf, (hero1_x - 80, hero1_y - 80))
+
+        # 캐릭터 이미지
+        if self.hero_paddle_renderer:
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, hero1.get("id", "mugen"), hero1_x, hero1_y, 100, 70,
+                facing="down", color=hero1["color"], scale_mode="preview"
+            )
+
+        # 이름 + 칭호
+        if self.fonts:
+            h1_color = hero1["color"]
+            h1_brightness = sum(h1_color) / 3
+            h1_name_color = h1_color if h1_brightness > 80 else (min(255, h1_color[0] + 100), min(255, h1_color[1] + 100), min(255, h1_color[2] + 100))
+            if "medium" in self.fonts:
+                surf, _ = self.fonts["medium"].render(hero1["name"], h1_name_color)
+                self.screen.blit(surf, (hero1_x - surf.get_width() // 2, hero1_y - 70))
+            if "small" in self.fonts:
+                surf, _ = self.fonts["small"].render(hero1["title"], (200, 200, 200))
+                self.screen.blit(surf, (hero1_x - surf.get_width() // 2, hero1_y + 55))
+
+        # VS (중앙, 스케일 애니메이션)
+        vs_scale = min(1.0, progress * 3) if progress < 0.5 else 1.0
+        if self.fonts and "large" in self.fonts and vs_scale > 0.1:
+            vs_color = (255, int(100 + abs(math.sin(self.animation_timer * 5)) * 100), 100)
+            surf, _ = self.fonts["large"].render("VS", vs_color)
+            # 스케일 적용
+            if vs_scale < 1.0:
+                scaled_w = int(surf.get_width() * vs_scale)
+                scaled_h = int(surf.get_height() * vs_scale)
+                if scaled_w > 0 and scaled_h > 0:
+                    scaled_surf = pygame.transform.scale(surf, (scaled_w, scaled_h))
+                    self.screen.blit(scaled_surf, (SCREEN_WIDTH // 2 - scaled_w // 2, SCREEN_HEIGHT // 2 - scaled_h // 2))
+            else:
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, SCREEN_HEIGHT // 2 - surf.get_height() // 2))
+
+        # 영웅 2 (오른쪽에서 슬라이드 인)
+        hero2_target_x = SCREEN_WIDTH // 2 + 150
+        hero2_start_x = SCREEN_WIDTH + 100
+        hero2_x = int(hero2_start_x + (hero2_target_x - hero2_start_x) * self._ease_in_out(min(1.0, progress * 2)))
+        hero2_y = SCREEN_HEIGHT // 2
+
+        # 글로우 효과
+        glow_surf = pygame.Surface((160, 160), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (*hero2["color"], glow_alpha), (80, 80), 70)
+        self.screen.blit(glow_surf, (hero2_x - 80, hero2_y - 80))
+
+        # 캐릭터 이미지
+        if self.hero_paddle_renderer:
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, hero2.get("id", "chronos"), hero2_x, hero2_y, 100, 70,
+                facing="down", color=hero2["color"], scale_mode="preview"
+            )
+
+        # 이름 + 칭호
+        if self.fonts:
+            h2_color = hero2["color"]
+            h2_brightness = sum(h2_color) / 3
+            h2_name_color = h2_color if h2_brightness > 80 else (min(255, h2_color[0] + 100), min(255, h2_color[1] + 100), min(255, h2_color[2] + 100))
+            if "medium" in self.fonts:
+                surf, _ = self.fonts["medium"].render(hero2["name"], h2_name_color)
+                self.screen.blit(surf, (hero2_x - surf.get_width() // 2, hero2_y - 70))
+            if "small" in self.fonts:
+                surf, _ = self.fonts["small"].render(hero2["title"], (200, 200, 200))
+                self.screen.blit(surf, (hero2_x - surf.get_width() // 2, hero2_y + 55))
+
+        # 하단 힌트
+        if self.fonts and "small" in self.fonts:
+            hint = "잠시 후 계속 여부를 선택합니다..."
+            alpha = int(abs(math.sin(self.animation_timer * 2)) * 155 + 100)
+            surf, _ = self.fonts["small"].render(hint, (alpha, alpha, alpha))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 650))
 
     def _ease_in_out(self, t: float) -> float:
         """이징 함수 (부드러운 시작과 끝)"""
