@@ -5203,6 +5203,18 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "kurokage": [ShadowClone(), IllusionShuriken()]
 }
 
+# 스킬 클래스 매핑 (호위무사 시스템 등에서 독립 인스턴스 생성용)
+HERO_SKILL_CLASSES: Dict[str, list] = {
+    "mugen": [DarkSlash, DemonEye],
+    "kraken": [TentacleWrap, AbyssInk],
+    "chronos": [GravityControl, DwarfMagic],
+    "onimaru": [HellFire, HornCharge],
+    "maria": [PuppetControl, DollCurse],
+    "ignis": [DragonBreath, DragonWing],
+    "gear": [SteamBarrier, OilSpill],
+    "kurokage": [ShadowClone, IllusionShuriken],
+}
+
 
 def get_hero_skills(hero_id: str) -> List[HeroSkill]:
     """영웅 ID로 스킬 목록 반환"""

@@ -1005,6 +1005,558 @@ class BallSpawnAnimation:
         return self.complete
 
 # ============================================================================
+# 호위무사 시스템 (Guard Warrior System)
+# ============================================================================
+# 애니메이션 타이밍 상수
+GUARD_ENTER_DURATION = 0.6    # 등장 시간 (초)
+GUARD_CAST_DURATION = 0.8     # 시전 포즈 시간
+GUARD_EXIT_DURATION = 0.5     # 퇴장 시간
+
+
+class GuardWarriorSystem:
+    """호위무사 시스템 - 4강/결승에서 패배 영웅이 승자를 돕는 시스템
+
+    사용법:
+        1. setup(guards_top, guards_bottom) 으로 호위무사 할당
+        2. 매 프레임 update(dt, top_paddle, bottom_paddle, ball) 호출
+        3. 매 프레임 draw(screen, ...) 호출
+        4. 배틀 종료 시 reset() 호출
+    """
+
+    def __init__(self, skill_manager=None, hero_paddle_renderer=None):
+        self.skill_manager = skill_manager
+        self.hero_paddle_renderer = hero_paddle_renderer
+
+        # 호위무사 목록
+        self.guard_warriors_top = []       # 상단 영웅의 호위무사들 [hero_dict, ...]
+        self.guard_warriors_bottom = []    # 하단 영웅의 호위무사들
+
+        # 쿨타임
+        self.cooldown_top = 0.0
+        self.cooldown_bottom = 0.0
+        self.cooldown_range = (20.0, 30.0)  # 20~30초 랜덤
+
+        # 등장 애니메이션 상태 (상단측)
+        self.active_top = None             # 현재 등장 중인 호위무사 hero dict
+        self.phase_top = None              # "entering" / "casting" / "exiting" / None
+        self.anim_timer_top = 0.0
+        self.x_top = 0.0                   # 현재 X 위치
+        self.side_top = "left"             # 등장 방향
+        self.selected_skill_top = None     # 선택된 스킬 인스턴스
+
+        # 등장 애니메이션 상태 (하단측)
+        self.active_bottom = None
+        self.phase_bottom = None
+        self.anim_timer_bottom = 0.0
+        self.x_bottom = 0.0
+        self.side_bottom = "right"
+        self.selected_skill_bottom = None
+
+        # 독립 스킬 인스턴스 (메인 스킬과 충돌 방지)
+        self.skill_instances = {}          # hero_id -> [skill1, skill2]
+
+    def setup(self, guards_top, guards_bottom, initial_delay=(10.0, 15.0)):
+        """배틀 시작 시 호위무사 설정
+
+        Args:
+            guards_top: 상단 영웅의 호위무사 목록
+            guards_bottom: 하단 영웅의 호위무사 목록
+            initial_delay: 첫 등장까지의 대기 시간 범위 (초)
+        """
+        self.guard_warriors_top = list(guards_top) if guards_top else []
+        self.guard_warriors_bottom = list(guards_bottom) if guards_bottom else []
+
+        # 쿨타임 초기화 (첫 등장은 약간 더 빠르게)
+        if self.guard_warriors_top:
+            self.cooldown_top = random.uniform(*initial_delay)
+        if self.guard_warriors_bottom:
+            self.cooldown_bottom = random.uniform(*initial_delay)
+
+        # 애니메이션 상태 초기화
+        self.active_top = None
+        self.active_bottom = None
+        self.phase_top = None
+        self.phase_bottom = None
+
+        # 호위무사 스킬 인스턴스 생성
+        self._init_guard_skills()
+
+        guard_names_top = [g["name"] for g in self.guard_warriors_top]
+        guard_names_bottom = [g["name"] for g in self.guard_warriors_bottom]
+        print(f"[Guard] 호위무사 설정 완료 | 상단: {guard_names_top} | 하단: {guard_names_bottom}")
+
+    def _init_guard_skills(self):
+        """호위무사 전용 스킬 인스턴스 생성 (메인 스킬과 독립)"""
+        self.skill_instances = {}
+        all_guards = self.guard_warriors_top + self.guard_warriors_bottom
+        for guard_hero in all_guards:
+            hero_id = guard_hero["id"]
+            if hero_id not in self.skill_instances:
+                try:
+                    from downtown.hero_skills import HERO_SKILL_CLASSES
+                    skill_classes = HERO_SKILL_CLASSES.get(hero_id, [])
+                    skills = [cls() for cls in skill_classes]
+                    # game_state 연결 (메인 스킬 매니저와 공유)
+                    game_state = self.skill_manager.game_state if self.skill_manager else {}
+                    for skill in skills:
+                        skill.game_state = game_state
+                    self.skill_instances[hero_id] = skills
+                    print(f"[Guard] {guard_hero['name']}({hero_id}) 스킬 인스턴스 생성: {[s.korean_name for s in skills]}")
+                except Exception as e:
+                    print(f"[Guard] 스킬 인스턴스 생성 실패 ({hero_id}): {e}")
+                    self.skill_instances[hero_id] = []
+
+    def update(self, dt, top_paddle, bottom_paddle, ball):
+        """매 프레임 호위무사 시스템 업데이트"""
+        if not self.guard_warriors_top and not self.guard_warriors_bottom:
+            return
+
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+        # 활성 호위무사 스킬 이펙트 업데이트
+        for hero_id, skills in self.skill_instances.items():
+            # 이 호위무사가 어느 쪽인지 판별
+            is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
+            if is_top_guard:
+                caster = top_paddle
+                target = bottom_paddle
+            else:
+                caster = bottom_paddle
+                target = top_paddle
+            for skill in skills:
+                if skill.is_active:
+                    skill.update(dt, caster, target, ball, game_state)
+
+        # 상단측 호위무사 업데이트
+        self._update_side(dt, is_top=True, top_paddle=top_paddle,
+                          bottom_paddle=bottom_paddle, ball=ball)
+
+        # 하단측 호위무사 업데이트
+        self._update_side(dt, is_top=False, top_paddle=top_paddle,
+                          bottom_paddle=bottom_paddle, ball=ball)
+
+    def _update_side(self, dt, is_top, top_paddle, bottom_paddle, ball):
+        """한 쪽의 호위무사 업데이트"""
+        guards = self.guard_warriors_top if is_top else self.guard_warriors_bottom
+        if not guards:
+            return
+
+        # 현재 애니메이션 진행 중이면 애니메이션 처리
+        phase = self.phase_top if is_top else self.phase_bottom
+        if phase:
+            self._update_animation(dt, is_top, top_paddle, bottom_paddle, ball)
+            return
+
+        # 쿨타임 감소
+        if is_top:
+            self.cooldown_top -= dt
+            if self.cooldown_top <= 0:
+                self._trigger(is_top=True)
+        else:
+            self.cooldown_bottom -= dt
+            if self.cooldown_bottom <= 0:
+                self._trigger(is_top=False)
+
+    def _trigger(self, is_top):
+        """호위무사 등장 트리거"""
+        guards = self.guard_warriors_top if is_top else self.guard_warriors_bottom
+        if not guards:
+            return
+
+        # 결승전: 2명 중 1명 랜덤 / 4강: 1명 고정
+        guard = random.choice(guards)
+
+        # 스킬 2개 중 1개 랜덤 선택
+        skills = self.skill_instances.get(guard["id"], [])
+        if not skills:
+            # 스킬이 없으면 다음 쿨타임 설정 후 리턴
+            next_cd = random.uniform(*self.cooldown_range)
+            if is_top:
+                self.cooldown_top = next_cd
+            else:
+                self.cooldown_bottom = next_cd
+            return
+        skill = random.choice(skills)
+
+        # 등장 방향 랜덤
+        side = random.choice(["left", "right"])
+        start_x = (GAME_AREA_X - 60) if side == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
+
+        if is_top:
+            self.active_top = guard
+            self.phase_top = "entering"
+            self.anim_timer_top = 0.0
+            self.x_top = start_x
+            self.side_top = side
+            self.selected_skill_top = skill
+        else:
+            self.active_bottom = guard
+            self.phase_bottom = "entering"
+            self.anim_timer_bottom = 0.0
+            self.x_bottom = start_x
+            self.side_bottom = side
+            self.selected_skill_bottom = skill
+
+        # 다음 쿨타임 설정
+        next_cd = random.uniform(*self.cooldown_range)
+        if is_top:
+            self.cooldown_top = next_cd
+        else:
+            self.cooldown_bottom = next_cd
+
+        print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} 등장! "
+              f"스킬: {skill.korean_name} | 방향: {side}")
+
+    def _update_animation(self, dt, is_top, top_paddle, bottom_paddle, ball):
+        """호위무사 등장/시전/퇴장 애니메이션"""
+        if is_top:
+            self.anim_timer_top += dt
+            timer = self.anim_timer_top
+            phase = self.phase_top
+            side = self.side_top
+        else:
+            self.anim_timer_bottom += dt
+            timer = self.anim_timer_bottom
+            phase = self.phase_bottom
+            side = self.side_bottom
+
+        # 목표 좌표 계산
+        if side == "left":
+            target_x = GAME_AREA_X + 50
+            exit_x = GAME_AREA_X - 60
+            start_x = GAME_AREA_X - 60
+        else:
+            target_x = GAME_AREA_X + GAME_AREA_WIDTH - 50
+            exit_x = GAME_AREA_X + GAME_AREA_WIDTH + 60
+            start_x = GAME_AREA_X + GAME_AREA_WIDTH + 60
+
+        if phase == "entering":
+            progress = min(1.0, timer / GUARD_ENTER_DURATION)
+            eased = self._ease_in_out(progress)
+            current_x = start_x + (target_x - start_x) * eased
+
+            if is_top:
+                self.x_top = current_x
+            else:
+                self.x_bottom = current_x
+
+            if progress >= 1.0:
+                # 등장 완료 → 시전 단계
+                if is_top:
+                    self.phase_top = "casting"
+                    self.anim_timer_top = 0.0
+                else:
+                    self.phase_bottom = "casting"
+                    self.anim_timer_bottom = 0.0
+                # 스킬 발동!
+                self._activate_skill(is_top, top_paddle, bottom_paddle, ball)
+
+        elif phase == "casting":
+            if timer >= GUARD_CAST_DURATION:
+                # 시전 완료 → 퇴장
+                if is_top:
+                    self.phase_top = "exiting"
+                    self.anim_timer_top = 0.0
+                else:
+                    self.phase_bottom = "exiting"
+                    self.anim_timer_bottom = 0.0
+
+        elif phase == "exiting":
+            progress = min(1.0, timer / GUARD_EXIT_DURATION)
+            eased = self._ease_in_out(progress)
+            current_x = target_x + (exit_x - target_x) * eased
+
+            if is_top:
+                self.x_top = current_x
+            else:
+                self.x_bottom = current_x
+
+            if progress >= 1.0:
+                # 퇴장 완료 → 초기화
+                if is_top:
+                    self.phase_top = None
+                    self.active_top = None
+                    self.selected_skill_top = None
+                else:
+                    self.phase_bottom = None
+                    self.active_bottom = None
+                    self.selected_skill_bottom = None
+
+    def _activate_skill(self, is_top, top_paddle, bottom_paddle, ball):
+        """호위무사 스킬 실제 발동"""
+        skill = self.selected_skill_top if is_top else self.selected_skill_bottom
+        guard = self.active_top if is_top else self.active_bottom
+        if not skill or not guard:
+            return
+
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+        # 호위무사는 아군을 도와줌
+        # is_top=True → 상단 영웅을 도와줌 → caster=상단, target=하단
+        if is_top:
+            caster_paddle = top_paddle
+            target_paddle = bottom_paddle
+        else:
+            caster_paddle = bottom_paddle
+            target_paddle = top_paddle
+
+        # 스킬에 caster_is_top 설정 (위치 계산용)
+        skill.caster_is_top = is_top
+
+        # 스킬 직접 발동 (쿨타임 무시 - 호위무사 자체 쿨타임 사용)
+        skill.current_cooldown = 0  # 강제 쿨타임 리셋
+        if skill.is_active:
+            # 이전 효과가 아직 진행 중이면 먼저 종료
+            try:
+                skill._end_effect(caster_paddle, target_paddle, ball, game_state)
+            except Exception:
+                pass
+            skill.is_active = False
+
+        result = skill.use(caster_paddle, target_paddle, ball, game_state)
+
+        if result:
+            # 상태 효과를 game_state에 적용 (try_use_skill과 동일한 로직)
+            self._apply_status_effects(result, target_paddle)
+
+            print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} → "
+                  f"{skill.korean_name} 발동 성공!")
+        else:
+            print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} → "
+                  f"{skill.korean_name} 발동 실패")
+
+        # 말풍선 정보 반환 (호출자가 표시)
+        return {
+            "guard_name": guard["name"],
+            "skill_name": skill.korean_name,
+            "is_top": is_top,
+        }
+
+    def _apply_status_effects(self, result, target_paddle):
+        """스킬 결과에서 상태 효과를 game_state에 적용"""
+        if not result or not self.skill_manager:
+            return
+
+        game_state = self.skill_manager.game_state
+        target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+
+        from downtown.hero_skills import StatusEffect, ScreenEffect
+
+        if result.get('target_status'):
+            status = result['target_status']
+            if status == StatusEffect.STUN:
+                game_state[f'{target_prefix}_stunned'] = True
+            elif status == StatusEffect.SLOW:
+                game_state[f'{target_prefix}_slowed'] = True
+                game_state[f'{target_prefix}_slow_amount'] = result.get('slow_amount', 0.5)
+            elif status == StatusEffect.CONFUSION:
+                game_state[f'{target_prefix}_confused'] = True
+            elif status == StatusEffect.SHRINK:
+                game_state[f'{target_prefix}_shrink'] = True
+                game_state[f'{target_prefix}_shrink_scale'] = result.get('shrink_amount', 0.5)
+            elif status == StatusEffect.BLIND:
+                game_state['blind_target_is_top'] = target_paddle.is_top
+
+        # 화면 효과
+        if 'screen_effect' in result and self.skill_manager:
+            self.skill_manager.screen_effects.append({
+                'type': result['screen_effect'],
+                'duration': result.get('flash_duration', 0.3),
+                'color': result.get('flash_color', (255, 255, 255)),
+                'intensity': result.get('shake_intensity', 0)
+            })
+
+    def draw(self, screen, top_paddle=None, bottom_paddle=None, ball=None,
+             shake_x=0, shake_y=0):
+        """호위무사 캐릭터 및 스킬 이펙트 그리기"""
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+        # 호위무사 스킬 이펙트 그리기
+        for hero_id, skills in self.skill_instances.items():
+            is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
+            if is_top_guard:
+                caster = top_paddle
+                target = bottom_paddle
+            else:
+                caster = bottom_paddle
+                target = top_paddle
+            for skill in skills:
+                if skill.is_active and hasattr(skill, 'draw'):
+                    try:
+                        skill.draw(screen, caster, target, ball, game_state)
+                    except Exception:
+                        pass
+
+        # 상단측 호위무사 캐릭터
+        if self.active_top and self.phase_top:
+            self._draw_guard(screen, self.active_top,
+                             self.x_top + shake_x, 120 + shake_y,
+                             is_top=True)
+
+        # 하단측 호위무사 캐릭터
+        if self.active_bottom and self.phase_bottom:
+            self._draw_guard(screen, self.active_bottom,
+                             self.x_bottom + shake_x, 630 + shake_y,
+                             is_top=False)
+
+    def _draw_guard(self, screen, guard_hero, x, y, is_top):
+        """단일 호위무사 캐릭터 렌더링"""
+        ix, iy = int(x), int(y)
+        color = guard_hero.get("color", (200, 200, 200))
+
+        # 글로우 효과 (반투명 원)
+        glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
+        glow_alpha = 60
+        # 시전 중이면 글로우 강화
+        phase = self.phase_top if is_top else self.phase_bottom
+        if phase == "casting":
+            glow_alpha = 120
+        pygame.draw.circle(glow_surf, (*color, glow_alpha), (40, 40), 40)
+        screen.blit(glow_surf, (ix - 40, iy - 40))
+
+        # 영웅 캐릭터 그리기
+        if self.hero_paddle_renderer:
+            facing = "down" if is_top else "up"
+            try:
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    screen,
+                    guard_hero["id"],
+                    ix, iy,
+                    60, 30,  # 약간 작은 크기
+                    facing=facing,
+                    color=color,
+                    scale_mode="paddle"
+                )
+            except Exception:
+                # 폴백: 간단한 원형
+                pygame.draw.circle(screen, color, (ix, iy), 20)
+        else:
+            # 폴백: 간단한 원형 + 테두리
+            pygame.draw.circle(screen, color, (ix, iy), 20)
+            pygame.draw.circle(screen, (255, 255, 255), (ix, iy), 20, 2)
+
+        # 호위무사 이름 표시
+        try:
+            name_font = pygame.font.Font(None, 18)
+            name_surf = name_font.render(guard_hero.get("name", "?"), True, (255, 255, 255))
+            name_rect = name_surf.get_rect(centerx=ix, top=iy + 28)
+            # 배경 박스
+            bg_rect = name_rect.inflate(8, 4)
+            bg_surf = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(bg_surf, (0, 0, 0, 150), bg_surf.get_rect(), border_radius=3)
+            screen.blit(bg_surf, bg_rect)
+            screen.blit(name_surf, name_rect)
+        except Exception:
+            pass
+
+    def draw_guard_icons(self, screen, fonts=None):
+        """필러 영역에 호위무사 아이콘 표시 (배틀 중)"""
+        if not self.guard_warriors_top and not self.guard_warriors_bottom:
+            return
+
+        # 상단 영웅의 호위무사 (왼쪽 필러 영역)
+        y_start = 180
+        for i, guard in enumerate(self.guard_warriors_top):
+            color = guard.get("color", (150, 150, 150))
+            cx, cy = 40, y_start + i * 35
+
+            # 원형 아이콘
+            pygame.draw.circle(screen, color, (cx, cy), 14)
+            pygame.draw.circle(screen, (200, 200, 200), (cx, cy), 14, 2)
+
+            # 쿨타임 오버레이
+            if self.phase_top is None and self.cooldown_top > 0:
+                cd_ratio = min(1.0, self.cooldown_top / self.cooldown_range[1])
+                overlay_h = int(28 * cd_ratio)
+                if overlay_h > 0:
+                    cd_surf = pygame.Surface((28, overlay_h), pygame.SRCALPHA)
+                    cd_surf.fill((0, 0, 0, 120))
+                    screen.blit(cd_surf, (cx - 14, cy - 14))
+
+            # 이름 첫 글자
+            try:
+                name_char = guard.get("name", "?")[0]
+                char_font = pygame.font.Font(None, 16)
+                char_surf = char_font.render(name_char, True, (255, 255, 255))
+                char_rect = char_surf.get_rect(center=(cx, cy))
+                screen.blit(char_surf, char_rect)
+            except Exception:
+                pass
+
+        # 하단 영웅의 호위무사 (오른쪽 필러 영역)
+        for i, guard in enumerate(self.guard_warriors_bottom):
+            color = guard.get("color", (150, 150, 150))
+            cx, cy = SCREEN_WIDTH - 40, y_start + i * 35
+
+            # 원형 아이콘
+            pygame.draw.circle(screen, color, (cx, cy), 14)
+            pygame.draw.circle(screen, (200, 200, 200), (cx, cy), 14, 2)
+
+            # 쿨타임 오버레이
+            if self.phase_bottom is None and self.cooldown_bottom > 0:
+                cd_ratio = min(1.0, self.cooldown_bottom / self.cooldown_range[1])
+                overlay_h = int(28 * cd_ratio)
+                if overlay_h > 0:
+                    cd_surf = pygame.Surface((28, overlay_h), pygame.SRCALPHA)
+                    cd_surf.fill((0, 0, 0, 120))
+                    screen.blit(cd_surf, (cx - 14, cy - 14))
+
+            # 이름 첫 글자
+            try:
+                name_char = guard.get("name", "?")[0]
+                char_font = pygame.font.Font(None, 16)
+                char_surf = char_font.render(name_char, True, (255, 255, 255))
+                char_rect = char_surf.get_rect(center=(cx, cy))
+                screen.blit(char_surf, char_rect)
+            except Exception:
+                pass
+
+    def reset_active_skills(self):
+        """득점 시 호위무사 활성 스킬 리셋"""
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+        for hero_id, skills in self.skill_instances.items():
+            # 이 호위무사가 어느 쪽인지 판별 (패들 정보 없이 리셋)
+            for skill in skills:
+                if skill.is_active:
+                    try:
+                        skill.reset_for_new_round(game_state)
+                    except Exception:
+                        skill.is_active = False
+                        skill.active_timer = 0.0
+
+    def reset(self):
+        """배틀 종료 시 전체 초기화"""
+        # 애니메이션 상태 초기화
+        self.phase_top = None
+        self.phase_bottom = None
+        self.active_top = None
+        self.active_bottom = None
+        self.selected_skill_top = None
+        self.selected_skill_bottom = None
+
+        # 스킬 인스턴스 정리
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+        for hero_id, skills in self.skill_instances.items():
+            for skill in skills:
+                if skill.is_active:
+                    try:
+                        skill.reset_for_new_round(game_state)
+                    except Exception:
+                        skill.is_active = False
+
+        self.guard_warriors_top = []
+        self.guard_warriors_bottom = []
+        self.skill_instances = {}
+
+    @staticmethod
+    def _ease_in_out(t):
+        """이징 함수 (부드러운 시작/끝)"""
+        if t < 0.5:
+            return 2 * t * t
+        return 1 - (-2 * t + 2) ** 2 / 2
+
+
+# ============================================================================
 # 토너먼트 시스템
 # ============================================================================
 class ColosseumsArena:
@@ -1129,6 +1681,32 @@ class ColosseumsArena:
         self.bottom_speech_timer = 0    # 하단 영웅 말풍선 타이머
         self.speech_duration = 90       # 말풍선 표시 시간 (1.5초)
 
+        # === 호위무사 시스템 ===
+        self.guard_warrior_map = {}          # hero_id -> [guard hero dicts] (토너먼트 전체 누적)
+        self.guard_warriors_top = []         # 현재 배틀 상단 영웅의 호위무사들
+        self.guard_warriors_bottom = []      # 현재 배틀 하단 영웅의 호위무사들
+        # 쿨타임
+        self.guard_cooldown_top = 0.0
+        self.guard_cooldown_bottom = 0.0
+        self.guard_cooldown_range = (20.0, 30.0)  # 20~30초 랜덤
+        # 등장 애니메이션 상태
+        self.guard_active_top = None         # 현재 등장 중인 상단측 호위무사 hero dict
+        self.guard_active_bottom = None      # 현재 등장 중인 하단측 호위무사 hero dict
+        self.guard_phase_top = None          # "entering" / "casting" / "exiting" / None
+        self.guard_phase_bottom = None
+        self.guard_anim_timer_top = 0.0
+        self.guard_anim_timer_bottom = 0.0
+        self.guard_x_top = 0.0              # 현재 X 위치 (애니메이션용)
+        self.guard_x_bottom = 0.0
+        self.guard_side_top = "left"        # 등장 방향 ("left" or "right")
+        self.guard_side_bottom = "right"
+        self.guard_selected_skill_top = None     # 선택된 스킬 인스턴스
+        self.guard_selected_skill_bottom = None
+        # 호위무사 독립 스킬 인스턴스
+        self.guard_skill_instances = {}      # hero_id -> [skill1, skill2]
+        # GuardWarriorSystem 인스턴스
+        self.guard_system = None
+
     def _generate_bracket(self):
         """8강 대진표 생성 - 모든 영웅 자유 매칭 (상단/하단 구분 없음)
 
@@ -1172,6 +1750,17 @@ class ColosseumsArena:
             # 8강 → 4강
             winners = [m.winner for m in self.matches[TournamentRound.QUARTER_FINAL]]
             print(f"[Arena] 8강 승자들: {[w.get('name', '?') if w else 'None' for w in winners]}")
+
+            # === 호위무사 할당: 8강 패자 → 승자의 호위무사 ===
+            for match in self.matches[TournamentRound.QUARTER_FINAL]:
+                if match.winner:
+                    loser = match.hero1 if match.winner == match.hero2 else match.hero2
+                    winner_id = match.winner["id"]
+                    if winner_id not in self.guard_warrior_map:
+                        self.guard_warrior_map[winner_id] = []
+                    self.guard_warrior_map[winner_id].append(loser)
+                    print(f"[Guard] 호위무사 할당: {loser['name']} → {match.winner['name']}의 호위무사")
+
             # 포지션 유지: top 영웅이 hero1, bottom 영웅이 hero2
             self.matches[TournamentRound.SEMI_FINAL] = [
                 self._create_positioned_match(winners[0], winners[1], 0),
@@ -1183,11 +1772,43 @@ class ColosseumsArena:
             # 4강 → 결승
             winners = [m.winner for m in self.matches[TournamentRound.SEMI_FINAL]]
             print(f"[Arena] 4강 승자들: {[w.get('name', '?') if w else 'None' for w in winners]}")
+
+            # === 호위무사 할당: 4강 패자 → 승자의 추가 호위무사 ===
+            for match in self.matches[TournamentRound.SEMI_FINAL]:
+                if match.winner:
+                    loser = match.hero1 if match.winner == match.hero2 else match.hero2
+                    winner_id = match.winner["id"]
+                    if winner_id not in self.guard_warrior_map:
+                        self.guard_warrior_map[winner_id] = []
+                    self.guard_warrior_map[winner_id].append(loser)
+                    print(f"[Guard] 호위무사 추가 할당: {loser['name']} → {match.winner['name']}의 호위무사 (총 {len(self.guard_warrior_map[winner_id])}명)")
+
             self.matches[TournamentRound.FINAL] = [
                 self._create_positioned_match(winners[0], winners[1], 0),
             ]
             self.current_round = TournamentRound.FINAL
             print(f"[Arena] 결승 매치 생성 완료 | current_round → FINAL")
+
+    def _init_guard_warriors_for_battle(self, match: Match):
+        """배틀 시작 시 호위무사 시스템 초기화"""
+        hero1_guards = self.guard_warrior_map.get(match.hero1["id"], [])
+        hero2_guards = self.guard_warrior_map.get(match.hero2["id"], [])
+
+        # GuardWarriorSystem 인스턴스 생성
+        self.guard_system = GuardWarriorSystem(
+            skill_manager=self.skill_manager,
+            hero_paddle_renderer=self.hero_paddle_renderer,
+        )
+
+        # 호위무사 할당 (hero1=상단, hero2=하단 기준)
+        # 주의: start_battle()에서 bet_hero에 따라 top/bottom이 바뀔 수 있음
+        # 실제 배치는 _run_real_game_battle()에서 글로벌 변수로 전달
+        self.guard_warriors_top = hero1_guards
+        self.guard_warriors_bottom = hero2_guards
+
+        print(f"[Guard] 배틀 호위무사 초기화 | "
+              f"{match.hero1['name']}: {[g['name'] for g in hero1_guards]} | "
+              f"{match.hero2['name']}: {[g['name'] for g in hero2_guards]}")
 
     def _create_positioned_match(self, hero_a: Dict, hero_b: Dict, match_id: int) -> Match:
         """랜덤으로 hero1(상단)/hero2(하단) 결정
@@ -1252,6 +1873,28 @@ class ColosseumsArena:
                 traceback.print_exc()
                 pingfighter.arena_skill_manager = None
 
+            # === 호위무사 시스템 설정 (4강/결승) ===
+            if self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
+                try:
+                    # top_hero/bottom_hero 기준으로 호위무사 할당
+                    top_guards = self.guard_warrior_map.get(top_hero["id"], [])
+                    bottom_guards = self.guard_warrior_map.get(bottom_hero["id"], [])
+                    if top_guards or bottom_guards:
+                        guard_system = GuardWarriorSystem(
+                            skill_manager=pingfighter.arena_skill_manager,
+                            hero_paddle_renderer=pingfighter.arena_hero_paddle_renderer,
+                        )
+                        guard_system.setup(top_guards, bottom_guards)
+                        pingfighter.arena_guard_system = guard_system
+                        print(f"[Guard] pingfighter 호위무사 시스템 설정 완료")
+                    else:
+                        pingfighter.arena_guard_system = None
+                except Exception as e:
+                    print(f"[Guard] 호위무사 시스템 설정 오류: {e}")
+                    pingfighter.arena_guard_system = None
+            else:
+                pingfighter.arena_guard_system = None
+
             # AI 플레이 모드 활성화
             pingfighter.player_ai_enabled = True
 
@@ -1283,6 +1926,10 @@ class ColosseumsArena:
                 pingfighter.arena_hero_paddle_renderer = None
                 pingfighter.arena_skill_manager = None
                 pingfighter.arena_skill_check_timer = 0.0
+                # 호위무사 시스템 초기화
+                if hasattr(pingfighter, 'arena_guard_system') and pingfighter.arena_guard_system:
+                    pingfighter.arena_guard_system.reset()
+                pingfighter.arena_guard_system = None
             except Exception:
                 pass
 
@@ -1302,6 +1949,14 @@ class ColosseumsArena:
         # 점수 리셋
         self.score_top = 0
         self.score_bottom = 0
+
+        # === 호위무사 초기화 (4강/결승만) ===
+        if self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
+            self._init_guard_warriors_for_battle(match)
+        else:
+            self.guard_warriors_top = []
+            self.guard_warriors_bottom = []
+            self.guard_skill_instances = {}
 
         # 배팅한 영웅이 하단(플레이어 AI)이 되도록 배치
         # 플레이어 AI는 항상 하단을 제어하므로, bet_hero가 하단이어야 배팅한 영웅이 유리
@@ -1771,8 +2426,16 @@ class ColosseumsArena:
         current_matches = self.matches.get(self.current_round, [])
         for match in current_matches:
             if not match.completed:
-                # 랜덤 승자 결정
-                winner = random.choice([match.hero1, match.hero2])
+                # 호위무사 보너스: 보유 수에 따른 승률 보정 (4강/결승)
+                guard_count_1 = len(self.guard_warrior_map.get(match.hero1["id"], []))
+                guard_count_2 = len(self.guard_warrior_map.get(match.hero2["id"], []))
+                bonus_1 = guard_count_1 * 0.05  # 호위무사 1명당 5% 보정
+                bonus_2 = guard_count_2 * 0.05
+                prob_1 = 0.5 + bonus_1 - bonus_2
+                prob_1 = max(0.2, min(0.8, prob_1))  # 20%~80% 제한
+
+                # 보정된 확률로 승자 결정
+                winner = match.hero1 if random.random() < prob_1 else match.hero2
                 # 랜덤 스코어 (승자가 5점, 패자는 0~4점)
                 if winner == match.hero1:
                     score1 = 5
@@ -1781,7 +2444,8 @@ class ColosseumsArena:
                     score1 = random.randint(0, 4)
                     score2 = 5
                 match.set_result(winner, score1, score2)
-                print(f"[Arena] 자동 결정: {match.hero1['name']} vs {match.hero2['name']} → 승자: {winner['name']} ({score1}:{score2})")
+                guard_info = f" (호위무사: {guard_count_1} vs {guard_count_2})" if guard_count_1 or guard_count_2 else ""
+                print(f"[Arena] 자동 결정: {match.hero1['name']} vs {match.hero2['name']} → 승자: {winner['name']} ({score1}:{score2}){guard_info}")
 
     def _auto_select_bet_hero_match(self):
         """배팅한 영웅이 포함된 경기를 자동 선택하고 바로 배틀 시작"""

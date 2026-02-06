@@ -18293,6 +18293,7 @@ arena_bottom_hero = None             # 하단 영웅 정보 (플레이어 위치
 arena_hero_paddle_renderer = None    # 영웅 패들 렌더러
 arena_skill_manager = None           # 투기장 영웅 스킬 매니저
 arena_skill_check_timer = 0.0        # 스킬 쿨다운 체크 타이머
+arena_guard_system = None            # 투기장 호위무사 시스템 (GuardWarriorSystem)
 arena_top_confused = False           # 상단 영웅(보스) 혼란 상태 (심해의 먹물 등)
 arena_bottom_confused = False        # 하단 영웅(플레이어) 혼란 상태
 # 투기장 혼란 랜덤 움직임 (조명탄과 동일한 방식)
@@ -48067,6 +48068,12 @@ def go_to_next_round():
                 BOSS.centerx = center
         except Exception as e:
             print(f"[Arena] 스킬 라운드 리셋 오류: {e}")
+    # 🛡️ 호위무사 활성 스킬도 리셋 (득점 시)
+    if arena_mode_enabled and arena_guard_system:
+        try:
+            arena_guard_system.reset_active_skills()
+        except Exception:
+            pass
 
     #  수류탄 관련 초기화
     grenades.clear()  # 날아가는 수류탄 제거
@@ -85607,6 +85614,13 @@ def draw_objects():
             ball_wrapper = BallWrapperDraw(BALL, ball_vel)
             # 스킬 이펙트 그리기
             arena_skill_manager.draw_skills(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
+            # 🛡️ 호위무사 시스템 그리기 (캐릭터 + 스킬 이펙트)
+            if arena_guard_system:
+                try:
+                    arena_guard_system.draw(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
+                    arena_guard_system.draw_guard_icons(SCREEN)
+                except Exception as _guard_draw_err:
+                    pass
             # 화면 효과 그리기 (플래시, 흔들림 등)
             arena_skill_manager.draw_screen_effects(SCREEN)
 
@@ -113482,6 +113496,12 @@ def reset_round(is_stage_start=False):
                 BOSS.centerx = center
         except Exception as e:
             print(f"[Arena] 스킬 라운드 리셋 오류: {e}")
+    # 🛡️ 호위무사 활성 스킬도 리셋 (두 번째 득점 리셋 위치)
+    if arena_mode_enabled and arena_guard_system:
+        try:
+            arena_guard_system.reset_active_skills()
+        except Exception:
+            pass
 
     #  수류탄 관련 초기화
     grenades.clear()  # 날아가는 수류탄 제거
@@ -131785,6 +131805,13 @@ def main(stage_num, new_boss_mode=False):
 
                     # 스킬 쿨다운/효과 업데이트
                     arena_skill_manager.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
+
+                    # 🛡️ 호위무사 시스템 업데이트 (4강/결승)
+                    if arena_guard_system:
+                        try:
+                            arena_guard_system.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
+                        except Exception as _guard_err:
+                            print(f"[Guard] update error: {_guard_err}")
 
                     # 🔥 스킬에 의한 공 속도 변경 반영 (지옥의 불꽃 등)
                     ball_vel[0] = ball_wrapper.vx
