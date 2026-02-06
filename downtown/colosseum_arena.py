@@ -1449,114 +1449,147 @@ class GuardWarriorSystem:
         except Exception:
             pass
 
-    def draw_guard_icons(self, screen, fonts=None):
-        """필러 영역에 호위무사 캐릭터 이미지 UI 표시 (배틀 중)
+    def draw_guard_icons(self, screen, game_offset_x=0, game_offset_y=0, game_scale=1.0, fonts=None):
+        """필러 배경(관중석) 위에 호위무사 캐릭터 이미지 UI 표시
+        screen: REAL_SCREEN (전체화면 서피스)
+        game_offset_x/y: 게임 영역의 REAL_SCREEN 내 오프셋
+        game_scale: 게임 스케일 팩터
         - 하단 영웅의 호위무사 → 왼쪽 하단 필러
         - 상단 영웅의 호위무사 → 오른쪽 상단 필러
         """
         if not self.guard_warriors_top and not self.guard_warriors_bottom:
             return
 
-        icon_w, icon_h = 50, 26  # 캐릭터 렌더 크기 (패들 스케일)
-        slot_h = 60  # 슬롯 간격
+        # 필러 영역 좌표 계산 (REAL_SCREEN 좌표계)
+        # 왼쪽 필러: 0 ~ game_offset_x
+        # 오른쪽 필러: game_offset_x + game_scaled_width ~ screen_width
+        game_scaled_w = int(SCREEN_WIDTH * game_scale)
+        left_pillar_w = game_offset_x
+        right_pillar_x = game_offset_x + game_scaled_w
+        right_pillar_w = screen.get_width() - right_pillar_x
+
+        # 필러가 없으면 (창 모드) 그리지 않음
+        if left_pillar_w < 30 and right_pillar_w < 30:
+            return
+
+        # 캐릭터 렌더링용 소형 서피스 크기
+        char_surf_w, char_surf_h = 80, 80
+        frame_w, frame_h = 70, 70
+        slot_h = 80  # 슬롯 간격
 
         # --- 상단 영웅의 호위무사 → 오른쪽 상단 필러 ---
-        cx_right = SCREEN_WIDTH - 40  # 오른쪽 필러 중앙 X (720)
-        y_start_top = 100
-        for i, guard in enumerate(self.guard_warriors_top):
-            color = guard.get("color", (150, 150, 150))
-            cy = y_start_top + i * slot_h
+        if right_pillar_w >= 30:
+            cx_right = right_pillar_x + right_pillar_w // 2
+            y_start_top = game_offset_y + int(80 * game_scale)
+            for i, guard in enumerate(self.guard_warriors_top):
+                color = guard.get("color", (150, 150, 150))
+                slot_cy = y_start_top + i * slot_h
 
-            # 배경 프레임 (반투명 박스)
-            frame_w, frame_h = 60, 52
-            frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
-            pygame.draw.rect(frame_surf, (*color, 40), frame_surf.get_rect(), border_radius=6)
-            pygame.draw.rect(frame_surf, (*color, 120), frame_surf.get_rect(), width=2, border_radius=6)
-            screen.blit(frame_surf, (cx_right - frame_w // 2, cy - 8))
+                # 배경 프레임 (반투명 박스)
+                frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
+                pygame.draw.rect(frame_surf, (*color, 40), frame_surf.get_rect(), border_radius=8)
+                pygame.draw.rect(frame_surf, (*color, 140), frame_surf.get_rect(), width=2, border_radius=8)
+                screen.blit(frame_surf, (cx_right - frame_w // 2, slot_cy))
 
-            # 영웅 캐릭터 이미지
-            if self.hero_paddle_renderer:
+                # 영웅 캐릭터 이미지 (소형 서피스에 중앙 렌더링 후 blit)
+                self._draw_guard_icon_character(
+                    screen, guard, cx_right, slot_cy + frame_h // 2 - 5,
+                    char_surf_w, char_surf_h, facing="down"
+                )
+
+                # 쿨타임 어둡게 오버레이 (위에서부터 채워짐)
+                if self.phase_top is None and self.cooldown_top > 0:
+                    cd_ratio = min(1.0, self.cooldown_top / self.cooldown_range[1])
+                    overlay_h = int(frame_h * cd_ratio)
+                    if overlay_h > 0:
+                        cd_surf = pygame.Surface((frame_w, overlay_h), pygame.SRCALPHA)
+                        cd_surf.fill((0, 0, 0, 140))
+                        screen.blit(cd_surf, (cx_right - frame_w // 2, slot_cy))
+
+                # 이름 표시
                 try:
-                    self.hero_paddle_renderer.draw_hero_paddle(
-                        screen, guard["id"],
-                        cx_right, cy + 8,
-                        icon_w, icon_h,
-                        facing="down", color=color,
-                        scale_mode="paddle"
-                    )
+                    name = guard.get("name", "?")
+                    name_font = pygame.font.Font(None, 16)
+                    name_surf = name_font.render(name, True, (255, 255, 255))
+                    name_rect = name_surf.get_rect(centerx=cx_right, top=slot_cy + frame_h + 2)
+                    # 배경
+                    bg_rect = name_rect.inflate(6, 2)
+                    bg_s = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+                    pygame.draw.rect(bg_s, (0, 0, 0, 160), bg_s.get_rect(), border_radius=3)
+                    screen.blit(bg_s, bg_rect)
+                    screen.blit(name_surf, name_rect)
                 except Exception:
-                    pygame.draw.circle(screen, color, (cx_right, cy + 8), 12)
-            else:
-                pygame.draw.circle(screen, color, (cx_right, cy + 8), 12)
-                pygame.draw.circle(screen, (200, 200, 200), (cx_right, cy + 8), 12, 2)
-
-            # 쿨타임 어둡게 오버레이
-            if self.phase_top is None and self.cooldown_top > 0:
-                cd_ratio = min(1.0, self.cooldown_top / self.cooldown_range[1])
-                overlay_h = int(frame_h * cd_ratio)
-                if overlay_h > 0:
-                    cd_surf = pygame.Surface((frame_w, overlay_h), pygame.SRCALPHA)
-                    cd_surf.fill((0, 0, 0, 130))
-                    screen.blit(cd_surf, (cx_right - frame_w // 2, cy - 8))
-
-            # 이름 표시
-            try:
-                name = guard.get("name", "?")
-                name_font = pygame.font.Font(None, 14)
-                name_surf = name_font.render(name, True, (255, 255, 255))
-                name_rect = name_surf.get_rect(centerx=cx_right, top=cy + frame_h - 14)
-                screen.blit(name_surf, name_rect)
-            except Exception:
-                pass
+                    pass
 
         # --- 하단 영웅의 호위무사 → 왼쪽 하단 필러 ---
-        cx_left = 40  # 왼쪽 필러 중앙 X
-        y_start_bottom = SCREEN_HEIGHT - 100 - len(self.guard_warriors_bottom) * slot_h
-        for i, guard in enumerate(self.guard_warriors_bottom):
-            color = guard.get("color", (150, 150, 150))
-            cy = y_start_bottom + i * slot_h
+        if left_pillar_w >= 30:
+            cx_left = left_pillar_w // 2
+            # 하단에서 위로 배치
+            game_scaled_h = int(SCREEN_HEIGHT * game_scale)
+            y_end = game_offset_y + game_scaled_h - int(80 * game_scale)
+            y_start_bottom = y_end - len(self.guard_warriors_bottom) * slot_h
+            for i, guard in enumerate(self.guard_warriors_bottom):
+                color = guard.get("color", (150, 150, 150))
+                slot_cy = y_start_bottom + i * slot_h
 
-            # 배경 프레임 (반투명 박스)
-            frame_w, frame_h = 60, 52
-            frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
-            pygame.draw.rect(frame_surf, (*color, 40), frame_surf.get_rect(), border_radius=6)
-            pygame.draw.rect(frame_surf, (*color, 120), frame_surf.get_rect(), width=2, border_radius=6)
-            screen.blit(frame_surf, (cx_left - frame_w // 2, cy - 8))
+                # 배경 프레임 (반투명 박스)
+                frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
+                pygame.draw.rect(frame_surf, (*color, 40), frame_surf.get_rect(), border_radius=8)
+                pygame.draw.rect(frame_surf, (*color, 140), frame_surf.get_rect(), width=2, border_radius=8)
+                screen.blit(frame_surf, (cx_left - frame_w // 2, slot_cy))
 
-            # 영웅 캐릭터 이미지
-            if self.hero_paddle_renderer:
+                # 영웅 캐릭터 이미지 (소형 서피스에 중앙 렌더링 후 blit)
+                self._draw_guard_icon_character(
+                    screen, guard, cx_left, slot_cy + frame_h // 2 - 5,
+                    char_surf_w, char_surf_h, facing="down"
+                )
+
+                # 쿨타임 어둡게 오버레이
+                if self.phase_bottom is None and self.cooldown_bottom > 0:
+                    cd_ratio = min(1.0, self.cooldown_bottom / self.cooldown_range[1])
+                    overlay_h = int(frame_h * cd_ratio)
+                    if overlay_h > 0:
+                        cd_surf = pygame.Surface((frame_w, overlay_h), pygame.SRCALPHA)
+                        cd_surf.fill((0, 0, 0, 140))
+                        screen.blit(cd_surf, (cx_left - frame_w // 2, slot_cy))
+
+                # 이름 표시
                 try:
-                    self.hero_paddle_renderer.draw_hero_paddle(
-                        screen, guard["id"],
-                        cx_left, cy + 8,
-                        icon_w, icon_h,
-                        facing="up", color=color,
-                        scale_mode="paddle"
-                    )
+                    name = guard.get("name", "?")
+                    name_font = pygame.font.Font(None, 16)
+                    name_surf = name_font.render(name, True, (255, 255, 255))
+                    name_rect = name_surf.get_rect(centerx=cx_left, top=slot_cy + frame_h + 2)
+                    bg_rect = name_rect.inflate(6, 2)
+                    bg_s = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+                    pygame.draw.rect(bg_s, (0, 0, 0, 160), bg_s.get_rect(), border_radius=3)
+                    screen.blit(bg_s, bg_rect)
+                    screen.blit(name_surf, name_rect)
                 except Exception:
-                    pygame.draw.circle(screen, color, (cx_left, cy + 8), 12)
-            else:
-                pygame.draw.circle(screen, color, (cx_left, cy + 8), 12)
-                pygame.draw.circle(screen, (200, 200, 200), (cx_left, cy + 8), 12, 2)
+                    pass
 
-            # 쿨타임 어둡게 오버레이
-            if self.phase_bottom is None and self.cooldown_bottom > 0:
-                cd_ratio = min(1.0, self.cooldown_bottom / self.cooldown_range[1])
-                overlay_h = int(frame_h * cd_ratio)
-                if overlay_h > 0:
-                    cd_surf = pygame.Surface((frame_w, overlay_h), pygame.SRCALPHA)
-                    cd_surf.fill((0, 0, 0, 130))
-                    screen.blit(cd_surf, (cx_left - frame_w // 2, cy - 8))
-
-            # 이름 표시
+    def _draw_guard_icon_character(self, screen, guard_hero, cx, cy,
+                                    surf_w, surf_h, facing="down"):
+        """호위무사 캐릭터를 소형 서피스에 렌더링 후 중앙 정렬하여 blit"""
+        color = guard_hero.get("color", (200, 200, 200))
+        if self.hero_paddle_renderer:
             try:
-                name = guard.get("name", "?")
-                name_font = pygame.font.Font(None, 14)
-                name_surf = name_font.render(name, True, (255, 255, 255))
-                name_rect = name_surf.get_rect(centerx=cx_left, top=cy + frame_h - 14)
-                screen.blit(name_surf, name_rect)
+                # 소형 투명 서피스에 캐릭터를 중앙에 그림
+                char_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    char_surf, guard_hero["id"],
+                    surf_w // 2, surf_h // 2,
+                    48, 24,
+                    facing=facing, color=color,
+                    scale_mode="preview"
+                )
+                # 중앙 정렬하여 screen에 blit
+                screen.blit(char_surf, (cx - surf_w // 2, cy - surf_h // 2))
             except Exception:
-                pass
+                pygame.draw.circle(screen, color, (cx, cy), 14)
+                pygame.draw.circle(screen, (255, 255, 255), (cx, cy), 14, 2)
+        else:
+            pygame.draw.circle(screen, color, (cx, cy), 14)
+            pygame.draw.circle(screen, (255, 255, 255), (cx, cy), 14, 2)
 
     def reset_active_skills(self):
         """득점 시 호위무사 활성 스킬 리셋"""

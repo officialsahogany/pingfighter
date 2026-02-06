@@ -7474,6 +7474,18 @@ def _fullscreen_flip():
         if pillar_renderer is not None:
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
+        # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
+        if arena_mode_enabled and arena_guard_system:
+            try:
+                arena_guard_system.draw_guard_icons(
+                    REAL_SCREEN,
+                    game_offset_x=GAME_OFFSET_X,
+                    game_offset_y=GAME_OFFSET_Y,
+                    game_scale=GAME_SCALE_FACTOR,
+                )
+            except Exception:
+                pass
+
         # 좌표계 디버그 (F4 토글) - 히트박스 & 마우스 위치
         if globals().get('COORDINATE_DEBUG_MODE', False):
             _draw_coordinate_debug(REAL_SCREEN)
@@ -7542,6 +7554,18 @@ def _fullscreen_update(*args, **kwargs):
         # 필러 UI (액티브 아이템 슬롯) - 가장 마지막에 그려서 항상 위에 표시
         if pillar_renderer is not None:
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
+
+        # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
+        if arena_mode_enabled and arena_guard_system:
+            try:
+                arena_guard_system.draw_guard_icons(
+                    REAL_SCREEN,
+                    game_offset_x=GAME_OFFSET_X,
+                    game_offset_y=GAME_OFFSET_Y,
+                    game_scale=GAME_SCALE_FACTOR,
+                )
+            except Exception:
+                pass
 
         # 좌표계 디버그 (F4 토글) - 히트박스 & 마우스 위치
         if globals().get('COORDINATE_DEBUG_MODE', False):
@@ -85618,7 +85642,6 @@ def draw_objects():
             if arena_guard_system:
                 try:
                     arena_guard_system.draw(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
-                    arena_guard_system.draw_guard_icons(SCREEN)
                 except Exception as _guard_draw_err:
                     pass
             # 화면 효과 그리기 (플래시, 흔들림 등)
