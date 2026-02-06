@@ -131957,24 +131957,24 @@ def main(stage_num, new_boss_mode=False):
                             else:
                                 BOSS.y = max_y  # 끝에 도달하면 유지
                         else:
-                            # 하단 영웅 귀신발걸음 Y축 이동 (아래로 끝까지 전진)
+                            # 하단 영웅 귀신발걸음 Y축 이동 (위로 끝까지 전진)
                             if not arena_bottom_ghost_step_active:
                                 # 시작
                                 arena_bottom_ghost_step_active = True
                                 arena_bottom_ghost_step_original_y = int(PLAYER.y)
-                                arena_bottom_ghost_step_velocity = arena_bottom_ghost_step_speed  # 아래로
-                                print(f"[GhostStep DEBUG] 하단 영웅 Y축 전진 시작! X={PLAYER.x}, 원위치Y={arena_bottom_ghost_step_original_y}, 목표=화면 하단")
+                                arena_bottom_ghost_step_velocity = -arena_bottom_ghost_step_speed  # 위로 (음수)
+                                print(f"[GhostStep DEBUG] 하단 영웅 Y축 전진 시작! X={PLAYER.x}, 원위치Y={arena_bottom_ghost_step_original_y}, 목표=화면 상단")
 
-                            # 업데이트 - 계속 아래로 전진 (화면 하단까지)
+                            # 업데이트 - 계속 위로 전진 (화면 상단까지)
                             _before_y = PLAYER.y
                             _before_x = PLAYER.x
                             new_y = int(PLAYER.y + arena_bottom_ghost_step_velocity)
-                            # 화면 하단 제한 (화면 거의 끝까지)
-                            max_y = HEIGHT - 50  # 화면 거의 끝까지
-                            if new_y < max_y:
+                            # 화면 상단 제한 (보스 영역 근처까지)
+                            min_y = 50  # 화면 상단 근처까지
+                            if new_y > min_y:
                                 PLAYER.y = new_y
                             else:
-                                PLAYER.y = max_y  # 끝에 도달하면 유지
+                                PLAYER.y = min_y  # 끝에 도달하면 유지
                             # [DEBUG] X좌표도 함께 출력
                             if abs(PLAYER.x - _before_x) > 50:  # X좌표가 50픽셀 이상 변했을 때만
                                 print(f"[GhostStep X JUMP!] X 순간이동 감지! before_x={_before_x}, after_x={PLAYER.x}")
