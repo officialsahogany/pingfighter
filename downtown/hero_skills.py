@@ -533,6 +533,11 @@ class DemonEye(HeroSkill):
         self.caster_is_top = caster_paddle.is_top
         self.aura_timer = 0
 
+        # [DEBUG] 귀신발걸음 발동 시점 X좌표 확인
+        _paddle_x = getattr(caster_paddle, 'x', 'N/A')
+        _paddle_centerx = getattr(caster_paddle, 'centerx', 'N/A')
+        print(f"[GhostStep ACTIVATE] is_top={caster_paddle.is_top}, paddle.x={_paddle_x}, paddle.centerx={_paddle_centerx}")
+
         # 이동속도 200% 증가 (3배)
         speed_key = 'top_paddle_speed_boost' if caster_paddle.is_top else 'bottom_paddle_speed_boost'
         game_state[speed_key] = 3.0  # 200% 증가 = 3배

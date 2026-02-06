@@ -131772,8 +131772,9 @@ def main(stage_num, new_boss_mode=False):
                         if _target_is_top:
                             # 보스(상단)에게 넉백 적용
                             boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
+                            boss_stunned_timer = 30  # 0.5초 스턴 (하단과 동일하게 적용)
                             globals()['horn_charge_boss_knockback_active'] = True  # 부드러운 감속용 플래그
-                            print(f"🐂 [HORN CHARGE] 보스 넉백! dir={_kb_dir}, vel={boss_knockback_vel:.2f}")
+                            print(f"🐂 [HORN CHARGE] 보스 넉백! dir={_kb_dir}, vel={boss_knockback_vel:.2f}, stun={boss_stunned_timer}")
                         else:
                             # 플레이어(하단)에게 넉백 적용 (다이너마이트와 동일)
                             _prev_player_x = PLAYER.x
