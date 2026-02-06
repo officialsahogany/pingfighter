@@ -62005,11 +62005,13 @@ def handle_player(keys):
                             # 무중력벨트: 완전히 기계적인 즉각 이동 (키 누르는 동안만)
                             # 토르쉴드 방향 전환 지연도 무시 - 무중력벨트는 즉각적인 방향 전환을 제공
                             speed_bonus = 0
+                            # 🏟️ 투기장 둔화: 무중력벨트 경로에도 동일하게 적용
+                            _gb_slow = arena_player_slow_mult if arena_player_slow_mult != 1.0 else 1.0
                             if left_pressed:
-                                target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
+                                target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier * _gb_slow
                                 current_speed = target_speed  # 즉시 목표 속도로 전환
                             elif right_pressed:
-                                target_speed = (effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
+                                target_speed = (effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier * _gb_slow
                                 current_speed = target_speed  # 즉시 목표 속도로 전환
                             else:
                                 # 키를 떼면 즉시 정지
@@ -62039,7 +62041,12 @@ def handle_player(keys):
                             if selected_character_type == "optimus":
                                 adjusted_deceleration *= OPTIMUS_DECELERATION_MULT  # 감속을 2배 느리게
                             adjusted_max_speed = effective_max_speed * speed_factor * combined_speed_multiplier
-                            
+                            # 🏟️ 투기장 둔화: 이동 파라미터에 적용 (상단과 동일 방식)
+                            if arena_player_slow_mult != 1.0:
+                                adjusted_acceleration *= arena_player_slow_mult
+                                adjusted_deceleration *= arena_player_slow_mult
+                                adjusted_max_speed *= arena_player_slow_mult
+
                             if left_pressed:
                                 if current_speed > -adjusted_max_speed:
                                     if umbrella_turn_blocked and current_speed > 0:
@@ -62617,16 +62624,11 @@ def handle_player(keys):
             if not suicide_drone_active and not ice_dash_sliding:
                 # pygame.Rect 안전을 위해 int() 변환 및 유효성 검사
                 try:
-                    # 투기장 둔화: 위치 이동에만 적용 (current_speed 자체는 유지)
-                    _ghost_step_x_freeze = globals().get("arena_bottom_ghost_step_active", False)
-                    _applied_speed = current_speed
-                    if arena_player_slow_mult != 1.0 and not _ghost_step_x_freeze:
-                        _applied_speed = current_speed * arena_player_slow_mult
                     # NaN/Infinity 체크
-                    if _applied_speed != _applied_speed or abs(_applied_speed) > 1000000:
+                    if current_speed != current_speed or abs(current_speed) > 1000000:
                         safe_speed = 0
                     else:
-                        safe_speed = int(_applied_speed)
+                        safe_speed = int(current_speed)
                     # 최종 위치가 유효 범위 내인지 확인
                     new_x = PLAYER.x + safe_speed
                     if -2147483647 < new_x < 2147483647:
@@ -124333,7 +124335,6 @@ def handle_boss():
         enhanced_accel *= slow_multiplier
         enhanced_max_speed *= slow_multiplier
         enhanced_decel *= slow_multiplier
-        boss_current_speed *= slow_multiplier
     # 🏟️ 투기장 영웅 스킬 혼란 효과 (조명탄과 동일한 랜덤 움직임)
     global arena_top_confusion_target, arena_top_confusion_timer
     arena_confused = False
