@@ -62046,6 +62046,11 @@ def handle_player(keys):
                                 adjusted_acceleration *= arena_player_slow_mult
                                 adjusted_deceleration *= arena_player_slow_mult
                                 adjusted_max_speed *= arena_player_slow_mult
+                                # 즉시 속도 제한: 현재 속도가 둔화된 최대속도 초과 시 클램핑
+                                if current_speed > adjusted_max_speed:
+                                    current_speed = adjusted_max_speed
+                                elif current_speed < -adjusted_max_speed:
+                                    current_speed = -adjusted_max_speed
 
                             if left_pressed:
                                 if current_speed > -adjusted_max_speed:
@@ -124344,6 +124349,11 @@ def handle_boss():
         enhanced_accel *= slow_multiplier
         enhanced_max_speed *= slow_multiplier
         enhanced_decel *= slow_multiplier
+        # 즉시 속도 제한: 현재 속도가 둔화된 최대속도 초과 시 클램핑
+        if boss_current_speed > enhanced_max_speed:
+            boss_current_speed = enhanced_max_speed
+        elif boss_current_speed < -enhanced_max_speed:
+            boss_current_speed = -enhanced_max_speed
     # 🏟️ 투기장 영웅 스킬 혼란 효과 (조명탄과 동일한 랜덤 움직임)
     global arena_top_confusion_target, arena_top_confusion_timer
     arena_confused = False
