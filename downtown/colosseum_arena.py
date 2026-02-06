@@ -1039,11 +1039,21 @@ class ColosseumsArena:
         }
         self._generate_bracket()
 
+        # 누적 상금 시스템
+        self.entry_fee = 500                    # 입장료
+        self.entry_fee_paid = False             # 입장료 지불 여부
+        self.accumulated_prize = 0              # 누적 상금
+        self.round_prizes = {                   # 라운드별 보상
+            TournamentRound.QUARTER_FINAL: 500,
+            TournamentRound.SEMI_FINAL: 1000,
+            TournamentRound.FINAL: 2000,
+        }
+
         # 배팅 정보
         self.selected_match: Optional[Match] = None
         self.bet_hero: Optional[Dict] = None
-        self.bet_amount = 0
-        self.total_winnings = 0
+        self.bet_amount = 0  # 레거시 호환용
+        self.total_winnings = 0  # 레거시 호환용
 
         # 배틀 상태
         self.battle_active = False
@@ -1274,6 +1284,11 @@ class ColosseumsArena:
     def start_battle(self, match: Match):
         """배틀 시작 - 실제 게임 엔진 사용 (pingfighter.main 스테이지 30)"""
         self.selected_match = match
+
+        # 첫 배틀 시 입장료 차감
+        if not self.entry_fee_paid:
+            self.player_gold -= self.entry_fee
+            self.entry_fee_paid = True
 
         # 점수 리셋
         self.score_top = 0
@@ -1673,23 +1688,21 @@ class ColosseumsArena:
         return False
 
     def _end_battle(self, winner: Dict):
-        """배틀 종료"""
+        """배틀 종료 - 누적 상금 시스템"""
         self.battle_active = False
         self.selected_match.set_result(winner, self.score_top, self.score_bottom)
 
-        # 배팅 결과 계산
+        # 누적 상금 시스템 - 승패 결과 처리
         if self.bet_hero:
             if winner == self.bet_hero:
-                # 승리
-                odds1, odds2 = self._calculate_odds(
-                    self.selected_match.hero1,
-                    self.selected_match.hero2
-                )
-                odds = odds1 if self.bet_hero == self.selected_match.hero1 else odds2
-                self.total_winnings += int(self.bet_amount * odds)
+                # 승리 - 라운드 보상 누적
+                round_prize = self.round_prizes.get(self.current_round, 0)
+                self.accumulated_prize += round_prize
+                self.total_winnings = self.accumulated_prize  # 동기화
             else:
-                # 패배
-                self.total_winnings -= self.bet_amount
+                # 패배 - 누적 상금 전액 몰수
+                self.accumulated_prize = 0
+                self.total_winnings = -self.entry_fee  # 입장료만 잃음 (이미 지불했으므로)
 
         self.state = TournamentState.RESULT
         self.result_display_timer = 180  # 3초
@@ -1782,47 +1795,30 @@ class ColosseumsArena:
             panel_x, panel_y = 200, 200
             panel_w, panel_h = 360, 400
 
-            # 영웅 1 선택 버튼
-            btn1_rect = pygame.Rect(panel_x + 20, panel_y + 80, 150, 70)
+            # 단순화된 배팅 UI - 영웅 클릭시 바로 배틀 시작
+            panel_x, panel_y = 180, 180
+
+            # 영웅 1 선택 버튼 (클릭하면 바로 배틀)
+            btn1_rect = pygame.Rect(panel_x + 30, panel_y + 145, 160, 100)
             if btn1_rect.collidepoint(mx, my):
                 self.bet_hero = self.selected_match.hero1
-                return
-
-            # 영웅 2 선택 버튼
-            btn2_rect = pygame.Rect(panel_x + 190, panel_y + 80, 150, 70)
-            if btn2_rect.collidepoint(mx, my):
-                self.bet_hero = self.selected_match.hero2
-                return
-
-            # 배팅액 조절 버튼
-            # -100
-            if pygame.Rect(panel_x + 50, panel_y + 200, 50, 30).collidepoint(mx, my):
-                self.bet_amount = max(100, self.bet_amount - 100)
-                return
-            # +100
-            if pygame.Rect(panel_x + 260, panel_y + 200, 50, 30).collidepoint(mx, my):
-                self.bet_amount = min(self.player_gold, self.bet_amount + 100)
-                return
-            # -500
-            if pygame.Rect(panel_x + 50, panel_y + 240, 50, 30).collidepoint(mx, my):
-                self.bet_amount = max(100, self.bet_amount - 500)
-                return
-            # +500
-            if pygame.Rect(panel_x + 260, panel_y + 240, 50, 30).collidepoint(mx, my):
-                self.bet_amount = min(self.player_gold, self.bet_amount + 500)
-                return
-
-            # 배팅 확정 버튼
-            confirm_rect = pygame.Rect(panel_x + 80, panel_y + 320, 200, 45)
-            if confirm_rect.collidepoint(mx, my) and self.bet_hero:
                 self.start_battle(self.selected_match)
                 return
 
-            # 취소 버튼
-            cancel_rect = pygame.Rect(panel_x + 130, panel_y + 375, 100, 30)
-            if cancel_rect.collidepoint(mx, my):
-                self.state = TournamentState.SELECT_MATCH
-                self.bet_hero = None
+            # 영웅 2 선택 버튼 (클릭하면 바로 배틀)
+            btn2_rect = pygame.Rect(panel_x + 210, panel_y + 145, 160, 100)
+            if btn2_rect.collidepoint(mx, my):
+                self.bet_hero = self.selected_match.hero2
+                self.start_battle(self.selected_match)
+                return
+
+            # 포기하고 나가기 버튼
+            exit_rect = pygame.Rect(panel_x + 100, panel_y + 330, 200, 40)
+            if exit_rect.collidepoint(mx, my):
+                # 누적 상금을 total_winnings에 저장
+                self.total_winnings = self.accumulated_prize
+                self.winnings_collected = True
+                self.exit_requested = True
                 return
 
         elif self.state == TournamentState.RESULT:
@@ -1831,27 +1827,29 @@ class ColosseumsArena:
 
         elif self.state == TournamentState.ROUND_END:
             # 라운드 종료 UI 클릭 처리 (그리기 좌표와 동일하게)
-            panel_x, panel_y = 150, 200
+            panel_x, panel_y = 150, 180
 
-            # 계속 배팅 버튼
-            continue_rect = pygame.Rect(panel_x + 40, panel_y + 200, 180, 50)
+            # 계속 도전 버튼
+            continue_rect = pygame.Rect(panel_x + 40, panel_y + 240, 180, 50)
             if continue_rect.collidepoint(mx, my):
                 # 대진표 애니메이션 시작
                 self._start_bracket_animation()
                 return
 
-            # 수익 확정하고 나가기 버튼
-            exit_rect = pygame.Rect(panel_x + 240, panel_y + 200, 180, 50)
+            # 상금 수령하고 나가기 버튼
+            exit_rect = pygame.Rect(panel_x + 240, panel_y + 240, 180, 50)
             if exit_rect.collidepoint(mx, my):
+                self.total_winnings = self.accumulated_prize
                 self.winnings_collected = True
                 self.exit_requested = True
                 return
 
         elif self.state == TournamentState.TOURNAMENT_END:
             # 토너먼트 종료 UI 클릭 처리 (그리기 좌표와 동일하게)
-            panel_x, panel_y = 180, 200
-            exit_rect = pygame.Rect(panel_x + 100, panel_y + 230, 200, 50)
+            panel_x, panel_y = 180, 180
+            exit_rect = pygame.Rect(panel_x + 100, panel_y + 270, 200, 50)
             if exit_rect.collidepoint(mx, my):
+                self.total_winnings = self.accumulated_prize
                 self.winnings_collected = True
                 self.exit_requested = True
                 return
@@ -2353,128 +2351,120 @@ class ColosseumsArena:
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 700))
 
     def _draw_betting_ui(self):
-        """배팅 UI"""
+        """단순화된 배팅 UI - 영웅만 선택"""
         if not self.selected_match:
             return
 
         # 반투명 오버레이
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 150))
+        overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
 
         # 배팅 패널
-        panel_x, panel_y = 200, 200
-        panel_w, panel_h = 360, 400
+        panel_x, panel_y = 180, 180
+        panel_w, panel_h = 400, 380
         pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
-        pygame.draw.rect(self.screen, (100, 180, 255), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
+        pygame.draw.rect(self.screen, (255, 215, 0), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
 
-        # 타이틀
+        # 라운드 타이틀
+        round_names = {
+            TournamentRound.QUARTER_FINAL: "⚔️ 8강전 ⚔️",
+            TournamentRound.SEMI_FINAL: "⚔️ 4강전 ⚔️",
+            TournamentRound.FINAL: "👑 결승전 👑",
+        }
+        if self.fonts and "large" in self.fonts:
+            title = round_names.get(self.current_round, "배틀")
+            surf, _ = self.fonts["large"].render(title, (255, 215, 0))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 15))
+
+        # 승리 보상 표시
+        current_prize = self.round_prizes.get(self.current_round, 0)
         if self.fonts and "medium" in self.fonts:
-            title, _ = self.fonts["medium"].render("배팅하기", (255, 215, 0))
-            self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, panel_y + 15))
+            prize_text = f"승리 보상: +{current_prize}G"
+            surf, _ = self.fonts["medium"].render(prize_text, (100, 255, 100))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 55))
 
-        # 매치 정보
+        # 누적 상금 표시
         if self.fonts and "small" in self.fonts:
-            match_text = f"{self.selected_match.hero1['name']} vs {self.selected_match.hero2['name']}"
-            surf, _ = self.fonts["small"].render(match_text, (200, 200, 200))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 45))
+            acc_text = f"현재 누적 상금: {self.accumulated_prize}G"
+            color = (255, 215, 0) if self.accumulated_prize > 0 else (180, 180, 180)
+            surf, _ = self.fonts["small"].render(acc_text, color)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 85))
 
-        # 배당률 계산
-        odds1, odds2 = self._calculate_odds(self.selected_match.hero1, self.selected_match.hero2)
+        # 안내 문구
+        if self.fonts and "small" in self.fonts:
+            hint = "승리할 영웅을 선택하세요!"
+            surf, _ = self.fonts["small"].render(hint, (200, 200, 200))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 115))
 
-        # 영웅 1 선택 버튼
+        # 영웅 1 선택 버튼 (더 크게)
         hero1 = self.selected_match.hero1
-        btn1_selected = self.bet_hero == hero1
-        btn1_color = hero1["color"] if btn1_selected else (60, 65, 75)
-        btn1_rect = pygame.Rect(panel_x + 20, panel_y + 80, 150, 70)
-        pygame.draw.rect(self.screen, btn1_color, btn1_rect, border_radius=5)
-        pygame.draw.rect(self.screen, (255, 255, 255) if btn1_selected else (100, 105, 115),
-                        btn1_rect, 2, border_radius=5)
-        if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render(hero1["name"], (255, 255, 255))
-            self.screen.blit(surf, (btn1_rect.centerx - surf.get_width() // 2, btn1_rect.y + 15))
-            odds_text = f"배당 x{odds1}"
-            surf, _ = self.fonts["small"].render(odds_text, (255, 215, 0))
-            self.screen.blit(surf, (btn1_rect.centerx - surf.get_width() // 2, btn1_rect.y + 40))
+        btn1_rect = pygame.Rect(panel_x + 30, panel_y + 145, 160, 100)
+        pygame.draw.rect(self.screen, hero1["color"], btn1_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (255, 255, 255), btn1_rect, 3, border_radius=8)
+        if self.fonts:
+            # 영웅 이름
+            if "medium" in self.fonts:
+                surf, _ = self.fonts["medium"].render(hero1["name"], (255, 255, 255))
+                self.screen.blit(surf, (btn1_rect.centerx - surf.get_width() // 2, btn1_rect.y + 25))
+            # 영웅 칭호
+            if "small" in self.fonts:
+                surf, _ = self.fonts["small"].render(hero1["title"], (220, 220, 220))
+                self.screen.blit(surf, (btn1_rect.centerx - surf.get_width() // 2, btn1_rect.y + 55))
 
-        # 영웅 2 선택 버튼
+        # VS
+        if self.fonts and "large" in self.fonts:
+            surf, _ = self.fonts["large"].render("VS", (255, 100, 100))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 175))
+
+        # 영웅 2 선택 버튼 (더 크게)
         hero2 = self.selected_match.hero2
-        btn2_selected = self.bet_hero == hero2
-        btn2_color = hero2["color"] if btn2_selected else (60, 65, 75)
-        btn2_rect = pygame.Rect(panel_x + 190, panel_y + 80, 150, 70)
-        pygame.draw.rect(self.screen, btn2_color, btn2_rect, border_radius=5)
-        pygame.draw.rect(self.screen, (255, 255, 255) if btn2_selected else (100, 105, 115),
-                        btn2_rect, 2, border_radius=5)
-        if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render(hero2["name"], (255, 255, 255))
-            self.screen.blit(surf, (btn2_rect.centerx - surf.get_width() // 2, btn2_rect.y + 15))
-            odds_text = f"배당 x{odds2}"
-            surf, _ = self.fonts["small"].render(odds_text, (255, 215, 0))
-            self.screen.blit(surf, (btn2_rect.centerx - surf.get_width() // 2, btn2_rect.y + 40))
+        btn2_rect = pygame.Rect(panel_x + 210, panel_y + 145, 160, 100)
+        pygame.draw.rect(self.screen, hero2["color"], btn2_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (255, 255, 255), btn2_rect, 3, border_radius=8)
+        if self.fonts:
+            if "medium" in self.fonts:
+                surf, _ = self.fonts["medium"].render(hero2["name"], (255, 255, 255))
+                self.screen.blit(surf, (btn2_rect.centerx - surf.get_width() // 2, btn2_rect.y + 25))
+            if "small" in self.fonts:
+                surf, _ = self.fonts["small"].render(hero2["title"], (220, 220, 220))
+                self.screen.blit(surf, (btn2_rect.centerx - surf.get_width() // 2, btn2_rect.y + 55))
 
-        # 배팅액 표시
-        if self.fonts and "medium" in self.fonts:
-            bet_text = f"배팅액: {self.bet_amount} G"
-            surf, _ = self.fonts["medium"].render(bet_text, (255, 255, 255))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 170))
+        # 경고 문구
+        if self.fonts and "small" in self.fonts:
+            warn_text = "⚠️ 패배시 누적 상금 전액 몰수!"
+            surf, _ = self.fonts["small"].render(warn_text, (255, 150, 100))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 265))
 
-        # 배팅액 조절 버튼
-        btn_color = (70, 75, 85)
-        # -100
-        pygame.draw.rect(self.screen, btn_color, (panel_x + 50, panel_y + 200, 50, 30), border_radius=3)
+        # 보상 미리보기
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("-100", (255, 150, 150))
-            self.screen.blit(surf, (panel_x + 58, panel_y + 207))
-        # +100
-        pygame.draw.rect(self.screen, btn_color, (panel_x + 260, panel_y + 200, 50, 30), border_radius=3)
-        if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("+100", (150, 255, 150))
-            self.screen.blit(surf, (panel_x + 268, panel_y + 207))
-        # -500
-        pygame.draw.rect(self.screen, btn_color, (panel_x + 50, panel_y + 240, 50, 30), border_radius=3)
-        if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("-500", (255, 100, 100))
-            self.screen.blit(surf, (panel_x + 58, panel_y + 247))
-        # +500
-        pygame.draw.rect(self.screen, btn_color, (panel_x + 260, panel_y + 240, 50, 30), border_radius=3)
-        if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("+500", (100, 255, 100))
-            self.screen.blit(surf, (panel_x + 268, panel_y + 247))
+            # 남은 보상 계산
+            remaining_prizes = []
+            rounds_order = [TournamentRound.QUARTER_FINAL, TournamentRound.SEMI_FINAL, TournamentRound.FINAL]
+            current_idx = rounds_order.index(self.current_round)
+            for i in range(current_idx, len(rounds_order)):
+                r = rounds_order[i]
+                round_short = {TournamentRound.QUARTER_FINAL: "8강", TournamentRound.SEMI_FINAL: "4강", TournamentRound.FINAL: "결승"}
+                remaining_prizes.append(f"{round_short[r]}:+{self.round_prizes[r]}G")
 
-        # 예상 수익
-        if self.bet_hero:
-            odds = odds1 if self.bet_hero == hero1 else odds2
-            expected = int(self.bet_amount * odds)
-            if self.fonts and "small" in self.fonts:
-                profit_text = f"예상 수익: {expected} G"
-                surf, _ = self.fonts["small"].render(profit_text, (100, 255, 100))
-                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 290))
+            preview_text = " → ".join(remaining_prizes)
+            surf, _ = self.fonts["small"].render(preview_text, (150, 180, 255))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 295))
 
-        # 배팅 확정 버튼
-        confirm_enabled = self.bet_hero is not None and self.bet_amount <= self.player_gold
-        confirm_color = (80, 180, 80) if confirm_enabled else (60, 60, 60)
-        confirm_rect = pygame.Rect(panel_x + 80, panel_y + 320, 200, 45)
-        pygame.draw.rect(self.screen, confirm_color, confirm_rect, border_radius=5)
-        if self.fonts and "medium" in self.fonts:
-            text_color = (255, 255, 255) if confirm_enabled else (100, 100, 100)
-            surf, _ = self.fonts["medium"].render("배팅 확정", text_color)
-            self.screen.blit(surf, (confirm_rect.centerx - surf.get_width() // 2, confirm_rect.y + 12))
-
-        # 취소 버튼
-        cancel_rect = pygame.Rect(panel_x + 130, panel_y + 375, 100, 30)
-        pygame.draw.rect(self.screen, (100, 60, 60), cancel_rect, border_radius=3)
+        # 포기하고 나가기 버튼
+        exit_rect = pygame.Rect(panel_x + 100, panel_y + 330, 200, 40)
+        exit_color = (100, 80, 80) if self.accumulated_prize > 0 else (60, 60, 60)
+        pygame.draw.rect(self.screen, exit_color, exit_rect, border_radius=5)
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("취소", (255, 200, 200))
-            self.screen.blit(surf, (cancel_rect.centerx - surf.get_width() // 2, cancel_rect.y + 8))
-
-        # 보유 골드
-        if self.fonts and "small" in self.fonts:
-            gold_text = f"보유: {self.player_gold} G"
-            surf, _ = self.fonts["small"].render(gold_text, (255, 215, 0))
-            self.screen.blit(surf, (panel_x + 10, panel_y + panel_h - 25))
+            if self.accumulated_prize > 0:
+                exit_text = f"상금 수령하고 나가기 ({self.accumulated_prize}G)"
+            else:
+                exit_text = "포기하고 나가기"
+            surf, _ = self.fonts["small"].render(exit_text, (255, 200, 200))
+            self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 12))
 
     def _draw_result_ui(self):
-        """결과 UI"""
+        """결과 UI - 누적 상금 시스템"""
         if not self.selected_match or not self.selected_match.winner:
             return
 
@@ -2483,13 +2473,13 @@ class ColosseumsArena:
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
 
-        # 결과 패널
-        panel_x, panel_y = 180, 250
-        panel_w, panel_h = 400, 250
-        pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
-
         winner = self.selected_match.winner
         is_win = self.bet_hero == winner
+
+        # 결과 패널
+        panel_x, panel_y = 180, 200
+        panel_w, panel_h = 400, 320
+        pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
 
         # 테두리 색상 (승리: 금색, 패배: 빨강)
         border_color = (255, 215, 0) if is_win else (255, 80, 80)
@@ -2497,8 +2487,12 @@ class ColosseumsArena:
 
         # 결과 타이틀
         if self.fonts and "large" in self.fonts:
-            result_text = "승리!" if is_win else "패배..."
-            text_color = (255, 215, 0) if is_win else (255, 100, 100)
+            if is_win:
+                result_text = "🎉 승리! 🎉"
+                text_color = (255, 215, 0)
+            else:
+                result_text = "💀 패배... 💀"
+                text_color = (255, 100, 100)
             surf, _ = self.fonts["large"].render(result_text, text_color)
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 20))
 
@@ -2506,125 +2500,183 @@ class ColosseumsArena:
         if self.fonts and "medium" in self.fonts:
             winner_text = f"승자: {winner['name']}"
             surf, _ = self.fonts["medium"].render(winner_text, winner["color"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 70))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 65))
 
             # 스코어
             score_text = f"{self.selected_match.score1} : {self.selected_match.score2}"
             surf, _ = self.fonts["medium"].render(score_text, (200, 200, 200))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 100))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 95))
 
-        # 수익/손실
+        # 보상/손실 표시
         if self.fonts and "medium" in self.fonts:
             if is_win:
-                odds1, odds2 = self._calculate_odds(self.selected_match.hero1, self.selected_match.hero2)
-                odds = odds1 if self.bet_hero == self.selected_match.hero1 else odds2
-                profit = int(self.bet_amount * odds) - self.bet_amount
-                profit_text = f"+{profit} G"
+                round_prize = self.round_prizes.get(self.current_round, 0)
+                profit_text = f"+{round_prize}G 획득!"
                 profit_color = (100, 255, 100)
             else:
-                profit_text = f"-{self.bet_amount} G"
+                profit_text = "누적 상금 전액 몰수!"
                 profit_color = (255, 100, 100)
             surf, _ = self.fonts["medium"].render(profit_text, profit_color)
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 140))
 
-        # 총 수익
-        if self.fonts and "small" in self.fonts:
-            total_text = f"총 수익: {self.total_winnings} G"
-            color = (100, 255, 100) if self.total_winnings >= 0 else (255, 100, 100)
-            surf, _ = self.fonts["small"].render(total_text, color)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 180))
+        # 누적 상금 표시
+        if self.fonts and "large" in self.fonts:
+            acc_text = f"누적 상금: {self.accumulated_prize}G"
+            color = (255, 215, 0) if self.accumulated_prize > 0 else (150, 150, 150)
+            surf, _ = self.fonts["large"].render(acc_text, color)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 185))
+
+        # 패배시 추가 메시지
+        if not is_win and self.fonts and "small" in self.fonts:
+            lose_msg = f"입장료 {self.entry_fee}G를 잃었습니다..."
+            surf, _ = self.fonts["small"].render(lose_msg, (200, 150, 150))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 230))
 
         # 안내
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("클릭하여 계속", (150, 150, 150))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 220))
+            hint = "클릭하여 계속"
+            surf, _ = self.fonts["small"].render(hint, (150, 150, 150))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 280))
 
     def _draw_round_end_ui(self):
-        """라운드 종료 UI (계속/나가기 선택)"""
+        """라운드 종료 UI - 누적 상금 시스템"""
         # 반투명 오버레이
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
 
         # 패널
-        panel_x, panel_y = 150, 200
-        panel_w, panel_h = 460, 300
-        pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
-        pygame.draw.rect(self.screen, (100, 180, 255), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
-
-        # 타이틀
-        if self.fonts and "large" in self.fonts:
-            round_name = "4강" if self.current_round == TournamentRound.QUARTER_FINAL else "결승"
-            title = f"{round_name} 진출!"
-            surf, _ = self.fonts["large"].render(title, (255, 215, 0))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 30))
-
-        # 현재 수익
-        if self.fonts and "medium" in self.fonts:
-            profit_text = f"현재 수익: {self.total_winnings} G"
-            color = (100, 255, 100) if self.total_winnings >= 0 else (255, 100, 100)
-            surf, _ = self.fonts["medium"].render(profit_text, color)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 90))
-
-        # 질문
-        if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("계속해서 배팅하시겠습니까?", (200, 200, 200))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 140))
-
-        # 계속 버튼
-        continue_rect = pygame.Rect(panel_x + 40, panel_y + 200, 180, 50)
-        pygame.draw.rect(self.screen, (80, 180, 80), continue_rect, border_radius=5)
-        if self.fonts and "medium" in self.fonts:
-            surf, _ = self.fonts["medium"].render("계속 배팅", (255, 255, 255))
-            self.screen.blit(surf, (continue_rect.centerx - surf.get_width() // 2, continue_rect.y + 15))
-
-        # 나가기 버튼
-        exit_rect = pygame.Rect(panel_x + 240, panel_y + 200, 180, 50)
-        pygame.draw.rect(self.screen, (180, 80, 80), exit_rect, border_radius=5)
-        if self.fonts and "medium" in self.fonts:
-            surf, _ = self.fonts["medium"].render("수익 확정", (255, 255, 255))
-            self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 15))
-
-        # 경고
-        if self.fonts and "small" in self.fonts:
-            warn_text = "계속하면 다음 라운드에서 질 경우 수익을 잃을 수 있습니다"
-            surf, _ = self.fonts["small"].render(warn_text, (255, 180, 100))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 265))
-
-    def _draw_tournament_end_ui(self):
-        """토너먼트 종료 UI"""
-        # 반투명 오버레이
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 200))
-        self.screen.blit(overlay, (0, 0))
-
-        # 패널
-        panel_x, panel_y = 180, 200
-        panel_w, panel_h = 400, 300
+        panel_x, panel_y = 150, 180
+        panel_w, panel_h = 460, 340
         pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
         pygame.draw.rect(self.screen, (255, 215, 0), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
 
         # 타이틀
         if self.fonts and "large" in self.fonts:
-            surf, _ = self.fonts["large"].render("토너먼트 종료!", (255, 215, 0))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 30))
+            round_name = "4강" if self.current_round == TournamentRound.QUARTER_FINAL else "결승"
+            title = f"🏆 {round_name} 진출! 🏆"
+            surf, _ = self.fonts["large"].render(title, (255, 215, 0))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 25))
+
+        # 누적 상금 (크게)
+        if self.fonts and "large" in self.fonts:
+            acc_text = f"누적 상금: {self.accumulated_prize}G"
+            surf, _ = self.fonts["large"].render(acc_text, (100, 255, 100))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 75))
+
+        # 다음 라운드 보상 정보
+        if self.fonts and "medium" in self.fonts:
+            next_round = TournamentRound.SEMI_FINAL if self.current_round == TournamentRound.QUARTER_FINAL else TournamentRound.FINAL
+            next_prize = self.round_prizes.get(next_round, 0)
+            next_text = f"다음 라운드 보상: +{next_prize}G"
+            surf, _ = self.fonts["medium"].render(next_text, (180, 180, 255))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 120))
+
+        # 경고
+        if self.fonts and "small" in self.fonts:
+            warn_text = "⚠️ 다음 라운드에서 패배하면 누적 상금을 모두 잃습니다!"
+            surf, _ = self.fonts["small"].render(warn_text, (255, 180, 100))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 160))
+
+        # 질문
+        if self.fonts and "medium" in self.fonts:
+            surf, _ = self.fonts["medium"].render("계속 도전하시겠습니까?", (255, 255, 255))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 200))
+
+        # 계속 버튼 (도전)
+        continue_rect = pygame.Rect(panel_x + 40, panel_y + 240, 180, 50)
+        pygame.draw.rect(self.screen, (80, 180, 80), continue_rect, border_radius=5)
+        if self.fonts and "medium" in self.fonts:
+            surf, _ = self.fonts["medium"].render("🔥 계속 도전!", (255, 255, 255))
+            self.screen.blit(surf, (continue_rect.centerx - surf.get_width() // 2, continue_rect.y + 15))
+
+        # 나가기 버튼 (상금 수령)
+        exit_rect = pygame.Rect(panel_x + 240, panel_y + 240, 180, 50)
+        pygame.draw.rect(self.screen, (100, 100, 180), exit_rect, border_radius=5)
+        if self.fonts and "medium" in self.fonts:
+            surf, _ = self.fonts["medium"].render(f"💰 {self.accumulated_prize}G 수령", (255, 255, 255))
+            self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 15))
+
+        # 남은 보상 미리보기
+        if self.fonts and "small" in self.fonts:
+            remaining = []
+            if self.current_round == TournamentRound.QUARTER_FINAL:
+                remaining = [f"4강: +{self.round_prizes[TournamentRound.SEMI_FINAL]}G",
+                           f"결승: +{self.round_prizes[TournamentRound.FINAL]}G"]
+            else:
+                remaining = [f"결승: +{self.round_prizes[TournamentRound.FINAL]}G"]
+            preview_text = "남은 보상: " + " → ".join(remaining)
+            surf, _ = self.fonts["small"].render(preview_text, (150, 200, 255))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 305))
+
+    def _draw_tournament_end_ui(self):
+        """토너먼트 종료 UI - 누적 상금 시스템"""
+        # 반투명 오버레이
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        self.screen.blit(overlay, (0, 0))
+
+        # 결승전 결과 확인
+        final_matches = self.matches.get(TournamentRound.FINAL, [])
+        final_match = final_matches[0] if final_matches else None
+        is_champion = final_match and final_match.winner == self.bet_hero
+
+        # 패널
+        panel_x, panel_y = 180, 180
+        panel_w, panel_h = 400, 340
+        pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
+        border_color = (255, 215, 0) if is_champion else (255, 80, 80)
+        pygame.draw.rect(self.screen, border_color, (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
+
+        # 타이틀
+        if self.fonts and "large" in self.fonts:
+            if is_champion:
+                title = "🏆 토너먼트 우승! 🏆"
+                title_color = (255, 215, 0)
+            else:
+                title = "💀 결승전 패배... 💀"
+                title_color = (255, 100, 100)
+            surf, _ = self.fonts["large"].render(title, title_color)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 25))
 
         # 최종 우승자
-        final_match = self.matches[TournamentRound.FINAL][0]
-        if final_match.winner and self.fonts and "medium" in self.fonts:
-            winner_text = f"우승: {final_match.winner['name']}"
+        if final_match and final_match.winner and self.fonts and "medium" in self.fonts:
+            winner_text = f"우승자: {final_match.winner['name']}"
             surf, _ = self.fonts["medium"].render(winner_text, final_match.winner["color"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 90))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 75))
 
-        # 최종 수익
+        # 최종 획득 금액
         if self.fonts and "large" in self.fonts:
-            profit_text = f"최종 수익: {self.total_winnings} G"
-            color = (100, 255, 100) if self.total_winnings >= 0 else (255, 100, 100)
+            if is_champion:
+                # 우승 - 누적 상금 표시
+                profit_text = f"획득 상금: {self.accumulated_prize}G"
+                color = (100, 255, 100)
+            else:
+                # 패배 - 입장료만 잃음
+                profit_text = f"손실: -{self.entry_fee}G"
+                color = (255, 100, 100)
             surf, _ = self.fonts["large"].render(profit_text, color)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 150))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 130))
+
+        # 보상 상세
+        if is_champion and self.fonts and "small" in self.fonts:
+            detail = f"(8강 +500G + 4강 +1000G + 결승 +2000G = {self.accumulated_prize}G)"
+            surf, _ = self.fonts["small"].render(detail, (180, 180, 180))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 175))
+
+        # 메시지
+        if self.fonts and "medium" in self.fonts:
+            if is_champion:
+                msg = "축하합니다! 완벽한 승리!"
+                msg_color = (255, 215, 0)
+            else:
+                msg = "다음에 다시 도전하세요!"
+                msg_color = (200, 200, 200)
+            surf, _ = self.fonts["medium"].render(msg, msg_color)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 220))
 
         # 나가기 버튼
-        exit_rect = pygame.Rect(panel_x + 100, panel_y + 230, 200, 50)
+        exit_rect = pygame.Rect(panel_x + 100, panel_y + 270, 200, 50)
         pygame.draw.rect(self.screen, (80, 120, 180), exit_rect, border_radius=5)
         if self.fonts and "medium" in self.fonts:
             surf, _ = self.fonts["medium"].render("투기장 나가기", (255, 255, 255))
