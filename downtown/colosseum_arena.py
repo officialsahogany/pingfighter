@@ -2748,7 +2748,7 @@ class ColosseumsArena:
 
         # 타이틀
         if self.fonts and "large" in self.fonts:
-            round_name = "4강" if self.current_round == TournamentRound.QUARTER_FINAL else "결승"
+            round_name = "4강" if self.current_round == TournamentRound.SEMI_FINAL else "결승"
             title = f"🏆 {round_name} 진출! 🏆"
             surf, _ = self.fonts["large"].render(title, (255, 215, 0))
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 25))
@@ -2761,8 +2761,7 @@ class ColosseumsArena:
 
         # 다음 라운드 보상 정보
         if self.fonts and "medium" in self.fonts:
-            next_round = TournamentRound.SEMI_FINAL if self.current_round == TournamentRound.QUARTER_FINAL else TournamentRound.FINAL
-            next_prize = self.round_prizes.get(next_round, 0)
+            next_prize = self.round_prizes.get(self.current_round, 0)
             next_text = f"다음 라운드 보상: +{next_prize}G"
             surf, _ = self.fonts["medium"].render(next_text, (180, 180, 255))
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 120))
@@ -2801,7 +2800,7 @@ class ColosseumsArena:
         # 남은 보상 미리보기
         if self.fonts and "small" in self.fonts:
             remaining = []
-            if self.current_round == TournamentRound.QUARTER_FINAL:
+            if self.current_round == TournamentRound.SEMI_FINAL:
                 remaining = [f"4강: +{self.round_prizes[TournamentRound.SEMI_FINAL]}G",
                            f"결승: +{self.round_prizes[TournamentRound.FINAL]}G"]
             else:
