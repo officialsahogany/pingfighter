@@ -1668,21 +1668,21 @@ class ColosseumsArena:
         """승자 체크 (5점 선취, 듀스 룰)"""
         s1, s2 = self.score_top, self.score_bottom
 
-        # 듀스 전: 5점 선취
-        if s1 < 4 and s2 < 4:
-            if s1 >= WIN_SCORE:
-                self._end_battle(self.selected_match.hero1)
-                return True
-            if s2 >= WIN_SCORE:
-                self._end_battle(self.selected_match.hero2)
-                return True
-        else:
-            # 듀스: 2점 차이
+        # 듀스 상황 (둘 다 4점 이상): 2점 차이로 승리
+        if s1 >= 4 and s2 >= 4:
             if abs(s1 - s2) >= 2:
                 if s1 > s2:
                     self._end_battle(self.selected_match.hero1)
                 else:
                     self._end_battle(self.selected_match.hero2)
+                return True
+        # 일반 상황: 5점 선취
+        else:
+            if s1 >= WIN_SCORE:
+                self._end_battle(self.selected_match.hero1)
+                return True
+            if s2 >= WIN_SCORE:
+                self._end_battle(self.selected_match.hero2)
                 return True
 
         return False
