@@ -84,6 +84,9 @@ class AnimatedBackgroundStage30:
         # 관중 실루엣 데이터
         self.spectators = self._init_spectators()
 
+        # 제우스 석상 번개 위치 (애니메이션용)
+        self.zeus_bolt_tip = None
+
         # 프리렌더
         self._prerender_floor()
         self._prerender_arena()
@@ -174,8 +177,8 @@ class AnimatedBackgroundStage30:
         # 작은 원 (내부)
         pygame.draw.circle(self.arena_surface, gold, (center_x, center_y), 50, 2)
 
-        # 중앙 장식 원
-        pygame.draw.circle(self.arena_surface, line_color, (center_x, center_y), 8, 2)
+        # 중앙 제우스 석상
+        self._draw_zeus_statue(self.arena_surface, center_x, center_y)
 
         # ===== 코너 장식 (로마 스타일) - 게임 영역 기준 =====
         corner_size = 25
@@ -201,6 +204,117 @@ class AnimatedBackgroundStage30:
         pygame.draw.line(self.arena_surface, gold,
                         (self.GAME_AREA_END_X - 15, self.height - 70),
                         (self.GAME_AREA_END_X - 15 + corner_size, self.height - 70), 2)
+
+    def _draw_zeus_statue(self, surface, cx, cy):
+        """고대 제우스 석상 - 원형 경기장 중앙 장식"""
+        # 석상 색상 팔레트 (풍화된 대리석)
+        marble = (185, 175, 160)
+        marble_mid = (160, 150, 135)
+        marble_dark = (130, 120, 108)
+        marble_shadow = (105, 95, 85)
+        pedestal_col = (115, 105, 92)
+        pedestal_light = (135, 125, 112)
+        gold = self.colors['gold']
+        gold_light = self.colors['gold_light']
+
+        # ── 그림자 (석상 아래 바닥) ──
+        shadow_surf = pygame.Surface((50, 14), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (40, 35, 25, 50), (0, 0, 50, 14))
+        surface.blit(shadow_surf, (cx - 25, cy + 16))
+
+        # ── 받침대 (하단 베이스) ──
+        # 넓은 하단
+        pygame.draw.rect(surface, pedestal_col, (cx - 17, cy + 12, 34, 7))
+        pygame.draw.line(surface, pedestal_light, (cx - 17, cy + 12), (cx + 16, cy + 12), 1)
+        pygame.draw.line(surface, marble_shadow, (cx - 17, cy + 18), (cx + 16, cy + 18), 1)
+        # 좁은 상단
+        pygame.draw.rect(surface, pedestal_light, (cx - 13, cy + 4, 26, 9))
+        pygame.draw.line(surface, marble_mid, (cx - 13, cy + 4), (cx + 12, cy + 4), 1)
+        # 받침대 금색 장식선
+        pygame.draw.line(surface, gold, (cx - 13, cy + 8), (cx + 12, cy + 8), 1)
+
+        # ── 하체 토가 (치마 부분) ──
+        robe_pts = [
+            (cx - 9, cy + 4),
+            (cx + 9, cy + 4),
+            (cx + 7, cy - 8),
+            (cx - 7, cy - 8),
+        ]
+        pygame.draw.polygon(surface, marble, robe_pts)
+        # 토가 주름
+        pygame.draw.line(surface, marble_dark, (cx - 3, cy + 3), (cx - 2, cy - 7), 1)
+        pygame.draw.line(surface, marble_dark, (cx + 3, cy + 3), (cx + 4, cy - 7), 1)
+        pygame.draw.line(surface, marble_mid, (cx, cy + 3), (cx + 1, cy - 7), 1)
+
+        # ── 상체 (어깨~허리) ──
+        torso_pts = [
+            (cx - 7, cy - 8),
+            (cx + 7, cy - 8),
+            (cx + 10, cy - 18),
+            (cx - 10, cy - 18),
+        ]
+        pygame.draw.polygon(surface, marble, torso_pts)
+        pygame.draw.polygon(surface, marble_dark, torso_pts, 1)
+        # 토가 드레이프 (가슴 가로지르는 천)
+        pygame.draw.line(surface, marble_mid, (cx - 9, cy - 17), (cx + 5, cy - 10), 2)
+        pygame.draw.line(surface, marble_mid, (cx - 7, cy - 15), (cx + 6, cy - 9), 1)
+
+        # ── 왼팔 (아래로 내림) ──
+        pygame.draw.line(surface, marble, (cx - 10, cy - 16), (cx - 14, cy - 6), 3)
+        pygame.draw.line(surface, marble_mid, (cx - 14, cy - 6), (cx - 13, cy - 2), 2)
+
+        # ── 오른팔 (위로 번개를 들고) ──
+        pygame.draw.line(surface, marble, (cx + 10, cy - 16), (cx + 13, cy - 28), 3)
+        pygame.draw.circle(surface, marble_mid, (cx + 13, cy - 29), 2)
+
+        # ── 머리 ──
+        head_y = cy - 23
+        pygame.draw.circle(surface, marble, (cx, head_y), 6)
+        pygame.draw.circle(surface, marble_dark, (cx, head_y), 6, 1)
+        # 수염
+        beard_pts = [
+            (cx - 3, head_y + 4),
+            (cx + 3, head_y + 4),
+            (cx + 1, head_y + 8),
+            (cx - 1, head_y + 8),
+        ]
+        pygame.draw.polygon(surface, marble_mid, beard_pts)
+        # 머리카락 윤곽
+        pygame.draw.arc(surface, marble_dark,
+                       (cx - 7, head_y - 7, 14, 10), 0.3, math.pi - 0.3, 2)
+
+        # 월계관
+        wreath_color = (155, 150, 95)
+        wreath_light = (175, 170, 110)
+        for angle_deg in range(-70, 71, 25):
+            a = math.radians(angle_deg - 90)
+            lx = cx + int(7 * math.cos(a))
+            ly = head_y + int(7 * math.sin(a))
+            pygame.draw.circle(surface, wreath_color, (lx, ly), 1)
+            # 잎사귀 하이라이트
+            if angle_deg % 50 == 0:
+                pygame.draw.circle(surface, wreath_light, (lx, ly), 1)
+
+        # ── 번개 (제우스의 상징) ──
+        bolt_x = cx + 13
+        bolt_y = cy - 31
+        bolt_segs = [
+            (bolt_x, bolt_y),
+            (bolt_x - 3, bolt_y - 5),
+            (bolt_x + 2, bolt_y - 7),
+            (bolt_x - 2, bolt_y - 11),
+            (bolt_x + 1, bolt_y - 14),
+            (bolt_x - 1, bolt_y - 18),
+        ]
+        for i in range(len(bolt_segs) - 1):
+            pygame.draw.line(surface, gold, bolt_segs[i], bolt_segs[i + 1], 2)
+        # 번개 끝 스파크
+        tip = bolt_segs[-1]
+        pygame.draw.line(surface, gold_light, (tip[0] - 3, tip[1]), (tip[0] + 3, tip[1]), 1)
+        pygame.draw.line(surface, gold_light, (tip[0], tip[1] - 3), (tip[0], tip[1] + 2), 1)
+
+        # 번개 위치 저장 (애니메이션 글로우용)
+        self.zeus_bolt_tip = (bolt_x - 1, bolt_y - 12)
 
     def update(self, dt, ball_x=None, ball_y=None):
         """업데이트"""
@@ -261,8 +375,50 @@ class AnimatedBackgroundStage30:
         else:
             screen.blit(self.arena_surface, (offset_x, offset_y))
 
+        # 제우스 번개 글로우 애니메이션
+        self._draw_zeus_bolt_glow(screen, scale_x, scale_y, offset_x, offset_y)
+
         # 횃불
         self._draw_torches(screen, scale_x, scale_y, offset_x, offset_y)
+
+    def _draw_zeus_bolt_glow(self, screen, scale_x, scale_y, offset_x, offset_y):
+        """제우스 번개 글로우 애니메이션 - 금색 빛이 주기적으로 반짝임"""
+        if self.zeus_bolt_tip is None:
+            return
+
+        bx = int(self.zeus_bolt_tip[0] * scale_x + offset_x)
+        by = int(self.zeus_bolt_tip[1] * scale_y + offset_y)
+
+        # 맥동하는 글로우 강도 (0.3 ~ 1.0)
+        pulse = 0.5 + 0.5 * math.sin(self.time * 3.5)
+        # 간헐적 스파크 (2초마다 강한 빛)
+        spark = max(0, math.sin(self.time * 5.0)) ** 8
+
+        intensity = 0.3 + 0.4 * pulse + 0.3 * spark
+
+        glow_radius = int((16 + 6 * pulse) * scale_x)
+        if glow_radius < 4:
+            return
+
+        glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        for r in range(glow_radius, 0, -2):
+            alpha = int(30 * (r / glow_radius) * intensity)
+            if alpha > 0:
+                pygame.draw.circle(glow_surf, (255, 210, 80, alpha),
+                                 (glow_radius, glow_radius), r)
+        screen.blit(glow_surf, (bx - glow_radius, by - glow_radius),
+                   special_flags=pygame.BLEND_ADD)
+
+        # 스파크일 때 작은 빛줄기 추가
+        if spark > 0.5:
+            spark_len = int(6 * spark * scale_x)
+            spark_alpha = int(100 * spark)
+            spark_color = (255, 230, 120, spark_alpha)
+            spark_surf = pygame.Surface((spark_len * 2 + 2, spark_len * 2 + 2), pygame.SRCALPHA)
+            sc = spark_len + 1
+            pygame.draw.line(spark_surf, spark_color, (sc - spark_len, sc), (sc + spark_len, sc), 1)
+            pygame.draw.line(spark_surf, spark_color, (sc, sc - spark_len), (sc, sc + spark_len), 1)
+            screen.blit(spark_surf, (bx - sc, by - sc), special_flags=pygame.BLEND_ADD)
 
     def _draw_torches(self, screen, scale_x, scale_y, offset_x, offset_y):
         """횃불 그리기"""
