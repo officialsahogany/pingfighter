@@ -1169,22 +1169,27 @@ class ColosseumsArena:
 
     def _advance_to_next_round(self):
         """다음 라운드 진출"""
+        print(f"[Arena] _advance_to_next_round 시작 | current_round: {self.current_round}")
         if self.current_round == TournamentRound.QUARTER_FINAL:
             # 8강 → 4강
             winners = [m.winner for m in self.matches[TournamentRound.QUARTER_FINAL]]
+            print(f"[Arena] 8강 승자들: {[w.get('name', '?') if w else 'None' for w in winners]}")
             # 포지션 유지: top 영웅이 hero1, bottom 영웅이 hero2
             self.matches[TournamentRound.SEMI_FINAL] = [
                 self._create_positioned_match(winners[0], winners[1], 0),
                 self._create_positioned_match(winners[2], winners[3], 1),
             ]
             self.current_round = TournamentRound.SEMI_FINAL
+            print(f"[Arena] 4강 매치 생성 완료 | current_round → SEMI_FINAL")
         elif self.current_round == TournamentRound.SEMI_FINAL:
             # 4강 → 결승
             winners = [m.winner for m in self.matches[TournamentRound.SEMI_FINAL]]
+            print(f"[Arena] 4강 승자들: {[w.get('name', '?') if w else 'None' for w in winners]}")
             self.matches[TournamentRound.FINAL] = [
                 self._create_positioned_match(winners[0], winners[1], 0),
             ]
             self.current_round = TournamentRound.FINAL
+            print(f"[Arena] 결승 매치 생성 완료 | current_round → FINAL")
 
     def _create_positioned_match(self, hero_a: Dict, hero_b: Dict, match_id: int) -> Match:
         """랜덤으로 hero1(상단)/hero2(하단) 결정
@@ -1837,14 +1842,21 @@ class ColosseumsArena:
             self.result_display_timer -= 1
             if self.result_display_timer <= 0:
                 # 다음 단계 결정
+                print(f"[Arena] RESULT 타이머 종료 | bet_hero: {self.bet_hero.get('name', '?') if self.bet_hero else None}")
+                print(f"[Arena] selected_match.winner: {self.selected_match.winner.get('name', '?') if self.selected_match and self.selected_match.winner else None}")
+                print(f"[Arena] current_round: {self.current_round}")
+
                 # 배팅한 영웅이 패배했으면 토너먼트 종료
                 if self.bet_hero and self.selected_match and self.selected_match.winner != self.bet_hero:
+                    print(f"[Arena] 패배! → TOURNAMENT_END")
                     self.state = TournamentState.TOURNAMENT_END
                 elif self.current_round == TournamentRound.FINAL:
                     # 결승전 종료
+                    print(f"[Arena] 결승전 종료! → TOURNAMENT_END")
                     self.state = TournamentState.TOURNAMENT_END
                 else:
                     # 승리 - 대진표 애니메이션 먼저 실행
+                    print(f"[Arena] 승리! → BRACKET_ANIMATION 시작")
                     self._start_bracket_animation()
         elif self.state == TournamentState.BRACKET_ANIMATION:
             self._update_bracket_animation(dt)
@@ -2859,6 +2871,7 @@ class ColosseumsArena:
 
     def _start_bracket_animation(self):
         """대진표 진출 애니메이션 시작"""
+        print(f"[Arena] _start_bracket_animation 시작 | current_round: {self.current_round}")
         self.bracket_anim_timer = 0.0
         self.bracket_anim_phase = 0  # 0: 패자 X 표시, 1: 승자 이동, 2: VS 매치업 표시, 3: 완료
         self.bracket_anim_progress = 0.0
@@ -2867,6 +2880,7 @@ class ColosseumsArena:
         current_matches = self.matches[self.current_round]
         self.bracket_anim_completed_matches = [m for m in current_matches if m.completed]
         self.bracket_anim_advancing_winners = [m.winner for m in self.bracket_anim_completed_matches if m.winner]
+        print(f"[Arena] 완료된 매치: {len(self.bracket_anim_completed_matches)}, 진출 승자: {len(self.bracket_anim_advancing_winners)}")
 
         # 다음 라운드 정보 저장
         if self.current_round == TournamentRound.QUARTER_FINAL:
@@ -2875,9 +2889,11 @@ class ColosseumsArena:
             self.bracket_anim_next_round = TournamentRound.FINAL
         else:
             self.bracket_anim_next_round = None
+        print(f"[Arena] 다음 라운드: {self.bracket_anim_next_round}")
 
         self.bracket_anim_auto_battle = True
         self.state = TournamentState.BRACKET_ANIMATION
+        print(f"[Arena] state → BRACKET_ANIMATION")
 
     def _update_bracket_animation(self, dt: float):
         """대진표 애니메이션 업데이트"""
@@ -2902,9 +2918,12 @@ class ColosseumsArena:
                 self.bracket_anim_timer = 0.0
                 self.bracket_anim_progress = 0.0
                 # 다음 라운드로 진출 (매치 생성)
+                print(f"[Arena] Phase 1 완료 → _advance_to_next_round() 호출")
                 self._advance_to_next_round()
+                print(f"[Arena] _advance_to_next_round() 완료 | current_round: {self.current_round}")
                 # 배팅한 영웅이 포함된 경기 자동 선택
                 self._prepare_next_match()
+                print(f"[Arena] _prepare_next_match() 완료 | selected_match: {self.selected_match}")
 
         elif self.bracket_anim_phase == 2:
             # 페이즈 2: VS 매치업 표시 (2초간)
@@ -2925,6 +2944,7 @@ class ColosseumsArena:
                 self.bracket_anim_timer = 0.0
 
                 # ROUND_END 상태로 전환 (계속할지 선택)
+                print(f"[Arena] Phase 3 완료 → ROUND_END 전환 | current_round: {self.current_round}")
                 self.state = TournamentState.ROUND_END
 
     def _draw_bracket_animation(self):
