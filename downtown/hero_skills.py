@@ -880,8 +880,8 @@ class TentacleWrap(HeroSkill):
         game_state['target_slowed'] = False
         game_state['slow_amount'] = 1.0
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
-        # 촉수 휘감기로 인한 둔화만 해제 (다른 스킬의 둔화 효과는 유지)
-        if game_state.get(f'{target_prefix}_tentacle_slowed', False):
+        # 둔화 적용했으면 반드시 해제 (slow_applied 기준으로 확실하게 정리)
+        if self.slow_applied:
             game_state[f'{target_prefix}_slowed'] = False
             game_state[f'{target_prefix}_slow_amount'] = 1.0
             game_state[f'{target_prefix}_tentacle_slowed'] = False
@@ -889,6 +889,22 @@ class TentacleWrap(HeroSkill):
         self.tentacles = []
         self.phase = 'travel'
         self.slow_applied = False
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 촉수 및 둔화 상태 초기화"""
+        # 남아있는 둔화 효과 정리
+        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+        if self.slow_applied:
+            game_state[f'{target_prefix}_slowed'] = False
+            game_state[f'{target_prefix}_slow_amount'] = 1.0
+            game_state[f'{target_prefix}_tentacle_slowed'] = False
+        game_state['target_slowed'] = False
+        game_state['slow_amount'] = 1.0
+        game_state['tentacle_wrap_active'] = False
+        self.tentacles = []
+        self.phase = 'travel'
+        self.slow_applied = False
+        super().reset_for_new_round(game_state)
 
     def _draw_sucker(self, screen, x, y, size, alpha=255):
         """고퀄리티 빨판 그리기"""
@@ -4336,6 +4352,13 @@ class OilSpill(HeroSkill):
         # 발사체나 웅덩이가 있으면 항상 업데이트
         if self.oil_projectiles or self.oil_puddles:
             self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
+        else:
+            # 웅덩이가 모두 사라진 후 - 남아있는 둔화 효과 정리
+            target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+            if game_state.get(f'{target_prefix}_oil_slowed', False):
+                game_state[f'{target_prefix}_slowed'] = False
+                game_state[f'{target_prefix}_slow_amount'] = 1.0
+                game_state[f'{target_prefix}_oil_slowed'] = False
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 웅덩이 초기화"""
