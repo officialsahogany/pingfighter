@@ -4565,19 +4565,20 @@ class ShadowClone(HeroSkill):
             new_clones.append(clone)
 
         self.clones = new_clones
-
-        # 소멸 중인 분신 업데이트
-        new_dying = []
-        for dying in self.dying_clones:
-            dying['death_time'] += dt
-            if dying['death_time'] < self.DEATH_DURATION:
-                new_dying.append(dying)
-        self.dying_clones = new_dying
+        # dying_clones 업데이트는 update() 메서드에서 처리
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['has_shadow_clones'] = False
+        # 남아있는 활성 분신들을 dying_clones로 이동 (소멸 애니메이션 재생)
+        for clone in self.clones:
+            if clone['active']:
+                dying_clone = {
+                    'rect': clone['rect'].copy(),
+                    'death_time': 0.0,
+                    'id': clone['id'],
+                }
+                self.dying_clones.append(dying_clone)
         self.clones = []
-        self.dying_clones = []
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 그림자분신 강제 초기화"""
@@ -4586,6 +4587,20 @@ class ShadowClone(HeroSkill):
         self.dying_clones = []
         game_state['has_shadow_clones'] = False
 
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """스킬 업데이트 - dying_clones는 is_active와 무관하게 항상 업데이트"""
+        # 부모 클래스 업데이트 (쿨타임, 활성 효과 등)
+        super().update(dt, caster_paddle, target_paddle, ball, game_state)
+
+        # dying_clones는 is_active가 False여도 계속 업데이트
+        if self.dying_clones:
+            new_dying = []
+            for dying in self.dying_clones:
+                dying['death_time'] += dt
+                if dying['death_time'] < self.DEATH_DURATION:
+                    new_dying.append(dying)
+            self.dying_clones = new_dying
+
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         renderer = get_shadow_clone_renderer() if HERO_PADDLE_RENDERER_AVAILABLE else None
 
@@ -4593,7 +4608,7 @@ class ShadowClone(HeroSkill):
         for clone in self.clones:
             self._draw_clone(screen, clone, caster_paddle, renderer)
 
-        # 소멸 중인 분신 그리기 (홀로그램 증발 효과)
+        # 소멸 중인 분신 그리기 (홀로그램 증발 효과) - is_active와 무관
         for dying in self.dying_clones:
             self._draw_dying_clone(screen, dying, caster_paddle, renderer)
 
