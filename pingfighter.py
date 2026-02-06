@@ -133465,6 +133465,10 @@ def main(stage_num, new_boss_mode=False):
             if arena_mode_enabled:
                 return arena_battle_result
             return
+        # 듀스 모드에서 handle_ball() 내부에서 이미 결과가 결정된 경우 (arena_battle_result 설정됨)
+        # handle_ball()의 반환값이 캡처되지 않으므로 여기서 별도로 체크
+        if arena_mode_enabled and arena_battle_result is not None:
+            return arena_battle_result
 def get_legacy_game_loop_hooks() -> LegacyHooks:
     """GameLoop과 레거시 업데이트 루프를 연결하기 위한 훅 생성."""
 
