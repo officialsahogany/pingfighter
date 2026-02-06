@@ -1492,9 +1492,6 @@ class ColosseumsArena:
         # 상태 효과 적용 (패들별)
         game_state = self.skill_manager.game_state
 
-        # DEBUG: 매 프레임 game_state 확인 (ID 포함)
-        print(f"[DEBUG Arena] game_state ID: {id(game_state)}, bottom_shrink={game_state.get('bottom_paddle_shrink', 'NOT SET')}, top_shrink={game_state.get('top_paddle_shrink', 'NOT SET')}")
-
         # 상단 패들 상태 효과
         self.top_paddle.is_stunned = game_state.get('top_paddle_stunned', False)
         self.top_paddle.slow_multiplier = game_state.get('top_paddle_slow_amount', 1.0) if game_state.get('top_paddle_slowed', False) else 1.0
@@ -1518,10 +1515,6 @@ class ColosseumsArena:
             self.bottom_paddle.start_ghost_step()
             game_state['ghost_step_start_bottom'] = False  # 플래그 초기화
             print(f"[Arena] 하단 패들 귀신발걸음 y축 이동 시작!")
-
-        # DEBUG: 축소 효과 확인
-        if game_state.get('top_paddle_shrink', False) or game_state.get('bottom_paddle_shrink', False):
-            print(f"[DEBUG Arena] top_shrink={game_state.get('top_paddle_shrink')}, top_scale={self.top_paddle.paddle_scale}, bottom_shrink={game_state.get('bottom_paddle_shrink')}, bottom_scale={self.bottom_paddle.paddle_scale}")
 
         # 쿨다운 스킬 자동 사용 (AI)
         self.skill_check_timer += dt

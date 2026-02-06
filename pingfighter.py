@@ -62582,10 +62582,9 @@ def handle_player(keys):
         if arena_mode_enabled and arena_skill_manager:
             try:
                 global arena_bottom_confusion_target, arena_bottom_confusion_timer
-                # 둔화 효과 적용 (귀신발걸음 Y축 이동 중에는 X축 속도 부스트 무시)
-                _ghost_step_x_freeze = globals().get("arena_bottom_ghost_step_active", False)
-                if arena_player_slow_mult != 1.0 and not _ghost_step_x_freeze:
-                    current_speed *= arena_player_slow_mult
+                # 둔화 효과: current_speed를 직접 수정하지 않고 위치 이동 시에만 적용
+                # (current_speed *= slow 을 매 프레임 적용하면 가속도와 int() 잘림으로
+                #  속도가 0으로 수렴하는 버그 발생)
                 # 혼란 효과 (조명탄과 동일한 랜덤 움직임)
                 if arena_player_confused:
                     # 랜덤 목표 위치로 강제 이동 (플레이어 입력 무시)
@@ -62618,11 +62617,16 @@ def handle_player(keys):
             if not suicide_drone_active and not ice_dash_sliding:
                 # pygame.Rect 안전을 위해 int() 변환 및 유효성 검사
                 try:
+                    # 투기장 둔화: 위치 이동에만 적용 (current_speed 자체는 유지)
+                    _ghost_step_x_freeze = globals().get("arena_bottom_ghost_step_active", False)
+                    _applied_speed = current_speed
+                    if arena_player_slow_mult != 1.0 and not _ghost_step_x_freeze:
+                        _applied_speed = current_speed * arena_player_slow_mult
                     # NaN/Infinity 체크
-                    if current_speed != current_speed or abs(current_speed) > 1000000:
+                    if _applied_speed != _applied_speed or abs(_applied_speed) > 1000000:
                         safe_speed = 0
                     else:
-                        safe_speed = int(current_speed)
+                        safe_speed = int(_applied_speed)
                     # 최종 위치가 유효 범위 내인지 확인
                     new_x = PLAYER.x + safe_speed
                     if -2147483647 < new_x < 2147483647:
