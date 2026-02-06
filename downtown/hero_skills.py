@@ -1480,7 +1480,7 @@ class GravityControl(HeroSkill):
             description="중력을 조작하여 공이 계속 아래로 끌려가게 만든다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=25.0,
-            duration=1.5,  # 1.5초 지속
+            duration=2.5,  # 2.5초 지속
             hero_id="chronos"
         )
         self.gravity_particles = []  # 중력 이펙트 파티클
@@ -1545,7 +1545,7 @@ class GravityControl(HeroSkill):
 
         # 🌍 핵심: 공에 중력 적용 (방향에 따라 위 또는 아래로)
         if hasattr(ball, 'vy'):
-            gravity_force = 60 * dt * gravity_dir  # 중력 방향 적용
+            gravity_force = 48 * dt * gravity_dir  # 중력 방향 적용 (20% 약화: 60 → 48)
             # 중력 방향으로 가는 중이면 70%, 반대면 100% 적용
             if (ball.vy > 0 and gravity_dir > 0) or (ball.vy < 0 and gravity_dir < 0):
                 ball.vy += gravity_force * 0.7  # 70% 적용 (너무 빠르게 가속 방지)
