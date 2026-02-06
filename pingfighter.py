@@ -58050,8 +58050,8 @@ def handle_player(keys):
                 # 귀신발걸음 Y축 이동 중에는 Y좌표 고정 스킵
                 if not globals().get("arena_bottom_ghost_step_active", False):
                     PLAYER.bottom = 750  # 하단 패들 bottom 위치 고정! (HEIGHT)
-                # 🔮 이동속도 15% 감소 (축소된 패들 페널티)
-                arena_player_slow_mult *= 0.85
+                # 🔮 이동속도 50% 감소 (축소된 패들 페널티)
+                arena_player_slow_mult *= 0.5
             else:
                 # 축소 효과 해제 시 원래 크기(130x40)로 복원
                 if PLAYER.width != 130:
@@ -123404,8 +123404,8 @@ def handle_boss():
                 # 귀신발걸음 Y축 이동 중에는 Y좌표 고정 스킵
                 if not globals().get("arena_top_ghost_step_active", False):
                     BOSS.y = 25  # 상단 패들 Y 위치 고정! (BOSS_Y 상수값)
-                # 🔮 이동속도 15% 감소 (축소된 패들 페널티)
-                arena_boss_slow_multiplier *= 0.85
+                # 🔮 이동속도 50% 감소 (축소된 패들 페널티)
+                arena_boss_slow_multiplier *= 0.5
             else:
                 # 축소 효과 해제 시 원래 크기(130x40)로 복원
                 if BOSS.width != 130:
@@ -124335,9 +124335,9 @@ def handle_boss():
             if game_state.get('top_paddle_slowed', False):
                 arena_slow = game_state.get('top_paddle_slow_amount', 0.5)
                 slow_multiplier *= arena_slow
-            # 🔮 난쟁이마술 축소 시 이동속도 15% 감소 (패들 축소 페널티)
+            # 🔮 난쟁이마술 축소 시 이동속도 50% 감소 (패들 축소 페널티)
             if game_state.get('top_paddle_shrink', False):
-                slow_multiplier *= 0.85  # 15% 감속
+                slow_multiplier *= 0.5  # 50% 감속
             # 👁️ 귀신의 눈 등 속도 증가 효과
             arena_speed_boost = game_state.get('top_paddle_speed_boost', 1.0)
             if arena_speed_boost > 1.0:

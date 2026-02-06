@@ -694,7 +694,7 @@ class TentacleWrap(HeroSkill):
         self.travel_progress = 0  # 이동 진행도 (0~1)
         self.wrap_timer = 0  # 감싸기 지속 시간
         self.slow_applied = False  # 둔화 적용 여부
-        self.slow_amount = 0.6  # 40% 감소 = 60%만 유지
+        self.slow_amount = 0.5  # 50% 감소 = 50%만 유지
         self.time = 0  # 애니메이션 시간
 
         # 색상 팔레트 (크라켄 hero_paddles.py와 동일)
@@ -4345,7 +4345,7 @@ class OilSpill(HeroSkill):
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         if is_on_puddle:
             game_state[f'{target_prefix}_slowed'] = True
-            game_state[f'{target_prefix}_slow_amount'] = 0.6  # 40% 둔화 (60% 속도)
+            game_state[f'{target_prefix}_slow_amount'] = 0.5  # 50% 둔화 (50% 속도)
             game_state[f'{target_prefix}_oil_slowed'] = True  # 기름 웅덩이 둔화 이펙트용
         else:
             # 기름 웅덩이로 인한 둔화만 해제 (다른 스킬의 둔화 효과는 유지)
