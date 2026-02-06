@@ -4428,8 +4428,12 @@ class ShadowClone(HeroSkill):
 
         self.caster_facing = "down" if caster_paddle.is_top else "up"
 
-        # 분신 2개 생성 (좌우로 벌어지며 등장)
-        offsets = [-100, 100]
+        # 분신 3~4개 생성 (좌우로 벌어지며 등장)
+        clone_count = random.randint(3, 4)
+        if clone_count == 3:
+            offsets = [-120, 0, 120]  # 3개: 좌, 중앙, 우
+        else:
+            offsets = [-150, -50, 50, 150]  # 4개: 좌좌, 좌, 우, 우우
         self.clones = []
         self.dying_clones = []
 
@@ -4783,7 +4787,7 @@ class IllusionShuriken(HeroSkill):
             skill_id="illusion_shuriken",
             name="Illusion Shuriken",
             korean_name="환영수리검",
-            description="3개의 수리검을 순차 발사하여 상대를 넉백시킨다",
+            description="3~5개의 수리검을 순차 발사하여 상대를 넉백시킨다",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=14.0,
             duration=999.0,  # 시간 제한 없음 - 수리검이 모두 사라질 때까지 유지
@@ -4792,6 +4796,7 @@ class IllusionShuriken(HeroSkill):
         self.shurikens = []  # 활성 수리검 목록
         self.spawn_timer = 0  # 순차 발사 타이머
         self.shurikens_spawned = 0  # 발사된 수리검 수
+        self.total_shurikens = 3  # 총 발사할 수리검 수 (3~5 랜덤)
         self.target_is_top = False
         self.caster_is_top = False
         self.knockback_applied = False
@@ -4803,8 +4808,11 @@ class IllusionShuriken(HeroSkill):
         self.shurikens = []
         self.spawn_timer = 0
         self.shurikens_spawned = 0
+        self.total_shurikens = random.randint(3, 5)  # 3~5개 랜덤
         self.knockback_applied = False
         self.hit_effects = []
+
+        print(f"[IllusionShuriken] 총 {self.total_shurikens}개 수리검 발사 시작!")
 
         # 첫 번째 수리검 즉시 발사
         self._spawn_shuriken(caster_paddle, 0)
@@ -4814,16 +4822,24 @@ class IllusionShuriken(HeroSkill):
         }
 
     def _spawn_shuriken(self, caster_paddle, index: int):
-        """수리검 생성 - 왼쪽 1개, 오른쪽 2개 (30~50도 각도)"""
-        # 각도 설정: 인덱스 0=왼쪽, 1,2=오른쪽 (30~50도 범위)
-        # 30도 = 0.524 rad, 40도 = 0.698 rad, 50도 = 0.873 rad
-        if index == 0:
-            # 왼쪽 수리검 (30~50도 왼쪽 방향)
-            angle_rad = -random.uniform(0.524, 0.873)  # 음수 = 왼쪽
-        else:
-            # 오른쪽 수리검 2개 (30~50도 오른쪽 방향, 약간씩 다른 각도)
-            base_angle = random.uniform(0.524, 0.873)
-            angle_rad = base_angle + (index - 1) * 0.15  # 두 번째는 약간 더 벌어짐
+        """수리검 생성 - 좌우 번갈아가며 부채꼴 형태로 발사 (3~5개)"""
+        # 각도 범위: 20~60도 (0.35~1.05 rad)
+        # 수리검 개수에 따라 각도를 균등 분배
+        total = self.total_shurikens
+
+        # 부채꼴 형태로 각도 분배 (-60도 ~ +60도 범위)
+        # 예: 3개 → -45, 0, +45 / 4개 → -45, -15, +15, +45 / 5개 → -50, -25, 0, +25, +50
+        if total == 3:
+            angles_deg = [-45, 0, 45]
+        elif total == 4:
+            angles_deg = [-50, -17, 17, 50]
+        else:  # 5개
+            angles_deg = [-55, -28, 0, 28, 55]
+
+        # 인덱스에 해당하는 각도 선택 (약간의 랜덤 추가)
+        base_angle_deg = angles_deg[index] if index < len(angles_deg) else 0
+        angle_deg = base_angle_deg + random.uniform(-5, 5)  # ±5도 랜덤 변화
+        angle_rad = math.radians(angle_deg)
 
         speed = 450  # 수리검 속도
 
@@ -4857,7 +4873,7 @@ class IllusionShuriken(HeroSkill):
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         # 순차 발사 (0.2초 간격)
-        if self.shurikens_spawned < 3:
+        if self.shurikens_spawned < self.total_shurikens:
             self.spawn_timer += dt
             if self.spawn_timer >= 0.2:
                 self.spawn_timer = 0
@@ -4966,8 +4982,8 @@ class IllusionShuriken(HeroSkill):
         # 완료된 이펙트 제거
         self.hit_effects = [e for e in self.hit_effects if e['timer'] > 0]
 
-        # 모든 수리검이 사라지면 스킬 종료 (3개 모두 발사된 후에만 체크)
-        if self.shurikens_spawned >= 3:
+        # 모든 수리검이 사라지면 스킬 종료 (전부 발사된 후에만 체크)
+        if self.shurikens_spawned >= self.total_shurikens:
             active_shurikens = [s for s in self.shurikens if s['active']]
             if not active_shurikens:
                 self.active_timer = 0  # 스킬 자동 종료 트리거
@@ -4987,6 +5003,7 @@ class IllusionShuriken(HeroSkill):
         self.shurikens = []
         self.hit_effects = []
         self.shurikens_spawned = 0
+        self.total_shurikens = 3
         self.spawn_timer = 0
         # 넉백 상태 클리어
         for prefix in ['top_paddle', 'bottom_paddle']:
