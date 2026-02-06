@@ -97,7 +97,7 @@ TOP_HEROES = [
         "speed": 1.3,
         "reaction": 0.85,
         "power": 1.25,
-        "accuracy": 0.78,
+        "accuracy": 0.85,
         "position": "top",
         "description": "어둠의 검기를 다루는 동양의 귀검객"
     },
@@ -110,7 +110,7 @@ TOP_HEROES = [
         "speed": 0.95,
         "reaction": 1.1,
         "power": 1.15,
-        "accuracy": 0.82,
+        "accuracy": 0.85,
         "position": "top",
         "description": "심해에서 온 촉수 괴물 하이브리드"
     },
@@ -131,12 +131,12 @@ TOP_HEROES = [
         "id": "onimaru",
         "name": "오니마루",
         "title": "지옥의 요괴무사",
-        "style": HeroStyle.AGGRESSIVE,
+        "style": HeroStyle.BALANCED,
         "color": (200, 50, 70),  # 진한 빨강
         "speed": 1.2,
         "reaction": 0.9,
         "power": 1.35,
-        "accuracy": 0.72,
+        "accuracy": 0.82,
         "position": "top",
         "description": "지옥에서 온 뿔 달린 도깨비 전사"
     },
@@ -381,7 +381,7 @@ class AIPaddleController:
             if self.style == HeroStyle.AGGRESSIVE:
                 # 공격적: 공이 빠를 때 더 과감하게 이동, 끝쪽 타격 선호
                 speed_factor = math.hypot(ball_vx, ball_vy) / 10.0
-                offset = (0.5 - random.random()) * 30 * speed_factor
+                offset = (0.5 - random.random()) * 18 * speed_factor
                 self.target_x = self.predicted_x + offset + self.error_offset
             elif self.style == HeroStyle.DEFENSIVE:
                 # 수비적: 정확한 중앙 타격
@@ -389,7 +389,7 @@ class AIPaddleController:
             elif self.style == HeroStyle.TRICKY:
                 # 트릭: 예측 불가능한 움직임
                 if random.random() < 0.3:
-                    offset = random.randint(-40, 40)
+                    offset = random.randint(-25, 25)
                 else:
                     offset = 0
                 self.target_x = self.predicted_x + offset + self.error_offset
