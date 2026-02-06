@@ -62586,9 +62586,16 @@ def handle_player(keys):
             if not suicide_drone_active and not ice_dash_sliding:
                 # pygame.Rect 안전을 위해 int() 변환 및 유효성 검사
                 try:
-                    safe_speed = int(current_speed) if current_speed == current_speed else 0  # NaN 체크
-                    PLAYER.x += safe_speed
-                except (ValueError, OverflowError):
+                    # NaN/Infinity 체크
+                    if current_speed != current_speed or abs(current_speed) > 1000000:
+                        safe_speed = 0
+                    else:
+                        safe_speed = int(current_speed)
+                    # 최종 위치가 유효 범위 내인지 확인
+                    new_x = PLAYER.x + safe_speed
+                    if -2147483647 < new_x < 2147483647:
+                        PLAYER.x = int(new_x)
+                except (ValueError, OverflowError, TypeError):
                     pass  # 유효하지 않은 값이면 무시
 
         # 후딜 시간은 항상 감소 (대쉬 중에도)
