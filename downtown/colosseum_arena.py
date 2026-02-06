@@ -1290,6 +1290,10 @@ class ColosseumsArena:
         """배틀 시작 - 실제 게임 엔진 사용 (pingfighter.main 스테이지 30)"""
         self.selected_match = match
 
+        # 배틀 활성화 (중요: _end_battle()에서 체크하므로 반드시 설정해야 함)
+        self.battle_active = True
+        print(f"[Arena] 배틀 시작! {match.hero1['name']} vs {match.hero2['name']}")
+
         # 입장료는 manager.py에서 이미 차감됨 (이중 차감 방지)
         # 첫 배틀 시작 표시만 함
         if not self.entry_fee_paid:
