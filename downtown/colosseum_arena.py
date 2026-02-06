@@ -1507,6 +1507,11 @@ class ColosseumsArena:
         self.bottom_paddle.is_confused = game_state.get('bottom_paddle_confused', False)
         self.bottom_paddle.paddle_scale = game_state.get('bottom_paddle_shrink_scale', 1.0) if game_state.get('bottom_paddle_shrink', False) else 1.0
 
+        # DEBUG: 둔화 효과 확인
+        if game_state.get('top_paddle_slowed') or game_state.get('bottom_paddle_slowed'):
+            print(f"[DEBUG SLOW] top: slowed={game_state.get('top_paddle_slowed')}, amount={game_state.get('top_paddle_slow_amount')}, multiplier={self.top_paddle.slow_multiplier}")
+            print(f"[DEBUG SLOW] bottom: slowed={game_state.get('bottom_paddle_slowed')}, amount={game_state.get('bottom_paddle_slow_amount')}, multiplier={self.bottom_paddle.slow_multiplier}")
+
         # 🔥 귀신발걸음 y축 이동 트리거 처리
         if game_state.get('ghost_step_start_top', False):
             self.top_paddle.start_ghost_step()
