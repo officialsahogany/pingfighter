@@ -1748,6 +1748,21 @@ class ColosseumsArena:
         # 배팅 영웅을 찾지 못한 경우 (이론상 불가능)
         self.state = TournamentState.BRACKET_VIEW
 
+    def _prepare_next_match(self):
+        """배팅한 영웅이 포함된 다음 경기 준비 (배틀 시작 없이)"""
+        if not self.bet_hero:
+            return
+
+        current_matches = self.matches.get(self.current_round, [])
+        for match in current_matches:
+            if match.completed:
+                continue
+            # 배팅한 영웅이 이 경기에 있는지 확인
+            if match.hero1 == self.bet_hero or match.hero2 == self.bet_hero:
+                self.selected_match = match
+                print(f"[Arena] 다음 경기 준비: {match.hero1['name']} vs {match.hero2['name']} (배팅 영웅: {self.bet_hero['name']})")
+                return
+
     def update(self, dt: float):
         """메인 업데이트"""
         self.animation_timer += dt
@@ -1790,8 +1805,8 @@ class ColosseumsArena:
                     # 결승전 종료
                     self.state = TournamentState.TOURNAMENT_END
                 else:
-                    # 승리 - 다음 라운드로 진행 가능
-                    self.state = TournamentState.ROUND_END
+                    # 승리 - 대진표 애니메이션 먼저 실행
+                    self._start_bracket_animation()
         elif self.state == TournamentState.BRACKET_ANIMATION:
             self._update_bracket_animation(dt)
 
@@ -1881,7 +1896,7 @@ class ColosseumsArena:
                 return
 
             # 포기하고 나가기 버튼
-            exit_rect = pygame.Rect(panel_x + 100, panel_y + 330, 200, 40)
+            exit_rect = pygame.Rect(panel_x + 100, panel_y + 300, 200, 40)
             if exit_rect.collidepoint(mx, my):
                 # 누적 상금을 total_winnings에 저장
                 self.total_winnings = self.accumulated_prize
@@ -1900,8 +1915,9 @@ class ColosseumsArena:
             # 계속 도전 버튼
             continue_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
             if continue_rect.collidepoint(mx, my):
-                # 대진표 애니메이션 시작 (선택한 영웅 유지)
-                self._start_bracket_animation()
+                # 선택한 영웅으로 바로 배틀 시작
+                if self.selected_match:
+                    self.start_battle(self.selected_match)
                 return
 
             # 상금 수령하고 나가기 버튼
@@ -2477,7 +2493,7 @@ class ColosseumsArena:
 
         # 배팅 패널
         panel_x, panel_y = 180, 180
-        panel_w, panel_h = 400, 380
+        panel_w, panel_h = 400, 355
         pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
         pygame.draw.rect(self.screen, (255, 215, 0), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
 
@@ -2512,7 +2528,7 @@ class ColosseumsArena:
             surf, _ = self.fonts["small"].render(hint, (200, 200, 200))
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 115))
 
-        # 영웅 1 선택 버튼 (더 크게)
+        # 영웅 1 선택 버튼 (캐릭터 이미지 포함)
         hero1 = self.selected_match.hero1
         btn1_rect = pygame.Rect(panel_x + 30, panel_y + 145, 160, 100)
         pygame.draw.rect(self.screen, hero1["color"], btn1_rect, border_radius=8)
@@ -2521,18 +2537,25 @@ class ColosseumsArena:
             # 영웅 이름
             if "medium" in self.fonts:
                 surf, _ = self.fonts["medium"].render(hero1["name"], (255, 255, 255))
-                self.screen.blit(surf, (btn1_rect.centerx - surf.get_width() // 2, btn1_rect.y + 25))
+                self.screen.blit(surf, (btn1_rect.centerx - surf.get_width() // 2, btn1_rect.y + 10))
             # 영웅 칭호
             if "small" in self.fonts:
                 surf, _ = self.fonts["small"].render(hero1["title"], (220, 220, 220))
-                self.screen.blit(surf, (btn1_rect.centerx - surf.get_width() // 2, btn1_rect.y + 55))
+                self.screen.blit(surf, (btn1_rect.centerx - surf.get_width() // 2, btn1_rect.y + 35))
+        # 캐릭터 이미지
+        if self.hero_paddle_renderer:
+            hero1_id = hero1.get("id", "mugen")
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, hero1_id, btn1_rect.centerx, btn1_rect.y + 72, 50, 35,
+                facing="down", color=hero1["color"], scale_mode="preview"
+            )
 
         # VS
         if self.fonts and "large" in self.fonts:
             surf, _ = self.fonts["large"].render("VS", (255, 100, 100))
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 175))
 
-        # 영웅 2 선택 버튼 (더 크게)
+        # 영웅 2 선택 버튼 (캐릭터 이미지 포함)
         hero2 = self.selected_match.hero2
         btn2_rect = pygame.Rect(panel_x + 210, panel_y + 145, 160, 100)
         pygame.draw.rect(self.screen, hero2["color"], btn2_rect, border_radius=8)
@@ -2540,10 +2563,17 @@ class ColosseumsArena:
         if self.fonts:
             if "medium" in self.fonts:
                 surf, _ = self.fonts["medium"].render(hero2["name"], (255, 255, 255))
-                self.screen.blit(surf, (btn2_rect.centerx - surf.get_width() // 2, btn2_rect.y + 25))
+                self.screen.blit(surf, (btn2_rect.centerx - surf.get_width() // 2, btn2_rect.y + 10))
             if "small" in self.fonts:
                 surf, _ = self.fonts["small"].render(hero2["title"], (220, 220, 220))
-                self.screen.blit(surf, (btn2_rect.centerx - surf.get_width() // 2, btn2_rect.y + 55))
+                self.screen.blit(surf, (btn2_rect.centerx - surf.get_width() // 2, btn2_rect.y + 35))
+        # 캐릭터 이미지
+        if self.hero_paddle_renderer:
+            hero2_id = hero2.get("id", "chronos")
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, hero2_id, btn2_rect.centerx, btn2_rect.y + 72, 50, 35,
+                facing="down", color=hero2["color"], scale_mode="preview"
+            )
 
         # 경고 문구
         if self.fonts and "small" in self.fonts:
@@ -2551,23 +2581,8 @@ class ColosseumsArena:
             surf, _ = self.fonts["small"].render(warn_text, (255, 150, 100))
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 265))
 
-        # 보상 미리보기
-        if self.fonts and "small" in self.fonts:
-            # 남은 보상 계산
-            remaining_prizes = []
-            rounds_order = [TournamentRound.QUARTER_FINAL, TournamentRound.SEMI_FINAL, TournamentRound.FINAL]
-            current_idx = rounds_order.index(self.current_round)
-            for i in range(current_idx, len(rounds_order)):
-                r = rounds_order[i]
-                round_short = {TournamentRound.QUARTER_FINAL: "8강", TournamentRound.SEMI_FINAL: "4강", TournamentRound.FINAL: "결승"}
-                remaining_prizes.append(f"{round_short[r]}:+{self.round_prizes[r]}G")
-
-            preview_text = " → ".join(remaining_prizes)
-            surf, _ = self.fonts["small"].render(preview_text, (150, 180, 255))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 295))
-
         # 포기하고 나가기 버튼
-        exit_rect = pygame.Rect(panel_x + 100, panel_y + 330, 200, 40)
+        exit_rect = pygame.Rect(panel_x + 100, panel_y + 300, 200, 40)
         exit_color = (100, 80, 80) if self.accumulated_prize > 0 else (60, 60, 60)
         pygame.draw.rect(self.screen, exit_color, exit_rect, border_radius=5)
         if self.fonts and "small" in self.fonts:
@@ -2849,19 +2864,22 @@ class ColosseumsArena:
                 self.bracket_anim_progress = 0.0
 
         elif self.bracket_anim_phase == 2:
-            # 페이즈 2: 대기 후 다음 라운드로 진행
+            # 페이즈 2: 대기 후 다음 라운드 준비
             wait_time = 0.5
             if self.bracket_anim_timer >= wait_time:
                 # 다음 라운드로 진출
                 self._advance_to_next_round()
 
-                # 배팅한 영웅이 포함된 경기 자동 선택
-                self._auto_select_bet_hero_match()
+                # 배팅한 영웅이 포함된 경기 자동 선택 (배틀 시작 없이)
+                self._prepare_next_match()
 
                 # 애니메이션 상태 초기화
                 self.bracket_anim_phase = 0
                 self.bracket_anim_progress = 0.0
                 self.bracket_anim_timer = 0.0
+
+                # ROUND_END 상태로 전환 (계속할지 선택)
+                self.state = TournamentState.ROUND_END
 
     def _draw_bracket_animation(self):
         """대진표 진출 애니메이션 그리기"""
