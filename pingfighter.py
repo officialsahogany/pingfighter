@@ -118379,6 +118379,9 @@ def handle_ball():
         reset_round()
         return
     # --- 천장 충돌 (플레이어 점수) ---
+    # 투기장 모드에서 이미 결과가 결정된 경우 득점 처리 건너뛰기
+    if arena_mode_enabled and arena_battle_result is not None:
+        return  # 이미 승부가 결정됨 - 중복 득점 방지
     # 쿠로미가 공을 먹은 상태에서는 승패 판정 안함
     # 👁 오딘의 눈 죽음/부활 애니메이션 중 또는 변신 상태에서 공이 비정상 위치일 때 점수 처리 안함
     odins_eye_anim_blocking_score = globals().get('odins_eye_death_anim_active', False) or globals().get('odins_eye_revival_anim_active', False)
@@ -118865,6 +118868,10 @@ def handle_ball():
         except Exception as e:
             print(f"⚠️ 스마트폰 사전 발동(거리) 실패: {e}")
 
+    # --- 바닥 충돌 (보스 득점) ---
+    # 투기장 모드에서 이미 결과가 결정된 경우 득점 처리 건너뛰기
+    if arena_mode_enabled and arena_battle_result is not None:
+        return  # 이미 승부가 결정됨 - 중복 득점 방지
     # 스톱워치가 활성화되어 있으면 바닥 충돌에 의한 패배 판정을 잠시 유예한다
     # 쿠로미가 공을 먹은 상태에서는 승패 판정 안함
     # 볼링트랩이 공을 포획한 상태에서는 패배 판정 안함
@@ -125295,6 +125302,10 @@ def show_result(won):
     # 단, 배틀 결과는 저장하여 main()에서 반환할 수 있도록 함
     global arena_battle_result
     if arena_mode_enabled:
+        # 이미 결과가 설정되어 있으면 중복 호출 방지
+        if arena_battle_result is not None:
+            print(f"[Arena] show_result 중복 호출 무시 (이미 결과 설정됨: {arena_battle_result})")
+            return
         arena_battle_result = won  # True=하단(플레이어AI) 승리, False=상단 승리
         print(f"[Arena] show_result 호출: won={won}, arena_battle_result={arena_battle_result}")
         return
