@@ -211,6 +211,7 @@ class TournamentState(Enum):
     BATTLE = "battle"                  # AI 배틀 진행
     RESULT = "result"                  # 경기 결과
     ROUND_END = "round_end"            # 라운드 종료 (계속/나가기 선택)
+    BRACKET_ANIMATION = "bracket_animation"  # 대진표 진출 애니메이션
     TOURNAMENT_END = "tournament_end"  # 토너먼트 종료
 
 class TournamentRound(Enum):
@@ -1060,6 +1061,15 @@ class ColosseumsArena:
         self.exit_requested = False
         self.winnings_collected = False
 
+        # 대진표 진출 애니메이션 상태
+        self.bracket_anim_timer = 0.0          # 애니메이션 타이머
+        self.bracket_anim_phase = 0            # 애니메이션 페이즈 (0: X표시, 1: 선 이동, 2: 완료)
+        self.bracket_anim_progress = 0.0       # 애니메이션 진행도 (0.0 ~ 1.0)
+        self.bracket_anim_completed_matches = []  # 완료된 매치 목록 (패자 X 표시용)
+        self.bracket_anim_advancing_winners = []  # 진출하는 승자 목록 (선 이동용)
+        self.bracket_anim_next_round = None    # 다음 라운드 정보
+        self.bracket_anim_auto_battle = False  # 애니메이션 후 자동 배틀 진행 여부
+
         # 시각 효과 (배경/필러)
         self.arena_background = None
         self.arena_pillar = None
@@ -1729,6 +1739,8 @@ class ColosseumsArena:
                         self.state = TournamentState.ROUND_END
                 else:
                     self.state = TournamentState.SELECT_MATCH
+        elif self.state == TournamentState.BRACKET_ANIMATION:
+            self._update_bracket_animation(dt)
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         """이벤트 처리, 종료 시 True 반환"""
@@ -1824,8 +1836,8 @@ class ColosseumsArena:
             # 계속 배팅 버튼
             continue_rect = pygame.Rect(panel_x + 40, panel_y + 200, 180, 50)
             if continue_rect.collidepoint(mx, my):
-                self._advance_to_next_round()
-                self.state = TournamentState.SELECT_MATCH
+                # 대진표 애니메이션 시작
+                self._start_bracket_animation()
                 return
 
             # 수익 확정하고 나가기 버튼
@@ -1848,6 +1860,8 @@ class ColosseumsArena:
         """메인 그리기"""
         if self.state == TournamentState.BATTLE:
             self._draw_battle()
+        elif self.state == TournamentState.BRACKET_ANIMATION:
+            self._draw_bracket_animation()
         else:
             self._draw_bracket()
 
@@ -2615,6 +2629,430 @@ class ColosseumsArena:
         if self.fonts and "medium" in self.fonts:
             surf, _ = self.fonts["medium"].render("투기장 나가기", (255, 255, 255))
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 15))
+
+    def _start_bracket_animation(self):
+        """대진표 진출 애니메이션 시작"""
+        self.bracket_anim_timer = 0.0
+        self.bracket_anim_phase = 0  # 0: 패자 X 표시, 1: 승자 선 이동, 2: 완료
+        self.bracket_anim_progress = 0.0
+
+        # 현재 라운드의 완료된 매치와 승자 수집
+        current_matches = self.matches[self.current_round]
+        self.bracket_anim_completed_matches = [m for m in current_matches if m.completed]
+        self.bracket_anim_advancing_winners = [m.winner for m in self.bracket_anim_completed_matches if m.winner]
+
+        # 다음 라운드 정보 저장
+        if self.current_round == TournamentRound.QUARTER_FINAL:
+            self.bracket_anim_next_round = TournamentRound.SEMI_FINAL
+        elif self.current_round == TournamentRound.SEMI_FINAL:
+            self.bracket_anim_next_round = TournamentRound.FINAL
+        else:
+            self.bracket_anim_next_round = None
+
+        self.bracket_anim_auto_battle = True
+        self.state = TournamentState.BRACKET_ANIMATION
+
+    def _update_bracket_animation(self, dt: float):
+        """대진표 애니메이션 업데이트"""
+        self.bracket_anim_timer += dt
+
+        # 애니메이션 속도 설정
+        phase_duration = 1.5  # 각 페이즈 지속 시간 (초)
+
+        if self.bracket_anim_phase == 0:
+            # 페이즈 0: 패자 X 표시 애니메이션
+            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / phase_duration)
+            if self.bracket_anim_timer >= phase_duration:
+                self.bracket_anim_phase = 1
+                self.bracket_anim_timer = 0.0
+                self.bracket_anim_progress = 0.0
+
+        elif self.bracket_anim_phase == 1:
+            # 페이즈 1: 승자 선 이동 애니메이션
+            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / phase_duration)
+            if self.bracket_anim_timer >= phase_duration:
+                self.bracket_anim_phase = 2
+                self.bracket_anim_timer = 0.0
+                self.bracket_anim_progress = 0.0
+
+        elif self.bracket_anim_phase == 2:
+            # 페이즈 2: 대기 후 다음 라운드로 진행
+            wait_time = 0.5
+            if self.bracket_anim_timer >= wait_time:
+                # 다음 라운드로 진출
+                self._advance_to_next_round()
+
+                if self.bracket_anim_auto_battle:
+                    # 자동으로 다음 매치 선택 및 배팅 UI로 이동
+                    self.state = TournamentState.SELECT_MATCH
+                else:
+                    self.state = TournamentState.BRACKET_VIEW
+
+                # 애니메이션 상태 초기화
+                self.bracket_anim_phase = 0
+                self.bracket_anim_progress = 0.0
+                self.bracket_anim_timer = 0.0
+
+    def _draw_bracket_animation(self):
+        """대진표 진출 애니메이션 그리기"""
+        # 배경
+        self.screen.fill((25, 28, 35))
+
+        # 라운드 진출 타이틀
+        if self.fonts and "large" in self.fonts:
+            round_name = ""
+            if self.bracket_anim_next_round == TournamentRound.SEMI_FINAL:
+                round_name = "4강"
+            elif self.bracket_anim_next_round == TournamentRound.FINAL:
+                round_name = "결승"
+
+            title = f"{round_name} 진출!"
+            # 타이틀 펄스 효과
+            pulse = abs(math.sin(self.animation_timer * 3)) * 0.3 + 0.7
+            gold_color = (int(255 * pulse), int(215 * pulse), 0)
+            surf, _ = self.fonts["large"].render(title, gold_color)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 30))
+
+        # 대진표 그리기 (애니메이션 효과 포함)
+        self._draw_animated_bracket()
+
+        # 진행 표시
+        if self.fonts and "small" in self.fonts:
+            if self.bracket_anim_phase < 2:
+                hint = "잠시 후 다음 매치가 시작됩니다..."
+                alpha = int(abs(math.sin(self.animation_timer * 2)) * 155 + 100)
+                surf, _ = self.fonts["small"].render(hint, (alpha, alpha, alpha))
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 700))
+
+    def _draw_animated_bracket(self):
+        """애니메이션이 적용된 대진표 그리기"""
+        # 8강 매치 (하단)
+        y_base = 550
+        x_positions = [100, 250, 430, 580]
+
+        for i, match in enumerate(self.matches[TournamentRound.QUARTER_FINAL]):
+            x = x_positions[i]
+            self._draw_animated_match_box(match, x, y_base, i, TournamentRound.QUARTER_FINAL)
+
+        # 4강 매치 (중간)
+        y_semi = 380
+        x_semi = [175, 505]
+
+        semi_matches = self.matches.get(TournamentRound.SEMI_FINAL, [])
+        for i, match in enumerate(semi_matches):
+            self._draw_animated_match_box(match, x_semi[i], y_semi, i + 4, TournamentRound.SEMI_FINAL)
+
+        # 빈 4강 슬롯 또는 승자 이동 애니메이션
+        if not semi_matches or len(semi_matches) < 2:
+            for i, x in enumerate(x_semi):
+                # 승자가 이동 중인 경우 애니메이션 표시
+                if self.bracket_anim_phase >= 1 and self.current_round == TournamentRound.QUARTER_FINAL:
+                    self._draw_winner_moving_to_slot(x, y_semi, i)
+                else:
+                    self._draw_empty_match_box(x, y_semi, "준결승 " + str(i + 1))
+
+        # 결승 (상단)
+        y_final = 200
+        x_final = 340
+
+        final_matches = self.matches.get(TournamentRound.FINAL, [])
+        if final_matches:
+            self._draw_animated_match_box(final_matches[0], x_final, y_final, 6, TournamentRound.FINAL)
+        else:
+            if self.bracket_anim_phase >= 1 and self.current_round == TournamentRound.SEMI_FINAL:
+                self._draw_winner_moving_to_slot(x_final, y_final, 0, is_final=True)
+            else:
+                self._draw_empty_match_box(x_final, y_final, "결승")
+
+        # 연결선 그리기 (애니메이션 효과 포함)
+        self._draw_animated_bracket_lines()
+
+    def _draw_animated_match_box(self, match: Match, x: int, y: int, match_idx: int, round_type: TournamentRound):
+        """애니메이션이 적용된 매치 박스 그리기"""
+        box_w, box_h = 100, 100
+
+        # 현재 라운드의 완료된 매치인지 확인
+        is_current_round_match = (round_type == self.current_round)
+
+        # 박스 배경
+        if match.completed:
+            bg_color = (35, 55, 45)
+        else:
+            bg_color = (45, 50, 60)
+
+        pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=5)
+        pygame.draw.rect(self.screen, (80, 85, 95), (x, y, box_w, box_h), 2, border_radius=5)
+
+        # 영웅 1 (상단 패들)
+        hero1 = match.hero1
+        h1_is_loser = match.completed and match.winner != hero1
+        h1_alpha = 255
+
+        if h1_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
+            # 패자 페이드아웃 효과
+            h1_alpha = int(255 * (1.0 - self.bracket_anim_progress * 0.5))
+
+        h1_color = hero1["color"]
+        hero1_rect = pygame.Rect(x + 5, y + 5, box_w - 10, 40)
+
+        # 색상에 알파 적용
+        h1_surface = pygame.Surface((box_w - 10, 40), pygame.SRCALPHA)
+        h1_surface.fill((*h1_color, h1_alpha))
+        self.screen.blit(h1_surface, (x + 5, y + 5))
+
+        if self.fonts and "small" in self.fonts:
+            name_color = (255, 255, 255, h1_alpha) if h1_alpha == 255 else (200, 200, 200)
+            surf, _ = self.fonts["small"].render(hero1["name"], name_color[:3])
+            self.screen.blit(surf, (x + 10, y + 15))
+
+        # 패자 X 표시
+        if h1_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
+            x_progress = min(1.0, self.bracket_anim_progress * 2)  # 빠르게 X 표시
+            if x_progress > 0:
+                self._draw_loser_x(hero1_rect, x_progress)
+
+        # VS
+        if self.fonts and "small" in self.fonts:
+            surf, _ = self.fonts["small"].render("VS", (200, 200, 200))
+            self.screen.blit(surf, (x + box_w // 2 - 10, y + 45))
+
+        # 영웅 2 (하단 패들)
+        hero2 = match.hero2
+        h2_is_loser = match.completed and match.winner != hero2
+        h2_alpha = 255
+
+        if h2_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
+            h2_alpha = int(255 * (1.0 - self.bracket_anim_progress * 0.5))
+
+        h2_color = hero2["color"]
+        hero2_rect = pygame.Rect(x + 5, y + 55, box_w - 10, 40)
+
+        h2_surface = pygame.Surface((box_w - 10, 40), pygame.SRCALPHA)
+        h2_surface.fill((*h2_color, h2_alpha))
+        self.screen.blit(h2_surface, (x + 5, y + 55))
+
+        if self.fonts and "small" in self.fonts:
+            name_color = (255, 255, 255, h2_alpha) if h2_alpha == 255 else (200, 200, 200)
+            surf, _ = self.fonts["small"].render(hero2["name"], name_color[:3])
+            self.screen.blit(surf, (x + 10, y + 65))
+
+        # 패자 X 표시
+        if h2_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
+            x_progress = min(1.0, self.bracket_anim_progress * 2)
+            if x_progress > 0:
+                self._draw_loser_x(hero2_rect, x_progress)
+
+        # 승자 하이라이트 효과
+        if match.completed and match.winner and is_current_round_match:
+            winner_rect = hero1_rect if match.winner == hero1 else hero2_rect
+            if self.bracket_anim_phase >= 0:
+                # 승자 글로우 효과
+                glow_alpha = int(abs(math.sin(self.animation_timer * 4)) * 100 + 50)
+                glow_surface = pygame.Surface((winner_rect.width + 6, winner_rect.height + 6), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surface, (255, 215, 0, glow_alpha),
+                               (0, 0, winner_rect.width + 6, winner_rect.height + 6),
+                               border_radius=5)
+                self.screen.blit(glow_surface, (winner_rect.x - 3, winner_rect.y - 3))
+
+        # 결과 표시 (스코어)
+        if match.completed and match.winner:
+            if self.fonts and "small" in self.fonts:
+                surf, _ = self.fonts["small"].render(f"{match.score1}:{match.score2}", (255, 215, 0))
+                self.screen.blit(surf, (x + box_w // 2 - 15, y + box_h + 5))
+
+    def _draw_loser_x(self, rect: pygame.Rect, progress: float):
+        """패자에게 X 표시 그리기"""
+        # X 표시 애니메이션
+        x_size = int(min(rect.width, rect.height) * 0.6 * progress)
+        center_x = rect.centerx
+        center_y = rect.centery
+
+        # X 색상 (빨간색)
+        x_color = (255, 60, 60)
+        line_width = 4
+
+        # 첫 번째 대각선 (\)
+        if progress > 0:
+            end_offset = int(x_size * min(1.0, progress * 2))
+            pygame.draw.line(self.screen, x_color,
+                           (center_x - end_offset, center_y - end_offset),
+                           (center_x + end_offset, center_y + end_offset),
+                           line_width)
+
+        # 두 번째 대각선 (/)
+        if progress > 0.5:
+            second_progress = (progress - 0.5) * 2
+            end_offset = int(x_size * second_progress)
+            pygame.draw.line(self.screen, x_color,
+                           (center_x + end_offset, center_y - end_offset),
+                           (center_x - end_offset, center_y + end_offset),
+                           line_width)
+
+    def _draw_winner_moving_to_slot(self, target_x: int, target_y: int, slot_idx: int, is_final: bool = False):
+        """승자가 다음 라운드 슬롯으로 이동하는 애니메이션"""
+        box_w, box_h = 100, 100
+
+        # 진행도에 따른 슬롯 표시
+        if self.bracket_anim_phase >= 1:
+            # 이동 중인 승자 표시
+            progress = self.bracket_anim_progress
+
+            # 시작 위치 계산
+            if self.current_round == TournamentRound.QUARTER_FINAL:
+                # 8강 → 4강
+                if slot_idx == 0:
+                    # 첫 두 매치 승자
+                    winners = [self.matches[TournamentRound.QUARTER_FINAL][0].winner,
+                              self.matches[TournamentRound.QUARTER_FINAL][1].winner]
+                    start_positions = [(150, 550), (300, 550)]
+                else:
+                    # 뒤 두 매치 승자
+                    winners = [self.matches[TournamentRound.QUARTER_FINAL][2].winner,
+                              self.matches[TournamentRound.QUARTER_FINAL][3].winner]
+                    start_positions = [(480, 550), (630, 550)]
+
+                # 중간점
+                mid_y = 520
+
+                for i, (winner, start_pos) in enumerate(zip(winners, start_positions)):
+                    if winner:
+                        # 이징 함수 적용
+                        t = self._ease_in_out(progress)
+
+                        # 위치 계산
+                        if progress < 0.5:
+                            # 상승 + 수평 이동
+                            p = progress * 2
+                            current_x = start_pos[0] + (target_x + box_w // 2 - start_pos[0]) * p
+                            current_y = start_pos[1] - (start_pos[1] - mid_y) * p
+                        else:
+                            # 하강 + 최종 위치
+                            p = (progress - 0.5) * 2
+                            current_x = target_x + box_w // 2
+                            current_y = mid_y - (mid_y - target_y - box_h // 2) * p
+
+                        # 승자 이름 그리기 (이동 중)
+                        self._draw_moving_winner(winner, int(current_x), int(current_y), progress)
+
+            elif self.current_round == TournamentRound.SEMI_FINAL and is_final:
+                # 4강 → 결승
+                semi_matches = self.matches.get(TournamentRound.SEMI_FINAL, [])
+                if len(semi_matches) >= 2:
+                    winners = [semi_matches[0].winner, semi_matches[1].winner]
+                    start_positions = [(225, 380), (555, 380)]
+
+                    mid_y = 340
+
+                    for i, (winner, start_pos) in enumerate(zip(winners, start_positions)):
+                        if winner:
+                            t = self._ease_in_out(progress)
+
+                            if progress < 0.5:
+                                p = progress * 2
+                                current_x = start_pos[0] + (target_x + box_w // 2 - start_pos[0]) * p
+                                current_y = start_pos[1] - (start_pos[1] - mid_y) * p
+                            else:
+                                p = (progress - 0.5) * 2
+                                current_x = target_x + box_w // 2
+                                current_y = mid_y - (mid_y - target_y - box_h // 2) * p
+
+                            self._draw_moving_winner(winner, int(current_x), int(current_y), progress)
+        else:
+            # 빈 슬롯
+            self._draw_empty_match_box(target_x, target_y, "결승" if is_final else f"준결승 {slot_idx + 1}")
+
+    def _draw_moving_winner(self, winner: dict, x: int, y: int, progress: float):
+        """이동 중인 승자 표시"""
+        # 글로우 효과
+        glow_radius = 30 + int(abs(math.sin(self.animation_timer * 5)) * 10)
+        glow_alpha = int(100 + progress * 100)
+
+        glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surface, (*winner["color"], glow_alpha),
+                         (glow_radius, glow_radius), glow_radius)
+        self.screen.blit(glow_surface, (x - glow_radius, y - glow_radius))
+
+        # 영웅 색상 원
+        pygame.draw.circle(self.screen, winner["color"], (x, y), 20)
+        pygame.draw.circle(self.screen, (255, 255, 255), (x, y), 20, 2)
+
+        # 이름 표시
+        if self.fonts and "small" in self.fonts:
+            surf, _ = self.fonts["small"].render(winner["name"], (255, 255, 255))
+            self.screen.blit(surf, (x - surf.get_width() // 2, y - 35))
+
+    def _ease_in_out(self, t: float) -> float:
+        """이징 함수 (부드러운 시작과 끝)"""
+        if t < 0.5:
+            return 2 * t * t
+        else:
+            return 1 - pow(-2 * t + 2, 2) / 2
+
+    def _draw_animated_bracket_lines(self):
+        """애니메이션이 적용된 대진표 연결선"""
+        base_color = (70, 75, 85)
+        highlight_color = (255, 215, 0)
+
+        # 8강 → 4강 연결
+        if self.current_round == TournamentRound.QUARTER_FINAL and self.bracket_anim_phase >= 1:
+            # 승자 라인 하이라이트
+            progress = self.bracket_anim_progress
+
+            # 좌측 (매치 0, 1)
+            self._draw_animated_line((150, 550), (150, 520), progress, base_color, highlight_color)
+            self._draw_animated_line((300, 550), (300, 520), progress, base_color, highlight_color)
+            self._draw_animated_line((150, 520), (300, 520), progress, base_color, highlight_color)
+            self._draw_animated_line((225, 520), (225, 480), progress, base_color, highlight_color)
+
+            # 우측 (매치 2, 3)
+            self._draw_animated_line((480, 550), (480, 520), progress, base_color, highlight_color)
+            self._draw_animated_line((630, 550), (630, 520), progress, base_color, highlight_color)
+            self._draw_animated_line((480, 520), (630, 520), progress, base_color, highlight_color)
+            self._draw_animated_line((555, 520), (555, 480), progress, base_color, highlight_color)
+        else:
+            # 기본 라인
+            pygame.draw.line(self.screen, base_color, (150, 550), (150, 520), 2)
+            pygame.draw.line(self.screen, base_color, (300, 550), (300, 520), 2)
+            pygame.draw.line(self.screen, base_color, (150, 520), (300, 520), 2)
+            pygame.draw.line(self.screen, base_color, (225, 520), (225, 480), 2)
+            pygame.draw.line(self.screen, base_color, (480, 550), (480, 520), 2)
+            pygame.draw.line(self.screen, base_color, (630, 550), (630, 520), 2)
+            pygame.draw.line(self.screen, base_color, (480, 520), (630, 520), 2)
+            pygame.draw.line(self.screen, base_color, (555, 520), (555, 480), 2)
+
+        # 4강 → 결승 연결
+        if self.current_round == TournamentRound.SEMI_FINAL and self.bracket_anim_phase >= 1:
+            progress = self.bracket_anim_progress
+            self._draw_animated_line((225, 380), (225, 340), progress, base_color, highlight_color)
+            self._draw_animated_line((555, 380), (555, 340), progress, base_color, highlight_color)
+            self._draw_animated_line((225, 340), (555, 340), progress, base_color, highlight_color)
+            self._draw_animated_line((390, 340), (390, 300), progress, base_color, highlight_color)
+        else:
+            pygame.draw.line(self.screen, base_color, (225, 380), (225, 340), 2)
+            pygame.draw.line(self.screen, base_color, (555, 380), (555, 340), 2)
+            pygame.draw.line(self.screen, base_color, (225, 340), (555, 340), 2)
+            pygame.draw.line(self.screen, base_color, (390, 340), (390, 300), 2)
+
+    def _draw_animated_line(self, start: tuple, end: tuple, progress: float,
+                           base_color: tuple, highlight_color: tuple):
+        """애니메이션이 적용된 라인 그리기"""
+        # 베이스 라인
+        pygame.draw.line(self.screen, base_color, start, end, 2)
+
+        # 진행도에 따른 하이라이트
+        if progress > 0:
+            # 라인을 따라 움직이는 하이라이트
+            current_end = (
+                start[0] + (end[0] - start[0]) * progress,
+                start[1] + (end[1] - start[1]) * progress
+            )
+            pygame.draw.line(self.screen, highlight_color, start, current_end, 3)
+
+            # 끝점에 글로우 효과
+            glow_size = 6
+            glow_surface = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (*highlight_color, 180), (glow_size, glow_size), glow_size)
+            self.screen.blit(glow_surface, (int(current_end[0]) - glow_size, int(current_end[1]) - glow_size))
 
     def get_result(self) -> Dict:
         """결과 반환"""
