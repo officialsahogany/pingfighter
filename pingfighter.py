@@ -58049,6 +58049,7 @@ def handle_player(keys):
     # 🏟️ 투기장 영웅 스킬 상태 효과 적용 (하단 패들 = 플레이어)
     arena_player_stun_block = False
     arena_player_slow_mult = 1.0
+    arena_player_speed_boost_only = 1.0  # 속도 부스트 전용 (감속도 제외)
     arena_player_confused = False
     if arena_mode_enabled and arena_skill_manager:
         try:
@@ -58062,10 +58063,10 @@ def handle_player(keys):
             # 둔화 체크
             if game_state.get('bottom_paddle_slowed', False):
                 arena_player_slow_mult = game_state.get('bottom_paddle_slow_amount', 0.5)
-            # 속도 증가 체크 (귀신의 눈 등)
+            # 속도 증가 체크 (귀신의 눈 등) - 가속도/최대속도만 부스트, 감속도는 제외
             speed_boost = game_state.get('bottom_paddle_speed_boost', 1.0)
             if speed_boost > 1.0:
-                arena_player_slow_mult *= speed_boost  # 속도 배율 적용
+                arena_player_speed_boost_only = speed_boost  # 별도 보관 (감속도 미적용)
             # 혼란 체크 (조작 반전)
             arena_player_confused = game_state.get('bottom_paddle_confused', False)
             # 패들 축소 체크 (크기 + 이동속도 15% 감소)
@@ -62036,13 +62037,13 @@ def handle_player(keys):
                             # 무중력벨트: 완전히 기계적인 즉각 이동 (키 누르는 동안만)
                             # 토르쉴드 방향 전환 지연도 무시 - 무중력벨트는 즉각적인 방향 전환을 제공
                             speed_bonus = 0
-                            # 🏟️ 투기장 둔화: 무중력벨트 경로에도 동일하게 적용
-                            _gb_slow = arena_player_slow_mult if arena_player_slow_mult != 1.0 else 1.0
+                            # 🏟️ 투기장 둔화+부스트: 무중력벨트 경로에도 동일하게 적용
+                            _gb_mult = arena_player_slow_mult * arena_player_speed_boost_only
                             if left_pressed:
-                                target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier * _gb_slow
+                                target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier * _gb_mult
                                 current_speed = target_speed  # 즉시 목표 속도로 전환
                             elif right_pressed:
-                                target_speed = (effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier * _gb_slow
+                                target_speed = (effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier * _gb_mult
                                 current_speed = target_speed  # 즉시 목표 속도로 전환
                             else:
                                 # 키를 떼면 즉시 정지
@@ -62077,7 +62078,12 @@ def handle_player(keys):
                                 adjusted_acceleration *= arena_player_slow_mult
                                 adjusted_deceleration *= arena_player_slow_mult
                                 adjusted_max_speed *= arena_player_slow_mult
-                                # 즉시 속도 제한: 현재 속도가 둔화된 최대속도 초과 시 클램핑
+                            # 🏟️ 투기장 속도 부스트: 가속도/최대속도만 적용, 감속도 제외 (관성 유지)
+                            if arena_player_speed_boost_only > 1.0:
+                                adjusted_acceleration *= arena_player_speed_boost_only
+                                adjusted_max_speed *= arena_player_speed_boost_only
+                            # 즉시 속도 제한
+                            if arena_player_slow_mult != 1.0 or arena_player_speed_boost_only > 1.0:
                                 if current_speed > adjusted_max_speed:
                                     current_speed = adjusted_max_speed
                                 elif current_speed < -adjusted_max_speed:
