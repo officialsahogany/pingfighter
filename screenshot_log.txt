@@ -120,3 +120,4 @@
 ✅ 스크린샷 저장 성공: D:\main\bosspong\screenshots\screenshot_20260206_140047.png (2026-02-06 14:00:47)
 ✅ 스크린샷 저장 성공: D:\main\bosspong\screenshots\screenshot_20260206_141104.png (2026-02-06 14:11:04)
 ✅ 스크린샷 저장 성공: D:\main\bosspong\screenshots\screenshot_20260206_143326.png (2026-02-06 14:33:26)
+✅ 스크린샷 저장 성공: D:\main\bosspong\screenshots\screenshot_20260206_144120.png (2026-02-06 14:41:20)

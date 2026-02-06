@@ -1728,7 +1728,7 @@ class ColosseumsArena:
                 print(f"[Arena] 자동 결정: {match.hero1['name']} vs {match.hero2['name']} → 승자: {winner['name']} ({score1}:{score2})")
 
     def _auto_select_bet_hero_match(self):
-        """배팅한 영웅이 포함된 경기를 자동 선택하고 배팅 UI로 이동"""
+        """배팅한 영웅이 포함된 경기를 자동 선택하고 바로 배틀 시작"""
         if not self.bet_hero:
             self.state = TournamentState.BRACKET_VIEW
             return
@@ -1740,8 +1740,9 @@ class ColosseumsArena:
             # 배팅한 영웅이 이 경기에 있는지 확인
             if match.hero1 == self.bet_hero or match.hero2 == self.bet_hero:
                 self.selected_match = match
-                self.state = TournamentState.BETTING
-                print(f"[Arena] 자동 선택: {match.hero1['name']} vs {match.hero2['name']} (배팅 영웅: {self.bet_hero['name']})")
+                # 영웅 재선택 없이 바로 배틀 시작
+                print(f"[Arena] 자동 배틀 시작: {match.hero1['name']} vs {match.hero2['name']} (배팅 영웅: {self.bet_hero['name']})")
+                self.start_battle(match)
                 return
 
         # 배팅 영웅을 찾지 못한 경우 (이론상 불가능)
@@ -1897,14 +1898,14 @@ class ColosseumsArena:
             panel_x, panel_y = 150, 180
 
             # 계속 도전 버튼
-            continue_rect = pygame.Rect(panel_x + 40, panel_y + 240, 180, 50)
+            continue_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
             if continue_rect.collidepoint(mx, my):
-                # 대진표 애니메이션 시작
+                # 대진표 애니메이션 시작 (선택한 영웅 유지)
                 self._start_bracket_animation()
                 return
 
             # 상금 수령하고 나가기 버튼
-            exit_rect = pygame.Rect(panel_x + 240, panel_y + 240, 180, 50)
+            exit_rect = pygame.Rect(panel_x + 240, panel_y + 220, 180, 50)
             if exit_rect.collidepoint(mx, my):
                 self.total_winnings = self.accumulated_prize
                 self.winnings_collected = True
@@ -2686,26 +2687,32 @@ class ColosseumsArena:
             surf, _ = self.fonts["medium"].render(next_text, (180, 180, 255))
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 120))
 
+        # 선택한 영웅 정보
+        if self.bet_hero and self.fonts and "medium" in self.fonts:
+            hero_name = self.bet_hero.get("name", "???")
+            hero_color = self.bet_hero.get("color", (255, 255, 255))
+            # 밝기 보정
+            brightness = sum(hero_color) / 3
+            display_color = hero_color if brightness > 80 else (min(255, hero_color[0] + 100), min(255, hero_color[1] + 100), min(255, hero_color[2] + 100))
+            hero_text = f"[{hero_name}] 으로 계속 도전!"
+            surf, _ = self.fonts["medium"].render(hero_text, display_color)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 155))
+
         # 경고
         if self.fonts and "small" in self.fonts:
-            warn_text = "⚠️ 다음 라운드에서 패배하면 누적 상금을 모두 잃습니다!"
+            warn_text = "⚠️ 패배 시 누적 상금을 모두 잃습니다!"
             surf, _ = self.fonts["small"].render(warn_text, (255, 180, 100))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 160))
-
-        # 질문
-        if self.fonts and "medium" in self.fonts:
-            surf, _ = self.fonts["medium"].render("계속 도전하시겠습니까?", (255, 255, 255))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 200))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 185))
 
         # 계속 버튼 (도전)
-        continue_rect = pygame.Rect(panel_x + 40, panel_y + 240, 180, 50)
+        continue_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
         pygame.draw.rect(self.screen, (80, 180, 80), continue_rect, border_radius=5)
         if self.fonts and "medium" in self.fonts:
             surf, _ = self.fonts["medium"].render("🔥 계속 도전!", (255, 255, 255))
             self.screen.blit(surf, (continue_rect.centerx - surf.get_width() // 2, continue_rect.y + 15))
 
         # 나가기 버튼 (상금 수령)
-        exit_rect = pygame.Rect(panel_x + 240, panel_y + 240, 180, 50)
+        exit_rect = pygame.Rect(panel_x + 240, panel_y + 220, 180, 50)
         pygame.draw.rect(self.screen, (100, 100, 180), exit_rect, border_radius=5)
         if self.fonts and "medium" in self.fonts:
             surf, _ = self.fonts["medium"].render(f"💰 {self.accumulated_prize}G 수령", (255, 255, 255))
@@ -2721,7 +2728,7 @@ class ColosseumsArena:
                 remaining = [f"결승: +{self.round_prizes[TournamentRound.FINAL]}G"]
             preview_text = "남은 보상: " + " → ".join(remaining)
             surf, _ = self.fonts["small"].render(preview_text, (150, 200, 255))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 305))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 285))
 
     def _draw_tournament_end_ui(self):
         """토너먼트 종료 UI - 누적 상금 시스템"""
