@@ -1285,9 +1285,9 @@ class ColosseumsArena:
         """배틀 시작 - 실제 게임 엔진 사용 (pingfighter.main 스테이지 30)"""
         self.selected_match = match
 
-        # 첫 배틀 시 입장료 차감
+        # 입장료는 manager.py에서 이미 차감됨 (이중 차감 방지)
+        # 첫 배틀 시작 표시만 함
         if not self.entry_fee_paid:
-            self.player_gold -= self.entry_fee
             self.entry_fee_paid = True
 
         # 점수 리셋

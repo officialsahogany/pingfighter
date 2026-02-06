@@ -7099,8 +7099,8 @@ def _draw_pillar_ui(screen, renderer):
     except Exception as e:
         pass
 
-    # 오른쪽 필러 - 대쉬 토큰 표시 (인게임에서만)
-    if _is_ingame:
+    # 오른쪽 필러 - 대쉬 토큰 표시 (인게임에서만, 투기장 모드 제외)
+    if _is_ingame and not arena_mode_enabled:
       try:
         if _player_gauge_surface is not None:
             # 오른쪽 필러 위치 계산 (REAL_SCREEN 기준)
@@ -7125,8 +7125,8 @@ def _draw_pillar_ui(screen, renderer):
       except Exception as e:
         pass
 
-    # 왼쪽 필러 - 플레이어 게이지바 + 수치 표시 (인게임에서만)
-    if _is_ingame:
+    # 왼쪽 필러 - 플레이어 게이지바 + 수치 표시 (인게임에서만, 투기장 모드 제외)
+    if _is_ingame and not arena_mode_enabled:
       try:
         if _player_gauge_surface_left is not None:
             # 왼쪽 필러 위치 계산 (REAL_SCREEN 기준)
@@ -10884,6 +10884,10 @@ def add_ingame_gold(amount: int, x: float = None, y: float = None, source: str =
     """
     global ingame_gold, ingame_gold_animations, last_rally_gold, dash_gold_multiplier_active
     global rally_gold_earned, dash_gold_earned, skill_gold_earned, perk_gold_earned, quest_gold_earned
+
+    # 투기장 모드에서는 골드 보너스 비활성화 (영웅은 플레이어가 아님)
+    if arena_mode_enabled:
+        return
 
     # 대시 배율 적용 (릴레이에만 적용)
     dash_bonus = 0
