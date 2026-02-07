@@ -1449,6 +1449,28 @@ class GuardWarriorSystem:
         except Exception:
             pass
 
+    def _get_guard_korean_font(self, size=14):
+        """호위무사 UI용 한글 폰트 (캐싱)"""
+        cache_key = f"_guard_font_{size}"
+        cached = getattr(self, cache_key, None)
+        if cached:
+            return cached
+        try:
+            import os, sys
+            if hasattr(sys, '_MEIPASS'):
+                fp = os.path.join(sys._MEIPASS, "fonts", "NanumSquareB.ttf")
+            else:
+                fp = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts", "NanumSquareB.ttf")
+            if os.path.exists(fp):
+                font = pygame.font.Font(fp, size)
+                setattr(self, cache_key, font)
+                return font
+        except Exception:
+            pass
+        font = pygame.font.Font(None, size)
+        setattr(self, cache_key, font)
+        return font
+
     def draw_guard_icons(self, screen, game_offset_x=0, game_offset_y=0, game_scale=1.0, fonts=None):
         """필러 배경(관중석) 위에 호위무사 캐릭터 이미지 UI 표시
         screen: REAL_SCREEN (전체화면 서피스)
@@ -1461,8 +1483,6 @@ class GuardWarriorSystem:
             return
 
         # 필러 영역 좌표 계산 (REAL_SCREEN 좌표계)
-        # 왼쪽 필러: 0 ~ game_offset_x
-        # 오른쪽 필러: game_offset_x + game_scaled_width ~ screen_width
         game_scaled_w = int(SCREEN_WIDTH * game_scale)
         left_pillar_w = game_offset_x
         right_pillar_x = game_offset_x + game_scaled_w
@@ -1472,10 +1492,18 @@ class GuardWarriorSystem:
         if left_pillar_w < 30 and right_pillar_w < 30:
             return
 
+        # 한글 폰트
+        name_font = self._get_guard_korean_font(14)
+
         # 캐릭터 렌더링용 소형 서피스 크기
         char_surf_w, char_surf_h = 80, 80
         frame_w, frame_h = 70, 70
-        slot_h = 80  # 슬롯 간격
+        slot_h = 85  # 슬롯 간격 (이름 포함)
+
+        # UI 색상
+        bg_color = (15, 10, 25, 200)         # 어두운 남색 배경
+        border_color = (200, 170, 80, 220)   # 금색 테두리
+        label_bg = (10, 5, 20, 200)          # 이름 배경
 
         # --- 상단 영웅의 호위무사 → 오른쪽 상단 필러 ---
         if right_pillar_w >= 30:
@@ -1485,37 +1513,35 @@ class GuardWarriorSystem:
                 color = guard.get("color", (150, 150, 150))
                 slot_cy = y_start_top + i * slot_h
 
-                # 배경 프레임 (반투명 박스)
+                # 배경 프레임 (어두운 배경 + 금색 테두리)
                 frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
-                pygame.draw.rect(frame_surf, (*color, 40), frame_surf.get_rect(), border_radius=8)
-                pygame.draw.rect(frame_surf, (*color, 140), frame_surf.get_rect(), width=2, border_radius=8)
+                pygame.draw.rect(frame_surf, bg_color, frame_surf.get_rect(), border_radius=8)
+                pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
                 screen.blit(frame_surf, (cx_right - frame_w // 2, slot_cy))
 
-                # 영웅 캐릭터 이미지 (소형 서피스에 중앙 렌더링 후 blit)
+                # 영웅 캐릭터 이미지
                 self._draw_guard_icon_character(
                     screen, guard, cx_right, slot_cy + frame_h // 2 - 5,
                     char_surf_w, char_surf_h, facing="down"
                 )
 
-                # 쿨타임 어둡게 오버레이 (위에서부터 채워짐)
+                # 쿨타임 어둡게 오버레이
                 if self.phase_top is None and self.cooldown_top > 0:
                     cd_ratio = min(1.0, self.cooldown_top / self.cooldown_range[1])
                     overlay_h = int(frame_h * cd_ratio)
                     if overlay_h > 0:
                         cd_surf = pygame.Surface((frame_w, overlay_h), pygame.SRCALPHA)
-                        cd_surf.fill((0, 0, 0, 140))
+                        cd_surf.fill((0, 0, 0, 150))
                         screen.blit(cd_surf, (cx_right - frame_w // 2, slot_cy))
 
-                # 이름 표시
+                # 이름 표시 (한글 폰트)
                 try:
                     name = guard.get("name", "?")
-                    name_font = pygame.font.Font(None, 16)
-                    name_surf = name_font.render(name, True, (255, 255, 255))
+                    name_surf = name_font.render(name, True, (255, 230, 170))
                     name_rect = name_surf.get_rect(centerx=cx_right, top=slot_cy + frame_h + 2)
-                    # 배경
-                    bg_rect = name_rect.inflate(6, 2)
+                    bg_rect = name_rect.inflate(8, 4)
                     bg_s = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
-                    pygame.draw.rect(bg_s, (0, 0, 0, 160), bg_s.get_rect(), border_radius=3)
+                    pygame.draw.rect(bg_s, label_bg, bg_s.get_rect(), border_radius=4)
                     screen.blit(bg_s, bg_rect)
                     screen.blit(name_surf, name_rect)
                 except Exception:
@@ -1524,7 +1550,6 @@ class GuardWarriorSystem:
         # --- 하단 영웅의 호위무사 → 왼쪽 하단 필러 ---
         if left_pillar_w >= 30:
             cx_left = left_pillar_w // 2
-            # 하단에서 위로 배치
             game_scaled_h = int(SCREEN_HEIGHT * game_scale)
             y_end = game_offset_y + game_scaled_h - int(80 * game_scale)
             y_start_bottom = y_end - len(self.guard_warriors_bottom) * slot_h
@@ -1532,13 +1557,13 @@ class GuardWarriorSystem:
                 color = guard.get("color", (150, 150, 150))
                 slot_cy = y_start_bottom + i * slot_h
 
-                # 배경 프레임 (반투명 박스)
+                # 배경 프레임 (어두운 배경 + 금색 테두리)
                 frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
-                pygame.draw.rect(frame_surf, (*color, 40), frame_surf.get_rect(), border_radius=8)
-                pygame.draw.rect(frame_surf, (*color, 140), frame_surf.get_rect(), width=2, border_radius=8)
+                pygame.draw.rect(frame_surf, bg_color, frame_surf.get_rect(), border_radius=8)
+                pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
                 screen.blit(frame_surf, (cx_left - frame_w // 2, slot_cy))
 
-                # 영웅 캐릭터 이미지 (소형 서피스에 중앙 렌더링 후 blit)
+                # 영웅 캐릭터 이미지
                 self._draw_guard_icon_character(
                     screen, guard, cx_left, slot_cy + frame_h // 2 - 5,
                     char_surf_w, char_surf_h, facing="down"
@@ -1550,18 +1575,17 @@ class GuardWarriorSystem:
                     overlay_h = int(frame_h * cd_ratio)
                     if overlay_h > 0:
                         cd_surf = pygame.Surface((frame_w, overlay_h), pygame.SRCALPHA)
-                        cd_surf.fill((0, 0, 0, 140))
+                        cd_surf.fill((0, 0, 0, 150))
                         screen.blit(cd_surf, (cx_left - frame_w // 2, slot_cy))
 
-                # 이름 표시
+                # 이름 표시 (한글 폰트)
                 try:
                     name = guard.get("name", "?")
-                    name_font = pygame.font.Font(None, 16)
-                    name_surf = name_font.render(name, True, (255, 255, 255))
+                    name_surf = name_font.render(name, True, (255, 230, 170))
                     name_rect = name_surf.get_rect(centerx=cx_left, top=slot_cy + frame_h + 2)
-                    bg_rect = name_rect.inflate(6, 2)
+                    bg_rect = name_rect.inflate(8, 4)
                     bg_s = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
-                    pygame.draw.rect(bg_s, (0, 0, 0, 160), bg_s.get_rect(), border_radius=3)
+                    pygame.draw.rect(bg_s, label_bg, bg_s.get_rect(), border_radius=4)
                     screen.blit(bg_s, bg_rect)
                     screen.blit(name_surf, name_rect)
                 except Exception:
