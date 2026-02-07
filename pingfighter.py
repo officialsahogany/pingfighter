@@ -65445,7 +65445,7 @@ arena_top_bananas = []   # 상단 영웅이 던진 바나나
 
 def _apply_arena_top_item_effect(effect_name):
     """투기장 상단 영웅용 아이템 효과 적용 (투사체는 아래로 향함)"""
-    global arena_top_grenades, arena_top_bananas
+    global arena_top_grenades, arena_top_bananas, walls
 
     # 투척형 아이템: BOSS → PLAYER 방향으로 투사체 발사 (수류탄 시스템 활용)
     throwing_items = {"grenade", "molotov", "flare", "smoke_grenade", "dynamite", "spider_mine"}
@@ -65515,12 +65515,22 @@ def _apply_arena_top_item_effect(effect_name):
         print(f"[Arena] 상단 영웅 바나나 투척!")
 
     elif effect_name == "wall":
-        # 벽돌 아이템: 기존 벽 생성 함수 활용
+        # 상단 영웅 벽돌: BOSS 패들 아래(상단 진영)에 직접 설치
         try:
-            activate_wall()
+            wall_width = 80
+            wall_height = 20
+            wall_x = BOSS.centerx - wall_width // 2
+            wall_y = BOSS.bottom + 10  # BOSS 패들 바로 아래
+            wall_rect = pygame.Rect(wall_x, wall_y, wall_width, wall_height)
+            walls.append({
+                "rect": wall_rect,
+                "hit_count": 0,
+                "crack_level": 0,
+            })
+            play_active_item_sound()
         except Exception:
             pass
-        print(f"[Arena] 상단 영웅 벽돌 설치!")
+        print(f"[Arena] 상단 영웅 벽돌 설치! (BOSS 영역)")
 
     elif effect_name == "stopwatch":
         # 스탑워치: 공 속도 감소 효과
@@ -65623,9 +65633,14 @@ def _update_arena_top_projectiles():
                 _ptype = grenade.get("projectile_type", "grenade")
                 print(f"[Arena] 상단 영웅 {_ptype} 폭발! 플레이어 피격!")
 
-            # 폭발 이펙트
+            # 폭발 이펙트 (source="arena_top"으로 보스 스턴 방지, 시각 효과만)
             try:
-                create_grenade_explosion(int(explosion_x), int(explosion_y))
+                trigger_grenade_style_explosion(
+                    int(explosion_x), int(explosion_y),
+                    apply_commando_bonus=False,
+                    source="arena_top",
+                    radius_scale=0.8,
+                )
             except Exception:
                 pass
 
