@@ -1173,6 +1173,10 @@ class GuardWarriorSystem:
                         game_state['demon_eye_active'] = False
                         game_state.pop('ghost_step_start_top', None)
                         game_state.pop('ghost_step_start_bottom', None)
+                    # OilSpill: 발사체/웅덩이가 모두 소진되면 비활성화
+                    elif skill_id == 'oil_spill':
+                        if not skill.oil_projectiles and not skill.oil_puddles:
+                            skill.is_active = False
 
         # 상단측 호위무사 업데이트
         self._update_side(dt, is_top=True, top_paddle=top_paddle,
@@ -1498,6 +1502,11 @@ class GuardWarriorSystem:
             game_state['demon_eye_active'] = False
             game_state.pop('ghost_step_start_top', None)
             game_state.pop('ghost_step_start_bottom', None)
+
+        # duration=0 스킬 (OilSpill 등)은 use()에서 is_active가 안 켜짐 → 수동 활성화
+        # (호위무사 update/draw 루프가 is_active 기반이므로 필요)
+        if result and not skill.is_active and skill.duration <= 0:
+            skill.is_active = True
 
         if result:
             # 상태 효과를 game_state에 적용 (try_use_skill과 동일한 로직)
