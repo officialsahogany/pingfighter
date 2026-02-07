@@ -163,7 +163,7 @@ class HeroSkill:
 # 무겐 스킬 - 귀검사 (공격적)
 # ============================================================================
 class DarkSlash(HeroSkill):
-    """암흑 베기 - 공을 사선으로 베어버리는 이펙트 + 1초 화면 정지 후 공 4배 가속"""
+    """달빛 베기 - 공을 사선으로 베어버리는 이펙트 + 1초 화면 정지 후 공 4배 가속"""
 
     # 페이즈 상수
     PHASE_NONE = 0        # 비활성
@@ -176,7 +176,7 @@ class DarkSlash(HeroSkill):
         super().__init__(
             skill_id="dark_slash",
             name="Dark Slash",
-            korean_name="암흑 베기",
+            korean_name="달빛 베기",
             description="공을 사선으로 베어 시간이 멈추고, 해제되는 순간 공이 4배 빨라진다",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=12.0,
@@ -366,7 +366,7 @@ class DarkSlash(HeroSkill):
         self.caster_is_top = False
 
     def reset_for_new_round(self, game_state: dict):
-        """라운드 전환 시 암흑 베기 이펙트 초기화"""
+        """라운드 전환 시 달빛 베기 이펙트 초기화"""
         super().reset_for_new_round(game_state)
         self.phase = self.PHASE_NONE
         self.phase_timer = 0.0
@@ -379,7 +379,7 @@ class DarkSlash(HeroSkill):
         game_state['dark_slash_freeze'] = False
         game_state['dark_slash_active'] = False
         game_state['dark_slash_phase'] = self.PHASE_NONE
-        print("[DarkSlash] 라운드 전환 - 암흑 베기 초기화")
+        print("[DarkSlash] 라운드 전환 - 달빛 베기 초기화")
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['dark_slash_freeze'] = False

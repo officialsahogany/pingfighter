@@ -122084,7 +122084,7 @@ def handle_boss_mythic():
             boss_current_speed = max(-BOSS_MAX_SPEED * 0.5, boss_current_speed - BOSS_ACCELERATION)
         else:
             boss_current_speed = min(BOSS_MAX_SPEED * 0.5, boss_current_speed + BOSS_ACCELERATION)
-        # 위치 업데이트 with ground crack collision check
+        # 위치 업데이트 with ground 그림자발걸음 이동속도 증가율 브리핑crack collision check
         proposed_x = BOSS.x + boss_current_speed
         proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
 
@@ -131673,14 +131673,14 @@ def main(stage_num, new_boss_mode=False):
             # 공 생성 애니메이션 중에도 게임 로직 정지
             # 툴팁 일시정지 (game_paused_by_tooltip) 포함
             # 실전 튜토리얼 일시정지 포함
-            # 투기장 암흑 베기 화면 정지 포함
+            # 투기장 달빛 베기 화면 정지 포함
             now_tick = pygame.time.get_ticks()
             freeze_awaken = current_stage == 8 and stage8_awaken_intro_pending and now_tick < stage8_awaken_freeze_end_ms
             freeze_superspeed = current_stage == 8 and stage8_superspeed_active and now_tick < stage8_superspeed_freeze_end_ms
             freeze_spawn_anim = is_ball_spawn_animation_paused()
             freeze_tooltip = game_paused and game_paused_by_tooltip  # 툴팁으로 인한 일시정지
             freeze_ingame_tutorial = is_ingame_tutorial_paused()  # 실전 튜토리얼 일시정지
-            # 암흑 베기 화면 정지 (투기장 모드)
+            # 달빛 베기 화면 정지 (투기장 모드)
             freeze_dark_slash = False
             if arena_mode_enabled and arena_skill_manager:
                 freeze_dark_slash = arena_skill_manager.game_state.get('dark_slash_freeze', False)
@@ -131793,7 +131793,7 @@ def main(stage_num, new_boss_mode=False):
                 handle_ball()
 
             # 투기장 영웅 스킬 시스템 업데이트
-            # 암흑 베기 화면 정지 중에도 스킬 타이머는 진행되어야 함 (1초 후 해제)
+            # 달빛 베기 화면 정지 중에도 스킬 타이머는 진행되어야 함 (1초 후 해제)
             if (not freeze_now or freeze_dark_slash) and arena_mode_enabled and arena_skill_manager:
                 try:
                     dt = 1.0 / 60.0  # 60fps 기준
@@ -131862,7 +131862,7 @@ def main(stage_num, new_boss_mode=False):
                         globals()['player_stunned_timer'] = max(globals().get('player_stunned_timer', 0), 36)  # 0.6초 경직
                         _kb_gs['bottom_paddle_knockback'] = False  # 플래그 리셋
 
-                    # ⚔️ 암흑 베기 커브 효과 적용 (스매셔 드라이브처럼 굴곡)
+                    # ⚔️ 달빛 베기 커브 효과 적용 (스매셔 드라이브처럼 굴곡)
                     _dark_gs = arena_skill_manager.game_state
                     if _dark_gs.get('dark_slash_spin_strength', 0) > 0:
                         globals()['ball_spin_strength'] = _dark_gs['dark_slash_spin_strength']

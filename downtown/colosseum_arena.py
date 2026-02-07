@@ -2164,7 +2164,7 @@ class ColosseumsArena:
         if not self.battle_active:
             return False
 
-        # === 암흑 베기 화면 정지 체크 (스킬 업데이트 전에 체크!) ===
+        # === 달빛 베기 화면 정지 체크 (스킬 업데이트 전에 체크!) ===
         is_frozen = False
         if self.skill_manager:
             is_frozen = self.skill_manager.game_state.get('dark_slash_freeze', False)
@@ -2212,7 +2212,7 @@ class ColosseumsArena:
             # 공 업데이트
             scorer = self.ball.update(dt)
 
-            # === 암흑 베기 벽 반사 시 즉시 상대 방향으로 꺾기 ===
+            # === 달빛 베기 벽 반사 시 즉시 상대 방향으로 꺾기 ===
             if self.skill_manager and self.ball.wall_bounced:
                 game_state = self.skill_manager.game_state
                 if game_state.get('dark_slash_active', False):
@@ -2224,7 +2224,7 @@ class ColosseumsArena:
                     else:
                         # 하단이 시전 → 상단 방향(음수)으로 강제
                         self.ball.vy = -abs(self.ball.vy)
-                    # 벽 반사 후 암흑 베기 효과 종료
+                    # 벽 반사 후 달빛 베기 효과 종료
                     game_state['dark_slash_active'] = False
                     print(f"[DarkSlash] 벽 반사 → 상대 방향으로 즉시 꺾음! vy={self.ball.vy:.1f}")
 
@@ -2338,11 +2338,11 @@ class ColosseumsArena:
         if not self.skill_manager or not HERO_SKILLS_AVAILABLE:
             return
 
-        # === 암흑 베기 반격 처리 ===
-        # 상대가 공을 반격하면 암흑 베기로 인한 공 가속을 원래 속도로 복귀
+        # === 달빛 베기 반격 처리 ===
+        # 상대가 공을 반격하면 달빛 베기로 인한 공 가속을 원래 속도로 복귀
         game_state = self.skill_manager.game_state
         if game_state.get('dark_slash_active', False):
-            # 암흑 베기 시전자와 현재 타자가 다르면 (= 상대가 반격)
+            # 달빛 베기 시전자와 현재 타자가 다르면 (= 상대가 반격)
             dark_slash_caster_is_top = game_state.get('dark_slash_caster_is_top', False)
             if dark_slash_caster_is_top != caster_paddle.is_top:
                 # 무겐의 DarkSlash 스킬 찾아서 on_opponent_hit 호출
