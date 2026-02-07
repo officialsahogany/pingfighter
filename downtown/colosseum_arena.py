@@ -1136,12 +1136,15 @@ class GuardWarriorSystem:
             # 호위무사 가상 패들 사용 (저장된 위치)
             guard_paddle = self.guard_paddles.get(hero_id)
             if guard_paddle is None:
-                # 아직 등장하지 않은 호위무사는 아군 패들 사용 (폴백)
                 guard_paddle = top_paddle if is_top_guard else bottom_paddle
             target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
                 if skill.is_active:
+                    # caster 측 game_state 보호 (호위무사 스킬이 메인 영웅에 영향 방지)
+                    caster_prefix = 'top_paddle' if is_top_guard else 'bottom_paddle'
+                    saved = self._save_caster_state(game_state, caster_prefix)
                     skill.update(dt, guard_paddle, target, ball, game_state)
+                    self._restore_caster_state(game_state, caster_prefix, saved)
 
         # 상단측 호위무사 업데이트
         self._update_side(dt, is_top=True, top_paddle=top_paddle,
@@ -1313,6 +1316,28 @@ class GuardWarriorSystem:
             self.guard_paddles[guard["id"]] = gp
         return gp
 
+    # 호위무사 스킬이 game_state를 통해 메인 영웅에 영향주는 것 방지용 키 목록
+    _CASTER_STATE_KEYS = ['_locked', '_locked_x', '_locked_y', '_stunned']
+
+    def _save_caster_state(self, game_state, caster_prefix):
+        """스킬 호출 전 caster 측 game_state 백업"""
+        saved = {}
+        for suffix in self._CASTER_STATE_KEYS:
+            key = f'{caster_prefix}{suffix}'
+            if key in game_state:
+                saved[key] = game_state[key]
+        return saved
+
+    def _restore_caster_state(self, game_state, caster_prefix, saved):
+        """스킬 호출 후 caster 측 game_state 복원 (호위무사가 변경한 것 되돌림)"""
+        for suffix in self._CASTER_STATE_KEYS:
+            key = f'{caster_prefix}{suffix}'
+            if key in saved:
+                game_state[key] = saved[key]
+            else:
+                # 스킬이 새로 추가한 키는 제거
+                game_state.pop(key, None)
+
     def _activate_skill(self, is_top, top_paddle, bottom_paddle, ball):
         """호위무사 스킬 실제 발동 (호위무사 위치에서 직접 시전)"""
         skill = self.selected_skill_top if is_top else self.selected_skill_bottom
@@ -1340,7 +1365,11 @@ class GuardWarriorSystem:
                 pass
             skill.is_active = False
 
+        # caster 측 game_state 보호 (호위무사 스킬이 메인 영웅에 영향 방지)
+        caster_prefix = 'top_paddle' if is_top else 'bottom_paddle'
+        saved = self._save_caster_state(game_state, caster_prefix)
         result = skill.use(guard_paddle, target_paddle, ball, game_state)
+        self._restore_caster_state(game_state, caster_prefix, saved)
 
         if result:
             # 상태 효과를 game_state에 적용 (try_use_skill과 동일한 로직)
