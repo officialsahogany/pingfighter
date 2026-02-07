@@ -1715,7 +1715,7 @@ class GuardWarriorSystem:
 
         # 호위무사 이름 표시
         try:
-            name_font = pygame.font.Font(None, 18)
+            name_font = self._get_guard_korean_font(14)
             name_surf = name_font.render(guard_hero.get("name", "?"), True, (255, 255, 255))
             name_rect = name_surf.get_rect(centerx=ix, top=iy + 28)
             # 배경 박스
@@ -1736,13 +1736,21 @@ class GuardWarriorSystem:
         try:
             import os, sys
             if hasattr(sys, '_MEIPASS'):
-                fp = os.path.join(sys._MEIPASS, "fonts", "NanumSquareB.ttf")
+                base = sys._MEIPASS
             else:
-                fp = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts", "NanumSquareB.ttf")
-            if os.path.exists(fp):
-                font = pygame.font.Font(fp, size)
-                setattr(self, cache_key, font)
-                return font
+                base = os.path.dirname(os.path.dirname(__file__))
+            # Pretendard 폰트 우선 시도 (프로젝트에 포함된 한글 폰트)
+            font_candidates = [
+                os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"),
+                os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Regular.ttf"),
+                os.path.join(base, "fonts", "프리텐다드", "public", "static", "Pretendard-Bold.otf"),
+                os.path.join(base, "fonts", "NanumSquareB.ttf"),
+            ]
+            for fp in font_candidates:
+                if os.path.exists(fp):
+                    font = pygame.font.Font(fp, size)
+                    setattr(self, cache_key, font)
+                    return font
         except Exception:
             pass
         font = pygame.font.Font(None, size)
@@ -2658,19 +2666,26 @@ class ColosseumsArena:
     def _draw_single_speech_bubble(self, x: float, y: float, text: str, is_top: bool):
         """개별 말풍선 그리기"""
         try:
-            # 폰트 설정
+            # 폰트 설정 (한글 지원 Pretendard 폰트)
+            import os
+            import sys
             font = pygame.font.Font(None, 24)
             try:
-                # 한글 폰트 시도
-                import os
-                import sys
                 if hasattr(sys, '_MEIPASS'):
-                    font_path = os.path.join(sys._MEIPASS, "fonts", "NanumSquareB.ttf")
+                    base = sys._MEIPASS
                 else:
-                    font_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts", "NanumSquareB.ttf")
-                if os.path.exists(font_path):
-                    font = pygame.font.Font(font_path, 20)
-            except:
+                    base = os.path.dirname(os.path.dirname(__file__))
+                font_candidates = [
+                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"),
+                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Regular.ttf"),
+                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "Pretendard-Bold.otf"),
+                    os.path.join(base, "fonts", "NanumSquareB.ttf"),
+                ]
+                for font_path in font_candidates:
+                    if os.path.exists(font_path):
+                        font = pygame.font.Font(font_path, 20)
+                        break
+            except Exception:
                 pass
 
             text_surface = font.render(text, True, (0, 0, 0))
