@@ -1936,26 +1936,16 @@ def spawn_random_item():
     # 스폰 가능한 아이템 목록 생성
     available_items = []
     
-    # 투기장 모드 확인 (액티브 아이템만 스폰)
-    _arena_active = False
+    # 투기장 모드 확인 - 아이템 스폰 완전 차단
     try:
         import pingfighter
-        _arena_active = getattr(pingfighter, "arena_mode_enabled", False)
+        if getattr(pingfighter, "arena_mode_enabled", False):
+            return
     except Exception:
         pass
 
-    # 투기장 모드에서 스폰 허용 아이템 (화이트리스트)
-    _arena_allowed = {
-        "grenade", "molotov", "flare", "wall", "holy_barrier",
-        "spider_mine", "dynamite", "long_boost", "vitamin_pill",
-    }
-
     for item in ITEM_TYPES:
         if not unlocked_items.get(item["name"], False):
-            continue
-
-        # 투기장 모드: 허용 목록에 있는 아이템만 스폰
-        if _arena_active and item["name"] not in _arena_allowed:
             continue
 
         # 발토르 전용 아이템은 타 캐릭터 플레이 시 스폰하지 않음

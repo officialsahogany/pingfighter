@@ -7019,41 +7019,40 @@ def _draw_pillar_ui(screen, renderer):
         pass
 
     # 액티브 아이템 슬롯 - 게임 화면 하단 필러에서 오른쪽으로 가로 배치
-    try:
-        active_items = globals().get('active_item_slot', [])
-        selected_idx = globals().get('selected_item_index', 0)
-        cooldown = globals().get('active_item_cooldown_ms', 10000)
-        round_start = globals().get('round_start_time', None)
-        alchemy_notices_list = globals().get('alchemy_notices', None)
-        # 스킬/패시브 보너스를 포함한 실제 슬롯 수 가져오기
-        effective_slots_func = globals().get('get_effective_max_item_slots')
-        if effective_slots_func:
-            max_item_slots = effective_slots_func()
-        else:
-            max_item_slots = globals().get('MAX_ITEM_SLOTS', 3)
+    # 투기장 모드에서는 액티브 아이템 슬롯 UI 숨김
+    if not arena_mode_enabled:
+        try:
+            active_items = globals().get('active_item_slot', [])
+            selected_idx = globals().get('selected_item_index', 0)
+            cooldown = globals().get('active_item_cooldown_ms', 10000)
+            round_start = globals().get('round_start_time', None)
+            alchemy_notices_list = globals().get('alchemy_notices', None)
+            # 스킬/패시브 보너스를 포함한 실제 슬롯 수 가져오기
+            effective_slots_func = globals().get('get_effective_max_item_slots')
+            if effective_slots_func:
+                max_item_slots = effective_slots_func()
+            else:
+                max_item_slots = globals().get('MAX_ITEM_SLOTS', 3)
 
-        slot_rects = renderer.draw_left_pillar_ui(
-            screen,
-            active_items=active_items,
-            icon_size=(42, 42),  # 1.5배 크기 (28 * 1.5 = 42)
-            selected_index=selected_idx,
-            cooldown_ms=cooldown,
-            round_start_time=round_start,
-            alchemy_notices=alchemy_notices_list,
-            max_slots=max_item_slots
-        )
-        # 슬롯 좌표 전역 저장 (툴팁/클릭용)
-        globals()['_pillar_active_item_slot_rects'] = slot_rects or []
-        # 디버그: 아이템 슬롯 정보 출력 (F4 디버그 모드에서만) - 비활성화
-        # if COORDINATE_DEBUG_MODE and globals().get('_item_slot_debug_count', 0) < 5:
-        #     globals()['_item_slot_debug_count'] = globals().get('_item_slot_debug_count', 0) + 1
-        #     print(f"[DEBUG_SLOT] draw_left_pillar_ui returned: {slot_rects}", flush=True)
-        #     print(f"[DEBUG_SLOT] active_items: {len(active_items) if active_items else 0}, max_slots: {max_item_slots}", flush=True)
-    except Exception as e:
-        # 오류 발생 시 디버그 출력
-        print(f"[ERROR] draw_left_pillar_ui failed: {e}", flush=True)
-        import traceback
-        traceback.print_exc()
+            slot_rects = renderer.draw_left_pillar_ui(
+                screen,
+                active_items=active_items,
+                icon_size=(42, 42),  # 1.5배 크기 (28 * 1.5 = 42)
+                selected_index=selected_idx,
+                cooldown_ms=cooldown,
+                round_start_time=round_start,
+                alchemy_notices=alchemy_notices_list,
+                max_slots=max_item_slots
+            )
+            # 슬롯 좌표 전역 저장 (툴팁/클릭용)
+            globals()['_pillar_active_item_slot_rects'] = slot_rects or []
+        except Exception as e:
+            # 오류 발생 시 디버그 출력
+            print(f"[ERROR] draw_left_pillar_ui failed: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
+            globals()['_pillar_active_item_slot_rects'] = []
+    else:
         globals()['_pillar_active_item_slot_rects'] = []
 
     # 왼쪽 필러 상단 - 인게임 골드 HUD 표시 (2배 크기)
